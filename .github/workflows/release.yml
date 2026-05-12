@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Sync version into winres.json
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          $tag4 = "$tag.0"
+          $path = "cmd/yhbox/winres/winres.json"
+          $j = Get-Content $path -Raw | ConvertFrom-Json
+          $j.RT_MANIFEST.'#1'.'0409'.identity.version = $tag4
+          $j.RT_VERSION.'#1'.'0000'.fixed.file_version = $tag4
+          $j.RT_VERSION.'#1'.'0000'.fixed.product_version = $tag4
+          $j.RT_VERSION.'#1'.'0000'.info.'0409'.FileVersion = $tag
+          $j.RT_VERSION.'#1'.'0000'.info.'0409'.ProductVersion = $tag
+          $j | ConvertTo-Json -Depth 10 | Set-Content $path -Encoding UTF8
+          Write-Host "winres.json synced to $tag4 / $tag"
+
+      - name: Generate Windows resources
+        run: |
+          go install github.com/tc-hib/go-winres@latest
+          cd cmd/yhbox && go-winres make
+
+      - name: Build exe
+        run: go build -ldflags="-s -w -H=windowsgui -X main.version=${{ github.ref_name }}" -o YHBox.exe ./cmd/yhbox
+
+      - name: Install UPX
+        run: choco install upx --no-progress -y
+
+      - name: Compress with UPX
+        run: upx --best YHBox.exe
+        continue-on-error: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: YHBox ${{ github.ref_name }}
+          body: |
+            ## YHBox ${{ github.ref_name }}
+
+            Windows 后台自动化工具（不抢焦点不动光标）：
+            - 🎣 **钓鱼**：全自动钓鱼 + 售卖 + 鱼饵补充
+            - 🔨 **店长**：锤子连点
+            - 🎹 **弹琴**：读 MIDI 自动演奏（含内置曲库）
+
+            ### 使用方法
+            1. 下载 `YHBox.exe`，双击运行
+            2. UAC 弹窗点"是"
+            3. GUI 选 tab → 配置 → 开始
+
+            ### 配置文件
+            设置自动存到 exe 同目录 `settings.json`，无需手动编辑。
+          files: YHBox.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}

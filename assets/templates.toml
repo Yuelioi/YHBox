@@ -1,0 +1,284 @@
+# YHFish 模板配置表（grouped 格式）
+# embed 进 exe，描述 assets/ 里每个 PNG 的元数据。
+#
+# 格式：[[<tool>.<slot>]] 块，slot 由父级 key 自动推断（不再写 slot 字段）。
+# 字段:
+#   file        PNG 文件名（路径相对 assets/）
+#   resolution  [W, H] 截图原始分辨率
+#   bbox        [x1, y1, x2, y2] 模板在截图中的位置
+#   note        说明文字（可选）
+#
+# 加新分辨率：
+#   1. 截图 → 抠模板 → 命名（如 hook_text_1440.png）→ 丢 assets/<tool>/
+#   2. 在本文件加一个 [[<tool>.<slot>]] 块
+#   3. go build
+#
+# 用户外挂（无需改这里）：放 PNG 到 templates/<tool>/ 下，
+# 在 templates/<tool>.toml 里写 [[<tool>.<slot>]] 块即可（同 (slot, resolution) 重复会被跳过）。
+
+# ============= Fish =============
+
+[[fish.hook_icon]]
+file = "fish/hook_icon_1080.png"
+resolution = [1920, 1080]
+bbox = [1752, 944, 1797, 998]
+note = "钓鱼点鱼钩 icon 暗态，一直显示"
+
+[[fish.hook_icon]]
+file = "fish/hook_icon_720.png"
+resolution = [1280, 720]
+bbox = [1168, 628, 1197, 666]
+
+[[fish.hook_text]]
+file = "fish/hook_text_1080.png"
+resolution = [1920, 1080]
+bbox = [776, 245, 1172, 282]
+note = "「鱼上钩了，快点击按钮上鱼!」文字提示，1s 窗口转瞬即逝"
+
+[[fish.hook_text]]
+file = "fish/hook_text_720.png"
+resolution = [1280, 720]
+bbox = [519, 165, 772, 186]
+
+[[fish.start_fish]]
+file = "fish/start_fish_1080.png"
+resolution = [1920, 1080]
+bbox = [1563, 927, 1671, 955]
+note = "「开始钓鱼」按钮文字"
+
+[[fish.start_fish]]
+file = "fish/start_fish_720.png"
+resolution = [1280, 720]
+bbox = [1043, 619, 1113, 636]
+
+[[fish.fish_escape]]
+file = "fish/fish_escape_1080.png"
+resolution = [1920, 1080]
+bbox = [883, 522, 1037, 558]
+note = "「鱼儿溜走了」失败提示"
+
+[[fish.fish_escape]]
+file = "fish/fish_escape_720.png"
+resolution = [1280, 720]
+bbox = [590, 350, 689, 370]
+
+[[fish.need_bait]]
+file = "fish/need_bait_1080.png"
+resolution = [1920, 1080]
+bbox = [788, 522, 1132, 558]
+note = "「需要装备鱼饵才可以钓鱼」"
+
+[[fish.need_bait]]
+file = "fish/need_bait_720.png"
+resolution = [1280, 720]
+bbox = [530, 351, 749, 369]
+
+[[fish.result]]
+file = "fish/result_1080.png"
+resolution = [1920, 1080]
+bbox = [850, 963, 1072, 996]
+note = "「点击空白区域关闭」结算提示"
+
+[[fish.result]]
+file = "fish/result_720.png"
+resolution = [1280, 720]
+bbox = [567, 644, 714, 662]
+
+[[fish.warehouse_full]]
+file = "fish/warehouse_full_720.png"
+resolution = [1280, 720]
+bbox = [460, 350, 820, 370]
+note = "「鱼袋中鱼获已满，请去售卖一些后再尝试」按 F 后弹的鱼仓满提示"
+[[fish.warehouse_full]]
+file = "fish/warehouse_full_1080.png"
+resolution = [1920, 1080]
+bbox = [683, 524, 1238, 555]
+
+[[fish.shop_bag_tab]]
+file = "fish/shop_bag_tab_720.png"
+resolution = [1280, 720]
+bbox = [81, 258, 114, 293]
+note = "商店页面左侧栏的鱼仓 tab 图标，未选中态（Q 开商店默认在鱼上行家页）"
+[[fish.shop_bag_tab]]
+file = "fish/shop_bag_tab_1080.png"
+resolution = [1920, 1080]
+bbox = [121, 386, 171, 438]
+
+[[fish.shop_sell_all]]
+file = "fish/shop_sell_all_720.png"
+resolution = [1280, 720]
+bbox = [680, 637, 739, 653]
+note = "鱼仓页底部「一键出售」按钮"
+[[fish.shop_sell_all]]
+file = "fish/shop_sell_all_1080.png"
+resolution = [1920, 1080]
+bbox = [1018, 958, 1108, 980]
+
+[[fish.shop_confirm_sell]]
+file = "fish/shop_confirm_sell_720.png"
+resolution = [1280, 720]
+bbox = [762, 463, 797, 481]
+note = "一键出售确认弹窗的「确认」按钮"
+[[fish.shop_confirm_sell]]
+file = "fish/shop_confirm_sell_1080.png"
+resolution = [1920, 1080]
+bbox = [1144, 694, 1196, 719]
+
+[[fish.go_fishing]]
+file = "fish/go_fishing_720.png"
+resolution = [1280, 720]
+bbox = [436, 457, 507, 474]
+note = "鱼仓售完后商店内出现的「前往钓鱼」按钮（鱼仓 tab 仍开着但没鱼卖了）"
+[[fish.go_fishing]]
+file = "fish/go_fishing_1080.png"
+resolution = [1920, 1080]
+bbox = [655, 685, 760, 711]
+
+# 鱼饵不足后的自动购买流程：R 开商店 → 找到万能鱼饵 → 拉满 → 购买 → 确认 → 成功提示
+
+# bait_product 多候选槽位：万能鱼饵会随机出现在商店产品区的其中一个槽位。
+# 同一分辨率下注册多条 [[fish.bait_product]]，共用同一张 PNG，bbox 不同 ——
+# Detector.BaitInShop 迭代全部候选 ROI，按阅读顺序末位返回（金币款在前、代币款在后）。
+# 模板 PNG 是「未选中态」抠图，避免选中态粉色高亮干扰 NCC。
+# 720p 网格：行间距 160，列间距 138-139，模板 ~115×140。1/2/3/4 实测，5/6 几何外推。
+[[fish.bait_product]]
+file = "fish/bait_product_720.png"
+resolution = [1280, 720]
+bbox = [40, 95, 155, 235]
+note = "720p 坐标1（左上）— 实测"
+[[fish.bait_product]]
+file = "fish/bait_product_720.png"
+resolution = [1280, 720]
+bbox = [179, 95, 293, 235]
+note = "720p 坐标2（中上）— 实测"
+[[fish.bait_product]]
+file = "fish/bait_product_720.png"
+resolution = [1280, 720]
+bbox = [317, 95, 432, 235]
+note = "720p 坐标3（右上）— 实测"
+[[fish.bait_product]]
+file = "fish/bait_product_720.png"
+resolution = [1280, 720]
+bbox = [40, 255, 155, 395]
+note = "720p 坐标4 = 真实图片原始抠图位置（左下）— 实测，未选中态"
+[[fish.bait_product]]
+file = "fish/bait_product_720.png"
+resolution = [1280, 720]
+bbox = [179, 255, 293, 395]
+note = "720p 坐标5（中下）— 推算（col2 × row2）"
+[[fish.bait_product]]
+file = "fish/bait_product_720.png"
+resolution = [1280, 720]
+bbox = [317, 255, 432, 395]
+note = "720p 坐标6（右下）— 推算（col3 × row2）"
+# 1080p 商店产品区 3×2 网格（行间距 240，列间距 208，模板约 172×211）。
+# 模板 PNG 是「未选中态」抠图，避免选中态粉色高亮干扰 NCC。
+# 坐标 1/2/3/4 用户实测，5/6 按网格几何外推。
+[[fish.bait_product]]
+file = "fish/bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [60, 142, 232, 353]
+note = "1080p 坐标1（左上）— 实测"
+[[fish.bait_product]]
+file = "fish/bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [268, 142, 440, 353]
+note = "1080p 坐标2（中上）— 实测"
+[[fish.bait_product]]
+file = "fish/bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [476, 142, 647, 353]
+note = "1080p 坐标3（右上）— 实测"
+[[fish.bait_product]]
+file = "fish/bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [60, 382, 232, 593]
+note = "1080p 坐标4 = 真实图片原始抠图位置（左下）— 实测，未选中态"
+[[fish.bait_product]]
+file = "fish/bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [268, 382, 440, 593]
+note = "1080p 坐标5（中下）— 推算（col2 × row 2）"
+[[fish.bait_product]]
+file = "fish/bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [476, 382, 647, 593]
+note = "1080p 坐标6（右下）— 推算（col3 × row 2）"
+
+[[fish.buy_max]]
+file = "fish/buy_max_720.png"
+resolution = [1280, 720]
+bbox = [1203, 620, 1233, 650]
+note = "数量输入框右侧「拉满」按钮"
+[[fish.buy_max]]
+file = "fish/buy_max_1080.png"
+resolution = [1920, 1080]
+bbox = [1817, 939, 1837, 963]
+
+[[fish.buy_button]]
+file = "fish/buy_button_720.png"
+resolution = [1280, 720]
+bbox = [1057, 678, 1091, 695]
+note = "鱼饵商店底部「购买」按钮"
+[[fish.buy_button]]
+file = "fish/buy_button_1080.png"
+resolution = [1920, 1080]
+bbox = [1585, 1016, 1637, 1042]
+
+[[fish.buy_confirm]]
+file = "fish/buy_confirm_720.png"
+resolution = [1280, 720]
+bbox = [755, 466, 791, 484]
+note = "购买二次确认弹窗的「确认」按钮"
+[[fish.buy_confirm]]
+file = "fish/buy_confirm_1080.png"
+resolution = [1920, 1080]
+bbox = [1134, 699, 1186, 725]
+
+[[fish.buy_success]]
+file = "fish/buy_success_720.png"
+resolution = [1280, 720]
+bbox = [568, 627, 714, 647]
+note = "点击空白处关闭"
+[[fish.buy_success]]
+file = "fish/buy_success_1080.png"
+resolution = [1920, 1080]
+bbox = [853, 944, 1070, 972]
+
+# 钱不够时点「购买」会弹出的横幅提示，与 need_bait 同槽位（屏幕中上）。
+# 检测到 → 中止 buyBaitFlow，ESC 关商店，标记 buyBaitAfterSell=true 让机器先去 SHOPSELL。
+[[fish.no_currency]]
+file = "fish/no_currency_720.png"
+resolution = [1280, 720]
+bbox = [561, 351, 719, 369]
+note = "「货币不足无法购买」横幅"
+[[fish.no_currency]]
+file = "fish/no_currency_1080.png"
+resolution = [1920, 1080]
+bbox = [837, 526, 1082, 555]
+
+# 更换鱼饵流程：买完鱼饵后回钓鱼界面 → 按 E 进入更换 UI → 点万能鱼饵 → 点更换 → 自动返回
+
+[[fish.change_bait_confirm]]
+file = "fish/change_bait_confirm_720.png"
+resolution = [1280, 720]
+bbox = [763, 463, 798, 481]
+note = "更换鱼饵 UI 底部「更换」按钮"
+[[fish.change_bait_confirm]]
+file = "fish/change_bait_confirm_1080.png"
+resolution = [1920, 1080]
+bbox = [1144, 694, 1197, 720]
+
+
+# ============= Cook =============
+
+[[cook.hammer]]
+file = "cook/hammer_1080.png"
+resolution = [1920, 1080]
+bbox = [58, 406, 148, 509]
+note = "cook 锤子图标"
+
+[[cook.hammer]]
+file = "cook/hammer_720.png"
+resolution = [1280, 720]
+bbox = [37, 269, 98, 338]

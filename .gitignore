@@ -1,0 +1,19 @@
+# Runtime debug
+debug/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+logs/
+
+# Go build output
+*.exe*
+*.syso
+
+
+settings.json

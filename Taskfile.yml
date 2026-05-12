@@ -1,0 +1,35 @@
+version: '3'
+
+tasks:
+  build:
+    desc: 构建 YHBox.exe（带图标和版本信息）
+    cmds:
+      - cd cmd/yhbox && go-winres make
+      - go build -ldflags="-s -w -H=windowsgui" -o YHBox.exe ./cmd/yhbox
+
+  pack:
+    desc: 构建并用 UPX 压缩（需先安装 upx）
+    cmds:
+      - task: build
+      - upx --best YHBox.exe
+
+  build-dev:
+    desc: 快速构建（不带图标）
+    cmds:
+      - go build -ldflags="-H=windowsgui" -o YHBox.exe ./cmd/yhbox
+
+  run:
+    desc: 构建并运行
+    cmds:
+      - go build -ldflags="-H=windowsgui" -o YHBox.exe ./cmd/yhbox
+      - ./YHBox.exe
+
+  bump:
+    desc: "版本号 patch +1"
+    cmds:
+      - powershell -NoProfile -File scripts/bump.ps1
+
+  clean:
+    desc: 清理构建产物和日志截图
+    cmds:
+      - powershell -NoProfile -Command "Remove-Item -Force *.exe, cmd/yhbox/*.syso -ErrorAction SilentlyContinue; Remove-Item -Force logs/*.png -ErrorAction SilentlyContinue; Write-Host 'cleaned'"
