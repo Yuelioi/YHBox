@@ -7,7 +7,7 @@ import (
 
 // buildSettingsTab 装配「设置」TabPage。
 func buildSettingsTab(app *App) TabPage {
-	var showLogBox, autoScrollBox, showTimeBox, showTagBox, wrapTextBox *walk.CheckBox
+	var showLogBox, autoScrollBox, showTimeBox, showTagBox, wrapTextBox, writeFileBox *walk.CheckBox
 
 	return TabPage{
 		Title:  "设置",
@@ -107,6 +107,23 @@ func buildSettingsTab(app *App) TabPage {
 									if app.logEdit != nil {
 										app.logEdit.SetWrapText(app.settings.UI.Logger.WrapText)
 									}
+								},
+							},
+							HSpacer{},
+						},
+					},
+					Composite{
+						Layout: HBox{MarginsZero: true},
+						Children: []Widget{
+							CheckBox{
+								AssignTo: &writeFileBox,
+								Text:     "写入本地日志文件（logs/）",
+								Checked:  app.settings.UI.Logger.WriteFile,
+								OnCheckedChanged: func() {
+									app.settings.UI.Logger.WriteFile = writeFileBox.Checked()
+									app.SaveSettings()
+									// 不影响当前正在跑的 bot —— bot 的 logger 在 Start 时就已绑定
+									// 文件句柄；切换只对下次 Start 生效。
 								},
 							},
 							HSpacer{},

@@ -23,8 +23,8 @@ func TestSettings_LoadMissingFile_Defaults(t *testing.T) {
 	if !s.UI.Logger.AutoScroll {
 		t.Errorf("UI.Logger.AutoScroll default want true, got false")
 	}
-	if s.UI.Window.Width != 500 {
-		t.Errorf("UI.Window.Width default want 500, got %d", s.UI.Window.Width)
+	if s.UI.Window.Width != 600 {
+		t.Errorf("UI.Window.Width default want 600, got %d", s.UI.Window.Width)
 	}
 	if s.UI.Window.Height != 650 {
 		t.Errorf("UI.Window.Height default want 650, got %d", s.UI.Window.Height)
@@ -97,7 +97,7 @@ func TestSettings_LoadPartial_MissingFieldsDefault(t *testing.T) {
 	if !s.UI.Logger.AutoScroll {
 		t.Errorf("missing logger.auto_scroll should default to true; got %v", s.UI.Logger.AutoScroll)
 	}
-	if s.UI.Window.Width != 500 {
-		t.Errorf("missing window.width should default to 500; got %d", s.UI.Window.Width)
+	if s.UI.Window.Width != 600 {
+		t.Errorf("missing window.width should default to 600; got %d", s.UI.Window.Width)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -36,9 +37,10 @@ type App struct {
 	game            GameStatus  // 最新游戏窗口检测结果，所有 tab 共用
 	gameStatusLabel *walk.Label // 设置 tab 的游戏窗口状态显示
 
-	fishTab  *fishTab
-	cookTab  *cookTab
-	pianoTab *pianoTab
+	fishTab   *fishTab
+	cookTab   *cookTab
+	pianoTab  *pianoTab
+	battleTab *battleTab
 
 	// tabContents[i] 是第 i 个 TabPage 的直接子控件快照。adaptToActiveTab 用它来切可见性：
 	// 把非活动 page 的子控件全部 SetVisible(false)，walk 的 itemsToLayout 会跳过不可见非 spacer
@@ -71,9 +73,11 @@ func Run(version string) error {
 	fishT, fishPage := buildFishTab(app)
 	cookT, cookPage := buildCookTab(app)
 	pianoT, pianoPage := buildPianoTab(app)
+	battleT, battlePage := buildBattleTab(app)
 	app.fishTab = fishT
 	app.cookTab = cookT
 	app.pianoTab = pianoT
+	app.battleTab = battleT
 
 	// 初始 Bounds 用物理像素直接传 CreateWindowEx，跟 BoundsPixels 单位一致。
 	initBounds := app.computeInitialBounds()
@@ -89,7 +93,7 @@ func Run(version string) error {
 		Children: []Widget{
 			TabWidget{
 				AssignTo:              &app.tabs,
-				Pages:                 []TabPage{fishPage, cookPage, pianoPage, buildSettingsTab(app), buildHelpTab(), buildAboutTab(version)},
+				Pages:                 []TabPage{fishPage, cookPage, pianoPage, battlePage, buildSettingsTab(app), buildHelpTab(), buildAboutTab(version)},
 				OnCurrentIndexChanged: app.onTabChanged,
 			},
 			// 日志区：透明外层缩窄到对齐 TabWidget；白色中层提供 GroupBox 周围 9px 白边。
@@ -155,6 +159,9 @@ func Run(version string) error {
 	app.pianoTab.preloadMIDI() // 启动时若有上次的 MIDI 路径，预解析填充 trackCombo
 	app.onTabChanged()         // 初始 tab 状态（同时触发 adaptToActiveTab）
 
+	// 如果上次关闭时战斗快捷键是 [启用] 状态，这里自动恢复（注册到 Win32）
+	app.battleTab.AutoStartFromSettings()
+
 	// 进消息循环（阻塞，直到关窗口）
 	app.mw.Run()
 	return nil
@@ -199,6 +206,31 @@ func (a *App) appendInternalLog(msg string) {
 	}
 	// 兜底：logger 还没初始化（理论不会发生，因为 logger 在 Run 入口就建好）
 	a.logSink.Write([]byte(msg + "\n"))
+}
+
+// openBotLogger 给 fish/cook/piano 启动时调，统一处理「是否写日志文件」选项。
+// 返回 file 可能 nil（用户关了 / mkdir 失败 / open 失败）；logger 永远非 nil，至少挂 logSink。
+// 调用方在 bot 退出时若 file != nil 需 Close()。prefix 例如 "yh_fish" "yh_cook" "yh_piano"。
+//
+// log.New 的 sink 是 io.Writer 切片，直接传 nil *os.File 会因为接口包了 typed-nil 而 panic
+// （walk Logger.Log 里直接调 w.Write）；因此 WriteFile=false 路径只把 logSink 这一个真值传进去。
+func (a *App) openBotLogger(prefix string) (*os.File, *log.Logger) {
+	if !a.settings.UI.Logger.WriteFile {
+		return nil, log.New(a.logSink)
+	}
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		a.appendInternalLog("WARN: 创建 logs 目录失败: " + err.Error())
+		return nil, log.New(a.logSink)
+	}
+	logPath := filepath.Join("logs", prefix+"_"+time.Now().Format("20060102_150405")+".log")
+	f, err := os.Create(logPath)
+	if err != nil {
+		a.appendInternalLog("WARN: 日志文件创建失败 (" + logPath + "): " + err.Error())
+		return nil, log.New(a.logSink)
+	}
+	logger := log.New(f, a.logSink)
+	logger.Log(log.SYSTEM, "日志文件: %s", logPath)
+	return f, logger
 }
 
 // AcquireBot 给 tab 调，独占 bot 槽位。返回 false 表示对侧已占用。
@@ -372,13 +404,14 @@ func (a *App) rerenderLog() {
 	a.renderLogLines(strings.Split(snap, "\r\n"))
 }
 
-// isBotTab 当前 tab 是 fish(0) / cook(1) / piano(2) 才显示日志区。设置/帮助/关于 不显示。
+// isBotTab 当前 tab 是 fish(0) / cook(1) / piano(2) / battle(3) 才显示日志区。
+// 设置/帮助/关于 不显示。
 func (a *App) isBotTab() bool {
 	if a.tabs == nil {
 		return true
 	}
 	idx := a.tabs.CurrentIndex()
-	return idx == 0 || idx == 1 || idx == 2
+	return idx == 0 || idx == 1 || idx == 2 || idx == 3
 }
 
 // applyLogVisibility 按 settings.UI.Logger.Show + 当前 tab 切日志区可见性。
@@ -474,6 +507,11 @@ func (a *App) onClosing(canceled *bool, reason walk.CloseReason) {
 		a.settings.UI.Window.Width = b.Width
 		a.settings.UI.Window.Height = b.Height
 		a.SaveSettings()
+	}
+
+	// 反注册全局热键，避免泄漏 ID（被别的应用占）
+	if a.battleTab != nil {
+		a.battleTab.Shutdown()
 	}
 
 	a.botMu.Lock()

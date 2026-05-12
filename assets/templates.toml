@@ -282,3 +282,48 @@ note = "cook 锤子图标"
 file = "cook/hammer_720.png"
 resolution = [1280, 720]
 bbox = [37, 269, 98, 338]
+
+
+# ============= Battle =============
+# 全局热键切换战斗队伍流程：按 L 进编队 UI → 点目标队伍号位置 → 看是否已启用
+# → 否则点选择队伍 → 等切换成功 toast → ESC 退出。1080p 模板后续补。
+
+[[battle.team_tag]]
+file = "battle/team_tag_720.png"
+resolution = [1280, 720]
+bbox = [78, 31, 117, 50]
+note = "屏幕左上角「编队」二字 — 用于确认是否在编队 UI 内"
+[[battle.team_tag]]
+file = "battle/team_tag_1080.png"
+resolution = [1920, 1080]
+bbox = [117, 46, 176, 76]
+
+[[battle.team_enabled]]
+file = "battle/team_enabled_720.png"
+resolution = [1280, 720]
+bbox = [376, 659, 427, 675]
+note = "底部「已启用」灰按钮 — 表示当前选中的队伍已是上阵队伍"
+[[battle.team_enabled]]
+file = "battle/team_enabled_1080.png"
+resolution = [1920, 1080]
+bbox = [566, 987, 642, 1012]
+
+[[battle.team_select]]
+file = "battle/team_select_720.png"
+resolution = [1280, 720]
+bbox = [367, 658, 438, 676]
+note = "底部「选择队伍」高亮按钮 — 点击切换到当前选中的队伍"
+[[battle.team_select]]
+file = "battle/team_select_1080.png"
+resolution = [1920, 1080]
+bbox = [551, 987, 657, 1013]
+
+[[battle.team_switch_success]]
+file = "battle/team_switch_success_720.png"
+resolution = [1280, 720]
+bbox = [558, 351, 715, 369]
+note = "「上阵队伍切换成功」横幅 toast — 必须等它出现才能 ESC，否则切换会被吞"
+[[battle.team_switch_success]]
+file = "battle/team_switch_success_1080.png"
+resolution = [1920, 1080]
+bbox = [833, 525, 1077, 555]

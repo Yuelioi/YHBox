@@ -3,7 +3,6 @@ package gui
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -105,13 +104,9 @@ func (t *cookTab) onStart() {
 	cfg := cook.DefaultConfig()
 	cfg.Interval = time.Duration(t.app.settings.Cook.IntervalMs) * time.Millisecond
 
-	// 准备 log file + logger（双 sink）
-	_ = os.MkdirAll("logs", 0755)
-	logPath := filepath.Join("logs", "yh_cook_"+time.Now().Format("20060102_150405")+".log")
-	f, _ := os.Create(logPath)
-	t.logFile = f
-	logger := log.New(f, t.app.logSink)
-	logger.Log(log.SYSTEM, "日志文件: %s", logPath)
+	// 准备 logger。按 settings.UI.Logger.WriteFile 决定是否同时写日志文件。
+	var logger *log.Logger
+	t.logFile, logger = t.app.openBotLogger("yh_cook")
 
 	t.ctrl = NewGUIControl()
 	t.running.Store(true)

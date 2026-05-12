@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -338,19 +337,9 @@ func (t *pianoTab) onStart() {
 	cfg.OctaveOffset = t.app.settings.Piano.OctaveOffset
 	cfg.MelodyOnly = t.app.settings.Piano.MelodyOnly
 
-	if err := os.MkdirAll("logs", 0755); err != nil {
-		t.app.appendInternalLog("WARN: 创建 logs 目录失败: " + err.Error())
-	}
-	logPath := filepath.Join("logs", "yh_piano_"+time.Now().Format("20060102_150405")+".log")
-	f, ferr := os.Create(logPath)
-	if ferr != nil {
-		t.app.appendInternalLog("WARN: 日志文件创建失败 (" + logPath + "): " + ferr.Error())
-	}
-	t.logFile = f
-	logger := log.New(f, t.app.logSink)
-	if f != nil {
-		logger.Log(log.SYSTEM, "日志文件: %s", logPath)
-	}
+	// 准备 logger。按 settings.UI.Logger.WriteFile 决定是否同时写日志文件。
+	var logger *log.Logger
+	t.logFile, logger = t.app.openBotLogger("yh_piano")
 
 	t.ctrl = NewGUIControl()
 	t.running.Store(true)

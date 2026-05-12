@@ -42,13 +42,13 @@ jobs:
           cd cmd/yhbox && go-winres make
 
       - name: Build exe
-        run: go build -ldflags="-s -w -H=windowsgui -X main.version=${{ github.ref_name }}" -o YHBox.exe ./cmd/yhbox
+        run: go build -trimpath -ldflags="-s -w -H=windowsgui -X main.version=${{ github.ref_name }}" -o YHBox.exe ./cmd/yhbox
 
       - name: Install UPX
         run: choco install upx --no-progress -y
 
       - name: Compress with UPX
-        run: upx --best YHBox.exe
+        run: upx --ultra-brute YHBox.exe
         continue-on-error: true
 
       - name: Create Release

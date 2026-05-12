@@ -5,13 +5,13 @@ tasks:
     desc: 构建 YHBox.exe（带图标和版本信息）
     cmds:
       - cd cmd/yhbox && go-winres make
-      - go build -ldflags="-s -w -H=windowsgui" -o YHBox.exe ./cmd/yhbox
+      - go build -trimpath -ldflags="-s -w -H=windowsgui" -o YHBox.exe ./cmd/yhbox
 
   pack:
     desc: 构建并用 UPX 压缩（需先安装 upx）
     cmds:
       - task: build
-      - upx --best YHBox.exe
+      - upx --ultra-brute YHBox.exe
 
   build-dev:
     desc: 快速构建（不带图标）

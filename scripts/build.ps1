@@ -32,7 +32,7 @@ if (-not $NoWinres) {
 Write-Host "Building $Out ..."
 # -H=windowsgui: GUI 子系统，双击启动不带 cmd 黑框（walk GUI 必需）
 $ldflags = "-s -w -H=windowsgui -X main.version=$Version"
-& go build -ldflags="$ldflags" -o $Out ./cmd/yhbox
+& go build -trimpath -ldflags="$ldflags" -o $Out ./cmd/yhbox
 if ($LASTEXITCODE -ne 0) { throw "go build failed" }
 
 $sizeBefore = (Get-Item $Out).Length
@@ -45,7 +45,7 @@ if (-not $NoUpx) {
         return
     }
     Write-Host "Compressing with UPX..."
-    & upx --best $Out
+    & upx --ultra-brute $Out
     if ($LASTEXITCODE -ne 0) {
         Write-Host "upx returned $LASTEXITCODE (continuing)" -ForegroundColor Yellow
     }

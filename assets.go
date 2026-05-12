@@ -9,7 +9,7 @@ import (
 	"yhbox/pkg/vision"
 )
 
-//go:embed assets/templates.toml assets/fish/*.png assets/cook/*.png assets/midi/*.mid
+//go:embed assets/templates.toml assets/fish/*.png assets/cook/*.png assets/battle/*.png assets/midi/*.mid
 var assetsFS embed.FS
 
 const assetsPrefix = "assets/"
