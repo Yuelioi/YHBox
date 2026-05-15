@@ -51,5 +51,6 @@ tasks:
         sed -i -E "s/\"file_version\": \"[^\"]+\"/\"file_version\": \"$VER\"/" build/windows/info.json
         sed -i -E "s/\"ProductVersion\": \"[^\"]+\"/\"ProductVersion\": \"$VER\"/" build/windows/info.json
         sed -i -E "s/(\"version\":[[:space:]]*)\"[^\"]+\"/\1\"$VER\"/" frontend/package.json
+        sed -i -E "s/(name=\"com\\.yhbox\\.app\" version=)\"[^\"]+\"/\1\"$VER\"/" build/windows/wails.exe.manifest
         echo "done. 检查 diff:"
-        git diff --stat build/config.yml build/windows/info.json frontend/package.json
+        git diff --stat build/config.yml build/windows/info.json frontend/package.json build/windows/wails.exe.manifest
