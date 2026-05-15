@@ -377,6 +377,7 @@ func main() {
 	wailsServices = append(wailsServices,
 		application.NewService(battleSvc),
 		application.NewService(settingsSvc),
+		application.NewService(services.NewAppInfoService()),
 		application.NewService(gameSvc),
 		application.NewService(actionSvc),
 		application.NewService(hotkeySvc),

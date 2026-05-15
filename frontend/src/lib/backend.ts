@@ -16,6 +16,7 @@ import * as ScheduleService from '@bindings/yhbox/internal/services/schedule/ser
 import * as TemplateService from '@bindings/yhbox/internal/services/template/service.js'
 import * as CalibrationService from '@bindings/yhbox/internal/services/calibration/service.js'
 import * as ToolsService from '@bindings/yhbox/internal/services/tools/service.js'
+import * as AppInfoService from '@bindings/yhbox/internal/services/appinfoservice.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
 
@@ -260,6 +261,9 @@ export const backend = {
     start: () => invoke(CalibrationService.Start),
     stop: () => invoke(CalibrationService.Stop),
     status: () => invoke(CalibrationService.Status),
+  },
+  appInfo: {
+    info: () => invoke(AppInfoService.Info),
   },
   tools: {
     mousePos: () => invoke(ToolsService.MousePos),
