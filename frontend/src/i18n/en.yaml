@@ -1,0 +1,33 @@
+sidebar:
+  automation: Automation
+  tools: Tools
+  collapse: Collapse
+  fish: Fishing
+  cook: Cooking
+  piano: Piano
+  battle: Battle
+  rhythm: Rhythm
+  settings: Settings
+  help: Help
+  about: About
+
+controls:
+  start: Start
+  pause: Pause
+  resume: Resume
+  stop: Stop
+  state:
+    idle: Idle
+    running: Running
+    paused: Paused
+
+settings:
+  language: Language
+  language_zh: 中文
+  language_en: English
+  language_restart_hint: Some content (templates/configs) requires app restart after language change.
+  language_changed_title: Language switched
+  language_changed_desc: UI updated immediately; templates/configs require app restart.
+
+common:
+  game_not_detected: Game window not detected

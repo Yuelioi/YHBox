@@ -1,0 +1,392 @@
+package hotkey
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"sync"
+)
+
+// HotkeyRegistry 是所有热键的中央 manifest。
+//
+// 设计目标：
+//   - HotkeyManager 只管 "把 mods/vk 注册到 OS"；Registry 管 "业务语义 + UI 序列化 + 持久化回调"
+//   - 用 key（稳定字符串标识，如 "battle.toggle" / "action.<uuid>"）作主键
+//   - Source 区分 system vs action，给前端 UI 分组用
+//   - 持久化回调 onActionHotkeyChange / onSystemHotkeyChange 由 main.go 注入，
+//     registry 自己不知道 ActionService / config 怎么存
+//
+// Invariants：
+//   1. normalized != ""  ⇔  status == active || status == failed
+//   2. status == unbound  ⇒  bindingID == 0 && hotkeyStr == "" && normalized == ""
+
+// HotkeySource 标记 entry 归属，给 UI 分组。
+type HotkeySource string
+
+const (
+	HotkeySourceSystem    HotkeySource = "system"
+	HotkeySourceAction    HotkeySource = "action"
+	HotkeySourceContainer HotkeySource = "container"
+	HotkeySourceSchedule  HotkeySource = "schedule"
+)
+
+// HotkeyStatus runtime 状态。
+type HotkeyStatus string
+
+const (
+	HotkeyStatusActive  HotkeyStatus = "active"  // 已绑定 + OS 注册成功
+	HotkeyStatusUnbound HotkeyStatus = "unbound" // hotkeyStr=""
+	HotkeyStatusFailed  HotkeyStatus = "failed"  // OS 注册失败
+)
+
+// HotkeyEntry 给前端 RPC 序列化用。Key 是稳定标识。
+// 注：Normalized 不暴露 — 前端不该依赖 canonicalization 规则。
+type HotkeyEntry struct {
+	Key            string       `json:"key"`
+	Source         HotkeySource `json:"source"`
+	Label          string       `json:"label"`
+	HotkeyStr      string       `json:"hotkeyStr"`
+	Status         HotkeyStatus `json:"status"`
+	LastError      string       `json:"lastError"`
+	ReadonlyReason string       `json:"readonlyReason"`
+}
+
+// registryEntry registry 内部状态。normalized 字段不暴露。
+type registryEntry struct {
+	spec       HotkeyEntry
+	normalized string
+	bindingID  int
+	onFire     func()
+}
+
+// HotkeyRegistry 所有热键的中央 manifest。线程安全。
+type HotkeyRegistry struct {
+	mu      sync.RWMutex
+	manager *HotkeyManager
+	entries map[string]*registryEntry
+	paused  bool // Pause 暂停所有 OS hotkey 时为 true
+
+	// 持久化回调（构造后由 SetCallbacks 注入）
+	onActionHotkeyChange func(actionID, newStr string) error
+	onSystemHotkeyChange func(key, newStr string) error
+	emitChanged          func()
+}
+
+// NewHotkeyRegistry 构造。
+func NewHotkeyRegistry(mgr *HotkeyManager) *HotkeyRegistry {
+	return &HotkeyRegistry{
+		manager: mgr,
+		entries: map[string]*registryEntry{},
+	}
+}
+
+// SetCallbacks 注入持久化 / emit 回调。main.go 启动期调一次。
+func (r *HotkeyRegistry) SetCallbacks(
+	onAction func(actionID, newStr string) error,
+	onSystem func(key, newStr string) error,
+	emit func(),
+) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onActionHotkeyChange = onAction
+	r.onSystemHotkeyChange = onSystem
+	r.emitChanged = emit
+}
+
+// Register 注册新 entry。
+//   - duplicate key → ErrDuplicateKey
+//   - hotkeyStr != "" 时，invalid/reserved/conflict 前置错误 → 删除 entry 返 err
+//   - OS 注册失败：entry.Status=failed，LastError 填，return nil（startup-friendly）
+//
+// startup 期的语义：用户从 config 加载一堆 hotkeys，某个被别的进程占用不该让整个 startup 挂掉。
+func (r *HotkeyRegistry) Register(key string, source HotkeySource, label, hotkeyStr, readonlyReason string, onFire func()) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.entries[key]; exists {
+		return ErrDuplicateKey
+	}
+	entry := &registryEntry{
+		spec: HotkeyEntry{
+			Key:            key,
+			Source:         source,
+			Label:          label,
+			HotkeyStr:      "",
+			Status:         HotkeyStatusUnbound,
+			ReadonlyReason: readonlyReason,
+		},
+		onFire: onFire,
+	}
+	r.entries[key] = entry
+	if hotkeyStr != "" {
+		err := r.updateLocked(key, hotkeyStr)
+		var invErr *HotkeyInvalidError
+		var resErr *HotkeyReservedError
+		var conErr *HotkeyConflictError
+		if errors.As(err, &invErr) || errors.As(err, &resErr) || errors.As(err, &conErr) {
+			// 前置错误：删除 entry 返 err
+			delete(r.entries, key)
+			return err
+		}
+		// OS 失败已写入 entry.Status=failed / LastError，return nil（registry-level success）
+	}
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// Get 按 key 查 entry，返 spec 副本。
+func (r *HotkeyRegistry) Get(key string) (HotkeyEntry, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	e, ok := r.entries[key]
+	if !ok {
+		return HotkeyEntry{}, false
+	}
+	return e.spec, true
+}
+
+// List 当前所有 entry 的快照。顺序不保证。
+func (r *HotkeyRegistry) List() []HotkeyEntry {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]HotkeyEntry, 0, len(r.entries))
+	for _, e := range r.entries {
+		out = append(out, e.spec)
+	}
+	return out
+}
+
+// DebugDump 给 debug 面板/日志用的人类可读 dump。
+func (r *HotkeyRegistry) DebugDump() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var b strings.Builder
+	for k, e := range r.entries {
+		fmt.Fprintf(&b, "[%s] source=%s label=%s hotkey=%q status=%s bindingID=%d",
+			k, e.spec.Source, e.spec.Label, e.spec.HotkeyStr, e.spec.Status, e.bindingID)
+		if e.spec.LastError != "" {
+			fmt.Fprintf(&b, " lastError=%q", e.spec.LastError)
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// Update hot reload：清空 / 改 mods+vk。
+//
+// 流程：
+//   1) Invalid/Reserved/Conflict 三种前置错误返 typed error，**不持久化**
+//   2) OS Register 失败：entry.Status=failed, LastError 填, 返 nil (不持久化)
+//   3) 成功：entry.Status=active/unbound, 调持久化 callback, emit
+func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entry, ok := r.entries[key]
+	if !ok {
+		return fmt.Errorf("hotkey registry: key %q not found", key)
+	}
+	if entry.spec.ReadonlyReason != "" {
+		return fmt.Errorf("hotkey %q 锁定不可改: %s", key, entry.spec.ReadonlyReason)
+	}
+	if err := r.updateLocked(key, newHotkeyStr); err != nil {
+		return err
+	}
+	// 持久化（只在 entry 改成 active/unbound 时调；failed 不持久化）
+	if entry.spec.Status == HotkeyStatusActive || entry.spec.Status == HotkeyStatusUnbound {
+		switch entry.spec.Source {
+		case HotkeySourceAction:
+			actionID := strings.TrimPrefix(key, "action.")
+			if r.onActionHotkeyChange != nil {
+				_ = r.onActionHotkeyChange(actionID, entry.spec.HotkeyStr)
+			}
+		case HotkeySourceSystem:
+			if r.onSystemHotkeyChange != nil {
+				_ = r.onSystemHotkeyChange(key, entry.spec.HotkeyStr)
+			}
+		}
+	}
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// updateLocked 调用方持锁。
+// Invalid/Reserved/Conflict → 返 typed error 不改 entry
+// OS 失败 → entry.Status=failed, LastError 填, 返 nil
+// 成功 → entry 全部字段更新到 active
+// hotkeyStr="" → 解绑 + unbound
+func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
+	entry, ok := r.entries[key]
+	if !ok {
+		return fmt.Errorf("hotkey registry: key %q not found", key)
+	}
+
+	// 清空：Unregister OS binding，置 unbound
+	if newHotkeyStr == "" {
+		if entry.bindingID != 0 {
+			_ = r.manager.Unregister(entry.bindingID)
+			entry.bindingID = 0
+		}
+		entry.spec.HotkeyStr = ""
+		entry.normalized = ""
+		entry.spec.Status = HotkeyStatusUnbound
+		entry.spec.LastError = ""
+		return nil
+	}
+
+	// 解析
+	mods, vk, err := parseHotkey(newHotkeyStr)
+	if err != nil {
+		return &HotkeyInvalidError{Hotkey: newHotkeyStr, Reason: err.Error()}
+	}
+	// Normalize
+	normalized, err := NormalizeHotkey(newHotkeyStr)
+	if err != nil {
+		return &HotkeyInvalidError{Hotkey: newHotkeyStr, Reason: err.Error()}
+	}
+	// noop
+	if normalized == entry.normalized {
+		return nil
+	}
+	// Reserved 检查（system source 走特权通道：reserved 黑名单的初衷是拦用户绑定，
+	// 系统自己注册 Ctrl+Shift+R 这种 reserved 键属于预期行为）
+	if entry.spec.Source != HotkeySourceSystem {
+		if reserved, reason := IsReservedHotkey(newHotkeyStr); reserved {
+			return &HotkeyReservedError{Hotkey: newHotkeyStr, Reason: reason}
+		}
+	}
+	// 冲突检查（跨所有 entry，但排除自己）
+	for k, other := range r.entries {
+		if k == key {
+			continue
+		}
+		if other.normalized == normalized {
+			return &HotkeyConflictError{Key: key, ConflictKey: k, Label: other.spec.Label}
+		}
+	}
+	// OS 注册：先 unregister 旧的，再 register 新的
+	if entry.bindingID != 0 {
+		_ = r.manager.Unregister(entry.bindingID)
+		entry.bindingID = 0
+	}
+	newID, err := r.manager.Register(HotkeySpec{
+		Mods: mods | winMOD_NOREPEAT,
+		VK:   vk,
+		Name: newHotkeyStr,
+	}, OwnerAction, entry.onFire)
+	if err != nil {
+		// OS 失败：entry 写入新值（用户意图），Status=failed，**不**调持久化
+		entry.spec.HotkeyStr = newHotkeyStr
+		entry.normalized = normalized
+		entry.spec.Status = HotkeyStatusFailed
+		entry.spec.LastError = err.Error()
+		return nil // registry-level success
+	}
+	entry.bindingID = newID
+	entry.spec.HotkeyStr = newHotkeyStr
+	entry.normalized = normalized
+	entry.spec.Status = HotkeyStatusActive
+	entry.spec.LastError = ""
+	return nil
+}
+
+// Unregister 完全删除 entry（per-action 删时调）。
+// 不存在的 key → no-op 返 nil。
+func (r *HotkeyRegistry) Unregister(key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	entry, ok := r.entries[key]
+	if !ok {
+		return nil
+	}
+	if entry.bindingID != 0 {
+		_ = r.manager.Unregister(entry.bindingID)
+	}
+	delete(r.entries, key)
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// Pause 暂时反注册所有 OS hotkey binding，让 webview 能收到正常 KEYDOWN。
+// 用途：前端 HotkeyCaptureInput 进入捕获模式时调 — 不暂停的话用户按已注册的
+// 组合（如 Ctrl+Shift+1）会被 Win32 RegisterHotKey 直接派发给原 action，
+// webview 根本收不到 keystroke。
+//
+// entries map 状态保留（spec.Status / Normalized / HotkeyStr 不变），
+// 只清 bindingID。Resume 时按 spec.HotkeyStr 重新 register。
+// 幂等：已 paused → noop。
+func (r *HotkeyRegistry) Pause() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.paused {
+		return nil
+	}
+	for _, e := range r.entries {
+		if e.bindingID != 0 {
+			_ = r.manager.Unregister(e.bindingID)
+			e.bindingID = 0
+		}
+	}
+	r.paused = true
+	return nil
+}
+
+// Resume Pause 的反操作：按 entries.HotkeyStr 重新 register OS binding。
+// 只重新注册原本是 active 的 entry；unbound/failed 不动。
+// 重新注册失败的 entry 标 status=failed + lastError 填（不影响其它）。
+// 幂等：未 paused → noop。
+func (r *HotkeyRegistry) Resume() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.paused {
+		return nil
+	}
+	r.paused = false
+	var hasFailures bool
+	for _, e := range r.entries {
+		if e.spec.Status != HotkeyStatusActive || e.spec.HotkeyStr == "" {
+			continue
+		}
+		mods, vk, err := parseHotkey(e.spec.HotkeyStr)
+		if err != nil {
+			e.spec.Status = HotkeyStatusFailed
+			e.spec.LastError = err.Error()
+			hasFailures = true
+			continue
+		}
+		newID, err := r.manager.Register(HotkeySpec{
+			Mods: mods | winMOD_NOREPEAT,
+			VK:   vk,
+			Name: e.spec.HotkeyStr,
+		}, OwnerAction, e.onFire)
+		if err != nil {
+			e.spec.Status = HotkeyStatusFailed
+			e.spec.LastError = err.Error()
+			hasFailures = true
+			continue
+		}
+		e.bindingID = newID
+	}
+	// 只在有失败时 emit changed — 正常路径前端无感
+	if hasFailures && r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// SyncLabel 修改某 entry 的展示 label（ActionService rename 时调）。
+// 公开方法 — actions 包的 RegistryAdapter 需要调。
+func (r *HotkeyRegistry) SyncLabel(key, newLabel string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if e, ok := r.entries[key]; ok {
+		e.spec.Label = newLabel
+	}
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+}

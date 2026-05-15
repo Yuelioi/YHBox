@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.91
+
+      - name: Sync version into source
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          # main.go: var version = "..."
+          (Get-Content main.go -Raw -Encoding UTF8) `
+            -replace 'version\s*=\s*"\d+\.\d+\.\d+"', "version = `"$tag`"" |
+            Set-Content main.go -NoNewline -Encoding UTF8
+          # build/windows/info.json: file_version + ProductVersion
+          $info = Get-Content build/windows/info.json -Raw | ConvertFrom-Json
+          $info.fixed.file_version = $tag
+          $info.info.'0000'.ProductVersion = $tag
+          $info | ConvertTo-Json -Depth 10 | Set-Content build/windows/info.json -Encoding UTF8
+          Write-Host "version synced to $tag"
+
+      - name: Build (task build)
+        run: task build
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: YHBox ${{ github.ref_name }}
+          body: |
+            ## YHBox ${{ github.ref_name }}
+
+            Windows 后台游戏自动化（Wails 3 + Vue 3）：
+            - 🎣 钓鱼：全自动 + 售卖 + 补饵
+            - 🔨 店长：锤子连点（固定坐标）
+            - 🎼 超强音：4 轨判定 + 异步按键，100% 命中
+            - 🎹 弹琴：读 MIDI 自动演奏
+            - ⚔️ 战斗：Ctrl+Shift+1~6 全局热键切队伍
+
+            ### 使用方法
+            1. 下载 `YHBox.exe`，双击运行
+            2. UAC 弹窗点"是"
+            3. GUI 选 tab → 配置 → 开始
+
+            设置存到 exe 同目录 `settings.json`。
+          files: bin/YHBox.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}

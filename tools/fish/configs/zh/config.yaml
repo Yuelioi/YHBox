@@ -1,0 +1,19 @@
+# fish bot 配置。bar_rois 是耐力条精确 ROI（720p + 1080p 实测）。
+# 加新分辨率：测量后追加。debug/溜鱼/{720,1080}/最大范围_*.png 是参考。
+# 用户覆盖：exe 同目录 configs/fish/zh/config.yaml 写部分字段即可（merge 语义）。
+
+version: 1
+
+# capture: 截图来源（耐力条 ROI 等）
+capture:
+  bar_rois:
+    - resolution: [1920, 1080]
+      bbox: [612, 69, 1316, 81]
+    - resolution: [1280, 720]
+      bbox: [410, 46, 878, 54]
+
+# matching: fish 视觉/HSV 匹配阈值（当前 conf/HSV 等留 Go const，本组占位）
+matching: {}
+
+# timing: fish 时序参数（轮询间隔、回钩超时等；留 Go const）
+timing: {}

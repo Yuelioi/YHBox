@@ -1,0 +1,39 @@
+# Runtime debug
+debug/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+logs/
+
+# Go build output
+*.exe*
+*.syso
+
+
+settings.json
+
+# wails3 build output
+bin/
+# 运行期落地的 action/container/schedule/template 数据（spec § data/）
+data/
+frontend/dist/
+frontend/node_modules/
+frontend/bindings/
+# wails3 generate 在错的 cwd 跑过会建 frontend/frontend/，留个 net 防再忘
+frontend/frontend/
+
+# Taskfile local cache
+.task/
+
+# lint/format cache
+frontend/.eslintcache
+frontend/.oxlintcache
+
+# Rust
+native/capture_wgc/target

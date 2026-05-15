@@ -1,0 +1,17 @@
+# cook (锤子连点) 配置。
+# 锤子在烹饪界面位置固定 → 直接 click 固定坐标，不跑模板匹配。
+# 点击间隔走 settings.cook.intervalMs (GUI 可调)。
+
+version: 1
+
+capture: {}
+
+# matching: 每分辨率的锤子中心点坐标 (客户区像素)。
+matching:
+  resolutions:
+    "1920x1080":
+      hammer: [103, 457]
+    "1280x720":
+      hammer: [67, 303]
+
+timing: {}

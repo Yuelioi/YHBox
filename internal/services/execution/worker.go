@@ -1,0 +1,189 @@
+package execution
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"time"
+)
+
+// RunFunc 实际跑一个 target 的回调。Worker 自己不知道 container 怎么解析，
+// 把回调注入进来由 main.go 绑到 container/runtime.Run(container.ID, ctx)。
+type RunFunc func(ctx context.Context, target TargetRef) error
+
+// Worker 单 goroutine 串行消费 ExecutionQueue。键鼠独占的保证根。
+type Worker struct {
+	queue   *ExecutionQueue
+	run     RunFunc
+	stopCh  chan struct{}
+	wg      sync.WaitGroup
+	emitRun func(WorkerState)
+
+	startOnce sync.Once
+
+	mu     sync.Mutex
+	active *QueuedRun // 当前在跑的 run，nil = 闲
+	cancel context.CancelFunc
+}
+
+// WorkerState 给 UI status bar 推的事件 payload。
+// Error 非空 → 最后一次 target run 出错，前端可 toast。
+type WorkerState struct {
+	Running   bool
+	RunID     int64
+	Source    TriggerSource
+	Targets   []TargetRef
+	TargetIdx int    // 当前在跑 targets[idx]
+	Error     string `json:",omitempty"`
+}
+
+func NewWorker(q *ExecutionQueue, run RunFunc, emit func(WorkerState)) *Worker {
+	return &Worker{
+		queue:   q,
+		run:     run,
+		stopCh:  make(chan struct{}),
+		emitRun: emit,
+	}
+}
+
+// Start 起后台 goroutine 不断 Pop 跑。sync.Once 保证只起一次（防 Start→Start 起双 worker
+// 违反单 worker invariant）。
+func (w *Worker) Start() {
+	w.startOnce.Do(func() {
+		w.wg.Add(1)
+		go w.loop()
+	})
+}
+
+// Stop 关 stopCh + cancel 当前 run + 等 goroutine 退出。
+func (w *Worker) Stop() {
+	close(w.stopCh)
+	w.queue.Close()
+	w.mu.Lock()
+	if w.cancel != nil {
+		w.cancel()
+	}
+	w.mu.Unlock()
+	w.wg.Wait()
+}
+
+// CancelCurrent 强停当前正在跑的 run（不清队列）。
+func (w *Worker) CancelCurrent() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.cancel != nil {
+		w.cancel()
+	}
+}
+
+func (w *Worker) loop() {
+	defer w.wg.Done()
+	for {
+		select {
+		case <-w.stopCh:
+			return
+		default:
+		}
+		run, ok := w.queue.Pop()
+		if !ok {
+			return // queue closed
+		}
+		// 再次检查 stopCh：Pop 拿到 run 后、executeRun 开始前，Stop 可能调用过
+		// （把 cancel 设到 nil）。这时直接退出避免空跑。
+		select {
+		case <-w.stopCh:
+			return
+		default:
+		}
+		w.executeRun(run)
+	}
+}
+
+func (w *Worker) executeRun(run QueuedRun) {
+	parent := context.Background()
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if run.Deadline != nil {
+		ctx, cancel = context.WithDeadline(parent, *run.Deadline)
+	} else {
+		ctx, cancel = context.WithCancel(parent)
+	}
+	w.mu.Lock()
+	w.active = &run
+	w.cancel = cancel
+	w.mu.Unlock()
+
+	// 总会发一次 Running:true（即使 Targets 为空），让前端"试运行 → 立刻跑完"
+	// 也能看到 status:true → status:false 一对对称事件。
+	if w.emitRun != nil {
+		w.emitRun(WorkerState{Running: true, RunID: run.ID, Source: run.Source, Targets: run.Targets})
+	}
+
+	var lastErr error
+	for i, target := range run.Targets {
+		if ctx.Err() != nil {
+			break
+		}
+		if w.emitRun != nil && i > 0 {
+			// targets[0] 已在循环外 emit 过 Running:true（带 TargetIdx=0 隐式）；
+			// targets[1+] 才需要逐个推进 TargetIdx 让 status bar 更新。
+			w.emitRun(WorkerState{Running: true, RunID: run.ID, Source: run.Source, Targets: run.Targets, TargetIdx: i})
+		}
+		err := w.run(ctx, target)
+		if err != nil {
+			lastErr = err
+			if run.OnError == OnErrorStop {
+				break
+			}
+		}
+	}
+
+	cancel()
+	w.mu.Lock()
+	w.active = nil
+	w.cancel = nil
+	w.mu.Unlock()
+	if w.emitRun != nil {
+		state := WorkerState{Running: false, RunID: run.ID, Source: run.Source}
+		if lastErr != nil {
+			state.Error = lastErr.Error()
+		}
+		w.emitRun(state)
+	}
+}
+
+// IsRunning true 当 worker 正在执行某 run。
+func (w *Worker) IsRunning() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.active != nil
+}
+
+// ActiveRun 当前 run 快照（nil = 闲）。
+func (w *Worker) ActiveRun() *QueuedRun {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.active == nil {
+		return nil
+	}
+	cp := *w.active
+	return &cp
+}
+
+// ErrWorkerStopped Worker 停了之后再 Pop。
+var ErrWorkerStopped = errors.New("execution: worker stopped")
+
+// Sleep 给节点用的可取消 sleep helper。
+func Sleep(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return ctx.Err()
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
+}
