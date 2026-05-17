@@ -279,7 +279,10 @@ const KINDS_BY_GROUP: {
   },
   {
     label: '配置',
-    items: [{ kind: 'MouseCalibration', icon: 'i-tabler-target' }],
+    items: [
+      { kind: 'WindowTarget', icon: 'i-tabler-app-window' },
+      { kind: 'MouseCalibration', icon: 'i-tabler-target' },
+    ],
   },
 ]
 
