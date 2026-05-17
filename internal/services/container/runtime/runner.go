@@ -78,17 +78,19 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 // 调度而不是抢 CPU; 3) 资源限制 (单容器 CPU/帧抓取配额). 改的时机: 用户开始抱怨"停止
 // 慢"或"两个容器一起跑卡". 注意改造范围大, 14+ 节点 exec 函数都要加 yield 点.
 type ContainerRunner struct {
-	rt        *RuntimeContext
-	nodesByID map[string]*container.GraphNode
-	edges     *edgeIndex
-	state     *ExecState
+	rt          *RuntimeContext
+	nodesByID   map[string]*container.GraphNode
+	edges       *edgeIndex
+	state       *ExecState
+	stopwatches *stopwatchTable
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	r := &ContainerRunner{
-		rt:        rt,
-		nodesByID: make(map[string]*container.GraphNode),
-		edges:     buildEdgeIndex(rt.Container.Graph),
+		rt:          rt,
+		nodesByID:   make(map[string]*container.GraphNode),
+		edges:       buildEdgeIndex(rt.Container.Graph),
+		stopwatches: newStopwatchTable(),
 	}
 	for i := range rt.Container.Graph.Nodes {
 		n := &rt.Container.Graph.Nodes[i]

@@ -90,6 +90,12 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execToast(ctx, node, tok)
 	case "PlayClip":
 		return r.execPlayClip(ctx, node, tok)
+	case "StopwatchStart":
+		return r.execStopwatchStart(ctx, node, tok)
+	case "StopwatchStop":
+		return r.execStopwatchStop(ctx, node, tok)
+	case "StopwatchRead":
+		return r.execStopwatchRead(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("container: unknown node kind %q", node.Kind)
 }

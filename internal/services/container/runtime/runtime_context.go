@@ -30,6 +30,8 @@ type SysState struct {
 	// DetectColor 节点输出：命中像素数 + 命中中心客户区比例。
 	LastColorCount  int64
 	LastColorCenter expr.Point
+	// StopwatchRead 节点输出：上次读取的经过毫秒数。$sys.lastStopwatch.elapsedMs。
+	LastStopwatchElapsedMs int64
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -209,6 +211,8 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return s.LastColorCenter.Y, nil
 	case "lastColor.center":
 		return s.LastColorCenter, nil
+	case "lastStopwatch.elapsedMs":
+		return float64(s.LastStopwatchElapsedMs), nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }
