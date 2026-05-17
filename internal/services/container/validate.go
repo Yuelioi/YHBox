@@ -28,6 +28,20 @@ var KnownNodeKinds = map[string]bool{
 	"BringGameForeground": true,
 	"MouseCalibration":    true,
 	"PlayClip":            true,
+
+	// v3 Phase C 新增
+	"DetectColorHSV":  true,
+	"ROIColorScan":    true,
+	"Screenshot":      true,
+	"KeyHoldStart":    true,
+	"KeyHoldStop":     true,
+	"MouseHoldStart":  true,
+	"MouseHoldStop":   true,
+	"Try":             true,
+	"Throw":           true,
+	"StopwatchStart":  true,
+	"StopwatchStop":   true,
+	"StopwatchRead":   true,
 }
 
 // yieldKinds Loop body 至少含一个，避免 forever loop CPU 100%。
@@ -35,6 +49,10 @@ var KnownNodeKinds = map[string]bool{
 var yieldKinds = map[string]bool{
 	"Sleep": true, "WaitTemplate": true, "CheckTemplate": true,
 	"ClickTemplate": true, "DetectColor": true, "OnEvent": true,
+	// v3 Phase C 新增
+	"DetectColorHSV": true,
+	"ROIColorScan":   true,
+	"Try":            true, // Try 内必含 subgraph, 子图调度本身就 yield
 }
 
 // execInPins kind → 该 kind 接受的 exec-in pin 名集合。
@@ -78,6 +96,20 @@ var execOutPins = map[string][]string{
 	"MouseCalibration":    nil,      // 声明式
 	"Subgraph":            nil,      // 动态 out pin = 绑定子图的 OutputPins decl ID, validateInvalidPins 单独处理
 	"PlayClip":            {"out"},  // InputClip 回放, 阻塞到完成 / cancel
+
+	// v3 Phase C 新增
+	"DetectColorHSV": {"yes", "no", "timeout"},
+	"ROIColorScan":   {"found", "notFound", "timeout"},
+	"Screenshot":     {"done"},
+	"KeyHoldStart":   {"out"},
+	"KeyHoldStop":    {"out"},
+	"MouseHoldStart": {"out"},
+	"MouseHoldStop":  {"out"},
+	"Try":            {"done", "timeout", "error"},
+	"Throw":          nil, // terminal, 同 Stop/Break
+	"StopwatchStart": {"out"},
+	"StopwatchStop":  {"out"},
+	"StopwatchRead":  {"out"},
 }
 
 // dataOutPins kind → data-out pin 名 → pin 类型（v1 只 "point"）。
@@ -87,6 +119,13 @@ var dataOutPins = map[string]map[string]string{
 	"ClickTemplate": {"point": "point"},
 	"Loop":          {"iter": "number"},
 	"Race":          {"winnerIdx": "number"},
+
+	// v3 Phase C 新增
+	"DetectColorHSV": {"pixelCount": "number", "pixelRatio": "number"},
+	"ROIColorScan":   {"clusters": "any", "clusterCount": "number"},
+	"Screenshot":     {"path": "string"},
+	"Try":            {"errorMsg": "string"},
+	"StopwatchRead":  {"elapsedMs": "number"},
 }
 
 // dataInPins kind → data-in pin 名 → pin 类型。
