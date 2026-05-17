@@ -252,6 +252,70 @@
       </div>
     </section>
 
+    <!-- WindowTarget: v3 Phase B 声明目标游戏窗口 + input/capture backend -->
+    <section v-else-if="node.kind === 'WindowTarget'" class="mb-5 space-y-4">
+      <!-- 捕获按钮 -->
+      <div>
+        <UButton
+          :icon="capturing ? 'i-tabler-loader-2' : 'i-tabler-target'"
+          :loading="capturing"
+          size="sm"
+          block
+          @click="captureForegroundWindow"
+        >
+          {{ capturing ? '捕获中...' : '捕获当前前台窗口' }}
+        </UButton>
+        <p class="text-xs text-dimmed mt-1">
+          先切到游戏窗口让它前置, 再回 YHBox 点此按钮抓取 title/class/processName.
+          (Phase D 会加全局热键 F9 直接在游戏里按.)
+        </p>
+      </div>
+
+      <!-- match section -->
+      <div class="border border-default rounded-lg p-3 space-y-2">
+        <h4 class="text-sm font-semibold">窗口匹配 (match)</h4>
+        <UFormField label="标题 (title)">
+          <UInput v-model="wtMatch.title" placeholder="异环" />
+        </UFormField>
+        <UFormField label="类名 (class)">
+          <UInput v-model="wtMatch.class" placeholder="UnrealWindow" />
+        </UFormField>
+        <UFormField label="进程名 (processName)">
+          <UInput v-model="wtMatch.processName" placeholder="game.exe" />
+        </UFormField>
+        <UFormField label="title 匹配方式">
+          <USelect
+            v-model="wtMatch.titleMatch"
+            :items="[
+              { value: 'exact', label: '精确匹配 (区分大小写)' },
+              { value: 'regex', label: '正则 RE2 (partial match)' },
+            ]"
+          />
+        </UFormField>
+      </div>
+
+      <!-- runtime section -->
+      <div class="border border-default rounded-lg p-3 space-y-2">
+        <h4 class="text-sm font-semibold">运行后端 (runtime)</h4>
+        <UFormField label="输入后端 (inputBackend)">
+          <USelect
+            v-model="wtRuntime.inputBackend"
+            :items="[{ value: 'postmessage', label: 'PostMessage (后台输入, 1.0 默认)' }]"
+          />
+        </UFormField>
+        <UFormField label="截图后端 (captureBackend)">
+          <USelect
+            v-model="wtRuntime.captureBackend"
+            :items="[
+              { value: 'auto', label: 'auto (按 OS 选, Win10+ 用 WGC)' },
+              { value: 'gdi', label: 'GDI (所有 Windows)' },
+              { value: 'wgc', label: 'WGC (要 Win10 1903+)' },
+            ]"
+          />
+        </UFormField>
+      </div>
+    </section>
+
     <!-- PlayClip: clip 绑死显示 (一节点一 clip, 不允许下拉换) + 重录覆盖 + 裁剪段编辑 -->
     <section v-else-if="node.kind === 'PlayClip'" class="mb-5 space-y-3">
       <!-- 绑定的 clip 概要 (只读) -->
@@ -679,6 +743,58 @@ function formatDate(iso: string): string {
     return d.toLocaleDateString() + ' ' + d.toTimeString().slice(0, 5)
   } catch {
     return iso
+  }
+}
+
+// ─── WindowTarget section (v3 Phase B) ─────────────────────────────────────
+// 双向绑定 — config 嵌套 {match, runtime}. 直接 mutate props.node.config 让
+// 父图 deep watch 标 dirty (跟 PlayClip keepRanges 一样的写法).
+const wtMatch = computed(() => {
+  if (props.node?.kind !== 'WindowTarget') return null
+  if (!props.node.config) (props.node as any).config = {}
+  if (!(props.node.config as any).match) {
+    ;(props.node.config as any).match = {
+      title: '',
+      class: '',
+      processName: '',
+      titleMatch: 'exact',
+    }
+  }
+  return (props.node.config as any).match
+})
+
+const wtRuntime = computed(() => {
+  if (props.node?.kind !== 'WindowTarget') return null
+  if (!props.node.config) (props.node as any).config = {}
+  if (!(props.node.config as any).runtime) {
+    ;(props.node.config as any).runtime = {
+      inputBackend: 'postmessage',
+      captureBackend: 'auto',
+    }
+  }
+  return (props.node.config as any).runtime
+})
+
+const capturing = ref(false)
+
+async function captureForegroundWindow() {
+  if (capturing.value) return
+  capturing.value = true
+  try {
+    const result = (await backend.tools.captureForegroundWindow()) as any
+    if (wtMatch.value && result) {
+      wtMatch.value.title = result.title ?? ''
+      wtMatch.value.class = result.class ?? ''
+      wtMatch.value.processName = result.processName ?? ''
+    }
+    // 把捕获时的 resolution 存到 node config — 给 Phase C ROI 节点 metadata 用
+    if (props.node && result?.clientW && result?.clientH) {
+      ;(props.node.config as any)._capturedAtResolution = [result.clientW, result.clientH]
+    }
+  } catch (e: any) {
+    console.error('CaptureForegroundWindow failed', e)
+  } finally {
+    capturing.value = false
   }
 }
 </script>
