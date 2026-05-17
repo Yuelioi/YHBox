@@ -401,9 +401,10 @@ const { onFoldSelection } = useFolding({
 // 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave } = useEditorSave({ draft, dirty, gcOrphanSubgraphs, toast })
 
-// 录制流程 (Phase 4 重写): 拿 clipID → 主图加 PlayClip 节点 + 自动连边 + 自动保存. 旧 subgraph 折叠路径已删.
+// 录制流程 (v2): 拿 subgraphID → refreshSubgraphStore 让 editorStore 知道新子图 →
+// activeGraph 加 Subgraph 引用节点 + autoConnect Start + 自动保存. 双击节点能进编辑.
 const { startRecording, stopRecording, countdownSec } = useRecording({
-  draft, activeGraph, syncFlowFromDraft, saveDraft: onSave, toast,
+  draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave, toast,
 })
 
 // 节点剪贴板 (Ctrl+C/V) + Subgraph 1:1 复制独立子图副本

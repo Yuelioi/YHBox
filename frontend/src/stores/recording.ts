@@ -1,35 +1,46 @@
-// recording store — 当前录制状态 + 最近一次 stop 拿到的 clip.
-// 新 RPC (Phase 1+2): Start({filterMode}) → tempID, Stop() → InputClip.
+// recording store — 当前录制状态 + 最近一次 stop 拿到的 payload.
+// v2 Subgraph-only: Start({filterMode, containerID}) → tempID,
+// Stop() → {subgraphID, containerID, label, filterMode}.
 // 异步停录 (F12 / HUD): 走 'recording:completed' event, 不经 stop().
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { backend } from '@/lib/backend'
-import type { InputClip } from '@/stores/clips'
+
+export interface RecordingStopPayload {
+  subgraphID: string
+  containerID: string
+  label: string
+  filterMode: string
+}
 
 export const useRecordingStore = defineStore('recording', () => {
   const isRecording = ref(false)
   const tempID = ref<string>('')
-  const lastClip = ref<InputClip | null>(null)
+  const lastResult = ref<RecordingStopPayload | null>(null)
 
-  async function start(filterMode: 'precise' | 'simple' = 'precise'): Promise<void> {
+  async function start(
+    filterMode: 'precise' | 'simple',
+    containerID: string,
+  ): Promise<void> {
     if (isRecording.value) return
+    if (!containerID) throw new Error('recording.start: containerID 必填')
     try {
-      const id = (await backend.recording.start({ filterMode })) as string | undefined
+      const id = (await backend.recording.start({ filterMode, containerID })) as string | undefined
       tempID.value = id ?? ''
       isRecording.value = true
-      lastClip.value = null
+      lastResult.value = null
     } catch (e) {
       console.error('recording.start failed', e)
       throw e
     }
   }
 
-  async function stop(): Promise<InputClip | null> {
+  async function stop(): Promise<RecordingStopPayload | null> {
     try {
-      const clip = (await backend.recording.stop()) as InputClip | null | undefined
-      lastClip.value = clip ?? null
+      const payload = (await backend.recording.stop()) as RecordingStopPayload | null | undefined
+      lastResult.value = payload ?? null
       isRecording.value = false
-      return clip ?? null
+      return payload ?? null
     } catch (e) {
       console.error('recording.stop failed', e)
       isRecording.value = false
@@ -37,5 +48,5 @@ export const useRecordingStore = defineStore('recording', () => {
     }
   }
 
-  return { isRecording, tempID, lastClip, start, stop }
+  return { isRecording, tempID, lastResult, start, stop }
 })

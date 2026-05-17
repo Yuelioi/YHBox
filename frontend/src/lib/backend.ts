@@ -347,9 +347,12 @@ export const backend = {
     info: () => invoke(AppInfoService.Info),
   },
   recording: {
-    // Start 现在收 StartArgs 对象 (filterMode: 'precise' | 'simple'). 返临时 clipID.
-    start: (args: { filterMode: 'precise' | 'simple' }) =>
+    // Start 收 {filterMode, containerID}. containerID 必传 — 录完 Subgraph 落到该容器
+    // subgraphs/. 返临时 recording ID (前端订阅事件流过滤用).
+    start: (args: { filterMode: 'precise' | 'simple'; containerID: string }) =>
       invoke(RecordingService.Start, args as any),
+    // Stop 返 {subgraphID, containerID, label, filterMode} — 录完产物 = 一个 Subgraph,
+    // 前端拿 subgraphID 在 activeGraph 加 Subgraph 引用节点.
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
     isRecording: () => invoke(RecordingService.IsRecording),

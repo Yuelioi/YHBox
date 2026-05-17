@@ -27,6 +27,19 @@ import (
 	"yhbox/pkg/capture"
 )
 
+// StopResult Recorder.Stop 输出. Service 层据此分流:
+//   - precise: 用 Events + Meta 建 InputClip 落到 clipSvc, 再 BuildPreciseSubgraph
+//   - simple : 用 Events + ClientW/H 直接 BuildSimpleSubgraph
+//
+// TempID 用于下游建持久 ID (clip-<tempID> / sg-<tempID>) 让事件流期间前端能预订阅.
+type StopResult struct {
+	Events  []inputclip.Event
+	Meta    inputclip.ClipMeta
+	ClientW int
+	ClientH int
+	TempID  string
+}
+
 // Recorder 录制游戏窗口内的键鼠操作。线程安全：Start/Stop/Cancel/Active 都加锁。
 type Recorder struct {
 	mu sync.Mutex
@@ -313,9 +326,10 @@ func nowMicros() uint64 {
 	return uint64(time.Now().UnixMicro())
 }
 
-// Stop 停止录制，返回累积的 InputClip (含 events).
-// 阻塞等 worker + drain 完全退出，防 hook leak。
-func (r *Recorder) Stop() (*inputclip.InputClip, error) {
+// Stop 停止录制, 返回 raw StopResult. Service 层根据 meta.FilterMode 决定构造路径
+// (precise → 建 InputClip + BuildPreciseSubgraph, simple → BuildSimpleSubgraph).
+// 阻塞等 worker + drain 完全退出, 防 hook leak.
+func (r *Recorder) Stop() (*StopResult, error) {
 	r.mu.Lock()
 	if !r.active {
 		r.mu.Unlock()
@@ -325,14 +339,16 @@ func (r *Recorder) Stop() (*inputclip.InputClip, error) {
 	rawCh := r.rawEvents
 	tempID := r.tempID
 	meta := r.meta
+	clientW := r.clientW
+	clientH := r.clientH
 	getter := r.mouseCounts360Getter
 	r.mu.Unlock()
 
-	// 1) 让 worker 退出（PostQuit → GetMessage 返回 → Uninstall → close(done)）
+	// 1) 让 worker 退出 (PostQuit → GetMessage 返回 → Uninstall → close(done))
 	PostQuitToThread(tid)
 	<-r.done
 
-	// 2) drain 还在跑（channel 还开着），close 让它退
+	// 2) drain 还在跑 (channel 还开着), close 让它退
 	close(rawCh)
 	<-r.drainDone
 
@@ -350,15 +366,13 @@ func (r *Recorder) Stop() (*inputclip.InputClip, error) {
 		meta.MouseCounts360 = getter()
 	}
 
-	clip := &inputclip.InputClip{
-		ID:        "clip-" + tempID,
-		Label:     "录制 " + time.Now().Format("15:04"),
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-		Meta:      meta,
-		Events:    events,
-	}
-	clip.UpdateDuration()
-	return clip, nil
+	return &StopResult{
+		Events:  events,
+		Meta:    meta,
+		ClientW: clientW,
+		ClientH: clientH,
+		TempID:  tempID,
+	}, nil
 }
 
 // Cancel 不保留 events 直接停。同样阻塞等 worker + drain 退干净。
