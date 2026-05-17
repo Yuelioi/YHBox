@@ -12,6 +12,8 @@ import (
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
+	"yhbox/internal/services/inputclip"
+	clipruntime "yhbox/internal/services/inputclip/runtime"
 )
 
 // execNode 单节点执行入口。返回下游 token 列表（追加进调度队列）。
@@ -48,8 +50,23 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execClickTemplate(ctx, node, tok)
 	case "DetectColor":
 		return r.execDetectColor(ctx, node, tok)
-	case "InvokeAction":
-		return r.execInvokeAction(ctx, node, tok)
+	case "Subgraph":
+		return r.execSubgraph(ctx, node, tok)
+	case "SubgraphInput":
+		// FUTURE-WORK (spec §11): SubgraphInput 当前在 graph 里以实节点存在, 但它本质是
+		// metadata (子图入口的 marker), 没有任何执行逻辑 — 就是 edges.next 直通. v2 早期
+		// 这样做是因为 UI 复用 vue-flow 节点系统简单. 长期看应该把它降级为子图 metadata
+		// (Subgraph.EntryNodeID 或类似), 不进 Graph.Nodes. 收益: 1) 用户改不了入口数量 (1
+		// 个 enforce); 2) validator 不用再检 SubgraphInput 唯一性; 3) 子图布局更自由
+		// (入口不占节点位). 改的时机: 加 ValidationError UI 之后, 顺手清理.
+		return r.edges.next(node.ID+".out", tok.LoopStack), nil
+	case "SubgraphOutput":
+		return r.execSubgraphOutput(ctx, node, tok)
+	case "BringGameForeground":
+		return r.execBringGameForeground(ctx, node, tok)
+	case "MouseCalibration":
+		// 声明式节点不参与执行流，走直通
+		return nil, nil
 	case "ClickAt":
 		return r.execClickAt(ctx, node, tok)
 	case "KeyPress":
@@ -66,6 +83,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execLog(ctx, node, tok)
 	case "Toast":
 		return r.execToast(ctx, node, tok)
+	case "PlayClip":
+		return r.execPlayClip(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("container: unknown node kind %q", node.Kind)
 }
@@ -289,7 +308,18 @@ func (r *ContainerRunner) execSetVar(ctx context.Context, n *container.GraphNode
 	if err != nil {
 		return nil, err
 	}
-	r.rt.SetVar(name, val)
+	// Gemini 雷点三：v2 spec §2.7 SetVar/IncVar 节点 config 加 scope 字段
+	//   "local"（缺省）→ 写入当前 ExecFrame.LocalVars（子图调用之间不互相污染）
+	//   "global"        → 写入 rt.vars（容器级，跨 frame 共享）
+	// 历史 v1 数据无 scope 字段 → 视为 local（spec 强制如此；与 v1 行为不兼容，
+	// 但 v1 没有 subgraph 概念所以"local"等价于"全图共享"，不影响）。
+	scope := configString(n, "scope")
+	switch scope {
+	case "global":
+		r.rt.SetVar(name, val)
+	default: // "local" 或缺省
+		r.state.SetLocalVar(name, val)
+	}
 	return r.edges.next(n.ID+".out", tok.LoopStack), nil
 }
 
@@ -299,8 +329,20 @@ func (r *ContainerRunner) execIncVar(ctx context.Context, n *container.GraphNode
 		return nil, fmt.Errorf("IncVar %s: missing varName", n.ID)
 	}
 	delta := r.configFloat(n, "delta", 1)
-	if err := r.rt.IncVar(name, delta); err != nil {
-		return nil, err
+	scope := configString(n, "scope")
+	switch scope {
+	case "global":
+		if err := r.rt.IncVar(name, delta); err != nil {
+			return nil, err
+		}
+	default: // "local" 或缺省：在当前 frame.LocalVars 上做增量
+		cur := 0.0
+		if v, ok := r.state.GetLocalVarHere(name); ok {
+			if f, ok2 := v.(float64); ok2 {
+				cur = f
+			}
+		}
+		r.state.SetLocalVar(name, cur+delta)
 	}
 	return r.edges.next(n.ID+".out", tok.LoopStack), nil
 }
@@ -403,40 +445,6 @@ func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.Gr
 	}
 }
 
-// ---- Action ----
-
-func (r *ContainerRunner) execInvokeAction(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	actionID := configString(n, "actionId")
-	if actionID == "" {
-		return nil, fmt.Errorf("InvokeAction %s: missing actionId", n.ID)
-	}
-	// params 走 config["params"] map[string]string（每 value 是 expr）
-	params := make(map[string]expr.Value)
-	if raw, ok := n.Config["params"]; ok {
-		if m, ok := raw.(map[string]any); ok {
-			for k, v := range m {
-				if s, ok := v.(string); ok {
-					ast, err := expr.Parse(s)
-					if err != nil {
-						return nil, fmt.Errorf("InvokeAction %s param %s: %w", n.ID, k, err)
-					}
-					ev, err := expr.Eval(ast, r.rt.Env())
-					if err != nil {
-						return nil, err
-					}
-					params[k] = ev
-				} else {
-					params[k] = v
-				}
-			}
-		}
-	}
-	if err := r.rt.Actions.Invoke(ctx, actionID, params); err != nil {
-		return nil, err
-	}
-	return r.edges.next(n.ID+".out", tok.LoopStack), nil
-}
-
 // ---- Input Primitives ----
 //
 // 每条 input 节点外套 InputBus.Lock/Unlock 保证键鼠独占（多 worker 并发场景）。
@@ -474,6 +482,16 @@ func (r *ContainerRunner) execMouseMoveRel(ctx context.Context, n *container.Gra
 	dx := int(r.configFloat(n, "dx", 0))
 	dy := int(r.configFloat(n, "dy", 0))
 	dur := int(r.configFloat(n, "durationMs", 200))
+	// v2 spec §2.7: scale = target / source. target = 主图 MouseCalibration（启动 snapshot），
+	// source = 当前 frame chain 中最近的 Subgraph.RecordingContext.MouseCounts360。
+	// 任一为 0 → scale = 1（手动组装 subgraph / 未校准 → 原值回放，跟旧 v1 行为兼容）。
+	target := r.state.CalibCounts
+	source := r.state.ResolveSourceCalibCounts()
+	if target > 0 && source > 0 && target != source {
+		scale := float64(target) / float64(source)
+		dx = int(roundAwayFromZero(float64(dx) * scale))
+		dy = int(roundAwayFromZero(float64(dy) * scale))
+	}
 	r.rt.InputBus.Lock()
 	err := r.rt.Input.MouseMoveRel(ctx, dx, dy, dur)
 	r.rt.InputBus.Unlock()
@@ -481,6 +499,15 @@ func (r *ContainerRunner) execMouseMoveRel(ctx context.Context, n *container.Gra
 		return nil, err
 	}
 	return r.edges.next(n.ID+".out", tok.LoopStack), nil
+}
+
+// roundAwayFromZero 模拟旧 actions runtime 的取整行为（state.go:77-86）：
+// 正数 +0.5、负数 -0.5 后 int 截断，结果远离 0。比 math.Round 更接近"四舍五入到整数"。
+func roundAwayFromZero(f float64) float64 {
+	if f < 0 {
+		return f - 0.5
+	}
+	return f + 0.5
 }
 
 func (r *ContainerRunner) execScroll(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
@@ -613,4 +640,180 @@ func parseInt(s string) (int, error) {
 	var n int
 	_, err := fmt.Sscanf(s, "%d", &n)
 	return n, err
+}
+
+// execSubgraph 进入子图：push frame + 切 dispatch edges/nodesByID 到子图 + 从 SubgraphInput.out 入。
+// ⚠️ 已知限制：v1 不支持 Parallel/Race 分支里嵌套子图调用（r.edges / r.nodesByID 全局切换会被覆盖）。
+// validator 后续加规则 SUBGRAPH_IN_PARALLEL_BRANCH 防御；本 task 接受这一限制。
+func (r *ContainerRunner) execSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
+	sg, err := ResolveSubgraphCall(r.rt.Container, node)
+	if err != nil {
+		return nil, err
+	}
+	// push frame
+	r.state.PushFrame(container.SubgraphGraphRef(sg.ID), sg)
+
+	// 切 dispatch 视图到子图
+	r.edges = buildEdgeIndex(sg.Graph)
+	r.nodesByID = make(map[string]*container.GraphNode)
+	for i := range sg.Graph.Nodes {
+		n := &sg.Graph.Nodes[i]
+		r.nodesByID[n.ID] = n
+	}
+
+	// 找 SubgraphInput 节点，从其 out 入子图
+	var inputID string
+	for _, n := range sg.Graph.Nodes {
+		if n.Kind == "SubgraphInput" {
+			inputID = n.ID
+			break
+		}
+	}
+	if inputID == "" {
+		return nil, fmt.Errorf("子图 %s 缺 SubgraphInput 节点", sg.ID)
+	}
+	return r.edges.next(inputID+".out", tok.LoopStack), nil
+}
+
+// execSubgraphOutput 子图退出：pop frame + 切回父图 dispatch 视图 + 找父图调用方 declID 边的下游。
+func (r *ContainerRunner) execSubgraphOutput(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
+	declID, _ := node.Config["declID"].(string)
+	if declID == "" {
+		return nil, fmt.Errorf("SubgraphOutput 节点 %s 缺 config.declID", node.ID)
+	}
+	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent == nil {
+		return nil, fmt.Errorf("SubgraphOutput 节点 %s 没 parent frame（已在主图）", node.ID)
+	}
+	parentFrame := r.state.CurrentFrame.Parent
+	var parentGraph container.Graph
+	if parentFrame.Graph.IsMain() {
+		parentGraph = r.rt.Container.Graph
+	} else if parentFrame.SubgraphRef != nil {
+		parentGraph = parentFrame.SubgraphRef.Graph
+	} else {
+		return nil, fmt.Errorf("parent frame graph 不可用")
+	}
+	// 扫父图找 kind=Subgraph 且 config.subgraphId == 当前子图 ID 的节点
+	var callNodeID string
+	if r.state.CurrentFrame.SubgraphRef != nil {
+		targetSGID := r.state.CurrentFrame.SubgraphRef.ID
+		for _, n := range parentGraph.Nodes {
+			if n.Kind == "Subgraph" {
+				if sgid, _ := n.Config["subgraphId"].(string); sgid == targetSGID {
+					callNodeID = n.ID
+					break
+				}
+			}
+		}
+	}
+	if callNodeID == "" {
+		return nil, fmt.Errorf("找不到当前子图在父图的调用方节点")
+	}
+	downstreamRef := FindParentDownstreamByDeclID(parentGraph.Edges, callNodeID, declID)
+	// pop frame 回父图
+	r.state.PopFrame()
+	// 切回父图 edges / nodesByID
+	r.edges = buildEdgeIndex(parentGraph)
+	r.nodesByID = make(map[string]*container.GraphNode)
+	for i := range parentGraph.Nodes {
+		n := &parentGraph.Nodes[i]
+		r.nodesByID[n.ID] = n
+	}
+	if downstreamRef == "" {
+		return nil, nil // 子图调用完成无下游 → dispatch 自然终止
+	}
+	parts := strings.SplitN(downstreamRef, ".", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("downstreamRef format invalid: %q", downstreamRef)
+	}
+	return []ExecToken{{NodeID: parts[0], InPin: parts[1], LoopStack: copyLoops(tok.LoopStack)}}, nil
+}
+
+// execBringGameForeground 把游戏窗口置前台；重试逻辑在 bring_foreground.go。
+func (r *ContainerRunner) execBringGameForeground(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
+	return r.execBringGameForegroundImpl(ctx, node, tok)
+}
+
+// ---- PlayClip ----
+//
+// 解析 clipID + 可选 keepRanges → 构造 ClipPlayer → 阻塞跑完 → 走 .out.
+// 期间 InputBus.Lock 独占输入. ctx 取消 → Cancel ClipPlayer 释放 held keys.
+func (r *ContainerRunner) execPlayClip(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
+	clipID := configString(n, "clipID")
+	if clipID == "" {
+		return nil, fmt.Errorf("PlayClip %s: missing clipID", n.ID)
+	}
+	if r.rt.ClipResolver == nil {
+		return nil, fmt.Errorf("PlayClip %s: no ClipResolver injected", n.ID)
+	}
+	clip, ok := r.rt.ClipResolver.Resolve(clipID)
+	if !ok {
+		return nil, fmt.Errorf("PlayClip %s: clip %q not found", n.ID, clipID)
+	}
+	if r.rt.InputBackend == nil {
+		return nil, fmt.Errorf("PlayClip %s: no InputBackend injected", n.ID)
+	}
+
+	// keepRanges: config.keepRanges = [{fromUs, toUs}, ...] (JSON 来料).
+	var ranges []inputclip.Range
+	if raw, ok := n.Config["keepRanges"].([]any); ok {
+		for _, item := range raw {
+			if m, ok := item.(map[string]any); ok {
+				from := uint64(asFloat(m["fromUs"]))
+				to := uint64(asFloat(m["toUs"]))
+				ranges = append(ranges, inputclip.Range{FromUs: from, ToUs: to})
+			}
+		}
+	}
+
+	startMsg := fmt.Sprintf("PlayClip 开始: events=%d duration=%dms backend=%s mouseCounts360=%d→%d filterMode=%s",
+		len(clip.Events), clip.DurationUs/1000, r.rt.InputBackend.Name(),
+		clip.Meta.MouseCounts360, r.rt.MouseCounts360, clip.Meta.FilterMode)
+	fmt.Println("[PlayClip] " + startMsg)
+	if r.rt.Emit != nil {
+		r.rt.Emit("container:log", map[string]any{"level": "info", "message": startMsg})
+	}
+
+	r.rt.InputBus.Lock()
+	defer r.rt.InputBus.Unlock()
+
+	p := clipruntime.NewClipPlayer(clip, ranges, r.rt.InputBackend, r.rt.ClipPolicy, r.rt.MouseCounts360)
+	p.Start(ctx)
+
+	select {
+	case <-p.Done():
+		err := p.Wait()
+		doneMsg := fmt.Sprintf("PlayClip 完成: 发送 %d/%d events, err=%v", p.SentCount(), len(clip.Events), err)
+		fmt.Println("[PlayClip] " + doneMsg)
+		if r.rt.Emit != nil {
+			level := "info"
+			if err != nil && !errors.Is(err, clipruntime.ErrCancelled) {
+				level = "error"
+			}
+			r.rt.Emit("container:log", map[string]any{"level": level, "message": doneMsg})
+		}
+		if err != nil && !errors.Is(err, clipruntime.ErrCancelled) {
+			return nil, fmt.Errorf("PlayClip %s: %w", n.ID, err)
+		}
+	case <-ctx.Done():
+		p.Cancel()
+		<-p.Done()
+		return nil, ctx.Err()
+	}
+	return r.edges.next(n.ID+".out", tok.LoopStack), nil
+}
+
+// asFloat 把 JSON 解出来的 any 转 float64. int / float64 / int64 都兼容.
+func asFloat(v any) float64 {
+	switch x := v.(type) {
+	case int:
+		return float64(x)
+	case int64:
+		return float64(x)
+	case float64:
+		return x
+	case float32:
+		return float64(x)
+	}
+	return 0
 }

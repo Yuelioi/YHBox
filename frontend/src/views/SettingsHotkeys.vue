@@ -61,7 +61,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from '@nuxt/ui/composables'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import HotkeyCaptureInput from '@/components/actions/HotkeyCaptureInput.vue'
+import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 
 const store = useHotkeysStore()
 const toast = useToast()

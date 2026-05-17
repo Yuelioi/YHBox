@@ -1,0 +1,301 @@
+package container
+
+import (
+	"testing"
+	"time"
+)
+
+func minContainer() *Container {
+	return &Container{
+		SchemaVersion: CurrentSchemaVersion,
+		ID:            "c1",
+		Name:          "test",
+		Graph: Graph{
+			ID:      "g-main",
+			Version: GraphSchemaVersion,
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start", CreatedAt: time.Now().UTC()},
+			},
+		},
+	}
+}
+
+func hasCode(errs []ValidationError, code string) bool {
+	for _, e := range errs {
+		if e.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+// B-8 regression: validator 加 4 条原本只声明 code 不产 check 的规则。
+
+func TestValidator_InvalidPin_MainGraph(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "sleep1", Kind: "Sleep", CreatedAt: time.Now().UTC()},
+	)
+	// "Sleep" 节点只有 in / out pin；这里故意写 "weird-out"
+	c.Graph.Edges = []GraphEdge{
+		{From: "start.out", To: "sleep1.in"},
+		{From: "sleep1.weird-out", To: "start.in"},
+	}
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeInvalidPin) {
+		t.Errorf("expected INVALID_PIN, got %+v", errs)
+	}
+}
+
+func TestValidator_MissingSubgraph_UnknownID(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "call1", Kind: "Subgraph",
+			Config: map[string]any{"subgraphId": "sg-does-not-exist"}, CreatedAt: time.Now().UTC()},
+	)
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeMissingSubgraph) {
+		t.Errorf("expected MISSING_SUBGRAPH, got %+v", errs)
+	}
+}
+
+func TestValidator_MissingSubgraph_EmptyID(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "call1", Kind: "Subgraph", Config: map[string]any{}, CreatedAt: time.Now().UTC()},
+	)
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeMissingSubgraph) {
+		t.Errorf("expected MISSING_SUBGRAPH (empty subgraphId), got %+v", errs)
+	}
+}
+
+func TestValidator_MissingTemplate_WithContext(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "wait1", Kind: "WaitTemplate",
+			Config: map[string]any{"template": "fish/onhook"}, CreatedAt: time.Now().UTC()},
+	)
+	// 不带 context → 跳过 MISSING_TEMPLATE 检查
+	plain := ValidateContainer(c)
+	if hasCode(plain, CodeMissingTemplate) {
+		t.Errorf("nil AvailableTemplateKeys should skip MISSING_TEMPLATE check, got %+v", plain)
+	}
+	// 带空 keys 集合 → key 不存在，报 MISSING_TEMPLATE
+	ctx := ValidateContext{AvailableTemplateKeys: map[string]struct{}{}}
+	withCtx := ValidateContainerWithContext(c, ctx)
+	if !hasCode(withCtx, CodeMissingTemplate) {
+		t.Errorf("expected MISSING_TEMPLATE with empty key set, got %+v", withCtx)
+	}
+	// 带正确 key → 不报
+	ctx2 := ValidateContext{AvailableTemplateKeys: map[string]struct{}{"fish/onhook": {}}}
+	clean := ValidateContainerWithContext(c, ctx2)
+	if hasCode(clean, CodeMissingTemplate) {
+		t.Errorf("key present should not trigger MISSING_TEMPLATE, got %+v", clean)
+	}
+}
+
+func TestValidator_MouseCalibrationForeign(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "calib", Kind: "MouseCalibration",
+			Config: map[string]any{"counts360": 4000}, CreatedAt: time.Now().UTC()},
+	)
+	// Settings 与节点值一致 → 不报 FOREIGN
+	same := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 4000})
+	if hasCode(same, CodeMouseCalibrationForeign) {
+		t.Errorf("matching settings should not trigger FOREIGN, got %+v", same)
+	}
+	// Settings 跟节点值不一致 → 报 FOREIGN
+	mismatch := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 2200})
+	if !hasCode(mismatch, CodeMouseCalibrationForeign) {
+		t.Errorf("expected FOREIGN with mismatched settings, got %+v", mismatch)
+	}
+	// Settings = 0 → 不报（视为用户尚未本机校准，不应误报）
+	zero := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 0})
+	if hasCode(zero, CodeMouseCalibrationForeign) {
+		t.Errorf("settings=0 should not trigger FOREIGN, got %+v", zero)
+	}
+	// 节点 counts360 = 0 → 不报 FOREIGN（应只报 NOT_SET）
+	c.Graph.Nodes[len(c.Graph.Nodes)-1].Config["counts360"] = 0
+	uncal := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 2200})
+	if hasCode(uncal, CodeMouseCalibrationForeign) {
+		t.Errorf("node counts360=0 should report NOT_SET not FOREIGN, got %+v", uncal)
+	}
+	if !hasCode(uncal, CodeMouseCalibrationNotSet) {
+		t.Errorf("expected NOT_SET when counts360=0, got %+v", uncal)
+	}
+}
+
+func TestValidator_NoStart(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = []GraphNode{
+		{ID: "n1", Kind: "Sleep", CreatedAt: time.Now().UTC()},
+	}
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeNoStart) {
+		t.Errorf("expected NO_START, got %+v", errs)
+	}
+}
+
+func TestValidator_MultipleStarts(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes, GraphNode{ID: "start2", Kind: "Start", CreatedAt: time.Now().UTC()})
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeMultipleStarts) {
+		t.Errorf("expected MULTIPLE_STARTS, got %+v", errs)
+	}
+}
+
+func TestValidator_DanglingEdge(t *testing.T) {
+	c := minContainer()
+	c.Graph.Edges = []GraphEdge{
+		{From: "start.out", To: "ghost.in"},
+	}
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeDanglingEdge) {
+		t.Errorf("expected DANGLING_EDGE, got %+v", errs)
+	}
+}
+
+func TestValidator_MissingMouseCalibration(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "m", Kind: "MouseMoveRel", Config: map[string]any{"dx": "100", "dy": "0", "durationMs": "100"}, CreatedAt: time.Now().UTC()},
+	)
+	c.Graph.Edges = []GraphEdge{{From: "start.out", To: "m.in"}}
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeMissingMouseCalibration) {
+		t.Errorf("expected MISSING_MOUSE_CALIBRATION, got %+v", errs)
+	}
+}
+
+func TestValidator_DuplicateMouseCalibration(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "cal1", Kind: "MouseCalibration", Config: map[string]any{"counts360": 4000}, CreatedAt: time.Now().UTC()},
+		GraphNode{ID: "cal2", Kind: "MouseCalibration", Config: map[string]any{"counts360": 4000}, CreatedAt: time.Now().UTC()},
+	)
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeDuplicateMouseCalibration) {
+		t.Errorf("expected DUPLICATE_MOUSE_CALIBRATION, got %+v", errs)
+	}
+}
+
+func TestValidator_MouseCalibrationNotSet(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "cal", Kind: "MouseCalibration", Config: map[string]any{"counts360": 0}, CreatedAt: time.Now().UTC()},
+	)
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeMouseCalibrationNotSet) {
+		t.Errorf("expected MOUSE_CALIBRATION_NOT_SET warning, got %+v", errs)
+	}
+	for _, e := range errs {
+		if e.Code == CodeMouseCalibrationNotSet && e.Severity != SeverityWarning {
+			t.Errorf("expected warning, got severity=%s", e.Severity)
+		}
+	}
+}
+
+func TestValidator_GraphPathPopulated(t *testing.T) {
+	c := minContainer()
+	c.Graph.Edges = []GraphEdge{{From: "ghost.out", To: "start.in"}}
+	errs := ValidateContainer(c)
+	for _, e := range errs {
+		if e.Code == CodeDanglingEdge {
+			if len(e.GraphPath) == 0 {
+				t.Errorf("expected GraphPath populated, got empty")
+			}
+			if e.GraphPath[0] != "main" {
+				t.Errorf("expected GraphPath[0]=main, got %v", e.GraphPath)
+			}
+			return
+		}
+	}
+	t.Errorf("没找到 DANGLING_EDGE error")
+}
+
+func TestValidator_CyclicSelfRecursive(t *testing.T) {
+	c := minContainer()
+	c.Subgraphs = []Subgraph{
+		{
+			ID:    "sg-A",
+			Label: "A",
+			Graph: Graph{
+				ID:      "g-A",
+				Version: GraphSchemaVersion,
+				Nodes: []GraphNode{
+					{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
+					{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-A"}, CreatedAt: time.Now().UTC()},
+				},
+			},
+			OutputPins: []SubgraphOutputDecl{{ID: "d1", Name: "done"}},
+		},
+	}
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeCyclicSubgraphDependency) {
+		t.Errorf("expected CYCLIC_SUBGRAPH_DEPENDENCY for self-recursive, got %+v", errs)
+	}
+}
+
+func TestValidator_CyclicIndirect(t *testing.T) {
+	c := minContainer()
+	c.Subgraphs = []Subgraph{
+		{
+			ID:    "sg-A",
+			Label: "A",
+			Graph: Graph{
+				ID:      "gA",
+				Version: GraphSchemaVersion,
+				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-B"}, CreatedAt: time.Now().UTC()}},
+			},
+			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
+		},
+		{
+			ID:    "sg-B",
+			Label: "B",
+			Graph: Graph{
+				ID:      "gB",
+				Version: GraphSchemaVersion,
+				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-A"}, CreatedAt: time.Now().UTC()}},
+			},
+			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
+		},
+	}
+	errs := ValidateContainer(c)
+	if !hasCode(errs, CodeCyclicSubgraphDependency) {
+		t.Errorf("expected CYCLIC_SUBGRAPH_DEPENDENCY for indirect cycle, got %+v", errs)
+	}
+}
+
+func TestValidatePlayClip_MissingClipID(t *testing.T) {
+	c := &Container{
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "s", Kind: "Start"},
+				{ID: "p", Kind: "PlayClip", Config: map[string]any{}},
+				{ID: "p2", Kind: "PlayClip", Config: map[string]any{"clipID": ""}},
+				{ID: "p3", Kind: "PlayClip", Config: map[string]any{"clipID": "abc"}},
+			},
+		},
+	}
+	errs := ValidateContainer(c)
+	found := 0
+	for _, e := range errs {
+		if e.Code == CodePlayClipNoClipID {
+			found++
+		}
+	}
+	if found != 2 {
+		t.Fatalf("期望 PLAYCLIP_NO_CLIP_ID 报 2 次, 实际 %d (errs: %+v)", found, errs)
+	}
+}
+
+func TestValidator_HappyPath(t *testing.T) {
+	c := minContainer()
+	errs := ValidateContainer(c)
+	if hasCode(errs, CodeNoStart) || hasCode(errs, CodeMultipleStarts) || hasCode(errs, CodeDanglingEdge) {
+		t.Errorf("min container should be clean, got %+v", errs)
+	}
+}

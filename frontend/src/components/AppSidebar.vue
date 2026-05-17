@@ -106,12 +106,12 @@ const activeClass = 'bg-elevated/60 text-highlighted font-medium'
 const inactiveClass = 'text-muted hover:bg-elevated/40 hover:text-highlighted'
 
 // automation items：4 个长跑 bot 来自 registry + 战斗（hotkey-driven 单独 append）+
-// 任务（containers/actions/templates 三合一）+ 计划（schedule trigger 列表）
-// 注：原 /actions 入口删除，所有 Action 操作走"任务 → 动作 tab"统一入口
+// 容器 + 计划（schedule trigger 列表）
 const automationItems = [
   ...BOTS.map((b) => ({ label: b.label, to: b.route, icon: b.icon, store: b.kind })),
   { label: '战斗', to: '/battle', icon: 'i-tabler-swords', store: 'battle' },
-  { label: '任务', to: '/tasks', icon: 'i-tabler-package', store: '' },
+  { label: '容器', to: '/containers', icon: 'i-tabler-package', store: '' },
+  { label: '库', to: '/library', icon: 'i-tabler-books', store: '' },
   { label: '计划', to: '/schedules', icon: 'i-tabler-clock', store: '' },
 ]
 

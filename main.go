@@ -16,19 +16,17 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"yhbox/internal/services"
-	"yhbox/internal/services/actions"
-	"yhbox/internal/services/actions/recording"
-	actionsruntime "yhbox/internal/services/actions/runtime"
 	"yhbox/internal/services/calibration"
 	"yhbox/internal/services/tools"
 	"yhbox/internal/services/container"
 	containerruntime "yhbox/internal/services/container/runtime"
+	"yhbox/internal/services/container/library"
 	"yhbox/internal/services/execution"
+	"yhbox/internal/services/inputclip/backends"
 	"yhbox/internal/services/schedule"
 	"yhbox/internal/bots"
 	"yhbox/internal/hotkey"
 	"yhbox/internal/services/template"
-	"yhbox/pkg/actiontransform"
 	"yhbox/pkg/botcore"
 	"yhbox/pkg/capture"
 	"yhbox/pkg/locale"
@@ -58,6 +56,15 @@ func main() {
 	// 日志栈：zerolog → LogSink → wails3 Event.Emit
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
+
+	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
+	// → 新 layout（containers/<id>/{container.json,subgraphs/,templates/} + library/）。
+	// 见 docs/superpowers/specs/2026-05-16-v2-architecture-subgraph-library-design.md §阶段 0。
+	// 检测信号：bin/data/actions/ 存在 或 bin/data/templates/_index.json 存在（旧全局模板库）。
+	// 命中即 rename 整个 bin/data 到 bin/data.legacy-2026-05-16/。Best-effort，失败仅日志。
+	backupLegacyDataIfNeeded(rootLog)
+
+	ensureV2DataLayout(rootLog)
 
 	// App 协调器（不暴露 JS）
 	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
@@ -150,9 +157,9 @@ func main() {
 	// 长跑型 bot service：从 registry 拿元数据，统一构造
 	botMetas := services.RegisteredBots()
 	botSvcs := make([]services.BotService, 0, len(botMetas))
-	// cap = bot 数 + 11 个固定 services（battle/settings/game/action/hotkey/template/
+	// cap = bot 数 + 10 个固定 services（battle/settings/game/hotkey/template/
 	// container/schedule/calibration/tools/+1 spare）
-	wailsServices := make([]application.Service, 0, len(botMetas)+11)
+	wailsServices := make([]application.Service, 0, len(botMetas)+10)
 	for _, b := range botMetas {
 		svc, ws := b.Construct(app)
 		botSvcs = append(botSvcs, svc)
@@ -177,70 +184,16 @@ func main() {
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
 	}
 
-	// 启动期 v1 数据检测：含已废字段（hotkey/loopMode/...）的 action.json → wipe 整 dir。
-	// 早期阶段无兼容性，用户已被告知重置。
-	actionsRoot := filepath.Join(dataDir, "actions")
-	if wiped, err := actions.WipeV1Data(actionsRoot); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "STARTUP").Msg("WipeV1Data 失败")
-	} else if wiped {
-		rootLog.Warn().Str("tag", "STARTUP").Msg("检测到 v1 actions 数据，已 wipe；请在 Container 编辑器内重新录制")
-	}
-	actionStore := actions.NewStore(actionsRoot)
-
-	// actionSvc 用占位 nil 提前构造引用 —— 真正构造放到 runner emit 回调能拿到 actionSvc 后。
-	// Runner emit 回调里要调 actionSvc.OnRunnerEvent 释放 lease；用闭包 + 后赋值的模式。
-	var actionSvc *actions.Service
-	runner := actionsruntime.NewRunner(
-		&actionsruntime.Win32Driver{
-			ActivateDelay:     30 * time.Millisecond,
-			CursorSettleDelay: 20 * time.Millisecond,
-		},
-		func(ev actionsruntime.EventActionState) {
-			// 1) 推到前端
-			app.Emit("action:state", ev)
-			// 2) 通知 service 释放 lease
-			if actionSvc != nil {
-				actionSvc.OnRunnerEvent(ev.ActionID, ev.Status)
-			}
-		},
-	)
-	actionSvc = actions.NewService(
-		actionStore,
-		&actionRunnerAdapter{r: runner},
-		&actionBotGateAdapter{app: app},
-		&actionGameProviderAdapter{app: app},
-	)
-	runner.SetLocalMouseCounts360Getter(func() int {
-		return app.SnapshotSettings().UI.MouseCounts360
-	})
-
-	// Recorder：构造 + emit 回调推前端 (action:recorder-event)。
-	// 录制 toggle 热键固定 Ctrl+Shift+R（v1 不可改；以后从 settings 读再说）。
-	recorder := recording.NewRecorder(func(ev actiontransform.Event) {
-		app.Emit("action:recorder-event", ev)
-	})
-	recorder.SetMouseCounts360Getter(func() int {
-		return app.SnapshotSettings().UI.MouseCounts360
-	})
-	const (
-		toggleMods = recording.MOD_CONTROL | recording.MOD_SHIFT
-		toggleVK   = uint32('R')
-	)
-	actionSvc.SetRecorder(&actionRecorderAdapter{r: recorder}, toggleMods, toggleVK)
-	actionSvc.SetEmit(func(name string, data any) { app.Emit(name, data) })
-
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
-	// 系统热键 (recorder-toggle / stop-action) + per-action 热键全部走这条路。
+	// 系统热键 (execution-stop) + container 热键全部走这条路。
 	// 用户可在 Settings → 快捷键 tab 改任意一条，hot reload 立即生效。
 	hotkeyRegistry := hotkey.NewHotkeyRegistry(sharedHotkeys)
 	hotkeyRegistry.SetCallbacks(
-		// onActionHotkeyChange：Action 不再绑热键（容器架构下 hotkey 在 container 层）；
-		// Container 接管后改为写回 container.Hotkey。registry 允许 nil。
+		// onActionHotkeyChange：v2 不再有 per-action hotkey，允许 nil。
 		nil,
 		// onSystemHotkeyChange：写回 settings.UI.ActionStopHotkey
-		// system.recorder-toggle 当前不持久化（hardcode "Ctrl+Shift+R"，重启复位）
 		func(key, newStr string) error {
-			if key == "system.stop-action" {
+			if key == "system.execution-stop" {
 				cur := app.SnapshotSettings()
 				cur.UI.ActionStopHotkey = newStr
 				app.SwapSettings(cur)
@@ -252,17 +205,6 @@ func main() {
 		func() { app.Emit("hotkey:changed", map[string]any{}) },
 	)
 
-	// 注册系统热键：录制 toggle
-	if err := hotkeyRegistry.Register("system.recorder-toggle", hotkey.HotkeySourceSystem,
-		"录制 toggle", "Ctrl+Shift+R", "",
-		func() { app.Emit("action:recorder-toggle", map[string]any{}) }); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("注册录制 toggle 热键失败")
-	}
-
-	// 全局强停热键（默认 Ctrl+Shift+F9）下面跟 system.execution-stop 一起注册。
-	// 单一 hotkey 同时停 action 直接 run + execQueue + worker——避免双注册（Win32
-	// RegisterHotKey 重复 mod+vk 会拒绝第二次，老版本两条都用 F9 导致第二条静默失败）。
-
 	// 暴露 HotkeyService RPC 给前端
 	hotkeySvc := hotkey.NewHotkeyService(hotkeyRegistry)
 
@@ -271,7 +213,17 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("template store init")
 	}
+	// v2 Task 1.21 原计划把 TemplateService 从 Bind 移除（迁移到 ContainerService/LibraryService），
+	// 但 templates UI 完整重做属于 Plan B/C 范围，先保留 Bind 让现有 UI 继续工作。
+	// Plan B 重做模板 UI 后再次降级。
 	templateSvc := template.NewService(templateStore, &templateCaptureAdapter{app: app})
+
+	// v2: 库 store + service (Task 1.22)
+	libStore, err := library.NewStore(filepath.Join(dataDir, "library"))
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("library store init")
+	}
+	librarySvc := library.NewService(libStore)
 
 	containerStore, err := container.NewStore(filepath.Join(dataDir, "containers"))
 	if err != nil {
@@ -291,11 +243,23 @@ func main() {
 	execQueue := execution.NewExecutionQueue()
 	inputBus := execution.NewInputBus()
 
-	// 真模板匹配 + 真 Action 调用 + 真输入驱动 + 真颜色检测
+	// 真模板匹配 + 真输入驱动 + 真颜色检测
 	templateMatcher := &templateMatcherAdapter{app: app, tplStore: templateStore}
-	actionInvoker := &actionInvokerAdapter{app: app, store: actionStore, bus: inputBus}
 	containerInputDrv := newContainerInputDriver(app)
 	containerColor := &containerColorAdapter{app: app}
+
+	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
+	clipSvc, libClipSvc := newInputClipServices(dataDir)
+
+	// 混合后端: PostMessage 路径 (键盘/鼠标按钮) + SendInput (RawDelta 相机).
+	// 异环 IMC 不接 SendInput 键盘 — 必须 PostMessage WM_KEYDOWN. hwndGetter 拿当前游戏 hwnd.
+	clipInputBackend := backends.NewSendInputBackend(func() uintptr {
+		g := app.Game()
+		if g == nil || !g.OK {
+			return 0
+		}
+		return uintptr(g.HWND)
+	})
 
 	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
 	emitForRuntime := func(name string, data any) { app.Emit(name, data) }
@@ -314,7 +278,11 @@ func main() {
 				time.Sleep(150 * time.Millisecond) // 让窗口完成 restore + 焦点切换
 			}
 		}
-		rt := containerruntime.NewRuntimeContext(&c, inputBus, templateMatcher, actionInvoker, containerInputDrv, containerColor, emitForRuntime)
+		rt := containerruntime.NewRuntimeContext(
+			&c, inputBus, templateMatcher, containerInputDrv, containerColor,
+			newGameProviderAdapter(app), emitForRuntime,
+			clipSvc, clipInputBackend, app.Settings().UI.MouseCounts360,
+		)
 		r := containerruntime.NewContainerRunner(rt)
 		return r.Run(ctx)
 	}
@@ -340,9 +308,8 @@ func main() {
 	// Schedule CRUD 后重注册 cron / hotkey trigger
 	scheduleSvc.SetOnChange(scheduleDaemon.Reload)
 
-	// 全局强停热键：同时停 action runner（直接调 RunOnce 的回放）、清 execution
-	// queue、cancel 当前 container worker run。设置面板里 UI.ActionStopHotkey 改
-	// 这一条；空 → 默认 F9。
+	// 全局强停热键：清 execution queue + cancel 当前 container worker run。
+	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
 	stopAllHk := strings.TrimSpace(app.Settings().UI.ActionStopHotkey)
 	if stopAllHk == "" {
 		stopAllHk = "Ctrl+Shift+F9"
@@ -350,8 +317,6 @@ func main() {
 	if err := hotkeyRegistry.Register("system.execution-stop", hotkey.HotkeySourceSystem,
 		"强停所有运行", stopAllHk, "",
 		func() {
-			// action 直跑（不走 queue 的）—— actionSvc.StopRunning 是 noop-safe
-			go func() { _ = actionSvc.StopRunning() }()
 			execQueue.CancelAll()
 			worker.CancelCurrent()
 		}); err != nil {
@@ -359,6 +324,12 @@ func main() {
 	}
 
 	calibrationSvc := calibration.NewService()
+
+	// clipSvc / libClipSvc 提前构造 (runFunc 注入 PlayClip 用 ClipResolver).
+	// 容器级走 wails RPC 给前端 (录制产物 CRUD); 库级暂保留构造, 后续 library 集成挂上.
+
+	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
+	recordingSvc := newRecordingService(app, clipSvc)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
@@ -379,13 +350,15 @@ func main() {
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
 		application.NewService(gameSvc),
-		application.NewService(actionSvc),
 		application.NewService(hotkeySvc),
 		application.NewService(templateSvc),
 		application.NewService(containerSvc),
+		application.NewService(librarySvc),
 		application.NewService(scheduleSvc),
 		application.NewService(calibrationSvc),
+		application.NewService(recordingSvc),
 		application.NewService(toolsSvc),
+		application.NewService(clipSvc),
 	)
 	_ = scheduleDaemon // 防 import 未用 + 留扩展位
 
@@ -400,8 +373,17 @@ func main() {
 	})
 	app.AttachWailsApp(wailsApp)
 
-	// 注入编辑器独立窗口的开窗器（wails3 多窗口 API）
-	actionSvc.SetWindowOpener(newActionWindowAdapter(wailsApp))
+	// v2 Task 1.22: 注入 WindowOpener adapter + library emit
+	containerSvc.SetWindowOpener(newContainerWindowAdapter(wailsApp))
+	librarySvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	librarySvc.SetContainerStoreAccess(&libraryContainerAccessAdapter{store: containerStore})
+	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落盘 InputClip 走这条)
+	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+
+	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
+	clipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	libClipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+
 	// tools 服务也是 wailsApp 创建后才能用（要开新窗口）
 	toolsSvc.SetApp(wailsApp)
 
@@ -421,7 +403,6 @@ func main() {
 	application.RegisterEvent[services.BattleStateEvent](services.EventBattleState)
 	application.RegisterEvent[services.GameStatusEvent](services.EventGameStatus)
 	application.RegisterEvent[services.LogLinesEvent](services.EventLogLines)
-	application.RegisterEvent[actionsruntime.EventActionState]("action:state")
 
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window
@@ -501,4 +482,62 @@ func main() {
 
 	// 退出钩子（app.Shutdown 内部统一停所有 bot service）
 	app.Shutdown()
+}
+
+// backupLegacyDataIfNeeded 检测旧 v1 数据布局，命中则整体 rename 备份。
+// 调用点：main() 启动早期，settings/services 初始化之前。
+func backupLegacyDataIfNeeded(log zerolog.Logger) {
+	exeDir, err := os.Executable()
+	if err != nil {
+		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 legacy 数据备份")
+		return
+	}
+	dataRoot := filepath.Join(filepath.Dir(exeDir), "data")
+	actionsDir := filepath.Join(dataRoot, "actions")
+	tplIndex := filepath.Join(dataRoot, "templates", "_index.json")
+
+	needBackup := false
+	if st, err := os.Stat(actionsDir); err == nil && st.IsDir() {
+		needBackup = true
+	}
+	if _, err := os.Stat(tplIndex); err == nil {
+		needBackup = true
+	}
+	if !needBackup {
+		return
+	}
+
+	backupDir := filepath.Join(filepath.Dir(exeDir), "data.legacy-2026-05-16")
+	if _, err := os.Stat(backupDir); err == nil {
+		// 已经备份过一次就不要二次覆盖
+		log.Info().Str("tag", "MIGRATE").Str("path", backupDir).Msg("legacy 备份目录已存在，跳过")
+		return
+	}
+	if err := os.Rename(dataRoot, backupDir); err != nil {
+		log.Error().Err(err).Str("tag", "MIGRATE").Msg("rename data → data.legacy-2026-05-16 失败")
+		return
+	}
+	log.Info().Str("tag", "MIGRATE").Str("backup", backupDir).Msg("v1 数据已备份；从空 layout 重新起步")
+}
+
+// ensureV2DataLayout 保证 v2 新数据 layout 的 4 个目录存在。
+// 调用点：main()，紧跟 backupLegacyDataIfNeeded 之后。
+func ensureV2DataLayout(log zerolog.Logger) {
+	exeDir, err := os.Executable()
+	if err != nil {
+		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 v2 layout 创建")
+		return
+	}
+	base := filepath.Join(filepath.Dir(exeDir), "data")
+	dirs := []string{
+		filepath.Join(base, "containers"),
+		filepath.Join(base, "library"),
+		filepath.Join(base, "library", "subgraphs"),
+		filepath.Join(base, "library", "templates"),
+	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			log.Error().Err(err).Str("tag", "MIGRATE").Str("dir", d).Msg("mkdir 失败")
+		}
+	}
 }

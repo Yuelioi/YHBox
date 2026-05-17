@@ -65,10 +65,19 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 }
 
 // ContainerRunner 跑一个 container 节点图（token dispatch loop）。
+//
+// FUTURE-WORK (spec §11): 当前 dispatch 是 preemptive — 单 goroutine + ctx.Done 检查间隔
+// 决定响应性. 节点内长任务 (如 WaitTemplate 默认 30s timeout) 无法中途响应高优先级
+// 中断 (热键 Stop 要等节点 return). 长期应换 cooperative scheduler: 节点要按 budget 主动
+// yield ((rt.Tick(); if budget exceeded { return CONTINUE })), runner 在 yield 点检查
+// 中断 / 优先级队列 / cancellation. 收益: 1) Stop 真·瞬停 (<5ms); 2) 多容器并发跑能公平
+// 调度而不是抢 CPU; 3) 资源限制 (单容器 CPU/帧抓取配额). 改的时机: 用户开始抱怨"停止
+// 慢"或"两个容器一起跑卡". 注意改造范围大, 14+ 节点 exec 函数都要加 yield 点.
 type ContainerRunner struct {
-	rt       *RuntimeContext
+	rt        *RuntimeContext
 	nodesByID map[string]*container.GraphNode
-	edges    *edgeIndex
+	edges     *edgeIndex
+	state     *ExecState
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
@@ -81,7 +90,28 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		n := &rt.Container.Graph.Nodes[i]
 		r.nodesByID[n.ID] = n
 	}
+	r.state = NewExecState(rt.Container.ID, snapshotMainCalibCounts(rt.Container))
 	return r
+}
+
+// snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot。
+// 没节点 / counts360=0 → 返 0（runtime 不缩放）。v2 spec §2.7。
+func snapshotMainCalibCounts(c *container.Container) int {
+	for _, n := range c.Graph.Nodes {
+		if n.Kind == "MouseCalibration" {
+			if v, ok := n.Config["counts360"]; ok {
+				switch x := v.(type) {
+				case int:
+					return x
+				case int64:
+					return int(x)
+				case float64:
+					return int(x)
+				}
+			}
+		}
+	}
+	return 0
 }
 
 // Run 启动 token dispatch：找 Start → 入队 → 主循环。
@@ -197,7 +227,32 @@ func (r *ContainerRunner) configExpr(node *container.GraphNode, key string) (exp
 	if err != nil {
 		return nil, fmt.Errorf("node %s.%s: parse %q: %w", node.ID, key, s, err)
 	}
-	return expr.Eval(ast, r.rt.Env())
+	return expr.Eval(ast, r.env())
+}
+
+// env 把 ExecState 的 LocalVars 链叠加到 rt.Env() 上层（Gemini 雷点三）。
+// $vars.X 解析顺序：当前 frame.LocalVars → parent.LocalVars → ... → rt.vars。
+// 其它命名空间（$params / $sys）原样走 rt.Env()。
+func (r *ContainerRunner) env() expr.Env {
+	return &runnerEnv{rt: r.rt, state: r.state}
+}
+
+type runnerEnv struct {
+	rt    *RuntimeContext
+	state *ExecState
+}
+
+func (e *runnerEnv) Get(path string) (expr.Value, error) {
+	// 仅 $vars.X 走 frame-local 优先；$params / $sys 直接转给 rt.Env。
+	if len(path) > 6 && path[:6] == "$vars." {
+		name := path[6:]
+		if v, ok := e.state.ResolveVar(name); ok {
+			// LocalVars 命中：转换为 expr.Value 类型（Set 时存什么类型就拿什么类型）
+			return v, nil
+		}
+		// 兜底走 rt.vars
+	}
+	return e.rt.Env().Get(path)
 }
 
 // configString 拿 config[key] 当字面量字符串（不当表达式 parse）。

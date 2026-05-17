@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -58,11 +59,56 @@ func (s *Store) load() error {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
+			// 文件存在但读取失败 → 标 incompatible，不阻断启动
+			s.byID[ent.Name()] = Container{
+				ID:                 ent.Name(),
+				Name:               ent.Name(),
+				Status:             StatusIncompatible,
+				IncompatibleReason: fmt.Sprintf("读取失败：%v", err),
+			}
+			continue
 		}
 		var c Container
 		if err := json.Unmarshal(b, &c); err != nil {
-			return fmt.Errorf("parse %s: %w", path, err)
+			s.byID[ent.Name()] = Container{
+				ID:                 ent.Name(),
+				Name:               ent.Name(),
+				Status:             StatusIncompatible,
+				IncompatibleReason: fmt.Sprintf("JSON 解析失败：%v", err),
+			}
+			continue
+		}
+		// Graph.Version 检查
+		// > GraphSchemaVersion → 未来版本（真 incompatible）
+		// == 0 → 旧数据（v1 / Create 早期 bug 漏写），auto-upgrade 不阻塞使用
+		switch {
+		case c.Graph.Version > GraphSchemaVersion:
+			c.Status = StatusIncompatible
+			c.IncompatibleReason = fmt.Sprintf("graph version=%d 不支持（当前 %d）", c.Graph.Version, GraphSchemaVersion)
+		case c.Graph.Version == 0:
+			c.Graph.Version = GraphSchemaVersion
+			if c.Graph.ID == "" {
+				c.Graph.ID = "g-" + ent.Name()
+			}
+		}
+		// 加载该容器的所有 subgraph
+		sgDir := filepath.Join(s.root, ent.Name(), "subgraphs")
+		if sgEntries, err := os.ReadDir(sgDir); err == nil {
+			for _, sgEnt := range sgEntries {
+				if sgEnt.IsDir() || !strings.HasSuffix(sgEnt.Name(), ".json") {
+					continue
+				}
+				sgB, err := os.ReadFile(filepath.Join(sgDir, sgEnt.Name()))
+				if err != nil {
+					continue
+				}
+				var sg Subgraph
+				if err := json.Unmarshal(sgB, &sg); err != nil {
+					continue
+				}
+				normalizeSubgraph(&sg)
+				c.Subgraphs = append(c.Subgraphs, sg)
+			}
 		}
 		s.byID[c.ID] = c
 	}
@@ -92,6 +138,12 @@ func (s *Store) Save(c *Container) error {
 	dir := filepath.Join(s.root, local.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
+	}
+	// v2：每个容器 1 个 subgraphs/ 子目录 + 1 个 templates/ 子目录（即使空也存在）
+	for _, sub := range []string{"subgraphs", "templates"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			return err
+		}
 	}
 	b, err := json.MarshalIndent(local, "", "  ")
 	if err != nil {

@@ -16,6 +16,7 @@ func TestTemplateMeta_JSONRoundTrip(t *testing.T) {
 		Height:             32,
 		Region:             [4]float32{0.85, 0.92, 0.05, 0.04},
 		CreatedAt:          mustTime("2026-05-15T05:00:00Z"),
+		Origin:             TemplateOrigin{Kind: OriginKindScreenshot},
 	}
 	b, err := json.Marshal(src)
 	if err != nil {
@@ -25,7 +26,12 @@ func TestTemplateMeta_JSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(b, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got != src {
+	// Compare field-by-field since Tags slice makes == comparison fail
+	if got.Name != src.Name || got.Description != src.Description ||
+		got.RecordedResolution != src.RecordedResolution ||
+		got.SHA256 != src.SHA256 || got.Width != src.Width ||
+		got.Height != src.Height || got.Region != src.Region ||
+		got.CreatedAt != src.CreatedAt || got.Origin != src.Origin {
 		t.Errorf("round-trip mismatch:\n  want %#v\n  got  %#v", src, got)
 	}
 }

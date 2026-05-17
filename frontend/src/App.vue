@@ -1,5 +1,5 @@
 <template>
-  <UApp>
+  <UApp :toaster="{ position: 'top-center', duration: 2500 }">
     <!-- Standalone 子窗口（独立编辑器等）：跳过整个主壳，直接渲染 router-view -->
     <div v-if="isStandalone" class="h-screen overflow-hidden bg-default">
       <router-view />
@@ -45,34 +45,72 @@
       <!-- Global status bar -->
       <AppStatusBar />
 
-      <!-- 全局浮窗：action 在跑时右下角显示，任何 tab 都可见 + 一键停 -->
-      <ActionRunningPill />
-    </div>
+      </div>
 
-    <!-- 全局 RecorderDialog：录制/倒计时任何路由都可见（包括 standalone 子窗） -->
-    <RecorderDialog v-if="actionsStore.recording || actionsStore.countdown !== null" />
+    <!-- 全局 CalibratorModal：供 NodeInspector MouseCalibration 节点触发 -->
+    <CalibratorModal v-model:open="globalCalibOpen" @save="onGlobalCalibSave" />
+
+    <!-- 全局 ConfirmDialog：useConfirm() Promise API 触发 -->
+    <ConfirmDialog
+      v-if="confirmState.opts"
+      :open="confirmState.open"
+      v-bind="confirmState.opts"
+      @update:open="onConfirmDialogUpdateOpen"
+      @resolve="resolveActive"
+    />
   </UApp>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTitleBar from './components/AppTitleBar.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import LogPanel from './components/LogPanel.vue'
 import AppStatusBar from './components/AppStatusBar.vue'
-import ActionRunningPill from './components/actions/ActionRunningPill.vue'
-import RecorderDialog from './components/actions/RecorderDialog.vue'
+import CalibratorModal from './components/calibration/CalibratorModal.vue'
+import ConfirmDialog from './components/common/ConfirmDialog.vue'
+import { useConfirm } from './composables/useConfirm'
 import { useSettingsStore } from './stores/settings'
 import { useLogStore } from './stores/log'
-import { useActionsStore } from './stores/actions'
 import { isBotRoute } from './router'
 import { setLocale, type Locale } from './i18n'
 
 const route = useRoute()
 const settingsStore = useSettingsStore()
 const logStore = useLogStore()
-const actionsStore = useActionsStore()
+
+const globalCalibOpen = ref(false)
+let pendingSave: ((counts: number) => void) | null = null
+
+// 全局 ConfirmDialog 单例 state
+const { state: confirmState, resolveActive } = useConfirm()
+function onConfirmDialogUpdateOpen(v: boolean) {
+  if (!v && confirmState.opts) {
+    // 关闭 = 取消（boolean: false / input: ''）
+    resolveActive(confirmState.opts.inputDefault !== undefined ? '' : false)
+  }
+}
+
+function handleOpenEvent(e: Event) {
+  const detail = (e as CustomEvent).detail
+  pendingSave = detail?.onSave ?? null
+  globalCalibOpen.value = true
+}
+
+function onGlobalCalibSave(counts: number) {
+  if (pendingSave) {
+    pendingSave(counts)
+    pendingSave = null
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('open-calibrator-modal', handleOpenEvent)
+})
+onUnmounted(() => {
+  window.removeEventListener('open-calibrator-modal', handleOpenEvent)
+})
 
 // route.meta.standalone === true → 子窗口模式（不包主壳）
 const isStandalone = computed(() => !!route.meta.standalone)

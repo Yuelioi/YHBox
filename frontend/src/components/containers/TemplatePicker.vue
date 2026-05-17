@@ -13,7 +13,7 @@
           <img
             v-if="foundThumb"
             :src="foundThumb"
-            class="size-6 rounded object-contain bg-zinc-900/60 shrink-0"
+            class="size-6 rounded object-contain bg-elevated shrink-0"
             alt=""
           />
           <UIcon
@@ -80,11 +80,11 @@
                 <img
                   v-if="thumbCache[k]"
                   :src="thumbCache[k]"
-                  class="size-8 rounded object-contain bg-zinc-900/60 shrink-0"
+                  class="size-8 rounded object-contain bg-elevated shrink-0"
                 />
                 <div
                   v-else
-                  class="size-8 rounded bg-zinc-900/60 flex items-center justify-center shrink-0"
+                  class="size-8 rounded bg-elevated flex items-center justify-center shrink-0"
                 >
                   <UIcon name="i-tabler-photo" class="size-3.5 text-dimmed" />
                 </div>

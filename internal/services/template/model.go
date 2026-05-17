@@ -1,30 +1,42 @@
-// Package template 管理全局模板库 data/assets/templates/。
+// Package template 管理模板（PNG + meta）。
 //
-// 模板按 path/name 命名空间组织：assets/templates/<path>/<name>.png + _index.json。
-// 与之前 Phase 1 的 per-action 模板（actions/<id>/templates/）相比：
-//   - 跨 Container 共享同一份模板
-//   - 元数据集中在 _index.json
-//   - 文件 key = path/name（斜杠分目录）
+// v2 spec §1.5：top-level TemplateService 取消，改为 ContainerService（容器内 templates/）
+// 和 LibraryService（库 templates/）各自托管。本包降级为基础库：PNG IO / 哈希 / meta 序列化。
 package template
 
 import "time"
 
-// TemplateMeta 单个模板的元数据。key 在 TemplateIndex.Templates 里。
-//
-// recordedResolution: 截图时屏幕分辨率，给将来的 auto-scale 用；v1 仅显示。
-// region: 截图源 ROI（ratio xywh），UI 大图预览用做高亮框。
-type TemplateMeta struct {
-	Name               string     `json:"name"`
-	Description        string     `json:"description,omitempty"`
-	RecordedResolution [2]int     `json:"recordedResolution"`
-	SHA256             string     `json:"sha256"`
-	Width              int        `json:"width"`
-	Height             int        `json:"height"`
-	Region             [4]float32 `json:"region"`
-	CreatedAt          time.Time  `json:"createdAt"`
+// OriginKind 模板来源（v2 spec §1.5 / GPT 第三轮）。
+// 解决 copy-on-use 后用户问"这张图哪来的"的溯源问题。
+const (
+	OriginKindScreenshot = "screenshot" // 本机 ScreenPicker 截的
+	OriginKindLibrary    = "library"    // 从 library/templates/ 拖入
+	OriginKindImported   = "imported"   // 从某个 library subgraph 的 staging 夹带过来
+	OriginKindEmbedded   = "embedded"   // v1 预留，未来"嵌入到 subgraph json"用
+)
+
+// TemplateOrigin 来源追踪。新建空白时默认 Kind = screenshot, SourceID = ""。
+type TemplateOrigin struct {
+	Kind     string `json:"kind"`
+	SourceID string `json:"sourceID,omitempty"`
 }
 
-// TemplateIndex 全部模板的索引。持久化到 data/assets/templates/_index.json。
+// TemplateMeta 单个模板的元数据。key 由外层 map 持有。
+// v2 在 v1 基础上加 Tags + Origin。
+type TemplateMeta struct {
+	Name               string         `json:"name"`
+	Description        string         `json:"description,omitempty"`
+	RecordedResolution [2]int         `json:"recordedResolution"`
+	SHA256             string         `json:"sha256"`
+	Width              int            `json:"width"`
+	Height             int            `json:"height"`
+	Region             [4]float32     `json:"region"`
+	CreatedAt          time.Time      `json:"createdAt"`
+	Tags               []string       `json:"tags,omitempty"` // 仅库 template 用；容器内 template 留空
+	Origin             TemplateOrigin `json:"origin"`         // 必填；新截图默认 {screenshot,""}
+}
+
+// TemplateIndex 模板索引。容器内 templates 也用这个结构（每个容器一份索引）。
 type TemplateIndex struct {
 	SchemaVersion int                     `json:"schemaVersion"`
 	Templates     map[string]TemplateMeta `json:"templates"`

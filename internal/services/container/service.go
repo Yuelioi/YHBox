@@ -3,8 +3,11 @@ package container
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 )
 
 // Runner Container 运行入口。main.go 注入：把 RunOnce 转成"enqueue 单 target run"。
@@ -17,11 +20,18 @@ type Runner interface {
 // ChangeListener 容器 CRUD 后回调，给 hotkey registry / schedule daemon 重新注册用。
 type ChangeListener func()
 
+// WindowOpener 用于开/聚焦容器编辑器独立子窗口。adapter 在 main.go / wire_container.go 里注入。
+// 同 containerID 多次调用 → focus 已有窗口、不开第二个。
+type WindowOpener interface {
+	OpenEditor(containerID string) error
+}
+
 // Service wails3 RPC 入口。
 type Service struct {
 	store    *Store
 	runner   Runner
 	onChange ChangeListener
+	windows  WindowOpener
 }
 
 func NewService(store *Store) *Service {
@@ -33,6 +43,24 @@ func (s *Service) SetRunner(r Runner) { s.runner = r }
 
 // SetOnChange 启动期 main.go 注入。CRUD 后调一次（保存成功才调）。
 func (s *Service) SetOnChange(f ChangeListener) { s.onChange = f }
+
+// SetWindowOpener main.go 启动时注入。前端 OpenEditorWindow 调用前必须先注入；
+// 没注入时 OpenEditorWindow 返清晰错误。
+func (s *Service) SetWindowOpener(w WindowOpener) {
+	s.windows = w
+}
+
+// OpenEditorWindow 给前端 RPC 用：打开 containerID 对应的容器编辑器独立窗口。
+// 同 containerID 多次调用走 focus 现有窗口，不会开第二个。
+func (s *Service) OpenEditorWindow(containerID string) error {
+	if _, ok := s.store.Get(containerID); !ok {
+		return fmt.Errorf("container %q not found", containerID)
+	}
+	if s.windows == nil {
+		return fmt.Errorf("WindowOpener 未注入（main.go 启动期 SetWindowOpener 调用了吗？）")
+	}
+	return s.windows.OpenEditor(containerID)
+}
 
 func (s *Service) emitChange() {
 	if s.onChange != nil {
@@ -62,9 +90,11 @@ func (s *Service) Create(name string) (Container, error) {
 		ID:            uuid.NewString(),
 		Name:          name,
 		Graph: Graph{
+			ID:      uuid.NewString(),
+			Version: GraphSchemaVersion,
 			Nodes: []GraphNode{
-				{ID: startID, Kind: "Start", X: 100, Y: 120, Config: map[string]any{}},
-				{ID: stopID, Kind: "Stop", X: 500, Y: 120, Config: map[string]any{}},
+				{ID: startID, Kind: "Start", X: 100, Y: 120, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
+				{ID: stopID, Kind: "Stop", X: 500, Y: 120, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
 			},
 			Edges: []GraphEdge{
 				{From: startID + ".out", To: stopID + ".in"},
@@ -104,6 +134,19 @@ func (s *Service) Delete(id string) error {
 	return nil
 }
 
+// ValidateContainerByID 给前端用: 拿持久化版本跑校验, 返结构化 ValidationError 列表
+// (不抛 error). 前端 "检查" 按钮 + 试运行前主动跑都走这条. 区分于 Validate() 包装函数:
+// 那个返第一个 error 级 message 字符串, 信息丢失;这个返全部错 + warning, UI 能列表展示.
+func (s *Service) ValidateContainerByID(id string) []ValidationError {
+	c, ok := s.store.Get(id)
+	if !ok {
+		return []ValidationError{
+			{Severity: SeverityError, Code: "CONTAINER_NOT_FOUND", Message: fmt.Sprintf("container %q not found", id)},
+		}
+	}
+	return ValidateContainer(&c)
+}
+
 // Run 立即跑一次（前端 ▶ 按钮）。manual source 入 ExecutionQueue 单 target run。
 func (s *Service) Run(id string) error {
 	if _, ok := s.store.Get(id); !ok {
@@ -121,4 +164,109 @@ func (s *Service) StopAll() error {
 		return fmt.Errorf("runner not injected")
 	}
 	return s.runner.StopAll()
+}
+
+// === Subgraph RPC（暴露给前端） ===
+
+// ListSubgraphs 列容器的全部子图。
+func (s *Service) ListSubgraphs(containerID string) []Subgraph {
+	return s.store.ListSubgraphs(containerID)
+}
+
+// GetSubgraph 拿单个子图。
+func (s *Service) GetSubgraph(containerID, sgID string) (Subgraph, error) {
+	sg, ok := s.store.GetSubgraph(containerID, sgID)
+	if !ok {
+		return Subgraph{}, fmt.Errorf("subgraph %q not found in container %q", sgID, containerID)
+	}
+	return sg, nil
+}
+
+// CreateSubgraph 新建 subgraph，自动分配 UUID id。
+// 预填 SubgraphInput + SubgraphOutput 节点：v2 validator 要求每个 sg 必须有 ≥1 SubgraphOutput，
+// 且 SubgraphOutput.config.declID 必须挂在 OutputPins 的某个 ID 上（runtime 才能 dispatch 父图）。
+// 不预填 → 用户每建一个子图都会撞 EMPTY_SUBGRAPH_OUTPUT。
+func (s *Service) CreateSubgraph(containerID, label string) (Subgraph, error) {
+	declID := uuid.NewString()
+	now := time.Now().UTC()
+	sg := Subgraph{
+		ID:    "sg-" + uuid.NewString()[:8],
+		Label: label,
+		Graph: Graph{
+			ID:      uuid.NewString(),
+			Version: GraphSchemaVersion,
+			Nodes: []GraphNode{
+				{ID: "in", Kind: "SubgraphInput", X: 80, Y: 160, CreatedAt: now},
+				{ID: "out", Kind: "SubgraphOutput", X: 420, Y: 160,
+					Config: map[string]any{"declID": declID}, CreatedAt: now},
+			},
+		},
+		OutputPins: []SubgraphOutputDecl{{ID: declID, Name: "done"}},
+		CreatedAt:  now,
+	}
+	if err := s.store.SaveSubgraph(containerID, &sg); err != nil {
+		return Subgraph{}, err
+	}
+	s.emitChange()
+	return sg, nil
+}
+
+// UpdateSubgraph 接 RFC7386 merge patch。
+func (s *Service) UpdateSubgraph(containerID, sgID, patchJSON string) error {
+	cur, ok := s.store.GetSubgraph(containerID, sgID)
+	if !ok {
+		return fmt.Errorf("subgraph %q not found", sgID)
+	}
+	curJSON, err := json.Marshal(cur)
+	if err != nil {
+		return err
+	}
+	merged, err := jsonpatch.MergePatch(curJSON, []byte(patchJSON))
+	if err != nil {
+		return fmt.Errorf("merge patch: %w", err)
+	}
+	var next Subgraph
+	if err := json.Unmarshal(merged, &next); err != nil {
+		return err
+	}
+	next.ID = sgID // 防 patch 改 id
+	if err := s.store.SaveSubgraph(containerID, &next); err != nil {
+		return err
+	}
+	s.emitChange()
+	return nil
+}
+
+// DeleteSubgraph 删除子图文件 + 内存。
+func (s *Service) DeleteSubgraph(containerID, sgID string) error {
+	if err := s.store.DeleteSubgraph(containerID, sgID); err != nil {
+		return err
+	}
+	s.emitChange()
+	return nil
+}
+
+// DeleteMany 批量删除容器。部分失败也继续；任一失败返 error。
+func (s *Service) DeleteMany(ids []string) error {
+	var errs []string
+	for _, id := range ids {
+		if err := s.store.Delete(id); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", id, err))
+		}
+	}
+	s.emitChange()
+	if len(errs) > 0 {
+		return fmt.Errorf("部分失败：%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// SyncLocalMouseCalibration RPC 暴露给前端：批量把所有本地容器主图的 MouseCalibration 节点
+// counts360 改成 newCounts。详见 v2 spec §3.4.1。
+func (s *Service) SyncLocalMouseCalibration(newCounts int) (SyncMouseCalibrationResult, error) {
+	res, err := SyncLocalMouseCalibration(s.store, newCounts)
+	if err == nil || len(res.Updated) > 0 {
+		s.emitChange()
+	}
+	return res, err
 }

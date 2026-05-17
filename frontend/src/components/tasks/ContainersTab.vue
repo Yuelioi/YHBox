@@ -2,8 +2,42 @@
   <div class="space-y-4">
     <header class="flex items-center gap-3">
       <UInput v-model="search" icon="i-tabler-search" placeholder="搜索容器..." class="flex-1" />
+      <UButton
+        size="sm"
+        :variant="batch.enabled.value ? 'solid' : 'soft'"
+        color="neutral"
+        icon="i-tabler-checks"
+        @click="batch.toggleMode()"
+      >
+        {{ batch.enabled.value ? '退出选择' : '选择' }}
+      </UButton>
+      <UButton
+        v-if="batch.enabled.value && batch.count.value > 0"
+        size="sm"
+        color="error"
+        icon="i-tabler-trash"
+        @click="onBatchDelete"
+      >
+        删除 ({{ batch.count.value }})
+      </UButton>
       <UButton color="primary" icon="i-tabler-plus" @click="onCreate">新建容器</UButton>
     </header>
+
+    <!-- Tag chip 筛选（按使用计数倒序，横向滚动） -->
+    <div v-if="tagsByCount.length > 0" class="overflow-x-auto whitespace-nowrap py-1 flex gap-1.5">
+      <UButton
+        v-for="t in tagsByCount"
+        :key="t.tag"
+        size="xs"
+        :variant="selectedTags.includes(t.tag) ? 'solid' : 'soft'"
+        :color="selectedTags.includes(t.tag) ? 'primary' : 'neutral'"
+        class="shrink-0"
+        @click="toggleTag(t.tag)"
+      >
+        {{ t.tag }}
+        <span class="ml-1 text-[9px] opacity-60">{{ t.count }}</span>
+      </UButton>
+    </div>
 
     <div
       v-if="filtered.length === 0"
@@ -20,8 +54,27 @@
       <div
         v-for="c in filtered"
         :key="c.id"
-        class="rounded-xl bg-default border border-default p-4 flex flex-col gap-3 transition-colors hover:border-accented"
+        class="rounded-xl bg-default border p-4 flex flex-col gap-3 transition-colors relative"
+        :class="[
+          store.isEditing(c.id) ? 'opacity-50 pointer-events-none' : 'hover:border-accented',
+          batch.isSelected(c.id) ? 'border-primary ring-2 ring-primary/40' : 'border-default',
+        ]"
+        @click="batch.enabled.value ? batch.toggle(c.id) : undefined"
       >
+        <UCheckbox
+          v-if="batch.enabled.value"
+          :model-value="batch.isSelected(c.id)"
+          size="sm"
+          class="absolute top-2 left-2"
+          @click.stop
+          @update:model-value="batch.toggle(c.id)"
+        />
+        <UIcon
+          v-if="store.isEditing(c.id)"
+          name="i-tabler-lock"
+          class="absolute top-2 right-2 size-3.5 text-amber-300"
+          :title="'另一窗口正在编辑中'"
+        />
         <div class="min-w-0">
           <h3 class="text-sm font-medium text-highlighted truncate">
             {{ c.name || '(未命名)' }}
@@ -108,12 +161,38 @@ import { computed, onMounted, ref } from 'vue'
 import { useToast } from '@nuxt/ui/composables'
 import { useContainersStore } from '@/stores/containers'
 import { useExecutionStore } from '@/stores/execution'
-import type { Container } from '@/lib/backend'
+import { useBatchSelect } from '@/composables/useBatchSelect'
+import { useConfirm } from '@/composables/useConfirm'
+import { backend, type Container } from '@/lib/backend'
 
 const store = useContainersStore()
 const execStore = useExecutionStore()
 const toast = useToast()
 const search = ref('')
+
+// 批量删除（E.5）
+const batch = useBatchSelect()
+const { confirm } = useConfirm()
+
+async function onBatchDelete() {
+  const ids = [...batch.selected.value]
+  if (ids.length === 0) return
+  const yes = await confirm({
+    title: '批量删除容器',
+    description: `确认删除 ${ids.length} 个容器？此操作不可恢复。`,
+    color: 'error',
+    confirmText: '删除',
+  })
+  if (yes !== true) return
+  const ok = await store.deleteMany(ids)
+  if (ok) {
+    toast.add({ title: `已删除 ${ids.length} 个`, color: 'success' })
+  } else {
+    toast.add({ title: '批量删除部分失败（详情见日志）', color: 'warning' })
+  }
+  batch.clear()
+  batch.disable()
+}
 const pendingDelete = ref<Container | null>(null)
 
 function isRunning(id: string): boolean {
@@ -142,10 +221,34 @@ onMounted(() => {
   void store.reload()
 })
 
+const selectedTags = ref<string[]>([])
+
+const tagsByCount = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const c of store.list ?? []) {
+    for (const t of (c as any).tags ?? []) counts[t] = (counts[t] ?? 0) + 1
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([tag, count]) => ({ tag, count }))
+})
+
+function toggleTag(tag: string) {
+  if (selectedTags.value.includes(tag)) {
+    selectedTags.value = selectedTags.value.filter((t) => t !== tag)
+  } else {
+    selectedTags.value = [...selectedTags.value, tag]
+  }
+}
+
 const filtered = computed(() => {
-  if (!search.value) return store.list
-  const q = search.value.toLowerCase()
-  return store.list.filter((c) => c.name?.toLowerCase().includes(q))
+  let list = store.list
+  if (search.value) {
+    const q = search.value.toLowerCase()
+    list = list.filter((c) => c.name?.toLowerCase().includes(q))
+  }
+  if (selectedTags.value.length > 0) {
+    list = list.filter((c) => selectedTags.value.every((t) => ((c as any).tags ?? []).includes(t)))
+  }
+  return list
 })
 
 async function onCreate() {
@@ -156,9 +259,14 @@ async function onCreate() {
   }
 }
 
-function onEdit(c: Container) {
-  // 同窗口跳子路由（v1 不开独立窗口；后续 plan 6 决定）
-  window.location.hash = `#/container-editor?id=${encodeURIComponent(c.id)}`
+async function onEdit(c: Container) {
+  // 独立 Frameless 子窗口（containerWindowAdapter 同 id 复用 focus）
+  try {
+    await backend.containers.openEditorWindow(c.id)
+  } catch (e) {
+    console.error('openEditorWindow failed:', e)
+    toast.add({ title: '打开编辑器窗口失败', description: String(e), color: 'error' })
+  }
 }
 
 function onAskDelete(c: Container) {

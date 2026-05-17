@@ -1,7 +1,25 @@
 <template>
+  <!-- Inline (toolbar 内嵌): dot + 简短分辨率 + refresh icon -->
+  <button
+    v-if="variant === 'inline'"
+    type="button"
+    class="inline-flex items-center gap-1.5 h-7 px-2 rounded text-[11px] text-toned hover:bg-elevated/50 transition-colors"
+    :title="label + '（点击重新检测）'"
+    :disabled="detecting"
+    @click="handleDetect"
+  >
+    <span class="size-1.5 rounded-full shrink-0 transition-colors" :class="dotClass" />
+    <span class="truncate max-w-[160px]">{{ inlineLabel }}</span>
+    <UIcon
+      name="i-tabler-refresh"
+      class="size-3 text-dimmed transition-transform duration-500"
+      :class="{ 'animate-spin': detecting }"
+    />
+  </button>
+
   <!-- Compact (collapsed sidebar): refresh icon + 角标 status dot -->
   <button
-    v-if="compact"
+    v-else-if="compact"
     type="button"
     class="h-10 shrink-0 flex items-center justify-center border-t border-default text-muted hover:text-highlighted hover:bg-elevated/40 transition-colors duration-150 group"
     :title="label + '（点击重新检测）'"
@@ -43,19 +61,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from '@/stores/game'
 
-withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
+withDefaults(
+  defineProps<{ compact?: boolean; variant?: 'sidebar' | 'inline' }>(),
+  { compact: false, variant: 'sidebar' },
+)
 
 const gameStore = useGameStore()
 const detecting = ref(false)
+
+// 跨窗口 store 是独立实例 (独立编辑器窗口的 game store 是 null 初值, 不与主窗口共享).
+// mount 时主动 detect 一次, 让 inline/sidebar 都立刻拿到当前游戏状态.
+// 即便主窗口已经检测过, 子窗口也需要自己 detect (cheap windows API call).
+onMounted(() => {
+  if (gameStore.status === null) {
+    void gameStore.detect()
+  }
+})
 
 const label = computed(() => {
   const s = gameStore.status
   if (!s) return '正在检测...'
   if (!s.ok) return '未检测到异环'
   return `${s.title}  ${s.w}×${s.h}`
+})
+
+// inline 用：只显示分辨率（标题太长挤不下 toolbar）
+const inlineLabel = computed(() => {
+  const s = gameStore.status
+  if (!s) return '检测中'
+  if (!s.ok) return '未检测到'
+  return `${s.w}×${s.h}`
 })
 
 const dotClass = computed(() => {

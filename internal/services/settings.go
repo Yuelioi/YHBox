@@ -72,6 +72,12 @@ type UISettings struct {
 	// ActionStopHotkey 全局打断动作热键（默认 "Ctrl+Shift+F9"）。
 	// 改动需重启生效（main.go 启动期注册一次，不监听 settings 变化）。
 	ActionStopHotkey string `json:"actionStopHotkey"`
+	// RecordingStopHotkey 录制停止热键 (LL hook 拦截, 不透传游戏). 默认 "F12".
+	// 改动需重启生效 (Service 注入 adapter 启动期读一次).
+	RecordingStopHotkey string `json:"recordingStopHotkey"`
+	// RecordingMouseMode 录制时鼠标语义. "relative" (FPS 相机 RawDelta, 默认) / "absolute" (UI 点击 MouseMove screen px).
+	// 决定 recorder drainLoop 是否窗口过滤. 改动需重启生效.
+	RecordingMouseMode string `json:"recordingMouseMode"`
 	// MouseCounts360 鼠标转身 360° 累积的 HID counts（用户在游戏里实测得到）。
 	// 跨电脑共享脚本时用：录制时存源机基准，回放时 dx *= localCounts / sourceCounts。
 	// 0 = 未校准（回放不做缩放）。
@@ -109,8 +115,10 @@ func defaultSettings() *Settings {
 		UI: UISettings{
 			Logger:           LoggerSettings{Show: true, AutoScroll: true, ShowTime: true, ShowTag: true, WrapText: false, WriteFile: true},
 			Battle:           BattleSettings{HotkeyEnabled: false, HotkeyMods: "Ctrl+Shift"},
-			Window:           WindowSettings{Width: 1100, Height: 720},
-			ActionStopHotkey: "Ctrl+Shift+F9",
+			Window:              WindowSettings{Width: 1100, Height: 720},
+			ActionStopHotkey:    "Ctrl+Shift+F9",
+			RecordingStopHotkey: "F12",
+			RecordingMouseMode:  "relative",
 		},
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
@@ -151,6 +159,14 @@ func LoadSettings(path string) *Settings {
 	// 归一：旧 settings 没 actionStopHotkey 字段，回落默认 F9
 	if loaded.UI.ActionStopHotkey == "" {
 		loaded.UI.ActionStopHotkey = "Ctrl+Shift+F9"
+	}
+	// 归一：旧 settings 没 recordingStopHotkey 字段，回落默认 F12
+	if loaded.UI.RecordingStopHotkey == "" {
+		loaded.UI.RecordingStopHotkey = "F12"
+	}
+	// 归一：旧 settings 没 recordingMouseMode 字段，回落默认 relative.
+	if loaded.UI.RecordingMouseMode != "relative" && loaded.UI.RecordingMouseMode != "absolute" {
+		loaded.UI.RecordingMouseMode = "relative"
 	}
 	if err := loaded.Validate(); err != nil {
 		return s

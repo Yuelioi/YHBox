@@ -31,6 +31,7 @@ import { onMounted, ref } from 'vue'
 import { useToast } from '@nuxt/ui/composables'
 import { useSchedulesStore } from '@/stores/schedules'
 import { useContainersStore } from '@/stores/containers'
+import { useConfirm } from '@/composables/useConfirm'
 import type { Schedule } from '@/lib/backend'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
@@ -38,6 +39,7 @@ import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
 const store = useSchedulesStore()
 const containersStore = useContainersStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const editing = ref<Schedule | null>(null)
 
@@ -66,7 +68,13 @@ async function onSaveEdit(sc: Schedule) {
 }
 
 async function onDelete(sc: Schedule) {
-  if (!confirm(`确认删除「${sc.name}」?`)) return
+  const yes = await confirm({
+    title: '删除计划',
+    description: `确认删除「${sc.name}」？此操作不可恢复。`,
+    color: 'error',
+    confirmText: '删除',
+  })
+  if (yes !== true) return
   await store.remove(sc.id)
 }
 </script>

@@ -19,9 +19,10 @@ type GameProvider interface {
 type Service struct {
 	game GameProvider
 
-	mu  sync.Mutex
-	app *application.App // 后注入（wailsApp 创建后才有）
-	hud *application.WebviewWindow
+	mu             sync.Mutex
+	app            *application.App // 后注入（wailsApp 创建后才有）
+	hud            *application.WebviewWindow
+	recordingHUD   *application.WebviewWindow
 	// pickerWindows: requestID → window，方便复用（同 id 重开聚焦旧窗口）
 	pickerWindows map[string]*application.WebviewWindow
 }
@@ -106,6 +107,54 @@ func (s *Service) OpenMouseHUD() error {
 		s.mu.Unlock()
 	})
 	return nil
+}
+
+// OpenRecordingHUD 打开录制控制悬浮窗 — 200×60 frameless + AlwaysOnTop.
+// 内容: REC 红点 + 计时 + 停止按钮. 解决 "录制时切回 YHBox 不方便" 痛点.
+// 已开则 focus. 用户关闭窗口 / 录制结束都触发自动关.
+func (s *Service) OpenRecordingHUD() error {
+	app := s.wailsApp()
+	if app == nil {
+		return fmt.Errorf("wails app 未初始化")
+	}
+	s.mu.Lock()
+	if s.recordingHUD != nil {
+		s.mu.Unlock()
+		s.recordingHUD.Focus()
+		return nil
+	}
+	s.mu.Unlock()
+	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:                             "录制控制",
+		Width:                             220,
+		Height:                            60,
+		URL:                               "/#/tools/recording-hud",
+		Frameless:        true,
+		AlwaysOnTop:      true,
+		DisableResize:    true,
+		BackgroundColour: application.NewRGB(24, 24, 27),
+	})
+	s.mu.Lock()
+	s.recordingHUD = w
+	s.mu.Unlock()
+	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		s.mu.Lock()
+		s.recordingHUD = nil
+		s.mu.Unlock()
+	})
+	return nil
+}
+
+// CloseRecordingHUD 录制 service 停录时调, 主动关 HUD.
+// 已关或没开时 idempotent.
+func (s *Service) CloseRecordingHUD() {
+	s.mu.Lock()
+	w := s.recordingHUD
+	s.recordingHUD = nil
+	s.mu.Unlock()
+	if w != nil {
+		w.Close()
+	}
 }
 
 // OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save"。

@@ -16,6 +16,14 @@ import (
 type EventListener struct {
 	runner *ContainerRunner
 	node   *container.GraphNode
+
+	// homeEdges / homeNodesByID: 主图视图快照，listener 自家持有避免跟主 dispatch 抢
+	// runner.edges / runner.nodesByID（主 dispatch 进 subgraph 时会改写那两字段，
+	// 此处使用 runner 的字段会产生 data race + 行为错乱，Gemini review B-2 修复）。
+	// listener 永远跑主图视图——OnEvent 节点只允许在主图，subgraph dispatch 由主流程处理。
+	homeEdges     *edgeIndex
+	homeNodesByID map[string]*container.GraphNode
+
 	// 配置（启动时一次性 eval；运行期不重算）
 	kind            string
 	template        string
@@ -39,9 +47,18 @@ type EventListener struct {
 }
 
 func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener {
+	// 注册时一次性快照主图视图。runner.edges / runner.nodesByID 后续会被
+	// 主 dispatch 在进入 subgraph 时改写——若 listener 直接读那两字段会产生数据竞争。
+	homeNodes := make(map[string]*container.GraphNode, len(r.rt.Container.Graph.Nodes))
+	for i := range r.rt.Container.Graph.Nodes {
+		nn := &r.rt.Container.Graph.Nodes[i]
+		homeNodes[nn.ID] = nn
+	}
 	l := &EventListener{
 		runner:          r,
 		node:            n,
+		homeEdges:       buildEdgeIndex(r.rt.Container.Graph),
+		homeNodesByID:   homeNodes,
 		kind:            configString(n, "kind"),
 		template:        configString(n, "template"),
 		threshold:       r.configFloat(n, "threshold", 0.85),
@@ -142,6 +159,17 @@ func (l *EventListener) handleFire(ctx context.Context) {
 	}
 }
 
+// makeSubRunner 给一次 spawn 用的独立 dispatch 实例。共享 rt（含 Input/Cap/Vars 等），
+// 但 edges/nodesByID/state 独立——避免跟主 dispatch 的 r.edges 抢以及 ExecState frame 栈污染。
+func (l *EventListener) makeSubRunner() *ContainerRunner {
+	return &ContainerRunner{
+		rt:        l.runner.rt,
+		nodesByID: l.homeNodesByID,
+		edges:     l.homeEdges,
+		state:     NewExecState(l.runner.rt.Container.ID, l.runner.state.CalibCounts),
+	}
+}
+
 func (l *EventListener) spawn(parentCtx context.Context) {
 	// 父 ctx 已 cancel → 不浪费 goroutine 启动
 	if parentCtx.Err() != nil {
@@ -171,8 +199,14 @@ func (l *EventListener) spawn(parentCtx context.Context) {
 				}
 			}
 		}()
-		// seed token = OnEvent.out 后裔
-		seeds := l.runner.edges.next(l.node.ID+".out", nil)
-		_ = l.runner.runSubFlow(subCtx, seeds)
+		// Listener 子流程跑一个独立的 ContainerRunner 实例（共享 rt，独立 edges/nodesByID/state）
+		// 避免跟主 dispatch 的 r.edges 抢（主 dispatch 进 subgraph 时会改写那两字段产生数据
+		// 竞争和行为错乱，Gemini review B-2）。独立 ExecState 让 listener 子流程也能入嵌套子图
+		// 而不污染主 dispatch 的 frame 栈。注意：rt.vars（容器级变量）是 rt 上的字段且有锁，跨
+		// flow 共享 OK；ExecState.GlobalVars 不共享是当前节点执行器尚未接入 LocalVars/GlobalVars
+		// 的现状，B-10 修完后再处理跨流程共享。
+		sub := l.makeSubRunner()
+		seeds := sub.edges.next(l.node.ID+".out", nil)
+		_ = sub.runSubFlow(subCtx, seeds)
 	}()
 }

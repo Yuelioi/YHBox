@@ -1,12 +1,65 @@
 <template>
   <div class="p-6 space-y-6 max-w-2xl">
-    <header>
+    <header class="space-y-2">
       <h2 class="text-base font-medium text-highlighted">输入校准</h2>
-      <p class="text-xs text-dimmed mt-1">
-        鼠标硬件 DPI 影响"相对位移"类录制（camera/视角转动）的跨电脑回放。 校准后录制时会把基准写入
-        Action 元数据，回放时按当前电脑基准按比例缩放。
+      <p class="text-xs text-dimmed">
+        鼠标硬件 DPI 影响"相对位移"类录制（视角转动）的跨电脑回放。 录制子图时会把本机 360° counts 写入
+        <span class="text-toned">RecordingContext</span> 作为源；回放时按 target/source 比例缩放 MouseMoveRel。
       </p>
+      <div class="rounded-md bg-elevated/30 border border-default/50 px-3 py-2 text-[11px] text-muted leading-relaxed">
+        <UIcon name="i-tabler-info-circle" class="size-3.5 inline-block align-middle mr-1 text-amber-300/80" />
+        <span class="text-toned">这里改的是什么</span>：本机值的"默认源"。改它影响：
+        <ul class="list-disc pl-5 mt-1 space-y-0.5">
+          <li>下次新建的 MouseCalibration 节点用这个值当默认</li>
+          <li>"同步本机值到所有容器"按钮 + 节点 Inspector "FOREIGN" 警告里的"同步"按钮，把这个值写到所有容器</li>
+        </ul>
+        <span class="text-toned mt-1 block">这里改它<span class="text-warning">不会</span>自动改</span>已有容器里的 MouseCalibration 节点 — 它们各自持值（容器自包含）。要批量更新点上面"同步本机值到所有容器"，或进入容器手动改。
+      </div>
     </header>
+
+    <!-- 录制配置 -->
+    <section class="rounded-md border border-default bg-elevated/40 p-4 space-y-3">
+      <header>
+        <h3 class="text-sm font-medium text-highlighted">录制配置</h3>
+        <p class="text-[11px] text-dimmed mt-0.5">改动需重启 YHBox 生效 (启动期注入).</p>
+      </header>
+
+      <!-- 停录热键 -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-sm text-default">停录热键</div>
+          <div class="text-[11px] text-dimmed">
+            游戏前台按下停止录制 (LL hook 拦截, 不透传游戏). 默认 F12.
+          </div>
+        </div>
+        <div class="w-56 shrink-0">
+          <HotkeyCaptureInput
+            :model-value="settings?.ui.recordingStopHotkey ?? 'F12'"
+            @update:model-value="(v: string) => patchRecord({ recordingStopHotkey: v })"
+          />
+        </div>
+      </div>
+
+      <!-- 鼠标语义 -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-sm text-default">鼠标语义</div>
+          <div class="text-[11px] text-dimmed leading-snug">
+            relative (FPS): 录 RawDelta 给相机转向. absolute (UI/Slate): 录 screen px MouseMove 给
+            click/hover.
+          </div>
+        </div>
+        <USelect
+          :model-value="settings?.ui.recordingMouseMode ?? 'relative'"
+          :items="[
+            { label: '相对 (FPS 相机)', value: 'relative' },
+            { label: '绝对 (UI 点击)', value: 'absolute' },
+          ]"
+          class="w-56"
+          @update:model-value="(v: string) => patchRecord({ recordingMouseMode: v })"
+        />
+      </div>
+    </section>
 
     <section class="rounded-md border border-default bg-elevated/40 p-4 space-y-4">
       <div class="flex items-center justify-between gap-4">
@@ -35,7 +88,7 @@
       </div>
 
       <div class="flex items-center gap-2 flex-wrap">
-        <UButton size="sm" color="primary" icon="i-tabler-target" @click="openCalibrator">
+        <UButton size="sm" color="primary" icon="i-tabler-target" @click="calibratorOpen = true">
           {{ (settings?.ui.mouseCounts360 ?? 0) > 0 ? '重新校准' : '开始校准' }}
         </UButton>
         <UButton
@@ -46,6 +99,16 @@
           @click="openMouseHUD"
         >
           打开鼠标 HUD
+        </UButton>
+        <UButton
+          v-if="(settings?.ui.mouseCounts360 ?? 0) > 0"
+          size="sm"
+          variant="soft"
+          color="primary"
+          icon="i-tabler-refresh"
+          @click="onSyncAll"
+        >
+          同步本机值到所有容器
         </UButton>
         <span class="ml-auto text-[11px] text-dimmed">
           也可以从其他电脑分享脚本附带的 counts，直接手填
@@ -72,113 +135,24 @@
     </section>
 
     <!-- 校准 Modal -->
-    <UModal :open="open" @update:open="onUpdateOpen" :ui="{ content: 'sm:max-w-[560px]' }">
-      <template #content>
-        <div class="bg-default flex flex-col">
-          <header class="flex items-center gap-2 px-5 py-3 border-b border-default">
-            <UIcon name="i-tabler-target" class="size-4 text-primary" />
-            <h3 class="text-sm font-medium text-highlighted">鼠标 DPI 校准</h3>
-            <span class="ml-auto" />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-x"
-              @click="onCancel"
-            />
-          </header>
-
-          <div class="p-5 space-y-4">
-            <!-- 状态分支 -->
-            <div
-              v-if="stage === 'waiting'"
-              class="rounded-md border border-dashed border-default/60 bg-elevated/40 p-5 text-center space-y-3"
-            >
-              <UIcon name="i-tabler-keyboard" class="size-8 text-primary mx-auto" />
-              <p class="text-sm text-highlighted">
-                切到游戏，按
-                <code class="bg-elevated/60 px-1.5 py-0.5 rounded text-toned">F8</code> 开始
-              </p>
-              <p class="text-[11px] text-dimmed">
-                按下后 3 秒倒计时，期间最后调整姿态；倒计时结束自动开始累计
-              </p>
-            </div>
-
-            <div
-              v-else-if="stage === 'countingDown'"
-              class="rounded-md border border-amber-500/40 bg-amber-500/10 p-5 text-center space-y-2"
-            >
-              <div class="text-6xl font-mono tabular-nums text-amber-400">{{ countdown }}</div>
-              <p class="text-sm text-amber-300">即将开始累计，请就位</p>
-              <p class="text-[10px] text-dimmed">提前按 F8 = 立即开始</p>
-            </div>
-
-            <div
-              v-else-if="stage === 'accumulating'"
-              class="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-5 text-center space-y-2"
-            >
-              <div class="flex items-center justify-center gap-2 text-emerald-300">
-                <span class="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span class="text-sm">累计中 · 原地转 360°</span>
-              </div>
-              <div class="text-4xl font-mono tabular-nums text-emerald-300">{{ liveAbsDx }}</div>
-              <p class="text-[10px] text-dimmed font-mono">|dy| {{ liveAbsDy }}（垂直，仅参考）</p>
-              <p class="text-[11px] text-emerald-300/80 pt-2">
-                转完按 <code class="bg-emerald-500/20 px-1.5 py-0.5 rounded">F8</code> 停止
-              </p>
-            </div>
-
-            <div
-              v-else-if="stage === 'done'"
-              class="rounded-md border border-primary/40 bg-primary/10 p-5 text-center space-y-2"
-            >
-              <UIcon name="i-tabler-circle-check" class="size-8 text-primary mx-auto" />
-              <p class="text-sm text-highlighted">已记录</p>
-              <div class="text-4xl font-mono tabular-nums text-primary">{{ liveAbsDx }}</div>
-              <p class="text-[11px] text-dimmed">点下方「保存」写入本机基准；或按 F8 重测</p>
-            </div>
-
-            <p v-if="hotkeyWarn" class="text-[11px] text-warning">
-              <UIcon name="i-tabler-alert-triangle" class="size-3 inline" />
-              {{ hotkeyWarn }}
-            </p>
-          </div>
-
-          <footer class="px-5 py-3 border-t border-default flex items-center gap-2">
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-refresh"
-              :disabled="stage === 'waiting' || stage === 'countingDown'"
-              @click="resetSession"
-              >重测</UButton
-            >
-            <span class="ml-auto" />
-            <UButton variant="ghost" color="neutral" @click="onCancel">取消</UButton>
-            <UButton
-              color="primary"
-              icon="i-tabler-device-floppy"
-              :disabled="stage !== 'done' || liveAbsDx === 0"
-              @click="onSave"
-            >
-              保存（{{ liveAbsDx }}）
-            </UButton>
-          </footer>
-        </div>
-      </template>
-    </UModal>
+    <CalibratorModal v-model:open="calibratorOpen" @save="onCalibratorSaved" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
-import { Events } from '@wailsio/runtime'
+import { computed, ref, watch } from 'vue'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
+import CalibratorModal from '@/components/calibration/CalibratorModal.vue'
+import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
+import { useToast } from '@nuxt/ui/composables'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { confirm } = useConfirm()
 
 const settingsStore = useSettingsStore()
 const settings = computed(() => settingsStore.data)
+const toast = useToast()
 
 const manualCounts = ref<number>(0)
 watch(
@@ -197,152 +171,59 @@ async function onCommitManual() {
   await settingsStore.patch({ ui: { mouseCounts360: Math.floor(v) } })
 }
 
+// 录制配置 patch helper. settingsStore.patch 是 deep-merge 语义, 传 partial 即可.
+async function patchRecord(patch: Record<string, any>) {
+  if (!settings.value) return
+  await settingsStore.patch({ ui: patch })
+}
+
 async function openMouseHUD() {
   await backend.tools.openMouseHUD()
 }
 
-type Stage = 'waiting' | 'countingDown' | 'accumulating' | 'done'
-
-const open = ref(false)
-const stage = ref<Stage>('waiting')
-const countdown = ref(3)
-const hotkeyWarn = ref('')
-
-const status = ref<{ active: boolean; absDx: number; absDy: number }>({
-  active: false,
-  absDx: 0,
-  absDy: 0,
-})
-const liveAbsDx = computed(() => status.value.absDx)
-const liveAbsDy = computed(() => status.value.absDy)
-
-let pollTimer: ReturnType<typeof setInterval> | null = null
-let countdownTimer: ReturnType<typeof setInterval> | null = null
-let unsubToggle: (() => void) | null = null
-
-async function openCalibrator() {
-  hotkeyWarn.value = ''
-  resetSession()
-  open.value = true
-  // 订阅 F8 全局热键事件
-  if (!unsubToggle) {
-    const off = (await Events.On('calibration:toggle', onToggleHotkey)) as unknown as () => void
-    unsubToggle = typeof off === 'function' ? off : null
-  }
-}
-
-function resetSession() {
-  stage.value = 'waiting'
-  countdown.value = 3
-  status.value = { active: false, absDx: 0, absDy: 0 }
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
-  }
-  // 已开着的 calibration 后端要先停
-  void backend.calibration.stop()
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-function onToggleHotkey() {
-  if (!open.value) return
-  switch (stage.value) {
-    case 'waiting':
-      beginCountdown()
-      break
-    case 'countingDown':
-      // 提前按 F8 = 立即结束倒计时进入累计
-      finishCountdown()
-      break
-    case 'accumulating':
-      stopAccumulating()
-      break
-    case 'done':
-      // 重测
-      resetSession()
-      // 立刻再进倒计时（用户连按 F8 → 重新开始一轮）
-      beginCountdown()
-      break
-  }
-}
-
-function beginCountdown() {
-  stage.value = 'countingDown'
-  countdown.value = 3
-  countdownTimer = setInterval(() => {
-    countdown.value -= 1
-    if (countdown.value <= 0) finishCountdown()
-  }, 1000)
-}
-
-async function finishCountdown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
-  }
-  stage.value = 'accumulating'
-  const ok = await backend.calibration.start()
-  if (ok === undefined) {
-    hotkeyWarn.value = '校准服务启动失败（端口被占？）'
-    stage.value = 'waiting'
+// Plan B Task E.7: 独立"同步本机值到所有容器"按钮（不必先开校准 modal）
+async function onSyncAll() {
+  const cur = settings.value?.ui.mouseCounts360 ?? 0
+  if (cur <= 0) {
+    toast.add({ title: '本机 counts360 未设置', color: 'warning' })
     return
   }
-  pollTimer = setInterval(pollStatus, 80)
-}
-
-async function pollStatus() {
-  const s = await backend.calibration.status()
-  if (s) status.value = s as any
-}
-
-async function stopAccumulating() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-  const s = await backend.calibration.stop()
-  if (s) status.value = s as any
-  stage.value = 'done'
-}
-
-async function teardown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
-  }
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-  await backend.calibration.stop()
-  if (unsubToggle) {
-    unsubToggle()
-    unsubToggle = null
+  const yes = await confirm({
+    title: '同步到所有容器？',
+    description: `当前本机 counts360 = ${cur}。\n同步会覆盖所有本地容器主图 MouseCalibration 节点的值。`,
+    confirmText: '同步',
+    color: 'primary',
+  })
+  if (yes !== true) return
+  const r = (await backend.containers.syncLocalMouseCalibration(cur)) as any
+  if (r) {
+    toast.add({
+      title: `已同步 ${r.updated?.length ?? 0} 个容器`,
+      description: r.skipped?.length ? `跳过 ${r.skipped.length} 个（无 MouseCalibration 节点）` : undefined,
+      color: 'success',
+    })
   }
 }
 
-async function onCancel() {
-  await teardown()
-  open.value = false
-}
+const calibratorOpen = ref(false)
 
-async function onSave() {
-  await teardown()
-  const counts = liveAbsDx.value
-  if (counts > 0) {
-    await settingsStore.patch({ ui: { mouseCounts360: counts } })
+async function onCalibratorSaved(counts: number) {
+  await settingsStore.patch({ ui: { mouseCounts360: counts } })
+  const yes = await confirm({
+    title: '同步到所有容器？',
+    description: `新值：${counts}\n是否一键同步到所有本地容器？\n（推荐：替换所有容器主图 MouseCalibration 节点的 counts360）`,
+    confirmText: '同步',
+    cancelText: '不同步',
+    color: 'primary',
+  })
+  if (yes === true) {
+    const r = await backend.containers.syncLocalMouseCalibration(counts)
+    if (r) {
+      toast.add({
+        title: `已同步 ${(r as any).updated?.length ?? 0} 个容器`,
+        color: 'success',
+      })
+    }
   }
-  open.value = false
 }
-
-function onUpdateOpen(v: boolean) {
-  if (!v) onCancel()
-}
-
-onUnmounted(() => {
-  void teardown()
-})
 </script>

@@ -93,79 +93,37 @@
 
     <div v-else class="flex flex-col flex-1 min-h-0">
       <!-- Toolbar 独立一行：左 [折叠 palette] [录制] [折叠 inspector]，右 [运行状态] [试运行/停止] [保存] -->
-      <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-2 bg-default/60">
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          :icon="
-            paletteCollapsed
-              ? 'i-tabler-layout-sidebar-left-expand'
-              : 'i-tabler-layout-sidebar-left-collapse'
-          "
-          :title="paletteCollapsed ? '展开节点面板' : '折叠节点面板'"
-          @click="paletteCollapsed = !paletteCollapsed"
-        />
-        <UButton
-          size="sm"
-          :color="recordingOrCounting ? 'error' : 'primary'"
-          :variant="recordingOrCounting ? 'solid' : 'soft'"
-          :icon="recordingOrCounting ? 'i-tabler-square' : 'i-tabler-circle-dot'"
-          @click="onRecordAction"
-        >
-          {{ recordingOrCounting ? '停止录制' : '录制新动作' }}
-        </UButton>
+      <ContainerEditorToolbar
+        v-model:palette-collapsed="paletteCollapsed"
+        v-model:inspector-collapsed="inspectorCollapsed"
+        :is-recording="recordStore.isRecording"
+        :countdown-sec="countdownSec"
+        :selected-count="selectedCount"
+        :exec-store-running="execStore.running"
+        :running-node-kind="execStore.currentNodeKind ?? undefined"
+        :running-node-label="runningNodeLabel"
+        :dirty="dirty"
+        @record="(mode) => startRecording(mode)"
+        @stop-record="stopRecording"
+        @cancel-countdown="startRecording('precise')"
+        @fold="onFoldSelection"
+        @try-run="onTryRun"
+        @stop-run="onStopRun"
+        @save="onSave"
+        @auto-layout="onAutoLayout"
+        @align-selected="onAlignSelected"
+        @validate="onValidate"
+      />
 
-        <div class="flex-1" />
-
-        <div
-          v-if="execStore.running"
-          class="inline-flex items-center gap-2 rounded-md bg-emerald-500/15 border border-emerald-500/40 px-2 py-0.5 text-[11px] text-emerald-300"
-        >
-          <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>跑中</span>
-          <span v-if="execStore.currentNodeKind" class="text-emerald-200/80">
-            · {{ runningNodeLabel }}
-          </span>
-        </div>
-        <UButton
-          v-if="execStore.running"
-          size="sm"
-          color="error"
-          variant="solid"
-          icon="i-tabler-square"
-          title="停止当前运行 + 清队列 (同 Ctrl+Shift+F9)"
-          @click="onStopRun"
-          >停止</UButton
-        >
-        <UButton
-          size="sm"
-          variant="soft"
-          color="primary"
-          icon="i-tabler-player-play"
-          :disabled="dirty || execStore.running"
-          :title="
-            dirty ? '请先保存再试运行' : execStore.running ? '已有任务在跑，先停' : '入队运行一次'
-          "
-          @click="onTryRun"
-          >试运行</UButton
-        >
-        <UButton size="sm" color="primary" icon="i-tabler-check" :disabled="!dirty" @click="onSave"
-          >保存</UButton
-        >
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          :icon="
-            inspectorCollapsed
-              ? 'i-tabler-layout-sidebar-right-expand'
-              : 'i-tabler-layout-sidebar-right-collapse'
-          "
-          :title="inspectorCollapsed ? '展开属性面板' : '折叠属性面板'"
-          @click="inspectorCollapsed = !inspectorCollapsed"
-        />
-      </div>
+      <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
+      <ContainerEditorBreadcrumb
+        :root-label="draft?.name"
+        :editor-path="editorStore.editorPath"
+        :sg-label-fn="sgLabel"
+        :active-node-count="activeGraph?.nodes?.length ?? null"
+        @pop="editorStore.popPath()"
+        @goto="editorStore.gotoPathIndex($event)"
+      />
 
       <div class="flex flex-1 min-h-0">
         <!-- Left palette -->
@@ -195,13 +153,15 @@
             :default-edge-options="{ type: 'smoothstep' }"
             :delete-key-code="['Delete', 'Backspace']"
             :multi-selection-key-code="['Shift', 'Control', 'Meta']"
-            :selection-key-code="null"
+            :selection-key-code="true"
             :pan-on-drag="[1, 2]"
-            :selection-on-drag="true"
-            select-mode="partial"
+            :selection-mode="SelectionMode.Partial"
+            :nodes-draggable="true"
+            :elements-selectable="true"
             fit-view-on-init
             class="bg-elevated/20"
             @node-click="onNodeClick"
+            @node-double-click="onNodeDoubleClick"
             @pane-click="selectedID = null"
             @edge-double-click="onEdgeDoubleClick"
             @nodes-change="onNodesChange"
@@ -223,32 +183,43 @@
         </div>
 
         <!-- Right panel：选中节点显示 Inspector，否则显示容器属性 -->
-        <aside
+        <ContainerEditorInspector
           v-show="!inspectorCollapsed"
-          class="w-96 shrink-0 border-l border-default overflow-y-auto p-4"
-        >
-          <NodeInspector
-            v-if="selectedNode"
-            :node="selectedNode"
-            :var-names="varNames"
-            :nodes="draft?.graph.nodes ?? []"
-            :edges="draft?.graph.edges ?? []"
-            @update="onConfigUpdate"
-            @delete="onDeleteSelected"
-          />
-          <ContainerPropsPanel v-else :container="draft" @update="onContainerPatch" />
-        </aside>
+          :selected-node="selectedNode"
+          :in-subgraph="editorStore.editorPath.length > 0"
+          :current-subgraph="currentSubgraph"
+          :container="draft"
+          :active-graph="activeGraph"
+          :var-names="varNames"
+          :all-subgraph-tags="allSubgraphTags"
+          @config-update="onConfigUpdate"
+          @delete-selected="onDeleteSelected"
+          @subgraph-update="onSubgraphPropsUpdate"
+          @container-update="onContainerPatch"
+          @request-record="(e) => startRecording(e.mode, { replaceNodeID: e.replaceNodeID })"
+        />
       </div>
+
+      <!-- 底部日志面板 (VSCode 风格): 订阅 container:log / container:node-enter, 默认展开 -->
+      <ContainerLogPanel />
     </div>
+
+    <ValidationErrorPanel
+      :open="validationPanelOpen"
+      :errors="validationErrors"
+      @close="validationPanelOpen = false"
+      @run="onValidationPanelRun"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Window } from '@wailsio/runtime'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
-import { VueFlow, MarkerType, useVueFlow } from '@vue-flow/core'
+import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
@@ -257,22 +228,38 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
-import { backend, type Container, type GraphNode, type GraphEdge } from '@/lib/backend'
-import { useActionsStore } from '@/stores/actions'
+import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError } from '@/lib/backend'
+import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
+import { useContainerEditorStore } from '@/stores/containerEditor'
+import { useContainerDraft } from '@/composables/containerEditor/useContainerDraft'
+import { useEditorPath } from '@/composables/containerEditor/useEditorPath'
+import { useSubgraphLifecycle } from '@/composables/containerEditor/useSubgraphLifecycle'
+import { useFlowInteraction } from '@/composables/containerEditor/useFlowInteraction'
+import { useFolding } from '@/composables/containerEditor/useFolding'
+import { useRecording } from '@/composables/containerEditor/useRecording'
+import { useEditorSave } from '@/composables/containerEditor/useEditorSave'
+import { useNodeClipboard } from '@/composables/containerEditor/useNodeClipboard'
+import { useGraphLayout, type AlignMode } from '@/composables/containerEditor/useGraphLayout'
+import { useGraphMutations } from '@/composables/containerEditor/useGraphMutations'
 import NodePalette from '@/components/containers/NodePalette.vue'
-import NodeInspector from '@/components/containers/NodeInspector.vue'
-import ContainerPropsPanel from '@/components/containers/ContainerPropsPanel.vue'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
-import { edgeKind, KIND_DEFAULTS, KIND_LABEL_ZH } from '@/components/containers/pinSpec'
+import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
+import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBreadcrumb.vue'
+import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
+import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
+import ContainerLogPanel from '@/components/containers/ContainerLogPanel.vue'
+import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 
 const route = useRoute()
 const toast = useToast()
-const actionsStore = useActionsStore()
+const recordStore = useRecordingStore()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
+
+const editorStore = useContainerEditorStore()
 
 const runningNodeLabel = computed(
   () => KIND_LABEL_ZH[execStore.currentNodeKind] ?? execStore.currentNodeKind ?? '',
@@ -284,77 +271,56 @@ async function onStopRun() {
 
 const containerID = String(route.query.id ?? '')
 
-const draft = ref<Container | null>(null)
+const {
+  draft,
+  dirty,
+  activeGraph,
+  flowNodes,
+  flowEdges,
+  syncFlowFromDraft,
+  refreshSubgraphStore,
+} = useContainerDraft(containerID)
+
+// 编辑路径 + 当前子图（useEditorPath，转发 editorStore）
+const { sgLabel, currentSubgraph } = useEditorPath()
+
+// 子图 metadata 外部编辑 (NodeInspector / SubgraphPropsPanel) 改的是 store 里 sg 对象,
+// useContainerDraft 的 deep watch 自动标 dirty — 之前的 window 总线桥接已删除.
+
+const {
+  autoCreateSubgraphForNewNode,
+  countSubgraphReferencesIncludeMain,
+  findNodeAcrossGraphs,
+  deleteSubgraphCascade,
+  deepCloneSubgraphForCopy,
+  gcOrphanSubgraphs,
+} = useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
+
 const selectedID = ref<string | null>(null)
 
 // 折叠侧栏：放 toolbar 上的两个按钮控制，腾画布空间
 const paletteCollapsed = ref(false)
 const inspectorCollapsed = ref(false)
 
-// Vue Flow 自身的 nodes/edges 格式：{ id, position: {x,y}, data, type } / { source, target }
-interface FlowNode {
-  id: string
-  position: { x: number; y: number }
-  data: { kind: string; config?: Record<string, any> }
-  label?: string
-  type?: string
-}
-interface FlowEdge {
-  id: string
-  source: string
-  target: string
-  sourceHandle?: string
-  targetHandle?: string
-  type?: string
-  animated?: boolean
-  style?: Record<string, any>
-  markerEnd?: any
-}
+// FlowNode / FlowEdge 类型从 useContainerDraft export (公共声明), view 不再局部重复定义.
 
-const flowNodes = ref<FlowNode[]>([])
-const flowEdges = ref<FlowEdge[]>([])
-
-// 注册自定义节点组件：22 个 kind 都用同一个 ContainerFlowNode，按 data.kind 渲染。
+// 注册自定义节点组件：从 PIN_SPECS keys 自动派生，无需手维护。
+// 加新 kind 只需在 pinSpec.ts 里加一条 PIN_SPECS 即可——nodeTypes / NodePalette / FlowNode 自动响应，避免漏注册。
 const nodeTypes = markRaw(
-  Object.fromEntries(
-    [
-      'Start',
-      'Sleep',
-      'Loop',
-      'If',
-      'Parallel',
-      'Race',
-      'Stop',
-      'Break',
-      'Continue',
-      'SetVar',
-      'IncVar',
-      'WaitTemplate',
-      'CheckTemplate',
-      'ClickTemplate',
-      'DetectColor',
-      'InvokeAction',
-      'ClickAt',
-      'KeyPress',
-      'MouseMoveRel',
-      'Scroll',
-      'OnEvent',
-      'Log',
-      'Toast',
-    ].map((k) => [k, ContainerFlowNode]),
-  ),
+  Object.fromEntries(Object.keys(PIN_SPECS).map((k) => [k, ContainerFlowNode])),
 )
 
 const selectedNode = computed<GraphNode | null>(() => {
-  if (!draft.value || !selectedID.value) return null
-  return draft.value.graph.nodes.find((n) => n.id === selectedID.value) ?? null
+  if (!selectedID.value) return null
+  const g = activeGraph.value
+  if (!g) return null
+  return (g.nodes as GraphNode[]).find((n) => n.id === selectedID.value) ?? null
 })
 
 const varNames = computed<string[]>(() => (draft.value?.vars ?? []).map((v) => v.name))
 
-const recordingOrCounting = computed(
-  () => actionsStore.recording || actionsStore.countdown !== null,
-)
+// recording 状态 — 三态在 toolbar 内部判断 (isRecording / countdownSec / idle); 这里只暴露
+// recordStore.isRecording 给 RecordingOverlay (countdownSec 通过 useRecording 返回).
 
 // Minimap 节点颜色 — 按 kind 取调色板里的 border 色（深色基调）
 import { KIND_VISUAL } from '@/components/containers/pinSpec'
@@ -377,229 +343,121 @@ function miniNodeColor(node: any): string {
   return map[v?.border ?? ''] ?? '#52525b'
 }
 
-const dirty = ref(false)
-// 任何 draft 变动 → 标 dirty
-watch(
-  draft,
-  () => {
-    dirty.value = true
-  },
-  { deep: true },
-)
-
-onMounted(async () => {
-  if (!containerID) return
-  const r = await backend.containers.get(containerID)
-  if (r === undefined) {
-    toast.add({ title: '容器不存在', color: 'error' })
-    return
-  }
-  const c = r as unknown as Container
-  draft.value = JSON.parse(JSON.stringify(c))
-  syncFlowFromDraft()
-  // 初次同步不算 dirty
-  setTimeout(() => {
-    dirty.value = false
-  }, 0)
-})
-
-function syncFlowFromDraft() {
-  if (!draft.value) return
-  flowNodes.value = draft.value.graph.nodes.map((n) => ({
-    id: n.id,
-    type: n.kind, // 用自定义组件
-    position: { x: n.x, y: n.y },
-    data: { kind: n.kind, config: n.config },
-  }))
-  flowEdges.value = draft.value.graph.edges.map((e, i) => {
-    const dot = e.from.indexOf('.')
-    const src = e.from.slice(0, dot)
-    const srcPin = e.from.slice(dot + 1)
-    const dot2 = e.to.indexOf('.')
-    const tgt = e.to.slice(0, dot2)
-    const tgtPin = e.to.slice(dot2 + 1)
-    const fromKind = draft.value!.graph.nodes.find((n) => n.id === src)?.kind ?? ''
-    const isData = edgeKind(fromKind, srcPin) === 'data'
-    return {
-      id: 'e' + i,
-      source: src,
-      target: tgt,
-      sourceHandle: srcPin,
-      targetHandle: tgtPin,
-      type: 'smoothstep',
-      animated: isData,
-      style: isData
-        ? { stroke: '#60a5fa', strokeWidth: 1.5, strokeDasharray: '4 4' } // data edge: dashed blue
-        : { stroke: '#a1a1aa', strokeWidth: 1.5 }, // exec edge: solid zinc
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: isData ? '#60a5fa' : '#a1a1aa',
-      },
-    }
-  })
-}
-
 function genID(): string {
   return 'n_' + Math.random().toString(36).slice(2, 10)
 }
 
-function onAddNode(kind: string, atX?: number, atY?: number) {
-  if (!draft.value) return
+async function onAddNode(
+  kind: string,
+  atX?: number,
+  atY?: number,
+): Promise<string | null> {
+  if (!draft.value) return null
+  // v2 Plan B：把节点 push 到 activeGraph（主图 / 当前子图层级），而不是总往主图塞
+  const targetGraph = activeGraph.value
+  if (!targetGraph) {
+    toast.add({ title: '当前层级 graph 不可用', color: 'error' })
+    return null
+  }
   const id = kind === 'Start' ? 'start' : genID()
-  if (kind === 'Start' && draft.value.graph.nodes.some((n) => n.kind === 'Start')) {
+  if (kind === 'Start' && targetGraph.nodes.some((n) => n.kind === 'Start')) {
     toast.add({ title: '只能有一个 Start 节点', color: 'warning' })
-    return
+    return null
   }
   const x = atX ?? 200 + Math.random() * 200
   const y = atY ?? 100 + Math.random() * 200
-  // 注入合理 default config（用户拿到的不是空 form，是合理起点）
   const defaults = KIND_DEFAULTS[kind] ?? {}
   const n: GraphNode = { id, kind, x, y, config: { ...defaults } }
-  draft.value.graph.nodes.push(n)
+
+  if (kind === 'Subgraph') {
+    const ok = await autoCreateSubgraphForNewNode(n)
+    if (!ok) {
+      toast.add({ title: '建子图失败，请重试', color: 'error' })
+      return null
+    }
+  }
+
+  targetGraph.nodes.push(n)
   syncFlowFromDraft()
-  selectedID.value = id // 自动选中新加的节点，方便接着配
+  selectedID.value = id
+  return id
 }
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes } = useVueFlow()
+const { project, getSelectedNodes, removeNodes } = useVueFlow()
 
-// 本地剪贴板（仅本次会话有效，跨容器/跨标签不共享）
-const clipboard = ref<{ nodes: GraphNode[]; edges: GraphEdge[] } | null>(null)
+// 画布 drag/drop 交互（NodePalette → Canvas + LibraryView 卡片 → Canvas copy-on-use）
+const { onCanvasDragOver, onCanvasDrop } = useFlowInteraction({
+  project, onAddNode,
+  draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, toast,
+})
 
-function onCopySelection() {
-  if (!draft.value) return
-  const sel = getSelectedNodes.value ?? []
-  if (sel.length === 0) return
-  const ids = new Set(sel.map((n) => n.id))
-  // 排除 Start——只能 1 个
-  const nodes = draft.value.graph.nodes
-    .filter((n) => ids.has(n.id) && n.kind !== 'Start')
-    .map((n) => JSON.parse(JSON.stringify(n)) as GraphNode)
-  if (nodes.length === 0) return
-  const copiedIDs = new Set(nodes.map((n) => n.id))
-  // 只复制两端都在选中里的边（保留拓扑）
-  const edges = draft.value.graph.edges
-    .filter((e) => {
-      const fromID = e.from.split('.')[0]
-      const toID = e.to.split('.')[0]
-      return copiedIDs.has(fromID) && copiedIDs.has(toID)
-    })
-    .map((e) => ({ ...e }))
-  clipboard.value = { nodes, edges }
-  toast.add({ title: `已复制 ${nodes.length} 个节点`, color: 'success', duration: 1500 })
+// 折叠选中节点为新子图
+const { onFoldSelection } = useFolding({
+  draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast,
+})
+
+// 保存 + 孤儿 GC（onSaveAndClose 留在 view 因为依赖 view-local close 状态）
+// 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
+const { onSave } = useEditorSave({ draft, dirty, gcOrphanSubgraphs, toast })
+
+// 录制流程 (Phase 4 重写): 拿 clipID → 主图加 PlayClip 节点 + 自动连边 + 自动保存. 旧 subgraph 折叠路径已删.
+const { startRecording, stopRecording, countdownSec } = useRecording({
+  draft, activeGraph, syncFlowFromDraft, saveDraft: onSave, toast,
+})
+
+// 节点剪贴板 (Ctrl+C/V) + Subgraph 1:1 复制独立子图副本
+useNodeClipboard({
+  draft, activeGraph, flowNodes,
+  syncFlowFromDraft, refreshSubgraphStore,
+  deepCloneSubgraphForCopy, getSelectedNodes,
+  genID, toast,
+})
+
+// 自动布局 (dagre) + 对齐
+const { autoLayout, alignSelected } = useGraphLayout({
+  activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast,
+})
+function onAutoLayout(direction: 'LR' | 'TB') {
+  autoLayout(direction)
+}
+function onAlignSelected(mode: AlignMode) {
+  alignSelected(mode)
 }
 
-function onPasteSelection() {
-  if (!draft.value || !clipboard.value) return
-  const idMap: Record<string, string> = {}
-  const cloned = clipboard.value.nodes.map((n) => {
-    const newID = genID()
-    idMap[n.id] = newID
-    return { ...JSON.parse(JSON.stringify(n)), id: newID, x: n.x + 40, y: n.y + 40 } as GraphNode
-  })
-  const clonedEdges = clipboard.value.edges.map((e) => {
-    const [fromID, fromPin] = e.from.split('.')
-    const [toID, toPin] = e.to.split('.')
-    return {
-      from: `${idMap[fromID] ?? fromID}.${fromPin}`,
-      to: `${idMap[toID] ?? toID}.${toPin}`,
-    } as GraphEdge
-  })
-  draft.value.graph.nodes.push(...cloned)
-  draft.value.graph.edges.push(...clonedEdges)
-  syncFlowFromDraft()
-  // 选中粘贴出来的新节点（用 v-model 的 selected 字段最稳）
-  setTimeout(() => {
-    flowNodes.value = flowNodes.value.map((n) =>
-      cloned.some((c) => c.id === n.id) ? { ...n, selected: true } : { ...n, selected: false },
-    )
-  }, 0)
-}
+// 本地剪贴板：含节点 + edges + 被复制 Subgraph 节点绑定的子图 deep copy（1:1 联动用）
+// v2：clipboard 在 activeGraph 层级生效（主图 / 子图层级都能 copy/paste）
+// clipboard / onCopySelection / onPasteSelection / Ctrl+C/V 监听 由 useNodeClipboard composable 提供（见 setup 顶部）
 
-function onEditorKeydown(e: KeyboardEvent) {
-  // 输入控件里输入时不抢
-  const t = e.target as HTMLElement | null
-  if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
-  if (t?.isContentEditable) return
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-    if (e.key === 'c' || e.key === 'C') {
-      onCopySelection()
-      e.preventDefault()
-    } else if (e.key === 'v' || e.key === 'V') {
-      onPasteSelection()
-      e.preventDefault()
-    }
-  }
-}
-
-function onCanvasDragOver(e: DragEvent) {
-  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
-}
-
-function onCanvasDrop(e: DragEvent) {
-  const kind = e.dataTransfer?.getData('application/x-yhbox-node')
-  if (!kind) return
-  // 拿 canvas 容器相对坐标 → 转 Vue Flow 内部坐标
-  const target = e.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  const px = e.clientX - rect.left
-  const py = e.clientY - rect.top
-  const pos = project({ x: px, y: py })
-  onAddNode(kind, pos.x, pos.y)
-}
+// onCanvasDragOver / onCanvasDrop 由 useFlowInteraction 提供（见 setup 顶部）
 
 function onNodeClick(evt: any) {
   selectedID.value = evt.node?.id ?? null
 }
 
-function onNodesChange(changes: any[]) {
-  if (!draft.value) return
-  for (const ch of changes) {
-    if (ch.type === 'position' && ch.position) {
-      const node = draft.value.graph.nodes.find((n) => n.id === ch.id)
-      if (node) {
-        node.x = ch.position.x
-        node.y = ch.position.y
-      }
+function onNodeDoubleClick(evt: any) {
+  const n = evt.node
+  if (n?.data?.kind === 'Subgraph') {
+    const sgID = n.data.config?.subgraphId
+    if (!sgID) {
+      toast.add({ title: '该 Subgraph 节点未指定子图', color: 'warning' })
+      return
     }
-    if (ch.type === 'remove') {
-      draft.value.graph.nodes = draft.value.graph.nodes.filter((n) => n.id !== ch.id)
-      draft.value.graph.edges = draft.value.graph.edges.filter(
-        (e) => !e.from.startsWith(ch.id + '.') && !e.to.startsWith(ch.id + '.'),
-      )
-    }
+    editorStore.pushPath(sgID)
+    selectedID.value = null
   }
 }
 
-function onEdgeDoubleClick(evt: any) {
-  if (!draft.value || !evt?.edge?.id) return
-  const idx = flowEdges.value.findIndex((e) => e.id === evt.edge.id)
-  if (idx < 0) return
-  draft.value.graph.edges.splice(idx, 1)
-  syncFlowFromDraft()
-}
 
-function onEdgesChange(changes: any[]) {
-  if (!draft.value) return
-  for (const ch of changes) {
-    if (ch.type === 'remove') {
-      // ch.id 是 vue-flow 内部 id（"e0" 等）；映射回去删 draft edge
-      const idx = flowEdges.value.findIndex((e) => e.id === ch.id)
-      if (idx >= 0) draft.value.graph.edges.splice(idx, 1)
-    }
-  }
-}
-
-function onConnect(c: any) {
-  if (!draft.value) return
-  const from = `${c.source}.${c.sourceHandle ?? 'out'}`
-  const to = `${c.target}.${c.targetHandle ?? 'in'}`
-  // 单 out 替换：from-pin 已有出边的话，先删旧的（exec 边 1:1 语义）。
-  // 同时 to-pin 已有入边的话，也替换（exec-in 必须唯一，避免连完无效）。
-  draft.value.graph.edges = draft.value.graph.edges.filter((e) => e.from !== from && e.to !== to)
-  draft.value.graph.edges.push({ from, to })
-  syncFlowFromDraft()
-}
+// 所有 graph mutation 走 useGraphMutations 唯一写入点 (内部 activeGraph)
+// 避免 6 个 handler 各自写错 graph 引用的整类 bug
+const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect } = useGraphMutations({
+  activeGraph,
+  flowEdges,
+  syncFlowFromDraft,
+  findNodeAcrossGraphs,
+  deleteSubgraphCascade,
+})
 
 function onConfigUpdate(cfg: Record<string, any>) {
   if (!draft.value || !selectedNode.value) return
@@ -608,80 +466,61 @@ function onConfigUpdate(cfg: Record<string, any>) {
 
 function onDeleteSelected() {
   if (!draft.value || !selectedID.value) return
-  draft.value.graph.nodes = draft.value.graph.nodes.filter((n) => n.id !== selectedID.value)
-  draft.value.graph.edges = draft.value.graph.edges.filter(
-    (e) => !e.from.startsWith(selectedID.value + '.') && !e.to.startsWith(selectedID.value + '.'),
-  )
+  // 走 vue-flow removeNodes → 触发 onNodesChange(remove) → 统一处理 Subgraph cascade
+  removeNodes([selectedID.value])
   selectedID.value = null
-  syncFlowFromDraft()
 }
 
-// 录制新动作 → 先 auto-save 容器 → 倒计时 → 录制 → 自动放 InvokeAction 节点到画布
-//
-// 防丢失：用户在 dirty 状态点录制时，先存盘；否则录制完回来 draft 还在内存（路由不切走），
-// 但万一用户在录制过程中关窗口，丢失也会少。
-async function onRecordAction() {
-  if (!draft.value) return
-  if (actionsStore.recording || actionsStore.countdown !== null) return
+// 录制流程 (Phase 4): start → 后端落盘 InputClip → 主图加 PlayClip 节点 (config.clipID).
+// startRecording / stopRecording / countdownSec 由 useRecording composable 提供.
+// sgLabel / currentSubgraph 由 useEditorPath 提供.
 
-  // 1) auto-save draft（dirty 才存）
-  if (dirty.value) {
-    const patch = JSON.parse(JSON.stringify(draft.value))
-    const r = await backend.containers.update(draft.value.id, JSON.stringify(patch))
-    if (r === undefined) {
-      // 保存失败 toast 已经由 invoke 兜底；不进录制
-      return
-    }
-    dirty.value = false
-  }
+const selectedCount = computed(() => getSelectedNodes.value.length)
 
-  // 2) 启动录制流程（全局 RecorderDialog 会展示倒计时 + 进度）
-  await actionsStore.reload()
-  const before = new Set(actionsStore.list.map((a) => a.id))
-  await actionsStore.toggleRecording()
+// onFoldSelection 由 useFolding composable 提供（见 setup 顶部）
 
-  // 3) 等录制真正结束
-  await new Promise<void>((resolve) => {
-    const t = setInterval(() => {
-      if (!actionsStore.recording && actionsStore.countdown === null) {
-        clearInterval(t)
-        resolve()
-      }
-    }, 200)
-  })
-
-  // 4) 录到新 action → 在画布上 drop 一个 InvokeAction
-  await actionsStore.reload()
-  const fresh = actionsStore.list.find((a) => !before.has(a.id))
-  if (!fresh || !draft.value) return
-  const node: GraphNode = {
-    id: 'n_' + Math.random().toString(36).slice(2, 10),
-    kind: 'InvokeAction',
-    x: 300 + Math.random() * 150,
-    y: 300 + Math.random() * 150,
-    config: { actionId: fresh.id },
-  }
-  draft.value.graph.nodes.push(node)
-  syncFlowFromDraft()
-  toast.add({
-    title: `已添加 InvokeAction: ${fresh.name}`,
-    color: 'success',
-    icon: 'i-tabler-check',
-  })
-}
-
-async function onSave() {
-  if (!draft.value) return
-  const patch = JSON.parse(JSON.stringify(draft.value))
-  const ok = await backend.containers.update(draft.value.id, JSON.stringify(patch))
-  if (ok !== undefined) {
-    toast.add({ title: '已保存', color: 'success', icon: 'i-tabler-check' })
-    dirty.value = false
-  }
-}
+// onSave 由 useEditorSave composable 提供（见 setup 顶部）
 
 async function onTryRun() {
   if (!draft.value || dirty.value) return
+  // 试运行前先 validate, 有错弹 panel; 无错才真的 run (避免 backend run 抛 RuntimeError 单行 message)
+  try {
+    const errs = (await backend.containers.validate(draft.value.id)) as ValidationError[]
+    const realErrs = (errs ?? []).filter((e) => e.severity === 'error')
+    if (realErrs.length > 0) {
+      validationErrors.value = errs
+      validationPanelOpen.value = true
+      return
+    }
+  } catch (e) {
+    toast.add({ title: '校验失败', description: String(e), color: 'error' })
+    return
+  }
+  await backend.containers.run(draft.value.id)
+  toast.add({
+    title: '已加入运行队列',
+    color: 'primary',
+    icon: 'i-tabler-player-play',
+  })
+}
+
+// "检查" 按钮: 主动跑 validate, 始终弹 panel (即使全通过也告知用户)
+const validationPanelOpen = ref(false)
+const validationErrors = ref<ValidationError[]>([])
+async function onValidate() {
+  if (!draft.value || dirty.value) return
+  try {
+    const errs = (await backend.containers.validate(draft.value.id)) as ValidationError[]
+    validationErrors.value = errs ?? []
+    validationPanelOpen.value = true
+  } catch (e) {
+    toast.add({ title: '校验调用失败', description: String(e), color: 'error' })
+  }
+}
+
+async function onValidationPanelRun() {
+  validationPanelOpen.value = false
+  if (!draft.value) return
   await backend.containers.run(draft.value.id)
   toast.add({
     title: '已加入运行队列',
@@ -696,6 +535,29 @@ function onContainerPatch(patch: Partial<Container>) {
   Object.assign(draft.value, patch)
 }
 
+// currentSubgraph 由 useEditorPath 提供
+
+const allSubgraphTags = computed(() => {
+  const set = new Set<string>()
+  for (const sg of editorStore.subgraphsForCurrentContainer) {
+    for (const t of sg.tags ?? []) set.add(t)
+  }
+  return [...set]
+})
+
+function onSubgraphPropsUpdate(patch: Record<string, any>) {
+  if (!currentSubgraph.value) return
+  if (patch.__resetRecording) {
+    toast.add({
+      title: '重置录制元数据需要重新录制此子图（v1 仅提示）',
+      color: 'warning',
+    })
+    return
+  }
+  Object.assign(currentSubgraph.value, patch)
+  dirty.value = true
+}
+
 function goBack() {
   if (dirty.value) {
     pendingNav.value = 'back'
@@ -706,44 +568,20 @@ function goBack() {
 }
 
 function doBack() {
-  window.history.length > 1 ? window.history.back() : (window.location.hash = '#/tasks')
+  // 独立 Frameless 窗口：返回 = 关窗（dashboard 在另一个窗口里继续显示）
+  closeImmediate()
 }
 
-// 窗口控件
-const isMaximised = ref(false)
-let pollTimer: ReturnType<typeof setInterval> | null = null
-async function pollMax() {
-  try {
-    isMaximised.value = await Window.IsMaximised()
-  } catch {
-    /* ignore */
-  }
-}
-function onMinimise() {
-  Window.Minimise()
-}
-function onToggleMaximise() {
-  Window.ToggleMaximise()
-  setTimeout(pollMax, 50)
-}
+// 窗口控件 (isMaximised + min/max 全 useWindowControls 提供; close 在下方包一层 dirty 拦截)
+const { isMaximised, onMinimise, onToggleMaximise, closeImmediate } = useWindowControls()
 function onClose() {
   if (dirty.value) {
     pendingNav.value = 'close'
     confirmCloseOpen.value = true
     return
   }
-  Window.Close()
+  closeImmediate()
 }
-
-onMounted(() => {
-  pollMax()
-  pollTimer = setInterval(pollMax, 500)
-  window.addEventListener('keydown', onEditorKeydown)
-})
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
-  window.removeEventListener('keydown', onEditorKeydown)
-})
 
 // Dirty 关闭确认
 const confirmCloseOpen = ref(false)
@@ -754,7 +592,7 @@ function onConfirmDiscardAndClose() {
   const nav = pendingNav.value
   pendingNav.value = null
   dirty.value = false
-  if (nav === 'close') Window.Close()
+  if (nav === 'close') closeImmediate()
   else doBack()
 }
 
@@ -768,7 +606,7 @@ async function onSaveAndClose() {
   confirmCloseOpen.value = false
   const nav = pendingNav.value
   pendingNav.value = null
-  if (nav === 'close') Window.Close()
+  if (nav === 'close') closeImmediate()
   else doBack()
 }
 </script>

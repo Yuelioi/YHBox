@@ -63,7 +63,7 @@
         <!-- 缩略图 -->
         <button
           type="button"
-          class="relative w-full aspect-[4/3] bg-zinc-900/60 flex items-center justify-center overflow-hidden cursor-zoom-in"
+          class="relative w-full aspect-[4/3] bg-elevated flex items-center justify-center overflow-hidden cursor-zoom-in"
           @click="openPreview(key, meta)"
         >
           <img
@@ -75,7 +75,7 @@
           <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
           <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <span
-              class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-zinc-900/80 text-zinc-200"
+              class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-elevated text-toned"
             >
               <UIcon name="i-tabler-zoom-in" class="size-3" /> 预览
             </span>
@@ -211,7 +211,7 @@
           </header>
           <div class="p-5 space-y-3">
             <div
-              class="rounded-md overflow-hidden border border-default bg-zinc-900/60 flex items-center justify-center"
+              class="rounded-md overflow-hidden border border-default bg-elevated flex items-center justify-center"
               style="min-height: 240px"
             >
               <img
@@ -247,10 +247,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useTemplatesStore } from '@/stores/templates'
 import { useToast } from '@nuxt/ui/composables'
+import { useConfirm } from '@/composables/useConfirm'
 import { backend, type TemplateMeta } from '@/lib/backend'
 
 const store = useTemplatesStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const search = ref('')
 const sortKey = ref<'key' | 'name' | 'resolution' | 'createdAt'>('key')
@@ -341,7 +343,13 @@ watch(
 )
 
 async function onDelete(key: string) {
-  if (!confirm(`删除模板 "${key}"？`)) return
+  const yes = await confirm({
+    title: '删除模板',
+    description: `确认删除模板「${key}」？此操作不可恢复，引用此模板的节点会失效。`,
+    color: 'error',
+    confirmText: '删除',
+  })
+  if (yes !== true) return
   await store.remove(key)
   delete thumbCache.value[key]
 }

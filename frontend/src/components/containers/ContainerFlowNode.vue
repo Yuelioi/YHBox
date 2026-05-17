@@ -60,6 +60,15 @@
       >
     </div>
 
+    <!-- Subgraph 选中的子图 ID 预览 + 内部节点数 (子图复杂度一眼可见) -->
+    <div v-if="kind === 'Subgraph'" class="mt-1 text-[10px] text-dimmed font-mono truncate px-2.5 pb-1 flex items-center gap-1.5">
+      <span class="truncate">→ {{ props.data?.config?.subgraphId || '(未选)' }}</span>
+      <span
+        v-if="boundSubgraphNodeCount !== null"
+        class="ml-auto shrink-0 text-fuchsia-300/80 not-italic"
+      >{{ boundSubgraphNodeCount }} 节点</span>
+    </div>
+
     <!-- Handles (绝对定位到 pin row 的 y 坐标) -->
     <Handle
       v-for="(pin, i) in pins.execIn"
@@ -68,18 +77,20 @@
       type="target"
       :position="Position.Left"
       :style="{ top: execInTop(i) + 'px' }"
-      class="!w-2.5 !h-2.5 !bg-zinc-200 !border !border-zinc-400"
+      class="w-2.5! h-2.5! bg-elevated! border! border-accented!"
     />
 
     <Handle
-      v-for="(pin, i) in pins.execOut"
-      :key="'eout-' + pin"
-      :id="pin"
+      v-for="(pin, i) in execOutPinsForRender"
+      :key="'eout-' + pin.id"
+      :id="pin.id"
       type="source"
       :position="Position.Right"
       :style="{ top: execOutTop(i) + 'px' }"
-      class="!w-2.5 !h-2.5 !bg-zinc-200 !border !border-zinc-400"
-    />
+      class="w-2.5! h-2.5! bg-elevated! border! border-accented!"
+    >
+      <span v-if="kind === 'Subgraph'" class="text-[9px] text-toned ml-1">{{ pin.label }}</span>
+    </Handle>
 
     <Handle
       v-for="(pin, i) in pins.dataIn"
@@ -88,7 +99,7 @@
       type="target"
       :position="Position.Bottom"
       :style="{ left: dataInLeft(i) + 'px' }"
-      class="!w-2 !h-2 !bg-blue-400 !border-0"
+      class="w-2! h-2! bg-blue-400! border-0!"
     />
 
     <Handle
@@ -98,7 +109,7 @@
       type="source"
       :position="Position.Bottom"
       :style="{ right: dataOutRight(i) + 'px', left: 'auto' }"
-      class="!w-2 !h-2 !bg-blue-400 !border-0"
+      class="w-2! h-2! bg-blue-400! border-0!"
     />
   </div>
 </template>
@@ -107,7 +118,8 @@
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { useExecutionStore } from '@/stores/execution'
-import { pinsFor, KIND_VISUAL, KIND_LABEL_ZH } from './pinSpec'
+import { pinsFor, KIND_VISUAL, KIND_LABEL_ZH, resolveSubgraphCallExecOut } from './pinSpec'
+import { useContainerEditorStore } from '@/stores/containerEditor'
 
 const execStore = useExecutionStore()
 
@@ -124,8 +136,8 @@ const v = computed(
   () =>
     KIND_VISUAL[kind.value] ?? {
       icon: 'i-tabler-circle',
-      bg: 'bg-zinc-700/40',
-      border: 'border-zinc-500/40',
+      bg: 'bg-muted',
+      border: 'border-default',
     },
 )
 
@@ -137,6 +149,30 @@ const configN = computed(() => {
 })
 
 const pins = computed(() => pinsFor(kind.value, configN.value))
+
+const editorStore = useContainerEditorStore()
+
+// Subgraph 调用节点: 绑定子图的内部节点数 (画布上一眼看到子图复杂度)
+const boundSubgraphNodeCount = computed<number | null>(() => {
+  if (kind.value !== 'Subgraph') return null
+  const sgID = props.data?.config?.subgraphId
+  if (!sgID) return null
+  const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
+  return sg?.graph?.nodes?.length ?? null
+})
+
+// exec-out pins 渲染数据（特判 Subgraph 节点）
+// 返回 { id: string, label: string }[] —— id 是 vue-flow handle id，label 是显示文本
+const execOutPinsForRender = computed(() => {
+  if (kind.value === 'Subgraph') {
+    const decls = resolveSubgraphCallExecOut(
+      { config: props.data?.config as any },
+      editorStore.subgraphsForCurrentContainer,
+    )
+    return decls.map((d) => ({ id: d.id, label: d.name }))
+  }
+  return pins.value.execOut.map((id: string) => ({ id, label: id }))
+})
 
 const preview = computed(() => {
   const cfg = props.data?.config ?? {}

@@ -17,7 +17,6 @@ import (
 
 	"yhbox/internal/hotkey"
 	"yhbox/internal/services"
-	actionsruntime "yhbox/internal/services/actions/runtime"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
@@ -203,23 +202,58 @@ func (c *containerColorAdapter) Detect(_ context.Context, region [4]float64, mod
 	return count, cxPx / float64(frameW), cyPx / float64(frameH), nil
 }
 
-// ---- InputDriver: Container 输入原语 → Win32Driver via pkg/input ----
+// ---- InputDriver: Container 输入原语 → pkg/input Win32 路径 ----
 //
 // ClickAt / KeyPress / MouseMoveRel / Scroll / ClickTemplate.click 阶段调这里。
 // 每次操作内查一次游戏窗口 hwnd + 客户区尺寸；hwnd 缺失则 error。
-// 复用 actionsruntime.Win32Driver 避免实现重复。
+
+// containerWin32Driver 封装 pkg/input 原语，满足 containerInputDriver 内部使用。
+// Task 1.22 会把这部分移到独立 pkg 或统一 InputDriver 包；暂时内联这里。
+type containerWin32Driver struct {
+	activateDelay     time.Duration
+	cursorSettleDelay time.Duration
+}
+
+func (d *containerWin32Driver) click(hwnd win.HWND, x, y int, button input.MouseButton, holdMs int) error {
+	input.ClickButtonNoRestore(hwnd, x, y, button, time.Duration(holdMs)*time.Millisecond, d.activateDelay, d.cursorSettleDelay)
+	return nil
+}
+
+func (d *containerWin32Driver) keyDown(hwnd win.HWND, vk string) error {
+	if !input.KeyDown(hwnd, vk) {
+		return fmt.Errorf("unknown vk %q", vk)
+	}
+	return nil
+}
+
+func (d *containerWin32Driver) keyUp(hwnd win.HWND, vk string) error {
+	if !input.KeyUp(hwnd, vk) {
+		return fmt.Errorf("unknown vk %q", vk)
+	}
+	return nil
+}
+
+func (d *containerWin32Driver) mouseScroll(hwnd win.HWND, notches int) error {
+	input.MouseScroll(hwnd, notches, d.activateDelay)
+	return nil
+}
+
+func (d *containerWin32Driver) mouseMoveRel(hwnd win.HWND, dx, dy int, durationMs int) error {
+	input.MouseMoveRel(hwnd, dx, dy, time.Duration(durationMs)*time.Millisecond, d.activateDelay)
+	return nil
+}
 
 type containerInputDriver struct {
 	app    *services.App
-	driver *actionsruntime.Win32Driver
+	driver *containerWin32Driver
 }
 
 func newContainerInputDriver(app *services.App) *containerInputDriver {
 	return &containerInputDriver{
 		app: app,
-		driver: &actionsruntime.Win32Driver{
-			ActivateDelay:     30 * time.Millisecond,
-			CursorSettleDelay: 20 * time.Millisecond,
+		driver: &containerWin32Driver{
+			activateDelay:     30 * time.Millisecond,
+			cursorSettleDelay: 20 * time.Millisecond,
 		},
 	}
 }
@@ -244,7 +278,7 @@ func (d *containerInputDriver) Click(_ context.Context, xR, yR float64, button s
 	}
 	x := int(xR * float64(w))
 	y := int(yR * float64(h))
-	return d.driver.Click(hwnd, x, y, mouseButtonFromString(button), durMs)
+	return d.driver.click(hwnd, x, y, mouseButtonFromString(button), durMs)
 }
 
 func (d *containerInputDriver) KeyPress(ctx context.Context, vk string, durMs int) error {
@@ -252,11 +286,11 @@ func (d *containerInputDriver) KeyPress(ctx context.Context, vk string, durMs in
 	if err != nil {
 		return err
 	}
-	if err := d.driver.KeyDown(hwnd, vk); err != nil {
+	if err := d.driver.keyDown(hwnd, vk); err != nil {
 		return err
 	}
 	// defer KeyUp 保证任意分支退出（含 panic）都释放按键。
-	defer func() { _ = d.driver.KeyUp(hwnd, vk) }()
+	defer func() { _ = d.driver.keyUp(hwnd, vk) }()
 	if durMs > 0 {
 		select {
 		case <-ctx.Done():
@@ -272,7 +306,7 @@ func (d *containerInputDriver) MouseMoveRel(_ context.Context, dx, dy, durMs int
 	if err != nil {
 		return err
 	}
-	return d.driver.MouseMoveRel(hwnd, dx, dy, durMs)
+	return d.driver.mouseMoveRel(hwnd, dx, dy, durMs)
 }
 
 func (d *containerInputDriver) Scroll(_ context.Context, _, _ float64, delta int) error {
@@ -280,7 +314,7 @@ func (d *containerInputDriver) Scroll(_ context.Context, _, _ float64, delta int
 	if err != nil {
 		return err
 	}
-	return d.driver.Scroll(hwnd, delta)
+	return d.driver.mouseScroll(hwnd, delta)
 }
 
 func mouseButtonFromString(s string) input.MouseButton {

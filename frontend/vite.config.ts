@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import ui from "@nuxt/ui/vite";
@@ -6,6 +7,11 @@ import VueI18nPlugin from "@intlify/unplugin-vue-i18n/vite";
 import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+  },
   // 终端错误别被 vite 启动 banner 清屏冲掉——dev 跟 wails 串行起，
   // 看不到 vite 报错就以为是 wails 卡住。
   clearScreen: false,

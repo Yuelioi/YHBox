@@ -9,7 +9,6 @@ import * as BattleService from '@bindings/yhbox/internal/bots/battleservice.js'
 import * as RhythmService from '@bindings/yhbox/internal/bots/rhythmservice.js'
 import * as SettingsService from '@bindings/yhbox/internal/services/settingsservice.js'
 import * as GameService from '@bindings/yhbox/internal/services/gameservice.js'
-import * as ActionsService from '@bindings/yhbox/internal/services/actions/service.js'
 import * as HotkeyService from '@bindings/yhbox/internal/hotkey/hotkeyservice.js'
 import * as ContainerService from '@bindings/yhbox/internal/services/container/service.js'
 import * as ScheduleService from '@bindings/yhbox/internal/services/schedule/service.js'
@@ -17,6 +16,9 @@ import * as TemplateService from '@bindings/yhbox/internal/services/template/ser
 import * as CalibrationService from '@bindings/yhbox/internal/services/calibration/service.js'
 import * as ToolsService from '@bindings/yhbox/internal/services/tools/service.js'
 import * as AppInfoService from '@bindings/yhbox/internal/services/appinfoservice.js'
+import * as RecordingService from '@bindings/yhbox/internal/services/recording/service.js'
+import * as ClipService from '@bindings/yhbox/internal/services/inputclip/service.js'
+import * as LibraryService from '@bindings/yhbox/internal/services/container/library/service.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
 
@@ -96,23 +98,85 @@ export interface GraphNode {
   x: number
   y: number
   config?: Record<string, any>
+  createdAt?: string
 }
 export interface GraphEdge {
   from: string
   to: string
 }
 
+// Graph v2: 加 id + version
+export interface Graph {
+  id: string
+  version: number
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+// SubgraphOutputDecl v2 spec §1.4: 父图边引用稳定 ID, UI 显示 Name
+export interface SubgraphOutputDecl {
+  id: string
+  name: string
+}
+
+// ValidationError 后端 validator 结构化错误 (validator.go ValidationError 镜像)
+export interface ValidationError {
+  severity: 'error' | 'warning'
+  code: string
+  graphPath: string[]
+  nodeId?: string
+  message: string
+}
+
+export interface RecordingContext {
+  mouseCounts360: number
+  resolution: [number, number]
+  recordedAt: string
+}
+
+// Subgraph v2 spec §1.4: 容器内的可执行函数
+export interface Subgraph {
+  id: string
+  label: string
+  description?: string
+  graph: Graph
+  outputPins: SubgraphOutputDecl[]
+  tags?: string[]
+  recordingContext?: RecordingContext
+  createdAt: string
+}
+
+// LibrarySubgraph 库子图 = Subgraph + 夹带的模板依赖（v2 spec §3.1）。
+export interface LibrarySubgraph extends Subgraph {
+  requiredTemplates?: TemplateMeta[]
+}
+
+// LibraryTemplate 库模板条目，backend ListTemplates 返回此结构。
+export interface LibraryTemplate {
+  key: string
+  meta: TemplateMeta
+}
+
+// LibraryItem 列表项的判别联合 —— LibraryView / LibraryCard 用 .kind 分支。
+export type LibraryItem =
+  | (LibrarySubgraph & { kind: 'subgraph' })
+  | (LibraryTemplate & { kind: 'template' })
+
 export interface Container {
   schemaVersion: number
   id: string
   name: string
   description?: string
-  category?: string
   tags?: string[]
   hotkey?: string
   runMode?: 'foreground' | 'background'
   vars?: VarDecl[]
-  graph: { nodes: GraphNode[]; edges: GraphEdge[] }
+  graph: Graph
+  // subgraphs json:"-" 后端不持久化到 container.json 但 runtime 注入; 前端通过 listSubgraphs 单独拿
+  // 这里声明 optional 仅供 type 完整性
+  subgraphs?: Subgraph[]
+  status?: string
+  incompatibleReason?: string
   createdAt: string
   updatedAt: string
 }
@@ -147,6 +211,10 @@ export interface TemplateMeta {
   height: number
   region: [number, number, number, number]
   createdAt: string
+  // v2: 仅库模板使用；容器内模板该字段为空。
+  tags?: string[]
+  // v2: 来源追踪（screenshot / library / imported / embedded）。
+  origin?: { kind: string; sourceID?: string }
 }
 
 export const backend = {
@@ -200,19 +268,6 @@ export const backend = {
   game: {
     detect: () => invoke(GameService.Detect),
   },
-  actions: {
-    list: () => invoke(ActionsService.List),
-    create: (name: string) => invoke(ActionsService.Create, name),
-    update: (id: string, patchJSON: string) => invoke(ActionsService.Update, id, patchJSON),
-    delete_: (id: string) => invoke(ActionsService.Delete, id),
-    runOnce: (id: string) => invoke(ActionsService.RunOnce, id),
-    stopRunning: () => invoke(ActionsService.StopRunning),
-    openEditorWindow: (id: string) => invoke(ActionsService.OpenEditorWindow, id),
-    startRecording: () => invoke(ActionsService.StartRecording),
-    stopRecording: () => invoke(ActionsService.StopRecording),
-    cancelRecording: () => invoke(ActionsService.CancelRecording),
-    isRecording: () => invoke(ActionsService.IsRecording),
-  },
   containers: {
     list: () => invoke(ContainerService.List),
     get: (id: string) => invoke(ContainerService.Get, id),
@@ -221,6 +276,32 @@ export const backend = {
     delete_: (id: string) => invoke(ContainerService.Delete, id),
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
+    listSubgraphs: (id: string) => invoke(ContainerService.ListSubgraphs, id),
+    getSubgraph: (cid: string, sgid: string) => invoke(ContainerService.GetSubgraph, cid, sgid),
+    createSubgraph: (cid: string, label: string) => invoke(ContainerService.CreateSubgraph, cid, label),
+    updateSubgraph: (cid: string, sgid: string, patchJSON: string) =>
+      invoke(ContainerService.UpdateSubgraph, cid, sgid, patchJSON),
+    deleteSubgraph: (cid: string, sgid: string) =>
+      invoke(ContainerService.DeleteSubgraph, cid, sgid),
+    openEditorWindow: (id: string) => invoke(ContainerService.OpenEditorWindow, id),
+    syncLocalMouseCalibration: (newCounts: number) =>
+      invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
+    deleteMany: (ids: string[]) => invoke(ContainerService.DeleteMany, ids),
+    validate: (id: string) =>
+      invoke(ContainerService.ValidateContainerByID, id) as Promise<ValidationError[]>,
+  },
+  library: {
+    listSubgraphs: () => invoke(LibraryService.ListSubgraphs),
+    getSubgraph: (id: string) => invoke(LibraryService.GetSubgraph, id),
+    deleteSubgraph: (id: string) => invoke(LibraryService.DeleteSubgraph, id),
+    deleteSubgraphMany: (ids: string[]) => invoke(LibraryService.DeleteSubgraphMany, ids),
+    listTemplates: () => invoke(LibraryService.ListTemplates),
+    copyToContainer: (libSgID: string, containerID: string) =>
+      invoke(LibraryService.CopyToContainer, libSgID, containerID),
+    publishFromContainer: (containerID: string, sgID: string) =>
+      invoke(LibraryService.PublishFromContainer, containerID, sgID),
+    deleteTemplateMany: (keys: string[]) =>
+      invoke(LibraryService.DeleteTemplateMany, keys),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),
@@ -265,10 +346,31 @@ export const backend = {
   appInfo: {
     info: () => invoke(AppInfoService.Info),
   },
+  recording: {
+    // Start 现在收 StartArgs 对象 (filterMode: 'precise' | 'simple'). 返临时 clipID.
+    start: (args: { filterMode: 'precise' | 'simple' }) =>
+      invoke(RecordingService.Start, args as any),
+    stop: () => invoke(RecordingService.Stop),
+    stopAsync: () => invoke(RecordingService.StopAsync),
+    isRecording: () => invoke(RecordingService.IsRecording),
+  },
+  // 容器级 ClipService (main.go 只 RegisterService(clipSvc); libClipSvc 不注册).
+  // 暴露 list/get/save/update/delete + Resolve (runtime 用, 前端基本不直接调).
+  clipsContainer: {
+    list: () => invoke(ClipService.List),
+    get: (id: string) => invoke(ClipService.Get, id),
+    save: (clip: unknown) => invoke(ClipService.Save, clip as any),
+    update: (id: string, label: string, description: string, tags: string[]) =>
+      invoke(ClipService.Update, id, label, description, tags),
+    delete_: (id: string) => invoke(ClipService.Delete, id),
+    resolve: (id: string) => invoke(ClipService.Resolve, id),
+  },
   tools: {
     mousePos: () => invoke(ToolsService.MousePos),
     pixelAt: () => invoke(ToolsService.PixelAt),
     openMouseHUD: () => invoke(ToolsService.OpenMouseHUD),
+    openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
+    closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
     openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string) =>
       invoke(ToolsService.OpenScreenPicker, mode, id),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),

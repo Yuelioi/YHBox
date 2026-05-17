@@ -67,15 +67,14 @@ type rect struct {
 
 const swRestore = 9
 
-// BringToForeground 把窗口拽到前台 + 最小化时还原。
-// 用于 action 启动前激活游戏。不抢焦点比 SetForeground 单调干净。
-func BringToForeground(hwnd win.HWND) {
-	// 如果最小化，先还原
+// BringToForeground 把窗口拽到前台 + 最小化时还原。返 true 表示 SetForegroundWindow OS 调用成功（r != 0）。
+func BringToForeground(hwnd win.HWND) bool {
 	r, _, _ := procIsIconic.Call(uintptr(hwnd))
 	if r != 0 {
 		procShowWindow.Call(uintptr(hwnd), swRestore)
 	}
-	procSetForegroundWnd.Call(uintptr(hwnd))
+	r2, _, _ := procSetForegroundWnd.Call(uintptr(hwnd))
+	return r2 != 0
 }
 
 // SendInput INPUT 结构（amd64：type 4 + pad 4 + MOUSEINPUT 24 + tail pad = 40 bytes）。
@@ -503,6 +502,53 @@ func MouseMoveRel(hwnd win.HWND, totalDx, totalDy int, duration, activateDelay t
 			time.Sleep(duration / time.Duration(frames))
 		}
 	}
+}
+
+// SendInputMouseRel 暴露 sendInputMouseRel 给 inputclip backends 用 (相机转向唯一路径).
+// 不调 FakeActivate / setCursorPos — caller (ClipPlayer) 已按帧调度.
+func SendInputMouseRel(dx, dy int32) {
+	sendInputMouseRel(dx, dy)
+}
+
+// PostKeyDownVK 直接按 vk uint32 PostMessage 键盘按下到 hwnd (clip 回放用).
+// keyLParam 自带 scancode (UE InputComponent 必需). 不调 FakeActivate (ClipPlayer 控时序).
+func PostKeyDownVK(hwnd win.HWND, vk uint32) {
+	postMessage(hwnd, WM_KEYDOWN, uintptr(vk), keyLParam(vk, false))
+}
+
+// PostKeyUpVK 同上, 松开.
+func PostKeyUpVK(hwnd win.HWND, vk uint32) {
+	postMessage(hwnd, WM_KEYUP, uintptr(vk), keyLParam(vk, true))
+}
+
+// MouseBtnDown 鼠标按键按下 (PostMessage 路径, 不松开). clip 回放 down/up 分离用.
+// clientX/Y 客户区像素; button 见 MouseButton enum. 不 FakeActivate (caller 节奏控制).
+func MouseBtnDown(hwnd win.HWND, clientX, clientY int, button MouseButton) {
+	var downMsg uint32
+	var mk uintptr
+	switch button {
+	case MouseMiddle:
+		downMsg, mk = WM_MBUTTONDOWN, MK_MBUTTON
+	case MouseRight:
+		downMsg, mk = WM_RBUTTONDOWN, MK_RBUTTON
+	default:
+		downMsg, mk = WM_LBUTTONDOWN, MK_LBUTTON
+	}
+	postMessage(hwnd, downMsg, mk, makeLParam(int32(clientX), int32(clientY)))
+}
+
+// MouseBtnUp 鼠标按键松开.
+func MouseBtnUp(hwnd win.HWND, clientX, clientY int, button MouseButton) {
+	var upMsg uint32
+	switch button {
+	case MouseMiddle:
+		upMsg = WM_MBUTTONUP
+	case MouseRight:
+		upMsg = WM_RBUTTONUP
+	default:
+		upMsg = WM_LBUTTONUP
+	}
+	postMessage(hwnd, upMsg, 0, makeLParam(int32(clientX), int32(clientY)))
 }
 
 // MouseScroll 在当前光标位置滚 notches 格滚轮（正=上推 = 通常向上滚页面）。

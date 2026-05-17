@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// v2 spec §1.5：本包降级为基础库（PNG IO / 哈希 / TemplateMeta 序列化），不再独立暴露 wails3 RPC。
+// 容器内模板由 ContainerService 托管（Task 1.12）；库模板由 LibraryService 托管（Task 1.17）。
+// 本文件原 *Service 方法保留作为这些上层 service 的内部依赖；main.go 已不再 Bind 该 service。
+
 // CaptureProvider 抽象屏幕截图（runtime 注入；测试时可 nil）。
 // 实现方应该返回当前游戏窗口 / 主屏的 png bytes。
 type CaptureProvider interface {

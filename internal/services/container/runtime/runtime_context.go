@@ -12,6 +12,8 @@ import (
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
+	"yhbox/internal/services/inputclip/backends"
+	clipruntime "yhbox/internal/services/inputclip/runtime"
 )
 
 // SysState $sys.* 只读视图。每次 Container run 开局清零。
@@ -31,16 +33,21 @@ type SysState struct {
 //   - vars / sys 通过 mutex 保护（Parallel/Race 子分支并发读写）
 //   - inputBus 注入：每个 input 节点 Lock/Unlock 保证 OS input 串行
 //   - templateMatcher 注入：Wait/Check/ClickTemplate 用
-//   - actionRunner 注入：InvokeAction 节点用
 //   - emit 注入：Log/Toast 节点把消息推到前端
 type RuntimeContext struct {
 	Container *container.Container
 	InputBus  *execution.InputBus
 	Matcher   TemplateMatcher
-	Actions   ActionInvoker
 	Input     InputDriver
 	Color     ColorDetector
+	Game      GameProvider
 	Emit      func(name string, data any)
+
+	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
+	ClipResolver   ClipResolver
+	InputBackend   backends.IInputBackend
+	MouseCounts360 int
+	ClipPolicy     clipruntime.PlaybackPolicy
 
 	mu     sync.Mutex
 	vars   map[string]expr.Value
@@ -48,7 +55,18 @@ type RuntimeContext struct {
 	sys    SysState
 }
 
-func NewRuntimeContext(c *container.Container, bus *execution.InputBus, matcher TemplateMatcher, actions ActionInvoker, input InputDriver, color ColorDetector, emit func(name string, data any)) *RuntimeContext {
+func NewRuntimeContext(
+	c *container.Container,
+	bus *execution.InputBus,
+	matcher TemplateMatcher,
+	input InputDriver,
+	color ColorDetector,
+	game GameProvider,
+	emit func(name string, data any),
+	clipResolver ClipResolver,
+	inputBackend backends.IInputBackend,
+	mouseCounts360 int,
+) *RuntimeContext {
 	if input == nil {
 		input = NoopInputDriver{}
 	}
@@ -56,19 +74,26 @@ func NewRuntimeContext(c *container.Container, bus *execution.InputBus, matcher 
 		color = NoopColorDetector{}
 	}
 	rt := &RuntimeContext{
-		Container: c,
-		InputBus:  bus,
-		Matcher:   matcher,
-		Actions:   actions,
-		Input:     input,
-		Color:     color,
-		Emit:      emit,
-		vars:      make(map[string]expr.Value),
-		params:    make(map[string]expr.Value),
+		Container:      c,
+		InputBus:       bus,
+		Matcher:        matcher,
+		Input:          input,
+		Color:          color,
+		Game:           game,
+		Emit:           emit,
+		ClipResolver:   clipResolver,
+		InputBackend:   inputBackend,
+		MouseCounts360: mouseCounts360,
+		ClipPolicy:     clipruntime.DefaultPlaybackPolicy(),
+		vars:           make(map[string]expr.Value),
+		params:         make(map[string]expr.Value),
 	}
 	rt.initVars()
 	return rt
 }
+
+// GameProvider 返回注入的 GameProvider（可能为 nil，1.22 前占位）。
+func (rt *RuntimeContext) GameProvider() GameProvider { return rt.Game }
 
 func (rt *RuntimeContext) initVars() {
 	for _, v := range rt.Container.Vars {

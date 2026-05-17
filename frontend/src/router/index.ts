@@ -10,21 +10,13 @@ const routes = [
   { path: '/piano', name: 'piano', component: () => import('@/views/PianoView.vue') },
   { path: '/battle', name: 'battle', component: () => import('@/views/BattleView.vue') },
   { path: '/rhythm', name: 'rhythm', component: () => import('@/views/RhythmView.vue') },
-  { path: '/tasks', name: 'tasks', component: () => import('@/views/TasksView.vue') },
-  // /actions 老路由：redirect 到 /tasks（动作 tab）。原 ActionsView 内容已搬进 ActionsTab。
-  { path: '/actions', redirect: '/tasks' },
+  { path: '/containers', name: 'containers', component: () => import('@/views/ContainersView.vue') },
+  { path: '/library', name: 'library', component: () => import('@/views/LibraryView.vue') },
   { path: '/schedules', name: 'schedules', component: () => import('@/views/SchedulesView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   { path: '/help', name: 'help', component: () => import('@/views/HelpView.vue') },
   { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
-  // 独立窗口路由：wails3 子窗口加载 #/action-editor?id=xxx。
-  // meta.standalone=true 让 App.vue 走极简渲染（不包 sidebar / titlebar / log panel）。
-  {
-    path: '/action-editor',
-    name: 'action-editor',
-    component: () => import('@/views/ActionEditorView.vue'),
-    meta: { standalone: true },
-  },
+  // v2 Task 3.1: 删除 /actions 和 /action-editor 路由（actions 包已废，路由也清掉）
   {
     path: '/container-editor',
     name: 'container-editor',
@@ -41,6 +33,12 @@ const routes = [
     path: '/tools/screen-picker',
     name: 'screen-picker',
     component: () => import('@/views/tools/ScreenPickerView.vue'),
+    meta: { standalone: true },
+  },
+  {
+    path: '/tools/recording-hud',
+    name: 'recording-hud',
+    component: () => import('@/views/tools/RecordingHUDView.vue'),
     meta: { standalone: true },
   },
 ]

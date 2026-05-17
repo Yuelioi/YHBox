@@ -39,12 +39,9 @@
 
         <div class="space-y-1.5">
           <label class="block text-xs text-toned">触发热键</label>
-          <UInput
-            :model-value="container.hotkey"
-            size="md"
-            class="w-full"
-            placeholder="如 Ctrl+Shift+1"
-            @update:model-value="$emit('update', { hotkey: String($event) })"
+          <HotkeyCaptureInput
+            :model-value="container.hotkey ?? ''"
+            @update:model-value="(v: string) => $emit('update', { hotkey: v })"
           />
           <p class="text-[11px] text-dimmed leading-snug">
             按下热键立即运行此容器一次。留空则需手动触发。
@@ -64,14 +61,18 @@
         </div>
 
         <div class="space-y-1.5">
-          <label class="block text-xs text-toned">分类</label>
-          <UInput
-            :model-value="container.category"
+          <label class="block text-xs text-toned">标签</label>
+          <UInputMenu
+            :model-value="container.tags ?? []"
+            multiple
+            creatable
+            :items="allTags"
             size="md"
             class="w-full"
-            placeholder="可选 · 如「日常」「副本」"
-            @update:model-value="$emit('update', { category: String($event) })"
+            placeholder="添加标签..."
+            @update:model-value="(v: string[]) => $emit('update', { tags: v })"
           />
+          <p class="text-[10px] text-dimmed">用于在容器列表筛选；可自由命名（如「日常」「副本」「钓鱼」）</p>
         </div>
 
         <div class="space-y-1.5">
@@ -165,10 +166,23 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Container, VarDecl } from '@/lib/backend'
+import { useContainersStore } from '@/stores/containers'
+import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 
 const props = defineProps<{ container: Container | null }>()
 const emit = defineEmits<{ update: [patch: Partial<Container>] }>()
+
+// 所有容器现有 tags 聚合，供 UInputMenu autocomplete
+const containersStore = useContainersStore()
+const allTags = computed(() => {
+  const set = new Set<string>()
+  for (const c of containersStore.list ?? []) {
+    for (const t of (c as any).tags ?? []) set.add(t)
+  }
+  return [...set]
+})
 
 const varTypes = [
   { label: 'number', value: 'number' },

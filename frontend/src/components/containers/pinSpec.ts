@@ -15,8 +15,6 @@ export interface PinSpec {
   dataOut: Record<string, PinDataType> // 默认空
   /** Parallel/Race 分支数动态：branch0..branchN-1 由 config.n 决定 */
   dynamicBranches?: boolean
-  /** InvokeAction params.* 动态：根据被调 Action.params 生成 */
-  dynamicParams?: boolean
 }
 
 const DEFAULT_IN: string[] = ['in']
@@ -75,13 +73,6 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     dataIn: {},
     dataOut: { point: 'point' },
   },
-  InvokeAction: {
-    execIn: DEFAULT_IN,
-    execOut: DEFAULT_OUT,
-    dataIn: {},
-    dataOut: {},
-    dynamicParams: true,
-  },
   ClickAt: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { pos: 'point' }, dataOut: {} },
   KeyPress: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   MouseMoveRel: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
@@ -89,6 +80,42 @@ export const PIN_SPECS: Record<string, PinSpec> = {
   OnEvent: { execIn: [], execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   Log: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   Toast: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  Subgraph: {
+    execIn: DEFAULT_IN,
+    execOut: ['__placeholder__'],
+    dataIn: {},
+    dataOut: {},
+  },
+  SubgraphInput: {
+    execIn: [],
+    execOut: ['out'],
+    dataIn: {},
+    dataOut: {},
+  },
+  SubgraphOutput: {
+    execIn: DEFAULT_IN,
+    execOut: [],
+    dataIn: {},
+    dataOut: {},
+  },
+  BringGameForeground: {
+    execIn: DEFAULT_IN,
+    execOut: DEFAULT_OUT,
+    dataIn: {},
+    dataOut: {},
+  },
+  MouseCalibration: {
+    execIn: [],
+    execOut: [],
+    dataIn: {},
+    dataOut: {},
+  },
+  PlayClip: {
+    execIn: ['in'],
+    execOut: ['out'],
+    dataIn: {},
+    dataOut: {},
+  },
 }
 
 export function pinsFor(
@@ -103,6 +130,11 @@ export function pinsFor(
     for (let i = 0; i < n; i++) branches.push(`branch${i}`)
     execOut = [...branches, ...execOut]
   }
+  // Subgraph 调用节点：exec-out 由被调子图的 OutputPins 动态派生
+  // 这里没法直接拿到 subgraph 数据；调用方需要在外层传 outputPins 进来。
+  // 兼容老签名：如果 kind === 'Subgraph' 且 configN 实际是个数组（OutputPins），用它派生。
+  // 但 configN 是 number；为了不改签名，我们把 Subgraph 的 execOut 保留为占位，
+  // 真实派生交给 ContainerFlowNode.vue 拿到 nodes/edges 上下文时执行。
   return {
     execIn: s.execIn,
     execOut,
@@ -136,7 +168,6 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   CheckTemplate: '试探图像',
   ClickTemplate: '点击图像',
   DetectColor: '检测颜色',
-  InvokeAction: '调用动作',
   ClickAt: '点击位置',
   KeyPress: '按键',
   MouseMoveRel: '相对移动',
@@ -144,6 +175,12 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   OnEvent: '事件监听',
   Log: '日志',
   Toast: '弹窗提示',
+  Subgraph: '子图',
+  SubgraphInput: '子图入口',
+  SubgraphOutput: '子图出口',
+  BringGameForeground: '游戏置前',
+  MouseCalibration: '鼠标校准',
+  PlayClip: '播放录制',
 }
 
 // 节点用法说明，选中节点时显示在 Inspector 顶部
@@ -165,7 +202,6 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   ClickTemplate: '检测到模板图像后点击其中心。命中并点完走 done，超时走 timeout。',
   DetectColor:
     'ROI 内统计落在 HSV/RGB 范围内的像素。≥ minPixels 走 yes，否则 no。结果写 $sys.lastColor.{count, cx, cy}。',
-  InvokeAction: '调用已录制的 Action（一段鼠键序列）。等待完成后走 out。',
   ClickAt: '点击客户区比例坐标 (xRatio, yRatio)。durationMs 是按下时长。',
   KeyPress: '按下并松开 vk（虚拟键码字符串如 "W"/"Space"），间隔 durationMs。',
   MouseMoveRel: '相对当前位置移动 (dx, dy) 像素，移动用时 durationMs。',
@@ -174,6 +210,16 @@ export const KIND_DESCRIPTION: Record<string, string> = {
     '与 Start 同级的入口节点。容器启动时起 listener；事件命中 spawn 子图。v1 仅支持 template_appeared。',
   Log: '把 message expr 结果写到运行日志面板。level 控制颜色。',
   Toast: '弹一个 toast 通知。title / message 都是 expr，前端订阅显示。',
+  Subgraph: '调用一个子图（容器内已存在的 Subgraph）。双击该节点进入子图编辑。',
+  SubgraphInput: '子图唯一入口节点。每个子图自动有一个，不可删除。',
+  SubgraphOutput:
+    '子图命名出口。declID 引用所属子图 OutputPins 中的 Decl ID；父图的 Subgraph 调用节点会以此派生 exec-out pin。',
+  BringGameForeground:
+    '把当前检测到的游戏窗口置于前台。会自动重试 3 次（每次间隔 50ms），覆盖全屏独占 / 反作弊场景的偶发失败。',
+  MouseCalibration:
+    '声明本容器主图依赖鼠标校准值。config.counts360 持有本机转 360° 累积 HID counts。运行时 MouseMoveRel 根据该值缩放。仅允许放在主图。',
+  PlayClip:
+    '播放一段录制的输入事件流 (键鼠 events). config.clipID 指定 clip; config.keepRanges 可选裁剪 [{fromUs, toUs}, ...] 让你跳过录制中的停顿段.',
 }
 
 // 节点默认 config。新建节点时填进去，避免用户面对空表单不知所措。
@@ -198,7 +244,6 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
     range: '50,60,67,127,253,255',
     minPixels: '5',
   },
-  InvokeAction: { actionId: '' },
   ClickAt: { xRatio: '0.5', yRatio: '0.5', durationMs: '50', button: 'left' },
   KeyPress: { vk: 'W', durationMs: '50' },
   MouseMoveRel: { dx: '0', dy: '0', durationMs: '200' },
@@ -213,9 +258,19 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   },
   Log: { level: 'info', message: '"hello"' },
   Toast: { title: '"提示"', message: '""', color: 'primary' },
+  Subgraph: { subgraphId: '' },
+  SubgraphInput: {},
+  SubgraphOutput: { declID: '' },
+  BringGameForeground: {},
+  MouseCalibration: { counts360: 0 },
+  PlayClip: { clipID: '', keepRanges: [] },
 }
 
 // 节点 kind → 显示用图标 + 颜色组（统一调色板）
+// 每个 kind 用一种 tailwind accent (emerald/blue/rose/amber/violet/...) 作类别标识 —— 这是
+// 跟 NuxtUI semantic token (default/elevated/...) 平行的"节点类别"色系, 不当主题色用.
+// Sleep 用 zinc 表达"等待/中性"语义, ContainerEditorView.vue MiniMap 的 border→hex 映射会读它,
+// 不要改成 semantic.
 export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: string }> = {
   Start: { icon: 'i-tabler-player-play', bg: 'bg-emerald-500/15', border: 'border-emerald-500/40' },
   Sleep: { icon: 'i-tabler-clock', bg: 'bg-zinc-500/15', border: 'border-zinc-500/40' },
@@ -252,11 +307,6 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
     bg: 'bg-cyan-500/15',
     border: 'border-cyan-500/40',
   },
-  InvokeAction: {
-    icon: 'i-tabler-movie',
-    bg: 'bg-fuchsia-500/15',
-    border: 'border-fuchsia-500/40',
-  },
   ClickAt: { icon: 'i-tabler-click', bg: 'bg-orange-500/15', border: 'border-orange-500/40' },
   KeyPress: { icon: 'i-tabler-keyboard', bg: 'bg-orange-500/15', border: 'border-orange-500/40' },
   MouseMoveRel: {
@@ -268,4 +318,42 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
   OnEvent: { icon: 'i-tabler-radio', bg: 'bg-pink-500/15', border: 'border-pink-500/40' },
   Log: { icon: 'i-tabler-file-text', bg: 'bg-slate-500/15', border: 'border-slate-500/40' },
   Toast: { icon: 'i-tabler-bell', bg: 'bg-slate-500/15', border: 'border-slate-500/40' },
+  Subgraph: { icon: 'i-tabler-package', bg: 'bg-fuchsia-500/15', border: 'border-fuchsia-500/40' },
+  SubgraphInput: {
+    icon: 'i-tabler-arrow-bar-to-right',
+    bg: 'bg-emerald-500/15',
+    border: 'border-emerald-500/40',
+  },
+  SubgraphOutput: {
+    icon: 'i-tabler-arrow-bar-to-left',
+    bg: 'bg-rose-500/15',
+    border: 'border-rose-500/40',
+  },
+  BringGameForeground: {
+    icon: 'i-tabler-app-window',
+    bg: 'bg-cyan-500/15',
+    border: 'border-cyan-500/40',
+  },
+  MouseCalibration: {
+    icon: 'i-tabler-target',
+    bg: 'bg-yellow-500/15',
+    border: 'border-yellow-500/40',
+  },
+  PlayClip: { icon: 'i-tabler-vinyl', bg: 'bg-pink-500/15', border: 'border-pink-500/40' },
+}
+
+/**
+ * resolveSubgraphCallExecOut 给定 Subgraph 调用节点 + 被调子图的 OutputPins，
+ * 返回该节点应该展示的 exec-out pin id 列表（用于 vue-flow handle key）。
+ * 找不到子图 → 返 ['__missing__'] 让节点显示一个错误 handle。
+ */
+export function resolveSubgraphCallExecOut(
+  node: { config?: { subgraphId?: string } },
+  allSubgraphs: { id: string; outputPins: { id: string; name: string }[] }[],
+): { id: string; name: string }[] {
+  const sgID = node.config?.subgraphId ?? ''
+  const sg = allSubgraphs.find((s) => s.id === sgID)
+  if (!sg) return [{ id: '__missing__', name: '(子图未找到)' }]
+  if (sg.outputPins.length === 0) return [{ id: '__empty__', name: '(无出口)' }]
+  return sg.outputPins.map((p) => ({ id: p.id, name: p.name }))
 }

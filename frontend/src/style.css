@@ -1,11 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
 /* 显式告诉 TW v4 扫整个 src/。默认 auto-detect 应该已经覆盖，
    但 @nuxt/ui/vite 在某些场景下会影响源检测，加这一行兜底。 */
 @source "./**/*.{vue,ts,js}";
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ── Global base ── */
 html,
@@ -75,4 +74,25 @@ body {
 .input-flat:focus {
   border-color: var(--ui-color-primary-500);
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--ui-color-primary-500) 25%, transparent);
+}
+
+/* ── Compact toast: 顶部居中 / 暗色 + border / 无倒计时进度条 / 紧凑（Plan B Task A.5）── */
+/* NuxtUI v4 UToast 渲染在 [data-sonner-toaster] 容器 */
+[data-sonner-toaster] [data-sonner-toast] {
+  background: var(--ui-bg-elevated) !important;
+  border: 1px solid var(--ui-border-accented) !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  min-height: 0 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-title] {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+/* 干掉倒计时进度条 */
+[data-sonner-toaster] [data-sonner-toast] > [data-progress],
+[data-sonner-toaster] [data-sonner-toast] > div[role="progressbar"] {
+  display: none !important;
 }

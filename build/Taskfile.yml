@@ -8,18 +8,21 @@ tasks:
       - go mod tidy
 
   install:frontend:deps:
-    summary: Install frontend dependencies
+    summary: Install frontend dependencies (pnpm)
+    # pnpm 是项目实际 lock 源 (pnpm-lock.yaml). 之前用 npm install 在 peer dep
+    # 冲突 (e.g. pinia 3 vs @pinia/testing) 时崩, 且 pnpm 升级后无法 reconcile
+    # stale package-lock.json. 切到 pnpm 统一工具链.
     dir: frontend
     sources:
       - package.json
-      - package-lock.json
+      - pnpm-lock.yaml
     generates:
       - node_modules
     preconditions:
-      - sh: npm version
-        msg: "Looks like npm isn't installed. Npm is part of the Node installer: https://nodejs.org/en/download/"
+      - sh: pnpm --version
+        msg: "Looks like pnpm isn't installed. Install: npm i -g pnpm  (或 corepack enable)"
     cmds:
-      - npm install
+      - pnpm install
 
   build:frontend:
     label: build:frontend (DEV={{.DEV}})
@@ -37,7 +40,7 @@ tasks:
           BUILD_FLAGS:
             ref: .BUILD_FLAGS
     cmds:
-      - npm run {{.BUILD_COMMAND}} -q
+      - pnpm --silent run {{.BUILD_COMMAND}}
     env:
       PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
     vars:
@@ -113,7 +116,7 @@ tasks:
     deps:
       - task: install:frontend:deps
     cmds:
-      - npm run dev
+      - pnpm run dev
 
   update:build-assets:
     summary: Updates the build assets

@@ -77,14 +77,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Window } from '@wailsio/runtime'
 import { useSidebarCollapsed } from '@/composables/useSidebarCollapsed'
+import { useWindowControls } from '@/composables/useWindowControls'
 
 const version = '1.1.0'
 const route = useRoute()
 const { collapsed } = useSidebarCollapsed()
+const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
 
 const VIEW_META: Record<string, { title: string; icon: string }> = {
   fish: { title: '钓鱼', icon: 'i-tabler-fish' },
@@ -97,38 +98,5 @@ const VIEW_META: Record<string, { title: string; icon: string }> = {
 }
 const currentTitle = computed(() => VIEW_META[route.name as string]?.title ?? '')
 const currentIcon = computed(() => VIEW_META[route.name as string]?.icon ?? '')
-
-// 跟踪窗口最大化状态：每隔 500ms 拉一次（wails3 alpha 没暴露 onMaximised event）
-const isMaximised = ref(false)
-let pollTimer: ReturnType<typeof setInterval> | null = null
-
-async function pollMaximised() {
-  try {
-    isMaximised.value = await Window.IsMaximised()
-  } catch {
-    /* runtime not ready 时静默 */
-  }
-}
-
-onMounted(() => {
-  pollMaximised()
-  pollTimer = setInterval(pollMaximised, 500)
-})
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer)
-})
-
-function onMinimise() {
-  Window.Minimise()
-}
-
-function onToggleMaximise() {
-  Window.ToggleMaximise()
-  // 立刻刷一次状态，不等下次 poll
-  setTimeout(pollMaximised, 50)
-}
-
-function onClose() {
-  Window.Close()
-}
+// 窗口控件 (isMaximised + onMinimise / onToggleMaximise / onClose) 全由 useWindowControls 提供
 </script>

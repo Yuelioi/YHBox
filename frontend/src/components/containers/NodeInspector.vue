@@ -98,8 +98,277 @@
       </p>
     </section>
 
+    <!-- Subgraph 节点：1:1 模型 — 节点 ↔ 子图 强绑定 + 外部统一编辑 -->
+    <section v-if="node.kind === 'Subgraph'" class="space-y-3">
+      <div class="rounded-md bg-elevated/30 border border-default/40 p-3 space-y-3">
+        <!-- 头部：图标 + 节点数 + 进入按钮 -->
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-package" class="size-4 text-fuchsia-300" />
+          <span class="text-xs text-toned">绑定子图</span>
+          <UBadge size="xs" variant="soft" color="neutral" class="ml-auto">
+            {{ (boundSubgraph?.graph?.nodes?.length ?? 0) }} 节点
+          </UBadge>
+        </div>
+
+        <!-- 子图 label 编辑 -->
+        <div class="space-y-1">
+          <label class="text-[11px] text-toned">标签</label>
+          <UInput
+            :model-value="boundSubgraph?.label ?? ''"
+            size="sm"
+            placeholder="子图名称"
+            :disabled="!boundSubgraph"
+            @update:model-value="(v: string) => onPatchSubgraph({ label: v })"
+          />
+        </div>
+
+        <!-- 子图描述编辑 -->
+        <div class="space-y-1">
+          <label class="text-[11px] text-toned">描述</label>
+          <UTextarea
+            :model-value="(boundSubgraph as any)?.description ?? ''"
+            size="sm"
+            :rows="2"
+            placeholder="可选 · 给自己或队友看的说明"
+            :disabled="!boundSubgraph"
+            @update:model-value="(v: string) => onPatchSubgraph({ description: v })"
+          />
+        </div>
+
+        <!-- 子图标签 tags -->
+        <div class="space-y-1">
+          <label class="text-[11px] text-toned">tags</label>
+          <UInputMenu
+            :model-value="(boundSubgraph as any)?.tags ?? []"
+            multiple
+            creatable
+            :items="allSubgraphTagsList"
+            size="sm"
+            placeholder="添加标签..."
+            :disabled="!boundSubgraph"
+            @update:model-value="(v: string[]) => onPatchSubgraph({ tags: v })"
+          />
+        </div>
+
+        <UButton
+          size="sm"
+          variant="soft"
+          color="primary"
+          icon="i-tabler-arrow-right"
+          block
+          :disabled="!boundSubgraph"
+          @click="onEnterSubgraph"
+        >
+          进入子图编辑节点内容
+        </UButton>
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-tabler-cloud-upload"
+          block
+          :disabled="!boundSubgraph || publishing"
+          :loading="publishing"
+          @click="onPublishToLibrary"
+        >
+          {{ publishing ? '发布中...' : '发布此子图到库' }}
+        </UButton>
+        <p class="text-[10px] text-dimmed leading-snug">
+          子图元信息（标签/描述/tags）可在此处编辑，无需进入子图。<br />
+          删除此节点会同时删除对应子图（如无其他引用）。
+        </p>
+      </div>
+    </section>
+
+    <!-- MouseCalibration：v2 spec §1.6 防误用形态 -->
+    <section v-else-if="node.kind === 'MouseCalibration'" class="space-y-3">
+      <div
+        v-if="isCalibrationForeign"
+        class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-[12px] text-amber-300"
+      >
+        <UIcon name="i-tabler-alert-triangle" class="size-3.5 inline mr-1 align-middle" />
+        这个容器似乎来自别的机器（节点 {{ node.config?.counts360 }} / 全局 {{ globalCounts360 }}）<br />
+        请用本机重新校准；或点击下方按钮一键覆盖
+        <div class="mt-2 flex gap-1.5 flex-wrap">
+          <UButton
+            size="xs"
+            color="warning"
+            variant="solid"
+            icon="i-tabler-refresh"
+            @click="$emit('update', { ...node.config, counts360: globalCounts360 })"
+          >用本机值（{{ globalCounts360 }}）覆盖此节点</UButton>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="warning"
+            icon="i-tabler-bolt"
+            @click="onSyncAllFromForeign"
+          >⚡ 同步所有容器</UButton>
+        </div>
+      </div>
+
+      <div class="rounded-md bg-elevated/30 border border-default/40 p-3 space-y-2">
+        <div class="flex items-baseline gap-2">
+          <span class="text-xs text-toned">本机 360° HID counts</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span
+            class="text-2xl font-mono tabular-nums"
+            :class="(node.config?.counts360 ?? 0) > 0 ? 'text-emerald-300' : 'text-rose-300'"
+          >{{ node.config?.counts360 ?? 0 }}</span>
+          <span class="text-[11px] text-dimmed">{{ (node.config?.counts360 ?? 0) > 0 ? '✅ 已校准' : '❌ 未校准' }}</span>
+        </div>
+        <p class="text-[11px] text-dimmed leading-relaxed">
+          转 360° 你的鼠标硬件累积上报多少 |dx|；跟硬件 DPI、OS 灵敏度、游戏内灵敏度都有关。<br />
+          <span class="text-rose-300/80">⚠ 这个值必须是你本机+游戏实测的，不是从别人容器导入的值。</span>
+        </p>
+        <UButton
+          size="sm"
+          color="primary"
+          variant="solid"
+          icon="i-tabler-target"
+          block
+          @click="onOpenCalibrator"
+        >▶ 开始校准</UButton>
+
+        <UCollapsible class="mt-3">
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-chevron-right"
+            class="w-full justify-start"
+          >高级（手动输入）</UButton>
+
+          <template #content>
+            <UInputNumber
+              :model-value="node.config?.counts360 ?? 0"
+              size="sm"
+              class="w-full mt-2"
+              @update:model-value="(v: number) => $emit('update', { ...(node?.config ?? {}), counts360: v })"
+            />
+          </template>
+        </UCollapsible>
+      </div>
+    </section>
+
+    <!-- PlayClip: clip 绑死显示 (一节点一 clip, 不允许下拉换) + 重录覆盖 + 裁剪段编辑 -->
+    <section v-else-if="node.kind === 'PlayClip'" class="mb-5 space-y-3">
+      <!-- 绑定的 clip 概要 (只读) -->
+      <div
+        v-if="selectedClip"
+        class="rounded-md bg-elevated/30 border border-default/40 px-3 py-2.5 text-[11px] space-y-1.5"
+      >
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-vinyl" class="size-3.5 text-pink-400 shrink-0" />
+          <span class="text-default font-medium truncate">{{ selectedClip.label || selectedClip.id }}</span>
+        </div>
+        <div class="flex items-center gap-3 text-[10px] text-dimmed">
+          <span class="flex items-center gap-1"><UIcon name="i-tabler-clock" class="size-3" />{{ formatDuration(selectedClip.durationUs) }}</span>
+          <span class="flex items-center gap-1"><UIcon name="i-tabler-calendar" class="size-3" />{{ formatDate(selectedClip.createdAt) }}</span>
+        </div>
+        <div
+          v-if="selectedClip.tags && selectedClip.tags.length"
+          class="flex items-center gap-1 flex-wrap"
+        >
+          <UBadge
+            v-for="t in selectedClip.tags"
+            :key="t"
+            size="xs"
+            color="neutral"
+            variant="subtle"
+          >{{ t }}</UBadge>
+        </div>
+        <div class="text-[10px] text-dimmed font-mono break-all">{{ selectedClip.id }}</div>
+      </div>
+      <div v-else class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
+        <UIcon name="i-tabler-alert-triangle" class="size-3 inline mr-1" />
+        clip {{ node.config?.clipID || '(未设)' }} 不在 clips 库. 重新录制覆盖.
+      </div>
+
+      <!-- 重新录制覆盖 (一节点一 clip, 不允许下拉切换; 想换 clip 就重录) -->
+      <div class="flex items-center gap-2">
+        <UButton
+          size="xs"
+          color="primary"
+          variant="soft"
+          icon="i-tabler-circle-dot"
+          class="flex-1"
+          @click="$emit('request-record', { mode: 'precise', replaceNodeID: node.id })"
+        >重新录制 (精准)</UButton>
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="soft"
+          icon="i-tabler-zap"
+          class="flex-1"
+          @click="$emit('request-record', { mode: 'simple', replaceNodeID: node.id })"
+        >重录 (简易)</UButton>
+      </div>
+      <p class="text-[10px] text-dimmed leading-snug -mt-1">
+        一个 PlayClip 节点绑死一个 clip — 想换内容请重新录制覆盖, 不要切换 clip 引用 (避免删 clip 后这里指向不存在的 ID).
+      </p>
+
+      <!-- keepRanges 编辑器 -->
+      <div>
+        <!-- 可视化 timeline (拖拽添加/调长度/删) -->
+        <ClipTimeline
+          v-if="selectedClip"
+          class="mb-3"
+          :duration-ms="Math.floor(selectedClip.durationUs / 1000)"
+          :ranges="keepRanges"
+          @add="onTimelineAdd"
+          @update="onTimelineUpdate"
+          @remove="removeRange"
+        />
+
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[11px] text-toned">裁剪段 (keepRanges)</span>
+          <UButton size="xs" variant="ghost" icon="i-tabler-plus" @click="addRange">添加</UButton>
+        </div>
+        <p class="text-[10px] text-dimmed mb-2 leading-snug">
+          不指定 = 整段播放. 加多段后只播这些段, 跨段的停顿会自动压缩.
+        </p>
+        <div v-if="keepRanges.length === 0" class="text-[10px] text-dimmed italic">
+          无, 整段播放
+        </div>
+        <div v-else class="space-y-1.5">
+          <div
+            v-for="(r, idx) in keepRanges"
+            :key="idx"
+            class="flex items-center gap-1.5"
+          >
+            <UInput
+              :model-value="r.fromMs"
+              type="number"
+              size="xs"
+              class="w-24"
+              placeholder="from ms"
+              @update:model-value="updateRange(idx, 'fromMs', Number($event))"
+            />
+            <span class="text-[10px] text-dimmed">→</span>
+            <UInput
+              :model-value="r.toMs"
+              type="number"
+              size="xs"
+              class="w-24"
+              placeholder="to ms"
+              @update:model-value="updateRange(idx, 'toMs', Number($event))"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-tabler-x"
+              @click="removeRange(idx)"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Config fields -->
-    <section v-if="fields.length > 0">
+    <section v-else-if="fields.length > 0">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">配置</h4>
       <div class="space-y-4">
         <div v-for="field in fields" :key="field.key" class="space-y-1.5">
@@ -128,11 +397,6 @@
             :placeholder="field.placeholder"
             @update:model-value="setCfg(field.key, String($event))"
           />
-          <ActionPicker
-            v-else-if="field.type === 'action-picker'"
-            :model-value="getCfg(field.key)"
-            @update:model-value="setCfg(field.key, $event)"
-          />
           <TemplatePicker
             v-else-if="field.type === 'template-picker'"
             :model-value="getCfg(field.key)"
@@ -153,15 +417,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, toRef } from 'vue'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
-import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import ExpressionInput from '@/components/expressions/ExpressionInput.vue'
-import ActionPicker from './ActionPicker.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import KeyCapture from './KeyCapture.vue'
+import ClipTimeline from './ClipTimeline.vue'
 import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL } from './pinSpec'
+import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
+import { useSettingsStore } from '@/stores/settings'
+import { useContainerEditorStore } from '@/stores/containerEditor'
+import { useClipsStore } from '@/stores/clips'
+import { useToast } from '@nuxt/ui/composables'
+import { useConfirm } from '@/composables/useConfirm'
+import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
+import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
 
 const props = defineProps<{
   node: GraphNode | null
@@ -169,16 +440,106 @@ const props = defineProps<{
   nodes?: GraphNode[]
   edges?: { from: string; to: string }[]
 }>()
-const emit = defineEmits<{ update: [config: Record<string, any>]; delete: [] }>()
+const emit = defineEmits<{
+  update: [config: Record<string, any>]
+  delete: []
+  'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
+}>()
 
-interface Field {
-  key: string
-  label: string
-  type: 'expr' | 'select' | 'text' | 'action-picker' | 'template-picker' | 'key-capture'
-  options?: { label: string; value: string }[]
-  placeholder?: string
-  exprType?: 'number' | 'bool' | 'string' | 'point'
-  hint?: string
+const settingsStore = useSettingsStore()
+const globalCounts360 = computed(() => settingsStore.data?.ui?.mouseCounts360 ?? 0)
+const isCalibrationForeign = computed(() => {
+  if (!props.node || props.node.kind !== 'MouseCalibration') return false
+  const nodeVal = props.node.config?.counts360 ?? 0
+  return nodeVal > 0 && globalCounts360.value > 0 && nodeVal !== globalCounts360.value
+})
+
+function onOpenCalibrator() {
+  if (!props.node) return
+  const cfg = props.node.config ?? {}
+  window.dispatchEvent(new CustomEvent('open-calibrator-modal', {
+    detail: {
+      onSave: (counts: number) => emit('update', { ...cfg, counts360: counts }),
+    },
+  }))
+}
+
+// Plan B Task E.8: FOREIGN warning 旁加"同步所有容器"按钮
+const toastForSync = useToast()
+const { confirm: confirmDialog } = useConfirm()
+async function onSyncAllFromForeign() {
+  const cur = globalCounts360.value
+  if (cur <= 0) return
+  const yes = await confirmDialog({
+    title: '同步到所有容器？',
+    description: `把本机 counts360 = ${cur} 同步到所有本地容器（不只是这个节点）`,
+    color: 'primary',
+    confirmText: '同步',
+  })
+  if (yes !== true) return
+  const r = (await backend.containers.syncLocalMouseCalibration(cur)) as any
+  toastForSync.add({ title: `已同步 ${r?.updated?.length ?? 0} 个容器`, color: 'success' })
+}
+
+// Subgraph 调用节点：1:1 模型，只显示绑定的子图（不需 USelect 选择）
+const editorStore = useContainerEditorStore()
+const boundSubgraph = computed(() => {
+  const sgID = props.node?.config?.subgraphId
+  if (!sgID) return null
+  return editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID) ?? null
+})
+
+function onEnterSubgraph() {
+  const sgID = props.node?.config?.subgraphId
+  if (!sgID) return
+  editorStore.pushPath(String(sgID))
+}
+
+// 发布当前绑定子图到库 (容器→库, 反向 copy-on-use)
+const publishing = ref(false)
+async function onPublishToLibrary() {
+  const sgID = props.node?.config?.subgraphId
+  const cid = editorStore.activeContainerID
+  if (!sgID || !cid || !boundSubgraph.value) return
+  const yes = await confirmDialog({
+    title: '发布子图到库？',
+    description: `将「${boundSubgraph.value.label || sgID}」深拷贝一份到全局库；容器里原子图不变。后续可在 库 入口 拖入其他容器。`,
+    color: 'primary',
+    confirmText: '发布',
+  })
+  if (yes !== true) return
+  publishing.value = true
+  try {
+    const r = (await backend.library.publishFromContainer(cid, String(sgID))) as any
+    toastForSync.add({
+      title: '已发布到库',
+      description: `新库 ID: ${r?.id ?? '?'}`,
+      color: 'success',
+      icon: 'i-tabler-cloud-upload',
+    })
+  } catch (e) {
+    toastForSync.add({ title: '发布失败', description: String(e), color: 'error' })
+  } finally {
+    publishing.value = false
+  }
+}
+
+// 所有子图聚合 tags（给 UInputMenu autocomplete）
+const allSubgraphTagsList = computed(() => {
+  const set = new Set<string>()
+  for (const sg of editorStore.subgraphsForCurrentContainer ?? []) {
+    for (const t of (sg as any).tags ?? []) set.add(t)
+  }
+  return [...set]
+})
+
+// 主图 Inspector 编辑绑定子图的 label/description/tags 时直接 mutate store 里的 sg 对象.
+// store ref 上的 deep watch (useContainerDraft) 会自动 fire 标 dirty —
+// 不需要 window.dispatchEvent 显式通知 view (之前的桥接已删, 同棵 Vue 树没必要走 window 总线).
+function onPatchSubgraph(patch: Record<string, any>) {
+  if (!boundSubgraph.value) return
+  Object.assign(boundSubgraph.value as any, patch)
+  // dirty 由 useContainerDraft 的 watch(editorStore.subgraphsForCurrentContainer, deep) 自动监控.
 }
 
 const label = computed(() =>
@@ -189,255 +550,14 @@ const visual = computed(() =>
   props.node
     ? (KIND_VISUAL[props.node.kind] ?? {
         icon: 'i-tabler-circle',
-        bg: 'bg-zinc-700/40',
-        border: 'border-zinc-500/40',
+        bg: 'bg-muted',
+        border: 'border-default',
       })
     : { icon: '', bg: '', border: '' },
 )
 
-const SCHEMAS: Record<string, Field[]> = {
-  Sleep: [
-    { key: 'durationMs', label: '休眠 ms', type: 'expr', placeholder: '1000', exprType: 'number' },
-  ],
-  Loop: [
-    {
-      key: 'mode',
-      label: '模式',
-      type: 'select',
-      options: [
-        { label: '固定次数 (count)', value: 'count' },
-        { label: '条件循环 (while)', value: 'while' },
-        { label: '无限循环 (forever)', value: 'forever' },
-      ],
-    },
-    {
-      key: 'count',
-      label: '次数（count 模式）',
-      type: 'expr',
-      placeholder: '10',
-      exprType: 'number',
-    },
-    {
-      key: 'condition',
-      label: '条件表达式（while 模式）',
-      type: 'expr',
-      placeholder: '$vars.x < 5',
-      exprType: 'bool',
-    },
-  ],
-  If: [{ key: 'condition', label: '条件表达式', type: 'expr', exprType: 'bool' }],
-  Parallel: [
-    { key: 'n', label: '分支数 (2-8)', type: 'expr', placeholder: '2', exprType: 'number' },
-  ],
-  Race: [{ key: 'n', label: '分支数 (2-8)', type: 'expr', placeholder: '2', exprType: 'number' }],
-  Stop: [{ key: 'error', label: '错误信息（可选）', type: 'text' }],
-  SetVar: [
-    { key: 'varName', label: '变量名', type: 'text' },
-    { key: 'value', label: '值（表达式）', type: 'expr' },
-  ],
-  IncVar: [
-    { key: 'varName', label: '变量名', type: 'text' },
-    { key: 'delta', label: '增量', type: 'expr', placeholder: '1', exprType: 'number' },
-  ],
-  WaitTemplate: [
-    { key: 'template', label: '模板', type: 'template-picker' },
-    { key: 'timeoutMs', label: '超时 ms', type: 'expr', placeholder: '5000', exprType: 'number' },
-    {
-      key: 'threshold',
-      label: '匹配阈值',
-      type: 'expr',
-      placeholder: '0.85',
-      exprType: 'number',
-      hint: '0..1，越大越严格',
-    },
-  ],
-  CheckTemplate: [
-    { key: 'template', label: '模板', type: 'template-picker' },
-    {
-      key: 'threshold',
-      label: '匹配阈值',
-      type: 'expr',
-      placeholder: '0.85',
-      exprType: 'number',
-      hint: '0..1，越大越严格',
-    },
-  ],
-  ClickTemplate: [
-    { key: 'template', label: '模板', type: 'template-picker' },
-    { key: 'timeoutMs', label: '超时 ms', type: 'expr', placeholder: '5000', exprType: 'number' },
-    { key: 'threshold', label: '匹配阈值', type: 'expr', placeholder: '0.85', exprType: 'number' },
-    {
-      key: 'button',
-      label: '鼠标按键',
-      type: 'select',
-      options: [
-        { label: '左键', value: 'left' },
-        { label: '中键', value: 'middle' },
-        { label: '右键', value: 'right' },
-      ],
-    },
-  ],
-  DetectColor: [
-    {
-      key: 'region',
-      label: 'ROI (x,y,w,h 比例)',
-      type: 'text',
-      placeholder: '0.4,0.55,0.2,0.05',
-      hint: '客户区比例 0..1，逗号分隔。留空 = 全屏',
-    },
-    {
-      key: 'mode',
-      label: '颜色模式',
-      type: 'select',
-      options: [
-        { label: 'HSV (色相饱和明度)', value: 'hsv' },
-        { label: 'RGB (红绿蓝)', value: 'rgb' },
-      ],
-    },
-    {
-      key: 'range',
-      label: '颜色范围 (6 个值 CSV)',
-      type: 'text',
-      placeholder: 'HSV: 50,60,67,127,253,255',
-      hint: 'HSV: hMin,hMax,sMin,sMax,vMin,vMax  (H: 0-360, S/V: 0-255)。RGB: rMin,rMax,gMin,gMax,bMin,bMax (0-255)',
-    },
-    {
-      key: 'minPixels',
-      label: '最少命中像素',
-      type: 'expr',
-      placeholder: '5',
-      exprType: 'number',
-      hint: '≥ 此值走 yes 出口；否则 no',
-    },
-  ],
-  InvokeAction: [{ key: 'actionId', label: '动作', type: 'action-picker' }],
-  ClickAt: [
-    {
-      key: 'xRatio',
-      label: 'X 比例',
-      type: 'expr',
-      placeholder: '0.5',
-      exprType: 'number',
-      hint: '0..1，0=左 1=右；1280×720 屏上 0.5 = 中心 640px',
-    },
-    {
-      key: 'yRatio',
-      label: 'Y 比例',
-      type: 'expr',
-      placeholder: '0.5',
-      exprType: 'number',
-      hint: '0..1，0=顶 1=底',
-    },
-    {
-      key: 'durationMs',
-      label: '按下时长 ms',
-      type: 'expr',
-      placeholder: '50',
-      exprType: 'number',
-    },
-    {
-      key: 'button',
-      label: '鼠标按键',
-      type: 'select',
-      options: [
-        { label: '左键', value: 'left' },
-        { label: '中键', value: 'middle' },
-        { label: '右键', value: 'right' },
-      ],
-    },
-  ],
-  KeyPress: [
-    { key: 'vk', label: '按键', type: 'key-capture', hint: '点输入框后按下任意键自动捕获' },
-    {
-      key: 'durationMs',
-      label: '按下时长 ms',
-      type: 'expr',
-      placeholder: '50',
-      exprType: 'number',
-    },
-  ],
-  MouseMoveRel: [
-    { key: 'dx', label: 'dx (像素)', type: 'expr', exprType: 'number' },
-    { key: 'dy', label: 'dy (像素)', type: 'expr', exprType: 'number' },
-    {
-      key: 'durationMs',
-      label: '移动用时 ms',
-      type: 'expr',
-      placeholder: '200',
-      exprType: 'number',
-    },
-  ],
-  Scroll: [
-    { key: 'xRatio', label: 'X 比例', type: 'expr', exprType: 'number' },
-    { key: 'yRatio', label: 'Y 比例', type: 'expr', exprType: 'number' },
-    { key: 'delta', label: '滚动格数', type: 'expr', placeholder: '3', exprType: 'number' },
-  ],
-  OnEvent: [
-    {
-      key: 'kind',
-      label: '事件类型',
-      type: 'select',
-      options: [{ label: '模板出现 (template_appeared)', value: 'template_appeared' }],
-    },
-    { key: 'template', label: '模板', type: 'template-picker' },
-    {
-      key: 'pollIntervalMs',
-      label: '轮询间隔 ms',
-      type: 'expr',
-      placeholder: '100',
-      exprType: 'number',
-    },
-    {
-      key: 'maxConcurrent',
-      label: '最大并发子图数',
-      type: 'expr',
-      placeholder: '1',
-      exprType: 'number',
-    },
-    {
-      key: 'retriggerPolicy',
-      label: '重触发策略',
-      type: 'select',
-      options: [
-        { label: '丢弃 (drop)', value: 'drop' },
-        { label: '排队 (queue)', value: 'queue' },
-        { label: '重启 (restart)', value: 'restart' },
-      ],
-    },
-    { key: 'cooldownMs', label: '冷却 ms', type: 'expr', placeholder: '0', exprType: 'number' },
-  ],
-  Log: [
-    {
-      key: 'level',
-      label: '级别',
-      type: 'select',
-      options: [
-        { label: 'info', value: 'info' },
-        { label: 'warn', value: 'warn' },
-        { label: 'error', value: 'error' },
-      ],
-    },
-    { key: 'message', label: '消息（表达式）', type: 'expr', exprType: 'string' },
-  ],
-  Toast: [
-    { key: 'title', label: '标题（表达式）', type: 'expr', exprType: 'string' },
-    { key: 'message', label: '内容（表达式）', type: 'expr', exprType: 'string' },
-    {
-      key: 'color',
-      label: '颜色',
-      type: 'select',
-      options: [
-        { label: '中性 (neutral)', value: 'neutral' },
-        { label: '主色 (primary)', value: 'primary' },
-        { label: '成功 (success)', value: 'success' },
-        { label: '警告 (warning)', value: 'warning' },
-        { label: '错误 (error)', value: 'error' },
-      ],
-    },
-  ],
-}
 
-const fields = computed<Field[]>(() => (props.node ? (SCHEMAS[props.node.kind] ?? []) : []))
+const fields = computed<Field[]>(() => (props.node ? (NODE_FIELD_SCHEMAS[props.node.kind] ?? []) : []))
 
 function getCfg(key: string): string {
   if (!props.node?.config) return ''
@@ -463,129 +583,102 @@ function setCfgBatch(patch: Record<string, string>) {
   emit('update', next)
 }
 
-// ---- ScreenPicker 集成 ----
-// 哪些节点能"截屏选点": ClickAt / Scroll（都是 xRatio/yRatio）
-// 哪些节点能"截屏框选 ROI": DetectColor（region）
-const canPickPoint = computed(() => {
-  const k = props.node?.kind ?? ''
-  return k === 'ClickAt' || k === 'Scroll'
-})
-const canPickRect = computed(() => {
-  const k = props.node?.kind ?? ''
-  return k === 'DetectColor'
+// 屏幕拾取 (打开 ScreenPicker 子窗口 → 回填 xRatio/yRatio 或 region)
+const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD } = useScreenPick({
+  node: toRef(props, 'node'),
+  applyPoint: (x, y) => setCfgBatch({ xRatio: x.toFixed(4), yRatio: y.toFixed(4) }),
+  applyRect: (r) =>
+    setCfg('region', `${r[0].toFixed(3)},${r[1].toFixed(3)},${r[2].toFixed(3)},${r[3].toFixed(3)}`),
 })
 
-const picking = ref(false)
-
-function genID(): string {
-  return 'pick-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
-}
-
-interface PickerResult {
-  id: string
-  mode: string
-  payload: any
-}
-
-async function openPicker(mode: 'point' | 'rect', onResult: (payload: any) => void) {
-  const id = genID()
-  picking.value = true
-  // 先挂监听，再开 picker 窗口——确保 picker emit 时本端已订阅
-  const waiter = awaitWailsEvent<PickerResult>('tools:picker-result', (p) => p?.id === id)
-  const r = await backend.tools.openScreenPicker(mode, id)
-  if (r === undefined) {
-    picking.value = false
-    return
-  }
-  const result = await waiter
-  picking.value = false
-  if (!result.payload?.cancelled) onResult(result.payload)
-}
-
-async function onPickPoint() {
-  await openPicker('point', (p) => {
-    setCfgBatch({
-      xRatio: p.xRatio.toFixed(4),
-      yRatio: p.yRatio.toFixed(4),
-    })
-  })
-}
-
-async function onPickRect() {
-  await openPicker('rect', (p) => {
-    const r = p.region as [number, number, number, number]
-    const csv = `${r[0].toFixed(3)},${r[1].toFixed(3)},${r[2].toFixed(3)},${r[3].toFixed(3)}`
-    setCfg('region', csv)
-  })
-}
-
-async function onOpenHUD() {
-  await backend.tools.openMouseHUD()
-}
-
-// ---- 并发警告：Parallel/Race 子分支写同名 var ----
-function reachable(
-  startNodeID: string,
-  startPin: string,
-  allEdges: { from: string; to: string }[],
-): string[] {
-  const out = new Set<string>()
-  const queue: string[] = []
-  for (const e of allEdges) {
-    if (e.from === `${startNodeID}.${startPin}`) {
-      const to = e.to.split('.')[0]
-      queue.push(to)
-      out.add(to)
-    }
-  }
-  while (queue.length > 0) {
-    const cur = queue.shift()!
-    for (const e of allEdges) {
-      if (e.from.startsWith(cur + '.')) {
-        const to = e.to.split('.')[0]
-        if (!out.has(to)) {
-          out.add(to)
-          queue.push(to)
-        }
-      }
-    }
-  }
-  return [...out]
-}
-
-const concurrencyWarning = computed<string>(() => {
-  const n = props.node
-  if (!n || (n.kind !== 'Parallel' && n.kind !== 'Race')) return ''
-  const nodes = props.nodes ?? []
-  const edges = props.edges ?? []
-  const branchVars = new Map<number, Set<string>>()
-  for (const e of edges) {
-    if (!e.from.startsWith(n.id + '.branch')) continue
-    const pin = e.from.slice(n.id.length + 1)
-    const idx = Number(pin.replace('branch', ''))
-    if (Number.isNaN(idx)) continue
-    const reached = reachable(n.id, pin, edges)
-    const vars = new Set<string>()
-    for (const id of reached) {
-      const node = nodes.find((x) => x.id === id)
-      if (!node) continue
-      if (node.kind === 'SetVar' || node.kind === 'IncVar') {
-        const v = (node.config?.varName as string | undefined) ?? ''
-        if (v) vars.add(v)
-      }
-    }
-    branchVars.set(idx, vars)
-  }
-  const allBranchVars = [...branchVars.values()]
-  const conflicts = new Set<string>()
-  for (let i = 0; i < allBranchVars.length; i++) {
-    for (let j = i + 1; j < allBranchVars.length; j++) {
-      for (const v of allBranchVars[i]) {
-        if (allBranchVars[j].has(v)) conflicts.add(v)
-      }
-    }
-  }
-  if (conflicts.size === 0) return ''
-  return `分支同时写入: ${[...conflicts].join(', ')}（结果不确定）`
+// Parallel / Race 并发分支写同名变量警告
+const { concurrencyWarning } = useConcurrencyWarning({
+  node: toRef(props, 'node'),
+  nodes: toRef(props, 'nodes'),
+  edges: toRef(props, 'edges'),
 })
+
+// ─── PlayClip section ─────────────────────────────────────────────────────────
+const clipsStore = useClipsStore()
+onMounted(() => {
+  void clipsStore.refresh()
+  clipsStore.listen()
+})
+
+const selectedClip = computed(() => {
+  if (props.node?.kind !== 'PlayClip') return null
+  const id = props.node.config?.clipID
+  if (!id) return null
+  return clipsStore.clips.find((c) => c.id === id) ?? null
+})
+
+// keepRanges 显示形态用 ms 便于人读, 存储形态用 us
+const keepRanges = computed<{ fromMs: number; toMs: number }[]>(() => {
+  if (props.node?.kind !== 'PlayClip') return []
+  const raw = (props.node.config?.keepRanges ?? []) as { fromUs?: number; toUs?: number }[]
+  return raw.map((r) => ({
+    fromMs: Math.floor((r.fromUs ?? 0) / 1000),
+    toMs: Math.floor((r.toUs ?? 0) / 1000),
+  }))
+})
+
+function currentRanges(): { fromUs: number; toUs: number }[] {
+  const raw = (props.node?.config?.keepRanges ?? []) as { fromUs?: number; toUs?: number }[]
+  return raw.map((r) => ({ fromUs: r.fromUs ?? 0, toUs: r.toUs ?? 0 }))
+}
+
+function addRange() {
+  if (!props.node) return
+  const next = currentRanges()
+  next.push({ fromUs: 0, toUs: 0 })
+  emit('update', { ...(props.node.config ?? {}), keepRanges: next })
+}
+
+function updateRange(idx: number, field: 'fromMs' | 'toMs', valMs: number) {
+  if (!props.node) return
+  const next = currentRanges()
+  if (idx < 0 || idx >= next.length) return
+  if (field === 'fromMs') next[idx].fromUs = Math.max(0, Math.floor(valMs * 1000))
+  else next[idx].toUs = Math.max(0, Math.floor(valMs * 1000))
+  emit('update', { ...(props.node.config ?? {}), keepRanges: next })
+}
+
+function removeRange(idx: number) {
+  if (!props.node) return
+  const next = currentRanges()
+  next.splice(idx, 1)
+  emit('update', { ...(props.node.config ?? {}), keepRanges: next })
+}
+
+function onTimelineAdd(r: { fromMs: number; toMs: number }) {
+  if (!props.node) return
+  const cur = currentRanges()
+  cur.push({ fromUs: r.fromMs * 1000, toUs: r.toMs * 1000 })
+  cur.sort((a, b) => a.fromUs - b.fromUs)
+  emit('update', { ...(props.node.config ?? {}), keepRanges: cur })
+}
+
+function onTimelineUpdate(idx: number, r: { fromMs: number; toMs: number }) {
+  if (!props.node) return
+  const cur = currentRanges()
+  if (idx < 0 || idx >= cur.length) return
+  cur[idx] = { fromUs: r.fromMs * 1000, toUs: r.toMs * 1000 }
+  cur.sort((a, b) => a.fromUs - b.fromUs)
+  emit('update', { ...(props.node.config ?? {}), keepRanges: cur })
+}
+
+function formatDuration(us: number): string {
+  const ms = us / 1000
+  if (ms < 1000) return ms.toFixed(0) + ' ms'
+  return (ms / 1000).toFixed(1) + ' s'
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString() + ' ' + d.toTimeString().slice(0, 5)
+  } catch {
+    return iso
+  }
+}
 </script>
