@@ -18,7 +18,15 @@ var (
 	user32             = syscall.NewLazyDLL("user32.dll")
 	procPrintWindow    = user32.NewProc("PrintWindow")
 	procClientToScreen = user32.NewProc("ClientToScreen")
+	procIsWindow       = user32.NewProc("IsWindow")
 )
+
+// isWindow 走 user32.IsWindow — lxn/win 没暴露这个 API,
+// IBackend impls 需要它做 hwnd 前置校验. 比 IsWindowVisible 更宽 (隐藏窗口也算合法).
+func isWindow(hwnd win.HWND) bool {
+	r, _, _ := procIsWindow.Call(uintptr(hwnd))
+	return r != 0
+}
 
 type point struct {
 	X, Y int32
