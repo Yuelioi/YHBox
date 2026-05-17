@@ -284,6 +284,38 @@ const KINDS_BY_GROUP: {
       { kind: 'MouseCalibration', icon: 'i-tabler-target' },
     ],
   },
+  {
+    label: '检测 v3',
+    items: [
+      { kind: 'DetectColorHSV', icon: 'i-tabler-palette' },
+      { kind: 'ROIColorScan', icon: 'i-tabler-scan-eye' },
+      { kind: 'Screenshot', icon: 'i-tabler-camera' },
+    ],
+  },
+  {
+    label: '输入长按 v3',
+    items: [
+      { kind: 'KeyHoldStart', icon: 'i-tabler-keyboard' },
+      { kind: 'KeyHoldStop', icon: 'i-tabler-keyboard-off' },
+      { kind: 'MouseHoldStart', icon: 'i-tabler-hand-click' },
+      { kind: 'MouseHoldStop', icon: 'i-tabler-hand-off' },
+    ],
+  },
+  {
+    label: '时序 v3',
+    items: [
+      { kind: 'StopwatchStart', icon: 'i-tabler-player-play' },
+      { kind: 'StopwatchStop', icon: 'i-tabler-player-stop' },
+      { kind: 'StopwatchRead', icon: 'i-tabler-stopwatch' },
+    ],
+  },
+  {
+    label: '错误处理 v3',
+    items: [
+      { kind: 'Try', icon: 'i-tabler-shield-exclamation' },
+      { kind: 'Throw', icon: 'i-tabler-bolt' },
+    ],
+  },
 ]
 
 const groups = KINDS_BY_GROUP.map((g) => ({

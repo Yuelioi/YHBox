@@ -226,6 +226,19 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   MouseCalibration: '鼠标校准',
   WindowTarget: '目标窗口',
   PlayClip: '播放录制',
+  // v3 Phase C
+  DetectColorHSV: 'HSV 颜色检测',
+  ROIColorScan: 'ROI 颜色扫描',
+  Screenshot: '截图存盘',
+  KeyHoldStart: '按下键 (异步)',
+  KeyHoldStop: '松开键',
+  MouseHoldStart: '按下鼠标 (异步)',
+  MouseHoldStop: '松开鼠标',
+  Try: '错误捕获子图',
+  Throw: '抛出错误',
+  StopwatchStart: '计时开始',
+  StopwatchStop: '计时停止',
+  StopwatchRead: '计时读取',
 }
 
 // 节点用法说明，选中节点时显示在 Inspector 顶部
@@ -267,6 +280,23 @@ export const KIND_DESCRIPTION: Record<string, string> = {
     '声明 container 操作的目标游戏窗口 + input/capture backend. 必须在主图, 1 个.',
   PlayClip:
     '播放一段录制的输入事件流 (键鼠 events). config.clipID 指定 clip; config.keepRanges 可选裁剪 [{fromUs, toUs}, ...] 让你跳过录制中的停顿段.',
+  // v3 Phase C
+  DetectColorHSV:
+    '按 HSV 范围在 ROI 中扫描像素, 命中比例 ≥ minPixelRatio 走 yes, 否则下次 poll; 超时走 timeout. 输出 pixelCount / pixelRatio.',
+  ROIColorScan:
+    'ROI 内沿 scanAxis 聚簇扫描色块, 输出 clusters 数组 (含 startPx/endPx/centerPx/pxCount). 用于溜鱼方向判断等场景.',
+  Screenshot:
+    '抓全帧或 ROI 帧, 按 pathTemplate 存 PNG (限定 bin/data/screenshots/ 下). 占位符: {ts}/{containerId}/{nodeId}/{date}.',
+  KeyHoldStart: '按下虚拟键并立即返回 (异步长按). 配对 KeyHoldStop; 容器终止时 ReleaseAll 兜底.',
+  KeyHoldStop: '松开虚拟键. 跟 KeyHoldStart 配对.',
+  MouseHoldStart: '在指定客户区坐标 (x, y) 按下鼠标键并立即返回. 配对 MouseHoldStop.',
+  MouseHoldStop: '松开鼠标键 (Backend stateful, 不需位置). 跟 MouseHoldStart 配对.',
+  Try:
+    '跑 subgraphId 子图, 三路出口: 正常完成走 done, 超时走 timeout, 子图内节点 Throw 或 Backend 异常走 error (errorMsg 数据口拿消息).',
+  Throw: '立刻触发最近 Try 的 error 出口, 携带 message (模板字符串, 支持 {var:foo} 占位符).',
+  StopwatchStart: '按 key 启动/重置计时器. key 命名空间独立于变量表, 防与 SetVar 重名.',
+  StopwatchStop: '按 key 停止计时器 (key 不存在静默 warn, 不报错).',
+  StopwatchRead: '按 key 读取经过毫秒数到 elapsedMs 数据口. running → now-start; stopped → stop-start.',
 }
 
 // 节点默认 config。新建节点时填进去，避免用户面对空表单不知所措。
@@ -315,6 +345,34 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
     runtime: { inputBackend: 'postmessage', captureBackend: 'auto' },
   },
   PlayClip: { clipID: '', keepRanges: [] },
+  // v3 Phase C
+  DetectColorHSV: {
+    roi: { x: 0, y: 0, w: 100, h: 100 },
+    hsv: { hMin: 0, hMax: 180, sMin: 0, sMax: 255, vMin: 0, vMax: 255 },
+    minPixelRatio: 0.05,
+    pollIntervalMs: 100,
+    timeoutMs: 5000,
+  },
+  ROIColorScan: {
+    roi: { x: 0, y: 0, w: 100, h: 100 },
+    hsv: { hMin: 0, hMax: 180, sMin: 0, sMax: 255, vMin: 0, vMax: 255 },
+    scanAxis: 'x',
+    minClusterPx: 2,
+    maxClusterPx: 0,
+    minClusterCount: 1,
+    pollIntervalMs: 100,
+    timeoutMs: 5000,
+  },
+  Screenshot: { pathTemplate: 'screenshots/{ts}.png' },
+  KeyHoldStart: { vk: 65 },
+  KeyHoldStop: { vk: 65 },
+  MouseHoldStart: { button: 'left', x: 0, y: 0 },
+  MouseHoldStop: { button: 'left' },
+  Try: { subgraphId: '', timeoutMs: 0 },
+  Throw: { message: '' },
+  StopwatchStart: { key: 'default' },
+  StopwatchStop: { key: 'default' },
+  StopwatchRead: { key: 'default' },
 }
 
 // 节点 kind → 显示用图标 + 颜色组（统一调色板）
@@ -396,6 +454,68 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
     border: 'border-sky-500/40',
   },
   PlayClip: { icon: 'i-tabler-vinyl', bg: 'bg-pink-500/15', border: 'border-pink-500/40' },
+  // v3 Phase C — 检测沿用 cyan (跟 DetectColor 同组), 长按沿用 orange (跟 KeyPress/ClickAt 同组),
+  // Try/Throw 用 red 系突出错误语义, Stopwatch 用 zinc 跟 Sleep 同"时间/中性"语义.
+  DetectColorHSV: {
+    icon: 'i-tabler-palette',
+    bg: 'bg-cyan-500/15',
+    border: 'border-cyan-500/40',
+  },
+  ROIColorScan: {
+    icon: 'i-tabler-scan-eye',
+    bg: 'bg-cyan-500/15',
+    border: 'border-cyan-500/40',
+  },
+  Screenshot: {
+    icon: 'i-tabler-camera',
+    bg: 'bg-violet-500/15',
+    border: 'border-violet-500/40',
+  },
+  KeyHoldStart: {
+    icon: 'i-tabler-keyboard',
+    bg: 'bg-orange-500/15',
+    border: 'border-orange-500/40',
+  },
+  KeyHoldStop: {
+    icon: 'i-tabler-keyboard-off',
+    bg: 'bg-orange-500/15',
+    border: 'border-orange-500/40',
+  },
+  MouseHoldStart: {
+    icon: 'i-tabler-hand-click',
+    bg: 'bg-orange-500/15',
+    border: 'border-orange-500/40',
+  },
+  MouseHoldStop: {
+    icon: 'i-tabler-hand-off',
+    bg: 'bg-orange-500/15',
+    border: 'border-orange-500/40',
+  },
+  Try: {
+    icon: 'i-tabler-shield-exclamation',
+    bg: 'bg-red-500/15',
+    border: 'border-red-500/40',
+  },
+  Throw: {
+    icon: 'i-tabler-bolt',
+    bg: 'bg-red-500/15',
+    border: 'border-red-500/40',
+  },
+  StopwatchStart: {
+    icon: 'i-tabler-player-play',
+    bg: 'bg-zinc-500/15',
+    border: 'border-zinc-500/40',
+  },
+  StopwatchStop: {
+    icon: 'i-tabler-player-stop',
+    bg: 'bg-zinc-500/15',
+    border: 'border-zinc-500/40',
+  },
+  StopwatchRead: {
+    icon: 'i-tabler-stopwatch',
+    bg: 'bg-zinc-500/15',
+    border: 'border-zinc-500/40',
+  },
 }
 
 /**
