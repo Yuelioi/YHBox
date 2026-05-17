@@ -67,6 +67,9 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 	case "MouseCalibration":
 		// 声明式节点不参与执行流，走直通
 		return nil, nil
+	case "WindowTarget":
+		// v3 Phase B 声明式节点: hwnd + input/capture backend 解析在 runner 启动期消费, 执行流直通
+		return nil, nil
 	case "ClickAt":
 		return r.execClickAt(ctx, node, tok)
 	case "KeyPress":
