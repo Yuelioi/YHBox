@@ -366,7 +366,7 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   Screenshot: { pathTemplate: 'screenshots/{ts}.png' },
   KeyHoldStart: { vk: 'A' },
   KeyHoldStop: { vk: 'A' },
-  MouseHoldStart: { button: 'left', x: 0, y: 0 },
+  MouseHoldStart: { button: 'left', xRatio: '0.5', yRatio: '0.5' },
   MouseHoldStop: { button: 'left' },
   Try: { subgraphId: '', timeoutMs: 0 },
   Throw: { message: '' },
