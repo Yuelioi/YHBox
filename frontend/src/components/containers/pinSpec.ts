@@ -6,7 +6,7 @@
 //   2. UI 上画出 exec edge vs data edge 不同样式
 //   3. 帮助连线时校验 from/to pin 是否合法
 
-export type PinDataType = 'point' | 'number' | 'any'
+export type PinDataType = 'point' | 'number' | 'any' | 'string'
 
 export interface PinSpec {
   execIn: string[] // 默认 ['in']
@@ -121,6 +121,44 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     execOut: ['out'],
     dataIn: {},
     dataOut: {},
+  },
+  // v3 Phase C
+  DetectColorHSV: {
+    execIn: DEFAULT_IN,
+    execOut: ['yes', 'no', 'timeout'],
+    dataIn: {},
+    dataOut: { pixelCount: 'number', pixelRatio: 'number' },
+  },
+  ROIColorScan: {
+    execIn: DEFAULT_IN,
+    execOut: ['found', 'notFound', 'timeout'],
+    dataIn: {},
+    dataOut: { clusters: 'any', clusterCount: 'number' },
+  },
+  Screenshot: {
+    execIn: DEFAULT_IN,
+    execOut: ['done'],
+    dataIn: {},
+    dataOut: { path: 'string' },
+  },
+  KeyHoldStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  KeyHoldStop: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  MouseHoldStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  MouseHoldStop: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  Try: {
+    execIn: DEFAULT_IN,
+    execOut: ['done', 'timeout', 'error'],
+    dataIn: {},
+    dataOut: { errorMsg: 'string' },
+  },
+  Throw: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
+  StopwatchStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  StopwatchStop: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  StopwatchRead: {
+    execIn: DEFAULT_IN,
+    execOut: DEFAULT_OUT,
+    dataIn: {},
+    dataOut: { elapsedMs: 'number' },
   },
 }
 
