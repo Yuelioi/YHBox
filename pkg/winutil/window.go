@@ -298,3 +298,40 @@ func getClientSize(hwnd win.HWND) (int, int) {
 	procGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
 	return int(rect.Right - rect.Left), int(rect.Bottom - rect.Top)
 }
+
+// ---------------------------------------------------------------------------
+// Phase B WindowTarget capture hotkey helpers (tools.CaptureForegroundWindow).
+// 用户先把目标窗口切到前台, 然后我们查它的 hwnd + metadata 一次性返给前端填表.
+// ---------------------------------------------------------------------------
+
+// ForegroundWindow 当前前台窗口 hwnd. 返 0 = 无前台窗口 (罕见, 仅锁屏 / 切换瞬间).
+func ForegroundWindow() uintptr {
+	r, _, _ := procGetForegroundWindow.Call()
+	return r
+}
+
+// WindowMetadata 按 hwnd 直接查 metadata (跳 EnumWindows). 给 capture hotkey 用 — 用户
+// 已经把目标窗口置前, 我们只要查它的属性. ProcessName 已 lowercase.
+func WindowMetadata(hwnd uintptr) (WindowHandle, error) {
+	if hwnd == 0 {
+		return WindowHandle{}, errors.New("hwnd 0")
+	}
+	winH := win.HWND(hwnd)
+	title := getWindowText(winH)
+	class := getClassName(winH)
+	pid := getWindowPID(winH)
+	procName, err := queryProcessName(pid)
+	if err != nil {
+		return WindowHandle{}, fmt.Errorf("queryProcessName: %w", err)
+	}
+	cw, ch := getClientSize(winH)
+	return WindowHandle{
+		HWND:        hwnd,
+		Title:       title,
+		Class:       class,
+		ProcessName: strings.ToLower(procName),
+		PID:         pid,
+		ClientW:     cw,
+		ClientH:     ch,
+	}, nil
+}

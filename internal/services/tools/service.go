@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -8,6 +9,8 @@ import (
 	"github.com/lxn/win"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"yhbox/pkg/winutil"
 )
 
 // GameProvider 由 main.go 注入，返当前游戏 hwnd + client 尺寸。
@@ -214,4 +217,41 @@ func (s *Service) ClosePicker(requestID string) error {
 	}
 	w.Close()
 	return nil
+}
+
+// --- Phase B WindowTarget capture ---
+
+// WindowTargetCaptureResult 同步捕获返回. 前端用户先把游戏窗口置前再调.
+type WindowTargetCaptureResult struct {
+	Title       string `json:"title"`
+	Class       string `json:"class"`
+	ProcessName string `json:"processName"`
+	ClientW     int    `json:"clientW"`
+	ClientH     int    `json:"clientH"`
+}
+
+// CaptureForegroundWindow 同步查 foreground window metadata. 用户使用流程:
+//  1. 切游戏窗口让它前置
+//  2. 等几秒 (避免捕到正在切换的中间窗口)
+//  3. 通过全局热键 / Alt-Tab 回 YHBox 点 "捕获" 按钮
+//  4. 前端拿到 {title, class, processName, clientW, clientH}, 填到 WindowTarget config
+//
+// FUTURE-WORK Phase D: 真全局热键 (F9 等) 让用户在游戏窗口里按下直接捕获,
+// 不用 Alt-Tab. 当前 LL hook infra 在 recording 包独占, tools 包暂不接.
+func (s *Service) CaptureForegroundWindow() (WindowTargetCaptureResult, error) {
+	hwnd := winutil.ForegroundWindow()
+	if hwnd == 0 {
+		return WindowTargetCaptureResult{}, errors.New("无前台窗口")
+	}
+	wh, err := winutil.WindowMetadata(hwnd)
+	if err != nil {
+		return WindowTargetCaptureResult{}, fmt.Errorf("查窗口 metadata: %w", err)
+	}
+	return WindowTargetCaptureResult{
+		Title:       wh.Title,
+		Class:       wh.Class,
+		ProcessName: wh.ProcessName,
+		ClientW:     wh.ClientW,
+		ClientH:     wh.ClientH,
+	}, nil
 }
