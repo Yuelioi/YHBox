@@ -167,6 +167,10 @@ func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
 // ResolveWindow 按 spec 匹配条件枚 top-level visible window, 第一个匹配返 WindowHandle.
 // EnumWindows 按 Z-order (前台最上为先) 顺序回调, MSDN 有写. fallback: GetTopWindow + GetWindow(GW_HWNDNEXT).
 // OpenProcess 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限. 单进程 query 失败 → 视该进程不匹配 + 继续.
+//
+// callback 只构造一次, 在 retry loop 外. syscall.NewCallback 分配的内存进程生命周期不回收,
+// 每次构造都是永久 leak. 闭包持 spec/titleRe/targetProc (read-only) + 指 result/found 的 ptr,
+// 每轮 retry 前 reset result/found.
 func ResolveWindow(spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
 	if IsEmptyMatch(spec) {
 		return WindowHandle{}, errors.New("WindowTarget match spec is empty or matches anything")
@@ -175,24 +179,10 @@ func ResolveWindow(spec MatchSpec, timeout, interval time.Duration) (WindowHandl
 	if err != nil {
 		return WindowHandle{}, fmt.Errorf("title regex invalid: %w", err)
 	}
-	deadline := time.Now().Add(timeout)
-	for {
-		if h, ok := resolveOnce(spec, titleRe); ok {
-			return h, nil
-		}
-		if time.Now().After(deadline) {
-			return WindowHandle{}, fmt.Errorf("窗口未找到 (title=%q class=%q process=%q), 请打开游戏后重试",
-				spec.Title, spec.Class, spec.ProcessName)
-		}
-		time.Sleep(interval)
-	}
-}
 
-// resolveOnce 一次 EnumWindows 扫描, 返第一个匹配 (Z-order 最前).
-func resolveOnce(spec MatchSpec, titleRe *regexp.Regexp) (WindowHandle, bool) {
 	targetProc := strings.ToLower(spec.ProcessName)
 	var result WindowHandle
-	found := false
+	var found bool
 
 	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
 		if !win.IsWindowVisible(hwnd) {
@@ -240,8 +230,22 @@ func resolveOnce(spec MatchSpec, titleRe *regexp.Regexp) (WindowHandle, bool) {
 		found = true
 		return 0 // stop enumeration
 	})
-	procEnumWindows.Call(callback, 0)
-	return result, found
+
+	deadline := time.Now().Add(timeout)
+	for {
+		// reset before each attempt — 上轮 partial match 残留要清掉
+		result = WindowHandle{}
+		found = false
+		procEnumWindows.Call(callback, 0)
+		if found {
+			return result, nil
+		}
+		if time.Now().After(deadline) {
+			return WindowHandle{}, fmt.Errorf("窗口未找到 (title=%q class=%q process=%q), 请打开游戏后重试",
+				spec.Title, spec.Class, spec.ProcessName)
+		}
+		time.Sleep(interval)
+	}
 }
 
 // --- Win32 helpers (新版 API 专用) ---
@@ -280,6 +284,10 @@ func queryProcessName(pid uint32) (string, error) {
 	r, _, err := procQueryFullProcessImageNameW.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
 	if r == 0 {
 		return "", fmt.Errorf("QueryFullProcessImageName pid=%d: %v", pid, err)
+	}
+	// 防御性 clamp — 按 MSDN 不该发生, 但 size 是 in/out 参数, 异常返回若 > cap 会 panic
+	if size > uint32(len(buf)) {
+		size = uint32(len(buf))
 	}
 	full := syscall.UTF16ToString(buf[:size])
 	return filepath.Base(full), nil
