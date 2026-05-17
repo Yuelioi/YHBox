@@ -96,6 +96,14 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execStopwatchStop(ctx, node, tok)
 	case "StopwatchRead":
 		return r.execStopwatchRead(ctx, node, tok)
+	case "KeyHoldStart":
+		return r.execKeyHoldStart(ctx, node, tok)
+	case "KeyHoldStop":
+		return r.execKeyHoldStop(ctx, node, tok)
+	case "MouseHoldStart":
+		return r.execMouseHoldStart(ctx, node, tok)
+	case "MouseHoldStop":
+		return r.execMouseHoldStop(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("container: unknown node kind %q", node.Kind)
 }
