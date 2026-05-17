@@ -9,8 +9,6 @@ import (
 	"github.com/lxn/win"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-
-	"yhbox/pkg/winutil"
 )
 
 // GameProvider 由 main.go 注入，返当前游戏 hwnd + client 尺寸。
@@ -219,39 +217,34 @@ func (s *Service) ClosePicker(requestID string) error {
 	return nil
 }
 
-// --- Phase B WindowTarget capture ---
+// --- Phase B WindowTarget capture (F9 global hotkey, async via event) ---
 
-// WindowTargetCaptureResult 同步捕获返回. 前端用户先把游戏窗口置前再调.
-type WindowTargetCaptureResult struct {
-	Title       string `json:"title"`
-	Class       string `json:"class"`
-	ProcessName string `json:"processName"`
-	ClientW     int    `json:"clientW"`
-	ClientH     int    `json:"clientH"`
+// StartWindowTargetCapture 注册 F9 (或指定 VK) 全局热键, 用户按下后:
+//  1. 查前台窗口 metadata
+//  2. emit "windowtarget:captured" event {title, class, processName, clientW, clientH}
+//  3. 自动反注册热键
+//
+// 同时只能一个 capture session. 用户多次开启需要先 CancelWindowTargetCapture.
+// 返 captureID 给前端用来 cancel.
+//
+// 流程: 前端 NodeInspector 点 "捕获" → 调本 RPC → 用户 Alt-Tab 到游戏 → 按 F9
+// → 前端收 event 填表. 取代旧 CaptureForegroundWindow (用户在游戏前台时无法点按钮).
+func (s *Service) StartWindowTargetCapture(hotkeyVK uint32) (string, error) {
+	if hotkeyVK == 0 {
+		hotkeyVK = 0x78 // VK_F9
+	}
+	app := s.wailsApp()
+	if app == nil {
+		return "", errors.New("wails app 未初始化, 无法 emit event")
+	}
+	return startWindowTargetCapture(hotkeyVK, func(name string, data any) {
+		app.Event.Emit(name, data)
+	})
 }
 
-// CaptureForegroundWindow 同步查 foreground window metadata. 用户使用流程:
-//  1. 切游戏窗口让它前置
-//  2. 等几秒 (避免捕到正在切换的中间窗口)
-//  3. 通过全局热键 / Alt-Tab 回 YHBox 点 "捕获" 按钮
-//  4. 前端拿到 {title, class, processName, clientW, clientH}, 填到 WindowTarget config
-//
-// FUTURE-WORK Phase D: 真全局热键 (F9 等) 让用户在游戏窗口里按下直接捕获,
-// 不用 Alt-Tab. 当前 LL hook infra 在 recording 包独占, tools 包暂不接.
-func (s *Service) CaptureForegroundWindow() (WindowTargetCaptureResult, error) {
-	hwnd := winutil.ForegroundWindow()
-	if hwnd == 0 {
-		return WindowTargetCaptureResult{}, errors.New("无前台窗口")
-	}
-	wh, err := winutil.WindowMetadata(hwnd)
-	if err != nil {
-		return WindowTargetCaptureResult{}, fmt.Errorf("查窗口 metadata: %w", err)
-	}
-	return WindowTargetCaptureResult{
-		Title:       wh.Title,
-		Class:       wh.Class,
-		ProcessName: wh.ProcessName,
-		ClientW:     wh.ClientW,
-		ClientH:     wh.ClientH,
-	}, nil
+// CancelWindowTargetCapture 主动 cancel 一个等待中的 capture session.
+// captureID 必须匹配 — 不匹配 / 无活跃 session 都返 nil (idempotent).
+// 前端组件 unmount / 用户再点按钮取消都调本 RPC.
+func (s *Service) CancelWindowTargetCapture(captureID string) error {
+	return cancelWindowTargetCapture(captureID)
 }
