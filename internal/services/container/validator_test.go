@@ -299,3 +299,102 @@ func TestValidator_HappyPath(t *testing.T) {
 		t.Errorf("min container should be clean, got %+v", errs)
 	}
 }
+
+func TestValidateWindowTarget_Missing(t *testing.T) {
+	// 非空图 (含 Start) 但无 WindowTarget → 触发 MISSING. 空图豁免 (刚创建).
+	c := &Container{Graph: Graph{Nodes: []GraphNode{
+		{ID: "s", Kind: "Start"},
+	}}}
+	errs := validateWindowTarget(c)
+	if !hasCode(errs, CodeMissingWindowTarget) {
+		t.Errorf("want MISSING_WINDOW_TARGET, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_EmptyGraphSkipped(t *testing.T) {
+	c := &Container{Graph: Graph{Nodes: []GraphNode{}}}
+	errs := validateWindowTarget(c)
+	if len(errs) != 0 {
+		t.Errorf("empty graph should skip WindowTarget check, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_Duplicate(t *testing.T) {
+	c := &Container{Graph: Graph{Nodes: []GraphNode{
+		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+			"match": map[string]any{"title": "异环"},
+		}},
+		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
+			"match": map[string]any{"title": "异环"},
+		}},
+	}}}
+	errs := validateWindowTarget(c)
+	if !hasCode(errs, CodeDuplicateWindowTarget) {
+		t.Errorf("want DUPLICATE, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_InSubgraph(t *testing.T) {
+	c := &Container{
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+				"match": map[string]any{"title": "异环"},
+			}},
+		}},
+		Subgraphs: []Subgraph{
+			{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
+				{ID: "w2", Kind: "WindowTarget"},
+			}}},
+		},
+	}
+	errs := validateWindowTarget(c)
+	if !hasCode(errs, CodeWindowTargetInSubgraph) {
+		t.Errorf("want IN_SUBGRAPH, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_InvalidRegex(t *testing.T) {
+	c := &Container{Graph: Graph{Nodes: []GraphNode{
+		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+			"match": map[string]any{"title": "[invalid", "titleMatch": "regex"},
+		}},
+	}}}
+	errs := validateWindowTarget(c)
+	if !hasCode(errs, CodeInvalidWindowTargetRegex) {
+		t.Errorf("want INVALID_REGEX, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_EmptyMatch(t *testing.T) {
+	cases := []struct {
+		name  string
+		match map[string]any
+	}{
+		{"all blank", map[string]any{}},
+		{"regex dot star", map[string]any{"title": ".*", "titleMatch": "regex"}},
+		{"regex dot plus", map[string]any{"title": ".+", "titleMatch": "regex"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Container{Graph: Graph{Nodes: []GraphNode{
+				{ID: "w1", Kind: "WindowTarget", Config: map[string]any{"match": tc.match}},
+			}}}
+			errs := validateWindowTarget(c)
+			if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
+				t.Errorf("%s: want EMPTY_MATCH, got %+v", tc.name, errs)
+			}
+		})
+	}
+}
+
+func TestValidateWindowTarget_Valid(t *testing.T) {
+	c := &Container{Graph: Graph{Nodes: []GraphNode{
+		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+			"match": map[string]any{"title": "异环", "class": "Unreal"},
+		}},
+	}}}
+	errs := validateWindowTarget(c)
+	if len(errs) != 0 {
+		t.Errorf("valid WindowTarget should have no errors, got %+v", errs)
+	}
+}

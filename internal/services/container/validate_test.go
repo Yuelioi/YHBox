@@ -8,7 +8,12 @@ import (
 func TestValidate_OK(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 1, ID: "x", Name: "ok",
-		Graph: Graph{Nodes: []GraphNode{{ID: "n1", Kind: "Start"}}},
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "n1", Kind: "Start"},
+			{ID: "w", Kind: "WindowTarget", Config: map[string]any{
+				"match": map[string]any{"title": "异环"},
+			}},
+		}},
 	}
 	if err := c.Validate(); err != nil {
 		t.Errorf("expected valid, got %v", err)

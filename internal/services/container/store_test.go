@@ -17,7 +17,10 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 
 	c := &Container{
 		SchemaVersion: 1, ID: "id-1", Name: "test",
-		Graph: Graph{Nodes: []GraphNode{{ID: "n1", Kind: "Start"}}},
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "n1", Kind: "Start"},
+			{ID: "w", Kind: "WindowTarget", Config: map[string]any{"match": map[string]any{"title": "异环"}}},
+		}},
 	}
 	if err := s.Save(c); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -43,7 +46,10 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 func TestContainerStore_Delete(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
-	_ = s.Save(&Container{SchemaVersion: 1, ID: "x", Name: "y", Graph: Graph{Nodes: []GraphNode{{ID: "n1", Kind: "Start"}}}})
+	_ = s.Save(&Container{SchemaVersion: 1, ID: "x", Name: "y", Graph: Graph{Nodes: []GraphNode{
+		{ID: "n1", Kind: "Start"},
+		{ID: "w", Kind: "WindowTarget", Config: map[string]any{"match": map[string]any{"title": "异环"}}},
+	}}})
 	if err := s.Delete("x"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
@@ -81,7 +87,10 @@ func TestStore_CreatesSubdirsOnSave(t *testing.T) {
 		Graph: Graph{
 			ID:      "g",
 			Version: GraphSchemaVersion,
-			Nodes:   []GraphNode{{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()}},
+			Nodes: []GraphNode{
+				{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()},
+				{ID: "w", Kind: "WindowTarget", Config: map[string]any{"match": map[string]any{"title": "异环"}}, CreatedAt: time.Now().UTC()},
+			},
 		},
 	}
 	if err := st.Save(c); err != nil {

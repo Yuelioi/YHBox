@@ -11,7 +11,11 @@
 // runtime 启动时间 (Validate + edgeIndex) 超过用户感知阈值.
 package container
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 const (
 	SeverityError   = "error"
@@ -34,6 +38,14 @@ const (
 	CodeNoStart                    = "NO_START"
 	CodeCyclicSubgraphDependency   = "CYCLIC_SUBGRAPH_DEPENDENCY"
 	CodePlayClipNoClipID           = "PLAYCLIP_NO_CLIP_ID"
+)
+
+const (
+	CodeMissingWindowTarget           = "MISSING_WINDOW_TARGET"
+	CodeDuplicateWindowTarget         = "DUPLICATE_WINDOW_TARGET"
+	CodeWindowTargetInSubgraph        = "WINDOW_TARGET_IN_SUBGRAPH"
+	CodeInvalidWindowTargetRegex      = "INVALID_WINDOW_TARGET_REGEX"
+	CodeInvalidWindowTargetEmptyMatch = "INVALID_WINDOW_TARGET_EMPTY_MATCH"
 )
 
 type ValidationError struct {
@@ -68,6 +80,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	}
 	var errs []ValidationError
 	errs = append(errs, validateMainGraph(c)...)
+	errs = append(errs, validateWindowTarget(c)...)
 	errs = append(errs, validateMouseCalibration(c, vctx)...)
 	errs = append(errs, validateInvalidPins(c)...)
 	errs = append(errs, validateMissingSubgraph(c)...)
@@ -481,6 +494,120 @@ func edgeNodeID(ref string) string {
 		}
 	}
 	return ""
+}
+
+// validateWindowTarget v3 Phase B: 主图必须 1 个 WindowTarget, 子图禁,
+// match 不能全空 / 不能万能 regex / regex 编译必须过.
+// 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
+func validateWindowTarget(c *Container) []ValidationError {
+	if len(c.Graph.Nodes) == 0 {
+		return nil
+	}
+	var errs []ValidationError
+	mainCount := 0
+	var mainNode *GraphNode
+	for i := range c.Graph.Nodes {
+		n := &c.Graph.Nodes[i]
+		if n.Kind == "WindowTarget" {
+			mainCount++
+			mainNode = n
+		}
+	}
+	if mainCount == 0 {
+		errs = append(errs, ValidationError{
+			Severity:  SeverityError,
+			Code:      CodeMissingWindowTarget,
+			GraphPath: []string{"main"},
+			Message:   "主图缺 WindowTarget 节点 — v3 container 必须声明目标窗口",
+		})
+	} else if mainCount > 1 {
+		errs = append(errs, ValidationError{
+			Severity:  SeverityError,
+			Code:      CodeDuplicateWindowTarget,
+			GraphPath: []string{"main"},
+			Message:   "主图有多个 WindowTarget 节点, 只能 1 个",
+		})
+	}
+
+	// 子图不能有 WindowTarget
+	for _, sg := range c.Subgraphs {
+		for _, n := range sg.Graph.Nodes {
+			if n.Kind == "WindowTarget" {
+				errs = append(errs, ValidationError{
+					Severity:  SeverityError,
+					Code:      CodeWindowTargetInSubgraph,
+					GraphPath: []string{"subgraph:" + sg.ID},
+					NodeID:    n.ID,
+					Message:   "WindowTarget 不能放在子图里 (子图要复用跨 container 跨窗口)",
+				})
+			}
+		}
+	}
+
+	// 主图唯一 WindowTarget config 合法性
+	if mainNode != nil {
+		spec := readWindowTargetMatchSpec(mainNode)
+		// regex 编译
+		if spec.TitleMatch == "regex" && spec.Title != "" {
+			if _, err := regexp.Compile(spec.Title); err != nil {
+				errs = append(errs, ValidationError{
+					Severity:  SeverityError,
+					Code:      CodeInvalidWindowTargetRegex,
+					GraphPath: []string{"main"},
+					NodeID:    mainNode.ID,
+					Message:   "WindowTarget title regex 编译失败: " + err.Error(),
+				})
+			}
+		}
+		// empty match (含 .* / .+ 万能)
+		if windowTargetIsEmptyMatch(spec) {
+			errs = append(errs, ValidationError{
+				Severity:  SeverityError,
+				Code:      CodeInvalidWindowTargetEmptyMatch,
+				GraphPath: []string{"main"},
+				NodeID:    mainNode.ID,
+				Message:   "WindowTarget 匹配条件全空或万能 (会匹配任意窗口, 极易闯祸). 至少填一个实质性 title/class/processName",
+			})
+		}
+	}
+
+	return errs
+}
+
+// matchSpec local 副本 — 避免 validator 包 import pkg/winutil 引入循环依赖.
+type windowTargetMatchSpec struct {
+	Title, Class, ProcessName, TitleMatch string
+}
+
+func readWindowTargetMatchSpec(n *GraphNode) windowTargetMatchSpec {
+	if n.Config == nil {
+		return windowTargetMatchSpec{}
+	}
+	matchAny, _ := n.Config["match"].(map[string]any)
+	getStr := func(k string) string {
+		v, _ := matchAny[k].(string)
+		return v
+	}
+	return windowTargetMatchSpec{
+		Title:       getStr("title"),
+		Class:       getStr("class"),
+		ProcessName: getStr("processName"),
+		TitleMatch:  getStr("titleMatch"),
+	}
+}
+
+func windowTargetIsEmptyMatch(spec windowTargetMatchSpec) bool {
+	hasAny := spec.Title != "" || spec.Class != "" || spec.ProcessName != ""
+	if !hasAny {
+		return true
+	}
+	if spec.TitleMatch == "regex" && spec.Class == "" && spec.ProcessName == "" {
+		t := strings.TrimSpace(spec.Title)
+		if t == ".*" || t == ".+" || t == "^.*$" || t == "^.+$" {
+			return true
+		}
+	}
+	return false
 }
 
 func intFromConfig(cfg map[string]any, key string) (int, bool) {

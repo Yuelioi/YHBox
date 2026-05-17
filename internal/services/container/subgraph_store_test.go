@@ -19,7 +19,10 @@ func setupStoreWithContainer(t *testing.T) (*Store, string) {
 		Name:          "c1",
 		Graph: Graph{
 			ID: "gm", Version: GraphSchemaVersion,
-			Nodes: []GraphNode{{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()}},
+			Nodes: []GraphNode{
+				{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()},
+				{ID: "w", Kind: "WindowTarget", Config: map[string]any{"match": map[string]any{"title": "异环"}}, CreatedAt: time.Now().UTC()},
+			},
 		},
 	}
 	if err := st.Save(c); err != nil {
