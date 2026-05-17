@@ -377,7 +377,13 @@ export const backend = {
     openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string) =>
       invoke(ToolsService.OpenScreenPicker, mode, id),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
-    captureForegroundWindow: () => invoke(ToolsService.CaptureForegroundWindow),
+    // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
+    // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
+    // — 用户在游戏前台时根本点不到 YHBox 按钮.
+    startWindowTargetCapture: (hotkeyVK: number) =>
+      invoke(ToolsService.StartWindowTargetCapture, hotkeyVK),
+    cancelWindowTargetCapture: (id: string) =>
+      invoke(ToolsService.CancelWindowTargetCapture, id),
   },
   events: {
     // 长跑 bot 的 state 事件：通用订阅（替代之前 4 个 onFishState/onCookState/...）

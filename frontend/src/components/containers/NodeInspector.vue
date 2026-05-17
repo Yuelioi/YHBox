@@ -254,20 +254,20 @@
 
     <!-- WindowTarget: v3 Phase B 声明目标游戏窗口 + input/capture backend -->
     <section v-else-if="node.kind === 'WindowTarget'" class="mb-5 space-y-4">
-      <!-- 捕获按钮 -->
+      <!-- 捕获按钮 (F9 全局热键流程) -->
       <div>
         <UButton
           :icon="capturing ? 'i-tabler-loader-2' : 'i-tabler-target'"
           :loading="capturing"
           size="sm"
           block
-          @click="captureForegroundWindow"
+          @click="toggleWindowCapture"
         >
-          {{ capturing ? '捕获中...' : '捕获当前前台窗口' }}
+          {{ capturing ? '等待 F9 按键 (再点取消)' : '捕获目标窗口 (按 F9)' }}
         </UButton>
         <p class="text-xs text-dimmed mt-1">
-          先切到游戏窗口让它前置, 再回 YHBox 点此按钮抓取 title/class/processName.
-          (Phase D 会加全局热键 F9 直接在游戏里按.)
+          点开后切到游戏窗口, 按 F9 即可捕获 title/class/processName.
+          若 F9 被游戏反作弊吞掉, 联系开发者换其他键 (当前 1.0 写死 F9).
         </p>
       </div>
 
@@ -481,7 +481,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef } from 'vue'
+import { Events } from '@wailsio/runtime'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
 import ExpressionInput from '@/components/expressions/ExpressionInput.vue'
@@ -776,25 +777,64 @@ const wtRuntime = computed(() => {
 })
 
 const capturing = ref(false)
+const captureID = ref('')
 
-async function captureForegroundWindow() {
-  if (capturing.value) return
-  capturing.value = true
-  try {
-    const result = (await backend.tools.captureForegroundWindow()) as any
-    if (wtMatch.value && result) {
-      wtMatch.value.title = result.title ?? ''
-      wtMatch.value.class = result.class ?? ''
-      wtMatch.value.processName = result.processName ?? ''
+// 点按钮: 开 capture session → backend 注册 F9 全局热键; 或 cancel 已开的 session.
+// 跟旧同步流程不同 — 这里立刻返回 captureID, 真正捕获在 'windowtarget:captured' event.
+async function toggleWindowCapture() {
+  if (capturing.value) {
+    if (captureID.value) {
+      try {
+        await backend.tools.cancelWindowTargetCapture(captureID.value)
+      } catch {
+        // cancel idempotent — 忽略所有错
+      }
     }
-    // 把捕获时的 resolution 存到 node config — 给 Phase C ROI 节点 metadata 用
-    if (props.node && result?.clientW && result?.clientH) {
-      ;(props.node.config as any)._capturedAtResolution = [result.clientW, result.clientH]
-    }
-  } catch (e: any) {
-    console.error('CaptureForegroundWindow failed', e)
-  } finally {
     capturing.value = false
+    captureID.value = ''
+    return
+  }
+  try {
+    const id = (await backend.tools.startWindowTargetCapture(0x78)) as string // VK_F9
+    captureID.value = id
+    capturing.value = true
+  } catch (e: any) {
+    console.error('startWindowTargetCapture failed', e)
+    capturing.value = false
+    captureID.value = ''
   }
 }
+
+// 监听 backend emit — 收到后填表 + 清 session 状态
+let unsubWindowCapture: (() => void) | null = null
+onMounted(() => {
+  unsubWindowCapture = Events.On('windowtarget:captured', (ev: any) => {
+    const raw = ev?.data ?? ev
+    const data = Array.isArray(raw) ? raw[0] : raw
+    if (!data) return
+    capturing.value = false
+    captureID.value = ''
+    if (data.error) {
+      console.warn('windowtarget:captured error', data.error)
+      return
+    }
+    if (wtMatch.value) {
+      wtMatch.value.title = data.title ?? ''
+      wtMatch.value.class = data.class ?? ''
+      wtMatch.value.processName = data.processName ?? ''
+    }
+    // 把捕获时的 resolution 存到 node config — 给 Phase C ROI 节点 metadata 用
+    if (props.node && data.clientW && data.clientH) {
+      ;(props.node.config as any)._capturedAtResolution = [data.clientW, data.clientH]
+    }
+  })
+})
+onUnmounted(() => {
+  if (unsubWindowCapture) unsubWindowCapture()
+  // 组件 unmount = 用户切别的节点 / 关 inspector — 当前 session 不该悬挂
+  // (否则 hotkey 一直占着, F9 触发后 event 没 listener 静默丢失)
+  if (captureID.value) {
+    backend.tools.cancelWindowTargetCapture(captureID.value).catch(() => {})
+  }
+})
 </script>
