@@ -377,6 +377,7 @@ export const backend = {
     openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string) =>
       invoke(ToolsService.OpenScreenPicker, mode, id),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
+    captureForegroundWindow: () => invoke(ToolsService.CaptureForegroundWindow),
   },
   events: {
     // 长跑 bot 的 state 事件：通用订阅（替代之前 4 个 onFishState/onCookState/...）
