@@ -112,7 +112,7 @@ var execOutPins = map[string][]string{
 	"StopwatchRead":  {"out"},
 }
 
-// dataOutPins kind → data-out pin 名 → pin 类型（v1 只 "point"）。
+// dataOutPins kind → data-out pin 名 → pin 类型 ("point" | "number" | "string" | "any")。
 var dataOutPins = map[string]map[string]string{
 	"WaitTemplate":  {"point": "point"},
 	"CheckTemplate": {"point": "point"},
