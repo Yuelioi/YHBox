@@ -18,6 +18,18 @@ import (
 	clipruntime "yhbox/internal/services/inputclip/runtime"
 )
 
+// errThrow 是显式 Throw 节点触发的 sentinel.
+// 在 sub-runner 中冒泡到最近的 Try 节点 (Task 7), Try 截获后走 error 出口;
+// 没 Try 包就冒泡到主 runner, 当 container:error emit (跟正常 panic 路径合流).
+// 用 pointer-receiver Error() 是为了 errors.As(&te) 能精确取回 message.
+type errThrow struct {
+	message string
+}
+
+func (e *errThrow) Error() string {
+	return "Throw: " + e.message
+}
+
 // execNode 单节点执行入口。返回下游 token 列表（追加进调度队列）。
 // 大部分节点产出 1 个或 0 个 token；Parallel/Race 是特例（自跑 sub-runner）。
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
@@ -104,6 +116,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execMouseHoldStart(ctx, node, tok)
 	case "MouseHoldStop":
 		return r.execMouseHoldStop(ctx, node, tok)
+	case "Throw":
+		return r.execThrow(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("container: unknown node kind %q", node.Kind)
 }
