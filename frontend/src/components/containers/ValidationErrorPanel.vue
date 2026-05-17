@@ -58,6 +58,16 @@
             <div v-if="e.nodeId" class="text-[10px] text-dimmed pl-5">
               节点: <code class="font-mono">{{ e.nodeId }}</code>
             </div>
+            <div v-if="e.code === 'MISSING_WINDOW_TARGET'" class="pl-5 pt-1">
+              <UButton
+                size="xs"
+                color="primary"
+                icon="i-tabler-wand"
+                @click="emit('fix-missing-window-target')"
+              >
+                一键添加 WindowTarget 节点
+              </UButton>
+            </div>
           </div>
         </div>
 
@@ -89,6 +99,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   run: []
+  'fix-missing-window-target': []
 }>()
 
 const errorCount = computed(() => props.errors.filter((e) => e.severity === 'error').length)

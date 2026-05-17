@@ -209,6 +209,7 @@
       :errors="validationErrors"
       @close="validationPanelOpen = false"
       @run="onValidationPanelRun"
+      @fix-missing-window-target="onFixMissingWindowTarget"
     />
 
   </div>
@@ -530,6 +531,36 @@ async function onValidationPanelRun() {
     title: '已加入运行队列',
     color: 'primary',
     icon: 'i-tabler-player-play',
+  })
+}
+
+// 一键修复 MISSING_WINDOW_TARGET: 往主图 push 一个空 WindowTarget 节点 (用户后续在
+// NodeInspector 里填 match/runtime 或点 "捕获前台窗口"). 必须落主图, 不是 activeGraph.
+function onFixMissingWindowTarget() {
+  if (!draft.value) return
+  const mainGraph = draft.value.graph
+  // 已存在则不重复加
+  if ((mainGraph.nodes as GraphNode[]).some((n) => n.kind === 'WindowTarget')) {
+    toast.add({ title: '主图已经有 WindowTarget 节点了', color: 'warning' })
+    return
+  }
+  const defaults = KIND_DEFAULTS.WindowTarget ?? {}
+  const newNode: GraphNode = {
+    id: 'wt_' + Math.random().toString(36).slice(2, 8),
+    kind: 'WindowTarget',
+    x: 40,
+    y: 40,
+    config: JSON.parse(JSON.stringify(defaults)),
+    createdAt: new Date().toISOString(),
+  }
+  ;(mainGraph.nodes as GraphNode[]).push(newNode)
+  syncFlowFromDraft()
+  validationPanelOpen.value = false
+  toast.add({
+    title: '已添加 WindowTarget 节点',
+    description: '请打开节点 Inspector 配置目标窗口 (或点"捕获前台窗口")',
+    color: 'success',
+    icon: 'i-tabler-check',
   })
 }
 
