@@ -10,6 +10,7 @@ import (
 
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/inputclip"
+	"yhbox/pkg/winutil"
 )
 
 // GameHwndProvider 给录制器拿当前游戏窗口 hwnd. main.go 启动时注入.
@@ -31,6 +32,12 @@ type ContainerSubgraphSaver interface {
 	SaveSubgraph(containerID string, sg *container.Subgraph) error
 }
 
+// ContainerGetter 窄接口 — recording 拿 container 解析 WindowTarget hwnd 用.
+// container.Store 已实现 Get(id) (Container, bool).
+type ContainerGetter interface {
+	Get(id string) (container.Container, bool)
+}
+
 // Service wails3 RPC 入口.
 //
 // 前端流程 (v2 Subgraph-only):
@@ -42,12 +49,13 @@ type ContainerSubgraphSaver interface {
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' {subgraphID, containerID, label} | {error}.
 type Service struct {
-	rec        *Recorder
-	game       GameHwndProvider
-	hkProv     HotkeySettingsProvider
-	clipSvc    *inputclip.Service
-	containers ContainerSubgraphSaver
-	emit       func(name string, data any)
+	rec          *Recorder
+	game         GameHwndProvider
+	hkProv       HotkeySettingsProvider
+	clipSvc      *inputclip.Service
+	containers   ContainerSubgraphSaver
+	containerGet ContainerGetter
+	emit         func(name string, data any)
 
 	mu                sync.Mutex // 防 F12 stop callback 跟 UI Stop 同时跑
 	activeContainerID string     // Start 时记下, Stop 时落 subgraph 用
@@ -63,6 +71,9 @@ func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
 // SetContainerSaver main.go 启动期注入. nil = Stop 时报错 (录制没出口).
 func (s *Service) SetContainerSaver(c ContainerSubgraphSaver) { s.containers = c }
 
+// SetContainerGetter main.go 启动期注入. nil = Start 时报错 (没法解 WindowTarget hwnd).
+func (s *Service) SetContainerGetter(c ContainerGetter) { s.containerGet = c }
+
 // StartArgs 前端传入的录制开关.
 type StartArgs struct {
 	FilterMode  string `json:"filterMode"`  // 'precise' | 'simple'
@@ -74,16 +85,26 @@ type StartArgs struct {
 // Start 后会 atomic 设 LL hook 的 stopHotkeyVK + callback — 用户在游戏前台按 F12 时,
 // hook 直接拦截 (不透传游戏) 并异步触发 StopAsync.
 func (s *Service) Start(args StartArgs) (string, error) {
-	if s.game == nil {
-		return "", errors.New("game provider 未注入")
-	}
 	if args.ContainerID == "" {
 		return "", errors.New("containerID 必填 — 录制 Subgraph 要落到某个 container")
 	}
-	hwnd, ok := s.game.HWND()
-	if !ok || hwnd == 0 {
-		return "", errors.New("游戏窗口未就绪")
+	if s.containerGet == nil {
+		return "", errors.New("ContainerGetter 未注入 (main.go 启动期 SetContainerGetter?)")
 	}
+	cont, ok := s.containerGet.Get(args.ContainerID)
+	if !ok {
+		return "", fmt.Errorf("container %q not found", args.ContainerID)
+	}
+	wtNode := findWindowTargetNode(&cont)
+	if wtNode == nil {
+		return "", errors.New("container 缺 WindowTarget 节点, 无法录制")
+	}
+	spec := readMatchSpecFromConfig(wtNode)
+	wh, err := winutil.ResolveWindow(spec, 3*time.Second, 500*time.Millisecond)
+	if err != nil {
+		return "", fmt.Errorf("窗口未找到: %w", err)
+	}
+	hwnd := uintptr(wh.HWND)
 	mouseMode := "relative"
 	stopVK := uint32(0x7B)
 	if s.hkProv != nil {
@@ -101,9 +122,9 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		BaseResolution: [2]int{1920, 1080}, // TODO: 真实读取游戏窗口尺寸
 		WindowMode:     "fullscreen",
 	}
-	id, err := s.rec.Start(win.HWND(hwnd), meta)
-	if err != nil {
-		return "", fmt.Errorf("recorder.Start: %w", err)
+	id, recErr := s.rec.Start(win.HWND(hwnd), meta)
+	if recErr != nil {
+		return "", fmt.Errorf("recorder.Start: %w", recErr)
 	}
 	s.mu.Lock()
 	s.activeContainerID = args.ContainerID
@@ -210,4 +231,34 @@ func (s *Service) StopAsync() {
 // IsRecording 状态查询.
 func (s *Service) IsRecording() bool {
 	return s.rec.Active()
+}
+
+// findWindowTargetNode 在 container.Graph.Nodes 里找第一个 Kind=="WindowTarget" 的节点.
+// v3 Phase B container 强制有且只有一个 WindowTarget 节点, 这里假设也是 1.
+func findWindowTargetNode(c *container.Container) *container.GraphNode {
+	for i := range c.Graph.Nodes {
+		if c.Graph.Nodes[i].Kind == "WindowTarget" {
+			return &c.Graph.Nodes[i]
+		}
+	}
+	return nil
+}
+
+// readMatchSpecFromConfig 从 WindowTarget 节点 config.match map[string]any 解出 winutil.MatchSpec.
+// config 缺字段或类型不对 → 留空字段 (winutil.ResolveWindow 会报 IsEmptyMatch).
+func readMatchSpecFromConfig(n *container.GraphNode) winutil.MatchSpec {
+	if n.Config == nil {
+		return winutil.MatchSpec{}
+	}
+	matchAny, _ := n.Config["match"].(map[string]any)
+	getStr := func(k string) string {
+		v, _ := matchAny[k].(string)
+		return v
+	}
+	return winutil.MatchSpec{
+		Title:       getStr("title"),
+		Class:       getStr("class"),
+		ProcessName: getStr("processName"),
+		TitleMatch:  getStr("titleMatch"),
+	}
 }

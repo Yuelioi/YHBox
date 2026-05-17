@@ -382,6 +382,8 @@ func main() {
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接走 containerStore.SaveSubgraph 落到容器 subgraphs/
 	recordingSvc.SetContainerSaver(containerStore)
+	// Start 时按 containerID 拉 container, 取 WindowTarget 节点解析 hwnd (v3 Phase B)
+	recordingSvc.SetContainerGetter(containerStore)
 
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
 	clipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
