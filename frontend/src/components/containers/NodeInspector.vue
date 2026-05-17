@@ -286,6 +286,7 @@
         <UFormField label="title 匹配方式">
           <USelect
             v-model="wtMatch.titleMatch"
+            class="w-full"
             :items="[
               { value: 'exact', label: '精确匹配 (区分大小写)' },
               { value: 'regex', label: '正则 RE2 (partial match)' },
@@ -300,12 +301,14 @@
         <UFormField label="输入后端 (inputBackend)">
           <USelect
             v-model="wtRuntime.inputBackend"
+            class="w-full"
             :items="[{ value: 'postmessage', label: 'PostMessage (后台输入, 1.0 默认)' }]"
           />
         </UFormField>
         <UFormField label="截图后端 (captureBackend)">
           <USelect
             v-model="wtRuntime.captureBackend"
+            class="w-full"
             :items="[
               { value: 'auto', label: 'auto (按 OS 选, Win10+ 用 WGC)' },
               { value: 'gdi', label: 'GDI (所有 Windows)' },
