@@ -243,9 +243,10 @@ func main() {
 	execQueue := execution.NewExecutionQueue()
 	inputBus := execution.NewInputBus()
 
-	// 真模板匹配 + 真输入驱动 + 真颜色检测
+	// 真模板匹配 + 真颜色检测
+	// v3 Phase B: input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析,
+	// 不再走 main.go 全局注入. containerInputDriver / wire_container 适配器已退役.
 	templateMatcher := &templateMatcherAdapter{app: app, tplStore: templateStore}
-	containerInputDrv := newContainerInputDriver(app)
 	containerColor := &containerColorAdapter{app: app}
 
 	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
@@ -279,7 +280,7 @@ func main() {
 			}
 		}
 		rt := containerruntime.NewRuntimeContext(
-			&c, inputBus, templateMatcher, containerInputDrv, containerColor,
+			&c, inputBus, templateMatcher, containerColor,
 			newGameProviderAdapter(app), emitForRuntime,
 			clipSvc, clipInputBackend, app.Settings().UI.MouseCounts360,
 		)

@@ -7,9 +7,13 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/expr"
+	pkgcapture "yhbox/pkg/capture"
+	pkginput "yhbox/pkg/input"
+	"yhbox/pkg/winutil"
 )
 
 // LoopFrame Loop body 期间的"我在哪个 Loop 里"上下文。Break/Continue 跳目标。
@@ -118,6 +122,13 @@ func snapshotMainCalibCounts(c *container.Container) int {
 // 同时为每个 OnEvent 节点起 listener goroutine（§5.4）。
 // Run 返回 = 主流程结束 + 所有 listener 退出。
 func (r *ContainerRunner) Run(ctx context.Context) error {
+	// Phase B: resolve WindowTarget → Window/Input/Capture (per-run state).
+	// 必须最先做 — 后续 startNode/listener 都假设 rt.Window/Input/Capture 已 populate.
+	if err := r.setupRuntime(); err != nil {
+		return err
+	}
+	defer r.teardownRuntime() // LIFO 内部顺序保证 ReleaseAll → Input.Close → Capture.Close
+
 	startNode := r.findStart()
 	if startNode == nil {
 		return errors.New("container: no Start node")
@@ -276,4 +287,118 @@ func (r *ContainerRunner) configFloat(node *container.GraphNode, key string, fal
 		return f
 	}
 	return fallback
+}
+
+// ----------------------------------------------------------------------------
+// v3 Phase B runtime bootstrap: setupRuntime / teardownRuntime / WindowTarget 解析.
+// ----------------------------------------------------------------------------
+
+// setupRuntime 找 WindowTarget 节点 → resolve hwnd → 建 input/capture backend → populate rt.
+// 幂等: 如果 rt.Window.HWND != 0 且 rt.Input != nil (测试预设过) 就跳过 — 测试 fixture 可以
+// 注入 fake backend + stub hwnd 不走 Win32 resolve.
+func (r *ContainerRunner) setupRuntime() error {
+	if r.rt.Window.HWND != 0 && r.rt.Input != nil {
+		// 测试预设过了, 跳过 resolve. capture 也跳过 (测试通常用不到 capture).
+		return nil
+	}
+
+	wtNode := findMainGraphNode(r.rt.Container, "WindowTarget")
+	if wtNode == nil {
+		return errors.New("MISSING_WINDOW_TARGET — container 缺 WindowTarget 节点")
+	}
+	matchSpec := readWindowTargetMatchSpec(wtNode)
+	runtimeSpec := readWindowTargetRuntimeSpec(wtNode)
+
+	// 1) hwnd + metadata
+	wh, err := winutil.ResolveWindow(matchSpec, 3*time.Second, 500*time.Millisecond)
+	if err != nil {
+		return fmt.Errorf("WindowTarget resolve: %w", err)
+	}
+	r.rt.Window = wh
+
+	// 2) input backend (默认 postmessage)
+	inputName := runtimeSpec["inputBackend"]
+	if inputName == "" {
+		inputName = "postmessage"
+	}
+	rawInput, err := pkginput.NewBackend(inputName)
+	if err != nil {
+		return fmt.Errorf("input backend %q: %w", inputName, err)
+	}
+	r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
+
+	// 3) capture backend (auto + fallback)
+	captureName := runtimeSpec["captureBackend"]
+	if captureName == "" {
+		captureName = "auto"
+	}
+	rawCapture, captureWarning, err := pkgcapture.NewIBackend(captureName)
+	if err != nil {
+		return fmt.Errorf("capture backend %q: %w", captureName, err)
+	}
+	if captureWarning != "" && r.rt.Emit != nil {
+		r.rt.Emit("container:warning", map[string]any{"message": captureWarning})
+	}
+	r.rt.Capture = NewSafeCaptureBackend(rawCapture, r.rt)
+
+	return nil
+}
+
+// teardownRuntime LIFO 关闭. 按 ReleaseAll → Input.Close → Capture.Close 序退出.
+// (defer 内的 defer 也是 LIFO 弹出, 写顺序反着即可)
+func (r *ContainerRunner) teardownRuntime() {
+	// 写序: Capture.Close → Input.Close → ReleaseAll
+	// LIFO 执行序: ReleaseAll → Input.Close → Capture.Close (符合契约)
+	if r.rt.Capture != nil {
+		defer r.rt.Capture.Close()
+	}
+	if r.rt.Input != nil {
+		defer r.rt.Input.Close()
+		defer r.rt.Input.ReleaseAll()
+	}
+}
+
+// findMainGraphNode 主图找指定 kind 的第一个节点. v3 WindowTarget / MouseCalibration 等
+// 声明式节点都是 single-instance per container — 找到即停.
+func findMainGraphNode(c *container.Container, kind string) *container.GraphNode {
+	for i := range c.Graph.Nodes {
+		if c.Graph.Nodes[i].Kind == kind {
+			return &c.Graph.Nodes[i]
+		}
+	}
+	return nil
+}
+
+// readWindowTargetMatchSpec 解析 WindowTarget.config.match (匹配条件 — JSON 来料 map).
+func readWindowTargetMatchSpec(n *container.GraphNode) winutil.MatchSpec {
+	if n.Config == nil {
+		return winutil.MatchSpec{}
+	}
+	matchAny, _ := n.Config["match"].(map[string]any)
+	getStr := func(k string) string {
+		v, _ := matchAny[k].(string)
+		return v
+	}
+	return winutil.MatchSpec{
+		Title:       getStr("title"),
+		Class:       getStr("class"),
+		ProcessName: getStr("processName"),
+		TitleMatch:  getStr("titleMatch"),
+	}
+}
+
+// readWindowTargetRuntimeSpec 解析 WindowTarget.config.runtime (inputBackend / captureBackend).
+// 返 string map — 当前两个 key 都是 string 枚举 ("postmessage" / "auto" 等).
+func readWindowTargetRuntimeSpec(n *container.GraphNode) map[string]string {
+	if n.Config == nil {
+		return map[string]string{}
+	}
+	rtAny, _ := n.Config["runtime"].(map[string]any)
+	out := map[string]string{}
+	for k, v := range rtAny {
+		if s, ok := v.(string); ok {
+			out[k] = s
+		}
+	}
+	return out
 }

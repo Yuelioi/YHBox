@@ -39,35 +39,19 @@ func (NoopColorDetector) Detect(context.Context, [4]float64, string, [6]int) (in
 	return 0, 0, 0, nil
 }
 
-// InputDriver 容器级输入原语：ClickAt / KeyPress / MouseMoveRel / Scroll。
-// 实现解析当前游戏 hwnd + 调 pkg/input；测试用 NoopInputDriver 占位。
-//
-// 坐标用 0..1 比例；driver 自己换算到客户区像素（每次 capture.ClientSize）。
-type InputDriver interface {
-	Click(ctx context.Context, xRatio, yRatio float64, button string, durationMs int) error
-	KeyPress(ctx context.Context, vk string, durationMs int) error
-	MouseMoveRel(ctx context.Context, dx, dy int, durationMs int) error
-	Scroll(ctx context.Context, xRatio, yRatio float64, delta int) error
-}
-
-// NoopMatcher / NoopInputDriver：测试 + 启动前没注入实现时的默认。
+// NoopMatcher：测试 + 启动前没注入实现时的默认。
 type NoopMatcher struct{}
 
 func (NoopMatcher) Detect(ctx context.Context, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
 	return false, expr.Point{}, [4]float64{}, nil
 }
 
-type NoopInputDriver struct{}
-
-func (NoopInputDriver) Click(context.Context, float64, float64, string, int) error { return nil }
-func (NoopInputDriver) KeyPress(context.Context, string, int) error                { return nil }
-func (NoopInputDriver) MouseMoveRel(context.Context, int, int, int) error          { return nil }
-func (NoopInputDriver) Scroll(context.Context, float64, float64, int) error        { return nil }
-
 // GameProvider runtime 需要知道当前游戏窗口 HWND + 能调 BringToForeground。
 // main.go 启动时注入适配器（1.22 wire）。
+//
+// v3 Phase B: WindowTarget 已经把 hwnd 解析放在 rt.Window, 这里只剩 BringToForeground
+// 是仍由 GameProvider 提供的能力 (跨进程窗口置前). HWND() 字段已经无 caller, 待后续清理.
 type GameProvider interface {
-	HWND() (uintptr, bool)
 	// BringToForeground 尝试把 hwnd 置前。返 true 表示 OS 接受调用；
 	// 注意：成功 ≠ 一定到前台（OS 可能延迟切换），但 false 一定是失败。
 	BringToForeground(hwnd uintptr) bool

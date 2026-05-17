@@ -14,6 +14,9 @@ import (
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/inputclip/backends"
 	clipruntime "yhbox/internal/services/inputclip/runtime"
+	pkgcapture "yhbox/pkg/capture"
+	pkginput "yhbox/pkg/input"
+	"yhbox/pkg/winutil"
 )
 
 // SysState $sys.* 只读视图。每次 Container run 开局清零。
@@ -34,14 +37,21 @@ type SysState struct {
 //   - inputBus 注入：每个 input 节点 Lock/Unlock 保证 OS input 串行
 //   - templateMatcher 注入：Wait/Check/ClickTemplate 用
 //   - emit 注入：Log/Toast 节点把消息推到前端
+//
+// v3 Phase B: Input / Window / Capture 由 ContainerRunner.setupRuntime 在 Run 启动期间
+// 解析 WindowTarget 节点后 populate. Game 字段保留 (BringGameForeground 节点还在用).
 type RuntimeContext struct {
 	Container *container.Container
 	InputBus  *execution.InputBus
 	Matcher   TemplateMatcher
-	Input     InputDriver
+	Input     pkginput.Backend   // per-container 实例, setupRuntime 注入
 	Color     ColorDetector
 	Game      GameProvider
 	Emit      func(name string, data any)
+
+	// v3 Phase B: WindowTarget 解析结果. setupRuntime populate; Window.HWND=0 = 未解析.
+	Window  winutil.WindowHandle
+	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
 
 	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
 	ClipResolver   ClipResolver
@@ -59,7 +69,6 @@ func NewRuntimeContext(
 	c *container.Container,
 	bus *execution.InputBus,
 	matcher TemplateMatcher,
-	input InputDriver,
 	color ColorDetector,
 	game GameProvider,
 	emit func(name string, data any),
@@ -67,9 +76,6 @@ func NewRuntimeContext(
 	inputBackend backends.IInputBackend,
 	mouseCounts360 int,
 ) *RuntimeContext {
-	if input == nil {
-		input = NoopInputDriver{}
-	}
 	if color == nil {
 		color = NoopColorDetector{}
 	}
@@ -77,7 +83,6 @@ func NewRuntimeContext(
 		Container:      c,
 		InputBus:       bus,
 		Matcher:        matcher,
-		Input:          input,
 		Color:          color,
 		Game:           game,
 		Emit:           emit,

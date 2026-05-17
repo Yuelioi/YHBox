@@ -11,7 +11,6 @@ type fakeGame struct {
 	successOn int
 }
 
-func (f *fakeGame) HWND() (uintptr, bool) { return 0xDEAD, true }
 func (f *fakeGame) BringToForeground(hwnd uintptr) bool {
 	f.attempts++
 	return f.attempts >= f.successOn
@@ -20,7 +19,7 @@ func (f *fakeGame) BringToForeground(hwnd uintptr) bool {
 func TestBringToForegroundWithRetry_FirstTrySuccess(t *testing.T) {
 	g := &fakeGame{successOn: 1}
 	start := time.Now()
-	ok := bringToForegroundWithRetry(context.Background(), g, 3, 50*time.Millisecond)
+	ok := bringToForegroundWithRetry(context.Background(), g, 0xDEAD, 3, 50*time.Millisecond)
 	if !ok {
 		t.Errorf("expected success")
 	}
@@ -34,7 +33,7 @@ func TestBringToForegroundWithRetry_FirstTrySuccess(t *testing.T) {
 
 func TestBringToForegroundWithRetry_RecoverOnThird(t *testing.T) {
 	g := &fakeGame{successOn: 3}
-	ok := bringToForegroundWithRetry(context.Background(), g, 3, 10*time.Millisecond)
+	ok := bringToForegroundWithRetry(context.Background(), g, 0xDEAD, 3, 10*time.Millisecond)
 	if !ok {
 		t.Errorf("expected success on 3rd try")
 	}
@@ -45,7 +44,7 @@ func TestBringToForegroundWithRetry_RecoverOnThird(t *testing.T) {
 
 func TestBringToForegroundWithRetry_AllFail(t *testing.T) {
 	g := &fakeGame{successOn: 999}
-	ok := bringToForegroundWithRetry(context.Background(), g, 3, 10*time.Millisecond)
+	ok := bringToForegroundWithRetry(context.Background(), g, 0xDEAD, 3, 10*time.Millisecond)
 	if ok {
 		t.Errorf("expected failure")
 	}
@@ -58,11 +57,22 @@ func TestBringToForegroundWithRetry_ContextCancel(t *testing.T) {
 	g := &fakeGame{successOn: 999}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	ok := bringToForegroundWithRetry(ctx, g, 3, 50*time.Millisecond)
+	ok := bringToForegroundWithRetry(ctx, g, 0xDEAD, 3, 50*time.Millisecond)
 	if ok {
 		t.Errorf("cancelled ctx should not succeed")
 	}
 	if g.attempts < 1 {
 		t.Errorf("expected at least 1 attempt before cancel kicks in")
+	}
+}
+
+func TestBringToForegroundWithRetry_ZeroHwnd(t *testing.T) {
+	g := &fakeGame{successOn: 1}
+	ok := bringToForegroundWithRetry(context.Background(), g, 0, 3, 10*time.Millisecond)
+	if ok {
+		t.Errorf("hwnd=0 should never succeed")
+	}
+	if g.attempts != 0 {
+		t.Errorf("hwnd=0 should not call provider, got %d attempts", g.attempts)
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
+	"yhbox/pkg/winutil"
 )
 
 // 构造小图工具：Start → SetVar → Stop。
@@ -22,6 +23,13 @@ func newTestContainer(nodes []container.GraphNode, edges []container.GraphEdge, 
 	}
 }
 
+// stubRuntimeWindowAndInput 把 rt.Window / rt.Input stub 成非零, 让 setupRuntime
+// 走幂等跳过分支 — 测试不需要真 hwnd / 真 backend / 真 capture.
+func stubRuntimeWindowAndInput(rt *RuntimeContext) {
+	rt.Window = winutil.WindowHandle{HWND: 1}
+	rt.Input = &fakeInputBackend{}
+}
+
 func TestRunner_StartSleep(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
@@ -33,7 +41,8 @@ func TestRunner_StartSleep(t *testing.T) {
 		},
 		nil,
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -64,7 +73,8 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 			{Name: "branch", Type: "string", Default: ""},
 		},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -92,7 +102,8 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -123,7 +134,8 @@ func TestRunner_IfBranch(t *testing.T) {
 			{Name: "branch", Type: "string", Default: ""},
 		},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -147,7 +159,8 @@ func TestRunner_LoopCount(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -175,7 +188,8 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -200,7 +214,8 @@ func TestRunner_StopHalts(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "a", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -214,7 +229,8 @@ func TestRunner_NoStartNode(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{{ID: "s", Kind: "Sleep"}}, nil, nil,
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err == nil {
 		t.Error("expected error for no Start node")

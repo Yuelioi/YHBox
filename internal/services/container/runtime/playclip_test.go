@@ -79,7 +79,7 @@ func TestPlayClipNode_RunsAndReturnsOut(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil, nil,
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil,
 		&fakeClipResolver{clips: map[string]*inputclip.InputClip{"test-clip": clip}},
 		noopBackend{}, 0)
 	r := NewContainerRunner(rt)
@@ -111,7 +111,7 @@ func TestPlayClipNode_CancelOnCtxDone(t *testing.T) {
 			{ID: "n1", Kind: "PlayClip", Config: map[string]any{"clipID": "long"}},
 		}},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil, nil,
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil,
 		&fakeClipResolver{clips: map[string]*inputclip.InputClip{"long": clip}},
 		noopBackend{}, 0)
 	r := NewContainerRunner(rt)
@@ -131,7 +131,7 @@ func TestPlayClipNode_MissingClipID(t *testing.T) {
 			{ID: "n1", Kind: "PlayClip", Config: map[string]any{}},
 		}},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil, nil,
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil,
 		&fakeClipResolver{}, noopBackend{}, 0)
 	r := NewContainerRunner(rt)
 
@@ -148,7 +148,7 @@ func TestPlayClipNode_ClipNotFound(t *testing.T) {
 			{ID: "n1", Kind: "PlayClip", Config: map[string]any{"clipID": "ghost"}},
 		}},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil, nil,
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil,
 		&fakeClipResolver{clips: map[string]*inputclip.InputClip{}}, noopBackend{}, 0)
 	r := NewContainerRunner(rt)
 
@@ -184,7 +184,7 @@ func TestPlayClipNode_KeepRangesParsed(t *testing.T) {
 		}},
 	}
 	cap := &captureBackendLocal{}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopInputDriver{}, NoopColorDetector{}, nil, nil,
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil,
 		&fakeClipResolver{clips: map[string]*inputclip.InputClip{"trim": clip}},
 		cap, 0)
 	r := NewContainerRunner(rt)

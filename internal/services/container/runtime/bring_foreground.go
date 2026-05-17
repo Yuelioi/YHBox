@@ -10,16 +10,13 @@ import (
 
 // bringToForegroundWithRetry 调 GameProvider.BringToForeground，失败重试。
 // SetForegroundWindow 在全屏独占 / 反作弊场景常被 OS 拒绝，重试覆盖大多数失败。
+//   - hwnd: 目标窗口 (v3 由 rt.Window.HWND 提供, 0 = 未解析)
 //   - tries: 最多尝试次数（含首次）
 //   - interval: 两次之间 sleep
 //   - 任一次成功 → 立即返 true
 //   - 全 fail / ctx 取消 → false
-func bringToForegroundWithRetry(ctx context.Context, g GameProvider, tries int, interval time.Duration) bool {
-	if g == nil {
-		return false
-	}
-	hwnd, ok := g.HWND()
-	if !ok || hwnd == 0 {
+func bringToForegroundWithRetry(ctx context.Context, g GameProvider, hwnd uintptr, tries int, interval time.Duration) bool {
+	if g == nil || hwnd == 0 {
 		return false
 	}
 	for i := 0; i < tries; i++ {
@@ -41,7 +38,7 @@ func bringToForegroundWithRetry(ctx context.Context, g GameProvider, tries int, 
 // execBringGameForegroundImpl 真正实现。3 次 × 50ms 重试。失败仅日志，继续走 out。
 func (r *ContainerRunner) execBringGameForegroundImpl(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	g := r.rt.GameProvider()
-	ok := bringToForegroundWithRetry(ctx, g, 3, 50*time.Millisecond)
+	ok := bringToForegroundWithRetry(ctx, g, r.rt.Window.HWND, 3, 50*time.Millisecond)
 	if !ok {
 		if r.rt.Emit != nil {
 			r.rt.Emit("log:line", map[string]any{

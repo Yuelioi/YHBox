@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lxn/win"
+
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
@@ -431,7 +433,7 @@ func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.Gr
 			})
 			// click 阶段独占输入（InputBus.Lock）；detect 阶段不占
 			r.rt.InputBus.Lock()
-			err := r.rt.Input.Click(ctx, point.X, point.Y, button, 50)
+			err := r.rt.Input.Click(win.HWND(r.rt.Window.HWND), point.X, point.Y, button, 50)
 			r.rt.InputBus.Unlock()
 			if err != nil {
 				return nil, err
@@ -461,7 +463,7 @@ func (r *ContainerRunner) execClickAt(ctx context.Context, n *container.GraphNod
 		button = "left"
 	}
 	r.rt.InputBus.Lock()
-	err := r.rt.Input.Click(ctx, x, y, button, dur)
+	err := r.rt.Input.Click(win.HWND(r.rt.Window.HWND), x, y, button, dur)
 	r.rt.InputBus.Unlock()
 	if err != nil {
 		return nil, err
@@ -473,7 +475,7 @@ func (r *ContainerRunner) execKeyPress(ctx context.Context, n *container.GraphNo
 	vk := configString(n, "vk")
 	dur := int(r.configFloat(n, "durationMs", 50))
 	r.rt.InputBus.Lock()
-	err := r.rt.Input.KeyPress(ctx, vk, dur)
+	err := r.rt.Input.KeyPress(win.HWND(r.rt.Window.HWND), vk, dur)
 	r.rt.InputBus.Unlock()
 	if err != nil {
 		return nil, err
@@ -496,7 +498,7 @@ func (r *ContainerRunner) execMouseMoveRel(ctx context.Context, n *container.Gra
 		dy = int(roundAwayFromZero(float64(dy) * scale))
 	}
 	r.rt.InputBus.Lock()
-	err := r.rt.Input.MouseMoveRel(ctx, dx, dy, dur)
+	err := r.rt.Input.MouseMoveRel(win.HWND(r.rt.Window.HWND), dx, dy, dur)
 	r.rt.InputBus.Unlock()
 	if err != nil {
 		return nil, err
@@ -518,7 +520,7 @@ func (r *ContainerRunner) execScroll(ctx context.Context, n *container.GraphNode
 	y := r.configFloat(n, "yRatio", 0.5)
 	delta := int(r.configFloat(n, "delta", 3))
 	r.rt.InputBus.Lock()
-	err := r.rt.Input.Scroll(ctx, x, y, delta)
+	err := r.rt.Input.Scroll(win.HWND(r.rt.Window.HWND), x, y, delta)
 	r.rt.InputBus.Unlock()
 	if err != nil {
 		return nil, err

@@ -1,8 +1,8 @@
 // wire_container.go 适配器：容器节点运行时跟 services / pkg 类型对接。
 //
-// container/runtime 包定义了 Matcher / Color / InputDriver / Runner 等接口；
-// 这里把具体实现（pkg/vision + pkg/capture + pkg/input + actionsruntime.Win32Driver）
-// 绑到接口上。
+// container/runtime 包定义了 Matcher / Color / Runner 等接口；这里把具体实现
+// (pkg/vision + pkg/capture) 绑到接口上.
+// v3 Phase B 删除 InputDriver 适配 — input backend 由 runtime.setupRuntime 直接构造.
 package main
 
 import (
@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/lxn/win"
 
@@ -22,7 +21,6 @@ import (
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/template"
 	"yhbox/pkg/capture"
-	"yhbox/pkg/input"
 	"yhbox/pkg/vision"
 )
 
@@ -200,131 +198,6 @@ func (c *containerColorAdapter) Detect(_ context.Context, region [4]float64, mod
 	cxPx := float64(sumX) / float64(count)
 	cyPx := float64(sumY) / float64(count)
 	return count, cxPx / float64(frameW), cyPx / float64(frameH), nil
-}
-
-// ---- InputDriver: Container 输入原语 → pkg/input Win32 路径 ----
-//
-// ClickAt / KeyPress / MouseMoveRel / Scroll / ClickTemplate.click 阶段调这里。
-// 每次操作内查一次游戏窗口 hwnd + 客户区尺寸；hwnd 缺失则 error。
-
-// containerWin32Driver 封装 pkg/input 原语，满足 containerInputDriver 内部使用。
-// Task 1.22 会把这部分移到独立 pkg 或统一 InputDriver 包；暂时内联这里。
-type containerWin32Driver struct {
-	activateDelay     time.Duration
-	cursorSettleDelay time.Duration
-}
-
-func (d *containerWin32Driver) click(hwnd win.HWND, x, y int, button input.MouseButton, holdMs int) error {
-	input.ClickButtonNoRestore(hwnd, x, y, button, time.Duration(holdMs)*time.Millisecond, d.activateDelay, d.cursorSettleDelay)
-	return nil
-}
-
-func (d *containerWin32Driver) keyDown(hwnd win.HWND, vk string) error {
-	if !input.KeyDown(hwnd, vk) {
-		return fmt.Errorf("unknown vk %q", vk)
-	}
-	return nil
-}
-
-func (d *containerWin32Driver) keyUp(hwnd win.HWND, vk string) error {
-	if !input.KeyUp(hwnd, vk) {
-		return fmt.Errorf("unknown vk %q", vk)
-	}
-	return nil
-}
-
-func (d *containerWin32Driver) mouseScroll(hwnd win.HWND, notches int) error {
-	input.MouseScroll(hwnd, notches, d.activateDelay)
-	return nil
-}
-
-func (d *containerWin32Driver) mouseMoveRel(hwnd win.HWND, dx, dy int, durationMs int) error {
-	input.MouseMoveRel(hwnd, dx, dy, time.Duration(durationMs)*time.Millisecond, d.activateDelay)
-	return nil
-}
-
-type containerInputDriver struct {
-	app    *services.App
-	driver *containerWin32Driver
-}
-
-func newContainerInputDriver(app *services.App) *containerInputDriver {
-	return &containerInputDriver{
-		app: app,
-		driver: &containerWin32Driver{
-			activateDelay:     30 * time.Millisecond,
-			cursorSettleDelay: 20 * time.Millisecond,
-		},
-	}
-}
-
-func (d *containerInputDriver) hwndOrErr() (win.HWND, int, int, error) {
-	g := d.app.Game()
-	if g == nil || !g.OK {
-		return 0, 0, 0, fmt.Errorf("游戏窗口未就绪")
-	}
-	hwnd := win.HWND(g.HWND)
-	w, h, err := capture.ClientSize(hwnd)
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("capture.ClientSize: %w", err)
-	}
-	return hwnd, w, h, nil
-}
-
-func (d *containerInputDriver) Click(_ context.Context, xR, yR float64, button string, durMs int) error {
-	hwnd, w, h, err := d.hwndOrErr()
-	if err != nil {
-		return err
-	}
-	x := int(xR * float64(w))
-	y := int(yR * float64(h))
-	return d.driver.click(hwnd, x, y, mouseButtonFromString(button), durMs)
-}
-
-func (d *containerInputDriver) KeyPress(ctx context.Context, vk string, durMs int) error {
-	hwnd, _, _, err := d.hwndOrErr()
-	if err != nil {
-		return err
-	}
-	if err := d.driver.keyDown(hwnd, vk); err != nil {
-		return err
-	}
-	// defer KeyUp 保证任意分支退出（含 panic）都释放按键。
-	defer func() { _ = d.driver.keyUp(hwnd, vk) }()
-	if durMs > 0 {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(durMs) * time.Millisecond):
-		}
-	}
-	return nil
-}
-
-func (d *containerInputDriver) MouseMoveRel(_ context.Context, dx, dy, durMs int) error {
-	hwnd, _, _, err := d.hwndOrErr()
-	if err != nil {
-		return err
-	}
-	return d.driver.mouseMoveRel(hwnd, dx, dy, durMs)
-}
-
-func (d *containerInputDriver) Scroll(_ context.Context, _, _ float64, delta int) error {
-	hwnd, _, _, err := d.hwndOrErr()
-	if err != nil {
-		return err
-	}
-	return d.driver.mouseScroll(hwnd, delta)
-}
-
-func mouseButtonFromString(s string) input.MouseButton {
-	switch s {
-	case "middle":
-		return input.MouseMiddle
-	case "right":
-		return input.MouseRight
-	}
-	return input.MouseLeft
 }
 
 // ---- Container Runner: ExecutionQueue + Worker → container.Runner ----

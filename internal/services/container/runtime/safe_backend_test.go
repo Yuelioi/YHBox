@@ -2,36 +2,11 @@ package runtime
 
 import (
 	"testing"
-
-	"github.com/lxn/win"
-
-	pkginput "yhbox/pkg/input"
 )
-
-// fakeBackend impl pkginput.Backend, 计数调用次数验 SafeBackend pass-through.
-type fakeBackend struct {
-	clicks int
-}
-
-func (f *fakeBackend) Name() string                        { return "fake" }
-func (f *fakeBackend) Capabilities() pkginput.Capabilities { return pkginput.Capabilities{} }
-func (f *fakeBackend) Click(_ win.HWND, _, _ float64, _ string, _ int) error {
-	f.clicks++
-	return nil
-}
-func (f *fakeBackend) KeyPress(win.HWND, string, int) error               { return nil }
-func (f *fakeBackend) KeyDown(win.HWND, string) error                     { return nil }
-func (f *fakeBackend) KeyUp(win.HWND, string) error                       { return nil }
-func (f *fakeBackend) MouseDown(win.HWND, float64, float64, string) error { return nil }
-func (f *fakeBackend) MouseUp(win.HWND, string) error                     { return nil }
-func (f *fakeBackend) MouseMoveRel(win.HWND, int, int, int) error         { return nil }
-func (f *fakeBackend) Scroll(win.HWND, float64, float64, int) error       { return nil }
-func (f *fakeBackend) ReleaseAll() error                                  { return nil }
-func (f *fakeBackend) Close() error                                       { return nil }
 
 func TestSafeInputBackend_WarnOnceOnInvalidHwnd(t *testing.T) {
 	rt := &RuntimeContext{} // Emit nil 也 OK
-	inner := &fakeBackend{}
+	inner := &fakeInputBackend{}
 	safe := NewSafeInputBackend(inner, rt)
 	// hwnd=0 → invalid → 5 次 Click 都 skip inner, warned flag 翻 true
 	for i := 0; i < 5; i++ {
