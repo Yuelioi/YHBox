@@ -110,6 +110,12 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     dataIn: {},
     dataOut: {},
   },
+  WindowTarget: {
+    execIn: [],
+    execOut: [],
+    dataIn: {},
+    dataOut: {},
+  },
   PlayClip: {
     execIn: ['in'],
     execOut: ['out'],
@@ -180,6 +186,7 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   SubgraphOutput: '子图出口',
   BringGameForeground: '游戏置前',
   MouseCalibration: '鼠标校准',
+  WindowTarget: '目标窗口',
   PlayClip: '播放录制',
 }
 
@@ -218,6 +225,8 @@ export const KIND_DESCRIPTION: Record<string, string> = {
     '把当前检测到的游戏窗口置于前台。会自动重试 3 次（每次间隔 50ms），覆盖全屏独占 / 反作弊场景的偶发失败。',
   MouseCalibration:
     '声明本容器主图依赖鼠标校准值。config.counts360 持有本机转 360° 累积 HID counts。运行时 MouseMoveRel 根据该值缩放。仅允许放在主图。',
+  WindowTarget:
+    '声明 container 操作的目标游戏窗口 + input/capture backend. 必须在主图, 1 个.',
   PlayClip:
     '播放一段录制的输入事件流 (键鼠 events). config.clipID 指定 clip; config.keepRanges 可选裁剪 [{fromUs, toUs}, ...] 让你跳过录制中的停顿段.',
 }
@@ -263,6 +272,10 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   SubgraphOutput: { declID: '' },
   BringGameForeground: {},
   MouseCalibration: { counts360: 0 },
+  WindowTarget: {
+    match: { title: '', class: '', processName: '', titleMatch: 'exact' },
+    runtime: { inputBackend: 'postmessage', captureBackend: 'auto' },
+  },
   PlayClip: { clipID: '', keepRanges: [] },
 }
 
@@ -338,6 +351,11 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
     icon: 'i-tabler-target',
     bg: 'bg-yellow-500/15',
     border: 'border-yellow-500/40',
+  },
+  WindowTarget: {
+    icon: 'i-tabler-app-window',
+    bg: 'bg-sky-500/15',
+    border: 'border-sky-500/40',
   },
   PlayClip: { icon: 'i-tabler-vinyl', bg: 'bg-pink-500/15', border: 'border-pink-500/40' },
 }

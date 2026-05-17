@@ -339,6 +339,9 @@ function miniNodeColor(node: any): string {
     'border-orange-500/40': '#f97316',
     'border-pink-500/40': '#ec4899',
     'border-slate-500/40': '#64748b',
+    'border-sky-500/40': '#0ea5e9',
+    'border-yellow-500/40': '#eab308',
+    'border-cyan-500/40': '#06b6d4',
   }
   return map[v?.border ?? ''] ?? '#52525b'
 }
