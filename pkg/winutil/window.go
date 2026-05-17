@@ -1,32 +1,54 @@
-// Package winutil 找异环游戏窗口。lxn/win 这版缺 EnumWindows / GetWindowTextW，
-// 用 LazyDLL 自包。匹配规则：标题以"异环"开头 且 类名 = UnrealWindow（两条都要满足，
-// 防止浏览器标签等"异环 ... - Chrome"被误匹配）。
+// Package winutil 提供 Windows 顶层窗口枚举 / 匹配 / 元数据查询.
+// 跨权限读 admin 进程 exe 名用 PROCESS_QUERY_LIMITED_INFORMATION (Vista+).
+//
+// 文件里有两套 API:
+//   - 旧版 (Target / FindGame / BringToFront): 写死匹配"异环"+"UnrealWindow",
+//     v1/v2 时期遗留, main/cmd 还在用, 后续 Phase B 完工会迁走.
+//   - 新版 (WindowHandle / MatchSpec / ResolveWindow): Phase B WindowTarget 节点用,
+//     支持任意 title/class/processName 匹配 + 元数据完整返回.
 package winutil
 
 import (
+	"errors"
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/lxn/win"
 )
 
 var (
-	user32                  = syscall.NewLazyDLL("user32.dll")
-	procEnumWindows         = user32.NewProc("EnumWindows")
-	procGetWindowTextW      = user32.NewProc("GetWindowTextW")
-	procSetForegroundWindow = user32.NewProc("SetForegroundWindow")
-	procShowWindow          = user32.NewProc("ShowWindow")
-	procIsIconic            = user32.NewProc("IsIconic")
-	procAttachThreadInput   = user32.NewProc("AttachThreadInput")
+	user32                    = syscall.NewLazyDLL("user32.dll")
+	procEnumWindows           = user32.NewProc("EnumWindows")
+	procGetWindowTextW        = user32.NewProc("GetWindowTextW")
+	procGetClassNameW         = user32.NewProc("GetClassNameW")
+	procSetForegroundWindow   = user32.NewProc("SetForegroundWindow")
+	procShowWindow            = user32.NewProc("ShowWindow")
+	procIsIconic              = user32.NewProc("IsIconic")
+	procAttachThreadInput     = user32.NewProc("AttachThreadInput")
 	procGetWindowThreadProcId = user32.NewProc("GetWindowThreadProcessId")
-	procGetForegroundWindow = user32.NewProc("GetForegroundWindow")
-	kernel32                = syscall.NewLazyDLL("kernel32.dll")
-	procGetCurrentThreadId  = kernel32.NewProc("GetCurrentThreadId")
+	procGetForegroundWindow   = user32.NewProc("GetForegroundWindow")
+	procGetClientRect         = user32.NewProc("GetClientRect")
+
+	kernel32                       = syscall.NewLazyDLL("kernel32.dll")
+	procGetCurrentThreadId         = kernel32.NewProc("GetCurrentThreadId")
+	procOpenProcess                = kernel32.NewProc("OpenProcess")
+	procQueryFullProcessImageNameW = kernel32.NewProc("QueryFullProcessImageNameW")
+	procCloseHandle                = kernel32.NewProc("CloseHandle")
 )
 
 const (
-	swRestore = 9
+	swRestore                         = 9
+	processQueryLimitedInformation    = 0x1000
 )
+
+// ---------------------------------------------------------------------------
+// 旧版 API (Target / FindGame / BringToFront) — v1/v2 遗留, Phase B 完工后清理.
+// ---------------------------------------------------------------------------
 
 type Target struct {
 	HWND  win.HWND
@@ -71,7 +93,7 @@ func BringToFront(hwnd win.HWND) bool {
 	return ret != 0
 }
 
-// FindGame 枚举所有可见顶层窗口，返回所有匹配的（通常只有一个）。
+// FindGame 枚举所有可见顶层窗口，返回所有匹配"异环"+"UnrealWindow"的（通常只有一个）。
 func FindGame() []Target {
 	var found []Target
 	cb := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
@@ -93,4 +115,178 @@ func FindGame() []Target {
 	})
 	procEnumWindows.Call(cb, 0)
 	return found
+}
+
+// ---------------------------------------------------------------------------
+// 新版 API (Phase B WindowTarget) — runtime/recording/tools 共用.
+// ---------------------------------------------------------------------------
+
+// WindowHandle 解析后窗口的完整元数据. runtime 整 run 持有, 不只 hwnd.
+type WindowHandle struct {
+	HWND        uintptr
+	Title       string // GetWindowText
+	Class       string // GetClassName
+	ProcessName string // exe basename, lowercase (strings.ToLower 提前转)
+	PID         uint32
+	ClientW     int // GetClientRect.right - left
+	ClientH     int // GetClientRect.bottom - top
+}
+
+// MatchSpec WindowTarget.config.match 反序列化后形态.
+type MatchSpec struct {
+	Title       string
+	Class       string
+	ProcessName string
+	TitleMatch  string // "exact" | "regex"
+}
+
+// IsEmptyMatch true if all three fields are blank OR title is a "match anything" regex (.* / .+).
+// validator + runtime 都该用这个统一判定.
+func IsEmptyMatch(spec MatchSpec) bool {
+	hasAny := spec.Title != "" || spec.Class != "" || spec.ProcessName != ""
+	if !hasAny {
+		return true
+	}
+	if spec.TitleMatch == "regex" && spec.Class == "" && spec.ProcessName == "" {
+		t := strings.TrimSpace(spec.Title)
+		if t == ".*" || t == ".+" || t == "^.*$" || t == "^.+$" {
+			return true
+		}
+	}
+	return false
+}
+
+// CompileTitle 给 validator + runtime 共用. titleMatch=exact 时不编译; regex 编译失败返 err.
+func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
+	if spec.TitleMatch != "regex" || spec.Title == "" {
+		return nil, nil
+	}
+	return regexp.Compile(spec.Title)
+}
+
+// ResolveWindow 按 spec 匹配条件枚 top-level visible window, 第一个匹配返 WindowHandle.
+// EnumWindows 按 Z-order (前台最上为先) 顺序回调, MSDN 有写. fallback: GetTopWindow + GetWindow(GW_HWNDNEXT).
+// OpenProcess 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限. 单进程 query 失败 → 视该进程不匹配 + 继续.
+func ResolveWindow(spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
+	if IsEmptyMatch(spec) {
+		return WindowHandle{}, errors.New("WindowTarget match spec is empty or matches anything")
+	}
+	titleRe, err := CompileTitle(spec)
+	if err != nil {
+		return WindowHandle{}, fmt.Errorf("title regex invalid: %w", err)
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		if h, ok := resolveOnce(spec, titleRe); ok {
+			return h, nil
+		}
+		if time.Now().After(deadline) {
+			return WindowHandle{}, fmt.Errorf("窗口未找到 (title=%q class=%q process=%q), 请打开游戏后重试",
+				spec.Title, spec.Class, spec.ProcessName)
+		}
+		time.Sleep(interval)
+	}
+}
+
+// resolveOnce 一次 EnumWindows 扫描, 返第一个匹配 (Z-order 最前).
+func resolveOnce(spec MatchSpec, titleRe *regexp.Regexp) (WindowHandle, bool) {
+	targetProc := strings.ToLower(spec.ProcessName)
+	var result WindowHandle
+	found := false
+
+	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
+		if !win.IsWindowVisible(hwnd) {
+			return 1 // continue
+		}
+		title := getWindowText(hwnd)
+		class := getClassName(hwnd)
+		pid := getWindowPID(hwnd)
+		procName, procErr := queryProcessName(pid)
+		if procErr != nil {
+			// 单进程出错 (admin 权限 / 僵尸进程等) — 视为不匹配, 继续枚下一个
+			return 1
+		}
+		procName = strings.ToLower(procName)
+
+		// match title
+		if spec.Title != "" {
+			if titleRe != nil {
+				if !titleRe.MatchString(title) {
+					return 1
+				}
+			} else if title != spec.Title {
+				return 1
+			}
+		}
+		// match class (exact, case-sensitive)
+		if spec.Class != "" && class != spec.Class {
+			return 1
+		}
+		// match processName (case-insensitive, lowercase 对比)
+		if targetProc != "" && procName != targetProc {
+			return 1
+		}
+
+		cw, ch := getClientSize(hwnd)
+		result = WindowHandle{
+			HWND:        uintptr(hwnd),
+			Title:       title,
+			Class:       class,
+			ProcessName: procName,
+			PID:         pid,
+			ClientW:     cw,
+			ClientH:     ch,
+		}
+		found = true
+		return 0 // stop enumeration
+	})
+	procEnumWindows.Call(callback, 0)
+	return result, found
+}
+
+// --- Win32 helpers (新版 API 专用) ---
+
+func getWindowText(hwnd win.HWND) string {
+	buf := make([]uint16, 512)
+	n, _, _ := procGetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&buf[0])), 512)
+	return syscall.UTF16ToString(buf[:n])
+}
+
+func getClassName(hwnd win.HWND) string {
+	buf := make([]uint16, 256)
+	n, _, _ := procGetClassNameW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&buf[0])), 256)
+	return syscall.UTF16ToString(buf[:n])
+}
+
+func getWindowPID(hwnd win.HWND) uint32 {
+	var pid uint32
+	procGetWindowThreadProcId.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&pid)))
+	return pid
+}
+
+// queryProcessName 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限读 exe basename.
+// 不能用 PROCESS_QUERY_INFORMATION (高权限游戏会 ERROR_ACCESS_DENIED).
+func queryProcessName(pid uint32) (string, error) {
+	if pid == 0 {
+		return "", errors.New("pid zero")
+	}
+	h, _, err := procOpenProcess.Call(uintptr(processQueryLimitedInformation), 0, uintptr(pid))
+	if h == 0 {
+		return "", fmt.Errorf("OpenProcess pid=%d: %v", pid, err)
+	}
+	defer procCloseHandle.Call(h)
+	buf := make([]uint16, 1024)
+	size := uint32(len(buf))
+	r, _, err := procQueryFullProcessImageNameW.Call(h, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
+	if r == 0 {
+		return "", fmt.Errorf("QueryFullProcessImageName pid=%d: %v", pid, err)
+	}
+	full := syscall.UTF16ToString(buf[:size])
+	return filepath.Base(full), nil
+}
+
+func getClientSize(hwnd win.HWND) (int, int) {
+	var rect win.RECT
+	procGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
+	return int(rect.Right - rect.Left), int(rect.Bottom - rect.Top)
 }
