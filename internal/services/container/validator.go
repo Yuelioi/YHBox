@@ -61,6 +61,7 @@ const (
 	CodeStopwatchEmptyKey     = "STOPWATCH_EMPTY_KEY"
 	CodeStopwatchKeyMismatch  = "STOPWATCH_KEY_MISMATCH"
 	CodeThrowInMainGraph      = "THROW_IN_MAIN_GRAPH"
+	CodeInvalidSwitchCases    = "INVALID_SWITCH_CASES"
 )
 
 type ValidationError struct {
@@ -677,6 +678,8 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 			}
 		case "StopwatchStop", "StopwatchRead":
 			nodeErrs = validateStopwatch(n)
+		case "Switch":
+			nodeErrs = validateSwitchConfig(n)
 		case "Throw":
 			if isMain {
 				nodeErrs = []ValidationError{{
@@ -846,6 +849,70 @@ func validateMouseHold(n *GraphNode) []ValidationError {
 		}}
 	}
 	return nil
+}
+
+// validateSwitchConfig 校验 Switch 节点 config:
+// - value 表达式必填
+// - cases 数组必须非空
+// - 每个 case: 非空 / 不含 '.' / 非 'default' / 无前后空格 / 不重复
+// 错误 code 全用 INVALID_SWITCH_CASES (粗粒度, value 错也归这里方便用户找).
+func validateSwitchConfig(n *GraphNode) []ValidationError {
+	var errs []ValidationError
+	cfg, _ := ParseSwitchConfig(n)
+
+	if cfg.Value == "" {
+		errs = append(errs, ValidationError{
+			NodeID: n.ID, Code: CodeInvalidSwitchCases,
+			Message: "Switch value 表达式必填",
+		})
+	}
+	if len(cfg.Cases) == 0 {
+		errs = append(errs, ValidationError{
+			NodeID: n.ID, Code: CodeInvalidSwitchCases,
+			Message: "Switch cases 数组必须非空",
+		})
+		return errs
+	}
+	seen := map[string]bool{}
+	for i, cs := range cfg.Cases {
+		if cs == "" {
+			errs = append(errs, ValidationError{
+				NodeID: n.ID, Code: CodeInvalidSwitchCases,
+				Message: fmt.Sprintf("Switch cases[%d] 是空字符串", i),
+			})
+			continue
+		}
+		if strings.Contains(cs, ".") {
+			errs = append(errs, ValidationError{
+				NodeID: n.ID, Code: CodeInvalidSwitchCases,
+				Message: fmt.Sprintf("Switch cases[%d]=%q 含 '.' (pin 分隔符, 禁用)", i, cs),
+			})
+			continue
+		}
+		if cs == "default" {
+			errs = append(errs, ValidationError{
+				NodeID: n.ID, Code: CodeInvalidSwitchCases,
+				Message: fmt.Sprintf("Switch cases[%d]='default' 跟保留 default pin 冲突", i),
+			})
+			continue
+		}
+		if trimmed := strings.TrimSpace(cs); trimmed != cs {
+			errs = append(errs, ValidationError{
+				NodeID: n.ID, Code: CodeInvalidSwitchCases,
+				Message: fmt.Sprintf("Switch cases[%d]=%q 含前导/尾部空格", i, cs),
+			})
+			continue
+		}
+		if seen[cs] {
+			errs = append(errs, ValidationError{
+				NodeID: n.ID, Code: CodeInvalidSwitchCases,
+				Message: fmt.Sprintf("Switch cases[%d]=%q 重复", i, cs),
+			})
+			continue
+		}
+		seen[cs] = true
+	}
+	return errs
 }
 
 // validateStopwatch checks that key is non-empty.
