@@ -161,7 +161,7 @@
         "x": 1900,
         "y": 0,
         "config": {
-          "message": "fight scan: cursorOK=$var.cursorOK cursorX=$var.cursorX targetOK=$var.targetOK targetX=$var.targetX"
+          "message": "fight scan: cursorOK=$vars.cursorOK cursorX=$vars.cursorX targetOK=$vars.targetOK targetX=$vars.targetX"
         },
         "createdAt": "2026-05-19T00:00:00Z"
       },
@@ -171,7 +171,7 @@
         "x": 2000,
         "y": 0,
         "config": {
-          "condition": "$var.cursorOK && $var.targetOK"
+          "condition": "$vars.cursorOK && $vars.targetOK"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -194,7 +194,7 @@
         "y": -100,
         "config": {
           "varName": "delta",
-          "value": "$var.targetX - $var.cursorX",
+          "value": "$vars.targetX - $vars.cursorX",
           "scope": "local"
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -205,7 +205,7 @@
         "x": 2500,
         "y": -100,
         "config": {
-          "message": "fight dir: lastDir=$var.lastDirection delta=$var.delta"
+          "message": "fight dir: lastDir=$vars.lastDirection delta=$vars.delta"
         },
         "createdAt": "2026-05-19T00:00:00Z"
       },
@@ -215,7 +215,7 @@
         "x": 2600,
         "y": -100,
         "config": {
-          "condition": "$var.lastDirection == 'A' && $var.delta > 15"
+          "condition": "$vars.lastDirection == 'A' && $vars.delta > 15"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -257,7 +257,7 @@
         "x": 2800,
         "y": -100,
         "config": {
-          "condition": "$var.lastDirection == 'D' && $var.delta < -15"
+          "condition": "$vars.lastDirection == 'D' && $vars.delta < -15"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -299,7 +299,7 @@
         "x": 3000,
         "y": -100,
         "config": {
-          "condition": "$var.lastDirection == 'none' || $var.lastDirection == 'center'"
+          "condition": "$vars.lastDirection == 'none' || $vars.lastDirection == 'center'"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -309,7 +309,7 @@
         "x": 3200,
         "y": -150,
         "config": {
-          "condition": "$var.delta < -10"
+          "condition": "$vars.delta < -10"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -341,7 +341,7 @@
         "x": 3400,
         "y": -100,
         "config": {
-          "condition": "$var.delta > 10"
+          "condition": "$vars.delta > 10"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -417,7 +417,7 @@
         "x": 2400,
         "y": 100,
         "config": {
-          "condition": "$var.barMissCount > 5"
+          "condition": "$vars.barMissCount > 5"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },

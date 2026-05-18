@@ -28,7 +28,7 @@ func TestExecOutPinsForNode_Parallel_Dynamic(t *testing.T) {
 
 func TestExecOutPinsForNode_Switch_Dynamic(t *testing.T) {
 	n := &GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.x",
+		"value": "$vars.x",
 		"cases": []any{"A", "B", "C"},
 	}}
 	pins := execOutPinsForNode(n)

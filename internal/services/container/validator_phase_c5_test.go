@@ -11,7 +11,7 @@ func helperRunValidate(node *GraphNode) []ValidationError {
 
 func TestValidateSwitch_EmptyCases(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.x", "cases": []any{},
+		"value": "$vars.x", "cases": []any{},
 	}})
 	if len(errs) == 0 {
 		t.Fatalf("空 cases 应报错")
@@ -29,7 +29,7 @@ func TestValidateSwitch_EmptyCases(t *testing.T) {
 
 func TestValidateSwitch_DotInCase(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.x", "cases": []any{"v1.0"},
+		"value": "$vars.x", "cases": []any{"v1.0"},
 	}})
 	if len(errs) == 0 || errs[0].Code != CodeInvalidSwitchCases {
 		t.Errorf("case 含 . 应报 INVALID_SWITCH_CASES")
@@ -38,7 +38,7 @@ func TestValidateSwitch_DotInCase(t *testing.T) {
 
 func TestValidateSwitch_DuplicateCase(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.x", "cases": []any{"A", "A"},
+		"value": "$vars.x", "cases": []any{"A", "A"},
 	}})
 	if len(errs) == 0 || errs[0].Code != CodeInvalidSwitchCases {
 		t.Errorf("重复 case 应报 INVALID_SWITCH_CASES")
@@ -47,7 +47,7 @@ func TestValidateSwitch_DuplicateCase(t *testing.T) {
 
 func TestValidateSwitch_ReservedDefaultCase(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.x", "cases": []any{"default"},
+		"value": "$vars.x", "cases": []any{"default"},
 	}})
 	if len(errs) == 0 {
 		t.Fatalf("case='default' 应报错")
@@ -65,7 +65,7 @@ func TestValidateSwitch_ReservedDefaultCase(t *testing.T) {
 
 func TestValidateSwitch_LeadingTrailingWhitespace(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.x", "cases": []any{"IDLE "},
+		"value": "$vars.x", "cases": []any{"IDLE "},
 	}})
 	if len(errs) == 0 {
 		t.Errorf("尾空格应报错")
@@ -83,7 +83,7 @@ func TestValidateSwitch_EmptyValueExpr(t *testing.T) {
 
 func TestValidateSwitch_HappyPath_NoErr(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "$var.state",
+		"value": "$vars.state",
 		"cases": []any{"IDLE", "钓鱼", "🎣"},
 	}})
 	if len(errs) != 0 {

@@ -52,7 +52,7 @@ func TestExecSwitch_DefaultOnNilValue(t *testing.T) {
 		ID:   "sw3",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$var.notDefined", // undefined var → resolve nil
+			"value": "$vars.notDefined", // undefined var → resolve nil
 			"cases": []any{"A"},
 		},
 	}
@@ -69,7 +69,7 @@ func TestExecSwitch_StringableInt(t *testing.T) {
 		ID:   "sw4",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$var.x",
+			"value": "$vars.x",
 			"cases": []any{"5", "10"},
 		},
 	}
@@ -86,7 +86,7 @@ func TestExecSwitch_CJKCaseDispatch(t *testing.T) {
 		ID:   "sw5",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$var.state",
+			"value": "$vars.state",
 			"cases": []any{"待机", "钓鱼", "恢复"},
 		},
 	}
@@ -103,7 +103,7 @@ func TestExecSwitch_EmojiCaseDispatch(t *testing.T) {
 		ID:   "sw6",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$var.state",
+			"value": "$vars.state",
 			"cases": []any{"🎣", "⚔️"},
 		},
 	}

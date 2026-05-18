@@ -112,7 +112,7 @@ function currentValue(): string {
       <label class="block text-xs text-toned">Value 表达式</label>
       <UInput
         :model-value="currentValue()"
-        placeholder="$var.state"
+        placeholder="$vars.state"
         @update:model-value="updateValue"
       />
       <p class="text-[11px] text-dimmed leading-snug">

@@ -14,8 +14,8 @@ func TestParseSwitchConfig(t *testing.T) {
 	}{
 		{
 			"happy path",
-			map[string]any{"value": "$var.state", "cases": []any{"IDLE", "WAITING"}},
-			"$var.state", []string{"IDLE", "WAITING"},
+			map[string]any{"value": "$vars.state", "cases": []any{"IDLE", "WAITING"}},
+			"$vars.state", []string{"IDLE", "WAITING"},
 		},
 		{"nil config", nil, "", nil},
 		{"missing fields", map[string]any{}, "", nil},
