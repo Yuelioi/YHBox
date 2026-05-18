@@ -51,18 +51,20 @@ const DEFAULT_OUT: string[] = ['out']
 
 export const PIN_SPECS: Record<string, PinSpec> = {
   Start: { execIn: [], execOut: ['out'], dataIn: {}, dataOut: {} },
-  Sleep: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  // v4: all timing/condition values via typed data-in pins (literal or upstream data edge).
+  Sleep: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { durationMs: 'number' }, dataOut: {} },
   Loop: {
     execIn: ['in', 'loopback'],
     execOut: ['body', 'complete'],
-    dataIn: {},
+    // count: mode=count 用; condition: mode=while 用; mode=forever 两者都不读.
+    dataIn: { count: 'number', condition: 'bool' },
     dataOut: { iter: 'number' },
   },
-  If: { execIn: DEFAULT_IN, execOut: ['then', 'else'], dataIn: {}, dataOut: {} },
+  If: { execIn: DEFAULT_IN, execOut: ['then', 'else'], dataIn: { condition: 'bool' }, dataOut: {} },
   Switch: {
     execIn: DEFAULT_IN,
     execOut: ['default'], // fallback if execOutFn 未运行
-    dataIn: {},
+    dataIn: { value: 'string' },
     dataOut: {},
     execOutFn: (config) => {
       const cases = Array.isArray(config?.cases) ? config.cases : []
@@ -81,7 +83,7 @@ export const PIN_SPECS: Record<string, PinSpec> = {
   Parallel: {
     execIn: DEFAULT_IN,
     execOut: ['complete'],
-    dataIn: {},
+    dataIn: { n: 'number' },
     dataOut: {},
     execOutFn: (config) => {
       const raw = config?.n
@@ -96,7 +98,7 @@ export const PIN_SPECS: Record<string, PinSpec> = {
   Race: {
     execIn: DEFAULT_IN,
     execOut: ['complete'],
-    dataIn: {},
+    dataIn: { n: 'number' },
     dataOut: { winnerIdx: 'number' },
     execOutFn: (config) => {
       const raw = config?.n
@@ -172,37 +174,41 @@ export const PIN_SPECS: Record<string, PinSpec> = {
   ToNumber: { execIn: [], execOut: [], dataIn: { x: 'any' }, dataOut: { result: 'number' } },
   ToBool: { execIn: [], execOut: [], dataIn: { x: 'any' }, dataOut: { result: 'any' } },
   Select: { execIn: [], execOut: [], dataIn: { cond: 'any', a: 'any', b: 'any' }, dataOut: { result: 'any' } },
+  // v4: 模板节点 — template 还在 config (TemplatePicker UI), timeoutMs/threshold 走 pin.
   WaitTemplate: {
     execIn: DEFAULT_IN,
     execOut: ['found', 'timeout'],
-    dataIn: {},
+    dataIn: { timeoutMs: 'number', threshold: 'number' },
     dataOut: { point: 'point' },
   },
   CheckTemplate: {
     execIn: DEFAULT_IN,
     execOut: ['yes', 'no'],
-    dataIn: {},
+    dataIn: { threshold: 'number' },
     dataOut: { point: 'point' },
   },
   ClickTemplate: {
     execIn: DEFAULT_IN,
     execOut: ['done', 'timeout'],
-    dataIn: {},
+    dataIn: { timeoutMs: 'number', threshold: 'number' },
     dataOut: { point: 'point' },
   },
+  // DetectColor (legacy v3): CSV configs in root config — kept as-is until users migrate.
   DetectColor: {
     execIn: DEFAULT_IN,
     execOut: ['yes', 'no'],
-    dataIn: {},
+    dataIn: { minPixels: 'number' },
     dataOut: { point: 'point' },
   },
-  ClickAt: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { pos: 'point' }, dataOut: {} },
-  KeyPress: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  MouseMoveRel: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  Scroll: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  OnEvent: { execIn: [], execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  Log: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  Toast: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  // v4 input nodes: all numeric coordinates / durations via data-in pin.
+  ClickAt: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { xRatio: 'number', yRatio: 'number', durationMs: 'number' }, dataOut: {} },
+  KeyPress: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { durationMs: 'number' }, dataOut: {} },
+  MouseMoveRel: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { dx: 'number', dy: 'number', durationMs: 'number' }, dataOut: {} },
+  Scroll: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { xRatio: 'number', yRatio: 'number', delta: 'number' }, dataOut: {} },
+  OnEvent: { execIn: [], execOut: DEFAULT_OUT, dataIn: { threshold: 'number', pollIntervalMs: 'number', maxConcurrent: 'number', cooldownMs: 'number' }, dataOut: {} },
+  // v4 Log/Toast: message via data-in pin (any → FormatValue).
+  Log: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { message: 'any' }, dataOut: {} },
+  Toast: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { title: 'any', message: 'any' }, dataOut: {} },
   Subgraph: {
     execIn: DEFAULT_IN,
     execOut: ['__placeholder__'],
@@ -245,17 +251,17 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     dataIn: {},
     dataOut: {},
   },
-  // v3 Phase C
+  // v3 Phase C (v4: numeric thresholds via data-in pin; roi/hsv objects still in config — special editor)
   DetectColorHSV: {
     execIn: DEFAULT_IN,
     execOut: ['yes', 'no', 'timeout'],
-    dataIn: {},
+    dataIn: { minPixelRatio: 'number', pollIntervalMs: 'number', timeoutMs: 'number' },
     dataOut: { pixelCount: 'number', pixelRatio: 'number' },
   },
   ROIColorScan: {
     execIn: DEFAULT_IN,
     execOut: ['found', 'notFound', 'timeout'],
-    dataIn: {},
+    dataIn: { minClusterPx: 'number', maxClusterPx: 'number', minClusterCount: 'number', pollIntervalMs: 'number', timeoutMs: 'number' },
     dataOut: { clusters: 'any', clusterCount: 'number' },
   },
   Screenshot: {
@@ -264,17 +270,19 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     dataIn: {},
     dataOut: { path: 'string' },
   },
+  // v4: KeyHold/MouseHold — vk/button still config (KeyCapture / dropdown); MouseHold coords via pin.
   KeyHoldStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   KeyHoldStop: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  MouseHoldStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  MouseHoldStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: { xRatio: 'number', yRatio: 'number' }, dataOut: {} },
   MouseHoldStop: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   Try: {
     execIn: DEFAULT_IN,
     execOut: ['done', 'timeout', 'error'],
-    dataIn: {},
+    dataIn: { timeoutMs: 'number' },
     dataOut: { errorMsg: 'string' },
   },
-  Throw: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
+  // v4 Throw: message via data-in pin (string).
+  Throw: { execIn: DEFAULT_IN, execOut: [], dataIn: { message: 'string' }, dataOut: {} },
   StopwatchStart: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   StopwatchStop: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
   StopwatchRead: {
@@ -447,15 +455,15 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   StopwatchRead: '按 key 读取经过毫秒数到 elapsedMs 数据口. running → now-start; stopped → stop-start.',
 }
 
-// 节点默认 config。新建节点时填进去，避免用户面对空表单不知所措。
-// 表达式字段（durationMs 等）都用字符串（运行时 parse）。
+// 节点默认 config (v4)。新建节点时填进去, 避免用户面对空表单不知所措。
+// data-in pin 默认值放在 config.literal[pinName] (类型严格: number/bool/string/point).
 export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
-  Sleep: { durationMs: '1000' },
-  Loop: { mode: 'count', count: '10' },
-  If: { condition: 'true' },
-  Switch: { value: '$vars.state', cases: ['a', 'b'] },
-  Parallel: { n: '2' },
-  Race: { n: '2' },
+  Sleep: { literal: { durationMs: 1000 } },
+  Loop: { mode: 'count', literal: { count: 10, condition: true } },
+  If: { literal: { condition: true } },
+  Switch: { cases: ['a', 'b'], literal: { value: '' } },
+  Parallel: { literal: { n: 2 } },
+  Race: { literal: { n: 2 } },
   Stop: {},
   Break: {},
   Continue: {},
@@ -487,29 +495,27 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   Length: { literal: { s: '' } },
   ToString: { literal: { x: '' } }, ToNumber: { literal: { x: 0 } }, ToBool: { literal: { x: false } },
   Select: { literal: { cond: true } },
-  WaitTemplate: { template: '', timeoutMs: '5000', threshold: '0.85' },
-  CheckTemplate: { template: '', threshold: '0.85' },
-  ClickTemplate: { template: '', timeoutMs: '5000', threshold: '0.85', button: 'left' },
+  WaitTemplate: { template: '', literal: { timeoutMs: 5000, threshold: 0.85 } },
+  CheckTemplate: { template: '', literal: { threshold: 0.85 } },
+  ClickTemplate: { template: '', button: 'left', literal: { timeoutMs: 5000, threshold: 0.85 } },
   DetectColor: {
     region: '0.4,0.55,0.2,0.05',
     mode: 'hsv',
     range: '50,60,67,127,253,255',
-    minPixels: '5',
+    literal: { minPixels: 5 },
   },
-  ClickAt: { xRatio: '0.5', yRatio: '0.5', durationMs: '50', button: 'left' },
-  KeyPress: { vk: 'W', durationMs: '50' },
-  MouseMoveRel: { dx: '0', dy: '0', durationMs: '200' },
-  Scroll: { xRatio: '0.5', yRatio: '0.5', delta: '3' },
+  ClickAt: { button: 'left', literal: { xRatio: 0.5, yRatio: 0.5, durationMs: 50 } },
+  KeyPress: { vk: 'W', literal: { durationMs: 50 } },
+  MouseMoveRel: { literal: { dx: 0, dy: 0, durationMs: 200 } },
+  Scroll: { literal: { xRatio: 0.5, yRatio: 0.5, delta: 3 } },
   OnEvent: {
     kind: 'template_appeared',
     template: '',
-    pollIntervalMs: '100',
-    maxConcurrent: '1',
     retriggerPolicy: 'drop',
-    cooldownMs: '0',
+    literal: { pollIntervalMs: 100, maxConcurrent: 1, cooldownMs: 0 },
   },
-  Log: { level: 'info', message: '"hello"' },
-  Toast: { title: '"提示"', message: '""', color: 'primary' },
+  Log: { level: 'info', literal: { message: 'hello' } },
+  Toast: { color: 'primary', literal: { title: '提示', message: '' } },
   Subgraph: { subgraphId: '' },
   SubgraphInput: {},
   SubgraphOutput: { declID: '' },
@@ -524,27 +530,21 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   DetectColorHSV: {
     roi: { x: 0, y: 0, w: 100, h: 100 },
     hsv: { hMin: 0, hMax: 180, sMin: 0, sMax: 255, vMin: 0, vMax: 255 },
-    minPixelRatio: 0.05,
-    pollIntervalMs: 100,
-    timeoutMs: 5000,
+    literal: { minPixelRatio: 0.05, pollIntervalMs: 100, timeoutMs: 5000 },
   },
   ROIColorScan: {
     roi: { x: 0, y: 0, w: 100, h: 100 },
     hsv: { hMin: 0, hMax: 180, sMin: 0, sMax: 255, vMin: 0, vMax: 255 },
     scanAxis: 'x',
-    minClusterPx: 2,
-    maxClusterPx: 0,
-    minClusterCount: 1,
-    pollIntervalMs: 100,
-    timeoutMs: 5000,
+    literal: { minClusterPx: 2, maxClusterPx: 0, minClusterCount: 1, pollIntervalMs: 100, timeoutMs: 5000 },
   },
   Screenshot: { pathTemplate: 'screenshots/{ts}.png' },
   KeyHoldStart: { vk: 'A' },
   KeyHoldStop: { vk: 'A' },
-  MouseHoldStart: { button: 'left', xRatio: '0.5', yRatio: '0.5' },
+  MouseHoldStart: { button: 'left', literal: { xRatio: 0.5, yRatio: 0.5 } },
   MouseHoldStop: { button: 'left' },
-  Try: { subgraphId: '', timeoutMs: 0 },
-  Throw: { message: '' },
+  Try: { subgraphId: '', literal: { timeoutMs: 0 } },
+  Throw: { literal: { message: '' } },
   StopwatchStart: { key: 'default' },
   StopwatchStop: { key: 'default' },
   StopwatchRead: { key: 'default' },

@@ -1,11 +1,16 @@
-// NodeInspector form field 静态 schema. 每个 kind 列出可编辑字段, NodeInspector 按 schema
-// 渲染 input. 数据驱动 — 加新 kind 在这里补一条即可, 不需要改 NodeInspector 模板.
+// NodeInspector form field 静态 schema. 每个 kind 列出 *配置字段* (跟 data-in pin 区分):
+// - 配置字段 (mode/scope/level/template/vk/varName/color 等) — 不走 data-in pin, 在这里渲染.
+// - 数值/字符串 thresholds (durationMs/threshold/timeoutMs/x/y/message 等) — 走 data-in pin,
+//   Inspector 的 "数据输入 (literal)" 段自动渲染 (读 PIN_SPECS[kind].dataIn). 这里 NOT 列出.
+//
+// v4 移除: 所有 type: 'expr' 字段都被搬到 data-in pin. 用户在 "数据输入 (literal)" 段编辑.
+// (历史 v3 schema 列了 expr 字段, 但 runtime 已经不读 config.message / config.durationMs 等,
+//  只读 config.literal.<pin>. 同时存在两个会让用户编辑错地方 — 见 image copy 14 bug.)
 
 export interface Field {
   key: string
   label: string
   type:
-    | 'expr'
     | 'select'
     | 'text'
     | 'action-picker'
@@ -14,7 +19,6 @@ export interface Field {
     | 'var-name-select' // v4: dropdown of Container.Vars (NodeInspector reads editor store)
   options?: { label: string; value: string }[]
   placeholder?: string
-  exprType?: 'number' | 'bool' | 'string' | 'point'
   hint?: string
 }
 
@@ -31,9 +35,8 @@ const SCOPE_OPTIONS_WITH_AUTO: { label: string; value: string }[] = [
 ]
 
 export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
-  Sleep: [
-    { key: 'durationMs', label: '休眠 ms', type: 'expr', placeholder: '1000', exprType: 'number' },
-  ],
+  // v4: Sleep durationMs 走 data-in pin. 这里没有配置字段.
+  Sleep: [],
   Loop: [
     {
       key: 'mode',
@@ -44,27 +47,14 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
         { label: '条件循环 (while)', value: 'while' },
         { label: '无限循环 (forever)', value: 'forever' },
       ],
-    },
-    {
-      key: 'count',
-      label: '次数(count 模式)',
-      type: 'expr',
-      placeholder: '10',
-      exprType: 'number',
-    },
-    {
-      key: 'condition',
-      label: '条件表达式(while 模式)',
-      type: 'expr',
-      placeholder: '$vars.x < 5',
-      exprType: 'bool',
+      hint: 'count → 读 data-in pin "count"; while → 读 data-in pin "condition"; forever → 都不读',
     },
   ],
-  If: [{ key: 'condition', label: '条件表达式', type: 'expr', exprType: 'bool' }],
-  Parallel: [
-    { key: 'n', label: '分支数 (2-8)', type: 'expr', placeholder: '2', exprType: 'number' },
-  ],
-  Race: [{ key: 'n', label: '分支数 (2-8)', type: 'expr', placeholder: '2', exprType: 'number' }],
+  // v4: If.condition 走 data-in pin.
+  If: [],
+  // v4: Parallel/Race.n 走 data-in pin.
+  Parallel: [],
+  Race: [],
   Stop: [{ key: 'error', label: '错误信息(可选)', type: 'text' }],
   // v4: SetVar/IncVar value/delta moved to data-in pins (画布上 inline literal or 连边).
   // 只保留 varName + scope. 详见 spec §3.2 / §3.3.
@@ -113,21 +103,18 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
       hint: '运行时 sys 状态 — 同 tick 内一致 (per-tick snapshot, spec §10.3)',
     },
   ],
-  // v4 GetParam: 子图入参; 候选 = 当前所在子图的 inputParams.
-  // (NodeInspector 里没有 inputParams 上下文 wire, 暂用 text input. B9 frontend 后续可加 store 联动.)
+  // v4 GetParam: 子图入参; 候选 = 当前所在子图的 inputParams (后续 wire to store).
   GetParam: [
     { key: 'paramName', label: '参数名 (paramName)', type: 'text', placeholder: '当前子图 inputParams 里的 name' },
   ],
-  // v4 CommentBox (§9.1): pure-UI grouping. label/color/size config.
+  // v4 CommentBox (§9.1): pure-UI grouping. label/color/size 都是 config (不走 pin — 不是数据流, 只是渲染)
   CommentBox: [
     { key: 'label', label: '标题', type: 'text', placeholder: '注释' },
     { key: 'color', label: '颜色 (hex)', type: 'text', placeholder: '#fbbf24' },
-    { key: 'width', label: '宽度 (px)', type: 'expr', placeholder: '200', exprType: 'number' },
-    { key: 'height', label: '高度 (px)', type: 'expr', placeholder: '150', exprType: 'number' },
+    { key: 'width', label: '宽度 (px)', type: 'text', placeholder: '200', hint: '纯数字' },
+    { key: 'height', label: '高度 (px)', type: 'text', placeholder: '150', hint: '纯数字' },
   ],
-  // v4 Expr: 4 字段 — expr 字符串, outType, inputs 数组 (单独 UI).
-  // 简化版: 用 text+text 渲染 expr+outType, inputs 用 textarea (JSON-like).
-  // 后续 (Phase D) ExprInspector 升级为 dedicated component + monaco editor + dynamic input rows.
+  // v4 Expr: expr 字符串 + outType + inputs 数组. inputs 单独 UI (ExprInspector 后续 dedicated).
   Expr: [
     { key: 'expr', label: '表达式', type: 'text', placeholder: 'i + 1', hint: '只引用 inputs 中声明的 identifier (无 $ 前缀)' },
     {
@@ -143,36 +130,17 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
         { label: 'any', value: 'any' },
       ],
     },
-    // inputs 不通过 nodeFieldSchemas 渲染 — ExprInspector 后续 dedicated component.
-    // 当前 v4 用户可手动在 JSON config 里加 inputs: [{name, type}, ...]
+    // inputs[] 暂无专门 UI — 用户手动 JSON 编辑或后续 Phase D ExprInspector.
   ],
+  // v4: 模板节点 — template/button 还是 config; timeoutMs/threshold 走 data-in pin.
   WaitTemplate: [
     { key: 'template', label: '模板', type: 'template-picker' },
-    { key: 'timeoutMs', label: '超时 ms', type: 'expr', placeholder: '5000', exprType: 'number' },
-    {
-      key: 'threshold',
-      label: '匹配阈值',
-      type: 'expr',
-      placeholder: '0.85',
-      exprType: 'number',
-      hint: '0..1, 越大越严格',
-    },
   ],
   CheckTemplate: [
     { key: 'template', label: '模板', type: 'template-picker' },
-    {
-      key: 'threshold',
-      label: '匹配阈值',
-      type: 'expr',
-      placeholder: '0.85',
-      exprType: 'number',
-      hint: '0..1, 越大越严格',
-    },
   ],
   ClickTemplate: [
     { key: 'template', label: '模板', type: 'template-picker' },
-    { key: 'timeoutMs', label: '超时 ms', type: 'expr', placeholder: '5000', exprType: 'number' },
-    { key: 'threshold', label: '匹配阈值', type: 'expr', placeholder: '0.85', exprType: 'number' },
     {
       key: 'button',
       label: '鼠标按键',
@@ -184,6 +152,7 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
       ],
     },
   ],
+  // DetectColor (legacy v3 CSV configs). Threshold via pin; region/mode/range 仍是 CSV config.
   DetectColor: [
     {
       key: 'region',
@@ -208,39 +177,9 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
       placeholder: 'HSV: 50,60,67,127,253,255',
       hint: 'HSV: hMin,hMax,sMin,sMax,vMin,vMax  (H: 0-360, S/V: 0-255). RGB: rMin,rMax,gMin,gMax,bMin,bMax (0-255)',
     },
-    {
-      key: 'minPixels',
-      label: '最少命中像素',
-      type: 'expr',
-      placeholder: '5',
-      exprType: 'number',
-      hint: '≥ 此值走 yes 出口; 否则 no',
-    },
   ],
+  // v4: ClickAt button 还是 config; xRatio/yRatio/durationMs 走 data-in pin.
   ClickAt: [
-    {
-      key: 'xRatio',
-      label: 'X 比例',
-      type: 'expr',
-      placeholder: '0.5',
-      exprType: 'number',
-      hint: '0..1, 0=左 1=右; 1280×720 屏上 0.5 = 中心 640px',
-    },
-    {
-      key: 'yRatio',
-      label: 'Y 比例',
-      type: 'expr',
-      placeholder: '0.5',
-      exprType: 'number',
-      hint: '0..1, 0=顶 1=底',
-    },
-    {
-      key: 'durationMs',
-      label: '按下时长 ms',
-      type: 'expr',
-      placeholder: '50',
-      exprType: 'number',
-    },
     {
       key: 'button',
       label: '鼠标按键',
@@ -254,30 +193,12 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
   ],
   KeyPress: [
     { key: 'vk', label: '按键', type: 'key-capture', hint: '点输入框后按下任意键自动捕获' },
-    {
-      key: 'durationMs',
-      label: '按下时长 ms',
-      type: 'expr',
-      placeholder: '50',
-      exprType: 'number',
-    },
   ],
-  MouseMoveRel: [
-    { key: 'dx', label: 'dx (像素)', type: 'expr', exprType: 'number' },
-    { key: 'dy', label: 'dy (像素)', type: 'expr', exprType: 'number' },
-    {
-      key: 'durationMs',
-      label: '移动用时 ms',
-      type: 'expr',
-      placeholder: '200',
-      exprType: 'number',
-    },
-  ],
-  Scroll: [
-    { key: 'xRatio', label: 'X 比例', type: 'expr', exprType: 'number' },
-    { key: 'yRatio', label: 'Y 比例', type: 'expr', exprType: 'number' },
-    { key: 'delta', label: '滚动格数', type: 'expr', placeholder: '3', exprType: 'number' },
-  ],
+  // v4: MouseMoveRel — dx/dy/durationMs 走 data-in pin, 这里无 config.
+  MouseMoveRel: [],
+  // v4: Scroll — 全 data-in pin.
+  Scroll: [],
+  // v4 OnEvent: kind/template/retriggerPolicy 是 config (枚举/picker); 数值走 pin.
   OnEvent: [
     {
       key: 'kind',
@@ -286,20 +207,6 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
       options: [{ label: '模板出现 (template_appeared)', value: 'template_appeared' }],
     },
     { key: 'template', label: '模板', type: 'template-picker' },
-    {
-      key: 'pollIntervalMs',
-      label: '轮询间隔 ms',
-      type: 'expr',
-      placeholder: '100',
-      exprType: 'number',
-    },
-    {
-      key: 'maxConcurrent',
-      label: '最大并发子图数',
-      type: 'expr',
-      placeholder: '1',
-      exprType: 'number',
-    },
     {
       key: 'retriggerPolicy',
       label: '重触发策略',
@@ -310,8 +217,8 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
         { label: '重启 (restart)', value: 'restart' },
       ],
     },
-    { key: 'cooldownMs', label: '冷却 ms', type: 'expr', placeholder: '0', exprType: 'number' },
   ],
+  // v4 Log/Toast: level/color 是 config; message/title 走 data-in pin.
   Log: [
     {
       key: 'level',
@@ -323,11 +230,8 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
         { label: 'error', value: 'error' },
       ],
     },
-    { key: 'message', label: '消息(表达式)', type: 'expr', exprType: 'string' },
   ],
   Toast: [
-    { key: 'title', label: '标题(表达式)', type: 'expr', exprType: 'string' },
-    { key: 'message', label: '内容(表达式)', type: 'expr', exprType: 'string' },
     {
       key: 'color',
       label: '颜色',

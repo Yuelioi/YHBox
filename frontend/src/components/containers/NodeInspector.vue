@@ -491,16 +491,10 @@
       <div class="space-y-4">
         <div v-for="field in fields" :key="field.key" class="space-y-1.5">
           <label class="block text-xs text-toned">{{ field.label }}</label>
-          <ExpressionInput
-            v-if="field.type === 'expr'"
-            :model-value="getCfg(field.key)"
-            :placeholder="field.placeholder"
-            :expected-type="field.exprType"
-            :var-names="varNames"
-            @update:model-value="setCfg(field.key, $event)"
-          />
+          <!-- v4: 'expr' field type removed; v3 expr inputs migrated to data-in pin literals
+               (shown in "数据输入 (literal)" section above). -->
           <USelect
-            v-else-if="field.type === 'select'"
+            v-if="field.type === 'select'"
             :model-value="getCfg(field.key)"
             :items="field.options ?? []"
             size="md"
@@ -549,7 +543,8 @@ import { computed, onMounted, onUnmounted, ref, toRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
-import ExpressionInput from '@/components/expressions/ExpressionInput.vue'
+// v4: ExpressionInput no longer imported — v3 'expr' field type removed in nodeFieldSchemas
+// (config strings like $vars.X are gone; data-in pin literals handle their replacement).
 import SwitchInspector from './inspector/SwitchInspector.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import KeyCapture from './KeyCapture.vue'
