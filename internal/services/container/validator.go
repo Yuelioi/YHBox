@@ -161,6 +161,7 @@ func validateMainGraph(c *Container) []ValidationError {
 				Severity: SeverityError, Code: CodeMultipleStarts,
 				GraphPath: []string{"main"},
 				Message:   fmt.Sprintf("主图有 %d 个 Start 节点（应恰好 1 个）", startCount),
+				Params:    map[string]any{"count": startCount},
 			})
 		}
 	}
@@ -173,6 +174,7 @@ func validateMainGraph(c *Container) []ValidationError {
 					Severity: SeverityError, Code: CodeDanglingEdge,
 					GraphPath: []string{"main"},
 					Message:   fmt.Sprintf("边 %q → %q：源节点 %q 不存在", e.From, e.To, from),
+					Params:    map[string]any{"from": e.From, "to": e.To, "missing": from, "side": "source"},
 				})
 			}
 		}
@@ -182,6 +184,7 @@ func validateMainGraph(c *Container) []ValidationError {
 					Severity: SeverityError, Code: CodeDanglingEdge,
 					GraphPath: []string{"main"},
 					Message:   fmt.Sprintf("边 %q → %q：目标节点 %q 不存在", e.From, e.To, to),
+					Params:    map[string]any{"from": e.From, "to": e.To, "missing": to, "side": "target"},
 				})
 			}
 		}
@@ -204,6 +207,7 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 			Severity: SeverityError, Code: CodeDuplicateMouseCalibration,
 			GraphPath: []string{"main"},
 			Message:   fmt.Sprintf("主图有 %d 个 MouseCalibration 节点（应最多 1 个）", calCount),
+			Params:    map[string]any{"count": calCount},
 		})
 	}
 
@@ -301,6 +305,7 @@ func validateInvalidPins(c *Container) []ValidationError {
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: fromID,
 						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 out pin %q", fromID, node.Kind, fromPin),
+						Params:  map[string]any{"nodeID": fromID, "kind": node.Kind, "pin": fromPin, "side": "out"},
 					})
 				}
 			}
@@ -312,6 +317,7 @@ func validateInvalidPins(c *Container) []ValidationError {
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: toID,
 						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 in pin %q", toID, kind, toPin),
+						Params:  map[string]any{"nodeID": toID, "kind": kind, "pin": toPin, "side": "in"},
 					})
 				}
 			}
@@ -352,6 +358,7 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 					Severity: SeverityError, Code: CodeMissingSubgraph,
 					GraphPath: graphPath, NodeID: n.ID,
 					Message: fmt.Sprintf("Subgraph 调用节点引用了不存在的子图 %q", id),
+					Params:  map[string]any{"subgraphId": id},
 				})
 			}
 		}
@@ -387,6 +394,7 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 					Severity: SeverityError, Code: CodeMissingTemplate,
 					GraphPath: graphPath, NodeID: n.ID,
 					Message: fmt.Sprintf("节点 %s 引用的模板 %q 在容器 templates/ 里找不到", n.ID, key),
+					Params:  map[string]any{"nodeID": n.ID, "template": key},
 				})
 			}
 		}
@@ -468,6 +476,7 @@ func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
 				Severity: SeverityError, Code: CodeDuplicateOutputPin,
 				GraphPath: graphPath,
 				Message:   fmt.Sprintf("OutputPin Name %q 重复", p.Name),
+				Params:    map[string]any{"name": p.Name},
 			})
 		}
 		seen[p.Name] = true
@@ -744,6 +753,7 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 				GraphPath: graphPath,
 				NodeID:    n.ID,
 				Message:   fmt.Sprintf("%s 使用 key %q 但同图中无对应的 StopwatchStart (运行时会读零值)", n.Kind, key),
+				Params:    map[string]any{"kind": n.Kind, "key": key},
 			})
 		}
 	}
