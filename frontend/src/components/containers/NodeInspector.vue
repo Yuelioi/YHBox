@@ -327,7 +327,7 @@
         class="rounded-md bg-elevated/30 border border-default/40 px-3 py-2.5 text-[11px] space-y-1.5"
       >
         <div class="flex items-center gap-2">
-          <UIcon name="i-tabler-vinyl" class="size-3.5 text-pink-400 shrink-0" />
+          <UIcon name="i-tabler-vinyl" class="size-3.5 text-emerald-400 shrink-0" />
           <span class="text-default font-medium truncate">{{ selectedClip.label || selectedClip.id }}</span>
         </div>
         <div class="flex items-center gap-3 text-[10px] text-dimmed">
