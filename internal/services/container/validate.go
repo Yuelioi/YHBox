@@ -110,6 +110,7 @@ var execOutPins = map[string][]string{
 	"StopwatchStart": {"out"},
 	"StopwatchStop":  {"out"},
 	"StopwatchRead":  {"out"},
+	"Switch":         nil, // 动态 — execOutPinsForNode 派生 cases + default. nil 防 default fallback 返 ["out"]
 }
 
 // dataOutPins kind → data-out pin 名 → pin 类型 ("point" | "number" | "string" | "any")。
@@ -231,6 +232,44 @@ func isExecInPin(kind, pin string) bool {
 		}
 	}
 	return false
+}
+
+// execOutPinsForNode 按节点实例计算所有合法 exec out pin (返 set 让 caller O(1) 查).
+// 动态节点 (Switch / Parallel / Race) 按 config 派生; 静态节点 fallback execOutPins 表.
+// 内部自动 dedupe — schema 自洽不依赖 validator 拦截重复.
+func execOutPinsForNode(n *GraphNode) map[string]struct{} {
+	pins := map[string]struct{}{}
+	if n == nil {
+		return pins
+	}
+	switch n.Kind {
+	case "Switch":
+		cfg, _ := ParseSwitchConfig(n)
+		for _, cs := range cfg.Cases {
+			if cs == "" {
+				continue
+			}
+			pins[cs] = struct{}{}
+		}
+		pins["default"] = struct{}{}
+	case "Parallel", "Race":
+		cfg, _ := ParseParallelConfig(n)
+		for i := 0; i < cfg.N; i++ {
+			pins[fmt.Sprintf("branch%d", i)] = struct{}{}
+		}
+		pins["complete"] = struct{}{}
+	default:
+		for _, p := range execOutPins[n.Kind] {
+			pins[p] = struct{}{}
+		}
+	}
+	return pins
+}
+
+// nodeHasExecOutPin O(1) 校验 pin 存在性. 替代旧 pinExists(kind, pin, true) 路径.
+func nodeHasExecOutPin(n *GraphNode, pin string) bool {
+	_, ok := execOutPinsForNode(n)[pin]
+	return ok
 }
 
 // dataOutType 返该 pin 是否为 data-out + 类型。

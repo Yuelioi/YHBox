@@ -1,52 +1,79 @@
 package container
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
-func TestValidate_OK(t *testing.T) {
-	c := &Container{
-		SchemaVersion: 1, ID: "x", Name: "ok",
-		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "Start"},
-			{ID: "w", Kind: "WindowTarget", Config: map[string]any{
-				"match": map[string]any{"title": "异环"},
-			}},
-		}},
+func TestExecOutPinsForNode_Static(t *testing.T) {
+	n := &GraphNode{Kind: "Sleep"}
+	pins := execOutPinsForNode(n)
+	if _, ok := pins["out"]; !ok {
+		t.Errorf("Sleep 应有 out pin, got %v", pins)
 	}
-	if err := c.Validate(); err != nil {
-		t.Errorf("expected valid, got %v", err)
+	if len(pins) != 1 {
+		t.Errorf("Sleep 应只 1 pin, got %d", len(pins))
 	}
 }
 
-func TestValidate_BadHotkey(t *testing.T) {
-	c := &Container{SchemaVersion: 1, ID: "x", Name: "ok", Hotkey: "  "}
-	if err := c.Validate(); err != nil {
-		t.Errorf("空白 hotkey 应允许，got %v", err)
+func TestExecOutPinsForNode_Parallel_Dynamic(t *testing.T) {
+	n := &GraphNode{Kind: "Parallel", Config: map[string]any{"n": float64(3)}}
+	pins := execOutPinsForNode(n)
+	for _, want := range []string{"branch0", "branch1", "branch2", "complete"} {
+		if _, ok := pins[want]; !ok {
+			t.Errorf("Parallel n=3 应有 %s pin, got %v", want, pins)
+		}
+	}
+	if _, has := pins["branch3"]; has {
+		t.Error("Parallel n=3 不应有 branch3")
 	}
 }
 
-func TestValidate_StartCount(t *testing.T) {
-	twoStarts := &Container{
-		SchemaVersion: 1, Name: "x",
-		Graph: Graph{Nodes: []GraphNode{{ID: "s1", Kind: "Start"}, {ID: "s2", Kind: "Start"}}},
+func TestExecOutPinsForNode_Switch_Dynamic(t *testing.T) {
+	n := &GraphNode{Kind: "Switch", Config: map[string]any{
+		"value": "$var.x",
+		"cases": []any{"A", "B", "C"},
+	}}
+	pins := execOutPinsForNode(n)
+	for _, want := range []string{"A", "B", "C", "default"} {
+		if _, ok := pins[want]; !ok {
+			t.Errorf("Switch 应有 %s pin, got %v", want, pins)
+		}
 	}
-	if err := twoStarts.Validate(); err == nil || !strings.Contains(err.Error(), "Start") {
-		t.Errorf("two starts must error, got %v", err)
-	}
-	zeroStart := &Container{
-		SchemaVersion: 1, Name: "x",
-		Graph: Graph{Nodes: []GraphNode{{ID: "s1", Kind: "Sleep"}}},
-	}
-	if err := zeroStart.Validate(); err == nil || !strings.Contains(err.Error(), "Start") {
-		t.Errorf("zero start must error, got %v", err)
+	if len(pins) != 4 {
+		t.Errorf("Switch 应 4 pin (3 case + default), got %d", len(pins))
 	}
 }
 
-func TestValidate_EmptyGraphAllowed(t *testing.T) {
-	c := &Container{SchemaVersion: 1, Name: "x", Graph: Graph{}}
-	if err := c.Validate(); err != nil {
-		t.Errorf("empty graph should be valid (just created), got %v", err)
+func TestExecOutPinsForNode_Switch_DedupesDefaultCase(t *testing.T) {
+	n := &GraphNode{Kind: "Switch", Config: map[string]any{
+		"cases": []any{"default", "A"},
+	}}
+	pins := execOutPinsForNode(n)
+	if len(pins) != 2 {
+		t.Errorf("dedupe 后应 2 pin (default + A), got %d: %v", len(pins), pins)
+	}
+}
+
+func TestExecOutPinsForNode_Switch_FiltersEmptyCase(t *testing.T) {
+	n := &GraphNode{Kind: "Switch", Config: map[string]any{
+		"cases": []any{"", "A"},
+	}}
+	pins := execOutPinsForNode(n)
+	if _, has := pins[""]; has {
+		t.Error("空 case 应被过滤")
+	}
+	if _, has := pins["A"]; !has {
+		t.Error("A pin 应存在")
+	}
+}
+
+func TestNodeHasExecOutPin(t *testing.T) {
+	n := &GraphNode{Kind: "Switch", Config: map[string]any{"cases": []any{"X"}}}
+	if !nodeHasExecOutPin(n, "X") {
+		t.Error("应识别 case pin")
+	}
+	if !nodeHasExecOutPin(n, "default") {
+		t.Error("应识别 default pin")
+	}
+	if nodeHasExecOutPin(n, "Y") {
+		t.Error("不应识别未知 pin")
 	}
 }

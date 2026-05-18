@@ -254,16 +254,14 @@ func validateInvalidPins(c *Container) []ValidationError {
 		for _, e := range edges {
 			fromID, fromPin := splitRef(e.From)
 			toID, toPin := splitRef(e.To)
-			if kind, ok := kindByID[fromID]; ok && fromPin != "" {
-				validOut := pinExists(kind, fromPin, true)
+			if node, ok := nodeByID[fromID]; ok && fromPin != "" {
+				validOut := nodeHasExecOutPin(node, fromPin)
 				// Subgraph 调用节点: 出 pin 是子图 OutputPins decl ID
-				if !validOut && kind == "Subgraph" {
-					if n := nodeByID[fromID]; n != nil {
-						if sgID, _ := n.Config["subgraphId"].(string); sgID != "" {
-							if set, ok := subgraphOutputIDsByID[sgID]; ok {
-								if _, has := set[fromPin]; has {
-									validOut = true
-								}
+				if !validOut && node.Kind == "Subgraph" {
+					if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {
+						if set, ok := subgraphOutputIDsByID[sgID]; ok {
+							if _, has := set[fromPin]; has {
+								validOut = true
 							}
 						}
 					}
@@ -272,10 +270,12 @@ func validateInvalidPins(c *Container) []ValidationError {
 					errs = append(errs, ValidationError{
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: fromID,
-						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 out pin %q", fromID, kind, fromPin),
+						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 out pin %q", fromID, node.Kind, fromPin),
 					})
 				}
 			}
+			// In-pin 仍走 kind-based pinExists — 当前所有节点 in pin 都静态.
+			// 未来动态 in pin 节点出现再加 nodeHasExecInPin.
 			if kind, ok := kindByID[toID]; ok && toPin != "" {
 				if !pinExists(kind, toPin, false) {
 					errs = append(errs, ValidationError{
