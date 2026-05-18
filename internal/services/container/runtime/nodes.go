@@ -358,20 +358,18 @@ func (r *ContainerRunner) execSetVar(ctx context.Context, n *container.GraphNode
 	if name == "" {
 		return nil, fmt.Errorf("SetVar %s: missing varName", n.ID)
 	}
-	val, err := r.configExpr(n, "value")
+	// v4: value comes from data-in pin (data edge or inline literal), not expr config.
+	// Pre-A6: r.configExpr(n, "value"). New: r.pullDataPin.
+	val, err := r.pullDataPin(n.ID, "value")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SetVar %s: pull value: %w", n.ID, err)
 	}
-	// Gemini 雷点三：v2 spec §2.7 SetVar/IncVar 节点 config 加 scope 字段
-	//   "local"（缺省）→ 写入当前 ExecFrame.LocalVars（子图调用之间不互相污染）
-	//   "global"        → 写入 rt.vars（容器级，跨 frame 共享）
-	// 历史 v1 数据无 scope 字段 → 视为 local（spec 强制如此；与 v1 行为不兼容，
-	// 但 v1 没有 subgraph 概念所以"local"等价于"全图共享"，不影响）。
+	// scope: "local" (default) → frame.LocalVars; "global" → rt.vars (cross-frame).
 	scope := configString(n, "scope")
 	switch scope {
 	case "global":
 		r.rt.SetVar(name, val)
-	default: // "local" 或缺省
+	default:
 		r.state.SetLocalVar(name, val)
 	}
 	return r.edges.next(n.ID+".out", tok.LoopStack), nil
@@ -382,14 +380,22 @@ func (r *ContainerRunner) execIncVar(ctx context.Context, n *container.GraphNode
 	if name == "" {
 		return nil, fmt.Errorf("IncVar %s: missing varName", n.ID)
 	}
-	delta := r.configFloat(n, "delta", 1)
+	// v4: delta comes from data-in pin (data edge or inline literal). Default 1 if unset.
+	deltaV, err := r.pullDataPin(n.ID, "delta")
+	if err != nil {
+		return nil, fmt.Errorf("IncVar %s: pull delta: %w", n.ID, err)
+	}
+	delta := 1.0
+	if deltaV != nil {
+		delta, _ = expr.AsNumber(deltaV)
+	}
 	scope := configString(n, "scope")
 	switch scope {
 	case "global":
 		if err := r.rt.IncVar(name, delta); err != nil {
 			return nil, err
 		}
-	default: // "local" 或缺省：在当前 frame.LocalVars 上做增量
+	default: // "local" or unset: increment current frame.LocalVars
 		cur := 0.0
 		if v, ok := r.state.GetLocalVarHere(name); ok {
 			if f, ok2 := v.(float64); ok2 {

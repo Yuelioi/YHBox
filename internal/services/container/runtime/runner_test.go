@@ -56,11 +56,11 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
 			// 缺省 scope = local（spec §2.7）
-			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "value": "42"}},
+			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "literal": map[string]any{"value": 42.0}}},
 			// 用 $vars.x 读 → 应拿到 local 42（不是 rt.vars 默认 0）；If condition 真则走 then
 			{ID: "if", Kind: "If", Config: map[string]any{"condition": "$vars.x == 42"}},
-			{ID: "markThen", Kind: "SetVar", Config: map[string]any{"varName": "branch", "value": "\"then\"", "scope": "global"}},
-			{ID: "markElse", Kind: "SetVar", Config: map[string]any{"varName": "branch", "value": "\"else\"", "scope": "global"}},
+			{ID: "markThen", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "then"}}},
+			{ID: "markElse", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "else"}}},
 		},
 		[]container.GraphEdge{
 			{From: "start.out", To: "set.in"},
@@ -93,8 +93,8 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "value": "10", "scope": "global"}},
-			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "x", "delta": "5", "scope": "global"}},
+			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "scope": "global", "literal": map[string]any{"value": 10.0}}},
+			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "x", "scope": "global", "literal": map[string]any{"delta": 5.0}}},
 		},
 		[]container.GraphEdge{
 			{From: "start.out", To: "set.in"},
@@ -118,10 +118,10 @@ func TestRunner_IfBranch(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "set1", Kind: "SetVar", Config: map[string]any{"varName": "y", "value": "1", "scope": "global"}},
+			{ID: "set1", Kind: "SetVar", Config: map[string]any{"varName": "y", "scope": "global", "literal": map[string]any{"value": 1.0}}},
 			{ID: "if", Kind: "If", Config: map[string]any{"condition": "$vars.y == 1"}},
-			{ID: "setThen", Kind: "SetVar", Config: map[string]any{"varName": "branch", "value": "\"then\"", "scope": "global"}},
-			{ID: "setElse", Kind: "SetVar", Config: map[string]any{"varName": "branch", "value": "\"else\"", "scope": "global"}},
+			{ID: "setThen", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "then"}}},
+			{ID: "setElse", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "else"}}},
 		},
 		[]container.GraphEdge{
 			{From: "start.out", To: "set1.in"},
@@ -150,7 +150,7 @@ func TestRunner_LoopCount(t *testing.T) {
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "count", "count": "3"}},
-			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "delta": "1", "scope": "global"}},
+			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "scope": "global", "literal": map[string]any{"delta": 1.0}}},
 		},
 		[]container.GraphEdge{
 			{From: "start.out", To: "loop.in"},
@@ -175,7 +175,7 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "forever"}},
-			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "delta": "1", "scope": "global"}},
+			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "scope": "global", "literal": map[string]any{"delta": 1.0}}},
 			{ID: "if", Kind: "If", Config: map[string]any{"condition": "$vars.i >= 2"}},
 			{ID: "br", Kind: "Break"},
 		},
@@ -203,9 +203,9 @@ func TestRunner_StopHalts(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "set1", Kind: "SetVar", Config: map[string]any{"varName": "a", "value": "1", "scope": "global"}},
+			{ID: "set1", Kind: "SetVar", Config: map[string]any{"varName": "a", "scope": "global", "literal": map[string]any{"value": 1.0}}},
 			{ID: "stop", Kind: "Stop"},
-			{ID: "set2", Kind: "SetVar", Config: map[string]any{"varName": "a", "value": "2", "scope": "global"}},
+			{ID: "set2", Kind: "SetVar", Config: map[string]any{"varName": "a", "scope": "global", "literal": map[string]any{"value": 2.0}}},
 		},
 		[]container.GraphEdge{
 			{From: "start.out", To: "set1.in"},
