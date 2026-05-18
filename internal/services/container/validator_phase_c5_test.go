@@ -72,15 +72,6 @@ func TestValidateSwitch_LeadingTrailingWhitespace(t *testing.T) {
 	}
 }
 
-func TestValidateSwitch_EmptyValueExpr(t *testing.T) {
-	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"value": "", "cases": []any{"A"},
-	}})
-	if len(errs) == 0 {
-		t.Errorf("value 空字符串应报错")
-	}
-}
-
 func TestValidateSwitch_HappyPath_NoErr(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
 		"value": "$vars.state",

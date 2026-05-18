@@ -42,17 +42,18 @@ export function useExprFusion(deps: FusionDeps) {
     const aInputs: ExprInput[] = (a.config?.inputs ?? []).map((i: any) => ({ name: String(i.name), type: String(i.type ?? 'any') }))
     const bInputs: ExprInput[] = (b.config?.inputs ?? []).map((i: any) => ({ name: String(i.name), type: String(i.type ?? 'any') }))
 
-    // Step 2: rename A.inputs to avoid collision with B's input names (and the targetPin we're about to remove).
+    // Step 2: rename A.inputs to avoid collision with B's input names
+    // (and the targetPin we're about to remove from B but still must avoid).
+    // Note: targetInputName is being removed from B, but we still avoid it to keep the
+    // intermediate state coherent in case fusion is interrupted / re-run.
     const usedNames = new Set<string>(bInputs.map((i) => i.name))
     const renameMap: Record<string, string> = {}
     const renamedAInputs: ExprInput[] = aInputs.map((inp) => {
       let newName = inp.name
       let suffix = 1
-      while (usedNames.has(newName) && newName !== inp.name) {
-        newName = inp.name + suffix
-        suffix++
-      }
-      // If A's name happens to equal B's targetInputName we still rename to avoid silently shadowing.
+      // Single loop handles both collisions: usedNames AND targetInputName conflict.
+      // (Previous version had a guard `newName !== inp.name` that caused this loop to
+      // never fire on the very first collision, leaving duplicate names in B.inputs.)
       while (usedNames.has(newName) || newName === targetInputName) {
         newName = inp.name + suffix
         suffix++

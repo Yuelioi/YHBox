@@ -294,13 +294,20 @@ func validateInvalidPins(c *Container) []ValidationError {
 			fromID, fromPin := splitRef(e.From)
 			toID, toPin := splitRef(e.To)
 			if node, ok := nodeByID[fromID]; ok && fromPin != "" {
-				validOut := nodeHasExecOutPin(node, fromPin)
-				// Subgraph 调用节点: 出 pin 是子图 OutputPins decl ID
-				if !validOut && node.Kind == "Subgraph" {
-					if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {
-						if set, ok := subgraphOutputIDsByID[sgID]; ok {
-							if _, has := set[fromPin]; has {
-								validOut = true
+				validOut := false
+				switch e.Kind {
+				case "data":
+					if ok, _ := dataOutType(node.Kind, fromPin); ok {
+						validOut = true
+					}
+				default: // "" 默认 / "exec"
+					validOut = nodeHasExecOutPin(node, fromPin)
+					if !validOut && node.Kind == "Subgraph" {
+						if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {
+							if set, ok := subgraphOutputIDsByID[sgID]; ok {
+								if _, has := set[fromPin]; has {
+									validOut = true
+								}
 							}
 						}
 					}
@@ -804,7 +811,8 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 		}
 	}
 
-	if poll, _ := n.Config["pollIntervalMs"].(float64); poll > 0 && poll < 30 {
+	// v4: numeric thresholds live at config.literal.<pin>, not config root.
+	if poll := literalFloat(n, "pollIntervalMs"); poll > 0 && poll < 30 {
 		errs = append(errs, ValidationError{
 			Severity: SeverityWarning,
 			NodeID:   n.ID,
@@ -814,6 +822,27 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 	}
 
 	return errs
+}
+
+// literalFloat reads n.Config["literal"][pinName] as float64 (v4 inline pin literal).
+// Returns 0 if missing or wrong type. Validator-only helper — runtime uses r.pullNumber.
+func literalFloat(n *GraphNode, pinName string) float64 {
+	if n == nil || n.Config == nil {
+		return 0
+	}
+	lit, _ := n.Config["literal"].(map[string]any)
+	if lit == nil {
+		return 0
+	}
+	switch v := lit[pinName].(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	}
+	return 0
 }
 
 // validateROIColorScan extends validateDetectColorHSV with axis + cluster checks.
@@ -830,8 +859,9 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 		})
 	}
 
-	minC, _ := n.Config["minClusterPx"].(float64)
-	maxC, _ := n.Config["maxClusterPx"].(float64)
+	// v4: cluster bounds live at config.literal.<pin>, not config root.
+	minC := literalFloat(n, "minClusterPx")
+	maxC := literalFloat(n, "maxClusterPx")
 	if maxC > 0 && minC > maxC {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError,
@@ -896,20 +926,16 @@ func validateMouseHold(n *GraphNode) []ValidationError {
 }
 
 // validateSwitchConfig 校验 Switch 节点 config:
-// - value 表达式必填
 // - cases 数组必须非空
 // - 每个 case: 非空 / 不含 '.' / 非 'default' / 无前后空格 / 不重复
-// 错误 code 全用 INVALID_SWITCH_CASES (粗粒度, value 错也归这里方便用户找).
+// 错误 code 全用 INVALID_SWITCH_CASES.
+//
+// v4: Switch.value 现在是 data-in pin (走 r.pullValue), 不再是 config 字符串 → 不在此校验
+// (validator_pin_types 跟 validateDataPinTypes 负责 data 边类型 / 是否有 literal).
 func validateSwitchConfig(n *GraphNode) []ValidationError {
 	var errs []ValidationError
 	cfg, _ := ParseSwitchConfig(n)
 
-	if cfg.Value == "" {
-		errs = append(errs, ValidationError{
-			NodeID: n.ID, Code: CodeInvalidSwitchCases,
-			Message: "Switch value 表达式必填",
-		})
-	}
 	if len(cfg.Cases) == 0 {
 		errs = append(errs, ValidationError{
 			NodeID: n.ID, Code: CodeInvalidSwitchCases,

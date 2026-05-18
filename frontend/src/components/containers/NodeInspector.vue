@@ -689,7 +689,9 @@ const varOptions = computed<{ label: string; value: string }[]>(() => {
 const boundSubgraph = computed(() => {
   const sgID = props.node?.config?.subgraphId
   if (!sgID) return null
-  return editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID) ?? null
+  // v4: only visible (non-anonymous) subgraphs are valid Subgraph-call targets.
+  // CollapsedNode-backers (isAnonymous) shouldn't show editable label/tags here.
+  return editorStore.visibleSubgraphs.find((s) => s.id === sgID) ?? null
 })
 
 function onEnterSubgraph() {
@@ -727,10 +729,10 @@ async function onPublishToLibrary() {
   }
 }
 
-// 所有子图聚合 tags（给 UInputMenu autocomplete）
+// 所有子图聚合 tags（给 UInputMenu autocomplete）— v4: 排除 isAnonymous (用 visibleSubgraphs).
 const allSubgraphTagsList = computed(() => {
   const set = new Set<string>()
-  for (const sg of editorStore.subgraphsForCurrentContainer ?? []) {
+  for (const sg of editorStore.visibleSubgraphs ?? []) {
     for (const t of (sg as any).tags ?? []) set.add(t)
   }
   return [...set]

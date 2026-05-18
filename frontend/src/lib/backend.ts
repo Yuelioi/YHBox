@@ -103,6 +103,8 @@ export interface GraphNode {
 export interface GraphEdge {
   from: string
   to: string
+  /** v4: 'data' for data-flow edges, '' (omit) or 'exec' for exec-flow edges. */
+  kind?: 'data' | 'exec'
 }
 
 // Graph v2: 加 id + version

@@ -131,6 +131,7 @@ var execOutPins = map[string][]string{
 }
 
 // dataOutPins kind → data-out pin 名 → pin 类型 ("point" | "number" | "string" | "any")。
+// 必须与 frontend/src/components/containers/pinSpec.ts 的 PIN_SPECS[kind].dataOut 对齐.
 var dataOutPins = map[string]map[string]string{
 	"WaitTemplate":  {"point": "point"},
 	"CheckTemplate": {"point": "point"},
@@ -144,35 +145,32 @@ var dataOutPins = map[string]map[string]string{
 	"Screenshot":     {"path": "string"},
 	"Try":            {"errorMsg": "string"},
 	"StopwatchRead":  {"elapsedMs": "number"},
+
+	// v4 pure-data sources
+	"Expr":     {"value": "any"},
+	"GetVar":   {"value": "any"},
+	"GetSys":   {"value": "any"},
+	"GetParam": {"value": "any"},
+
+	// v4 §6 22 个 pure-function 节点 (Add..Select)
+	"Add": {"result": "number"}, "Sub": {"result": "number"}, "Mul": {"result": "number"},
+	"Div": {"result": "number"}, "Mod": {"result": "number"}, "Neg": {"result": "number"},
+	"Lt": {"result": "any"}, "LtEq": {"result": "any"},
+	"Gt": {"result": "any"}, "GtEq": {"result": "any"},
+	"Eq": {"result": "any"}, "NotEq": {"result": "any"},
+	"And": {"result": "any"}, "Or": {"result": "any"}, "Not": {"result": "any"},
+	"Concat":   {"result": "string"},
+	"Contains": {"result": "any"},
+	"Length":   {"result": "number"},
+	"ToString": {"result": "string"},
+	"ToNumber": {"result": "number"},
+	"ToBool":   {"result": "any"},
+	"Select":   {"result": "any"},
 }
 
-// dataInPins kind → data-in pin 名 → pin 类型。
-// InvokeAction 的 params.* 动态由 Action.params 决定，这里仅处理静态 pin。
-var dataInPins = map[string]map[string]string{
-	"ClickAt": {"pos": "point"},
-}
-
-// exprConfigKeys kind → config 键名集合（值应为表达式，Validate 时 expr.Parse 测过）。
-var exprConfigKeys = map[string][]string{
-	"Sleep":         {"durationMs"},
-	"Loop":          {"count", "condition"},
-	"If":            {"condition"},
-	"Parallel":      {"n"},
-	"Race":          {"n"},
-	"SetVar":        {"value"},
-	"IncVar":        {"delta"},
-	"WaitTemplate":  {"timeoutMs", "threshold"},
-	"CheckTemplate": {"threshold"},
-	"ClickTemplate": {"timeoutMs", "threshold"},
-	"DetectColor":   {"minPixels"},
-	"ClickAt":       {"xRatio", "yRatio", "durationMs"},
-	"KeyPress":      {"durationMs"},
-	"MouseMoveRel":  {"dx", "dy", "durationMs"},
-	"Scroll":        {"xRatio", "yRatio", "delta"},
-	"OnEvent":       {"pollIntervalMs", "maxConcurrent", "cooldownMs"},
-	"Log":           {"message"},
-	"Toast":         {"title", "message"},
-}
+// v4: dataInPins and exprConfigKeys (v3 expr-string-in-config) removed.
+// Data-in pin schema is owned by dataInPinTypeForKind (see end of file).
+// pinExists's data-in branch falls back to that.
 
 var varNameRE = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 var edgeFormatRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.]+$`)
@@ -226,11 +224,9 @@ func pinExists(kind, pin string, out bool) bool {
 			return true
 		}
 	}
-	// data-in
-	if m := dataInPins[kind]; m != nil {
-		if _, ok := m[pin]; ok {
-			return true
-		}
+	// data-in (v4: schema 在 dataInPinTypeForKind)
+	if dataInPinTypeForKind(kind, pin) != "" {
+		return true
 	}
 	return false
 }
@@ -299,14 +295,13 @@ func dataOutType(kind, pin string) (bool, string) {
 	return false, ""
 }
 
-// dataInType 同上 in 方向。
+// dataInType 同上 in 方向 (v4: 走 dataInPinTypeForKind).
 func dataInType(kind, pin string) (bool, string) {
-	if m := dataInPins[kind]; m != nil {
-		if t, ok := m[pin]; ok {
-			return true, t
-		}
+	t := dataInPinTypeForKind(kind, pin)
+	if t == "" {
+		return false, ""
 	}
-	return false, ""
+	return true, t
 }
 
 // isInsideLoop 沿 exec edge 反向 BFS，看能否到达任何 Loop 节点的 body out。
@@ -410,8 +405,9 @@ func (c *Container) Normalize() {
 // --- v4: data pin type schema ---
 
 // dataInPinTypeForKind returns the type of a data-in pin for a node kind,
-// or "" if the kind has no such pin. Mirrors the frontend pinSpec.dataInFn.
-// Expanded incrementally as Phase A-C migrate exec nodes to data-in pins.
+// or "" if the kind has no such pin. Mirrors the frontend pinSpec.dataIn.
+// MUST stay in sync with frontend/src/components/containers/pinSpec.ts PIN_SPECS[kind].dataIn
+// and with the runtime pullX call sites — drift means validator silently skips type-checks.
 func dataInPinTypeForKind(kind, pinName string) string {
 	switch kind {
 	case "SetVar":
@@ -422,23 +418,111 @@ func dataInPinTypeForKind(kind, pinName string) string {
 		if pinName == "delta" {
 			return "number"
 		}
+	case "Sleep":
+		if pinName == "durationMs" {
+			return "number"
+		}
+	case "Loop":
+		switch pinName {
+		case "count":
+			return "number"
+		case "condition":
+			return "bool"
+		}
+	case "If":
+		if pinName == "condition" {
+			return "bool"
+		}
+	case "Switch":
+		if pinName == "value" {
+			return "string"
+		}
+	case "Parallel", "Race":
+		if pinName == "n" {
+			return "number"
+		}
+	case "WaitTemplate":
+		switch pinName {
+		case "timeoutMs", "threshold":
+			return "number"
+		}
+	case "CheckTemplate":
+		if pinName == "threshold" {
+			return "number"
+		}
+	case "ClickTemplate":
+		switch pinName {
+		case "timeoutMs", "threshold":
+			return "number"
+		}
+	case "DetectColor":
+		if pinName == "minPixels" {
+			return "number"
+		}
+	case "DetectColorHSV":
+		switch pinName {
+		case "minPixelRatio", "pollIntervalMs", "timeoutMs":
+			return "number"
+		}
+	case "ROIColorScan":
+		switch pinName {
+		case "minClusterPx", "maxClusterPx", "minClusterCount", "pollIntervalMs", "timeoutMs":
+			return "number"
+		}
+	case "ClickAt":
+		switch pinName {
+		case "xRatio", "yRatio", "durationMs":
+			return "number"
+		}
+	case "KeyPress":
+		if pinName == "durationMs" {
+			return "number"
+		}
+	case "MouseHoldStart":
+		switch pinName {
+		case "xRatio", "yRatio":
+			return "number"
+		}
+	case "MouseMoveRel":
+		switch pinName {
+		case "dx", "dy", "durationMs":
+			return "number"
+		}
+	case "Scroll":
+		switch pinName {
+		case "xRatio", "yRatio", "delta":
+			return "number"
+		}
+	case "OnEvent":
+		switch pinName {
+		case "threshold", "pollIntervalMs", "maxConcurrent", "cooldownMs":
+			return "number"
+		}
+	case "Log", "Toast":
+		switch pinName {
+		case "message", "title":
+			return "any"
+		}
+	case "Throw":
+		if pinName == "message" {
+			return "string"
+		}
+	case "Try":
+		if pinName == "timeoutMs" {
+			return "number"
+		}
 	}
-	// Phase C migrations append cases here (Sleep, If, Switch, Loop, Parallel, Race, etc.)
 	return ""
 }
 
-// dataOutPinTypeForKind returns the type of a data-out pin for a node kind.
-// For dynamic-typed nodes (GetVar / Expr / GetSys / GetParam) returns "" — caller
-// must resolve via node config (e.g. GetVar.varName → Container.Vars[name].Type).
-// pinName parameter reserved for nodes with multiple data-out pins (Phase B+).
+// dataOutPinTypeForKind returns the type of a data-out pin for a (kind, pinName).
+// 走 dataOutPins 表 (frontend PIN_SPECS.dataOut 镜像). 动态类型节点
+// (GetVar / Expr / GetSys / GetParam) 表里登记 "any", 真实类型由 caller 按 config
+// 解析 (e.g. GetVar.varName → Container.Vars[name].Type) — validateDataPinTypes 已做.
 func dataOutPinTypeForKind(kind, pinName string) string {
-	_ = pinName // reserved for future multi-pin nodes
-	switch kind {
-	case "GetVar":
-		// Type is dynamic — resolved by caller via Container.Vars lookup.
-		return ""
+	if m := dataOutPins[kind]; m != nil {
+		return m[pinName]
 	}
-	// Phase B adds pure-func data-out types here.
 	return ""
 }
 

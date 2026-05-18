@@ -398,7 +398,8 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   Sleep: '阻塞 durationMs 毫秒。可被强停打断。',
   Loop: '循环执行 body 子图。mode: count（固定次数）/ while（条件）/ forever（无限，需 Break 退出）',
   If: 'condition 为真走 then，否则走 else。',
-  Switch: '按 cases 数组中的字符串派生多路 exec-out。value expr 匹配某 case 走对应出口，无匹配走 default。',
+  Switch:
+    '按 cases 数组中的字符串派生多路 exec-out。value 从 data-in pin 取 (连数据边或在"数据输入"段填字面量), 匹配某 case 走对应出口, 无匹配走 default。',
   Parallel: 'spawn N 个分支并行跑，全部完成后走 complete。',
   Race: 'spawn N 个分支，第一个 reach 终点的胜出，其它被取消。$sys.winnerIdx 拿到胜出 index。',
   Stop: '立即结束当前容器（不影响外层 schedule 后续 target）。',
@@ -422,8 +423,9 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   Scroll: '在 (xRatio, yRatio) 滚动 delta 格。正数向上，负数向下。',
   OnEvent:
     '与 Start 同级的入口节点。容器启动时起 listener；事件命中 spawn 子图。v1 仅支持 template_appeared。',
-  Log: '把 message expr 结果写到运行日志面板。level 控制颜色。',
-  Toast: '弹一个 toast 通知。title / message 都是 expr，前端订阅显示。',
+  Log: 'message 从 data-in pin 取 (可连数据边或填字面量字符串), 写到运行日志面板。level 控制颜色。',
+  Toast:
+    'title / message 都是 data-in pin (可连数据边或填字面量)。前端订阅 container:toast 显示。',
   Subgraph: '调用一个子图（容器内已存在的 Subgraph）。双击该节点进入子图编辑。',
   SubgraphInput: '子图唯一入口节点。每个子图自动有一个，不可删除。',
   SubgraphOutput:
@@ -449,7 +451,8 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   MouseHoldStop: '松开鼠标键 (Backend stateful, 不需位置). 跟 MouseHoldStart 配对.',
   Try:
     '跑 subgraphId 子图, 三路出口: 正常完成走 done, 超时走 timeout, 子图内节点 Throw 或 Backend 异常走 error (errorMsg 数据口拿消息).',
-  Throw: '立刻触发最近 Try 的 error 出口, 携带 message (模板字符串, 支持 {var:foo} 占位符).',
+  Throw:
+    '立刻触发最近 Try 的 error 出口, 携带 message (data-in pin 字符串字面量, 不解析占位符 — 想插变量先用 Concat 节点拼).',
   StopwatchStart: '按 key 启动/重置计时器. key 命名空间独立于变量表, 防与 SetVar 重名.',
   StopwatchStop: '按 key 停止计时器 (key 不存在静默 warn, 不报错).',
   StopwatchRead: '按 key 读取经过毫秒数到 elapsedMs 数据口. running → now-start; stopped → stop-start.',

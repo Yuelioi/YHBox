@@ -10,6 +10,7 @@ import type { Ref, ComputedRef } from 'vue'
 import type { NodeChange, EdgeChange, Connection } from '@vue-flow/core'
 import type { Graph, GraphNode, GraphEdge } from '@/lib/backend'
 import type { FlowEdge } from './useContainerDraft'
+import { edgeKind } from '@/components/containers/pinSpec'
 
 export function useGraphMutations(opts: {
   activeGraph: ComputedRef<Graph | null>
@@ -79,11 +80,19 @@ export function useGraphMutations(opts: {
   function onConnect(c: Connection) {
     const g = activeGraph.value
     if (!g) return
-    const from = `${c.source}.${c.sourceHandle ?? 'out'}`
+    const srcNode = g.nodes.find((n) => n.id === c.source)
+    const srcPin = c.sourceHandle ?? 'out'
+    const from = `${c.source}.${srcPin}`
     const to = `${c.target}.${c.targetHandle ?? 'in'}`
-    // exec 边 1:1 语义: from-pin 单 out 替换 + to-pin exec-in 唯一
-    g.edges = g.edges.filter((e: GraphEdge) => e.from !== from && e.to !== to)
-    g.edges.push({ from, to })
+    const kind: 'data' | 'exec' = srcNode ? edgeKind(srcNode.kind, srcPin) : 'exec'
+    // data 边: data-in pin 单源 (替换同 to), data-out 可 fan-out (不动同 from)
+    // exec 边: exec-out 单 target + exec-in 单 source (替换同 from 或同 to)
+    if (kind === 'data') {
+      g.edges = g.edges.filter((e: GraphEdge) => e.to !== to)
+    } else {
+      g.edges = g.edges.filter((e: GraphEdge) => e.from !== from && e.to !== to)
+    }
+    g.edges.push({ from, to, kind })
     syncFlowFromDraft()
   }
 

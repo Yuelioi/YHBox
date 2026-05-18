@@ -63,6 +63,9 @@ func (r *ContainerRunner) execROIColorScan(ctx context.Context, n *container.Gra
 		deadline = time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
 	}
 
+	// firstScan tracks the "scan once and return immediately" mode (timeoutMs <= 0).
+	// Per spec/pinSpec, in that mode we emit `notFound` instead of looping forever.
+	firstScan := true
 	for {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -77,7 +80,12 @@ func (r *ContainerRunner) execROIColorScan(ctx context.Context, n *container.Gra
 			if len(clusters) >= minClusterCount {
 				return r.edges.next(n.ID+".found", tok.LoopStack), nil
 			}
+			// v4 fix: with no timeout AND first scan miss → notFound (don't loop forever).
+			if timeoutMs <= 0 && firstScan {
+				return r.edges.next(n.ID+".notFound", tok.LoopStack), nil
+			}
 		}
+		firstScan = false
 		if !deadline.IsZero() && time.Now().After(deadline) {
 			return r.edges.next(n.ID+".timeout", tok.LoopStack), nil
 		}
