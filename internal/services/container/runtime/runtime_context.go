@@ -32,6 +32,10 @@ type SysState struct {
 	LastColorCenter expr.Point
 	// StopwatchRead 节点输出：上次读取的经过毫秒数。$sys.lastStopwatch.elapsedMs。
 	LastStopwatchElapsedMs int64
+	// Try 节点输出：上次 timeout/error 路径的错误消息。$sys.lastTry.errorMsg。
+	LastTry struct {
+		ErrorMsg string
+	}
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -213,6 +217,8 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return s.LastColorCenter, nil
 	case "lastStopwatch.elapsedMs":
 		return float64(s.LastStopwatchElapsedMs), nil
+	case "lastTry.errorMsg":
+		return s.LastTry.ErrorMsg, nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }
