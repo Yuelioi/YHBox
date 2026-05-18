@@ -189,8 +189,8 @@
             "vMax": 255
           },
           "scanAxis": "x",
-          "minClusterPx": 5,
-          "maxClusterPx": 80,
+          "minClusterPx": 1,
+          "maxClusterPx": 200,
           "minClusterCount": 1,
           "pollIntervalMs": 100,
           "timeoutMs": 100

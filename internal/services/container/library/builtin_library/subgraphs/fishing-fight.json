@@ -69,8 +69,8 @@
             "vMax": 255
           },
           "scanAxis": "x",
-          "minClusterPx": 2,
-          "maxClusterPx": 20,
+          "minClusterPx": 1,
+          "maxClusterPx": 50,
           "minClusterCount": 1,
           "pollIntervalMs": 30,
           "timeoutMs": 60
@@ -123,8 +123,8 @@
             "vMax": 255
           },
           "scanAxis": "x",
-          "minClusterPx": 2,
-          "maxClusterPx": 80,
+          "minClusterPx": 1,
+          "maxClusterPx": 200,
           "minClusterCount": 1,
           "pollIntervalMs": 30,
           "timeoutMs": 60
@@ -154,6 +154,16 @@
           "scope": "local"
         },
         "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "logDetect",
+        "kind": "Log",
+        "x": 1900,
+        "y": 0,
+        "config": {
+          "message": "fight scan: cursorOK=$var.cursorOK cursorX=$var.cursorX targetOK=$var.targetOK targetX=$var.targetX"
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
       },
       {
         "id": "ifBothFound",
@@ -188,6 +198,16 @@
           "scope": "local"
         },
         "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "logDir",
+        "kind": "Log",
+        "x": 2500,
+        "y": -100,
+        "config": {
+          "message": "fight dir: lastDir=$var.lastDirection delta=$var.delta"
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
       },
       {
         "id": "ifInA",
@@ -467,13 +487,15 @@
       { "from": "scanGreen.timeout", "to": "setTargetOK.in" },
 
       { "from": "setTargetOK.out", "to": "setTargetX.in" },
-      { "from": "setTargetX.out", "to": "ifBothFound.in" },
+      { "from": "setTargetX.out", "to": "logDetect.in" },
+      { "from": "logDetect.out", "to": "ifBothFound.in" },
 
       { "from": "ifBothFound.then", "to": "resetMissCount.in" },
       { "from": "ifBothFound.else", "to": "incMiss.in" },
 
       { "from": "resetMissCount.out", "to": "setDelta.in" },
-      { "from": "setDelta.out", "to": "ifInA.in" },
+      { "from": "setDelta.out", "to": "logDir.in" },
+      { "from": "logDir.out", "to": "ifInA.in" },
 
       { "from": "ifInA.then", "to": "stopAforD.in" },
       { "from": "stopAforD.out", "to": "startD.in" },
