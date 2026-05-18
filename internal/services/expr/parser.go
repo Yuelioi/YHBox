@@ -36,7 +36,8 @@ const (
 	nString
 	nBool
 	nNull
-	nVar
+	nVar     // $vars.X / $sys.Y / $params.Z (v3, kept for back-compat — full path with $ prefix in VarPath)
+	nIdent   // v4: bare identifier (e.g. `i`, `state`) — looked up via Env.Get(name) with no $ prefix
 	nNeg     // unary -
 	nNot     // unary !
 	nAdd
@@ -196,9 +197,10 @@ func (p *parser) parsePrefix() (*Node, error) {
 		case "null":
 			return &Node{Kind: nNull, Null: true, Pos: t.pos}, nil
 		}
-		// 函数调用：必须跟 '('
+		// v4: 没跟 '(' → 当作 bare identifier (Env.Get(name) 查 inputs map).
+		// v3 expr (用 $vars.X via tkVarPath) 完全不受影响. 这里只对 tkIdent 兜底.
 		if p.peek().kind != tkLParen {
-			return nil, fmt.Errorf("expr: unknown identifier %q at col %d (要函数调用？跟 '(')", t.val, t.pos)
+			return &Node{Kind: nIdent, VarPath: t.val, Pos: t.pos}, nil
 		}
 		p.advance()
 		var args []*Node

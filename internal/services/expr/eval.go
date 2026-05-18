@@ -26,6 +26,14 @@ func Eval(n *Node, env Env) (Value, error) {
 			return nil, fmt.Errorf("expr: env.Get(%q): %w", n.VarPath, err)
 		}
 		return v, nil
+	case nIdent:
+		// v4: bare identifier (no $ prefix). Env.Get receives the plain name.
+		// InputEnv looks it up in the inputs map; old envs that only know $-paths return nil.
+		v, err := env.Get(n.VarPath)
+		if err != nil {
+			return nil, fmt.Errorf("expr: env.Get(%q): %w", n.VarPath, err)
+		}
+		return v, nil
 	case nNeg:
 		r, err := Eval(n.Right, env)
 		if err != nil {
