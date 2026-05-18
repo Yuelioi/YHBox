@@ -174,20 +174,53 @@ export function useRecording(opts: RecordOpts) {
       createdAt: new Date().toISOString(),
     }
     ;(activeGraph.value.nodes as any[]).push(newNode)
-    autoConnectFromStart(activeGraph.value, nodeId)
+    autoConnectToChainEnd(activeGraph.value, nodeId)
     syncFlowFromDraft()
     await maybeSave()
     toast.add({ title: `已添加 Subgraph 节点: ${payload.label}`, color: 'success' })
   }
 
-  // autoConnectFromStart: 找 Start 节点, 若它没下游就连一条 Start.out → newNode.in.
-  // 主图通常只一个 Start; 子图无 Start 跳过. 已有下游的 Start 不动 (用户已自行组流程).
-  function autoConnectFromStart(g: Graph, newNodeId: string) {
+  // autoConnectToChainEnd: BFS 从 Start 找链尾节点 (无出边、非 Stop、非新节点).
+  //   - 恰好 1 个链尾 → 连 chainEnd.out → newNode.in
+  //   - 0 个 (环) 或 >1 个 (Parallel 分支) → 不连, 留给用户手动
+  //   - 无 Start (子图) → 跳过
+  function autoConnectToChainEnd(g: Graph, newNodeId: string) {
     const start = (g.nodes as any[]).find((n) => n.kind === 'Start')
     if (!start) return
-    const hasOut = (g.edges as any[]).some((e: any) => typeof e.from === 'string' && e.from === start.id + '.out')
-    if (hasOut) return
-    ;(g.edges as any[]).push({ from: start.id + '.out', to: newNodeId + '.in' })
+
+    // BFS: 收集从 Start 可达的所有节点 ID
+    const reachable = new Set<string>([start.id])
+    const queue: string[] = [start.id]
+    while (queue.length > 0) {
+      const cur = queue.shift()!
+      for (const edge of g.edges as any[]) {
+        if (typeof edge.from === 'string' && edge.from.startsWith(cur + '.')) {
+          // edge.from = "<fromNode>.<pin>", extract node ID by stripping last ".xxx"
+          const toNodeId = typeof edge.to === 'string' ? edge.to.replace(/\.[^.]+$/, '') : ''
+          if (toNodeId && !reachable.has(toNodeId)) {
+            reachable.add(toNodeId)
+            queue.push(toNodeId)
+          }
+        }
+      }
+    }
+
+    // 找链尾: 可达且无出边, 且不是 Stop、不是新节点本身
+    const endpoints: string[] = []
+    for (const nodeId of reachable) {
+      if (nodeId === newNodeId) continue
+      const node = (g.nodes as any[]).find((n) => n.id === nodeId)
+      if (!node || node.kind === 'Stop') continue
+      const hasOut = (g.edges as any[]).some(
+        (e: any) => typeof e.from === 'string' && e.from.startsWith(nodeId + '.'),
+      )
+      if (!hasOut) endpoints.push(nodeId)
+    }
+
+    if (endpoints.length === 1) {
+      ;(g.edges as any[]).push({ from: endpoints[0] + '.out', to: newNodeId + '.in' })
+    }
+    // 0 (环) 或 >1 (Parallel 分支) → 不连
   }
 
   async function maybeSave() {
