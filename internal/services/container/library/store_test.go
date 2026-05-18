@@ -32,9 +32,18 @@ func TestLibrary_CreateAndListSubgraph(t *testing.T) {
 	if err := st.SaveSubgraph(&LibrarySubgraph{Subgraph: sg}); err != nil {
 		t.Fatal(err)
 	}
+	// 注: newStore 会触发 EnsureBuiltinLibrary, 把 6 个 builtin fishing subgraph 拷盘 +
+	// load 进 store. 测试只校验用户 save 的 lib-sg-1 在 list 里, 不要求 len(list)==1.
 	list := st.ListSubgraphs()
-	if len(list) != 1 || list[0].ID != "lib-sg-1" {
-		t.Errorf("list = %+v", list)
+	found := false
+	for _, e := range list {
+		if e.ID == "lib-sg-1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("lib-sg-1 not in list (got %d entries)", len(list))
 	}
 }
 
