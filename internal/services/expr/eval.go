@@ -20,12 +20,7 @@ func Eval(n *Node, env Env) (Value, error) {
 		return n.Bool, nil
 	case nNull:
 		return nil, nil
-	case nVar:
-		v, err := env.Get(n.VarPath)
-		if err != nil {
-			return nil, fmt.Errorf("expr: env.Get(%q): %w", n.VarPath, err)
-		}
-		return v, nil
+	// v4: nVar removed — only nIdent (bare identifier) accesses Env.
 	case nIdent:
 		// v4: bare identifier (no $ prefix). Env.Get receives the plain name.
 		// InputEnv looks it up in the inputs map; old envs that only know $-paths return nil.

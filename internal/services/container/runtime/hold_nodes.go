@@ -146,8 +146,9 @@ func (r *ContainerRunner) execMouseHoldStart(ctx context.Context, n *container.G
 	if button != "left" && button != "right" && button != "middle" {
 		return nil, fmt.Errorf("MouseHoldStart %s: invalid button %q", n.ID, button)
 	}
-	xRatio := r.configFloat(n, "xRatio", 0.5)
-	yRatio := r.configFloat(n, "yRatio", 0.5)
+	// v4: xRatio/yRatio via data-in pin.
+	xRatio := r.pullNumber(n, "xRatio", 0.5)
+	yRatio := r.pullNumber(n, "yRatio", 0.5)
 	r.rt.InputBus.Lock()
 	err := r.rt.Input.MouseDown(win.HWND(r.rt.Window.HWND), xRatio, yRatio, button)
 	r.rt.InputBus.Unlock()

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"yhbox/internal/services/container"
-	"yhbox/internal/services/expr"
 	pkgcapture "yhbox/pkg/capture"
 	pkginput "yhbox/pkg/input"
 	"yhbox/pkg/winutil"
@@ -229,54 +228,11 @@ func (r *ContainerRunner) findStart() *container.GraphNode {
 // errStopRun Stop 节点用：让主循环优雅退。
 var errStopRun = errors.New("stop")
 
-// configExpr 拿节点 config 字段 string，parse + eval。缺字段返 (zero, nil)。
-func (r *ContainerRunner) configExpr(node *container.GraphNode, key string) (expr.Value, error) {
-	if node.Config == nil {
-		return nil, nil
-	}
-	raw, ok := node.Config[key]
-	if !ok {
-		return nil, nil
-	}
-	s, ok := raw.(string)
-	if !ok {
-		// 已经是非 string 字面量（前端 v1 不该走到这）：直接返
-		return raw, nil
-	}
-	if s == "" {
-		return nil, nil
-	}
-	ast, err := expr.Parse(s)
-	if err != nil {
-		return nil, fmt.Errorf("node %s.%s: parse %q: %w", node.ID, key, s, err)
-	}
-	return expr.Eval(ast, r.env())
-}
-
-// env 把 ExecState 的 LocalVars 链叠加到 rt.Env() 上层（Gemini 雷点三）。
-// $vars.X 解析顺序：当前 frame.LocalVars → parent.LocalVars → ... → rt.vars。
-// 其它命名空间（$params / $sys）原样走 rt.Env()。
-func (r *ContainerRunner) env() expr.Env {
-	return &runnerEnv{rt: r.rt, state: r.state}
-}
-
-type runnerEnv struct {
-	rt    *RuntimeContext
-	state *ExecState
-}
-
-func (e *runnerEnv) Get(path string) (expr.Value, error) {
-	// 仅 $vars.X 走 frame-local 优先；$params / $sys 直接转给 rt.Env。
-	if len(path) > 6 && path[:6] == "$vars." {
-		name := path[6:]
-		if v, ok := e.state.ResolveVar(name); ok {
-			// LocalVars 命中：转换为 expr.Value 类型（Set 时存什么类型就拿什么类型）
-			return v, nil
-		}
-		// 兜底走 rt.vars
-	}
-	return e.rt.Env().Get(path)
-}
+// v4 single-path: configExpr / configFloat / runnerEnv / r.env() removed.
+// All exec nodes now read inputs via r.pullDataPin (data edge or inline literal).
+// Expr nodes use expr.InputEnv (bare-identifier only — no $-namespace).
+// Variables / sys / params are routed via GetVar / GetSys / GetParam nodes wired through
+// data edges, NOT through env paths in expressions.
 
 // configString 拿 config[key] 当字面量字符串（不当表达式 parse）。
 func configString(node *container.GraphNode, key string) string {
@@ -287,18 +243,6 @@ func configString(node *container.GraphNode, key string) string {
 		return v
 	}
 	return ""
-}
-
-// configFloat helper：返 float64 或 0。
-func (r *ContainerRunner) configFloat(node *container.GraphNode, key string, fallback float64) float64 {
-	v, err := r.configExpr(node, key)
-	if err != nil || v == nil {
-		return fallback
-	}
-	if f, ok := expr.AsNumber(v); ok {
-		return f
-	}
-	return fallback
 }
 
 // ----------------------------------------------------------------------------

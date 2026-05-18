@@ -12,17 +12,8 @@ import (
 // pin 名 = case value 直接 (无前缀). default pin 始终存在不可关.
 func (r *ContainerRunner) execSwitch(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	cfg, _ := container.ParseSwitchConfig(n) // typed config 共享 (跟 validator + pin schema 同源)
-	// v4: try data-in pin "value" first; v3 fall back to configExpr.
-	var v expr.Value
-	if dv, err := r.pullDataPin(n.ID, "value"); err == nil && dv != nil {
-		v = dv
-	} else {
-		ev, eerr := r.configExpr(n, "value")
-		if eerr != nil {
-			return r.edges.next(n.ID+".default", tok.LoopStack), nil
-		}
-		v = ev
-	}
+	// v4: value via data-in pin (string). No v3 expr fallback.
+	v := r.pullValue(n, "value")
 	if v == nil {
 		return r.edges.next(n.ID+".default", tok.LoopStack), nil
 	}

@@ -61,11 +61,12 @@ func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener
 		homeNodesByID:   homeNodes,
 		kind:            configString(n, "kind"),
 		template:        configString(n, "template"),
-		threshold:       r.configFloat(n, "threshold", 0.85),
-		pollIntervalMs:  int(r.configFloat(n, "pollIntervalMs", 100)),
-		maxConcurrent:   int(r.configFloat(n, "maxConcurrent", 1)),
+		// v4: thresholds via data-in pin.
+		threshold:       r.pullNumber(n, "threshold", 0.85),
+		pollIntervalMs:  int(r.pullNumber(n, "pollIntervalMs", 100)),
+		maxConcurrent:   int(r.pullNumber(n, "maxConcurrent", 1)),
 		retriggerPolicy: configString(n, "retriggerPolicy"),
-		cooldownMs:      int(r.configFloat(n, "cooldownMs", 0)),
+		cooldownMs:      int(r.pullNumber(n, "cooldownMs", 0)),
 		queueSig:        make(chan struct{}, 16),
 	}
 	if l.kind == "" {

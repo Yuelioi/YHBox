@@ -34,13 +34,13 @@ func (r *ContainerRunner) execDetectColorHSV(ctx context.Context, n *container.G
 	if err != nil {
 		return nil, fmt.Errorf("DetectColorHSV %s: %w", n.ID, err)
 	}
-	// v4: minPixelRatio / pollIntervalMs / timeoutMs via data-in pin (v3 fallback to config[]).
-	minRatio := r.pullNumberWithFallback(n, "minPixelRatio", 0.05)
-	pollMs := int(r.pullNumberWithFallback(n, "pollIntervalMs", float64(defaultPollMs)))
+	// v4: minPixelRatio / pollIntervalMs / timeoutMs via data-in pin.
+	minRatio := r.pullNumber(n, "minPixelRatio", 0.05)
+	pollMs := int(r.pullNumber(n, "pollIntervalMs", float64(defaultPollMs)))
 	if pollMs < pollClampMs {
 		pollMs = pollClampMs
 	}
-	timeoutMs := int(r.pullNumberWithFallback(n, "timeoutMs", float64(defaultTOMs)))
+	timeoutMs := int(r.pullNumber(n, "timeoutMs", float64(defaultTOMs)))
 
 	deadline := time.Time{}
 	if timeoutMs > 0 {

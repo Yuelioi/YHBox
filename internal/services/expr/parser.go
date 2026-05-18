@@ -36,8 +36,9 @@ const (
 	nString
 	nBool
 	nNull
-	nVar     // $vars.X / $sys.Y / $params.Z (v3, kept for back-compat — full path with $ prefix in VarPath)
-	nIdent   // v4: bare identifier (e.g. `i`, `state`) — looked up via Env.Get(name) with no $ prefix
+	// nVar removed in v4 (was: $vars.X / $sys.Y / $params.Z). Slot kept to preserve const ordering.
+	nVarReservedDoNotUse
+	nIdent // v4: bare identifier (e.g. `i`, `state`) — looked up via Env.Get(name) with no $ prefix
 	nNeg     // unary -
 	nNot     // unary !
 	nAdd
@@ -184,9 +185,7 @@ func (p *parser) parsePrefix() (*Node, error) {
 	case tkString:
 		p.advance()
 		return &Node{Kind: nString, Str: t.val, Pos: t.pos}, nil
-	case tkVarPath:
-		p.advance()
-		return &Node{Kind: nVar, VarPath: t.val, Pos: t.pos}, nil
+	// v4: tkVarPath / nVar removed. Lexer rejects '$' so we never receive that token.
 	case tkIdent:
 		p.advance()
 		switch t.val {
@@ -197,8 +196,7 @@ func (p *parser) parsePrefix() (*Node, error) {
 		case "null":
 			return &Node{Kind: nNull, Null: true, Pos: t.pos}, nil
 		}
-		// v4: 没跟 '(' → 当作 bare identifier (Env.Get(name) 查 inputs map).
-		// v3 expr (用 $vars.X via tkVarPath) 完全不受影响. 这里只对 tkIdent 兜底.
+		// v4: 没跟 '(' → bare identifier (Env.Get(name) 查 InputEnv inputs map).
 		if p.peek().kind != tkLParen {
 			return &Node{Kind: nIdent, VarPath: t.val, Pos: t.pos}, nil
 		}

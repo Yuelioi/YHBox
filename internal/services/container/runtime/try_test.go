@@ -21,8 +21,12 @@ func TestTryDonePath(t *testing.T) {
 	node := &container.GraphNode{
 		ID:     "try1",
 		Kind:   "Try",
-		Config: map[string]any{"subgraphId": "sg1", "timeoutMs": float64(5000)},
+		Config: map[string]any{"subgraphId": "sg1", "literal": map[string]any{"timeoutMs": 5000.0}}, // v4 literal pin
 	}
+	if r.nodesByID == nil {
+		r.nodesByID = map[string]*container.GraphNode{}
+	}
+	r.nodesByID[node.ID] = node
 	toks, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err != nil {
 		t.Fatalf("done path err: %v", err)
@@ -40,7 +44,7 @@ func TestTryDonePath(t *testing.T) {
 func TestTryTimeoutPath(t *testing.T) {
 	_, r := newTestRunnerWithSubgraph(t, "sg2", []*container.GraphNode{
 		{ID: "sg2in", Kind: "SubgraphInput"},
-		{ID: "sg2sleep", Kind: "Sleep", Config: map[string]any{"durationMs": float64(500)}},
+		{ID: "sg2sleep", Kind: "Sleep", Config: map[string]any{"literal": map[string]any{"durationMs": 500.0}}}, // v4 literal
 		{ID: "sg2out", Kind: "SubgraphOutput", Config: map[string]any{"declID": "done"}},
 	}, []container.GraphEdge{
 		{From: "sg2in.out", To: "sg2sleep.in"},
@@ -49,8 +53,12 @@ func TestTryTimeoutPath(t *testing.T) {
 	node := &container.GraphNode{
 		ID:     "try2",
 		Kind:   "Try",
-		Config: map[string]any{"subgraphId": "sg2", "timeoutMs": float64(100)},
+		Config: map[string]any{"subgraphId": "sg2", "literal": map[string]any{"timeoutMs": 100.0}}, // v4 literal pin
 	}
+	if r.nodesByID == nil {
+		r.nodesByID = map[string]*container.GraphNode{}
+	}
+	r.nodesByID[node.ID] = node // v4: pullDataPin lookup
 	start := time.Now()
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err != nil {
@@ -70,15 +78,19 @@ func TestTryTimeoutPath(t *testing.T) {
 func TestTryErrorPath(t *testing.T) {
 	_, r := newTestRunnerWithSubgraph(t, "sg3", []*container.GraphNode{
 		{ID: "sg3in", Kind: "SubgraphInput"},
-		{ID: "sg3throw", Kind: "Throw", Config: map[string]any{"message": "boom"}},
+		{ID: "sg3throw", Kind: "Throw", Config: map[string]any{"literal": map[string]any{"message": "boom"}}}, // v4 literal
 	}, []container.GraphEdge{
 		{From: "sg3in.out", To: "sg3throw.in"},
 	})
 	node := &container.GraphNode{
 		ID:     "try3",
 		Kind:   "Try",
-		Config: map[string]any{"subgraphId": "sg3", "timeoutMs": float64(5000)},
+		Config: map[string]any{"subgraphId": "sg3", "literal": map[string]any{"timeoutMs": 5000.0}}, // v4 literal pin
 	}
+	if r.nodesByID == nil {
+		r.nodesByID = map[string]*container.GraphNode{}
+	}
+	r.nodesByID[node.ID] = node
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err != nil {
 		t.Fatalf("error path should not bubble err (Try catches), got: %v", err)

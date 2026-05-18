@@ -174,36 +174,9 @@ func (rt *RuntimeContext) UpdateSys(f func(s *SysState)) {
 	f(&rt.sys)
 }
 
-// Env 把 RuntimeContext 当 expr.Env 用。支持 $vars.X / $params.Y / $sys.Z[.W[.V]]。
-func (rt *RuntimeContext) Env() expr.Env { return &envAdapter{rt: rt} }
-
-type envAdapter struct{ rt *RuntimeContext }
-
-func (e *envAdapter) Get(path string) (expr.Value, error) {
-	rt := e.rt
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-
-	switch {
-	case len(path) > 6 && path[:6] == "$vars.":
-		key := path[6:]
-		v, ok := rt.vars[key]
-		if !ok {
-			return nil, nil
-		}
-		return v, nil
-	case len(path) > 8 && path[:8] == "$params.":
-		key := path[8:]
-		v, ok := rt.params[key]
-		if !ok {
-			return nil, nil
-		}
-		return v, nil
-	case len(path) > 5 && path[:5] == "$sys.":
-		return resolveSysPath(rt.sys, path[5:])
-	}
-	return nil, fmt.Errorf("expr: unknown variable namespace %q", path)
-}
+// v4: Env() / envAdapter removed. Variables / sys / params are accessed via dedicated
+// pure-data nodes (GetVar / GetSys / GetParam) that read from per-exec-tick snapshots
+// (see snapshot.go + getvar.go + getsys.go). resolveSysPath remains as the GetSys backend.
 
 func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 	switch rest {

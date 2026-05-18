@@ -52,13 +52,17 @@ func TestRunner_StartSleep(t *testing.T) {
 // B-10 regression: SetVar/IncVar 默认 scope=local 时，值写入 ExecState.LocalVars，
 // rt.vars 保持 Default 不变。表达式 $vars.x 读取应该看到 local 值（覆盖 rt.vars 默认）。
 func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
+	// v4: 用 GetVar(scope=auto) + Eq + If data-flow 验证 local 写入对后续 read 可见.
+	// auto scope 优先 frame.LocalVars (其中 set 写了 42), 兜底 rt.vars (默认 0).
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			// 缺省 scope = local（spec §2.7）
+			// 缺省 scope = local
 			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "literal": map[string]any{"value": 42.0}}},
-			// 用 $vars.x 读 → 应拿到 local 42（不是 rt.vars 默认 0）；If condition 真则走 then
-			{ID: "if", Kind: "If", Config: map[string]any{"condition": "$vars.x == 42"}},
+			// data nodes: GetVar(x, auto) → Eq(==42) → If.condition
+			{ID: "getx", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "auto"}},
+			{ID: "eq", Kind: "Eq", Config: map[string]any{"literal": map[string]any{"b": 42.0}}},
+			{ID: "if", Kind: "If"},
 			{ID: "markThen", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "then"}}},
 			{ID: "markElse", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "else"}}},
 		},
@@ -67,6 +71,9 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 			{From: "set.out", To: "if.in"},
 			{From: "if.then", To: "markThen.in"},
 			{From: "if.else", To: "markElse.in"},
+			// data flow into If.condition
+			{From: "getx.value", To: "eq.a", Kind: "data"},
+			{From: "eq.result", To: "if.condition", Kind: "data"},
 		},
 		[]container.VarDecl{
 			{Name: "x", Type: "number", Default: 0.0},
@@ -115,11 +122,14 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 }
 
 func TestRunner_IfBranch(t *testing.T) {
+	// v4: GetVar(y, global) → Eq(==1) → If.condition data flow.
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "set1", Kind: "SetVar", Config: map[string]any{"varName": "y", "scope": "global", "literal": map[string]any{"value": 1.0}}},
-			{ID: "if", Kind: "If", Config: map[string]any{"condition": "$vars.y == 1"}},
+			{ID: "gety", Kind: "GetVar", Config: map[string]any{"varName": "y", "scope": "global"}},
+			{ID: "eq", Kind: "Eq", Config: map[string]any{"literal": map[string]any{"b": 1.0}}},
+			{ID: "if", Kind: "If"},
 			{ID: "setThen", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "then"}}},
 			{ID: "setElse", Kind: "SetVar", Config: map[string]any{"varName": "branch", "scope": "global", "literal": map[string]any{"value": "else"}}},
 		},
@@ -128,6 +138,8 @@ func TestRunner_IfBranch(t *testing.T) {
 			{From: "set1.out", To: "if.in"},
 			{From: "if.then", To: "setThen.in"},
 			{From: "if.else", To: "setElse.in"},
+			{From: "gety.value", To: "eq.a", Kind: "data"},
+			{From: "eq.result", To: "if.condition", Kind: "data"},
 		},
 		[]container.VarDecl{
 			{Name: "y", Type: "number", Default: 0.0},
@@ -146,10 +158,11 @@ func TestRunner_IfBranch(t *testing.T) {
 }
 
 func TestRunner_LoopCount(t *testing.T) {
+	// v4: Loop.count via inline literal (no more v3 expr-string config).
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "count", "count": "3"}},
+			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "count", "literal": map[string]any{"count": 3.0}}},
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "scope": "global", "literal": map[string]any{"delta": 1.0}}},
 		},
 		[]container.GraphEdge{
@@ -171,12 +184,15 @@ func TestRunner_LoopCount(t *testing.T) {
 }
 
 func TestRunner_BreakExitsLoop(t *testing.T) {
+	// v4: GetVar(i, global) → GtEq(b=2) → If.condition.
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "forever"}},
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "scope": "global", "literal": map[string]any{"delta": 1.0}}},
-			{ID: "if", Kind: "If", Config: map[string]any{"condition": "$vars.i >= 2"}},
+			{ID: "geti", Kind: "GetVar", Config: map[string]any{"varName": "i", "scope": "global"}},
+			{ID: "gte", Kind: "GtEq", Config: map[string]any{"literal": map[string]any{"b": 2.0}}},
+			{ID: "if", Kind: "If"},
 			{ID: "br", Kind: "Break"},
 		},
 		[]container.GraphEdge{
@@ -185,6 +201,8 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{From: "inc.out", To: "if.in"},
 			{From: "if.then", To: "br.in"},
 			{From: "if.else", To: "loop.loopback"},
+			{From: "geti.value", To: "gte.a", Kind: "data"},
+			{From: "gte.result", To: "if.condition", Kind: "data"},
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)

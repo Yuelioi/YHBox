@@ -37,11 +37,18 @@ func TestDetectColorHSVMatchesYellowFrame(t *testing.T) {
 				"sMin": float64(200), "sMax": float64(255),
 				"vMin": float64(200), "vMax": float64(255),
 			},
-			"minPixelRatio":  float64(0.5),
-			"pollIntervalMs": float64(50),
-			"timeoutMs":      float64(500),
+			// v4: numeric thresholds via inline literal pin.
+			"literal": map[string]any{
+				"minPixelRatio":  float64(0.5),
+				"pollIntervalMs": float64(50),
+				"timeoutMs":      float64(500),
+			},
 		},
 	}
+	if r.nodesByID == nil {
+		r.nodesByID = map[string]*container.GraphNode{}
+	}
+	r.nodesByID[node.ID] = node
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err != nil {
 		t.Fatalf("execNode err: %v", err)
@@ -82,11 +89,18 @@ func TestDetectColorHSVTimeoutOnNoMatch(t *testing.T) {
 				"sMin": float64(200), "sMax": float64(255),
 				"vMin": float64(200), "vMax": float64(255),
 			},
-			"minPixelRatio":  float64(0.5),
-			"pollIntervalMs": float64(20),
-			"timeoutMs":      float64(100),
+			// v4: numeric thresholds via inline literal pin.
+			"literal": map[string]any{
+				"minPixelRatio":  float64(0.5),
+				"pollIntervalMs": float64(20),
+				"timeoutMs":      float64(100),
+			},
 		},
 	}
+	if r.nodesByID == nil {
+		r.nodesByID = map[string]*container.GraphNode{}
+	}
+	r.nodesByID[node.ID] = node // v4: pullDataPin lookup
 	start := time.Now()
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err != nil {

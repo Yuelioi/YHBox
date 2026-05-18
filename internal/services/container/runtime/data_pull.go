@@ -98,52 +98,44 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	return nil, fmt.Errorf("evalDataSource: kind %q has no pure-data eval (pin %q)", n.Kind, srcPin)
 }
 
-// pullNumberWithFallback (v4 transitional shim for Phase C migration):
-//   1. Try v4 data-in pin (data edge or literal).
-//   2. If nil, fall back to v3 r.configFloat (which parses expr string OR float literal at config[pinName]).
-//
-// Lets us migrate exec nodes (Sleep/If/Loop/Wait*/etc) to data-pin one at a time without
-// breaking v3 tests that still pass `pinName: "expr-string"` at config root. Once all tests
-// move to `literal: {pinName: ...}`, the configFloat fallback can be deleted.
-func (r *ContainerRunner) pullNumberWithFallback(n *container.GraphNode, pinName string, fallback float64) float64 {
-	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
-		if f, ok := expr.AsNumber(v); ok {
-			return f
-		}
+// pullNumber: v4-only data-pin resolution (data edge or inline literal). No v3 fallback.
+// Returns `fallback` if pin is unset / type-incompatible.
+func (r *ContainerRunner) pullNumber(n *container.GraphNode, pinName string, fallback float64) float64 {
+	v, err := r.pullDataPin(n.ID, pinName)
+	if err != nil || v == nil {
+		return fallback
 	}
-	return r.configFloat(n, pinName, fallback)
+	if f, ok := expr.AsNumber(v); ok {
+		return f
+	}
+	return fallback
 }
 
-// pullBoolWithFallback: v4 bool data-pin, fall back to v3 r.configExpr.
-// On both paths, expr.AsBool coerces the value.
-func (r *ContainerRunner) pullBoolWithFallback(n *container.GraphNode, pinName string) (bool, error) {
-	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
-		return expr.AsBool(v), nil
-	}
-	v, err := r.configExpr(n, pinName)
+// pullBool: v4-only data-pin resolution; expr.AsBool coerces.
+func (r *ContainerRunner) pullBool(n *container.GraphNode, pinName string) (bool, error) {
+	v, err := r.pullDataPin(n.ID, pinName)
 	if err != nil {
 		return false, err
 	}
 	return expr.AsBool(v), nil
 }
 
-// pullStringWithFallback: v4 string data-pin, fall back to v3 configString (NOT configExpr —
-// v3 string-config fields like vk/varName aren't expressions, they're plain strings).
-func (r *ContainerRunner) pullStringWithFallback(n *container.GraphNode, pinName string) string {
-	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
-		return expr.FormatValue(v)
+// pullString: v4-only data-pin resolution; expr.FormatValue stringifies non-string values.
+func (r *ContainerRunner) pullString(n *container.GraphNode, pinName string) string {
+	v, err := r.pullDataPin(n.ID, pinName)
+	if err != nil || v == nil {
+		return ""
 	}
-	return configString(n, pinName)
+	return expr.FormatValue(v)
 }
 
-// pullValueWithExprFallback: v4 data pin first (returns raw expr.Value), v3 fall back to configExpr.
-// Used by Log/Toast/Throw which forward the raw value to FormatValue/Emit.
-// Returns nil on both miss (caller treats as empty).
-func (r *ContainerRunner) pullValueWithExprFallback(n *container.GraphNode, pinName string) expr.Value {
-	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
-		return v
+// pullValue: v4-only data-pin resolution returning raw expr.Value (nil on miss).
+// Used by Log/Toast which forward the raw value to FormatValue/Emit.
+func (r *ContainerRunner) pullValue(n *container.GraphNode, pinName string) expr.Value {
+	v, err := r.pullDataPin(n.ID, pinName)
+	if err != nil {
+		return nil
 	}
-	v, _ := r.configExpr(n, pinName)
 	return v
 }
 

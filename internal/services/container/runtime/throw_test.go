@@ -16,8 +16,9 @@ func TestThrowReturnsErrThrow(t *testing.T) {
 	node := &container.GraphNode{
 		ID:     "th1",
 		Kind:   "Throw",
-		Config: map[string]any{"message": "no_currency"},
+		Config: map[string]any{"literal": map[string]any{"message": "no_currency"}}, // v4: data-in pin literal
 	}
+	r.nodesByID = map[string]*container.GraphNode{node.ID: node} // v4: pullDataPin needs node in registry
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -38,6 +39,7 @@ func TestThrowEmptyMessageStillErrThrow(t *testing.T) {
 		Kind:   "Throw",
 		Config: map[string]any{},
 	}
+	r.nodesByID = map[string]*container.GraphNode{node.ID: node}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err == nil {
 		t.Fatal("expected error even with empty message")

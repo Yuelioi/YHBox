@@ -140,8 +140,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 // ---- Control Flow ----
 
 func (r *ContainerRunner) execSleep(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: try data-in pin first (literal or data edge); fall back to v3 configFloat for back-compat tests.
-	d := r.pullNumberWithFallback(n, "durationMs", 0)
+	// v4: try data-in pin first (literal or data edge).
+	d := r.pullNumber(n, "durationMs", 0)
 	if err := execution.Sleep(ctx, time.Duration(d)*time.Millisecond); err != nil {
 		return nil, err
 	}
@@ -169,14 +169,14 @@ func (r *ContainerRunner) execLoop(ctx context.Context, n *container.GraphNode, 
 
 	switch mode {
 	case "count":
-		// v4: data-in pin "count" (number); fall back to v3 config[count] for back-compat.
-		count := int64(r.pullNumberWithFallback(n, "count", 1))
+		// v4: data-in pin "count" (number).
+		count := int64(r.pullNumber(n, "count", 1))
 		if frame.Iter >= count {
 			return r.exitLoop(n, tok)
 		}
 	case "while":
-		// v4: data-in pin "condition" (bool); fall back to v3 expr config.
-		ok, err := r.pullBoolWithFallback(n, "condition")
+		// v4: data-in pin "condition" (bool).
+		ok, err := r.pullBool(n, "condition")
 		if err != nil {
 			return nil, err
 		}
@@ -207,8 +207,8 @@ func (r *ContainerRunner) exitLoop(n *container.GraphNode, tok ExecToken) ([]Exe
 }
 
 func (r *ContainerRunner) execIf(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: data-in pin "condition" (bool); fall back to v3 expr config.
-	ok, err := r.pullBoolWithFallback(n, "condition")
+	// v4: data-in pin "condition" (bool).
+	ok, err := r.pullBool(n, "condition")
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (r *ContainerRunner) execContinue(n *container.GraphNode, tok ExecToken) ([
 
 func (r *ContainerRunner) execParallel(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	// v4: data-in pin "n" (number); v3 config fallback.
-	nBranches := int(r.pullNumberWithFallback(n, "n", 2))
+	nBranches := int(r.pullNumber(n, "n", 2))
 	if nBranches <= 0 {
 		nBranches = 2
 	}
@@ -285,7 +285,7 @@ type errBox struct{ err error }
 
 func (r *ContainerRunner) execRace(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	// v4: data-in pin "n" (number); v3 config fallback.
-	nBranches := int(r.pullNumberWithFallback(n, "n", 2))
+	nBranches := int(r.pullNumber(n, "n", 2))
 	if nBranches <= 0 {
 		nBranches = 2
 	}
@@ -422,9 +422,9 @@ func (r *ContainerRunner) execIncVar(ctx context.Context, n *container.GraphNode
 
 func (r *ContainerRunner) execWaitTemplate(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	tmpl := configString(n, "template")
-	// v4: timeoutMs/threshold via data-in pin (v3 fallback to config[]).
-	timeout := time.Duration(r.pullNumberWithFallback(n, "timeoutMs", 5000)) * time.Millisecond
-	threshold := r.pullNumberWithFallback(n, "threshold", 0.85)
+	// v4: timeoutMs/threshold via data-in pin.
+	timeout := time.Duration(r.pullNumber(n, "timeoutMs", 5000)) * time.Millisecond
+	threshold := r.pullNumber(n, "threshold", 0.85)
 	// 默认 250ms 轮询（不是 100ms）：单次 capture+match 已有 5-50ms 开销，
 	// 100ms 间隔下 30s 等待期 CPU 占用 30-50%。250ms 间隔 ~12%，反应延迟仍可控。
 	pollInterval := 250 * time.Millisecond
@@ -458,8 +458,8 @@ func (r *ContainerRunner) execWaitTemplate(ctx context.Context, n *container.Gra
 
 func (r *ContainerRunner) execCheckTemplate(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	tmpl := configString(n, "template")
-	// v4: threshold via data-in pin (v3 fallback).
-	threshold := r.pullNumberWithFallback(n, "threshold", 0.85)
+	// v4: threshold via data-in pin.
+	threshold := r.pullNumber(n, "threshold", 0.85)
 	found, point, region, err := r.rt.Matcher.Detect(ctx, tmpl, threshold, nil)
 	if err != nil {
 		return nil, err
@@ -478,9 +478,9 @@ func (r *ContainerRunner) execCheckTemplate(ctx context.Context, n *container.Gr
 
 func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	tmpl := configString(n, "template")
-	// v4: timeoutMs/threshold via data-in pin (v3 fallback).
-	timeout := time.Duration(r.pullNumberWithFallback(n, "timeoutMs", 5000)) * time.Millisecond
-	threshold := r.pullNumberWithFallback(n, "threshold", 0.85)
+	// v4: timeoutMs/threshold via data-in pin.
+	timeout := time.Duration(r.pullNumber(n, "timeoutMs", 5000)) * time.Millisecond
+	threshold := r.pullNumber(n, "threshold", 0.85)
 	button := configString(n, "button")
 	if button == "" {
 		button = "left"
@@ -524,10 +524,10 @@ func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.Gr
 // 每条 input 节点外套 InputBus.Lock/Unlock 保证键鼠独占（多 worker 并发场景）。
 
 func (r *ContainerRunner) execClickAt(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: x/y/durationMs via data-in pin (v3 fallback to config[]).
-	x := r.pullNumberWithFallback(n, "xRatio", 0.5)
-	y := r.pullNumberWithFallback(n, "yRatio", 0.5)
-	dur := int(r.pullNumberWithFallback(n, "durationMs", 50))
+	// v4: x/y/durationMs via data-in pin.
+	x := r.pullNumber(n, "xRatio", 0.5)
+	y := r.pullNumber(n, "yRatio", 0.5)
+	dur := int(r.pullNumber(n, "durationMs", 50))
 	button := configString(n, "button")
 	if button == "" {
 		button = "left"
@@ -543,8 +543,8 @@ func (r *ContainerRunner) execClickAt(ctx context.Context, n *container.GraphNod
 
 func (r *ContainerRunner) execKeyPress(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	vk := configString(n, "vk")
-	// v4: durationMs via data-in pin (v3 fallback).
-	dur := int(r.pullNumberWithFallback(n, "durationMs", 50))
+	// v4: durationMs via data-in pin.
+	dur := int(r.pullNumber(n, "durationMs", 50))
 	r.rt.InputBus.Lock()
 	err := r.rt.Input.KeyPress(win.HWND(r.rt.Window.HWND), vk, dur)
 	r.rt.InputBus.Unlock()
@@ -555,10 +555,10 @@ func (r *ContainerRunner) execKeyPress(ctx context.Context, n *container.GraphNo
 }
 
 func (r *ContainerRunner) execMouseMoveRel(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: dx/dy/durationMs via data-in pin (v3 fallback).
-	dx := int(r.pullNumberWithFallback(n, "dx", 0))
-	dy := int(r.pullNumberWithFallback(n, "dy", 0))
-	dur := int(r.pullNumberWithFallback(n, "durationMs", 200))
+	// v4: dx/dy/durationMs via data-in pin.
+	dx := int(r.pullNumber(n, "dx", 0))
+	dy := int(r.pullNumber(n, "dy", 0))
+	dur := int(r.pullNumber(n, "durationMs", 200))
 	// v2 spec §2.7: scale = target / source. target = 主图 MouseCalibration（启动 snapshot），
 	// source = 当前 frame chain 中最近的 Subgraph.RecordingContext.MouseCounts360。
 	// 任一为 0 → scale = 1（手动组装 subgraph / 未校准 → 原值回放，跟旧 v1 行为兼容）。
@@ -588,10 +588,10 @@ func roundAwayFromZero(f float64) float64 {
 }
 
 func (r *ContainerRunner) execScroll(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: x/y/delta via data-in pin (v3 fallback).
-	x := r.pullNumberWithFallback(n, "xRatio", 0.5)
-	y := r.pullNumberWithFallback(n, "yRatio", 0.5)
-	delta := int(r.pullNumberWithFallback(n, "delta", 3))
+	// v4: x/y/delta via data-in pin.
+	x := r.pullNumber(n, "xRatio", 0.5)
+	y := r.pullNumber(n, "yRatio", 0.5)
+	delta := int(r.pullNumber(n, "delta", 3))
 	r.rt.InputBus.Lock()
 	err := r.rt.Input.Scroll(win.HWND(r.rt.Window.HWND), x, y, delta)
 	r.rt.InputBus.Unlock()
@@ -608,17 +608,8 @@ func (r *ContainerRunner) execLog(ctx context.Context, n *container.GraphNode, t
 	if level == "" {
 		level = "info"
 	}
-	// v4: message via data-in pin (any → FormatValue); v3 fall back to configExpr.
-	var msgV expr.Value
-	if dv, derr := r.pullDataPin(n.ID, "message"); derr == nil && dv != nil {
-		msgV = dv
-	} else {
-		v, err := r.configExpr(n, "message")
-		if err != nil {
-			return nil, err
-		}
-		msgV = v
-	}
+	// v4: message via data-in pin (any → FormatValue). No v3 expr fallback.
+	msgV := r.pullValue(n, "message")
 	if r.rt.Emit != nil {
 		r.rt.Emit("container:log", map[string]any{
 			"level":   level,
@@ -629,9 +620,9 @@ func (r *ContainerRunner) execLog(ctx context.Context, n *container.GraphNode, t
 }
 
 func (r *ContainerRunner) execToast(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: title/message via data-in pin (any); v3 fall back to configExpr.
-	titleV := r.pullValueWithExprFallback(n, "title")
-	msgV := r.pullValueWithExprFallback(n, "message")
+	// v4: title/message via data-in pin (any). No v3 expr fallback.
+	titleV := r.pullValue(n, "title")
+	msgV := r.pullValue(n, "message")
 	color := configString(n, "color")
 	if r.rt.Emit != nil {
 		r.rt.Emit("container:toast", map[string]any{
@@ -665,7 +656,8 @@ func (r *ContainerRunner) execDetectColor(ctx context.Context, n *container.Grap
 		mode = "hsv"
 	}
 	rng := parseCSV6Int(configString(n, "range"))
-	minPx := int(r.configFloat(n, "minPixels", 5))
+	// v4: minPixels via data-in pin.
+	minPx := int(r.pullNumber(n, "minPixels", 5))
 
 	count, cx, cy, err := r.rt.Color.Detect(ctx, region, mode, rng)
 	if err != nil {

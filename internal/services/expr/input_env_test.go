@@ -52,14 +52,12 @@ func TestInputEnv_UnknownIdentReturnsNil(t *testing.T) {
 	}
 }
 
-// TestInputEnv_DoesNotExpose_DollarPaths: $vars in Expr context is independent of InputEnv.
-// (The tokenizer creates a tkVarPath node — InputEnv just doesn't have $-keys; returns nil.)
-func TestInputEnv_DoesNotExpose_DollarPaths(t *testing.T) {
-	n, _ := Parse("$vars.x")
-	v, _ := Eval(n, InputEnv{"x": float64(99)})
-	// $vars.x looked up in InputEnv as "$vars.x" key → not present → nil
-	if v != nil {
-		t.Fatalf("$vars.x in Expr context: want nil (input isolated from sys vars), got %v", v)
+// v4: $-prefix rejected at lex time (single grammar path).
+// Parsing "$vars.x" must return a syntax error.
+func TestInputEnv_DollarRejectedByLexer(t *testing.T) {
+	_, err := Parse("$vars.x")
+	if err == nil {
+		t.Fatal("v4 grammar must reject $-prefix; got nil error")
 	}
 }
 

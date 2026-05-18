@@ -120,23 +120,8 @@ func TestTernary(t *testing.T) {
 	}
 }
 
-func TestVars(t *testing.T) {
-	env := MapEnv{
-		"$vars.foo":              42.0,
-		"$params.pos":            Point{X: 100, Y: 200},
-		"$sys.lastTemplate.point.x": 50.0,
-	}
-	if got := eval(t, "$vars.foo + 1", env); got != 43.0 {
-		t.Errorf("vars add: %v", got)
-	}
-	if got := eval(t, "$sys.lastTemplate.point.x * 2", env); got != 100.0 {
-		t.Errorf("sys path: %v", got)
-	}
-	v := eval(t, "$params.pos", env)
-	if p, ok := v.(Point); !ok || p.X != 100 || p.Y != 200 {
-		t.Errorf("point passthrough: %v", v)
-	}
-}
+// v4: TestVars (v3 $vars/$sys/$params resolution) removed — no $-namespace in v4.
+// Bare-identifier + InputEnv coverage lives in input_env_test.go.
 
 func TestFunctions(t *testing.T) {
 	env := MapEnv{}
