@@ -53,6 +53,38 @@ func TestFishingFightSubgraph_Loads(t *testing.T) {
 	}
 }
 
+func TestFishingShopsellSubgraph_Loads(t *testing.T) {
+	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing-shopsell.json")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var sg struct {
+		ID    string `json:"id"`
+		Graph struct {
+			Nodes []struct{ Kind string `json:"kind"` } `json:"nodes"`
+		} `json:"graph"`
+	}
+	if err := json.Unmarshal(b, &sg); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if sg.ID != "fishing-shopsell" {
+		t.Errorf("id = %q", sg.ID)
+	}
+	kinds := map[string]int{}
+	for _, n := range sg.Graph.Nodes {
+		kinds[n.Kind]++
+	}
+	if kinds["WaitTemplate"] < 2 {
+		t.Errorf("expected ≥2 WaitTemplate, got %d", kinds["WaitTemplate"])
+	}
+	if kinds["ClickTemplate"] < 2 {
+		t.Errorf("expected ≥2 ClickTemplate, got %d", kinds["ClickTemplate"])
+	}
+	if kinds["Throw"] < 1 {
+		t.Errorf("expected ≥1 Throw, got %d", kinds["Throw"])
+	}
+}
+
 func TestFishingResultSubgraph_Loads(t *testing.T) {
 	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing-result.json")
 	if err != nil {
