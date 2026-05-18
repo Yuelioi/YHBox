@@ -86,8 +86,14 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 		return r.evalGetParam(n)
 	case "Expr":
 		return r.evalExpr(n)
-	// arithmetic/comparison/logic/string/conversion pure funcs:
-	// dispatched in Phase B tasks B6-B8.
+	// v4 §6: 22 pure-function nodes — all dispatched through evalPureFunc.
+	case "Add", "Sub", "Mul", "Div", "Mod", "Neg",
+		"Lt", "LtEq", "Gt", "GtEq", "Eq", "NotEq",
+		"And", "Or", "Not",
+		"Concat", "Contains", "Length",
+		"ToString", "ToNumber", "ToBool",
+		"Select":
+		return r.evalPureFunc(n)
 	}
 	return nil, fmt.Errorf("evalDataSource: kind %q has no pure-data eval (pin %q)", n.Kind, srcPin)
 }

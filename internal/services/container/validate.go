@@ -48,7 +48,13 @@ var KnownNodeKinds = map[string]bool{
 	"Expr":     true,
 	"GetSys":   true,
 	"GetParam": true,
-	// v4 Phase B (B6-B8) will add: Add/Sub/.../Select
+	// v4 §6: 22 pure-function nodes
+	"Add": true, "Sub": true, "Mul": true, "Div": true, "Mod": true, "Neg": true,
+	"Lt": true, "LtEq": true, "Gt": true, "GtEq": true, "Eq": true, "NotEq": true,
+	"And": true, "Or": true, "Not": true,
+	"Concat": true, "Contains": true, "Length": true,
+	"ToString": true, "ToNumber": true, "ToBool": true,
+	"Select": true,
 	// v4 Phase C/D adds: CommentBox, CollapsedNode
 }
 
