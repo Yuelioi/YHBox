@@ -473,6 +473,16 @@
             :placeholder="field.placeholder"
             @update:model-value="setCfg(field.key, String($event))"
           />
+          <USelect
+            v-else-if="field.type === 'var-name-select'"
+            :model-value="getCfg(field.key)"
+            :items="varOptions"
+            size="md"
+            class="w-full"
+            :ui="{ content: 'min-w-[280px]' }"
+            placeholder="选择变量"
+            @update:model-value="setCfg(field.key, String($event))"
+          />
           <TemplatePicker
             v-else-if="field.type === 'template-picker'"
             :model-value="getCfg(field.key)"
@@ -561,6 +571,14 @@ async function onSyncAllFromForeign() {
 
 // Subgraph 调用节点：1:1 模型，只显示绑定的子图（不需 USelect 选择）
 const editorStore = useContainerEditorStore()
+
+// v4: 'var-name-select' 字段类型的候选 = NodeInspector 的 varNames prop (从父容器拿).
+// 父容器 (ContainerEditorView) 把 draft.vars.map(v=>v.name) 传进来作 ExpressionInput 自动完成,
+// 这里复用同源. 后续可扩 prop 为 varDecls 带 type, 在 label 显示 "name (type)".
+const varOptions = computed<{ label: string; value: string }[]>(() => {
+  return (props.varNames ?? []).map((name) => ({ label: name, value: name }))
+})
+
 const boundSubgraph = computed(() => {
   const sgID = props.node?.config?.subgraphId
   if (!sgID) return null

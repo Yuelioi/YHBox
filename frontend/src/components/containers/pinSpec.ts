@@ -111,8 +111,26 @@ export const PIN_SPECS: Record<string, PinSpec> = {
   Stop: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
   Break: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
   Continue: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
-  SetVar: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
-  IncVar: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+  // v4: SetVar.value / IncVar.delta moved to typed data-in pins (any / number).
+  // GetVar is a pure-data node (no exec), exposes the variable via data-out "value".
+  SetVar: {
+    execIn: DEFAULT_IN,
+    execOut: DEFAULT_OUT,
+    dataIn: { value: 'any' },
+    dataOut: {},
+  },
+  IncVar: {
+    execIn: DEFAULT_IN,
+    execOut: DEFAULT_OUT,
+    dataIn: { delta: 'number' },
+    dataOut: {},
+  },
+  GetVar: {
+    execIn: [],
+    execOut: [],
+    dataIn: {},
+    dataOut: { value: 'any' }, // dynamic — actual type is Container.Vars[varName].type
+  },
   WaitTemplate: {
     execIn: DEFAULT_IN,
     execOut: ['found', 'timeout'],
@@ -278,6 +296,7 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   Continue: '跳到下轮',
   SetVar: '赋值变量',
   IncVar: '递增变量',
+  GetVar: '读取变量', // v4 新增, 纯数据节点
   WaitTemplate: '等待图像',
   CheckTemplate: '试探图像',
   ClickTemplate: '点击图像',
@@ -323,8 +342,12 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   Stop: '立即结束当前容器（不影响外层 schedule 后续 target）。',
   Break: '跳出最近的 Loop（走该 Loop 的 complete pin）。必须在 Loop body 子图里。',
   Continue: '回到最近 Loop 头开始下一轮迭代。必须在 Loop body 子图里。',
-  SetVar: '把 value expr 求值结果写到 varName。变量需先在容器属性面板声明。',
-  IncVar: '把 varName 的值加 delta（默认 1）。仅 number 变量。',
+  SetVar:
+    '把 value (从下方 data-in pin 拿) 写到 varName。变量需先在容器属性面板声明。scope=local (默认) 写 frame 私有, global 跨 frame 共享。',
+  IncVar:
+    '把 varName 的值加 delta (data-in pin, 默认 1)。仅 number 变量。scope 同 SetVar。',
+  GetVar:
+    '读取 varName 的当前值, 通过 data-out pin 暴露给下游 (Expr / 纯函数 / SetVar 等)。scope: local (默认, 当前 frame) / global (容器共享) / auto (frame chain → global)。',
   WaitTemplate:
     '周期截屏检测模板图像。命中 → found 出口（产 $sys.lastTemplate.point）；超时 → timeout 出口。',
   CheckTemplate: '单次检测，立即分支：命中走 yes，否则走 no。不阻塞等待。',
@@ -382,8 +405,11 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   Stop: {},
   Break: {},
   Continue: {},
-  SetVar: { varName: '', value: '0' },
-  IncVar: { varName: '', delta: '1' },
+  // v4: value/delta 走 data-in pin (literal 在 ContainerFlowNode 节点上 inline 输入).
+  // 新建节点默认 scope=local — frame 隔离 (spec §3.1, DeepSeek 1.1).
+  SetVar: { varName: '', scope: 'local', literal: { value: '' } },
+  IncVar: { varName: '', scope: 'local', literal: { delta: 1 } },
+  GetVar: { varName: '', scope: 'local' },
   WaitTemplate: { template: '', timeoutMs: '5000', threshold: '0.85' },
   CheckTemplate: { template: '', threshold: '0.85' },
   ClickTemplate: { template: '', timeoutMs: '5000', threshold: '0.85', button: 'left' },
@@ -473,6 +499,7 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
   },
   SetVar: { icon: 'i-tabler-equal', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   IncVar: { icon: 'i-tabler-circle-plus', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  GetVar: { icon: 'i-tabler-variable', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   WaitTemplate: { icon: 'i-tabler-eye', bg: 'bg-violet-500/15', border: 'border-violet-500/40' },
   CheckTemplate: {
     icon: 'i-tabler-search',

@@ -230,6 +230,7 @@ const KINDS_BY_GROUP: {
   {
     label: '变量',
     items: [
+      { kind: 'GetVar', icon: 'i-tabler-variable' }, // v4 新增: 读变量 (pure data)
       { kind: 'SetVar', icon: 'i-tabler-equal' },
       { kind: 'IncVar', icon: 'i-tabler-circle-plus' },
     ],

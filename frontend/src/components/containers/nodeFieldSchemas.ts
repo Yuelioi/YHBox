@@ -4,12 +4,31 @@
 export interface Field {
   key: string
   label: string
-  type: 'expr' | 'select' | 'text' | 'action-picker' | 'template-picker' | 'key-capture'
+  type:
+    | 'expr'
+    | 'select'
+    | 'text'
+    | 'action-picker'
+    | 'template-picker'
+    | 'key-capture'
+    | 'var-name-select' // v4: dropdown of Container.Vars (NodeInspector reads editor store)
   options?: { label: string; value: string }[]
   placeholder?: string
   exprType?: 'number' | 'bool' | 'string' | 'point'
   hint?: string
 }
+
+// v4: shared scope dropdown options for GetVar/SetVar/IncVar.
+// SetVar/IncVar default "local"; GetVar default "local" (spec §3.1, DeepSeek 1.1).
+const SCOPE_OPTIONS: { label: string; value: string }[] = [
+  { label: 'local (默认, 当前 frame 私有)', value: 'local' },
+  { label: 'global (容器共享)', value: 'global' },
+]
+// GetVar 还允许 auto (escape hatch — frame chain → global)
+const SCOPE_OPTIONS_WITH_AUTO: { label: string; value: string }[] = [
+  ...SCOPE_OPTIONS,
+  { label: 'auto (frame chain → global)', value: 'auto' },
+]
 
 export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
   Sleep: [
@@ -47,13 +66,20 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
   ],
   Race: [{ key: 'n', label: '分支数 (2-8)', type: 'expr', placeholder: '2', exprType: 'number' }],
   Stop: [{ key: 'error', label: '错误信息(可选)', type: 'text' }],
+  // v4: SetVar/IncVar value/delta moved to data-in pins (画布上 inline literal or 连边).
+  // 只保留 varName + scope. 详见 spec §3.2 / §3.3.
   SetVar: [
-    { key: 'varName', label: '变量名', type: 'text' },
-    { key: 'value', label: '值(表达式)', type: 'expr' },
+    { key: 'varName', label: '变量名', type: 'var-name-select' },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'local=frame 私有 / global=容器共享' },
   ],
   IncVar: [
-    { key: 'varName', label: '变量名', type: 'text' },
-    { key: 'delta', label: '增量', type: 'expr', placeholder: '1', exprType: 'number' },
+    { key: 'varName', label: '变量名', type: 'var-name-select' },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'local=frame 私有 / global=容器共享' },
+  ],
+  // v4 新增: GetVar 纯数据节点, 把变量值通过 data-out pin 暴露给下游.
+  GetVar: [
+    { key: 'varName', label: '变量名', type: 'var-name-select' },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS_WITH_AUTO, hint: '默认 local; 想跨 frame 读 global; auto = frame chain → global' },
   ],
   WaitTemplate: [
     { key: 'template', label: '模板', type: 'template-picker' },
