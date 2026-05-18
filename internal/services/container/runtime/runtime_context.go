@@ -41,6 +41,12 @@ type SysState struct {
 		PixelCount int
 		PixelRatio float64
 	}
+	// ROIColorScan 节点输出：最后一次扫描的 cluster 列表和数量。
+	// $sys.lastROIScan.clusterCount / clusters。
+	LastROIScan struct {
+		Clusters     []clusterEntry
+		ClusterCount int
+	}
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -228,6 +234,10 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return float64(s.LastDetect.PixelCount), nil
 	case "lastDetect.pixelRatio":
 		return s.LastDetect.PixelRatio, nil
+	case "lastROIScan.clusterCount":
+		return float64(s.LastROIScan.ClusterCount), nil
+	case "lastROIScan.clusters":
+		return s.LastROIScan.Clusters, nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }
