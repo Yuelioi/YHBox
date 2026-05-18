@@ -10,12 +10,15 @@ import (
 
 // ExecFrame 单层 graph 调用栈帧（v2 spec §2.7）。
 // LocalVars: frame-local 变量（Gemini 雷点三），子图调用之间互不干扰。
+// LocalParams (v4): 子图入参 (Subgraph.InputParams), 调用入栈时从父图 pull 进来,
+//    子图内 GetParam 节点读取. 跟 LocalVars 同生命周期 (pop frame 即销毁).
 type ExecFrame struct {
 	ContainerID string
 	Graph       container.GraphRef
 	NodeID      string
 	Parent      *ExecFrame
 	LocalVars   map[string]any
+	LocalParams map[string]any
 	SubgraphRef *container.Subgraph // Graph.Kind == "subgraph" 时非 nil；指向当前 frame 所属 subgraph 实例
 }
 
@@ -35,6 +38,7 @@ func NewExecState(containerID string, calibCounts int) *ExecState {
 		ContainerID: containerID,
 		Graph:       container.MainGraphRef(),
 		LocalVars:   map[string]any{},
+		LocalParams: map[string]any{},
 		SubgraphRef: nil,
 	}
 	return &ExecState{
@@ -53,6 +57,7 @@ func (s *ExecState) PushFrame(graph container.GraphRef, sg *container.Subgraph) 
 		Graph:       graph,
 		Parent:      s.CurrentFrame,
 		LocalVars:   map[string]any{},
+		LocalParams: map[string]any{}, // v4: input param storage (populated by execSubgraph)
 		SubgraphRef: sg,
 	}
 	s.CurrentFrame = f

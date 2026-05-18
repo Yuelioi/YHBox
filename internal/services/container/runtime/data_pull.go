@@ -82,10 +82,12 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 		return r.evalGetVar(n)
 	case "GetSys":
 		return r.evalGetSys(n)
+	case "GetParam":
+		return r.evalGetParam(n)
 	case "Expr":
 		return r.evalExpr(n)
-	// "GetParam", arithmetic/comparison/logic/string/conversion pure funcs:
-	// dispatched in Phase B tasks B5, B6-B8.
+	// arithmetic/comparison/logic/string/conversion pure funcs:
+	// dispatched in Phase B tasks B6-B8.
 	}
 	return nil, fmt.Errorf("evalDataSource: kind %q has no pure-data eval (pin %q)", n.Kind, srcPin)
 }

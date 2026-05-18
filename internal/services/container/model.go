@@ -90,6 +90,16 @@ type SubgraphOutputDecl struct {
 	Name string `json:"name"` // 用户可见显示名（"done"/"found"/"timeout"...）
 }
 
+// SubgraphInputParam (v4) 子图入参声明.
+// Subgraph 调用节点为每个 InputParam 自动加一个 data-in pin (name + type),
+// 子图内部用 GetParam 节点 (config.paramName = Name) 读取入参值.
+// 入参在子图调用入栈时从父图 pull → 写入 frame.LocalParams.
+type SubgraphInputParam struct {
+	Name    string `json:"name"`              // identifier (e.g. "hp", "targetTemplate")
+	Type    string `json:"type"`              // PinType: "number"/"bool"/"string"/"point"/"any"
+	Default any    `json:"default,omitempty"` // 父图 pull 拿到 nil 时用 (literal-style fallback)
+}
+
 // RecordingContext 录制自动折叠产生的 subgraph 的元数据。
 // 手动组装的 subgraph 该字段为 nil（runtime 不缩放 raw dx/dy，原值回放）。
 type RecordingContext struct {
@@ -107,7 +117,9 @@ type Subgraph struct {
 	Description      string               `json:"description,omitempty"`
 	Graph            Graph                `json:"graph"`                      // 内部节点 + 边
 	OutputPins       []SubgraphOutputDecl `json:"outputPins"`                 // 由内部 SubgraphOutput 节点派生缓存
+	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"`      // v4 新: 子图入参声明 (data-in pin schema on call sites)
 	Tags             []string             `json:"tags,omitempty"`             // 容器内 + 库 都用
 	RecordingContext *RecordingContext    `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
+	IsAnonymous      bool                 `json:"isAnonymous,omitempty"`      // v4 新: CollapsedNode 后备子图 (Phase D), 不入 NodePalette/Subgraph 候选下拉
 	CreatedAt        time.Time            `json:"createdAt"`
 }

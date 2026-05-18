@@ -38,6 +38,25 @@ var SysPathSchema = map[string]string{
 	"lastScreenshot.path":      "string",
 }
 
+// evalGetParam (v4) returns the value of a subgraph input parameter from the current frame's
+// LocalParams. Set when the parent's Subgraph call node was executed (execSubgraph pulls
+// data-in pins and writes them to frame.LocalParams before swapping dispatch views).
+//
+// Pure data — no exec / no edges. Unset paramName → nil (validator catches at design time).
+func (r *ContainerRunner) evalGetParam(n *container.GraphNode) (expr.Value, error) {
+	name := configString(n, "paramName")
+	if name == "" {
+		return nil, fmt.Errorf("GetParam %s: missing paramName", n.ID)
+	}
+	if r.state.CurrentFrame == nil {
+		return nil, fmt.Errorf("GetParam %s: no active frame", n.ID)
+	}
+	if v, ok := r.state.CurrentFrame.LocalParams[name]; ok {
+		return v, nil
+	}
+	return nil, nil
+}
+
 // evalGetSys (v4) returns the value of a single sys path from the per-tick snapshot.
 // Pure data — no exec / no edges. Reads tick snapshot (NOT live rt.sys) for determinism.
 func (r *ContainerRunner) evalGetSys(n *container.GraphNode) (expr.Value, error) {

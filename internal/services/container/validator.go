@@ -129,6 +129,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateDataPinTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
 	errs = append(errs, validateGetSysNodes(c)...)
+	errs = append(errs, validateGetParamNodes(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}

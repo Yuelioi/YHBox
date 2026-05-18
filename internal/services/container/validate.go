@@ -44,10 +44,11 @@ var KnownNodeKinds = map[string]bool{
 	"StopwatchRead":   true,
 
 	// v4 (data-flow / variables / expressions)
-	"GetVar": true,
-	"Expr":   true,
-	"GetSys": true,
-	// v4 Phase B (B5/B6-B8) will add: GetParam, Add/Sub/.../Select
+	"GetVar":   true,
+	"Expr":     true,
+	"GetSys":   true,
+	"GetParam": true,
+	// v4 Phase B (B6-B8) will add: Add/Sub/.../Select
 	// v4 Phase C/D adds: CommentBox, CollapsedNode
 }
 

@@ -710,11 +710,32 @@ func (r *ContainerRunner) execSubgraph(ctx context.Context, node *container.Grap
 	if err != nil {
 		return nil, err
 	}
+
+	// v4: pull each declared InputParam value from the call node's data-in pin BEFORE
+	// switching dispatch views (we need parent graph's dataEdges/nodesByID to resolve).
+	paramVals := make(map[string]any, len(sg.InputParams))
+	for _, p := range sg.InputParams {
+		v, perr := r.pullDataPin(node.ID, p.Name)
+		if perr != nil {
+			return nil, fmt.Errorf("Subgraph %s: pull input %q: %w", node.ID, p.Name, perr)
+		}
+		if v == nil && p.Default != nil {
+			v = toExprValue(p.Default)
+		}
+		paramVals[p.Name] = v
+	}
+
 	// push frame
 	r.state.PushFrame(container.SubgraphGraphRef(sg.ID), sg)
 
-	// 切 dispatch 视图到子图
+	// Populate frame.LocalParams (after push so we write the new frame, not parent).
+	for k, v := range paramVals {
+		r.state.CurrentFrame.LocalParams[k] = v
+	}
+
+	// 切 dispatch 视图到子图 (含 dataEdges — nested Subgraph 调用需要看子图内部的 data edges).
 	r.edges = buildEdgeIndex(sg.Graph)
+	r.dataEdges = buildDataEdgeIndex(sg.Graph)
 	r.nodesByID = make(map[string]*container.GraphNode)
 	for i := range sg.Graph.Nodes {
 		n := &sg.Graph.Nodes[i]
@@ -772,8 +793,9 @@ func (r *ContainerRunner) execSubgraphOutput(ctx context.Context, node *containe
 	downstreamRef := FindParentDownstreamByDeclID(parentGraph.Edges, callNodeID, declID)
 	// pop frame 回父图
 	r.state.PopFrame()
-	// 切回父图 edges / nodesByID
+	// 切回父图 edges / dataEdges / nodesByID
 	r.edges = buildEdgeIndex(parentGraph)
+	r.dataEdges = buildDataEdgeIndex(parentGraph)
 	r.nodesByID = make(map[string]*container.GraphNode)
 	for i := range parentGraph.Nodes {
 		n := &parentGraph.Nodes[i]
