@@ -136,6 +136,17 @@ func (r *ContainerRunner) pullStringWithFallback(n *container.GraphNode, pinName
 	return configString(n, pinName)
 }
 
+// pullValueWithExprFallback: v4 data pin first (returns raw expr.Value), v3 fall back to configExpr.
+// Used by Log/Toast/Throw which forward the raw value to FormatValue/Emit.
+// Returns nil on both miss (caller treats as empty).
+func (r *ContainerRunner) pullValueWithExprFallback(n *container.GraphNode, pinName string) expr.Value {
+	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
+		return v
+	}
+	v, _ := r.configExpr(n, pinName)
+	return v
+}
+
 // toExprValue converts JSON-decoded values (always one of: float64 / bool / string / nil /
 // map[string]any for Point) to expr.Value.
 func toExprValue(v any) expr.Value {

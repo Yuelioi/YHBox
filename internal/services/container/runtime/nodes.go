@@ -418,8 +418,9 @@ func (r *ContainerRunner) execIncVar(ctx context.Context, n *container.GraphNode
 
 func (r *ContainerRunner) execWaitTemplate(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	tmpl := configString(n, "template")
-	timeout := time.Duration(r.configFloat(n, "timeoutMs", 5000)) * time.Millisecond
-	threshold := r.configFloat(n, "threshold", 0.85)
+	// v4: timeoutMs/threshold via data-in pin (v3 fallback to config[]).
+	timeout := time.Duration(r.pullNumberWithFallback(n, "timeoutMs", 5000)) * time.Millisecond
+	threshold := r.pullNumberWithFallback(n, "threshold", 0.85)
 	// 默认 250ms 轮询（不是 100ms）：单次 capture+match 已有 5-50ms 开销，
 	// 100ms 间隔下 30s 等待期 CPU 占用 30-50%。250ms 间隔 ~12%，反应延迟仍可控。
 	pollInterval := 250 * time.Millisecond
@@ -453,7 +454,8 @@ func (r *ContainerRunner) execWaitTemplate(ctx context.Context, n *container.Gra
 
 func (r *ContainerRunner) execCheckTemplate(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	tmpl := configString(n, "template")
-	threshold := r.configFloat(n, "threshold", 0.85)
+	// v4: threshold via data-in pin (v3 fallback).
+	threshold := r.pullNumberWithFallback(n, "threshold", 0.85)
 	found, point, region, err := r.rt.Matcher.Detect(ctx, tmpl, threshold, nil)
 	if err != nil {
 		return nil, err
@@ -472,8 +474,9 @@ func (r *ContainerRunner) execCheckTemplate(ctx context.Context, n *container.Gr
 
 func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	tmpl := configString(n, "template")
-	timeout := time.Duration(r.configFloat(n, "timeoutMs", 5000)) * time.Millisecond
-	threshold := r.configFloat(n, "threshold", 0.85)
+	// v4: timeoutMs/threshold via data-in pin (v3 fallback).
+	timeout := time.Duration(r.pullNumberWithFallback(n, "timeoutMs", 5000)) * time.Millisecond
+	threshold := r.pullNumberWithFallback(n, "threshold", 0.85)
 	button := configString(n, "button")
 	if button == "" {
 		button = "left"
@@ -517,9 +520,10 @@ func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.Gr
 // 每条 input 节点外套 InputBus.Lock/Unlock 保证键鼠独占（多 worker 并发场景）。
 
 func (r *ContainerRunner) execClickAt(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	x := r.configFloat(n, "xRatio", 0.5)
-	y := r.configFloat(n, "yRatio", 0.5)
-	dur := int(r.configFloat(n, "durationMs", 50))
+	// v4: x/y/durationMs via data-in pin (v3 fallback to config[]).
+	x := r.pullNumberWithFallback(n, "xRatio", 0.5)
+	y := r.pullNumberWithFallback(n, "yRatio", 0.5)
+	dur := int(r.pullNumberWithFallback(n, "durationMs", 50))
 	button := configString(n, "button")
 	if button == "" {
 		button = "left"
@@ -535,7 +539,8 @@ func (r *ContainerRunner) execClickAt(ctx context.Context, n *container.GraphNod
 
 func (r *ContainerRunner) execKeyPress(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	vk := configString(n, "vk")
-	dur := int(r.configFloat(n, "durationMs", 50))
+	// v4: durationMs via data-in pin (v3 fallback).
+	dur := int(r.pullNumberWithFallback(n, "durationMs", 50))
 	r.rt.InputBus.Lock()
 	err := r.rt.Input.KeyPress(win.HWND(r.rt.Window.HWND), vk, dur)
 	r.rt.InputBus.Unlock()
@@ -546,9 +551,10 @@ func (r *ContainerRunner) execKeyPress(ctx context.Context, n *container.GraphNo
 }
 
 func (r *ContainerRunner) execMouseMoveRel(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	dx := int(r.configFloat(n, "dx", 0))
-	dy := int(r.configFloat(n, "dy", 0))
-	dur := int(r.configFloat(n, "durationMs", 200))
+	// v4: dx/dy/durationMs via data-in pin (v3 fallback).
+	dx := int(r.pullNumberWithFallback(n, "dx", 0))
+	dy := int(r.pullNumberWithFallback(n, "dy", 0))
+	dur := int(r.pullNumberWithFallback(n, "durationMs", 200))
 	// v2 spec §2.7: scale = target / source. target = 主图 MouseCalibration（启动 snapshot），
 	// source = 当前 frame chain 中最近的 Subgraph.RecordingContext.MouseCounts360。
 	// 任一为 0 → scale = 1（手动组装 subgraph / 未校准 → 原值回放，跟旧 v1 行为兼容）。
@@ -578,9 +584,10 @@ func roundAwayFromZero(f float64) float64 {
 }
 
 func (r *ContainerRunner) execScroll(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	x := r.configFloat(n, "xRatio", 0.5)
-	y := r.configFloat(n, "yRatio", 0.5)
-	delta := int(r.configFloat(n, "delta", 3))
+	// v4: x/y/delta via data-in pin (v3 fallback).
+	x := r.pullNumberWithFallback(n, "xRatio", 0.5)
+	y := r.pullNumberWithFallback(n, "yRatio", 0.5)
+	delta := int(r.pullNumberWithFallback(n, "delta", 3))
 	r.rt.InputBus.Lock()
 	err := r.rt.Input.Scroll(win.HWND(r.rt.Window.HWND), x, y, delta)
 	r.rt.InputBus.Unlock()
@@ -597,9 +604,16 @@ func (r *ContainerRunner) execLog(ctx context.Context, n *container.GraphNode, t
 	if level == "" {
 		level = "info"
 	}
-	msgV, err := r.configExpr(n, "message")
-	if err != nil {
-		return nil, err
+	// v4: message via data-in pin (any → FormatValue); v3 fall back to configExpr.
+	var msgV expr.Value
+	if dv, derr := r.pullDataPin(n.ID, "message"); derr == nil && dv != nil {
+		msgV = dv
+	} else {
+		v, err := r.configExpr(n, "message")
+		if err != nil {
+			return nil, err
+		}
+		msgV = v
 	}
 	if r.rt.Emit != nil {
 		r.rt.Emit("container:log", map[string]any{
@@ -611,8 +625,9 @@ func (r *ContainerRunner) execLog(ctx context.Context, n *container.GraphNode, t
 }
 
 func (r *ContainerRunner) execToast(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	titleV, _ := r.configExpr(n, "title")
-	msgV, _ := r.configExpr(n, "message")
+	// v4: title/message via data-in pin (any); v3 fall back to configExpr.
+	titleV := r.pullValueWithExprFallback(n, "title")
+	msgV := r.pullValueWithExprFallback(n, "message")
 	color := configString(n, "color")
 	if r.rt.Emit != nil {
 		r.rt.Emit("container:toast", map[string]any{

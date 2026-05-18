@@ -40,7 +40,8 @@ func (r *ContainerRunner) execTry(ctx context.Context, n *container.GraphNode, t
 		return nil, fmt.Errorf("Try %s: unknown subgraph %q", n.ID, sgID)
 	}
 
-	timeoutMs := int(r.configFloat(n, "timeoutMs", 0))
+	// v4: timeoutMs via data-in pin (number); v3 fallback to config[timeoutMs].
+	timeoutMs := int(r.pullNumberWithFallback(n, "timeoutMs", 0))
 
 	// 建 context — 有 timeout 则 WithTimeout, 否则继承 parent ctx
 	childCtx := ctx

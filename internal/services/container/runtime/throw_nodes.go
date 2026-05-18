@@ -16,7 +16,8 @@ import (
 // "${var}" 注入运行时 var. errThrow sentinel 本体在 nodes.go (跟 errStopRun 一起).
 
 // execThrow 立刻 return errThrow, 不碰 edges/nodesByID — runSubFlow 接住后冒泡.
+// v4: message via data-in pin (string); v3 fall back to config[message] string.
 func (r *ContainerRunner) execThrow(_ context.Context, n *container.GraphNode, _ ExecToken) ([]ExecToken, error) {
-	msg := configString(n, "message")
+	msg := r.pullStringWithFallback(n, "message")
 	return nil, &errThrow{message: msg}
 }

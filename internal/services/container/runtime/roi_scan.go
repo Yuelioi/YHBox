@@ -41,8 +41,9 @@ func (r *ContainerRunner) execROIColorScan(ctx context.Context, n *container.Gra
 	if axis != "x" && axis != "y" {
 		return nil, fmt.Errorf("ROIColorScan %s: scanAxis must be x or y", n.ID)
 	}
-	minCluster := int(r.configFloat(n, "minClusterPx", 2))
-	maxCluster := int(r.configFloat(n, "maxClusterPx", 0))
+	// v4: all numeric thresholds via data-in pin (v3 fallback to config[]).
+	minCluster := int(r.pullNumberWithFallback(n, "minClusterPx", 2))
+	maxCluster := int(r.pullNumberWithFallback(n, "maxClusterPx", 0))
 	if maxCluster <= 0 {
 		if axis == "x" {
 			maxCluster = roi.W / 3
@@ -50,12 +51,12 @@ func (r *ContainerRunner) execROIColorScan(ctx context.Context, n *container.Gra
 			maxCluster = roi.H / 3
 		}
 	}
-	minClusterCount := int(r.configFloat(n, "minClusterCount", 1))
-	pollMs := int(r.configFloat(n, "pollIntervalMs", defaultPollMs))
+	minClusterCount := int(r.pullNumberWithFallback(n, "minClusterCount", 1))
+	pollMs := int(r.pullNumberWithFallback(n, "pollIntervalMs", float64(defaultPollMs)))
 	if pollMs < pollClampMs {
 		pollMs = pollClampMs
 	}
-	timeoutMs := int(r.configFloat(n, "timeoutMs", defaultTOMs))
+	timeoutMs := int(r.pullNumberWithFallback(n, "timeoutMs", float64(defaultTOMs)))
 
 	deadline := time.Time{}
 	if timeoutMs > 0 {
