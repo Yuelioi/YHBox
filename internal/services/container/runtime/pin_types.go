@@ -30,3 +30,9 @@ func PinTypeCompat(from, to PinType) (allow, warn bool) {
 	}
 	return false, false
 }
+
+// PinTypeCompatStr is a string-keyed convenience wrapper around PinTypeCompat
+// for the validator package which works with raw string types from JSON.
+func PinTypeCompatStr(from, to string) (allow, warn bool) {
+	return PinTypeCompat(PinType(from), PinType(to))
+}

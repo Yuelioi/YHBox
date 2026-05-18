@@ -64,12 +64,25 @@ const (
 	CodeInvalidSwitchCases    = "INVALID_SWITCH_CASES"
 )
 
+// v4 data-pin + variable + literal validation codes (spec §11).
+const (
+	CodePinTypeMismatch        = "PIN_TYPE_MISMATCH"
+	CodePinTypeCoercionWarning = "PIN_TYPE_COERCION_WARNING"
+	CodeGetVarUnknownVar       = "GETVAR_UNKNOWN_VAR"
+	CodeGetVarTypeMismatch     = "GETVAR_TYPE_MISMATCH"
+	CodeLiteralTypeMismatch    = "LITERAL_TYPE_MISMATCH"
+	CodeDataPinDangling        = "DATA_PIN_DANGLING"
+)
+
+// ValidationError is the i18n-ready error envelope (spec §12).
+// Message is deprecated (v3 carried Chinese; v4 frontend uses t(Code, Params) instead).
 type ValidationError struct {
-	Severity  string   `json:"severity"`
-	Code      string   `json:"code"`
-	GraphPath []string `json:"graphPath"`
-	NodeID    string   `json:"nodeId,omitempty"`
-	Message   string   `json:"message"`
+	Severity  string         `json:"severity"`
+	Code      string         `json:"code"`
+	GraphPath []string       `json:"graphPath"`
+	NodeID    string         `json:"nodeId,omitempty"`
+	Message   string         `json:"message,omitempty"` // deprecated: kept for v3 callers; v4 frontend ignores
+	Params    map[string]any `json:"params,omitempty"`  // v4: template params for t(Code, Params)
 }
 
 // ValidateContext 给 ValidateContainerWithContext 用，传入文件系统 / 设置态等
@@ -103,6 +116,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
 	errs = append(errs, validatePhaseCNodeKinds(c)...)
+	errs = append(errs, validateDataPinTypes(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}

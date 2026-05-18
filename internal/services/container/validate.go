@@ -42,6 +42,11 @@ var KnownNodeKinds = map[string]bool{
 	"StopwatchStart":  true,
 	"StopwatchStop":   true,
 	"StopwatchRead":   true,
+
+	// v4 (data-flow / variables / expressions)
+	"GetVar": true,
+	// v4 Phase B (B2/B3/B5/B6-B8) will add: GetSys, GetParam, Expr, Add/Sub/.../Select
+	// v4 Phase C/D adds: CommentBox, CollapsedNode
 }
 
 // yieldKinds Loop body 至少含一个，避免 forever loop CPU 100%。
@@ -389,3 +394,39 @@ func (c *Container) Normalize() {
 		c.Graph.Version = GraphSchemaVersion
 	}
 }
+
+// --- v4: data pin type schema ---
+
+// dataInPinTypeForKind returns the type of a data-in pin for a node kind,
+// or "" if the kind has no such pin. Mirrors the frontend pinSpec.dataInFn.
+// Expanded incrementally as Phase A-C migrate exec nodes to data-in pins.
+func dataInPinTypeForKind(kind, pinName string) string {
+	switch kind {
+	case "SetVar":
+		if pinName == "value" {
+			return "any" // SetVar accepts any; runtime coerces per declared var type
+		}
+	case "IncVar":
+		if pinName == "delta" {
+			return "number"
+		}
+	}
+	// Phase C migrations append cases here (Sleep, If, Switch, Loop, Parallel, Race, etc.)
+	return ""
+}
+
+// dataOutPinTypeForKind returns the type of a data-out pin for a node kind.
+// For dynamic-typed nodes (GetVar / Expr / GetSys / GetParam) returns "" — caller
+// must resolve via node config (e.g. GetVar.varName → Container.Vars[name].Type).
+// pinName parameter reserved for nodes with multiple data-out pins (Phase B+).
+func dataOutPinTypeForKind(kind, pinName string) string {
+	_ = pinName // reserved for future multi-pin nodes
+	switch kind {
+	case "GetVar":
+		// Type is dynamic — resolved by caller via Container.Vars lookup.
+		return ""
+	}
+	// Phase B adds pure-func data-out types here.
+	return ""
+}
+
