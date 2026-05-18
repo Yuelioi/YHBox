@@ -231,10 +231,8 @@ func main() {
 	// embedded FS; matcher reads from bin/data/assets/templates/<key>.png — bridge here.
 	if idx, idxErr := library.LoadTemplatesIndex(); idxErr == nil {
 		for key, entry := range idx.Templates {
-			// skip if user already has a template with this key (don't clobber user data)
-			if _, getErr := templateSvc.Get(key); getErr == nil {
-				continue
-			}
+			// 总是 overwrite builtin (用户改 builtin 走 _user 后缀, v1 暂未实现 fork).
+			// 之前 skip-if-exists 导致 bbox→Region 修复无法应用到老存档.
 			pngData, readErr := library.ReadBuiltinTemplateFile(entry.File)
 			if readErr != nil {
 				rootLog.Warn().Err(readErr).Str("key", key).Str("file", entry.File).Msg("builtin template read fail")
@@ -244,8 +242,17 @@ func main() {
 				Name:               key,
 				Description:        entry.Note,
 				RecordedResolution: entry.Resolution,
-				// Width/Height: SaveRaw computes from PNG when zero
-				// Region: builtin templates carry no ratio region (Matcher uses full-image detect)
+			}
+			// bbox [x1,y1,x2,y2] 绝对 px → Region [xR,yR,wR,hR] 比例.
+			// 没这个 matcher 全屏 1080p 匹配每个模板 = 5-10s/check + 70% CPU.
+			// 见 wire_container.go:78 — matcher 优先用 meta.Region 作 ROI (扩 30% padding).
+			if entry.Resolution[0] > 0 && entry.Resolution[1] > 0 {
+				fw, fh := float32(entry.Resolution[0]), float32(entry.Resolution[1])
+				x1, y1 := float32(entry.Bbox[0]), float32(entry.Bbox[1])
+				x2, y2 := float32(entry.Bbox[2]), float32(entry.Bbox[3])
+				if x2 > x1 && y2 > y1 {
+					meta.Region = [4]float32{x1 / fw, y1 / fh, (x2 - x1) / fw, (y2 - y1) / fh}
+				}
 			}
 			if saveErr := templateSvc.SaveRaw(key, pngData, meta); saveErr != nil {
 				rootLog.Warn().Err(saveErr).Str("key", key).Msg("builtin template register fail")
