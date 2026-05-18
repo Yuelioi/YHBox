@@ -118,6 +118,13 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
   GetParam: [
     { key: 'paramName', label: '参数名 (paramName)', type: 'text', placeholder: '当前子图 inputParams 里的 name' },
   ],
+  // v4 CommentBox (§9.1): pure-UI grouping. label/color/size config.
+  CommentBox: [
+    { key: 'label', label: '标题', type: 'text', placeholder: '注释' },
+    { key: 'color', label: '颜色 (hex)', type: 'text', placeholder: '#fbbf24' },
+    { key: 'width', label: '宽度 (px)', type: 'expr', placeholder: '200', exprType: 'number' },
+    { key: 'height', label: '高度 (px)', type: 'expr', placeholder: '150', exprType: 'number' },
+  ],
   // v4 Expr: 4 字段 — expr 字符串, outType, inputs 数组 (单独 UI).
   // 简化版: 用 text+text 渲染 expr+outType, inputs 用 textarea (JSON-like).
   // 后续 (Phase D) ExprInspector 升级为 dedicated component + monaco editor + dynamic input rows.

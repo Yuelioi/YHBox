@@ -55,7 +55,9 @@ var KnownNodeKinds = map[string]bool{
 	"Concat": true, "Contains": true, "Length": true,
 	"ToString": true, "ToNumber": true, "ToBool": true,
 	"Select": true,
-	// v4 Phase C/D adds: CommentBox, CollapsedNode
+	// v4 §9.1 visual-only (no exec / no data)
+	"CommentBox": true,
+	// v4 Phase D adds: CollapsedNode
 }
 
 // yieldKinds Loop body 至少含一个，避免 forever loop CPU 100%。

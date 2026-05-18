@@ -246,6 +246,7 @@ import { useGraphLayout, type AlignMode } from '@/composables/containerEditor/us
 import { useGraphMutations } from '@/composables/containerEditor/useGraphMutations'
 import NodePalette from '@/components/containers/NodePalette.vue'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
+import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
 import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
 import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBreadcrumb.vue'
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
@@ -307,9 +308,16 @@ const inspectorCollapsed = ref(false)
 
 // 注册自定义节点组件：从 PIN_SPECS keys 自动派生，无需手维护。
 // 加新 kind 只需在 pinSpec.ts 里加一条 PIN_SPECS 即可——nodeTypes / NodePalette / FlowNode 自动响应，避免漏注册。
-const nodeTypes = markRaw(
-  Object.fromEntries(Object.keys(PIN_SPECS).map((k) => [k, ContainerFlowNode])),
-)
+// v4 §9.1: CommentBox uses its own visual-only Vue component (no handles).
+// All other kinds share ContainerFlowNode.
+const nodeTypes = markRaw({
+  ...Object.fromEntries(
+    Object.keys(PIN_SPECS)
+      .filter((k) => k !== 'CommentBox')
+      .map((k) => [k, ContainerFlowNode]),
+  ),
+  CommentBox: CommentBoxNode,
+})
 
 const selectedNode = computed<GraphNode | null>(() => {
   if (!selectedID.value) return null
@@ -467,6 +475,10 @@ const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect } = useGraphM
 function onConfigUpdate(cfg: Record<string, any>) {
   if (!draft.value || !selectedNode.value) return
   selectedNode.value.config = cfg
+  // 配置变更可能改变 exec out pin 集 (Switch.cases / Parallel.n / Race.n) —
+  // flowNodes 持有旧 config 引用快照, computed pins 不会重算 → handle 不刷新.
+  // 这里重建 flow 让 ContainerFlowNode 拿到新 config 引用.
+  syncFlowFromDraft()
 }
 
 function onDeleteSelected() {

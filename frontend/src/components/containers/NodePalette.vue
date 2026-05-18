@@ -259,7 +259,10 @@ const KINDS_BY_GROUP: {
   // v4 表达式 (单节点)
   {
     label: '表达式',
-    items: [{ kind: 'Expr', icon: 'i-tabler-math' }],
+    items: [
+      { kind: 'Expr', icon: 'i-tabler-math' },
+      { kind: 'CommentBox', icon: 'i-tabler-square-letter-c' }, // v4 §9.1
+    ],
   },
   // v4 §6: 22 纯函数节点 (按 spec 子类划 4 个 palette 分组).
   {
