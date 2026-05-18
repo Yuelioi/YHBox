@@ -19,6 +19,12 @@ type BuiltinTemplatesIndex struct {
 	Templates map[string]BuiltinTemplateEntry `json:"templates"`
 }
 
+// ReadBuiltinTemplateFile reads a builtin template PNG from the embedded FS.
+// file is the filename as stored in BuiltinTemplateEntry.File, e.g. "result_1080.png".
+func ReadBuiltinTemplateFile(file string) ([]byte, error) {
+	return fs.ReadFile(builtinFS, "builtin_library/templates/"+file)
+}
+
 // LoadTemplatesIndex 从 builtin embedded FS 读 templates/index.json.
 func LoadTemplatesIndex() (*BuiltinTemplatesIndex, error) {
 	b, err := fs.ReadFile(builtinFS, "builtin_library/templates/index.json")

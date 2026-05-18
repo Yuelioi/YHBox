@@ -225,6 +225,36 @@ func main() {
 	}
 	librarySvc := library.NewService(libStore)
 
+	// v3 Phase C: register library builtin templates into global templateStore so
+	// fishing subgraph WaitTemplate/CheckTemplate/ClickTemplate nodes can resolve
+	// by short key (e.g. "result", "hook_icon"). Library ships builtin PNGs in the
+	// embedded FS; matcher reads from bin/data/assets/templates/<key>.png — bridge here.
+	if idx, idxErr := library.LoadTemplatesIndex(); idxErr == nil {
+		for key, entry := range idx.Templates {
+			// skip if user already has a template with this key (don't clobber user data)
+			if _, getErr := templateSvc.Get(key); getErr == nil {
+				continue
+			}
+			pngData, readErr := library.ReadBuiltinTemplateFile(entry.File)
+			if readErr != nil {
+				rootLog.Warn().Err(readErr).Str("key", key).Str("file", entry.File).Msg("builtin template read fail")
+				continue
+			}
+			meta := template.TemplateMeta{
+				Name:               key,
+				Description:        entry.Note,
+				RecordedResolution: entry.Resolution,
+				// Width/Height: SaveRaw computes from PNG when zero
+				// Region: builtin templates carry no ratio region (Matcher uses full-image detect)
+			}
+			if saveErr := templateSvc.SaveRaw(key, pngData, meta); saveErr != nil {
+				rootLog.Warn().Err(saveErr).Str("key", key).Msg("builtin template register fail")
+			}
+		}
+	} else {
+		rootLog.Warn().Err(idxErr).Msg("load builtin templates index")
+	}
+
 	containerStore, err := container.NewStore(filepath.Join(dataDir, "containers"))
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("container store init")
