@@ -18,9 +18,6 @@ logs/
 # 必须 checkin（CI 上 git clone 时拿不到就炸 `wails3 generate syso`）。
 !build/windows/wails.exe.manifest
 
-
-settings.json
-
 # wails3 build output
 bin/
 # 运行期落地的 action/container/schedule/template 数据（spec § data/）
@@ -40,3 +37,13 @@ frontend/.oxlintcache
 
 # Rust
 native/capture_wgc/target
+
+# AI Tools
+CLAUDE.md
+.claude/
+
+# Agent State
+COORDINATOR.md
+
+# User Data
+settings.json
