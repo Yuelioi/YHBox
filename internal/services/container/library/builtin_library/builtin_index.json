@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "subgraphs": [
+    { "id": "fishing", "file": "subgraphs/fishing.json", "isMain": true, "displayName": "Fishing (主图)" },
+    { "id": "fishing-fight", "file": "subgraphs/fishing-fight.json", "displayName": "Fishing — Fight (溜鱼内循环)" },
+    { "id": "fishing-result", "file": "subgraphs/fishing-result.json", "displayName": "Fishing — Result (结算关闭)" },
+    { "id": "fishing-shopsell", "file": "subgraphs/fishing-shopsell.json", "displayName": "Fishing — Shopsell (鱼仓满卖鱼)" },
+    { "id": "fishing-buybait", "file": "subgraphs/fishing-buybait.json", "displayName": "Fishing — Buybait (买饵)" },
+    { "id": "fishing-changebait", "file": "subgraphs/fishing-changebait.json", "displayName": "Fishing — Changebait (换万能饵)" }
+  ],
+  "templatesIndexFile": "templates/index.json"
+}

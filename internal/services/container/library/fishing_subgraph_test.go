@@ -172,3 +172,80 @@ func TestFishingResultSubgraph_Loads(t *testing.T) {
 		t.Errorf("expected 3 edges, got %d", len(sg.Graph.Edges))
 	}
 }
+
+func TestFishingMainGraph_Loads(t *testing.T) {
+	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing.json")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var sg struct {
+		ID    string `json:"id"`
+		Graph struct {
+			Nodes []struct{ Kind string `json:"kind"` } `json:"nodes"`
+			Edges []struct{ From, To string }           `json:"edges"`
+		} `json:"graph"`
+	}
+	if err := json.Unmarshal(b, &sg); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if sg.ID != "fishing" {
+		t.Errorf("id = %q", sg.ID)
+	}
+	if len(sg.Graph.Nodes) < 25 {
+		t.Errorf("expected ≥25 nodes, got %d", len(sg.Graph.Nodes))
+	}
+	kinds := map[string]int{}
+	for _, n := range sg.Graph.Nodes {
+		kinds[n.Kind]++
+	}
+	if kinds["WindowTarget"] != 1 {
+		t.Errorf("expected 1 WindowTarget, got %d", kinds["WindowTarget"])
+	}
+	if kinds["MouseCalibration"] != 1 {
+		t.Errorf("expected 1 MouseCalibration, got %d", kinds["MouseCalibration"])
+	}
+	if kinds["Try"] != 4 {
+		t.Errorf("expected 4 Try (shopsell+buybait+changebait+fight), got %d", kinds["Try"])
+	}
+	if kinds["KeyHoldStop"] < 6 {
+		t.Errorf("expected ≥6 KeyHoldStop (post-Try cleanup pairs), got %d", kinds["KeyHoldStop"])
+	}
+	if kinds["CheckTemplate"] < 5 {
+		t.Errorf("expected ≥5 CheckTemplate (priority chain), got %d", kinds["CheckTemplate"])
+	}
+}
+
+func TestBuiltinIndex_AllSubgraphsListed(t *testing.T) {
+	b, err := fs.ReadFile(builtinFS, "builtin_library/builtin_index.json")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var idx struct {
+		Subgraphs []struct {
+			ID     string `json:"id"`
+			IsMain bool   `json:"isMain"`
+		} `json:"subgraphs"`
+	}
+	if err := json.Unmarshal(b, &idx); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	expectedIDs := []string{"fishing", "fishing-fight", "fishing-result", "fishing-shopsell", "fishing-buybait", "fishing-changebait"}
+	got := map[string]bool{}
+	for _, sg := range idx.Subgraphs {
+		got[sg.ID] = true
+	}
+	for _, id := range expectedIDs {
+		if !got[id] {
+			t.Errorf("builtin index missing subgraph %q", id)
+		}
+	}
+	mainCount := 0
+	for _, sg := range idx.Subgraphs {
+		if sg.IsMain {
+			mainCount++
+		}
+	}
+	if mainCount != 1 {
+		t.Errorf("expected exactly 1 main subgraph, got %d", mainCount)
+	}
+}
