@@ -434,6 +434,15 @@
       </div>
     </section>
 
+    <!-- Switch: 多路分支 case 编辑器 -->
+    <section v-else-if="node.kind === 'Switch'" class="mb-5">
+      <SwitchInspector
+        :node="node"
+        :edges="edges ?? []"
+        @update="emit('update', $event)"
+      />
+    </section>
+
     <!-- Config fields -->
     <section v-else-if="fields.length > 0">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">配置</h4>
@@ -489,6 +498,7 @@ import { Events } from '@wailsio/runtime'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
 import ExpressionInput from '@/components/expressions/ExpressionInput.vue'
+import SwitchInspector from './inspector/SwitchInspector.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import KeyCapture from './KeyCapture.vue'
 import ClipTimeline from './ClipTimeline.vue'
