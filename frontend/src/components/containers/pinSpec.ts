@@ -6,7 +6,36 @@
 //   2. UI 上画出 exec edge vs data edge 不同样式
 //   3. 帮助连线时校验 from/to pin 是否合法
 
-export type PinDataType = 'point' | 'number' | 'any' | 'string'
+// v4: 5-type data pin system (matches backend internal/services/container/runtime/pin_types.go)
+export type PinDataType = 'number' | 'bool' | 'string' | 'point' | 'any'
+/** v4 alias used by GetVar/SetVar/Expr/pure-func node specs */
+export type PinType = PinDataType
+
+/** v4 color map for typed data pins (spec §2.2). vue-flow Handle uses this for background. */
+export const TYPE_COLOR: Record<PinType, string> = {
+  number: '#60a5fa', // blue
+  bool: '#f87171', // red
+  string: '#a78bfa', // purple
+  point: '#34d399', // green
+  any: '#9ca3af', // gray
+}
+
+/** v4 data pin descriptor returned by dataInFn / dataOutFn (preserves type info for color + validator). */
+export interface DataPinSpec {
+  name: string
+  type: PinType
+}
+
+/**
+ * v4 pin type compatibility (spec §2.3) — mirrors backend runtime.PinTypeCompat.
+ * @returns allow=can connect, warn=allowed but coerced (UI gives hint)
+ */
+export function pinTypeCompat(from: PinType, to: PinType): { allow: boolean; warn: boolean } {
+  if (from === to || from === 'any' || to === 'any') return { allow: true, warn: false }
+  if (from === 'number' && (to === 'bool' || to === 'string')) return { allow: true, warn: true }
+  if (from === 'bool' && (to === 'number' || to === 'string')) return { allow: true, warn: true }
+  return { allow: false, warn: false }
+}
 
 export interface PinSpec {
   execIn: string[] // 默认 ['in']
