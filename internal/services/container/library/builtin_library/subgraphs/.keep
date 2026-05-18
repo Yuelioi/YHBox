@@ -1,0 +1,1 @@
+# Placeholder so git tracks empty dir. Builtin subgraphs/templates ship via go:embed in ship.go.

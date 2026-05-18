@@ -38,6 +38,9 @@ type Store struct {
 }
 
 func NewStore(root string) (*Store, error) {
+	if err := EnsureBuiltinLibrary(root); err != nil {
+		return nil, fmt.Errorf("ensure builtin library: %w", err)
+	}
 	if err := os.MkdirAll(filepath.Join(root, "subgraphs"), 0o755); err != nil {
 		return nil, err
 	}
