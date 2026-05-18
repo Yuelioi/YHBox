@@ -143,6 +143,12 @@ export const PIN_SPECS: Record<string, PinSpec> = {
   // v4 §9.1 CommentBox: pure UI visual grouping — no exec, no data, no handles.
   CommentBox: { execIn: [], execOut: [], dataIn: {}, dataOut: {} },
 
+  // v4 §9.2 CollapsedNode: behaves like Subgraph call — exec in/out + dynamic data pins
+  // come from the bound isAnonymous Subgraph's InputParams + OutputPins.
+  // ContainerFlowNode handles rendering same as Subgraph (visual distinction comes from
+  // KIND_VISUAL icon/color + double-click into anonymous subgraph).
+  CollapsedNode: { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} },
+
   // v4 §6 pure-function nodes (22 nodes). All pure data: no exec, no side effects.
   Add: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
   Sub: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
@@ -337,6 +343,7 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   GetParam: '子图入参',
   Expr: '表达式',
   CommentBox: '注释框',
+  CollapsedNode: '折叠节点',
   // v4 §6 pure-function nodes (no Chinese label override — kind name is concise enough)
   Add: '加', Sub: '减', Mul: '乘', Div: '除', Mod: '取余', Neg: '取负',
   Lt: '<', LtEq: '≤', Gt: '>', GtEq: '≥', Eq: '==', NotEq: '!=',
@@ -465,6 +472,8 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   Expr: { expr: '', outType: 'auto', inputs: [] },
   // v4 CommentBox: 默认琥珀色 200x150 框.
   CommentBox: { label: '注释', color: '#fbbf24', width: 200, height: 150 },
+  // v4 CollapsedNode: subgraphId 由 collapse 操作填; label 跟随后备 Subgraph.label.
+  CollapsedNode: { subgraphId: '', label: 'Collapsed' },
   // v4 §6 pure-func defaults: 各节点 data-in 默认通过 inline literal 写值 (用户少点拖拽).
   Add: { literal: { a: 0, b: 0 } }, Sub: { literal: { a: 0, b: 0 } },
   Mul: { literal: { a: 0, b: 0 } }, Div: { literal: { a: 0, b: 0 } },
@@ -574,6 +583,8 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
   Expr: { icon: 'i-tabler-math', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   // v4 CommentBox: visual-only; icon used in palette + Inspector header.
   CommentBox: { icon: 'i-tabler-square-letter-c', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  // v4 CollapsedNode: fuchsia 色区分 Subgraph (蓝紫色), 强调 "本地折叠 vs 可复用子图".
+  CollapsedNode: { icon: 'i-tabler-fold', bg: 'bg-fuchsia-500/15', border: 'border-fuchsia-500/40' },
   // v4 pure-func nodes (cyan group — distinct from data accessors)
   Add: { icon: 'i-tabler-plus', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
   Sub: { icon: 'i-tabler-minus', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },

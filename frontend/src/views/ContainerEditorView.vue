@@ -450,10 +450,11 @@ function onNodeClick(evt: any) {
 
 function onNodeDoubleClick(evt: any) {
   const n = evt.node
-  if (n?.data?.kind === 'Subgraph') {
+  // v4 §9.2: CollapsedNode 跟 Subgraph 共享 navigation 语义 (both wrap a subgraph by ID).
+  if (n?.data?.kind === 'Subgraph' || n?.data?.kind === 'CollapsedNode') {
     const sgID = n.data.config?.subgraphId
     if (!sgID) {
-      toast.add({ title: '该 Subgraph 节点未指定子图', color: 'warning' })
+      toast.add({ title: '该节点未指定子图', color: 'warning' })
       return
     }
     editorStore.pushPath(sgID)
