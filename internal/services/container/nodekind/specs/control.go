@@ -2,7 +2,16 @@
 package specs
 
 import (
+	"strconv"
+
 	"yhbox/internal/services/container/nodekind"
+)
+
+// Parallel / Race dynamic branch count is clamped to [minDynBranches, maxDynBranches].
+// Raising maxDynBranches above 99 requires no code change (strconv.Itoa handles any int).
+const (
+	minDynBranches = 2
+	maxDynBranches = 8
 )
 
 func init() {
@@ -86,7 +95,7 @@ func init() {
 		ExecOutFn: func(cfg map[string]any) []string {
 			n := dynBranchCount(cfg)
 			out := make([]string, 0, n+1)
-			for i := 0; i < n; i++ {
+			for i := range n {
 				out = append(out, branchName(i))
 			}
 			out = append(out, "complete")
@@ -104,7 +113,7 @@ func init() {
 		ExecOutFn: func(cfg map[string]any) []string {
 			n := dynBranchCount(cfg)
 			out := make([]string, 0, n+1)
-			for i := 0; i < n; i++ {
+			for i := range n {
 				out = append(out, branchName(i))
 			}
 			out = append(out, "complete")
@@ -130,26 +139,13 @@ func init() {
 	})
 }
 
-// dynBranchCount clamps Parallel/Race's n config to [2, 8].
+// dynBranchCount reads cfg.literal.n and clamps to [minDynBranches, maxDynBranches].
 func dynBranchCount(cfg map[string]any) int {
 	v, _ := cfg["literal"].(map[string]any)
 	raw, _ := v["n"].(float64)
-	n := int(raw)
-	if n < 2 {
-		n = 2
-	}
-	if n > 8 {
-		n = 8
-	}
-	return n
+	return max(minDynBranches, min(maxDynBranches, int(raw)))
 }
 
-func branchName(i int) string { return "branch" + itoa(i) }
-
-func itoa(i int) string {
-	if i < 10 {
-		return string('0' + byte(i))
-	}
-	// only used for 0..7, never >= 10 by clamp above; fallback for safety
-	return ""
-}
+// branchName returns "branch{i}" for Parallel/Race exec-out pins. Safe for any i ≥ 0;
+// callers are expected to feed values from dynBranchCount so i ∈ [0, maxDynBranches).
+func branchName(i int) string { return "branch" + strconv.Itoa(i) }
