@@ -219,6 +219,7 @@ const KINDS_BY_GROUP: {
       { kind: 'Sleep', icon: 'i-tabler-clock' },
       { kind: 'Loop', icon: 'i-tabler-repeat' },
       { kind: 'If', icon: 'i-tabler-git-branch' },
+      { kind: 'Switch', icon: 'i-tabler-switch-3' },
       { kind: 'Parallel', icon: 'i-tabler-columns-3' },
       { kind: 'Race', icon: 'i-tabler-flag' },
       { kind: 'Stop', icon: 'i-tabler-square' },
