@@ -10,8 +10,8 @@ import (
 // ResolveSubgraphCall 解析一个 Subgraph 调用节点：从 node.config["subgraphId"] 拿目标子图，
 // 在 container.Subgraphs 里找。失败给清晰的错误信息。
 func ResolveSubgraphCall(c *container.Container, callNode *container.GraphNode) (*container.Subgraph, error) {
-	if callNode == nil || callNode.Kind != "Subgraph" {
-		return nil, errors.New("not a Subgraph call node")
+	if callNode == nil || (callNode.Kind != "Subgraph" && callNode.Kind != "CollapsedNode") {
+		return nil, errors.New("not a Subgraph / CollapsedNode call node")
 	}
 	sgID, _ := callNode.Config["subgraphId"].(string)
 	if sgID == "" {

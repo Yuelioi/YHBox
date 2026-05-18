@@ -83,6 +83,10 @@ const (
 	// v4 GetSys / GetParam (spec §4)
 	CodeGetSysUnknownPath    = "GETSYS_UNKNOWN_PATH"
 	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
+
+	// v4 CollapsedNode (spec §9.2)
+	CodeCollapsedPinBroken                = "COLLAPSED_PIN_BROKEN"
+	CodeCollapsedReferencedBySubgraphCall = "COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL"
 )
 
 // ValidationError is the i18n-ready error envelope (spec §12).
@@ -132,6 +136,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
 	errs = append(errs, validateDataGraphAcyclic(c)...)
+	errs = append(errs, validateCollapsedReferences(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}

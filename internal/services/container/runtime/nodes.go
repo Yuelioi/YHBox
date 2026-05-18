@@ -67,7 +67,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execClickTemplate(ctx, node, tok)
 	case "DetectColor":
 		return r.execDetectColor(ctx, node, tok)
-	case "Subgraph":
+	case "Subgraph", "CollapsedNode":
+		// v4 §9.2 CollapsedNode = isAnonymous Subgraph; same runtime path.
 		return r.execSubgraph(ctx, node, tok)
 	case "SubgraphInput":
 		// FUTURE-WORK (spec §11): SubgraphInput 当前在 graph 里以实节点存在, 但它本质是

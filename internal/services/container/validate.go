@@ -57,7 +57,8 @@ var KnownNodeKinds = map[string]bool{
 	"Select": true,
 	// v4 §9.1 visual-only (no exec / no data)
 	"CommentBox": true,
-	// v4 Phase D adds: CollapsedNode
+	// v4 §9.2 CollapsedNode = isAnonymous Subgraph (separate kind for UI clarity)
+	"CollapsedNode": true,
 }
 
 // yieldKinds Loop body 至少含一个，避免 forever loop CPU 100%。
