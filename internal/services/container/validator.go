@@ -48,6 +48,21 @@ const (
 	CodeInvalidWindowTargetEmptyMatch = "INVALID_WINDOW_TARGET_EMPTY_MATCH"
 )
 
+// Phase C node-kind config validation codes.
+const (
+	CodeInvalidROI            = "INVALID_ROI"
+	CodeInvalidHSVRange       = "INVALID_HSV_RANGE"
+	CodeInvalidScanAxis       = "INVALID_SCAN_AXIS"
+	CodeInvalidClusterRange   = "INVALID_CLUSTER_RANGE"
+	CodeInvalidVK             = "INVALID_VK"
+	CodeInvalidMouseButton    = "INVALID_MOUSE_BUTTON"
+	CodeUnsafeScreenshotPath  = "UNSAFE_SCREENSHOT_PATH"
+	CodePollTooFast           = "POLL_TOO_FAST"
+	CodeStopwatchEmptyKey     = "STOPWATCH_EMPTY_KEY"
+	CodeStopwatchKeyMismatch  = "STOPWATCH_KEY_MISMATCH"
+	CodeThrowInMainGraph      = "THROW_IN_MAIN_GRAPH"
+)
+
 type ValidationError struct {
 	Severity  string   `json:"severity"`
 	Code      string   `json:"code"`
@@ -86,6 +101,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateMissingSubgraph(c)...)
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
+	errs = append(errs, validatePhaseCNodeKinds(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}
@@ -609,6 +625,244 @@ func windowTargetIsEmptyMatch(spec windowTargetMatchSpec) bool {
 	}
 	return false
 }
+
+// ---------------------------------------------------------------------------
+// Phase C node-kind config validators
+// ---------------------------------------------------------------------------
+
+// validatePhaseCNodeKinds runs per-kind config checks over every graph
+// (main + all subgraphs) and emits Phase C ValidationErrors.
+// It also performs the cross-node Stopwatch key coherence check per graph.
+func validatePhaseCNodeKinds(c *Container) []ValidationError {
+	var errs []ValidationError
+
+	// main graph — graphPath ["main"], isMain=true
+	errs = append(errs, checkPhaseCGraph(c.Graph.Nodes, []string{"main"}, true)...)
+
+	// subgraphs — isMain=false
+	for _, sg := range c.Subgraphs {
+		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
+		errs = append(errs, checkPhaseCGraph(sg.Graph.Nodes, sgPath, false)...)
+	}
+	return errs
+}
+
+// checkPhaseCGraph runs per-node dispatch + cross-node Stopwatch key check
+// for a single graph (main or subgraph).
+func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []ValidationError {
+	var errs []ValidationError
+
+	// Collect StopwatchStart keys for cross-node coherence check.
+	startKeys := map[string]struct{}{}
+
+	for i := range nodes {
+		n := &nodes[i]
+		var nodeErrs []ValidationError
+
+		switch n.Kind {
+		case "DetectColorHSV":
+			nodeErrs = validateDetectColorHSV(n)
+		case "ROIColorScan":
+			nodeErrs = validateROIColorScan(n)
+		case "Screenshot":
+			nodeErrs = validateScreenshot(n)
+		case "KeyHoldStart", "KeyHoldStop":
+			nodeErrs = validateKeyHold(n)
+		case "MouseHoldStart", "MouseHoldStop":
+			nodeErrs = validateMouseHold(n)
+		case "StopwatchStart":
+			nodeErrs = validateStopwatch(n)
+			if key, _ := n.Config["key"].(string); key != "" {
+				startKeys[key] = struct{}{}
+			}
+		case "StopwatchStop", "StopwatchRead":
+			nodeErrs = validateStopwatch(n)
+		case "Throw":
+			if isMain {
+				nodeErrs = []ValidationError{{
+					Severity:  SeverityWarning,
+					NodeID:    n.ID,
+					Code:      CodeThrowInMainGraph,
+					GraphPath: graphPath,
+					Message:   "Throw 节点在主图里会终止整个 runner；通常应放在子图的错误路径中",
+				}}
+			}
+		}
+
+		for j := range nodeErrs {
+			nodeErrs[j].GraphPath = graphPath
+		}
+		errs = append(errs, nodeErrs...)
+	}
+
+	// Cross-node: StopwatchStop/Read keys must have a matching StopwatchStart in same graph.
+	for i := range nodes {
+		n := &nodes[i]
+		if n.Kind != "StopwatchStop" && n.Kind != "StopwatchRead" {
+			continue
+		}
+		key, _ := n.Config["key"].(string)
+		if key == "" {
+			continue // already reported by validateStopwatch
+		}
+		if _, ok := startKeys[key]; !ok {
+			errs = append(errs, ValidationError{
+				Severity:  SeverityWarning,
+				Code:      CodeStopwatchKeyMismatch,
+				GraphPath: graphPath,
+				NodeID:    n.ID,
+				Message:   fmt.Sprintf("%s 使用 key %q 但同图中无对应的 StopwatchStart (运行时会读零值)", n.Kind, key),
+			})
+		}
+	}
+
+	return errs
+}
+
+// validateDetectColorHSV checks ROI presence/size, HSV range ordering,
+// and poll interval sanity.
+func validateDetectColorHSV(n *GraphNode) []ValidationError {
+	var errs []ValidationError
+
+	roi, _ := n.Config["roi"].(map[string]any)
+	if roi == nil {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeInvalidROI,
+			Message:  "missing roi",
+		})
+	} else {
+		w, _ := roi["w"].(float64)
+		h, _ := roi["h"].(float64)
+		if w < 1 || h < 1 {
+			errs = append(errs, ValidationError{
+				Severity: SeverityError,
+				NodeID:   n.ID,
+				Code:     CodeInvalidROI,
+				Message:  fmt.Sprintf("roi w/h must be >=1, got %vx%v", w, h),
+			})
+		}
+	}
+
+	if hsv, _ := n.Config["hsv"].(map[string]any); hsv != nil {
+		get := func(k string) float64 { v, _ := hsv[k].(float64); return v }
+		if get("hMin") > get("hMax") || get("sMin") > get("sMax") || get("vMin") > get("vMax") {
+			errs = append(errs, ValidationError{
+				Severity: SeverityError,
+				NodeID:   n.ID,
+				Code:     CodeInvalidHSVRange,
+				Message:  "HSV min > max",
+			})
+		}
+	}
+
+	if poll, _ := n.Config["pollIntervalMs"].(float64); poll > 0 && poll < 30 {
+		errs = append(errs, ValidationError{
+			Severity: SeverityWarning,
+			NodeID:   n.ID,
+			Code:     CodePollTooFast,
+			Message:  fmt.Sprintf("pollIntervalMs=%v < 30, will hammer CPU; runtime clamps <10", poll),
+		})
+	}
+
+	return errs
+}
+
+// validateROIColorScan extends validateDetectColorHSV with axis + cluster checks.
+func validateROIColorScan(n *GraphNode) []ValidationError {
+	errs := validateDetectColorHSV(n)
+
+	axis, _ := n.Config["scanAxis"].(string)
+	if axis != "x" && axis != "y" {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeInvalidScanAxis,
+			Message:  fmt.Sprintf("scanAxis must be 'x' or 'y', got %q", axis),
+		})
+	}
+
+	minC, _ := n.Config["minClusterPx"].(float64)
+	maxC, _ := n.Config["maxClusterPx"].(float64)
+	if maxC > 0 && minC > maxC {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeInvalidClusterRange,
+			Message:  fmt.Sprintf("minClusterPx %v > maxClusterPx %v", minC, maxC),
+		})
+	}
+
+	return errs
+}
+
+// validateScreenshot checks that pathTemplate is relative and contains no "..".
+func validateScreenshot(n *GraphNode) []ValidationError {
+	tpl, _ := n.Config["pathTemplate"].(string)
+	if tpl == "" {
+		return nil // no template set: no path safety concern
+	}
+	unsafe := strings.Contains(tpl, "..") ||
+		strings.HasPrefix(tpl, "/") ||
+		strings.HasPrefix(tpl, "\\") ||
+		(len(tpl) >= 3 && tpl[1] == ':') // e.g. C:\...
+	if unsafe {
+		return []ValidationError{{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeUnsafeScreenshotPath,
+			Message:  "pathTemplate must be relative with no '..' traversal",
+		}}
+	}
+	return nil
+}
+
+// validateKeyHold checks that vk is a non-empty string.
+// Runtime calls pkginput.VK(name); we do not pre-validate the name here
+// (Phase C precedent: let runtime fail loudly for unknown VK names).
+func validateKeyHold(n *GraphNode) []ValidationError {
+	vk, _ := n.Config["vk"].(string)
+	if vk == "" {
+		return []ValidationError{{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeInvalidVK,
+			Message:  "vk required (string, e.g. 'A' / 'Space' / 'F9')",
+		}}
+	}
+	return nil
+}
+
+// validateMouseHold checks that button is one of left/right/middle.
+func validateMouseHold(n *GraphNode) []ValidationError {
+	btn, _ := n.Config["button"].(string)
+	if btn != "left" && btn != "right" && btn != "middle" {
+		return []ValidationError{{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeInvalidMouseButton,
+			Message:  fmt.Sprintf("button %q not in left/right/middle", btn),
+		}}
+	}
+	return nil
+}
+
+// validateStopwatch checks that key is non-empty.
+func validateStopwatch(n *GraphNode) []ValidationError {
+	key, _ := n.Config["key"].(string)
+	if key == "" {
+		return []ValidationError{{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeStopwatchEmptyKey,
+			Message:  "key required",
+		}}
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 
 func intFromConfig(cfg map[string]any, key string) (int, bool) {
 	if cfg == nil {
