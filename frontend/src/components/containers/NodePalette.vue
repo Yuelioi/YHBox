@@ -5,7 +5,15 @@
     <div class="flex-1 overflow-y-auto pt-2 space-y-2">
       <!-- 节点 tab -->
       <template v-if="activeTab === 'nodes'">
-        <div v-for="group in groups" :key="group.label">
+        <div class="px-1 pb-1 sticky top-0 bg-default z-10">
+          <UInput
+            v-model="nodeSearch"
+            placeholder="搜索节点 (kind 或 中文名)..."
+            icon="i-tabler-search"
+            size="xs"
+          />
+        </div>
+        <div v-for="group in filteredGroups" :key="group.label">
           <div class="font-medium text-toned mb-1">{{ group.label }}</div>
           <div class="space-y-0.5">
             <button
@@ -22,6 +30,9 @@
             </button>
           </div>
         </div>
+        <p v-if="filteredGroups.length === 0" class="text-[11px] text-dimmed text-center py-4">
+          没匹配的节点
+        </p>
       </template>
 
       <!-- 库 tab：库子图 mini 列表 -->
@@ -111,6 +122,8 @@ const paletteTabs = [
 ]
 const activeTab = ref('nodes')
 const libSearch = ref('')
+// v4 B10: search filter for built-in node palette (matches kind or label substring, case-insensitive)
+const nodeSearch = ref('')
 
 const filteredLibrary = computed(() => {
   const q = libSearch.value.trim().toLowerCase()
@@ -235,6 +248,57 @@ const KINDS_BY_GROUP: {
       { kind: 'IncVar', icon: 'i-tabler-circle-plus' },
     ],
   },
+  // v4 系统/入参 (pure data accessors)
+  {
+    label: '系统/入参',
+    items: [
+      { kind: 'GetSys', icon: 'i-tabler-cpu' },
+      { kind: 'GetParam', icon: 'i-tabler-input-search' },
+    ],
+  },
+  // v4 表达式 (单节点)
+  {
+    label: '表达式',
+    items: [{ kind: 'Expr', icon: 'i-tabler-math' }],
+  },
+  // v4 §6: 22 纯函数节点 (按 spec 子类划 4 个 palette 分组).
+  {
+    label: '算术',
+    items: [
+      { kind: 'Add', icon: 'i-tabler-plus' },
+      { kind: 'Sub', icon: 'i-tabler-minus' },
+      { kind: 'Mul', icon: 'i-tabler-x' },
+      { kind: 'Div', icon: 'i-tabler-divide' },
+      { kind: 'Mod', icon: 'i-tabler-percentage' },
+      { kind: 'Neg', icon: 'i-tabler-arrow-down-right' },
+    ],
+  },
+  {
+    label: '比较/逻辑',
+    items: [
+      { kind: 'Lt', icon: 'i-tabler-math-lower' },
+      { kind: 'LtEq', icon: 'i-tabler-math-equal-lower' },
+      { kind: 'Gt', icon: 'i-tabler-math-greater' },
+      { kind: 'GtEq', icon: 'i-tabler-math-equal-greater' },
+      { kind: 'Eq', icon: 'i-tabler-equal' },
+      { kind: 'NotEq', icon: 'i-tabler-equal-not' },
+      { kind: 'And', icon: 'i-tabler-ampersand' },
+      { kind: 'Or', icon: 'i-tabler-letter-o' },
+      { kind: 'Not', icon: 'i-tabler-exclamation-mark' },
+      { kind: 'Select', icon: 'i-tabler-arrows-split' },
+    ],
+  },
+  {
+    label: '字符串/转换',
+    items: [
+      { kind: 'Concat', icon: 'i-tabler-plus-equal' },
+      { kind: 'Contains', icon: 'i-tabler-search' },
+      { kind: 'Length', icon: 'i-tabler-ruler' },
+      { kind: 'ToString', icon: 'i-tabler-letter-t' },
+      { kind: 'ToNumber', icon: 'i-tabler-numbers' },
+      { kind: 'ToBool', icon: 'i-tabler-toggle-right' },
+    ],
+  },
   {
     label: '图像',
     items: [
@@ -324,4 +388,19 @@ const groups = KINDS_BY_GROUP.map((g) => ({
   label: g.label,
   items: g.items.map((n) => ({ ...n, label: KIND_LABEL_ZH[n.kind] ?? n.kind })),
 }))
+
+// v4 B10: search-aware computed groups. Empty query → all groups; non-empty → only
+// groups with at least one matching item, items filtered by substring on kind+label.
+const filteredGroups = computed(() => {
+  const q = nodeSearch.value.trim().toLowerCase()
+  if (!q) return groups
+  return groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (n) => n.kind.toLowerCase().includes(q) || n.label.toLowerCase().includes(q),
+      ),
+    }))
+    .filter((g) => g.items.length > 0)
+})
 </script>

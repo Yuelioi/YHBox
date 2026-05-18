@@ -81,6 +81,64 @@ export const NODE_FIELD_SCHEMAS: Record<string, Field[]> = {
     { key: 'varName', label: '变量名', type: 'var-name-select' },
     { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS_WITH_AUTO, hint: '默认 local; 想跨 frame 读 global; auto = frame chain → global' },
   ],
+  // v4 GetSys: 选 sys path (与 runtime SysPathSchema 同步; 改 schema 时这里也要更新).
+  GetSys: [
+    {
+      key: 'path',
+      label: '系统路径',
+      type: 'select',
+      options: [
+        { label: 'runId (number)', value: 'runId' },
+        { label: 'iter (number) — Loop 当前 iter', value: 'iter' },
+        { label: 'winnerIdx (number) — Race 获胜分支', value: 'winnerIdx' },
+        { label: 'lastTemplate.found (bool)', value: 'lastTemplate.found' },
+        { label: 'lastTemplate.point (point)', value: 'lastTemplate.point' },
+        { label: 'lastTemplate.point.x (number)', value: 'lastTemplate.point.x' },
+        { label: 'lastTemplate.point.y (number)', value: 'lastTemplate.point.y' },
+        { label: 'lastTemplate.region (any)', value: 'lastTemplate.region' },
+        { label: 'lastColor.count (number)', value: 'lastColor.count' },
+        { label: 'lastColor.cx (number)', value: 'lastColor.cx' },
+        { label: 'lastColor.cy (number)', value: 'lastColor.cy' },
+        { label: 'lastColor.center (point)', value: 'lastColor.center' },
+        { label: 'lastColor.center.x (number)', value: 'lastColor.center.x' },
+        { label: 'lastColor.center.y (number)', value: 'lastColor.center.y' },
+        { label: 'lastStopwatch.elapsedMs (number)', value: 'lastStopwatch.elapsedMs' },
+        { label: 'lastTry.errorMsg (string)', value: 'lastTry.errorMsg' },
+        { label: 'lastDetect.pixelCount (number)', value: 'lastDetect.pixelCount' },
+        { label: 'lastDetect.pixelRatio (number)', value: 'lastDetect.pixelRatio' },
+        { label: 'lastROIScan.clusterCount (number)', value: 'lastROIScan.clusterCount' },
+        { label: 'lastROIScan.clusters (any)', value: 'lastROIScan.clusters' },
+        { label: 'lastScreenshot.path (string)', value: 'lastScreenshot.path' },
+      ],
+      hint: '运行时 sys 状态 — 同 tick 内一致 (per-tick snapshot, spec §10.3)',
+    },
+  ],
+  // v4 GetParam: 子图入参; 候选 = 当前所在子图的 inputParams.
+  // (NodeInspector 里没有 inputParams 上下文 wire, 暂用 text input. B9 frontend 后续可加 store 联动.)
+  GetParam: [
+    { key: 'paramName', label: '参数名 (paramName)', type: 'text', placeholder: '当前子图 inputParams 里的 name' },
+  ],
+  // v4 Expr: 4 字段 — expr 字符串, outType, inputs 数组 (单独 UI).
+  // 简化版: 用 text+text 渲染 expr+outType, inputs 用 textarea (JSON-like).
+  // 后续 (Phase D) ExprInspector 升级为 dedicated component + monaco editor + dynamic input rows.
+  Expr: [
+    { key: 'expr', label: '表达式', type: 'text', placeholder: 'i + 1', hint: '只引用 inputs 中声明的 identifier (无 $ 前缀)' },
+    {
+      key: 'outType',
+      label: '输出类型',
+      type: 'select',
+      options: [
+        { label: 'auto (默认, 推断)', value: 'auto' },
+        { label: 'number', value: 'number' },
+        { label: 'bool', value: 'bool' },
+        { label: 'string', value: 'string' },
+        { label: 'point', value: 'point' },
+        { label: 'any', value: 'any' },
+      ],
+    },
+    // inputs 不通过 nodeFieldSchemas 渲染 — ExprInspector 后续 dedicated component.
+    // 当前 v4 用户可手动在 JSON config 里加 inputs: [{name, type}, ...]
+  ],
   WaitTemplate: [
     { key: 'template', label: '模板', type: 'template-picker' },
     { key: 'timeoutMs', label: '超时 ms', type: 'expr', placeholder: '5000', exprType: 'number' },

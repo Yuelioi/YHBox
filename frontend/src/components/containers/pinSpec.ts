@@ -131,6 +131,38 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     dataIn: {},
     dataOut: { value: 'any' }, // dynamic — actual type is Container.Vars[varName].type
   },
+
+  // v4 system/param accessors (pure data, no exec)
+  GetSys: { execIn: [], execOut: [], dataIn: {}, dataOut: { value: 'any' } },
+  GetParam: { execIn: [], execOut: [], dataIn: {}, dataOut: { value: 'any' } },
+
+  // v4 Expr: dynamic data-in from config.inputs[] — static dataIn empty,
+  // ContainerFlowNode reads config.inputs to render extra pin rows.
+  Expr: { execIn: [], execOut: [], dataIn: {}, dataOut: { value: 'any' } },
+
+  // v4 §6 pure-function nodes (22 nodes). All pure data: no exec, no side effects.
+  Add: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
+  Sub: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
+  Mul: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
+  Div: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
+  Mod: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'number' } },
+  Neg: { execIn: [], execOut: [], dataIn: { x: 'number' }, dataOut: { result: 'number' } },
+  Lt: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'any' } }, // bool
+  LtEq: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'any' } },
+  Gt: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'any' } },
+  GtEq: { execIn: [], execOut: [], dataIn: { a: 'number', b: 'number' }, dataOut: { result: 'any' } },
+  Eq: { execIn: [], execOut: [], dataIn: { a: 'any', b: 'any' }, dataOut: { result: 'any' } },
+  NotEq: { execIn: [], execOut: [], dataIn: { a: 'any', b: 'any' }, dataOut: { result: 'any' } },
+  And: { execIn: [], execOut: [], dataIn: { a: 'any', b: 'any' }, dataOut: { result: 'any' } },
+  Or: { execIn: [], execOut: [], dataIn: { a: 'any', b: 'any' }, dataOut: { result: 'any' } },
+  Not: { execIn: [], execOut: [], dataIn: { x: 'any' }, dataOut: { result: 'any' } },
+  Concat: { execIn: [], execOut: [], dataIn: { a: 'string', b: 'string' }, dataOut: { result: 'string' } },
+  Contains: { execIn: [], execOut: [], dataIn: { haystack: 'string', needle: 'string' }, dataOut: { result: 'any' } },
+  Length: { execIn: [], execOut: [], dataIn: { s: 'string' }, dataOut: { result: 'number' } },
+  ToString: { execIn: [], execOut: [], dataIn: { x: 'any' }, dataOut: { result: 'string' } },
+  ToNumber: { execIn: [], execOut: [], dataIn: { x: 'any' }, dataOut: { result: 'number' } },
+  ToBool: { execIn: [], execOut: [], dataIn: { x: 'any' }, dataOut: { result: 'any' } },
+  Select: { execIn: [], execOut: [], dataIn: { cond: 'any', a: 'any', b: 'any' }, dataOut: { result: 'any' } },
   WaitTemplate: {
     execIn: DEFAULT_IN,
     execOut: ['found', 'timeout'],
@@ -297,6 +329,17 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   SetVar: '赋值变量',
   IncVar: '递增变量',
   GetVar: '读取变量', // v4 新增, 纯数据节点
+  // v4 pure-data accessors + Expr
+  GetSys: '系统状态',
+  GetParam: '子图入参',
+  Expr: '表达式',
+  // v4 §6 pure-function nodes (no Chinese label override — kind name is concise enough)
+  Add: '加', Sub: '减', Mul: '乘', Div: '除', Mod: '取余', Neg: '取负',
+  Lt: '<', LtEq: '≤', Gt: '>', GtEq: '≥', Eq: '==', NotEq: '!=',
+  And: '与', Or: '或', Not: '非',
+  Concat: '拼字符串', Contains: '包含', Length: '长度',
+  ToString: '转字符串', ToNumber: '转数字', ToBool: '转布尔',
+  Select: '三元选择',
   WaitTemplate: '等待图像',
   CheckTemplate: '试探图像',
   ClickTemplate: '点击图像',
@@ -410,6 +453,25 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   SetVar: { varName: '', scope: 'local', literal: { value: '' } },
   IncVar: { varName: '', scope: 'local', literal: { delta: 1 } },
   GetVar: { varName: '', scope: 'local' },
+  // v4 GetSys: 默认空 path, Inspector 强制下拉选择.
+  GetSys: { path: '' },
+  // v4 GetParam: 默认空 paramName, Inspector 列当前子图 inputParams.
+  GetParam: { paramName: '' },
+  // v4 Expr: 空表达式, 空 inputs, outType=auto (静态推断).
+  Expr: { expr: '', outType: 'auto', inputs: [] },
+  // v4 §6 pure-func defaults: 各节点 data-in 默认通过 inline literal 写值 (用户少点拖拽).
+  Add: { literal: { a: 0, b: 0 } }, Sub: { literal: { a: 0, b: 0 } },
+  Mul: { literal: { a: 0, b: 0 } }, Div: { literal: { a: 0, b: 0 } },
+  Mod: { literal: { a: 0, b: 0 } }, Neg: { literal: { x: 0 } },
+  Lt: { literal: { a: 0, b: 0 } }, LtEq: { literal: { a: 0, b: 0 } },
+  Gt: { literal: { a: 0, b: 0 } }, GtEq: { literal: { a: 0, b: 0 } },
+  Eq: { literal: {} }, NotEq: { literal: {} },
+  And: { literal: { a: true, b: true } }, Or: { literal: { a: false, b: false } },
+  Not: { literal: { x: false } },
+  Concat: { literal: { a: '', b: '' } }, Contains: { literal: { haystack: '', needle: '' } },
+  Length: { literal: { s: '' } },
+  ToString: { literal: { x: '' } }, ToNumber: { literal: { x: 0 } }, ToBool: { literal: { x: false } },
+  Select: { literal: { cond: true } },
   WaitTemplate: { template: '', timeoutMs: '5000', threshold: '0.85' },
   CheckTemplate: { template: '', threshold: '0.85' },
   ClickTemplate: { template: '', timeoutMs: '5000', threshold: '0.85', button: 'left' },
@@ -500,6 +562,33 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
   SetVar: { icon: 'i-tabler-equal', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   IncVar: { icon: 'i-tabler-circle-plus', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   GetVar: { icon: 'i-tabler-variable', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  // v4 data accessors (amber group)
+  GetSys: { icon: 'i-tabler-cpu', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  GetParam: { icon: 'i-tabler-input-search', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  Expr: { icon: 'i-tabler-math', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  // v4 pure-func nodes (cyan group — distinct from data accessors)
+  Add: { icon: 'i-tabler-plus', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Sub: { icon: 'i-tabler-minus', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Mul: { icon: 'i-tabler-x', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Div: { icon: 'i-tabler-divide', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Mod: { icon: 'i-tabler-percentage', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Neg: { icon: 'i-tabler-arrow-down-right', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Lt: { icon: 'i-tabler-math-lower', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  LtEq: { icon: 'i-tabler-math-equal-lower', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Gt: { icon: 'i-tabler-math-greater', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  GtEq: { icon: 'i-tabler-math-equal-greater', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Eq: { icon: 'i-tabler-equal', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  NotEq: { icon: 'i-tabler-equal-not', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  And: { icon: 'i-tabler-ampersand', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Or: { icon: 'i-tabler-letter-o', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Not: { icon: 'i-tabler-exclamation-mark', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Concat: { icon: 'i-tabler-plus-equal', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Contains: { icon: 'i-tabler-search', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Length: { icon: 'i-tabler-ruler', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  ToString: { icon: 'i-tabler-letter-t', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  ToNumber: { icon: 'i-tabler-numbers', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  ToBool: { icon: 'i-tabler-toggle-right', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  Select: { icon: 'i-tabler-arrows-split', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
   WaitTemplate: { icon: 'i-tabler-eye', bg: 'bg-violet-500/15', border: 'border-violet-500/40' },
   CheckTemplate: {
     icon: 'i-tabler-search',
