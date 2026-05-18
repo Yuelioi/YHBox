@@ -29,7 +29,7 @@
         "x": 400,
         "y": 0,
         "config": {
-          "slot": "buy_button",
+          "template": "buy_button",
           "timeoutMs": 3000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -50,7 +50,7 @@
         "x": 600,
         "y": 200,
         "config": {
-          "slot": "no_currency"
+          "template": "no_currency"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -80,7 +80,7 @@
         "x": 800,
         "y": -100,
         "config": {
-          "slot": "buy_button"
+          "template": "buy_button"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -90,7 +90,7 @@
         "x": 1000,
         "y": -100,
         "config": {
-          "slot": "bait_product",
+          "template": "bait_product",
           "timeoutMs": 2000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -101,7 +101,7 @@
         "x": 1200,
         "y": -100,
         "config": {
-          "slot": "bait_product"
+          "template": "bait_product"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -111,7 +111,7 @@
         "x": 1400,
         "y": -100,
         "config": {
-          "slot": "buy_max",
+          "template": "buy_max",
           "timeoutMs": 2000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -122,7 +122,7 @@
         "x": 1600,
         "y": -100,
         "config": {
-          "slot": "buy_max"
+          "template": "buy_max"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -132,7 +132,7 @@
         "x": 1800,
         "y": -100,
         "config": {
-          "slot": "buy_confirm",
+          "template": "buy_confirm",
           "timeoutMs": 2000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -143,7 +143,7 @@
         "x": 2000,
         "y": -100,
         "config": {
-          "slot": "buy_confirm"
+          "template": "buy_confirm"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -153,7 +153,7 @@
         "x": 2200,
         "y": -100,
         "config": {
-          "slot": "buy_success",
+          "template": "buy_success",
           "timeoutMs": 3000
         },
         "createdAt": "2026-05-18T00:00:00Z"

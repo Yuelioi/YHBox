@@ -29,7 +29,7 @@
         "x": 400,
         "y": 0,
         "config": {
-          "slot": "shop_bag_tab",
+          "template": "shop_bag_tab",
           "timeoutMs": 3000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -50,7 +50,7 @@
         "x": 800,
         "y": -100,
         "config": {
-          "slot": "shop_sell_all"
+          "template": "shop_sell_all"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -60,7 +60,7 @@
         "x": 1000,
         "y": -100,
         "config": {
-          "slot": "shop_confirm_sell",
+          "template": "shop_confirm_sell",
           "timeoutMs": 2000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -71,7 +71,7 @@
         "x": 1200,
         "y": -100,
         "config": {
-          "slot": "shop_confirm_sell"
+          "template": "shop_confirm_sell"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },

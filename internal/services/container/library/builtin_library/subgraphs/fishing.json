@@ -30,7 +30,7 @@
         "x": 800,
         "y": 0,
         "config": {
-          "slot": "result"
+          "template": "result"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -50,7 +50,7 @@
         "x": 1000,
         "y": 0,
         "config": {
-          "slot": "fish_escape"
+          "template": "fish_escape"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -80,7 +80,7 @@
         "x": 1200,
         "y": 0,
         "config": {
-          "slot": "warehouse_full"
+          "template": "warehouse_full"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -121,7 +121,7 @@
         "x": 1400,
         "y": 0,
         "config": {
-          "slot": "need_bait"
+          "template": "need_bait"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -244,7 +244,7 @@
         "x": 2000,
         "y": 0,
         "config": {
-          "slot": "start_fish"
+          "template": "start_fish"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -254,7 +254,7 @@
         "x": 2200,
         "y": -100,
         "config": {
-          "slot": "start_fish"
+          "template": "start_fish"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
@@ -274,7 +274,7 @@
         "x": 2200,
         "y": 0,
         "config": {
-          "slot": "hook_icon"
+          "template": "hook_icon"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },

@@ -29,7 +29,7 @@
         "x": 400,
         "y": 0,
         "config": {
-          "slot": "change_bait_confirm",
+          "template": "change_bait_confirm",
           "timeoutMs": 2000
         },
         "createdAt": "2026-05-18T00:00:00Z"
@@ -50,7 +50,7 @@
         "x": 800,
         "y": 0,
         "config": {
-          "slot": "change_bait_confirm"
+          "template": "change_bait_confirm"
         },
         "createdAt": "2026-05-18T00:00:00Z"
       },
