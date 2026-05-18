@@ -72,9 +72,10 @@ func TestCopySubgraph_TemplateKeyConflict(t *testing.T) {
 	}
 }
 
-// B-3 regression: 多 OutputPins 的库子图被 copy 时，内部 SubgraphOutput 节点
-// config.declID 必须随 OutputPins 的 ID 重发同步改写；否则父图调用边引用旧 ID 找不到下游。
-func TestCopySubgraph_RewritesSubgraphOutputDeclID(t *testing.T) {
+// 2026-05-19 行为反转: OutputPins ID 不再 copy 时重写, SubgraphOutput.declID 跟随保留.
+// 理由: pin ID 只在 subgraph 内部 scope, 不跨 subgraph 冲突. 重写成 UUID 反而导致编辑器
+// 默认 pin 名 "out" 跟实际 UUID 对不上 → INVALID_PIN. 保留库定义 (例如 "out") 方便用户拼图.
+func TestCopySubgraph_PreservesOutputPinsAndDeclID(t *testing.T) {
 	lib := &LibrarySubgraph{
 		Subgraph: container.Subgraph{
 			ID:    "lib-sg",
@@ -84,10 +85,10 @@ func TestCopySubgraph_RewritesSubgraphOutputDeclID(t *testing.T) {
 				Nodes: []container.GraphNode{
 					{ID: "in-node", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
 					{ID: "out-found", Kind: "SubgraphOutput",
-						Config:    map[string]any{"declID": "decl-found-OLD"},
+						Config:    map[string]any{"declID": "found"},
 						CreatedAt: time.Now().UTC()},
 					{ID: "out-timeout", Kind: "SubgraphOutput",
-						Config:    map[string]any{"declID": "decl-timeout-OLD"},
+						Config:    map[string]any{"declID": "timeout"},
 						CreatedAt: time.Now().UTC()},
 				},
 				Edges: []container.GraphEdge{
@@ -96,15 +97,14 @@ func TestCopySubgraph_RewritesSubgraphOutputDeclID(t *testing.T) {
 				},
 			},
 			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "decl-found-OLD", Name: "found"},
-				{ID: "decl-timeout-OLD", Name: "timeout"},
+				{ID: "found", Name: "found"},
+				{ID: "timeout", Name: "timeout"},
 			},
 		},
 	}
 	target := &container.Container{ID: "tgt"}
 	existingKeys := map[string]struct{}{}
 
-	// 用 counter-based 生成器拿可断言的 id（需 ≥ 8 字符，copy.go 会 [:8] 截）
 	var counter int
 	idGen := func(b []byte) string {
 		counter++
@@ -115,36 +115,23 @@ func TestCopySubgraph_RewritesSubgraphOutputDeclID(t *testing.T) {
 		t.Fatalf("copy: %v", err)
 	}
 
-	// 验证 OutputPins ID 被重发（不再是 OLD）
+	// OutputPins ID 必须保留 (不被 UUID 化)
+	gotIDs := map[string]bool{}
 	for _, p := range result.NewSubgraph.OutputPins {
-		if p.ID == "decl-found-OLD" || p.ID == "decl-timeout-OLD" {
-			t.Errorf("OutputPin ID not rewritten: %+v", p)
-		}
+		gotIDs[p.ID] = true
+	}
+	if !gotIDs["found"] || !gotIDs["timeout"] {
+		t.Errorf("OutputPins ID 应保留 'found' + 'timeout', got %+v", result.NewSubgraph.OutputPins)
 	}
 
-	// 关键断言：内部 SubgraphOutput 节点的 config.declID 必须跟新 OutputPins.ID 对齐
-	newDeclByName := map[string]string{}
-	for _, p := range result.NewSubgraph.OutputPins {
-		newDeclByName[p.Name] = p.ID
-	}
+	// SubgraphOutput.declID 也应保留 (因为 outputPins.ID 没变, 内部 declID 引用天然一致)
 	for _, n := range result.NewSubgraph.Graph.Nodes {
 		if n.Kind != "SubgraphOutput" {
 			continue
 		}
 		gotDecl, _ := n.Config["declID"].(string)
-		if gotDecl == "decl-found-OLD" || gotDecl == "decl-timeout-OLD" {
-			t.Errorf("SubgraphOutput node %s 仍引用旧 declID %q（应改成新 OutputPins ID）", n.ID, gotDecl)
-		}
-		// 应该是某个新 OutputPins ID
-		matched := false
-		for _, newID := range newDeclByName {
-			if gotDecl == newID {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			t.Errorf("SubgraphOutput node %s declID=%q 不在新 OutputPins 列表里", n.ID, gotDecl)
+		if gotDecl != "found" && gotDecl != "timeout" {
+			t.Errorf("SubgraphOutput %s declID=%q, 应是 'found' 或 'timeout' (保留库定义)", n.ID, gotDecl)
 		}
 	}
 }

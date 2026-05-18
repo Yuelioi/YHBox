@@ -49,15 +49,12 @@ func CopySubgraph(
 	}
 	cp.ID = "sg-" + idGen(nil)[:8]
 	cp.Graph.ID = idGen(nil)
-	// OutputPins ID 全部重发；内部 SubgraphOutput 节点 config.declID 通过 rewriter.RenameDeclID
-	// 跟随改写（否则父图调用边的 declID 引用对不上 → runtime 找不到下游，B-3 修复）
-	newOutputPins := make([]container.SubgraphOutputDecl, len(src.OutputPins))
-	for i, d := range src.OutputPins {
-		newID := idGen(nil)
-		newOutputPins[i] = container.SubgraphOutputDecl{ID: newID, Name: d.Name}
-		rewriter.RenameDeclID(d.ID, newID)
-	}
-	cp.OutputPins = newOutputPins
+	// OutputPins ID **保留库定义**, 不重写. 理由:
+	// - pin ID 只在 subgraph 内部 scope (parent 边走 `Subgraph_node.<pinID>`), 不跨 subgraph 冲突
+	// - 之前重写成 UUID 导致用户在编辑器拖 Subgraph 节点连边时, 默认 pin 名 "out" 跟实际 UUID 对不上 → INVALID_PIN
+	// - 库 ship 的 pin ID (例如 "out") 是人可读的, 保留方便用户拼图
+	// SubgraphOutput.config.declID 不需 RenameDeclID — declID 直接引用 outputPins[].ID, 不变化即天然一致
+	cp.OutputPins = append([]container.SubgraphOutputDecl(nil), src.OutputPins...)
 
 	templateKeyMap := map[string]string{}
 	referencedTemplates := collectReferencedTemplates(&cp.Graph)
