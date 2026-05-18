@@ -316,6 +316,13 @@ func (r *ContainerRunner) execRace(ctx context.Context, n *container.GraphNode, 
 }
 
 // runSubFlow Parallel/Race 子分支用的迷你 dispatch（与主 dispatch 同语义但分支独立）。
+//
+// v4 TODO (Determinism contract / spec §10.3): r.currentTick is shared across goroutines.
+// If two parallel branches both call GetVar/GetSys during overlapping execNode windows,
+// they'll race on the snapshot. Acceptable for now because Phase A pure-data nodes (GetVar/GetSys)
+// are not yet wired into Parallel branch logic. When data-flow meets parallel branches
+// (Phase B+ when evalDataSource is fully wired into more node kinds), switch r.currentTick to
+// a ctx-value or pass snapshot as parameter to make it per-goroutine.
 func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) error {
 	queue := append([]ExecToken{}, seeds...)
 	for len(queue) > 0 {
@@ -328,7 +335,11 @@ func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) err
 		if !ok {
 			return fmt.Errorf("subflow: unknown node %q", tok.NodeID)
 		}
+		// v4: capture per-exec-tick snapshot (sequential within this goroutine).
+		// NOT goroutine-safe across parallel branches — see TODO above.
+		r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
 		out, err := r.execNode(ctx, node, tok)
+		r.currentTick = nil
 		if err != nil {
 			if errors.Is(err, errStopRun) {
 				return nil

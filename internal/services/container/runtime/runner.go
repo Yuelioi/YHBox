@@ -83,6 +83,11 @@ type ContainerRunner struct {
 	edges       *edgeIndex
 	state       *ExecState
 	stopwatches *stopwatchTable
+
+	// currentTick is the per-exec-tick snapshot of rt.vars + rt.sys (spec §10.3).
+	// Captured before each execNode dispatch and cleared after; consumed by GetVar / GetSys
+	// pure-data nodes during the same tick to guarantee data consistency.
+	currentTick *TickSnapshot
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
@@ -194,7 +199,10 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 			})
 		}
 
+		// v4: capture per-exec-tick snapshot of vars+sys for deterministic GetVar/GetSys reads.
+		r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
 		out, err := r.execNode(ctx, node, tok)
+		r.currentTick = nil
 		if err != nil {
 			if errors.Is(err, errStopRun) {
 				return nil
