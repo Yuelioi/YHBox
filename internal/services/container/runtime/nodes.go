@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,7 +136,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 // ---- Control Flow ----
 
 func (r *ContainerRunner) execSleep(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	d := r.configFloat(n, "durationMs", 0)
+	// v4: try data-in pin first (literal or data edge); fall back to v3 configFloat for back-compat tests.
+	d := r.pullNumberWithFallback(n, "durationMs", 0)
 	if err := execution.Sleep(ctx, time.Duration(d)*time.Millisecond); err != nil {
 		return nil, err
 	}
@@ -163,16 +165,18 @@ func (r *ContainerRunner) execLoop(ctx context.Context, n *container.GraphNode, 
 
 	switch mode {
 	case "count":
-		count := int64(r.configFloat(n, "count", 1))
+		// v4: data-in pin "count" (number); fall back to v3 config[count] for back-compat.
+		count := int64(r.pullNumberWithFallback(n, "count", 1))
 		if frame.Iter >= count {
 			return r.exitLoop(n, tok)
 		}
 	case "while":
-		condV, err := r.configExpr(n, "condition")
+		// v4: data-in pin "condition" (bool); fall back to v3 expr config.
+		ok, err := r.pullBoolWithFallback(n, "condition")
 		if err != nil {
 			return nil, err
 		}
-		if !expr.AsBool(condV) {
+		if !ok {
 			return r.exitLoop(n, tok)
 		}
 	case "forever":
@@ -199,12 +203,13 @@ func (r *ContainerRunner) exitLoop(n *container.GraphNode, tok ExecToken) ([]Exe
 }
 
 func (r *ContainerRunner) execIf(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	condV, err := r.configExpr(n, "condition")
+	// v4: data-in pin "condition" (bool); fall back to v3 expr config.
+	ok, err := r.pullBoolWithFallback(n, "condition")
 	if err != nil {
 		return nil, err
 	}
 	pin := "else"
-	if expr.AsBool(condV) {
+	if ok {
 		pin = "then"
 	}
 	return r.edges.next(n.ID+"."+pin, tok.LoopStack), nil
@@ -243,7 +248,8 @@ func (r *ContainerRunner) execContinue(n *container.GraphNode, tok ExecToken) ([
 //      跳跃外层 Loop（推荐：分支内的 Loop 自管 Break/Continue，分支末端走 .complete out）。
 
 func (r *ContainerRunner) execParallel(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	nBranches := int(r.configFloat(n, "n", 2))
+	// v4: data-in pin "n" (number); v3 config fallback.
+	nBranches := int(r.pullNumberWithFallback(n, "n", 2))
 	if nBranches <= 0 {
 		nBranches = 2
 	}
@@ -274,7 +280,8 @@ func (r *ContainerRunner) execParallel(ctx context.Context, n *container.GraphNo
 type errBox struct{ err error }
 
 func (r *ContainerRunner) execRace(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	nBranches := int(r.configFloat(n, "n", 2))
+	// v4: data-in pin "n" (number); v3 config fallback.
+	nBranches := int(r.pullNumberWithFallback(n, "n", 2))
 	if nBranches <= 0 {
 		nBranches = 2
 	}
@@ -729,9 +736,7 @@ func (r *ContainerRunner) execSubgraph(ctx context.Context, node *container.Grap
 	r.state.PushFrame(container.SubgraphGraphRef(sg.ID), sg)
 
 	// Populate frame.LocalParams (after push so we write the new frame, not parent).
-	for k, v := range paramVals {
-		r.state.CurrentFrame.LocalParams[k] = v
-	}
+	maps.Copy(r.state.CurrentFrame.LocalParams, paramVals)
 
 	// 切 dispatch 视图到子图 (含 dataEdges — nested Subgraph 调用需要看子图内部的 data edges).
 	r.edges = buildEdgeIndex(sg.Graph)

@@ -98,6 +98,44 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	return nil, fmt.Errorf("evalDataSource: kind %q has no pure-data eval (pin %q)", n.Kind, srcPin)
 }
 
+// pullNumberWithFallback (v4 transitional shim for Phase C migration):
+//   1. Try v4 data-in pin (data edge or literal).
+//   2. If nil, fall back to v3 r.configFloat (which parses expr string OR float literal at config[pinName]).
+//
+// Lets us migrate exec nodes (Sleep/If/Loop/Wait*/etc) to data-pin one at a time without
+// breaking v3 tests that still pass `pinName: "expr-string"` at config root. Once all tests
+// move to `literal: {pinName: ...}`, the configFloat fallback can be deleted.
+func (r *ContainerRunner) pullNumberWithFallback(n *container.GraphNode, pinName string, fallback float64) float64 {
+	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
+		if f, ok := expr.AsNumber(v); ok {
+			return f
+		}
+	}
+	return r.configFloat(n, pinName, fallback)
+}
+
+// pullBoolWithFallback: v4 bool data-pin, fall back to v3 r.configExpr.
+// On both paths, expr.AsBool coerces the value.
+func (r *ContainerRunner) pullBoolWithFallback(n *container.GraphNode, pinName string) (bool, error) {
+	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
+		return expr.AsBool(v), nil
+	}
+	v, err := r.configExpr(n, pinName)
+	if err != nil {
+		return false, err
+	}
+	return expr.AsBool(v), nil
+}
+
+// pullStringWithFallback: v4 string data-pin, fall back to v3 configString (NOT configExpr —
+// v3 string-config fields like vk/varName aren't expressions, they're plain strings).
+func (r *ContainerRunner) pullStringWithFallback(n *container.GraphNode, pinName string) string {
+	if v, err := r.pullDataPin(n.ID, pinName); err == nil && v != nil {
+		return expr.FormatValue(v)
+	}
+	return configString(n, pinName)
+}
+
 // toExprValue converts JSON-decoded values (always one of: float64 / bool / string / nil /
 // map[string]any for Point) to expr.Value.
 func toExprValue(v any) expr.Value {
