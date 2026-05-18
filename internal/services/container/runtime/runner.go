@@ -343,6 +343,36 @@ func (r *ContainerRunner) setupRuntime() error {
 	}
 	r.rt.Capture = NewSafeCaptureBackend(rawCapture, r.rt)
 
+	// ROI 分辨率检查: 遍历主图 + 所有子图，找带 _capturedAtResolution 的节点。
+	// 窗口 clientW/clientH 已由上面的 ResolveWindow 填好，逐节点对比后发出 warning（不阻断）。
+	if r.rt.Emit != nil {
+		clientW := r.rt.Window.ClientW
+		clientH := r.rt.Window.ClientH
+		checkROINode := func(n *container.GraphNode) {
+			rawCap, ok := n.Config["_capturedAtResolution"].([]any)
+			if !ok || len(rawCap) != 2 {
+				return
+			}
+			cw, _ := rawCap[0].(float64)
+			ch, _ := rawCap[1].(float64)
+			if int(cw) != clientW || int(ch) != clientH {
+				r.rt.Emit("container:warning", map[string]any{
+					"nodeId":  n.ID,
+					"code":    "ROI_RESOLUTION_MISMATCH",
+					"message": fmt.Sprintf("node %q ROI captured at %vx%v but window is %dx%d — accuracy may degrade", n.ID, cw, ch, clientW, clientH),
+				})
+			}
+		}
+		for i := range r.rt.Container.Graph.Nodes {
+			checkROINode(&r.rt.Container.Graph.Nodes[i])
+		}
+		for i := range r.rt.Container.Subgraphs {
+			for j := range r.rt.Container.Subgraphs[i].Graph.Nodes {
+				checkROINode(&r.rt.Container.Subgraphs[i].Graph.Nodes[j])
+			}
+		}
+	}
+
 	return nil
 }
 
