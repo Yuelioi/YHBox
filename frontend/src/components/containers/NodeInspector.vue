@@ -51,21 +51,24 @@
       </div>
     </section>
 
-    <!-- v4 §5.5 Expr 链提示 (Phase C.10) — detect Expr→Expr 单 fan-out, 建议合并 -->
+    <!-- v4 §5.5 Expr 链提示 + 一键合并 (D8) -->
     <section
       v-if="exprChainHint"
       class="mb-5 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5"
     >
       <div class="flex items-start gap-2">
         <UIcon name="i-tabler-info-circle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
-        <div class="text-[12px] text-amber-300">
+        <div class="text-[12px] text-amber-300 flex-1">
           <div class="font-medium leading-tight">检测到 Expr 链</div>
           <div class="text-amber-300/80 mt-1 leading-relaxed font-mono text-[11px]">
             value → {{ exprChainHint.targetID }}.{{ exprChainHint.targetPin }}
           </div>
-          <div class="text-amber-300/80 mt-1 leading-relaxed">
-            建议合并为单一 Expr 节点减少节点数。 Phase D 将提供 "合并到 B" 按钮; 当前请手动合并 (把当前节点的 expr 替换成被引用的 input pin 后嵌入下游 Expr).
+          <div class="text-amber-300/80 mt-1 mb-2 leading-relaxed">
+            合并后当前节点的表达式会内联到下游 Expr (作为括号子表达式), 当前节点被删除.
           </div>
+          <UButton size="xs" color="warning" variant="soft" icon="i-tabler-arrow-merge" @click="onFuseExpr">
+            合并到下游 Expr
+          </UButton>
         </div>
       </div>
     </section>
@@ -612,6 +615,18 @@ function setLiteral(pin: string, v: any) {
   const cfg = { ...(props.node.config ?? {}) }
   cfg.literal = { ...(cfg.literal ?? {}), [pin]: v }
   emit('update', cfg)
+}
+
+// v4 D8: 一键 fusion — Inspector 触发 CustomEvent, ContainerEditorView 监听 + useExprFusion.fuse().
+function onFuseExpr() {
+  if (!exprChainHint.value || !props.node) return
+  window.dispatchEvent(new CustomEvent('expr-fuse', {
+    detail: {
+      sourceID: props.node.id,
+      targetID: exprChainHint.value.targetID,
+      targetPin: exprChainHint.value.targetPin,
+    },
+  }))
 }
 
 // v4 §5.5 第二层: Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,

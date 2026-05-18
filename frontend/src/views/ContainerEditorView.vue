@@ -482,6 +482,23 @@ function onConfigUpdate(cfg: Record<string, any>) {
   syncFlowFromDraft()
 }
 
+// v4 D8: Expr fusion listener (Inspector 触发 'expr-fuse' CustomEvent).
+import { useExprFusion } from '@/composables/containerEditor/useExprFusion'
+const { fuse: fuseExpr } = useExprFusion({ activeGraph, syncFlowFromDraft })
+function onExprFuseEvent(ev: Event) {
+  const detail = (ev as CustomEvent).detail as { sourceID: string; targetID: string; targetPin: string }
+  if (!detail) return
+  const ok = fuseExpr(detail.sourceID, detail.targetID, detail.targetPin)
+  if (ok) {
+    selectedID.value = null
+    toast.add({ title: 'Expr 合并完成', color: 'success' })
+  } else {
+    toast.add({ title: 'Expr 合并失败 (前置条件不满足)', color: 'warning' })
+  }
+}
+onMounted(() => window.addEventListener('expr-fuse', onExprFuseEvent))
+onUnmounted(() => window.removeEventListener('expr-fuse', onExprFuseEvent))
+
 function onDeleteSelected() {
   if (!draft.value || !selectedID.value) return
   // 走 vue-flow removeNodes → 触发 onNodesChange(remove) → 统一处理 Subgraph cascade

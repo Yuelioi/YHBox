@@ -1,0 +1,114 @@
+// v4 §5.5 Expr fusion — collapse `A.value → B.in_x` Expr-chain into single Expr.
+//
+// Algorithm:
+//   1. Verify A.kind === 'Expr', B.kind === 'Expr', A.value has fan-out 1 to B.targetPin.
+//   2. Rename A.inputs[] entries that collide with B.inputs[] names (suffix with int).
+//   3. In A.expr string, substitute renamed input identifiers (regex word-boundary).
+//   4. In B.expr string, replace identifier matching targetPin with `(<A.expr-renamed>)`.
+//   5. B.inputs: drop targetPin entry, append A's (renamed) inputs.
+//   6. Reroute A's incoming data edges to B (with renamed pin name).
+//   7. Delete A node + A→B edge.
+//
+// Caveats:
+//   - Pin literal on B.targetPin is dropped (replaced by inlined expr) — config.literal[targetPin] removed.
+//   - Identifier collision detection uses simple set; doesn't account for shadowing.
+//   - Does NOT modify position — caller may want to call auto-layout afterwards.
+import type { Ref } from 'vue'
+
+interface FusionDeps {
+  activeGraph: Ref<any>
+  syncFlowFromDraft: () => void
+}
+
+interface ExprInput {
+  name: string
+  type: string
+}
+
+export function useExprFusion(deps: FusionDeps) {
+  /**
+   * fuse merges Expr `sourceNodeID` into Expr `targetNodeID`'s `targetInputName` pin.
+   * Returns true on success, false if preconditions fail (caller may show toast).
+   */
+  function fuse(sourceNodeID: string, targetNodeID: string, targetInputName: string): boolean {
+    if (!deps.activeGraph.value) return false
+    const g = deps.activeGraph.value
+    const a = g.nodes.find((n: any) => n.id === sourceNodeID)
+    const b = g.nodes.find((n: any) => n.id === targetNodeID)
+    if (!a || !b || a.kind !== 'Expr' || b.kind !== 'Expr') return false
+
+    const aExpr = String(a.config?.expr ?? '')
+    const bExpr = String(b.config?.expr ?? '')
+    const aInputs: ExprInput[] = (a.config?.inputs ?? []).map((i: any) => ({ name: String(i.name), type: String(i.type ?? 'any') }))
+    const bInputs: ExprInput[] = (b.config?.inputs ?? []).map((i: any) => ({ name: String(i.name), type: String(i.type ?? 'any') }))
+
+    // Step 2: rename A.inputs to avoid collision with B's input names (and the targetPin we're about to remove).
+    const usedNames = new Set<string>(bInputs.map((i) => i.name))
+    const renameMap: Record<string, string> = {}
+    const renamedAInputs: ExprInput[] = aInputs.map((inp) => {
+      let newName = inp.name
+      let suffix = 1
+      while (usedNames.has(newName) && newName !== inp.name) {
+        newName = inp.name + suffix
+        suffix++
+      }
+      // If A's name happens to equal B's targetInputName we still rename to avoid silently shadowing.
+      while (usedNames.has(newName) || newName === targetInputName) {
+        newName = inp.name + suffix
+        suffix++
+      }
+      renameMap[inp.name] = newName
+      usedNames.add(newName)
+      return { name: newName, type: inp.type }
+    })
+
+    // Step 3: substitute identifiers in A.expr per renameMap (word-boundary regex).
+    let renamedAExpr = aExpr
+    for (const [oldName, newName] of Object.entries(renameMap)) {
+      if (oldName === newName) continue
+      renamedAExpr = renamedAExpr.replace(new RegExp('\\b' + escapeRe(oldName) + '\\b', 'g'), newName)
+    }
+
+    // Step 4: replace targetPin identifier in B.expr with parenthesized A.expr.
+    const newBExpr = bExpr.replace(
+      new RegExp('\\b' + escapeRe(targetInputName) + '\\b', 'g'),
+      '(' + renamedAExpr + ')',
+    )
+
+    // Step 5: B.inputs gets targetPin removed + A.inputs (renamed) appended.
+    const newBInputs = bInputs.filter((i) => i.name !== targetInputName).concat(renamedAInputs)
+    b.config = b.config ?? {}
+    b.config.expr = newBExpr
+    b.config.inputs = newBInputs
+    // Drop literal that fed the now-removed targetPin (if any).
+    if (b.config.literal && typeof b.config.literal === 'object') {
+      delete b.config.literal[targetInputName]
+    }
+
+    // Step 6: reroute A's incoming data edges → B using renamed pin names.
+    for (const e of g.edges) {
+      if ((e as any).kind !== 'data') continue
+      if (!e.to.startsWith(a.id + '.')) continue
+      const [, pin] = e.to.split('.')
+      const newPin = renameMap[pin] ?? pin
+      e.to = `${b.id}.${newPin}`
+    }
+
+    // Step 7: remove A node + the A→B edge.
+    g.nodes = g.nodes.filter((n: any) => n.id !== a.id)
+    g.edges = g.edges.filter((e: any) => {
+      if ((e as any).kind !== 'data') return true
+      // drop the specific A.value → B.targetInputName edge AND any other A→B edges (defensive).
+      return !(e.from.startsWith(a.id + '.') && e.to.startsWith(b.id + '.'))
+    })
+
+    deps.syncFlowFromDraft()
+    return true
+  }
+
+  return { fuse }
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
