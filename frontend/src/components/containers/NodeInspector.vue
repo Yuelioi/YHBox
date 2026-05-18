@@ -462,8 +462,28 @@
       />
     </section>
 
-    <!-- Config fields -->
-    <section v-else-if="fields.length > 0">
+    <!-- v4 §7.1: data-in pin literal editors (no incoming edge → set inline value) -->
+    <section v-if="dataInLiterals.length > 0" class="mb-5">
+      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
+        数据输入 (literal)
+      </h4>
+      <div class="space-y-3">
+        <div v-for="lit in dataInLiterals" :key="lit.name" class="space-y-1.5">
+          <label class="block text-xs text-toned">
+            {{ lit.name }}
+            <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
+          </label>
+          <PinLiteral
+            :type="(lit.type as any)"
+            :model-value="getLiteral(lit.name)"
+            @update:model-value="(v: any) => setLiteral(lit.name, v)"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Config fields (non-pin config — enum/path/template/etc) -->
+    <section v-if="fields.length > 0">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">配置</h4>
       <div class="space-y-4">
         <div v-for="field in fields" :key="field.key" class="space-y-1.5">
@@ -531,7 +551,8 @@ import SwitchInspector from './inspector/SwitchInspector.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import KeyCapture from './KeyCapture.vue'
 import ClipTimeline from './ClipTimeline.vue'
-import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL } from './pinSpec'
+import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS } from './pinSpec'
+import PinLiteral from './inline/PinLiteral.vue'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -555,6 +576,43 @@ const emit = defineEmits<{
 
 const settingsStore = useSettingsStore()
 const globalCounts360 = computed(() => settingsStore.data?.ui?.mouseCounts360 ?? 0)
+
+// v4 §7.1 inline pin literal (Inspector edition — in-canvas UE-style render deferred).
+// For each data-in pin in PIN_SPECS[kind].dataIn that lacks an incoming data edge,
+// expose a literal editor bound to config.literal[pinName].
+interface LiteralEntry { name: string; type: string }
+const dataInLiterals = computed<LiteralEntry[]>(() => {
+  if (!props.node) return []
+  const spec = PIN_SPECS[props.node.kind]
+  if (!spec) return []
+  const incomingPins = new Set<string>()
+  for (const e of props.edges ?? []) {
+    if ((e as any).kind !== 'data') continue
+    const [tgt, pin] = (e.to ?? '').split('.')
+    if (tgt === props.node.id) incomingPins.add(pin)
+  }
+  // Expr has dynamic inputs (config.inputs[]); include those.
+  const out: LiteralEntry[] = []
+  if (props.node.kind === 'Expr') {
+    for (const inp of (props.node.config?.inputs ?? []) as Array<{ name: string; type: string }>) {
+      if (!incomingPins.has(inp.name)) out.push({ name: inp.name, type: inp.type ?? 'any' })
+    }
+  }
+  for (const [name, type] of Object.entries(spec.dataIn ?? {})) {
+    if (!incomingPins.has(name)) out.push({ name, type: String(type) })
+  }
+  return out
+})
+
+function getLiteral(pin: string): any {
+  return props.node?.config?.literal?.[pin]
+}
+function setLiteral(pin: string, v: any) {
+  if (!props.node) return
+  const cfg = { ...(props.node.config ?? {}) }
+  cfg.literal = { ...(cfg.literal ?? {}), [pin]: v }
+  emit('update', cfg)
+}
 
 // v4 §5.5 第二层: Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,
 // Inspector 显示提示建议合并 (Phase D 加 fusion 按钮; 当前只提示).
