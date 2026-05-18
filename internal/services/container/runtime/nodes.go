@@ -818,7 +818,14 @@ func (r *ContainerRunner) execPlayClip(ctx context.Context, n *container.GraphNo
 	r.rt.InputBus.Lock()
 	defer r.rt.InputBus.Unlock()
 
-	p := clipruntime.NewClipPlayer(clip, ranges, r.rt.InputBackend, r.rt.ClipPolicy, r.rt.MouseCounts360)
+	p := clipruntime.NewClipPlayer(clip, ranges, r.rt.InputBackend, r.rt.ClipPolicy, r.rt.MouseCounts360,
+		func() (int, int) {
+			if r.rt.Window.HWND == 0 {
+				return 0, 0 // 未解析窗口 → 不缩放
+			}
+			return r.rt.Window.ClientW, r.rt.Window.ClientH
+		},
+	)
 	p.Start(ctx)
 
 	select {

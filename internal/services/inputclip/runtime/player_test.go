@@ -70,7 +70,7 @@ func TestClipPlayer_PlayWithoutRanges_PlaysAllEvents(t *testing.T) {
 		},
 	}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0)
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0, nil)
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
 		t.Fatalf("Wait: %v", err)
@@ -104,7 +104,7 @@ func TestClipPlayer_PlayWithRanges_SkipsCutRegion(t *testing.T) {
 		{FromUs: 90_000, ToUs: 120_000},
 	}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, ranges, cap, DefaultPlaybackPolicy(), 0)
+	p := NewClipPlayer(clip, ranges, cap, DefaultPlaybackPolicy(), 0, nil)
 	startQPC := QPCMicros()
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
@@ -147,7 +147,7 @@ func TestClipPlayer_PlayCancelMidway(t *testing.T) {
 	clip := &inputclip.InputClip{ID: "c3", DurationUs: 990_000, Events: evs}
 
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0)
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 	p.Start(ctx)
@@ -179,7 +179,7 @@ func TestClipPlayer_PlayRawDeltaScales(t *testing.T) {
 		},
 	}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 1600) // factor = 2.0
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 1600, nil) // factor = 2.0
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
 		t.Fatalf("Wait: %v", err)
@@ -203,7 +203,7 @@ func TestClipPlayer_PlayRawDelta_NoScaleWhenSourceZero(t *testing.T) {
 		},
 	}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 1600)
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 1600, nil)
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
 		t.Fatalf("Wait: %v", err)
@@ -222,7 +222,7 @@ func TestClipPlayer_PlayRawDelta_NoScaleWhenEqual(t *testing.T) {
 		},
 	}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 1600)
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 1600, nil)
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
 		t.Fatalf("Wait: %v", err)
@@ -236,7 +236,7 @@ func TestClipPlayer_PlayRawDelta_NoScaleWhenEqual(t *testing.T) {
 func TestClipPlayer_EmptyClip(t *testing.T) {
 	clip := &inputclip.InputClip{ID: "empty", Events: nil}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0)
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0, nil)
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
 		t.Fatalf("Wait: %v", err)
@@ -253,7 +253,7 @@ func TestClipPlayer_ExplicitCancelReleasesHeld(t *testing.T) {
 	}
 	clip := &inputclip.InputClip{Events: evs, DurationUs: 980_000}
 	cap := &captureBackend{}
-	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0)
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0, nil)
 	p.Start(context.Background())
 	time.Sleep(80 * time.Millisecond)
 	p.Cancel()
@@ -266,4 +266,55 @@ func TestClipPlayer_ExplicitCancelReleasesHeld(t *testing.T) {
 	}
 	// 再调 Cancel 不 panic (幂等).
 	p.Cancel()
+}
+
+// 录制时 1920x1080, 中心点击 (960, 540), 回放 960x540 应缩放到 (480, 270).
+func TestPlayback_AbsoluteCoordScaling(t *testing.T) {
+	clip := &inputclip.InputClip{
+		ID:         "scale1",
+		DurationUs: 0,
+		Meta:       inputclip.ClipMeta{BaseResolution: [2]int{1920, 1080}},
+		Events: []inputclip.Event{
+			{TUs: 0, Type: inputclip.EventTypeMouseBtnDown, A: 0, B: 960, C: 540},
+		},
+	}
+	cap := &captureBackend{}
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0,
+		func() (int, int) { return 960, 540 },
+	)
+	p.Start(context.Background())
+	if err := p.Wait(); err != nil {
+		t.Fatalf("Wait: %v", err)
+	}
+	evs, _ := cap.snapshot()
+	if len(evs) != 1 {
+		t.Fatalf("expected 1 sent, got %d", len(evs))
+	}
+	if evs[0].B != 480 || evs[0].C != 270 {
+		t.Fatalf("coord scaling failed: expected B=480 C=270, got B=%d C=%d", evs[0].B, evs[0].C)
+	}
+}
+
+// BaseResolution = (0,0) → 不缩放, 原样透传.
+func TestPlayback_NoScaleWhenBaseZero(t *testing.T) {
+	clip := &inputclip.InputClip{
+		ID:         "scale2",
+		DurationUs: 0,
+		Meta:       inputclip.ClipMeta{BaseResolution: [2]int{0, 0}},
+		Events: []inputclip.Event{
+			{TUs: 0, Type: inputclip.EventTypeMouseBtnDown, A: 0, B: 100, C: 100},
+		},
+	}
+	cap := &captureBackend{}
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 0,
+		func() (int, int) { return 960, 540 },
+	)
+	p.Start(context.Background())
+	if err := p.Wait(); err != nil {
+		t.Fatalf("Wait: %v", err)
+	}
+	evs, _ := cap.snapshot()
+	if evs[0].B != 100 || evs[0].C != 100 {
+		t.Fatalf("base=0 should skip scaling, got B=%d C=%d", evs[0].B, evs[0].C)
+	}
 }

@@ -39,6 +39,9 @@ type ClipPlayer struct {
 	backend         backends.IInputBackend
 	policy          PlaybackPolicy
 	targetCounts360 int
+	// windowProvider 返回回放目标窗口的 clientW/clientH.
+	// nil 或返回 0 → 不缩放 (compat fallback).
+	windowProvider func() (clientW, clientH int)
 
 	done     chan struct{}
 	cancelCh chan struct{}
@@ -55,12 +58,15 @@ type ClipPlayer struct {
 func (p *ClipPlayer) SentCount() int { return p.sentCount }
 
 // NewClipPlayer 构造. keepRanges 可为 nil / 空 = 整段播.
+// windowProvider 可选 (可传 nil): 返回回放目标窗口 clientW/clientH, 用于
+// 跨分辨率绝对坐标缩放. nil 或返回 0 → 不缩放.
 func NewClipPlayer(
 	clip *inputclip.InputClip,
 	keepRanges []inputclip.Range,
 	backend backends.IInputBackend,
 	policy PlaybackPolicy,
 	targetCounts360 int,
+	windowProvider func() (clientW, clientH int),
 ) *ClipPlayer {
 	return &ClipPlayer{
 		clip:            clip,
@@ -68,6 +74,7 @@ func NewClipPlayer(
 		backend:         backend,
 		policy:          policy,
 		targetCounts360: targetCounts360,
+		windowProvider:  windowProvider,
 		done:            make(chan struct{}),
 		cancelCh:        make(chan struct{}),
 	}
@@ -177,6 +184,20 @@ func (p *ClipPlayer) run(ctx context.Context) {
 					outEv.B = int32(float64(ev.B) * factor)
 					outEv.C = int32(float64(ev.C) * factor)
 				}
+			} else if absScaleNeeded(ev.Type) {
+				baseW := p.clip.Meta.BaseResolution[0]
+				baseH := p.clip.Meta.BaseResolution[1]
+				if baseW > 0 && baseH > 0 && p.windowProvider != nil {
+					targetW, targetH := p.windowProvider()
+					if targetW > 0 && targetH > 0 {
+						scaleX := float64(targetW) / float64(baseW)
+						scaleY := float64(targetH) / float64(baseH)
+						if scaleX != 1.0 || scaleY != 1.0 {
+							outEv.B = int32(float64(ev.B) * scaleX)
+							outEv.C = int32(float64(ev.C) * scaleY)
+						}
+					}
+				}
 			}
 
 			if err := p.backend.Send(outEv); err != nil {
@@ -193,6 +214,14 @@ func (p *ClipPlayer) run(ctx context.Context) {
 
 // 编译期校验: ClipPlayer 实现 IClipPlayable.
 var _ IClipPlayable = (*ClipPlayer)(nil)
+
+// absScaleNeeded 判断 EventType 是否携带绝对屏幕坐标 (B=x, C=y), 需跨分辨率缩放.
+func absScaleNeeded(t inputclip.EventType) bool {
+	return t == inputclip.EventTypeMouseBtnDown ||
+		t == inputclip.EventTypeMouseBtnUp ||
+		t == inputclip.EventTypeMouseMove ||
+		t == inputclip.EventTypeScroll
+}
 
 // normalizeRanges sort + merge overlap; nil/空 → 整段 [0, durationUs].
 // 也截断超出 durationUs 的段, 防止越界.
