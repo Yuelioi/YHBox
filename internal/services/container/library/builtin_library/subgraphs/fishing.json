@@ -7,30 +7,9 @@
     "version": 1,
     "nodes": [
       {
-        "id": "start",
-        "kind": "Start",
+        "id": "sgIn",
+        "kind": "SubgraphInput",
         "x": 0,
-        "y": 0,
-        "createdAt": "2026-05-18T00:00:00Z"
-      },
-      {
-        "id": "windowTarget",
-        "kind": "WindowTarget",
-        "x": 200,
-        "y": 0,
-        "config": {
-          "match": {
-            "title": "异环",
-            "titleMatch": "exact",
-            "processName": "htgame.exe"
-          }
-        },
-        "createdAt": "2026-05-18T00:00:00Z"
-      },
-      {
-        "id": "mouseCalib",
-        "kind": "MouseCalibration",
-        "x": 400,
         "y": 0,
         "config": {},
         "createdAt": "2026-05-18T00:00:00Z"
@@ -330,20 +309,19 @@
         "createdAt": "2026-05-18T00:00:00Z"
       },
       {
-        "id": "stop",
-        "kind": "Stop",
+        "id": "sgOut",
+        "kind": "SubgraphOutput",
         "x": 2600,
         "y": 200,
+        "config": {},
         "createdAt": "2026-05-18T00:00:00Z"
       }
     ],
     "edges": [
-      { "from": "start.out", "to": "windowTarget.in" },
-      { "from": "windowTarget.out", "to": "mouseCalib.in" },
-      { "from": "mouseCalib.out", "to": "mainLoop.in" },
+      { "from": "sgIn.out", "to": "mainLoop.in" },
 
       { "from": "mainLoop.body", "to": "checkResultWin.in" },
-      { "from": "mainLoop.complete", "to": "stop.in" },
+      { "from": "mainLoop.complete", "to": "sgOut.in" },
 
       { "from": "checkResultWin.yes", "to": "callResult.in" },
       { "from": "callResult.out", "to": "mainLoop.loopback" },

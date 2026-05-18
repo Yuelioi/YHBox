@@ -198,11 +198,15 @@ func TestFishingMainGraph_Loads(t *testing.T) {
 	for _, n := range sg.Graph.Nodes {
 		kinds[n.Kind]++
 	}
-	if kinds["WindowTarget"] != 1 {
-		t.Errorf("expected 1 WindowTarget, got %d", kinds["WindowTarget"])
+	// fishing 主图作为 library subgraph (有 SubgraphInput/Output), 不能含 WindowTarget /
+	// MouseCalibration / Start / Stop — 那些是容器级 singleton (validator: WINDOW_TARGET_IN_SUBGRAPH).
+	// 用户 container 外层包: Start → WindowTarget → MouseCalibration → Subgraph(fishing) → Stop
+	if kinds["WindowTarget"] != 0 || kinds["MouseCalibration"] != 0 || kinds["Start"] != 0 || kinds["Stop"] != 0 {
+		t.Errorf("container-level nodes illegal in subgraph (Phase B WINDOW_TARGET_IN_SUBGRAPH): WindowTarget=%d MouseCalibration=%d Start=%d Stop=%d",
+			kinds["WindowTarget"], kinds["MouseCalibration"], kinds["Start"], kinds["Stop"])
 	}
-	if kinds["MouseCalibration"] != 1 {
-		t.Errorf("expected 1 MouseCalibration, got %d", kinds["MouseCalibration"])
+	if kinds["SubgraphInput"] != 1 || kinds["SubgraphOutput"] != 1 {
+		t.Errorf("expected 1 SubgraphInput + 1 SubgraphOutput, got %d / %d", kinds["SubgraphInput"], kinds["SubgraphOutput"])
 	}
 	if kinds["Try"] != 4 {
 		t.Errorf("expected 4 Try (shopsell+buybait+changebait+fight), got %d", kinds["Try"])
