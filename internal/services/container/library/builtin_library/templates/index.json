@@ -1,0 +1,245 @@
+{
+  "templates": {
+    "bait_product": {
+      "file": "bait_product_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        60,
+        142,
+        232,
+        353
+      ],
+      "note": "1080p 坐标1（左上）— 实测"
+    },
+    "buy_button": {
+      "file": "buy_button_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1585,
+        1016,
+        1637,
+        1042
+      ]
+    },
+    "buy_confirm": {
+      "file": "buy_confirm_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1134,
+        699,
+        1186,
+        725
+      ]
+    },
+    "buy_max": {
+      "file": "buy_max_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1817,
+        939,
+        1837,
+        963
+      ]
+    },
+    "buy_success": {
+      "file": "buy_success_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        853,
+        944,
+        1070,
+        972
+      ]
+    },
+    "change_bait_confirm": {
+      "file": "change_bait_confirm_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1144,
+        694,
+        1197,
+        720
+      ]
+    },
+    "fish_escape": {
+      "file": "fish_escape_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        883,
+        522,
+        1037,
+        558
+      ],
+      "note": "「鱼儿溜走了」失败提示"
+    },
+    "go_fishing": {
+      "file": "go_fishing_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        655,
+        685,
+        760,
+        711
+      ]
+    },
+    "hook_icon": {
+      "file": "hook_icon_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1752,
+        944,
+        1797,
+        998
+      ],
+      "note": "钓鱼点鱼钩 icon 暗态，一直显示"
+    },
+    "hook_text": {
+      "file": "hook_text_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        776,
+        245,
+        1172,
+        282
+      ],
+      "note": "「鱼上钩了，快点击按钮上鱼!」文字提示，1s 窗口转瞬即逝"
+    },
+    "need_bait": {
+      "file": "need_bait_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        788,
+        522,
+        1132,
+        558
+      ],
+      "note": "「需要装备鱼饵才可以钓鱼」"
+    },
+    "no_currency": {
+      "file": "no_currency_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        837,
+        526,
+        1082,
+        555
+      ]
+    },
+    "result": {
+      "file": "result_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        850,
+        963,
+        1072,
+        996
+      ],
+      "note": "「点击空白区域关闭」结算提示"
+    },
+    "shop_bag_tab": {
+      "file": "shop_bag_tab_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        121,
+        386,
+        171,
+        438
+      ]
+    },
+    "shop_confirm_sell": {
+      "file": "shop_confirm_sell_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1144,
+        694,
+        1196,
+        719
+      ]
+    },
+    "shop_sell_all": {
+      "file": "shop_sell_all_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1018,
+        958,
+        1108,
+        980
+      ]
+    },
+    "start_fish": {
+      "file": "start_fish_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        1563,
+        927,
+        1671,
+        955
+      ],
+      "note": "「开始钓鱼」按钮文字"
+    },
+    "warehouse_full": {
+      "file": "warehouse_full_1080.png",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "bbox": [
+        683,
+        524,
+        1238,
+        555
+      ]
+    }
+  }
+}
