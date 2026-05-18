@@ -78,6 +78,10 @@ const (
 	CodeExprUnknownInput   = "EXPR_UNKNOWN_INPUT"
 	CodeExprTypeMismatch   = "EXPR_TYPE_MISMATCH"
 	CodeExprDuplicateInput = "EXPR_DUPLICATE_INPUT"
+
+	// v4 GetSys / GetParam (spec §4)
+	CodeGetSysUnknownPath    = "GETSYS_UNKNOWN_PATH"
+	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
 )
 
 // ValidationError is the i18n-ready error envelope (spec §12).
@@ -124,6 +128,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validatePhaseCNodeKinds(c)...)
 	errs = append(errs, validateDataPinTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
+	errs = append(errs, validateGetSysNodes(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}
