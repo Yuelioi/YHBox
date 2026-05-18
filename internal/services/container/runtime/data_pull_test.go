@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strings"
 	"testing"
 
 	"yhbox/internal/services/container"
@@ -126,5 +127,37 @@ func TestToExprValue_IntPromotedToFloat64(t *testing.T) {
 	}
 	if v := toExprValue(int64(7)); v != float64(7) {
 		t.Fatalf("int64 → float64: got %T(%v)", v, v)
+	}
+}
+
+// A4 regression: evalDataSource must reject exec kinds as data-edge sources.
+// Catches drift where a new exec kind's data-out is mistakenly pulled
+// instead of read from the sys snapshot.
+func TestEvalDataSourceRejectsExecKind(t *testing.T) {
+	_, r := newTestRunner(t)
+	r.nodesByID = map[string]*container.GraphNode{
+		"n1": {ID: "n1", Kind: "Sleep"}, // exec kind, not pure-data
+	}
+	_, err := r.evalDataSource("n1", "out")
+	if err == nil {
+		t.Fatal("expected error for exec-kind source, got nil")
+	}
+	if !strings.Contains(err.Error(), "not pure-data") {
+		t.Errorf("wrong error msg: %v", err)
+	}
+}
+
+// A4 regression: evalDataSource must reject unknown kinds (registry miss).
+func TestEvalDataSourceRejectsUnknownKind(t *testing.T) {
+	_, r := newTestRunner(t)
+	r.nodesByID = map[string]*container.GraphNode{
+		"n1": {ID: "n1", Kind: "Bogus"},
+	}
+	_, err := r.evalDataSource("n1", "out")
+	if err == nil {
+		t.Fatal("expected error for unknown kind, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown kind") {
+		t.Errorf("wrong error msg: %v", err)
 	}
 }

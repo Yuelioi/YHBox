@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"yhbox/internal/services/container"
+	"yhbox/internal/services/container/nodekind"
+	_ "yhbox/internal/services/container/nodekind/specs" // ensure registry is populated
 	"yhbox/internal/services/expr"
 )
 
@@ -77,6 +79,16 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	if n == nil {
 		return nil, fmt.Errorf("evalDataSource: source node %q not found", srcNodeID)
 	}
+	// Gatekeep: only IsPureData kinds are valid pull sources.
+	// An exec-node data-out (like Race.winnerIdx) should be read from
+	// sys snapshot, not pulled — validator should have caught this.
+	spec, ok := nodekind.Get(n.Kind)
+	if !ok {
+		return nil, fmt.Errorf("evalDataSource: unknown kind %q", n.Kind)
+	}
+	if !spec.IsPureData {
+		return nil, fmt.Errorf("evalDataSource: kind %q is not pure-data (pin %q); use sys snapshot for exec-node data-out", n.Kind, srcPin)
+	}
 	switch n.Kind {
 	case "GetVar":
 		return r.evalGetVar(n)
@@ -95,7 +107,7 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 		"Select":
 		return r.evalPureFunc(n)
 	}
-	return nil, fmt.Errorf("evalDataSource: kind %q has no pure-data eval (pin %q)", n.Kind, srcPin)
+	return nil, fmt.Errorf("evalDataSource: IsPureData=true but no eval case for kind %q (registry/dispatch drift!)", n.Kind)
 }
 
 // pullNumber: v4-only data-pin resolution (data edge or inline literal). No v3 fallback.
