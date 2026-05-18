@@ -45,7 +45,8 @@ var KnownNodeKinds = map[string]bool{
 
 	// v4 (data-flow / variables / expressions)
 	"GetVar": true,
-	// v4 Phase B (B2/B3/B5/B6-B8) will add: GetSys, GetParam, Expr, Add/Sub/.../Select
+	"Expr":   true,
+	// v4 Phase B (B3/B5/B6-B8) will add: GetSys, GetParam, Add/Sub/.../Select
 	// v4 Phase C/D adds: CommentBox, CollapsedNode
 }
 

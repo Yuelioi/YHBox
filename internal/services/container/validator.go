@@ -72,6 +72,12 @@ const (
 	CodeGetVarTypeMismatch     = "GETVAR_TYPE_MISMATCH"
 	CodeLiteralTypeMismatch    = "LITERAL_TYPE_MISMATCH"
 	CodeDataPinDangling        = "DATA_PIN_DANGLING"
+
+	// v4 Expr node (spec §5.4)
+	CodeExprParseError     = "EXPR_PARSE_ERROR"
+	CodeExprUnknownInput   = "EXPR_UNKNOWN_INPUT"
+	CodeExprTypeMismatch   = "EXPR_TYPE_MISMATCH"
+	CodeExprDuplicateInput = "EXPR_DUPLICATE_INPUT"
 )
 
 // ValidationError is the i18n-ready error envelope (spec §12).
@@ -117,6 +123,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validatePlayClip(c)...)
 	errs = append(errs, validatePhaseCNodeKinds(c)...)
 	errs = append(errs, validateDataPinTypes(c)...)
+	errs = append(errs, validateExprNodes(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}

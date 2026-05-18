@@ -44,3 +44,50 @@ func ParseParallelConfig(n *GraphNode) (ParallelConfig, error) {
 	}
 	return c, nil
 }
+
+// --- v4: Expr node (spec §5) ---
+
+// ExprConfig 是 Expr 节点 typed config.
+// inputs[] 在画布上动态加 — 每个 input 对应一个 data-in pin (name + type).
+// expr 字符串只能引用 inputs 中声明的 name (bare identifier), 不能直接访问 $vars/$sys/$params.
+type ExprConfig struct {
+	Expr    string           // 用户写的表达式 (e.g. "i + 1", "s == 'FISHING' && hp > 0.5")
+	OutType string           // "auto" (默认, 静态推断) 或显式 number/bool/string/point/any
+	Inputs  []ExprInputDecl  // {Name, Type} — 每个对应 data-in pin
+}
+
+type ExprInputDecl struct {
+	Name string // identifier in expr (e.g. "i", "state")
+	Type string // PinType string ("number" / "bool" / "string" / "point" / "any")
+}
+
+// ParseExprConfig 解析 Expr 节点 config. nil-safe.
+// OutType 缺省值 "auto" (走静态推断 — runtime/validator 后续展开).
+// 重名 inputs 不在这里去重 — 由 validator 报 EXPR_DUPLICATE_INPUT.
+func ParseExprConfig(n *GraphNode) (ExprConfig, error) {
+	c := ExprConfig{OutType: "auto"}
+	if n == nil || n.Config == nil {
+		return c, nil
+	}
+	if v, ok := n.Config["expr"].(string); ok {
+		c.Expr = v
+	}
+	if t, ok := n.Config["outType"].(string); ok && t != "" {
+		c.OutType = t
+	}
+	if raw, ok := n.Config["inputs"].([]any); ok {
+		for _, it := range raw {
+			m, ok := it.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := m["name"].(string)
+			typ, _ := m["type"].(string)
+			if name == "" {
+				continue // skip unnamed entries silently; validator may want to flag
+			}
+			c.Inputs = append(c.Inputs, ExprInputDecl{Name: name, Type: typ})
+		}
+	}
+	return c, nil
+}
