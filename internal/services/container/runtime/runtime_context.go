@@ -47,6 +47,11 @@ type SysState struct {
 		Clusters     []clusterEntry
 		ClusterCount int
 	}
+	// Screenshot 节点输出：最后一次截图写入的绝对路径。
+	// $sys.lastScreenshot.path。
+	LastScreenshot struct {
+		Path string
+	}
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -238,6 +243,8 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return float64(s.LastROIScan.ClusterCount), nil
 	case "lastROIScan.clusters":
 		return s.LastROIScan.Clusters, nil
+	case "lastScreenshot.path":
+		return s.LastScreenshot.Path, nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }
