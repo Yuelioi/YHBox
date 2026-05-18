@@ -36,6 +36,11 @@ type SysState struct {
 	LastTry struct {
 		ErrorMsg string
 	}
+	// DetectColorHSV 节点输出：命中像素数 + 命中比例。$sys.lastDetect.pixelCount / pixelRatio。
+	LastDetect struct {
+		PixelCount int
+		PixelRatio float64
+	}
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -219,6 +224,10 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return float64(s.LastStopwatchElapsedMs), nil
 	case "lastTry.errorMsg":
 		return s.LastTry.ErrorMsg, nil
+	case "lastDetect.pixelCount":
+		return float64(s.LastDetect.PixelCount), nil
+	case "lastDetect.pixelRatio":
+		return s.LastDetect.PixelRatio, nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }

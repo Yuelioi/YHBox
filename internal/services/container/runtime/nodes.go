@@ -120,6 +120,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execThrow(ctx, node, tok)
 	case "Try":
 		return r.execTry(ctx, node, tok)
+	case "DetectColorHSV":
+		return r.execDetectColorHSV(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("container: unknown node kind %q", node.Kind)
 }
