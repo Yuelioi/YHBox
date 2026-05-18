@@ -72,6 +72,7 @@ const (
 	CodeGetVarTypeMismatch     = "GETVAR_TYPE_MISMATCH"
 	CodeLiteralTypeMismatch    = "LITERAL_TYPE_MISMATCH"
 	CodeDataPinDangling        = "DATA_PIN_DANGLING"
+	CodeDataGraphCycle         = "DATA_GRAPH_CYCLE"
 
 	// v4 Expr node (spec §5.4)
 	CodeExprParseError     = "EXPR_PARSE_ERROR"
@@ -130,6 +131,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateExprNodes(c)...)
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
+	errs = append(errs, validateDataGraphAcyclic(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}
