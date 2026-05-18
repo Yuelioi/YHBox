@@ -54,7 +54,9 @@
                 {{ e.graphPath.join(' › ') }}
               </span>
             </div>
-            <div class="text-xs text-toned leading-relaxed pl-5">{{ e.message }}</div>
+            <!-- v4 (spec §12): prefer t('error.<CODE>', params) — falls back to backend.message
+                 if i18n key not registered, then to the raw code as last resort. -->
+            <div class="text-xs text-toned leading-relaxed pl-5">{{ errorText(e) }}</div>
             <div v-if="e.nodeId" class="text-[10px] text-dimmed pl-5">
               节点: <code class="font-mono">{{ e.nodeId }}</code>
             </div>
@@ -89,6 +91,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { ValidationError } from '@/lib/backend'
 
 const props = defineProps<{
@@ -105,4 +108,18 @@ const emit = defineEmits<{
 const errorCount = computed(() => props.errors.filter((e) => e.severity === 'error').length)
 const warnCount = computed(() => props.errors.filter((e) => e.severity === 'warning').length)
 const hasErrors = computed(() => errorCount.value > 0)
+
+// v4 (spec §12): code+params → t('error.<CODE>', params). Fallback chain:
+//   1. i18n key registered → translated string
+//   2. backend legacy Message field non-empty → use it (back-compat for codes without keys yet)
+//   3. raw code (last resort, hints at missing translation)
+const { t, te } = useI18n()
+function errorText(e: ValidationError & { params?: Record<string, any> }): string {
+  const key = `error.${e.code}`
+  if (te(key)) {
+    return t(key, (e as any).params ?? {})
+  }
+  if (e.message) return e.message
+  return e.code
+}
 </script>
