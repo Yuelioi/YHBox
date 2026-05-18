@@ -110,7 +110,8 @@
       { "from": "waitConfirm.timeout", "to": "throwNotFound.in" },
       { "from": "ifFound.then", "to": "clickConfirm.in" },
       { "from": "ifFound.else", "to": "throwNotFound.in" },
-      { "from": "clickConfirm.out", "to": "sleep500.in" },
+      { "from": "clickConfirm.done", "to": "sleep500.in" },
+      { "from": "clickConfirm.timeout", "to": "throwNotFound.in" },
       { "from": "sleep500.out", "to": "pressEsc.in" },
       { "from": "pressEsc.out", "to": "sleep300.in" },
       { "from": "sleep300.out", "to": "sgOut.in" }

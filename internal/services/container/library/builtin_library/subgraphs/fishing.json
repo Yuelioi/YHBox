@@ -368,7 +368,8 @@
       { "from": "ifBarFound.else", "to": "checkSetup.in" },
 
       { "from": "checkSetup.yes", "to": "clickStartFish.in" },
-      { "from": "clickStartFish.out", "to": "sleepSetup.in" },
+      { "from": "clickStartFish.done", "to": "sleepSetup.in" },
+      { "from": "clickStartFish.timeout", "to": "sleepSetup.in" },
       { "from": "sleepSetup.out", "to": "mainLoop.loopback" },
 
       { "from": "checkSetup.no", "to": "checkReady.in" },
