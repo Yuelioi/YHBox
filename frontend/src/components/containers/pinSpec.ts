@@ -347,7 +347,7 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   Sleep: { durationMs: '1000' },
   Loop: { mode: 'count', count: '10' },
   If: { condition: 'true' },
-  Switch: { value: '', cases: [] },
+  Switch: { value: '$var.state', cases: ['a', 'b'] },
   Parallel: { n: '2' },
   Race: { n: '2' },
   Stop: {},
