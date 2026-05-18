@@ -87,6 +87,17 @@ func (s *ExecState) GetLocalVarHere(name string) (any, bool) {
 	return v, ok
 }
 
+// GetLocalVarChain 沿 frame chain 从当前向 root 走, 第一个命中即返回.
+// v4 GetVar scope=auto 用. 不 fallback 到 rt.vars (调用方自己组合).
+func (s *ExecState) GetLocalVarChain(name string) (any, bool) {
+	for f := s.CurrentFrame; f != nil; f = f.Parent {
+		if v, ok := f.LocalVars[name]; ok {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
 // ResolveVar 按 local → parent chain → global 顺序查找（v2 spec §2.7）。
 func (s *ExecState) ResolveVar(name string) (any, bool) {
 	for f := s.CurrentFrame; f != nil; f = f.Parent {
