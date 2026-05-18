@@ -10,11 +10,11 @@ export type PinDataType = 'point' | 'number' | 'any' | 'string'
 
 export interface PinSpec {
   execIn: string[] // 默认 ['in']
-  execOut: string[] // 默认 ['out']
+  execOut: string[] // 静态 fallback if execOutFn 缺
   dataIn: Record<string, PinDataType> // 默认空
   dataOut: Record<string, PinDataType> // 默认空
-  /** Parallel/Race 分支数动态：branch0..branchN-1 由 config.n 决定 */
-  dynamicBranches?: boolean
+  /** 按节点 config 动态派生 exec out pins. 优先级高于 execOut. */
+  execOutFn?: (config: Record<string, unknown> | null | undefined) => string[]
 }
 
 const DEFAULT_IN: string[] = ['in']
@@ -30,19 +30,54 @@ export const PIN_SPECS: Record<string, PinSpec> = {
     dataOut: { iter: 'number' },
   },
   If: { execIn: DEFAULT_IN, execOut: ['then', 'else'], dataIn: {}, dataOut: {} },
+  Switch: {
+    execIn: DEFAULT_IN,
+    execOut: ['default'], // fallback if execOutFn 未运行
+    dataIn: {},
+    dataOut: {},
+    execOutFn: (config) => {
+      const cases = Array.isArray(config?.cases) ? config.cases : []
+      const out: string[] = []
+      const seen = new Set<string>()
+      for (const c of cases) {
+        if (typeof c !== 'string' || c === '') continue
+        if (seen.has(c)) continue
+        seen.add(c)
+        out.push(c)
+      }
+      out.push('default')
+      return out
+    },
+  },
   Parallel: {
     execIn: DEFAULT_IN,
     execOut: ['complete'],
     dataIn: {},
     dataOut: {},
-    dynamicBranches: true,
+    execOutFn: (config) => {
+      const raw = config?.n
+      const parsed = Number(raw)
+      const n = Math.max(2, Math.min(8, Number.isNaN(parsed) || parsed <= 0 ? 2 : parsed))
+      const out: string[] = []
+      for (let i = 0; i < n; i++) out.push(`branch${i}`)
+      out.push('complete')
+      return out
+    },
   },
   Race: {
     execIn: DEFAULT_IN,
     execOut: ['complete'],
     dataIn: {},
     dataOut: { winnerIdx: 'number' },
-    dynamicBranches: true,
+    execOutFn: (config) => {
+      const raw = config?.n
+      const parsed = Number(raw)
+      const n = Math.max(2, Math.min(8, Number.isNaN(parsed) || parsed <= 0 ? 2 : parsed))
+      const out: string[] = []
+      for (let i = 0; i < n; i++) out.push(`branch${i}`)
+      out.push('complete')
+      return out
+    },
   },
   Stop: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
   Break: { execIn: DEFAULT_IN, execOut: [], dataIn: {}, dataOut: {} },
@@ -164,27 +199,32 @@ export const PIN_SPECS: Record<string, PinSpec> = {
 
 export function pinsFor(
   kind: string,
-  configN?: number,
+  config?: Record<string, unknown> | null,
 ): { execIn: string[]; execOut: string[]; dataIn: string[]; dataOut: string[] } {
   const s = PIN_SPECS[kind] ?? { execIn: DEFAULT_IN, execOut: DEFAULT_OUT, dataIn: {}, dataOut: {} }
-  let execOut = [...s.execOut]
-  if (s.dynamicBranches) {
-    const n = Math.max(2, Math.min(8, configN ?? 2))
-    const branches: string[] = []
-    for (let i = 0; i < n; i++) branches.push(`branch${i}`)
-    execOut = [...branches, ...execOut]
-  }
+  const execOut = execOutPinsFor(kind, config)
   // Subgraph 调用节点：exec-out 由被调子图的 OutputPins 动态派生
-  // 这里没法直接拿到 subgraph 数据；调用方需要在外层传 outputPins 进来。
-  // 兼容老签名：如果 kind === 'Subgraph' 且 configN 实际是个数组（OutputPins），用它派生。
-  // 但 configN 是 number；为了不改签名，我们把 Subgraph 的 execOut 保留为占位，
-  // 真实派生交给 ContainerFlowNode.vue 拿到 nodes/edges 上下文时执行。
+  // 这里没法直接拿到 subgraph 数据；真实派生交给 ContainerFlowNode.vue 拿到
+  // nodes/edges 上下文时执行（Subgraph 保留 __placeholder__ 占位）。
   return {
     execIn: s.execIn,
     execOut,
     dataIn: Object.keys(s.dataIn),
     dataOut: Object.keys(s.dataOut),
   }
+}
+
+/**
+ * 计算节点的 exec out pin 集合.
+ * 优先用 spec.execOutFn (动态), fallback spec.execOut (静态), 最后 ['out'].
+ *
+ * 替代旧的 spec.dynamicBranches 分支判断 — Switch / Parallel / Race 全走 execOutFn.
+ */
+export function execOutPinsFor(kind: string, config: Record<string, unknown> | null | undefined): string[] {
+  const spec = PIN_SPECS[kind]
+  if (!spec) return DEFAULT_OUT
+  if (spec.execOutFn) return spec.execOutFn(config)
+  return spec.execOut.length > 0 ? spec.execOut : DEFAULT_OUT
 }
 
 /** 边类型（exec 还是 data），由 from-pin 决定。 */
@@ -201,6 +241,7 @@ export const KIND_LABEL_ZH: Record<string, string> = {
   Sleep: '休眠',
   Loop: '循环',
   If: '条件',
+  Switch: '多路分支',
   Parallel: '并行',
   Race: '竞速',
   Stop: '结束',
@@ -247,6 +288,7 @@ export const KIND_DESCRIPTION: Record<string, string> = {
   Sleep: '阻塞 durationMs 毫秒。可被强停打断。',
   Loop: '循环执行 body 子图。mode: count（固定次数）/ while（条件）/ forever（无限，需 Break 退出）',
   If: 'condition 为真走 then，否则走 else。',
+  Switch: '按 cases 数组中的字符串派生多路 exec-out。value expr 匹配某 case 走对应出口，无匹配走 default。',
   Parallel: 'spawn N 个分支并行跑，全部完成后走 complete。',
   Race: 'spawn N 个分支，第一个 reach 终点的胜出，其它被取消。$sys.winnerIdx 拿到胜出 index。',
   Stop: '立即结束当前容器（不影响外层 schedule 后续 target）。',
@@ -305,6 +347,7 @@ export const KIND_DEFAULTS: Record<string, Record<string, any>> = {
   Sleep: { durationMs: '1000' },
   Loop: { mode: 'count', count: '10' },
   If: { condition: 'true' },
+  Switch: { value: '', cases: [] },
   Parallel: { n: '2' },
   Race: { n: '2' },
   Stop: {},
@@ -385,6 +428,7 @@ export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: str
   Sleep: { icon: 'i-tabler-clock', bg: 'bg-zinc-500/15', border: 'border-zinc-500/40' },
   Loop: { icon: 'i-tabler-repeat', bg: 'bg-blue-500/15', border: 'border-blue-500/40' },
   If: { icon: 'i-tabler-git-branch', bg: 'bg-blue-500/15', border: 'border-blue-500/40' },
+  Switch: { icon: 'i-tabler-switch-3', bg: 'bg-blue-500/15', border: 'border-blue-500/40' },
   Parallel: { icon: 'i-tabler-columns-3', bg: 'bg-blue-500/15', border: 'border-blue-500/40' },
   Race: { icon: 'i-tabler-flag', bg: 'bg-blue-500/15', border: 'border-blue-500/40' },
   Stop: { icon: 'i-tabler-square', bg: 'bg-rose-500/15', border: 'border-rose-500/40' },

@@ -141,14 +141,7 @@ const v = computed(
     },
 )
 
-const configN = computed(() => {
-  const raw = props.data?.config?.n
-  if (raw == null) return undefined
-  const n = Number(raw)
-  return Number.isNaN(n) ? undefined : n
-})
-
-const pins = computed(() => pinsFor(kind.value, configN.value))
+const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
 
 const editorStore = useContainerEditorStore()
 
