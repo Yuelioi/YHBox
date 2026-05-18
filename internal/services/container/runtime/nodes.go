@@ -42,6 +42,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execLoop(ctx, node, tok)
 	case "If":
 		return r.execIf(ctx, node, tok)
+	case "Switch":
+		return r.execSwitch(ctx, node, tok)
 	case "Parallel":
 		return r.execParallel(ctx, node, tok)
 	case "Race":
