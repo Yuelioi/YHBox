@@ -1,0 +1,123 @@
+{
+  "id": "fishing-changebait",
+  "label": "更换鱼饵",
+  "description": "按 E 打开更换鱼饵界面，点击确认按钮，等待更换成功，按 Esc 关闭界面。界面未出现或等待超时则 Throw。",
+  "graph": {
+    "id": "fishing-changebait-graph",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "sgIn",
+        "kind": "SubgraphInput",
+        "x": 0,
+        "y": 0,
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "pressE",
+        "kind": "KeyPress",
+        "x": 200,
+        "y": 0,
+        "config": {
+          "vk": "E"
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "waitConfirm",
+        "kind": "WaitTemplate",
+        "x": 400,
+        "y": 0,
+        "config": {
+          "slot": "change_bait_confirm",
+          "timeoutMs": 2000
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "ifFound",
+        "kind": "If",
+        "x": 600,
+        "y": 0,
+        "config": {
+          "condition": "$sys.lastTemplate.found == true"
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "clickConfirm",
+        "kind": "ClickTemplate",
+        "x": 800,
+        "y": 0,
+        "config": {
+          "slot": "change_bait_confirm"
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "sleep500",
+        "kind": "Sleep",
+        "x": 1000,
+        "y": 0,
+        "config": {
+          "durationMs": 500
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "pressEsc",
+        "kind": "KeyPress",
+        "x": 1200,
+        "y": 0,
+        "config": {
+          "vk": "Escape"
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "sleep300",
+        "kind": "Sleep",
+        "x": 1400,
+        "y": 0,
+        "config": {
+          "durationMs": 300
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "throwNotFound",
+        "kind": "Throw",
+        "x": 600,
+        "y": 200,
+        "config": {
+          "message": "change bait UI not found"
+        },
+        "createdAt": "2026-05-18T00:00:00Z"
+      },
+      {
+        "id": "sgOut",
+        "kind": "SubgraphOutput",
+        "x": 1600,
+        "y": 0,
+        "createdAt": "2026-05-18T00:00:00Z"
+      }
+    ],
+    "edges": [
+      { "from": "sgIn.out", "to": "pressE.in" },
+      { "from": "pressE.out", "to": "waitConfirm.in" },
+      { "from": "waitConfirm.found", "to": "ifFound.in" },
+      { "from": "waitConfirm.timeout", "to": "throwNotFound.in" },
+      { "from": "ifFound.then", "to": "clickConfirm.in" },
+      { "from": "ifFound.else", "to": "throwNotFound.in" },
+      { "from": "clickConfirm.out", "to": "sleep500.in" },
+      { "from": "sleep500.out", "to": "pressEsc.in" },
+      { "from": "pressEsc.out", "to": "sleep300.in" },
+      { "from": "sleep300.out", "to": "sgOut.in" }
+    ]
+  },
+  "outputPins": [
+    { "id": "done", "name": "done" }
+  ],
+  "tags": ["fishing", "bait", "change"],
+  "createdAt": "2026-05-18T00:00:00Z"
+}

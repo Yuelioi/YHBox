@@ -117,6 +117,35 @@ func TestFishingBuybaitSubgraph_Loads(t *testing.T) {
 	}
 }
 
+func TestFishingChangebaitSubgraph_Loads(t *testing.T) {
+	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing-changebait.json")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var sg struct {
+		ID    string `json:"id"`
+		Graph struct {
+			Nodes []struct{ Kind string `json:"kind"` } `json:"nodes"`
+		} `json:"graph"`
+	}
+	if err := json.Unmarshal(b, &sg); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if sg.ID != "fishing-changebait" {
+		t.Errorf("id = %q", sg.ID)
+	}
+	if len(sg.Graph.Nodes) < 8 {
+		t.Errorf("expected ≥8 nodes, got %d", len(sg.Graph.Nodes))
+	}
+	kinds := map[string]int{}
+	for _, n := range sg.Graph.Nodes {
+		kinds[n.Kind]++
+	}
+	if kinds["Throw"] < 1 {
+		t.Errorf("expected ≥1 Throw, got %d", kinds["Throw"])
+	}
+}
+
 func TestFishingResultSubgraph_Loads(t *testing.T) {
 	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing-result.json")
 	if err != nil {
