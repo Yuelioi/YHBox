@@ -51,6 +51,25 @@
       </div>
     </section>
 
+    <!-- v4 §5.5 Expr 链提示 (Phase C.10) — detect Expr→Expr 单 fan-out, 建议合并 -->
+    <section
+      v-if="exprChainHint"
+      class="mb-5 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5"
+    >
+      <div class="flex items-start gap-2">
+        <UIcon name="i-tabler-info-circle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
+        <div class="text-[12px] text-amber-300">
+          <div class="font-medium leading-tight">检测到 Expr 链</div>
+          <div class="text-amber-300/80 mt-1 leading-relaxed font-mono text-[11px]">
+            value → {{ exprChainHint.targetID }}.{{ exprChainHint.targetPin }}
+          </div>
+          <div class="text-amber-300/80 mt-1 leading-relaxed">
+            建议合并为单一 Expr 节点减少节点数。 Phase D 将提供 "合并到 B" 按钮; 当前请手动合并 (把当前节点的 expr 替换成被引用的 input pin 后嵌入下游 Expr).
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 屏幕选择工具：根据 kind 显示对应快捷 -->
     <section
       v-if="canPickPoint || canPickRect"
@@ -536,6 +555,26 @@ const emit = defineEmits<{
 
 const settingsStore = useSettingsStore()
 const globalCounts360 = computed(() => settingsStore.data?.ui?.mouseCounts360 ?? 0)
+
+// v4 §5.5 第二层: Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,
+// Inspector 显示提示建议合并 (Phase D 加 fusion 按钮; 当前只提示).
+interface ChainHint { targetID: string; targetPin: string }
+const exprChainHint = computed<ChainHint | null>(() => {
+  if (!props.node || props.node.kind !== 'Expr') return null
+  if (!props.nodes || !props.edges) return null
+  const myID = props.node.id
+  const outgoing = (props.edges ?? []).filter(
+    (e: any) => {
+      const [src, srcPin] = (e.from ?? '').split('.')
+      return src === myID && srcPin === 'value' && e.kind === 'data'
+    },
+  )
+  if (outgoing.length !== 1) return null
+  const [tgtID, tgtPin] = (outgoing[0].to ?? '').split('.')
+  const tgtNode = (props.nodes ?? []).find((n: any) => n.id === tgtID)
+  if (tgtNode?.kind !== 'Expr') return null
+  return { targetID: tgtID, targetPin: tgtPin }
+})
 const isCalibrationForeign = computed(() => {
   if (!props.node || props.node.kind !== 'MouseCalibration') return false
   const nodeVal = props.node.config?.counts360 ?? 0
