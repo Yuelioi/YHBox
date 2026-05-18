@@ -1,0 +1,54 @@
+package library
+
+import (
+	"encoding/json"
+	"io/fs"
+	"testing"
+)
+
+func TestFishingFightSubgraph_Loads(t *testing.T) {
+	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing-fight.json")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var sg struct {
+		ID    string `json:"id"`
+		Kind  string `json:"kind"`
+		Graph struct {
+			Nodes []struct {
+				ID   string `json:"id"`
+				Kind string `json:"kind"`
+			} `json:"nodes"`
+			Edges []struct {
+				From string `json:"from"`
+				To   string `json:"to"`
+			} `json:"edges"`
+		} `json:"graph"`
+	}
+	if err := json.Unmarshal(b, &sg); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if sg.ID != "fishing-fight" {
+		t.Errorf("expected id 'fishing-fight', got %q", sg.ID)
+	}
+	// Subgraph JSON uses "label" not "kind"; kind check is skipped (not in schema)
+	if len(sg.Graph.Nodes) < 30 {
+		t.Errorf("expected ~37 nodes, got %d", len(sg.Graph.Nodes))
+	}
+	kinds := map[string]int{}
+	for _, n := range sg.Graph.Nodes {
+		kinds[n.Kind]++
+	}
+	if kinds["KeyHoldStop"] < 4 {
+		t.Errorf("expected at least 4 KeyHoldStop (double cleanup pairs + center), got %d", kinds["KeyHoldStop"])
+	}
+	if kinds["Throw"] < 1 {
+		t.Errorf("expected at least 1 Throw, got %d", kinds["Throw"])
+	}
+	if kinds["ROIColorScan"] != 2 {
+		t.Errorf("expected exactly 2 ROIColorScan (yellow + green), got %d", kinds["ROIColorScan"])
+	}
+	if kinds["SetVar"] < 8 {
+		t.Errorf("expected >=8 SetVar (state machine vars), got %d", kinds["SetVar"])
+	}
+}
