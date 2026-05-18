@@ -39,9 +39,13 @@ type GraphNode struct {
 
 // GraphEdge 边。From/To 格式："<nodeId>.<pinName>"。
 // 对 Subgraph 调用节点，pinName = SubgraphOutputDecl.ID（v2 spec §1.4）。
+//
+// v4: Kind 区分 "exec" (默认, 控制流) 跟 "data" (数据流). data 边走 pull 模型;
+// 同一对 nodes 可以同时有 exec + data 边 (不同 pin). 见 spec §10.
 type GraphEdge struct {
 	From string `json:"from"`
 	To   string `json:"to"`
+	Kind string `json:"kind,omitempty"` // "" or "exec" (default), or "data"
 }
 
 // Graph 节点图。v2 在 v1 基础上加 ID（UUID）+ Version。

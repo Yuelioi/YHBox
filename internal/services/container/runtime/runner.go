@@ -81,6 +81,7 @@ type ContainerRunner struct {
 	rt          *RuntimeContext
 	nodesByID   map[string]*container.GraphNode
 	edges       *edgeIndex
+	dataEdges   *dataEdgeIndex // v4: separate index for data-flow edges (Kind="data")
 	state       *ExecState
 	stopwatches *stopwatchTable
 
@@ -95,6 +96,7 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		rt:          rt,
 		nodesByID:   make(map[string]*container.GraphNode),
 		edges:       buildEdgeIndex(rt.Container.Graph),
+		dataEdges:   buildDataEdgeIndex(rt.Container.Graph),
 		stopwatches: newStopwatchTable(),
 	}
 	for i := range rt.Container.Graph.Nodes {
