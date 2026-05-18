@@ -52,3 +52,30 @@ func TestFishingFightSubgraph_Loads(t *testing.T) {
 		t.Errorf("expected >=8 SetVar (state machine vars), got %d", kinds["SetVar"])
 	}
 }
+
+func TestFishingResultSubgraph_Loads(t *testing.T) {
+	b, err := fs.ReadFile(builtinFS, "builtin_library/subgraphs/fishing-result.json")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var sg struct {
+		ID    string `json:"id"`
+		Kind  string `json:"kind"`
+		Graph struct {
+			Nodes []struct{ Kind string `json:"kind"` } `json:"nodes"`
+			Edges []struct{ From, To string } `json:"edges"`
+		} `json:"graph"`
+	}
+	if err := json.Unmarshal(b, &sg); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if sg.ID != "fishing-result" {
+		t.Errorf("id = %q, want fishing-result", sg.ID)
+	}
+	if len(sg.Graph.Nodes) != 4 {
+		t.Errorf("expected 4 nodes, got %d", len(sg.Graph.Nodes))
+	}
+	if len(sg.Graph.Edges) != 3 {
+		t.Errorf("expected 3 edges, got %d", len(sg.Graph.Edges))
+	}
+}
