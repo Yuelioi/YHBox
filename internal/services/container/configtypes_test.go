@@ -46,25 +46,3 @@ func TestParseSwitchConfig(t *testing.T) {
 		})
 	}
 }
-
-func TestParseParallelConfig(t *testing.T) {
-	cases := []struct {
-		name string
-		cfg  map[string]any
-		want int
-	}{
-		{"explicit n", map[string]any{"n": float64(5)}, 5},
-		{"default n=2", map[string]any{}, 2},
-		{"nil config default", nil, 2},
-		{"n=0 forced to default", map[string]any{"n": float64(0)}, 2},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			n := &GraphNode{Kind: "Parallel", Config: c.cfg}
-			cfg, _ := ParseParallelConfig(n)
-			if cfg.N != c.want {
-				t.Errorf("N = %d, want %d", cfg.N, c.want)
-			}
-		})
-	}
-}

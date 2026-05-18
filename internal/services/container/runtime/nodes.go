@@ -252,7 +252,7 @@ func (r *ContainerRunner) execContinue(n *container.GraphNode, tok ExecToken) ([
 //      跳跃外层 Loop（推荐：分支内的 Loop 自管 Break/Continue，分支末端走 .complete out）。
 
 func (r *ContainerRunner) execParallel(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: data-in pin "n" (number); v3 config fallback.
+	// data-in pin "n" (number, default 2)
 	nBranches := int(r.pullNumber(n, "n", 2))
 	if nBranches <= 0 {
 		nBranches = 2
@@ -284,7 +284,7 @@ func (r *ContainerRunner) execParallel(ctx context.Context, n *container.GraphNo
 type errBox struct{ err error }
 
 func (r *ContainerRunner) execRace(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// v4: data-in pin "n" (number); v3 config fallback.
+	// data-in pin "n" (number, default 2)
 	nBranches := int(r.pullNumber(n, "n", 2))
 	if nBranches <= 0 {
 		nBranches = 2

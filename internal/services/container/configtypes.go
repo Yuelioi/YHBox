@@ -27,24 +27,6 @@ func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 	return c, nil
 }
 
-// ParallelConfig 是 Parallel / Race 节点的 typed config.
-type ParallelConfig struct {
-	N int // branch 数, 默认 2 (n<=0 视为 2)
-}
-
-// ParseParallelConfig 解析 Parallel/Race 节点 config.
-// 容错: nil node / nil config / n<=0 全 fallback to N=2.
-func ParseParallelConfig(n *GraphNode) (ParallelConfig, error) {
-	c := ParallelConfig{N: 2}
-	if n == nil || n.Config == nil {
-		return c, nil
-	}
-	if v, ok := n.Config["n"].(float64); ok && int(v) > 0 {
-		c.N = int(v)
-	}
-	return c, nil
-}
-
 // --- v4: Expr node (spec §5) ---
 
 // ExprConfig 是 Expr 节点 typed config.

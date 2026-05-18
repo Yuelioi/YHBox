@@ -14,7 +14,7 @@ func TestExecOutPinsForNode_Static(t *testing.T) {
 }
 
 func TestExecOutPinsForNode_Parallel_Dynamic(t *testing.T) {
-	n := &GraphNode{Kind: "Parallel", Config: map[string]any{"n": float64(3)}}
+	n := &GraphNode{Kind: "Parallel", Config: map[string]any{"literal": map[string]any{"n": float64(3)}}}
 	pins := execOutPinsForNode(n)
 	for _, want := range []string{"branch0", "branch1", "branch2", "complete"} {
 		if _, ok := pins[want]; !ok {
