@@ -44,6 +44,7 @@ declare module 'vue' {
     ScheduleListPanel: typeof import('./src/components/schedules/ScheduleListPanel.vue')['default']
     StatCard: typeof import('./src/components/StatCard.vue')['default']
     SubgraphPropsPanel: typeof import('./src/components/containers/SubgraphPropsPanel.vue')['default']
+    SwitchInspector: typeof import('./src/components/containers/inspector/SwitchInspector.vue')['default']
     TabToolbar: typeof import('./src/components/common/TabToolbar.vue')['default']
     TemplateCapture: typeof import('./src/components/templates/TemplateCapture.vue')['default']
     TemplateManager: typeof import('./src/components/templates/TemplateManager.vue')['default']
