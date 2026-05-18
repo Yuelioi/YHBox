@@ -99,6 +99,7 @@
         "kind": "SubgraphOutput",
         "x": 1600,
         "y": 0,
+        "config": { "declID": "out" },
         "createdAt": "2026-05-18T00:00:00Z"
       }
     ],
@@ -116,7 +117,7 @@
     ]
   },
   "outputPins": [
-    { "id": "done", "name": "done" }
+    { "id": "out", "name": "done" }
   ],
   "tags": ["fishing", "bait", "change"],
   "createdAt": "2026-05-18T00:00:00Z"
