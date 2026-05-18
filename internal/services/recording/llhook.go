@@ -12,6 +12,7 @@ package recording
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sync/atomic"
 	"syscall"
 	"unsafe"
@@ -225,6 +226,12 @@ func (h *HookHandle) Uninstall() {
 //
 // 始终调 CallNextHookEx 把事件透传给下一个 hook —— 不影响其它应用收到键鼠。
 func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
+	defer func() {
+		if r := recover(); r != nil {
+			// LL hook 不能死: 单条事件 panic 静默 swallow, hook 继续监听
+			fmt.Fprintf(os.Stderr, "[llhook recover] keyboardProc: %v\n", r)
+		}
+	}()
 	if nCode == hcAction && activeEvents != nil {
 		kbd := (*kbdllhookstruct)(unsafe.Pointer(lParam))
 		isKeyDown := wParam == wmKeyDown || wParam == wmSysKeyDown
@@ -265,6 +272,12 @@ func SetActiveStopHotkey(vk uint32, callback func()) {
 }
 
 func mouseProc(nCode, wParam, lParam uintptr) uintptr {
+	defer func() {
+		if r := recover(); r != nil {
+			// LL hook 不能死: 单条事件 panic 静默 swallow, hook 继续监听
+			fmt.Fprintf(os.Stderr, "[llhook recover] mouseProc: %v\n", r)
+		}
+	}()
 	if nCode == hcAction && activeEvents != nil {
 		ms := (*msllhookstruct)(unsafe.Pointer(lParam))
 		ev := HookEvent{
