@@ -31,7 +31,8 @@ func pinTypeCompat(from, to string) (allow, warn bool) {
 //   - GetVar: Container.Vars[varName].Type (declared variable type)
 //   - other kinds: dataOutPinTypeForKind(kind, pinName) — static schema lookup
 //
-// Target-type: dataInPinTypeForKind(kind, pinName)
+// Target-type: dataInPinTypeForNode(node, pinName) — node-aware variant so Expr's
+// dynamic inputs[] data-in pins get validated (kind-only lookup would return "").
 //
 // Empty type ("") on either side → skip (unknown schema; not an error in itself).
 func validateDataPinTypes(c *Container) []ValidationError {
@@ -68,7 +69,8 @@ func validateDataPinTypes(c *Container) []ValidationError {
 			} else {
 				srcType = dataOutPinTypeForKind(src.Kind, srcPin)
 			}
-			tgtType := dataInPinTypeForKind(tgt.Kind, tgtPin)
+			// Node-aware: lets Expr's config.inputs[] dynamic data-in pins resolve.
+			tgtType := dataInPinTypeForNode(tgt, tgtPin)
 			if srcType == "" || tgtType == "" {
 				continue // schema unknown — skip type check
 			}

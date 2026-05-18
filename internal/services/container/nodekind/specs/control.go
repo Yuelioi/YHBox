@@ -139,10 +139,21 @@ func init() {
 	})
 }
 
-// dynBranchCount reads cfg.literal.n and clamps to [minDynBranches, maxDynBranches].
+// dynBranchCount reads the branch count from cfg.literal.n (v4 inline literal) with
+// fallback to top-level cfg.n (v3 legacy / unit-test shape). Clamps to
+// [minDynBranches, maxDynBranches].
 func dynBranchCount(cfg map[string]any) int {
-	v, _ := cfg["literal"].(map[string]any)
-	raw, _ := v["n"].(float64)
+	var raw float64
+	if v, ok := cfg["literal"].(map[string]any); ok {
+		if f, ok := v["n"].(float64); ok {
+			raw = f
+		}
+	}
+	if raw == 0 {
+		if f, ok := cfg["n"].(float64); ok {
+			raw = f
+		}
+	}
 	return max(minDynBranches, min(maxDynBranches, int(raw)))
 }
 

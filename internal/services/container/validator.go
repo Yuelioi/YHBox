@@ -283,11 +283,9 @@ func validateInvalidPins(c *Container) []ValidationError {
 
 	// nodeByID: 同图节点 id → *GraphNode (用于查 Subgraph.config.subgraphId)
 	checkEdges := func(nodes []GraphNode, edges []GraphEdge, graphPath []string) {
-		kindByID := map[string]string{}
 		nodeByID := map[string]*GraphNode{}
 		for i := range nodes {
 			n := &nodes[i]
-			kindByID[n.ID] = n.Kind
 			nodeByID[n.ID] = n
 		}
 		for _, e := range edges {
@@ -321,15 +319,21 @@ func validateInvalidPins(c *Container) []ValidationError {
 					})
 				}
 			}
-			// In-pin 仍走 kind-based pinExists — 当前所有节点 in pin 都静态.
-			// 未来动态 in pin 节点出现再加 nodeHasExecInPin.
-			if kind, ok := kindByID[toID]; ok && toPin != "" {
-				if !pinExists(kind, toPin, false) {
+			// In-pin: 走 node-aware 路径 — pinExists 只看静态 schema, Expr.inputs[] 动态 pin
+			// 会被误报 INVALID_PIN. 先用 dataInPinTypeForNode 探一下, 失败再 fallback static pinExists.
+			if toNode, ok := nodeByID[toID]; ok && toPin != "" {
+				valid := false
+				if dataInPinTypeForNode(toNode, toPin) != "" {
+					valid = true
+				} else if pinExists(toNode.Kind, toPin, false) {
+					valid = true
+				}
+				if !valid {
 					errs = append(errs, ValidationError{
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: toID,
-						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 in pin %q", toID, kind, toPin),
-						Params:  map[string]any{"nodeID": toID, "kind": kind, "pin": toPin, "side": "in"},
+						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 in pin %q", toID, toNode.Kind, toPin),
+						Params:  map[string]any{"nodeID": toID, "kind": toNode.Kind, "pin": toPin, "side": "in"},
 					})
 				}
 			}
