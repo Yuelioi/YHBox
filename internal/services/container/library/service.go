@@ -75,7 +75,27 @@ func (s *Service) SetContainerStoreAccess(c containerStoreAccess) {
 	s.containerStoreAccess = c
 }
 
+// collectSubgraphRefs 扫描子图节点，返回所有 Subgraph/Try 节点引用的 subgraphId 列表（去重）。
+func collectSubgraphRefs(g *container.Graph) []string {
+	var refs []string
+	seen := map[string]bool{}
+	for _, n := range g.Nodes {
+		if n.Kind != "Subgraph" && n.Kind != "Try" {
+			continue
+		}
+		id, _ := n.Config["subgraphId"].(string)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		refs = append(refs, id)
+	}
+	return refs
+}
+
 // CopyToContainer copy-on-use：把库 subgraph 克隆为目标容器内的新独立子图。
+// 递归导入所有依赖子图（Subgraph/Try 节点引用的 subgraphId），并改写拷贝内的 config.subgraphId
+// 使其指向本地新建 ID，消除 validator INVALID_PIN。
 func (s *Service) CopyToContainer(libSubgraphID, containerID string) (container.Subgraph, error) {
 	src, ok := s.store.GetSubgraph(libSubgraphID)
 	if !ok {
@@ -91,7 +111,44 @@ func (s *Service) CopyToContainer(libSubgraphID, containerID string) (container.
 	// v1 简化：existingKeys 暂传空集（不做 template key 冲突检测）
 	existingKeys := map[string]struct{}{}
 
-	result, err := CopySubgraph(&src, &targetCont, existingKeys, nil)
+	// BFS：递归收集 src 引用的所有依赖库子图，按拓扑顺序拷贝（依赖先于主图）。
+	// subgraphIDMap: 库 ID → 本地新 ID，供主图拷贝时改写 config.subgraphId。
+	subgraphIDMap := map[string]string{}
+	visited := map[string]bool{libSubgraphID: true}
+	queue := collectSubgraphRefs(&src.Graph)
+	for _, ref := range queue {
+		visited[ref] = true
+	}
+
+	for len(queue) > 0 {
+		depID := queue[0]
+		queue = queue[1:]
+
+		depSrc, depOK := s.store.GetSubgraph(depID)
+		if !depOK {
+			return container.Subgraph{}, fmt.Errorf("import dep %q: library subgraph not found", depID)
+		}
+		// 将 depSrc 自身的依赖也加入队列（传递性）
+		for _, ref := range collectSubgraphRefs(&depSrc.Graph) {
+			if !visited[ref] {
+				visited[ref] = true
+				queue = append(queue, ref)
+			}
+		}
+		// 拷贝依赖子图到目标容器（deps 间暂不做二级 subgraphIdMap 改写，nil 即保留原值）
+		depResult, err := CopySubgraph(&depSrc, &targetCont, existingKeys, nil, nil)
+		if err != nil {
+			return container.Subgraph{}, fmt.Errorf("copy dep %q: %w", depID, err)
+		}
+		subgraphIDMap[depID] = depResult.NewSubgraph.ID
+		targetCont.Subgraphs = append(targetCont.Subgraphs, *depResult.NewSubgraph)
+		if err := s.containerStoreAccess.SaveSubgraph(containerID, depResult.NewSubgraph); err != nil {
+			return container.Subgraph{}, fmt.Errorf("save dep %q: %w", depID, err)
+		}
+	}
+
+	// 拷贝主图，传入完整 subgraphIDMap 改写 config.subgraphId
+	result, err := CopySubgraph(&src, &targetCont, existingKeys, subgraphIDMap, nil)
 	if err != nil {
 		return container.Subgraph{}, err
 	}

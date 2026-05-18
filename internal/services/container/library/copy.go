@@ -19,10 +19,13 @@ type CopyResult struct {
 type genIDFn func(b []byte) string
 
 // CopySubgraph 把库 subgraph 克隆一份给目标容器。
+// subgraphIDMap 是 oldLibraryID → newContainerLocalID 的映射，用于改写 Subgraph/Try 节点
+// 的 config.subgraphId。传 nil 表示不做改写（调用方自行处理依赖导入）。
 func CopySubgraph(
 	src *LibrarySubgraph,
 	target *container.Container,
 	existingKeys map[string]struct{},
+	subgraphIDMap map[string]string,
 	idGen genIDFn,
 ) (*CopyResult, error) {
 	if src == nil || target == nil {
@@ -38,6 +41,21 @@ func CopySubgraph(
 	for i := range cp.Graph.Nodes {
 		if cp.Graph.Nodes[i].Config != nil {
 			cp.Graph.Nodes[i].Config = maps.Clone(cp.Graph.Nodes[i].Config)
+		}
+	}
+	// 改写 Subgraph/Try 节点的 config.subgraphId，指向本地已导入的副本 ID。
+	// 必须在深拷贝 Config 之后、rewriter.Apply 之前执行，操作的是 cp（拷贝），不动 src。
+	if subgraphIDMap != nil {
+		for i := range cp.Graph.Nodes {
+			n := &cp.Graph.Nodes[i]
+			if n.Kind != "Subgraph" && n.Kind != "Try" {
+				continue
+			}
+			if oldID, ok := n.Config["subgraphId"].(string); ok && oldID != "" {
+				if newID, has := subgraphIDMap[oldID]; has {
+					n.Config["subgraphId"] = newID
+				}
+			}
 		}
 	}
 	cp.Graph.Edges = append([]container.GraphEdge(nil), src.Graph.Edges...)

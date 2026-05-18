@@ -28,7 +28,7 @@ func TestCopySubgraph_FreshContainer_NoConflict(t *testing.T) {
 	target := &container.Container{ID: "tgt", Subgraphs: nil}
 	existingKeys := map[string]struct{}{}
 
-	result, err := CopySubgraph(lib, target, existingKeys, func(b []byte) string { return "newidxxxxxxxx" })
+	result, err := CopySubgraph(lib, target, existingKeys, nil, func(b []byte) string { return "newidxxxxxxxx" })
 	if err != nil {
 		t.Fatalf("copy: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestCopySubgraph_TemplateKeyConflict(t *testing.T) {
 	target := &container.Container{ID: "tgt"}
 	existingKeys := map[string]struct{}{"fish/onhook": {}}
 
-	result, err := CopySubgraph(lib, target, existingKeys, func(b []byte) string { return "newidxxxxxxxx" })
+	result, err := CopySubgraph(lib, target, existingKeys, nil, func(b []byte) string { return "newidxxxxxxxx" })
 	if err != nil {
 		t.Fatalf("copy: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestCopySubgraph_PreservesOutputPinsAndDeclID(t *testing.T) {
 		counter++
 		return fmt.Sprintf("newid-%08d", counter)
 	}
-	result, err := CopySubgraph(lib, target, existingKeys, idGen)
+	result, err := CopySubgraph(lib, target, existingKeys, nil, idGen)
 	if err != nil {
 		t.Fatalf("copy: %v", err)
 	}
@@ -152,11 +152,135 @@ func TestCopySubgraph_DoubleConflict(t *testing.T) {
 	target := &container.Container{ID: "tgt"}
 	existingKeys := map[string]struct{}{"k": {}, "k_2": {}}
 
-	result, err := CopySubgraph(lib, target, existingKeys, func(b []byte) string { return "newidxxxxxxxx" })
+	result, err := CopySubgraph(lib, target, existingKeys, nil, func(b []byte) string { return "newidxxxxxxxx" })
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.TemplateKeyMap["k"] != "k_3" {
 		t.Errorf("expected k → k_3, got %+v", result.TemplateKeyMap)
+	}
+}
+
+// mockContainerAccess 实现 containerStoreAccess 接口，供 CopyToContainer 集成测试用。
+type mockContainerAccess struct {
+	cont container.Container
+}
+
+func (m *mockContainerAccess) Get(id string) (container.Container, bool) {
+	if m.cont.ID == id {
+		return m.cont, true
+	}
+	return container.Container{}, false
+}
+
+func (m *mockContainerAccess) SaveSubgraph(_ string, sg *container.Subgraph) error {
+	// 追加到内存容器（幂等：同 ID 覆盖）
+	for i, s := range m.cont.Subgraphs {
+		if s.ID == sg.ID {
+			m.cont.Subgraphs[i] = *sg
+			return nil
+		}
+	}
+	m.cont.Subgraphs = append(m.cont.Subgraphs, *sg)
+	return nil
+}
+
+// TestCopyToContainer_RecursivelyImportsNestedSubgraphs 验证：
+// 导入含 Subgraph/Try 节点引用的主图时，依赖子图自动递归导入，
+// 且主图内的 config.subgraphId 改写为本地新 ID。
+func TestCopyToContainer_RecursivelyImportsNestedSubgraphs(t *testing.T) {
+	st, _ := newStore(t)
+
+	// inner 子图：无依赖
+	inner := &LibrarySubgraph{
+		Subgraph: container.Subgraph{
+			ID:    "inner",
+			Label: "inner-sg",
+			Graph: container.Graph{
+				ID:      "g-inner",
+				Version: container.GraphSchemaVersion,
+				Nodes: []container.GraphNode{
+					{ID: "in-node", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
+					{ID: "out-node", Kind: "SubgraphOutput",
+						Config:    map[string]any{"declID": "done"},
+						CreatedAt: time.Now().UTC()},
+				},
+				Edges: []container.GraphEdge{{From: "in-node.out", To: "out-node.in"}},
+			},
+			OutputPins: []container.SubgraphOutputDecl{{ID: "done", Name: "done"}},
+		},
+	}
+	if err := st.SaveSubgraph(inner); err != nil {
+		t.Fatalf("save inner: %v", err)
+	}
+
+	// outer 子图：含一个 Subgraph 节点引用 inner
+	outer := &LibrarySubgraph{
+		Subgraph: container.Subgraph{
+			ID:    "outer",
+			Label: "outer-sg",
+			Graph: container.Graph{
+				ID:      "g-outer",
+				Version: container.GraphSchemaVersion,
+				Nodes: []container.GraphNode{
+					{ID: "start", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
+					{ID: "call-inner", Kind: "Subgraph",
+						Config:    map[string]any{"subgraphId": "inner"},
+						CreatedAt: time.Now().UTC()},
+					{ID: "end", Kind: "SubgraphOutput",
+						Config:    map[string]any{"declID": "done"},
+						CreatedAt: time.Now().UTC()},
+				},
+				Edges: []container.GraphEdge{
+					{From: "start.out", To: "call-inner.in"},
+					{From: "call-inner.done", To: "end.in"},
+				},
+			},
+			OutputPins: []container.SubgraphOutputDecl{{ID: "done", Name: "done"}},
+		},
+	}
+	if err := st.SaveSubgraph(outer); err != nil {
+		t.Fatalf("save outer: %v", err)
+	}
+
+	mock := &mockContainerAccess{cont: container.Container{ID: "tgt"}}
+	svc := NewService(st)
+	svc.SetContainerStoreAccess(mock)
+
+	result, err := svc.CopyToContainer("outer", "tgt")
+	if err != nil {
+		t.Fatalf("CopyToContainer: %v", err)
+	}
+
+	// 容器应有 2 个子图：outer + inner（dep 先存入，主图后存入）
+	if len(mock.cont.Subgraphs) != 2 {
+		t.Fatalf("expected 2 subgraphs in container, got %d", len(mock.cont.Subgraphs))
+	}
+
+	// 找到本地 inner 副本（ID 以 sg- 开头，不是原来的 "inner"）
+	var localInnerID string
+	for _, sg := range mock.cont.Subgraphs {
+		if sg.ID != result.ID {
+			localInnerID = sg.ID
+		}
+	}
+	if localInnerID == "inner" || localInnerID == "" {
+		t.Errorf("inner dep ID should be a new sg-xxxxxxxx ID, got %q", localInnerID)
+	}
+
+	// 主图内的 Subgraph 节点 config.subgraphId 应指向本地 inner 副本 ID
+	var callerNode *container.GraphNode
+	for i := range result.Graph.Nodes {
+		if result.Graph.Nodes[i].Kind == "Subgraph" {
+			callerNode = &result.Graph.Nodes[i]
+			break
+		}
+	}
+	if callerNode == nil {
+		t.Fatal("outer result has no Subgraph node")
+	}
+	gotSubgraphID, _ := callerNode.Config["subgraphId"].(string)
+	if gotSubgraphID != localInnerID {
+		t.Errorf("config.subgraphId = %q, want %q (local inner copy)", gotSubgraphID, localInnerID)
 	}
 }
