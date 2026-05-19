@@ -10,7 +10,7 @@ func init() {
 		ExecIn:   []string{"in"},
 		ExecOut:  []string{"out"},
 		DataIn:   map[string]nodekind.PinType{"value": nodekind.PinAny},
-		Defaults: map[string]any{"varName": "", "scope": "local", "literal": map[string]any{"value": ""}},
+		Defaults: map[string]any{"varName": "", "scope": "auto", "literal": map[string]any{"value": ""}},
 	})
 	nodekind.Register(&nodekind.Spec{
 		Kind:     "IncVar",
@@ -18,7 +18,7 @@ func init() {
 		ExecIn:   []string{"in"},
 		ExecOut:  []string{"out"},
 		DataIn:   map[string]nodekind.PinType{"delta": nodekind.PinNumber},
-		Defaults: map[string]any{"varName": "", "scope": "local", "literal": map[string]any{"delta": 1.0}},
+		Defaults: map[string]any{"varName": "", "scope": "auto", "literal": map[string]any{"delta": 1.0}},
 	})
 	nodekind.Register(&nodekind.Spec{
 		Kind:       "GetVar",
@@ -26,7 +26,7 @@ func init() {
 		ExecIn:     nil,
 		ExecOut:    nil,
 		DataOut:    map[string]nodekind.PinType{"value": nodekind.PinAny},
-		Defaults:   map[string]any{"varName": "", "scope": "local"},
+		Defaults:   map[string]any{"varName": "", "scope": "auto"},
 		IsPureData: true,
 	})
 	nodekind.Register(&nodekind.Spec{

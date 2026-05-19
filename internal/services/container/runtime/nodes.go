@@ -394,13 +394,29 @@ func (r *ContainerRunner) execSetVar(ctx context.Context, n *container.GraphNode
 	if err != nil {
 		return nil, fmt.Errorf("SetVar %s: pull value: %w", n.ID, err)
 	}
-	// scope: "local" (default) → frame.LocalVars; "global" → rt.vars (cross-frame).
+	// scope (default "auto"):
+	//   - "global" → rt.vars (cross-frame, container-wide).
+	//   - "local"  → frame.LocalVars (frame 私有, 子图隔离).
+	//   - "auto"   → 当前 frame.LocalVars 已有 name → 写 local; 否则写 rt.vars
+	//                (find-or-create-global; 跟 Container.Vars 面板默认一致).
+	// 2026-05-19 默认从 "local" 改成 "auto" — 见 evalGetVar 同款 commit msg.
 	scope := configString(n, "scope")
+	if scope == "" {
+		scope = "auto"
+	}
 	switch scope {
 	case "global":
 		r.rt.SetVar(name, val)
-	default:
+	case "local":
 		r.state.SetLocalVar(name, val)
+	case "auto":
+		if _, ok := r.state.GetLocalVarHere(name); ok {
+			r.state.SetLocalVar(name, val)
+		} else {
+			r.rt.SetVar(name, val)
+		}
+	default:
+		return nil, fmt.Errorf("SetVar %s: unknown scope %q", n.ID, scope)
 	}
 	return r.edges.next(n.ID+".out", tok.LoopStack), nil
 }
@@ -419,13 +435,17 @@ func (r *ContainerRunner) execIncVar(ctx context.Context, n *container.GraphNode
 	if deltaV != nil {
 		delta, _ = expr.AsNumber(deltaV)
 	}
+	// scope 同 SetVar (default "auto" — 见 execSetVar 注释).
 	scope := configString(n, "scope")
+	if scope == "" {
+		scope = "auto"
+	}
 	switch scope {
 	case "global":
 		if err := r.rt.IncVar(name, delta); err != nil {
 			return nil, err
 		}
-	default: // "local" or unset: increment current frame.LocalVars
+	case "local":
 		cur := 0.0
 		if v, ok := r.state.GetLocalVarHere(name); ok {
 			if f, ok2 := v.(float64); ok2 {
@@ -433,6 +453,20 @@ func (r *ContainerRunner) execIncVar(ctx context.Context, n *container.GraphNode
 			}
 		}
 		r.state.SetLocalVar(name, cur+delta)
+	case "auto":
+		if v, ok := r.state.GetLocalVarHere(name); ok {
+			cur := 0.0
+			if f, ok2 := v.(float64); ok2 {
+				cur = f
+			}
+			r.state.SetLocalVar(name, cur+delta)
+		} else {
+			if err := r.rt.IncVar(name, delta); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, fmt.Errorf("IncVar %s: unknown scope %q", n.ID, scope)
 	}
 	return r.edges.next(n.ID+".out", tok.LoopStack), nil
 }

@@ -3,13 +3,13 @@
 // Mirrors backend internal/services/container/nodekind/specs/variables.go.
 import { register } from '../registry'
 
+// 2026-05-19 默认 scope 改成 "auto" — local 没 UI 声明入口, 默认指向它会让容器变量
+// 面板里声明的 var 在 GetVar 读不到 (反直觉). auto = 优先 frame.LocalVars, 命中不到
+// fallback 容器变量, 跟用户对"变量面板里的就是默认变量"的认知一致.
 const SCOPE_OPTIONS = [
-  { value: 'local', label: 'local (默认, 当前 frame 私有)' },
-  { value: 'global', label: 'global (容器共享)' },
-]
-const SCOPE_OPTIONS_WITH_AUTO = [
-  ...SCOPE_OPTIONS,
-  { value: 'auto', label: 'auto (frame chain → global)' },
+  { value: 'auto', label: 'auto (默认, frame chain → 容器变量)' },
+  { value: 'global', label: 'global (强制容器变量, 跳过 frame chain)' },
+  { value: 'local', label: 'local (frame 私有, 子图隔离)' },
 ]
 
 register({
@@ -17,7 +17,7 @@ register({
   group: 'variables',
   labelZh: '赋值变量',
   description:
-    '把 value (从下方 data-in pin 拿) 写到 varName。变量需先在容器属性面板声明。scope=local (默认) 写 frame 私有, global 跨 frame 共享。',
+    '把 value (从下方 data-in pin 拿) 写到 varName。scope=auto (默认): 当前 frame 已有 → 更新 local; 否则写容器变量。global=强制容器变量; local=frame 私有 (子图隔离).',
   visual: { icon: 'i-tabler-equal', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: ['in'],
   execOut: ['out'],
@@ -25,16 +25,16 @@ register({
   dataOut: {},
   fields: [
     { key: 'varName', label: '变量名', type: 'var-name-select' },
-    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'local=frame 私有 / global=容器共享' },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'auto=按是否已 local 选; global=容器变量; local=frame 私有' },
   ],
-  defaults: { varName: '', scope: 'local', literal: { value: '' } },
+  defaults: { varName: '', scope: 'auto', literal: { value: '' } },
 })
 
 register({
   kind: 'IncVar',
   group: 'variables',
   labelZh: '递增变量',
-  description: '把 varName 的值加 delta (data-in pin, 默认 1)。仅 number 变量。scope 同 SetVar。',
+  description: '把 varName 的值加 delta (data-in pin, 默认 1)。仅 number 变量。scope 同 SetVar (默认 auto)。',
   visual: { icon: 'i-tabler-circle-plus', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: ['in'],
   execOut: ['out'],
@@ -42,9 +42,9 @@ register({
   dataOut: {},
   fields: [
     { key: 'varName', label: '变量名', type: 'var-name-select' },
-    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'local=frame 私有 / global=容器共享' },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'auto=按是否已 local 选; global=容器变量; local=frame 私有' },
   ],
-  defaults: { varName: '', scope: 'local', literal: { delta: 1 } },
+  defaults: { varName: '', scope: 'auto', literal: { delta: 1 } },
 })
 
 register({
@@ -52,7 +52,7 @@ register({
   group: 'variables',
   labelZh: '读取变量',
   description:
-    '读取 varName 的当前值, 通过 data-out pin 暴露给下游 (Expr / 纯函数 / SetVar 等)。scope: local (默认, 当前 frame) / global (容器共享) / auto (frame chain → global)。',
+    '读取 varName 的当前值, 通过 data-out pin 暴露给下游 (Expr / 纯函数 / SetVar 等)。scope=auto (默认): frame.LocalVars → 容器变量 fallback. global=只读容器变量; local=只读当前 frame.',
   visual: { icon: 'i-tabler-variable', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: [],
   execOut: [],
@@ -60,9 +60,9 @@ register({
   dataOut: { value: 'any' },
   fields: [
     { key: 'varName', label: '变量名', type: 'var-name-select' },
-    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS_WITH_AUTO, hint: '默认 local; 想跨 frame 读 global; auto = frame chain → global' },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'auto=frame chain → 容器变量; global=容器变量; local=只读 frame' },
   ],
-  defaults: { varName: '', scope: 'local' },
+  defaults: { varName: '', scope: 'auto' },
   isPureData: true,
 })
 

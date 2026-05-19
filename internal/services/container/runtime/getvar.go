@@ -13,10 +13,13 @@ import (
 // Reads from the per-exec-tick snapshot (r.currentTick) for "global"/"auto" scope —
 // guarantees same-tick consistency (spec §10.3).
 //
-// scope (default "local"):
+// scope (default "auto"):
 //   - "local"  → current frame.LocalVars only (no fallback). Unset → nil.
 //   - "global" → snapshot of rt.vars only (skips frame chain). Unset → nil.
-//   - "auto"   → frame chain → snapshot of rt.vars (v3-style lookup).
+//   - "auto"   → frame chain → snapshot of rt.vars (default; 跟 Container.Vars 面板默认一致).
+//
+// 2026-05-19 默认从 "local" 改成 "auto" — local 没 UI 入口, 默认指向它会让
+// Container.Vars 面板声明的 var 在 GetVar 读不到 (反直觉).
 func (r *ContainerRunner) evalGetVar(n *container.GraphNode) (expr.Value, error) {
 	name := configString(n, "varName")
 	if name == "" {
@@ -24,7 +27,7 @@ func (r *ContainerRunner) evalGetVar(n *container.GraphNode) (expr.Value, error)
 	}
 	scope := configString(n, "scope")
 	if scope == "" {
-		scope = "local"
+		scope = "auto"
 	}
 
 	switch scope {

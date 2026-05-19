@@ -6,6 +6,7 @@ import (
 
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
+	"yhbox/internal/services/expr"
 	"yhbox/pkg/winutil"
 )
 
@@ -49,16 +50,19 @@ func TestRunner_StartSleep(t *testing.T) {
 	}
 }
 
-// B-10 regression: SetVar/IncVar 默认 scope=local 时，值写入 ExecState.LocalVars，
-// rt.vars 保持 Default 不变。表达式 $vars.x 读取应该看到 local 值（覆盖 rt.vars 默认）。
+// B-10 regression: SetVar/IncVar 显式 scope=local 时，值写入 ExecState.LocalVars，
+// rt.vars 保持 Default 不变。GetVar(scope=auto) 读取应该看到 local 值（覆盖 rt.vars 默认）。
+//
+// 2026-05-19 默认 scope 从 "local" 改成 "auto" 后, 本测试改成显式 scope: "local" 来
+// 锁定隔离行为. 默认 auto 行为另在 TestRunner_SetVarAutoDefaultFindOrCreate.
 func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 	// v4: 用 GetVar(scope=auto) + Eq + If data-flow 验证 local 写入对后续 read 可见.
 	// auto scope 优先 frame.LocalVars (其中 set 写了 42), 兜底 rt.vars (默认 0).
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			// 缺省 scope = local
-			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "literal": map[string]any{"value": 42.0}}},
+			// 显式 scope = local — 锁定隔离行为
+			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "scope": "local", "literal": map[string]any{"value": 42.0}}},
 			// data nodes: GetVar(x, auto) → Eq(==42) → If.condition
 			{ID: "getx", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "auto"}},
 			{ID: "eq", Kind: "Eq", Config: map[string]any{"literal": map[string]any{"b": 42.0}}},
@@ -93,6 +97,50 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 	// $vars.x 在表达式里应能读到 42（local 优先于 rt.vars）
 	if got := rt.Vars()["branch"]; got != "then" {
 		t.Errorf("branch = %v, want 'then' ($vars.x should resolve to 42 via LocalVars)", got)
+	}
+}
+
+// 2026-05-19 默认 scope 从 "local" 改 "auto" 后的新行为锁定:
+// SetVar 默认 scope=auto — 当前 frame.LocalVars 没 name → 写 rt.vars (find-or-create-global,
+// 跟 Container.Vars 面板默认值合流). GetVar 默认 scope=auto — frame chain → rt.vars fallback.
+// 用户场景: 容器面板声明 x=1, y=2; SetVar(x, 默认 auto, 5); GetVar(x, 默认 auto) + GetVar(y, 默认 auto)
+// → 5, 2; Add = 7. (image copy 4.png 验证的 bug 修复后行为.)
+func TestRunner_SetVarAutoDefaultFindOrCreate(t *testing.T) {
+	c := newTestContainer(
+		[]container.GraphNode{
+			{ID: "start", Kind: "Start"},
+			// 默认 scope (auto): rt.vars[x] 启动时 = 1 (Container.Vars 默认); frame.LocalVars 空.
+			// auto SetVar 写 5 → frame 没 x → 走 rt.vars[x]=5.
+			{ID: "set", Kind: "SetVar", Config: map[string]any{"varName": "x", "literal": map[string]any{"value": 5.0}}},
+			// 默认 GetVar auto — frame 没 y, fallback rt.vars[y]=2.
+			{ID: "gety", Kind: "GetVar", Config: map[string]any{"varName": "y"}},
+			// 写 gety 值到 captured (global) — 验证 GetVar 默认 auto 读容器变量
+			{ID: "capture", Kind: "SetVar", Config: map[string]any{"varName": "captured", "scope": "global"}},
+		},
+		[]container.GraphEdge{
+			{From: "start.out", To: "set.in"},
+			{From: "set.out", To: "capture.in"},
+			{From: "gety.value", To: "capture.value"},
+		},
+		[]container.VarDecl{
+			{Name: "x", Type: "number", Default: 1.0},
+			{Name: "y", Type: "number", Default: 2.0},
+			{Name: "captured", Type: "number", Default: 0.0},
+		},
+	)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	stubRuntimeWindowAndInput(rt)
+	r := NewContainerRunner(rt)
+	if err := r.Run(context.Background()); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// SetVar(x, default=auto) 应写到 rt.vars (frame 没 x → find-or-create-global)
+	if got, _ := expr.AsNumber(rt.Vars()["x"]); got != 5.0 {
+		t.Errorf("rt.vars[x] = %v, want 5 (auto find-or-create-global: frame 没 x → 写 rt.vars)", got)
+	}
+	// GetVar(y, default=auto) 应 fallback rt.vars[y]=2
+	if got, _ := expr.AsNumber(rt.Vars()["captured"]); got != 2.0 {
+		t.Errorf("captured = %v, want 2 (GetVar default auto fallback rt.vars)", got)
 	}
 }
 
