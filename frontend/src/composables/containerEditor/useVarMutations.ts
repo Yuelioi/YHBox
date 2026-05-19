@@ -23,8 +23,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
   function walkAllGraphs(d: Container, fn: (g: Graph) => void) {
     fn(d.graph)
     for (const sg of d.subgraphs ?? []) {
-      // SubgraphSummary may have `graph` populated when loaded; if absent, skip safely
-      if ((sg as any).graph) fn((sg as any).graph as Graph)
+      if (sg.graph) fn(sg.graph)
     }
   }
 
@@ -96,8 +95,8 @@ export function useVarMutations(draft: Ref<Container | null>) {
         return false
       })
       g.edges = g.edges.filter(e => {
-        const fromID = e.from.slice(0, e.from.indexOf('.'))
-        const toID = e.to.slice(0, e.to.indexOf('.'))
+        const fromID = e.from.split('.')[0]
+        const toID = e.to.split('.')[0]
         return !removedIDs.has(fromID) && !removedIDs.has(toID)
       })
     })

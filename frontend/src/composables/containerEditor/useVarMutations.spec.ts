@@ -41,6 +41,13 @@ describe('useVarMutations', () => {
     expect(JSON.stringify(draft.value)).toBe(before)
   })
 
+  it('renameVar: duplicate target name rejected', () => {
+    const draft = ref<Container>(makeDraft())
+    draft.value.vars!.push({ name: 'y', type: 'number', default: 0 })
+    const m = useVarMutations(draft)
+    expect(() => m.renameVar('x', 'y')).toThrow(/already exists/i)
+  })
+
   it('countUsage: returns count of non-local references', () => {
     const draft = ref<Container>(makeDraft())
     const m = useVarMutations(draft)
