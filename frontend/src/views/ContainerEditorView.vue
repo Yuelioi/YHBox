@@ -103,8 +103,8 @@
         :running-node-kind="execStore.currentNodeKind ?? undefined"
         :running-node-label="runningNodeLabel"
         :dirty="dirty"
-        :can-undo="false"
-        :can-redo="false"
+        :can-undo="canUndo"
+        :can-redo="canRedo"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -118,8 +118,8 @@
         @open-node-explorer="onOpenNodeExplorer"
         @open-library-explorer="onOpenLibraryExplorer"
         @open-settings="settingsOpen = true"
-        @undo="onUndo"
-        @redo="onRedo"
+        @undo="undo"
+        @redo="redo"
       />
 
       <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
@@ -358,6 +358,10 @@ const {
   syncFlowFromDraft,
   refreshSubgraphStore,
   applyDraftMutation,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
 } = useContainerDraft(containerID)
 
 // 编辑路径 + 当前子图（useEditorPath，转发 editorStore）
@@ -855,18 +859,32 @@ function onInlineMenuPick(kind: string) {
 
 // ===== End InlineContextMenu =====
 
-function onUndo() {
-  console.info('[Editor v2 C] undo not yet implemented')
-}
-function onRedo() {
-  console.info('[Editor v2 C] redo not yet implemented')
-}
-
 function onGlobalKeydown(e: KeyboardEvent) {
   // Ctrl+, → open settings (Mac Cmd+, also works)
   if ((e.ctrlKey || e.metaKey) && e.key === ',') {
     e.preventDefault()
     settingsOpen.value = true
+    return
+  }
+  // Ctrl+Z → undo (skip when input/textarea/select/contentEditable is focused)
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+    const t = e.target as HTMLElement | null
+    const tag = t?.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
+    e.preventDefault()
+    undo()
+    return
+  }
+  // Ctrl+Shift+Z / Ctrl+Y → redo
+  if (
+    (e.ctrlKey || e.metaKey) &&
+    ((e.shiftKey && e.key.toLowerCase() === 'z') || (!e.shiftKey && e.key.toLowerCase() === 'y'))
+  ) {
+    const t = e.target as HTMLElement | null
+    const tag = t?.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
+    e.preventDefault()
+    redo()
     return
   }
   // Tab → open NodeExplorer (skip when input/textarea/select/contentEditable is focused)

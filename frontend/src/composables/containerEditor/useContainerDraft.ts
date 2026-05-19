@@ -4,6 +4,10 @@ import { backend, type Container, type Graph, type GraphNode, type GraphEdge } f
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { edgeKind } from '@/components/containers/pinSpec'
 
+// ---- History constants ----
+const HISTORY_MAX = 50
+type ContainerSnapshot = Container  // deep-cloned JSON
+
 // FlowNode / FlowEdge: vue-flow 渲染数据形态 (与后端 GraphNode/GraphEdge 区分)
 export interface FlowNode {
   id: string
@@ -39,6 +43,20 @@ export function useContainerDraft(containerID: string) {
   const dirty = ref(false)
   const flowNodes = ref<FlowNode[]>([])
   const flowEdges = ref<FlowEdge[]>([])
+
+  // ---- Undo/redo history (post-mutation snapshots) ----
+  const history = ref<ContainerSnapshot[]>([])
+  // historyIdx points to the current state in history[].
+  // -1 = no snapshots yet (before first load).
+  const historyIdx = ref(-1)
+
+  function snapshotDraft(): ContainerSnapshot | null {
+    if (!draft.value) return null
+    return JSON.parse(JSON.stringify(draft.value)) as ContainerSnapshot
+  }
+
+  const canUndo = computed(() => historyIdx.value > 0)
+  const canRedo = computed(() => historyIdx.value < history.value.length - 1)
 
   // activeGraph: 跟随 editorPath 切换. 空 path → 主图; 否则 = 当前 path 末尾对应子图的 graph.
   // 返回 Graph | null, 不带 any: 下游 mutation 必须显式 null check.
@@ -143,6 +161,12 @@ export function useContainerDraft(containerID: string) {
       editorStore.setActiveContainer(containerID, [])
     }
     syncFlowFromDraft()
+    // Push initial snapshot so undo can return to the just-loaded state (idx 0 = clean baseline)
+    const initial = snapshotDraft()
+    if (initial) {
+      history.value = [initial]
+      historyIdx.value = 0
+    }
     // load 完毕后才装 dirty watcher; 初始化阶段不触发 → 不再需要 setTimeout 重置 hack
     watch(draft, () => { dirty.value = true }, { deep: true })
     watch(
@@ -176,13 +200,48 @@ export function useContainerDraft(containerID: string) {
 
   /**
    * applyDraftMutation — 单向数据流 mutation 入口.
-   * mutator 收到 draft 直接 mutate, wrapper 自动 dirty + sync.
+   * mutator 收到 draft 直接 mutate, wrapper 自动 dirty + sync + history snapshot.
    * 所有 var / node / edge mutation 都走这, flowNodes 永远 derive 自 draft.
    * Spec: editor-v2-vars-panel-design.md §4.3.1 (GPT review #1).
    */
   function applyDraftMutation(mutator: (draft: Container) => void): void {
     if (!draft.value) return
     mutator(draft.value)
+    dirty.value = true
+    syncFlowFromDraft()
+    // Snapshot POST-mutation state for undo/redo
+    const after = snapshotDraft()
+    if (after) {
+      // Truncate redo branch if we mutated after an undo
+      if (historyIdx.value < history.value.length - 1) {
+        history.value = history.value.slice(0, historyIdx.value + 1)
+      }
+      history.value.push(after)
+      historyIdx.value = history.value.length - 1
+      // Cap at HISTORY_MAX entries — drop oldest when full
+      if (history.value.length > HISTORY_MAX) {
+        history.value.shift()
+        historyIdx.value--
+      }
+    }
+  }
+
+  function undo() {
+    if (!draft.value || historyIdx.value <= 0) return
+    historyIdx.value--
+    const snap = history.value[historyIdx.value]
+    if (!snap) return
+    draft.value = JSON.parse(JSON.stringify(snap)) as Container
+    dirty.value = true
+    syncFlowFromDraft()
+  }
+
+  function redo() {
+    if (!draft.value || historyIdx.value >= history.value.length - 1) return
+    historyIdx.value++
+    const snap = history.value[historyIdx.value]
+    if (!snap) return
+    draft.value = JSON.parse(JSON.stringify(snap)) as Container
     dirty.value = true
     syncFlowFromDraft()
   }
@@ -192,6 +251,10 @@ export function useContainerDraft(containerID: string) {
     dirty,
     activeGraph,
     applyDraftMutation,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     flowNodes,
     flowEdges,
     syncFlowFromDraft,
