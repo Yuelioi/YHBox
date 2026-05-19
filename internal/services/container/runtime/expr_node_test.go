@@ -96,8 +96,9 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv": gv, "ex": ex}
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
+		Nodes: []container.GraphNode{*gv, *ex},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "ex.c", Kind: "data"},
+			{From: "gv.value", To: "ex.c"},
 		},
 	})
 

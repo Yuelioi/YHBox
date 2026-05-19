@@ -138,7 +138,7 @@ func TestPhaseA_E2E_GetVarViaDataEdge(t *testing.T) {
 				{From: "setSrc.out", To: "setDst.in"},
 				{From: "setDst.out", To: "stop.in"},
 				// Data flow: GetVar(src).value → SetVar(dst).value
-				{From: "gv.value", To: "setDst.value", Kind: "data"},
+				{From: "gv.value", To: "setDst.value"},
 			},
 		},
 	}

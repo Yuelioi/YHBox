@@ -84,8 +84,9 @@ func TestSetVar_PullFromGetVarEdge(t *testing.T) {
 	r.nodesByID = map[string]*container.GraphNode{"gv": gv, "sv": sv}
 	r.edges = &edgeIndex{out: map[string][]string{}}
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
+		Nodes: []container.GraphNode{*gv, *sv},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sv.value", Kind: "data"},
+			{From: "gv.value", To: "sv.value"},
 		},
 	})
 

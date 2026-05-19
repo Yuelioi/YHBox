@@ -79,7 +79,7 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 				{From: "logRESULT.out", To: "stop.in"},
 				{From: "logDefault.out", To: "stop.in"},
 				// Data: GetVar(state) → Switch.value
-				{From: "getState.value", To: "switch1.value", Kind: "data"},
+				{From: "getState.value", To: "switch1.value"},
 			},
 		},
 	}

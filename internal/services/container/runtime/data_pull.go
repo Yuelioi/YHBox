@@ -10,19 +10,38 @@ import (
 	"yhbox/internal/services/expr"
 )
 
-// dataEdgeIndex maps target pin → source pin for data-flow edges (Kind="data").
+// dataEdgeIndex maps target pin → source pin for data-flow edges.
 // Used by pullDataPin to resolve a node's data-in pin to its upstream source.
 type dataEdgeIndex struct {
 	// key: "<targetNodeID>.<targetPinName>", value: "<sourceNodeID>.<sourcePinName>"
 	bySrc map[string]string
 }
 
-// buildDataEdgeIndex filters Graph.Edges for Kind=="data" only.
+// buildDataEdgeIndex filters Graph.Edges to data-flow edges only.
+//
+// v4 (C1): GraphEdge.Kind 已删除 — 边类型从 (from-node.kind, from-pin) 派生:
+// 若 fromPin 在 nodekind.Spec.DataOut 里 → data 边; 否则 exec 边. 跟 validator 同源.
 func buildDataEdgeIndex(g container.Graph) *dataEdgeIndex {
 	idx := &dataEdgeIndex{bySrc: map[string]string{}}
+	kindByID := make(map[string]string, len(g.Nodes))
+	for _, n := range g.Nodes {
+		kindByID[n.ID] = n.Kind
+	}
 	for _, e := range g.Edges {
-		if e.Kind != "data" {
+		fromID, fromPin, found := strings.Cut(e.From, ".")
+		if !found {
 			continue
+		}
+		kind, ok := kindByID[fromID]
+		if !ok {
+			continue
+		}
+		spec, ok := nodekind.Get(kind)
+		if !ok {
+			continue
+		}
+		if spec.DataOutType(fromPin) == "" {
+			continue // not a data-out — exec edge
 		}
 		idx.bySrc[e.To] = e.From
 	}

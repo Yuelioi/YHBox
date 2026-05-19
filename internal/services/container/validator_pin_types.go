@@ -22,10 +22,13 @@ func pinTypeCompat(from, to string) (allow, warn bool) {
 	return false, false
 }
 
-// validateDataPinTypes walks main + subgraph data edges (Kind="data"), looks up
-// source/target pin types via {dataIn,dataOut}PinTypeForKind, and emits:
+// validateDataPinTypes walks main + subgraph data edges, looks up source/target
+// pin types via {dataIn,dataOut}PinTypeForKind, and emits:
 //   - PIN_TYPE_MISMATCH (error) for incompatible connections
 //   - PIN_TYPE_COERCION_WARNING (warning) for implicit conversions
+//
+// v4 (C1): edges 没 Kind 字段了 — "data 边" 派生为 "fromPin 是 src.kind 的 data-out".
+// 非 data-out 的 from-pin (exec-out) 直接跳过本规则 (data-pin 类型校验不适用 exec 边).
 //
 // Source-type resolution:
 //   - GetVar: Container.Vars[varName].Type (declared variable type)
@@ -51,15 +54,17 @@ func validateDataPinTypes(c *Container) []ValidationError {
 			nodesByID[g.Nodes[i].ID] = &g.Nodes[i]
 		}
 		for _, e := range g.Edges {
-			if e.Kind != "data" {
-				continue
-			}
 			srcID, srcPin := splitRef(e.From)
 			tgtID, tgtPin := splitRef(e.To)
 			src := nodesByID[srcID]
 			tgt := nodesByID[tgtID]
 			if src == nil || tgt == nil {
 				continue // DANGLING_EDGE reported elsewhere
+			}
+			// v4 (C1): 只处理 data 边 — 派生自 "fromPin 在 src 的 data-out 集合里".
+			// GetVar 等动态 data-out 节点 spec 里登记 "any", DataOutType 也返非空.
+			if dataOutPinTypeForKind(src.Kind, srcPin) == "" {
+				continue
 			}
 			// Resolve source type
 			var srcType string

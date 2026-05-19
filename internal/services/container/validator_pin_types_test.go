@@ -17,7 +17,7 @@ func TestValidate_PinTypeMismatch_StringToNumber(t *testing.T) {
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "inc.in"},
-				{From: "gv.value", To: "inc.delta", Kind: "data"}, // string → number = mismatch
+				{From: "gv.value", To: "inc.delta"}, // string → number = mismatch (data edge derived from GetVar.value out-pin)
 			},
 		},
 	}
@@ -60,7 +60,7 @@ func TestValidate_AnyAcceptsEverything(t *testing.T) {
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "sv.in"},
-				{From: "gv.value", To: "sv.value", Kind: "data"}, // string → any = OK
+				{From: "gv.value", To: "sv.value"}, // string → any = OK (data edge derived)
 			},
 		},
 	}

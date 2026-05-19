@@ -5,9 +5,11 @@ package container
 // node's input depends transitively on its own output — infinite recursion at runtime.
 //
 // Algorithm: standard DFS with WHITE/GRAY/BLACK coloring on per-graph adjacency
-// derived from Kind="data" edges. Walks main + every subgraph independently
-// (cycles can't cross subgraph boundaries — Subgraph call nodes are exec, not data).
-// Returns at most one DATA_GRAPH_CYCLE per graph (first cycle found).
+// derived from data edges. Walks main + every subgraph independently (cycles can't
+// cross subgraph boundaries — Subgraph call nodes are exec, not data). Returns at
+// most one DATA_GRAPH_CYCLE per graph (first cycle found).
+//
+// v4 (C1): GraphEdge.Kind 已删 — "data 边" 派生自 "fromPin 在 src.kind 的 data-out 集合里".
 func validateDataGraphAcyclic(c *Container) []ValidationError {
 	if c == nil {
 		return nil
@@ -16,17 +18,20 @@ func validateDataGraphAcyclic(c *Container) []ValidationError {
 		// Build src→[targets] adjacency over data edges only.
 		adj := map[string][]string{}
 		nodes := map[string]bool{}
+		kindByID := map[string]string{}
 		for _, n := range g.Nodes {
 			nodes[n.ID] = true
+			kindByID[n.ID] = n.Kind
 		}
 		for _, e := range g.Edges {
-			if e.Kind != "data" {
-				continue
-			}
-			srcID, _ := splitRef(e.From)
+			srcID, srcPin := splitRef(e.From)
 			tgtID, _ := splitRef(e.To)
 			if !nodes[srcID] || !nodes[tgtID] {
 				continue // DANGLING_EDGE reported elsewhere
+			}
+			// 派生 data 边: src.kind 在 fromPin 上有 data-out 才算.
+			if dataOutPinTypeForKind(kindByID[srcID], srcPin) == "" {
+				continue
 			}
 			adj[srcID] = append(adj[srcID], tgtID)
 		}

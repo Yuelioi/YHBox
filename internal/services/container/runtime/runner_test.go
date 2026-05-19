@@ -72,8 +72,8 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 			{From: "if.then", To: "markThen.in"},
 			{From: "if.else", To: "markElse.in"},
 			// data flow into If.condition
-			{From: "getx.value", To: "eq.a", Kind: "data"},
-			{From: "eq.result", To: "if.condition", Kind: "data"},
+			{From: "getx.value", To: "eq.a"},
+			{From: "eq.result", To: "if.condition"},
 		},
 		[]container.VarDecl{
 			{Name: "x", Type: "number", Default: 0.0},
@@ -138,8 +138,8 @@ func TestRunner_IfBranch(t *testing.T) {
 			{From: "set1.out", To: "if.in"},
 			{From: "if.then", To: "setThen.in"},
 			{From: "if.else", To: "setElse.in"},
-			{From: "gety.value", To: "eq.a", Kind: "data"},
-			{From: "eq.result", To: "if.condition", Kind: "data"},
+			{From: "gety.value", To: "eq.a"},
+			{From: "eq.result", To: "if.condition"},
 		},
 		[]container.VarDecl{
 			{Name: "y", Type: "number", Default: 0.0},
@@ -201,8 +201,8 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{From: "inc.out", To: "if.in"},
 			{From: "if.then", To: "br.in"},
 			{From: "if.else", To: "loop.loopback"},
-			{From: "geti.value", To: "gte.a", Kind: "data"},
-			{From: "gte.result", To: "if.condition", Kind: "data"},
+			{From: "geti.value", To: "gte.a"},
+			{From: "gte.result", To: "if.condition"},
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)

@@ -18,8 +18,8 @@ func TestValidateDataGraph_DetectsCycle(t *testing.T) {
 				}},
 			},
 			Edges: []GraphEdge{
-				{From: "e1.value", To: "e2.b", Kind: "data"},
-				{From: "e2.value", To: "e1.a", Kind: "data"}, // cycle e1→e2→e1
+				{From: "e1.value", To: "e2.b"},
+				{From: "e2.value", To: "e1.a"}, // cycle e1→e2→e1 (data edges derived from Expr.value out-pin)
 			},
 		},
 	}
@@ -48,8 +48,8 @@ func TestValidateDataGraph_AcceptsDAG(t *testing.T) {
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "sv.in"},
-				{From: "gv.value", To: "add.a", Kind: "data"},
-				{From: "add.result", To: "sv.value", Kind: "data"},
+				{From: "gv.value", To: "add.a"},
+				{From: "add.result", To: "sv.value"},
 			},
 		},
 	}

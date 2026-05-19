@@ -42,7 +42,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 				{From: "sgi.out", To: "sv.in"},
 				{From: "sv.out", To: "sgo.in"},
 				// data: GetParam(hp).value → SetVar(result).value
-				{From: "gp.value", To: "sv.value", Kind: "data"},
+				{From: "gp.value", To: "sv.value"},
 			},
 		},
 	}

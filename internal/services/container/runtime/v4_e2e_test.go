@@ -83,11 +83,11 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				{From: "if1.then", To: "stop.in"},
 				{From: "if1.else", To: "stop.in"},
 				// Data: GetVar(counter) → Add(a) → setDst.value
-				{From: "getCounter.value", To: "add10.a", Kind: "data"},
-				{From: "add10.result", To: "setDst.value", Kind: "data"},
+				{From: "getCounter.value", To: "add10.a"},
+				{From: "add10.result", To: "setDst.value"},
 				// Data: GetSys(iter) → Expr.i → If.condition
-				{From: "getIter.value", To: "condExpr.i", Kind: "data"},
-				{From: "condExpr.value", To: "if1.condition", Kind: "data"},
+				{From: "getIter.value", To: "condExpr.i"},
+				{From: "condExpr.value", To: "if1.condition"},
 			},
 		},
 	}

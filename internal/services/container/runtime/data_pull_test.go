@@ -52,8 +52,9 @@ func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 	dst := &container.GraphNode{ID: "sleep", Kind: "Sleep", Config: map[string]any{}}
 	r.nodesByID = map[string]*container.GraphNode{"gv": src, "sleep": dst}
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
+		Nodes: []container.GraphNode{*src, *dst},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sleep.durationMs", Kind: "data"},
+			{From: "gv.value", To: "sleep.durationMs"},
 		},
 	})
 
@@ -83,8 +84,9 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv": src, "sleep": dst}
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
+		Nodes: []container.GraphNode{*src, *dst},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sleep.durationMs", Kind: "data"},
+			{From: "gv.value", To: "sleep.durationMs"},
 		},
 	})
 
@@ -95,11 +97,19 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 }
 
 func TestDataEdgeIndex_IgnoresExecEdges(t *testing.T) {
+	// v4 (C1): edge type derived from (from-node.kind, from-pin).
+	// Sleep.out is exec-out (not in DataOut) → filtered out.
+	// GetVar.value is data-out → kept.
 	idx := buildDataEdgeIndex(container.Graph{
+		Nodes: []container.GraphNode{
+			{ID: "a", Kind: "Sleep"},
+			{ID: "b", Kind: "Sleep"},
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
+			{ID: "c", Kind: "SetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
+		},
 		Edges: []container.GraphEdge{
-			{From: "a.out", To: "b.in"},                  // no Kind = exec
-			{From: "a.out", To: "b.in", Kind: "exec"},    // explicit exec
-			{From: "gv.value", To: "c.x", Kind: "data"},  // data
+			{From: "a.out", To: "b.in"},      // Sleep.out is exec-out → not data
+			{From: "gv.value", To: "c.x"},    // GetVar.value is data-out → data
 		},
 	})
 	if src, pin := idx.Source("b", "in"); src != "" || pin != "" {
