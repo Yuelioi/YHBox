@@ -8,6 +8,7 @@
       class="px-2 py-1 flex items-center gap-2"
       draggable="true"
       @dragstart="onDragStart"
+      @dblclick.stop="expanded = true"
     >
       <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed cursor-grab" />
       <span class="font-medium">{{ decl.name }}</span>

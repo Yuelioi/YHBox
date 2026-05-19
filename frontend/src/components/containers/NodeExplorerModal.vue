@@ -31,8 +31,7 @@
             <div v-for="g in filteredGroups" :key="g.group">
               <button
                 type="button"
-                class="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-elevated/30 rounded text-[12px] font-medium"
-                :class="groupLabelColor(g.group)"
+                class="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-elevated/30 rounded text-[12px] font-medium text-default"
                 @click="toggleGroup(g.group)"
               >
                 <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3.5" />
@@ -76,7 +75,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { useDiscoveryStore } from '@/stores/discovery'
-import { groupLabelColor, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 
 const EXPANDED_KEY = 'yhfish.explorer.expanded'
 

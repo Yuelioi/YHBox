@@ -51,8 +51,7 @@
         <div v-for="g in groupedFiltered" :key="g.group">
           <button
             type="button"
-            class="w-full flex items-center gap-1 px-1 py-0.5 hover:bg-elevated/30 rounded text-[10px] font-medium"
-            :class="groupLabelColor(g.group)"
+            class="w-full flex items-center gap-1 px-1 py-0.5 hover:bg-elevated/30 rounded text-[10px] font-medium text-default"
             @click="toggleGroup(g.group)"
           >
             <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3" />
@@ -87,7 +86,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
-import { groupLabelColor, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 
 export interface PinContext {
   pinType: VarType
