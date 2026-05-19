@@ -2,8 +2,10 @@
 <template>
   <div class="border-b border-default">
     <button
+      type="button"
       class="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-elevated/50 transition-colors"
       :class="titleColorClass"
+      :aria-expanded="expanded"
       @click="$emit('update:expanded', !expanded)"
     >
       <span class="flex items-center gap-2">
