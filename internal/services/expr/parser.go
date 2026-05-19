@@ -78,10 +78,28 @@ func Parse(src string) (*Node, error) {
 
 // Pratt parser ----------
 
+// MaxExprDepth caps recursive parse depth to prevent stack overflow on
+// pathological input like 1000 nested parens. Real expressions never approach
+// this; the cap exists as a security boundary (Expr config is user-editable).
+const MaxExprDepth = 256
+
 type parser struct {
-	toks []token
-	i    int
+	toks  []token
+	i     int
+	depth int // tracks recursion depth across parseExpr/parsePrefix
 }
+
+// enter increments parse depth and returns an error if MaxExprDepth exceeded.
+// Pair with defer p.exit() at the top of any recursive parser method.
+func (p *parser) enter() error {
+	p.depth++
+	if p.depth > MaxExprDepth {
+		return fmt.Errorf("expr: max nesting depth %d exceeded (pathological input?)", MaxExprDepth)
+	}
+	return nil
+}
+
+func (p *parser) exit() { p.depth-- }
 
 func (p *parser) peek() token { return p.toks[p.i] }
 func (p *parser) advance() token {
@@ -104,6 +122,10 @@ const (
 )
 
 func (p *parser) parseExpr(minPrec int) (*Node, error) {
+	if err := p.enter(); err != nil {
+		return nil, err
+	}
+	defer p.exit()
 	left, err := p.parsePrefix()
 	if err != nil {
 		return nil, err
@@ -177,6 +199,10 @@ func infixInfo(k tokKind) (int, nodeKind, bool) {
 }
 
 func (p *parser) parsePrefix() (*Node, error) {
+	if err := p.enter(); err != nil {
+		return nil, err
+	}
+	defer p.exit()
 	t := p.peek()
 	switch t.kind {
 	case tkNumber:
