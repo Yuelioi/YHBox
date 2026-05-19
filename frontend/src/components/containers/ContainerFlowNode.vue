@@ -13,7 +13,8 @@
     <!-- Header -->
     <div class="flex items-center gap-1.5 px-2.5 py-1 border-b" :class="v.border">
       <UIcon :name="v.icon" class="size-3.5 text-default shrink-0" />
-      <span class="font-medium text-default truncate">{{ label }}</span>
+      <span class="font-medium text-default truncate">{{ displayLabel }}</span>
+      <span v-if="kindSubtitle" class="text-[9px] text-dimmed truncate shrink-0">({{ kindSubtitle }})</span>
       <UIcon
         v-if="isDisabled"
         name="i-tabler-ban"
@@ -132,12 +133,19 @@ const execStore = useExecutionStore()
 
 const props = defineProps<{
   id: string
-  data: { kind: string; config?: Record<string, any>; disabled?: boolean }
+  data: { kind: string; config?: Record<string, any>; disabled?: boolean; label?: string }
   selected?: boolean
 }>()
 
 const kind = computed(() => props.data?.kind ?? '')
-const label = computed(() => KIND_LABEL_ZH[kind.value] ?? kind.value)
+// prefer user-set label; fall back to kind's Chinese display name
+const displayLabel = computed(() =>
+  props.data?.label ? props.data.label : (KIND_LABEL_ZH[kind.value] ?? kind.value),
+)
+// show kind name as subtitle when user has set a custom label
+const kindSubtitle = computed(() =>
+  props.data?.label ? (KIND_LABEL_ZH[kind.value] ?? kind.value) : null,
+)
 const isRunning = computed(() => execStore.running && execStore.currentNodeID === props.id)
 const isDisabled = computed(() => props.data?.disabled === true)
 const v = computed(

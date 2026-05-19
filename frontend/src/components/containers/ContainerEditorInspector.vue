@@ -7,6 +7,7 @@
       :nodes="activeGraph?.nodes ?? []"
       :edges="activeGraph?.edges ?? []"
       @update="$emit('config-update', $event)"
+      @label-update="$emit('label-update', $event)"
       @delete="$emit('delete-selected')"
       @request-record="$emit('request-record', $event)"
     />
@@ -67,6 +68,7 @@ defineProps<{
 
 defineEmits<{
   'config-update': [cfg: Record<string, any>]
+  'label-update': [v: string]
   'delete-selected': []
   'subgraph-update': [patch: Record<string, any>]
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]

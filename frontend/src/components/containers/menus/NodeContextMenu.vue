@@ -17,7 +17,9 @@
       <!-- Header -->
       <div class="px-3 py-1 text-[10px] text-dimmed border-b border-default">
         <UIcon :name="iconForKind" class="size-3 inline mr-1" />
-        {{ kindLabel }} <span class="text-primary">({{ node.id }})</span>
+        <span v-if="node.label">{{ node.label }} <span class="text-[9px]">({{ kindLabel }})</span></span>
+        <span v-else>{{ kindLabel }}</span>
+        <span class="text-primary"> · {{ node.id }}</span>
       </div>
 
       <!-- 通用操作 -->

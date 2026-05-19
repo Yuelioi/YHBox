@@ -95,6 +95,7 @@ export interface VarDecl {
 export interface GraphNode {
   id: string
   kind: string
+  label?: string       // Editor v2 polish round 2 — user-editable display name
   x: number
   y: number
   config?: Record<string, any>

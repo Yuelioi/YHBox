@@ -25,7 +25,8 @@
               @click="onPick(ref.id)"
             >
               <UIcon :name="iconForKind(ref.kind)" class="size-3.5 shrink-0" />
-              <span class="font-medium">{{ ref.kind }}</span>
+              <span class="font-medium">{{ ref.label || ref.kind }}</span>
+              <span v-if="ref.label" class="text-[10px] text-dimmed">({{ ref.kind }})</span>
               <span class="text-dimmed font-mono text-[10px]">{{ ref.id }}</span>
               <span v-if="ref.location" class="ml-auto text-[10px] text-indigo-400">{{ ref.location }}</span>
             </button>
@@ -47,7 +48,8 @@ import { getSpec } from '@/components/containers/nodeRegistry/registry'
 export interface RefEntry {
   id: string
   kind: string
-  location?: string  // e.g. "主图" or "子图: foo"
+  label?: string      // Editor v2 polish round 2 — user-set display name
+  location?: string   // e.g. "主图" or "子图: foo"
 }
 
 const props = defineProps<{

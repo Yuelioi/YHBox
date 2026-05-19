@@ -26,6 +26,19 @@
       />
     </header>
 
+    <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
+    <section class="mb-4">
+      <UFormField label="标签 (Label)" hint="留空则用节点类型的默认名">
+        <UInput
+          :model-value="node.label ?? ''"
+          placeholder="(留空)"
+          size="sm"
+          class="w-full"
+          @update:model-value="(v: string) => $emit('label-update', v)"
+        />
+      </UFormField>
+    </section>
+
     <!-- 用法说明 -->
     <section
       v-if="description"
@@ -568,6 +581,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   update: [config: Record<string, any>]
+  'label-update': [v: string]
   delete: []
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
 }>()

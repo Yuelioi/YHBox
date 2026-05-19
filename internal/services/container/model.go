@@ -31,6 +31,7 @@ type VarDecl struct {
 type GraphNode struct {
 	ID        string         `json:"id"`
 	Kind      string         `json:"kind"`
+	Label     string         `json:"label,omitempty"`     // Editor v2 polish round 2 — user-editable display name
 	X         float32        `json:"x"`
 	Y         float32        `json:"y"`
 	Config    map[string]any `json:"config,omitempty"`

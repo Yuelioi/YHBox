@@ -223,6 +223,7 @@
           :var-names="varNames"
           :all-subgraph-tags="allSubgraphTags"
           @config-update="onConfigUpdate"
+          @label-update="onLabelUpdate"
           @delete-selected="onDeleteSelected"
           @subgraph-update="onSubgraphPropsUpdate"
           @request-record="(e) => startRecording(e.mode, { replaceNodeID: e.replaceNodeID })"
@@ -983,7 +984,7 @@ function onNodeMenuAction(a: NodeMenuAction) {
       const walk = (nodes: GraphNode[], location: string) => {
         for (const n of nodes) {
           if (ids.includes(n.id)) {
-            refs.push({ id: n.id, kind: n.kind, location })
+            refs.push({ id: n.id, kind: n.kind, label: (n as any).label, location })
           }
         }
       }
@@ -1910,6 +1911,20 @@ function onConfigUpdate(cfg: Record<string, any>) {
   // flowNodes 持有旧 config 引用快照, computed pins 不会重算 → handle 不刷新.
   // 这里重建 flow 让 ContainerFlowNode 拿到新 config 引用.
   syncFlowFromDraft()
+}
+
+function onLabelUpdate(newLabel: string) {
+  if (!selectedNode.value) return
+  const targetID = selectedNode.value.id
+  applyDraftMutation((d) => {
+    const g = activeGraph.value
+    if (!g) return
+    const n = g.nodes.find((x) => x.id === targetID) as (GraphNode & { label?: string }) | undefined
+    if (!n) return
+    const trimmed = newLabel.trim()
+    if (trimmed) n.label = trimmed
+    else delete (n as any).label
+  })
 }
 
 // v4 D8: Expr fusion listener (Inspector 触发 'expr-fuse' CustomEvent).
