@@ -560,6 +560,27 @@ function dropVar(
   })
 }
 
+function dropNodeSpec(
+  payload: Extract<EditorDragPayload, { type: 'node-spec' }>,
+  pos: { x: number; y: number },
+) {
+  const kind = payload.kind
+  applyDraftMutation((d) => {
+    const g = activeGraph.value
+    if (!g) return
+    const node: GraphNode = {
+      id: newNodeID(kind),
+      kind,
+      x: pos.x,
+      y: pos.y,
+      config: getSpec(kind)?.defaults ?? {},
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+  })
+  useDiscoveryStore().pushRecent(kind)
+}
+
 function onInsertIncVar(name: string) {
   // VarRow "+" hover button → insert IncVar at viewport center
   applyDraftMutation(() => {
@@ -589,8 +610,8 @@ function onCanvasDrop(e: DragEvent) {
     const pos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
     switch (payload.type) {
       case 'var': return dropVar(payload, pos)
-      case 'node-spec': return  // Editor v2 B will handle
-      case 'library-subgraph': return  // Editor v2 B will handle
+      case 'node-spec': return dropNodeSpec(payload, pos)
+      case 'library-subgraph': return  // not used yet (LibraryExplorerModal is click-pick, not drag)
     }
     return
   }
