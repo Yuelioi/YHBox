@@ -187,6 +187,7 @@
             @node-context-menu="onNodeContextMenu"
             @selection-context-menu="onSelectionContextMenu"
             @pane-double-click="onPaneDoubleClick"
+            :is-valid-connection="isValidVueFlowConnection"
             @connect-start="onVfConnectStart"
             @connect-end="onVfConnectEnd"
             @edge-double-click="onEdgeDoubleClick"
@@ -823,6 +824,30 @@ const connectionStart = ref<{
   handleId: string
   handleType: 'source' | 'target'
 } | null>(null)
+
+function isValidVueFlowConnection(conn: {
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+}): boolean {
+  if (!conn.sourceHandle || !conn.targetHandle) return true
+  const srcNode = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+    (n) => n.id === conn.source,
+  )
+  const tgtNode = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+    (n) => n.id === conn.target,
+  )
+  if (!srcNode || !tgtNode) return true
+
+  const srcOutType = dataOutTypeFor(srcNode.kind, conn.sourceHandle)
+  const tgtInType = dataInTypeFor(tgtNode.kind, conn.targetHandle, tgtNode.config as Record<string, unknown>)
+
+  // If either side is not a data pin (exec pin or unknown kind), allow
+  if (!srcOutType || !tgtInType) return true
+
+  return isCompatibleType(srcOutType as VarType, tgtInType as VarType)
+}
 
 function onVfConnectStart(params: {
   event?: MouseEvent
