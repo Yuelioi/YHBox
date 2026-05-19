@@ -6,7 +6,7 @@
 // callers (NodeInspector.vue etc.) keep working without edits.
 //
 // DO NOT add new entries here — put them in nodeRegistry/specs/<group>.ts.
-import '@/components/containers/nodeRegistry/specs'
+// nodeRegistry/specs is imported once at app entry (main.ts). No side-effect needed here.
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { FieldSchema } from '@/components/containers/nodeRegistry/index'
 

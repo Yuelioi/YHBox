@@ -107,7 +107,8 @@ import { useLibraryStore } from '@/stores/library'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useToast } from '@nuxt/ui/composables'
 import { backend, type LibrarySubgraph } from '@/lib/backend'
-import { KIND_LABEL_ZH } from './pinSpec'
+import { allSpecs } from '@/components/containers/nodeRegistry/registry'
+import type { NodeKindSpec, NodeGroup } from '@/components/containers/nodeRegistry/index'
 
 defineEmits<{ add: [kind: string] }>()
 
@@ -221,183 +222,57 @@ onMounted(() => {
   void libraryStore.reload()
 })
 
-const KINDS_BY_GROUP: {
-  label: string
-  items: { kind: string; icon: string }[]
-}[] = [
-  {
-    label: '控制流',
-    items: [
-      { kind: 'Start', icon: 'i-tabler-player-play' },
-      { kind: 'Sleep', icon: 'i-tabler-clock' },
-      { kind: 'Loop', icon: 'i-tabler-repeat' },
-      { kind: 'If', icon: 'i-tabler-git-branch' },
-      { kind: 'Switch', icon: 'i-tabler-switch-3' },
-      { kind: 'Parallel', icon: 'i-tabler-columns-3' },
-      { kind: 'Race', icon: 'i-tabler-flag' },
-      { kind: 'Stop', icon: 'i-tabler-square' },
-      { kind: 'Break', icon: 'i-tabler-player-skip-forward' },
-      { kind: 'Continue', icon: 'i-tabler-corner-down-left' },
-    ],
-  },
-  {
-    label: '变量',
-    items: [
-      { kind: 'GetVar', icon: 'i-tabler-variable' }, // v4 新增: 读变量 (pure data)
-      { kind: 'SetVar', icon: 'i-tabler-equal' },
-      { kind: 'IncVar', icon: 'i-tabler-circle-plus' },
-    ],
-  },
-  // v4 系统/入参 (pure data accessors)
-  {
-    label: '系统/入参',
-    items: [
-      { kind: 'GetSys', icon: 'i-tabler-cpu' },
-      { kind: 'GetParam', icon: 'i-tabler-input-search' },
-    ],
-  },
-  // v4 表达式 (单节点)
-  {
-    label: '表达式',
-    items: [
-      { kind: 'Expr', icon: 'i-tabler-math' },
-      { kind: 'CommentBox', icon: 'i-tabler-square-letter-c' }, // v4 §9.1
-    ],
-  },
-  // v4 §6: 22 纯函数节点 (按 spec 子类划 4 个 palette 分组).
-  {
-    label: '算术',
-    items: [
-      { kind: 'Add', icon: 'i-tabler-plus' },
-      { kind: 'Sub', icon: 'i-tabler-minus' },
-      { kind: 'Mul', icon: 'i-tabler-x' },
-      { kind: 'Div', icon: 'i-tabler-divide' },
-      { kind: 'Mod', icon: 'i-tabler-percentage' },
-      { kind: 'Neg', icon: 'i-tabler-arrow-down-right' },
-    ],
-  },
-  {
-    label: '比较/逻辑',
-    items: [
-      { kind: 'Lt', icon: 'i-tabler-math-lower' },
-      { kind: 'LtEq', icon: 'i-tabler-math-equal-lower' },
-      { kind: 'Gt', icon: 'i-tabler-math-greater' },
-      { kind: 'GtEq', icon: 'i-tabler-math-equal-greater' },
-      { kind: 'Eq', icon: 'i-tabler-equal' },
-      { kind: 'NotEq', icon: 'i-tabler-equal-not' },
-      { kind: 'And', icon: 'i-tabler-ampersand' },
-      { kind: 'Or', icon: 'i-tabler-letter-o' },
-      { kind: 'Not', icon: 'i-tabler-exclamation-mark' },
-      { kind: 'Select', icon: 'i-tabler-arrows-split' },
-    ],
-  },
-  {
-    label: '字符串/转换',
-    items: [
-      { kind: 'Concat', icon: 'i-tabler-plus-equal' },
-      { kind: 'Contains', icon: 'i-tabler-search' },
-      { kind: 'Length', icon: 'i-tabler-ruler' },
-      { kind: 'ToString', icon: 'i-tabler-letter-t' },
-      { kind: 'ToNumber', icon: 'i-tabler-numbers' },
-      { kind: 'ToBool', icon: 'i-tabler-toggle-right' },
-    ],
-  },
-  {
-    label: '图像',
-    items: [
-      { kind: 'WaitTemplate', icon: 'i-tabler-eye' },
-      { kind: 'CheckTemplate', icon: 'i-tabler-search' },
-      { kind: 'ClickTemplate', icon: 'i-tabler-target' },
-      { kind: 'DetectColor', icon: 'i-tabler-color-picker' },
-    ],
-  },
-  {
-    label: '输入',
-    items: [
-      { kind: 'ClickAt', icon: 'i-tabler-click' },
-      { kind: 'KeyPress', icon: 'i-tabler-keyboard' },
-      { kind: 'MouseMoveRel', icon: 'i-tabler-arrows-move' },
-      { kind: 'Scroll', icon: 'i-tabler-mouse' },
-    ],
-  },
-  {
-    label: '录制',
-    items: [
-      { kind: 'PlayClip', icon: 'i-tabler-vinyl' },
-    ],
-  },
-  { label: '事件', items: [{ kind: 'OnEvent', icon: 'i-tabler-radio' }] },
-  {
-    label: '调试',
-    items: [
-      { kind: 'Log', icon: 'i-tabler-file-text' },
-      { kind: 'Toast', icon: 'i-tabler-bell' },
-    ],
-  },
-  {
-    label: '子图',
-    items: [
-      { kind: 'Subgraph', icon: 'i-tabler-package' },
-      { kind: 'SubgraphInput', icon: 'i-tabler-arrow-bar-to-right' },
-      { kind: 'SubgraphOutput', icon: 'i-tabler-arrow-bar-to-left' },
-    ],
-  },
-  {
-    label: '系统',
-    items: [{ kind: 'BringGameForeground', icon: 'i-tabler-app-window' }],
-  },
-  {
-    label: '配置',
-    items: [
-      { kind: 'WindowTarget', icon: 'i-tabler-app-window' },
-      { kind: 'MouseCalibration', icon: 'i-tabler-target' },
-    ],
-  },
-  {
-    label: '检测 v3',
-    items: [
-      { kind: 'DetectColorHSV', icon: 'i-tabler-palette' },
-      { kind: 'ROIColorScan', icon: 'i-tabler-scan-eye' },
-      { kind: 'Screenshot', icon: 'i-tabler-camera' },
-    ],
-  },
-  {
-    label: '输入长按 v3',
-    items: [
-      { kind: 'KeyHoldStart', icon: 'i-tabler-keyboard' },
-      { kind: 'KeyHoldStop', icon: 'i-tabler-keyboard-off' },
-      { kind: 'MouseHoldStart', icon: 'i-tabler-hand-click' },
-      { kind: 'MouseHoldStop', icon: 'i-tabler-hand-off' },
-    ],
-  },
-  {
-    label: '时序 v3',
-    items: [
-      { kind: 'StopwatchStart', icon: 'i-tabler-player-play' },
-      { kind: 'StopwatchStop', icon: 'i-tabler-player-stop' },
-      { kind: 'StopwatchRead', icon: 'i-tabler-stopwatch' },
-    ],
-  },
-  {
-    label: '错误处理 v3',
-    items: [
-      { kind: 'Try', icon: 'i-tabler-shield-exclamation' },
-      { kind: 'Throw', icon: 'i-tabler-bolt' },
-    ],
-  },
-]
+// v4 B5: palette sections derived from nodeRegistry. Adding a kind in
+// nodeRegistry/specs/<group>.ts auto-populates the palette — no edit here needed.
+// GROUP_LABEL maps the 6 spec groups to Chinese palette section headers.
+// Order in GROUP_LABEL determines section render order.
+const GROUP_LABEL: Record<NodeGroup, string> = {
+  control: '控制流',
+  variables: '变量 / 数据',
+  purefunc: '纯函数',
+  detect: '检测',
+  input: '输入',
+  system: '系统',
+}
 
-const groups = KINDS_BY_GROUP.map((g) => ({
-  label: g.label,
-  items: g.items.map((n) => ({ ...n, label: KIND_LABEL_ZH[n.kind] ?? n.kind })),
-}))
+interface PaletteItem {
+  kind: string
+  icon: string
+  label: string
+}
+interface PaletteGroup {
+  label: string
+  items: PaletteItem[]
+}
+
+const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
+  const groups: Record<NodeGroup, PaletteGroup> = {
+    control: { label: GROUP_LABEL.control, items: [] },
+    variables: { label: GROUP_LABEL.variables, items: [] },
+    purefunc: { label: GROUP_LABEL.purefunc, items: [] },
+    detect: { label: GROUP_LABEL.detect, items: [] },
+    input: { label: GROUP_LABEL.input, items: [] },
+    system: { label: GROUP_LABEL.system, items: [] },
+  }
+  for (const s of allSpecs() as NodeKindSpec[]) {
+    if (s.isVisualOnly) continue // CommentBox etc. — not draggable from palette
+    const g = groups[s.group]
+    if (!g) continue
+    g.items.push({ kind: s.kind, icon: s.visual.icon, label: s.labelZh })
+  }
+  for (const g of Object.values(groups)) {
+    g.items.sort((a, b) => a.label.localeCompare(b.label, 'zh'))
+  }
+  return groups
+})
 
 // v4 B10: search-aware computed groups. Empty query → all groups; non-empty → only
 // groups with at least one matching item, items filtered by substring on kind+label.
-const filteredGroups = computed(() => {
+const filteredGroups = computed<PaletteGroup[]>(() => {
+  const all = Object.values(KINDS_BY_GROUP.value).filter((g) => g.items.length > 0)
   const q = nodeSearch.value.trim().toLowerCase()
-  if (!q) return groups
-  return groups
+  if (!q) return all
+  return all
     .map((g) => ({
       ...g,
       items: g.items.filter(

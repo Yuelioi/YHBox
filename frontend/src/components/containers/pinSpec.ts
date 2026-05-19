@@ -8,10 +8,7 @@
 //
 // DO NOT add new entries here — register them in nodeRegistry/specs/*.ts.
 
-// Side-effect import: triggers all specs/*.ts register() calls so the
-// derived maps below are populated. MUST stay above the const declarations.
-import '@/components/containers/nodeRegistry/specs'
-
+// nodeRegistry/specs is imported once at app entry (main.ts). No side-effect needed here.
 import {
   allSpecs,
   getSpec,

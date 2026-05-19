@@ -4,6 +4,14 @@ import ui from '@nuxt/ui/vue-plugin'
 import { useToast } from '@nuxt/ui/composables'
 import { useDark } from '@vueuse/core'
 
+// Side-effect: register all v4 node kinds in nodeRegistry. MUST be the first
+// import here — other modules (pinSpec.ts / nodeFieldSchemas.ts / NodePalette.vue
+// / stores) derive top-level const maps from the registry at module-init time,
+// so the registry must be populated before any of them evaluates. Other shells
+// (pinSpec.ts, nodeFieldSchemas.ts) used to duplicate this side-effect import;
+// centralized here as single source of truth.
+import '@/components/containers/nodeRegistry/specs'
+
 import App from './App.vue'
 import { router } from './router'
 import { wireEvents } from './lib/events'
