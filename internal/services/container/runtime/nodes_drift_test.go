@@ -71,3 +71,14 @@ func TestExecNodeRejectsPureDataKind(t *testing.T) {
 		t.Errorf("expected pure-data error, got %v", err)
 	}
 }
+
+// TestExecNodeVisualOnlyIsNoOp 防止 CommentBox 之类 IsVisualOnly 节点的 no-op 路径被
+// 意外回退. 当前 CommentBox 是唯一 IsVisualOnly kind, 但 spec 允许未来再加.
+func TestExecNodeVisualOnlyIsNoOp(t *testing.T) {
+	r := &ContainerRunner{}
+	n := &container.GraphNode{ID: "n1", Kind: "CommentBox"}
+	toks, err := r.execNode(context.Background(), n, ExecToken{})
+	if err != nil || toks != nil {
+		t.Errorf("CommentBox should be no-op, got toks=%v err=%v", toks, err)
+	}
+}
