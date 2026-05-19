@@ -319,3 +319,11 @@ func dataOutPinTypeForKind(kind, pinName string) string {
 	}
 	return string(s.DataOutType(pinName))
 }
+
+// IsDataOutPin reports whether (kind, pin) is a registered data-out pin.
+// Centralizes the "is this a data edge?" predicate — validator + runtime
+// must agree on this rule to keep edge-type derivation consistent (replaces
+// the deleted GraphEdge.Kind field).
+func IsDataOutPin(kind, pin string) bool {
+	return dataOutPinTypeForKind(kind, pin) != ""
+}

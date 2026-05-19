@@ -63,7 +63,7 @@ func validateDataPinTypes(c *Container) []ValidationError {
 			}
 			// v4 (C1): 只处理 data 边 — 派生自 "fromPin 在 src 的 data-out 集合里".
 			// GetVar 等动态 data-out 节点 spec 里登记 "any", DataOutType 也返非空.
-			if dataOutPinTypeForKind(src.Kind, srcPin) == "" {
+			if !IsDataOutPin(src.Kind, srcPin) {
 				continue
 			}
 			// Resolve source type

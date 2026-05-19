@@ -294,7 +294,7 @@ func validateInvalidPins(c *Container) []ValidationError {
 			if node, ok := nodeByID[fromID]; ok && fromPin != "" {
 				// v4 (C1): 边类型从 (kind, fromPin) 派生 — 在 spec.DataOut → data; 否则查 exec-out
 				// (含 Subgraph 动态 exec-out via OutputPins). 不依赖已删除的 e.Kind 字段.
-				isDataOut, _ := dataOutType(node.Kind, fromPin)
+				isDataOut := IsDataOutPin(node.Kind, fromPin)
 				isExecOut := nodeHasExecOutPin(node, fromPin)
 				if !isDataOut && !isExecOut && node.Kind == "Subgraph" {
 					if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {

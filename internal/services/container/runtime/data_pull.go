@@ -36,11 +36,7 @@ func buildDataEdgeIndex(g container.Graph) *dataEdgeIndex {
 		if !ok {
 			continue
 		}
-		spec, ok := nodekind.Get(kind)
-		if !ok {
-			continue
-		}
-		if spec.DataOutType(fromPin) == "" {
+		if !container.IsDataOutPin(kind, fromPin) {
 			continue // not a data-out — exec edge
 		}
 		idx.bySrc[e.To] = e.From

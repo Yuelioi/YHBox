@@ -398,3 +398,35 @@ func TestValidateWindowTarget_Valid(t *testing.T) {
 		t.Errorf("valid WindowTarget should have no errors, got %+v", errs)
 	}
 }
+
+// TestValidate_DataEdgeNoLongerRaisesInvalidPin pins the C1 fix.
+// Pre-C1: edge.Kind=="" (legacy / forgotten field) → validator's switch default
+// ran exec-pin check on GetVar.value (which has no exec-out) → spurious INVALID_PIN.
+// Post-C1: edge type is derived from (from-node.kind, from-pin) — bug structurally impossible.
+func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
+	c := &Container{
+		SchemaVersion: CurrentSchemaVersion,
+		Graph: Graph{
+			ID: "g", Version: GraphSchemaVersion,
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "wt", Kind: "WindowTarget", Config: map[string]any{
+					"match": map[string]any{"title": "异环"},
+				}},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "local"}},
+				{ID: "log", Kind: "Log", Config: map[string]any{"level": "info", "literal": map[string]any{"message": ""}}},
+			},
+			Edges: []GraphEdge{
+				{From: "start.out", To: "log.in"},     // exec edge
+				{From: "gv.value", To: "log.message"}, // data edge — no Kind field, must still validate
+			},
+		},
+		Vars: []VarDecl{{Name: "x", Type: "any"}},
+	}
+	errs := ValidateContainer(c)
+	for _, e := range errs {
+		if e.Code == CodeInvalidPin {
+			t.Errorf("regression: data edge without Kind field raised INVALID_PIN: %+v", e)
+		}
+	}
+}

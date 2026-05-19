@@ -30,7 +30,7 @@ func validateDataGraphAcyclic(c *Container) []ValidationError {
 				continue // DANGLING_EDGE reported elsewhere
 			}
 			// 派生 data 边: src.kind 在 fromPin 上有 data-out 才算.
-			if dataOutPinTypeForKind(kindByID[srcID], srcPin) == "" {
+			if !IsDataOutPin(kindByID[srcID], srcPin) {
 				continue
 			}
 			adj[srcID] = append(adj[srcID], tgtID)
