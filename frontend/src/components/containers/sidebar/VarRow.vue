@@ -149,7 +149,10 @@ function commitField(field: 'type' | 'default', value: unknown) {
 
 function parseDefault(e: Event, type: string): unknown {
   const raw = (e.target as HTMLInputElement).value
-  if (type === 'number') return parseFloat(raw)
+  if (type === 'number') {
+    const n = parseFloat(raw)
+    return Number.isNaN(n) ? null : n
+  }
   return raw
 }
 
