@@ -14,7 +14,7 @@
     <p v-if="store.recent.length === 0" class="text-[10px] text-dimmed italic px-1">
       暂无最近. 拖节点入画布会自动加入.
     </p>
-    <div v-else class="space-y-1">
+    <div v-else class="space-y-1 max-h-48 overflow-y-auto pr-1">
       <div
         v-for="kind in store.recent"
         :key="kind"

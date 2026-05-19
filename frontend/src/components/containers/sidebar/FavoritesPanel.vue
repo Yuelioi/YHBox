@@ -14,7 +14,7 @@
     <p v-if="store.favorites.length === 0" class="text-[10px] text-dimmed italic px-1">
       暂无收藏. 在节点 Explorer 中 ☆ 加入.
     </p>
-    <div v-else class="space-y-1">
+    <div v-else class="space-y-1 max-h-48 overflow-y-auto pr-1">
       <div
         v-for="kind in store.favorites"
         :key="kind"

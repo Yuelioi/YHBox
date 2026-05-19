@@ -8,6 +8,7 @@ import { ref } from 'vue'
 const FAV_KEY = 'yhfish.favorites'
 const RECENT_KEY = 'yhfish.recent'
 const RECENT_MAX = 8
+export const FAVORITES_MAX = 20
 
 export const useDiscoveryStore = defineStore('discovery', () => {
   const favorites = ref<string[]>([])
@@ -38,8 +39,14 @@ export const useDiscoveryStore = defineStore('discovery', () => {
 
   function toggleFavorite(kind: string): void {
     const idx = favorites.value.indexOf(kind)
-    if (idx >= 0) favorites.value.splice(idx, 1)
-    else favorites.value.push(kind)
+    if (idx >= 0) {
+      favorites.value.splice(idx, 1)
+    } else {
+      if (favorites.value.length >= FAVORITES_MAX) {
+        favorites.value.shift()
+      }
+      favorites.value.push(kind)
+    }
     persistFavorites()
   }
 

@@ -50,6 +50,16 @@ describe('discoveryStore', () => {
     expect(s.recent).toEqual(['A', 'B'])
   })
 
+  it('toggleFavorite caps at FAVORITES_MAX, drops oldest', async () => {
+    const { useDiscoveryStore, FAVORITES_MAX } = await import('./discovery')
+    const s = useDiscoveryStore()
+    for (let i = 0; i < FAVORITES_MAX + 3; i++) s.toggleFavorite(`kind${i}`)
+    expect(s.favorites.length).toBe(FAVORITES_MAX)
+    // First 3 should have been dropped
+    expect(s.favorites[0]).toBe('kind3')
+    expect(s.favorites[FAVORITES_MAX - 1]).toBe(`kind${FAVORITES_MAX + 2}`)
+  })
+
   it('loadFromLocalStorage restores from existing keys', async () => {
     localStorage.setItem('yhfish.favorites', JSON.stringify(['Loop', 'If']))
     localStorage.setItem('yhfish.recent', JSON.stringify(['Add', 'Log']))
