@@ -138,7 +138,7 @@
           v-show="!sidebarPrefs.leftSidebarCollapsed"
           class="w-52 shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
-          <FavoritesPanelPlaceholder v-model:expanded="sidebarPrefs.favoritesExpanded" />
+          <FavoritesPanel v-model:expanded="sidebarPrefs.favoritesExpanded" />
           <RecentPanelPlaceholder v-model:expanded="sidebarPrefs.recentExpanded" />
           <VarsPanel
             :vars="draft?.vars ?? []"
@@ -293,7 +293,7 @@ import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.v
 import ContainerLogPanel from '@/components/containers/ContainerLogPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
-import FavoritesPanelPlaceholder from '@/components/containers/sidebar/FavoritesPanelPlaceholder.vue'
+import FavoritesPanel from '@/components/containers/sidebar/FavoritesPanel.vue'
 import RecentPanelPlaceholder from '@/components/containers/sidebar/RecentPanelPlaceholder.vue'
 import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
