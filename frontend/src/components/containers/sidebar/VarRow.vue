@@ -1,11 +1,13 @@
 <!-- frontend/src/components/containers/sidebar/VarRow.vue -->
-<!-- Var 行: 折叠摘要 + ✎ 切换展开行内编辑. Drag handler 在 Phase 4 加. -->
+<!-- Var 行: 折叠摘要 + ✎ 切换展开行内编辑. Phase 4: drag-start + IncVar hover button. -->
 <template>
-  <div class="rounded text-[11px]" :class="expanded ? 'bg-elevated/60 border border-default' : 'bg-elevated/30'">
+  <div class="rounded text-[11px] group" :class="expanded ? 'bg-elevated/60 border border-default' : 'bg-elevated/30'">
     <!-- Collapsed -->
     <div
       v-if="!expanded"
       class="px-2 py-1 flex items-center gap-2"
+      draggable="true"
+      @dragstart="onDragStart"
     >
       <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed cursor-grab" />
       <span class="font-medium">{{ decl.name }}</span>
@@ -13,6 +15,15 @@
       <span class="ml-auto text-emerald-400 text-[10px] truncate max-w-20">
         = {{ formatDefault(decl.default) }}
       </span>
+      <button
+        v-if="decl.type === 'number'"
+        type="button"
+        class="text-dimmed hover:text-default px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="插入 IncVar (delta=1)"
+        @click="$emit('insert-incvar', decl.name)"
+      >
+        <UIcon name="i-tabler-circle-plus" class="size-3" />
+      </button>
       <button type="button" class="text-dimmed hover:text-default px-1" title="编辑" @click="expanded = true">
         <UIcon name="i-tabler-edit" class="size-3" />
       </button>
@@ -83,6 +94,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import type { VarDecl } from '@/lib/backend'
 import VarPointInput from './VarPointInput.vue'
+import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 
 const props = defineProps<{
   decl: VarDecl
@@ -93,6 +105,7 @@ const emit = defineEmits<{
   rename: [oldName: string, newName: string]
   'update-field': [name: string, field: 'type' | 'default', value: unknown]
   delete: [name: string]
+  'insert-incvar': [name: string]
 }>()
 
 const TYPE_OPTIONS = ['number', 'string', 'bool', 'point', 'any'] as const
@@ -164,5 +177,12 @@ function formatDefault(d: unknown): string {
   if (d === null || d === undefined) return '(unset)'
   if (typeof d === 'object') return JSON.stringify(d)
   return String(d)
+}
+
+function onDragStart(e: DragEvent) {
+  startEditorDrag(
+    { type: 'var', ref: { name: props.decl.name, type: props.decl.type as VarType }, modifier: 'none' },
+    e,
+  )
 }
 </script>
