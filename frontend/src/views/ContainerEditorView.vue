@@ -252,6 +252,11 @@
       @confirm="onDeleteConfirm"
     />
 
+    <NodeExplorerModal
+      v-model:open="nodeExplorerOpen"
+      @pick-kind="onPickKind"
+    />
+
   </div>
 </template>
 
@@ -298,10 +303,12 @@ import RecentPanel from '@/components/containers/sidebar/RecentPanel.vue'
 import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
+import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
+import { useDiscoveryStore } from '@/stores/discovery'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
-import { dataInTypeFor } from '@/components/containers/nodeRegistry/registry'
+import { dataInTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 
 const route = useRoute()
@@ -353,6 +360,7 @@ const selectedID = ref<string | null>(null)
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
 const settingsOpen = ref(false)
+const nodeExplorerOpen = ref(false)
 
 // Phase 1 var mutations (Phase 3 will wire full UI)
 const varMutations = useVarMutations(draft)
@@ -578,11 +586,28 @@ const totalVarUsageCount = computed(() => {
   )
 })
 
-// Editor v2 B/C handlers — stubs until B/C ship
+// Editor v2 B/C handlers
 function onOpenNodeExplorer() {
-  // Editor v2 B wires this up (NodeExplorerModal)
-  console.info('[Editor v2 B] node explorer not yet implemented')
+  nodeExplorerOpen.value = true
 }
+
+function onPickKind(kind: string) {
+  applyDraftMutation((d) => {
+    const g = activeGraph.value
+    if (!g) return
+    const node: GraphNode = {
+      id: newNodeID(kind),
+      kind,
+      x: 200 + Math.random() * 100,
+      y: 200 + Math.random() * 100,
+      config: { ...(getSpec(kind)?.defaults ?? {}) },
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+  })
+  useDiscoveryStore().pushRecent(kind)
+}
+
 function onOpenLibraryExplorer() {
   console.info('[Editor v2 B] library explorer not yet implemented')
 }
@@ -598,6 +623,16 @@ function onGlobalKeydown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === ',') {
     e.preventDefault()
     settingsOpen.value = true
+    return
+  }
+  // Tab → open NodeExplorer (skip when input/textarea/select/contentEditable is focused)
+  if (e.key === 'Tab') {
+    const t = e.target as HTMLElement | null
+    const tag = t?.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
+    e.preventDefault()
+    nodeExplorerOpen.value = true
+    return
   }
 }
 
