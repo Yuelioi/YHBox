@@ -194,6 +194,8 @@
             @nodes-change="onNodesChange"
             @edges-change="onEdgesChange"
             @connect="onConnect"
+            @node-drag="onSnapNodeDrag"
+            @node-drag-stop="onSnapNodeDragStop"
           >
             <Background pattern-color="#3f3f46" :gap="20" />
             <Controls position="bottom-left" />
@@ -207,6 +209,12 @@
               :node-border-radius="2"
             />
           </VueFlow>
+          <!-- Editor v2 C: drag-time alignment guide lines (PS smart guides) -->
+          <SnapGuideOverlay
+            :guides="snapGuides"
+            :width="canvasWrapperW"
+            :height="canvasWrapperH"
+          />
         </div>
 
         <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
@@ -335,7 +343,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
-import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
+import { VueFlow, useVueFlow, SelectionMode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
@@ -382,6 +390,7 @@ import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/me
 import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
 import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
+import SnapGuideOverlay, { type SnapGuide } from '@/components/containers/SnapGuideOverlay.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
@@ -1639,7 +1648,146 @@ async function onAddNode(
 }
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, flowToScreenCoordinate } = useVueFlow()
+
+// ===== Editor v2 C: Pin-aware snap guides (PS smart guides) =====
+
+const SNAP_EPSILON = 4  // flow-coord px — within this Y or X delta, snap fires
+// Typical node height offset to the "primary row" anchor (exec-in pin level).
+// For this codebase, exec handles are on the left/right side and the visible node body
+// starts at y=0. Using half of a typical node height (~50px) as a horizontal anchor.
+const SNAP_ANCHOR_Y_OFFSET = 50
+
+const snapGuides = ref<SnapGuide[]>([])
+
+// Canvas wrapper pixel dimensions — used for SVG viewBox sizing.
+// Updated lazily on drag events (avoids ResizeObserver overhead for a rarely-needed value).
+const canvasWrapperW = ref(1200)
+const canvasWrapperH = ref(800)
+
+/**
+ * Get anchor Y offset for a node kind. All node kinds in this codebase share the same
+ * ContainerFlowNode layout, so a fixed 50px offset is a reasonable approximation of
+ * where the exec-in handle sits relative to node.y.
+ */
+function _snapAnchorYOffset(_kind: string): number {
+  return SNAP_ANCHOR_Y_OFFSET
+}
+
+function onSnapNodeDrag(event: NodeDragEvent) {
+  // Alt key → disable guides (TouchEvent also has altKey)
+  if (event.event.altKey) {
+    snapGuides.value = []
+    return
+  }
+
+  // Update canvas size lazily from the event's currentTarget chain (VueFlow wraps into its pane)
+  const paneEl = (event.event.currentTarget as HTMLElement | null)?.closest?.('.vue-flow') as HTMLElement | null
+  if (paneEl) {
+    const rect = paneEl.getBoundingClientRect()
+    canvasWrapperW.value = rect.width
+    canvasWrapperH.value = rect.height
+  }
+
+  const draggedID: string = event.node.id
+  const draggedKind: string = event.node.data?.kind ?? event.node.type ?? ''
+  const yOff = _snapAnchorYOffset(draggedKind)
+
+  // event.node.position is the live flow coordinate (updated by vue-flow during drag)
+  const draggedX: number = event.node.position?.x ?? 0
+  const draggedY: number = event.node.position?.y ?? 0
+  const draggedAnchorY = draggedY + yOff
+
+  const guides: SnapGuide[] = []
+  const nodes = activeGraph.value?.nodes ?? []
+  for (const other of nodes) {
+    if (other.id === draggedID) continue
+    const otherAnchorY = other.y + _snapAnchorYOffset(other.kind)
+    if (Math.abs(otherAnchorY - draggedAnchorY) <= SNAP_EPSILON) {
+      // Horizontal cyan guide at otherAnchorY (flow coords → screen coords)
+      const lineFlowY = otherAnchorY
+      // Convert two flow-coord points to screen coords for the SVG overlay
+      const leftFlowX = Math.min(other.x, draggedX) - 30
+      const rightFlowX = Math.max(other.x + 220, draggedX + 220) + 30
+
+      const s1 = flowToScreenCoordinate({ x: leftFlowX, y: lineFlowY })
+      const s2 = flowToScreenCoordinate({ x: rightFlowX, y: lineFlowY })
+
+      // Offset by the wrapper element's bounding rect to get local coords
+      const wrapperRect = paneEl?.getBoundingClientRect() ?? { left: 0, top: 0 }
+      guides.push({
+        axis: 'y',
+        x1: s1.x - wrapperRect.left,
+        y1: s1.y - wrapperRect.top,
+        x2: s2.x - wrapperRect.left,
+        y2: s2.y - wrapperRect.top,
+      })
+    }
+    // X-axis (vertical magenta guide) — left-edge alignment
+    if (Math.abs(other.x - draggedX) <= SNAP_EPSILON) {
+      const lineFlowX = other.x
+      const topFlowY = Math.min(other.y, draggedY) - 30
+      const botFlowY = Math.max(other.y + 80, draggedY + 80) + 30
+
+      const s1 = flowToScreenCoordinate({ x: lineFlowX, y: topFlowY })
+      const s2 = flowToScreenCoordinate({ x: lineFlowX, y: botFlowY })
+      const wrapperRect = paneEl?.getBoundingClientRect() ?? { left: 0, top: 0 }
+      guides.push({
+        axis: 'x',
+        x1: s1.x - wrapperRect.left,
+        y1: s1.y - wrapperRect.top,
+        x2: s2.x - wrapperRect.left,
+        y2: s2.y - wrapperRect.top,
+      })
+    }
+  }
+  snapGuides.value = guides
+}
+
+function onSnapNodeDragStop(event: NodeDragEvent) {
+  snapGuides.value = []
+
+  // Alt key → no snap, keep raw position (vue-flow onNodesChange will commit it)
+  if (event.event.altKey) return
+
+  const draggedID: string = event.node.id
+  const flowNode = flowNodes.value.find((fn) => fn.id === draggedID)
+  if (!flowNode) return
+
+  const draggedKind: string = (flowNode.data as any)?.kind ?? flowNode.type ?? ''
+  const yOff = _snapAnchorYOffset(draggedKind)
+  const draggedAnchorY = (flowNode.position.y ?? 0) + yOff
+  const draggedX = flowNode.position.x ?? 0
+
+  let bestY: { delta: number; targetAnchorY: number } | null = null
+  let bestX: { delta: number; targetX: number } | null = null
+
+  for (const other of activeGraph.value?.nodes ?? []) {
+    if (other.id === draggedID) continue
+    const otherAnchorY = other.y + _snapAnchorYOffset(other.kind)
+    const dy = otherAnchorY - draggedAnchorY
+    if (Math.abs(dy) <= SNAP_EPSILON) {
+      if (!bestY || Math.abs(dy) < Math.abs(bestY.delta)) {
+        bestY = { delta: dy, targetAnchorY: otherAnchorY }
+      }
+    }
+    const dx = other.x - draggedX
+    if (Math.abs(dx) <= SNAP_EPSILON) {
+      if (!bestX || Math.abs(dx) < Math.abs(bestX.delta)) {
+        bestX = { delta: dx, targetX: other.x }
+      }
+    }
+  }
+
+  if (bestY || bestX) {
+    // Mutate flowNode.position directly — the subsequent @nodes-change (type='position')
+    // event fired by vue-flow will commit the corrected position to the draft.
+    if (bestY) flowNode.position = { ...flowNode.position, y: bestY.targetAnchorY - yOff }
+    if (bestX) flowNode.position = { ...flowNode.position, x: bestX.targetX }
+  }
+}
+
+// ===== End snap guides =====
 
 // 画布 drag/drop 交互（NodePalette → Canvas + LibraryView 卡片 → Canvas copy-on-use）
 const { onCanvasDragOver, onCanvasDrop: _legacyCanvasDrop } = useFlowInteraction({
