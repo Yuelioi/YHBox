@@ -20,11 +20,10 @@
         :key="kind"
         class="group px-2 py-1 bg-elevated/30 rounded text-[11px] flex items-center gap-2 cursor-grab hover:bg-elevated/50"
         draggable="true"
-        :title="`拖到画布建 ${kind} 节点 · 点 ★ 移除收藏`"
+        :title="`拖到画布建 ${kind} 节点 · 悬停点 × 移除收藏`"
         @dragstart="(e) => onDragStart(kind, e)"
       >
         <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed" />
-        <span class="text-amber-400">★</span>
         <span class="flex-1">{{ labelFor(kind) }}</span>
         <button
           type="button"

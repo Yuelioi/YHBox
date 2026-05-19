@@ -825,7 +825,7 @@ interface InlineMenuState {
   position: { x: number; y: number }  // viewport (screen) coords
   flowPos: { x: number; y: number }   // flow canvas coords
   pinContext?: InlinePinContext
-  sourcePin?: { nodeID: string; pinName: string; side: 'input' | 'output' }
+  sourcePin?: { nodeID: string; pinName: string; side: 'input' | 'output'; isExec?: boolean }
 }
 
 const inlineMenu = ref<InlineMenuState>({
@@ -913,22 +913,26 @@ function onVfConnectEnd(event?: MouseEvent) {
         ? dataOutTypeFor(node.kind, startCopy.handleId)
         : dataInTypeFor(node.kind, startCopy.handleId, node.config as Record<string, unknown>)
 
-    if (!pinType) return
-
+    const isExec = !pinType
     const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
 
     inlineMenu.value = {
       open: true,
       position: { x: clientX, y: clientY },
       flowPos,
-      pinContext: {
-        pinType: pinType as VarType,
-        side: startCopy.handleType === 'source' ? 'output' : 'input',
-      },
+      // Exec pins have no type filter — show all nodes (menu header: "添加节点").
+      // Data pins filter by compatible type (menu header: "⊕ 接受 <type>").
+      pinContext: isExec
+        ? undefined
+        : {
+            pinType: pinType as VarType,
+            side: startCopy.handleType === 'source' ? 'output' : 'input',
+          },
       sourcePin: {
         nodeID: startCopy.nodeId,
         pinName: startCopy.handleId,
         side: startCopy.handleType === 'source' ? 'output' : 'input',
+        isExec,
       },
     }
   }, 0)
@@ -1405,30 +1409,50 @@ function onInlineMenuPick(kind: string) {
     g.nodes.push(node)
 
     // Pin-context: auto-connect the new node back to the source pin
-    if (ctx.sourcePin && ctx.pinContext) {
+    if (ctx.sourcePin) {
       const spec = getSpec(kind)
       if (spec) {
-        if (ctx.pinContext.side === 'output') {
-          // User dragged from output pin → wire source.pin → newNode.firstCompatibleDataIn
-          const candidates = Object.entries(spec.dataIn ?? {}).filter(([, t]) =>
-            isCompatibleType(ctx.pinContext!.pinType, t as VarType),
-          )
-          if (candidates.length > 0) {
+        if (ctx.sourcePin.isExec) {
+          // Exec-out drag → wire source exec-out → newNode first exec-in (usually "in")
+          if (ctx.sourcePin.side === 'output') {
+            const firstExecIn = spec.execIn?.[0]
+            if (firstExecIn) {
+              ;(g.edges as GraphEdge[]).push({
+                from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
+                to: `${newID}.${firstExecIn}`,
+              } as GraphEdge)
+            }
+          } else {
+            // Exec-in drag → wire newNode first exec-out → source exec-in
+            const firstExecOut = spec.execOut?.[0] ?? 'out'
             ;(g.edges as GraphEdge[]).push({
-              from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
-              to: `${newID}.${candidates[0][0]}`,
-            } as GraphEdge)
-          }
-        } else {
-          // User dragged from input pin → wire newNode.firstCompatibleDataOut → source.pin
-          const candidates = Object.entries(spec.dataOut ?? {}).filter(([, t]) =>
-            isCompatibleType(t as VarType, ctx.pinContext!.pinType),
-          )
-          if (candidates.length > 0) {
-            ;(g.edges as GraphEdge[]).push({
-              from: `${newID}.${candidates[0][0]}`,
+              from: `${newID}.${firstExecOut}`,
               to: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
             } as GraphEdge)
+          }
+        } else if (ctx.pinContext) {
+          if (ctx.pinContext.side === 'output') {
+            // User dragged from output pin → wire source.pin → newNode.firstCompatibleDataIn
+            const candidates = Object.entries(spec.dataIn ?? {}).filter(([, t]) =>
+              isCompatibleType(ctx.pinContext!.pinType, t as VarType),
+            )
+            if (candidates.length > 0) {
+              ;(g.edges as GraphEdge[]).push({
+                from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
+                to: `${newID}.${candidates[0][0]}`,
+              } as GraphEdge)
+            }
+          } else {
+            // User dragged from input pin → wire newNode.firstCompatibleDataOut → source.pin
+            const candidates = Object.entries(spec.dataOut ?? {}).filter(([, t]) =>
+              isCompatibleType(t as VarType, ctx.pinContext!.pinType),
+            )
+            if (candidates.length > 0) {
+              ;(g.edges as GraphEdge[]).push({
+                from: `${newID}.${candidates[0][0]}`,
+                to: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
+              } as GraphEdge)
+            }
           }
         }
       }
@@ -1819,7 +1843,7 @@ async function onAddNode(
 }
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter, updateNode } = useVueFlow()
 
 // ===== Editor v2 C: Pin-aware snap guides (PS smart guides) =====
 
@@ -1930,21 +1954,24 @@ function onSnapNodeDragStop(event: NodeDragEvent) {
   }
 
   if (bestY || bestX) {
-    // Commit via draft (authoritative source-of-truth — beats vue-flow's drag-commit race).
-    // Mutating flowNode.position directly lost to vue-flow's internal applyChanges which
-    // re-reads the raw drag position, leaving nodes ~3px off the guide.
+    const finalX = bestX ? bestX.targetX : (flowNode.position.x ?? 0)
+    const finalY = bestY ? bestY.targetAnchorY - yOff : (flowNode.position.y ?? 0)
+
+    // 1. Tell vue-flow's internal node store about the snapped position.
+    //    vue-flow does NOT re-read from the v-model array after a drag — it has its own
+    //    internal store that must be updated explicitly. Without this call, the guide line
+    //    shows the correct position but the node visually lands at the raw drag position.
+    updateNode(draggedID, { position: { x: finalX, y: finalY } })
+
+    // 2. Persist to draft (authoritative source-of-truth for save/reload).
     applyDraftMutation((d) => {
       const g = activeGraph.value
       if (!g) return
       const node = g.nodes.find((n) => n.id === draggedID)
       if (!node) return
-      // Always persist the current dragged position first, then override with snap.
-      node.x = flowNode.position.x ?? node.x
-      node.y = flowNode.position.y ?? node.y
-      if (bestY) node.y = bestY.targetAnchorY - yOff
-      if (bestX) node.x = bestX.targetX
+      node.x = finalX
+      node.y = finalY
     })
-    // syncFlowFromDraft() is called inside applyDraftMutation — flow node re-reads from draft.
   }
 }
 
