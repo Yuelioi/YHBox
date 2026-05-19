@@ -13,7 +13,7 @@
             :class="hasErrors ? 'text-error' : 'text-success'"
           />
           <h3 class="text-sm font-medium">
-            {{ hasErrors ? `校验失败 — ${errorCount} 错${warnCount ? ' / ' + warnCount + ' 警告' : ''}` : '校验通过' }}
+            {{ titleText }}
           </h3>
           <UButton
             size="xs"
@@ -26,7 +26,7 @@
         </header>
 
         <p v-if="!hasErrors && warnCount === 0" class="text-xs text-muted">
-          没有发现校验错误。容器可以试运行。
+          {{ t('validation.desc_no_issues') }}
         </p>
 
         <div v-else class="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -58,7 +58,7 @@
                  if i18n key not registered, then to the raw code as last resort. -->
             <div class="text-xs text-toned leading-relaxed pl-5">{{ errorText(e) }}</div>
             <div v-if="e.nodeId" class="text-[10px] text-dimmed pl-5">
-              节点: <code class="font-mono">{{ e.nodeId }}</code>
+              {{ t('validation.node_label') }} <code class="font-mono">{{ e.nodeId }}</code>
             </div>
             <div v-if="e.code === 'MISSING_WINDOW_TARGET'" class="pl-5 pt-1">
               <UButton
@@ -67,21 +67,21 @@
                 icon="i-tabler-wand"
                 @click="emit('fix-missing-window-target')"
               >
-                一键添加 WindowTarget 节点
+                {{ t('validation.fix_missing_window_target') }}
               </UButton>
             </div>
           </div>
         </div>
 
         <div class="flex justify-end gap-2 pt-2 shrink-0">
-          <UButton variant="ghost" color="neutral" @click="emit('close')">关闭</UButton>
+          <UButton variant="ghost" color="neutral" @click="emit('close')">{{ t('validation.close') }}</UButton>
           <UButton
             v-if="!hasErrors"
             color="primary"
             icon="i-tabler-player-play"
             @click="emit('run')"
           >
-            通过 — 继续运行
+            {{ t('validation.run_button') }}
           </UButton>
         </div>
       </div>
@@ -105,15 +105,22 @@ const emit = defineEmits<{
   'fix-missing-window-target': []
 }>()
 
+const { t, te } = useI18n()
 const errorCount = computed(() => props.errors.filter((e) => e.severity === 'error').length)
 const warnCount = computed(() => props.errors.filter((e) => e.severity === 'warning').length)
 const hasErrors = computed(() => errorCount.value > 0)
+
+const titleText = computed(() => {
+  if (!hasErrors.value) return t('validation.title_passed')
+  return warnCount.value > 0
+    ? t('validation.title_failed_with_warns', { errorCount: errorCount.value, warnCount: warnCount.value })
+    : t('validation.title_failed', { errorCount: errorCount.value })
+})
 
 // v4 (spec §12): code+params → t('error.<CODE>', params). Fallback chain:
 //   1. i18n key registered → translated string
 //   2. backend legacy Message field non-empty → use it (back-compat for codes without keys yet)
 //   3. raw code (last resort, hints at missing translation)
-const { t, te } = useI18n()
 function errorText(e: ValidationError & { params?: Record<string, any> }): string {
   const key = `error.${e.code}`
   if (te(key)) {
