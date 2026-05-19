@@ -94,8 +94,8 @@
     <div v-else class="flex flex-col flex-1 min-h-0">
       <!-- Toolbar 独立一行：左 [折叠 palette] [录制] [折叠 inspector]，右 [运行状态] [试运行/停止] [保存] -->
       <ContainerEditorToolbar
-        v-model:palette-collapsed="paletteCollapsed"
-        v-model:inspector-collapsed="inspectorCollapsed"
+        v-model:palette-collapsed="sidebarPrefs.leftSidebarCollapsed"
+        v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-recording="recordStore.isRecording"
         :countdown-sec="countdownSec"
         :selected-count="selectedCount"
@@ -103,6 +103,8 @@
         :running-node-kind="execStore.currentNodeKind ?? undefined"
         :running-node-label="runningNodeLabel"
         :dirty="dirty"
+        :can-undo="false"
+        :can-redo="false"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -113,6 +115,11 @@
         @auto-layout="onAutoLayout"
         @align-selected="onAlignSelected"
         @validate="onValidate"
+        @open-node-explorer="onOpenNodeExplorer"
+        @open-library-explorer="onOpenLibraryExplorer"
+        @open-settings="settingsOpen = true"
+        @undo="onUndo"
+        @redo="onRedo"
       />
 
       <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
@@ -126,12 +133,18 @@
       />
 
       <div class="flex flex-1 min-h-0">
-        <!-- Left palette -->
+        <!-- Left sidebar: 3 collapsible panels -->
         <aside
-          v-show="!paletteCollapsed"
-          class="w-44 shrink-0 border-r border-default overflow-y-auto p-3"
+          v-show="!sidebarPrefs.leftSidebarCollapsed"
+          class="w-52 shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
-          <NodePalette @add="onAddNode" />
+          <FavoritesPanelPlaceholder v-model:expanded="sidebarPrefs.favoritesExpanded" />
+          <RecentPanelPlaceholder v-model:expanded="sidebarPrefs.recentExpanded" />
+          <VarsPanel
+            :vars="draft?.vars ?? []"
+            v-model:expanded="sidebarPrefs.varsExpanded"
+            @add-var="onAddVar"
+          />
         </aside>
 
         <!-- Canvas -->
@@ -182,20 +195,18 @@
           </VueFlow>
         </div>
 
-        <!-- Right panel：选中节点显示 Inspector，否则显示容器属性 -->
+        <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
         <ContainerEditorInspector
-          v-show="!inspectorCollapsed"
+          v-show="!sidebarPrefs.inspectorCollapsed"
           :selected-node="selectedNode"
           :in-subgraph="editorStore.editorPath.length > 0"
           :current-subgraph="currentSubgraph"
-          :container="draft"
           :active-graph="activeGraph"
           :var-names="varNames"
           :all-subgraph-tags="allSubgraphTags"
           @config-update="onConfigUpdate"
           @delete-selected="onDeleteSelected"
           @subgraph-update="onSubgraphPropsUpdate"
-          @container-update="onContainerPatch"
           @request-record="(e) => startRecording(e.mode, { replaceNodeID: e.replaceNodeID })"
         />
       </div>
@@ -210,6 +221,20 @@
       @close="validationPanelOpen = false"
       @run="onValidationPanelRun"
       @fix-missing-window-target="onFixMissingWindowTarget"
+    />
+
+    <ContainerSettingsModal
+      v-if="draft"
+      v-model:open="settingsOpen"
+      :initial="{
+        name: draft.name,
+        hotkey: draft.hotkey ?? '',
+        description: draft.description ?? '',
+        tags: draft.tags ?? [],
+        runMode: draft.runMode || 'background',
+      }"
+      :all-tags="allSubgraphTags"
+      @save="(form) => applyDraftMutation((d) => Object.assign(d, form))"
     />
 
   </div>
@@ -244,7 +269,6 @@ import { useEditorSave } from '@/composables/containerEditor/useEditorSave'
 import { useNodeClipboard } from '@/composables/containerEditor/useNodeClipboard'
 import { useGraphLayout, type AlignMode } from '@/composables/containerEditor/useGraphLayout'
 import { useGraphMutations } from '@/composables/containerEditor/useGraphMutations'
-import NodePalette from '@/components/containers/NodePalette.vue'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
 import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
@@ -252,6 +276,12 @@ import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBr
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
 import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
 import ContainerLogPanel from '@/components/containers/ContainerLogPanel.vue'
+import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
+import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
+import FavoritesPanelPlaceholder from '@/components/containers/sidebar/FavoritesPanelPlaceholder.vue'
+import RecentPanelPlaceholder from '@/components/containers/sidebar/RecentPanelPlaceholder.vue'
+import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
+import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 
@@ -281,6 +311,7 @@ const {
   flowEdges,
   syncFlowFromDraft,
   refreshSubgraphStore,
+  applyDraftMutation,
 } = useContainerDraft(containerID)
 
 // 编辑路径 + 当前子图（useEditorPath，转发 editorStore）
@@ -300,9 +331,44 @@ const {
 
 const selectedID = ref<string | null>(null)
 
-// 折叠侧栏：放 toolbar 上的两个按钮控制，腾画布空间
-const paletteCollapsed = ref(false)
-const inspectorCollapsed = ref(false)
+// 折叠侧栏：持久化到 localStorage via useSidebarPrefs
+const { prefs: sidebarPrefs } = useSidebarPrefs()
+const settingsOpen = ref(false)
+
+// Phase 1 var mutations (Phase 3 will wire full UI)
+const varMutations = useVarMutations(draft)
+
+function onAddVar() {
+  // Phase 3 wires real UI (add row → enter name); Phase 2 stub creates auto-named v1/v2/v3
+  applyDraftMutation((d) => {
+    let n = 1
+    while ((d.vars ?? []).some(v => v.name === `v${n}`)) n++
+    varMutations.addVar({ name: `v${n}`, type: 'number', default: 0 })
+  })
+}
+
+// Editor v2 B/C handlers — stubs until B/C ship
+function onOpenNodeExplorer() {
+  // Editor v2 B wires this up (NodeExplorerModal)
+  console.info('[Editor v2 B] node explorer not yet implemented')
+}
+function onOpenLibraryExplorer() {
+  console.info('[Editor v2 B] library explorer not yet implemented')
+}
+function onUndo() {
+  console.info('[Editor v2 C] undo not yet implemented')
+}
+function onRedo() {
+  console.info('[Editor v2 C] redo not yet implemented')
+}
+
+function onGlobalKeydown(e: KeyboardEvent) {
+  // Ctrl+, → open settings (Mac Cmd+, also works)
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+    e.preventDefault()
+    settingsOpen.value = true
+  }
+}
 
 // FlowNode / FlowEdge 类型从 useContainerDraft export (公共声明), view 不再局部重复定义.
 
@@ -496,8 +562,14 @@ function onExprFuseEvent(ev: Event) {
     toast.add({ title: 'Expr 合并失败 (前置条件不满足)', color: 'warning' })
   }
 }
-onMounted(() => window.addEventListener('expr-fuse', onExprFuseEvent))
-onUnmounted(() => window.removeEventListener('expr-fuse', onExprFuseEvent))
+onMounted(() => {
+  window.addEventListener('expr-fuse', onExprFuseEvent)
+  window.addEventListener('keydown', onGlobalKeydown)
+})
+onUnmounted(() => {
+  window.removeEventListener('expr-fuse', onExprFuseEvent)
+  window.removeEventListener('keydown', onGlobalKeydown)
+})
 
 function onDeleteSelected() {
   if (!draft.value || !selectedID.value) return
@@ -592,12 +664,6 @@ function onFixMissingWindowTarget() {
     color: 'success',
     icon: 'i-tabler-check',
   })
-}
-
-// 容器属性 patch（来自 ContainerPropsPanel）
-function onContainerPatch(patch: Partial<Container>) {
-  if (!draft.value) return
-  Object.assign(draft.value, patch)
 }
 
 // currentSubgraph 由 useEditorPath 提供
