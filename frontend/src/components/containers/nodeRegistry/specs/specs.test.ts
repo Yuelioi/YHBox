@@ -123,4 +123,14 @@ describe('nodeRegistry specs', () => {
       expect(Object.keys(s.dataOut).length).toBe(0)
     }
   })
+
+  // Pin the contract bidirectionally: exactly these 3 kinds opt out of the
+  // palette (created via dedicated UI flows — see system.ts comments).
+  it('excludeFromPalette set on subgraph-machinery kinds', () => {
+    const expected = new Set(['SubgraphInput', 'SubgraphOutput', 'CollapsedNode'])
+    for (const k of allKinds()) {
+      const s = getSpec(k)!
+      expect(!!s.excludeFromPalette, `${k}.excludeFromPalette`).toBe(expected.has(k))
+    }
+  })
 })
