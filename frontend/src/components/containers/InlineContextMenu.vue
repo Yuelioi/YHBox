@@ -1,5 +1,5 @@
 <!-- frontend/src/components/containers/InlineContextMenu.vue -->
-<!-- Editor v2 B — inline 浮动 context menu 用于画布 add node.
+<!-- Editor v2 C polish — inline 浮动 context menu 用于画布 add node.
      入口: 右键空白 / 双击空白 / pin 拖出松开.
      Pin-context 时按 pin 类型过滤 compatible nodes.
      Spec: editor-v2-node-discovery-design.md §3. -->
@@ -22,7 +22,8 @@
     <!-- Context header -->
     <div class="text-[10px] text-dimmed mb-1.5 px-1">
       <template v-if="pinContext">
-        ⊕ 接受 <strong class="text-primary">{{ pinContext.pinType }}</strong> ({{ filtered.length }})
+        <UIcon name="i-tabler-plus" class="size-3 inline-block" />
+        接受 <strong class="text-primary">{{ pinContext.pinType }}</strong> ({{ filtered.length }})
       </template>
       <template v-else>
         添加节点 ({{ filtered.length }})
@@ -33,34 +34,45 @@
     <UInput
       ref="searchInputRef"
       v-model="query"
-      placeholder="🔍 type filter..."
+      placeholder="type filter..."
+      icon="i-tabler-search"
       size="sm"
       class="mb-2"
       @keydown.escape.stop="close"
       @keydown.enter.stop="pickFirst"
     />
 
-    <!-- List -->
+    <!-- Tree: per-group collapsible sections -->
     <div class="max-h-64 overflow-y-auto pr-1" style="width: 240px;">
       <template v-if="filtered.length === 0">
         <p class="text-[10px] text-dimmed italic px-1 py-2 text-center">无匹配</p>
       </template>
       <template v-else>
         <div v-for="g in groupedFiltered" :key="g.group">
-          <div class="text-[9px] text-primary px-1 mt-1.5 first:mt-0 font-medium">
-            {{ groupLabel(g.group) }}
-          </div>
           <button
-            v-for="spec in g.specs"
-            :key="spec.kind"
             type="button"
-            class="w-full text-left px-2 py-1 hover:bg-elevated/60 rounded text-[11px] flex items-center gap-2"
-            :title="spec.description ?? spec.kind"
-            @click="pick(spec.kind)"
+            class="w-full flex items-center gap-1 px-1 py-0.5 hover:bg-elevated/30 rounded text-[10px] font-medium"
+            :class="groupLabelColor(g.group)"
+            @click="toggleGroup(g.group)"
           >
-            <span class="flex-1">{{ spec.labelZh ?? spec.kind }}</span>
-            <span v-if="spec.kind" class="text-[9px] text-dimmed">{{ spec.kind }}</span>
+            <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3" />
+            <span>{{ groupLabelZh(g.group) }}</span>
+            <span class="text-[9px] opacity-70">({{ g.specs.length }})</span>
           </button>
+          <div v-show="isExpanded(g.group)" class="pl-3 space-y-0.5">
+            <button
+              v-for="spec in g.specs"
+              :key="spec.kind"
+              type="button"
+              class="w-full text-left px-2 py-1 hover:bg-elevated/60 rounded text-[10px] flex items-center gap-1.5"
+              :title="spec.description ?? spec.kind"
+              @click="pick(spec.kind)"
+            >
+              <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3 shrink-0" :class="nodeIconColor(spec)" />
+              <span class="flex-1 truncate">{{ spec.labelZh ?? spec.kind }}</span>
+              <span class="text-[8px] text-dimmed">{{ spec.kind }}</span>
+            </button>
+          </div>
         </div>
       </template>
     </div>
@@ -75,6 +87,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
+import { groupLabelColor, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 
 export interface PinContext {
   pinType: VarType
@@ -105,6 +118,8 @@ watch(
   async (v) => {
     if (v) {
       query.value = ''
+      // Reset expand state to all expanded when reopening
+      expandedGroups.value = new Set(ALL_GROUPS)
       await nextTick()
       // UInput exposes the native input via .input ref
       searchInputRef.value?.input?.focus?.()
@@ -164,18 +179,20 @@ const groupedFiltered = computed(() => {
     .sort((a, b) => a.group.localeCompare(b.group))
 })
 
-const GROUP_LABELS: Record<string, string> = {
-  control: '控制流',
-  variables: '变量',
-  purefunc: '运算',
-  detect: '检测',
-  input: '输入',
-  system: '系统',
-  misc: '其它',
+// Expand state (transient — no localStorage for popup)
+const ALL_GROUPS = ['control', 'variables', 'purefunc', 'detect', 'input', 'system', 'misc']
+const expandedGroups = ref<Set<string>>(new Set(ALL_GROUPS))
+
+function toggleGroup(group: string) {
+  if (expandedGroups.value.has(group)) expandedGroups.value.delete(group)
+  else expandedGroups.value.add(group)
+  // Force reactivity since Set mutation doesn't trigger
+  expandedGroups.value = new Set(expandedGroups.value)
 }
 
-function groupLabel(g: string): string {
-  return GROUP_LABELS[g] ?? g
+function isExpanded(group: string): boolean {
+  if (query.value.trim()) return true  // Auto-expand all when searching
+  return expandedGroups.value.has(group)
 }
 
 function pick(kind: string) {
