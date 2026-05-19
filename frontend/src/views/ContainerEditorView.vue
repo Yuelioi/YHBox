@@ -136,7 +136,7 @@
         <!-- Left sidebar: 3 collapsible panels -->
         <aside
           v-show="!sidebarPrefs.leftSidebarCollapsed"
-          class="w-52 shrink-0 border-r border-default overflow-y-auto flex flex-col"
+          class="w-60 shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
           <FavoritesPanel v-model:expanded="sidebarPrefs.favoritesExpanded" />
           <RecentPanel v-model:expanded="sidebarPrefs.recentExpanded" />

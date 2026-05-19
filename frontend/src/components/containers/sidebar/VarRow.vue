@@ -30,37 +30,38 @@
     </div>
 
     <!-- Expanded -->
-    <div v-else class="p-1.5 space-y-1.5">
-      <div class="flex items-center gap-1">
-        <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed cursor-grab" />
+    <div v-else class="p-1.5 space-y-1.5 min-w-0">
+      <div class="flex items-center gap-1 min-w-0">
+        <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed cursor-grab shrink-0" />
         <input
           ref="nameInputRef"
           v-model="editName"
-          class="flex-1 bg-elevated/80 border rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none"
+          class="flex-1 min-w-0 bg-elevated/80 border rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none"
           :class="nameError ? 'border-red-500' : 'border-default focus:border-emerald-500'"
           :title="nameError || ''"
           @blur="commitName"
           @keydown.enter="commitName"
           @keydown.esc="cancelName"
         >
-        <button type="button" class="text-red-500 hover:text-red-400 px-1" title="删除" @click="$emit('delete', decl.name)">
+        <button type="button" class="text-red-500 hover:text-red-400 px-1 shrink-0" title="删除" @click="$emit('delete', decl.name)">
           <UIcon name="i-tabler-trash" class="size-3" />
         </button>
       </div>
 
-      <div class="flex items-center gap-1.5">
-        <select
+      <div class="flex items-center gap-1.5 min-w-0">
+        <USelect
           v-model="editType"
-          class="bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
-          @change="commitField('type', editType)"
-        >
-          <option v-for="t in TYPE_OPTIONS" :key="t" :value="t">{{ t }}</option>
-        </select>
-        <span class="text-[10px] text-dimmed">=</span>
+          :items="TYPE_OPTIONS_OBJ"
+          size="xs"
+          class="w-20 shrink-0"
+          @update:model-value="(v: VarType) => commitField('type', v)"
+        />
+        <span class="text-[10px] text-dimmed shrink-0">=</span>
         <!-- Default value editor by type -->
         <VarPointInput
           v-if="editType === 'point'"
           :model-value="defaultAsPoint"
+          class="min-w-0"
           @update:model-value="(v) => commitField('default', v)"
         />
         <UCheckbox
@@ -73,13 +74,13 @@
           :type="editType === 'number' ? 'number' : 'text'"
           :step="editType === 'number' ? 'any' : undefined"
           :value="editDefault ?? ''"
-          class="flex-1 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
+          class="flex-1 min-w-0 w-0 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
           :placeholder="editType === 'any' ? 'any (自负)' : ''"
           @input="commitField('default', parseDefault($event, editType))"
         >
         <button
           type="button"
-          class="text-dimmed hover:text-default px-1"
+          class="text-dimmed hover:text-default px-1 shrink-0"
           title="收起"
           @click="expanded = false"
         >
@@ -110,6 +111,8 @@ const emit = defineEmits<{
 
 const TYPE_OPTIONS = ['number', 'string', 'bool', 'point', 'any'] as const
 type VarType = typeof TYPE_OPTIONS[number]
+
+const TYPE_OPTIONS_OBJ = TYPE_OPTIONS.map(v => ({ value: v, label: v }))
 
 const expanded = ref(false)
 const nameInputRef = ref<HTMLInputElement | null>(null)
