@@ -39,6 +39,7 @@
         @rename="(oldN, newN) => $emit('rename-var', oldN, newN)"
         @update-field="(n, f, val) => $emit('update-var-field', n, f, val)"
         @delete="(n) => $emit('request-delete', n)"
+        @insert-incvar="(n) => $emit('insert-incvar', n)"
       />
     </VueDraggable>
   </SidebarSection>
@@ -64,6 +65,7 @@ const emit = defineEmits<{
   'update-var-field': [name: string, field: 'type' | 'default', value: unknown]
   'request-delete': [name: string]
   'reorder-vars': [fromIdx: number, toIdx: number]
+  'insert-incvar': [name: string]
 }>()
 
 const orderedVars = ref<VarDecl[]>([...props.vars])
