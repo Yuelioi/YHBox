@@ -328,7 +328,10 @@ func validateInvalidPins(c *Container) []ValidationError {
 				// (含 Subgraph 动态 exec-out via OutputPins). 不依赖已删除的 e.Kind 字段.
 				isDataOut := IsDataOutPin(node.Kind, fromPin)
 				isExecOut := nodeHasExecOutPin(node, fromPin)
-				if !isDataOut && !isExecOut && node.Kind == "Subgraph" {
+				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
+				// v4 spec §9.2 / §2.1 (Phase D backend minimal). F1 commit `3635d86` 落地 kind
+				// 注册 + runtime dispatch 但未补此处, F4 helper press_esc_until_clear 撞出.
+				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {
 					if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {
 						if set, ok := subgraphOutputIDsByID[sgID]; ok {
 							if _, has := set[fromPin]; has {
