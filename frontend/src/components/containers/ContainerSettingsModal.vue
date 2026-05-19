@@ -23,7 +23,7 @@
           </UFormField>
 
           <UFormField label="标签" hint="用于在容器列表筛选; 可自由命名">
-            <UInputMenu v-model="form.tags" multiple :items="allTags" creatable size="sm" />
+            <UInputMenu v-model="form.tags" multiple :items="allTags" :create-item="true" size="sm" />
           </UFormField>
 
           <UFormField label="运行模式">
