@@ -4,6 +4,15 @@ import type { NodeKindSpec, PinType } from './index'
 const byKind: Record<string, NodeKindSpec> = {}
 
 /**
+ * __resetForTests clears the registry. ONLY use from test setup (beforeEach).
+ * Production code must never call this — registry is build-time immutable once
+ * specs/index.ts barrel finishes import. Underscored to discourage accidental use.
+ */
+export function __resetForTests(): void {
+  for (const k of Object.keys(byKind)) delete byKind[k]
+}
+
+/**
  * Register a NodeKindSpec. Must be called from module-init top level (i.e. from a
  * specs/*.ts file imported by the barrel). Duplicate registrations throw — that's
  * a programmer error, not a runtime condition.

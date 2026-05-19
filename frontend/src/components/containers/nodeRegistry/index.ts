@@ -19,6 +19,9 @@ export const TYPE_COLOR: Record<PinType, string> = {
 /**
  * v4 pin type compatibility (spec §2.3) — mirrors backend runtime.PinTypeCompat.
  * @returns allow=can connect, warn=allowed but coerced (UI gives hint)
+ *
+ * PARITY: must match `internal/services/container/runtime/pin_types.go` PinTypeCompat
+ * — Phase D2 cross-check test asserts FE↔BE registry-derived behavior aligns.
  */
 export function pinTypeCompat(from: PinType, to: PinType): { allow: boolean; warn: boolean } {
   if (from === to || from === 'any' || to === 'any') return { allow: true, warn: false }
@@ -79,7 +82,9 @@ export interface NodeKindSpec {
   /** Defaults filled into node.config on creation */
   defaults: Record<string, any>
 
-  /** Flags — match backend Spec semantics */
+  /** Flags — match backend Spec semantics.
+   * NOTE: backend Spec.IsYield (loop-body infinite-loop check) is validator-only,
+   * no frontend equivalent — D2 parity test skips that field. */
   isPureData?: boolean // no exec pins, evaluated on-demand by data_pull
   isVisualOnly?: boolean // CommentBox — no runtime, no pin checks
 }
