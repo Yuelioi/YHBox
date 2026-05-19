@@ -90,6 +90,9 @@ const (
 	// v4 CollapsedNode (spec §9.2)
 	CodeCollapsedPinBroken                = "COLLAPSED_PIN_BROKEN"
 	CodeCollapsedReferencedBySubgraphCall = "COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL"
+
+	// Editor v2 variable panel (spec editor-v2-vars-panel-design.md §4.3.2)
+	CodeInvalidVarRef = "INVALID_VAR_REF"
 )
 
 // ValidationError is the i18n-ready error envelope (spec §12).
@@ -164,6 +167,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
 	errs = append(errs, validateCollapsedReferences(c)...)
+	errs = append(errs, validateVarRefs(c)...)
 
 	// Phase 3: Type / Semantic
 	errs = append(errs, validatePhaseCNodeKinds(c)...)
