@@ -84,15 +84,15 @@ export function useGraphMutations(opts: {
     const srcPin = c.sourceHandle ?? 'out'
     const from = `${c.source}.${srcPin}`
     const to = `${c.target}.${c.targetHandle ?? 'in'}`
-    const kind: 'data' | 'exec' = srcNode ? edgeKind(srcNode.kind, srcPin) : 'exec'
-    // data 边: data-in pin 单源 (替换同 to), data-out 可 fan-out (不动同 from)
-    // exec 边: exec-out 单 target + exec-in 单 source (替换同 from 或同 to)
-    if (kind === 'data') {
+    // Derive edge type for dedup policy. data: single-source (replace same to);
+    // exec: exec-out single target + exec-in single source (replace same from or to).
+    const isData = srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
+    if (isData) {
       g.edges = g.edges.filter((e: GraphEdge) => e.to !== to)
     } else {
       g.edges = g.edges.filter((e: GraphEdge) => e.from !== from && e.to !== to)
     }
-    g.edges.push({ from, to, kind })
+    g.edges.push({ from, to }) // no kind field — derived at render/validate time
     syncFlowFromDraft()
   }
 

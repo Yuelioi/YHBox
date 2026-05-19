@@ -549,7 +549,7 @@ import SwitchInspector from './inspector/SwitchInspector.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import KeyCapture from './KeyCapture.vue'
 import ClipTimeline from './ClipTimeline.vue'
-import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS } from './pinSpec'
+import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
 import PinLiteral from './inline/PinLiteral.vue'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
@@ -585,7 +585,10 @@ const dataInLiterals = computed<LiteralEntry[]>(() => {
   if (!spec) return []
   const incomingPins = new Set<string>()
   for (const e of props.edges ?? []) {
-    if ((e as any).kind !== 'data') continue
+    // v4 C2: derive edge kind via (srcNode.kind, srcPin) — edge.kind field is gone.
+    const [src, srcPin] = (e.from ?? '').split('.')
+    const srcNode = (props.nodes ?? []).find((n: any) => n.id === src)
+    if (!srcNode || edgeKind(srcNode.kind, srcPin) !== 'data') continue
     const [tgt, pin] = (e.to ?? '').split('.')
     if (tgt === props.node.id) incomingPins.add(pin)
   }
@@ -634,7 +637,10 @@ const exprChainHint = computed<ChainHint | null>(() => {
   const outgoing = (props.edges ?? []).filter(
     (e: any) => {
       const [src, srcPin] = (e.from ?? '').split('.')
-      return src === myID && srcPin === 'value' && e.kind === 'data'
+      // v4 C2: derive edge kind via (srcNode.kind, srcPin) — edge.kind field is gone.
+      if (src !== myID || srcPin !== 'value') return false
+      const srcNode = (props.nodes ?? []).find((n: any) => n.id === src)
+      return srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
     },
   )
   if (outgoing.length !== 1) return null

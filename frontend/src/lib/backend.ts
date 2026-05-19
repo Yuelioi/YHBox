@@ -103,8 +103,9 @@ export interface GraphNode {
 export interface GraphEdge {
   from: string
   to: string
-  /** v4: 'data' for data-flow edges, '' (omit) or 'exec' for exec-flow edges. */
-  kind?: 'data' | 'exec'
+  // kind removed in v4 (C2) — derived from (fromNode.kind, fromPin) via
+  // nodeRegistry.edgeKindOf. Mirrors backend C1 deletion of GraphEdge.Kind.
+  // Loaded JSON containing legacy "kind" is silently ignored by JSON.parse.
 }
 
 // Graph v2: 加 id + version

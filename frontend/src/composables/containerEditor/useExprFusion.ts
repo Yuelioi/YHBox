@@ -14,6 +14,7 @@
 //   - Identifier collision detection uses simple set; doesn't account for shadowing.
 //   - Does NOT modify position — caller may want to call auto-layout afterwards.
 import type { Ref } from 'vue'
+import { edgeKind } from '@/components/containers/pinSpec'
 
 interface FusionDeps {
   activeGraph: Ref<any>
@@ -86,22 +87,31 @@ export function useExprFusion(deps: FusionDeps) {
       delete b.config.literal[targetInputName]
     }
 
+    // Helper: v4 C2 — derive edge kind from (srcNode.kind, srcPin) since edge.kind field is gone.
+    const isDataEdge = (e: any): boolean => {
+      const [src, srcPin] = String(e.from ?? '').split('.')
+      const srcNode = g.nodes.find((n: any) => n.id === src)
+      return srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
+    }
+
     // Step 6: reroute A's incoming data edges → B using renamed pin names.
     for (const e of g.edges) {
-      if ((e as any).kind !== 'data') continue
+      if (!isDataEdge(e)) continue
       if (!e.to.startsWith(a.id + '.')) continue
       const [, pin] = e.to.split('.')
       const newPin = renameMap[pin] ?? pin
       e.to = `${b.id}.${newPin}`
     }
 
-    // Step 7: remove A node + the A→B edge.
-    g.nodes = g.nodes.filter((n: any) => n.id !== a.id)
+    // Step 7: remove the A→B edge then remove A node.
+    // Order matters: isDataEdge looks up source node in g.nodes; remove edges first so
+    // the lookup still resolves A's kind (else outgoing A edges would survive the filter).
     g.edges = g.edges.filter((e: any) => {
-      if ((e as any).kind !== 'data') return true
+      if (!isDataEdge(e)) return true
       // drop the specific A.value → B.targetInputName edge AND any other A→B edges (defensive).
       return !(e.from.startsWith(a.id + '.') && e.to.startsWith(b.id + '.'))
     })
+    g.nodes = g.nodes.filter((n: any) => n.id !== a.id)
 
     deps.syncFlowFromDraft()
     return true
