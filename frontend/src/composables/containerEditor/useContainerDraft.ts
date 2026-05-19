@@ -174,10 +174,24 @@ export function useContainerDraft(containerID: string) {
     }
   }
 
+  /**
+   * applyDraftMutation — 单向数据流 mutation 入口.
+   * mutator 收到 draft 直接 mutate, wrapper 自动 dirty + sync.
+   * 所有 var / node / edge mutation 都走这, flowNodes 永远 derive 自 draft.
+   * Spec: editor-v2-vars-panel-design.md §4.3.1 (GPT review #1).
+   */
+  function applyDraftMutation(mutator: (draft: Container) => void): void {
+    if (!draft.value) return
+    mutator(draft.value)
+    dirty.value = true
+    syncFlowFromDraft()
+  }
+
   return {
     draft,
     dirty,
     activeGraph,
+    applyDraftMutation,
     flowNodes,
     flowEdges,
     syncFlowFromDraft,
