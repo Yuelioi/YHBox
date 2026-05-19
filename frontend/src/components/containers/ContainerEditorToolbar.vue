@@ -65,6 +65,14 @@
       <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-layout-grid"
                title="自动布局 / 对齐" />
     </UDropdownMenu>
+    <UButton
+      size="sm"
+      variant="ghost"
+      :color="snapEnabled ? 'primary' : 'neutral'"
+      :icon="snapEnabled ? 'i-tabler-magnet' : 'i-tabler-magnet-off'"
+      :title="snapEnabled ? '吸附对齐开启 (拖动按 Alt 临时关) — 点击关闭' : '吸附对齐关闭 — 点击开启'"
+      @click="$emit('toggle-snap')"
+    />
 
     <div class="flex-1" />
 
@@ -118,6 +126,7 @@ const props = defineProps<{
   dirty: boolean
   canUndo?: boolean
   canRedo?: boolean
+  snapEnabled?: boolean
 }>()
 
 // 录制前置: 没检测到游戏窗口禁止点 (后端 game.HWND check 已防一层, 这里 UX 层先挡)
@@ -146,6 +155,7 @@ const emit = defineEmits<{
   'open-settings': []
   'undo': []
   'redo': []
+  'toggle-snap': []
 }>()
 
 const layoutMenuItems = computed(() => [

@@ -9,6 +9,7 @@ export interface SidebarPrefs {
   favoritesExpanded: boolean
   recentExpanded: boolean
   varsExpanded: boolean
+  snapEnabled: boolean
 }
 
 const DEFAULTS: SidebarPrefs = {
@@ -17,6 +18,7 @@ const DEFAULTS: SidebarPrefs = {
   favoritesExpanded: true,
   recentExpanded: true,
   varsExpanded: true,
+  snapEnabled: true, // default on — matches existing always-on behavior
 }
 
 function loadInitial(): SidebarPrefs {

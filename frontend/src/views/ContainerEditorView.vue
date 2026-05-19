@@ -105,6 +105,7 @@
         :dirty="dirty"
         :can-undo="canUndo"
         :can-redo="canRedo"
+        :snap-enabled="sidebarPrefs.snapEnabled"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -120,6 +121,7 @@
         @open-settings="settingsOpen = true"
         @undo="undo"
         @redo="redo"
+        @toggle-snap="sidebarPrefs.snapEnabled = !sidebarPrefs.snapEnabled"
       />
 
       <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
@@ -1758,8 +1760,9 @@ function _snapAnchorYOffset(_kind: string): number {
 }
 
 function onSnapNodeDrag(event: NodeDragEvent) {
-  // Alt key → disable guides (TouchEvent also has altKey)
-  if (event.event.altKey) {
+  // wantSnap: toolbar toggle XOR Alt key — Alt inverts whichever the toggle is (PS/Figma pattern)
+  const wantSnap = sidebarPrefs.value.snapEnabled !== event.event.altKey
+  if (!wantSnap) {
     snapGuides.value = []
     return
   }
@@ -1812,8 +1815,9 @@ function onSnapNodeDrag(event: NodeDragEvent) {
 function onSnapNodeDragStop(event: NodeDragEvent) {
   snapGuides.value = []
 
-  // Alt key → no snap, keep raw position (vue-flow onNodesChange will commit it)
-  if (event.event.altKey) return
+  // wantSnap: toolbar toggle XOR Alt key — Alt inverts whichever the toggle is (PS/Figma pattern)
+  const wantSnap = sidebarPrefs.value.snapEnabled !== event.event.altKey
+  if (!wantSnap) return
 
   const draggedID: string = event.node.id
   const flowNode = flowNodes.value.find((fn) => fn.id === draggedID)
