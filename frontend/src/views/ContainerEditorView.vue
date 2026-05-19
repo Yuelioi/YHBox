@@ -311,6 +311,12 @@
       @action="onPinMenuAction"
     />
 
+    <!-- Editor v2 C: 命令面板 Ctrl+K -->
+    <CommandPalette
+      v-model:open="commandPaletteOpen"
+      :commands="commands"
+    />
+
   </div>
 </template>
 
@@ -364,6 +370,7 @@ import NodeContextMenu, { type NodeMenuAction } from '@/components/containers/me
 import MultiNodeContextMenu, { type MultiMenuAction } from '@/components/containers/menus/MultiNodeContextMenu.vue'
 import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/menus/EdgeContextMenu.vue'
 import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
+import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
@@ -427,6 +434,9 @@ const { prefs: sidebarPrefs } = useSidebarPrefs()
 const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
 const libraryExplorerOpen = ref(false)
+
+// ===== Editor v2 C: 命令面板 =====
+const commandPaletteOpen = ref(false)
 
 // ===== Editor v2 C: 右键菜单状态 =====
 const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
@@ -1224,7 +1234,189 @@ function onInlineMenuPick(kind: string) {
 
 // ===== End InlineContextMenu =====
 
+// ===== Editor v2 C: 命令面板命令列表 =====
+const commands = computed<Command[]>(() => {
+  const sel = getSelectedNodes.value ?? []
+  const selCount = sel.length
+  return [
+    // ── edit ──
+    {
+      id: 'edit.copy', label: '复制选中', group: 'edit', icon: 'i-tabler-copy', shortcut: 'Ctrl+C',
+      disabled: selCount === 0,
+      exec: () => onCopySelection(),
+    },
+    {
+      id: 'edit.paste', label: '粘贴', group: 'edit', icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V',
+      exec: () => void onPasteSelection(),
+    },
+    {
+      id: 'edit.delete', label: '删除选中', group: 'edit', icon: 'i-tabler-trash', shortcut: 'Del',
+      disabled: selCount === 0,
+      exec: () => sel.forEach((n: any) => removeNodes([n.id])),
+    },
+    {
+      id: 'edit.undo', label: '撤销', group: 'edit', icon: 'i-tabler-arrow-back-up', shortcut: 'Ctrl+Z',
+      disabled: !canUndo.value,
+      exec: () => undo(),
+    },
+    {
+      id: 'edit.redo', label: '重做', group: 'edit', icon: 'i-tabler-arrow-forward-up', shortcut: 'Ctrl+Y',
+      disabled: !canRedo.value,
+      exec: () => redo(),
+    },
+    {
+      id: 'edit.fold', label: '折叠为子图', group: 'edit', icon: 'i-tabler-package-import',
+      keywords: ['fold', 'subgraph', '折叠'],
+      disabled: selCount === 0,
+      exec: () => onFoldSelection(),
+    },
+    {
+      id: 'edit.align-left', label: '对齐 - 左', group: 'edit', keywords: ['align', '对齐'],
+      disabled: selCount < 2,
+      exec: () => onAlignSelected('left'),
+    },
+    {
+      id: 'edit.align-right', label: '对齐 - 右', group: 'edit', keywords: ['align', '对齐'],
+      disabled: selCount < 2,
+      exec: () => onAlignSelected('right'),
+    },
+    {
+      id: 'edit.align-top', label: '对齐 - 顶', group: 'edit', keywords: ['align', '对齐'],
+      disabled: selCount < 2,
+      exec: () => onAlignSelected('top'),
+    },
+    {
+      id: 'edit.align-bottom', label: '对齐 - 底', group: 'edit', keywords: ['align', '对齐'],
+      disabled: selCount < 2,
+      exec: () => onAlignSelected('bottom'),
+    },
+    {
+      id: 'edit.align-center-h', label: '水平居中', group: 'edit', keywords: ['align', '对齐', '居中'],
+      disabled: selCount < 2,
+      exec: () => onAlignSelected('center-h'),
+    },
+    {
+      id: 'edit.align-center-v', label: '垂直居中', group: 'edit', keywords: ['align', '对齐', '居中'],
+      disabled: selCount < 2,
+      exec: () => onAlignSelected('center-v'),
+    },
+    {
+      id: 'edit.distribute-h', label: '水平等距分布', group: 'edit', keywords: ['distribute', '分布'],
+      disabled: selCount < 3,
+      exec: () => onAlignSelected('h-equal'),
+    },
+    {
+      id: 'edit.distribute-v', label: '垂直等距分布', group: 'edit', keywords: ['distribute', '分布'],
+      disabled: selCount < 3,
+      exec: () => onAlignSelected('v-equal'),
+    },
+    {
+      id: 'edit.auto-layout-lr', label: '自动布局 (横向)', group: 'edit',
+      icon: 'i-tabler-layout-board-split', shortcut: 'Ctrl+L',
+      keywords: ['layout', 'dagre', '布局'],
+      exec: () => onAutoLayout('LR'),
+    },
+    {
+      id: 'edit.auto-layout-tb', label: '自动布局 (纵向)', group: 'edit',
+      icon: 'i-tabler-layout-rows', shortcut: 'Ctrl+Shift+L',
+      keywords: ['layout', 'dagre', '布局'],
+      exec: () => onAutoLayout('TB'),
+    },
+
+    // ── view ──
+    {
+      id: 'view.toggle-left-sidebar', label: '折叠/展开 左侧栏', group: 'view',
+      keywords: ['sidebar', 'panel', '侧栏'],
+      exec: () => { sidebarPrefs.value.leftSidebarCollapsed = !sidebarPrefs.value.leftSidebarCollapsed },
+    },
+    {
+      id: 'view.toggle-inspector', label: '折叠/展开 右 Inspector', group: 'view',
+      keywords: ['inspector', 'panel', '检查器'],
+      exec: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
+    },
+
+    // ── navigate ──
+    {
+      id: 'navigate.node-explorer', label: '打开 Node Explorer', group: 'navigate',
+      icon: 'i-tabler-grid-dots', shortcut: 'Tab',
+      keywords: ['explorer', 'node', '节点'],
+      exec: () => { nodeExplorerOpen.value = true },
+    },
+    {
+      id: 'navigate.library', label: '打开子图库 Explorer', group: 'navigate',
+      icon: 'i-tabler-books',
+      keywords: ['library', 'subgraph', '库', '子图'],
+      exec: () => { libraryExplorerOpen.value = true },
+    },
+    {
+      id: 'navigate.settings', label: '打开容器设置', group: 'navigate',
+      icon: 'i-tabler-settings', shortcut: 'Ctrl+,',
+      keywords: ['settings', 'config', '设置'],
+      exec: () => { settingsOpen.value = true },
+    },
+    {
+      id: 'navigate.back', label: '跳到主图 / 上一层级', group: 'navigate',
+      keywords: ['back', 'up', '返回', '主图'],
+      disabled: editorStore.editorPath.length === 0,
+      exec: () => editorStore.popPath(),
+    },
+
+    // ── run ──
+    {
+      id: 'run.save', label: '保存', group: 'run',
+      icon: 'i-tabler-check', shortcut: 'Ctrl+S',
+      keywords: ['save', '保存'],
+      disabled: !dirty.value,
+      exec: () => void onSave(),
+    },
+    {
+      id: 'run.validate', label: '检查 (Validate)', group: 'run',
+      icon: 'i-tabler-checks',
+      keywords: ['validate', 'check', '校验', '检查'],
+      disabled: dirty.value,
+      exec: () => void onValidate(),
+    },
+    {
+      id: 'run.try-run', label: '试运行', group: 'run',
+      icon: 'i-tabler-player-play',
+      keywords: ['run', 'play', '运行'],
+      disabled: dirty.value || execStore.running,
+      exec: () => void onTryRun(),
+    },
+    {
+      id: 'run.stop', label: '停止运行', group: 'run',
+      icon: 'i-tabler-square',
+      keywords: ['stop', 'halt', '停止'],
+      disabled: !execStore.running,
+      exec: () => void onStopRun(),
+    },
+
+    // ── var ──
+    {
+      id: 'var.add', label: '添加变量', group: 'var',
+      icon: 'i-tabler-circle-plus',
+      keywords: ['variable', 'add', '变量', '添加'],
+      exec: () => onAddVar(),
+    },
+  ]
+})
+
 function onGlobalKeydown(e: KeyboardEvent) {
+  // Ctrl+K → 命令面板
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    const t = e.target as HTMLElement | null
+    const tag = t?.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
+    e.preventDefault()
+    commandPaletteOpen.value = true
+    return
+  }
+  // Ctrl+S → 保存
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    if (dirty.value) void onSave()
+    return
+  }
   // Ctrl+, → open settings (Mac Cmd+, also works)
   if ((e.ctrlKey || e.metaKey) && e.key === ',') {
     e.preventDefault()
