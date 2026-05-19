@@ -13,6 +13,8 @@ import (
 	"github.com/lxn/win"
 
 	"yhbox/internal/services/container"
+	"yhbox/internal/services/container/nodekind"
+	_ "yhbox/internal/services/container/nodekind/specs" // ensure registry is populated
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/inputclip"
@@ -34,6 +36,21 @@ func (e *errThrow) Error() string {
 // execNode 单节点执行入口。返回下游 token 列表（追加进调度队列）。
 // 大部分节点产出 1 个或 0 个 token；Parallel/Race 是特例（自跑 sub-runner）。
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
+	// Gatekeep: kind must be registered. Catches typos and stale switch cases.
+	spec, ok := nodekind.Get(node.Kind)
+	if !ok {
+		return nil, fmt.Errorf("execNode: unknown kind %q (not in nodekind registry)", node.Kind)
+	}
+	// IsPureData kinds should never reach execNode (no exec edge points to them).
+	// A switch fall-through would silently return (nil, nil) — explicit reject.
+	if spec.IsPureData {
+		return nil, fmt.Errorf("execNode: kind %q is pure-data, cannot be executed (validator drift!)", node.Kind)
+	}
+	// IsVisualOnly = render-only nodes (CommentBox). No-op execution.
+	if spec.IsVisualOnly {
+		return nil, nil
+	}
+
 	switch node.Kind {
 	case "Start":
 		return r.edges.next(node.ID+".out", tok.LoopStack), nil
@@ -88,9 +105,7 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 	case "WindowTarget":
 		// v3 Phase B 声明式节点: hwnd + input/capture backend 解析在 runner 启动期消费, 执行流直通
 		return nil, nil
-	case "CommentBox":
-		// v4 §9.1 视觉框 — 纯 UI, runtime no-op. Validator skip pin / edge 关系 (not added).
-		return nil, nil
+	// CommentBox handled by IsVisualOnly gatekeep above (registry single source of truth).
 	case "ClickAt":
 		return r.execClickAt(ctx, node, tok)
 	case "KeyPress":
@@ -134,7 +149,7 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 	case "Screenshot":
 		return r.execScreenshot(ctx, node, tok)
 	}
-	return nil, fmt.Errorf("container: unknown node kind %q", node.Kind)
+	return nil, fmt.Errorf("execNode: kind %q registered but no dispatch case (drift!)", node.Kind)
 }
 
 // ---- Control Flow ----
