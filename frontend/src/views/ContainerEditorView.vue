@@ -317,6 +317,16 @@
       :commands="commands"
     />
 
+    <!-- Editor v2 C5: Promote-to-Variable modal -->
+    <PromoteToVarModal
+      v-if="promoteCtx"
+      :open="!!promoteCtx"
+      :context="promoteCtx"
+      :existing-var-names="(draft?.vars ?? []).map(v => v.name)"
+      @update:open="(v) => { if (!v) promoteCtx = null }"
+      @confirm="onPromoteConfirm"
+    />
+
   </div>
 </template>
 
@@ -371,6 +381,7 @@ import MultiNodeContextMenu, { type MultiMenuAction } from '@/components/contain
 import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/menus/EdgeContextMenu.vue'
 import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
 import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
+import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
@@ -451,6 +462,9 @@ const edgeMenu = ref<{ open: boolean; position: { x: number; y: number }; edge: 
 const pinMenu = ref<{ open: boolean; position: { x: number; y: number }; pin: PinInfo | null }>({
   open: false, position: { x: 0, y: 0 }, pin: null,
 })
+
+// ===== Editor v2 C5: Promote-to-Variable =====
+const promoteCtx = ref<PromoteContext | null>(null)
 
 // Phase 1 var mutations (Phase 3 will wire full UI)
 const varMutations = useVarMutations(draft)
@@ -957,10 +971,28 @@ function onNodeMenuAction(a: NodeMenuAction) {
       }
       return
     }
-    case 'promote-to-var':
-      // C5 实装; 当前 stub
-      toast.add({ title: 'Promote to Variable', description: 'C5 实装中', color: 'warning' })
+    case 'promote-to-var': {
+      const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
+      if (!lit || Object.keys(lit).length === 0) {
+        toast.add({ title: 'Promote', description: '此节点无 literal pin 可提取', color: 'warning' })
+        return
+      }
+      // Pick first literal pin for node menu (single-pin ambiguity MVP)
+      const pinName = Object.keys(lit)[0]
+      const literal = lit[pinName]
+      const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) as VarType | ''
+      if (!pinType) {
+        toast.add({ title: 'Promote', description: `pin ${pinName} 不是 data-in 类型`, color: 'warning' })
+        return
+      }
+      promoteCtx.value = {
+        nodeID: node.id,
+        pinName,
+        pinType: pinType as VarType,
+        literal,
+      }
       return
+    }
     case 'jump-to-subgraph': {
       const sgID = (node.config as Record<string, unknown> | undefined)?.subgraphId as string | undefined
       if (sgID) editorStore.pushPath(sgID)
@@ -1144,9 +1176,23 @@ function onPinMenuAction(a: PinMenuAction) {
         g.edges = g.edges.filter((ed) => ed.from !== matchID && ed.to !== matchID)
       })
       return
-    case 'promote-to-var':
-      toast.add({ title: 'Promote pin → 变量', description: 'C5 实装中', color: 'warning' })
+    case 'promote-to-var': {
+      const node = activeGraph.value?.nodes.find(n => n.id === pin.nodeID)
+      if (!node) return
+      const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
+      const literal = lit?.[pin.pinName]
+      if (literal === undefined) {
+        toast.add({ title: 'Promote', description: `pin ${pin.pinName} 无 literal 可提取 (可能已被边驱动)`, color: 'warning' })
+        return
+      }
+      promoteCtx.value = {
+        nodeID: pin.nodeID,
+        pinName: pin.pinName,
+        pinType: (pin.pinType ?? 'any') as VarType,
+        literal,
+      }
       return
+    }
     case 'reset-to-literal':
       applyDraftMutation(() => {
         const g = activeGraph.value
@@ -1175,6 +1221,52 @@ function onPinMenuAction(a: PinMenuAction) {
       })
       return
   }
+}
+
+// ===== Editor v2 C5: Promote-to-Variable confirm handler =====
+function onPromoteConfirm(args: { varName: string; varType: VarType }) {
+  const ctx = promoteCtx.value
+  if (!ctx) return
+  applyDraftMutation((d) => {
+    const g = activeGraph.value
+    if (!g) return
+
+    // 1. Add new var to Container.Vars
+    if (!d.vars) d.vars = []
+    d.vars.push({
+      name: args.varName,
+      type: args.varType as 'number' | 'bool' | 'string' | 'point' | 'any',
+      default: ctx.literal,
+    })
+
+    // 2. Remove literal from original node's config
+    const origNode = g.nodes.find(n => n.id === ctx.nodeID)
+    if (!origNode) return
+    const cfg = origNode.config as Record<string, unknown>
+    const lit = cfg.literal as Record<string, unknown> | undefined
+    if (lit) {
+      delete lit[ctx.pinName]
+    }
+
+    // 3. Insert GetVar node 200px to the left
+    const getVarID = `getvar_${Math.random().toString(36).slice(2, 8)}`
+    g.nodes.push({
+      id: getVarID,
+      kind: 'GetVar',
+      x: (origNode.x ?? 0) - 200,
+      y: origNode.y ?? 0,
+      config: { varName: args.varName, scope: 'auto' },
+      createdAt: new Date().toISOString(),
+    } as GraphNode)
+
+    // 4. Add data edge: GetVar.value → originalNode.pinName
+    g.edges.push({
+      from: `${getVarID}.value`,
+      to: `${ctx.nodeID}.${ctx.pinName}`,
+    } as GraphEdge)
+  })
+  promoteCtx.value = null
+  useDiscoveryStore().pushRecent('GetVar')
 }
 
 function onPaneDoubleClick(e: MouseEvent) {
