@@ -1,32 +1,9 @@
 package container
 
-// sysPathSchemaCopy mirrors runtime.SysPathSchema (avoids container→runtime cyclic import).
-// Sync rule: when runtime.SysPathSchema or resolveSysPath changes, update this map too.
-// Both go-vet would catch divergence via behavior tests (runtime test that GetSys returns
-// expected types per validator schema).
-var sysPathSchemaCopy = map[string]string{
-	"runId":                    "number",
-	"iter":                     "number",
-	"winnerIdx":                "number",
-	"lastTemplate.found":       "bool",
-	"lastTemplate.point":       "point",
-	"lastTemplate.point.x":     "number",
-	"lastTemplate.point.y":     "number",
-	"lastTemplate.region":      "any",
-	"lastColor.count":          "number",
-	"lastColor.cx":             "number",
-	"lastColor.cy":             "number",
-	"lastColor.center":         "point",
-	"lastColor.center.x":       "number",
-	"lastColor.center.y":       "number",
-	"lastStopwatch.elapsedMs":  "number",
-	"lastTry.errorMsg":         "string",
-	"lastDetect.pixelCount":    "number",
-	"lastDetect.pixelRatio":    "number",
-	"lastROIScan.clusterCount": "number",
-	"lastROIScan.clusters":     "any",
-	"lastScreenshot.path":      "string",
-}
+import "yhbox/internal/services/container/sys"
+
+// E1: sysPathSchemaCopy duplicate map removed. Single source of truth now lives
+// in the leaf container/sys package, imported by both runtime and validator.
 
 // validateGetSysNodes scans for GetSys kinds with unknown path config (GETSYS_UNKNOWN_PATH).
 func validateGetSysNodes(c *Container) []ValidationError {
@@ -48,7 +25,7 @@ func validateGetSysNodes(c *Container) []ValidationError {
 				})
 				continue
 			}
-			if _, ok := sysPathSchemaCopy[p]; !ok {
+			if _, ok := sys.PathSchema[p]; !ok {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeGetSysUnknownPath,
 					GraphPath: path, NodeID: n.ID,

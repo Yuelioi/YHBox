@@ -4,39 +4,14 @@ import (
 	"fmt"
 
 	"yhbox/internal/services/container"
+	"yhbox/internal/services/container/sys"
 	"yhbox/internal/services/expr"
 )
 
-// SysPathSchema (v4) is the source of truth for valid GetSys.path values.
-// Maps path → frontend pin type (string form, matches PinType). Frontend Inspector
-// reads this to render the path dropdown + infer data-out pin type. Validator
-// uses this to flag unknown paths (CodeGetSysUnknownPath).
-//
-// Must mirror resolveSysPath in runtime_context.go. When you add a new sys field,
-// update BOTH files (resolveSysPath for runtime, SysPathSchema for editor / validator).
-var SysPathSchema = map[string]string{
-	"runId":                    "number",
-	"iter":                     "number",
-	"winnerIdx":                "number",
-	"lastTemplate.found":       "bool",
-	"lastTemplate.point":       "point",
-	"lastTemplate.point.x":     "number",
-	"lastTemplate.point.y":     "number",
-	"lastTemplate.region":      "any", // [4]float64 ratio — no array type yet
-	"lastColor.count":          "number",
-	"lastColor.cx":             "number",
-	"lastColor.cy":             "number",
-	"lastColor.center":         "point",
-	"lastColor.center.x":       "number",
-	"lastColor.center.y":       "number",
-	"lastStopwatch.elapsedMs":  "number",
-	"lastTry.errorMsg":         "string",
-	"lastDetect.pixelCount":    "number",
-	"lastDetect.pixelRatio":    "number",
-	"lastROIScan.clusterCount": "number",
-	"lastROIScan.clusters":     "any",
-	"lastScreenshot.path":      "string",
-}
+// SysPathSchema is now sourced from the leaf container/sys package (E1: dedup).
+// Re-exported here for backward compat with any external callers; new code should
+// import "yhbox/internal/services/container/sys" directly.
+var SysPathSchema = sys.PathSchema
 
 // evalGetParam (v4) returns the value of a subgraph input parameter from the current frame's
 // LocalParams. Set when the parent's Subgraph call node was executed (execSubgraph pulls
