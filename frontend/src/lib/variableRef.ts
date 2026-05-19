@@ -19,7 +19,13 @@ export interface VarDeclLike {
   default?: unknown
 }
 
+// 枚举所有合法 VarType, 给 declToRef runtime guard 用 (system boundary 校验).
+const VAR_TYPES = new Set<string>(['number', 'string', 'bool', 'point', 'any'])
+
 export function declToRef(v: VarDeclLike): VariableRef {
+  if (!VAR_TYPES.has(v.type)) {
+    throw new Error(`declToRef: unknown VarType ${JSON.stringify(v.type)} for var ${JSON.stringify(v.name)}`)
+  }
   return { name: v.name, type: v.type as VarType }
 }
 

@@ -16,4 +16,8 @@ describe('VariableRef', () => {
     expect(isCompatibleType('number', 'number')).toBe(true)
     expect(isCompatibleType('string', 'number')).toBe(false)
   })
+
+  it('declToRef throws on unknown type (system boundary guard)', () => {
+    expect(() => declToRef({ name: 'x', type: 'integer' as unknown as string })).toThrow(/unknown VarType/i)
+  })
 })
