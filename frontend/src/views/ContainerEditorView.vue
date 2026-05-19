@@ -732,7 +732,7 @@ const totalVarUsageCount = computed(() => {
 
 // Editor v2 B/C handlers
 function onOpenNodeExplorer() {
-  nodeExplorerOpen.value = true
+  nodeExplorerOpen.value = !nodeExplorerOpen.value
 }
 
 function onPickKind(kind: string) {
@@ -1500,7 +1500,7 @@ const commands = computed<Command[]>(() => {
       id: 'navigate.node-explorer', label: '打开 Node Explorer', group: 'navigate',
       icon: 'i-tabler-grid-dots', shortcut: 'Tab',
       keywords: ['explorer', 'node', '节点'],
-      exec: () => { nodeExplorerOpen.value = true },
+      exec: () => { nodeExplorerOpen.value = !nodeExplorerOpen.value },
     },
     {
       id: 'navigate.library', label: '打开子图库 Explorer', group: 'navigate',
@@ -1604,8 +1604,15 @@ function onGlobalKeydown(e: KeyboardEvent) {
     redo()
     return
   }
-  // Tab → open NodeExplorer (skip when input/textarea/select/contentEditable is focused)
+  // Tab → toggle NodeExplorer
   if (e.key === 'Tab') {
+    // If Explorer already open, always allow Tab to close it (even from inside the modal's search input)
+    if (nodeExplorerOpen.value) {
+      e.preventDefault()
+      nodeExplorerOpen.value = false
+      return
+    }
+    // Modal not open — open it, but skip when typing in an unrelated input
     const t = e.target as HTMLElement | null
     const tag = t?.tagName?.toLowerCase()
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
