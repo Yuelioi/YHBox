@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"yhbox/internal/services/container"
+	"yhbox/internal/services/expr"
 )
 
 // TestDisabled_LinearPassthrough: Disabled Sleep skips to .out
@@ -67,5 +68,27 @@ func TestDisabled_Throw_Noop(t *testing.T) {
 	}
 	if tokens != nil {
 		t.Fatalf("disabled Throw should noop (nil tokens), got: %+v", tokens)
+	}
+}
+
+// TestDisabled_PureData_GetVarReturnsNil: disabled GetVar's data-out returns nil
+// (caller's pullNumber/pullBool/pullValue fallback fires instead of evaluating the var).
+func TestDisabled_PureData_GetVarReturnsNil(t *testing.T) {
+	rt, r := newTestRunner(t)
+	rt.SetVar("x", expr.Value(42.0))
+	r.currentTick = CaptureSnapshot(map[string]expr.Value{"x": 42.0}, SysState{})
+
+	disabledGV := &container.GraphNode{
+		ID: "gv1", Kind: "GetVar", Disabled: true,
+		Config: map[string]any{"varName": "x", "scope": "global"},
+	}
+	r.nodesByID = map[string]*container.GraphNode{"gv1": disabledGV}
+
+	val, err := r.evalDataSource("gv1", "value")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val != nil {
+		t.Fatalf("disabled GetVar should return nil, got %v", val)
 	}
 }

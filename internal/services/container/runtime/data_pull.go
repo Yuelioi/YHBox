@@ -94,6 +94,12 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	if n == nil {
 		return nil, fmt.Errorf("evalDataSource: source node %q not found", srcNodeID)
 	}
+	// Editor v2 C — Disable Node: pure-data nodes (GetVar/GetSys/GetParam/Expr/pure funcs)
+	// don't reach execNode, so the execNode disable gate doesn't cover them. Gate here too.
+	// Disabled pure-data node returns nil (untyped — consumer's fallback / pullNumber default fires).
+	if n.Disabled {
+		return nil, nil
+	}
 	// Gatekeep: only IsPureData kinds are valid pull sources.
 	// An exec-node data-out (like Race.winnerIdx) should be read from
 	// sys snapshot, not pulled — validator should have caught this.
