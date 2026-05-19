@@ -158,6 +158,7 @@
           class="flex-1 min-w-0 relative"
           @dragover.prevent="onCanvasDragOver"
           @drop.prevent="onCanvasDrop"
+          @contextmenu.capture="onCanvasContextMenuCapture"
         >
           <!-- 操作提示 -->
           <div
@@ -189,6 +190,7 @@
             @connect-start="onVfConnectStart"
             @connect-end="onVfConnectEnd"
             @edge-double-click="onEdgeDoubleClick"
+            @edge-context-menu="onEdgeContextMenu"
             @nodes-change="onNodesChange"
             @edges-change="onEdgesChange"
             @connect="onConnect"
@@ -292,6 +294,22 @@
       @update:open="(v) => { multiMenu.open = v }"
       @action="onMultiMenuAction"
     />
+    <EdgeContextMenu
+      v-if="edgeMenu.edge"
+      :open="edgeMenu.open"
+      :position="edgeMenu.position"
+      :edge="edgeMenu.edge"
+      @update:open="(v) => { edgeMenu.open = v }"
+      @action="onEdgeMenuAction"
+    />
+    <PinContextMenu
+      v-if="pinMenu.pin"
+      :open="pinMenu.open"
+      :position="pinMenu.position"
+      :pin="pinMenu.pin"
+      @update:open="(v) => { pinMenu.open = v }"
+      @action="onPinMenuAction"
+    />
 
   </div>
 </template>
@@ -344,6 +362,8 @@ import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.v
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 import NodeContextMenu, { type NodeMenuAction } from '@/components/containers/menus/NodeContextMenu.vue'
 import MultiNodeContextMenu, { type MultiMenuAction } from '@/components/containers/menus/MultiNodeContextMenu.vue'
+import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/menus/EdgeContextMenu.vue'
+import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
@@ -414,6 +434,12 @@ const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: 
 })
 const multiMenu = ref<{ open: boolean; position: { x: number; y: number }; count: number }>({
   open: false, position: { x: 0, y: 0 }, count: 0,
+})
+const edgeMenu = ref<{ open: boolean; position: { x: number; y: number }; edge: GraphEdge | null }>({
+  open: false, position: { x: 0, y: 0 }, edge: null,
+})
+const pinMenu = ref<{ open: boolean; position: { x: number; y: number }; pin: PinInfo | null }>({
+  open: false, position: { x: 0, y: 0 }, pin: null,
 })
 
 // Phase 1 var mutations (Phase 3 will wire full UI)
@@ -1004,6 +1030,139 @@ function onMultiMenuAction(a: MultiMenuAction) {
     case 'comment-box':
       // 未来实装
       toast.add({ title: 'CommentBox', description: '待实装', color: 'warning' })
+      return
+  }
+}
+
+// ===== Editor v2 C: Edge + Pin context menus =====
+
+function onEdgeContextMenu(event: { event: MouseEvent | TouchEvent; edge: any }) {
+  if (event.event instanceof MouseEvent) event.event.preventDefault()
+  const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
+  const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
+  // Match the flow edge back to a GraphEdge via from/to composed from source/sourceHandle/target/targetHandle
+  const flowEdge = activeGraph.value?.edges.find(
+    (ed) =>
+      ed.from === `${event.edge.source}.${event.edge.sourceHandle}` &&
+      ed.to === `${event.edge.target}.${event.edge.targetHandle}`,
+  )
+  if (!flowEdge) return
+  edgeMenu.value = {
+    open: true,
+    position: { x: clientX, y: clientY },
+    edge: flowEdge,
+  }
+  // Close other menus
+  nodeMenu.value.open = false
+  multiMenu.value.open = false
+  pinMenu.value.open = false
+}
+
+function onEdgeMenuAction(a: EdgeMenuAction) {
+  const edge = edgeMenu.value.edge
+  if (!edge) return
+  switch (a) {
+    case 'delete':
+      applyDraftMutation(() => {
+        const g = activeGraph.value
+        if (!g) return
+        g.edges = g.edges.filter((e) => !(e.from === edge.from && e.to === edge.to))
+      })
+      return
+    case 'insert-node-on-edge':
+      // Stub: full impl needs splitting edge + inserting node + chaining 2 new edges
+      toast.add({
+        title: '在边上插入节点',
+        description: '待实装 — 当前可手动: 删边 + 拖 pin',
+        color: 'warning',
+      })
+      return
+  }
+}
+
+function onCanvasContextMenuCapture(e: MouseEvent) {
+  const t = e.target as HTMLElement | null
+  if (!t) return
+  const handleEl = t.closest('.vue-flow__handle') as HTMLElement | null
+  if (!handleEl) return  // not a pin — let pane/node/edge-context-menu handlers deal
+  // It's a pin handle — intercept
+  e.preventDefault()
+  e.stopPropagation()
+
+  const nodeEl = handleEl.closest('[data-id]') as HTMLElement | null
+  const nodeID = nodeEl?.getAttribute('data-id') ?? ''
+  const pinName = handleEl.getAttribute('data-handleid') ?? ''
+  const handleType = handleEl.getAttribute('data-handletype') ?? ''
+  const side: 'input' | 'output' = handleType === 'source' ? 'output' : 'input'
+
+  const node = activeGraph.value?.nodes.find((n) => n.id === nodeID)
+  if (!node) return
+
+  // Resolve pin type
+  let pinType: string | undefined
+  if (side === 'input') {
+    pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) || undefined
+  } else {
+    pinType = dataOutTypeFor(node.kind, pinName) || undefined
+  }
+
+  // Count attached edges
+  const edges = activeGraph.value?.edges ?? []
+  const matchFrom = `${nodeID}.${pinName}`
+  const edgeCount = edges.filter((ed) => ed.from === matchFrom || ed.to === matchFrom).length
+
+  pinMenu.value = {
+    open: true,
+    position: { x: e.clientX, y: e.clientY },
+    pin: { nodeID, pinName, side, pinType, edgeCount },
+  }
+  // Close other menus
+  nodeMenu.value.open = false
+  multiMenu.value.open = false
+  edgeMenu.value.open = false
+}
+
+function onPinMenuAction(a: PinMenuAction) {
+  const pin = pinMenu.value.pin
+  if (!pin) return
+  const matchID = `${pin.nodeID}.${pin.pinName}`
+  switch (a) {
+    case 'break-all-connections':
+      applyDraftMutation(() => {
+        const g = activeGraph.value
+        if (!g) return
+        g.edges = g.edges.filter((ed) => ed.from !== matchID && ed.to !== matchID)
+      })
+      return
+    case 'promote-to-var':
+      toast.add({ title: 'Promote pin → 变量', description: 'C5 实装中', color: 'warning' })
+      return
+    case 'reset-to-literal':
+      applyDraftMutation(() => {
+        const g = activeGraph.value
+        if (!g) return
+        // Break incoming edges to this input pin
+        g.edges = g.edges.filter((ed) => ed.to !== matchID)
+        const node = g.nodes.find((n) => n.id === pin.nodeID)
+        if (!node) return
+        const cfg = node.config as Record<string, unknown>
+        const lit = (cfg.literal as Record<string, unknown> | undefined) ?? {}
+        const def =
+          pin.pinType === 'number' ? 0
+          : pin.pinType === 'string' ? ''
+          : pin.pinType === 'bool' ? false
+          : pin.pinType === 'point' ? { x: 0.5, y: 0.5 }
+          : null
+        lit[pin.pinName] = def
+        cfg.literal = lit
+      })
+      return
+    case 'show-schema':
+      toast.add({
+        title: `Pin schema: ${pin.pinName}`,
+        description: `${pin.side} · type: ${pin.pinType ?? '(exec)'} · edges: ${pin.edgeCount}`,
+        color: 'info',
+      })
       return
   }
 }
