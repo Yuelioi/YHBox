@@ -132,6 +132,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validatePlayClip(c)...)
 	errs = append(errs, validatePhaseCNodeKinds(c)...)
 	errs = append(errs, validateDataPinTypes(c)...)
+	errs = append(errs, validateLiteralTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
