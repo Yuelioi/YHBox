@@ -339,11 +339,13 @@ const settingsOpen = ref(false)
 const varMutations = useVarMutations(draft)
 
 function onAddVar() {
-  // Phase 3 wires real UI (add row → enter name); Phase 2 stub creates auto-named v1/v2/v3
+  // Phase 3 wires real UI (add row → enter name); Phase 2 stub: auto-name v1/v2/v3
   applyDraftMutation((d) => {
     let n = 1
-    while ((d.vars ?? []).some(v => v.name === `v${n}`)) n++
-    varMutations.addVar({ name: `v${n}`, type: 'number', default: 0 })
+    const vars = d.vars ?? []
+    while (vars.some(v => v.name === `v${n}`)) n++
+    if (!d.vars) d.vars = []
+    d.vars.push({ name: `v${n}`, type: 'number', default: 0 })
   })
 }
 
