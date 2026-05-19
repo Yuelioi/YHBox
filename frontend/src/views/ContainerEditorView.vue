@@ -182,6 +182,10 @@
             @node-click="onNodeClick"
             @node-double-click="onNodeDoubleClick"
             @pane-click="selectedID = null"
+            @pane-context-menu="onCanvasContextMenu"
+            @pane-double-click="onPaneDoubleClick"
+            @connect-start="onVfConnectStart"
+            @connect-end="onVfConnectEnd"
             @edge-double-click="onEdgeDoubleClick"
             @nodes-change="onNodesChange"
             @edges-change="onEdgesChange"
@@ -262,6 +266,14 @@
       @pick-subgraph="onPickLibrarySubgraph"
     />
 
+    <InlineContextMenu
+      :open="inlineMenu.open"
+      :position="inlineMenu.position"
+      :pin-context="inlineMenu.pinContext"
+      @update:open="(v) => { inlineMenu.open = v }"
+      @pick="onInlineMenuPick"
+    />
+
   </div>
 </template>
 
@@ -310,12 +322,13 @@ import ContainerSettingsModal from '@/components/containers/ContainerSettingsMod
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
 import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
+import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
-import { dataInTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
+import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 
 const route = useRoute()
@@ -664,6 +677,163 @@ async function onPickLibrarySubgraph(libraryID: string) {
     })
   }
 }
+// ===== Editor v2 B: InlineContextMenu =====
+
+interface InlineMenuState {
+  open: boolean
+  position: { x: number; y: number }  // viewport (screen) coords
+  flowPos: { x: number; y: number }   // flow canvas coords
+  pinContext?: InlinePinContext
+  sourcePin?: { nodeID: string; pinName: string; side: 'input' | 'output' }
+}
+
+const inlineMenu = ref<InlineMenuState>({
+  open: false,
+  position: { x: 0, y: 0 },
+  flowPos: { x: 0, y: 0 },
+})
+
+// Track the pin that started the most recent connection drag
+const connectionStart = ref<{
+  nodeId: string
+  handleId: string
+  handleType: 'source' | 'target'
+} | null>(null)
+
+function onVfConnectStart(params: {
+  event?: MouseEvent
+  nodeId?: string
+  handleId: string | null
+  handleType?: 'source' | 'target'
+}) {
+  if (params.nodeId && params.handleId && params.handleType) {
+    connectionStart.value = {
+      nodeId: params.nodeId,
+      handleId: params.handleId,
+      handleType: params.handleType,
+    }
+  }
+}
+
+function onVfConnectEnd(event?: MouseEvent) {
+  if (!connectionStart.value) return
+
+  const clientX = event?.clientX ?? 0
+  const clientY = event?.clientY ?? 0
+
+  const start = connectionStart.value
+  connectionStart.value = null
+
+  // Only open when the drag was released on empty space (no connection was made).
+  // We defer via setTimeout so that vue-flow's @connect fires first if it will.
+  // If a connection completed, vue-flow fires @connect synchronously in the same tick.
+  const startCopy = { ...start }
+  setTimeout(() => {
+    // If menu already opened from a real connection this tick, skip.
+    const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+      (n) => n.id === startCopy.nodeId,
+    )
+    if (!node) return
+
+    const pinType =
+      startCopy.handleType === 'source'
+        ? dataOutTypeFor(node.kind, startCopy.handleId)
+        : dataInTypeFor(node.kind, startCopy.handleId, node.config as Record<string, unknown>)
+
+    if (!pinType) return
+
+    const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
+
+    inlineMenu.value = {
+      open: true,
+      position: { x: clientX, y: clientY },
+      flowPos,
+      pinContext: {
+        pinType: pinType as VarType,
+        side: startCopy.handleType === 'source' ? 'output' : 'input',
+      },
+      sourcePin: {
+        nodeID: startCopy.nodeId,
+        pinName: startCopy.handleId,
+        side: startCopy.handleType === 'source' ? 'output' : 'input',
+      },
+    }
+  }, 0)
+}
+
+function openInlineMenuAt(clientX: number, clientY: number) {
+  const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
+  inlineMenu.value = {
+    open: true,
+    position: { x: clientX, y: clientY },
+    flowPos,
+    pinContext: undefined,
+    sourcePin: undefined,
+  }
+}
+
+function onCanvasContextMenu(e: MouseEvent) {
+  e.preventDefault()
+  openInlineMenuAt(e.clientX, e.clientY)
+}
+
+function onPaneDoubleClick(e: MouseEvent) {
+  openInlineMenuAt(e.clientX, e.clientY)
+}
+
+function onInlineMenuPick(kind: string) {
+  const ctx = inlineMenu.value
+  applyDraftMutation((_d) => {
+    const g = activeGraph.value
+    if (!g) return
+
+    const newID = newNodeID(kind)
+    const node: GraphNode = {
+      id: newID,
+      kind,
+      x: ctx.flowPos.x,
+      y: ctx.flowPos.y,
+      config: { ...getSpec(kind)?.defaults },
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+
+    // Pin-context: auto-connect the new node back to the source pin
+    if (ctx.sourcePin && ctx.pinContext) {
+      const spec = getSpec(kind)
+      if (spec) {
+        if (ctx.pinContext.side === 'output') {
+          // User dragged from output pin → wire source.pin → newNode.firstCompatibleDataIn
+          const candidates = Object.entries(spec.dataIn ?? {}).filter(([, t]) =>
+            isCompatibleType(ctx.pinContext!.pinType, t as VarType),
+          )
+          if (candidates.length > 0) {
+            ;(g.edges as GraphEdge[]).push({
+              from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
+              to: `${newID}.${candidates[0][0]}`,
+            } as GraphEdge)
+          }
+        } else {
+          // User dragged from input pin → wire newNode.firstCompatibleDataOut → source.pin
+          const candidates = Object.entries(spec.dataOut ?? {}).filter(([, t]) =>
+            isCompatibleType(t as VarType, ctx.pinContext!.pinType),
+          )
+          if (candidates.length > 0) {
+            ;(g.edges as GraphEdge[]).push({
+              from: `${newID}.${candidates[0][0]}`,
+              to: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
+            } as GraphEdge)
+          }
+        }
+      }
+    }
+  })
+  useDiscoveryStore().pushRecent(kind)
+  syncFlowFromDraft()
+}
+
+// ===== End InlineContextMenu =====
+
 function onUndo() {
   console.info('[Editor v2 C] undo not yet implemented')
 }
