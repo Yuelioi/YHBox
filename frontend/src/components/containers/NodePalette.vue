@@ -255,7 +255,8 @@ const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
     system: { label: GROUP_LABEL.system, items: [] },
   }
   for (const s of allSpecs() as NodeKindSpec[]) {
-    if (s.isVisualOnly) continue // CommentBox etc. — not draggable from palette
+    if (s.isVisualOnly) continue // CommentBox — not draggable from palette
+    if (s.excludeFromPalette) continue // SubgraphInput/Output/CollapsedNode — created via dedicated UI
     const g = groups[s.group]
     if (!g) continue
     g.items.push({ kind: s.kind, icon: s.visual.icon, label: s.labelZh })

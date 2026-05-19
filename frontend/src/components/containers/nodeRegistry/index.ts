@@ -89,4 +89,11 @@ export interface NodeKindSpec {
    * no frontend equivalent — D2 parity test skips that field. */
   isPureData?: boolean // no exec pins, evaluated on-demand by data_pull
   isVisualOnly?: boolean // CommentBox — no runtime, no pin checks
+
+  /** Hide from NodePalette draggable list. The node is still a valid kind
+   * (runtime + validator know it), but users create it via a specific UI
+   * flow rather than drag-and-drop: SubgraphInput/Output are auto-managed
+   * by the subgraph editor; CollapsedNode is created via "fold selection"
+   * right-click action. Frontend-only metadata — no backend equivalent. */
+  excludeFromPalette?: boolean
 }

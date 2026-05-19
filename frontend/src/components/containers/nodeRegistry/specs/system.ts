@@ -229,6 +229,7 @@ register({
   dataOut: {},
   fields: [],
   defaults: {},
+  excludeFromPalette: true, // auto-managed by subgraph editor
 })
 
 register({
@@ -248,6 +249,7 @@ register({
   dataOut: {},
   fields: [],
   defaults: { declID: '' },
+  excludeFromPalette: true, // created via subgraph editor's "+ OutputPin" UI
 })
 
 register({
@@ -262,4 +264,5 @@ register({
   dataOut: {},
   fields: [],
   defaults: { subgraphId: '', label: 'Collapsed' },
+  excludeFromPalette: true, // created via "fold selection" right-click action
 })
