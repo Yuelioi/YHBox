@@ -56,7 +56,7 @@ register({
   kind: 'CommentBox',
   group: 'system',
   labelZh: '注释框',
-  description: '',
+  description: '可视化分组框, 无运行时副作用。拖入框内的节点视觉上归属此组, 实际不影响执行。可调大小和颜色。',
   visual: { icon: 'i-tabler-square-letter-c', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: [],
   execOut: [],
@@ -254,7 +254,7 @@ register({
   kind: 'CollapsedNode',
   group: 'system',
   labelZh: '折叠节点',
-  description: '',
+  description: '把一组节点折叠成单节点, 双击展开内部画布。底层是 isAnonymous=true 的 Subgraph, 不在 NodePalette / 跨容器复用。',
   visual: { icon: 'i-tabler-fold', bg: 'bg-fuchsia-500/15', border: 'border-fuchsia-500/40' },
   execIn: ['in'],
   execOut: [], // dynamic — same as Subgraph (bound to anonymous backing subgraph)
