@@ -46,6 +46,8 @@ export interface FieldSchema {
     | 'subgraph-picker'
   options?: Array<{ value: string; label: string }>
   placeholder?: string
+  /** Inline help text shown below the input. Migrated from old nodeFieldSchemas.ts. */
+  hint?: string
 }
 
 /** Group name for palette categorization. Mirrors backend Spec.Group. */
