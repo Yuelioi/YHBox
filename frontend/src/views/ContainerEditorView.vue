@@ -208,13 +208,9 @@
               node-stroke-color="#52525b"
               :node-border-radius="2"
             />
+            <!-- Editor v2 C: drag-time alignment guide lines (PS smart guides) -->
+            <SnapGuideOverlay :guides="snapGuides" />
           </VueFlow>
-          <!-- Editor v2 C: drag-time alignment guide lines (PS smart guides) -->
-          <SnapGuideOverlay
-            :guides="snapGuides"
-            :width="canvasWrapperW"
-            :height="canvasWrapperH"
-          />
         </div>
 
         <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
@@ -1711,7 +1707,7 @@ async function onAddNode(
 }
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, flowToScreenCoordinate, setCenter } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
 
 // ===== Editor v2 C: Pin-aware snap guides (PS smart guides) =====
 
@@ -1722,11 +1718,6 @@ const SNAP_EPSILON = 4  // flow-coord px — within this Y or X delta, snap fire
 const SNAP_ANCHOR_Y_OFFSET = 50
 
 const snapGuides = ref<SnapGuide[]>([])
-
-// Canvas wrapper pixel dimensions — used for SVG viewBox sizing.
-// Updated lazily on drag events (avoids ResizeObserver overhead for a rarely-needed value).
-const canvasWrapperW = ref(1200)
-const canvasWrapperH = ref(800)
 
 /**
  * Get anchor Y offset for a node kind. All node kinds in this codebase share the same
@@ -1744,14 +1735,6 @@ function onSnapNodeDrag(event: NodeDragEvent) {
     return
   }
 
-  // Update canvas size lazily from the event's currentTarget chain (VueFlow wraps into its pane)
-  const paneEl = (event.event.currentTarget as HTMLElement | null)?.closest?.('.vue-flow') as HTMLElement | null
-  if (paneEl) {
-    const rect = paneEl.getBoundingClientRect()
-    canvasWrapperW.value = rect.width
-    canvasWrapperH.value = rect.height
-  }
-
   const draggedID: string = event.node.id
   const draggedKind: string = event.node.data?.kind ?? event.node.type ?? ''
   const yOff = _snapAnchorYOffset(draggedKind)
@@ -1767,23 +1750,17 @@ function onSnapNodeDrag(event: NodeDragEvent) {
     if (other.id === draggedID) continue
     const otherAnchorY = other.y + _snapAnchorYOffset(other.kind)
     if (Math.abs(otherAnchorY - draggedAnchorY) <= SNAP_EPSILON) {
-      // Horizontal cyan guide at otherAnchorY (flow coords → screen coords)
+      // Horizontal cyan guide at otherAnchorY — coords stay in flow space;
+      // SnapGuideOverlay applies the vue-flow viewport transform via <g :transform>.
       const lineFlowY = otherAnchorY
-      // Convert two flow-coord points to screen coords for the SVG overlay
       const leftFlowX = Math.min(other.x, draggedX) - 30
       const rightFlowX = Math.max(other.x + 220, draggedX + 220) + 30
-
-      const s1 = flowToScreenCoordinate({ x: leftFlowX, y: lineFlowY })
-      const s2 = flowToScreenCoordinate({ x: rightFlowX, y: lineFlowY })
-
-      // Offset by the wrapper element's bounding rect to get local coords
-      const wrapperRect = paneEl?.getBoundingClientRect() ?? { left: 0, top: 0 }
       guides.push({
         axis: 'y',
-        x1: s1.x - wrapperRect.left,
-        y1: s1.y - wrapperRect.top,
-        x2: s2.x - wrapperRect.left,
-        y2: s2.y - wrapperRect.top,
+        x1: leftFlowX,
+        y1: lineFlowY,
+        x2: rightFlowX,
+        y2: lineFlowY,
       })
     }
     // X-axis (vertical magenta guide) — left-edge alignment
@@ -1791,16 +1768,12 @@ function onSnapNodeDrag(event: NodeDragEvent) {
       const lineFlowX = other.x
       const topFlowY = Math.min(other.y, draggedY) - 30
       const botFlowY = Math.max(other.y + 80, draggedY + 80) + 30
-
-      const s1 = flowToScreenCoordinate({ x: lineFlowX, y: topFlowY })
-      const s2 = flowToScreenCoordinate({ x: lineFlowX, y: botFlowY })
-      const wrapperRect = paneEl?.getBoundingClientRect() ?? { left: 0, top: 0 }
       guides.push({
         axis: 'x',
-        x1: s1.x - wrapperRect.left,
-        y1: s1.y - wrapperRect.top,
-        x2: s2.x - wrapperRect.left,
-        y2: s2.y - wrapperRect.top,
+        x1: lineFlowX,
+        y1: topFlowY,
+        x2: lineFlowX,
+        y2: botFlowY,
       })
     }
   }
