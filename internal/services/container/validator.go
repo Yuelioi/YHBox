@@ -90,14 +90,19 @@ const (
 )
 
 // ValidationError is the i18n-ready error envelope (spec §12).
-// Message is deprecated (v3 carried Chinese; v4 frontend uses t(Code, Params) instead).
+//
+// FUTURE-WORK (E4 deferred): Message field still holds Chinese strings —
+// v4 spec calls for Code+Params only (frontend t(Code, Params) for display).
+// Migration is invasive (~30 validator emit sites + vue-i18n setup + zh.json
+// dictionary), deferred until i18n infrastructure lands. Until then, Message
+// remains authoritative for single-line display (ValidationFailure.Error()).
 type ValidationError struct {
 	Severity  string         `json:"severity"`
 	Code      string         `json:"code"`
 	GraphPath []string       `json:"graphPath"`
 	NodeID    string         `json:"nodeId,omitempty"`
-	Message   string         `json:"message,omitempty"` // deprecated: kept for v3 callers; v4 frontend ignores
-	Params    map[string]any `json:"params,omitempty"`  // v4: template params for t(Code, Params)
+	Message   string         `json:"message,omitempty"` // v4: still authoritative until E4 i18n migration
+	Params    map[string]any `json:"params,omitempty"`  // v4: template params for future t(Code, Params)
 }
 
 // ValidateContext 给 ValidateContainerWithContext 用，传入文件系统 / 设置态等
