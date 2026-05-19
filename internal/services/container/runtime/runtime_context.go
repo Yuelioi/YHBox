@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"sync"
+	"time"
 
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
@@ -99,6 +100,10 @@ type RuntimeContext struct {
 	vars   map[string]expr.Value
 	params map[string]expr.Value
 	sys    SysState
+
+	// varTimestamps: name → unix ms 上次 SetVar/IncVar 改写时间. Fishing v2 watchdog
+	// 通过 GetSys($sys.varLastChange.<name>) 查 state 多久没变. live 读 (不进 snapshot).
+	varTimestamps map[string]int64
 }
 
 func NewRuntimeContext(
@@ -128,6 +133,7 @@ func NewRuntimeContext(
 		ClipPolicy:     clipruntime.DefaultPlaybackPolicy(),
 		vars:           make(map[string]expr.Value),
 		params:         make(map[string]expr.Value),
+		varTimestamps:  make(map[string]int64),
 	}
 	rt.initVars()
 	return rt
@@ -151,11 +157,12 @@ func (rt *RuntimeContext) Vars() map[string]expr.Value {
 	return cp
 }
 
-// SetVar 单字段写。线程安全。
+// SetVar 单字段写。线程安全。Fishing v2 watchdog 通过 varTimestamps 查上次改写时间.
 func (rt *RuntimeContext) SetVar(name string, val expr.Value) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.vars[name] = val
+	rt.varTimestamps[name] = nowMillis()
 }
 
 // IncVar 单字段增量。如果当前不是 number → 报错。
@@ -164,8 +171,20 @@ func (rt *RuntimeContext) IncVar(name string, delta float64) error {
 	defer rt.mu.Unlock()
 	cur, _ := expr.AsNumber(rt.vars[name])
 	rt.vars[name] = cur + delta
+	rt.varTimestamps[name] = nowMillis()
 	return nil
 }
+
+// VarLastChange 返 var 上次 SetVar/IncVar 时间 (unix ms). 未设过返 0.
+// Fishing v2 watchdog 用 — 通过 GetSys($sys.varLastChange.<name>) 读.
+func (rt *RuntimeContext) VarLastChange(name string) int64 {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	return rt.varTimestamps[name]
+}
+
+// nowMillis 当前 unix 毫秒. 包内 helper, 跟 GetSys($sys.now_ms) 同源.
+func nowMillis() int64 { return time.Now().UnixMilli() }
 
 // SetParam 仅 ContainerRunner 启动时设（v1 Container 无 params；spec 留扩展位）。
 func (rt *RuntimeContext) SetParam(name string, val expr.Value) {

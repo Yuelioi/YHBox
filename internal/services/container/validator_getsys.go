@@ -25,6 +25,10 @@ func validateGetSysNodes(c *Container) []ValidationError {
 				})
 				continue
 			}
+			// Live wildcard paths (e.g. varLastChange.<name>) — 接受任何 suffix.
+			if sys.IsLiveWildcardPath(p) {
+				continue
+			}
 			if _, ok := sys.PathSchema[p]; !ok {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeGetSysUnknownPath,
