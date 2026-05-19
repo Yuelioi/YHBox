@@ -22,9 +22,9 @@ var expectedKinds = []string{
 	"Concat", "Contains", "Length",
 	"ToString", "ToNumber", "ToBool",
 	"Select",
-	// detect (7)
+	// detect (8)
 	"WaitTemplate", "CheckTemplate", "ClickTemplate", "DetectColor",
-	"DetectColorHSV", "ROIColorScan", "Screenshot",
+	"DetectColorHSV", "ROIColorScan", "Screenshot", "ColorBarTrack",
 	// input (10)
 	"ClickAt", "KeyPress", "MouseMoveRel", "Scroll",
 	"KeyHoldStart", "KeyHoldStop", "MouseHoldStart", "MouseHoldStop",

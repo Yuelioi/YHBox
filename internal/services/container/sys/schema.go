@@ -36,4 +36,10 @@ var PathSchema = map[string]string{
 	"lastROIScan.clusterCount": "number",
 	"lastROIScan.clusters":     "any",
 	"lastScreenshot.path":      "string",
+	"lastBarTrack.cursorX":    "number",
+	"lastBarTrack.targetX":    "number",
+	"lastBarTrack.targetW":    "number",
+	"lastBarTrack.confidence": "number",
+	"lastBarTrack.yellowPx":   "number",
+	"lastBarTrack.greenPx":    "number",
 }

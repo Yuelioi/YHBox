@@ -7,6 +7,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 
 	"yhbox/internal/services/container"
@@ -52,6 +53,19 @@ type SysState struct {
 	LastScreenshot struct {
 		Path string
 	}
+	// ColorBarTrack 节点输出：cursor/target 位置 + 置信度 + 像素计数。
+	// $sys.lastBarTrack.{cursorX/targetX/targetW/confidence/yellowPx/greenPx}。
+	LastBarTrack SysBarTrackResult
+}
+
+// SysBarTrackResult ColorBarTrack 算法单次运行结果快照。
+type SysBarTrackResult struct {
+	CursorX    int     `json:"cursorX"`
+	TargetX    int     `json:"targetX"`
+	TargetW    int     `json:"targetW"`
+	Confidence float64 `json:"confidence"`
+	YellowPx   int     `json:"yellowPx"`
+	GreenPx    int     `json:"greenPx"`
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -133,9 +147,7 @@ func (rt *RuntimeContext) Vars() map[string]expr.Value {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	cp := make(map[string]expr.Value, len(rt.vars))
-	for k, v := range rt.vars {
-		cp[k] = v
-	}
+	maps.Copy(cp, rt.vars)
 	return cp
 }
 
@@ -218,6 +230,18 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return s.LastROIScan.Clusters, nil
 	case "lastScreenshot.path":
 		return s.LastScreenshot.Path, nil
+	case "lastBarTrack.cursorX":
+		return float64(s.LastBarTrack.CursorX), nil
+	case "lastBarTrack.targetX":
+		return float64(s.LastBarTrack.TargetX), nil
+	case "lastBarTrack.targetW":
+		return float64(s.LastBarTrack.TargetW), nil
+	case "lastBarTrack.confidence":
+		return s.LastBarTrack.Confidence, nil
+	case "lastBarTrack.yellowPx":
+		return float64(s.LastBarTrack.YellowPx), nil
+	case "lastBarTrack.greenPx":
+		return float64(s.LastBarTrack.GreenPx), nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }

@@ -2,7 +2,7 @@
 // B2 parity/consistency tests. Side-effect-import the barrel to populate the registry.
 import { describe, it, expect } from 'vitest'
 import { allKinds, getSpec } from '../registry'
-import './index' // side-effect: registers all 71 kinds
+import './index' // side-effect: registers all 72 kinds
 
 const EXPECTED_KINDS = [
   // control (11)
@@ -48,7 +48,7 @@ const EXPECTED_KINDS = [
   'ToNumber',
   'ToBool',
   'Select',
-  // detect (7)
+  // detect (8)
   'WaitTemplate',
   'CheckTemplate',
   'ClickTemplate',
@@ -56,6 +56,7 @@ const EXPECTED_KINDS = [
   'DetectColorHSV',
   'ROIColorScan',
   'Screenshot',
+  'ColorBarTrack',
   // input (10)
   'ClickAt',
   'KeyPress',
@@ -86,7 +87,7 @@ const EXPECTED_KINDS = [
 ]
 
 describe('nodeRegistry specs', () => {
-  it('registers all expected kinds (71)', () => {
+  it('registers all expected kinds (72)', () => {
     const registered = new Set(allKinds())
     for (const k of EXPECTED_KINDS) {
       expect(registered.has(k), `kind ${k} missing`).toBe(true)

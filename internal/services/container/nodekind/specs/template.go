@@ -87,4 +87,23 @@ func init() {
 		DataOut:  map[string]nodekind.PinType{"path": nodekind.PinString},
 		Defaults: map[string]any{"pathTemplate": "screenshots/{ts}.png"},
 	})
+	nodekind.Register(&nodekind.Spec{
+		Kind:    "ColorBarTrack",
+		Group:   "detect",
+		ExecIn:  []string{"in"},
+		ExecOut: []string{"found", "missing"},
+		DataIn:  nil, // roi 走 config (复合 object, 跟 DetectColorHSV/ROIColorScan 同款)
+		DataOut: map[string]nodekind.PinType{
+			"cursorX":    nodekind.PinNumber,
+			"targetX":    nodekind.PinNumber,
+			"targetW":    nodekind.PinNumber,
+			"confidence": nodekind.PinNumber,
+			"yellowPx":   nodekind.PinNumber,
+			"greenPx":    nodekind.PinNumber,
+		},
+		Defaults: map[string]any{
+			"roi": map[string]any{"x": 0.3, "y": 0.55, "w": 0.4, "h": 0.05},
+		},
+		// IsYield: false — 单次抓帧 + 分析, 无阻塞
+	})
 }

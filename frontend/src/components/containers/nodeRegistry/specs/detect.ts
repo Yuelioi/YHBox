@@ -1,5 +1,5 @@
 // frontend/src/components/containers/nodeRegistry/specs/detect.ts
-// Detection / template / color / screenshot nodes (7).
+// Detection / template / color / screenshot nodes (8).
 // Mirrors backend internal/services/container/nodekind/specs/template.go.
 import { register } from '../registry'
 
@@ -166,4 +166,30 @@ register({
   dataOut: { path: 'string' },
   fields: [],
   defaults: { pathTemplate: 'screenshots/{ts}.png' },
+})
+
+register({
+  kind: 'ColorBarTrack',
+  group: 'detect',
+  labelZh: '颜色条追踪',
+  description:
+    'ROI 内同时检测 cursor (黄) + target (青) 双 cluster, 返各自位置和置信度. ' +
+    '专为钓鱼耐力条设计 (移植自 fish bot analyzeBar 算法). ' +
+    'HSV 阈值固定: cursor H[45,70]/S>=40/V>=200, target H[160,180]/S>=140/V>=100.',
+  visual: { icon: 'i-tabler-target-arrow', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
+  execIn: ['in'],
+  execOut: ['found', 'missing'],
+  dataIn: {},
+  dataOut: {
+    cursorX: 'number',
+    targetX: 'number',
+    targetW: 'number',
+    confidence: 'number',
+    yellowPx: 'number',
+    greenPx: 'number',
+  },
+  fields: [
+    { key: 'roi', label: 'ROI 范围', type: 'roi' },
+  ],
+  defaults: { roi: { x: 0.3, y: 0.55, w: 0.4, h: 0.05 } },
 })

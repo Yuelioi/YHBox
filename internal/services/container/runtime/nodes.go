@@ -146,6 +146,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.execTry(ctx, node, tok)
 	case "DetectColorHSV":
 		return r.execDetectColorHSV(ctx, node, tok)
+	case "ColorBarTrack":
+		return r.execColorBarTrack(ctx, node, tok)
 	case "ROIColorScan":
 		return r.execROIColorScan(ctx, node, tok)
 	case "Screenshot":

@@ -141,6 +141,30 @@
     "isVisualOnly": false
   },
   {
+    "kind": "ColorBarTrack",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "found",
+      "missing"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "confidence": "number",
+      "cursorX": "number",
+      "greenPx": "number",
+      "targetW": "number",
+      "targetX": "number",
+      "yellowPx": "number"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
     "kind": "CommentBox",
     "group": "system",
     "execIn": null,

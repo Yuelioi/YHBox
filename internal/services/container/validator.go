@@ -746,6 +746,8 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 		switch n.Kind {
 		case "DetectColorHSV":
 			nodeErrs = validateDetectColorHSV(n)
+		case "ColorBarTrack":
+			nodeErrs = validateColorBarTrack(n)
 		case "ROIColorScan":
 			nodeErrs = validateROIColorScan(n)
 		case "Screenshot":
@@ -858,6 +860,34 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 		})
 	}
 
+	return errs
+}
+
+// validateColorBarTrack 静态校验 ColorBarTrack 节点 config.
+// 只校 ROI (跟 DetectColorHSV 同款), HSV 阈值是 hard-coded 在算法里 (1:1 复刻 fish bot).
+func validateColorBarTrack(n *GraphNode) []ValidationError {
+	var errs []ValidationError
+	roi, _ := n.Config["roi"].(map[string]any)
+	if roi == nil {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError,
+			NodeID:   n.ID,
+			Code:     CodeInvalidROI,
+			Message:  "missing roi",
+		})
+	} else {
+		w, _ := roi["w"].(float64)
+		h, _ := roi["h"].(float64)
+		if w < 1 || h < 1 {
+			errs = append(errs, ValidationError{
+				Severity: SeverityError,
+				NodeID:   n.ID,
+				Code:     CodeInvalidROI,
+				Message:  fmt.Sprintf("roi w/h must be >=1, got %vx%v", w, h),
+				Params:   map[string]any{"w": w, "h": h},
+			})
+		}
+	}
 	return errs
 }
 
