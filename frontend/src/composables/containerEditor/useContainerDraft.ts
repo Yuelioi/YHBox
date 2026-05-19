@@ -203,13 +203,36 @@ export function useContainerDraft(containerID: string) {
    * mutator 收到 draft 直接 mutate, wrapper 自动 dirty + sync + history snapshot.
    * 所有 var / node / edge mutation 都走这, flowNodes 永远 derive 自 draft.
    * Spec: editor-v2-vars-panel-design.md §4.3.1 (GPT review #1).
+   *
+   * Coalescing: vue-flow fires separate @nodes-change events per deleted node,
+   * so deleting 2 nodes triggers 2 calls within a few ms. Without coalescing
+   * each call pushes a snapshot → Ctrl+Z requires N presses for N nodes.
+   * Fix: within COALESCE_MS of the last snapshot, mutate the last history slot
+   * in-place instead of pushing a new one. User sees 1 undo step per "burst".
    */
+  const COALESCE_MS = 200
+  let lastSnapshotAt = 0
+
   function applyDraftMutation(mutator: (draft: Container) => void): void {
     if (!draft.value) return
     mutator(draft.value)
     dirty.value = true
     syncFlowFromDraft()
-    // Snapshot POST-mutation state for undo/redo
+
+    const now = Date.now()
+    const hasHistory = history.value.length > 0 && historyIdx.value >= 0
+    if (hasHistory && now - lastSnapshotAt < COALESCE_MS) {
+      // Within burst window — update the last slot in-place so undo still
+      // restores to the state before the burst started (history[idx-1]).
+      const after = snapshotDraft()
+      if (after && historyIdx.value < history.value.length) {
+        history.value[historyIdx.value] = after
+      }
+      lastSnapshotAt = now
+      return
+    }
+
+    // Fresh snapshot — push to history
     const after = snapshotDraft()
     if (after) {
       // Truncate redo branch if we mutated after an undo
@@ -224,6 +247,7 @@ export function useContainerDraft(containerID: string) {
         historyIdx.value--
       }
     }
+    lastSnapshotAt = now
   }
 
   function undo() {
