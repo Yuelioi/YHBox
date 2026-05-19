@@ -38,7 +38,7 @@ register({
   execOut: ['out'],
   dataIn: { durationMs: 'number' },
   dataOut: {},
-  fields: [{ key: 'vk', label: '按键', type: 'key-capture' }],
+  fields: [{ key: 'vk', label: '按键', type: 'key-capture', hint: '点输入框后按下任意键自动捕获' }],
   defaults: { vk: 'W', literal: { durationMs: 50 } },
 })
 

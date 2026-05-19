@@ -65,8 +65,8 @@ register({
   fields: [
     { key: 'label', label: '标题', type: 'text', placeholder: '注释' },
     { key: 'color', label: '颜色 (hex)', type: 'text', placeholder: '#fbbf24' },
-    { key: 'width', label: '宽度 (px)', type: 'text', placeholder: '200' },
-    { key: 'height', label: '高度 (px)', type: 'text', placeholder: '150' },
+    { key: 'width', label: '宽度 (px)', type: 'text', placeholder: '200', hint: '纯数字' },
+    { key: 'height', label: '高度 (px)', type: 'text', placeholder: '150', hint: '纯数字' },
   ],
   defaults: { label: '注释', color: '#fbbf24', width: 200, height: 150 },
   isVisualOnly: true,

@@ -77,6 +77,7 @@ register({
         { value: 'while', label: '条件循环 (while)' },
         { value: 'forever', label: '无限循环 (forever)' },
       ],
+      hint: 'count → 读 data-in pin "count"; while → 读 data-in pin "condition"; forever → 都不读',
     },
   ],
   defaults: { mode: 'count', literal: { count: 10, condition: true } },

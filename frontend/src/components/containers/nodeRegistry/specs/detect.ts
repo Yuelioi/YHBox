@@ -75,6 +75,7 @@ register({
       label: 'ROI (x,y,w,h 比例)',
       type: 'text',
       placeholder: '0.4,0.55,0.2,0.05',
+      hint: '客户区比例 0..1, 逗号分隔. 留空 = 全屏',
     },
     {
       key: 'mode',
@@ -90,6 +91,7 @@ register({
       label: '颜色范围 (6 个值 CSV)',
       type: 'text',
       placeholder: 'HSV: 50,60,67,127,253,255',
+      hint: 'HSV: hMin,hMax,sMin,sMax,vMin,vMax  (H: 0-360, S/V: 0-255). RGB: rMin,rMax,gMin,gMax,bMin,bMax (0-255)',
     },
   ],
   defaults: {

@@ -25,7 +25,7 @@ register({
   dataOut: {},
   fields: [
     { key: 'varName', label: '变量名', type: 'var-name-select' },
-    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'local=frame 私有 / global=容器共享' },
   ],
   defaults: { varName: '', scope: 'local', literal: { value: '' } },
 })
@@ -42,7 +42,7 @@ register({
   dataOut: {},
   fields: [
     { key: 'varName', label: '变量名', type: 'var-name-select' },
-    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS, hint: 'local=frame 私有 / global=容器共享' },
   ],
   defaults: { varName: '', scope: 'local', literal: { delta: 1 } },
 })
@@ -60,7 +60,7 @@ register({
   dataOut: { value: 'any' },
   fields: [
     { key: 'varName', label: '变量名', type: 'var-name-select' },
-    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS_WITH_AUTO },
+    { key: 'scope', label: '作用域', type: 'select', options: SCOPE_OPTIONS_WITH_AUTO, hint: '默认 local; 想跨 frame 读 global; auto = frame chain → global' },
   ],
   defaults: { varName: '', scope: 'local' },
   isPureData: true,
@@ -104,6 +104,7 @@ register({
         { value: 'lastROIScan.clusters', label: 'lastROIScan.clusters (any)' },
         { value: 'lastScreenshot.path', label: 'lastScreenshot.path (string)' },
       ],
+      hint: '运行时 sys 状态 — 同 tick 内一致 (per-tick snapshot, spec §10.3)',
     },
   ],
   defaults: { path: '' },

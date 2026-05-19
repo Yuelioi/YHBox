@@ -32,6 +32,7 @@ register({
       label: '表达式',
       type: 'text',
       placeholder: 'i + 1',
+      hint: '只引用 inputs 中声明的 identifier (无 $ 前缀)',
     },
     {
       key: 'outType',
