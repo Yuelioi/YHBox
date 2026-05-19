@@ -975,10 +975,6 @@ function onNodeMenuAction(a: NodeMenuAction) {
     case 'star':
       useDiscoveryStore().toggleFavorite(node.kind)
       return
-    case 'jump-to-var':
-      sidebarPrefs.value.varsExpanded = true
-      sidebarPrefs.value.leftSidebarCollapsed = false
-      return
     case 'find-references': {
       const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
       if (!varName) return

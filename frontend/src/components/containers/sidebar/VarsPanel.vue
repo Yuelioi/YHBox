@@ -19,10 +19,37 @@
       >+</button>
     </template>
 
+    <!-- Search input: only shown when >4 vars -->
+    <UInput
+      v-if="vars.length > 4"
+      v-model="searchQuery"
+      size="xs"
+      placeholder="搜索 (name)..."
+      icon="i-tabler-search"
+      class="mb-2"
+    />
+
+    <!-- Empty state -->
     <p v-if="vars.length === 0" class="text-[10px] text-dimmed italic px-1">
       暂无变量. 点 + 添加.
     </p>
 
+    <!-- Search-active: simple list, no reorder -->
+    <div v-else-if="searchQuery.trim()" class="space-y-1 max-h-64 overflow-y-auto pr-1">
+      <p v-if="filteredVars.length === 0" class="text-[10px] text-dimmed italic px-1">无匹配</p>
+      <VarRow
+        v-for="v in filteredVars"
+        :key="v.name"
+        :decl="v"
+        :existing-names="vars.map(x => x.name)"
+        @rename="(oldN, newN) => $emit('rename-var', oldN, newN)"
+        @update-field="(n, f, val) => $emit('update-var-field', n, f, val)"
+        @delete="(n) => $emit('request-delete', n)"
+        @insert-incvar="(n) => $emit('insert-incvar', n)"
+      />
+    </div>
+
+    <!-- No search: full list with reorder -->
     <VueDraggable
       v-else
       v-model="orderedVars"
@@ -46,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { VarDecl } from '@/lib/backend'
 import SidebarSection from './SidebarSection.vue'
@@ -68,8 +95,16 @@ const emit = defineEmits<{
   'insert-incvar': [name: string]
 }>()
 
+const searchQuery = ref('')
+
 const orderedVars = ref<VarDecl[]>([...props.vars])
 watch(() => props.vars, (v) => { orderedVars.value = [...v] }, { deep: true })
+
+const filteredVars = computed(() => {
+  const q = searchQuery.value.toLowerCase().trim()
+  if (!q) return orderedVars.value
+  return orderedVars.value.filter(v => v.name.toLowerCase().includes(q))
+})
 
 function onReorderEnd(e: { oldIndex?: number; newIndex?: number }) {
   if (e.oldIndex === undefined || e.newIndex === undefined) return

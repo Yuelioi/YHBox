@@ -58,7 +58,7 @@ import { useDiscoveryStore } from '@/stores/discovery'
 export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
   | 'toggle-disable' | 'star' | 'rename'
-  | 'jump-to-var' | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
+  | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
 
 const props = defineProps<{
   open: boolean
@@ -128,11 +128,6 @@ const specialItems = computed(() => {
     const varName = (props.node.config as Record<string, unknown> | undefined)?.varName as
       | string
       | undefined ?? '?'
-    items.push({
-      key: 'jump-to-var',
-      label: `↑ 跳到变量 '${varName}' (左 sidebar)`,
-      color: 'text-amber-400',
-    })
     items.push({
       key: 'find-references',
       label: `🔗 查找所有引用 '${varName}'`,
