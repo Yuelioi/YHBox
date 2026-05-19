@@ -201,6 +201,24 @@
     "isVisualOnly": false
   },
   {
+    "kind": "Cron",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "tick"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "expr": "string"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
     "kind": "DetectColor",
     "group": "detect",
     "execIn": [

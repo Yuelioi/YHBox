@@ -11,8 +11,8 @@ import (
 // expectedKinds 是 v4 spec 全集合 — 跟 validate.go KnownNodeKinds 对齐.
 // 后续 task A3 删 KnownNodeKinds 时, 这里就是新的真理源.
 var expectedKinds = []string{
-	// control (10)
-	"Start", "Stop", "Sleep", "Loop", "If", "Switch", "Parallel", "Race", "Break", "Continue",
+	// control (11)
+	"Start", "Stop", "Sleep", "Loop", "If", "Switch", "Parallel", "Race", "Break", "Continue", "Cron",
 	// variables (6 — includes Expr)
 	"SetVar", "IncVar", "GetVar", "GetSys", "GetParam", "Expr",
 	// purefunc (22)

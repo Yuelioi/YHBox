@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/robfig/cron/v3"
 )
 
 const (
@@ -62,6 +64,7 @@ const (
 	CodeStopwatchKeyMismatch  = "STOPWATCH_KEY_MISMATCH"
 	CodeThrowInMainGraph      = "THROW_IN_MAIN_GRAPH"
 	CodeInvalidSwitchCases    = "INVALID_SWITCH_CASES"
+	CodeInvalidCronExpr       = "INVALID_CRON_EXPR"
 )
 
 // v4 data-pin + variable + literal validation codes (spec §11).
@@ -287,6 +290,7 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 					"MouseCalibration 节点值 %d 跟你本机 (%d) 不一致，疑似从别人机器下载，建议用本机值覆盖此节点",
 					counts, vctx.SettingsMouseCounts360,
 				),
+				Params: map[string]any{"nodeValue": counts, "settingsValue": vctx.SettingsMouseCounts360},
 			})
 		}
 	}
@@ -651,6 +655,7 @@ func validateWindowTarget(c *Container) []ValidationError {
 					GraphPath: []string{"main"},
 					NodeID:    mainNode.ID,
 					Message:   "WindowTarget title regex 编译失败: " + err.Error(),
+					Params:    map[string]any{"error": err.Error()},
 				})
 			}
 		}
@@ -758,6 +763,8 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 			nodeErrs = validateStopwatch(n)
 		case "Switch":
 			nodeErrs = validateSwitchConfig(n)
+		case "Cron":
+			nodeErrs = validateCronConfig(n)
 		case "Throw":
 			if isMain {
 				nodeErrs = []ValidationError{{
@@ -823,6 +830,7 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 				NodeID:   n.ID,
 				Code:     CodeInvalidROI,
 				Message:  fmt.Sprintf("roi w/h must be >=1, got %vx%v", w, h),
+				Params:   map[string]any{"w": w, "h": h},
 			})
 		}
 	}
@@ -846,6 +854,7 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 			NodeID:   n.ID,
 			Code:     CodePollTooFast,
 			Message:  fmt.Sprintf("pollIntervalMs=%v < 30, will hammer CPU; runtime clamps <10", poll),
+			Params:   map[string]any{"actual": poll, "minMs": 30},
 		})
 	}
 
@@ -884,6 +893,7 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 			NodeID:   n.ID,
 			Code:     CodeInvalidScanAxis,
 			Message:  fmt.Sprintf("scanAxis must be 'x' or 'y', got %q", axis),
+			Params:   map[string]any{"got": axis},
 		})
 	}
 
@@ -896,6 +906,7 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 			NodeID:   n.ID,
 			Code:     CodeInvalidClusterRange,
 			Message:  fmt.Sprintf("minClusterPx %v > maxClusterPx %v", minC, maxC),
+			Params:   map[string]any{"min": minC, "max": maxC},
 		})
 	}
 
@@ -948,6 +959,7 @@ func validateMouseHold(n *GraphNode) []ValidationError {
 			NodeID:   n.ID,
 			Code:     CodeInvalidMouseButton,
 			Message:  fmt.Sprintf("button %q not in left/right/middle", btn),
+			Params:   map[string]any{"button": btn},
 		}}
 	}
 	return nil
@@ -977,6 +989,7 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
 				Message: fmt.Sprintf("Switch cases[%d] 是空字符串", i),
+				Params:  map[string]any{"index": i, "reason": "empty"},
 			})
 			continue
 		}
@@ -984,6 +997,7 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
 				Message: fmt.Sprintf("Switch cases[%d]=%q 含 '.' (pin 分隔符, 禁用)", i, cs),
+				Params:  map[string]any{"index": i, "case": cs, "reason": "contains_dot"},
 			})
 			continue
 		}
@@ -991,6 +1005,7 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
 				Message: fmt.Sprintf("Switch cases[%d]='default' 跟保留 default pin 冲突", i),
+				Params:  map[string]any{"index": i, "case": cs, "reason": "reserved_default"},
 			})
 			continue
 		}
@@ -998,6 +1013,7 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
 				Message: fmt.Sprintf("Switch cases[%d]=%q 含前导/尾部空格", i, cs),
+				Params:  map[string]any{"index": i, "case": cs, "reason": "whitespace"},
 			})
 			continue
 		}
@@ -1005,10 +1021,38 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
 				Message: fmt.Sprintf("Switch cases[%d]=%q 重复", i, cs),
+				Params:  map[string]any{"index": i, "case": cs, "reason": "duplicate"},
 			})
 			continue
 		}
 		seen[cs] = true
+	}
+	return errs
+}
+
+// cronParser 6-field cron 解析器 (sec min hour dom month dow). 跟 runtime/cron.go 同款.
+// `cron.ParseStandard` 是 5-field 不够 — 必须用 NewParser 显式开 Second.
+var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+
+// validateCronConfig 静态校验 Cron 节点的 inline literal expr.
+// 动态来源 (上游 data edge 推 expr) 解析失败由 runtime 报同款 err — 见
+// debug/docs/superpowers/specs/2026-05-19-cron-node-design.md §3.1.
+func validateCronConfig(n *GraphNode) []ValidationError {
+	var errs []ValidationError
+	lit, _ := n.Config["literal"].(map[string]any)
+	s, _ := lit["expr"].(string)
+	if s == "" {
+		return nil // 空 = 用户准备连上游 / 还没填 (dangling pin validator 别处报)
+	}
+	if _, err := cronParser.Parse(s); err != nil {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError,
+			Code:     CodeInvalidCronExpr,
+			NodeID:   n.ID,
+			// E4 i18n 迁移前中文 fallback (跟现有 ~30 个 validator 同款). 切 i18n 后前端 t() 覆盖.
+			Message: fmt.Sprintf("Cron 节点表达式无效: %q (%v)", s, err),
+			Params:  map[string]any{"expr": s, "parseErr": err.Error()},
+		})
 	}
 	return errs
 }

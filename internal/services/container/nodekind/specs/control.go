@@ -137,6 +137,16 @@ func init() {
 		ExecIn:  []string{"in"},
 		ExecOut: nil,
 	})
+
+	nodekind.Register(&nodekind.Spec{
+		Kind:     "Cron",
+		Group:    "control",
+		ExecIn:   []string{"in"},
+		ExecOut:  []string{"tick"},
+		DataIn:   map[string]nodekind.PinType{"expr": nodekind.PinString},
+		Defaults: map[string]any{"literal": map[string]any{"expr": "0 */5 * * * *"}},
+		IsYield:  true,
+	})
 }
 
 // dynBranchCount reads cfg.literal.n (v4 inline pin literal) and clamps to

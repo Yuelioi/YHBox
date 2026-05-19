@@ -1,5 +1,5 @@
 // frontend/src/components/containers/nodeRegistry/specs/control.ts
-// Control-flow node kinds (10): Start, Stop, Sleep, Loop, If, Switch, Parallel, Race, Break, Continue.
+// Control-flow node kinds (11): Start, Stop, Sleep, Loop, If, Switch, Parallel, Race, Break, Continue, Cron.
 // Mirrors backend internal/services/container/nodekind/specs/control.go.
 import { register } from '../registry'
 
@@ -180,4 +180,21 @@ register({
   dataOut: {},
   fields: [],
   defaults: {},
+})
+
+register({
+  kind: 'Cron',
+  group: 'control',
+  labelZh: '定时器',
+  description:
+    '阻塞到 cron 表达式匹配的下次时间点, 然后走 tick 出口. ' +
+    '配合 Loop forever 实现不漂移的周期触发. ' +
+    '表达式格式: robfig/cron/v3 标准 6 字段 (秒 分 时 日 月 周).',
+  visual: { icon: 'i-tabler-calendar-time', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
+  execIn: ['in'],
+  execOut: ['tick'],
+  dataIn: { expr: 'string' },
+  dataOut: {},
+  fields: [],
+  defaults: { literal: { expr: '0 */5 * * * *' } },
 })
