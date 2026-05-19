@@ -1,0 +1,42 @@
+<!-- frontend/src/components/containers/sidebar/VarPointInput.vue -->
+<!-- point type 行内编辑 — 2 input 横排 (GPT review #10 — 不要 JSON textarea). -->
+<template>
+  <div class="flex items-center gap-1">
+    <span class="text-[10px] text-dimmed">x:</span>
+    <input
+      type="number"
+      step="0.01"
+      :value="point.x"
+      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
+      @input="onChange('x', $event)"
+    >
+    <span class="text-[10px] text-dimmed">y:</span>
+    <input
+      type="number"
+      step="0.01"
+      :value="point.y"
+      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
+      @input="onChange('y', $event)"
+    >
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+
+interface PointValue { x: number; y: number }
+
+const props = defineProps<{ modelValue: PointValue | null | undefined }>()
+const emit = defineEmits<{ 'update:modelValue': [v: PointValue] }>()
+
+const point = computed<PointValue>(() => {
+  const v = props.modelValue ?? { x: 0, y: 0 }
+  return { x: v.x ?? 0, y: v.y ?? 0 }
+})
+
+function onChange(axis: 'x' | 'y', e: Event) {
+  const next = parseFloat((e.target as HTMLInputElement).value)
+  if (Number.isNaN(next)) return
+  emit('update:modelValue', { ...point.value, [axis]: next })
+}
+</script>
