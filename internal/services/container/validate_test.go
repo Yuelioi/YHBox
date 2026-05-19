@@ -1,6 +1,9 @@
 package container
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestExecOutPinsForNode_Static(t *testing.T) {
 	n := &GraphNode{Kind: "Sleep"}
@@ -75,5 +78,42 @@ func TestNodeHasExecOutPin(t *testing.T) {
 	}
 	if nodeHasExecOutPin(n, "Y") {
 		t.Error("不应识别未知 pin")
+	}
+}
+
+// A.6: Validate() 返 *ValidationFailure 聚合多个 error, caller errors.As 取结构化列表.
+func TestValidateReturnsValidationFailure(t *testing.T) {
+	// Container with multiple errors: no Start node + missing WindowTarget.
+	c := &Container{
+		SchemaVersion: 4,
+		Graph: Graph{
+			ID: "g", Version: 1,
+			Nodes: []GraphNode{{ID: "n1", Kind: "Sleep", Config: map[string]any{}}},
+		},
+	}
+	err := c.Validate()
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	var vf *ValidationFailure
+	if !errors.As(err, &vf) {
+		t.Fatalf("expected *ValidationFailure, got %T", err)
+	}
+	if len(vf.Errors) < 2 {
+		t.Errorf("expected ≥2 errors (NO_START + MISSING_WINDOW_TARGET), got %d: %+v", len(vf.Errors), vf.Errors)
+	}
+	// Sanity: every entry is SeverityError
+	for _, e := range vf.Errors {
+		if e.Severity != SeverityError {
+			t.Errorf("ValidationFailure contains non-error: %+v", e)
+		}
+	}
+}
+
+func TestValidatePassesWhenNoErrors(t *testing.T) {
+	// Empty container should pass (existing convention — no nodes = no errors).
+	c := &Container{SchemaVersion: 4, Graph: Graph{ID: "g", Version: 1}}
+	if err := c.Validate(); err != nil {
+		t.Errorf("empty container should validate, got: %v", err)
 	}
 }

@@ -22,16 +22,44 @@ import (
 var varNameRE = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 var edgeFormatRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.]+$`)
 
-// Validate 校验 Container 完整性。Save / Load 都调一次。
-// v2：薄包装 ValidateContainer，返回第一个 error 级别的错误。
+// ValidationFailure aggregates all error-severity entries from a single Validate call.
+// Implements the error interface — callers can errors.As(&vf) to recover the full list
+// for UI display (e.g. ValidationErrorPanel emits one row per Errors[i]).
+//
+// Warnings are NOT included here — call ValidateContainer directly to access them.
+type ValidationFailure struct {
+	Errors []ValidationError
+}
+
+func (f *ValidationFailure) Error() string {
+	if len(f.Errors) == 0 {
+		return "container: validation passed"
+	}
+	if len(f.Errors) == 1 {
+		e := f.Errors[0]
+		return fmt.Sprintf("%s: %s", e.Code, e.Message)
+	}
+	return fmt.Sprintf("%s: %s (and %d more)", f.Errors[0].Code, f.Errors[0].Message, len(f.Errors)-1)
+}
+
+// Validate 校验 Container 完整性. 任何 SeverityError → 返 *ValidationFailure 含完整错误列表;
+// 只有 warning → 返 nil (warning 通过 ValidateContainer 直接获取).
+// Save / Load 都调一次; 前端 "检查" 按钮 / 试运行前主动跑走 Service.ValidateContainerByID.
+//
+// v4 Phase A.6: 改返 *ValidationFailure 聚合所有 error, caller errors.As(&vf) 可取结构化列表.
+// 单行 caller 走 ValidationFailure.Error() summary, 行为兼容旧 fmt.Errorf 路径.
 func (c *Container) Validate() error {
 	errs := ValidateContainer(c)
+	var fatal []ValidationError
 	for _, e := range errs {
 		if e.Severity == SeverityError {
-			return fmt.Errorf("%s: %s", e.Code, e.Message)
+			fatal = append(fatal, e)
 		}
 	}
-	return nil
+	if len(fatal) == 0 {
+		return nil
+	}
+	return &ValidationFailure{Errors: fatal}
 }
 
 func splitRef(ref string) (nodeID, pin string) {
