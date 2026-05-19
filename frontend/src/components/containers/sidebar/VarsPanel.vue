@@ -1,62 +1,77 @@
 <!-- frontend/src/components/containers/sidebar/VarsPanel.vue -->
-<!-- Phase 2: skeleton with header + empty list. Phase 3 adds CRUD. -->
+<!-- 完整 CRUD + reorder. Drag-out (Phase 4) 走外部 useEditorDragDrop. -->
 <template>
   <SidebarSection
     title="变量"
     icon="i-tabler-variable"
     title-color="emerald"
-    :count="vars.length"
+    :count="undefined"
     :expanded="expanded"
     @update:expanded="$emit('update:expanded', $event)"
   >
     <template #header-action>
+      <span class="text-[10px] text-dimmed">{{ vars.length }} vars · {{ usageCount }} refs</span>
       <button
         type="button"
-        class="text-emerald-400 hover:text-emerald-300 px-1 text-sm leading-none"
+        class="text-emerald-400 hover:text-emerald-300 px-1 text-base leading-none"
         title="添加变量"
-        @click.stop="onAdd"
+        @click.stop="$emit('add-var')"
       >+</button>
     </template>
 
     <p v-if="vars.length === 0" class="text-[10px] text-dimmed italic px-1">
       暂无变量. 点 + 添加.
     </p>
-    <div v-else class="space-y-1">
-      <div
-        v-for="v in vars"
+
+    <VueDraggable
+      v-else
+      v-model="orderedVars"
+      :animation="150"
+      handle=".cursor-grab"
+      class="space-y-1"
+      @end="onReorderEnd"
+    >
+      <VarRow
+        v-for="v in orderedVars"
         :key="v.name"
-        class="px-2 py-1 bg-elevated/30 rounded text-[11px] flex items-center gap-2"
-      >
-        <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed" />
-        <span class="font-medium">{{ v.name }}</span>
-        <span class="text-dimmed text-[10px]">{{ v.type }}</span>
-        <span class="ml-auto text-emerald-400 text-[10px]">= {{ formatDefault(v.default) }}</span>
-      </div>
-    </div>
+        :decl="v"
+        :existing-names="vars.map(x => x.name)"
+        @rename="(oldN, newN) => $emit('rename-var', oldN, newN)"
+        @update-field="(n, f, val) => $emit('update-var-field', n, f, val)"
+        @delete="(n) => $emit('request-delete', n)"
+      />
+    </VueDraggable>
   </SidebarSection>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import type { VarDecl } from '@/lib/backend'
 import SidebarSection from './SidebarSection.vue'
+import VarRow from './VarRow.vue'
 
-defineProps<{
+const props = defineProps<{
   vars: VarDecl[]
   expanded: boolean
+  usageCount: number
 }>()
 
 const emit = defineEmits<{
   'update:expanded': [v: boolean]
   'add-var': []
+  'rename-var': [oldName: string, newName: string]
+  'update-var-field': [name: string, field: 'type' | 'default', value: unknown]
+  'request-delete': [name: string]
+  'reorder-vars': [fromIdx: number, toIdx: number]
 }>()
 
-function onAdd() {
-  emit('add-var')
-}
+const orderedVars = ref<VarDecl[]>([...props.vars])
+watch(() => props.vars, (v) => { orderedVars.value = [...v] }, { deep: true })
 
-function formatDefault(d: unknown): string {
-  if (d === null || d === undefined) return '(unset)'
-  if (typeof d === 'object') return JSON.stringify(d)
-  return String(d)
+function onReorderEnd(e: { oldIndex?: number; newIndex?: number }) {
+  if (e.oldIndex === undefined || e.newIndex === undefined) return
+  if (e.oldIndex === e.newIndex) return
+  emit('reorder-vars', e.oldIndex, e.newIndex)
 }
 </script>

@@ -142,6 +142,7 @@
           <RecentPanelPlaceholder v-model:expanded="sidebarPrefs.recentExpanded" />
           <VarsPanel
             :vars="draft?.vars ?? []"
+            :usage-count="0"
             v-model:expanded="sidebarPrefs.varsExpanded"
             @add-var="onAddVar"
           />
