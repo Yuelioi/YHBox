@@ -139,7 +139,7 @@
           class="w-52 shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
           <FavoritesPanel v-model:expanded="sidebarPrefs.favoritesExpanded" />
-          <RecentPanelPlaceholder v-model:expanded="sidebarPrefs.recentExpanded" />
+          <RecentPanel v-model:expanded="sidebarPrefs.recentExpanded" />
           <VarsPanel
             :vars="draft?.vars ?? []"
             :usage-count="totalVarUsageCount"
@@ -294,7 +294,7 @@ import ContainerLogPanel from '@/components/containers/ContainerLogPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
 import FavoritesPanel from '@/components/containers/sidebar/FavoritesPanel.vue'
-import RecentPanelPlaceholder from '@/components/containers/sidebar/RecentPanelPlaceholder.vue'
+import RecentPanel from '@/components/containers/sidebar/RecentPanel.vue'
 import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
