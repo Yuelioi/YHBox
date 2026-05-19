@@ -335,11 +335,21 @@
       @confirm="onPromoteConfirm"
     />
 
+    <!-- Editor v2 C polish: Find-References modal -->
+    <FindReferencesModal
+      v-if="findRefsState"
+      :open="!!findRefsState"
+      :var-name="findRefsState.varName"
+      :refs="findRefsState.refs"
+      @update:open="(v) => { if (!v) findRefsState = null }"
+      @pick="onFindRefsPick"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
@@ -390,6 +400,7 @@ import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/me
 import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
 import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
+import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
 import SnapGuideOverlay, { type SnapGuide } from '@/components/containers/SnapGuideOverlay.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
@@ -474,6 +485,9 @@ const pinMenu = ref<{ open: boolean; position: { x: number; y: number }; pin: Pi
 
 // ===== Editor v2 C5: Promote-to-Variable =====
 const promoteCtx = ref<PromoteContext | null>(null)
+
+// ===== Editor v2 C polish: Find-References modal =====
+const findRefsState = ref<{ varName: string; refs: RefEntry[] } | null>(null)
 
 // Phase 1 var mutations (Phase 3 will wire full UI)
 const varMutations = useVarMutations(draft)
@@ -971,13 +985,23 @@ function onNodeMenuAction(a: NodeMenuAction) {
       return
     case 'find-references': {
       const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
-      if (varName) {
-        const refs = varMutations.listUsageNodeIDs(varName)
-        toast.add({
-          title: `变量 '${varName}' 引用`,
-          description: refs.length > 0 ? `${refs.length} 个节点: ${refs.join(', ')}` : '无引用',
-        })
+      if (!varName) return
+      const ids = varMutations.listUsageNodeIDs(varName)
+      const refs: RefEntry[] = []
+      const walk = (nodes: GraphNode[], location: string) => {
+        for (const n of nodes) {
+          if (ids.includes(n.id)) {
+            refs.push({ id: n.id, kind: n.kind, location })
+          }
+        }
       }
+      if (draft.value) {
+        walk(draft.value.graph.nodes as GraphNode[], '主图')
+        for (const sg of draft.value.subgraphs ?? []) {
+          if (sg.graph) walk(sg.graph.nodes as GraphNode[], `子图: ${(sg as any).label ?? sg.id}`)
+        }
+      }
+      findRefsState.value = { varName, refs }
       return
     }
     case 'promote-to-var': {
@@ -1083,6 +1107,45 @@ function onMultiMenuAction(a: MultiMenuAction) {
       toast.add({ title: 'CommentBox', description: '待实装', color: 'warning' })
       return
   }
+}
+
+// ===== Editor v2 C polish: Find-References pick handler =====
+
+async function onFindRefsPick(nodeID: string) {
+  const currentNodes = activeGraph.value?.nodes as GraphNode[] | undefined
+  const inCurrent = currentNodes?.some(n => n.id === nodeID) ?? false
+  if (!inCurrent) {
+    // Find which subgraph contains this node and jump there
+    let targetSgID: string | null = null
+    let targetNode: GraphNode | undefined
+    for (const sg of draft.value?.subgraphs ?? []) {
+      const found = (sg.graph?.nodes as GraphNode[] | undefined)?.find(n => n.id === nodeID)
+      if (found) {
+        targetSgID = sg.id
+        targetNode = found
+        break
+      }
+    }
+    if (targetSgID) {
+      editorStore.editorPath = [targetSgID]
+      await nextTick()
+      selectedID.value = nodeID
+      if (targetNode) {
+        setCenter(targetNode.x + 100, targetNode.y + 50, { duration: 300, zoom: 1 })
+      }
+    } else {
+      toast.add({ title: '跳转失败', description: `节点 ${nodeID} 不在当前容器`, color: 'warning' })
+    }
+    findRefsState.value = null
+    return
+  }
+  selectedID.value = nodeID
+  // Center viewport on the node
+  const targetNode = currentNodes?.find(n => n.id === nodeID)
+  if (targetNode) {
+    setCenter(targetNode.x + 100, targetNode.y + 50, { duration: 300, zoom: 1 })
+  }
+  findRefsState.value = null
 }
 
 // ===== Editor v2 C: Edge + Pin context menus =====
@@ -1648,7 +1711,7 @@ async function onAddNode(
 }
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, flowToScreenCoordinate } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, flowToScreenCoordinate, setCenter } = useVueFlow()
 
 // ===== Editor v2 C: Pin-aware snap guides (PS smart guides) =====
 
