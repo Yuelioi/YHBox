@@ -840,6 +840,8 @@ const connectionStart = ref<{
   handleId: string
   handleType: 'source' | 'target'
 } | null>(null)
+// Set to true by onVfConnect (success path) so onVfConnectEnd knows NOT to open the inline menu.
+const connectMadeThisGesture = ref(false)
 
 function isValidVueFlowConnection(conn: {
   source: string
@@ -891,10 +893,16 @@ function onVfConnectEnd(event?: MouseEvent) {
 
   // Only open when the drag was released on empty space (no connection was made).
   // We defer via setTimeout so that vue-flow's @connect fires first if it will.
-  // If a connection completed, vue-flow fires @connect synchronously in the same tick.
+  // If a connection completed, vue-flow fires @connect synchronously in the same tick,
+  // which sets connectMadeThisGesture = true in our onConnect wrapper.
   const startCopy = { ...start }
   setTimeout(() => {
-    // If menu already opened from a real connection this tick, skip.
+    // Successful connect: onConnect already handled it — skip menu.
+    if (connectMadeThisGesture.value) {
+      connectMadeThisGesture.value = false
+      return
+    }
+
     const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
       (n) => n.id === startCopy.nodeId,
     )
@@ -1922,10 +1930,21 @@ function onSnapNodeDragStop(event: NodeDragEvent) {
   }
 
   if (bestY || bestX) {
-    // Mutate flowNode.position directly — the subsequent @nodes-change (type='position')
-    // event fired by vue-flow will commit the corrected position to the draft.
-    if (bestY) flowNode.position = { ...flowNode.position, y: bestY.targetAnchorY - yOff }
-    if (bestX) flowNode.position = { ...flowNode.position, x: bestX.targetX }
+    // Commit via draft (authoritative source-of-truth — beats vue-flow's drag-commit race).
+    // Mutating flowNode.position directly lost to vue-flow's internal applyChanges which
+    // re-reads the raw drag position, leaving nodes ~3px off the guide.
+    applyDraftMutation((d) => {
+      const g = activeGraph.value
+      if (!g) return
+      const node = g.nodes.find((n) => n.id === draggedID)
+      if (!node) return
+      // Always persist the current dragged position first, then override with snap.
+      node.x = flowNode.position.x ?? node.x
+      node.y = flowNode.position.y ?? node.y
+      if (bestY) node.y = bestY.targetAnchorY - yOff
+      if (bestX) node.x = bestX.targetX
+    })
+    // syncFlowFromDraft() is called inside applyDraftMutation — flow node re-reads from draft.
   }
 }
 
@@ -1998,13 +2017,20 @@ function onNodeDoubleClick(evt: any) {
 
 // 所有 graph mutation 走 useGraphMutations 唯一写入点 (内部 activeGraph)
 // 避免 6 个 handler 各自写错 graph 引用的整类 bug
-const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect } = useGraphMutations({
+const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect: _onConnectBase } = useGraphMutations({
   activeGraph,
   flowEdges,
   syncFlowFromDraft,
   findNodeAcrossGraphs,
   deleteSubgraphCascade,
 })
+
+// Wrap onConnect: set connectMadeThisGesture so onVfConnectEnd skips the inline menu.
+function onConnect(c: Parameters<typeof _onConnectBase>[0]) {
+  connectMadeThisGesture.value = true
+  connectionStart.value = null
+  _onConnectBase(c)
+}
 
 function onConfigUpdate(cfg: Record<string, any>) {
   if (!draft.value || !selectedNode.value) return
