@@ -123,30 +123,52 @@ func ValidateContainer(c *Container) []ValidationError {
 
 // ValidateContainerWithContext 全量校验。
 // 业务层（service.go ValidateContainerByID）应该用这个版本传入完整上下文。
+//
+// E5: 3-phase ORDERING (documentation-driven, no short-circuit). Validators
+// are grouped + commented by dependency layer so readers can map errors back
+// to their concern. We do NOT short-circuit between phases — partial test
+// fixtures (no WindowTarget, partial graph) would otherwise lose downstream
+// coverage. The benefit is purely readability/maintenance, not perf:
+//
+//  1. Structural   — Start uniqueness, dangling edges, subgraph cycles,
+//                    MouseCalibration/WindowTarget rules.
+//  2. Reference    — pin existence, missing subgraphs/templates, GetSys/Param
+//                    path validity, CollapsedNode integrity.
+//  3. Type/Semantic— pin types, literal types, Expr parse, data-graph DAG.
+//
+// Future hard-mode (short-circuit on fatal) can be opted-in via a flag without
+// touching this signature. Tests would need fuller fixtures first.
 func ValidateContainerWithContext(c *Container, vctx ValidateContext) []ValidationError {
 	if c == nil {
 		return nil
 	}
 	var errs []ValidationError
+
+	// Phase 1: Structural
 	errs = append(errs, validateMainGraph(c)...)
 	errs = append(errs, validateWindowTarget(c)...)
 	errs = append(errs, validateMouseCalibration(c, vctx)...)
-	errs = append(errs, validateInvalidPins(c)...)
-	errs = append(errs, validateMissingSubgraph(c)...)
-	errs = append(errs, validateMissingTemplate(c, vctx)...)
-	errs = append(errs, validatePlayClip(c)...)
-	errs = append(errs, validatePhaseCNodeKinds(c)...)
-	errs = append(errs, validateDataPinTypes(c)...)
-	errs = append(errs, validateLiteralTypes(c)...)
-	errs = append(errs, validateExprNodes(c)...)
-	errs = append(errs, validateGetSysNodes(c)...)
-	errs = append(errs, validateGetParamNodes(c)...)
-	errs = append(errs, validateDataGraphAcyclic(c)...)
-	errs = append(errs, validateCollapsedReferences(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}
 	errs = append(errs, validateCyclicSubgraphs(c)...)
+
+	// Phase 2: Reference
+	errs = append(errs, validateInvalidPins(c)...)
+	errs = append(errs, validateMissingSubgraph(c)...)
+	errs = append(errs, validateMissingTemplate(c, vctx)...)
+	errs = append(errs, validatePlayClip(c)...)
+	errs = append(errs, validateGetSysNodes(c)...)
+	errs = append(errs, validateGetParamNodes(c)...)
+	errs = append(errs, validateCollapsedReferences(c)...)
+
+	// Phase 3: Type / Semantic
+	errs = append(errs, validatePhaseCNodeKinds(c)...)
+	errs = append(errs, validateDataPinTypes(c)...)
+	errs = append(errs, validateLiteralTypes(c)...)
+	errs = append(errs, validateExprNodes(c)...)
+	errs = append(errs, validateDataGraphAcyclic(c)...)
+
 	return errs
 }
 
