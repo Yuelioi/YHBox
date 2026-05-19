@@ -345,6 +345,15 @@
       @pick="onFindRefsPick"
     />
 
+    <!-- Editor v2 polish round 2: Ctrl+F canvas node search -->
+    <NodeSearchModal
+      :open="nodeSearchOpen"
+      :results="nodeSearchResults"
+      @update:open="(v) => { nodeSearchOpen = v }"
+      @update:query="(q) => { nodeSearchQuery = q }"
+      @pick="onNodeSearchPick"
+    />
+
   </div>
 </template>
 
@@ -401,6 +410,7 @@ import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/c
 import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
+import NodeSearchModal, { type NodeSearchResult } from '@/components/containers/NodeSearchModal.vue'
 import SnapGuideOverlay, { type SnapGuide } from '@/components/containers/SnapGuideOverlay.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
@@ -468,6 +478,10 @@ const libraryExplorerOpen = ref(false)
 
 // ===== Editor v2 C: 命令面板 =====
 const commandPaletteOpen = ref(false)
+
+// ===== Editor v2 polish round 2: Ctrl+F canvas node search =====
+const nodeSearchOpen = ref(false)
+const nodeSearchQuery = ref('')
 
 // ===== Editor v2 C: 右键菜单状态 =====
 const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
@@ -1582,8 +1596,58 @@ const commands = computed<Command[]>(() => {
       keywords: ['variable', 'add', '变量', '添加'],
       exec: () => onAddVar(),
     },
+
+    // ── navigate: find-node (Ctrl+F) ──
+    {
+      id: 'navigate.find-node', label: '在画布找节点...', group: 'navigate',
+      icon: 'i-tabler-search', shortcut: 'Ctrl+F',
+      keywords: ['find', 'search', '搜索', '查找'],
+      exec: () => { nodeSearchOpen.value = true },
+    },
   ]
 })
+
+// ===== Editor v2 polish round 2: node search computed results =====
+const nodeSearchResults = computed<NodeSearchResult[]>(() => {
+  if (!draft.value) return []
+  const q = nodeSearchQuery.value.toLowerCase().trim()
+  if (!q) return []
+  const out: NodeSearchResult[] = []
+  const walk = (nodes: any[], location: string, sgID: string | null) => {
+    for (const n of nodes) {
+      const hay = `${n.id} ${n.kind} ${n.label ?? ''}`.toLowerCase()
+      if (hay.includes(q)) {
+        out.push({ id: n.id, kind: n.kind, label: n.label, location, sgID })
+      }
+    }
+  }
+  walk(draft.value.graph.nodes, '主图', null)
+  for (const sg of draft.value.subgraphs ?? []) {
+    if (sg.graph) walk(sg.graph.nodes, `子图: ${(sg as any).label ?? sg.id}`, sg.id)
+  }
+  return out
+})
+
+async function onNodeSearchPick(r: NodeSearchResult) {
+  const inCurrent = (!r.sgID && editorStore.editorPath.length === 0)
+    || (!!r.sgID && editorStore.editorPath[editorStore.editorPath.length - 1] === r.sgID)
+  if (!inCurrent) {
+    if (r.sgID) {
+      editorStore.editorPath = [r.sgID]
+    } else {
+      editorStore.editorPath = []
+    }
+    await nextTick()
+  }
+  selectedID.value = r.id
+  const target = activeGraph.value?.nodes.find((n: any) => n.id === r.id)
+  if (target) {
+    try {
+      setCenter((target as any).x + 100, (target as any).y + 50, { duration: 300, zoom: 1 })
+    } catch {}
+  }
+  nodeSearchOpen.value = false
+}
 
 function onGlobalKeydown(e: KeyboardEvent) {
   // Ctrl+K → 命令面板
@@ -1593,6 +1657,15 @@ function onGlobalKeydown(e: KeyboardEvent) {
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
     e.preventDefault()
     commandPaletteOpen.value = true
+    return
+  }
+  // Ctrl+F → 画布节点搜索
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+    const t = e.target as HTMLElement | null
+    const tag = t?.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
+    e.preventDefault()
+    nodeSearchOpen.value = !nodeSearchOpen.value
     return
   }
   // Ctrl+S → 保存
