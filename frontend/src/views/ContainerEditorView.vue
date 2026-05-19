@@ -149,6 +149,7 @@
             @update-var-field="onUpdateVarField"
             @request-delete="onRequestDeleteVar"
             @reorder-vars="onReorderVars"
+            @insert-incvar="onInsertIncVar"
           />
         </aside>
 
@@ -268,7 +269,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
-import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError } from '@/lib/backend'
+import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError, type VarDecl } from '@/lib/backend'
 import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
@@ -299,6 +300,7 @@ import ContainerSettingsModal from '@/components/containers/ContainerSettingsMod
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
+import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
 
 const route = useRoute()
 const toast = useToast()
@@ -402,6 +404,91 @@ function onUpdateVarField(name: string, field: 'type' | 'default', value: unknow
 
 function onReorderVars(fromIdx: number, toIdx: number) {
   applyDraftMutation(() => varMutations.reorderVars(fromIdx, toIdx))
+}
+
+// ===== Phase 4 drag-drop helpers =====
+
+function newNodeID(kind: string): string {
+  return `${kind.toLowerCase()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function defaultLiteralFor(type: VarDecl['type']): unknown {
+  switch (type) {
+    case 'number': return 0
+    case 'string': return ''
+    case 'bool': return false
+    case 'point': return { x: 0.5, y: 0.5 }
+    default: return null  // 'any' — no useful default
+  }
+}
+
+function findVarType(name: string): VarDecl['type'] {
+  if (!draft.value) return 'any'
+  const v = (draft.value.vars ?? []).find(x => x.name === name)
+  return (v?.type ?? 'any') as VarDecl['type']
+}
+
+function dropVar(
+  payload: Extract<EditorDragPayload, { type: 'var' }>,
+  pos: { x: number; y: number },
+) {
+  const kind = payload.modifier === 'alt' ? 'SetVar' : 'GetVar'
+  const config: Record<string, unknown> = { varName: payload.ref.name, scope: 'auto' }
+  if (kind === 'SetVar') {
+    config.literal = { value: defaultLiteralFor(payload.ref.type) }
+  }
+  applyDraftMutation((d) => {
+    const g = activeGraph.value
+    if (!g) return
+    const node: GraphNode = {
+      id: newNodeID(kind),
+      kind,
+      x: pos.x,
+      y: pos.y,
+      config,
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+    // Task 4.5 will add pin-aware auto-connect here
+  })
+}
+
+function onInsertIncVar(name: string) {
+  // VarRow "+" hover button → insert IncVar at viewport center
+  applyDraftMutation(() => {
+    const g = activeGraph.value
+    if (!g) return
+    const node: GraphNode = {
+      id: newNodeID('IncVar'),
+      kind: 'IncVar',
+      x: 100,  // viewport center fallback; vue-flow controls don't expose center reliably
+      y: 100,
+      config: {
+        varName: name,
+        scope: 'auto',
+        literal: { delta: 1 },
+      },
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+  })
+}
+
+function onCanvasDrop(e: DragEvent) {
+  e.preventDefault()
+  // Phase 4: MIME-based dispatch via useEditorDragDrop
+  const payload = readDragPayload(e)
+  if (payload) {
+    const pos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
+    switch (payload.type) {
+      case 'var': return dropVar(payload, pos)
+      case 'node-spec': return  // Editor v2 B will handle
+      case 'library-subgraph': return  // Editor v2 B will handle
+    }
+    return
+  }
+  // Legacy: fallback to existing NodePalette / LibraryView drop logic
+  _legacyCanvasDrop(e)
 }
 
 // Real usage count — sum across all vars (derive from draft, reactive)
@@ -528,10 +615,10 @@ async function onAddNode(
 }
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate } = useVueFlow()
 
 // 画布 drag/drop 交互（NodePalette → Canvas + LibraryView 卡片 → Canvas copy-on-use）
-const { onCanvasDragOver, onCanvasDrop } = useFlowInteraction({
+const { onCanvasDragOver, onCanvasDrop: _legacyCanvasDrop } = useFlowInteraction({
   project, onAddNode,
   draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, toast,
 })
