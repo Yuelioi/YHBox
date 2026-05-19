@@ -257,6 +257,11 @@
       @pick-kind="onPickKind"
     />
 
+    <LibraryExplorerModal
+      v-model:open="libraryExplorerOpen"
+      @pick-subgraph="onPickLibrarySubgraph"
+    />
+
   </div>
 </template>
 
@@ -304,7 +309,9 @@ import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
 import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
+import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
+import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
@@ -361,6 +368,7 @@ const selectedID = ref<string | null>(null)
 const { prefs: sidebarPrefs } = useSidebarPrefs()
 const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
+const libraryExplorerOpen = ref(false)
 
 // Phase 1 var mutations (Phase 3 will wire full UI)
 const varMutations = useVarMutations(draft)
@@ -609,7 +617,52 @@ function onPickKind(kind: string) {
 }
 
 function onOpenLibraryExplorer() {
-  console.info('[Editor v2 B] library explorer not yet implemented')
+  libraryExplorerOpen.value = true
+}
+
+async function onPickLibrarySubgraph(libraryID: string) {
+  if (!draft.value) return
+  try {
+    // backend.library.copyToContainer returns container.Subgraph (has .id)
+    const result = (await backend.library.copyToContainer(libraryID, draft.value.id)) as any
+    const newSubgraphID: string | undefined = result?.id
+    if (!newSubgraphID) {
+      console.warn('[Editor v2 B] copyToContainer returned no id', result)
+      return
+    }
+    // Refresh subgraph store so UI sees the new entry
+    await refreshSubgraphStore()
+    // Build a Subgraph call node at viewport center
+    applyDraftMutation(() => {
+      const g = activeGraph.value
+      if (!g) return
+      const node: GraphNode = {
+        id: newNodeID('Subgraph'),
+        kind: 'Subgraph',
+        x: 200 + Math.random() * 100,
+        y: 200 + Math.random() * 100,
+        config: { subgraphId: newSubgraphID },
+        createdAt: new Date().toISOString(),
+      } as GraphNode
+      g.nodes.push(node)
+    })
+    useDiscoveryStore().pushRecent('Subgraph')
+    // Notify store that library changed (triggers LibraryStore refresh across views)
+    useLibraryStore().reload()
+    toast.add({
+      title: '子图已从库导入',
+      description: `subgraphId: ${newSubgraphID}`,
+      color: 'success',
+      icon: 'i-tabler-check',
+    })
+  } catch (e: any) {
+    console.error('[Editor v2 B] LibraryExplorer pick failed:', e)
+    toast.add({
+      title: '从库导入失败',
+      description: String(e?.message ?? e),
+      color: 'error',
+    })
+  }
 }
 function onUndo() {
   console.info('[Editor v2 C] undo not yet implemented')
