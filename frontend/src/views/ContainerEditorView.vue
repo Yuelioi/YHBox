@@ -301,6 +301,8 @@ import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConf
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
+import { dataInTypeFor } from '@/components/containers/nodeRegistry/registry'
+import { isCompatibleType, type VarType } from '@/lib/variableRef'
 
 const route = useRoute()
 const toast = useToast()
@@ -428,6 +430,68 @@ function findVarType(name: string): VarDecl['type'] {
   return (v?.type ?? 'any') as VarDecl['type']
 }
 
+// ===== Pin-aware auto-connect (Phase 4.5) =====
+
+const AUTO_CONNECT_THRESHOLD_PX = 30  // flow coordinate space
+
+interface PinAtPosition {
+  nodeID: string
+  pinName: string
+  pinType: VarType
+  dist: number
+}
+
+/**
+ * Find the nearest eligible data-in pin within AUTO_CONNECT_THRESHOLD_PX of flowPos.
+ *
+ * Data-in handles in this codebase use Position.Bottom + type="target", so vue-flow
+ * renders them with data-handlepos="bottom" and CSS class "target". Exec-in handles
+ * use Position.Left, so the selector `.vue-flow__handle[data-handlepos="bottom"].target`
+ * isolates data-in pins only.
+ *
+ * Node ID comes from data-nodeid on the handle element itself (no parent traversal needed).
+ */
+function findNearestEligibleDataInPin(
+  flowPos: { x: number; y: number },
+  srcVarType: VarType,
+): PinAtPosition | null {
+  const handles = document.querySelectorAll<HTMLElement>(
+    '.vue-flow__handle[data-handlepos="bottom"].target',
+  )
+  let best: PinAtPosition | null = null
+
+  for (const handleEl of Array.from(handles)) {
+    const nodeID = handleEl.getAttribute('data-nodeid') ?? ''
+    const pinName = handleEl.getAttribute('data-handleid') ?? ''
+    if (!nodeID || !pinName) continue
+
+    const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+      (n) => n.id === nodeID,
+    ) ?? null
+    if (!node) continue
+    // disabled nodes are skipped (Editor v2 C adds the field; defensive check is safe when absent)
+    if ((node as GraphNode & { disabled?: boolean }).disabled === true) continue
+
+    const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>)
+    if (!pinType) continue  // not a data-in pin for this kind
+
+    if (!isCompatibleType(srcVarType, pinType as VarType)) continue
+
+    const rect = handleEl.getBoundingClientRect()
+    const screenCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+    const flowCenter = screenToFlowCoordinate(screenCenter)
+    const dx = flowCenter.x - flowPos.x
+    const dy = flowCenter.y - flowPos.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist > AUTO_CONNECT_THRESHOLD_PX) continue
+
+    if (!best || dist < best.dist) {
+      best = { nodeID, pinName, pinType: pinType as VarType, dist }
+    }
+  }
+  return best
+}
+
 function dropVar(
   payload: Extract<EditorDragPayload, { type: 'var' }>,
   pos: { x: number; y: number },
@@ -437,6 +501,13 @@ function dropVar(
   if (kind === 'SetVar') {
     config.literal = { value: defaultLiteralFor(payload.ref.type) }
   }
+
+  // Pin-aware auto-connect: detect nearest eligible data-in pin before mutation
+  // (DOM query must run before applyDraftMutation triggers re-render)
+  const autoConnectTarget = kind === 'GetVar'
+    ? findNearestEligibleDataInPin(pos, payload.ref.type as VarType)
+    : null
+
   applyDraftMutation((d) => {
     const g = activeGraph.value
     if (!g) return
@@ -449,7 +520,14 @@ function dropVar(
       createdAt: new Date().toISOString(),
     } as GraphNode
     g.nodes.push(node)
-    // Task 4.5 will add pin-aware auto-connect here
+
+    // Auto-connect GetVar.value → nearest eligible data-in pin
+    if (autoConnectTarget) {
+      ;(g.edges as GraphEdge[]).push({
+        from: `${node.id}.value`,
+        to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
+      } as GraphEdge)
+    }
   })
 }
 
