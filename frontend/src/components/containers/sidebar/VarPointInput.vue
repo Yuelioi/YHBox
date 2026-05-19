@@ -1,5 +1,4 @@
-<!-- frontend/src/components/containers/sidebar/VarPointInput.vue -->
-<!-- point type 行内编辑 — 2 input 横排 (GPT review #10 — 不要 JSON textarea). -->
+<!-- Point type 行内编辑 — 用 2 个 number input 横排, 比 JSON textarea 易用. -->
 <template>
   <div class="flex items-center gap-1">
     <span class="text-[10px] text-dimmed">x:</span>

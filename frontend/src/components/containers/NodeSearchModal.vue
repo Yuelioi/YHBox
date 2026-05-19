@@ -1,8 +1,6 @@
-<!-- frontend/src/components/containers/NodeSearchModal.vue -->
-<!-- Editor v2 polish round 2 — Ctrl+F canvas search.
+<!-- Ctrl+F canvas search — UE Blueprint "Find in Blueprint" equivalent.
      Walks main + all subgraphs, matches label/kind/id (substring).
-     Click result → emit pick(r) — parent jumps + selects.
-     UE Blueprint "Find in Blueprint" equivalent. -->
+     Click result → emit pick(r), parent jumps + selects. -->
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-2xl' }">
     <template #content>

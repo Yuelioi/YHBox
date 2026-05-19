@@ -115,7 +115,7 @@ type Active = {
 }
 
 const activeStatus = computed<Active>(() => {
-  // 容器跑中优先（spec §6.8）
+  // 容器跑中优先显示运行 metrics, 否则显示空闲态.
   if (execStore.running) {
     const cur = containersStore.list.find((c) => c.id === execStore.currentTargetID)
     const name = cur?.name || execStore.currentTargetID.slice(0, 8) || '容器'

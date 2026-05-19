@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/FindReferencesModal.vue -->
-<!-- Editor v2 C polish — list引用变量的所有节点, 可点跳转选中.
-     Replaces toast UX from C2 (commit 9bdf110). -->
+<!-- 列出引用某变量的所有节点, 点击跳转选中. -->
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-md' }">
     <template #content>
@@ -48,7 +46,7 @@ import { getSpec } from '@/components/containers/nodeRegistry/registry'
 export interface RefEntry {
   id: string
   kind: string
-  label?: string      // Editor v2 polish round 2 — user-set display name
+  label?: string      // user-set display name
   location?: string   // e.g. "主图" or "子图: foo"
 }
 

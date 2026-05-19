@@ -1,10 +1,6 @@
 <template>
-  <!--
-    v4 §7.1 inline pin literal — type-polymorphic input.
-    Used by NodeInspector to edit config.literal[pinName] for unconnected data-in pins.
-    Future: also render in ContainerFlowNode next to each data-in pin handle
-    (UE-style; deferred — current MVP edits via Inspector instead).
-  -->
+  <!-- Inline pin literal — type-polymorphic input.
+       NodeInspector 用它编辑未连接 data-in pin 的 config.literal[pinName]. -->
   <UInput
     v-if="type === 'number'"
     type="number"

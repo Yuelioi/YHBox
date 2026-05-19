@@ -7,7 +7,7 @@
 
 export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any'
 
-/** v4 §2.2: color map for typed data pins. vue-flow Handle uses this for background. */
+/** Typed data pin 颜色表. vue-flow Handle background 用. */
 export const TYPE_COLOR: Record<PinType, string> = {
   number: '#60a5fa', // blue
   bool: '#f87171', // red
@@ -17,11 +17,11 @@ export const TYPE_COLOR: Record<PinType, string> = {
 }
 
 /**
- * v4 pin type compatibility (spec §2.3) — mirrors backend runtime.PinTypeCompat.
+ * Pin type compatibility — mirrors backend runtime.PinTypeCompat.
  * @returns allow=can connect, warn=allowed but coerced (UI gives hint)
  *
- * PARITY: must match `internal/services/container/runtime/pin_types.go` PinTypeCompat
- * — Phase D2 cross-check test asserts FE↔BE registry-derived behavior aligns.
+ * PARITY: 必须跟 `internal/services/container/runtime/pin_types.go` PinTypeCompat 一致
+ * — Go TestRegistryParity 跨语言 diff 抓 drift.
  */
 export function pinTypeCompat(from: PinType, to: PinType): { allow: boolean; warn: boolean } {
   if (from === to || from === 'any' || to === 'any') return { allow: true, warn: false }

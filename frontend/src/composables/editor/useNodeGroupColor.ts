@@ -1,21 +1,18 @@
-// frontend/src/composables/editor/useNodeGroupColor.ts
-// Editor v2 B/C polish — shared group color + per-node icon color helpers.
-// Used by NodeExplorerModal + InlineContextMenu for consistent visual mental
-// model: category label color = dominant node color in that group, item icon
-// color = node's own visual.bg-derived hue (matches what user sees on canvas).
+// 共享 group color + per-node icon color helpers.
+// 用于 NodeExplorerModal + InlineContextMenu: 分类 label 用该 group 主色, item icon
+// 用节点自己 visual.bg 派生色 — 保证跟用户在画布上看到的颜色一致.
 
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 
 /**
- * Map nodeRegistry group → its dominant Tailwind color name (e.g. 'amber', 'blue').
- * Derived from actual visual.bg fields per spec file:
- *   variables: amber (SetVar/GetVar/IncVar/GetSys/GetParam all amber)
- *   purefunc:  amber (math + comparison + logic — all amber)
- *   control:   blue (Loop/If/Switch/Parallel/Race dominant; Start/Stop/Break/Continue jelly mix)
- *   detect:    violet (CheckTemplate/WaitTemplate/Screenshot violet; DetectColor/ROIColorScan cyan; pick violet majority)
- *   input:     orange (KeyPress/ClickAt/KeyHold/MouseHold all orange)
- *   system:    cyan (Try/Throw/Subgraph cyan; OnEvent/PlayClip pink; cyan majority)
+ * group → 该 group 主色 (Tailwind tone). 由该 group 各 spec.visual.bg 取众数派生:
+ *   variables: amber (SetVar/GetVar/IncVar/GetSys/GetParam)
+ *   purefunc:  amber (math + comparison + logic)
+ *   control:   blue
+ *   detect:    violet
+ *   input:     orange
+ *   system:    cyan
  *   misc:      zinc (fallback)
  */
 const GROUP_TONE: Record<string, string> = {

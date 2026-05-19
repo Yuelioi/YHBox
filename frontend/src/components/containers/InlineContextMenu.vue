@@ -1,8 +1,6 @@
-<!-- frontend/src/components/containers/InlineContextMenu.vue -->
-<!-- Editor v2 C polish — inline 浮动 context menu 用于画布 add node.
-     入口: 右键空白 / 双击空白 / pin 拖出松开.
-     Pin-context 时按 pin 类型过滤 compatible nodes.
-     Spec: editor-v2-node-discovery-design.md §3. -->
+<!-- Inline 浮动 context menu — 画布 add node 入口.
+     触发: 右键空白 / 双击空白 / pin 拖出松开.
+     Pin-context 时按 pin 类型过滤 compatible nodes. -->
 <template>
   <!-- Backdrop to dismiss on outside click (renders below the panel) -->
   <div

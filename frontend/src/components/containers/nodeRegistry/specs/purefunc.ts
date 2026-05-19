@@ -1,11 +1,8 @@
-// frontend/src/components/containers/nodeRegistry/specs/purefunc.ts
-// v4 §6 pure-function nodes (22): arithmetic / compare / logic / string / convert / select.
+// Pure-function nodes (22): arithmetic / compare / logic / string / convert / select.
 // Mirrors backend internal/services/container/nodekind/specs/purefunc.go.
 //
-// CRITICAL — type alignment with backend (v4 spec §6.2):
-//   Lt/LtEq/Gt/GtEq/Eq/NotEq/And/Or/Not/Contains/ToBool → result = 'bool'
-//   And/Or → data-in = 'bool'; Not → data-in = 'bool'
-// (These differ from current pinSpec.ts which uses 'any' for those — backend is authoritative.)
+// 关键: 比较 / 逻辑节点 result = 'bool', logic 节点 data-in = 'bool'
+// (backend authoritative — TestRegistryParity 抓 drift).
 import { register } from '../registry'
 import type { NodeKindSpec, PinType } from '../index'
 
@@ -52,7 +49,7 @@ register(pureFunc({ kind: 'GtEq', labelZh: '≥', icon: 'i-tabler-math-equal-gre
 register(pureFunc({ kind: 'Eq', labelZh: '==', icon: 'i-tabler-equal', dataIn: { a: 'any', b: 'any' }, result: 'bool', literalDefaults: {} }))
 register(pureFunc({ kind: 'NotEq', labelZh: '!=', icon: 'i-tabler-equal-not', dataIn: { a: 'any', b: 'any' }, result: 'bool', literalDefaults: {} }))
 
-// 逻辑 (3) — backend uses bool pins (v4 spec §6.3)
+// 逻辑 (3)
 register(pureFunc({ kind: 'And', labelZh: '与', icon: 'i-tabler-ampersand', dataIn: { a: 'bool', b: 'bool' }, result: 'bool', literalDefaults: { a: true, b: true } }))
 register(pureFunc({ kind: 'Or', labelZh: '或', icon: 'i-tabler-letter-o', dataIn: { a: 'bool', b: 'bool' }, result: 'bool', literalDefaults: { a: false, b: false } }))
 register(pureFunc({ kind: 'Not', labelZh: '非', icon: 'i-tabler-exclamation-mark', dataIn: { x: 'bool' }, result: 'bool', literalDefaults: { x: false } }))

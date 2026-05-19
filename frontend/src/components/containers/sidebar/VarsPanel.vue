@@ -1,5 +1,4 @@
-<!-- frontend/src/components/containers/sidebar/VarsPanel.vue -->
-<!-- 完整 CRUD + reorder. Drag-out (Phase 4) 走外部 useEditorDragDrop. -->
+<!-- 容器变量面板. CRUD + reorder. Drag-out 走 useEditorDragDrop. -->
 <template>
   <SidebarSection
     title="变量"

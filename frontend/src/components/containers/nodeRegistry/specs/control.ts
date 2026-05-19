@@ -3,8 +3,7 @@
 // Mirrors backend internal/services/container/nodekind/specs/control.go.
 import { register } from '../registry'
 
-// Parallel/Race dynamic branch count — clamped [2,8]. v4 spec §6.2: reads cfg.literal.n
-// (NOT cfg.n — that was the v3 lookup, fixed in backend per "no compat" rule).
+// Parallel/Race 动态分支数 — clamp [2,8]. 从 cfg.literal.n 读 (跟 backend 一致).
 function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): string[] {
   const lit = (cfg?.literal as Record<string, unknown> | undefined) ?? {}
   const raw = Number(lit.n)

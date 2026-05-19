@@ -9,7 +9,7 @@
     @update:expanded="$emit('update:expanded', $event)"
   >
     <p class="text-[10px] text-dimmed italic px-1">
-      最近使用节点 (LRU, max 8) — Editor v2 B 实装.
+      最近使用节点 (LRU, max 8).
     </p>
   </SidebarSection>
 </template>

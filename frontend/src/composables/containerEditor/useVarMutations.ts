@@ -10,7 +10,6 @@ const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar'])
 /**
  * useVarMutations — Container.Vars 增删改查 + scope-aware rename + cascade delete.
  * 所有 mutation 直接改 draft.value (caller 用 applyDraftMutation 包裹保证 dirty+sync).
- * Spec: editor-v2-vars-panel-design.md §4.3 + §4.7.
  */
 export function useVarMutations(draft: Ref<Container | null>) {
   function isContainerScope(n: GraphNode): boolean {

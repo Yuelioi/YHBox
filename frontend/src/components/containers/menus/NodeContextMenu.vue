@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/menus/NodeContextMenu.vue -->
-<!-- Editor v2 C — single-node right-click menu.
-     Spec: editor-v2-quick-actions-design.md §2.2. -->
+<!-- Single-node right-click menu. -->
 <template>
   <template v-if="open">
     <div

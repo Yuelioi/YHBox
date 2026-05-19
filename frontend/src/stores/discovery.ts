@@ -1,6 +1,4 @@
-// frontend/src/stores/discovery.ts
-// Editor v2 B — favorites + recent node kinds backed by localStorage.
-// Spec: editor-v2-node-discovery-design.md §6.1
+// Favorites + recent node kinds, 持久化到 localStorage.
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'

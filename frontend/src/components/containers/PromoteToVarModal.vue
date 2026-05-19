@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/PromoteToVarModal.vue -->
-<!-- Editor v2 C — Promote-to-Variable modal.
-     Spec: editor-v2-quick-actions-design.md §5. -->
+<!-- Promote-to-Variable modal. -->
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-md' }">
     <template #content>

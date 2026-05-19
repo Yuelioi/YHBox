@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/CommandPalette.vue -->
-<!-- Editor v2 C — VSCode-style command palette. Ctrl+K to open.
-     Spec: editor-v2-quick-actions-design.md §3. -->
+<!-- VSCode-style command palette. Ctrl+K to open. -->
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-2xl' }">
     <template #content>

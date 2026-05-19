@@ -1,9 +1,7 @@
 <template>
-  <!--
-    v4 §9.1 CommentBox — pure-UI grouping affordance. No exec, no data, no handles.
-    Visual only: a dashed-border tinted rectangle behind regular nodes.
-    Size + label + color come from node.config.
-  -->
+  <!-- CommentBox — pure-UI grouping affordance. 无 exec, 无 data, 无 handle.
+       Visual only: dashed-border tinted rectangle, 放在常规节点背后.
+       Size + label + color 都从 node.config 读. -->
   <div
     class="comment-box rounded-md border-2 border-dashed p-2 select-none"
     :style="boxStyle"

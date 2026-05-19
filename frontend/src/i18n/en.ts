@@ -38,10 +38,9 @@ export default {
   common: {
     game_not_detected: 'Game window not detected',
   },
-  // v4 (spec §12): backend ValidationError.Code → user-facing message.
-  // Params: {param} placeholders use vue-i18n named-interpolation. Missing keys fall back to backend Message field (transitional).
+  // backend ValidationError.Code → user-facing message.
+  // Params: {param} placeholders use vue-i18n named-interpolation. Missing keys fall back to backend Message field.
   error: {
-    // v3 existing
     NO_START: 'Main graph has no Start node',
     MULTIPLE_STARTS: 'Main graph has {count} Start nodes (expected exactly 1)',
     DANGLING_EDGE: 'Edge {from} → {to} references missing node ({missing})',
@@ -92,7 +91,7 @@ export default {
     COLLAPSED_PIN_BROKEN: 'CollapsedNode external pin has no matching marker in backing Subgraph',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
   },
-  // v4 (spec §12): ValidationErrorPanel modal shell strings — separate from error.* codes.
+  // ValidationErrorPanel modal shell strings — separate from error.* codes.
   validation: {
     title_failed: 'Validation failed — {errorCount} errors',
     title_failed_with_warns: 'Validation failed — {errorCount} errors / {warnCount} warnings',

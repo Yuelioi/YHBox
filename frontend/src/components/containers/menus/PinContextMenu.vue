@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/menus/PinContextMenu.vue -->
-<!-- Editor v2 C — pin (handle) right-click menu.
-     Spec: editor-v2-quick-actions-design.md §2.5. -->
+<!-- Pin (handle) right-click menu. -->
 <template>
   <template v-if="open">
     <div class="fixed inset-0 z-40" @click="close" @contextmenu.prevent="close" />

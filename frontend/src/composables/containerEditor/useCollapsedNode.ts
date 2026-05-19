@@ -1,17 +1,11 @@
-// v4 §9.2 CollapsedNode composable.
+// CollapsedNode composable — scaffold.
 //
-// Status: SCAFFOLD (v4 Phase D.4-D7 minimal landing).
-// - Wires up the operations interface (collapse / expand / upgrade) so view code can
-//   call into a single place without scattering algorithm logic.
-// - Real algorithm is NON-TRIVIAL — see TODOs below. Currently each op is a stub that
-//   throws or no-ops with a console warn. v4 Phase D polish (post-MVP) fills these in.
-// - CollapsedNode runtime works TODAY if users hand-author JSON: container.subgraphs[]
-//   includes a Subgraph with isAnonymous:true and a CollapsedNode in main graph references
-//   it via config.subgraphId. Backend validators catch misuse (D2+D3 shipped).
+// 当前是 stub: 三个 op 都 console.warn no-op. CollapsedNode runtime 工作 (validators 已 ship),
+// 但用户必须手写 JSON: container.subgraphs[] 含 isAnonymous:true Subgraph + main graph
+// CollapsedNode 引用 config.subgraphId.
 //
-// Required real backend RPCs (not yet exposed): backend.containers.createSubgraph,
-// backend.containers.deleteSubgraph, backend.containers.updateSubgraphMeta. Without
-// them the operations can only mutate the in-memory draft (re-saved by onSave).
+// 实装 backlog 见 debug/docs/superpowers/specs/2026-05-20-editor-v2-backlog.md (相关条目).
+// 需要的后端 RPC: backend.containers.createSubgraph / deleteSubgraph / updateSubgraphMeta.
 import type { Ref } from 'vue'
 
 interface CollapseDeps {
@@ -27,36 +21,17 @@ function warnOnce(msg: string) {
 }
 
 export function useCollapsedNode(_deps: CollapseDeps) {
-  /**
-   * TODO (D4): Collapse selected node IDs into a CollapsedNode + isAnonymous Subgraph.
-   * Algorithm (per spec §9.2):
-   *   1. New isAnonymous Subgraph (uuid + isAnonymous=true + auto-layout for internal pos)
-   *   2. Move selected nodes from current graph → new Subgraph.Graph.Nodes
-   *   3. Insert SubgraphInput marker + SubgraphOutput markers (one per exit)
-   *   4. Scan boundary edges:
-   *      - external → internal (data + exec): create InputParam (data) / SubgraphInput edge (exec); rewire edge to CollapsedNode pin
-   *      - internal → external: create OutputPin decl + SubgraphOutput marker; rewire to CollapsedNode out pin
-   *   5. Insert CollapsedNode in parent graph pointing to new sg (subgraphId + label)
-   *   6. Save: refreshSubgraphStore + persist draft
-   * Edge cases: handle nested CollapsedNode in selection (forbid for v4 MVP),
-   * preserve loopback edges (Loop body in selection), handle multiple disconnected components.
-   */
+  // Collapse 选中节点为 CollapsedNode + isAnonymous Subgraph.
   async function collapse(_selectedNodeIDs: string[]): Promise<void> {
-    warnOnce('collapse: not yet implemented; manually author CollapsedNode JSON for now')
+    warnOnce('collapse: not yet implemented; 手写 JSON 走 isAnonymous Subgraph')
   }
 
-  /**
-   * TODO (D5): Expand reverse — move CollapsedNode internals back to parent graph,
-   * delete the backing isAnonymous Subgraph. Reconnect boundary edges.
-   */
+  // Expand 反操作 — 把 CollapsedNode 内部节点搬回父图, 删 backing Subgraph.
   async function expand(_collapsedNodeID: string): Promise<void> {
     warnOnce('expand: not yet implemented')
   }
 
-  /**
-   * TODO (D7): Flip backing Subgraph.isAnonymous=false; change node Kind CollapsedNode → Subgraph.
-   * After upgrade the subgraph is reusable and appears in palette / candidate dropdowns.
-   */
+  // Upgrade — 把 backing Subgraph.isAnonymous 翻 false + 节点 kind 改 Subgraph, 变成可复用子图.
   async function upgradeToSubgraph(_collapsedNodeID: string): Promise<void> {
     warnOnce('upgradeToSubgraph: not yet implemented')
   }

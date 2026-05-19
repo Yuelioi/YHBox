@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/LibraryExplorerModal.vue -->
-<!-- Editor v2 B — 子图库快查 modal. 入口: toolbar 📚 click.
-     Spec: editor-v2-node-discovery-design.md §5. -->
+<!-- 子图库快查 modal. 入口: toolbar 📚. -->
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-4xl' }">
     <template #content>

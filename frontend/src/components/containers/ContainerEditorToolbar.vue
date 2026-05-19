@@ -149,7 +149,7 @@ const emit = defineEmits<{
   'align-selected': [
     mode: 'left' | 'right' | 'top' | 'bottom' | 'center-h' | 'center-v' | 'h-equal' | 'v-equal',
   ]
-  // NEW (Editor v2 A Phase 2 — emit-only stubs; B/C wire up):
+  // 工具栏按钮 emits (实际 modal 在父 ContainerEditorView 里挂):
   'open-node-explorer': []
   'open-library-explorer': []
   'open-settings': []

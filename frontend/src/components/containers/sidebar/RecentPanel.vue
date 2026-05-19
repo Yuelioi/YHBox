@@ -1,7 +1,4 @@
-<!-- frontend/src/components/containers/sidebar/RecentPanel.vue -->
-<!-- Editor v2 B — real Recent panel (replaces RecentPanelPlaceholder).
-     LRU 8 max, drag-out → build node via useEditorDragDrop ('node-spec').
-     Spec: editor-v2-node-discovery-design.md §6.3. -->
+<!-- Recent panel (LRU max 8). Drag-out → useEditorDragDrop ('node-spec') → 画布建节点. -->
 <template>
   <SidebarSection
     title="最近"

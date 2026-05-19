@@ -211,7 +211,7 @@
               node-stroke-color="#52525b"
               :node-border-radius="2"
             />
-            <!-- Editor v2 C: drag-time alignment guide lines (PS smart guides) -->
+            <!-- Drag-time alignment guides (PS smart-guides style) -->
             <SnapGuideOverlay :guides="snapGuides" />
           </VueFlow>
         </div>
@@ -286,7 +286,7 @@
       @pick="onInlineMenuPick"
     />
 
-    <!-- Editor v2 C: 右键菜单 -->
+    <!-- 右键菜单 (节点 / 多选 / 边 / pin) -->
     <NodeContextMenu
       v-if="nodeMenu.node"
       :open="nodeMenu.open"
@@ -319,13 +319,13 @@
       @action="onPinMenuAction"
     />
 
-    <!-- Editor v2 C: 命令面板 Ctrl+K -->
+    <!-- 命令面板 Ctrl+K -->
     <CommandPalette
       v-model:open="commandPaletteOpen"
       :commands="commands"
     />
 
-    <!-- Editor v2 C5: Promote-to-Variable modal -->
+    <!-- Promote-to-Variable modal -->
     <PromoteToVarModal
       v-if="promoteCtx"
       :open="!!promoteCtx"
@@ -335,7 +335,7 @@
       @confirm="onPromoteConfirm"
     />
 
-    <!-- Editor v2 C polish: Find-References modal -->
+    <!-- Find-References modal -->
     <FindReferencesModal
       v-if="findRefsState"
       :open="!!findRefsState"
@@ -345,7 +345,7 @@
       @pick="onFindRefsPick"
     />
 
-    <!-- Editor v2 polish round 2: Ctrl+F canvas node search -->
+    <!-- Ctrl+F canvas node search (UE Blueprint "Find in Blueprint" equivalent) -->
     <NodeSearchModal
       :open="nodeSearchOpen"
       :results="nodeSearchResults"
@@ -476,14 +476,14 @@ const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
 const libraryExplorerOpen = ref(false)
 
-// ===== Editor v2 C: 命令面板 =====
+// ===== 命令面板 =====
 const commandPaletteOpen = ref(false)
 
-// ===== Editor v2 polish round 2: Ctrl+F canvas node search =====
+// ===== Ctrl+F canvas node search =====
 const nodeSearchOpen = ref(false)
 const nodeSearchQuery = ref('')
 
-// ===== Editor v2 C: 右键菜单状态 =====
+// ===== 右键菜单状态 =====
 const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
   open: false, position: { x: 0, y: 0 }, node: null,
 })
@@ -497,17 +497,16 @@ const pinMenu = ref<{ open: boolean; position: { x: number; y: number }; pin: Pi
   open: false, position: { x: 0, y: 0 }, pin: null,
 })
 
-// ===== Editor v2 C5: Promote-to-Variable =====
+// ===== Promote-to-Variable =====
 const promoteCtx = ref<PromoteContext | null>(null)
 
-// ===== Editor v2 C polish: Find-References modal =====
+// ===== Find-References modal =====
 const findRefsState = ref<{ varName: string; refs: RefEntry[] } | null>(null)
 
-// Phase 1 var mutations (Phase 3 will wire full UI)
 const varMutations = useVarMutations(draft)
 
 function onAddVar() {
-  // Phase 3 wires real UI (add row → enter name); Phase 2 stub: auto-name v1/v2/v3
+  // Auto-name v1/v2/v3 — VarsPanel later allows rename via inline edit.
   applyDraftMutation((d) => {
     let n = 1
     const vars = d.vars ?? []
@@ -517,7 +516,7 @@ function onAddVar() {
   })
 }
 
-// Var CRUD handlers — wired to VarsPanel emits (Phase 3)
+// Var CRUD handlers — wired to VarsPanel emits.
 const deleteConfirm = ref<{ name: string; refIDs: string[] } | null>(null)
 
 function onRequestDeleteVar(name: string) {
@@ -557,7 +556,7 @@ function onReorderVars(fromIdx: number, toIdx: number) {
   applyDraftMutation(() => varMutations.reorderVars(fromIdx, toIdx))
 }
 
-// ===== Phase 4 drag-drop helpers =====
+// ===== Drag-drop helpers =====
 
 function newNodeID(kind: string): string {
   return `${kind.toLowerCase()}_${Math.random().toString(36).slice(2, 8)}`
@@ -579,7 +578,7 @@ function findVarType(name: string): VarDecl['type'] {
   return (v?.type ?? 'any') as VarDecl['type']
 }
 
-// ===== Pin-aware auto-connect (Phase 4.5) =====
+// ===== Pin-aware auto-connect =====
 
 const AUTO_CONNECT_THRESHOLD_PX = 30  // flow coordinate space
 
@@ -618,8 +617,8 @@ function findNearestEligibleDataInPin(
       (n) => n.id === nodeID,
     ) ?? null
     if (!node) continue
-    // disabled nodes are skipped (Editor v2 C adds the field; defensive check is safe when absent)
-    if ((node as GraphNode & { disabled?: boolean }).disabled === true) continue
+    // Skip disabled nodes — they don't participate in auto-connect.
+    if (node.disabled === true) continue
 
     const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>)
     if (!pinType) continue  // not a data-in pin for this kind
@@ -724,7 +723,7 @@ function onInsertIncVar(name: string) {
 
 function onCanvasDrop(e: DragEvent) {
   e.preventDefault()
-  // Phase 4: MIME-based dispatch via useEditorDragDrop
+  // MIME-based dispatch via useEditorDragDrop (var / node-spec / library-subgraph).
   const payload = readDragPayload(e)
   if (payload) {
     const pos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
@@ -748,7 +747,6 @@ const totalVarUsageCount = computed(() => {
   )
 })
 
-// Editor v2 B/C handlers
 function onOpenNodeExplorer() {
   nodeExplorerOpen.value = !nodeExplorerOpen.value
 }
@@ -781,7 +779,7 @@ async function onPickLibrarySubgraph(libraryID: string) {
     const result = (await backend.library.copyToContainer(libraryID, draft.value.id)) as any
     const newSubgraphID: string | undefined = result?.id
     if (!newSubgraphID) {
-      console.warn('[Editor v2 B] copyToContainer returned no id', result)
+      console.warn('copyToContainer returned no id', result)
       return
     }
     // Refresh subgraph store so UI sees the new entry
@@ -810,7 +808,7 @@ async function onPickLibrarySubgraph(libraryID: string) {
       icon: 'i-tabler-check',
     })
   } catch (e: any) {
-    console.error('[Editor v2 B] LibraryExplorer pick failed:', e)
+    console.error('LibraryExplorer pick failed:', e)
     toast.add({
       title: '从库导入失败',
       description: String(e?.message ?? e),
@@ -818,7 +816,7 @@ async function onPickLibrarySubgraph(libraryID: string) {
     })
   }
 }
-// ===== Editor v2 B: InlineContextMenu =====
+// ===== InlineContextMenu (右键 canvas + pin drag → 添加节点) =====
 
 interface InlineMenuState {
   open: boolean
@@ -954,7 +952,7 @@ function onCanvasContextMenu(e: MouseEvent) {
   openInlineMenuAt(e.clientX, e.clientY)
 }
 
-// ===== Editor v2 C: 右键菜单事件处理 =====
+// ===== 右键菜单事件处理 =====
 
 function onNodeContextMenu(event: { event: MouseEvent | TouchEvent; node: any }) {
   event.event.preventDefault()
@@ -1056,7 +1054,7 @@ function onNodeMenuAction(a: NodeMenuAction) {
         toast.add({ title: 'Promote', description: '此节点无 literal pin 可提取', color: 'warning' })
         return
       }
-      // Pick first literal pin for node menu (single-pin ambiguity MVP)
+      // 单选节点 promote 只挑第一个 literal pin — 多 pin 走 PinContextMenu 单 pin promote.
       const pinName = Object.keys(lit)[0]
       const literal = lit[pinName]
       const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) as VarType | ''
@@ -1078,7 +1076,7 @@ function onNodeMenuAction(a: NodeMenuAction) {
       return
     }
     case 'rename':
-      // 未来实装 (节点 label rename)
+      // Backlog: 2026-05-20-editor-v2-backlog.md M1 — inline rename UX. Currently Inspector edits label.
       return
   }
 }
@@ -1149,13 +1147,13 @@ function onMultiMenuAction(a: MultiMenuAction) {
       onAlignSelected('v-equal')
       return
     case 'comment-box':
-      // 未来实装
+      // Backlog: 2026-05-20-editor-v2-backlog.md M2 — wrap selection bbox in CommentBox.
       toast.add({ title: 'CommentBox', description: '待实装', color: 'warning' })
       return
   }
 }
 
-// ===== Editor v2 C polish: Find-References pick handler =====
+// ===== Find-References pick handler =====
 
 async function onFindRefsPick(nodeID: string) {
   const currentNodes = activeGraph.value?.nodes as GraphNode[] | undefined
@@ -1194,7 +1192,7 @@ async function onFindRefsPick(nodeID: string) {
   findRefsState.value = null
 }
 
-// ===== Editor v2 C: Edge + Pin context menus =====
+// ===== Edge + Pin context menus =====
 
 function onEdgeContextMenu(event: { event: MouseEvent | TouchEvent; edge: any }) {
   if (event.event instanceof MouseEvent) event.event.preventDefault()
@@ -1230,7 +1228,7 @@ function onEdgeMenuAction(a: EdgeMenuAction) {
       })
       return
     case 'insert-node-on-edge':
-      // Stub: full impl needs splitting edge + inserting node + chaining 2 new edges
+      // Backlog: 2026-05-20-editor-v2-backlog.md M3 — split edge + insert node + chain 2 new edges.
       toast.add({
         title: '在边上插入节点',
         description: '待实装 — 当前可手动: 删边 + 拖 pin',
@@ -1341,7 +1339,7 @@ function onPinMenuAction(a: PinMenuAction) {
   }
 }
 
-// ===== Editor v2 C5: Promote-to-Variable confirm handler =====
+// ===== Promote-to-Variable confirm handler =====
 function onPromoteConfirm(args: { varName: string; varType: VarType }) {
   const ctx = promoteCtx.value
   if (!ctx) return
@@ -1464,7 +1462,7 @@ function onInlineMenuPick(kind: string) {
 
 // ===== End InlineContextMenu =====
 
-// ===== Editor v2 C: 命令面板命令列表 =====
+// ===== 命令面板命令列表 =====
 const commands = computed<Command[]>(() => {
   const sel = getSelectedNodes.value ?? []
   const selCount = sel.length
@@ -1639,7 +1637,7 @@ const commands = computed<Command[]>(() => {
   ]
 })
 
-// ===== Editor v2 polish round 2: node search computed results =====
+// ===== Node search computed results =====
 const nodeSearchResults = computed<NodeSearchResult[]>(() => {
   if (!draft.value) return []
   const q = nodeSearchQuery.value.toLowerCase().trim()
@@ -1755,7 +1753,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
 // 注册自定义节点组件：从 PIN_SPECS keys 自动派生，无需手维护。
 // 加新 kind 只需在 pinSpec.ts 里加一条 PIN_SPECS 即可——nodeTypes / NodePalette / FlowNode 自动响应，避免漏注册。
-// v4 §9.1: CommentBox uses its own visual-only Vue component (no handles).
+// CommentBox 是 visual-only (no handles) — 用独立 Vue 组件, 其他 kind 共享 ContainerFlowNode.
 // All other kinds share ContainerFlowNode.
 const nodeTypes = markRaw({
   ...Object.fromEntries(
@@ -1845,7 +1843,7 @@ async function onAddNode(
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
 const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter, updateNode } = useVueFlow()
 
-// ===== Editor v2 C: Pin-aware snap guides (PS smart guides) =====
+// ===== Pin-aware snap guides (PS smart-guides style) =====
 
 const SNAP_EPSILON = 4  // flow-coord px — within this Y or X delta, snap fires
 // Typical node height offset to the "primary row" anchor (exec-in pin level).
@@ -2029,7 +2027,7 @@ function onNodeClick(evt: any) {
 
 function onNodeDoubleClick(evt: any) {
   const n = evt.node
-  // v4 §9.2: CollapsedNode 跟 Subgraph 共享 navigation 语义 (both wrap a subgraph by ID).
+  // CollapsedNode 跟 Subgraph 共享 navigation 语义 (both wrap a subgraph by ID).
   if (n?.data?.kind === 'Subgraph' || n?.data?.kind === 'CollapsedNode') {
     const sgID = n.data.config?.subgraphId
     if (!sgID) {
@@ -2082,7 +2080,7 @@ function onLabelUpdate(newLabel: string) {
   })
 }
 
-// v4 D8: Expr fusion listener (Inspector 触发 'expr-fuse' CustomEvent).
+// Expr fusion listener — Inspector 通过 'expr-fuse' CustomEvent 触发. (TODO: 走 Pinia store, 见 backlog C10)
 import { useExprFusion } from '@/composables/containerEditor/useExprFusion'
 const { fuse: fuseExpr } = useExprFusion({ activeGraph, syncFlowFromDraft })
 function onExprFuseEvent(ev: Event) {
@@ -2112,7 +2110,7 @@ function onDeleteSelected() {
   selectedID.value = null
 }
 
-// 录制流程 (Phase 4): start → 后端落盘 InputClip → 主图加 PlayClip 节点 (config.clipID).
+// 录制流程见 useRecording. start → 后端落盘 InputClip → 主图加 PlayClip 节点 (config.clipID).
 // startRecording / stopRecording / countdownSec 由 useRecording composable 提供.
 // sgLabel / currentSubgraph 由 useEditorPath 提供.
 

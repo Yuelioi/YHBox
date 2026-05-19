@@ -1,6 +1,5 @@
-// Unified drag-drop abstraction. VarsPanel / FavoritesPanel / RecentPanel /
-// Promote-to-Var (C) all funnel through here. One MIME, one payload schema,
-// one modifier-key handling. Spec: editor-v2-vars-panel-design.md §4.6.
+// 统一 drag-drop 抽象. VarsPanel / FavoritesPanel / RecentPanel / Promote-to-Var
+// 全部 funnel 这里. 单 MIME 单 payload schema 单 modifier-key 处理路径.
 
 import type { VariableRef } from '@/lib/variableRef'
 

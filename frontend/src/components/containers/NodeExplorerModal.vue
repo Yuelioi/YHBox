@@ -1,7 +1,5 @@
-<!-- frontend/src/components/containers/NodeExplorerModal.vue -->
-<!-- Editor v2 C polish — Houdini-style collapsible tree node browser.
-     入口: toolbar i-tabler-grid-dots click / Tab 键 (canvas focused).
-     Spec: editor-v2-node-discovery-design.md §4. -->
+<!-- Houdini-style collapsible tree node browser.
+     入口: toolbar 📐 / Tab 键 (canvas focused). -->
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-5xl' }">
     <template #content>

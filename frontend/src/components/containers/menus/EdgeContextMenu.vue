@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/menus/EdgeContextMenu.vue -->
-<!-- Editor v2 C — edge right-click menu.
-     Spec: editor-v2-quick-actions-design.md §2.4. -->
+<!-- Edge right-click menu. -->
 <template>
   <template v-if="open">
     <div class="fixed inset-0 z-40" @click="close" @contextmenu.prevent="close" />

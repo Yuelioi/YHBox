@@ -48,10 +48,9 @@ export default {
   common: {
     game_not_detected: '未检测到异环窗口',
   },
-  // v4 (spec §12): backend ValidationError.Code → user-facing message.
+  // backend ValidationError.Code → user-facing message.
   // Params: {param} 占位符走 vue-i18n named-interpolation. 未匹配 → fallback 显示 raw code.
   error: {
-    // v3 existing
     NO_START: '主图没有 Start 节点',
     MULTIPLE_STARTS: '主图有 {count} 个 Start 节点（应恰好 1 个）',
     DANGLING_EDGE: '边 {from} → {to} 引用了不存在的节点 ({missing})',
@@ -102,7 +101,7 @@ export default {
     COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
   },
-  // v4 (spec §12): ValidationErrorPanel 模态壳文案 — 跟 error.* 错误码分开.
+  // ValidationErrorPanel 模态壳文案 — 跟 error.* 错误码分开.
   validation: {
     title_failed: '校验失败 — {errorCount} 错',
     title_failed_with_warns: '校验失败 — {errorCount} 错 / {warnCount} 警告',

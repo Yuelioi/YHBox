@@ -57,7 +57,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   // clipboard 暂存（Task A.4 / B.8 用，先放骨架）
   const clipboard = ref<{ nodes: any[]; edges: any[]; subgraphsDeepCopy: Record<string, any> } | null>(null)
 
-  // v4 §9.2 Phase D: 用户可见子图列表 = 排除 isAnonymous (CollapsedNode 后备子图).
+  // 用户可见子图列表 = 排除 isAnonymous (这些是 CollapsedNode 后备子图, 不允许直接编辑).
   // 用于 Library 候选 / Subgraph 节点 subgraphId 下拉. find/navigation 仍走原 subgraphsForCurrentContainer.
   const visibleSubgraphs = computed<SubgraphSummary[]>(() =>
     subgraphsForCurrentContainer.value.filter((s) => !(s as any).isAnonymous),

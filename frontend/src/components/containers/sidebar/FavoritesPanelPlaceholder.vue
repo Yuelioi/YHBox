@@ -1,5 +1,4 @@
-<!-- frontend/src/components/containers/sidebar/FavoritesPanelPlaceholder.vue -->
-<!-- Empty shell for Editor v2 B (node discovery spec). A ships layout only. -->
+<!-- Empty placeholder fallback (实际用 FavoritesPanel.vue). -->
 <template>
   <SidebarSection
     title="收藏"
@@ -10,7 +9,7 @@
     @update:expanded="$emit('update:expanded', $event)"
   >
     <p class="text-[10px] text-dimmed italic px-1">
-      节点收藏 — Editor v2 B 实装. 拖 ★ 节点 → 画布建实例.
+      节点收藏 — 拖节点 → 画布建实例.
     </p>
   </SidebarSection>
 </template>

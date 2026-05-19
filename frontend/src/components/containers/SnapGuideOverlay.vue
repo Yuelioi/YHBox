@@ -1,7 +1,5 @@
-<!-- frontend/src/components/containers/SnapGuideOverlay.vue -->
-<!-- Editor v2 C — drag-time alignment guides (PS smart guides).
-     Renders inside vue-flow viewport transform so guides track pan/zoom.
-     Spec: editor-v2-quick-actions-design.md §9. -->
+<!-- Drag-time alignment guides (PS smart-guides style).
+     渲染在 vue-flow viewport transform 内部, 自动跟随 pan/zoom. -->
 <template>
   <svg
     v-if="guides.length > 0"

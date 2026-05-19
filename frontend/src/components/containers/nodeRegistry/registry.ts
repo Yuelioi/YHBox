@@ -73,8 +73,7 @@ export function dataOutTypeFor(kind: string, pin: string): PinType | '' {
 
 /**
  * Derives edge type from (from-kind, from-pin) — never stored as edge field.
- * Mirrors backend validator logic. A future Phase C task deletes GraphEdge.kind
- * field entirely; this helper makes that change trivial.
+ * Mirrors backend validator logic.
  */
 export function edgeKindOf(fromKind: string, fromPin: string): 'data' | 'exec' {
   return dataOutTypeFor(fromKind, fromPin) !== '' ? 'data' : 'exec'

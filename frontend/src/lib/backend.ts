@@ -95,11 +95,11 @@ export interface VarDecl {
 export interface GraphNode {
   id: string
   kind: string
-  label?: string       // Editor v2 polish round 2 — user-editable display name
+  label?: string       // 用户可编辑的显示名 (UE/Houdini 标准, optional, 不影响逻辑)
   x: number
   y: number
   config?: Record<string, any>
-  disabled?: boolean   // Editor v2 C — runtime skips this node
+  disabled?: boolean   // runtime 跳过该节点 — 走 kind-aware passthrough
   createdAt?: string
 }
 export interface GraphEdge {
@@ -118,7 +118,7 @@ export interface Graph {
   edges: GraphEdge[]
 }
 
-// SubgraphOutputDecl v2 spec §1.4: 父图边引用稳定 ID, UI 显示 Name
+// SubgraphOutputDecl — 父图边引用稳定 ID, UI 显示 Name (允许 rename name 不破坏 edge).
 export interface SubgraphOutputDecl {
   id: string
   name: string
@@ -139,7 +139,7 @@ export interface RecordingContext {
   recordedAt: string
 }
 
-// Subgraph v2 spec §1.4: 容器内的可执行函数
+// Subgraph — 容器内的可执行函数
 export interface Subgraph {
   id: string
   label: string
@@ -151,7 +151,7 @@ export interface Subgraph {
   createdAt: string
 }
 
-// LibrarySubgraph 库子图 = Subgraph + 夹带的模板依赖（v2 spec §3.1）。
+// LibrarySubgraph 库子图 = Subgraph + 夹带的模板依赖.
 export interface LibrarySubgraph extends Subgraph {
   requiredTemplates?: TemplateMeta[]
 }

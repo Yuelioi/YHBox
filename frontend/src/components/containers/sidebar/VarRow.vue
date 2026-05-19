@@ -1,5 +1,4 @@
-<!-- frontend/src/components/containers/sidebar/VarRow.vue -->
-<!-- Var 行: 折叠摘要 + ✎ 切换展开行内编辑. Phase 4: drag-start + IncVar hover button. -->
+<!-- Var 行: 折叠摘要 + ✎ 切换展开行内编辑 + drag-start + IncVar hover button. -->
 <template>
   <div class="rounded text-[11px] group" :class="expanded ? 'bg-elevated/60 border border-default' : 'bg-elevated/30'">
     <!-- Collapsed -->

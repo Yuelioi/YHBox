@@ -104,7 +104,7 @@ register({
         { value: 'lastROIScan.clusters', label: 'lastROIScan.clusters (any)' },
         { value: 'lastScreenshot.path', label: 'lastScreenshot.path (string)' },
       ],
-      hint: '运行时 sys 状态 — 同 tick 内一致 (per-tick snapshot, spec §10.3)',
+      hint: '运行时 sys 状态 — 同一 tick 内一致 (per-tick snapshot)',
     },
   ],
   defaults: { path: '' },

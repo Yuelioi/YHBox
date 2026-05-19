@@ -1,4 +1,4 @@
-// v4 §5.5 Expr fusion — collapse `A.value → B.in_x` Expr-chain into single Expr.
+// Expr fusion — 把 `A.value → B.in_x` 的 Expr 链合并成单个 Expr.
 //
 // Algorithm:
 //   1. Verify A.kind === 'Expr', B.kind === 'Expr', A.value has fan-out 1 to B.targetPin.

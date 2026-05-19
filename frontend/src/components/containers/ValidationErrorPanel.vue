@@ -54,8 +54,7 @@
                 {{ e.graphPath.join(' › ') }}
               </span>
             </div>
-            <!-- v4 (spec §12): prefer t('error.<CODE>', params) — falls back to backend.message
-                 if i18n key not registered, then to the raw code as last resort. -->
+            <!-- t('error.<CODE>', params) → backend.message → raw code (fallback 链). -->
             <div class="text-xs text-toned leading-relaxed pl-5">{{ errorText(e) }}</div>
             <div v-if="e.nodeId" class="text-[10px] text-dimmed pl-5">
               {{ t('validation.node_label') }} <code class="font-mono">{{ e.nodeId }}</code>
@@ -117,10 +116,10 @@ const titleText = computed(() => {
     : t('validation.title_failed', { errorCount: errorCount.value })
 })
 
-// v4 (spec §12): code+params → t('error.<CODE>', params). Fallback chain:
-//   1. i18n key registered → translated string
-//   2. backend legacy Message field non-empty → use it (back-compat for codes without keys yet)
-//   3. raw code (last resort, hints at missing translation)
+// code+params → t('error.<CODE>', params). Fallback 链:
+//   1. i18n key 注册了 → translated string
+//   2. backend Message 非空 → 用它 (尚未 i18n 的 code 的 transitional)
+//   3. raw code (最后兜底, hint missing translation)
 function errorText(e: ValidationError & { params?: Record<string, any> }): string {
   const key = `error.${e.code}`
   if (te(key)) {

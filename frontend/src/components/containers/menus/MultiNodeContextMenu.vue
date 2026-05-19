@@ -1,6 +1,4 @@
-<!-- frontend/src/components/containers/menus/MultiNodeContextMenu.vue -->
-<!-- Editor v2 C — multi-selection right-click menu.
-     Spec: editor-v2-quick-actions-design.md §2.3. -->
+<!-- Multi-selection right-click menu. -->
 <template>
   <template v-if="open">
     <div

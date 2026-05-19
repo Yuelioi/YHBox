@@ -64,7 +64,7 @@
       </div>
     </section>
 
-    <!-- v4 §5.5 Expr 链提示 + 一键合并 (D8) -->
+    <!-- Expr 链提示 + 一键合并按钮 -->
     <section
       v-if="exprChainHint"
       class="mb-5 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5"
@@ -215,7 +215,7 @@
       </div>
     </section>
 
-    <!-- MouseCalibration：v2 spec §1.6 防误用形态 -->
+    <!-- MouseCalibration 节点 — 强制 sync 形态防止误用 -->
     <section v-else-if="node.kind === 'MouseCalibration'" class="space-y-3">
       <div
         v-if="isCalibrationForeign"
@@ -478,7 +478,7 @@
       />
     </section>
 
-    <!-- v4 §7.1: data-in pin literal editors (no incoming edge → set inline value) -->
+    <!-- Data-in pin literal 编辑 (未连入边时 → 走 config.literal inline 值) -->
     <section v-if="dataInLiterals.length > 0" class="mb-5">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
         数据输入 (literal)
@@ -589,9 +589,8 @@ const emit = defineEmits<{
 const settingsStore = useSettingsStore()
 const globalCounts360 = computed(() => settingsStore.data?.ui?.mouseCounts360 ?? 0)
 
-// v4 §7.1 inline pin literal (Inspector edition — in-canvas UE-style render deferred).
-// For each data-in pin in PIN_SPECS[kind].dataIn that lacks an incoming data edge,
-// expose a literal editor bound to config.literal[pinName].
+// Inline pin literal — Inspector 版.
+// 对每个 PIN_SPECS[kind].dataIn 里没连入边的 pin, 暴露一个绑 config.literal[pinName] 的编辑器.
 interface LiteralEntry { name: string; type: string }
 const dataInLiterals = computed<LiteralEntry[]>(() => {
   if (!props.node) return []
@@ -629,7 +628,7 @@ function setLiteral(pin: string, v: any) {
   emit('update', cfg)
 }
 
-// v4 D8: 一键 fusion — Inspector 触发 CustomEvent, ContainerEditorView 监听 + useExprFusion.fuse().
+// 一键 fusion — Inspector 触发 CustomEvent, ContainerEditorView 监听 + useExprFusion.fuse().
 function onFuseExpr() {
   if (!exprChainHint.value || !props.node) return
   window.dispatchEvent(new CustomEvent('expr-fuse', {
@@ -641,8 +640,8 @@ function onFuseExpr() {
   }))
 }
 
-// v4 §5.5 第二层: Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,
-// Inspector 显示提示建议合并 (Phase D 加 fusion 按钮; 当前只提示).
+// Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,
+// Inspector 显示合并建议 + 按钮.
 interface ChainHint { targetID: string; targetPin: string }
 const exprChainHint = computed<ChainHint | null>(() => {
   if (!props.node || props.node.kind !== 'Expr') return null

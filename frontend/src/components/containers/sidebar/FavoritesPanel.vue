@@ -1,7 +1,4 @@
-<!-- frontend/src/components/containers/sidebar/FavoritesPanel.vue -->
-<!-- Editor v2 B — real Favorites panel (replaces FavoritesPanelPlaceholder).
-     Drag-out → build node via useEditorDragDrop ('node-spec' payload).
-     Spec: editor-v2-node-discovery-design.md §6.3. -->
+<!-- Favorites panel. Drag-out → useEditorDragDrop ('node-spec' payload) → 画布建节点. -->
 <template>
   <SidebarSection
     title="收藏"
