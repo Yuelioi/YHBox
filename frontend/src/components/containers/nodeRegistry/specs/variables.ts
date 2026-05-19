@@ -70,7 +70,7 @@ register({
   kind: 'GetSys',
   group: 'variables',
   labelZh: '系统状态',
-  description: '', // not in KIND_DESCRIPTION map — pinSpec.ts has no entry.
+  description: '从 $sys 系统快照读字段 (e.g. iter, lastTemplate.point, winnerIdx)。纯数据节点, 通过 data-out pin 输出。',
   visual: { icon: 'i-tabler-cpu', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: [],
   execOut: [],
@@ -114,7 +114,7 @@ register({
   kind: 'GetParam',
   group: 'variables',
   labelZh: '子图入参',
-  description: '',
+  description: '读取当前子图的入参 (Subgraph 调用时传入). paramName 必须在该子图 inputParams 中声明。纯数据节点。',
   visual: { icon: 'i-tabler-input-search', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: [],
   execOut: [],

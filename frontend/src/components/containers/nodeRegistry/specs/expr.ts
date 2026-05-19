@@ -8,7 +8,7 @@ register({
   kind: 'Expr',
   group: 'variables',
   labelZh: '表达式',
-  description: '',
+  description: '通用表达式节点: config.expr 字符串 + 动态 data-in pins (config.inputs[]). 替代 v3 散落各处的 expr 字段。纯数据节点。',
   visual: { icon: 'i-tabler-math', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
   execIn: [],
   execOut: [],
