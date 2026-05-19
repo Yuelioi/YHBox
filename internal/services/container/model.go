@@ -34,6 +34,7 @@ type GraphNode struct {
 	X         float32        `json:"x"`
 	Y         float32        `json:"y"`
 	Config    map[string]any `json:"config,omitempty"`
+	Disabled  bool           `json:"disabled,omitempty"`  // Editor v2 C — runtime skips this node
 	CreatedAt time.Time      `json:"createdAt"`
 }
 

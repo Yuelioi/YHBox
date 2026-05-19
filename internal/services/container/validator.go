@@ -93,6 +93,10 @@ const (
 
 	// Editor v2 variable panel (spec editor-v2-vars-panel-design.md §4.3.2)
 	CodeInvalidVarRef = "INVALID_VAR_REF"
+
+	// Editor v2 C — Disable Node (spec editor-v2-quick-actions-design.md §6.3)
+	CodeDisabledBranchNodeWarn  = "WARN_DISABLED_BRANCH_NODE"
+	CodeInvalidDisabledTerminal = "INVALID_DISABLED_TERMINAL"
 )
 
 // ValidationError is the i18n-ready error envelope (spec §12).
@@ -168,6 +172,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateGetParamNodes(c)...)
 	errs = append(errs, validateCollapsedReferences(c)...)
 	errs = append(errs, validateVarRefs(c)...)
+	errs = append(errs, validateDisabledNodes(c)...)
 
 	// Phase 3: Type / Semantic
 	errs = append(errs, validatePhaseCNodeKinds(c)...)

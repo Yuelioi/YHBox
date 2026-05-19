@@ -6,6 +6,7 @@
       v.border,
       selected ? 'ring-2 ring-primary' : '',
       isRunning ? 'ring-2 ring-emerald-400 shadow-emerald-500/30 animate-pulse-running' : '',
+      isDisabled ? 'opacity-50 grayscale' : '',
     ]"
     :style="{ minWidth: '180px' }"
   >
@@ -13,6 +14,12 @@
     <div class="flex items-center gap-1.5 px-2.5 py-1 border-b" :class="v.border">
       <UIcon :name="v.icon" class="size-3.5 text-default shrink-0" />
       <span class="font-medium text-default truncate">{{ label }}</span>
+      <UIcon
+        v-if="isDisabled"
+        name="i-tabler-ban"
+        class="size-3 text-warning shrink-0"
+        title="此节点已禁用 (运行时跳过)"
+      />
       <span
         v-if="isRunning"
         class="ml-auto size-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"
@@ -125,13 +132,14 @@ const execStore = useExecutionStore()
 
 const props = defineProps<{
   id: string
-  data: { kind: string; config?: Record<string, any> }
+  data: { kind: string; config?: Record<string, any>; disabled?: boolean }
   selected?: boolean
 }>()
 
 const kind = computed(() => props.data?.kind ?? '')
 const label = computed(() => KIND_LABEL_ZH[kind.value] ?? kind.value)
 const isRunning = computed(() => execStore.running && execStore.currentNodeID === props.id)
+const isDisabled = computed(() => props.data?.disabled === true)
 const v = computed(
   () =>
     KIND_VISUAL[kind.value] ?? {

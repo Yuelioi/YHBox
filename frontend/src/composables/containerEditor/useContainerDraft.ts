@@ -13,7 +13,7 @@ export interface FlowNode {
   id: string
   type: string
   position: { x: number; y: number }
-  data: { kind: string; config?: Record<string, any> }
+  data: { kind: string; config?: Record<string, any>; disabled?: boolean }
 }
 export interface FlowEdge {
   id: string
@@ -88,7 +88,7 @@ export function useContainerDraft(containerID: string) {
       id: n.id,
       type: n.kind,
       position: { x: n.x, y: n.y },
-      data: { kind: n.kind, config: n.config },
+      data: { kind: n.kind, config: n.config, disabled: n.disabled === true },
     }))
     flowEdges.value = g.edges.map((e: GraphEdge, i: number) => {
       const dot = e.from.indexOf('.')

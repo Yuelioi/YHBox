@@ -51,6 +51,11 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return nil, nil
 	}
 
+	// Editor v2 C — Disable Node: skip kind-specific logic, route through configured exit pin.
+	if node.Disabled {
+		return r.passthroughDisabled(node, tok)
+	}
+
 	switch node.Kind {
 	case "Start":
 		return r.edges.next(node.ID+".out", tok.LoopStack), nil

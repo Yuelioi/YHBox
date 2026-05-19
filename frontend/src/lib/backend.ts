@@ -98,6 +98,7 @@ export interface GraphNode {
   x: number
   y: number
   config?: Record<string, any>
+  disabled?: boolean   // Editor v2 C — runtime skips this node
   createdAt?: string
 }
 export interface GraphEdge {
