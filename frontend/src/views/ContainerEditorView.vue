@@ -142,9 +142,13 @@
           <RecentPanelPlaceholder v-model:expanded="sidebarPrefs.recentExpanded" />
           <VarsPanel
             :vars="draft?.vars ?? []"
-            :usage-count="0"
+            :usage-count="totalVarUsageCount"
             v-model:expanded="sidebarPrefs.varsExpanded"
             @add-var="onAddVar"
+            @rename-var="onRenameVar"
+            @update-var-field="onUpdateVarField"
+            @request-delete="onRequestDeleteVar"
+            @reorder-vars="onReorderVars"
           />
         </aside>
 
@@ -238,6 +242,15 @@
       @save="(form) => applyDraftMutation((d) => Object.assign(d, form))"
     />
 
+    <DeleteVarConfirmModal
+      v-if="deleteConfirm"
+      :open="true"
+      :var-name="deleteConfirm.name"
+      :ref-i-ds="deleteConfirm.refIDs"
+      @update:open="(v) => { if (!v) deleteConfirm = null }"
+      @confirm="onDeleteConfirm"
+    />
+
   </div>
 </template>
 
@@ -283,6 +296,7 @@ import FavoritesPanelPlaceholder from '@/components/containers/sidebar/Favorites
 import RecentPanelPlaceholder from '@/components/containers/sidebar/RecentPanelPlaceholder.vue'
 import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
+import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 
@@ -349,6 +363,55 @@ function onAddVar() {
     d.vars.push({ name: `v${n}`, type: 'number', default: 0 })
   })
 }
+
+// Var CRUD handlers — wired to VarsPanel emits (Phase 3)
+const deleteConfirm = ref<{ name: string; refIDs: string[] } | null>(null)
+
+function onRequestDeleteVar(name: string) {
+  const refs = varMutations.listUsageNodeIDs(name)
+  if (refs.length === 0) {
+    // 0 references → delete directly without confirm
+    applyDraftMutation(() => varMutations.deleteVar(name, { cascade: false }))
+  } else {
+    deleteConfirm.value = { name, refIDs: refs }
+  }
+}
+
+function onDeleteConfirm(cascade: boolean) {
+  if (!deleteConfirm.value) return
+  const name = deleteConfirm.value.name
+  applyDraftMutation(() => varMutations.deleteVar(name, { cascade }))
+  deleteConfirm.value = null
+}
+
+function onRenameVar(oldName: string, newName: string) {
+  applyDraftMutation(() => varMutations.renameVar(oldName, newName))
+}
+
+function onUpdateVarField(name: string, field: 'type' | 'default', value: unknown) {
+  applyDraftMutation((d) => {
+    const v = (d.vars ?? []).find(x => x.name === name)
+    if (!v) return
+    if (field === 'type') {
+      v.type = value as 'number' | 'bool' | 'string' | 'point' | 'any'
+    } else {
+      v.default = value
+    }
+  })
+}
+
+function onReorderVars(fromIdx: number, toIdx: number) {
+  applyDraftMutation(() => varMutations.reorderVars(fromIdx, toIdx))
+}
+
+// Real usage count — sum across all vars (derive from draft, reactive)
+const totalVarUsageCount = computed(() => {
+  if (!draft.value) return 0
+  return (draft.value.vars ?? []).reduce(
+    (sum, v) => sum + varMutations.countUsage(v.name),
+    0,
+  )
+})
 
 // Editor v2 B/C handlers — stubs until B/C ship
 function onOpenNodeExplorer() {
