@@ -9,7 +9,7 @@ import (
 	"yhbox/internal/services/expr"
 )
 
-// evalPureFunc (v4) dispatches the 22 pure-function node Kinds (spec §6).
+// evalPureFunc dispatches the 22 pure-function node Kinds.
 // All are pure data: no exec, no side effects, no edges.next. They form the
 // arithmetic/logic plumbing between GetVar/GetSys/Expr and SetVar/If/Switch/etc.
 //
@@ -123,9 +123,8 @@ func (r *ContainerRunner) binNumBool(n *container.GraphNode, op func(a, b float6
 }
 
 // evalEq: same-type direct compare; cross-type via expr.FormatValue (ToString-based).
-// Cross-type ToString is intentional per spec §6.2 — but produces surprises like
-// "1.0" != "1" depending on FormatValue rules. PIN_TYPE_COERCION_WARNING from
-// validator nudges users to insert explicit To* nodes when one side is `any`.
+// Cross-type ToString 故意保留 — 但会产生 "1.0" != "1" 这类惊喜 (依赖 FormatValue 规则).
+// PIN_TYPE_COERCION_WARNING 提示用户在一侧是 `any` 时插入显式 To* 节点.
 func (r *ContainerRunner) evalEq(n *container.GraphNode, negate bool) (expr.Value, error) {
 	av, _ := r.pullDataPin(n.ID, "a")
 	bv, _ := r.pullDataPin(n.ID, "b")

@@ -1,14 +1,6 @@
 // validator.go 容器/子图 graph 校验器.
 //
-// FUTURE-WORK (spec §11 架构演进): 当前所有校验都堆在 Validate 里 (含语义错误 + 兼容性
-// normalize + dispatch 编译). 增长到 30+ 规则后会变难维护. 拆成三阶段会更清晰:
-//
-//   Validate   → 只报错: dangling edge, cyclic dep, EMPTY_SUBGRAPH_OUTPUT 等结构性 bug
-//   Normalize  → 修能修的: subgraph_store.normalizeSubgraph 这种 self-heal 单独成阶段
-//   Compile    → 把高层图编译成 runtime 友好结构 (edge index, pin map, frame layout)
-//
-// 现状这三件事混在 Validate + ContainerRunner 构造时. 拆分时机: 规则数 ≥ 25 或
-// runtime 启动时间 (Validate + edgeIndex) 超过用户感知阈值.
+// Backlog: 拆 Validate / Normalize / Compile 三阶段 — 见 backend-backlog.md B3.
 package container
 
 import (
@@ -67,7 +59,7 @@ const (
 	CodeInvalidCronExpr       = "INVALID_CRON_EXPR"
 )
 
-// v4 data-pin + variable + literal validation codes (spec §11).
+// Data-pin + variable + literal validation codes.
 const (
 	CodePinTypeMismatch        = "PIN_TYPE_MISMATCH"
 	CodePinTypeCoercionWarning = "PIN_TYPE_COERCION_WARNING"
@@ -77,34 +69,32 @@ const (
 	CodeDataPinDangling        = "DATA_PIN_DANGLING"
 	CodeDataGraphCycle         = "DATA_GRAPH_CYCLE"
 
-	// v4 Expr node (spec §5.4)
+	// Expr node
 	CodeExprParseError     = "EXPR_PARSE_ERROR"
 	CodeExprUnknownInput   = "EXPR_UNKNOWN_INPUT"
 	CodeExprTypeMismatch   = "EXPR_TYPE_MISMATCH"
 	CodeExprDuplicateInput = "EXPR_DUPLICATE_INPUT"
 
-	// v4 GetSys / GetParam (spec §4)
+	// GetSys / GetParam
 	CodeGetSysUnknownPath    = "GETSYS_UNKNOWN_PATH"
 	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
 
-	// v4 CollapsedNode (spec §9.2)
+	// CollapsedNode
 	CodeCollapsedPinBroken                = "COLLAPSED_PIN_BROKEN"
 	CodeCollapsedReferencedBySubgraphCall = "COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL"
 
-	// Editor v2 variable panel (spec editor-v2-vars-panel-design.md §4.3.2)
+	// Container vars
 	CodeInvalidVarRef = "INVALID_VAR_REF"
 
-	// Editor v2 C — Disable Node (spec editor-v2-quick-actions-design.md §6.3)
+	// Disable Node
 	CodeDisabledBranchNodeWarn  = "WARN_DISABLED_BRANCH_NODE"
 	CodeInvalidDisabledTerminal = "INVALID_DISABLED_TERMINAL"
 )
 
-// ValidationError is the i18n-ready error envelope (spec §12).
+// ValidationError is the i18n-ready error envelope.
 //
-// FUTURE-WORK (E4 deferred): Message field still holds Chinese strings —
-// v4 spec calls for Code+Params only (frontend t(Code, Params) for display).
-// Migration is invasive (~30 validator emit sites + vue-i18n setup + zh.json
-// dictionary), deferred until i18n infrastructure lands. Until then, Message
+// Backlog: 删 Message field, 前端走纯 Code+Params 路径 — 见 backend-backlog.md B5.
+// 当前 frontend fallback 链 (t(code, params) → backend.message → raw code) 兼容并存. Until then, Message
 // remains authoritative for single-line display (ValidationFailure.Error()).
 type ValidationError struct {
 	Severity  string         `json:"severity"`
@@ -333,13 +323,11 @@ func validateInvalidPins(c *Container) []ValidationError {
 			fromID, fromPin := splitRef(e.From)
 			toID, toPin := splitRef(e.To)
 			if node, ok := nodeByID[fromID]; ok && fromPin != "" {
-				// v4 (C1): 边类型从 (kind, fromPin) 派生 — 在 spec.DataOut → data; 否则查 exec-out
-				// (含 Subgraph 动态 exec-out via OutputPins). 不依赖已删除的 e.Kind 字段.
+				// 边类型从 (kind, fromPin) 派生: spec.DataOut → data; 否则查 exec-out
+				// (含 Subgraph 动态 exec-out via OutputPins).
 				isDataOut := IsDataOutPin(node.Kind, fromPin)
 				isExecOut := nodeHasExecOutPin(node, fromPin)
 				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
-				// v4 spec §9.2 / §2.1 (Phase D backend minimal). F1 commit `3635d86` 落地 kind
-				// 注册 + runtime dispatch 但未补此处, F4 helper press_esc_until_clear 撞出.
 				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {
 					if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {
 						if set, ok := subgraphOutputIDsByID[sgID]; ok {

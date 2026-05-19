@@ -8,9 +8,9 @@ import (
 	"yhbox/internal/services/container"
 )
 
-// ExecFrame 单层 graph 调用栈帧（v2 spec §2.7）。
-// LocalVars: frame-local 变量（Gemini 雷点三），子图调用之间互不干扰。
-// LocalParams (v4): 子图入参 (Subgraph.InputParams), 调用入栈时从父图 pull 进来,
+// ExecFrame 单层 graph 调用栈帧.
+// LocalVars: frame-local 变量, 子图调用之间互不干扰.
+// LocalParams: 子图入参 (Subgraph.InputParams), 调用入栈时从父图 pull 进来,
 //    子图内 GetParam 节点读取. 跟 LocalVars 同生命周期 (pop frame 即销毁).
 type ExecFrame struct {
 	ContainerID string
@@ -103,7 +103,7 @@ func (s *ExecState) GetLocalVarChain(name string) (any, bool) {
 	return nil, false
 }
 
-// ResolveVar 按 local → parent chain → global 顺序查找（v2 spec §2.7）。
+// ResolveVar 按 local → parent chain → global 顺序查找.
 func (s *ExecState) ResolveVar(name string) (any, bool) {
 	for f := s.CurrentFrame; f != nil; f = f.Parent {
 		if v, ok := f.LocalVars[name]; ok {
@@ -127,7 +127,7 @@ func (s *ExecState) SetGlobalVar(name string, value any) {
 // ResolveSourceCalibCounts 沿 frame.Parent 链向上找最近一个非 nil 的
 // SubgraphRef.RecordingContext.MouseCounts360 当作 MouseMoveRel scale 的源值。
 // 主图层级 (CurrentFrame.SubgraphRef == nil) 或者所有祖先都没有 RecordingContext → 返 0
-// (caller 应解释为"不缩放，raw 值原样输出"，跟 v2 spec §2.7 一致)。
+// (caller 应解释为 "不缩放, raw 值原样输出").
 func (s *ExecState) ResolveSourceCalibCounts() int {
 	for f := s.CurrentFrame; f != nil; f = f.Parent {
 		if f.SubgraphRef == nil {

@@ -11,7 +11,7 @@ const (
 )
 
 // PinTypeCompat returns (allowed, isCoercionWarning).
-// Matrix per spec §2.3.
+// !! Frontend `pinTypeCompat` in nodeRegistry/index.ts 必须跟这同步 — TestRegistryParity 抓 drift.
 func PinTypeCompat(from, to PinType) (allow, warn bool) {
 	if from == to || from == PinAny || to == PinAny {
 		return true, false

@@ -37,7 +37,7 @@ func (r *ContainerRunner) evalGetParam(n *container.GraphNode) (expr.Value, erro
 // Pure data — no exec / no edges. Reads tick snapshot (NOT live rt.sys) for determinism.
 //
 // 例外: now_ms + varLastChange.<name> 总是 live 读 (跟 snapshot 解耦, Fishing v2
-// watchdog 需要时间戳比较 → snapshot 化反而出错). 见 spec §7.
+// watchdog 需要时间戳比较 → snapshot 化反而出错).
 func (r *ContainerRunner) evalGetSys(n *container.GraphNode) (expr.Value, error) {
 	path := configString(n, "path")
 	if path == "" {

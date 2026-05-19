@@ -27,7 +27,7 @@ func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 	return c, nil
 }
 
-// --- v4: Expr node (spec §5) ---
+// --- Expr node typed config ---
 
 // ExprConfig 是 Expr 节点 typed config.
 // inputs[] 在画布上动态加 — 每个 input 对应一个 data-in pin (name + type).

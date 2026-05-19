@@ -92,15 +92,11 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 	case "DetectColor":
 		return r.execDetectColor(ctx, node, tok)
 	case "Subgraph", "CollapsedNode":
-		// v4 §9.2 CollapsedNode = isAnonymous Subgraph; same runtime path.
+		// CollapsedNode = isAnonymous Subgraph, runtime 路径相同.
 		return r.execSubgraph(ctx, node, tok)
 	case "SubgraphInput":
-		// FUTURE-WORK (spec §11): SubgraphInput 当前在 graph 里以实节点存在, 但它本质是
-		// metadata (子图入口的 marker), 没有任何执行逻辑 — 就是 edges.next 直通. v2 早期
-		// 这样做是因为 UI 复用 vue-flow 节点系统简单. 长期看应该把它降级为子图 metadata
-		// (Subgraph.EntryNodeID 或类似), 不进 Graph.Nodes. 收益: 1) 用户改不了入口数量 (1
-		// 个 enforce); 2) validator 不用再检 SubgraphInput 唯一性; 3) 子图布局更自由
-		// (入口不占节点位). 改的时机: 加 ValidationError UI 之后, 顺手清理.
+		// 入口 marker, 无执行逻辑 — 直通到 .out edges.
+		// Backlog: 降级为 Subgraph.EntryNodeID metadata, 不再进 Graph.Nodes — 见 backend-backlog.md B2.
 		return r.edges.next(node.ID+".out", tok.LoopStack), nil
 	case "SubgraphOutput":
 		return r.execSubgraphOutput(ctx, node, tok)
@@ -350,14 +346,12 @@ func (r *ContainerRunner) execRace(ctx context.Context, n *container.GraphNode, 
 	return r.edges.next(n.ID+".complete", tok.LoopStack), nil
 }
 
-// runSubFlow Parallel/Race 子分支用的迷你 dispatch（与主 dispatch 同语义但分支独立）。
+// runSubFlow Parallel/Race 子分支用的迷你 dispatch (与主 dispatch 同语义但分支独立).
 //
-// v4 TODO (Determinism contract / spec §10.3): r.currentTick is shared across goroutines.
-// If two parallel branches both call GetVar/GetSys during overlapping execNode windows,
-// they'll race on the snapshot. Acceptable for now because Phase A pure-data nodes (GetVar/GetSys)
-// are not yet wired into Parallel branch logic. When data-flow meets parallel branches
-// (Phase B+ when evalDataSource is fully wired into more node kinds), switch r.currentTick to
-// a ctx-value or pass snapshot as parameter to make it per-goroutine.
+// !! 已知 goroutine race !! — r.currentTick 跨 goroutine 共享.
+// 当 Parallel 分支同时 GetVar/GetSys 时会撞 snapshot. 当前 Parallel 分支不接 pure-data 节点,
+// 所以暂时不炸. Fishing v2 主线可能撞 (Parallel + GetVar 组合).
+// Backlog: r.currentTick 改 ctx-value 或参数显式传 — 见 backend-backlog.md B1.
 func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) error {
 	queue := append([]ExecToken{}, seeds...)
 	for len(queue) > 0 {
@@ -370,8 +364,8 @@ func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) err
 		if !ok {
 			return fmt.Errorf("subflow: unknown node %q", tok.NodeID)
 		}
-		// v4: capture per-exec-tick snapshot (sequential within this goroutine).
-		// NOT goroutine-safe across parallel branches — see TODO above.
+		// Per-exec-tick snapshot (sequential within this goroutine).
+		// !! NOT goroutine-safe — see backend-backlog.md B1 注释.
 		r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
 		out, err := r.execNode(ctx, node, tok)
 		r.currentTick = nil
@@ -617,9 +611,9 @@ func (r *ContainerRunner) execMouseMoveRel(ctx context.Context, n *container.Gra
 	dx := int(r.pullNumber(n, "dx", 0))
 	dy := int(r.pullNumber(n, "dy", 0))
 	dur := int(r.pullNumber(n, "durationMs", 200))
-	// v2 spec §2.7: scale = target / source. target = 主图 MouseCalibration（启动 snapshot），
-	// source = 当前 frame chain 中最近的 Subgraph.RecordingContext.MouseCounts360。
-	// 任一为 0 → scale = 1（手动组装 subgraph / 未校准 → 原值回放，跟旧 v1 行为兼容）。
+	// scale = target / source. target = 主图 MouseCalibration (启动 snapshot),
+	// source = 当前 frame chain 中最近的 Subgraph.RecordingContext.MouseCounts360.
+	// 任一为 0 → scale = 1 (手动组装 subgraph / 未校准 → 原值回放).
 	target := r.state.CalibCounts
 	source := r.state.ResolveSourceCalibCounts()
 	if target > 0 && source > 0 && target != source {

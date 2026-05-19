@@ -1,12 +1,12 @@
 // Package template 管理模板（PNG + meta）。
 //
-// v2 spec §1.5：top-level TemplateService 取消，改为 ContainerService（容器内 templates/）
-// 和 LibraryService（库 templates/）各自托管。本包降级为基础库：PNG IO / 哈希 / meta 序列化。
+// Top-level TemplateService 取消, 改为 ContainerService (容器内 templates/) 和
+// LibraryService (库 templates/) 各自托管. 本包降级为基础库: PNG IO / 哈希 / meta 序列化.
 package template
 
 import "time"
 
-// OriginKind 模板来源（v2 spec §1.5 / GPT 第三轮）。
+// OriginKind 模板来源 — 用于 copy-on-use 后溯源.
 // 解决 copy-on-use 后用户问"这张图哪来的"的溯源问题。
 const (
 	OriginKindScreenshot = "screenshot" // 本机 ScreenPicker 截的

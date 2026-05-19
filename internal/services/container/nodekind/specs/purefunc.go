@@ -46,7 +46,7 @@ func init() {
 	nodekind.Register(pureFunc("Eq", any2, nodekind.PinBool, zAny))
 	nodekind.Register(pureFunc("NotEq", any2, nodekind.PinBool, zAny))
 
-	// 逻辑 (3) — pin type 是 bool 但 v3 expr 历史是 any, 先按 spec §6.3 用 bool
+	// 逻辑 (3) — pin type bool (跟 frontend purefunc.ts 一致)
 	bool2 := map[string]nodekind.PinType{"a": nodekind.PinBool, "b": nodekind.PinBool}
 	zBool := map[string]any{"a": false, "b": false}
 	zBoolT := map[string]any{"a": true, "b": true}

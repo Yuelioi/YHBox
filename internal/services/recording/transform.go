@@ -1,6 +1,6 @@
 // transform.go: 录制事件流 → container.Subgraph 转换层.
 //
-// 录制全部自动进 Subgraph (v2 spec: model.go RecordingContext).
+// 录制全部自动进 Subgraph (带 RecordingContext 记录 counts360 + 分辨率).
 //
 // 简易录制 (filterMode='simple'): KeyDown/KeyUp 配对 → KeyPress, MouseBtnDown/Up
 // 同位置 → ClickAt (用 Down 时坐标), Scroll 1:1, 相邻 Step 间 idle > 阈值 → 插 Sleep.

@@ -1,7 +1,7 @@
 package container
 
-// GraphRef 结构化引用一个 graph，替代散落的 "main" magic string（v2 spec §1.2，GPT 第三轮）。
-// 所有 runtime / debugger / 日志 / 序列化里指向 graph 的地方都用这个，不要直接传字符串。
+// GraphRef 结构化引用一个 graph, 替代散落的 "main" magic string.
+// 所有 runtime / debugger / 日志 / 序列化里指向 graph 的地方都用这个, 不要直接传字符串.
 type GraphRef struct {
 	Kind string `json:"kind"` // "main" | "subgraph"
 	ID   string `json:"id"`   // Graph.ID（subgraph 时 = subgraph.Graph.ID）

@@ -11,9 +11,8 @@ package container
 //    OR the referenced subgraph is NOT isAnonymous (CollapsedNode must wrap an anonymous
 //    one — if user toggled isAnonymous=false they should upgrade to Subgraph kind).
 //
-// Note: COLLAPSED_PIN_BROKEN per spec §9.2 also covers "internal SubgraphInput/Output
-// markers don't line up with external pins". That's a deeper structural check — deferred
-// here to validateInvalidPins which catches dangling edges on the call node by other means.
+// Note: COLLAPSED_PIN_BROKEN 还覆盖 "内部 SubgraphInput/Output marker 跟外部 pin 对不上"
+// 这种更深层结构错 — 这里 defer 给 validateInvalidPins 走 dangling edge 兜底.
 func validateCollapsedReferences(c *Container) []ValidationError {
 	if c == nil {
 		return nil

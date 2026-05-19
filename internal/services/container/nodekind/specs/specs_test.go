@@ -8,8 +8,7 @@ import (
 	"yhbox/internal/services/container/nodekind"
 )
 
-// expectedKinds 是 v4 spec 全集合 — 跟 validate.go KnownNodeKinds 对齐.
-// 后续 task A3 删 KnownNodeKinds 时, 这里就是新的真理源.
+// expectedKinds 是当前支持的 kind 全集合 — Registry 的真理源 (drift detection).
 var expectedKinds = []string{
 	// control (11)
 	"Start", "Stop", "Sleep", "Loop", "If", "Switch", "Parallel", "Race", "Break", "Continue", "Cron",

@@ -8,7 +8,7 @@ import (
 
 // TickSnapshot is a frozen view of rt.vars + rt.sys captured at execNode entry.
 // All data-pull operations (GetVar / GetSys) within the same exec tick read this snapshot,
-// guaranteeing same-tick data consistency (spec §10.3 Determinism contract).
+// guaranteeing same-tick data consistency (Determinism contract).
 //
 // SetVar writes go directly to backing store (rt.vars / rt.sys); current tick's snapshot
 // is unaffected, but the next exec node's snapshot picks up the new values.

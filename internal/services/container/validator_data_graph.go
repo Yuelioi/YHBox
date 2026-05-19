@@ -1,6 +1,6 @@
 package container
 
-// validateDataGraphAcyclic (v4, spec §10 + §11) checks that data edges form a DAG.
+// validateDataGraphAcyclic checks that data edges form a DAG.
 // Data flow uses pull semantics (consumer pulls source), so cycles would mean a
 // node's input depends transitively on its own output — infinite recursion at runtime.
 //

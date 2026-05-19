@@ -37,7 +37,7 @@ func parseExprCached(src string) (*expr.Node, error) {
 //
 // Notes:
 //   - InputEnv exposes ONLY bare identifiers from inputs[]; $vars/$sys/$params are intentionally
-//     unreachable (spec §5.3 — want explicit data-flow via GetVar/GetSys/GetParam upstream nodes).
+//     unreachable — want explicit data-flow via GetVar/GetSys/GetParam upstream nodes.
 //   - outType is metadata for pin schema / coercion warnings; runtime returns the natural type
 //     (validator handles EXPR_TYPE_MISMATCH for explicit outType).
 func (r *ContainerRunner) evalExpr(n *container.GraphNode) (expr.Value, error) {

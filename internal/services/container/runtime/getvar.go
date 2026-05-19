@@ -7,11 +7,11 @@ import (
 	"yhbox/internal/services/expr"
 )
 
-// evalGetVar reads a variable based on scope (spec §3.1).
+// evalGetVar reads a variable based on scope.
 //
 // Pure data node: no ExecToken, no edges.next; called from pullDataPin / evalDataSource.
 // Reads from the per-exec-tick snapshot (r.currentTick) for "global"/"auto" scope —
-// guarantees same-tick consistency (spec §10.3).
+// guarantees same-tick consistency.
 //
 // scope (default "auto"):
 //   - "local"  → current frame.LocalVars only (no fallback). Unset → nil.

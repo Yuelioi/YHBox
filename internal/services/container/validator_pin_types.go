@@ -1,6 +1,6 @@
 package container
 
-// pinTypeCompat mirrors runtime.PinTypeCompat (spec §2.3). Kept here to avoid
+// pinTypeCompat mirrors runtime.PinTypeCompat. Kept here to avoid
 // the container → container/runtime import cycle (runtime imports container).
 // Both files MUST stay in sync — when the matrix changes, update both.
 func pinTypeCompat(from, to string) (allow, warn bool) {

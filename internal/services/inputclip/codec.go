@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-// 文件格式 (spec §9):
+// 文件格式:
 // [Magic "ICLP" 4B][Version uint32 LE 4B]
 // [HeaderJSONLen uint32 LE 4B][HeaderJSON ...]
 // [Chunk 0: ChunkLen uint32 LE 4B][events ... padding to 4KB]

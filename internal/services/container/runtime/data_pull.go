@@ -60,7 +60,7 @@ func (d *dataEdgeIndex) Source(nodeID, pinName string) (string, string) {
 	return src, pin
 }
 
-// pullDataPin resolves a data-in pin's current value (spec §7.2):
+// pullDataPin resolves a data-in pin's current value:
 //  1. If a data edge connects to this pin, recursively evaluate the source.
 //  2. Else if config["literal"][pinName] exists, return it (inline literal).
 //  3. Else return nil (caller handles default).

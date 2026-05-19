@@ -268,8 +268,8 @@ func (s *Service) DeleteMany(ids []string) error {
 	return nil
 }
 
-// SyncLocalMouseCalibration RPC 暴露给前端：批量把所有本地容器主图的 MouseCalibration 节点
-// counts360 改成 newCounts。详见 v2 spec §3.4.1。
+// SyncLocalMouseCalibration RPC 暴露给前端: 批量把所有本地容器主图的 MouseCalibration 节点
+// counts360 改成 newCounts.
 func (s *Service) SyncLocalMouseCalibration(newCounts int) (SyncMouseCalibrationResult, error) {
 	res, err := SyncLocalMouseCalibration(s.store, newCounts)
 	if err == nil || len(res.Updated) > 0 {

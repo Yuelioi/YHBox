@@ -67,24 +67,18 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 	return cp
 }
 
-// ContainerRunner 跑一个 container 节点图（token dispatch loop）。
+// ContainerRunner 跑一个 container 节点图 (token dispatch loop).
 //
-// FUTURE-WORK (spec §11): 当前 dispatch 是 preemptive — 单 goroutine + ctx.Done 检查间隔
-// 决定响应性. 节点内长任务 (如 WaitTemplate 默认 30s timeout) 无法中途响应高优先级
-// 中断 (热键 Stop 要等节点 return). 长期应换 cooperative scheduler: 节点要按 budget 主动
-// yield ((rt.Tick(); if budget exceeded { return CONTINUE })), runner 在 yield 点检查
-// 中断 / 优先级队列 / cancellation. 收益: 1) Stop 真·瞬停 (<5ms); 2) 多容器并发跑能公平
-// 调度而不是抢 CPU; 3) 资源限制 (单容器 CPU/帧抓取配额). 改的时机: 用户开始抱怨"停止
-// 慢"或"两个容器一起跑卡". 注意改造范围大, 14+ 节点 exec 函数都要加 yield 点.
+// Backlog: 改 cooperative scheduler 让 Stop 真·瞬停 + 多容器公平调度 — 见 backend-backlog.md B6.
 type ContainerRunner struct {
 	rt          *RuntimeContext
 	nodesByID   map[string]*container.GraphNode
 	edges       *edgeIndex
-	dataEdges   *dataEdgeIndex // v4: separate index for data-flow edges (Kind="data")
+	dataEdges   *dataEdgeIndex
 	state       *ExecState
 	stopwatches *stopwatchTable
 
-	// currentTick is the per-exec-tick snapshot of rt.vars + rt.sys (spec §10.3).
+	// currentTick is the per-exec-tick snapshot of rt.vars + rt.sys.
 	// Captured before each execNode dispatch and cleared after; consumed by GetVar / GetSys
 	// pure-data nodes during the same tick to guarantee data consistency.
 	currentTick *TickSnapshot
@@ -106,8 +100,8 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	return r
 }
 
-// snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot。
-// 没节点 / counts360=0 → 返 0（runtime 不缩放）。v2 spec §2.7。
+// snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot.
+// 没节点 / counts360=0 → 返 0 (runtime 不缩放).
 func snapshotMainCalibCounts(c *container.Container) int {
 	for _, n := range c.Graph.Nodes {
 		if n.Kind == "MouseCalibration" {

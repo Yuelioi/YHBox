@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// SyncMouseCalibrationResult 一次批量同步的报告（v2 spec §3.4.1）。
+// SyncMouseCalibrationResult 一次批量同步的报告.
 type SyncMouseCalibrationResult struct {
 	Updated []string          `json:"updated"`
 	Skipped []string          `json:"skipped"`

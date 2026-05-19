@@ -24,7 +24,7 @@ import (
 // ErrCancelled ClipPlayer 因 Cancel() 或 ctx 取消而终止 Wait() 返这个.
 var ErrCancelled = errors.New("clip playback cancelled")
 
-// IClipPlayable spec §4.4 抽象: 调度方 (PlayClip 节点) 只看接口.
+// IClipPlayable 抽象: 调度方 (PlayClip 节点) 只看接口.
 type IClipPlayable interface {
 	Start(ctx context.Context)
 	Wait() error

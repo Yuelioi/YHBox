@@ -82,7 +82,7 @@ func TestGetVar_AutoScope_FrameThenGlobal(t *testing.T) {
 	}
 }
 
-// TestGetVar_DefaultScopeIsLocal: scope unset → treated as "local" per spec §3.1.
+// TestGetVar_DefaultScopeIsLocal: scope unset → treated as "local" (历史 default).
 func TestGetVar_DefaultScopeIsLocal(t *testing.T) {
 	_, r := newTestRunner(t)
 	r.currentTick = CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{})

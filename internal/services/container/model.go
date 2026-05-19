@@ -8,7 +8,7 @@ import "time"
 // 后者控 graph 内部 schema）。
 const CurrentSchemaVersion = 1
 
-// GraphSchemaVersion 每个 Graph 内部 schema 的版本号。v2 spec §1.2：
+// GraphSchemaVersion 每个 Graph 内部 schema 的版本号。
 // 所有 graph 共用同一个值；schema 演进必须递增；启动 load 时不匹配标 Status: Incompatible（不 panic）。
 const GraphSchemaVersion = 1
 
@@ -31,33 +31,27 @@ type VarDecl struct {
 type GraphNode struct {
 	ID        string         `json:"id"`
 	Kind      string         `json:"kind"`
-	Label     string         `json:"label,omitempty"`     // Editor v2 polish round 2 — user-editable display name
+	Label     string         `json:"label,omitempty"`     // 用户可编辑显示名 (optional, 不影响逻辑)
 	X         float32        `json:"x"`
 	Y         float32        `json:"y"`
 	Config    map[string]any `json:"config,omitempty"`
-	Disabled  bool           `json:"disabled,omitempty"`  // Editor v2 C — runtime skips this node
+	Disabled  bool           `json:"disabled,omitempty"`  // runtime 跳过该节点 (kind-aware passthrough)
 	CreatedAt time.Time      `json:"createdAt"`
 }
 
 // GraphEdge 边。From/To 格式："<nodeId>.<pinName>"。
-// 对 Subgraph 调用节点，pinName = SubgraphOutputDecl.ID（v2 spec §1.4）。
+// 对 Subgraph 调用节点，pinName = SubgraphOutputDecl.ID.
 //
-// v4 (C1): 删 Kind 字段 — 边的类型 (data / exec) 从 (from-node.kind, from-pin) 派生:
-// 若 fromPin 在 nodekind.Spec.DataOut 里 → data 边; 否则 exec 边 (含 Subgraph 动态 exec-out).
-// 原 Kind 字段是冗余真值源, 跟 spec 漂移过会导致 INVALID_PIN bug (saved JSON 里 edge.Kind=""
-// 时 validator switch 落 default 跑 exec-pin 检查, GetVar.value 无 exec pin → 报错).
-// JSON 反序列化对老数据兼容: 多余字段 (旧 "kind":"data") 会被静默 drop.
+// Kind 字段已删 — 边类型 (data / exec) 由 (from-node.kind, from-pin) 派生:
+// fromPin 在 nodekind.Spec.DataOut 里 → data 边; 否则 exec 边 (含 Subgraph 动态 exec-out).
+// 多余字段 (旧 "kind":"data") JSON 反序列化静默 drop.
 type GraphEdge struct {
 	From string `json:"from"`
 	To   string `json:"to"`
 }
 
-// Graph 节点图。v2 在 v1 基础上加 ID（UUID）+ Version。
-//
-// FUTURE-WORK (spec §11): 缺 Revision 字段. 协作/撤回/历史回溯/HMR 都需要单调递增的
-// 修订号. 当前 onSave 整个 graph 全量写盘, 没法做 "撤回到上 3 步" 这种交互. 加 Revision
-// (uint64, save 时 +1) + 保留最近 N 个 snapshot 到 containers/<id>/history/, 就能解锁.
-// 也是分布式协作 (CRDT / OT) 的前置. 加的时机: 用户开始抱怨 "改坏了想撤回" 或者真做协作.
+// Graph 节点图。有 ID (UUID) + Version (= GraphSchemaVersion).
+// Backlog: 加 Revision 字段支持撤回/HMR/协作 — 见 backend-backlog.md B4.
 type Graph struct {
 	ID      string      `json:"id"`      // UUID；graph 自己有 identity
 	Version int         `json:"version"` // = GraphSchemaVersion 写入时
@@ -86,7 +80,7 @@ type Container struct {
 	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
-// SubgraphOutputDecl 一个命名出口的稳定标识（v2 spec §1.4，GPT 第三轮关键加固）。
+// SubgraphOutputDecl 一个命名出口的稳定标识。
 // 父图 edge / runtime dispatch / validator 都用 ID 引用；UI 用 Name 显示。
 // rename 只改 Name 不动 ID，父图无感。
 type SubgraphOutputDecl struct {
@@ -112,7 +106,7 @@ type RecordingContext struct {
 	RecordedAt     string `json:"recordedAt"`     // RFC3339 时间戳
 }
 
-// Subgraph 容器内的可执行函数（v2 spec §1.4）。
+// Subgraph 容器内的可执行函数。
 // 持久化路径：bin/data/containers/<container-id>/subgraphs/<id>.json
 // 库 subgraph 路径：bin/data/library/subgraphs/<id>.json（多带 requiredTemplates 信息，见 library 包）
 type Subgraph struct {
@@ -121,9 +115,9 @@ type Subgraph struct {
 	Description      string               `json:"description,omitempty"`
 	Graph            Graph                `json:"graph"`                      // 内部节点 + 边
 	OutputPins       []SubgraphOutputDecl `json:"outputPins"`                 // 由内部 SubgraphOutput 节点派生缓存
-	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"`      // v4 新: 子图入参声明 (data-in pin schema on call sites)
+	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
 	Tags             []string             `json:"tags,omitempty"`             // 容器内 + 库 都用
 	RecordingContext *RecordingContext    `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
-	IsAnonymous      bool                 `json:"isAnonymous,omitempty"`      // v4 新: CollapsedNode 后备子图 (Phase D), 不入 NodePalette/Subgraph 候选下拉
+	IsAnonymous      bool                 `json:"isAnonymous,omitempty"`      // CollapsedNode 后备子图, 不入 NodePalette/Subgraph 候选下拉
 	CreatedAt        time.Time            `json:"createdAt"`
 }

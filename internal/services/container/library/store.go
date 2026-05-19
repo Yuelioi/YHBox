@@ -1,7 +1,6 @@
-// Package library 公共库（library/subgraphs/ + library/templates/）。
+// Package library 公共库 (library/subgraphs/ + library/templates/).
 //
-// v2 spec §3：copy-on-use 语义；本包负责 CRUD + 文件 IO，
-// 实际拷贝到容器走 copy.go 里的 CopyToContainer。
+// Copy-on-use 语义: 本包负责 CRUD + 文件 IO, 实际拷贝到容器走 copy.go 的 CopyToContainer.
 package library
 
 import (
