@@ -1,0 +1,1204 @@
+[
+  {
+    "kind": "Add",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "And",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "bool",
+      "b": "bool"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Break",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "BringGameForeground",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "CheckTemplate",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "yes",
+      "no"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "threshold": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "point": "point"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "ClickAt",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "durationMs": "number",
+      "xRatio": "number",
+      "yRatio": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "ClickTemplate",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "done",
+      "timeout"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "threshold": "number",
+      "timeoutMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "point": "point"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "CollapsedNode",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "CommentBox",
+    "group": "system",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": true
+  },
+  {
+    "kind": "Concat",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "string",
+      "b": "string"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "string"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Contains",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "haystack": "string",
+      "needle": "string"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Continue",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "DetectColor",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "yes",
+      "no"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "minPixels": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "point": "point"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "DetectColorHSV",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "yes",
+      "no",
+      "timeout"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "minPixelRatio": "number",
+      "pollIntervalMs": "number",
+      "timeoutMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "pixelCount": "number",
+      "pixelRatio": "number"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Div",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Eq",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "any",
+      "b": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Expr",
+    "group": "variables",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": true,
+    "dataOut": {
+      "value": "any"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "GetParam",
+    "group": "variables",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "value": "any"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "GetSys",
+    "group": "variables",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "value": "any"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "GetVar",
+    "group": "variables",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "value": "any"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Gt",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "GtEq",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "If",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "then",
+      "else"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "condition": "bool"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "IncVar",
+    "group": "variables",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "delta": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "KeyHoldStart",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "KeyHoldStop",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "KeyPress",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "durationMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Length",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "s": "string"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Log",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "message": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Loop",
+    "group": "control",
+    "execIn": [
+      "in",
+      "loopback"
+    ],
+    "execOut": [
+      "body",
+      "complete"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "condition": "bool",
+      "count": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "iter": "number"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Lt",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "LtEq",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Mod",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "MouseCalibration",
+    "group": "system",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "MouseHoldStart",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "xRatio": "number",
+      "yRatio": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "MouseHoldStop",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "MouseMoveRel",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "durationMs": "number",
+      "dx": "number",
+      "dy": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Mul",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Neg",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "x": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Not",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "x": "bool"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "NotEq",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "any",
+      "b": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "OnEvent",
+    "group": "input",
+    "execIn": null,
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "cooldownMs": "number",
+      "maxConcurrent": "number",
+      "pollIntervalMs": "number",
+      "threshold": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Or",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "bool",
+      "b": "bool"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Parallel",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "complete"
+    ],
+    "hasExecOutFn": true,
+    "dataIn": {
+      "n": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "PlayClip",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "ROIColorScan",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "found",
+      "notFound",
+      "timeout"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "maxClusterPx": "number",
+      "minClusterCount": "number",
+      "minClusterPx": "number",
+      "pollIntervalMs": "number",
+      "timeoutMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "clusterCount": "number",
+      "clusters": "any"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Race",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "complete"
+    ],
+    "hasExecOutFn": true,
+    "dataIn": {
+      "n": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "winnerIdx": "number"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Screenshot",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "done"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "path": "string"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Scroll",
+    "group": "input",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "delta": "number",
+      "xRatio": "number",
+      "yRatio": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Select",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "any",
+      "b": "any",
+      "cond": "bool"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "any"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "SetVar",
+    "group": "variables",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "value": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Sleep",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "durationMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Start",
+    "group": "control",
+    "execIn": null,
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Stop",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "StopwatchRead",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "elapsedMs": "number"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "StopwatchStart",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "StopwatchStop",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Sub",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "a": "number",
+      "b": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Subgraph",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "SubgraphInput",
+    "group": "system",
+    "execIn": null,
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "SubgraphOutput",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Switch",
+    "group": "control",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "default"
+    ],
+    "hasExecOutFn": true,
+    "dataIn": {
+      "value": "string"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Throw",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "message": "string"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "ToBool",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "x": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "bool"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "ToNumber",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "x": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "number"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "ToString",
+    "group": "purefunc",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": {
+      "x": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "result": "string"
+    },
+    "isPureData": true,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Toast",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "out"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "message": "any",
+      "title": "any"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "Try",
+    "group": "system",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "done",
+      "timeout",
+      "error"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "timeoutMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "errorMsg": "string"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "WaitTemplate",
+    "group": "detect",
+    "execIn": [
+      "in"
+    ],
+    "execOut": [
+      "found",
+      "timeout"
+    ],
+    "hasExecOutFn": false,
+    "dataIn": {
+      "threshold": "number",
+      "timeoutMs": "number"
+    },
+    "hasDataInDynamicFn": false,
+    "dataOut": {
+      "point": "point"
+    },
+    "isPureData": false,
+    "isVisualOnly": false
+  },
+  {
+    "kind": "WindowTarget",
+    "group": "system",
+    "execIn": null,
+    "execOut": null,
+    "hasExecOutFn": false,
+    "dataIn": null,
+    "hasDataInDynamicFn": false,
+    "dataOut": null,
+    "isPureData": false,
+    "isVisualOnly": false
+  }
+]
