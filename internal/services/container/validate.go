@@ -31,9 +31,12 @@ type ValidationFailure struct {
 	Errors []ValidationError
 }
 
+// TODO(E4): ValidationError.Message field is being removed in favor of Code+Params i18n.
+// When E4 lands, swap the format below to t(Code, Params) or drop Message reference here —
+// otherwise this Error() output becomes "CODE: " (trailing colon + empty).
 func (f *ValidationFailure) Error() string {
 	if len(f.Errors) == 0 {
-		return "container: validation passed"
+		return "container: validation passed" // unreachable from Validate(); defensive only
 	}
 	if len(f.Errors) == 1 {
 		e := f.Errors[0]
