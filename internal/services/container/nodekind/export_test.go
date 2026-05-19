@@ -1,9 +1,10 @@
-package nodekind
+package nodekind_test
 
 import (
 	"encoding/json"
 	"testing"
 
+	"yhbox/internal/services/container/nodekind"
 	_ "yhbox/internal/services/container/nodekind/specs"
 )
 
@@ -11,11 +12,11 @@ import (
 // and contains all registered kinds with the expected static fields.
 // D2 parity test depends on this being byte-stable across two calls.
 func TestExportJSONStable(t *testing.T) {
-	data, err := ExportJSON()
+	data, err := nodekind.ExportJSON()
 	if err != nil {
 		t.Fatalf("ExportJSON: %v", err)
 	}
-	var specs []ExportedSpec
+	var specs []nodekind.ExportedSpec
 	if err := json.Unmarshal(data, &specs); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -24,7 +25,7 @@ func TestExportJSONStable(t *testing.T) {
 	}
 
 	// Idempotent: second call produces byte-identical output.
-	data2, err := ExportJSON()
+	data2, err := nodekind.ExportJSON()
 	if err != nil {
 		t.Fatalf("ExportJSON (2nd call): %v", err)
 	}
@@ -43,10 +44,10 @@ func TestExportJSONStable(t *testing.T) {
 // TestExportedSpecShape spot-checks a few kinds to ensure the exported view
 // correctly reflects backend Spec fields.
 func TestExportedSpecShape(t *testing.T) {
-	data, _ := ExportJSON()
-	var specs []ExportedSpec
+	data, _ := nodekind.ExportJSON()
+	var specs []nodekind.ExportedSpec
 	_ = json.Unmarshal(data, &specs)
-	byKind := map[string]ExportedSpec{}
+	byKind := map[string]nodekind.ExportedSpec{}
 	for _, s := range specs {
 		byKind[s.Kind] = s
 	}
@@ -56,7 +57,7 @@ func TestExportedSpecShape(t *testing.T) {
 	if !ok {
 		t.Fatal("Sleep not in export")
 	}
-	if sleep.DataIn["durationMs"] != PinNumber {
+	if sleep.DataIn["durationMs"] != nodekind.PinNumber {
 		t.Errorf("Sleep.DataIn.durationMs = %v, want number", sleep.DataIn["durationMs"])
 	}
 	if sleep.IsPureData {
@@ -77,7 +78,7 @@ func TestExportedSpecShape(t *testing.T) {
 	if len(gv.ExecIn) != 0 || len(gv.ExecOut) != 0 {
 		t.Errorf("GetVar exec pins should be empty: %+v", gv)
 	}
-	if gv.DataOut["value"] != PinAny {
+	if gv.DataOut["value"] != nodekind.PinAny {
 		t.Errorf("GetVar.DataOut.value = %v, want any", gv.DataOut["value"])
 	}
 
