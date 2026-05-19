@@ -183,6 +183,8 @@
             @node-double-click="onNodeDoubleClick"
             @pane-click="selectedID = null"
             @pane-context-menu="onCanvasContextMenu"
+            @node-context-menu="onNodeContextMenu"
+            @selection-context-menu="onSelectionContextMenu"
             @pane-double-click="onPaneDoubleClick"
             @connect-start="onVfConnectStart"
             @connect-end="onVfConnectEnd"
@@ -274,6 +276,23 @@
       @pick="onInlineMenuPick"
     />
 
+    <!-- Editor v2 C: 右键菜单 -->
+    <NodeContextMenu
+      v-if="nodeMenu.node"
+      :open="nodeMenu.open"
+      :position="nodeMenu.position"
+      :node="nodeMenu.node"
+      @update:open="(v) => { nodeMenu.open = v }"
+      @action="onNodeMenuAction"
+    />
+    <MultiNodeContextMenu
+      :open="multiMenu.open"
+      :position="multiMenu.position"
+      :count="multiMenu.count"
+      @update:open="(v) => { multiMenu.open = v }"
+      @action="onMultiMenuAction"
+    />
+
   </div>
 </template>
 
@@ -323,6 +342,8 @@ import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConf
 import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
+import NodeContextMenu, { type NodeMenuAction } from '@/components/containers/menus/NodeContextMenu.vue'
+import MultiNodeContextMenu, { type MultiMenuAction } from '@/components/containers/menus/MultiNodeContextMenu.vue'
 import { useDiscoveryStore } from '@/stores/discovery'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
@@ -386,6 +407,14 @@ const { prefs: sidebarPrefs } = useSidebarPrefs()
 const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
 const libraryExplorerOpen = ref(false)
+
+// ===== Editor v2 C: 右键菜单状态 =====
+const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
+  open: false, position: { x: 0, y: 0 }, node: null,
+})
+const multiMenu = ref<{ open: boolean; position: { x: number; y: number }; count: number }>({
+  open: false, position: { x: 0, y: 0 }, count: 0,
+})
 
 // Phase 1 var mutations (Phase 3 will wire full UI)
 const varMutations = useVarMutations(draft)
@@ -802,6 +831,183 @@ function onCanvasContextMenu(e: MouseEvent) {
   openInlineMenuAt(e.clientX, e.clientY)
 }
 
+// ===== Editor v2 C: 右键菜单事件处理 =====
+
+function onNodeContextMenu(event: { event: MouseEvent | TouchEvent; node: any }) {
+  event.event.preventDefault()
+  const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
+  const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
+  const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+    (n) => n.id === event.node.id,
+  )
+  if (!node) return
+  // 多选且点击节点在选中集合内 → 显示多选菜单
+  const sel = getSelectedNodes.value ?? []
+  if (sel.length > 1 && sel.some((n: any) => n.id === node.id)) {
+    multiMenu.value = {
+      open: true,
+      position: { x: clientX, y: clientY },
+      count: sel.length,
+    }
+    nodeMenu.value.open = false
+    return
+  }
+  nodeMenu.value = {
+    open: true,
+    position: { x: clientX, y: clientY },
+    node,
+  }
+  multiMenu.value.open = false
+}
+
+function onSelectionContextMenu(event: { event: MouseEvent; nodes: any[] }) {
+  event.event.preventDefault()
+  multiMenu.value = {
+    open: true,
+    position: { x: event.event.clientX, y: event.event.clientY },
+    count: event.nodes.length,
+  }
+  nodeMenu.value.open = false
+}
+
+function onNodeMenuAction(a: NodeMenuAction) {
+  const node = nodeMenu.value.node
+  if (!node) return
+  switch (a) {
+    case 'copy':
+      onCopySelection()
+      return
+    case 'cut':
+      onCopySelection()
+      // 复制后删除选中节点 (剪切语义)
+      getSelectedNodes.value.forEach((n: any) => removeNodes([n.id]))
+      return
+    case 'paste':
+      void onPasteSelection()
+      return
+    case 'duplicate': {
+      // 单节点复刻: 先选中该节点, 复制, 再粘贴
+      onCopySelection()
+      void onPasteSelection()
+      return
+    }
+    case 'delete':
+      removeNodes([node.id])
+      if (selectedID.value === node.id) selectedID.value = null
+      return
+    case 'toggle-disable':
+      applyDraftMutation((_d) => {
+        const g = activeGraph.value
+        const n = g?.nodes.find((x) => x.id === node.id) as (GraphNode & { disabled?: boolean }) | undefined
+        if (!n) return
+        n.disabled = !n.disabled
+      })
+      return
+    case 'star':
+      useDiscoveryStore().toggleFavorite(node.kind)
+      return
+    case 'jump-to-var':
+      sidebarPrefs.value.varsExpanded = true
+      sidebarPrefs.value.leftSidebarCollapsed = false
+      return
+    case 'find-references': {
+      const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
+      if (varName) {
+        const refs = varMutations.listUsageNodeIDs(varName)
+        toast.add({
+          title: `变量 '${varName}' 引用`,
+          description: refs.length > 0 ? `${refs.length} 个节点: ${refs.join(', ')}` : '无引用',
+        })
+      }
+      return
+    }
+    case 'promote-to-var':
+      // C5 实装; 当前 stub
+      toast.add({ title: 'Promote to Variable', description: 'C5 实装中', color: 'warning' })
+      return
+    case 'jump-to-subgraph': {
+      const sgID = (node.config as Record<string, unknown> | undefined)?.subgraphId as string | undefined
+      if (sgID) editorStore.pushPath(sgID)
+      return
+    }
+    case 'rename':
+      // 未来实装 (节点 label rename)
+      return
+  }
+}
+
+function onMultiMenuAction(a: MultiMenuAction) {
+  switch (a) {
+    case 'copy':
+      onCopySelection()
+      return
+    case 'cut':
+      onCopySelection()
+      getSelectedNodes.value.forEach((n: any) => removeNodes([n.id]))
+      return
+    case 'paste':
+      void onPasteSelection()
+      return
+    case 'duplicate':
+      onCopySelection()
+      void onPasteSelection()
+      return
+    case 'delete':
+      getSelectedNodes.value.forEach((n: any) => removeNodes([n.id]))
+      return
+    case 'toggle-disable-all':
+      applyDraftMutation((_d) => {
+        const g = activeGraph.value
+        if (!g) return
+        const sel = new Set(getSelectedNodes.value.map((n: any) => n.id))
+        const allDisabled = (g.nodes as Array<GraphNode & { disabled?: boolean }>)
+          .filter((n) => sel.has(n.id))
+          .every((n) => n.disabled === true)
+        for (const n of g.nodes as Array<GraphNode & { disabled?: boolean }>) {
+          if (sel.has(n.id)) n.disabled = !allDisabled
+        }
+      })
+      return
+    case 'fold':
+      onFoldSelection()
+      return
+    case 'auto-layout-lr':
+      onAutoLayout('LR')
+      return
+    case 'auto-layout-tb':
+      onAutoLayout('TB')
+      return
+    case 'align-left':
+      onAlignSelected('left')
+      return
+    case 'align-right':
+      onAlignSelected('right')
+      return
+    case 'align-top':
+      onAlignSelected('top')
+      return
+    case 'align-bottom':
+      onAlignSelected('bottom')
+      return
+    case 'align-center-h':
+      onAlignSelected('center-h')
+      return
+    case 'align-center-v':
+      onAlignSelected('center-v')
+      return
+    case 'distribute-h':
+      onAlignSelected('h-equal')
+      return
+    case 'distribute-v':
+      onAlignSelected('v-equal')
+      return
+    case 'comment-box':
+      // 未来实装
+      toast.add({ title: 'CommentBox', description: '待实装', color: 'warning' })
+      return
+  }
+}
+
 function onPaneDoubleClick(e: MouseEvent) {
   openInlineMenuAt(e.clientX, e.clientY)
 }
@@ -1014,7 +1220,7 @@ const { startRecording, stopRecording, countdownSec } = useRecording({
 })
 
 // 节点剪贴板 (Ctrl+C/V) + Subgraph 1:1 复制独立子图副本
-useNodeClipboard({
+const { onCopySelection, onPasteSelection } = useNodeClipboard({
   draft, activeGraph, flowNodes,
   syncFlowFromDraft, refreshSubgraphStore,
   deepCloneSubgraphForCopy, getSelectedNodes,
