@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -59,26 +60,35 @@ func NewStore(root string) (*Store, error) {
 
 func (s *Store) load() error {
 	sgDir := filepath.Join(s.root, "subgraphs")
-	entries, err := os.ReadDir(sgDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(sgDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
-	for _, ent := range entries {
-		if ent.IsDir() {
-			continue
+	err := filepath.WalkDir(sgDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-		if !strings.HasSuffix(ent.Name(), ".json") {
-			continue
+		if d.IsDir() {
+			return nil
 		}
-		b, err := os.ReadFile(filepath.Join(sgDir, ent.Name()))
+		if !strings.HasSuffix(d.Name(), ".json") {
+			return nil
+		}
+		b, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			return nil
 		}
 		var sg LibrarySubgraph
 		if err := json.Unmarshal(b, &sg); err != nil {
-			continue
+			return nil
 		}
 		s.subgraphs[sg.ID] = sg
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	tplIdxPath := filepath.Join(s.root, "templates", "_index.json")
