@@ -9,13 +9,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lxn/win"
 
 	"yhbox/internal/hotkey"
-	"yhbox/internal/services"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
@@ -23,6 +24,37 @@ import (
 	"yhbox/pkg/capture"
 	"yhbox/pkg/vision"
 )
+
+// frameCacheTTL: 同 hwnd 100ms 内复用一帧，避免 IDLE 一轮 3 个 CheckTemplate 各
+// 跑一次 capture.Frame (1080p 5-30ms × 3). 100ms 是 fishing v2 主循环 Sleep 下限,
+// state machine 单 iter 内的多次 Detect 全部命中缓存; 跨 iter 之间 (Sleep ≥ 100ms)
+// 会自然 miss → 重新抓帧.
+const frameCacheTTL = 100 * time.Millisecond
+
+type frameCacheEntry struct {
+	frame *image.RGBA
+	ts    time.Time
+}
+
+// captureFrameCached 同 hwnd 100ms TTL 内复用. 不同 hwnd 互不影响 (key 含 hwnd).
+func captureFrameCached(mu *sync.Mutex, entries map[uintptr]frameCacheEntry, hwnd uintptr) (*image.RGBA, error) {
+	mu.Lock()
+	ent, ok := entries[hwnd]
+	if ok && time.Since(ent.ts) < frameCacheTTL {
+		mu.Unlock()
+		return ent.frame, nil
+	}
+	mu.Unlock()
+
+	frame, err := capture.Frame(win.HWND(hwnd))
+	if err != nil {
+		return nil, err
+	}
+	mu.Lock()
+	entries[hwnd] = frameCacheEntry{frame: frame, ts: time.Now()}
+	mu.Unlock()
+	return frame, nil
+}
 
 // ---- TemplateMatcher: 接 pkg/vision + template store + capture ----
 //
@@ -35,9 +67,11 @@ import (
 // 命中坐标转换：vision.Match 返 ROI 内左上角像素 → 转客户区比例。
 
 type templateMatcherAdapter struct {
-	app       *services.App
 	tplStore  *template.Store
 	loadCache sync.Map // key string → *vision.Template
+
+	fcMu      sync.Mutex
+	fcEntries map[uintptr]frameCacheEntry // hwnd → 最近一帧
 }
 
 func (m *templateMatcherAdapter) loadTemplate(key string) (*vision.Template, error) {
@@ -56,16 +90,15 @@ func (m *templateMatcherAdapter) loadTemplate(key string) (*vision.Template, err
 	return tpl, nil
 }
 
-func (m *templateMatcherAdapter) Detect(_ context.Context, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
-	g := m.app.Game()
-	if g == nil || !g.OK {
+func (m *templateMatcherAdapter) Detect(_ context.Context, hwnd uintptr, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
+	if hwnd == 0 {
 		return false, expr.Point{}, [4]float64{}, nil
 	}
 	tpl, err := m.loadTemplate(key)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, err
 	}
-	frame, err := capture.Frame(win.HWND(g.HWND))
+	frame, err := captureFrameCached(&m.fcMu, m.fcEntries, hwnd)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, fmt.Errorf("capture.Frame: %w", err)
 	}
@@ -128,16 +161,15 @@ func clamp01Bound(w, x float64) float64 {
 // 命中中心客户区比例坐标。HSV 用 pkg/vision.RGBToHSV（H 0-360, S/V 0-255）。
 
 type containerColorAdapter struct {
-	app *services.App
+	fcMu      sync.Mutex
+	fcEntries map[uintptr]frameCacheEntry // hwnd → 最近一帧
 }
 
-func (c *containerColorAdapter) Detect(_ context.Context, region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
-	g := c.app.Game()
-	if g == nil || !g.OK {
+func (c *containerColorAdapter) Detect(_ context.Context, hwnd uintptr, region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
+	if hwnd == 0 {
 		return 0, 0, 0, fmt.Errorf("游戏窗口未就绪")
 	}
-	hwnd := win.HWND(g.HWND)
-	frame, err := capture.Frame(hwnd)
+	frame, err := captureFrameCached(&c.fcMu, c.fcEntries, hwnd)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("capture.Frame: %w", err)
 	}

@@ -16,8 +16,9 @@ type ClipResolver interface {
 // v1 仅 template_appeared 检测。
 type TemplateMatcher interface {
 	// Detect 单次检测。region [r,r,r,r]（0..1 比例），nil → 全屏。
+	// hwnd 来自 runtime.Window.HWND (WindowTarget 节点解析). 0 表示 noop.
 	// 返 found + 命中位置（屏幕比例坐标）+ 命中 region。
-	Detect(ctx context.Context, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
+	Detect(ctx context.Context, hwnd uintptr, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
 }
 
 // ColorDetector DetectColor 节点用：在 ROI 内统计落在颜色范围内的像素。
@@ -29,20 +30,20 @@ type TemplateMatcher interface {
 //
 // 返：命中像素数 / 命中中心客户区比例坐标 (cx, cy)。无命中时 cx/cy = 0。
 type ColorDetector interface {
-	Detect(ctx context.Context, region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
+	Detect(ctx context.Context, hwnd uintptr, region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
 }
 
 // NoopColorDetector：测试 + 启动前没注入实现时的默认。
 type NoopColorDetector struct{}
 
-func (NoopColorDetector) Detect(context.Context, [4]float64, string, [6]int) (int, float64, float64, error) {
+func (NoopColorDetector) Detect(context.Context, uintptr, [4]float64, string, [6]int) (int, float64, float64, error) {
 	return 0, 0, 0, nil
 }
 
 // NoopMatcher：测试 + 启动前没注入实现时的默认。
 type NoopMatcher struct{}
 
-func (NoopMatcher) Detect(ctx context.Context, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
+func (NoopMatcher) Detect(ctx context.Context, hwnd uintptr, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
 	return false, expr.Point{}, [4]float64{}, nil
 }
 

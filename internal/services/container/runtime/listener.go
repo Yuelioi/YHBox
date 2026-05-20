@@ -117,7 +117,7 @@ func (l *EventListener) run(ctx context.Context) {
 			}
 		}
 		// Detect
-		found, _, _, err := l.runner.rt.Matcher.Detect(ctx, l.template, l.threshold, nil)
+		found, _, _, err := l.runner.rt.Matcher.Detect(ctx, l.runner.rt.Window.HWND, l.template, l.threshold, nil)
 		if err != nil || !found {
 			continue
 		}
