@@ -36,6 +36,8 @@ func buildStubMain(subgraphs []container.Subgraph) container.Container {
 			{Name: "_inspectPhaseResult", Type: "string", Default: "unknown"},
 			{Name: "waitingStart", Type: "number", Default: 0.0},
 			{Name: "hookStreak", Type: "number", Default: 0.0},
+			{Name: "fishingStart", Type: "number", Default: 0.0},
+			{Name: "emptyCastStreak", Type: "number", Default: 0.0},
 		},
 		Subgraphs: subgraphs,
 	}
