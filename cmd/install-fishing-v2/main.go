@@ -2,16 +2,19 @@
 // + 13 个 helper/state subgraph 安装到 bin/data/containers/fishing-v2/, GUI 启动后直接显示
 // "fishing-v2" 容器可运行.
 //
-// 用法: go run ./cmd/install-fishing-v2
+// 用法:
+//   go run ./cmd/install-fishing-v2          # 仅替换 fishing-v2/, 保留其他 user container
+//   go run ./cmd/install-fishing-v2 --force  # 额外清空 bin/data/containers/* 所有其他容器
 //
-// 行为 (破坏性):
-//   1. 删 bin/data/containers/* 所有现有 user container (清理 fishing v1 / 历史损坏数据)
-//   2. 创建 bin/data/containers/fishing-v2/container.json (从 library fishing-v2.json 复制)
-//   3. 创建 bin/data/containers/fishing-v2/subgraphs/<sg-id>.json (13 个 helper/state subgraph)
+// 流程 (validate-first):
+//   1. 从 library 读 main + sibling subgraphs, 合并成 in-memory Container 并 validate
+//   2. validate 失败 → 立刻退出, 不动 bin/data/containers/
+//   3. validate 通过 → 删 fishing-v2/ (或 --force 时删全部), 再写新版
 package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,43 +31,37 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
+	force := flag.Bool("force", false, "wipe ALL bin/data/containers/* (default: only fishing-v2)")
+	flag.Parse()
+	if err := run(*force); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	// Step 1: wipe existing user containers
-	entries, err := os.ReadDir(containersDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("read %s: %w", containersDir, err)
-	}
-	for _, ent := range entries {
-		path := filepath.Join(containersDir, ent.Name())
-		if err := os.RemoveAll(path); err != nil {
-			return fmt.Errorf("rm %s: %w", path, err)
-		}
-		fmt.Printf("🗑  rm %s\n", path)
+func run(force bool) error {
+	// Step 1: load library main + sibling subgraphs into memory
+	mainObj, subgraphPayloads, err := loadLibrary()
+	if err != nil {
+		return fmt.Errorf("load library: %w", err)
 	}
 
-	// Step 2: read library fishing-v2.json + sibling subgraphs
-	mainPath := filepath.Join(libraryDir, "fishing-v2.json")
-	mainBytes, err := os.ReadFile(mainPath)
-	if err != nil {
-		return fmt.Errorf("read main %s: %w", mainPath, err)
+	// Step 2: validate BEFORE touching bin/data/containers/
+	if err := validateInMemory(mainObj, subgraphPayloads); err != nil {
+		return fmt.Errorf("pre-install validation: %w", err)
 	}
-	var mainObj map[string]any
-	if err := json.Unmarshal(mainBytes, &mainObj); err != nil {
-		return fmt.Errorf("parse main: %w", err)
+	fmt.Printf("✅ library validation passed (%d subgraphs)\n", len(subgraphPayloads))
+
+	// Step 3: wipe (selective by default, --force = global)
+	if err := wipeContainers(force); err != nil {
+		return err
 	}
-	// strip "subgraphs":[] from container.json (it's loaded from sibling files at runtime)
-	delete(mainObj, "subgraphs")
+
+	// Step 4: write container.json + subgraphs/
 	now := time.Now().UTC().Format(time.RFC3339)
 	mainObj["createdAt"] = now
 	mainObj["updatedAt"] = now
 
-	// Step 3: write container.json + subgraphs/
 	containerDir := filepath.Join(containersDir, mainID)
 	subgraphsDir := filepath.Join(containerDir, "subgraphs")
 	if err := os.MkdirAll(subgraphsDir, 0o755); err != nil {
@@ -81,75 +78,78 @@ func run() error {
 	}
 	fmt.Printf("✅ %s\n", containerJSON)
 
-	// copy each sibling subgraph
+	for sgID, payload := range subgraphPayloads {
+		dst := filepath.Join(subgraphsDir, sgID+".json")
+		if err := os.WriteFile(dst, payload, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", dst, err)
+		}
+		fmt.Printf("✅ %s\n", dst)
+	}
+
+	fmt.Printf("\n🎉 Installed fishing-v2 container with %d subgraphs.\n", len(subgraphPayloads))
+	fmt.Printf("   重启 GUI / task dev 即可看到 'fishing-v2' 容器.\n")
+	return nil
+}
+
+// loadLibrary 读 library main + sibling subgraphs, 返回 main map + (sgID → raw bytes) map.
+// raw bytes 用于 step 4 写盘 (避免 unmarshal → marshal 丢字段顺序).
+func loadLibrary() (map[string]any, map[string][]byte, error) {
+	mainPath := filepath.Join(libraryDir, "fishing-v2.json")
+	mainBytes, err := os.ReadFile(mainPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read main %s: %w", mainPath, err)
+	}
+	var mainObj map[string]any
+	if err := json.Unmarshal(mainBytes, &mainObj); err != nil {
+		return nil, nil, fmt.Errorf("parse main: %w", err)
+	}
+	delete(mainObj, "subgraphs") // sibling files are SoT
+
+	subgraphs := make(map[string][]byte)
 	libEntries, err := os.ReadDir(libraryDir)
 	if err != nil {
-		return fmt.Errorf("read %s: %w", libraryDir, err)
+		return nil, nil, fmt.Errorf("read %s: %w", libraryDir, err)
 	}
-	copied := 0
 	for _, ent := range libEntries {
 		if ent.IsDir() || !strings.HasSuffix(ent.Name(), ".json") {
 			continue
 		}
 		if ent.Name() == "fishing-v2.json" {
-			continue // main, already written
+			continue
 		}
 		src := filepath.Join(libraryDir, ent.Name())
 		b, err := os.ReadFile(src)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", src, err)
+			return nil, nil, fmt.Errorf("read %s: %w", src, err)
 		}
-		// parse → check id matches filename (sanity), keep payload as-is
 		var sg map[string]any
 		if err := json.Unmarshal(b, &sg); err != nil {
-			return fmt.Errorf("parse %s: %w", src, err)
+			return nil, nil, fmt.Errorf("parse %s: %w", src, err)
 		}
 		sgID, _ := sg["id"].(string)
 		if sgID == "" {
-			return fmt.Errorf("%s: missing id", src)
+			return nil, nil, fmt.Errorf("%s: missing id", src)
 		}
-		dst := filepath.Join(subgraphsDir, sgID+".json")
-		if err := os.WriteFile(dst, b, 0o644); err != nil {
-			return fmt.Errorf("write %s: %w", dst, err)
-		}
-		copied++
-		fmt.Printf("✅ %s\n", dst)
+		subgraphs[sgID] = b
 	}
-
-	fmt.Printf("\n🔍 验证安装的 container...\n")
-	if err := validateInstalled(containerDir); err != nil {
-		return fmt.Errorf("post-install validation: %w", err)
-	}
-	fmt.Printf("\n🎉 Installed fishing-v2 container with %d subgraphs, 0 validation errors.\n", copied)
-	fmt.Printf("   重启 GUI / task dev 即可看到 'fishing-v2' 容器.\n")
-	return nil
+	return mainObj, subgraphs, nil
 }
 
-func validateInstalled(containerDir string) error {
-	b, err := os.ReadFile(filepath.Join(containerDir, "container.json"))
+// validateInMemory 把 main + subgraphs 合并成 container.Container 跑 validator.
+// 出现 SeverityError → 返 error (上层报错退出, 不动 bin/data/containers/).
+func validateInMemory(mainObj map[string]any, subgraphPayloads map[string][]byte) error {
+	mainBytes, err := json.Marshal(mainObj)
 	if err != nil {
-		return fmt.Errorf("read container.json: %w", err)
+		return fmt.Errorf("re-marshal main: %w", err)
 	}
 	var c container.Container
-	if err := json.Unmarshal(b, &c); err != nil {
-		return fmt.Errorf("parse container.json: %w", err)
+	if err := json.Unmarshal(mainBytes, &c); err != nil {
+		return fmt.Errorf("parse main as Container: %w", err)
 	}
-	sgDir := filepath.Join(containerDir, "subgraphs")
-	entries, err := os.ReadDir(sgDir)
-	if err != nil {
-		return fmt.Errorf("read subgraphs/: %w", err)
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-		sgB, err := os.ReadFile(filepath.Join(sgDir, e.Name()))
-		if err != nil {
-			return fmt.Errorf("read %s: %w", e.Name(), err)
-		}
+	for sgID, b := range subgraphPayloads {
 		var sg container.Subgraph
-		if err := json.Unmarshal(sgB, &sg); err != nil {
-			return fmt.Errorf("parse %s: %w", e.Name(), err)
+		if err := json.Unmarshal(b, &sg); err != nil {
+			return fmt.Errorf("parse subgraph %s: %w", sgID, err)
 		}
 		c.Subgraphs = append(c.Subgraphs, sg)
 	}
@@ -164,5 +164,35 @@ func validateInstalled(containerDir string) error {
 	if hasErr {
 		return fmt.Errorf("validation has errors (see above)")
 	}
+	return nil
+}
+
+// wipeContainers --force → 删 bin/data/containers/*; 否则仅删 bin/data/containers/fishing-v2/.
+func wipeContainers(force bool) error {
+	if force {
+		entries, err := os.ReadDir(containersDir)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("read %s: %w", containersDir, err)
+		}
+		for _, ent := range entries {
+			path := filepath.Join(containersDir, ent.Name())
+			if err := os.RemoveAll(path); err != nil {
+				return fmt.Errorf("rm %s: %w", path, err)
+			}
+			fmt.Printf("🗑  rm %s\n", path)
+		}
+		return nil
+	}
+	// default: only fishing-v2
+	target := filepath.Join(containersDir, mainID)
+	if _, err := os.Stat(target); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("stat %s: %w", target, err)
+	}
+	if err := os.RemoveAll(target); err != nil {
+		return fmt.Errorf("rm %s: %w", target, err)
+	}
+	fmt.Printf("🗑  rm %s (other user containers preserved; use --force to wipe all)\n", target)
 	return nil
 }
