@@ -53,8 +53,9 @@ var version = "1.1.0"
 func main() {
 	platform.EnsureAdmin()
 
-	// 日志栈：zerolog → LogSink → wails3 Event.Emit
+	// 日志栈：zerolog → LogSink → wails3 Event.Emit + 顺便 append 到 logs/yhfish-YYYYMMDD.log
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
+	logSink.EnableFileWriter("logs")
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
@@ -283,8 +284,13 @@ func main() {
 	// 真模板匹配 + 真颜色检测
 	// v3 Phase B: input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析,
 	// 不再走 main.go 全局注入. containerInputDriver / wire_container 适配器已退役.
-	templateMatcher := &templateMatcherAdapter{app: app, tplStore: templateStore}
-	containerColor := &containerColorAdapter{app: app}
+	templateMatcher := &templateMatcherAdapter{
+		tplStore:  templateStore,
+		fcEntries: make(map[uintptr]frameCacheEntry),
+	}
+	containerColor := &containerColorAdapter{
+		fcEntries: make(map[uintptr]frameCacheEntry),
+	}
 
 	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
 	clipSvc, libClipSvc := newInputClipServices(dataDir)

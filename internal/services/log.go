@@ -1,6 +1,9 @@
 package services
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +18,7 @@ const (
 
 // LogSink 实现 io.Writer。zerolog 输出 JSON Lines → 按 \n 切行 →
 // trailing-edge debounce + maxBatch 双保险 → flush 时给 emit 加单调 seq → 推 log:lines。
+// 同时把每完整行原始 bytes 顺手写入 logs/yhfish-YYYYMMDD.log (post-mortem 调试).
 type LogSink struct {
 	mu      sync.Mutex
 	buf     strings.Builder // 累积未完整行
@@ -23,14 +27,51 @@ type LogSink struct {
 	timer   *time.Timer
 	seq     atomic.Uint64
 	emit    func(LogLinesEvent) // flush 时调；外部装配（app.Emit）
+	file    *os.File           // 当日日志文件 (logs/yhfish-YYYYMMDD.log), 持续 append
+	fileDay string             // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
+	fileDir string             // logs 目录路径
 }
 
 // NewLogSink 创建一个 sink。emit 可为 nil（测试用），nil 时仅维护 ring。
+// logsDir 不空时启用 file 持久化 (按天 rotate). 空时仅 ring buffer.
 func NewLogSink(emit func(LogLinesEvent)) *LogSink {
 	return &LogSink{
 		ring: make([]string, 0, ringCapacity),
 		emit: emit,
 	}
+}
+
+// EnableFileWriter 开启日志写文件 (logs/yhfish-YYYYMMDD.log, 跨天自动 rotate).
+// 失败仅 stderr 警告, 不影响 GUI / ring buffer.
+func (s *LogSink) EnableFileWriter(logsDir string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.fileDir = logsDir
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "LogSink: mkdir %s failed: %v\n", logsDir, err)
+		s.fileDir = ""
+		return
+	}
+	s.openTodayFileLocked()
+}
+
+func (s *LogSink) openTodayFileLocked() {
+	day := time.Now().Format("20060102")
+	if s.file != nil && s.fileDay == day {
+		return
+	}
+	if s.file != nil {
+		_ = s.file.Close()
+		s.file = nil
+	}
+	path := filepath.Join(s.fileDir, "yhfish-"+day+".log")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "LogSink: open %s failed: %v\n", path, err)
+		return
+	}
+	s.file = f
+	s.fileDay = day
 }
 
 // SetEmit 装配 emit 回调（main.go 在 wailsApp 构造完成后调）。
@@ -111,7 +152,7 @@ func (s *LogSink) Flush() {
 	s.mu.Unlock()
 }
 
-// appendLineLocked 持锁加一行到 ring。
+// appendLineLocked 持锁加一行到 ring + file (如启用).
 func (s *LogSink) appendLineLocked(line string) {
 	if len(s.ring) >= ringCapacity {
 		copy(s.ring, s.ring[1:])
@@ -119,6 +160,25 @@ func (s *LogSink) appendLineLocked(line string) {
 	} else {
 		s.ring = append(s.ring, line)
 	}
+	if s.fileDir != "" {
+		s.openTodayFileLocked()
+		if s.file != nil {
+			_, _ = s.file.WriteString(line)
+			_, _ = s.file.WriteString("\n")
+		}
+	}
+}
+
+// Close 关闭日志文件 (shutdown 时调).
+func (s *LogSink) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.file != nil {
+		err := s.file.Close()
+		s.file = nil
+		return err
+	}
+	return nil
 }
 
 // Snapshot ring 内全部行（"\n" 连接）。测试 / 调试用。

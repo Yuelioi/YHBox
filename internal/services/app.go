@@ -52,7 +52,14 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 func (a *App) AttachWailsApp(w *application.App) { a.wailsApp = w }
 
 // Emit 包装 wailsApp.Event.Emit。a.wailsApp == nil 时（启动前）静默丢弃。
+// 同时把所有 container:* 事件 (除高频 node-enter 用 Debug 之外) 镜像到 zerolog
+// 让 logs/yhfish-YYYYMMDD.log 含完整 trace, 方便 post-mortem 调试.
 func (a *App) Emit(name string, data any) {
+	if name == "container:node-enter" {
+		a.rootLog.Debug().Str("event", name).Interface("data", data).Msg("runtime event")
+	} else if len(name) >= 10 && name[:10] == "container:" {
+		a.rootLog.Info().Str("event", name).Interface("data", data).Msg("runtime event")
+	}
 	if a.wailsApp == nil {
 		return
 	}
