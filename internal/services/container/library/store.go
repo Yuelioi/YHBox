@@ -80,6 +80,18 @@ func (s *Store) load() error {
 		if err != nil {
 			return nil
 		}
+		// Container 模板 (有顶层 schemaVersion / subgraphs[] / vars[]) 不该当 LibrarySubgraph 加载 —
+		// 字段错位会让 Container.Graph (含 WindowTarget) 被验为 Subgraph.Graph, 触发
+		// WINDOW_TARGET_IN_SUBGRAPH + EMPTY_SUBGRAPH_OUTPUT 等连环错. F5 单独加 container template 加载路径.
+		var probe struct {
+			SchemaVersion int             `json:"schemaVersion"`
+			Subgraphs     json.RawMessage `json:"subgraphs"`
+		}
+		if err := json.Unmarshal(b, &probe); err == nil {
+			if probe.SchemaVersion > 0 || len(probe.Subgraphs) > 0 {
+				return nil
+			}
+		}
 		var sg LibrarySubgraph
 		if err := json.Unmarshal(b, &sg); err != nil {
 			return nil
