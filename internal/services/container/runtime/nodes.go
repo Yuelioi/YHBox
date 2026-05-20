@@ -796,7 +796,7 @@ func (r *ContainerRunner) execSubgraph(ctx context.Context, node *container.Grap
 	}
 
 	// push frame
-	r.state.PushFrame(container.SubgraphGraphRef(sg.ID), sg)
+	r.state.PushFrame(container.SubgraphGraphRef(sg.ID), sg, node.ID)
 
 	// Populate frame.LocalParams (after push so we write the new frame, not parent).
 	maps.Copy(r.state.CurrentFrame.LocalParams, paramVals)
@@ -842,21 +842,9 @@ func (r *ContainerRunner) execSubgraphOutput(ctx context.Context, node *containe
 	} else {
 		return nil, fmt.Errorf("parent frame graph 不可用")
 	}
-	// 扫父图找 kind=Subgraph 且 config.subgraphId == 当前子图 ID 的节点
-	var callNodeID string
-	if r.state.CurrentFrame.SubgraphRef != nil {
-		targetSGID := r.state.CurrentFrame.SubgraphRef.ID
-		for _, n := range parentGraph.Nodes {
-			if n.Kind == "Subgraph" {
-				if sgid, _ := n.Config["subgraphId"].(string); sgid == targetSGID {
-					callNodeID = n.ID
-					break
-				}
-			}
-		}
-	}
+	callNodeID := r.state.CurrentFrame.CallNodeID
 	if callNodeID == "" {
-		return nil, fmt.Errorf("找不到当前子图在父图的调用方节点")
+		return nil, fmt.Errorf("SubgraphOutput 节点 %s: 当前 frame 缺 CallNodeID (push 时未记录)", node.ID)
 	}
 	downstreamRef := FindParentDownstreamByDeclID(parentGraph.Edges, callNodeID, declID)
 	// pop frame 回父图

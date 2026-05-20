@@ -28,7 +28,7 @@ func TestExecState_NewState(t *testing.T) {
 func TestExecState_PushPopFrame(t *testing.T) {
 	s := NewExecState("c1", 1800)
 	sgRef := &container.Subgraph{ID: "sg-A", Label: "A"}
-	s.PushFrame(container.SubgraphGraphRef("sg-A"), sgRef)
+	s.PushFrame(container.SubgraphGraphRef("sg-A"), sgRef, "call-A")
 	if s.CurrentFrame.Graph.ID != "sg-A" {
 		t.Errorf("after push, current = %+v", s.CurrentFrame.Graph)
 	}
@@ -46,7 +46,7 @@ func TestExecFrame_LocalVarsIsolated(t *testing.T) {
 	s := NewExecState("c1", 1800)
 	s.SetLocalVar("x", 1)
 	sgRef := &container.Subgraph{ID: "sg-A"}
-	s.PushFrame(container.SubgraphGraphRef("sg-A"), sgRef)
+	s.PushFrame(container.SubgraphGraphRef("sg-A"), sgRef, "call-A")
 	if _, ok := s.GetLocalVarHere("x"); ok {
 		t.Errorf("new frame should have empty LocalVars")
 	}
@@ -64,7 +64,7 @@ func TestExecState_ResolveVarFallback(t *testing.T) {
 	s := NewExecState("c1", 1800)
 	s.GlobalVars["gv"] = "global"
 	sgRef := &container.Subgraph{ID: "sg"}
-	s.PushFrame(container.SubgraphGraphRef("sg"), sgRef)
+	s.PushFrame(container.SubgraphGraphRef("sg"), sgRef, "call-sg")
 	s.SetLocalVar("lv", "local")
 
 	if v, _ := s.ResolveVar("lv"); v != "local" {
@@ -87,7 +87,7 @@ func TestExecState_ResolveSourceCalibCounts(t *testing.T) {
 
 	// 手动组装的 subgraph (RecordingContext == nil) → 0
 	manualSG := &container.Subgraph{ID: "sg-manual"}
-	s.PushFrame(container.SubgraphGraphRef("sg-manual"), manualSG)
+	s.PushFrame(container.SubgraphGraphRef("sg-manual"), manualSG, "call-manual")
 	if got := s.ResolveSourceCalibCounts(); got != 0 {
 		t.Errorf("manual sg source = %d want 0", got)
 	}
@@ -98,14 +98,14 @@ func TestExecState_ResolveSourceCalibCounts(t *testing.T) {
 		ID:               "sg-rec",
 		RecordingContext: &container.RecordingContext{MouseCounts360: 4000},
 	}
-	s.PushFrame(container.SubgraphGraphRef("sg-rec"), recSG)
+	s.PushFrame(container.SubgraphGraphRef("sg-rec"), recSG, "call-rec")
 	if got := s.ResolveSourceCalibCounts(); got != 4000 {
 		t.Errorf("rec sg source = %d want 4000", got)
 	}
 
 	// 嵌套：内层 subgraph 无 RecordingContext，应沿 parent chain 拿到 4000
 	innerSG := &container.Subgraph{ID: "sg-inner"}
-	s.PushFrame(container.SubgraphGraphRef("sg-inner"), innerSG)
+	s.PushFrame(container.SubgraphGraphRef("sg-inner"), innerSG, "call-inner")
 	if got := s.ResolveSourceCalibCounts(); got != 4000 {
 		t.Errorf("nested inner source = %d want 4000 (from parent rec sg)", got)
 	}
@@ -115,8 +115,8 @@ func TestExecState_PushNestedTwo(t *testing.T) {
 	s := NewExecState("c1", 1800)
 	sg1 := &container.Subgraph{ID: "sg1"}
 	sg2 := &container.Subgraph{ID: "sg2"}
-	s.PushFrame(container.SubgraphGraphRef("sg1"), sg1)
-	s.PushFrame(container.SubgraphGraphRef("sg2"), sg2)
+	s.PushFrame(container.SubgraphGraphRef("sg1"), sg1, "call-sg1")
+	s.PushFrame(container.SubgraphGraphRef("sg2"), sg2, "call-sg2")
 	if s.CurrentFrame.Graph.ID != "sg2" {
 		t.Errorf("top frame should be sg2, got %s", s.CurrentFrame.Graph.ID)
 	}

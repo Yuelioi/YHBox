@@ -20,6 +20,7 @@ type ExecFrame struct {
 	LocalVars   map[string]any
 	LocalParams map[string]any
 	SubgraphRef *container.Subgraph // Graph.Kind == "subgraph" 时非 nil；指向当前 frame 所属 subgraph 实例
+	CallNodeID  string              // 父图里 push 本 frame 的调用方节点 ID; "" 表示 main frame.
 }
 
 // ExecState 整个 run 的运行时状态。每次 RunOnce 一次新 state。
@@ -50,8 +51,8 @@ func NewExecState(containerID string, calibCounts int) *ExecState {
 	}
 }
 
-// PushFrame 进入一个子图调用：push 新帧。
-func (s *ExecState) PushFrame(graph container.GraphRef, sg *container.Subgraph) {
+// PushFrame 进入一个子图调用：push 新帧。callNodeID 是父图里发起调用的节点 ID。
+func (s *ExecState) PushFrame(graph container.GraphRef, sg *container.Subgraph, callNodeID string) {
 	f := &ExecFrame{
 		ContainerID: s.CurrentFrame.ContainerID,
 		Graph:       graph,
@@ -59,6 +60,7 @@ func (s *ExecState) PushFrame(graph container.GraphRef, sg *container.Subgraph) 
 		LocalVars:   map[string]any{},
 		LocalParams: map[string]any{}, // v4: input param storage (populated by execSubgraph)
 		SubgraphRef: sg,
+		CallNodeID:  callNodeID,
 	}
 	s.CurrentFrame = f
 }
