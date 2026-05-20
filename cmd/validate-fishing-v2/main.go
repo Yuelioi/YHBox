@@ -31,6 +31,9 @@ func buildStubMain(subgraphs []container.Subgraph) container.Container {
 		Vars: []container.VarDecl{
 			{Name: "_pressEscCleared", Type: "bool", Default: false},
 			{Name: "state", Type: "string", Default: "IDLE"},
+			{Name: "controlDir", Type: "number", Default: 0.0},
+			{Name: "_hookFFound", Type: "bool", Default: false},
+			{Name: "_inspectPhaseResult", Type: "string", Default: "unknown"},
 		},
 		Subgraphs: subgraphs,
 	}
