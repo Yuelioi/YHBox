@@ -42,8 +42,8 @@ native/capture_wgc/target
 CLAUDE.md
 .claude/
 
-# Agent State
-COORDINATOR.md
+# Agent workspace
+workshop/
 
 # User Data
 settings.json
