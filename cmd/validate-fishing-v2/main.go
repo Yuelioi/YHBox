@@ -39,6 +39,7 @@ func buildStubMain(subgraphs []container.Subgraph) container.Container {
 			{Name: "fishingStart", Type: "number", Default: 0.0},
 			{Name: "emptyCastStreak", Type: "number", Default: 0.0},
 			{Name: "resultEnteredAt", Type: "number", Default: 0.0},
+			{Name: "recoveryEscDone", Type: "bool", Default: false},
 		},
 		Subgraphs: subgraphs,
 	}
