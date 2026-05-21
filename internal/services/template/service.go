@@ -1,148 +1,104 @@
 package template
 
 import (
-	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"image/png"
+	"path/filepath"
 	"strings"
+	"sync"
 )
 
-// 本包降级为基础库 (PNG IO / 哈希 / TemplateMeta 序列化), 不再独立暴露 wails3 RPC.
-// 容器内模板由 ContainerService 托管; 库模板由 LibraryService 托管.
-// 本文件原 *Service 方法保留作为这些上层 service 的内部依赖; main.go 不再 Bind 该 service.
-
-// CaptureProvider 抽象屏幕截图（runtime 注入；测试时可 nil）。
-// 实现方应该返回当前游戏窗口 / 主屏的 png bytes。
-type CaptureProvider interface {
-	CapturePNG() ([]byte, int, int, error) // 返 png bytes + w + h
-}
-
-// Service wails3 RPC 入口。
+// Service per-container template RPC 服务. 内部 map[containerID]*Store.
+// 启动期 main.go 注入 dataRoot, 每个 container 第一次访问时 lazy create Store.
 type Service struct {
-	store   *Store
-	capture CaptureProvider
+	dataRoot string
+	capture  CaptureAdapter
+	mu       sync.Mutex
+	stores   map[string]*Store // containerID → store
 }
 
-func NewService(store *Store, capture CaptureProvider) *Service {
-	return &Service{store: store, capture: capture}
+type CaptureAdapter interface {
+	Capture() ([]byte, error) // 返 PNG bytes
 }
 
-// List 全部模板 meta（key → meta）。
-func (s *Service) List() map[string]TemplateMeta {
-	return s.store.List()
-}
-
-// Get 单个 meta。
-func (s *Service) Get(key string) (TemplateMeta, error) {
-	m, ok := s.store.Get(key)
-	if !ok {
-		return TemplateMeta{}, fmt.Errorf("template %q not found", key)
+func NewService(dataRoot string, capture CaptureAdapter) *Service {
+	return &Service{
+		dataRoot: dataRoot,
+		capture:  capture,
+		stores:   map[string]*Store{},
 	}
-	return m, nil
 }
 
-// Save 通过 dataURL 保存。recordedResolution 调用方按当前截图分辨率填；
-// region 是 ratio xywh。
-func (s *Service) Save(
-	key, dataURL, name, description string,
-	recordedResolution [2]int,
-	region [4]float32,
-) error {
-	pngData, err := decodeDataURL(dataURL)
+func (s *Service) storeFor(containerID string) (*Store, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if st, ok := s.stores[containerID]; ok {
+		return st, nil
+	}
+	root := filepath.Join(s.dataRoot, "containers", containerID, "templates")
+	st, err := NewStore(root)
+	if err != nil {
+		return nil, err
+	}
+	s.stores[containerID] = st
+	return st, nil
+}
+
+// Save 用 RPC 入口. containerID 是必填参数. dataURL 必须 data:image/png;base64,...
+func (s *Service) Save(containerID, key, dataURL, name, description string, recRes [2]int, region [4]float32) error {
+	st, err := s.storeFor(containerID)
 	if err != nil {
 		return err
 	}
-	w, h, err := pngDims(pngData)
-	if err != nil {
-		return err
+	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
+		return fmt.Errorf("dataURL must be data:image/png;base64,...")
 	}
-	_, err = s.store.Save(key, pngData, TemplateMeta{
-		Name:               name,
-		Description:        description,
-		RecordedResolution: recordedResolution,
-		Width:              w,
-		Height:             h,
-		Region:             region,
+	pngData, err := base64.StdEncoding.DecodeString(dataURL[len("data:image/png;base64,"):])
+	if err != nil {
+		return fmt.Errorf("decode dataURL: %w", err)
+	}
+	_, err = st.Save(key, pngData, TemplateMeta{
+		Name: name, Description: description,
+		RecordedResolution: recRes, Region: region,
+		Width:  int(region[2] * float32(recRes[0])),
+		Height: int(region[3] * float32(recRes[1])),
 	})
 	return err
 }
 
-// SaveRaw 测试 / 内部用：直接传 bytes 不走 dataURL 解码。
-func (s *Service) SaveRaw(key string, pngData []byte, meta TemplateMeta) error {
-	if meta.Width == 0 || meta.Height == 0 {
-		w, h, err := pngDims(pngData)
-		if err == nil {
-			meta.Width, meta.Height = w, h
-		}
-	}
-	_, err := s.store.Save(key, pngData, meta)
-	return err
-}
-
-func (s *Service) Delete(key string) error {
-	return s.store.Delete(key)
-}
-
-// UpdateMeta 仅更新名称/描述（不动 PNG / region / resolution / hash）。
-// 前端模板库卡片"编辑"用。
-func (s *Service) UpdateMeta(key, name, description string) error {
-	cur, ok := s.store.Get(key)
-	if !ok {
-		return fmt.Errorf("template %q not found", key)
-	}
-	cur.Name = name
-	cur.Description = description
-	pngData, err := s.store.ReadPng(key)
+func (s *Service) List(containerID string) (map[string]TemplateMeta, error) {
+	st, err := s.storeFor(containerID)
 	if err != nil {
-		return fmt.Errorf("read png for meta update %q: %w", key, err)
+		return nil, err
 	}
-	_, err = s.store.Save(key, pngData, cur)
-	return err
+	return st.List(), nil
 }
 
-// CaptureScreenshot 截当前屏 → dataURL。前端在截图弹窗里用。
-func (s *Service) CaptureScreenshot() (string, error) {
-	if s.capture == nil {
-		return "", errors.New("capture provider 未注入")
+func (s *Service) Delete(containerID, key string) error {
+	st, err := s.storeFor(containerID)
+	if err != nil {
+		return err
 	}
-	pngData, _, _, err := s.capture.CapturePNG()
+	return st.Delete(key)
+}
+
+func (s *Service) ReadPngDataURL(containerID, key string) (string, error) {
+	st, err := s.storeFor(containerID)
 	if err != nil {
 		return "", err
 	}
-	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData), nil
-}
-
-// ReadPngDataURL 把 key 对应的 png 转 dataURL 返给前端。
-func (s *Service) ReadPngDataURL(key string) (string, error) {
-	b, err := s.store.ReadPng(key)
+	b, err := st.ReadPng(key)
 	if err != nil {
-		return "", fmt.Errorf("read template %q: %w", key, err)
+		return "", err
 	}
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
-func decodeDataURL(s string) ([]byte, error) {
-	prefix := "data:image/png;base64,"
-	if !strings.HasPrefix(s, prefix) {
-		return nil, fmt.Errorf("dataURL 必须以 %q 开头", prefix)
-	}
-	b, err := base64.StdEncoding.DecodeString(s[len(prefix):])
+// Capture 截取游戏窗口当前帧 (跟 containerID 无关, 共享 capture backend).
+func (s *Service) Capture() (string, error) {
+	pngData, err := s.capture.Capture()
 	if err != nil {
-		return nil, fmt.Errorf("dataURL base64 解码失败: %w", err)
+		return "", err
 	}
-	if len(b) < 8 {
-		return nil, errors.New("dataURL 太短")
-	}
-	return b, nil
-}
-
-func pngDims(b []byte) (int, int, error) {
-	img, err := png.Decode(bytes.NewReader(b))
-	if err != nil {
-		return 0, 0, fmt.Errorf("png decode: %w", err)
-	}
-	bounds := img.Bounds()
-	return bounds.Dx(), bounds.Dy(), nil
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData), nil
 }
