@@ -114,14 +114,7 @@
             title="复制 key"
             @click="copyKey(key)"
           />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-pencil"
-            :title="`编辑 ${key}`"
-            @click="openEdit(key, meta)"
-          />
+          <!-- 编辑元数据按钮已移除: backend UpdateMeta RPC 已删除 (v2.1 per-container) -->
           <UButton
             size="xs"
             variant="ghost"
@@ -133,58 +126,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Edit Modal -->
-    <UModal
-      :open="editOpen"
-      @update:open="(v: boolean) => (editOpen = v)"
-      :ui="{ content: 'sm:max-w-[480px]' }"
-    >
-      <template #content>
-        <div class="bg-default flex flex-col">
-          <header class="flex items-center gap-2 px-5 py-3 border-b border-default">
-            <UIcon name="i-tabler-pencil" class="size-4 text-primary" />
-            <h3 class="text-sm font-medium text-highlighted">编辑模板</h3>
-            <span class="ml-auto" />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-x"
-              @click="editOpen = false"
-            />
-          </header>
-          <div class="p-5 space-y-4">
-            <div class="space-y-1.5">
-              <label class="block text-[11px] text-toned">key</label>
-              <UInput :model-value="editKey" disabled class="w-full font-mono" />
-              <p class="text-[10px] text-dimmed">
-                key 不能改（容器节点引用了它）；想换 key 请重新截图
-              </p>
-            </div>
-            <div class="space-y-1.5">
-              <label class="block text-[11px] text-toned">显示名</label>
-              <UInput v-model="editName" class="w-full" placeholder="例：上钩图标" />
-            </div>
-            <div class="space-y-1.5">
-              <label class="block text-[11px] text-toned">描述</label>
-              <UTextarea
-                v-model="editDescription"
-                :rows="3"
-                class="w-full"
-                placeholder="什么场景下匹配？阈值有什么注意事项？"
-              />
-            </div>
-          </div>
-          <footer class="px-5 py-3 border-t border-default flex items-center justify-end gap-2">
-            <UButton variant="ghost" color="neutral" @click="editOpen = false">取消</UButton>
-            <UButton color="primary" icon="i-tabler-check" :loading="editSaving" @click="onSaveEdit"
-              >保存</UButton
-            >
-          </footer>
-        </div>
-      </template>
-    </UModal>
 
     <!-- Preview Modal -->
     <UModal
@@ -248,7 +189,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useTemplatesStore } from '@/stores/templates'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
-import { backend, type TemplateMeta } from '@/lib/backend'
+import { type TemplateMeta } from '@/lib/backend'
 
 const store = useTemplatesStore()
 const toast = useToast()
@@ -327,7 +268,7 @@ const filtered = computed(() => {
 
 async function loadThumb(key: string) {
   if (thumbCache.value[key]) return
-  const r = await backend.templates.readPngDataURL(key)
+  const r = await store.readPng(key)
   if (typeof r === 'string') thumbCache.value[key] = r
 }
 
@@ -361,34 +302,6 @@ function copyKey(key: string) {
   )
 }
 
-// Edit modal state
-const editOpen = ref(false)
-const editKey = ref('')
-const editName = ref('')
-const editDescription = ref('')
-const editSaving = ref(false)
-
-function openEdit(key: string, meta: TemplateMeta) {
-  editKey.value = key
-  editName.value = meta.name ?? ''
-  editDescription.value = meta.description ?? ''
-  editOpen.value = true
-}
-
-async function onSaveEdit() {
-  editSaving.value = true
-  try {
-    const ok = await store.updateMeta(
-      editKey.value,
-      editName.value.trim(),
-      editDescription.value.trim(),
-    )
-    if (ok) editOpen.value = false
-  } finally {
-    editSaving.value = false
-  }
-}
-
 // Preview modal state
 const previewOpen = ref(false)
 const previewKey = ref('')
@@ -401,7 +314,7 @@ async function openPreview(key: string, meta: TemplateMeta) {
   previewDataURL.value = thumbCache.value[key] ?? ''
   previewOpen.value = true
   if (!previewDataURL.value) {
-    const r = await backend.templates.readPngDataURL(key)
+    const r = await store.readPng(key)
     if (typeof r === 'string') {
       previewDataURL.value = r
       thumbCache.value[key] = r

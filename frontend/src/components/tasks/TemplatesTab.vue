@@ -25,7 +25,7 @@ async function onNewTemplate() {
     'tools:picker-result',
     (p) => p?.id === id,
   )
-  await backend.tools.openScreenPicker('template_save', id)
+  await backend.tools.openScreenPicker('template_save', id, tplStore.containerId)
   const result = await waiter
   if (!result.payload?.cancelled) {
     await tplStore.reload()

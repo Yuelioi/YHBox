@@ -3,12 +3,18 @@ import { ref } from 'vue'
 import { backend, type TemplateMeta } from '@/lib/backend'
 
 export const useTemplatesStore = defineStore('templates', () => {
-  // key → meta
+  const containerId = ref<string>('')
   const map = ref<Record<string, TemplateMeta>>({})
 
+  function setContainer(cid: string) {
+    containerId.value = cid
+    map.value = {}
+  }
+
   async function reload() {
-    const r = await backend.templates.list()
-    if (r !== undefined) map.value = r as unknown as Record<string, TemplateMeta>
+    if (!containerId.value) return
+    const r = await backend.templates.list(containerId.value)
+    if (r !== undefined) map.value = r as Record<string, TemplateMeta>
   }
 
   async function save(
@@ -19,7 +25,9 @@ export const useTemplatesStore = defineStore('templates', () => {
     recordedResolution: [number, number],
     region: [number, number, number, number],
   ): Promise<boolean> {
+    if (!containerId.value) return false
     const r = await backend.templates.save(
+      containerId.value,
       key,
       dataURL,
       name,
@@ -33,17 +41,17 @@ export const useTemplatesStore = defineStore('templates', () => {
   }
 
   async function remove(key: string): Promise<boolean> {
-    const r = await backend.templates.delete_(key)
+    if (!containerId.value) return false
+    const r = await backend.templates.delete_(containerId.value, key)
     if (r === undefined) return false
     await reload()
     return true
   }
 
-  async function updateMeta(key: string, name: string, description: string): Promise<boolean> {
-    const r = await backend.templates.updateMeta(key, name, description)
-    if (r === undefined) return false
-    await reload()
-    return true
+  async function readPng(key: string): Promise<string | null> {
+    if (!containerId.value) return null
+    const r = await backend.templates.readPngDataURL(containerId.value, key)
+    return typeof r === 'string' ? r : null
   }
 
   async function capture(): Promise<string | null> {
@@ -51,5 +59,5 @@ export const useTemplatesStore = defineStore('templates', () => {
     return r === undefined ? null : (r as string)
   }
 
-  return { map, reload, save, remove, capture, updateMeta }
+  return { containerId, map, setContainer, reload, save, remove, capture, readPng }
 })

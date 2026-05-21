@@ -319,21 +319,19 @@ export const backend = {
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
   templates: {
-    list: () => invoke(TemplateService.List),
-    get: (key: string) => invoke(TemplateService.Get, key),
+    list: (containerID: string) => invoke(TemplateService.List, containerID),
     save: (
+      containerID: string,
       key: string,
       dataURL: string,
       name: string,
       description: string,
       recordedResolution: [number, number],
       region: [number, number, number, number],
-    ) => invoke(TemplateService.Save, key, dataURL, name, description, recordedResolution, region),
-    delete_: (key: string) => invoke(TemplateService.Delete, key),
-    capture: () => invoke(TemplateService.CaptureScreenshot),
-    readPngDataURL: (key: string) => invoke(TemplateService.ReadPngDataURL, key),
-    updateMeta: (key: string, name: string, description: string) =>
-      invoke(TemplateService.UpdateMeta, key, name, description),
+    ) => invoke(TemplateService.Save, containerID, key, dataURL, name, description, recordedResolution, region),
+    delete_: (containerID: string, key: string) => invoke(TemplateService.Delete, containerID, key),
+    capture: () => invoke(TemplateService.Capture),
+    readPngDataURL: (containerID: string, key: string) => invoke(TemplateService.ReadPngDataURL, containerID, key),
   },
   hotkeys: {
     list: () => invoke(HotkeyService.List),
@@ -379,8 +377,8 @@ export const backend = {
     openMouseHUD: () => invoke(ToolsService.OpenMouseHUD),
     openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
-    openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string) =>
-      invoke(ToolsService.OpenScreenPicker, mode, id),
+    openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string, containerID = '') =>
+      invoke(ToolsService.OpenScreenPicker, mode, id, containerID),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
     // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow

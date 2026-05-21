@@ -376,6 +376,7 @@ import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+import { useTemplatesStore } from '@/stores/templates'
 import { useContainerDraft } from '@/composables/containerEditor/useContainerDraft'
 import { useEditorPath } from '@/composables/containerEditor/useEditorPath'
 import { useSubgraphLifecycle } from '@/composables/containerEditor/useSubgraphLifecycle'
@@ -425,6 +426,7 @@ const toast = useToast()
 const recordStore = useRecordingStore()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
+const tplStore = useTemplatesStore()
 
 const editorStore = useContainerEditorStore()
 
@@ -2097,6 +2099,7 @@ function onExprFuseEvent(ev: Event) {
 onMounted(() => {
   window.addEventListener('expr-fuse', onExprFuseEvent)
   window.addEventListener('keydown', onGlobalKeydown)
+  tplStore.setContainer(containerID)
 })
 onUnmounted(() => {
   window.removeEventListener('expr-fuse', onExprFuseEvent)

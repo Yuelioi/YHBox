@@ -125,9 +125,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { backend } from '@/lib/backend'
 import { useTemplatesStore } from '@/stores/templates'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
+import { backend } from '@/lib/backend'
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
@@ -170,7 +170,7 @@ async function onCaptureNew() {
     'tools:picker-result',
     (p) => p?.id === id,
   )
-  await backend.tools.openScreenPicker('template_save', id)
+  await backend.tools.openScreenPicker('template_save', id, tplStore.containerId)
   const result = await waiter
   if (!result.payload?.cancelled && result.payload?.key) {
     await tplStore.reload()
@@ -180,7 +180,7 @@ async function onCaptureNew() {
 
 async function loadThumb(key: string) {
   if (thumbCache.value[key]) return
-  const r = await backend.templates.readPngDataURL(key)
+  const r = await tplStore.readPng(key)
   if (typeof r === 'string') thumbCache.value[key] = r
 }
 
