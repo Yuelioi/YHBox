@@ -81,7 +81,7 @@ func runInspectPhase(t *testing.T, hits map[string]bool, frame *image.RGBA) (*Ru
 }
 
 func TestInspectPhase_HookIconHit(t *testing.T) {
-	rt, err := runInspectPhase(t, map[string]bool{"hook_icon": true}, nil)
+	rt, err := runInspectPhase(t, map[string]bool{"fishing.hook_icon": true}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestInspectPhase_HookIconHit(t *testing.T) {
 }
 
 func TestInspectPhase_ResultPriority(t *testing.T) {
-	rt, err := runInspectPhase(t, map[string]bool{"result": true, "warehouse_full": true}, nil)
+	rt, err := runInspectPhase(t, map[string]bool{"fishing.result": true, "fishing.warehouse_full": true}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

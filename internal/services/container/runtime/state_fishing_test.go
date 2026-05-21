@@ -104,7 +104,7 @@ func TestStateFISHING_BarVisible_DirRight(t *testing.T) {
 }
 
 func TestStateFISHING_BarMissing_FishEscape(t *testing.T) {
-	_, rt, err := runStateFISHING(t, 5000, map[string]bool{"fish_escape": true}, nil)
+	_, rt, err := runStateFISHING(t, 5000, map[string]bool{"fishing.fish_escape": true}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestStateFISHING_BarMissing_FishEscape(t *testing.T) {
 }
 
 func TestStateFISHING_BarMissing_Result(t *testing.T) {
-	_, rt, err := runStateFISHING(t, 5000, map[string]bool{"result": true}, nil)
+	_, rt, err := runStateFISHING(t, 5000, map[string]bool{"fishing.result": true}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestStateFISHING_BarMissing_Result(t *testing.T) {
 }
 
 func TestStateFISHING_BarMissing_TooEarly(t *testing.T) {
-	_, rt, err := runStateFISHING(t, 1000, map[string]bool{"result": true, "fish_escape": true}, nil)
+	_, rt, err := runStateFISHING(t, 1000, map[string]bool{"fishing.result": true, "fishing.fish_escape": true}, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

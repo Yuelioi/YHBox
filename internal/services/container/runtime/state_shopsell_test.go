@@ -68,9 +68,9 @@ func runStateSHOPSELL(t *testing.T, hits map[string]bool) (*spyInputBackend, *Ru
 
 func TestStateSHOPSELL_HappyPath(t *testing.T) {
 	spy, rt, err := runStateSHOPSELL(t, map[string]bool{
-		"shop_bag_tab":      true,
-		"shop_sell_all":     true,
-		"shop_confirm_sell": true,
+		"fishing.shop_bag_tab":      true,
+		"fishing.shop_sell_all":     true,
+		"fishing.shop_confirm_sell": true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -97,8 +97,8 @@ func TestStateSHOPSELL_BagTabTimeout(t *testing.T) {
 
 func TestStateSHOPSELL_ConfirmTimeout(t *testing.T) {
 	_, rt, err := runStateSHOPSELL(t, map[string]bool{
-		"shop_bag_tab":  true,
-		"shop_sell_all": true,
+		"fishing.shop_bag_tab":  true,
+		"fishing.shop_sell_all": true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)

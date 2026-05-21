@@ -91,7 +91,7 @@ func runStateIDLE(t *testing.T, hits map[string]bool, baitProbeMs, castRemaining
 }
 
 func TestStateIDLE_DetectStartFish(t *testing.T) {
-	spy, rt, err := runStateIDLE(t, map[string]bool{"start_fish": true}, 1, 1)
+	spy, rt, err := runStateIDLE(t, map[string]bool{"fishing.start_fish": true}, 1, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestStateIDLE_DetectStartFish(t *testing.T) {
 }
 
 func TestStateIDLE_CastToWaiting(t *testing.T) {
-	spy, rt, err := runStateIDLE(t, map[string]bool{"hook_icon": true}, 1, 1)
+	spy, rt, err := runStateIDLE(t, map[string]bool{"fishing.hook_icon": true}, 1, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestStateIDLE_CastToWaiting(t *testing.T) {
 }
 
 func TestStateIDLE_CastBlockedNeedBait(t *testing.T) {
-	spy, rt, err := runStateIDLE(t, map[string]bool{"hook_icon": true, "need_bait": true}, 1, 1)
+	spy, rt, err := runStateIDLE(t, map[string]bool{"fishing.hook_icon": true, "fishing.need_bait": true}, 1, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

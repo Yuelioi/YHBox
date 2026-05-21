@@ -68,7 +68,7 @@ func runStateSETUP(t *testing.T, hits map[string]bool, postClickDelayMs float64)
 }
 
 func TestStateSETUP_ClickAndIdle(t *testing.T) {
-	spy, rt, err := runStateSETUP(t, map[string]bool{"start_fish": true}, 1)
+	spy, rt, err := runStateSETUP(t, map[string]bool{"fishing.start_fish": true}, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestStateSETUP_ClickAndIdle(t *testing.T) {
 }
 
 func TestStateSETUP_ClickThenBuyBait(t *testing.T) {
-	spy, rt, err := runStateSETUP(t, map[string]bool{"start_fish": true, "need_bait": true}, 1)
+	spy, rt, err := runStateSETUP(t, map[string]bool{"fishing.start_fish": true, "fishing.need_bait": true}, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

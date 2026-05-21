@@ -88,7 +88,7 @@ func TestStateRESULT_FirstEntry_NoMatch(t *testing.T) {
 }
 
 func TestStateRESULT_ResultHit(t *testing.T) {
-	_, rt, err := runStateRESULT(t, 2000, map[string]bool{"result": true})
+	_, rt, err := runStateRESULT(t, 2000, map[string]bool{"fishing.result": true})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestStateRESULT_ResultHit(t *testing.T) {
 }
 
 func TestStateRESULT_FishEscape(t *testing.T) {
-	_, rt, err := runStateRESULT(t, 2000, map[string]bool{"fish_escape": true})
+	_, rt, err := runStateRESULT(t, 2000, map[string]bool{"fishing.fish_escape": true})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

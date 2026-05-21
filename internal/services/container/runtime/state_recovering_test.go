@@ -115,7 +115,7 @@ func TestStateRECOVERING_SecondTick_AlreadyEscDone(t *testing.T) {
 }
 
 func TestStateRECOVERING_InspectRoutes_StartFish(t *testing.T) {
-	_, rt, err := runStateRECOVERING(t, map[string]bool{"start_fish": true}, false)
+	_, rt, err := runStateRECOVERING(t, map[string]bool{"fishing.start_fish": true}, false)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestStateRECOVERING_InspectRoutes_StartFish(t *testing.T) {
 }
 
 func TestStateRECOVERING_InspectRoutes_HookIcon(t *testing.T) {
-	_, rt, err := runStateRECOVERING(t, map[string]bool{"hook_icon": true}, false)
+	_, rt, err := runStateRECOVERING(t, map[string]bool{"fishing.hook_icon": true}, false)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestStateRECOVERING_InspectRoutes_HookIcon(t *testing.T) {
 }
 
 func TestStateRECOVERING_InspectRoutes_NeedBait(t *testing.T) {
-	_, rt, err := runStateRECOVERING(t, map[string]bool{"need_bait": true}, false)
+	_, rt, err := runStateRECOVERING(t, map[string]bool{"fishing.need_bait": true}, false)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

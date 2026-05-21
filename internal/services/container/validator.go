@@ -89,6 +89,11 @@ const (
 	// Disable Node
 	CodeDisabledBranchNodeWarn  = "WARN_DISABLED_BRANCH_NODE"
 	CodeInvalidDisabledTerminal = "INVALID_DISABLED_TERMINAL"
+
+	// Template key / dependency codes
+	CodeInvalidTemplateKey = "INVALID_TEMPLATE_KEY"
+	CodeTemplateNotFound   = "TEMPLATE_NOT_FOUND"
+	CodeClipNotFound       = "CLIP_NOT_FOUND"
 )
 
 // ValidationError is the i18n-ready error envelope.
@@ -158,6 +163,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateMissingSubgraph(c)...)
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
+	errs = append(errs, validateTemplateKeyNodes(c)...)
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
 	errs = append(errs, validateCollapsedReferences(c)...)

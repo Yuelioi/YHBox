@@ -68,11 +68,11 @@ func runStateBUYBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *Run
 
 func TestStateBUYBAIT_HappyPath(t *testing.T) {
 	spy, rt, err := runStateBUYBAIT(t, map[string]bool{
-		"bait_product": true,
-		"buy_max":      true,
-		"buy_button":   true,
-		"buy_confirm":  true,
-		"buy_success":  true,
+		"fishing.bait_product": true,
+		"fishing.buy_max":      true,
+		"fishing.buy_button":   true,
+		"fishing.buy_confirm":  true,
+		"fishing.buy_success":  true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -99,9 +99,9 @@ func TestStateBUYBAIT_BaitProductTimeout(t *testing.T) {
 
 func TestStateBUYBAIT_ConfirmSkip(t *testing.T) {
 	_, rt, err := runStateBUYBAIT(t, map[string]bool{
-		"bait_product": true,
-		"buy_max":      true,
-		"buy_button":   true,
+		"fishing.bait_product": true,
+		"fishing.buy_max":      true,
+		"fishing.buy_button":   true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)

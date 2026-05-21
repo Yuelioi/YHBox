@@ -97,7 +97,7 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 }
 
 func TestStateWAITING_TooEarly(t *testing.T) {
-	_, rt, err := runStateWAITING(t, 100, 0, map[string]bool{"hook_text": true}, nil, 1)
+	_, rt, err := runStateWAITING(t, 100, 0, map[string]bool{"fishing.hook_text": true}, nil, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestStateWAITING_TooEarly(t *testing.T) {
 }
 
 func TestStateWAITING_HookStreakIncrement(t *testing.T) {
-	_, rt, err := runStateWAITING(t, 1000, 0, map[string]bool{"hook_text": true}, nil, 1)
+	_, rt, err := runStateWAITING(t, 1000, 0, map[string]bool{"fishing.hook_text": true}, nil, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestStateWAITING_HookStreakReady_TryHookFSucceeds(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
 	paintCursorBar(img, 50)
 	paintTargetBar(img, 100, 115)
-	spy, rt, err := runStateWAITING(t, 1000, 1, map[string]bool{"hook_text": true}, img, 1)
+	spy, rt, err := runStateWAITING(t, 1000, 1, map[string]bool{"fishing.hook_text": true}, img, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestStateWAITING_TextMissResetsStreak(t *testing.T) {
 }
 
 func TestStateWAITING_TimeoutRoutesToSetup(t *testing.T) {
-	_, rt, err := runStateWAITING(t, 80000, 0, map[string]bool{"start_fish": true}, nil, 1)
+	_, rt, err := runStateWAITING(t, 80000, 0, map[string]bool{"fishing.start_fish": true}, nil, 1)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

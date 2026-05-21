@@ -70,8 +70,8 @@ func TestStateCHANGEBAIT_HappyPath(t *testing.T) {
 	// hits: change_bait_confirm hit (mockMatcher static → loop 3 iter all click, then loop.complete)
 	// → go_fishing hit → checkGoFishing.yes → Break wait loop first iter → state=IDLE.
 	spy, rt, err := runStateCHANGEBAIT(t, map[string]bool{
-		"change_bait_confirm": true,
-		"go_fishing":          true,
+		"fishing.change_bait_confirm": true,
+		"fishing.go_fishing":          true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -88,7 +88,7 @@ func TestStateCHANGEBAIT_HappyPath(t *testing.T) {
 func TestStateCHANGEBAIT_ConfirmDisappears(t *testing.T) {
 	// change_bait_confirm not hit → ClickTemplate timeout 2s → breakConfirm → loop complete.
 	// go_fishing hit → wait loop first iter break → state=IDLE.
-	_, rt, err := runStateCHANGEBAIT(t, map[string]bool{"go_fishing": true})
+	_, rt, err := runStateCHANGEBAIT(t, map[string]bool{"fishing.go_fishing": true})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestStateCHANGEBAIT_ConfirmDisappears(t *testing.T) {
 func TestStateCHANGEBAIT_GoFishingTimeout(t *testing.T) {
 	// change_bait_confirm hit (3 iter all click), go_fishing miss → wait loop 20 iter exhaust → state=IDLE.
 	// changeBaitFlow has no missFailPause — even after wait timeout, OnDone is still IDLE.
-	_, rt, err := runStateCHANGEBAIT(t, map[string]bool{"change_bait_confirm": true})
+	_, rt, err := runStateCHANGEBAIT(t, map[string]bool{"fishing.change_bait_confirm": true})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

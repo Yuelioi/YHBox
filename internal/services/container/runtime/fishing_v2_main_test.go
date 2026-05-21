@@ -84,7 +84,7 @@ func TestFishingV2Main_StateCycleSmoke(t *testing.T) {
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy
-	rt.Matcher = &mockMatcher{HitTemplates: map[string]bool{"start_fish": true}}
+	rt.Matcher = &mockMatcher{HitTemplates: map[string]bool{"fishing.start_fish": true}}
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
