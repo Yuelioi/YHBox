@@ -178,16 +178,15 @@
         <!-- template_save 模式专属表单 -->
         <section v-if="mode === 'template_save'" class="space-y-3 pt-2 border-t border-default/60">
           <h4 class="text-[10px] uppercase tracking-wider text-dimmed">保存为模板</h4>
-          <div class="space-y-1.5">
-            <label class="block text-[11px] text-toned">key (路径式 ID, 必填)</label>
+          <UFormField :error="keyError" label="key (namespace.name, 必填)">
             <UInput
               v-model="tplKey"
               size="sm"
               class="w-full"
-              placeholder="ui/btn-enter"
+              placeholder="fishing.hook_icon"
               :ui="{ base: 'font-mono' }"
             />
-          </div>
+          </UFormField>
           <div class="space-y-1.5">
             <label class="block text-[11px] text-toned">显示名 (必填)</label>
             <UInput v-model="tplName" size="sm" class="w-full" placeholder="例：上钩图标" />
@@ -232,6 +231,7 @@ const mode = computed(
   () => String(route.query.mode ?? 'point') as 'point' | 'rect' | 'template_save',
 )
 const requestID = computed(() => String(route.query.id ?? ''))
+const containerID = computed(() => String(route.query.containerID ?? ''))
 
 const titleByMode = computed(() => {
   switch (mode.value) {
@@ -312,11 +312,19 @@ const tplKey = ref('')
 const tplName = ref('')
 const tplDescription = ref('')
 
+const keyPattern = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/
+const keyValid = computed(() => keyPattern.test(tplKey.value))
+const keyError = computed(() => {
+  if (!tplKey.value) return ''
+  if (keyValid.value) return ''
+  return 'key 必须形如 fishing.hook_icon（字母数字下划线 + 至少 1 个点）'
+})
+
 const canConfirm = computed(() => {
   if (!dataURL.value) return false
   if (mode.value === 'point') return !!pointSel.value
   if (mode.value === 'rect') return !!rectSel.value
-  if (mode.value === 'template_save') return !!tplKey.value.trim() && !!tplName.value.trim()
+  if (mode.value === 'template_save') return keyValid.value && !!tplName.value.trim()
   return false
 })
 
@@ -447,6 +455,7 @@ async function confirm() {
           ]
         : [0, 0, 1, 1]
       const ok = await backend.templates.save(
+        containerID.value,
         tplKey.value.trim(),
         png,
         tplName.value.trim(),

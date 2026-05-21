@@ -126,17 +126,15 @@
 
             <div class="grid grid-cols-2 gap-3">
               <div class="space-y-1.5">
-                <label class="block text-[11px] text-toned">key (路径式 ID, 必填)</label>
-                <UInput
-                  v-model="keyPath"
-                  size="md"
-                  class="w-full"
-                  placeholder="ui/btn-enter"
-                  :ui="{ base: 'font-mono' }"
-                />
-                <p class="text-[10px] text-dimmed">
-                  用 <code class="bg-elevated/60 px-1 rounded">/</code> 分组，比如 fish/hook-icon
-                </p>
+                <UFormField :error="keyError" label="key (namespace.name, 必填)">
+                  <UInput
+                    v-model="keyPath"
+                    size="md"
+                    class="w-full"
+                    placeholder="fishing.hook_icon"
+                    :ui="{ base: 'font-mono' }"
+                  />
+                </UFormField>
               </div>
               <div class="space-y-1.5">
                 <label class="block text-[11px] text-toned">显示名 (必填)</label>
@@ -191,7 +189,6 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { backend } from '@/lib/backend'
 import { useTemplatesStore } from '@/stores/templates'
 import { useGameStore } from '@/stores/game'
 
@@ -241,7 +238,15 @@ const resolutionLabel = computed(() => {
   return `${s.w} × ${s.h}`
 })
 
-const canSave = computed(() => !!dataURL.value && !!keyPath.value.trim() && !!name.value.trim())
+const keyPattern = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/
+const keyValid = computed(() => keyPattern.test(keyPath.value))
+const keyError = computed(() => {
+  if (!keyPath.value) return ''
+  if (keyValid.value) return ''
+  return 'key 必须形如 fishing.hook_icon（字母数字下划线 + 至少 1 个点）'
+})
+
+const canSave = computed(() => !!dataURL.value && keyValid.value && !!name.value.trim())
 
 watch(
   () => props.open,
@@ -276,9 +281,9 @@ async function onCapture() {
   capturing.value = true
   clearSelection()
   try {
-    const r = await backend.templates.capture()
+    const r = await templates.capture()
     if (r) {
-      dataURL.value = r as string
+      dataURL.value = r
     }
   } finally {
     capturing.value = false
