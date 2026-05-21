@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -67,18 +68,48 @@ func captureFrameCached(mu *sync.Mutex, entries map[uintptr]frameCacheEntry, hwn
 // 命中坐标转换：vision.Match 返 ROI 内左上角像素 → 转客户区比例。
 
 type templateMatcherAdapter struct {
-	tplStore  *template.Store
-	loadCache sync.Map // key string → *vision.Template
+	dataRoot  string
+	storesMu  sync.Mutex
+	stores    map[string]*template.Store // containerID → store
+	loadCache sync.Map                   // (containerID+":"+key) → *vision.Template
 
 	fcMu      sync.Mutex
 	fcEntries map[uintptr]frameCacheEntry // hwnd → 最近一帧
 }
 
-func (m *templateMatcherAdapter) loadTemplate(key string) (*vision.Template, error) {
-	if cached, ok := m.loadCache.Load(key); ok {
+func newTemplateMatcherAdapter(dataRoot string) *templateMatcherAdapter {
+	return &templateMatcherAdapter{
+		dataRoot:  dataRoot,
+		stores:    map[string]*template.Store{},
+		fcEntries: map[uintptr]frameCacheEntry{},
+	}
+}
+
+func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, error) {
+	m.storesMu.Lock()
+	defer m.storesMu.Unlock()
+	if s, ok := m.stores[containerID]; ok {
+		return s, nil
+	}
+	root := filepath.Join(m.dataRoot, "containers", containerID, "templates")
+	s, err := template.NewStore(root)
+	if err != nil {
+		return nil, err
+	}
+	m.stores[containerID] = s
+	return s, nil
+}
+
+func (m *templateMatcherAdapter) loadTemplate(containerID, key string) (*vision.Template, error) {
+	cacheKey := containerID + ":" + key
+	if cached, ok := m.loadCache.Load(cacheKey); ok {
 		return cached.(*vision.Template), nil
 	}
-	data, err := m.tplStore.ReadPng(key)
+	store, err := m.storeFor(containerID)
+	if err != nil {
+		return nil, fmt.Errorf("template store for %q: %w", containerID, err)
+	}
+	data, err := store.ReadPng(key)
 	if err != nil {
 		return nil, fmt.Errorf("read template %q: %w", key, err)
 	}
@@ -86,15 +117,15 @@ func (m *templateMatcherAdapter) loadTemplate(key string) (*vision.Template, err
 	if err != nil {
 		return nil, fmt.Errorf("decode template %q: %w", key, err)
 	}
-	m.loadCache.Store(key, tpl)
+	m.loadCache.Store(cacheKey, tpl)
 	return tpl, nil
 }
 
-func (m *templateMatcherAdapter) Detect(_ context.Context, hwnd uintptr, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
+func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, hwnd uintptr, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
 	if hwnd == 0 {
 		return false, expr.Point{}, [4]float64{}, nil
 	}
-	tpl, err := m.loadTemplate(key)
+	tpl, err := m.loadTemplate(containerID, key)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, err
 	}
@@ -104,31 +135,36 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, hwnd uintptr, key str
 	}
 
 	// region 优先级: caller 传的 > meta.Regions (multi-slot, 选末位 reading order) >
-	// meta.Region (single, 扩 30% padding) > 全屏 (兜底).
+	// meta.Region (single, 扩 30px padding) > 全屏 (兜底).
 	// 全屏匹配开销巨大 (1080p 400×40 模板 3-5s/match), 用 ROI 后 ~10ms.
+	store, _ := m.storeFor(containerID)
 	if len(region) != 4 || (region[2] == 0 && region[3] == 0) {
 		// 没 caller region — 查 meta 看是否 multi-slot
-		if meta, ok := m.tplStore.Get(key); ok && len(meta.Regions) > 0 {
-			return m.detectMultiRegion(frame, tpl, meta.Regions, threshold)
+		if store != nil {
+			if meta, ok := store.Get(key); ok && len(meta.Regions) > 0 {
+				return m.detectMultiRegion(frame, tpl, meta.Regions, threshold)
+			}
 		}
 	}
 
 	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
 	if len(region) == 4 && (region[2] > 0 || region[3] > 0) {
 		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
-	} else if meta, ok := m.tplStore.Get(key); ok && (meta.Region[2] > 0 || meta.Region[3] > 0) {
-		mx, my, mw, mh := float64(meta.Region[0]), float64(meta.Region[1]), float64(meta.Region[2]), float64(meta.Region[3])
-		// 固定 30 px padding (跟 v1 fish bot tools/fish/constants.roiPaddingPx 一致).
-		// 老版本用 mw*0.3 比例 padding, 小 template (e.g. hook_icon 45×54) search area 偏窄
-		// (72×81 vs v1 105×114), 角色/UI 轻微抖动 icon 偏出 → NCC miss.
-		frameW := float64(frame.Bounds().Dx())
-		frameH := float64(frame.Bounds().Dy())
-		padX := 30.0 / frameW
-		padY := 30.0 / frameH
-		rx = clamp01(mx - padX)
-		ry = clamp01(my - padY)
-		rw = clamp01Bound(mw+padX*2, rx)
-		rh = clamp01Bound(mh+padY*2, ry)
+	} else if store != nil {
+		if meta, ok := store.Get(key); ok && (meta.Region[2] > 0 || meta.Region[3] > 0) {
+			mx, my, mw, mh := float64(meta.Region[0]), float64(meta.Region[1]), float64(meta.Region[2]), float64(meta.Region[3])
+			// 固定 30 px padding (跟 v1 fish bot tools/fish/constants.roiPaddingPx 一致).
+			// 老版本用 mw*0.3 比例 padding, 小 template (e.g. hook_icon 45×54) search area 偏窄
+			// (72×81 vs v1 105×114), 角色/UI 轻微抖动 icon 偏出 → NCC miss.
+			frameW := float64(frame.Bounds().Dx())
+			frameH := float64(frame.Bounds().Dy())
+			padX := 30.0 / frameW
+			padY := 30.0 / frameH
+			rx = clamp01(mx - padX)
+			ry = clamp01(my - padY)
+			rw = clamp01Bound(mw+padX*2, rx)
+			rh = clamp01Bound(mh+padY*2, ry)
+		}
 	}
 
 	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)

@@ -240,11 +240,8 @@ func main() {
 	// 真模板匹配 + 真颜色检测
 	// v3 Phase B: input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析,
 	// 不再走 main.go 全局注入. containerInputDriver / wire_container 适配器已退役.
-	// T1.5: templateMatcherAdapter 将改为从 container 路径按需加载模板; tplStore 暂 nil.
-	templateMatcher := &templateMatcherAdapter{
-		tplStore:  nil,
-		fcEntries: make(map[uintptr]frameCacheEntry),
-	}
+	// T1.5: per-container template store 按需加载, containerID 作为 Detect 参数传入.
+	templateMatcher := newTemplateMatcherAdapter(dataDir)
 	containerColor := &containerColorAdapter{
 		fcEntries: make(map[uintptr]frameCacheEntry),
 	}

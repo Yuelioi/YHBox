@@ -486,7 +486,7 @@ func (r *ContainerRunner) execWaitTemplate(ctx context.Context, n *container.Gra
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		found, point, region, err := r.rt.Matcher.Detect(ctx, r.rt.Window.HWND, tmpl, threshold, nil)
+		found, point, region, err := r.rt.Matcher.Detect(ctx, r.rt.Container.ID, r.rt.Window.HWND, tmpl, threshold, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -512,7 +512,7 @@ func (r *ContainerRunner) execCheckTemplate(ctx context.Context, n *container.Gr
 	tmpl := configString(n, "template")
 	// v4: threshold via data-in pin.
 	threshold := r.pullNumber(n, "threshold", 0.85)
-	found, point, region, err := r.rt.Matcher.Detect(ctx, r.rt.Window.HWND, tmpl, threshold, nil)
+	found, point, region, err := r.rt.Matcher.Detect(ctx, r.rt.Container.ID, r.rt.Window.HWND, tmpl, threshold, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +542,7 @@ func (r *ContainerRunner) execClickTemplate(ctx context.Context, n *container.Gr
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		found, point, region, err := r.rt.Matcher.Detect(ctx, r.rt.Window.HWND, tmpl, threshold, nil)
+		found, point, region, err := r.rt.Matcher.Detect(ctx, r.rt.Container.ID, r.rt.Window.HWND, tmpl, threshold, nil)
 		if err != nil {
 			return nil, err
 		}

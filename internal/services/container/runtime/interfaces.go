@@ -13,12 +13,13 @@ type ClipResolver interface {
 }
 
 // TemplateMatcher Wait/Check/ClickTemplate 节点用。注入实现见 main.go 适配器。
-// v1 仅 template_appeared 检测。
+// v2.1 加 containerID — 模板按容器隔离, 每容器自己的 templates/ 目录.
+// ctx 用于 timeout/cancel, hwnd 从 rt.Window.HWND 拿.
 type TemplateMatcher interface {
 	// Detect 单次检测。region [r,r,r,r]（0..1 比例），nil → 全屏。
-	// hwnd 来自 runtime.Window.HWND (WindowTarget 节点解析). 0 表示 noop.
+	// containerID 用于定位该容器的模板目录. hwnd 0 表示 noop.
 	// 返 found + 命中位置（屏幕比例坐标）+ 命中 region。
-	Detect(ctx context.Context, hwnd uintptr, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
+	Detect(ctx context.Context, containerID string, hwnd uintptr, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
 }
 
 // ColorDetector DetectColor 节点用：在 ROI 内统计落在颜色范围内的像素。
@@ -43,7 +44,7 @@ func (NoopColorDetector) Detect(context.Context, uintptr, [4]float64, string, [6
 // NoopMatcher：测试 + 启动前没注入实现时的默认。
 type NoopMatcher struct{}
 
-func (NoopMatcher) Detect(ctx context.Context, hwnd uintptr, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
+func (NoopMatcher) Detect(ctx context.Context, containerID string, hwnd uintptr, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
 	return false, expr.Point{}, [4]float64{}, nil
 }
 
