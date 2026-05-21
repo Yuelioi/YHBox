@@ -106,7 +106,7 @@ import { useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useToast } from '@nuxt/ui/composables'
-import { backend, type LibrarySubgraph } from '@/lib/backend'
+import { backend, type Subgraph } from '@/lib/backend'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec, NodeGroup } from '@/components/containers/nodeRegistry/index'
 
@@ -141,14 +141,14 @@ const filteredLibrary = computed(() => {
   return list
 })
 
-function tooltipFor(sg: LibrarySubgraph): string {
+function tooltipFor(sg: Subgraph): string {
   const parts = [sg.label || sg.id]
   if (sg.description) parts.push(sg.description)
   if ((sg.tags ?? []).length > 0) parts.push('#' + (sg.tags ?? []).join(' #'))
   return parts.join('\n')
 }
 
-function ctxMenuItemsFor(sg: LibrarySubgraph) {
+function ctxMenuItemsFor(sg: Subgraph) {
   return [
     [
       {
@@ -173,18 +173,14 @@ function ctxMenuItemsFor(sg: LibrarySubgraph) {
   ]
 }
 
-async function onImport(sg: LibrarySubgraph) {
+async function onImport(sg: Subgraph) {
   if (!editorStore.activeContainerID) {
     toast.add({ title: '当前没有打开的容器编辑器', color: 'warning' })
     return
   }
   try {
-    const r = (await backend.library.copyToContainer(sg.id, editorStore.activeContainerID)) as any
-    toast.add({
-      title: `已导入子图: ${r?.label ?? r?.id ?? ''}`,
-      color: 'success',
-      icon: 'i-tabler-check',
-    })
+    await backend.library.importToContainer(sg.id, editorStore.activeContainerID, '')
+    toast.add({ title: `已导入子图: ${sg.label || sg.id}`, color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
     toast.add({ title: '导入失败', description: String(e?.message ?? e), color: 'error' })
   }
@@ -205,7 +201,7 @@ function onNodeDragStart(e: DragEvent, kind: string) {
   e.dataTransfer.setData('application/x-yhbox-node', kind)
 }
 
-function onLibraryDragStart(e: DragEvent, sg: LibrarySubgraph) {
+function onLibraryDragStart(e: DragEvent, sg: Subgraph) {
   if (!e.dataTransfer) return
   e.dataTransfer.effectAllowed = 'copy'
   e.dataTransfer.setData(

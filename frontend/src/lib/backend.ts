@@ -151,21 +151,25 @@ export interface Subgraph {
   createdAt: string
 }
 
-// LibrarySubgraph 库子图 = Subgraph + 夹带的模板依赖.
-export interface LibrarySubgraph extends Subgraph {
-  requiredTemplates?: TemplateMeta[]
+// SubgraphPackage library package: root + 嵌入 callee + 共用 asset key 列表.
+export interface SubgraphPackage {
+  root: Subgraph
+  embedded: Record<string, Subgraph>
+  templates: string[]
+  clips: string[]
 }
 
-// LibraryTemplate 库模板条目，backend ListTemplates 返回此结构。
-export interface LibraryTemplate {
+// ImportConflict 单条冲突信息.
+export interface ImportConflict {
+  kind: string
   key: string
-  meta: TemplateMeta
 }
 
-// LibraryItem 列表项的判别联合 —— LibraryView / LibraryCard 用 .kind 分支。
-export type LibraryItem =
-  | (LibrarySubgraph & { kind: 'subgraph' })
-  | (LibraryTemplate & { kind: 'template' })
+// ImportResult Import 操作结果.
+export interface ImportResult {
+  imported: { kind: string; key: string }[]
+  conflicts: ImportConflict[]
+}
 
 export interface Container {
   schemaVersion: number
@@ -297,16 +301,12 @@ export const backend = {
   },
   library: {
     listSubgraphs: () => invoke(LibraryService.ListSubgraphs),
-    getSubgraph: (id: string) => invoke(LibraryService.GetSubgraph, id),
-    deleteSubgraph: (id: string) => invoke(LibraryService.DeleteSubgraph, id),
-    deleteSubgraphMany: (ids: string[]) => invoke(LibraryService.DeleteSubgraphMany, ids),
-    listTemplates: () => invoke(LibraryService.ListTemplates),
-    copyToContainer: (libSgID: string, containerID: string) =>
-      invoke(LibraryService.CopyToContainer, libSgID, containerID),
-    publishFromContainer: (containerID: string, sgID: string) =>
-      invoke(LibraryService.PublishFromContainer, containerID, sgID),
-    deleteTemplateMany: (keys: string[]) =>
-      invoke(LibraryService.DeleteTemplateMany, keys),
+    getSubgraphPackage: (sgID: string) => invoke(LibraryService.GetSubgraphPackage, sgID),
+    deleteSubgraphPackage: (sgID: string) => invoke(LibraryService.DeleteSubgraphPackage, sgID),
+    importToContainer: (libSgID: string, containerID: string, strategy: string) =>
+      invoke(LibraryService.ImportToContainer, libSgID, containerID, strategy),
+    exportSubgraph: (containerID: string, sgID: string, overwrite: boolean) =>
+      invoke(LibraryService.ExportSubgraph, containerID, sgID, overwrite),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),

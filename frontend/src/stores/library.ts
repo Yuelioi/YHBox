@@ -1,19 +1,28 @@
-// stores/library.ts 库 store — 缓存 subgraphs + templates，订阅后端 library:changed 事件刷新。
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { backend, type LibrarySubgraph, type LibraryTemplate } from '@/lib/backend'
+import { backend, type SubgraphPackage, type Subgraph } from '@/lib/backend'
 
 export const useLibraryStore = defineStore('library', () => {
-  const subgraphs = ref<LibrarySubgraph[]>([])
-  const templates = ref<LibraryTemplate[]>([])
+  const subgraphIds = ref<string[]>([])
+  const packages = ref<Record<string, SubgraphPackage>>({})
   const loading = ref(false)
+
+  // 兼容 NodePalette / LibraryExplorerModal 仍需 subgraphs[] 遍历的旧消费方.
+  const subgraphs = computed<Subgraph[]>(() =>
+    subgraphIds.value.map((id) => packages.value[id]?.root).filter(Boolean) as Subgraph[],
+  )
 
   async function reload() {
     loading.value = true
     try {
-      subgraphs.value = ((await backend.library.listSubgraphs()) as LibrarySubgraph[]) ?? []
-      templates.value = ((await backend.library.listTemplates()) as LibraryTemplate[]) ?? []
+      const ids = ((await backend.library.listSubgraphs()) as string[]) ?? []
+      subgraphIds.value = ids
+      packages.value = {}
+      for (const sgID of ids) {
+        const pkg = await backend.library.getSubgraphPackage(sgID)
+        if (pkg) packages.value[sgID] = pkg as SubgraphPackage
+      }
     } catch (e) {
       console.warn('library.reload failed', e)
     } finally {
@@ -21,10 +30,20 @@ export const useLibraryStore = defineStore('library', () => {
     }
   }
 
-  // 后端 library:changed 事件订阅（跨窗口同步）
+  async function deletePackage(sgID: string): Promise<boolean> {
+    try {
+      await backend.library.deleteSubgraphPackage(sgID)
+      await reload()
+      return true
+    } catch (e) {
+      console.warn('library.deletePackage failed', e)
+      return false
+    }
+  }
+
   Events.On('library:changed', () => {
     void reload()
   })
 
-  return { subgraphs, templates, loading, reload }
+  return { subgraphIds, packages, subgraphs, loading, reload, deletePackage }
 })

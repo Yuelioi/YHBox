@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useLibraryStore } from '@/stores/library'
-import type { LibrarySubgraph } from '@/lib/backend'
+import type { Subgraph } from '@/lib/backend'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
@@ -124,8 +124,7 @@ watch(
   },
 )
 
-// lib.subgraphs is LibrarySubgraph[] — { id, label, description?, tags? }
-const filteredItems = computed<LibrarySubgraph[]>(() => {
+const filteredItems = computed<Subgraph[]>(() => {
   const q = query.value.toLowerCase().trim()
   if (!q) return lib.subgraphs
   return lib.subgraphs.filter((item) => {
@@ -138,11 +137,11 @@ const filteredItems = computed<LibrarySubgraph[]>(() => {
 // Group by primary tag (first tag); untagged go under "(未分类)"
 interface TagGroup {
   tag: string
-  items: LibrarySubgraph[]
+  items: Subgraph[]
 }
 
 const groupedItems = computed<TagGroup[]>(() => {
-  const map = new Map<string, LibrarySubgraph[]>()
+  const map = new Map<string, Subgraph[]>()
   for (const item of filteredItems.value) {
     const primaryTag = (item.tags ?? [])[0] ?? '(未分类)'
     if (!map.has(primaryTag)) map.set(primaryTag, [])

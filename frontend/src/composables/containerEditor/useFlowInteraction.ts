@@ -131,31 +131,20 @@ export function useFlowInteraction(opts: {
       const py = e.clientY - rect.top
       const pos = project({ x: px, y: py })
 
-      // 走后端 copy-on-use（生成独立子图副本，1:1 自然成立）
-      const newSg = (await backend.library.copyToContainer(parsed.id, draft.value.id)) as any
-      // 在落点加 Subgraph 调用节点
+      await backend.library.importToContainer(parsed.id, draft.value.id, '')
+      const newSubgraphID: string = parsed.id
       const newNode = {
         id: 'n-call-' + Math.random().toString(36).slice(2, 8),
         kind: 'Subgraph',
         x: pos.x,
         y: pos.y,
-        config: { subgraphId: newSg.id },
+        config: { subgraphId: newSubgraphID },
         createdAt: new Date().toISOString(),
       }
       activeGraph.value.nodes.push(newNode)
       if (refreshSubgraphStore) await refreshSubgraphStore()
       if (syncFlowFromDraft) syncFlowFromDraft()
-      toast?.add({ title: `已导入子图: ${newSg.label}`, color: 'success', icon: 'i-tabler-check' })
-
-      // E.9 X3 hybrid：导入的子图 RecordingContext 与本机 mouseCounts360 不一致时弹双段对话框
-      const sourceCounts: number = newSg.recordingContext?.mouseCounts360 ?? 0
-      const localCounts: number =
-        (settingsStore as any)?.data?.ui?.mouseCounts360 ??
-        (settingsStore as any)?.settings?.ui?.mouseCounts360 ??
-        0
-      if (sourceCounts > 0 && localCounts > 0 && sourceCounts !== localCounts) {
-        await handleImportSyncCalibration(sourceCounts, localCounts)
-      }
+      toast?.add({ title: `已导入子图: ${newSubgraphID}`, color: 'success', icon: 'i-tabler-check' })
     } catch (err) {
       console.error('library drop failed', err)
       toast?.add({ title: '导入失败', description: String(err), color: 'error' })
