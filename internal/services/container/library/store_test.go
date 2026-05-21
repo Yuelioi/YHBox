@@ -5,89 +5,76 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"yhbox/internal/services/container"
 )
 
-func newStore(t *testing.T) (*Store, string) {
-	root := t.TempDir()
-	st, err := NewStore(root)
+func TestStore_ListGetPackage(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "subgraphs", "test_pkg")
+	os.MkdirAll(filepath.Join(pkgDir, "embedded"), 0o755)
+	os.MkdirAll(filepath.Join(pkgDir, "templates"), 0o755)
+
+	root := container.Subgraph{ID: "test_pkg", Label: "Test"}
+	rootBytes, _ := json.Marshal(root)
+	os.WriteFile(filepath.Join(pkgDir, "subgraph.json"), rootBytes, 0o644)
+
+	callee := container.Subgraph{ID: "callee_1", Label: "Callee"}
+	calleeBytes, _ := json.Marshal(callee)
+	os.WriteFile(filepath.Join(pkgDir, "embedded", "callee_1.json"), calleeBytes, 0o644)
+
+	os.WriteFile(filepath.Join(pkgDir, "templates", "ns.x.png"), []byte{1}, 0o644)
+	os.WriteFile(filepath.Join(pkgDir, "templates", "ns.x.json"), []byte("{}"), 0o644)
+
+	s, err := NewStore(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return st, root
-}
-
-func TestLibrary_CreateAndListSubgraph(t *testing.T) {
-	st, _ := newStore(t)
-	sg := container.Subgraph{
-		ID:    "lib-sg-1",
-		Label: "上钩等待",
-		Graph: container.Graph{ID: "g", Version: container.GraphSchemaVersion},
-		OutputPins: []container.SubgraphOutputDecl{{ID: "d", Name: "done"}},
-		Tags:       []string{"钓鱼"},
-		CreatedAt:  time.Now().UTC(),
-	}
-	if err := st.SaveSubgraph(&LibrarySubgraph{Subgraph: sg}); err != nil {
-		t.Fatal(err)
-	}
-	// 注: newStore 会触发 EnsureBuiltinLibrary, 把 6 个 builtin fishing subgraph 拷盘 +
-	// load 进 store. 测试只校验用户 save 的 lib-sg-1 在 list 里, 不要求 len(list)==1.
-	list := st.ListSubgraphs()
-	found := false
-	for _, e := range list {
-		if e.ID == "lib-sg-1" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("lib-sg-1 not in list (got %d entries)", len(list))
-	}
-}
-
-func TestLibrary_DeleteSubgraph(t *testing.T) {
-	st, root := newStore(t)
-	st.SaveSubgraph(&LibrarySubgraph{Subgraph: container.Subgraph{
-		ID:    "lib-sg-x",
-		Label: "x",
-		Graph: container.Graph{ID: "g", Version: container.GraphSchemaVersion},
-		OutputPins: []container.SubgraphOutputDecl{{ID: "d", Name: "done"}},
-		CreatedAt:  time.Now().UTC(),
-	}})
-	if err := st.DeleteSubgraph("lib-sg-x"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "subgraphs", "lib-sg-x.json")); err == nil {
-		t.Errorf("file still exists after delete")
-	}
-	if _, ok := st.GetSubgraph("lib-sg-x"); ok {
-		t.Errorf("still found in memory")
-	}
-}
-
-func TestLibrary_LoadAcrossRestart(t *testing.T) {
-	root := t.TempDir()
-	sgDir := filepath.Join(root, "subgraphs")
-	os.MkdirAll(sgDir, 0o755)
-	sg := LibrarySubgraph{
-		Subgraph: container.Subgraph{
-			ID:    "preset",
-			Label: "Preset",
-			Graph: container.Graph{ID: "g", Version: container.GraphSchemaVersion},
-			OutputPins: []container.SubgraphOutputDecl{{ID: "d", Name: "done"}},
-			CreatedAt:  time.Now().UTC(),
-		},
-	}
-	b, _ := json.MarshalIndent(sg, "", "  ")
-	os.WriteFile(filepath.Join(sgDir, "preset.json"), b, 0o644)
-
-	st, err := NewStore(root)
+	list, err := s.ListSubgraphs()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := st.GetSubgraph("preset"); !ok {
-		t.Errorf("preset not loaded after restart")
+	if len(list) != 1 || list[0] != "test_pkg" {
+		t.Fatalf("ListSubgraphs = %v, want [test_pkg]", list)
+	}
+
+	pkg, err := s.GetSubgraphPackage("test_pkg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pkg.Root.ID != "test_pkg" {
+		t.Errorf("Root.ID = %q", pkg.Root.ID)
+	}
+	if _, ok := pkg.Embedded["callee_1"]; !ok {
+		t.Error("missing embedded callee_1")
+	}
+	if len(pkg.Templates) != 1 || pkg.Templates[0] != "ns.x" {
+		t.Errorf("Templates = %v", pkg.Templates)
+	}
+}
+
+func TestStore_DeleteSubgraphPackage(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "subgraphs", "pkg_to_delete")
+	os.MkdirAll(pkgDir, 0o755)
+	sg := container.Subgraph{ID: "pkg_to_delete", Label: "Delete Me"}
+	b, _ := json.Marshal(sg)
+	os.WriteFile(filepath.Join(pkgDir, "subgraph.json"), b, 0o644)
+
+	s, _ := NewStore(dir)
+	list, _ := s.ListSubgraphs()
+	if len(list) != 1 {
+		t.Fatalf("expected 1 package before delete, got %d", len(list))
+	}
+
+	if err := s.DeleteSubgraphPackage("pkg_to_delete"); err != nil {
+		t.Fatal(err)
+	}
+	list, _ = s.ListSubgraphs()
+	if len(list) != 0 {
+		t.Errorf("expected 0 packages after delete, got %d", len(list))
+	}
+	if _, err := os.Stat(pkgDir); err == nil {
+		t.Error("package dir still exists after delete")
 	}
 }

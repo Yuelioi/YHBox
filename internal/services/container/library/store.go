@@ -1,215 +1,136 @@
-// Package library 公共库 (library/subgraphs/ + library/templates/).
-//
-// Copy-on-use 语义: 本包负责 CRUD + 文件 IO, 实际拷贝到容器走 copy.go 的 CopyToContainer.
 package library
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strings"
 	"sync"
-	"time"
 
 	"yhbox/internal/services/container"
-	"yhbox/internal/services/template"
 )
 
-var idRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-
-// LibrarySubgraph 库 subgraph：在 container.Subgraph 基础上嵌入 requiredTemplates（meta），
-// 落地拷贝时一起飞。
-type LibrarySubgraph struct {
-	container.Subgraph
-	RequiredTemplates []template.TemplateMeta `json:"requiredTemplates,omitempty"`
-}
-
-// Store 库的文件存储。
+// Store 库存储 (library/). 内部仅 subgraphs/<sgid>/ package 目录, 顶级无 templates/clips.
 type Store struct {
-	mu        sync.RWMutex
-	root      string
-	subgraphs map[string]LibrarySubgraph
-	templates map[string]template.TemplateMeta
+	mu   sync.RWMutex
+	root string
 }
 
 func NewStore(root string) (*Store, error) {
-	if err := EnsureBuiltinLibrary(root); err != nil {
-		return nil, fmt.Errorf("ensure builtin library: %w", err)
-	}
 	if err := os.MkdirAll(filepath.Join(root, "subgraphs"), 0o755); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(root, "templates"), 0o755); err != nil {
-		return nil, err
-	}
-	s := &Store{
-		root:      root,
-		subgraphs: map[string]LibrarySubgraph{},
-		templates: map[string]template.TemplateMeta{},
-	}
-	if err := s.load(); err != nil {
-		return nil, err
-	}
-	return s, nil
+	return &Store{root: root}, nil
 }
 
-func (s *Store) load() error {
-	sgDir := filepath.Join(s.root, "subgraphs")
-	if _, err := os.Stat(sgDir); err != nil {
+// SubgraphPackage 一个 library subgraph package (root + 嵌入 callee + 共用 asset).
+type SubgraphPackage struct {
+	Root      container.Subgraph            `json:"root"`
+	Embedded  map[string]container.Subgraph `json:"embedded"`  // sgID → callee subgraph
+	Templates []string                      `json:"templates"` // key list
+	Clips     []string                      `json:"clips"`     // clip id list
+}
+
+// ListSubgraphs 列 library 所有 package (按目录名).
+func (s *Store) ListSubgraphs() ([]string, error) {
+	dir := filepath.Join(s.root, "subgraphs")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			return nil, nil
 		}
-		return err
+		return nil, err
 	}
-	err := filepath.WalkDir(sgDir, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	var out []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
 		}
-		if d.IsDir() {
-			return nil
+		if _, err := os.Stat(filepath.Join(dir, e.Name(), "subgraph.json")); err != nil {
+			continue
 		}
-		if !strings.HasSuffix(d.Name(), ".json") {
-			return nil
-		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		// Container 模板 (有顶层 schemaVersion / subgraphs[] / vars[]) 不该当 LibrarySubgraph 加载 —
-		// 字段错位会让 Container.Graph (含 WindowTarget) 被验为 Subgraph.Graph, 触发
-		// WINDOW_TARGET_IN_SUBGRAPH + EMPTY_SUBGRAPH_OUTPUT 等连环错. F5 单独加 container template 加载路径.
-		var probe struct {
-			SchemaVersion int             `json:"schemaVersion"`
-			Subgraphs     json.RawMessage `json:"subgraphs"`
-		}
-		if err := json.Unmarshal(b, &probe); err == nil {
-			if probe.SchemaVersion > 0 || len(probe.Subgraphs) > 0 {
-				return nil
+		out = append(out, e.Name())
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// GetSubgraphPackage 读 1 个 package 完整内容.
+func (s *Store) GetSubgraphPackage(sgID string) (*SubgraphPackage, error) {
+	pkgDir := filepath.Join(s.root, "subgraphs", sgID)
+	rootPath := filepath.Join(pkgDir, "subgraph.json")
+	rootBytes, err := os.ReadFile(rootPath)
+	if err != nil {
+		return nil, fmt.Errorf("read root subgraph: %w", err)
+	}
+	var root container.Subgraph
+	if err := json.Unmarshal(rootBytes, &root); err != nil {
+		return nil, fmt.Errorf("parse root: %w", err)
+	}
+
+	embedded := map[string]container.Subgraph{}
+	embDir := filepath.Join(pkgDir, "embedded")
+	if entries, err := os.ReadDir(embDir); err == nil {
+		for _, e := range entries {
+			if filepath.Ext(e.Name()) != ".json" {
+				continue
 			}
-		}
-		var sg LibrarySubgraph
-		if err := json.Unmarshal(b, &sg); err != nil {
-			return nil
-		}
-		s.subgraphs[sg.ID] = sg
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	tplIdxPath := filepath.Join(s.root, "templates", "_index.json")
-	if b, err := os.ReadFile(tplIdxPath); err == nil {
-		var idx template.TemplateIndex
-		if err := json.Unmarshal(b, &idx); err == nil {
-			for k, m := range idx.Templates {
-				s.templates[k] = m
+			b, err := os.ReadFile(filepath.Join(embDir, e.Name()))
+			if err != nil {
+				continue
 			}
+			var sg container.Subgraph
+			if err := json.Unmarshal(b, &sg); err != nil {
+				continue
+			}
+			embedded[sg.ID] = sg
 		}
 	}
-	return nil
+
+	var tplKeys []string
+	tplDir := filepath.Join(pkgDir, "templates")
+	if entries, err := os.ReadDir(tplDir); err == nil {
+		for _, e := range entries {
+			if filepath.Ext(e.Name()) != ".json" {
+				continue
+			}
+			key := e.Name()[:len(e.Name())-len(".json")]
+			tplKeys = append(tplKeys, key)
+		}
+	}
+
+	var clipIDs []string
+	clipDir := filepath.Join(pkgDir, "clips")
+	if entries, err := os.ReadDir(clipDir); err == nil {
+		for _, e := range entries {
+			if filepath.Ext(e.Name()) != ".json" {
+				continue
+			}
+			id := e.Name()[:len(e.Name())-len(".json")]
+			clipIDs = append(clipIDs, id)
+		}
+	}
+
+	return &SubgraphPackage{
+		Root: root, Embedded: embedded,
+		Templates: tplKeys, Clips: clipIDs,
+	}, nil
 }
 
-func (s *Store) ListSubgraphs() []LibrarySubgraph {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]LibrarySubgraph, 0, len(s.subgraphs))
-	for _, sg := range s.subgraphs {
-		out = append(out, sg)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	return out
+// DeleteSubgraphPackage 删整个 package 目录.
+func (s *Store) DeleteSubgraphPackage(sgID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return os.RemoveAll(filepath.Join(s.root, "subgraphs", sgID))
 }
 
-func (s *Store) GetSubgraph(id string) (LibrarySubgraph, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	sg, ok := s.subgraphs[id]
-	return sg, ok
-}
-
-func (s *Store) SaveSubgraph(sg *LibrarySubgraph) error {
-	if !idRE.MatchString(sg.ID) {
-		return fmt.Errorf("subgraph id %q 非法", sg.ID)
-	}
-	if sg.CreatedAt.IsZero() {
-		sg.CreatedAt = time.Now().UTC()
-	}
-	b, err := json.MarshalIndent(sg, "", "  ")
+// copyFile helper.
+func copyFile(src, dst string) error {
+	b, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	path := filepath.Join(s.root, "subgraphs", sg.ID+".json")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	s.subgraphs[sg.ID] = *sg
-	return nil
-}
-
-func (s *Store) DeleteSubgraph(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	path := filepath.Join(s.root, "subgraphs", id+".json")
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if err := os.RemoveAll(filepath.Join(s.root, "subgraphs", id)); err != nil {
-		return err
-	}
-	delete(s.subgraphs, id)
-	return nil
-}
-
-func (s *Store) ListTemplates() []TemplateEntry {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]TemplateEntry, 0, len(s.templates))
-	for k, m := range s.templates {
-		out = append(out, TemplateEntry{Key: k, Meta: m})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Meta.CreatedAt.After(out[j].Meta.CreatedAt) })
-	return out
-}
-
-// TemplateEntry list/get 时把 key 和 meta 一起返。
-type TemplateEntry struct {
-	Key  string                `json:"key"`
-	Meta template.TemplateMeta `json:"meta"`
-}
-
-// DeleteTemplate 删除库 template（png + index 条目）。
-func (s *Store) DeleteTemplate(key string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	pngPath := filepath.Join(s.root, "templates", key+".png")
-	if err := os.Remove(pngPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	delete(s.templates, key)
-	return s.writeTemplateIndex()
-}
-
-func (s *Store) writeTemplateIndex() error {
-	idx := template.TemplateIndex{
-		SchemaVersion: template.CurrentSchemaVersion,
-		Templates:     s.templates,
-	}
-	b, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(s.root, "templates", "_index.json"), b, 0o644)
+	return os.WriteFile(dst, b, 0o644)
 }

@@ -1,118 +1,212 @@
 package library
 
 import (
+	"encoding/json"
 	"fmt"
-	"maps"
-
-	"github.com/google/uuid"
+	"os"
+	"path/filepath"
 
 	"yhbox/internal/services/container"
+	"yhbox/internal/services/container/dependency"
 )
 
-// CopyResult copy-on-use 一次拷贝产生的所有改写映射。
-type CopyResult struct {
-	NewSubgraph    *container.Subgraph
-	TemplateKeyMap map[string]string
+// ImportConflict 单条冲突信息. Kind 是 "subgraph" | "template" | "clip".
+type ImportConflict struct {
+	Kind string `json:"kind"`
+	Key  string `json:"key"`
 }
 
-// genIDFn 抽出来方便单元测注入确定性 id。生产用 uuid.NewString。
-type genIDFn func(b []byte) string
+// ImportResult Import 操作结果.
+type ImportResult struct {
+	Imported  []dependency.Dependency `json:"imported"`
+	Conflicts []ImportConflict        `json:"conflicts"`
+}
 
-// CopySubgraph 把库 subgraph 克隆一份给目标容器。
-// subgraphIDMap 是 oldLibraryID → newContainerLocalID 的映射，用于改写 Subgraph/Try 节点
-// 的 config.subgraphId。传 nil 表示不做改写（调用方自行处理依赖导入）。
-func CopySubgraph(
-	src *LibrarySubgraph,
-	target *container.Container,
-	existingKeys map[string]struct{},
-	subgraphIDMap map[string]string,
-	idGen genIDFn,
-) (*CopyResult, error) {
-	if src == nil || target == nil {
-		return nil, fmt.Errorf("nil src or target")
-	}
-	if idGen == nil {
-		idGen = func(b []byte) string { return uuid.NewString() }
+// ImportToContainer 把 library package 复制到容器.
+// strategy: "overwrite_all" | "skip_all" | "cancel", 空串等同 overwrite_all.
+func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string) (*ImportResult, error) {
+	pkg, err := s.GetSubgraphPackage(libSgID)
+	if err != nil {
+		return nil, err
 	}
 
-	cp := src.Subgraph
-	cp.Graph.Nodes = append([]container.GraphNode(nil), src.Graph.Nodes...)
-	// 深拷贝每个 node 的 Config map，避免共享底层引用导致 Apply 改 cp 时也改了 src
-	for i := range cp.Graph.Nodes {
-		if cp.Graph.Nodes[i].Config != nil {
-			cp.Graph.Nodes[i].Config = maps.Clone(cp.Graph.Nodes[i].Config)
+	containerSgDir := filepath.Join(containerRoot, "subgraphs")
+	containerTplDir := filepath.Join(containerRoot, "templates")
+	containerClipDir := filepath.Join(containerRoot, "clips")
+
+	var conflicts []ImportConflict
+	checkSg := func(sg container.Subgraph) {
+		if _, err := os.Stat(filepath.Join(containerSgDir, sg.ID+".json")); err == nil {
+			conflicts = append(conflicts, ImportConflict{Kind: "subgraph", Key: sg.ID})
 		}
 	}
-	// 改写 Subgraph/Try 节点的 config.subgraphId，指向本地已导入的副本 ID。
-	// 必须在深拷贝 Config 之后、rewriter.Apply 之前执行，操作的是 cp（拷贝），不动 src。
-	if subgraphIDMap != nil {
-		for i := range cp.Graph.Nodes {
-			n := &cp.Graph.Nodes[i]
-			if n.Kind != "Subgraph" && n.Kind != "Try" {
+	checkSg(pkg.Root)
+	for _, sg := range pkg.Embedded {
+		checkSg(sg)
+	}
+	for _, key := range pkg.Templates {
+		if _, err := os.Stat(filepath.Join(containerTplDir, key+".png")); err == nil {
+			conflicts = append(conflicts, ImportConflict{Kind: "template", Key: key})
+		}
+	}
+	for _, id := range pkg.Clips {
+		if _, err := os.Stat(filepath.Join(containerClipDir, id+".json")); err == nil {
+			conflicts = append(conflicts, ImportConflict{Kind: "clip", Key: id})
+		}
+	}
+
+	if len(conflicts) > 0 {
+		switch strategy {
+		case "cancel":
+			return &ImportResult{Conflicts: conflicts}, nil
+		case "skip_all":
+			// 后续 copy 时按 conflictKeys 跳过
+		case "overwrite_all", "":
+			// 默认 overwrite, 不跳过
+		default:
+			return nil, fmt.Errorf("unknown strategy %q", strategy)
+		}
+	}
+	skipAll := strategy == "skip_all"
+	conflictKeys := map[string]bool{}
+	for _, c := range conflicts {
+		conflictKeys[c.Kind+":"+c.Key] = true
+	}
+
+	os.MkdirAll(containerSgDir, 0o755)
+	os.MkdirAll(containerTplDir, 0o755)
+	os.MkdirAll(containerClipDir, 0o755)
+
+	result := &ImportResult{Conflicts: conflicts}
+	writeSg := func(sg container.Subgraph) error {
+		if skipAll && conflictKeys["subgraph:"+sg.ID] {
+			return nil
+		}
+		b, _ := json.MarshalIndent(sg, "", "  ")
+		if err := os.WriteFile(filepath.Join(containerSgDir, sg.ID+".json"), b, 0o644); err != nil {
+			return err
+		}
+		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindSubgraph, Key: sg.ID})
+		return nil
+	}
+	if err := writeSg(pkg.Root); err != nil {
+		return nil, err
+	}
+	for _, sg := range pkg.Embedded {
+		if err := writeSg(sg); err != nil {
+			return nil, err
+		}
+	}
+
+	libPkgDir := filepath.Join(s.root, "subgraphs", libSgID)
+	for _, key := range pkg.Templates {
+		if skipAll && conflictKeys["template:"+key] {
+			continue
+		}
+		if err := copyFile(filepath.Join(libPkgDir, "templates", key+".png"), filepath.Join(containerTplDir, key+".png")); err != nil {
+			return nil, err
+		}
+		if err := copyFile(filepath.Join(libPkgDir, "templates", key+".json"), filepath.Join(containerTplDir, key+".json")); err != nil {
+			return nil, err
+		}
+		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindTemplate, Key: key})
+	}
+	for _, id := range pkg.Clips {
+		if skipAll && conflictKeys["clip:"+id] {
+			continue
+		}
+		srcJSON := filepath.Join(libPkgDir, "clips", id+".json")
+		if err := copyFile(srcJSON, filepath.Join(containerClipDir, id+".json")); err != nil {
+			return nil, err
+		}
+		srcCsbf := filepath.Join(libPkgDir, "clips", id+".csbf")
+		if _, err := os.Stat(srcCsbf); err == nil {
+			copyFile(srcCsbf, filepath.Join(containerClipDir, id+".csbf"))
+		}
+		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindClip, Key: id})
+	}
+	return result, nil
+}
+
+// ExportFromContainer 把容器内子图 + 递归依赖打成 library package.
+// scanDeps: 调用方注入 dependency.ScanSubgraphDependencies (避免 library 直接依赖 dependency.GetExtractor).
+func (s *Store) ExportFromContainer(
+	srcContainerRoot string,
+	rootSgID string,
+	scanDeps func(rootSgID string, getNodes func(string) ([]dependency.NodeInfo, error)) ([]dependency.Dependency, error),
+	overwrite bool,
+) error {
+	readSubgraph := func(sgID string) (*container.Subgraph, error) {
+		path := filepath.Join(srcContainerRoot, "subgraphs", sgID+".json")
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil, nil
+		}
+		var sg container.Subgraph
+		if err := json.Unmarshal(b, &sg); err != nil {
+			return nil, err
+		}
+		return &sg, nil
+	}
+	getNodes := func(sgID string) ([]dependency.NodeInfo, error) {
+		sg, err := readSubgraph(sgID)
+		if err != nil || sg == nil {
+			return nil, err
+		}
+		nodes := make([]dependency.NodeInfo, len(sg.Graph.Nodes))
+		for i, n := range sg.Graph.Nodes {
+			nodes[i] = dependency.NodeInfo{Kind: n.Kind, Config: n.Config}
+		}
+		return nodes, nil
+	}
+
+	deps, err := scanDeps(rootSgID, getNodes)
+	if err != nil {
+		return fmt.Errorf("scan deps: %w", err)
+	}
+
+	pkgDir := filepath.Join(s.root, "subgraphs", rootSgID)
+	if !overwrite {
+		if _, err := os.Stat(pkgDir); err == nil {
+			return fmt.Errorf("library package %q already exists, use overwrite=true to replace", rootSgID)
+		}
+	}
+	os.RemoveAll(pkgDir)
+	os.MkdirAll(filepath.Join(pkgDir, "embedded"), 0o755)
+	os.MkdirAll(filepath.Join(pkgDir, "templates"), 0o755)
+	os.MkdirAll(filepath.Join(pkgDir, "clips"), 0o755)
+
+	rootSg, err := readSubgraph(rootSgID)
+	if err != nil || rootSg == nil {
+		return fmt.Errorf("root subgraph %q not found", rootSgID)
+	}
+	rb, _ := json.MarshalIndent(rootSg, "", "  ")
+	if err := os.WriteFile(filepath.Join(pkgDir, "subgraph.json"), rb, 0o644); err != nil {
+		return err
+	}
+
+	for _, d := range deps {
+		switch d.Kind {
+		case dependency.KindSubgraph:
+			if d.Key == rootSgID {
 				continue
 			}
-			if oldID, ok := n.Config["subgraphId"].(string); ok && oldID != "" {
-				if newID, has := subgraphIDMap[oldID]; has {
-					n.Config["subgraphId"] = newID
-				}
+			sg, _ := readSubgraph(d.Key)
+			if sg == nil {
+				continue
+			}
+			b, _ := json.MarshalIndent(sg, "", "  ")
+			os.WriteFile(filepath.Join(pkgDir, "embedded", d.Key+".json"), b, 0o644)
+		case dependency.KindTemplate:
+			copyFile(filepath.Join(srcContainerRoot, "templates", d.Key+".png"), filepath.Join(pkgDir, "templates", d.Key+".png"))
+			copyFile(filepath.Join(srcContainerRoot, "templates", d.Key+".json"), filepath.Join(pkgDir, "templates", d.Key+".json"))
+		case dependency.KindClip:
+			copyFile(filepath.Join(srcContainerRoot, "clips", d.Key+".json"), filepath.Join(pkgDir, "clips", d.Key+".json"))
+			srcCsbf := filepath.Join(srcContainerRoot, "clips", d.Key+".csbf")
+			if _, err := os.Stat(srcCsbf); err == nil {
+				copyFile(srcCsbf, filepath.Join(pkgDir, "clips", d.Key+".csbf"))
 			}
 		}
 	}
-	cp.Graph.Edges = append([]container.GraphEdge(nil), src.Graph.Edges...)
-
-	rewriter := container.NewGraphRewriter()
-
-	for _, n := range src.Graph.Nodes {
-		rewriter.RenameNodeID(n.ID, idGen(nil))
-	}
-	cp.ID = "sg-" + idGen(nil)[:8]
-	cp.Graph.ID = idGen(nil)
-	// OutputPins ID **保留库定义**, 不重写. 理由:
-	// - pin ID 只在 subgraph 内部 scope (parent 边走 `Subgraph_node.<pinID>`), 不跨 subgraph 冲突
-	// - 之前重写成 UUID 导致用户在编辑器拖 Subgraph 节点连边时, 默认 pin 名 "out" 跟实际 UUID 对不上 → INVALID_PIN
-	// - 库 ship 的 pin ID (例如 "out") 是人可读的, 保留方便用户拼图
-	// SubgraphOutput.config.declID 不需 RenameDeclID — declID 直接引用 outputPins[].ID, 不变化即天然一致
-	cp.OutputPins = append([]container.SubgraphOutputDecl(nil), src.OutputPins...)
-
-	templateKeyMap := map[string]string{}
-	referencedTemplates := collectReferencedTemplates(&cp.Graph)
-	for oldKey := range referencedTemplates {
-		if _, conflict := existingKeys[oldKey]; conflict {
-			newKey := pickNonConflictKey(oldKey, existingKeys)
-			rewriter.RenameTemplateKey(oldKey, newKey)
-			templateKeyMap[oldKey] = newKey
-			existingKeys[newKey] = struct{}{}
-		}
-	}
-
-	rewriter.Apply(&cp.Graph)
-
-	return &CopyResult{
-		NewSubgraph:    &cp,
-		TemplateKeyMap: templateKeyMap,
-	}, nil
-}
-
-// collectReferencedTemplates 扫描子图节点，找出所有 config.template 引用的 key。
-func collectReferencedTemplates(g *container.Graph) map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, n := range g.Nodes {
-		switch n.Kind {
-		case "WaitTemplate", "CheckTemplate", "ClickTemplate", "OnEvent":
-			if k, _ := n.Config["template"].(string); k != "" {
-				out[k] = struct{}{}
-			}
-		}
-	}
-	return out
-}
-
-// pickNonConflictKey 找 oldKey_2 / oldKey_3 / ... 直到不冲突。
-func pickNonConflictKey(oldKey string, existing map[string]struct{}) string {
-	for i := 2; ; i++ {
-		candidate := fmt.Sprintf("%s_%d", oldKey, i)
-		if _, ok := existing[candidate]; !ok {
-			return candidate
-		}
-	}
+	return nil
 }
