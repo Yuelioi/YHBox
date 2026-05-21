@@ -10,12 +10,16 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/png"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/lxn/win"
+	"golang.org/x/image/draw"
+	"golang.org/x/sync/singleflight"
 
 	"yhbox/internal/hotkey"
 	"yhbox/internal/services/container"
@@ -23,6 +27,7 @@ import (
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/template"
 	"yhbox/pkg/capture"
+	"yhbox/pkg/imageutil"
 	"yhbox/pkg/vision"
 )
 
@@ -71,7 +76,8 @@ type templateMatcherAdapter struct {
 	dataRoot  string
 	storesMu  sync.Mutex
 	stores    map[string]*template.Store // containerID → store
-	loadCache sync.Map                   // (containerID+":"+key) → *vision.Template
+	loadCache sync.Map                   // "containerID:key:WxH" → *vision.Template
+	loadSF    singleflight.Group
 
 	fcMu      sync.Mutex
 	fcEntries map[uintptr]frameCacheEntry // hwnd → 最近一帧
@@ -100,38 +106,112 @@ func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, 
 	return s, nil
 }
 
-func (m *templateMatcherAdapter) loadTemplate(containerID, key string) (*vision.Template, error) {
-	cacheKey := containerID + ":" + key
+func (m *templateMatcherAdapter) loadTemplate(containerID, key string, frameW, frameH int) (*vision.Template, error) {
+	cacheKey := fmt.Sprintf("%s:%s:%dx%d", containerID, key, frameW, frameH)
 	if cached, ok := m.loadCache.Load(cacheKey); ok {
 		return cached.(*vision.Template), nil
 	}
+	v, err, _ := m.loadSF.Do(cacheKey, func() (interface{}, error) {
+		return m.doLoadTemplate(containerID, key, frameW, frameH)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*vision.Template), nil
+}
+
+func (m *templateMatcherAdapter) doLoadTemplate(containerID, key string, frameW, frameH int) (*vision.Template, error) {
+	cacheKey := fmt.Sprintf("%s:%s:%dx%d", containerID, key, frameW, frameH)
+
 	store, err := m.storeFor(containerID)
 	if err != nil {
 		return nil, fmt.Errorf("template store for %q: %w", containerID, err)
 	}
-	data, err := store.ReadPng(key)
+	pngData, err := store.ReadPng(key)
 	if err != nil {
 		return nil, fmt.Errorf("read template %q: %w", key, err)
 	}
-	tpl, err := vision.LoadPNG(bytes.NewReader(data))
+	meta, _ := store.Get(key)
+
+	srcSha := meta.SHA256
+	if len(srcSha) < 8 {
+		srcSha = "nosha___"
+	}
+	srcSha8 := srcSha[:8]
+	diskCacheDir := filepath.Join(m.dataRoot, "containers", containerID, "cache", "templates")
+	diskName := fmt.Sprintf("%s_%dx%d_%s.png", key, frameW, frameH, srcSha8)
+	diskPath := filepath.Join(diskCacheDir, diskName)
+
+	// disk hit
+	if cached, err := os.ReadFile(diskPath); err == nil {
+		tpl, err := vision.LoadPNG(bytes.NewReader(cached))
+		if err == nil {
+			m.loadCache.Store(cacheKey, tpl)
+			return tpl, nil
+		}
+	}
+
+	tpl, err := vision.LoadPNG(bytes.NewReader(pngData))
 	if err != nil {
 		return nil, fmt.Errorf("decode template %q: %w", key, err)
 	}
-	m.loadCache.Store(cacheKey, tpl)
-	return tpl, nil
+
+	recW, recH := meta.RecordedResolution[0], meta.RecordedResolution[1]
+	if recW == 0 || recH == 0 || (recW == frameW && recH == frameH) {
+		m.loadCache.Store(cacheKey, tpl)
+		return tpl, nil
+	}
+	if recW*frameH != recH*frameW {
+		fmt.Fprintf(os.Stderr, "template %q recordedResolution %dx%d aspect != frame %dx%d, using original (may miss)\n", key, recW, recH, frameW, frameH)
+		m.loadCache.Store(cacheKey, tpl)
+		return tpl, nil
+	}
+
+	// scale (CatmullRom)
+	srcImg, _ := png.Decode(bytes.NewReader(pngData))
+	srcRGBA, ok := srcImg.(*image.RGBA)
+	if !ok {
+		b := srcImg.Bounds()
+		srcRGBA = image.NewRGBA(b)
+		draw.Draw(srcRGBA, b, srcImg, b.Min, draw.Src)
+	}
+	scaleX := float64(frameW) / float64(recW)
+	newW := int(float64(tpl.W) * scaleX)
+	newH := int(float64(tpl.H) * scaleX)
+	scaled := imageutil.ScaleRGBA(srcRGBA, newW, newH)
+
+	var buf bytes.Buffer
+	png.Encode(&buf, scaled)
+	scaledTpl, err := vision.LoadPNG(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return nil, err
+	}
+
+	// atomic disk cache write
+	if err := os.MkdirAll(diskCacheDir, 0o755); err == nil {
+		tmpPath := diskPath + ".tmp"
+		if err := os.WriteFile(tmpPath, buf.Bytes(), 0o644); err == nil {
+			os.Rename(tmpPath, diskPath)
+		}
+	}
+
+	m.loadCache.Store(cacheKey, scaledTpl)
+	return scaledTpl, nil
 }
 
 func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, hwnd uintptr, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
 	if hwnd == 0 {
 		return false, expr.Point{}, [4]float64{}, nil
 	}
-	tpl, err := m.loadTemplate(containerID, key)
-	if err != nil {
-		return false, expr.Point{}, [4]float64{}, err
-	}
 	frame, err := captureFrameCached(&m.fcMu, m.fcEntries, hwnd)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, fmt.Errorf("capture.Frame: %w", err)
+	}
+	frameW := frame.Bounds().Dx()
+	frameH := frame.Bounds().Dy()
+	tpl, err := m.loadTemplate(containerID, key, frameW, frameH)
+	if err != nil {
+		return false, expr.Point{}, [4]float64{}, err
 	}
 
 	// region 优先级: caller 传的 > meta.Regions (multi-slot, 选末位 reading order) >
@@ -175,8 +255,6 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, h
 	if x < 0 || conf < float32(threshold) {
 		return false, expr.Point{}, [4]float64{}, nil
 	}
-	frameW := frame.Bounds().Dx()
-	frameH := frame.Bounds().Dy()
 	cx := float64(roiPxX+x+tpl.W/2) / float64(frameW)
 	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
 	out := [4]float64{rx, ry, rw, rh}
