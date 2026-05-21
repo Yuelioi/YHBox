@@ -371,9 +371,9 @@ func main() {
 	})
 	app.AttachWailsApp(wailsApp)
 
-	// v2 Task 1.22: 注入 WindowOpener adapter + library emit
 	containerSvc.SetWindowOpener(newContainerWindowAdapter(wailsApp))
 	librarySvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	librarySvc.SetContainersRoot(filepath.Join(dataDir, "containers"))
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接走 containerStore.SaveSubgraph 落到容器 subgraphs/

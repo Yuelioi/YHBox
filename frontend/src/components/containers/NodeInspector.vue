@@ -719,30 +719,29 @@ function onEnterSubgraph() {
   editorStore.pushPath(String(sgID))
 }
 
-// 发布当前绑定子图到库 (容器→库, 反向 copy-on-use)
 const publishing = ref(false)
 async function onPublishToLibrary() {
   const sgID = props.node?.config?.subgraphId
   const cid = editorStore.activeContainerID
   if (!sgID || !cid || !boundSubgraph.value) return
   const yes = await confirmDialog({
-    title: '发布子图到库？',
-    description: `将「${boundSubgraph.value.label || sgID}」深拷贝一份到全局库；容器里原子图不变。后续可在 库 入口 拖入其他容器。`,
+    title: '分享子图到库？',
+    description: `将「${boundSubgraph.value.label || sgID}」及其依赖打包到全局库（覆盖同名 package）。`,
     color: 'primary',
-    confirmText: '发布',
+    confirmText: '分享',
   })
   if (yes !== true) return
   publishing.value = true
   try {
-    const r = (await backend.library.publishFromContainer(cid, String(sgID))) as any
+    await backend.library.exportSubgraph(cid, String(sgID), true)
     toastForSync.add({
-      title: '已发布到库',
-      description: `新库 ID: ${r?.id ?? '?'}`,
+      title: '已分享到库',
+      description: `${String(sgID)}`,
       color: 'success',
       icon: 'i-tabler-cloud-upload',
     })
   } catch (e) {
-    toastForSync.add({ title: '发布失败', description: String(e), color: 'error' })
+    toastForSync.add({ title: '分享失败', description: String(e), color: 'error' })
   } finally {
     publishing.value = false
   }

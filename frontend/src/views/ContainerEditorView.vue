@@ -777,16 +777,9 @@ function onOpenLibraryExplorer() {
 async function onPickLibrarySubgraph(libraryID: string) {
   if (!draft.value) return
   try {
-    // backend.library.copyToContainer returns container.Subgraph (has .id)
-    const result = (await backend.library.copyToContainer(libraryID, draft.value.id)) as any
-    const newSubgraphID: string | undefined = result?.id
-    if (!newSubgraphID) {
-      console.warn('copyToContainer returned no id', result)
-      return
-    }
-    // Refresh subgraph store so UI sees the new entry
+    await backend.library.importToContainer(libraryID, draft.value.id, '')
+    const newSubgraphID = libraryID
     await refreshSubgraphStore()
-    // Build a Subgraph call node at viewport center
     applyDraftMutation(() => {
       const g = activeGraph.value
       if (!g) return
@@ -801,7 +794,6 @@ async function onPickLibrarySubgraph(libraryID: string) {
       g.nodes.push(node)
     })
     useDiscoveryStore().pushRecent('Subgraph')
-    // Notify store that library changed (triggers LibraryStore refresh across views)
     useLibraryStore().reload()
     toast.add({
       title: '子图已从库导入',
@@ -1077,9 +1069,26 @@ function onNodeMenuAction(a: NodeMenuAction) {
       if (sgID) editorStore.pushPath(sgID)
       return
     }
+    case 'share-to-library': {
+      const sgID = (node.config as Record<string, unknown> | undefined)?.subgraphId as string | undefined
+      if (!sgID) return
+      void shareSubgraphToLibrary(sgID)
+      return
+    }
     case 'rename':
       // Backlog: 2026-05-20-editor-v2-backlog.md M1 — inline rename UX. Currently Inspector edits label.
       return
+  }
+}
+
+async function shareSubgraphToLibrary(sgID: string) {
+  if (!containerID) return
+  if (!window.confirm(`将子图 "${sgID}" 及其依赖打包分享到库（覆盖已有同名 package）？`)) return
+  try {
+    await backend.library.exportSubgraph(containerID, sgID, true)
+    toast.add({ title: `已分享 ${sgID} 到库`, color: 'success', icon: 'i-tabler-check' })
+  } catch (e: any) {
+    toast.add({ title: '分享失败', description: String(e?.message ?? e), color: 'error' })
   }
 }
 

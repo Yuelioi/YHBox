@@ -59,6 +59,7 @@ export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
   | 'toggle-disable' | 'star' | 'rename'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
+  | 'share-to-library'
 
 const props = defineProps<{
   open: boolean
@@ -147,6 +148,11 @@ const specialItems = computed(() => {
     items.push({
       key: 'jump-to-subgraph',
       label: '↪ 进入子图',
+      color: 'text-primary',
+    })
+    items.push({
+      key: 'share-to-library',
+      label: '↑ 分享到 Library',
       color: 'text-primary',
     })
   }
