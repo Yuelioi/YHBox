@@ -121,10 +121,20 @@ onMounted(() => {
     appendLine(String(payload?.level ?? 'info'), String(payload?.message ?? ''))
   }) as unknown as () => void
 
-  // container:node-enter payload: {containerId, nodeId, nodeKind}
-  unsubscribeNode = Events.On('container:node-enter', (e: any) => {
+  // container:node-enter-batch payload: {entries: [{nodeId, nodeKind, count}, ...]}
+  // 后端 200ms 累积一批, 连续同 nodeId 折叠成 count (console.log × N 风格).
+  // 兼容单条 container:node-enter (不被 batch 的低频路径).
+  unsubscribeNode = Events.On('container:node-enter-batch', (e: any) => {
     const payload = e?.data?.[0] ?? e?.data ?? e
-    appendLine('node', `→ ${payload?.nodeKind ?? '?'} (${payload?.nodeId ?? '?'})`)
+    const entries = payload?.entries
+    if (!Array.isArray(entries)) return
+    for (const ent of entries) {
+      const kind = ent?.nodeKind ?? '?'
+      const id = ent?.nodeId ?? '?'
+      const cnt = Number(ent?.count ?? 1)
+      const suffix = cnt > 1 ? ` × ${cnt}` : ''
+      appendLine('node', `→ ${kind} (${id})${suffix}`)
+    }
   }) as unknown as () => void
 })
 

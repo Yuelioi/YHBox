@@ -103,15 +103,28 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, hwnd uintptr, key str
 		return false, expr.Point{}, [4]float64{}, fmt.Errorf("capture.Frame: %w", err)
 	}
 
-	// region 优先级：caller 传的 > template meta 的 Region > 全屏（兜底）。
-	// 全屏匹配开销巨大（1080p 上 400×40 模板要 3-5s/match），用 ROI 后 ~10ms。
+	// region 优先级: caller 传的 > meta.Regions (multi-slot, 选末位 reading order) >
+	// meta.Region (single, 扩 30% padding) > 全屏 (兜底).
+	// 全屏匹配开销巨大 (1080p 400×40 模板 3-5s/match), 用 ROI 后 ~10ms.
+	if len(region) != 4 || (region[2] == 0 && region[3] == 0) {
+		// 没 caller region — 查 meta 看是否 multi-slot
+		if meta, ok := m.tplStore.Get(key); ok && len(meta.Regions) > 0 {
+			return m.detectMultiRegion(frame, tpl, meta.Regions, threshold)
+		}
+	}
+
 	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
 	if len(region) == 4 && (region[2] > 0 || region[3] > 0) {
 		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
 	} else if meta, ok := m.tplStore.Get(key); ok && (meta.Region[2] > 0 || meta.Region[3] > 0) {
-		// 模板录制 bbox → meta.Region，作为搜索 ROI；扩 30% 边距防 UI 漂移
 		mx, my, mw, mh := float64(meta.Region[0]), float64(meta.Region[1]), float64(meta.Region[2]), float64(meta.Region[3])
-		padX, padY := mw*0.3, mh*0.3
+		// 固定 30 px padding (跟 v1 fish bot tools/fish/constants.roiPaddingPx 一致).
+		// 老版本用 mw*0.3 比例 padding, 小 template (e.g. hook_icon 45×54) search area 偏窄
+		// (72×81 vs v1 105×114), 角色/UI 轻微抖动 icon 偏出 → NCC miss.
+		frameW := float64(frame.Bounds().Dx())
+		frameH := float64(frame.Bounds().Dy())
+		padX := 30.0 / frameW
+		padY := 30.0 / frameH
 		rx = clamp01(mx - padX)
 		ry = clamp01(my - padY)
 		rw = clamp01Bound(mw+padX*2, rx)
@@ -132,6 +145,56 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, hwnd uintptr, key str
 	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
 	out := [4]float64{rx, ry, rw, rh}
 	return true, expr.Point{X: cx, Y: cy}, out, nil
+}
+
+// detectMultiRegion 在多个 ROI 各自跑 NCC, 收 conf >= threshold 的 hit, 按 reading order
+// (y 优先 x 次) 选末位返回. 1:1 复刻 v1 fish bot Detector.BaitInShop 思路, 处理多槽位 UI
+// (商店货架 grid 等). 每个 region 加 30px padding 跟 single ROI / v1 roiPaddingPx 一致 —
+// 不加 padding 时 region==template size 导致 NCC search space=1×1, 模板偏 1 像素就 miss.
+func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]float32, threshold float64) (bool, expr.Point, [4]float64, error) {
+	type hit struct {
+		cx, cy float64
+		rx, ry float64
+		rw, rh float64
+	}
+	var hits []hit
+	frameW := frame.Bounds().Dx()
+	frameH := frame.Bounds().Dy()
+	padX := 30.0 / float64(frameW)
+	padY := 30.0 / float64(frameH)
+	for _, r := range regions {
+		rx, ry := float64(r[0]), float64(r[1])
+		rw, rh := float64(r[2]), float64(r[3])
+		rx = clamp01(rx - padX)
+		ry = clamp01(ry - padY)
+		rw = clamp01Bound(rw+padX*2, rx)
+		rh = clamp01Bound(rh+padY*2, ry)
+		roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
+		if roiPxW <= 0 || roiPxH <= 0 {
+			continue
+		}
+		x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
+		if x < 0 || conf < float32(threshold) {
+			continue
+		}
+		hits = append(hits, hit{
+			cx: float64(roiPxX+x+tpl.W/2) / float64(frameW),
+			cy: float64(roiPxY+y+tpl.H/2) / float64(frameH),
+			rx: rx, ry: ry, rw: rw, rh: rh,
+		})
+	}
+	if len(hits) == 0 {
+		return false, expr.Point{}, [4]float64{}, nil
+	}
+	// reading order 末位: y 升序, y 相同时 x 升序, 取最后一个 (右下).
+	// bait_product 商店金币款在前 (左上) 代币款在后 (右下), 选末位避点金币款.
+	last := hits[0]
+	for _, h := range hits[1:] {
+		if h.ry > last.ry || (h.ry == last.ry && h.rx > last.rx) {
+			last = h
+		}
+	}
+	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, nil
 }
 
 func clamp01(v float64) float64 {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -32,7 +33,26 @@ type App struct {
 	botServices []BotService
 	// battle 是 hotkey-driven 形态不同，单独引用。
 	battleService BattleHotkeyService
+
+	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 wails Event
+	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 200ms 累积一次, emit
+	// container:node-enter-batch (payload = []{nodeId, nodeKind} 顺序). 前端取 last 1 个
+	// 作为 currentNode 覆盖, batch 内不丢任何 event (落 zerolog file 仍按个写不变, 这条是
+	// 给 GUI 高亮的, 不影响 post-mortem). IPC 频率 数百/sec → 5/sec.
+	nodeEnterMu      sync.Mutex
+	nodeEnterBuf     []nodeEnterEntry
+	nodeEnterTimer   *time.Timer
 }
+
+type nodeEnterEntry struct {
+	NodeID   string `json:"nodeId"`
+	NodeKind string `json:"nodeKind"`
+	Count    int    `json:"count"` // 连续重复进同 node 折叠 (console.log × N 风格)
+}
+
+// nodeEnterBatchInterval: 1s 一批刷前端. 节点高亮 GUI 不需要更高频率 (1Hz 人眼能看清),
+// 5Hz/200ms 时 IPC + frontend reactivity 占大量 CPU. v1 没节点高亮所以 baseline 低很多.
+const nodeEnterBatchInterval = 1000 * time.Millisecond
 
 // NewApp 构造。settingsPath="" 走全局 default（settings.go 里 exe 同目录的 settings.json）。
 // LoadSettings 失败也返回（fallback default）。
@@ -52,18 +72,56 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 func (a *App) AttachWailsApp(w *application.App) { a.wailsApp = w }
 
 // Emit 包装 wailsApp.Event.Emit。a.wailsApp == nil 时（启动前）静默丢弃。
-// 同时把所有 container:* 事件 (除高频 node-enter 用 Debug 之外) 镜像到 zerolog
-// 让 logs/yhfish-YYYYMMDD.log 含完整 trace, 方便 post-mortem 调试.
+// container:* 事件镜像到 zerolog 方便 post-mortem; 但 container:node-enter 频率太高
+// (state_FISHING 30ms tick × 多节点 ≈ 数百/sec) 不镜像 file IO. node-enter 也不直接发 IPC,
+// 走 buf + 200ms 定时 flush 成 container:node-enter-batch (payload = list), 前端取 last 1 个
+// 作为 currentNode. IPC 数百/sec → 5/sec, 不丢 event.
 func (a *App) Emit(name string, data any) {
-	if name == "container:node-enter" {
-		a.rootLog.Debug().Str("event", name).Interface("data", data).Msg("runtime event")
-	} else if len(name) >= 10 && name[:10] == "container:" {
+	if name != "container:node-enter" && len(name) >= 10 && name[:10] == "container:" {
 		a.rootLog.Info().Str("event", name).Interface("data", data).Msg("runtime event")
 	}
 	if a.wailsApp == nil {
 		return
 	}
+	if name == "container:node-enter" {
+		a.bufferNodeEnter(data)
+		return
+	}
 	a.wailsApp.Event.Emit(name, data)
+}
+
+// bufferNodeEnter 把 node-enter event 累积进 buf, 启动定时 flush.
+// 连续同 nodeId 折叠 (Loop body 反复进同节点是常态, e.g. state_FISHING.barTrack 30Hz).
+func (a *App) bufferNodeEnter(data any) {
+	m, _ := data.(map[string]any)
+	if m == nil {
+		return
+	}
+	id, _ := m["nodeId"].(string)
+	kind, _ := m["nodeKind"].(string)
+	a.nodeEnterMu.Lock()
+	if n := len(a.nodeEnterBuf); n > 0 && a.nodeEnterBuf[n-1].NodeID == id {
+		a.nodeEnterBuf[n-1].Count++
+	} else {
+		a.nodeEnterBuf = append(a.nodeEnterBuf, nodeEnterEntry{NodeID: id, NodeKind: kind, Count: 1})
+	}
+	if a.nodeEnterTimer == nil {
+		a.nodeEnterTimer = time.AfterFunc(nodeEnterBatchInterval, a.flushNodeEnter)
+	}
+	a.nodeEnterMu.Unlock()
+}
+
+// flushNodeEnter 由定时器触发, 发出累积的 batch.
+func (a *App) flushNodeEnter() {
+	a.nodeEnterMu.Lock()
+	batch := a.nodeEnterBuf
+	a.nodeEnterBuf = nil
+	a.nodeEnterTimer = nil
+	a.nodeEnterMu.Unlock()
+	if len(batch) == 0 || a.wailsApp == nil {
+		return
+	}
+	a.wailsApp.Event.Emit("container:node-enter-batch", map[string]any{"entries": batch})
 }
 
 // Settings 返回当前 settings 的指针快照。读多写少，加 RLock 即可。

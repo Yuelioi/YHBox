@@ -109,6 +109,8 @@ func validateKey(key string) error {
 }
 
 // Save 写入或覆盖一个模板。meta.SHA256 / meta.CreatedAt 会被自动填充（若空）。
+// 调用方 (GUI 录制) 不知道 Regions 字段, 传入 meta.Regions == nil. 这里如果 old 有 Regions
+// 则保留 (multi-slot 配置非 GUI 编辑路径, e.g. bait_product 在 _index.json 手动加的 6 槽).
 func (s *Store) Save(key string, pngData []byte, meta TemplateMeta) (TemplateMeta, error) {
 	if err := validateKey(key); err != nil {
 		return TemplateMeta{}, err
@@ -125,6 +127,13 @@ func (s *Store) Save(key string, pngData []byte, meta TemplateMeta) (TemplateMet
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// 保留 old.Regions 当调用方没传 (GUI 录制场景).
+	if meta.Regions == nil {
+		if old, ok := s.index.Templates[key]; ok && len(old.Regions) > 0 {
+			meta.Regions = old.Regions
+		}
+	}
 
 	pngPath := filepath.Join(s.root, key+".png")
 	if err := os.MkdirAll(filepath.Dir(pngPath), 0o755); err != nil {
@@ -202,6 +211,9 @@ func (s *Store) UpdateMeta(key string, meta TemplateMeta) error {
 	meta.Height = old.Height
 	meta.RecordedResolution = old.RecordedResolution
 	meta.Region = old.Region
+	if meta.Regions == nil {
+		meta.Regions = old.Regions
+	}
 	newIndex := cloneIndex(s.index)
 	newIndex.Templates[key] = meta
 	if err := s.persistIndex(newIndex); err != nil {

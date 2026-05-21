@@ -174,16 +174,27 @@ func (b *PostMessageBackend) ReleaseAll() error {
 		}
 		hwndBtns[h] = btns
 	}
+	activated := make([]win.HWND, 0, len(b.activated))
+	for h := range b.activated {
+		activated = append(activated, h)
+	}
 	b.heldKeys = map[string]struct{}{}
 	b.heldBtns = map[win.HWND]map[string]struct{}{}
 	b.mu.Unlock()
 
-	// 单 container 一个 backend = 一个 hwnd (Y 模式串行), 用任一 hwnd 都行.
-	// 没 down 过 hwnd 时跳过 key release (没 hwnd 可用)
+	// 单 container 一个 backend = 一个 hwnd. 优先用有 mouse button held 的 hwnd,
+	// fallback 用 activated map (KeyDown 时 ensureActivated 一定写过 — 只用 KeyHold
+	// 不点鼠标的场景, 之前 anyHwnd==0 → KeyUp 不发, container stop 后游戏端按键残留).
 	var anyHwnd win.HWND
 	for h := range hwndBtns {
 		anyHwnd = h
 		break
+	}
+	if anyHwnd == 0 {
+		for _, h := range activated {
+			anyHwnd = h
+			break
+		}
 	}
 	if anyHwnd != 0 {
 		for _, vk := range keys {

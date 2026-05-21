@@ -30,7 +30,8 @@ type TemplateMeta struct {
 	SHA256             string         `json:"sha256"`
 	Width              int            `json:"width"`
 	Height             int            `json:"height"`
-	Region             [4]float32     `json:"region"`
+	Region             [4]float32     `json:"region"`            // 单 ROI: 录制时 bbox, adapter 扩 30% padding 搜索
+	Regions            [][4]float32   `json:"regions,omitempty"` // 多 ROI: bait_product 6 槽位这种, adapter 遍历选末位 (reading order); 非空时盖过 Region
 	CreatedAt          time.Time      `json:"createdAt"`
 	Tags               []string       `json:"tags,omitempty"` // 仅库 template 用；容器内 template 留空
 	Origin             TemplateOrigin `json:"origin"`         // 必填；新截图默认 {screenshot,""}

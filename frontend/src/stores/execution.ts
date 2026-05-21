@@ -48,7 +48,20 @@ export const useExecutionStore = defineStore('execution', () => {
     }
   })
 
+  // 后端 200ms 累积一批 node-enter event 发 batch (省 IPC). 前端取 last 1 个作为
+  // currentNode (覆盖, batch 内中间节点不渲染 — 高亮只看最新). 单条 node-enter 兼容保留.
+  Events.On('container:node-enter-batch', (e: any) => {
+    if (!running.value) return
+    const d = e?.data ?? e
+    const entries = d?.entries
+    if (!Array.isArray(entries) || entries.length === 0) return
+    const last = entries[entries.length - 1]
+    currentNodeID.value = String(last?.nodeId ?? '')
+    currentNodeKind.value = String(last?.nodeKind ?? '')
+  })
+
   Events.On('container:node-enter', (e: any) => {
+    if (!running.value) return
     const d = e?.data ?? e
     if (!d) return
     currentNodeID.value = String(d.nodeId ?? '')
