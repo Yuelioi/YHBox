@@ -94,7 +94,12 @@ func (s *Service) UpdateMeta(key, name, description string) error {
 	}
 	cur.Name = name
 	cur.Description = description
-	return s.store.UpdateMeta(key, cur)
+	pngData, err := s.store.ReadPng(key)
+	if err != nil {
+		return fmt.Errorf("read png for meta update %q: %w", key, err)
+	}
+	_, err = s.store.Save(key, pngData, cur)
+	return err
 }
 
 // CaptureScreenshot 截当前屏 → dataURL。前端在截图弹窗里用。

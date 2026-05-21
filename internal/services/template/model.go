@@ -6,23 +6,12 @@ package template
 
 import "time"
 
-// OriginKind 模板来源 — 用于 copy-on-use 后溯源.
-// 解决 copy-on-use 后用户问"这张图哪来的"的溯源问题。
-const (
-	OriginKindScreenshot = "screenshot" // 本机 ScreenPicker 截的
-	OriginKindLibrary    = "library"    // 从 library/templates/ 拖入
-	OriginKindImported   = "imported"   // 从某个 library subgraph 的 staging 夹带过来
-	OriginKindEmbedded   = "embedded"   // v1 预留，未来"嵌入到 subgraph json"用
-)
-
-// TemplateOrigin 来源追踪。新建空白时默认 Kind = screenshot, SourceID = ""。
 type TemplateOrigin struct {
 	Kind     string `json:"kind"`
 	SourceID string `json:"sourceID,omitempty"`
 }
 
-// TemplateMeta 单个模板的元数据。key 由外层 map 持有。
-// v2 在 v1 基础上加 Tags + Origin。
+// TemplateMeta 单模板的元数据. 跟 PNG 同 key, 文件 = <key>.json.
 type TemplateMeta struct {
 	Name               string         `json:"name"`
 	Description        string         `json:"description,omitempty"`
@@ -30,18 +19,11 @@ type TemplateMeta struct {
 	SHA256             string         `json:"sha256"`
 	Width              int            `json:"width"`
 	Height             int            `json:"height"`
-	Region             [4]float32     `json:"region"`            // 单 ROI: 录制时 bbox, adapter 扩 30% padding 搜索
-	Regions            [][4]float32   `json:"regions,omitempty"` // 多 ROI: bait_product 6 槽位这种, adapter 遍历选末位 (reading order); 非空时盖过 Region
+	Region             [4]float32     `json:"region"`
+	Regions            [][4]float32   `json:"regions,omitempty"` // multi-slot
 	CreatedAt          time.Time      `json:"createdAt"`
-	Tags               []string       `json:"tags,omitempty"` // 仅库 template 用；容器内 template 留空
-	Origin             TemplateOrigin `json:"origin"`         // 必填；新截图默认 {screenshot,""}
+	Tags               []string       `json:"tags,omitempty"`
+	Origin             TemplateOrigin `json:"origin"`
 }
 
-// TemplateIndex 模板索引。容器内 templates 也用这个结构（每个容器一份索引）。
-type TemplateIndex struct {
-	SchemaVersion int                     `json:"schemaVersion"`
-	Templates     map[string]TemplateMeta `json:"templates"`
-}
-
-// CurrentSchemaVersion 写入时填的值。
-const CurrentSchemaVersion = 1
+// TemplateIndex / CurrentSchemaVersion 删除 — 新 schema 每模板独立 JSON 文件, 无集中索引

@@ -8,10 +8,10 @@ import (
 
 func TestTemplateOriginKinds(t *testing.T) {
 	cases := []TemplateOrigin{
-		{Kind: OriginKindScreenshot, SourceID: ""},
-		{Kind: OriginKindLibrary, SourceID: "library-tpl-key"},
-		{Kind: OriginKindImported, SourceID: "sg-uuid"},
-		{Kind: OriginKindEmbedded, SourceID: "sg-uuid"},
+		{Kind: "screenshot", SourceID: ""},
+		{Kind: "library", SourceID: "library-tpl-key"},
+		{Kind: "imported", SourceID: "sg-uuid"},
+		{Kind: "embedded", SourceID: "sg-uuid"},
 	}
 	for _, o := range cases {
 		b, err := json.Marshal(o)
@@ -34,7 +34,7 @@ func TestTemplateMetaHasOriginAndTags(t *testing.T) {
 		Width:  10,
 		Height: 10,
 		Tags:   []string{"上钩", "钓鱼"},
-		Origin: TemplateOrigin{Kind: OriginKindLibrary, SourceID: "lib-key"},
+		Origin: TemplateOrigin{Kind: "library", SourceID: "lib-key"},
 	}
 	b, _ := json.Marshal(m)
 	if !strings.Contains(string(b), `"origin"`) {

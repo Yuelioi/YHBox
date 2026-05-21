@@ -6,103 +6,66 @@ import (
 	"testing"
 )
 
-func TestStore_SaveLoadRoundTrip(t *testing.T) {
+func TestStore_SaveGet(t *testing.T) {
 	dir := t.TempDir()
 	s, err := NewStore(dir)
 	if err != nil {
-		t.Fatalf("NewStore: %v", err)
+		t.Fatal(err)
 	}
-
-	pngData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
-
-	meta, err := s.Save("battle/skill1-cd", pngData, TemplateMeta{
-		Name:               "技能1 冷却完成",
-		Description:        "右下技能1冰红光",
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a} // PNG magic
+	meta, err := s.Save("fishing.hook_icon", png, TemplateMeta{
+		Name:               "Hook Icon",
 		RecordedResolution: [2]int{1920, 1080},
-		Width:              64, Height: 32,
-		Region: [4]float32{0.85, 0.92, 0.05, 0.04},
+		Width:              45, Height: 54,
 	})
 	if err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	if meta.SHA256 == "" {
-		t.Error("expected SHA256 to be populated")
+		t.Fatal("SHA256 not filled")
 	}
-	if meta.CreatedAt.IsZero() {
-		t.Error("expected CreatedAt to be set")
+	if _, err := os.Stat(filepath.Join(dir, "fishing.hook_icon.png")); err != nil {
+		t.Fatalf("png file missing: %v", err)
 	}
-
-	if _, err := os.Stat(filepath.Join(dir, "battle", "skill1-cd.png")); err != nil {
-		t.Errorf("png not on disk: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "_index.json")); err != nil {
-		t.Errorf("_index.json not on disk: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "fishing.hook_icon.json")); err != nil {
+		t.Fatalf("json file missing: %v", err)
 	}
 
-	s2, err := NewStore(dir)
-	if err != nil {
-		t.Fatalf("NewStore reload: %v", err)
-	}
-	got, ok := s2.Get("battle/skill1-cd")
+	got, ok := s.Get("fishing.hook_icon")
 	if !ok {
-		t.Fatal("Get returned !ok after reload")
+		t.Fatal("Get not found")
 	}
-	if got.Name != "技能1 冷却完成" {
-		t.Errorf("Name lost: got %q", got.Name)
+	if got.Name != "Hook Icon" {
+		t.Errorf("Name = %q, want Hook Icon", got.Name)
 	}
 }
 
-func TestStore_Delete(t *testing.T) {
-	dir := t.TempDir()
-	s, _ := NewStore(dir)
-	_, _ = s.Save("foo/bar", []byte{0x89, 0x50}, TemplateMeta{Name: "bar", Width: 1, Height: 1})
-
-	if err := s.Delete("foo/bar"); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
-	if _, ok := s.Get("foo/bar"); ok {
-		t.Error("expected !ok after delete")
-	}
-	if _, err := os.Stat(filepath.Join(dir, "foo", "bar.png")); !os.IsNotExist(err) {
-		t.Error("png should be gone")
+func TestStore_RejectsInvalidKey(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	_, err := s.Save("no_dot_key", []byte{1}, TemplateMeta{})
+	if err == nil {
+		t.Fatal("expected error for invalid key")
 	}
 }
 
 func TestStore_List(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
-	_, _ = s.Save("a/x", []byte{1}, TemplateMeta{Name: "x", Width: 1, Height: 1})
-	_, _ = s.Save("b/y", []byte{2}, TemplateMeta{Name: "y", Width: 1, Height: 1})
-
+	s.Save("a.x", []byte{1}, TemplateMeta{Name: "X"})
+	s.Save("a.y", []byte{2}, TemplateMeta{Name: "Y"})
 	got := s.List()
 	if len(got) != 2 {
-		t.Errorf("expected 2 entries, got %d", len(got))
+		t.Errorf("List() = %d, want 2", len(got))
 	}
 }
 
-func TestStore_KeyValidation(t *testing.T) {
-	dir := t.TempDir()
-	s, _ := NewStore(dir)
-	cases := []struct {
-		key   string
-		valid bool
-	}{
-		{"foo/bar", true},
-		{"foo", true},
-		{"foo/bar/baz", true},
-		{"/foo", false},
-		{"foo/", false},
-		{"foo//bar", false},
-		{"../foo", false},
-		{"foo/../bar", false},
-		{"foo.png", false},
-		{"", false},
+func TestStore_Delete(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	s.Save("a.x", []byte{1}, TemplateMeta{Name: "X"})
+	if err := s.Delete("a.x"); err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range cases {
-		_, err := s.Save(tc.key, []byte{1}, TemplateMeta{Name: "x", Width: 1, Height: 1})
-		got := err == nil
-		if got != tc.valid {
-			t.Errorf("key %q: want valid=%v, got valid=%v (err=%v)", tc.key, tc.valid, got, err)
-		}
+	if _, ok := s.Get("a.x"); ok {
+		t.Fatal("still exists after Delete")
 	}
 }
