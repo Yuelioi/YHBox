@@ -160,8 +160,8 @@ func (s *Service) CloseRecordingHUD() {
 
 // OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save"。
 // requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
-// 带上 id 给调用方匹配。
-func (s *Service) OpenScreenPicker(mode, requestID string) error {
+// 带上 id 给调用方匹配。containerID 仅 template_save 模式需要（空字符串则保存失败）。
+func (s *Service) OpenScreenPicker(mode, requestID, containerID string) error {
 	app := s.wailsApp()
 	if app == nil {
 		return fmt.Errorf("wails app 未初始化")
@@ -180,7 +180,7 @@ func (s *Service) OpenScreenPicker(mode, requestID string) error {
 	}
 	s.mu.Unlock()
 
-	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID)
+	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID) + "&containerID=" + url.QueryEscape(containerID)
 	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "选择屏幕位置",
 		Width:     1280,
