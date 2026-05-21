@@ -1,7 +1,37 @@
 // internal/services/container/nodekind/specs/input.go
 package specs
 
-import "yhbox/internal/services/container/nodekind"
+import (
+	"yhbox/internal/services/container/dependency"
+	"yhbox/internal/services/container/nodekind"
+)
+
+// onEventExtractor 只有 kind="template_appeared" 才有 template 依赖.
+// cfg 是 GraphNode.Config; 不引用 container 避免循环导入.
+type onEventExtractor struct{}
+
+func (onEventExtractor) Extract(cfg map[string]any) []dependency.Dependency {
+	kind, _ := cfg["kind"].(string)
+	if kind != "template_appeared" {
+		return nil
+	}
+	key, _ := cfg["template"].(string)
+	if key == "" {
+		return nil
+	}
+	return []dependency.Dependency{{Kind: dependency.KindTemplate, Key: key}}
+}
+
+// playClipExtractor 从 config["clipID"] 提 clip 依赖.
+type playClipExtractor struct{}
+
+func (playClipExtractor) Extract(cfg map[string]any) []dependency.Dependency {
+	id, _ := cfg["clipID"].(string)
+	if id == "" {
+		return nil
+	}
+	return []dependency.Dependency{{Kind: dependency.KindClip, Key: id}}
+}
 
 func init() {
 	nodekind.Register(&nodekind.Spec{
@@ -70,9 +100,12 @@ func init() {
 		},
 		IsYield: true,
 	})
+	dependency.RegisterExtractor("OnEvent", onEventExtractor{})
+
 	nodekind.Register(&nodekind.Spec{
 		Kind:   "PlayClip", Group: "input",
 		ExecIn: []string{"in"}, ExecOut: []string{"out"},
 		Defaults: map[string]any{"clipID": "", "keepRanges": []any{}},
 	})
+	dependency.RegisterExtractor("PlayClip", playClipExtractor{})
 }

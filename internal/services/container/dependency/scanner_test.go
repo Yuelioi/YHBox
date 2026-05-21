@@ -4,24 +4,20 @@ import (
 	"reflect"
 	"sort"
 	"testing"
-
-	"yhbox/internal/services/container"
 )
 
 type fakeExtractor struct{ deps []Dependency }
 
-func (e fakeExtractor) Extract(n *container.GraphNode) []Dependency { return e.deps }
+func (e fakeExtractor) Extract(cfg map[string]any) []Dependency { return e.deps }
 
 func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
-	sgs := map[string]*container.Subgraph{
+	nodes := map[string][]NodeInfo{
 		"sg1": {
-			Graph: container.Graph{Nodes: []container.GraphNode{
-				{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"template": "ns.a"}},
-				{ID: "n2", Kind: "PlayClip", Config: map[string]any{"clipID": "c1"}},
-			}},
+			{Kind: "CheckTemplate", Config: map[string]any{"template": "ns.a"}},
+			{Kind: "PlayClip", Config: map[string]any{"clipID": "c1"}},
 		},
 	}
-	get := func(id string) (*container.Subgraph, error) { return sgs[id], nil }
+	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
 
 	extractors := map[string]Extractor{
 		"CheckTemplate": fakeExtractor{deps: []Dependency{{Kind: KindTemplate, Key: "ns.a"}}},
@@ -44,19 +40,15 @@ func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 }
 
 func TestScanSubgraphDependencies_RecursiveSubgraph(t *testing.T) {
-	sgs := map[string]*container.Subgraph{
+	nodes := map[string][]NodeInfo{
 		"root": {
-			Graph: container.Graph{Nodes: []container.GraphNode{
-				{ID: "n1", Kind: "Subgraph", Config: map[string]any{"subgraphId": "callee"}},
-			}},
+			{Kind: "Subgraph", Config: map[string]any{"subgraphId": "callee"}},
 		},
 		"callee": {
-			Graph: container.Graph{Nodes: []container.GraphNode{
-				{ID: "n2", Kind: "CheckTemplate", Config: map[string]any{"template": "ns.x"}},
-			}},
+			{Kind: "CheckTemplate", Config: map[string]any{"template": "ns.x"}},
 		},
 	}
-	get := func(id string) (*container.Subgraph, error) { return sgs[id], nil }
+	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
 	extractors := map[string]Extractor{
 		"Subgraph":      fakeExtractor{deps: []Dependency{{Kind: KindSubgraph, Key: "callee"}}},
 		"CheckTemplate": fakeExtractor{deps: []Dependency{{Kind: KindTemplate, Key: "ns.x"}}},
@@ -73,21 +65,11 @@ func TestScanSubgraphDependencies_RecursiveSubgraph(t *testing.T) {
 }
 
 func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
-	sgs := map[string]*container.Subgraph{
-		"A": {Graph: container.Graph{Nodes: []container.GraphNode{
-			{ID: "n", Kind: "Subgraph", Config: map[string]any{"subgraphId": "B"}},
-		}}},
-		"B": {Graph: container.Graph{Nodes: []container.GraphNode{
-			{ID: "n", Kind: "Subgraph", Config: map[string]any{"subgraphId": "A"}},
-		}}},
+	nodes := map[string][]NodeInfo{
+		"A": {{Kind: "Subgraph", Config: map[string]any{"subgraphId": "B"}}},
+		"B": {{Kind: "Subgraph", Config: map[string]any{"subgraphId": "A"}}},
 	}
-	get := func(id string) (*container.Subgraph, error) {
-		sg, ok := sgs[id]
-		if !ok {
-			return nil, nil
-		}
-		return sg, nil
-	}
+	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
 	realExt := subgraphExtractorTestOnly{}
 	extractors := map[string]Extractor{
 		"Subgraph": realExt,
@@ -104,8 +86,8 @@ func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
 
 type subgraphExtractorTestOnly struct{}
 
-func (e subgraphExtractorTestOnly) Extract(n *container.GraphNode) []Dependency {
-	id, _ := n.Config["subgraphId"].(string)
+func (e subgraphExtractorTestOnly) Extract(cfg map[string]any) []Dependency {
+	id, _ := cfg["subgraphId"].(string)
 	if id == "" {
 		return nil
 	}

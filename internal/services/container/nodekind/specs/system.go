@@ -1,7 +1,22 @@
 // internal/services/container/nodekind/specs/system.go
 package specs
 
-import "yhbox/internal/services/container/nodekind"
+import (
+	"yhbox/internal/services/container/dependency"
+	"yhbox/internal/services/container/nodekind"
+)
+
+// subgraphExtractor 从 config["subgraphId"] 提 subgraph 依赖. Subgraph + CollapsedNode 共用.
+// cfg 是 GraphNode.Config; 不引用 container 避免循环导入.
+type subgraphExtractor struct{}
+
+func (subgraphExtractor) Extract(cfg map[string]any) []dependency.Dependency {
+	id, _ := cfg["subgraphId"].(string)
+	if id == "" {
+		return nil
+	}
+	return []dependency.Dependency{{Kind: dependency.KindSubgraph, Key: id}}
+}
 
 func init() {
 	nodekind.Register(&nodekind.Spec{
@@ -81,6 +96,8 @@ func init() {
 		// 在 Spec 里留空; ExecOutPins(cfg) 永远返 [] 是有意的 — caller 必须特判 kind=="Subgraph".
 		Defaults: map[string]any{"subgraphId": ""},
 	})
+	dependency.RegisterExtractor("Subgraph", subgraphExtractor{})
+
 	nodekind.Register(&nodekind.Spec{
 		Kind:    "SubgraphInput", Group: "system",
 		ExecIn:  nil,
@@ -98,4 +115,5 @@ func init() {
 		// Same as Subgraph — dynamic from backing isAnonymous Subgraph.
 		Defaults: map[string]any{"subgraphId": "", "label": "Collapsed"},
 	})
+	dependency.RegisterExtractor("CollapsedNode", subgraphExtractor{})
 }
