@@ -241,7 +241,9 @@ func main() {
 	// v3 Phase B: input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析,
 	// 不再走 main.go 全局注入. containerInputDriver / wire_container 适配器已退役.
 	// T1.5: per-container template store 按需加载, containerID 作为 Detect 参数传入.
-	templateMatcher := newTemplateMatcherAdapter(dataDir)
+	templateMatcher := newTemplateMatcherAdapter(dataDir, func(name string, payload map[string]any) {
+		app.Emit(name, payload)
+	})
 	containerColor := &containerColorAdapter{
 		fcEntries: make(map[uintptr]frameCacheEntry),
 	}

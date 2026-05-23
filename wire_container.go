@@ -10,15 +10,12 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/png"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/lxn/win"
-	"golang.org/x/image/draw"
 	"golang.org/x/sync/singleflight"
 
 	"yhbox/internal/hotkey"
@@ -27,7 +24,6 @@ import (
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/template"
 	"yhbox/pkg/capture"
-	"yhbox/pkg/imageutil"
 	"yhbox/pkg/vision"
 )
 
@@ -64,13 +60,14 @@ func captureFrameCached(mu *sync.Mutex, entries map[uintptr]frameCacheEntry, hwn
 
 // ---- TemplateMatcher: 接 pkg/vision + template store + capture ----
 //
-// 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用：
-//   - 从 template store 读 png bytes（key = 模板路径）
-//   - 抓当前游戏窗口一帧
-//   - 用 pkg/vision.Match 在 ROI / 全屏内做 CCOEFF_NORMED 匹配
+// 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用:
+//   - PickBest(key, frameW, frameH) 选精确分辨率 variant (v2.2 多变体 schema)
+//   - 抓当前游戏窗口一帧 (100ms TTL 缓存)
+//   - 用 pkg/vision.Match 在 caller 指定 ROI 内做 CCOEFF_NORMED 匹配
 //   - 返 found + 命中比例坐标 + 实际 region
 //
-// 命中坐标转换：vision.Match 返 ROI 内左上角像素 → 转客户区比例。
+// 命中坐标转换: vision.Match 返 ROI 内左上角像素 → 转客户区比例.
+// 无匹配 variant 时 emit "container:warning" (30s 节流), Detect 返 false.
 
 type templateMatcherAdapter struct {
 	dataRoot  string
@@ -81,14 +78,59 @@ type templateMatcherAdapter struct {
 
 	fcMu      sync.Mutex
 	fcEntries map[uintptr]frameCacheEntry // hwnd → 最近一帧
+
+	// emit: 投递前端事件 (e.g. App.Emit). 测试可传 nil 跳过.
+	emit func(eventName string, payload map[string]any)
+
+	// throttle: key = containerID+":"+eventKey → lastEmitUnixMs.
+	// 防止 missing variant 等高频警告刷屏 (30s 窗口内同 key 只 emit 一次).
+	throttleMu sync.Mutex
+	throttle   map[string]int64
 }
 
-func newTemplateMatcherAdapter(dataRoot string) *templateMatcherAdapter {
+func newTemplateMatcherAdapter(dataRoot string, emit func(string, map[string]any)) *templateMatcherAdapter {
 	return &templateMatcherAdapter{
 		dataRoot:  dataRoot,
 		stores:    map[string]*template.Store{},
 		fcEntries: map[uintptr]frameCacheEntry{},
+		emit:      emit,
+		throttle:  map[string]int64{},
 	}
+}
+
+// emitThrottled 同 (containerID, eventKey) 在 window 内只 emit 一次.
+// payload 自动注入 containerId, 复用同一 map.
+func (m *templateMatcherAdapter) emitThrottled(containerID, eventKey string, window time.Duration, payload map[string]any) {
+	if m.emit == nil {
+		return
+	}
+	key := containerID + ":" + eventKey
+	now := time.Now().UnixMilli()
+	m.throttleMu.Lock()
+	last := m.throttle[key]
+	if now-last < window.Milliseconds() {
+		m.throttleMu.Unlock()
+		return
+	}
+	m.throttle[key] = now
+	m.throttleMu.Unlock()
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payload["containerId"] = containerID
+	m.emit("container:warning", payload)
+}
+
+// emitMissingVariantWarning Detect 在 PickBest 失败时调用. 30s 节流避免循环刷屏.
+func (m *templateMatcherAdapter) emitMissingVariantWarning(containerID, key string, frameW, frameH int) {
+	eventKey := fmt.Sprintf("missing-variant:%s:%dx%d", key, frameW, frameH)
+	m.emitThrottled(containerID, eventKey, 30*time.Second, map[string]any{
+		"code":      "MISSING_TEMPLATE_VARIANT",
+		"severity":  "warning",
+		"message":   fmt.Sprintf("template %q has no variant matching frame %dx%d", key, frameW, frameH),
+		"key":       key,
+		"frameSize": []int{frameW, frameH},
+	})
 }
 
 func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, error) {
@@ -106,97 +148,34 @@ func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, 
 	return s, nil
 }
 
-func (m *templateMatcherAdapter) loadTemplate(containerID, key string, frameW, frameH int) (*vision.Template, error) {
-	cacheKey := fmt.Sprintf("%s:%s:%dx%d", containerID, key, frameW, frameH)
+// loadVariantTemplate 加载指定 (key, resolution) 变体的 PNG.
+// 缓存 key = containerID:key:WxH (variant 已带 resolution 区分), singleflight 防雪崩.
+// 不再做自动缩放 — Phase 2 删除老 doLoadTemplate, 由 PickBest 直接选精确匹配 variant.
+func (m *templateMatcherAdapter) loadVariantTemplate(containerID, key string, resolution [2]int) (*vision.Template, error) {
+	cacheKey := fmt.Sprintf("%s:%s:%dx%d", containerID, key, resolution[0], resolution[1])
 	if cached, ok := m.loadCache.Load(cacheKey); ok {
 		return cached.(*vision.Template), nil
 	}
 	v, err, _ := m.loadSF.Do(cacheKey, func() (interface{}, error) {
-		return m.doLoadTemplate(containerID, key, frameW, frameH)
+		store, err := m.storeFor(containerID)
+		if err != nil {
+			return nil, err
+		}
+		pngData, err := store.ReadVariantPng(key, resolution)
+		if err != nil {
+			return nil, fmt.Errorf("read variant png %q@%dx%d: %w", key, resolution[0], resolution[1], err)
+		}
+		tpl, err := vision.LoadPNG(bytes.NewReader(pngData))
+		if err != nil {
+			return nil, fmt.Errorf("decode variant png %q@%dx%d: %w", key, resolution[0], resolution[1], err)
+		}
+		m.loadCache.Store(cacheKey, tpl)
+		return tpl, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return v.(*vision.Template), nil
-}
-
-func (m *templateMatcherAdapter) doLoadTemplate(containerID, key string, frameW, frameH int) (*vision.Template, error) {
-	cacheKey := fmt.Sprintf("%s:%s:%dx%d", containerID, key, frameW, frameH)
-
-	store, err := m.storeFor(containerID)
-	if err != nil {
-		return nil, fmt.Errorf("template store for %q: %w", containerID, err)
-	}
-	pngData, err := store.ReadPng(key)
-	if err != nil {
-		return nil, fmt.Errorf("read template %q: %w", key, err)
-	}
-	meta, _ := store.Get(key)
-
-	srcSha := meta.SHA256
-	if len(srcSha) < 8 {
-		srcSha = "nosha___"
-	}
-	srcSha8 := srcSha[:8]
-	diskCacheDir := filepath.Join(m.dataRoot, "containers", containerID, "cache", "templates")
-	diskName := fmt.Sprintf("%s_%dx%d_%s.png", key, frameW, frameH, srcSha8)
-	diskPath := filepath.Join(diskCacheDir, diskName)
-
-	// disk hit
-	if cached, err := os.ReadFile(diskPath); err == nil {
-		tpl, err := vision.LoadPNG(bytes.NewReader(cached))
-		if err == nil {
-			m.loadCache.Store(cacheKey, tpl)
-			return tpl, nil
-		}
-	}
-
-	tpl, err := vision.LoadPNG(bytes.NewReader(pngData))
-	if err != nil {
-		return nil, fmt.Errorf("decode template %q: %w", key, err)
-	}
-
-	recW, recH := meta.RecordedResolution[0], meta.RecordedResolution[1]
-	if recW == 0 || recH == 0 || (recW == frameW && recH == frameH) {
-		m.loadCache.Store(cacheKey, tpl)
-		return tpl, nil
-	}
-	if recW*frameH != recH*frameW {
-		fmt.Fprintf(os.Stderr, "template %q recordedResolution %dx%d aspect != frame %dx%d, using original (may miss)\n", key, recW, recH, frameW, frameH)
-		m.loadCache.Store(cacheKey, tpl)
-		return tpl, nil
-	}
-
-	// scale (CatmullRom)
-	srcImg, _ := png.Decode(bytes.NewReader(pngData))
-	srcRGBA, ok := srcImg.(*image.RGBA)
-	if !ok {
-		b := srcImg.Bounds()
-		srcRGBA = image.NewRGBA(b)
-		draw.Draw(srcRGBA, b, srcImg, b.Min, draw.Src)
-	}
-	scaleX := float64(frameW) / float64(recW)
-	newW := int(float64(tpl.W) * scaleX)
-	newH := int(float64(tpl.H) * scaleX)
-	scaled := imageutil.ScaleRGBA(srcRGBA, newW, newH)
-
-	var buf bytes.Buffer
-	png.Encode(&buf, scaled)
-	scaledTpl, err := vision.LoadPNG(bytes.NewReader(buf.Bytes()))
-	if err != nil {
-		return nil, err
-	}
-
-	// atomic disk cache write
-	if err := os.MkdirAll(diskCacheDir, 0o755); err == nil {
-		tmpPath := diskPath + ".tmp"
-		if err := os.WriteFile(tmpPath, buf.Bytes(), 0o644); err == nil {
-			os.Rename(tmpPath, diskPath)
-		}
-	}
-
-	m.loadCache.Store(cacheKey, scaledTpl)
-	return scaledTpl, nil
 }
 
 func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, hwnd uintptr, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
@@ -209,42 +188,27 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, h
 	}
 	frameW := frame.Bounds().Dx()
 	frameH := frame.Bounds().Dy()
-	tpl, err := m.loadTemplate(containerID, key, frameW, frameH)
+
+	store, err := m.storeFor(containerID)
+	if err != nil {
+		return false, expr.Point{}, [4]float64{}, err
+	}
+	variant, ok := store.PickBest(key, frameW, frameH)
+	if !ok {
+		m.emitMissingVariantWarning(containerID, key, frameW, frameH)
+		return false, expr.Point{}, [4]float64{}, nil
+	}
+	tpl, err := m.loadVariantTemplate(containerID, key, variant.Resolution)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, err
 	}
 
-	// region 优先级: caller 传的 > meta.Regions (multi-slot, 选末位 reading order) >
-	// meta.Region (single, 扩 30px padding) > 全屏 (兜底).
-	// 全屏匹配开销巨大 (1080p 400×40 模板 3-5s/match), 用 ROI 后 ~10ms.
-	store, _ := m.storeFor(containerID)
-	if len(region) != 4 || (region[2] == 0 && region[3] == 0) {
-		// 没 caller region — 查 meta 看是否 multi-slot
-		if store != nil {
-			if meta, ok := store.Get(key); ok && len(meta.Regions) > 0 {
-				return m.detectMultiRegion(frame, tpl, meta.Regions, threshold)
-			}
-		}
-	}
-
+	// ROI: caller 传 region 用 caller, 否则全屏 (1×1).
+	// v2.2 schema 删了 meta.Region / meta.Regions, 不再有 store 侧 ROI fallback —
+	// 主调方 (CheckTemplate 节点 config) 必须自己传 region, 否则全屏扫 1080p 3-5s/match.
 	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
 	if len(region) == 4 && (region[2] > 0 || region[3] > 0) {
 		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
-	} else if store != nil {
-		if meta, ok := store.Get(key); ok && (meta.Region[2] > 0 || meta.Region[3] > 0) {
-			mx, my, mw, mh := float64(meta.Region[0]), float64(meta.Region[1]), float64(meta.Region[2]), float64(meta.Region[3])
-			// 固定 30 px padding (跟 v1 fish bot tools/fish/constants.roiPaddingPx 一致).
-			// 老版本用 mw*0.3 比例 padding, 小 template (e.g. hook_icon 45×54) search area 偏窄
-			// (72×81 vs v1 105×114), 角色/UI 轻微抖动 icon 偏出 → NCC miss.
-			frameW := float64(frame.Bounds().Dx())
-			frameH := float64(frame.Bounds().Dy())
-			padX := 30.0 / frameW
-			padY := 30.0 / frameH
-			rx = clamp01(mx - padX)
-			ry = clamp01(my - padY)
-			rw = clamp01Bound(mw+padX*2, rx)
-			rh = clamp01Bound(mh+padY*2, ry)
-		}
 	}
 
 	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
@@ -259,77 +223,6 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, h
 	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
 	out := [4]float64{rx, ry, rw, rh}
 	return true, expr.Point{X: cx, Y: cy}, out, nil
-}
-
-// detectMultiRegion 在多个 ROI 各自跑 NCC, 收 conf >= threshold 的 hit, 按 reading order
-// (y 优先 x 次) 选末位返回. 1:1 复刻 v1 fish bot Detector.BaitInShop 思路, 处理多槽位 UI
-// (商店货架 grid 等). 每个 region 加 30px padding 跟 single ROI / v1 roiPaddingPx 一致 —
-// 不加 padding 时 region==template size 导致 NCC search space=1×1, 模板偏 1 像素就 miss.
-func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]float32, threshold float64) (bool, expr.Point, [4]float64, error) {
-	type hit struct {
-		cx, cy float64
-		rx, ry float64
-		rw, rh float64
-	}
-	var hits []hit
-	frameW := frame.Bounds().Dx()
-	frameH := frame.Bounds().Dy()
-	padX := 30.0 / float64(frameW)
-	padY := 30.0 / float64(frameH)
-	for _, r := range regions {
-		rx, ry := float64(r[0]), float64(r[1])
-		rw, rh := float64(r[2]), float64(r[3])
-		rx = clamp01(rx - padX)
-		ry = clamp01(ry - padY)
-		rw = clamp01Bound(rw+padX*2, rx)
-		rh = clamp01Bound(rh+padY*2, ry)
-		roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
-		if roiPxW <= 0 || roiPxH <= 0 {
-			continue
-		}
-		x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
-		if x < 0 || conf < float32(threshold) {
-			continue
-		}
-		hits = append(hits, hit{
-			cx: float64(roiPxX+x+tpl.W/2) / float64(frameW),
-			cy: float64(roiPxY+y+tpl.H/2) / float64(frameH),
-			rx: rx, ry: ry, rw: rw, rh: rh,
-		})
-	}
-	if len(hits) == 0 {
-		return false, expr.Point{}, [4]float64{}, nil
-	}
-	// reading order 末位: y 升序, y 相同时 x 升序, 取最后一个 (右下).
-	// bait_product 商店金币款在前 (左上) 代币款在后 (右下), 选末位避点金币款.
-	last := hits[0]
-	for _, h := range hits[1:] {
-		if h.ry > last.ry || (h.ry == last.ry && h.rx > last.rx) {
-			last = h
-		}
-	}
-	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, nil
-}
-
-func clamp01(v float64) float64 {
-	if v < 0 {
-		return 0
-	}
-	if v > 1 {
-		return 1
-	}
-	return v
-}
-
-// clamp01Bound 限制 w 不超过剩余空间（x + w <= 1）。
-func clamp01Bound(w, x float64) float64 {
-	if x+w > 1 {
-		return 1 - x
-	}
-	if w < 0 {
-		return 0
-	}
-	return w
 }
 
 // ---- ColorDetector: capture.Frame + HSV/RGB 像素扫描 ----
