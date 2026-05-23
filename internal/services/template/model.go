@@ -22,7 +22,7 @@ type KeyMeta struct {
 // VariantMeta 单 variant 元数据 (跟 PNG 同分辨率). 文件 = <root>/<key>/<W>x<H>.json.
 type VariantMeta struct {
 	Resolution [2]int    `json:"resolution"` // [W, H], 录制时 frame size
-	BBox       [4]int    `json:"bbox"`       // [x1, y1, x2, y2] 像素位置, runtime 不用 (GUI repaint 用)
+	BBox       [4]int    `json:"bbox"`       // [x1, y1, x2, y2] 源帧像素位置. runtime → ratio+30px padding ROI (1:1 fish bot), GUI repaint 也用.
 	SHA256     string    `json:"sha256"`
 	Width      int       `json:"width"`     // bbox[2]-bbox[0]
 	Height     int       `json:"height"`    // bbox[3]-bbox[1]

@@ -33,6 +33,31 @@ import (
 // 会自然 miss → 重新抓帧.
 const frameCacheTTL = 100 * time.Millisecond
 
+// roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余 (1:1 fish bot constants.roiPaddingPx).
+// 角色/UI 轻微抖动 icon 偏出 BBox 时, padding 给 NCC search 余量.
+const roiPaddingPx = 30.0
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+// clamp01Bound 限制 w 不超过剩余空间（x + w <= 1）。
+func clamp01Bound(w, x float64) float64 {
+	if x+w > 1 {
+		return 1 - x
+	}
+	if w < 0 {
+		return 0
+	}
+	return w
+}
+
 type frameCacheEntry struct {
 	frame *image.RGBA
 	ts    time.Time
@@ -203,12 +228,25 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, h
 		return false, expr.Point{}, [4]float64{}, err
 	}
 
-	// ROI: caller 传 region 用 caller, 否则全屏 (1×1).
-	// v2.2 schema 删了 meta.Region / meta.Regions, 不再有 store 侧 ROI fallback —
-	// 主调方 (CheckTemplate 节点 config) 必须自己传 region, 否则全屏扫 1080p 3-5s/match.
+	// ROI 优先级:
+	//   1. caller 传 region (node config 显式 ROI) — 用 caller
+	//   2. variant.BBox 非零 — pixel bbox / variant.Resolution 转 ratio + 30px padding
+	//      (1:1 复刻 fish bot tools/fish/detect.go::MatchTextROI + constants.roiPaddingPx)
+	//   3. 全屏 (1×1) — 1080p 大模板 3-5s/match, 兜底
 	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
-	if len(region) == 4 && (region[2] > 0 || region[3] > 0) {
+	switch {
+	case len(region) == 4 && (region[2] > 0 || region[3] > 0):
 		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
+	case variant.Resolution[0] > 0 && variant.Resolution[1] > 0 && variant.BBox[2] > variant.BBox[0] && variant.BBox[3] > variant.BBox[1]:
+		vw, vh := float64(variant.Resolution[0]), float64(variant.Resolution[1])
+		bx, by := float64(variant.BBox[0]), float64(variant.BBox[1])
+		bw, bh := float64(variant.BBox[2]-variant.BBox[0]), float64(variant.BBox[3]-variant.BBox[1])
+		padX := roiPaddingPx / vw
+		padY := roiPaddingPx / vh
+		rx = clamp01(bx/vw - padX)
+		ry = clamp01(by/vh - padY)
+		rw = clamp01Bound(bw/vw+padX*2, rx)
+		rh = clamp01Bound(bh/vh+padY*2, ry)
 	}
 
 	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
