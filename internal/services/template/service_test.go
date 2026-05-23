@@ -1,6 +1,3 @@
-//go:build ignore_for_phase1
-// +build ignore_for_phase1
-
 package template
 
 import (
@@ -117,6 +114,28 @@ func TestService_PerContainerIsolation(t *testing.T) {
 	}
 	if len(outA) != 1 {
 		t.Errorf("container_a should have 1 entry, got %d", len(outA))
+	}
+}
+
+func TestService_ListVariants_MultipleSizes(t *testing.T) {
+	svc := newTestService(t)
+	dataURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+	if err := svc.Save(testContainerID, "ui.btn", dataURL, "btn", "", [2]int{1920, 1080}, [4]float32{0, 0, 0.1, 0.1}); err != nil {
+		t.Fatalf("Save 1080p: %v", err)
+	}
+	if err := svc.Save(testContainerID, "ui.btn", dataURL, "btn", "", [2]int{1280, 720}, [4]float32{0, 0, 0.1, 0.1}); err != nil {
+		t.Fatalf("Save 720p: %v", err)
+	}
+	vs, err := svc.ListVariants(testContainerID, "ui.btn")
+	if err != nil {
+		t.Fatalf("ListVariants: %v", err)
+	}
+	if len(vs) != 2 {
+		t.Errorf("len = %d, want 2", len(vs))
+	}
+	// area DESC: 1080p first
+	if vs[0].Resolution != [2]int{1920, 1080} {
+		t.Errorf("first = %v, want 1920x1080", vs[0].Resolution)
 	}
 }
 
