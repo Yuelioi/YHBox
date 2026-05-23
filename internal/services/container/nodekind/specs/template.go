@@ -137,7 +137,7 @@ func init() {
 			"greenPx":    nodekind.PinNumber,
 		},
 		Defaults: map[string]any{
-			"roi": map[string]any{"x": 0.3, "y": 0.55, "w": 0.4, "h": 0.05},
+			"rois": []any{}, // 用户必填, validator INVALID_COLORBAR_ROIS 兜底
 		},
 		// IsYield: false — 单次抓帧 + 分析, 无阻塞
 	})

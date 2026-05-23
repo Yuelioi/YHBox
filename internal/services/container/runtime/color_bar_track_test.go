@@ -10,6 +10,7 @@ import (
 )
 
 // 用 mockCaptureBackend 注入合成 bar ROI 图 → 期望 found / missing 路径.
+// mockCaptureBackend.ClientSize 固定返 1920x1080, 所以 rois entry 用 [1920,1080] 命中.
 
 func TestExecColorBarTrack_HappyPath_Found(t *testing.T) {
 	rt, r := newTestRunner(t)
@@ -23,7 +24,15 @@ func TestExecColorBarTrack_HappyPath_Found(t *testing.T) {
 		ID:   "cbt1",
 		Kind: "ColorBarTrack",
 		Config: map[string]any{
-			"roi": map[string]any{"x": float64(0), "y": float64(0), "w": float64(200), "h": float64(20)},
+			"rois": []any{
+				map[string]any{
+					"resolution": []any{float64(1920), float64(1080)},
+					"x":          float64(0),
+					"y":          float64(0),
+					"w":          float64(200),
+					"h":          float64(20),
+				},
+			},
 		},
 	}
 	if r.nodesByID == nil {
@@ -53,7 +62,15 @@ func TestExecColorBarTrack_BlackImage_Missing(t *testing.T) {
 		ID:   "cbt2",
 		Kind: "ColorBarTrack",
 		Config: map[string]any{
-			"roi": map[string]any{"x": float64(0), "y": float64(0), "w": float64(200), "h": float64(20)},
+			"rois": []any{
+				map[string]any{
+					"resolution": []any{float64(1920), float64(1080)},
+					"x":          float64(0),
+					"y":          float64(0),
+					"w":          float64(200),
+					"h":          float64(20),
+				},
+			},
 		},
 	}
 	if r.nodesByID == nil {
@@ -68,6 +85,62 @@ func TestExecColorBarTrack_BlackImage_Missing(t *testing.T) {
 	sys := rt.Sys()
 	if sys.LastBarTrack.CursorX >= 0 {
 		t.Errorf("黑图 CursorX 应 <0, got %d", sys.LastBarTrack.CursorX)
+	}
+}
+
+// pickROIByResolution 单元测试 — 不依赖 runner.
+
+func TestPickROIByResolution_ExactMatch(t *testing.T) {
+	rois := []any{
+		map[string]any{
+			"resolution": []any{float64(1920), float64(1080)},
+			"x":          float64(612),
+			"y":          float64(69),
+			"w":          float64(704),
+			"h":          float64(12),
+		},
+		map[string]any{
+			"resolution": []any{float64(1280), float64(720)},
+			"x":          float64(410),
+			"y":          float64(46),
+			"w":          float64(468),
+			"h":          float64(8),
+		},
+	}
+	r, ok := pickROIByResolution(rois, 1280, 720)
+	if !ok || r.X != 410 || r.Y != 46 || r.W != 468 || r.H != 8 {
+		t.Errorf("PickROI(1280,720) = %+v, want {X:410 Y:46 W:468 H:8}", r)
+	}
+	r, ok = pickROIByResolution(rois, 1920, 1080)
+	if !ok || r.X != 612 || r.Y != 69 || r.W != 704 || r.H != 12 {
+		t.Errorf("PickROI(1920,1080) = %+v", r)
+	}
+}
+
+func TestPickROIByResolution_NoMatch(t *testing.T) {
+	rois := []any{
+		map[string]any{
+			"resolution": []any{float64(1920), float64(1080)},
+			"x":          float64(612),
+			"y":          float64(69),
+			"w":          float64(704),
+			"h":          float64(12),
+		},
+	}
+	if _, ok := pickROIByResolution(rois, 1366, 768); ok {
+		t.Error("PickROI(1366,768) should miss")
+	}
+}
+
+func TestPickROIByResolution_EmptyOrInvalid(t *testing.T) {
+	if _, ok := pickROIByResolution(nil, 1920, 1080); ok {
+		t.Error("nil rois should miss")
+	}
+	if _, ok := pickROIByResolution([]any{}, 1920, 1080); ok {
+		t.Error("empty rois should miss")
+	}
+	if _, ok := pickROIByResolution([]any{"not an object"}, 1920, 1080); ok {
+		t.Error("non-object entry should miss")
 	}
 }
 

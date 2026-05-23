@@ -44,19 +44,23 @@ const (
 
 // Phase C node-kind config validation codes.
 const (
-	CodeInvalidROI            = "INVALID_ROI"
-	CodeInvalidHSVRange       = "INVALID_HSV_RANGE"
-	CodeInvalidScanAxis       = "INVALID_SCAN_AXIS"
-	CodeInvalidClusterRange   = "INVALID_CLUSTER_RANGE"
-	CodeInvalidVK             = "INVALID_VK"
-	CodeInvalidMouseButton    = "INVALID_MOUSE_BUTTON"
-	CodeUnsafeScreenshotPath  = "UNSAFE_SCREENSHOT_PATH"
-	CodePollTooFast           = "POLL_TOO_FAST"
-	CodeStopwatchEmptyKey     = "STOPWATCH_EMPTY_KEY"
-	CodeStopwatchKeyMismatch  = "STOPWATCH_KEY_MISMATCH"
-	CodeThrowInMainGraph      = "THROW_IN_MAIN_GRAPH"
-	CodeInvalidSwitchCases    = "INVALID_SWITCH_CASES"
-	CodeInvalidCronExpr       = "INVALID_CRON_EXPR"
+	CodeInvalidROI           = "INVALID_ROI"
+	CodeInvalidHSVRange      = "INVALID_HSV_RANGE"
+	CodeInvalidScanAxis      = "INVALID_SCAN_AXIS"
+	CodeInvalidClusterRange  = "INVALID_CLUSTER_RANGE"
+	CodeInvalidVK            = "INVALID_VK"
+	CodeInvalidMouseButton   = "INVALID_MOUSE_BUTTON"
+	CodeUnsafeScreenshotPath = "UNSAFE_SCREENSHOT_PATH"
+	CodePollTooFast          = "POLL_TOO_FAST"
+	CodeStopwatchEmptyKey    = "STOPWATCH_EMPTY_KEY"
+	CodeStopwatchKeyMismatch = "STOPWATCH_KEY_MISMATCH"
+	CodeThrowInMainGraph     = "THROW_IN_MAIN_GRAPH"
+	CodeInvalidSwitchCases   = "INVALID_SWITCH_CASES"
+	CodeInvalidCronExpr      = "INVALID_CRON_EXPR"
+
+	// ColorBarTrack rois 数组校验 (multi-resolution lookup).
+	CodeInvalidColorBarROIs   = "INVALID_COLORBAR_ROIS"
+	CodeDuplicateColorBarROI  = "DUPLICATE_COLORBAR_ROI"
 )
 
 // Data-pin + variable + literal validation codes.
@@ -163,6 +167,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateMissingSubgraph(c)...)
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
+	errs = append(errs, validateColorBarTrack(c)...)
 	errs = append(errs, validateTemplateKeyNodes(c)...)
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
@@ -752,8 +757,6 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 		switch n.Kind {
 		case "DetectColorHSV":
 			nodeErrs = validateDetectColorHSV(n)
-		case "ColorBarTrack":
-			nodeErrs = validateColorBarTrack(n)
 		case "ROIColorScan":
 			nodeErrs = validateROIColorScan(n)
 		case "Screenshot":
@@ -869,30 +872,120 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 	return errs
 }
 
-// validateColorBarTrack 静态校验 ColorBarTrack 节点 config.
-// 只校 ROI (跟 DetectColorHSV 同款), HSV 阈值是 hard-coded 在算法里 (1:1 复刻 fish bot).
-func validateColorBarTrack(n *GraphNode) []ValidationError {
+// validateColorBarTrack 校验 ColorBarTrack 节点 config.rois 必须非空 + 每项格式正确.
+// 多分辨率支持: rois 每项含 resolution=[W,H] + ROI (x,y,w,h, 像素坐标 in window client area).
+// 出错 code:
+//   - INVALID_COLORBAR_ROIS (Error): rois 空 / 非数组 / 项非对象 / 缺 resolution / w/h <= 0 / 坐标越界
+//   - DUPLICATE_COLORBAR_ROI (Warning): 同分辨率多条 entry (后者覆盖, 但通常是 import bug)
+func validateColorBarTrack(c *Container) []ValidationError {
 	var errs []ValidationError
-	roi, _ := n.Config["roi"].(map[string]any)
-	if roi == nil {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeInvalidROI,
-			Message:  "missing roi",
-		})
-	} else {
-		w, _ := roi["w"].(float64)
-		h, _ := roi["h"].(float64)
-		if w < 1 || h < 1 {
-			errs = append(errs, ValidationError{
-				Severity: SeverityError,
-				NodeID:   n.ID,
-				Code:     CodeInvalidROI,
-				Message:  fmt.Sprintf("roi w/h must be >=1, got %vx%v", w, h),
-				Params:   map[string]any{"w": w, "h": h},
-			})
+	check := func(nodes []GraphNode, graphPath []string) {
+		for _, n := range nodes {
+			if n.Kind != "ColorBarTrack" {
+				continue
+			}
+			rois, ok := n.Config["rois"].([]any)
+			if !ok || len(rois) == 0 {
+				errs = append(errs, ValidationError{
+					Severity:  SeverityError,
+					Code:      CodeInvalidColorBarROIs,
+					GraphPath: graphPath,
+					NodeID:    n.ID,
+					Message:   fmt.Sprintf("ColorBarTrack 节点 %s config.rois 必须是非空数组", n.ID),
+					Params:    map[string]any{"nodeID": n.ID},
+				})
+				continue
+			}
+			seen := map[[2]int]bool{}
+			for i, item := range rois {
+				m, ok := item.(map[string]any)
+				if !ok {
+					errs = append(errs, ValidationError{
+						Severity:  SeverityError,
+						Code:      CodeInvalidColorBarROIs,
+						GraphPath: graphPath,
+						NodeID:    n.ID,
+						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] 不是对象", n.ID, i),
+						Params:    map[string]any{"nodeID": n.ID, "index": i},
+					})
+					continue
+				}
+				res, ok := m["resolution"].([]any)
+				if !ok || len(res) != 2 {
+					errs = append(errs, ValidationError{
+						Severity:  SeverityError,
+						Code:      CodeInvalidColorBarROIs,
+						GraphPath: graphPath,
+						NodeID:    n.ID,
+						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d].resolution 必须是 [W,H]", n.ID, i),
+						Params:    map[string]any{"nodeID": n.ID, "index": i},
+					})
+					continue
+				}
+				rwf, _ := res[0].(float64)
+				rhf, _ := res[1].(float64)
+				resW := int(rwf)
+				resH := int(rhf)
+				if resW <= 0 || resH <= 0 {
+					errs = append(errs, ValidationError{
+						Severity:  SeverityError,
+						Code:      CodeInvalidColorBarROIs,
+						GraphPath: graphPath,
+						NodeID:    n.ID,
+						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d].resolution 必须正数 (得到 %dx%d)", n.ID, i, resW, resH),
+						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": resW, "h": resH},
+					})
+					continue
+				}
+				xf, _ := m["x"].(float64)
+				yf, _ := m["y"].(float64)
+				wf, _ := m["w"].(float64)
+				hf, _ := m["h"].(float64)
+				x := int(xf)
+				y := int(yf)
+				rw := int(wf)
+				rh := int(hf)
+				if rw < 1 || rh < 1 {
+					errs = append(errs, ValidationError{
+						Severity:  SeverityError,
+						Code:      CodeInvalidColorBarROIs,
+						GraphPath: graphPath,
+						NodeID:    n.ID,
+						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] w/h 必须 >= 1 (得到 %dx%d)", n.ID, i, rw, rh),
+						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": rw, "h": rh},
+					})
+					continue
+				}
+				if x+rw > resW || y+rh > resH {
+					errs = append(errs, ValidationError{
+						Severity:  SeverityError,
+						Code:      CodeInvalidColorBarROIs,
+						GraphPath: graphPath,
+						NodeID:    n.ID,
+						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] ROI (%d,%d)+(%dx%d) 超出 resolution %dx%d", n.ID, i, x, y, rw, rh, resW, resH),
+						Params:    map[string]any{"nodeID": n.ID, "index": i},
+					})
+					continue
+				}
+				key := [2]int{resW, resH}
+				if seen[key] {
+					errs = append(errs, ValidationError{
+						Severity:  SeverityWarning,
+						Code:      CodeDuplicateColorBarROI,
+						GraphPath: graphPath,
+						NodeID:    n.ID,
+						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] resolution %dx%d 重复声明", n.ID, i, resW, resH),
+						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": resW, "h": resH},
+					})
+				}
+				seen[key] = true
+			}
 		}
+	}
+	check(c.Graph.Nodes, []string{"main"})
+	for _, sg := range c.Subgraphs {
+		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
+		check(sg.Graph.Nodes, sgPath)
 	}
 	return errs
 }
