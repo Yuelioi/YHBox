@@ -1,17 +1,36 @@
+// internal/services/template/model.go
 // Package template 管理模板（PNG + meta）。
 //
-// Top-level TemplateService 取消, 改为 ContainerService (容器内 templates/) 和
-// LibraryService (库 templates/) 各自托管. 本包降级为基础库: PNG IO / 哈希 / meta 序列化.
+// v2.2 schema: 目录-per-key, 每 key 含 _meta.json + N 个 variant (<WxH>.{png,json}).
 package template
 
 import "time"
 
 type TemplateOrigin struct {
-	Kind     string `json:"kind"`
+	Kind     string `json:"kind"`               // "user" | "imported" | "subgraph"
 	SourceID string `json:"sourceID,omitempty"`
 }
 
-// TemplateMeta 单模板的元数据. 跟 PNG 同 key, 文件 = <key>.json.
+// KeyMeta 模板 key 级元数据 (跨 variant 共享). 文件 = <root>/<key>/_meta.json.
+type KeyMeta struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Tags        []string       `json:"tags,omitempty"`
+	Origin      TemplateOrigin `json:"origin"`
+}
+
+// VariantMeta 单 variant 元数据 (跟 PNG 同分辨率). 文件 = <root>/<key>/<W>x<H>.json.
+type VariantMeta struct {
+	Resolution [2]int    `json:"resolution"` // [W, H], 录制时 frame size
+	BBox       [4]int    `json:"bbox"`       // [x1, y1, x2, y2] 像素位置, runtime 不用 (GUI repaint 用)
+	SHA256     string    `json:"sha256"`
+	Width      int       `json:"width"`     // bbox[2]-bbox[0]
+	Height     int       `json:"height"`    // bbox[3]-bbox[1]
+	CreatedAt  time.Time `json:"createdAt"`
+	Note       string    `json:"note,omitempty"`
+}
+
+// TemplateMeta 兼容 shape, Service.List() 仍返这个给 FE. 内部从 KeyMeta + first VariantMeta 拼.
 type TemplateMeta struct {
 	Name               string         `json:"name"`
 	Description        string         `json:"description,omitempty"`
@@ -20,10 +39,8 @@ type TemplateMeta struct {
 	Width              int            `json:"width"`
 	Height             int            `json:"height"`
 	Region             [4]float32     `json:"region"`
-	Regions            [][4]float32   `json:"regions,omitempty"` // multi-slot
 	CreatedAt          time.Time      `json:"createdAt"`
 	Tags               []string       `json:"tags,omitempty"`
 	Origin             TemplateOrigin `json:"origin"`
+	VariantCount       int            `json:"variantCount"` // 新加, FE 知道有几个 variant
 }
-
-// TemplateIndex / CurrentSchemaVersion 删除 — 新 schema 每模板独立 JSON 文件, 无集中索引

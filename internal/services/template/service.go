@@ -1,3 +1,6 @@
+//go:build ignore_for_phase1
+// +build ignore_for_phase1
+
 package template
 
 import (
