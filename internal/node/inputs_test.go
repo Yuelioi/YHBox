@@ -1,7 +1,10 @@
 // internal/node/inputs_test.go
 package node
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestInputs_PriorityOrder(t *testing.T) {
 	in := newInputs(
@@ -41,5 +44,24 @@ func TestInputs_TypeCast(t *testing.T) {
 	}
 	if in.Int("f") != 3 {
 		t.Error("float→int cast failed")
+	}
+}
+
+func TestInputs_JsonNumberCoercion(t *testing.T) {
+	// InputSpec.Default 用 json.Number 保精度 (DS r2 #9a). Float64/Int 必须能解.
+	in := newInputs(nil, nil, nil, map[string]any{
+		"th":  json.Number("0.85"),
+		"cnt": json.Number("42"),
+	})
+	if in.Float64("th") != 0.85 {
+		t.Errorf("Float64(json.Number 0.85) = %v, want 0.85", in.Float64("th"))
+	}
+	if in.Int("cnt") != 42 {
+		t.Errorf("Int(json.Number 42) = %d, want 42", in.Int("cnt"))
+	}
+	// String fallback (e.g. config value 来自 JSON deserialize 是 string)
+	in2 := newInputs(nil, map[string]any{"x": "3.14"}, nil, nil)
+	if in2.Float64("x") != 3.14 {
+		t.Errorf("Float64(string '3.14') = %v, want 3.14", in2.Float64("x"))
 	}
 }

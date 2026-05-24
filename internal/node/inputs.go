@@ -1,7 +1,11 @@
 // internal/node/inputs.go
 package node
 
-import "time"
+import (
+	"encoding/json"
+	"strconv"
+	"time"
+)
 
 // inputsImpl 实现 Inputs 接口. framework 在 Run 入口前构造.
 // 优先级 data-wire > config > exec-data > default 已在 merged 物化好.
@@ -49,6 +53,14 @@ func (i *inputsImpl) Float64(name string) float64 {
 		return v
 	case int:
 		return float64(v)
+	case json.Number:
+		// InputSpec.Default 用 json.Number 保精度 (DS r2 #9a)
+		f, _ := v.Float64()
+		return f
+	case string:
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
 	}
 	return 0
 }
@@ -59,6 +71,17 @@ func (i *inputsImpl) Int(name string) int {
 		return v
 	case float64:
 		return int(v)
+	case json.Number:
+		if n, err := v.Int64(); err == nil {
+			return int(n)
+		}
+		if f, err := v.Float64(); err == nil {
+			return int(f)
+		}
+	case string:
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
 	}
 	return 0
 }
