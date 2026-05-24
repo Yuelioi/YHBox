@@ -5,9 +5,12 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"yhbox/internal/node"
+	_ "yhbox/internal/nodes/control" // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
+	_ "yhbox/internal/nodes/system"  // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw 等
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 )
@@ -18,13 +21,34 @@ import (
 // ============================================================================
 
 const (
-	tkHappy      = "test_dispatch_happy"
-	tkValidation = "test_dispatch_validation"
-	tkError      = "test_dispatch_error"
-	tkPanic      = "test_dispatch_panic"
-	tkDisplay    = "test_dispatch_display"
-	tkNoExit     = "test_dispatch_noexit"
+	tkHappy        = "test_dispatch_happy"
+	tkValidation   = "test_dispatch_validation"
+	tkError        = "test_dispatch_error"
+	tkPanic        = "test_dispatch_panic"
+	tkDisplay      = "test_dispatch_display"
+	tkNoExit       = "test_dispatch_noexit"
+	tkHappyCounted = "test_dispatch_happy_counted"
 )
+
+// tdHappyCounter — 测试 region body 调用次数. 每个 tdHappyCounted.Run 增 1.
+// 测试前 ResetTdHappyCounter 清零. tests run serially (default go test).
+var tdHappyCounter atomic.Int64
+
+func resetTdHappyCounter() { tdHappyCounter.Store(0) }
+
+type tdHappyCounted struct{}
+
+func (tdHappyCounted) Spec() node.Spec {
+	return node.Spec{
+		Kind:    tkHappyCounted,
+		Inputs:  []node.InputSpec{{Name: "in", Type: "Exec"}},
+		Outputs: []node.OutputSpec{{Name: "Out", Type: "Exec"}},
+	}
+}
+func (tdHappyCounted) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	tdHappyCounter.Add(1)
+	return ctx.Out("Out").Fire(), nil
+}
 
 type tdHappy struct{}
 
@@ -124,6 +148,7 @@ func init() {
 	node.Register(&tdPanic{})
 	node.Register(&tdDisplay{})
 	node.Register(&tdNoExit{})
+	node.Register(&tdHappyCounted{})
 }
 
 // ============================================================================
@@ -341,5 +366,237 @@ func TestBuildConfigFor_StripsLiteral(t *testing.T) {
 	}
 	if cfg["Threshold"] != 0.5 {
 		t.Errorf("Threshold not in config map")
+	}
+}
+
+// ============================================================================
+// Phase 5.5b — Region runner 测试 (Loop + Subgraph)
+// ============================================================================
+
+// newRegionTest 建一个含 Loop 节点的测试 container.
+// nodes: { loop (Loop), body_n (test_dispatch_happy_counted), done_n (Stop) }
+// edges: loop.body→body_n.in, loop.done→done_n.in
+// body_n.Out 默认无下游, body 一轮自然结束.
+// loopConfig 透传到 loop.Config (mode/count 等).
+func newRegionTestLoop(t *testing.T, loopConfig map[string]any) *dispatchTestCtx {
+	t.Helper()
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-region-loop",
+		Name:          "test-region-loop",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "loop", Kind: "Loop", Config: loopConfig},
+				{ID: "body_n", Kind: tkHappyCounted},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "loop.body", To: "body_n.in"},
+				{From: "loop.done", To: "done_n.in"},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	dt := &dispatchTestCtx{rt: rt, r: r}
+	dt.node = r.nodesByID["loop"]
+	rt.Emit = func(name string, data any) {
+		dt.emitMu.Lock()
+		defer dt.emitMu.Unlock()
+		dt.emitted = append(dt.emitted, emittedEvent{Name: name, Data: data})
+	}
+	return dt
+}
+
+func TestExecNodeAsRegionViaFramework_LoopCount3(t *testing.T) {
+	resetTdHappyCounter()
+	dt := newRegionTestLoop(t, map[string]any{"mode": "count", "count": 3})
+	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "loop", InPin: "in"})
+	if err != nil {
+		t.Fatalf("loop region dispatch: %v", err)
+	}
+	if got := tdHappyCounter.Load(); got != 3 {
+		t.Errorf("body called %d times, want 3", got)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" || tokens[0].InPin != "in" {
+		t.Errorf("loop done token = %+v, want {done_n, in}", tokens)
+	}
+}
+
+func TestExecNodeAsRegionViaFramework_LoopCount0(t *testing.T) {
+	resetTdHappyCounter()
+	dt := newRegionTestLoop(t, map[string]any{"mode": "count", "count": 0})
+	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "loop", InPin: "in"})
+	if err != nil {
+		t.Fatalf("loop count=0: %v", err)
+	}
+	if got := tdHappyCounter.Load(); got != 0 {
+		t.Errorf("count=0 should not call body, got %d calls", got)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
+		t.Errorf("loop count=0 done = %+v, want {done_n, in}", tokens)
+	}
+}
+
+func TestExecNodeAsRegionViaFramework_LoopForeverWithBreak(t *testing.T) {
+	resetTdHappyCounter()
+	// 拼 Loop forever + body=counter→Break: counter run 一次, Break sentinel 退 Loop.
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-loop-break",
+		Name:          "test-loop-break",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "forever"}},
+				{ID: "body_n", Kind: tkHappyCounted},
+				{ID: "break_n", Kind: "Break"},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "loop.body", To: "body_n.in"},
+				{From: "body_n.Out", To: "break_n.in"},
+				{From: "loop.done", To: "done_n.in"},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	loopNode := r.nodesByID["loop"]
+	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), loopNode, ExecToken{NodeID: "loop", InPin: "in"})
+	if err != nil {
+		t.Fatalf("forever + break: %v", err)
+	}
+	if got := tdHappyCounter.Load(); got != 1 {
+		t.Errorf("body called %d times, want 1 (Break should exit after first iteration)", got)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
+		t.Errorf("done = %+v, want {done_n, in}", tokens)
+	}
+}
+
+func TestExecNodeAsRegionViaFramework_NonRegionNodeError(t *testing.T) {
+	// 用普通 (非 RegionRunner) 节点调 execNodeAsRegionViaFramework, 应返 error.
+	dt := newDispatchTest(t, tkHappy) // tkHappy 不是 RegionRunner
+	_, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"})
+	if err == nil {
+		t.Fatal("expected error for non-RegionRunner node")
+	}
+	if !strings.Contains(err.Error(), "not a RegionRunner") {
+		t.Errorf("error %q should mention 'not a RegionRunner'", err)
+	}
+}
+
+// ============================================================================
+// Subgraph 测试
+// ============================================================================
+
+func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
+	resetTdHappyCounter()
+	// Main container: { sg_call (Subgraph w/ SubgraphID=sub1), done_n }
+	// Subgraph "sub1": { sub_in (SubgraphInput), sub_node (counted), sub_out (SubgraphOutput) }
+	subgraph := container.Subgraph{
+		ID:    "sub1",
+		Label: "sub1",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sub_in", Kind: "SubgraphInput"},
+				{ID: "sub_node", Kind: tkHappyCounted},
+				{ID: "sub_out", Kind: "SubgraphOutput"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sub_in.out", To: "sub_node.in"},
+				{From: "sub_node.Out", To: "sub_out.in"},
+			},
+		},
+	}
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-subgraph",
+		Name:          "test-subgraph",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sg_call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sub1"}},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sg_call.Done", To: "done_n.in"},
+			},
+		},
+		Subgraphs: []container.Subgraph{subgraph},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	sgNode := r.nodesByID["sg_call"]
+	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
+	if err != nil {
+		t.Fatalf("subgraph dispatch: %v", err)
+	}
+	if got := tdHappyCounter.Load(); got != 1 {
+		t.Errorf("sub_node called %d times, want 1", got)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
+		t.Errorf("subgraph Done = %+v, want {done_n, in}", tokens)
+	}
+	// 验证 PopFrame: dispatch 完, current frame 应该回到 main (Parent == nil).
+	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent != nil {
+		t.Errorf("PopFrame did not restore main frame: %+v", r.state.CurrentFrame)
+	}
+	// 验证 edges restored to main (not subgraph).
+	// main edges 有 sg_call.Done → done_n.in. r.edges.out 应该包含这条.
+	if _, ok := r.edges.out["sg_call.Done"]; !ok {
+		t.Errorf("r.edges not restored to main graph after Subgraph body returned")
+	}
+}
+
+func TestExecNodeAsRegionViaFramework_SubgraphUnknownID(t *testing.T) {
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-subgraph-missing",
+		Name:          "test-subgraph-missing",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sg_call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "no_such_sg"}},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	sgNode := r.nodesByID["sg_call"]
+	_, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
+	if err == nil {
+		t.Fatal("expected error for missing subgraph")
+	}
+	if !strings.Contains(err.Error(), "no_such_sg") {
+		t.Errorf("error %q should mention missing subgraph ID", err)
+	}
+}
+
+// ============================================================================
+// dispatchInRegion 统一路由
+// ============================================================================
+
+func TestDispatchInRegion_RoutesNormalToRunNode(t *testing.T) {
+	dt := newDispatchTest(t, tkHappy)
+	tokens, err := dt.r.dispatchInRegion(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"})
+	if err != nil {
+		t.Fatalf("dispatchInRegion happy: %v", err)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "target" {
+		t.Errorf("token = %+v, want target", tokens)
+	}
+}
+
+func TestDispatchInRegion_RoutesRegionToRunNodeAsRegion(t *testing.T) {
+	resetTdHappyCounter()
+	dt := newRegionTestLoop(t, map[string]any{"mode": "count", "count": 2})
+	tokens, err := dt.r.dispatchInRegion(context.Background(), dt.node, ExecToken{NodeID: "loop", InPin: "in"})
+	if err != nil {
+		t.Fatalf("dispatchInRegion loop: %v", err)
+	}
+	if got := tdHappyCounter.Load(); got != 2 {
+		t.Errorf("body called %d times, want 2", got)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
+		t.Errorf("tokens = %+v, want {done_n}", tokens)
 	}
 }
