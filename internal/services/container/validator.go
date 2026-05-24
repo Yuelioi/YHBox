@@ -340,7 +340,7 @@ func validateInvalidPins(c *Container) []ValidationError {
 				isExecOut := nodeHasExecOutPin(node, fromPin)
 				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
 				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {
-					if sgID, _ := node.Config["subgraphId"].(string); sgID != "" {
+					if sgID := cfgStringUnion(node.Config, "SubgraphID", "subgraphId"); sgID != "" {
 						if set, ok := subgraphOutputIDsByID[sgID]; ok {
 							if _, has := set[fromPin]; has {
 								isExecOut = true
@@ -399,7 +399,8 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 			if n.Kind != "Subgraph" {
 				continue
 			}
-			id, _ := n.Config["subgraphId"].(string)
+			// atomic #4: 兼容老 "subgraphId" 和新 "SubgraphID".
+			id := cfgStringUnion(n.Config, "SubgraphID", "subgraphId")
 			if id == "" {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingSubgraph,
@@ -545,7 +546,7 @@ func validateCyclicSubgraphs(c *Container) []ValidationError {
 		var calls []string
 		for _, n := range sg.Graph.Nodes {
 			if n.Kind == "Subgraph" {
-				if calledID, _ := n.Config["subgraphId"].(string); calledID != "" {
+				if calledID := cfgStringUnion(n.Config, "SubgraphID", "subgraphId"); calledID != "" {
 					calls = append(calls, calledID)
 				}
 			}
@@ -884,7 +885,11 @@ func validateColorBarTrack(c *Container) []ValidationError {
 			if n.Kind != "ColorBarTrack" {
 				continue
 			}
-			rois, ok := n.Config["rois"].([]any)
+			// atomic #4: 兼容老 "rois" (lowercase) 和新 "Rois" (PascalCase, nodepkg ColorBarTrack Spec).
+			rois, ok := n.Config["Rois"].([]any)
+			if !ok {
+				rois, ok = n.Config["rois"].([]any)
+			}
 			if !ok || len(rois) == 0 {
 				errs = append(errs, ValidationError{
 					Severity:  SeverityError,
@@ -1066,8 +1071,10 @@ func validateScreenshot(n *GraphNode) []ValidationError {
 // validateKeyHold checks that vk is a non-empty string.
 // Runtime calls pkginput.VK(name); we do not pre-validate the name here
 // (Phase C precedent: let runtime fail loudly for unknown VK names).
+//
+// atomic #4: 兼容老 "vk" (lowercase, nodekind 老 spec) 和新 "VK" (PascalCase, nodepkg).
 func validateKeyHold(n *GraphNode) []ValidationError {
-	vk, _ := n.Config["vk"].(string)
+	vk := cfgStringUnion(n.Config, "VK", "vk")
 	if vk == "" {
 		return []ValidationError{{
 			Severity: SeverityError,

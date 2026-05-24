@@ -35,6 +35,10 @@ func (e *errThrow) Error() string {
 
 // execNode 单节点执行入口。返回下游 token 列表（追加进调度队列）。
 // 大部分节点产出 1 个或 0 个 token；Parallel/Race 是特例（自跑 sub-runner）。
+//
+// atomic #3 cutover (5.5c) 待 fishing-v2 JSON 跟 test fixture 全部 redraw 完成后做 (board 工作清单).
+// 当前 execNode 仍走老 switch — dispatchInRegion (新 framework) 已 ready, 通过 dispatch_v5 path
+// 单元测试覆盖, 但 production fishing-v2 老 JSON 用 lowercase pin name + Config 键, 不能直接切.
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	// Gatekeep: kind must be registered. Catches typos and stale switch cases.
 	spec, ok := nodekind.Get(node.Kind)

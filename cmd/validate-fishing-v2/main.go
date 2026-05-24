@@ -13,6 +13,16 @@ import (
 	"strings"
 
 	"yhbox/internal/services/container"
+
+	// Anonymous imports — 触发 nodepkg 节点注册, 让 validator nodepkg union 在 validate path 生效.
+	_ "yhbox/internal/nodes/control"
+	_ "yhbox/internal/nodes/detect"
+	_ "yhbox/internal/nodes/input"
+	_ "yhbox/internal/nodes/io"
+	_ "yhbox/internal/nodes/purefunc"
+	_ "yhbox/internal/nodes/stopwatch"
+	_ "yhbox/internal/nodes/system"
+	_ "yhbox/internal/nodes/variable"
 )
 
 const fishingV2Dir = "bin/data/containers/fishing-v2"

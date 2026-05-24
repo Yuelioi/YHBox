@@ -9,10 +9,14 @@ import (
 	"testing"
 
 	"yhbox/internal/node"
-	_ "yhbox/internal/nodes/control"  // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
-	_ "yhbox/internal/nodes/purefunc" // Add / Sub / .../Select / Expr (Phase 6+ pull-eval partial)
-	_ "yhbox/internal/nodes/system"   // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw 等
-	_ "yhbox/internal/nodes/variable" // SetVar / IncVar / GetVar / GetParam / GetSys
+	_ "yhbox/internal/nodes/control"   // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
+	_ "yhbox/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
+	_ "yhbox/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringGameForeground / OnEvent
+	_ "yhbox/internal/nodes/io"        // Log / Toast / PlayClip
+	_ "yhbox/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr (Phase 6+ pull-eval partial)
+	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
+	_ "yhbox/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
+	_ "yhbox/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam / GetSys
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 )

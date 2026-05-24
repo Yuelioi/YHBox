@@ -25,7 +25,8 @@ func validateCollapsedReferences(c *Container) []ValidationError {
 	walk := func(g Graph, path []string) []ValidationError {
 		var errs []ValidationError
 		for _, n := range g.Nodes {
-			sgID, _ := n.Config["subgraphId"].(string)
+			// atomic #4: 兼容老 "subgraphId" 和新 "SubgraphID".
+			sgID := cfgStringUnion(n.Config, "SubgraphID", "subgraphId")
 
 			switch n.Kind {
 			case "Subgraph":

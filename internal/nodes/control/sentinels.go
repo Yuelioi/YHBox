@@ -25,3 +25,13 @@ var (
 	// 直调时返这个 error. 正常路径是 RunNodeAsRegion → RunRegion, 框架走错路径才会 hit.
 	errLoopMustUseRegion = errors.New("Loop node must be invoked via RunNodeAsRegion, not RunNode")
 )
+
+// IsStopRequested 报 err 是否是 Stop 节点的 sentinel — runtime ContainerRunner.Run 用这个
+// 决定是否 graceful halt (no container:error emit).
+func IsStopRequested(err error) bool { return errors.Is(err, errStopRun) }
+
+// IsBreakRequested 报 err 是否是 Break 节点 sentinel — 给 region runner 检测.
+func IsBreakRequested(err error) bool { return errors.Is(err, errBreakRequested) }
+
+// IsContinueRequested 报 err 是否是 Continue 节点 sentinel.
+func IsContinueRequested(err error) bool { return errors.Is(err, errContinueRequested) }

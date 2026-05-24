@@ -13,7 +13,8 @@ func ResolveSubgraphCall(c *container.Container, callNode *container.GraphNode) 
 	if callNode == nil || (callNode.Kind != "Subgraph" && callNode.Kind != "CollapsedNode") {
 		return nil, errors.New("not a Subgraph / CollapsedNode call node")
 	}
-	sgID, _ := callNode.Config["subgraphId"].(string)
+	// atomic #4 转换期: 同时认新 "SubgraphID" 和老 "subgraphId". atomic #5 拆老后只读 "SubgraphID".
+	sgID := container.CfgStringUnion(callNode.Config, "SubgraphID", "subgraphId")
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph 节点 %s 缺 config.subgraphId", callNode.ID)
 	}

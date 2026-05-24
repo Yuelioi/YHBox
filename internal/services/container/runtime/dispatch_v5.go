@@ -15,6 +15,7 @@ import (
 	"maps"
 
 	nodepkg "yhbox/internal/node"
+	"yhbox/internal/nodes/control"
 	"yhbox/internal/services/container"
 )
 
@@ -106,7 +107,28 @@ func (r *ContainerRunner) buildConfigFor(node *container.GraphNode) map[string]a
 		}
 		out[k] = v
 	}
+	// atomic 转换期: 老 lowercase Config 键自动镜像到新 PascalCase, 让 framework Required check
+	// (newInputs + validateRequired) 找得到. atomic #5 拆老 + 用户文件全 redraw 后这段可删.
+	normalizeLegacyConfigKeys(out, node.Kind)
 	return out
+}
+
+// normalizeLegacyConfigKeys 老 lowercase → 新 PascalCase 镜像. 只镜像新 key 不存在时,
+// 用户已 redraw 过的不动. Subgraph/CollapsedNode/Try 三种 kind 需要 SubgraphID 满足 Required check.
+func normalizeLegacyConfigKeys(cfg map[string]any, kind string) {
+	switch kind {
+	case "Subgraph", "CollapsedNode", "Try":
+		mirrorIfMissing(cfg, "SubgraphID", "subgraphId")
+	}
+}
+
+func mirrorIfMissing(cfg map[string]any, newKey, oldKey string) {
+	if _, has := cfg[newKey]; has {
+		return
+	}
+	if v, ok := cfg[oldKey]; ok {
+		cfg[newKey] = v
+	}
 }
 
 // buildExecDataFor 当前返空 map. Phase 5.5b 加 exec-data carry — 上游节点 RunResult.OutputData
@@ -153,6 +175,11 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	}
 
 	if result.Error != nil {
+		// atomic #3: translate framework Stop sentinel → runtime errStopRun so ContainerRunner.Run
+		// errors.Is(err, errStopRun) graceful halt path 仍 work.
+		if control.IsStopRequested(result.Error) {
+			return nil, errStopRun
+		}
 		return nil, result.Error
 	}
 
@@ -168,7 +195,28 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	if result.ExitName == "" {
 		return nil, nil
 	}
-	return r.edges.next(node.ID+"."+result.ExitName, tok.LoopStack), nil
+	tokens := r.edges.next(node.ID+"."+result.ExitName, tok.LoopStack)
+	if len(tokens) == 0 {
+		// atomic #4 转换期 fallback: 老 test fixture / 老 fishing-v2 JSON 用 camelCase pin
+		// (done/found/yes/no/true/false 等) 引边; 新 Spec.Outputs 用 PascalCase (Done/Found/Yes/No/True/False).
+		// 这里把 first letter lowercase 再 lookup 一次, 接住老 fixture. atomic #5 fixture redraw 后这段删.
+		if alt := lowerFirstRune(result.ExitName); alt != result.ExitName {
+			tokens = r.edges.next(node.ID+"."+alt, tok.LoopStack)
+		}
+	}
+	return tokens, nil
+}
+
+// lowerFirstRune "Done" → "done"; ASCII-only edge name 不用 unicode 处理.
+func lowerFirstRune(s string) string {
+	if s == "" {
+		return s
+	}
+	c := s[0]
+	if c >= 'A' && c <= 'Z' {
+		return string(c+32) + s[1:]
+	}
+	return s
 }
 
 // ============================================================================
@@ -292,7 +340,9 @@ func (r *ContainerRunner) makeBodyForTry(node *container.GraphNode, tok ExecToke
 // 老 runtime ResolveSubgraphCall 用 lowercase "subgraphId" — Phase 5.5c cutover 后老路径删,
 // 那个 helper 一起拆.
 func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
-	sgID, _ := node.Config["SubgraphID"].(string)
+	// atomic #4 转换期: 同时认新 "SubgraphID" 和老 "subgraphId" (test fixtures / 老 JSON 残留).
+	// atomic #5 拆老后只读 "SubgraphID".
+	sgID := container.CfgStringUnion(node.Config, "SubgraphID", "subgraphId")
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
 	}
@@ -307,13 +357,41 @@ func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok Exe
 		return nil, fmt.Errorf("Subgraph %s: subgraph %q not found in container %q", node.ID, sgID, r.rt.Container.ID)
 	}
 	parentLoopStack := tok.LoopStack
-	// Params: 调用方 Subgraph 节点 Config["Params"] 是 JSON map (callee 入参字典).
-	// Phase 5.5 简化 — 静态 JSON literal; dynamic data-wire Params 留 Phase 6+ pull-eval.
-	params, _ := node.Config["Params"].(map[string]any)
+	// Params 来源 (3 路 union, 优先级 1→3):
+	//   1. node.Config["Params"] static JSON map (Phase 5.5 设计).
+	//   2. sg.InputParams 声明的入参, 每个 pullDataPin(callerNode, paramName) — 复刻老
+	//      execSubgraph 行为, 让 caller 通过 data-in pin 或 literal pin 推 dynamic param.
+	//      Phase 6+ pull-eval 让上游 pure-data via framework 走通这条.
+	//   3. p.Default fallback if pull 出 nil.
+	//
+	// 转换期里 #1 + #2 同时认 — atomic #5 拆老后只留 #2 (规范 dynamic Params 走 InputParams + data-in).
+	staticParams, _ := node.Config["Params"].(map[string]any)
+	type pulledParam struct {
+		name string
+		val  any
+	}
+	var pulled []pulledParam
+	for _, p := range sg.InputParams {
+		v, perr := r.pullDataPin(node.ID, p.Name)
+		if perr != nil {
+			return nil, fmt.Errorf("Subgraph %s: pull input %q: %w", node.ID, p.Name, perr)
+		}
+		if v == nil && p.Default != nil {
+			v = toExprValue(p.Default)
+		}
+		pulled = append(pulled, pulledParam{name: p.Name, val: v})
+	}
 	return func(c nodepkg.Ctx) error {
-		// Push frame + seed LocalParams (params nil → Copy no-op).
+		// Push frame + seed LocalParams (#1 static, then #2 pulled covers same name).
 		r.state.PushFrame(container.MainGraphRef(), sg, node.ID)
-		maps.Copy(r.state.CurrentFrame.LocalParams, params)
+		maps.Copy(r.state.CurrentFrame.LocalParams, staticParams)
+		for _, p := range pulled {
+			// Only override static Params if pulled value is non-nil — caller might use
+			// Config["Params"] static literal (no data-in pin), pulled nil would clobber.
+			if p.val != nil {
+				r.state.CurrentFrame.LocalParams[p.name] = p.val
+			}
+		}
 		defer r.state.PopFrame()
 
 		// Save dispatch tables, swap to subgraph's
