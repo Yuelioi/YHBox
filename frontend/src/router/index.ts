@@ -41,6 +41,12 @@ const routes = [
     component: () => import('@/views/tools/RecordingHUDView.vue'),
     meta: { standalone: true },
   },
+  // Phase 0 临时实测页 (Phase 5 删)
+  {
+    path: '/node-inspector-demo',
+    name: 'node-inspector-demo',
+    component: () => import('@/views/NodeInspectorDemo.vue'),
+  },
 ]
 
 // 切到 bot route 时自动触发游戏检测。长跑 bot 从 BOTS 派生 + battle / tasks 手动 append。
