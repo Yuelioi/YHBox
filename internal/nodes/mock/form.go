@@ -66,3 +66,8 @@ func (Form) Spec() node.Spec {
 		},
 	}
 }
+
+// Run — Phase 0 mock 不真跑, 直接 Fire 第一个 exec 出口. 用于 framework 单测 / FE 视觉验证.
+func (Form) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	return ctx.Out(formOutSubmit).Fire(), nil
+}

@@ -61,3 +61,8 @@ func (Vision) Spec() node.Spec {
 		},
 	}
 }
+
+// Run — Phase 0 mock 不真跑, 直接 Fire NotFound (安全 stub). 用于 framework 单测 / FE 视觉验证.
+func (Vision) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	return ctx.Out(visionOutNotFound).Fire(), nil
+}

@@ -7,18 +7,16 @@ import (
 	"testing"
 )
 
-// Node 节点必须实现的最小接口.
-// Spec() 返 metadata, framework 用来注册 + 给 FE inspector.
-// Run() 在 interfaces.go (Task 1.1) 加 — Task 0.2 还不接 Run.
-type Node interface {
-	Spec() Spec
-}
-
-// RegisteredNode framework 注册条目, 含 Spec + 探测出的扩展 interface (Task 1.1+ 加).
+// RegisteredNode framework 注册条目, 含 Spec + 探测出的扩展 interface fn 指针.
 type RegisteredNode struct {
 	Impl Node
 	Spec Spec
-	// Phase 1 加: Run / Display / Validate / Dependencies / RunRegion 函数指针 (type assertion 探测)
+	// Optional extensions — nil if node doesn't implement.
+	Display      func(in Inputs, exitName string, out OutputData) string
+	Validate     func(in Inputs) []ValidationError
+	Dependencies func(in Inputs) []Dependency
+	// RunRegion — Phase 5 control flow nodes 实现.
+	RunRegion func(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
 }
 
 var (
@@ -28,7 +26,6 @@ var (
 )
 
 // Register 仅在 init() / Wails OnStartup 前调.
-// Frozen 后调或 dup Kind → panic (fail fast, author bug).
 func Register(impl Node) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
@@ -39,14 +36,27 @@ func Register(impl Node) {
 	if _, exists := globalRegistry[spec.Kind]; exists {
 		panic(fmt.Sprintf("node kind %q already registered", spec.Kind))
 	}
-	globalRegistry[spec.Kind] = &RegisteredNode{
+	rn := &RegisteredNode{
 		Impl: impl,
 		Spec: spec,
 	}
+	// 扩展 interface 探测
+	if d, ok := impl.(Displayer); ok {
+		rn.Display = d.Display
+	}
+	if v, ok := impl.(Validator); ok {
+		rn.Validate = v.Validate
+	}
+	if d, ok := impl.(Dependencer); ok {
+		rn.Dependencies = d.Dependencies
+	}
+	if r, ok := impl.(RegionRunner); ok {
+		rn.RunRegion = r.RunRegion
+	}
+	globalRegistry[spec.Kind] = rn
 }
 
-// Freeze 在 Wails OnStartup hook 末尾调一次. 之后 Register panic.
-// main.go (Task 0.6+) 负责调用时机.
+// Freeze 在 Wails OnStartup 末尾调一次.
 func Freeze() {
 	registryMu.Lock()
 	registryFrozen = true
@@ -61,7 +71,7 @@ func Get(kind string) (*RegisteredNode, bool) {
 	return rn, ok
 }
 
-// All 返 snapshot copy (slice header 安全, 内部 *RegisteredNode 引用同对象但 Spec 不可变).
+// All 返 snapshot copy.
 func All() []*RegisteredNode {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -72,7 +82,7 @@ func All() []*RegisteredNode {
 	return out
 }
 
-// ResetRegistryForTest 测试用. 生产代码调 panic (testing.Testing() = false).
+// ResetRegistryForTest 测试用.
 func ResetRegistryForTest() {
 	if !testing.Testing() {
 		panic("ResetRegistryForTest only callable from tests")
