@@ -7,16 +7,15 @@ import (
 	"yhbox/internal/services/container"
 )
 
-// ResolveSubgraphCall 解析一个 Subgraph 调用节点：从 node.config["subgraphId"] 拿目标子图，
-// 在 container.Subgraphs 里找。失败给清晰的错误信息。
+// ResolveSubgraphCall 解析一个 Subgraph 调用节点: 从 node.config["SubgraphID"] 拿目标子图,
+// 在 container.Subgraphs 里找. 失败给清晰错误信息.
 func ResolveSubgraphCall(c *container.Container, callNode *container.GraphNode) (*container.Subgraph, error) {
 	if callNode == nil || (callNode.Kind != "Subgraph" && callNode.Kind != "CollapsedNode") {
 		return nil, errors.New("not a Subgraph / CollapsedNode call node")
 	}
-	// atomic #4 转换期: 同时认新 "SubgraphID" 和老 "subgraphId". atomic #5 拆老后只读 "SubgraphID".
-	sgID := container.CfgStringUnion(callNode.Config, "SubgraphID", "subgraphId")
+	sgID, _ := callNode.Config["SubgraphID"].(string)
 	if sgID == "" {
-		return nil, fmt.Errorf("Subgraph 节点 %s 缺 config.subgraphId", callNode.ID)
+		return nil, fmt.Errorf("Subgraph 节点 %s 缺 config.SubgraphID", callNode.ID)
 	}
 	for i := range c.Subgraphs {
 		if c.Subgraphs[i].ID == sgID {

@@ -51,7 +51,7 @@ func TestValidator_MissingSubgraph_UnknownID(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "call1", Kind: "Subgraph",
-			Config: map[string]any{"subgraphId": "sg-does-not-exist"}, CreatedAt: time.Now().UTC()},
+			Config: map[string]any{"SubgraphID": "sg-does-not-exist"}, CreatedAt: time.Now().UTC()},
 	)
 	errs := ValidateContainer(c)
 	if !hasCode(errs, CodeMissingSubgraph) {
@@ -227,7 +227,7 @@ func TestValidator_CyclicSelfRecursive(t *testing.T) {
 				Version: GraphSchemaVersion,
 				Nodes: []GraphNode{
 					{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
-					{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-A"}, CreatedAt: time.Now().UTC()},
+					{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-A"}, CreatedAt: time.Now().UTC()},
 				},
 			},
 			OutputPins: []SubgraphOutputDecl{{ID: "d1", Name: "done"}},
@@ -248,7 +248,7 @@ func TestValidator_CyclicIndirect(t *testing.T) {
 			Graph: Graph{
 				ID:      "gA",
 				Version: GraphSchemaVersion,
-				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-B"}, CreatedAt: time.Now().UTC()}},
+				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-B"}, CreatedAt: time.Now().UTC()}},
 			},
 			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		},
@@ -258,7 +258,7 @@ func TestValidator_CyclicIndirect(t *testing.T) {
 			Graph: Graph{
 				ID:      "gB",
 				Version: GraphSchemaVersion,
-				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-A"}, CreatedAt: time.Now().UTC()}},
+				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-A"}, CreatedAt: time.Now().UTC()}},
 			},
 			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		},

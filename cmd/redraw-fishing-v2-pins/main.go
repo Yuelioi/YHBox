@@ -240,11 +240,19 @@ func processFile(path string, dryRun bool) (fileChange, error) {
 		}
 	}
 
-	// Pass 2: rewrite edges (from / to pin parts).
+	// Pass 2: rewrite edges (from / to pin parts) + drop `.loopback` edges.
+	// 新 framework Loop 内部 for-loop 自驱迭代, body 终止即下一轮; 老 ".out → loopMain.loopback"
+	// re-enter 模式 deprecated.
 	if edgesRaw, ok := graph["edges"].([]any); ok {
+		var kept []any
 		for _, e := range edgesRaw {
 			edge, ok := e.(map[string]any)
 			if !ok {
+				kept = append(kept, e)
+				continue
+			}
+			if to, ok := edge["to"].(string); ok && strings.HasSuffix(to, ".loopback") {
+				ch.EdgeRenames++
 				continue
 			}
 			if from, ok := edge["from"].(string); ok {
@@ -261,7 +269,9 @@ func processFile(path string, dryRun bool) (fileChange, error) {
 					ch.EdgeRenames++
 				}
 			}
+			kept = append(kept, edge)
 		}
+		graph["edges"] = kept
 	}
 
 	if dryRun {

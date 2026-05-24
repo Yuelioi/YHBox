@@ -42,7 +42,7 @@ func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 func TestScanSubgraphDependencies_RecursiveSubgraph(t *testing.T) {
 	nodes := map[string][]NodeInfo{
 		"root": {
-			{Kind: "Subgraph", Config: map[string]any{"subgraphId": "callee"}},
+			{Kind: "Subgraph", Config: map[string]any{"SubgraphID": "callee"}},
 		},
 		"callee": {
 			{Kind: "CheckTemplate", Config: map[string]any{"template": "ns.x"}},
@@ -66,8 +66,8 @@ func TestScanSubgraphDependencies_RecursiveSubgraph(t *testing.T) {
 
 func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
 	nodes := map[string][]NodeInfo{
-		"A": {{Kind: "Subgraph", Config: map[string]any{"subgraphId": "B"}}},
-		"B": {{Kind: "Subgraph", Config: map[string]any{"subgraphId": "A"}}},
+		"A": {{Kind: "Subgraph", Config: map[string]any{"SubgraphID": "B"}}},
+		"B": {{Kind: "Subgraph", Config: map[string]any{"SubgraphID": "A"}}},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
 	realExt := subgraphExtractorTestOnly{}
@@ -87,7 +87,7 @@ func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
 type subgraphExtractorTestOnly struct{}
 
 func (e subgraphExtractorTestOnly) Extract(cfg map[string]any) []Dependency {
-	id, _ := cfg["subgraphId"].(string)
+	id, _ := cfg["SubgraphID"].(string)
 	if id == "" {
 		return nil
 	}

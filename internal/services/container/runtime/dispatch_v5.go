@@ -1,23 +1,22 @@
-// dispatch_v5.go — Phase 5.5 新 dispatch 路径.
+// dispatch_v5.go — Phase 5.5 新 dispatch 路径 (atomic #3 ship: execNode 走这里).
 //
-// 通过 node.RunNode / RunNodeAsRegion 派发节点, 取代老 nodes.go 大 switch.
+// 通过 node.RunNode / RunNodeAsRegion 派发节点.
 //
-// Phase 5.5a (ship): execNodeViaFramework 处理非 region 节点 + routeResult 映射 RunResult → ExecToken.
-// Phase 5.5b (ship): execNodeAsRegionViaFramework + runRegionBody + makeBodyFor (Loop / Subgraph). Try 待用户拍板 Spec 加 SubgraphID 后实现.
-// Phase 5.5c (TODO): cutover — execNode entry 改成走 dispatchInRegion + 拆老 switch.
-//
-// 当前阶段不挂接 execNode entry — 老 nodes.go switch 仍是 production. fishing-v2 零影响.
+// 核心:
+//   - execNodeViaFramework: 非 region 节点 → RunNode + routeResult
+//   - execNodeAsRegionViaFramework: RegionRunner 节点 → RunNodeAsRegion + body 回调
+//   - dispatchInRegion: 统一 router, 自动 route 到 region 或 normal path. execNode 主入口
+//   - runRegionBody: region body sub-dispatch loop
+//   - makeBodyFor*: per-kind body callback (Loop / Subgraph / CollapsedNode / Try)
 package runtime
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 
 	nodepkg "yhbox/internal/node"
 	"yhbox/internal/nodes/control"
-	"yhbox/internal/nodes/system"
 	"yhbox/internal/services/container"
 )
 
@@ -99,8 +98,8 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 // buildConfigFor 复制 node.Config 当 framework config map. 扣 "literal" 内部字段
 // (pullDataPin 已经消费它做 inline data-edge literal source).
 //
-// Phase 5.5a 不做 pin name normalization — config key 跟 Spec.Inputs[].Name 严格 case-sensitive 比.
-// 老 fishing-v2 JSON 用 lowercase, 新 Spec 用 PascalCase, 不会自动对齐. Phase 5.6 redraw 时按新名写.
+// Config key 跟 Spec.Inputs[].Name 严格 case-sensitive 比. fishing-v2 JSON 跟所有 test
+// fixture 已 redraw 到 PascalCase, 不再需要 lowercase 镜像.
 func (r *ContainerRunner) buildConfigFor(node *container.GraphNode) map[string]any {
 	out := make(map[string]any, len(node.Config))
 	for k, v := range node.Config {
@@ -109,28 +108,7 @@ func (r *ContainerRunner) buildConfigFor(node *container.GraphNode) map[string]a
 		}
 		out[k] = v
 	}
-	// atomic 转换期: 老 lowercase Config 键自动镜像到新 PascalCase, 让 framework Required check
-	// (newInputs + validateRequired) 找得到. atomic #5 拆老 + 用户文件全 redraw 后这段可删.
-	normalizeLegacyConfigKeys(out, node.Kind)
 	return out
-}
-
-// normalizeLegacyConfigKeys 老 lowercase → 新 PascalCase 镜像. 只镜像新 key 不存在时,
-// 用户已 redraw 过的不动. Subgraph/CollapsedNode/Try 三种 kind 需要 SubgraphID 满足 Required check.
-func normalizeLegacyConfigKeys(cfg map[string]any, kind string) {
-	switch kind {
-	case "Subgraph", "CollapsedNode", "Try":
-		mirrorIfMissing(cfg, "SubgraphID", "subgraphId")
-	}
-}
-
-func mirrorIfMissing(cfg map[string]any, newKey, oldKey string) {
-	if _, has := cfg[newKey]; has {
-		return
-	}
-	if v, ok := cfg[oldKey]; ok {
-		cfg[newKey] = v
-	}
 }
 
 // buildExecDataFor 当前返空 map. Phase 5.5b 加 exec-data carry — 上游节点 RunResult.OutputData
@@ -177,16 +155,10 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	}
 
 	if result.Error != nil {
-		// atomic #3: translate framework Stop sentinel → runtime errStopRun so ContainerRunner.Run
+		// Translate framework Stop sentinel → runtime errStopRun so ContainerRunner.Run
 		// errors.Is(err, errStopRun) graceful halt path 仍 work.
 		if control.IsStopRequested(result.Error) {
 			return nil, errStopRun
-		}
-		// atomic #3: translate framework ThrowError → runtime *errThrow so legacy 测试 + 老
-		// Try region catch 路径仍 work (errors.As 取 message).
-		var te *system.ThrowError
-		if errors.As(result.Error, &te) {
-			return nil, &errThrow{message: te.Message}
 		}
 		return nil, result.Error
 	}
@@ -204,27 +176,7 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		return nil, nil
 	}
 	tokens := r.edges.next(node.ID+"."+result.ExitName, tok.LoopStack)
-	if len(tokens) == 0 {
-		// atomic #4 转换期 fallback: 老 test fixture / 老 fishing-v2 JSON 用 camelCase pin
-		// (done/found/yes/no/true/false 等) 引边; 新 Spec.Outputs 用 PascalCase (Done/Found/Yes/No/True/False).
-		// 这里把 first letter lowercase 再 lookup 一次, 接住老 fixture. atomic #5 fixture redraw 后这段删.
-		if alt := lowerFirstRune(result.ExitName); alt != result.ExitName {
-			tokens = r.edges.next(node.ID+"."+alt, tok.LoopStack)
-		}
-	}
 	return tokens, nil
-}
-
-// lowerFirstRune "Done" → "done"; ASCII-only edge name 不用 unicode 处理.
-func lowerFirstRune(s string) string {
-	if s == "" {
-		return s
-	}
-	c := s[0]
-	if c >= 'A' && c <= 'Z' {
-		return string(c+32) + s[1:]
-	}
-	return s
 }
 
 // ============================================================================
@@ -298,13 +250,6 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		if n.Kind == "SubgraphOutput" {
 			return nil
 		}
-		// atomic 转换期: 老 fishing-v2 main 用 `sleepIdle.out → loopMain.loopback` 模式
-		// re-enter Loop 触发 iter++. 新 framework Loop 内部 for-loop 自驱迭代, body 终止
-		// 即下一轮. tok.InPin="loopback" 意味老 fixture 想 re-enter — 视 body iter 终止.
-		// atomic #5 拆老 JSON 时这块可删 (新 redraw 不再生成 loopback edges).
-		if tok.InPin == "loopback" {
-			return nil
-		}
 		// 每次 sub-dispatch 刷 per-exec-tick snapshot — 老 evalGetVar / evalGetSys 从
 		// r.currentTick.Vars 读. 不刷 → Loop body 跨 iter 看 stale snapshot, 影响
 		// Break/Continue 条件判断. runner.go::Run 在 execNode entry 抓一次, 但 region
@@ -358,12 +303,8 @@ func (r *ContainerRunner) makeBodyForTry(node *container.GraphNode, tok ExecToke
 // SubgraphInput.out 出发 sub-dispatch + SubgraphOutput 终点 return nil + restore frame & tables.
 //
 // SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟新 Spec.Inputs.SubgraphID 对齐) 取.
-// 老 runtime ResolveSubgraphCall 用 lowercase "subgraphId" — Phase 5.5c cutover 后老路径删,
-// 那个 helper 一起拆.
 func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
-	// atomic #4 转换期: 同时认新 "SubgraphID" 和老 "subgraphId" (test fixtures / 老 JSON 残留).
-	// atomic #5 拆老后只读 "SubgraphID".
-	sgID := container.CfgStringUnion(node.Config, "SubgraphID", "subgraphId")
+	sgID, _ := node.Config["SubgraphID"].(string)
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
 	}

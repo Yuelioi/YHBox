@@ -11,7 +11,7 @@ func TestValidateCollapsed_SubgraphCallToAnonymous_Errors(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "sg1", Kind: "Subgraph", Config: map[string]any{"subgraphId": "sg-anon"}},
+				{ID: "sg1", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-anon"}},
 			},
 		},
 	}
@@ -33,7 +33,7 @@ func TestValidateCollapsed_CollapsedToMissing_Errors(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "c1", Kind: "CollapsedNode", Config: map[string]any{"subgraphId": "missing-id"}},
+				{ID: "c1", Kind: "CollapsedNode", Config: map[string]any{"SubgraphID": "missing-id"}},
 			},
 		},
 	}
@@ -58,7 +58,7 @@ func TestValidateCollapsed_CollapsedToNonAnonymous_Errors(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "c1", Kind: "CollapsedNode", Config: map[string]any{"subgraphId": "sg-pub"}},
+				{ID: "c1", Kind: "CollapsedNode", Config: map[string]any{"SubgraphID": "sg-pub"}},
 			},
 		},
 	}
@@ -83,7 +83,7 @@ func TestValidateCollapsed_HappyPath(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "c1", Kind: "CollapsedNode", Config: map[string]any{"subgraphId": "sg-anon"}},
+				{ID: "c1", Kind: "CollapsedNode", Config: map[string]any{"SubgraphID": "sg-anon"}},
 			},
 		},
 	}

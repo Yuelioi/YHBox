@@ -16,24 +16,13 @@ import (
 	nodepkg "yhbox/internal/node"
 )
 
-// CfgStringUnion reads cfg[k] as string for the first k in keys with a non-empty value.
-// Used during atomic #4 (fishing-v2 redraw) transition — old JSON uses lowercase Config keys
-// (subgraphId / vk / ...), new JSON uses PascalCase (SubgraphID / VK / ...). 两套并存
-// 期间 validator/runtime hot-path 用 CfgStringUnion 读 — atomic #5 拆老后简化为单 key.
-//
-// Exported because runtime/dispatch_v5.go (different package) calls it too.
-func CfgStringUnion(cfg map[string]any, keys ...string) string {
-	for _, k := range keys {
-		if v, ok := cfg[k].(string); ok && v != "" {
-			return v
-		}
+// cfgString reads cfg[k] as string. Empty string if not present / not string.
+// In-package validator helper after atomic #5 (CfgStringUnion 两键 union 删后单键).
+func cfgString(cfg map[string]any, k string) string {
+	if v, ok := cfg[k].(string); ok {
+		return v
 	}
 	return ""
-}
-
-// cfgStringUnion package-internal alias for in-package callers (validate.go / validator_collapsed.go / ...).
-func cfgStringUnion(cfg map[string]any, keys ...string) string {
-	return CfgStringUnion(cfg, keys...)
 }
 
 // canonPinType 转 nodepkg pin Type tag (PascalCase, e.g. "Number"/"String"/"Bool"/"Point"/"*")

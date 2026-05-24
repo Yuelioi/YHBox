@@ -340,7 +340,7 @@ func validateInvalidPins(c *Container) []ValidationError {
 				isExecOut := nodeHasExecOutPin(node, fromPin)
 				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
 				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {
-					if sgID := cfgStringUnion(node.Config, "SubgraphID", "subgraphId"); sgID != "" {
+					if sgID := cfgString(node.Config, "SubgraphID"); sgID != "" {
 						if set, ok := subgraphOutputIDsByID[sgID]; ok {
 							if _, has := set[fromPin]; has {
 								isExecOut = true
@@ -399,8 +399,7 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 			if n.Kind != "Subgraph" {
 				continue
 			}
-			// atomic #4: 兼容老 "subgraphId" 和新 "SubgraphID".
-			id := cfgStringUnion(n.Config, "SubgraphID", "subgraphId")
+			id := cfgString(n.Config, "SubgraphID")
 			if id == "" {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingSubgraph,
@@ -546,7 +545,7 @@ func validateCyclicSubgraphs(c *Container) []ValidationError {
 		var calls []string
 		for _, n := range sg.Graph.Nodes {
 			if n.Kind == "Subgraph" {
-				if calledID := cfgStringUnion(n.Config, "SubgraphID", "subgraphId"); calledID != "" {
+				if calledID := cfgString(n.Config, "SubgraphID"); calledID != "" {
 					calls = append(calls, calledID)
 				}
 			}
@@ -1072,9 +1071,8 @@ func validateScreenshot(n *GraphNode) []ValidationError {
 // Runtime calls pkginput.VK(name); we do not pre-validate the name here
 // (Phase C precedent: let runtime fail loudly for unknown VK names).
 //
-// atomic #4: 兼容老 "vk" (lowercase, nodekind 老 spec) 和新 "VK" (PascalCase, nodepkg).
 func validateKeyHold(n *GraphNode) []ValidationError {
-	vk := cfgStringUnion(n.Config, "VK", "vk")
+	vk := cfgString(n.Config, "VK")
 	if vk == "" {
 		return []ValidationError{{
 			Severity: SeverityError,

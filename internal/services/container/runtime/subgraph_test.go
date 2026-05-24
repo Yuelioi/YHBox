@@ -34,8 +34,8 @@ func TestResolveSubgraphCall_MissingConfig(t *testing.T) {
 	c := &container.Container{ID: "c1"}
 	callNode := &container.GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{}, CreatedAt: time.Now().UTC()}
 	_, err := ResolveSubgraphCall(c, callNode)
-	if err == nil || !strings.Contains(err.Error(), "subgraphId") {
-		t.Errorf("expected subgraphId err, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "SubgraphID") {
+		t.Errorf("expected SubgraphID err, got %v", err)
 	}
 }
 

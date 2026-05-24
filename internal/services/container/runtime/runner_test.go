@@ -218,7 +218,7 @@ func TestRunner_LoopCount(t *testing.T) {
 		[]container.GraphEdge{
 			{From: "start.out", To: "loop.in"},
 			{From: "loop.body", To: "inc.in"},
-			{From: "inc.out", To: "loop.loopback"},
+			// 新 Loop 内部 for-loop 自驱迭代, body 终止 (inc.out 无下游) 即下一轮.
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)
@@ -250,7 +250,7 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{From: "loop.body", To: "inc.in"},
 			{From: "inc.out", To: "if.in"},
 			{From: "if.True", To: "br.in"},
-			{From: "if.False", To: "loop.loopback"},
+			// if.False 无下游 → body iter 终止 → Loop 自驱下一轮.
 			{From: "geti.value", To: "gte.a"},
 			{From: "gte.result", To: "if.Condition"},
 		},
