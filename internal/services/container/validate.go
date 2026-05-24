@@ -76,7 +76,14 @@ func splitRef(ref string) (nodeID, pin string) {
 // pinExists 检查 (kind, pin) 是否合法。out=true 查 out pins / data-out；out=false 查 in pins / data-in。
 // 对 Parallel/Race 的 branch0..N-1 动态 pin 允许任意 "branchN"。
 // data-in 走 static-only 路径 — Expr 等动态 data-in 节点需 cfg, caller 用 dataInPinTypeForNode.
+//
+// Phase 6+ partial: nodepkg short-circuit — 新 framework Spec 有 (PascalCase pin) → true.
+// Miss 再走老 nodekind path (lowercase pin + Parallel/Race branchN dynamic). 重叠 kind 上
+// 新老两套 pin name 同期都能过 validator, 让 fishing-v2 redraw 增量进行.
 func pinExists(kind, pin string, out bool) bool {
+	if nodepkgPinExists(kind, pin, out) {
+		return true
+	}
 	s, ok := nodekind.Get(kind)
 	if !ok {
 		return false
@@ -114,12 +121,32 @@ func pinExists(kind, pin string, out bool) bool {
 // execInPinsOf 返回 kind 的 exec-in pin 集合.
 // nil 表示 "没有 exec-in" (Start / OnEvent / SubgraphInput / MouseCalibration / pure-data 节点),
 // 跟 v3 旧 execInPins map 里显式赋 nil 的语义一致.
+//
+// Phase 6+ partial: nodepkg union — 新 spec exec-in (Type="Exec" 的 Input) 跟老 nodekind.ExecIn 合并 dedup.
 func execInPinsOf(kind string) []string {
-	s, ok := nodekind.Get(kind)
-	if !ok {
-		return []string{"in"} // unknown kind 防御性默认 — 走到这里说明上游 validation 漏了
+	npkg := nodepkgExecInPins(kind)
+	s, nkOK := nodekind.Get(kind)
+	if !nkOK && len(npkg) == 0 && !nodepkgIsRegistered(kind) {
+		return []string{"in"} // unknown kind 防御性默认
 	}
-	return s.ExecIn // nil = 没 exec-in; ["in"] = 标准单 exec-in
+	// Union dedup
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range npkg {
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	if nkOK {
+		for _, p := range s.ExecIn {
+			if !seen[p] {
+				seen[p] = true
+				out = append(out, p)
+			}
+		}
+	}
+	return out // nil = 没 exec-in; 含 "in" = 标准单 exec-in
 }
 
 func isExecInPin(kind, pin string) bool {
@@ -134,17 +161,21 @@ func isExecInPin(kind, pin string) bool {
 // execOutPinsForNode 按节点实例计算所有合法 exec out pin (返 set 让 caller O(1) 查).
 // 动态节点 (Switch / Parallel / Race) 按 config 派生; 静态节点走 spec.ExecOut.
 // 内部自动 dedupe — schema 自洽不依赖 validator 拦截重复.
+//
+// Phase 6+ partial: nodepkg union — 新 spec exec-out (Type="Exec" 的 Output) 跟老 nodekind.ExecOutPins(cfg) 合并 dedup.
+// 新 Switch nodepkg Spec 静态 17 (Case1..16 + Default), 老 nodekind.ExecOutFn 按 cfg.cases 派生 — 两者并存.
 func execOutPinsForNode(n *GraphNode) map[string]struct{} {
 	pins := map[string]struct{}{}
 	if n == nil {
 		return pins
 	}
-	s, ok := nodekind.Get(n.Kind)
-	if !ok {
-		return pins
-	}
-	for _, p := range s.ExecOutPins(n.Config) {
+	for _, p := range nodepkgExecOutPins(n.Kind) {
 		pins[p] = struct{}{}
+	}
+	if s, ok := nodekind.Get(n.Kind); ok {
+		for _, p := range s.ExecOutPins(n.Config) {
+			pins[p] = struct{}{}
+		}
 	}
 	return pins
 }
@@ -274,7 +305,12 @@ func (c *Container) Normalize() {
 // --- Registry-backed helpers (replaces v3 5-table model) ---
 
 // knownKind replaces former KnownNodeKinds[kind] lookup.
+//
+// Phase 6+ partial: nodepkg union — kind 在新 framework 注册也算 known.
 func knownKind(kind string) bool {
+	if nodepkgIsRegistered(kind) {
+		return true
+	}
 	return nodekind.IsKnown(kind)
 }
 
@@ -287,7 +323,12 @@ func kindIsYield(kind string) bool {
 // dataInPinTypeForKind replaces the former 100-line switch.
 // Returns "" if (kind, pin) is not a recognized data-in pin.
 // Static-only path — Expr's dynamic inputs need cfg, use dataInPinTypeForNode.
+//
+// Phase 6+ partial: nodepkg short-circuit — 新 Spec.Inputs (Type != "Exec") 找到优先返新 type.
 func dataInPinTypeForKind(kind, pinName string) string {
+	if t := nodepkgInputType(kind, pinName); t != "" && t != "Exec" {
+		return t
+	}
 	s, ok := nodekind.Get(kind)
 	if !ok {
 		return ""
@@ -297,9 +338,14 @@ func dataInPinTypeForKind(kind, pinName string) string {
 
 // dataInPinTypeForNode is the cfg-aware variant — used by validators that
 // need to see Expr.inputs[] dynamic pins (and Subgraph inputParams in future).
+//
+// Phase 6+ partial: nodepkg short-circuit (静态), miss 走老 nodekind (含动态 DataInDynamicFn).
 func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 	if n == nil {
 		return ""
+	}
+	if t := nodepkgInputType(n.Kind, pinName); t != "" && t != "Exec" {
+		return t
 	}
 	s, ok := nodekind.Get(n.Kind)
 	if !ok {
@@ -312,7 +358,12 @@ func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 // 走 nodekind 注册表. 动态类型节点 (GetVar / Expr / GetSys / GetParam) spec 里登记 "any",
 // 真实类型由 caller 按 config 解析 (e.g. GetVar.varName → Container.Vars[name].Type) —
 // validateDataPinTypes 已做.
+//
+// Phase 6+ partial: nodepkg short-circuit — 新 Spec.Outputs (Type != "Exec") 找到优先.
 func dataOutPinTypeForKind(kind, pinName string) string {
+	if t := nodepkgOutputType(kind, pinName); t != "" && t != "Exec" {
+		return t
+	}
 	s, ok := nodekind.Get(kind)
 	if !ok {
 		return ""
