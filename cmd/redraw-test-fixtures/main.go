@@ -124,6 +124,9 @@ var pinRenames = map[string]map[string]string{
 	"Switch": {
 		"value": "Value",
 	},
+	"Loop": {
+		"complete": "done",
+	},
 }
 
 // nodeDeclRE 抓 `ID: "xxx", Kind: "Yyy"` 形式. Test fixture 普遍这个写法.

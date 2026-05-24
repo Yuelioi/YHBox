@@ -14,13 +14,13 @@ func TestPullDataPin_Literal(t *testing.T) {
 		ID: "n1", Kind: "Sleep",
 		Config: map[string]any{
 			"literal": map[string]any{
-				"durationMs": 500.0,
+				"Duration": 500.0,
 			},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"n1": n}
 
-	v, err := r.pullDataPin("n1", "durationMs")
+	v, err := r.pullDataPin("n1", "Duration")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestPullDataPin_NoEdgeNoLiteral_ReturnsNil(t *testing.T) {
 	n := &container.GraphNode{ID: "n1", Kind: "Sleep", Config: map[string]any{}}
 	r.nodesByID = map[string]*container.GraphNode{"n1": n}
 
-	v, _ := r.pullDataPin("n1", "durationMs")
+	v, _ := r.pullDataPin("n1", "Duration")
 	if v != nil {
 		t.Fatalf("no edge no literal: want nil, got %v", v)
 	}
@@ -54,11 +54,11 @@ func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
 		Nodes: []container.GraphNode{*src, *dst},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sleep.durationMs"},
+			{From: "gv.value", To: "sleep.Duration"},
 		},
 	})
 
-	v, err := r.pullDataPin("sleep", "durationMs")
+	v, err := r.pullDataPin("sleep", "Duration")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,18 +79,18 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 	dst := &container.GraphNode{
 		ID: "sleep", Kind: "Sleep",
 		Config: map[string]any{
-			"literal": map[string]any{"durationMs": 999.0}, // should be ignored
+			"literal": map[string]any{"Duration": 999.0}, // should be ignored
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv": src, "sleep": dst}
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
 		Nodes: []container.GraphNode{*src, *dst},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sleep.durationMs"},
+			{From: "gv.value", To: "sleep.Duration"},
 		},
 	})
 
-	v, _ := r.pullDataPin("sleep", "durationMs")
+	v, _ := r.pullDataPin("sleep", "Duration")
 	if got, _ := expr.AsNumber(v); got != 0.8 {
 		t.Fatalf("edge must win over literal: want 0.8, got %v", v)
 	}
@@ -108,7 +108,7 @@ func TestDataEdgeIndex_IgnoresExecEdges(t *testing.T) {
 			{ID: "c", Kind: "SetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
 		},
 		Edges: []container.GraphEdge{
-			{From: "a.out", To: "b.in"},      // Sleep.out is exec-out → not data
+			{From: "a.Done", To: "b.in"},      // Sleep.out is exec-out → not data
 			{From: "gv.value", To: "c.x"},    // GetVar.value is data-out → data
 		},
 	})

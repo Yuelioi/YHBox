@@ -20,15 +20,13 @@ import "yhbox/internal/services/container"
 func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	switch node.Kind {
 	case "Loop", "Race", "Parallel":
-		// Loop 新框架 exit 是 .done (lowercase); 老 .complete fixture 跟新 done 不冲突, edges.next
-		// 直接查 .done. 老 test 用 .complete 也兼容查 next (但只匹配 .complete edges).
-		return tryExits(r, node, tok, "done", "complete"), nil
+		return tryExits(r, node, tok, "done"), nil
 	case "Switch":
-		return tryExits(r, node, tok, "Default", "complete"), nil
+		return tryExits(r, node, tok, "Default"), nil
 	case "If":
-		return tryExits(r, node, tok, "True", "then"), nil
+		return tryExits(r, node, tok, "True"), nil
 	case "Try":
-		return tryExits(r, node, tok, "out", "done"), nil
+		return tryExits(r, node, tok, "out"), nil
 	case "Subgraph", "CollapsedNode":
 		// 新框架 Subgraph/CollapsedNode 都是单 Done 出口 (固定). 老 Subgraph 用 OutputPins[0].
 		tokens := r.edges.next(node.ID+".Done", tok.LoopStack)

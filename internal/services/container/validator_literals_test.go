@@ -3,8 +3,6 @@ package container
 import (
 	"strings"
 	"testing"
-
-	_ "yhbox/internal/services/container/nodekind/specs"
 )
 
 func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
@@ -16,7 +14,7 @@ func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "WindowTarget"},
 				{ID: "sl", Kind: "Sleep", Config: map[string]any{
-					"literal": map[string]any{"durationMs": "abc"}, // should be number
+					"literal": map[string]any{"Duration": "abc"}, // should be number/duration
 				}},
 			},
 		},
@@ -24,12 +22,12 @@ func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
 	errs := ValidateContainer(c)
 	found := false
 	for _, e := range errs {
-		if e.Code == CodeLiteralTypeMismatch && strings.Contains(e.Message, "durationMs") {
+		if e.Code == CodeLiteralTypeMismatch && strings.Contains(e.Message, "Duration") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected LITERAL_TYPE_MISMATCH for Sleep.durationMs = \"abc\", got: %v", errs)
+		t.Errorf("expected LITERAL_TYPE_MISMATCH for Sleep.Duration = \"abc\", got: %v", errs)
 	}
 }
 
@@ -42,8 +40,8 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "WindowTarget"},
 				{ID: "sw", Kind: "Switch", Config: map[string]any{
-					"cases":   []any{"a"},
-					"literal": map[string]any{"value": true}, // should be string
+					"Case1Value": "a",
+					"literal":    map[string]any{"Value": true}, // should be string
 				}},
 			},
 		},
@@ -51,12 +49,12 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 	errs := ValidateContainer(c)
 	found := false
 	for _, e := range errs {
-		if e.Code == CodeLiteralTypeMismatch && strings.Contains(e.Message, "value") {
+		if e.Code == CodeLiteralTypeMismatch && strings.Contains(e.Message, "Value") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected LITERAL_TYPE_MISMATCH for Switch.value = true, got: %v", errs)
+		t.Errorf("expected LITERAL_TYPE_MISMATCH for Switch.Value = true, got: %v", errs)
 	}
 }
 
@@ -70,10 +68,10 @@ func TestLiteralTypeMatch_CorrectTypes(t *testing.T) {
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "WindowTarget"},
 				{ID: "sl", Kind: "Sleep", Config: map[string]any{
-					"literal": map[string]any{"durationMs": float64(500)},
+					"literal": map[string]any{"Duration": float64(500)},
 				}},
 				{ID: "if", Kind: "If", Config: map[string]any{
-					"literal": map[string]any{"condition": true},
+					"literal": map[string]any{"Condition": true},
 				}},
 			},
 		},

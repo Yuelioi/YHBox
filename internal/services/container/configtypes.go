@@ -10,38 +10,23 @@ type SwitchConfig struct {
 }
 
 // ParseSwitchConfig 解析 Switch 节点 config 成 typed struct.
-// 容错: nil node / nil config 返零值. 非字符串 case 元素 silently skip.
-// 严格验证 (空字符串 / 重复 / 含 '.' / 'default') 是 validateSwitchConfig 的事, 不在这里.
+// 容错: nil node / nil config 返零值. 严格验证 (空 / 重复 / 含 '.' / 'default') 由
+// validateSwitchConfig 负责.
 //
-// Phase 5.6 atomic #4: 同时识别两套 schema —
-//   - 老 nodekind Switch: Config["cases"] = ["A","B",...] (string array, exec-out 派生)
-//   - 新 nodepkg Switch: Config["Case1Value"]="A", Config["Case2Value"]="B", ... (单值, 静态 Spec)
-//
-// 两套并存期间 ParseSwitchConfig union 读. atomic #5 拆老后只读新 CaseNValue 形式.
+// Switch config schema (nodepkg Spec): Value=string + Case1Value..Case16Value=string (单值).
+// 空值 ("") 视为未声明该 case, 不进 Cases 列表.
 func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 	var c SwitchConfig
 	if n == nil || n.Config == nil {
 		return c, nil
 	}
-	if v, ok := n.Config["value"].(string); ok {
-		c.Value = v
-	} else if v, ok := n.Config["Value"].(string); ok {
+	if v, ok := n.Config["Value"].(string); ok {
 		c.Value = v
 	}
-	// 老 cases[] 数组
-	raw, _ := n.Config["cases"].([]any)
-	for _, item := range raw {
-		if cs, ok := item.(string); ok {
+	for i := 1; i <= 16; i++ {
+		key := fmt.Sprintf("Case%dValue", i)
+		if cs, ok := n.Config[key].(string); ok && cs != "" {
 			c.Cases = append(c.Cases, cs)
-		}
-	}
-	// 新 Case1Value..Case16Value (跟新 nodepkg Switch Spec 对齐, 最多 16). 按 N 升序追加.
-	if len(c.Cases) == 0 {
-		for i := 1; i <= 16; i++ {
-			key := fmt.Sprintf("Case%dValue", i)
-			if cs, ok := n.Config[key].(string); ok && cs != "" {
-				c.Cases = append(c.Cases, cs)
-			}
 		}
 	}
 	return c, nil

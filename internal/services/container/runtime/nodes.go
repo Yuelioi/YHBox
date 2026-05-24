@@ -5,28 +5,25 @@ import (
 	"errors"
 	"fmt"
 
+	nodepkg "yhbox/internal/node"
 	"yhbox/internal/services/container"
-	"yhbox/internal/services/container/nodekind"
-	_ "yhbox/internal/services/container/nodekind/specs" // ensure registry is populated
 )
 
 // execNode 单节点执行入口. atomic #3 cutover: 老 964 行 switch 已拆, 改走 dispatchInRegion
 // (Phase 5.5b 新 framework, 内部 route Loop/Subgraph/Try 等 RegionRunner 或普通节点).
 //
-// IsPureData / IsVisualOnly / Disabled 这 3 个 gatekeep 仍走 nodekind registry. atomic #5
-// 完成后改走 nodepkg.Get(kind).Spec.
+// IsPureData / IsVisualOnly / Disabled 3 个 gatekeep 走 nodepkg.Get(kind).Spec.
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	// Gatekeep: kind must be registered. Catches typos and stale switch cases.
-	spec, ok := nodekind.Get(node.Kind)
+	rn, ok := nodepkg.Get(node.Kind)
 	if !ok {
-		return nil, fmt.Errorf("execNode: unknown kind %q (not in nodekind registry)", node.Kind)
+		return nil, fmt.Errorf("execNode: unknown kind %q (not in nodepkg registry)", node.Kind)
 	}
 	// IsPureData kinds should never reach execNode (no exec edge points to them).
-	if spec.IsPureData {
+	if rn.Spec.IsPureData {
 		return nil, fmt.Errorf("execNode: kind %q is pure-data, cannot be executed (validator drift!)", node.Kind)
 	}
 	// IsVisualOnly = render-only nodes (CommentBox). No-op execution.
-	if spec.IsVisualOnly {
+	if rn.Spec.IsVisualOnly {
 		return nil, nil
 	}
 

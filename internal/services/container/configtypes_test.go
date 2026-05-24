@@ -14,19 +14,19 @@ func TestParseSwitchConfig(t *testing.T) {
 	}{
 		{
 			"happy path",
-			map[string]any{"value": "$vars.state", "cases": []any{"IDLE", "WAITING"}},
+			map[string]any{"Value": "$vars.state", "Case1Value": "IDLE", "Case2Value": "WAITING"},
 			"$vars.state", []string{"IDLE", "WAITING"},
 		},
 		{"nil config", nil, "", nil},
 		{"missing fields", map[string]any{}, "", nil},
 		{
-			"cases 含非字符串元素 (silently skip)",
-			map[string]any{"value": "x", "cases": []any{"A", 42, "B"}},
+			"CaseN gaps silently skipped",
+			map[string]any{"Value": "x", "Case1Value": "A", "Case3Value": "B"},
 			"x", []string{"A", "B"},
 		},
 		{
 			"CJK + emoji",
-			map[string]any{"value": "x", "cases": []any{"钓鱼", "🎣"}},
+			map[string]any{"Value": "x", "Case1Value": "钓鱼", "Case2Value": "🎣"},
 			"x", []string{"钓鱼", "🎣"},
 		},
 	}

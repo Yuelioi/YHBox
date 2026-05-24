@@ -31,7 +31,7 @@ func TestDisabled_Loop_GoesToComplete(t *testing.T) {
 	_, r := newTestRunner(t)
 	n := &container.GraphNode{ID: "loop1", Kind: "Loop", Disabled: true}
 	r.nodesByID = map[string]*container.GraphNode{"loop1": n}
-	r.edges = &edgeIndex{out: map[string][]string{"loop1.complete": {"target.in"}}}
+	r.edges = &edgeIndex{out: map[string][]string{"loop1.done": {"target.in"}}}
 	tokens, err := r.execNode(context.Background(), n, ExecToken{InPin: "in"})
 	if err != nil {
 		t.Fatal(err)

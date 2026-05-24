@@ -2,8 +2,6 @@ package container
 
 import (
 	"fmt"
-
-	"yhbox/internal/services/container/nodekind"
 )
 
 // validateLiteralTypes scans every node.Config["literal"][pin] entry and
@@ -15,9 +13,9 @@ import (
 // because user wrote "500ms" not 500). LITERAL_TYPE_MISMATCH catches this at
 // design time.
 //
-// Coverage: static data-in pins only. Expr's dynamic inputs (DataInDynamicFn)
-// are NOT scanned here — the Expr Inspector validates its own literals against
-// declared input types.
+// Coverage: static data-in pins only. Expr's dynamic inputs are NOT scanned
+// here — the Expr Inspector validates its own literals against declared input
+// types.
 func validateLiteralTypes(c *Container) []ValidationError {
 	if c == nil {
 		return nil
@@ -30,12 +28,11 @@ func validateLiteralTypes(c *Container) []ValidationError {
 			if lit == nil {
 				continue
 			}
-			spec, ok := nodekind.Get(n.Kind)
-			if !ok {
+			if !knownKind(n.Kind) {
 				continue
 			}
 			for pinName, raw := range lit {
-				pinType := string(spec.DataInType(pinName, nil))
+				pinType := dataInPinTypeForKind(n.Kind, pinName)
 				if pinType == "" {
 					continue // pin not in static schema — INVALID_PIN handles unknown pins
 				}

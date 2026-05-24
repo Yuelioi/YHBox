@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	nodepkg "yhbox/internal/node"
 	"yhbox/internal/services/container"
-	"yhbox/internal/services/container/nodekind"
-	_ "yhbox/internal/services/container/nodekind/specs" // ensure registry is populated
 	"yhbox/internal/services/expr"
 )
 
@@ -103,11 +102,11 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	// Gatekeep: only IsPureData kinds are valid pull sources.
 	// An exec-node data-out (like Race.winnerIdx) should be read from
 	// sys snapshot, not pulled — validator should have caught this.
-	spec, ok := nodekind.Get(n.Kind)
+	rn, ok := nodepkg.Get(n.Kind)
 	if !ok {
 		return nil, fmt.Errorf("evalDataSource: unknown kind %q", n.Kind)
 	}
-	if !spec.IsPureData {
+	if !rn.Spec.IsPureData {
 		return nil, fmt.Errorf("evalDataSource: kind %q is not pure-data (pin %q); use sys snapshot for exec-node data-out", n.Kind, srcPin)
 	}
 	switch n.Kind {

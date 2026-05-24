@@ -8,8 +8,9 @@
 //   - Switch: Config["cases"]: [str...] → Config["Case1Value":..., "Case2Value":...] +
 //     edge pin "swNode.<caseName>" → "swNode.Case<N>" + "swNode.default" → "swNode.Default"
 //
-// 不变 (新 spec 跟老一致): Loop / GetVar / SetVar / GetParam / GetSys / Expr / Throw / Break /
+// 不变 (新 spec 跟老一致): GetVar / SetVar / GetParam / GetSys / Expr / Throw / Break /
 // Continue / Stop / Start / SubgraphInput / SubgraphOutput.
+// Loop 仅 exec-out complete→done 改名 (atomic #5 follow-up 补).
 //
 // Usage:
 //
@@ -124,6 +125,10 @@ var pinRenames = map[string]map[string]string{
 	// Switch — Value input PascalCase (新 nodepkg Spec swInValue="Value"); cases[]/caseN→Case1Value etc. 在主逻辑处理.
 	"Switch": {
 		"value": "Value",
+	},
+	// Loop — 老 ExecOut [body, complete] → 新 [body, done]. complete→done atomic #5 follow-up.
+	"Loop": {
+		"complete": "done",
 	},
 }
 
