@@ -600,3 +600,161 @@ func TestDispatchInRegion_RoutesRegionToRunNodeAsRegion(t *testing.T) {
 		t.Errorf("tokens = %+v, want {done_n}", tokens)
 	}
 }
+
+// ============================================================================
+// Try 测试 (Phase 5.5b 收尾)
+// ============================================================================
+
+// newTryTest 建主图 { try_n (Try w/ SubgraphID=trybody), out_n (Stop), catch_n (Stop) } +
+// 子图 trybody 含 sub_in / inner_n (节点 Kind 由 caller 指定) / sub_out.
+// 主图边: try_n.out → out_n.in, try_n.catch → catch_n.in.
+// 子图边: sub_in.out → inner_n.in, inner_n.<outPin> → sub_out.in (outPin caller 指定).
+func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
+	t.Helper()
+	subgraph := container.Subgraph{
+		ID:    "trybody",
+		Label: "trybody",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sub_in", Kind: "SubgraphInput"},
+				{ID: "inner_n", Kind: innerKind},
+				{ID: "sub_out", Kind: "SubgraphOutput"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sub_in.out", To: "inner_n.in"},
+				{From: "inner_n." + innerOutPin, To: "sub_out.in"},
+			},
+		},
+	}
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-try",
+		Name:          "test-try",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "try_n", Kind: "Try", Config: map[string]any{"SubgraphID": "trybody"}},
+				{ID: "out_n", Kind: "Stop"},
+				{ID: "catch_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "try_n.out", To: "out_n.in"},
+				{From: "try_n.catch", To: "catch_n.in"},
+			},
+		},
+		Subgraphs: []container.Subgraph{subgraph},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	dt := &dispatchTestCtx{rt: rt, r: r}
+	dt.node = r.nodesByID["try_n"]
+	rt.Emit = func(name string, data any) {
+		dt.emitMu.Lock()
+		defer dt.emitMu.Unlock()
+		dt.emitted = append(dt.emitted, emittedEvent{Name: name, Data: data})
+	}
+	return dt
+}
+
+func TestExecNodeAsRegionViaFramework_TryDone(t *testing.T) {
+	resetTdHappyCounter()
+	// body 跑通 (tdHappyCounted Fire("Out") 然后 SubgraphOutput 终点) → out 出口 → out_n.in
+	dt := newTryTest(t, tkHappyCounted, "Out")
+	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "try_n", InPin: "in"})
+	if err != nil {
+		t.Fatalf("try done: %v", err)
+	}
+	if got := tdHappyCounter.Load(); got != 1 {
+		t.Errorf("inner called %d times, want 1", got)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "out_n" {
+		t.Errorf("try done token = %+v, want {out_n, in}", tokens)
+	}
+}
+
+func TestExecNodeAsRegionViaFramework_TryCatch(t *testing.T) {
+	// body 节点 tkError 返 error "deliberate test error" → catch 出口 → catch_n.in
+	dt := newTryTest(t, tkError, "Out") // tkError Run 返 error 前不会 Fire, outPin 不相关
+	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "try_n", InPin: "in"})
+	if err != nil {
+		t.Fatalf("try catch: %v", err)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "catch_n" {
+		t.Errorf("try catch token = %+v, want {catch_n, in}", tokens)
+	}
+}
+
+// tdThrow 在 body 里 panic-style 抛 Throw-like error. 复用 nodes/system 的 ThrowError.
+// (ThrowError 是 exported type, Try.RunRegion 不区别处理 — 跟普通 error 同样走 catch.)
+//
+// 实际上 nodes/system 已经有 Throw 节点 — 直接用它. 它读 config["Message"] 触发 ThrowError.
+// 见 nodes/system/throw.go.
+
+func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
+	// body 用 Throw 节点 (config["Message"] = "fish escaped") → Try.RunRegion 截 → catch
+	subgraph := container.Subgraph{
+		ID: "trybody_throw",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sub_in", Kind: "SubgraphInput"},
+				{ID: "throw_n", Kind: "Throw", Config: map[string]any{"message": "fish escaped"}},
+				{ID: "sub_out", Kind: "SubgraphOutput"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sub_in.out", To: "throw_n.in"},
+				// throw_n 没 out edge (Throw 没 Output pin), sub-flow 在 Throw error 时已退.
+			},
+		},
+	}
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-try-throw",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "try_n", Kind: "Try", Config: map[string]any{"SubgraphID": "trybody_throw"}},
+				{ID: "catch_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "try_n.catch", To: "catch_n.in"},
+			},
+		},
+		Subgraphs: []container.Subgraph{subgraph},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	tryNode := r.nodesByID["try_n"]
+	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), tryNode, ExecToken{NodeID: "try_n", InPin: "in"})
+	if err != nil {
+		t.Fatalf("try throw: %v", err)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "catch_n" {
+		t.Errorf("try throw token = %+v, want {catch_n, in}", tokens)
+	}
+	// 验证 PopFrame
+	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent != nil {
+		t.Errorf("PopFrame did not restore main frame after Try catch: %+v", r.state.CurrentFrame)
+	}
+}
+
+func TestExecNodeAsRegionViaFramework_TryMissingSubgraphID(t *testing.T) {
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-try-missing-id",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "try_n", Kind: "Try"}, // Config nil → SubgraphID missing
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	tryNode := r.nodesByID["try_n"]
+	_, err := r.execNodeAsRegionViaFramework(context.Background(), tryNode, ExecToken{NodeID: "try_n", InPin: "in"})
+	if err == nil {
+		t.Fatal("expected error for missing SubgraphID")
+	}
+	// makeBodyForTry → makeBodyForSubgraph 返 "missing SubgraphID" 在 framework Required check
+	// 之前; 实际上 Required check 会先触发 validation. 接受任何路径错信号.
+	if !strings.Contains(err.Error(), "SubgraphID") && !strings.Contains(err.Error(), "validation") {
+		t.Errorf("error %q should mention SubgraphID or validation", err)
+	}
+}

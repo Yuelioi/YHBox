@@ -216,13 +216,15 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 }
 
 // makeBodyFor build region body callback per node kind.
-// Phase 5.5b 支持 Loop + Subgraph. Try 等用户拍板 Spec 加 SubgraphID 后实现.
+// Phase 5.5b 支持 Loop / Subgraph / CollapsedNode / Try.
 func (r *ContainerRunner) makeBodyFor(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	switch node.Kind {
 	case "Loop":
 		return r.makeBodyForLoop(node, tok), nil
 	case "Subgraph", "CollapsedNode":
 		return r.makeBodyForSubgraph(node, tok)
+	case "Try":
+		return r.makeBodyForTry(node, tok)
 	}
 	return nil, fmt.Errorf("makeBodyFor: no body builder for kind %q (region runner not yet supported)", node.Kind)
 }
@@ -235,6 +237,16 @@ func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecTok
 		seeds := r.edges.next(node.ID+".body", parentLoopStack)
 		return r.runRegionBody(c.Context(), seeds)
 	}
+}
+
+// makeBodyForTry — Try 节点 body 行为跟 Subgraph 几乎完全一致 (解 SubgraphID, push frame,
+// 切 dispatch table, sub-dispatch), 但 body 返 error 时不需要在这里特殊处理 — Try.RunRegion
+// 内部已经把 error → catch 出口 + error.Error() 字符串挂 catch.error 字段.
+//
+// 复用 makeBodyForSubgraph 的实现就好. (如果 Try 未来要区别 Throw vs 普通 error 等更细
+// 语义, Try.RunRegion 内做, 这里继续透传.)
+func (r *ContainerRunner) makeBodyForTry(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
+	return r.makeBodyForSubgraph(node, tok)
 }
 
 // makeBodyForSubgraph body 调一次 — 解析 SubgraphID + push frame + 切 dispatch table 到 callee +

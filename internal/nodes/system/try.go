@@ -17,10 +17,11 @@ func init() { node.Register(&Try{}) }
 type Try struct{}
 
 const (
-	tryInExec    = "in"
-	tryOutNormal = "out"
-	tryOutCatch  = "catch"
-	tryDataError = "error"
+	tryInExec       = "in"
+	tryInSubgraphID = "SubgraphID"
+	tryOutNormal    = "out"
+	tryOutCatch     = "catch"
+	tryDataError    = "error"
 )
 
 func (Try) Spec() node.Spec {
@@ -29,9 +30,14 @@ func (Try) Spec() node.Spec {
 		Version:     1,
 		Category:    "System",
 		DisplayName: "Try Catch",
-		Description: "捕获 body 内的 error (含 Throw). 正常完成走 out; 出错走 catch, error 字符串挂在 catch.error 字段.",
+		Description: "捕获 body 子图内的 error (含 Throw). 正常完成走 out; 出错走 catch, error 字符串挂在 catch.error 字段. body 子图由 SubgraphID 指定 (镜像老 runtime config.subgraphId).",
 		Inputs: []node.InputSpec{
 			{Name: tryInExec, Type: "Exec"},
+			{Name: tryInSubgraphID, Type: "String", Semantic: "SubgraphID", Required: true,
+				DisplayName: "Body 子图",
+				Doc:         "Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch.",
+				Widget: node.WidgetSpec{Kind: "async-dropdown",
+					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "subgraphIDs"})}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: tryOutNormal, Type: "Exec", DisplayName: "正常"},
@@ -41,6 +47,15 @@ func (Try) Spec() node.Spec {
 				}},
 		},
 	}
+}
+
+// Dependencies — 子图分享 / library import 时 BFS 抽 callee 引用.
+func (Try) Dependencies(in node.Inputs) []node.Dependency {
+	id := in.String(tryInSubgraphID)
+	if id == "" {
+		return nil
+	}
+	return []node.Dependency{{Kind: "subgraph", Key: id}}
 }
 
 // Run — 防御性. 正常路径走 RunNodeAsRegion → RunRegion.

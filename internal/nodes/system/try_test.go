@@ -13,7 +13,9 @@ func TestTry_Run_ReturnsMustUseRegionSentinel(t *testing.T) {
 	node.Register(&Try{})
 	rn, _ := node.Get("Try")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	// SubgraphID Required — 塞 dummy, 让 framework 跑过 Required check 进 Run.
+	cfg := map[string]any{tryInSubgraphID: "dummy"}
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices())
 	if !errors.Is(r.Error, errTryMustUseRegion) {
 		t.Errorf("Run error = %v, want errTryMustUseRegion", r.Error)
 	}
@@ -30,7 +32,10 @@ func TestTry_RunRegion_BodySucceedsThenNormal(t *testing.T) {
 		return nil
 	}
 
-	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
+	// SubgraphID 是 Required input — 塞 dummy 让 framework Required check 过.
+	// 实际 sub-dispatch 由 runner 端 makeBodyForTry 走, body callback 这里 mock.
+	cfg := map[string]any{tryInSubgraphID: "dummy"}
+	r := node.RunNodeAsRegion(context.Background(), rn, nil, cfg, nil,
 		node.StubServices(), body)
 
 	if r.Error != nil {
@@ -54,7 +59,10 @@ func TestTry_RunRegion_BodyErrorRoutesToCatchWithMessage(t *testing.T) {
 
 	body := func(_ node.Ctx) error { return errors.New("kaboom") }
 
-	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
+	// SubgraphID 是 Required input — 塞 dummy 让 framework Required check 过.
+	// 实际 sub-dispatch 由 runner 端 makeBodyForTry 走, body callback 这里 mock.
+	cfg := map[string]any{tryInSubgraphID: "dummy"}
+	r := node.RunNodeAsRegion(context.Background(), rn, nil, cfg, nil,
 		node.StubServices(), body)
 
 	if r.Error != nil {
@@ -77,7 +85,10 @@ func TestTry_RunRegion_ThrowErrorCaughtMessageStripped(t *testing.T) {
 
 	body := func(_ node.Ctx) error { return &ThrowError{Message: "fish escaped"} }
 
-	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
+	// SubgraphID 是 Required input — 塞 dummy 让 framework Required check 过.
+	// 实际 sub-dispatch 由 runner 端 makeBodyForTry 走, body callback 这里 mock.
+	cfg := map[string]any{tryInSubgraphID: "dummy"}
+	r := node.RunNodeAsRegion(context.Background(), rn, nil, cfg, nil,
 		node.StubServices(), body)
 
 	if r.Error != nil {
