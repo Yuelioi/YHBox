@@ -16,7 +16,15 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"yhbox/internal/node"
-	_ "yhbox/internal/nodes/mock" // register Mock_Math / Mock_Form / Mock_Vision via init()
+	_ "yhbox/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
+	_ "yhbox/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
+	_ "yhbox/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringGameForeground/OnEvent
+	_ "yhbox/internal/nodes/io"        // Log/Toast/PlayClip
+	_ "yhbox/internal/nodes/mock"      // Mock_Math/Mock_Form/Mock_Vision (Phase 0 demo, Phase 5 删)
+	_ "yhbox/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
+	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
+	_ "yhbox/internal/nodes/system"    // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
+	_ "yhbox/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetSys/GetParam
 	"yhbox/internal/services"
 	"yhbox/internal/services/calibration"
 	"yhbox/internal/services/tools"
