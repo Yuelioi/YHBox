@@ -9,8 +9,9 @@ import (
 	"testing"
 
 	"yhbox/internal/node"
-	_ "yhbox/internal/nodes/control" // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
-	_ "yhbox/internal/nodes/system"  // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw 等
+	_ "yhbox/internal/nodes/control"  // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
+	_ "yhbox/internal/nodes/system"   // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw 等
+	_ "yhbox/internal/nodes/variable" // SetVar / IncVar / GetVar / GetParam / GetSys
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 )
@@ -732,6 +733,66 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 	// 验证 PopFrame
 	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent != nil {
 		t.Errorf("PopFrame did not restore main frame after Try catch: %+v", r.state.CurrentFrame)
+	}
+}
+
+// TestExecNodeAsRegionViaFramework_SubgraphPassesParams 验证 Phase 5.5b 补丁:
+// Subgraph 节点 Config["Params"] 是 JSON map, runner PushFrame 后 unpack 到
+// frame.LocalParams. callee 子图内 GetParam 节点 (走老 evalGetParam path) 应能读到值.
+//
+// 拓扑:
+//   主图: sg_call (Subgraph SubgraphID=paramSub Params={greeting:"hello"}) → done_n (Stop)
+//   子图 paramSub: sub_in → sv1 (SetVar capturedGreeting <= GetParam.value) → sub_out
+//   data wire: getp1.value (GetParam paramName=greeting) → sv1.value
+//
+// 验证: dispatch 完 rt.Vars()["capturedGreeting"] == "hello".
+func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
+	subgraph := container.Subgraph{
+		ID: "paramSub",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sub_in", Kind: "SubgraphInput"},
+				{ID: "getp1", Kind: "GetParam", Config: map[string]any{"paramName": "greeting"}},
+				{ID: "sv1", Kind: "SetVar", Config: map[string]any{"varName": "capturedGreeting", "scope": "global"}},
+				{ID: "sub_out", Kind: "SubgraphOutput"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sub_in.out", To: "sv1.in"},
+				{From: "getp1.value", To: "sv1.value"},
+				{From: "sv1.out", To: "sub_out.in"},
+			},
+		},
+		InputParams: []container.SubgraphInputParam{
+			{Name: "greeting", Type: "string"},
+		},
+	}
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-subgraph-params",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "sg_call", Kind: "Subgraph", Config: map[string]any{
+					"SubgraphID": "paramSub",
+					"Params":     map[string]any{"greeting": "hello"},
+				}},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sg_call.Done", To: "done_n.in"},
+			},
+		},
+		Subgraphs: []container.Subgraph{subgraph},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	sgNode := r.nodesByID["sg_call"]
+	_, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
+	if err != nil {
+		t.Fatalf("subgraph dispatch with params: %v", err)
+	}
+	got := rt.Vars()["capturedGreeting"]
+	if got != "hello" {
+		t.Errorf("captured var = %v, want \"hello\" (Params not flow through to LocalParams → GetParam → SetVar)", got)
 	}
 }
 

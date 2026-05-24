@@ -12,6 +12,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	nodepkg "yhbox/internal/node"
 	"yhbox/internal/services/container"
@@ -271,9 +272,13 @@ func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok Exe
 		return nil, fmt.Errorf("Subgraph %s: subgraph %q not found in container %q", node.ID, sgID, r.rt.Container.ID)
 	}
 	parentLoopStack := tok.LoopStack
+	// Params: 调用方 Subgraph 节点 Config["Params"] 是 JSON map (callee 入参字典).
+	// Phase 5.5 简化 — 静态 JSON literal; dynamic data-wire Params 留 Phase 6+ pull-eval.
+	params, _ := node.Config["Params"].(map[string]any)
 	return func(c nodepkg.Ctx) error {
-		// Push frame
+		// Push frame + seed LocalParams (params nil → Copy no-op).
 		r.state.PushFrame(container.MainGraphRef(), sg, node.ID)
+		maps.Copy(r.state.CurrentFrame.LocalParams, params)
 		defer r.state.PopFrame()
 
 		// Save dispatch tables, swap to subgraph's
