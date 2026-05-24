@@ -17,7 +17,7 @@ func loadStateIDLE(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "library", "subgraphs", "fishing-v2", "state_IDLE.json")
+	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_IDLE.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_IDLE.json: %v", err)
@@ -33,7 +33,7 @@ func loadPressEsc(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "library", "subgraphs", "fishing-v2", "press_esc_until_clear.json")
+	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "press_esc_until_clear.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read press_esc_until_clear.json: %v", err)

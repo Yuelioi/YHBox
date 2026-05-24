@@ -18,7 +18,7 @@ func loadStateWAITING(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "library", "subgraphs", "fishing-v2", "state_WAITING.json")
+	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_WAITING.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_WAITING.json: %v", err)
@@ -34,7 +34,7 @@ func loadFishingV2Helper(t *testing.T, name string) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "library", "subgraphs", "fishing-v2", name)
+	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", name)
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)

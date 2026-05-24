@@ -17,7 +17,7 @@ func loadStateBUYBAIT(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "library", "subgraphs", "fishing-v2", "state_BUYBAIT.json")
+	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_BUYBAIT.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_BUYBAIT.json: %v", err)

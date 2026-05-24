@@ -17,27 +17,27 @@ func loadFishingV2Main(t *testing.T) *container.Container {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	dir := filepath.Join(root, "bin", "data", "library", "subgraphs", "fishing-v2")
+	containerDir := filepath.Join(root, "bin", "data", "containers", "fishing-v2")
 
-	mainPath := filepath.Join(dir, "fishing-v2.json")
-	mainData, err := os.ReadFile(mainPath)
+	mainData, err := os.ReadFile(filepath.Join(containerDir, "container.json"))
 	if err != nil {
-		t.Fatalf("read fishing-v2.json: %v", err)
+		t.Fatalf("read container.json: %v", err)
 	}
 	var c container.Container
 	if err := json.Unmarshal(mainData, &c); err != nil {
-		t.Fatalf("unmarshal fishing-v2.json: %v", err)
+		t.Fatalf("unmarshal container.json: %v", err)
 	}
 
-	entries, err := os.ReadDir(dir)
+	sgDir := filepath.Join(containerDir, "subgraphs")
+	entries, err := os.ReadDir(sgDir)
 	if err != nil {
-		t.Fatalf("read dir: %v", err)
+		t.Fatalf("read subgraphs dir: %v", err)
 	}
 	for _, e := range entries {
-		if e.IsDir() || e.Name() == "fishing-v2.json" {
+		if e.IsDir() {
 			continue
 		}
-		data, rerr := os.ReadFile(filepath.Join(dir, e.Name()))
+		data, rerr := os.ReadFile(filepath.Join(sgDir, e.Name()))
 		if rerr != nil {
 			t.Fatalf("read %s: %v", e.Name(), rerr)
 		}
