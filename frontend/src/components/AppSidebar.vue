@@ -116,6 +116,7 @@ const automationItems = [
 ]
 
 const toolItems = [
+  { label: '节点 Demo', to: '/node-inspector-demo', icon: 'i-tabler-flask' },
   { label: '设置', to: '/settings', icon: 'i-tabler-settings' },
   { label: '帮助', to: '/help', icon: 'i-tabler-help-circle' },
   { label: '关于', to: '/about', icon: 'i-tabler-info-circle' },
