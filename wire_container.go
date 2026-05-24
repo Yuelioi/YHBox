@@ -228,6 +228,14 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, h
 		return false, expr.Point{}, [4]float64{}, err
 	}
 
+	// 多槽分支 (e.g. 商店 bait_product 3×2 grid): variant.Regions 非空 → 各 region 各跑 NCC,
+	// 收 conf>=threshold 的 hit, 按 reading order (y 升, 同 y 按 x 升) 取末位 (右下).
+	// fish bot 原 Detector.BaitInShop 思路: 避点选中态金币款 (左上), 选未选中态用户款 (右下).
+	// caller 显式 region 优先于多槽 (常用于强制单点测试).
+	if len(variant.Regions) > 0 && !(len(region) == 4 && (region[2] > 0 || region[3] > 0)) {
+		return m.detectMultiRegion(frame, tpl, variant.Regions, variant.Resolution, threshold)
+	}
+
 	// ROI 优先级:
 	//   1. caller 传 region (node config 显式 ROI) — 用 caller
 	//   2. variant.BBox 非零 — pixel bbox / variant.Resolution 转 ratio + 30px padding
@@ -261,6 +269,60 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, h
 	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
 	out := [4]float64{rx, ry, rw, rh}
 	return true, expr.Point{X: cx, Y: cy}, out, nil
+}
+
+// detectMultiRegion 多槽 ROI 各跑 NCC, 收 conf>=threshold hit, 按 reading-order 末位返回.
+// 1:1 复刻 v1 fish bot Detector.BaitInShop 思路, 处理多槽位 UI (商店货架 3×2 grid).
+// regions 每条 pixel bbox 在 variantRes 坐标系下, 自动加 30px padding (跟 single-BBox 路径一致).
+func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]int, variantRes [2]int, threshold float64) (bool, expr.Point, [4]float64, error) {
+	if variantRes[0] <= 0 || variantRes[1] <= 0 {
+		return false, expr.Point{}, [4]float64{}, nil
+	}
+	type hit struct {
+		cx, cy         float64
+		rx, ry, rw, rh float64
+	}
+	var hits []hit
+	frameW := frame.Bounds().Dx()
+	frameH := frame.Bounds().Dy()
+	vw, vh := float64(variantRes[0]), float64(variantRes[1])
+	padX := roiPaddingPx / vw
+	padY := roiPaddingPx / vh
+	for _, r := range regions {
+		if r[2] <= r[0] || r[3] <= r[1] {
+			continue
+		}
+		bx, by := float64(r[0]), float64(r[1])
+		bw, bh := float64(r[2]-r[0]), float64(r[3]-r[1])
+		rx := clamp01(bx/vw - padX)
+		ry := clamp01(by/vh - padY)
+		rw := clamp01Bound(bw/vw+padX*2, rx)
+		rh := clamp01Bound(bh/vh+padY*2, ry)
+		roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
+		if roiPxW <= 0 || roiPxH <= 0 {
+			continue
+		}
+		x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
+		if x < 0 || conf < float32(threshold) {
+			continue
+		}
+		hits = append(hits, hit{
+			cx: float64(roiPxX+x+tpl.W/2) / float64(frameW),
+			cy: float64(roiPxY+y+tpl.H/2) / float64(frameH),
+			rx: rx, ry: ry, rw: rw, rh: rh,
+		})
+	}
+	if len(hits) == 0 {
+		return false, expr.Point{}, [4]float64{}, nil
+	}
+	// reading-order 末位: ry 升序, ry 同时 rx 升序, 取最后一个 (右下).
+	last := hits[0]
+	for _, h := range hits[1:] {
+		if h.ry > last.ry || (h.ry == last.ry && h.rx > last.rx) {
+			last = h
+		}
+	}
+	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, nil
 }
 
 // ---- ColorDetector: capture.Frame + HSV/RGB 像素扫描 ----
