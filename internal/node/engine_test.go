@@ -26,7 +26,7 @@ func TestRunNode_HappyPath(t *testing.T) {
 	Register(happyNode{})
 	rn, _ := Get("Happy")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubVisionService(), DefaultLogService())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
 	if r.Error != nil {
 		t.Fatalf("error: %v", r.Error)
 	}
@@ -60,7 +60,7 @@ func TestRunNode_RequiredMissing_ValidationError(t *testing.T) {
 	Register(requiredNode{})
 	rn, _ := Get("Req")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubVisionService(), DefaultLogService())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
 	if len(r.Validation) != 1 || r.Validation[0].Code != "REQUIRED_FIELD_MISSING" {
 		t.Errorf("validation = %v, want 1 REQUIRED_FIELD_MISSING", r.Validation)
 	}
@@ -84,7 +84,7 @@ func TestRunNode_RuntimeError(t *testing.T) {
 	Register(errorNode{})
 	rn, _ := Get("Err")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubVisionService(), DefaultLogService())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
 	if r.Error == nil || r.Error.Error() != "boom" {
 		t.Errorf("error = %v, want boom", r.Error)
 	}
@@ -105,7 +105,7 @@ func TestRunNode_Panic_Recovered(t *testing.T) {
 	Register(panicNode{})
 	rn, _ := Get("Panic")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubVisionService(), DefaultLogService())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
 	if r.Panic == nil {
 		t.Error("expected panic recovered")
 	}
@@ -130,7 +130,7 @@ func TestRunNode_DoubleFire_Panics(t *testing.T) {
 	Register(doubleFireNode{})
 	rn, _ := Get("DF")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubVisionService(), DefaultLogService())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
 	if r.Panic == nil {
 		t.Error("double Fire should panic")
 	}

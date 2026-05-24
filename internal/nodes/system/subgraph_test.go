@@ -15,7 +15,7 @@ func TestSubgraph_StubReturnsError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{sgInSubgraphID: "any_id"},
-		nil, node.StubVisionService(), node.DefaultLogService())
+		nil, node.StubServices())
 
 	if r.Error == nil {
 		t.Fatal("expected stub error")
@@ -30,8 +30,7 @@ func TestSubgraph_RequiredSubgraphIDMissing(t *testing.T) {
 	node.Register(&Subgraph{})
 	rn, _ := node.Get("Subgraph")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil,
-		node.StubVisionService(), node.DefaultLogService())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
 	if len(r.Validation) == 0 {
 		t.Error("expected REQUIRED_FIELD_MISSING for SubgraphID")
 	}

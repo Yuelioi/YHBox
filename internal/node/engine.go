@@ -18,13 +18,16 @@ type RunResult struct {
 	DisplayText string // Display() 返回值, "" = 不 emit
 }
 
-// RunNode framework 入口. 调用方传 RegisteredNode + 已 merged inputs sources.
+// RunNode framework 入口. 调用方传 RegisteredNode + 已 merged inputs sources + services bundle.
 //
 // 错误分类 (spec v3 §4.2):
 //   - Validation:  user graph 写错 (Required 缺值 / Validator 返错) → 节点变红 (NOT panic)
 //   - Error:       runtime fail (Run 返 error) → 节点变红
 //   - Panic:       framework invariant broken (double Fire / Out(unknown) / impossible state) → recover + stack 进 log
-func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, vision VisionService, log LogService) RunResult {
+//
+// services 内任何字段都可以 nil — 节点拿到 nil service 调方法时 panic, 由 framework
+// recover 报回 RunResult.Panic. 测试可用 StubServices() 一键填齐.
+func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle) RunResult {
 	// Build inputs (priority: data-wire > config > exec-data > default)
 	defaults := defaultsFromSpec(&rn.Spec)
 	in := newInputs(dataWire, config, execData, defaults)
@@ -42,7 +45,7 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 	}
 
 	// Phase 3: 实际 Run, recover panic
-	c := newCtx(ctx, vision, log, &rn.Spec)
+	c := newCtx(ctx, services, &rn.Spec)
 	result := RunResult{}
 	func() {
 		defer func() {

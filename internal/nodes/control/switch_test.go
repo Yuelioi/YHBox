@@ -18,7 +18,7 @@ func TestSwitch_Case1Hit(t *testing.T) {
 			swInCase1: "A",
 			swInCase2: "B",
 		},
-		nil, node.StubVisionService(), node.DefaultLogService())
+		nil, node.StubServices())
 	if r.ExitName != swOutCase1 {
 		t.Errorf("exit = %q, want Case1", r.ExitName)
 	}
@@ -36,7 +36,7 @@ func TestSwitch_Default(t *testing.T) {
 			swInCase2: "B",
 			swInCase3: "C",
 		},
-		nil, node.StubVisionService(), node.DefaultLogService())
+		nil, node.StubServices())
 	if r.ExitName != swOutDefault {
 		t.Errorf("exit = %q, want Default", r.ExitName)
 	}
@@ -54,7 +54,7 @@ func TestSwitch_FirstMatchWins(t *testing.T) {
 			swInCase1: "A",
 			swInCase2: "A",
 		},
-		nil, node.StubVisionService(), node.DefaultLogService())
+		nil, node.StubServices())
 	if r.ExitName != swOutCase1 {
 		t.Errorf("exit = %q, want Case1 (first match)", r.ExitName)
 	}

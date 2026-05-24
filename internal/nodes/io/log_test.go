@@ -22,6 +22,13 @@ func (c *captureLog) Warn(format string, args ...any) {
 	c.entries = append(c.entries, "WARN "+format)
 }
 
+// withLog 构造一个用 captureLog 替换 LogService 的 ServiceBundle, 其余 stub.
+func withLog(cap *captureLog) node.ServiceBundle {
+	b := node.StubServices()
+	b.Log = cap
+	return b
+}
+
 func TestLog_Info(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Log{})
@@ -30,7 +37,7 @@ func TestLog_Info(t *testing.T) {
 	cap := &captureLog{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{logInMessage: "hello", logInLevel: "info"},
-		nil, node.StubVisionService(), cap)
+		nil, withLog(cap))
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -48,7 +55,7 @@ func TestLog_Warn(t *testing.T) {
 	cap := &captureLog{}
 	node.RunNode(context.Background(), rn, nil,
 		map[string]any{logInMessage: "danger", logInLevel: "warn"},
-		nil, node.StubVisionService(), cap)
+		nil, withLog(cap))
 
 	if len(cap.entries) != 1 || cap.entries[0] != "WARN %s" {
 		t.Errorf("entries = %v, want 1 WARN line", cap.entries)
@@ -64,7 +71,7 @@ func TestLog_WildcardMessage(t *testing.T) {
 	// Message 是 wildcard "*", 接任意类型. 这里传 number.
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{logInMessage: 42, logInLevel: "info"},
-		nil, node.StubVisionService(), cap)
+		nil, withLog(cap))
 
 	if r.Error != nil {
 		t.Fatal(r.Error)

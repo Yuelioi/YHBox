@@ -73,13 +73,23 @@ type OutputData interface {
 	Has(field string) bool
 }
 
-// Ctx — Run 期间框架注入. 最小集合.
+// Ctx — Run 期间框架注入. 服务接口都返 nil-safe; 节点拿到 nil 调方法会 panic
+// (清晰报错, Phase 5 wire 时 main.go 注入真 backend).
 type Ctx interface {
 	Context() context.Context
-	Vision() VisionService
-	Log() LogService
 	Now() time.Time
 	Out(exitName string) OutBuilder
+
+	// Services. 全部 nullable — 节点用之前应当假设非 nil (有 service 的节点都
+	// 在 spec / build 阶段已经 wire 真 backend); 测试时 stub.
+	Vision() VisionService
+	Log() LogService
+	Input() InputService
+	Vars() VarStore
+	Sys() SysStore
+	Window() WindowService
+	Capture() CaptureService
+	Stopwatches() StopwatchStore
 }
 
 // OutBuilder — fluent builder.
@@ -90,16 +100,118 @@ type OutBuilder interface {
 	Fire() Outputs
 }
 
-// VisionService — Phase 1 stub; Phase 4 真接 wire_container.go::templateMatcherAdapter.
+// VisionService — template + bar-track 检测. Phase 1 stub; Phase 5 真接
+// wire_container.go::templateMatcherAdapter + pkg/vision.AnalyzeBar.
+//
+// 单帧 Match (CheckTemplate) / WaitMatch (WaitTemplate, 带 timeout 内部轮询) /
+// BarTrack (ColorBarTrack, HSV cluster 算 cursor+target 位置).
 type VisionService interface {
+	// Match 单次模板匹配. nil pt = miss.
 	Match(key string, threshold float64) (pt *Point, conf float64, err error)
+
+	// WaitMatch 阻塞轮询直到命中或 timeout. timeout<=0 视为 0 (单次).
+	// 命中: pt!=nil, conf>=threshold. timeout: pt=nil, conf=最高near-miss.
+	WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (pt *Point, conf float64, err error)
+
+	// BarTrack 抓 roi 帧 + HSV cluster → 返 cursor/target 位置 + 置信度.
+	// roi 是当前 client 区域 pixel 坐标 (x,y,w,h). Found=false 即 missing.
+	BarTrack(roi Rect) (result BarTrackResult, err error)
 }
 
-// LogService — 节点日志. Phase 1 stub stdout, Phase 4 接 zerolog.
+// BarTrackResult ColorBarTrack 算法单次运行结果. 对齐老 SysBarTrackResult.
+type BarTrackResult struct {
+	Found      bool    `json:"found"`
+	CursorX    int     `json:"cursorX"`
+	TargetX    int     `json:"targetX"`
+	TargetW    int     `json:"targetW"`
+	Confidence float64 `json:"confidence"`
+	YellowPx   int     `json:"yellowPx"`
+	GreenPx    int     `json:"greenPx"`
+}
+
+// LogService — 节点日志. Phase 1 stub stdout, Phase 5 接 zerolog.
 type LogService interface {
 	Debug(format string, args ...any)
 	Info(format string, args ...any)
 	Warn(format string, args ...any)
+}
+
+// InputService — KeyPress / Click / Scroll / MouseMoveRel + Hold start/stop.
+// 镜像 pkg/input.Backend, 但 hwnd 由 Ctx 隐式提供 (内层 backend wire 时塞 hwnd).
+// xRatio/yRatio 是 0-1 客户区比例.
+//
+// Phase 4 节点: KeyPress / ClickAt / Scroll / MouseMoveRel / KeyHoldStart/Stop / MouseHoldStart/Stop.
+type InputService interface {
+	KeyPress(vk string, durationMs int) error
+	KeyDown(vk string) error
+	KeyUp(vk string) error
+
+	Click(xRatio, yRatio float64, button string, durationMs int) error
+	MouseMoveRel(dx, dy, durationMs int) error
+	Scroll(xRatio, yRatio float64, notches int) error
+
+	MouseDown(xRatio, yRatio float64, button string) error
+	MouseUp(button string) error
+}
+
+// VarStore — SetVar / GetVar / IncVar 节点用. Scope=auto/local/global 由 framework
+// (RegionRunner / subgraph frame) 解析后传到这里; stub 是单层 map.
+//
+// Phase 5 wire 时连 RuntimeContext.SetVar/Vars + ExecState.LocalVars.
+type VarStore interface {
+	Get(name string) (value any, ok bool)
+	Set(name string, value any)
+	// Inc number 增量. value 不是 number → 视为 0 起步; 返回 newValue.
+	Inc(name string, delta float64) (newValue float64)
+}
+
+// SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastBarTrack.cursorX" /
+// "lastTemplate.found" — 对齐老 runtime resolveSysPath 字典.
+//
+// Phase 5 wire 时连 RuntimeContext.Sys() + per-tick snapshot.
+type SysStore interface {
+	Get(path string) (value any, ok bool)
+}
+
+// WindowService — BringGameForeground 节点 + 任何节点想知道 hwnd/ClientSize. Phase 5
+// wire 时连 RuntimeContext.Window + GameProvider.BringToForeground.
+type WindowService interface {
+	BringForeground() error
+	HWND() uintptr
+	ClientSize() (w, h int, err error)
+}
+
+// CaptureService — Screenshot 节点用. PNG 字节流; Phase 5 wire 时连 pkg/capture
+// IBackend.Frame/FrameROI + png.Encode (跟 screenshot.go 一致).
+type CaptureService interface {
+	Capture() (pngData []byte, err error)
+	CaptureROI(x, y, w, h int) (pngData []byte, err error)
+}
+
+// StopwatchStore — StopwatchStart / Stop / Read 节点用. Per-key 多 stopwatch
+// (跟 $vars.* 独立命名空间, 同名 key/var 不冲突, 见老 stopwatch.go 注释).
+//
+// 语义 (镜像老 runtime stopwatchTable):
+//   - Start: 已存在 key 视为 reset.
+//   - Stop:  不存在 key 视为 no-op (validator static-warn).
+//   - Read:  不存在 key 返 0; running 返 now-start; stopped 返 stoppedAt-start.
+type StopwatchStore interface {
+	Start(key string)
+	Stop(key string)
+	Read(key string) (elapsedMs int64)
+}
+
+// ServiceBundle — RunNode 入参集合, 替代 8-arg signature. 全部字段 nullable;
+// 节点 spec / 实测 wire 时决定哪些必填.
+type ServiceBundle struct {
+	Vision      VisionService
+	Log         LogService
+	Input       InputService
+	Vars        VarStore
+	Sys         SysStore
+	Window      WindowService
+	Capture     CaptureService
+	Stopwatches StopwatchStore
 }
 
 type ValidationError struct {
