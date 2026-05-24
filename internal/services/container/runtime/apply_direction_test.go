@@ -70,14 +70,14 @@ func runApplyDirection(t *testing.T, dirInput float64, preControlDir float64) ([
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "call", Kind: "Subgraph", Config: map[string]any{
-					"subgraphId": "apply_direction",
+					"SubgraphID": "apply_direction",
 					"literal":    map[string]any{"dir": dirInput},
 				}},
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call.in"},
-				{From: "call.done", To: "stop.in"},
+				{From: "call.Done", To: "stop.in"},
 			},
 		},
 	}
@@ -166,19 +166,19 @@ func runApplyDirectionTwice(t *testing.T, d1, d2 float64) ([]string, float64) {
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "call1", Kind: "Subgraph", Config: map[string]any{
-					"subgraphId": "apply_direction",
+					"SubgraphID": "apply_direction",
 					"literal":    map[string]any{"dir": d1},
 				}},
 				{ID: "call2", Kind: "Subgraph", Config: map[string]any{
-					"subgraphId": "apply_direction",
+					"SubgraphID": "apply_direction",
 					"literal":    map[string]any{"dir": d2},
 				}},
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call1.in"},
-				{From: "call1.done", To: "call2.in"},
-				{From: "call2.done", To: "stop.in"},
+				{From: "call1.Done", To: "call2.in"},
+				{From: "call2.Done", To: "stop.in"},
 			},
 		},
 	}

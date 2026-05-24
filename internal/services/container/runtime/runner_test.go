@@ -26,8 +26,10 @@ func newTestContainer(nodes []container.GraphNode, edges []container.GraphEdge, 
 
 // stubRuntimeWindowAndInput 把 rt.Window / rt.Input stub 成非零, 让 setupRuntime
 // 走幂等跳过分支 — 测试不需要真 hwnd / 真 backend / 真 capture.
+// ClientW/ClientH 默认 1920x1080 (匹配 fishing-v2 ROI table 主分辨率), 让 ColorBarTrack
+// 等需要 ClientSize 的节点能 pick ROI.
 func stubRuntimeWindowAndInput(rt *RuntimeContext) {
-	rt.Window = winutil.WindowHandle{HWND: 1}
+	rt.Window = winutil.WindowHandle{HWND: 1, ClientW: 1920, ClientH: 1080}
 	rt.Input = &fakeInputBackend{}
 }
 
@@ -35,7 +37,7 @@ func TestRunner_StartSleep(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "s1", Kind: "Sleep", Config: map[string]any{"durationMs": "10"}},
+			{ID: "s1", Kind: "Sleep", Config: map[string]any{"Duration": "10"}},
 		},
 		[]container.GraphEdge{
 			{From: "start.out", To: "s1.in"},
@@ -73,11 +75,11 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 		[]container.GraphEdge{
 			{From: "start.out", To: "set.in"},
 			{From: "set.out", To: "if.in"},
-			{From: "if.then", To: "markThen.in"},
-			{From: "if.else", To: "markElse.in"},
+			{From: "if.True", To: "markThen.in"},
+			{From: "if.False", To: "markElse.in"},
 			// data flow into If.condition
 			{From: "getx.value", To: "eq.a"},
-			{From: "eq.result", To: "if.condition"},
+			{From: "eq.result", To: "if.Condition"},
 		},
 		[]container.VarDecl{
 			{Name: "x", Type: "number", Default: 0.0},
@@ -184,10 +186,10 @@ func TestRunner_IfBranch(t *testing.T) {
 		[]container.GraphEdge{
 			{From: "start.out", To: "set1.in"},
 			{From: "set1.out", To: "if.in"},
-			{From: "if.then", To: "setThen.in"},
-			{From: "if.else", To: "setElse.in"},
+			{From: "if.True", To: "setThen.in"},
+			{From: "if.False", To: "setElse.in"},
 			{From: "gety.value", To: "eq.a"},
-			{From: "eq.result", To: "if.condition"},
+			{From: "eq.result", To: "if.Condition"},
 		},
 		[]container.VarDecl{
 			{Name: "y", Type: "number", Default: 0.0},
@@ -247,10 +249,10 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{From: "start.out", To: "loop.in"},
 			{From: "loop.body", To: "inc.in"},
 			{From: "inc.out", To: "if.in"},
-			{From: "if.then", To: "br.in"},
-			{From: "if.else", To: "loop.loopback"},
+			{From: "if.True", To: "br.in"},
+			{From: "if.False", To: "loop.loopback"},
 			{From: "geti.value", To: "gte.a"},
-			{From: "gte.result", To: "if.condition"},
+			{From: "gte.result", To: "if.Condition"},
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)

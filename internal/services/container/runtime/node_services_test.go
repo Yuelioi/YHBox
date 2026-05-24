@@ -209,7 +209,7 @@ func TestStopwatchAdapter_RestartResets(t *testing.T) {
 
 func TestNewServiceBundleFor_AllSlotsFilled(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
-	bundle := NewServiceBundleFor(rt, newStopwatchTable(), zerolog.Nop())
+	bundle := NewServiceBundleFor(rt, newStopwatchTable(), zerolog.Nop(), nil)
 	if bundle.Vision == nil {
 		t.Error("bundle.Vision is nil")
 	}

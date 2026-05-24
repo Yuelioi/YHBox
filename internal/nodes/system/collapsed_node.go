@@ -3,8 +3,8 @@
 // {subgraphId, label}; runtime/nodes.go::case "Subgraph", "CollapsedNode" 同
 // dispatch 路径 (CollapsedNode = isAnonymous Subgraph, runtime 路径相同).
 //
-// 新框架 Phase 4 stub: Run 返 errSubgraphNodeStub (sentinels.go). Phase 5
-// sub-runner 接管后跟 Subgraph 共享 dispatch.
+// Phase 5.5b: 跟 Subgraph 共享 RegionRunner 实现 — body() 调一次 → Done 出口.
+// runtime 端 makeBodyFor switch 已含 "CollapsedNode" case (复用 makeBodyForSubgraph).
 package system
 
 import "yhbox/internal/node"
@@ -15,8 +15,9 @@ type CollapsedNode struct{}
 
 const (
 	cnInExec       = "in"
-	cnInSubgraphID = "subgraphId"
+	cnInSubgraphID = "SubgraphID"
 	cnInLabel      = "label"
+	cnOutDone      = "Done"
 )
 
 func (CollapsedNode) Spec() node.Spec {
@@ -25,21 +26,42 @@ func (CollapsedNode) Spec() node.Spec {
 		Version:     1,
 		Category:    "System",
 		DisplayName: "折叠子图",
-		Description: "(Phase 5 stub) Subgraph 的折叠 (isAnonymous) 表示 — runtime 跟 Subgraph 同 dispatch. 当前 Run 返 sentinel.",
+		Description: "Subgraph 的折叠 (isAnonymous) 表示 — runtime 跟 Subgraph 同 dispatch (RegionRunner: body 调一次 → Done).",
 		Inputs: []node.InputSpec{
 			{Name: cnInExec, Type: "Exec"},
-			{Name: cnInSubgraphID, Type: "String", Required: true,
+			{Name: cnInSubgraphID, Type: "String", Semantic: "SubgraphID", Required: true,
 				DisplayName: "子图 ID",
 				Doc:         "目标 isAnonymous Subgraph 标识符",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "async-dropdown",
+					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "subgraphIDs"})}},
 			{Name: cnInLabel, Type: "String", Default: "Collapsed",
 				DisplayName: "标签",
 				Widget:      node.WidgetSpec{Kind: "text"}},
 		},
-		// no Outputs — exec-out 来自被调子图的 OutputPins, 动态决定 (跟 Subgraph 同).
+		Outputs: []node.OutputSpec{
+			{Name: cnOutDone, Type: "Exec", DisplayName: "完成"},
+		},
 	}
 }
 
+// Run — 防御性. 正常路径走 RunNodeAsRegion → RunRegion.
 func (CollapsedNode) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errSubgraphNodeStub
+	return nil, errSubgraphMustUseRegion
+}
+
+// RunRegion — body() 调一次, 跑 callee subgraph. error 透传; 无 error → Done.
+func (CollapsedNode) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
+	if err := body(ctx); err != nil {
+		return nil, err
+	}
+	return ctx.Out(cnOutDone).Fire(), nil
+}
+
+// Dependencies — 子图分享 / library import 时 BFS 抽 callee 引用.
+func (CollapsedNode) Dependencies(in node.Inputs) []node.Dependency {
+	id := in.String(cnInSubgraphID)
+	if id == "" {
+		return nil
+	}
+	return []node.Dependency{{Kind: "subgraph", Key: id}}
 }

@@ -106,7 +106,8 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	}
 	r.state = NewExecState(rt.Container.ID, snapshotMainCalibCounts(rt.Container))
 	// Phase 5.4: 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
-	r.bundle = NewServiceBundleFor(rt, r.stopwatches, zerolog.Nop())
+	// stateGetter — closure 让 VarStoreAdapter scope=local/auto 拿到 frame.LocalVars 栈.
+	r.bundle = NewServiceBundleFor(rt, r.stopwatches, zerolog.Nop(), func() *ExecState { return r.state })
 	return r
 }
 

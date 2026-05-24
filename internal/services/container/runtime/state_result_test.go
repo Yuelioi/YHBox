@@ -46,12 +46,12 @@ func runStateRESULT(t *testing.T, preResultEnteredAtMsAgo float64, hits map[stri
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "state_RESULT"}},
+				{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "state_RESULT"}},
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call.in"},
-				{From: "call.done", To: "stop.in"},
+				{From: "call.Done", To: "stop.in"},
 			},
 		},
 	}

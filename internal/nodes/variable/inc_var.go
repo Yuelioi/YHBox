@@ -57,7 +57,11 @@ func (IncVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("IncVar: missing varName")
 	}
 	delta := in.Float64(ivInDelta)
-	ctx.Vars().Inc(name, delta)
+	scope := in.String(ivInScope)
+	if scope == "" {
+		scope = "auto"
+	}
+	ctx.Vars().IncScoped(name, scope, delta)
 	return ctx.Out(ivOutOut).Fire(), nil
 }
 

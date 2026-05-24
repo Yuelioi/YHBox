@@ -11,11 +11,13 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 
 	nodepkg "yhbox/internal/node"
 	"yhbox/internal/nodes/control"
+	"yhbox/internal/nodes/system"
 	"yhbox/internal/services/container"
 )
 
@@ -180,6 +182,12 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		if control.IsStopRequested(result.Error) {
 			return nil, errStopRun
 		}
+		// atomic #3: translate framework ThrowError → runtime *errThrow so legacy 测试 + 老
+		// Try region catch 路径仍 work (errors.As 取 message).
+		var te *system.ThrowError
+		if errors.As(result.Error, &te) {
+			return nil, &errThrow{message: te.Message}
+		}
 		return nil, result.Error
 	}
 
@@ -290,7 +298,20 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		if n.Kind == "SubgraphOutput" {
 			return nil
 		}
+		// atomic 转换期: 老 fishing-v2 main 用 `sleepIdle.out → loopMain.loopback` 模式
+		// re-enter Loop 触发 iter++. 新 framework Loop 内部 for-loop 自驱迭代, body 终止
+		// 即下一轮. tok.InPin="loopback" 意味老 fixture 想 re-enter — 视 body iter 终止.
+		// atomic #5 拆老 JSON 时这块可删 (新 redraw 不再生成 loopback edges).
+		if tok.InPin == "loopback" {
+			return nil
+		}
+		// 每次 sub-dispatch 刷 per-exec-tick snapshot — 老 evalGetVar / evalGetSys 从
+		// r.currentTick.Vars 读. 不刷 → Loop body 跨 iter 看 stale snapshot, 影响
+		// Break/Continue 条件判断. runner.go::Run 在 execNode entry 抓一次, 但 region
+		// body 走 runRegionBody 不经 execNode, 这里得自己 refresh.
+		r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
 		out, err := r.dispatchInRegion(ctx, n, tok)
+		r.currentTick = nil
 		if err != nil {
 			return err
 		}

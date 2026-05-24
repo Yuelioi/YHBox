@@ -20,8 +20,8 @@ func TestExecSwitch_MatchedCase(t *testing.T) {
 		ID:   "sw1",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "'B'", // literal string expression
-			"cases": []any{"A", "B", "C"},
+			"Value": "'B'", // literal string expression
+			"Case1Value": "A", "Case2Value": "B", "Case3Value": "C",
 		},
 	}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
@@ -36,8 +36,8 @@ func TestExecSwitch_DefaultOnNoMatch(t *testing.T) {
 		ID:   "sw2",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "'X'",
-			"cases": []any{"A", "B"},
+			"Value": "'X'",
+			"Case1Value": "A", "Case2Value": "B",
 		},
 	}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
@@ -52,8 +52,8 @@ func TestExecSwitch_DefaultOnNilValue(t *testing.T) {
 		ID:   "sw3",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$vars.notDefined", // undefined var → resolve nil
-			"cases": []any{"A"},
+			"Value": "$vars.notDefined", // undefined var → resolve nil
+			"Case1Value": "A",
 		},
 	}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
@@ -69,8 +69,8 @@ func TestExecSwitch_StringableInt(t *testing.T) {
 		ID:   "sw4",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$vars.x",
-			"cases": []any{"5", "10"},
+			"Value": "$vars.x",
+			"Case1Value": "5", "Case2Value": "10",
 		},
 	}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
@@ -86,8 +86,8 @@ func TestExecSwitch_CJKCaseDispatch(t *testing.T) {
 		ID:   "sw5",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$vars.state",
-			"cases": []any{"待机", "钓鱼", "恢复"},
+			"Value": "$vars.state",
+			"Case1Value": "待机", "Case2Value": "钓鱼", "Case3Value": "恢复",
 		},
 	}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
@@ -103,8 +103,8 @@ func TestExecSwitch_EmojiCaseDispatch(t *testing.T) {
 		ID:   "sw6",
 		Kind: "Switch",
 		Config: map[string]any{
-			"value": "$vars.state",
-			"cases": []any{"🎣", "⚔️"},
+			"Value": "$vars.state",
+			"Case1Value": "🎣", "Case2Value": "⚔️",
 		},
 	}
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})

@@ -16,8 +16,9 @@ func TestCollapsedNode_RunReturnsSentinel(t *testing.T) {
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{cnInSubgraphID: "sg_anon_123"},
 		nil, node.StubServices())
-	if !errors.Is(r.Error, errSubgraphNodeStub) {
-		t.Errorf("error = %v, want errSubgraphNodeStub", r.Error)
+	// Phase 5.5b: CollapsedNode 升级成 RegionRunner, Run 防御性返 errSubgraphMustUseRegion.
+	if !errors.Is(r.Error, errSubgraphMustUseRegion) {
+		t.Errorf("error = %v, want errSubgraphMustUseRegion", r.Error)
 	}
 }
 

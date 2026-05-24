@@ -115,8 +115,27 @@ func (i *inputsImpl) Color(name string) Color {
 }
 
 func (i *inputsImpl) Duration(name string) time.Duration {
-	if v, ok := i.merged[name].(time.Duration); ok {
+	switch v := i.merged[name].(type) {
+	case time.Duration:
 		return v
+	case float64:
+		return time.Duration(v) * time.Millisecond
+	case int:
+		return time.Duration(v) * time.Millisecond
+	case json.Number:
+		if n, err := v.Int64(); err == nil {
+			return time.Duration(n) * time.Millisecond
+		}
+		if f, err := v.Float64(); err == nil {
+			return time.Duration(f) * time.Millisecond
+		}
+	case string:
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return time.Duration(n) * time.Millisecond
+		}
 	}
 	return 0
 }

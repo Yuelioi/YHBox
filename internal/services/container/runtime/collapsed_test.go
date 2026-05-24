@@ -30,7 +30,7 @@ func TestExecCollapsedNode_DispatchesViaSameHandlerAsSubgraph(t *testing.T) {
 	node := &container.GraphNode{
 		ID:     "cn1",
 		Kind:   "CollapsedNode",
-		Config: map[string]any{"subgraphId": sgID},
+		Config: map[string]any{"SubgraphID": sgID},
 	}
 	// dispatch 不报错就证明 Kind switch case 命中
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})

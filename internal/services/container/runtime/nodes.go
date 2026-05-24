@@ -33,12 +33,11 @@ func (e *errThrow) Error() string {
 	return "Throw: " + e.message
 }
 
-// execNode 单节点执行入口。返回下游 token 列表（追加进调度队列）。
-// 大部分节点产出 1 个或 0 个 token；Parallel/Race 是特例（自跑 sub-runner）。
+// execNode 单节点执行入口. atomic #3 cutover (5.5c): 老 switch 已拆, 改走 dispatchInRegion
+// (Phase 5.5b 新 framework, 内部 route Loop/Subgraph/Try 等 RegionRunner 或普通节点).
 //
-// atomic #3 cutover (5.5c) 待 fishing-v2 JSON 跟 test fixture 全部 redraw 完成后做 (board 工作清单).
-// 当前 execNode 仍走老 switch — dispatchInRegion (新 framework) 已 ready, 通过 dispatch_v5 path
-// 单元测试覆盖, 但 production fishing-v2 老 JSON 用 lowercase pin name + Config 键, 不能直接切.
+// IsPureData / IsVisualOnly / Disabled 这 3 个 gatekeep 在 cutover 期仍走 nodekind registry
+// (老 nodekind/specs/ 还未删, atomic #5 一起拆). atomic #5 完成后改走 nodepkg.Get(kind).Spec.
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	// Gatekeep: kind must be registered. Catches typos and stale switch cases.
 	spec, ok := nodekind.Get(node.Kind)
@@ -60,6 +59,12 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 		return r.passthroughDisabled(node, tok)
 	}
 
+	return r.dispatchInRegion(ctx, node, tok)
+}
+
+// execNodeLegacy — atomic #3 cutover 前的老 switch (~130 case). 已被 execNode 替换, 这里
+// 留 stub 让 grep 找得到; 整段 atomic #5 一起 git rm 时连同各 exec* 实现一锅删.
+func (r *ContainerRunner) execNodeLegacy(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	switch node.Kind {
 	case "Start":
 		return r.edges.next(node.ID+".out", tok.LoopStack), nil

@@ -64,7 +64,7 @@ func runStateIDLE(t *testing.T, hits map[string]bool, baitProbeMs, castRemaining
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "call", Kind: "Subgraph", Config: map[string]any{
-					"subgraphId": "state_IDLE",
+					"SubgraphID": "state_IDLE",
 					"literal": map[string]any{
 						"baitProbeDelayMs":     baitProbeMs,
 						"castRemainingDelayMs": castRemainingMs,
@@ -74,7 +74,7 @@ func runStateIDLE(t *testing.T, hits map[string]bool, baitProbeMs, castRemaining
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call.in"},
-				{From: "call.done", To: "stop.in"},
+				{From: "call.Done", To: "stop.in"},
 			},
 		},
 	}

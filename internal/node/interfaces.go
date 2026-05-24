@@ -200,12 +200,18 @@ type InputService interface {
 // VarStore — SetVar / GetVar / IncVar 节点用. Scope=auto/local/global 由 framework
 // (RegionRunner / subgraph frame) 解析后传到这里; stub 是单层 map.
 //
-// Phase 5 wire 时连 RuntimeContext.SetVar/Vars + ExecState.LocalVars.
+// Phase 5.5 cutover: scoped 变种实现 frame.LocalVars vs rt.vars 路由. SetVar/IncVar
+// 节点调 SetScoped/IncScoped, 没接 frame stack 的 stub 视 scope 同 global.
 type VarStore interface {
 	Get(name string) (value any, ok bool)
 	Set(name string, value any)
 	// Inc number 增量. value 不是 number → 视为 0 起步; 返回 newValue.
 	Inc(name string, delta float64) (newValue float64)
+	// GetScoped / SetScoped / IncScoped: scope = "auto" | "local" | "global". 走老 runtime
+	// 同款逻辑 (auto: 当前 frame.LocalVars 有 → local; 否则 global).
+	GetScoped(name, scope string) (value any, ok bool)
+	SetScoped(name, scope string, value any)
+	IncScoped(name, scope string, delta float64) (newValue float64)
 }
 
 // SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastBarTrack.cursorX" /

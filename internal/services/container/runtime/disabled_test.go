@@ -13,10 +13,10 @@ func TestDisabled_LinearPassthrough(t *testing.T) {
 	_, r := newTestRunner(t)
 	n := &container.GraphNode{
 		ID: "sleep1", Kind: "Sleep", Disabled: true,
-		Config: map[string]any{"literal": map[string]any{"durationMs": 9999.0}},
+		Config: map[string]any{"literal": map[string]any{"Duration": 9999.0}},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"sleep1": n}
-	r.edges = &edgeIndex{out: map[string][]string{"sleep1.out": {"target.in"}}}
+	r.edges = &edgeIndex{out: map[string][]string{"sleep1.Done": {"target.in"}}}
 	tokens, err := r.execNode(context.Background(), n, ExecToken{InPin: "in"})
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestDisabled_If_GoesToThen(t *testing.T) {
 	_, r := newTestRunner(t)
 	n := &container.GraphNode{ID: "if1", Kind: "If", Disabled: true}
 	r.nodesByID = map[string]*container.GraphNode{"if1": n}
-	r.edges = &edgeIndex{out: map[string][]string{"if1.then": {"target.in"}}}
+	r.edges = &edgeIndex{out: map[string][]string{"if1.True": {"target.in"}}}
 	tokens, err := r.execNode(context.Background(), n, ExecToken{InPin: "in"})
 	if err != nil {
 		t.Fatal(err)

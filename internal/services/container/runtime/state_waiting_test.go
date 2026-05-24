@@ -69,14 +69,14 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "call", Kind: "Subgraph", Config: map[string]any{
-					"subgraphId": "state_WAITING",
-					"literal":    map[string]any{"pollIntervalMs": pollIntervalMs},
+					"SubgraphID": "state_WAITING",
+					"literal":    map[string]any{"PollIntervalMs": pollIntervalMs},
 				}},
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call.in"},
-				{From: "call.done", To: "stop.in"},
+				{From: "call.Done", To: "stop.in"},
 			},
 		},
 	}

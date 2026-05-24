@@ -86,12 +86,15 @@ var pinRenames = map[string]map[string]string{
 		"yellowPx":   "YellowPx", "greenPx": "GreenPx",
 	},
 	"Sleep": {
-		"duration": "Duration",
-		"done":     "Done",
+		"duration":   "Duration",
+		"durationMs": "Duration", // legacy fishing-v2 JSON stored as ms number; Duration() coerces
+		"done":       "Done",
+		"out":        "Done", // 老 runtime Sleep 用 .out 出口, 新 spec 用 .Done
 	},
 	"KeyPress": {
 		"vk": "VK", "durationMs": "DurationMs",
 		"done": "Done",
+		"out":  "Done", // 老 runtime KeyPress 用 .out, 新 spec 用 .Done
 	},
 	"KeyHoldStart": {
 		"vk":  "VK",
@@ -108,12 +111,15 @@ var pinRenames = map[string]map[string]string{
 	},
 	"Subgraph": {
 		"subgraphId": "SubgraphID",
+		"done":       "Done",
 	},
 	"CollapsedNode": {
 		"subgraphId": "SubgraphID",
+		"done":       "Done",
 	},
 	"Try": {
 		"subgraphId": "SubgraphID",
+		// Try out/catch lowercase — 不动
 	},
 	// Switch — Value input PascalCase (新 nodepkg Spec swInValue="Value"); cases[]/caseN→Case1Value etc. 在主逻辑处理.
 	"Switch": {

@@ -46,12 +46,12 @@ func runStateRECOVERING(t *testing.T, hits map[string]bool, preEscDone bool) (*s
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "state_RECOVERING"}},
+				{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "state_RECOVERING"}},
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call.in"},
-				{From: "call.done", To: "stop.in"},
+				{From: "call.Done", To: "stop.in"},
 			},
 		},
 	}

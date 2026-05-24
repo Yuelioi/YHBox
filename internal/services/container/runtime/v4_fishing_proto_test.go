@@ -46,7 +46,7 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 					"varName": "state", "scope": "global",
 				}},
 				{ID: "switch1", Kind: "Switch", Config: map[string]any{
-					"cases": []any{"IDLE", "FISHING", "RESULT"},
+					"Case1Value": "IDLE", "Case2Value": "FISHING", "Case3Value": "RESULT",
 				}},
 				{ID: "logIDLE", Kind: "SetVar", Config: map[string]any{
 					"varName": "stepLog", "scope": "global",
@@ -70,16 +70,16 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 				// Exec
 				{From: "start.out", To: "setInitState.in"},
 				{From: "setInitState.out", To: "switch1.in"},
-				{From: "switch1.IDLE", To: "logIDLE.in"},
-				{From: "switch1.FISHING", To: "logFISHING.in"},
-				{From: "switch1.RESULT", To: "logRESULT.in"},
-				{From: "switch1.default", To: "logDefault.in"},
+				{From: "switch1.Case1", To: "logIDLE.in"},
+				{From: "switch1.Case2", To: "logFISHING.in"},
+				{From: "switch1.Case3", To: "logRESULT.in"},
+				{From: "switch1.Default", To: "logDefault.in"},
 				{From: "logIDLE.out", To: "stop.in"},
 				{From: "logFISHING.out", To: "stop.in"},
 				{From: "logRESULT.out", To: "stop.in"},
 				{From: "logDefault.out", To: "stop.in"},
 				// Data: GetVar(state) → Switch.value
-				{From: "getState.value", To: "switch1.value"},
+				{From: "getState.value", To: "switch1.Value"},
 			},
 		},
 	}

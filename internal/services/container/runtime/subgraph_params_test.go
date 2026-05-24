@@ -58,7 +58,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 				{ID: "start", Kind: "Start"},
 				{ID: "call", Kind: "Subgraph",
 					Config: map[string]any{
-						"subgraphId": "sg-hp",
+						"SubgraphID": "sg-hp",
 						// Literal pin "hp" sends 0.42 into the subgraph's input.
 						"literal": map[string]any{"hp": 0.42},
 					}},
@@ -66,7 +66,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.out", To: "call.in"},
-				{From: "call.done", To: "stop.in"},
+				{From: "call.Done", To: "stop.in"},
 			},
 		},
 	}

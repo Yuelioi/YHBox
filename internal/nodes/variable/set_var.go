@@ -58,8 +58,11 @@ func (SetVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("SetVar: missing varName")
 	}
 	val := in.Raw(svInValue)
-	// Phase 4: VarStore 不区分 scope (Phase 5 wire 时按 scope 路由到 frame.LocalVars vs rt.vars).
-	ctx.Vars().Set(name, val)
+	scope := in.String(svInScope)
+	if scope == "" {
+		scope = "auto"
+	}
+	ctx.Vars().SetScoped(name, scope, val)
 	return ctx.Out(svOutOut).Fire(), nil
 }
 

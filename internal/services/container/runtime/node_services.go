@@ -41,7 +41,10 @@ func NewLogAdapter(log zerolog.Logger) node.LogService { return logAdapter{log: 
 // Phase 5.5 加 RegionRunner frame.LocalVars 时改 — 当前只走 global rt.vars.
 // ============================================================================
 
-type varStoreAdapter struct{ rt *RuntimeContext }
+type varStoreAdapter struct {
+	rt    *RuntimeContext
+	state func() *ExecState // live ExecState provider (frame stack 跟 Run 周期).
+}
 
 func (a *varStoreAdapter) Get(name string) (any, bool) {
 	v, ok := a.rt.Vars()[name]
@@ -58,8 +61,72 @@ func (a *varStoreAdapter) Inc(name string, delta float64) float64 {
 	return cur
 }
 
+// scoped 变种: scope=global → rt.vars; scope=local → frame.LocalVars; scope=auto →
+// frame.LocalVars 已有 → local, 否则 global. 镜像老 execSetVar/execIncVar/evalGetVar.
+//
+// Adapter 持 *RuntimeContext, RuntimeContext.State() 拿当前 ExecState (LocalVars 栈).
+
+func (a *varStoreAdapter) GetScoped(name, scope string) (any, bool) {
+	switch scope {
+	case "local":
+		if v, ok := a.state().GetLocalVarHere(name); ok {
+			return v, true
+		}
+		return nil, false
+	case "auto":
+		if v, ok := a.state().GetLocalVarChain(name); ok {
+			return v, true
+		}
+		if v, ok := a.rt.Vars()[name]; ok {
+			return v, true
+		}
+		return nil, false
+	default: // global, "", others fallthrough
+		if v, ok := a.rt.Vars()[name]; ok {
+			return v, true
+		}
+		return nil, false
+	}
+}
+
+func (a *varStoreAdapter) SetScoped(name, scope string, value any) {
+	switch scope {
+	case "local":
+		a.state().SetLocalVar(name, expr.Value(value))
+	case "auto":
+		if _, ok := a.state().GetLocalVarHere(name); ok {
+			a.state().SetLocalVar(name, expr.Value(value))
+		} else {
+			a.rt.SetVar(name, expr.Value(value))
+		}
+	default: // global, ""
+		a.rt.SetVar(name, expr.Value(value))
+	}
+}
+
+func (a *varStoreAdapter) IncScoped(name, scope string, delta float64) float64 {
+	cur, _ := expr.AsNumber(a.getScopedRaw(name, scope))
+	newV := cur + delta
+	a.SetScoped(name, scope, newV)
+	return newV
+}
+
+// getScopedRaw — IncScoped helper. scope 同 GetScoped, 但缺值返 0 不返 bool.
+func (a *varStoreAdapter) getScopedRaw(name, scope string) any {
+	v, _ := a.GetScoped(name, scope)
+	return v
+}
+
 // NewVarStoreAdapter wrap *RuntimeContext into node.VarStore.
-func NewVarStoreAdapter(rt *RuntimeContext) node.VarStore { return &varStoreAdapter{rt: rt} }
+// state 是可选 ExecState getter — adapter 持有 closure, 让 scope=local/auto 能访问 frame
+// stack. 没有 frame 上下文的 caller (单元测试) 不传; scoped 方法降级成 global.
+func NewVarStoreAdapter(rt *RuntimeContext, state ...func() *ExecState) node.VarStore {
+	g := func() *ExecState { return nil }
+	if len(state) > 0 && state[0] != nil {
+		g = state[0]
+	}
+	return &varStoreAdapter{rt: rt, state: g}
+}
 
 // ============================================================================
 // SysStoreAdapter — RuntimeContext.sys + special-cases → node.SysStore
@@ -322,11 +389,10 @@ func (a *visionAdapter) BarTrack(roi node.Rect) (node.BarTrackResult, error) {
 	}
 	hwnd := win.HWND(a.rt.Window.HWND)
 	frame, err := a.rt.Capture.FrameROI(hwnd, int(roi.X), int(roi.Y), int(roi.W), int(roi.H))
-	if err != nil {
-		return node.BarTrackResult{}, err
-	}
-	if frame == nil {
-		return node.BarTrackResult{}, fmt.Errorf("capture: nil frame")
+	if err != nil || frame == nil {
+		// 抓帧失败 (常见: HWND 失效 / 截图后台权限丢失) → 视 Missing 不冒泡 error.
+		// 复刻老 runtime execColorBarTrack 行为.
+		return node.BarTrackResult{Found: false}, nil
 	}
 	result := vision.AnalyzeBar(frame)
 	if result == nil {
@@ -410,12 +476,15 @@ func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAda
 
 // NewServiceBundleFor 用 RuntimeContext + stopwatchTable + logger 构造完整 ServiceBundle.
 // Phase 5.5 ContainerRunner.execNode 拿这个走 node.RunNode dispatch.
-func NewServiceBundleFor(rt *RuntimeContext, stopwatches *stopwatchTable, log zerolog.Logger) node.ServiceBundle {
+//
+// stateGetter — live ExecState 入口 (frame.LocalVars scope). ContainerRunner 构造时传
+// func() *ExecState { return r.state }. nil 兜底 — adapter scoped 方法降级 global-only.
+func NewServiceBundleFor(rt *RuntimeContext, stopwatches *stopwatchTable, log zerolog.Logger, stateGetter func() *ExecState) node.ServiceBundle {
 	return node.ServiceBundle{
 		Vision:      NewVisionAdapter(rt),
 		Log:         NewLogAdapter(log),
 		Input:       NewInputAdapter(rt),
-		Vars:        NewVarStoreAdapter(rt),
+		Vars:        NewVarStoreAdapter(rt, stateGetter),
 		Sys:         NewSysStoreAdapter(rt),
 		Window:      NewWindowAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),

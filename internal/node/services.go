@@ -118,7 +118,14 @@ func (s *stubVarStore) Inc(name string, delta float64) float64 {
 }
 
 // NewStubVarStore — 测试用 in-memory VarStore. 每次 new 一个独立实例.
+// scope-aware 变种忽略 scope (stub 是单层 map, 无 frame). 真 wire 在 RuntimeContext adapter.
 func NewStubVarStore() VarStore { return &stubVarStore{m: map[string]any{}} }
+
+func (s *stubVarStore) GetScoped(name, _ string) (any, bool) { return s.Get(name) }
+func (s *stubVarStore) SetScoped(name, _ string, v any)      { s.Set(name, v) }
+func (s *stubVarStore) IncScoped(name, _ string, d float64) float64 {
+	return s.Inc(name, d)
+}
 
 // ---- SysStore ----
 

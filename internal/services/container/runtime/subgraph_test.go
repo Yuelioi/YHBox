@@ -18,7 +18,7 @@ func TestResolveSubgraphCall_OK(t *testing.T) {
 	callNode := &container.GraphNode{
 		ID:        "call",
 		Kind:      "Subgraph",
-		Config:    map[string]any{"subgraphId": "sg-A"},
+		Config:    map[string]any{"SubgraphID": "sg-A"},
 		CreatedAt: time.Now().UTC(),
 	}
 	sg, err := ResolveSubgraphCall(c, callNode)
@@ -41,7 +41,7 @@ func TestResolveSubgraphCall_MissingConfig(t *testing.T) {
 
 func TestResolveSubgraphCall_NotFound(t *testing.T) {
 	c := &container.Container{ID: "c1", Subgraphs: nil}
-	callNode := &container.GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{"subgraphId": "ghost"}, CreatedAt: time.Now().UTC()}
+	callNode := &container.GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "ghost"}, CreatedAt: time.Now().UTC()}
 	_, err := ResolveSubgraphCall(c, callNode)
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected not found err, got %v", err)
