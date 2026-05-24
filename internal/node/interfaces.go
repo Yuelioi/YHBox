@@ -135,9 +135,12 @@ type VisionService interface {
 
 // HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,255]. 给 DetectColorHSV / ROIColorScan 用.
 type HSVRange struct {
-	HMin, HMax int `json:"hMin,hMax"`
-	SMin, SMax int `json:"sMin,sMax"`
-	VMin, VMax int `json:"vMin,vMax"`
+	HMin int `json:"hMin"`
+	HMax int `json:"hMax"`
+	SMin int `json:"sMin"`
+	SMax int `json:"sMax"`
+	VMin int `json:"vMin"`
+	VMax int `json:"vMax"`
 }
 
 // ClusterEntry ROIColorScan 沿 axis 找出的一个连续命中段, 像素坐标 (相对 roi 起点).
