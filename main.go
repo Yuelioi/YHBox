@@ -15,6 +15,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"yhbox/internal/node"
+	_ "yhbox/internal/nodes/mock" // register Mock_Math / Mock_Form / Mock_Vision via init()
 	"yhbox/internal/services"
 	"yhbox/internal/services/calibration"
 	"yhbox/internal/services/tools"
@@ -212,6 +214,17 @@ func main() {
 	// 模板库 (per-container, dataRoot 注入) / Container / Schedule 数据层
 	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{app: app})
 
+	// 节点系统 (Phase 0: mock 节点 + FE inspector 验证)
+	nodeSvc := node.NewService()
+	// Phase 0 mock asyncSource: templateKeys 返 hardcoded 列表. Phase 1+ 真接 templateSvc.List.
+	nodeSvc.RegisterAsyncSource("templateKeys", func(nodeID, specKind string, params map[string]any) ([]node.EnumOption, error) {
+		return []node.EnumOption{
+			{Value: "fishing.hook_icon", Label: "fishing.hook_icon"},
+			{Value: "fishing.start_fish", Label: "fishing.start_fish"},
+			{Value: "fishing.bait_product", Label: "fishing.bait_product"},
+		}, nil
+	})
+
 	// v2: 库 store + service (Task 1.22)
 	libStore, err := library.NewStore(filepath.Join(dataDir, "library"))
 	if err != nil {
@@ -359,6 +372,7 @@ func main() {
 		application.NewService(recordingSvc),
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
+		application.NewService(nodeSvc),
 	)
 	_ = scheduleDaemon // 防 import 未用 + 留扩展位
 
@@ -476,6 +490,9 @@ func main() {
 
 	// 应用 logger 写一条启动日志，证明日志桥路打通
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("YHBox started")
+
+	// 节点 registry 锁死 — Phase 0+. init() 注册完毕, RPC handler 之后只读.
+	node.Freeze()
 
 	// 阻塞直到关窗口
 	if err := wailsApp.Run(); err != nil {

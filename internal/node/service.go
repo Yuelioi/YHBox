@@ -1,0 +1,56 @@
+// internal/node/service.go
+package node
+
+import "fmt"
+
+// NodeService Wails3 RPC service. FE 启动调 GetAllNodeSpecs / GetAllTypes / AsyncOptions.
+type NodeService struct {
+	// AsyncOptions 注册表: asyncSource → handler.
+	// Phase 0 用 hardcoded mock, Phase 1+ 真接 (e.g. templateKeys 接 template.Service.List).
+	asyncSources map[string]AsyncOptionsHandler
+}
+
+// AsyncOptionsHandler 处理一个 asyncSource 的回调.
+//   - nodeID: 当前节点 instance ID (FE 传)
+//   - specKind: 节点 Kind ("CheckTemplate")
+//   - params: 节点当前已填的其他字段值 (用于上下文相关 dropdown, e.g. Switch case 数)
+type AsyncOptionsHandler func(nodeID, specKind string, params map[string]any) ([]EnumOption, error)
+
+func NewService() *NodeService {
+	return &NodeService{
+		asyncSources: map[string]AsyncOptionsHandler{},
+	}
+}
+
+// RegisterAsyncSource main.go 在启动期调, 注册各种 async data source.
+// 注册顺序无关. 重复注册 panic (fail fast author bug).
+func (s *NodeService) RegisterAsyncSource(name string, handler AsyncOptionsHandler) {
+	if _, exists := s.asyncSources[name]; exists {
+		panic(fmt.Sprintf("AsyncSource %q already registered", name))
+	}
+	s.asyncSources[name] = handler
+}
+
+// GetAllNodeSpecs FE 启动拉一次, 缓存. RPC binding 自动生成 TS 类型.
+func (s *NodeService) GetAllNodeSpecs() []Spec {
+	all := All()
+	out := make([]Spec, 0, len(all))
+	for _, rn := range all {
+		out = append(out, rn.Spec)
+	}
+	return out
+}
+
+// GetAllTypes FE 启动拉一次, 获颜色 + widget 映射.
+func (s *NodeService) GetAllTypes() []TypeSpec {
+	return AllTypes()
+}
+
+// AsyncOptions 动态 dropdown 数据源. Widget.Props.AsyncSource 标识用哪个 handler.
+func (s *NodeService) AsyncOptions(nodeID, specKind, asyncSource string, currentInputs map[string]any) ([]EnumOption, error) {
+	h, ok := s.asyncSources[asyncSource]
+	if !ok {
+		return nil, fmt.Errorf("unknown asyncSource %q", asyncSource)
+	}
+	return h(nodeID, specKind, currentInputs)
+}
