@@ -20,4 +20,8 @@ var (
 	errStopRun           = errors.New("graph stop requested")
 	errBreakRequested    = errors.New("loop break requested")
 	errContinueRequested = errors.New("loop continue requested")
+
+	// errLoopMustUseRegion — defensive sentinel: Loop / 其他 region 节点的 Run() 被框架
+	// 直调时返这个 error. 正常路径是 RunNodeAsRegion → RunRegion, 框架走错路径才会 hit.
+	errLoopMustUseRegion = errors.New("Loop node must be invoked via RunNodeAsRegion, not RunNode")
 )
