@@ -305,6 +305,8 @@ func main() {
 			clipSvc, clipInputBackend, app.Settings().UI.MouseCounts360,
 		)
 		r := containerruntime.NewContainerRunner(rt)
+		// Phase 5.4: 把 zerolog 注入到 ServiceBundle.Log, Phase 5.5 dispatch 真节点时生效.
+		r.SetLogger(rootLog)
 		return r.Run(ctx)
 	}
 	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {

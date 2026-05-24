@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
+
+	"yhbox/internal/node"
 	"yhbox/internal/services/container"
 	pkgcapture "yhbox/pkg/capture"
 	pkginput "yhbox/pkg/input"
@@ -82,6 +85,11 @@ type ContainerRunner struct {
 	// Captured before each execNode dispatch and cleared after; consumed by GetVar / GetSys
 	// pure-data nodes during the same tick to guarantee data consistency.
 	currentTick *TickSnapshot
+
+	// bundle 是 Phase 5.4 wire 的 node.ServiceBundle (LogService / VarStore / VisionService 等
+	// 8 个 adapter). Phase 5.5 ContainerRunner.execNode 改 node.RunNode dispatch 时消费.
+	// 默认 Log 是 zerolog.Nop, main.go 启动后 SetLogger 注入真 logger.
+	bundle node.ServiceBundle
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
@@ -97,8 +105,19 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		r.nodesByID[n.ID] = n
 	}
 	r.state = NewExecState(rt.Container.ID, snapshotMainCalibCounts(rt.Container))
+	// Phase 5.4: 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
+	r.bundle = NewServiceBundleFor(rt, r.stopwatches, zerolog.Nop())
 	return r
 }
+
+// SetLogger 替换 bundle 里的 LogService 为真 zerolog logger.
+// main.go runFunc 在 NewContainerRunner 后调一次.
+func (r *ContainerRunner) SetLogger(log zerolog.Logger) {
+	r.bundle.Log = NewLogAdapter(log)
+}
+
+// Bundle 返当前 ContainerRunner 持有的 ServiceBundle (Phase 5.5 dispatch 用).
+func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 
 // snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot.
 // 没节点 / counts360=0 → 返 0 (runtime 不缩放).
