@@ -74,6 +74,66 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 	return result
 }
 
+// RunNodeAsRegion framework 入口供 region runner 调用 RegionRunner-implementing 节点.
+// 跟 RunNode 同套 Required/Validate/recover/Display 管线, 区别在调 rn.RunRegion(c, in, body)
+// 而非 rn.Impl.Run(c, in).
+//
+// body 是 "执行 region 内部下游" 的回调, 由调用方 (Phase 5.10 runner) 提供 — 节点决定
+// 调 0 / 1 / N 次. body 返 error → 节点可截获 (Try) / 翻译 sentinel (Loop Break/Continue)
+// 或直接 propagate.
+//
+// 节点没实现 RegionRunner → RunResult.Error = "not a RegionRunner".
+func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, body func(Ctx) error) RunResult {
+	if rn.RunRegion == nil {
+		return RunResult{Error: fmt.Errorf("node %q is not a RegionRunner", rn.Spec.Kind)}
+	}
+
+	// Build inputs (same priority chain as RunNode)
+	defaults := defaultsFromSpec(&rn.Spec)
+	in := newInputs(dataWire, config, execData, defaults)
+
+	// Phase 1: Required pre-Run check
+	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
+		return RunResult{Validation: errs}
+	}
+
+	// Phase 2: 节点自身 Validate (if Validator)
+	if rn.Validate != nil {
+		if errs := rn.Validate(in); len(errs) > 0 {
+			return RunResult{Validation: errs}
+		}
+	}
+
+	// Phase 3: 实际 RunRegion, recover panic
+	c := newCtx(ctx, services, &rn.Spec)
+	result := RunResult{}
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				result.Panic = r
+				result.PanicStack = string(debug.Stack())
+			}
+		}()
+		outs, err := rn.RunRegion(c, in, body)
+		if err != nil {
+			result.Error = err
+			return
+		}
+		if outs != nil {
+			name, data := outs.exit()
+			result.ExitName = name
+			result.OutputData = data
+
+			// Phase 4: Display (if Displayer)
+			if rn.Display != nil {
+				od := &outputDataImpl{data: data}
+				result.DisplayText = rn.Display(in, name, od)
+			}
+		}
+	}()
+	return result
+}
+
 // outputDataImpl 给 Display 用. snapshot, immutable view of OutputData map.
 type outputDataImpl struct{ data map[string]any }
 
