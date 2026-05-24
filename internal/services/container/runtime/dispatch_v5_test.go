@@ -10,6 +10,7 @@ import (
 
 	"yhbox/internal/node"
 	_ "yhbox/internal/nodes/control"  // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
+	_ "yhbox/internal/nodes/purefunc" // Add / Sub / .../Select / Expr (Phase 6+ pull-eval partial)
 	_ "yhbox/internal/nodes/system"   // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw 等
 	_ "yhbox/internal/nodes/variable" // SetVar / IncVar / GetVar / GetParam / GetSys
 	"yhbox/internal/services/container"
@@ -793,6 +794,166 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 	got := rt.Vars()["capturedGreeting"]
 	if got != "hello" {
 		t.Errorf("captured var = %v, want \"hello\" (Params not flow through to LocalParams → GetParam → SetVar)", got)
+	}
+}
+
+// ============================================================================
+// Phase 6+ pull-eval partial — buildDataWireFor / resolveDataPinV5
+// ============================================================================
+
+// tdEcho 单输入回声节点 — 把 data-in pin "Value" 的值塞 OutputData.echo, 出口 Out 触发.
+// 用于验证 buildDataWireFor 真把上游 pure-data 算出来的值塞进 in.
+type tdEcho struct{}
+
+const tkEcho = "test_dispatch_echo"
+
+func (tdEcho) Spec() node.Spec {
+	return node.Spec{
+		Kind: tkEcho,
+		Inputs: []node.InputSpec{
+			{Name: "in", Type: "Exec"},
+			{Name: "Value", Type: "*"},
+		},
+		Outputs: []node.OutputSpec{{Name: "Out", Type: "Exec"}},
+	}
+}
+func (tdEcho) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	tdEchoMu.Lock()
+	tdEchoLast = in.Raw("Value")
+	tdEchoMu.Unlock()
+	return ctx.Out("Out").Fire(), nil
+}
+
+// tdEchoLast captures last echoed Value (test-global, tests run serial).
+var (
+	tdEchoMu   sync.Mutex
+	tdEchoLast any
+)
+
+func getTdEchoLast() any { tdEchoMu.Lock(); defer tdEchoMu.Unlock(); return tdEchoLast }
+func resetTdEcho()       { tdEchoMu.Lock(); tdEchoLast = nil; tdEchoMu.Unlock() }
+
+func init() { node.Register(&tdEcho{}) }
+
+// TestBuildDataWireFor_UpstreamPureFuncViaFramework — Add 上游 → tdEcho.Value via data edge.
+// 验证 buildDataWireFor 走 resolveDataPinV5 → 检测 Add IsPureData + Evaluator → 调 EvaluatePureData
+// 拿到结果 5.0 → 塞 tdEcho dataWire. tdEcho.Run 通过 in.Raw 读 5.0.
+//
+// 这是 Phase 6+ partial 的 happy path — pure-data 节点 (Add) 在 framework 路径上被 evaluate.
+func TestBuildDataWireFor_UpstreamPureFuncViaFramework(t *testing.T) {
+	resetTdEcho()
+	// 拓扑: add_n (Add a=2,b=3) → echo_n.Value (data edge); echo_n.Out → done_n.in
+	// Add 输入靠 config literal (Add data-in 没上游 edge → resolveDataPinV5 走 pullDataPin →
+	// 读 config["literal"]).
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-add-via-framework",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "add_n", Kind: "Add", Config: map[string]any{
+					"literal": map[string]any{"a": 2.0, "b": 3.0},
+				}},
+				{ID: "echo_n", Kind: tkEcho},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "add_n.result", To: "echo_n.Value"},
+				{From: "echo_n.Out", To: "done_n.in"},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	echoNode := r.nodesByID["echo_n"]
+
+	tokens, err := r.execNodeViaFramework(context.Background(), echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})
+	if err != nil {
+		t.Fatalf("echo via framework: %v", err)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
+		t.Errorf("tokens = %+v, want {done_n}", tokens)
+	}
+	got := getTdEchoLast()
+	if got != 5.0 {
+		t.Errorf("echoed value = %v (%T), want 5.0 (Add result via framework EvaluatePureData)", got, got)
+	}
+}
+
+// TestBuildDataWireFor_UpstreamPureFuncRecursive — Add(Add(1,2), 3) → tdEcho.Value, 验证 resolveDataPinV5
+// 递归: 内层 Add 走 framework, 外层 Add 也走 framework 拿到 6.0.
+func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
+	resetTdEcho()
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-recursive-add",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "inner", Kind: "Add", Config: map[string]any{
+					"literal": map[string]any{"a": 1.0, "b": 2.0},
+				}},
+				{ID: "outer", Kind: "Add", Config: map[string]any{
+					"literal": map[string]any{"b": 3.0}, // a 由上游 edge 给
+				}},
+				{ID: "echo_n", Kind: tkEcho},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "inner.result", To: "outer.a"},
+				{From: "outer.result", To: "echo_n.Value"},
+				{From: "echo_n.Out", To: "done_n.in"},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	echoNode := r.nodesByID["echo_n"]
+
+	_, err := r.execNodeViaFramework(context.Background(), echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})
+	if err != nil {
+		t.Fatalf("recursive add via framework: %v", err)
+	}
+	got := getTdEchoLast()
+	if got != 6.0 {
+		t.Errorf("recursive Add(Add(1,2),3) = %v, want 6", got)
+	}
+}
+
+// TestBuildDataWireFor_FallbackToOldPath — 上游是 GetVar (IsPureData 但没实现 Evaluator) →
+// resolveDataPinV5 应 fallback 到老 r.pullDataPin → r.evalGetVar (从 rt.Vars / currentTick.Vars 读).
+//
+// 验证 partial 期不实现 Evaluator 的 pure-data 节点仍能正确 fallback, 不挂.
+func TestBuildDataWireFor_FallbackToOldPath(t *testing.T) {
+	resetTdEcho()
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-fallback",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "gv1", Kind: "GetVar", Config: map[string]any{"varName": "myvar", "scope": "global"}},
+				{ID: "echo_n", Kind: tkEcho},
+				{ID: "done_n", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "gv1.value", To: "echo_n.Value"},
+				{From: "echo_n.Out", To: "done_n.in"},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	rt.SetVar("myvar", "from-old-path")
+	r := NewContainerRunner(rt)
+	// evalGetVar 需要 currentTick 不 nil. 模拟主循环抓 snapshot 行为.
+	r.currentTick = CaptureSnapshot(rt.Vars(), rt.Sys())
+	defer func() { r.currentTick = nil }()
+	echoNode := r.nodesByID["echo_n"]
+
+	_, err := r.execNodeViaFramework(context.Background(), echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})
+	if err != nil {
+		t.Fatalf("fallback to evalGetVar: %v", err)
+	}
+	got := getTdEchoLast()
+	if got != "from-old-path" {
+		t.Errorf("GetVar fallback = %v, want \"from-old-path\" (老 evalGetVar 应被 dispatch_v5 fallback 调到)", got)
 	}
 }
 

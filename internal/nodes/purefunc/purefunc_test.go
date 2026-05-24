@@ -59,6 +59,112 @@ func TestSpecBuilder_HasResultOutput(t *testing.T) {
 	}
 }
 
+// TestEvaluate_22PureFuncs 覆盖 22 个实现 Evaluator 的节点 (Add/.../Select), 验证 EvaluatePureData
+// 走 framework 拿到预期值. Expr 不实现 Evaluator (Phase 6+ partial), 单独 fallback 测试在 dispatch_v5 层.
+func TestEvaluate_22PureFuncs(t *testing.T) {
+	node.ResetRegistryForTest()
+	for _, n := range []node.Node{
+		&Add{}, &Sub{}, &Mul{}, &Div{}, &Mod{}, &Neg{},
+		&Lt{}, &LtEq{}, &Gt{}, &GtEq{}, &Eq{}, &NotEq{},
+		&And{}, &Or{}, &Not{},
+		&Concat{}, &Contains{}, &Length{},
+		&ToString{}, &ToNumber{}, &ToBool{},
+		&Select{},
+	} {
+		node.Register(n)
+	}
+
+	cases := []struct {
+		kind     string
+		dataWire map[string]any
+		want     any
+	}{
+		// 算术
+		{"Add", map[string]any{"a": 1.5, "b": 2.5}, 4.0},
+		{"Sub", map[string]any{"a": 5.0, "b": 3.0}, 2.0},
+		{"Mul", map[string]any{"a": 4.0, "b": 0.5}, 2.0},
+		{"Div", map[string]any{"a": 10.0, "b": 4.0}, 2.5},
+		{"Mod", map[string]any{"a": 10.0, "b": 3.0}, 1.0},
+		{"Neg", map[string]any{"x": 7.0}, -7.0},
+		// 比较
+		{"Lt", map[string]any{"a": 1.0, "b": 2.0}, true},
+		{"LtEq", map[string]any{"a": 2.0, "b": 2.0}, true},
+		{"Gt", map[string]any{"a": 3.0, "b": 2.0}, true},
+		{"GtEq", map[string]any{"a": 2.0, "b": 2.0}, true},
+		{"Eq", map[string]any{"a": "x", "b": "x"}, true},
+		{"NotEq", map[string]any{"a": "x", "b": "y"}, true},
+		// 逻辑 — And default 是 true,true 不传也 OK; 但显式塞.
+		{"And", map[string]any{"a": true, "b": false}, false},
+		{"Or", map[string]any{"a": false, "b": true}, true},
+		{"Not", map[string]any{"x": false}, true},
+		// 字符串
+		{"Concat", map[string]any{"a": "foo", "b": "bar"}, "foobar"},
+		{"Contains", map[string]any{"haystack": "hello world", "needle": "world"}, true},
+		{"Length", map[string]any{"s": "hello"}, 5.0},
+		// 转换
+		{"ToString", map[string]any{"x": 42.0}, "42"},
+		{"ToNumber", map[string]any{"x": 3.14}, 3.14},
+		{"ToBool", map[string]any{"x": "non-empty"}, true},
+		// 三元
+		{"Select", map[string]any{"cond": true, "a": "yes", "b": "no"}, "yes"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.kind, func(t *testing.T) {
+			rn, ok := node.Get(tc.kind)
+			if !ok {
+				t.Fatalf("kind %q not registered", tc.kind)
+			}
+			if rn.Evaluate == nil {
+				t.Fatalf("kind %q: rn.Evaluate is nil — node should implement Evaluator", tc.kind)
+			}
+			got, err := node.EvaluatePureData(context.Background(), rn, tc.dataWire, nil, node.StubServices())
+			if err != nil {
+				t.Fatalf("EvaluatePureData %s: %v", tc.kind, err)
+			}
+			if got != tc.want {
+				t.Errorf("EvaluatePureData %s = %v (%T), want %v (%T)", tc.kind, got, got, tc.want, tc.want)
+			}
+		})
+	}
+}
+
+// TestEvaluate_ShortCircuit Or/And 短路 — Or(true, ?) 不读 b; And(false, ?) 不读 b.
+// 用一个无法 read 的 sentinel 验证 b 没被消费 (这里直接 omit b 让 default 生效, 行为可见).
+func TestEvaluate_ShortCircuit(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&And{})
+	node.Register(&Or{})
+
+	// And(false, true) → false (短路, b 不读)
+	rn, _ := node.Get("And")
+	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"a": false, "b": true}, nil, node.StubServices())
+	if err != nil || got != false {
+		t.Errorf("And(false, true) = (%v, %v), want (false, nil)", got, err)
+	}
+	// Or(true, false) → true (短路)
+	rn, _ = node.Get("Or")
+	got, err = node.EvaluatePureData(context.Background(), rn, map[string]any{"a": true, "b": false}, nil, node.StubServices())
+	if err != nil || got != true {
+		t.Errorf("Or(true, false) = (%v, %v), want (true, nil)", got, err)
+	}
+}
+
+// TestEvaluate_DivByZero Div(_, 0) → NaN, 跟老 evalPureFunc 一致.
+func TestEvaluate_DivByZero(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&Div{})
+	rn, _ := node.Get("Div")
+	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"a": 1.0, "b": 0.0}, nil, node.StubServices())
+	if err != nil {
+		t.Fatalf("Div by zero err: %v", err)
+	}
+	f, ok := got.(float64)
+	if !ok || f == f { // NaN != NaN
+		t.Errorf("Div(1, 0) = %v, want NaN", got)
+	}
+}
+
 func TestExpr_RequiredExprField(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Expr{})

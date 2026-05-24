@@ -36,6 +36,16 @@ type RegionRunner interface {
 	RunRegion(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
 }
 
+// Evaluator — pure-data 节点 (IsPureData=true) 实现, 走 EvaluatePureData 入口求 single value.
+// 不返 Outputs (没 exit 出口), 直接返算出来的标量 — 给 data-edge 下游消费.
+//
+// 节点不实现 Evaluator → EvaluatePureData 返 error; dispatch 可探测后 fallback 老路径.
+// 设计目的: GetVar/GetSys/GetParam 依赖 runtime state (frame/snapshot), Phase 6+ partial 阶段
+// 这几个不实现 Evaluator, dispatch 走 fallback. Add/Sub/.../Select 等 22 purefunc 自包含, 实现即可.
+type Evaluator interface {
+	Evaluate(ctx Ctx, in Inputs) (any, error)
+}
+
 // Inputs — 节点 Run 收的输入. 取值优先级:
 //   1. data-wire (纯数据 pin 上游) [最高]
 //   2. Inspector config

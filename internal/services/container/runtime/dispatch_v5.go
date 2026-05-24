@@ -29,7 +29,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 		return nil, fmt.Errorf("execNodeViaFramework: kind %q is RegionRunner, must route via region path (Phase 5.5b)", node.Kind)
 	}
 
-	dataWire := r.buildDataWireFor(node, rn)
+	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 
@@ -37,25 +37,60 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	return r.routeResult(node, tok, result)
 }
 
-// buildDataWireFor pulls all non-Exec data-in pins from node Spec, evaluating via r.pullDataPin.
-// Skip pin → pin not in map → framework Inputs.Has = false → falls back to config / default.
+// buildDataWireFor pulls all non-Exec data-in pins from node Spec.
 //
-// 注意 pin name 大小写: r.pullDataPin 用 Spec.Inputs[].Name 当 pin name 查 r.dataEdges, 而
-// edges 里的 To 字段是 JSON 序列化的 (老 JSON 的 lowercase pin name). 所以新框架节点 (PascalCase Spec)
-// 跟老 JSON edges 对不上 — Phase 5.6 fishing-v2 redraw 后, 新 JSON pin name 跟 Spec 一致就 work.
-func (r *ContainerRunner) buildDataWireFor(node *container.GraphNode, rn *nodepkg.RegisteredNode) map[string]any {
+// 每个 pin 走 resolveDataPinV5 — 上游是 IsPureData + 实现 Evaluator → 框架 EvaluatePureData
+// (递归 build 上游 dataWire); 否则 (GetVar/GetSys/GetParam/Expr/exec-node data-out/literal/无 edge)
+// fallback 老 r.pullDataPin. 这就是 Phase 6+ partial 的 "上游是 pure-data → 框架 evaluate, 否则
+// 兜底转换期".
+//
+// 注意 pin name 大小写: 用 Spec.Inputs[].Name 当 pin name 查 r.dataEdges. 老 JSON edges 用 lowercase,
+// 新 Spec 用 PascalCase — Phase 5.6 fishing-v2 redraw 后, 新 JSON 跟 Spec 一致就 work.
+func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.GraphNode, rn *nodepkg.RegisteredNode) map[string]any {
 	dw := map[string]any{}
 	for _, ip := range rn.Spec.Inputs {
 		if ip.Type == "Exec" {
 			continue
 		}
-		v, err := r.pullDataPin(node.ID, ip.Name)
+		v, err := r.resolveDataPinV5(ctx, node.ID, ip.Name)
 		if err != nil || v == nil {
 			continue
 		}
 		dw[ip.Name] = v
 	}
 	return dw
+}
+
+// resolveDataPinV5 解析单个 data-in pin 值. transition-period dispatch:
+//   - 没 data edge → literal / default → 走老 r.pullDataPin
+//   - 上游节点不在 framework registry / 不 IsPureData / 没实现 Evaluator → 走老 r.pullDataPin
+//   - 上游 IsPureData + 实现 Evaluator → 走 nodepkg.EvaluatePureData (递归 build 上游 dataWire)
+//
+// Phase 6+ partial: 22 purefunc + Eq/Not/Concat/... 走 framework. GetVar/GetSys/GetParam/Expr
+// 依赖 runtime state / dynamic input, 暂走 fallback 老 evalDataSource switch.
+func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName string) (any, error) {
+	srcID, _ := r.dataEdges.Source(nodeID, pinName)
+	if srcID == "" {
+		// 无 data edge — literal 或 default. 老 pullDataPin 处理 (其内部会读 config["literal"]).
+		v, err := r.pullDataPin(nodeID, pinName)
+		return v, err
+	}
+	srcNode, ok := r.nodesByID[srcID]
+	if !ok {
+		return r.pullDataPin(nodeID, pinName)
+	}
+	// Editor v2 C: disabled pure-data → nil (跟老 evalDataSource 行为一致).
+	if srcNode.Disabled {
+		return nil, nil
+	}
+	srcRn, regOk := nodepkg.Get(srcNode.Kind)
+	if !regOk || !srcRn.Spec.IsPureData || srcRn.Evaluate == nil {
+		return r.pullDataPin(nodeID, pinName)
+	}
+	// 上游是 framework-evaluable pure-data → 递归 build 上游 dataWire + 调 EvaluatePureData.
+	srcDataWire := r.buildDataWireFor(ctx, srcNode, srcRn)
+	srcConfig := r.buildConfigFor(srcNode)
+	return nodepkg.EvaluatePureData(ctx, srcRn, srcDataWire, srcConfig, r.bundle)
 }
 
 // buildConfigFor 复制 node.Config 当 framework config map. 扣 "literal" 内部字段
@@ -156,7 +191,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 		return nil, err
 	}
 
-	dataWire := r.buildDataWireFor(node, rn)
+	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 

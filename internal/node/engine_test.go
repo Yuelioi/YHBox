@@ -135,3 +135,117 @@ func TestRunNode_DoubleFire_Panics(t *testing.T) {
 		t.Error("double Fire should panic")
 	}
 }
+
+// ============================================================================
+// EvaluatePureData (Phase 6+ partial)
+// ============================================================================
+
+// pureAdd minimal Evaluator-implementing pure-data node for engine test (避免依赖 purefunc 包).
+type pureAdd struct{}
+
+func (pureAdd) Spec() Spec {
+	return Spec{
+		Kind: "PureAdd",
+		Inputs: []InputSpec{
+			{Name: "a", Type: "Number", Default: 0.0},
+			{Name: "b", Type: "Number", Default: 0.0},
+		},
+		Outputs:    []OutputSpec{{Name: "result", Type: "Number"}},
+		IsPureData: true,
+	}
+}
+func (pureAdd) Run(_ Ctx, _ Inputs) (Outputs, error)         { return nil, errors.New("Run should not be called") }
+func (pureAdd) Evaluate(_ Ctx, in Inputs) (any, error)       { return in.Float64("a") + in.Float64("b"), nil }
+
+func TestEvaluatePureData_Happy(t *testing.T) {
+	ResetRegistryForTest()
+	Register(pureAdd{})
+	rn, _ := Get("PureAdd")
+
+	got, err := EvaluatePureData(context.Background(), rn,
+		map[string]any{"a": 3.0, "b": 4.0}, nil, StubServices())
+	if err != nil {
+		t.Fatalf("EvaluatePureData: %v", err)
+	}
+	if got != 7.0 {
+		t.Errorf("result = %v, want 7", got)
+	}
+}
+
+// pureMissingReq Required field missing → EvaluatePureData 返 error (没 ValidationError slot).
+type pureMissingReq struct{}
+
+func (pureMissingReq) Spec() Spec {
+	return Spec{
+		Kind: "PureReq",
+		Inputs: []InputSpec{
+			{Name: "x", Type: "Number", Required: true},
+		},
+		Outputs:    []OutputSpec{{Name: "result", Type: "Number"}},
+		IsPureData: true,
+	}
+}
+func (pureMissingReq) Run(_ Ctx, _ Inputs) (Outputs, error)   { return nil, nil }
+func (pureMissingReq) Evaluate(_ Ctx, in Inputs) (any, error) { return in.Float64("x"), nil }
+
+func TestEvaluatePureData_RequiredMissing_Errors(t *testing.T) {
+	ResetRegistryForTest()
+	Register(pureMissingReq{})
+	rn, _ := Get("PureReq")
+
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
+	if err == nil {
+		t.Fatal("expected validation error for missing Required, got nil")
+	}
+}
+
+// pureNonEvaluator IsPureData but no Evaluate method → EvaluatePureData 返 error.
+type pureNonEvaluator struct{}
+
+func (pureNonEvaluator) Spec() Spec {
+	return Spec{Kind: "PureNoEval", Outputs: []OutputSpec{{Name: "result", Type: "*"}}, IsPureData: true}
+}
+func (pureNonEvaluator) Run(_ Ctx, _ Inputs) (Outputs, error) { return nil, nil }
+
+func TestEvaluatePureData_NoEvaluator_Errors(t *testing.T) {
+	ResetRegistryForTest()
+	Register(pureNonEvaluator{})
+	rn, _ := Get("PureNoEval")
+
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
+	if err == nil {
+		t.Fatal("expected error for node without Evaluator")
+	}
+}
+
+// Non-pure-data node → EvaluatePureData rejects.
+func TestEvaluatePureData_NotIsPureData_Errors(t *testing.T) {
+	ResetRegistryForTest()
+	Register(happyNode{})
+	rn, _ := Get("Happy")
+
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
+	if err == nil {
+		t.Fatal("expected error for non-IsPureData node")
+	}
+}
+
+// purePanic Evaluate panics → recover, return error.
+type purePanic struct{}
+
+func (purePanic) Spec() Spec {
+	return Spec{Kind: "PurePanic", Outputs: []OutputSpec{{Name: "result", Type: "*"}}, IsPureData: true}
+}
+func (purePanic) Run(_ Ctx, _ Inputs) (Outputs, error)   { return nil, nil }
+func (purePanic) Evaluate(_ Ctx, _ Inputs) (any, error) { panic("oops") }
+
+func TestEvaluatePureData_PanicRecovered(t *testing.T) {
+	ResetRegistryForTest()
+	Register(purePanic{})
+	rn, _ := Get("PurePanic")
+
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
+	if err == nil {
+		t.Fatal("expected error from panic recovery, got nil")
+	}
+}

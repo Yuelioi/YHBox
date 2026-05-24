@@ -17,6 +17,8 @@ type RegisteredNode struct {
 	Dependencies func(in Inputs) []Dependency
 	// RunRegion — Phase 5 control flow nodes 实现.
 	RunRegion func(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
+	// Evaluate — pure-data 节点 (IsPureData=true) 实现, EvaluatePureData 调.
+	Evaluate func(ctx Ctx, in Inputs) (any, error)
 }
 
 var (
@@ -52,6 +54,9 @@ func Register(impl Node) {
 	}
 	if r, ok := impl.(RegionRunner); ok {
 		rn.RunRegion = r.RunRegion
+	}
+	if e, ok := impl.(Evaluator); ok {
+		rn.Evaluate = e.Evaluate
 	}
 	globalRegistry[spec.Kind] = rn
 }

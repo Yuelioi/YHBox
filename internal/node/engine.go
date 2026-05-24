@@ -134,6 +134,48 @@ func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, 
 	return result
 }
 
+// EvaluatePureData framework 入口供 pure-data 节点求值 (no exec / no token).
+// 走跟 RunNode 相同的 Required + Validate 管线, 但 Run 路径换成 rn.Evaluate.
+//
+// caller (dispatch_v5) 准备 dataWire (上游已 pull 完) + config; 节点 Evaluate 实现直接 in.Float64(...) 读.
+// 没实现 Evaluator → 返 error (caller fallback 老 path).
+//
+// Required 缺值 / Validate 失败 → 返 error (用 ValidationError.Message 拼).
+// Run panic recover, panic 信息塞 error.
+func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config map[string]any, services ServiceBundle) (any, error) {
+	if !rn.Spec.IsPureData {
+		return nil, fmt.Errorf("EvaluatePureData: kind %q is not IsPureData", rn.Spec.Kind)
+	}
+	if rn.Evaluate == nil {
+		return nil, fmt.Errorf("EvaluatePureData: kind %q does not implement Evaluator", rn.Spec.Kind)
+	}
+
+	defaults := defaultsFromSpec(&rn.Spec)
+	in := newInputs(dataWire, config, nil, defaults)
+
+	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
+		return nil, fmt.Errorf("EvaluatePureData %s: %s", rn.Spec.Kind, errs[0].Message)
+	}
+	if rn.Validate != nil {
+		if errs := rn.Validate(in); len(errs) > 0 {
+			return nil, fmt.Errorf("EvaluatePureData %s: %s", rn.Spec.Kind, errs[0].Message)
+		}
+	}
+
+	c := newCtx(ctx, services, &rn.Spec)
+	var v any
+	var runErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				runErr = fmt.Errorf("EvaluatePureData %s panic: %v\n%s", rn.Spec.Kind, r, debug.Stack())
+			}
+		}()
+		v, runErr = rn.Evaluate(c, in)
+	}()
+	return v, runErr
+}
+
 // outputDataImpl 给 Display 用. snapshot, immutable view of OutputData map.
 type outputDataImpl struct{ data map[string]any }
 
