@@ -100,11 +100,12 @@ type OutBuilder interface {
 	Fire() Outputs
 }
 
-// VisionService — template + bar-track 检测. Phase 1 stub; Phase 5 真接
-// wire_container.go::templateMatcherAdapter + pkg/vision.AnalyzeBar.
+// VisionService — template + 颜色 + bar-track 检测. Phase 1-2 stub;
+// Phase 5 真接 wire_container.go::templateMatcherAdapter + pkg/vision.*.
 //
-// 单帧 Match (CheckTemplate) / WaitMatch (WaitTemplate, 带 timeout 内部轮询) /
-// BarTrack (ColorBarTrack, HSV cluster 算 cursor+target 位置).
+// 单帧 Match (CheckTemplate) / WaitMatch (WaitTemplate) / BarTrack (ColorBarTrack) +
+// 颜色: DetectColor (RGB/HSV 全 ROI 像素计数) / DetectColorHSV (HSV 比例阈值) /
+// ROIColorScan (沿 axis 找连续 cluster).
 type VisionService interface {
 	// Match 单次模板匹配. nil pt = miss.
 	Match(key string, threshold float64) (pt *Point, conf float64, err error)
@@ -116,6 +117,35 @@ type VisionService interface {
 	// BarTrack 抓 roi 帧 + HSV cluster → 返 cursor/target 位置 + 置信度.
 	// roi 是当前 client 区域 pixel 坐标 (x,y,w,h). Found=false 即 missing.
 	BarTrack(roi Rect) (result BarTrackResult, err error)
+
+	// DetectColor 在 region (ratio [x,y,w,h], 全 0 = 全屏) 内统计落在 rng 内的像素数.
+	// mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].
+	// 返 count + 命中像素中心客户区比例坐标 (cx,cy). 无命中 cx/cy = 0.
+	// 老 runtime: ColorDetector.Detect.
+	DetectColor(region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
+
+	// DetectColorHSV 在 roi (像素) 内统计落在 hsv 区间的像素数 + 比例.
+	// 老 runtime: detect_hsv.go::countHSVInROI 单次扫描. 轮询在节点内做.
+	DetectColorHSV(roi Rect, hsv HSVRange) (count int, ratio float64, err error)
+
+	// ROIColorScan 沿 axis ("x"|"y") 扫描 roi 内 HSV 命中像素, 合并为连续 cluster.
+	// 只返长度 ∈ [minPx, maxPx] 的段. 老 runtime: roi_scan.go::scanClusters.
+	ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
+}
+
+// HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,255]. 给 DetectColorHSV / ROIColorScan 用.
+type HSVRange struct {
+	HMin, HMax int `json:"hMin,hMax"`
+	SMin, SMax int `json:"sMin,sMax"`
+	VMin, VMax int `json:"vMin,vMax"`
+}
+
+// ClusterEntry ROIColorScan 沿 axis 找出的一个连续命中段, 像素坐标 (相对 roi 起点).
+type ClusterEntry struct {
+	StartPx  int `json:"startPx"`
+	EndPx    int `json:"endPx"`
+	CenterPx int `json:"centerPx"`
+	PxCount  int `json:"pxCount"`
 }
 
 // BarTrackResult ColorBarTrack 算法单次运行结果. 对齐老 SysBarTrackResult.

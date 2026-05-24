@@ -40,6 +40,18 @@ func (stubVisionService) BarTrack(roi Rect) (BarTrackResult, error) {
 	return BarTrackResult{}, nil
 }
 
+func (stubVisionService) DetectColor(region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
+	return 0, 0, 0, nil
+}
+
+func (stubVisionService) DetectColorHSV(roi Rect, hsv HSVRange) (int, float64, error) {
+	return 0, 0, nil
+}
+
+func (stubVisionService) ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx, maxPx int) ([]ClusterEntry, error) {
+	return nil, nil
+}
+
 // StubVisionService — Phase 1-4 test 用. Phase 5 main.go 注入真 wire_container.go::templateMatcherAdapter.
 func StubVisionService() VisionService { return stubVisionService{} }
 
