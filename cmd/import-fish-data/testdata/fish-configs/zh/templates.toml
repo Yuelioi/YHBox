@@ -1,0 +1,26 @@
+[[fish.hook_icon]]
+file = "hook_icon_1080.png"
+resolution = [1920, 1080]
+bbox = [1752, 944, 1797, 998]
+note = "test note"
+
+[[fish.hook_icon]]
+file = "hook_icon_720.png"
+resolution = [1280, 720]
+bbox = [1168, 628, 1197, 666]
+
+# multi-slot fixture: 3 entries same (file, resolution) → 1 VariantPlan with 3 Regions
+[[fish.bait_product]]
+file = "bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [60, 142, 232, 353]
+
+[[fish.bait_product]]
+file = "bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [268, 142, 440, 353]
+
+[[fish.bait_product]]
+file = "bait_product_1080.png"
+resolution = [1920, 1080]
+bbox = [476, 142, 647, 353]
