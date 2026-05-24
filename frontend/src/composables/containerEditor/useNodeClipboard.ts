@@ -56,8 +56,8 @@ export function useNodeClipboard(opts: {
       .map((e: any) => ({ ...e }))
     const subgraphsDeepCopy: Record<string, any> = {}
     for (const n of nodes) {
-      if (n.kind === 'Subgraph' && n.config?.subgraphId) {
-        const sgID = String(n.config.subgraphId)
+      if (n.kind === 'Subgraph' && n.config?.SubgraphID) {
+        const sgID = String(n.config.SubgraphID)
         const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
         if (sg) subgraphsDeepCopy[sgID] = JSON.parse(JSON.stringify(sg))
       }
@@ -76,8 +76,8 @@ export function useNodeClipboard(opts: {
       const newID = genID()
       idMap[n.id] = newID
       const newCfg = JSON.parse(JSON.stringify(n.config ?? {}))
-      if (n.kind === 'Subgraph' && newCfg.subgraphId) {
-        const sourceSg = cb.subgraphsDeepCopy[String(newCfg.subgraphId)]
+      if (n.kind === 'Subgraph' && newCfg.SubgraphID) {
+        const sourceSg = cb.subgraphsDeepCopy[String(newCfg.SubgraphID)]
         if (sourceSg) {
           try {
             const created = (await backend.containers.createSubgraph(
@@ -96,7 +96,7 @@ export function useNodeClipboard(opts: {
                 recordingContext: sourceSg.recordingContext,
               }),
             )
-            newCfg.subgraphId = newSgID
+            newCfg.SubgraphID = newSgID
           } catch (e) {
             console.warn('paste: Subgraph 副本创建失败', e)
           }

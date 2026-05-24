@@ -77,14 +77,14 @@ register({
   group: 'system',
   labelZh: '错误捕获子图',
   description:
-    '跑 subgraphId 子图, 三路出口: 正常完成走 done, 超时走 timeout, 子图内节点 Throw 或 Backend 异常走 error (errorMsg 数据口拿消息).',
+    '跑 SubgraphID 子图, 三路出口: 正常完成走 done, 超时走 timeout, 子图内节点 Throw 或 Backend 异常走 error (errorMsg 数据口拿消息).',
   visual: { icon: 'i-tabler-shield-exclamation', bg: 'bg-red-500/15', border: 'border-red-500/40' },
   execIn: ['in'],
   execOut: ['done', 'timeout', 'error'],
   dataIn: { timeoutMs: 'number' },
   dataOut: { errorMsg: 'string' },
   fields: [],
-  defaults: { subgraphId: '', literal: { timeoutMs: 0 } },
+  defaults: { SubgraphID: '', literal: { timeoutMs: 0 } },
 })
 
 register({
@@ -210,7 +210,7 @@ register({
   dataIn: {},
   dataOut: {},
   fields: [],
-  defaults: { subgraphId: '' },
+  defaults: { SubgraphID: '' },
 })
 
 register({
@@ -263,6 +263,6 @@ register({
   dataIn: {},
   dataOut: {},
   fields: [],
-  defaults: { subgraphId: '', label: 'Collapsed' },
+  defaults: { SubgraphID: '', label: 'Collapsed' },
   excludeFromPalette: true, // created via "fold selection" right-click action
 })

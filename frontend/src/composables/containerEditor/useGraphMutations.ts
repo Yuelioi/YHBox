@@ -40,7 +40,7 @@ export function useGraphMutations(opts: {
         const removedNode = findNodeAcrossGraphs(ch.id)
         const removedSubgraphID =
           removedNode?.kind === 'Subgraph'
-            ? (removedNode.config?.subgraphId as string | undefined)
+            ? (removedNode.config?.SubgraphID as string | undefined)
             : undefined
 
         g.nodes = g.nodes.filter((n) => n.id !== ch.id)

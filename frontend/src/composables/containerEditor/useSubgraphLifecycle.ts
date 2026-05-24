@@ -23,7 +23,7 @@ export function useSubgraphLifecycle(opts: {
 
   /**
    * autoCreateSubgraphForNewNode 当用户拖入 Subgraph 节点：调 backend.createSubgraph 建一个空子图，
-   * 把返回 id 写到 node.config.subgraphId。失败返 false（caller 决定是否 push 节点）。
+   * 把返回 id 写到 node.config.SubgraphID。失败返 false（caller 决定是否 push 节点）。
    */
   async function autoCreateSubgraphForNewNode(node: GraphNode): Promise<boolean> {
     if (node?.kind !== 'Subgraph') return true
@@ -33,7 +33,7 @@ export function useSubgraphLifecycle(opts: {
         draft.value.id,
         '子图 ' + new Date().toLocaleTimeString().slice(0, 5),
       )) as Subgraph
-      node.config = { ...(node.config ?? {}), subgraphId: created.id }
+      node.config = { ...(node.config ?? {}), SubgraphID: created.id }
       await refreshSubgraphStore()
       return true
     } catch (e) {
@@ -49,11 +49,11 @@ export function useSubgraphLifecycle(opts: {
     if (!draft.value) return 0
     let count = 0
     for (const n of draft.value.graph.nodes) {
-      if (n.kind === 'Subgraph' && n.config?.subgraphId === sgID) count++
+      if (n.kind === 'Subgraph' && n.config?.SubgraphID === sgID) count++
     }
     for (const sg of editorStore.subgraphsForCurrentContainer) {
       for (const n of sg.graph?.nodes ?? []) {
-        if (n.kind === 'Subgraph' && n.config?.subgraphId === sgID) count++
+        if (n.kind === 'Subgraph' && n.config?.SubgraphID === sgID) count++
       }
     }
     return count
@@ -79,7 +79,7 @@ export function useSubgraphLifecycle(opts: {
     const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
     const nestedIDs: string[] = (sg?.graph?.nodes ?? [])
       .filter((n) => n.kind === 'Subgraph')
-      .map((n) => n.config?.subgraphId as string | undefined)
+      .map((n) => n.config?.SubgraphID as string | undefined)
       .filter((id): id is string => !!id)
     try {
       await backend.containers.deleteSubgraph(draft.value.id, sgID)
@@ -136,14 +136,14 @@ export function useSubgraphLifecycle(opts: {
     if (!draft.value) return []
     const referenced = new Set<string>()
     for (const n of draft.value.graph.nodes) {
-      if (n.kind === 'Subgraph' && n.config?.subgraphId) {
-        referenced.add(String(n.config.subgraphId))
+      if (n.kind === 'Subgraph' && n.config?.SubgraphID) {
+        referenced.add(String(n.config.SubgraphID))
       }
     }
     for (const sg of editorStore.subgraphsForCurrentContainer) {
       for (const n of sg.graph?.nodes ?? []) {
-        if (n.kind === 'Subgraph' && n.config?.subgraphId) {
-          referenced.add(String(n.config.subgraphId))
+        if (n.kind === 'Subgraph' && n.config?.SubgraphID) {
+          referenced.add(String(n.config.SubgraphID))
         }
       }
     }

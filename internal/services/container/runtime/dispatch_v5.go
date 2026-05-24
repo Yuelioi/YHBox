@@ -250,6 +250,15 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		if n.Kind == "SubgraphOutput" {
 			return nil
 		}
+		// 节点级事件 — 跟 runner.go::Run 主 loop 同 emit, 让 GUI 高亮子图 / Loop body 内
+		// 跑的节点 (老 runner 只 emit 顶层一层, 子区域走 runRegionBody 不进 execNode 也没 emit).
+		if r.rt.Emit != nil {
+			r.rt.Emit("container:node-enter", map[string]any{
+				"containerId": r.rt.Container.ID,
+				"nodeId":      n.ID,
+				"nodeKind":    n.Kind,
+			})
+		}
 		// 每次 sub-dispatch 刷 per-exec-tick snapshot — 老 evalGetVar / evalGetSys 从
 		// r.currentTick.Vars 读. 不刷 → Loop body 跨 iter 看 stale snapshot, 影响
 		// Break/Continue 条件判断. runner.go::Run 在 execNode entry 抓一次, 但 region

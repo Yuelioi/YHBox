@@ -5,7 +5,7 @@
 //       - F12 / HUD 停: 后端 emit 'recording:completed' {subgraphID, containerID, label, filterMode} | {error}
 //   3. 拿到 subgraphID → refreshSubgraphStore() 让 editorStore.subgraphsForCurrentContainer
 //      拿到新 subgraph (activeGraph computed 从这里读, 不读 draft.subgraphs!) →
-//      在 activeGraph 加 Subgraph 引用节点 (config.subgraphId = subgraphID) →
+//      在 activeGraph 加 Subgraph 引用节点 (config.SubgraphID = subgraphID) →
 //      autoConnect Start → 自动 saveDraft.
 //
 // 关键陷阱: container.Subgraphs 在 Go 端是 json:"-", backend.containers.get(id) 拿不到 subgraphs.
@@ -34,7 +34,7 @@ export interface RecordOpts {
 
 export interface StartRecordingOpts {
   // replaceNodeID: NodeInspector 点 "重新录制覆盖" 时传入. 录完不创建新节点,
-  // 而是把该节点 (应为 Subgraph kind) config.subgraphId 改成新 subgraphID.
+  // 而是把该节点 (应为 Subgraph kind) config.SubgraphID 改成新 subgraphID.
   // 旧 subgraph 在 container.subgraphs 里变成孤儿, 用户可手动清.
   replaceNodeID?: string
 }
@@ -140,7 +140,7 @@ export function useRecording(opts: RecordOpts) {
       return
     }
 
-    // 2) 处理 replaceNodeID — 替换目标节点的 subgraphId
+    // 2) 处理 replaceNodeID — 替换目标节点的 SubgraphID
     const replaceID = replaceNodeID.value
     replaceNodeID.value = null
 
@@ -155,7 +155,7 @@ export function useRecording(opts: RecordOpts) {
         })
       } else {
         if (!target.config) target.config = {}
-        target.config.subgraphId = payload.subgraphID
+        target.config.SubgraphID = payload.subgraphID
         syncFlowFromDraft()
         await maybeSave()
         toast.add({ title: `已重新录制覆盖: ${payload.label}`, color: 'success' })
@@ -170,7 +170,7 @@ export function useRecording(opts: RecordOpts) {
       kind: 'Subgraph',
       x: 300 + Math.random() * 100,
       y: 300 + Math.random() * 100,
-      config: { subgraphId: payload.subgraphID },
+      config: { SubgraphID: payload.subgraphID },
       createdAt: new Date().toISOString(),
     }
     ;(activeGraph.value.nodes as any[]).push(newNode)

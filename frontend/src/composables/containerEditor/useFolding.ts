@@ -111,7 +111,7 @@ export function useFolding(opts: {
         kind: 'Subgraph',
         x: candidates[0].position?.x ?? 100,
         y: candidates[0].position?.y ?? 100,
-        config: { subgraphId: sgRaw.id },
+        config: { SubgraphID: sgRaw.id },
         createdAt: new Date().toISOString(),
       })
 

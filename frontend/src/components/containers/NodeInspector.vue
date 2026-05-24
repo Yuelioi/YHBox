@@ -706,7 +706,7 @@ const varOptions = computed<{ label: string; value: string }[]>(() => {
 })
 
 const boundSubgraph = computed(() => {
-  const sgID = props.node?.config?.subgraphId
+  const sgID = props.node?.config?.SubgraphID
   if (!sgID) return null
   // v4: only visible (non-anonymous) subgraphs are valid Subgraph-call targets.
   // CollapsedNode-backers (isAnonymous) shouldn't show editable label/tags here.
@@ -714,14 +714,14 @@ const boundSubgraph = computed(() => {
 })
 
 function onEnterSubgraph() {
-  const sgID = props.node?.config?.subgraphId
+  const sgID = props.node?.config?.SubgraphID
   if (!sgID) return
   editorStore.pushPath(String(sgID))
 }
 
 const publishing = ref(false)
 async function onPublishToLibrary() {
-  const sgID = props.node?.config?.subgraphId
+  const sgID = props.node?.config?.SubgraphID
   const cid = editorStore.activeContainerID
   if (!sgID || !cid || !boundSubgraph.value) return
   const yes = await confirmDialog({

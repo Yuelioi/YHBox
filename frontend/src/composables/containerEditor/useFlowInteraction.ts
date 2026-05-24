@@ -138,7 +138,7 @@ export function useFlowInteraction(opts: {
         kind: 'Subgraph',
         x: pos.x,
         y: pos.y,
-        config: { subgraphId: newSubgraphID },
+        config: { SubgraphID: newSubgraphID },
         createdAt: new Date().toISOString(),
       }
       activeGraph.value.nodes.push(newNode)

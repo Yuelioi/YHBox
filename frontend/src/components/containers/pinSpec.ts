@@ -114,10 +114,10 @@ export function edgeKind(fromKind: string, fromPin: string): 'exec' | 'data' {
  * 保留此 helper — 调用方 (ContainerFlowNode.vue 等) 直接使用.
  */
 export function resolveSubgraphCallExecOut(
-  node: { config?: { subgraphId?: string } },
+  node: { config?: { SubgraphID?: string } },
   allSubgraphs: { id: string; outputPins: { id: string; name: string }[] }[],
 ): { id: string; name: string }[] {
-  const sgID = node.config?.subgraphId ?? ''
+  const sgID = node.config?.SubgraphID ?? ''
   const sg = allSubgraphs.find((s) => s.id === sgID)
   if (!sg) return [{ id: '__missing__', name: '(子图未找到)' }]
   if (sg.outputPins.length === 0) return [{ id: '__empty__', name: '(无出口)' }]

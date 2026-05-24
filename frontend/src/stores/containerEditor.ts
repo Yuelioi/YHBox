@@ -48,7 +48,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     let count = 0
     for (const sg of subgraphsForCurrentContainer.value) {
       for (const n of (sg.graph?.nodes ?? [])) {
-        if (n.kind === 'Subgraph' && (n as any).config?.subgraphId === sgID) count++
+        if (n.kind === 'Subgraph' && (n as any).config?.SubgraphID === sgID) count++
       }
     }
     return count
@@ -58,7 +58,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   const clipboard = ref<{ nodes: any[]; edges: any[]; subgraphsDeepCopy: Record<string, any> } | null>(null)
 
   // 用户可见子图列表 = 排除 isAnonymous (这些是 CollapsedNode 后备子图, 不允许直接编辑).
-  // 用于 Library 候选 / Subgraph 节点 subgraphId 下拉. find/navigation 仍走原 subgraphsForCurrentContainer.
+  // 用于 Library 候选 / Subgraph 节点 SubgraphID 下拉. find/navigation 仍走原 subgraphsForCurrentContainer.
   const visibleSubgraphs = computed<SubgraphSummary[]>(() =>
     subgraphsForCurrentContainer.value.filter((s) => !(s as any).isAnonymous),
   )

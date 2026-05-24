@@ -788,7 +788,7 @@ async function onPickLibrarySubgraph(libraryID: string) {
         kind: 'Subgraph',
         x: 200 + Math.random() * 100,
         y: 200 + Math.random() * 100,
-        config: { subgraphId: newSubgraphID },
+        config: { SubgraphID: newSubgraphID },
         createdAt: new Date().toISOString(),
       } as GraphNode
       g.nodes.push(node)
@@ -797,7 +797,7 @@ async function onPickLibrarySubgraph(libraryID: string) {
     useLibraryStore().reload()
     toast.add({
       title: '子图已从库导入',
-      description: `subgraphId: ${newSubgraphID}`,
+      description: `SubgraphID: ${newSubgraphID}`,
       color: 'success',
       icon: 'i-tabler-check',
     })
@@ -1065,12 +1065,12 @@ function onNodeMenuAction(a: NodeMenuAction) {
       return
     }
     case 'jump-to-subgraph': {
-      const sgID = (node.config as Record<string, unknown> | undefined)?.subgraphId as string | undefined
+      const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
       if (sgID) editorStore.pushPath(sgID)
       return
     }
     case 'share-to-library': {
-      const sgID = (node.config as Record<string, unknown> | undefined)?.subgraphId as string | undefined
+      const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
       if (!sgID) return
       void shareSubgraphToLibrary(sgID)
       return
@@ -2040,7 +2040,7 @@ function onNodeDoubleClick(evt: any) {
   const n = evt.node
   // CollapsedNode 跟 Subgraph 共享 navigation 语义 (both wrap a subgraph by ID).
   if (n?.data?.kind === 'Subgraph' || n?.data?.kind === 'CollapsedNode') {
-    const sgID = n.data.config?.subgraphId
+    const sgID = n.data.config?.SubgraphID
     if (!sgID) {
       toast.add({ title: '该节点未指定子图', color: 'warning' })
       return

@@ -70,7 +70,7 @@
 
     <!-- Subgraph 选中的子图 ID 预览 + 内部节点数 (子图复杂度一眼可见) -->
     <div v-if="kind === 'Subgraph'" class="mt-1 text-[10px] text-dimmed font-mono truncate px-2.5 pb-1 flex items-center gap-1.5">
-      <span class="truncate">→ {{ props.data?.config?.subgraphId || '(未选)' }}</span>
+      <span class="truncate">→ {{ props.data?.config?.SubgraphID || '(未选)' }}</span>
       <span
         v-if="boundSubgraphNodeCount !== null"
         class="ml-auto shrink-0 text-fuchsia-300/80 not-italic"
@@ -164,7 +164,7 @@ const editorStore = useContainerEditorStore()
 // Subgraph 调用节点: 绑定子图的内部节点数 (画布上一眼看到子图复杂度)
 const boundSubgraphNodeCount = computed<number | null>(() => {
   if (kind.value !== 'Subgraph') return null
-  const sgID = props.data?.config?.subgraphId
+  const sgID = props.data?.config?.SubgraphID
   if (!sgID) return null
   const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
   return sg?.graph?.nodes?.length ?? null
