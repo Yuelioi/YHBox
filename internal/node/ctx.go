@@ -3,6 +3,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type ctxImpl struct {
 	vision VisionService
 	log    LogService
 	spec   *Spec
+	fired  bool // Run 内首次 Fire 后置 true; 后续任何 builder Fire → panic
 }
 
 func newCtx(ctx context.Context, vision VisionService, log LogService, spec *Spec) *ctxImpl {
@@ -28,5 +30,14 @@ func (c *ctxImpl) Out(exitName string) OutBuilder {
 		exitName: exitName,
 		spec:     c.spec,
 		data:     map[string]any{},
+		ctx:      c,
 	}
+}
+
+// markFired ctx 级 fire 守卫. 节点 Run 内任何 builder 第二次 Fire → panic.
+func (c *ctxImpl) markFired(exitName string) {
+	if c.fired {
+		panic(fmt.Sprintf("multiple Fire() in single Run (node %q, exit %q)", c.spec.Kind, exitName))
+	}
+	c.fired = true
 }

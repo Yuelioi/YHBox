@@ -17,6 +17,7 @@ type outBuilderImpl struct {
 	spec     *Spec
 	data     map[string]any
 	fired    bool
+	ctx      *ctxImpl // nil 表示无 ctx 守卫 (单 builder 单测用)
 }
 
 func (b *outBuilderImpl) Set(field string, value any) OutBuilder {
@@ -29,7 +30,11 @@ func (b *outBuilderImpl) Set(field string, value any) OutBuilder {
 
 func (b *outBuilderImpl) Fire() Outputs {
 	if b.fired {
-		panic(fmt.Sprintf("multiple Fire() in single Run (node %q)", b.spec.Kind))
+		panic(fmt.Sprintf("multiple Fire() on same builder (node %q)", b.spec.Kind))
+	}
+	if b.ctx != nil {
+		// ctx 级守卫: 同一 Run 内任何第二次 Fire 都炸 (Run 内调多次 Fire → 第 2 次 panic)
+		b.ctx.markFired(b.exitName)
 	}
 	b.fired = true
 	return &outputsImpl{exitName: b.exitName, data: b.data}
