@@ -111,11 +111,14 @@ func (r *ContainerRunner) buildConfigFor(node *container.GraphNode) map[string]a
 	return out
 }
 
-// buildExecDataFor 当前返空 map. Phase 5.5b 加 exec-data carry — 上游节点 RunResult.OutputData
-// 的字段在 routeResult 时 stash 到 ExecToken (新加字段 Token.ExecData), 下游 build 时 pull 出.
-// 这步要先扩 ExecToken struct + 改 edges.next 携带 data + 改 buildExecDataFor 读. 留后续.
-func (r *ContainerRunner) buildExecDataFor(_ ExecToken) map[string]any {
-	return map[string]any{}
+// buildExecDataFor 读 tok.ExecData (上游 routeResult 通过 edges.nextWithData 挂上).
+// 老 v4 runtime "exec-data" 行为复刻: 上游 ctx.Out("exit").Set("k", v).Fire() → 下游
+// in.X("k") 读到 v. nil safe (源节点无 data 时 tok.ExecData == nil).
+func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
+	if tok.ExecData == nil {
+		return map[string]any{}
+	}
+	return tok.ExecData
 }
 
 // routeResult turns RunResult into next ExecToken batch + emit lifecycle events.
@@ -160,6 +163,14 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		if control.IsStopRequested(result.Error) {
 			return nil, errStopRun
 		}
+		// Try 的 error path 写 SysState.LastTry.ErrorMsg — 老 runtime execTry 副作用,
+		// state_FISHING 等子图通过 GetSys path=lastTry.errorMsg 读. 注意 Try.RunRegion
+		// 内部已 catch error 走 catch 出口, 这里 result.Error 漏到 routeResult 表示真
+		// 失败 (validator drift / framework bug), 仍存一份 ErrorMsg 给诊断.
+		if node.Kind == "Try" {
+			msg := result.Error.Error()
+			r.rt.UpdateSys(func(s *SysState) { s.LastTry.ErrorMsg = msg })
+		}
 		return nil, result.Error
 	}
 
@@ -172,11 +183,33 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		})
 	}
 
+	// 节点 OutputData 摘录写到 SysState — 复刻老 runtime 自管 SysState 的副作用.
+	// 新框架 Spec SysStore 设计成 read-only, 写责任落到 dispatch 层 (类似 VisionAdapter
+	// 在 vision call 里写). 只对真有 GetSys 路径消费的节点做.
+	r.writeSysStateFromOutput(node, result)
+
 	if result.ExitName == "" {
 		return nil, nil
 	}
-	tokens := r.edges.next(node.ID+"."+result.ExitName, tok.LoopStack)
+	tokens := r.edges.nextWithData(node.ID+"."+result.ExitName, tok.LoopStack, result.OutputData)
 	return tokens, nil
+}
+
+// writeSysStateFromOutput 按 node.Kind 摘录 result.OutputData 字段写 SysState.
+// 老 runtime 节点内部直接写 rt.UpdateSys, 新框架 spec 不暴露写口, 责任转到 dispatch.
+//
+// 当前只覆盖 Screenshot (LastScreenshot.Path). Match/WaitMatch/DetectColor/HSV/ROIScan/
+// BarTrack 在 VisionAdapter 内已写, 不重复. Try.LastTry.ErrorMsg 走 error 路径单独写.
+func (r *ContainerRunner) writeSysStateFromOutput(node *container.GraphNode, result nodepkg.RunResult) {
+	if result.OutputData == nil {
+		return
+	}
+	switch node.Kind {
+	case "Screenshot":
+		if path, _ := result.OutputData["Path"].(string); path != "" {
+			r.rt.UpdateSys(func(s *SysState) { s.LastScreenshot.Path = path })
+		}
+	}
 }
 
 // ============================================================================

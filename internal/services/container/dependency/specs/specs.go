@@ -6,8 +6,10 @@
 // 旧 nodekind/specs/*.go 同时注册 nodekind 跟 dependency.Extractor. atomic #5 删
 // nodekind 后, 这些 extractor 拆出来独立维护. 节点本身的 dependency 声明走新框架
 // 的 node.Dependencies(in) 接口 (用于 e.g. Try.SubgraphID), library scanner 暂仍
-// 走 dependency.Extractor — 两套并存. 收口到 nodepkg.Dependencies 是 FE registry
-// 重构 plan 一起做.
+// 走 dependency.Extractor — 两套并存. 收口到 nodepkg.Dependencies 见 cleanup plan P1.7.
+//
+// Cfg key 跟新 framework Spec pin name 对齐 (全 PascalCase): SubgraphID / Template / ClipID /
+// Kind. 老 lowercase (subgraphId / template / clipID / kind) atomic #3 redraw 已切.
 package specs
 
 import (
@@ -27,7 +29,7 @@ func (subgraphExtractor) Extract(cfg map[string]any) []dependency.Dependency {
 type templateRefExtractor struct{}
 
 func (templateRefExtractor) Extract(cfg map[string]any) []dependency.Dependency {
-	key, _ := cfg["template"].(string)
+	key, _ := cfg["Template"].(string)
 	if key == "" {
 		return nil
 	}
@@ -37,10 +39,10 @@ func (templateRefExtractor) Extract(cfg map[string]any) []dependency.Dependency 
 type onEventExtractor struct{}
 
 func (onEventExtractor) Extract(cfg map[string]any) []dependency.Dependency {
-	if kind, _ := cfg["kind"].(string); kind != "template_appeared" {
+	if kind, _ := cfg["Kind"].(string); kind != "template_appeared" {
 		return nil
 	}
-	key, _ := cfg["template"].(string)
+	key, _ := cfg["Template"].(string)
 	if key == "" {
 		return nil
 	}
@@ -50,7 +52,7 @@ func (onEventExtractor) Extract(cfg map[string]any) []dependency.Dependency {
 type playClipExtractor struct{}
 
 func (playClipExtractor) Extract(cfg map[string]any) []dependency.Dependency {
-	id, _ := cfg["clipID"].(string)
+	id, _ := cfg["ClipID"].(string)
 	if id == "" {
 		return nil
 	}

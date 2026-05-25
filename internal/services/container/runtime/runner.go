@@ -31,6 +31,10 @@ type ExecToken struct {
 	NodeID    string
 	InPin     string       // 进入哪个 in pin（默认 "in"）
 	LoopStack []*LoopFrame // 最深的 frame 在尾
+	// ExecData carry — 上游节点 ctx.Out("exit").Set("k", v).Fire() 推下来的 OutputData
+	// 字段, 下游 build inputs 时通过 buildExecDataFor 读. 比 data-edge 更轻 (不走 spec 声明,
+	// 跟 exit pin 绑定; 多下游 fanout 共享同一份 map). 老 v4 runtime "exec-data" 行为.
+	ExecData map[string]any
 }
 
 // edgeIndex 把 graph 边按 from-pin 索引一遍，dispatch 时 O(1) 查下游。
@@ -49,6 +53,13 @@ func buildEdgeIndex(g container.Graph) *edgeIndex {
 
 // next 走 from "<nodeId>.<pin>" 输出，返下游 token 列表（一般 1 个；Parallel 可能 N 个）。
 func (idx *edgeIndex) next(from string, currentLoops []*LoopFrame) []ExecToken {
+	return idx.nextWithData(from, currentLoops, nil)
+}
+
+// nextWithData 跟 next 一样查下游, 但额外把 execData 挂到每个 ExecToken.ExecData.
+// 多 fanout 下游共享同一份 map (immutable 视角; 下游不该改). data 经 build inputs 进
+// merged map 不会改原 map, 安全.
+func (idx *edgeIndex) nextWithData(from string, currentLoops []*LoopFrame, execData map[string]any) []ExecToken {
 	tos := idx.out[from]
 	if len(tos) == 0 {
 		return nil
@@ -59,7 +70,12 @@ func (idx *edgeIndex) next(from string, currentLoops []*LoopFrame) []ExecToken {
 		if len(parts) != 2 {
 			continue
 		}
-		out = append(out, ExecToken{NodeID: parts[0], InPin: parts[1], LoopStack: copyLoops(currentLoops)})
+		out = append(out, ExecToken{
+			NodeID:    parts[0],
+			InPin:     parts[1],
+			LoopStack: copyLoops(currentLoops),
+			ExecData:  execData,
+		})
 	}
 	return out
 }

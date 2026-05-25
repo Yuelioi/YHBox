@@ -147,6 +147,60 @@ func (tdNoExit) Run(node.Ctx, node.Inputs) (node.Outputs, error) {
 	return nil, nil // no Fire → ExitName == ""
 }
 
+// tdSource — Run 时通过 OutputData.Set("Path", "/foo").Set("Count", 42) 推 exec-data.
+// 用于验 P0.3 OutputData carry plumb 到下游 ExecToken.
+const tkSource = "test_dispatch_source"
+
+type tdSource struct{}
+
+func (tdSource) Spec() node.Spec {
+	return node.Spec{
+		Kind:   tkSource,
+		Inputs: []node.InputSpec{{Name: "in", Type: "Exec"}},
+		Outputs: []node.OutputSpec{
+			{Name: "Out", Type: "Exec", Data: []node.DataField{
+				{Name: "Path", Type: "String"},
+				{Name: "Count", Type: "Number"},
+			}},
+		},
+	}
+}
+func (tdSource) Run(ctx node.Ctx, _ node.Inputs) (node.Outputs, error) {
+	return ctx.Out("Out").Set("Path", "/foo").Set("Count", 42).Fire(), nil
+}
+
+// tdSink — 把 Inputs 字段照 Raw 暴露到 var 供测试断言. Spec.Inputs 只有 "in" Exec,
+// 但 inputsImpl.merged 含 exec-data 携带的 "Path" / "Count", 通过 in.Raw 可见.
+const tkSink = "test_dispatch_sink"
+
+var tdSinkRecorded struct {
+	Path  string
+	Count int
+	Saw   bool
+}
+
+func resetTdSinkRecorded() {
+	tdSinkRecorded.Path = ""
+	tdSinkRecorded.Count = 0
+	tdSinkRecorded.Saw = false
+}
+
+type tdSink struct{}
+
+func (tdSink) Spec() node.Spec {
+	return node.Spec{
+		Kind:    tkSink,
+		Inputs:  []node.InputSpec{{Name: "in", Type: "Exec"}},
+		Outputs: []node.OutputSpec{{Name: "Out", Type: "Exec"}},
+	}
+}
+func (tdSink) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	tdSinkRecorded.Path = in.String("Path")
+	tdSinkRecorded.Count = in.Int("Count")
+	tdSinkRecorded.Saw = true
+	return ctx.Out("Out").Fire(), nil
+}
+
 func init() {
 	node.Register(&tdHappy{})
 	node.Register(&tdValidation{})
@@ -155,6 +209,8 @@ func init() {
 	node.Register(&tdDisplay{})
 	node.Register(&tdNoExit{})
 	node.Register(&tdHappyCounted{})
+	node.Register(&tdSource{})
+	node.Register(&tdSink{})
 }
 
 // ============================================================================
@@ -233,6 +289,64 @@ func TestExecNodeViaFramework_Happy(t *testing.T) {
 	}
 	if tokens[0].NodeID != "target" || tokens[0].InPin != "in" {
 		t.Errorf("token = %+v, want {target, in}", tokens[0])
+	}
+}
+
+// TestExecNodeViaFramework_OutputDataCarry — P0.3 cleanup plan.
+// 源节点 ctx.Out("Out").Set("Path","/foo").Set("Count", 42).Fire() →
+// routeResult 通过 edges.nextWithData 把 OutputData 挂到下游 ExecToken.ExecData →
+// 下游节点 in.String("Path") / in.Int("Count") 拿到值.
+func TestExecNodeViaFramework_OutputDataCarry(t *testing.T) {
+	resetTdSinkRecorded()
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-dispatch-carry",
+		Name:          "test-dispatch-carry",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "src", Kind: tkSource},
+				{ID: "snk", Kind: tkSink},
+			},
+			Edges: []container.GraphEdge{
+				{From: "src.Out", To: "snk.in"},
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	srcNode := r.nodesByID["src"]
+	tokens, err := r.execNodeViaFramework(context.Background(), srcNode, ExecToken{NodeID: "src", InPin: "in"})
+	if err != nil {
+		t.Fatalf("source dispatch error: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("got %d tokens, want 1", len(tokens))
+	}
+	tok := tokens[0]
+	if tok.ExecData == nil {
+		t.Fatal("downstream token has nil ExecData — OutputData carry not plumbed")
+	}
+	if tok.ExecData["Path"] != "/foo" {
+		t.Errorf("ExecData[Path] = %v, want /foo", tok.ExecData["Path"])
+	}
+	// Set 接受 int 直传, 走到 framework merged map. inputsImpl.Int 处理 int → 42.
+	if tok.ExecData["Count"] != 42 {
+		t.Errorf("ExecData[Count] = %v, want 42", tok.ExecData["Count"])
+	}
+	// 真跑 sink 节点验 in.X 读取
+	sinkNode := r.nodesByID["snk"]
+	_, err = r.execNodeViaFramework(context.Background(), sinkNode, tok)
+	if err != nil {
+		t.Fatalf("sink dispatch error: %v", err)
+	}
+	if !tdSinkRecorded.Saw {
+		t.Fatal("sink Run not called")
+	}
+	if tdSinkRecorded.Path != "/foo" {
+		t.Errorf("sink saw Path = %q, want /foo", tdSinkRecorded.Path)
+	}
+	if tdSinkRecorded.Count != 42 {
+		t.Errorf("sink saw Count = %d, want 42", tdSinkRecorded.Count)
 	}
 }
 

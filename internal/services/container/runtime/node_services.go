@@ -339,6 +339,7 @@ func (a *visionAdapter) Match(key string, threshold float64) (*node.Point, float
 	if err != nil {
 		return nil, 0, err
 	}
+	a.writeLastTemplate(found, pt)
 	if !found {
 		return nil, 0, nil
 	}
@@ -355,6 +356,7 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, key string, threshold flo
 		if err != nil {
 			return nil, 0, err
 		}
+		a.writeLastTemplate(found, pt)
 		if !found {
 			return nil, 0, nil
 		}
@@ -370,9 +372,11 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, key string, threshold flo
 			return nil, 0, err
 		}
 		if found {
+			a.writeLastTemplate(true, pt)
 			return &node.Point{X: pt.X, Y: pt.Y}, 1.0, nil
 		}
 		if time.Now().After(deadline) {
+			a.writeLastTemplate(false, expr.Point{})
 			return nil, 0, nil
 		}
 		select {
@@ -381,6 +385,20 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, key string, threshold flo
 		case <-time.After(visionWaitPollMs * time.Millisecond):
 		}
 	}
+}
+
+// writeLastTemplate 写 SysState.LastFound/LastPoint — Match/WaitMatch 复刻老 runtime
+// execCheckTemplate/execWaitTemplate 的副作用, 让 GetSys path=lastTemplate.{found,point}
+// 下游节点能读. fishing-v2 watchdog_check / inspect_phase 等子图依赖.
+func (a *visionAdapter) writeLastTemplate(found bool, pt expr.Point) {
+	a.rt.UpdateSys(func(s *SysState) {
+		s.LastFound = found
+		if found {
+			s.LastPoint = pt
+		} else {
+			s.LastPoint = expr.Point{}
+		}
+	})
 }
 
 func (a *visionAdapter) BarTrack(roi node.Rect) (node.BarTrackResult, error) {
@@ -428,7 +446,16 @@ func (a *visionAdapter) DetectColor(region [4]float64, mode string, rng [6]int) 
 	if a.rt.Color == nil {
 		return 0, 0, 0, nil
 	}
-	return a.rt.Color.Detect(context.Background(), a.rt.Window.HWND, region, mode, rng)
+	count, cx, cy, err := a.rt.Color.Detect(context.Background(), a.rt.Window.HWND, region, mode, rng)
+	if err == nil {
+		// 老 runtime execDetectColor 写 LastColorCount/LastColorCenter — GetSys
+		// path=lastColor.count/cx/cy 下游读.
+		a.rt.UpdateSys(func(s *SysState) {
+			s.LastColorCount = int64(count)
+			s.LastColorCenter = expr.Point{X: cx, Y: cy}
+		})
+	}
+	return count, cx, cy, err
 }
 
 func (a *visionAdapter) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, float64, error) {
@@ -444,6 +471,11 @@ func (a *visionAdapter) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, f
 		return 0, 0, fmt.Errorf("capture: nil frame")
 	}
 	count, ratio := countHSVInROI(frame, hsvRangeFromNode(hsv))
+	// 老 runtime execDetectColorHSV 写 LastDetect — GetSys path=lastDetect.pixelCount/pixelRatio 读.
+	a.rt.UpdateSys(func(s *SysState) {
+		s.LastDetect.PixelCount = count
+		s.LastDetect.PixelRatio = ratio
+	})
 	return count, ratio, nil
 }
 
@@ -469,6 +501,11 @@ func (a *visionAdapter) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis stri
 			PxCount:  c.PxCount,
 		}
 	}
+	// 老 runtime execROIColorScan 写 LastROIScan — GetSys path=lastROIScan.{clusterCount,clusters} 读.
+	a.rt.UpdateSys(func(s *SysState) {
+		s.LastROIScan.Clusters = internal
+		s.LastROIScan.ClusterCount = len(internal)
+	})
 	return out, nil
 }
 

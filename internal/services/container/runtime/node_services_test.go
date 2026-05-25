@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"yhbox/internal/node"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
+	"yhbox/internal/services/expr"
 )
 
 // newAdapterTestRT 构造一个最小 RuntimeContext 供 adapter 测试用.
@@ -234,6 +236,90 @@ func TestNewServiceBundleFor_AllSlotsFilled(t *testing.T) {
 	if bundle.Stopwatches == nil {
 		t.Error("bundle.Stopwatches is nil")
 	}
+}
+
+// ============================================================================
+// VisionAdapter SysState writeback (cleanup plan P0.1)
+// ============================================================================
+
+// stubMatcher 控 found / point 让 test 验 LastFound/LastPoint 写回.
+type stubMatcher struct {
+	found bool
+	pt    expr.Point
+}
+
+func (m stubMatcher) Detect(_ context.Context, _ string, _ uintptr, _ string, _ float64, _ []float64) (bool, expr.Point, [4]float64, error) {
+	return m.found, m.pt, [4]float64{}, nil
+}
+
+// stubColorDetector 控返回 count/cx/cy 验 DetectColor 写 LastColorCount/LastColorCenter.
+type stubColorDetector struct {
+	count   int
+	cx, cy  float64
+}
+
+func (d stubColorDetector) Detect(_ context.Context, _ uintptr, _ [4]float64, _ string, _ [6]int) (int, float64, float64, error) {
+	return d.count, d.cx, d.cy, nil
+}
+
+func TestVisionAdapter_Match_WritesLastTemplate(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.Matcher = stubMatcher{found: true, pt: expr.Point{X: 0.42, Y: 0.13}}
+	a := &visionAdapter{rt: rt}
+	_, _, err := a.Match("foo", 0.8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sys := newAdapterSysSnapshot(rt)
+	if !sys.LastFound {
+		t.Error("LastFound = false, want true after Match found")
+	}
+	if sys.LastPoint.X != 0.42 || sys.LastPoint.Y != 0.13 {
+		t.Errorf("LastPoint = %v, want {0.42, 0.13}", sys.LastPoint)
+	}
+}
+
+func TestVisionAdapter_Match_NotFoundResetsState(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.Matcher = stubMatcher{found: false}
+	// 先 inject found state, 再调 Match 确认被清回
+	rt.UpdateSys(func(s *SysState) { s.LastFound = true; s.LastPoint = expr.Point{X: 1, Y: 1} })
+	a := &visionAdapter{rt: rt}
+	_, _, err := a.Match("foo", 0.8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sys := newAdapterSysSnapshot(rt)
+	if sys.LastFound {
+		t.Error("LastFound = true, want false after Match miss")
+	}
+	if sys.LastPoint != (expr.Point{}) {
+		t.Errorf("LastPoint = %v, want zero", sys.LastPoint)
+	}
+}
+
+func TestVisionAdapter_DetectColor_WritesLastColor(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.Color = stubColorDetector{count: 42, cx: 0.5, cy: 0.6}
+	a := &visionAdapter{rt: rt}
+	_, _, _, err := a.DetectColor([4]float64{}, "hsv", [6]int{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sys := newAdapterSysSnapshot(rt)
+	if sys.LastColorCount != 42 {
+		t.Errorf("LastColorCount = %d, want 42", sys.LastColorCount)
+	}
+	if sys.LastColorCenter.X != 0.5 || sys.LastColorCenter.Y != 0.6 {
+		t.Errorf("LastColorCenter = %v, want {0.5, 0.6}", sys.LastColorCenter)
+	}
+}
+
+// newAdapterSysSnapshot 借 SysStoreAdapter 拿 SysState snapshot (避免直接访问 mu 保护字段).
+func newAdapterSysSnapshot(rt *RuntimeContext) SysState {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	return rt.sys
 }
 
 // ============================================================================
