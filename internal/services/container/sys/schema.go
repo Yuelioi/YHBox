@@ -1,5 +1,5 @@
 // Package sys owns the single source of truth for $sys runtime state schema.
-// Both runtime (`evalGetSys`) and validator (`validateGetSysNodes`) import this
+// Both nodes/variable GetSys.Evaluate and validator (`validateGetSysNodes`) import this
 // — eliminates the duplicated SysPathSchema / sysPathSchemaCopy maps that
 // drifted easily (review §2 finding).
 //
@@ -12,7 +12,7 @@ package sys
 // PathSchema maps $sys.<path> → frontend PinType (string form).
 // Used by:
 //   - validator/validator_getsys.go to flag unknown paths (GETSYS_UNKNOWN_PATH)
-//   - runtime/getsys.go for editor schema export + path type inference
+//   - nodes/variable/get_sys.go for Evaluate-time unknown-path rejection
 //   - frontend GetSys Inspector dropdown options (via Wails RPC bridging)
 var PathSchema = map[string]string{
 	"runId":                    "number",

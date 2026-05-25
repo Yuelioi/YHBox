@@ -155,8 +155,7 @@ func (pureAdd) Spec() Spec {
 		IsPureData: true,
 	}
 }
-func (pureAdd) Run(_ Ctx, _ Inputs) (Outputs, error)         { return nil, errors.New("Run should not be called") }
-func (pureAdd) Evaluate(_ Ctx, in Inputs) (any, error)       { return in.Float64("a") + in.Float64("b"), nil }
+func (pureAdd) Evaluate(_ Ctx, in Inputs) (any, error) { return in.Float64("a") + in.Float64("b"), nil }
 
 func TestEvaluatePureData_Happy(t *testing.T) {
 	ResetRegistryForTest()
@@ -186,7 +185,6 @@ func (pureMissingReq) Spec() Spec {
 		IsPureData: true,
 	}
 }
-func (pureMissingReq) Run(_ Ctx, _ Inputs) (Outputs, error)   { return nil, nil }
 func (pureMissingReq) Evaluate(_ Ctx, in Inputs) (any, error) { return in.Float64("x"), nil }
 
 func TestEvaluatePureData_RequiredMissing_Errors(t *testing.T) {
@@ -200,24 +198,9 @@ func TestEvaluatePureData_RequiredMissing_Errors(t *testing.T) {
 	}
 }
 
-// pureNonEvaluator IsPureData but no Evaluate method → EvaluatePureData 返 error.
-type pureNonEvaluator struct{}
-
-func (pureNonEvaluator) Spec() Spec {
-	return Spec{Kind: "PureNoEval", Outputs: []OutputSpec{{Name: "result", Type: "*"}}, IsPureData: true}
-}
-func (pureNonEvaluator) Run(_ Ctx, _ Inputs) (Outputs, error) { return nil, nil }
-
-func TestEvaluatePureData_NoEvaluator_Errors(t *testing.T) {
-	ResetRegistryForTest()
-	Register(pureNonEvaluator{})
-	rn, _ := Get("PureNoEval")
-
-	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
-	if err == nil {
-		t.Fatal("expected error for node without Evaluator")
-	}
-}
+// (TestEvaluatePureData_NoEvaluator_Errors 已删 — Register strict invariant 让
+// IsPureData=true + missing Evaluator 在 Register 时 panic, EvaluatePureData 入口
+// 永远拿不到这种节点. Register strict 守护见 registry_test.go.)
 
 // Non-pure-data node → EvaluatePureData rejects.
 func TestEvaluatePureData_NotIsPureData_Errors(t *testing.T) {
@@ -237,7 +220,6 @@ type purePanic struct{}
 func (purePanic) Spec() Spec {
 	return Spec{Kind: "PurePanic", Outputs: []OutputSpec{{Name: "result", Type: "*"}}, IsPureData: true}
 }
-func (purePanic) Run(_ Ctx, _ Inputs) (Outputs, error)   { return nil, nil }
 func (purePanic) Evaluate(_ Ctx, _ Inputs) (any, error) { panic("oops") }
 
 func TestEvaluatePureData_PanicRecovered(t *testing.T) {

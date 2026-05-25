@@ -54,3 +54,80 @@ func TestAll_ReturnsSnapshot(t *testing.T) {
 		t.Errorf("All len = %d, want 2", len(all))
 	}
 }
+
+// ============================================================================
+// C5b: Register strict capability invariant — exactly-one + IsPureData⟹Evaluator.
+// ============================================================================
+
+type zeroCapNode struct{}
+
+func (zeroCapNode) Spec() Spec { return Spec{Kind: "ZeroCap"} }
+
+type multiCapNode struct{}
+
+func (multiCapNode) Spec() Spec                            { return Spec{Kind: "MultiCap"} }
+func (multiCapNode) Run(_ Ctx, _ Inputs) (Outputs, error)  { return nil, nil }
+func (multiCapNode) Evaluate(_ Ctx, _ Inputs) (any, error) { return nil, nil }
+
+type pureNoEvalNode struct{}
+
+func (pureNoEvalNode) Spec() Spec                           { return Spec{Kind: "PureNoEval", IsPureData: true} }
+func (pureNoEvalNode) Run(_ Ctx, _ Inputs) (Outputs, error) { return nil, nil }
+
+type markerNode struct{}
+
+func (markerNode) Spec() Spec { return Spec{Kind: "Marker", IsGraphMarker: true} }
+
+type visualNode struct{}
+
+func (visualNode) Spec() Spec { return Spec{Kind: "Visual", IsVisualOnly: true} }
+
+func TestRegister_ZeroCapability_NonMarker_Panics(t *testing.T) {
+	ResetRegistryForTest()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic on zero-capability non-marker node, got none")
+		}
+	}()
+	Register(zeroCapNode{})
+}
+
+func TestRegister_MultipleCapabilities_Panics(t *testing.T) {
+	ResetRegistryForTest()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic on multi-capability node, got none")
+		}
+	}()
+	Register(multiCapNode{})
+}
+
+func TestRegister_IsPureDataWithoutEvaluator_Panics(t *testing.T) {
+	ResetRegistryForTest()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic on IsPureData node without Evaluator, got none")
+		}
+	}()
+	Register(pureNoEvalNode{})
+}
+
+func TestRegister_IsGraphMarker_AllowsZero_OK(t *testing.T) {
+	ResetRegistryForTest()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("expected no panic for IsGraphMarker zero-cap node, got %v", r)
+		}
+	}()
+	Register(markerNode{})
+}
+
+func TestRegister_IsVisualOnly_AllowsZero_OK(t *testing.T) {
+	ResetRegistryForTest()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("expected no panic for IsVisualOnly zero-cap node, got %v", r)
+		}
+	}()
+	Register(visualNode{})
+}

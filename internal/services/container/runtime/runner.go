@@ -245,7 +245,7 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 
 		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (P1.6 单一抓点), 这里不再抓.
 		// passthroughDisabled / IsVisualOnly / IsPureData reject 路径都不需要 snapshot
-		// (consumer evalGetVar/evalGetSys 只在 data pull 阶段读).
+		// (consumer GetVar/GetSys.Evaluate 经 framework snapshot wrap 在 data pull 阶段读).
 		out, err := r.execNode(ctx, node, tok)
 		if err != nil {
 			if errors.Is(err, errStopRun) {

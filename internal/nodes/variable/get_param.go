@@ -1,9 +1,13 @@
 // internal/nodes/variable/get_param.go
-// GetParam pure-data — pull-based evaluator reads subgraph input param.
-// Phase 4 stub; Phase 5 subgraph runtime impl wires this.
+// GetParam pure-data — Evaluator capability. ctx.Params() 读当前 frame.LocalParams
+// (subgraph 入参). frame-private state, snapshot wrap 不包.
 package variable
 
-import "yhbox/internal/node"
+import (
+	"fmt"
+
+	"yhbox/internal/node"
+)
 
 func init() { node.Register(&GetParam{}) }
 
@@ -30,5 +34,14 @@ func (GetParam) Spec() node.Spec {
 		},
 		IsPureData: true,
 	}
+}
+
+func (GetParam) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
+	name := in.String(gpInParamName)
+	if name == "" {
+		return nil, fmt.Errorf("GetParam: missing ParamName")
+	}
+	v, _ := ctx.Params().Get(name)
+	return v, nil
 }
 

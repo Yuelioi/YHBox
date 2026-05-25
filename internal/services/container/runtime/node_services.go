@@ -62,7 +62,7 @@ func (a *varStoreAdapter) Inc(name string, delta float64) float64 {
 }
 
 // scoped 变种: scope=global → rt.vars; scope=local → frame.LocalVars; scope=auto →
-// frame.LocalVars 已有 → local, 否则 global. 镜像老 execSetVar/execIncVar/evalGetVar.
+// frame.LocalVars 已有 → local, 否则 global. 镜像老 execSetVar/execIncVar/GetVar.
 //
 // Adapter 持 *RuntimeContext, RuntimeContext.State() 拿当前 ExecState (LocalVars 栈).
 
@@ -129,9 +129,10 @@ func NewVarStoreAdapter(rt *RuntimeContext, state ...func() *ExecState) node.Var
 }
 
 // ============================================================================
-// SysStoreAdapter — RuntimeContext.sys + special-cases → node.SysStore
-// 镜像 evalGetSys: now_ms / varLastChange.<name> live 读, 其余走 resolveSysPath.
-// Phase 5.5 接 tick snapshot 时再加 currentTick 路径.
+// SysStoreAdapter — RuntimeContext.sys + special-cases → node.SysStore.
+// 镜像 GetSys path 解析: now_ms / varLastChange.<name> live 读, 其余走 resolveSysPath.
+// 注: PureData Evaluator 经 framework snapshot wrap 拿到的是 frozenSysStoreAdapter
+// (持 tick-frozen SysState), 不是这个 live adapter. live adapter 给 Runnable 节点.
 // ============================================================================
 
 type sysStoreAdapter struct{ rt *RuntimeContext }

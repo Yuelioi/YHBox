@@ -62,7 +62,7 @@ func Register(impl Node) {
 	if d, ok := impl.(Dependencer); ok {
 		rn.Dependencies = d.Dependencies
 	}
-	// Capability 探测 (exactly-one validation 留 C5 激活, 待 Get* Evaluator 迁移完).
+	// Capability 探测 (C5b 激活 strict validation).
 	if r, ok := impl.(Runnable); ok {
 		rn.Run = r.Run
 	}
@@ -72,6 +72,32 @@ func Register(impl Node) {
 	if e, ok := impl.(Evaluator); ok {
 		rn.Evaluate = e.Evaluate
 	}
+
+	// Strict capability invariant — P2.2 a+b+d 完成 (C5b):
+	//   - 非 IsGraphMarker / IsVisualOnly 节点必须 exactly one capability
+	//   - IsPureData 节点必须 Evaluator
+	// 违反 → Register panic, init-time 失败立刻可见.
+	capCount := 0
+	if rn.Run != nil {
+		capCount++
+	}
+	if rn.RunRegion != nil {
+		capCount++
+	}
+	if rn.Evaluate != nil {
+		capCount++
+	}
+	isException := spec.IsGraphMarker || spec.IsVisualOnly
+	if !isException && capCount == 0 {
+		panic(fmt.Sprintf("node %q: zero capabilities — must implement one of Runnable/RegionRunner/Evaluator (or set IsGraphMarker/IsVisualOnly)", spec.Kind))
+	}
+	if capCount > 1 {
+		panic(fmt.Sprintf("node %q: multiple capabilities (%d) — exactly one of Runnable/RegionRunner/Evaluator allowed", spec.Kind, capCount))
+	}
+	if spec.IsPureData && rn.Evaluate == nil {
+		panic(fmt.Sprintf("node %q: IsPureData=true but missing Evaluator", spec.Kind))
+	}
+
 	globalRegistry[spec.Kind] = rn
 }
 

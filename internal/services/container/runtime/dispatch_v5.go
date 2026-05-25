@@ -278,8 +278,9 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 // Phase 5.5c cutover 后这是 execNode 主入口 (替换老 switch).
 //
 // per-exec-tick snapshot 也只在这里抓 (P1.6 单一抓点) — runner.go::Run / nodes.go::runSubFlow /
-// runRegionBody 都不重复抓. consumers (evalGetVar / evalGetSys) 只在节点 data pull 阶段读, 跟
-// dispatchInRegion → execNode(AsRegion)ViaFramework → buildDataWireFor 同周期, 入口抓一次足够.
+// runRegionBody 都不重复抓. consumers (GetVar.Evaluate / GetSys.Evaluate 经 framework
+// snapshot wrap) 只在节点 data pull 阶段读, 跟 dispatchInRegion → execNode(AsRegion)ViaFramework
+// → buildDataWireFor 同周期, 入口抓一次足够.
 func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	rn, ok := nodepkg.Get(n.Kind)
 	if !ok {

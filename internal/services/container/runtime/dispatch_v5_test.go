@@ -869,7 +869,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 
 // TestExecNodeAsRegionViaFramework_SubgraphPassesParams 验证 Phase 5.5b 补丁:
 // Subgraph 节点 Config["Params"] 是 JSON map, runner PushFrame 后 unpack 到
-// frame.LocalParams. callee 子图内 GetParam 节点 (走老 evalGetParam path) 应能读到值.
+// frame.LocalParams. callee 子图内 GetParam 节点 (走 framework GetParam.Evaluate) 应能读到值.
 //
 // 拓扑:
 //   主图: sg_call (Subgraph SubgraphID=paramSub Params={greeting:"hello"}) → done_n (Stop)
@@ -1048,11 +1048,12 @@ func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
 	}
 }
 
-// TestBuildDataWireFor_FallbackToOldPath — 上游是 GetVar (IsPureData 但没实现 Evaluator) →
-// resolveDataPinV5 应 fallback 到老 r.pullDataPin → r.evalGetVar (从 rt.Vars / currentTick.Vars 读).
+// TestBuildDataWireFor_GetVarViaFramework — 上游是 GetVar (IsPureData + Evaluator) →
+// resolveDataPinV5 走 nodepkg.EvaluatePureData, framework snapshot wrap 把 ctx.Vars()
+// 替成 snapshot view, scope="global" 拿 frozen Vars (从 currentTick.Vars 读).
 //
-// 验证 partial 期不实现 Evaluator 的 pure-data 节点仍能正确 fallback, 不挂.
-func TestBuildDataWireFor_FallbackToOldPath(t *testing.T) {
+// 验证 C5b Get* cutover 后, dispatch 经 framework path 跨节点拉 GetVar 值.
+func TestBuildDataWireFor_GetVarViaFramework(t *testing.T) {
 	resetTdEcho()
 	c := &container.Container{
 		SchemaVersion: 1,
@@ -1072,18 +1073,18 @@ func TestBuildDataWireFor_FallbackToOldPath(t *testing.T) {
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
 	rt.SetVar("myvar", "from-old-path")
 	r := NewContainerRunner(rt)
-	// evalGetVar 需要 currentTick 不 nil. 模拟主循环抓 snapshot 行为.
+	// GetVar.Evaluate 经 snapshot wrap 读 frozen Vars; 主循环抓 snapshot 模拟之.
 	r.currentTick = CaptureSnapshot(rt.Vars(), rt.Sys())
 	defer func() { r.currentTick = nil }()
 	echoNode := r.nodesByID["echo_n"]
 
 	_, err := r.execNodeViaFramework(context.Background(), echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})
 	if err != nil {
-		t.Fatalf("fallback to evalGetVar: %v", err)
+		t.Fatalf("GetVar via framework: %v", err)
 	}
 	got := getTdEchoLast()
 	if got != "from-old-path" {
-		t.Errorf("GetVar fallback = %v, want \"from-old-path\" (老 evalGetVar 应被 dispatch_v5 fallback 调到)", got)
+		t.Errorf("GetVar via framework = %v, want \"from-old-path\"", got)
 	}
 }
 

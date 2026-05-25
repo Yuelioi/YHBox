@@ -88,7 +88,10 @@ func (r *ContainerRunner) pullDataPin(nodeID, pinName string) (expr.Value, error
 
 // evalDataSource dispatches by source node Kind. Only pure-data Kinds are valid sources
 // (a data edge from an exec node like Sleep would be a schema error caught by validator).
-// Phase A wires GetVar only; later phases extend the switch for GetSys/GetParam/Expr/pure funcs.
+//
+// C5b: Get* (GetVar/GetSys/GetParam) + Expr 全走 framework EvaluatePureData (跟
+// resolveDataPinV5 同模式). 22 pure-function 仍走 evalPureFunc (legacy) — capability
+// segregation 完成前两者并存, pure-func 跨 commit 单独迁.
 func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, error) {
 	n := r.nodesByID[srcNodeID]
 	if n == nil {
@@ -111,20 +114,8 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 		return nil, fmt.Errorf("evalDataSource: kind %q is not pure-data (pin %q); use sys snapshot for exec-node data-out", n.Kind, srcPin)
 	}
 	switch n.Kind {
-	case "GetVar":
-		return r.evalGetVar(n)
-	case "GetSys":
-		return r.evalGetSys(n)
-	case "GetParam":
-		return r.evalGetParam(n)
-	case "Expr":
-		// Expr 走 framework EvaluatePureData (跟 resolveDataPinV5 一致). buildDataWireFor
-		// 已知 Expr 节点特例, 会把 config.Inputs[] 声明的 dynamic name pull 进 dataWire.
-		srcDataWire := r.buildDataWireFor(context.Background(), n, rn)
-		srcConfig := r.buildConfigFor(n)
-		v, err := nodepkg.EvaluatePureData(context.Background(), rn, srcDataWire, srcConfig, r.bundle)
-		return toExprValue(v), err
-	// v4 §6: 22 pure-function nodes — all dispatched through evalPureFunc.
+	// v4 §6: 22 pure-function nodes — all dispatched through evalPureFunc (legacy path,
+	// 仍走 r.pullDataPin 拉输入). Get* + Expr 已迁 framework, fallthrough default.
 	case "Add", "Sub", "Mul", "Div", "Mod", "Neg",
 		"Lt", "LtEq", "Gt", "GtEq", "Eq", "NotEq",
 		"And", "Or", "Not",
@@ -133,7 +124,15 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 		"Select":
 		return r.evalPureFunc(n)
 	}
-	return nil, fmt.Errorf("evalDataSource: IsPureData=true but no eval case for kind %q (registry/dispatch drift!)", n.Kind)
+	// Default: 走 framework EvaluatePureData. Get*/Expr 都在这条 path (Evaluator-impl).
+	// buildDataWireFor 对 Expr 特例 (config.Inputs[] dynamic) + 普通节点 spec data-in 都覆盖.
+	if rn.Evaluate == nil {
+		return nil, fmt.Errorf("evalDataSource: IsPureData=true but kind %q does not implement Evaluator", n.Kind)
+	}
+	srcDataWire := r.buildDataWireFor(context.Background(), n, rn)
+	srcConfig := r.buildConfigFor(n)
+	v, err := nodepkg.EvaluatePureData(context.Background(), rn, srcDataWire, srcConfig, r.bundle)
+	return toExprValue(v), err
 }
 
 // pullNumber: v4-only data-pin resolution (data edge or inline literal). No v3 fallback.

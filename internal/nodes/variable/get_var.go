@@ -1,9 +1,13 @@
 // internal/nodes/variable/get_var.go
-// GetVar pure-data — pull-based evaluator reads variable. Phase 4 stub Run returns sentinel.
-// Phase 5 wire 加 pull-eval, GetVar.Run 永不调.
+// GetVar pure-data — Evaluator capability. ctx.Vars() 在 EvaluatePureData 入口
+// 已被 framework wrap 成 snapshot-mode (scope="global"/auto-fallback 走 frozen view).
 package variable
 
-import "yhbox/internal/node"
+import (
+	"fmt"
+
+	"yhbox/internal/node"
+)
 
 func init() { node.Register(&GetVar{}) }
 
@@ -40,5 +44,18 @@ func (GetVar) Spec() node.Spec {
 		},
 		IsPureData: true,
 	}
+}
+
+func (GetVar) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
+	name := in.String(gvInVarName)
+	if name == "" {
+		return nil, fmt.Errorf("GetVar: missing VarName")
+	}
+	scope := in.String(gvInScope)
+	if scope == "" {
+		scope = "auto"
+	}
+	v, _ := ctx.Vars().GetScoped(name, scope)
+	return v, nil
 }
 
