@@ -205,7 +205,7 @@ func (s *Service) CreateSubgraph(containerID, label string) (Subgraph, error) {
 			Nodes: []GraphNode{
 				{ID: "in", Kind: "SubgraphInput", X: 80, Y: 160, CreatedAt: now},
 				{ID: "out", Kind: "SubgraphOutput", X: 420, Y: 160,
-					Config: map[string]any{"declID": declID}, CreatedAt: now},
+					Config: map[string]any{"DeclID": declID}, CreatedAt: now},
 			},
 		},
 		OutputPins: []SubgraphOutputDecl{{ID: declID, Name: "done"}},

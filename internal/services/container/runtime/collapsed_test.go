@@ -17,7 +17,7 @@ func TestExecCollapsedNode_DispatchesViaSameHandlerAsSubgraph(t *testing.T) {
 	sgID := "sg_collapsed"
 	rt, r := newTestRunnerWithSubgraph(t, sgID, []*container.GraphNode{
 		{ID: "sgin", Kind: "SubgraphInput", Config: map[string]any{}},
-		{ID: "sgout", Kind: "SubgraphOutput", Config: map[string]any{"declID": "done"}},
+		{ID: "sgout", Kind: "SubgraphOutput", Config: map[string]any{"DeclID": "done"}},
 	}, []container.GraphEdge{
 		{From: "sgin.out", To: "sgout.in"},
 	})

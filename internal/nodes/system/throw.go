@@ -17,7 +17,7 @@ type Throw struct{}
 
 const (
 	thInExec    = "in"
-	thInMessage = "message"
+	thInMessage = "Message"
 )
 
 func (Throw) Spec() node.Spec {

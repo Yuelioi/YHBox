@@ -216,7 +216,7 @@ func TestBuildSimpleSubgraph_LinearLayout(t *testing.T) {
 	if outNode.Kind != "SubgraphOutput" {
 		t.Fatalf("最后节点应是 SubgraphOutput")
 	}
-	if declID, _ := outNode.Config["declID"].(string); declID != sg.OutputPins[0].ID {
+	if declID, _ := outNode.Config["DeclID"].(string); declID != sg.OutputPins[0].ID {
 		t.Errorf("SubgraphOutput.declID 应=OutputPins[0].ID, want %s, got %s", sg.OutputPins[0].ID, declID)
 	}
 }

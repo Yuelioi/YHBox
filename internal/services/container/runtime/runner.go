@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
@@ -141,7 +142,7 @@ func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 func snapshotMainCalibCounts(c *container.Container) int {
 	for _, n := range c.Graph.Nodes {
 		if n.Kind == "MouseCalibration" {
-			if v, ok := n.Config["counts360"]; ok {
+			if v, ok := n.Config["Counts360"]; ok {
 				switch x := v.(type) {
 				case int:
 					return x
@@ -149,6 +150,10 @@ func snapshotMainCalibCounts(c *container.Container) int {
 					return int(x)
 				case float64:
 					return int(x)
+				case json.Number:
+					if i, err := x.Int64(); err == nil {
+						return int(i)
+					}
 				}
 			}
 		}

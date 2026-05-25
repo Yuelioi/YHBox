@@ -9,6 +9,7 @@
 package input
 
 import (
+	"encoding/json"
 	"errors"
 
 	"yhbox/internal/node"
@@ -53,18 +54,18 @@ func (OnEvent) Spec() node.Spec {
 				Doc:         "命名空间.名 格式, kind=template_appeared 时必填",
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
-			{Name: oeInThreshold, Type: "Number", Default: 0.85,
+			{Name: oeInThreshold, Type: "Number", Default: json.Number("0.85"),
 				DisplayName: "阈值",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-			{Name: oeInPollIntervalMs, Type: "Number", Default: 100,
+			{Name: oeInPollIntervalMs, Type: "Number", Default: json.Number("100"),
 				DisplayName: "轮询间隔 (ms)",
 				Widget:      node.WidgetSpec{Kind: "number"}},
-			{Name: oeInMaxConcurrent, Type: "Number", Default: 1,
+			{Name: oeInMaxConcurrent, Type: "Number", Default: json.Number("1"),
 				DisplayName: "并发上限",
 				Advanced:    true,
 				Widget:      node.WidgetSpec{Kind: "number"}},
-			{Name: oeInCooldownMs, Type: "Number", Default: 0,
+			{Name: oeInCooldownMs, Type: "Number", Default: json.Number("0"),
 				DisplayName: "冷却 (ms)",
 				Advanced:    true,
 				Widget:      node.WidgetSpec{Kind: "number"}},

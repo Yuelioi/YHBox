@@ -13,7 +13,7 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 		GraphNode{
 			ID:        "cal",
 			Kind:      "MouseCalibration",
-			Config:    map[string]any{"counts360": 1800},
+			Config:    map[string]any{"Counts360": 1800},
 			CreatedAt: time.Now().UTC(),
 		},
 	)
@@ -51,7 +51,7 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 	c2, _ := st.Get(cid)
 	for _, n := range c2.Graph.Nodes {
 		if n.ID == "cal" {
-			counts, _ := intFromConfig(n.Config, "counts360")
+			counts, _ := intFromConfig(n.Config, "Counts360")
 			if counts != 2200 {
 				t.Errorf("main cal.counts360 = %d, want 2200", counts)
 			}

@@ -10,14 +10,18 @@
 // graph validator 加 cross-node check.
 package system
 
-import "yhbox/internal/node"
+import (
+	"encoding/json"
+
+	"yhbox/internal/node"
+)
 
 func init() { node.Register(&MouseCalibration{}) }
 
 type MouseCalibration struct{}
 
 const (
-	mcInCounts360 = "counts360"
+	mcInCounts360 = "Counts360"
 	mcOutFire     = "Fire"
 )
 
@@ -28,7 +32,7 @@ func (MouseCalibration) Spec() node.Spec {
 		DisplayName: "鼠标校准",
 		Description: "声明式 — runtime 启动期读 counts360 供 MouseMoveRel scaling 用. 节点本体 no-op, 走 Fire 出口表达 passthrough.",
 		Inputs: []node.InputSpec{
-			{Name: mcInCounts360, Type: "Number", Default: 0,
+			{Name: mcInCounts360, Type: "Number", Default: json.Number("0"),
 				DisplayName: "counts/360°",
 				Doc:         "鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.",
 				Widget:      node.WidgetSpec{Kind: "text"}},

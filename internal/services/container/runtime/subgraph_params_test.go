@@ -27,7 +27,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 	sgo := &container.GraphNode{
 		ID:     "sgo",
 		Kind:   "SubgraphOutput",
-		Config: map[string]any{"declID": "done"},
+		Config: map[string]any{"DeclID": "done"},
 	}
 
 	sg := container.Subgraph{

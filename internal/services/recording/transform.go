@@ -223,7 +223,7 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 		X:    stepNodeXSpacing * float32(len(steps)+1),
 		Y:    200,
 		Config: map[string]any{
-			"declID": outDeclID,
+			"DeclID": outDeclID,
 		},
 		CreatedAt: now,
 	})

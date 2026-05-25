@@ -39,7 +39,7 @@ func SyncLocalMouseCalibration(store *Store, newCounts int) (SyncMouseCalibratio
 				if n.Config == nil {
 					n.Config = map[string]any{}
 				}
-				n.Config["counts360"] = newCounts
+				n.Config["Counts360"] = newCounts
 				patched = true
 			}
 		}

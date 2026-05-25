@@ -13,7 +13,7 @@ import (
 func TestTryDonePath(t *testing.T) {
 	_, r := newTestRunnerWithSubgraph(t, "sg1", []*container.GraphNode{
 		{ID: "sg1in", Kind: "SubgraphInput"},
-		{ID: "sg1out", Kind: "SubgraphOutput", Config: map[string]any{"declID": "done"}},
+		{ID: "sg1out", Kind: "SubgraphOutput", Config: map[string]any{"DeclID": "done"}},
 	}, []container.GraphEdge{
 		{From: "sg1in.out", To: "sg1out.in"},
 	})

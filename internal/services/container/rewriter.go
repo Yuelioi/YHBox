@@ -71,9 +71,9 @@ func (r *GraphRewriter) Apply(g *Graph) {
 		}
 		// 3. SubgraphOutput 节点 config.declID 改写
 		if g.Nodes[i].Kind == "SubgraphOutput" {
-			if newDeclID, ok := r.declIDMap[stringFromConfig(g.Nodes[i].Config, "declID")]; ok {
+			if newDeclID, ok := r.declIDMap[stringFromConfig(g.Nodes[i].Config, "DeclID")]; ok {
 				if g.Nodes[i].Config != nil {
-					g.Nodes[i].Config["declID"] = newDeclID
+					g.Nodes[i].Config["DeclID"] = newDeclID
 				}
 			}
 		}

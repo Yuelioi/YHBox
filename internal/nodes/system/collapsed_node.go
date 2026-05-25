@@ -16,7 +16,7 @@ type CollapsedNode struct{}
 const (
 	cnInExec       = "in"
 	cnInSubgraphID = "SubgraphID"
-	cnInLabel      = "label"
+	cnInLabel      = "Label"
 	cnOutDone      = "Done"
 )
 

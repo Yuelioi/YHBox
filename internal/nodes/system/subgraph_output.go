@@ -15,7 +15,7 @@ type SubgraphOutput struct{}
 
 const (
 	soInExec   = "in"
-	soInDeclID = "declID"
+	soInDeclID = "DeclID"
 )
 
 func (SubgraphOutput) Spec() node.Spec {

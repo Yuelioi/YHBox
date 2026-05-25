@@ -8,17 +8,21 @@
 // sentinels.go) 让 framework 显式报错而不是 silently no-op.
 package system
 
-import "yhbox/internal/node"
+import (
+	"encoding/json"
+
+	"yhbox/internal/node"
+)
 
 func init() { node.Register(&CommentBox{}) }
 
 type CommentBox struct{}
 
 const (
-	cbInLabel  = "label"
-	cbInColor  = "color"
-	cbInWidth  = "width"
-	cbInHeight = "height"
+	cbInLabel  = "Label"
+	cbInColor  = "Color"
+	cbInWidth  = "Width"
+	cbInHeight = "Height"
 )
 
 func (CommentBox) Spec() node.Spec {
@@ -34,10 +38,10 @@ func (CommentBox) Spec() node.Spec {
 			{Name: cbInColor, Type: "String", Default: "#fbbf24",
 				DisplayName: "颜色",
 				Widget:      node.WidgetSpec{Kind: "text"}},
-			{Name: cbInWidth, Type: "Number", Default: 200,
+			{Name: cbInWidth, Type: "Number", Default: json.Number("200"),
 				DisplayName: "宽度",
 				Widget:      node.WidgetSpec{Kind: "text"}},
-			{Name: cbInHeight, Type: "Number", Default: 150,
+			{Name: cbInHeight, Type: "Number", Default: json.Number("150"),
 				DisplayName: "高度",
 				Widget:      node.WidgetSpec{Kind: "text"}},
 		},

@@ -28,7 +28,7 @@ func normalizeSubgraph(sg *Subgraph) {
 	sg.Graph.Nodes = append(sg.Graph.Nodes, GraphNode{
 		ID: "out-" + uuid.NewString()[:8], Kind: "SubgraphOutput",
 		X: 420, Y: 160,
-		Config:    map[string]any{"declID": declID},
+		Config:    map[string]any{"DeclID": declID},
 		CreatedAt: time.Now().UTC(),
 	})
 }

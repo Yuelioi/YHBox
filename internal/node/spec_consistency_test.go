@@ -34,13 +34,8 @@ import (
 // kindMigrationPending — 这些 kind 的 data pin 还有 lowercase 字段, 等单独 batch 迁;
 // 别 fail lint 但仍标 backlog. 完整迁完后删 entry.
 var kindMigrationPending = map[string]struct{}{
-	"WindowTarget":     {}, // match.title/class/processName/titleMatch + runtime.inputBackend/captureBackend
-	"CollapsedNode":    {}, // label
-	"MouseCalibration": {}, // counts360
-	"SubgraphOutput":   {}, // declID
-	"CommentBox":       {}, // label/color/width/height
-	"Throw":            {}, // message
-	"OnEvent":          {}, // Number defaults (Threshold/PollIntervalMs/MaxConcurrent/CooldownMs) — int/float64 not json.Number
+	"WindowTarget": {}, // match.title/class/processName/titleMatch + runtime.inputBackend/captureBackend
+	// CollapsedNode/MouseCalibration/SubgraphOutput/CommentBox/Throw/OnEvent — 已迁完, 加 lint.
 }
 
 func TestSpecConsistency_DataPinNamingConvention(t *testing.T) {
