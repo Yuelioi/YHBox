@@ -1,16 +1,11 @@
 // internal/nodes/input/on_event.go
-// OnEvent — IsYield 事件监听节点 (listener-style). 老 runtime:
-// listener.go::EventListener — 主图启动期 spawn 长跑 goroutine, 周期性 Detect,
-// 命中条件 → spawn 子 runner 跑 out pin 后裔子图 (maxConcurrent /
-// retriggerPolicy=drop|queue|restart / cooldownMs 决定 spawn 节奏).
-// 节点本身在主 dispatch 中不被调用 (没 exec-in).
+// OnEvent — 事件监听节点 (listener-style). runtime listener.go::EventListener
+// 在主图启动期 spawn 长跑 goroutine, 周期性 Detect, 命中条件 → spawn 子 runner 跑
+// out pin 后裔子图 (maxConcurrent / retriggerPolicy=drop|queue|restart /
+// cooldownMs 决定 spawn 节奏). 节点本身在主 dispatch 中不被调用 (没 exec-in),
+// 直调 Run 返 sentinel.
 //
-// Phase 5 wire 需要新增 EventBus service (Subscribe(filter) + Fire), 让节点
-// Run 走 RegionRunner / yield 机制. 本 Phase 仅注册 Spec (FE 节点列表可见),
-// Run 返 errOnEventPhase5 sentinel — 用户在 graph 里放 OnEvent 跑会立刻报错.
-//
-// dependency.RegisterExtractor (老 specs/input.go) 在 kind=template_appeared
-// 时提 template 依赖, 新框架走 Dependencies(in) 复刻同逻辑.
+// Dependencies(in) 在 kind=template_appeared 时提 template 依赖, library scanner 走这个.
 package input
 
 import (

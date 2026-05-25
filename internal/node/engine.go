@@ -230,7 +230,7 @@ func validateRequired(spec *Spec, in Inputs) []ValidationError {
 		if !input.Required {
 			continue
 		}
-		if input.Type == "Exec" {
+		if input.Type == TypeExec {
 			continue // exec pin 不算 data required
 		}
 		if !in.Has(input.Name) {

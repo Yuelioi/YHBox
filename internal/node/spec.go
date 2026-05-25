@@ -3,6 +3,10 @@
 // 详见 workshop/specs/2026-05-24-node-system-refactor-design.md (Spec v3).
 package node
 
+// TypeExec exec pin 类型 tag. P2.7: 抽 const 避免 "Exec" magic string 散落.
+// 跟 InputSpec.Type / OutputSpec.Type 字段值对齐.
+const TypeExec = "Exec"
+
 // Spec 节点 metadata. 节点作者实现 Spec() 方法返这个.
 type Spec struct {
 	Kind        string `json:"kind"`

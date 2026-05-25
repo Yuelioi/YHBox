@@ -65,7 +65,7 @@ func firstExecOutPin(kind string) string {
 		return ""
 	}
 	for _, o := range rn.Spec.Outputs {
-		if o.Type == "Exec" {
+		if o.Type == nodepkg.TypeExec {
 			return o.Name
 		}
 	}

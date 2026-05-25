@@ -52,7 +52,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.GraphNode, rn *nodepkg.RegisteredNode) map[string]any {
 	dw := map[string]any{}
 	for _, ip := range rn.Spec.Inputs {
-		if ip.Type == "Exec" {
+		if ip.Type == nodepkg.TypeExec {
 			continue
 		}
 		v, err := r.resolveDataPinV5(ctx, node.ID, ip.Name)

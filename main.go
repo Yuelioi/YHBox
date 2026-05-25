@@ -262,8 +262,14 @@ func main() {
 	// v3 Phase B: input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析,
 	// 不再走 main.go 全局注入. containerInputDriver / wire_container 适配器已退役.
 	// T1.5: per-container template store 按需加载, containerID 作为 Detect 参数传入.
+	//
+	// Phase 5.9: container:warning emit 同时 zerolog.Warn — 让 warning 进
+	// logs/yhfish-*.log (LogSink) 给 post-mortem 用; 之前只走 wails Event.
 	templateMatcher := newTemplateMatcherAdapter(dataDir, func(name string, payload map[string]any) {
 		app.Emit(name, payload)
+		if name == "container:warning" {
+			rootLog.Warn().Interface("payload", payload).Msg("container warning")
+		}
 	})
 	containerColor := &containerColorAdapter{
 		fcEntries: make(map[uintptr]frameCacheEntry),
@@ -283,7 +289,13 @@ func main() {
 	})
 
 	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
-	emitForRuntime := func(name string, data any) { app.Emit(name, data) }
+	// Phase 5.9: container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
+	emitForRuntime := func(name string, data any) {
+		app.Emit(name, data)
+		if name == "container:warning" {
+			rootLog.Warn().Interface("payload", data).Msg("container warning")
+		}
+	}
 	runFunc := func(ctx context.Context, target execution.TargetRef) error {
 		if target.Kind != "container" {
 			return fmt.Errorf("unsupported target kind %q", target.Kind)

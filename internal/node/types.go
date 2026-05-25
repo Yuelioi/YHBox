@@ -1,6 +1,8 @@
 // internal/node/types.go
 package node
 
+import "sync"
+
 // Point 域类型 — ratio 坐标 (0.0-1.0).
 type Point struct {
 	X float64 `json:"x"`
@@ -22,10 +24,17 @@ type Color struct {
 	V int `json:"v"`
 }
 
-var typeRegistry = map[string]TypeSpec{}
+// P2.7: typeRegistry 加 mutex (跟 globalRegistry 对称). init() 之外的 RegisterType
+// 罕见, 但 AllTypes RPC handler 并发读取需安全.
+var (
+	typeRegistryMu sync.RWMutex
+	typeRegistry   = map[string]TypeSpec{}
+)
 
 // RegisterType 注册自定义 pin 类型. 内置类型 init() 自动注册.
 func RegisterType(ts TypeSpec) {
+	typeRegistryMu.Lock()
+	defer typeRegistryMu.Unlock()
 	if _, exists := typeRegistry[ts.Tag]; exists {
 		panic("type tag " + ts.Tag + " already registered")
 	}
@@ -34,6 +43,8 @@ func RegisterType(ts TypeSpec) {
 
 // AllTypes registry snapshot copy.
 func AllTypes() []TypeSpec {
+	typeRegistryMu.RLock()
+	defer typeRegistryMu.RUnlock()
 	out := make([]TypeSpec, 0, len(typeRegistry))
 	for _, ts := range typeRegistry {
 		out = append(out, ts)

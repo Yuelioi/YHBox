@@ -1,8 +1,6 @@
 // internal/nodes/detect/wait_template.go
-// WaitTemplate — 阻塞等模板出现或超时. 节点本体是长轮询封装 (IsYield 节点),
-// 实际轮询在 VisionService.WaitMatch 内做.
-//
-// 老 runtime: internal/services/container/runtime/nodes.go::execWaitTemplate.
+// WaitTemplate — 阻塞等模板出现或超时. 节点本体是长轮询封装, 实际轮询在
+// VisionService.WaitMatch 内做.
 package detect
 
 import (

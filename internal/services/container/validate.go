@@ -102,7 +102,7 @@ func execInPinsOf(kind string) []string {
 	}
 	var out []string
 	for _, ip := range rn.Spec.Inputs {
-		if ip.Type == "Exec" {
+		if ip.Type == nodepkg.TypeExec {
 			out = append(out, ip.Name)
 		}
 	}
@@ -130,7 +130,7 @@ func execOutPinsForNode(n *GraphNode) map[string]struct{} {
 		return pins
 	}
 	for _, op := range rn.Spec.Outputs {
-		if op.Type == "Exec" {
+		if op.Type == nodepkg.TypeExec {
 			pins[op.Name] = struct{}{}
 		}
 	}
@@ -212,7 +212,7 @@ func dataInPinTypeForKind(kind, pinName string) string {
 		if ip.Name != pinName {
 			continue
 		}
-		if ip.Type == "Exec" {
+		if ip.Type == nodepkg.TypeExec {
 			return ""
 		}
 		return canonPinType(ip.Type)
@@ -251,7 +251,7 @@ func dataOutPinTypeForKind(kind, pinName string) string {
 		if op.Name != pinName {
 			continue
 		}
-		if op.Type == "Exec" {
+		if op.Type == nodepkg.TypeExec {
 			return ""
 		}
 		return canonPinType(op.Type)

@@ -1,8 +1,6 @@
 // internal/nodes/detect/color_bar_track.go
 // ColorBarTrack — 在多分辨率 ROI 数组中按当前 client size 选 ROI, 抓帧 → 双 HSV cluster
-// 检测算 cursor / target 位置. 单次抓帧 + 分析 (非 IsYield).
-//
-// 老 runtime: internal/services/container/runtime/color_bar_track.go::execColorBarTrack.
+// 检测算 cursor / target 位置. 单次抓帧 + 分析.
 package detect
 
 import (

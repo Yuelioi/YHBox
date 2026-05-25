@@ -30,7 +30,8 @@ type Dependencer interface {
 	Dependencies(in Inputs) []Dependency
 }
 
-// RegionRunner — 控制流节点 (Loop / Parallel / Try) 实现. 第一版不做.
+// RegionRunner — 控制流节点 (Loop / Try / Subgraph / CollapsedNode) 实现. body 回调
+// 由 dispatch 构造, region 节点决定调用次数 (Loop 多次, Try 单次截获 error).
 type RegionRunner interface {
 	Node
 	RunRegion(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
@@ -110,16 +111,15 @@ type OutBuilder interface {
 	Fire() Outputs
 }
 
-// VisionService — template + 颜色 + bar-track 检测. Phase 1-2 stub;
-// Phase 5 真接 wire_container.go::templateMatcherAdapter + pkg/vision.*.
+// VisionService — template + 颜色 + bar-track 检测. wire_container.go::templateMatcherAdapter
+// + pkg/vision.* 实现.
 //
 // 单帧 Match (CheckTemplate) / WaitMatch (WaitTemplate) / BarTrack (ColorBarTrack) +
 // 颜色: DetectColor (RGB/HSV 全 ROI 像素计数) / DetectColorHSV (HSV 比例阈值) /
 // ROIColorScan (沿 axis 找连续 cluster).
 type VisionService interface {
 	// Match 单次模板匹配. nil pt = miss.
-	// ctx 透传容器 cancel — P1.9 改 ctx.Background() 走真 ctx, 长 Match (磁盘读模板 +
-	// CPU 比对) 能配合 container Stop 瞬停.
+	// ctx 透传容器 cancel — 长 Match (磁盘读模板 + CPU 比对) 配合 Stop 瞬停.
 	Match(ctx context.Context, key string, threshold float64) (pt *Point, conf float64, err error)
 
 	// WaitMatch 阻塞轮询直到命中或 timeout. timeout<=0 视为 0 (单次).
@@ -133,15 +133,13 @@ type VisionService interface {
 	// DetectColor 在 region (ratio [x,y,w,h], 全 0 = 全屏) 内统计落在 rng 内的像素数.
 	// mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].
 	// 返 count + 命中像素中心客户区比例坐标 (cx,cy). 无命中 cx/cy = 0.
-	// 老 runtime: ColorDetector.Detect.
 	DetectColor(region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
 
 	// DetectColorHSV 在 roi (像素) 内统计落在 hsv 区间的像素数 + 比例.
-	// 老 runtime: detect_hsv.go::countHSVInROI 单次扫描. 轮询在节点内做.
 	DetectColorHSV(roi Rect, hsv HSVRange) (count int, ratio float64, err error)
 
 	// ROIColorScan 沿 axis ("x"|"y") 扫描 roi 内 HSV 命中像素, 合并为连续 cluster.
-	// 只返长度 ∈ [minPx, maxPx] 的段. 老 runtime: roi_scan.go::scanClusters.
+	// 只返长度 ∈ [minPx, maxPx] 的段.
 	ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
 }
 
@@ -174,7 +172,7 @@ type BarTrackResult struct {
 	GreenPx    int     `json:"greenPx"`
 }
 
-// LogService — 节点日志. Phase 1 stub stdout, Phase 5 接 zerolog.
+// LogService — 节点日志. 实际接 zerolog (main.go wire), 测试用 stdout stub.
 type LogService interface {
 	Debug(format string, args ...any)
 	Info(format string, args ...any)
@@ -201,31 +199,25 @@ type InputService interface {
 
 // VarStore — SetVar / GetVar / IncVar 节点用. Scope=auto/local/global 由 framework
 // (RegionRunner / subgraph frame) 解析后传到这里; stub 是单层 map.
-//
-// Phase 5.5 cutover: scoped 变种实现 frame.LocalVars vs rt.vars 路由. SetVar/IncVar
-// 节点调 SetScoped/IncScoped, 没接 frame stack 的 stub 视 scope 同 global.
 type VarStore interface {
 	Get(name string) (value any, ok bool)
 	Set(name string, value any)
 	// Inc number 增量. value 不是 number → 视为 0 起步; 返回 newValue.
 	Inc(name string, delta float64) (newValue float64)
-	// GetScoped / SetScoped / IncScoped: scope = "auto" | "local" | "global". 走老 runtime
-	// 同款逻辑 (auto: 当前 frame.LocalVars 有 → local; 否则 global).
+	// GetScoped / SetScoped / IncScoped: scope = "auto" | "local" | "global".
+	// auto: 当前 frame.LocalVars 有 → local; 否则 global.
 	GetScoped(name, scope string) (value any, ok bool)
 	SetScoped(name, scope string, value any)
 	IncScoped(name, scope string, delta float64) (newValue float64)
 }
 
 // SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastBarTrack.cursorX" /
-// "lastTemplate.found" — 对齐老 runtime resolveSysPath 字典.
-//
-// Phase 5 wire 时连 RuntimeContext.Sys() + per-tick snapshot.
+// "lastTemplate.found" — schema 见 services/container/sys/schema.go.
 type SysStore interface {
 	Get(path string) (value any, ok bool)
 }
 
-// WindowService — BringGameForeground 节点 + 任何节点想知道 hwnd/ClientSize. Phase 5
-// wire 时连 RuntimeContext.Window + GameProvider.BringToForeground.
+// WindowService — BringGameForeground 节点 + 任何节点想知道 hwnd/ClientSize.
 type WindowService interface {
 	BringForeground() error
 	HWND() uintptr
@@ -240,9 +232,9 @@ type CaptureService interface {
 }
 
 // StopwatchStore — StopwatchStart / Stop / Read 节点用. Per-key 多 stopwatch
-// (跟 $vars.* 独立命名空间, 同名 key/var 不冲突, 见老 stopwatch.go 注释).
+// (跟 $vars.* 独立命名空间, 同名 key/var 不冲突).
 //
-// 语义 (镜像老 runtime stopwatchTable):
+// 语义:
 //   - Start: 已存在 key 视为 reset.
 //   - Stop:  不存在 key 视为 no-op (validator static-warn).
 //   - Read:  不存在 key 返 0; running 返 now-start; stopped 返 stoppedAt-start.
