@@ -10,8 +10,8 @@ func init() { node.Register(&GetSys{}) }
 type GetSys struct{}
 
 const (
-	gsInPath   = "path"
-	gsOutValue = "value"
+	gsInPath   = "Path"
+	gsOutValue = "Value"
 )
 
 func (GetSys) Spec() node.Spec {

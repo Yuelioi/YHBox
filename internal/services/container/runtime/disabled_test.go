@@ -80,7 +80,7 @@ func TestDisabled_PureData_GetVarReturnsNil(t *testing.T) {
 
 	disabledGV := &container.GraphNode{
 		ID: "gv1", Kind: "GetVar", Disabled: true,
-		Config: map[string]any{"varName": "x", "scope": "global"},
+		Config: map[string]any{"VarName": "x", "Scope": "global"},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv1": disabledGV}
 

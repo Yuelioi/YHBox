@@ -3,6 +3,7 @@
 package variable
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"yhbox/internal/node"
@@ -14,9 +15,9 @@ type IncVar struct{}
 
 const (
 	ivInExec    = "in"
-	ivInVarName = "varName"
-	ivInScope   = "scope"
-	ivInDelta   = "delta"
+	ivInVarName = "VarName"
+	ivInScope   = "Scope"
+	ivInDelta   = "Delta"
 	ivOutOut    = "out"
 )
 
@@ -40,7 +41,7 @@ func (IncVar) Spec() node.Spec {
 							{Value: "local", Label: "local"},
 							{Value: "global", Label: "global"},
 						}})}},
-			{Name: ivInDelta, Type: "Number", Default: 1.0,
+			{Name: ivInDelta, Type: "Number", Default: json.Number("1"),
 				DisplayName: "增量",
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},

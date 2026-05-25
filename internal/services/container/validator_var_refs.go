@@ -31,14 +31,14 @@ func validateVarRefs(c *Container) []ValidationError {
 			if !varKinds[n.Kind] {
 				continue
 			}
-			scope, _ := n.Config["scope"].(string)
+			scope, _ := n.Config["Scope"].(string)
 			if scope == "" {
 				scope = "auto"
 			}
 			if scope == "local" {
 				continue // frame-private, skip
 			}
-			varName, _ := n.Config["varName"].(string)
+			varName, _ := n.Config["VarName"].(string)
 			if varName == "" {
 				continue // missing-varName reported by other validator path
 			}

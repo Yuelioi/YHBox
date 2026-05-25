@@ -10,8 +10,8 @@ func init() { node.Register(&GetParam{}) }
 type GetParam struct{}
 
 const (
-	gpInParamName = "paramName"
-	gpOutValue    = "value"
+	gpInParamName = "ParamName"
+	gpOutValue    = "Value"
 )
 
 func (GetParam) Spec() node.Spec {

@@ -883,13 +883,13 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "sub_in", Kind: "SubgraphInput"},
-				{ID: "getp1", Kind: "GetParam", Config: map[string]any{"paramName": "greeting"}},
-				{ID: "sv1", Kind: "SetVar", Config: map[string]any{"varName": "capturedGreeting", "scope": "global"}},
+				{ID: "getp1", Kind: "GetParam", Config: map[string]any{"ParamName": "greeting"}},
+				{ID: "sv1", Kind: "SetVar", Config: map[string]any{"VarName": "capturedGreeting", "Scope": "global"}},
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "sub_in.out", To: "sv1.in"},
-				{From: "getp1.value", To: "sv1.value"},
+				{From: "getp1.Value", To: "sv1.Value"},
 				{From: "sv1.out", To: "sub_out.in"},
 			},
 		},
@@ -1059,12 +1059,12 @@ func TestBuildDataWireFor_FallbackToOldPath(t *testing.T) {
 		ID:            "test-fallback",
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "gv1", Kind: "GetVar", Config: map[string]any{"varName": "myvar", "scope": "global"}},
+				{ID: "gv1", Kind: "GetVar", Config: map[string]any{"VarName": "myvar", "Scope": "global"}},
 				{ID: "echo_n", Kind: tkEcho},
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "gv1.value", To: "echo_n.Value"},
+				{From: "gv1.Value", To: "echo_n.Value"},
 				{From: "echo_n.Out", To: "done_n.in"},
 			},
 		},

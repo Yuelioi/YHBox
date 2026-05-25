@@ -14,7 +14,7 @@ func TestGetSys_LastTemplateFound(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "gs1", Kind: "GetSys",
-		Config: map[string]any{"path": "lastTemplate.found"},
+		Config: map[string]any{"Path": "lastTemplate.found"},
 	}
 	v, err := r.evalGetSys(n)
 	if err != nil {
@@ -31,7 +31,7 @@ func TestGetSys_Iter(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "gs1", Kind: "GetSys",
-		Config: map[string]any{"path": "iter"},
+		Config: map[string]any{"Path": "iter"},
 	}
 	v, _ := r.evalGetSys(n)
 	got, _ := expr.AsNumber(v)
@@ -46,7 +46,7 @@ func TestGetSys_UnknownPath(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "gs1", Kind: "GetSys",
-		Config: map[string]any{"path": "bogus.path"},
+		Config: map[string]any{"Path": "bogus.path"},
 	}
 	_, err := r.evalGetSys(n)
 	if err == nil {
@@ -63,7 +63,7 @@ func TestSysPathSchema_AllPathsResolve(t *testing.T) {
 	for path := range SysPathSchema {
 		n := &container.GraphNode{
 			ID: "gs1", Kind: "GetSys",
-			Config: map[string]any{"path": path},
+			Config: map[string]any{"Path": path},
 		}
 		_, err := r.evalGetSys(n)
 		if err != nil {
@@ -80,7 +80,7 @@ func TestGetSys_NowMs_LiveTimestamp(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "gs1", Kind: "GetSys",
-		Config: map[string]any{"path": "now_ms"},
+		Config: map[string]any{"Path": "now_ms"},
 	}
 	before := time.Now().UnixMilli()
 	v, err := r.evalGetSys(n)
@@ -106,7 +106,7 @@ func TestGetSys_VarLastChange_LivesAfterSetVar(t *testing.T) {
 	// 未 set 前应返 0
 	n := &container.GraphNode{
 		ID: "gs1", Kind: "GetSys",
-		Config: map[string]any{"path": "varLastChange.state"},
+		Config: map[string]any{"Path": "varLastChange.state"},
 	}
 	v, err := r.evalGetSys(n)
 	if err != nil {

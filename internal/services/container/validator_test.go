@@ -413,12 +413,12 @@ func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 				{ID: "wt", Kind: "WindowTarget", Config: map[string]any{
 					"match": map[string]any{"title": "异环"},
 				}},
-				{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "local"}},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "local"}},
 				{ID: "log", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Message": "", "Level": "info"}}},
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "log.in"},     // exec edge
-				{From: "gv.value", To: "log.Message"}, // data edge — no Kind field, must still validate
+				{From: "gv.Value", To: "log.Message"}, // data edge — no Kind field, must still validate
 			},
 		},
 		Vars: []VarDecl{{Name: "x", Type: "any"}},

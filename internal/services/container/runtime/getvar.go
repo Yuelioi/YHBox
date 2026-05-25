@@ -21,11 +21,11 @@ import (
 // 2026-05-19 默认从 "local" 改成 "auto" — local 没 UI 入口, 默认指向它会让
 // Container.Vars 面板声明的 var 在 GetVar 读不到 (反直觉).
 func (r *ContainerRunner) evalGetVar(n *container.GraphNode) (expr.Value, error) {
-	name := configString(n, "varName")
+	name := configString(n, "VarName")
 	if name == "" {
-		return nil, fmt.Errorf("GetVar %s: missing varName", n.ID)
+		return nil, fmt.Errorf("GetVar %s: missing VarName", n.ID)
 	}
-	scope := configString(n, "scope")
+	scope := configString(n, "Scope")
 	if scope == "" {
 		scope = "auto"
 	}

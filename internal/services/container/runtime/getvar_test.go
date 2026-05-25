@@ -15,7 +15,7 @@ func TestGetVar_LocalScope(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "g1", Kind: "GetVar",
-		Config: map[string]any{"varName": "y", "scope": "local"},
+		Config: map[string]any{"VarName": "y", "Scope": "local"},
 	}
 	v, err := r.evalGetVar(n)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestGetVar_LocalIgnoresGlobal(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "g1", Kind: "GetVar",
-		Config: map[string]any{"varName": "hp", "scope": "local"},
+		Config: map[string]any{"VarName": "hp", "Scope": "local"},
 	}
 	v, _ := r.evalGetVar(n)
 	if v != nil {
@@ -50,7 +50,7 @@ func TestGetVar_GlobalScope(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "g1", Kind: "GetVar",
-		Config: map[string]any{"varName": "hp", "scope": "global"},
+		Config: map[string]any{"VarName": "hp", "Scope": "global"},
 	}
 	v, _ := r.evalGetVar(n)
 	if got, _ := expr.AsNumber(v); got != 0.8 {
@@ -67,7 +67,7 @@ func TestGetVar_AutoScope_FrameThenGlobal(t *testing.T) {
 	// hp is in BOTH local and global → auto returns local (0.5)
 	n := &container.GraphNode{
 		ID: "g1", Kind: "GetVar",
-		Config: map[string]any{"varName": "hp", "scope": "auto"},
+		Config: map[string]any{"VarName": "hp", "Scope": "auto"},
 	}
 	v, _ := r.evalGetVar(n)
 	if got, _ := expr.AsNumber(v); got != 0.5 {
@@ -75,7 +75,7 @@ func TestGetVar_AutoScope_FrameThenGlobal(t *testing.T) {
 	}
 
 	// 'other' only in global → auto falls back
-	n.Config["varName"] = "other"
+	n.Config["VarName"] = "other"
 	v, _ = r.evalGetVar(n)
 	if got, _ := expr.AsNumber(v); got != 99 {
 		t.Fatalf("auto: fallback global for 'other', want 99, got %v", v)
@@ -90,7 +90,7 @@ func TestGetVar_DefaultScopeIsLocal(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "g1", Kind: "GetVar",
-		Config: map[string]any{"varName": "hp"}, // no scope field
+		Config: map[string]any{"VarName": "hp"}, // no scope field
 	}
 	v, _ := r.evalGetVar(n)
 	if got, _ := expr.AsNumber(v); got != 0.5 {
@@ -115,7 +115,7 @@ func TestGetVar_UnknownScope(t *testing.T) {
 	_, r := newTestRunner(t)
 	r.currentTick = CaptureSnapshot(map[string]expr.Value{}, SysState{})
 
-	n := &container.GraphNode{ID: "g1", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "bogus"}}
+	n := &container.GraphNode{ID: "g1", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "bogus"}}
 	_, err := r.evalGetVar(n)
 	if err == nil {
 		t.Fatal("want err for unknown scope")

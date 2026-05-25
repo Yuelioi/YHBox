@@ -85,7 +85,7 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 
 	gv := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
-		Config: map[string]any{"varName": "counter", "scope": "global"},
+		Config: map[string]any{"VarName": "counter", "Scope": "global"},
 	}
 	ex := &container.GraphNode{
 		ID: "ex", Kind: "Expr",
@@ -98,7 +98,7 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
 		Nodes: []container.GraphNode{*gv, *ex},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "ex.c"},
+			{From: "gv.Value", To: "ex.c"},
 		},
 	})
 

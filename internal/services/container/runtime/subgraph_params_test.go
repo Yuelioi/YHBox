@@ -15,13 +15,13 @@ import (
 // inner GetParam(hp) reads it back, SetVar(result, global) writes it for verification.
 func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 	subgraphInput := &container.GraphNode{ID: "sgi", Kind: "SubgraphInput"}
-	getParam := &container.GraphNode{ID: "gp", Kind: "GetParam", Config: map[string]any{"paramName": "hp"}}
+	getParam := &container.GraphNode{ID: "gp", Kind: "GetParam", Config: map[string]any{"ParamName": "hp"}}
 	setVar := &container.GraphNode{
 		ID:   "sv",
 		Kind: "SetVar",
 		Config: map[string]any{
-			"varName": "result",
-			"scope":   "global",
+			"VarName": "result",
+			"Scope":   "global",
 		},
 	}
 	sgo := &container.GraphNode{
@@ -42,7 +42,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 				{From: "sgi.out", To: "sv.in"},
 				{From: "sv.out", To: "sgo.in"},
 				// data: GetParam(hp).value → SetVar(result).value
-				{From: "gp.value", To: "sv.value"},
+				{From: "gp.Value", To: "sv.Value"},
 			},
 		},
 	}

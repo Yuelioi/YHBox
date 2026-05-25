@@ -47,25 +47,25 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				{ID: "start", Kind: "Start"},
 				// Init state + counter
 				{ID: "setState", Kind: "SetVar", Config: map[string]any{
-					"varName": "state", "scope": "global",
-					"literal": map[string]any{"value": "IDLE"},
+					"VarName": "state", "Scope": "global",
+					"literal": map[string]any{"Value": "IDLE"},
 				}},
 				{ID: "setCounter", Kind: "SetVar", Config: map[string]any{
-					"varName": "counter", "scope": "global",
-					"literal": map[string]any{"value": 0.0},
+					"VarName": "counter", "Scope": "global",
+					"literal": map[string]any{"Value": 0.0},
 				}},
 				// Data sources for setDst
 				{ID: "getCounter", Kind: "GetVar", Config: map[string]any{
-					"varName": "counter", "scope": "global",
+					"VarName": "counter", "Scope": "global",
 				}},
 				{ID: "add10", Kind: "Add", Config: map[string]any{
 					"literal": map[string]any{"B": 10.0},
 				}},
 				{ID: "setDst", Kind: "SetVar", Config: map[string]any{
-					"varName": "dst", "scope": "global",
+					"VarName": "dst", "Scope": "global",
 				}},
 				// Branch condition
-				{ID: "getIter", Kind: "GetSys", Config: map[string]any{"path": "iter"}},
+				{ID: "getIter", Kind: "GetSys", Config: map[string]any{"Path": "iter"}},
 				{ID: "condExpr", Kind: "Expr", Config: map[string]any{
 					"expr":    "i > -1",
 					"outType": "auto",
@@ -83,11 +83,11 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				{From: "if1.True", To: "stop.in"},
 				{From: "if1.False", To: "stop.in"},
 				// Data: GetVar(counter) → Add(A) → setDst.value
-				{From: "getCounter.value", To: "add10.A"},
-				{From: "add10.Result", To: "setDst.value"},
+				{From: "getCounter.Value", To: "add10.A"},
+				{From: "add10.Result", To: "setDst.Value"},
 				// Data: GetSys(iter) → Expr.i → If.condition
-				{From: "getIter.value", To: "condExpr.i"},
-				{From: "condExpr.value", To: "if1.Condition"},
+				{From: "getIter.Value", To: "condExpr.i"},
+				{From: "condExpr.Value", To: "if1.Condition"},
 			},
 		},
 	}
@@ -127,8 +127,8 @@ func TestV4_E2E_FishingFightLite(t *testing.T) {
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "setStep", Kind: "SetVar", Config: map[string]any{
-					"varName": "step", "scope": "global",
-					"literal": map[string]any{"value": 1.0},
+					"VarName": "step", "Scope": "global",
+					"literal": map[string]any{"Value": 1.0},
 				}},
 				{ID: "stop", Kind: "Stop"},
 			},

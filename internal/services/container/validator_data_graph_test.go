@@ -42,14 +42,14 @@ func TestValidateDataGraph_AcceptsDAG(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 				{ID: "add", Kind: "Add"},
-				{ID: "sv", Kind: "SetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
+				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "sv.in"},
-				{From: "gv.value", To: "add.a"},
-				{From: "add.result", To: "sv.value"},
+				{From: "gv.Value", To: "add.a"},
+				{From: "add.Result", To: "sv.Value"},
 			},
 		},
 	}

@@ -12,12 +12,12 @@ func TestValidate_PinTypeMismatch_StringToNumber(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "msg", "scope": "global"}},
-				{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "msg", "scope": "global"}},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "msg", "Scope": "global"}},
+				{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "msg", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "inc.in"},
-				{From: "gv.value", To: "inc.delta"}, // string → number = mismatch (data edge derived from GetVar.value out-pin)
+				{From: "gv.Value", To: "inc.Delta"}, // string → number = mismatch (data edge derived from GetVar.value out-pin)
 			},
 		},
 	}
@@ -55,12 +55,12 @@ func TestValidate_AnyAcceptsEverything(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "src", "scope": "global"}},
-				{ID: "sv", Kind: "SetVar", Config: map[string]any{"varName": "dst", "scope": "global"}},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "src", "Scope": "global"}},
+				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "dst", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "sv.in"},
-				{From: "gv.value", To: "sv.value"}, // string → any = OK (data edge derived)
+				{From: "gv.Value", To: "sv.Value"}, // string → any = OK (data edge derived)
 			},
 		},
 	}
@@ -80,7 +80,7 @@ func TestValidate_ExecEdgeNotPinTypeChecked(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "x", "scope": "global"}},
+				{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
 				{From: "start.out", To: "inc.in"}, // exec edge — Kind unset

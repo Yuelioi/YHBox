@@ -39,30 +39,30 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "setInitState", Kind: "SetVar", Config: map[string]any{
-					"varName": "state", "scope": "global",
-					"literal": map[string]any{"value": "IDLE"},
+					"VarName": "state", "Scope": "global",
+					"literal": map[string]any{"Value": "IDLE"},
 				}},
 				{ID: "getState", Kind: "GetVar", Config: map[string]any{
-					"varName": "state", "scope": "global",
+					"VarName": "state", "Scope": "global",
 				}},
 				{ID: "switch1", Kind: "Switch", Config: map[string]any{
 					"Case1Value": "IDLE", "Case2Value": "FISHING", "Case3Value": "RESULT",
 				}},
 				{ID: "logIDLE", Kind: "SetVar", Config: map[string]any{
-					"varName": "stepLog", "scope": "global",
-					"literal": map[string]any{"value": "went_IDLE"},
+					"VarName": "stepLog", "Scope": "global",
+					"literal": map[string]any{"Value": "went_IDLE"},
 				}},
 				{ID: "logFISHING", Kind: "SetVar", Config: map[string]any{
-					"varName": "stepLog", "scope": "global",
-					"literal": map[string]any{"value": "went_FISHING"},
+					"VarName": "stepLog", "Scope": "global",
+					"literal": map[string]any{"Value": "went_FISHING"},
 				}},
 				{ID: "logRESULT", Kind: "SetVar", Config: map[string]any{
-					"varName": "stepLog", "scope": "global",
-					"literal": map[string]any{"value": "went_RESULT"},
+					"VarName": "stepLog", "Scope": "global",
+					"literal": map[string]any{"Value": "went_RESULT"},
 				}},
 				{ID: "logDefault", Kind: "SetVar", Config: map[string]any{
-					"varName": "stepLog", "scope": "global",
-					"literal": map[string]any{"value": "unknown"},
+					"VarName": "stepLog", "Scope": "global",
+					"literal": map[string]any{"Value": "unknown"},
 				}},
 				{ID: "stop", Kind: "Stop"},
 			},
@@ -79,7 +79,7 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 				{From: "logRESULT.out", To: "stop.in"},
 				{From: "logDefault.out", To: "stop.in"},
 				// Data: GetVar(state) → Switch.value
-				{From: "getState.value", To: "switch1.Value"},
+				{From: "getState.Value", To: "switch1.Value"},
 			},
 		},
 	}

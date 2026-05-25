@@ -16,7 +16,7 @@ func validateGetSysNodes(c *Container) []ValidationError {
 			if n.Kind != "GetSys" {
 				continue
 			}
-			p, _ := n.Config["path"].(string)
+			p, _ := n.Config["Path"].(string)
 			if p == "" {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeGetSysUnknownPath,

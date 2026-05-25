@@ -47,14 +47,14 @@ func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 
 	src := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
-		Config: map[string]any{"varName": "hp", "scope": "global"},
+		Config: map[string]any{"VarName": "hp", "Scope": "global"},
 	}
 	dst := &container.GraphNode{ID: "sleep", Kind: "Sleep", Config: map[string]any{}}
 	r.nodesByID = map[string]*container.GraphNode{"gv": src, "sleep": dst}
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
 		Nodes: []container.GraphNode{*src, *dst},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sleep.Duration"},
+			{From: "gv.Value", To: "sleep.Duration"},
 		},
 	})
 
@@ -74,7 +74,7 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 
 	src := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
-		Config: map[string]any{"varName": "hp", "scope": "global"},
+		Config: map[string]any{"VarName": "hp", "Scope": "global"},
 	}
 	dst := &container.GraphNode{
 		ID: "sleep", Kind: "Sleep",
@@ -86,7 +86,7 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 	r.dataEdges = buildDataEdgeIndex(container.Graph{
 		Nodes: []container.GraphNode{*src, *dst},
 		Edges: []container.GraphEdge{
-			{From: "gv.value", To: "sleep.Duration"},
+			{From: "gv.Value", To: "sleep.Duration"},
 		},
 	})
 
@@ -104,19 +104,19 @@ func TestDataEdgeIndex_IgnoresExecEdges(t *testing.T) {
 		Nodes: []container.GraphNode{
 			{ID: "a", Kind: "Sleep"},
 			{ID: "b", Kind: "Sleep"},
-			{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
-			{ID: "c", Kind: "SetVar", Config: map[string]any{"varName": "x", "scope": "global"}},
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
+			{ID: "c", Kind: "SetVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 		},
 		Edges: []container.GraphEdge{
 			{From: "a.Done", To: "b.in"},      // Sleep.out is exec-out → not data
-			{From: "gv.value", To: "c.x"},    // GetVar.value is data-out → data
+			{From: "gv.Value", To: "c.x"},    // GetVar.value is data-out → data
 		},
 	})
 	if src, pin := idx.Source("b", "in"); src != "" || pin != "" {
 		t.Fatalf("exec edge leaked into data index: %s.%s", src, pin)
 	}
-	if src, pin := idx.Source("c", "x"); src != "gv" || pin != "value" {
-		t.Fatalf("data edge: want gv.value, got %s.%s", src, pin)
+	if src, pin := idx.Source("c", "x"); src != "gv" || pin != "Value" {
+		t.Fatalf("data edge: want gv.Value, got %s.%s", src, pin)
 	}
 }
 

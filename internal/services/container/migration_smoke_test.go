@@ -73,12 +73,12 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 			"nodes": [
 				{"id": "start", "kind": "Start", "x": 0, "y": 0},
 				{"id": "wt", "kind": "WindowTarget", "x": 100, "y": 0},
-				{"id": "gv", "kind": "GetVar", "x": 150, "y": 100, "config": {"varName": "x", "scope": "local"}},
+				{"id": "gv", "kind": "GetVar", "x": 150, "y": 100, "config": {"VarName": "x", "Scope": "local"}},
 				{"id": "log", "kind": "Log", "x": 300, "y": 0, "config": {"literal": {"Message": "", "Level": "info"}}}
 			],
 			"edges": [
 				{"from": "start.out", "to": "log.in", "kind": "exec"},
-				{"from": "gv.value", "to": "log.Message", "kind": "data"}
+				{"from": "gv.Value", "to": "log.Message", "kind": "data"}
 			]
 		},
 		"subgraphs": []

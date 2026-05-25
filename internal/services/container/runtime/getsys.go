@@ -20,9 +20,9 @@ var SysPathSchema = sys.PathSchema
 //
 // Pure data — no exec / no edges. Unset paramName → nil (validator catches at design time).
 func (r *ContainerRunner) evalGetParam(n *container.GraphNode) (expr.Value, error) {
-	name := configString(n, "paramName")
+	name := configString(n, "ParamName")
 	if name == "" {
-		return nil, fmt.Errorf("GetParam %s: missing paramName", n.ID)
+		return nil, fmt.Errorf("GetParam %s: missing ParamName", n.ID)
 	}
 	if r.state.CurrentFrame == nil {
 		return nil, fmt.Errorf("GetParam %s: no active frame", n.ID)
@@ -39,9 +39,9 @@ func (r *ContainerRunner) evalGetParam(n *container.GraphNode) (expr.Value, erro
 // 例外: now_ms + varLastChange.<name> 总是 live 读 (跟 snapshot 解耦, Fishing v2
 // watchdog 需要时间戳比较 → snapshot 化反而出错).
 func (r *ContainerRunner) evalGetSys(n *container.GraphNode) (expr.Value, error) {
-	path := configString(n, "path")
+	path := configString(n, "Path")
 	if path == "" {
-		return nil, fmt.Errorf("GetSys %s: missing path", n.ID)
+		return nil, fmt.Errorf("GetSys %s: missing Path", n.ID)
 	}
 	// Live wildcard: varLastChange.<name> — 直接读 rt.varTimestamps live (绕过 snapshot + schema).
 	if name, ok := strings.CutPrefix(path, "varLastChange."); ok {

@@ -10,9 +10,9 @@ func init() { node.Register(&GetVar{}) }
 type GetVar struct{}
 
 const (
-	gvInVarName = "varName"
-	gvInScope   = "scope"
-	gvOutValue  = "value"
+	gvInVarName = "VarName"
+	gvInScope   = "Scope"
+	gvOutValue  = "Value"
 )
 
 func (GetVar) Spec() node.Spec {

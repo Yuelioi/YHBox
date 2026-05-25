@@ -8,7 +8,7 @@ func TestValidateVarRefs_DeclaredOK(t *testing.T) {
 	c := &Container{
 		Vars: []VarDecl{{Name: "x", Type: "number", Default: 0.0}},
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "x", "scope": "auto"}},
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "auto"}},
 		}},
 	}
 	errs := validateVarRefs(c)
@@ -21,7 +21,7 @@ func TestValidateVarRefs_UndeclaredAutoScope(t *testing.T) {
 	c := &Container{
 		Vars: nil,
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "ghost", "scope": "auto"}},
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "ghost", "Scope": "auto"}},
 		}},
 	}
 	errs := validateVarRefs(c)
@@ -37,7 +37,7 @@ func TestValidateVarRefs_LocalScopeSkipped(t *testing.T) {
 	c := &Container{
 		Vars: nil,
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "gv", Kind: "GetVar", Config: map[string]any{"varName": "tmp", "scope": "local"}},
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "tmp", "Scope": "local"}},
 		}},
 	}
 	errs := validateVarRefs(c)
@@ -53,7 +53,7 @@ func TestValidateVarRefs_SubgraphAlsoChecked(t *testing.T) {
 		Subgraphs: []Subgraph{{
 			ID: "sg1",
 			Graph: Graph{Nodes: []GraphNode{
-				{ID: "sv", Kind: "SetVar", Config: map[string]any{"varName": "ghost", "scope": "global"}},
+				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "ghost", "Scope": "global"}},
 			}},
 		}},
 	}
