@@ -1,10 +1,7 @@
 // internal/nodes/system/subgraph_output.go
-// SubgraphOutput — 子图出口 marker. 老 spec ExecIn=[in]/ExecOut=nil + declID
-// config 字段; runtime/nodes.go::execSubgraphOutput pop frame + 切回父图 +
-// 找父图调用方 declID 边的下游.
-//
-// 新框架 Phase 4 stub: Run 返 errSubgraphNodeStub (sentinels.go). Phase 5
-// sub-runner 截 sentinel, pop frame + resume 父 frame.
+// SubgraphOutput — 子图出口 marker. Spec.IsGraphMarker=true; runner 在
+// dispatchInRegion / runRegionBody 里 pop frame + 切回父图 + 找父图调用方
+// declID 边的下游, 不调任何执行接口. 零 capability.
 package system
 
 import "yhbox/internal/node"
@@ -23,7 +20,7 @@ func (SubgraphOutput) Spec() node.Spec {
 		Kind:        "SubgraphOutput",
 		Category:    "System",
 		DisplayName: "子图出口",
-		Description: "(Phase 5 stub) 子图出口节点 — pop frame 回父图, 走父图调用方 declID 对应的下游. 当前 Run 返 sentinel.",
+		Description: "子图出口节点 — pop frame 回父图, 走父图调用方 declID 对应的下游. framework special-route.",
 		Inputs: []node.InputSpec{
 			{Name: soInExec, Type: "Exec"},
 			{Name: soInDeclID, Type: "String", Default: "",
@@ -32,9 +29,6 @@ func (SubgraphOutput) Spec() node.Spec {
 				Widget:      node.WidgetSpec{Kind: "text"}},
 		},
 		// no Outputs — sub-runner 处理 frame pop + parent resume
+		IsGraphMarker: true,
 	}
-}
-
-func (SubgraphOutput) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errSubgraphNodeStub
 }

@@ -1,11 +1,7 @@
 // internal/nodes/system/subgraph_input.go
-// SubgraphInput — 子图入口 marker. 老 spec ExecIn=nil/ExecOut=[out], runtime
-// nodes.go::case "SubgraphInput" 直通到 .out edges (本质是 entry point, sub-runner
-// 从这个节点起跑).
-//
-// 新框架 Phase 4 stub: Run 返 errSubgraphNodeStub (sentinels.go). Phase 5
-// sub-runner / RegionRunner 接管后, 这节点不再走 Run, framework 在 push frame
-// 时直接 dispatch 它的 out edge.
+// SubgraphInput — 子图入口 marker. Spec.IsGraphMarker=true; runner 在
+// dispatchInRegion / runRegionBody 里 special-route 跳过执行, 直通 out edge.
+// 零 capability (无 Run/RunRegion/Evaluate).
 package system
 
 import "yhbox/internal/node"
@@ -23,14 +19,11 @@ func (SubgraphInput) Spec() node.Spec {
 		Kind:        "SubgraphInput",
 		Category:    "System",
 		DisplayName: "子图入口",
-		Description: "(Phase 5 stub) 子图入口节点 — sub-runner 从这里开跑. 当前 Run 返 sentinel, Phase 5 sub-runner 接管后不再走 Run.",
+		Description: "子图入口节点 — sub-runner 从这里开跑. framework special-route, 不调任何执行接口.",
 		// no Inputs — entry point
 		Outputs: []node.OutputSpec{
 			{Name: siOutOut, Type: "Exec", DisplayName: "out"},
 		},
+		IsGraphMarker: true,
 	}
-}
-
-func (SubgraphInput) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errSubgraphNodeStub
 }

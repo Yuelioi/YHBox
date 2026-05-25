@@ -15,7 +15,7 @@ type RegisteredNode struct {
 	Impl Node
 	Spec Spec
 
-	// exactly-one capability — Register 时验证 (C4 激活). nil = 节点未实现该 capability.
+	// exactly-one capability — Register 时验证 (C5 激活). nil = 节点未实现该 capability.
 	Run       func(Ctx, Inputs) (Outputs, error)
 	RunRegion func(Ctx, Inputs, func(Ctx) error) (Outputs, error)
 	Evaluate  func(Ctx, Inputs) (any, error)
@@ -62,7 +62,7 @@ func Register(impl Node) {
 	if d, ok := impl.(Dependencer); ok {
 		rn.Dependencies = d.Dependencies
 	}
-	// Capability 探测 (exactly-one validation 留 C4 激活).
+	// Capability 探测 (exactly-one validation 留 C5 激活, 待 Get* Evaluator 迁移完).
 	if r, ok := impl.(Runnable); ok {
 		rn.Run = r.Run
 	}

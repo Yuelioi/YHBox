@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"strings"
 )
 
 // RunResult 单节点执行结果. framework 用来路由 + 日志 + error 传播.
@@ -18,6 +19,61 @@ type RunResult struct {
 	DisplayText string // Display() 返回值, "" = 不 emit
 }
 
+// preparedExec is the result of phases 1-3 (gates passed, ctx built). 内部 struct.
+type preparedExec struct {
+	in  Inputs
+	ctx Ctx
+}
+
+// prepareExec runs phases 1-3: build inputs, Required gate, Validate gate.
+// Gate 失败 → 返 nil + RunResult{Validation: errs}.
+func prepareExec(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle) (*preparedExec, *RunResult) {
+	in := newInputs(dataWire, config, execData, rn.Defaults)
+	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
+		return nil, &RunResult{Validation: errs}
+	}
+	if rn.Validate != nil {
+		if errs := rn.Validate(in); len(errs) > 0 {
+			return nil, &RunResult{Validation: errs}
+		}
+	}
+	c := newCtx(ctx, services, &rn.Spec)
+	return &preparedExec{in: in, ctx: c}, nil
+}
+
+// runWithRecover 跑 fn(), 包装 panic recover + Display 联动. fn 是 closure 包
+// rn.Run(c, in) / rn.RunRegion(c, in, body). 用 named return 让 deferred recover
+// 写 result 后正常返回 (而非 panic 继续传播).
+func runWithRecover(rn *RegisteredNode, p *preparedExec, fn func() (Outputs, error)) (result RunResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			result.Panic = r
+			result.PanicStack = string(debug.Stack())
+			// result.ExitName/OutputData 在 fn() 返回后已赋值, Display callback 可能 panic.
+			// 清空以防 dispatch 把 half-baked result 当合法路由.
+			result.ExitName = ""
+			result.OutputData = nil
+			result.DisplayText = ""
+		}
+	}()
+	outs, err := fn()
+	if err != nil {
+		result.Error = err
+		return result
+	}
+	if outs == nil {
+		return result
+	}
+	name, data := outs.exit()
+	result.ExitName = name
+	result.OutputData = data
+	if rn.Display != nil {
+		od := &outputDataImpl{data: data}
+		result.DisplayText = rn.Display(p.in, name, od)
+	}
+	return result
+}
+
 // RunNode framework 入口. 调用方传 RegisteredNode + 已 merged inputs sources + services bundle.
 //
 // 错误分类 (spec v3 §4.2):
@@ -28,58 +84,21 @@ type RunResult struct {
 // services 内任何字段都可以 nil — 节点拿到 nil service 调方法时 panic, 由 framework
 // recover 报回 RunResult.Panic. 测试可用 StubServices() 一键填齐.
 func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle) RunResult {
-	// Build inputs (priority: data-wire > config > exec-data > default)
-	in := newInputs(dataWire, config, execData, rn.Defaults)
-
-	// Phase 1: Required pre-Run check (ValidationError 非 panic — GPT r4 #8)
-	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
-		return RunResult{Validation: errs}
+	if rn.Run == nil {
+		return RunResult{Error: fmt.Errorf("node %q is not Runnable", rn.Spec.Kind)}
 	}
-
-	// Phase 2: 节点自身 Validate (if Validator)
-	if rn.Validate != nil {
-		if errs := rn.Validate(in); len(errs) > 0 {
-			return RunResult{Validation: errs}
-		}
+	p, gateFail := prepareExec(ctx, rn, dataWire, config, execData, services)
+	if gateFail != nil {
+		return *gateFail
 	}
-
-	// Phase 3: 实际 Run, recover panic
-	c := newCtx(ctx, services, &rn.Spec)
-	result := RunResult{}
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				result.Panic = r
-				result.PanicStack = string(debug.Stack())
-			}
-		}()
-		if rn.Run == nil {
-			result.Error = fmt.Errorf("node %q is not Runnable", rn.Spec.Kind)
-			return
-		}
-		outs, err := rn.Run(c, in)
-		if err != nil {
-			result.Error = err
-			return
-		}
-		if outs != nil {
-			name, data := outs.exit()
-			result.ExitName = name
-			result.OutputData = data
-
-			// Phase 4: Display (if Displayer)
-			if rn.Display != nil {
-				od := &outputDataImpl{data: data}
-				result.DisplayText = rn.Display(in, name, od)
-			}
-		}
-	}()
-	return result
+	return runWithRecover(rn, p, func() (Outputs, error) {
+		return rn.Run(p.ctx, p.in)
+	})
 }
 
 // RunNodeAsRegion framework 入口供 region runner 调用 RegionRunner-implementing 节点.
 // 跟 RunNode 同套 Required/Validate/recover/Display 管线, 区别在调 rn.RunRegion(c, in, body)
-// 而非 rn.Impl.Run(c, in).
+// 而非 rn.Run(c, in).
 //
 // body 是 "执行 region 内部下游" 的回调, 由调用方 (Phase 5.10 runner) 提供 — 节点决定
 // 调 0 / 1 / N 次. body 返 error → 节点可截获 (Try) / 翻译 sentinel (Loop Break/Continue)
@@ -90,50 +109,13 @@ func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, 
 	if rn.RunRegion == nil {
 		return RunResult{Error: fmt.Errorf("node %q is not a RegionRunner", rn.Spec.Kind)}
 	}
-
-	// Build inputs (same priority chain as RunNode)
-	in := newInputs(dataWire, config, execData, rn.Defaults)
-
-	// Phase 1: Required pre-Run check
-	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
-		return RunResult{Validation: errs}
+	p, gateFail := prepareExec(ctx, rn, dataWire, config, execData, services)
+	if gateFail != nil {
+		return *gateFail
 	}
-
-	// Phase 2: 节点自身 Validate (if Validator)
-	if rn.Validate != nil {
-		if errs := rn.Validate(in); len(errs) > 0 {
-			return RunResult{Validation: errs}
-		}
-	}
-
-	// Phase 3: 实际 RunRegion, recover panic
-	c := newCtx(ctx, services, &rn.Spec)
-	result := RunResult{}
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				result.Panic = r
-				result.PanicStack = string(debug.Stack())
-			}
-		}()
-		outs, err := rn.RunRegion(c, in, body)
-		if err != nil {
-			result.Error = err
-			return
-		}
-		if outs != nil {
-			name, data := outs.exit()
-			result.ExitName = name
-			result.OutputData = data
-
-			// Phase 4: Display (if Displayer)
-			if rn.Display != nil {
-				od := &outputDataImpl{data: data}
-				result.DisplayText = rn.Display(in, name, od)
-			}
-		}
-	}()
-	return result
+	return runWithRecover(rn, p, func() (Outputs, error) {
+		return rn.RunRegion(p.ctx, p.in, body)
+	})
 }
 
 // EvaluatePureData framework 入口供 pure-data 节点求值 (no exec / no token).
@@ -151,19 +133,14 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("EvaluatePureData: kind %q does not implement Evaluator", rn.Spec.Kind)
 	}
-
-	in := newInputs(dataWire, config, nil, rn.Defaults)
-
-	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
-		return nil, fmt.Errorf("EvaluatePureData %s: %s", rn.Spec.Kind, errs[0].Message)
-	}
-	if rn.Validate != nil {
-		if errs := rn.Validate(in); len(errs) > 0 {
-			return nil, fmt.Errorf("EvaluatePureData %s: %s", rn.Spec.Kind, errs[0].Message)
+	p, gateFail := prepareExec(ctx, rn, dataWire, config, nil, services)
+	if gateFail != nil {
+		msgs := make([]string, 0, len(gateFail.Validation))
+		for _, e := range gateFail.Validation {
+			msgs = append(msgs, e.Message)
 		}
+		return nil, fmt.Errorf("EvaluatePureData %s: %s", rn.Spec.Kind, strings.Join(msgs, "; "))
 	}
-
-	c := newCtx(ctx, services, &rn.Spec)
 	var v any
 	var runErr error
 	func() {
@@ -172,7 +149,7 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 				runErr = fmt.Errorf("EvaluatePureData %s panic: %v\n%s", rn.Spec.Kind, r, debug.Stack())
 			}
 		}()
-		v, runErr = rn.Evaluate(c, in)
+		v, runErr = rn.Evaluate(p.ctx, p.in)
 	}()
 	return v, runErr
 }

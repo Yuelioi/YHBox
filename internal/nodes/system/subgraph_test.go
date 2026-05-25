@@ -62,7 +62,9 @@ func TestSubgraph_RequiredSubgraphIDMissing(t *testing.T) {
 	node.Register(&Subgraph{})
 	rn, _ := node.Get("Subgraph")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	// Subgraph 是 RegionRunner — 用 RunNodeAsRegion 走 Required gate.
+	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
+		node.StubServices(), func(node.Ctx) error { return nil })
 	if len(r.Validation) == 0 {
 		t.Errorf("expected REQUIRED_FIELD_MISSING for SubgraphID, got %+v", r)
 	}

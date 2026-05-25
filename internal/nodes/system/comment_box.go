@@ -1,11 +1,6 @@
 // internal/nodes/system/comment_box.go
-// CommentBox — render-only annotation node. 老 spec ExecIn=nil/ExecOut=nil +
-// IsVisualOnly=true; runtime/nodes.go::execNode 上层 gatekeep `spec.IsVisualOnly`
-// 直接 return nil, nil — Run 永不调.
-//
-// 新框架同套路: Spec.IsVisualOnly=true → Phase 5 runner 应跳过 Run. 万一
-// runner 忘记 gatekeep 调进来, 返 errVisualOnlyNotRunnable sentinel (从
-// sentinels.go) 让 framework 显式报错而不是 silently no-op.
+// CommentBox — render-only annotation node. Spec.IsVisualOnly=true; framework
+// runner gatekeep IsVisualOnly 不调任何执行路径. 零 capability (无 Run/RunRegion/Evaluate).
 package system
 
 import (
@@ -48,9 +43,4 @@ func (CommentBox) Spec() node.Spec {
 		// no Outputs — render-only
 		IsVisualOnly: true,
 	}
-}
-
-func (CommentBox) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	// Framework Spec.IsVisualOnly gatekeep 应阻止调到这里; 防御性返 sentinel.
-	return nil, errVisualOnlyNotRunnable
 }

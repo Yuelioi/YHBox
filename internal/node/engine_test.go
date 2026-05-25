@@ -4,6 +4,7 @@ package node
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -247,5 +248,134 @@ func TestEvaluatePureData_PanicRecovered(t *testing.T) {
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
 	if err == nil {
 		t.Fatal("expected error from panic recovery, got nil")
+	}
+}
+
+// ============================================================================
+// C4a: engine dispatch + panic hygiene 守护
+// ============================================================================
+// P2.2a+b+d: engine dispatch invariant 验证. 跟 Register strict (C5 激活) 解耦 —
+// 这组只验 RunNode/RunNodeAsRegion/EvaluatePureData 对错 capability 节点返 error.
+
+type runnableOnlyNode struct{}
+
+func (runnableOnlyNode) Spec() Spec                              { return Spec{Kind: "RunnableOnly"} }
+func (runnableOnlyNode) Run(_ Ctx, _ Inputs) (Outputs, error)    { return nil, nil }
+
+type evaluatorOnlyNode struct{}
+
+func (evaluatorOnlyNode) Spec() Spec {
+	return Spec{Kind: "EvaluatorOnly", IsPureData: true}
+}
+func (evaluatorOnlyNode) Evaluate(_ Ctx, _ Inputs) (any, error) { return 42, nil }
+
+func TestRunNode_NonRunnable_Errors(t *testing.T) {
+	ResetRegistryForTest()
+	Register(evaluatorOnlyNode{})
+	rn, _ := Get("EvaluatorOnly")
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	if r.Error == nil || !strings.Contains(r.Error.Error(), "not Runnable") {
+		t.Errorf("expected 'not Runnable' error, got %v", r.Error)
+	}
+}
+
+func TestRunNodeAsRegion_NonRegionRunner_Errors(t *testing.T) {
+	ResetRegistryForTest()
+	Register(runnableOnlyNode{})
+	rn, _ := Get("RunnableOnly")
+	r := RunNodeAsRegion(context.Background(), rn, nil, nil, nil, StubServices(), func(Ctx) error { return nil })
+	if r.Error == nil || !strings.Contains(r.Error.Error(), "not a RegionRunner") {
+		t.Errorf("expected 'not a RegionRunner' error, got %v", r.Error)
+	}
+}
+
+func TestEvaluatePureData_NonEvaluator_Errors(t *testing.T) {
+	ResetRegistryForTest()
+	Register(runnableOnlyNode{})
+	rn, _ := Get("RunnableOnly")
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
+	if err == nil || !strings.Contains(err.Error(), "is not IsPureData") {
+		t.Errorf("expected 'is not IsPureData' error, got %v", err)
+	}
+}
+
+// P2.2: panic hygiene 验证. 两条路径分开测:
+//   1. Run 内 panic — Set 之后, Fire 之前 panic. fn() 没返回 → result.ExitName/OutputData
+//      根本没被赋值 → recover 时已是 zero, clear 块不会改变啥. 这是 "panic 路径整体被 recover
+//      干净" 的 smoke.
+//   2. Display callback panic — fn() 已 return, result.ExitName + OutputData 已 assign, 然后
+//      Display 里炸. 这条 path 才是 engine.go clear 块的真实工作场景.
+
+// runPanicNode — Run 内在 Fire 之前 panic. fn() never returns, result 字段全是 zero.
+type runPanicNode struct{}
+
+func (runPanicNode) Spec() Spec {
+	return Spec{
+		Kind:    "RunPanic",
+		Outputs: []OutputSpec{{Name: "Out", Type: "Exec", Data: []DataField{{Name: "X", Type: "Number"}}}},
+	}
+}
+func (runPanicNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
+	o := ctx.Out("Out").Set("X", 42)
+	_ = o
+	panic("deliberate test panic in Run before Fire")
+}
+
+func TestRunWithRecover_RunPanicYieldsRecoveredResult(t *testing.T) {
+	ResetRegistryForTest()
+	Register(runPanicNode{})
+	rn, _ := Get("RunPanic")
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	if r.Panic == nil {
+		t.Fatal("expected Panic to be set, got nil")
+	}
+	// Run 内 panic 在 Fire 之前 → fn() 没返回 → result 字段从来没被 assign, 本来就是 zero.
+	// 这里只是确认 recover 流程整体没把脏数据漏出来.
+	if r.ExitName != "" {
+		t.Errorf("ExitName should be empty, got %q", r.ExitName)
+	}
+	if r.OutputData != nil {
+		t.Errorf("OutputData should be nil, got %v", r.OutputData)
+	}
+	if r.DisplayText != "" {
+		t.Errorf("DisplayText should be empty, got %q", r.DisplayText)
+	}
+}
+
+// displayPanicNode — Run 正常 Fire 返 Outputs, Display callback panic. 这正是 engine.go
+// 那 3 行 clear 真正防御的场景: result.ExitName + OutputData 已 assign, Display 里炸 → 必须
+// 清掉 partial 不让 dispatch 把 ExitName="Out" 当合法路由.
+type displayPanicNode struct{}
+
+func (displayPanicNode) Spec() Spec {
+	return Spec{
+		Kind:    "DisplayPanic",
+		Outputs: []OutputSpec{{Name: "Out", Type: "Exec", Data: []DataField{{Name: "X", Type: "Number"}}}},
+	}
+}
+func (displayPanicNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
+	return ctx.Out("Out").Set("X", 42).Fire(), nil
+}
+func (displayPanicNode) Display(_ Inputs, _ string, _ OutputData) string {
+	panic("deliberate display panic")
+}
+
+func TestRunWithRecover_DisplayPanicClearsPartialResult(t *testing.T) {
+	ResetRegistryForTest()
+	Register(displayPanicNode{})
+	rn, _ := Get("DisplayPanic")
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	if r.Panic == nil {
+		t.Fatal("expected Panic to be set, got nil")
+	}
+	// Display 之前 result.ExitName="Out", OutputData={"X":42} 已写; clear 块必须把它们抹掉.
+	if r.ExitName != "" {
+		t.Errorf("ExitName should be cleared on Display panic, got %q", r.ExitName)
+	}
+	if r.OutputData != nil {
+		t.Errorf("OutputData should be nil on Display panic, got %v", r.OutputData)
+	}
+	if r.DisplayText != "" {
+		t.Errorf("DisplayText should be cleared on Display panic, got %q", r.DisplayText)
 	}
 }
