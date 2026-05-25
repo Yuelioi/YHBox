@@ -168,21 +168,6 @@ func TestLoop_UnknownMode_Error(t *testing.T) {
 	}
 }
 
-func TestLoop_RunReturnsSentinel(t *testing.T) {
-	// Loop.Run (非 RunRegion) 应返 errLoopMustUseRegion — defensive.
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{loopInMode: "count", loopInCount: 5},
-		nil, node.StubServices())
-
-	if !errors.Is(r.Error, node.ErrMustUseRegion) {
-		t.Errorf("Run error = %v, want node.ErrMustUseRegion", r.Error)
-	}
-}
-
 func TestLoop_NoRegionRunner_NotARegionError(t *testing.T) {
 	// Sanity: RunNodeAsRegion on a non-RegionRunner node (Sleep) 应返 "not a RegionRunner".
 	node.ResetRegistryForTest()

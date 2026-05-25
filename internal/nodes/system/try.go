@@ -57,11 +57,6 @@ func (Try) Dependencies(in node.Inputs) []node.Dependency {
 	return []node.Dependency{{Kind: "subgraph", Key: id}}
 }
 
-// Run — 防御性. 正常路径走 RunNodeAsRegion → RunRegion.
-func (Try) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, node.ErrMustUseRegion
-}
-
 // RunRegion — body 跑完 error → catch.error; 无 error → normal.
 func (Try) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
 	err := body(ctx)

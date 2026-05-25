@@ -43,11 +43,6 @@ func (CollapsedNode) Spec() node.Spec {
 	}
 }
 
-// Run — 防御性. 正常路径走 RunNodeAsRegion → RunRegion.
-func (CollapsedNode) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, node.ErrMustUseRegion
-}
-
 // RunRegion — body() 调一次, 跑 callee subgraph. error 透传; 无 error → Done.
 func (CollapsedNode) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
 	if err := body(ctx); err != nil {

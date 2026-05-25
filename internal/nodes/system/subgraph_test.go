@@ -8,21 +8,6 @@ import (
 	"yhbox/internal/node"
 )
 
-func TestSubgraph_Run_ReturnsMustUseRegionSentinel(t *testing.T) {
-	// Run (非 RunRegion) 被框架直调 → 防御 sentinel.
-	node.ResetRegistryForTest()
-	node.Register(&Subgraph{})
-	rn, _ := node.Get("Subgraph")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{sgInSubgraphID: "sg_foo"},
-		nil, node.StubServices())
-
-	if !errors.Is(r.Error, node.ErrMustUseRegion) {
-		t.Errorf("Run error = %v, want node.ErrMustUseRegion", r.Error)
-	}
-}
-
 func TestSubgraph_RunRegion_InvokesBodyOnceThenDone(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Subgraph{})

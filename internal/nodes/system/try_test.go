@@ -8,19 +8,6 @@ import (
 	"yhbox/internal/node"
 )
 
-func TestTry_Run_ReturnsMustUseRegionSentinel(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Try{})
-	rn, _ := node.Get("Try")
-
-	// SubgraphID Required — 塞 dummy, 让 framework 跑过 Required check 进 Run.
-	cfg := map[string]any{tryInSubgraphID: "dummy"}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices())
-	if !errors.Is(r.Error, node.ErrMustUseRegion) {
-		t.Errorf("Run error = %v, want node.ErrMustUseRegion", r.Error)
-	}
-}
-
 func TestTry_RunRegion_BodySucceedsThenNormal(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Try{})

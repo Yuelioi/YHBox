@@ -56,11 +56,6 @@ func (Loop) Spec() node.Spec {
 	}
 }
 
-// Run — 防御性. 框架走 RunNodeAsRegion → RunRegion. 直调 Run 是 framework bug.
-func (Loop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, node.ErrMustUseRegion
-}
-
 // RunRegion — body() 调 N 次 / forever. break/continue sentinel 截获.
 func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
 	mode := in.String(loopInMode)
