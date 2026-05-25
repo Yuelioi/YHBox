@@ -1,7 +1,6 @@
 // internal/nodes/detect/detect_color.go
 // DetectColor — 在 region 内统计落在颜色范围内的像素数 (RGB 或 HSV 模式).
-// 跟 DetectColorHSV 区别: DetectColor 用 ratio region + CSV-like range, 单次扫描无轮询,
-// 主要服务老钓鱼 "看状态栏有没有 X 颜色" 场景.
+// 跟 DetectColorHSV 区别: DetectColor 用 ratio region + CSV-like range, 单次扫描无轮询.
 //
 package detect
 
