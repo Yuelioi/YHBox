@@ -314,7 +314,7 @@ func (r *ContainerRunner) setupRuntime() error {
 	r.rt.Window = wh
 
 	// 2) input backend (默认 postmessage)
-	inputName := runtimeSpec["inputBackend"]
+	inputName := runtimeSpec["InputBackend"]
 	if inputName == "" {
 		inputName = "postmessage"
 	}
@@ -325,7 +325,7 @@ func (r *ContainerRunner) setupRuntime() error {
 	r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
 
 	// 3) capture backend (auto + fallback)
-	captureName := runtimeSpec["captureBackend"]
+	captureName := runtimeSpec["CaptureBackend"]
 	if captureName == "" {
 		captureName = "auto"
 	}
@@ -396,34 +396,34 @@ func findMainGraphNode(c *container.Container, kind string) *container.GraphNode
 	return nil
 }
 
-// readWindowTargetMatchSpec 解析 WindowTarget.config.match (匹配条件 — JSON 来料 map).
+// readWindowTargetMatchSpec 解析 WindowTarget.config 顶级匹配字段.
+// P2.1: 之前 nested 在 config.match — 已扁平化跟 Spec.Inputs 对齐.
 func readWindowTargetMatchSpec(n *container.GraphNode) winutil.MatchSpec {
 	if n.Config == nil {
 		return winutil.MatchSpec{}
 	}
-	matchAny, _ := n.Config["match"].(map[string]any)
 	getStr := func(k string) string {
-		v, _ := matchAny[k].(string)
+		v, _ := n.Config[k].(string)
 		return v
 	}
 	return winutil.MatchSpec{
-		Title:       getStr("title"),
-		Class:       getStr("class"),
-		ProcessName: getStr("processName"),
-		TitleMatch:  getStr("titleMatch"),
+		Title:       getStr("Title"),
+		Class:       getStr("Class"),
+		ProcessName: getStr("ProcessName"),
+		TitleMatch:  getStr("TitleMatch"),
 	}
 }
 
-// readWindowTargetRuntimeSpec 解析 WindowTarget.config.runtime (inputBackend / captureBackend).
-// 返 string map — 当前两个 key 都是 string 枚举 ("postmessage" / "auto" 等).
+// readWindowTargetRuntimeSpec 解析 WindowTarget.config 顶级 runtime 字段 (InputBackend /
+// CaptureBackend). 之前 nested 在 config.runtime — 已扁平化.
+// 返 map[string]string 兼容老 caller (key 是 PascalCase: "InputBackend"/"CaptureBackend").
 func readWindowTargetRuntimeSpec(n *container.GraphNode) map[string]string {
 	if n.Config == nil {
 		return map[string]string{}
 	}
-	rtAny, _ := n.Config["runtime"].(map[string]any)
 	out := map[string]string{}
-	for k, v := range rtAny {
-		if s, ok := v.(string); ok {
+	for _, k := range []string{"InputBackend", "CaptureBackend"} {
+		if s, ok := n.Config[k].(string); ok {
 			out[k] = s
 		}
 	}

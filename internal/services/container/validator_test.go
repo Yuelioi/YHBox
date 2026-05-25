@@ -322,10 +322,10 @@ func TestValidateWindowTarget_EmptyGraphSkipped(t *testing.T) {
 func TestValidateWindowTarget_Duplicate(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
-			"match": map[string]any{"title": "异环"},
+			"Title": "异环",
 		}},
 		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
-			"match": map[string]any{"title": "异环"},
+			"Title": "异环",
 		}},
 	}}}
 	errs := validateWindowTarget(c)
@@ -338,7 +338,7 @@ func TestValidateWindowTarget_InSubgraph(t *testing.T) {
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
-				"match": map[string]any{"title": "异环"},
+				"Title": "异环",
 			}},
 		}},
 		Subgraphs: []Subgraph{
@@ -356,7 +356,7 @@ func TestValidateWindowTarget_InSubgraph(t *testing.T) {
 func TestValidateWindowTarget_InvalidRegex(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
-			"match": map[string]any{"title": "[invalid", "titleMatch": "regex"},
+			"Title": "[invalid", "TitleMatch": "regex",
 		}},
 	}}}
 	errs := validateWindowTarget(c)
@@ -367,17 +367,17 @@ func TestValidateWindowTarget_InvalidRegex(t *testing.T) {
 
 func TestValidateWindowTarget_EmptyMatch(t *testing.T) {
 	cases := []struct {
-		name  string
-		match map[string]any
+		name   string
+		config map[string]any
 	}{
 		{"all blank", map[string]any{}},
-		{"regex dot star", map[string]any{"title": ".*", "titleMatch": "regex"}},
-		{"regex dot plus", map[string]any{"title": ".+", "titleMatch": "regex"}},
+		{"regex dot star", map[string]any{"Title": ".*", "TitleMatch": "regex"}},
+		{"regex dot plus", map[string]any{"Title": ".+", "TitleMatch": "regex"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &Container{Graph: Graph{Nodes: []GraphNode{
-				{ID: "w1", Kind: "WindowTarget", Config: map[string]any{"match": tc.match}},
+				{ID: "w1", Kind: "WindowTarget", Config: tc.config},
 			}}}
 			errs := validateWindowTarget(c)
 			if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
@@ -390,7 +390,7 @@ func TestValidateWindowTarget_EmptyMatch(t *testing.T) {
 func TestValidateWindowTarget_Valid(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
-			"match": map[string]any{"title": "异环", "class": "Unreal"},
+			"Title": "异环", "Class": "Unreal",
 		}},
 	}}}
 	errs := validateWindowTarget(c)
@@ -411,7 +411,7 @@ func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "wt", Kind: "WindowTarget", Config: map[string]any{
-					"match": map[string]any{"title": "异环"},
+					"Title": "异环",
 				}},
 				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "local"}},
 				{ID: "log", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Message": "", "Level": "info"}}},

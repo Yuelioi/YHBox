@@ -244,21 +244,21 @@ func findWindowTargetNode(c *container.Container) *container.GraphNode {
 	return nil
 }
 
-// readMatchSpecFromConfig 从 WindowTarget 节点 config.match map[string]any 解出 winutil.MatchSpec.
+// readMatchSpecFromConfig 从 WindowTarget 节点 config 顶级字段解出 winutil.MatchSpec.
+// P2.1: 之前 nested config.match — 已扁平化跟 Spec.Inputs 对齐.
 // config 缺字段或类型不对 → 留空字段 (winutil.ResolveWindow 会报 IsEmptyMatch).
 func readMatchSpecFromConfig(n *container.GraphNode) winutil.MatchSpec {
 	if n.Config == nil {
 		return winutil.MatchSpec{}
 	}
-	matchAny, _ := n.Config["match"].(map[string]any)
 	getStr := func(k string) string {
-		v, _ := matchAny[k].(string)
+		v, _ := n.Config[k].(string)
 		return v
 	}
 	return winutil.MatchSpec{
-		Title:       getStr("title"),
-		Class:       getStr("class"),
-		ProcessName: getStr("processName"),
-		TitleMatch:  getStr("titleMatch"),
+		Title:       getStr("Title"),
+		Class:       getStr("Class"),
+		ProcessName: getStr("ProcessName"),
+		TitleMatch:  getStr("TitleMatch"),
 	}
 }

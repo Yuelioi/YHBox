@@ -701,16 +701,15 @@ func readWindowTargetMatchSpec(n *GraphNode) windowTargetMatchSpec {
 	if n.Config == nil {
 		return windowTargetMatchSpec{}
 	}
-	matchAny, _ := n.Config["match"].(map[string]any)
 	getStr := func(k string) string {
-		v, _ := matchAny[k].(string)
+		v, _ := n.Config[k].(string)
 		return v
 	}
 	return windowTargetMatchSpec{
-		Title:       getStr("title"),
-		Class:       getStr("class"),
-		ProcessName: getStr("processName"),
-		TitleMatch:  getStr("titleMatch"),
+		Title:       getStr("Title"),
+		Class:       getStr("Class"),
+		ProcessName: getStr("ProcessName"),
+		TitleMatch:  getStr("TitleMatch"),
 	}
 }
 

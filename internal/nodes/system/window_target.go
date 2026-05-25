@@ -16,12 +16,12 @@ func init() { node.Register(&WindowTarget{}) }
 type WindowTarget struct{}
 
 const (
-	wtInTitle          = "title"
-	wtInClass          = "class"
-	wtInProcessName    = "processName"
-	wtInTitleMatch     = "titleMatch"
-	wtInInputBackend   = "inputBackend"
-	wtInCaptureBackend = "captureBackend"
+	wtInTitle          = "Title"
+	wtInClass          = "Class"
+	wtInProcessName    = "ProcessName"
+	wtInTitleMatch     = "TitleMatch"
+	wtInInputBackend   = "InputBackend"
+	wtInCaptureBackend = "CaptureBackend"
 	wtOutFire          = "Fire"
 )
 

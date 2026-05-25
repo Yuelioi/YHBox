@@ -28,12 +28,8 @@ import (
 //   2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
 //   3. Exec in pin 名统一 "In" (fire-only 节点 — Start/OnEvent/SubgraphInput — 没 exec in, 不约束).
 //
-// kindMigrationPending — 这些 kind 的 data pin 还有 lowercase 字段, 等单独 batch 迁;
-// 别 fail lint 但仍标 backlog. 完整迁完后删 entry.
-var kindMigrationPending = map[string]struct{}{
-	"WindowTarget": {}, // match.title/class/processName/titleMatch + runtime.inputBackend/captureBackend
-	// CollapsedNode/MouseCalibration/SubgraphOutput/CommentBox/Throw/OnEvent — 已迁完, 加 lint.
-}
+// kindMigrationPending — 全部 P2.1 batch 迁完, whitelist 清空. 留 var 给将来 backlog 用.
+var kindMigrationPending = map[string]struct{}{}
 
 func TestSpecConsistency_DataPinNamingConvention(t *testing.T) {
 	for _, rn := range nodepkg.All() {
