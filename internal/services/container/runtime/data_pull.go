@@ -89,9 +89,8 @@ func (r *ContainerRunner) pullDataPin(nodeID, pinName string) (expr.Value, error
 // evalDataSource dispatches by source node Kind. Only pure-data Kinds are valid sources
 // (a data edge from an exec node like Sleep would be a schema error caught by validator).
 //
-// C5b: Get* (GetVar/GetSys/GetParam) + Expr 全走 framework EvaluatePureData (跟
-// resolveDataPinV5 同模式). 22 pure-function 仍走 evalPureFunc (legacy) — capability
-// segregation 完成前两者并存, pure-func 跨 commit 单独迁.
+// 全 IsPureData 节点 (Get*/Expr/22 pure-function) 走 framework EvaluatePureData 单一 path.
+// buildDataWireFor 对 Expr 特例 (config.Inputs[] dynamic) + 普通节点 spec data-in 都覆盖.
 func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, error) {
 	n := r.nodesByID[srcNodeID]
 	if n == nil {
@@ -113,19 +112,6 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	if !rn.Spec.IsPureData {
 		return nil, fmt.Errorf("evalDataSource: kind %q is not pure-data (pin %q); use sys snapshot for exec-node data-out", n.Kind, srcPin)
 	}
-	switch n.Kind {
-	// v4 §6: 22 pure-function nodes — all dispatched through evalPureFunc (legacy path,
-	// 仍走 r.pullDataPin 拉输入). Get* + Expr 已迁 framework, fallthrough default.
-	case "Add", "Sub", "Mul", "Div", "Mod", "Neg",
-		"Lt", "LtEq", "Gt", "GtEq", "Eq", "NotEq",
-		"And", "Or", "Not",
-		"Concat", "Contains", "Length",
-		"ToString", "ToNumber", "ToBool",
-		"Select":
-		return r.evalPureFunc(n)
-	}
-	// Default: 走 framework EvaluatePureData. Get*/Expr 都在这条 path (Evaluator-impl).
-	// buildDataWireFor 对 Expr 特例 (config.Inputs[] dynamic) + 普通节点 spec data-in 都覆盖.
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("evalDataSource: IsPureData=true but kind %q does not implement Evaluator", n.Kind)
 	}
