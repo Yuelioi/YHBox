@@ -19,6 +19,11 @@ type Spec struct {
 
 	IsPureData   bool `json:"isPureData,omitempty"`
 	IsVisualOnly bool `json:"isVisualOnly,omitempty"`
+	// IsGraphMarker — graph 结构标记节点 (SubgraphInput / SubgraphOutput).
+	// runtime 在 dispatch_v5 / runRegionBody 里 special-route 跳过 Run.
+	// 跟 IsVisualOnly 对称 (一个渲染标, 一个结构标), 跟 IsPureData 区分.
+	// Register 允许 IsGraphMarker=true 时 zero capability.
+	IsGraphMarker bool `json:"isGraphMarker,omitempty"`
 }
 
 type InputSpec struct {

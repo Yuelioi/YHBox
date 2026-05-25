@@ -7,9 +7,15 @@ import (
 	"time"
 )
 
-// Node minimal interface — Spec + Run.
+// Node — minimal contract. 只描述 "我是什么", 不描述 "我怎么跑".
+// 三 capability interfaces (Runnable / RegionRunner / Evaluator) 表执行语义.
+// Register 验证 exactly-one capability (IsVisualOnly / IsGraphMarker 例外).
 type Node interface {
 	Spec() Spec
+}
+
+// Runnable — exec 节点, 框架同步调一次.
+type Runnable interface {
 	Run(ctx Ctx, in Inputs) (Outputs, error)
 }
 

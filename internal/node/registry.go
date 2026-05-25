@@ -9,16 +9,22 @@ import (
 
 // RegisteredNode framework 注册条目, 含 Spec + 探测出的扩展 interface fn 指针.
 type RegisteredNode struct {
+	// Impl 仅作 identity / debug / reflect 用. engine dispatch 必须走下面 cached
+	// capability funcs, 不许 impl.(Runnable) / impl.(Evaluator) 之类 runtime type assert
+	// (Register 已探测一次, 缓存到 function pointer, 重复 assert 是污染).
 	Impl Node
 	Spec Spec
-	// Optional extensions — nil if node doesn't implement.
+
+	// exactly-one capability — Register 时验证 (C4 激活). nil = 节点未实现该 capability.
+	Run       func(Ctx, Inputs) (Outputs, error)
+	RunRegion func(Ctx, Inputs, func(Ctx) error) (Outputs, error)
+	Evaluate  func(Ctx, Inputs) (any, error)
+
+	// Optional extensions (unchanged)
 	Display      func(in Inputs, exitName string, out OutputData) string
 	Validate     func(in Inputs) []ValidationError
 	Dependencies func(in Inputs) []Dependency
-	// RunRegion — Phase 5 control flow nodes 实现.
-	RunRegion func(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
-	// Evaluate — pure-data 节点 (IsPureData=true) 实现, EvaluatePureData 调.
-	Evaluate func(ctx Ctx, in Inputs) (any, error)
+
 	// Defaults — Spec.Inputs 中非 nil Default 值的 name→value 缓存. P1.9: per-token 不再
 	// 重算 defaultsFromSpec — Register 时 build 一次, 引擎 newInputs 复用.
 	Defaults map[string]any
@@ -55,6 +61,10 @@ func Register(impl Node) {
 	}
 	if d, ok := impl.(Dependencer); ok {
 		rn.Dependencies = d.Dependencies
+	}
+	// Capability 探测 (exactly-one validation 留 C4 激活).
+	if r, ok := impl.(Runnable); ok {
+		rn.Run = r.Run
 	}
 	if r, ok := impl.(RegionRunner); ok {
 		rn.RunRegion = r.RunRegion

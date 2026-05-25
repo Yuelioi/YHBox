@@ -53,7 +53,11 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 				result.PanicStack = string(debug.Stack())
 			}
 		}()
-		outs, err := rn.Impl.Run(c, in)
+		if rn.Run == nil {
+			result.Error = fmt.Errorf("node %q is not Runnable", rn.Spec.Kind)
+			return
+		}
+		outs, err := rn.Run(c, in)
 		if err != nil {
 			result.Error = err
 			return
