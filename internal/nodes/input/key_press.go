@@ -17,7 +17,7 @@ func init() { node.Register(&KeyPress{}) }
 type KeyPress struct{}
 
 const (
-	kpInExec       = "in"
+	kpInExec       = "In"
 	kpInVK         = "VK"
 	kpInDurationMs = "DurationMs"
 	kpOutDone      = "Done"

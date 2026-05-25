@@ -38,8 +38,8 @@ func TestValidator_InvalidPin_MainGraph(t *testing.T) {
 	)
 	// "Sleep" 节点只有 in / out pin；这里故意写 "weird-out"
 	c.Graph.Edges = []GraphEdge{
-		{From: "start.out", To: "sleep1.in"},
-		{From: "sleep1.weird-out", To: "start.in"},
+		{From: "start.out", To: "sleep1.In"},
+		{From: "sleep1.weird-out", To: "start.In"},
 	}
 	errs := ValidateContainer(c)
 	if !hasCode(errs, CodeInvalidPin) {
@@ -150,7 +150,7 @@ func TestValidator_MultipleStarts(t *testing.T) {
 func TestValidator_DanglingEdge(t *testing.T) {
 	c := minContainer()
 	c.Graph.Edges = []GraphEdge{
-		{From: "start.out", To: "ghost.in"},
+		{From: "start.out", To: "ghost.In"},
 	}
 	errs := ValidateContainer(c)
 	if !hasCode(errs, CodeDanglingEdge) {
@@ -163,7 +163,7 @@ func TestValidator_MissingMouseCalibration(t *testing.T) {
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "m", Kind: "MouseMoveRel", Config: map[string]any{"dx": "100", "dy": "0", "durationMs": "100"}, CreatedAt: time.Now().UTC()},
 	)
-	c.Graph.Edges = []GraphEdge{{From: "start.out", To: "m.in"}}
+	c.Graph.Edges = []GraphEdge{{From: "start.out", To: "m.In"}}
 	errs := ValidateContainer(c)
 	if !hasCode(errs, CodeMissingMouseCalibration) {
 		t.Errorf("expected MISSING_MOUSE_CALIBRATION, got %+v", errs)
@@ -200,7 +200,7 @@ func TestValidator_MouseCalibrationNotSet(t *testing.T) {
 
 func TestValidator_GraphPathPopulated(t *testing.T) {
 	c := minContainer()
-	c.Graph.Edges = []GraphEdge{{From: "ghost.out", To: "start.in"}}
+	c.Graph.Edges = []GraphEdge{{From: "ghost.Done", To: "start.In"}}
 	errs := ValidateContainer(c)
 	for _, e := range errs {
 		if e.Code == CodeDanglingEdge {
@@ -417,7 +417,7 @@ func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 				{ID: "log", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Message": "", "Level": "info"}}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "log.in"},     // exec edge
+				{From: "start.out", To: "log.In"},     // exec edge
 				{From: "gv.Value", To: "log.Message"}, // data edge — no Kind field, must still validate
 			},
 		},

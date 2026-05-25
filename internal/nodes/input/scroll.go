@@ -14,7 +14,7 @@ func init() { node.Register(&Scroll{}) }
 type Scroll struct{}
 
 const (
-	scInExec   = "in"
+	scInExec   = "In"
 	scInXRatio = "XRatio"
 	scInYRatio = "YRatio"
 	scInDelta  = "Delta"

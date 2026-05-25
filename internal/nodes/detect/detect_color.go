@@ -18,7 +18,7 @@ func init() { node.Register(&DetectColor{}) }
 type DetectColor struct{}
 
 const (
-	dcInExec      = "in"
+	dcInExec      = "In"
 	dcInRegion    = "Region"
 	dcInMode      = "Mode"
 	dcInRange     = "Range"

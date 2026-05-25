@@ -13,7 +13,7 @@ func init() { node.Register(&Stop{}) }
 type Stop struct{}
 
 const (
-	stopInExec = "in"
+	stopInExec = "In"
 )
 
 func (Stop) Spec() node.Spec {

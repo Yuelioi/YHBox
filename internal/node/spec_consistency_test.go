@@ -20,16 +20,13 @@ import (
 	_ "yhbox/internal/nodes/variable"
 )
 
-// P2.1 Step 3 lint — 守护 playbook node-spec-style.md 锁定的约定. 任何节点新加 / 改 Spec
+// P2.1 lint — 守护 playbook node-spec-style.md 锁定的约定. 任何节点新加 / 改 Spec
 // 违反这些规则 → fail.
 //
-// 当前覆盖:
+// 覆盖:
 //   1. 所有 data pin (Type != "Exec") Name 首字母大写 (节点级 whitelist 例外).
 //   2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
-//
-// 暂未覆盖 (待后续 batch):
-//   - Exec in pin 名统一 "In" (当前节点用 lowercase "in")
-//   - Single-done exec out pin 名统一 "Done" (当前混 "out"/"Out"/"Done")
+//   3. Exec in pin 名统一 "In" (fire-only 节点 — Start/OnEvent/SubgraphInput — 没 exec in, 不约束).
 //
 // kindMigrationPending — 这些 kind 的 data pin 还有 lowercase 字段, 等单独 batch 迁;
 // 别 fail lint 但仍标 backlog. 完整迁完后删 entry.
@@ -58,6 +55,22 @@ func TestSpecConsistency_DataPinNamingConvention(t *testing.T) {
 			}
 			if !startsWithUppercase(out.Name) {
 				t.Errorf("data OutputSpec.Name = %q, want PascalCase (kind=%s)", out.Name, spec.Kind)
+			}
+		}
+	}
+}
+
+// TestSpecConsistency_ExecInPinNamedIn 守护 exec in pin 命名约定 — 必须叫 "In".
+// fire-only 节点 (Start/OnEvent/SubgraphInput) 没 exec in, 不约束.
+func TestSpecConsistency_ExecInPinNamedIn(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		for _, in := range spec.Inputs {
+			if in.Type != nodepkg.TypeExec {
+				continue
+			}
+			if in.Name != "In" {
+				t.Errorf("Exec InputSpec.Name = %q, want \"In\" (kind=%s)", in.Name, spec.Kind)
 			}
 		}
 	}

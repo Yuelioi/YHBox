@@ -77,7 +77,7 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 				{"id": "log", "kind": "Log", "x": 300, "y": 0, "config": {"literal": {"Message": "", "Level": "info"}}}
 			],
 			"edges": [
-				{"from": "start.out", "to": "log.in", "kind": "exec"},
+				{"from": "start.out", "to": "log.In", "kind": "exec"},
 				{"from": "gv.Value", "to": "log.Message", "kind": "data"}
 			]
 		},

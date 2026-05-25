@@ -17,7 +17,7 @@ func init() { node.Register(&WaitTemplate{}) }
 type WaitTemplate struct{}
 
 const (
-	wtInExec      = "in"
+	wtInExec      = "In"
 	wtInTemplate  = "Template"
 	wtInTimeoutMs = "TimeoutMs"
 	wtInThreshold = "Threshold"

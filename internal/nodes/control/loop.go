@@ -19,12 +19,12 @@ func init() { node.Register(&Loop{}) }
 type Loop struct{}
 
 const (
-	loopInExec  = "in" // exec pin 跟其他节点一起后续 batch 迁
+	loopInExec  = "In" // exec pin 跟其他节点一起后续 batch 迁
 	loopInMode  = "Mode"
 	loopInCount = "Count"
 
-	loopOutBody = "body" // exec out 同 in, 后续 batch 迁
-	loopOutDone = "done"
+	loopOutBody = "Body"
+	loopOutDone = "Done"
 )
 
 func (Loop) Spec() node.Spec {

@@ -16,7 +16,7 @@ func init() { node.Register(&Toast{}) }
 type Toast struct{}
 
 const (
-	toastInExec    = "in"
+	toastInExec    = "In"
 	toastInTitle   = "Title"
 	toastInMessage = "Message"
 	toastInColor   = "Color"

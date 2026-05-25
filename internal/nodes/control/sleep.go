@@ -13,7 +13,7 @@ func init() { node.Register(&Sleep{}) }
 type Sleep struct{}
 
 const (
-	sleepInExec     = "in"
+	sleepInExec     = "In"
 	sleepInDuration = "Duration"
 	sleepOutDone    = "Done"
 )

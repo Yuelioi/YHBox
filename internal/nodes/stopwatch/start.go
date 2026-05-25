@@ -23,9 +23,9 @@ func init() { node.Register(&Start{}) }
 type Start struct{}
 
 const (
-	swStartInExec = "in"
+	swStartInExec = "In"
 	swStartInKey  = "Key"
-	swStartOutOut = "Out"
+	swStartOutOut = "Done"
 )
 
 func (Start) Spec() node.Spec {

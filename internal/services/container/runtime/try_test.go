@@ -15,7 +15,7 @@ func TestTryDonePath(t *testing.T) {
 		{ID: "sg1in", Kind: "SubgraphInput"},
 		{ID: "sg1out", Kind: "SubgraphOutput", Config: map[string]any{"DeclID": "done"}},
 	}, []container.GraphEdge{
-		{From: "sg1in.out", To: "sg1out.in"},
+		{From: "sg1in.out", To: "sg1out.In"},
 	})
 	node := &container.GraphNode{
 		ID:     "try1",

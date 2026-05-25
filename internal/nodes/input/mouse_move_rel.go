@@ -18,7 +18,7 @@ func init() { node.Register(&MouseMoveRel{}) }
 type MouseMoveRel struct{}
 
 const (
-	mmrInExec       = "in"
+	mmrInExec       = "In"
 	mmrInDx         = "Dx"
 	mmrInDy         = "Dy"
 	mmrInDurationMs = "DurationMs"

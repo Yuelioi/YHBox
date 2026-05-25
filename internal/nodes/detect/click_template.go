@@ -19,7 +19,7 @@ func init() { node.Register(&ClickTemplate{}) }
 type ClickTemplate struct{}
 
 const (
-	clkInExec      = "in"
+	clkInExec      = "In"
 	clkInTemplate  = "Template"
 	clkInTimeoutMs = "TimeoutMs"
 	clkInThreshold = "Threshold"

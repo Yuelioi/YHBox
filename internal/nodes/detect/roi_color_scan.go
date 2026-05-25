@@ -17,7 +17,7 @@ func init() { node.Register(&ROIColorScan{}) }
 type ROIColorScan struct{}
 
 const (
-	rcsInExec            = "in"
+	rcsInExec            = "In"
 	rcsInROI             = "ROI"
 	rcsInHSV             = "HSV"
 	rcsInAxis            = "Axis"

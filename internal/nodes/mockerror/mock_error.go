@@ -15,9 +15,9 @@ func init() { node.Register(&MockError{}) }
 type MockError struct{}
 
 const (
-	meInExec    = "in"
+	meInExec    = "In"
 	meInMessage = "ErrorMessage"
-	meOutDone   = "done"
+	meOutDone   = "Done"
 )
 
 func (MockError) Spec() node.Spec {

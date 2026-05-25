@@ -10,7 +10,7 @@ func init() { node.Register(&Continue{}) }
 type Continue struct{}
 
 const (
-	continueInExec = "in"
+	continueInExec = "In"
 )
 
 func (Continue) Spec() node.Spec {

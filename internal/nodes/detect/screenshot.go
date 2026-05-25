@@ -20,7 +20,7 @@ func init() { node.Register(&Screenshot{}) }
 type Screenshot struct{}
 
 const (
-	ssInExec         = "in"
+	ssInExec         = "In"
 	ssInPathTemplate = "PathTemplate"
 	ssInROI          = "ROI"
 	ssOutDone        = "Done"

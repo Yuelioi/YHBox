@@ -13,11 +13,11 @@ func init() { node.Register(&SetVar{}) }
 type SetVar struct{}
 
 const (
-	svInExec    = "in" // exec pin 暂保 lowercase (P2.1 后续 batch 跟 100+ edges 一起迁)
+	svInExec    = "In" // exec pin 暂保 lowercase (P2.1 后续 batch 跟 100+ edges 一起迁)
 	svInVarName = "VarName"
 	svInScope   = "Scope"
 	svInValue   = "Value"
-	svOutOut    = "out" // 同 svInExec
+	svOutOut    = "Done" // 同 svInExec
 )
 
 func (SetVar) Spec() node.Spec {

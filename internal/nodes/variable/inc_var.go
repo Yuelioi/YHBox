@@ -14,11 +14,11 @@ func init() { node.Register(&IncVar{}) }
 type IncVar struct{}
 
 const (
-	ivInExec    = "in"
+	ivInExec    = "In"
 	ivInVarName = "VarName"
 	ivInScope   = "Scope"
 	ivInDelta   = "Delta"
-	ivOutOut    = "out"
+	ivOutOut    = "Done"
 )
 
 func (IncVar) Spec() node.Spec {

@@ -15,7 +15,7 @@ func init() { node.Register(&ColorBarTrack{}) }
 type ColorBarTrack struct{}
 
 const (
-	cbtInExec        = "in"
+	cbtInExec        = "In"
 	cbtInRois        = "Rois"
 	cbtOutFound      = "Found"
 	cbtOutMissing    = "Missing"

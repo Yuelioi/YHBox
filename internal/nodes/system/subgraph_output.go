@@ -14,7 +14,7 @@ func init() { node.Register(&SubgraphOutput{}) }
 type SubgraphOutput struct{}
 
 const (
-	soInExec   = "in"
+	soInExec   = "In"
 	soInDeclID = "DeclID"
 )
 

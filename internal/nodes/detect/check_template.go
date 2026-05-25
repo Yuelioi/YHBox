@@ -19,7 +19,7 @@ type CheckTemplate struct{}
 
 // === 字符串 const (选项 A: 节点级常量, typo 编译期捕获) ===
 const (
-	ctInExec      = "in"
+	ctInExec      = "In"
 	ctInTemplate  = "Template"
 	ctInThreshold = "Threshold"
 	ctOutFound    = "Found"

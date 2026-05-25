@@ -40,7 +40,7 @@ func TestRunner_StartSleep(t *testing.T) {
 			{ID: "s1", Kind: "Sleep", Config: map[string]any{"Duration": "10"}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "s1.in"},
+			{From: "start.out", To: "s1.In"},
 		},
 		nil,
 	)
@@ -73,10 +73,10 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 			{ID: "markElse", Kind: "SetVar", Config: map[string]any{"VarName": "branch", "Scope": "global", "literal": map[string]any{"Value": "else"}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set.in"},
-			{From: "set.out", To: "if.in"},
-			{From: "if.True", To: "markThen.in"},
-			{From: "if.False", To: "markElse.in"},
+			{From: "start.out", To: "set.In"},
+			{From: "set.Done", To: "if.In"},
+			{From: "if.True", To: "markThen.In"},
+			{From: "if.False", To: "markElse.In"},
 			// data flow into If.condition
 			{From: "getx.Value", To: "eq.a"},
 			{From: "eq.result", To: "if.Condition"},
@@ -120,8 +120,8 @@ func TestRunner_SetVarAutoDefaultFindOrCreate(t *testing.T) {
 			{ID: "capture", Kind: "SetVar", Config: map[string]any{"VarName": "captured", "Scope": "global"}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set.in"},
-			{From: "set.out", To: "capture.in"},
+			{From: "start.out", To: "set.In"},
+			{From: "set.Done", To: "capture.In"},
 			{From: "gety.Value", To: "capture.Value"},
 		},
 		[]container.VarDecl{
@@ -154,8 +154,8 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "x", "Scope": "global", "literal": map[string]any{"Delta": 5.0}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set.in"},
-			{From: "set.out", To: "inc.in"},
+			{From: "start.out", To: "set.In"},
+			{From: "set.Done", To: "inc.In"},
 		},
 		[]container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
 	)
@@ -184,10 +184,10 @@ func TestRunner_IfBranch(t *testing.T) {
 			{ID: "setElse", Kind: "SetVar", Config: map[string]any{"VarName": "branch", "Scope": "global", "literal": map[string]any{"Value": "else"}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set1.in"},
-			{From: "set1.out", To: "if.in"},
-			{From: "if.True", To: "setThen.in"},
-			{From: "if.False", To: "setElse.in"},
+			{From: "start.out", To: "set1.In"},
+			{From: "set1.Done", To: "if.In"},
+			{From: "if.True", To: "setThen.In"},
+			{From: "if.False", To: "setElse.In"},
 			{From: "gety.Value", To: "eq.a"},
 			{From: "eq.result", To: "if.Condition"},
 		},
@@ -216,8 +216,8 @@ func TestRunner_LoopCount(t *testing.T) {
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "i", "Scope": "global", "literal": map[string]any{"Delta": 1.0}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "loop.in"},
-			{From: "loop.body", To: "inc.in"},
+			{From: "start.out", To: "loop.In"},
+			{From: "loop.Body", To: "inc.In"},
 			// 新 Loop 内部 for-loop 自驱迭代, body 终止 (inc.out 无下游) 即下一轮.
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
@@ -246,10 +246,10 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{ID: "br", Kind: "Break"},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "loop.in"},
-			{From: "loop.body", To: "inc.in"},
-			{From: "inc.out", To: "if.in"},
-			{From: "if.True", To: "br.in"},
+			{From: "start.out", To: "loop.In"},
+			{From: "loop.Body", To: "inc.In"},
+			{From: "inc.Done", To: "if.In"},
+			{From: "if.True", To: "br.In"},
 			// if.False 无下游 → body iter 终止 → Loop 自驱下一轮.
 			{From: "geti.Value", To: "gte.A"},
 			{From: "gte.Result", To: "if.Condition"},
@@ -276,9 +276,9 @@ func TestRunner_StopHalts(t *testing.T) {
 			{ID: "set2", Kind: "SetVar", Config: map[string]any{"VarName": "a", "Scope": "global", "literal": map[string]any{"Value": 2.0}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set1.in"},
-			{From: "set1.out", To: "stop.in"},
-			{From: "stop.out", To: "set2.in"},
+			{From: "start.out", To: "set1.In"},
+			{From: "set1.Done", To: "stop.In"},
+			{From: "stop.Done", To: "set2.In"},
 		},
 		[]container.VarDecl{{Name: "a", Type: "number", Default: 0.0}},
 	)

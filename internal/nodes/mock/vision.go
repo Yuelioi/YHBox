@@ -14,7 +14,7 @@ func init() {
 type Vision struct{}
 
 const (
-	visionInExec      = "in"
+	visionInExec      = "In"
 	visionInTemplate  = "Template"
 	visionInROI       = "ROI"
 	visionInThreshold = "Threshold"

@@ -246,7 +246,7 @@ func newDispatchTest(t *testing.T, testNodeKind string) *dispatchTestCtx {
 				{ID: "target", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "n1.Out", To: "target.in"},
+				{From: "n1.Out", To: "target.In"},
 			},
 		},
 	}
@@ -287,8 +287,8 @@ func TestExecNodeViaFramework_Happy(t *testing.T) {
 	if len(tokens) != 1 {
 		t.Fatalf("got %d tokens, want 1", len(tokens))
 	}
-	if tokens[0].NodeID != "target" || tokens[0].InPin != "in" {
-		t.Errorf("token = %+v, want {target, in}", tokens[0])
+	if tokens[0].NodeID != "target" || tokens[0].InPin != "In" {
+		t.Errorf("token = %+v, want {target, In}", tokens[0])
 	}
 }
 
@@ -308,7 +308,7 @@ func TestExecNodeViaFramework_OutputDataCarry(t *testing.T) {
 				{ID: "snk", Kind: tkSink},
 			},
 			Edges: []container.GraphEdge{
-				{From: "src.Out", To: "snk.in"},
+				{From: "src.Out", To: "snk.In"},
 			},
 		},
 	}
@@ -523,8 +523,8 @@ func newRegionTestLoop(t *testing.T, loopConfig map[string]any) *dispatchTestCtx
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "loop.body", To: "body_n.in"},
-				{From: "loop.done", To: "done_n.in"},
+				{From: "loop.Body", To: "body_n.In"},
+				{From: "loop.Done", To: "done_n.In"},
 			},
 		},
 	}
@@ -550,8 +550,8 @@ func TestExecNodeAsRegionViaFramework_LoopCount3(t *testing.T) {
 	if got := tdHappyCounter.Load(); got != 3 {
 		t.Errorf("body called %d times, want 3", got)
 	}
-	if len(tokens) != 1 || tokens[0].NodeID != "done_n" || tokens[0].InPin != "in" {
-		t.Errorf("loop done token = %+v, want {done_n, in}", tokens)
+	if len(tokens) != 1 || tokens[0].NodeID != "done_n" || tokens[0].InPin != "In" {
+		t.Errorf("loop done token = %+v, want {done_n, In}", tokens)
 	}
 }
 
@@ -566,7 +566,7 @@ func TestExecNodeAsRegionViaFramework_LoopCount0(t *testing.T) {
 		t.Errorf("count=0 should not call body, got %d calls", got)
 	}
 	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
-		t.Errorf("loop count=0 done = %+v, want {done_n, in}", tokens)
+		t.Errorf("loop count=0 done = %+v, want {done_n, In}", tokens)
 	}
 }
 
@@ -585,9 +585,9 @@ func TestExecNodeAsRegionViaFramework_LoopForeverWithBreak(t *testing.T) {
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "loop.body", To: "body_n.in"},
-				{From: "body_n.Out", To: "break_n.in"},
-				{From: "loop.done", To: "done_n.in"},
+				{From: "loop.Body", To: "body_n.In"},
+				{From: "body_n.Out", To: "break_n.In"},
+				{From: "loop.Done", To: "done_n.In"},
 			},
 		},
 	}
@@ -602,7 +602,7 @@ func TestExecNodeAsRegionViaFramework_LoopForeverWithBreak(t *testing.T) {
 		t.Errorf("body called %d times, want 1 (Break should exit after first iteration)", got)
 	}
 	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
-		t.Errorf("done = %+v, want {done_n, in}", tokens)
+		t.Errorf("done = %+v, want {done_n, In}", tokens)
 	}
 }
 
@@ -636,8 +636,8 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "sub_node.in"},
-				{From: "sub_node.Out", To: "sub_out.in"},
+				{From: "sub_in.out", To: "sub_node.In"},
+				{From: "sub_node.Out", To: "sub_out.In"},
 			},
 		},
 	}
@@ -651,7 +651,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sg_call.Done", To: "done_n.in"},
+				{From: "sg_call.Done", To: "done_n.In"},
 			},
 		},
 		Subgraphs: []container.Subgraph{subgraph},
@@ -667,7 +667,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 		t.Errorf("sub_node called %d times, want 1", got)
 	}
 	if len(tokens) != 1 || tokens[0].NodeID != "done_n" {
-		t.Errorf("subgraph Done = %+v, want {done_n, in}", tokens)
+		t.Errorf("subgraph Done = %+v, want {done_n, In}", tokens)
 	}
 	// 验证 PopFrame: dispatch 完, current frame 应该回到 main (Parent == nil).
 	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent != nil {
@@ -753,8 +753,8 @@ func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "inner_n.in"},
-				{From: "inner_n." + innerOutPin, To: "sub_out.in"},
+				{From: "sub_in.out", To: "inner_n.In"},
+				{From: "inner_n." + innerOutPin, To: "sub_out.In"},
 			},
 		},
 	}
@@ -769,8 +769,8 @@ func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
 				{ID: "catch_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "try_n.out", To: "out_n.in"},
-				{From: "try_n.catch", To: "catch_n.in"},
+				{From: "try_n.Out", To: "out_n.In"},
+				{From: "try_n.Catch", To: "catch_n.In"},
 			},
 		},
 		Subgraphs: []container.Subgraph{subgraph},
@@ -799,7 +799,7 @@ func TestExecNodeAsRegionViaFramework_TryDone(t *testing.T) {
 		t.Errorf("inner called %d times, want 1", got)
 	}
 	if len(tokens) != 1 || tokens[0].NodeID != "out_n" {
-		t.Errorf("try done token = %+v, want {out_n, in}", tokens)
+		t.Errorf("try done token = %+v, want {out_n, In}", tokens)
 	}
 }
 
@@ -811,7 +811,7 @@ func TestExecNodeAsRegionViaFramework_TryCatch(t *testing.T) {
 		t.Fatalf("try catch: %v", err)
 	}
 	if len(tokens) != 1 || tokens[0].NodeID != "catch_n" {
-		t.Errorf("try catch token = %+v, want {catch_n, in}", tokens)
+		t.Errorf("try catch token = %+v, want {catch_n, In}", tokens)
 	}
 }
 
@@ -832,7 +832,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "throw_n.in"},
+				{From: "sub_in.out", To: "throw_n.In"},
 				// throw_n 没 out edge (Throw 没 Output pin), sub-flow 在 Throw error 时已退.
 			},
 		},
@@ -846,7 +846,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 				{ID: "catch_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "try_n.catch", To: "catch_n.in"},
+				{From: "try_n.Catch", To: "catch_n.In"},
 			},
 		},
 		Subgraphs: []container.Subgraph{subgraph},
@@ -859,7 +859,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 		t.Fatalf("try throw: %v", err)
 	}
 	if len(tokens) != 1 || tokens[0].NodeID != "catch_n" {
-		t.Errorf("try throw token = %+v, want {catch_n, in}", tokens)
+		t.Errorf("try throw token = %+v, want {catch_n, In}", tokens)
 	}
 	// 验证 PopFrame
 	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent != nil {
@@ -888,9 +888,9 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "sv1.in"},
+				{From: "sub_in.out", To: "sv1.In"},
 				{From: "getp1.Value", To: "sv1.Value"},
-				{From: "sv1.out", To: "sub_out.in"},
+				{From: "sv1.Done", To: "sub_out.In"},
 			},
 		},
 		InputParams: []container.SubgraphInputParam{
@@ -909,7 +909,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sg_call.Done", To: "done_n.in"},
+				{From: "sg_call.Done", To: "done_n.In"},
 			},
 		},
 		Subgraphs: []container.Subgraph{subgraph},
@@ -988,7 +988,7 @@ func TestBuildDataWireFor_UpstreamPureFuncViaFramework(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				{From: "add_n.Result", To: "echo_n.Value"},
-				{From: "echo_n.Out", To: "done_n.in"},
+				{From: "echo_n.Out", To: "done_n.In"},
 			},
 		},
 	}
@@ -1030,7 +1030,7 @@ func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
 			Edges: []container.GraphEdge{
 				{From: "inner.Result", To: "outer.A"},
 				{From: "outer.Result", To: "echo_n.Value"},
-				{From: "echo_n.Out", To: "done_n.in"},
+				{From: "echo_n.Out", To: "done_n.In"},
 			},
 		},
 	}
@@ -1065,7 +1065,7 @@ func TestBuildDataWireFor_FallbackToOldPath(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				{From: "gv1.Value", To: "echo_n.Value"},
-				{From: "echo_n.Out", To: "done_n.in"},
+				{From: "echo_n.Out", To: "done_n.In"},
 			},
 		},
 	}

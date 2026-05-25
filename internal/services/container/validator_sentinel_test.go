@@ -13,8 +13,8 @@ func TestValidate_BreakInsideLoop_OK(t *testing.T) {
 				{ID: "brk", Kind: "Break"},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "loop.in"},
-				{From: "loop.body", To: "brk.in"},
+				{From: "start.out", To: "loop.In"},
+				{From: "loop.Body", To: "brk.In"},
 			},
 		},
 	}
@@ -34,7 +34,7 @@ func TestValidate_BreakInMainNoLoop_ERROR(t *testing.T) {
 				{ID: "brk", Kind: "Break"},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "brk.in"},
+				{From: "start.out", To: "brk.In"},
 			},
 		},
 	}
@@ -58,7 +58,7 @@ func TestValidate_ContinueInMainNoLoop_ERROR(t *testing.T) {
 				{ID: "cont", Kind: "Continue"},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "cont.in"},
+				{From: "start.out", To: "cont.In"},
 			},
 		},
 	}
@@ -82,7 +82,7 @@ func TestValidate_ThrowInMainNoTryBody_ERROR(t *testing.T) {
 				{ID: "thr", Kind: "Throw"},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "thr.in"},
+				{From: "start.out", To: "thr.In"},
 			},
 		},
 	}
@@ -106,7 +106,7 @@ func TestValidate_ThrowInTryBodySubgraph_OK(t *testing.T) {
 				{ID: "try", Kind: "Try", Config: map[string]any{"SubgraphID": "sg-try-body"}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "try.in"},
+				{From: "start.out", To: "try.In"},
 			},
 		},
 		Subgraphs: []Subgraph{
@@ -118,7 +118,7 @@ func TestValidate_ThrowInTryBodySubgraph_OK(t *testing.T) {
 						{ID: "thr", Kind: "Throw"},
 					},
 					Edges: []GraphEdge{
-						{From: "in.out", To: "thr.in"},
+						{From: "in.out", To: "thr.In"},
 					},
 				},
 			},

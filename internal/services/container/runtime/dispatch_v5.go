@@ -369,7 +369,7 @@ func (r *ContainerRunner) makeBodyFor(node *container.GraphNode, tok ExecToken) 
 func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecToken) func(nodepkg.Ctx) error {
 	parentLoopStack := tok.LoopStack
 	return func(c nodepkg.Ctx) error {
-		seeds := r.edges.next(node.ID+".body", parentLoopStack)
+		seeds := r.edges.next(node.ID+".Body", parentLoopStack)
 		return r.runRegionBody(c.Context(), seeds)
 	}
 }

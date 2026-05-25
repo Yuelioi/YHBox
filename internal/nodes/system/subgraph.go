@@ -18,7 +18,7 @@ func init() { node.Register(&Subgraph{}) }
 type Subgraph struct{}
 
 const (
-	sgInExec       = "in"
+	sgInExec       = "In"
 	sgInSubgraphID = "SubgraphID"
 	sgInParams     = "Params"
 	sgOutDone      = "Done"

@@ -20,9 +20,9 @@ func init() { node.Register(&Read{}) }
 type Read struct{}
 
 const (
-	swReadInExec       = "in"
+	swReadInExec       = "In"
 	swReadInKey        = "Key"
-	swReadOutOut       = "Out"
+	swReadOutOut       = "Done"
 	swReadDataElapsedMs = "ElapsedMs"
 )
 

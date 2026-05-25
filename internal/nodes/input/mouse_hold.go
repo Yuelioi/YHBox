@@ -17,11 +17,11 @@ func init() {
 type MouseHoldStart struct{}
 
 const (
-	mhStartInExec   = "in"
+	mhStartInExec   = "In"
 	mhStartInXRatio = "XRatio"
 	mhStartInYRatio = "YRatio"
 	mhStartInButton = "Button"
-	mhStartOutOut   = "Out"
+	mhStartOutOut   = "Done"
 )
 
 func (MouseHoldStart) Spec() node.Spec {
@@ -86,9 +86,9 @@ func (MouseHoldStart) Validate(in node.Inputs) []node.ValidationError {
 type MouseHoldStop struct{}
 
 const (
-	mhStopInExec   = "in"
+	mhStopInExec   = "In"
 	mhStopInButton = "Button"
-	mhStopOutOut   = "Out"
+	mhStopOutOut   = "Done"
 )
 
 func (MouseHoldStop) Spec() node.Spec {

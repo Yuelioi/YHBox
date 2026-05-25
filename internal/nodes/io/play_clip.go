@@ -21,7 +21,7 @@ func init() { node.Register(&PlayClip{}) }
 type PlayClip struct{}
 
 const (
-	pcInExec   = "in"
+	pcInExec   = "In"
 	pcInClipID = "ClipID"
 	pcOutDone  = "Done"
 )

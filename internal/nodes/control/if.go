@@ -14,7 +14,7 @@ func init() { node.Register(&If{}) }
 type If struct{}
 
 const (
-	ifInExec   = "in"
+	ifInExec   = "In"
 	ifInCond   = "Condition"
 	ifOutTrue  = "True"
 	ifOutFalse = "False"

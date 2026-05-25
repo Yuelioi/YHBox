@@ -18,7 +18,7 @@ func init() { node.Register(&BringGameForeground{}) }
 type BringGameForeground struct{}
 
 const (
-	bgfInExec  = "in"
+	bgfInExec  = "In"
 	bgfOutDone = "Done"
 )
 

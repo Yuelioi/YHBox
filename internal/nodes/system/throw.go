@@ -16,7 +16,7 @@ func init() { node.Register(&Throw{}) }
 type Throw struct{}
 
 const (
-	thInExec    = "in"
+	thInExec    = "In"
 	thInMessage = "Message"
 )
 

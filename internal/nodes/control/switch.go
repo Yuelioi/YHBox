@@ -23,7 +23,7 @@ type Switch struct{}
 const switchMaxCases = 16
 
 const (
-	swInExec     = "in"
+	swInExec     = "In"
 	swInValue    = "Value"
 	swOutDefault = "Default"
 )

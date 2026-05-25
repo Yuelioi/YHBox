@@ -10,7 +10,7 @@ func init() { node.Register(&Break{}) }
 type Break struct{}
 
 const (
-	breakInExec = "in"
+	breakInExec = "In"
 )
 
 func (Break) Spec() node.Spec {

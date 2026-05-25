@@ -14,7 +14,7 @@ func init() { node.Register(&CollapsedNode{}) }
 type CollapsedNode struct{}
 
 const (
-	cnInExec       = "in"
+	cnInExec       = "In"
 	cnInSubgraphID = "SubgraphID"
 	cnInLabel      = "Label"
 	cnOutDone      = "Done"

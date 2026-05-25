@@ -15,7 +15,7 @@ func init() {
 type Math struct{}
 
 const (
-	mathInExec  = "in"
+	mathInExec  = "In"
 	mathInA     = "A"
 	mathInB     = "B"
 	mathInRound = "Round"

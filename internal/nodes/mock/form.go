@@ -10,7 +10,7 @@ func init() {
 type Form struct{}
 
 const (
-	formInExec        = "in"
+	formInExec        = "In"
 	formInTitle       = "Title"
 	formInDescription = "Description"
 	formInMode        = "Mode"

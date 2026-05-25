@@ -18,7 +18,7 @@ func init() { node.Register(&DetectColorHSV{}) }
 type DetectColorHSV struct{}
 
 const (
-	dchInExec           = "in"
+	dchInExec           = "In"
 	dchInROI            = "ROI"
 	dchInHSV            = "HSV"
 	dchInMinPixelRatio  = "MinPixelRatio"

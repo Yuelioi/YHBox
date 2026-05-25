@@ -13,9 +13,9 @@ func init() { node.Register(&Stop{}) }
 type Stop struct{}
 
 const (
-	swStopInExec = "in"
+	swStopInExec = "In"
 	swStopInKey  = "Key"
-	swStopOutOut = "Out"
+	swStopOutOut = "Done"
 )
 
 func (Stop) Spec() node.Spec {

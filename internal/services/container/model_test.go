@@ -15,7 +15,7 @@ func TestContainer_JSONRoundTrip(t *testing.T) {
 		Vars:   []VarDecl{{Name: "enemyHp", Type: "number", Default: float64(100)}},
 		Graph: Graph{
 			Nodes: []GraphNode{{ID: "n1", Kind: "Start", X: 100, Y: 100, Config: map[string]any{}}},
-			Edges: []GraphEdge{{From: "n1.out", To: "n2.in"}},
+			Edges: []GraphEdge{{From: "n1.Done", To: "n2.In"}},
 		},
 		CreatedAt: time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC),
@@ -40,7 +40,7 @@ func TestContainer_JSONRoundTrip(t *testing.T) {
 	if len(got.Graph.Nodes) != 1 || got.Graph.Nodes[0].Kind != "Start" {
 		t.Errorf("graph nodes mismatch")
 	}
-	if len(got.Graph.Edges) != 1 || got.Graph.Edges[0].From != "n1.out" {
+	if len(got.Graph.Edges) != 1 || got.Graph.Edges[0].From != "n1.Done" {
 		t.Errorf("graph edges mismatch")
 	}
 }

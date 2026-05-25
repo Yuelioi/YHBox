@@ -20,9 +20,9 @@ func init() {
 type KeyHoldStart struct{}
 
 const (
-	khStartInExec = "in"
+	khStartInExec = "In"
 	khStartInVK   = "VK"
-	khStartOutOut = "Out"
+	khStartOutOut = "Done"
 )
 
 func (KeyHoldStart) Spec() node.Spec {
@@ -64,9 +64,9 @@ func (KeyHoldStart) Validate(in node.Inputs) []node.ValidationError {
 type KeyHoldStop struct{}
 
 const (
-	khStopInExec = "in"
+	khStopInExec = "In"
 	khStopInVK   = "VK"
-	khStopOutOut = "Out"
+	khStopOutOut = "Done"
 )
 
 func (KeyHoldStop) Spec() node.Spec {

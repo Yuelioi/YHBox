@@ -14,7 +14,7 @@ func init() { node.Register(&ClickAt{}) }
 type ClickAt struct{}
 
 const (
-	caInExec       = "in"
+	caInExec       = "In"
 	caInXRatio     = "XRatio"
 	caInYRatio     = "YRatio"
 	caInButton     = "Button"

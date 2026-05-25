@@ -119,7 +119,7 @@ func buildLoopBodyReachSet(g Graph) map[string]struct{} {
 		if n.Kind != "Loop" {
 			continue
 		}
-		seeds := execOut[fromPin{n.ID, "body"}]
+		seeds := execOut[fromPin{n.ID, "Body"}]
 		queue := append([]string{}, seeds...)
 		for len(queue) > 0 {
 			nid := queue[0]

@@ -12,7 +12,7 @@ func init() { node.Register(&Log{}) }
 type Log struct{}
 
 const (
-	logInExec    = "in"
+	logInExec    = "In"
 	logInMessage = "Message"
 	logInLevel   = "Level"
 	logOutDone   = "Done"

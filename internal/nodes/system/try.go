@@ -17,11 +17,11 @@ func init() { node.Register(&Try{}) }
 type Try struct{}
 
 const (
-	tryInExec       = "in"
+	tryInExec       = "In"
 	tryInSubgraphID = "SubgraphID"
-	tryOutNormal    = "out"
-	tryOutCatch     = "catch"
-	tryDataError    = "error"
+	tryOutNormal    = "Out"
+	tryOutCatch     = "Catch"
+	tryDataError    = "Error"
 )
 
 func (Try) Spec() node.Spec {
