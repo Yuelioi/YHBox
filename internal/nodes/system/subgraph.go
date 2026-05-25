@@ -49,7 +49,7 @@ func (Subgraph) Spec() node.Spec {
 
 // Run — 防御性. 正常路径走 RunNodeAsRegion → RunRegion.
 func (Subgraph) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errSubgraphMustUseRegion
+	return nil, node.ErrMustUseRegion
 }
 
 // RunRegion — body() 调一次, 跑 callee 子图. error 透传; 无 error → Done.

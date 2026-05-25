@@ -59,7 +59,7 @@ func (Try) Dependencies(in node.Inputs) []node.Dependency {
 
 // Run — 防御性. 正常路径走 RunNodeAsRegion → RunRegion.
 func (Try) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errTryMustUseRegion
+	return nil, node.ErrMustUseRegion
 }
 
 // RunRegion — body 跑完 error → catch.error; 无 error → normal.

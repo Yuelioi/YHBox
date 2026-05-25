@@ -33,5 +33,5 @@ func (GetParam) Spec() node.Spec {
 }
 
 func (GetParam) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errPureDataNotEvaluatable
+	return nil, node.ErrPureDataMustEvaluate
 }

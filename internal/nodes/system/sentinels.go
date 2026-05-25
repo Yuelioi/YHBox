@@ -1,42 +1,27 @@
 // internal/nodes/system/sentinels.go
 // Sentinel errors for system stub / region nodes.
 //
-// SubgraphInput / SubgraphOutput / CollapsedNode can't express their semantics
-// through normal exec-out edges — they require runner cooperation. Phase 5
-// RegionRunner / sub-runner mechanism replaces these stubs and these errors
-// disappear in favor of real frame push/pop semantics.
+// errSubgraphNodeStub — SubgraphInput / SubgraphOutput Run 永不该被框架调; runner
+// 在 dispatchInRegion / runRegionBody 内特殊路由跳过 Run.
 //
-// CommentBox is render-only; framework gatekeep (Spec.IsVisualOnly) should
-// prevent reaching its Run, but errVisualOnlyNotRunnable is defensive in case
-// the Phase 5 runner forgets the IsVisualOnly check.
+// errVisualOnlyNotRunnable — CommentBox Run 防御 (Spec.IsVisualOnly gatekeep 应阻止).
 //
-// errSubgraphMustUseRegion / errTryMustUseRegion — defensive sentinels returned
-// by Subgraph.Run / Try.Run if the framework misses the RegionRunner dispatch
-// path (RunNodeAsRegion). Normal execution goes through RunRegion which receives
-// the body callback the runner constructs.
+// Region 节点 (Subgraph/Try/CollapsedNode) 的 "must use RunNodeAsRegion" defensive sentinel
+// 已统一为 node.ErrMustUseRegion (P2.2c).
 //
-// ThrowError — typed error returned by Throw. Try (or any upstream catch) can
-// errors.As to extract the user-provided message without string-parsing the
-// error text. Unwrap → errThrow base sentinel so errors.Is(err, errThrow) also
-// works for "is this a throw?" queries without caring about message.
+// ThrowError — typed error returned by Throw. Try (或任意上游 catch) 用 errors.As
+// 抽 message; Unwrap → errThrow 让 errors.Is(err, errThrow) 仅判断 "是否 throw".
 package system
 
 import "errors"
 
-// errSubgraphNodeStub returned by SubgraphInput / SubgraphOutput / CollapsedNode Run.
-// Phase 5 RegionRunner / sub-runner mechanism replaces these stubs.
+// errSubgraphNodeStub returned by SubgraphInput / SubgraphOutput Run.
+// 实际 runner 在 dispatchInRegion / runRegionBody 特殊路由 (sub-runner frame push/pop) 跳过 Run.
 var errSubgraphNodeStub = errors.New("subgraph node — Phase 5 runtime impl pending")
 
-// errVisualOnlyNotRunnable returned by CommentBox Run (which framework gatekeep should
-// prevent reaching, but defensive in case Phase 5 runner forgets the IsVisualOnly check).
+// errVisualOnlyNotRunnable returned by CommentBox Run (framework gatekeep Spec.IsVisualOnly
+// 应阻止, defensive 防 runner 忘检查).
 var errVisualOnlyNotRunnable = errors.New("visual-only node — should not be executed")
-
-// errSubgraphMustUseRegion — Subgraph 的 Run() 被框架直调时返此 error. 正常路径是
-// RunNodeAsRegion → RunRegion + runner-provided body 回调.
-var errSubgraphMustUseRegion = errors.New("Subgraph node must be invoked via RunNodeAsRegion, not RunNode")
-
-// errTryMustUseRegion — Try 的 Run() 被框架直调时返此 error. 正常路径同 Subgraph.
-var errTryMustUseRegion = errors.New("Try node must be invoked via RunNodeAsRegion, not RunNode")
 
 // errThrow — Throw 节点用的 base sentinel. ThrowError.Unwrap() 返此值, 调用方
 // errors.Is(err, errThrow) 可识别 "是否 Throw 抛出" 而不关心具体 message.

@@ -8,7 +8,7 @@ import (
 	"yhbox/internal/node"
 )
 
-// 所有 22 个 purefunc + Expr 都是 pure-data stub. Run 返 errPureDataNotEvaluatable.
+// 所有 22 个 purefunc + Expr 都是 pure-data stub. Run 返 node.ErrPureDataMustEvaluate.
 // Phase 5 加 pull-eval framework 后, Run 永不调; FE inspector 已能渲染 Spec.
 
 func TestAll_RegisterAndPureDataStub(t *testing.T) {
@@ -43,8 +43,8 @@ func TestAll_RegisterAndPureDataStub(t *testing.T) {
 
 		rn, _ := node.Get(spec.Kind)
 		r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
-		if !errors.Is(r.Error, errPureDataNotEvaluatable) {
-			t.Errorf("%s Run error = %v, want errPureDataNotEvaluatable", spec.Kind, r.Error)
+		if !errors.Is(r.Error, node.ErrPureDataMustEvaluate) {
+			t.Errorf("%s Run error = %v, want node.ErrPureDataMustEvaluate", spec.Kind, r.Error)
 		}
 	}
 }
@@ -171,7 +171,7 @@ func TestExpr_RequiredExprField(t *testing.T) {
 	rn, _ := node.Get("Expr")
 	// 不传 expr → Required 应触发 ValidationError (在 Run 入口前)
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
-	if len(r.Validation) == 0 && r.Error != errPureDataNotEvaluatable {
+	if len(r.Validation) == 0 && r.Error != node.ErrPureDataMustEvaluate {
 		t.Errorf("Expr missing expr should ValidationError or sentinel, got error=%v validation=%v", r.Error, r.Validation)
 	}
 }

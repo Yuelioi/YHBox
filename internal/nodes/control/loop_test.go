@@ -178,8 +178,8 @@ func TestLoop_RunReturnsSentinel(t *testing.T) {
 		map[string]any{loopInMode: "count", loopInCount: 5},
 		nil, node.StubServices())
 
-	if !errors.Is(r.Error, errLoopMustUseRegion) {
-		t.Errorf("Run error = %v, want errLoopMustUseRegion", r.Error)
+	if !errors.Is(r.Error, node.ErrMustUseRegion) {
+		t.Errorf("Run error = %v, want node.ErrMustUseRegion", r.Error)
 	}
 }
 

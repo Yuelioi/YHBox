@@ -18,8 +18,8 @@ func TestSubgraph_Run_ReturnsMustUseRegionSentinel(t *testing.T) {
 		map[string]any{sgInSubgraphID: "sg_foo"},
 		nil, node.StubServices())
 
-	if !errors.Is(r.Error, errSubgraphMustUseRegion) {
-		t.Errorf("Run error = %v, want errSubgraphMustUseRegion", r.Error)
+	if !errors.Is(r.Error, node.ErrMustUseRegion) {
+		t.Errorf("Run error = %v, want node.ErrMustUseRegion", r.Error)
 	}
 }
 

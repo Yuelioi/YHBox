@@ -34,5 +34,5 @@ func (GetSys) Spec() node.Spec {
 }
 
 func (GetSys) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errPureDataNotEvaluatable
+	return nil, node.ErrPureDataMustEvaluate
 }

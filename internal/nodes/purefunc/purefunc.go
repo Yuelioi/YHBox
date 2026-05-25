@@ -1,5 +1,5 @@
 // Package purefunc 22 个纯函数节点 (Add/Sub/.../Select) + Expr.
-// 全是 IsPureData=true — Run 返 errPureDataNotEvaluatable (永不调).
+// 全是 IsPureData=true — Run 返 node.ErrPureDataMustEvaluate (永不调).
 // 22 纯函数自包含, 实现 node.Evaluator (EvaluatePureData 入口). Expr 因为 dynamic input
 // 没在 Spec.Inputs 里, 暂不实现 Evaluator — dispatch fallback 老 evalExpr 路径.
 //
@@ -9,7 +9,6 @@ package purefunc
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -17,9 +16,6 @@ import (
 
 	"yhbox/internal/node"
 )
-
-// errPureDataNotEvaluatable Run 返这个 (永不调 — Evaluator 是真实现).
-var errPureDataNotEvaluatable = errors.New("pure-data node — evaluated via Evaluator (EvaluatePureData)")
 
 // specBuilder 构造单 Result 数据出口的 pure-data Spec. P2.1: pin name PascalCase.
 func specBuilder(kind, displayName, doc string, inputs []node.InputSpec, resultType string) node.Spec {
@@ -68,8 +64,8 @@ func boolIn() []node.InputSpec {
 	}
 }
 
-// stubRun 所有节点共用 — 返 errPureDataNotEvaluatable.
-func stubRun() (node.Outputs, error) { return nil, errPureDataNotEvaluatable }
+// stubRun 所有节点共用 — 返 node.ErrPureDataMustEvaluate.
+func stubRun() (node.Outputs, error) { return nil, node.ErrPureDataMustEvaluate }
 
 // asNumber Number 软转 — Inputs.Float64 已处理 float64/int/json.Number/string; bool true→1/false→0 这里加.
 // 用在 Eq/NotEq 跨类型比较的同模式 — 跟老 expr.AsNumber 对齐.
