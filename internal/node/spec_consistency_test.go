@@ -1,0 +1,103 @@
+package node_test
+
+import (
+	"encoding/json"
+	"testing"
+	"unicode"
+
+	nodepkg "yhbox/internal/node"
+
+	// 触发所有节点 init().
+	_ "yhbox/internal/nodes/control"
+	_ "yhbox/internal/nodes/detect"
+	_ "yhbox/internal/nodes/input"
+	_ "yhbox/internal/nodes/io"
+	_ "yhbox/internal/nodes/mock"
+	// mockerror needs -tags mockerror; not in default build.
+	_ "yhbox/internal/nodes/purefunc"
+	_ "yhbox/internal/nodes/stopwatch"
+	_ "yhbox/internal/nodes/system"
+	_ "yhbox/internal/nodes/variable"
+)
+
+// P2.1 Step 3 lint — 守护 playbook node-spec-style.md 锁定的约定. 任何节点新加 / 改 Spec
+// 违反这些规则 → fail.
+//
+// 当前覆盖:
+//   1. 所有 data pin (Type != "Exec") Name 首字母大写 (节点级 whitelist 例外).
+//   2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
+//
+// 暂未覆盖 (待后续 batch):
+//   - Exec in pin 名统一 "In" (当前节点用 lowercase "in")
+//   - Single-done exec out pin 名统一 "Done" (当前混 "out"/"Out"/"Done")
+//
+// kindMigrationPending — 这些 kind 的 data pin 还有 lowercase 字段, 等单独 batch 迁;
+// 别 fail lint 但仍标 backlog. 完整迁完后删 entry.
+var kindMigrationPending = map[string]struct{}{
+	"WindowTarget":     {}, // match.title/class/processName/titleMatch + runtime.inputBackend/captureBackend
+	"CollapsedNode":    {}, // label
+	"MouseCalibration": {}, // counts360
+	"SubgraphOutput":   {}, // declID
+	"CommentBox":       {}, // label/color/width/height
+	"Throw":            {}, // message
+	"OnEvent":          {}, // Number defaults (Threshold/PollIntervalMs/MaxConcurrent/CooldownMs) — int/float64 not json.Number
+}
+
+func TestSpecConsistency_DataPinNamingConvention(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		if _, skip := kindMigrationPending[spec.Kind]; skip {
+			continue
+		}
+		for _, in := range spec.Inputs {
+			if in.Type == nodepkg.TypeExec {
+				continue
+			}
+			if !startsWithUppercase(in.Name) {
+				t.Errorf("data InputSpec.Name = %q, want PascalCase (kind=%s)", in.Name, spec.Kind)
+			}
+		}
+		for _, out := range spec.Outputs {
+			if out.Type == nodepkg.TypeExec {
+				continue
+			}
+			if !startsWithUppercase(out.Name) {
+				t.Errorf("data OutputSpec.Name = %q, want PascalCase (kind=%s)", out.Name, spec.Kind)
+			}
+		}
+	}
+}
+
+func TestSpecConsistency_NumberDefaultsAreJSONNumber(t *testing.T) {
+	numTypes := map[string]struct{}{
+		"Number":   {},
+		"Integer":  {},
+		"Duration": {},
+	}
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		if _, skip := kindMigrationPending[spec.Kind]; skip {
+			continue
+		}
+		for _, in := range spec.Inputs {
+			if _, ok := numTypes[in.Type]; !ok {
+				continue
+			}
+			if in.Default == nil {
+				continue
+			}
+			if _, ok := in.Default.(json.Number); !ok {
+				t.Errorf("kind=%s pin=%s Type=%s Default 类型 %T, 应是 json.Number (精度安全)",
+					spec.Kind, in.Name, in.Type, in.Default)
+			}
+		}
+	}
+}
+
+func startsWithUppercase(s string) bool {
+	if s == "" {
+		return false
+	}
+	r := []rune(s)[0]
+	return unicode.IsUpper(r)
+}
