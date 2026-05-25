@@ -40,6 +40,7 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 //
 // !! 已知 goroutine race !! — r.currentTick 跨 goroutine 共享. listener 单 goroutine 内
 // 顺序执行, 但跟主 runner.go::Run 并行会撞 snapshot. backend-backlog.md B1 跟进.
+// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (P1.6 单一抓点), 这里不重复.
 func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) error {
 	queue := append([]ExecToken{}, seeds...)
 	for len(queue) > 0 {
@@ -52,11 +53,7 @@ func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) err
 		if !ok {
 			return fmt.Errorf("subflow: unknown node %q", tok.NodeID)
 		}
-		// Per-exec-tick snapshot (sequential within this goroutine).
-		// !! NOT goroutine-safe — see backend-backlog.md B1 注释.
-		r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
 		out, err := r.execNode(ctx, node, tok)
-		r.currentTick = nil
 		if err != nil {
 			if errors.Is(err, errStopRun) {
 				return nil

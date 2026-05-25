@@ -429,15 +429,9 @@ func (a *visionAdapter) BarTrack(roi node.Rect) (node.BarTrackResult, error) {
 	// 老 runtime execColorBarTrack 写 SysState.LastBarTrack — state_FISHING 等子图通过
 	// GetSys path=lastBarTrack.{cursorX,targetX,targetW,...} 读. atomic #5 拆老后这写回
 	// 责任落到 VisionAdapter (新框架 ColorBarTrack 只 emit exec-data, 不知 SysState).
+	// P1.3: SysState.LastBarTrack 直接 hold node.BarTrackResult, 不再字段拷贝.
 	a.rt.UpdateSys(func(s *SysState) {
-		s.LastBarTrack = SysBarTrackResult{
-			CursorX:    out.CursorX,
-			TargetX:    out.TargetX,
-			TargetW:    out.TargetW,
-			Confidence: out.Confidence,
-			YellowPx:   out.YellowPx,
-			GreenPx:    out.GreenPx,
-		}
+		s.LastBarTrack = out
 	})
 	return out, nil
 }

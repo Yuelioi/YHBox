@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	nodepkg "yhbox/internal/node"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
@@ -56,17 +57,8 @@ type SysState struct {
 	}
 	// ColorBarTrack 节点输出：cursor/target 位置 + 置信度 + 像素计数。
 	// $sys.lastBarTrack.{cursorX/targetX/targetW/confidence/yellowPx/greenPx}。
-	LastBarTrack SysBarTrackResult
-}
-
-// SysBarTrackResult ColorBarTrack 算法单次运行结果快照。
-type SysBarTrackResult struct {
-	CursorX    int     `json:"cursorX"`
-	TargetX    int     `json:"targetX"`
-	TargetW    int     `json:"targetW"`
-	Confidence float64 `json:"confidence"`
-	YellowPx   int     `json:"yellowPx"`
-	GreenPx    int     `json:"greenPx"`
+	// 直接 hold nodepkg.BarTrackResult — P1.3 砍重复 typedef, VisionAdapter.BarTrack 写回直传.
+	LastBarTrack nodepkg.BarTrackResult
 }
 
 // RuntimeContext 单 Container run 的状态。

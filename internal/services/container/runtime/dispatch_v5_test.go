@@ -385,6 +385,18 @@ func TestExecNodeViaFramework_Error(t *testing.T) {
 	if got := len(dt.eventsByName("container:node-panic")); got != 0 {
 		t.Errorf("Error path should not emit node-panic, got %d", got)
 	}
+	// P1.1: Error 路径 emit node-error 让 GUI 高亮失败节点.
+	events := dt.eventsByName("container:node-error")
+	if len(events) != 1 {
+		t.Fatalf("got %d node-error events, want 1", len(events))
+	}
+	payload := events[0].Data.(map[string]any)
+	if payload["nodeId"] != "n1" {
+		t.Errorf("node-error nodeId got %v, want n1", payload["nodeId"])
+	}
+	if msg, _ := payload["message"].(string); !strings.Contains(msg, "deliberate test error") {
+		t.Errorf("node-error message %q should contain underlying error", msg)
+	}
 }
 
 func TestExecNodeViaFramework_Panic(t *testing.T) {

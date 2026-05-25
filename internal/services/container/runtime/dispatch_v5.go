@@ -127,7 +127,8 @@ func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
 //  1. Panic   → emit container:node-panic + return error (framework invariant broken)
 //  2. Validation → emit container:node-validation + return error (graph 写错, Phase 5.5a 中断 run;
 //     后续可改 emit + continue 让前端高亮但不停)
-//  3. Error   → return error (Run 返 runtime fail, caller 决定 stop / 冒泡 / 走 Try)
+//  3. Error   → emit container:node-error + return error (Run 返 runtime fail, caller 决定 stop /
+//     冒泡 / 走 Try; Stop sentinel / Try internal catch 走早返不 emit)
 //  4. Display → emit container:node-log (Display() 非空才 emit)
 //  5. ExitName 空 → return nil tokens (no-op 节点, queue 继续)
 //  6. ExitName 非空 → r.edges.next(nodeID.exitName)
@@ -170,6 +171,15 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		if node.Kind == "Try" {
 			msg := result.Error.Error()
 			r.rt.UpdateSys(func(s *SysState) { s.LastTry.ErrorMsg = msg })
+		}
+		// P1.1: 跟 Panic / Validation 对齐 — emit container:node-error 让前端高亮失败节点.
+		if r.rt.Emit != nil {
+			r.rt.Emit("container:node-error", map[string]any{
+				"containerId": r.rt.Container.ID,
+				"nodeId":      node.ID,
+				"nodeKind":    node.Kind,
+				"message":     result.Error.Error(),
+			})
 		}
 		return nil, result.Error
 	}
@@ -244,11 +254,17 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 // runRegionBody 调它派发 child 节点 — 自动 route 到 region (RunNodeAsRegion) 或 normal (RunNode).
 //
 // Phase 5.5c cutover 后这是 execNode 主入口 (替换老 switch).
+//
+// per-exec-tick snapshot 也只在这里抓 (P1.6 单一抓点) — runner.go::Run / nodes.go::runSubFlow /
+// runRegionBody 都不重复抓. consumers (evalGetVar / evalGetSys) 只在节点 data pull 阶段读, 跟
+// dispatchInRegion → execNode(AsRegion)ViaFramework → buildDataWireFor 同周期, 入口抓一次足够.
 func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	rn, ok := nodepkg.Get(n.Kind)
 	if !ok {
 		return nil, fmt.Errorf("dispatchInRegion: kind %q not registered", n.Kind)
 	}
+	r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
+	defer func() { r.currentTick = nil }()
 	if rn.RunRegion != nil {
 		return r.execNodeAsRegionViaFramework(ctx, n, tok)
 	}
@@ -292,13 +308,8 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 				"nodeKind":    n.Kind,
 			})
 		}
-		// 每次 sub-dispatch 刷 per-exec-tick snapshot — 老 evalGetVar / evalGetSys 从
-		// r.currentTick.Vars 读. 不刷 → Loop body 跨 iter 看 stale snapshot, 影响
-		// Break/Continue 条件判断. runner.go::Run 在 execNode entry 抓一次, 但 region
-		// body 走 runRegionBody 不经 execNode, 这里得自己 refresh.
-		r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
+		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (P1.6 单一抓点), 这里不重复.
 		out, err := r.dispatchInRegion(ctx, n, tok)
-		r.currentTick = nil
 		if err != nil {
 			return err
 		}
