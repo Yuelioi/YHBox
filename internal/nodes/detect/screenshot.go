@@ -30,7 +30,6 @@ const (
 func (Screenshot) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Screenshot",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "截图",
 		Description: "抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.",

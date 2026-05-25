@@ -28,7 +28,6 @@ const (
 func (MouseMoveRel) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MouseMoveRel",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "鼠标相对移动",
 		Description: "相对当前光标位置移动 (dx, dy) 像素, 在 DurationMs 内插值.",

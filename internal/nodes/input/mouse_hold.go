@@ -27,7 +27,6 @@ const (
 func (MouseHoldStart) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MouseHoldStart",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "按住鼠标",
 		Description: "在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.",
@@ -95,7 +94,6 @@ const (
 func (MouseHoldStop) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MouseHoldStop",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "松开鼠标",
 		Description: "松开鼠标按键, 配对 MouseHoldStart.",

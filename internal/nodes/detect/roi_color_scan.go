@@ -36,7 +36,6 @@ const (
 func (ROIColorScan) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "ROIColorScan",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "ROI 颜色 cluster 扫描",
 		Description: "沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.",

@@ -29,7 +29,6 @@ const (
 func (Read) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "StopwatchRead",
-		Version:     1,
 		Category:    "Stopwatch",
 		DisplayName: "秒表 读取",
 		Description: "读指定 key 的 elapsed (毫秒). running 返 now-start; stopped 返 stoppedAt-start; 不存在 → 0.",

@@ -23,7 +23,6 @@ const (
 func (Form) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Mock_Form",
-		Version:     1,
 		Category:    "Mock",
 		DisplayName: "Mock 表单",
 		Description: "Phase 0 测试节点 — 验证 string/textarea/dropdown/Required/AND-OR conditional show widget.",

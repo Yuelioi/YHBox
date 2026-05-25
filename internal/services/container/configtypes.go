@@ -4,8 +4,10 @@ import "fmt"
 
 // SwitchConfig 是 Switch 节点的 typed config.
 // validator / runtime / pin schema 必须走 ParseSwitchConfig 入口, 不许各自 cast map[string]any.
+//
+// P1.8b: Value 字段已删 — Switch.Value 现在是 data-in pin (走 r.pullValue), 不是 config 字段.
+// 字段只剩 Cases (Case1Value..Case16Value 规整数组).
 type SwitchConfig struct {
-	Value string   // 表达式字符串 (runtime resolve)
 	Cases []string // 规整过 (类型转 + 过滤非字符串)
 }
 
@@ -13,15 +15,12 @@ type SwitchConfig struct {
 // 容错: nil node / nil config 返零值. 严格验证 (空 / 重复 / 含 '.' / 'default') 由
 // validateSwitchConfig 负责.
 //
-// Switch config schema (nodepkg Spec): Value=string + Case1Value..Case16Value=string (单值).
+// Switch config schema (nodepkg Spec): Case1Value..Case16Value=string (单值).
 // 空值 ("") 视为未声明该 case, 不进 Cases 列表.
 func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 	var c SwitchConfig
 	if n == nil || n.Config == nil {
 		return c, nil
-	}
-	if v, ok := n.Config["Value"].(string); ok {
-		c.Value = v
 	}
 	for i := 1; i <= 16; i++ {
 		key := fmt.Sprintf("Case%dValue", i)

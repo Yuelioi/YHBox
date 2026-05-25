@@ -94,6 +94,12 @@ const (
 	CodeDisabledBranchNodeWarn  = "WARN_DISABLED_BRANCH_NODE"
 	CodeInvalidDisabledTerminal = "INVALID_DISABLED_TERMINAL"
 
+	// Sentinel scope (Break/Continue 必须在 Loop body 内; Throw 必须在 Try body 子图内).
+	// P1.2: 静态拦截, 避免 sentinel 漏到主 dispatch 顶层只看 generic error.
+	CodeBreakOutsideLoop    = "BREAK_OUTSIDE_LOOP"
+	CodeContinueOutsideLoop = "CONTINUE_OUTSIDE_LOOP"
+	CodeThrowOutsideTry     = "THROW_OUTSIDE_TRY"
+
 	// Template key / dependency codes
 	CodeInvalidTemplateKey = "INVALID_TEMPLATE_KEY"
 	CodeTemplateNotFound   = "TEMPLATE_NOT_FOUND"
@@ -174,6 +180,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateCollapsedReferences(c)...)
 	errs = append(errs, validateVarRefs(c)...)
 	errs = append(errs, validateDisabledNodes(c)...)
+	errs = append(errs, validateSentinelScope(c)...)
 
 	// Phase 3: Type / Semantic
 	errs = append(errs, validatePhaseCNodeKinds(c)...)
@@ -884,11 +891,7 @@ func validateColorBarTrack(c *Container) []ValidationError {
 			if n.Kind != "ColorBarTrack" {
 				continue
 			}
-			// atomic #4: 兼容老 "rois" (lowercase) 和新 "Rois" (PascalCase, nodepkg ColorBarTrack Spec).
 			rois, ok := n.Config["Rois"].([]any)
-			if !ok {
-				rois, ok = n.Config["rois"].([]any)
-			}
 			if !ok || len(rois) == 0 {
 				errs = append(errs, ValidationError{
 					Severity:  SeverityError,

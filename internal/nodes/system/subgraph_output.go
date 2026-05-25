@@ -21,7 +21,6 @@ const (
 func (SubgraphOutput) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "SubgraphOutput",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "子图出口",
 		Description: "(Phase 5 stub) 子图出口节点 — pop frame 回父图, 走父图调用方 declID 对应的下游. 当前 Run 返 sentinel.",

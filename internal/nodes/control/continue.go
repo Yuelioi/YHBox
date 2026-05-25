@@ -16,7 +16,6 @@ const (
 func (Continue) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Continue",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "跳过本轮",
 		Description: "跳到最近 Loop 的下一次迭代. Phase 5 Loop region 截获 sentinel.",

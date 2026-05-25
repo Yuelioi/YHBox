@@ -42,7 +42,6 @@ var errOnEventPhase5 = errors.New("OnEvent — Phase 5 wire 需要 EventBus + li
 func (OnEvent) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "OnEvent",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "事件监听",
 		Description: "(Phase 5 stub) listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.",

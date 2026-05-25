@@ -4,26 +4,23 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	// blank import 真节点 — scanner 现走 nodepkg.Get(kind).Dependencies, 不再有 fake Extractor.
+	_ "yhbox/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
+	_ "yhbox/internal/nodes/io"     // PlayClip
+	_ "yhbox/internal/nodes/system" // Subgraph / CollapsedNode / Try
 )
-
-type fakeExtractor struct{ deps []Dependency }
-
-func (e fakeExtractor) Extract(cfg map[string]any) []Dependency { return e.deps }
 
 func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 	nodes := map[string][]NodeInfo{
 		"sg1": {
-			{Kind: "CheckTemplate", Config: map[string]any{"template": "ns.a"}},
-			{Kind: "PlayClip", Config: map[string]any{"clipID": "c1"}},
+			{Kind: "CheckTemplate", Config: map[string]any{"Template": "ns.a"}},
+			{Kind: "PlayClip", Config: map[string]any{"ClipID": "c1"}},
 		},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
 
-	extractors := map[string]Extractor{
-		"CheckTemplate": fakeExtractor{deps: []Dependency{{Kind: KindTemplate, Key: "ns.a"}}},
-		"PlayClip":      fakeExtractor{deps: []Dependency{{Kind: KindClip, Key: "c1"}}},
-	}
-	got, err := ScanSubgraphDependenciesWithExtractors("sg1", get, extractors)
+	got, err := ScanSubgraphDependencies("sg1", get)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,15 +42,11 @@ func TestScanSubgraphDependencies_RecursiveSubgraph(t *testing.T) {
 			{Kind: "Subgraph", Config: map[string]any{"SubgraphID": "callee"}},
 		},
 		"callee": {
-			{Kind: "CheckTemplate", Config: map[string]any{"template": "ns.x"}},
+			{Kind: "CheckTemplate", Config: map[string]any{"Template": "ns.x"}},
 		},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
-	extractors := map[string]Extractor{
-		"Subgraph":      fakeExtractor{deps: []Dependency{{Kind: KindSubgraph, Key: "callee"}}},
-		"CheckTemplate": fakeExtractor{deps: []Dependency{{Kind: KindTemplate, Key: "ns.x"}}},
-	}
-	got, err := ScanSubgraphDependenciesWithExtractors("root", get, extractors)
+	got, err := ScanSubgraphDependencies("root", get)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +63,7 @@ func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
 		"B": {{Kind: "Subgraph", Config: map[string]any{"SubgraphID": "A"}}},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
-	realExt := subgraphExtractorTestOnly{}
-	extractors := map[string]Extractor{
-		"Subgraph": realExt,
-	}
-	got, err := ScanSubgraphDependenciesWithExtractors("A", get, extractors)
+	got, err := ScanSubgraphDependencies("A", get)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,16 +71,6 @@ func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
 		!containsDep(got, Dependency{Kind: KindSubgraph, Key: "B"}) {
 		t.Errorf("cyclic ref dropped, got %v", got)
 	}
-}
-
-type subgraphExtractorTestOnly struct{}
-
-func (e subgraphExtractorTestOnly) Extract(cfg map[string]any) []Dependency {
-	id, _ := cfg["SubgraphID"].(string)
-	if id == "" {
-		return nil
-	}
-	return []Dependency{{Kind: KindSubgraph, Key: id}}
 }
 
 func sortDeps(d []Dependency) {

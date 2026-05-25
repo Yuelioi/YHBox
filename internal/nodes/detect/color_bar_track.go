@@ -35,7 +35,6 @@ const (
 func (ColorBarTrack) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "ColorBarTrack",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "颜色条追踪",
 		Description: "多分辨率 ROI 内 HSV cluster 算 cursor + target 位置 (钓鱼溜鱼专用). rois=[{resolution:[W,H], x,y,w,h}, ...]. 当前 client size 没匹配项走 Missing.",

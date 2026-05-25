@@ -28,7 +28,6 @@ const (
 func (KeyHoldStart) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "KeyHoldStart",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "按住按键",
 		Description: "按下虚拟键 (不松开). 配对 KeyHoldStop 节点释放. 之间可插任意流程.",
@@ -73,7 +72,6 @@ const (
 func (KeyHoldStop) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "KeyHoldStop",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "松开按键",
 		Description: "松开虚拟键, 配对 KeyHoldStart.",

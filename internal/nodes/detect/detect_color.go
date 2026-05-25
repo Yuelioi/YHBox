@@ -32,7 +32,6 @@ const (
 func (DetectColor) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "DetectColor",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "颜色检测",
 		Description: "在 region (ratio) 内统计落在颜色范围内的像素. count >= minPixels → Yes.",

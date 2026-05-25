@@ -38,6 +38,20 @@ func newInputs(dataWire, config, execData, defaults map[string]any) *inputsImpl 
 	return &inputsImpl{merged: merged, present: present}
 }
 
+// NewInputsFromConfig 公开 helper — 从节点 Config map 构造 Inputs 实现. 给静态分析
+// 路径 (library scanner / dependency extractor / lint) 用, 不走 dispatch wire/exec-data/
+// defaults 路径. P1.7: 让 nodepkg.Dependencies(in) 接口可以在 scanner 里以非 runtime
+// 方式调用, 取代 dependency/specs 那套 Extractor 双轨.
+func NewInputsFromConfig(cfg map[string]any) Inputs {
+	merged := map[string]any{}
+	present := map[string]bool{}
+	for k, v := range cfg {
+		merged[k] = v
+		present[k] = true
+	}
+	return &inputsImpl{merged: merged, present: present}
+}
+
 func (i *inputsImpl) Has(name string) bool { return i.present[name] }
 
 func (i *inputsImpl) String(name string) string {

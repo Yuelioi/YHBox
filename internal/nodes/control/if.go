@@ -23,7 +23,6 @@ const (
 func (If) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "If",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "条件分支",
 		Description: "Condition true → True 出口; false → False 出口. 老 v4 If.",

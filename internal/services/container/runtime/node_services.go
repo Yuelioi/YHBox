@@ -331,11 +331,11 @@ func (a *visionAdapter) containerID() string {
 	return a.rt.Container.ID
 }
 
-func (a *visionAdapter) Match(key string, threshold float64) (*node.Point, float64, error) {
+func (a *visionAdapter) Match(ctx context.Context, key string, threshold float64) (*node.Point, float64, error) {
 	if a.rt.Matcher == nil {
 		return nil, 0, nil
 	}
-	found, pt, _, err := a.rt.Matcher.Detect(context.Background(), a.containerID(), a.rt.Window.HWND, key, threshold, nil)
+	found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
 	if err != nil {
 		return nil, 0, err
 	}

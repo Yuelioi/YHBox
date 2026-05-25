@@ -24,7 +24,6 @@ const (
 func (CommentBox) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "CommentBox",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "注释框",
 		Description: "纯渲染节点 — 在画布上画带颜色的标签框. 不参与执行, 不连边.",

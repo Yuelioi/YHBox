@@ -24,7 +24,6 @@ const (
 func (MouseCalibration) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MouseCalibration",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "鼠标校准",
 		Description: "声明式 — runtime 启动期读 counts360 供 MouseMoveRel scaling 用. 节点本体 no-op, 走 Fire 出口表达 passthrough.",

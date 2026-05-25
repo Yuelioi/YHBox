@@ -33,7 +33,6 @@ var errPlayClipPhase5 = errors.New("PlayClip — Phase 5 wire 需要 ClipService
 func (PlayClip) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "PlayClip",
-		Version:     1,
 		Category:    "IO",
 		DisplayName: "回放录像",
 		Description: "(Phase 5 stub) 回放录制的 InputClip. 老 runtime 走 ClipPlayer + InputBus 独占; 框架 Ctx 还没 ClipService.",

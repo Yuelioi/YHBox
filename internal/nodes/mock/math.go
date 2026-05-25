@@ -26,7 +26,6 @@ const (
 func (Math) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Mock_Math",
-		Version:     1,
 		Category:    "Mock",
 		DisplayName: "Mock 数学",
 		Description: "Phase 0 测试节点 — 验证 number/slider widget. 无 backend.",

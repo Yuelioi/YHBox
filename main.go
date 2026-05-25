@@ -29,7 +29,6 @@ import (
 	"yhbox/internal/services/calibration"
 	"yhbox/internal/services/tools"
 	"yhbox/internal/services/container"
-	_ "yhbox/internal/services/container/dependency/specs" // 注册 library scanner 用的依赖提取器
 	containerruntime "yhbox/internal/services/container/runtime"
 	"yhbox/internal/services/container/library"
 	"yhbox/internal/services/execution"

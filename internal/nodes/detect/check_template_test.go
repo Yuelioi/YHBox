@@ -44,7 +44,7 @@ type mockVision struct {
 	clustersErr error
 }
 
-func (m *mockVision) Match(key string, threshold float64) (*node.Point, float64, error) {
+func (m *mockVision) Match(ctx context.Context, key string, threshold float64) (*node.Point, float64, error) {
 	return m.point, m.conf, m.err
 }
 

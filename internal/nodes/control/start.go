@@ -16,7 +16,6 @@ const (
 func (Start) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Start",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "起点",
 		Description: "图入口. 框架启动时从 Start 节点开始执行. 每图恰好 1 个.",

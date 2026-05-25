@@ -23,7 +23,6 @@ const (
 func (MockError) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MockError",
-		Version:     1,
 		Category:    "Test",
 		DisplayName: "Mock Error",
 		Description: "固定返 error, 验证 framework error 传播. Build-tagged: -tags mockerror.",

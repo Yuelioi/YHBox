@@ -21,7 +21,6 @@ const (
 func (Stop) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "StopwatchStop",
-		Version:     1,
 		Category:    "Stopwatch",
 		DisplayName: "秒表 停止",
 		Description: "停止指定 key 的秒表 (不存在 key 静默 no-op, validator 已 static-warn).",

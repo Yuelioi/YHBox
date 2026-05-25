@@ -118,7 +118,9 @@ type OutBuilder interface {
 // ROIColorScan (沿 axis 找连续 cluster).
 type VisionService interface {
 	// Match 单次模板匹配. nil pt = miss.
-	Match(key string, threshold float64) (pt *Point, conf float64, err error)
+	// ctx 透传容器 cancel — P1.9 改 ctx.Background() 走真 ctx, 长 Match (磁盘读模板 +
+	// CPU 比对) 能配合 container Stop 瞬停.
+	Match(ctx context.Context, key string, threshold float64) (pt *Point, conf float64, err error)
 
 	// WaitMatch 阻塞轮询直到命中或 timeout. timeout<=0 视为 0 (单次).
 	// 命中: pt!=nil, conf>=threshold. timeout: pt=nil, conf=最高near-miss.

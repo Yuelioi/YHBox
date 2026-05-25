@@ -21,7 +21,6 @@ const (
 func (Sleep) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Sleep",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "等待",
 		Description: "阻塞当前 exec 流指定时长. MVP 不支持 cancel (ctx.Context() 接口在但 noop).",

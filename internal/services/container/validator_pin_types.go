@@ -1,9 +1,16 @@
 package container
 
-// pinTypeCompat mirrors runtime.PinTypeCompat. Kept here to avoid
-// the container → container/runtime import cycle (runtime imports container).
-// Both files MUST stay in sync — when the matrix changes, update both.
-func pinTypeCompat(from, to string) (allow, warn bool) {
+// PinTypeCompat 单一源 — runtime + validator + 任何 cross-cutting 调用方都 import 这一个.
+// P1.5 之前 runtime/pin_types.go (typed) 跟 validator_pin_types.go (lowercase) 两份手抄,
+// "MUST stay in sync" 靠人盯; 切到容器层后单一源, 无 drift 风险.
+//
+// !! Frontend `pinTypeCompat` in nodeRegistry/index.ts 仍是 TS 平行 impl, TestRegistryParity 抓 drift.
+//
+// 返 (allow=能否连接, warn=是否需 coercion warning).
+//   - from==to / any↔any: allow + no warn
+//   - number→bool/string, bool→number/string: allow + warn (implicit coercion)
+//   - 其他: reject
+func PinTypeCompat(from, to string) (allow, warn bool) {
 	if from == to || from == "any" || to == "any" {
 		return true, false
 	}
@@ -79,7 +86,7 @@ func validateDataPinTypes(c *Container) []ValidationError {
 			if srcType == "" || tgtType == "" {
 				continue // schema unknown — skip type check
 			}
-			allow, warn := pinTypeCompat(srcType, tgtType)
+			allow, warn := PinTypeCompat(srcType, tgtType)
 			switch {
 			case !allow:
 				errs = append(errs, ValidationError{

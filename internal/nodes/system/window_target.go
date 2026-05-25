@@ -28,7 +28,6 @@ const (
 func (WindowTarget) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "WindowTarget",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "目标窗口",
 		Description: "声明式 — runtime 启动期读 title/class/processName 解析 hwnd, 读 inputBackend/captureBackend 选 backend. 节点本体 no-op, 走 Fire 出口.",

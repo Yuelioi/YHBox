@@ -23,7 +23,6 @@ const (
 func (SetVar) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "SetVar",
-		Version:     1,
 		Category:    "Variable",
 		DisplayName: "写变量",
 		Description: "写一个容器变量. scope=auto/local/global (auto: 当前 frame 有就 local, 否则 global).",

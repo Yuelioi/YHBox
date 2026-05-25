@@ -266,7 +266,7 @@ func TestVisionAdapter_Match_WritesLastTemplate(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.Matcher = stubMatcher{found: true, pt: expr.Point{X: 0.42, Y: 0.13}}
 	a := &visionAdapter{rt: rt}
-	_, _, err := a.Match("foo", 0.8)
+	_, _, err := a.Match(context.Background(), "foo", 0.8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestVisionAdapter_Match_NotFoundResetsState(t *testing.T) {
 	// 先 inject found state, 再调 Match 确认被清回
 	rt.UpdateSys(func(s *SysState) { s.LastFound = true; s.LastPoint = expr.Point{X: 1, Y: 1} })
 	a := &visionAdapter{rt: rt}
-	_, _, err := a.Match("foo", 0.8)
+	_, _, err := a.Match(context.Background(), "foo", 0.8)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,7 +28,7 @@ func DefaultLogService() LogService { return stdoutLogService{} }
 // stubVisionService 测试用. 任何 key 都返 nil/0/nil (always miss).
 type stubVisionService struct{}
 
-func (stubVisionService) Match(key string, threshold float64) (*Point, float64, error) {
+func (stubVisionService) Match(ctx context.Context, key string, threshold float64) (*Point, float64, error) {
 	return nil, 0, nil
 }
 

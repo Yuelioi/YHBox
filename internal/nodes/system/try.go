@@ -27,7 +27,6 @@ const (
 func (Try) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Try",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "Try Catch",
 		Description: "捕获 body 子图内的 error (含 Throw). 正常完成走 out; 出错走 catch, error 字符串挂在 catch.error 字段. body 子图由 SubgraphID 指定 (镜像老 runtime config.subgraphId).",

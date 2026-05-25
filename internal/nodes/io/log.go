@@ -21,7 +21,6 @@ const (
 func (Log) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Log",
-		Version:     1,
 		Category:    "IO",
 		DisplayName: "日志",
 		Description: "写一条日志到 framework LogService. Message 接 wildcard (任意类型, 自动 fmt.Sprint).",

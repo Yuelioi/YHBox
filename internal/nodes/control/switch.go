@@ -57,7 +57,6 @@ func (Switch) Spec() node.Spec {
 
 	return node.Spec{
 		Kind:        "Switch",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "分支 (多 Case)",
 		Description: "Value 跟 Case1..Case16 值逐一匹配 (first-match-wins), 命中走对应出口; 全不命中走 Default. 前 4 case 默认显示, 5-16 在 Advanced.",

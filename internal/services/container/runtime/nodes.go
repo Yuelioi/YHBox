@@ -58,6 +58,10 @@ func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) err
 			if errors.Is(err, errStopRun) {
 				return nil
 			}
+			// P1.2: 同 ContainerRunner.Run, listener subflow 顶层也防 sentinel leak.
+			if _, wrapped := r.checkSentinelLeak(node, err); wrapped != err {
+				return wrapped
+			}
 			return err
 		}
 		queue = append(queue, out...)

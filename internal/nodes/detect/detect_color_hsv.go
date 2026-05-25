@@ -39,7 +39,6 @@ const (
 func (DetectColorHSV) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "DetectColorHSV",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "HSV 颜色检测",
 		Description: "ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.",

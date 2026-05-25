@@ -26,7 +26,6 @@ const (
 func (KeyPress) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "KeyPress",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "按键",
 		Description: "按下并松开一个虚拟键. DurationMs 是按下到松开间隔.",

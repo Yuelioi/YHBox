@@ -32,7 +32,6 @@ const (
 func (WaitTemplate) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "WaitTemplate",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "等待模板",
 		Description: "在 timeoutMs 内轮询匹配模板. 命中走 Found 带坐标, 超时走 Timeout.",

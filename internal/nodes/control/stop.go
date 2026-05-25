@@ -19,7 +19,6 @@ const (
 func (Stop) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Stop",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "终点",
 		Description: "终止图执行. 框架捕获 sentinel 后停止 dispatch, 不报错.",

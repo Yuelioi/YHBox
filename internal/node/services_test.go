@@ -190,7 +190,7 @@ func TestStubVisionService_AlwaysMiss(t *testing.T) {
 	if v == nil {
 		t.Fatal("StubVisionService() returned nil")
 	}
-	pt, conf, err := v.Match("any", 0.5)
+	pt, conf, err := v.Match(context.Background(), "any", 0.5)
 	if pt != nil || conf != 0 || err != nil {
 		t.Errorf("Match = (%v,%v,%v), want (nil,0,nil)", pt, conf, err)
 	}

@@ -27,7 +27,6 @@ const (
 func (Subgraph) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Subgraph",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "调用子图",
 		Description: "调用容器内 SubgraphID 指定的子图. body 回调由 runner 构造 + 跑完返回, 无 error → 走 Done. Phase 5: 静态 ID + 简化 Params JSON, Phase 6 加 dynamic InputParams.",

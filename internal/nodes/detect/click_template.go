@@ -33,7 +33,6 @@ const (
 func (ClickTemplate) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "ClickTemplate",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "点击模板",
 		Description: "等模板在 timeoutMs 内出现, 命中后在中心点鼠标点击. 超时走 Timeout.",

@@ -29,8 +29,7 @@ type RunResult struct {
 // recover 报回 RunResult.Panic. 测试可用 StubServices() 一键填齐.
 func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle) RunResult {
 	// Build inputs (priority: data-wire > config > exec-data > default)
-	defaults := defaultsFromSpec(&rn.Spec)
-	in := newInputs(dataWire, config, execData, defaults)
+	in := newInputs(dataWire, config, execData, rn.Defaults)
 
 	// Phase 1: Required pre-Run check (ValidationError 非 panic — GPT r4 #8)
 	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
@@ -89,8 +88,7 @@ func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, 
 	}
 
 	// Build inputs (same priority chain as RunNode)
-	defaults := defaultsFromSpec(&rn.Spec)
-	in := newInputs(dataWire, config, execData, defaults)
+	in := newInputs(dataWire, config, execData, rn.Defaults)
 
 	// Phase 1: Required pre-Run check
 	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
@@ -150,8 +148,7 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 		return nil, fmt.Errorf("EvaluatePureData: kind %q does not implement Evaluator", rn.Spec.Kind)
 	}
 
-	defaults := defaultsFromSpec(&rn.Spec)
-	in := newInputs(dataWire, config, nil, defaults)
+	in := newInputs(dataWire, config, nil, rn.Defaults)
 
 	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
 		return nil, fmt.Errorf("EvaluatePureData %s: %s", rn.Spec.Kind, errs[0].Message)

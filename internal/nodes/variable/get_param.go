@@ -17,7 +17,6 @@ const (
 func (GetParam) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "GetParam",
-		Version:     1,
 		Category:    "Variable",
 		DisplayName: "读子图参数",
 		Description: "pure-data 节点 — 读 Subgraph 调用时传入的 input param. 仅子图内有效.",

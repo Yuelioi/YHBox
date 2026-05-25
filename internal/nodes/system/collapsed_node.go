@@ -23,7 +23,6 @@ const (
 func (CollapsedNode) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "CollapsedNode",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "折叠子图",
 		Description: "Subgraph 的折叠 (isAnonymous) 表示 — runtime 跟 Subgraph 同 dispatch (RegionRunner: body 调一次 → Done).",

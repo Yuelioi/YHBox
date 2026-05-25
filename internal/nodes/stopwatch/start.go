@@ -31,7 +31,6 @@ const (
 func (Start) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "StopwatchStart",
-		Version:     1,
 		Category:    "Stopwatch",
 		DisplayName: "秒表 启动",
 		Description: "启动或 reset 指定 key 的秒表 (已存在 → reset).",

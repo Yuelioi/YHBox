@@ -23,7 +23,6 @@ const (
 func (Throw) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Throw",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "抛错",
 		Description: "立刻抛 ThrowError, 由最近的 Try 区域截获走 catch 出口; 没 Try 包就冒泡到主 runner 报 container:error. errors.As 可抽原 message.",

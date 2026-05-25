@@ -50,3 +50,7 @@ type ThrowError struct {
 
 func (e *ThrowError) Error() string { return "throw: " + e.Message }
 func (e *ThrowError) Unwrap() error { return errThrow }
+
+// IsThrowRequested 报 err 是否是 Throw 节点 sentinel — runtime routeResult defensive
+// 用这个识别 Throw 漏到顶层 (Try.RunRegion 应该已截获).
+func IsThrowRequested(err error) bool { return errors.Is(err, errThrow) }

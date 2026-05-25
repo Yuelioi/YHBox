@@ -28,7 +28,6 @@ const (
 func (Vision) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Mock_Vision",
-		Version:     1,
 		Category:    "Mock",
 		DisplayName: "Mock 视觉",
 		Description: "Phase 0 测试 — Point/Rect/Image + AsyncOptions dropdown + 多 exec out 含 Data 字段 (hover 展开 UI).",

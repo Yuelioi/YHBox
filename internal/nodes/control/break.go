@@ -16,7 +16,6 @@ const (
 func (Break) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Break",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "跳出循环",
 		Description: "退出最近的 Loop 区域. Phase 5 Loop region 截获 sentinel, 否则 framework 当 error 上报.",

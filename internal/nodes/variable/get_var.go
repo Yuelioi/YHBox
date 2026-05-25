@@ -18,7 +18,6 @@ const (
 func (GetVar) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "GetVar",
-		Version:     1,
 		Category:    "Variable",
 		DisplayName: "读变量",
 		Description: "pure-data 节点 — 读容器变量供 data edge 下游消费. scope=auto/local/global.",

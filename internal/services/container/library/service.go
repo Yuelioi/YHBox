@@ -74,9 +74,7 @@ func (s *Service) ExportSubgraph(containerID, sgID string, overwrite bool) error
 	if err != nil {
 		return err
 	}
-	scanDeps := func(rootSgID string, getNodes func(string) ([]dependency.NodeInfo, error)) ([]dependency.Dependency, error) {
-		return dependency.ScanSubgraphDependencies(rootSgID, getNodes, dependency.GetExtractor)
-	}
+	scanDeps := dependency.ScanSubgraphDependencies
 	if err := s.store.ExportFromContainer(root, sgID, scanDeps, overwrite); err != nil {
 		return err
 	}

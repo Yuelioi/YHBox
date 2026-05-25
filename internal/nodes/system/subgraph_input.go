@@ -21,7 +21,6 @@ const (
 func (SubgraphInput) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "SubgraphInput",
-		Version:     1,
 		Category:    "System",
 		DisplayName: "子图入口",
 		Description: "(Phase 5 stub) 子图入口节点 — sub-runner 从这里开跑. 当前 Run 返 sentinel, Phase 5 sub-runner 接管后不再走 Run.",

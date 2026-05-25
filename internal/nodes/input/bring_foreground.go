@@ -25,7 +25,6 @@ const (
 func (BringGameForeground) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "BringGameForeground",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "游戏窗口置前台",
 		Description: "把游戏窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.",

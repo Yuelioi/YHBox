@@ -17,6 +17,7 @@ import (
 
 	nodepkg "yhbox/internal/node"
 	"yhbox/internal/nodes/control"
+	"yhbox/internal/nodes/system"
 	"yhbox/internal/services/container"
 )
 
@@ -164,6 +165,8 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		if control.IsStopRequested(result.Error) {
 			return nil, errStopRun
 		}
+		// 注意 Break/Continue/Throw sentinel 错误必须透传 — 外层 Loop.RunRegion / Try.RunRegion
+		// 截获. 顶层 leak 防御在 ContainerRunner.Run / runSubFlow 主 loop (P1.2).
 		// Try 的 error path 写 SysState.LastTry.ErrorMsg — 老 runtime execTry 副作用,
 		// state_FISHING 等子图通过 GetSys path=lastTry.errorMsg 读. 注意 Try.RunRegion
 		// 内部已 catch error 走 catch 出口, 这里 result.Error 漏到 routeResult 表示真
@@ -269,6 +272,35 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 		return r.execNodeAsRegionViaFramework(ctx, n, tok)
 	}
 	return r.execNodeViaFramework(ctx, n, tok)
+}
+
+// checkSentinelLeak detect Break/Continue/Throw sentinel 漏到顶层 dispatch loop.
+// 正常路径里 Loop.RunRegion 截获 Break/Continue, Try.RunRegion 截获 Throw — 漏到
+// 顶层主 loop 说明 validator 漏报或子图 misplace. 返非空 leakCode + 包装 err 让主
+// loop emit container:node-validation 高亮失败节点; 不属 sentinel 返空 + 原 err.
+// P1.2.
+func (r *ContainerRunner) checkSentinelLeak(node *container.GraphNode, err error) (leakCode string, wrapped error) {
+	switch {
+	case control.IsBreakRequested(err):
+		leakCode = "BREAK_OUTSIDE_LOOP"
+	case control.IsContinueRequested(err):
+		leakCode = "CONTINUE_OUTSIDE_LOOP"
+	case system.IsThrowRequested(err):
+		leakCode = "THROW_OUTSIDE_TRY"
+	default:
+		return "", err
+	}
+	if r.rt.Emit != nil {
+		r.rt.Emit("container:node-validation", map[string]any{
+			"containerId": r.rt.Container.ID,
+			"nodeId":      node.ID,
+			"nodeKind":    node.Kind,
+			"errors": []map[string]any{
+				{"code": leakCode, "message": err.Error()},
+			},
+		})
+	}
+	return leakCode, fmt.Errorf("node %q (%s) %s: %w", node.ID, node.Kind, leakCode, err)
 }
 
 // runRegionBody region body sub-dispatch loop. 从 seeds 出发跑到队列空 / error 返.

@@ -19,6 +19,9 @@ type RegisteredNode struct {
 	RunRegion func(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
 	// Evaluate — pure-data 节点 (IsPureData=true) 实现, EvaluatePureData 调.
 	Evaluate func(ctx Ctx, in Inputs) (any, error)
+	// Defaults — Spec.Inputs 中非 nil Default 值的 name→value 缓存. P1.9: per-token 不再
+	// 重算 defaultsFromSpec — Register 时 build 一次, 引擎 newInputs 复用.
+	Defaults map[string]any
 }
 
 var (
@@ -39,8 +42,9 @@ func Register(impl Node) {
 		panic(fmt.Sprintf("node kind %q already registered", spec.Kind))
 	}
 	rn := &RegisteredNode{
-		Impl: impl,
-		Spec: spec,
+		Impl:     impl,
+		Spec:     spec,
+		Defaults: defaultsFromSpec(&spec),
 	}
 	// 扩展 interface 探测
 	if d, ok := impl.(Displayer); ok {

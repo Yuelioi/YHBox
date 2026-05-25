@@ -25,7 +25,6 @@ const (
 func (ClickAt) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "ClickAt",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "点击坐标",
 		Description: "在客户区比例坐标 (xRatio, yRatio) 单击鼠标. xRatio/yRatio ∈ [0,1].",

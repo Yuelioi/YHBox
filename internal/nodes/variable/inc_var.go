@@ -23,7 +23,6 @@ const (
 func (IncVar) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "IncVar",
-		Version:     1,
 		Category:    "Variable",
 		DisplayName: "变量自增",
 		Description: "给容器变量加 Delta (默认 1). scope=auto/local/global. 老 runtime 同款.",

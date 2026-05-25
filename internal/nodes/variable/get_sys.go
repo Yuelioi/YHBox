@@ -17,7 +17,6 @@ const (
 func (GetSys) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "GetSys",
-		Version:     1,
 		Category:    "Variable",
 		DisplayName: "读系统值",
 		Description: "pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastBarTrack.cursorX). 数据流求值.",

@@ -9,7 +9,7 @@ func TestValidate_ColorBarTrack_EmptyRois(t *testing.T) {
 	c := &Container{
 		Graph: Graph{
 			Nodes: []GraphNode{
-				{ID: "cbt1", Kind: "ColorBarTrack", Config: map[string]any{"rois": []any{}}},
+				{ID: "cbt1", Kind: "ColorBarTrack", Config: map[string]any{"Rois": []any{}}},
 			},
 		},
 	}
@@ -25,7 +25,7 @@ func TestValidate_ColorBarTrack_MissingResolution(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "cbt1", Kind: "ColorBarTrack", Config: map[string]any{
-					"rois": []any{
+					"Rois": []any{
 						map[string]any{"x": float64(100), "y": float64(100), "w": float64(50), "h": float64(50)},
 					},
 				}},
@@ -44,7 +44,7 @@ func TestValidate_ColorBarTrack_ROIOutOfBounds(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "cbt1", Kind: "ColorBarTrack", Config: map[string]any{
-					"rois": []any{
+					"Rois": []any{
 						map[string]any{
 							"resolution": []any{float64(1920), float64(1080)},
 							"x":          float64(1900),
@@ -69,7 +69,7 @@ func TestValidate_ColorBarTrack_DuplicateResolution(t *testing.T) {
 		Graph: Graph{
 			Nodes: []GraphNode{
 				{ID: "cbt1", Kind: "ColorBarTrack", Config: map[string]any{
-					"rois": []any{
+					"Rois": []any{
 						map[string]any{
 							"resolution": []any{float64(1920), float64(1080)},
 							"x":          float64(100),

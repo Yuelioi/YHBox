@@ -6,7 +6,6 @@ package node
 // Spec 节点 metadata. 节点作者实现 Spec() 方法返这个.
 type Spec struct {
 	Kind        string `json:"kind"`
-	Version     int    `json:"version"`     // 第一版全 1
 	Category    string `json:"category"`    // FE palette 分组
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`

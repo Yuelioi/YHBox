@@ -24,7 +24,6 @@ const (
 func (Scroll) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Scroll",
-		Version:     1,
 		Category:    "Input",
 		DisplayName: "鼠标滚轮",
 		Description: "在 (xRatio, yRatio) 客户区坐标发送鼠标滚轮事件. Delta = notches, 正向上 / 负向下.",

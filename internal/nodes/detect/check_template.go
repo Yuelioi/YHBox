@@ -32,7 +32,6 @@ const (
 func (CheckTemplate) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "CheckTemplate",
-		Version:     1,
 		Category:    "Detect",
 		DisplayName: "检查模板",
 		Description: "在当前帧 NCC 匹配模板. 命中走 Found 带坐标, 没命中走 NotFound.",
@@ -65,7 +64,7 @@ func (CheckTemplate) Spec() node.Spec {
 func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	key := in.String(ctInTemplate)
 	threshold := in.Float64(ctInThreshold)
-	pt, conf, err := ctx.Vision().Match(key, threshold)
+	pt, conf, err := ctx.Vision().Match(ctx.Context(), key, threshold)
 	if err != nil {
 		return nil, fmt.Errorf("vision match %q: %w", key, err)
 	}

@@ -1,30 +1,29 @@
 package dependency
 
-import "fmt"
+import (
+	"fmt"
 
-// Extractor 节点种类的依赖提取器. specs/*.go init() 通过 dependency.RegisterExtractor 注册.
-// cfg 是节点的 Config map (map[string]any). 用 Config 而不是整个 GraphNode
-// 避免 specs → container → specs 循环导入.
-type Extractor interface {
-	Extract(cfg map[string]any) []Dependency
-}
+	nodepkg "yhbox/internal/node"
+)
 
-// NodeInfo 节点的最小描述, 供 ScanSubgraphDependencies 迭代. 不引用 container 包
-// (container → specs → dependency → container 会循环).
+// NodeInfo 节点的最小描述, 供 ScanSubgraphDependencies 迭代. 跟 container.GraphNode 解耦
+// (避免 dependency → container → … 闭环), 由 caller 适配.
 type NodeInfo struct {
 	Kind   string
 	Config map[string]any
 }
 
 // ScanSubgraphDependencies 递归扫子图依赖. BFS, dedupe, cyclic-safe.
+//
 // getNodes: 给定 sgID 返回该子图的全部节点; 不存在时返 nil, nil — 跳过, 不报错.
-// getExtractor: 节点 kind → Extractor (生产代码用 dependency.GetExtractor).
+// 节点 kind → deps 走 nodepkg.Get(kind).Dependencies(NewInputsFromConfig(cfg)) — 单一源
+// 跟 framework Dependencies(in) 接口对齐. 节点未注册 (kind 未知) 或未实现 Dependencer 接口
+// → 0 依赖.
 //
 // 返 []Dependency 含 root subgraph 自身 + 所有 transitively 引用的 subgraph / template / clip.
 func ScanSubgraphDependencies(
 	rootSgID string,
 	getNodes func(sgID string) ([]NodeInfo, error),
-	getExtractor func(kind string) Extractor,
 ) ([]Dependency, error) {
 	visited := map[string]bool{}
 	seenDeps := map[string]bool{}
@@ -51,11 +50,13 @@ func ScanSubgraphDependencies(
 			return nil, fmt.Errorf("get subgraph %q: %w", sgID, err)
 		}
 		for _, n := range nodes {
-			ext := getExtractor(n.Kind)
-			if ext == nil {
+			rn, ok := nodepkg.Get(n.Kind)
+			if !ok || rn.Dependencies == nil {
 				continue
 			}
-			for _, d := range ext.Extract(n.Config) {
+			in := nodepkg.NewInputsFromConfig(n.Config)
+			for _, raw := range rn.Dependencies(in) {
+				d := Dependency{Kind: Kind(raw.Kind), Key: raw.Key}
 				if seenDeps[d.String()] {
 					continue
 				}
@@ -68,15 +69,4 @@ func ScanSubgraphDependencies(
 		}
 	}
 	return allDeps, nil
-}
-
-// ScanSubgraphDependenciesWithExtractors 测试 helper, 用 map 替代 getExtractor 函数.
-func ScanSubgraphDependenciesWithExtractors(
-	rootSgID string,
-	getNodes func(sgID string) ([]NodeInfo, error),
-	extractors map[string]Extractor,
-) ([]Dependency, error) {
-	return ScanSubgraphDependencies(rootSgID, getNodes, func(k string) Extractor {
-		return extractors[k]
-	})
 }

@@ -29,7 +29,6 @@ const (
 func (Loop) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Loop",
-		Version:     1,
 		Category:    "Control",
 		DisplayName: "循环",
 		Description: "Body 子图执行 N 次 / forever. Body 内 Break sentinel 跳出, Continue sentinel 跳下一轮.",

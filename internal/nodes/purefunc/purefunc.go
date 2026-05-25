@@ -25,7 +25,6 @@ var errPureDataNotEvaluatable = errors.New("pure-data node — evaluated via Eva
 func specBuilder(kind, displayName, doc string, inputs []node.InputSpec, resultType string) node.Spec {
 	return node.Spec{
 		Kind:        kind,
-		Version:     1,
 		Category:    "PureFunc",
 		DisplayName: displayName,
 		Description: doc,
@@ -467,7 +466,6 @@ type Expr struct{}
 func (Expr) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Expr",
-		Version:     1,
 		Category:    "PureFunc",
 		DisplayName: "表达式",
 		Description: "求值表达式. Partial: dynamic inputs (config.inputs[]) 走老 evalExpr fallback; Phase 6+ 加 framework dynamic pin support.",

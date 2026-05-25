@@ -26,7 +26,6 @@ const (
 func (Toast) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Toast",
-		Version:     1,
 		Category:    "IO",
 		DisplayName: "Toast",
 		Description: "弹 GUI toast 提示. Phase 4 兜底走 LogService.Info; Phase 5 wire 真 emit 到 frontend.",

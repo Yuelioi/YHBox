@@ -5,7 +5,7 @@ import "testing"
 
 type stubNode struct{ kind string }
 
-func (n stubNode) Spec() Spec { return Spec{Kind: n.kind, Version: 1} }
+func (n stubNode) Spec() Spec { return Spec{Kind: n.kind} }
 
 func (n stubNode) Run(ctx Ctx, in Inputs) (Outputs, error) { return nil, nil }
 
