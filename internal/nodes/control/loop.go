@@ -7,6 +7,7 @@
 package control
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -18,11 +19,11 @@ func init() { node.Register(&Loop{}) }
 type Loop struct{}
 
 const (
-	loopInExec  = "in"
-	loopInMode  = "mode"
-	loopInCount = "count"
+	loopInExec  = "in" // exec pin 跟其他节点一起后续 batch 迁
+	loopInMode  = "Mode"
+	loopInCount = "Count"
 
-	loopOutBody = "body"
+	loopOutBody = "body" // exec out 同 in, 后续 batch 迁
 	loopOutDone = "done"
 )
 
@@ -43,7 +44,7 @@ func (Loop) Spec() node.Spec {
 							{Value: "forever", Label: "永远"},
 						},
 					})}},
-			{Name: loopInCount, Type: "Integer", Default: 10,
+			{Name: loopInCount, Type: "Integer", Default: json.Number("10"),
 				DisplayName: "次数 (mode=count)",
 				Widget:      node.WidgetSpec{Kind: "number"},
 				VisibleWhen: &node.VisibleRule{Field: loopInMode, Equals: "count"}},

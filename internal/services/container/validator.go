@@ -1177,7 +1177,7 @@ var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom
 func validateCronConfig(n *GraphNode) []ValidationError {
 	var errs []ValidationError
 	lit, _ := n.Config["literal"].(map[string]any)
-	s, _ := lit["expr"].(string)
+	s, _ := lit["Expression"].(string)
 	if s == "" {
 		return nil // 空 = 用户准备连上游 / 还没填 (dangling pin validator 别处报)
 	}

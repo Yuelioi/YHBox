@@ -9,17 +9,17 @@ func TestValidateDataGraph_DetectsCycle(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
-					"expr":   "a + 1",
-					"inputs": []any{map[string]any{"name": "a", "type": "number"}},
+					"Expression": "a + 1",
+					"Inputs": []any{map[string]any{"Name": "a", "Type": "number"}},
 				}},
 				{ID: "e2", Kind: "Expr", Config: map[string]any{
-					"expr":   "b * 2",
-					"inputs": []any{map[string]any{"name": "b", "type": "number"}},
+					"Expression": "b * 2",
+					"Inputs": []any{map[string]any{"Name": "b", "Type": "number"}},
 				}},
 			},
 			Edges: []GraphEdge{
-				{From: "e1.value", To: "e2.b"},
-				{From: "e2.value", To: "e1.a"}, // cycle e1→e2→e1 (data edges derived from Expr.value out-pin)
+				{From: "e1.Result", To: "e2.b"},
+				{From: "e2.Result", To: "e1.a"}, // cycle e1→e2→e1 (data edges derived from Expr.Result out-pin)
 			},
 		},
 	}

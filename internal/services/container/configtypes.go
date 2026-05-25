@@ -55,22 +55,24 @@ func ParseExprConfig(n *GraphNode) (ExprConfig, error) {
 	if n == nil || n.Config == nil {
 		return c, nil
 	}
-	if v, ok := n.Config["expr"].(string); ok {
+	if v, ok := n.Config["Expression"].(string); ok {
 		c.Expr = v
 	}
-	if t, ok := n.Config["outType"].(string); ok && t != "" {
+	if t, ok := n.Config["OutType"].(string); ok && t != "" {
 		c.OutType = t
 	}
-	if raw, ok := n.Config["inputs"].([]any); ok {
+	if raw, ok := n.Config["Inputs"].([]any); ok {
 		for _, it := range raw {
 			m, ok := it.(map[string]any)
 			if !ok {
 				continue
 			}
-			name, _ := m["name"].(string)
-			typ, _ := m["type"].(string)
+			// Inputs[] entry keys 跟节点 InputSpec.Name 风格对齐 — Name (PascalCase 用户面),
+			// Type (Pascal type tag). Dynamic input.name 在 graph 内是 data-pin 名, 由用户起.
+			name, _ := m["Name"].(string)
+			typ, _ := m["Type"].(string)
 			if name == "" {
-				continue // skip unnamed entries silently; validator may want to flag
+				continue
 			}
 			c.Inputs = append(c.Inputs, ExprInputDecl{Name: name, Type: typ})
 		}

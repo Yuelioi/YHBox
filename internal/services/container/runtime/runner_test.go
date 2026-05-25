@@ -212,7 +212,7 @@ func TestRunner_LoopCount(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "count", "literal": map[string]any{"count": 3.0}}},
+			{ID: "loop", Kind: "Loop", Config: map[string]any{"Mode": "count", "literal": map[string]any{"Count": 3.0}}},
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "i", "Scope": "global", "literal": map[string]any{"Delta": 1.0}}},
 		},
 		[]container.GraphEdge{
@@ -238,7 +238,7 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "forever"}},
+			{ID: "loop", Kind: "Loop", Config: map[string]any{"Mode": "forever"}},
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "i", "Scope": "global", "literal": map[string]any{"Delta": 1.0}}},
 			{ID: "geti", Kind: "GetVar", Config: map[string]any{"VarName": "i", "Scope": "global"}},
 			{ID: "gte", Kind: "GtEq", Config: map[string]any{"literal": map[string]any{"B": 2.0}}},

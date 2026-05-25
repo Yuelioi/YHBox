@@ -67,9 +67,9 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				// Branch condition
 				{ID: "getIter", Kind: "GetSys", Config: map[string]any{"Path": "iter"}},
 				{ID: "condExpr", Kind: "Expr", Config: map[string]any{
-					"expr":    "i > -1",
-					"outType": "auto",
-					"inputs":  []any{map[string]any{"name": "i", "type": "number"}},
+					"Expression": "i > -1",
+					"OutType": "auto",
+					"Inputs": []any{map[string]any{"Name": "i", "Type": "number"}},
 				}},
 				{ID: "if1", Kind: "If"},
 				{ID: "stop", Kind: "Stop"},
@@ -87,7 +87,7 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				{From: "add10.Result", To: "setDst.Value"},
 				// Data: GetSys(iter) → Expr.i → If.condition
 				{From: "getIter.Value", To: "condExpr.i"},
-				{From: "condExpr.Value", To: "if1.Condition"},
+				{From: "condExpr.Result", To: "if1.Condition"},
 			},
 		},
 	}

@@ -15,7 +15,7 @@ func TestValidateCron_EmptyLiteral_NoErr(t *testing.T) {
 
 func TestValidateCron_HappyPath_NoErr(t *testing.T) {
 	errs := validateCronConfig(&GraphNode{Kind: "Cron", Config: map[string]any{
-		"literal": map[string]any{"expr": "0 */5 * * * *"},
+		"literal": map[string]any{"Expression": "0 */5 * * * *"},
 	}})
 	if len(errs) != 0 {
 		t.Errorf("合法 expr 不应报错, got: %+v", errs)
@@ -24,7 +24,7 @@ func TestValidateCron_HappyPath_NoErr(t *testing.T) {
 
 func TestValidateCron_BadExpr_FieldOutOfRange(t *testing.T) {
 	errs := validateCronConfig(&GraphNode{Kind: "Cron", Config: map[string]any{
-		"literal": map[string]any{"expr": "60 60 60 60 60 60"},
+		"literal": map[string]any{"Expression": "60 60 60 60 60 60"},
 	}})
 	if len(errs) == 0 {
 		t.Fatal("字段越界应报错")
@@ -42,7 +42,7 @@ func TestValidateCron_BadExpr_FieldOutOfRange(t *testing.T) {
 
 func TestValidateCron_SyntaxError(t *testing.T) {
 	errs := validateCronConfig(&GraphNode{Kind: "Cron", Config: map[string]any{
-		"literal": map[string]any{"expr": "@@@"},
+		"literal": map[string]any{"Expression": "@@@"},
 	}})
 	if len(errs) == 0 || errs[0].Code != CodeInvalidCronExpr {
 		t.Errorf("语法错应报 INVALID_CRON_EXPR, got: %+v", errs)

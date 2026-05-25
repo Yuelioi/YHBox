@@ -542,7 +542,7 @@ func newRegionTestLoop(t *testing.T, loopConfig map[string]any) *dispatchTestCtx
 
 func TestExecNodeAsRegionViaFramework_LoopCount3(t *testing.T) {
 	resetTdHappyCounter()
-	dt := newRegionTestLoop(t, map[string]any{"mode": "count", "count": 3})
+	dt := newRegionTestLoop(t, map[string]any{"Mode": "count", "Count": 3})
 	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "loop", InPin: "in"})
 	if err != nil {
 		t.Fatalf("loop region dispatch: %v", err)
@@ -557,7 +557,7 @@ func TestExecNodeAsRegionViaFramework_LoopCount3(t *testing.T) {
 
 func TestExecNodeAsRegionViaFramework_LoopCount0(t *testing.T) {
 	resetTdHappyCounter()
-	dt := newRegionTestLoop(t, map[string]any{"mode": "count", "count": 0})
+	dt := newRegionTestLoop(t, map[string]any{"Mode": "count", "Count": 0})
 	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "loop", InPin: "in"})
 	if err != nil {
 		t.Fatalf("loop count=0: %v", err)
@@ -579,7 +579,7 @@ func TestExecNodeAsRegionViaFramework_LoopForeverWithBreak(t *testing.T) {
 		Name:          "test-loop-break",
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "forever"}},
+				{ID: "loop", Kind: "Loop", Config: map[string]any{"Mode": "forever"}},
 				{ID: "body_n", Kind: tkHappyCounted},
 				{ID: "break_n", Kind: "Break"},
 				{ID: "done_n", Kind: "Stop"},
@@ -720,7 +720,7 @@ func TestDispatchInRegion_RoutesNormalToRunNode(t *testing.T) {
 
 func TestDispatchInRegion_RoutesRegionToRunNodeAsRegion(t *testing.T) {
 	resetTdHappyCounter()
-	dt := newRegionTestLoop(t, map[string]any{"mode": "count", "count": 2})
+	dt := newRegionTestLoop(t, map[string]any{"Mode": "count", "Count": 2})
 	tokens, err := dt.r.dispatchInRegion(context.Background(), dt.node, ExecToken{NodeID: "loop", InPin: "in"})
 	if err != nil {
 		t.Fatalf("dispatchInRegion loop: %v", err)

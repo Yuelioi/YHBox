@@ -9,10 +9,10 @@ func TestValidate_Expr_DuplicateInput(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
-					"expr":   "i + 1",
-					"inputs": []any{
-						map[string]any{"name": "i", "type": "number"},
-						map[string]any{"name": "i", "type": "string"}, // dup
+					"Expression": "i + 1",
+					"Inputs": []any{
+						map[string]any{"Name": "i", "Type": "number"},
+						map[string]any{"Name": "i", "Type": "string"}, // dup
 					},
 				}},
 			},
@@ -37,8 +37,8 @@ func TestValidate_Expr_ParseError(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
-					"expr":   "1 +",
-					"inputs": []any{},
+					"Expression": "1 +",
+					"Inputs": []any{},
 				}},
 			},
 		},
@@ -62,8 +62,8 @@ func TestValidate_Expr_UnknownInput(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
-					"expr":   "x + missing",
-					"inputs": []any{map[string]any{"name": "x", "type": "number"}},
+					"Expression": "x + missing",
+					"Inputs": []any{map[string]any{"Name": "x", "Type": "number"}},
 				}},
 			},
 		},
@@ -87,10 +87,10 @@ func TestValidate_Expr_AllValid(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
-					"expr":   `s == "FISHING" && hp > 0.5`,
-					"inputs": []any{
-						map[string]any{"name": "s", "type": "string"},
-						map[string]any{"name": "hp", "type": "number"},
+					"Expression": `s == "FISHING" && hp > 0.5`,
+					"Inputs": []any{
+						map[string]any{"Name": "s", "Type": "string"},
+						map[string]any{"Name": "hp", "Type": "number"},
 					},
 				}},
 			},

@@ -15,9 +15,9 @@ func TestExpr_LiteralInputs(t *testing.T) {
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
 		Config: map[string]any{
-			"expr":    "i + 1",
-			"outType": "auto",
-			"inputs":  []any{map[string]any{"name": "i", "type": "number"}},
+			"Expression": "i + 1",
+			"OutType": "auto",
+			"Inputs": []any{map[string]any{"Name": "i", "Type": "number"}},
 			"literal": map[string]any{"i": 5.0},
 		},
 	}
@@ -41,10 +41,10 @@ func TestExpr_BoolExpression(t *testing.T) {
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
 		Config: map[string]any{
-			"expr": `s == "FISHING" && hp > 0.5`,
-			"inputs": []any{
-				map[string]any{"name": "s", "type": "string"},
-				map[string]any{"name": "hp", "type": "number"},
+			"Expression": `s == "FISHING" && hp > 0.5`,
+			"Inputs": []any{
+				map[string]any{"Name": "s", "Type": "string"},
+				map[string]any{"Name": "hp", "Type": "number"},
 			},
 			"literal": map[string]any{"s": "FISHING", "hp": 0.8},
 		},
@@ -66,8 +66,8 @@ func TestExpr_DollarPathsAreIsolated(t *testing.T) {
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
 		Config: map[string]any{
-			"expr":   "$vars.hp",
-			"inputs": []any{},
+			"Expression": "$vars.hp",
+			"Inputs": []any{},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
@@ -90,8 +90,8 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 	ex := &container.GraphNode{
 		ID: "ex", Kind: "Expr",
 		Config: map[string]any{
-			"expr":   "c * 2",
-			"inputs": []any{map[string]any{"name": "c", "type": "number"}},
+			"Expression": "c * 2",
+			"Inputs": []any{map[string]any{"Name": "c", "Type": "number"}},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv": gv, "ex": ex}
@@ -119,7 +119,7 @@ func TestExpr_EmptyExprReturnsNil(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
-		Config: map[string]any{"expr": "", "inputs": []any{}},
+		Config: map[string]any{"Expression": "", "Inputs": []any{}},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
@@ -139,7 +139,7 @@ func TestExpr_ParseError(t *testing.T) {
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
-		Config: map[string]any{"expr": "1 +", "inputs": []any{}},
+		Config: map[string]any{"Expression": "1 +", "Inputs": []any{}},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 

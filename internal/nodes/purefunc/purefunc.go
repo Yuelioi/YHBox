@@ -467,16 +467,16 @@ func (Expr) Spec() node.Spec {
 		Kind:        "Expr",
 		Category:    "PureFunc",
 		DisplayName: "表达式",
-		Description: "求值表达式. Partial: dynamic inputs (config.inputs[]) 走老 evalExpr fallback; Phase 6+ 加 framework dynamic pin support.",
+		Description: "求值表达式. dynamic inputs (config.Inputs[]) 走 evalExpr fallback (动态 data-pin framework MVP 暂不支持).",
 		Inputs: []node.InputSpec{
-			{Name: "expr", Type: "String", Default: "", Required: true,
+			{Name: "Expression", Type: "String", Default: "", Required: true,
 				DisplayName: "表达式",
-				Doc:         "Go-like 表达式. Phase 6+ 加 dynamic inputs[] 后可引用配置 input.",
+				Doc:         "Go-like 表达式. dynamic Inputs[] 声明的 input name 可在表达式里引用.",
 				Widget: node.WidgetSpec{Kind: "textarea",
 					Props: node.MarshalProps(node.TextareaProps{Rows: 3})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: "value", Type: "*", DisplayName: "值"},
+			{Name: "Result", Type: "*", DisplayName: "结果"},
 		},
 		IsPureData: true,
 	}
