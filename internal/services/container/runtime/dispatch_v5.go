@@ -61,6 +61,25 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 		}
 		dw[ip.Name] = v
 	}
+	// Expr 节点 dynamic data-in pins 在 Spec 里登记不到 — 走 config.Inputs[] 声明.
+	// 必须额外 pull 一轮把声明的 dynamic name 喂进 dataWire, Expr.Evaluate 再从
+	// in.Keys() 遍历 (跳过 Expression 静态 pin) 构造 expr.InputEnv.
+	if node.Kind == "Expr" {
+		cfg, _ := container.ParseExprConfig(node)
+		for _, in := range cfg.Inputs {
+			if in.Name == "" || in.Name == "Expression" {
+				continue
+			}
+			if _, exists := dw[in.Name]; exists {
+				continue
+			}
+			v, err := r.resolveDataPinV5(ctx, node.ID, in.Name)
+			if err != nil || v == nil {
+				continue
+			}
+			dw[in.Name] = v
+		}
+	}
 	return dw
 }
 
@@ -69,8 +88,8 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 //   - 上游节点不在 framework registry / 不 IsPureData / 没实现 Evaluator → 走老 r.pullDataPin
 //   - 上游 IsPureData + 实现 Evaluator → 走 nodepkg.EvaluatePureData (递归 build 上游 dataWire)
 //
-// Phase 6+ partial: 22 purefunc + Eq/Not/Concat/... 走 framework. GetVar/GetSys/GetParam/Expr
-// 依赖 runtime state / dynamic input, 暂走 fallback 老 evalDataSource switch.
+// 22 purefunc + Expr 走 framework. GetVar/GetSys/GetParam 依赖 runtime state (frame /
+// per-tick snapshot), 暂走 fallback 老 evalDataSource switch — C4 后续单独处理.
 func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName string) (any, error) {
 	srcID, _ := r.dataEdges.Source(nodeID, pinName)
 	if srcID == "" {

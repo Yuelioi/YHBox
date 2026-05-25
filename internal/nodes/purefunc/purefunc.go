@@ -1,7 +1,6 @@
 // Package purefunc 22 个纯函数节点 (Add/Sub/.../Select) + Expr.
-// 全是 IsPureData=true — Run 返 node.ErrPureDataMustEvaluate (永不调).
-// 22 纯函数自包含, 实现 node.Evaluator (EvaluatePureData 入口). Expr 因为 dynamic input
-// 没在 Spec.Inputs 里, 暂不实现 Evaluator — dispatch fallback 老 evalExpr 路径.
+// 全是 IsPureData=true, 全部实现 node.Evaluator (EvaluatePureData 入口).
+// Expr 节点定义在 expr.go (dynamic inputs 用 Inputs.Keys() 遍历).
 //
 // 设计取舍: 22 节点用同一 spec shape (1 data-out "result"), 用 specBuilder 复用构造代码.
 // 每节点仍独立 Go type — 符合 "1 type 1 node" 原则, builder 只复用 Spec 字段填充不引入抽象层.
@@ -63,9 +62,6 @@ func boolIn() []node.InputSpec {
 		{Name: "B", Type: "Bool", Default: false, DisplayName: "B", Widget: node.WidgetSpec{Kind: "checkbox"}},
 	}
 }
-
-// stubRun 所有节点共用 — 返 node.ErrPureDataMustEvaluate.
-func stubRun() (node.Outputs, error) { return nil, node.ErrPureDataMustEvaluate }
 
 // asNumber Number 软转 — Inputs.Float64 已处理 float64/int/json.Number/string; bool true→1/false→0 这里加.
 // 用在 Eq/NotEq 跨类型比较的同模式 — 跟老 expr.AsNumber 对齐.
@@ -144,8 +140,6 @@ func init() {
 		&ToString{}, &ToNumber{}, &ToBool{},
 		// 三元 (1)
 		&Select{},
-		// Expr (1) — IsPureData, dynamic inputs Phase 6+
-		&Expr{},
 	} {
 		node.Register(n)
 	}
@@ -158,7 +152,6 @@ type Add struct{}
 func (Add) Spec() node.Spec {
 	return specBuilder("Add", "加", "a + b", numIn(), "Number")
 }
-func (Add) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Add) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") + in.Float64("B"), nil
 }
@@ -168,7 +161,6 @@ type Sub struct{}
 func (Sub) Spec() node.Spec {
 	return specBuilder("Sub", "减", "a - b", numIn(), "Number")
 }
-func (Sub) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Sub) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") - in.Float64("B"), nil
 }
@@ -178,7 +170,6 @@ type Mul struct{}
 func (Mul) Spec() node.Spec {
 	return specBuilder("Mul", "乘", "a * b", numIn(), "Number")
 }
-func (Mul) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Mul) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") * in.Float64("B"), nil
 }
@@ -188,7 +179,6 @@ type Div struct{}
 func (Div) Spec() node.Spec {
 	return specBuilder("Div", "除", "a / b (b=0 → NaN, 跟老 evalPureFunc 一致)", numIn(), "Number")
 }
-func (Div) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Div) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	b := in.Float64("B")
 	if b == 0 {
@@ -202,7 +192,6 @@ type Mod struct{}
 func (Mod) Spec() node.Spec {
 	return specBuilder("Mod", "取模", "a mod b", numIn(), "Number")
 }
-func (Mod) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Mod) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return math.Mod(in.Float64("A"), in.Float64("B")), nil
 }
@@ -214,7 +203,6 @@ func (Neg) Spec() node.Spec {
 		{Name: "X", Type: "Number", Default: json.Number("0"), DisplayName: "X", Widget: node.WidgetSpec{Kind: "number"}},
 	}, "Number")
 }
-func (Neg) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Neg) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return -in.Float64("X"), nil
 }
@@ -226,7 +214,6 @@ type Lt struct{}
 func (Lt) Spec() node.Spec {
 	return specBuilder("Lt", "小于", "a < b", numIn(), "Bool")
 }
-func (Lt) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Lt) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") < in.Float64("B"), nil
 }
@@ -236,7 +223,6 @@ type LtEq struct{}
 func (LtEq) Spec() node.Spec {
 	return specBuilder("LtEq", "小于等于", "a <= b", numIn(), "Bool")
 }
-func (LtEq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (LtEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") <= in.Float64("B"), nil
 }
@@ -246,7 +232,6 @@ type Gt struct{}
 func (Gt) Spec() node.Spec {
 	return specBuilder("Gt", "大于", "a > b", numIn(), "Bool")
 }
-func (Gt) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Gt) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") > in.Float64("B"), nil
 }
@@ -256,7 +241,6 @@ type GtEq struct{}
 func (GtEq) Spec() node.Spec {
 	return specBuilder("GtEq", "大于等于", "a >= b", numIn(), "Bool")
 }
-func (GtEq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (GtEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Float64("A") >= in.Float64("B"), nil
 }
@@ -266,7 +250,6 @@ type Eq struct{}
 func (Eq) Spec() node.Spec {
 	return specBuilder("Eq", "等于", "a == b (wildcard, 跨类型 ToString 比较)", anyIn(), "Bool")
 }
-func (Eq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Eq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return equalAny(in.Raw("A"), in.Raw("B")), nil
 }
@@ -276,7 +259,6 @@ type NotEq struct{}
 func (NotEq) Spec() node.Spec {
 	return specBuilder("NotEq", "不等于", "a != b (wildcard, 跨类型 ToString 比较)", anyIn(), "Bool")
 }
-func (NotEq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (NotEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return !equalAny(in.Raw("A"), in.Raw("B")), nil
 }
@@ -316,7 +298,6 @@ func (And) Spec() node.Spec {
 	}
 	return s
 }
-func (And) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (And) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	if !asBool(in.Raw("A")) {
 		return false, nil
@@ -329,7 +310,6 @@ type Or struct{}
 func (Or) Spec() node.Spec {
 	return specBuilder("Or", "逻辑或", "a || b", boolIn(), "Bool")
 }
-func (Or) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Or) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	if asBool(in.Raw("A")) {
 		return true, nil
@@ -344,7 +324,6 @@ func (Not) Spec() node.Spec {
 		{Name: "X", Type: "Bool", Default: false, DisplayName: "X", Widget: node.WidgetSpec{Kind: "checkbox"}},
 	}, "Bool")
 }
-func (Not) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Not) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return !asBool(in.Raw("X")), nil
 }
@@ -356,7 +335,6 @@ type Concat struct{}
 func (Concat) Spec() node.Spec {
 	return specBuilder("Concat", "拼接", "a + b (字符串)", strIn(), "String")
 }
-func (Concat) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Concat) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return formatValue(in.Raw("A")) + formatValue(in.Raw("B")), nil
 }
@@ -369,7 +347,6 @@ func (Contains) Spec() node.Spec {
 		{Name: "Needle", Type: "String", Default: "", DisplayName: "子串", Widget: node.WidgetSpec{Kind: "text"}},
 	}, "Bool")
 }
-func (Contains) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Contains) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return strings.Contains(formatValue(in.Raw("Haystack")), formatValue(in.Raw("Needle"))), nil
 }
@@ -381,7 +358,6 @@ func (Length) Spec() node.Spec {
 		{Name: "S", Type: "String", Default: "", DisplayName: "字符串", Widget: node.WidgetSpec{Kind: "text"}},
 	}, "Number")
 }
-func (Length) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Length) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return float64(len(formatValue(in.Raw("S")))), nil
 }
@@ -395,7 +371,6 @@ func (ToString) Spec() node.Spec {
 		{Name: "X", Type: "*", DisplayName: "X"},
 	}, "String")
 }
-func (ToString) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (ToString) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return formatValue(in.Raw("X")), nil
 }
@@ -407,7 +382,6 @@ func (ToNumber) Spec() node.Spec {
 		{Name: "X", Type: "*", DisplayName: "X"},
 	}, "Number")
 }
-func (ToNumber) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (ToNumber) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	if f := in.Float64("X"); f != 0 {
 		return f, nil
@@ -425,7 +399,6 @@ func (ToBool) Spec() node.Spec {
 		{Name: "X", Type: "*", DisplayName: "X"},
 	}, "Bool")
 }
-func (ToBool) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (ToBool) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return asBool(in.Raw("X")), nil
 }
@@ -441,7 +414,6 @@ func (Select) Spec() node.Spec {
 		{Name: "B", Type: "*", DisplayName: "B (Cond=false)"},
 	}, "*")
 }
-func (Select) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Select) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	if asBool(in.Raw("Cond")) {
 		return in.Raw("A"), nil
@@ -449,32 +421,3 @@ func (Select) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Raw("B"), nil
 }
 
-// ===== Expr (1) — dynamic inputs Phase 6+ =====
-//
-// 老 spec 用 DataInDynamicFn 按 config.inputs[] 动态生成 data-in pin.
-// 新 framework MVP 不支持 dynamic pin (Non-goals). 此 stub 仅注册基本 Spec, FE 编辑器无法
-// 真显示 inputs[]; Phase 6+ 单独 spec 加 dynamic pin framework support.
-//
-// Evaluator 不实现 — dispatch_v5 探测后 fallback 老 evalExpr (走 r.pullDataPin dynamic input).
-type Expr struct{}
-
-func (Expr) Spec() node.Spec {
-	return node.Spec{
-		Kind:        "Expr",
-		Category:    "PureFunc",
-		DisplayName: "表达式",
-		Description: "求值表达式. dynamic inputs (config.Inputs[]) 走 evalExpr fallback (动态 data-pin framework MVP 暂不支持).",
-		Inputs: []node.InputSpec{
-			{Name: "Expression", Type: "String", Default: "", Required: true,
-				DisplayName: "表达式",
-				Doc:         "Go-like 表达式. dynamic Inputs[] 声明的 input name 可在表达式里引用.",
-				Widget: node.WidgetSpec{Kind: "textarea",
-					Props: node.MarshalProps(node.TextareaProps{Rows: 3})}},
-		},
-		Outputs: []node.OutputSpec{
-			{Name: "Result", Type: "*", DisplayName: "结果"},
-		},
-		IsPureData: true,
-	}
-}
-func (Expr) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }

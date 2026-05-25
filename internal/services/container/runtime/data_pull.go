@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -117,7 +118,12 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	case "GetParam":
 		return r.evalGetParam(n)
 	case "Expr":
-		return r.evalExpr(n)
+		// Expr 走 framework EvaluatePureData (跟 resolveDataPinV5 一致). buildDataWireFor
+		// 已知 Expr 节点特例, 会把 config.Inputs[] 声明的 dynamic name pull 进 dataWire.
+		srcDataWire := r.buildDataWireFor(context.Background(), n, rn)
+		srcConfig := r.buildConfigFor(n)
+		v, err := nodepkg.EvaluatePureData(context.Background(), rn, srcDataWire, srcConfig, r.bundle)
+		return toExprValue(v), err
 	// v4 §6: 22 pure-function nodes — all dispatched through evalPureFunc.
 	case "Add", "Sub", "Mul", "Div", "Mod", "Neg",
 		"Lt", "LtEq", "Gt", "GtEq", "Eq", "NotEq",

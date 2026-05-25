@@ -162,3 +162,11 @@ func (i *inputsImpl) JSON(name string) map[string]any {
 }
 
 func (i *inputsImpl) Raw(name string) any { return i.merged[name] }
+
+func (i *inputsImpl) Keys() []string {
+	out := make([]string, 0, len(i.merged))
+	for k := range i.merged {
+		out = append(out, k)
+	}
+	return out
+}

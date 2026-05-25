@@ -42,6 +42,3 @@ func (GetVar) Spec() node.Spec {
 	}
 }
 
-func (GetVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, node.ErrPureDataMustEvaluate
-}

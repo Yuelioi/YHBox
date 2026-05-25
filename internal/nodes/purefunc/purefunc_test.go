@@ -2,52 +2,10 @@ package purefunc
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"yhbox/internal/node"
 )
-
-// 所有 22 个 purefunc + Expr 都是 pure-data stub. Run 返 node.ErrPureDataMustEvaluate.
-// Phase 5 加 pull-eval framework 后, Run 永不调; FE inspector 已能渲染 Spec.
-
-func TestAll_RegisterAndPureDataStub(t *testing.T) {
-	node.ResetRegistryForTest()
-
-	// 全部 23 节点显式注册一遍 (init 注册的是 ResetRegistryForTest 之前的, 这里重新调)
-	all := []node.Node{
-		&Add{}, &Sub{}, &Mul{}, &Div{}, &Mod{}, &Neg{},
-		&Lt{}, &LtEq{}, &Gt{}, &GtEq{}, &Eq{}, &NotEq{},
-		&And{}, &Or{}, &Not{},
-		&Concat{}, &Contains{}, &Length{},
-		&ToString{}, &ToNumber{}, &ToBool{},
-		&Select{},
-		&Expr{},
-	}
-	for _, n := range all {
-		node.Register(n)
-	}
-
-	if len(all) != 23 {
-		t.Fatalf("expected 23 purefunc nodes, got %d", len(all))
-	}
-
-	for _, n := range all {
-		spec := n.Spec()
-		if !spec.IsPureData {
-			t.Errorf("%s.IsPureData = false, want true", spec.Kind)
-		}
-		if len(spec.Outputs) != 1 {
-			t.Errorf("%s outputs len = %d, want 1", spec.Kind, len(spec.Outputs))
-		}
-
-		rn, _ := node.Get(spec.Kind)
-		r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
-		if !errors.Is(r.Error, node.ErrPureDataMustEvaluate) {
-			t.Errorf("%s Run error = %v, want node.ErrPureDataMustEvaluate", spec.Kind, r.Error)
-		}
-	}
-}
 
 func TestSpecBuilder_HasResultOutput(t *testing.T) {
 	s := specBuilder("Test", "测试", "", numIn(), "Number")
@@ -165,13 +123,65 @@ func TestEvaluate_DivByZero(t *testing.T) {
 	}
 }
 
-func TestExpr_RequiredExprField(t *testing.T) {
+// Expr 节点 spec 校验 — IsPureData + Result output + Evaluator 实现.
+func TestExpr_Registered(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&Expr{})
+	rn, ok := node.Get("Expr")
+	if !ok {
+		t.Fatal("Expr not registered")
+	}
+	if !rn.Spec.IsPureData {
+		t.Errorf("Expr.IsPureData = false, want true")
+	}
+	if rn.Evaluate == nil {
+		t.Errorf("Expr.Evaluate is nil — should implement Evaluator")
+	}
+	if len(rn.Spec.Outputs) != 1 || rn.Spec.Outputs[0].Name != "Result" {
+		t.Errorf("Expr outputs = %+v, want [Result]", rn.Spec.Outputs)
+	}
+}
+
+// Expr.Evaluate 静态 dataWire 直跑 — dynamic input 通过 dataWire 喂.
+// dispatch_v5.buildDataWireFor 跑生产路径里 pull config.Inputs[]; 单测直接喂值.
+func TestExpr_Evaluate_DynamicInputs(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Expr{})
 	rn, _ := node.Get("Expr")
-	// 不传 expr → Required 应触发 ValidationError (在 Run 入口前)
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
-	if len(r.Validation) == 0 && r.Error != node.ErrPureDataMustEvaluate {
-		t.Errorf("Expr missing expr should ValidationError or sentinel, got error=%v validation=%v", r.Error, r.Validation)
+	dataWire := map[string]any{
+		"Expression": "i + 1",
+		"i":          5.0,
+	}
+	v, err := node.EvaluatePureData(context.Background(), rn, dataWire, nil, node.StubServices())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != 6.0 {
+		t.Errorf("Expr i+1 with i=5: want 6, got %v (%T)", v, v)
+	}
+}
+
+// TestExpr_Evaluate_ConfigKeysIsolatedFromEnv — 防回归: config 元数据 (OutType, Inputs)
+// 必须不进 InputEnv. 老 evalExpr 走 cfg.Inputs[].Name 自然隔离, framework 路径要靠显式
+// skip-set. 用户 expression 写 "OutType" 必须 undefined (InputEnv.Get → nil), 不能默契
+// 命中 config 字符串 "auto".
+//
+// expr.InputEnv.Get(missing) → (nil, nil) — 不报错. 所以这里断言结果不是 "autox" (那是
+// env leak 的特征值). nil + "x" 在 expr Concat 语义下不是 "autox", 是别的值或错.
+func TestExpr_Evaluate_ConfigKeysIsolatedFromEnv(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&Expr{})
+	rn, _ := node.Get("Expr")
+	// config 走第 4 个参数 (EvaluatePureData(ctx, rn, dataWire, config, services));
+	// 同名 dataWire 会覆盖 config, 这里只放 config 避免歧义.
+	got, _ := node.EvaluatePureData(context.Background(), rn, nil,
+		map[string]any{
+			"Expression": "OutType + \"x\"",
+			"OutType":    "auto",
+			"Inputs":     []any{},
+		},
+		node.StubServices())
+	if got == "autox" {
+		t.Errorf("env leak regression: OutType config key leaked into expr env (got %q, want NOT %q)", got, "autox")
 	}
 }

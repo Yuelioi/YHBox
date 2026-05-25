@@ -1,11 +1,30 @@
 package runtime
 
 import (
+	"context"
 	"testing"
 
+	nodepkg "yhbox/internal/node"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/expr"
 )
+
+// Expr 现在走 framework EvaluatePureData. dispatch_v5.buildDataWireFor 对 Expr 节点特例
+// 按 config.Inputs[] pull dynamic input pin 进 dataWire, Expr.Evaluate 再 in.Keys() 遍历
+// 进 expr.InputEnv.
+
+// evalExprViaFramework 走当前生产 path (resolveDataPinV5/evalDataSource 转 EvaluatePureData),
+// 测试只调一次 helper, 不重复 dispatch 拼装.
+func (r *ContainerRunner) evalExprViaFramework(t *testing.T, n *container.GraphNode) (any, error) {
+	t.Helper()
+	rn, ok := nodepkg.Get("Expr")
+	if !ok {
+		t.Fatalf("Expr not registered")
+	}
+	dw := r.buildDataWireFor(context.Background(), n, rn)
+	cfg := r.buildConfigFor(n)
+	return nodepkg.EvaluatePureData(context.Background(), rn, dw, cfg, r.bundle)
+}
 
 // TestExpr_LiteralInputs: Expr "i + 1" with input i (literal pin) → 6 when i=5.
 func TestExpr_LiteralInputs(t *testing.T) {
@@ -16,14 +35,14 @@ func TestExpr_LiteralInputs(t *testing.T) {
 		ID: "e1", Kind: "Expr",
 		Config: map[string]any{
 			"Expression": "i + 1",
-			"OutType": "auto",
-			"Inputs": []any{map[string]any{"Name": "i", "Type": "number"}},
-			"literal": map[string]any{"i": 5.0},
+			"OutType":    "auto",
+			"Inputs":     []any{map[string]any{"Name": "i", "Type": "number"}},
+			"literal":    map[string]any{"i": 5.0},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
-	v, err := r.evalExpr(n)
+	v, err := r.evalExprViaFramework(t, n)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +70,7 @@ func TestExpr_BoolExpression(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
-	v, _ := r.evalExpr(n)
+	v, _ := r.evalExprViaFramework(t, n)
 	if v != true {
 		t.Fatalf("complex bool expr: want true, got %v", v)
 	}
@@ -67,12 +86,12 @@ func TestExpr_DollarPathsAreIsolated(t *testing.T) {
 		ID: "e1", Kind: "Expr",
 		Config: map[string]any{
 			"Expression": "$vars.hp",
-			"Inputs": []any{},
+			"Inputs":     []any{},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
-	v, _ := r.evalExpr(n)
+	v, _ := r.evalExprViaFramework(t, n)
 	if v != nil {
 		t.Fatalf("$vars in Expr must be isolated: want nil, got %v", v)
 	}
@@ -91,7 +110,7 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 		ID: "ex", Kind: "Expr",
 		Config: map[string]any{
 			"Expression": "c * 2",
-			"Inputs": []any{map[string]any{"Name": "c", "Type": "number"}},
+			"Inputs":     []any{map[string]any{"Name": "c", "Type": "number"}},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv": gv, "ex": ex}
@@ -102,7 +121,7 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 		},
 	})
 
-	v, err := r.evalExpr(ex)
+	v, err := r.evalExprViaFramework(t, ex)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,6 +132,10 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 }
 
 // TestExpr_EmptyExprReturnsNil: draft node with empty expr is non-fatal.
+//
+// 注意: Expression 在 Spec 里是 Required, framework 在 validateRequired 阶段
+// 检查 in.Has(name) — config 给 "" (空串) 时, present[Expression]=true, Has 通过.
+// 所以空串走到 Evaluate, defensive 返 nil (而非 ValidationError).
 func TestExpr_EmptyExprReturnsNil(t *testing.T) {
 	_, r := newTestRunner(t)
 	r.currentTick = CaptureSnapshot(map[string]expr.Value{}, SysState{})
@@ -123,7 +146,7 @@ func TestExpr_EmptyExprReturnsNil(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
-	v, err := r.evalExpr(n)
+	v, err := r.evalExprViaFramework(t, n)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +166,7 @@ func TestExpr_ParseError(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
-	_, err := r.evalExpr(n)
+	_, err := r.evalExprViaFramework(t, n)
 	if err == nil {
 		t.Fatal("malformed expr should error")
 	}

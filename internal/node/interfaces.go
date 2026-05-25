@@ -72,6 +72,8 @@ type Inputs interface {
 	JSON(name string) map[string]any
 	Raw(name string) any
 	Has(name string) bool
+	// Keys 返 merged map 的所有 key. 给 dynamic-input 节点 (Expr) 遍历用.
+	Keys() []string
 }
 
 // Outputs — Run 返回值. 节点不该直接构造, 通过 ctx.Out(...).Fire() 拿.
