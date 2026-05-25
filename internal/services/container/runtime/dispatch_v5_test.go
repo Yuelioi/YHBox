@@ -981,13 +981,13 @@ func TestBuildDataWireFor_UpstreamPureFuncViaFramework(t *testing.T) {
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "add_n", Kind: "Add", Config: map[string]any{
-					"literal": map[string]any{"a": 2.0, "b": 3.0},
+					"literal": map[string]any{"A": 2.0, "B": 3.0},
 				}},
 				{ID: "echo_n", Kind: tkEcho},
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "add_n.result", To: "echo_n.Value"},
+				{From: "add_n.Result", To: "echo_n.Value"},
 				{From: "echo_n.Out", To: "done_n.in"},
 			},
 		},
@@ -1019,17 +1019,17 @@ func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "inner", Kind: "Add", Config: map[string]any{
-					"literal": map[string]any{"a": 1.0, "b": 2.0},
+					"literal": map[string]any{"A": 1.0, "B": 2.0},
 				}},
 				{ID: "outer", Kind: "Add", Config: map[string]any{
-					"literal": map[string]any{"b": 3.0}, // a 由上游 edge 给
+					"literal": map[string]any{"B": 3.0}, // A 由上游 edge 给
 				}},
 				{ID: "echo_n", Kind: tkEcho},
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "inner.result", To: "outer.a"},
-				{From: "outer.result", To: "echo_n.Value"},
+				{From: "inner.Result", To: "outer.A"},
+				{From: "outer.Result", To: "echo_n.Value"},
 				{From: "echo_n.Out", To: "done_n.in"},
 			},
 		},

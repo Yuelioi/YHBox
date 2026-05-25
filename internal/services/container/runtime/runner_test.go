@@ -241,7 +241,7 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{ID: "loop", Kind: "Loop", Config: map[string]any{"mode": "forever"}},
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"varName": "i", "scope": "global", "literal": map[string]any{"delta": 1.0}}},
 			{ID: "geti", Kind: "GetVar", Config: map[string]any{"varName": "i", "scope": "global"}},
-			{ID: "gte", Kind: "GtEq", Config: map[string]any{"literal": map[string]any{"b": 2.0}}},
+			{ID: "gte", Kind: "GtEq", Config: map[string]any{"literal": map[string]any{"B": 2.0}}},
 			{ID: "if", Kind: "If"},
 			{ID: "br", Kind: "Break"},
 		},
@@ -251,8 +251,8 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{From: "inc.out", To: "if.in"},
 			{From: "if.True", To: "br.in"},
 			// if.False 无下游 → body iter 终止 → Loop 自驱下一轮.
-			{From: "geti.value", To: "gte.a"},
-			{From: "gte.result", To: "if.Condition"},
+			{From: "geti.value", To: "gte.A"},
+			{From: "gte.Result", To: "if.Condition"},
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)

@@ -8,6 +8,7 @@
 package purefunc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -20,8 +21,7 @@ import (
 // errPureDataNotEvaluatable Run 返这个 (永不调 — Evaluator 是真实现).
 var errPureDataNotEvaluatable = errors.New("pure-data node — evaluated via Evaluator (EvaluatePureData)")
 
-// specBuilder 构造单 result 数据出口的 pure-data Spec.
-// 不是抽象, 是 Spec 字段填充 helper — 节点作者用法跟手写完全一样.
+// specBuilder 构造单 Result 数据出口的 pure-data Spec. P2.1: pin name PascalCase.
 func specBuilder(kind, displayName, doc string, inputs []node.InputSpec, resultType string) node.Spec {
 	return node.Spec{
 		Kind:        kind,
@@ -30,41 +30,41 @@ func specBuilder(kind, displayName, doc string, inputs []node.InputSpec, resultT
 		Description: doc,
 		Inputs:      inputs,
 		Outputs: []node.OutputSpec{
-			{Name: "result", Type: resultType, DisplayName: "结果"},
+			{Name: "Result", Type: resultType, DisplayName: "结果"},
 		},
 		IsPureData: true,
 	}
 }
 
-// numIn 2 个 number 输入 (a, b).
+// numIn 2 个 number 输入 (A, B).
 func numIn() []node.InputSpec {
 	return []node.InputSpec{
-		{Name: "a", Type: "Number", Default: 0.0, DisplayName: "A", Widget: node.WidgetSpec{Kind: "number"}},
-		{Name: "b", Type: "Number", Default: 0.0, DisplayName: "B", Widget: node.WidgetSpec{Kind: "number"}},
+		{Name: "A", Type: "Number", Default: json.Number("0"), DisplayName: "A", Widget: node.WidgetSpec{Kind: "number"}},
+		{Name: "B", Type: "Number", Default: json.Number("0"), DisplayName: "B", Widget: node.WidgetSpec{Kind: "number"}},
 	}
 }
 
-// anyIn 2 个 wildcard 输入.
+// anyIn 2 个 wildcard 输入 (A, B).
 func anyIn() []node.InputSpec {
 	return []node.InputSpec{
-		{Name: "a", Type: "*", DisplayName: "A"},
-		{Name: "b", Type: "*", DisplayName: "B"},
+		{Name: "A", Type: "*", DisplayName: "A"},
+		{Name: "B", Type: "*", DisplayName: "B"},
 	}
 }
 
-// strIn 2 个 string 输入.
+// strIn 2 个 string 输入 (A, B).
 func strIn() []node.InputSpec {
 	return []node.InputSpec{
-		{Name: "a", Type: "String", Default: "", DisplayName: "A", Widget: node.WidgetSpec{Kind: "text"}},
-		{Name: "b", Type: "String", Default: "", DisplayName: "B", Widget: node.WidgetSpec{Kind: "text"}},
+		{Name: "A", Type: "String", Default: "", DisplayName: "A", Widget: node.WidgetSpec{Kind: "text"}},
+		{Name: "B", Type: "String", Default: "", DisplayName: "B", Widget: node.WidgetSpec{Kind: "text"}},
 	}
 }
 
-// boolIn 2 个 bool 输入.
+// boolIn 2 个 bool 输入 (A, B).
 func boolIn() []node.InputSpec {
 	return []node.InputSpec{
-		{Name: "a", Type: "Bool", Default: false, DisplayName: "A", Widget: node.WidgetSpec{Kind: "checkbox"}},
-		{Name: "b", Type: "Bool", Default: false, DisplayName: "B", Widget: node.WidgetSpec{Kind: "checkbox"}},
+		{Name: "A", Type: "Bool", Default: false, DisplayName: "A", Widget: node.WidgetSpec{Kind: "checkbox"}},
+		{Name: "B", Type: "Bool", Default: false, DisplayName: "B", Widget: node.WidgetSpec{Kind: "checkbox"}},
 	}
 }
 
@@ -164,7 +164,7 @@ func (Add) Spec() node.Spec {
 }
 func (Add) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Add) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") + in.Float64("b"), nil
+	return in.Float64("A") + in.Float64("B"), nil
 }
 
 type Sub struct{}
@@ -174,7 +174,7 @@ func (Sub) Spec() node.Spec {
 }
 func (Sub) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Sub) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") - in.Float64("b"), nil
+	return in.Float64("A") - in.Float64("B"), nil
 }
 
 type Mul struct{}
@@ -184,7 +184,7 @@ func (Mul) Spec() node.Spec {
 }
 func (Mul) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Mul) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") * in.Float64("b"), nil
+	return in.Float64("A") * in.Float64("B"), nil
 }
 
 type Div struct{}
@@ -194,11 +194,11 @@ func (Div) Spec() node.Spec {
 }
 func (Div) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Div) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	b := in.Float64("b")
+	b := in.Float64("B")
 	if b == 0 {
 		return math.NaN(), nil
 	}
-	return in.Float64("a") / b, nil
+	return in.Float64("A") / b, nil
 }
 
 type Mod struct{}
@@ -208,19 +208,19 @@ func (Mod) Spec() node.Spec {
 }
 func (Mod) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Mod) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return math.Mod(in.Float64("a"), in.Float64("b")), nil
+	return math.Mod(in.Float64("A"), in.Float64("B")), nil
 }
 
 type Neg struct{}
 
 func (Neg) Spec() node.Spec {
-	return specBuilder("Neg", "取负", "-x", []node.InputSpec{
-		{Name: "x", Type: "Number", Default: 0.0, DisplayName: "X", Widget: node.WidgetSpec{Kind: "number"}},
+	return specBuilder("Neg", "取负", "-X", []node.InputSpec{
+		{Name: "X", Type: "Number", Default: json.Number("0"), DisplayName: "X", Widget: node.WidgetSpec{Kind: "number"}},
 	}, "Number")
 }
 func (Neg) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Neg) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return -in.Float64("x"), nil
+	return -in.Float64("X"), nil
 }
 
 // ===== 比较 (6) =====
@@ -232,7 +232,7 @@ func (Lt) Spec() node.Spec {
 }
 func (Lt) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Lt) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") < in.Float64("b"), nil
+	return in.Float64("A") < in.Float64("B"), nil
 }
 
 type LtEq struct{}
@@ -242,7 +242,7 @@ func (LtEq) Spec() node.Spec {
 }
 func (LtEq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (LtEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") <= in.Float64("b"), nil
+	return in.Float64("A") <= in.Float64("B"), nil
 }
 
 type Gt struct{}
@@ -252,7 +252,7 @@ func (Gt) Spec() node.Spec {
 }
 func (Gt) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Gt) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") > in.Float64("b"), nil
+	return in.Float64("A") > in.Float64("B"), nil
 }
 
 type GtEq struct{}
@@ -262,7 +262,7 @@ func (GtEq) Spec() node.Spec {
 }
 func (GtEq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (GtEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return in.Float64("a") >= in.Float64("b"), nil
+	return in.Float64("A") >= in.Float64("B"), nil
 }
 
 type Eq struct{}
@@ -272,7 +272,7 @@ func (Eq) Spec() node.Spec {
 }
 func (Eq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Eq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return equalAny(in.Raw("a"), in.Raw("b")), nil
+	return equalAny(in.Raw("A"), in.Raw("B")), nil
 }
 
 type NotEq struct{}
@@ -282,7 +282,7 @@ func (NotEq) Spec() node.Spec {
 }
 func (NotEq) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (NotEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return !equalAny(in.Raw("a"), in.Raw("b")), nil
+	return !equalAny(in.Raw("A"), in.Raw("B")), nil
 }
 
 // equalAny same-type direct compare; cross-type via formatValue (镜像老 evalEq).
@@ -322,10 +322,10 @@ func (And) Spec() node.Spec {
 }
 func (And) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (And) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	if !asBool(in.Raw("a")) {
+	if !asBool(in.Raw("A")) {
 		return false, nil
 	}
-	return asBool(in.Raw("b")), nil
+	return asBool(in.Raw("B")), nil
 }
 
 type Or struct{}
@@ -335,22 +335,22 @@ func (Or) Spec() node.Spec {
 }
 func (Or) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Or) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	if asBool(in.Raw("a")) {
+	if asBool(in.Raw("A")) {
 		return true, nil
 	}
-	return asBool(in.Raw("b")), nil
+	return asBool(in.Raw("B")), nil
 }
 
 type Not struct{}
 
 func (Not) Spec() node.Spec {
-	return specBuilder("Not", "逻辑非", "!x", []node.InputSpec{
-		{Name: "x", Type: "Bool", Default: false, DisplayName: "X", Widget: node.WidgetSpec{Kind: "checkbox"}},
+	return specBuilder("Not", "逻辑非", "!X", []node.InputSpec{
+		{Name: "X", Type: "Bool", Default: false, DisplayName: "X", Widget: node.WidgetSpec{Kind: "checkbox"}},
 	}, "Bool")
 }
 func (Not) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Not) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return !asBool(in.Raw("x")), nil
+	return !asBool(in.Raw("X")), nil
 }
 
 // ===== 字符串 (3) =====
@@ -362,32 +362,32 @@ func (Concat) Spec() node.Spec {
 }
 func (Concat) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Concat) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return formatValue(in.Raw("a")) + formatValue(in.Raw("b")), nil
+	return formatValue(in.Raw("A")) + formatValue(in.Raw("B")), nil
 }
 
 type Contains struct{}
 
 func (Contains) Spec() node.Spec {
-	return specBuilder("Contains", "包含", "haystack 含 needle", []node.InputSpec{
-		{Name: "haystack", Type: "String", Default: "", DisplayName: "源串", Widget: node.WidgetSpec{Kind: "text"}},
-		{Name: "needle", Type: "String", Default: "", DisplayName: "子串", Widget: node.WidgetSpec{Kind: "text"}},
+	return specBuilder("Contains", "包含", "Haystack 含 Needle", []node.InputSpec{
+		{Name: "Haystack", Type: "String", Default: "", DisplayName: "源串", Widget: node.WidgetSpec{Kind: "text"}},
+		{Name: "Needle", Type: "String", Default: "", DisplayName: "子串", Widget: node.WidgetSpec{Kind: "text"}},
 	}, "Bool")
 }
 func (Contains) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Contains) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return strings.Contains(formatValue(in.Raw("haystack")), formatValue(in.Raw("needle"))), nil
+	return strings.Contains(formatValue(in.Raw("Haystack")), formatValue(in.Raw("Needle"))), nil
 }
 
 type Length struct{}
 
 func (Length) Spec() node.Spec {
-	return specBuilder("Length", "字符串长度", "len(s)", []node.InputSpec{
-		{Name: "s", Type: "String", Default: "", DisplayName: "字符串", Widget: node.WidgetSpec{Kind: "text"}},
+	return specBuilder("Length", "字符串长度", "len(S)", []node.InputSpec{
+		{Name: "S", Type: "String", Default: "", DisplayName: "字符串", Widget: node.WidgetSpec{Kind: "text"}},
 	}, "Number")
 }
 func (Length) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Length) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return float64(len(formatValue(in.Raw("s")))), nil
+	return float64(len(formatValue(in.Raw("S")))), nil
 }
 
 // ===== 转换 (3) =====
@@ -395,29 +395,28 @@ func (Length) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 type ToString struct{}
 
 func (ToString) Spec() node.Spec {
-	return specBuilder("ToString", "转字符串", "fmt.Sprint(x)", []node.InputSpec{
-		{Name: "x", Type: "*", DisplayName: "X"},
+	return specBuilder("ToString", "转字符串", "fmt.Sprint(X)", []node.InputSpec{
+		{Name: "X", Type: "*", DisplayName: "X"},
 	}, "String")
 }
 func (ToString) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (ToString) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return formatValue(in.Raw("x")), nil
+	return formatValue(in.Raw("X")), nil
 }
 
 type ToNumber struct{}
 
 func (ToNumber) Spec() node.Spec {
-	return specBuilder("ToNumber", "转数字", "strconv.ParseFloat(x) 失败 → 0", []node.InputSpec{
-		{Name: "x", Type: "*", DisplayName: "X"},
+	return specBuilder("ToNumber", "转数字", "strconv.ParseFloat(X) 失败 → 0", []node.InputSpec{
+		{Name: "X", Type: "*", DisplayName: "X"},
 	}, "Number")
 }
 func (ToNumber) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (ToNumber) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	// in.Float64 已处理 float64/int/json.Number/string. bool 没覆盖, 加 asNumber 兜底.
-	if f := in.Float64("x"); f != 0 {
+	if f := in.Float64("X"); f != 0 {
 		return f, nil
 	}
-	if f, ok := asNumber(in.Raw("x")); ok {
+	if f, ok := asNumber(in.Raw("X")); ok {
 		return f, nil
 	}
 	return float64(0), nil
@@ -427,12 +426,12 @@ type ToBool struct{}
 
 func (ToBool) Spec() node.Spec {
 	return specBuilder("ToBool", "转布尔", "truthy: != 0 / 非空 / true", []node.InputSpec{
-		{Name: "x", Type: "*", DisplayName: "X"},
+		{Name: "X", Type: "*", DisplayName: "X"},
 	}, "Bool")
 }
 func (ToBool) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (ToBool) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return asBool(in.Raw("x")), nil
+	return asBool(in.Raw("X")), nil
 }
 
 // ===== 三元 (1) =====
@@ -440,18 +439,18 @@ func (ToBool) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 type Select struct{}
 
 func (Select) Spec() node.Spec {
-	return specBuilder("Select", "三元选择", "cond ? a : b", []node.InputSpec{
-		{Name: "cond", Type: "Bool", Default: true, DisplayName: "条件", Widget: node.WidgetSpec{Kind: "checkbox"}},
-		{Name: "a", Type: "*", DisplayName: "A (cond=true)"},
-		{Name: "b", Type: "*", DisplayName: "B (cond=false)"},
+	return specBuilder("Select", "三元选择", "Cond ? A : B", []node.InputSpec{
+		{Name: "Cond", Type: "Bool", Default: true, DisplayName: "条件", Widget: node.WidgetSpec{Kind: "checkbox"}},
+		{Name: "A", Type: "*", DisplayName: "A (Cond=true)"},
+		{Name: "B", Type: "*", DisplayName: "B (Cond=false)"},
 	}, "*")
 }
 func (Select) Run(_ node.Ctx, _ node.Inputs) (node.Outputs, error) { return stubRun() }
 func (Select) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	if asBool(in.Raw("cond")) {
-		return in.Raw("a"), nil
+	if asBool(in.Raw("Cond")) {
+		return in.Raw("A"), nil
 	}
-	return in.Raw("b"), nil
+	return in.Raw("B"), nil
 }
 
 // ===== Expr (1) — dynamic inputs Phase 6+ =====

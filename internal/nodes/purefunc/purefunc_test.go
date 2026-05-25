@@ -51,8 +51,8 @@ func TestAll_RegisterAndPureDataStub(t *testing.T) {
 
 func TestSpecBuilder_HasResultOutput(t *testing.T) {
 	s := specBuilder("Test", "测试", "", numIn(), "Number")
-	if s.Outputs[0].Name != "result" {
-		t.Errorf("output name = %q, want result", s.Outputs[0].Name)
+	if s.Outputs[0].Name != "Result" {
+		t.Errorf("output name = %q, want Result", s.Outputs[0].Name)
 	}
 	if s.Outputs[0].Type != "Number" {
 		t.Errorf("output type = %q, want Number", s.Outputs[0].Type)
@@ -80,33 +80,33 @@ func TestEvaluate_22PureFuncs(t *testing.T) {
 		want     any
 	}{
 		// 算术
-		{"Add", map[string]any{"a": 1.5, "b": 2.5}, 4.0},
-		{"Sub", map[string]any{"a": 5.0, "b": 3.0}, 2.0},
-		{"Mul", map[string]any{"a": 4.0, "b": 0.5}, 2.0},
-		{"Div", map[string]any{"a": 10.0, "b": 4.0}, 2.5},
-		{"Mod", map[string]any{"a": 10.0, "b": 3.0}, 1.0},
-		{"Neg", map[string]any{"x": 7.0}, -7.0},
+		{"Add", map[string]any{"A": 1.5, "B": 2.5}, 4.0},
+		{"Sub", map[string]any{"A": 5.0, "B": 3.0}, 2.0},
+		{"Mul", map[string]any{"A": 4.0, "B": 0.5}, 2.0},
+		{"Div", map[string]any{"A": 10.0, "B": 4.0}, 2.5},
+		{"Mod", map[string]any{"A": 10.0, "B": 3.0}, 1.0},
+		{"Neg", map[string]any{"X": 7.0}, -7.0},
 		// 比较
-		{"Lt", map[string]any{"a": 1.0, "b": 2.0}, true},
-		{"LtEq", map[string]any{"a": 2.0, "b": 2.0}, true},
-		{"Gt", map[string]any{"a": 3.0, "b": 2.0}, true},
-		{"GtEq", map[string]any{"a": 2.0, "b": 2.0}, true},
-		{"Eq", map[string]any{"a": "x", "b": "x"}, true},
-		{"NotEq", map[string]any{"a": "x", "b": "y"}, true},
+		{"Lt", map[string]any{"A": 1.0, "B": 2.0}, true},
+		{"LtEq", map[string]any{"A": 2.0, "B": 2.0}, true},
+		{"Gt", map[string]any{"A": 3.0, "B": 2.0}, true},
+		{"GtEq", map[string]any{"A": 2.0, "B": 2.0}, true},
+		{"Eq", map[string]any{"A": "x", "B": "x"}, true},
+		{"NotEq", map[string]any{"A": "x", "B": "y"}, true},
 		// 逻辑 — And default 是 true,true 不传也 OK; 但显式塞.
-		{"And", map[string]any{"a": true, "b": false}, false},
-		{"Or", map[string]any{"a": false, "b": true}, true},
-		{"Not", map[string]any{"x": false}, true},
+		{"And", map[string]any{"A": true, "B": false}, false},
+		{"Or", map[string]any{"A": false, "B": true}, true},
+		{"Not", map[string]any{"X": false}, true},
 		// 字符串
-		{"Concat", map[string]any{"a": "foo", "b": "bar"}, "foobar"},
-		{"Contains", map[string]any{"haystack": "hello world", "needle": "world"}, true},
-		{"Length", map[string]any{"s": "hello"}, 5.0},
+		{"Concat", map[string]any{"A": "foo", "B": "bar"}, "foobar"},
+		{"Contains", map[string]any{"Haystack": "hello world", "Needle": "world"}, true},
+		{"Length", map[string]any{"S": "hello"}, 5.0},
 		// 转换
-		{"ToString", map[string]any{"x": 42.0}, "42"},
-		{"ToNumber", map[string]any{"x": 3.14}, 3.14},
-		{"ToBool", map[string]any{"x": "non-empty"}, true},
+		{"ToString", map[string]any{"X": 42.0}, "42"},
+		{"ToNumber", map[string]any{"X": 3.14}, 3.14},
+		{"ToBool", map[string]any{"X": "non-empty"}, true},
 		// 三元
-		{"Select", map[string]any{"cond": true, "a": "yes", "b": "no"}, "yes"},
+		{"Select", map[string]any{"Cond": true, "A": "yes", "B": "no"}, "yes"},
 	}
 
 	for _, tc := range cases {
@@ -138,13 +138,13 @@ func TestEvaluate_ShortCircuit(t *testing.T) {
 
 	// And(false, true) → false (短路, b 不读)
 	rn, _ := node.Get("And")
-	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"a": false, "b": true}, nil, node.StubServices())
+	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"A": false, "B": true}, nil, node.StubServices())
 	if err != nil || got != false {
 		t.Errorf("And(false, true) = (%v, %v), want (false, nil)", got, err)
 	}
 	// Or(true, false) → true (短路)
 	rn, _ = node.Get("Or")
-	got, err = node.EvaluatePureData(context.Background(), rn, map[string]any{"a": true, "b": false}, nil, node.StubServices())
+	got, err = node.EvaluatePureData(context.Background(), rn, map[string]any{"A": true, "B": false}, nil, node.StubServices())
 	if err != nil || got != true {
 		t.Errorf("Or(true, false) = (%v, %v), want (true, nil)", got, err)
 	}
@@ -155,7 +155,7 @@ func TestEvaluate_DivByZero(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Div{})
 	rn, _ := node.Get("Div")
-	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"a": 1.0, "b": 0.0}, nil, node.StubServices())
+	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"A": 1.0, "B": 0.0}, nil, node.StubServices())
 	if err != nil {
 		t.Fatalf("Div by zero err: %v", err)
 	}

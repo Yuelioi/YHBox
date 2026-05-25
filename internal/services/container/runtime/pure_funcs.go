@@ -34,7 +34,7 @@ func (r *ContainerRunner) evalPureFunc(n *container.GraphNode) (expr.Value, erro
 	case "Mod":
 		return r.binNum(n, func(a, b float64) float64 { return math.Mod(a, b) })
 	case "Neg":
-		v, err := r.pullDataPin(n.ID, "x")
+		v, err := r.pullDataPin(n.ID, "X")
 		if err != nil {
 			return nil, err
 		}
@@ -61,51 +61,51 @@ func (r *ContainerRunner) evalPureFunc(n *container.GraphNode) (expr.Value, erro
 	case "Or":
 		return r.binBoolShort(n, false)
 	case "Not":
-		v, _ := r.pullDataPin(n.ID, "x")
+		v, _ := r.pullDataPin(n.ID, "X")
 		return !expr.AsBool(v), nil
 
 	// --- §6.4 string ---
 	case "Concat":
-		av, _ := r.pullDataPin(n.ID, "a")
-		bv, _ := r.pullDataPin(n.ID, "b")
+		av, _ := r.pullDataPin(n.ID, "A")
+		bv, _ := r.pullDataPin(n.ID, "B")
 		return expr.FormatValue(av) + expr.FormatValue(bv), nil
 	case "Contains":
-		hv, _ := r.pullDataPin(n.ID, "haystack")
-		nv, _ := r.pullDataPin(n.ID, "needle")
+		hv, _ := r.pullDataPin(n.ID, "Haystack")
+		nv, _ := r.pullDataPin(n.ID, "Needle")
 		return strings.Contains(expr.FormatValue(hv), expr.FormatValue(nv)), nil
 	case "Length":
-		sv, _ := r.pullDataPin(n.ID, "s")
+		sv, _ := r.pullDataPin(n.ID, "S")
 		return float64(len(expr.FormatValue(sv))), nil
 
 	// --- §6.5 conversion ---
 	case "ToString":
-		xv, _ := r.pullDataPin(n.ID, "x")
+		xv, _ := r.pullDataPin(n.ID, "X")
 		return expr.FormatValue(xv), nil
 	case "ToNumber":
-		xv, _ := r.pullDataPin(n.ID, "x")
+		xv, _ := r.pullDataPin(n.ID, "X")
 		f, _ := expr.AsNumber(xv)
 		return f, nil
 	case "ToBool":
-		xv, _ := r.pullDataPin(n.ID, "x")
+		xv, _ := r.pullDataPin(n.ID, "X")
 		return expr.AsBool(xv), nil
 
 	// --- §6.6 selection ---
 	case "Select":
-		cv, _ := r.pullDataPin(n.ID, "cond")
+		cv, _ := r.pullDataPin(n.ID, "Cond")
 		if expr.AsBool(cv) {
-			return r.pullDataPin(n.ID, "a")
+			return r.pullDataPin(n.ID, "A")
 		}
-		return r.pullDataPin(n.ID, "b")
+		return r.pullDataPin(n.ID, "B")
 	}
 	return nil, fmt.Errorf("evalPureFunc: unknown kind %q", n.Kind)
 }
 
 func (r *ContainerRunner) binNum(n *container.GraphNode, op func(a, b float64) float64) (expr.Value, error) {
-	av, err := r.pullDataPin(n.ID, "a")
+	av, err := r.pullDataPin(n.ID, "A")
 	if err != nil {
 		return nil, err
 	}
-	bv, err := r.pullDataPin(n.ID, "b")
+	bv, err := r.pullDataPin(n.ID, "B")
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +115,8 @@ func (r *ContainerRunner) binNum(n *container.GraphNode, op func(a, b float64) f
 }
 
 func (r *ContainerRunner) binNumBool(n *container.GraphNode, op func(a, b float64) bool) (expr.Value, error) {
-	av, _ := r.pullDataPin(n.ID, "a")
-	bv, _ := r.pullDataPin(n.ID, "b")
+	av, _ := r.pullDataPin(n.ID, "A")
+	bv, _ := r.pullDataPin(n.ID, "B")
 	a, _ := expr.AsNumber(av)
 	b, _ := expr.AsNumber(bv)
 	return op(a, b), nil
@@ -126,8 +126,8 @@ func (r *ContainerRunner) binNumBool(n *container.GraphNode, op func(a, b float6
 // Cross-type ToString 故意保留 — 但会产生 "1.0" != "1" 这类惊喜 (依赖 FormatValue 规则).
 // PIN_TYPE_COERCION_WARNING 提示用户在一侧是 `any` 时插入显式 To* 节点.
 func (r *ContainerRunner) evalEq(n *container.GraphNode, negate bool) (expr.Value, error) {
-	av, _ := r.pullDataPin(n.ID, "a")
-	bv, _ := r.pullDataPin(n.ID, "b")
+	av, _ := r.pullDataPin(n.ID, "A")
+	bv, _ := r.pullDataPin(n.ID, "B")
 	eq := false
 	if sameType(av, bv) {
 		eq = av == bv
@@ -153,7 +153,7 @@ func sameType(a, b any) bool {
 // binBoolShort: short-circuit And (false bypasses b) / Or (true bypasses b).
 // andMode=true → And; false → Or.
 func (r *ContainerRunner) binBoolShort(n *container.GraphNode, andMode bool) (expr.Value, error) {
-	av, _ := r.pullDataPin(n.ID, "a")
+	av, _ := r.pullDataPin(n.ID, "A")
 	aBool := expr.AsBool(av)
 	if andMode {
 		if !aBool {
@@ -164,6 +164,6 @@ func (r *ContainerRunner) binBoolShort(n *container.GraphNode, andMode bool) (ex
 			return true, nil // short-circuit
 		}
 	}
-	bv, _ := r.pullDataPin(n.ID, "b")
+	bv, _ := r.pullDataPin(n.ID, "B")
 	return expr.AsBool(bv), nil
 }
