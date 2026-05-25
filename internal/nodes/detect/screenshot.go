@@ -1,8 +1,6 @@
 // internal/nodes/detect/screenshot.go
 // Screenshot — 抓全帧或 ROI, 按 pathTemplate 展开后写到 YHBOX_DATA_DIR (默认 bin/data/screenshots).
 // 路径安全检查: 拒绝绝对路径 / 盘符 / ".." 路径段.
-//
-// 老 runtime: internal/services/container/runtime/screenshot.go::execScreenshot.
 package detect
 
 import (

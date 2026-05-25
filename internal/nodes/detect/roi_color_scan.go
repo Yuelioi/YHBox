@@ -1,7 +1,6 @@
 // internal/nodes/detect/roi_color_scan.go
 // ROIColorScan — ROI 内沿 axis 找连续 HSV 命中像素段 (cluster) + 轮询.
 //
-// 老 runtime: internal/services/container/runtime/roi_scan.go::execROIColorScan.
 package detect
 
 import (

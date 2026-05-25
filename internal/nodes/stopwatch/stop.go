@@ -1,6 +1,5 @@
 // internal/nodes/stopwatch/stop.go
 // StopwatchStop — 停止指定 key 的秒表 (不存在 key 静默 no-op, 镜像老 runtime).
-// 老 runtime: stopwatch_nodes.go::execStopwatchStop. validator static-warn 路径
 // 由 container validator 处理 (key 不在 Start 列表) — 节点本身 runtime 不报错.
 package stopwatch
 

@@ -10,7 +10,6 @@ import (
 func init() { node.Register(&MouseMoveRel{}) }
 
 // MouseMoveRel 相对当前光标位置移动 (dx, dy) 像素, 在 durationMs 内插值.
-// 老 runtime: internal/services/container/runtime/nodes.go::execMouseMoveRel.
 //
 // 注意: 老节点在 runner 层做 MouseCalibration scale (target/source counts360),
 // 该 scaling 是 ContainerRunner 持有 state 的语义, 节点本身不感知 — Phase 5 wire

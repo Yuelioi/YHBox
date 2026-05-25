@@ -1,7 +1,6 @@
 // internal/nodes/detect/click_template.go
 // ClickTemplate — 等模板出现 → 在命中位置鼠标点击. 命中或超时后单出口路由.
 //
-// 老 runtime: internal/services/container/runtime/nodes.go::execClickTemplate.
 // 250ms 内部轮询 + InputBus.Lock 独占 + 50ms click duration.
 package detect
 

@@ -3,7 +3,6 @@
 // 跟 DetectColorHSV 区别: DetectColor 用 ratio region + CSV-like range, 单次扫描无轮询,
 // 主要服务老钓鱼 "看状态栏有没有 X 颜色" 场景.
 //
-// 老 runtime: internal/services/container/runtime/nodes.go::execDetectColor.
 package detect
 
 import (

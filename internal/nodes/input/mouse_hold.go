@@ -13,7 +13,6 @@ func init() {
 }
 
 // MouseHoldStart 在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.
-// 老 runtime: hold_nodes.go::execMouseHoldStart.
 type MouseHoldStart struct{}
 
 const (

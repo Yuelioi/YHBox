@@ -10,7 +10,6 @@ import (
 func init() { node.Register(&Scroll{}) }
 
 // Scroll 在客户区坐标 (xRatio, yRatio) 处发送鼠标滚轮事件, delta=notches (正向上 / 负向下).
-// 老 runtime: internal/services/container/runtime/nodes.go::execScroll.
 type Scroll struct{}
 
 const (

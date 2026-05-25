@@ -1,5 +1,5 @@
 // internal/nodes/variable/inc_var.go
-// IncVar — 给容器变量加一个值. 老 runtime nodes.go::execIncVar 1:1.
+// IncVar — 按 scope=auto/local/global 给容器变量加一个数.
 package variable
 
 import (
@@ -26,7 +26,7 @@ func (IncVar) Spec() node.Spec {
 		Kind:        "IncVar",
 		Category:    "Variable",
 		DisplayName: "变量自增",
-		Description: "给容器变量加 Delta (默认 1). scope=auto/local/global. 老 runtime 同款.",
+		Description: "给容器变量加 Delta (默认 1). scope=auto/local/global.",
 		Inputs: []node.InputSpec{
 			{Name: ivInExec, Type: "Exec"},
 			{Name: ivInVarName, Type: "String", Required: true,

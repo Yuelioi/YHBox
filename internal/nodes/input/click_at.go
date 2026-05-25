@@ -10,7 +10,6 @@ import (
 func init() { node.Register(&ClickAt{}) }
 
 // ClickAt 在客户区坐标 (xRatio, yRatio) 单击鼠标按键, 按下时长 durationMs.
-// 老 runtime: internal/services/container/runtime/nodes.go::execClickAt.
 type ClickAt struct{}
 
 const (

@@ -13,7 +13,6 @@ import (
 func init() { node.Register(&KeyPress{}) }
 
 // KeyPress 按下并松开一个虚拟键. duration 控制按下到松开的间隔.
-// 老 runtime: internal/services/container/runtime/nodes.go::execKeyPress.
 type KeyPress struct{}
 
 const (

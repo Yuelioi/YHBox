@@ -2,7 +2,6 @@
 // DetectColorHSV — ROI 内 HSV 像素比例阈值 + 轮询直到命中或超时.
 // 跟 DetectColor 区别: ROI 像素坐标 + HSV-only + 比例阈值 + 轮询 (3 出口 yes/no/timeout).
 //
-// 老 runtime: internal/services/container/runtime/detect_hsv.go::execDetectColorHSV.
 package detect
 
 import (

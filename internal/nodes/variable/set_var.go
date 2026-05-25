@@ -1,5 +1,5 @@
 // internal/nodes/variable/set_var.go
-// SetVar — 写一个容器变量. 老 runtime nodes.go::execSetVar 1:1.
+// SetVar — 按 scope=auto/local/global 写一个容器变量.
 package variable
 
 import (
