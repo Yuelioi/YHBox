@@ -156,6 +156,16 @@ func (s *StubSysStore) SetForTest(path string, value any) {
 // NewStubSysStore — 测试用. 返 *StubSysStore 露 SetForTest 给 test preset 字段.
 func NewStubSysStore() *StubSysStore { return &StubSysStore{m: map[string]any{}} }
 
+// ---- ParamStore ----
+
+// stubParamStore 测试用 no-op. Get 总返 (nil, false).
+type stubParamStore struct{}
+
+func (stubParamStore) Get(string) (any, bool) { return nil, false }
+
+// NewStubParamStore — 测试用 no-op ParamStore.
+func NewStubParamStore() ParamStore { return stubParamStore{} }
+
 // ---- WindowService ----
 
 type stubWindowService struct{}
@@ -234,6 +244,9 @@ func NewStubStopwatchStore() StopwatchStore { return &stubStopwatchStore{m: map[
 
 // StubServices 返一个全 stub 填充的 ServiceBundle, test 用.
 // Phase 5 main.go 不用这个, 直接 new ServiceBundle 塞真 backend.
+//
+// Snapshot 默认 nil — EvaluatePureData 检查 nil 跳过 wrap, 现有 PureData Evaluator
+// 测试 (Expr 等) 走 stub Vars/Sys, 不需要 snapshot 行为.
 func StubServices() ServiceBundle {
 	return ServiceBundle{
 		Vision:      StubVisionService(),
@@ -241,8 +254,10 @@ func StubServices() ServiceBundle {
 		Input:       StubInputService(),
 		Vars:        NewStubVarStore(),
 		Sys:         NewStubSysStore(),
+		Params:      NewStubParamStore(),
 		Window:      StubWindowService(),
 		Capture:     StubCaptureService(),
 		Stopwatches: NewStubStopwatchStore(),
+		Snapshot:    nil,
 	}
 }

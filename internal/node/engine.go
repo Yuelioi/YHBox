@@ -133,6 +133,16 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("EvaluatePureData: kind %q does not implement Evaluator", rn.Spec.Kind)
 	}
+	// snapshot wrap — PureData Evaluator 内部看到的 Vars/Sys 是 tick-frozen view.
+	// services.Snapshot 是 framework-injected getter; nil 时跳过 wrap (测试 stub 用).
+	// services 是值类型 (传值 copy), 改 services 内字段不影响 caller.
+	if services.Snapshot != nil {
+		snap := services.Snapshot()
+		services.Vars = newSnapshotVarStore(services.Vars, snap)
+		if snap.Sys != nil {
+			services.Sys = snap.Sys
+		}
+	}
 	p, gateFail := prepareExec(ctx, rn, dataWire, config, nil, services)
 	if gateFail != nil {
 		msgs := make([]string, 0, len(gateFail.Validation))

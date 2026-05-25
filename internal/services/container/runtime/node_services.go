@@ -154,6 +154,63 @@ func (a *sysStoreAdapter) Get(path string) (any, bool) {
 func NewSysStoreAdapter(rt *RuntimeContext) node.SysStore { return &sysStoreAdapter{rt: rt} }
 
 // ============================================================================
+// ParamStoreAdapter — frame.LocalParams → node.ParamStore
+// 当前 frame 是 dispatch live, 持 *ExecState getter (跟 varStoreAdapter 同模式).
+// ============================================================================
+
+type paramStoreAdapter struct {
+	state func() *ExecState
+}
+
+func (a *paramStoreAdapter) Get(name string) (any, bool) {
+	if a.state == nil {
+		return nil, false
+	}
+	s := a.state()
+	if s == nil || s.CurrentFrame == nil {
+		return nil, false
+	}
+	v, ok := s.CurrentFrame.LocalParams[name]
+	return v, ok
+}
+
+// NewParamStoreAdapter wrap *ExecState getter into node.ParamStore.
+func NewParamStoreAdapter(state func() *ExecState) node.ParamStore {
+	return &paramStoreAdapter{state: state}
+}
+
+// ============================================================================
+// FrozenSysStoreAdapter — Snapshot.Sys 的 runtime-side wrapper.
+// 持 frozen SysState 值 + live rt (for now_ms / varLastChange.X escape).
+// PureData Evaluator 通过 ctx.Sys() 读, framework wrap 时把 services.Sys 换成此实例.
+// ============================================================================
+
+type frozenSysStoreAdapter struct {
+	sys SysState        // frozen snapshot
+	rt  *RuntimeContext // for now_ms / varLastChange.X live read
+}
+
+func (a *frozenSysStoreAdapter) Get(path string) (any, bool) {
+	if path == "now_ms" {
+		return float64(nowMillis()), true
+	}
+	if name, ok := strings.CutPrefix(path, "varLastChange."); ok {
+		return float64(a.rt.VarLastChange(name)), true
+	}
+	v, err := resolveSysPath(a.sys, path)
+	if err != nil {
+		return nil, false
+	}
+	return v, true
+}
+
+// newFrozenSysStore wraps a frozen SysState + live rt closure into node.SysStore.
+// Called by ContainerRunner when building bundle.Snapshot getter.
+func newFrozenSysStore(sys SysState, rt *RuntimeContext) node.SysStore {
+	return &frozenSysStoreAdapter{sys: sys, rt: rt}
+}
+
+// ============================================================================
 // StopwatchAdapter — stopwatchTable → node.StopwatchStore
 // 1:1 pass-through, 镜像老 start/stop/read 语义.
 // ============================================================================
@@ -522,17 +579,40 @@ func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAda
 // NewServiceBundleFor 用 RuntimeContext + stopwatchTable + logger 构造完整 ServiceBundle.
 // Phase 5.5 ContainerRunner.execNode 拿这个走 node.RunNode dispatch.
 //
-// stateGetter — live ExecState 入口 (frame.LocalVars scope). ContainerRunner 构造时传
-// func() *ExecState { return r.state }. nil 兜底 — adapter scoped 方法降级 global-only.
-func NewServiceBundleFor(rt *RuntimeContext, stopwatches *stopwatchTable, log zerolog.Logger, stateGetter func() *ExecState) node.ServiceBundle {
+// stateGetter — live ExecState 入口 (frame.LocalVars / LocalParams scope). ContainerRunner
+// 构造时传 func() *ExecState { return r.state }. nil 兜底 — adapter scoped 方法降级.
+//
+// tickGetter — per-tick snapshot 入口 (r.currentTick). EvaluatePureData wrap 时 framework
+// 调一次拿 frozen Vars/Sys view. nil → bundle.Snapshot 仍非 nil 但返空 Snapshot{}, 等价跳过.
+func NewServiceBundleFor(
+	rt *RuntimeContext,
+	stopwatches *stopwatchTable,
+	log zerolog.Logger,
+	stateGetter func() *ExecState,
+	tickGetter func() *TickSnapshot,
+) node.ServiceBundle {
 	return node.ServiceBundle{
 		Vision:      NewVisionAdapter(rt),
 		Log:         NewLogAdapter(log),
 		Input:       NewInputAdapter(rt),
 		Vars:        NewVarStoreAdapter(rt, stateGetter),
 		Sys:         NewSysStoreAdapter(rt),
+		Params:      NewParamStoreAdapter(stateGetter),
 		Window:      NewWindowAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),
 		Stopwatches: NewStopwatchAdapter(stopwatches),
+		Snapshot: func() node.Snapshot {
+			if tickGetter == nil {
+				return node.Snapshot{}
+			}
+			tick := tickGetter()
+			if tick == nil {
+				return node.Snapshot{}
+			}
+			return node.Snapshot{
+				Vars: tick.Vars,
+				Sys:  newFrozenSysStore(tick.Sys, rt),
+			}
+		},
 	}
 }

@@ -124,7 +124,15 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	r.state = NewExecState(rt.Container.ID, snapshotMainCalibCounts(rt.Container))
 	// Phase 5.4: 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
 	// stateGetter — closure 让 VarStoreAdapter scope=local/auto 拿到 frame.LocalVars 栈.
-	r.bundle = NewServiceBundleFor(rt, r.stopwatches, zerolog.Nop(), func() *ExecState { return r.state })
+	// tickGetter — closure 让 PureData Evaluator (EvaluatePureData wrap) 拿到 per-tick
+	// frozen Vars/Sys view (r.currentTick 在 dispatch_v5.execNode 入口 capture).
+	r.bundle = NewServiceBundleFor(
+		rt,
+		r.stopwatches,
+		zerolog.Nop(),
+		func() *ExecState { return r.state },
+		func() *TickSnapshot { return r.currentTick },
+	)
 	return r
 }
 

@@ -106,6 +106,7 @@ type Ctx interface {
 	Input() InputService
 	Vars() VarStore
 	Sys() SysStore
+	Params() ParamStore
 	Window() WindowService
 	Capture() CaptureService
 	Stopwatches() StopwatchStore
@@ -225,6 +226,13 @@ type SysStore interface {
 	Get(path string) (value any, ok bool)
 }
 
+// ParamStore — GetParam 节点用. 读当前 frame 的 LocalParams (subgraph 入参).
+// frame-private state, runtime 端 wire 时持 *ExecState getter; 节点端只 read.
+// Snapshot wrap 不包 ParamStore (frame-state per-frame-private, 不需要 snapshot 语义).
+type ParamStore interface {
+	Get(name string) (value any, ok bool)
+}
+
 // WindowService — BringGameForeground 节点 + 任何节点想知道 hwnd/ClientSize.
 type WindowService interface {
 	BringForeground() error
@@ -254,15 +262,21 @@ type StopwatchStore interface {
 
 // ServiceBundle — RunNode 入参集合, 替代 8-arg signature. 全部字段 nullable;
 // 节点 spec / 实测 wire 时决定哪些必填.
+//
+// Snapshot 是 framework-internal wrap hook: EvaluatePureData 入口调一次, nil → 跳过 wrap
+// (StubServices 默认 nil, 测试不需要). 调用方 (runtime ContainerRunner) 负责 capture
+// tick-frozen view; node 包不知 SysState 内部结构, 用 SysStore interface 承载.
 type ServiceBundle struct {
 	Vision      VisionService
 	Log         LogService
 	Input       InputService
 	Vars        VarStore
 	Sys         SysStore
+	Params      ParamStore // frame.LocalParams getter, GetParam 用
 	Window      WindowService
 	Capture     CaptureService
 	Stopwatches StopwatchStore
+	Snapshot    func() Snapshot // tick snapshot getter, EvaluatePureData wrap 时调用
 }
 
 type ValidationError struct {
