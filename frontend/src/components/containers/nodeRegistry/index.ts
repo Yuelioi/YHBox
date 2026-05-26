@@ -50,8 +50,19 @@ export interface FieldSchema {
   hint?: string
 }
 
-/** Group name for palette categorization. Mirrors backend Spec.Group. */
-export type NodeGroup = 'control' | 'variables' | 'purefunc' | 'detect' | 'input' | 'system'
+/** Group name for palette categorization. Mirrors backend Spec.Category (lowercase'd).
+ * 'variables' 历史命名 (FE 老用复数), backend 是 'Variable'; adapter 映射. */
+export type NodeGroup =
+  | 'control'
+  | 'variables'
+  | 'purefunc'
+  | 'detect'
+  | 'input'
+  | 'system'
+  | 'io'
+  | 'stopwatch'
+  | 'mock'
+  | 'test'
 
 /**
  * Single-source-of-truth descriptor for a node kind.

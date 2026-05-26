@@ -4,13 +4,10 @@ import ui from '@nuxt/ui/vue-plugin'
 import { useToast } from '@nuxt/ui/composables'
 import { useDark } from '@vueuse/core'
 
-// Side-effect: register all v4 node kinds in nodeRegistry. MUST be the first
-// import here — other modules (pinSpec.ts / nodeFieldSchemas.ts / NodePalette.vue
-// / stores) derive top-level const maps from the registry at module-init time,
-// so the registry must be populated before any of them evaluates. Other shells
-// (pinSpec.ts, nodeFieldSchemas.ts) used to duplicate this side-effect import;
-// centralized here as single source of truth.
-import '@/components/containers/nodeRegistry/specs'
+// Node registry: 启动期 RPC 拉 backend Spec → adapter 转 → 注册到老 byKind.
+// 替代手写 specs/*.ts. 6 处 consumer (Palette / ContextMenu / NodePalette / etc) 不动.
+// populateRegistryFromBackend 在 boot async 内 mount 前 await (见底).
+import { populateRegistryFromBackend } from '@/components/containers/nodeRegistry/adapter'
 
 import App from './App.vue'
 import { router } from './router'
@@ -44,6 +41,9 @@ wireEvents()
 // Hydrate then mount
 ;(async () => {
   await useSettingsStore().load()
+  // 节点 registry RPC populate: 必须 mount 前, 否则 NodePalette / ContextMenu / 等
+  // 6 处 consumer 用 allSpecs() 拿空. backend NodeService.GetAllNodeSpecs 是 SoT.
+  await populateRegistryFromBackend()
   useGameStore().detect()
   app.mount('#app')
 })()

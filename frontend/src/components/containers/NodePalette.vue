@@ -229,6 +229,10 @@ const GROUP_LABEL: Record<NodeGroup, string> = {
   detect: '检测',
   input: '输入',
   system: '系统',
+  io: 'IO',
+  stopwatch: '计时器',
+  mock: '测试用',
+  test: '测试用',
 }
 
 interface PaletteItem {
@@ -249,6 +253,10 @@ const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
     detect: { label: GROUP_LABEL.detect, items: [] },
     input: { label: GROUP_LABEL.input, items: [] },
     system: { label: GROUP_LABEL.system, items: [] },
+    io: { label: GROUP_LABEL.io, items: [] },
+    stopwatch: { label: GROUP_LABEL.stopwatch, items: [] },
+    mock: { label: GROUP_LABEL.mock, items: [] },
+    test: { label: GROUP_LABEL.test, items: [] },
   }
   for (const s of allSpecs() as NodeKindSpec[]) {
     if (s.isVisualOnly) continue // CommentBox — not draggable from palette
