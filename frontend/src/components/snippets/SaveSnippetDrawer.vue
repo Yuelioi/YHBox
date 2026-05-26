@@ -1,4 +1,6 @@
-<!-- SaveSnippetDrawer — 右侧抽屉式 panel, 保存 / 编辑 snippet. -->
+<!-- SaveSnippetDrawer — 右侧抽屉式 panel, 保存 / 编辑 snippet.
+     单字段 ref + setup time prefill — 跟 NuxtUI v-model 100% 兼容, 不依赖
+     watch / mounted hook 时序 (父用 v-if + :key force remount 每次新打开). -->
 <template>
   <transition name="drawer">
     <div v-if="open" class="drawer-mask" @click="close">
@@ -10,7 +12,7 @@
               {{ editingID ? '编辑 Snippet' : '保存为 Snippet' }}
             </div>
             <div class="text-[10px] text-dimmed">
-              {{ sourceKind && !editingID ? `源节点: ${sourceKind}` : '从已有 snippet 编辑' }}
+              {{ editingID ? `ID: ${editingID.slice(0, 8)}…` : `源节点: ${sourceKind || '?'}` }}
             </div>
           </div>
           <UButton
@@ -24,46 +26,49 @@
         </div>
 
         <div class="drawer-body">
-          <!-- Name -->
           <div class="field">
             <label>名称 <span class="text-error">*</span></label>
-            <UInput v-model="form.name" size="sm" placeholder="例: 异环钓鱼窗口" class="w-full" />
+            <UInput v-model="formName" size="sm" placeholder="例: 异环钓鱼窗口" class="w-full" />
           </div>
 
-          <!-- Description -->
           <div class="field">
             <label>描述</label>
-            <UTextarea v-model="form.description" size="sm" :rows="2" placeholder="可选 — 给自己看的说明" class="w-full" />
+            <UTextarea v-model="formDesc" size="sm" :rows="2" placeholder="可选 — 给自己看的说明" class="w-full" />
           </div>
 
-          <!-- Category — NuxtUI UInputMenu (单值 + creatable 自由输入) -->
           <div class="field">
-            <label>分类 (sidebar 树)</label>
-            <UInputMenu
-              v-model="form.category"
-              :items="existingCategories"
-              create-item
+            <label>分类 (sidebar 树, 空 = 通用)</label>
+            <UInput
+              v-model="formCategory"
               size="sm"
-              placeholder="例: 异环 / 原神 / 通用 — 空 = 通用"
+              placeholder="例: 异环 / 原神 / 通用"
               class="w-full"
             />
+            <div v-if="existingCategories.length > 0" class="flex flex-wrap gap-1 mt-1">
+              <button
+                v-for="c in existingCategories"
+                :key="c"
+                type="button"
+                class="suggestion-chip"
+                :class="formCategory === c ? 'is-active' : ''"
+                @click="formCategory = formCategory === c ? '' : c"
+              >{{ c }}</button>
+            </div>
           </div>
 
-          <!-- Tags — UInputMenu multi -->
           <div class="field">
             <label>标签 (filter)</label>
             <UInputMenu
-              v-model="form.tags"
+              v-model="formTags"
               :items="allTags"
               multiple
-              create-item
+              creatable
               size="sm"
               placeholder="添加 tag..."
               class="w-full"
             />
           </div>
 
-          <!-- Color picker -->
           <div class="field">
             <label>颜色 (视觉记忆)</label>
             <div class="flex flex-wrap gap-1.5">
@@ -73,14 +78,13 @@
                 type="button"
                 class="color-chip"
                 :style="{ background: c.value }"
-                :class="form.color === c.value ? 'is-selected' : ''"
+                :class="formColor === c.value ? 'is-selected' : ''"
                 :title="c.label"
-                @click="form.color = form.color === c.value ? undefined : c.value"
+                @click="formColor = formColor === c.value ? undefined : c.value"
               />
             </div>
           </div>
 
-          <!-- Icon picker -->
           <div class="field">
             <label>图标</label>
             <div class="flex flex-wrap gap-1">
@@ -89,25 +93,24 @@
                 :key="ic"
                 type="button"
                 class="icon-chip"
-                :class="form.icon === ic ? 'is-selected' : ''"
+                :class="formIcon === ic ? 'is-selected' : ''"
                 :title="ic"
-                @click="form.icon = form.icon === ic ? undefined : ic"
+                @click="formIcon = formIcon === ic ? undefined : ic"
               >
                 <UIcon :name="ic" class="size-4" />
               </button>
             </div>
           </div>
 
-          <!-- Shortcut -->
           <div class="field">
             <label>全局快捷键 (可选)</label>
             <div class="flex gap-2">
               <UInput
-                v-model="form.shortcut"
+                v-model="formShortcut"
                 size="sm"
                 placeholder="例: Ctrl+Shift+F / Alt+1"
                 class="flex-1"
-                @keydown.escape.stop="form.shortcut = ''"
+                @keydown.escape.stop="formShortcut = ''"
               />
               <UButton
                 :variant="capturing ? 'solid' : 'soft'"
@@ -119,8 +122,8 @@
               />
             </div>
             <div v-if="shortcutError" class="text-[10px] text-error mt-1">⚠ {{ shortcutError }}</div>
-            <div v-else-if="form.shortcut" class="text-[10px] text-dimmed mt-1">
-              normalize: <code class="text-primary">{{ normalizeShortcut(form.shortcut) }}</code>
+            <div v-else-if="formShortcut" class="text-[10px] text-dimmed mt-1">
+              normalize: <code class="text-primary">{{ normalizeShortcut(formShortcut) }}</code>
             </div>
           </div>
         </div>
@@ -144,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch, onMounted } from 'vue'
+import { computed, ref } from 'vue'
 import {
   useSnippetsStore,
   normalizeShortcut,
@@ -170,78 +173,30 @@ store.load()
 
 const { confirm: confirmDialog } = useConfirm()
 
-interface FormShape {
-  name: string
-  description: string
-  category: string
-  tags: string[]
-  color?: string
-  icon?: string
-  shortcut: string
-}
+// 每字段单独 ref — 跟 NuxtUI v-model 100% 兼容. setup time prefill 一次,
+// 之后用户输入直接改各 ref. 不需要 watch / Object.assign / reactive 体操.
+const formName = ref('')
+const formDesc = ref('')
+const formCategory = ref('')
+const formTags = ref<string[]>([])
+const formColor = ref<string | undefined>(undefined)
+const formIcon = ref<string | undefined>(undefined)
+const formShortcut = ref('')
 
-const form = reactive<FormShape>({
-  name: '',
-  description: '',
-  category: '',
-  tags: [],
-  color: undefined,
-  icon: undefined,
-  shortcut: '',
-})
-
-function resetForm(patch: Partial<FormShape>) {
-  Object.assign(form, {
-    name: '',
-    description: '',
-    category: '',
-    tags: [],
-    color: undefined,
-    icon: undefined,
-    shortcut: '',
-    ...patch,
-  })
-}
-
-// open 变 true 时 prefill — flush 'post' 确保 props.editingID 在 DOM update 后是 final.
-watch(
-  () => props.open,
-  (v) => {
-    if (!v) {
-      capturing.value = false
-      window.removeEventListener('keydown', onCaptureKey, true)
-      return
-    }
-    fillFromProps()
-  },
-  { flush: 'post' },
-)
-
-// setup time 也 fill 一次 (drawer 首次 mount 时 open 可能已经 true)
-onMounted(() => {
-  if (props.open) fillFromProps()
-})
-
-function fillFromProps() {
-  if (props.editingID) {
-    store.load() // defensive
-    const s = store.getById(props.editingID)
-    if (s) {
-      resetForm({
-        name: s.name,
-        description: s.description ?? '',
-        category: s.category ?? '',
-        tags: [...s.tags],
-        color: s.color,
-        icon: s.icon,
-        shortcut: s.shortcut ?? '',
-      })
-    } else {
-      resetForm({})
-    }
-  } else {
-    resetForm({ name: props.sourceKind ?? '' })
+// setup time prefill — 父 v-if + :key 保证每次新打开 setup 重跑, props 已最终.
+if (props.editingID) {
+  const s = store.getById(props.editingID)
+  if (s) {
+    formName.value = s.name
+    formDesc.value = s.description ?? ''
+    formCategory.value = s.category ?? ''
+    formTags.value = [...s.tags]
+    formColor.value = s.color
+    formIcon.value = s.icon
+    formShortcut.value = s.shortcut ?? ''
   }
+} else {
+  formName.value = props.sourceKind ?? ''
 }
 
 const existingCategories = computed(() => store.allCategories)
@@ -267,7 +222,7 @@ const iconPalette = [
 ]
 
 const shortcutError = computed(() => {
-  const s = form.shortcut.trim()
+  const s = formShortcut.value.trim()
   if (!s) return ''
   const norm = normalizeShortcut(s)
   if (isReservedShortcut(s)) return `${norm} 是系统保留键, 请换`
@@ -278,7 +233,7 @@ const shortcutError = computed(() => {
   return ''
 })
 
-const canSave = computed(() => form.name.trim().length > 0 && !shortcutError.value)
+const canSave = computed(() => formName.value.trim().length > 0 && !shortcutError.value)
 
 const capturing = ref(false)
 function toggleCapture() {
@@ -295,7 +250,7 @@ function onCaptureKey(e: KeyboardEvent) {
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return
   e.preventDefault()
   e.stopPropagation()
-  form.shortcut = eventToShortcutKey(e)
+  formShortcut.value = eventToShortcutKey(e)
   capturing.value = false
   window.removeEventListener('keydown', onCaptureKey, true)
 }
@@ -308,13 +263,13 @@ function onSave() {
   if (!payload) return
 
   const data = {
-    name: form.name.trim(),
-    description: form.description.trim() || undefined,
-    category: form.category.trim() || undefined,
-    tags: form.tags.map((t) => t.trim()).filter(Boolean),
-    color: form.color,
-    icon: form.icon,
-    shortcut: form.shortcut.trim() ? normalizeShortcut(form.shortcut) : undefined,
+    name: formName.value.trim(),
+    description: formDesc.value.trim() || undefined,
+    category: formCategory.value.trim() || undefined,
+    tags: formTags.value.map((t) => t.trim()).filter(Boolean),
+    color: formColor.value,
+    icon: formIcon.value,
+    shortcut: formShortcut.value.trim() ? normalizeShortcut(formShortcut.value) : undefined,
     payload,
   }
 
@@ -405,6 +360,26 @@ function close() {
   padding: 12px 16px;
   border-top: 1px solid var(--ui-border);
   background: rgba(0, 0, 0, 0.2);
+}
+
+.suggestion-chip {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--ui-text-dimmed);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.suggestion-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ui-text-default);
+}
+.suggestion-chip.is-active {
+  background: var(--ui-primary, #6366f1);
+  border-color: var(--ui-primary, #6366f1);
+  color: white;
 }
 
 .color-chip {
