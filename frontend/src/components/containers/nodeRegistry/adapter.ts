@@ -253,6 +253,8 @@ function adaptSpec(s: Spec): NodeKindSpec {
 
 // app boot 时调一次. 启动期 RPC 拉 backend spec → 注册到老 byKind.
 // 6 处 consumer (Palette / ContextMenu / etc) 不动.
+// 末尾 rebuild pinSpec / nodeFieldSchemas 的 module-level const map (那俩老模块在
+// 顶层用 allSpecs() 转 const, 跟 RPC-driven 启动时序错位, 必须 populate 后再填).
 export async function populateRegistryFromBackend(): Promise<void> {
   const store = useNodeRegistryStore()
   if (!store.loaded) await store.loadAll()
@@ -260,4 +262,11 @@ export async function populateRegistryFromBackend(): Promise<void> {
   for (const spec of store.specs.values()) {
     register(adaptSpec(spec))
   }
+  // 异步 import 避免循环: pinSpec/nodeFieldSchemas → registry, registry 不应反 import.
+  const { rebuildPinSpecMaps } = await import('@/components/containers/pinSpec')
+  const { rebuildNodeFieldSchemas } = await import(
+    '@/components/containers/nodeFieldSchemas'
+  )
+  rebuildPinSpecMaps()
+  rebuildNodeFieldSchemas()
 }

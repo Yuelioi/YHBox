@@ -37,48 +37,42 @@ export interface PinSpec {
   execOutFn?: (cfg: Record<string, unknown> | null | undefined) => string[]
 }
 
-/** Derived from nodeRegistry. */
-export const PIN_SPECS: Record<string, PinSpec> = (() => {
-  const out: Record<string, PinSpec> = {}
+// 5 个 const map: 改成 mutable empty 对象, 由 rebuildPinSpecMaps() 在 RPC populate
+// 完后填. 原 module-init 写法 (allSpecs() 顶层执行) 在 RPC-driven 启动模式下时序
+// 错位 — module 加载早于 main.ts await populateRegistryFromBackend(), allSpecs()
+// 返空 → 节点显示全白块没 label.
+//
+// const 是引用, 内容 mutate. consumer (ContainerFlowNode.vue 等) 用 KIND_VISUAL[kind]
+// 访问语义不变 (Vue reactivity 跨原始对象 mutate 也能触发再 render).
+
+export const PIN_SPECS: Record<string, PinSpec> = {}
+export const KIND_LABEL_ZH: Record<string, string> = {}
+export const KIND_DESCRIPTION: Record<string, string> = {}
+export const KIND_DEFAULTS: Record<string, Record<string, any>> = {}
+export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: string }> = {}
+
+/** RPC populate 完后调一次. main.ts 在 await populateRegistryFromBackend() 之后调. */
+export function rebuildPinSpecMaps(): void {
+  for (const k of Object.keys(PIN_SPECS)) delete PIN_SPECS[k]
+  for (const k of Object.keys(KIND_LABEL_ZH)) delete KIND_LABEL_ZH[k]
+  for (const k of Object.keys(KIND_DESCRIPTION)) delete KIND_DESCRIPTION[k]
+  for (const k of Object.keys(KIND_DEFAULTS)) delete KIND_DEFAULTS[k]
+  for (const k of Object.keys(KIND_VISUAL)) delete KIND_VISUAL[k]
+
   for (const s of allSpecs()) {
-    out[s.kind] = {
+    PIN_SPECS[s.kind] = {
       execIn: s.execIn,
       execOut: s.execOut,
       dataIn: s.dataIn,
       dataOut: s.dataOut,
       execOutFn: s.execOutFn,
     }
+    KIND_LABEL_ZH[s.kind] = s.labelZh
+    KIND_DESCRIPTION[s.kind] = s.description
+    KIND_DEFAULTS[s.kind] = s.defaults
+    KIND_VISUAL[s.kind] = s.visual
   }
-  return out
-})()
-
-/** Derived from nodeRegistry. */
-export const KIND_LABEL_ZH: Record<string, string> = (() => {
-  const out: Record<string, string> = {}
-  for (const s of allSpecs()) out[s.kind] = s.labelZh
-  return out
-})()
-
-/** Derived from nodeRegistry. */
-export const KIND_DESCRIPTION: Record<string, string> = (() => {
-  const out: Record<string, string> = {}
-  for (const s of allSpecs()) out[s.kind] = s.description
-  return out
-})()
-
-/** Derived from nodeRegistry. */
-export const KIND_DEFAULTS: Record<string, Record<string, any>> = (() => {
-  const out: Record<string, Record<string, any>> = {}
-  for (const s of allSpecs()) out[s.kind] = s.defaults
-  return out
-})()
-
-/** Derived from nodeRegistry. */
-export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: string }> = (() => {
-  const out: Record<string, { icon: string; bg: string; border: string }> = {}
-  for (const s of allSpecs()) out[s.kind] = s.visual
-  return out
-})()
+}
 
 /**
  * Returns the pin lists for a node kind given its current config.

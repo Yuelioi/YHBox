@@ -14,8 +14,11 @@ export type { FieldSchema }
 /** Legacy alias — NodeInspector.vue imports `Field`. */
 export type Field = FieldSchema
 
-export const NODE_FIELD_SCHEMAS: Record<string, FieldSchema[]> = (() => {
-  const out: Record<string, FieldSchema[]> = {}
-  for (const s of allSpecs()) out[s.kind] = s.fields
-  return out
-})()
+// mutable empty, 由 rebuildNodeFieldSchemas() 在 RPC populate 后填.
+// 原 module-init 写法在 RPC-driven 启动下时序错位 (allSpecs() 返空).
+export const NODE_FIELD_SCHEMAS: Record<string, FieldSchema[]> = {}
+
+export function rebuildNodeFieldSchemas(): void {
+  for (const k of Object.keys(NODE_FIELD_SCHEMAS)) delete NODE_FIELD_SCHEMAS[k]
+  for (const s of allSpecs()) NODE_FIELD_SCHEMAS[s.kind] = s.fields
+}
