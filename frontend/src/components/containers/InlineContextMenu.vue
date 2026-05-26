@@ -12,19 +12,20 @@
 
   <div
     v-if="open"
-    class="fixed z-50 bg-default border border-primary rounded shadow-xl p-2"
+    class="fixed z-50 bg-default border border-primary rounded-lg shadow-2xl p-3"
     :style="positionStyle"
     @click.stop
     @contextmenu.prevent
   >
     <!-- Context header -->
-    <div class="text-[10px] text-dimmed mb-1.5 px-1">
+    <div class="text-[11px] text-dimmed mb-2 px-1 flex items-center gap-1.5">
       <template v-if="pinContext">
-        <UIcon name="i-tabler-plus" class="size-3 inline-block" />
-        接受 <strong class="text-primary">{{ pinContext.pinType }}</strong> ({{ filtered.length }})
+        <UIcon name="i-tabler-plus" class="size-3.5" />
+        <span>接受 <strong class="text-primary">{{ pinContext.pinType }}</strong> ({{ filtered.length }})</span>
       </template>
       <template v-else>
-        添加节点 ({{ filtered.length }})
+        <UIcon name="i-tabler-plus" class="size-3.5" />
+        <span>添加节点 ({{ filtered.length }})</span>
       </template>
     </div>
 
@@ -35,39 +36,39 @@
       placeholder="type filter..."
       icon="i-tabler-search"
       size="sm"
-      class="mb-2"
+      class="mb-2 w-full"
       @keydown.escape.stop="close"
       @keydown.enter.stop="pickFirst"
     />
 
     <!-- Tree: per-group collapsible sections -->
-    <div class="max-h-64 overflow-y-auto pr-1" style="width: 240px;">
+    <div class="max-h-80 overflow-y-auto pr-1" style="width: 280px;">
       <template v-if="filtered.length === 0">
-        <p class="text-[10px] text-dimmed italic px-1 py-2 text-center">无匹配</p>
+        <p class="text-[11px] text-dimmed italic px-1 py-2 text-center">无匹配</p>
       </template>
       <template v-else>
-        <div v-for="g in groupedFiltered" :key="g.group">
+        <div v-for="g in groupedFiltered" :key="g.group" class="mb-1">
           <button
             type="button"
-            class="w-full flex items-center gap-1 px-1 py-0.5 hover:bg-elevated/30 rounded text-[10px] font-medium text-default"
+            class="w-full flex items-center gap-1.5 px-1 py-1 hover:bg-elevated/40 rounded text-[11px] font-semibold text-default"
             @click="toggleGroup(g.group)"
           >
-            <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3" />
+            <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3.5" />
             <span>{{ groupLabelZh(g.group) }}</span>
-            <span class="text-[9px] opacity-70">({{ g.specs.length }})</span>
+            <span class="text-[10px] opacity-60 font-normal">({{ g.specs.length }})</span>
           </button>
           <div v-show="isExpanded(g.group)" class="pl-3 space-y-0.5">
             <button
               v-for="spec in g.specs"
               :key="spec.kind"
               type="button"
-              class="w-full text-left px-2 py-1 hover:bg-elevated/60 rounded text-[10px] flex items-center gap-1.5"
+              class="w-full text-left px-2 py-1.5 hover:bg-elevated/60 rounded text-[12px] flex items-center gap-2"
               :title="spec.description ?? spec.kind"
               @click="pick(spec.kind)"
             >
-              <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3 shrink-0" :class="nodeIconColor(spec)" />
-              <span class="flex-1 truncate">{{ spec.labelZh ?? spec.kind }}</span>
-              <span class="text-[8px] text-dimmed">{{ spec.kind }}</span>
+              <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-4 shrink-0" :class="nodeIconColor(spec)" />
+              <span class="flex-1 truncate text-default">{{ spec.labelZh ?? spec.kind }}</span>
+              <span class="text-[10px] text-dimmed font-mono">{{ spec.kind }}</span>
             </button>
           </div>
         </div>
@@ -75,7 +76,7 @@
     </div>
 
     <!-- Hint -->
-    <div class="text-[9px] text-dimmed mt-1 text-center">Esc 关 · Enter 选首项</div>
+    <div class="text-[10px] text-dimmed mt-2 text-center">Esc 关 · Enter 选首项</div>
   </div>
 </template>
 

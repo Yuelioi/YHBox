@@ -493,17 +493,20 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 .is-selected :deep(.vue-flow__handle.handle-exec) {
   filter: drop-shadow(0 0 5px rgba(6, 182, 212, 0.7));
 }
+/* hover: 不用 transform scale (vue-flow 自己 translate(-50%, -50%) 居中, scale 后 %
+   translate 是 scaled box 的 %, 会 1.6x 偏位). 改 box-shadow ring + filter glow 模拟
+   放大反馈, geometry 不变 — Handle 位置永远跟 row label 对齐. */
 :deep(.vue-flow__handle.handle-base:hover) {
-  transform: translateY(-50%) scale(1.6);
   z-index: 10;
 }
 :deep(.vue-flow__handle.handle-exec:hover) {
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95));
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
 }
 :deep(.vue-flow__handle.handle-data:hover) {
   box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.1),
-    0 0 14px currentColor !important;
+    0 0 0 4px rgba(255, 255, 255, 0.18),
+    0 0 16px currentColor !important;
   animation: none;
 }
 
