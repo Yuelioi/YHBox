@@ -10,10 +10,6 @@
     ]"
     :style="{ minWidth: '220px', maxWidth: '360px' }"
   >
-    <!-- Selected 实色底: 阻断后面节点 alpha bg 穿透. 必须在 children 之前以便 paint order
-         = parent bg → solid → header/body/footer. pointer-events:none 不挡 vue-flow 操作. -->
-    <div v-if="selected" class="node-solid-bg" aria-hidden="true" />
-
     <!-- Header (浓 saturation, accent bar 在左侧) -->
     <div class="node-header" :class="v.headerBg">
       <span class="header-accent" :class="v.accent" />
@@ -261,9 +257,6 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 <style scoped>
 .container-node {
   position: relative;
-  /* isolation: isolate 创独立 stacking context, .node-solid-bg 用 z-index: -1 不会
-     跑出节点边界 (escape 到隔壁节点下方). 没这个 z:-1 会冒到 vue-flow viewport 后. */
-  isolation: isolate;
   border-radius: 12px;
   border-width: 1px;
   font-size: 12px;
@@ -307,25 +300,13 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 }
 /* hover lift 去掉 — 用户反馈卡. 静止视觉就够, 只 Handle hover 有反馈. */
 .container-node.is-selected {
-  /* selected 用 breathing 动画 (替代静态 ring) — keyframes 内含 ring + halo + outer glow,
-     alpha/radius 变化产生呼吸感. */
+  /* selected 用 breathing 动画 (替代静态 ring). */
   animation: selected-breathe 2.6s ease-in-out infinite;
-  /* selected 节点提到最上层避免被旁边 unselected 节点遮挡 (vue-flow 默认 selected 已有, 这里
-     兜底). */
   z-index: 50;
-}
-/* Selected 节点实色底 — 半透 tailwind bg-color (alpha 15%) 让后面堆叠节点的内容透过来
-   (Pin label / config preview 互相穿插无法分辨). 加一层 var(--ui-bg-default) 实色 div +
-   z-index: -1: CSS paint order 是 (parent bg → negative-z children → in-flow children),
-   所以实色盖住 parent alpha tint, 同时 header/body/footer (static in-flow) 又盖在实色上.
-   父加 isolation: isolate 防 z:-1 escape 到隔壁节点下方. */
-.node-solid-bg {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--ui-bg-default);
-  pointer-events: none;
-  z-index: -1;
+  /* 阻断后面节点穿透 — backdrop-filter 模糊背后节点的内容, 即使 tailwind alpha tint 仍透,
+     看到的也只是模糊色块 (字辨不出) 而非清晰文字. 保留 group 色 tint 身份感. */
+  backdrop-filter: blur(16px) saturate(140%) brightness(0.85);
+  -webkit-backdrop-filter: blur(16px) saturate(140%) brightness(0.85);
 }
 .container-node.is-disabled {
   opacity: 0.45;
