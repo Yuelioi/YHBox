@@ -300,11 +300,9 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 }
 /* hover lift 去掉 — 用户反馈卡. 静止视觉就够, 只 Handle hover 有反馈. */
 .container-node.is-selected {
-  box-shadow:
-    0 0 0 1.5px #06b6d4,
-    0 0 0 5px rgba(6, 182, 212, 0.18),
-    0 0 24px rgba(6, 182, 212, 0.35),
-    0 12px 32px -10px rgba(0, 0, 0, 0.65);
+  /* selected 用 breathing 动画 (替代静态 ring) — keyframes 内含 ring + halo + outer glow,
+     alpha/radius 变化产生呼吸感. */
+  animation: selected-breathe 2.6s ease-in-out infinite;
 }
 .container-node.is-disabled {
   opacity: 0.45;
@@ -361,7 +359,9 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   top: 0;
   bottom: 0;
   width: 3px;
-  /* shimmer 流光: 沿 accent bar 向下流动的高光 */
+  /* 圆角跟 header 顶左对齐, 避免直角矩形伸出 radius 外 */
+  border-top-left-radius: 11px;
+  /* 默认静态纯色 — 选中后 shimmer 才流动 */
   background-image: linear-gradient(
     180deg,
     transparent,
@@ -372,6 +372,10 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   background-repeat: no-repeat;
   background-position: 0% -50%;
   animation: accent-shimmer 2.4s ease-in-out infinite;
+  animation-play-state: paused;
+}
+.container-node.is-selected .header-accent {
+  animation-play-state: running;
 }
 .header-icon {
   width: 18px;
@@ -447,15 +451,19 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 }
 
 .node-footer {
-  padding: 6px 12px;
-  border-top-width: 1px;
-  border-style: solid;
-  background: rgba(0, 0, 0, 0.15);
+  padding: 7px 14px;
+  background: rgba(0, 0, 0, 0.22);
   color: var(--ui-text-dimmed);
   font-size: 10.5px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* 跟 header 同款双线 inset 分割 (顶 1px 暗影 + 顶 1px 高光, 立体感) */
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    inset 0 2px 0 0 rgba(0, 0, 0, 0.35);
+  /* 删 border-top, 完全用 inset shadow */
+  border: none !important;
 }
 .preview-row {
   display: flex;
@@ -482,7 +490,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   gap: 6px;
 }
 
-/* Handles — idle 状态 data pin 微 glow halo, exec pin drop-shadow */
+/* Handles — 默认静态. 选中节点后 data pin idle breathing + exec pin halo 强化. */
 :deep(.vue-flow__handle.handle-base) {
   z-index: 5;
   transition:
@@ -490,12 +498,14 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
     box-shadow 180ms ease,
     filter 180ms ease;
 }
-:deep(.vue-flow__handle.handle-data) {
-  /* idle pulse breathing — alpha 轻微变化 */
+:deep(.vue-flow__handle.handle-exec) {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.25));
+}
+.is-selected :deep(.vue-flow__handle.handle-data) {
   animation: data-idle 3s ease-in-out infinite;
 }
-:deep(.vue-flow__handle.handle-exec) {
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.35));
+.is-selected :deep(.vue-flow__handle.handle-exec) {
+  filter: drop-shadow(0 0 5px rgba(6, 182, 212, 0.7));
 }
 :deep(.vue-flow__handle.handle-base:hover) {
   transform: translateY(-50%) scale(1.6);
@@ -524,6 +534,23 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
       0 0 0 3px rgba(52, 211, 153, 1),
       0 0 44px rgba(52, 211, 153, 0.95),
       0 8px 22px -8px rgba(0, 0, 0, 0.55);
+  }
+}
+@keyframes selected-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1.5px #06b6d4,
+      0 0 0 4px rgba(6, 182, 212, 0.14),
+      0 0 18px rgba(6, 182, 212, 0.28),
+      0 12px 30px -10px rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px #06b6d4,
+      0 0 0 8px rgba(6, 182, 212, 0.28),
+      0 0 38px rgba(6, 182, 212, 0.6),
+      0 12px 30px -10px rgba(0, 0, 0, 0.6);
   }
 }
 @keyframes accent-shimmer {
