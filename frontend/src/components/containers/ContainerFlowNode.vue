@@ -249,33 +249,87 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
 <style scoped>
 .container-node {
   position: relative;
-  border-radius: 10px;
+  border-radius: 12px;
   border-width: 1px;
   font-size: 12px;
+  /* radial subtle gradient: 节点中心略亮向边缘衰减, 立体感 */
+  background-image: radial-gradient(
+    circle at 30% 0%,
+    rgba(255, 255, 255, 0.04),
+    transparent 60%
+  );
   box-shadow:
-    0 8px 24px -8px rgba(0, 0, 0, 0.55),
-    0 2px 4px -1px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
-  transition: box-shadow 180ms ease, transform 180ms ease;
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    0 2px 6px -1px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3);
+  transition:
+    box-shadow 220ms ease,
+    transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 180ms ease;
+}
+.container-node::before {
+  /* 整边 1px 高光描边 — conic gradient 模拟金属边缘 */
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.04) 35%,
+    rgba(255, 255, 255, 0.02) 70%,
+    rgba(255, 255, 255, 0.12) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
 }
 .container-node:hover {
+  transform: translateY(-1px);
   box-shadow:
-    0 12px 32px -8px rgba(0, 0, 0, 0.6),
-    0 3px 6px -1px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    0 16px 40px -12px rgba(0, 0, 0, 0.75),
+    0 4px 8px -1px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3);
 }
 .container-node.is-selected {
   box-shadow:
-    0 0 0 2px var(--ui-primary, #6366f1),
-    0 0 0 5px rgba(99, 102, 241, 0.22),
-    0 10px 28px -8px rgba(0, 0, 0, 0.55);
+    0 0 0 1.5px #06b6d4,
+    0 0 0 5px rgba(6, 182, 212, 0.18),
+    0 0 24px rgba(6, 182, 212, 0.35),
+    0 12px 32px -10px rgba(0, 0, 0, 0.65);
 }
 .container-node.is-disabled {
-  opacity: 0.5;
-  filter: grayscale(0.8);
+  opacity: 0.45;
+  filter: grayscale(0.85) blur(0.2px);
 }
 .container-node.is-running {
-  animation: pulse-running 1.5s ease-in-out infinite;
+  animation: pulse-running 1.6s ease-in-out infinite;
+}
+.container-node.is-running::after {
+  /* 扫描线效果 — 顶部 emerald 流光横扫 */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(52, 211, 153, 0.18) 50%,
+    transparent 100%
+  );
+  background-size: 100% 30%;
+  background-repeat: no-repeat;
+  animation: scan-line 1.8s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: screen;
 }
 
 .node-header {
@@ -283,11 +337,18 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px 8px 14px;
-  height: 38px;
-  border-top-left-radius: 9px;
-  border-top-right-radius: 9px;
+  padding: 8px 12px 8px 16px;
+  height: 40px;
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
   overflow: hidden;
+  /* header 加 linear gradient (135°) 层次感 — 当前 group 色叠到 transparent */
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
 }
 .header-accent {
   position: absolute;
@@ -295,11 +356,23 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   top: 0;
   bottom: 0;
   width: 3px;
+  /* shimmer 流光: 沿 accent bar 向下流动的高光 */
+  background-image: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  background-size: 100% 50%;
+  background-repeat: no-repeat;
+  background-position: 0% -50%;
+  animation: accent-shimmer 2.4s ease-in-out infinite;
 }
 .header-icon {
   width: 18px;
   height: 18px;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.95);
+  filter: drop-shadow(0 0 4px currentColor);
 }
 .header-text {
   display: flex;
@@ -311,15 +384,26 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
 .header-label {
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.1px;
-  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.3px;
+  /* holographic gradient text */
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(220, 230, 240, 0.95) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   font-family:
     'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
 }
 .header-sub {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
   font-weight: 400;
+  letter-spacing: 0.2px;
 }
 
 .node-body {
@@ -395,20 +479,33 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   gap: 6px;
 }
 
-/* Handles */
+/* Handles — idle 状态 data pin 微 glow halo, exec pin drop-shadow */
 :deep(.vue-flow__handle.handle-base) {
   z-index: 5;
-  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+  transition:
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+:deep(.vue-flow__handle.handle-data) {
+  /* idle pulse breathing — alpha 轻微变化 */
+  animation: data-idle 3s ease-in-out infinite;
+}
+:deep(.vue-flow__handle.handle-exec) {
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.35));
 }
 :deep(.vue-flow__handle.handle-base:hover) {
-  transform: translateY(-50%) scale(1.5);
-  filter: brightness(1.2);
+  transform: translateY(-50%) scale(1.6);
+  z-index: 10;
 }
 :deep(.vue-flow__handle.handle-exec:hover) {
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95));
 }
 :deep(.vue-flow__handle.handle-data:hover) {
-  box-shadow: 0 0 8px currentColor !important;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.1),
+    0 0 14px currentColor !important;
+  animation: none;
 }
 
 @keyframes pulse-running {
@@ -416,14 +513,39 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   100% {
     box-shadow:
       0 0 0 2px rgba(52, 211, 153, 0.85),
-      0 0 18px rgba(52, 211, 153, 0.55),
+      0 0 20px rgba(52, 211, 153, 0.6),
       0 8px 22px -8px rgba(0, 0, 0, 0.55);
   }
   50% {
     box-shadow:
       0 0 0 3px rgba(52, 211, 153, 1),
-      0 0 38px rgba(52, 211, 153, 0.85),
+      0 0 44px rgba(52, 211, 153, 0.95),
       0 8px 22px -8px rgba(0, 0, 0, 0.55);
+  }
+}
+@keyframes accent-shimmer {
+  0% {
+    background-position: 0% -50%;
+  }
+  100% {
+    background-position: 0% 150%;
+  }
+}
+@keyframes scan-line {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 0% 100%;
+  }
+}
+@keyframes data-idle {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
   }
 }
 </style>
