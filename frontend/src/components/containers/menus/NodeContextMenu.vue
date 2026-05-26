@@ -64,11 +64,10 @@
 import { computed } from 'vue'
 import type { GraphNode } from '@/lib/backend'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
-import { useDiscoveryStore } from '@/stores/discovery'
 
 export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
-  | 'toggle-disable' | 'star' | 'rename'
+  | 'toggle-disable' | 'save-as-snippet' | 'rename'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
   | 'share-to-library'
 
@@ -82,8 +81,6 @@ const emit = defineEmits<{
   'update:open': [v: boolean]
   action: [a: NodeMenuAction]
 }>()
-
-const discovery = useDiscoveryStore()
 
 const positionStyle = computed(() => ({
   left: `${props.position.x}px`,
@@ -131,10 +128,10 @@ const specialItems = computed(() => {
       colorClass: 'text-amber-400',
     },
     {
-      key: 'star',
-      label: discovery.favorites.includes(props.node.kind) ? '已收藏' : '加入收藏',
-      icon: discovery.favorites.includes(props.node.kind) ? 'i-tabler-star-filled' : 'i-tabler-star',
-      colorClass: discovery.favorites.includes(props.node.kind) ? 'text-yellow-300' : '',
+      key: 'save-as-snippet',
+      label: '保存为 Snippet (带配置)',
+      icon: 'i-tabler-bookmark-plus',
+      colorClass: 'text-yellow-300',
     },
   ]
 

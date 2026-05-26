@@ -6,8 +6,8 @@ export const SIDEBAR_PREFS_KEY = 'yhfish.editor.sidebar'
 export interface SidebarPrefs {
   leftSidebarCollapsed: boolean
   inspectorCollapsed: boolean
-  favoritesExpanded: boolean
-  recentExpanded: boolean
+  /** 'palette' = 节点库 (创建模式); 'snippets' = 用户资产 (复用模式). */
+  leftSidebarTab: 'palette' | 'snippets'
   varsExpanded: boolean
   snapEnabled: boolean
 }
@@ -15,10 +15,9 @@ export interface SidebarPrefs {
 const DEFAULTS: SidebarPrefs = {
   leftSidebarCollapsed: false,
   inspectorCollapsed: false,
-  favoritesExpanded: true,
-  recentExpanded: true,
+  leftSidebarTab: 'palette',
   varsExpanded: true,
-  snapEnabled: true, // default on — matches existing always-on behavior
+  snapEnabled: true,
 }
 
 function loadInitial(): SidebarPrefs {

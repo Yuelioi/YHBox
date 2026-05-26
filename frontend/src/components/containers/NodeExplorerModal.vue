@@ -46,18 +46,6 @@
                 >
                   <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
                   <span class="flex-1 truncate">{{ spec.labelZh ?? spec.kind }}</span>
-                  <button
-                    type="button"
-                    class="px-0.5"
-                    :title="store.favorites.includes(spec.kind) ? '已收藏' : '加入收藏'"
-                    @click.stop="store.toggleFavorite(spec.kind)"
-                  >
-                    <UIcon
-                      :name="store.favorites.includes(spec.kind) ? 'i-tabler-star-filled' : 'i-tabler-star'"
-                      class="size-3"
-                      :class="store.favorites.includes(spec.kind) ? 'text-amber-400' : 'text-dimmed hover:text-amber-400'"
-                    />
-                  </button>
                 </div>
               </div>
             </div>
@@ -72,7 +60,6 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
-import { useDiscoveryStore } from '@/stores/discovery'
 import { nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 
 const EXPANDED_KEY = 'yhfish.explorer.expanded'
@@ -89,7 +76,6 @@ watch(modelOpen, v => emit('update:open', v))
 
 const query = ref('')
 const searchInputRef = ref<any>(null)
-const store = useDiscoveryStore()
 
 // Expand state: Set<groupName>. Default = all known groups expanded.
 const ALL_GROUPS = ['control', 'variables', 'purefunc', 'detect', 'input', 'system', 'misc']

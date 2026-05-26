@@ -1,4 +1,4 @@
-// 统一 drag-drop 抽象. VarsPanel / FavoritesPanel / RecentPanel / Promote-to-Var
+// 统一 drag-drop 抽象. VarsPanel / NodePalette / SnippetsPanel / Promote-to-Var
 // 全部 funnel 这里. 单 MIME 单 payload schema 单 modifier-key 处理路径.
 
 import type { VariableRef } from '@/lib/variableRef'
@@ -9,6 +9,7 @@ export type EditorDragPayload =
   | { type: 'var'; ref: VariableRef; modifier: 'none' | 'alt' }
   | { type: 'node-spec'; kind: string }
   | { type: 'library-subgraph'; id: string }
+  | { type: 'snippet'; snippetID: string }
 
 /**
  * Call from dragstart handler. Auto-detects Alt modifier for `var` payload.

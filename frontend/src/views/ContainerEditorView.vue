@@ -140,9 +140,44 @@
           v-show="!sidebarPrefs.leftSidebarCollapsed"
           class="w-60 shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
-          <FavoritesPanel v-model:expanded="sidebarPrefs.favoritesExpanded" />
-          <RecentPanel v-model:expanded="sidebarPrefs.recentExpanded" />
+          <!-- Sidebar tabs (Palette | Snippets) — segmented toggle 顶部 -->
+          <div class="flex border-b border-default bg-elevated/20">
+            <button
+              type="button"
+              class="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-colors"
+              :class="
+                sidebarPrefs.leftSidebarTab === 'palette'
+                  ? 'text-primary border-b-2 border-primary -mb-px'
+                  : 'text-dimmed hover:text-default'
+              "
+              @click="sidebarPrefs.leftSidebarTab = 'palette'"
+            >
+              <UIcon name="i-tabler-box" class="size-3.5" />
+              节点库
+            </button>
+            <button
+              type="button"
+              class="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-colors"
+              :class="
+                sidebarPrefs.leftSidebarTab === 'snippets'
+                  ? 'text-primary border-b-2 border-primary -mb-px'
+                  : 'text-dimmed hover:text-default'
+              "
+              @click="sidebarPrefs.leftSidebarTab = 'snippets'"
+            >
+              <UIcon name="i-tabler-bookmarks" class="size-3.5" />
+              Snippets
+            </button>
+          </div>
+
+          <SnippetsPanel
+            v-if="sidebarPrefs.leftSidebarTab === 'snippets'"
+            @apply="onApplySnippet"
+            @edit="onEditSnippet"
+          />
+
           <VarsPanel
+            v-show="sidebarPrefs.leftSidebarTab === 'palette'"
             :vars="draft?.vars ?? []"
             :usage-count="totalVarUsageCount"
             v-model:expanded="sidebarPrefs.varsExpanded"
@@ -336,6 +371,15 @@
       @confirm="onPromoteConfirm"
     />
 
+    <!-- Save Snippet drawer (右侧抽屉) -->
+    <SaveSnippetDrawer
+      v-model:open="saveSnippetState.open"
+      :source-kind="saveSnippetState.sourceKind"
+      :source-config="saveSnippetState.sourceConfig"
+      :editing-id="saveSnippetState.editingID"
+      @saved="onSnippetSaved"
+    />
+
     <!-- Find-References modal -->
     <FindReferencesModal
       v-if="findRefsState"
@@ -359,7 +403,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
@@ -397,8 +441,8 @@ import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.v
 import ContainerLogPanel from '@/components/containers/ContainerLogPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
-import FavoritesPanel from '@/components/containers/sidebar/FavoritesPanel.vue'
-import RecentPanel from '@/components/containers/sidebar/RecentPanel.vue'
+import SnippetsPanel from '@/components/snippets/SnippetsPanel.vue'
+import SaveSnippetDrawer from '@/components/snippets/SaveSnippetDrawer.vue'
 import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
@@ -414,7 +458,7 @@ import PromoteToVarModal, { type PromoteContext } from '@/components/containers/
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
 import NodeSearchModal, { type NodeSearchResult } from '@/components/containers/NodeSearchModal.vue'
 import SnapGuideOverlay, { type SnapGuide } from '@/components/containers/SnapGuideOverlay.vue'
-import { useDiscoveryStore } from '@/stores/discovery'
+import { useSnippetsStore, eventToShortcutKey, type Snippet } from '@/stores/snippets'
 import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
@@ -700,7 +744,30 @@ function dropNodeSpec(
     } as GraphNode
     g.nodes.push(node)
   })
-  useDiscoveryStore().pushRecent(kind)
+}
+
+/** snippet 拖到画布 → 在 pos 生成节点 with snippet.payload.config */
+function dropSnippet(
+  payload: Extract<EditorDragPayload, { type: 'snippet' }>,
+  pos: { x: number; y: number },
+) {
+  const s = useSnippetsStore().getById(payload.snippetID)
+  if (!s) return
+  applyDraftMutation((d) => {
+    const g = activeGraph.value
+    if (!g) return
+    const node: GraphNode = {
+      id: newNodeID(s.payload.kind),
+      kind: s.payload.kind,
+      x: pos.x,
+      y: pos.y,
+      config: structuredClone(s.payload.config),
+      label: s.name, // 用 snippet 名当节点 label, 一眼能看出是哪个 snippet 实例
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+  })
+  useSnippetsStore().markUsed(payload.snippetID)
 }
 
 function onInsertIncVar(name: string) {
@@ -724,6 +791,102 @@ function onInsertIncVar(name: string) {
   })
 }
 
+// ========== Snippet system wiring (Stage 2/3) ==========
+
+const saveSnippetState = ref<{
+  open: boolean
+  sourceKind?: string
+  sourceConfig?: Record<string, unknown>
+  editingID?: string
+}>({ open: false })
+
+/** 从节点 ContextMenu 'save-as-snippet' action 触发: 打开 drawer create 模式. */
+function emitSaveSnippetIntent(node: GraphNode) {
+  saveSnippetState.value = {
+    open: true,
+    sourceKind: node.kind,
+    sourceConfig: structuredClone(node.config ?? {}),
+    editingID: undefined,
+  }
+}
+
+/** SnippetsPanel pencil 按钮 → 打开 drawer edit 模式. */
+function onEditSnippet(s: Snippet) {
+  saveSnippetState.value = {
+    open: true,
+    editingID: s.id,
+  }
+}
+
+function onSnippetSaved(_s: Snippet) {
+  // toast 反馈 (optional). 已经 persist 到 localStorage 由 store 自己干.
+}
+
+/** SnippetsPanel 单击 snippet (非 drag) → 在画布中心生成节点 with config. */
+function onApplySnippet(s: Snippet) {
+  applyDraftMutation(() => {
+    const g = activeGraph.value
+    if (!g) return
+    // 画布中心 fallback (没 viewport center API 时用固定 offset)
+    const pos = { x: 240 + Math.random() * 60, y: 180 + Math.random() * 60 }
+    const node: GraphNode = {
+      id: newNodeID(s.payload.kind),
+      kind: s.payload.kind,
+      x: pos.x,
+      y: pos.y,
+      config: structuredClone(s.payload.config),
+      label: s.name,
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+  })
+  useSnippetsStore().markUsed(s.id)
+}
+
+// 全局快捷键监听: snippet.shortcut 触发 → 在最后已知鼠标位置生成节点
+const lastMousePos = ref({ x: 240, y: 180 })
+function trackMouse(e: MouseEvent) {
+  lastMousePos.value = { x: e.clientX, y: e.clientY }
+}
+function onSnippetShortcutKeydown(e: KeyboardEvent) {
+  // 文本输入聚焦时不触发 (避免破坏 textarea/input)
+  const t = e.target as HTMLElement | null
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+  const key = eventToShortcutKey(e)
+  if (!key) return
+  const s = useSnippetsStore().byShortcut.get(key)
+  if (!s) return
+  e.preventDefault()
+  e.stopPropagation()
+  const pos = screenToFlowCoordinate(lastMousePos.value)
+  applyDraftMutation(() => {
+    const g = activeGraph.value
+    if (!g) return
+    const node: GraphNode = {
+      id: newNodeID(s.payload.kind),
+      kind: s.payload.kind,
+      x: pos.x,
+      y: pos.y,
+      config: structuredClone(s.payload.config),
+      label: s.name,
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    g.nodes.push(node)
+  })
+  useSnippetsStore().markUsed(s.id)
+}
+onMounted(() => {
+  useSnippetsStore().load()
+  window.addEventListener('keydown', onSnippetShortcutKeydown, true)
+  window.addEventListener('mousemove', trackMouse, { passive: true })
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onSnippetShortcutKeydown, true)
+  window.removeEventListener('mousemove', trackMouse)
+})
+
+// ========== /Snippet system ==========
+
 function onCanvasDrop(e: DragEvent) {
   e.preventDefault()
   // MIME-based dispatch via useEditorDragDrop (var / node-spec / library-subgraph).
@@ -733,7 +896,8 @@ function onCanvasDrop(e: DragEvent) {
     switch (payload.type) {
       case 'var': return dropVar(payload, pos)
       case 'node-spec': return dropNodeSpec(payload, pos)
-      case 'library-subgraph': return  // not used yet (LibraryExplorerModal is click-pick, not drag)
+      case 'snippet': return dropSnippet(payload, pos)
+      case 'library-subgraph': return  // not used yet
     }
     return
   }
@@ -768,7 +932,7 @@ function onPickKind(kind: string) {
     } as GraphNode
     g.nodes.push(node)
   })
-  useDiscoveryStore().pushRecent(kind)
+  // pushRecent 已删 (Snippet 系统替代 Recent)
 }
 
 function onOpenLibraryExplorer() {
@@ -794,7 +958,7 @@ async function onPickLibrarySubgraph(libraryID: string) {
       } as GraphNode
       g.nodes.push(node)
     })
-    useDiscoveryStore().pushRecent('Subgraph')
+    // pushRecent 已删
     useLibraryStore().reload()
     toast.add({
       title: '子图已从库导入',
@@ -1019,8 +1183,9 @@ function onNodeMenuAction(a: NodeMenuAction) {
         n.disabled = !n.disabled
       })
       return
-    case 'star':
-      useDiscoveryStore().toggleFavorite(node.kind)
+    case 'save-as-snippet':
+      // Stage 2 实施: 触发 SaveSnippetDrawer 打开. 暂占位.
+      emitSaveSnippetIntent(node)
       return
     case 'find-references': {
       const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
@@ -1394,7 +1559,7 @@ function onPromoteConfirm(args: { varName: string; varType: VarType }) {
     } as GraphEdge)
   })
   promoteCtx.value = null
-  useDiscoveryStore().pushRecent('GetVar')
+  // pushRecent 已删
 }
 
 function onPaneDoubleClick(e: MouseEvent) {
@@ -1468,7 +1633,7 @@ function onInlineMenuPick(kind: string) {
       }
     }
   })
-  useDiscoveryStore().pushRecent(kind)
+  // pushRecent 已删 (Snippet 系统替代 Recent)
   syncFlowFromDraft()
 }
 
