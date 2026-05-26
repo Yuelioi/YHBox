@@ -147,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   useSnippetsStore,
   normalizeShortcut,
@@ -170,20 +170,41 @@ const emit = defineEmits<{
 }>()
 
 const store = useSnippetsStore()
+// drawer 打开后必须立刻 ensure store 已 load (用户可能从其他 path 触发 drawer 而 SnippetsPanel
+// 还没 mount, store 没 load, getById 返 undefined → form 空).
+store.load()
 
-const form = ref<{
+interface FormShape {
   name: string
   description: string
   category: string
   color?: string
   icon?: string
   shortcut: string
-}>({
+}
+
+// 用 reactive 而不是 ref<obj> — 整 obj 替换在某些 NuxtUI 组件内部 watch 不响应,
+// reactive + Object.assign 单字段更新可靠.
+const form = reactive<FormShape>({
   name: '',
   description: '',
   category: '',
+  color: undefined,
+  icon: undefined,
   shortcut: '',
 })
+
+function resetForm(patch: Partial<FormShape>) {
+  Object.assign(form, {
+    name: '',
+    description: '',
+    category: '',
+    color: undefined,
+    icon: undefined,
+    shortcut: '',
+    ...patch,
+  })
+}
 
 const tagsRaw = ref('')
 
@@ -218,7 +239,7 @@ const iconPalette = [
 ]
 
 const shortcutError = computed(() => {
-  const s = form.value.shortcut.trim()
+  const s = form.shortcut.trim()
   if (!s) return ''
   const norm = normalizeShortcut(s)
   if (isReservedShortcut(s)) return `${norm} 是系统保留键, 请换`
@@ -230,7 +251,7 @@ const shortcutError = computed(() => {
   return ''
 })
 
-const canSave = computed(() => form.value.name.trim().length > 0 && !shortcutError.value)
+const canSave = computed(() => form.name.trim().length > 0 && !shortcutError.value)
 
 // 快捷键 capture: 监听 keydown 自动填表单
 const capturing = ref(false)
@@ -252,7 +273,7 @@ function onCaptureKey(e: KeyboardEvent) {
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return
   e.preventDefault()
   e.stopPropagation()
-  form.value.shortcut = eventToShortcutKey(e)
+  form.shortcut = eventToShortcutKey(e)
   capturing.value = false
   window.removeEventListener('keydown', onCaptureKey, true)
 }
@@ -269,23 +290,35 @@ watch(
     if (props.editingID) {
       const s = store.getById(props.editingID)
       if (s) {
-        form.value = {
+        resetForm({
           name: s.name,
           description: s.description ?? '',
           category: s.category ?? '',
           color: s.color,
           icon: s.icon,
           shortcut: s.shortcut ?? '',
-        }
+        })
         tagsRaw.value = s.tags.join(', ')
+      } else {
+        // store 还没 load 完, 再次 load + 重试 (defensive)
+        store.load()
+        const retry = store.getById(props.editingID)
+        if (retry) {
+          resetForm({
+            name: retry.name,
+            description: retry.description ?? '',
+            category: retry.category ?? '',
+            color: retry.color,
+            icon: retry.icon,
+            shortcut: retry.shortcut ?? '',
+          })
+          tagsRaw.value = retry.tags.join(', ')
+        }
       }
     } else {
-      form.value = {
+      resetForm({
         name: props.sourceKind ?? '',
-        description: '',
-        category: '',
-        shortcut: '',
-      }
+      })
       tagsRaw.value = ''
     }
   },
@@ -299,13 +332,13 @@ function onSave() {
   if (!payload) return
 
   const data = {
-    name: form.value.name.trim(),
-    description: form.value.description.trim() || undefined,
-    category: form.value.category.trim() || undefined,
+    name: form.name.trim(),
+    description: form.description.trim() || undefined,
+    category: form.category.trim() || undefined,
     tags: parsedTags.value,
-    color: form.value.color,
-    icon: form.value.icon,
-    shortcut: form.value.shortcut.trim() ? normalizeShortcut(form.value.shortcut) : undefined,
+    color: form.color,
+    icon: form.icon,
+    shortcut: form.shortcut.trim() ? normalizeShortcut(form.shortcut) : undefined,
     payload,
   }
 

@@ -761,7 +761,7 @@ function dropSnippet(
       kind: s.payload.kind,
       x: pos.x,
       y: pos.y,
-      config: structuredClone(s.payload.config),
+      config: JSON.parse(JSON.stringify(s.payload.config)),
       label: s.name, // 用 snippet 名当节点 label, 一眼能看出是哪个 snippet 实例
       createdAt: new Date().toISOString(),
     } as GraphNode
@@ -805,7 +805,7 @@ function emitSaveSnippetIntent(node: GraphNode) {
   saveSnippetState.value = {
     open: true,
     sourceKind: node.kind,
-    sourceConfig: structuredClone(node.config ?? {}),
+    sourceConfig: JSON.parse(JSON.stringify(node.config ?? {})),
     editingID: undefined,
   }
 }
@@ -834,7 +834,7 @@ function onApplySnippet(s: Snippet) {
       kind: s.payload.kind,
       x: pos.x,
       y: pos.y,
-      config: structuredClone(s.payload.config),
+      config: JSON.parse(JSON.stringify(s.payload.config)),
       label: s.name,
       createdAt: new Date().toISOString(),
     } as GraphNode
@@ -867,7 +867,7 @@ function onSnippetShortcutKeydown(e: KeyboardEvent) {
       kind: s.payload.kind,
       x: pos.x,
       y: pos.y,
-      config: structuredClone(s.payload.config),
+      config: JSON.parse(JSON.stringify(s.payload.config)),
       label: s.name,
       createdAt: new Date().toISOString(),
     } as GraphNode
