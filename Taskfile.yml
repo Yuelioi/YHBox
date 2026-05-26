@@ -30,6 +30,11 @@ tasks:
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
 
+  dll:
+    summary: 单独打包 Rust WGC capture DLL → bin/capture_wgc.dll (改 .rs 后跑)
+    cmds:
+      - task: "windows:build:capture-dll"
+
   version:sync:
     summary: 把 pkg/version.Version 同步到 build/config.yml / windows/info.json / frontend/package.json
     desc: |
