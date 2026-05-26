@@ -372,11 +372,16 @@
     />
 
     <!-- Save Snippet drawer (右侧抽屉) -->
+    <!-- :key 强制 remount: open=true 时父先 set state 再 v-if=true, drawer setup 新跑,
+         fillFromProps 拿到 final props.editingID. 解决 edit prefill 时序问题. -->
     <SaveSnippetDrawer
-      v-model:open="saveSnippetState.open"
+      v-if="saveSnippetState.open"
+      :key="`drawer-${saveSnippetState.editingID || 'new'}-${saveSnippetState.sourceKind || ''}`"
+      :open="true"
       :source-kind="saveSnippetState.sourceKind"
       :source-config="saveSnippetState.sourceConfig"
       :editing-id="saveSnippetState.editingID"
+      @update:open="(v) => { if (!v) saveSnippetState.open = false }"
       @saved="onSnippetSaved"
     />
 

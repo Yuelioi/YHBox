@@ -99,6 +99,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useSnippetsStore, type Snippet } from '@/stores/snippets'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { confirm: confirmDialog } = useConfirm()
 
 const emit = defineEmits<{
   apply: [s: Snippet]   // 单击应用 (在画布中心生成)
@@ -156,8 +159,15 @@ function onDragStart(s: Snippet, e: DragEvent) {
   startEditorDrag({ type: 'snippet', snippetID: s.id }, e)
 }
 
-function onRemove(s: Snippet) {
-  if (!confirm(`删除 snippet "${s.name}"?`)) return
+async function onRemove(s: Snippet) {
+  const ok = await confirmDialog({
+    title: '删除 Snippet',
+    description: `确定删除 "${s.name}"?\n此操作不可撤销.`,
+    confirmText: '删除',
+    cancelText: '取消',
+    color: 'error',
+  })
+  if (!ok) return
   store.remove(s.id)
 }
 </script>
