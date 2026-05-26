@@ -186,8 +186,9 @@ function labelColor(p: PinEntry): string {
 }
 
 // Handle 样式: exec 三角形 (clip-path), data 圆形 + type 颜色.
+// top 是 row 中心 y (vue-flow Handle 自己 transform: translate(_, -50%) 居中, 不要补偿).
 function handleStyle(p: PinEntry, i: number): Record<string, string> {
-  const top = HEADER_H + i * ROW_H + ROW_H / 2 - 5 + 'px'
+  const top = HEADER_H + BODY_PAD_TOP + i * ROW_H + ROW_H / 2 + 'px'
   if (p.kind === 'exec') {
     return {
       top,
@@ -223,6 +224,7 @@ const preview = computed(() => {
 })
 
 const HEADER_H = 30
+const BODY_PAD_TOP = 4 // 跟 .node-body padding-top 同步, Handle 算 y 要加上
 const ROW_H = 20
 
 const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.value.length) * ROW_H)
