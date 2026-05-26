@@ -8,7 +8,7 @@
       isRunning ? 'ring-2 ring-emerald-400 shadow-emerald-500/30 animate-pulse-running' : '',
       isDisabled ? 'opacity-50 grayscale' : '',
     ]"
-    :style="{ minWidth: '180px' }"
+    :style="{ minWidth: '220px' }"
   >
     <!-- Header -->
     <div class="flex items-center gap-1.5 px-2.5 py-1 border-b" :class="v.border">
@@ -27,11 +27,28 @@
       />
     </div>
 
-    <!-- Pin rows: 每行 ROW_H 高，左右 label 各 8px 内边距给 handle 让位 -->
-    <div class="pin-grid">
-      <div v-for="i in pinRows" :key="'row-' + i" class="pin-row">
-        <span class="pin-label-left">{{ pins.execIn[i] ?? '' }}</span>
-        <span class="pin-label-right">{{ pins.execOut[i] ?? '' }}</span>
+    <!-- Body: UE Blueprint 风格. 左列 input (exec+data), 右列 output (exec+data).
+         每行 ROW_H 高, 节点 height 由 max(leftPins.length, rightPins.length) 决定. -->
+    <div class="pin-body" :style="{ minHeight: bodyHeight + 'px' }">
+      <div class="pin-col pin-col-left">
+        <div v-for="p in leftPins" :key="'lp-' + p.id" class="pin-row pin-row-left">
+          <span v-if="p.kind === 'exec'" class="pin-arrow text-default">▶</span>
+          <span v-else class="pin-dot bg-blue-400" />
+          <span
+            class="pin-label truncate"
+            :class="p.kind === 'exec' ? 'text-default' : 'text-blue-200'"
+          >{{ p.label }}</span>
+        </div>
+      </div>
+      <div class="pin-col pin-col-right">
+        <div v-for="p in rightPins" :key="'rp-' + p.id" class="pin-row pin-row-right">
+          <span
+            class="pin-label truncate"
+            :class="p.kind === 'exec' ? 'text-default' : 'text-blue-200'"
+          >{{ p.label }}</span>
+          <span v-if="p.kind === 'exec'" class="pin-arrow text-default">▶</span>
+          <span v-else class="pin-dot bg-blue-400" />
+        </div>
       </div>
     </div>
 
@@ -47,28 +64,7 @@
       </div>
     </div>
 
-    <!-- Data pins row -->
-    <div
-      v-if="pins.dataIn.length > 0 || pins.dataOut.length > 0"
-      class="px-2.5 py-1 flex items-center gap-2 border-t"
-      :class="v.border"
-    >
-      <span
-        v-for="pin in pins.dataIn"
-        :key="'din-l-' + pin"
-        class="text-[9px] text-blue-300 font-mono"
-        >↓{{ pin }}</span
-      >
-      <span class="grow" />
-      <span
-        v-for="pin in pins.dataOut"
-        :key="'dout-l-' + pin"
-        class="text-[9px] text-blue-300 font-mono"
-        >{{ pin }}↓</span
-      >
-    </div>
-
-    <!-- Subgraph 选中的子图 ID 预览 + 内部节点数 (子图复杂度一眼可见) -->
+    <!-- Subgraph 选中的子图 ID 预览 + 内部节点数 -->
     <div v-if="kind === 'Subgraph'" class="mt-1 text-[10px] text-dimmed font-mono truncate px-2.5 pb-1 flex items-center gap-1.5">
       <span class="truncate">→ {{ props.data?.config?.SubgraphID || '(未选)' }}</span>
       <span
@@ -77,47 +73,32 @@
       >{{ boundSubgraphNodeCount }} 节点</span>
     </div>
 
-    <!-- Handles (绝对定位到 pin row 的 y 坐标) -->
+    <!-- Handles 绝对定位到对应 pin row 的 y 坐标. left col = Position.Left, right col = Position.Right -->
     <Handle
-      v-for="(pin, i) in pins.execIn"
-      :key="'ein-' + pin"
-      :id="pin"
+      v-for="(p, i) in leftPins"
+      :key="'h-l-' + p.id"
+      :id="p.id"
       type="target"
       :position="Position.Left"
-      :style="{ top: execInTop(i) + 'px' }"
-      class="w-2.5! h-2.5! bg-elevated! border! border-accented!"
+      :style="{ top: pinTop(i) + 'px' }"
+      :class="
+        p.kind === 'exec'
+          ? 'w-2.5! h-2.5! bg-elevated! border! border-accented!'
+          : 'w-2! h-2! bg-blue-400! border-0!'
+      "
     />
-
     <Handle
-      v-for="(pin, i) in execOutPinsForRender"
-      :key="'eout-' + pin.id"
-      :id="pin.id"
+      v-for="(p, i) in rightPins"
+      :key="'h-r-' + p.id"
+      :id="p.id"
       type="source"
       :position="Position.Right"
-      :style="{ top: execOutTop(i) + 'px' }"
-      class="w-2.5! h-2.5! bg-elevated! border! border-accented!"
-    >
-      <span v-if="kind === 'Subgraph'" class="text-[9px] text-toned ml-1">{{ pin.label }}</span>
-    </Handle>
-
-    <Handle
-      v-for="(pin, i) in pins.dataIn"
-      :key="'din-' + pin"
-      :id="pin"
-      type="target"
-      :position="Position.Bottom"
-      :style="{ left: dataInLeft(i) + 'px' }"
-      class="w-2! h-2! bg-blue-400! border-0!"
-    />
-
-    <Handle
-      v-for="(pin, i) in pins.dataOut"
-      :key="'dout-' + pin"
-      :id="pin"
-      type="source"
-      :position="Position.Bottom"
-      :style="{ right: dataOutRight(i) + 'px', left: 'auto' }"
-      class="w-2! h-2! bg-blue-400! border-0!"
+      :style="{ top: pinTop(i) + 'px' }"
+      :class="
+        p.kind === 'exec'
+          ? 'w-2.5! h-2.5! bg-elevated! border! border-accented!'
+          : 'w-2! h-2! bg-blue-400! border-0!'
+      "
     />
   </div>
 </template>
@@ -138,11 +119,9 @@ const props = defineProps<{
 }>()
 
 const kind = computed(() => props.data?.kind ?? '')
-// prefer user-set label; fall back to kind's Chinese display name
 const displayLabel = computed(() =>
   props.data?.label ? props.data.label : (KIND_LABEL_ZH[kind.value] ?? kind.value),
 )
-// show kind name as subtitle when user has set a custom label
 const kindSubtitle = computed(() =>
   props.data?.label ? (KIND_LABEL_ZH[kind.value] ?? kind.value) : null,
 )
@@ -161,7 +140,6 @@ const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
 
 const editorStore = useContainerEditorStore()
 
-// Subgraph 调用节点: 绑定子图的内部节点数 (画布上一眼看到子图复杂度)
 const boundSubgraphNodeCount = computed<number | null>(() => {
   if (kind.value !== 'Subgraph') return null
   const sgID = props.data?.config?.SubgraphID
@@ -170,8 +148,6 @@ const boundSubgraphNodeCount = computed<number | null>(() => {
   return sg?.graph?.nodes?.length ?? null
 })
 
-// exec-out pins 渲染数据（特判 Subgraph 节点）
-// 返回 { id: string, label: string }[] —— id 是 vue-flow handle id，label 是显示文本
 const execOutPinsForRender = computed(() => {
   if (kind.value === 'Subgraph') {
     const decls = resolveSubgraphCallExecOut(
@@ -182,6 +158,22 @@ const execOutPinsForRender = computed(() => {
   }
   return pins.value.execOut.map((id: string) => ({ id, label: id }))
 })
+
+// UE 风格 pin column: 左 = execIn 接 dataIn, 右 = execOut 接 dataOut. 每行一个 pin.
+interface PinEntry {
+  id: string
+  label: string
+  kind: 'exec' | 'data'
+}
+
+const leftPins = computed<PinEntry[]>(() => [
+  ...pins.value.execIn.map((p): PinEntry => ({ id: p, label: p, kind: 'exec' })),
+  ...pins.value.dataIn.map((p): PinEntry => ({ id: p, label: p, kind: 'data' })),
+])
+const rightPins = computed<PinEntry[]>(() => [
+  ...execOutPinsForRender.value.map((p): PinEntry => ({ id: p.id, label: p.label, kind: 'exec' })),
+  ...pins.value.dataOut.map((p): PinEntry => ({ id: p, label: p, kind: 'data' })),
+])
 
 const preview = computed(() => {
   const cfg = props.data?.config ?? {}
@@ -197,26 +189,14 @@ const preview = computed(() => {
   return out
 })
 
-// header 26px + 每 pin 行 18px。pin 行起点 = header_h
+// header 26px + 每 pin 行 ROW_H. 节点 height 由 max(leftPins, rightPins) 决定.
 const HEADER_H = 26
 const ROW_H = 18
 
-const pinRows = computed(() => {
-  const n = Math.max(pins.value.execIn.length, pins.value.execOut.length)
-  return Array.from({ length: n }, (_, i) => i)
-})
+const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.value.length) * ROW_H)
 
-function execInTop(i: number) {
+function pinTop(i: number) {
   return HEADER_H + i * ROW_H + ROW_H / 2 - 5
-}
-function execOutTop(i: number) {
-  return HEADER_H + i * ROW_H + ROW_H / 2 - 5
-}
-function dataInLeft(i: number) {
-  return 16 + i * 22
-}
-function dataOutRight(i: number) {
-  return 16 + i * 22
 }
 </script>
 
@@ -225,27 +205,49 @@ function dataOutRight(i: number) {
   position: relative;
 }
 
-.pin-grid {
+.pin-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.pin-col {
   display: flex;
   flex-direction: column;
+  flex: 1 1 50%;
+  min-width: 0;
+}
+.pin-col-left {
+  padding-left: 12px;
+}
+.pin-col-right {
+  padding-right: 12px;
 }
 .pin-row {
   display: flex;
   align-items: center;
+  gap: 4px;
   height: 18px;
-  padding: 0 12px;
   font-size: 10px;
   line-height: 1;
   color: var(--ui-text-dimmed);
   user-select: none;
   pointer-events: none;
 }
-.pin-label-left {
+.pin-row-right {
+  justify-content: flex-end;
+}
+.pin-label {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-.pin-label-right {
-  margin-left: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+.pin-arrow {
+  font-size: 8px;
+  line-height: 1;
+}
+.pin-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
 }
 
 :deep(.vue-flow__handle) {
