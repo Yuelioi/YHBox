@@ -7,43 +7,54 @@
       @contextmenu.prevent="close"
     />
     <div
-      class="fixed z-50 bg-default border border-default rounded shadow-xl py-1 min-w-[200px]"
+      class="ctx-menu fixed z-50 bg-default border border-default rounded-lg shadow-2xl py-2 min-w-[240px]"
       :style="positionStyle"
       @click.stop
       @contextmenu.prevent
     >
       <!-- Header -->
-      <div class="px-3 py-1 text-[10px] text-dimmed border-b border-default">
-        <UIcon :name="iconForKind" class="size-3 inline mr-1" />
-        <span v-if="node.label">{{ node.label }} <span class="text-[9px]">({{ kindLabel }})</span></span>
-        <span v-else>{{ kindLabel }}</span>
-        <span class="text-primary"> · {{ node.id }}</span>
+      <div class="ctx-header px-3 py-1.5 mb-1">
+        <div class="flex items-center gap-2">
+          <UIcon :name="iconForKind" class="size-4 text-primary shrink-0" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-semibold text-default truncate">
+              {{ node.label || kindLabel }}
+            </div>
+            <div class="text-[10px] text-dimmed font-mono truncate">
+              <span v-if="node.label">{{ kindLabel }} · </span>{{ node.id }}
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div class="ctx-divider" />
 
       <!-- 通用操作 -->
       <button
         v-for="item in commonItems"
         :key="item.key"
         type="button"
-        class="w-full text-left px-3 py-1 text-[11px] hover:bg-elevated/60 flex items-center justify-between gap-3"
+        class="ctx-item"
         @click="onClick(item.key)"
       >
-        <span>{{ item.label }}</span>
-        <span v-if="item.shortcut" class="text-[10px] text-dimmed">{{ item.shortcut }}</span>
+        <UIcon :name="item.icon" class="size-3.5 shrink-0 text-dimmed" />
+        <span class="flex-1 text-left">{{ item.label }}</span>
+        <span v-if="item.shortcut" class="ctx-shortcut">{{ item.shortcut }}</span>
       </button>
 
-      <div class="border-t border-default my-1" />
+      <div class="ctx-divider" />
 
       <!-- 特殊操作 (kind-specific + state-aware) -->
       <button
         v-for="item in specialItems"
         :key="item.key"
         type="button"
-        class="w-full text-left px-3 py-1 text-[11px] hover:bg-elevated/60 flex items-center justify-between gap-3"
-        :class="item.color"
+        class="ctx-item"
+        :class="item.colorClass"
         @click="onClick(item.key)"
       >
-        <span>{{ item.label }}</span>
+        <UIcon :name="item.icon" class="size-3.5 shrink-0" />
+        <span class="flex-1 text-left">{{ item.label }}</span>
       </button>
     </div>
   </template>
@@ -104,24 +115,26 @@ const hasLiteralPin = computed(() => {
 const isDisabled = computed(() => (props.node as GraphNode & { disabled?: boolean }).disabled === true)
 
 const commonItems = computed(() => [
-  { key: 'copy' as const, label: '复制', shortcut: 'Ctrl+C' },
-  { key: 'cut' as const, label: '剪切', shortcut: 'Ctrl+X' },
-  { key: 'paste' as const, label: '粘贴', shortcut: 'Ctrl+V' },
-  { key: 'duplicate' as const, label: '复刻', shortcut: 'Ctrl+D' },
-  { key: 'delete' as const, label: '删除', shortcut: 'Del' },
+  { key: 'copy' as const, label: '复制', icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
+  { key: 'cut' as const, label: '剪切', icon: 'i-tabler-cut', shortcut: 'Ctrl+X' },
+  { key: 'paste' as const, label: '粘贴', icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V' },
+  { key: 'duplicate' as const, label: '复刻', icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
+  { key: 'delete' as const, label: '删除', icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
 ])
 
 const specialItems = computed(() => {
-  const items: Array<{ key: NodeMenuAction; label: string; color?: string }> = [
+  const items: Array<{ key: NodeMenuAction; label: string; icon: string; colorClass?: string }> = [
     {
       key: 'toggle-disable',
-      label: isDisabled.value ? '✓ 启用此节点' : '⊘ 禁用此节点 (运行时跳过)',
-      color: 'text-warning',
+      label: isDisabled.value ? '启用此节点' : '禁用此节点 (运行时跳过)',
+      icon: isDisabled.value ? 'i-tabler-player-play' : 'i-tabler-ban',
+      colorClass: 'text-amber-400',
     },
     {
       key: 'star',
-      label: discovery.favorites.includes(props.node.kind) ? '★ 已收藏' : '☆ 加入收藏',
-      color: discovery.favorites.includes(props.node.kind) ? 'text-amber-400' : '',
+      label: discovery.favorites.includes(props.node.kind) ? '已收藏' : '加入收藏',
+      icon: discovery.favorites.includes(props.node.kind) ? 'i-tabler-star-filled' : 'i-tabler-star',
+      colorClass: discovery.favorites.includes(props.node.kind) ? 'text-yellow-300' : '',
     },
   ]
 
@@ -131,29 +144,33 @@ const specialItems = computed(() => {
       | undefined ?? '?'
     items.push({
       key: 'find-references',
-      label: `🔗 查找所有引用 '${varName}'`,
-      color: 'text-amber-400',
+      label: `查找所有引用 '${varName}'`,
+      icon: 'i-tabler-link',
+      colorClass: 'text-cyan-300',
     })
   }
 
   if (hasLiteralPin.value) {
     items.push({
       key: 'promote-to-var',
-      label: '⚙ 提取为变量 (Promote)',
-      color: 'text-amber-400',
+      label: '提取为变量 (Promote)',
+      icon: 'i-tabler-variable',
+      colorClass: 'text-violet-300',
     })
   }
 
   if (isSubgraph.value) {
     items.push({
       key: 'jump-to-subgraph',
-      label: '↪ 进入子图',
-      color: 'text-primary',
+      label: '进入子图',
+      icon: 'i-tabler-corner-down-right',
+      colorClass: 'text-sky-300',
     })
     items.push({
       key: 'share-to-library',
-      label: '↑ 分享到 Library',
-      color: 'text-primary',
+      label: '分享到 Library',
+      icon: 'i-tabler-upload',
+      colorClass: 'text-sky-300',
     })
   }
 
@@ -169,3 +186,64 @@ function close() {
   emit('update:open', false)
 }
 </script>
+
+<style scoped>
+.ctx-menu {
+  font-family:
+    system-ui, -apple-system, 'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei',
+    sans-serif;
+  /* glassmorphism: 跟节点同款 — 内描边高光 + drop shadow */
+  box-shadow:
+    0 16px 48px -12px rgba(0, 0, 0, 0.7),
+    0 4px 10px -2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+}
+.ctx-header {
+  /* 跟节点 header 同款渐变 */
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    transparent 60%
+  );
+}
+.ctx-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--ui-text-default);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ctx-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.ctx-item:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+.ctx-shortcut {
+  font-size: 10.5px;
+  color: var(--ui-text-dimmed);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.3px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+</style>
