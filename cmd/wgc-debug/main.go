@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
 	"image/png"
 	"os"
 	"strconv"
@@ -29,7 +30,10 @@ import (
 	"github.com/lxn/win"
 
 	"yhbox/pkg/capture"
+	"yhbox/pkg/input"
+	"yhbox/pkg/locale"
 	"yhbox/pkg/winutil"
+	"yhbox/tools/fish"
 )
 
 func main() {
@@ -38,6 +42,8 @@ func main() {
 	interval := flag.Int("interval", 500, "ms between grabs")
 	hwndStr := flag.String("hwnd", "", "target HWND (decimal or 0xHEX, 空=自动找异环)")
 	outDir := flag.String("outdir", ".", "PNG output dir")
+	fishDetect := flag.Bool("fishdetect", false, "抓帧后跑 fish.Detector 报每个 slot 的 conf")
+	tapF := flag.Bool("tapf", false, "模拟 yhbox states_fishing 流程: 抓帧 → tap F → sleep 300ms → 再抓 frame2 → detect frame2 上 NeedBait/StartFish (复现 '按 F 后 300ms 误判换饵' 现象)")
 	flag.Parse()
 
 	hwnd, err := resolveHwnd(*hwndStr)
@@ -78,6 +84,22 @@ func main() {
 		fmt.Println("[backend] gdi (默认)")
 	}
 
+	var det *fish.Detector
+	if *fishDetect {
+		// NewDetector 前必须 LoadConfig 加载 locale templates (跟 main.go 启动期一致)
+		if err := fish.LoadConfig(locale.Zh); err != nil {
+			fmt.Fprintln(os.Stderr, "[fishdetect] fish.LoadConfig:", err)
+			os.Exit(1)
+		}
+		var derr error
+		det, derr = fish.NewDetector()
+		if derr != nil {
+			fmt.Fprintln(os.Stderr, "[fishdetect] NewDetector 失败:", derr)
+			os.Exit(1)
+		}
+		fmt.Println("[fishdetect] enabled (locale=zh)")
+	}
+
 	successCount := 0
 	for i := 0; i < *rounds; i++ {
 		t0 := time.Now()
@@ -110,6 +132,47 @@ func main() {
 				_ = png.Encode(f, img)
 				_ = f.Close()
 				fmt.Printf("    saved: %s\n", out)
+			}
+			if *tapF {
+				fmt.Println("    [tapf] input.Tap(F) ...")
+				input.Tap(hwnd, "f", 50*time.Millisecond, 30*time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
+				fmt.Println("    [tapf] 再抓 frame2 (按 F 后 300ms)")
+				img2, err2 := capture.Frame(hwnd)
+				if err2 != nil {
+					fmt.Printf("    [tapf] frame2 grab fail: %v\n", err2)
+				} else {
+					out2 := fmt.Sprintf("%s/cap_%s_%d_afterF.png", *outDir, *backend, i)
+					if f, ferr := os.Create(out2); ferr == nil {
+						_ = png.Encode(f, img2)
+						_ = f.Close()
+						fmt.Printf("    [tapf] saved: %s\n", out2)
+					}
+					img = img2 // 让下面 detect 跑在 frame2 上
+				}
+			}
+			if det != nil {
+				slots := []struct {
+					name string
+					fn   func(*image.RGBA) (fish.Hit, bool)
+				}{
+					{"start_fish", det.StartFish},
+					{"hook_icon", det.HookIconDim},
+					{"need_bait", det.NeedBait},
+					{"warehouse_full", det.WarehouseFull},
+					{"fish_escape", det.FishEscape},
+					{"result", det.Result},
+					{"hook_text", det.HookText},
+				}
+				for _, sl := range slots {
+					hit, ok := sl.fn(img)
+					mark := "·"
+					if ok {
+						mark = "✓"
+					}
+					fmt.Printf("    %s %-16s conf=%.3f @ (%d,%d)\n",
+						mark, sl.name, hit.Conf, hit.ClientX, hit.ClientY)
+				}
 			}
 		}
 		if i < *rounds-1 {

@@ -100,11 +100,6 @@ struct Session {
     // 当前帧池配置的尺寸; 窗口被 resize 时需要 recreate frame pool.
     pool_w: i32,
     pool_h: i32,
-    // staging texture cache. 仅当 staging_w/h 跟当前帧尺寸不一致时重建, 否则复用.
-    // 避免每帧 CreateTexture2D 重型 GPU 资源分配 (60fps × N bot 累计 driver 压力大).
-    staging: Option<ID3D11Texture2D>,
-    staging_w: i32,
-    staging_h: i32,
 }
 
 // ClientOffset 描述客户区在 WGC frame 内的位置.
@@ -201,11 +196,16 @@ fn open_session_impl(hwnd: HWND) -> windows::core::Result<Session> {
         let item: GraphicsCaptureItem = interop.CreateForWindow(hwnd)?;
 
         // 4. FramePool + Session
+        // buffer count=1: 微软文档 "If you only need the latest frame, use 1". count=2
+        // 时 pool 满后 capture 丢新帧, TryGetNextFrame 拿最老的 — 我们间隔抓帧 (500ms+)
+        // 会让 pool 长期满, 永远拿 stale frame (bug: cache session 重测 5 帧 pix 完全
+        // 一样, nocache 每次新 session 反而能拿新帧 — 因为新 session 启动后第一帧总是
+        // 新鲜的).
         let size = item.Size()?;
         let frame_pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
             &direct3d_device,
             DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            2, // 双缓冲
+            1,
             size,
         )?;
         let session = frame_pool.CreateCaptureSession(&item)?;
@@ -236,9 +236,6 @@ fn open_session_impl(hwnd: HWND) -> windows::core::Result<Session> {
             session,
             pool_w: size.Width,
             pool_h: size.Height,
-            staging: None,
-            staging_w: 0,
-            staging_h: 0,
         })
     }
 }
@@ -311,27 +308,43 @@ pub extern "C" fn wgc_session_grab(
     };
     let mut s = sess_arc.lock().unwrap();
 
-    // TryGetNextFrame "没新帧" 时 windows-rs 0.58 实测包成 Err(HRESULT(0)) (S_OK,
-    // 错误描述 "操作成功完成"), 不是文档说的 Ok(default). 这是 Win10 22H2 19045 实测,
-    // 高频路径 — 走 ERR_NOT_READY 让 Go 端按节奏 retry.
-    // 同时 DXGI_ERROR_WAIT_TIMEOUT / DXGI_STATUS_OCCLUDED 是 occluded / RDP / minimized
-    // 时的 benign HRESULT, 也归 NOT_READY 防 GRAB_FAILED 风暴.
-    // 其他 HRESULT 才是真错 (device lost / session closed / access lost), 报 GRAB_FAILED.
-    let frame = match s.frame_pool.TryGetNextFrame() {
-        Ok(f) => f,
-        Err(e) => {
-            let hr = e.code();
-            if hr.0 == 0 || hr == DXGI_ERROR_WAIT_TIMEOUT || hr == DXGI_STATUS_OCCLUDED {
-                return ERR_NOT_READY;
+    // Drain pool 拿最新 frame.
+    //
+    // 单次 TryGetNextFrame 在 cache session 复用模式下实测会返"老帧" — 我们间隔
+    // 抓帧 (500ms+) 比 capture pipeline 推帧 (vsync ~16ms) 慢得多, pool 长期满
+    // (即使 count=1), 第一次 TryGetNextFrame 拿到的是 pool 里最老那一帧.
+    //
+    // 循环 TryGetNextFrame 直到 Err, 拿最后一个 (=最新). 微软文档说
+    // "TryGetNextFrame after a frame has been received will release the frame back
+    // to the pool", 所以中间的 frame 不需要显式 Close (drop 即可, TryGetNextFrame
+    // 内部已 release 上一个回 pool).
+    //
+    // benign HRESULT 处理: 第一次就 Err 才报 NOT_READY/GRAB_FAILED; 已经拿到至少
+    // 一帧后再 Err 是正常 drain 结束.
+    let mut latest_frame: Option<windows::Graphics::Capture::Direct3D11CaptureFrame> = None;
+    loop {
+        match s.frame_pool.TryGetNextFrame() {
+            Ok(f) => {
+                latest_frame = Some(f);
             }
-            set_err(format!(
-                "TryGetNextFrame: {:#x} {}",
-                hr.0 as u32,
-                e.message()
-            ));
-            return ERR_GRAB_FAILED;
+            Err(e) => {
+                if latest_frame.is_some() {
+                    break; // drain 结束, 用 latest
+                }
+                let hr = e.code();
+                if hr.0 == 0 || hr == DXGI_ERROR_WAIT_TIMEOUT || hr == DXGI_STATUS_OCCLUDED {
+                    return ERR_NOT_READY;
+                }
+                set_err(format!(
+                    "TryGetNextFrame: {:#x} {}",
+                    hr.0 as u32,
+                    e.message()
+                ));
+                return ERR_GRAB_FAILED;
+            }
         }
-    };
+    }
+    let frame = latest_frame.unwrap();
 
     let content_size = match frame.ContentSize() {
         Ok(sz) => sz,
@@ -408,52 +421,39 @@ pub extern "C" fn wgc_session_grab(
         }
     };
 
-    // staging texture 复用: 仅当尺寸跟当前帧 (全 frame, 含非客户区) 不一致时重建.
-    // staging 必须按 source_tex 全 frame 尺寸创建, 不是客户区 — CopyResource 是全图拷.
+    // staging texture 每帧重建 (不缓存复用).
+    //
+    // 历史教训: 第一版 staging 跨 grab 复用同一 texture, 实测 cache session 模式下连续
+    // grab 都拿到第一次 grab 的内容 (5 round pix 完全一样, fishing 状态机看 stale 帧
+    // 走错分支). 推测 WGC frame pool + D3D11 staging 复用在 free-threaded + 间隔 grab
+    // 模式下 driver 行为异常 — 没 dig 到 root cause, 但每帧重建实测稳定. 1-2ms/frame
+    // overhead 可接受.
     unsafe {
-        // reborrow 出 &mut Session 让 borrow checker 看见 disjoint fields
-        // (MutexGuard 自身不直接支持 split borrow).
-        let inner: &mut Session = &mut s;
-        if inner.staging.is_none() || inner.staging_w != frame_w || inner.staging_h != frame_h {
-            let mut desc = D3D11_TEXTURE2D_DESC::default();
-            source_tex.GetDesc(&mut desc);
-            desc.Usage = D3D11_USAGE_STAGING;
-            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
-            desc.BindFlags = 0;
-            desc.MiscFlags = 0;
+        let mut desc = D3D11_TEXTURE2D_DESC::default();
+        source_tex.GetDesc(&mut desc);
+        desc.Usage = D3D11_USAGE_STAGING;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
+        desc.BindFlags = 0;
+        desc.MiscFlags = 0;
 
-            let mut new_staging: Option<ID3D11Texture2D> = None;
-            if let Err(e) = inner
-                .d3d_device
-                .CreateTexture2D(&desc, None, Some(&mut new_staging))
-            {
+        let mut staging_opt: Option<ID3D11Texture2D> = None;
+        if let Err(e) = s.d3d_device.CreateTexture2D(&desc, None, Some(&mut staging_opt)) {
+            let _ = frame.Close();
+            set_err(format!("CreateTexture2D: {}", e.message()));
+            return ERR_GRAB_FAILED;
+        }
+        let staging = match staging_opt {
+            Some(t) => t,
+            None => {
                 let _ = frame.Close();
-                set_err(format!("CreateTexture2D: {}", e.message()));
                 return ERR_GRAB_FAILED;
             }
-            match new_staging {
-                Some(t) => {
-                    inner.staging = Some(t);
-                    inner.staging_w = frame_w;
-                    inner.staging_h = frame_h;
-                }
-                None => {
-                    let _ = frame.Close();
-                    return ERR_GRAB_FAILED;
-                }
-            }
-        }
-        // split borrow: staging 跟 d3d_context 是 Session 的 disjoint fields,
-        // 都不可变借用, Rust NLL 接受.
-        let staging_ref = inner.staging.as_ref().unwrap();
-        inner.d3d_context.CopyResource(staging_ref, &source_tex);
+        };
+        s.d3d_context.CopyResource(&staging, &source_tex);
 
         // Map 读出 BGRA. D3D11 Map 行有 RowPitch padding (>=W*4), 要逐行拷贝.
         let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-        if let Err(e) = inner
-            .d3d_context
-            .Map(staging_ref, 0, D3D11_MAP_READ, 0, Some(&mut mapped))
-        {
+        if let Err(e) = s.d3d_context.Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped)) {
             let _ = frame.Close();
             set_err(format!("Map: {}", e.message()));
             return ERR_MAP_FAILED;
@@ -470,7 +470,7 @@ pub extern "C" fn wgc_session_grab(
             let dst_row = buf.add(y * row_bytes);
             std::ptr::copy_nonoverlapping(src_row, dst_row, row_bytes);
         }
-        inner.d3d_context.Unmap(staging_ref, 0);
+        s.d3d_context.Unmap(&staging, 0);
     }
 
     // 显式 drop 中间 COM ref, 确保 FramePool buffer 被释放前没人引用 (某些 WGC 驱动
@@ -499,7 +499,7 @@ pub extern "C" fn wgc_session_grab(
             s.frame_pool.Recreate(
                 &direct3d,
                 DirectXPixelFormat::B8G8R8A8UIntNormalized,
-                2,
+                1, // 跟 open 一致, 只 hold 最新帧
                 new_size,
             )
         })();
