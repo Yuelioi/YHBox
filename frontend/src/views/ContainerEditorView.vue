@@ -184,6 +184,7 @@
             class="canvas-bg"
             @node-click="onNodeClick"
             @node-double-click="onNodeDoubleClick"
+            @selection-change="onSelectionChange"
             @pane-click="selectedID = null"
             @pane-context-menu="onCanvasContextMenu"
             @node-context-menu="onNodeContextMenu"
@@ -2034,6 +2035,17 @@ function onAlignSelected(mode: AlignMode) {
 
 function onNodeClick(evt: any) {
   selectedID.value = evt.node?.id ?? null
+}
+
+// vue-flow selection-change: 拖完后 click 偶尔不发 node-click, 但 internal selection
+// 仍变 (节点视觉 selected 但 selectedID 没同步 → 属性栏 80% 不更新). selection-change
+// 比 node-click 可靠, 单选 → 同步 ID, 多/空选 → null (multi 菜单 / inspector hide 处理).
+function onSelectionChange(evt: { nodes: any[]; edges: any[] }) {
+  if (evt.nodes?.length === 1) {
+    selectedID.value = evt.nodes[0].id
+  } else if (!evt.nodes?.length) {
+    selectedID.value = null
+  }
 }
 
 function onNodeDoubleClick(evt: any) {

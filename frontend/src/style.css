@@ -18,6 +18,13 @@ body {
   height: 100%;
 }
 
+/* 全 textarea (含 NuxtUI UTextarea 内部 element) 支持垂直拉高. NuxtUI 默认 resize:none.
+   只放垂直 (不放水平) — 水平拉伸会破布局. */
+textarea {
+  resize: vertical !important;
+  min-height: 2.5em;
+}
+
 /* ── Custom scrollbar (跟 dark theme 一致的细滚动条) ── */
 ::-webkit-scrollbar {
   width: 6px;
