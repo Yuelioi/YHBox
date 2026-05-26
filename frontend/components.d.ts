@@ -94,6 +94,7 @@ declare module 'vue' {
     UInput: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Input.vue')['default']
     UInputMenu: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/InputMenu.vue')['default']
     UInputNumber: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/InputNumber.vue')['default']
+    UInputTags: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/InputTags.vue')['default']
     UModal: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Modal.vue')['default']
     UPopover: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Popover.vue')['default']
     USelect: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Select.vue')['default']

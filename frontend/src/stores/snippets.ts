@@ -49,21 +49,27 @@ export const useSnippetsStore = defineStore('snippets', () => {
     if (loaded.value) return
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
+      console.log('[snippets store] load(): localStorage raw =', raw)
       if (raw) {
         const parsed = JSON.parse(raw) as Snippet[]
-        if (Array.isArray(parsed)) snippets.value = parsed
+        if (Array.isArray(parsed)) {
+          snippets.value = parsed
+          console.log('[snippets store] loaded', parsed.length, 'snippets')
+        }
       }
-    } catch {
-      // JSON 坏 / localStorage 不可用 → 保留 empty
+    } catch (e) {
+      console.error('[snippets store] load error:', e)
     }
     loaded.value = true
   }
 
   function persist() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets.value))
-    } catch {
-      // 配额满 → 静默 (内存仍工作)
+      const json = JSON.stringify(snippets.value)
+      localStorage.setItem(STORAGE_KEY, json)
+      console.log('[snippets store] persist', snippets.value.length, 'snippets (', json.length, 'bytes)')
+    } catch (e) {
+      console.error('[snippets store] persist error (localStorage 配额或不可用):', e)
     }
   }
 

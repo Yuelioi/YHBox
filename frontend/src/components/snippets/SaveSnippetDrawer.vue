@@ -57,16 +57,27 @@
           </div>
 
           <div class="field">
-            <label>标签 (filter)</label>
-            <UInputMenu
+            <label>标签 (filter, 回车 / Tab 添加)</label>
+            <UInputTags
               v-model="formTags"
-              :items="allTags"
-              multiple
-              creatable
               size="sm"
-              placeholder="添加 tag..."
+              placeholder="例: fishing 后按回车..."
+              add-on-paste
+              add-on-tab
+              add-on-blur
               class="w-full"
             />
+            <div v-if="allTags.length > 0" class="flex flex-wrap gap-1 mt-1">
+              <span class="text-[10px] text-dimmed mr-1">建议:</span>
+              <button
+                v-for="t in allTags"
+                :key="t"
+                type="button"
+                class="suggestion-chip"
+                :class="formTags.includes(t) ? 'is-active' : ''"
+                @click="toggleTag(t)"
+              >#{{ t }}</button>
+            </div>
           </div>
 
           <div class="field">
@@ -173,6 +184,16 @@ store.load()
 
 const { confirm: confirmDialog } = useConfirm()
 
+// ===== DEBUG: 让用户 console 看 prefill 流程 =====
+console.log('[SnippetDrawer] setup', {
+  open: props.open,
+  editingID: props.editingID,
+  sourceKind: props.sourceKind,
+  storeLoaded: store.loaded,
+  storeSize: store.snippets.length,
+  storeIDs: store.snippets.map((s) => s.id),
+})
+
 // 每字段单独 ref — 跟 NuxtUI v-model 100% 兼容. setup time prefill 一次,
 // 之后用户输入直接改各 ref. 不需要 watch / Object.assign / reactive 体操.
 const formName = ref('')
@@ -186,6 +207,7 @@ const formShortcut = ref('')
 // setup time prefill — 父 v-if + :key 保证每次新打开 setup 重跑, props 已最终.
 if (props.editingID) {
   const s = store.getById(props.editingID)
+  console.log('[SnippetDrawer] prefill getById', props.editingID, '→', s)
   if (s) {
     formName.value = s.name
     formDesc.value = s.description ?? ''
@@ -194,9 +216,25 @@ if (props.editingID) {
     formColor.value = s.color
     formIcon.value = s.icon
     formShortcut.value = s.shortcut ?? ''
+    console.log('[SnippetDrawer] filled', {
+      name: formName.value,
+      category: formCategory.value,
+      tags: formTags.value,
+      shortcut: formShortcut.value,
+    })
+  } else {
+    console.warn('[SnippetDrawer] snippet not found in store, prefill skipped')
   }
 } else {
   formName.value = props.sourceKind ?? ''
+}
+
+function toggleTag(t: string) {
+  if (formTags.value.includes(t)) {
+    formTags.value = formTags.value.filter((x) => x !== t)
+  } else {
+    formTags.value = [...formTags.value, t]
+  }
 }
 
 const existingCategories = computed(() => store.allCategories)
