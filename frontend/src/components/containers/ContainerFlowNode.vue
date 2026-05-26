@@ -361,21 +361,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   width: 3px;
   /* 圆角跟 header 顶左对齐, 避免直角矩形伸出 radius 外 */
   border-top-left-radius: 11px;
-  /* 默认静态纯色 — 选中后 shimmer 才流动 */
-  background-image: linear-gradient(
-    180deg,
-    transparent,
-    rgba(255, 255, 255, 0.4),
-    transparent
-  );
-  background-size: 100% 50%;
-  background-repeat: no-repeat;
-  background-position: 0% -50%;
-  animation: accent-shimmer 2.4s ease-in-out infinite;
-  animation-play-state: paused;
-}
-.container-node.is-selected .header-accent {
-  animation-play-state: running;
+  /* 纯色 group accent, 不再 shimmer 流动 — 外围呼吸已经够 */
 }
 .header-icon {
   width: 18px;
@@ -551,14 +537,6 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
       0 0 0 8px rgba(6, 182, 212, 0.28),
       0 0 38px rgba(6, 182, 212, 0.6),
       0 12px 30px -10px rgba(0, 0, 0, 0.6);
-  }
-}
-@keyframes accent-shimmer {
-  0% {
-    background-position: 0% -50%;
-  }
-  100% {
-    background-position: 0% 150%;
   }
 }
 @keyframes scan-line {
