@@ -30,18 +30,25 @@
       />
     </div>
 
-    <!-- Body: 左右两列 pin, UE Blueprint 风格. -->
+    <!-- Body: grid 严格对齐. 同 row index 的 left/right 自动同 Y.
+         left/right pin 数不等时按 max(len) 占行, 短的一列下方空 grid cell. -->
     <div class="node-body" :style="{ minHeight: bodyHeight + 'px' }">
-      <div class="pin-col pin-col-left">
-        <div v-for="p in leftPins" :key="'lp-' + p.id" class="pin-row pin-row-left">
-          <span class="pin-label truncate" :style="{ color: labelColor(p) }">{{ p.label }}</span>
+      <template v-for="i in maxRows" :key="'row-' + i">
+        <div class="pin-row pin-row-left">
+          <span
+            v-if="leftPins[i - 1]"
+            class="pin-label truncate"
+            :style="{ color: labelColor(leftPins[i - 1]) }"
+          >{{ leftPins[i - 1].label }}</span>
         </div>
-      </div>
-      <div class="pin-col pin-col-right">
-        <div v-for="p in rightPins" :key="'rp-' + p.id" class="pin-row pin-row-right">
-          <span class="pin-label truncate" :style="{ color: labelColor(p) }">{{ p.label }}</span>
+        <div class="pin-row pin-row-right">
+          <span
+            v-if="rightPins[i - 1]"
+            class="pin-label truncate"
+            :style="{ color: labelColor(rightPins[i - 1]) }"
+          >{{ rightPins[i - 1].label }}</span>
         </div>
-      </div>
+      </template>
     </div>
 
     <!-- Config preview -->
@@ -239,11 +246,12 @@ const preview = computed(() => {
   return out
 })
 
-const HEADER_H = 38
+const HEADER_H = 42
 const BODY_PAD_TOP = 6
 const ROW_H = 22
 
-const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.value.length) * ROW_H)
+const maxRows = computed(() => Math.max(leftPins.value.length, rightPins.value.length))
+const bodyHeight = computed(() => maxRows.value * ROW_H)
 </script>
 
 <style scoped>
@@ -290,14 +298,7 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   pointer-events: none;
   z-index: 1;
 }
-.container-node:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 16px 40px -12px rgba(0, 0, 0, 0.75),
-    0 4px 8px -1px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3);
-}
+/* hover lift 去掉 — 用户反馈卡. 静止视觉就够, 只 Handle hover 有反馈. */
 .container-node.is-selected {
   box-shadow:
     0 0 0 1.5px #06b6d4,
@@ -336,19 +337,23 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 8px 16px;
-  height: 40px;
+  gap: 10px;
+  padding: 9px 14px 9px 18px;
+  height: 42px;
   border-top-left-radius: 11px;
   border-top-right-radius: 11px;
   overflow: hidden;
-  /* header 加 linear gradient (135°) 层次感 — 当前 group 色叠到 transparent */
+  /* header 加 linear gradient (135°) 层次感 */
   background-image: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    transparent 50%,
-    rgba(0, 0, 0, 0.15) 100%
+    rgba(255, 255, 255, 0.08) 0%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.2) 100%
   );
+  /* 分割: 底部 1px 高光 + 1px 暗影 (双线立体感) */
+  box-shadow:
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.4),
+    0 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 .header-accent {
   position: absolute;
@@ -382,47 +387,32 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   line-height: 1.1;
 }
 .header-label {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  /* holographic gradient text */
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 0.85) 50%,
-    rgba(220, 230, 240, 0.95) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.97);
   font-family:
-    'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+    system-ui, -apple-system, 'Segoe UI Variable Display', 'SF Pro Display',
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .header-sub {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 400;
-  letter-spacing: 0.2px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  font-family:
+    system-ui, -apple-system, 'Segoe UI Variable Text', 'SF Pro Text', 'PingFang SC',
+    sans-serif;
 }
 
+/* Body: grid 严格对齐 — left/right col 同 row index 在同 Y, 不依赖 flex padding 微差.
+   grid-auto-rows 22px 保证每行 height 一致, 子元素不允许撑高. */
 .node-body {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 22px;
   padding: 6px 0 8px 0;
-}
-.pin-col {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 50%;
-  min-width: 0;
-}
-.pin-col-left {
-  padding-left: 14px;
-}
-.pin-col-right {
-  padding-right: 14px;
 }
 .pin-row {
   display: flex;
@@ -433,14 +423,27 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   line-height: 1;
   user-select: none;
   pointer-events: none;
+  min-width: 0; /* 防 truncate 失效 */
+}
+.pin-row-left {
+  padding-left: 16px;
+  padding-right: 4px;
+  justify-content: flex-start;
+  grid-column: 1;
 }
 .pin-row-right {
+  padding-left: 4px;
+  padding-right: 16px;
   justify-content: flex-end;
+  grid-column: 2;
 }
 .pin-label {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0.2px;
+  font-family:
+    'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  letter-spacing: 0.3px;
   font-weight: 500;
+  font-feature-settings: 'liga' 0, 'calt' 0;
 }
 
 .node-footer {

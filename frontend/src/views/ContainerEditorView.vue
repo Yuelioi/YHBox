@@ -181,7 +181,7 @@
             :nodes-draggable="true"
             :elements-selectable="true"
             fit-view-on-init
-            class="bg-elevated/20"
+            class="canvas-bg"
             @node-click="onNodeClick"
             @node-double-click="onNodeDoubleClick"
             @pane-click="selectedID = null"
@@ -200,7 +200,7 @@
             @node-drag="onSnapNodeDrag"
             @node-drag-stop="onSnapNodeDragStop"
           >
-            <Background pattern-color="#3f3f46" :gap="20" />
+            <Background pattern-color="#3a3a4d" :gap="22" :size="1.2" />
             <Controls position="bottom-left" />
             <MiniMap
               pannable
@@ -2288,6 +2288,36 @@ async function onSaveAndClose() {
 
 <style scoped>
 /* 自定义节点容器（ContainerFlowNode 自己有 bg/border，这里不再覆盖） */
+
+/* ---- Canvas 背景: 深色 radial gradient + 微妙 vignette + 网格 dots ---- */
+.canvas-bg {
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      rgba(99, 102, 241, 0.08) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 50% 100%,
+      rgba(6, 182, 212, 0.05) 0%,
+      transparent 65%
+    ),
+    linear-gradient(180deg, #0c0c14 0%, #07070c 100%);
+}
+.canvas-bg::after {
+  /* vignette: 边缘略暗, 中心略亮, 把焦点收回画布中央 */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
+  z-index: 0;
+}
+/* vue-flow 内部 viewport / pane / nodes 都 z-index > 0, vignette 不挡 */
 
 /* ---- Controls (左下角缩放/fit) 深色 ---- */
 :deep(.vue-flow__controls) {
