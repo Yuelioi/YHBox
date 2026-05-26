@@ -374,7 +374,7 @@ func NewCaptureAdapter(rt *RuntimeContext) node.CaptureService { return &capture
 // ============================================================================
 // VisionAdapter — rt.Matcher + rt.Color + rt.Capture → node.VisionService
 // Match/WaitMatch 走 Matcher; DetectColor 走 Color;
-// DetectColorHSV / ROIColorScan / BarTrack 自抓帧 + 复用包内 helper (countHSVInROI / scanClusters / vision.AnalyzeBar).
+// DetectColorHSV / ROIColorScan / DualBarTrack 自抓帧 + 复用包内 helper (countHSVInROI / scanClusters / vision.AnalyzeDualColorBar).
 // ============================================================================
 
 // visionWaitPollMs WaitMatch 默认轮询间隔, 跟老 runtime defaultPollMs (100ms) 同值.
@@ -459,37 +459,46 @@ func (a *visionAdapter) writeLastTemplate(found bool, pt expr.Point) {
 	})
 }
 
-func (a *visionAdapter) BarTrack(roi node.Rect) (node.BarTrackResult, error) {
+func (a *visionAdapter) DualBarTrack(roi node.Rect, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
 	if a.rt.Capture == nil {
-		return node.BarTrackResult{}, fmt.Errorf("capture backend not initialised")
+		return node.DualColorBarResult{}, fmt.Errorf("capture backend not initialised")
 	}
 	hwnd := win.HWND(a.rt.Window.HWND)
 	frame, err := a.rt.Capture.FrameROI(hwnd, int(roi.X), int(roi.Y), int(roi.W), int(roi.H))
 	if err != nil || frame == nil {
 		// 抓帧失败 (常见: HWND 失效 / 截图后台权限丢失) → 视 Missing 不冒泡 error.
-		// 复刻老 runtime execColorBarTrack 行为.
-		return node.BarTrackResult{Found: false}, nil
+		return node.DualColorBarResult{Found: false}, nil
 	}
-	result := vision.AnalyzeBar(frame)
+	vInner := vision.HSVRange{HMin: inner.HMin, HMax: inner.HMax, SMin: inner.SMin, SMax: inner.SMax, VMin: inner.VMin, VMax: inner.VMax}
+	vOuter := vision.HSVRange{HMin: outer.HMin, HMax: outer.HMax, SMin: outer.SMin, SMax: outer.SMax, VMin: outer.VMin, VMax: outer.VMax}
+	vOpts := vision.DualBarOptions{
+		InnerMinPx:      opts.InnerMinPx,
+		InnerMaxPx:      opts.InnerMaxPx,
+		OuterMinPx:      opts.OuterMinPx,
+		BandRatioH:      opts.BandRatioH,
+		BandRatioInner:  opts.BandRatioInner,
+		ConfInnerWeight: opts.ConfInnerWeight,
+		ConfOuterWeight: opts.ConfOuterWeight,
+	}
+	result := vision.AnalyzeDualColorBar(frame, vInner, vOuter, vOpts)
 	if result == nil {
-		return node.BarTrackResult{Found: false}, nil
+		return node.DualColorBarResult{Found: false}, nil
 	}
-	out := node.BarTrackResult{
-		CursorX:    result.CursorX,
-		TargetX:    result.TargetX,
-		TargetW:    result.TargetW,
+	out := node.DualColorBarResult{
+		Found:      result.Found && result.Confidence >= confBarV2,
+		InnerX:     result.InnerX,
+		OuterX:     result.OuterX,
+		OuterWidth: result.OuterWidth,
 		Confidence: result.Confidence,
-		YellowPx:   result.YellowPx,
-		GreenPx:    result.GreenPx,
+		InnerPx:    result.InnerPx,
+		OuterPx:    result.OuterPx,
 	}
-	out.Found = result.CursorX >= 0 && result.TargetX >= 0 && result.Confidence >= confBarV2
 
-	// 老 runtime execColorBarTrack 写 SysState.LastBarTrack — state_FISHING 等子图通过
-	// GetSys path=lastBarTrack.{cursorX,targetX,targetW,...} 读. atomic #5 拆老后这写回
-	// 责任落到 VisionAdapter (新框架 ColorBarTrack 只 emit exec-data, 不知 SysState).
-	// P1.3: SysState.LastBarTrack 直接 hold node.BarTrackResult, 不再字段拷贝.
+	// 写 SysState.LastDualBarTrack — fishing-v2 state_FISHING 子图通过 GetSys
+	// path=lastDualBarTrack.{innerX,outerX,outerWidth,...} 读. atomic #5 拆老后这写回
+	// 责任落到 VisionAdapter (新框架节点只 emit exec-data, 不知 SysState).
 	a.rt.UpdateSys(func(s *SysState) {
-		s.LastBarTrack = out
+		s.LastDualBarTrack = out
 	})
 	return out, nil
 }

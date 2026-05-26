@@ -142,13 +142,13 @@ func TestSysStoreAdapter_ResolveSysPath(t *testing.T) {
 	a := NewSysStoreAdapter(rt)
 	rt.UpdateSys(func(s *SysState) {
 		s.LastFound = true
-		s.LastBarTrack.CursorX = 123
+		s.LastDualBarTrack.InnerX = 123
 	})
 	if v, ok := a.Get("lastTemplate.found"); !ok || v.(bool) != true {
 		t.Errorf("lastTemplate.found = %v, %v; want true, true", v, ok)
 	}
-	if v, ok := a.Get("lastBarTrack.cursorX"); !ok || v.(float64) != 123 {
-		t.Errorf("lastBarTrack.cursorX = %v, %v; want 123, true", v, ok)
+	if v, ok := a.Get("lastDualBarTrack.innerX"); !ok || v.(float64) != 123 {
+		t.Errorf("lastDualBarTrack.innerX = %v, %v; want 123, true", v, ok)
 	}
 }
 

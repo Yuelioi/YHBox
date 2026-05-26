@@ -1,4 +1,4 @@
-// internal/nodes/detect/color_bar_track_test.go
+// internal/nodes/detect/dual_color_bar_track_test.go
 package detect
 
 import (
@@ -31,79 +31,80 @@ func validRois1080p() []any {
 	}
 }
 
-func TestColorBarTrack_Found(t *testing.T) {
+func TestDualColorBarTrack_Found(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&ColorBarTrack{})
-	rn, _ := node.Get("ColorBarTrack")
+	node.Register(&DualColorBarTrack{})
+	rn, _ := node.Get("DualColorBarTrack")
 
 	vision := &mockVision{
-		barResult: node.BarTrackResult{
+		barResult: node.DualColorBarResult{
 			Found:      true,
-			CursorX:    320, TargetX: 400, TargetW: 80,
+			InnerX:     320, OuterX: 400, OuterWidth: 80,
 			Confidence: 0.85,
-			YellowPx:   200, GreenPx: 50,
+			InnerPx:    200, OuterPx: 50,
 		},
 	}
 	win := stubWindow{w: 1920, h: 1080}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{cbtInRois: validRois1080p()},
+		map[string]any{dcbtInRois: validRois1080p()},
 		nil, withVisionAndWindow(vision, win))
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != cbtOutFound {
+	if r.ExitName != dcbtOutFound {
 		t.Errorf("exit = %q, want Found", r.ExitName)
 	}
-	if r.OutputData[cbtDataCursorX].(int) != 320 {
-		t.Errorf("cursorX = %v, want 320", r.OutputData[cbtDataCursorX])
+	if r.OutputData[dcbtDataInnerX].(int) != 320 {
+		t.Errorf("innerX = %v, want 320", r.OutputData[dcbtDataInnerX])
 	}
 }
 
-func TestColorBarTrack_MissingNoResolutionMatch(t *testing.T) {
+func TestDualColorBarTrack_MissingNoResolutionMatch(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&ColorBarTrack{})
-	rn, _ := node.Get("ColorBarTrack")
+	node.Register(&DualColorBarTrack{})
+	rn, _ := node.Get("DualColorBarTrack")
 
 	// rois 只 1080p, client 720p → Missing.
 	win := stubWindow{w: 1280, h: 720}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{cbtInRois: validRois1080p()},
+		map[string]any{dcbtInRois: validRois1080p()},
 		nil, withVisionAndWindow(&mockVision{}, win))
 
-	if r.ExitName != cbtOutMissing {
+	if r.ExitName != dcbtOutMissing {
 		t.Errorf("exit = %q, want Missing", r.ExitName)
 	}
 }
 
-func TestColorBarTrack_MissingLowConfidence(t *testing.T) {
+func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&ColorBarTrack{})
-	rn, _ := node.Get("ColorBarTrack")
+	node.Register(&DualColorBarTrack{})
+	rn, _ := node.Get("DualColorBarTrack")
 
+	// vision adapter 已经按 confBarV2 阈值 (0.50) 设 Found, mock 直接给 Found=false 模拟低 conf.
 	vision := &mockVision{
-		barResult: node.BarTrackResult{
-			Found: true, CursorX: 10, TargetX: 50, Confidence: 0.3, // < confBarThreshold 0.50
+		barResult: node.DualColorBarResult{
+			Found: false, InnerX: 10, OuterX: 50, Confidence: 0.3,
 		},
 	}
 	win := stubWindow{w: 1920, h: 1080}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{cbtInRois: validRois1080p()},
+		map[string]any{dcbtInRois: validRois1080p()},
 		nil, withVisionAndWindow(vision, win))
 
-	if r.ExitName != cbtOutMissing {
+	if r.ExitName != dcbtOutMissing {
 		t.Errorf("exit = %q, want Missing (low conf)", r.ExitName)
 	}
 }
 
-func TestColorBarTrack_InvalidROIs_ValidationError(t *testing.T) {
+func TestDualColorBarTrack_InvalidROIs_ValidationError(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&ColorBarTrack{})
-	rn, _ := node.Get("ColorBarTrack")
+	node.Register(&DualColorBarTrack{})
+	rn, _ := node.Get("DualColorBarTrack")
 
 	// 空数组 → INVALID
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{cbtInRois: []any{}},
+		map[string]any{dcbtInRois: []any{}},
 		nil, withVisionAndWindow(&mockVision{}, stubWindow{}))
 	if len(r.Validation) == 0 {
 		t.Error("expected validation error on empty rois")
@@ -117,7 +118,7 @@ func TestColorBarTrack_InvalidROIs_ValidationError(t *testing.T) {
 		},
 	}
 	r2 := node.RunNode(context.Background(), rn, nil,
-		map[string]any{cbtInRois: bad},
+		map[string]any{dcbtInRois: bad},
 		nil, withVisionAndWindow(&mockVision{}, stubWindow{}))
 	if len(r2.Validation) == 0 {
 		t.Error("expected validation error on out-of-bounds ROI")

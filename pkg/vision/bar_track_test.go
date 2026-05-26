@@ -6,72 +6,100 @@ import (
 	"testing"
 )
 
-// TestAnalyzeBar_EmptyImage: 全黑帧 → 不返 cursor/target.
-func TestAnalyzeBar_EmptyImage(t *testing.T) {
+// fishing default HSV ranges (复刻 tools/fish/bar.go 包级常量) — 给 test 用.
+var (
+	fishingCursorHSV = HSVRange{HMin: 45, HMax: 70, SMin: 40, SMax: 255, VMin: 200, VMax: 255}
+	fishingTargetHSV = HSVRange{HMin: 160, HMax: 180, SMin: 140, SMax: 255, VMin: 100, VMax: 255}
+)
+
+// TestAnalyzeDualColorBar_EmptyImage: 全黑帧 → 不返 inner/outer.
+func TestAnalyzeDualColorBar_EmptyImage(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
 	// 全黑默认
-	result := AnalyzeBar(img)
+	result := AnalyzeDualColorBar(img, fishingCursorHSV, fishingTargetHSV, DualBarOptions{})
 	if result == nil {
 		return // OK, w<10 || h<4 时返 nil
 	}
-	if result.CursorX >= 0 && result.TargetX >= 0 {
-		t.Errorf("空帧不应找到 cursor+target, got: %+v", result)
+	if result.InnerX >= 0 && result.OuterX >= 0 {
+		t.Errorf("空帧不应找到 inner+outer, got: %+v", result)
 	}
 }
 
-// TestAnalyzeBar_SyntheticCursorAndTarget: 合成有黄 cursor + 青 target 的帧,
-// 期望 conf >= 0.3 且 cursorX/targetX 在合理范围.
-func TestAnalyzeBar_SyntheticCursorAndTarget(t *testing.T) {
+// TestAnalyzeDualColorBar_SyntheticInnerAndOuter: 合成有黄 inner + 青 outer 的帧
+// (fishing 默认阈值), 期望 conf >= 0.3 且 InnerX/OuterX 在合理范围.
+func TestAnalyzeDualColorBar_SyntheticInnerAndOuter(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
-	// 画黄 cursor (HSV H~55) 在 x=50, w=3, full height
-	cursor := color.RGBA{R: 255, G: 240, B: 60, A: 255} // H≈55 S≈76 V≈100
+	// 画黄 inner (HSV H~55) 在 x=50, w=3, full height
+	inner := color.RGBA{R: 255, G: 240, B: 60, A: 255} // H≈55 S≈76 V≈100
 	for y := range 20 {
 		for x := 49; x <= 51; x++ {
-			img.Set(x, y, cursor)
+			img.Set(x, y, inner)
 		}
 	}
-	// 画青 target (HSV H~172) 在 x=100, w=15, 中段
-	target := color.RGBA{R: 0, G: 230, B: 200, A: 255} // H=172 S=255 V=230; 在 H[160,180] S>=140 V>=100 范围内
+	// 画青 outer (HSV H~172) 在 x=100, w=15, 中段
+	outer := color.RGBA{R: 0, G: 230, B: 200, A: 255} // H=172 S=255 V=230; 在 H[160,180] S>=140 V>=100 范围内
 	for y := 5; y < 15; y++ {
 		for x := 100; x <= 114; x++ {
-			img.Set(x, y, target)
+			img.Set(x, y, outer)
 		}
 	}
-	result := AnalyzeBar(img)
+	result := AnalyzeDualColorBar(img, fishingCursorHSV, fishingTargetHSV, DualBarOptions{})
 	if result == nil {
 		t.Fatal("合成图应找到 bar")
 	}
-	if result.CursorX < 49 || result.CursorX > 51 {
-		t.Errorf("cursor X 偏离, got %d, want ~50", result.CursorX)
+	if result.InnerX < 49 || result.InnerX > 51 {
+		t.Errorf("inner X 偏离, got %d, want ~50", result.InnerX)
 	}
-	if result.TargetX < 100 || result.TargetX > 114 {
-		t.Errorf("target X 偏离, got %d, want ~107", result.TargetX)
+	if result.OuterX < 100 || result.OuterX > 114 {
+		t.Errorf("outer X 偏离, got %d, want ~107", result.OuterX)
 	}
 	if result.Confidence < 0.3 {
 		t.Errorf("合成图 conf 应 >0.3, got %.2f", result.Confidence)
 	}
 }
 
-// TestAnalyzeBar_CursorOnly: 只有黄无青 → CursorX 找到, TargetX = -1.
-func TestAnalyzeBar_CursorOnly(t *testing.T) {
+// TestAnalyzeDualColorBar_InnerOnly: 只有 inner 无 outer → InnerX 找到, OuterX = -1.
+func TestAnalyzeDualColorBar_InnerOnly(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
-	cursor := color.RGBA{R: 255, G: 240, B: 60, A: 255}
+	inner := color.RGBA{R: 255, G: 240, B: 60, A: 255}
 	for y := range 20 {
 		for x := 49; x <= 51; x++ {
-			img.Set(x, y, cursor)
+			img.Set(x, y, inner)
 		}
 	}
-	result := AnalyzeBar(img)
+	result := AnalyzeDualColorBar(img, fishingCursorHSV, fishingTargetHSV, DualBarOptions{})
 	if result == nil {
-		t.Fatal("应返非 nil (cursor 存在)")
+		t.Fatal("应返非 nil (inner 存在)")
 	}
-	if result.CursorX < 0 {
-		t.Errorf("cursor 应找到, got CursorX=%d", result.CursorX)
+	if result.InnerX < 0 {
+		t.Errorf("inner 应找到, got InnerX=%d", result.InnerX)
 	}
-	if result.TargetX >= 0 {
-		t.Errorf("target 应找不到, got TargetX=%d", result.TargetX)
+	if result.OuterX >= 0 {
+		t.Errorf("outer 应找不到, got OuterX=%d", result.OuterX)
 	}
-	if result.YellowPx == 0 {
-		t.Errorf("YellowPx 应 > 0")
+	if result.InnerPx == 0 {
+		t.Errorf("InnerPx 应 > 0")
+	}
+}
+
+// TestAnalyzeDualColorBar_CustomOptions: 自定义 InnerMaxPx 限制让宽 inner 不命中.
+func TestAnalyzeDualColorBar_CustomOptions(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
+	inner := color.RGBA{R: 255, G: 240, B: 60, A: 255}
+	// 画 8 px 宽 inner
+	for y := range 20 {
+		for x := 46; x <= 53; x++ {
+			img.Set(x, y, inner)
+		}
+	}
+	// 默认 Options 应该能命中 (InnerMaxPx default = max(15, w/40) = 15, 8 <= 15)
+	r1 := AnalyzeDualColorBar(img, fishingCursorHSV, fishingTargetHSV, DualBarOptions{})
+	if r1 == nil || r1.InnerX < 0 {
+		t.Errorf("default Options 应命中 8px inner, got %+v", r1)
+	}
+	// 设 InnerMaxPx=5, 8 > 5 不命中
+	r2 := AnalyzeDualColorBar(img, fishingCursorHSV, fishingTargetHSV, DualBarOptions{InnerMaxPx: 5})
+	if r2 != nil && r2.InnerX >= 0 {
+		t.Errorf("InnerMaxPx=5 不应命中 8px inner, got %+v", r2)
 	}
 }

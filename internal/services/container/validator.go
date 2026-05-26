@@ -58,9 +58,9 @@ const (
 	CodeInvalidSwitchCases   = "INVALID_SWITCH_CASES"
 	CodeInvalidCronExpr      = "INVALID_CRON_EXPR"
 
-	// ColorBarTrack rois 数组校验 (multi-resolution lookup).
-	CodeInvalidColorBarROIs   = "INVALID_COLORBAR_ROIS"
-	CodeDuplicateColorBarROI  = "DUPLICATE_COLORBAR_ROI"
+	// DualColorBarTrack rois 数组校验 (multi-resolution lookup).
+	CodeInvalidDualBarROIs   = "INVALID_DUALBAR_ROIS"
+	CodeDuplicateDualBarROI  = "DUPLICATE_DUALBAR_ROI"
 )
 
 // Data-pin + variable + literal validation codes.
@@ -173,7 +173,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateMissingSubgraph(c)...)
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
-	errs = append(errs, validateColorBarTrack(c)...)
+	errs = append(errs, validateDualColorBarTrack(c)...)
 	errs = append(errs, validateTemplateKeyNodes(c)...)
 	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
@@ -878,26 +878,26 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 	return errs
 }
 
-// validateColorBarTrack 校验 ColorBarTrack 节点 config.rois 必须非空 + 每项格式正确.
+// validateDualColorBarTrack 校验 DualColorBarTrack 节点 config.rois 必须非空 + 每项格式正确.
 // 多分辨率支持: rois 每项含 resolution=[W,H] + ROI (x,y,w,h, 像素坐标 in window client area).
 // 出错 code:
-//   - INVALID_COLORBAR_ROIS (Error): rois 空 / 非数组 / 项非对象 / 缺 resolution / w/h <= 0 / 坐标越界
-//   - DUPLICATE_COLORBAR_ROI (Warning): 同分辨率多条 entry (后者覆盖, 但通常是 import bug)
-func validateColorBarTrack(c *Container) []ValidationError {
+//   - INVALID_DUALBAR_ROIS (Error): rois 空 / 非数组 / 项非对象 / 缺 resolution / w/h <= 0 / 坐标越界
+//   - DUPLICATE_DUALBAR_ROI (Warning): 同分辨率多条 entry (后者覆盖, 但通常是 import bug)
+func validateDualColorBarTrack(c *Container) []ValidationError {
 	var errs []ValidationError
 	check := func(nodes []GraphNode, graphPath []string) {
 		for _, n := range nodes {
-			if n.Kind != "ColorBarTrack" {
+			if n.Kind != "DualColorBarTrack" {
 				continue
 			}
 			rois, ok := n.Config["Rois"].([]any)
 			if !ok || len(rois) == 0 {
 				errs = append(errs, ValidationError{
 					Severity:  SeverityError,
-					Code:      CodeInvalidColorBarROIs,
+					Code:      CodeInvalidDualBarROIs,
 					GraphPath: graphPath,
 					NodeID:    n.ID,
-					Message:   fmt.Sprintf("ColorBarTrack 节点 %s config.rois 必须是非空数组", n.ID),
+					Message:   fmt.Sprintf("DualColorBarTrack 节点 %s config.rois 必须是非空数组", n.ID),
 					Params:    map[string]any{"nodeID": n.ID},
 				})
 				continue
@@ -908,10 +908,10 @@ func validateColorBarTrack(c *Container) []ValidationError {
 				if !ok {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityError,
-						Code:      CodeInvalidColorBarROIs,
+						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] 不是对象", n.ID, i),
+						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] 不是对象", n.ID, i),
 						Params:    map[string]any{"nodeID": n.ID, "index": i},
 					})
 					continue
@@ -920,10 +920,10 @@ func validateColorBarTrack(c *Container) []ValidationError {
 				if !ok || len(res) != 2 {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityError,
-						Code:      CodeInvalidColorBarROIs,
+						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d].resolution 必须是 [W,H]", n.ID, i),
+						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d].resolution 必须是 [W,H]", n.ID, i),
 						Params:    map[string]any{"nodeID": n.ID, "index": i},
 					})
 					continue
@@ -935,10 +935,10 @@ func validateColorBarTrack(c *Container) []ValidationError {
 				if resW <= 0 || resH <= 0 {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityError,
-						Code:      CodeInvalidColorBarROIs,
+						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d].resolution 必须正数 (得到 %dx%d)", n.ID, i, resW, resH),
+						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d].resolution 必须正数 (得到 %dx%d)", n.ID, i, resW, resH),
 						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": resW, "h": resH},
 					})
 					continue
@@ -954,10 +954,10 @@ func validateColorBarTrack(c *Container) []ValidationError {
 				if rw < 1 || rh < 1 {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityError,
-						Code:      CodeInvalidColorBarROIs,
+						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] w/h 必须 >= 1 (得到 %dx%d)", n.ID, i, rw, rh),
+						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] w/h 必须 >= 1 (得到 %dx%d)", n.ID, i, rw, rh),
 						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": rw, "h": rh},
 					})
 					continue
@@ -965,10 +965,10 @@ func validateColorBarTrack(c *Container) []ValidationError {
 				if x+rw > resW || y+rh > resH {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityError,
-						Code:      CodeInvalidColorBarROIs,
+						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] ROI (%d,%d)+(%dx%d) 超出 resolution %dx%d", n.ID, i, x, y, rw, rh, resW, resH),
+						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] ROI (%d,%d)+(%dx%d) 超出 resolution %dx%d", n.ID, i, x, y, rw, rh, resW, resH),
 						Params:    map[string]any{"nodeID": n.ID, "index": i},
 					})
 					continue
@@ -977,10 +977,10 @@ func validateColorBarTrack(c *Container) []ValidationError {
 				if seen[key] {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityWarning,
-						Code:      CodeDuplicateColorBarROI,
+						Code:      CodeDuplicateDualBarROI,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("ColorBarTrack %s rois[%d] resolution %dx%d 重复声明", n.ID, i, resW, resH),
+						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] resolution %dx%d 重复声明", n.ID, i, resW, resH),
 						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": resW, "h": resH},
 					})
 				}

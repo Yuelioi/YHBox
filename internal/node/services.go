@@ -36,8 +36,8 @@ func (stubVisionService) WaitMatch(ctx context.Context, key string, threshold fl
 	return nil, 0, nil
 }
 
-func (stubVisionService) BarTrack(roi Rect) (BarTrackResult, error) {
-	return BarTrackResult{}, nil
+func (stubVisionService) DualBarTrack(roi Rect, inner, outer HSVRange, opts DualBarOptions) (DualColorBarResult, error) {
+	return DualColorBarResult{}, nil
 }
 
 func (stubVisionService) DetectColor(region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {

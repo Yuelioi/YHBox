@@ -135,9 +135,11 @@ type VisionService interface {
 	// 命中: pt!=nil, conf>=threshold. timeout: pt=nil, conf=最高near-miss.
 	WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (pt *Point, conf float64, err error)
 
-	// BarTrack 抓 roi 帧 + HSV cluster → 返 cursor/target 位置 + 置信度.
+	// DualBarTrack 抓 roi 帧 + 双色 HSV cluster → 算 inner 在 outer 区域里的位置.
+	// 通用双色条算法 (适用: 血条/进度条/QTE 双色条/钓鱼 cursor-target).
 	// roi 是当前 client 区域 pixel 坐标 (x,y,w,h). Found=false 即 missing.
-	BarTrack(roi Rect) (result BarTrackResult, err error)
+	// opts 零值字段走 vision 包默认 (fishing 实测出来的; 通用 case 可能要调).
+	DualBarTrack(roi Rect, inner, outer HSVRange, opts DualBarOptions) (result DualColorBarResult, err error)
 
 	// DetectColor 在 region (ratio [x,y,w,h], 全 0 = 全屏) 内统计落在 rng 内的像素数.
 	// mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].
@@ -170,15 +172,31 @@ type ClusterEntry struct {
 	PxCount  int `json:"pxCount"`
 }
 
-// BarTrackResult ColorBarTrack 算法单次运行结果. 对齐老 SysBarTrackResult.
-type BarTrackResult struct {
+// DualColorBarResult DualBarTrack 算法单次运行结果. 跟 pkg/vision.DualColorBarResult
+// 形态一致 (重复定义避免 internal/node 反向 import pkg/vision).
+//
+// Found = true 表 inner + outer 都找到; false 表至少有一个 miss (Inner/OuterX = -1).
+// Inner/OuterPx 即使 miss 也填 HSV 命中像素总数 (调试用).
+type DualColorBarResult struct {
 	Found      bool    `json:"found"`
-	CursorX    int     `json:"cursorX"`
-	TargetX    int     `json:"targetX"`
-	TargetW    int     `json:"targetW"`
+	InnerX     int     `json:"innerX"`
+	OuterX     int     `json:"outerX"`
+	OuterWidth int     `json:"outerWidth"`
 	Confidence float64 `json:"confidence"`
-	YellowPx   int     `json:"yellowPx"`
-	GreenPx    int     `json:"greenPx"`
+	InnerPx    int     `json:"innerPx"`
+	OuterPx    int     `json:"outerPx"`
+}
+
+// DualBarOptions DualBarTrack 算法可调参数. 0 值字段走 vision 默认 (fishing UI 实测).
+// 跟 pkg/vision.DualBarOptions 形态一致.
+type DualBarOptions struct {
+	InnerMinPx      int     `json:"innerMinPx,omitempty"`
+	InnerMaxPx      int     `json:"innerMaxPx,omitempty"`
+	OuterMinPx      int     `json:"outerMinPx,omitempty"`
+	BandRatioH      float64 `json:"bandRatioH,omitempty"`
+	BandRatioInner  float64 `json:"bandRatioInner,omitempty"`
+	ConfInnerWeight float64 `json:"confInnerWeight,omitempty"`
+	ConfOuterWeight float64 `json:"confOuterWeight,omitempty"`
 }
 
 // LogService — 节点日志. 实际接 zerolog (main.go wire), 测试用 stdout stub.
@@ -220,7 +238,7 @@ type VarStore interface {
 	IncScoped(name, scope string, delta float64) (newValue float64)
 }
 
-// SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastBarTrack.cursorX" /
+// SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastDualBarTrack.innerX" /
 // "lastTemplate.found" — schema 见 services/container/sys/schema.go.
 type SysStore interface {
 	Get(path string) (value any, ok bool)

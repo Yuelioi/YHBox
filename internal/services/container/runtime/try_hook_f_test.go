@@ -84,8 +84,8 @@ func TestTryHookF_FoundFast(t *testing.T) {
 		t.Fatalf("FoundFast: want keyEvents %v, got %v", want, spy.keyEvents)
 	}
 	sys := rt.Sys()
-	if sys.LastBarTrack.CursorX <= 0 {
-		t.Errorf("FoundFast: expected sys.LastBarTrack.CursorX > 0, got %d", sys.LastBarTrack.CursorX)
+	if sys.LastDualBarTrack.InnerX <= 0 {
+		t.Errorf("FoundFast: expected sys.LastDualBarTrack.InnerX > 0, got %d", sys.LastDualBarTrack.InnerX)
 	}
 }
 

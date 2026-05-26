@@ -36,12 +36,12 @@ var PathSchema = map[string]string{
 	"lastROIScan.clusterCount": "number",
 	"lastROIScan.clusters":     "any",
 	"lastScreenshot.path":      "string",
-	"lastBarTrack.cursorX":    "number",
-	"lastBarTrack.targetX":    "number",
-	"lastBarTrack.targetW":    "number",
-	"lastBarTrack.confidence": "number",
-	"lastBarTrack.yellowPx":   "number",
-	"lastBarTrack.greenPx":    "number",
+	"lastDualBarTrack.innerX":     "number",
+	"lastDualBarTrack.outerX":     "number",
+	"lastDualBarTrack.outerWidth": "number",
+	"lastDualBarTrack.confidence": "number",
+	"lastDualBarTrack.innerPx":    "number",
+	"lastDualBarTrack.outerPx":    "number",
 	// Live time / var-bookkeeping paths (Fishing v2 watchdog 用).
 	// 这两类不进 per-tick snapshot, 总是返 live 值; 见 runtime/getsys.go 特殊路径处理.
 	"now_ms": "number", // time.Now().UnixMilli(), 跟 tick snapshot 解耦 (watchdog 用)

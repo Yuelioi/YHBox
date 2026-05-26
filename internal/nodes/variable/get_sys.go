@@ -25,11 +25,11 @@ func (GetSys) Spec() node.Spec {
 		Kind:        "GetSys",
 		Category:    "Variable",
 		DisplayName: "读系统值",
-		Description: "pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastBarTrack.cursorX). 数据流求值.",
+		Description: "pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastDualBarTrack.innerX). 数据流求值.",
 		Inputs: []node.InputSpec{
 			{Name: gsInPath, Type: "String", Required: true,
 				DisplayName: "路径",
-				Doc:         "点路径, e.g. now_ms / lastBarTrack.cursorX",
+				Doc:         "点路径, e.g. now_ms / lastDualBarTrack.innerX",
 				Widget:      node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{

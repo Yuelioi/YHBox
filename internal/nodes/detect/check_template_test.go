@@ -24,8 +24,8 @@ type mockVision struct {
 	hitOnCall int
 	callCount int
 
-	// BarTrack 用
-	barResult node.BarTrackResult
+	// DualBarTrack 用
+	barResult node.DualColorBarResult
 	barErr    error
 
 	// DetectColor (老 RGB/HSV 模式) 用
@@ -69,7 +69,7 @@ func (m *mockVision) WaitMatch(ctx context.Context, key string, threshold float6
 	return nil, m.conf, nil
 }
 
-func (m *mockVision) BarTrack(roi node.Rect) (node.BarTrackResult, error) {
+func (m *mockVision) DualBarTrack(roi node.Rect, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
 	return m.barResult, m.barErr
 }
 

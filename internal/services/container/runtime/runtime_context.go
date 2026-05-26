@@ -57,8 +57,8 @@ type SysState struct {
 	}
 	// ColorBarTrack 节点输出：cursor/target 位置 + 置信度 + 像素计数。
 	// $sys.lastBarTrack.{cursorX/targetX/targetW/confidence/yellowPx/greenPx}。
-	// 直接 hold nodepkg.BarTrackResult — P1.3 砍重复 typedef, VisionAdapter.BarTrack 写回直传.
-	LastBarTrack nodepkg.BarTrackResult
+	// 直接 hold nodepkg.DualColorBarResult — P1.3 砍重复 typedef, VisionAdapter.DualBarTrack 写回直传.
+	LastDualBarTrack nodepkg.DualColorBarResult
 }
 
 // RuntimeContext 单 Container run 的状态。
@@ -241,18 +241,18 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return s.LastROIScan.Clusters, nil
 	case "lastScreenshot.path":
 		return s.LastScreenshot.Path, nil
-	case "lastBarTrack.cursorX":
-		return float64(s.LastBarTrack.CursorX), nil
-	case "lastBarTrack.targetX":
-		return float64(s.LastBarTrack.TargetX), nil
-	case "lastBarTrack.targetW":
-		return float64(s.LastBarTrack.TargetW), nil
-	case "lastBarTrack.confidence":
-		return s.LastBarTrack.Confidence, nil
-	case "lastBarTrack.yellowPx":
-		return float64(s.LastBarTrack.YellowPx), nil
-	case "lastBarTrack.greenPx":
-		return float64(s.LastBarTrack.GreenPx), nil
+	case "lastDualBarTrack.innerX":
+		return float64(s.LastDualBarTrack.InnerX), nil
+	case "lastDualBarTrack.outerX":
+		return float64(s.LastDualBarTrack.OuterX), nil
+	case "lastDualBarTrack.outerWidth":
+		return float64(s.LastDualBarTrack.OuterWidth), nil
+	case "lastDualBarTrack.confidence":
+		return s.LastDualBarTrack.Confidence, nil
+	case "lastDualBarTrack.innerPx":
+		return float64(s.LastDualBarTrack.InnerPx), nil
+	case "lastDualBarTrack.outerPx":
+		return float64(s.LastDualBarTrack.OuterPx), nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }

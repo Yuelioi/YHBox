@@ -66,7 +66,7 @@ func TestGetVar_EvaluateViaFramework_GlobalReadsSnapshot(t *testing.T) {
 }
 
 func TestGetSys_EvaluateViaFramework_FrozenPath(t *testing.T) {
-	// 用 schema 内合法 path. lastBarTrack.cursorX 在 sys.PathSchema, 走 frozen sys store.
+	// 用 schema 内合法 path. lastDualBarTrack.innerX 在 sys.PathSchema, 走 frozen sys store.
 	node.ResetRegistryForTest()
 	node.Register(&GetSys{})
 	rn, _ := node.Get("GetSys")
@@ -74,13 +74,13 @@ func TestGetSys_EvaluateViaFramework_FrozenPath(t *testing.T) {
 	services := node.StubServices()
 	services.Snapshot = func() node.Snapshot {
 		return node.Snapshot{
-			Sys: fixedSysStore{"lastBarTrack.cursorX": float64(123)},
+			Sys: fixedSysStore{"lastDualBarTrack.innerX": float64(123)},
 		}
 	}
 
 	v, err := node.EvaluatePureData(context.Background(), rn,
 		nil,
-		map[string]any{"Path": "lastBarTrack.cursorX"},
+		map[string]any{"Path": "lastDualBarTrack.innerX"},
 		services,
 	)
 	if err != nil {
