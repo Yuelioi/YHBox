@@ -234,16 +234,17 @@ pub extern "C" fn wgc_session_grab(
     };
     let mut s = sess_arc.lock().unwrap();
 
-    // TryGetNextFrame: WGC 在没新帧时返 Ok(default), Err 大概率是真错 (device lost /
-    // session closed / access lost). 旧版全吞为 NOT_READY 会让 Go 端死等 400ms 才超时,
-    // 真坏了无法区分.
-    // 例外: 某些驱动/系统组合下 occluded / RDP / minimized 偶尔会返 benign HRESULT,
-    // 这些归类成 ERR_NOT_READY 让 caller 自然 retry, 避免刷 GRAB_FAILED 风暴.
+    // TryGetNextFrame "没新帧" 时 windows-rs 0.58 实测包成 Err(HRESULT(0)) (S_OK,
+    // 错误描述 "操作成功完成"), 不是文档说的 Ok(default). 这是 Win10 22H2 19045 实测,
+    // 高频路径 — 走 ERR_NOT_READY 让 Go 端按节奏 retry.
+    // 同时 DXGI_ERROR_WAIT_TIMEOUT / DXGI_STATUS_OCCLUDED 是 occluded / RDP / minimized
+    // 时的 benign HRESULT, 也归 NOT_READY 防 GRAB_FAILED 风暴.
+    // 其他 HRESULT 才是真错 (device lost / session closed / access lost), 报 GRAB_FAILED.
     let frame = match s.frame_pool.TryGetNextFrame() {
         Ok(f) => f,
         Err(e) => {
             let hr = e.code();
-            if hr == DXGI_ERROR_WAIT_TIMEOUT || hr == DXGI_STATUS_OCCLUDED {
+            if hr.0 == 0 || hr == DXGI_ERROR_WAIT_TIMEOUT || hr == DXGI_STATUS_OCCLUDED {
                 return ERR_NOT_READY;
             }
             set_err(format!(
