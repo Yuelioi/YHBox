@@ -20,6 +20,7 @@ import (
 	"image"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/lxn/win"
@@ -99,7 +100,13 @@ func cstrToGo(p unsafe.Pointer) string {
 }
 
 // wgcSession 是单个 HWND 的捕获会话。
+//
+// mu 保护 grab path (buf / width / height / DLL sid). 同 session 多 goroutine 调
+// grab 会 race buf 写入, 加锁串行化. 单线程调用方 (老 wgcCapturer + 老 wgcFrame
+// 自己开 session) 不会 contend; cache 复用模式 (新 wgcFrame) 才真有可能并发, 加锁
+// 是 safety net.
 type wgcSession struct {
+	mu     sync.Mutex
 	sid    uint64
 	hwnd   win.HWND
 	width  int32 // 上一次 grab 看到的尺寸；可能变（窗口 resize）
@@ -209,17 +216,84 @@ func wgcBGRAtoRGBA(src []byte, srcW, srcH, roiX, roiY, roiW, roiH int) *image.RG
 	return img
 }
 
-// wgcFrame: 一次性抓帧，包级 Frame() 走这里。
-// 为了简单 / 跟 GDI 行为对齐，每次调用都开-抓-关一个 session。
-// 高频路径（rhythm 等）走 newWGCCapturer 复用 session。
-func wgcFrame(hwnd win.HWND) (*image.RGBA, error) {
+// 包级 WGC session cache: wgcFrame / wgcFrameROI 共享同 HWND 的 session 避免黄框
+// 反复 open/close (用户体验黄框一闪一闪很诡异). idle > wgcIdleTimeout 后 reaper 关.
+//
+// 不影响 wgcCapturer — 那个本来就是用户主动持久持有 (NewCapturer/Close), 不走 cache.
+var (
+	wgcCacheMu     sync.Mutex
+	wgcCache       map[win.HWND]*wgcCachedSession
+	wgcReaperOnce  sync.Once
+	wgcIdleTimeout = 10 * time.Second
+)
+
+type wgcCachedSession struct {
+	s        *wgcSession
+	lastUsed time.Time
+}
+
+// getCachedWGCSession 拿同 HWND 的 cache session, 没有就开一个加入 cache.
+// 失败时 cache 不污染.
+func getCachedWGCSession(hwnd win.HWND) (*wgcSession, error) {
+	wgcCacheMu.Lock()
+	defer wgcCacheMu.Unlock()
+	if wgcCache == nil {
+		wgcCache = make(map[win.HWND]*wgcCachedSession)
+	}
+	if c, ok := wgcCache[hwnd]; ok {
+		c.lastUsed = time.Now()
+		return c.s, nil
+	}
 	s, err := openWGCSession(hwnd)
 	if err != nil {
 		return nil, err
 	}
-	defer s.close()
+	wgcCache[hwnd] = &wgcCachedSession{s: s, lastUsed: time.Now()}
+	wgcReaperOnce.Do(startWGCReaper)
+	return s, nil
+}
+
+// invalidateWGCSession 在 grab 失败后调, 关掉 cache 里这条 entry, 下次 wgcFrame
+// 会重开 session. 防止死 session 永远卡 caller.
+func invalidateWGCSession(hwnd win.HWND) {
+	wgcCacheMu.Lock()
+	defer wgcCacheMu.Unlock()
+	if c, ok := wgcCache[hwnd]; ok {
+		c.s.close()
+		delete(wgcCache, hwnd)
+	}
+}
+
+// startWGCReaper 每 2s 扫一次 cache, idle > wgcIdleTimeout 的 session 关掉 (黄框消失).
+// 首次 cache 命中时 sync.Once 启一次.
+func startWGCReaper() {
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			wgcCacheMu.Lock()
+			now := time.Now()
+			for hwnd, c := range wgcCache {
+				if now.Sub(c.lastUsed) > wgcIdleTimeout {
+					c.s.close()
+					delete(wgcCache, hwnd)
+				}
+			}
+			wgcCacheMu.Unlock()
+		}
+	}()
+}
+
+// wgcFrame: 一次性抓帧，包级 Frame() 走这里。
+// session 走 cache 复用同 HWND, idle 10s 后 reaper 关 (黄框跟 session 绑死,
+// 不复用就一闪一闪很诡异). 高频路径 (rhythm 等) 仍可走 newWGCCapturer.
+func wgcFrame(hwnd win.HWND) (*image.RGBA, error) {
+	s, err := getCachedWGCSession(hwnd)
+	if err != nil {
+		return nil, err
+	}
 	w, h, err := s.grabWithRetry()
 	if err != nil {
+		invalidateWGCSession(hwnd)
 		return nil, err
 	}
 	return wgcBGRAtoRGBA(s.buf, w, h, 0, 0, w, h), nil
@@ -228,13 +302,13 @@ func wgcFrame(hwnd win.HWND) (*image.RGBA, error) {
 // wgcFrameROI 同 gdiFrameROI 语义：抓全帧后裁 ROI。
 // 没用 WGC 的 dirty region 之类的，因为 windows-rs 没暴露简单 API。
 func wgcFrameROI(hwnd win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error) {
-	s, err := openWGCSession(hwnd)
+	s, err := getCachedWGCSession(hwnd)
 	if err != nil {
 		return nil, err
 	}
-	defer s.close()
 	w, h, err := s.grabWithRetry()
 	if err != nil {
+		invalidateWGCSession(hwnd)
 		return nil, err
 	}
 	// 裁剪 ROI 到帧内
@@ -261,7 +335,11 @@ func wgcFrameROI(hwnd win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error)
 // grabWithRetry: 处理 ERR_NOT_READY 的轮询重试。WGC 启动后第一帧可能要等
 // 一两次 vsync（游戏 60fps 时 ~17ms 一帧），bot 第一次抓帧偶尔要更久。
 // 200 次 × 2ms = 400ms 给足缓冲；正常运行时 TryGetNextFrame 几乎瞬时成功。
+//
+// 持 s.mu 串行同 session 多 goroutine 调用 (cache 复用模式下可能 contend).
 func (s *wgcSession) grabWithRetry() (w, h int, _ error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for i := 0; i < 200; i++ {
 		w, h, err := s.grab()
 		if err == nil {
