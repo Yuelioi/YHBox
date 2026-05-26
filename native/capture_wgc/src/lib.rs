@@ -23,8 +23,11 @@ use windows::Graphics::Capture::{
 use windows::Graphics::DirectX::DirectXPixelFormat;
 use windows::Graphics::SizeInt32;
 use windows::Wdk::System::SystemServices::RtlGetVersion;
-use windows::Win32::Foundation::{DXGI_STATUS_OCCLUDED, HWND};
+use windows::Win32::Foundation::{DXGI_STATUS_OCCLUDED, HWND, POINT, RECT};
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_HARDWARE;
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+use windows::Win32::Graphics::Gdi::ClientToScreen;
+use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 use windows::Win32::Graphics::Direct3D11::{
     D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_CPU_ACCESS_READ,
     D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_SDK_VERSION,
@@ -58,15 +61,34 @@ fn set_err<S: AsRef<str>>(msg: S) {
     LAST_ERR.with(|c| *c.borrow_mut() = s);
 }
 
-// DLL 进程初始化 COM MTA. WinRT (FramePool / CaptureItem / CaptureSession) 调用
-// 要求线程处于 multi-threaded apartment. Go runtime 切线程后 COM 状态依赖"上次
-// 谁初始化的", 不可控 — 显式 init 是廉价保险. 重复/冲突 init 返 Err 被吞.
-static COM_INIT: Lazy<()> = Lazy::new(|| {
-    // S_FALSE / RPC_E_CHANGED_MODE 等都吞掉, 重复 init 或上层已 init 都不阻塞.
-    let _ = unsafe { RoInitialize(RO_INIT_MULTITHREADED) };
-});
+// COM MTA init 是 **thread-scoped** 不是 process-scoped — RoInitialize 文档明说
+// "initializes Windows Runtime on the calling thread". Go runtime syscall 在不同
+// OS thread 间切换 (wgc_session_open 可能在 thread A, grab 可能在 thread B), 每个
+// 线程必须自己 init 一次, 否则 capture pipeline silently 不出帧 (TryGetNextFrame
+// 永远返 Err(HRESULT(0))).
+//
+// thread_local Cell<bool> 标记本线程是否 init 过, 入口处 ensure 一次. 重复 init
+// 返 S_FALSE, 不同 apartment 冲突返 RPC_E_CHANGED_MODE — 都吞掉. free-threaded
+// FramePool 在两种情况下都能跑.
+thread_local! {
+    static THREAD_COM_INIT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn ensure_thread_com_init() {
+    THREAD_COM_INIT.with(|c| {
+        if !c.get() {
+            let _ = unsafe { RoInitialize(RO_INIT_MULTITHREADED) };
+            c.set(true);
+        }
+    });
+}
 
 struct Session {
+    // 保留 HWND 给 grab 算客户区裁剪用. CreateForWindow 抓的是整个 window content
+    // (含标题栏 + 边框), 上层 ROI 按客户区算, 直接喂就错位 — grab 内拷贝时按 client
+    // offset 跳过非客户区, 上层零感知.
+    // 存 isize 而非 HWND: HWND 裸指针不 Sync, Arc<Mutex<Session>> 要 Sync. 用时转 HWND.
+    hwnd_raw: isize,
     d3d_device: ID3D11Device,
     d3d_context: ID3D11DeviceContext,
     // FramePool 内部不持有 GraphicsCaptureItem 的强引用 — 必须自己 keep alive,
@@ -83,6 +105,58 @@ struct Session {
     staging: Option<ID3D11Texture2D>,
     staging_w: i32,
     staging_h: i32,
+}
+
+// ClientOffset 描述客户区在 WGC frame 内的位置.
+// off_x/off_y = 客户区左上角相对帧左上角的偏移 (px).
+// client_w/client_h = 客户区尺寸 (要拷给上层的).
+struct ClientOffset {
+    off_x: i32,
+    off_y: i32,
+    client_w: i32,
+    client_h: i32,
+}
+
+// compute_client_offset 算客户区在 WGC frame 内的偏移 + 尺寸.
+//
+// 关键: WGC 抓的不是 GetWindowRect (那个 Win10+ 含 invisible DWM shadow), 而是
+// DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) 给的"真实可见"矩形.
+// 实测异环 1920x1080: GetWindowRect=1936x1119 (含 8/8/7 shadow), WGC frame=1922x1112,
+// DWM extended bounds = 1922x1112 跟 WGC 一致. 用 GetWindowRect 算 offset 会越界.
+//
+// 失败 (窗口无效 / DWM 不可用 / size 异常) 返 None, 调用方 fallback 用全 frame 不裁.
+fn compute_client_offset(hwnd: HWND) -> Option<ClientOffset> {
+    unsafe {
+        let mut frame_rect = RECT::default();
+        let res = DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            &mut frame_rect as *mut RECT as *mut c_void,
+            std::mem::size_of::<RECT>() as u32,
+        );
+        if res.is_err() {
+            return None;
+        }
+        let mut cr = RECT::default();
+        if GetClientRect(hwnd, &mut cr).is_err() {
+            return None;
+        }
+        let mut origin = POINT { x: 0, y: 0 };
+        if !ClientToScreen(hwnd, &mut origin).as_bool() {
+            return None;
+        }
+        let client_w = cr.right - cr.left;
+        let client_h = cr.bottom - cr.top;
+        if client_w <= 0 || client_h <= 0 {
+            return None;
+        }
+        Some(ClientOffset {
+            off_x: origin.x - frame_rect.left,
+            off_y: origin.y - frame_rect.top,
+            client_w,
+            client_h,
+        })
+    }
 }
 
 // 全局 session 表: lookup/insert/remove 才持锁, grab 自己走 per-session Mutex.
@@ -154,6 +228,7 @@ fn open_session_impl(hwnd: HWND) -> windows::core::Result<Session> {
         session.StartCapture()?;
 
         Ok(Session {
+            hwnd_raw: hwnd.0 as isize,
             d3d_device,
             d3d_context,
             item,
@@ -180,7 +255,7 @@ pub extern "C" fn wgc_last_error() -> *const c_char {
 /// 失败: 返回 0, 错误细节看 wgc_last_error().
 #[no_mangle]
 pub extern "C" fn wgc_session_open(hwnd: u64, out_w: *mut i32, out_h: *mut i32) -> u64 {
-    Lazy::force(&COM_INIT);
+    ensure_thread_com_init();
     let hwnd = HWND(hwnd as *mut c_void);
     match open_session_impl(hwnd) {
         Ok(s) => {
@@ -221,6 +296,8 @@ pub extern "C" fn wgc_session_grab(
     out_w: *mut i32,
     out_h: *mut i32,
 ) -> i32 {
+    // Go runtime 可能在不同 OS thread 调 grab, 每个 thread 独立 init COM.
+    ensure_thread_com_init();
     // 只在 lookup 时持全局锁, 拿到 Arc 后立刻放. 多 bot grab 不同 sid 不互锁.
     let sess_arc = {
         let map = SESSIONS.lock().unwrap();
@@ -264,22 +341,38 @@ pub extern "C" fn wgc_session_grab(
             return ERR_GRAB_FAILED;
         }
     };
-    let w = content_size.Width;
-    let h = content_size.Height;
+    let frame_w = content_size.Width;
+    let frame_h = content_size.Height;
     // 最小化/未渲染窗口 ContentSize 可能 0×0. CreateTexture2D 拒收 0 宽高 (旧版会刷
     // CreateTexture2D 失败日志), 直接当 "没新帧" 让 caller retry.
-    if w <= 0 || h <= 0 {
+    if frame_w <= 0 || frame_h <= 0 {
         let _ = frame.Close();
         return ERR_NOT_READY;
     }
-    let needed = (w as u32) * (h as u32) * 4;
+
+    // CreateForWindow 抓的是整个 window content (含标题栏 + 边框), 不是客户区.
+    // 算客户区在 frame 内的偏移, 拷贝时只拷客户区, 上层 ROI 按客户区算就不错位.
+    // 算失败或越界 fallback 用全 frame (不 crop), 让上层至少能跑.
+    let (out_pix_w, out_pix_h, src_off_x, src_off_y) =
+        match compute_client_offset(HWND(s.hwnd_raw as *mut c_void)) {
+            Some(co)
+                if co.off_x >= 0
+                    && co.off_y >= 0
+                    && co.off_x + co.client_w <= frame_w
+                    && co.off_y + co.client_h <= frame_h =>
+            {
+                (co.client_w, co.client_h, co.off_x, co.off_y)
+            }
+            _ => (frame_w, frame_h, 0, 0),
+        };
+    let needed = (out_pix_w as u32) * (out_pix_h as u32) * 4;
 
     unsafe {
         if !out_w.is_null() {
-            *out_w = w;
+            *out_w = out_pix_w;
         }
         if !out_h.is_null() {
-            *out_h = h;
+            *out_h = out_pix_h;
         }
         if buf.is_null() || buf_len < needed {
             let _ = frame.Close();
@@ -315,12 +408,13 @@ pub extern "C" fn wgc_session_grab(
         }
     };
 
-    // staging texture 复用: 仅当尺寸跟当前帧不一致时重建.
+    // staging texture 复用: 仅当尺寸跟当前帧 (全 frame, 含非客户区) 不一致时重建.
+    // staging 必须按 source_tex 全 frame 尺寸创建, 不是客户区 — CopyResource 是全图拷.
     unsafe {
         // reborrow 出 &mut Session 让 borrow checker 看见 disjoint fields
         // (MutexGuard 自身不直接支持 split borrow).
         let inner: &mut Session = &mut s;
-        if inner.staging.is_none() || inner.staging_w != w || inner.staging_h != h {
+        if inner.staging.is_none() || inner.staging_w != frame_w || inner.staging_h != frame_h {
             let mut desc = D3D11_TEXTURE2D_DESC::default();
             source_tex.GetDesc(&mut desc);
             desc.Usage = D3D11_USAGE_STAGING;
@@ -340,8 +434,8 @@ pub extern "C" fn wgc_session_grab(
             match new_staging {
                 Some(t) => {
                     inner.staging = Some(t);
-                    inner.staging_w = w;
-                    inner.staging_h = h;
+                    inner.staging_w = frame_w;
+                    inner.staging_h = frame_h;
                 }
                 None => {
                     let _ = frame.Close();
@@ -364,11 +458,15 @@ pub extern "C" fn wgc_session_grab(
             set_err(format!("Map: {}", e.message()));
             return ERR_MAP_FAILED;
         }
-        let row_bytes = (w as usize) * 4;
+        // 拷客户区: src 起点偏 src_off_y 行 + src_off_x*4 字节, 行宽 out_pix_w*4,
+        // 共 out_pix_h 行. dst 连续无 padding. fallback 模式 src_off=0 + out_pix=frame_size
+        // 等价于全 frame 拷贝.
+        let row_bytes = (out_pix_w as usize) * 4;
         let src = mapped.pData as *const u8;
         let pitch = mapped.RowPitch as usize;
-        for y in 0..(h as usize) {
-            let src_row = src.add(y * pitch);
+        let src_origin = src.add(src_off_y as usize * pitch + src_off_x as usize * 4);
+        for y in 0..(out_pix_h as usize) {
+            let src_row = src_origin.add(y * pitch);
             let dst_row = buf.add(y * row_bytes);
             std::ptr::copy_nonoverlapping(src_row, dst_row, row_bytes);
         }
@@ -386,11 +484,12 @@ pub extern "C" fn wgc_session_grab(
     let _ = frame.Close();
 
     // 当前帧尺寸跟 pool 配置不一致 (窗口 resize 过) → recreate 让下次抓更准.
+    // 注意: pool 配置用全 frame 尺寸 (frame_w/h) 而不是裁后客户区, 跟 source_tex 一致.
     // 任一步骤失败保留旧 pool 尺寸下次再试, 不 panic (旧版三个 unwrap 会真崩进程).
-    if w != s.pool_w || h != s.pool_h {
+    if frame_w != s.pool_w || frame_h != s.pool_h {
         let new_size = SizeInt32 {
-            Width: w,
-            Height: h,
+            Width: frame_w,
+            Height: frame_h,
         };
         let recreate_result: windows::core::Result<()> = (|| unsafe {
             let dxgi: IDXGIDevice = s.d3d_device.cast()?;
@@ -405,8 +504,8 @@ pub extern "C" fn wgc_session_grab(
             )
         })();
         if recreate_result.is_ok() {
-            s.pool_w = w;
-            s.pool_h = h;
+            s.pool_w = frame_w;
+            s.pool_h = frame_h;
         }
     }
 
