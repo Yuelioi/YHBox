@@ -8,26 +8,29 @@
       isRunning ? 'is-running' : '',
       isDisabled ? 'is-disabled' : '',
     ]"
-    :style="{ minWidth: '200px' }"
+    :style="{ minWidth: '220px', maxWidth: '360px' }"
   >
-    <!-- Header (浓 saturation 区分 body) -->
+    <!-- Header (浓 saturation, accent bar 在左侧) -->
     <div class="node-header" :class="v.headerBg">
-      <UIcon :name="v.icon" class="size-3.5 text-default shrink-0" />
-      <span class="font-medium text-default truncate">{{ displayLabel }}</span>
-      <span v-if="kindSubtitle" class="text-[9px] text-dimmed truncate shrink-0">({{ kindSubtitle }})</span>
+      <span class="header-accent" :class="v.accent" />
+      <UIcon :name="v.icon" class="header-icon shrink-0" />
+      <div class="header-text min-w-0 flex-1">
+        <div class="header-label truncate">{{ displayLabel }}</div>
+        <div v-if="kindSubtitle" class="header-sub truncate">{{ kindSubtitle }}</div>
+      </div>
       <UIcon
         v-if="isDisabled"
         name="i-tabler-ban"
-        class="size-3 text-warning shrink-0"
+        class="size-3.5 text-warning shrink-0"
         title="此节点已禁用 (运行时跳过)"
       />
       <span
         v-if="isRunning"
-        class="ml-auto size-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"
+        class="size-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"
       />
     </div>
 
-    <!-- Body: 左右两列 pin, UE Blueprint 风格. Handle 绝对定位到 row y. -->
+    <!-- Body: 左右两列 pin, UE Blueprint 风格. -->
     <div class="node-body" :style="{ minHeight: bodyHeight + 'px' }">
       <div class="pin-col pin-col-left">
         <div v-for="p in leftPins" :key="'lp-' + p.id" class="pin-row pin-row-left">
@@ -41,20 +44,21 @@
       </div>
     </div>
 
-    <!-- Config preview (前 3 个 string config) -->
-    <div v-if="preview.length > 0" class="node-preview" :class="v.border">
-      <div v-for="p in preview" :key="p.k" class="truncate font-mono">
-        <span class="text-toned">{{ p.k }}</span
-        >: {{ p.v }}
+    <!-- Config preview -->
+    <div v-if="preview.length > 0" class="node-footer" :class="v.border">
+      <div v-for="p in preview" :key="p.k" class="preview-row truncate">
+        <span class="preview-key">{{ p.k }}</span>
+        <span class="preview-val">{{ p.v }}</span>
       </div>
     </div>
 
-    <!-- Subgraph 子图 ID + 内部节点数 -->
-    <div v-if="kind === 'Subgraph'" class="node-subgraph" :class="v.border">
-      <span class="truncate">→ {{ props.data?.config?.SubgraphID || '(未选)' }}</span>
+    <!-- Subgraph 子图 ID + 节点数 -->
+    <div v-if="kind === 'Subgraph'" class="node-footer subgraph-footer" :class="v.border">
+      <UIcon name="i-tabler-arrow-narrow-right" class="size-3 shrink-0 text-dimmed" />
+      <span class="truncate font-mono">{{ props.data?.config?.SubgraphID || '(未选)' }}</span>
       <span
         v-if="boundSubgraphNodeCount !== null"
-        class="ml-auto shrink-0 text-fuchsia-300/80"
+        class="ml-auto shrink-0 text-fuchsia-300/80 font-medium"
       >{{ boundSubgraphNodeCount }} 节点</span>
     </div>
 
@@ -108,22 +112,23 @@ const kindSubtitle = computed(() =>
 const isRunning = computed(() => execStore.running && execStore.currentNodeID === props.id)
 const isDisabled = computed(() => props.data?.disabled === true)
 
-// 节点 visual + header 浓色一档 (group 颜色 saturation 强化区分 body).
-// KIND_VISUAL bg 是 -500/15 透明, header 用 -500/30 同色系.
+// 节点 visual: header 浓一档 (-500/35), accent bar 用纯 -500.
 const v = computed(() => {
   const base = KIND_VISUAL[kind.value] ?? {
     icon: 'i-tabler-circle',
     bg: 'bg-muted',
     border: 'border-default',
   }
-  // 从 bg-XXX-500/15 抽出颜色名拼 -500/30 当 header bg.
   const m = /^bg-([a-z]+)-\d+\/\d+$/.exec(base.bg)
-  const headerBg = m ? `bg-${m[1]}-500/30` : 'bg-elevated/50'
-  return { ...base, headerBg }
+  const color = m ? m[1] : 'zinc'
+  return {
+    ...base,
+    headerBg: `bg-${color}-500/30`,
+    accent: `bg-${color}-400`,
+  }
 })
 
 const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
-
 const editorStore = useContainerEditorStore()
 
 const boundSubgraphNodeCount = computed<number | null>(() => {
@@ -145,7 +150,6 @@ const execOutPinsForRender = computed(() => {
   return pins.value.execOut.map((id: string) => ({ id, label: id }))
 })
 
-// type lookup for data pins: 含 static spec.dataIn/Out + dynamic (Expr.Inputs/Subgraph 等).
 const dataTypeMap = computed<{ in: Record<string, PinType>; out: Record<string, PinType> }>(() => {
   const spec = getSpec(kind.value)
   if (!spec) return { in: {}, out: {} }
@@ -179,53 +183,65 @@ const rightPins = computed<PinEntry[]>(() => [
   ),
 ])
 
-// label 颜色: exec 用 default 灰白, data 用 type 颜色 (浅一档好读).
+// label 颜色: exec 用默认色 (CSS 控), data 用 type 颜色但 alpha 调暗一档.
 function labelColor(p: PinEntry): string {
   if (p.kind === 'exec') return ''
   return TYPE_COLOR[p.type] ?? '#9ca3af'
 }
 
 // Handle 样式: exec 三角形 (clip-path), data 圆形 + type 颜色.
-// top 是 row 中心 y (vue-flow Handle 自己 transform: translate(_, -50%) 居中, 不要补偿).
 function handleStyle(p: PinEntry, i: number): Record<string, string> {
   const top = HEADER_H + BODY_PAD_TOP + i * ROW_H + ROW_H / 2 + 'px'
   if (p.kind === 'exec') {
     return {
       top,
-      background: 'var(--ui-text-default, #f5f5f5)',
+      background: '#e5e7eb',
       clipPath: 'polygon(0% 0%, 100% 50%, 0% 100%)',
       borderRadius: '0',
       border: 'none',
-      width: '10px',
-      height: '10px',
+      width: '11px',
+      height: '11px',
     }
   }
+  const color = TYPE_COLOR[p.type] ?? '#9ca3af'
   return {
     top,
-    background: TYPE_COLOR[p.type] ?? '#9ca3af',
-    border: 'none',
-    width: '9px',
-    height: '9px',
+    background: color,
+    border: '2px solid rgba(0,0,0,0.4)',
+    width: '12px',
+    height: '12px',
+    boxShadow: `0 0 0 1px ${color}33`,
   }
 }
 
+// preview: stringify 友好化 (object → JSON, 防 [object Object])
 const preview = computed(() => {
   const cfg = props.data?.config ?? {}
-  const skip = new Set(['n'])
+  const skip = new Set(['n', 'literal'])
   const out: { k: string; v: string }[] = []
   for (const k of Object.keys(cfg)) {
     if (skip.has(k)) continue
     const raw = cfg[k]
     if (raw === '' || raw == null) continue
-    out.push({ k, v: String(raw).slice(0, 26) })
+    let s: string
+    if (typeof raw === 'object') {
+      try {
+        s = JSON.stringify(raw)
+      } catch {
+        s = '[object]'
+      }
+    } else {
+      s = String(raw)
+    }
+    out.push({ k, v: s.length > 32 ? s.slice(0, 32) + '…' : s })
     if (out.length >= 3) break
   }
   return out
 })
 
-const HEADER_H = 30
-const BODY_PAD_TOP = 4 // 跟 .node-body padding-top 同步, Handle 算 y 要加上
-const ROW_H = 20
+const HEADER_H = 38
+const BODY_PAD_TOP = 6
+const ROW_H = 22
 
 const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.value.length) * ROW_H)
 </script>
@@ -233,39 +249,84 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
 <style scoped>
 .container-node {
   position: relative;
-  border-radius: 8px;
+  border-radius: 10px;
   border-width: 1px;
   font-size: 12px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  box-shadow:
+    0 8px 24px -8px rgba(0, 0, 0, 0.55),
+    0 2px 4px -1px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
   transition: box-shadow 180ms ease, transform 180ms ease;
 }
+.container-node:hover {
+  box-shadow:
+    0 12px 32px -8px rgba(0, 0, 0, 0.6),
+    0 3px 6px -1px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
 .container-node.is-selected {
-  box-shadow: 0 0 0 2px var(--ui-primary, #6366f1), 0 6px 18px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 2px var(--ui-primary, #6366f1),
+    0 0 0 5px rgba(99, 102, 241, 0.22),
+    0 10px 28px -8px rgba(0, 0, 0, 0.55);
 }
 .container-node.is-disabled {
   opacity: 0.5;
   filter: grayscale(0.8);
 }
 .container-node.is-running {
-  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.8), 0 0 28px rgba(52, 211, 153, 0.6);
   animation: pulse-running 1.5s ease-in-out infinite;
 }
 
 .node-header {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  height: 30px;
-  border-top-left-radius: 7px;
-  border-top-right-radius: 7px;
+  gap: 8px;
+  padding: 8px 12px 8px 14px;
+  height: 38px;
+  border-top-left-radius: 9px;
+  border-top-right-radius: 9px;
+  overflow: hidden;
+}
+.header-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+.header-icon {
+  width: 18px;
+  height: 18px;
+  color: rgba(255, 255, 255, 0.92);
+}
+.header-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.1;
+}
+.header-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  color: rgba(255, 255, 255, 0.95);
+  font-family:
+    'Inter', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+.header-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 400;
 }
 
 .node-body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 4px 0;
+  padding: 6px 0 8px 0;
 }
 .pin-col {
   display: flex;
@@ -274,17 +335,17 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   min-width: 0;
 }
 .pin-col-left {
-  padding-left: 12px;
+  padding-left: 14px;
 }
 .pin-col-right {
-  padding-right: 12px;
+  padding-right: 14px;
 }
 .pin-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 20px;
-  font-size: 10.5px;
+  height: 22px;
+  font-size: 11px;
   line-height: 1;
   user-select: none;
   pointer-events: none;
@@ -293,47 +354,76 @@ const bodyHeight = computed(() => Math.max(leftPins.value.length, rightPins.valu
   justify-content: flex-end;
 }
 .pin-label {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.2px;
+  font-weight: 500;
 }
 
-.node-preview {
-  padding: 5px 10px;
+.node-footer {
+  padding: 6px 12px;
   border-top-width: 1px;
+  border-style: solid;
+  background: rgba(0, 0, 0, 0.15);
   color: var(--ui-text-dimmed);
-  font-size: 10px;
+  font-size: 10.5px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
-.node-subgraph {
+.preview-row {
   display: flex;
+  gap: 6px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.preview-key {
+  color: var(--ui-text-toned);
+  font-weight: 500;
+}
+.preview-key::after {
+  content: ':';
+}
+.preview-val {
+  color: var(--ui-text-dimmed);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.subgraph-footer {
+  flex-direction: row;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
-  border-top-width: 1px;
-  color: var(--ui-text-dimmed);
-  font-size: 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* Handle base — vue-flow 默认带一些 style 用 :deep + ! 覆盖. */
+/* Handles */
 :deep(.vue-flow__handle.handle-base) {
   z-index: 5;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 :deep(.vue-flow__handle.handle-base:hover) {
-  transform: translateY(-50%) scale(1.4);
-  box-shadow: 0 0 6px currentColor;
+  transform: translateY(-50%) scale(1.5);
+  filter: brightness(1.2);
+}
+:deep(.vue-flow__handle.handle-exec:hover) {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7));
+}
+:deep(.vue-flow__handle.handle-data:hover) {
+  box-shadow: 0 0 8px currentColor !important;
 }
 
 @keyframes pulse-running {
   0%,
   100% {
-    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.7), 0 0 16px rgba(52, 211, 153, 0.45);
+    box-shadow:
+      0 0 0 2px rgba(52, 211, 153, 0.85),
+      0 0 18px rgba(52, 211, 153, 0.55),
+      0 8px 22px -8px rgba(0, 0, 0, 0.55);
   }
   50% {
-    box-shadow: 0 0 0 2px rgba(52, 211, 153, 1), 0 0 32px rgba(52, 211, 153, 0.75);
+    box-shadow:
+      0 0 0 3px rgba(52, 211, 153, 1),
+      0 0 38px rgba(52, 211, 153, 0.85),
+      0 8px 22px -8px rgba(0, 0, 0, 0.55);
   }
 }
 </style>
