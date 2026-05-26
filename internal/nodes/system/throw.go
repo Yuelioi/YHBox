@@ -8,6 +8,8 @@
 package system
 
 import (
+	"fmt"
+
 	"yhbox/internal/node"
 )
 
@@ -38,4 +40,12 @@ func (Throw) Spec() node.Spec {
 
 func (Throw) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return nil, &ThrowError{Message: in.String(thInMessage)}
+}
+
+func (Throw) Display(in node.Inputs, exitName string, out node.OutputData) string {
+	msg := in.String(thInMessage)
+	if msg == "" {
+		return "throw (no message)"
+	}
+	return fmt.Sprintf("throw: %s", msg)
 }

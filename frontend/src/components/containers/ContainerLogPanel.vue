@@ -82,6 +82,9 @@ function levelClass(level: string): string {
       return 'text-dimmed'
     case 'node':
       return 'text-violet-400'
+    case 'log':
+      // 节点 Display() 输出, 比 enter line 弱一档颜色 (绿色) 跟 enter (紫色) 区分.
+      return 'text-emerald-400'
     default:
       return 'text-blue-400'
   }
@@ -113,6 +116,7 @@ function clearLines() {
 
 let unsubscribeLog: (() => void) | null = null
 let unsubscribeNode: (() => void) | null = null
+let unsubscribeNodeLog: (() => void) | null = null
 
 onMounted(() => {
   // container:log payload: {level, message}
@@ -136,10 +140,21 @@ onMounted(() => {
       appendLine('node', `→ ${kind} (${id})${suffix}`)
     }
   }) as unknown as () => void
+
+  // container:node-log payload: {nodeId, nodeKind, message} — Display() 非空时 emit.
+  // 比 enter line 信息量大 (含 input/output 关键字段), 缩进显示跟 enter 区分.
+  unsubscribeNodeLog = Events.On('container:node-log', (e: any) => {
+    const payload = e?.data?.[0] ?? e?.data ?? e
+    const id = payload?.nodeId ?? '?'
+    const msg = String(payload?.message ?? '')
+    if (!msg) return
+    appendLine('log', `  ${msg}  (${id})`)
+  }) as unknown as () => void
 })
 
 onUnmounted(() => {
   unsubscribeLog?.()
   unsubscribeNode?.()
+  unsubscribeNodeLog?.()
 })
 </script>

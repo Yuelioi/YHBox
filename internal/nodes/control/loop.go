@@ -56,6 +56,14 @@ func (Loop) Spec() node.Spec {
 	}
 }
 
+func (Loop) Display(in node.Inputs, exitName string, out node.OutputData) string {
+	mode := in.String(loopInMode)
+	if mode == "forever" {
+		return "loop forever → Done"
+	}
+	return fmt.Sprintf("loop %dx → Done", in.Int(loopInCount))
+}
+
 // RunRegion — body() 调 N 次 / forever. break/continue sentinel 截获.
 func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
 	mode := in.String(loopInMode)

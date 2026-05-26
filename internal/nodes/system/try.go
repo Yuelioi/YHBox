@@ -9,6 +9,8 @@
 package system
 
 import (
+	"fmt"
+
 	"yhbox/internal/node"
 )
 
@@ -46,6 +48,17 @@ func (Try) Spec() node.Spec {
 				}},
 		},
 	}
+}
+
+func (Try) Display(in node.Inputs, exitName string, out node.OutputData) string {
+	id := in.String(tryInSubgraphID)
+	switch exitName {
+	case tryOutCatch:
+		return fmt.Sprintf("try %s → Catch: %s", id, out.String(tryDataError))
+	case tryOutNormal:
+		return fmt.Sprintf("try %s → Out", id)
+	}
+	return ""
 }
 
 // Dependencies — 子图分享 / library import 时 BFS 抽 callee 引用.

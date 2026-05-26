@@ -10,6 +10,8 @@
 package system
 
 import (
+	"fmt"
+
 	"yhbox/internal/node"
 )
 
@@ -45,6 +47,14 @@ func (Subgraph) Spec() node.Spec {
 			{Name: sgOutDone, Type: "Exec", DisplayName: "完成"},
 		},
 	}
+}
+
+func (Subgraph) Display(in node.Inputs, exitName string, out node.OutputData) string {
+	id := in.String(sgInSubgraphID)
+	if id == "" {
+		return "call (?)"
+	}
+	return fmt.Sprintf("call %s → Done", id)
 }
 
 // RunRegion — body() 调一次, 跑 callee 子图. error 透传; 无 error → Done.
