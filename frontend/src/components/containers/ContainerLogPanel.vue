@@ -18,6 +18,17 @@
       <span v-if="lines.length" class="text-[10px] text-dimmed">{{ lines.length }} 条</span>
       <span v-if="hasErrors" class="text-[10px] text-error">含错误</span>
       <div class="flex-1" />
+      <!-- toggle: 节点 enter line. 默认关 (跟 log line 1:1 重复噪声大). 开启给 debug 用. -->
+      <UButton
+        v-if="!collapsed"
+        size="xs"
+        variant="ghost"
+        :color="showEnter ? 'primary' : 'neutral'"
+        :ui="{ base: 'h-5 px-1.5 text-[10px]' }"
+        @click.stop="showEnter = !showEnter"
+      >
+        {{ showEnter ? '✓ 节点 enter' : '节点 enter' }}
+      </UButton>
       <UButton
         v-if="!collapsed"
         size="xs"
@@ -37,9 +48,9 @@
       ref="bodyRef"
       class="flex-1 overflow-y-auto font-mono text-[11px] px-2 py-1 space-y-0.5 bg-zinc-950"
     >
-      <div v-if="lines.length === 0" class="text-dimmed italic">无日志. ▶ 试运行后这里会显示节点执行 / PlayClip / Log / Toast.</div>
+      <div v-if="visibleLines.length === 0" class="text-dimmed italic">无日志. ▶ 试运行后这里会显示节点执行 / PlayClip / Log / Toast.</div>
       <div
-        v-for="(l, idx) in lines"
+        v-for="(l, idx) in visibleLines"
         :key="idx"
         class="flex gap-2 leading-tight"
       >
@@ -65,12 +76,20 @@ interface LogLine {
 }
 
 const collapsed = ref(false)
+const showEnter = ref(false) // 默认隐藏 node enter line (跟 log line 1:1 重复)
 const lines = ref<LogLine[]>([])
 const bodyRef = ref<HTMLDivElement | null>(null)
 
 const MAX_LINES = 500
 
 const hasErrors = computed(() => lines.value.some((l) => l.level === 'error' || l.level === 'warn'))
+
+// visibleLines: 应用 toggle filter — showEnter 关时隐藏 level==='node' 的 line.
+// log/info/error/warn/debug 永远显示.
+const visibleLines = computed(() => {
+  if (showEnter.value) return lines.value
+  return lines.value.filter((l) => l.level !== 'node')
+})
 
 function levelClass(level: string): string {
   switch (level) {
