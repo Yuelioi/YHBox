@@ -9,10 +9,10 @@
           <UIcon name="i-tabler-bookmark-plus" class="size-5 text-primary" />
           <div class="flex-1">
             <div class="text-[13px] font-semibold text-default">
-              {{ editingID ? '编辑 Snippet' : '保存为 Snippet' }}
+              {{ editingId ? '编辑 Snippet' : '保存为 Snippet' }}
             </div>
             <div class="text-[10px] text-dimmed">
-              {{ editingID ? `ID: ${editingID.slice(0, 8)}…` : `源节点: ${sourceKind || '?'}` }}
+              {{ editingId ? `ID: ${editingId.slice(0, 8)}…` : `源节点: ${sourceKind || '?'}` }}
             </div>
           </div>
           <UButton
@@ -141,7 +141,7 @@
 
         <div class="drawer-footer">
           <UButton
-            v-if="editingID"
+            v-if="editingId"
             size="sm"
             color="error"
             variant="ghost"
@@ -172,7 +172,7 @@ const props = defineProps<{
   open: boolean
   sourceKind?: string
   sourceConfig?: Record<string, unknown>
-  editingID?: string
+  editingId?: string
 }>()
 const emit = defineEmits<{
   'update:open': [v: boolean]
@@ -187,7 +187,7 @@ const { confirm: confirmDialog } = useConfirm()
 // ===== DEBUG: 让用户 console 看 prefill 流程 =====
 console.log('[SnippetDrawer] setup', {
   open: props.open,
-  editingID: props.editingID,
+  editingId: props.editingId,
   sourceKind: props.sourceKind,
   storeLoaded: store.loaded,
   storeSize: store.snippets.length,
@@ -205,9 +205,9 @@ const formIcon = ref<string | undefined>(undefined)
 const formShortcut = ref('')
 
 // setup time prefill — 父 v-if + :key 保证每次新打开 setup 重跑, props 已最终.
-if (props.editingID) {
-  const s = store.getById(props.editingID)
-  console.log('[SnippetDrawer] prefill getById', props.editingID, '→', s)
+if (props.editingId) {
+  const s = store.getById(props.editingId)
+  console.log('[SnippetDrawer] prefill getById', props.editingId, '→', s)
   if (s) {
     formName.value = s.name
     formDesc.value = s.description ?? ''
@@ -265,7 +265,7 @@ const shortcutError = computed(() => {
   const norm = normalizeShortcut(s)
   if (isReservedShortcut(s)) return `${norm} 是系统保留键, 请换`
   const existing = store.byShortcut.get(norm)
-  if (existing && existing.id !== props.editingID) {
+  if (existing && existing.id !== props.editingId) {
     return `${norm} 已被 "${existing.name}" 占用`
   }
   return ''
@@ -295,8 +295,8 @@ function onCaptureKey(e: KeyboardEvent) {
 
 function onSave() {
   if (!canSave.value) return
-  const payload = props.editingID
-    ? store.getById(props.editingID)?.payload
+  const payload = props.editingId
+    ? store.getById(props.editingId)?.payload
     : ({ type: 'node' as const, kind: props.sourceKind!, config: props.sourceConfig ?? {} })
   if (!payload) return
 
@@ -312,8 +312,8 @@ function onSave() {
   }
 
   let saved: Snippet | null = null
-  if (props.editingID) {
-    saved = store.update(props.editingID, data)
+  if (props.editingId) {
+    saved = store.update(props.editingId, data)
   } else {
     saved = store.create({ ...data, lastUsedAt: undefined })
   }
@@ -322,8 +322,8 @@ function onSave() {
 }
 
 async function onDelete() {
-  if (!props.editingID) return
-  const s = store.getById(props.editingID)
+  if (!props.editingId) return
+  const s = store.getById(props.editingId)
   const ok = await confirmDialog({
     title: '删除 Snippet',
     description: `确定删除 "${s?.name ?? '此 snippet'}"?\n此操作不可撤销.`,
@@ -332,7 +332,7 @@ async function onDelete() {
     color: 'error',
   })
   if (!ok) return
-  store.remove(props.editingID)
+  store.remove(props.editingId)
   close()
 }
 

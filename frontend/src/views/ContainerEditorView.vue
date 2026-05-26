@@ -373,14 +373,14 @@
 
     <!-- Save Snippet drawer (右侧抽屉) -->
     <!-- :key 强制 remount: open=true 时父先 set state 再 v-if=true, drawer setup 新跑,
-         fillFromProps 拿到 final props.editingID. 解决 edit prefill 时序问题. -->
+         fillFromProps 拿到 final props.editingId. 解决 edit prefill 时序问题. -->
     <SaveSnippetDrawer
       v-if="saveSnippetState.open"
-      :key="`drawer-${saveSnippetState.editingID || 'new'}-${saveSnippetState.sourceKind || ''}`"
+      :key="`drawer-${saveSnippetState.editingId || 'new'}-${saveSnippetState.sourceKind || ''}`"
       :open="true"
       :source-kind="saveSnippetState.sourceKind"
       :source-config="saveSnippetState.sourceConfig"
-      :editing-id="saveSnippetState.editingID"
+      :editing-id="saveSnippetState.editingId"
       @update:open="(v) => { if (!v) saveSnippetState.open = false }"
       @saved="onSnippetSaved"
     />
@@ -802,7 +802,7 @@ const saveSnippetState = ref<{
   open: boolean
   sourceKind?: string
   sourceConfig?: Record<string, unknown>
-  editingID?: string
+  editingId?: string
 }>({ open: false })
 
 /** 从节点 ContextMenu 'save-as-snippet' action 触发: 打开 drawer create 模式. */
@@ -811,7 +811,7 @@ function emitSaveSnippetIntent(node: GraphNode) {
     open: true,
     sourceKind: node.kind,
     sourceConfig: JSON.parse(JSON.stringify(node.config ?? {})),
-    editingID: undefined,
+    editingId: undefined,
   }
 }
 
@@ -819,7 +819,7 @@ function emitSaveSnippetIntent(node: GraphNode) {
 function onEditSnippet(s: Snippet) {
   saveSnippetState.value = {
     open: true,
-    editingID: s.id,
+    editingId: s.id,
   }
 }
 
