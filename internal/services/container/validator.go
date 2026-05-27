@@ -1,6 +1,14 @@
-// validator.go 容器/子图 graph 校验器.
+// validator.go 容器/子图 graph 校验器 (Validate 阶段入口).
 //
-// Backlog: 拆 Validate / Normalize / Compile 三阶段 — 见 backend-backlog.md B3.
+// 三阶段协作 (B3 落地, 2026-05-27):
+//   Validate  — 这里, 纯检查不 mutate. 入口 ValidateContainerWithContext / (c).Validate().
+//                内部分 3 sub-phase (Structural/Reference/Type-Semantic), 见 ValidateContainerWithContext.
+//   Normalize — validate.go::Container.Normalize, self-heal 默认 + 子图 normalizeSubgraph 一次跑完.
+//   Compile   — runtime/compile.go::CompileContainer, 编译 main+全部 subgraphs 的 edge/node 索引.
+//
+// 调用顺序:
+//   Save 流程: Normalize → Validate → 写盘.
+//   Run 流程:  (Store.Get 已 normalize/validate) → CompileContainer → NewContainerRunner → Run.
 package container
 
 import (
