@@ -2,11 +2,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { backend, type Container, type Graph, type GraphNode, type Subgraph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import type { ClonedSubgraphForPaste } from './useNodeClipboard'
-
-// 内部 ID 生成器（与 ContainerEditorView 保持同样格式，避免单独抽 idgen.ts）
-function genID(): string {
-  return 'n_' + Math.random().toString(36).slice(2, 10)
-}
+import { genNodeID } from './ids'
 
 /**
  * useSubgraphLifecycle Subgraph 1:1 模型 lifecycle 操作集。
@@ -110,7 +106,7 @@ export function useSubgraphLifecycle(opts: {
   function deepCloneSubgraphForCopy(src: Subgraph): ClonedSubgraphForPaste {
     const idMap: Record<string, string> = {}
     const nodes: GraphNode[] = (src.graph?.nodes ?? []).map((n) => {
-      const newID = genID()
+      const newID = genNodeID()
       idMap[n.id] = newID
       return { ...(JSON.parse(JSON.stringify(n)) as GraphNode), id: newID }
     })
@@ -123,10 +119,10 @@ export function useSubgraphLifecycle(opts: {
       }
     })
     const outputPins = (src.outputPins ?? []).map((p) => ({
-      id: genID(),
+      id: genNodeID(),
       name: p.name,
     }))
-    return { graph: { id: genID(), version: 1, nodes, edges }, outputPins }
+    return { graph: { id: genNodeID(), version: 1, nodes, edges }, outputPins }
   }
 
   /**

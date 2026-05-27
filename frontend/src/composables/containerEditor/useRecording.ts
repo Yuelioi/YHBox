@@ -21,6 +21,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
+import { randID } from './ids'
 
 export interface RecordOpts {
   draft: Ref<Container | null>
@@ -164,7 +165,7 @@ export function useRecording(opts: RecordOpts) {
     }
 
     // 3) 新建 Subgraph 引用节点
-    const nodeId = 'n-sg-' + Math.random().toString(36).slice(2, 8)
+    const nodeId = randID('n-sg')
     const newNode = {
       id: nodeId,
       kind: 'Subgraph',

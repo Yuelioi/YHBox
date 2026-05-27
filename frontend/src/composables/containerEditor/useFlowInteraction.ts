@@ -8,6 +8,7 @@ import { backend, type Container, type Graph } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import { PIN_SPECS } from '@/components/containers/pinSpec'
+import { randID } from './ids'
 
 const NODE_W = 220
 const NODE_H = 90
@@ -134,7 +135,7 @@ export function useFlowInteraction(opts: {
       await backend.library.importToContainer(parsed.id, draft.value.id, '')
       const newSubgraphID: string = parsed.id
       const newNode = {
-        id: 'n-call-' + Math.random().toString(36).slice(2, 8),
+        id: randID('n-call'),
         kind: 'Subgraph',
         x: pos.x,
         y: pos.y,

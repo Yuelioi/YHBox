@@ -4,6 +4,7 @@ import type { Ref, ComputedRef } from 'vue'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useConfirm } from '@/composables/useConfirm'
+import { randID } from './ids'
 
 export function useFolding(opts: {
   draft: Ref<Container | null>
@@ -98,7 +99,7 @@ export function useFolding(opts: {
 
     let callNodeID = ''
     if (activeGraph.value) {
-      callNodeID = 'n-call-' + Math.random().toString(36).slice(2, 8)
+      callNodeID = randID('n-call')
       activeGraph.value.nodes = activeGraph.value.nodes.filter((n: any) => !candidateIDs.has(n.id))
       // 仅删除内部边; external 边保留, 后续按 autoConnectable 改写或留 dangling 给用户手动修
       activeGraph.value.edges = activeGraph.value.edges.filter((e: any) => {
