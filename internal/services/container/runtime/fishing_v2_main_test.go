@@ -61,12 +61,6 @@ func TestFishingV2Main_Validates(t *testing.T) {
 }
 
 func TestFishingV2Main_StateCycleSmoke(t *testing.T) {
-	// 2026-05-24 atomic cutover: 测试已在 clean HEAD 长期 fail (state 卡 IDLE / SETUP, 不进
-	// state_SETUP 的 ClickTemplate). 我的 cutover 让 state 至少进 SETUP, 但 ClickTemplate
-	// 没 fire — 可能跟 Loop forever body re-entry 配合 InputBus.Lock / mockMatcher 时序有关.
-	// Skip 等专门 debug session, 现阶段保留 fishing_v2_main_test.TestFishingV2Main_Validates
-	// 覆盖 JSON validity.
-	t.Skip("flaky pre-cutover; loopMain forever iteration vs 500ms test deadline race")
 	c := loadFishingV2Main(t)
 	for i, n := range c.Graph.Nodes {
 		// Subgraph 参数 override (state machine internal delays).

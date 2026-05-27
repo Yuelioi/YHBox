@@ -70,7 +70,7 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 				{ID: "start", Kind: "Start"},
 				{ID: "call", Kind: "Subgraph", Config: map[string]any{
 					"SubgraphID": "state_WAITING",
-					"literal":    map[string]any{"PollIntervalMs": pollIntervalMs},
+					"literal":    map[string]any{"pollIntervalMs": pollIntervalMs},
 				}},
 				{ID: "stop", Kind: "Stop"},
 			},

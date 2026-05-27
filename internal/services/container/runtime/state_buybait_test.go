@@ -67,7 +67,6 @@ func runStateBUYBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *Run
 }
 
 func TestStateBUYBAIT_HappyPath(t *testing.T) {
-	t.Skip("pre-cutover fail — 多段 ClickTemplate+Sleep+CheckTemplate timing 不稳, 跟 atomic cutover 无关")
 	spy, rt, err := runStateBUYBAIT(t, map[string]bool{
 		"fishing.bait_product": true,
 		"fishing.buy_max":      true,
@@ -99,7 +98,6 @@ func TestStateBUYBAIT_BaitProductTimeout(t *testing.T) {
 }
 
 func TestStateBUYBAIT_ConfirmSkip(t *testing.T) {
-	t.Skip("pre-cutover fail — 多段 ClickTemplate timing 不稳, 跟 atomic cutover 无关")
 	_, rt, err := runStateBUYBAIT(t, map[string]bool{
 		"fishing.bait_product": true,
 		"fishing.buy_max":      true,

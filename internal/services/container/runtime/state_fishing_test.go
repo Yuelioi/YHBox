@@ -84,7 +84,6 @@ func TestStateFISHING_Timeout(t *testing.T) {
 }
 
 func TestStateFISHING_BarVisible_DirRight(t *testing.T) {
-	t.Skip("pre-cutover fail — ColorBarTrack + apply_direction integration, 跟 atomic cutover 无关")
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
 	paintCursorBar(img, 50)
 	paintTargetBar(img, 100, 115)
