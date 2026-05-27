@@ -665,7 +665,7 @@ function findNearestEligibleDataInPin(
     const pinName = handleEl.getAttribute('data-handleid') ?? ''
     if (!nodeID || !pinName) continue
 
-    const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+    const node = activeGraph.value?.nodes?.find(
       (n) => n.id === nodeID,
     ) ?? null
     if (!node) continue
@@ -1012,10 +1012,10 @@ function isValidVueFlowConnection(conn: {
   targetHandle?: string | null
 }): boolean {
   if (!conn.sourceHandle || !conn.targetHandle) return true
-  const srcNode = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+  const srcNode = activeGraph.value?.nodes?.find(
     (n) => n.id === conn.source,
   )
-  const tgtNode = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+  const tgtNode = activeGraph.value?.nodes?.find(
     (n) => n.id === conn.target,
   )
   if (!srcNode || !tgtNode) return true
@@ -1065,7 +1065,7 @@ function onVfConnectEnd(event?: MouseEvent) {
       return
     }
 
-    const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+    const node = activeGraph.value?.nodes?.find(
       (n) => n.id === startCopy.nodeId,
     )
     if (!node) return
@@ -1122,7 +1122,7 @@ function onNodeContextMenu(event: { event: MouseEvent | TouchEvent; node: any })
   event.event.preventDefault()
   const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
   const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
-  const node = (activeGraph.value?.nodes as GraphNode[] | undefined)?.find(
+  const node = activeGraph.value?.nodes?.find(
     (n) => n.id === event.node.id,
   )
   if (!node) return
@@ -1200,14 +1200,14 @@ function onNodeMenuAction(a: NodeMenuAction) {
       const walk = (nodes: GraphNode[], location: string) => {
         for (const n of nodes) {
           if (ids.includes(n.id)) {
-            refs.push({ id: n.id, kind: n.kind, label: (n as any).label, location })
+            refs.push({ id: n.id, kind: n.kind, label: n.label, location })
           }
         }
       }
       if (draft.value) {
-        walk(draft.value.graph.nodes as GraphNode[], '主图')
+        walk(draft.value.graph.nodes, '主图')
         for (const sg of draft.value.subgraphs ?? []) {
-          if (sg.graph) walk(sg.graph.nodes as GraphNode[], `子图: ${(sg as any).label ?? sg.id}`)
+          if (sg.graph) walk(sg.graph.nodes, `子图: ${sg.label || sg.id}`)
         }
       }
       findRefsState.value = { varName, refs }
@@ -1338,14 +1338,14 @@ function onMultiMenuAction(a: MultiMenuAction) {
 // ===== Find-References pick handler =====
 
 async function onFindRefsPick(nodeID: string) {
-  const currentNodes = activeGraph.value?.nodes as GraphNode[] | undefined
+  const currentNodes = activeGraph.value?.nodes
   const inCurrent = currentNodes?.some(n => n.id === nodeID) ?? false
   if (!inCurrent) {
     // Find which subgraph contains this node and jump there
     let targetSgID: string | null = null
     let targetNode: GraphNode | undefined
     for (const sg of draft.value?.subgraphs ?? []) {
-      const found = (sg.graph?.nodes as GraphNode[] | undefined)?.find(n => n.id === nodeID)
+      const found = sg.graph?.nodes?.find(n => n.id === nodeID)
       if (found) {
         targetSgID = sg.id
         targetNode = found
@@ -1835,7 +1835,7 @@ const nodeSearchResults = computed<NodeSearchResult[]>(() => {
   }
   walk(draft.value.graph.nodes, '主图', null)
   for (const sg of draft.value.subgraphs ?? []) {
-    if (sg.graph) walk(sg.graph.nodes, `子图: ${(sg as any).label ?? sg.id}`, sg.id)
+    if (sg.graph) walk(sg.graph.nodes, `子图: ${sg.label || sg.id}`, sg.id)
   }
   return out
 })
@@ -1950,7 +1950,7 @@ const selectedNode = computed<GraphNode | null>(() => {
   if (!selectedID.value) return null
   const g = activeGraph.value
   if (!g) return null
-  return (g.nodes as GraphNode[]).find((n) => n.id === selectedID.value) ?? null
+  return g.nodes.find((n) => n.id === selectedID.value) ?? null
 })
 
 const varNames = computed<string[]>(() => (draft.value?.vars ?? []).map((v) => v.name))
@@ -2265,11 +2265,11 @@ function onLabelUpdate(newLabel: string) {
   applyDraftMutation((d) => {
     const g = activeGraph.value
     if (!g) return
-    const n = g.nodes.find((x) => x.id === targetID) as (GraphNode & { label?: string }) | undefined
+    const n = g.nodes.find((x) => x.id === targetID)
     if (!n) return
     const trimmed = newLabel.trim()
     if (trimmed) n.label = trimmed
-    else delete (n as any).label
+    else delete n.label
   })
 }
 
@@ -2304,15 +2304,7 @@ function onDeleteSelected() {
   selectedID.value = null
 }
 
-// 录制流程见 useRecording. start → 后端落盘 InputClip → 主图加 PlayClip 节点 (config.clipID).
-// startRecording / stopRecording / countdownSec 由 useRecording composable 提供.
-// sgLabel / currentSubgraph 由 useEditorPath 提供.
-
 const selectedCount = computed(() => getSelectedNodes.value.length)
-
-// onFoldSelection 由 useFolding composable 提供（见 setup 顶部）
-
-// onSave 由 useEditorSave composable 提供（见 setup 顶部）
 
 async function onTryRun() {
   if (!draft.value || dirty.value) return
@@ -2368,7 +2360,7 @@ function onFixMissingWindowTarget() {
   if (!draft.value) return
   const mainGraph = draft.value.graph
   // 已存在则不重复加
-  if ((mainGraph.nodes as GraphNode[]).some((n) => n.kind === 'WindowTarget')) {
+  if (mainGraph.nodes.some((n) => n.kind === 'WindowTarget')) {
     toast.add({ title: '主图已经有 WindowTarget 节点了', color: 'warning' })
     return
   }
@@ -2381,7 +2373,7 @@ function onFixMissingWindowTarget() {
     config: JSON.parse(JSON.stringify(defaults)),
     createdAt: new Date().toISOString(),
   }
-  ;(mainGraph.nodes as GraphNode[]).push(newNode)
+  mainGraph.nodes.push(newNode)
   syncFlowFromDraft()
   validationPanelOpen.value = false
   toast.add({
