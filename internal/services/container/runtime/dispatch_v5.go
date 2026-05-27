@@ -339,17 +339,19 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		}
 		tok := queue[0]
 		queue = queue[1:]
+		// B2: entry/output 是 virtual marker (不在 nodesByID), 走 metadata 路由.
+		if r.currentSG != nil {
+			if tok.NodeID == r.currentSG.EntryNodeID {
+				queue = append(queue, r.edges.next(tok.NodeID+".out", tok.LoopStack)...)
+				continue
+			}
+			if _, isOutput := r.currentSG.OutputDeclsByID[tok.NodeID]; isOutput {
+				return nil
+			}
+		}
 		n, ok := r.nodesByID[tok.NodeID]
 		if !ok {
 			return fmt.Errorf("runRegionBody: unknown node %q", tok.NodeID)
-		}
-		// SubgraphInput / Output markers — sub-runner 不走 Run.
-		if n.Kind == "SubgraphInput" {
-			queue = append(queue, r.edges.next(n.ID+".out", tok.LoopStack)...)
-			continue
-		}
-		if n.Kind == "SubgraphOutput" {
-			return nil
 		}
 		// 节点级事件 — 跟 runner.go::Run 主 loop 同 emit, 让 GUI 高亮子图 / Loop body 内
 		// 跑的节点 (老 runner 只 emit 顶层一层, 子区域走 runRegionBody 不进 execNode 也没 emit).
@@ -463,9 +465,11 @@ func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok Exe
 
 		// Save dispatch tables, swap to subgraph's.
 		// B3: 改读 r.compiled.Subgraphs 预编译产物, 不再 hot rebuild edge index.
+		// B2: 同时 swap currentSG, runRegionBody 用来识 entry/output marker.
 		savedEdges := r.edges
 		savedDataEdges := r.dataEdges
 		savedNodesByID := r.nodesByID
+		savedCurrentSG := r.currentSG
 		sgc, ok := r.compiled.Subgraphs[sg.ID]
 		if !ok {
 			return fmt.Errorf("Subgraph %s: callee %q not pre-compiled (compile bug)", node.ID, sg.ID)
@@ -473,25 +477,21 @@ func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok Exe
 		r.edges = sgc.Edges
 		r.dataEdges = sgc.DataEdges
 		r.nodesByID = sgc.NodesByID
+		r.currentSG = sgc
 		defer func() {
 			r.edges = savedEdges
 			r.dataEdges = savedDataEdges
 			r.nodesByID = savedNodesByID
+			r.currentSG = savedCurrentSG
 		}()
 
-		// Find SubgraphInput entry
-		var inputID string
-		for i := range sg.Graph.Nodes {
-			if sg.Graph.Nodes[i].Kind == "SubgraphInput" {
-				inputID = sg.Graph.Nodes[i].ID
-				break
-			}
-		}
-		if inputID == "" {
-			return fmt.Errorf("Subgraph %s: callee %q missing SubgraphInput", node.ID, sg.ID)
+		// B2: entry NodeID 从 sg.Entry metadata 拿, 不再 scan Graph.Nodes.
+		entryID := sg.Entry.NodeID
+		if entryID == "" {
+			return fmt.Errorf("Subgraph %s: callee %q missing Entry (Normalize 漏?)", node.ID, sg.ID)
 		}
 
-		seeds := r.edges.next(inputID+".out", parentLoopStack)
+		seeds := r.edges.next(entryID+".out", parentLoopStack)
 		return r.runRegionBody(c.Context(), seeds)
 	}, nil
 }

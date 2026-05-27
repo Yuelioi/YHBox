@@ -11,26 +11,99 @@ import (
 	"github.com/google/uuid"
 )
 
-// normalizeSubgraph self-heal 旧版 CreateSubgraph 漏建 SubgraphOutput 节点的子图.
-// validator 要求每个 sg 必须有 ≥1 SubgraphOutput; 早期阶段持久化数据可能缺失,
-// 读盘后自动补一个 + 绑定 OutputPins[0].ID 当 declID. 下次 save 写回的就是 normalized 版本.
-// 已有 SubgraphOutput 的子图不动.
+// normalizeSubgraph self-heal + B2 migration:
+//   - 扫 sg.Graph.Nodes 里老格式 SubgraphInput/Output 节点, 提取到 sg.Entry / sg.OutputPins[].NodeID metadata, 节点本身删.
+//   - 没 Entry → 生成新 entry NodeID + 默认位置.
+//   - 没 OutputPins[i].NodeID → 生成新 out NodeID + 错位排开.
+//   - 空 OutputPins → 兜底加一个 "done" pin.
+// 幂等: 已 normalize 过的 sg 再调一次, sg.Entry.NodeID / OutputPins[*].NodeID 都存在, 不动节点列表.
 func normalizeSubgraph(sg *Subgraph) {
+	// B2: 迁移老格式 marker 节点 → metadata.
+	// 暂存找到的 SubgraphOutput 节点, 后面统一 reconcile (避免 declID 缺失/未声明 OutputPin 时丢节点 ID).
+	type outputNode struct {
+		nodeID string
+		declID string
+		x, y   float32
+	}
+	var foundOutputs []outputNode
+	nextNodes := sg.Graph.Nodes[:0]
 	for _, n := range sg.Graph.Nodes {
-		if n.Kind == "SubgraphOutput" {
-			return
+		switch n.Kind {
+		case "SubgraphInput":
+			if sg.Entry.NodeID == "" {
+				sg.Entry = SubgraphMarker{NodeID: n.ID, X: n.X, Y: n.Y}
+			}
+			// strip
+		case "SubgraphOutput":
+			declID, _ := n.Config["DeclID"].(string)
+			foundOutputs = append(foundOutputs, outputNode{nodeID: n.ID, declID: declID, x: n.X, y: n.Y})
+			// strip
+		default:
+			nextNodes = append(nextNodes, n)
 		}
 	}
+	sg.Graph.Nodes = nextNodes
+
+	// Reconcile SubgraphOutput 节点 → OutputPins[].NodeID:
+	//   1. declID 匹配某 OutputPin → 填它的 NodeID/X/Y (若空)
+	//   2. declID 非空且不匹配 → 自动 append 新 OutputPin (老 bug self-heal)
+	//   3. declID 空 → 找第一个无 NodeID 的 OutputPin 填, 没空位则 append 新 (Name="done")
+	for _, on := range foundOutputs {
+		assigned := false
+		if on.declID != "" {
+			for i := range sg.OutputPins {
+				if sg.OutputPins[i].ID == on.declID {
+					if sg.OutputPins[i].NodeID == "" {
+						sg.OutputPins[i].NodeID = on.nodeID
+						sg.OutputPins[i].X = on.x
+						sg.OutputPins[i].Y = on.y
+					}
+					assigned = true
+					break
+				}
+			}
+			if !assigned {
+				sg.OutputPins = append(sg.OutputPins, SubgraphOutputDecl{
+					ID: on.declID, Name: "done", NodeID: on.nodeID, X: on.x, Y: on.y,
+				})
+				assigned = true
+			}
+		}
+		if !assigned {
+			// declID 空 — 找第一个无 NodeID 的 OutputPin 填; 没空位 → append 新 (genID)
+			for i := range sg.OutputPins {
+				if sg.OutputPins[i].NodeID == "" {
+					sg.OutputPins[i].NodeID = on.nodeID
+					sg.OutputPins[i].X = on.x
+					sg.OutputPins[i].Y = on.y
+					assigned = true
+					break
+				}
+			}
+			if !assigned {
+				sg.OutputPins = append(sg.OutputPins, SubgraphOutputDecl{
+					ID: uuid.NewString(), Name: "done", NodeID: on.nodeID, X: on.x, Y: on.y,
+				})
+			}
+		}
+	}
+
+	// 补齐 Entry.
+	if sg.Entry.NodeID == "" {
+		sg.Entry = SubgraphMarker{NodeID: "entry-" + uuid.NewString()[:8], X: 80, Y: 160}
+	}
+	// 兜底 OutputPins 非空.
 	if len(sg.OutputPins) == 0 {
 		sg.OutputPins = []SubgraphOutputDecl{{ID: uuid.NewString(), Name: "done"}}
 	}
-	declID := sg.OutputPins[0].ID
-	sg.Graph.Nodes = append(sg.Graph.Nodes, GraphNode{
-		ID: "out-" + uuid.NewString()[:8], Kind: "SubgraphOutput",
-		X: 420, Y: 160,
-		Config:    map[string]any{"DeclID": declID},
-		CreatedAt: time.Now().UTC(),
-	})
+	// 补齐每个 OutputPin 的 NodeID + 默认位置.
+	for i := range sg.OutputPins {
+		if sg.OutputPins[i].NodeID == "" {
+			sg.OutputPins[i].NodeID = "out-" + uuid.NewString()[:8]
+			sg.OutputPins[i].X = 420
+			sg.OutputPins[i].Y = 160 + float32(i)*80
+		}
+	}
 }
 
 // SaveSubgraph 写一个 subgraph 到 containers/<cid>/subgraphs/<sg.ID>.json，

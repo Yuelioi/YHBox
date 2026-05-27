@@ -91,12 +91,13 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 //
 // Backlog: 改 cooperative scheduler 让 Stop 真·瞬停 + 多容器公平调度 — 见 backend-backlog.md B6.
 type ContainerRunner struct {
-	rt          *RuntimeContext
-	compiled    *CompiledContainer // B3: 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
-	nodesByID   map[string]*container.GraphNode
-	edges       *edgeIndex
-	dataEdges   *dataEdgeIndex
-	state       *ExecState
+	rt        *RuntimeContext
+	compiled  *CompiledContainer // B3: 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
+	currentSG *CompiledGraph     // B2: subgraph swap 时设, runRegionBody 用来识 entry/output marker.
+	nodesByID map[string]*container.GraphNode
+	edges     *edgeIndex
+	dataEdges *dataEdgeIndex
+	state     *ExecState
 	stopwatches *stopwatchTable
 
 	// currentTick is the per-exec-tick snapshot of rt.vars + rt.sys.
@@ -111,6 +112,9 @@ type ContainerRunner struct {
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
+	// B2: 防御性 normalize — 兜底 in-memory 构造 (test fixture / 工具脚本) 没走 Store.Save 路径的
+	// container, sg.Entry / OutputPins[*].NodeID 不空. Store-loaded container 已 normalize 过, 幂等.
+	rt.Container.Normalize()
 	cc := CompileContainer(rt.Container)
 	r := &ContainerRunner{
 		rt:          rt,

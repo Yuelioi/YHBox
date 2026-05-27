@@ -503,13 +503,9 @@ func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
 	var errs []ValidationError
 	graphPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 
-	outCount := 0
-	for _, n := range sg.Graph.Nodes {
-		if n.Kind == "SubgraphOutput" {
-			outCount++
-		}
-	}
-	if outCount == 0 {
+	// B2: 用 OutputPins 数检 EMPTY (老版本检 SubgraphOutput 节点数). normalize 兜底非空,
+	// 这里 defensive 检 — load 后 normalize 漏跑或 raw mutate sg 才可能 0.
+	if len(sg.OutputPins) == 0 {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError, Code: CodeEmptySubgraphOutput,
 			GraphPath: graphPath,

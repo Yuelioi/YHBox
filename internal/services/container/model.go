@@ -83,9 +83,23 @@ type Container struct {
 // SubgraphOutputDecl 一个命名出口的稳定标识。
 // 父图 edge / runtime dispatch / validator 都用 ID 引用；UI 用 Name 显示。
 // rename 只改 Name 不动 ID，父图无感。
+//
+// B2: NodeID/X/Y 是子图内 virtual "出口节点" 的 metadata —
+// edges 仍按 `<NodeID>.<pin>` 引用, validator/dispatch 白名单识别. 不再存进 Graph.Nodes.
 type SubgraphOutputDecl struct {
-	ID   string `json:"id"`   // UUID，稳定不变
-	Name string `json:"name"` // 用户可见显示名（"done"/"found"/"timeout"...）
+	ID     string  `json:"id"`               // UUID，稳定不变
+	Name   string  `json:"name"`             // 用户可见显示名（"done"/"found"/"timeout"...）
+	NodeID string  `json:"nodeID,omitempty"` // B2: virtual marker ID, edges 引用
+	X      float32 `json:"x,omitempty"`      // B2: editor canvas position
+	Y      float32 `json:"y,omitempty"`      // B2: editor canvas position
+}
+
+// SubgraphMarker B2: Subgraph entry 的 virtual 节点位置 + ID. Edges 引用 NodeID,
+// validator/dispatch 白名单识别. 不在 Graph.Nodes 里 — user 无法误删/误改 kind.
+type SubgraphMarker struct {
+	NodeID string  `json:"nodeID"`
+	X      float32 `json:"x,omitempty"`
+	Y      float32 `json:"y,omitempty"`
 }
 
 // SubgraphInputParam (v4) 子图入参声明.
@@ -122,8 +136,9 @@ type Subgraph struct {
 	ID               string                   `json:"id"`
 	Label            string                   `json:"label"`
 	Description      string                   `json:"description,omitempty"`
-	Graph            Graph                    `json:"graph"`                      // 内部节点 + 边
-	OutputPins       []SubgraphOutputDecl     `json:"outputPins"`                 // 由内部 SubgraphOutput 节点派生缓存
+	Graph            Graph                    `json:"graph"`                      // 内部节点 + 边 (B2: 不再含 SubgraphInput/Output)
+	Entry            SubgraphMarker           `json:"entry"`                      // B2: 子图入口 virtual marker
+	OutputPins       []SubgraphOutputDecl     `json:"outputPins"`                 // 出口声明 + virtual marker (B2)
 	InputParams      []SubgraphInputParam     `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
 	Tags             []string                 `json:"tags,omitempty"`             // 容器内 + 库 都用
 	RequiredGlobals  []SubgraphRequiredGlobal `json:"requiredGlobals,omitempty"`  // B11: 派生于 Normalize/SaveSubgraph, validator + library import 用
