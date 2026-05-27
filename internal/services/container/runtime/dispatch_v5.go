@@ -461,17 +461,18 @@ func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok Exe
 		}
 		defer r.state.PopFrame()
 
-		// Save dispatch tables, swap to subgraph's
+		// Save dispatch tables, swap to subgraph's.
+		// B3: 改读 r.compiled.Subgraphs 预编译产物, 不再 hot rebuild edge index.
 		savedEdges := r.edges
 		savedDataEdges := r.dataEdges
 		savedNodesByID := r.nodesByID
-		r.edges = buildEdgeIndex(sg.Graph)
-		r.dataEdges = buildDataEdgeIndex(sg.Graph)
-		r.nodesByID = make(map[string]*container.GraphNode, len(sg.Graph.Nodes))
-		for i := range sg.Graph.Nodes {
-			sgn := &sg.Graph.Nodes[i]
-			r.nodesByID[sgn.ID] = sgn
+		sgc, ok := r.compiled.Subgraphs[sg.ID]
+		if !ok {
+			return fmt.Errorf("Subgraph %s: callee %q not pre-compiled (compile bug)", node.ID, sg.ID)
 		}
+		r.edges = sgc.Edges
+		r.dataEdges = sgc.DataEdges
+		r.nodesByID = sgc.NodesByID
 		defer func() {
 			r.edges = savedEdges
 			r.dataEdges = savedDataEdges

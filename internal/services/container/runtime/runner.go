@@ -92,6 +92,7 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 // Backlog: 改 cooperative scheduler 让 Stop 真·瞬停 + 多容器公平调度 — 见 backend-backlog.md B6.
 type ContainerRunner struct {
 	rt          *RuntimeContext
+	compiled    *CompiledContainer // B3: 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
 	nodesByID   map[string]*container.GraphNode
 	edges       *edgeIndex
 	dataEdges   *dataEdgeIndex
@@ -110,18 +111,16 @@ type ContainerRunner struct {
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
+	cc := CompileContainer(rt.Container)
 	r := &ContainerRunner{
 		rt:          rt,
-		nodesByID:   make(map[string]*container.GraphNode),
-		edges:       buildEdgeIndex(rt.Container.Graph),
-		dataEdges:   buildDataEdgeIndex(rt.Container.Graph),
+		compiled:    cc,
+		nodesByID:   cc.Main.NodesByID,
+		edges:       cc.Main.Edges,
+		dataEdges:   cc.Main.DataEdges,
 		stopwatches: newStopwatchTable(),
 	}
-	for i := range rt.Container.Graph.Nodes {
-		n := &rt.Container.Graph.Nodes[i]
-		r.nodesByID[n.ID] = n
-	}
-	r.state = NewExecState(rt.Container.ID, snapshotMainCalibCounts(rt.Container))
+	r.state = NewExecState(rt.Container.ID, cc.MainCalibCounts)
 	// Phase 5.4: 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
 	// stateGetter — closure 让 VarStoreAdapter scope=local/auto 拿到 frame.LocalVars 栈.
 	// tickGetter — closure 让 PureData Evaluator (EvaluatePureData wrap) 拿到 per-tick

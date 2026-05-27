@@ -47,18 +47,13 @@ type EventListener struct {
 }
 
 func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener {
-	// 注册时一次性快照主图视图。runner.edges / runner.nodesByID 后续会被
-	// 主 dispatch 在进入 subgraph 时改写——若 listener 直接读那两字段会产生数据竞争。
-	homeNodes := make(map[string]*container.GraphNode, len(r.rt.Container.Graph.Nodes))
-	for i := range r.rt.Container.Graph.Nodes {
-		nn := &r.rt.Container.Graph.Nodes[i]
-		homeNodes[nn.ID] = nn
-	}
+	// B3: r.compiled.Main 是 immutable 预编译产物 (CompileContainer 后从不写),
+	// 直接复用即可 — 不再手抓 snapshot. runner.edges/nodesByID 是 swap 目标 不能直接读, 但 r.compiled.Main 安全.
 	l := &EventListener{
 		runner:          r,
 		node:            n,
-		homeEdges:       buildEdgeIndex(r.rt.Container.Graph),
-		homeNodesByID:   homeNodes,
+		homeEdges:       r.compiled.Main.Edges,
+		homeNodesByID:   r.compiled.Main.NodesByID,
 		kind:            configString(n, "kind"),
 		template:        configString(n, "template"),
 		// v4: thresholds via data-in pin.
