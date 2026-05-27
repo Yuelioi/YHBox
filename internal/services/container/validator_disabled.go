@@ -1,7 +1,5 @@
 package container
 
-import "fmt"
-
 // validateDisabledNodes checks rules for nodes marked disabled=true:
 //  1. Container-level nodes (Start/WindowTarget/MouseCalibration/OnEvent) disabled → error
 //     (invalid: no entry / target lost)
@@ -28,8 +26,7 @@ func validateDisabledNodes(c *Container) []ValidationError {
 					Code:      CodeInvalidDisabledTerminal,
 					GraphPath: append([]string(nil), path...),
 					NodeID:    n.ID,
-					Message:   fmt.Sprintf("容器级节点 %s (kind=%s) 不允许禁用 — 禁用 Start = 容器没入口; 禁用 WindowTarget = 无目标窗口", n.ID, n.Kind),
-					Params:    map[string]any{"kind": n.Kind},
+					Params:    map[string]any{"nodeID": n.ID, "kind": n.Kind},
 				})
 				continue
 			}
@@ -39,8 +36,7 @@ func validateDisabledNodes(c *Container) []ValidationError {
 					Code:      CodeDisabledBranchNodeWarn,
 					GraphPath: append([]string(nil), path...),
 					NodeID:    n.ID,
-					Message:   fmt.Sprintf("分支/异步节点 %s (kind=%s) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁", n.ID, n.Kind),
-					Params:    map[string]any{"kind": n.Kind},
+					Params:    map[string]any{"nodeID": n.ID, "kind": n.Kind},
 				})
 			}
 		}

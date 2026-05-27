@@ -42,10 +42,6 @@ func validateLiteralTypes(c *Container) []ValidationError {
 						Code:      CodeLiteralTypeMismatch,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message: fmt.Sprintf(
-							"节点 %s pin %q literal 值 %v 不是 %s 类型",
-							n.ID, pinName, raw, pinType,
-						),
 						Params: map[string]any{
 							"nodeID":   n.ID,
 							"pin":      pinName,

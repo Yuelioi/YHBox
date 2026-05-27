@@ -1,7 +1,5 @@
 package container
 
-import "fmt"
-
 // validateVarRefs checks that GetVar/SetVar/IncVar nodes reference declared Container.Vars,
 // EXCEPT for scope=local references which are frame-private (runtime check only).
 //
@@ -57,7 +55,6 @@ func validateVarRefs(c *Container) []ValidationError {
 				Code:      CodeInvalidVarRef,
 				GraphPath: append([]string(nil), path...),
 				NodeID:    n.ID,
-				Message:   fmt.Sprintf("节点 %s 引用未声明的容器变量 %q (scope=%s) — 在容器变量面板添加或改 scope=local", n.ID, varName, scope),
 				Params:    map[string]any{"varName": varName, "scope": scope},
 			})
 		}

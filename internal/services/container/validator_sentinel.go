@@ -53,7 +53,6 @@ func validateSentinelScope(c *Container) []ValidationError {
 						Code:      CodeBreakOutsideLoop,
 						GraphPath: path,
 						NodeID:    n.ID,
-						Message:   "Break 节点必须在 Loop 的 body 下游 (同图内 exec 可达)",
 					})
 				}
 			case "Continue":
@@ -63,7 +62,6 @@ func validateSentinelScope(c *Container) []ValidationError {
 						Code:      CodeContinueOutsideLoop,
 						GraphPath: path,
 						NodeID:    n.ID,
-						Message:   "Continue 节点必须在 Loop 的 body 下游 (同图内 exec 可达)",
 					})
 				}
 			case "Throw":
@@ -73,7 +71,6 @@ func validateSentinelScope(c *Container) []ValidationError {
 						Code:      CodeThrowOutsideTry,
 						GraphPath: path,
 						NodeID:    n.ID,
-						Message:   "Throw 节点必须在被 Try.SubgraphID 引用的子图内",
 					})
 				}
 			}

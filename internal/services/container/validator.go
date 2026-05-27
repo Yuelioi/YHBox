@@ -215,13 +215,11 @@ func validateMainGraph(c *Container) []ValidationError {
 			errs = append(errs, ValidationError{
 				Severity: SeverityError, Code: CodeNoStart,
 				GraphPath: []string{"main"},
-				Message:   "主图没有 Start 节点",
 			})
 		} else if startCount > 1 {
 			errs = append(errs, ValidationError{
 				Severity: SeverityError, Code: CodeMultipleStarts,
 				GraphPath: []string{"main"},
-				Message:   fmt.Sprintf("主图有 %d 个 Start 节点（应恰好 1 个）", startCount),
 				Params:    map[string]any{"count": startCount},
 			})
 		}
@@ -234,7 +232,6 @@ func validateMainGraph(c *Container) []ValidationError {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeDanglingEdge,
 					GraphPath: []string{"main"},
-					Message:   fmt.Sprintf("边 %q → %q：源节点 %q 不存在", e.From, e.To, from),
 					Params:    map[string]any{"from": e.From, "to": e.To, "missing": from, "side": "source"},
 				})
 			}
@@ -244,7 +241,6 @@ func validateMainGraph(c *Container) []ValidationError {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeDanglingEdge,
 					GraphPath: []string{"main"},
-					Message:   fmt.Sprintf("边 %q → %q：目标节点 %q 不存在", e.From, e.To, to),
 					Params:    map[string]any{"from": e.From, "to": e.To, "missing": to, "side": "target"},
 				})
 			}
@@ -267,7 +263,6 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 		errs = append(errs, ValidationError{
 			Severity: SeverityError, Code: CodeDuplicateMouseCalibration,
 			GraphPath: []string{"main"},
-			Message:   fmt.Sprintf("主图有 %d 个 MouseCalibration 节点（应最多 1 个）", calCount),
 			Params:    map[string]any{"count": calCount},
 		})
 	}
@@ -279,7 +274,6 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 					Severity: SeverityError, Code: CodeMouseCalibrationInSubgraph,
 					GraphPath: []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)},
 					NodeID:    n.ID,
-					Message:   "MouseCalibration 只能放在主图（容器范围唯一）",
 				})
 			}
 		}
@@ -290,7 +284,6 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 		errs = append(errs, ValidationError{
 			Severity: SeverityError, Code: CodeMissingMouseCalibration,
 			GraphPath: []string{"main"},
-			Message:   "容器使用了相对鼠标移动，主图必须有 1 个 MouseCalibration 节点",
 		})
 	}
 
@@ -301,7 +294,6 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 				Severity: SeverityWarning, Code: CodeMouseCalibrationNotSet,
 				GraphPath: []string{"main"},
 				NodeID:    calNode.ID,
-				Message:   "MouseCalibration 节点未校准（counts360 = 0），运行时鼠标转向不准",
 			})
 		}
 		// MOUSE_CALIBRATION_FOREIGN: 节点值 != 本机 settings 当前值 且 settings > 0
@@ -311,10 +303,6 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 				Severity: SeverityWarning, Code: CodeMouseCalibrationForeign,
 				GraphPath: []string{"main"},
 				NodeID:    calNode.ID,
-				Message: fmt.Sprintf(
-					"MouseCalibration 节点值 %d 跟你本机 (%d) 不一致，疑似从别人机器下载，建议用本机值覆盖此节点",
-					counts, vctx.SettingsMouseCounts360,
-				),
 				Params: map[string]any{"nodeValue": counts, "settingsValue": vctx.SettingsMouseCounts360},
 			})
 		}
@@ -368,7 +356,6 @@ func validateInvalidPins(c *Container) []ValidationError {
 					errs = append(errs, ValidationError{
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: fromID,
-						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 out pin %q", fromID, node.Kind, fromPin),
 						Params:  map[string]any{"nodeID": fromID, "kind": node.Kind, "pin": fromPin, "side": "out"},
 					})
 				}
@@ -386,7 +373,6 @@ func validateInvalidPins(c *Container) []ValidationError {
 					errs = append(errs, ValidationError{
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: toID,
-						Message: fmt.Sprintf("节点 %s (kind=%s) 不存在 in pin %q", toID, toNode.Kind, toPin),
 						Params:  map[string]any{"nodeID": toID, "kind": toNode.Kind, "pin": toPin, "side": "in"},
 					})
 				}
@@ -419,7 +405,6 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingSubgraph,
 					GraphPath: graphPath, NodeID: n.ID,
-					Message: "Subgraph 调用节点未设 subgraphId",
 				})
 				continue
 			}
@@ -427,7 +412,6 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingSubgraph,
 					GraphPath: graphPath, NodeID: n.ID,
-					Message: fmt.Sprintf("Subgraph 调用节点引用了不存在的子图 %q", id),
 					Params:  map[string]any{"subgraphId": id},
 				})
 			}
@@ -463,7 +447,6 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingTemplate,
 					GraphPath: graphPath, NodeID: n.ID,
-					Message: fmt.Sprintf("节点 %s 引用的模板 %q 在容器 templates/ 里找不到", n.ID, key),
 					Params:  map[string]any{"nodeID": n.ID, "template": key},
 				})
 			}
@@ -492,7 +475,6 @@ func validatePlayClip(c *Container) []ValidationError {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodePlayClipNoClipID,
 					GraphPath: graphPath, NodeID: n.ID,
-					Message: "PlayClip 节点未设 clipID (没绑定录制片段)",
 				})
 			}
 		}
@@ -535,7 +517,6 @@ func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError, Code: CodeEmptySubgraphOutput,
 			GraphPath: graphPath,
-			Message:   "子图至少要有一个 SubgraphOutput 节点",
 		})
 	}
 
@@ -545,7 +526,6 @@ func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
 			errs = append(errs, ValidationError{
 				Severity: SeverityError, Code: CodeDuplicateOutputPin,
 				GraphPath: graphPath,
-				Message:   fmt.Sprintf("OutputPin Name %q 重复", p.Name),
 				Params:    map[string]any{"name": p.Name},
 			})
 		}
@@ -606,7 +586,6 @@ func validateCyclicSubgraphs(c *Container) []ValidationError {
 			Severity:  SeverityError,
 			Code:      CodeCyclicSubgraphDependency,
 			GraphPath: []string{"main"},
-			Message:   "子图存在环形引用（A→A 自递归 或 A→B→A 间接环）",
 		}}
 	}
 	return nil
@@ -643,14 +622,12 @@ func validateWindowTarget(c *Container) []ValidationError {
 			Severity:  SeverityError,
 			Code:      CodeMissingWindowTarget,
 			GraphPath: []string{"main"},
-			Message:   "主图缺 WindowTarget 节点 — v3 container 必须声明目标窗口",
 		})
 	} else if mainCount > 1 {
 		errs = append(errs, ValidationError{
 			Severity:  SeverityError,
 			Code:      CodeDuplicateWindowTarget,
 			GraphPath: []string{"main"},
-			Message:   "主图有多个 WindowTarget 节点, 只能 1 个",
 		})
 	}
 
@@ -663,7 +640,6 @@ func validateWindowTarget(c *Container) []ValidationError {
 					Code:      CodeWindowTargetInSubgraph,
 					GraphPath: []string{"subgraph:" + sg.ID},
 					NodeID:    n.ID,
-					Message:   "WindowTarget 不能放在子图里 (子图要复用跨 container 跨窗口)",
 				})
 			}
 		}
@@ -680,7 +656,6 @@ func validateWindowTarget(c *Container) []ValidationError {
 					Code:      CodeInvalidWindowTargetRegex,
 					GraphPath: []string{"main"},
 					NodeID:    mainNode.ID,
-					Message:   "WindowTarget title regex 编译失败: " + err.Error(),
 					Params:    map[string]any{"error": err.Error()},
 				})
 			}
@@ -692,7 +667,6 @@ func validateWindowTarget(c *Container) []ValidationError {
 				Code:      CodeInvalidWindowTargetEmptyMatch,
 				GraphPath: []string{"main"},
 				NodeID:    mainNode.ID,
-				Message:   "WindowTarget 匹配条件全空或万能 (会匹配任意窗口, 极易闯祸). 至少填一个实质性 title/class/processName",
 			})
 		}
 	}
@@ -797,7 +771,6 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 					NodeID:    n.ID,
 					Code:      CodeThrowInMainGraph,
 					GraphPath: graphPath,
-					Message:   "Throw 节点在主图里会终止整个 runner；通常应放在子图的错误路径中",
 				}}
 			}
 		}
@@ -824,7 +797,6 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 				Code:      CodeStopwatchKeyMismatch,
 				GraphPath: graphPath,
 				NodeID:    n.ID,
-				Message:   fmt.Sprintf("%s 使用 key %q 但同图中无对应的 StopwatchStart (运行时会读零值)", n.Kind, key),
 				Params:    map[string]any{"kind": n.Kind, "key": key},
 			})
 		}
@@ -844,7 +816,6 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeInvalidROI,
-			Message:  "missing roi",
 		})
 	} else {
 		w, _ := roi["w"].(float64)
@@ -854,7 +825,6 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 				Severity: SeverityError,
 				NodeID:   n.ID,
 				Code:     CodeInvalidROI,
-				Message:  fmt.Sprintf("roi w/h must be >=1, got %vx%v", w, h),
 				Params:   map[string]any{"w": w, "h": h},
 			})
 		}
@@ -867,7 +837,6 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 				Severity: SeverityError,
 				NodeID:   n.ID,
 				Code:     CodeInvalidHSVRange,
-				Message:  "HSV min > max",
 			})
 		}
 	}
@@ -878,7 +847,6 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 			Severity: SeverityWarning,
 			NodeID:   n.ID,
 			Code:     CodePollTooFast,
-			Message:  fmt.Sprintf("pollIntervalMs=%v < 30, will hammer CPU; runtime clamps <10", poll),
 			Params:   map[string]any{"actual": poll, "minMs": 30},
 		})
 	}
@@ -905,7 +873,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 					Code:      CodeInvalidDualBarROIs,
 					GraphPath: graphPath,
 					NodeID:    n.ID,
-					Message:   fmt.Sprintf("DualColorBarTrack 节点 %s config.rois 必须是非空数组", n.ID),
 					Params:    map[string]any{"nodeID": n.ID},
 				})
 				continue
@@ -919,7 +886,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] 不是对象", n.ID, i),
 						Params:    map[string]any{"nodeID": n.ID, "index": i},
 					})
 					continue
@@ -931,7 +897,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d].resolution 必须是 [W,H]", n.ID, i),
 						Params:    map[string]any{"nodeID": n.ID, "index": i},
 					})
 					continue
@@ -946,7 +911,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d].resolution 必须正数 (得到 %dx%d)", n.ID, i, resW, resH),
 						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": resW, "h": resH},
 					})
 					continue
@@ -965,7 +929,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] w/h 必须 >= 1 (得到 %dx%d)", n.ID, i, rw, rh),
 						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": rw, "h": rh},
 					})
 					continue
@@ -976,7 +939,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 						Code:      CodeInvalidDualBarROIs,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] ROI (%d,%d)+(%dx%d) 超出 resolution %dx%d", n.ID, i, x, y, rw, rh, resW, resH),
 						Params:    map[string]any{"nodeID": n.ID, "index": i},
 					})
 					continue
@@ -988,7 +950,6 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 						Code:      CodeDuplicateDualBarROI,
 						GraphPath: graphPath,
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("DualColorBarTrack %s rois[%d] resolution %dx%d 重复声明", n.ID, i, resW, resH),
 						Params:    map[string]any{"nodeID": n.ID, "index": i, "w": resW, "h": resH},
 					})
 				}
@@ -1035,7 +996,6 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeInvalidScanAxis,
-			Message:  fmt.Sprintf("scanAxis must be 'x' or 'y', got %q", axis),
 			Params:   map[string]any{"got": axis},
 		})
 	}
@@ -1048,7 +1008,6 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeInvalidClusterRange,
-			Message:  fmt.Sprintf("minClusterPx %v > maxClusterPx %v", minC, maxC),
 			Params:   map[string]any{"min": minC, "max": maxC},
 		})
 	}
@@ -1071,7 +1030,6 @@ func validateScreenshot(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeUnsafeScreenshotPath,
-			Message:  "pathTemplate must be relative with no '..' traversal",
 		}}
 	}
 	return nil
@@ -1088,7 +1046,6 @@ func validateKeyHold(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeInvalidVK,
-			Message:  "vk required (string, e.g. 'A' / 'Space' / 'F9')",
 		}}
 	}
 	return nil
@@ -1102,7 +1059,6 @@ func validateMouseHold(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeInvalidMouseButton,
-			Message:  fmt.Sprintf("button %q not in left/right/middle", btn),
 			Params:   map[string]any{"button": btn},
 		}}
 	}
@@ -1123,7 +1079,6 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 	if len(cfg.Cases) == 0 {
 		errs = append(errs, ValidationError{
 			NodeID: n.ID, Code: CodeInvalidSwitchCases,
-			Message: "Switch cases 数组必须非空",
 		})
 		return errs
 	}
@@ -1132,7 +1087,6 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 		if cs == "" {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Message: fmt.Sprintf("Switch cases[%d] 是空字符串", i),
 				Params:  map[string]any{"index": i, "reason": "empty"},
 			})
 			continue
@@ -1140,7 +1094,6 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 		if strings.Contains(cs, ".") {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Message: fmt.Sprintf("Switch cases[%d]=%q 含 '.' (pin 分隔符, 禁用)", i, cs),
 				Params:  map[string]any{"index": i, "case": cs, "reason": "contains_dot"},
 			})
 			continue
@@ -1148,7 +1101,6 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 		if cs == "default" {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Message: fmt.Sprintf("Switch cases[%d]='default' 跟保留 default pin 冲突", i),
 				Params:  map[string]any{"index": i, "case": cs, "reason": "reserved_default"},
 			})
 			continue
@@ -1156,7 +1108,6 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 		if trimmed := strings.TrimSpace(cs); trimmed != cs {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Message: fmt.Sprintf("Switch cases[%d]=%q 含前导/尾部空格", i, cs),
 				Params:  map[string]any{"index": i, "case": cs, "reason": "whitespace"},
 			})
 			continue
@@ -1164,7 +1115,6 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 		if seen[cs] {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Message: fmt.Sprintf("Switch cases[%d]=%q 重复", i, cs),
 				Params:  map[string]any{"index": i, "case": cs, "reason": "duplicate"},
 			})
 			continue
@@ -1194,7 +1144,6 @@ func validateCronConfig(n *GraphNode) []ValidationError {
 			Code:     CodeInvalidCronExpr,
 			NodeID:   n.ID,
 			// E4 i18n 迁移前中文 fallback (跟现有 ~30 个 validator 同款). 切 i18n 后前端 t() 覆盖.
-			Message: fmt.Sprintf("Cron 节点表达式无效: %q (%v)", s, err),
 			Params:  map[string]any{"expr": s, "parseErr": err.Error()},
 		})
 	}
@@ -1209,7 +1158,6 @@ func validateStopwatch(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			NodeID:   n.ID,
 			Code:     CodeStopwatchEmptyKey,
-			Message:  "key required",
 		}}
 	}
 	return nil

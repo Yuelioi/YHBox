@@ -22,18 +22,17 @@ type ValidationFailure struct {
 	Errors []ValidationError
 }
 
-// TODO(E4): ValidationError.Message field is being removed in favor of Code+Params i18n.
-// When E4 lands, swap the format below to t(Code, Params) or drop Message reference here —
-// otherwise this Error() output becomes "CODE: " (trailing colon + empty).
+// Error: B5 ship 后 Code+Params 模型 — i18n 走 FE t(), 后端 log 显示 Code+Params 字面.
+// 不漂亮但够 debug; UI 全走 ValidationErrorPanel 不读 Error().
 func (f *ValidationFailure) Error() string {
 	if len(f.Errors) == 0 {
 		return "container: validation passed" // unreachable from Validate(); defensive only
 	}
 	if len(f.Errors) == 1 {
 		e := f.Errors[0]
-		return fmt.Sprintf("%s: %s", e.Code, e.Message)
+		return fmt.Sprintf("%s %v", e.Code, e.Params)
 	}
-	return fmt.Sprintf("%s: %s (and %d more)", f.Errors[0].Code, f.Errors[0].Message, len(f.Errors)-1)
+	return fmt.Sprintf("%s %v (and %d more)", f.Errors[0].Code, f.Errors[0].Params, len(f.Errors)-1)
 }
 
 // Validate 校验 Container 完整性. 任何 SeverityError → 返 *ValidationFailure 含完整错误列表;

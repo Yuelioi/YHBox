@@ -175,7 +175,7 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 				"errors":      result.Validation,
 			})
 		}
-		return nil, fmt.Errorf("node %q (%s) validation: %s", node.ID, node.Kind, result.Validation[0].Message)
+		return nil, fmt.Errorf("node %q (%s) validation: %s %v", node.ID, node.Kind, result.Validation[0].Code, result.Validation[0].Params)
 	}
 
 	if result.Error != nil {

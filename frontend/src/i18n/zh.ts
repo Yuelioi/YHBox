@@ -72,10 +72,8 @@ export default {
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget 正则不合法: {error}',
     INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match 不能为空',
     INVALID_ROI: 'ROI 配置不合法 (w/h 必须 >= 1, 得到 {w}x{h})',
-    INVALID_COLORBAR_ROIS: 'ColorBarTrack 节点 rois 配置无效',
-    DUPLICATE_COLORBAR_ROI: 'ColorBarTrack rois 含重复分辨率 ({w}x{h})',
-    MISSING_TEMPLATE_VARIANT: '模板 {key} 没有 {W}x{H} 的 variant',
-    MISSING_COLORBAR_ROI: 'ColorBarTrack 节点 {nodeId} 没有 {W}x{H} 的 rois 配置',
+    INVALID_DUALBAR_ROIS: 'DualColorBarTrack rois 配置无效',
+    DUPLICATE_DUALBAR_ROI: 'DualColorBarTrack rois 含重复分辨率 ({w}x{h})',
     INVALID_HSV_RANGE: 'HSV 范围不合法',
     INVALID_SCAN_AXIS: 'scanAxis 必须是 x 或 y, 得到 {got}',
     INVALID_CLUSTER_RANGE: 'cluster 范围不合法 (min={min} > max={max})',
@@ -104,6 +102,21 @@ export default {
     GETPARAM_UNKNOWN_PARAM: 'GetParam 引用未声明入参 {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
+    // B11/B3+ 加的 code
+    INVALID_VAR_REF: '节点引用未声明的容器变量 {varName} (scope={scope})',
+    // 禁用节点
+    WARN_DISABLED_BRANCH_NODE: '分支/异步节点 {nodeID} (kind={kind}) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁',
+    INVALID_DISABLED_TERMINAL: '容器级节点 {nodeID} (kind={kind}) 不允许禁用 (Start/WindowTarget)',
+    // sentinel scope
+    BREAK_OUTSIDE_LOOP: 'Break 节点必须在 Loop body 下游 (同图内 exec 可达)',
+    CONTINUE_OUTSIDE_LOOP: 'Continue 节点必须在 Loop body 下游 (同图内 exec 可达)',
+    THROW_OUTSIDE_TRY: 'Throw 节点必须在被 Try.SubgraphID 引用的子图内',
+    // template/clip key validation
+    INVALID_TEMPLATE_KEY: '模板 key {key} 不合法: {error}',
+    TEMPLATE_NOT_FOUND: '模板 {key} 在容器中找不到',
+    CLIP_NOT_FOUND: '剪辑 {id} 在容器中找不到',
+    // service.go 兜底
+    CONTAINER_NOT_FOUND: '容器 {id} 不存在',
   },
   // ValidationErrorPanel 模态壳文案 — 跟 error.* 错误码分开.
   validation: {

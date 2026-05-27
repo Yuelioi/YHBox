@@ -62,10 +62,8 @@ export default {
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget regex invalid: {error}',
     INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match cannot be empty',
     INVALID_ROI: 'ROI config invalid (w/h must be >= 1, got {w}x{h})',
-    INVALID_COLORBAR_ROIS: 'ColorBarTrack node has invalid rois config',
-    DUPLICATE_COLORBAR_ROI: 'ColorBarTrack rois contains duplicate resolution ({w}x{h})',
-    MISSING_TEMPLATE_VARIANT: 'Template {key} has no variant for {W}x{H}',
-    MISSING_COLORBAR_ROI: 'ColorBarTrack node {nodeId} has no rois entry for {W}x{H}',
+    INVALID_DUALBAR_ROIS: 'DualColorBarTrack rois config invalid',
+    DUPLICATE_DUALBAR_ROI: 'DualColorBarTrack rois contains duplicate resolution ({w}x{h})',
     INVALID_HSV_RANGE: 'HSV range is invalid',
     INVALID_SCAN_AXIS: 'scanAxis must be x or y, got {got}',
     INVALID_CLUSTER_RANGE: 'cluster range invalid (min={min} > max={max})',
@@ -94,6 +92,21 @@ export default {
     GETPARAM_UNKNOWN_PARAM: 'GetParam references undeclared input param {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode external pin has no matching marker in backing Subgraph',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
+    // B11/B3+ added codes
+    INVALID_VAR_REF: 'Node references undeclared container variable {varName} (scope={scope})',
+    // disabled nodes
+    WARN_DISABLED_BRANCH_NODE: 'Branch/async node {nodeID} (kind={kind}) disabled passthrough exit pin — non-deterministic, prefer delete over disable',
+    INVALID_DISABLED_TERMINAL: 'Container-level node {nodeID} (kind={kind}) cannot be disabled (Start/WindowTarget)',
+    // sentinel scope
+    BREAK_OUTSIDE_LOOP: 'Break node must be downstream of a Loop body (exec-reachable in same graph)',
+    CONTINUE_OUTSIDE_LOOP: 'Continue node must be downstream of a Loop body (exec-reachable in same graph)',
+    THROW_OUTSIDE_TRY: 'Throw node must be inside a Subgraph referenced by Try.SubgraphID',
+    // template/clip key validation
+    INVALID_TEMPLATE_KEY: 'Template key {key} invalid: {error}',
+    TEMPLATE_NOT_FOUND: 'Template {key} not found in container',
+    CLIP_NOT_FOUND: 'Clip {id} not found in container',
+    // service.go fallback
+    CONTAINER_NOT_FOUND: 'Container {id} not found',
   },
   // ValidationErrorPanel modal shell strings — separate from error.* codes.
   validation: {

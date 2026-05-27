@@ -8,6 +8,7 @@ import (
 	"yhbox/internal/services/template"
 )
 
+
 // validateTemplateKeyConfig 校验单个节点的 config["template"] 是否符合 namespace 格式.
 // 只处理 CheckTemplate / ClickTemplate / WaitTemplate; 其它 kind 返回 nil.
 func validateTemplateKeyConfig(n *GraphNode) []ValidationError {
@@ -25,8 +26,7 @@ func validateTemplateKeyConfig(n *GraphNode) []ValidationError {
 			Severity: SeverityError,
 			Code:     CodeInvalidTemplateKey,
 			NodeID:   n.ID,
-			Message:  fmt.Sprintf("template key %q invalid: %v", key, err),
-			Params:   map[string]any{"key": key},
+			Params:   map[string]any{"key": key, "error": err.Error()},
 		}}
 	}
 	return nil

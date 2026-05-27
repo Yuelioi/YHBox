@@ -1,7 +1,6 @@
 package container
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -58,12 +57,12 @@ func TestValidateSwitch_ReservedDefaultCase(t *testing.T) {
 	}
 	found := false
 	for _, e := range errs {
-		if strings.Contains(e.Message, "default") {
+		if reason, _ := e.Params["reason"].(string); reason == "reserved_default" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("错误消息应提 default, got %+v", errs)
+		t.Errorf("Params.reason 应是 reserved_default, got %+v", errs)
 	}
 }
 

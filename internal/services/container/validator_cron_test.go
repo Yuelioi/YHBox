@@ -1,7 +1,6 @@
 package container
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -32,8 +31,8 @@ func TestValidateCron_BadExpr_FieldOutOfRange(t *testing.T) {
 	if errs[0].Code != CodeInvalidCronExpr {
 		t.Errorf("应是 INVALID_CRON_EXPR, got: %s", errs[0].Code)
 	}
-	if !strings.Contains(errs[0].Message, "Cron") {
-		t.Errorf("Message fallback 应含 'Cron', got: %s", errs[0].Message)
+	if parseErr, _ := errs[0].Params["parseErr"].(string); parseErr == "" {
+		t.Errorf("Params.parseErr 应非空, got: %v", errs[0].Params["parseErr"])
 	}
 	if expr, _ := errs[0].Params["expr"].(string); expr != "60 60 60 60 60 60" {
 		t.Errorf("Params.expr 应是原文, got: %v", errs[0].Params["expr"])

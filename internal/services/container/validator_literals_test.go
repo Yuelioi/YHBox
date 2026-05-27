@@ -1,7 +1,6 @@
 package container
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -22,8 +21,10 @@ func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
 	errs := ValidateContainer(c)
 	found := false
 	for _, e := range errs {
-		if e.Code == CodeLiteralTypeMismatch && strings.Contains(e.Message, "Duration") {
-			found = true
+		if e.Code == CodeLiteralTypeMismatch {
+			if pin, _ := e.Params["pin"].(string); pin == "Duration" {
+				found = true
+			}
 		}
 	}
 	if !found {
@@ -49,8 +50,10 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 	errs := ValidateContainer(c)
 	found := false
 	for _, e := range errs {
-		if e.Code == CodeLiteralTypeMismatch && strings.Contains(e.Message, "Value") {
-			found = true
+		if e.Code == CodeLiteralTypeMismatch {
+			if pin, _ := e.Params["pin"].(string); pin == "Value" {
+				found = true
+			}
 		}
 	}
 	if !found {

@@ -2,8 +2,6 @@
 // 调用方注入 hasTemplate / hasClip 让 validator 查 asset 是否存在于容器.
 package container
 
-import "fmt"
-
 // ValidateContainerWithDeps 在 base validation 之上, 加 dependency 存在性检查.
 // hasTemplate / hasClip 任一为 nil 时跳过对应 kind 检查.
 func ValidateContainerWithDeps(
@@ -32,7 +30,6 @@ func ValidateContainerWithDeps(
 						Code:      CodeTemplateNotFound,
 						GraphPath: []string{"subgraph", sg.ID},
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("template %q not found in container", key),
 						Params:    map[string]any{"key": key},
 					})
 				}
@@ -50,8 +47,7 @@ func ValidateContainerWithDeps(
 						Code:      CodeClipNotFound,
 						GraphPath: []string{"subgraph", sg.ID},
 						NodeID:    n.ID,
-						Message:   fmt.Sprintf("clip %q not found in container", id),
-						Params:    map[string]any{"key": id},
+						Params:    map[string]any{"id": id},
 					})
 				}
 			}
