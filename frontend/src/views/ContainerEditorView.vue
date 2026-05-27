@@ -437,6 +437,13 @@ import { useEditorSave } from '@/composables/containerEditor/useEditorSave'
 import { useNodeClipboard } from '@/composables/containerEditor/useNodeClipboard'
 import { useGraphLayout, type AlignMode } from '@/composables/containerEditor/useGraphLayout'
 import { useGraphMutations } from '@/composables/containerEditor/useGraphMutations'
+import {
+  AUTO_CONNECT_THRESHOLD_FLOW_PX,
+  SNAP_EPSILON,
+  SNAP_ANCHOR_Y_OFFSET,
+  centerOnNode,
+} from '@/composables/containerEditor/constants'
+import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
 import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
@@ -610,9 +617,6 @@ function onReorderVars(fromIdx: number, toIdx: number) {
 
 // ===== Drag-drop helpers =====
 
-function newNodeID(kind: string): string {
-  return `${kind.toLowerCase()}_${Math.random().toString(36).slice(2, 8)}`
-}
 
 function defaultLiteralFor(type: VarDecl['type']): unknown {
   switch (type) {
@@ -632,7 +636,6 @@ function findVarType(name: string): VarDecl['type'] {
 
 // ===== Pin-aware auto-connect =====
 
-const AUTO_CONNECT_THRESHOLD_PX = 30  // flow coordinate space
 
 interface PinAtPosition {
   nodeID: string
@@ -642,7 +645,7 @@ interface PinAtPosition {
 }
 
 /**
- * Find the nearest eligible data-in pin within AUTO_CONNECT_THRESHOLD_PX of flowPos.
+ * Find the nearest eligible data-in pin within AUTO_CONNECT_THRESHOLD_FLOW_PX of flowPos.
  *
  * Data-in handles in this codebase use Position.Bottom + type="target", so vue-flow
  * renders them with data-handlepos="bottom" and CSS class "target". Exec-in handles
@@ -683,7 +686,7 @@ function findNearestEligibleDataInPin(
     const dx = flowCenter.x - flowPos.x
     const dy = flowCenter.y - flowPos.y
     const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist > AUTO_CONNECT_THRESHOLD_PX) continue
+    if (dist > AUTO_CONNECT_THRESHOLD_FLOW_PX) continue
 
     if (!best || dist < best.dist) {
       best = { nodeID, pinName, pinType: pinType as VarType, dist }
@@ -1354,7 +1357,7 @@ async function onFindRefsPick(nodeID: string) {
       await nextTick()
       selectedID.value = nodeID
       if (targetNode) {
-        setCenter(targetNode.x + 100, targetNode.y + 50, { duration: 300, zoom: 1 })
+        centerOnNode(setCenter, targetNode)
       }
     } else {
       toast.add({ title: '跳转失败', description: `节点 ${nodeID} 不在当前容器`, color: 'warning' })
@@ -1366,7 +1369,7 @@ async function onFindRefsPick(nodeID: string) {
   // Center viewport on the node
   const targetNode = currentNodes?.find(n => n.id === nodeID)
   if (targetNode) {
-    setCenter(targetNode.x + 100, targetNode.y + 50, { duration: 300, zoom: 1 })
+    centerOnNode(setCenter, targetNode)
   }
   findRefsState.value = null
 }
@@ -1536,7 +1539,7 @@ function onPromoteConfirm(args: { varName: string; varType: VarType }) {
     }
 
     // 3. Insert GetVar node 200px to the left
-    const getVarID = `getvar_${Math.random().toString(36).slice(2, 8)}`
+    const getVarID = newNodeID('GetVar')
     g.nodes.push({
       id: getVarID,
       kind: 'GetVar',
@@ -1844,7 +1847,7 @@ async function onNodeSearchPick(r: NodeSearchResult) {
   const target = activeGraph.value?.nodes.find((n: any) => n.id === r.id)
   if (target) {
     try {
-      setCenter((target as any).x + 100, (target as any).y + 50, { duration: 300, zoom: 1 })
+      centerOnNode(setCenter, target as { x: number; y: number })
     } catch {}
   }
   nodeSearchOpen.value = false
@@ -1971,9 +1974,6 @@ function miniNodeColor(node: any): string {
   return map[v?.border ?? ''] ?? '#52525b'
 }
 
-function genID(): string {
-  return 'n_' + Math.random().toString(36).slice(2, 10)
-}
 
 async function onAddNode(
   kind: string,
@@ -1987,7 +1987,7 @@ async function onAddNode(
     toast.add({ title: '当前层级 graph 不可用', color: 'error' })
     return null
   }
-  const id = kind === 'Start' ? 'start' : genID()
+  const id = kind === 'Start' ? 'start' : genNodeID()
   if (kind === 'Start' && targetGraph.nodes.some((n) => n.kind === 'Start')) {
     toast.add({ title: '只能有一个 Start 节点', color: 'warning' })
     return null
@@ -2016,22 +2016,7 @@ const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCente
 
 // ===== Pin-aware snap guides (PS smart-guides style) =====
 
-const SNAP_EPSILON = 4  // flow-coord px — within this Y or X delta, snap fires
-// Typical node height offset to the "primary row" anchor (exec-in pin level).
-// For this codebase, exec handles are on the left/right side and the visible node body
-// starts at y=0. Using half of a typical node height (~50px) as a horizontal anchor.
-const SNAP_ANCHOR_Y_OFFSET = 50
-
 const snapGuides = ref<SnapGuide[]>([])
-
-/**
- * Get anchor Y offset for a node kind. All node kinds in this codebase share the same
- * ContainerFlowNode layout, so a fixed 50px offset is a reasonable approximation of
- * where the exec-in handle sits relative to node.y.
- */
-function _snapAnchorYOffset(_kind: string): number {
-  return SNAP_ANCHOR_Y_OFFSET
-}
 
 function onSnapNodeDrag(event: NodeDragEvent) {
   // wantSnap: toolbar toggle XOR Alt key — Alt inverts whichever the toggle is (PS/Figma pattern)
@@ -2042,8 +2027,7 @@ function onSnapNodeDrag(event: NodeDragEvent) {
   }
 
   const draggedID: string = event.node.id
-  const draggedKind: string = event.node.data?.kind ?? event.node.type ?? ''
-  const yOff = _snapAnchorYOffset(draggedKind)
+  const yOff = SNAP_ANCHOR_Y_OFFSET
 
   // event.node.position is the live flow coordinate (updated by vue-flow during drag)
   const draggedX: number = event.node.position?.x ?? 0
@@ -2054,7 +2038,7 @@ function onSnapNodeDrag(event: NodeDragEvent) {
   const nodes = activeGraph.value?.nodes ?? []
   for (const other of nodes) {
     if (other.id === draggedID) continue
-    const otherAnchorY = other.y + _snapAnchorYOffset(other.kind)
+    const otherAnchorY = other.y + SNAP_ANCHOR_Y_OFFSET
     if (Math.abs(otherAnchorY - draggedAnchorY) <= SNAP_EPSILON) {
       // Horizontal cyan guide at otherAnchorY — coords stay in flow space;
       // SnapGuideOverlay applies the vue-flow viewport transform via <g :transform>.
@@ -2097,8 +2081,7 @@ function onSnapNodeDragStop(event: NodeDragEvent) {
   const flowNode = flowNodes.value.find((fn) => fn.id === draggedID)
   if (!flowNode) return
 
-  const draggedKind: string = (flowNode.data as any)?.kind ?? flowNode.type ?? ''
-  const yOff = _snapAnchorYOffset(draggedKind)
+  const yOff = SNAP_ANCHOR_Y_OFFSET
   const draggedAnchorY = (flowNode.position.y ?? 0) + yOff
   const draggedX = flowNode.position.x ?? 0
 
@@ -2107,7 +2090,7 @@ function onSnapNodeDragStop(event: NodeDragEvent) {
 
   for (const other of activeGraph.value?.nodes ?? []) {
     if (other.id === draggedID) continue
-    const otherAnchorY = other.y + _snapAnchorYOffset(other.kind)
+    const otherAnchorY = other.y + SNAP_ANCHOR_Y_OFFSET
     const dy = otherAnchorY - draggedAnchorY
     if (Math.abs(dy) <= SNAP_EPSILON) {
       if (!bestY || Math.abs(dy) < Math.abs(bestY.delta)) {
@@ -2172,7 +2155,7 @@ const { onCopySelection, onPasteSelection } = useNodeClipboard({
   draft, activeGraph, flowNodes,
   syncFlowFromDraft, refreshSubgraphStore,
   deepCloneSubgraphForCopy, getSelectedNodes,
-  genID, toast,
+  genID: genNodeID, toast,
 })
 
 // 自动布局 (dagre) + 对齐
@@ -2355,7 +2338,7 @@ function onFixMissingWindowTarget() {
   }
   const defaults = KIND_DEFAULTS.WindowTarget ?? {}
   const newNode: GraphNode = {
-    id: 'wt_' + Math.random().toString(36).slice(2, 8),
+    id: newNodeID('WindowTarget'),
     kind: 'WindowTarget',
     x: 40,
     y: 40,
