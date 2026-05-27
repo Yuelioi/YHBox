@@ -2078,12 +2078,15 @@ function onSnapNodeDragStop(event: NodeDragEvent) {
   if (!wantSnap) return
 
   const draggedID: string = event.node.id
-  const flowNode = flowNodes.value.find((fn) => fn.id === draggedID)
-  if (!flowNode) return
 
+  // event.node.position 是 vue-flow store 的 live 坐标 (跟 onSnapNodeDrag 同源).
+  // 不能读 flowNodes.value: v-model:nodes 的 store→model watcher (vue-flow-core
+  // pauseStore) shallow 监听 array ref + length, drag 中 element.position 突变
+  // 不触发同步 → flowNodes[i].position 在 dragStop 时仍是拖动前坐标 → snap 比对全错.
   const yOff = SNAP_ANCHOR_Y_OFFSET
-  const draggedAnchorY = (flowNode.position.y ?? 0) + yOff
-  const draggedX = flowNode.position.x ?? 0
+  const draggedX = event.node.position?.x ?? 0
+  const draggedY = event.node.position?.y ?? 0
+  const draggedAnchorY = draggedY + yOff
 
   let bestY: { delta: number; targetAnchorY: number } | null = null
   let bestX: { delta: number; targetX: number } | null = null
@@ -2106,13 +2109,12 @@ function onSnapNodeDragStop(event: NodeDragEvent) {
   }
 
   if (bestY || bestX) {
-    const finalX = bestX ? bestX.targetX : (flowNode.position.x ?? 0)
-    const finalY = bestY ? bestY.targetAnchorY - yOff : (flowNode.position.y ?? 0)
+    const finalX = bestX ? bestX.targetX : draggedX
+    const finalY = bestY ? bestY.targetAnchorY - yOff : draggedY
 
     // 1. Tell vue-flow's internal node store about the snapped position.
-    //    vue-flow does NOT re-read from the v-model array after a drag — it has its own
-    //    internal store that must be updated explicitly. Without this call, the guide line
-    //    shows the correct position but the node visually lands at the raw drag position.
+    //    Position 突变本身不触发 v-model 同步 (见上); 这里直显 store 让 computedPosition
+    //    watcher (vue-flow-core.mjs:9534) 立刻重算 → DOM transform 跳到 snap target.
     updateNode(draggedID, { position: { x: finalX, y: finalY } })
 
     // 2. Persist to draft (authoritative source-of-truth for save/reload).
