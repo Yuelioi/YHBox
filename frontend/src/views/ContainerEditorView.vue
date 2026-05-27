@@ -777,14 +777,18 @@ function dropSnippet(
 
 function onInsertIncVar(name: string) {
   // VarRow "+" hover button → insert IncVar at viewport center
+  const center = screenToFlowCoordinate({
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  })
   applyDraftMutation(() => {
     const g = activeGraph.value
     if (!g) return
     const node: GraphNode = {
       id: newNodeID('IncVar'),
       kind: 'IncVar',
-      x: 100,  // viewport center fallback; vue-flow controls don't expose center reliably
-      y: 100,
+      x: center.x,
+      y: center.y,
       config: {
         varName: name,
         scope: 'auto',
