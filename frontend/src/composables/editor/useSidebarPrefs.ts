@@ -36,7 +36,7 @@ function loadInitial(): SidebarPrefs {
 const prefs = ref<SidebarPrefs>(loadInitial())
 
 // deep required: callers 直接 mutate 单字段 (prefs.value.varsExpanded = false), 而非整 obj 重赋.
-watch(
+const stopWatch = watch(
   prefs,
   (p) => {
     try {
@@ -47,6 +47,13 @@ watch(
   },
   { deep: true },
 )
+
+// HMR: module reload 时 dispose 旧 watcher, 防 zombie 继续写 localStorage.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    stopWatch()
+  })
+}
 
 export function useSidebarPrefs() {
   return { prefs }
