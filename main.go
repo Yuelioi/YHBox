@@ -412,6 +412,8 @@ func main() {
 	containerSvc.SetWindowOpener(newContainerWindowAdapter(wailsApp))
 	librarySvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	librarySvc.SetContainersRoot(filepath.Join(dataDir, "containers"))
+	// B11: 注入容器 lookup, ImportToContainer dry-run 算 MissingGlobals diff.
+	librarySvc.SetContainerLookup(containerStore.Get)
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接走 containerStore.SaveSubgraph 落到容器 subgraphs/

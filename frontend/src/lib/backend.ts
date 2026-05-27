@@ -165,10 +165,19 @@ export interface ImportConflict {
   key: string
 }
 
+// SubgraphRequiredGlobal B11: 子图需要的容器级 global var 声明.
+export interface SubgraphRequiredGlobal {
+  name: string
+  type?: string
+  default?: unknown
+}
+
 // ImportResult Import 操作结果.
+// B11: missingGlobals 反映 import 的 sg union 需要但目标 container 未声明的 var, FE 据此弹 prompt.
 export interface ImportResult {
   imported: { kind: string; key: string }[]
   conflicts: ImportConflict[]
+  missingGlobals?: SubgraphRequiredGlobal[]
 }
 
 export interface Container {
@@ -214,11 +223,14 @@ export interface Schedule {
 export interface TemplateMeta {
   name: string
   description?: string
-  recordedResolution: [number, number]
+  // 后端 [2]int Go fixed-size array → wails3 binding 生成 number[] (encoding/json 视作普通 slice).
+  // 这里跟 binding 对齐用 number[]; 实际固定 2 元素, 消费者按 indexed access 用就行.
+  recordedResolution: number[]
   sha256: string
   width: number
   height: number
-  region: [number, number, number, number]
+  // 同理: Go [4]int → number[].
+  region: number[]
   createdAt: string
   // v2: 仅库模板使用；容器内模板该字段为空。
   tags?: string[]

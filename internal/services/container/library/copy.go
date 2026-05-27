@@ -17,14 +17,23 @@ type ImportConflict struct {
 }
 
 // ImportResult Import 操作结果.
+//
+// B11: MissingGlobals 反映 import 的 sg 集合 (Root+Embedded) RequiredGlobals union 减去
+// 目标 container.Vars 已声明的, 是 caller 需要补 declare 的 var. dry-run (strategy="cancel") 时计算,
+// FE 据此弹 "添加变量并继续" 提示 → 用 container.update RPC 补 vars 后再调真 import.
 type ImportResult struct {
-	Imported  []dependency.Dependency `json:"imported"`
-	Conflicts []ImportConflict        `json:"conflicts"`
+	Imported        []dependency.Dependency           `json:"imported"`
+	Conflicts       []ImportConflict                  `json:"conflicts"`
+	MissingGlobals  []container.SubgraphRequiredGlobal `json:"missingGlobals,omitempty"`
 }
 
 // ImportToContainer 把 library package 复制到容器.
 // strategy: "overwrite_all" | "skip_all" | "cancel", 空串等同 overwrite_all.
-func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string) (*ImportResult, error) {
+//
+// B11: containerVars 是目标容器当前已声明的 vars (caller 注入, e.g. Service.ImportToContainer
+// 用 LookupContainerVars 拿). 用来算 ImportResult.MissingGlobals diff. 传 nil 退化为不算 diff
+// (老 caller / test fixture 兼容).
+func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string, containerVars []container.VarDecl) (*ImportResult, error) {
 	pkg, err := s.GetSubgraphPackage(libSgID)
 	if err != nil {
 		return nil, err
@@ -55,10 +64,13 @@ func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string) (*Imp
 		}
 	}
 
+	// B11: 算 missing globals diff (无论 strategy, dry-run + 真 import 都返). FE 看 dry-run 弹 prompt.
+	missingGlobals := computeMissingGlobals(pkg, containerVars)
+
 	if len(conflicts) > 0 {
 		switch strategy {
 		case "cancel":
-			return &ImportResult{Conflicts: conflicts}, nil
+			return &ImportResult{Conflicts: conflicts, MissingGlobals: missingGlobals}, nil
 		case "skip_all":
 			// 后续 copy 时按 conflictKeys 跳过
 		case "overwrite_all", "":
@@ -66,6 +78,9 @@ func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string) (*Imp
 		default:
 			return nil, fmt.Errorf("unknown strategy %q", strategy)
 		}
+	} else if strategy == "cancel" {
+		// 无 conflict + dry-run → 仍返 missing globals 让 FE 决定是否要补 var
+		return &ImportResult{MissingGlobals: missingGlobals}, nil
 	}
 	skipAll := strategy == "skip_all"
 	conflictKeys := map[string]bool{}
@@ -125,7 +140,34 @@ func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string) (*Imp
 		}
 		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindClip, Key: id})
 	}
+	result.MissingGlobals = missingGlobals
 	return result, nil
+}
+
+// computeMissingGlobals 算 (pkg.Root + pkg.Embedded[*]).RequiredGlobals union 减去 containerVars
+// 已声明的 var. 用于 import 前提示 caller 容器缺哪些 var.
+// containerVars 为 nil → 等同于 caller 没声明任何 var, 返回 union 全集.
+func computeMissingGlobals(pkg *SubgraphPackage, containerVars []container.VarDecl) []container.SubgraphRequiredGlobal {
+	declared := map[string]bool{}
+	for _, v := range containerVars {
+		declared[v.Name] = true
+	}
+	seen := map[string]bool{}
+	var out []container.SubgraphRequiredGlobal
+	collect := func(sg container.Subgraph) {
+		for _, rg := range sg.RequiredGlobals {
+			if declared[rg.Name] || seen[rg.Name] {
+				continue
+			}
+			seen[rg.Name] = true
+			out = append(out, rg)
+		}
+	}
+	collect(pkg.Root)
+	for _, sg := range pkg.Embedded {
+		collect(sg)
+	}
+	return out
 }
 
 // ExportFromContainer 把容器内子图 + 递归依赖打成 library package.

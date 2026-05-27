@@ -26,7 +26,7 @@ func TestImportToContainer_Clean(t *testing.T) {
 
 	s, _ := NewStore(dir)
 	containerRoot := t.TempDir()
-	result, err := s.ImportToContainer("foo", containerRoot, "")
+	result, err := s.ImportToContainer("foo", containerRoot, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestImportToContainer_SkipAll(t *testing.T) {
 	os.MkdirAll(sgDir, 0o755)
 	os.WriteFile(filepath.Join(sgDir, "foo.json"), []byte(`{"id":"foo"}`), 0o644)
 
-	result, err := s.ImportToContainer("foo", containerRoot, "skip_all")
+	result, err := s.ImportToContainer("foo", containerRoot, "skip_all", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestImportToContainer_Cancel(t *testing.T) {
 	os.MkdirAll(sgDir, 0o755)
 	os.WriteFile(filepath.Join(sgDir, "foo.json"), []byte(`{"id":"foo"}`), 0o644)
 
-	result, err := s.ImportToContainer("foo", containerRoot, "cancel")
+	result, err := s.ImportToContainer("foo", containerRoot, "cancel", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
