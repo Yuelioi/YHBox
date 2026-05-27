@@ -192,8 +192,10 @@ func (c *Container) Normalize() {
 		c.Graph.Version = GraphSchemaVersion
 	}
 	// B3: subgraph self-heal 归这里统一入口 — Save 路径之前漏 sg.normalize, 现在 Container.Normalize 一次跑完.
+	// B11: RequiredGlobals 一同派生, 跟 c.Vars 同步. validator + library import 都依赖此字段.
 	for i := range c.Subgraphs {
 		normalizeSubgraph(&c.Subgraphs[i])
+		c.Subgraphs[i].RequiredGlobals = computeRequiredGlobals(&c.Subgraphs[i], c.Vars)
 	}
 }
 

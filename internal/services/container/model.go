@@ -106,18 +106,28 @@ type RecordingContext struct {
 	RecordedAt     string `json:"recordedAt"`     // RFC3339 时间戳
 }
 
+// SubgraphRequiredGlobal 子图运行时所需的容器级 global var (B11).
+// Container.Normalize / SaveSubgraph 时根据 sg 内 GetVar/SetVar/IncVar 节点 (scope!=local) 自动派生,
+// 不手填. Library import 时 diff caller container.Vars, 缺则 auto-add.
+type SubgraphRequiredGlobal struct {
+	Name    string `json:"name"`
+	Type    string `json:"type,omitempty"`    // "number"/"bool"/"string"/"point"/"any" — 派生时从 origin container.Vars 取
+	Default any    `json:"default,omitempty"` // 同上, 缺则 nil (import 兜底)
+}
+
 // Subgraph 容器内的可执行函数。
 // 持久化路径：bin/data/containers/<container-id>/subgraphs/<id>.json
 // 库 subgraph 路径：bin/data/library/subgraphs/<id>.json（多带 requiredTemplates 信息，见 library 包）
 type Subgraph struct {
-	ID               string               `json:"id"`
-	Label            string               `json:"label"`
-	Description      string               `json:"description,omitempty"`
-	Graph            Graph                `json:"graph"`                      // 内部节点 + 边
-	OutputPins       []SubgraphOutputDecl `json:"outputPins"`                 // 由内部 SubgraphOutput 节点派生缓存
-	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
-	Tags             []string             `json:"tags,omitempty"`             // 容器内 + 库 都用
-	RecordingContext *RecordingContext    `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
-	IsAnonymous      bool                 `json:"isAnonymous,omitempty"`      // CollapsedNode 后备子图, 不入 NodePalette/Subgraph 候选下拉
-	CreatedAt        time.Time            `json:"createdAt"`
+	ID               string                   `json:"id"`
+	Label            string                   `json:"label"`
+	Description      string                   `json:"description,omitempty"`
+	Graph            Graph                    `json:"graph"`                      // 内部节点 + 边
+	OutputPins       []SubgraphOutputDecl     `json:"outputPins"`                 // 由内部 SubgraphOutput 节点派生缓存
+	InputParams      []SubgraphInputParam     `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
+	Tags             []string                 `json:"tags,omitempty"`             // 容器内 + 库 都用
+	RequiredGlobals  []SubgraphRequiredGlobal `json:"requiredGlobals,omitempty"`  // B11: 派生于 Normalize/SaveSubgraph, validator + library import 用
+	RecordingContext *RecordingContext        `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
+	IsAnonymous      bool                     `json:"isAnonymous,omitempty"`      // CollapsedNode 后备子图, 不入 NodePalette/Subgraph 候选下拉
+	CreatedAt        time.Time                `json:"createdAt"`
 }

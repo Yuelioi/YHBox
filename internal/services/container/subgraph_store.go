@@ -55,6 +55,8 @@ func (s *Store) SaveSubgraph(containerID string, sg *Subgraph) error {
 	}
 	// B3: 单独保 sg 也走 self-heal — 之前只 store.load() / Container.Normalize 调, SaveSubgraph 漏.
 	normalizeSubgraph(sg)
+	// B11: 同步 RequiredGlobals — 从 in-memory container.Vars 拿 type/default.
+	sg.RequiredGlobals = computeRequiredGlobals(sg, c.Vars)
 	dir := filepath.Join(s.root, containerID, "subgraphs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
