@@ -3,17 +3,28 @@
 // 用节点自己 visual.bg 派生色 — 保证跟用户在画布上看到的颜色一致.
 
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
-import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
+import type { NodeGroup, NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 
 /**
- * group → 该 group 主色 (Tailwind tone). 由该 group 各 spec.visual.bg 取众数派生:
- *   variables: amber (SetVar/GetVar/IncVar/GetSys/GetParam)
- *   purefunc:  amber (math + comparison + logic)
- *   control:   blue
- *   detect:    violet
- *   input:     orange
- *   system:    cyan
- *   misc:      zinc (fallback)
+ * 10 个 canonical NodeGroup, 跟 nodeRegistry/index.ts NodeGroup 类型同步.
+ * 各模态框 (NodeExplorerModal / InlineContextMenu) 共享, 不再各处 hardcode.
+ */
+export const ALL_NODE_GROUPS: NodeGroup[] = [
+  'control',
+  'variables',
+  'purefunc',
+  'detect',
+  'input',
+  'system',
+  'io',
+  'stopwatch',
+  'mock',
+  'test',
+]
+
+/**
+ * group → 该 group 主色 (Tailwind tone). 由该 group 各 spec.visual.bg 取众数派生.
+ * key 'misc' 是 fallback string, 不在 NodeGroup 类型里 (那 10 个都有真色).
  */
 const GROUP_TONE: Record<string, string> = {
   control: 'blue',
@@ -22,6 +33,10 @@ const GROUP_TONE: Record<string, string> = {
   detect: 'violet',
   input: 'orange',
   system: 'cyan',
+  io: 'emerald',
+  stopwatch: 'rose',
+  mock: 'zinc',
+  test: 'zinc',
   misc: 'zinc',
 }
 
@@ -56,6 +71,10 @@ export const GROUP_LABELS_ZH: Record<string, string> = {
   detect: '检测',
   input: '输入',
   system: '系统/子图',
+  io: 'IO',
+  stopwatch: '计时器',
+  mock: '测试用',
+  test: '测试用',
   misc: '其它',
 }
 

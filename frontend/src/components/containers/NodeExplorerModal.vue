@@ -60,7 +60,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
-import { nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 
 const EXPANDED_KEY = 'yhfish.explorer.expanded'
 
@@ -78,8 +78,7 @@ const query = ref('')
 const searchInputRef = ref<any>(null)
 
 // Expand state: Set<groupName>. Default = all known groups expanded.
-const ALL_GROUPS = ['control', 'variables', 'purefunc', 'detect', 'input', 'system', 'misc']
-const expandedGroups = ref<Set<string>>(new Set(ALL_GROUPS))
+const expandedGroups = ref<Set<string>>(new Set(ALL_NODE_GROUPS))
 
 function loadExpandedFromStorage() {
   try {

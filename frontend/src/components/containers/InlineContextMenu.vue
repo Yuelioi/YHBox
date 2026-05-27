@@ -85,7 +85,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
-import { nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 
 export interface PinContext {
   pinType: VarType
@@ -117,7 +117,7 @@ watch(
     if (v) {
       query.value = ''
       // Reset expand state to all expanded when reopening
-      expandedGroups.value = new Set(ALL_GROUPS)
+      expandedGroups.value = new Set(ALL_NODE_GROUPS)
       await nextTick()
       // UInput exposes the native input via .input ref
       searchInputRef.value?.input?.focus?.()
@@ -178,8 +178,7 @@ const groupedFiltered = computed(() => {
 })
 
 // Expand state (transient — no localStorage for popup)
-const ALL_GROUPS = ['control', 'variables', 'purefunc', 'detect', 'input', 'system', 'misc']
-const expandedGroups = ref<Set<string>>(new Set(ALL_GROUPS))
+const expandedGroups = ref<Set<string>>(new Set(ALL_NODE_GROUPS))
 
 function toggleGroup(group: string) {
   if (expandedGroups.value.has(group)) expandedGroups.value.delete(group)
