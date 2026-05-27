@@ -67,7 +67,7 @@ import { getSpec } from '@/components/containers/nodeRegistry/registry'
 
 export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
-  | 'toggle-disable' | 'save-as-snippet' | 'rename'
+  | 'toggle-disable' | 'save-as-snippet'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
   | 'share-to-library'
 

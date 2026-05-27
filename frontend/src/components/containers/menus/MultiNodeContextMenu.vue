@@ -46,7 +46,7 @@ import { computed } from 'vue'
 export type MultiMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
   | 'toggle-disable-all'
-  | 'fold' | 'comment-box'
+  | 'fold'
   | 'align-left' | 'align-right' | 'align-top' | 'align-bottom'
   | 'align-center-h' | 'align-center-v'
   | 'distribute-h' | 'distribute-v'

@@ -1246,9 +1246,6 @@ function onNodeMenuAction(a: NodeMenuAction) {
       void shareSubgraphToLibrary(sgID)
       return
     }
-    case 'rename':
-      // Backlog: 2026-05-20-editor-v2-backlog.md M1 — inline rename UX. Currently Inspector edits label.
-      return
   }
 }
 
@@ -1328,10 +1325,6 @@ function onMultiMenuAction(a: MultiMenuAction) {
     case 'distribute-v':
       onAlignSelected('v-equal')
       return
-    case 'comment-box':
-      // Backlog: 2026-05-20-editor-v2-backlog.md M2 — wrap selection bbox in CommentBox.
-      toast.add({ title: 'CommentBox', description: '待实装', color: 'warning' })
-      return
   }
 }
 
@@ -1407,14 +1400,6 @@ function onEdgeMenuAction(a: EdgeMenuAction) {
         const g = activeGraph.value
         if (!g) return
         g.edges = g.edges.filter((e) => !(e.from === edge.from && e.to === edge.to))
-      })
-      return
-    case 'insert-node-on-edge':
-      // Backlog: 2026-05-20-editor-v2-backlog.md M3 — split edge + insert node + chain 2 new edges.
-      toast.add({
-        title: '在边上插入节点',
-        description: '待实装 — 当前可手动: 删边 + 拖 pin',
-        color: 'warning',
       })
       return
   }

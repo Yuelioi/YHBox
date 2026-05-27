@@ -44,7 +44,7 @@
 import { computed } from 'vue'
 import type { GraphEdge } from '@/lib/backend'
 
-export type EdgeMenuAction = 'delete' | 'insert-node-on-edge'
+export type EdgeMenuAction = 'delete'
 
 const props = defineProps<{
   open: boolean
@@ -65,12 +65,6 @@ const items = computed(() => [
     icon: 'i-tabler-trash',
     shortcut: 'Del',
     colorClass: 'text-rose-400',
-  },
-  {
-    key: 'insert-node-on-edge' as const,
-    label: '在边上插入节点…',
-    icon: 'i-tabler-plus',
-    colorClass: 'text-sky-300',
   },
 ])
 
