@@ -167,7 +167,8 @@ func canonPinType(t string) string {
 	return strings.ToLower(t)
 }
 
-// Normalize 补默认值。
+// Normalize self-heal — 填默认值 (SchemaVersion/RunMode/Graph.ID/Graph.Version) + 子图补缺
+// SubgraphOutput. B3 三阶段中 Normalize 阶段的唯一入口.
 func (c *Container) Normalize() {
 	if c.SchemaVersion == 0 {
 		c.SchemaVersion = CurrentSchemaVersion
@@ -189,6 +190,10 @@ func (c *Container) Normalize() {
 	}
 	if c.Graph.Version == 0 {
 		c.Graph.Version = GraphSchemaVersion
+	}
+	// B3: subgraph self-heal 归这里统一入口 — Save 路径之前漏 sg.normalize, 现在 Container.Normalize 一次跑完.
+	for i := range c.Subgraphs {
+		normalizeSubgraph(&c.Subgraphs[i])
 	}
 }
 
