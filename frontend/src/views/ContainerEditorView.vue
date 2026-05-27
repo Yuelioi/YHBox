@@ -412,7 +412,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
-import { VueFlow, useVueFlow, SelectionMode, type NodeDragEvent } from '@vue-flow/core'
+import { VueFlow, useVueFlow, SelectionMode, type NodeDragEvent, type NodeMouseEvent, type EdgeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
@@ -1118,7 +1118,7 @@ function onCanvasContextMenu(e: MouseEvent) {
 
 // ===== 右键菜单事件处理 =====
 
-function onNodeContextMenu(event: { event: MouseEvent | TouchEvent; node: any }) {
+function onNodeContextMenu(event: NodeMouseEvent) {
   event.event.preventDefault()
   const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
   const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
@@ -1369,7 +1369,7 @@ async function onFindRefsPick(nodeID: string) {
 
 // ===== Edge + Pin context menus =====
 
-function onEdgeContextMenu(event: { event: MouseEvent | TouchEvent; edge: any }) {
+function onEdgeContextMenu(event: EdgeMouseEvent) {
   if (event.event instanceof MouseEvent) event.event.preventDefault()
   const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
   const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
