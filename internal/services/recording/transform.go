@@ -174,8 +174,9 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 }
 
 // assembleSubgraph 把 stepNode 切片拼成线性 Subgraph.
-// 结构: SubgraphInput → step0 → step1 → ... → stepN-1 → SubgraphOutput(declID, name="done")
-// steps 为空时仍合法: SubgraphInput 直连 SubgraphOutput.
+// B2 后: SubgraphInput/Output 不在 Graph.Nodes, 改 sg.Entry / sg.OutputPins[].NodeID metadata.
+// 结构: entry(virtual) → step0 → step1 → ... → stepN-1 → output(virtual, declID, name="done")
+// steps 为空时仍合法: entry 直连 output.
 func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingContext) container.Subgraph {
 	now := time.Now().UTC()
 	if label == "" {
@@ -183,21 +184,11 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 	}
 
 	outDeclID := uuid.NewString()
-	pins := []container.SubgraphOutputDecl{{ID: outDeclID, Name: "done"}}
+	inID := "entry-" + uuid.NewString()[:8]
+	outID := "out-" + uuid.NewString()[:8]
 
-	inID := "n-in-" + uuid.NewString()[:8]
-	outID := "n-out-" + uuid.NewString()[:8]
-
-	nodes := make([]container.GraphNode, 0, len(steps)+2)
+	nodes := make([]container.GraphNode, 0, len(steps))
 	edges := make([]container.GraphEdge, 0, len(steps)+1)
-
-	nodes = append(nodes, container.GraphNode{
-		ID:        inID,
-		Kind:      "SubgraphInput",
-		X:         0,
-		Y:         200,
-		CreatedAt: now,
-	})
 
 	prevID := inID
 	for i, s := range steps {
@@ -216,17 +207,7 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 		})
 		prevID = nid
 	}
-
-	nodes = append(nodes, container.GraphNode{
-		ID:   outID,
-		Kind: "SubgraphOutput",
-		X:    stepNodeXSpacing * float32(len(steps)+1),
-		Y:    200,
-		Config: map[string]any{
-			"DeclID": outDeclID,
-		},
-		CreatedAt: now,
-	})
+	// 最后一条 edge 接到 output virtual marker
 	edges = append(edges, container.GraphEdge{
 		From: prevID + ".out",
 		To:   outID + ".in",
@@ -241,7 +222,18 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 			Nodes:   nodes,
 			Edges:   edges,
 		},
-		OutputPins:       pins,
+		Entry: container.SubgraphMarker{
+			NodeID: inID,
+			X:      0,
+			Y:      200,
+		},
+		OutputPins: []container.SubgraphOutputDecl{{
+			ID:     outDeclID,
+			Name:   "done",
+			NodeID: outID,
+			X:      stepNodeXSpacing * float32(len(steps)+1),
+			Y:      200,
+		}},
 		RecordingContext: rec,
 		CreatedAt:        now,
 	}

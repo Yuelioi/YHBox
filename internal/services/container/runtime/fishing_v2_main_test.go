@@ -47,6 +47,8 @@ func loadFishingV2Main(t *testing.T) *container.Container {
 		}
 		c.Subgraphs = append(c.Subgraphs, sg)
 	}
+	// B2: 老 fishing-v2 JSON 含 SubgraphInput/Output 节点, 走 Normalize 迁移到 metadata 后 validator 才认.
+	c.Normalize()
 	return &c
 }
 

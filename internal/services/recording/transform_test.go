@@ -197,8 +197,8 @@ func TestBuildSimpleSubgraph_LinearLayout(t *testing.T) {
 		t.Errorf("RecordingContext 应带 MouseCounts360=9000, got %+v", sg.RecordingContext)
 	}
 
-	// 节点拓扑: [SubgraphInput, KeyPress, KeyPress, SubgraphOutput]
-	wantKinds := []string{"SubgraphInput", "KeyPress", "KeyPress", "SubgraphOutput"}
+	// B2: Graph.Nodes 只含真实 step 节点 (KeyPress×2). entry/output 在 metadata.
+	wantKinds := []string{"KeyPress", "KeyPress"}
 	if len(sg.Graph.Nodes) != len(wantKinds) {
 		t.Fatalf("节点数 want %d, got %d", len(wantKinds), len(sg.Graph.Nodes))
 	}
@@ -207,50 +207,47 @@ func TestBuildSimpleSubgraph_LinearLayout(t *testing.T) {
 			t.Errorf("nodes[%d] want %s, got %s", i, w, sg.Graph.Nodes[i].Kind)
 		}
 	}
-	// 边数 = N-1 (4 节点 = 3 条边)
+	// 边数 = entry→step + 1 step→step + step→output = 3
 	if len(sg.Graph.Edges) != 3 {
-		t.Fatalf("3 条边, got %d", len(sg.Graph.Edges))
+		t.Fatalf("3 条边 (entry→k1, k1→k2, k2→output), got %d", len(sg.Graph.Edges))
 	}
-	// SubgraphOutput.config.declID 必须等于 OutputPins[0].ID (validator 要)
-	outNode := sg.Graph.Nodes[len(sg.Graph.Nodes)-1]
-	if outNode.Kind != "SubgraphOutput" {
-		t.Fatalf("最后节点应是 SubgraphOutput")
+	// B2: Entry / OutputPins 都有 NodeID metadata
+	if sg.Entry.NodeID == "" {
+		t.Errorf("Entry.NodeID 必须非空")
 	}
-	if declID, _ := outNode.Config["DeclID"].(string); declID != sg.OutputPins[0].ID {
-		t.Errorf("SubgraphOutput.declID 应=OutputPins[0].ID, want %s, got %s", sg.OutputPins[0].ID, declID)
+	if sg.OutputPins[0].NodeID == "" {
+		t.Errorf("OutputPins[0].NodeID 必须非空")
 	}
 }
 
 func TestBuildSimpleSubgraph_EmptyEvents(t *testing.T) {
 	meta := inputclip.ClipMeta{BaseResolution: [2]int{tw, th}}
 	sg := BuildSimpleSubgraph(nil, meta, tw, th, "空录制")
-	// 0 step → SubgraphInput → SubgraphOutput, 1 边
-	if len(sg.Graph.Nodes) != 2 {
-		t.Errorf("空录制应 2 节点 (input+output), got %d", len(sg.Graph.Nodes))
+	// B2: 0 step → 0 真实节点, entry/output 在 metadata. 1 边 (entry→output direct)
+	if len(sg.Graph.Nodes) != 0 {
+		t.Errorf("空录制应 0 真实节点 (entry/output 在 metadata), got %d", len(sg.Graph.Nodes))
 	}
 	if len(sg.Graph.Edges) != 1 {
-		t.Errorf("空录制应 1 边 (input→output), got %d", len(sg.Graph.Edges))
+		t.Errorf("空录制应 1 边 (entry→output direct), got %d", len(sg.Graph.Edges))
 	}
 }
 
 func TestBuildPreciseSubgraph_SinglePlayClip(t *testing.T) {
 	meta := inputclip.ClipMeta{BaseResolution: [2]int{tw, th}, MouseCounts360: 9000}
 	sg := BuildPreciseSubgraph("clip-xyz", meta, "精准录制")
-	wantKinds := []string{"SubgraphInput", "PlayClip", "SubgraphOutput"}
-	if len(sg.Graph.Nodes) != 3 {
-		t.Fatalf("want 3 nodes, got %d", len(sg.Graph.Nodes))
+	// B2: 只 1 真实节点 PlayClip, entry/output 在 metadata
+	if len(sg.Graph.Nodes) != 1 || sg.Graph.Nodes[0].Kind != "PlayClip" {
+		t.Fatalf("want 1 PlayClip node, got %+v", sg.Graph.Nodes)
 	}
-	for i, w := range wantKinds {
-		if sg.Graph.Nodes[i].Kind != w {
-			t.Errorf("nodes[%d] want %s, got %s", i, w, sg.Graph.Nodes[i].Kind)
-		}
-	}
-	pc := sg.Graph.Nodes[1]
+	pc := sg.Graph.Nodes[0]
 	if cid, _ := pc.Config["clipID"].(string); cid != "clip-xyz" {
 		t.Errorf("PlayClip.clipID want clip-xyz, got %v", pc.Config["clipID"])
 	}
 	if sg.RecordingContext == nil || sg.RecordingContext.MouseCounts360 != 9000 {
 		t.Errorf("precise 也带 RecordingContext")
+	}
+	if sg.Entry.NodeID == "" || sg.OutputPins[0].NodeID == "" {
+		t.Errorf("Entry / OutputPins[0].NodeID 必须非空")
 	}
 }
 

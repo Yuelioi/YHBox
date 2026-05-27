@@ -67,6 +67,9 @@ func main() {
 	sort.Slice(subgraphs, func(i, j int) bool { return subgraphs[i].ID < subgraphs[j].ID })
 	c.Subgraphs = subgraphs
 
+	// B2: 老 fishing-v2 JSON 含 SubgraphInput/Output 节点, 跑 Normalize 迁移到 metadata.
+	c.Normalize()
+
 	errs := container.ValidateContainer(&c)
 	if len(errs) == 0 {
 		fmt.Println("✅ All clean — 0 validation errors")
