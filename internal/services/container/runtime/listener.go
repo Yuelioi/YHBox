@@ -156,14 +156,29 @@ func (l *EventListener) handleFire(ctx context.Context) {
 	}
 }
 
-// makeSubRunner 给一次 spawn 用的独立 dispatch 实例。共享 rt（含 Input/Cap/Vars 等），
-// 但 edges/nodesByID/state 独立——避免跟主 dispatch 的 r.edges 抢以及 ExecState frame 栈污染。
+// makeSubRunner 给一次 spawn 用的独立 dispatch 实例。
+//
+// 独立: edges / nodesByID / state — 避免跟主 dispatch 抢 swap 字段 + 不污染 frame 栈.
+// 共享: rt / bundle / compiled / dataEdges / stopwatches — bundle.Snapshot 走 ctx
+// (B1, tickCtxKey) 已 goroutine-safe; compiled/dataEdges 是 immutable 预编译产物;
+// stopwatches 是 *stopwatchTable 全 container 共享.
+//
+// B1 前 bundle/compiled/dataEdges/stopwatches 都 nil — OnEvent 触发 → execNode →
+// dispatchInRegion → RunNode(... r.bundle) 立即 nil-panic. 现修.
+//
+// 注意: bundle 内 stateGetter closure capture 的是 main runner.state, listener subRunner
+// 调 Vars/Params adapter 时拿到的是 main r.state (不是 sub.state). 这是 listener subRunner
+// 共享 bundle 的副作用 — LocalVars/LocalParams 隔离归 B10 (GlobalVars/LocalVars 接入) 处理.
 func (l *EventListener) makeSubRunner() *ContainerRunner {
 	return &ContainerRunner{
-		rt:        l.runner.rt,
-		nodesByID: l.homeNodesByID,
-		edges:     l.homeEdges,
-		state:     NewExecState(l.runner.rt.Container.ID, l.runner.state.CalibCounts),
+		rt:          l.runner.rt,
+		compiled:    l.runner.compiled,
+		nodesByID:   l.homeNodesByID,
+		edges:       l.homeEdges,
+		dataEdges:   l.runner.dataEdges,
+		state:       NewExecState(l.runner.rt.Container.ID, l.runner.state.CalibCounts),
+		stopwatches: l.runner.stopwatches,
+		bundle:      l.runner.bundle,
 	}
 }
 
