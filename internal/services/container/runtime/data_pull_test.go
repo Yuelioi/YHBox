@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestPullDataPin_Literal(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"n1": n}
 
-	v, err := r.pullDataPin("n1", "Duration")
+	v, err := r.pullDataPin(context.Background(), "n1", "Duration")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +35,7 @@ func TestPullDataPin_NoEdgeNoLiteral_ReturnsNil(t *testing.T) {
 	n := &container.GraphNode{ID: "n1", Kind: "Sleep", Config: map[string]any{}}
 	r.nodesByID = map[string]*container.GraphNode{"n1": n}
 
-	v, _ := r.pullDataPin("n1", "Duration")
+	v, _ := r.pullDataPin(context.Background(), "n1", "Duration")
 	if v != nil {
 		t.Fatalf("no edge no literal: want nil, got %v", v)
 	}
@@ -43,7 +44,7 @@ func TestPullDataPin_NoEdgeNoLiteral_ReturnsNil(t *testing.T) {
 // Verifies that pullDataPin follows a data edge to a GetVar source and resolves it.
 func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 	_, r := newTestRunner(t)
-	r.currentTick = CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{})
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{}))
 
 	src := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
@@ -58,7 +59,7 @@ func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 		},
 	})
 
-	v, err := r.pullDataPin("sleep", "Duration")
+	v, err := r.pullDataPin(ctx, "sleep", "Duration")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +71,7 @@ func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 // Literal under "literal" key is ignored when edge is present (edge wins).
 func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 	_, r := newTestRunner(t)
-	r.currentTick = CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{})
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{}))
 
 	src := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
@@ -90,7 +91,7 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 		},
 	})
 
-	v, _ := r.pullDataPin("sleep", "Duration")
+	v, _ := r.pullDataPin(ctx, "sleep", "Duration")
 	if got, _ := expr.AsNumber(v); got != 0.8 {
 		t.Fatalf("edge must win over literal: want 0.8, got %v", v)
 	}
@@ -148,7 +149,7 @@ func TestEvalDataSourceRejectsExecKind(t *testing.T) {
 	r.nodesByID = map[string]*container.GraphNode{
 		"n1": {ID: "n1", Kind: "Sleep"}, // exec kind, not pure-data
 	}
-	_, err := r.evalDataSource("n1", "out")
+	_, err := r.evalDataSource(context.Background(), "n1", "out")
 	if err == nil {
 		t.Fatal("expected error for exec-kind source, got nil")
 	}
@@ -163,7 +164,7 @@ func TestEvalDataSourceRejectsUnknownKind(t *testing.T) {
 	r.nodesByID = map[string]*container.GraphNode{
 		"n1": {ID: "n1", Kind: "Bogus"},
 	}
-	_, err := r.evalDataSource("n1", "out")
+	_, err := r.evalDataSource(context.Background(), "n1", "out")
 	if err == nil {
 		t.Fatal("expected error for unknown kind, got nil")
 	}

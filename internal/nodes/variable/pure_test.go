@@ -45,7 +45,7 @@ func TestGetVar_EvaluateViaFramework_GlobalReadsSnapshot(t *testing.T) {
 
 	services := node.StubServices()
 	// Snapshot stub: 提供 frozen Vars. global scope 应走 snapshot.
-	services.Snapshot = func() node.Snapshot {
+	services.Snapshot = func(_ context.Context) node.Snapshot {
 		return node.Snapshot{Vars: map[string]any{"counter": float64(42)}}
 	}
 
@@ -72,7 +72,7 @@ func TestGetSys_EvaluateViaFramework_FrozenPath(t *testing.T) {
 	rn, _ := node.Get("GetSys")
 
 	services := node.StubServices()
-	services.Snapshot = func() node.Snapshot {
+	services.Snapshot = func(_ context.Context) node.Snapshot {
 		return node.Snapshot{
 			Sys: fixedSysStore{"lastDualBarTrack.innerX": float64(123)},
 		}
@@ -98,7 +98,7 @@ func TestGetSys_Evaluate_UnknownPath_Errors(t *testing.T) {
 	rn, _ := node.Get("GetSys")
 
 	services := node.StubServices()
-	services.Snapshot = func() node.Snapshot { return node.Snapshot{} }
+	services.Snapshot = func(_ context.Context) node.Snapshot { return node.Snapshot{} }
 
 	_, err := node.EvaluatePureData(context.Background(), rn,
 		nil,

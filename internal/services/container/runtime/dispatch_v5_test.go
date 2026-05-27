@@ -1074,11 +1074,10 @@ func TestBuildDataWireFor_GetVarViaFramework(t *testing.T) {
 	rt.SetVar("myvar", "from-old-path")
 	r := NewContainerRunner(rt)
 	// GetVar.Evaluate 经 snapshot wrap 读 frozen Vars; 主循环抓 snapshot 模拟之.
-	r.currentTick = CaptureSnapshot(rt.Vars(), rt.Sys())
-	defer func() { r.currentTick = nil }()
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(rt.Vars(), rt.Sys()))
 	echoNode := r.nodesByID["echo_n"]
 
-	_, err := r.execNodeViaFramework(context.Background(), echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})
+	_, err := r.execNodeViaFramework(ctx, echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})
 	if err != nil {
 		t.Fatalf("GetVar via framework: %v", err)
 	}

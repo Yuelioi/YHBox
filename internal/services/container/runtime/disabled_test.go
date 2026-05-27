@@ -72,11 +72,11 @@ func TestDisabled_Throw_Noop(t *testing.T) {
 }
 
 // TestDisabled_PureData_GetVarReturnsNil: disabled GetVar's data-out returns nil
-// (caller's pullNumber/pullBool/pullValue fallback fires instead of evaluating the var).
+// (caller's pullNumber fallback fires instead of evaluating the var).
 func TestDisabled_PureData_GetVarReturnsNil(t *testing.T) {
 	rt, r := newTestRunner(t)
 	rt.SetVar("x", expr.Value(42.0))
-	r.currentTick = CaptureSnapshot(map[string]expr.Value{"x": 42.0}, SysState{})
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"x": 42.0}, SysState{}))
 
 	disabledGV := &container.GraphNode{
 		ID: "gv1", Kind: "GetVar", Disabled: true,
@@ -84,7 +84,7 @@ func TestDisabled_PureData_GetVarReturnsNil(t *testing.T) {
 	}
 	r.nodesByID = map[string]*container.GraphNode{"gv1": disabledGV}
 
-	val, err := r.evalDataSource("gv1", "value")
+	val, err := r.evalDataSource(ctx, "gv1", "value")
 	if err != nil {
 		t.Fatal(err)
 	}
