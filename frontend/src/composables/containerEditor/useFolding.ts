@@ -73,19 +73,21 @@ export function useFolding(opts: {
 
     // auto-connect 条件: 外部入边 == 1 + 外部出边 == 1
     // 此时确定唯一 boundary 节点对 (firstNode = 外部入边目标 / lastNode = 外部出边源)
-    // 子图内补 SubgraphInput.out → firstNode.in 和 lastNode.out → SubgraphOutput.in
+    // 子图内补 entry.out → firstNode.in 和 lastNode.out → outputPin.in
     // 主图原 external 边改写到新 Subgraph 调用节点
+    // B2: entry / output 是 virtual marker (sg.entry.nodeID / sg.outputPins[0].nodeID), 不再在 graph.nodes.
     const autoConnectable = externalIns.length === 1 && externalOuts.length === 1
     const firstNodeID = externalIns[0]?.to.split('.')[0]
     const lastNodeID = externalOuts[0]?.from.split('.')[0]
-    const sgInNode = (sgRaw.graph.nodes as any[]).find((n) => n.kind === 'SubgraphInput')
-    const sgOutNode = (sgRaw.graph.nodes as any[]).find((n) => n.kind === 'SubgraphOutput')
-    const declID = sgRaw.outputPins?.[0]?.id as string | undefined
+    const sgEntryNodeID = (sgRaw as any).entry?.nodeID as string | undefined
+    const sgOutPin = sgRaw.outputPins?.[0]
+    const sgOutNodeID = (sgOutPin as any)?.nodeID as string | undefined
+    const declID = sgOutPin?.id as string | undefined
 
     const innerEdges: any[] = [...movedEdges]
-    if (autoConnectable && sgInNode && sgOutNode && declID && firstNodeID && lastNodeID) {
-      innerEdges.push({ from: `${sgInNode.id}.out`, to: `${firstNodeID}.in` })
-      innerEdges.push({ from: `${lastNodeID}.out`, to: `${sgOutNode.id}.in` })
+    if (autoConnectable && sgEntryNodeID && sgOutNodeID && declID && firstNodeID && lastNodeID) {
+      innerEdges.push({ from: `${sgEntryNodeID}.out`, to: `${firstNodeID}.in` })
+      innerEdges.push({ from: `${lastNodeID}.out`, to: `${sgOutNodeID}.in` })
     }
 
     await backend.containers.updateSubgraph(draft.value.id, sgRaw.id, JSON.stringify({

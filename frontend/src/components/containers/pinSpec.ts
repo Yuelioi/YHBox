@@ -72,6 +72,20 @@ export function rebuildPinSpecMaps(): void {
     KIND_DEFAULTS[s.kind] = s.defaults
     KIND_VISUAL[s.kind] = s.visual
   }
+
+  // B2: SubgraphInput/Output 不再 backend register, 但编辑器仍要渲染 virtual marker.
+  // 手动加 PIN_SPECS + visual 让 ContainerFlowNode 能画 (1 exec-out / 1 exec-in).
+  PIN_SPECS['SubgraphInput'] = { execIn: [], execOut: ['out'], dataIn: {}, dataOut: {} }
+  KIND_LABEL_ZH['SubgraphInput'] = '子图入口'
+  KIND_DESCRIPTION['SubgraphInput'] = '子图入口 virtual marker — 位置可改, 不可删/复制.'
+  KIND_DEFAULTS['SubgraphInput'] = {}
+  KIND_VISUAL['SubgraphInput'] = { icon: 'i-tabler-circle-arrow-right', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40' }
+
+  PIN_SPECS['SubgraphOutput'] = { execIn: ['In'], execOut: [], dataIn: {}, dataOut: {} }
+  KIND_LABEL_ZH['SubgraphOutput'] = '子图出口'
+  KIND_DESCRIPTION['SubgraphOutput'] = '子图出口 virtual marker — 位置可改, 不可删/复制. 每个 OutputPin 对应一个 marker.'
+  KIND_DEFAULTS['SubgraphOutput'] = {}
+  KIND_VISUAL['SubgraphOutput'] = { icon: 'i-tabler-circle-arrow-left', bg: 'bg-rose-500/10', border: 'border-rose-500/40' }
 }
 
 /**

@@ -34,6 +34,7 @@ function setup(draft: Container | null, sgs: Array<{ id: string; graph: Graph; o
       id: s.id,
       label: s.id,
       outputPins: s.outputPins ?? [],
+      entry: { nodeID: 'test-entry' },
       graph: s.graph,
     })),
   )

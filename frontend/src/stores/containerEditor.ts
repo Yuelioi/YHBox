@@ -4,7 +4,10 @@ import { computed, ref } from 'vue'
 export interface SubgraphSummary {
   id: string
   label: string
-  outputPins: { id: string; name: string }[]
+  // B2: outputPins 含 virtual marker nodeID + 位置 (Editor 渲染用)
+  outputPins: { id: string; name: string; nodeID?: string; x?: number; y?: number }[]
+  // B2: 子图入口 virtual marker
+  entry: { nodeID: string; x?: number; y?: number }
   // v2 修复 Bug：activeGraph computed 需要完整 graph，否则双击进子图后画布空白
   graph: {
     id: string

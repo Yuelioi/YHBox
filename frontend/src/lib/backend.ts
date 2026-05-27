@@ -119,9 +119,20 @@ export interface Graph {
 }
 
 // SubgraphOutputDecl — 父图边引用稳定 ID, UI 显示 Name (允许 rename name 不破坏 edge).
+// B2: nodeID/x/y 是子图内 virtual 出口节点 metadata, 编辑器渲染为虚拟节点.
 export interface SubgraphOutputDecl {
   id: string
   name: string
+  nodeID?: string
+  x?: number
+  y?: number
+}
+
+// SubgraphMarker — B2 Subgraph 入口 virtual 节点位置 + ID. Edges 引用 NodeID.
+export interface SubgraphMarker {
+  nodeID: string
+  x?: number
+  y?: number
 }
 
 // ValidationError 后端 validator 结构化错误 (validator.go ValidationError 镜像).
@@ -146,6 +157,7 @@ export interface Subgraph {
   label: string
   description?: string
   graph: Graph
+  entry: SubgraphMarker // B2: 子图入口 virtual marker
   outputPins: SubgraphOutputDecl[]
   tags?: string[]
   recordingContext?: RecordingContext

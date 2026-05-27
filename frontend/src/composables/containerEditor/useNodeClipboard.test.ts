@@ -28,6 +28,7 @@ function setup(opts: {
       id: s.id,
       label: s.label,
       outputPins: s.outputPins ?? [],
+      entry: { nodeID: 'test-entry' },
       graph: s.graph,
     })),
   )

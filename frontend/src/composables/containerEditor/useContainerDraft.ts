@@ -13,7 +13,17 @@ export interface FlowNode {
   id: string
   type: string
   position: { x: number; y: number }
-  data: { kind: string; config?: Record<string, any>; disabled?: boolean; label?: string }
+  // B2: _virtual=true 标识 entry/output marker (来源 sg.entry / sg.outputPins, 不在 graph.nodes).
+  // useGraphMutations / onDeleteSelected 用 _virtual 拒删/拒复制; 拖动时 patch metadata 不 patch nodes.
+  data: {
+    kind: string
+    config?: Record<string, any>
+    disabled?: boolean
+    label?: string
+    _virtual?: boolean
+    _markerRole?: 'entry' | 'output'
+    _declID?: string
+  }
 }
 export interface FlowEdge {
   id: string
@@ -84,12 +94,39 @@ export function useContainerDraft(containerID: string) {
       flowEdges.value = []
       return
     }
-    flowNodes.value = g.nodes.map((n: GraphNode) => ({
+    const realNodes: FlowNode[] = g.nodes.map((n: GraphNode) => ({
       id: n.id,
       type: n.kind,
       position: { x: n.x, y: n.y },
       data: { kind: n.kind, config: n.config, disabled: n.disabled === true, label: n.label ?? '' },
     }))
+    // B2: 在 subgraph 上下文里, 注入 entry/output virtual marker flowNodes.
+    // 这些 node ID 跟 sg.entry.nodeID / sg.outputPins[].nodeID 对齐, edges 引用它们.
+    const virtualNodes: FlowNode[] = []
+    if (editorStore.editorPath.length > 0) {
+      const curSgID = editorStore.editorPath[editorStore.editorPath.length - 1]
+      const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === curSgID)
+      if (sg) {
+        if (sg.entry && sg.entry.nodeID) {
+          virtualNodes.push({
+            id: sg.entry.nodeID,
+            type: 'SubgraphInput',
+            position: { x: sg.entry.x ?? 80, y: sg.entry.y ?? 160 },
+            data: { kind: 'SubgraphInput', config: {}, disabled: false, label: '入口', _virtual: true, _markerRole: 'entry' },
+          })
+        }
+        for (const p of sg.outputPins ?? []) {
+          if (!p.nodeID) continue
+          virtualNodes.push({
+            id: p.nodeID,
+            type: 'SubgraphOutput',
+            position: { x: p.x ?? 420, y: p.y ?? 160 },
+            data: { kind: 'SubgraphOutput', config: { DeclID: p.id }, disabled: false, label: p.name ?? '出口', _virtual: true, _markerRole: 'output', _declID: p.id },
+          })
+        }
+      }
+    }
+    flowNodes.value = [...virtualNodes, ...realNodes]
     flowEdges.value = g.edges.map((e: GraphEdge, i: number) => {
       const dot = e.from.indexOf('.')
       const src = e.from.slice(0, dot)
@@ -150,6 +187,7 @@ export function useContainerDraft(containerID: string) {
           id: s.id,
           label: s.label,
           outputPins: s.outputPins ?? [],
+          entry: s.entry ?? { nodeID: '' },
           graph: s.graph ?? { id: '', version: 1, nodes: [], edges: [] },
           description: s.description,
           recordingContext: s.recordingContext,
@@ -187,6 +225,7 @@ export function useContainerDraft(containerID: string) {
           id: s.id,
           label: s.label,
           outputPins: s.outputPins ?? [],
+          entry: s.entry ?? { nodeID: '' },
           graph: s.graph ?? { id: '', version: 1, nodes: [], edges: [] },
           description: s.description,
           recordingContext: s.recordingContext,

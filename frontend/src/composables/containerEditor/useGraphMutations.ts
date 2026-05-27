@@ -11,6 +11,7 @@ import type { NodeChange, EdgeChange, Connection } from '@vue-flow/core'
 import type { Graph, GraphNode, GraphEdge } from '@/lib/backend'
 import type { FlowEdge } from './useContainerDraft'
 import { edgeKind } from '@/components/containers/pinSpec'
+import { useContainerEditorStore } from '@/stores/containerEditor'
 
 export function useGraphMutations(opts: {
   activeGraph: ComputedRef<Graph | null>
@@ -21,14 +22,45 @@ export function useGraphMutations(opts: {
 }) {
   const { activeGraph, flowEdges, syncFlowFromDraft, findNodeAcrossGraphs, deleteSubgraphCascade } =
     opts
+  const editorStore = useContainerEditorStore()
 
   type EdgeDblClickEvent = { edge: { id: string } }
+
+  // B2: virtual entry/output marker — 找当前 subgraph 里这个 id 对应的 slot.
+  // 返回 'entry' / 'output' / null. null = 不是 marker (普通节点走老路径).
+  function virtualMarkerSlot(id: string): { kind: 'entry' | 'output'; sgID: string; declID?: string } | null {
+    if (editorStore.editorPath.length === 0) return null
+    const sgID = editorStore.editorPath[editorStore.editorPath.length - 1]
+    const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
+    if (!sg) return null
+    if (sg.entry?.nodeID === id) return { kind: 'entry', sgID }
+    const p = (sg.outputPins ?? []).find((p) => p.nodeID === id)
+    if (p) return { kind: 'output', sgID, declID: p.id }
+    return null
+  }
 
   function onNodesChange(changes: NodeChange[]) {
     const g = activeGraph.value
     if (!g) return
     for (const ch of changes) {
       if (ch.type === 'position' && ch.position) {
+        // B2: virtual marker → 写 sg.entry/outputPins metadata, 不写 g.nodes.
+        const slot = virtualMarkerSlot(ch.id)
+        if (slot) {
+          const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === slot.sgID)
+          if (sg) {
+            if (slot.kind === 'entry') {
+              sg.entry = { ...sg.entry, x: ch.position.x, y: ch.position.y }
+            } else if (slot.declID) {
+              const p = (sg.outputPins ?? []).find((p) => p.id === slot.declID)
+              if (p) {
+                p.x = ch.position.x
+                p.y = ch.position.y
+              }
+            }
+          }
+          continue
+        }
         const node = g.nodes.find((n) => n.id === ch.id)
         if (node) {
           node.x = ch.position.x
@@ -36,6 +68,8 @@ export function useGraphMutations(opts: {
         }
       }
       if (ch.type === 'remove') {
+        // B2: virtual marker 不能删
+        if (virtualMarkerSlot(ch.id)) continue
         // Subgraph 节点删前 snapshot, 用于级联删子图
         const removedNode = findNodeAcrossGraphs(ch.id)
         const removedSubgraphID =
