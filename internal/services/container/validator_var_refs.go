@@ -12,9 +12,13 @@ import "fmt"
 //
 //	kind ∈ {GetVar, SetVar, IncVar}
 //	AND config.scope ∈ {auto, global, undefined}     ← undefined treated as auto (backend default)
-//	AND config.varName ∉ Container.Vars[].Name       → INVALID_VAR_REF
+//	AND config.varName ∉ Container.Vars[].Name
+//	AND (subgraph 内时) config.varName ∉ sg.RequiredGlobals[].Name → INVALID_VAR_REF
 //
 // scope=local is skipped here entirely (frame-scoped, declared implicitly via SetVar).
+//
+// B11: subgraph 内 var ref 若在 sg.RequiredGlobals 白名单 — 视作 caller 会 provide, 不报错.
+// (Library import / 跨容器拖时, caller 容器可能缺 var; RequiredGlobals 自我声明依赖.)
 func validateVarRefs(c *Container) []ValidationError {
 	if c == nil {
 		return nil
@@ -26,7 +30,7 @@ func validateVarRefs(c *Container) []ValidationError {
 	varKinds := map[string]bool{"GetVar": true, "SetVar": true, "IncVar": true}
 
 	var errs []ValidationError
-	check := func(g Graph, path []string) {
+	check := func(g Graph, path []string, extraDeclared map[string]bool) {
 		for _, n := range g.Nodes {
 			if !varKinds[n.Kind] {
 				continue
@@ -42,21 +46,29 @@ func validateVarRefs(c *Container) []ValidationError {
 			if varName == "" {
 				continue // missing-varName reported by other validator path
 			}
-			if !declared[varName] {
-				errs = append(errs, ValidationError{
-					Severity:  SeverityError,
-					Code:      CodeInvalidVarRef,
-					GraphPath: append([]string(nil), path...),
-					NodeID:    n.ID,
-					Message:   fmt.Sprintf("节点 %s 引用未声明的容器变量 %q (scope=%s) — 在容器变量面板添加或改 scope=local", n.ID, varName, scope),
-					Params:    map[string]any{"varName": varName, "scope": scope},
-				})
+			if declared[varName] {
+				continue
 			}
+			if extraDeclared != nil && extraDeclared[varName] {
+				continue // B11: subgraph RequiredGlobals 白名单
+			}
+			errs = append(errs, ValidationError{
+				Severity:  SeverityError,
+				Code:      CodeInvalidVarRef,
+				GraphPath: append([]string(nil), path...),
+				NodeID:    n.ID,
+				Message:   fmt.Sprintf("节点 %s 引用未声明的容器变量 %q (scope=%s) — 在容器变量面板添加或改 scope=local", n.ID, varName, scope),
+				Params:    map[string]any{"varName": varName, "scope": scope},
+			})
 		}
 	}
-	check(c.Graph, []string{"main"})
+	check(c.Graph, []string{"main"}, nil)
 	for _, sg := range c.Subgraphs {
-		check(sg.Graph, []string{"subgraph", sg.ID})
+		sgWhitelist := map[string]bool{}
+		for _, rg := range sg.RequiredGlobals {
+			sgWhitelist[rg.Name] = true
+		}
+		check(sg.Graph, []string{"subgraph", sg.ID}, sgWhitelist)
 	}
 	return errs
 }
