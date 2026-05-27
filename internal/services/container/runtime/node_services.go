@@ -592,14 +592,14 @@ func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAda
 // stateGetter — live ExecState 入口 (frame.LocalVars / LocalParams scope). ContainerRunner
 // 构造时传 func() *ExecState { return r.state }. nil 兜底 — adapter scoped 方法降级.
 //
-// tickGetter — per-tick snapshot 入口 (r.currentTick). EvaluatePureData wrap 时 framework
-// 调一次拿 frozen Vars/Sys view. nil → bundle.Snapshot 仍非 nil 但返空 Snapshot{}, 等价跳过.
+// Snapshot — per-tick view 从 ctx (tickCtxKey, B1) 读. dispatchInRegion 入口
+// withTickSnapshot 写入, EvaluatePureData wrap 时调 Snapshot(ctx) 拿 frozen Vars/Sys view.
+// ctx 无 value → 返空 Snapshot{}, 等价跳过 wrap.
 func NewServiceBundleFor(
 	rt *RuntimeContext,
 	stopwatches *stopwatchTable,
 	log zerolog.Logger,
 	stateGetter func() *ExecState,
-	tickGetter func() *TickSnapshot,
 ) node.ServiceBundle {
 	return node.ServiceBundle{
 		Vision:      NewVisionAdapter(rt),
@@ -611,11 +611,8 @@ func NewServiceBundleFor(
 		Window:      NewWindowAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),
 		Stopwatches: NewStopwatchAdapter(stopwatches),
-		Snapshot: func() node.Snapshot {
-			if tickGetter == nil {
-				return node.Snapshot{}
-			}
-			tick := tickGetter()
+		Snapshot: func(ctx context.Context) node.Snapshot {
+			tick := tickFromCtx(ctx)
 			if tick == nil {
 				return node.Snapshot{}
 			}

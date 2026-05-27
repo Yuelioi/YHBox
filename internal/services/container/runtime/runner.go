@@ -100,14 +100,12 @@ type ContainerRunner struct {
 	state     *ExecState
 	stopwatches *stopwatchTable
 
-	// currentTick is the per-exec-tick snapshot of rt.vars + rt.sys.
-	// Captured before each execNode dispatch and cleared after; consumed by GetVar / GetSys
-	// pure-data nodes during the same tick to guarantee data consistency.
-	currentTick *TickSnapshot
-
 	// bundle 是 Phase 5.4 wire 的 node.ServiceBundle (LogService / VarStore / VisionService 等
 	// 8 个 adapter). Phase 5.5 ContainerRunner.execNode 改 node.RunNode dispatch 时消费.
 	// 默认 Log 是 zerolog.Nop, main.go 启动后 SetLogger 注入真 logger.
+	//
+	// B1: per-tick snapshot 不再是 instance 字段, 而是 ctx (tickCtxKey) — dispatchInRegion
+	// 入口 withTickSnapshot 写, bundle.Snapshot 闭包从 ctx 读. per-goroutine 独立.
 	bundle node.ServiceBundle
 }
 
@@ -127,14 +125,12 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	r.state = NewExecState(rt.Container.ID, cc.MainCalibCounts)
 	// Phase 5.4: 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
 	// stateGetter — closure 让 VarStoreAdapter scope=local/auto 拿到 frame.LocalVars 栈.
-	// tickGetter — closure 让 PureData Evaluator (EvaluatePureData wrap) 拿到 per-tick
-	// frozen Vars/Sys view (r.currentTick 在 dispatch_v5.execNode 入口 capture).
+	// B1: tick snapshot 走 ctx (tickCtxKey) 不再传 getter — bundle.Snapshot 闭包内部读 ctx.
 	r.bundle = NewServiceBundleFor(
 		rt,
 		r.stopwatches,
 		zerolog.Nop(),
 		func() *ExecState { return r.state },
-		func() *TickSnapshot { return r.currentTick },
 	)
 	return r
 }

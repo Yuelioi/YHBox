@@ -94,12 +94,12 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 	srcID, _ := r.dataEdges.Source(nodeID, pinName)
 	if srcID == "" {
 		// 无 data edge — literal 或 default. 老 pullDataPin 处理 (其内部会读 config["literal"]).
-		v, err := r.pullDataPin(nodeID, pinName)
+		v, err := r.pullDataPin(ctx, nodeID, pinName)
 		return v, err
 	}
 	srcNode, ok := r.nodesByID[srcID]
 	if !ok {
-		return r.pullDataPin(nodeID, pinName)
+		return r.pullDataPin(ctx, nodeID, pinName)
 	}
 	// Editor v2 C: disabled pure-data → nil (跟老 evalDataSource 行为一致).
 	if srcNode.Disabled {
@@ -107,7 +107,7 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 	}
 	srcRn, regOk := nodepkg.Get(srcNode.Kind)
 	if !regOk || !srcRn.Spec.IsPureData || srcRn.Evaluate == nil {
-		return r.pullDataPin(nodeID, pinName)
+		return r.pullDataPin(ctx, nodeID, pinName)
 	}
 	// 上游是 framework-evaluable pure-data → 递归 build 上游 dataWire + 调 EvaluatePureData.
 	srcDataWire := r.buildDataWireFor(ctx, srcNode, srcRn)
@@ -259,7 +259,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 		return nil, fmt.Errorf("execNodeAsRegionViaFramework: kind %q is not a RegionRunner", node.Kind)
 	}
 
-	body, err := r.makeBodyFor(node, tok)
+	body, err := r.makeBodyFor(ctx, node, tok)
 	if err != nil {
 		return nil, err
 	}
@@ -286,8 +286,9 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 	if !ok {
 		return nil, fmt.Errorf("dispatchInRegion: kind %q not registered", n.Kind)
 	}
-	r.currentTick = CaptureSnapshot(r.rt.Vars(), r.rt.Sys())
-	defer func() { r.currentTick = nil }()
+	// B1: per-tick snapshot 走 ctx (tickCtxKey) — per-goroutine/per-token scope,
+	// listener subRunner 共享 bundle / Phase 6 Parallel/Race 未来都安全, 不撞 instance 字段.
+	ctx = withTickSnapshot(ctx, CaptureSnapshot(r.rt.Vars(), r.rt.Sys()))
 	if rn.RunRegion != nil {
 		return r.execNodeAsRegionViaFramework(ctx, n, tok)
 	}
@@ -374,14 +375,17 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 
 // makeBodyFor build region body callback per node kind.
 // Phase 5.5b 支持 Loop / Subgraph / CollapsedNode / Try.
-func (r *ContainerRunner) makeBodyFor(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
+//
+// ctx 来自 execNodeAsRegionViaFramework — 携带 tickCtxKey (B1), Subgraph/Try eager pullDataPin
+// 链下去 bundle.Snapshot 能拿 frozen Vars. Loop body 不 pullDataPin 不需要外部 ctx.
+func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	switch node.Kind {
 	case "Loop":
 		return r.makeBodyForLoop(node, tok), nil
 	case "Subgraph", "CollapsedNode":
-		return r.makeBodyForSubgraph(node, tok)
+		return r.makeBodyForSubgraph(ctx, node, tok)
 	case "Try":
-		return r.makeBodyForTry(node, tok)
+		return r.makeBodyForTry(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("makeBodyFor: no body builder for kind %q (region runner not yet supported)", node.Kind)
 }
@@ -402,15 +406,15 @@ func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecTok
 //
 // 复用 makeBodyForSubgraph 的实现就好. (如果 Try 未来要区别 Throw vs 普通 error 等更细
 // 语义, Try.RunRegion 内做, 这里继续透传.)
-func (r *ContainerRunner) makeBodyForTry(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
-	return r.makeBodyForSubgraph(node, tok)
+func (r *ContainerRunner) makeBodyForTry(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
+	return r.makeBodyForSubgraph(ctx, node, tok)
 }
 
 // makeBodyForSubgraph body 调一次 — 解析 SubgraphID + push frame + 切 dispatch table 到 callee +
 // SubgraphInput.out 出发 sub-dispatch + SubgraphOutput 终点 return nil + restore frame & tables.
 //
 // SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟新 Spec.Inputs.SubgraphID 对齐) 取.
-func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
+func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	sgID, _ := node.Config["SubgraphID"].(string)
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
@@ -441,7 +445,7 @@ func (r *ContainerRunner) makeBodyForSubgraph(node *container.GraphNode, tok Exe
 	}
 	var pulled []pulledParam
 	for _, p := range sg.InputParams {
-		v, perr := r.pullDataPin(node.ID, p.Name)
+		v, perr := r.pullDataPin(ctx, node.ID, p.Name)
 		if perr != nil {
 			return nil, fmt.Errorf("Subgraph %s: pull input %q: %w", node.ID, p.Name, perr)
 		}

@@ -137,7 +137,7 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 	// services.Snapshot 是 framework-injected getter; nil 时跳过 wrap (测试 stub 用).
 	// services 是值类型 (传值 copy), 改 services 内字段不影响 caller.
 	if services.Snapshot != nil {
-		snap := services.Snapshot()
+		snap := services.Snapshot(ctx)
 		services.Vars = newSnapshotVarStore(services.Vars, snap)
 		if snap.Sys != nil {
 			services.Sys = snap.Sys

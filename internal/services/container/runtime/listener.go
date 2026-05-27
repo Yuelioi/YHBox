@@ -56,12 +56,13 @@ func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener
 		homeNodesByID:   r.compiled.Main.NodesByID,
 		kind:            configString(n, "kind"),
 		template:        configString(n, "template"),
-		// v4: thresholds via data-in pin.
-		threshold:       r.pullNumber(n, "threshold", 0.85),
-		pollIntervalMs:  int(r.pullNumber(n, "pollIntervalMs", 100)),
-		maxConcurrent:   int(r.pullNumber(n, "maxConcurrent", 1)),
+		// v4: thresholds via data-in pin. listener init 不在 dispatch tick scope, 传
+		// context.Background() — config 走 literal/常量 不依赖 frozen Vars, 无 tick 行为一致.
+		threshold:       r.pullNumber(context.Background(), n, "threshold", 0.85),
+		pollIntervalMs:  int(r.pullNumber(context.Background(), n, "pollIntervalMs", 100)),
+		maxConcurrent:   int(r.pullNumber(context.Background(), n, "maxConcurrent", 1)),
 		retriggerPolicy: configString(n, "retriggerPolicy"),
-		cooldownMs:      int(r.pullNumber(n, "cooldownMs", 0)),
+		cooldownMs:      int(r.pullNumber(context.Background(), n, "cooldownMs", 0)),
 		queueSig:        make(chan struct{}, 16),
 	}
 	if l.kind == "" {

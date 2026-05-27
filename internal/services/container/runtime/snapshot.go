@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"maps"
 
 	"yhbox/internal/services/expr"
@@ -38,4 +39,28 @@ func (s *TickSnapshot) GetVar(name string) (expr.Value, bool) {
 	}
 	v, ok := s.Vars[name]
 	return v, ok
+}
+
+// tickCtxKey 是 ctx.Value 的 key, 持 per-tick *TickSnapshot. dispatchInRegion
+// 入口 withTickSnapshot 写, ServiceBundle.Snapshot 闭包 tickFromCtx 读.
+//
+// per-goroutine / per-token scope — 同 *ContainerRunner 跑多 goroutine (listener
+// subRunner 共享 bundle 后 + Phase 6 Parallel/Race 未来) 时, 各 goroutine 自己
+// ctx chain 独立, 不撞 instance 字段.
+type tickCtxKeyT struct{}
+
+var tickCtxKey = tickCtxKeyT{}
+
+// withTickSnapshot 把 snap 挂到 ctx 的 tickCtxKey 上. dispatchInRegion 入口调.
+func withTickSnapshot(ctx context.Context, snap *TickSnapshot) context.Context {
+	return context.WithValue(ctx, tickCtxKey, snap)
+}
+
+// tickFromCtx 从 ctx 读 *TickSnapshot. 没挂 → nil. ServiceBundle.Snapshot 调.
+func tickFromCtx(ctx context.Context) *TickSnapshot {
+	if ctx == nil {
+		return nil
+	}
+	snap, _ := ctx.Value(tickCtxKey).(*TickSnapshot)
+	return snap
 }

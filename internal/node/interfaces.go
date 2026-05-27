@@ -294,7 +294,7 @@ type ServiceBundle struct {
 	Window      WindowService
 	Capture     CaptureService
 	Stopwatches StopwatchStore
-	Snapshot    func() Snapshot // tick snapshot getter, EvaluatePureData wrap 时调用
+	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
 }
 
 type ValidationError struct {

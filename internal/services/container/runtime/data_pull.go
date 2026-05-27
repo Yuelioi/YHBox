@@ -67,10 +67,13 @@ func (d *dataEdgeIndex) Source(nodeID, pinName string) (string, string) {
 //
 // Pure data sources (GetVar / GetSys / GetParam / Expr / pure functions) eval on-demand.
 // Exec nodes that expose data-out (e.g. Race.winnerIdx) read from the sys snapshot.
-func (r *ContainerRunner) pullDataPin(nodeID, pinName string) (expr.Value, error) {
+//
+// ctx 必传 — B1 后 tick snapshot 走 ctx (tickCtxKey). dispatch hot path 传 dispatchInRegion
+// 已 withTickSnapshot 的 ctx; init/cold path (listener config) 传 context.Background() (无 tick OK).
+func (r *ContainerRunner) pullDataPin(ctx context.Context, nodeID, pinName string) (expr.Value, error) {
 	// 1. Data edge lookup
 	if srcID, srcPin := r.dataEdges.Source(nodeID, pinName); srcID != "" {
-		return r.evalDataSource(srcID, srcPin)
+		return r.evalDataSource(ctx, srcID, srcPin)
 	}
 	// 2. Literal lookup
 	n := r.nodesByID[nodeID]
@@ -91,7 +94,7 @@ func (r *ContainerRunner) pullDataPin(nodeID, pinName string) (expr.Value, error
 //
 // 全 IsPureData 节点 (Get*/Expr/22 pure-function) 走 framework EvaluatePureData 单一 path.
 // buildDataWireFor 对 Expr 特例 (config.Inputs[] dynamic) + 普通节点 spec data-in 都覆盖.
-func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, error) {
+func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin string) (expr.Value, error) {
 	n := r.nodesByID[srcNodeID]
 	if n == nil {
 		return nil, fmt.Errorf("evalDataSource: source node %q not found", srcNodeID)
@@ -115,16 +118,20 @@ func (r *ContainerRunner) evalDataSource(srcNodeID, srcPin string) (expr.Value, 
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("evalDataSource: IsPureData=true but kind %q does not implement Evaluator", n.Kind)
 	}
-	srcDataWire := r.buildDataWireFor(context.Background(), n, rn)
+	// B1: 传 ctx 给递归 buildDataWireFor + EvaluatePureData, 让 bundle.Snapshot(ctx) 拿到 tick.
+	srcDataWire := r.buildDataWireFor(ctx, n, rn)
 	srcConfig := r.buildConfigFor(n)
-	v, err := nodepkg.EvaluatePureData(context.Background(), rn, srcDataWire, srcConfig, r.bundle)
+	v, err := nodepkg.EvaluatePureData(ctx, rn, srcDataWire, srcConfig, r.bundle)
 	return toExprValue(v), err
 }
 
 // pullNumber: v4-only data-pin resolution (data edge or inline literal). No v3 fallback.
 // Returns `fallback` if pin is unset / type-incompatible.
-func (r *ContainerRunner) pullNumber(n *container.GraphNode, pinName string, fallback float64) float64 {
-	v, err := r.pullDataPin(n.ID, pinName)
+//
+// ctx — listener config init 时传 context.Background() (无 tick OK, listener config 走 literal
+// 不依赖 frozen Vars); dispatch hot path 调用 (无 prod 当前 callsite, future-proof) 传带 tick 的 ctx.
+func (r *ContainerRunner) pullNumber(ctx context.Context, n *container.GraphNode, pinName string, fallback float64) float64 {
+	v, err := r.pullDataPin(ctx, n.ID, pinName)
 	if err != nil || v == nil {
 		return fallback
 	}
@@ -132,34 +139,6 @@ func (r *ContainerRunner) pullNumber(n *container.GraphNode, pinName string, fal
 		return f
 	}
 	return fallback
-}
-
-// pullBool: v4-only data-pin resolution; expr.AsBool coerces.
-func (r *ContainerRunner) pullBool(n *container.GraphNode, pinName string) (bool, error) {
-	v, err := r.pullDataPin(n.ID, pinName)
-	if err != nil {
-		return false, err
-	}
-	return expr.AsBool(v), nil
-}
-
-// pullString: v4-only data-pin resolution; expr.FormatValue stringifies non-string values.
-func (r *ContainerRunner) pullString(n *container.GraphNode, pinName string) string {
-	v, err := r.pullDataPin(n.ID, pinName)
-	if err != nil || v == nil {
-		return ""
-	}
-	return expr.FormatValue(v)
-}
-
-// pullValue: v4-only data-pin resolution returning raw expr.Value (nil on miss).
-// Used by Log/Toast which forward the raw value to FormatValue/Emit.
-func (r *ContainerRunner) pullValue(n *container.GraphNode, pinName string) expr.Value {
-	v, err := r.pullDataPin(n.ID, pinName)
-	if err != nil {
-		return nil
-	}
-	return v
 }
 
 // toExprValue converts JSON-decoded values (always one of: float64 / bool / string / nil /
