@@ -115,17 +115,13 @@ const (
 )
 
 // ValidationError is the i18n-ready error envelope.
-//
-// Backlog: 删 Message field, 前端走纯 Code+Params 路径 — 见 backend-backlog.md B5.
-// 当前 frontend fallback 链 (t(code, params) → backend.message → raw code) 兼容并存. Until then, Message
-// remains authoritative for single-line display (ValidationFailure.Error()).
+// B5 ship 后纯 Code+Params 模型, 前端 t(`error.<Code>`, Params) 走 vue-i18n.
 type ValidationError struct {
 	Severity  string         `json:"severity"`
 	Code      string         `json:"code"`
 	GraphPath []string       `json:"graphPath"`
 	NodeID    string         `json:"nodeId,omitempty"`
-	Message   string         `json:"message,omitempty"` // v4: still authoritative until E4 i18n migration
-	Params    map[string]any `json:"params,omitempty"`  // v4: template params for future t(Code, Params)
+	Params    map[string]any `json:"params,omitempty"` // 占位符 keys 跟 i18n string 的 {name} 对齐
 }
 
 // ValidateContext 给 ValidateContainerWithContext 用，传入文件系统 / 设置态等

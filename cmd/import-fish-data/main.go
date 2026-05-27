@@ -348,7 +348,7 @@ func runValidator(ctnDir string) error {
 		if e.Severity == container.SeverityError {
 			hasErr = true
 		}
-		fmt.Fprintf(os.Stderr, "[validator] [%s] %s @ %s — %s\n", e.Severity, e.Code, e.NodeID, e.Message)
+		fmt.Fprintf(os.Stderr, "[validator] [%s] %s @ %s — %v\n", e.Severity, e.Code, e.NodeID, e.Params)
 	}
 	if hasErr {
 		return fmt.Errorf("validation failed")

@@ -88,8 +88,8 @@ func main() {
 		if path == "" {
 			path = "(root)"
 		}
-		msg := e.Message
-		if msg == "" && len(e.Params) > 0 {
+		var msg string
+		if len(e.Params) > 0 {
 			b, _ := json.Marshal(e.Params)
 			msg = string(b)
 		}

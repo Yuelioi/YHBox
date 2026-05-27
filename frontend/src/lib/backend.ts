@@ -124,13 +124,14 @@ export interface SubgraphOutputDecl {
   name: string
 }
 
-// ValidationError 后端 validator 结构化错误 (validator.go ValidationError 镜像)
+// ValidationError 后端 validator 结构化错误 (validator.go ValidationError 镜像).
+// B5: Message 字段已删, FE 全走 t(`error.<code>`, params).
 export interface ValidationError {
   severity: 'error' | 'warning'
   code: string
   graphPath: string[]
   nodeId?: string
-  message: string
+  params?: Record<string, unknown>
 }
 
 export interface RecordingContext {

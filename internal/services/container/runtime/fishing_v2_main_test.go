@@ -55,7 +55,7 @@ func TestFishingV2Main_Validates(t *testing.T) {
 	errs := container.ValidateContainer(c)
 	for _, e := range errs {
 		if e.Severity == container.SeverityError {
-			t.Errorf("validator error: code=%s nodeID=%s msg=%s", e.Code, e.NodeID, e.Message)
+			t.Errorf("validator error: code=%s nodeID=%s params=%v", e.Code, e.NodeID, e.Params)
 		}
 	}
 }

@@ -116,16 +116,13 @@ const titleText = computed(() => {
     : t('validation.title_failed', { errorCount: errorCount.value })
 })
 
-// code+params → t('error.<CODE>', params). Fallback 链:
-//   1. i18n key 注册了 → translated string
-//   2. backend Message 非空 → 用它 (尚未 i18n 的 code 的 transitional)
-//   3. raw code (最后兜底, hint missing translation)
-function errorText(e: ValidationError & { params?: Record<string, any> }): string {
+// B5 ship 后 Code+Params 纯模型 — 不再有 Message fallback.
+// 链: t('error.<CODE>', params) → raw code (兜底, hint missing translation).
+function errorText(e: ValidationError): string {
   const key = `error.${e.code}`
   if (te(key)) {
-    return t(key, (e as any).params ?? {})
+    return t(key, (e.params ?? {}) as Record<string, unknown>)
   }
-  if (e.message) return e.message
   return e.code
 }
 </script>

@@ -148,7 +148,7 @@ func (s *Service) ValidateContainerByID(id string) []ValidationError {
 	c, ok := s.store.Get(id)
 	if !ok {
 		return []ValidationError{
-			{Severity: SeverityError, Code: "CONTAINER_NOT_FOUND", Message: fmt.Sprintf("container %q not found", id)},
+			{Severity: SeverityError, Code: "CONTAINER_NOT_FOUND", Params: map[string]any{"id": id}},
 		}
 	}
 	return ValidateContainer(&c)
