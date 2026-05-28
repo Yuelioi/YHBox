@@ -164,7 +164,9 @@ import { useExecutionStore } from '@/stores/execution'
 import { useBatchSelect } from '@/composables/useBatchSelect'
 import { useConfirm } from '@/composables/useConfirm'
 import { backend, type Container } from '@/lib/backend'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const store = useContainersStore()
 const execStore = useExecutionStore()
 const toast = useToast()
@@ -259,14 +261,9 @@ async function onCreate() {
   }
 }
 
-async function onEdit(c: Container) {
-  // 独立 Frameless 子窗口（containerWindowAdapter 同 id 复用 focus）
-  try {
-    await backend.containers.openEditorWindow(c.id)
-  } catch (e) {
-    console.error('openEditorWindow failed:', e)
-    toast.add({ title: '打开编辑器窗口失败', description: String(e), color: 'error' })
-  }
+function onEdit(c: Container) {
+  // 默认嵌入主壳; 用户在编辑器工具栏点 i-tabler-external-link 可拆独立窗口.
+  router.push(`/containers/${c.id}/edit`)
 }
 
 function onAskDelete(c: Container) {
