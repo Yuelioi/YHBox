@@ -166,6 +166,21 @@ export default {
     stop_button: '停止',
     stop_tooltip: '停止当前运行 + 清队列 (Ctrl+Shift+F9)',
   },
+  log: {
+    header_title: '日志',
+    count: '{n} 条',
+    has_errors: '含错误',
+    write_file_tooltip_on: '写入 {dir}/yhfish-*.log',
+    write_file_tooltip_off: '未写入文件',
+    empty: '无日志.',
+    popover: {
+      show_time: '显示时间',
+      show_tag: '显示标签',
+      wrap_text: '自动折行',
+      auto_scroll: '自动滚动',
+      write_file: '写入文件',
+    },
+  },
   common: {
     game_not_detected: '未检测到异环窗口',
   },

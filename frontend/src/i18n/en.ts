@@ -151,6 +151,21 @@ export default {
     stop_button: '[EN-pending] Stop',
     stop_tooltip: '[EN-pending] Stop current run + clear queue (Ctrl+Shift+F9)',
   },
+  log: {
+    header_title: '[EN-pending] Log',
+    count: '[EN-pending] {n} lines',
+    has_errors: '[EN-pending] has errors',
+    write_file_tooltip_on: '[EN-pending] Writing to {dir}/yhfish-*.log',
+    write_file_tooltip_off: '[EN-pending] Not writing to file',
+    empty: '[EN-pending] No logs.',
+    popover: {
+      show_time: '[EN-pending] Show time',
+      show_tag: '[EN-pending] Show tag',
+      wrap_text: '[EN-pending] Wrap text',
+      auto_scroll: '[EN-pending] Auto-scroll',
+      write_file: '[EN-pending] Write to file',
+    },
+  },
   common: {
     game_not_detected: 'Game window not detected',
   },

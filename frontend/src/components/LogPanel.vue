@@ -12,16 +12,22 @@
         :name="collapsed ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
         class="size-3.5 text-dimmed"
       />
-      <span class="text-[11px] text-toned font-medium">日志</span>
-      <span v-if="filteredLines.length" class="text-[10px] text-dimmed">{{ filteredLines.length }} 条</span>
-      <span v-if="hasErrors" class="text-[10px] text-error">含错误</span>
+      <span class="text-[11px] text-toned font-medium">{{ t('log.header_title') }}</span>
+      <span v-if="filteredLines.length" class="text-[10px] text-dimmed">{{
+        t('log.count', { n: filteredLines.length })
+      }}</span>
+      <span v-if="hasErrors" class="text-[10px] text-error">{{ t('log.has_errors') }}</span>
 
       <div class="flex-1" />
 
       <!-- 写文件状态 icon -->
       <span
         v-if="!collapsed"
-        :title="writeFile ? `写入 ${fileDir}/yhfish-*.log` : '未写入文件'"
+        :title="
+          writeFile
+            ? t('log.write_file_tooltip_on', { dir: fileDir })
+            : t('log.write_file_tooltip_off')
+        "
         class="size-2 rounded-full shrink-0"
         :class="writeFile ? 'bg-emerald-400' : 'bg-zinc-500'"
         @click.stop
@@ -54,24 +60,24 @@
           <div class="space-y-1 text-[11px]">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" :checked="showTime" @change="toggleField('showTime', ($event.target as HTMLInputElement).checked)" />
-              显示时间
+              {{ t('log.popover.show_time') }}
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" :checked="showTag" @change="toggleField('showTag', ($event.target as HTMLInputElement).checked)" />
-              显示标签
+              {{ t('log.popover.show_tag') }}
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" :checked="wrapText" @change="toggleField('wrapText', ($event.target as HTMLInputElement).checked)" />
-              自动折行
+              {{ t('log.popover.wrap_text') }}
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" :checked="autoScroll" @change="toggleField('autoScroll', ($event.target as HTMLInputElement).checked)" />
-              自动滚动
+              {{ t('log.popover.auto_scroll') }}
             </label>
             <hr class="border-default my-1" />
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" :checked="writeFile" @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)" />
-              写入文件
+              {{ t('log.popover.write_file') }}
             </label>
           </div>
         </template>
@@ -93,7 +99,7 @@
       ref="bodyRef"
       class="flex-1 overflow-y-auto font-mono text-[11px] px-2 py-1 space-y-0.5 bg-zinc-950"
     >
-      <div v-if="filteredLines.length === 0" class="text-dimmed italic">无日志.</div>
+      <div v-if="filteredLines.length === 0" class="text-dimmed italic">{{ t('log.empty') }}</div>
       <div
         v-for="(l, idx) in filteredLines"
         :key="idx"
@@ -117,9 +123,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useLogStore } from '@/stores/log'
 import { useSettingsStore } from '@/stores/settings'
 
+const { t } = useI18n()
 const logStore = useLogStore()
 const settingsStore = useSettingsStore()
 
