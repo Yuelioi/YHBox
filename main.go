@@ -57,7 +57,8 @@ func main() {
 
 	// 日志栈：zerolog → LogSink → wails3 Event.Emit + 顺便 append 到 logs/yhfish-YYYYMMDD.log
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
-	logSink.EnableFileWriter("logs")
+	// 启动期先按 default 接通 (settings 未加载, 用 "logs" 兜底)
+	logSink.SetFileWriter("logs")
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
@@ -71,6 +72,16 @@ func main() {
 
 	// App 协调器（不暴露 JS）
 	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
+
+	// app 加载完 settings 后按 settings.UI.Logger.WriteFile + FileDir 重新接通
+	{
+		ls := app.Settings().UI.Logger
+		dir := ls.FileDir
+		if !ls.WriteFile {
+			dir = ""
+		}
+		logSink.SetFileWriter(dir)
+	}
 
 	// 截屏后端选择：auto 根据 OS build 自动选；其它按 settings 指定。
 	// WGC / Mock 初始化失败时回退 GDI + warn，确保用户至少能跑。

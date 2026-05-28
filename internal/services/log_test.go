@@ -1,6 +1,8 @@
 package services
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -140,4 +142,44 @@ func TestLogSink_Flush(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected immediate flush, got %d events", len(got))
 	}
+}
+
+func TestLogSink_SetFileWriter_OnOff(t *testing.T) {
+	dir := t.TempDir()
+	sink := NewLogSink(nil)
+	sink.SetFileWriter(dir)
+	_, _ = sink.Write([]byte("line1\n"))
+	sink.Flush()
+	files, _ := filepath.Glob(filepath.Join(dir, "yhfish-*.log"))
+	if len(files) != 1 {
+		t.Fatalf("expected 1 log file, got %d", len(files))
+	}
+
+	// 关写文件 → 后续 line 不入新文件
+	sink.SetFileWriter("")
+	_, _ = sink.Write([]byte("line2\n"))
+	sink.Flush()
+	data, _ := os.ReadFile(files[0])
+	if strings.Contains(string(data), "line2") {
+		t.Fatalf("line2 should not be in file after SetFileWriter(\"\")")
+	}
+	// (file already closed by SetFileWriter("") above — no extra cleanup needed)
+}
+
+func TestLogSink_SetFileWriter_Reopen(t *testing.T) {
+	dir := t.TempDir()
+	sink := NewLogSink(nil)
+	sink.SetFileWriter(dir)
+	_, _ = sink.Write([]byte("a\n"))
+	sink.Flush()
+	sink.SetFileWriter("")
+	sink.SetFileWriter(dir)
+	_, _ = sink.Write([]byte("b\n"))
+	sink.Flush()
+	files, _ := filepath.Glob(filepath.Join(dir, "yhfish-*.log"))
+	data, _ := os.ReadFile(files[0])
+	if !strings.Contains(string(data), "b") {
+		t.Fatalf("line b should be in file after re-enable, got: %s", string(data))
+	}
+	sink.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
 }

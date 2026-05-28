@@ -24,9 +24,6 @@ var settingsFilePath = func() string {
 
 // Settings 是持久化层 schema。
 type Settings struct {
-	Fish    FishSettings    `json:"fish"`
-	Cook    CookSettings    `json:"cook"`
-	Piano   PianoSettings   `json:"piano"`
 	UI      UISettings      `json:"ui"`
 	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture CaptureSettings `json:"capture"` // 截屏后端选择
@@ -45,27 +42,8 @@ type CaptureSettings struct {
 	DumpDebug bool   `json:"dumpDebug"` // bot detect 关键路径 dump 带框 PNG 到 bin/captures/，调试用
 }
 
-type FishSettings struct {
-	AutoSell      bool `json:"autoSell"`
-	CaptureGolden bool `json:"captureGolden"` // 钓上金色鱼时把结算画面截图保存到 captures/
-}
-
-type CookSettings struct {
-	IntervalMs int `json:"intervalMs"`
-}
-
-type PianoSettings struct {
-	Mode          int    `json:"mode"`          // 0=36键 1=21键
-	TrackPick     int    `json:"trackPick"`     // -1=智能 -2=全部 >=0=具体 track index
-	AutoTranspose bool   `json:"autoTranspose"` // 自动整曲八度对齐
-	OctaveOffset  int    `json:"octaveOffset"`  // -2..+2，叠加在自动偏移上
-	MelodyOnly    bool   `json:"melodyOnly"`    // 同时音只留最高
-	LastMidiPath  string `json:"lastMidiPath"`
-}
-
 type UISettings struct {
 	Logger         LoggerSettings `json:"logger"`
-	Battle         BattleSettings `json:"battle"`
 	Window         WindowSettings `json:"window"`
 	Autostart      bool           `json:"autostart"`      // 开机自启（HKCU Run 注册表）
 	MinimizeToTray bool           `json:"minimizeToTray"` // 关闭按钮 → 隐藏到托盘
@@ -93,28 +71,23 @@ type WindowSettings struct {
 }
 
 type LoggerSettings struct {
-	Show       bool `json:"show"`
-	AutoScroll bool `json:"autoScroll"`
-	ShowTime   bool `json:"showTime"`
-	ShowTag    bool `json:"showTag"`
-	WrapText   bool `json:"wrapText"`
-	WriteFile  bool `json:"writeFile"`
-}
-
-type BattleSettings struct {
-	HotkeyEnabled bool   `json:"hotkeyEnabled"`
-	HotkeyMods    string `json:"hotkeyMods"`
+	PanelOpen  bool   `json:"panelOpen"`  // 面板折叠态 (false=折叠)
+	AutoScroll bool   `json:"autoScroll"`
+	ShowTime   bool   `json:"showTime"`
+	ShowTag    bool   `json:"showTag"`
+	WrapText   bool   `json:"wrapText"`
+	WriteFile  bool   `json:"writeFile"`
+	FileDir    string `json:"fileDir"` // 写文件目录, 空 = 默认 "logs"
 }
 
 // defaultSettings 返回内置默认值。
 func defaultSettings() *Settings {
 	return &Settings{
-		Fish:  FishSettings{AutoSell: true, CaptureGolden: false},
-		Cook:  CookSettings{IntervalMs: 1500},
-		Piano: PianoSettings{Mode: 0, TrackPick: -1, AutoTranspose: true, OctaveOffset: 0},
 		UI: UISettings{
-			Logger:           LoggerSettings{Show: true, AutoScroll: true, ShowTime: true, ShowTag: true, WrapText: false, WriteFile: true},
-			Battle:           BattleSettings{HotkeyEnabled: false, HotkeyMods: "Ctrl+Shift"},
+			Logger: LoggerSettings{
+				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
+				WrapText: false, WriteFile: true, FileDir: "logs",
+			},
 			Window:              WindowSettings{Width: 1100, Height: 720},
 			ActionStopHotkey:    "Ctrl+Shift+F9",
 			RecordingStopHotkey: "F12",
@@ -139,9 +112,9 @@ func LoadSettings(path string) *Settings {
 	if err := json.Unmarshal(data, loaded); err != nil {
 		return s
 	}
-	// 归一：空 HotkeyMods 落到 default
-	if loaded.UI.Battle.HotkeyMods == "" {
-		loaded.UI.Battle.HotkeyMods = "Ctrl+Shift"
+	// 归一：空 FileDir 落到 default "logs"
+	if loaded.UI.Logger.FileDir == "" {
+		loaded.UI.Logger.FileDir = "logs"
 	}
 	// 归一：空 Locale 落到 default "zh"（旧 settings.json 没这字段）
 	if loaded.Locale == "" {
@@ -193,21 +166,6 @@ func (s *Settings) Clone() *Settings {
 
 // Validate 字段范围检查。malformed patch 应用后失败 → SettingsService.Update 拒绝 swap。
 func (s *Settings) Validate() error {
-	if s.Cook.IntervalMs < 100 || s.Cook.IntervalMs > 10000 {
-		return fmt.Errorf("cook.intervalMs out of range [100, 10000]: got %d", s.Cook.IntervalMs)
-	}
-	if s.Piano.Mode != 0 && s.Piano.Mode != 1 {
-		return fmt.Errorf("piano.mode must be 0 or 1: got %d", s.Piano.Mode)
-	}
-	if s.Piano.TrackPick < -2 {
-		return fmt.Errorf("piano.trackPick must be >= -2: got %d", s.Piano.TrackPick)
-	}
-	if s.Piano.OctaveOffset < -2 || s.Piano.OctaveOffset > 2 {
-		return fmt.Errorf("piano.octaveOffset out of range [-2, 2]: got %d", s.Piano.OctaveOffset)
-	}
-	if !validHotkeyMods(s.UI.Battle.HotkeyMods) {
-		return fmt.Errorf("ui.battle.hotkeyMods invalid: %q", s.UI.Battle.HotkeyMods)
-	}
 	if !locale.Valid(s.Locale) {
 		return fmt.Errorf("locale 不在支持列表内: got %q", s.Locale)
 	}
@@ -222,17 +180,6 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("ui.window 尺寸过小: %dx%d", s.UI.Window.Width, s.UI.Window.Height)
 	}
 	return nil
-}
-
-// ValidHotkeyMods 公开版本给 internal/bots 复用。
-func ValidHotkeyMods(label string) bool { return validHotkeyMods(label) }
-
-func validHotkeyMods(label string) bool {
-	switch label {
-	case "Ctrl", "Ctrl+Shift", "Ctrl+Alt", "Shift+Alt", "Ctrl+Shift+Alt":
-		return true
-	}
-	return false
 }
 
 // ApplyMergePatch 把 RFC7386 patch 应用到 s 上。语义：

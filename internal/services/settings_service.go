@@ -48,5 +48,15 @@ func (s *SettingsService) Update(patchJSON string) error {
 				Msg("自启注册表更新失败（settings 仍已保存）")
 		}
 	}
+
+	// Logger 字段变更 → LogSink 重接 (无侵入 — LogSink 通过 app 取)
+	if sink := s.app.GetLogSink(); sink != nil {
+		ls := cur.UI.Logger
+		dir := ls.FileDir
+		if !ls.WriteFile {
+			dir = ""
+		}
+		sink.SetFileWriter(dir)
+	}
 	return nil
 }

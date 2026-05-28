@@ -41,17 +41,28 @@ func NewLogSink(emit func(LogLinesEvent)) *LogSink {
 	}
 }
 
-// EnableFileWriter 开启日志写文件 (logs/yhfish-YYYYMMDD.log, 跨天自动 rotate).
-// 失败仅 stderr 警告, 不影响 GUI / ring buffer.
-func (s *LogSink) EnableFileWriter(logsDir string) {
+// SetFileWriter 启停 file 持久化. dir == "" 关; 非空开 (mkdir + 按天 rotate).
+// 跨调用安全 — 关再开后续日志正常落新文件.
+func (s *LogSink) SetFileWriter(dir string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.fileDir = logsDir
-	if err := os.MkdirAll(logsDir, 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "LogSink: mkdir %s failed: %v\n", logsDir, err)
+
+	if dir == "" {
+		// 关: 关现有文件, 清 dir 状态
+		if s.file != nil {
+			_ = s.file.Close()
+			s.file = nil
+		}
 		s.fileDir = ""
+		s.fileDay = ""
 		return
 	}
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "LogSink: mkdir %s failed: %v\n", dir, err)
+		return
+	}
+	s.fileDir = dir
 	s.openTodayFileLocked()
 }
 
