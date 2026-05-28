@@ -154,3 +154,69 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 	}
 	_ = r.Unregister("action.abc")
 }
+
+func TestRegistry_RegisterEditorBasic(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	err := r.RegisterEditor("editor.foo", "hotkeys.label.editor.foo", "Ctrl+Shift+Alt+F7", "hotkeys.readonly.editorBuiltin")
+	if err != nil {
+		t.Fatalf("RegisterEditor err=%v", err)
+	}
+	got, ok := r.Get("editor.foo")
+	if !ok {
+		t.Fatal("Get 应找到 editor.foo")
+	}
+	if got.Source != HotkeySourceEditor {
+		t.Errorf("Source=%q, want editor", got.Source)
+	}
+	if !got.InAppOnly {
+		t.Error("InAppOnly 应为 true")
+	}
+	if got.ReadonlyReason == "" {
+		t.Error("ReadonlyReason 应保留")
+	}
+	if got.Status != HotkeyStatusActive {
+		t.Errorf("Status=%q, want active (inAppOnly 跳 OS, 直接 active)", got.Status)
+	}
+	_ = r.Unregister("editor.foo")
+}
+
+func TestRegistry_RegisterEditorSkipsOSBinding(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	if err := r.RegisterEditor("editor.bar", "hotkeys.label.editor.bar", "Ctrl+Shift+Alt+F8", "hotkeys.readonly.editorBuiltin"); err != nil {
+		t.Fatalf("RegisterEditor err=%v", err)
+	}
+	r.mu.RLock()
+	e := r.entries["editor.bar"]
+	r.mu.RUnlock()
+	if e.bindingID != 0 {
+		t.Errorf("InAppOnly entry bindingID=%d, want 0 (跳 OS register)", e.bindingID)
+	}
+	_ = r.Unregister("editor.bar")
+}
+
+func TestRegistry_RegisterEditorConflictKeepsEntryAsFailed(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	_ = r.Register("system.taken", HotkeySourceSystem, "占用", nil, "Ctrl+Shift+Alt+F9", "", func() {})
+	err := r.RegisterEditor("editor.collide", "hotkeys.label.editor.collide", "Ctrl+Shift+Alt+F9", "hotkeys.readonly.editorBuiltin")
+	if err != nil {
+		t.Fatalf("RegisterEditor 撞冲突时应返 nil (registry-level success), got %v", err)
+	}
+	got, ok := r.Get("editor.collide")
+	if !ok {
+		t.Fatal("conflict 后 entry 应保留 (RegisterEditor 跟老 Register 路径区别), got 删了")
+	}
+	if got.Status != HotkeyStatusFailed {
+		t.Errorf("Status=%q, want failed", got.Status)
+	}
+	if got.LastError == "" {
+		t.Error("LastError 应填冲突描述")
+	}
+	_ = r.Unregister("system.taken")
+	_ = r.Unregister("editor.collide")
+}

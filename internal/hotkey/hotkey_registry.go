@@ -389,6 +389,66 @@ func (r *HotkeyRegistry) Resume() error {
 	return nil
 }
 
+// RegisterEditor 注册 editor in-app key (webview only, 不占 OS).
+//
+// 跟老 Register 区别:
+//   - source 固定 HotkeySourceEditor, InAppOnly=true (跳 r.manager.Register)
+//   - 不接 onFire — editor key 派发由 FE keydown 处理, registry 只挂可见性 + 冲突检查
+//   - conflict / parse / reserved 失败时不 delete entry: 保留 + Status=failed + LastError 填.
+//     FE 表里能看见 (SettingsHotkeys.vue lastError 渲染). 老 Register 路径 delete + return err
+//     不适合 editor 自动注册场景 (用户视角 "Ctrl+K 撞了" 没线索).
+func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.entries[key]; exists {
+		return ErrDuplicateKey
+	}
+	entry := &registryEntry{
+		spec: HotkeyEntry{
+			Key:            key,
+			Source:         HotkeySourceEditor,
+			Label:          label,
+			HotkeyStr:      hotkeyStr,
+			Status:         HotkeyStatusActive,
+			ReadonlyReason: readonlyReason,
+			InAppOnly:      true,
+		},
+	}
+	failWith := func(reason string) {
+		entry.spec.Status = HotkeyStatusFailed
+		entry.spec.LastError = reason
+		r.entries[key] = entry
+		if r.emitChanged != nil {
+			r.emitChanged()
+		}
+	}
+	if _, _, err := parseHotkey(hotkeyStr); err != nil {
+		failWith(err.Error())
+		return nil
+	}
+	normalized, err := NormalizeHotkey(hotkeyStr)
+	if err != nil {
+		failWith(err.Error())
+		return nil
+	}
+	if reserved, reason := IsReservedHotkey(hotkeyStr); reserved {
+		failWith("reserved: " + reason)
+		return nil
+	}
+	for k, other := range r.entries {
+		if other.normalized == normalized {
+			failWith(fmt.Sprintf("跟 %q 冲突", k))
+			return nil
+		}
+	}
+	entry.normalized = normalized
+	r.entries[key] = entry
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
 // SyncLabel 修改某 entry 的展示 label（ActionService rename 时调）。
 // 公开方法 — actions 包的 RegistryAdapter 需要调。
 func (r *HotkeyRegistry) SyncLabel(key, newLabel string) {
