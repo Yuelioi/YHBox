@@ -1,8 +1,6 @@
 package services
 
 import (
-	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,12 +19,9 @@ type App struct {
 	settings     *Settings
 	settingsMu   sync.RWMutex
 
-	botMu    sync.Mutex
-	botOwner string
-
 	game    atomic.Pointer[GameStatusEvent]
 	logSink *LogSink
-	rootLog zerolog.Logger // 不挂 bot 的 logger；用于 app/service 层事件
+	rootLog zerolog.Logger // app/service 层 logger
 
 	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 wails Event
 	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 200ms 累积一次, emit
@@ -140,7 +135,7 @@ func (a *App) SwapSettings(s *Settings) {
 	a.settingsMu.Unlock()
 }
 
-// UpdateSettings 持锁应用 mutator 修改 live settings；给 internal/bots 等跨包用户
+// UpdateSettings 持锁应用 mutator 修改 live settings；给跨包用户
 // 避免直接 poke 私有 settingsMu。注意 mutator 不能再调任何持锁 App 方法（自死锁）。
 func (a *App) UpdateSettings(mutator func(*Settings)) {
 	a.settingsMu.Lock()
@@ -170,60 +165,13 @@ func (a *App) SaveSettings() error {
 	return SaveSettings(a.settingsPath, s)
 }
 
-// BotLease 是 RAII-style 互斥句柄。
-// service.Start() 拿到 lease，defer lease.Release()。Release 幂等，panic 也不会泄漏 owner。
-type BotLease struct {
-	app      *App
-	who      string
-	released atomic.Bool
-}
-
-// NewBotLease 构造（给 internal/bots 测试 + 极个别非 AcquireBot 路径用）。
-// 生产路径走 App.AcquireBot 拿 lease，这里只是 escape hatch。
-func NewBotLease(app *App, who string) *BotLease {
-	return &BotLease{app: app, who: who}
-}
-
-// IsReleased 给测试断言用；幂等查 release 状态。
-func (l *BotLease) IsReleased() bool { return l.released.Load() }
-
-// Release 幂等释放。多次调用、panic 路径都安全。
-func (l *BotLease) Release() {
-	if l.released.Swap(true) {
-		return
-	}
-	l.app.botMu.Lock()
-	if l.app.botOwner == l.who {
-		l.app.botOwner = ""
-	}
-	l.app.botMu.Unlock()
-}
-
-// AcquireBot 取得 bot 互斥。已被占用返回 error，error 文本必含 owner 名（前端 toast 直接展示）。
-func (a *App) AcquireBot(who string) (*BotLease, error) {
-	a.botMu.Lock()
-	defer a.botMu.Unlock()
-	if a.botOwner != "" {
-		return nil, fmt.Errorf("bot %q is already running, stop it first", a.botOwner)
-	}
-	a.botOwner = who
-	return &BotLease{app: a, who: who}, nil
-}
-
-// BotOwner 返回当前持有者名（"" 表示空闲）。给设置面板 / 调试用。
-func (a *App) BotOwner() string {
-	a.botMu.Lock()
-	defer a.botMu.Unlock()
-	return a.botOwner
-}
-
 // SetGame 缓存最新的游戏窗口检测结果。GameService.Detect 调。
 func (a *App) SetGame(g GameStatusEvent) { a.game.Store(&g) }
 
 // Game 返回最新缓存的游戏窗口状态（nil 表示从未检测过）。
 func (a *App) Game() *GameStatusEvent { return a.game.Load() }
 
-// LogSink 暴露给 bot service 构造 zerolog MultiWriter 时用。
+// LogSink 暴露给跨包构造 zerolog MultiWriter 时用。
 func (a *App) GetLogSink() *LogSink { return a.logSink }
 
 // RootLogger 暴露给 service 使用 app 级别 logger（默认仅写 LogSink）。
@@ -236,5 +184,3 @@ func (a *App) Shutdown() {
 	}
 }
 
-// ErrBotBusy 哨兵 error（service 层可断言）
-var ErrBotBusy = errors.New("bot busy")

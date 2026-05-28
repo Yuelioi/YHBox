@@ -122,7 +122,7 @@ func main() {
 	}
 	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	wailsServices := make([]application.Service, 0, 14)
+	wailsServices := make([]application.Service, 0, 13)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
 	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
@@ -455,7 +455,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 退出钩子（app.Shutdown 内部统一停所有 bot service）
+	// 退出钩子: flush log sink
 	app.Shutdown()
 }
 
