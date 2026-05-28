@@ -1289,4 +1289,12 @@ async function onSaveAndClose() {
   color: rgba(161, 161, 170, 0.5);
   font-size: 9px;
 }
+
+/* ---- Edge selected: vue-flow 默认 #555 在深 canvas 上看不清, override 走 primary + 加粗 ---- */
+:deep(.vue-flow__edge.selected .vue-flow__edge-path),
+:deep(.vue-flow__edge:focus .vue-flow__edge-path),
+:deep(.vue-flow__edge:focus-visible .vue-flow__edge-path) {
+  stroke: var(--ui-primary, #6366f1);
+  stroke-width: 2.5;
+}
 </style>
