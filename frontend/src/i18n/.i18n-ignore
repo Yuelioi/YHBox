@@ -1,0 +1,11 @@
+# 残留中文字面值合法白名单 (glob, 相对 frontend/)
+# 节点 kind metadata + pin label 留 P4 spec 处理
+src/components/containers/pinSpec.ts
+src/components/containers/NodeInspector.vue
+src/composables/containerEditor/useNodeSearch.ts
+src/components/containers/ContainerFlowNode.vue
+src/views/ContainerEditorView.vue
+src/components/AppStatusBar.vue
+# 测试文件
+**/*.test.ts
+**/*.spec.ts
