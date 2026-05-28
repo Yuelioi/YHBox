@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,7 +19,6 @@ import (
 	_ "yhbox/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
 	_ "yhbox/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringGameForeground/OnEvent
 	_ "yhbox/internal/nodes/io"        // Log/Toast/PlayClip
-	_ "yhbox/internal/nodes/mock"      // Mock_Math/Mock_Form/Mock_Vision (Phase 0 demo, Phase 5 删)
 	_ "yhbox/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
 	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
 	_ "yhbox/internal/nodes/system"    // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
@@ -34,19 +32,13 @@ import (
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/inputclip/backends"
 	"yhbox/internal/services/schedule"
-	"yhbox/internal/bots"
 	"yhbox/internal/hotkey"
 	"yhbox/internal/services/template"
-	"yhbox/pkg/botcore"
 	"yhbox/pkg/capture"
 	"yhbox/pkg/locale"
 	"yhbox/pkg/platform"
 	"yhbox/pkg/screenshot"
 	"yhbox/pkg/winutil"
-	"yhbox/tools/battle"
-	"yhbox/tools/cook"
-	"yhbox/tools/fish"
-	"yhbox/tools/rhythm"
 )
 
 //go:embed all:frontend/dist
@@ -128,66 +120,17 @@ func main() {
 		rootLog.Warn().Str("tag", "SYSTEM").Msgf("settings.locale=%q 无效，回退 zh", loc)
 		loc = locale.Zh
 	}
-	if err := rhythm.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("rhythm: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("rhythm: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("rhythm: locale %s 配置加载成功", loc)
-	}
-	if err := fish.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("fish: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("fish: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("fish: locale %s 配置加载成功", loc)
-	}
-	if err := cook.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("cook: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("cook: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("cook: locale %s 配置加载成功", loc)
-	}
-	if err := battle.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("battle: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("battle: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("battle: locale %s 配置加载成功", loc)
-	}
+	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	// 长跑型 bot service：从 registry 拿元数据，统一构造
-	botMetas := services.RegisteredBots()
-	botSvcs := make([]services.BotService, 0, len(botMetas))
-	// cap = bot 数 + 10 个固定 services（battle/settings/game/hotkey/template/
-	// container/schedule/calibration/tools/+1 spare）
-	wailsServices := make([]application.Service, 0, len(botMetas)+10)
-	for _, b := range botMetas {
-		svc, ws := b.Construct(app)
-		botSvcs = append(botSvcs, svc)
-		wailsServices = append(wailsServices, ws)
-	}
-	app.RegisterBotServices(botSvcs)
+	wailsServices := make([]application.Service, 0, 14)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
-	// 跟线程绑定），全 app 必须共享同一个实例 —— battle / action / recorder 都注册到这里。
+	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
 	// 两个 manager 就两个 hotkey 线程互相覆盖反注册，热键全丢。
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
-	// 非 bot service（hotkey-driven 的 battle + 共享的 settings/game）
-	battleSvc := bots.NewBattleService(app, sharedHotkeys)
 	settingsSvc := services.NewSettingsService(app)
 	gameSvc := services.NewGameService(app)
-	app.RegisterBattleService(battleSvc)
 
 	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
 	dataDir := "data"
@@ -381,7 +324,6 @@ func main() {
 	}
 
 	wailsServices = append(wailsServices,
-		application.NewService(battleSvc),
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
 		application.NewService(gameSvc),
@@ -434,14 +376,6 @@ func main() {
 	})
 
 	// 注册事件 payload 类型（让 bindings 生成器产 TS 类型）
-	// 长跑 bot 的 state 事件由 registry 派生
-	for _, b := range botMetas {
-		application.RegisterEvent[services.BotStateEvent](services.EventStateName(b.Kind))
-	}
-	// Bot-specific + 共享事件
-	application.RegisterEvent[services.FishStatsEvent](services.EventFishStats)
-	application.RegisterEvent[services.PianoProgressEvent](services.EventPianoProgress)
-	application.RegisterEvent[services.BattleStateEvent](services.EventBattleState)
 	application.RegisterEvent[services.GameStatusEvent](services.EventGameStatus)
 	application.RegisterEvent[services.LogLinesEvent](services.EventLogLines)
 
@@ -455,7 +389,7 @@ func main() {
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(9, 9, 11), // zinc-950
 		Frameless:        true,
-		URL:              "/",
+		URL:              "/containers",
 	})
 
 	// 用户拖完才落盘（WindowDidResize 拖动期间会狂刷，没必要每帧写 IO）。
@@ -508,9 +442,6 @@ func main() {
 
 	// 启动后异步触发一次游戏检测（emit game:status 给前端 hydrate）
 	go gameSvc.Detect()
-
-	// BattleService 启动后自动恢复上次的热键启用状态
-	go battleSvc.AutoStartFromSettings()
 
 	// 应用 logger 写一条启动日志，证明日志桥路打通
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("YHBox started")

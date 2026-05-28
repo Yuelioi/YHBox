@@ -28,12 +28,6 @@ type App struct {
 	logSink *LogSink
 	rootLog zerolog.Logger // 不挂 bot 的 logger；用于 app/service 层事件
 
-	// 长跑型 bot service 走 registry（fish/cook/piano/rhythm）。
-	// botServices 在 RegisterBotServices 期间被填满；Shutdown 时统一调用 StopSync。
-	botServices []BotService
-	// battle 是 hotkey-driven 形态不同，单独引用。
-	battleService BattleHotkeyService
-
 	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 wails Event
 	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 200ms 累积一次, emit
 	// container:node-enter-batch (payload = []{nodeId, nodeKind} 顺序). 前端取 last 1 个
@@ -235,32 +229,8 @@ func (a *App) GetLogSink() *LogSink { return a.logSink }
 // RootLogger 暴露给 service 使用 app 级别 logger（默认仅写 LogSink）。
 func (a *App) RootLogger() zerolog.Logger { return a.rootLog }
 
-// RegisterBotServices 把长跑型 bot service 切片存进 App，方便 Shutdown 统一停。
-// main.go 通过 RegisteredBots() 构造完所有 service 后调一次。
-func (a *App) RegisterBotServices(svcs []BotService) {
-	a.botServices = svcs
-}
-
-// BattleHotkeyService Shutdown 时需要反注册热键的 hotkey-driven service。
-// 实现在 internal/bots（BattleService），用接口避免 services → bots 反向 import。
-type BattleHotkeyService interface {
-	ShutdownUnregister()
-}
-
-// RegisterBattleService 单独把 battle service 引用存进来（hotkey-driven 形态特殊）。
-func (a *App) RegisterBattleService(s BattleHotkeyService) {
-	a.battleService = s
-}
-
 // Shutdown 集中退出钩子。挂在 wails3 window close 钩子上。
-// 顺序敏感：先停长跑 bot（释放游戏窗口输入）→ 反注册 battle 热键 → flush 日志。
 func (a *App) Shutdown() {
-	for _, svc := range a.botServices {
-		svc.StopSync()
-	}
-	if a.battleService != nil {
-		a.battleService.ShutdownUnregister()
-	}
 	if a.logSink != nil {
 		a.logSink.Flush()
 	}

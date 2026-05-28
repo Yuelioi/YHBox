@@ -12,8 +12,6 @@ import (
 	_ "yhbox/internal/nodes/detect"
 	_ "yhbox/internal/nodes/input"
 	_ "yhbox/internal/nodes/io"
-	_ "yhbox/internal/nodes/mock"
-	// mockerror needs -tags mockerror; not in default build.
 	_ "yhbox/internal/nodes/purefunc"
 	_ "yhbox/internal/nodes/stopwatch"
 	_ "yhbox/internal/nodes/system"
