@@ -41,7 +41,7 @@
                   v-for="spec in g.specs"
                   :key="spec.kind"
                   class="flex items-center gap-2 px-2 py-1 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] cursor-pointer"
-                  :title="spec.description ?? spec.kind"
+                  :title="spec.description ? t(spec.description) : spec.kind"
                   @click="onSelectKind(spec.kind)"
                 >
                   <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
@@ -129,7 +129,8 @@ const filteredGroups = computed(() => {
     if (s.excludeFromPalette) return false
     if (!q) return true
     const localizedLabel = s.labelZh ? t(s.labelZh) : ''
-    const hay = `${s.kind} ${localizedLabel} ${s.description ?? ''}`.toLowerCase()
+    const localizedDesc = s.description ? t(s.description) : ''
+    const hay = `${s.kind} ${localizedLabel} ${localizedDesc}`.toLowerCase()
     return hay.includes(q)
   })
   const byGroup = new Map<string, NodeKindSpec[]>()

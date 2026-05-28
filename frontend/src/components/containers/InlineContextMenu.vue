@@ -66,7 +66,7 @@
               :key="spec.kind"
               type="button"
               class="w-full text-left px-2 py-1.5 hover:bg-elevated/60 rounded text-[12px] flex items-center gap-2"
-              :title="spec.description ?? spec.kind"
+              :title="spec.description ? t(spec.description) : spec.kind"
               @click="pick(spec.kind)"
             >
               <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-4 shrink-0" :class="nodeIconColor(spec)" />
@@ -158,7 +158,8 @@ const filtered = computed<NodeKindSpec[]>(() => {
   if (!q) return allEligible.value
   return allEligible.value.filter((s) => {
     const localizedLabel = s.labelZh ? t(s.labelZh) : ''
-    const hay = `${s.kind} ${localizedLabel} ${s.description ?? ''}`.toLowerCase()
+    const localizedDesc = s.description ? t(s.description) : ''
+    const hay = `${s.kind} ${localizedLabel} ${localizedDesc}`.toLowerCase()
     return hay.includes(q)
   })
 })

@@ -773,7 +773,12 @@ const label = computed(() => {
   const key = KIND_LABEL_ZH[props.node.kind]
   return key ? t(key) : props.node.kind
 })
-const description = computed(() => (props.node ? (KIND_DESCRIPTION[props.node.kind] ?? '') : ''))
+// KIND_DESCRIPTION[k] 值是 i18n key, t() 渲染.
+const description = computed(() => {
+  if (!props.node) return ''
+  const key = KIND_DESCRIPTION[props.node.kind]
+  return key ? t(key) : ''
+})
 const visual = computed(() =>
   props.node
     ? (KIND_VISUAL[props.node.kind] ?? {
