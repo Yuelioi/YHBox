@@ -18,29 +18,29 @@
       @update="$emit('subgraph-update', $event)"
     />
     <div v-else class="p-4 space-y-3 text-xs text-muted">
-      <p class="text-default font-medium">未选节点</p>
+      <p class="text-default font-medium">{{ t('editor.inspector.empty.title') }}</p>
       <div class="space-y-2 text-[11px]">
-        <p class="text-dimmed">快捷开始:</p>
+        <p class="text-dimmed">{{ t('editor.inspector.empty.quick_start') }}</p>
         <ul class="space-y-1.5 pl-1">
           <li class="flex items-center gap-2">
             <kbd class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px]">Tab</kbd>
-            <span>打开节点 Explorer</span>
+            <span>{{ t('editor.inspector.empty.tab_explorer') }}</span>
           </li>
           <li class="flex items-center gap-2">
             <UIcon name="i-tabler-mouse" class="size-3.5" />
-            <span>拖左侧变量 → 建 GetVar 节点</span>
+            <span>{{ t('editor.inspector.empty.drag_var') }}</span>
           </li>
           <li class="flex items-center gap-2">
             <UIcon name="i-tabler-mouse" class="size-3.5" />
-            <span>右键画布 → 添加节点菜单</span>
+            <span>{{ t('editor.inspector.empty.right_click_canvas') }}</span>
           </li>
           <li class="flex items-center gap-2">
             <kbd class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px]">Ctrl+K</kbd>
-            <span>命令面板</span>
+            <span>{{ t('editor.inspector.empty.command_palette') }}</span>
           </li>
           <li class="flex items-center gap-2">
             <kbd class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px]">Ctrl+,</kbd>
-            <span>容器设置</span>
+            <span>{{ t('editor.inspector.empty.container_settings') }}</span>
           </li>
         </ul>
       </div>
@@ -49,10 +49,13 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { Graph, GraphNode } from '@/lib/backend'
 import type { SubgraphSummary } from '@/stores/containerEditor'
 import NodeInspector from '@/components/containers/NodeInspector.vue'
 import SubgraphPropsPanel from '@/components/containers/SubgraphPropsPanel.vue'
+
+const { t } = useI18n()
 
 defineProps<{
   selectedNode: GraphNode | null
