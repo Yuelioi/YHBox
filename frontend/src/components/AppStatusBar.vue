@@ -32,23 +32,14 @@
       </template>
     </div>
 
-    <!-- RIGHT — log count -->
-    <div class="flex items-center gap-4 shrink-0">
-      <div class="flex items-center gap-1.5" :title="`日志 ${logStore.lines.length}/500`">
-        <UIcon name="i-tabler-terminal" class="size-3" />
-        <span class="tabular-nums">{{ logStore.lines.length }}</span>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useLogStore } from '@/stores/log'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
 
-const logStore = useLogStore()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
 
