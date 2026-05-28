@@ -73,7 +73,6 @@ import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import { useConfirm } from './composables/useConfirm'
 import { useSettingsStore } from './stores/settings'
 import { useLogStore } from './stores/log'
-import { isBotRoute } from './router'
 import { setLocale, type Locale } from './i18n'
 
 const route = useRoute()
@@ -112,13 +111,17 @@ onUnmounted(() => {
   window.removeEventListener('open-calibrator-modal', handleOpenEvent)
 })
 
-// route.meta.standalone === true → 子窗口模式（不包主壳）
-const isStandalone = computed(() => !!route.meta.standalone)
-
-const showLog = computed(() => {
-  if (!isBotRoute(route.name)) return false
-  return settingsStore.data?.ui.logger.show ?? true
+// 子窗口模式（不包主壳）:
+//   meta.standalone — MouseHUD / ScreenPicker / RecordingHUD 老路径
+//   query.standalone=1 — container-edit 子窗口形态 (Task 5+)
+const isStandalone = computed(() => {
+  if (route.meta.standalone) return true
+  if (route.query.standalone === '1') return true
+  return false
 })
+
+// showLog 在 Task 10 重写 (届时引入 panelOpen 字段); 暂时返 logger.show 兜底让 LogPanel 全局可见
+const showLog = computed(() => settingsStore.data?.ui.logger.show ?? true)
 
 watch(
   () => settingsStore.data?.locale,
