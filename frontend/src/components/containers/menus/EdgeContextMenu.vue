@@ -12,7 +12,7 @@
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-arrow-right" class="size-4 text-primary shrink-0" />
           <div class="flex-1 min-w-0">
-            <div class="text-[11px] text-dimmed">连接边</div>
+            <div class="text-[11px] text-dimmed">{{ t('editor.menu.edge.title') }}</div>
             <div class="text-[11px] font-mono text-default truncate">
               <span class="text-primary">{{ edge.from }}</span>
               <span class="text-dimmed mx-1">→</span>
@@ -42,7 +42,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { GraphEdge } from '@/lib/backend'
+
+const { t } = useI18n()
 
 export type EdgeMenuAction = 'delete'
 
@@ -61,7 +64,7 @@ const positionStyle = computed(() => ({ left: `${props.position.x}px`, top: `${p
 const items = computed(() => [
   {
     key: 'delete' as const,
-    label: '删除此边',
+    label: t('editor.menu.edge.delete'),
     icon: 'i-tabler-trash',
     shortcut: 'Del',
     colorClass: 'text-rose-400',

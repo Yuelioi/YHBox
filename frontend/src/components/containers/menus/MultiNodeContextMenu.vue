@@ -16,9 +16,9 @@
       <div class="ctx-header px-3 py-1.5 mb-1">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-checkbox" class="size-4 text-primary shrink-0" />
-          <div class="text-[12px] font-semibold text-default">
-            已选 <span class="text-primary">{{ count }}</span> 个节点
-          </div>
+          <i18n-t keypath="editor.menu.multi.title_selected" tag="div" class="text-[12px] font-semibold text-default">
+            <template #count><span class="text-primary">{{ count }}</span></template>
+          </i18n-t>
         </div>
       </div>
 
@@ -42,6 +42,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 export type MultiMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
@@ -79,34 +82,34 @@ interface Item {
 
 const items = computed(() => {
   const arr: Item[] = [
-    { key: 'copy', label: '复制', icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
-    { key: 'duplicate', label: '复刻', icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
-    { key: 'delete', label: '删除', icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
-    { key: 'toggle-disable-all', label: '禁用所有 (运行时跳过)', icon: 'i-tabler-ban', colorClass: 'text-amber-400' },
-    { key: 'fold', label: '折叠为子图', icon: 'i-tabler-package', colorClass: 'text-violet-300' },
+    { key: 'copy', label: t('editor.menu.multi.copy'), icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
+    { key: 'duplicate', label: t('editor.menu.multi.duplicate'), icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
+    { key: 'delete', label: t('editor.menu.multi.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
+    { key: 'toggle-disable-all', label: t('editor.menu.multi.disable_all'), icon: 'i-tabler-ban', colorClass: 'text-amber-400' },
+    { key: 'fold', label: t('editor.menu.multi.fold'), icon: 'i-tabler-package', colorClass: 'text-violet-300' },
   ]
 
   if (props.count >= 2) {
     arr.push(
-      { key: 'align-left', label: '对齐 - 左', icon: 'i-tabler-align-box-left-middle' },
-      { key: 'align-right', label: '对齐 - 右', icon: 'i-tabler-align-box-right-middle' },
-      { key: 'align-top', label: '对齐 - 顶', icon: 'i-tabler-align-box-top-center' },
-      { key: 'align-bottom', label: '对齐 - 底', icon: 'i-tabler-align-box-bottom-center' },
-      { key: 'align-center-h', label: '水平居中', icon: 'i-tabler-align-center' },
-      { key: 'align-center-v', label: '垂直居中', icon: 'i-tabler-align-center-vertical' },
+      { key: 'align-left', label: t('editor.menu.multi.align_left'), icon: 'i-tabler-align-box-left-middle' },
+      { key: 'align-right', label: t('editor.menu.multi.align_right'), icon: 'i-tabler-align-box-right-middle' },
+      { key: 'align-top', label: t('editor.menu.multi.align_top'), icon: 'i-tabler-align-box-top-center' },
+      { key: 'align-bottom', label: t('editor.menu.multi.align_bottom'), icon: 'i-tabler-align-box-bottom-center' },
+      { key: 'align-center-h', label: t('editor.menu.multi.center_h'), icon: 'i-tabler-align-center' },
+      { key: 'align-center-v', label: t('editor.menu.multi.center_v'), icon: 'i-tabler-align-center-vertical' },
     )
   }
 
   if (props.count >= 3) {
     arr.push(
-      { key: 'distribute-h', label: '水平等距分布', icon: 'i-tabler-layout-distribute-horizontal' },
-      { key: 'distribute-v', label: '垂直等距分布', icon: 'i-tabler-layout-distribute-vertical' },
+      { key: 'distribute-h', label: t('editor.menu.multi.dist_h'), icon: 'i-tabler-layout-distribute-horizontal' },
+      { key: 'distribute-v', label: t('editor.menu.multi.dist_v'), icon: 'i-tabler-layout-distribute-vertical' },
     )
   }
 
   arr.push(
-    { key: 'auto-layout-lr', label: '自动布局 (横向)', icon: 'i-tabler-layout-rows', colorClass: 'text-sky-300' },
-    { key: 'auto-layout-tb', label: '自动布局 (纵向)', icon: 'i-tabler-layout-columns', colorClass: 'text-sky-300' },
+    { key: 'auto-layout-lr', label: t('editor.menu.multi.auto_layout_lr'), icon: 'i-tabler-layout-rows', colorClass: 'text-sky-300' },
+    { key: 'auto-layout-tb', label: t('editor.menu.multi.auto_layout_tb'), icon: 'i-tabler-layout-columns', colorClass: 'text-sky-300' },
   )
 
   return arr

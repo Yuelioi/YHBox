@@ -17,7 +17,7 @@
           />
           <div class="flex-1 min-w-0">
             <div class="text-[11px] text-dimmed">
-              {{ pin.side === 'input' ? '输入' : '输出' }} pin
+              {{ pin.side === 'input' ? t('editor.menu.pin.title_in') : t('editor.menu.pin.title_out') }}
               <span v-if="pin.pinType" class="text-toned">· {{ pin.pinType }}</span>
             </div>
             <div class="text-[11px] font-mono text-default truncate">
@@ -47,8 +47,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { TYPE_COLOR } from '@/components/containers/nodeRegistry/index'
 import type { PinType } from '@/components/containers/nodeRegistry/index'
+
+const { t } = useI18n()
 
 export interface PinInfo {
   nodeID: string
@@ -86,7 +89,7 @@ const items = computed(() => {
   if (props.pin.edgeCount > 0) {
     arr.push({
       key: 'break-all-connections',
-      label: `断开所有连接 (${props.pin.edgeCount} 条)`,
+      label: t('editor.menu.pin.disconnect_all', { n: props.pin.edgeCount }),
       icon: 'i-tabler-link-off',
       colorClass: 'text-rose-400',
     })
@@ -94,19 +97,19 @@ const items = computed(() => {
   if (props.pin.side === 'input' && props.pin.pinType) {
     arr.push({
       key: 'promote-to-var',
-      label: '提升为变量 (Promote)',
+      label: t('editor.menu.pin.promote_to_var'),
       icon: 'i-tabler-variable',
       colorClass: 'text-violet-300',
     })
     arr.push({
       key: 'reset-to-literal',
-      label: '设为 literal (断开 + 默认值)',
+      label: t('editor.menu.pin.set_literal'),
       icon: 'i-tabler-arrow-back-up',
     })
   }
   arr.push({
     key: 'show-schema',
-    label: '显示 pin schema 详情',
+    label: t('editor.menu.pin.show_schema'),
     icon: 'i-tabler-info-circle',
     colorClass: 'text-sky-300',
   })

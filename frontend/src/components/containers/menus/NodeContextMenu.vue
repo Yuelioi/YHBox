@@ -62,8 +62,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { GraphNode } from '@/lib/backend'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
+
+const { t } = useI18n()
 
 export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
@@ -112,24 +115,24 @@ const hasLiteralPin = computed(() => {
 const isDisabled = computed(() => (props.node as GraphNode & { disabled?: boolean }).disabled === true)
 
 const commonItems = computed(() => [
-  { key: 'copy' as const, label: '复制', icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
-  { key: 'cut' as const, label: '剪切', icon: 'i-tabler-cut', shortcut: 'Ctrl+X' },
-  { key: 'paste' as const, label: '粘贴', icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V' },
-  { key: 'duplicate' as const, label: '复刻', icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
-  { key: 'delete' as const, label: '删除', icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
+  { key: 'copy' as const, label: t('editor.menu.node.copy'), icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
+  { key: 'cut' as const, label: t('editor.menu.node.cut'), icon: 'i-tabler-cut', shortcut: 'Ctrl+X' },
+  { key: 'paste' as const, label: t('editor.menu.node.paste'), icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V' },
+  { key: 'duplicate' as const, label: t('editor.menu.node.duplicate'), icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
+  { key: 'delete' as const, label: t('editor.menu.node.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
 ])
 
 const specialItems = computed(() => {
   const items: Array<{ key: NodeMenuAction; label: string; icon: string; colorClass?: string }> = [
     {
       key: 'toggle-disable',
-      label: isDisabled.value ? '启用此节点' : '禁用此节点 (运行时跳过)',
+      label: isDisabled.value ? t('editor.menu.node.enable') : t('editor.menu.node.disable'),
       icon: isDisabled.value ? 'i-tabler-player-play' : 'i-tabler-ban',
       colorClass: 'text-amber-400',
     },
     {
       key: 'save-as-snippet',
-      label: '保存为 Snippet (带配置)',
+      label: t('editor.menu.node.save_as_snippet'),
       icon: 'i-tabler-bookmark-plus',
       colorClass: 'text-yellow-300',
     },
@@ -141,7 +144,7 @@ const specialItems = computed(() => {
       | undefined ?? '?'
     items.push({
       key: 'find-references',
-      label: `查找所有引用 '${varName}'`,
+      label: t('editor.menu.node.find_var_refs', { name: varName }),
       icon: 'i-tabler-link',
       colorClass: 'text-cyan-300',
     })
@@ -150,7 +153,7 @@ const specialItems = computed(() => {
   if (hasLiteralPin.value) {
     items.push({
       key: 'promote-to-var',
-      label: '提取为变量 (Promote)',
+      label: t('editor.menu.node.promote_to_var'),
       icon: 'i-tabler-variable',
       colorClass: 'text-violet-300',
     })
@@ -159,13 +162,13 @@ const specialItems = computed(() => {
   if (isSubgraph.value) {
     items.push({
       key: 'jump-to-subgraph',
-      label: '进入子图',
+      label: t('editor.menu.node.enter_subgraph'),
       icon: 'i-tabler-corner-down-right',
       colorClass: 'text-sky-300',
     })
     items.push({
       key: 'share-to-library',
-      label: '分享到 Library',
+      label: t('editor.menu.node.share_to_library'),
       icon: 'i-tabler-upload',
       colorClass: 'text-sky-300',
     })
