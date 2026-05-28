@@ -7,6 +7,7 @@ import type { Container, Graph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { centerOnNode } from './constants'
 import { walkAllGraphs } from './graphWalk'
+import { KIND_LABEL_ZH } from '@/components/containers/pinSpec'
 import type { NodeSearchResult } from '@/components/containers/NodeSearchModal.vue'
 
 interface UseNodeSearchOpts {
@@ -29,7 +30,8 @@ export function useNodeSearch(opts: UseNodeSearchOpts) {
     if (!q) return []
     const out: NodeSearchResult[] = []
     walkAllGraphs(draft.value, (n, { location, sgID }) => {
-      const hay = `${n.id} ${n.kind} ${n.label ?? ''}`.toLowerCase()
+      const zhKind = KIND_LABEL_ZH[n.kind] ?? ''
+      const hay = `${n.id} ${n.kind} ${zhKind} ${n.label ?? ''}`.toLowerCase()
       if (hay.includes(q)) {
         out.push({ id: n.id, kind: n.kind, label: n.label, location, sgID })
       }
