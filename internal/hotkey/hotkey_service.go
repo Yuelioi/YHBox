@@ -32,3 +32,17 @@ func (s *HotkeyService) Pause() error {
 func (s *HotkeyService) Resume() error {
 	return s.reg.Resume()
 }
+
+// RegisterEditor 暴露给 FE — useEditorHotkeys onActivated 时调。
+// label / readonlyReason 是 i18n key 串 (FE t() 渲染).
+// conflict / parse / reserved 失败不返 err — entry 进表 status=failed + lastError 描述,
+// FE 表里 lastError 渲染让用户看见冲突源 (SettingsHotkeys.vue:30-36).
+func (s *HotkeyService) RegisterEditor(key, label, hotkeyStr, readonlyReason string) error {
+	return s.reg.RegisterEditor(key, label, hotkeyStr, readonlyReason)
+}
+
+// Unregister 暴露给 FE — useEditorHotkeys onDeactivated 清理.
+// 不存在的 key noop, 返 nil.
+func (s *HotkeyService) Unregister(key string) error {
+	return s.reg.Unregister(key)
+}
