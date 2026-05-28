@@ -15,13 +15,13 @@
         icon="i-tabler-arrow-left"
         @click="goBack"
         style="--wails-draggable: no-drag"
-        >返回</UButton
+        >{{ t('editor.header.back') }}</UButton
       >
       <UIcon name="i-tabler-schema" class="size-3.5 text-dimmed shrink-0" />
       <h3 class="text-xs font-medium truncate text-toned">
-        {{ draft?.name ?? '加载中...' }}
+        {{ draft?.name ?? t('editor.header.loading') }}
       </h3>
-      <span v-if="dirty" class="text-[10px] text-amber-300/80 shrink-0">· 未保存</span>
+      <span v-if="dirty" class="text-[10px] text-amber-300/80 shrink-0">{{ t('editor.header.dirty_dot') }}</span>
 
       <div class="flex-1" />
 
@@ -30,7 +30,7 @@
         <button
           type="button"
           class="w-11 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors"
-          title="最小化"
+          :title="t('editor.window.minimize')"
           @click="onMinimise"
         >
           <UIcon name="i-tabler-minus" class="size-4" />
@@ -38,7 +38,7 @@
         <button
           type="button"
           class="w-11 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors"
-          :title="isMaximised ? '还原' : '最大化'"
+          :title="isMaximised ? t('editor.window.restore') : t('editor.window.maximize')"
           @click="onToggleMaximise"
         >
           <UIcon :name="isMaximised ? 'i-tabler-copy' : 'i-tabler-square'" class="size-3.5" />
@@ -46,7 +46,7 @@
         <button
           type="button"
           class="w-11 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors"
-          title="关闭"
+          :title="t('editor.window.close')"
           @click="onClose"
         >
           <UIcon name="i-tabler-x" class="size-4" />
@@ -68,22 +68,22 @@
         <div class="p-6 space-y-4 bg-default">
           <div class="flex items-center gap-2">
             <UIcon name="i-tabler-alert-triangle" class="size-4 text-warning" />
-            <h3 class="text-sm font-medium">未保存的修改</h3>
+            <h3 class="text-sm font-medium">{{ t('editor.dirty.title') }}</h3>
           </div>
-          <p class="text-xs text-muted">当前容器有未保存的修改。继续将丢失这些改动。</p>
+          <p class="text-xs text-muted">{{ t('editor.dirty.desc') }}</p>
           <div class="flex justify-end gap-2 pt-2">
             <UButton variant="ghost" color="neutral" @click="confirmCloseOpen = false"
-              >取消</UButton
+              >{{ t('editor.dirty.cancel') }}</UButton
             >
             <UButton
               class="ml-auto"
               color="error"
               icon="i-tabler-x"
               @click="onConfirmDiscardAndClose"
-              >丢弃并关闭</UButton
+              >{{ t('editor.dirty.discard') }}</UButton
             >
             <UButton color="primary" icon="i-tabler-check" @click="onSaveAndClose"
-              >保存并关闭</UButton
+              >{{ t('editor.dirty.save_and_close') }}</UButton
             >
           </div>
         </div>
@@ -91,7 +91,7 @@
     </UModal>
 
     <div v-if="!draft" class="flex-1 flex items-center justify-center text-sm text-muted">
-      加载中...
+      {{ t('editor.header.loading') }}
     </div>
 
     <div v-else class="flex flex-col flex-1 min-h-0">
@@ -160,7 +160,7 @@
               @click="sidebarPrefs.leftSidebarTab = 'palette'"
             >
               <UIcon name="i-tabler-box" class="size-3.5" />
-              节点库
+              {{ t('editor.sidebar.palette_tab') }}
             </button>
             <button
               type="button"
@@ -215,7 +215,7 @@
           <div
             class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-dimmed pointer-events-none bg-default/70 px-2 py-1 rounded"
           >
-            左键拖空白框选 · 中键拖拽视图 · Ctrl+C/V 复制粘贴 · Delete 删除
+            {{ t('editor.canvas.hint') }}
           </div>
           <VueFlow
             v-model:nodes="flowNodes"
@@ -435,6 +435,7 @@
 defineOptions({ name: 'ContainerEditorView' })
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
@@ -508,6 +509,7 @@ import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import SplitHandle from '@/components/common/SplitHandle.vue'
 import { useSplitpane } from '@/composables/useSplitpane'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const isStandalone = computed(() => route.query.standalone === '1')
@@ -966,7 +968,7 @@ function onNodeDoubleClick(evt: any) {
   if (n?.data?.kind === 'Subgraph' || n?.data?.kind === 'CollapsedNode') {
     const sgID = n.data.config?.SubgraphID
     if (!sgID) {
-      toast.add({ title: '该节点未指定子图', color: 'warning' })
+      toast.add({ title: t('toast.subgraph_not_set'), color: 'warning' })
       return
     }
     editorStore.pushPath(sgID)
@@ -1025,9 +1027,9 @@ watch(() => editorBus.pendingExprFusion, (req) => {
   editorBus.clearExprFusion()
   if (ok) {
     selectedID.value = null
-    toast.add({ title: 'Expr 合并完成', color: 'success' })
+    toast.add({ title: t('toast.expr_fuse_ok'), color: 'success' })
   } else {
-    toast.add({ title: 'Expr 合并失败 (前置条件不满足)', color: 'warning' })
+    toast.add({ title: t('toast.expr_fuse_failed'), color: 'warning' })
   }
 })
 onMounted(() => {
@@ -1055,12 +1057,12 @@ async function onTryRun() {
       return
     }
   } catch (e) {
-    toast.add({ title: '校验失败', description: String(e), color: 'error' })
+    toast.add({ title: t('toast.validate_failed'), description: String(e), color: 'error' })
     return
   }
   await backend.containers.run(draft.value.id)
   toast.add({
-    title: '已加入运行队列',
+    title: t('toast.runqueue_added'),
     color: 'primary',
     icon: 'i-tabler-player-play',
   })
@@ -1076,7 +1078,7 @@ async function onValidate() {
     validationErrors.value = errs ?? []
     validationPanelOpen.value = true
   } catch (e) {
-    toast.add({ title: '校验调用失败', description: String(e), color: 'error' })
+    toast.add({ title: t('toast.validate_call_failed'), description: String(e), color: 'error' })
   }
 }
 
@@ -1095,7 +1097,7 @@ async function onValidationPanelRun() {
   if (!draft.value) return
   await backend.containers.run(draft.value.id)
   toast.add({
-    title: '已加入运行队列',
+    title: t('toast.runqueue_added'),
     color: 'primary',
     icon: 'i-tabler-player-play',
   })
@@ -1108,7 +1110,7 @@ function onFixMissingWindowTarget() {
   const mainGraph = draft.value.graph
   // 已存在则不重复加
   if (mainGraph.nodes.some((n) => n.kind === 'WindowTarget')) {
-    toast.add({ title: '主图已经有 WindowTarget 节点了', color: 'warning' })
+    toast.add({ title: t('toast.window_target_exists'), color: 'warning' })
     return
   }
   const defaults = KIND_DEFAULTS.WindowTarget ?? {}
@@ -1124,8 +1126,8 @@ function onFixMissingWindowTarget() {
   syncFlowFromDraft()
   validationPanelOpen.value = false
   toast.add({
-    title: '已添加 WindowTarget 节点',
-    description: '请打开节点 Inspector 配置目标窗口 (或点"捕获前台窗口")',
+    title: t('toast.window_target_added_title'),
+    description: t('toast.window_target_added_desc'),
     color: 'success',
     icon: 'i-tabler-check',
   })
@@ -1145,7 +1147,7 @@ function onSubgraphPropsUpdate(patch: Record<string, any>) {
   if (!currentSubgraph.value) return
   if (patch.__resetRecording) {
     toast.add({
-      title: '重置录制元数据需要重新录制此子图（v1 仅提示）',
+      title: t('toast.subgraph_recording_reset_warn'),
       color: 'warning',
     })
     return
