@@ -429,6 +429,10 @@
 </template>
 
 <script setup lang="ts">
+// 给 <keep-alive include="ContainerEditorView"> 用 — 切到 settings/help 等再回来,
+// draft / canvas viewport / selection / dirty 全保留, 不重新 load.
+defineOptions({ name: 'ContainerEditorView' })
+
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter } from 'vue-router'
