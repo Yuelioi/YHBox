@@ -87,21 +87,32 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSidebarCollapsed } from '@/composables/useSidebarCollapsed'
+import { useContainerEditorStore } from '@/stores/containerEditor'
 
 const route = useRoute()
+const editorStore = useContainerEditorStore()
 
 const { collapsed, toggle } = useSidebarCollapsed()
 
 const activeClass = 'bg-elevated/60 text-highlighted font-medium'
 const inactiveClass = 'text-muted hover:bg-elevated/40 hover:text-highlighted'
 
-const automationItems = [
-  { label: '容器', to: '/containers', icon: 'i-tabler-package' },
+// '容器' tab — 有 lastEditingContainerID 就跳回编辑器路由 (keep-alive cache 命中, draft 不丢).
+// 否则跳列表. ContainersView mount 时 clearLastEditing → 之后切回又落列表.
+const containersTo = computed(() =>
+  editorStore.lastEditingContainerID
+    ? `/containers/${editorStore.lastEditingContainerID}/edit`
+    : '/containers',
+)
+
+const automationItems = computed(() => [
+  { label: '容器', to: containersTo.value, icon: 'i-tabler-package' },
   { label: '库', to: '/library', icon: 'i-tabler-books' },
   { label: '计划', to: '/schedules', icon: 'i-tabler-clock' },
-]
+])
 
 const toolItems = [
   { label: '设置', to: '/settings', icon: 'i-tabler-settings' },

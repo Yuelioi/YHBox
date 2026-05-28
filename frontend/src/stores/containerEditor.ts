@@ -31,6 +31,12 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   const subgraphsForCurrentContainer = ref<SubgraphSummary[]>([])
   const editorPath = ref<string[]>([]) // 主图时为空；进 sub-A 时 = ['sub-A']
 
+  // 侧栏 '容器' 跳回正在编辑的容器 — 离开列表/进入编辑器时 set, ContainersView mount 时 clear.
+  // keep-alive cache 还在, 用户切走 (settings/help) 再点 '容器' 直接回原编辑器 + draft 不丢.
+  const lastEditingContainerID = ref<string>('')
+  function setLastEditing(id: string) { lastEditingContainerID.value = id }
+  function clearLastEditing() { lastEditingContainerID.value = '' }
+
   function setActiveContainer(id: string, subgraphs: SubgraphSummary[]) {
     activeContainerID.value = id
     subgraphsForCurrentContainer.value = subgraphs
@@ -71,6 +77,9 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     subgraphsForCurrentContainer,
     visibleSubgraphs,
     editorPath,
+    lastEditingContainerID,
+    setLastEditing,
+    clearLastEditing,
     setActiveContainer,
     pushPath,
     popPath,

@@ -127,6 +127,7 @@
         @redo="redo"
         @toggle-snap="sidebarPrefs.snapEnabled = !sidebarPrefs.snapEnabled"
         @open-new-window="onOpenNewWindow"
+        @back-to-list="onBackToList"
       />
 
       <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
@@ -535,9 +536,18 @@ async function onOpenNewWindow() {
   }
 }
 
+// 嵌入态 toolbar '返回列表' 入口. ContainersView mount 时 clearLastEditing →
+// 之后 sidebar '容器' 不再跳回该编辑器, 回归列表行为.
+function onBackToList() {
+  router.push('/containers')
+}
+
 // 嵌入路由 /containers/:id/edit 用 params.id; 子窗口同款路由 + ?standalone=1 也走 params.
 // 老 /container-editor?id=xxx 已删, query.id fallback 仅兜底极少数老链接.
 const containerID = String(route.params.id ?? route.query.id ?? '')
+
+// 标 "正在编辑这个容器" — 侧栏 '容器' 跳法用. ContainersView mount 时会 clear.
+if (containerID) editorStore.setLastEditing(containerID)
 
 const {
   draft,

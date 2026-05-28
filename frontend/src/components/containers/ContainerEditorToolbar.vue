@@ -1,6 +1,13 @@
 <template>
   <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
-    <!-- ====== 左组: sidebar + drag-source openers + undo/redo ====== -->
+    <!-- ====== 左组: 回列表 (仅嵌入态) + sidebar + drag-source openers + undo/redo ====== -->
+    <UButton
+      v-if="!isStandalone"
+      size="xs" variant="ghost" color="neutral"
+      icon="i-tabler-arrow-left"
+      title="返回容器列表"
+      @click="$emit('back-to-list')"
+    />
     <UButton
       size="xs" variant="ghost" color="neutral"
       :icon="paletteCollapsed ? 'i-tabler-layout-sidebar-left-expand' : 'i-tabler-layout-sidebar-left-collapse'"
@@ -49,12 +56,10 @@
     </template>
     <template v-else>
       <UButton size="sm" color="primary" variant="soft" icon="i-tabler-circle-dot"
-               :disabled="!gameDetected"
-               :title="!gameDetected ? '游戏窗口未检测到 — 启动游戏后侧栏底部点重新检测' : '精准录制 — 完整事件流 (含鼠标移动/raw delta)'"
+               title="精准录制 — 完整事件流 (含鼠标移动/raw delta)"
                @click="$emit('record', 'precise')">精准录制</UButton>
       <UButton size="sm" color="neutral" variant="subtle" icon="i-tabler-bolt"
-               :disabled="!gameDetected"
-               :title="!gameDetected ? '游戏窗口未检测到' : '简易录制 — 过滤鼠标 hover / 仅保留 click/key 事件'"
+               title="简易录制 — 过滤鼠标 hover / 仅保留 click/key 事件"
                @click="$emit('record', 'simple')">简易录制</UButton>
     </template>
     <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-package-import"
@@ -120,7 +125,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useGameStore } from '@/stores/game'
 
 const props = defineProps<{
   paletteCollapsed: boolean
@@ -138,10 +142,6 @@ const props = defineProps<{
   snapEnabled?: boolean
   isStandalone?: boolean
 }>()
-
-// 录制前置: 没检测到游戏窗口禁止点 (后端 game.HWND check 已防一层, 这里 UX 层先挡)
-const gameStore = useGameStore()
-const gameDetected = computed(() => !!gameStore.status?.ok)
 
 const emit = defineEmits<{
   'update:paletteCollapsed': [v: boolean]
@@ -167,6 +167,7 @@ const emit = defineEmits<{
   'redo': []
   'toggle-snap': []
   'open-new-window': []
+  'back-to-list': []
 }>()
 
 const layoutMenuItems = computed(() => [
