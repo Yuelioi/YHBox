@@ -88,10 +88,10 @@ const { collapsed } = useSidebarCollapsed()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
 
 const VIEW_META: Record<string, { title: string; icon: string }> = {
-  fish: { title: '钓鱼', icon: 'i-tabler-fish' },
-  cook: { title: '店长', icon: 'i-tabler-tools-kitchen-2' },
-  piano: { title: '弹琴', icon: 'i-tabler-music' },
-  battle: { title: '战斗', icon: 'i-tabler-swords' },
+  containers: { title: '容器', icon: 'i-tabler-package' },
+  'container-edit': { title: '编辑容器', icon: 'i-tabler-schema' },
+  library: { title: '库', icon: 'i-tabler-books' },
+  schedules: { title: '计划', icon: 'i-tabler-clock' },
   settings: { title: '设置', icon: 'i-tabler-settings' },
   help: { title: '帮助', icon: 'i-tabler-help-circle' },
   about: { title: '关于', icon: 'i-tabler-info-circle' },

@@ -1,8 +1,9 @@
 <template>
   <div class="flex flex-col h-screen bg-default text-default">
-    <!-- 顶部窗口拖区：左返回+标题，右窗口控件（min/max/close） -->
+    <!-- 子窗口形态自画 header (高度跟主壳 AppTitleBar 一致 h-14); 嵌入主壳时由 AppTitleBar 接管 -->
     <header
-      class="h-12 shrink-0 flex items-center gap-2 border-b border-default pl-3 pr-0"
+      v-if="isStandalone"
+      class="h-14 shrink-0 flex items-center gap-2 border-b border-default pl-3 pr-0"
       style="--wails-draggable: drag"
     >
       <UButton
@@ -479,6 +480,7 @@ import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 
 const route = useRoute()
+const isStandalone = computed(() => route.query.standalone === '1')
 const toast = useToast()
 const recordStore = useRecordingStore()
 const execStore = useExecutionStore()
