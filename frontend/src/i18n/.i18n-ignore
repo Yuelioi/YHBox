@@ -1,9 +1,5 @@
 # 残留中文字面值合法白名单 (glob, 相对 frontend/)
 # 节点 kind metadata + pin label 留 P4 spec 处理
-src/components/containers/pinSpec.ts
-src/components/containers/NodeInspector.vue
-src/composables/containerEditor/useNodeSearch.ts
-src/components/containers/ContainerFlowNode.vue
 # Command palette: label 走 i18n, keywords 保留中英双语字面值作搜索辅助 (非显示内容)
 src/composables/containerEditor/useCommandPalette.ts
 # Help: 大段中文教程, 翻译 50+ 段文档没人审, 中文用户主要群体
@@ -12,8 +8,6 @@ src/views/HelpView.vue
 src/views/tools/MouseHUDView.vue
 src/views/tools/RecordingHUDView.vue
 src/views/tools/ScreenPickerView.vue
-# Inspector 字段 (Switch sub-inspector) 留 P4.b 节点字段 i18n 批
-src/components/containers/inspector/SwitchInspector.vue
 # 测试文件
 **/*.test.ts
 **/*.spec.ts

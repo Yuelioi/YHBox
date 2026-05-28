@@ -22,7 +22,7 @@
         v-if="isDisabled"
         name="i-tabler-ban"
         class="size-3.5 text-warning shrink-0"
-        title="此节点已禁用 (运行时跳过)"
+        :title="t('editor.canvas.node_disabled_tooltip')"
       />
       <span
         v-if="isRunning"
@@ -62,11 +62,11 @@
     <!-- Subgraph 子图 ID + 节点数 -->
     <div v-if="kind === 'Subgraph'" class="node-footer subgraph-footer" :class="v.border">
       <UIcon name="i-tabler-arrow-narrow-right" class="size-3 shrink-0 text-dimmed" />
-      <span class="truncate font-mono">{{ props.data?.config?.SubgraphID || '(未选)' }}</span>
+      <span class="truncate font-mono">{{ props.data?.config?.SubgraphID || t('editor.canvas.subgraph_no_id') }}</span>
       <span
         v-if="boundSubgraphNodeCount !== null"
         class="ml-auto shrink-0 text-fuchsia-300/80 font-medium"
-      >{{ boundSubgraphNodeCount }} 节点</span>
+      >{{ t('containers.node_count', { n: boundSubgraphNodeCount }) }}</span>
     </div>
 
     <!-- Handles: exec 三角 + data 圆按 type 上色 -->

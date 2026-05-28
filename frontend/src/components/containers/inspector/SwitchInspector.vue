@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 import { useConfirm } from '@/composables/useConfirm'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   node: GraphNode
@@ -75,11 +78,11 @@ async function removeCase(i: number) {
 
   if (affected.length > 0) {
     const yes = await confirmDialog({
-      title: `删除 case "${caseValue}"？`,
-      description: `该 case 的出口边 (${affected.length} 条) 将断开，需手动重连。`,
+      title: t('node.Switch.inspector.delete_confirm_title', { name: caseValue }),
+      description: t('node.Switch.inspector.delete_confirm_desc', { count: affected.length }),
       color: 'error',
-      confirmText: '删除',
-      cancelText: '取消',
+      confirmText: t('common.delete'),
+      cancelText: t('common.cancel'),
     })
     if (yes !== true) return
     // Remove affected edges by mutating the prop array in place (same pattern as WindowTarget / PlayClip)
@@ -109,22 +112,22 @@ function currentValue(): string {
   <div class="space-y-4">
     <!-- Value expression -->
     <div class="space-y-1">
-      <label class="block text-xs text-toned">Value 表达式</label>
+      <label class="block text-xs text-toned">{{ t('node.Switch.inspector.value_label') }}</label>
       <UInput
         :model-value="currentValue()"
         placeholder="$vars.state"
         @update:model-value="updateValue"
       />
       <p class="text-[11px] text-dimmed leading-snug">
-        运行时将此表达式与 cases 逐一比对，匹配则走对应出口，无匹配走 default。
+        {{ t('node.Switch.inspector.value_hint') }}
       </p>
     </div>
 
     <!-- Cases list -->
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <label class="text-xs text-toned">Cases</label>
-        <UBadge size="xs" color="neutral" variant="soft">{{ rows.length }} 项</UBadge>
+        <label class="text-xs text-toned">{{ t('node.Switch.inspector.cases_label') }}</label>
+        <UBadge size="xs" color="neutral" variant="soft">{{ t('node.Switch.inspector.cases_count', { n: rows.length }) }}</UBadge>
       </div>
 
       <!-- Dangling edge warning -->
@@ -134,13 +137,13 @@ function currentValue(): string {
       >
         <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
         <p class="text-[11px] text-amber-300 leading-snug">
-          {{ danglingEdges.length }} 条边引用了已删除/改名的 case pin，需手动重连或断开。
+          {{ t('node.Switch.inspector.dangling_warn', { n: danglingEdges.length }) }}
         </p>
       </div>
 
       <!-- Case rows -->
       <div v-if="rows.length === 0" class="text-[11px] text-dimmed italic">
-        暂无 case — 点下方按钮添加
+        {{ t('node.Switch.inspector.empty') }}
       </div>
       <div v-else class="space-y-1.5">
         <div
@@ -151,7 +154,7 @@ function currentValue(): string {
           <UInput
             v-model="row.value"
             size="sm"
-            placeholder="case 字符串 (如 IDLE)"
+            :placeholder="t('node.Switch.inspector.case_placeholder')"
             class="flex-1"
           />
           <UButton
@@ -159,7 +162,7 @@ function currentValue(): string {
             variant="ghost"
             color="error"
             icon="i-tabler-trash"
-            title="删除此 case"
+            :title="t('node.Switch.inspector.delete_case_title')"
             @click="removeCase(i)"
           />
         </div>
@@ -173,11 +176,11 @@ function currentValue(): string {
         icon="i-tabler-plus"
         @click="addCase"
       >
-        添加 case
+        {{ t('node.Switch.inspector.add_case') }}
       </UButton>
 
       <p class="text-[10px] text-dimmed leading-snug">
-        case 名即出口 pin 名。改名后已连接的边需手动重连。<code class="font-mono">default</code> 出口始终存在。
+        {{ t('node.Switch.inspector.footer_pre') }}<code class="font-mono">default</code> {{ t('node.Switch.inspector.footer_post') }}
       </p>
     </div>
   </div>

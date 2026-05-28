@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!node" class="text-sm text-dimmed">未选中节点</div>
+  <div v-if="!node" class="text-sm text-dimmed">{{ t('inspector.no_selection') }}</div>
 
   <div v-else>
     <!-- Header: 大图标 + 中文名 + ID -->
@@ -21,17 +21,17 @@
         variant="ghost"
         color="error"
         icon="i-tabler-trash"
-        title="删除节点"
+        :title="t('inspector.delete_node_tooltip')"
         @click="$emit('delete')"
       />
     </header>
 
     <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
     <section class="mb-4">
-      <UFormField label="标签 (Label)" hint="留空则用节点类型的默认名">
+      <UFormField :label="t('inspector.label_field_label')" :hint="t('inspector.label_field_hint')">
         <UInput
           :model-value="node.label ?? ''"
-          placeholder="(留空)"
+          :placeholder="t('inspector.label_field_placeholder')"
           size="sm"
           class="w-full"
           @update:model-value="(v: string) => $emit('label-update', v)"
@@ -58,7 +58,7 @@
       <div class="flex items-start gap-2">
         <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
         <div class="text-[12px] text-amber-300">
-          <div class="font-medium leading-tight">并发分支写入同一变量</div>
+          <div class="font-medium leading-tight">{{ t('inspector.concurrency_warn_title') }}</div>
           <div class="text-amber-300/80 mt-1 leading-relaxed">{{ concurrencyWarning }}</div>
         </div>
       </div>
@@ -72,15 +72,15 @@
       <div class="flex items-start gap-2">
         <UIcon name="i-tabler-info-circle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
         <div class="text-[12px] text-amber-300 flex-1">
-          <div class="font-medium leading-tight">检测到 Expr 链</div>
+          <div class="font-medium leading-tight">{{ t('inspector.expr_chain_title') }}</div>
           <div class="text-amber-300/80 mt-1 leading-relaxed font-mono text-[11px]">
             value → {{ exprChainHint.targetID }}.{{ exprChainHint.targetPin }}
           </div>
           <div class="text-amber-300/80 mt-1 mb-2 leading-relaxed">
-            合并后当前节点的表达式会内联到下游 Expr (作为括号子表达式), 当前节点被删除.
+            {{ t('inspector.expr_chain_desc') }}
           </div>
           <UButton size="xs" color="warning" variant="soft" icon="i-tabler-arrow-merge" @click="onFuseExpr">
-            合并到下游 Expr
+            {{ t('inspector.expr_chain_fuse') }}
           </UButton>
         </div>
       </div>
@@ -93,7 +93,7 @@
     >
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-crosshair" class="size-3.5 text-primary" />
-        <span class="text-[11px] text-toned">屏幕拾取</span>
+        <span class="text-[11px] text-toned">{{ t('inspector.screen_pick_label') }}</span>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <UButton
@@ -105,7 +105,7 @@
           :loading="picking"
           @click="onPickPoint"
         >
-          截屏选点
+          {{ t('inspector.screen_pick_point') }}
         </UButton>
         <UButton
           v-if="canPickRect"
@@ -116,7 +116,7 @@
           :loading="picking"
           @click="onPickRect"
         >
-          截屏框选 ROI
+          {{ t('inspector.screen_pick_rect') }}
         </UButton>
         <UButton
           size="xs"
@@ -125,11 +125,11 @@
           icon="i-tabler-pointer"
           @click="onOpenHUD"
         >
-          鼠标 HUD
+          {{ t('inspector.screen_pick_hud') }}
         </UButton>
       </div>
       <p class="text-[10px] text-dimmed leading-snug">
-        打开独立窗口截当前游戏画面，{{ canPickRect ? '拖矩形' : '点一下' }}后自动回填字段
+        {{ t('inspector.screen_pick_hint', { action: canPickRect ? t('inspector.screen_pick_action_drag') : t('inspector.screen_pick_action_click') }) }}
       </p>
     </section>
 
@@ -139,19 +139,19 @@
         <!-- 头部：图标 + 节点数 + 进入按钮 -->
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-package" class="size-4 text-fuchsia-300" />
-          <span class="text-xs text-toned">绑定子图</span>
+          <span class="text-xs text-toned">{{ t('node.Subgraph.inspector.binding_label') }}</span>
           <UBadge size="xs" variant="soft" color="neutral" class="ml-auto">
-            {{ (boundSubgraph?.graph?.nodes?.length ?? 0) }} 节点
+            {{ t('containers.node_count', { n: boundSubgraph?.graph?.nodes?.length ?? 0 }) }}
           </UBadge>
         </div>
 
         <!-- 子图 label 编辑 -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">标签</label>
+          <label class="text-[11px] text-toned">{{ t('node.Subgraph.inspector.subgraph_label_field') }}</label>
           <UInput
             :model-value="boundSubgraph?.label ?? ''"
             size="sm"
-            placeholder="子图名称"
+            :placeholder="t('node.Subgraph.inspector.subgraph_label_placeholder')"
             :disabled="!boundSubgraph"
             @update:model-value="(v: string) => onPatchSubgraph({ label: v })"
           />
@@ -159,12 +159,12 @@
 
         <!-- 子图描述编辑 -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">描述</label>
+          <label class="text-[11px] text-toned">{{ t('node.Subgraph.inspector.subgraph_description_field') }}</label>
           <UTextarea
             :model-value="(boundSubgraph as any)?.description ?? ''"
             size="sm"
             :rows="2"
-            placeholder="可选 · 给自己或队友看的说明"
+            :placeholder="t('node.Subgraph.inspector.subgraph_description_placeholder')"
             :disabled="!boundSubgraph"
             @update:model-value="(v: string) => onPatchSubgraph({ description: v })"
           />
@@ -172,14 +172,14 @@
 
         <!-- 子图标签 tags -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">tags</label>
+          <label class="text-[11px] text-toned">{{ t('node.Subgraph.inspector.subgraph_tags_field') }}</label>
           <UInputMenu
             :model-value="(boundSubgraph as any)?.tags ?? []"
             multiple
             creatable
             :items="allSubgraphTagsList"
             size="sm"
-            placeholder="添加标签..."
+            :placeholder="t('node.Subgraph.inspector.subgraph_tags_placeholder')"
             :disabled="!boundSubgraph"
             @update:model-value="(v: string[]) => onPatchSubgraph({ tags: v })"
           />
@@ -194,7 +194,7 @@
           :disabled="!boundSubgraph"
           @click="onEnterSubgraph"
         >
-          进入子图编辑节点内容
+          {{ t('node.Subgraph.inspector.enter_subgraph') }}
         </UButton>
         <UButton
           size="xs"
@@ -206,11 +206,11 @@
           :loading="publishing"
           @click="onPublishToLibrary"
         >
-          {{ publishing ? '发布中...' : '发布此子图到库' }}
+          {{ publishing ? t('node.Subgraph.inspector.publishing') : t('node.Subgraph.inspector.publish_to_library') }}
         </UButton>
         <p class="text-[10px] text-dimmed leading-snug">
-          子图元信息（标签/描述/tags）可在此处编辑，无需进入子图。<br />
-          删除此节点会同时删除对应子图（如无其他引用）。
+          {{ t('node.Subgraph.inspector.footer_meta_hint') }}<br />
+          {{ t('node.Subgraph.inspector.footer_delete_hint') }}
         </p>
       </div>
     </section>
@@ -222,8 +222,8 @@
         class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-[12px] text-amber-300"
       >
         <UIcon name="i-tabler-alert-triangle" class="size-3.5 inline mr-1 align-middle" />
-        这个容器似乎来自别的机器（节点 {{ node.config?.counts360 }} / 全局 {{ globalCounts360 }}）<br />
-        请用本机重新校准；或点击下方按钮一键覆盖
+        {{ t('node.MouseCalibration.inspector.foreign_warn', { nodeVal: node.config?.counts360, globalVal: globalCounts360 }) }}<br />
+        {{ t('node.MouseCalibration.inspector.foreign_hint') }}
         <div class="mt-2 flex gap-1.5 flex-wrap">
           <UButton
             size="xs"
@@ -231,31 +231,31 @@
             variant="solid"
             icon="i-tabler-refresh"
             @click="$emit('update', { ...node.config, counts360: globalCounts360 })"
-          >用本机值（{{ globalCounts360 }}）覆盖此节点</UButton>
+          >{{ t('node.MouseCalibration.inspector.override_with_local', { n: globalCounts360 }) }}</UButton>
           <UButton
             size="xs"
             variant="ghost"
             color="warning"
             icon="i-tabler-bolt"
             @click="onSyncAllFromForeign"
-          >⚡ 同步所有容器</UButton>
+          >{{ t('node.MouseCalibration.inspector.sync_all') }}</UButton>
         </div>
       </div>
 
       <div class="rounded-md bg-elevated/30 border border-default/40 p-3 space-y-2">
         <div class="flex items-baseline gap-2">
-          <span class="text-xs text-toned">本机 360° HID counts</span>
+          <span class="text-xs text-toned">{{ t('node.MouseCalibration.inspector.counts_label') }}</span>
         </div>
         <div class="flex items-center gap-2">
           <span
             class="text-2xl font-mono tabular-nums"
             :class="(node.config?.counts360 ?? 0) > 0 ? 'text-emerald-300' : 'text-rose-300'"
           >{{ node.config?.counts360 ?? 0 }}</span>
-          <span class="text-[11px] text-dimmed">{{ (node.config?.counts360 ?? 0) > 0 ? '✅ 已校准' : '❌ 未校准' }}</span>
+          <span class="text-[11px] text-dimmed">{{ (node.config?.counts360 ?? 0) > 0 ? t('node.MouseCalibration.inspector.calibrated') : t('node.MouseCalibration.inspector.not_calibrated') }}</span>
         </div>
         <p class="text-[11px] text-dimmed leading-relaxed">
-          转 360° 你的鼠标硬件累积上报多少 |dx|；跟硬件 DPI、OS 灵敏度、游戏内灵敏度都有关。<br />
-          <span class="text-rose-300/80">⚠ 这个值必须是你本机+游戏实测的，不是从别人容器导入的值。</span>
+          {{ t('node.MouseCalibration.inspector.counts_hint') }}<br />
+          <span class="text-rose-300/80">{{ t('node.MouseCalibration.inspector.counts_warn') }}</span>
         </p>
         <UButton
           size="sm"
@@ -264,7 +264,7 @@
           icon="i-tabler-target"
           block
           @click="onOpenCalibrator"
-        >▶ 开始校准</UButton>
+        >{{ t('node.MouseCalibration.inspector.start_calibrate') }}</UButton>
 
         <UCollapsible class="mt-3">
           <UButton
@@ -273,7 +273,7 @@
             color="neutral"
             icon="i-tabler-chevron-right"
             class="w-full justify-start"
-          >高级（手动输入）</UButton>
+          >{{ t('node.MouseCalibration.inspector.advanced_manual') }}</UButton>
 
           <template #content>
             <UInputNumber
@@ -298,57 +298,50 @@
           block
           @click="toggleWindowCapture"
         >
-          {{ capturing ? '等待 F9 按键 (再点取消)' : '捕获目标窗口 (按 F9)' }}
+          {{ capturing ? t('node.WindowTarget.inspector.capture_waiting') : t('node.WindowTarget.inspector.capture_start') }}
         </UButton>
         <p class="text-xs text-dimmed mt-1">
-          点开后切到游戏窗口, 按 F9 即可捕获 title/class/processName.
-          若 F9 被游戏反作弊吞掉, 联系开发者换其他键 (当前 1.0 写死 F9).
+          {{ t('node.WindowTarget.inspector.capture_hint_a') }}
+          {{ t('node.WindowTarget.inspector.capture_hint_b') }}
         </p>
       </div>
 
       <!-- match section -->
       <div class="border border-default rounded-lg p-3 space-y-2">
-        <h4 class="text-sm font-semibold">窗口匹配 (match)</h4>
-        <UFormField label="标题 (title)">
-          <UInput v-model="wtMatch.title" placeholder="异环" />
+        <h4 class="text-sm font-semibold">{{ t('node.WindowTarget.inspector.match_section') }}</h4>
+        <UFormField :label="t('node.WindowTarget.inspector.title_label')">
+          <UInput v-model="wtMatch.title" :placeholder="t('node.WindowTarget.inspector.title_placeholder')" />
         </UFormField>
-        <UFormField label="类名 (class)">
+        <UFormField :label="t('node.WindowTarget.inspector.class_label')">
           <UInput v-model="wtMatch.class" placeholder="UnrealWindow" />
         </UFormField>
-        <UFormField label="进程名 (processName)">
+        <UFormField :label="t('node.WindowTarget.inspector.process_label')">
           <UInput v-model="wtMatch.processName" placeholder="game.exe" />
         </UFormField>
-        <UFormField label="title 匹配方式">
+        <UFormField :label="t('node.WindowTarget.inspector.title_match_label')">
           <USelect
             v-model="wtMatch.titleMatch"
             class="w-full"
-            :items="[
-              { value: 'exact', label: '精确匹配 (区分大小写)' },
-              { value: 'regex', label: '正则 RE2 (partial match)' },
-            ]"
+            :items="titleMatchOptions"
           />
         </UFormField>
       </div>
 
       <!-- runtime section -->
       <div class="border border-default rounded-lg p-3 space-y-2">
-        <h4 class="text-sm font-semibold">运行后端 (runtime)</h4>
-        <UFormField label="输入后端 (inputBackend)">
+        <h4 class="text-sm font-semibold">{{ t('node.WindowTarget.inspector.runtime_section') }}</h4>
+        <UFormField :label="t('node.WindowTarget.inspector.input_backend_label')">
           <USelect
             v-model="wtRuntime.inputBackend"
             class="w-full"
-            :items="[{ value: 'postmessage', label: 'PostMessage (后台输入, 1.0 默认)' }]"
+            :items="inputBackendOptions"
           />
         </UFormField>
-        <UFormField label="截图后端 (captureBackend)">
+        <UFormField :label="t('node.WindowTarget.inspector.capture_backend_label')">
           <USelect
             v-model="wtRuntime.captureBackend"
             class="w-full"
-            :items="[
-              { value: 'auto', label: 'auto (按 OS 选, Win10+ 用 WGC)' },
-              { value: 'gdi', label: 'GDI (所有 Windows)' },
-              { value: 'wgc', label: 'WGC (要 Win10 1903+)' },
-            ]"
+            :items="captureBackendOptions"
           />
         </UFormField>
       </div>
@@ -385,7 +378,7 @@
       </div>
       <div v-else class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline mr-1" />
-        clip {{ node.config?.clipID || '(未设)' }} 不在 clips 库. 重新录制覆盖.
+        {{ t('node.PlayClip.inspector.clip_missing', { id: node.config?.clipID || t('node.PlayClip.inspector.clip_unset_placeholder') }) }}
       </div>
 
       <!-- 重新录制覆盖 (一节点一 clip, 不允许下拉切换; 想换 clip 就重录) -->
@@ -397,7 +390,7 @@
           icon="i-tabler-circle-dot"
           class="flex-1"
           @click="$emit('request-record', { mode: 'precise', replaceNodeID: node.id })"
-        >重新录制 (精准)</UButton>
+        >{{ t('node.PlayClip.inspector.record_precise') }}</UButton>
         <UButton
           size="xs"
           color="neutral"
@@ -405,10 +398,10 @@
           icon="i-tabler-zap"
           class="flex-1"
           @click="$emit('request-record', { mode: 'simple', replaceNodeID: node.id })"
-        >重录 (简易)</UButton>
+        >{{ t('node.PlayClip.inspector.record_simple') }}</UButton>
       </div>
       <p class="text-[10px] text-dimmed leading-snug -mt-1">
-        一个 PlayClip 节点绑死一个 clip — 想换内容请重新录制覆盖, 不要切换 clip 引用 (避免删 clip 后这里指向不存在的 ID).
+        {{ t('node.PlayClip.inspector.bind_hint') }}
       </p>
 
       <!-- keepRanges 编辑器 -->
@@ -425,14 +418,14 @@
         />
 
         <div class="flex items-center justify-between mb-1">
-          <span class="text-[11px] text-toned">裁剪段 (keepRanges)</span>
-          <UButton size="xs" variant="ghost" icon="i-tabler-plus" @click="addRange">添加</UButton>
+          <span class="text-[11px] text-toned">{{ t('node.PlayClip.inspector.keep_ranges_label') }}</span>
+          <UButton size="xs" variant="ghost" icon="i-tabler-plus" @click="addRange">{{ t('common.add') }}</UButton>
         </div>
         <p class="text-[10px] text-dimmed mb-2 leading-snug">
-          不指定 = 整段播放. 加多段后只播这些段, 跨段的停顿会自动压缩.
+          {{ t('node.PlayClip.inspector.keep_ranges_hint') }}
         </p>
         <div v-if="keepRanges.length === 0" class="text-[10px] text-dimmed italic">
-          无, 整段播放
+          {{ t('node.PlayClip.inspector.full_playback') }}
         </div>
         <div v-else class="space-y-1.5">
           <div
@@ -481,7 +474,7 @@
     <!-- Data-in pin literal 编辑 (未连入边时 → 走 config.literal inline 值) -->
     <section v-if="dataInLiterals.length > 0" class="mb-5">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
-        数据输入 (literal)
+        {{ t('inspector.literal_section') }}
       </h4>
       <div class="space-y-3">
         <div v-for="lit in dataInLiterals" :key="lit.name" class="space-y-1.5">
@@ -500,7 +493,7 @@
 
     <!-- Config fields (non-pin config — enum/path/template/etc) -->
     <section v-if="fields.length > 0">
-      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">配置</h4>
+      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">{{ t('inspector.config_section') }}</h4>
       <div class="space-y-4">
         <div v-for="field in fields" :key="field.key" class="space-y-1.5">
           <label class="block text-xs text-toned">{{ t(field.label) }}</label>
@@ -529,7 +522,7 @@
             size="md"
             class="w-full"
             :ui="{ content: 'min-w-[280px]' }"
-            placeholder="选择变量"
+            :placeholder="t('inspector.select_var_placeholder')"
             @update:model-value="setCfg(field.key, String($event))"
           />
           <TemplatePicker
@@ -547,7 +540,7 @@
       </div>
     </section>
 
-    <p v-else class="text-[12px] text-dimmed">此节点无可配置项。</p>
+    <p v-else class="text-[12px] text-dimmed">{{ t('inspector.no_config') }}</p>
   </div>
 </template>
 
@@ -687,14 +680,14 @@ async function onSyncAllFromForeign() {
   const cur = globalCounts360.value
   if (cur <= 0) return
   const yes = await confirmDialog({
-    title: '同步到所有容器？',
-    description: `把本机 counts360 = ${cur} 同步到所有本地容器（不只是这个节点）`,
+    title: t('node.MouseCalibration.inspector.sync_confirm_title'),
+    description: t('node.MouseCalibration.inspector.sync_confirm_desc', { cur }),
     color: 'primary',
-    confirmText: '同步',
+    confirmText: t('node.MouseCalibration.inspector.sync_confirm_ok'),
   })
   if (yes !== true) return
   const r = (await backend.containers.syncLocalMouseCalibration(cur)) as any
-  toastForSync.add({ title: `已同步 ${r?.updated?.length ?? 0} 个容器`, color: 'success' })
+  toastForSync.add({ title: t('node.MouseCalibration.inspector.sync_toast_ok', { n: r?.updated?.length ?? 0 }), color: 'success' })
 }
 
 // Subgraph 调用节点：1:1 模型，只显示绑定的子图（不需 USelect 选择）
@@ -727,23 +720,23 @@ async function onPublishToLibrary() {
   const cid = editorStore.activeContainerID
   if (!sgID || !cid || !boundSubgraph.value) return
   const yes = await confirmDialog({
-    title: '分享子图到库？',
-    description: `将「${boundSubgraph.value.label || sgID}」及其依赖打包到全局库（覆盖同名 package）。`,
+    title: t('node.Subgraph.inspector.publish_confirm_title'),
+    description: t('node.Subgraph.inspector.publish_confirm_desc', { name: boundSubgraph.value.label || sgID }),
     color: 'primary',
-    confirmText: '分享',
+    confirmText: t('node.Subgraph.inspector.publish_confirm_ok'),
   })
   if (yes !== true) return
   publishing.value = true
   try {
     await backend.library.exportSubgraph(cid, String(sgID), true)
     toastForSync.add({
-      title: '已分享到库',
+      title: t('node.Subgraph.inspector.publish_toast_ok'),
       description: `${String(sgID)}`,
       color: 'success',
       icon: 'i-tabler-cloud-upload',
     })
   } catch (e) {
-    toastForSync.add({ title: '分享失败', description: String(e), color: 'error' })
+    toastForSync.add({ title: t('node.Subgraph.inspector.publish_toast_fail'), description: String(e), color: 'error' })
   } finally {
     publishing.value = false
   }
@@ -943,6 +936,19 @@ const wtRuntime = computed(() => {
   }
   return (props.node.config as any).runtime
 })
+
+const titleMatchOptions = computed(() => [
+  { value: 'exact', label: t('node.WindowTarget.inspector.title_match_exact') },
+  { value: 'regex', label: t('node.WindowTarget.inspector.title_match_regex') },
+])
+const inputBackendOptions = computed(() => [
+  { value: 'postmessage', label: t('node.WindowTarget.inspector.input_backend_postmessage') },
+])
+const captureBackendOptions = computed(() => [
+  { value: 'auto', label: t('node.WindowTarget.inspector.capture_backend_auto') },
+  { value: 'gdi', label: t('node.WindowTarget.inspector.capture_backend_gdi') },
+  { value: 'wgc', label: t('node.WindowTarget.inspector.capture_backend_wgc') },
+])
 
 const capturing = ref(false)
 const captureID = ref('')

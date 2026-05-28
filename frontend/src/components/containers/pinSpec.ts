@@ -17,6 +17,7 @@ import {
 } from '@/components/containers/nodeRegistry/registry'
 import { TYPE_COLOR, pinTypeCompat } from '@/components/containers/nodeRegistry/index'
 import type { PinType, FieldSchema, NodeKindSpec } from '@/components/containers/nodeRegistry/index'
+import { i18n } from '@/i18n'
 
 // Re-exports — preserves the v3/v4 API surface for existing callers.
 export { TYPE_COLOR, pinTypeCompat }
@@ -132,8 +133,9 @@ export function resolveSubgraphCallExecOut(
 ): { id: string; name: string }[] {
   const sgID = node.config?.SubgraphID ?? ''
   const sg = allSubgraphs.find((s) => s.id === sgID)
-  if (!sg) return [{ id: '__missing__', name: '(子图未找到)' }]
-  if (sg.outputPins.length === 0) return [{ id: '__empty__', name: '(无出口)' }]
+  const t = i18n.global.t
+  if (!sg) return [{ id: '__missing__', name: t('node.Subgraph.fallback_missing') }]
+  if (sg.outputPins.length === 0) return [{ id: '__empty__', name: t('node.Subgraph.fallback_empty') }]
   return sg.outputPins.map((p) => ({ id: p.id, name: p.name }))
 }
 
