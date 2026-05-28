@@ -9,6 +9,7 @@ export interface LogLine {
   bot?: string
   tag?: string
   message: string
+  source: 'SYS' | 'CTR'
 }
 
 export function parseLine(raw: string): LogLine {
@@ -20,9 +21,10 @@ export function parseLine(raw: string): LogLine {
       bot: o.bot,
       tag: o.tag,
       message: o.message ?? raw,
+      source: 'SYS',
     }
   } catch {
-    return { time: '', level: 'error', message: raw }
+    return { time: '', level: 'error', message: raw, source: 'SYS' }
   }
 }
 
