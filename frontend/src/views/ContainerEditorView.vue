@@ -438,7 +438,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
-import { VueFlow, useVueFlow, SelectionMode, type NodeMouseEvent, type EdgeMouseEvent } from '@vue-flow/core'
+import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
@@ -472,6 +472,7 @@ import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys
 import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
+import { useContextMenuRouter } from '@/composables/containerEditor/useContextMenuRouter'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -489,10 +490,10 @@ import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConf
 import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
-import NodeContextMenu, { type NodeMenuAction } from '@/components/containers/menus/NodeContextMenu.vue'
-import MultiNodeContextMenu, { type MultiMenuAction } from '@/components/containers/menus/MultiNodeContextMenu.vue'
-import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/menus/EdgeContextMenu.vue'
-import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
+import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
+import MultiNodeContextMenu from '@/components/containers/menus/MultiNodeContextMenu.vue'
+import EdgeContextMenu from '@/components/containers/menus/EdgeContextMenu.vue'
+import PinContextMenu from '@/components/containers/menus/PinContextMenu.vue'
 import CommandPalette from '@/components/containers/CommandPalette.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
@@ -603,19 +604,7 @@ const {
   onPick: onNodeSearchPick,
 } = useNodeSearch({ open: nodeSearchOpen, draft, activeGraph, selectedID })
 
-// ===== 右键菜单状态 =====
-const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
-  open: false, position: { x: 0, y: 0 }, node: null,
-})
-const multiMenu = ref<{ open: boolean; position: { x: number; y: number }; count: number }>({
-  open: false, position: { x: 0, y: 0 }, count: 0,
-})
-const edgeMenu = ref<{ open: boolean; position: { x: number; y: number }; edge: GraphEdge | null }>({
-  open: false, position: { x: 0, y: 0 }, edge: null,
-})
-const pinMenu = ref<{ open: boolean; position: { x: number; y: number }; pin: PinInfo | null }>({
-  open: false, position: { x: 0, y: 0 }, pin: null,
-})
+// 4 个右键菜单 (Node / Multi / Edge / Pin) 状态 + 路由 → useContextMenuRouter (调用见下方).
 
 // ===== Promote-to-Variable =====
 const promoteCtx = ref<PromoteContext | null>(null)
@@ -1061,441 +1050,8 @@ const {
   markConnectSuccess,
 } = useInlineMenu({ activeGraph, applyDraftMutation, syncFlowFromDraft })
 
-// ===== 右键菜单事件处理 =====
-
-function onNodeContextMenu(event: NodeMouseEvent) {
-  event.event.preventDefault()
-  const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
-  const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
-  const node = activeGraph.value?.nodes?.find(
-    (n) => n.id === event.node.id,
-  )
-  if (!node) return
-  // 多选且点击节点在选中集合内 → 显示多选菜单
-  const sel = getSelectedNodes.value ?? []
-  if (sel.length > 1 && sel.some((n: any) => n.id === node.id)) {
-    multiMenu.value = {
-      open: true,
-      position: { x: clientX, y: clientY },
-      count: sel.length,
-    }
-    nodeMenu.value.open = false
-    return
-  }
-  nodeMenu.value = {
-    open: true,
-    position: { x: clientX, y: clientY },
-    node,
-  }
-  multiMenu.value.open = false
-}
-
-function onSelectionContextMenu(event: { event: MouseEvent; nodes: any[] }) {
-  event.event.preventDefault()
-  multiMenu.value = {
-    open: true,
-    position: { x: event.event.clientX, y: event.event.clientY },
-    count: event.nodes.length,
-  }
-  nodeMenu.value.open = false
-}
-
-function onNodeMenuAction(a: NodeMenuAction) {
-  const node = nodeMenu.value.node
-  if (!node) return
-  switch (a) {
-    case 'copy':
-      onCopySelection()
-      return
-    case 'cut':
-      onCopySelection()
-      // 复制后删除选中节点 (剪切语义)
-      getSelectedNodes.value.forEach((n: any) => removeNodes([n.id]))
-      return
-    case 'paste':
-      void onPasteSelection()
-      return
-    case 'duplicate': {
-      // 单节点复刻: 先选中该节点, 复制, 再粘贴
-      onCopySelection()
-      void onPasteSelection()
-      return
-    }
-    case 'delete':
-      removeNodes([node.id])
-      if (selectedID.value === node.id) selectedID.value = null
-      return
-    case 'toggle-disable':
-      applyDraftMutation((_d) => {
-        const g = activeGraph.value
-        const n = g?.nodes.find((x) => x.id === node.id) as (GraphNode & { disabled?: boolean }) | undefined
-        if (!n) return
-        n.disabled = !n.disabled
-      })
-      return
-    case 'save-as-snippet':
-      // Stage 2 实施: 触发 SaveSnippetDrawer 打开. 暂占位.
-      emitSaveSnippetIntent(node)
-      return
-    case 'find-references': {
-      const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
-      if (!varName) return
-      const ids = varMutations.listUsageNodeIDs(varName)
-      const refs: RefEntry[] = []
-      const walk = (nodes: GraphNode[], location: string) => {
-        for (const n of nodes) {
-          if (ids.includes(n.id)) {
-            refs.push({ id: n.id, kind: n.kind, label: n.label, location })
-          }
-        }
-      }
-      if (draft.value) {
-        walk(draft.value.graph.nodes, '主图')
-        for (const sg of draft.value.subgraphs ?? []) {
-          if (sg.graph) walk(sg.graph.nodes, `子图: ${sg.label || sg.id}`)
-        }
-      }
-      findRefsState.value = { varName, refs }
-      return
-    }
-    case 'promote-to-var': {
-      const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
-      if (!lit || Object.keys(lit).length === 0) {
-        toast.add({ title: 'Promote', description: '此节点无 literal pin 可提取', color: 'warning' })
-        return
-      }
-      // 单选节点 promote 只挑第一个 literal pin — 多 pin 走 PinContextMenu 单 pin promote.
-      const pinName = Object.keys(lit)[0]
-      const literal = lit[pinName]
-      const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) as VarType | ''
-      if (!pinType) {
-        toast.add({ title: 'Promote', description: `pin ${pinName} 不是 data-in 类型`, color: 'warning' })
-        return
-      }
-      promoteCtx.value = {
-        nodeID: node.id,
-        pinName,
-        pinType: pinType as VarType,
-        literal,
-      }
-      return
-    }
-    case 'jump-to-subgraph': {
-      const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
-      if (sgID) editorStore.pushPath(sgID)
-      return
-    }
-    case 'share-to-library': {
-      const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
-      if (!sgID) return
-      void shareSubgraphToLibrary(sgID)
-      return
-    }
-  }
-}
-
-async function shareSubgraphToLibrary(sgID: string) {
-  if (!containerID) return
-  if (!window.confirm(`将子图 "${sgID}" 及其依赖打包分享到库（覆盖已有同名 package）？`)) return
-  try {
-    await backend.library.exportSubgraph(containerID, sgID, true)
-    toast.add({ title: `已分享 ${sgID} 到库`, color: 'success', icon: 'i-tabler-check' })
-  } catch (e: any) {
-    toast.add({ title: '分享失败', description: String(e?.message ?? e), color: 'error' })
-  }
-}
-
-function onMultiMenuAction(a: MultiMenuAction) {
-  switch (a) {
-    case 'copy':
-      onCopySelection()
-      return
-    case 'cut':
-      onCopySelection()
-      getSelectedNodes.value.forEach((n: any) => removeNodes([n.id]))
-      return
-    case 'paste':
-      void onPasteSelection()
-      return
-    case 'duplicate':
-      onCopySelection()
-      void onPasteSelection()
-      return
-    case 'delete':
-      getSelectedNodes.value.forEach((n: any) => removeNodes([n.id]))
-      return
-    case 'toggle-disable-all':
-      applyDraftMutation((_d) => {
-        const g = activeGraph.value
-        if (!g) return
-        const sel = new Set(getSelectedNodes.value.map((n: any) => n.id))
-        const allDisabled = (g.nodes as Array<GraphNode & { disabled?: boolean }>)
-          .filter((n) => sel.has(n.id))
-          .every((n) => n.disabled === true)
-        for (const n of g.nodes as Array<GraphNode & { disabled?: boolean }>) {
-          if (sel.has(n.id)) n.disabled = !allDisabled
-        }
-      })
-      return
-    case 'fold':
-      onFoldSelection()
-      return
-    case 'auto-layout-lr':
-      onAutoLayout('LR')
-      return
-    case 'auto-layout-tb':
-      onAutoLayout('TB')
-      return
-    case 'align-left':
-      onAlignSelected('left')
-      return
-    case 'align-right':
-      onAlignSelected('right')
-      return
-    case 'align-top':
-      onAlignSelected('top')
-      return
-    case 'align-bottom':
-      onAlignSelected('bottom')
-      return
-    case 'align-center-h':
-      onAlignSelected('center-h')
-      return
-    case 'align-center-v':
-      onAlignSelected('center-v')
-      return
-    case 'distribute-h':
-      onAlignSelected('h-equal')
-      return
-    case 'distribute-v':
-      onAlignSelected('v-equal')
-      return
-  }
-}
-
-// ===== Find-References pick handler =====
-
-async function onFindRefsPick(nodeID: string) {
-  const currentNodes = activeGraph.value?.nodes
-  const inCurrent = currentNodes?.some(n => n.id === nodeID) ?? false
-  if (!inCurrent) {
-    // Find which subgraph contains this node and jump there
-    let targetSgID: string | null = null
-    let targetNode: GraphNode | undefined
-    for (const sg of draft.value?.subgraphs ?? []) {
-      const found = sg.graph?.nodes?.find(n => n.id === nodeID)
-      if (found) {
-        targetSgID = sg.id
-        targetNode = found
-        break
-      }
-    }
-    if (targetSgID) {
-      editorStore.editorPath = [targetSgID]
-      await nextTick()
-      selectedID.value = nodeID
-      if (targetNode) {
-        centerOnNode(setCenter, targetNode)
-      }
-    } else {
-      toast.add({ title: '跳转失败', description: `节点 ${nodeID} 不在当前容器`, color: 'warning' })
-    }
-    findRefsState.value = null
-    return
-  }
-  selectedID.value = nodeID
-  // Center viewport on the node
-  const targetNode = currentNodes?.find(n => n.id === nodeID)
-  if (targetNode) {
-    centerOnNode(setCenter, targetNode)
-  }
-  findRefsState.value = null
-}
-
-// ===== Edge + Pin context menus =====
-
-function onEdgeContextMenu(event: EdgeMouseEvent) {
-  if (event.event instanceof MouseEvent) event.event.preventDefault()
-  const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
-  const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
-  // Match the flow edge back to a GraphEdge via from/to composed from source/sourceHandle/target/targetHandle
-  const flowEdge = activeGraph.value?.edges.find(
-    (ed) =>
-      ed.from === `${event.edge.source}.${event.edge.sourceHandle}` &&
-      ed.to === `${event.edge.target}.${event.edge.targetHandle}`,
-  )
-  if (!flowEdge) return
-  edgeMenu.value = {
-    open: true,
-    position: { x: clientX, y: clientY },
-    edge: flowEdge,
-  }
-  // Close other menus
-  nodeMenu.value.open = false
-  multiMenu.value.open = false
-  pinMenu.value.open = false
-}
-
-function onEdgeMenuAction(a: EdgeMenuAction) {
-  const edge = edgeMenu.value.edge
-  if (!edge) return
-  switch (a) {
-    case 'delete':
-      applyDraftMutation(() => {
-        const g = activeGraph.value
-        if (!g) return
-        g.edges = g.edges.filter((e) => !(e.from === edge.from && e.to === edge.to))
-      })
-      return
-  }
-}
-
-function onCanvasContextMenuCapture(e: MouseEvent) {
-  const t = e.target as HTMLElement | null
-  if (!t) return
-  const handleEl = t.closest('.vue-flow__handle') as HTMLElement | null
-  if (!handleEl) return  // not a pin — let pane/node/edge-context-menu handlers deal
-  // It's a pin handle — intercept
-  e.preventDefault()
-  e.stopPropagation()
-
-  const nodeEl = handleEl.closest('[data-id]') as HTMLElement | null
-  const nodeID = nodeEl?.getAttribute('data-id') ?? ''
-  const pinName = handleEl.getAttribute('data-handleid') ?? ''
-  const handleType = handleEl.getAttribute('data-handletype') ?? ''
-  const side: 'input' | 'output' = handleType === 'source' ? 'output' : 'input'
-
-  const node = activeGraph.value?.nodes.find((n) => n.id === nodeID)
-  if (!node) return
-
-  // Resolve pin type
-  let pinType: string | undefined
-  if (side === 'input') {
-    pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) || undefined
-  } else {
-    pinType = dataOutTypeFor(node.kind, pinName) || undefined
-  }
-
-  // Count attached edges
-  const edges = activeGraph.value?.edges ?? []
-  const matchFrom = `${nodeID}.${pinName}`
-  const edgeCount = edges.filter((ed) => ed.from === matchFrom || ed.to === matchFrom).length
-
-  pinMenu.value = {
-    open: true,
-    position: { x: e.clientX, y: e.clientY },
-    pin: { nodeID, pinName, side, pinType, edgeCount },
-  }
-  // Close other menus
-  nodeMenu.value.open = false
-  multiMenu.value.open = false
-  edgeMenu.value.open = false
-}
-
-function onPinMenuAction(a: PinMenuAction) {
-  const pin = pinMenu.value.pin
-  if (!pin) return
-  const matchID = `${pin.nodeID}.${pin.pinName}`
-  switch (a) {
-    case 'break-all-connections':
-      applyDraftMutation(() => {
-        const g = activeGraph.value
-        if (!g) return
-        g.edges = g.edges.filter((ed) => ed.from !== matchID && ed.to !== matchID)
-      })
-      return
-    case 'promote-to-var': {
-      const node = activeGraph.value?.nodes.find(n => n.id === pin.nodeID)
-      if (!node) return
-      const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
-      const literal = lit?.[pin.pinName]
-      if (literal === undefined) {
-        toast.add({ title: 'Promote', description: `pin ${pin.pinName} 无 literal 可提取 (可能已被边驱动)`, color: 'warning' })
-        return
-      }
-      promoteCtx.value = {
-        nodeID: pin.nodeID,
-        pinName: pin.pinName,
-        pinType: (pin.pinType ?? 'any') as VarType,
-        literal,
-      }
-      return
-    }
-    case 'reset-to-literal':
-      applyDraftMutation(() => {
-        const g = activeGraph.value
-        if (!g) return
-        // Break incoming edges to this input pin
-        g.edges = g.edges.filter((ed) => ed.to !== matchID)
-        const node = g.nodes.find((n) => n.id === pin.nodeID)
-        if (!node) return
-        const cfg = node.config as Record<string, unknown>
-        const lit = (cfg.literal as Record<string, unknown> | undefined) ?? {}
-        const def =
-          pin.pinType === 'number' ? 0
-          : pin.pinType === 'string' ? ''
-          : pin.pinType === 'bool' ? false
-          : pin.pinType === 'point' ? { x: 0.5, y: 0.5 }
-          : null
-        lit[pin.pinName] = def
-        cfg.literal = lit
-      })
-      return
-    case 'show-schema':
-      toast.add({
-        title: `Pin schema: ${pin.pinName}`,
-        description: `${pin.side} · type: ${pin.pinType ?? '(exec)'} · edges: ${pin.edgeCount}`,
-        color: 'info',
-      })
-      return
-  }
-}
-
-// ===== Promote-to-Variable confirm handler =====
-function onPromoteConfirm(args: { varName: string; varType: VarType }) {
-  const ctx = promoteCtx.value
-  if (!ctx) return
-  applyDraftMutation((d) => {
-    const g = activeGraph.value
-    if (!g) return
-
-    // 1. Add new var to Container.Vars
-    if (!d.vars) d.vars = []
-    d.vars.push({
-      name: args.varName,
-      type: args.varType as 'number' | 'bool' | 'string' | 'point' | 'any',
-      default: ctx.literal,
-    })
-
-    // 2. Remove literal from original node's config
-    const origNode = g.nodes.find(n => n.id === ctx.nodeID)
-    if (!origNode) return
-    const cfg = origNode.config as Record<string, unknown>
-    const lit = cfg.literal as Record<string, unknown> | undefined
-    if (lit) {
-      delete lit[ctx.pinName]
-    }
-
-    // 3. Insert GetVar node 200px to the left
-    const getVarID = newNodeID('GetVar')
-    g.nodes.push({
-      id: getVarID,
-      kind: 'GetVar',
-      x: (origNode.x ?? 0) - 200,
-      y: origNode.y ?? 0,
-      config: { varName: args.varName, scope: 'auto' },
-      createdAt: new Date().toISOString(),
-    } as GraphNode)
-
-    // 4. Add data edge: GetVar.value → originalNode.pinName
-    g.edges.push({
-      from: `${getVarID}.value`,
-      to: `${ctx.nodeID}.${ctx.pinName}`,
-    } as GraphEdge)
-  })
-  promoteCtx.value = null
-  // pushRecent 已删
-}
+// 4 menu router + actions + onFindRefsPick + onPromoteConfirm — useContextMenuRouter
+// 调用在下方 onAlignSelected 之后 (依赖 onCopy/Paste/Fold/Align/AutoLayout 全部声明).
 
 // 命令面板 commands 列表 → useCommandPalette (调用见下方 onValidate 后, 所有 action
 // 必须先声明). open ref view 持有, 跟 useEditorHotkeys 共享.
@@ -1647,6 +1203,23 @@ function onAutoLayout(direction: 'LR' | 'TB') {
 function onAlignSelected(mode: AlignMode) {
   alignSelected(mode)
 }
+
+// 4 个右键菜单路由 (Node / Multi / Edge / Pin) + action dispatchers + onFindRefsPick
+// + onPromoteConfirm. promoteCtx / findRefsState 仍 view 持有 (modal state), 内部写回.
+const {
+  nodeMenu, multiMenu, edgeMenu, pinMenu,
+  onNodeContextMenu, onSelectionContextMenu, onEdgeContextMenu, onCanvasContextMenuCapture,
+  onNodeMenuAction, onMultiMenuAction, onEdgeMenuAction, onPinMenuAction,
+  onFindRefsPick, onPromoteConfirm,
+} = useContextMenuRouter({
+  containerID, draft, activeGraph, selectedID,
+  promoteCtx, findRefsState,
+  applyDraftMutation, varMutations,
+  onCopySelection, onPasteSelection, onFoldSelection,
+  onAlignSelected, onAutoLayout,
+  emitSaveSnippetIntent,
+  toast,
+})
 
 // 本地剪贴板：含节点 + edges + 被复制 Subgraph 节点绑定的子图 deep copy（1:1 联动用）
 // v2：clipboard 在 activeGraph 层级生效（主图 / 子图层级都能 copy/paste）
