@@ -1,6 +1,0 @@
-version: 1
-# rhythm 是纯像素颜色检测（ROI + HSV），跨语言无视觉差异——直接 alias zh。
-# implemented 字段在有 locale_alias 时被忽略；这里保留 true 让"语义读"也对得上。
-implemented: true
-locale_alias: zh
-reason: ""
