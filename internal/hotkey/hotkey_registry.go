@@ -28,6 +28,7 @@ const (
 	HotkeySourceAction    HotkeySource = "action"
 	HotkeySourceContainer HotkeySource = "container"
 	HotkeySourceSchedule  HotkeySource = "schedule"
+	HotkeySourceEditor    HotkeySource = "editor"
 )
 
 // HotkeyStatus runtime 状态。
@@ -54,6 +55,7 @@ type HotkeyEntry struct {
 	Status         HotkeyStatus      `json:"status"`
 	LastError      string            `json:"lastError"`
 	ReadonlyReason string            `json:"readonlyReason"`
+	InAppOnly      bool              `json:"inAppOnly"`
 }
 
 // registryEntry registry 内部状态。normalized 字段不暴露。
