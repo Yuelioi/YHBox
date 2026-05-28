@@ -14,6 +14,7 @@ import { dataInTypeFor, dataOutTypeFor } from '@/components/containers/nodeRegis
 import { type VarType } from '@/lib/variableRef'
 import { newNodeID } from './ids'
 import { centerOnNode } from './constants'
+import { walkAllGraphs } from './graphWalk'
 import type { useVarMutations } from './useVarMutations'
 import type { AlignMode } from './useGraphLayout'
 import type { NodeMenuAction } from '@/components/containers/menus/NodeContextMenu.vue'
@@ -209,18 +210,12 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         if (!varName) return
         const ids = varMutations.listUsageNodeIDs(varName)
         const refs: RefEntry[] = []
-        const walk = (nodes: GraphNode[], location: string) => {
-          for (const n of nodes) {
+        if (draft.value) {
+          walkAllGraphs(draft.value, (n, { location }) => {
             if (ids.includes(n.id)) {
               refs.push({ id: n.id, kind: n.kind, label: n.label, location })
             }
-          }
-        }
-        if (draft.value) {
-          walk(draft.value.graph.nodes, '主图')
-          for (const sg of draft.value.subgraphs ?? []) {
-            if (sg.graph) walk(sg.graph.nodes, `子图: ${sg.label || sg.id}`)
-          }
+          })
         }
         findRefsState.value = { varName, refs }
         return

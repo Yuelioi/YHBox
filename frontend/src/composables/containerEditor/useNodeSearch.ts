@@ -6,6 +6,7 @@ import { useVueFlow } from '@vue-flow/core'
 import type { Container, Graph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { centerOnNode } from './constants'
+import { walkAllGraphs } from './graphWalk'
 import type { NodeSearchResult } from '@/components/containers/NodeSearchModal.vue'
 
 interface UseNodeSearchOpts {
@@ -27,18 +28,12 @@ export function useNodeSearch(opts: UseNodeSearchOpts) {
     const q = query.value.toLowerCase().trim()
     if (!q) return []
     const out: NodeSearchResult[] = []
-    const walk = (nodes: any[], location: string, sgID: string | null) => {
-      for (const n of nodes) {
-        const hay = `${n.id} ${n.kind} ${n.label ?? ''}`.toLowerCase()
-        if (hay.includes(q)) {
-          out.push({ id: n.id, kind: n.kind, label: n.label, location, sgID })
-        }
+    walkAllGraphs(draft.value, (n, { location, sgID }) => {
+      const hay = `${n.id} ${n.kind} ${n.label ?? ''}`.toLowerCase()
+      if (hay.includes(q)) {
+        out.push({ id: n.id, kind: n.kind, label: n.label, location, sgID })
       }
-    }
-    walk(draft.value.graph.nodes, '主图', null)
-    for (const sg of draft.value.subgraphs ?? []) {
-      if (sg.graph) walk(sg.graph.nodes, `子图: ${sg.label || sg.id}`, sg.id)
-    }
+    })
     return out
   })
 
