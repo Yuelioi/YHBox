@@ -2,11 +2,6 @@
 // 不直接 import bindings 或 @wailsio/runtime。理由：wails3 alpha API 漂移时只改这一个文件。
 
 import { Events } from '@wailsio/runtime'
-import * as FishService from '@bindings/yhbox/internal/bots/fishservice.js'
-import * as CookService from '@bindings/yhbox/internal/bots/cookservice.js'
-import * as PianoService from '@bindings/yhbox/internal/bots/pianoservice.js'
-import * as BattleService from '@bindings/yhbox/internal/bots/battleservice.js'
-import * as RhythmService from '@bindings/yhbox/internal/bots/rhythmservice.js'
 import * as SettingsService from '@bindings/yhbox/internal/services/settingsservice.js'
 import * as GameService from '@bindings/yhbox/internal/services/gameservice.js'
 import * as HotkeyService from '@bindings/yhbox/internal/hotkey/hotkeyservice.js'
@@ -215,49 +210,6 @@ export interface TemplateMeta {
 }
 
 export const backend = {
-  fish: {
-    start: () => invoke(FishService.Start),
-    pause: () => invoke(FishService.Pause),
-    resume: () => invoke(FishService.Resume),
-    stop: () => invoke(FishService.Stop),
-    setAutoSell: (v: boolean) => invoke(FishService.SetAutoSell, v),
-    setCaptureGolden: (v: boolean) => invoke(FishService.SetCaptureGolden, v),
-    getStats: () => invoke(FishService.GetStats),
-  },
-  cook: {
-    start: () => invoke(CookService.Start),
-    pause: () => invoke(CookService.Pause),
-    resume: () => invoke(CookService.Resume),
-    stop: () => invoke(CookService.Stop),
-    setIntervalMs: (ms: number) => invoke(CookService.SetIntervalMs, ms),
-  },
-  piano: {
-    start: () => invoke(PianoService.Start),
-    pause: () => invoke(PianoService.Pause),
-    resume: () => invoke(PianoService.Resume),
-    stop: () => invoke(PianoService.Stop),
-    seek: (ms: number) => invoke(PianoService.SeekMs, ms),
-    setMode: (m: number) => invoke(PianoService.SetMode, m),
-    setTrackPick: (p: number) => invoke(PianoService.SetTrackPick, p),
-    setAutoTranspose: (v: boolean) => invoke(PianoService.SetAutoTranspose, v),
-    setMelodyOnly: (v: boolean) => invoke(PianoService.SetMelodyOnly, v),
-    setOctaveOffset: (v: number) => invoke(PianoService.SetOctaveOffset, v),
-    getLibrary: () => invoke(PianoService.GetLibrary),
-    loadBuiltin: (asset: string) => invoke(PianoService.LoadBuiltin, asset),
-    loadFile: (path: string) => invoke(PianoService.LoadFile, path),
-  },
-  battle: {
-    enable: () => invoke(BattleService.Enable),
-    disable: () => invoke(BattleService.Disable),
-    setMods: (label: string) => invoke(BattleService.SetMods, label),
-  },
-  rhythm: {
-    start: () => invoke(RhythmService.Start),
-    pause: () => invoke(RhythmService.Pause),
-    resume: () => invoke(RhythmService.Resume),
-    stop: () => invoke(RhythmService.Stop),
-    // setDebugFlags 暂不暴露 — 后端 RPC 仍存在，但前端没 UI 触发；要用直接走开发者控制台
-  },
   settings: {
     get: () => invoke(SettingsService.Get),
     update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),

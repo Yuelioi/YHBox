@@ -10,7 +10,6 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.35.1
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.91
-	gitlab.com/gomidi/midi/v2 v2.3.23
 	golang.org/x/image v0.40.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.40.0
