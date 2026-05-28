@@ -1,6 +1,7 @@
 // useNodeClipboard 节点剪贴板（Ctrl+C/V）+ Subgraph 1:1 复制独立子图副本。
 // clipboard 在 activeGraph 层级生效（主图 / 子图层级都能 copy/paste）。
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
 import { backend, type Container, type Graph, type GraphNode, type Subgraph } from '@/lib/backend'
@@ -30,6 +31,7 @@ export function useNodeClipboard(opts: {
     deepCloneSubgraphForCopy, getSelectedNodes, genID, toast,
   } = opts
   const editorStore = useContainerEditorStore()
+  const { t } = useI18n()
 
   const clipboard = ref<{
     nodes: any[]
@@ -63,7 +65,7 @@ export function useNodeClipboard(opts: {
       }
     }
     clipboard.value = { nodes, edges, subgraphsDeepCopy }
-    toast.add({ title: `已复制 ${nodes.length} 个节点`, color: 'success', duration: 1500 })
+    toast.add({ title: t('editorAux.copied_nodes', { n: nodes.length }), color: 'success', duration: 1500 })
   }
 
   async function onPasteSelection() {
@@ -82,7 +84,7 @@ export function useNodeClipboard(opts: {
           try {
             const created = (await backend.containers.createSubgraph(
               draft.value.id,
-              (sourceSg.label ?? '子图') + ' 副本',
+              (sourceSg.label ?? t('nodeClipboard.subgraph_word')) + t('editorAux.copy_suffix'),
             )) as any
             const newSgID = created.id
             const cloneInner = deepCloneSubgraphForCopy(sourceSg)
@@ -98,7 +100,7 @@ export function useNodeClipboard(opts: {
             )
             newCfg.SubgraphID = newSgID
           } catch (e) {
-            console.warn('paste: Subgraph 副本创建失败', e)
+            console.warn('paste: Subgraph clone failed', e)
           }
         }
       }

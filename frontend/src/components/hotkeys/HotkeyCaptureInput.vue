@@ -11,7 +11,7 @@
       ]"
       @click="startListening"
     >
-      {{ modelValue || '点击设置热键' }}
+      {{ modelValue || t('hotkeyInput.click_to_set') }}
     </button>
     <div
       v-else
@@ -21,7 +21,7 @@
       @keydown="onKeydown"
       @blur="stopListening"
     >
-      <span class="animate-pulse">按下组合键 · Backspace 清空 · Esc 取消</span>
+      <span class="animate-pulse">{{ t('hotkeyInput.instruction') }}</span>
     </div>
     <UButton
       v-if="modelValue && !listening"
@@ -36,7 +36,10 @@
 
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
+
+const { t } = useI18n()
 
 defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()

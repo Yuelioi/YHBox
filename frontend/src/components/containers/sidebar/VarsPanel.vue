@@ -1,7 +1,7 @@
 <!-- 容器变量面板. CRUD + reorder. Drag-out 走 useEditorDragDrop. -->
 <template>
   <SidebarSection
-    title="变量"
+    :title="t('var.title')"
     icon="i-tabler-variable"
     title-color="emerald"
     :count="undefined"
@@ -13,7 +13,7 @@
       <button
         type="button"
         class="text-emerald-400 hover:text-emerald-300 px-1 text-base leading-none"
-        title="添加变量"
+        :title="t('var.add')"
         @click.stop="$emit('add-var')"
       >+</button>
     </template>
@@ -23,19 +23,19 @@
       v-if="vars.length > 4"
       v-model="searchQuery"
       size="xs"
-      placeholder="搜索 (name)..."
+      :placeholder="t('var.search_placeholder')"
       icon="i-tabler-search"
       class="mb-2"
     />
 
     <!-- Empty state -->
     <p v-if="vars.length === 0" class="text-[10px] text-dimmed italic px-1">
-      暂无变量. 点 + 添加.
+      {{ t('var.empty') }}
     </p>
 
     <!-- Search-active: simple list, no reorder -->
     <div v-else-if="searchQuery.trim()" class="space-y-1 max-h-64 overflow-y-auto pr-1">
-      <p v-if="filteredVars.length === 0" class="text-[10px] text-dimmed italic px-1">无匹配</p>
+      <p v-if="filteredVars.length === 0" class="text-[10px] text-dimmed italic px-1">{{ t('var.no_match') }}</p>
       <VarRow
         v-for="v in filteredVars"
         :key="v.name"
@@ -73,10 +73,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { VarDecl } from '@/lib/backend'
 import SidebarSection from './SidebarSection.vue'
 import VarRow from './VarRow.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   vars: VarDecl[]

@@ -7,23 +7,23 @@
         <!-- Header: title + search -->
         <div class="flex items-center gap-3 shrink-0">
           <UIcon name="i-tabler-grid-dots" class="size-5 text-primary" />
-          <h3 class="text-sm font-medium">节点 Explorer</h3>
+          <h3 class="text-sm font-medium">{{ t('nodeExplorer.title') }}</h3>
           <UInput
             ref="searchInputRef"
             v-model="query"
-            placeholder="搜节点 (substring)..."
+            :placeholder="t('nodeExplorer.search_placeholder')"
             icon="i-tabler-search"
             size="sm"
             class="flex-1"
             @keydown.escape="onEsc"
           />
-          <span class="text-[10px] text-dimmed">Esc / Tab 关</span>
+          <span class="text-[10px] text-dimmed">{{ t('nodeExplorer.esc_tab_close') }}</span>
         </div>
 
         <!-- Tree body: per-group collapsible sections -->
         <div class="flex-1 overflow-y-auto pr-2">
           <div v-if="filteredGroups.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            没匹配的节点
+            {{ t('nodeExplorer.no_match') }}
           </div>
           <div v-else class="space-y-1">
             <div v-for="g in filteredGroups" :key="g.group">

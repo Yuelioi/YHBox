@@ -7,6 +7,7 @@
 // composable 通过 setPromote / setFindRefs 写回 view ref.
 
 import { nextTick, ref, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
@@ -57,6 +58,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   } = opts
 
   const editorStore = useContainerEditorStore()
+  const { t } = useI18n()
   const { getSelectedNodes, removeNodes, setCenter } = useVueFlow()
 
   // ===== Menu state (4 个 menu 互斥) =====
@@ -163,12 +165,12 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   // ===== Action dispatchers =====
   async function shareSubgraphToLibrary(sgID: string) {
     if (!containerID) return
-    if (!window.confirm(`将子图 "${sgID}" 及其依赖打包分享到库（覆盖已有同名 package）？`)) return
+    if (!window.confirm(t('contextMenu.share_confirm', { sgID }))) return
     try {
       await backend.library.exportSubgraph(containerID, sgID, true)
-      toast.add({ title: `已分享 ${sgID} 到库`, color: 'success', icon: 'i-tabler-check' })
+      toast.add({ title: t('contextMenu.share_success', { sgID }), color: 'success', icon: 'i-tabler-check' })
     } catch (e: any) {
-      toast.add({ title: '分享失败', description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('contextMenu.share_failed'), description: String(e?.message ?? e), color: 'error' })
     }
   }
 
@@ -223,7 +225,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'promote-to-var': {
         const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
         if (!lit || Object.keys(lit).length === 0) {
-          toast.add({ title: 'Promote', description: '此节点无 literal pin 可提取', color: 'warning' })
+          toast.add({ title: 'Promote', description: t('contextMenu.no_literal_pin'), color: 'warning' })
           return
         }
         // 单选节点 promote 只挑第一个 literal pin
@@ -231,7 +233,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         const literal = lit[pinName]
         const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) as VarType | ''
         if (!pinType) {
-          toast.add({ title: 'Promote', description: `pin ${pinName} 不是 data-in 类型`, color: 'warning' })
+          toast.add({ title: 'Promote', description: t('contextMenu.pin_not_data_in', { pin: pinName }), color: 'warning' })
           return
         }
         promoteCtx.value = { nodeID: node.id, pinName, pinType: pinType as VarType, literal }
@@ -335,7 +337,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
         const literal = lit?.[pin.pinName]
         if (literal === undefined) {
-          toast.add({ title: 'Promote', description: `pin ${pin.pinName} 无 literal 可提取 (可能已被边驱动)`, color: 'warning' })
+          toast.add({ title: 'Promote', description: t('contextMenu.pin_no_literal', { pin: pin.pinName }), color: 'warning' })
           return
         }
         promoteCtx.value = {
@@ -396,7 +398,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         selectedID.value = nodeID
         if (targetNode) centerOnNode(setCenter, targetNode)
       } else {
-        toast.add({ title: '跳转失败', description: `节点 ${nodeID} 不在当前容器`, color: 'warning' })
+        toast.add({ title: t('contextMenu.jump_failed'), description: t('contextMenu.node_not_in_container', { id: nodeID }), color: 'warning' })
       }
       findRefsState.value = null
       return

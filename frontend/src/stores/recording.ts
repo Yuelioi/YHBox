@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { backend } from '@/lib/backend'
+import { i18n } from '@/i18n'
 
 export interface RecordingStopPayload {
   subgraphID: string
@@ -23,7 +24,7 @@ export const useRecordingStore = defineStore('recording', () => {
     containerID: string,
   ): Promise<void> {
     if (isRecording.value) return
-    if (!containerID) throw new Error('recording.start: containerID 必填')
+    if (!containerID) throw new Error('recording.start: containerID ' + i18n.global.t('common.required'))
     try {
       const id = (await backend.recording.start({ filterMode, containerID })) as string | undefined
       tempID.value = id ?? ''

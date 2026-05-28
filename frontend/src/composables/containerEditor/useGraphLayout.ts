@@ -1,6 +1,7 @@
 // useGraphLayout 自动布局 (dagre) + 选中节点对齐.
 // 操作目标始终是 activeGraph (主图 / 当前子图层级), 与其他 composable 一致.
 import type { Ref, ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
 import type { Graph } from '@/lib/backend'
 import dagre from '@dagrejs/dagre'
@@ -26,6 +27,7 @@ export function useGraphLayout(opts: {
   toast: { add: (o: Record<string, unknown>) => unknown }
 }) {
   const { activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast } = opts
+  const { t } = useI18n()
 
   function autoLayout(direction: 'LR' | 'TB' = 'LR') {
     const g = activeGraph.value
@@ -50,7 +52,7 @@ export function useGraphLayout(opts: {
     dirty.value = true
     syncFlowFromDraft()
     toast.add({
-      title: `已自动布局（${direction === 'LR' ? '横向' : '纵向'}）`,
+      title: t('graphLayout.auto_layout_done', { dir: direction === 'LR' ? t('graphLayout.horizontal') : t('graphLayout.vertical') }),
       color: 'success',
       icon: 'i-tabler-layout-grid',
     })
@@ -61,7 +63,7 @@ export function useGraphLayout(opts: {
     if (!g) return
     const sel = getSelectedNodes.value
     if (sel.length < 2) {
-      toast.add({ title: '请选中至少 2 个节点再对齐', color: 'warning' })
+      toast.add({ title: t('editorAux.warning_select_two'), color: 'warning' })
       return
     }
     const selIDs = new Set(sel.map((s) => s.id))

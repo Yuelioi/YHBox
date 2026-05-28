@@ -8,7 +8,7 @@
         <div class="px-1 pb-1 sticky top-0 bg-default z-10">
           <UInput
             v-model="nodeSearch"
-            placeholder="搜索节点 (kind 或 中文名)..."
+            :placeholder="t('nodePalette.search_node')"
             icon="i-tabler-search"
             size="xs"
           />
@@ -31,7 +31,7 @@
           </div>
         </div>
         <p v-if="filteredGroups.length === 0" class="text-[11px] text-dimmed text-center py-4">
-          没匹配的节点
+          {{ t('nodePalette.no_match_node') }}
         </p>
       </template>
 
@@ -40,21 +40,21 @@
         <div class="px-1 pb-1">
           <UInput
             v-model="libSearch"
-            placeholder="搜索库子图..."
+            :placeholder="t('nodePalette.search_library')"
             icon="i-tabler-search"
             size="xs"
           />
         </div>
 
         <p v-if="libraryStore.subgraphs.length === 0" class="text-[11px] text-dimmed text-center py-4">
-          库还是空的<br />
-          <a class="text-primary cursor-pointer hover:underline" @click="goLibrary">去库管理</a>
+          {{ t('nodePalette.library_empty') }}<br />
+          <a class="text-primary cursor-pointer hover:underline" @click="goLibrary">{{ t('nodePalette.go_library_manage') }}</a>
         </p>
         <p
           v-else-if="filteredLibrary.length === 0"
           class="text-[11px] text-dimmed text-center py-4"
         >
-          没有匹配的子图
+          {{ t('nodePalette.no_match_subgraph') }}
         </p>
 
         <div v-for="sg in filteredLibrary" :key="sg.id" class="px-0.5">
@@ -120,10 +120,10 @@ const editorStore = useContainerEditorStore()
 const router = useRouter()
 const toast = useToast()
 
-const paletteTabs = [
-  { label: '节点', value: 'nodes' },
-  { label: '库', value: 'library' },
-]
+const paletteTabs = computed(() => [
+  { label: t('nodePalette.tab_nodes'), value: 'nodes' },
+  { label: t('nodePalette.tab_library'), value: 'library' },
+])
 const activeTab = ref('nodes')
 const libSearch = ref('')
 // v4 B10: search filter for built-in node palette (matches kind or label substring, case-insensitive)
@@ -155,7 +155,7 @@ function ctxMenuItemsFor(sg: Subgraph) {
   return [
     [
       {
-        label: '导入到当前容器',
+        label: t('nodePalette.ctx_import_current'),
         icon: 'i-tabler-arrow-bar-to-down',
         disabled: !editorStore.activeContainerID,
         onSelect: () => onImport(sg),
@@ -163,12 +163,12 @@ function ctxMenuItemsFor(sg: Subgraph) {
     ],
     [
       {
-        label: '在库管理中查看',
+        label: t('nodePalette.ctx_view_in_library'),
         icon: 'i-tabler-external-link',
         onSelect: () => goLibrary(),
       },
       {
-        label: '复制 ID',
+        label: t('nodePalette.ctx_copy_id'),
         icon: 'i-tabler-copy',
         onSelect: () => onCopyID(sg.id),
       },
@@ -178,23 +178,23 @@ function ctxMenuItemsFor(sg: Subgraph) {
 
 async function onImport(sg: Subgraph) {
   if (!editorStore.activeContainerID) {
-    toast.add({ title: '当前没有打开的容器编辑器', color: 'warning' })
+    toast.add({ title: t('nodePalette.toast_no_active_editor'), color: 'warning' })
     return
   }
   try {
     await backend.library.importToContainer(sg.id, editorStore.activeContainerID, '')
-    toast.add({ title: `已导入子图: ${sg.label || sg.id}`, color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('nodePalette.toast_imported', { name: sg.label || sg.id }), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: '导入失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.import_failed'), description: String(e?.message ?? e), color: 'error' })
   }
 }
 
 async function onCopyID(id: string) {
   try {
     await navigator.clipboard.writeText(id)
-    toast.add({ title: '已复制 ID', color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: '复制失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.copy_failed'), description: String(e?.message ?? e), color: 'error' })
   }
 }
 
@@ -225,18 +225,18 @@ onMounted(() => {
 // nodeRegistry/specs/<group>.ts auto-populates the palette — no edit here needed.
 // GROUP_LABEL maps the 6 spec groups to Chinese palette section headers.
 // Order in GROUP_LABEL determines section render order.
-const GROUP_LABEL: Record<NodeGroup, string> = {
-  control: '控制流',
-  variables: '变量 / 数据',
-  purefunc: '纯函数',
-  detect: '检测',
-  input: '输入',
-  system: '系统',
+const GROUP_LABEL = computed<Record<NodeGroup, string>>(() => ({
+  control: t('nodeGroup.control'),
+  variables: t('nodePalette.group_variables_data'),
+  purefunc: t('nodePalette.group_purefunc'),
+  detect: t('nodeGroup.detect'),
+  input: t('nodeGroup.input'),
+  system: t('nodeGroup.system'),
   io: 'IO',
-  stopwatch: '计时器',
-  mock: '测试用',
-  test: '测试用',
-}
+  stopwatch: t('nodeGroup.stopwatch'),
+  mock: t('nodeGroup.mock'),
+  test: t('nodeGroup.test'),
+}))
 
 interface PaletteItem {
   kind: string
@@ -249,17 +249,18 @@ interface PaletteGroup {
 }
 
 const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
+  const labels = GROUP_LABEL.value
   const groups: Record<NodeGroup, PaletteGroup> = {
-    control: { label: GROUP_LABEL.control, items: [] },
-    variables: { label: GROUP_LABEL.variables, items: [] },
-    purefunc: { label: GROUP_LABEL.purefunc, items: [] },
-    detect: { label: GROUP_LABEL.detect, items: [] },
-    input: { label: GROUP_LABEL.input, items: [] },
-    system: { label: GROUP_LABEL.system, items: [] },
-    io: { label: GROUP_LABEL.io, items: [] },
-    stopwatch: { label: GROUP_LABEL.stopwatch, items: [] },
-    mock: { label: GROUP_LABEL.mock, items: [] },
-    test: { label: GROUP_LABEL.test, items: [] },
+    control: { label: labels.control, items: [] },
+    variables: { label: labels.variables, items: [] },
+    purefunc: { label: labels.purefunc, items: [] },
+    detect: { label: labels.detect, items: [] },
+    input: { label: labels.input, items: [] },
+    system: { label: labels.system, items: [] },
+    io: { label: labels.io, items: [] },
+    stopwatch: { label: labels.stopwatch, items: [] },
+    mock: { label: labels.mock, items: [] },
+    test: { label: labels.test, items: [] },
   }
   for (const s of allSpecs() as NodeKindSpec[]) {
     if (s.isVisualOnly) continue // CommentBox — not draggable from palette

@@ -5,6 +5,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { toastError } from '@/lib/invoke'
+import { i18n } from '@/i18n'
 
 export interface WorkerStateEvent {
   running: boolean
@@ -44,7 +45,7 @@ export const useExecutionStore = defineStore('execution', () => {
       currentNodeKind.value = ''
       const errMsg = typeof d.Error === 'string' ? d.Error : ''
       lastError.value = errMsg || null
-      if (errMsg) toastError(errMsg, '运行失败')
+      if (errMsg) toastError(errMsg, i18n.global.t('execution.run_failed'))
     }
   })
 

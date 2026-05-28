@@ -19,7 +19,7 @@
         <span class="text-sm font-medium truncate text-default">{{ displayName }}</span>
         <span v-if="pkg.root.description" class="text-[11px] text-dimmed truncate flex-1">{{ pkg.root.description }}</span>
         <UBadge size="xs" variant="subtle" color="neutral" class="shrink-0">
-          {{ embeddedCount }} 子图
+          {{ t('library.card.embedded_count', { n: embeddedCount }) }}
         </UBadge>
       </div>
 
@@ -32,10 +32,10 @@
         <p v-if="pkg.root.description" class="text-[11px] text-dimmed mb-2 line-clamp-2">{{ pkg.root.description }}</p>
         <div class="flex gap-1 flex-wrap">
           <UBadge v-if="pkg.templates.length > 0" size="xs" variant="outline" color="neutral">
-            <UIcon name="i-tabler-photo" class="size-3 mr-0.5" />{{ pkg.templates.length }} 模板
+            <UIcon name="i-tabler-photo" class="size-3 mr-0.5" />{{ t('library.card.templates_count', { n: pkg.templates.length }) }}
           </UBadge>
           <UBadge v-if="pkg.clips.length > 0" size="xs" variant="outline" color="neutral">
-            <UIcon name="i-tabler-vinyl" class="size-3 mr-0.5" />{{ pkg.clips.length }} 片段
+            <UIcon name="i-tabler-vinyl" class="size-3 mr-0.5" />{{ t('library.card.clips_count', { n: pkg.clips.length }) }}
           </UBadge>
         </div>
       </template>
@@ -45,10 +45,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { SubgraphPackage } from '@/lib/backend'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLibraryStore } from '@/stores/library'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -75,26 +78,26 @@ const embeddedCount = computed(() => 1 + Object.keys(props.pkg.embedded ?? {}).l
 const ctxMenuItems = computed(() => [
   [
     {
-      label: '查看详情',
+      label: t('library.card.view_detail'),
       icon: 'i-tabler-info-circle',
       onSelect: () => emit('select', props.sgID),
     },
     {
-      label: '导入到容器',
+      label: t('library.card.import'),
       icon: 'i-tabler-arrow-bar-to-down',
       onSelect: () => emit('import', props.sgID),
     },
   ],
   [
     {
-      label: '复制 ID',
+      label: t('library.card.copy_id'),
       icon: 'i-tabler-copy',
       onSelect: () => onCopyID(),
     },
   ],
   [
     {
-      label: '删除',
+      label: t('library.card.delete'),
       icon: 'i-tabler-trash',
       color: 'error' as const,
       onSelect: () => onDelete(),
@@ -105,25 +108,25 @@ const ctxMenuItems = computed(() => [
 async function onCopyID() {
   try {
     await navigator.clipboard.writeText(props.sgID)
-    toast.add({ title: '已复制 ID', color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: '复制失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.copy_failed'), description: String(e?.message ?? e), color: 'error' })
   }
 }
 
 async function onDelete() {
   const yes = await confirm({
-    title: '删除库子图',
-    description: `确认删除 "${displayName.value}"？此操作不可恢复。`,
+    title: t('library.card.delete_confirm_title'),
+    description: t('library.card.delete_confirm_desc', { name: displayName.value }),
     color: 'error',
-    confirmText: '删除',
+    confirmText: t('common.delete'),
   })
   if (yes !== true) return
   const ok = await libraryStore.deletePackage(props.sgID)
   if (ok) {
-    toast.add({ title: '已删除', color: 'success' })
+    toast.add({ title: t('toast.deleted'), color: 'success' })
   } else {
-    toast.add({ title: '删除失败', color: 'error' })
+    toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
 }
 </script>

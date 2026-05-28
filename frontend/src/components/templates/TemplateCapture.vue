@@ -5,8 +5,8 @@
         <!-- Header -->
         <header class="flex items-center gap-2 px-5 py-3 border-b border-default">
           <UIcon name="i-tabler-photo-plus" class="size-4 text-primary" />
-          <h3 class="text-sm font-medium text-highlighted">截图新模板</h3>
-          <span class="ml-auto text-[11px] text-dimmed">截屏 → 拖拽框选目标区域 → 保存</span>
+          <h3 class="text-sm font-medium text-highlighted">{{ t('template.capture.title') }}</h3>
+          <span class="ml-auto text-[11px] text-dimmed">{{ t('template.capture.desc') }}</span>
           <UButton
             size="xs"
             variant="ghost"
@@ -26,9 +26,9 @@
             class="rounded-md border border-dashed border-default/60 bg-elevated/40 py-10 px-6 flex flex-col items-center gap-3 text-center"
           >
             <UIcon name="i-tabler-camera" class="size-8 text-dimmed" />
-            <p class="text-xs text-dimmed">截屏游戏窗口，把要识别的目标拍下来作为模板。</p>
+            <p class="text-xs text-dimmed">{{ t('template.capture.help') }}</p>
             <UButton color="primary" icon="i-tabler-camera" :loading="capturing" @click="onCapture">
-              {{ capturing ? '正在截屏...' : '截屏' }}
+              {{ capturing ? t('template.capture.capturing') : t('template.capture.action') }}
             </UButton>
           </div>
 
@@ -42,7 +42,7 @@
                 ref="imgRef"
                 :src="dataURL"
                 class="block w-full max-h-[55vh] object-contain pointer-events-none"
-                alt="模板预览"
+                :alt="t('template.capture.preview')"
                 @load="onImgLoad"
               />
 
@@ -104,7 +104,7 @@
                   icon="i-tabler-square-x"
                   @click="clearSelection"
                 >
-                  清除框选
+                  {{ t('template.capture.clear_selection') }}
                 </UButton>
                 <UButton
                   size="xs"
@@ -114,56 +114,56 @@
                   :loading="capturing"
                   @click="onCapture"
                 >
-                  重新截屏
+                  {{ t('template.capture.retake') }}
                 </UButton>
               </div>
             </div>
 
             <p class="text-[11px] text-dimmed">
               <UIcon name="i-tabler-info-circle" class="size-3 inline" />
-              在图上拖一个矩形框定要识别的目标。不框选则保存整张截图。
+              {{ t('template.capture.drag_hint') }}
             </p>
 
             <div class="grid grid-cols-2 gap-3">
               <div class="space-y-1.5">
-                <UFormField :error="keyError" label="key (namespace.name, 必填)">
+                <UFormField :error="keyError" :label="t('template.capture.key_label')">
                   <UInput
                     v-model="keyPath"
                     size="md"
                     class="w-full"
-                    placeholder="fishing.hook_icon"
+                    :placeholder="t('template.capture.key_example')"
                     :ui="{ base: 'font-mono' }"
                   />
                 </UFormField>
               </div>
               <div class="space-y-1.5">
-                <label class="block text-[11px] text-toned">显示名 (必填)</label>
-                <UInput v-model="name" size="md" class="w-full" placeholder="例：上钩图标" />
+                <label class="block text-[11px] text-toned">{{ t('template.capture.name_label') }}</label>
+                <UInput v-model="name" size="md" class="w-full" :placeholder="t('template.capture.name_example')" />
               </div>
             </div>
 
             <div class="space-y-1.5">
-              <label class="block text-[11px] text-toned">描述（可选）</label>
+              <label class="block text-[11px] text-toned">{{ t('template.capture.desc_label') }}</label>
               <UTextarea
                 v-model="description"
                 :rows="2"
                 class="w-full"
-                placeholder="什么场景下匹配？阈值有什么注意事项？"
+                :placeholder="t('template.capture.desc_hint')"
               />
             </div>
 
             <div class="flex items-center gap-3 text-[11px] text-dimmed flex-wrap">
               <span class="inline-flex items-center gap-1">
                 <UIcon name="i-tabler-aspect-ratio" class="size-3" />
-                原图 {{ imgNatW }} × {{ imgNatH }}
+                {{ t('template.capture.original_size', { w: imgNatW, h: imgNatH }) }}
               </span>
               <span v-if="hasSelection" class="inline-flex items-center gap-1 text-primary">
                 <UIcon name="i-tabler-crop" class="size-3" />
-                框选 {{ Math.round(selNat.w) }} × {{ Math.round(selNat.h) }}
+                {{ t('template.capture.cropped_size', { w: Math.round(selNat.w), h: Math.round(selNat.h) }) }}
               </span>
               <span class="inline-flex items-center gap-1">
                 <UIcon name="i-tabler-device-desktop" class="size-3" />
-                录制分辨率 {{ resolutionLabel }}
+                {{ t('template.capture.recorded_res', { res: resolutionLabel }) }}
               </span>
             </div>
           </div>
@@ -171,7 +171,7 @@
 
         <!-- Footer -->
         <footer class="px-5 py-3 border-t border-default flex items-center justify-end gap-2">
-          <UButton variant="ghost" color="neutral" @click="$emit('close')">取消</UButton>
+          <UButton variant="ghost" color="neutral" @click="$emit('close')">{{ t('common.cancel') }}</UButton>
           <UButton
             color="primary"
             icon="i-tabler-device-floppy"
@@ -179,7 +179,7 @@
             :loading="saving"
             @click="onSave"
           >
-            保存模板{{ hasSelection ? '（裁剪）' : '（全图）' }}
+            {{ hasSelection ? t('template.capture.save_cropped') : t('template.capture.save_full') }}
           </UButton>
         </footer>
       </div>
@@ -189,8 +189,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useTemplatesStore } from '@/stores/templates'
 import { useGameStore } from '@/stores/game'
+
+const { t } = useI18n()
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -234,7 +237,7 @@ const selNat = computed<Rect>(() => {
 
 const resolutionLabel = computed(() => {
   const s = gameStore.status
-  if (!s?.ok || !s.w) return '未检测到游戏窗口'
+  if (!s?.ok || !s.w) return t('template.capture.no_game_window')
   return `${s.w} × ${s.h}`
 })
 
@@ -243,7 +246,7 @@ const keyValid = computed(() => keyPattern.test(keyPath.value))
 const keyError = computed(() => {
   if (!keyPath.value) return ''
   if (keyValid.value) return ''
-  return 'key 必须形如 fishing.hook_icon（字母数字下划线 + 至少 1 个点）'
+  return t('template.capture.invalid_key_format')
 })
 
 const canSave = computed(() => !!dataURL.value && keyValid.value && !!name.value.trim())

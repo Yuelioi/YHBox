@@ -4,6 +4,7 @@
 //   - application/yhfish-library-item：LibraryView 卡片拖入（copy-on-use 生成独立子图副本）
 // 节点 drop 时若 cursor 命中某条 edge 且新节点是 1in/1out，自动断边重连（A→B 变 A→C→B）
 import type { Ref, ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
@@ -73,6 +74,7 @@ export function useFlowInteraction(opts: {
   const { project, onAddNode, draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, toast } = opts
   const settingsStore = useSettingsStore()
   const { confirm } = useConfirm()
+  const { t } = useI18n()
 
   function onCanvasDragOver(e: DragEvent) {
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
@@ -110,7 +112,7 @@ export function useFlowInteraction(opts: {
       activeGraph.value.edges.push({ from: `${newID}.out`, to: oldTo })
       syncFlowFromDraft?.()
       toast?.add({
-        title: '已插入节点并断边重连',
+        title: t('flowInteraction.inserted_and_relinked'),
         color: 'success',
         icon: 'i-tabler-arrow-merge',
         duration: 3000,
@@ -123,7 +125,7 @@ export function useFlowInteraction(opts: {
     try {
       const parsed = JSON.parse(libData)
       if (parsed.kind !== 'subgraph') {
-        toast?.add({ title: '暂不支持拖入库模板（请走容器内 template 管理）', color: 'warning' })
+        toast?.add({ title: t('flowInteraction.no_template_drop'), color: 'warning' })
         return
       }
       const target = e.currentTarget as HTMLElement
@@ -145,10 +147,10 @@ export function useFlowInteraction(opts: {
       activeGraph.value.nodes.push(newNode)
       if (refreshSubgraphStore) await refreshSubgraphStore()
       if (syncFlowFromDraft) syncFlowFromDraft()
-      toast?.add({ title: `已导入子图: ${newSubgraphID}`, color: 'success', icon: 'i-tabler-check' })
+      toast?.add({ title: t('flowInteraction.subgraph_imported', { id: newSubgraphID }), color: 'success', icon: 'i-tabler-check' })
     } catch (err) {
       console.error('library drop failed', err)
-      toast?.add({ title: '导入失败', description: String(err), color: 'error' })
+      toast?.add({ title: t('toast.import_failed'), description: String(err), color: 'error' })
     }
   }
 
@@ -156,22 +158,22 @@ export function useFlowInteraction(opts: {
   // 三选一：同步所有 / 仅本容器 / 不改。v1 串两次 confirm 实现。
   async function handleImportSyncCalibration(sourceCounts: number, localCounts: number) {
     const yes1 = await confirm({
-      title: '导入的子图来自另一台机器',
-      description: `源 360° counts: ${sourceCounts}\n你的本机值: ${localCounts}\n\n是否把本机值同步到所有本地容器？（推荐）`,
-      confirmText: '同步所有容器',
-      cancelText: '不同步',
+      title: t('recording.foreign_machine'),
+      description: t('recording.counts_mismatch_desc', { src: sourceCounts, local: localCounts }),
+      confirmText: t('recording.sync_all'),
+      cancelText: t('recording.no_sync'),
       color: 'primary',
     })
     if (yes1 === true) {
       await backend.containers.syncLocalMouseCalibration(localCounts)
-      toast?.add({ title: '已同步所有容器', color: 'success' })
+      toast?.add({ title: t('recording.sync_success'), color: 'success' })
       return
     }
     const yes2 = await confirm({
-      title: '仅修改本容器？',
-      description: '仅把当前容器主图 MouseCalibration 改为本机值。其他容器保持不变。',
-      confirmText: '仅本容器',
-      cancelText: '不改（保持源值）',
+      title: t('recording.modify_single_title'),
+      description: t('recording.modify_single_desc'),
+      confirmText: t('recording.modify_single_only'),
+      cancelText: t('recording.modify_keep_source'),
       color: 'primary',
     })
     if (yes2 === true && draft?.value) {
@@ -182,7 +184,7 @@ export function useFlowInteraction(opts: {
         }
       }
       syncFlowFromDraft?.()
-      toast?.add({ title: '已修改本容器主图 MouseCalibration', color: 'success' })
+      toast?.add({ title: t('flowInteraction.modified_local_mouse_calibration'), color: 'success' })
     }
   }
 

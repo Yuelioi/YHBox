@@ -5,8 +5,8 @@
       class="h-full flex flex-col items-center justify-center text-center px-6 py-10"
     >
       <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
-      <p class="text-sm text-toned">未选择</p>
-      <p class="text-[11px] text-dimmed mt-1">单击卡片查看详情</p>
+      <p class="text-sm text-toned">{{ t('library.detail.empty') }}</p>
+      <p class="text-[11px] text-dimmed mt-1">{{ t('library.detail.empty_hint') }}</p>
     </div>
 
     <div v-else-if="pkg" class="p-4 space-y-4">
@@ -19,33 +19,33 @@
             {{ pkg.root.label || sgID }}
           </h3>
           <p class="text-[11px] text-dimmed mt-0.5">
-            {{ pkg.root.graph?.nodes?.length ?? 0 }} 节点 · {{ pkg.root.outputPins?.length ?? 0 }} 出口
+            {{ t('library.detail.nodes_and_outputs', { n: pkg.root.graph?.nodes?.length ?? 0, m: pkg.root.outputPins?.length ?? 0 }) }}
           </p>
         </div>
       </header>
 
       <section v-if="pkg.root.description" class="space-y-1.5">
-        <label class="block text-xs text-toned">描述</label>
+        <label class="block text-xs text-toned">{{ t('library.detail.description') }}</label>
         <p class="text-xs text-default whitespace-pre-line">{{ pkg.root.description }}</p>
       </section>
 
       <section class="space-y-1 text-[11px] text-dimmed">
         <div class="flex justify-between">
-          <span>嵌入子图</span>
-          <span>{{ Object.keys(pkg.embedded ?? {}).length }} 个</span>
+          <span>{{ t('library.detail.embedded') }}</span>
+          <span>{{ Object.keys(pkg.embedded ?? {}).length }} {{ t('library.detail.count_unit') }}</span>
         </div>
         <div class="flex justify-between">
-          <span>模板</span>
-          <span>{{ pkg.templates.length }} 个</span>
+          <span>{{ t('library.detail.templates') }}</span>
+          <span>{{ pkg.templates.length }} {{ t('library.detail.count_unit') }}</span>
         </div>
         <div class="flex justify-between">
-          <span>录制片段</span>
-          <span>{{ pkg.clips.length }} 个</span>
+          <span>{{ t('library.detail.snippets') }}</span>
+          <span>{{ pkg.clips.length }} {{ t('library.detail.count_unit') }}</span>
         </div>
       </section>
 
       <section v-if="(pkg.root.tags ?? []).length > 0" class="space-y-1.5">
-        <label class="block text-xs text-toned">标签</label>
+        <label class="block text-xs text-toned">{{ t('library.detail.tags') }}</label>
         <div class="flex flex-wrap gap-1">
           <UBadge v-for="t in pkg.root.tags ?? []" :key="t" size="xs" variant="subtle">{{ t }}</UBadge>
         </div>
@@ -56,7 +56,7 @@
         <button
           type="button"
           class="w-full text-left text-[11px] text-dimmed font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate"
-          :title="'点击复制 — ' + sgID"
+          :title="t('library.detail.click_to_copy') + sgID"
           @click="onCopyID"
         >
           {{ sgID }}
@@ -71,10 +71,10 @@
           icon="i-tabler-arrow-bar-to-down"
           @click="$emit('import', sgID)"
         >
-          导入到容器
+          {{ t('library.detail.import') }}
         </UButton>
         <UButton size="sm" variant="soft" color="error" icon="i-tabler-trash" @click="onDelete">
-          删除
+          {{ t('library.detail.delete') }}
         </UButton>
       </div>
     </div>
@@ -83,10 +83,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { SubgraphPackage } from '@/lib/backend'
 import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@nuxt/ui/composables'
+
+const { t } = useI18n()
 
 const props = defineProps<{ sgID: string | null }>()
 
@@ -107,27 +110,27 @@ async function onCopyID() {
   if (!props.sgID) return
   try {
     await navigator.clipboard.writeText(props.sgID)
-    toast.add({ title: '已复制 ID', color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: '复制失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.copy_failed'), description: String(e?.message ?? e), color: 'error' })
   }
 }
 
 async function onDelete() {
   if (!props.sgID || !pkg.value) return
   const yes = await confirm({
-    title: '删除库子图',
-    description: `确认删除 "${pkg.value.root.label || props.sgID}"？此操作不可恢复。`,
+    title: t('library.card.delete_confirm_title'),
+    description: t('library.card.delete_confirm_desc', { name: pkg.value.root.label || props.sgID }),
     color: 'error',
-    confirmText: '删除',
+    confirmText: t('common.delete'),
   })
   if (yes !== true) return
   const ok = await libraryStore.deletePackage(props.sgID)
   if (ok) {
-    toast.add({ title: '已删除', color: 'success' })
+    toast.add({ title: t('toast.deleted'), color: 'success' })
     emit('cleared')
   } else {
-    toast.add({ title: '删除失败', color: 'error' })
+    toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
 }
 </script>

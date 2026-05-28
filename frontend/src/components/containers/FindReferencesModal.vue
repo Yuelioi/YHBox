@@ -5,13 +5,13 @@
       <div class="p-5 space-y-3 bg-default" style="min-height: 30vh; max-height: 70vh; display: flex; flex-direction: column;">
         <div class="flex items-center gap-2 shrink-0">
           <UIcon name="i-tabler-link" class="size-5 text-primary" />
-          <h3 class="text-sm font-medium">变量 <code class="text-amber-400">{{ varName }}</code> 的引用</h3>
-          <span class="text-[10px] text-dimmed ml-auto">{{ refs.length }} 个节点</span>
+          <h3 class="text-sm font-medium">{{ t('var.refs.title_prefix') }} <code class="text-amber-400">{{ varName }}</code> {{ t('var.refs.title_suffix') }}</h3>
+          <span class="text-[10px] text-dimmed ml-auto">{{ t('var.refs.count_label', { n: refs.length }) }}</span>
         </div>
 
         <div class="flex-1 overflow-y-auto">
           <div v-if="refs.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            无引用节点
+            {{ t('var.refs.empty') }}
           </div>
           <div v-else class="space-y-1">
             <button
@@ -19,7 +19,7 @@
               :key="ref.id"
               type="button"
               class="w-full text-left px-3 py-2 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] flex items-center gap-2"
-              :title="`点击选中 + 跳到画布 ${ref.id}`"
+              :title="t('var.refs.click_to_select') + ' ' + ref.id"
               @click="onPick(ref.id)"
             >
               <UIcon :name="iconForKind(ref.kind)" class="size-3.5 shrink-0" />
@@ -32,7 +32,7 @@
         </div>
 
         <div class="text-[10px] text-dimmed text-center shrink-0">
-          点行 → 跳到节点 (关闭 modal + 选中节点)
+          {{ t('var.refs.click_to_jump_hint') }}
         </div>
       </div>
     </template>
@@ -40,8 +40,11 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
+
+const { t } = useI18n()
 
 export interface RefEntry {
   id: string

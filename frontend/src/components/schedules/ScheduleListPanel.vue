@@ -5,19 +5,19 @@
       class="rounded-xl bg-default/50 border border-default/60 border-dashed py-12 px-6 text-center"
     >
       <UIcon name="i-tabler-clock" class="size-8 text-dimmed mx-auto mb-3" />
-      <p class="text-sm text-muted">还没有计划</p>
+      <p class="text-sm text-muted">{{ t('schedule.empty') }}</p>
       <p class="text-xs text-dimmed mt-1">
-        计划绑定 cron / 热键 / 启动后一次，触发后顺序跑指定容器。
+        {{ t('schedule.empty_desc') }}
       </p>
     </div>
     <table v-else class="w-full text-sm">
       <thead class="text-xs text-dimmed uppercase tracking-wider border-b border-default">
         <tr>
-          <th class="text-left p-2">名称</th>
-          <th class="text-left p-2">触发</th>
-          <th class="text-left p-2">容器数</th>
-          <th class="text-left p-2">上次触发</th>
-          <th class="text-left p-2">启用</th>
+          <th class="text-left p-2">{{ t('schedule.table.name') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.trigger') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.count') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.last') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.enabled') }}</th>
           <th class="p-2"></th>
         </tr>
       </thead>
@@ -38,7 +38,7 @@
                   : 'bg-elevated text-dimmed'
               "
             >
-              {{ s.enabled ? '启用' : '停用' }}
+              {{ s.enabled ? t('schedule.enable') : t('schedule.disable') }}
             </span>
           </td>
           <td class="p-2 text-right">
@@ -64,25 +64,28 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { Schedule } from '@/lib/backend'
+
+const { t } = useI18n()
 
 defineProps<{ list: Schedule[] }>()
 defineEmits<{ edit: [s: Schedule]; delete: [s: Schedule] }>()
 
 function triggerLabel(s: Schedule): string {
-  const t = s.trigger
-  switch (t.kind) {
+  const tg = s.trigger
+  switch (tg.kind) {
     case 'cron':
-      if (t.subKind === 'daily') return `每日 ${t.at ?? '--:--'}`
-      if (t.subKind === 'interval') return `每 ${t.everyMinutes}m`
+      if (tg.subKind === 'daily') return t('schedule.display.daily', { at: tg.at ?? '--:--' })
+      if (tg.subKind === 'interval') return t('schedule.display.interval', { mins: tg.everyMinutes })
       return 'cron'
     case 'hotkey':
-      return `热键 ${t.hotkey ?? ''}`
+      return t('schedule.display.hotkey', { key: tg.hotkey ?? '' })
     case 'once':
-      return '启动后一次'
+      return t('schedule.trigger.once')
     case 'manual':
-      return '仅手动'
+      return t('schedule.trigger.manual')
   }
-  return t.kind
+  return tg.kind
 }
 </script>

@@ -12,6 +12,7 @@
 //              Start 单例 guard, autoCreateSubgraphForNewNode 前置 hook.
 
 import { type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useSnippetsStore, type Snippet } from '@/stores/snippets'
 import { useLibraryStore } from '@/stores/library'
@@ -64,6 +65,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     autoCreateSubgraphForNewNode, toast,
   } = opts
   const { screenToFlowCoordinate } = useVueFlow()
+  const { t } = useI18n()
 
   // ===== 核心 helper =====
 
@@ -248,7 +250,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       })
       useLibraryStore().reload()
       toast.add({
-        title: '子图已从库导入',
+        title: t('nodeCreation.lib_imported'),
         description: `SubgraphID: ${libraryID}`,
         color: 'success',
         icon: 'i-tabler-check',
@@ -256,7 +258,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     } catch (e: any) {
       console.error('LibraryExplorer pick failed:', e)
       toast.add({
-        title: '从库导入失败',
+        title: t('nodeCreation.lib_import_failed'),
         description: String(e?.message ?? e),
         color: 'error',
       })
@@ -274,11 +276,11 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     if (!draft.value) return null
     const targetGraph = activeGraph.value
     if (!targetGraph) {
-      toast.add({ title: '当前层级 graph 不可用', color: 'error' })
+      toast.add({ title: t('nodeCreation.no_graph'), color: 'error' })
       return null
     }
     if (kind === 'Start' && targetGraph.nodes.some((n) => n.kind === 'Start')) {
-      toast.add({ title: '只能有一个 Start 节点', color: 'warning' })
+      toast.add({ title: t('nodeCreation.only_one_start'), color: 'warning' })
       return null
     }
 
@@ -294,7 +296,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     if (kind === 'Subgraph') {
       const ok = await autoCreateSubgraphForNewNode(n)
       if (!ok) {
-        toast.add({ title: '建子图失败，请重试', color: 'error' })
+        toast.add({ title: t('nodeCreation.create_subgraph_failed'), color: 'error' })
         return null
       }
     }

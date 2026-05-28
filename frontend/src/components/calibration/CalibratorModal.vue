@@ -4,7 +4,7 @@
       <div class="bg-default flex flex-col">
         <header class="flex items-center gap-2 px-5 py-3 border-b border-default">
           <UIcon name="i-tabler-target" class="size-4 text-primary" />
-          <h3 class="text-sm font-medium text-highlighted">鼠标 DPI 校准</h3>
+          <h3 class="text-sm font-medium text-highlighted">{{ t('calibration.title') }}</h3>
           <span class="ml-auto" />
           <UButton
             size="xs"
@@ -23,11 +23,11 @@
           >
             <UIcon name="i-tabler-keyboard" class="size-8 text-primary mx-auto" />
             <p class="text-sm text-highlighted">
-              切到游戏，按
-              <code class="bg-elevated/60 px-1.5 py-0.5 rounded text-toned">F8</code> 开始
+              {{ t('calibration.switch_game_hint') }}
+              <code class="bg-elevated/60 px-1.5 py-0.5 rounded text-toned">F8</code> {{ t('calibration.start_label') }}
             </p>
             <p class="text-[11px] text-dimmed">
-              按下后 3 秒倒计时，期间最后调整姿态；倒计时结束自动开始累计
+              {{ t('calibration.countdown_desc') }}
             </p>
           </div>
 
@@ -36,8 +36,8 @@
             class="rounded-md border border-amber-500/40 bg-amber-500/10 p-5 text-center space-y-2"
           >
             <div class="text-6xl font-mono tabular-nums text-amber-400">{{ countdown }}</div>
-            <p class="text-sm text-amber-300">即将开始累计，请就位</p>
-            <p class="text-[10px] text-dimmed">提前按 F8 = 立即开始</p>
+            <p class="text-sm text-amber-300">{{ t('calibration.ready_status') }}</p>
+            <p class="text-[10px] text-dimmed">{{ t('calibration.f8_shortcut') }}</p>
           </div>
 
           <div
@@ -46,12 +46,12 @@
           >
             <div class="flex items-center justify-center gap-2 text-emerald-300">
               <span class="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span class="text-sm">累计中 · 原地转 360°</span>
+              <span class="text-sm">{{ t('calibration.recording_status') }}</span>
             </div>
             <div class="text-4xl font-mono tabular-nums text-emerald-300">{{ liveAbsDx }}</div>
-            <p class="text-[10px] text-dimmed font-mono">|dy| {{ liveAbsDy }}（垂直，仅参考）</p>
+            <p class="text-[10px] text-dimmed font-mono">|dy| {{ liveAbsDy }} {{ t('calibration.vertical_hint') }}</p>
             <p class="text-[11px] text-emerald-300/80 pt-2">
-              转完按 <code class="bg-emerald-500/20 px-1.5 py-0.5 rounded">F8</code> 停止
+              {{ t('calibration.press_f8_stop') }}
             </p>
           </div>
 
@@ -60,9 +60,9 @@
             class="rounded-md border border-primary/40 bg-primary/10 p-5 text-center space-y-2"
           >
             <UIcon name="i-tabler-circle-check" class="size-8 text-primary mx-auto" />
-            <p class="text-sm text-highlighted">已记录</p>
+            <p class="text-sm text-highlighted">{{ t('calibration.recorded_label') }}</p>
             <div class="text-4xl font-mono tabular-nums text-primary">{{ liveAbsDx }}</div>
-            <p class="text-[11px] text-dimmed">点下方「保存」写入本机基准；或按 F8 重测</p>
+            <p class="text-[11px] text-dimmed">{{ t('calibration.save_or_retest') }}</p>
           </div>
 
           <p v-if="hotkeyWarn" class="text-[11px] text-warning">
@@ -79,17 +79,17 @@
             icon="i-tabler-refresh"
             :disabled="stage === 'waiting' || stage === 'countingDown'"
             @click="resetSession"
-            >重测</UButton
+            >{{ t('common.retest') }}</UButton
           >
           <span class="ml-auto" />
-          <UButton variant="ghost" color="neutral" @click="onCancel">取消</UButton>
+          <UButton variant="ghost" color="neutral" @click="onCancel">{{ t('common.cancel') }}</UButton>
           <UButton
             color="primary"
             icon="i-tabler-device-floppy"
             :disabled="stage !== 'done' || liveAbsDx === 0"
             @click="onSave"
           >
-            保存（{{ liveAbsDx }}）
+            {{ t('calibration.save_with_value', { value: liveAbsDx }) }}
           </UButton>
         </footer>
       </div>
@@ -100,7 +100,10 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { Events } from '@wailsio/runtime'
+import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
+
+const { t } = useI18n()
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
@@ -191,7 +194,7 @@ async function finishCountdown() {
   stage.value = 'accumulating'
   const ok = await backend.calibration.start()
   if (ok === undefined) {
-    hotkeyWarn.value = '校准服务启动失败（端口被占？）'
+    hotkeyWarn.value = t('calibration.service_failed')
     stage.value = 'waiting'
     return
   }

@@ -48,13 +48,16 @@
       />
     </div>
     <div class="text-[10px] text-dimmed mt-1">
-      在轨道上拖一段添加保留段; 拖蓝条边缘改长度; hover 显示 × 删除
+      {{ t('clipTimeline.hint') }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Range { fromMs: number; toMs: number }
 

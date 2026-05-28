@@ -17,6 +17,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   id: string
@@ -24,7 +27,7 @@ const props = defineProps<{
   selected?: boolean
 }>()
 
-const label = computed<string>(() => props.data?.config?.label ?? '注释')
+const label = computed<string>(() => props.data?.config?.label ?? t('nodeMisc.comment_default'))
 const color = computed<string>(() => props.data?.config?.color ?? '#fbbf24')
 const width = computed<number>(() => Number(props.data?.config?.width ?? 200))
 const height = computed<number>(() => Number(props.data?.config?.height ?? 150))

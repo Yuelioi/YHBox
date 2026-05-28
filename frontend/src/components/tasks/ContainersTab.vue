@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <header class="flex items-center gap-3">
-      <UInput v-model="search" icon="i-tabler-search" placeholder="搜索容器..." class="flex-1" />
+      <UInput v-model="search" icon="i-tabler-search" :placeholder="t('containers.search_placeholder')" class="flex-1" />
       <UButton
         size="sm"
         :variant="batch.enabled.value ? 'solid' : 'soft'"
@@ -9,7 +9,7 @@
         icon="i-tabler-checks"
         @click="batch.toggleMode()"
       >
-        {{ batch.enabled.value ? '退出选择' : '选择' }}
+        {{ batch.enabled.value ? t('containers.exit_select') : t('containers.select') }}
       </UButton>
       <UButton
         v-if="batch.enabled.value && batch.count.value > 0"
@@ -18,9 +18,9 @@
         icon="i-tabler-trash"
         @click="onBatchDelete"
       >
-        删除 ({{ batch.count.value }})
+        {{ t('containers.delete_count', { n: batch.count.value }) }}
       </UButton>
-      <UButton color="primary" icon="i-tabler-plus" @click="onCreate">新建容器</UButton>
+      <UButton color="primary" icon="i-tabler-plus" @click="onCreate">{{ t('containers.create') }}</UButton>
     </header>
 
     <!-- Tag chip 筛选（按使用计数倒序，横向滚动） -->
@@ -44,9 +44,9 @@
       class="rounded-xl bg-default/50 border border-default/60 border-dashed py-12 px-6 text-center"
     >
       <UIcon name="i-tabler-schema" class="size-8 text-dimmed mx-auto mb-3" />
-      <p class="text-sm text-muted">还没有容器</p>
+      <p class="text-sm text-muted">{{ t('containers.empty_title') }}</p>
       <p class="text-xs text-dimmed mt-1">
-        容器是节点图蓝图，包含变量、控制流、模板检测和 Action 调用。
+        {{ t('containers.empty_desc') }}
       </p>
     </div>
 
@@ -73,11 +73,11 @@
           v-if="store.isEditing(c.id)"
           name="i-tabler-lock"
           class="absolute top-2 right-2 size-3.5 text-amber-300"
-          :title="'另一窗口正在编辑中'"
+          :title="t('containers.editing_locked_tip')"
         />
         <div class="min-w-0">
           <h3 class="text-sm font-medium text-highlighted truncate">
-            {{ c.name || '(未命名)' }}
+            {{ c.name || t('common.untitled') }}
           </h3>
           <p v-if="c.description" class="text-xs text-dimmed truncate mt-0.5">
             {{ c.description }}
@@ -85,7 +85,7 @@
           <div class="flex items-center gap-2 mt-1.5 flex-wrap">
             <span class="text-[11px] text-dimmed inline-flex items-center gap-1">
               <UIcon name="i-tabler-cpu" class="size-3" />
-              {{ c.graph.nodes.length }} 节点
+              {{ t('containers.node_count', { n: c.graph.nodes.length }) }}
             </span>
             <span v-if="c.hotkey" class="text-[11px] text-dimmed inline-flex items-center gap-1">
               <UIcon name="i-tabler-keyboard" class="size-3" />
@@ -101,7 +101,7 @@
             variant="soft"
             icon="i-tabler-player-play"
             @click="onRun(c)"
-            >运行</UButton
+            >{{ t('containers.run') }}</UButton
           >
           <UButton
             v-else
@@ -110,17 +110,17 @@
             variant="soft"
             icon="i-tabler-square"
             @click="onStop()"
-            >停止</UButton
+            >{{ t('containers.stop') }}</UButton
           >
           <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-edit" @click="onEdit(c)"
-            >编辑</UButton
+            >{{ t('containers.edit') }}</UButton
           >
           <UButton
             size="xs"
             variant="ghost"
             color="neutral"
             icon="i-tabler-external-link"
-            title="在新窗口打开"
+            :title="t('containers.open_new_window_tip')"
             @click="onEditInWindow(c)"
           />
           <div class="flex-1" />
@@ -148,15 +148,14 @@
         <div class="p-6 space-y-4 bg-default">
           <div class="flex items-center gap-2">
             <UIcon name="i-tabler-alert-triangle" class="size-4 text-warning" />
-            <h3 class="text-sm font-medium">删除容器？</h3>
+            <h3 class="text-sm font-medium">{{ t('containers.delete.title') }}</h3>
           </div>
           <p class="text-xs text-muted">
-            将删除 <span class="text-default">{{ pendingDelete?.name }}</span
-            >，无法恢复。
+            {{ t('containers.delete.desc_prefix') }}<span class="text-default">{{ pendingDelete?.name }}</span>{{ t('containers.delete.desc_suffix') }}
           </p>
           <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="ghost" color="neutral" @click="pendingDelete = null">取消</UButton>
-            <UButton color="error" icon="i-tabler-trash" @click="onConfirmDelete">删除</UButton>
+            <UButton variant="ghost" color="neutral" @click="pendingDelete = null">{{ t('common.cancel') }}</UButton>
+            <UButton color="error" icon="i-tabler-trash" @click="onConfirmDelete">{{ t('containers.delete.confirm') }}</UButton>
           </div>
         </div>
       </template>
@@ -166,6 +165,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useContainersStore } from '@/stores/containers'
 import { useExecutionStore } from '@/stores/execution'
@@ -173,6 +173,8 @@ import { useBatchSelect } from '@/composables/useBatchSelect'
 import { useConfirm } from '@/composables/useConfirm'
 import { backend, type Container } from '@/lib/backend'
 import { useRouter } from 'vue-router'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const store = useContainersStore()
@@ -188,17 +190,17 @@ async function onBatchDelete() {
   const ids = [...batch.selected.value]
   if (ids.length === 0) return
   const yes = await confirm({
-    title: '批量删除容器',
-    description: `确认删除 ${ids.length} 个容器？此操作不可恢复。`,
+    title: t('containers.batch_delete.title'),
+    description: t('containers.batch_delete.desc', { n: ids.length }),
     color: 'error',
-    confirmText: '删除',
+    confirmText: t('containers.batch_delete.confirm'),
   })
   if (yes !== true) return
   const ok = await store.deleteMany(ids)
   if (ok) {
-    toast.add({ title: `已删除 ${ids.length} 个`, color: 'success' })
+    toast.add({ title: t('toast.deleted_count', { n: ids.length }), color: 'success' })
   } else {
-    toast.add({ title: '批量删除部分失败（详情见日志）', color: 'warning' })
+    toast.add({ title: t('containers.toast.batch_partial_fail'), color: 'warning' })
   }
   batch.clear()
   batch.disable()
@@ -212,7 +214,7 @@ function isRunning(id: string): boolean {
 async function onRun(c: Container) {
   await store.run(c.id)
   toast.add({
-    title: `已加入运行队列: ${c.name}`,
+    title: t('containers.toast.queue_added', { name: c.name }),
     color: 'success',
     icon: 'i-tabler-player-play',
   })
@@ -221,7 +223,7 @@ async function onRun(c: Container) {
 async function onStop() {
   await store.stopAll()
   toast.add({
-    title: '已发出停止信号',
+    title: t('containers.toast.stop_signal'),
     color: 'neutral',
     icon: 'i-tabler-square',
   })
@@ -262,7 +264,7 @@ const filtered = computed(() => {
 })
 
 async function onCreate() {
-  const name = `容器 ${store.list.length + 1}`
+  const name = t('containers.create_default_name', { n: store.list.length + 1 })
   const c = await store.create(name)
   if (c) {
     onEdit(c)
@@ -280,7 +282,7 @@ async function onEditInWindow(c: Container) {
     await backend.containers.openEditorWindow(c.id)
   } catch (e) {
     console.error('openEditorWindow failed:', e)
-    toast.add({ title: '打开新窗口失败', description: String(e), color: 'error' })
+    toast.add({ title: t('toast.open_window_failed'), description: String(e), color: 'error' })
   }
 }
 

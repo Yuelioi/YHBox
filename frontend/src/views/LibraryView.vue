@@ -3,7 +3,7 @@
     <TabToolbar :tabs="sourceTabs" v-model:activeTab="sourceTab">
       <template #actions>
         <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-refresh" @click="reload">
-          刷新
+          {{ t('library.refresh') }}
         </UButton>
       </template>
     </TabToolbar>
@@ -13,7 +13,7 @@
         <div class="px-4 pt-3 pb-2 flex items-center gap-2 shrink-0">
           <UInput
             v-model="search"
-            placeholder="搜索子图..."
+            :placeholder="t('library.search_placeholder')"
             icon="i-tabler-search"
             size="sm"
             class="flex-1"
@@ -23,14 +23,14 @@
               :variant="viewMode === 'grid' ? 'solid' : 'soft'"
               color="neutral"
               icon="i-tabler-layout-grid"
-              title="网格视图"
+              :title="t('library.view_grid')"
               @click="setViewMode('grid')"
             />
             <UButton
               :variant="viewMode === 'list' ? 'solid' : 'soft'"
               color="neutral"
               icon="i-tabler-list"
-              title="列表视图"
+              :title="t('library.view_list')"
               @click="setViewMode('list')"
             />
           </UButtonGroup>
@@ -55,10 +55,10 @@
           <p v-else class="text-xs text-dimmed text-center py-8">
             {{
               libraryStore.loading
-                ? '加载中...'
+                ? t('library.loading')
                 : search
-                  ? '没有匹配的子图'
-                  : '库还是空的，从容器编辑器把子图分享到库即可'
+                  ? t('library.no_match')
+                  : t('library.empty')
             }}
           </p>
         </div>
@@ -82,7 +82,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import TabToolbar from '@/components/common/TabToolbar.vue'
+
+const { t } = useI18n()
 import LibraryCard from '@/components/library/LibraryCard.vue'
 import LibraryDetailPanel from '@/components/library/LibraryDetailPanel.vue'
 import ComingSoonSection from '@/components/library/ComingSoonSection.vue'
@@ -96,10 +99,10 @@ const { mode: viewMode, set: setViewMode } = useLibraryViewMode()
 const selectedSgID = ref<string | null>(null)
 const search = ref('')
 
-const sourceTabs = [
-  { label: '本机', value: 'local' },
-  { label: '在线（即将上线）', value: 'online' },
-]
+const sourceTabs = computed(() => [
+  { label: t('library.tab.local'), value: 'local' },
+  { label: t('library.tab.online'), value: 'online' },
+])
 const sourceTab = ref('local')
 
 const filtered = computed<string[]>(() => {

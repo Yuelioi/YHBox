@@ -7,7 +7,7 @@
         color="neutral"
         size="sm"
         class="w-full justify-start font-normal"
-        :title="modelValue || '未选择'"
+        :title="modelValue || t('template.picker.not_selected')"
       >
         <div class="flex items-center gap-2 min-w-0 flex-1">
           <img
@@ -24,7 +24,7 @@
           />
           <div class="min-w-0 flex-1 text-left">
             <div class="text-xs text-highlighted truncate">
-              {{ foundMeta?.name || modelValue || '选择模板...' }}
+              {{ foundMeta?.name || modelValue || t('template.picker.select_placeholder') }}
             </div>
             <div v-if="foundMeta" class="text-[10px] text-dimmed font-mono truncate">
               {{ modelValue }}
@@ -43,7 +43,7 @@
               size="sm"
               class="w-full"
               icon="i-tabler-search"
-              placeholder="搜索 key / 名称 / 描述..."
+              :placeholder="t('template.manager.search')"
             />
             <UButton
               size="xs"
@@ -53,7 +53,7 @@
               class="w-full justify-center"
               @click="onCaptureNew"
             >
-              + 现截一张
+              {{ t('template.picker.capture_new') }}
             </UButton>
           </div>
           <div
@@ -61,13 +61,13 @@
             class="px-3 py-6 text-center text-[11px] text-amber-300/80"
           >
             <UIcon name="i-tabler-alert-triangle" class="size-4 mx-auto mb-1" />
-            模板库为空，去 任务 → 模板 tab 先截图
+            {{ t('template.picker.library_empty') }}
           </div>
           <div
             v-else-if="filtered.length === 0"
             class="px-3 py-6 text-center text-[11px] text-dimmed"
           >
-            没有匹配「{{ search }}」的模板
+            {{ t('template.manager.no_match', { search }) }}
           </div>
           <ul v-else class="flex-1 overflow-y-auto py-1">
             <li v-for="[k, m] in filtered" :key="k">
@@ -110,24 +110,25 @@
     </UPopover>
 
     <!-- 状态行 -->
-    <p v-if="!modelValue" class="text-[10px] text-dimmed">未选择模板</p>
+    <p v-if="!modelValue" class="text-[10px] text-dimmed">{{ t('template.picker.no_template_selected') }}</p>
     <p v-else-if="!foundMeta" class="text-[10px] text-rose-300/80">
       <UIcon name="i-tabler-x" class="size-3 inline" />
-      模板 "{{ modelValue }}" 不存在
+      {{ t('template.picker.template_missing', { name: modelValue }) }}
     </p>
     <p v-else class="text-[10px] text-dimmed truncate">
-      {{ foundMeta.width }}×{{ foundMeta.height }} · 录制于 {{ foundMeta.recordedResolution[0] }}×{{
-        foundMeta.recordedResolution[1]
-      }}
+      {{ foundMeta.width }}×{{ foundMeta.height }} · {{ t('template.manager.recorded_at', { time: `${foundMeta.recordedResolution[0]}×${foundMeta.recordedResolution[1]}` }) }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useTemplatesStore } from '@/stores/templates'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { backend } from '@/lib/backend'
+
+const { t } = useI18n()
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()

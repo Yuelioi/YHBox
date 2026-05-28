@@ -1,4 +1,5 @@
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { MarkerType } from '@vue-flow/core'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -48,6 +49,7 @@ export interface FlowEdge {
  */
 export function useContainerDraft(containerID: string) {
   const editorStore = useContainerEditorStore()
+  const { t } = useI18n()
 
   const draft = ref<Container | null>(null)
   const dirty = ref(false)
@@ -112,7 +114,7 @@ export function useContainerDraft(containerID: string) {
             id: sg.entry.nodeID,
             type: 'SubgraphInput',
             position: { x: sg.entry.x ?? 80, y: sg.entry.y ?? 160 },
-            data: { kind: 'SubgraphInput', config: {}, disabled: false, label: '入口', _virtual: true, _markerRole: 'entry' },
+            data: { kind: 'SubgraphInput', config: {}, disabled: false, label: t('editorAux.entry_pin'), _virtual: true, _markerRole: 'entry' },
           })
         }
         for (const p of sg.outputPins ?? []) {
@@ -121,7 +123,7 @@ export function useContainerDraft(containerID: string) {
             id: p.nodeID,
             type: 'SubgraphOutput',
             position: { x: p.x ?? 420, y: p.y ?? 160 },
-            data: { kind: 'SubgraphOutput', config: { DeclID: p.id }, disabled: false, label: p.name ?? '出口', _virtual: true, _markerRole: 'output', _declID: p.id },
+            data: { kind: 'SubgraphOutput', config: { DeclID: p.id }, disabled: false, label: p.name ?? t('editorAux.output_pin'), _virtual: true, _markerRole: 'output', _declID: p.id },
           })
         }
       }

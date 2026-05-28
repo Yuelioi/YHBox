@@ -3,6 +3,7 @@
 //
 // 抽自 NodeInspector: ContainerEditorView 也能用 (Inspector 之外的位置展示警告).
 import { computed, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 
 // BFS: 从 (startNodeID.startPin) 出发, 沿 edges 走到的所有节点 id
@@ -36,6 +37,7 @@ export function useConcurrencyWarning(opts: {
   nodes: Ref<GraphNode[] | undefined>
   edges: Ref<GraphEdge[] | undefined>
 }) {
+  const { t } = useI18n()
   const concurrencyWarning = computed<string>(() => {
     const n = opts.node.value
     if (!n || (n.kind !== 'Parallel' && n.kind !== 'Race')) return ''
@@ -69,7 +71,7 @@ export function useConcurrencyWarning(opts: {
       }
     }
     if (conflicts.size === 0) return ''
-    return `分支同时写入: ${[...conflicts].join(', ')}(结果不确定)`
+    return t('editorAux.warning_concurrent_write', { nodes: [...conflicts].join(', ') })
   })
 
   return { concurrencyWarning }

@@ -1,14 +1,14 @@
 <template>
-  <div v-if="!subgraph" class="text-sm text-dimmed">未选中节点</div>
+  <div v-if="!subgraph" class="text-sm text-dimmed">{{ t('subgraphProps.no_selection') }}</div>
   <div v-else class="space-y-4">
     <header class="flex items-center gap-2 pb-3 border-b border-default">
       <UIcon name="i-tabler-package" class="size-4 text-fuchsia-300" />
       <h3 class="text-sm font-medium text-highlighted">{{ subgraph.label }}</h3>
-      <UBadge size="xs" color="neutral" variant="soft">{{ subgraph.outputPins?.length ?? 0 }} 出口</UBadge>
+      <UBadge size="xs" color="neutral" variant="soft">{{ t('subgraphProps.outputs_count', { n: subgraph.outputPins?.length ?? 0 }) }}</UBadge>
     </header>
 
     <section class="space-y-2">
-      <label class="text-xs text-toned">标签</label>
+      <label class="text-xs text-toned">{{ t('subgraphProps.name') }}</label>
       <UInput
         :model-value="subgraph.label"
         size="sm"
@@ -17,7 +17,7 @@
     </section>
 
     <section class="space-y-2">
-      <label class="text-xs text-toned">描述</label>
+      <label class="text-xs text-toned">{{ t('subgraphProps.description') }}</label>
       <UTextarea
         :model-value="subgraph.description ?? ''"
         :rows="2"
@@ -30,20 +30,20 @@
     <section v-if="subgraph.recordingContext" class="space-y-2 rounded-md bg-elevated/30 border border-default/40 p-3">
       <div class="flex items-center gap-1.5">
         <UIcon name="i-tabler-clipboard-data" class="size-3.5 text-toned" />
-        <span class="text-xs text-toned font-medium">录制元数据</span>
+        <span class="text-xs text-toned font-medium">{{ t('subgraphProps.recording_meta') }}</span>
         <UButton
           size="xs"
           variant="ghost"
           color="neutral"
           icon="i-tabler-refresh"
-          title="重置为录制时的值（要重新录制才能改回）"
+          :title="t('subgraphProps.reset_recording_tip')"
           class="ml-auto"
           @click="onResetRecording"
         />
       </div>
       <div class="space-y-2">
         <div class="space-y-1">
-          <label class="text-[11px] text-dimmed">源 360° HID counts</label>
+          <label class="text-[11px] text-dimmed">{{ t('subgraphProps.source_counts360') }}</label>
           <UInputNumber
             :model-value="subgraph.recordingContext.mouseCounts360"
             size="sm"
@@ -52,7 +52,7 @@
           />
         </div>
         <div class="space-y-1">
-          <label class="text-[11px] text-dimmed">源分辨率</label>
+          <label class="text-[11px] text-dimmed">{{ t('subgraphProps.source_resolution') }}</label>
           <div class="flex items-center gap-1.5">
             <UInputNumber
               :model-value="subgraph.recordingContext.resolution?.[0] ?? 0"
@@ -72,7 +72,7 @@
           </div>
         </div>
         <p class="text-[10px] text-dimmed">
-          录制时间：{{ subgraph.recordingContext.recordedAt || '—' }}
+          {{ t('subgraphProps.recorded_at', { time: subgraph.recordingContext.recordedAt || '—' }) }}
         </p>
       </div>
     </section>
@@ -94,6 +94,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface RecordingContext {
   mouseCounts360: number

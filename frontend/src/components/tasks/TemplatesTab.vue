@@ -2,20 +2,23 @@
   <div class="space-y-4">
     <TemplateManager>
       <template #toolbar-right>
-        <UButton color="primary" icon="i-tabler-camera" @click="onNewTemplate">截图新模板</UButton>
+        <UButton color="primary" icon="i-tabler-camera" @click="onNewTemplate">{{ t('template.capture.title') }}</UButton>
       </template>
     </TemplateManager>
 
     <p class="text-xs text-dimmed">
-      全局模板库。容器节点 WaitTemplate / CheckTemplate / ClickTemplate 引用这里的 key。
+      {{ t('template.tab_intro') }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { useTemplatesStore } from '@/stores/templates'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
+
+const { t } = useI18n()
 
 const tplStore = useTemplatesStore()
 

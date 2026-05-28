@@ -1,6 +1,7 @@
 // useEditorSave onSave + 孤儿 GC 一体化。
 // onSaveAndClose 留在 view（依赖 view-local close 状态）。
 import type { Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend, type Container } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
@@ -12,6 +13,7 @@ export function useEditorSave(opts: {
 }) {
   const { draft, dirty, gcOrphanSubgraphs, toast } = opts
   const editorStore = useContainerEditorStore()
+  const { t } = useI18n()
 
   async function onSave(): Promise<boolean> {
     if (!draft.value) return false
@@ -23,15 +25,15 @@ export function useEditorSave(opts: {
     for (const sgID of orphanIDs) {
       try {
         await backend.containers.deleteSubgraph(draft.value.id, sgID)
-        console.log('[GC] 删孤儿子图', sgID)
+        console.log('[GC] orphan subgraph deleted', sgID)
       } catch (e) {
-        console.warn('[GC] 删孤儿失败', sgID, e)
+        console.warn('[GC] orphan delete failed', sgID, e)
       }
     }
 
     const ok = await backend.containers.update(draft.value.id, JSON.stringify(patch))
     if (ok === undefined) {
-      toast.add({ title: '主图保存失败', color: 'error' })
+      toast.add({ title: t('editorSave.main_save_failed'), color: 'error' })
       return false
     }
     const orphanSet = new Set(orphanIDs)
@@ -48,14 +50,14 @@ export function useEditorSave(opts: {
     }
     if (failed.length > 0) {
       toast.add({
-        title: `${failed.length} 个子图保存失败`,
+        title: t('editorSave.subgraph_save_failed', { n: failed.length }),
         description: failed.join(', '),
         color: 'error',
       })
       // 保留 dirty=true，用户可重试 / 不被误导认为已保存
       return false
     }
-    toast.add({ title: '已保存', color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('toast.saved'), color: 'success', icon: 'i-tabler-check' })
     dirty.value = false
     return true
   }

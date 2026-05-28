@@ -41,6 +41,9 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -170,22 +173,22 @@ const syntaxError = computed<string>(() => {
     if (c === '(') depth++
     else if (c === ')') {
       depth--
-      if (depth < 0) return '括号不匹配'
+      if (depth < 0) return t('expression.error.paren_mismatch')
     }
   }
-  if (inStr) return '字符串未闭合：缺少 "'
-  if (depth !== 0) return '括号不匹配：缺 ' + Math.abs(depth) + ' 个 ' + (depth > 0 ? ')' : '(')
+  if (inStr) return t('expression.error.string_unclosed')
+  if (depth !== 0) return t('expression.error.paren_missing', { count: Math.abs(depth), char: depth > 0 ? ')' : '(' })
 
   // 2) bareword 检测：单 token 像标识符但不是 true/false/null/函数名（无后跟 '('）
   //    最常见的踩坑：用户想写字符串字面量但忘了双引号。
   if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v)) {
     if (!['true', 'false', 'null'].includes(v)) {
-      return `"${v}" 看起来是裸词；字符串字面量请加双引号 "${v}"，变量请加 $vars./$params./$sys.`
+      return t('expression.error.bare_word', { var: v })
     }
   }
 
   // 3) 表达式以二元运算符结尾
-  if (/[+\-*/%<>=!&|?:,]\s*$/.test(v)) return '表达式以运算符结尾，缺右侧操作数'
+  if (/[+\-*/%<>=!&|?:,]\s*$/.test(v)) return t('expression.error.op_end')
 
   return ''
 })
@@ -199,13 +202,13 @@ const typeWarning = computed<string>(() => {
   // 单字面量
   switch (props.expectedType) {
     case 'number':
-      if (!/^-?\d+(\.\d+)?$/.test(v)) return '预期 number 类型，看起来不是数字'
+      if (!/^-?\d+(\.\d+)?$/.test(v)) return t('expression.error.expect_number')
       break
     case 'bool':
-      if (v !== 'true' && v !== 'false') return '预期 bool，应为 true / false'
+      if (v !== 'true' && v !== 'false') return t('expression.error.expect_bool')
       break
     case 'string':
-      if (!(v.startsWith('"') && v.endsWith('"'))) return '预期 string，应用 "..." 包起'
+      if (!(v.startsWith('"') && v.endsWith('"'))) return t('expression.error.expect_string')
       break
   }
   return ''

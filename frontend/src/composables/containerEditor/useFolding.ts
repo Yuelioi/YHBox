@@ -1,6 +1,7 @@
 // useFolding 折叠选中节点为新子图 + 主图换 Subgraph 调用节点。
 // 1in1out 时 (外部入边 + 外部出边 都唯一) 自动重连; 其他情况保留 dangling 提示手动.
 import type { Ref, ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useConfirm } from '@/composables/useConfirm'
@@ -16,6 +17,7 @@ export function useFolding(opts: {
 }) {
   const { draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast } = opts
   const { confirm } = useConfirm()
+  const { t } = useI18n()
 
   async function onFoldSelection() {
     if (!draft.value) return
@@ -25,25 +27,25 @@ export function useFolding(opts: {
     )
     if (candidates.length === 0) {
       toast.add({
-        title: '选中里没有可折叠的节点（Start / MouseCalibration 不允许折叠）',
+        title: t('folding.no_foldable'),
         color: 'warning',
       })
       return
     }
     // v2 Plan B Task C.4：用 ConfirmDialog 带 input 替换 window.prompt
     const labelResult = await confirm({
-      title: '新建子图',
-      description: '为折叠出来的子图取个名字',
-      inputDefault: '折叠 ' + new Date().toLocaleTimeString().slice(0, 5),
-      inputLabel: '子图名称',
-      inputPlaceholder: '例如：上钩处理',
+      title: t('folding.new_subgraph_title'),
+      description: t('folding.new_subgraph_desc'),
+      inputDefault: t('folding.default_name_prefix') + ' ' + new Date().toLocaleTimeString().slice(0, 5),
+      inputLabel: t('folding.subgraph_name_label'),
+      inputPlaceholder: t('folding.subgraph_name_placeholder'),
     })
     if (typeof labelResult !== 'string' || !labelResult.trim()) return
     const label = labelResult.trim()
 
     const sgRaw = (await backend.containers.createSubgraph(draft.value.id, label)) as any
     if (!sgRaw) {
-      toast.add({ title: '创建子图失败', color: 'error' })
+      toast.add({ title: t('folding.create_failed'), color: 'error' })
       return
     }
     const candidateIDs = new Set(candidates.map((n: any) => n.id))
@@ -67,7 +69,7 @@ export function useFolding(opts: {
       else if (candidateIDs.has(fromID)) externalOuts.push(e)
     }
     if (externalIns.length > 1) {
-      toast.add({ title: '多个外部入口暂不支持折叠（v1 限制）', color: 'warning' })
+      toast.add({ title: t('folding.multi_entry_unsupported'), color: 'warning' })
       return
     }
 
@@ -131,14 +133,14 @@ export function useFolding(opts: {
     syncFlowFromDraft()
 
     toast.add({
-      title: '已折叠 ' + candidates.length + ' 个节点为子图: ' + label,
+      title: t('folding.folded_success', { n: candidates.length, name: label }),
       color: 'success',
     })
     if (autoConnectable) {
-      toast.add({ title: '外部连线已自动重连到子图调用节点', color: 'primary', duration: 4000 })
+      toast.add({ title: t('folding.auto_reconnected'), color: 'primary', duration: 4000 })
     } else if (externalIns.length > 0 || externalOuts.length > 0) {
       toast.add({
-        title: '注意：父图与子图之间的外部连线未自动重连，请手动检查',
+        title: t('folding.manual_check_needed'),
         color: 'warning',
         duration: 8000,
       })

@@ -7,6 +7,7 @@
 // 实装 backlog 见 debug/docs/superpowers/specs/2026-05-20-editor-v2-backlog.md (相关条目).
 // 需要的后端 RPC: backend.containers.createSubgraph / deleteSubgraph / updateSubgraphMeta.
 import type { Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 interface CollapseDeps {
   draft: Ref<any>
@@ -21,9 +22,10 @@ function warnOnce(msg: string) {
 }
 
 export function useCollapsedNode(_deps: CollapseDeps) {
+  const { t } = useI18n()
   // Collapse 选中节点为 CollapsedNode + isAnonymous Subgraph.
   async function collapse(_selectedNodeIDs: string[]): Promise<void> {
-    warnOnce('collapse: not yet implemented; 手写 JSON 走 isAnonymous Subgraph')
+    warnOnce('collapse: not yet implemented; ' + t('editorAux.error_manual_json'))
   }
 
   // Expand 反操作 — 把 CollapsedNode 内部节点搬回父图, 删 backing Subgraph.

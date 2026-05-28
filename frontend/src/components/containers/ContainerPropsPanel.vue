@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!container" class="text-sm text-dimmed">加载中...</div>
+  <div v-if="!container" class="text-sm text-dimmed">{{ t('common.loading') }}</div>
 
   <div v-else>
     <!-- Header -->
@@ -11,10 +11,10 @@
       </div>
       <div class="min-w-0 flex-1">
         <h3 class="text-sm font-medium text-highlighted truncate leading-tight">
-          {{ container.name || '(未命名)' }}
+          {{ container.name || t('common.untitled') }}
         </h3>
         <p class="text-[11px] text-dimmed mt-0.5">
-          {{ container.graph.nodes.length }} 个节点 · {{ container.graph.edges.length }} 条边
+          {{ t('containers.node_and_edge_count', { n: container.graph.nodes.length, m: container.graph.edges.length }) }}
         </p>
       </div>
     </header>
@@ -22,46 +22,46 @@
     <!-- Section: 基本信息 -->
     <section class="mb-6">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
-        基本信息
+        {{ t('containers.basic_info') }}
       </h4>
 
       <div class="space-y-4">
         <div class="space-y-1.5">
-          <label class="block text-xs text-toned">名称</label>
+          <label class="block text-xs text-toned">{{ t('common.name') }}</label>
           <UInput
             :model-value="container.name"
             size="md"
             class="w-full"
-            placeholder="给容器起个名字"
+            :placeholder="t('containers.name_placeholder')"
             @update:model-value="$emit('update', { name: String($event) })"
           />
         </div>
 
         <div class="space-y-1.5">
-          <label class="block text-xs text-toned">触发热键</label>
+          <label class="block text-xs text-toned">{{ t('containers.hotkey_label') }}</label>
           <HotkeyCaptureInput
             :model-value="container.hotkey ?? ''"
             @update:model-value="(v: string) => $emit('update', { hotkey: v })"
           />
           <p class="text-[11px] text-dimmed leading-snug">
-            按下热键立即运行此容器一次。留空则需手动触发。
+            {{ t('containers.hotkey_hint') }}
           </p>
         </div>
 
         <div class="space-y-1.5">
-          <label class="block text-xs text-toned">描述</label>
+          <label class="block text-xs text-toned">{{ t('common.description') }}</label>
           <UTextarea
             :model-value="container.description"
             size="md"
             :rows="2"
             class="w-full"
-            placeholder="可选 · 给自己或队友看的说明"
+            :placeholder="t('containers.description_placeholder')"
             @update:model-value="$emit('update', { description: String($event) })"
           />
         </div>
 
         <div class="space-y-1.5">
-          <label class="block text-xs text-toned">标签</label>
+          <label class="block text-xs text-toned">{{ t('common.tags') }}</label>
           <UInputMenu
             :model-value="container.tags ?? []"
             multiple
@@ -69,14 +69,14 @@
             :items="allTags"
             size="md"
             class="w-full"
-            placeholder="添加标签..."
+            :placeholder="t('containers.add_tag_placeholder')"
             @update:model-value="(v: string[]) => $emit('update', { tags: v })"
           />
-          <p class="text-[10px] text-dimmed">用于在容器列表筛选；可自由命名（如「日常」「副本」「钓鱼」）</p>
+          <p class="text-[10px] text-dimmed">{{ t('containers.tags_hint') }}</p>
         </div>
 
         <div class="space-y-1.5">
-          <label class="block text-xs text-toned">运行模式</label>
+          <label class="block text-xs text-toned">{{ t('containers.run_mode_label') }}</label>
           <USelect
             :model-value="container.runMode || 'background'"
             size="md"
@@ -89,8 +89,8 @@
             "
           />
           <p class="text-[11px] text-dimmed leading-snug">
-            后台：PostMessage 直发，不抢焦点（默认，可在其他窗口工作时跑）。<br />
-            前台：启动前自动激活游戏窗口（必须前台焦点的脚本，如 SendInput）。
+            {{ t('containers.run_mode_bg_hint') }}<br />
+            {{ t('containers.run_mode_fg_hint') }}
           </p>
         </div>
       </div>
@@ -100,11 +100,11 @@
     <section class="pt-5 border-t border-default">
       <div class="flex items-center justify-between mb-3">
         <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">
-          变量
+          {{ t('containers.variables_section') }}
           <span class="text-toned ml-1">({{ container.vars?.length ?? 0 }})</span>
         </h4>
         <UButton size="xs" variant="soft" color="primary" icon="i-tabler-plus" @click="addVar"
-          >添加</UButton
+          >{{ t('containers.add_var') }}</UButton
         >
       </div>
 
@@ -112,11 +112,7 @@
         v-if="(container.vars?.length ?? 0) === 0"
         class="text-[11px] text-dimmed leading-relaxed py-2"
       >
-        声明变量后可在节点 config 表达式里用
-        <code class="bg-elevated/60 px-1 rounded text-toned font-mono text-[10px]"
-          >$vars.&lt;name&gt;</code
-        >
-        引用。
+        {{ t('containers.var_declare_hint') }}
       </p>
 
       <div v-else class="space-y-2">
@@ -129,7 +125,7 @@
             <UInput
               :model-value="v.name"
               size="sm"
-              placeholder="变量名"
+              :placeholder="t('containers.var_name_placeholder')"
               class="flex-1"
               @update:model-value="updateVar(i, 'name', String($event))"
             />
@@ -138,7 +134,7 @@
               variant="ghost"
               color="error"
               icon="i-tabler-trash"
-              :title="`删除变量 ${v.name || ''}`"
+              :title="t('containers.var_delete_tip', { name: v.name || '' })"
               @click="removeVar(i)"
             />
           </div>
@@ -167,9 +163,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Container, VarDecl } from '@/lib/backend'
 import { useContainersStore } from '@/stores/containers'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ container: Container | null }>()
 const emit = defineEmits<{ update: [patch: Partial<Container>] }>()
@@ -191,10 +190,10 @@ const varTypes = [
   { label: 'point', value: 'point' },
 ]
 
-const runModes = [
-  { label: '后台运行（默认）', value: 'background' },
-  { label: '前台运行（自动激活游戏）', value: 'foreground' },
-]
+const runModes = computed(() => [
+  { label: t('containers.run_mode_bg'), value: 'background' },
+  { label: t('containers.run_mode_fg'), value: 'foreground' },
+])
 
 function defaultPlaceholder(type: string): string {
   switch (type) {
@@ -203,11 +202,11 @@ function defaultPlaceholder(type: string): string {
     case 'bool':
       return 'true / false'
     case 'string':
-      return '空字符串'
+      return t('containers.empty_string_label')
     case 'point':
       return '{"x":0,"y":0}'
   }
-  return '默认值'
+  return t('containers.default_value_label')
 }
 
 function formatDefault(v: any): string {

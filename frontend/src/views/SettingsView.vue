@@ -26,17 +26,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsGeneral from './SettingsGeneral.vue'
 import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
 
+const { t } = useI18n()
+
 type TabKey = 'general' | 'hotkeys' | 'input'
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'general', label: '通用' },
-  { key: 'hotkeys', label: '快捷键' },
-  { key: 'input', label: '输入校准' },
-]
+const tabs = computed<{ key: TabKey; label: string }[]>(() => [
+  { key: 'general', label: t('settingsTab.general') },
+  { key: 'hotkeys', label: t('settingsTab.hotkeys') },
+  { key: 'input', label: t('settingsTab.input_calibration') },
+])
 const activeTab = ref<TabKey>('general')
 </script>

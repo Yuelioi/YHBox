@@ -17,6 +17,7 @@
 //   - 转换层: simple → KeyPress/ClickAt/Sleep 线性节点链; precise → 单 PlayClip 节点
 //   - 前端看到的都是 Subgraph 引用节点, 操作同构.
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container, type Graph } from '@/lib/backend'
@@ -43,6 +44,7 @@ export interface StartRecordingOpts {
 export function useRecording(opts: RecordOpts) {
   const { draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft, toast } = opts
   const recordStore = useRecordingStore()
+  const { t } = useI18n()
 
   const countdownSec = ref(0)
   const filterMode = ref<'precise' | 'simple'>('precise')
@@ -54,13 +56,13 @@ export function useRecording(opts: RecordOpts) {
     if (!draft.value) return
     const containerID = draft.value.id
     if (!containerID) {
-      toast.add({ title: '当前 container 没 ID, 无法录制', color: 'error' })
+      toast.add({ title: t('recordComposable.no_container_id'), color: 'error' })
       return
     }
     if (recordStore.isRecording) return
     if (countdownSec.value > 0) {
       countdownSec.value = 0
-      toast.add({ title: '已取消录制倒计时', color: 'neutral' })
+      toast.add({ title: t('recordComposable.countdown_cancelled'), color: 'neutral' })
       return
     }
 
@@ -69,7 +71,7 @@ export function useRecording(opts: RecordOpts) {
     try {
       await backend.tools.openRecordingHUD()
     } catch (e) {
-      console.warn('OpenRecordingHUD 失败 (倒计时继续走编辑器内)', e)
+      console.warn('OpenRecordingHUD failed (countdown continues in editor)', e)
     }
 
     countdownSec.value = 3
@@ -89,14 +91,14 @@ export function useRecording(opts: RecordOpts) {
       await recordStore.start(mode, containerID)
       Events.Emit('recording:started', { mode })
       toast.add({
-        title: '正在录制 (' + (mode === 'precise' ? '精准' : '简易') + ')',
-        description: '游戏前台按 F12 / 点悬浮窗 / 切回 YHBox 都能停止',
+        title: t('recordComposable.recording_in_progress', { mode: mode === 'precise' ? t('recordComposable.mode_precise') : t('recordComposable.mode_simple') }),
+        description: t('recordComposable.stop_methods'),
         color: 'success',
         duration: 5000,
       })
     } catch (e: any) {
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-      toast.add({ title: '启动录制失败', description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recording.launch_failed'), description: String(e?.message ?? e), color: 'error' })
     }
   }
 
@@ -107,12 +109,12 @@ export function useRecording(opts: RecordOpts) {
       const payload = await recordStore.stop()
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
       if (!payload || !payload.subgraphID) {
-        toast.add({ title: '没录到任何步骤', color: 'warning' })
+        toast.add({ title: t('recording.no_steps'), color: 'warning' })
         return
       }
       await onSubgraphCreated(payload)
     } catch (e: any) {
-      toast.add({ title: '停止录制失败', description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recording.stop_failed'), description: String(e?.message ?? e), color: 'error' })
     }
   }
 
@@ -124,7 +126,7 @@ export function useRecording(opts: RecordOpts) {
   async function onSubgraphCreated(payload: RecordingStopPayload) {
     if (!activeGraph.value || !draft.value) {
       toast.add({
-        title: '录制完成, 但当前没活跃图; subgraph 已落盘到容器',
+        title: t('recording.completed_no_graph'),
         description: `subgraphID=${payload.subgraphID}`,
         color: 'primary',
       })
@@ -137,7 +139,7 @@ export function useRecording(opts: RecordOpts) {
     try {
       await refreshSubgraphStore()
     } catch (e: any) {
-      toast.add({ title: '刷新子图列表失败', description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recordComposable.refresh_subgraphs_failed'), description: String(e?.message ?? e), color: 'error' })
       return
     }
 
@@ -148,10 +150,10 @@ export function useRecording(opts: RecordOpts) {
     if (replaceID) {
       const target = (activeGraph.value.nodes as any[]).find((n) => n.id === replaceID)
       if (!target) {
-        toast.add({ title: '替换目标节点已不存在, 改为新建', color: 'warning' })
+        toast.add({ title: t('recordComposable.replace_node_missing'), color: 'warning' })
       } else if (target.kind !== 'Subgraph') {
         toast.add({
-          title: `目标节点 kind=${target.kind}, 非 Subgraph, 改为新建`,
+          title: t('recordComposable.replace_node_wrong_kind', { kind: target.kind }),
           color: 'warning',
         })
       } else {
@@ -159,7 +161,7 @@ export function useRecording(opts: RecordOpts) {
         target.config.SubgraphID = payload.subgraphID
         syncFlowFromDraft()
         await maybeSave()
-        toast.add({ title: `已重新录制覆盖: ${payload.label}`, color: 'success' })
+        toast.add({ title: t('recording.rerecord_overwrite', { name: payload.label }), color: 'success' })
         return
       }
     }
@@ -178,7 +180,7 @@ export function useRecording(opts: RecordOpts) {
     autoConnectToChainEnd(activeGraph.value, nodeId)
     syncFlowFromDraft()
     await maybeSave()
-    toast.add({ title: `已添加 Subgraph 节点: ${payload.label}`, color: 'success' })
+    toast.add({ title: t('recording.added_subgraph', { name: payload.label }), color: 'success' })
   }
 
   // autoConnectToChainEnd: BFS 从 Start 找链尾节点 (无出边、非 Stop、非新节点).
@@ -228,7 +230,7 @@ export function useRecording(opts: RecordOpts) {
     try {
       await saveDraft()
     } catch (e) {
-      console.warn('录制完成自动保存失败', e)
+      console.warn('post-recording auto-save failed', e)
     }
   }
 
@@ -243,18 +245,18 @@ export function useRecording(opts: RecordOpts) {
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
       const errMsg = firstArg?.error
       if (errMsg) {
-        toast.add({ title: '录制失败', description: String(errMsg), color: 'error' })
+        toast.add({ title: t('recordComposable.recording_failed'), description: String(errMsg), color: 'error' })
         return
       }
       const sgID = firstArg?.subgraphID
       if (!sgID) {
-        toast.add({ title: '录制结束但未拿到 subgraphID', color: 'warning' })
+        toast.add({ title: t('recordComposable.no_subgraph_id'), color: 'warning' })
         return
       }
       await onSubgraphCreated({
         subgraphID: firstArg.subgraphID,
         containerID: firstArg.containerID,
-        label: firstArg.label ?? '录制片段',
+        label: firstArg.label ?? t('recordComposable.default_clip_name'),
         filterMode: firstArg.filterMode ?? '',
       })
     })

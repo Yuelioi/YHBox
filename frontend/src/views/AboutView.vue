@@ -11,24 +11,24 @@
           <span class="text-muted font-normal ml-1">v{{ info?.version ?? '...' }}</span>
         </h2>
         <p class="text-sm text-muted leading-relaxed max-w-sm">
-          异环 桌面端游戏自动化工具集。
+          {{ t('about.tagline') }}
         </p>
       </div>
     </section>
 
     <!-- 作者 / 链接 -->
     <section class="rounded-xl bg-default border border-default p-5">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">作者 · 链接</h3>
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_author') }}</h3>
       <div class="text-sm space-y-2">
         <div class="flex items-center justify-between gap-4">
           <span class="text-muted inline-flex items-center gap-1.5">
-            <UIcon name="i-tabler-user" class="size-3.5" /> 作者
+            <UIcon name="i-tabler-user" class="size-3.5" /> {{ t('about.label_author') }}
           </span>
           <span class="text-default font-medium">{{ info?.author ?? '—' }}</span>
         </div>
         <div class="flex items-center justify-between gap-4">
           <span class="text-muted inline-flex items-center gap-1.5">
-            <UIcon name="i-tabler-brand-github" class="size-3.5" /> 源码
+            <UIcon name="i-tabler-brand-github" class="size-3.5" /> {{ t('about.label_source') }}
           </span>
           <button
             v-if="info?.repo"
@@ -41,7 +41,7 @@
         </div>
         <div class="flex items-center justify-between gap-4">
           <span class="text-muted inline-flex items-center gap-1.5">
-            <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B 站
+            <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B {{ t('about.label_site') }}
           </span>
           <button
             v-if="info?.bilibili"
@@ -57,7 +57,7 @@
 
     <!-- 技术栈 -->
     <section class="rounded-xl bg-default border border-default p-5">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">技术栈</h3>
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_stack') }}</h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <div class="flex items-center justify-between">
           <span class="text-muted">Runtime</span>
@@ -88,10 +88,10 @@
 
     <!-- 致谢 -->
     <section class="rounded-xl bg-default border border-default p-5">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">致谢</h3>
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_thanks') }}</h3>
       <div class="text-sm space-y-2">
         <div class="flex items-start justify-between gap-4">
-          <span class="text-muted">软件图标</span>
+          <span class="text-muted">{{ t('about.label_icon') }}</span>
           <button
             type="button"
             class="text-default font-medium hover:text-sky-400 transition-colors cursor-pointer"
@@ -101,7 +101,7 @@
           </button>
         </div>
         <p class="text-xs text-dimmed leading-relaxed">
-          图标来源于 Pixiv 公开作品，版权归原作者所有。本工具仅作个人使用，如作者要求请联系替换。
+          {{ t('about.icon_credit') }}
         </p>
       </div>
     </section>
@@ -110,8 +110,11 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Browser } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+
+const { t } = useI18n()
 
 interface AppInfo {
   name: string

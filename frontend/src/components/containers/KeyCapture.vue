@@ -2,7 +2,7 @@
   <div class="flex items-center gap-1">
     <UInput
       :model-value="modelValue"
-      :placeholder="capturing ? '按下任意键...' : '如 W / Space'"
+      :placeholder="capturing ? t('hotkeyInput.press_key') : t('hotkeyInput.key_example')"
       size="sm"
       :class="{ 'ring-1 ring-primary': capturing }"
       readonly
@@ -15,7 +15,7 @@
       :variant="capturing ? 'solid' : 'soft'"
       :color="capturing ? 'primary' : 'neutral'"
       :icon="capturing ? 'i-tabler-circle-dot' : 'i-tabler-keyboard'"
-      :title="capturing ? '点其它处取消' : '点录制按键'"
+      :title="capturing ? t('hotkeyInput.click_to_cancel') : t('hotkeyInput.click_to_record')"
       @click="capturing ? stopCapture() : inputRef?.focus()"
     />
   </div>
@@ -23,6 +23,9 @@
 
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()

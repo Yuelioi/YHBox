@@ -2,6 +2,7 @@
 // 用于 NodeExplorerModal + InlineContextMenu: 分类 label 用该 group 主色, item icon
 // 用节点自己 visual.bg 派生色 — 保证跟用户在画布上看到的颜色一致.
 
+import { useI18n } from 'vue-i18n'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import type { NodeGroup, NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 
@@ -64,20 +65,24 @@ export function kindIconColor(kind: string): string {
   return nodeIconColor(getSpec(kind))
 }
 
-export const GROUP_LABELS_ZH: Record<string, string> = {
-  control: '控制流',
-  variables: '变量',
-  purefunc: '运算',
-  detect: '检测',
-  input: '输入',
-  system: '系统/子图',
-  io: 'IO',
-  stopwatch: '计时器',
-  mock: '测试用',
-  test: '测试用',
-  misc: '其它',
+// group label key 映射到 i18n key (nodeGroup.* + 一个 system_subgraph)
+const GROUP_I18N_KEY: Record<string, string> = {
+  control: 'nodeGroup.control',
+  variables: 'nodeGroup.variables',
+  purefunc: 'nodeGroup.purefunc',
+  detect: 'nodeGroup.detect',
+  input: 'nodeGroup.input',
+  system: 'nodeGroup.system_subgraph',
+  io: 'nodeGroup.io',
+  stopwatch: 'nodeGroup.stopwatch',
+  mock: 'nodeGroup.mock',
+  test: 'nodeGroup.test',
+  misc: 'nodeGroup.other',
 }
 
 export function groupLabelZh(group: string): string {
-  return GROUP_LABELS_ZH[group] ?? group
+  const { t } = useI18n()
+  const key = GROUP_I18N_KEY[group]
+  if (!key) return group
+  return t(key)
 }

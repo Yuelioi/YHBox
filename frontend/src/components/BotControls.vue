@@ -44,7 +44,7 @@
       :title="!canStart ? disabledReason : undefined"
       @click="emit('start')"
     >
-      开始
+      {{ t('controls.start') }}
     </UButton>
 
     <!-- Pause: only when running -->
@@ -56,7 +56,7 @@
       :disabled="stopping"
       @click="emit('pause')"
     >
-      暂停
+      {{ t('controls.pause') }}
     </UButton>
 
     <!-- Resume: only when paused -->
@@ -68,7 +68,7 @@
       :disabled="stopping"
       @click="emit('resume')"
     >
-      继续
+      {{ t('controls.resume') }}
     </UButton>
 
     <!-- Stop: visible when running or paused; disabled + spinner during stopping -->
@@ -82,13 +82,16 @@
       :disabled="stopping"
       @click="onStop"
     >
-      {{ stopping ? '停止中...' : '停止' }}
+      {{ stopping ? t('controls.stopping') : t('controls.stop') }}
     </UButton>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   state: 'idle' | 'running' | 'paused'
@@ -122,14 +125,14 @@ watch(
 )
 
 const stateLabel = computed(() => {
-  if (stopping.value) return '停止中...'
+  if (stopping.value) return t('controls.stopping')
   switch (props.state) {
     case 'running':
-      return '运行中'
+      return t('controls.state.running')
     case 'paused':
-      return '已暂停'
+      return t('controls.state.paused')
     default:
-      return '空闲'
+      return t('controls.state.idle')
   }
 })
 </script>

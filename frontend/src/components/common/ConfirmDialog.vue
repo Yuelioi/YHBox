@@ -39,6 +39,9 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -63,8 +66,8 @@ watch(() => props.open, (v) => {
   if (v) inputValue.value = props.inputDefault ?? ''
 })
 
-const confirmTextResolved = computed(() => props.confirmText ?? '确定')
-const cancelTextResolved = computed(() => props.cancelText ?? '取消')
+const confirmTextResolved = computed(() => props.confirmText ?? t('common.confirm'))
+const cancelTextResolved = computed(() => props.cancelText ?? t('common.cancel'))
 const colorResolved = computed(() => props.color ?? 'primary')
 
 function onConfirm() {

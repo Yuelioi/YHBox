@@ -9,17 +9,17 @@
         <!-- Header + search -->
         <div class="flex items-center gap-3 shrink-0">
           <UIcon name="i-tabler-books" class="size-5 text-primary" />
-          <h3 class="text-sm font-medium">子图库 Explorer</h3>
+          <h3 class="text-sm font-medium">{{ t('library.explorer.title') }}</h3>
           <UInput
             ref="searchInputRef"
             v-model="query"
-            placeholder="搜库 (label / tag substring)..."
+            :placeholder="t('library.explorer.search')"
             icon="i-tabler-search"
             size="sm"
             class="flex-1"
             @keydown.escape="modelOpen = false"
           />
-          <span class="text-[10px] text-dimmed">Esc 关</span>
+          <span class="text-[10px] text-dimmed">{{ t('library.explorer.esc_close') }}</span>
         </div>
 
         <!-- List -->
@@ -28,11 +28,11 @@
             v-if="filteredItems.length === 0"
             class="text-center text-xs text-dimmed py-8 italic"
           >
-            <span v-if="lib.loading">加载中...</span>
+            <span v-if="lib.loading">{{ t('library.loading') }}</span>
             <span v-else-if="lib.subgraphs.length === 0"
-              >库为空 (在"库"页可添加新条目)</span
+              >{{ t('library.explorer.empty') }}</span
             >
-            <span v-else>没匹配的库条目</span>
+            <span v-else>{{ t('library.explorer.no_match') }}</span>
           </div>
 
           <div v-else class="space-y-2">
@@ -83,10 +83,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useLibraryStore } from '@/stores/library'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 import type { Subgraph } from '@/lib/backend'
+
+const { t } = useI18n()
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
@@ -130,7 +133,7 @@ interface TagGroup {
 const groupedItems = computed<TagGroup[]>(() => {
   const map = new Map<string, Subgraph[]>()
   for (const item of filteredItems.value) {
-    const primaryTag = (item.tags ?? [])[0] ?? '(未分类)'
+    const primaryTag = (item.tags ?? [])[0] ?? t('library.explorer.uncategorized')
     if (!map.has(primaryTag)) map.set(primaryTag, [])
     map.get(primaryTag)!.push(item)
   }

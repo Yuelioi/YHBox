@@ -5,9 +5,11 @@ DS r4 #1: 下游节点连 exec line 后, 自动注入上游 Data 字段, FE 在 
 -->
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Spec, DataField } from '@bindings/yhbox/internal/node'
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 
+const { t } = useI18n()
 const props = defineProps<{ spec: Spec }>()
 const registry = useNodeRegistryStore()
 const hoveredOut = ref<string | null>(null)
@@ -59,7 +61,7 @@ function pinColor(typeTag: string): string {
               <div class="w-2 h-2 rounded-full" :style="{ background: pinColor(d.type) }" />
               <span class="text-xs font-mono">{{ d.name }}</span>
               <span class="text-xs text-toned">: {{ d.type }}</span>
-              <span v-if="d.optional" class="text-xs text-toned italic">(可选)</span>
+              <span v-if="d.optional" class="text-xs text-toned italic">({{ t('common.optional') }})</span>
             </div>
             <div v-for="d in (o.data as DataField[]).filter(d => d.doc)" :key="d.name + ':doc'"
                  class="text-xs text-toned mt-1 italic">

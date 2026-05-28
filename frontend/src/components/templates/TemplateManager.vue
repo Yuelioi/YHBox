@@ -5,7 +5,7 @@
       <UInput
         v-model="search"
         icon="i-tabler-search"
-        placeholder="搜索 key / 名称 / 描述..."
+        :placeholder="t('template.manager.search')"
         class="flex-1 min-w-48 max-w-md"
       />
       <USelect
@@ -24,7 +24,7 @@
         size="xs"
         variant="ghost"
         :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-        :title="sortDesc ? '降序' : '升序'"
+        :title="sortDesc ? t('template.manager.sort_desc') : t('template.manager.sort_asc')"
         @click="sortDesc = !sortDesc"
       />
       <span class="text-xs text-dimmed">{{ filtered.length }} / {{ entries.length }}</span>
@@ -38,8 +38,8 @@
       class="rounded-md border border-dashed border-default/60 bg-elevated/40 py-12 px-6 text-center"
     >
       <UIcon name="i-tabler-photo-off" class="size-8 text-dimmed mx-auto mb-2" />
-      <p class="text-sm text-dimmed">模板库还是空的</p>
-      <p class="text-[11px] text-dimmed mt-1">点上面「截图新模板」开始收录。</p>
+      <p class="text-sm text-dimmed">{{ t('template.manager.empty') }}</p>
+      <p class="text-[11px] text-dimmed mt-1">{{ t('template.manager.empty_hint') }}</p>
     </div>
 
     <!-- 过滤后空态 -->
@@ -47,7 +47,7 @@
       v-else-if="filtered.length === 0"
       class="rounded-md border border-dashed border-default/60 bg-elevated/40 py-10 px-6 text-center text-sm text-dimmed"
     >
-      没有匹配「{{ search }}」的模板
+      {{ t('template.manager.no_match', { search }) }}
     </div>
 
     <!-- 网格 -->
@@ -77,7 +77,7 @@
             <span
               class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-elevated text-toned"
             >
-              <UIcon name="i-tabler-zoom-in" class="size-3" /> 预览
+              <UIcon name="i-tabler-zoom-in" class="size-3" /> {{ t('template.manager.preview') }}
             </span>
           </div>
         </button>
@@ -111,7 +111,7 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-copy"
-            title="复制 key"
+            :title="t('template.manager.copy_key')"
             @click="copyKey(key)"
           />
           <!-- 编辑元数据按钮已移除: backend UpdateMeta RPC 已删除 (v2.1 per-container) -->
@@ -120,7 +120,7 @@
             variant="ghost"
             color="error"
             icon="i-tabler-trash"
-            :title="`删除 ${key}`"
+            :title="t('template.manager.delete_template_tip', { key })"
             @click="onDelete(key)"
           />
         </div>
@@ -160,21 +160,19 @@
                 :src="previewDataURL"
                 class="max-w-full max-h-[60vh] object-contain"
               />
-              <div v-else class="text-xs text-dimmed py-12">加载中...</div>
+              <div v-else class="text-xs text-dimmed py-12">{{ t('common.loading') }}</div>
             </div>
             <div class="text-xs space-y-1">
               <div>
-                <span class="text-dimmed">显示名：</span
+                <span class="text-dimmed">{{ t('template.manager.display_name_label') }}</span
                 ><span class="text-highlighted">{{ previewMeta?.name }}</span>
               </div>
               <div v-if="previewMeta?.description">
-                <span class="text-dimmed">描述：</span>{{ previewMeta?.description }}
+                <span class="text-dimmed">{{ t('template.manager.desc_label') }}</span>{{ previewMeta?.description }}
               </div>
               <div class="text-[11px] text-dimmed">
-                录制分辨率 {{ previewMeta?.recordedResolution?.[0] }}×{{
-                  previewMeta?.recordedResolution?.[1]
-                }}
-                · 创建于 {{ formatTime(previewMeta?.createdAt) }}
+                {{ t('template.capture.recorded_res', { res: `${previewMeta?.recordedResolution?.[0]}×${previewMeta?.recordedResolution?.[1]}` }) }}
+                · {{ t('template.manager.created_at', { time: formatTime(previewMeta?.createdAt) }) }}
               </div>
             </div>
           </div>
@@ -186,10 +184,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useTemplatesStore } from '@/stores/templates'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import { type TemplateMeta } from '@/lib/backend'
+
+const { t } = useI18n()
 
 const store = useTemplatesStore()
 const toast = useToast()
@@ -201,12 +202,12 @@ const sortDesc = ref(false)
 const resolutionFilter = ref<string>('__all__')
 const thumbCache = ref<Record<string, string>>({})
 
-const sortItems = [
-  { label: '按 key 排序', value: 'key' },
-  { label: '按显示名排序', value: 'name' },
-  { label: '按分辨率排序', value: 'resolution' },
-  { label: '按创建时间排序', value: 'createdAt' },
-]
+const sortItems = computed(() => [
+  { label: t('template.manager.view_by_key'), value: 'key' },
+  { label: t('template.manager.view_by_name'), value: 'name' },
+  { label: t('template.manager.view_by_res'), value: 'resolution' },
+  { label: t('template.manager.view_by_created'), value: 'createdAt' },
+])
 
 const entries = computed(() => Object.entries(store.map))
 
@@ -223,7 +224,7 @@ const resolutionItems = computed(() => {
   const list = [...seen.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([k, n]) => ({ label: `${k.replace('x', ' × ')} (${n})`, value: k }))
-  return [{ label: '全部分辨率', value: '__all__' }, ...list]
+  return [{ label: t('template.manager.all_resolutions'), value: '__all__' }, ...list]
 })
 
 const filtered = computed(() => {
@@ -285,10 +286,10 @@ watch(
 
 async function onDelete(key: string) {
   const yes = await confirm({
-    title: '删除模板',
-    description: `确认删除模板「${key}」？此操作不可恢复，引用此模板的节点会失效。`,
+    title: t('template.manager.delete_title'),
+    description: t('template.manager.delete_confirm', { key }),
     color: 'error',
-    confirmText: '删除',
+    confirmText: t('common.delete'),
   })
   if (yes !== true) return
   await store.remove(key)
@@ -297,8 +298,8 @@ async function onDelete(key: string) {
 
 function copyKey(key: string) {
   navigator.clipboard?.writeText(key).then(
-    () => toast.add({ title: '已复制 key', color: 'success', duration: 1500 }),
-    () => toast.add({ title: '复制失败', color: 'error' }),
+    () => toast.add({ title: t('template.manager.key_copied'), color: 'success', duration: 1500 }),
+    () => toast.add({ title: t('toast.copy_failed'), color: 'error' }),
   )
 }
 

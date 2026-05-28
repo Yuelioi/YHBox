@@ -8,7 +8,10 @@ Phase 0 验证 declarative metadata schema 够用.
 -->
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Spec, InputSpec } from '@bindings/yhbox/internal/node'
+
+const { t } = useI18n()
 import { evalVisibleRule } from './VisibleWhen'
 import TextWidget from './widgets/TextWidget.vue'
 import TextareaWidget from './widgets/TextareaWidget.vue'
@@ -101,7 +104,7 @@ function validate(): boolean {
     if (input.required) {
       const v = valueFor(input)
       if (v === undefined || v === null || v === '') {
-        errors.value[input.name] = `${input.displayName || input.name} 必填`
+        errors.value[input.name] = `${input.displayName || input.name} ${t('common.required')}`
       }
     }
   }
@@ -143,7 +146,7 @@ defineExpose({ validate })
         :icon="showAdvanced ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
         @click="showAdvanced = !showAdvanced"
       >
-        {{ showAdvanced ? '隐藏' : '显示' }}高级 ({{ advancedInputs.length }})
+        {{ showAdvanced ? t('editorAux.inspector_advanced_hide') : t('editorAux.inspector_advanced_show') }}{{ t('editorAux.inspector_advanced', { count: advancedInputs.length }) }}
       </UButton>
       <div v-if="showAdvanced" class="space-y-3 mt-2">
         <div v-for="input in advancedInputs" :key="input.name" class="space-y-1">

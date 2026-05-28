@@ -2,15 +2,15 @@
   <div class="space-y-5 max-w-2xl">
     <section class="space-y-2">
       <div class="grid grid-cols-[120px_1fr] items-center gap-2 text-xs">
-        <label class="text-dimmed">名称</label>
+        <label class="text-dimmed">{{ t('schedule.name_label') }}</label>
         <UInput v-model="draft.name" />
-        <label class="text-dimmed">启用</label>
+        <label class="text-dimmed">{{ t('schedule.enabled_label') }}</label>
         <USwitch v-model="draft.enabled" />
       </div>
     </section>
 
     <section class="space-y-2">
-      <div class="text-xs uppercase tracking-wider text-dimmed">Targets（按顺序跑）</div>
+      <div class="text-xs uppercase tracking-wider text-dimmed">Targets ({{ t('schedule.run_order_hint') }}</div>
       <div v-for="(t, i) in draft.targets" :key="i" class="flex items-center gap-2 text-xs">
         <span class="text-dimmed w-4 tabular-nums">{{ i + 1 }}.</span>
         <USelect v-model="t.id" :items="containerItems" class="flex-1" />
@@ -39,7 +39,7 @@
         />
       </div>
       <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget"
-        >添加容器</UButton
+        >{{ t('schedule.add_container') }}</UButton
       >
     </section>
 
@@ -58,7 +58,7 @@
           <UInput v-model="draft.trigger.at" placeholder="05:00" />
         </template>
         <template v-else-if="draft.trigger.subKind === 'interval'">
-          <label class="text-dimmed">每 N 分钟</label>
+          <label class="text-dimmed">{{ t('schedule.interval_label') }}</label>
           <UInputNumber
             :model-value="draft.trigger.everyMinutes ?? 30"
             :min="1"
@@ -71,15 +71,15 @@
         v-if="draft.trigger.kind === 'hotkey'"
         class="grid grid-cols-[120px_1fr] gap-2 text-xs items-center"
       >
-        <label class="text-dimmed">热键</label>
+        <label class="text-dimmed">{{ t('schedule.hotkey_label') }}</label>
         <UInput v-model="draft.trigger.hotkey" placeholder="Ctrl+Shift+2" />
       </div>
     </section>
 
     <section class="space-y-2">
-      <div class="text-xs uppercase tracking-wider text-dimmed">限制</div>
+      <div class="text-xs uppercase tracking-wider text-dimmed">{{ t('schedule.limit_label') }}</div>
       <div class="grid grid-cols-[120px_1fr] gap-2 text-xs items-center">
-        <label class="text-dimmed">timeout 分钟</label>
+        <label class="text-dimmed">timeout {{ t('schedule.minutes') }}</label>
         <UInputNumber
           :model-value="draft.timeoutMinutes"
           :min="0"
@@ -91,15 +91,18 @@
     </section>
 
     <div class="flex justify-end gap-2 pt-3 border-t border-default">
-      <UButton variant="ghost" color="neutral" @click="$emit('cancel')">取消</UButton>
-      <UButton color="primary" icon="i-tabler-check" @click="$emit('save', draft)">保存</UButton>
+      <UButton variant="ghost" color="neutral" @click="$emit('cancel')">{{ t('common.cancel') }}</UButton>
+      <UButton color="primary" icon="i-tabler-check" @click="$emit('save', draft)">{{ t('common.save') }}</UButton>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Container, Schedule } from '@/lib/backend'
+
+const { t } = useI18n()
 
 const props = defineProps<{ schedule: Schedule; containers: Container[] }>()
 defineEmits<{ save: [s: Schedule]; cancel: [] }>()
@@ -112,25 +115,25 @@ watch(
 )
 
 const containerItems = computed(() =>
-  props.containers.map((c) => ({ label: c.name || '(未命名)', value: c.id })),
+  props.containers.map((c) => ({ label: c.name || t('common.untitled'), value: c.id })),
 )
 
-const triggerKinds = [
-  { label: '不绑（仅手动）', value: 'manual' },
+const triggerKinds = computed(() => [
+  { label: t('schedule.container_unbound'), value: 'manual' },
   { label: 'Cron', value: 'cron' },
-  { label: '启动后一次', value: 'once' },
-  { label: '热键', value: 'hotkey' },
-]
+  { label: t('schedule.trigger.once'), value: 'once' },
+  { label: t('schedule.trigger.hotkey'), value: 'hotkey' },
+])
 
-const cronSubKinds = [
-  { label: '每日', value: 'daily' },
-  { label: '间隔', value: 'interval' },
-]
+const cronSubKinds = computed(() => [
+  { label: t('schedule.trigger.daily'), value: 'daily' },
+  { label: t('schedule.trigger.interval'), value: 'interval' },
+])
 
-const onErrorOptions = [
-  { label: '任一报错就停', value: 'stop' },
-  { label: '继续下一个', value: 'continue' },
-]
+const onErrorOptions = computed(() => [
+  { label: t('schedule.error_mode.stop'), value: 'stop' },
+  { label: t('schedule.error_mode.continue'), value: 'continue' },
+])
 
 function addTarget() {
   draft.targets.push({ kind: 'container', id: props.containers[0]?.id ?? '' })

@@ -3,6 +3,8 @@
 //
 // ToastOpts 只列我们用得到的字段——参数最终传给 NuxtUI useToast().add，那边接受任何
 // 兼容的对象。用宽松对象类型避免跟 @nuxt/ui 内部类型耦合，免去 main.ts 那个 as any。
+import { i18n } from '@/i18n'
+
 type ToastOpts = Record<string, unknown> & { title: string }
 type ToastAdd = (opts: ToastOpts) => void
 
@@ -51,14 +53,15 @@ function fallbackCopy(s: string) {
   document.body.removeChild(ta)
 }
 
-export function toastError(msg: string, title = '操作失败') {
+export function toastError(msg: string, title?: string) {
+  const t = i18n.global.t
   _toastAdd?.({
-    title,
+    title: title ?? t('toast.operation_failed'),
     description: msg,
     color: 'error',
     duration: 6000,
     actions: [
-      { label: '复制', icon: 'i-tabler-copy', color: 'neutral', onClick: () => copyText(msg) },
+      { label: t('common.copy'), icon: 'i-tabler-copy', color: 'neutral', onClick: () => copyText(msg) },
     ],
   })
 }

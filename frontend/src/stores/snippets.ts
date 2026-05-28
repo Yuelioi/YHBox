@@ -16,6 +16,7 @@
 // 存储: localStorage (现在). 等 schema 稳定后迁 backend file (snippets.json + workspace-scoped).
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { i18n } from '@/i18n'
 
 export interface Snippet {
   id: string
@@ -69,7 +70,7 @@ export const useSnippetsStore = defineStore('snippets', () => {
       localStorage.setItem(STORAGE_KEY, json)
       console.log('[snippets store] persist', snippets.value.length, 'snippets (', json.length, 'bytes)')
     } catch (e) {
-      console.error('[snippets store] persist error (localStorage 配额或不可用):', e)
+      console.error('[snippets store] persist error (' + i18n.global.t('snippet.quota_unavailable') + '):', e)
     }
   }
 
@@ -122,9 +123,10 @@ export const useSnippetsStore = defineStore('snippets', () => {
 
   /** 按 category 分组. 没填 category 的归 '通用'. 每组内按 usageCount desc + name asc 排序. */
   const byCategory = computed(() => {
+    const generalCat = i18n.global.t('snippet.general')
     const groups = new Map<string, Snippet[]>()
     for (const s of snippets.value) {
-      const cat = s.category?.trim() || '通用'
+      const cat = s.category?.trim() || generalCat
       if (!groups.has(cat)) groups.set(cat, [])
       groups.get(cat)!.push(s)
     }
@@ -133,8 +135,8 @@ export const useSnippetsStore = defineStore('snippets', () => {
     }
     // 通用 排最后, 其他按 name asc
     const cats = [...groups.keys()].sort((a, b) => {
-      if (a === '通用') return 1
-      if (b === '通用') return -1
+      if (a === generalCat) return 1
+      if (b === generalCat) return -1
       return a.localeCompare(b)
     })
     return cats.map((cat) => ({ category: cat, list: groups.get(cat)! }))

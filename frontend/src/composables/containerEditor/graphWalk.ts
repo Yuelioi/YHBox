@@ -7,6 +7,7 @@
 //     // sgID    = null (主图) | sg.id
 //   })
 
+import { useI18n } from 'vue-i18n'
 import type { Container, GraphNode } from '@/lib/backend'
 
 export interface GraphVisitCtx {
@@ -20,12 +21,13 @@ export function walkAllGraphs(
   container: Container,
   visit: (node: GraphNode, ctx: GraphVisitCtx) => void,
 ): void {
+  const { t } = useI18n()
   for (const n of container.graph.nodes) {
-    visit(n, { location: '主图', sgID: null })
+    visit(n, { location: t('editorAux.root_graph'), sgID: null })
   }
   for (const sg of container.subgraphs ?? []) {
     if (!sg.graph) continue
-    const location = `子图: ${sg.label || sg.id}`
+    const location = t('editorAux.subgraph_label', { name: sg.label || sg.id })
     for (const n of sg.graph.nodes) {
       visit(n, { location, sgID: sg.id })
     }

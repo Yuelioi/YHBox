@@ -2,23 +2,22 @@
   <UModal v-model:open="open">
     <UCard>
       <template #header>
-        <div class="text-sm font-medium">导入 <strong>{{ libSgId }}</strong> 到容器</div>
+        <div class="text-sm font-medium">{{ t('library.import.title_prefix') }} <strong>{{ libSgId }}</strong> {{ t('library.import.title_suffix') }}</div>
       </template>
 
       <div v-if="step === 'select'" class="space-y-4">
-        <UFormField label="目标容器">
-          <USelect v-model="targetContainerID" :items="containerOptions" placeholder="选择容器..." />
+        <UFormField :label="t('library.import.target')">
+          <USelect v-model="targetContainerID" :items="containerOptions" :placeholder="t('library.import.select_placeholder')" />
         </UFormField>
         <div class="flex gap-2 justify-end">
-          <UButton variant="ghost" color="neutral" @click="cancel">取消</UButton>
-          <UButton :disabled="!targetContainerID" @click="doDryRun" :loading="busy">下一步</UButton>
+          <UButton variant="ghost" color="neutral" @click="cancel">{{ t('common.cancel') }}</UButton>
+          <UButton :disabled="!targetContainerID" @click="doDryRun" :loading="busy">{{ t('library.import.next') }}</UButton>
         </div>
       </div>
 
       <div v-else-if="step === 'globals'" class="space-y-4">
         <div class="text-sm text-toned">
-          这个子图需要 <strong>{{ missingGlobals.length }}</strong> 个目标容器未声明的全局变量,
-          继续会自动添加到容器变量面板:
+          {{ t('library.import.vars_needed_desc', { n: missingGlobals.length }) }}
         </div>
         <ul class="text-xs space-y-1 max-h-56 overflow-auto border border-default rounded p-2">
           <li v-for="g in missingGlobals" :key="g.name" class="flex items-center gap-2">
@@ -31,13 +30,13 @@
           </li>
         </ul>
         <div class="flex gap-2 justify-end">
-          <UButton variant="ghost" color="neutral" @click="cancel">取消</UButton>
-          <UButton color="primary" @click="doAddGlobalsAndImport" :loading="busy">添加变量并继续</UButton>
+          <UButton variant="ghost" color="neutral" @click="cancel">{{ t('common.cancel') }}</UButton>
+          <UButton color="primary" @click="doAddGlobalsAndImport" :loading="busy">{{ t('library.import.add_vars_confirm') }}</UButton>
         </div>
       </div>
 
       <div v-else-if="step === 'conflicts'" class="space-y-4">
-        <div class="text-sm text-toned">检测到 {{ conflicts.length }} 个冲突：</div>
+        <div class="text-sm text-toned">{{ t('library.import.conflicts_detected', { n: conflicts.length }) }}</div>
         <ul class="text-xs space-y-1 max-h-56 overflow-auto border border-default rounded p-2">
           <li v-for="c in conflicts" :key="c.kind + ':' + c.key" class="text-dimmed">
             <span class="text-error">✗</span>
@@ -45,19 +44,19 @@
           </li>
         </ul>
         <div class="flex gap-2 justify-end">
-          <UButton color="neutral" variant="ghost" @click="cancel">取消</UButton>
-          <UButton @click="resolve('skip_all')" :loading="busy">全部跳过</UButton>
-          <UButton color="primary" @click="resolve('overwrite_all')" :loading="busy">全部覆盖</UButton>
+          <UButton color="neutral" variant="ghost" @click="cancel">{{ t('common.cancel') }}</UButton>
+          <UButton @click="resolve('skip_all')" :loading="busy">{{ t('library.import.skip_all') }}</UButton>
+          <UButton color="primary" @click="resolve('overwrite_all')" :loading="busy">{{ t('library.import.overwrite_all') }}</UButton>
         </div>
       </div>
 
       <div v-else-if="step === 'done'" class="space-y-4">
         <div class="text-sm text-success flex items-center gap-2">
           <UIcon name="i-tabler-circle-check" class="size-5" />
-          导入完成（{{ importedCount }} 项{{ addedGlobalsCount ? `, 新增 ${addedGlobalsCount} 个变量` : '' }}）
+          {{ addedGlobalsCount ? t('library.import.complete_full', { count: importedCount, varsCount: addedGlobalsCount }) : t('library.import.complete_simple', { count: importedCount }) }}
         </div>
         <div class="flex justify-end">
-          <UButton @click="cancel">关闭</UButton>
+          <UButton @click="cancel">{{ t('library.import.done') }}</UButton>
         </div>
       </div>
     </UCard>
@@ -66,9 +65,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend, type ImportConflict, type ImportResult, type SubgraphRequiredGlobal, type VarDecl } from '@/lib/backend'
 import { useContainersStore } from '@/stores/containers'
 import { useToast } from '@nuxt/ui/composables'
+
+const { t } = useI18n()
 
 const props = defineProps<{ open: boolean; libSgId: string }>()
 const emit = defineEmits<{ 'update:open': [v: boolean] }>()
@@ -124,7 +126,7 @@ async function doDryRun() {
       await doRealImport('')
     }
   } catch (e: any) {
-    toast.add({ title: '导入失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.import_failed'), description: String(e?.message ?? e), color: 'error' })
   } finally {
     busy.value = false
   }
@@ -136,7 +138,7 @@ async function doAddGlobalsAndImport() {
   try {
     const c = await backend.containers.get(targetContainerID.value)
     if (!c) {
-      toast.add({ title: '容器未找到', color: 'error' })
+      toast.add({ title: t('toast.container_not_found'), color: 'error' })
       return
     }
     const existing = (c.vars ?? []) as VarDecl[]
@@ -163,7 +165,7 @@ async function doAddGlobalsAndImport() {
       await doRealImport('')
     }
   } catch (e: any) {
-    toast.add({ title: '添加变量失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('library.import.add_vars_failed'), description: String(e?.message ?? e), color: 'error' })
   } finally {
     busy.value = false
   }
@@ -180,7 +182,7 @@ async function doRealImport(strategy: string) {
     importedCount.value = ((result as ImportResult)?.imported ?? []).length
     step.value = 'done'
   } catch (e: any) {
-    toast.add({ title: '导入失败', description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.import_failed'), description: String(e?.message ?? e), color: 'error' })
   } finally {
     busy.value = false
   }

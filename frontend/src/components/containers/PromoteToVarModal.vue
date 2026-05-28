@@ -5,40 +5,40 @@
       <div class="p-5 space-y-4 bg-default">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-arrows-up-right" class="size-5 text-primary" />
-          <h3 class="text-sm font-medium">提取为变量 (Promote)</h3>
+          <h3 class="text-sm font-medium">{{ t('var.promote.modal_title') }}</h3>
         </div>
 
         <p class="text-xs text-muted">
-          把节点 <code class="text-primary">{{ context?.nodeID }}.{{ context?.pinName }}</code>
-          的 literal 值 <code class="text-emerald-400">{{ formatLit(context?.literal) }}</code>
-          提取为容器变量 + 自动建 GetVar + 连边.
+          {{ t('var.promote.desc_prefix') }} <code class="text-primary">{{ context?.nodeID }}.{{ context?.pinName }}</code>
+          {{ t('var.promote.desc_literal_label') }} <code class="text-emerald-400">{{ formatLit(context?.literal) }}</code>
+          {{ t('var.promote.desc_suffix') }}
         </p>
 
-        <UFormField label="变量名" required :error="nameError ?? undefined">
+        <UFormField :label="t('var.promote.name_label')" required :error="nameError ?? undefined">
           <UInput
             ref="nameInputRef"
             v-model="varName"
-            placeholder="新变量名 (字母数字下划线)"
+            :placeholder="t('var.promote.name_input_placeholder')"
             size="sm"
             @keydown.enter="confirm"
           />
         </UFormField>
 
-        <UFormField label="类型">
+        <UFormField :label="t('var.promote.type_label')">
           <USelect v-model="varType" :items="TYPE_OPTIONS" size="sm" />
         </UFormField>
 
-        <UFormField label="默认值">
+        <UFormField :label="t('var.promote.default_label')">
           <UInput :model-value="formatLit(context?.literal)" disabled size="sm" />
           <template #help>
-            <p class="text-[10px] text-muted">默认值 = 当前 literal. var 提取后, 实际运行时 var 可改.</p>
+            <p class="text-[10px] text-muted">{{ t('var.promote.default_help') }}</p>
           </template>
         </UFormField>
 
         <div class="flex justify-end gap-2 pt-2">
-          <UButton variant="ghost" color="neutral" @click="modelOpen = false">取消</UButton>
+          <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{ t('common.cancel') }}</UButton>
           <UButton color="primary" icon="i-tabler-check" :disabled="!!nameError" @click="confirm">
-            提取
+            {{ t('var.promote.confirm') }}
           </UButton>
         </div>
       </div>
@@ -48,8 +48,11 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import type { VarType } from '@/lib/variableRef'
+
+const { t } = useI18n()
 
 export interface PromoteContext {
   nodeID: string
@@ -98,9 +101,9 @@ function suggestName(pinName: string): string {
 
 const nameError = computed<string | null>(() => {
   const n = varName.value.trim()
-  if (!n) return '名称不能为空'
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return '需字母/_ 起, 仅字母数字下划线'
-  if (props.existingVarNames.includes(n)) return `已存在 var '${n}' (重名)`
+  if (!n) return t('var.error.name_empty')
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return t('var.error.invalid_name')
+  if (props.existingVarNames.includes(n)) return t('var.error.duplicate', { name: n })
   return null
 })
 

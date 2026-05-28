@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { InputSpec } from '@bindings/yhbox/internal/node'
+
+const { t } = useI18n()
 
 const props = defineProps<{ input: InputSpec; value: any }>()
 const emit = defineEmits<{ (e: 'update', v: any): void }>()
@@ -34,6 +37,6 @@ const rows = computed(() => Number(props.input.widget?.props?.rows ?? 8))
       class="font-mono"
       @update:model-value="onInput"
     />
-    <p v-if="error" class="text-xs text-red-500 mt-1">JSON 错误: {{ error }}</p>
+    <p v-if="error" class="text-xs text-red-500 mt-1">{{ t('jsonEditor.error', { msg: error }) }}</p>
   </div>
 </template>

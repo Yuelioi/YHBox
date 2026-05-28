@@ -19,12 +19,12 @@
         v-if="decl.type === 'number'"
         type="button"
         class="text-dimmed hover:text-default px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="插入 IncVar (delta=1)"
+        :title="t('var.insert_inc')"
         @click="$emit('insert-incvar', decl.name)"
       >
         <UIcon name="i-tabler-circle-plus" class="size-3" />
       </button>
-      <button type="button" class="text-dimmed hover:text-default px-1" title="编辑" @click="expanded = true">
+      <button type="button" class="text-dimmed hover:text-default px-1" :title="t('common.edit')" @click="expanded = true">
         <UIcon name="i-tabler-edit" class="size-3" />
       </button>
     </div>
@@ -43,7 +43,7 @@
           @keydown.enter="commitName"
           @keydown.esc="cancelName"
         >
-        <button type="button" class="text-red-500 hover:text-red-400 px-1 shrink-0" title="删除" @click="$emit('delete', decl.name)">
+        <button type="button" class="text-red-500 hover:text-red-400 px-1 shrink-0" :title="t('common.delete')" @click="$emit('delete', decl.name)">
           <UIcon name="i-tabler-trash" class="size-3" />
         </button>
       </div>
@@ -75,13 +75,13 @@
           :step="editType === 'number' ? 'any' : undefined"
           :value="editDefault ?? ''"
           class="flex-1 min-w-0 w-0 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
-          :placeholder="editType === 'any' ? 'any (自负)' : ''"
+          :placeholder="editType === 'any' ? t('var.any_independent_placeholder') : ''"
           @input="commitField('default', parseDefault($event, editType))"
         >
         <button
           type="button"
           class="text-dimmed hover:text-default px-1 shrink-0"
-          title="收起"
+          :title="t('var.collapse')"
           @click="expanded = false"
         >
           <UIcon name="i-tabler-x" class="size-3" />
@@ -93,9 +93,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { VarDecl } from '@/lib/backend'
 import VarPointInput from './VarPointInput.vue'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   decl: VarDecl
@@ -136,9 +139,9 @@ watch(expanded, async (v) => {
 
 const nameError = computed<string | null>(() => {
   const n = editName.value.trim()
-  if (!n) return '名称不能为空'
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return '需以字母/_ 起, 仅含字母数字下划线'
-  if (n !== props.decl.name && props.existingNames.includes(n)) return `已存在 var '${n}'`
+  if (!n) return t('var.error.name_empty')
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return t('var.error.invalid_name')
+  if (n !== props.decl.name && props.existingNames.includes(n)) return t('var.error.duplicate', { name: n })
   return null
 })
 

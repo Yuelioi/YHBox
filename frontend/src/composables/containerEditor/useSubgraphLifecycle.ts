@@ -1,4 +1,5 @@
 import type { Ref, ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend, type Container, type Graph, type GraphNode, type Subgraph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import type { ClonedSubgraphForPaste } from './useNodeClipboard'
@@ -16,6 +17,7 @@ export function useSubgraphLifecycle(opts: {
 }) {
   const { draft, refreshSubgraphStore } = opts
   const editorStore = useContainerEditorStore()
+  const { t } = useI18n()
 
   /**
    * autoCreateSubgraphForNewNode 当用户拖入 Subgraph 节点：调 backend.createSubgraph 建一个空子图，
@@ -27,7 +29,7 @@ export function useSubgraphLifecycle(opts: {
     try {
       const created = (await backend.containers.createSubgraph(
         draft.value.id,
-        '子图 ' + new Date().toLocaleTimeString().slice(0, 5),
+        t('subgraphLifecycle.default_name_prefix') + ' ' + new Date().toLocaleTimeString().slice(0, 5),
       )) as Subgraph
       node.config = { ...(node.config ?? {}), SubgraphID: created.id }
       await refreshSubgraphStore()
