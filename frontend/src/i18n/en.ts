@@ -69,6 +69,73 @@ export default {
       section_title: '[EN-pending] Log',
       hint: '[EN-pending] Folding, file write, timestamps, line-wrap, autoscroll — settings live in the bottom log panel header gear.',
     },
+    input: {
+      title: '[EN-pending] Input calibration',
+      intro:
+        '[EN-pending] Mouse hardware DPI affects cross-machine replay of relative-motion recordings (camera turn). When recording a subgraph, the local 360° counts are written into RecordingContext as the source; on replay, MouseMoveRel scales by target/source ratio.',
+      intro_box: {
+        what_label: '[EN-pending] What this changes',
+        what_desc: '[EN-pending] The "default source" for local values. Effects:',
+        item_default_source:
+          '[EN-pending] Next-created MouseCalibration node uses this as default',
+        item_sync_action:
+          '[EN-pending] "Sync local value to all containers" button + node Inspector "FOREIGN" warning sync button writes this value into all containers',
+        footnote_prefix: '[EN-pending] Changing this here',
+        footnote_negation: '[EN-pending] does NOT',
+        footnote_rest:
+          '[EN-pending] automatically update MouseCalibration nodes inside existing containers — they hold their own value (containers are self-contained). To bulk-update, click "Sync local value to all containers" above, or edit each container manually.',
+      },
+      record: {
+        title: '[EN-pending] Recording config',
+        hint: '[EN-pending] Changes require YHBox restart to apply (injected at startup).',
+        stop_hotkey_label: '[EN-pending] Stop recording hotkey',
+        stop_hotkey_hint:
+          '[EN-pending] Pressed in-game to stop recording (LL hook intercepts, not forwarded to game). Default F12.',
+        mouse_mode_label: '[EN-pending] Mouse semantics',
+        mouse_mode_hint:
+          '[EN-pending] relative (FPS): records RawDelta for camera turn. absolute (UI/Slate): records screen px MouseMove for click/hover.',
+        mouse_mode: {
+          relative: '[EN-pending] Relative (FPS camera)',
+          absolute: '[EN-pending] Absolute (UI click)',
+        },
+      },
+      counts: {
+        title: '[EN-pending] Local 360° HID counts',
+        hint: '[EN-pending] Cumulative |dx| reported by mouse hardware during a 360° in-place turn',
+        save_manual: '[EN-pending] Save manual value',
+        recalibrate: '[EN-pending] Recalibrate',
+        calibrate: '[EN-pending] Start calibration',
+        open_hud: '[EN-pending] Open mouse HUD',
+        sync_all: '[EN-pending] Sync local value to all containers',
+        share_hint:
+          '[EN-pending] You can also hand-enter counts shared from another machine\'s script',
+      },
+      howto: {
+        title: '[EN-pending] How to use',
+        step_open: '[EN-pending] Click "Start calibration" to open the dialog',
+        step_focus: '[EN-pending] Switch to game, aim at a fixed reference, get ready',
+        step_start:
+          '[EN-pending] Press F8 to start a 3-second countdown (no need to come back to this app!)',
+        step_spin:
+          '[EN-pending] After countdown, accumulation starts → turn 360° in place at steady speed',
+        step_stop: '[EN-pending] Press F8 again to stop',
+        step_save: '[EN-pending] Switch back to the app and click Save',
+      },
+      toast: {
+        counts_not_set: '[EN-pending] Local counts360 not set',
+        synced_title: '[EN-pending] Synced {n} containers',
+        synced_skipped: '[EN-pending] Skipped {n} (no MouseCalibration node)',
+      },
+      confirm: {
+        sync_title: '[EN-pending] Sync to all containers?',
+        sync_desc:
+          '[EN-pending] Current local counts360 = {cur}.\nSyncing overwrites the value in every local container\'s main-graph MouseCalibration node.',
+        sync_confirm: '[EN-pending] Sync',
+        sync_cancel: '[EN-pending] Do not sync',
+        calibrator_done_desc:
+          '[EN-pending] New value: {counts}\nOne-click sync to all local containers?\n(Recommended: replaces counts360 in every container\'s main-graph MouseCalibration node)',
+      },
+    },
   },
   toast: {
     autostart_on: '[EN-pending] Auto-start enabled',

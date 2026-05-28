@@ -89,6 +89,68 @@ export default {
       section_title: '日志',
       hint: '折叠/展开、写入文件、时间戳、折行、自动滚动等设置在底部日志面板 header 的设置图标里调整.',
     },
+    input: {
+      title: '输入校准',
+      intro:
+        '鼠标硬件 DPI 影响"相对位移"类录制(视角转动)的跨电脑回放. 录制子图时会把本机 360° counts 写入 RecordingContext 作为源; 回放时按 target/source 比例缩放 MouseMoveRel.',
+      intro_box: {
+        what_label: '这里改的是什么',
+        what_desc: '本机值的"默认源". 改它影响:',
+        item_default_source: '下次新建的 MouseCalibration 节点用这个值当默认',
+        item_sync_action:
+          '"同步本机值到所有容器"按钮 + 节点 Inspector "FOREIGN" 警告里的"同步"按钮, 把这个值写到所有容器',
+        footnote_prefix: '这里改它',
+        footnote_negation: '不会',
+        footnote_rest:
+          '自动改已有容器里的 MouseCalibration 节点 — 它们各自持值(容器自包含). 要批量更新点上面"同步本机值到所有容器", 或进入容器手动改.',
+      },
+      record: {
+        title: '录制配置',
+        hint: '改动需重启 YHBox 生效 (启动期注入).',
+        stop_hotkey_label: '停录热键',
+        stop_hotkey_hint: '游戏前台按下停止录制 (LL hook 拦截, 不透传游戏). 默认 F12.',
+        mouse_mode_label: '鼠标语义',
+        mouse_mode_hint:
+          'relative (FPS): 录 RawDelta 给相机转向. absolute (UI/Slate): 录 screen px MouseMove 给 click/hover.',
+        mouse_mode: {
+          relative: '相对 (FPS 相机)',
+          absolute: '绝对 (UI 点击)',
+        },
+      },
+      counts: {
+        title: '本机 360° HID counts',
+        hint: '原地转身 360° 鼠标硬件上报的累积 |dx|',
+        save_manual: '保存手填值',
+        recalibrate: '重新校准',
+        calibrate: '开始校准',
+        open_hud: '打开鼠标 HUD',
+        sync_all: '同步本机值到所有容器',
+        share_hint: '也可以从其他电脑分享脚本附带的 counts, 直接手填',
+      },
+      howto: {
+        title: '怎么用',
+        step_open: '点「开始校准」打开对话框',
+        step_focus: '切到游戏, 对准固定参照物, 准备好',
+        step_start: '按 F8 开始 3 秒倒计时(不用回到本程序!)',
+        step_spin: '倒计时结束后开始累计 → 原地匀速转一整圈 360°',
+        step_stop: '转完再按一次 F8 停止',
+        step_save: '切回程序点「保存」即可',
+      },
+      toast: {
+        counts_not_set: '本机 counts360 未设置',
+        synced_title: '已同步 {n} 个容器',
+        synced_skipped: '跳过 {n} 个(无 MouseCalibration 节点)',
+      },
+      confirm: {
+        sync_title: '同步到所有容器？',
+        sync_desc:
+          '当前本机 counts360 = {cur}.\n同步会覆盖所有本地容器主图 MouseCalibration 节点的值.',
+        sync_confirm: '同步',
+        sync_cancel: '不同步',
+        calibrator_done_desc:
+          '新值: {counts}\n是否一键同步到所有本地容器?\n(推荐: 替换所有容器主图 MouseCalibration 节点的 counts360)',
+      },
+    },
   },
   toast: {
     autostart_on: '已开启开机自启',
