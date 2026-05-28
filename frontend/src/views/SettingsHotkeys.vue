@@ -89,6 +89,7 @@ const filteredGrouped = computed(() => {
     action: [],
     container: [],
     schedule: [],
+    editor: [],
   }
   for (const e of filtered) {
     if (groups[e.source]) groups[e.source].push(e)
@@ -109,6 +110,7 @@ function groupIcon(source: string): string {
     case 'action': return 'i-tabler-bolt'
     case 'container': return 'i-tabler-box'
     case 'schedule': return 'i-tabler-calendar-clock'
+    case 'editor': return 'i-tabler-edit'
     default: return 'i-tabler-keyboard'
   }
 }
@@ -118,6 +120,7 @@ function groupLabel(source: string): string {
     case 'action': return t('hotkeys.group.action')
     case 'container': return t('hotkeys.group.container')
     case 'schedule': return t('hotkeys.group.schedule')
+    case 'editor': return t('hotkeys.group.editor')
     default: return source
   }
 }
