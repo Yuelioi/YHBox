@@ -81,11 +81,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, toRef } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 
 export interface PinContext {
   pinType: VarType
@@ -110,20 +111,13 @@ const emit = defineEmits<{
 const query = ref('')
 const searchInputRef = ref<any>(null)
 
-// Re-focus search and clear query whenever the menu opens
-watch(
-  () => props.open,
-  async (v) => {
-    if (v) {
-      query.value = ''
-      // Reset expand state to all expanded when reopening
-      expandedGroups.value = new Set(ALL_NODE_GROUPS)
-      await nextTick()
-      // UInput exposes the native input via .input ref
-      searchInputRef.value?.input?.focus?.()
-    }
+// Re-focus search + reset state on open (UInput exposes native input via .input)
+useAutoFocusOnOpen(toRef(props, 'open'), searchInputRef, {
+  onOpen: () => {
+    query.value = ''
+    expandedGroups.value = new Set(ALL_NODE_GROUPS)
   },
-)
+})
 
 const positionStyle = computed(() => ({
   left: `${props.position.x}px`,

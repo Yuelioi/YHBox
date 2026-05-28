@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 
 export interface RefEntry {
@@ -60,9 +60,7 @@ const emit = defineEmits<{
   pick: [nodeID: string]
 }>()
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 function iconForKind(kind: string): string {
   return getSpec(kind)?.visual?.icon ?? 'i-tabler-box'

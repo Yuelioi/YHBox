@@ -38,7 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { computed } from 'vue'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 
 const props = defineProps<{
   open: boolean
@@ -51,9 +52,7 @@ const emit = defineEmits<{
   confirm: [cascade: boolean]
 }>()
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const refCount = computed(() => props.refIDs.length)
 

@@ -53,7 +53,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
+import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 
 export interface Command {
   id: string
@@ -74,21 +76,14 @@ const emit = defineEmits<{
   'update:open': [v: boolean]
 }>()
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const query = ref('')
 const activeIdx = ref(0)
 const searchInputRef = ref<any>(null)
 
-watch(() => modelOpen.value, async (v) => {
-  if (v) {
-    query.value = ''
-    activeIdx.value = 0
-    await nextTick()
-    searchInputRef.value?.input?.focus?.()
-  }
+useAutoFocusOnOpen(modelOpen, searchInputRef, {
+  onOpen: () => { query.value = ''; activeIdx.value = 0 },
 })
 
 watch(query, () => { activeIdx.value = 0 })

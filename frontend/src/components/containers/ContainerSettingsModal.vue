@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 
 interface FormState {
@@ -69,9 +70,7 @@ const emit = defineEmits<{
   save: [v: FormState]
 }>()
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const form = ref<FormState>({ ...props.initial })
 watch(() => props.initial, v => { form.value = { ...v } }, { deep: true })

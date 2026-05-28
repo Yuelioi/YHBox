@@ -82,8 +82,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useLibraryStore } from '@/stores/library'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
+import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 import type { Subgraph } from '@/lib/backend'
 
 const props = defineProps<{ open: boolean }>()
@@ -92,14 +94,7 @@ const emit = defineEmits<{
   'pick-subgraph': [libraryID: string]
 }>()
 
-const modelOpen = ref(props.open)
-watch(
-  () => props.open,
-  (v) => {
-    modelOpen.value = v
-  },
-)
-watch(modelOpen, (v) => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const query = ref('')
 const searchInputRef = ref<any>(null)
@@ -112,17 +107,9 @@ async function refreshLibrary() {
 }
 
 onMounted(() => refreshLibrary())
-watch(
-  () => modelOpen.value,
-  async (v) => {
-    if (v) {
-      await refreshLibrary()
-      query.value = ''
-      await nextTick()
-      searchInputRef.value?.input?.focus?.()
-    }
-  },
-)
+useAutoFocusOnOpen(modelOpen, searchInputRef, {
+  onOpen: () => { void refreshLibrary(); query.value = '' },
+})
 
 const filteredItems = computed<Subgraph[]>(() => {
   const q = query.value.toLowerCase().trim()

@@ -57,10 +57,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed } from 'vue'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
+import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 
 const EXPANDED_KEY = 'yhfish.explorer.expanded'
 
@@ -70,9 +72,7 @@ const emit = defineEmits<{
   'pick-kind': [kind: string]
 }>()
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const query = ref('')
 const searchInputRef = ref<any>(null)
@@ -115,12 +115,8 @@ function isExpanded(group: string): boolean {
 }
 
 // On open: focus search + clear query
-watch(() => modelOpen.value, async (v) => {
-  if (v) {
-    query.value = ''
-    await nextTick()
-    searchInputRef.value?.input?.focus?.()
-  }
+useAutoFocusOnOpen(modelOpen, searchInputRef, {
+  onOpen: () => { query.value = '' },
 })
 
 const filteredGroups = computed(() => {

@@ -55,9 +55,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch } from 'vue'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { nodeIconColor } from '@/composables/editor/useNodeGroupColor'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
+import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 
 export interface NodeSearchResult {
   id: string
@@ -77,22 +79,15 @@ const emit = defineEmits<{
   pick: [r: NodeSearchResult]
 }>()
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const query = ref('')
 watch(query, v => emit('update:query', v))
 const activeIdx = ref(0)
 const searchInputRef = ref<any>(null)
 
-watch(() => modelOpen.value, async (v) => {
-  if (v) {
-    query.value = ''
-    activeIdx.value = 0
-    await nextTick()
-    searchInputRef.value?.input?.focus?.()
-  }
+useAutoFocusOnOpen(modelOpen, searchInputRef, {
+  onOpen: () => { query.value = ''; activeIdx.value = 0 },
 })
 watch(() => props.results, () => { activeIdx.value = 0 })
 

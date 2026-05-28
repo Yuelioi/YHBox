@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, nextTick } from 'vue'
+import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import type { VarType } from '@/lib/variableRef'
 
 export interface PromoteContext {
@@ -75,9 +76,7 @@ const TYPE_OPTIONS = [
   { value: 'any' as VarType, label: 'any' },
 ]
 
-const modelOpen = ref(props.open)
-watch(() => props.open, v => { modelOpen.value = v })
-watch(modelOpen, v => emit('update:open', v))
+const modelOpen = useDialogOpen(props, emit)
 
 const varName = ref('')
 const varType = ref<VarType>('any')
