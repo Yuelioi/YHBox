@@ -471,6 +471,7 @@ import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
 import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
+import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -492,7 +493,7 @@ import NodeContextMenu, { type NodeMenuAction } from '@/components/containers/me
 import MultiNodeContextMenu, { type MultiMenuAction } from '@/components/containers/menus/MultiNodeContextMenu.vue'
 import EdgeContextMenu, { type EdgeMenuAction } from '@/components/containers/menus/EdgeContextMenu.vue'
 import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/containers/menus/PinContextMenu.vue'
-import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
+import CommandPalette from '@/components/containers/CommandPalette.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
 import NodeSearchModal from '@/components/containers/NodeSearchModal.vue'
@@ -1496,182 +1497,8 @@ function onPromoteConfirm(args: { varName: string; varType: VarType }) {
   // pushRecent 已删
 }
 
-// onPaneDoubleClick / onInlineMenuPick 已抽进 useInlineMenu
-
-// ===== 命令面板命令列表 =====
-const commands = computed<Command[]>(() => {
-  const sel = getSelectedNodes.value ?? []
-  const selCount = sel.length
-  return [
-    // ── edit ──
-    {
-      id: 'edit.copy', label: '复制选中', group: 'edit', icon: 'i-tabler-copy', shortcut: 'Ctrl+C',
-      disabled: selCount === 0,
-      exec: () => onCopySelection(),
-    },
-    {
-      id: 'edit.paste', label: '粘贴', group: 'edit', icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V',
-      exec: () => void onPasteSelection(),
-    },
-    {
-      id: 'edit.delete', label: '删除选中', group: 'edit', icon: 'i-tabler-trash', shortcut: 'Del',
-      disabled: selCount === 0,
-      exec: () => sel.forEach((n: any) => removeNodes([n.id])),
-    },
-    {
-      id: 'edit.undo', label: '撤销', group: 'edit', icon: 'i-tabler-arrow-back-up', shortcut: 'Ctrl+Z',
-      disabled: !canUndo.value,
-      exec: () => undo(),
-    },
-    {
-      id: 'edit.redo', label: '重做', group: 'edit', icon: 'i-tabler-arrow-forward-up', shortcut: 'Ctrl+Y',
-      disabled: !canRedo.value,
-      exec: () => redo(),
-    },
-    {
-      id: 'edit.fold', label: '折叠为子图', group: 'edit', icon: 'i-tabler-package-import',
-      keywords: ['fold', 'subgraph', '折叠'],
-      disabled: selCount === 0,
-      exec: () => onFoldSelection(),
-    },
-    {
-      id: 'edit.align-left', label: '对齐 - 左', group: 'edit', keywords: ['align', '对齐'],
-      disabled: selCount < 2,
-      exec: () => onAlignSelected('left'),
-    },
-    {
-      id: 'edit.align-right', label: '对齐 - 右', group: 'edit', keywords: ['align', '对齐'],
-      disabled: selCount < 2,
-      exec: () => onAlignSelected('right'),
-    },
-    {
-      id: 'edit.align-top', label: '对齐 - 顶', group: 'edit', keywords: ['align', '对齐'],
-      disabled: selCount < 2,
-      exec: () => onAlignSelected('top'),
-    },
-    {
-      id: 'edit.align-bottom', label: '对齐 - 底', group: 'edit', keywords: ['align', '对齐'],
-      disabled: selCount < 2,
-      exec: () => onAlignSelected('bottom'),
-    },
-    {
-      id: 'edit.align-center-h', label: '水平居中', group: 'edit', keywords: ['align', '对齐', '居中'],
-      disabled: selCount < 2,
-      exec: () => onAlignSelected('center-h'),
-    },
-    {
-      id: 'edit.align-center-v', label: '垂直居中', group: 'edit', keywords: ['align', '对齐', '居中'],
-      disabled: selCount < 2,
-      exec: () => onAlignSelected('center-v'),
-    },
-    {
-      id: 'edit.distribute-h', label: '水平等距分布', group: 'edit', keywords: ['distribute', '分布'],
-      disabled: selCount < 3,
-      exec: () => onAlignSelected('h-equal'),
-    },
-    {
-      id: 'edit.distribute-v', label: '垂直等距分布', group: 'edit', keywords: ['distribute', '分布'],
-      disabled: selCount < 3,
-      exec: () => onAlignSelected('v-equal'),
-    },
-    {
-      id: 'edit.auto-layout-lr', label: '自动布局 (横向)', group: 'edit',
-      icon: 'i-tabler-layout-board-split', shortcut: 'Ctrl+L',
-      keywords: ['layout', 'dagre', '布局'],
-      exec: () => onAutoLayout('LR'),
-    },
-    {
-      id: 'edit.auto-layout-tb', label: '自动布局 (纵向)', group: 'edit',
-      icon: 'i-tabler-layout-rows', shortcut: 'Ctrl+Shift+L',
-      keywords: ['layout', 'dagre', '布局'],
-      exec: () => onAutoLayout('TB'),
-    },
-
-    // ── view ──
-    {
-      id: 'view.toggle-left-sidebar', label: '折叠/展开 左侧栏', group: 'view',
-      keywords: ['sidebar', 'panel', '侧栏'],
-      exec: () => { sidebarPrefs.value.leftSidebarCollapsed = !sidebarPrefs.value.leftSidebarCollapsed },
-    },
-    {
-      id: 'view.toggle-inspector', label: '折叠/展开 右 Inspector', group: 'view',
-      keywords: ['inspector', 'panel', '检查器'],
-      exec: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
-    },
-
-    // ── navigate ──
-    {
-      id: 'navigate.node-explorer', label: '打开 Node Explorer', group: 'navigate',
-      icon: 'i-tabler-grid-dots', shortcut: 'Tab',
-      keywords: ['explorer', 'node', '节点'],
-      exec: () => { nodeExplorerOpen.value = !nodeExplorerOpen.value },
-    },
-    {
-      id: 'navigate.library', label: '打开子图库 Explorer', group: 'navigate',
-      icon: 'i-tabler-books',
-      keywords: ['library', 'subgraph', '库', '子图'],
-      exec: () => { libraryExplorerOpen.value = true },
-    },
-    {
-      id: 'navigate.settings', label: '打开容器设置', group: 'navigate',
-      icon: 'i-tabler-settings', shortcut: 'Ctrl+,',
-      keywords: ['settings', 'config', '设置'],
-      exec: () => { settingsOpen.value = true },
-    },
-    {
-      id: 'navigate.back', label: '跳到主图 / 上一层级', group: 'navigate',
-      keywords: ['back', 'up', '返回', '主图'],
-      disabled: editorStore.editorPath.length === 0,
-      exec: () => editorStore.popPath(),
-    },
-
-    // ── run ──
-    {
-      id: 'run.save', label: '保存', group: 'run',
-      icon: 'i-tabler-check', shortcut: 'Ctrl+S',
-      keywords: ['save', '保存'],
-      disabled: !dirty.value,
-      exec: () => void onSave(),
-    },
-    {
-      id: 'run.validate', label: '检查 (Validate)', group: 'run',
-      icon: 'i-tabler-checks',
-      keywords: ['validate', 'check', '校验', '检查'],
-      disabled: dirty.value,
-      exec: () => void onValidate(),
-    },
-    {
-      id: 'run.try-run', label: '试运行', group: 'run',
-      icon: 'i-tabler-player-play',
-      keywords: ['run', 'play', '运行'],
-      disabled: dirty.value || execStore.running,
-      exec: () => void onTryRun(),
-    },
-    {
-      id: 'run.stop', label: '停止运行', group: 'run',
-      icon: 'i-tabler-square',
-      keywords: ['stop', 'halt', '停止'],
-      disabled: !execStore.running,
-      exec: () => void onStopRun(),
-    },
-
-    // ── var ──
-    {
-      id: 'var.add', label: '添加变量', group: 'var',
-      icon: 'i-tabler-circle-plus',
-      keywords: ['variable', 'add', '变量', '添加'],
-      exec: () => onAddVar(),
-    },
-
-    // ── navigate: find-node (Ctrl+F) ──
-    {
-      id: 'navigate.find-node', label: '在画布找节点...', group: 'navigate',
-      icon: 'i-tabler-search', shortcut: 'Ctrl+F',
-      keywords: ['find', 'search', '搜索', '查找'],
-      exec: () => { nodeSearchOpen.value = true },
-    },
-  ]
-})
+// 命令面板 commands 列表 → useCommandPalette (调用见下方 onValidate 后, 所有 action
+// 必须先声明). open ref view 持有, 跟 useEditorHotkeys 共享.
 
 // FlowNode / FlowEdge 类型从 useContainerDraft export (公共声明), view 不再局部重复定义.
 
@@ -1963,6 +1790,16 @@ async function onValidate() {
     toast.add({ title: '校验调用失败', description: String(e), color: 'error' })
   }
 }
+
+// 命令面板 — 所有 action 已声明, 安全调用.
+const { commands } = useCommandPalette({
+  canUndo, canRedo, dirty, sidebarPrefs,
+  nodeExplorerOpen, libraryExplorerOpen, settingsOpen, nodeSearchOpen,
+  undo, redo,
+  onCopySelection, onPasteSelection, onFoldSelection,
+  onAlignSelected, onAutoLayout,
+  onSave, onValidate, onTryRun, onStopRun, onAddVar,
+})
 
 async function onValidationPanelRun() {
   validationPanelOpen.value = false
