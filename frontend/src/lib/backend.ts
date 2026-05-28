@@ -285,6 +285,12 @@ export const backend = {
     // 否则 Win32 RegisterHotKey 在 OS 层拦截已注册组合，webview 收不到 keystroke。
     pause: () => invoke(HotkeyService.Pause),
     resume: () => invoke(HotkeyService.Resume),
+    // useEditorHotkeys onActivated 时调 — 注册 webview in-app key 进 registry
+    // (只挂可见性 + 冲突检查, 不占 OS RegisterHotKey).
+    registerEditor: (key: string, label: string, hotkeyStr: string, readonlyReason: string) =>
+      invoke(HotkeyService.RegisterEditor, key, label, hotkeyStr, readonlyReason),
+    // useEditorHotkeys onDeactivated 时调 — 从 registry 摘 editor key.
+    unregister: (key: string) => invoke(HotkeyService.Unregister, key),
   },
   calibration: {
     start: () => invoke(CalibrationService.Start),
