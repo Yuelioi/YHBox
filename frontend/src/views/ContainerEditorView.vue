@@ -470,6 +470,7 @@ import {
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
 import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
+import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -1046,141 +1047,18 @@ async function onPickLibrarySubgraph(libraryID: string) {
     })
   }
 }
-// ===== InlineContextMenu (右键 canvas + pin drag → 添加节点) =====
-
-interface InlineMenuState {
-  open: boolean
-  position: { x: number; y: number }  // viewport (screen) coords
-  flowPos: { x: number; y: number }   // flow canvas coords
-  pinContext?: InlinePinContext
-  sourcePin?: { nodeID: string; pinName: string; side: 'input' | 'output'; isExec?: boolean }
-}
-
-const inlineMenu = ref<InlineMenuState>({
-  open: false,
-  position: { x: 0, y: 0 },
-  flowPos: { x: 0, y: 0 },
-})
-
-// Track the pin that started the most recent connection drag
-const connectionStart = ref<{
-  nodeId: string
-  handleId: string
-  handleType: 'source' | 'target'
-} | null>(null)
-// Set to true by onVfConnect (success path) so onVfConnectEnd knows NOT to open the inline menu.
-const connectMadeThisGesture = ref(false)
-
-function isValidVueFlowConnection(conn: {
-  source: string
-  target: string
-  sourceHandle?: string | null
-  targetHandle?: string | null
-}): boolean {
-  if (!conn.sourceHandle || !conn.targetHandle) return true
-  const srcNode = activeGraph.value?.nodes?.find(
-    (n) => n.id === conn.source,
-  )
-  const tgtNode = activeGraph.value?.nodes?.find(
-    (n) => n.id === conn.target,
-  )
-  if (!srcNode || !tgtNode) return true
-
-  const srcOutType = dataOutTypeFor(srcNode.kind, conn.sourceHandle)
-  const tgtInType = dataInTypeFor(tgtNode.kind, conn.targetHandle, tgtNode.config as Record<string, unknown>)
-
-  // If either side is not a data pin (exec pin or unknown kind), allow
-  if (!srcOutType || !tgtInType) return true
-
-  return isCompatibleType(srcOutType as VarType, tgtInType as VarType)
-}
-
-function onVfConnectStart(params: {
-  event?: MouseEvent
-  nodeId?: string
-  handleId: string | null
-  handleType?: 'source' | 'target'
-}) {
-  if (params.nodeId && params.handleId && params.handleType) {
-    connectionStart.value = {
-      nodeId: params.nodeId,
-      handleId: params.handleId,
-      handleType: params.handleType,
-    }
-  }
-}
-
-function onVfConnectEnd(event?: MouseEvent) {
-  if (!connectionStart.value) return
-
-  const clientX = event?.clientX ?? 0
-  const clientY = event?.clientY ?? 0
-
-  const start = connectionStart.value
-  connectionStart.value = null
-
-  // Only open when the drag was released on empty space (no connection was made).
-  // We defer via setTimeout so that vue-flow's @connect fires first if it will.
-  // If a connection completed, vue-flow fires @connect synchronously in the same tick,
-  // which sets connectMadeThisGesture = true in our onConnect wrapper.
-  const startCopy = { ...start }
-  setTimeout(() => {
-    // Successful connect: onConnect already handled it — skip menu.
-    if (connectMadeThisGesture.value) {
-      connectMadeThisGesture.value = false
-      return
-    }
-
-    const node = activeGraph.value?.nodes?.find(
-      (n) => n.id === startCopy.nodeId,
-    )
-    if (!node) return
-
-    const pinType =
-      startCopy.handleType === 'source'
-        ? dataOutTypeFor(node.kind, startCopy.handleId)
-        : dataInTypeFor(node.kind, startCopy.handleId, node.config as Record<string, unknown>)
-
-    const isExec = !pinType
-    const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
-
-    inlineMenu.value = {
-      open: true,
-      position: { x: clientX, y: clientY },
-      flowPos,
-      // Exec pins have no type filter — show all nodes (menu header: "添加节点").
-      // Data pins filter by compatible type (menu header: "⊕ 接受 <type>").
-      pinContext: isExec
-        ? undefined
-        : {
-            pinType: pinType as VarType,
-            side: startCopy.handleType === 'source' ? 'output' : 'input',
-          },
-      sourcePin: {
-        nodeID: startCopy.nodeId,
-        pinName: startCopy.handleId,
-        side: startCopy.handleType === 'source' ? 'output' : 'input',
-        isExec,
-      },
-    }
-  }, 0)
-}
-
-function openInlineMenuAt(clientX: number, clientY: number) {
-  const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
-  inlineMenu.value = {
-    open: true,
-    position: { x: clientX, y: clientY },
-    flowPos,
-    pinContext: undefined,
-    sourcePin: undefined,
-  }
-}
-
-function onCanvasContextMenu(e: MouseEvent) {
-  e.preventDefault()
-  openInlineMenuAt(e.clientX, e.clientY)
-}
+// InlineContextMenu (右键画布空白 / pin drag-to-empty → 添加节点) 整块抽 useInlineMenu.
+// markConnectSuccess: 给 view 的 onConnect wrap 用 — 通知 onVfConnectEnd 别开 menu.
+const {
+  inlineMenu,
+  isValidVueFlowConnection,
+  onVfConnectStart,
+  onVfConnectEnd,
+  onCanvasContextMenu,
+  onPaneDoubleClick,
+  onInlineMenuPick,
+  markConnectSuccess,
+} = useInlineMenu({ activeGraph, applyDraftMutation, syncFlowFromDraft })
 
 // ===== 右键菜单事件处理 =====
 
@@ -1618,82 +1496,7 @@ function onPromoteConfirm(args: { varName: string; varType: VarType }) {
   // pushRecent 已删
 }
 
-function onPaneDoubleClick(e: MouseEvent) {
-  openInlineMenuAt(e.clientX, e.clientY)
-}
-
-function onInlineMenuPick(kind: string) {
-  const ctx = inlineMenu.value
-  applyDraftMutation((_d) => {
-    const g = activeGraph.value
-    if (!g) return
-
-    const newID = newNodeID(kind)
-    const node: GraphNode = {
-      id: newID,
-      kind,
-      x: ctx.flowPos.x,
-      y: ctx.flowPos.y,
-      config: { ...getSpec(kind)?.defaults },
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-
-    // Pin-context: auto-connect the new node back to the source pin
-    if (ctx.sourcePin) {
-      const spec = getSpec(kind)
-      if (spec) {
-        if (ctx.sourcePin.isExec) {
-          // Exec-out drag → wire source exec-out → newNode first exec-in (usually "in")
-          if (ctx.sourcePin.side === 'output') {
-            const firstExecIn = spec.execIn?.[0]
-            if (firstExecIn) {
-              ;(g.edges as GraphEdge[]).push({
-                from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
-                to: `${newID}.${firstExecIn}`,
-              } as GraphEdge)
-            }
-          } else {
-            // Exec-in drag → wire newNode first exec-out → source exec-in
-            const firstExecOut = spec.execOut?.[0] ?? 'out'
-            ;(g.edges as GraphEdge[]).push({
-              from: `${newID}.${firstExecOut}`,
-              to: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
-            } as GraphEdge)
-          }
-        } else if (ctx.pinContext) {
-          if (ctx.pinContext.side === 'output') {
-            // User dragged from output pin → wire source.pin → newNode.firstCompatibleDataIn
-            const candidates = Object.entries(spec.dataIn ?? {}).filter(([, t]) =>
-              isCompatibleType(ctx.pinContext!.pinType, t as VarType),
-            )
-            if (candidates.length > 0) {
-              ;(g.edges as GraphEdge[]).push({
-                from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
-                to: `${newID}.${candidates[0][0]}`,
-              } as GraphEdge)
-            }
-          } else {
-            // User dragged from input pin → wire newNode.firstCompatibleDataOut → source.pin
-            const candidates = Object.entries(spec.dataOut ?? {}).filter(([, t]) =>
-              isCompatibleType(t as VarType, ctx.pinContext!.pinType),
-            )
-            if (candidates.length > 0) {
-              ;(g.edges as GraphEdge[]).push({
-                from: `${newID}.${candidates[0][0]}`,
-                to: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
-              } as GraphEdge)
-            }
-          }
-        }
-      }
-    }
-  })
-  // pushRecent 已删 (Snippet 系统替代 Recent)
-  syncFlowFromDraft()
-}
-
-// ===== End InlineContextMenu =====
+// onPaneDoubleClick / onInlineMenuPick 已抽进 useInlineMenu
 
 // ===== 命令面板命令列表 =====
 const commands = computed<Command[]>(() => {
@@ -2064,10 +1867,9 @@ const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect: _onConnectBa
   deleteSubgraphCascade,
 })
 
-// Wrap onConnect: set connectMadeThisGesture so onVfConnectEnd skips the inline menu.
+// Wrap onConnect: markConnectSuccess 让 useInlineMenu.onVfConnectEnd 退出 (不开 menu).
 function onConnect(c: Parameters<typeof _onConnectBase>[0]) {
-  connectMadeThisGesture.value = true
-  connectionStart.value = null
+  markConnectSuccess()
   _onConnectBase(c)
 }
 
