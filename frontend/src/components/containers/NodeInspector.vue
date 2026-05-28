@@ -503,7 +503,7 @@
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">配置</h4>
       <div class="space-y-4">
         <div v-for="field in fields" :key="field.key" class="space-y-1.5">
-          <label class="block text-xs text-toned">{{ field.label }}</label>
+          <label class="block text-xs text-toned">{{ t(field.label) }}</label>
           <!-- v4: 'expr' field type removed; v3 expr inputs migrated to data-in pin literals
                (shown in "数据输入 (literal)" section above). -->
           <USelect
@@ -542,7 +542,7 @@
             :model-value="getCfg(field.key)"
             @update:model-value="setCfg(field.key, $event)"
           />
-          <p v-if="field.hint" class="text-[11px] text-dimmed leading-snug">{{ field.hint }}</p>
+          <p v-if="field.hint" class="text-[11px] text-dimmed leading-snug">{{ t(field.hint) }}</p>
         </div>
       </div>
     </section>

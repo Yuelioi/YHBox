@@ -129,16 +129,19 @@ function splitOutputs(outputs: OutputSpec[]): {
 }
 
 // Inspector form schema: 从 backend Inputs[] 派生. exec pin 跳过 (它是连边不是 form 项).
-function deriveFields(inputs: InputSpec[]): FieldSchema[] {
+// label/hint 字段语义改: 现在存 i18n key 字符串 ('node.<kind>.input.<name>.label' / '.hint'),
+// 不再是 backend 字面值. consumer 必须 t(field.label) / t(field.hint) 渲染.
+// hint 只在 backend 给了 doc 时设, 没 doc 留 undefined → consumer skip 渲染.
+function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
   const fields: FieldSchema[] = []
   for (const i of inputs) {
     if (i.type === 'Exec') continue
     const widget = i.widget
     const f: FieldSchema = {
       key: i.name,
-      label: i.displayName || i.name,
+      label: `node.${kind}.input.${i.name}.label`,
       type: widgetKindToFieldType(widget?.kind ?? 'text'),
-      hint: i.doc,
+      hint: i.doc ? `node.${kind}.input.${i.name}.hint` : undefined,
     }
     // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写过来的).
     const props = (widget?.props ?? {}) as Record<string, unknown>
@@ -239,7 +242,7 @@ function adaptSpec(s: Spec): NodeKindSpec {
     execOut,
     dataIn,
     dataOut,
-    fields: deriveFields(s.inputs ?? []),
+    fields: deriveFields(s.kind, s.inputs ?? []),
     defaults: deriveDefaults(s.inputs ?? []),
     isPureData: s.isPureData,
     isVisualOnly: s.isVisualOnly,

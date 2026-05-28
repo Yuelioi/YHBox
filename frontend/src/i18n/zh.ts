@@ -439,87 +439,596 @@ export default {
       },
     },
   },
-  // 节点 metadata — kind label + description. FE 单源, backend Spec.DisplayName/Description 不再被 FE 用.
-  // 加新节点 → 这里 + en.ts 同步. 没加 → t() fallback 返 raw key 'node.<kind>.label' (诊断价值).
-  // P4.b 剩余 (Inspector 字段 label / output pin 名 / pin Doc) 留独立批 — 跟通用化首批落地场景一起做.
+  // 节点 metadata — kind label + description + input/output 字段 i18n.
+  // FE 单源, backend Spec.DisplayName/Description 不再被 FE 用. 加新节点 → 这里 + en.ts 同步.
+  // 没加 → t() fallback 返 raw key 'node.<kind>.label' (诊断价值).
+  // Schema: { label, description, input?: { <pin>: { label, hint? } }, output?: { <pin>: { label, data?: { <field>: { hint? } } } } }
+  // exec input pin 不出 label (它是连边不显示). DataField 只有 hint (无 label, Name 是稳定标识).
   node: {
     // control
-    Start: { label: '起点', description: '图入口. 框架启动时从 Start 节点开始执行. 每图恰好 1 个.' },
+    Start: {
+      label: '起点',
+      description: '图入口. 框架启动时从 Start 节点开始执行. 每图恰好 1 个.',
+      output: { out: { label: '开始' } },
+    },
     Stop: { label: '终点', description: '终止图执行. 框架捕获 sentinel 后停止 dispatch, 不报错.' },
-    Sleep: { label: '等待', description: '阻塞当前 exec 流指定时长. MVP 不支持 cancel (ctx.Context() 接口在但 noop).' },
-    If: { label: '条件分支', description: 'Condition true → True 出口; false → False 出口.' },
-    Loop: { label: '循环', description: 'Body 子图执行 N 次 / forever. Body 内 Break sentinel 跳出, Continue sentinel 跳下一轮.' },
-    Switch: { label: '分支 (多 Case)', description: 'Value 跟 Case1..Case16 值逐一匹配 (first-match-wins), 命中走对应出口; 全不命中走 Default. 前 4 case 默认显示, 5-16 在 Advanced.' },
+    Sleep: {
+      label: '等待',
+      description: '阻塞当前 exec 流指定时长. MVP 不支持 cancel (ctx.Context() 接口在但 noop).',
+      input: { Duration: { label: '时长' } },
+      output: { Done: { label: '完成' } },
+    },
+    If: {
+      label: '条件分支',
+      description: 'Condition true → True 出口; false → False 出口.',
+      input: { Condition: { label: '条件' } },
+      output: { True: { label: 'True' }, False: { label: 'False' } },
+    },
+    Loop: {
+      label: '循环',
+      description: 'Body 子图执行 N 次 / forever. Body 内 Break sentinel 跳出, Continue sentinel 跳下一轮.',
+      input: {
+        Mode: { label: '模式' },
+        Count: { label: '次数 (mode=count)' },
+      },
+      output: {
+        Body: { label: '循环体 (每轮触发)' },
+        Done: { label: '完成' },
+      },
+    },
+    Switch: {
+      label: '分支 (多 Case)',
+      description: 'Value 跟 Case1..Case16 值逐一匹配 (first-match-wins), 命中走对应出口; 全不命中走 Default. 前 4 case 默认显示, 5-16 在 Advanced.',
+      input: {
+        Value: { label: '输入值' },
+        Case1Value: { label: 'Case 1 值' },
+        Case2Value: { label: 'Case 2 值' },
+        Case3Value: { label: 'Case 3 值' },
+        Case4Value: { label: 'Case 4 值' },
+        Case5Value: { label: 'Case 5 值' },
+        Case6Value: { label: 'Case 6 值' },
+        Case7Value: { label: 'Case 7 值' },
+        Case8Value: { label: 'Case 8 值' },
+        Case9Value: { label: 'Case 9 值' },
+        Case10Value: { label: 'Case 10 值' },
+        Case11Value: { label: 'Case 11 值' },
+        Case12Value: { label: 'Case 12 值' },
+        Case13Value: { label: 'Case 13 值' },
+        Case14Value: { label: 'Case 14 值' },
+        Case15Value: { label: 'Case 15 值' },
+        Case16Value: { label: 'Case 16 值' },
+      },
+      output: {
+        Case1: { label: 'Case 1' },
+        Case2: { label: 'Case 2' },
+        Case3: { label: 'Case 3' },
+        Case4: { label: 'Case 4' },
+        Case5: { label: 'Case 5' },
+        Case6: { label: 'Case 6' },
+        Case7: { label: 'Case 7' },
+        Case8: { label: 'Case 8' },
+        Case9: { label: 'Case 9' },
+        Case10: { label: 'Case 10' },
+        Case11: { label: 'Case 11' },
+        Case12: { label: 'Case 12' },
+        Case13: { label: 'Case 13' },
+        Case14: { label: 'Case 14' },
+        Case15: { label: 'Case 15' },
+        Case16: { label: 'Case 16' },
+        Default: { label: 'Default' },
+      },
+    },
     Break: { label: '跳出循环', description: '退出最近的 Loop 区域. Phase 5 Loop region 截获 sentinel, 否则 framework 当 error 上报.' },
     Continue: { label: '跳过本轮', description: '跳到最近 Loop 的下一次迭代. Phase 5 Loop region 截获 sentinel.' },
     // detect
-    WaitTemplate: { label: '等待模板', description: '在 timeoutMs 内轮询匹配模板. 命中走 Found 带坐标, 超时走 Timeout.' },
-    CheckTemplate: { label: '检查模板', description: '在当前帧 NCC 匹配模板. 命中走 Found 带坐标, 没命中走 NotFound.' },
-    ClickTemplate: { label: '点击模板', description: '等模板在 timeoutMs 内出现, 命中后在中心点鼠标点击. 超时走 Timeout.' },
-    DetectColor: { label: '颜色检测', description: '在 region (ratio) 内统计落在颜色范围内的像素. count >= minPixels → Yes.' },
-    DetectColorHSV: { label: 'HSV 颜色检测', description: 'ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.' },
-    DualColorBarTrack: { label: '双色条追踪', description: 'ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{resolution:[W,H], x,y,w,h}, ...], 当前 client size 没匹配项走 Missing.' },
-    ROIColorScan: { label: 'ROI 颜色 cluster 扫描', description: '沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.' },
-    Screenshot: { label: '截图', description: '抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.' },
+    WaitTemplate: {
+      label: '等待模板',
+      description: '在 timeoutMs 内轮询匹配模板. 命中走 Found 带坐标, 超时走 Timeout.',
+      input: {
+        Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon' },
+        TimeoutMs: { label: '超时 (ms)' },
+        Threshold: { label: '阈值', hint: 'NCC 阈值' },
+      },
+      output: {
+        Found: {
+          label: '命中',
+          data: { Point: { hint: '命中中心 (ratio)' }, Conf: { hint: '实际匹配度' } },
+        },
+        Timeout: {
+          label: '超时',
+          data: { Conf: { hint: '最高匹配度 (低于阈值)' } },
+        },
+      },
+    },
+    CheckTemplate: {
+      label: '检查模板',
+      description: '在当前帧 NCC 匹配模板. 命中走 Found 带坐标, 没命中走 NotFound.',
+      input: {
+        Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon' },
+        Threshold: { label: '阈值', hint: 'NCC 阈值' },
+      },
+      output: {
+        Found: {
+          label: '命中',
+          data: { Point: { hint: '命中中心 (ratio)' }, Conf: { hint: '实际匹配度' } },
+        },
+        NotFound: {
+          label: '未命中',
+          data: { Conf: { hint: '最高匹配度 (低于阈值)' } },
+        },
+      },
+    },
+    ClickTemplate: {
+      label: '点击模板',
+      description: '等模板在 timeoutMs 内出现, 命中后在中心点鼠标点击. 超时走 Timeout.',
+      input: {
+        Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish' },
+        TimeoutMs: { label: '超时 (ms)' },
+        Threshold: { label: '阈值' },
+        Button: { label: '按键' },
+      },
+      output: {
+        Done: {
+          label: '完成',
+          data: { Point: { hint: '点击点 (ratio)' }, Conf: { hint: '实际匹配度' } },
+        },
+        Timeout: {
+          label: '超时',
+          data: { Conf: { hint: '最高匹配度 (低于阈值)' } },
+        },
+      },
+    },
+    DetectColor: {
+      label: '颜色检测',
+      description: '在 region (ratio) 内统计落在颜色范围内的像素. count >= minPixels → Yes.',
+      input: {
+        Region: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
+        Mode: { label: '模式' },
+        Range: { label: '范围 [aMin..vMax]', hint: '6 元素: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
+        MinPixels: { label: '最小像素' },
+      },
+      output: {
+        Yes: {
+          label: '命中',
+          data: { Count: { hint: '命中像素数' }, Center: { hint: '命中中心 (ratio)' } },
+        },
+        No: {
+          label: '未命中',
+          data: { Count: { hint: '命中像素数' } },
+        },
+      },
+    },
+    DetectColorHSV: {
+      label: 'HSV 颜色检测',
+      description: 'ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.',
+      input: {
+        ROI: { label: 'ROI (像素)', hint: '{"x":0,"y":0,"w":100,"h":100} 客户区像素坐标' },
+        HSV: { label: 'HSV 范围', hint: '{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}' },
+        MinPixelRatio: { label: '最小命中比例' },
+        PollIntervalMs: { label: '轮询间隔 (ms)' },
+        TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
+      },
+      output: {
+        Yes: { label: '命中' },
+        No: { label: '未命中' },
+        Timeout: { label: '超时' },
+      },
+    },
+    DualColorBarTrack: {
+      label: '双色条追踪',
+      description: 'ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{resolution:[W,H], x,y,w,h}, ...], 当前 client size 没匹配项走 Missing.',
+      input: {
+        Rois: { label: 'ROI 数组 (多分辨率)', hint: '[{"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54}, ...]' },
+        InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: '{"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255}' },
+        OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: '{"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255}' },
+        Options: { label: '算法参数 (Optional)', hint: '{"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58} (0/空字段走默认; 默认是 fishing UI 实测值)' },
+      },
+      output: {
+        Found: { label: '命中' },
+        Missing: { label: '未命中' },
+      },
+    },
+    ROIColorScan: {
+      label: 'ROI 颜色 cluster 扫描',
+      description: '沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.',
+      input: {
+        ROI: { label: 'ROI (像素)', hint: '{"x":0,"y":0,"w":100,"h":100}' },
+        HSV: { label: 'HSV 范围', hint: '{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}' },
+        Axis: { label: '扫描轴' },
+        MinClusterPx: { label: '最小段长 (px)' },
+        MaxClusterPx: { label: '最大段长 (px)', hint: '<=0 默认 ROI 大小 / 3' },
+        MinClusterCount: { label: '最少 cluster 数' },
+        PollIntervalMs: { label: '轮询间隔 (ms)' },
+        TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
+      },
+      output: {
+        Found: { label: '命中' },
+        NotFound: { label: '未命中' },
+        Timeout: { label: '超时' },
+      },
+    },
+    Screenshot: {
+      label: '截图',
+      description: '抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.',
+      input: {
+        PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
+        ROI: { label: 'ROI (像素, 可选)', hint: '{"x":0,"y":0,"w":100,"h":100} — 缺省/全 0 = 全帧' },
+      },
+      output: {
+        Done: {
+          label: '完成',
+          data: { Path: { hint: '写入的绝对路径' } },
+        },
+      },
+    },
     // input
-    BringGameForeground: { label: '游戏窗口置前台', description: '把游戏窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.' },
-    ClickAt: { label: '点击坐标', description: '在客户区比例坐标 (xRatio, yRatio) 单击鼠标. xRatio/yRatio ∈ [0,1].' },
-    KeyHoldStart: { label: '按住按键', description: '按下虚拟键 (不松开). 配对 KeyHoldStop 节点释放. 之间可插任意流程.' },
-    KeyHoldStop: { label: '松开按键', description: '松开虚拟键, 配对 KeyHoldStart.' },
-    KeyPress: { label: '按键', description: '按下并松开一个虚拟键. DurationMs 是按下到松开间隔.' },
-    MouseHoldStart: { label: '按住鼠标', description: '在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.' },
-    MouseHoldStop: { label: '松开鼠标', description: '松开鼠标按键, 配对 MouseHoldStart.' },
-    MouseMoveRel: { label: '鼠标相对移动', description: '相对当前光标位置移动 (dx, dy) 像素, 在 DurationMs 内插值.' },
-    OnEvent: { label: '事件监听', description: '(Phase 5 stub) listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.' },
-    Scroll: { label: '鼠标滚轮', description: '在 (xRatio, yRatio) 客户区坐标发送鼠标滚轮事件. Delta = notches, 正向上 / 负向下.' },
+    BringGameForeground: {
+      label: '游戏窗口置前台',
+      description: '把游戏窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.',
+      output: { Done: { label: '完成' } },
+    },
+    ClickAt: {
+      label: '点击坐标',
+      description: '在客户区比例坐标 (xRatio, yRatio) 单击鼠标. xRatio/yRatio ∈ [0,1].',
+      input: {
+        XRatio: { label: 'X 比例' },
+        YRatio: { label: 'Y 比例' },
+        Button: { label: '按键' },
+        DurationMs: { label: '时长 (ms)' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    KeyHoldStart: {
+      label: '按住按键',
+      description: '按下虚拟键 (不松开). 配对 KeyHoldStop 节点释放. 之间可插任意流程.',
+      input: { VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' } },
+      output: { Done: { label: '已按下' } },
+    },
+    KeyHoldStop: {
+      label: '松开按键',
+      description: '松开虚拟键, 配对 KeyHoldStart.',
+      input: { VK: { label: '按键', hint: '虚拟键名 — 跟之前 KeyHoldStart 同一个' } },
+      output: { Done: { label: '已松开' } },
+    },
+    KeyPress: {
+      label: '按键',
+      description: '按下并松开一个虚拟键. DurationMs 是按下到松开间隔.',
+      input: {
+        VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / F9 / space / esc)' },
+        DurationMs: { label: '时长 (ms)' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    MouseHoldStart: {
+      label: '按住鼠标',
+      description: '在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.',
+      input: {
+        XRatio: { label: 'X 比例' },
+        YRatio: { label: 'Y 比例' },
+        Button: { label: '按键' },
+      },
+      output: { Done: { label: '已按下' } },
+    },
+    MouseHoldStop: {
+      label: '松开鼠标',
+      description: '松开鼠标按键, 配对 MouseHoldStart.',
+      input: { Button: { label: '按键', hint: '跟之前 MouseHoldStart 同一个 button' } },
+      output: { Done: { label: '已松开' } },
+    },
+    MouseMoveRel: {
+      label: '鼠标相对移动',
+      description: '相对当前光标位置移动 (dx, dy) 像素, 在 DurationMs 内插值.',
+      input: {
+        Dx: { label: 'Δx (px)' },
+        Dy: { label: 'Δy (px)' },
+        DurationMs: { label: '时长 (ms)' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    OnEvent: {
+      label: '事件监听',
+      description: '(Phase 5 stub) listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',
+      input: {
+        Kind: { label: '事件类型' },
+        Template: { label: '模板', hint: '命名空间.名 格式, kind=template_appeared 时必填' },
+        Threshold: { label: '阈值' },
+        PollIntervalMs: { label: '轮询间隔 (ms)' },
+        MaxConcurrent: { label: '并发上限' },
+        CooldownMs: { label: '冷却 (ms)' },
+        RetriggerPolicy: { label: '重触发策略' },
+      },
+      output: { Out: { label: '事件触发 (Phase 5)' } },
+    },
+    Scroll: {
+      label: '鼠标滚轮',
+      description: '在 (xRatio, yRatio) 客户区坐标发送鼠标滚轮事件. Delta = notches, 正向上 / 负向下.',
+      input: {
+        XRatio: { label: 'X 比例' },
+        YRatio: { label: 'Y 比例' },
+        Delta: { label: '滚动量 (notches)', hint: '正值向上滚, 负值向下滚' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     // io
-    Log: { label: '日志', description: '写一条日志到 framework LogService. Message 接 wildcard (任意类型, 自动 fmt.Sprint).' },
-    PlayClip: { label: '回放录像', description: '(Phase 5 stub) 回放录制的 InputClip. 老 runtime 走 ClipPlayer + InputBus 独占; 框架 Ctx 还没 ClipService.' },
-    Toast: { label: 'Toast', description: '弹 GUI toast 提示. Phase 4 兜底走 LogService.Info; Phase 5 wire 真 emit 到 frontend.' },
+    Log: {
+      label: '日志',
+      description: '写一条日志到 framework LogService. Message 接 wildcard (任意类型, 自动 fmt.Sprint).',
+      input: {
+        Message: { label: '消息', hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, framework 自动 stringify' },
+        Level: { label: '级别' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    PlayClip: {
+      label: '回放录像',
+      description: '(Phase 5 stub) 回放录制的 InputClip. 老 runtime 走 ClipPlayer + InputBus 独占; 框架 Ctx 还没 ClipService.',
+      input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' } },
+      output: { Done: { label: '完成 (Phase 5)' } },
+    },
+    Toast: {
+      label: 'Toast',
+      description: '弹 GUI toast 提示. Phase 4 兜底走 LogService.Info; Phase 5 wire 真 emit 到 frontend.',
+      input: {
+        Title: { label: '标题', hint: '任意类型, 自动 stringify' },
+        Message: { label: '消息', hint: '任意类型, 自动 stringify' },
+        Color: { label: '颜色' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     // purefunc
-    Expr: { label: '表达式', description: '求值表达式. dynamic inputs (config.Inputs[]) 声明的 input name 可在表达式里引用.' },
-    Add: { label: '加', description: 'a + b' },
-    Sub: { label: '减', description: 'a - b' },
-    Mul: { label: '乘', description: 'a * b' },
-    Div: { label: '除', description: 'a / b (b=0 → NaN)' },
-    Mod: { label: '取模', description: 'a mod b' },
-    Neg: { label: '取负', description: '-X' },
-    Lt: { label: '小于', description: 'a < b' },
-    LtEq: { label: '小于等于', description: 'a <= b' },
-    Gt: { label: '大于', description: 'a > b' },
-    GtEq: { label: '大于等于', description: 'a >= b' },
-    Eq: { label: '等于', description: 'a == b (wildcard, 跨类型 ToString 比较)' },
-    NotEq: { label: '不等于', description: 'a != b (wildcard, 跨类型 ToString 比较)' },
-    And: { label: '逻辑与', description: 'a && b' },
-    Or: { label: '逻辑或', description: 'a || b' },
-    Not: { label: '逻辑非', description: '!X' },
-    Concat: { label: '拼接', description: 'a + b (字符串)' },
-    Contains: { label: '包含', description: 'Haystack 含 Needle' },
-    Length: { label: '字符串长度', description: 'len(S)' },
-    ToString: { label: '转字符串', description: 'fmt.Sprint(X)' },
-    ToNumber: { label: '转数字', description: 'strconv.ParseFloat(X) 失败 → 0' },
-    ToBool: { label: '转布尔', description: 'truthy: != 0 / 非空 / true' },
-    Select: { label: '三元选择', description: 'Cond ? A : B' },
+    Expr: {
+      label: '表达式',
+      description: '求值表达式. dynamic inputs (config.Inputs[]) 声明的 input name 可在表达式里引用.',
+      input: { Expression: { label: '表达式', hint: 'Go-like 表达式. dynamic Inputs[] 声明的 input name 可在表达式里引用.' } },
+      output: { Result: { label: '结果' } },
+    },
+    Add: {
+      label: '加', description: 'a + b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Sub: {
+      label: '减', description: 'a - b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Mul: {
+      label: '乘', description: 'a * b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Div: {
+      label: '除', description: 'a / b (b=0 → NaN)',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Mod: {
+      label: '取模', description: 'a mod b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Neg: {
+      label: '取负', description: '-X',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: '结果' } },
+    },
+    Lt: {
+      label: '小于', description: 'a < b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    LtEq: {
+      label: '小于等于', description: 'a <= b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Gt: {
+      label: '大于', description: 'a > b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    GtEq: {
+      label: '大于等于', description: 'a >= b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Eq: {
+      label: '等于', description: 'a == b (wildcard, 跨类型 ToString 比较)',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    NotEq: {
+      label: '不等于', description: 'a != b (wildcard, 跨类型 ToString 比较)',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    And: {
+      label: '逻辑与', description: 'a && b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Or: {
+      label: '逻辑或', description: 'a || b',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Not: {
+      label: '逻辑非', description: '!X',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: '结果' } },
+    },
+    Concat: {
+      label: '拼接', description: 'a + b (字符串)',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: '结果' } },
+    },
+    Contains: {
+      label: '包含', description: 'Haystack 含 Needle',
+      input: { Haystack: { label: '源串' }, Needle: { label: '子串' } },
+      output: { Result: { label: '结果' } },
+    },
+    Length: {
+      label: '字符串长度', description: 'len(S)',
+      input: { S: { label: '字符串' } },
+      output: { Result: { label: '结果' } },
+    },
+    ToString: {
+      label: '转字符串', description: 'fmt.Sprint(X)',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: '结果' } },
+    },
+    ToNumber: {
+      label: '转数字', description: 'strconv.ParseFloat(X) 失败 → 0',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: '结果' } },
+    },
+    ToBool: {
+      label: '转布尔', description: 'truthy: != 0 / 非空 / true',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: '结果' } },
+    },
+    Select: {
+      label: '三元选择', description: 'Cond ? A : B',
+      input: {
+        Cond: { label: '条件' },
+        A: { label: 'A (Cond=true)' },
+        B: { label: 'B (Cond=false)' },
+      },
+      output: { Result: { label: '结果' } },
+    },
     // stopwatch
-    StopwatchStart: { label: '秒表 启动', description: '启动或 reset 指定 key 的秒表 (已存在 → reset).' },
-    StopwatchRead: { label: '秒表 读取', description: '读指定 key 的 elapsed (毫秒). running 返 now-start; stopped 返 stoppedAt-start; 不存在 → 0.' },
-    StopwatchStop: { label: '秒表 停止', description: '停止指定 key 的秒表 (不存在 key 静默 no-op, validator 已 static-warn).' },
+    StopwatchStart: {
+      label: '秒表 启动',
+      description: '启动或 reset 指定 key 的秒表 (已存在 → reset).',
+      input: { Key: { label: 'key', hint: '秒表 key (命名空间独立于 $vars.*)' } },
+      output: { Done: { label: '完成' } },
+    },
+    StopwatchRead: {
+      label: '秒表 读取',
+      description: '读指定 key 的 elapsed (毫秒). running 返 now-start; stopped 返 stoppedAt-start; 不存在 → 0.',
+      input: { Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' } },
+      output: {
+        Done: {
+          label: '完成',
+          data: { ElapsedMs: { hint: 'elapsed 毫秒' } },
+        },
+      },
+    },
+    StopwatchStop: {
+      label: '秒表 停止',
+      description: '停止指定 key 的秒表 (不存在 key 静默 no-op, validator 已 static-warn).',
+      input: { Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' } },
+      output: { Done: { label: '完成' } },
+    },
     // system
-    CollapsedNode: { label: '折叠子图', description: 'Subgraph 的折叠 (isAnonymous) 表示 — runtime 跟 Subgraph 同 dispatch (RegionRunner: body 调一次 → Done).' },
-    CommentBox: { label: '注释框', description: '纯渲染节点 — 在画布上画带颜色的标签框. 不参与执行, 不连边.' },
-    MouseCalibration: { label: '鼠标校准', description: '声明式 — runtime 启动期读 counts360 供 MouseMoveRel scaling 用. 节点本体 no-op, 走 Fire 出口表达 passthrough.' },
-    Subgraph: { label: '调用子图', description: '调用容器内 SubgraphID 指定的子图. body 回调由 runner 构造 + 跑完返回, 无 error → 走 Done. Phase 5: 静态 ID + 简化 Params JSON, Phase 6 加 dynamic InputParams.' },
-    Throw: { label: '抛错', description: '立刻抛 ThrowError, 由最近的 Try 区域截获走 catch 出口; 没 Try 包就冒泡到主 runner 报 container:error.' },
-    Try: { label: 'Try Catch', description: '捕获 body 子图内的 error (含 Throw). 正常完成走 out; 出错走 catch, error 字符串挂在 catch.error 字段.' },
-    WindowTarget: { label: '目标窗口', description: '声明式 — runtime 启动期读 title/class/processName 解析 hwnd, 读 inputBackend/captureBackend 选 backend. 节点本体 no-op, 走 Fire 出口.' },
+    CollapsedNode: {
+      label: '折叠子图',
+      description: 'Subgraph 的折叠 (isAnonymous) 表示 — runtime 跟 Subgraph 同 dispatch (RegionRunner: body 调一次 → Done).',
+      input: {
+        SubgraphID: { label: '子图 ID', hint: '目标 isAnonymous Subgraph 标识符' },
+        Label: { label: '标签' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    CommentBox: {
+      label: '注释框',
+      description: '纯渲染节点 — 在画布上画带颜色的标签框. 不参与执行, 不连边.',
+      input: {
+        Label: { label: '标签' },
+        Color: { label: '颜色' },
+        Width: { label: '宽度' },
+        Height: { label: '高度' },
+      },
+    },
+    MouseCalibration: {
+      label: '鼠标校准',
+      description: '声明式 — runtime 启动期读 counts360 供 MouseMoveRel scaling 用. 节点本体 no-op, 走 Fire 出口表达 passthrough.',
+      input: { Counts360: { label: 'counts/360°', hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.' } },
+      output: { Fire: { label: 'Fire' } },
+    },
+    Subgraph: {
+      label: '调用子图',
+      description: '调用容器内 SubgraphID 指定的子图. body 回调由 runner 构造 + 跑完返回, 无 error → 走 Done. Phase 5: 静态 ID + 简化 Params JSON, Phase 6 加 dynamic InputParams.',
+      input: {
+        SubgraphID: { label: '子图 ID' },
+        Params: { label: '参数', hint: '调用参数 (Phase 5 透传给 runner — runner 决定如何注入 callee 的 SubgraphInput).' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    Throw: {
+      label: '抛错',
+      description: '立刻抛 ThrowError, 由最近的 Try 区域截获走 catch 出口; 没 Try 包就冒泡到主 runner 报 container:error.',
+      input: { Message: { label: '消息' } },
+    },
+    Try: {
+      label: 'Try Catch',
+      description: '捕获 body 子图内的 error (含 Throw). 正常完成走 out; 出错走 catch, error 字符串挂在 catch.error 字段.',
+      input: { SubgraphID: { label: 'Body 子图', hint: 'Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch.' } },
+      output: {
+        Out: { label: '正常' },
+        Catch: {
+          label: '捕获',
+          data: { Error: { hint: '捕获的 error.Error() 字符串. ThrowError 抛出时即 Throw 节点的 Message.' } },
+        },
+      },
+    },
+    WindowTarget: {
+      label: '目标窗口',
+      description: '声明式 — runtime 启动期读 title/class/processName 解析 hwnd, 读 inputBackend/captureBackend 选 backend. 节点本体 no-op, 走 Fire 出口.',
+      input: {
+        Title: { label: '窗口标题' },
+        Class: { label: '窗口类名' },
+        ProcessName: { label: '进程名' },
+        TitleMatch: { label: '标题匹配方式' },
+        InputBackend: { label: '输入后端' },
+        CaptureBackend: { label: '截屏后端' },
+      },
+      output: { Fire: { label: 'Fire' } },
+    },
     SubgraphInput: { label: '子图入口', description: '子图入口 virtual marker — 位置可改, 不可删/复制.' },
     SubgraphOutput: { label: '子图出口', description: '子图出口 virtual marker — 位置可改, 不可删/复制. 每个 OutputPin 对应一个 marker.' },
     // variable
-    GetVar: { label: '读变量', description: 'pure-data 节点 — 读容器变量供 data edge 下游消费. scope=auto/local/global.' },
-    SetVar: { label: '写变量', description: '写一个容器变量. scope=auto/local/global (auto: 当前 frame 有就 local, 否则 global).' },
-    IncVar: { label: '变量自增', description: '给容器变量加 Delta (默认 1). scope=auto/local/global.' },
-    GetParam: { label: '读子图参数', description: 'pure-data 节点 — 读 Subgraph 调用时传入的 input param. 仅子图内有效.' },
-    GetSys: { label: '读系统值', description: 'pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastDualBarTrack.innerX). 数据流求值.' },
+    GetVar: {
+      label: '读变量',
+      description: 'pure-data 节点 — 读容器变量供 data edge 下游消费. scope=auto/local/global.',
+      input: {
+        VarName: { label: '变量名' },
+        Scope: { label: '作用域' },
+      },
+      output: { Value: { label: '值' } },
+    },
+    SetVar: {
+      label: '写变量',
+      description: '写一个容器变量. scope=auto/local/global (auto: 当前 frame 有就 local, 否则 global).',
+      input: {
+        VarName: { label: '变量名' },
+        Scope: { label: '作用域' },
+        Value: { label: '值', hint: 'wildcard — 任意类型' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    IncVar: {
+      label: '变量自增',
+      description: '给容器变量加 Delta (默认 1). scope=auto/local/global.',
+      input: {
+        VarName: { label: '变量名' },
+        Scope: { label: '作用域' },
+        Delta: { label: '增量' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    GetParam: {
+      label: '读子图参数',
+      description: 'pure-data 节点 — 读 Subgraph 调用时传入的 input param. 仅子图内有效.',
+      input: { ParamName: { label: '参数名' } },
+      output: { Value: { label: '值' } },
+    },
+    GetSys: {
+      label: '读系统值',
+      description: 'pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastDualBarTrack.innerX). 数据流求值.',
+      input: { Path: { label: '路径', hint: '点路径, e.g. now_ms / lastDualBarTrack.innerX' } },
+      output: { Value: { label: '值' } },
+    },
   },
   status: {
     idle: '空闲',

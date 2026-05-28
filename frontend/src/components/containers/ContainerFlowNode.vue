@@ -102,8 +102,15 @@ import { TYPE_COLOR } from './nodeRegistry/index'
 import type { PinType } from './nodeRegistry/index'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const execStore = useExecutionStore()
+
+// Pin label i18n lookup. key = node.<kind>.input/output.<pin>.label.
+// 没注册 (e.g. dynamic Subgraph pin / fallback kind) → 返 raw pin name 字面值.
+function pinLabel(pinName: string, dir: 'in' | 'out'): string {
+  const k = `node.${kind.value}.${dir === 'in' ? 'input' : 'output'}.${pinName}.label`
+  return te(k) ? t(k) : pinName
+}
 
 const props = defineProps<{
   id: string
@@ -161,7 +168,7 @@ const execOutPinsForRender = computed(() => {
     )
     return decls.map((d) => ({ id: d.id, label: d.name }))
   }
-  return pins.value.execOut.map((id: string) => ({ id, label: id }))
+  return pins.value.execOut.map((id: string) => ({ id, label: pinLabel(id, 'out') }))
 })
 
 const dataTypeMap = computed<{ in: Record<string, PinType>; out: Record<string, PinType> }>(() => {
@@ -183,9 +190,9 @@ interface PinEntry {
 }
 
 const leftPins = computed<PinEntry[]>(() => [
-  ...pins.value.execIn.map((p): PinEntry => ({ id: p, label: p, kind: 'exec', type: 'any', dir: 'in' })),
+  ...pins.value.execIn.map((p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'exec', type: 'any', dir: 'in' })),
   ...pins.value.dataIn.map(
-    (p): PinEntry => ({ id: p, label: p, kind: 'data', type: dataTypeMap.value.in[p] ?? 'any', dir: 'in' }),
+    (p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'data', type: dataTypeMap.value.in[p] ?? 'any', dir: 'in' }),
   ),
 ])
 const rightPins = computed<PinEntry[]>(() => [
@@ -193,7 +200,7 @@ const rightPins = computed<PinEntry[]>(() => [
     (p): PinEntry => ({ id: p.id, label: p.label, kind: 'exec', type: 'any', dir: 'out' }),
   ),
   ...pins.value.dataOut.map(
-    (p): PinEntry => ({ id: p, label: p, kind: 'data', type: dataTypeMap.value.out[p] ?? 'any', dir: 'out' }),
+    (p): PinEntry => ({ id: p, label: pinLabel(p, 'out'), kind: 'data', type: dataTypeMap.value.out[p] ?? 'any', dir: 'out' }),
   ),
 ])
 

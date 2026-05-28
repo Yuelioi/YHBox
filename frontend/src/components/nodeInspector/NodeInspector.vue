@@ -11,7 +11,26 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Spec, InputSpec } from '@bindings/yhbox/internal/node'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
+
+// i18n helpers — backend Spec DisplayName/Doc 不再走 FE, 查 node.<kind>.* namespace.
+// 未注册 key fallback raw name (诊断).
+function nodeLabel(spec: Spec): string {
+  const k = `node.${spec.kind}.label`
+  return te(k) ? t(k) : spec.kind
+}
+function nodeDescription(spec: Spec): string {
+  const k = `node.${spec.kind}.description`
+  return te(k) ? t(k) : ''
+}
+function inputLabel(spec: Spec, name: string): string {
+  const k = `node.${spec.kind}.input.${name}.label`
+  return te(k) ? t(k) : name
+}
+function inputHint(spec: Spec, name: string): string {
+  const k = `node.${spec.kind}.input.${name}.hint`
+  return te(k) ? t(k) : ''
+}
 import { evalVisibleRule } from './VisibleWhen'
 import TextWidget from './widgets/TextWidget.vue'
 import TextareaWidget from './widgets/TextareaWidget.vue'
@@ -104,7 +123,7 @@ function validate(): boolean {
     if (input.required) {
       const v = valueFor(input)
       if (v === undefined || v === null || v === '') {
-        errors.value[input.name] = `${input.displayName || input.name} ${t('common.required')}`
+        errors.value[input.name] = `${inputLabel(props.spec, input.name)} ${t('common.required')}`
       }
     }
   }
@@ -117,13 +136,13 @@ defineExpose({ validate })
 <template>
   <div class="node-inspector space-y-3 p-3">
     <div class="border-b border-default pb-2">
-      <h3 class="text-sm font-semibold">{{ spec.displayName || spec.kind }}</h3>
-      <p v-if="spec.description" class="text-xs text-toned mt-1">{{ spec.description }}</p>
+      <h3 class="text-sm font-semibold">{{ nodeLabel(spec) }}</h3>
+      <p v-if="nodeDescription(spec)" class="text-xs text-toned mt-1">{{ nodeDescription(spec) }}</p>
     </div>
 
     <div v-for="input in basicInputs" :key="input.name" class="space-y-1">
       <label class="text-xs flex items-center gap-1">
-        <span>{{ input.displayName || input.name }}</span>
+        <span>{{ inputLabel(spec, input.name) }}</span>
         <span v-if="input.required" class="text-red-500">*</span>
       </label>
       <component
@@ -135,7 +154,7 @@ defineExpose({ validate })
         :current-inputs="currentInputs"
         @update="(v: any) => updateField(input.name, v)"
       />
-      <p v-if="input.doc" class="text-xs text-toned">{{ input.doc }}</p>
+      <p v-if="inputHint(spec, input.name)" class="text-xs text-toned">{{ inputHint(spec, input.name) }}</p>
       <p v-if="errors[input.name]" class="text-xs text-red-500">{{ errors[input.name] }}</p>
     </div>
 
@@ -151,7 +170,7 @@ defineExpose({ validate })
       <div v-if="showAdvanced" class="space-y-3 mt-2">
         <div v-for="input in advancedInputs" :key="input.name" class="space-y-1">
           <label class="text-xs flex items-center gap-1">
-            <span>{{ input.displayName || input.name }}</span>
+            <span>{{ inputLabel(spec, input.name) }}</span>
             <span v-if="input.required" class="text-red-500">*</span>
           </label>
           <component
@@ -163,7 +182,7 @@ defineExpose({ validate })
             :current-inputs="currentInputs"
             @update="(v: any) => updateField(input.name, v)"
           />
-          <p v-if="input.doc" class="text-xs text-toned">{{ input.doc }}</p>
+          <p v-if="inputHint(spec, input.name)" class="text-xs text-toned">{{ inputHint(spec, input.name) }}</p>
           <p v-if="errors[input.name]" class="text-xs text-red-500">{{ errors[input.name] }}</p>
         </div>
       </div>
