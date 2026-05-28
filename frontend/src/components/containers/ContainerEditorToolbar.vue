@@ -5,39 +5,39 @@
       v-if="!isStandalone"
       size="xs" variant="ghost" color="neutral"
       icon="i-tabler-arrow-left"
-      title="返回容器列表"
+      :title="t('editor.toolbar.back_to_list')"
       @click="$emit('back-to-list')"
     />
     <UButton
       size="xs" variant="ghost" color="neutral"
       :icon="paletteCollapsed ? 'i-tabler-layout-sidebar-left-expand' : 'i-tabler-layout-sidebar-left-collapse'"
-      :title="paletteCollapsed ? '展开左侧栏' : '折叠左侧栏'"
+      :title="paletteCollapsed ? t('editor.toolbar.palette_expand') : t('editor.toolbar.palette_collapse')"
       @click="$emit('update:paletteCollapsed', !paletteCollapsed)"
     />
     <UButton
       size="sm" variant="ghost" color="neutral"
       icon="i-tabler-grid-dots"
-      title="节点 Explorer (Tab)"
+      :title="t('editor.toolbar.node_explorer')"
       @click="$emit('open-node-explorer')"
     />
     <UButton
       size="sm" variant="ghost" color="neutral"
       icon="i-tabler-books"
-      title="子图库 Explorer"
+      :title="t('editor.toolbar.library_explorer')"
       @click="$emit('open-library-explorer')"
     />
     <UButton
       size="sm" variant="ghost" color="neutral"
       icon="i-tabler-arrow-back-up"
       :disabled="!canUndo"
-      title="撤销 Ctrl+Z"
+      :title="t('editor.toolbar.undo')"
       @click="$emit('undo')"
     />
     <UButton
       size="sm" variant="ghost" color="neutral"
       icon="i-tabler-arrow-forward-up"
       :disabled="!canRedo"
-      title="重做 Ctrl+Y"
+      :title="t('editor.toolbar.redo')"
       @click="$emit('redo')"
     />
 
@@ -46,36 +46,36 @@
     <!-- ====== 中组: 录制 + 折叠子图 + 自动布局 ====== -->
     <template v-if="isRecording">
       <UButton size="sm" color="error" variant="solid" icon="i-tabler-square"
-               title="点这里 或在游戏前台按 F12 停止"
-               @click="$emit('stop-record')">停止录制</UButton>
+               :title="t('editor.toolbar.stop_record_tip')"
+               @click="$emit('stop-record')">{{ t('editor.toolbar.stop_record') }}</UButton>
     </template>
     <template v-else-if="countdownSec > 0">
       <UButton size="sm" color="warning" variant="solid" icon="i-tabler-x"
-               title="点这里取消录制倒计时"
-               @click="$emit('cancel-countdown')">取消 ({{ countdownSec }})</UButton>
+               :title="t('editor.toolbar.cancel_countdown_tip')"
+               @click="$emit('cancel-countdown')">{{ t('editor.toolbar.cancel_countdown', { n: countdownSec }) }}</UButton>
     </template>
     <template v-else>
       <UButton size="sm" color="primary" variant="soft" icon="i-tabler-circle-dot"
-               title="精准录制 — 完整事件流 (含鼠标移动/raw delta)"
-               @click="$emit('record', 'precise')">精准录制</UButton>
+               :title="t('editor.toolbar.record_precise_tip')"
+               @click="$emit('record', 'precise')">{{ t('editor.toolbar.record_precise') }}</UButton>
       <UButton size="sm" color="neutral" variant="subtle" icon="i-tabler-bolt"
-               title="简易录制 — 过滤鼠标 hover / 仅保留 click/key 事件"
-               @click="$emit('record', 'simple')">简易录制</UButton>
+               :title="t('editor.toolbar.record_simple_tip')"
+               @click="$emit('record', 'simple')">{{ t('editor.toolbar.record_simple') }}</UButton>
     </template>
     <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-package-import"
              :disabled="selectedCount === 0"
-             title="折叠选中节点为新子图"
-             @click="$emit('fold')">折叠为子图</UButton>
+             :title="t('editor.toolbar.fold_tip')"
+             @click="$emit('fold')">{{ t('editor.toolbar.fold') }}</UButton>
     <UDropdownMenu :items="layoutMenuItems">
       <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-layout-grid"
-               title="自动布局 / 对齐" />
+               :title="t('editor.toolbar.layout_tip')" />
     </UDropdownMenu>
     <UButton
       size="sm"
       variant="ghost"
       :color="snapEnabled ? 'primary' : 'neutral'"
       :icon="snapEnabled ? 'i-tabler-magnet' : 'i-tabler-magnet-off'"
-      :title="snapEnabled ? '吸附对齐开启 (拖动按 Alt 临时关) — 点击关闭' : '吸附对齐关闭 — 点击开启'"
+      :title="snapEnabled ? t('editor.toolbar.snap_on') : t('editor.toolbar.snap_off')"
       @click="$emit('toggle-snap')"
     />
 
@@ -87,44 +87,47 @@
       class="inline-flex items-center gap-2 rounded-md bg-emerald-500/15 border border-emerald-500/40 px-2 py-0.5 text-[11px] text-emerald-300"
     >
       <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-      <span>跑中</span>
+      <span>{{ t('editor.toolbar.running') }}</span>
       <span v-if="runningNodeKind" class="text-emerald-200/80">· {{ runningNodeLabel }}</span>
     </div>
     <UButton v-if="execStoreRunning" size="sm" color="error" variant="solid" icon="i-tabler-square"
-             title="停止当前运行 + 清队列 (同 Ctrl+Shift+F9)"
-             @click="$emit('stop-run')">停止</UButton>
+             :title="t('editor.toolbar.stop_run_tip')"
+             @click="$emit('stop-run')">{{ t('editor.toolbar.stop_run') }}</UButton>
 
     <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-checks"
              :disabled="dirty"
-             :title="dirty ? '请先保存再检查（校验读持久化版本）' : '校验主图 + 所有子图'"
-             @click="$emit('validate')">检查</UButton>
+             :title="dirty ? t('editor.toolbar.validate_dirty_tip') : t('editor.toolbar.validate_tip')"
+             @click="$emit('validate')">{{ t('editor.toolbar.validate') }}</UButton>
     <UButton size="sm" variant="soft" color="primary" icon="i-tabler-player-play"
              :disabled="dirty || execStoreRunning"
-             :title="dirty ? '请先保存再试运行' : execStoreRunning ? '已有任务在跑，先停' : '入队运行一次'"
-             @click="$emit('try-run')">试运行</UButton>
+             :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : execStoreRunning ? t('editor.toolbar.try_run_busy_tip') : t('editor.toolbar.try_run_tip')"
+             @click="$emit('try-run')">{{ t('editor.toolbar.try_run') }}</UButton>
     <UButton
       v-if="!isStandalone"
       size="xs"
       variant="ghost"
       color="neutral"
       icon="i-tabler-external-link"
-      title="在新窗口打开"
+      :title="t('editor.toolbar.open_new_window')"
       @click="$emit('open-new-window')"
     />
     <UButton size="sm" color="primary" icon="i-tabler-check" :disabled="!dirty"
-             @click="$emit('save')">保存</UButton>
+             @click="$emit('save')">{{ t('editor.toolbar.save') }}</UButton>
     <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-settings"
-             title="容器设置 (Ctrl+,)"
+             :title="t('editor.toolbar.open_settings')"
              @click="$emit('open-settings')" />
     <UButton size="xs" variant="ghost" color="neutral"
              :icon="inspectorCollapsed ? 'i-tabler-layout-sidebar-right-expand' : 'i-tabler-layout-sidebar-right-collapse'"
-             :title="inspectorCollapsed ? '展开属性面板' : '折叠属性面板'"
+             :title="inspectorCollapsed ? t('editor.toolbar.inspector_expand') : t('editor.toolbar.inspector_collapse')"
              @click="$emit('update:inspectorCollapsed', !inspectorCollapsed)" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   paletteCollapsed: boolean
@@ -173,49 +176,49 @@ const emit = defineEmits<{
 const layoutMenuItems = computed(() => [
   [
     {
-      label: '自动布局（横向）',
+      label: t('editor.layout.auto_lr'),
       icon: 'i-tabler-layout-board-split',
       onSelect: () => emit('auto-layout', 'LR'),
     },
     {
-      label: '自动布局（纵向）',
+      label: t('editor.layout.auto_tb'),
       icon: 'i-tabler-layout-rows',
       onSelect: () => emit('auto-layout', 'TB'),
     },
   ],
   [
     {
-      label: '对齐左 (≥2 节点)',
+      label: t('editor.layout.align_left'),
       icon: 'i-tabler-align-box-left-middle',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'left'),
     },
     {
-      label: '对齐右',
+      label: t('editor.layout.align_right'),
       icon: 'i-tabler-align-box-right-middle',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'right'),
     },
     {
-      label: '对齐顶',
+      label: t('editor.layout.align_top'),
       icon: 'i-tabler-align-box-top-center',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'top'),
     },
     {
-      label: '对齐底',
+      label: t('editor.layout.align_bottom'),
       icon: 'i-tabler-align-box-bottom-center',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'bottom'),
     },
     {
-      label: '水平居中',
+      label: t('editor.layout.center_h'),
       icon: 'i-tabler-align-center-horizontal',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'center-h'),
     },
     {
-      label: '垂直居中',
+      label: t('editor.layout.center_v'),
       icon: 'i-tabler-align-center-vertical',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'center-v'),
@@ -223,13 +226,13 @@ const layoutMenuItems = computed(() => [
   ],
   [
     {
-      label: '水平等距分布 (≥3)',
+      label: t('editor.layout.dist_h'),
       icon: 'i-tabler-arrows-horizontal',
       disabled: props.selectedCount < 3,
       onSelect: () => emit('align-selected', 'h-equal'),
     },
     {
-      label: '垂直等距分布',
+      label: t('editor.layout.dist_v'),
       icon: 'i-tabler-arrows-vertical',
       disabled: props.selectedCount < 3,
       onSelect: () => emit('align-selected', 'v-equal'),
