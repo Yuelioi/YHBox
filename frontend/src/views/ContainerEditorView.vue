@@ -468,6 +468,7 @@ import {
   centerOnNode,
 } from '@/composables/containerEditor/constants'
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
+import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -1906,76 +1907,6 @@ async function onNodeSearchPick(r: NodeSearchResult) {
   nodeSearchOpen.value = false
 }
 
-function onGlobalKeydown(e: KeyboardEvent) {
-  // Ctrl+K → 命令面板
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-    const t = e.target as HTMLElement | null
-    const tag = t?.tagName?.toLowerCase()
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
-    e.preventDefault()
-    commandPaletteOpen.value = true
-    return
-  }
-  // Ctrl+F → 画布节点搜索
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-    const t = e.target as HTMLElement | null
-    const tag = t?.tagName?.toLowerCase()
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
-    e.preventDefault()
-    nodeSearchOpen.value = !nodeSearchOpen.value
-    return
-  }
-  // Ctrl+S → 保存
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-    e.preventDefault()
-    if (dirty.value) void onSave()
-    return
-  }
-  // Ctrl+, → open settings (Mac Cmd+, also works)
-  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-    e.preventDefault()
-    settingsOpen.value = true
-    return
-  }
-  // Ctrl+Z → undo (skip when input/textarea/select/contentEditable is focused)
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
-    const t = e.target as HTMLElement | null
-    const tag = t?.tagName?.toLowerCase()
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
-    e.preventDefault()
-    undo()
-    return
-  }
-  // Ctrl+Shift+Z / Ctrl+Y → redo
-  if (
-    (e.ctrlKey || e.metaKey) &&
-    ((e.shiftKey && e.key.toLowerCase() === 'z') || (!e.shiftKey && e.key.toLowerCase() === 'y'))
-  ) {
-    const t = e.target as HTMLElement | null
-    const tag = t?.tagName?.toLowerCase()
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
-    e.preventDefault()
-    redo()
-    return
-  }
-  // Tab → toggle NodeExplorer
-  if (e.key === 'Tab') {
-    // If Explorer already open, always allow Tab to close it (even from inside the modal's search input)
-    if (nodeExplorerOpen.value) {
-      e.preventDefault()
-      nodeExplorerOpen.value = false
-      return
-    }
-    // Modal not open — open it, but skip when typing in an unrelated input
-    const t = e.target as HTMLElement | null
-    const tag = t?.tagName?.toLowerCase()
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
-    e.preventDefault()
-    nodeExplorerOpen.value = true
-    return
-  }
-}
-
 // FlowNode / FlowEdge 类型从 useContainerDraft export (公共声明), view 不再局部重复定义.
 
 // 注册自定义节点组件：从 PIN_SPECS keys 自动派生，无需手维护。
@@ -2089,6 +2020,15 @@ const { onFoldSelection } = useFolding({
 // 保存 + 孤儿 GC（onSaveAndClose 留在 view 因为依赖 view-local close 状态）
 // 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave } = useEditorSave({ draft, dirty, gcOrphanSubgraphs, toast })
+
+// 全局快捷键: Ctrl+K palette / Ctrl+F search / Ctrl+S save / Ctrl+, settings /
+// Ctrl+Z undo / Ctrl+Shift+Z(Y) redo / Tab toggle NodeExplorer.
+// dedup 原 5 处 isTypingTarget. composable 内 onMounted/onUnmounted 自挂 keydown listener.
+// 放 useEditorSave 之后 — onSave 在那里声明.
+useEditorHotkeys({
+  commandPaletteOpen, nodeSearchOpen, settingsOpen, nodeExplorerOpen,
+  dirty, onSave, undo, redo,
+})
 
 // 录制流程 (v2): 拿 subgraphID → refreshSubgraphStore 让 editorStore 知道新子图 →
 // activeGraph 加 Subgraph 引用节点 + autoConnect Start + 自动保存. 双击节点能进编辑.
@@ -2207,12 +2147,10 @@ function onExprFuseEvent(ev: Event) {
 }
 onMounted(() => {
   window.addEventListener('expr-fuse', onExprFuseEvent)
-  window.addEventListener('keydown', onGlobalKeydown)
   tplStore.setContainer(containerID)
 })
 onUnmounted(() => {
   window.removeEventListener('expr-fuse', onExprFuseEvent)
-  window.removeEventListener('keydown', onGlobalKeydown)
 })
 
 function onDeleteSelected() {
