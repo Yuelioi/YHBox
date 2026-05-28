@@ -186,6 +186,14 @@ export default {
       bound: '[EN-pending] Bound to {hk}',
       cleared: '[EN-pending] Hotkey cleared',
     },
+    label: {
+      system: {
+        execution_stop: '[EN-pending] Stop all running',
+        calibrate_toggle: '[EN-pending] DPI calibration toggle',
+      },
+      container: '[EN-pending] Container {name}',
+      schedule: '[EN-pending] Schedule {name}',
+    },
   },
   // backend ValidationError.Code → user-facing message.
   // Params: {param} placeholders use vue-i18n named-interpolation. Missing keys fall back to backend Message field.

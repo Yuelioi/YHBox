@@ -461,7 +461,9 @@ func (b *containerHotkeyBinder) Refresh() {
 		}
 		key := "container." + c.ID
 		cid := c.ID
-		err := b.registry.Register(key, hotkey.HotkeySourceContainer, "容器 "+c.Name, hk, "",
+		err := b.registry.Register(key, hotkey.HotkeySourceContainer,
+			"hotkeys.label.container", map[string]string{"name": c.Name},
+			hk, "",
 			func() {
 				_, _ = b.queue.Enqueue(execution.QueuedRun{
 					Targets: []execution.TargetRef{{Kind: "container", ID: cid}},

@@ -25,7 +25,9 @@
           class="flex items-center gap-3 px-3 py-2 rounded-md bg-elevated/30 border border-default/60"
         >
           <div class="flex-1 min-w-0">
-            <div class="text-sm text-default truncate">{{ entry.label }}</div>
+            <div class="text-sm text-default truncate">
+              {{ t(entry.label, entry.labelParams ?? {}) }}
+            </div>
             <div
               v-if="entry.lastError"
               class="text-xs text-error mt-0.5 truncate"
@@ -76,9 +78,10 @@ onMounted(() => {
 const filteredGrouped = computed(() => {
   const q = searchText.value.trim().toLowerCase()
   const filtered = q
-    ? store.list.filter(
-        (e) => e.label.toLowerCase().includes(q) || e.hotkeyStr.toLowerCase().includes(q),
-      )
+    ? store.list.filter((e) => {
+        const label = t(e.label, e.labelParams ?? {})
+        return label.toLowerCase().includes(q) || e.hotkeyStr.toLowerCase().includes(q)
+      })
     : store.list
   // 顺序: system → action → container → schedule (key 顺序即 UI 顺序)
   const groups: Record<string, typeof filtered> = {
@@ -91,7 +94,9 @@ const filteredGrouped = computed(() => {
     if (groups[e.source]) groups[e.source].push(e)
   }
   for (const k of Object.keys(groups)) {
-    groups[k].sort((a, b) => a.label.localeCompare(b.label, 'zh'))
+    groups[k].sort((a, b) =>
+      t(a.label, a.labelParams ?? {}).localeCompare(t(b.label, b.labelParams ?? {}), 'zh'),
+    )
   }
   return Object.entries(groups)
     .filter(([_, entries]) => entries.length > 0)

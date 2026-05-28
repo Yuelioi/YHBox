@@ -33,10 +33,14 @@ export interface LogLinesEvent {
 // HotkeyEntry 跟 Go services.HotkeyEntry 对齐。Normalized 字段后端故意不导出 — 前端不依赖
 // canonicalization 规则。冲突 / reserved / 验证错误通过 error message 前缀 [conflict] /
 // [reserved] / [invalid] 区分。
+//
+// label 是 i18n key string (FE 走 t(entry.label, entry.labelParams)). labelParams
+// 装 vue-i18n named interpolation (容器名 / 计划名等动态), backend Register 时填.
 export interface HotkeyEntry {
   key: string
-  source: 'system' | 'action'
+  source: 'system' | 'action' | 'container' | 'schedule'
   label: string
+  labelParams?: Record<string, string>
   hotkeyStr: string
   status: 'active' | 'unbound' | 'failed'
   lastError: string

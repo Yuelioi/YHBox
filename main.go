@@ -304,7 +304,7 @@ func main() {
 		stopAllHk = "Ctrl+Shift+F9"
 	}
 	if err := hotkeyRegistry.Register("system.execution-stop", hotkey.HotkeySourceSystem,
-		"强停所有运行", stopAllHk, "",
+		"hotkeys.label.system.execution_stop", nil, stopAllHk, "",
 		func() {
 			execQueue.CancelAll()
 			worker.CancelCurrent()
@@ -327,7 +327,7 @@ func main() {
 	// DPI 校准 toggle 热键：默认 F8。前端订阅 'calibration:toggle' event 推进状态机。
 	// 注册无副作用——只有 SettingsInput 打开校准对话框时才有效。
 	if err := hotkeyRegistry.Register("system.calibrate-toggle", hotkey.HotkeySourceSystem,
-		"DPI 校准 启动/停止", "F8", "",
+		"hotkeys.label.system.calibrate_toggle", nil, "F8", "",
 		func() {
 			app.Emit("calibration:toggle", nil)
 		}); err != nil {

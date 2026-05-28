@@ -201,6 +201,14 @@ export default {
       bound: '已绑定 {hk}',
       cleared: '已清除热键',
     },
+    label: {
+      system: {
+        execution_stop: '强停所有运行',
+        calibrate_toggle: 'DPI 校准 启动/停止',
+      },
+      container: '容器 {name}',
+      schedule: '计划 {name}',
+    },
   },
   // backend ValidationError.Code → user-facing message.
   // Params: {param} 占位符走 vue-i18n named-interpolation. 未匹配 → fallback 显示 raw code.

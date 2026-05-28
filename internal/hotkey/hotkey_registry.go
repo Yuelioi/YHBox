@@ -41,14 +41,19 @@ const (
 
 // HotkeyEntry 给前端 RPC 序列化用。Key 是稳定标识。
 // 注：Normalized 不暴露 — 前端不该依赖 canonicalization 规则。
+//
+// Label 语义: i18n key string (FE t() 渲染), 不是字面值. 动态部分 (容器名/计划名)
+// 走 LabelParams 插值, FE 调 t(label, labelParams) 输出最终文案. 未找到 key 时
+// vue-i18n fallback 直接返 raw key 字符串 (诊断用).
 type HotkeyEntry struct {
-	Key            string       `json:"key"`
-	Source         HotkeySource `json:"source"`
-	Label          string       `json:"label"`
-	HotkeyStr      string       `json:"hotkeyStr"`
-	Status         HotkeyStatus `json:"status"`
-	LastError      string       `json:"lastError"`
-	ReadonlyReason string       `json:"readonlyReason"`
+	Key            string            `json:"key"`
+	Source         HotkeySource      `json:"source"`
+	Label          string            `json:"label"`
+	LabelParams    map[string]string `json:"labelParams,omitempty"`
+	HotkeyStr      string            `json:"hotkeyStr"`
+	Status         HotkeyStatus      `json:"status"`
+	LastError      string            `json:"lastError"`
+	ReadonlyReason string            `json:"readonlyReason"`
 }
 
 // registryEntry registry 内部状态。normalized 字段不暴露。
@@ -99,7 +104,10 @@ func (r *HotkeyRegistry) SetCallbacks(
 //   - OS 注册失败：entry.Status=failed，LastError 填，return nil（startup-friendly）
 //
 // startup 期的语义：用户从 config 加载一堆 hotkeys，某个被别的进程占用不该让整个 startup 挂掉。
-func (r *HotkeyRegistry) Register(key string, source HotkeySource, label, hotkeyStr, readonlyReason string, onFire func()) error {
+//
+// label: i18n key string (FE t() 渲染), 见 HotkeyEntry doc.
+// labelParams: 给 label 的 vue-i18n named interpolation 用 (nil 表示无动态部分).
+func (r *HotkeyRegistry) Register(key string, source HotkeySource, label string, labelParams map[string]string, hotkeyStr, readonlyReason string, onFire func()) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.entries[key]; exists {
@@ -110,6 +118,7 @@ func (r *HotkeyRegistry) Register(key string, source HotkeySource, label, hotkey
 			Key:            key,
 			Source:         source,
 			Label:          label,
+			LabelParams:    labelParams,
 			HotkeyStr:      "",
 			Status:         HotkeyStatusUnbound,
 			ReadonlyReason: readonlyReason,

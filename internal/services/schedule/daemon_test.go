@@ -17,7 +17,7 @@ func newFakeRegistrar() *fakeRegistrar {
 	return &fakeRegistrar{callbacks: map[string]func(){}}
 }
 
-func (f *fakeRegistrar) Register(key, source, label, hotkey, readonly string, onFire func()) error {
+func (f *fakeRegistrar) Register(key, source, label string, _ map[string]string, hotkey, readonly string, onFire func()) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.callbacks[key] = onFire

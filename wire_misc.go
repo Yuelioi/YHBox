@@ -34,8 +34,8 @@ type scheduleHotkeyRegistrar struct {
 	reg *hotkey.HotkeyRegistry
 }
 
-func (a *scheduleHotkeyRegistrar) Register(key, source, label, hotkeyStr, readonly string, onFire func()) error {
-	return a.reg.Register(key, hotkey.HotkeySource(source), label, hotkeyStr, readonly, onFire)
+func (a *scheduleHotkeyRegistrar) Register(key, source, label string, labelParams map[string]string, hotkeyStr, readonly string, onFire func()) error {
+	return a.reg.Register(key, hotkey.HotkeySource(source), label, labelParams, hotkeyStr, readonly, onFire)
 }
 
 func (a *scheduleHotkeyRegistrar) Unregister(key string) error {

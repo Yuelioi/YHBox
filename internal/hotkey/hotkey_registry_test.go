@@ -10,7 +10,7 @@ func TestRegistry_RegisterBasicEntry(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
-	err := r.Register("test.foo", HotkeySourceSystem, "测试 foo", "", "", func() {})
+	err := r.Register("test.foo", HotkeySourceSystem, "测试 foo", nil, "", "", func() {})
 	if err != nil {
 		t.Fatalf("Register err=%v", err)
 	}
@@ -26,8 +26,8 @@ func TestRegistry_RegisterBasicEntry(t *testing.T) {
 func TestRegistry_RegisterRejectsDuplicateKey(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("dup", HotkeySourceSystem, "first", "", "", func() {})
-	err := r.Register("dup", HotkeySourceSystem, "second", "", "", func() {})
+	_ = r.Register("dup", HotkeySourceSystem, "first", nil, "", "", func() {})
+	err := r.Register("dup", HotkeySourceSystem, "second", nil, "", "", func() {})
 	if !errors.Is(err, ErrDuplicateKey) {
 		t.Errorf("第二次 Register 应返 ErrDuplicateKey, got %v", err)
 	}
@@ -36,8 +36,8 @@ func TestRegistry_RegisterRejectsDuplicateKey(t *testing.T) {
 func TestRegistry_ListReturnsAll(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("a", HotkeySourceSystem, "A", "", "", func() {})
-	_ = r.Register("b", HotkeySourceAction, "B", "", "", func() {})
+	_ = r.Register("a", HotkeySourceSystem, "A", nil, "", "", func() {})
+	_ = r.Register("b", HotkeySourceAction, "B", nil, "", "", func() {})
 	list := r.List()
 	if len(list) != 2 {
 		t.Errorf("len=%d want 2", len(list))
@@ -47,7 +47,7 @@ func TestRegistry_ListReturnsAll(t *testing.T) {
 func TestRegistry_DebugDumpFormat(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("x", HotkeySourceSystem, "测试 X", "", "", func() {})
+	_ = r.Register("x", HotkeySourceSystem, "测试 X", nil, "", "", func() {})
 	dump := r.DebugDump()
 	if !strings.Contains(dump, "x") || !strings.Contains(dump, "unbound") {
 		t.Errorf("DebugDump 应含 key 和 status, got: %s", dump)
@@ -57,7 +57,7 @@ func TestRegistry_DebugDumpFormat(t *testing.T) {
 func TestRegistry_UpdateRejectsReserved(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("x", HotkeySourceAction, "X", "", "", func() {})
+	_ = r.Register("x", HotkeySourceAction, "X", nil, "", "", func() {})
 	err := r.Update("x", "Ctrl+C")
 	var rerr *HotkeyReservedError
 	if !errors.As(err, &rerr) {
@@ -72,8 +72,8 @@ func TestRegistry_UpdateRejectsConflict(t *testing.T) {
 	// 实际上 HotkeyManager.Register 会真注册 OS hotkey，单测可能影响系统。
 	// 但 plan 接受这风险（已存在的 hotkey_test.go 也是真 OS 注册）。
 	// 给两个 entry 同个值看是否撞内部 normalized
-	_ = r.Register("a", HotkeySourceAction, "A", "Ctrl+Shift+Alt+F1", "", func() {})
-	_ = r.Register("b", HotkeySourceAction, "B", "", "", func() {})
+	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F1", "", func() {})
+	_ = r.Register("b", HotkeySourceAction, "B", nil, "", "", func() {})
 	err := r.Update("b", "Ctrl+Shift+Alt+F1")
 	var cerr *HotkeyConflictError
 	if !errors.As(err, &cerr) {
@@ -87,7 +87,7 @@ func TestRegistry_UpdateRejectsConflict(t *testing.T) {
 func TestRegistry_UpdateSelfNoConflict(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("a", HotkeySourceAction, "A", "Ctrl+Shift+Alt+F2", "", func() {})
+	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F2", "", func() {})
 	// 改自己当前值 noop
 	if err := r.Update("a", "Ctrl+Shift+Alt+F2"); err != nil {
 		t.Errorf("改自己当前值应返 nil, got %v", err)
@@ -98,8 +98,8 @@ func TestRegistry_UpdateSelfNoConflict(t *testing.T) {
 func TestRegistry_UpdateNormalizationDetectsConflict(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("a", HotkeySourceAction, "A", "Ctrl+Shift+Alt+F3", "", func() {})
-	_ = r.Register("b", HotkeySourceAction, "B", "", "", func() {})
+	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F3", "", func() {})
+	_ = r.Register("b", HotkeySourceAction, "B", nil, "", "", func() {})
 	err := r.Update("b", "Shift+Ctrl+Alt+F3") // 顺序不同同义
 	var cerr *HotkeyConflictError
 	if !errors.As(err, &cerr) {
@@ -112,7 +112,7 @@ func TestRegistry_UpdateNormalizationDetectsConflict(t *testing.T) {
 func TestRegistry_ClearViaEmptyString(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("a", HotkeySourceAction, "A", "Ctrl+Shift+Alt+F4", "", func() {})
+	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F4", "", func() {})
 	if err := r.Update("a", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestRegistry_ClearViaEmptyString(t *testing.T) {
 func TestRegistry_UnregisterRemovesEntry(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	_ = r.Register("a", HotkeySourceAction, "A", "Ctrl+Shift+Alt+F5", "", func() {})
+	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F5", "", func() {})
 	if err := r.Unregister("a"); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 		func(id, str string) error { gotID, gotStr = id, str; return nil },
 		nil, nil,
 	)
-	_ = r.Register("action.abc", HotkeySourceAction, "A", "", "", func() {})
+	_ = r.Register("action.abc", HotkeySourceAction, "A", nil, "", "", func() {})
 	if err := r.Update("action.abc", "Ctrl+Shift+Alt+F6"); err != nil {
 		t.Fatal(err)
 	}
