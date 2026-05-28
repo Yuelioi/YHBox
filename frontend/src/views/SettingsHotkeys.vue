@@ -3,7 +3,7 @@
     <!-- 搜索框 -->
     <UInput
       v-model="searchText"
-      placeholder="搜索热键名或绑定..."
+      :placeholder="t('hotkeys.search_placeholder')"
       icon="i-tabler-search"
       class="w-full"
     />
@@ -31,13 +31,13 @@
               class="text-xs text-error mt-0.5 truncate"
               :title="entry.lastError"
             >
-              ⚠ 注册失败：{{ entry.lastError }}
+              ⚠ {{ t('hotkeys.status.register_failed') }}: {{ entry.lastError }}
             </div>
             <div v-else-if="entry.readonlyReason" class="text-xs text-dimmed mt-0.5">
               {{ entry.readonlyReason }}
             </div>
             <div v-else-if="entry.status === 'unbound'" class="text-xs text-dimmed mt-0.5">
-              未绑定
+              {{ t('hotkeys.status.unbound') }}
             </div>
           </div>
           <div class="w-56 shrink-0">
@@ -52,17 +52,19 @@
     </section>
 
     <p v-if="filteredGrouped.length === 0" class="text-xs text-dimmed text-center py-8">
-      没有匹配的热键
+      {{ t('hotkeys.empty') }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 
+const { t } = useI18n()
 const store = useHotkeysStore()
 const toast = useToast()
 const searchText = ref('')
@@ -107,10 +109,10 @@ function groupIcon(source: string): string {
 }
 function groupLabel(source: string): string {
   switch (source) {
-    case 'system': return '系统'
-    case 'action': return '动作'
-    case 'container': return '容器'
-    case 'schedule': return '计划'
+    case 'system': return t('hotkeys.group.system')
+    case 'action': return t('hotkeys.group.action')
+    case 'container': return t('hotkeys.group.container')
+    case 'schedule': return t('hotkeys.group.schedule')
     default: return source
   }
 }
@@ -119,7 +121,7 @@ async function onUpdate(key: string, hotkeyStr: string) {
   const ok = await store.update(key, hotkeyStr)
   if (ok) {
     toast.add({
-      title: hotkeyStr ? `已绑定 ${hotkeyStr}` : '已清除热键',
+      title: hotkeyStr ? t('hotkeys.toast.bound', { hk: hotkeyStr }) : t('hotkeys.toast.cleared'),
       icon: 'i-tabler-check',
       color: 'neutral',
     })

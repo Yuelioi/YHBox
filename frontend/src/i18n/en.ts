@@ -38,6 +38,24 @@ export default {
   common: {
     game_not_detected: 'Game window not detected',
   },
+  hotkeys: {
+    search_placeholder: '[EN-pending] Search hotkey name or binding...',
+    group: {
+      system: '[EN-pending] System',
+      action: '[EN-pending] Action',
+      container: '[EN-pending] Container',
+      schedule: '[EN-pending] Schedule',
+    },
+    status: {
+      register_failed: '[EN-pending] Registration failed',
+      unbound: '[EN-pending] Unbound',
+    },
+    empty: '[EN-pending] No matching hotkey',
+    toast: {
+      bound: '[EN-pending] Bound to {hk}',
+      cleared: '[EN-pending] Hotkey cleared',
+    },
+  },
   // backend ValidationError.Code → user-facing message.
   // Params: {param} placeholders use vue-i18n named-interpolation. Missing keys fall back to backend Message field.
   error: {

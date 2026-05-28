@@ -62,6 +62,24 @@ export default {
   common: {
     game_not_detected: '未检测到异环窗口',
   },
+  hotkeys: {
+    search_placeholder: '搜索热键名或绑定...',
+    group: {
+      system: '系统',
+      action: '动作',
+      container: '容器',
+      schedule: '计划',
+    },
+    status: {
+      register_failed: '注册失败',
+      unbound: '未绑定',
+    },
+    empty: '没有匹配的热键',
+    toast: {
+      bound: '已绑定 {hk}',
+      cleared: '已清除热键',
+    },
+  },
   // backend ValidationError.Code → user-facing message.
   // Params: {param} 占位符走 vue-i18n named-interpolation. 未匹配 → fallback 显示 raw code.
   error: {
