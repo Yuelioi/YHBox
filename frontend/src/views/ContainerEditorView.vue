@@ -529,7 +529,9 @@ async function onOpenNewWindow() {
   }
 }
 
-const containerID = String(route.query.id ?? '')
+// 嵌入路由 /containers/:id/edit 用 params.id; 子窗口同款路由 + ?standalone=1 也走 params.
+// 老 /container-editor?id=xxx 已删, query.id fallback 仅兜底极少数老链接.
+const containerID = String(route.params.id ?? route.query.id ?? '')
 
 const {
   draft,

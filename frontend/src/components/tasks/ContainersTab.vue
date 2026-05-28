@@ -115,6 +115,14 @@
           <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-edit" @click="onEdit(c)"
             >编辑</UButton
           >
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-external-link"
+            title="在新窗口打开"
+            @click="onEditInWindow(c)"
+          />
           <div class="flex-1" />
           <UButton
             size="xs"
@@ -264,6 +272,16 @@ async function onCreate() {
 function onEdit(c: Container) {
   // 默认嵌入主壳; 用户在编辑器工具栏点 i-tabler-external-link 可拆独立窗口.
   router.push(`/containers/${c.id}/edit`)
+}
+
+async function onEditInWindow(c: Container) {
+  // 直接开独立子窗口 (老行为). 同 id 重复点 → containerWindowAdapter focus 已有窗口.
+  try {
+    await backend.containers.openEditorWindow(c.id)
+  } catch (e) {
+    console.error('openEditorWindow failed:', e)
+    toast.add({ title: '打开新窗口失败', description: String(e), color: 'error' })
+  }
 }
 
 function onAskDelete(c: Container) {

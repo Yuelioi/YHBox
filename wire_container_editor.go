@@ -39,7 +39,8 @@ func (a *containerWindowAdapter) OpenEditor(containerID string) error {
 	}
 	a.mu.Unlock()
 
-	hashURL := "/#/container-editor?id=" + url.QueryEscape(containerID)
+	// v2: 走嵌入路由模式 + ?standalone=1 query 让 App.vue 跳主壳 + ContainerEditorView 自画 header
+	hashURL := "/#/containers/" + url.PathEscape(containerID) + "/edit?standalone=1"
 	w := a.wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "编辑容器",
 		Width:     1280,
