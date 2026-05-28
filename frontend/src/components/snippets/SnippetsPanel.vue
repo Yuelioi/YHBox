@@ -8,7 +8,7 @@
         v-model="query"
         size="sm"
         icon="i-tabler-search"
-        placeholder="搜索 snippet…"
+        :placeholder="t('editor.snippet.panel.search_placeholder')"
         class="w-full"
       />
       <div v-if="store.allTags.length > 0" class="flex flex-wrap gap-1">
@@ -32,7 +32,7 @@
     <!-- Group list -->
     <div v-if="filteredByCategory.length === 0" class="text-[11px] text-dimmed italic px-3 py-4 text-center">
       <UIcon name="i-tabler-bookmarks" class="size-5 block mx-auto mb-2 opacity-50" />
-      {{ store.snippets.length === 0 ? '暂无 snippet. 右键节点 → 保存为 Snippet' : '无匹配' }}
+      {{ store.snippets.length === 0 ? t('editor.snippet.panel.empty_none') : t('editor.snippet.panel.empty_no_match') }}
     </div>
 
     <div v-else class="px-2 py-1">
@@ -75,7 +75,7 @@
             <button
               type="button"
               class="text-dimmed hover:text-primary px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="编辑 snippet"
+              :title="t('editor.snippet.panel.edit_tip')"
               @click.stop="emit('edit', s)"
             >
               <UIcon name="i-tabler-pencil" class="size-3" />
@@ -83,7 +83,7 @@
             <button
               type="button"
               class="text-dimmed hover:text-error px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="删除 snippet"
+              :title="t('editor.snippet.panel.delete_tip')"
               @click.stop="onRemove(s)"
             >
               <UIcon name="i-tabler-x" class="size-3" />
@@ -97,10 +97,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSnippetsStore, type Snippet } from '@/stores/snippets'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 import { useConfirm } from '@/composables/useConfirm'
 
+const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
 
 const emit = defineEmits<{
@@ -151,7 +153,11 @@ const filteredByCategory = computed(() => {
 })
 
 function snippetTooltip(s: Snippet): string {
-  const parts = [s.description, `kind: ${s.payload.kind}`, s.shortcut ? `快捷键: ${s.shortcut}` : '']
+  const parts = [
+    s.description,
+    `kind: ${s.payload.kind}`,
+    s.shortcut ? t('editor.snippet.panel.shortcut_tip', { hk: s.shortcut }) : '',
+  ]
   return parts.filter(Boolean).join('\n')
 }
 
@@ -161,10 +167,10 @@ function onDragStart(s: Snippet, e: DragEvent) {
 
 async function onRemove(s: Snippet) {
   const ok = await confirmDialog({
-    title: '删除 Snippet',
-    description: `确定删除 "${s.name}"?\n此操作不可撤销.`,
-    confirmText: '删除',
-    cancelText: '取消',
+    title: t('editor.snippet.panel.delete_dialog_title'),
+    description: t('editor.snippet.panel.delete_dialog_desc', { name: s.name }),
+    confirmText: t('editor.snippet.panel.delete_confirm'),
+    cancelText: t('editor.snippet.panel.delete_cancel'),
     color: 'error',
   })
   if (!ok) return
