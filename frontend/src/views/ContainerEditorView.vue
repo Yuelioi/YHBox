@@ -1,5 +1,7 @@
 <template>
-  <div class="flex flex-col h-screen bg-default text-default">
+  <!-- h-full 撑满父 (嵌入: <main>; 子窗: App.vue isStandalone div). overflow-hidden 防 minimap/canvas
+       撑出来触发 <main> 的 overflow-auto 滚动条 — 编辑器自管 canvas 缩放, 不允许外层滚. -->
+  <div class="flex flex-col h-full min-h-0 overflow-hidden bg-default text-default">
     <!-- 子窗口形态自画 header (高度跟主壳 AppTitleBar 一致 h-14); 嵌入主壳时由 AppTitleBar 接管 -->
     <header
       v-if="isStandalone"
