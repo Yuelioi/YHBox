@@ -469,6 +469,7 @@ import {
 } from '@/composables/containerEditor/constants'
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
+import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -493,7 +494,7 @@ import PinContextMenu, { type PinMenuAction, type PinInfo } from '@/components/c
 import CommandPalette, { type Command } from '@/components/containers/CommandPalette.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
-import NodeSearchModal, { type NodeSearchResult } from '@/components/containers/NodeSearchModal.vue'
+import NodeSearchModal from '@/components/containers/NodeSearchModal.vue'
 import SnapGuideOverlay from '@/components/containers/SnapGuideOverlay.vue'
 import { useSnippetsStore, eventToShortcutKey, type Snippet } from '@/stores/snippets'
 import { useLibraryStore } from '@/stores/library'
@@ -594,7 +595,11 @@ const commandPaletteOpen = ref(false)
 
 // ===== Ctrl+F canvas node search =====
 const nodeSearchOpen = ref(false)
-const nodeSearchQuery = ref('')
+const {
+  query: nodeSearchQuery,
+  results: nodeSearchResults,
+  onPick: onNodeSearchPick,
+} = useNodeSearch({ open: nodeSearchOpen, draft, activeGraph, selectedID })
 
 // ===== 右键菜单状态 =====
 const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
@@ -1864,48 +1869,6 @@ const commands = computed<Command[]>(() => {
     },
   ]
 })
-
-// ===== Node search computed results =====
-const nodeSearchResults = computed<NodeSearchResult[]>(() => {
-  if (!draft.value) return []
-  const q = nodeSearchQuery.value.toLowerCase().trim()
-  if (!q) return []
-  const out: NodeSearchResult[] = []
-  const walk = (nodes: any[], location: string, sgID: string | null) => {
-    for (const n of nodes) {
-      const hay = `${n.id} ${n.kind} ${n.label ?? ''}`.toLowerCase()
-      if (hay.includes(q)) {
-        out.push({ id: n.id, kind: n.kind, label: n.label, location, sgID })
-      }
-    }
-  }
-  walk(draft.value.graph.nodes, '主图', null)
-  for (const sg of draft.value.subgraphs ?? []) {
-    if (sg.graph) walk(sg.graph.nodes, `子图: ${sg.label || sg.id}`, sg.id)
-  }
-  return out
-})
-
-async function onNodeSearchPick(r: NodeSearchResult) {
-  const inCurrent = (!r.sgID && editorStore.editorPath.length === 0)
-    || (!!r.sgID && editorStore.editorPath[editorStore.editorPath.length - 1] === r.sgID)
-  if (!inCurrent) {
-    if (r.sgID) {
-      editorStore.editorPath = [r.sgID]
-    } else {
-      editorStore.editorPath = []
-    }
-    await nextTick()
-  }
-  selectedID.value = r.id
-  const target = activeGraph.value?.nodes.find((n: any) => n.id === r.id)
-  if (target) {
-    try {
-      centerOnNode(setCenter, target as { x: number; y: number })
-    } catch {}
-  }
-  nodeSearchOpen.value = false
-}
 
 // FlowNode / FlowEdge 类型从 useContainerDraft export (公共声明), view 不再局部重复定义.
 
