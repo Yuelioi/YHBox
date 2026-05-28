@@ -34,7 +34,7 @@
         to="/settings"
         class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
         :class="route.name === 'settings' ? 'text-primary' : ''"
-        title="设置"
+        :title="t('sidebar.settings')"
       >
         <UIcon name="i-tabler-settings" class="size-4" />
       </RouterLink>
@@ -42,7 +42,7 @@
         to="/help"
         class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
         :class="route.name === 'help' ? 'text-primary' : ''"
-        title="帮助"
+        :title="t('sidebar.help')"
       >
         <UIcon name="i-tabler-help-circle" class="size-4" />
       </RouterLink>
@@ -51,7 +51,7 @@
       <button
         type="button"
         class="w-12 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
-        title="最小化"
+        :title="t('editor.window.minimize')"
         @click="onMinimise"
       >
         <UIcon name="i-tabler-minus" class="size-4" />
@@ -59,7 +59,7 @@
       <button
         type="button"
         class="w-12 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
-        :title="isMaximised ? '还原' : '最大化'"
+        :title="isMaximised ? t('editor.window.restore') : t('editor.window.maximize')"
         @click="onToggleMaximise"
       >
         <UIcon :name="isMaximised ? 'i-tabler-copy' : 'i-tabler-square'" class="size-3.5" />
@@ -67,7 +67,7 @@
       <button
         type="button"
         class="w-12 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors duration-150"
-        title="关闭"
+        :title="t('editor.window.close')"
         @click="onClose"
       >
         <UIcon name="i-tabler-x" class="size-4" />
@@ -78,25 +78,31 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useSidebarCollapsed } from '@/composables/useSidebarCollapsed'
 import { useWindowControls } from '@/composables/useWindowControls'
 
+const { t } = useI18n()
 const version = '1.1.0'
 const route = useRoute()
 const { collapsed } = useSidebarCollapsed()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
 
-const VIEW_META: Record<string, { title: string; icon: string }> = {
-  containers: { title: '容器', icon: 'i-tabler-package' },
-  'container-edit': { title: '编辑容器', icon: 'i-tabler-schema' },
-  library: { title: '库', icon: 'i-tabler-books' },
-  schedules: { title: '计划', icon: 'i-tabler-clock' },
-  settings: { title: '设置', icon: 'i-tabler-settings' },
-  help: { title: '帮助', icon: 'i-tabler-help-circle' },
-  about: { title: '关于', icon: 'i-tabler-info-circle' },
+// route.name → i18n key. 标题文字走 t() (locale 切换刷新), icon 配静态 map.
+const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
+  containers: { titleKey: 'sidebar.containers', icon: 'i-tabler-package' },
+  'container-edit': { titleKey: 'sidebar.container_edit', icon: 'i-tabler-schema' },
+  library: { titleKey: 'sidebar.library', icon: 'i-tabler-books' },
+  schedules: { titleKey: 'sidebar.schedules', icon: 'i-tabler-clock' },
+  settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
+  help: { titleKey: 'sidebar.help', icon: 'i-tabler-help-circle' },
+  about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
 }
-const currentTitle = computed(() => VIEW_META[route.name as string]?.title ?? '')
+const currentTitle = computed(() => {
+  const meta = VIEW_META[route.name as string]
+  return meta ? t(meta.titleKey) : ''
+})
 const currentIcon = computed(() => VIEW_META[route.name as string]?.icon ?? '')
 // 窗口控件 (isMaximised + onMinimise / onToggleMaximise / onClose) 全由 useWindowControls 提供
 </script>

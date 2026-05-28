@@ -71,7 +71,7 @@
     <div class="px-2 pb-2 shrink-0">
       <button
         type="button"
-        :title="collapsed ? '展开侧栏' : '收起侧栏'"
+        :title="collapsed ? t('sidebar.expand_tip') : t('sidebar.collapse_tip')"
         class="w-full relative flex items-center h-9 rounded-md text-sm transition-colors duration-150 text-muted hover:bg-elevated/40 hover:text-highlighted"
         :class="collapsed ? 'justify-center px-0' : 'gap-2.5 px-3'"
         @click="toggle"
@@ -80,7 +80,7 @@
           :name="collapsed ? 'i-tabler-chevrons-right' : 'i-tabler-chevrons-left'"
           class="size-4 shrink-0"
         />
-        <span v-if="!collapsed" class="flex-1 truncate text-left">收起</span>
+        <span v-if="!collapsed" class="flex-1 truncate text-left">{{ t('sidebar.collapse') }}</span>
       </button>
     </div>
   </nav>
@@ -88,10 +88,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useSidebarCollapsed } from '@/composables/useSidebarCollapsed'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
+const { t } = useI18n()
 const route = useRoute()
 const editorStore = useContainerEditorStore()
 
@@ -109,16 +111,16 @@ const containersTo = computed(() =>
 )
 
 const automationItems = computed(() => [
-  { label: '容器', to: containersTo.value, icon: 'i-tabler-package' },
-  { label: '库', to: '/library', icon: 'i-tabler-books' },
-  { label: '计划', to: '/schedules', icon: 'i-tabler-clock' },
+  { label: t('sidebar.containers'), to: containersTo.value, icon: 'i-tabler-package' },
+  { label: t('sidebar.library'), to: '/library', icon: 'i-tabler-books' },
+  { label: t('sidebar.schedules'), to: '/schedules', icon: 'i-tabler-clock' },
 ])
 
-const toolItems = [
-  { label: '设置', to: '/settings', icon: 'i-tabler-settings' },
-  { label: '帮助', to: '/help', icon: 'i-tabler-help-circle' },
-  { label: '关于', to: '/about', icon: 'i-tabler-info-circle' },
-]
+const toolItems = computed(() => [
+  { label: t('sidebar.settings'), to: '/settings', icon: 'i-tabler-settings' },
+  { label: t('sidebar.help'), to: '/help', icon: 'i-tabler-help-circle' },
+  { label: t('sidebar.about'), to: '/about', icon: 'i-tabler-info-circle' },
+])
 
 function isActive(to: string): boolean {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
