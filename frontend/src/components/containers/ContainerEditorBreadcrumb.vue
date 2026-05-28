@@ -7,8 +7,8 @@
       color="neutral"
       icon="i-tabler-arrow-left"
       @click="$emit('pop')"
-    >上一层</UButton>
-    <span class="text-toned">{{ rootLabel ?? '...' }}</span>
+    >{{ t('editor.breadcrumb.pop') }}</UButton>
+    <span class="text-toned">{{ rootLabel ?? t('editor.breadcrumb.root_fallback') }}</span>
     <template v-for="(sgID, idx) in editorPath" :key="sgID">
       <UIcon name="i-tabler-chevron-right" class="size-3 text-dimmed" />
       <UButton
@@ -23,15 +23,19 @@
     <span
       v-if="activeNodeCount !== null"
       class="ml-2 text-[10px] text-dimmed inline-flex items-center gap-1"
-      :title="editorPath.length === 0 ? '主图节点数 (子图算 1)' : '当前子图内部节点数'"
+      :title="editorPath.length === 0 ? t('editor.breadcrumb.tooltip_main') : t('editor.breadcrumb.tooltip_subgraph')"
     >
       <UIcon name="i-tabler-cpu" class="size-3" />
-      {{ activeNodeCount }} 节点
+      {{ t('editor.breadcrumb.node_count', { n: activeNodeCount }) }}
     </span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 defineProps<{
   rootLabel: string | undefined
   editorPath: readonly string[]
