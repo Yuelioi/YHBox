@@ -39,8 +39,7 @@ export const router = createRouter({
   routes,
 })
 
-// 进编辑器路由时触发游戏检测 (老 BOT_ROUTES 那条逻辑挪过来 —
-// 进编辑器才需要 game.status; 列表页不需要).
+// 进编辑器路由时触发游戏检测 (容器编辑才需要 game.status; 列表页不需要).
 router.beforeEach((to) => {
   if (to.name === 'container-edit') {
     useGameStore().detect()

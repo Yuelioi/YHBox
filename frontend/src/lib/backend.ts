@@ -24,23 +24,6 @@ import * as E from '@/constants/events'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
 // 这里手写一份用于 store 引用更稳，避免 bindings 路径变化）
-export interface BotStateEvent {
-  state: 'idle' | 'running' | 'paused'
-}
-export interface FishStatsEvent {
-  commonCount: number
-  purpleCount: number
-  goldenCount: number
-  startedAt: string
-}
-export interface PianoProgressEvent {
-  curMs: number
-  totalMs: number
-}
-export interface BattleStateEvent {
-  enabled: boolean
-  mods: string
-}
 export interface GameStatusEvent {
   ok: boolean
   hwnd: number
@@ -52,26 +35,6 @@ export interface LogLinesEvent {
   seq: number
   lines: string[]
 }
-export interface ActionStateEvent {
-  seq: number
-  timestamp: string
-  actionId: string
-  runId: number
-  status: 'running' | 'step' | 'idle' | 'error'
-  error?: string
-  // status='step' 时填
-  stepIndex?: number
-  stepTotal?: number
-  stepId?: string
-  loopIter?: number
-}
-export interface RecorderStateEvent {
-  status: 'started' | 'stopped' | 'error'
-  tempActionId?: string
-  action?: any
-  error?: string
-}
-
 // HotkeyEntry 跟 Go services.HotkeyEntry 对齐。Normalized 字段后端故意不导出 — 前端不依赖
 // canonicalization 规则。冲突 / reserved / 验证错误通过 error message 前缀 [conflict] /
 // [reserved] / [invalid] 区分。
@@ -414,29 +377,11 @@ export const backend = {
       invoke(ToolsService.CancelWindowTargetCapture, id),
   },
   events: {
-    // 长跑 bot 的 state 事件：通用订阅（替代之前 4 个 onFishState/onCookState/...）
-    onBotState: (kind: string, cb: (e: BotStateEvent) => void) =>
-      Events.On(`${kind}:state`, (e: any) => cb(e.data)),
-    // Bot-specific 事件（形态各异，单独保留）
-    onFishStats: (cb: (e: FishStatsEvent) => void) =>
-      Events.On(E.EVENT_FISH_STATS, (e: any) => cb(e.data)),
-    onPianoProgress: (cb: (e: PianoProgressEvent) => void) =>
-      Events.On(E.EVENT_PIANO_PROGRESS, (e: any) => cb(e.data)),
-    onBattleState: (cb: (e: BattleStateEvent) => void) =>
-      Events.On(E.EVENT_BATTLE_STATE, (e: any) => cb(e.data)),
     // 共享事件
     onGameStatus: (cb: (e: GameStatusEvent) => void) =>
       Events.On(E.EVENT_GAME_STATUS, (e: any) => cb(e.data)),
     onLogLines: (cb: (e: LogLinesEvent) => void) =>
       Events.On(E.EVENT_LOG_LINES, (e: any) => cb(e.data)),
-    // actions 事件：state（run 状态推送）/ recorder-state（录制状态推送）/ recorder-event（录制期单次 raw 事件，给 dialog 计数）/ recorder-toggle（Ctrl+Shift+R 全局热键触发，前端走跟 UI 按钮同一路径）/ changed（任何 mutation 后广播，触发各窗口 reload list）
-    onActionState: (cb: (e: ActionStateEvent) => void) =>
-      Events.On('action:state', (e: any) => cb(e.data)),
-    onRecorderState: (cb: (e: RecorderStateEvent) => void) =>
-      Events.On('action:recorder-state', (e: any) => cb(e.data)),
-    onRecorderEvent: (cb: () => void) => Events.On('action:recorder-event', () => cb()),
-    onRecorderToggle: (cb: () => void) => Events.On('action:recorder-toggle', () => cb()),
-    onActionChanged: (cb: () => void) => Events.On('action:changed', () => cb()),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),
   },
 }

@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useGameStore } from '@/stores/game'
 import { useLogStore } from '@/stores/log'
 import { useExecutionStore } from '@/stores/execution'
@@ -86,18 +86,6 @@ const currentNodeLabel = computed(() => {
 async function onStopAll() {
   await containersStore.stopAll()
 }
-
-// 每秒刷一次时间让 startedAt 时长 reactive 更新
-const now = ref(Date.now())
-let timer: ReturnType<typeof setInterval> | null = null
-onMounted(() => {
-  timer = setInterval(() => {
-    now.value = Date.now()
-  }, 1000)
-})
-onUnmounted(() => {
-  if (timer != null) clearInterval(timer)
-})
 
 type Active = {
   kind: 'container' | 'idle'
