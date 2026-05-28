@@ -21,11 +21,14 @@
     <div class="text-[11px] text-dimmed mb-2 px-1 flex items-center gap-1.5">
       <template v-if="pinContext">
         <UIcon name="i-tabler-plus" class="size-3.5" />
-        <span>接受 <strong class="text-primary">{{ pinContext.pinType }}</strong> ({{ filtered.length }})</span>
+        <i18n-t keypath="editor.menu.inline.accept_type" tag="span">
+          <template #type><strong class="text-primary">{{ pinContext.pinType }}</strong></template>
+          <template #n>{{ filtered.length }}</template>
+        </i18n-t>
       </template>
       <template v-else>
         <UIcon name="i-tabler-plus" class="size-3.5" />
-        <span>添加节点 ({{ filtered.length }})</span>
+        <span>{{ t('editor.menu.inline.add_node', { n: filtered.length }) }}</span>
       </template>
     </div>
 
@@ -44,7 +47,7 @@
     <!-- Tree: per-group collapsible sections -->
     <div class="max-h-80 overflow-y-auto pr-1" style="width: 280px;">
       <template v-if="filtered.length === 0">
-        <p class="text-[11px] text-dimmed italic px-1 py-2 text-center">无匹配</p>
+        <p class="text-[11px] text-dimmed italic px-1 py-2 text-center">{{ t('editor.menu.inline.empty') }}</p>
       </template>
       <template v-else>
         <div v-for="g in groupedFiltered" :key="g.group" class="mb-1">
@@ -76,17 +79,20 @@
     </div>
 
     <!-- Hint -->
-    <div class="text-[10px] text-dimmed mt-2 text-center">Esc 关 · Enter 选首项</div>
+    <div class="text-[10px] text-dimmed mt-2 text-center">{{ t('editor.menu.inline.hint') }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, toRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+
+const { t } = useI18n()
 
 export interface PinContext {
   pinType: VarType

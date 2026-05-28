@@ -10,7 +10,7 @@
           <UInput
             ref="searchInputRef"
             v-model="query"
-            placeholder="搜节点 (label / kind / id substring)..."
+            :placeholder="t('editor.search.placeholder')"
             size="md"
             class="flex-1"
             @keydown.escape.stop="close"
@@ -21,8 +21,8 @@
         </div>
         <div class="flex-1 overflow-y-auto p-2">
           <div v-if="results.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            <span v-if="!query.trim()">输入关键词搜索节点 (跨主图 + 所有子图)</span>
-            <span v-else>无匹配</span>
+            <span v-if="!query.trim()">{{ t('editor.search.intro') }}</span>
+            <span v-else>{{ t('editor.search.empty') }}</span>
           </div>
           <div v-else class="space-y-1">
             <button
@@ -46,8 +46,8 @@
           </div>
         </div>
         <div class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between shrink-0">
-          <span>↑↓ 导航 · Enter 跳转 · Esc 关</span>
-          <span>{{ results.length }} 个匹配</span>
+          <span>{{ t('editor.search.hint') }}</span>
+          <span>{{ t('editor.search.count', { n: results.length }) }}</span>
         </div>
       </div>
     </template>
@@ -56,10 +56,13 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { nodeIconColor } from '@/composables/editor/useNodeGroupColor'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+
+const { t } = useI18n()
 
 export interface NodeSearchResult {
   id: string
