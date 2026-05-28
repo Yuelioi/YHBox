@@ -1,16 +1,15 @@
-// 节点创建 pipeline — 9 处 push 各自 ID + defaults + auto-wire 决策抽这里.
-// 从 ContainerEditorView 抽 (backlog C1).
+// 节点创建 pipeline. 所有 9 callsite 统一走 addNode({kind, pos, config?, label?, id?,
+// connectEdge?}) 单接口 (C6). 内部 buildNode + applyDraftMutation 一致.
 //
-// 范围:
+// callsite:
 //   drop* — drag-and-drop 入口 (var / node-spec / snippet)
 //   onInsertIncVar — VarRow "+" 按钮 中心 insert IncVar
 //   onApplySnippet — SnippetsPanel 单击 snippet 中心 insert
 //   onPickKind — NodeExplorerModal 选 kind
 //   onPickLibrarySubgraph — LibraryExplorerModal 选 library import
-//   onAddNode — programmatic add (used by useFlowInteraction + onRecord 完成)
-//
-// 注: C6 "节点创建 pipeline 统一" 是这步的 follow-up — 将所有 push 统一到单个
-//     `addNode({kind, pos, configOverrides?, autoConnect?})` 接口. 这一步只抽 view-side.
+//   onAddNode — programmatic add (useFlowInteraction palette drop / 录制完成).
+//              特殊: 不走 applyDraftMutation (直接 push + syncFlowFromDraft),
+//              Start 单例 guard, autoCreateSubgraphForNewNode 前置 hook.
 
 import { type Ref } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
@@ -33,6 +32,20 @@ interface PinAtPosition {
   dist: number
 }
 
+interface BuildNodeOpts {
+  kind: string
+  pos: { x: number; y: number }
+  config?: Record<string, unknown>
+  label?: string
+  /** 默认 newNodeID(kind); onAddNode 用 'start' 或 genNodeID 覆盖 */
+  id?: string
+}
+
+interface AddNodeOpts extends BuildNodeOpts {
+  /** 同 mutation 内自动加边 — 接 new node, 返 edge 或 null. */
+  connectEdge?: (newNode: GraphNode) => GraphEdge | null
+}
+
 interface UseNodeCreationOpts {
   draft: Ref<Container | null>
   activeGraph: Ref<Graph | null>
@@ -52,6 +65,40 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   } = opts
   const { screenToFlowCoordinate } = useVueFlow()
 
+  // ===== 核心 helper =====
+
+  function buildNode(o: BuildNodeOpts): GraphNode {
+    const n: GraphNode = {
+      id: o.id ?? newNodeID(o.kind),
+      kind: o.kind,
+      x: o.pos.x,
+      y: o.pos.y,
+      config: o.config ?? {},
+      createdAt: new Date().toISOString(),
+    } as GraphNode
+    if (o.label !== undefined) (n as any).label = o.label
+    return n
+  }
+
+  /** 统一入口: applyDraftMutation + push + optional connectEdge. 返回 new node 或 null. */
+  function addNode(o: AddNodeOpts): GraphNode | null {
+    let result: GraphNode | null = null
+    applyDraftMutation(() => {
+      const g = activeGraph.value
+      if (!g) return
+      const node = buildNode(o)
+      g.nodes.push(node)
+      if (o.connectEdge) {
+        const edge = o.connectEdge(node)
+        if (edge) (g.edges as GraphEdge[]).push(edge)
+      }
+      result = node
+    })
+    return result
+  }
+
+  // ===== Utilities for callers =====
+
   function defaultLiteralFor(type: VarDecl['type']): unknown {
     switch (type) {
       case 'number': return 0
@@ -63,8 +110,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   }
 
   // Data-in handles use Position.Bottom + type="target" → CSS selector
-  // `.vue-flow__handle[data-handlepos="bottom"].target` isolates them
-  // (exec-in uses Position.Left, 排除).
+  // `.vue-flow__handle[data-handlepos="bottom"].target` isolates them.
   function findNearestEligibleDataInPin(
     flowPos: { x: number; y: number },
     srcVarType: VarType,
@@ -81,7 +127,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
 
       const node = activeGraph.value?.nodes?.find((n) => n.id === nodeID) ?? null
       if (!node) continue
-      if (node.disabled === true) continue  // disabled 不参与 auto-connect
+      if (node.disabled === true) continue
 
       const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>)
       if (!pinType) continue
@@ -102,6 +148,8 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     return best
   }
 
+  // ===== 8 callsite — 全走 addNode =====
+
   function dropVar(
     payload: Extract<EditorDragPayload, { type: 'var' }>,
     pos: { x: number; y: number },
@@ -111,31 +159,19 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     if (kind === 'SetVar') {
       config.literal = { value: defaultLiteralFor(payload.ref.type) }
     }
-
     // Pin-aware auto-connect: DOM query 必须在 applyDraftMutation 触发 re-render 前
     const autoConnectTarget = kind === 'GetVar'
       ? findNearestEligibleDataInPin(pos, payload.ref.type as VarType)
       : null
 
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      const node: GraphNode = {
-        id: newNodeID(kind),
-        kind,
-        x: pos.x,
-        y: pos.y,
-        config,
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
-
-      if (autoConnectTarget) {
-        ;(g.edges as GraphEdge[]).push({
-          from: `${node.id}.value`,
-          to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
-        } as GraphEdge)
-      }
+    addNode({
+      kind, pos, config,
+      connectEdge: autoConnectTarget
+        ? (node) => ({
+            from: `${node.id}.value`,
+            to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
+          } as GraphEdge)
+        : undefined,
     })
   }
 
@@ -143,42 +179,25 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     payload: Extract<EditorDragPayload, { type: 'node-spec' }>,
     pos: { x: number; y: number },
   ) {
-    const kind = payload.kind
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      const node: GraphNode = {
-        id: newNodeID(kind),
-        kind,
-        x: pos.x,
-        y: pos.y,
-        config: getSpec(kind)?.defaults ?? {},
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
+    addNode({
+      kind: payload.kind,
+      pos,
+      config: getSpec(payload.kind)?.defaults ?? {},
     })
   }
 
-  // snippet 拖到画布 → 在 pos 生成节点 with snippet.payload.config
+  // snippet 拖到画布 → pos 生成节点 with snippet.payload.config
   function dropSnippet(
     payload: Extract<EditorDragPayload, { type: 'snippet' }>,
     pos: { x: number; y: number },
   ) {
     const s = useSnippetsStore().getById(payload.snippetID)
     if (!s) return
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      const node: GraphNode = {
-        id: newNodeID(s.payload.kind),
-        kind: s.payload.kind,
-        x: pos.x,
-        y: pos.y,
-        config: JSON.parse(JSON.stringify(s.payload.config)),
-        label: s.name, // snippet 名当 label, 一眼看出是哪个实例
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
+    addNode({
+      kind: s.payload.kind,
+      pos,
+      config: JSON.parse(JSON.stringify(s.payload.config)),
+      label: s.name, // snippet 名当 label
     })
     useSnippetsStore().markUsed(payload.snippetID)
   }
@@ -189,60 +208,30 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
     })
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      const node: GraphNode = {
-        id: newNodeID('IncVar'),
-        kind: 'IncVar',
-        x: center.x,
-        y: center.y,
-        config: {
-          varName: name,
-          scope: 'auto',
-          literal: { delta: 1 },
-        },
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
+    addNode({
+      kind: 'IncVar',
+      pos: center,
+      config: { varName: name, scope: 'auto', literal: { delta: 1 } },
     })
   }
 
-  // SnippetsPanel 单击 snippet (非 drag) → 画布中心生成节点 with config
+  // SnippetsPanel 单击 snippet → 画布中心生成 with config
   function onApplySnippet(s: Snippet) {
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      // 画布中心 fallback (没 viewport center API 时用固定 offset)
-      const pos = { x: 240 + Math.random() * 60, y: 180 + Math.random() * 60 }
-      const node: GraphNode = {
-        id: newNodeID(s.payload.kind),
-        kind: s.payload.kind,
-        x: pos.x,
-        y: pos.y,
-        config: JSON.parse(JSON.stringify(s.payload.config)),
-        label: s.name,
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
+    addNode({
+      kind: s.payload.kind,
+      pos: { x: 240 + Math.random() * 60, y: 180 + Math.random() * 60 },
+      config: JSON.parse(JSON.stringify(s.payload.config)),
+      label: s.name,
     })
     useSnippetsStore().markUsed(s.id)
   }
 
   // NodeExplorerModal 选 kind
   function onPickKind(kind: string) {
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      const node: GraphNode = {
-        id: newNodeID(kind),
-        kind,
-        x: 200 + Math.random() * 100,
-        y: 200 + Math.random() * 100,
-        config: { ...(getSpec(kind)?.defaults ?? {}) },
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
+    addNode({
+      kind,
+      pos: { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 },
+      config: { ...(getSpec(kind)?.defaults ?? {}) },
     })
   }
 
@@ -251,25 +240,16 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     if (!draft.value) return
     try {
       await backend.library.importToContainer(libraryID, draft.value.id, '')
-      const newSubgraphID = libraryID
       await refreshSubgraphStore()
-      applyDraftMutation(() => {
-        const g = activeGraph.value
-        if (!g) return
-        const node: GraphNode = {
-          id: newNodeID('Subgraph'),
-          kind: 'Subgraph',
-          x: 200 + Math.random() * 100,
-          y: 200 + Math.random() * 100,
-          config: { SubgraphID: newSubgraphID },
-          createdAt: new Date().toISOString(),
-        } as GraphNode
-        g.nodes.push(node)
+      addNode({
+        kind: 'Subgraph',
+        pos: { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 },
+        config: { SubgraphID: libraryID },
       })
       useLibraryStore().reload()
       toast.add({
         title: '子图已从库导入',
-        description: `SubgraphID: ${newSubgraphID}`,
+        description: `SubgraphID: ${libraryID}`,
         color: 'success',
         icon: 'i-tabler-check',
       })
@@ -283,8 +263,9 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     }
   }
 
-  // Programmatic add (useFlowInteraction palette drop / 录制完成 etc.).
-  // v2 Plan B: push 到 activeGraph (主图/子图层级), 不是固定主图. Start 单例.
+  // Programmatic add (useFlowInteraction palette drop / 录制完成).
+  // 特殊: 不走 applyDraftMutation (直接 push + syncFlowFromDraft + 设 selected).
+  // Start 单例 guard + autoCreateSubgraphForNewNode 前置 hook (失败不 push).
   async function onAddNode(
     kind: string,
     atX?: number,
@@ -296,15 +277,19 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       toast.add({ title: '当前层级 graph 不可用', color: 'error' })
       return null
     }
-    const id = kind === 'Start' ? 'start' : genNodeID()
     if (kind === 'Start' && targetGraph.nodes.some((n) => n.kind === 'Start')) {
       toast.add({ title: '只能有一个 Start 节点', color: 'warning' })
       return null
     }
-    const x = atX ?? 200 + Math.random() * 200
-    const y = atY ?? 100 + Math.random() * 200
-    const defaults = KIND_DEFAULTS[kind] ?? {}
-    const n: GraphNode = { id, kind, x, y, config: { ...defaults } }
+
+    const n = buildNode({
+      kind,
+      pos: { x: atX ?? 200 + Math.random() * 200, y: atY ?? 100 + Math.random() * 200 },
+      config: { ...(KIND_DEFAULTS[kind] ?? {}) },
+      id: kind === 'Start' ? 'start' : genNodeID(),
+    })
+    // onAddNode 老代码: 用 builtNode 时不 set createdAt — buildNode 强 set,
+    // 行为对齐. (老代码这一处确实没 createdAt; 修齐为标准统一.)
 
     if (kind === 'Subgraph') {
       const ok = await autoCreateSubgraphForNewNode(n)
@@ -316,13 +301,17 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
 
     targetGraph.nodes.push(n)
     syncFlowFromDraft()
-    selectedID.value = id
-    return id
+    selectedID.value = n.id
+    return n.id
   }
 
   return {
+    // 主接口
+    addNode,
+    // utilities (导出给外部 backward-compat, 实际外部不再直调)
     defaultLiteralFor,
     findNearestEligibleDataInPin,
+    // 8 callsite 包装 (面向 view)
     dropVar, dropNodeSpec, dropSnippet,
     onInsertIncVar, onApplySnippet,
     onPickKind, onPickLibrarySubgraph,
