@@ -447,7 +447,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
-import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError, type VarDecl } from '@/lib/backend'
+import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError } from '@/lib/backend'
 import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
@@ -473,6 +473,7 @@ import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
 import { useContextMenuRouter } from '@/composables/containerEditor/useContextMenuRouter'
+import { useNodeCreation } from '@/composables/containerEditor/useNodeCreation'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -500,12 +501,10 @@ import FindReferencesModal, { type RefEntry } from '@/components/containers/Find
 import NodeSearchModal from '@/components/containers/NodeSearchModal.vue'
 import SnapGuideOverlay from '@/components/containers/SnapGuideOverlay.vue'
 import { useSnippetsStore, eventToShortcutKey, type Snippet } from '@/stores/snippets'
-import { useLibraryStore } from '@/stores/library'
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
-import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
-import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
-import { isCompatibleType, type VarType } from '@/lib/variableRef'
+import { readDragPayload } from '@/composables/editor/useEditorDragDrop'
+import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import SplitHandle from '@/components/common/SplitHandle.vue'
 import { useSplitpane } from '@/composables/useSplitpane'
 
@@ -584,6 +583,19 @@ const {
 } = useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
 
 const selectedID = ref<string | null>(null)
+
+// 节点创建 pipeline (drop / picker / programmatic add) — 9 处 GraphNode push 散落抽这里.
+// C6 follow-up 会进一步统一到单 addNode({kind, pos, configOverrides?, autoConnect?}).
+const {
+  dropVar, dropNodeSpec, dropSnippet,
+  onInsertIncVar, onApplySnippet,
+  onPickKind, onPickLibrarySubgraph,
+  onAddNode,
+} = useNodeCreation({
+  draft, activeGraph, selectedID,
+  applyDraftMutation, syncFlowFromDraft, refreshSubgraphStore,
+  autoCreateSubgraphForNewNode, toast,
+})
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
@@ -665,193 +677,8 @@ function onReorderVars(fromIdx: number, toIdx: number) {
   applyDraftMutation(() => varMutations.reorderVars(fromIdx, toIdx))
 }
 
-// ===== Drag-drop helpers =====
-
-
-function defaultLiteralFor(type: VarDecl['type']): unknown {
-  switch (type) {
-    case 'number': return 0
-    case 'string': return ''
-    case 'bool': return false
-    case 'point': return { x: 0.5, y: 0.5 }
-    default: return null  // 'any' — no useful default
-  }
-}
-
-function findVarType(name: string): VarDecl['type'] {
-  if (!draft.value) return 'any'
-  const v = (draft.value.vars ?? []).find(x => x.name === name)
-  return (v?.type ?? 'any') as VarDecl['type']
-}
-
-// ===== Pin-aware auto-connect =====
-
-
-interface PinAtPosition {
-  nodeID: string
-  pinName: string
-  pinType: VarType
-  dist: number
-}
-
-/**
- * Find the nearest eligible data-in pin within AUTO_CONNECT_THRESHOLD_FLOW_PX of flowPos.
- *
- * Data-in handles in this codebase use Position.Bottom + type="target", so vue-flow
- * renders them with data-handlepos="bottom" and CSS class "target". Exec-in handles
- * use Position.Left, so the selector `.vue-flow__handle[data-handlepos="bottom"].target`
- * isolates data-in pins only.
- *
- * Node ID comes from data-nodeid on the handle element itself (no parent traversal needed).
- */
-function findNearestEligibleDataInPin(
-  flowPos: { x: number; y: number },
-  srcVarType: VarType,
-): PinAtPosition | null {
-  const handles = document.querySelectorAll<HTMLElement>(
-    '.vue-flow__handle[data-handlepos="bottom"].target',
-  )
-  let best: PinAtPosition | null = null
-
-  for (const handleEl of Array.from(handles)) {
-    const nodeID = handleEl.getAttribute('data-nodeid') ?? ''
-    const pinName = handleEl.getAttribute('data-handleid') ?? ''
-    if (!nodeID || !pinName) continue
-
-    const node = activeGraph.value?.nodes?.find(
-      (n) => n.id === nodeID,
-    ) ?? null
-    if (!node) continue
-    // Skip disabled nodes — they don't participate in auto-connect.
-    if (node.disabled === true) continue
-
-    const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>)
-    if (!pinType) continue  // not a data-in pin for this kind
-
-    if (!isCompatibleType(srcVarType, pinType as VarType)) continue
-
-    const rect = handleEl.getBoundingClientRect()
-    const screenCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    const flowCenter = screenToFlowCoordinate(screenCenter)
-    const dx = flowCenter.x - flowPos.x
-    const dy = flowCenter.y - flowPos.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist > AUTO_CONNECT_THRESHOLD_FLOW_PX) continue
-
-    if (!best || dist < best.dist) {
-      best = { nodeID, pinName, pinType: pinType as VarType, dist }
-    }
-  }
-  return best
-}
-
-function dropVar(
-  payload: Extract<EditorDragPayload, { type: 'var' }>,
-  pos: { x: number; y: number },
-) {
-  const kind = payload.modifier === 'alt' ? 'SetVar' : 'GetVar'
-  const config: Record<string, unknown> = { varName: payload.ref.name, scope: 'auto' }
-  if (kind === 'SetVar') {
-    config.literal = { value: defaultLiteralFor(payload.ref.type) }
-  }
-
-  // Pin-aware auto-connect: detect nearest eligible data-in pin before mutation
-  // (DOM query must run before applyDraftMutation triggers re-render)
-  const autoConnectTarget = kind === 'GetVar'
-    ? findNearestEligibleDataInPin(pos, payload.ref.type as VarType)
-    : null
-
-  applyDraftMutation((d) => {
-    const g = activeGraph.value
-    if (!g) return
-    const node: GraphNode = {
-      id: newNodeID(kind),
-      kind,
-      x: pos.x,
-      y: pos.y,
-      config,
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-
-    // Auto-connect GetVar.value → nearest eligible data-in pin
-    if (autoConnectTarget) {
-      ;(g.edges as GraphEdge[]).push({
-        from: `${node.id}.value`,
-        to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
-      } as GraphEdge)
-    }
-  })
-}
-
-function dropNodeSpec(
-  payload: Extract<EditorDragPayload, { type: 'node-spec' }>,
-  pos: { x: number; y: number },
-) {
-  const kind = payload.kind
-  applyDraftMutation((d) => {
-    const g = activeGraph.value
-    if (!g) return
-    const node: GraphNode = {
-      id: newNodeID(kind),
-      kind,
-      x: pos.x,
-      y: pos.y,
-      config: getSpec(kind)?.defaults ?? {},
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-  })
-}
-
-/** snippet 拖到画布 → 在 pos 生成节点 with snippet.payload.config */
-function dropSnippet(
-  payload: Extract<EditorDragPayload, { type: 'snippet' }>,
-  pos: { x: number; y: number },
-) {
-  const s = useSnippetsStore().getById(payload.snippetID)
-  if (!s) return
-  applyDraftMutation((d) => {
-    const g = activeGraph.value
-    if (!g) return
-    const node: GraphNode = {
-      id: newNodeID(s.payload.kind),
-      kind: s.payload.kind,
-      x: pos.x,
-      y: pos.y,
-      config: JSON.parse(JSON.stringify(s.payload.config)),
-      label: s.name, // 用 snippet 名当节点 label, 一眼能看出是哪个 snippet 实例
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-  })
-  useSnippetsStore().markUsed(payload.snippetID)
-}
-
-function onInsertIncVar(name: string) {
-  // VarRow "+" hover button → insert IncVar at viewport center
-  const center = screenToFlowCoordinate({
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
-  })
-  applyDraftMutation(() => {
-    const g = activeGraph.value
-    if (!g) return
-    const node: GraphNode = {
-      id: newNodeID('IncVar'),
-      kind: 'IncVar',
-      x: center.x,
-      y: center.y,
-      config: {
-        varName: name,
-        scope: 'auto',
-        literal: { delta: 1 },
-      },
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-  })
-}
+// dropVar / dropNodeSpec / dropSnippet / onInsertIncVar / 等 — useNodeCreation 已抽
+// (调用在上方 selectedID 之后)
 
 // ========== Snippet system wiring (Stage 2/3) ==========
 
@@ -882,27 +709,6 @@ function onEditSnippet(s: Snippet) {
 
 function onSnippetSaved(_s: Snippet) {
   // toast 反馈 (optional). 已经 persist 到 localStorage 由 store 自己干.
-}
-
-/** SnippetsPanel 单击 snippet (非 drag) → 在画布中心生成节点 with config. */
-function onApplySnippet(s: Snippet) {
-  applyDraftMutation(() => {
-    const g = activeGraph.value
-    if (!g) return
-    // 画布中心 fallback (没 viewport center API 时用固定 offset)
-    const pos = { x: 240 + Math.random() * 60, y: 180 + Math.random() * 60 }
-    const node: GraphNode = {
-      id: newNodeID(s.payload.kind),
-      kind: s.payload.kind,
-      x: pos.x,
-      y: pos.y,
-      config: JSON.parse(JSON.stringify(s.payload.config)),
-      label: s.name,
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-  })
-  useSnippetsStore().markUsed(s.id)
 }
 
 // 全局快捷键监听: snippet.shortcut 触发 → 在最后已知鼠标位置生成节点
@@ -980,63 +786,11 @@ function onOpenNodeExplorer() {
   nodeExplorerOpen.value = !nodeExplorerOpen.value
 }
 
-function onPickKind(kind: string) {
-  applyDraftMutation((d) => {
-    const g = activeGraph.value
-    if (!g) return
-    const node: GraphNode = {
-      id: newNodeID(kind),
-      kind,
-      x: 200 + Math.random() * 100,
-      y: 200 + Math.random() * 100,
-      config: { ...(getSpec(kind)?.defaults ?? {}) },
-      createdAt: new Date().toISOString(),
-    } as GraphNode
-    g.nodes.push(node)
-  })
-  // pushRecent 已删 (Snippet 系统替代 Recent)
-}
-
 function onOpenLibraryExplorer() {
   libraryExplorerOpen.value = true
 }
 
-async function onPickLibrarySubgraph(libraryID: string) {
-  if (!draft.value) return
-  try {
-    await backend.library.importToContainer(libraryID, draft.value.id, '')
-    const newSubgraphID = libraryID
-    await refreshSubgraphStore()
-    applyDraftMutation(() => {
-      const g = activeGraph.value
-      if (!g) return
-      const node: GraphNode = {
-        id: newNodeID('Subgraph'),
-        kind: 'Subgraph',
-        x: 200 + Math.random() * 100,
-        y: 200 + Math.random() * 100,
-        config: { SubgraphID: newSubgraphID },
-        createdAt: new Date().toISOString(),
-      } as GraphNode
-      g.nodes.push(node)
-    })
-    // pushRecent 已删
-    useLibraryStore().reload()
-    toast.add({
-      title: '子图已从库导入',
-      description: `SubgraphID: ${newSubgraphID}`,
-      color: 'success',
-      icon: 'i-tabler-check',
-    })
-  } catch (e: any) {
-    console.error('LibraryExplorer pick failed:', e)
-    toast.add({
-      title: '从库导入失败',
-      description: String(e?.message ?? e),
-      color: 'error',
-    })
-  }
-}
+// onPickKind / onPickLibrarySubgraph / onAddNode 等 — 已抽 useNodeCreation
 // InlineContextMenu (右键画布空白 / pin drag-to-empty → 添加节点) 整块抽 useInlineMenu.
 // markConnectSuccess: 给 view 的 onConnect wrap 用 — 通知 onVfConnectEnd 别开 menu.
 const {
@@ -1107,42 +861,6 @@ function miniNodeColor(node: any): string {
   return map[v?.border ?? ''] ?? '#52525b'
 }
 
-
-async function onAddNode(
-  kind: string,
-  atX?: number,
-  atY?: number,
-): Promise<string | null> {
-  if (!draft.value) return null
-  // v2 Plan B：把节点 push 到 activeGraph（主图 / 当前子图层级），而不是总往主图塞
-  const targetGraph = activeGraph.value
-  if (!targetGraph) {
-    toast.add({ title: '当前层级 graph 不可用', color: 'error' })
-    return null
-  }
-  const id = kind === 'Start' ? 'start' : genNodeID()
-  if (kind === 'Start' && targetGraph.nodes.some((n) => n.kind === 'Start')) {
-    toast.add({ title: '只能有一个 Start 节点', color: 'warning' })
-    return null
-  }
-  const x = atX ?? 200 + Math.random() * 200
-  const y = atY ?? 100 + Math.random() * 200
-  const defaults = KIND_DEFAULTS[kind] ?? {}
-  const n: GraphNode = { id, kind, x, y, config: { ...defaults } }
-
-  if (kind === 'Subgraph') {
-    const ok = await autoCreateSubgraphForNewNode(n)
-    if (!ok) {
-      toast.add({ title: '建子图失败，请重试', color: 'error' })
-      return null
-    }
-  }
-
-  targetGraph.nodes.push(n)
-  syncFlowFromDraft()
-  selectedID.value = id
-  return id
-}
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
 const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
