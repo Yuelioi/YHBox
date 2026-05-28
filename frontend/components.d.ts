@@ -71,6 +71,7 @@ declare module 'vue' {
     SliderWidget: typeof import('./src/components/nodeInspector/widgets/SliderWidget.vue')['default']
     SnapGuideOverlay: typeof import('./src/components/containers/SnapGuideOverlay.vue')['default']
     SnippetsPanel: typeof import('./src/components/snippets/SnippetsPanel.vue')['default']
+    SplitHandle: typeof import('./src/components/common/SplitHandle.vue')['default']
     StatCard: typeof import('./src/components/StatCard.vue')['default']
     SubgraphPropsPanel: typeof import('./src/components/containers/SubgraphPropsPanel.vue')['default']
     SwitchInspector: typeof import('./src/components/containers/inspector/SwitchInspector.vue')['default']
