@@ -88,39 +88,18 @@
       </div>
     </section>
 
-    <!-- Log section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-terminal" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">日志</h2>
-      </div>
-
-      <div class="flex items-center justify-between gap-6">
-        <div>
-          <div class="text-sm text-default">显示日志面板</div>
-          <p class="text-xs text-dimmed mt-0.5">控制 bot 页面底部的日志区域是否显示。</p>
-        </div>
-        <USwitch :model-value="panelOpen" @update:model-value="onTogglePanelOpen" />
-      </div>
-
-      <div class="border-t border-default/60" />
-
-      <div class="flex items-center justify-between gap-6">
-        <div>
-          <div class="text-sm text-default">写入本地日志文件</div>
-          <p class="text-xs text-dimmed mt-0.5">
-            把日志同时写到
-            <code class="text-toned bg-elevated/60 px-1 py-0.5 rounded">logs/</code> 目录下的 JSON
-            文件。下次启动 bot 生效。
+    <!-- Log: 所有日志设置统一在底部日志面板 header 的设置图标里 -->
+    <section class="rounded-xl bg-default border border-default p-5">
+      <div class="flex items-start gap-3">
+        <UIcon name="i-tabler-terminal" class="size-4 text-dimmed mt-0.5 shrink-0" />
+        <div class="space-y-1">
+          <h2 class="text-sm font-medium text-highlighted">日志</h2>
+          <p class="text-xs text-dimmed">
+            折叠/展开、写入文件、时间戳、折行、自动滚动等设置在
+            <span class="text-toned">底部日志面板 header</span> 的设置图标里调整。
           </p>
         </div>
-        <USwitch :model-value="writeFile" @update:model-value="onToggleWriteFile" />
       </div>
-
-      <p class="text-xs text-dimmed pt-1 flex items-start gap-1.5">
-        <UIcon name="i-tabler-info-circle" class="size-3.5 shrink-0 mt-0.5" />
-        <span>时间戳显示 / 标签显示 / 折行 / 自动滚动 在日志面板顶部即可切换。</span>
-      </p>
     </section>
   </div>
 </template>
@@ -201,22 +180,4 @@ async function onToggleAutostart(v: boolean) {
 async function onToggleMinimizeToTray(v: boolean) {
   await settingsStore.patch({ ui: { minimizeToTray: v } })
 }
-
-const panelOpen = computed(() => settingsStore.data?.ui.logger.panelOpen ?? true)
-const writeFile = computed(() => settingsStore.data?.ui.logger.writeFile ?? true)
-
-async function onTogglePanelOpen(v: boolean) {
-  await settingsStore.patch({ ui: { logger: { panelOpen: v } } })
-}
-
-async function onToggleWriteFile(v: boolean) {
-  await settingsStore.patch({ ui: { logger: { writeFile: v } } })
-  toast.add({
-    title: v ? '已开启日志文件写入' : '已关闭日志文件写入',
-    color: 'neutral',
-    icon: 'i-tabler-check',
-    description: v ? '下次启动 bot 会写入 logs/ 目录。' : undefined,
-  })
-}
-
 </script>
