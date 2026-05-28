@@ -176,6 +176,7 @@ export default {
       action: '[EN-pending] Action',
       container: '[EN-pending] Container',
       schedule: '[EN-pending] Schedule',
+      editor: '[EN-pending] Editor',
     },
     status: {
       register_failed: '[EN-pending] Registration failed',
@@ -193,6 +194,18 @@ export default {
       },
       container: '[EN-pending] Container {name}',
       schedule: '[EN-pending] Schedule {name}',
+      editor: {
+        commandPalette: '[EN-pending] Command palette',
+        nodeSearch: '[EN-pending] Canvas node search',
+        save: '[EN-pending] Save',
+        openSettings: '[EN-pending] Open settings',
+        undo: '[EN-pending] Undo',
+        redo: '[EN-pending] Redo',
+        toggleExplorer: '[EN-pending] Toggle node explorer',
+      },
+    },
+    readonly: {
+      editorBuiltin: '[EN-pending] Editor built-in, not changeable yet',
     },
   },
   // backend ValidationError.Code → user-facing message.

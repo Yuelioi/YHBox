@@ -191,6 +191,7 @@ export default {
       action: '动作',
       container: '容器',
       schedule: '计划',
+      editor: '编辑器',
     },
     status: {
       register_failed: '注册失败',
@@ -208,6 +209,18 @@ export default {
       },
       container: '容器 {name}',
       schedule: '计划 {name}',
+      editor: {
+        commandPalette: '命令面板',
+        nodeSearch: '画布搜索',
+        save: '保存',
+        openSettings: '打开设置',
+        undo: '撤销',
+        redo: '重做',
+        toggleExplorer: '节点浏览器 显示/隐藏',
+      },
+    },
+    readonly: {
+      editorBuiltin: '编辑器内置, 暂不可改',
     },
   },
   // backend ValidationError.Code → user-facing message.
