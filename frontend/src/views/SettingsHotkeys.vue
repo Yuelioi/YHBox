@@ -78,11 +78,16 @@ const filteredGrouped = computed(() => {
         (e) => e.label.toLowerCase().includes(q) || e.hotkeyStr.toLowerCase().includes(q),
       )
     : store.list
-  const groups: Record<string, typeof filtered> = { system: [], action: [] }
+  // 顺序: system → action → container → schedule (key 顺序即 UI 顺序)
+  const groups: Record<string, typeof filtered> = {
+    system: [],
+    action: [],
+    container: [],
+    schedule: [],
+  }
   for (const e of filtered) {
     if (groups[e.source]) groups[e.source].push(e)
   }
-  // 按 label 字母序排（system 一组 / action 一组）
   for (const k of Object.keys(groups)) {
     groups[k].sort((a, b) => a.label.localeCompare(b.label, 'zh'))
   }
@@ -92,10 +97,22 @@ const filteredGrouped = computed(() => {
 })
 
 function groupIcon(source: string): string {
-  return source === 'system' ? 'i-tabler-tool' : 'i-tabler-bolt'
+  switch (source) {
+    case 'system': return 'i-tabler-tool'
+    case 'action': return 'i-tabler-bolt'
+    case 'container': return 'i-tabler-box'
+    case 'schedule': return 'i-tabler-calendar-clock'
+    default: return 'i-tabler-keyboard'
+  }
 }
 function groupLabel(source: string): string {
-  return source === 'system' ? '系统' : '动作'
+  switch (source) {
+    case 'system': return '系统'
+    case 'action': return '动作'
+    case 'container': return '容器'
+    case 'schedule': return '计划'
+    default: return source
+  }
 }
 
 async function onUpdate(key: string, hotkeyStr: string) {
