@@ -33,11 +33,6 @@
           />
           <UIcon :name="item.icon" class="size-4 shrink-0" />
           <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
-          <span
-            v-if="item.store"
-            class="size-1.5 rounded-full shrink-0"
-            :class="[botDotClass(item.store), collapsed ? 'absolute top-1 right-1' : '']"
-          />
         </RouterLink>
       </div>
 
@@ -94,29 +89,21 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { useSidebarCollapsed } from '@/composables/useSidebarCollapsed'
-import { BOTS, type BotState } from '@/lib/bot-registry'
-import { useBattleStore } from '@/stores/battle'
 
 const route = useRoute()
-const battleStore = useBattleStore()
 
 const { collapsed, toggle } = useSidebarCollapsed()
 
 const activeClass = 'bg-elevated/60 text-highlighted font-medium'
 const inactiveClass = 'text-muted hover:bg-elevated/40 hover:text-highlighted'
 
-// automation items：4 个长跑 bot 来自 registry + 战斗（hotkey-driven 单独 append）+
-// 容器 + 计划（schedule trigger 列表）
 const automationItems = [
-  ...BOTS.map((b) => ({ label: b.label, to: b.route, icon: b.icon, store: b.kind })),
-  { label: '战斗', to: '/battle', icon: 'i-tabler-swords', store: 'battle' },
-  { label: '容器', to: '/containers', icon: 'i-tabler-package', store: '' },
-  { label: '库', to: '/library', icon: 'i-tabler-books', store: '' },
-  { label: '计划', to: '/schedules', icon: 'i-tabler-clock', store: '' },
+  { label: '容器', to: '/containers', icon: 'i-tabler-package' },
+  { label: '库', to: '/library', icon: 'i-tabler-books' },
+  { label: '计划', to: '/schedules', icon: 'i-tabler-clock' },
 ]
 
 const toolItems = [
-  { label: '节点 Demo', to: '/node-inspector-demo', icon: 'i-tabler-flask' },
   { label: '设置', to: '/settings', icon: 'i-tabler-settings' },
   { label: '帮助', to: '/help', icon: 'i-tabler-help-circle' },
   { label: '关于', to: '/about', icon: 'i-tabler-info-circle' },
@@ -124,20 +111,5 @@ const toolItems = [
 
 function isActive(to: string): boolean {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
-}
-
-function getBotState(storeName: string): BotState {
-  if (storeName === 'battle') {
-    return battleStore.status.enabled ? 'running' : 'idle'
-  }
-  const bot = BOTS.find((b) => b.kind === storeName)
-  return bot ? bot.useStore().state : 'idle'
-}
-
-function botDotClass(storeName: string): string {
-  const state = getBotState(storeName)
-  if (state === 'running') return 'bg-primary animate-pulse'
-  if (state === 'paused') return 'bg-warning'
-  return 'bg-accented'
 }
 </script>

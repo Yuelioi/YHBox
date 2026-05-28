@@ -2,7 +2,7 @@
   <div
     class="h-7 shrink-0 flex items-center justify-between px-4 border-t border-default bg-default text-[11px] text-muted select-none"
   >
-    <!-- LEFT — active bot status (互斥，只显示一个) -->
+    <!-- LEFT — active status -->
     <div class="flex items-center gap-3 min-w-0 flex-1">
       <span
         class="size-1.5 rounded-full shrink-0 transition-colors duration-300"
@@ -66,19 +66,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useFishStore } from '@/stores/fish'
-import { useCookStore } from '@/stores/cook'
-import { usePianoStore } from '@/stores/piano'
-import { useBattleStore } from '@/stores/battle'
 import { useGameStore } from '@/stores/game'
 import { useLogStore } from '@/stores/log'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
 
-const fishStore = useFishStore()
-const cookStore = useCookStore()
-const pianoStore = usePianoStore()
-const battleStore = useBattleStore()
 const gameStore = useGameStore()
 const logStore = useLogStore()
 const execStore = useExecutionStore()
@@ -108,14 +100,13 @@ onUnmounted(() => {
 })
 
 type Active = {
-  kind: 'fish' | 'cook' | 'piano' | 'battle' | 'container' | 'idle'
-  state: 'idle' | 'running' | 'paused' | 'enabled'
+  kind: 'container' | 'idle'
+  state: 'idle' | 'running'
   label: string
   metrics: string[]
 }
 
 const activeStatus = computed<Active>(() => {
-  // 容器跑中优先显示运行 metrics, 否则显示空闲态.
   if (execStore.running) {
     const cur = containersStore.list.find((c) => c.id === execStore.currentTargetID)
     const name = cur?.name || execStore.currentTargetID.slice(0, 8) || '容器'
@@ -125,48 +116,13 @@ const activeStatus = computed<Active>(() => {
     }
     return { kind: 'container', state: 'running', label: `▶ 跑中: ${name}`, metrics }
   }
-  if (fishStore.state !== 'idle') {
-    const s = fishStore.state === 'paused' ? '已暂停' : '正在钓鱼'
-    const metrics: string[] = []
-    const rt = fmtRuntime(fishStore.stats.startedAt)
-    if (rt) metrics.push(rt)
-    const total =
-      fishStore.stats.commonCount + fishStore.stats.purpleCount + fishStore.stats.goldenCount
-    if (total > 0) {
-      metrics.push(`普 ${fishStore.stats.commonCount}`)
-      metrics.push(`紫 ${fishStore.stats.purpleCount}`)
-      metrics.push(`金 ${fishStore.stats.goldenCount}`)
-    }
-    return { kind: 'fish', state: fishStore.state, label: s, metrics }
-  }
-  if (cookStore.state !== 'idle') {
-    const s = cookStore.state === 'paused' ? '店长已暂停' : '正在连点'
-    return { kind: 'cook', state: cookStore.state, label: s, metrics: [] }
-  }
-  if (pianoStore.state !== 'idle') {
-    const s = pianoStore.state === 'paused' ? '弹琴已暂停' : '正在演奏'
-    const cur = fmtMs(pianoStore.progress.curMs)
-    const total = fmtMs(pianoStore.progress.totalMs)
-    return { kind: 'piano', state: pianoStore.state, label: s, metrics: [`${cur} / ${total}`] }
-  }
-  if (battleStore.status.enabled) {
-    return {
-      kind: 'battle',
-      state: 'enabled',
-      label: '战斗热键启用',
-      metrics: [`${battleStore.status.mods}+1~6`],
-    }
-  }
   return { kind: 'idle', state: 'idle', label: '空闲', metrics: [] }
 })
 
 const leftDotClass = computed(() => {
   switch (activeStatus.value.state) {
     case 'running':
-    case 'enabled':
       return 'bg-primary animate-pulse'
-    case 'paused':
-      return 'bg-warning'
     default:
       return 'bg-accented'
   }
@@ -175,10 +131,7 @@ const leftDotClass = computed(() => {
 const leftLabelClass = computed(() => {
   switch (activeStatus.value.state) {
     case 'running':
-    case 'enabled':
       return 'text-primary'
-    case 'paused':
-      return 'text-warning'
     default:
       return 'text-dimmed'
   }
@@ -221,26 +174,5 @@ async function onDetect() {
       detecting.value = false
     }, 400)
   }
-}
-
-function fmtRuntime(iso: string): string {
-  if (!iso) return ''
-  const start = new Date(iso).getTime()
-  if (!Number.isFinite(start) || start <= 0) return ''
-  const sec = Math.max(0, Math.floor((now.value - start) / 1000))
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
-  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`
-  return `${s}s`
-}
-
-function fmtMs(ms: number): string {
-  if (ms < 0) ms = 0
-  const totalSec = Math.floor(ms / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${String(s).padStart(2, '0')}`
 }
 </script>
