@@ -58,6 +58,44 @@ export default {
     language_restart_hint: '切换语言后部分内容需重启 exe 生效，包括模板和配置',
     language_changed_title: '已切换语言',
     language_changed_desc: 'UI 已立即生效，模板和配置切换需要重启程序',
+    startup: {
+      section_title: '启动与关闭',
+      autostart_label: '开机自启',
+      autostart_hint:
+        '登录 Windows 后自动启动 YHBox. 写入注册表 HKCU\\...\\Run\\YHBox, 不需要管理员权限.',
+      tray_label: '关闭最小化到托盘',
+      tray_hint: '点关闭按钮(×)时不退出, 而是收到右下角系统托盘. 右键托盘图标可强制退出.',
+    },
+    capture: {
+      section_title: '截屏方式',
+      hint_auto: 'Auto: Win11/Server 2022 走 WGC (关黄框 + 后台稳), 其它走 GDI. 新装默认.',
+      hint_gdi: 'GDI (PrintWindow) 兼容性最好.',
+      hint_wgc: 'WGC (Windows Graphics Capture) 后台抓帧稳, 但 Win10 上有黄框关不掉.',
+      hint_mock: 'Mock 从 bin/mock-frames/ 读 PNG 序列回放, 调试用, 无需开游戏.',
+      restart_hint: '改完需重启 exe 生效.',
+      method: {
+        auto: 'Auto (按 OS 选)',
+        gdi: 'GDI',
+        wgc: 'WGC',
+        mock: 'Mock (离线回放)',
+      },
+      dump_debug_label: '落盘 detect 标注图',
+      dump_debug_hint:
+        'bot 识别关键路径异步把带框的 PNG 写到 debug/captures/, 调参/排查识别问题用. 立即生效.',
+      method_changed_title: '截屏方式已切到 {method}',
+      method_changed_desc: '重启程序生效',
+    },
+    log: {
+      section_title: '日志',
+      hint: '折叠/展开、写入文件、时间戳、折行、自动滚动等设置在底部日志面板 header 的设置图标里调整.',
+    },
+  },
+  toast: {
+    autostart_on: '已开启开机自启',
+    autostart_off: '已关闭开机自启',
+    lang_en_warn_title: 'Language switched to English',
+    lang_en_warn_desc:
+      '尚未支持英文模板: fish / cook / battle 的视觉模板未采集 EN 版本, 这几个功能会显示为不可用. UI 字符串已切换.',
   },
   common: {
     game_not_detected: '未检测到异环窗口',

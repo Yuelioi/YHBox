@@ -34,6 +34,48 @@ export default {
       'Some content (templates/configs) requires app restart after language change.',
     language_changed_title: 'Language switched',
     language_changed_desc: 'UI updated immediately; templates/configs require app restart.',
+    startup: {
+      section_title: '[EN-pending] Startup & Close',
+      autostart_label: '[EN-pending] Auto-start on login',
+      autostart_hint:
+        '[EN-pending] Start YHBox after Windows login. Writes registry HKCU\\...\\Run\\YHBox, no admin needed.',
+      tray_label: '[EN-pending] Close minimizes to tray',
+      tray_hint:
+        '[EN-pending] Clicking close (×) hides to system tray instead of exiting. Right-click tray icon to force quit.',
+    },
+    capture: {
+      section_title: '[EN-pending] Capture method',
+      hint_auto:
+        '[EN-pending] Auto: WGC on Win11/Server 2022 (no yellow border, stable in bg), GDI elsewhere. Default for new installs.',
+      hint_gdi: '[EN-pending] GDI (PrintWindow) — broadest compatibility.',
+      hint_wgc:
+        '[EN-pending] WGC (Windows Graphics Capture) — stable bg capture but yellow border on Win10.',
+      hint_mock:
+        '[EN-pending] Mock: replay PNG sequence from bin/mock-frames/. Debug only, no game needed.',
+      restart_hint: '[EN-pending] Restart exe to apply.',
+      method: {
+        auto: '[EN-pending] Auto (OS-based)',
+        gdi: 'GDI',
+        wgc: 'WGC',
+        mock: '[EN-pending] Mock (offline replay)',
+      },
+      dump_debug_label: '[EN-pending] Dump detect-annotated frames',
+      dump_debug_hint:
+        '[EN-pending] Bot detection async writes boxed PNGs to debug/captures/. For tuning / debugging detection issues. Applies immediately.',
+      method_changed_title: '[EN-pending] Capture switched to {method}',
+      method_changed_desc: '[EN-pending] Restart program to apply',
+    },
+    log: {
+      section_title: '[EN-pending] Log',
+      hint: '[EN-pending] Folding, file write, timestamps, line-wrap, autoscroll — settings live in the bottom log panel header gear.',
+    },
+  },
+  toast: {
+    autostart_on: '[EN-pending] Auto-start enabled',
+    autostart_off: '[EN-pending] Auto-start disabled',
+    lang_en_warn_title: 'Language switched to English',
+    lang_en_warn_desc:
+      '[EN-pending] EN templates not yet supported: fish / cook / battle visual templates not captured in EN, those features will show unavailable. UI strings switched.',
   },
   common: {
     game_not_detected: 'Game window not detected',
