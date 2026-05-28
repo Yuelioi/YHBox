@@ -567,6 +567,7 @@ import PinLiteral from './inline/PinLiteral.vue'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+import { useEditorBusStore } from '@/stores/editorBus'
 import { useClipsStore } from '@/stores/clips'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
@@ -628,16 +629,14 @@ function setLiteral(pin: string, v: any) {
   emit('update', cfg)
 }
 
-// 一键 fusion — Inspector 触发 CustomEvent, ContainerEditorView 监听 + useExprFusion.fuse().
+// 一键 fusion — Inspector 通过 editorBus store 请求, ContainerEditorView watch + 处理.
 function onFuseExpr() {
   if (!exprChainHint.value || !props.node) return
-  window.dispatchEvent(new CustomEvent('expr-fuse', {
-    detail: {
-      sourceID: props.node.id,
-      targetID: exprChainHint.value.targetID,
-      targetPin: exprChainHint.value.targetPin,
-    },
-  }))
+  useEditorBusStore().requestExprFusion({
+    sourceID: props.node.id,
+    targetID: exprChainHint.value.targetID,
+    targetPin: exprChainHint.value.targetPin,
+  })
 }
 
 // Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,

@@ -434,7 +434,7 @@
 // draft / canvas viewport / selection / dirty 全保留, 不重新 load.
 defineOptions({ name: 'ContainerEditorView' })
 
-import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
@@ -1014,26 +1014,24 @@ function onLabelUpdate(newLabel: string) {
   })
 }
 
-// Expr fusion listener — Inspector 通过 'expr-fuse' CustomEvent 触发. (TODO: 走 Pinia store, 见 backlog C10)
+// Expr fusion — NodeInspector 通过 editorBus.requestExprFusion 触发, 这里 watch 处理.
 import { useExprFusion } from '@/composables/containerEditor/useExprFusion'
+import { useEditorBusStore } from '@/stores/editorBus'
 const { fuse: fuseExpr } = useExprFusion({ activeGraph, syncFlowFromDraft })
-function onExprFuseEvent(ev: Event) {
-  const detail = (ev as CustomEvent).detail as { sourceID: string; targetID: string; targetPin: string }
-  if (!detail) return
-  const ok = fuseExpr(detail.sourceID, detail.targetID, detail.targetPin)
+const editorBus = useEditorBusStore()
+watch(() => editorBus.pendingExprFusion, (req) => {
+  if (!req) return
+  const ok = fuseExpr(req.sourceID, req.targetID, req.targetPin)
+  editorBus.clearExprFusion()
   if (ok) {
     selectedID.value = null
     toast.add({ title: 'Expr 合并完成', color: 'success' })
   } else {
     toast.add({ title: 'Expr 合并失败 (前置条件不满足)', color: 'warning' })
   }
-}
-onMounted(() => {
-  window.addEventListener('expr-fuse', onExprFuseEvent)
-  tplStore.setContainer(containerID)
 })
-onUnmounted(() => {
-  window.removeEventListener('expr-fuse', onExprFuseEvent)
+onMounted(() => {
+  tplStore.setContainer(containerID)
 })
 
 function onDeleteSelected() {
