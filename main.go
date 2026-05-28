@@ -400,7 +400,7 @@ func main() {
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(9, 9, 11), // zinc-950
 		Frameless:        true,
-		URL:              "/containers",
+		URL:              "/#/containers",
 	})
 
 	// 用户拖完才落盘（WindowDidResize 拖动期间会狂刷，没必要每帧写 IO）。
