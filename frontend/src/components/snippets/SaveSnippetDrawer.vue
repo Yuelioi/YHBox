@@ -9,10 +9,10 @@
           <UIcon name="i-tabler-bookmark-plus" class="size-5 text-primary" />
           <div class="flex-1">
             <div class="text-[13px] font-semibold text-default">
-              {{ editingId ? '编辑 Snippet' : '保存为 Snippet' }}
+              {{ editingId ? t('editor.snippet.drawer.title_edit') : t('editor.snippet.drawer.title_new') }}
             </div>
             <div class="text-[10px] text-dimmed">
-              {{ editingId ? `ID: ${editingId.slice(0, 8)}…` : `源节点: ${sourceKind || '?'}` }}
+              {{ editingId ? `ID: ${editingId.slice(0, 8)}…` : t('editor.snippet.drawer.subtitle_source_kind', { kind: sourceKind || '?' }) }}
             </div>
           </div>
           <UButton
@@ -21,27 +21,27 @@
             color="neutral"
             icon="i-tabler-x"
             @click="close"
-            title="关闭 (Esc)"
+            :title="t('editor.snippet.drawer.close_tip')"
           />
         </div>
 
         <div class="drawer-body">
           <div class="field">
-            <label>名称 <span class="text-error">*</span></label>
-            <UInput v-model="formName" size="sm" placeholder="例: 异环钓鱼窗口" class="w-full" />
+            <label>{{ t('editor.snippet.drawer.name_label') }} <span class="text-error">*</span></label>
+            <UInput v-model="formName" size="sm" :placeholder="t('editor.snippet.drawer.name_placeholder')" class="w-full" />
           </div>
 
           <div class="field">
-            <label>描述</label>
-            <UTextarea v-model="formDesc" size="sm" :rows="2" placeholder="可选 — 给自己看的说明" class="w-full" />
+            <label>{{ t('editor.snippet.drawer.desc_label') }}</label>
+            <UTextarea v-model="formDesc" size="sm" :rows="2" :placeholder="t('editor.snippet.drawer.desc_placeholder')" class="w-full" />
           </div>
 
           <div class="field">
-            <label>分类 (sidebar 树, 空 = 通用)</label>
+            <label>{{ t('editor.snippet.drawer.cat_label') }}</label>
             <UInput
               v-model="formCategory"
               size="sm"
-              placeholder="例: 异环 / 原神 / 通用"
+              :placeholder="t('editor.snippet.drawer.cat_placeholder')"
               class="w-full"
             />
             <div v-if="existingCategories.length > 0" class="flex flex-wrap gap-1 mt-1">
@@ -57,31 +57,31 @@
           </div>
 
           <div class="field">
-            <label>标签 (filter, 回车 / Tab 添加)</label>
+            <label>{{ t('editor.snippet.drawer.tags_label') }}</label>
             <UInputTags
               v-model="formTags"
               size="sm"
-              placeholder="例: fishing 后按回车..."
+              :placeholder="t('editor.snippet.drawer.tags_placeholder')"
               add-on-paste
               add-on-tab
               add-on-blur
               class="w-full"
             />
             <div v-if="allTags.length > 0" class="flex flex-wrap gap-1 mt-1">
-              <span class="text-[10px] text-dimmed mr-1">建议:</span>
+              <span class="text-[10px] text-dimmed mr-1">{{ t('editor.snippet.drawer.tags_suggest') }}</span>
               <button
-                v-for="t in allTags"
-                :key="t"
+                v-for="tag in allTags"
+                :key="tag"
                 type="button"
                 class="suggestion-chip"
-                :class="formTags.includes(t) ? 'is-active' : ''"
-                @click="toggleTag(t)"
-              >#{{ t }}</button>
+                :class="formTags.includes(tag) ? 'is-active' : ''"
+                @click="toggleTag(tag)"
+              >#{{ tag }}</button>
             </div>
           </div>
 
           <div class="field">
-            <label>颜色 (视觉记忆)</label>
+            <label>{{ t('editor.snippet.drawer.color_label') }}</label>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="c in colorPalette"
@@ -90,14 +90,14 @@
                 class="color-chip"
                 :style="{ background: c.value }"
                 :class="formColor === c.value ? 'is-selected' : ''"
-                :title="c.label"
+                :title="t(c.labelKey)"
                 @click="formColor = formColor === c.value ? undefined : c.value"
               />
             </div>
           </div>
 
           <div class="field">
-            <label>图标</label>
+            <label>{{ t('editor.snippet.drawer.icon_label') }}</label>
             <div class="flex flex-wrap gap-1">
               <button
                 v-for="ic in iconPalette"
@@ -114,12 +114,12 @@
           </div>
 
           <div class="field">
-            <label>全局快捷键 (可选)</label>
+            <label>{{ t('editor.snippet.drawer.shortcut_label') }}</label>
             <div class="flex gap-2">
               <UInput
                 v-model="formShortcut"
                 size="sm"
-                placeholder="例: Ctrl+Shift+F / Alt+1"
+                :placeholder="t('editor.snippet.drawer.shortcut_placeholder')"
                 class="flex-1"
                 @keydown.escape.stop="formShortcut = ''"
               />
@@ -129,7 +129,7 @@
                 size="sm"
                 :icon="capturing ? 'i-tabler-keyboard' : 'i-tabler-target'"
                 @click="toggleCapture"
-                :title="capturing ? '按任意组合键 (Esc 取消)' : '点击后按下组合键自动填'"
+                :title="capturing ? t('editor.snippet.drawer.shortcut_record') : t('editor.snippet.drawer.shortcut_idle')"
               />
             </div>
             <div v-if="shortcutError" class="text-[10px] text-error mt-1">⚠ {{ shortcutError }}</div>
@@ -147,10 +147,10 @@
             variant="ghost"
             icon="i-tabler-trash"
             @click="onDelete"
-          >删除</UButton>
+          >{{ t('editor.snippet.drawer.delete') }}</UButton>
           <div class="flex-1" />
-          <UButton size="sm" variant="ghost" color="neutral" @click="close">取消</UButton>
-          <UButton size="sm" color="primary" :disabled="!canSave" @click="onSave">保存</UButton>
+          <UButton size="sm" variant="ghost" color="neutral" @click="close">{{ t('editor.snippet.drawer.cancel') }}</UButton>
+          <UButton size="sm" color="primary" :disabled="!canSave" @click="onSave">{{ t('editor.snippet.drawer.save') }}</UButton>
         </div>
       </div>
     </div>
@@ -159,6 +159,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   useSnippetsStore,
   normalizeShortcut,
@@ -167,6 +168,8 @@ import {
   type Snippet,
 } from '@/stores/snippets'
 import { useConfirm } from '@/composables/useConfirm'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -241,15 +244,15 @@ const existingCategories = computed(() => store.allCategories)
 const allTags = computed(() => store.allTags)
 
 const colorPalette = [
-  { label: '红 (危险)', value: '#ef4444' },
-  { label: '橙', value: '#f97316' },
-  { label: '黄', value: '#eab308' },
-  { label: '绿 (OCR)', value: '#22c55e' },
-  { label: '青 (通用)', value: '#06b6d4' },
-  { label: '蓝 (窗口)', value: '#3b82f6' },
-  { label: '紫', value: '#a855f7' },
-  { label: '粉', value: '#ec4899' },
-  { label: '灰', value: '#71717a' },
+  { labelKey: 'editor.snippet.drawer.color.red', value: '#ef4444' },
+  { labelKey: 'editor.snippet.drawer.color.orange', value: '#f97316' },
+  { labelKey: 'editor.snippet.drawer.color.yellow', value: '#eab308' },
+  { labelKey: 'editor.snippet.drawer.color.green', value: '#22c55e' },
+  { labelKey: 'editor.snippet.drawer.color.cyan', value: '#06b6d4' },
+  { labelKey: 'editor.snippet.drawer.color.blue', value: '#3b82f6' },
+  { labelKey: 'editor.snippet.drawer.color.purple', value: '#a855f7' },
+  { labelKey: 'editor.snippet.drawer.color.pink', value: '#ec4899' },
+  { labelKey: 'editor.snippet.drawer.color.gray', value: '#71717a' },
 ]
 
 const iconPalette = [
@@ -263,10 +266,10 @@ const shortcutError = computed(() => {
   const s = formShortcut.value.trim()
   if (!s) return ''
   const norm = normalizeShortcut(s)
-  if (isReservedShortcut(s)) return `${norm} 是系统保留键, 请换`
+  if (isReservedShortcut(s)) return t('editor.snippet.drawer.err_reserved', { key: norm })
   const existing = store.byShortcut.get(norm)
   if (existing && existing.id !== props.editingId) {
-    return `${norm} 已被 "${existing.name}" 占用`
+    return t('editor.snippet.drawer.err_taken', { key: norm, name: existing.name })
   }
   return ''
 })
@@ -324,11 +327,12 @@ function onSave() {
 async function onDelete() {
   if (!props.editingId) return
   const s = store.getById(props.editingId)
+  const name = s?.name ?? t('editor.snippet.drawer.delete_dialog_fallback_name')
   const ok = await confirmDialog({
-    title: '删除 Snippet',
-    description: `确定删除 "${s?.name ?? '此 snippet'}"?\n此操作不可撤销.`,
-    confirmText: '删除',
-    cancelText: '取消',
+    title: t('editor.snippet.drawer.delete_dialog_title'),
+    description: t('editor.snippet.drawer.delete_dialog_desc', { name }),
+    confirmText: t('editor.snippet.drawer.delete'),
+    cancelText: t('editor.snippet.drawer.cancel'),
     color: 'error',
   })
   if (!ok) return
