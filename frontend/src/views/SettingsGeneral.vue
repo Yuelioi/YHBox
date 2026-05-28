@@ -1,34 +1,5 @@
 <template>
   <div class="px-8 py-6 space-y-6">
-    <!-- Game window section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-device-desktop" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">游戏窗口</h2>
-      </div>
-
-      <div class="flex items-center justify-between gap-4 pt-1">
-        <div class="flex items-center gap-2 min-w-0">
-          <span
-            class="size-2 rounded-full shrink-0 transition-colors duration-300"
-            :class="gameDotClass"
-          />
-          <span class="text-sm text-toned truncate">{{ gameLabel }}</span>
-        </div>
-        <UButton
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-refresh"
-          size="sm"
-          :loading="detecting"
-          :disabled="detecting"
-          @click="onDetect"
-        >
-          重新检测
-        </UButton>
-      </div>
-    </section>
-
     <!-- Startup & Close section -->
     <section class="rounded-xl bg-default border border-default p-5 space-y-4">
       <div class="flex items-center gap-2">
@@ -129,7 +100,7 @@
           <div class="text-sm text-default">显示日志面板</div>
           <p class="text-xs text-dimmed mt-0.5">控制 bot 页面底部的日志区域是否显示。</p>
         </div>
-        <USwitch :model-value="show" @update:model-value="onToggleShow" />
+        <USwitch :model-value="panelOpen" @update:model-value="onTogglePanelOpen" />
       </div>
 
       <div class="border-t border-default/60" />
@@ -155,16 +126,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useSettingsStore } from '@/stores/settings'
-import { useGameStore } from '@/stores/game'
 import { setLocale, type Locale } from '@/i18n'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
-const gameStore = useGameStore()
 const toast = useToast()
 
 const currentLocale = computed(() => (settingsStore.data?.locale ?? 'zh') as Locale)
@@ -233,11 +202,11 @@ async function onToggleMinimizeToTray(v: boolean) {
   await settingsStore.patch({ ui: { minimizeToTray: v } })
 }
 
-const show = computed(() => settingsStore.data?.ui.logger.show ?? true)
+const panelOpen = computed(() => settingsStore.data?.ui.logger.panelOpen ?? true)
 const writeFile = computed(() => settingsStore.data?.ui.logger.writeFile ?? true)
 
-async function onToggleShow(v: boolean) {
-  await settingsStore.patch({ ui: { logger: { show: v } } })
+async function onTogglePanelOpen(v: boolean) {
+  await settingsStore.patch({ ui: { logger: { panelOpen: v } } })
 }
 
 async function onToggleWriteFile(v: boolean) {
@@ -250,29 +219,4 @@ async function onToggleWriteFile(v: boolean) {
   })
 }
 
-const detecting = ref(false)
-const gameLabel = computed(() => {
-  const s = gameStore.status
-  if (!s) return '正在检测...'
-  if (!s.ok) return '未检测到异环窗口（请确认游戏已运行）'
-  return `${s.title} · ${s.w}×${s.h}`
-})
-const gameDotClass = computed(() => {
-  const s = gameStore.status
-  if (!s) return 'bg-accented'
-  if (!s.ok) return 'bg-error'
-  return 'bg-primary'
-})
-
-async function onDetect() {
-  if (detecting.value) return
-  detecting.value = true
-  try {
-    await gameStore.detect()
-  } finally {
-    setTimeout(() => {
-      detecting.value = false
-    }, 400)
-  }
-}
 </script>

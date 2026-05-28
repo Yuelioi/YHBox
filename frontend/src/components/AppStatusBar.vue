@@ -32,30 +32,8 @@
       </template>
     </div>
 
-    <!-- RIGHT — game window + log count -->
+    <!-- RIGHT — log count -->
     <div class="flex items-center gap-4 shrink-0">
-      <!-- Game window status + refresh -->
-      <button
-        type="button"
-        class="flex items-center gap-1.5 hover:text-highlighted transition-colors duration-150"
-        :title="gameTooltip + '（点击重新检测）'"
-        :disabled="detecting"
-        @click="onDetect"
-      >
-        <UIcon name="i-tabler-device-desktop" class="size-3" />
-        <span
-          class="size-1.5 rounded-full shrink-0 transition-colors duration-300"
-          :class="gameDotClass"
-        />
-        <span :class="gameLabelClass">{{ gameLabel }}</span>
-        <UIcon
-          name="i-tabler-refresh"
-          class="size-3 ml-0.5 text-dimmed"
-          :class="{ 'animate-spin': detecting }"
-        />
-      </button>
-
-      <!-- Log line count -->
       <div class="flex items-center gap-1.5" :title="`日志 ${logStore.lines.length}/500`">
         <UIcon name="i-tabler-terminal" class="size-3" />
         <span class="tabular-nums">{{ logStore.lines.length }}</span>
@@ -65,13 +43,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useGameStore } from '@/stores/game'
+import { computed } from 'vue'
 import { useLogStore } from '@/stores/log'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
 
-const gameStore = useGameStore()
 const logStore = useLogStore()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
@@ -125,42 +101,4 @@ const leftLabelClass = computed(() => {
   }
 })
 
-// Game window
-const detecting = ref(false)
-const gameLabel = computed(() => {
-  const s = gameStore.status
-  if (!s) return '检测中'
-  if (!s.ok) return '未检测'
-  return `${s.w}×${s.h}`
-})
-const gameLabelClass = computed(() => {
-  const s = gameStore.status
-  if (!s) return 'text-dimmed'
-  if (!s.ok) return 'text-error'
-  return 'text-primary'
-})
-const gameDotClass = computed(() => {
-  const s = gameStore.status
-  if (!s) return 'bg-accented'
-  if (!s.ok) return 'bg-error'
-  return 'bg-primary'
-})
-const gameTooltip = computed(() => {
-  const s = gameStore.status
-  if (!s) return '游戏窗口检测中'
-  if (!s.ok) return '未检测到异环窗口'
-  return `${s.title} (${s.w}×${s.h})`
-})
-
-async function onDetect() {
-  if (detecting.value) return
-  detecting.value = true
-  try {
-    await gameStore.detect()
-  } finally {
-    setTimeout(() => {
-      detecting.value = false
-    }, 400)
-  }
-}
 </script>

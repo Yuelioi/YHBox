@@ -37,7 +37,6 @@ declare module 'vue' {
     EdgeContextMenu: typeof import('./src/components/containers/menus/EdgeContextMenu.vue')['default']
     ExpressionInput: typeof import('./src/components/expressions/ExpressionInput.vue')['default']
     FindReferencesModal: typeof import('./src/components/containers/FindReferencesModal.vue')['default']
-    GameStatusIndicator: typeof import('./src/components/GameStatusIndicator.vue')['default']
     HotkeyCaptureInput: typeof import('./src/components/hotkeys/HotkeyCaptureInput.vue')['default']
     ImportToContainerDialog: typeof import('./src/components/library/ImportToContainerDialog.vue')['default']
     InlineContextMenu: typeof import('./src/components/containers/InlineContextMenu.vue')['default']
