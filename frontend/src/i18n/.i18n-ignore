@@ -4,6 +4,8 @@ src/components/containers/pinSpec.ts
 src/components/containers/NodeInspector.vue
 src/composables/containerEditor/useNodeSearch.ts
 src/components/containers/ContainerFlowNode.vue
+# Command palette: label 走 i18n, keywords 保留中英双语字面值作搜索辅助 (非显示内容)
+src/composables/containerEditor/useCommandPalette.ts
 # 测试文件
 **/*.test.ts
 **/*.spec.ts

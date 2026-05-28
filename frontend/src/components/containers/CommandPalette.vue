@@ -8,7 +8,7 @@
           <UInput
             ref="searchInputRef"
             v-model="query"
-            placeholder="搜命令 (e.g. 对齐 / undo / 保存)..."
+            :placeholder="t('editor.palette.search_placeholder')"
             size="md"
             class="flex-1"
             @keydown.escape.stop="close"
@@ -19,7 +19,7 @@
         </div>
         <div class="flex-1 overflow-y-auto p-2">
           <div v-if="filtered.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            无匹配命令
+            {{ t('editor.palette.empty') }}
           </div>
           <div v-else>
             <div v-for="(group, gIdx) in grouped" :key="group.name" :class="{'mt-2': gIdx > 0}">
@@ -44,8 +44,8 @@
           </div>
         </div>
         <div class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between">
-          <span>↑↓ 导航 · Enter 执行 · Esc 关</span>
-          <span>{{ filtered.length }} 命令</span>
+          <span>{{ t('editor.palette.hint') }}</span>
+          <span>{{ t('editor.palette.count', { n: filtered.length }) }}</span>
         </div>
       </div>
     </template>
@@ -54,8 +54,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+
+const { t } = useI18n()
 
 export interface Command {
   id: string
@@ -97,13 +100,13 @@ const filtered = computed(() => {
   })
 })
 
-const GROUP_LABELS: Record<string, string> = {
-  edit: '编辑',
-  view: '视图',
-  navigate: '导航',
-  run: '运行',
-  var: '变量',
-  help: '帮助',
+const GROUP_KEYS: Record<string, string> = {
+  edit: 'editor.palette.group.edit',
+  view: 'editor.palette.group.view',
+  navigate: 'editor.palette.group.navigate',
+  run: 'editor.palette.group.run',
+  var: 'editor.palette.group.var',
+  help: 'editor.palette.group.help',
 }
 
 const grouped = computed(() => {
@@ -113,7 +116,7 @@ const grouped = computed(() => {
     map.get(c.group)!.push(c)
   }
   return Array.from(map.entries())
-    .map(([name, commands]) => ({ name, label: GROUP_LABELS[name] ?? name, commands }))
+    .map(([name, commands]) => ({ name, label: GROUP_KEYS[name] ? t(GROUP_KEYS[name]) : name, commands }))
 })
 
 function flatIdx(gIdx: number, idx: number): number {
