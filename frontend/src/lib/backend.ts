@@ -281,6 +281,7 @@ export const backend = {
     deleteSubgraph: (cid: string, sgid: string) =>
       invoke(ContainerService.DeleteSubgraph, cid, sgid),
     openEditorWindow: (id: string) => invoke(ContainerService.OpenEditorWindow, id),
+    openInWindow: (id: string) => invoke(ContainerService.OpenInWindow, id),
     syncLocalMouseCalibration: (newCounts: number) =>
       invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
     deleteMany: (ids: string[]) => invoke(ContainerService.DeleteMany, ids),

@@ -97,6 +97,7 @@
       <ContainerEditorToolbar
         v-model:palette-collapsed="sidebarPrefs.leftSidebarCollapsed"
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
+        :is-standalone="isStandalone"
         :is-recording="recordStore.isRecording"
         :countdown-sec="countdownSec"
         :selected-count="selectedCount"
@@ -123,6 +124,7 @@
         @undo="undo"
         @redo="redo"
         @toggle-snap="sidebarPrefs.snapEnabled = !sidebarPrefs.snapEnabled"
+        @open-new-window="onOpenNewWindow"
       />
 
       <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
@@ -411,7 +413,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
 import { useWindowControls } from '@/composables/useWindowControls'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { VueFlow, useVueFlow, SelectionMode, type NodeDragEvent, type NodeMouseEvent, type EdgeMouseEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -480,6 +482,7 @@ import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 
 const route = useRoute()
+const router = useRouter()
 const isStandalone = computed(() => route.query.standalone === '1')
 const toast = useToast()
 const recordStore = useRecordingStore()
@@ -495,6 +498,18 @@ const runningNodeLabel = computed(
 
 async function onStopRun() {
   await containersStore.stopAll()
+}
+
+async function onOpenNewWindow() {
+  const id = containerID
+  if (!id) return
+  try {
+    await backend.containers.openInWindow(id)
+    // 嵌入态主动放手: 跳回 /containers 列表 (子窗口接管 edit acquisition)
+    router.push('/containers')
+  } catch (e) {
+    console.error('OpenInWindow failed:', e)
+  }
 }
 
 const containerID = String(route.query.id ?? '')

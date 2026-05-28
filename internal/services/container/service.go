@@ -62,6 +62,16 @@ func (s *Service) OpenEditorWindow(containerID string) error {
 	return s.windows.OpenEditor(containerID)
 }
 
+// OpenInWindow 让前端从嵌入式编辑器一键开独立子窗口编辑同一容器.
+// 内部走 WindowOpener (main.go 注入 containerWindowAdapter).
+// 同 containerID 重复调 → windowAdapter focus 已有窗口, 不重复开.
+func (s *Service) OpenInWindow(containerID string) error {
+	if s.windows == nil {
+		return fmt.Errorf("window opener 未注入")
+	}
+	return s.windows.OpenEditor(containerID)
+}
+
 func (s *Service) emitChange() {
 	if s.onChange != nil {
 		s.onChange()

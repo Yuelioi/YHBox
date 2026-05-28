@@ -97,6 +97,15 @@
              :disabled="dirty || execStoreRunning"
              :title="dirty ? '请先保存再试运行' : execStoreRunning ? '已有任务在跑，先停' : '入队运行一次'"
              @click="$emit('try-run')">试运行</UButton>
+    <UButton
+      v-if="!isStandalone"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      icon="i-tabler-external-link"
+      title="在新窗口打开"
+      @click="$emit('open-new-window')"
+    />
     <UButton size="sm" color="primary" icon="i-tabler-check" :disabled="!dirty"
              @click="$emit('save')">保存</UButton>
     <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-settings"
@@ -127,6 +136,7 @@ const props = defineProps<{
   canUndo?: boolean
   canRedo?: boolean
   snapEnabled?: boolean
+  isStandalone?: boolean
 }>()
 
 // 录制前置: 没检测到游戏窗口禁止点 (后端 game.HWND check 已防一层, 这里 UX 层先挡)
@@ -156,6 +166,7 @@ const emit = defineEmits<{
   'undo': []
   'redo': []
   'toggle-snap': []
+  'open-new-window': []
 }>()
 
 const layoutMenuItems = computed(() => [
