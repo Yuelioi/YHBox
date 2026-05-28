@@ -24,23 +24,8 @@
         </main>
       </div>
 
-      <!-- Log panel: slide transition, only on bot routes -->
-      <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        leave-active-class="transition-all duration-200 ease-in"
-        enter-from-class="!h-0 opacity-0"
-        enter-to-class="opacity-100"
-        leave-from-class="opacity-100"
-        leave-to-class="!h-0 opacity-0"
-      >
-        <div
-          v-if="showLog"
-          class="shrink-0 overflow-hidden transition-[height] duration-200 ease-out"
-          :style="{ height: logStore.lines.length === 0 ? '100px' : '220px' }"
-        >
-          <LogPanel />
-        </div>
-      </Transition>
+      <!-- Log panel: 全局始终渲染, 折叠/展开由 LogPanel 内部读 settings.UI.Logger.PanelOpen 自管 -->
+      <LogPanel />
 
       <!-- Global status bar -->
       <AppStatusBar />
@@ -72,12 +57,10 @@ import CalibratorModal from './components/calibration/CalibratorModal.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import { useConfirm } from './composables/useConfirm'
 import { useSettingsStore } from './stores/settings'
-import { useLogStore } from './stores/log'
 import { setLocale, type Locale } from './i18n'
 
 const route = useRoute()
 const settingsStore = useSettingsStore()
-const logStore = useLogStore()
 
 const globalCalibOpen = ref(false)
 let pendingSave: ((counts: number) => void) | null = null
@@ -119,9 +102,6 @@ const isStandalone = computed(() => {
   if (route.query.standalone === '1') return true
   return false
 })
-
-// showLog 在 Task 10 重写 (届时引入 panelOpen 字段); 暂时返 logger.show 兜底让 LogPanel 全局可见
-const showLog = computed(() => settingsStore.data?.ui.logger.show ?? true)
 
 watch(
   () => settingsStore.data?.locale,

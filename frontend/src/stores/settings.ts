@@ -17,11 +17,13 @@ export interface Settings {
   ui: {
     logger: {
       show: boolean
+      panelOpen: boolean
       autoScroll: boolean
       showTime: boolean
       showTag: boolean
       wrapText: boolean
       writeFile: boolean
+      fileDir: string
     }
     battle: {
       hotkeyEnabled: boolean

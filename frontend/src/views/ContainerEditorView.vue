@@ -290,8 +290,6 @@
         />
       </div>
 
-      <!-- 底部日志面板 (VSCode 风格): 订阅 container:log / container:node-enter, 默认展开 -->
-      <ContainerLogPanel />
     </div>
 
     <ValidationErrorPanel
@@ -471,7 +469,6 @@ import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolb
 import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBreadcrumb.vue'
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
 import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
-import ContainerLogPanel from '@/components/containers/ContainerLogPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
 import SnippetsPanel from '@/components/snippets/SnippetsPanel.vue'
