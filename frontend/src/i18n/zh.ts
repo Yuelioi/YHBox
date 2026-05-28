@@ -1,13 +1,27 @@
-// 中文文案。键命名约定：
-//   sidebar.<bot>       侧栏每个项的 label
-//   controls.<state>    BotControls 按钮 / 状态
-//   view.<bot>.<key>    各 view 内部文案
-//   settings.<key>      设置面板
-//   common.<key>        共用通用文案
+// 中文文案. 单源 of truth (en.ts 是平行翻译).
+// 键命名约定 (扁平 namespace, 数据驱动 chrome):
+//   sidebar.<k>            侧栏 label
+//   controls.<k>           BotControls 按钮 / 状态
+//   common.<k>             通用 (确认/取消/保存/关闭/加载中)
+//   settings.<k>           Settings* view 内文案
+//   editor.<k>             编辑器主壳 (P2)
+//   editor.canvas.<k>      画布操作提示 (P2)
+//   editor.menu.<k>        右键菜单 item (P3)
+//   editor.palette.<k>     CommandPalette item (P3)
+//   editor.inspector.<k>   Inspector 表单 label/hint (P3/P4)
+//   editor.snippet.<k>     SnippetsPanel / SaveSnippetDrawer (P3)
+//   log.<k>                LogPanel header / filter / settings popover
+//   status.<k>             AppStatusBar 状态
+//   hotkeys.<k>            SettingsHotkeys group label / 状态文案
+//   hotkeys.label.<k>      HotkeyEntry.Label 翻译键 (backend 填 key, FE t() 渲染)
+//   dialog.<k>             ConfirmDialog / Modal title/body (P3)
+//   toast.<k>              所有 toast.add({title,description})
+//   error.<k>              ValidationError.Code → user message
+//   validation.<k>         ValidationErrorPanel 壳文案
 //
-// 用 ts 而不是 yaml 是因为 unplugin-vue-i18n 的 yaml 输出格式跟 vue-i18n 9
-// runtime 不兼容会让 t() 触发 SyntaxError. 直接 ts 给 createI18n 喂 plain
-// string，runtime 自己 compile，所有 unicode 字符都 OK.
+// 用 ts 而不是 yaml: unplugin-vue-i18n 的 yaml 输出格式跟 vue-i18n 9 runtime
+// 不兼容会 throw SyntaxError. ts 给 createI18n 喂 plain object, runtime 自己
+// compile, 所有 unicode 字符都 OK.
 
 export default {
   sidebar: {
