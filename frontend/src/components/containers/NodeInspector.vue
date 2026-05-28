@@ -562,7 +562,10 @@ import SwitchInspector from './inspector/SwitchInspector.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import KeyCapture from './KeyCapture.vue'
 import ClipTimeline from './ClipTimeline.vue'
+import { useI18n } from 'vue-i18n'
 import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
+
+const { t } = useI18n()
 import PinLiteral from './inline/PinLiteral.vue'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
@@ -764,9 +767,12 @@ function onPatchSubgraph(patch: Record<string, any>) {
   // dirty 由 useContainerDraft 的 watch(editorStore.subgraphsForCurrentContainer, deep) 自动监控.
 }
 
-const label = computed(() =>
-  props.node ? (KIND_LABEL_ZH[props.node.kind] ?? props.node.kind) : '',
-)
+// KIND_LABEL_ZH[k] 值是 i18n key, t() 渲染. fallback 走 kind 字面 (节点未注册).
+const label = computed(() => {
+  if (!props.node) return ''
+  const key = KIND_LABEL_ZH[props.node.kind]
+  return key ? t(key) : props.node.kind
+})
 const description = computed(() => (props.node ? (KIND_DESCRIPTION[props.node.kind] ?? '') : ''))
 const visual = computed(() =>
   props.node

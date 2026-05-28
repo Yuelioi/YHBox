@@ -45,7 +45,7 @@
                   @click="onSelectKind(spec.kind)"
                 >
                   <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
-                  <span class="flex-1 truncate">{{ spec.labelZh ?? spec.kind }}</span>
+                  <span class="flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
                 </div>
               </div>
             </div>
@@ -58,11 +58,14 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+
+const { t } = useI18n()
 
 const EXPANDED_KEY = 'yhfish.explorer.expanded'
 
@@ -125,7 +128,8 @@ const filteredGroups = computed(() => {
     if (s.isVisualOnly) return false
     if (s.excludeFromPalette) return false
     if (!q) return true
-    const hay = `${s.kind} ${s.labelZh ?? ''} ${s.description ?? ''}`.toLowerCase()
+    const localizedLabel = s.labelZh ? t(s.labelZh) : ''
+    const hay = `${s.kind} ${localizedLabel} ${s.description ?? ''}`.toLowerCase()
     return hay.includes(q)
   })
   const byGroup = new Map<string, NodeKindSpec[]>()

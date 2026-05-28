@@ -90,9 +90,10 @@ const positionStyle = computed(() => ({
   top: `${props.position.y}px`,
 }))
 
+// spec.labelZh 值是 i18n key (P4.a). t() 渲染; spec 缺失 fallback kind 字面.
 const kindLabel = computed(() => {
   const s = getSpec(props.node.kind)
-  return s?.labelZh ?? props.node.kind
+  return s?.labelZh ? t(s.labelZh) : props.node.kind
 })
 
 const iconForKind = computed(() => getSpec(props.node.kind)?.visual?.icon ?? 'i-tabler-box')

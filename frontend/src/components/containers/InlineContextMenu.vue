@@ -70,7 +70,7 @@
               @click="pick(spec.kind)"
             >
               <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-4 shrink-0" :class="nodeIconColor(spec)" />
-              <span class="flex-1 truncate text-default">{{ spec.labelZh ?? spec.kind }}</span>
+              <span class="flex-1 truncate text-default">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
               <span class="text-[10px] text-dimmed font-mono">{{ spec.kind }}</span>
             </button>
           </div>
@@ -157,7 +157,8 @@ const filtered = computed<NodeKindSpec[]>(() => {
   const q = query.value.toLowerCase().trim()
   if (!q) return allEligible.value
   return allEligible.value.filter((s) => {
-    const hay = `${s.kind} ${s.labelZh ?? ''} ${s.description ?? ''}`.toLowerCase()
+    const localizedLabel = s.labelZh ? t(s.labelZh) : ''
+    const hay = `${s.kind} ${localizedLabel} ${s.description ?? ''}`.toLowerCase()
     return hay.includes(q)
   })
 })

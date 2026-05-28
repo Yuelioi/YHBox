@@ -230,7 +230,9 @@ function adaptSpec(s: Spec): NodeKindSpec {
   const out: NodeKindSpec = {
     kind: s.kind,
     group,
-    labelZh: s.displayName || s.kind,
+    // labelZh 字段语义改: 现在存 i18n key 'node.<kind>.label' 而非中文字面值. consumer 走 t().
+    // backend Spec.displayName 不再被 FE 用 — FE 单源 (zh.ts node.* lookup).
+    labelZh: `node.${s.kind}.label`,
     description: s.description ?? '',
     visual,
     execIn,

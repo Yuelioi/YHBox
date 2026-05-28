@@ -521,9 +521,12 @@ const tplStore = useTemplatesStore()
 
 const editorStore = useContainerEditorStore()
 
-const runningNodeLabel = computed(
-  () => KIND_LABEL_ZH[execStore.currentNodeKind] ?? execStore.currentNodeKind ?? '',
-)
+const runningNodeLabel = computed(() => {
+  const k = execStore.currentNodeKind
+  if (!k) return ''
+  const key = KIND_LABEL_ZH[k]
+  return key ? t(key) : k
+})
 
 async function onStopRun() {
   await containersStore.stopAll()

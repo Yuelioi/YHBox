@@ -102,6 +102,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useLibraryStore } from '@/stores/library'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -109,6 +110,8 @@ import { useToast } from '@nuxt/ui/composables'
 import { backend, type Subgraph } from '@/lib/backend'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec, NodeGroup } from '@/components/containers/nodeRegistry/index'
+
+const { t } = useI18n()
 
 defineEmits<{ add: [kind: string] }>()
 
@@ -263,7 +266,7 @@ const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
     if (s.excludeFromPalette) continue // SubgraphInput/Output/CollapsedNode — created via dedicated UI
     const g = groups[s.group]
     if (!g) continue
-    g.items.push({ kind: s.kind, icon: s.visual.icon, label: s.labelZh })
+    g.items.push({ kind: s.kind, icon: s.visual.icon, label: s.labelZh ? t(s.labelZh) : s.kind })
   }
   for (const g of Object.values(groups)) {
     g.items.sort((a, b) => a.label.localeCompare(b.label, 'zh'))

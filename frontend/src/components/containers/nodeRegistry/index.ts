@@ -72,7 +72,11 @@ export interface NodeKindSpec {
   kind: string
   group: NodeGroup
 
-  /** Inspector + palette display */
+  /**
+   * Inspector + palette display.
+   * 字段名是历史包袱 — 现在存 i18n key 'node.<kind>.label' 不是中文字面值.
+   * consumer 必须 t(labelZh) 渲染. fallback (i18n 未配置 key) 走 vue-i18n 默认行为 (返 raw key).
+   */
   labelZh: string
   description: string
 

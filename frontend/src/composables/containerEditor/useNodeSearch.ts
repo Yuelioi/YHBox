@@ -2,6 +2,7 @@
 // open ref 跟 useEditorHotkeys 共享 — hotkey toggle, modal pick 后关.
 
 import { computed, nextTick, ref, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import type { Container, Graph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -18,6 +19,7 @@ interface UseNodeSearchOpts {
 }
 
 export function useNodeSearch(opts: UseNodeSearchOpts) {
+  const { t } = useI18n()
   const { open, draft, activeGraph, selectedID } = opts
   const editorStore = useContainerEditorStore()
   const { setCenter } = useVueFlow()
@@ -30,8 +32,10 @@ export function useNodeSearch(opts: UseNodeSearchOpts) {
     if (!q) return []
     const out: NodeSearchResult[] = []
     walkAllGraphs(draft.value, (n, { location, sgID }) => {
-      const zhKind = KIND_LABEL_ZH[n.kind] ?? ''
-      const hay = `${n.id} ${n.kind} ${zhKind} ${n.label ?? ''}`.toLowerCase()
+      // KIND_LABEL_ZH[k] 值是 i18n key. 搜索 hay 含本地化 label, 跨 locale work.
+      const labelKey = KIND_LABEL_ZH[n.kind]
+      const localizedKind = labelKey ? t(labelKey) : ''
+      const hay = `${n.id} ${n.kind} ${localizedKind} ${n.label ?? ''}`.toLowerCase()
       if (hay.includes(q)) {
         out.push({ id: n.id, kind: n.kind, label: n.label, location, sgID })
       }

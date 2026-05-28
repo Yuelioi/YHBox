@@ -93,6 +93,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Handle, Position } from '@vue-flow/core'
 import { useExecutionStore } from '@/stores/execution'
 import { pinsFor, KIND_VISUAL, KIND_LABEL_ZH, resolveSubgraphCallExecOut } from './pinSpec'
@@ -101,6 +102,7 @@ import { TYPE_COLOR } from './nodeRegistry/index'
 import type { PinType } from './nodeRegistry/index'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
+const { t } = useI18n()
 const execStore = useExecutionStore()
 
 const props = defineProps<{
@@ -110,11 +112,16 @@ const props = defineProps<{
 }>()
 
 const kind = computed(() => props.data?.kind ?? '')
+// KIND_LABEL_ZH[k] 现在是 i18n key 字符串 (P4.a). t() 渲染; 未注册 kind fallback kind 字面.
+function kindLabel(k: string): string {
+  const key = KIND_LABEL_ZH[k]
+  return key ? t(key) : k
+}
 const displayLabel = computed(() =>
-  props.data?.label ? props.data.label : (KIND_LABEL_ZH[kind.value] ?? kind.value),
+  props.data?.label ? props.data.label : kindLabel(kind.value),
 )
 const kindSubtitle = computed(() =>
-  props.data?.label ? (KIND_LABEL_ZH[kind.value] ?? kind.value) : null,
+  props.data?.label ? kindLabel(kind.value) : null,
 )
 const isRunning = computed(() => execStore.running && execStore.currentNodeID === props.id)
 const isDisabled = computed(() => props.data?.disabled === true)

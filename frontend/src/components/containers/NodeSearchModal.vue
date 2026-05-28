@@ -95,7 +95,9 @@ useAutoFocusOnOpen(modelOpen, searchInputRef, {
 watch(() => props.results, () => { activeIdx.value = 0 })
 
 function labelZhFor(kind: string): string {
-  return getSpec(kind)?.labelZh ?? ''
+  // spec.labelZh 值现在是 i18n key, t() 渲染.
+  const key = getSpec(kind)?.labelZh
+  return key ? t(key) : ''
 }
 function iconFor(kind: string): string {
   return getSpec(kind)?.visual?.icon ?? 'i-tabler-box'

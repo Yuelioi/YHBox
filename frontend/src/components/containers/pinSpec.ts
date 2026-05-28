@@ -46,6 +46,10 @@ export interface PinSpec {
 // 访问语义不变 (Vue reactivity 跨原始对象 mutate 也能触发再 render).
 
 export const PIN_SPECS: Record<string, PinSpec> = {}
+/**
+ * Map<kind, i18n key>. 值现在是 i18n key 字符串 (e.g. 'node.Add.label'), 不是中文字面值.
+ * Consumer 必须用 t(KIND_LABEL_ZH[kind]) 渲染. 名字 ZH 是历史包袱.
+ */
 export const KIND_LABEL_ZH: Record<string, string> = {}
 export const KIND_DESCRIPTION: Record<string, string> = {}
 export const KIND_DEFAULTS: Record<string, Record<string, any>> = {}
@@ -76,13 +80,13 @@ export function rebuildPinSpecMaps(): void {
   // B2: SubgraphInput/Output 不再 backend register, 但编辑器仍要渲染 virtual marker.
   // 手动加 PIN_SPECS + visual 让 ContainerFlowNode 能画 (1 exec-out / 1 exec-in).
   PIN_SPECS['SubgraphInput'] = { execIn: [], execOut: ['out'], dataIn: {}, dataOut: {} }
-  KIND_LABEL_ZH['SubgraphInput'] = '子图入口'
+  KIND_LABEL_ZH['SubgraphInput'] = 'node.SubgraphInput.label'
   KIND_DESCRIPTION['SubgraphInput'] = '子图入口 virtual marker — 位置可改, 不可删/复制.'
   KIND_DEFAULTS['SubgraphInput'] = {}
   KIND_VISUAL['SubgraphInput'] = { icon: 'i-tabler-circle-arrow-right', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40' }
 
   PIN_SPECS['SubgraphOutput'] = { execIn: ['In'], execOut: [], dataIn: {}, dataOut: {} }
-  KIND_LABEL_ZH['SubgraphOutput'] = '子图出口'
+  KIND_LABEL_ZH['SubgraphOutput'] = 'node.SubgraphOutput.label'
   KIND_DESCRIPTION['SubgraphOutput'] = '子图出口 virtual marker — 位置可改, 不可删/复制. 每个 OutputPin 对应一个 marker.'
   KIND_DEFAULTS['SubgraphOutput'] = {}
   KIND_VISUAL['SubgraphOutput'] = { icon: 'i-tabler-circle-arrow-left', bg: 'bg-rose-500/10', border: 'border-rose-500/40' }

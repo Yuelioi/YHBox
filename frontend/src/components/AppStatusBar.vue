@@ -45,11 +45,13 @@ const { t } = useI18n()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
 
-// 显示当前正在跑的节点（中文标签）
+// 显示当前正在跑的节点 (走 i18n key, KIND_LABEL_ZH[k] 值是 'node.<k>.label' 字符串)
 import { KIND_LABEL_ZH } from '@/components/containers/pinSpec'
 const currentNodeLabel = computed(() => {
-  if (!execStore.currentNodeKind) return ''
-  return KIND_LABEL_ZH[execStore.currentNodeKind] ?? execStore.currentNodeKind
+  const k = execStore.currentNodeKind
+  if (!k) return ''
+  const key = KIND_LABEL_ZH[k]
+  return key ? t(key) : k
 })
 
 async function onStopAll() {
