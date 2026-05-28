@@ -24,10 +24,10 @@
         <button
           type="button"
           class="ml-2 px-2 py-0.5 rounded text-[10px] bg-error/15 border border-error/40 text-error hover:bg-error/25 transition-colors inline-flex items-center gap-1"
-          title="停止当前运行 + 清队列 (Ctrl+Shift+F9)"
+          :title="t('status.stop_tooltip')"
           @click="onStopAll"
         >
-          <UIcon name="i-tabler-square" class="size-2.5" /> 停止
+          <UIcon name="i-tabler-square" class="size-2.5" /> {{ t('status.stop_button') }}
         </button>
       </template>
     </div>
@@ -37,9 +37,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
 
+const { t } = useI18n()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
 
@@ -64,14 +66,14 @@ type Active = {
 const activeStatus = computed<Active>(() => {
   if (execStore.running) {
     const cur = containersStore.list.find((c) => c.id === execStore.currentTargetID)
-    const name = cur?.name || execStore.currentTargetID.slice(0, 8) || '容器'
+    const name = cur?.name || execStore.currentTargetID.slice(0, 8) || t('status.container_fallback')
     const metrics: string[] = []
     if (execStore.targets.length > 1) {
       metrics.push(`target ${execStore.targetIdx + 1}/${execStore.targets.length}`)
     }
-    return { kind: 'container', state: 'running', label: `▶ 跑中: ${name}`, metrics }
+    return { kind: 'container', state: 'running', label: t('status.running', { name }), metrics }
   }
-  return { kind: 'idle', state: 'idle', label: '空闲', metrics: [] }
+  return { kind: 'idle', state: 'idle', label: t('status.idle'), metrics: [] }
 })
 
 const leftDotClass = computed(() => {

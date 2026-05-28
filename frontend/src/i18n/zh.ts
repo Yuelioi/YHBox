@@ -159,6 +159,13 @@ export default {
     lang_en_warn_desc:
       '尚未支持英文模板: fish / cook / battle 的视觉模板未采集 EN 版本, 这几个功能会显示为不可用. UI 字符串已切换.',
   },
+  status: {
+    idle: '空闲',
+    running: '▶ 跑中: {name}',
+    container_fallback: '容器',
+    stop_button: '停止',
+    stop_tooltip: '停止当前运行 + 清队列 (Ctrl+Shift+F9)',
+  },
   common: {
     game_not_detected: '未检测到异环窗口',
   },

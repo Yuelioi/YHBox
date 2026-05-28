@@ -5,7 +5,6 @@ src/components/containers/NodeInspector.vue
 src/composables/containerEditor/useNodeSearch.ts
 src/components/containers/ContainerFlowNode.vue
 src/views/ContainerEditorView.vue
-src/components/AppStatusBar.vue
 # 测试文件
 **/*.test.ts
 **/*.spec.ts

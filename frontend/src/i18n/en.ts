@@ -144,6 +144,13 @@ export default {
     lang_en_warn_desc:
       '[EN-pending] EN templates not yet supported: fish / cook / battle visual templates not captured in EN, those features will show unavailable. UI strings switched.',
   },
+  status: {
+    idle: '[EN-pending] Idle',
+    running: '[EN-pending] ▶ Running: {name}',
+    container_fallback: '[EN-pending] Container',
+    stop_button: '[EN-pending] Stop',
+    stop_tooltip: '[EN-pending] Stop current run + clear queue (Ctrl+Shift+F9)',
+  },
   common: {
     game_not_detected: 'Game window not detected',
   },
