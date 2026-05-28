@@ -141,7 +141,8 @@
         <!-- Left sidebar: 3 collapsible panels -->
         <aside
           v-show="!sidebarPrefs.leftSidebarCollapsed"
-          class="w-60 shrink-0 border-r border-default overflow-y-auto flex flex-col"
+          :style="{ width: leftPane.width.value + 'px' }"
+          class="shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
           <!-- Sidebar tabs (Palette | Snippets) — segmented toggle 顶部 -->
           <div class="flex border-b border-default bg-elevated/20">
@@ -192,6 +193,13 @@
             @insert-incvar="onInsertIncVar"
           />
         </aside>
+        <SplitHandle
+          v-show="!sidebarPrefs.leftSidebarCollapsed"
+          :model-value="leftPane.width.value"
+          @update:model-value="leftPane.setWidth"
+          :min="200"
+          :max="480"
+        />
 
         <!-- Canvas -->
         <div
@@ -255,9 +263,19 @@
           </VueFlow>
         </div>
 
+        <SplitHandle
+          v-show="!sidebarPrefs.inspectorCollapsed"
+          reverse
+          :model-value="rightPane.width.value"
+          @update:model-value="rightPane.setWidth"
+          :min="200"
+          :max="480"
+        />
+
         <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
         <ContainerEditorInspector
           v-show="!sidebarPrefs.inspectorCollapsed"
+          :style="{ width: rightPane.width.value + 'px' }"
           :selected-node="selectedNode"
           :in-subgraph="editorStore.editorPath.length > 0"
           :current-subgraph="currentSubgraph"
@@ -480,6 +498,8 @@ import { markRaw } from 'vue'
 import { readDragPayload, type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
 import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
+import SplitHandle from '@/components/common/SplitHandle.vue'
+import { useSplitpane } from '@/composables/useSplitpane'
 
 const route = useRoute()
 const router = useRouter()
@@ -548,6 +568,8 @@ const selectedID = ref<string | null>(null)
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
+const leftPane = useSplitpane('editor.splitpane.left', { default: 280, min: 200, max: 480 })
+const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
 const libraryExplorerOpen = ref(false)

@@ -1,5 +1,5 @@
 <template>
-  <aside class="w-96 shrink-0 border-l border-default overflow-y-auto p-4">
+  <aside class="shrink-0 border-l border-default overflow-y-auto p-4">
     <NodeInspector
       v-if="selectedNode"
       :node="selectedNode"
