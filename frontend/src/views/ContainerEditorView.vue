@@ -434,8 +434,9 @@
 // draft / canvas viewport / selection / dirty 全保留, 不重新 load.
 defineOptions({ name: 'ContainerEditorView' })
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
@@ -1003,6 +1004,22 @@ function onConfigUpdate(cfg: Record<string, any>) {
   // 这里重建 flow 让 ContainerFlowNode 拿到新 config 引用.
   syncFlowFromDraft()
 }
+
+// 画布内联 pin literal 编辑入口 — ContainerFlowNode inject 调用。
+// activeGraph.value 指向 draft 当前层级图 (main/子图), mutate 它的 node 即 mutate draft。
+// 写回走 applyDraftMutation (单一 mutation 入口: dirty + history 200ms 合并 + syncFlowFromDraft)。
+// edges 同源 activeGraph → 切子图时一起切, 连线判定不会用错图。
+provide(ContainerCanvasApiKey, {
+  setPinLiteral(nodeId: string, pin: string, value: unknown) {
+    applyDraftMutation(() => {
+      const n = activeGraph.value?.nodes.find((x) => x.id === nodeId)
+      if (!n) return
+      const literal = { ...((n.config?.literal as Record<string, unknown>) ?? {}), [pin]: value }
+      n.config = { ...(n.config ?? {}), literal }
+    })
+  },
+  edges: computed(() => activeGraph.value?.edges ?? []),
+})
 
 function onLabelUpdate(newLabel: string) {
   if (!selectedNode.value) return
