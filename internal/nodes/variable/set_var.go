@@ -17,7 +17,7 @@ const (
 	svInVarName = "VarName"
 	svInScope   = "Scope"
 	svInValue   = "Value"
-	svOutOut    = "Done" // 同 svInExec
+	svOutOut    = "Done"
 )
 
 func (SetVar) Spec() node.Spec {
