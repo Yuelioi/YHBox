@@ -35,11 +35,11 @@ func TestCompactToSteps_SingleKeyPress(t *testing.T) {
 	if steps[0].kind != "KeyPress" {
 		t.Errorf("want KeyPress, got %s", steps[0].kind)
 	}
-	if vk, _ := steps[0].config["vk"].(string); vk != "A" {
-		t.Errorf("want vk=A, got %v", steps[0].config["vk"])
+	if vk, _ := steps[0].config["VK"].(string); vk != "A" {
+		t.Errorf("want vk=A, got %v", steps[0].config["VK"])
 	}
-	if dur, _ := steps[0].config["durationMs"].(float64); dur != 100 {
-		t.Errorf("want durationMs=100, got %v", steps[0].config["durationMs"])
+	if dur, _ := steps[0].config["DurationMs"].(float64); dur != 100 {
+		t.Errorf("want DurationMs=100, got %v", steps[0].config["DurationMs"])
 	}
 }
 
@@ -65,8 +65,8 @@ func TestCompactToSteps_AutoRepeatCollapsed(t *testing.T) {
 	if len(steps) != 1 || steps[0].kind != "KeyPress" {
 		t.Fatalf("auto-repeat 应折叠成 1 个 KeyPress, got %+v", steps)
 	}
-	if dur := steps[0].config["durationMs"].(float64); dur != 500 {
-		t.Errorf("durationMs 应从首 Down 算, want 500, got %v", dur)
+	if dur := steps[0].config["DurationMs"].(float64); dur != 500 {
+		t.Errorf("DurationMs 应从首 Down 算, want 500, got %v", dur)
 	}
 }
 
@@ -79,15 +79,15 @@ func TestCompactToSteps_Click(t *testing.T) {
 	if len(steps) != 1 || steps[0].kind != "ClickAt" {
 		t.Fatalf("want 1 ClickAt, got %+v", steps)
 	}
-	xr := steps[0].config["xRatio"].(float64)
-	yr := steps[0].config["yRatio"].(float64)
+	xr := steps[0].config["XRatio"].(float64)
+	yr := steps[0].config["YRatio"].(float64)
 	if xr < 0.499 || xr > 0.501 {
 		t.Errorf("xRatio 应 ≈ 0.5 (用 Down 坐标), got %v", xr)
 	}
 	if yr < 0.499 || yr > 0.501 {
 		t.Errorf("yRatio 应 ≈ 0.5 (用 Down 坐标), got %v", yr)
 	}
-	if btn := steps[0].config["button"].(string); btn != "left" {
+	if btn := steps[0].config["Button"].(string); btn != "left" {
 		t.Errorf("button want left, got %s", btn)
 	}
 }
@@ -103,10 +103,10 @@ func TestCompactToSteps_ClickRightMiddle(t *testing.T) {
 	if len(steps) != 2 {
 		t.Fatalf("want 2 click, got %d", len(steps))
 	}
-	if b := steps[0].config["button"].(string); b != "right" {
+	if b := steps[0].config["Button"].(string); b != "right" {
 		t.Errorf("[0] want right, got %s", b)
 	}
-	if b := steps[1].config["button"].(string); b != "middle" {
+	if b := steps[1].config["Button"].(string); b != "middle" {
 		t.Errorf("[1] want middle, got %s", b)
 	}
 }
@@ -119,7 +119,7 @@ func TestCompactToSteps_Scroll(t *testing.T) {
 	if len(steps) != 1 || steps[0].kind != "Scroll" {
 		t.Fatalf("want 1 Scroll, got %+v", steps)
 	}
-	if d := steps[0].config["delta"].(float64); d != 3 {
+	if d := steps[0].config["Delta"].(float64); d != 3 {
 		t.Errorf("delta want 3, got %v", d)
 	}
 }
@@ -139,7 +139,7 @@ func TestCompactToSteps_SleepInsertion(t *testing.T) {
 	if steps[0].kind != "KeyPress" || steps[1].kind != "Sleep" || steps[2].kind != "KeyPress" {
 		t.Errorf("顺序错, got [%s, %s, %s]", steps[0].kind, steps[1].kind, steps[2].kind)
 	}
-	gap := steps[1].config["durationMs"].(float64)
+	gap := steps[1].config["Duration"].(float64)
 	if gap < 999 || gap > 1001 {
 		t.Errorf("Sleep duration 应 ≈ 1000ms, got %v", gap)
 	}
@@ -240,8 +240,8 @@ func TestBuildPreciseSubgraph_SinglePlayClip(t *testing.T) {
 		t.Fatalf("want 1 PlayClip node, got %+v", sg.Graph.Nodes)
 	}
 	pc := sg.Graph.Nodes[0]
-	if cid, _ := pc.Config["clipID"].(string); cid != "clip-xyz" {
-		t.Errorf("PlayClip.clipID want clip-xyz, got %v", pc.Config["clipID"])
+	if cid, _ := pc.Config["ClipID"].(string); cid != "clip-xyz" {
+		t.Errorf("PlayClip.clipID want clip-xyz, got %v", pc.Config["ClipID"])
 	}
 	if sg.RecordingContext == nil || sg.RecordingContext.MouseCounts360 != 9000 {
 		t.Errorf("precise 也带 RecordingContext")

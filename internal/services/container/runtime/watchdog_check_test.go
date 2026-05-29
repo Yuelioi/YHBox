@@ -50,7 +50,7 @@ func runWatchdogCheck(t *testing.T, thresholdMs float64, initialState string) *R
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},

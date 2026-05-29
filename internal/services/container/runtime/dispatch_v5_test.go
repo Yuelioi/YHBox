@@ -636,7 +636,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "sub_node.In"},
+				{From: "sub_in.Done", To: "sub_node.In"},
 				{From: "sub_node.Out", To: "sub_out.In"},
 			},
 		},
@@ -740,7 +740,7 @@ func TestDispatchInRegion_RoutesRegionToRunNodeAsRegion(t *testing.T) {
 // newTryTest 建主图 { try_n (Try w/ SubgraphID=trybody), out_n (Stop), catch_n (Stop) } +
 // 子图 trybody 含 sub_in / inner_n (节点 Kind 由 caller 指定) / sub_out.
 // 主图边: try_n.out → out_n.in, try_n.catch → catch_n.in.
-// 子图边: sub_in.out → inner_n.in, inner_n.<outPin> → sub_out.in (outPin caller 指定).
+// 子图边: sub_in.Done → inner_n.in, inner_n.<outPin> → sub_out.in (outPin caller 指定).
 func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
 	t.Helper()
 	subgraph := container.Subgraph{
@@ -753,7 +753,7 @@ func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "inner_n.In"},
+				{From: "sub_in.Done", To: "inner_n.In"},
 				{From: "inner_n." + innerOutPin, To: "sub_out.In"},
 			},
 		},
@@ -832,7 +832,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "throw_n.In"},
+				{From: "sub_in.Done", To: "throw_n.In"},
 				// throw_n 没 out edge (Throw 没 Output pin), sub-flow 在 Throw error 时已退.
 			},
 		},
@@ -888,7 +888,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sub_in.out", To: "sv1.In"},
+				{From: "sub_in.Done", To: "sv1.In"},
 				{From: "getp1.Value", To: "sv1.Value"},
 				{From: "sv1.Done", To: "sub_out.In"},
 			},

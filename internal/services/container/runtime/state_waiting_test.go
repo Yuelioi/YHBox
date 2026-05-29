@@ -75,7 +75,7 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},

@@ -47,7 +47,7 @@ func TestValidateDataGraph_AcceptsDAG(t *testing.T) {
 				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "sv.in"},
+				{From: "start.Done", To: "sv.in"},
 				{From: "gv.Value", To: "add.a"},
 				{From: "add.Result", To: "sv.Value"},
 			},
@@ -72,7 +72,7 @@ func TestValidateDataGraph_IgnoresExecLoopback(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "loop.in"},
+				{From: "start.Done", To: "loop.in"},
 				{From: "loop.body", To: "loop.loopback"}, // exec self-loop (Loop's nature)
 				{From: "loop.complete", To: "stop.in"},
 			},

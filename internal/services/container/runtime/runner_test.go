@@ -40,7 +40,7 @@ func TestRunner_StartSleep(t *testing.T) {
 			{ID: "s1", Kind: "Sleep", Config: map[string]any{"Duration": "10"}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "s1.In"},
+			{From: "start.Done", To: "s1.In"},
 		},
 		nil,
 	)
@@ -73,7 +73,7 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 			{ID: "markElse", Kind: "SetVar", Config: map[string]any{"VarName": "branch", "Scope": "global", "literal": map[string]any{"Value": "else"}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set.In"},
+			{From: "start.Done", To: "set.In"},
 			{From: "set.Done", To: "if.In"},
 			{From: "if.True", To: "markThen.In"},
 			{From: "if.False", To: "markElse.In"},
@@ -120,7 +120,7 @@ func TestRunner_SetVarAutoDefaultFindOrCreate(t *testing.T) {
 			{ID: "capture", Kind: "SetVar", Config: map[string]any{"VarName": "captured", "Scope": "global"}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set.In"},
+			{From: "start.Done", To: "set.In"},
 			{From: "set.Done", To: "capture.In"},
 			{From: "gety.Value", To: "capture.Value"},
 		},
@@ -154,7 +154,7 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "x", "Scope": "global", "literal": map[string]any{"Delta": 5.0}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set.In"},
+			{From: "start.Done", To: "set.In"},
 			{From: "set.Done", To: "inc.In"},
 		},
 		[]container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
@@ -184,7 +184,7 @@ func TestRunner_IfBranch(t *testing.T) {
 			{ID: "setElse", Kind: "SetVar", Config: map[string]any{"VarName": "branch", "Scope": "global", "literal": map[string]any{"Value": "else"}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set1.In"},
+			{From: "start.Done", To: "set1.In"},
 			{From: "set1.Done", To: "if.In"},
 			{From: "if.True", To: "setThen.In"},
 			{From: "if.False", To: "setElse.In"},
@@ -216,7 +216,7 @@ func TestRunner_LoopCount(t *testing.T) {
 			{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "i", "Scope": "global", "literal": map[string]any{"Delta": 1.0}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "loop.In"},
+			{From: "start.Done", To: "loop.In"},
 			{From: "loop.Body", To: "inc.In"},
 			// 新 Loop 内部 for-loop 自驱迭代, body 终止 (inc.out 无下游) 即下一轮.
 		},
@@ -246,7 +246,7 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 			{ID: "br", Kind: "Break"},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "loop.In"},
+			{From: "start.Done", To: "loop.In"},
 			{From: "loop.Body", To: "inc.In"},
 			{From: "inc.Done", To: "if.In"},
 			{From: "if.True", To: "br.In"},
@@ -276,7 +276,7 @@ func TestRunner_StopHalts(t *testing.T) {
 			{ID: "set2", Kind: "SetVar", Config: map[string]any{"VarName": "a", "Scope": "global", "literal": map[string]any{"Value": 2.0}}},
 		},
 		[]container.GraphEdge{
-			{From: "start.out", To: "set1.In"},
+			{From: "start.Done", To: "set1.In"},
 			{From: "set1.Done", To: "stop.In"},
 			{From: "stop.Done", To: "set2.In"},
 		},

@@ -46,7 +46,7 @@ func BuildSimpleSubgraph(events []inputclip.Event, meta inputclip.ClipMeta, clie
 func BuildPreciseSubgraph(clipID string, meta inputclip.ClipMeta, label string) container.Subgraph {
 	playClip := stepNode{
 		kind:   "PlayClip",
-		config: map[string]any{"clipID": clipID},
+		config: map[string]any{"ClipID": clipID},
 	}
 	rec := newRecordingContext(meta)
 	return assembleSubgraph([]stepNode{playClip}, label, rec)
@@ -89,7 +89,8 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 		steps = append(steps, stepNode{
 			kind: "Sleep",
 			config: map[string]any{
-				"durationMs": float64(gap) / 1000.0,
+				// Sleep Spec 字段就是 Duration (Type=Duration), in.Duration() 把 float64 当 ms 解.
+				"Duration": float64(gap) / 1000.0,
 			},
 		})
 	}
@@ -117,8 +118,8 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 			steps = append(steps, stepNode{
 				kind: "KeyPress",
 				config: map[string]any{
-					"vk":         vkStr,
-					"durationMs": float64(dur) / 1000.0,
+					"VK":         vkStr,
+					"DurationMs": float64(dur) / 1000.0,
 				},
 			})
 			lastStepEndUs = ev.TUs
@@ -143,10 +144,10 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 			steps = append(steps, stepNode{
 				kind: "ClickAt",
 				config: map[string]any{
-					"xRatio":     xRatio,
-					"yRatio":     yRatio,
-					"button":     btn,
-					"durationMs": float64(dur) / 1000.0,
+					"XRatio":     xRatio,
+					"YRatio":     yRatio,
+					"Button":     btn,
+					"DurationMs": float64(dur) / 1000.0,
 				},
 			})
 			lastStepEndUs = ev.TUs
@@ -158,9 +159,9 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 			steps = append(steps, stepNode{
 				kind: "Scroll",
 				config: map[string]any{
-					"xRatio": xRatio,
-					"yRatio": yRatio,
-					"delta":  float64(ev.A),
+					"XRatio": xRatio,
+					"YRatio": yRatio,
+					"Delta":  float64(ev.A),
 				},
 			})
 			lastStepEndUs = ev.TUs
@@ -190,6 +191,8 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 	nodes := make([]container.GraphNode, 0, len(steps))
 	edges := make([]container.GraphEdge, 0, len(steps)+1)
 
+	// Pin 名约定: 所有节点 exec in=".In" / out=".Done" (含 Start / SubgraphInput 虚拟 entry).
+	// virtual entry / output marker 也走同一套, runtime dispatch_v5.go 读 ".Done" 找 entry 下游边.
 	prevID := inID
 	for i, s := range steps {
 		nid := fmt.Sprintf("n-%s-%d-%s", lowercaseFirst(s.kind), i, uuid.NewString()[:4])
@@ -202,15 +205,15 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 			CreatedAt: now,
 		})
 		edges = append(edges, container.GraphEdge{
-			From: prevID + ".out",
-			To:   nid + ".in",
+			From: prevID + ".Done",
+			To:   nid + ".In",
 		})
 		prevID = nid
 	}
 	// 最后一条 edge 接到 output virtual marker
 	edges = append(edges, container.GraphEdge{
-		From: prevID + ".out",
-		To:   outID + ".in",
+		From: prevID + ".Done",
+		To:   outID + ".In",
 	})
 
 	return container.Subgraph{

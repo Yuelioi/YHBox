@@ -10,7 +10,7 @@ func init() { node.Register(&Start{}) }
 type Start struct{}
 
 const (
-	startOutOut = "out"
+	startOutOut = "Done"
 )
 
 func (Start) Spec() node.Spec {

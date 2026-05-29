@@ -70,7 +70,7 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 				{ID: "sout", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sin.out", To: "inc.In"},
+				{From: "sin.Done", To: "inc.In"},
 				{From: "inc.Done", To: "sout.In"},
 			},
 		},
@@ -101,7 +101,7 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "callA.in"},
+				{From: "start.Done", To: "callA.in"},
 				{From: "callA.Done", To: "setA.In"},
 				{From: "setA.Done", To: "callB.in"},
 				{From: "callB.Done", To: "setB.In"},

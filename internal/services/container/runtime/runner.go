@@ -207,7 +207,7 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 
 	queue := []ExecToken{}
 	// Start 输出 → 入第一批 token
-	queue = append(queue, r.edges.next(startNode.ID+".out", nil)...)
+	queue = append(queue, r.edges.next(startNode.ID+".Done", nil)...)
 
 	dispatchCount := 0
 	for len(queue) > 0 {

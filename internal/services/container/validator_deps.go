@@ -37,7 +37,7 @@ func ValidateContainerWithDeps(
 				if hasClip == nil {
 					continue
 				}
-				id, _ := n.Config["clipID"].(string)
+				id, _ := n.Config["ClipID"].(string)
 				if id == "" {
 					continue
 				}

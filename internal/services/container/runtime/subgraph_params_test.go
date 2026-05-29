@@ -39,7 +39,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{*subgraphInput, *getParam, *setVar, *sgo},
 			Edges: []container.GraphEdge{
-				{From: "sgi.out", To: "sv.In"},
+				{From: "sgi.Done", To: "sv.In"},
 				{From: "sv.Done", To: "sgo.In"},
 				// data: GetParam(hp).value → SetVar(result).value
 				{From: "gp.Value", To: "sv.Value"},
@@ -65,7 +65,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.In"},
+				{From: "start.Done", To: "call.In"},
 				{From: "call.Done", To: "stop.In"},
 			},
 		},

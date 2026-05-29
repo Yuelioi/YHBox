@@ -221,7 +221,7 @@ export function useRecording(opts: RecordOpts) {
     }
 
     if (endpoints.length === 1) {
-      ;(g.edges as any[]).push({ from: endpoints[0] + '.out', to: newNodeId + '.in' })
+      ;(g.edges as any[]).push({ from: endpoints[0] + '.Done', to: newNodeId + '.In' })
     }
     // 0 (环) 或 >1 (Parallel 分支) → 不连
   }

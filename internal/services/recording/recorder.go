@@ -326,6 +326,11 @@ func nowMicros() uint64 {
 	return uint64(time.Now().UnixMicro())
 }
 
+// ErrRecorderNotActive Stop 时 recorder 已停 (常见: F12 keydown auto-repeat 或
+// F12+toolbar 同时触发, 第二条停车请求会看到 active=false). Service.StopAsync 检测
+// 这个哨兵 silently swallow, 不 emit 错误事件给前端.
+var ErrRecorderNotActive = errors.New("recorder not active")
+
 // Stop 停止录制, 返回 raw StopResult. Service 层根据 meta.FilterMode 决定构造路径
 // (precise → 建 InputClip + BuildPreciseSubgraph, simple → BuildSimpleSubgraph).
 // 阻塞等 worker + drain 完全退出, 防 hook leak.
@@ -333,7 +338,7 @@ func (r *Recorder) Stop() (*StopResult, error) {
 	r.mu.Lock()
 	if !r.active {
 		r.mu.Unlock()
-		return nil, errors.New("recorder not active")
+		return nil, ErrRecorderNotActive
 	}
 	tid := r.threadID
 	rawCh := r.rawEvents

@@ -76,7 +76,7 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				// Exec chain
-				{From: "start.out", To: "setState.In"},
+				{From: "start.Done", To: "setState.In"},
 				{From: "setState.Done", To: "setCounter.In"},
 				{From: "setCounter.Done", To: "setDst.In"},
 				{From: "setDst.Done", To: "if1.In"},
@@ -133,7 +133,7 @@ func TestV4_E2E_FishingFightLite(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "setStep.In"},
+				{From: "start.Done", To: "setStep.In"},
 				{From: "setStep.Done", To: "stop.In"},
 			},
 		},

@@ -113,7 +113,7 @@ func (s *Service) Create(name string) (Container, error) {
 				}, CreatedAt: time.Now().UTC()},
 			},
 			Edges: []GraphEdge{
-				{From: startID + ".out", To: stopID + ".In"},
+				{From: startID + ".Done", To: stopID + ".In"},
 			},
 		},
 	}

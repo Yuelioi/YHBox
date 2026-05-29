@@ -310,17 +310,17 @@
       <div class="border border-default rounded-lg p-3 space-y-2">
         <h4 class="text-sm font-semibold">{{ t('node.WindowTarget.inspector.match_section') }}</h4>
         <UFormField :label="t('node.WindowTarget.inspector.title_label')">
-          <UInput v-model="wtMatch.title" :placeholder="t('node.WindowTarget.inspector.title_placeholder')" />
+          <UInput v-model="wtConfig.Title" :placeholder="t('node.WindowTarget.inspector.title_placeholder')" />
         </UFormField>
         <UFormField :label="t('node.WindowTarget.inspector.class_label')">
-          <UInput v-model="wtMatch.class" placeholder="UnrealWindow" />
+          <UInput v-model="wtConfig.Class" placeholder="UnrealWindow" />
         </UFormField>
         <UFormField :label="t('node.WindowTarget.inspector.process_label')">
-          <UInput v-model="wtMatch.processName" placeholder="game.exe" />
+          <UInput v-model="wtConfig.ProcessName" placeholder="game.exe" />
         </UFormField>
         <UFormField :label="t('node.WindowTarget.inspector.title_match_label')">
           <USelect
-            v-model="wtMatch.titleMatch"
+            v-model="wtConfig.TitleMatch"
             class="w-full"
             :items="titleMatchOptions"
           />
@@ -332,14 +332,14 @@
         <h4 class="text-sm font-semibold">{{ t('node.WindowTarget.inspector.runtime_section') }}</h4>
         <UFormField :label="t('node.WindowTarget.inspector.input_backend_label')">
           <USelect
-            v-model="wtRuntime.inputBackend"
+            v-model="wtConfig.InputBackend"
             class="w-full"
             :items="inputBackendOptions"
           />
         </UFormField>
         <UFormField :label="t('node.WindowTarget.inspector.capture_backend_label')">
           <USelect
-            v-model="wtRuntime.captureBackend"
+            v-model="wtConfig.CaptureBackend"
             class="w-full"
             :items="captureBackendOptions"
           />
@@ -378,7 +378,7 @@
       </div>
       <div v-else class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline mr-1" />
-        {{ t('node.PlayClip.inspector.clip_missing', { id: node.config?.clipID || t('node.PlayClip.inspector.clip_unset_placeholder') }) }}
+        {{ t('node.PlayClip.inspector.clip_missing', { id: node.config?.ClipID || t('node.PlayClip.inspector.clip_unset_placeholder') }) }}
       </div>
 
       <!-- 重新录制覆盖 (一节点一 clip, 不允许下拉切换; 想换 clip 就重录) -->
@@ -833,7 +833,7 @@ onMounted(() => {
 
 const selectedClip = computed(() => {
   if (props.node?.kind !== 'PlayClip') return null
-  const id = props.node.config?.clipID
+  const id = props.node.config?.ClipID
   if (!id) return null
   return clipsStore.clips.find((c) => c.id === id) ?? null
 })
@@ -909,32 +909,19 @@ function formatDate(iso: string): string {
 }
 
 // ─── WindowTarget section (v3 Phase B) ─────────────────────────────────────
-// 双向绑定 — config 嵌套 {match, runtime}. 直接 mutate props.node.config 让
-// 父图 deep watch 标 dirty (跟 PlayClip keepRanges 一样的写法).
-const wtMatch = computed(() => {
-  if (props.node?.kind !== 'WindowTarget') return null
+// 双向绑定 — config 顶层 PascalCase 字段, 对齐 internal/nodes/system/window_target.go Spec.Inputs.
+// 直接 mutate props.node.config 让父图 deep watch 标 dirty (跟 PlayClip keepRanges 一样).
+const wtConfig = computed(() => {
+  if (props.node?.kind !== 'WindowTarget') return null as any
   if (!props.node.config) (props.node as any).config = {}
-  if (!(props.node.config as any).match) {
-    ;(props.node.config as any).match = {
-      title: '',
-      class: '',
-      processName: '',
-      titleMatch: 'exact',
-    }
-  }
-  return (props.node.config as any).match
-})
-
-const wtRuntime = computed(() => {
-  if (props.node?.kind !== 'WindowTarget') return null
-  if (!props.node.config) (props.node as any).config = {}
-  if (!(props.node.config as any).runtime) {
-    ;(props.node.config as any).runtime = {
-      inputBackend: 'postmessage',
-      captureBackend: 'auto',
-    }
-  }
-  return (props.node.config as any).runtime
+  const cfg = props.node.config as any
+  if (cfg.Title === undefined) cfg.Title = ''
+  if (cfg.Class === undefined) cfg.Class = ''
+  if (cfg.ProcessName === undefined) cfg.ProcessName = ''
+  if (cfg.TitleMatch === undefined) cfg.TitleMatch = 'exact'
+  if (cfg.InputBackend === undefined) cfg.InputBackend = 'postmessage'
+  if (cfg.CaptureBackend === undefined) cfg.CaptureBackend = 'auto'
+  return cfg
 })
 
 const titleMatchOptions = computed(() => [
@@ -992,10 +979,10 @@ onMounted(() => {
       console.warn('windowtarget:captured error', data.error)
       return
     }
-    if (wtMatch.value) {
-      wtMatch.value.title = data.title ?? ''
-      wtMatch.value.class = data.class ?? ''
-      wtMatch.value.processName = data.processName ?? ''
+    if (wtConfig.value) {
+      wtConfig.value.Title = data.title ?? ''
+      wtConfig.value.Class = data.class ?? ''
+      wtConfig.value.ProcessName = data.processName ?? ''
     }
     // 把捕获时的 resolution 存到 node config — 给 Phase C ROI 节点 metadata 用
     if (props.node && data.clientW && data.clientH) {

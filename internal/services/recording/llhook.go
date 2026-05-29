@@ -236,10 +236,13 @@ func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
 		kbd := (*kbdllhookstruct)(unsafe.Pointer(lParam))
 		isKeyDown := wParam == wmKeyDown || wParam == wmSysKeyDown
 
-		// 停录热键拦截: 触发 stop callback + 不透传游戏
+		// 停录热键拦截: 触发 stop callback + 不透传游戏.
+		// Swap 而不是 Load — 同一 session 内只允许一次 callback (F12 keydown auto-repeat /
+		// 用户按住, OS 会高频重发 keydown; 不 swap 会 spawn 多个 StopAsync, 后面的全部
+		// 撞 "recorder not active").
 		stopVK := atomic.LoadUint32(&activeStopHotkeyVK)
 		if isKeyDown && stopVK != 0 && kbd.VkCode == stopVK {
-			if cbp := activeStopCallback.Load(); cbp != nil {
+			if cbp := activeStopCallback.Swap(nil); cbp != nil {
 				go (*cbp)()
 			}
 			return 1 // 不调 CallNextHookEx — 游戏收不到这个 keydown

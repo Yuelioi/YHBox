@@ -327,7 +327,7 @@ func (r *ContainerRunner) checkSentinelLeak(node *container.GraphNode, err error
 // runRegionBody region body sub-dispatch loop. 从 seeds 出发跑到队列空 / error 返.
 //
 // SubgraphInput / SubgraphOutput 特殊处理:
-//   - SubgraphInput: framework 直通 .out (其 Run 是 stub sentinel, 不该走 dispatchInRegion).
+//   - SubgraphInput: framework 直通 .Done (其 Run 是 stub sentinel, 不该走 dispatchInRegion).
 //   - SubgraphOutput: body 终点, runRegionBody 直接 return nil (framework 不调 Run).
 //
 // 节点 Run 返 error sentinel (errBreakRequested / errContinueRequested / errThrow) 透传给 body caller.
@@ -343,7 +343,7 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		// B2: entry/output 是 virtual marker (不在 nodesByID), 走 metadata 路由.
 		if r.currentSG != nil {
 			if tok.NodeID == r.currentSG.EntryNodeID {
-				queue = append(queue, r.edges.next(tok.NodeID+".out", tok.LoopStack)...)
+				queue = append(queue, r.edges.next(tok.NodeID+".Done", tok.LoopStack)...)
 				continue
 			}
 			if _, isOutput := r.currentSG.OutputDeclsByID[tok.NodeID]; isOutput {
@@ -411,7 +411,7 @@ func (r *ContainerRunner) makeBodyForTry(ctx context.Context, node *container.Gr
 }
 
 // makeBodyForSubgraph body 调一次 — 解析 SubgraphID + push frame + 切 dispatch table 到 callee +
-// SubgraphInput.out 出发 sub-dispatch + SubgraphOutput 终点 return nil + restore frame & tables.
+// SubgraphInput.Done 出发 sub-dispatch + SubgraphOutput 终点 return nil + restore frame & tables.
 //
 // SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟新 Spec.Inputs.SubgraphID 对齐) 取.
 func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
@@ -495,7 +495,7 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 			return fmt.Errorf("Subgraph %s: callee %q missing Entry (Normalize 漏?)", node.ID, sg.ID)
 		}
 
-		seeds := r.edges.next(entryID+".out", parentLoopStack)
+		seeds := r.edges.next(entryID+".Done", parentLoopStack)
 		return r.runRegionBody(c.Context(), seeds)
 	}, nil
 }

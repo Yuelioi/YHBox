@@ -25,7 +25,7 @@ func TestLegacyEdgeKindIgnored(t *testing.T) {
 				{"id": "log", "kind": "Log", "x": 200, "y": 0, "config": {"literal": {"Message": "hi", "Level": "info"}}}
 			],
 			"edges": [
-				{"from": "start.out", "to": "log.in", "kind": "exec"}
+				{"from": "start.Done", "to": "log.in", "kind": "exec"}
 			]
 		},
 		"subgraphs": []
@@ -38,7 +38,7 @@ func TestLegacyEdgeKindIgnored(t *testing.T) {
 		t.Fatalf("expected 1 edge after load, got %d", len(c.Graph.Edges))
 	}
 	got := c.Graph.Edges[0]
-	if got.From != "start.out" || got.To != "log.in" {
+	if got.From != "start.Done" || got.To != "log.in" {
 		t.Errorf("edge from/to corrupted: %+v", got)
 	}
 
@@ -77,7 +77,7 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 				{"id": "log", "kind": "Log", "x": 300, "y": 0, "config": {"literal": {"Message": "", "Level": "info"}}}
 			],
 			"edges": [
-				{"from": "start.out", "to": "log.In", "kind": "exec"},
+				{"from": "start.Done", "to": "log.In", "kind": "exec"},
 				{"from": "gv.Value", "to": "log.Message", "kind": "data"}
 			]
 		},

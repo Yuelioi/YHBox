@@ -76,7 +76,7 @@ func runApplyDirection(t *testing.T, dirInput float64, preControlDir float64) ([
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},
@@ -176,7 +176,7 @@ func runApplyDirectionTwice(t *testing.T, d1, d2 float64) ([]string, float64) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call1.in"},
+				{From: "start.Done", To: "call1.in"},
 				{From: "call1.Done", To: "call2.in"},
 				{From: "call2.Done", To: "stop.in"},
 			},

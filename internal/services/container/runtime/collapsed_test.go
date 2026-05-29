@@ -19,7 +19,7 @@ func TestExecCollapsedNode_DispatchesViaSameHandlerAsSubgraph(t *testing.T) {
 		{ID: "sgin", Kind: "SubgraphInput", Config: map[string]any{}},
 		{ID: "sgout", Kind: "SubgraphOutput", Config: map[string]any{"DeclID": "done"}},
 	}, []container.GraphEdge{
-		{From: "sgin.out", To: "sgout.In"},
+		{From: "sgin.Done", To: "sgout.In"},
 	})
 	// 给后备 subgraph 设 isAnonymous=true (验证 dispatch 不拒绝)
 	for i := range rt.Container.Subgraphs {

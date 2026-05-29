@@ -51,7 +51,7 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 				{From: "call.failed", To: "stop.in"},
 			},

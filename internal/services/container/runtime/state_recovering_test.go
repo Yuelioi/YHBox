@@ -50,7 +50,7 @@ func runStateRECOVERING(t *testing.T, hits map[string]bool, preEscDone bool) (*s
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},

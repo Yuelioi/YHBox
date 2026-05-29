@@ -68,7 +68,7 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				// Exec
-				{From: "start.out", To: "setInitState.In"},
+				{From: "start.Done", To: "setInitState.In"},
 				{From: "setInitState.Done", To: "switch1.In"},
 				{From: "switch1.Case1", To: "logIDLE.In"},
 				{From: "switch1.Case2", To: "logFISHING.In"},

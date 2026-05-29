@@ -47,7 +47,7 @@ func runStateBUYBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *Run
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},

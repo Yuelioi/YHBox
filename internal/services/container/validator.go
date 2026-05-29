@@ -456,9 +456,9 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 	return errs
 }
 
-// validatePlayClip 校验 PlayClip 节点必须设 clipID (空 = 没绑录制片段, 运行时报错).
-// Phase 4: 不校验 clipID 在 clip store 是否真实存在 (clip 可能在另台机器 / 还没同步过来),
-// 仅静态校验 config.clipID != "". 库管理后续阶段可加 PLAYCLIP_MISSING_CLIP rule.
+// validatePlayClip 校验 PlayClip 节点必须设 ClipID (空 = 没绑录制片段, 运行时报错).
+// Phase 4: 不校验 ClipID 在 clip store 是否真实存在 (clip 可能在另台机器 / 还没同步过来),
+// 仅静态校验 config.ClipID != "". 库管理后续阶段可加 PLAYCLIP_MISSING_CLIP rule.
 func validatePlayClip(c *Container) []ValidationError {
 	var errs []ValidationError
 	check := func(nodes []GraphNode, graphPath []string) {
@@ -466,7 +466,7 @@ func validatePlayClip(c *Container) []ValidationError {
 			if n.Kind != "PlayClip" {
 				continue
 			}
-			id, _ := n.Config["clipID"].(string)
+			id, _ := n.Config["ClipID"].(string)
 			if id == "" {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodePlayClipNoClipID,

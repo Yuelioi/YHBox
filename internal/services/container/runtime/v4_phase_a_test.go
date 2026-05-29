@@ -34,7 +34,7 @@ func TestPhaseA_E2E_SetVarGlobal(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "set.In"},
+				{From: "start.Done", To: "set.In"},
 				{From: "set.Done", To: "stop.In"},
 			},
 		},
@@ -79,7 +79,7 @@ func TestPhaseA_E2E_IncVarDeltaLiteral(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "set.In"},
+				{From: "start.Done", To: "set.In"},
 				{From: "set.Done", To: "inc.In"},
 				{From: "inc.Done", To: "stop.In"},
 			},
@@ -134,7 +134,7 @@ func TestPhaseA_E2E_GetVarViaDataEdge(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				// Exec chain
-				{From: "start.out", To: "setSrc.In"},
+				{From: "start.Done", To: "setSrc.In"},
 				{From: "setSrc.Done", To: "setDst.In"},
 				{From: "setDst.Done", To: "stop.In"},
 				// Data flow: GetVar(src).value → SetVar(dst).value
@@ -182,7 +182,7 @@ func TestPhaseA_E2E_LocalScopeIsolation(t *testing.T) {
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "set.In"},
+				{From: "start.Done", To: "set.In"},
 				{From: "set.Done", To: "inc.In"},
 				{From: "inc.Done", To: "stop.In"},
 			},

@@ -152,7 +152,7 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.rec.Active() {
-		return nil, errors.New("recorder not active")
+		return nil, ErrRecorderNotActive
 	}
 	if s.containers == nil {
 		return nil, errors.New("ContainerSubgraphSaver 未注入 (main.go 启动期 SetContainerSaver?)")
@@ -209,6 +209,9 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 // StopAsync 异步停录 — 跑后 emit 'recording:completed' payload 或 {error}.
 // F12 hook callback 走这条 (callback 不能阻塞 hook 线程 50ms+).
 // 前端 RecordingHUD 子窗口主动调它 (拿不到 RPC 返回值, 靠订阅事件).
+//
+// ErrRecorderNotActive 静默吞: F12 + toolbar/HUD 同时触发 stop 时, 第二条会撞这个错;
+// 此时第一条已经 emit 过正常 payload, 再 emit error 会覆盖前端 toast.
 func (s *Service) StopAsync() {
 	go func() {
 		payload, err := s.Stop()
@@ -216,6 +219,9 @@ func (s *Service) StopAsync() {
 			return
 		}
 		if err != nil {
+			if errors.Is(err, ErrRecorderNotActive) {
+				return
+			}
 			s.emit("recording:completed", map[string]any{"error": err.Error()})
 			return
 		}

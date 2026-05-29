@@ -64,7 +64,7 @@ func runInspectPhase(t *testing.T, hits map[string]bool, frame *image.RGBA) (*Ru
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},

@@ -52,7 +52,7 @@ func runStateFISHING(t *testing.T, preFishingStartMsAgo float64, hits map[string
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "start.out", To: "call.in"},
+				{From: "start.Done", To: "call.in"},
 				{From: "call.Done", To: "stop.in"},
 			},
 		},

@@ -16,7 +16,7 @@ func TestValidate_PinTypeMismatch_StringToNumber(t *testing.T) {
 				{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "msg", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "inc.in"},
+				{From: "start.Done", To: "inc.in"},
 				{From: "gv.Value", To: "inc.Delta"}, // string → number = mismatch (data edge derived from GetVar.value out-pin)
 			},
 		},
@@ -59,7 +59,7 @@ func TestValidate_AnyAcceptsEverything(t *testing.T) {
 				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "dst", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "sv.in"},
+				{From: "start.Done", To: "sv.in"},
 				{From: "gv.Value", To: "sv.Value"}, // string → any = OK (data edge derived)
 			},
 		},
@@ -83,7 +83,7 @@ func TestValidate_ExecEdgeNotPinTypeChecked(t *testing.T) {
 				{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.out", To: "inc.in"}, // exec edge — Kind unset
+				{From: "start.Done", To: "inc.in"}, // exec edge — Kind unset
 			},
 		},
 	}

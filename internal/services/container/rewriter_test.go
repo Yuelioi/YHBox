@@ -15,7 +15,7 @@ func newTestGraph() Graph {
 			{ID: "click", Kind: "ClickTemplate", Config: map[string]any{"template": "fish/onhook"}, CreatedAt: time.Now().UTC()},
 		},
 		Edges: []GraphEdge{
-			{From: "start.out", To: "wait.in"},
+			{From: "start.Done", To: "wait.in"},
 			{From: "wait.found", To: "click.in"},
 		},
 	}
