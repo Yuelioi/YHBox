@@ -539,8 +539,8 @@ export default {
         delete_confirm_desc: 'This case has {count} outgoing edge(s) — they will disconnect and need manual reconnect.',
       },
     },
-    Break: { label: 'Break', description: 'Exits the nearest enclosing Loop region. Phase 5 Loop region catches the sentinel; otherwise framework reports as error.' },
-    Continue: { label: 'Continue', description: 'Jumps to the next iteration of the nearest Loop. Phase 5 Loop region catches the sentinel.' },
+    Break: { label: 'Break', description: 'Exits the nearest enclosing Loop region. The Loop region catches the sentinel; outside any Loop the framework reports an error.' },
+    Continue: { label: 'Continue', description: 'Jumps to the next iteration of the nearest Loop. The Loop region catches the sentinel.' },
     // detect
     WaitTemplate: {
       label: 'Wait template',
@@ -748,7 +748,7 @@ export default {
     },
     OnEvent: {
       label: 'On event',
-      description: '(Phase 5 stub) listener node — periodically Detect-hits a condition → spawns child runner for Out descendants. No exec-in.',
+      description: 'Listener node — periodically Detect-hits a condition → spawns a child runner for the Out descendants. No exec-in.',
       input: {
         Kind: { label: 'Event kind', option: { template_appeared: 'Template Appeared' } },
         Template: { label: 'Template', hint: 'namespace.name format; required when kind=template_appeared' },
@@ -758,7 +758,7 @@ export default {
         CooldownMs: { label: 'Cooldown (ms)' },
         RetriggerPolicy: { label: 'Retrigger policy' },
       },
-      output: { Out: { label: 'Event fired (Phase 5)' } },
+      output: { Out: { label: 'Event fired' } },
     },
     Scroll: {
       label: 'Mouse scroll',
@@ -798,7 +798,7 @@ export default {
     },
     Toast: {
       label: 'Toast',
-      description: 'Shows a GUI toast. Phase 4 falls back to LogService.Info; Phase 5 wires real emit to frontend.',
+      description: 'Intended to show a GUI toast; no toast service yet, so it currently logs via LogService.Info (trace only, not shown in the GUI).',
       input: {
         Title: { label: 'Title', hint: 'Any type, auto-stringified' },
         Message: { label: 'Message', hint: 'Any type, auto-stringified' },
@@ -996,10 +996,10 @@ export default {
     },
     Subgraph: {
       label: 'Call subgraph',
-      description: 'Calls the subgraph specified by SubgraphID. Runner constructs the body callback + waits for completion; no error → Done. Phase 5: static ID + simple Params JSON. Phase 6 adds dynamic InputParams.',
+      description: 'Calls the subgraph specified by SubgraphID. The runner builds the body callback + waits for completion; no error → Done. Currently a static ID + a single Params JSON (typed dynamic InputParams pins are a future option).',
       input: {
         SubgraphID: { label: 'Subgraph ID' },
-        Params: { label: 'Params', hint: 'Call params (Phase 5 passes through to runner — runner decides how to inject into callee SubgraphInput).' },
+        Params: { label: 'Params', hint: 'Call params — passed through to the runner, which injects them into the callee SubgraphInput.' },
       },
       output: { Done: { label: 'Done' } },
       fallback_missing: '(subgraph not found)',

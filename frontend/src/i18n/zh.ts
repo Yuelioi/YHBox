@@ -559,8 +559,8 @@ export default {
         delete_confirm_desc: '该 case 的出口边 ({count} 条) 将断开，需手动重连。',
       },
     },
-    Break: { label: '跳出循环', description: '退出最近的 Loop 区域. Phase 5 Loop region 截获 sentinel, 否则 framework 当 error 上报.' },
-    Continue: { label: '跳过本轮', description: '跳到最近 Loop 的下一次迭代. Phase 5 Loop region 截获 sentinel.' },
+    Break: { label: '跳出循环', description: '退出最近的 Loop 区域. Loop region 截获 sentinel, 不在任何 Loop 内则 framework 当 error 上报.' },
+    Continue: { label: '跳过本轮', description: '跳到最近 Loop 的下一次迭代. Loop region 截获 sentinel.' },
     // detect
     WaitTemplate: {
       label: '等待模板',
@@ -768,7 +768,7 @@ export default {
     },
     OnEvent: {
       label: '事件监听',
-      description: '(Phase 5 stub) listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',
+      description: 'listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',
       input: {
         Kind: { label: '事件类型', option: { template_appeared: 'Template Appeared' } },
         Template: { label: '模板', hint: '命名空间.名 格式, kind=template_appeared 时必填' },
@@ -778,7 +778,7 @@ export default {
         CooldownMs: { label: '冷却 (ms)' },
         RetriggerPolicy: { label: '重触发策略' },
       },
-      output: { Out: { label: '事件触发 (Phase 5)' } },
+      output: { Out: { label: '事件触发' } },
     },
     Scroll: {
       label: '鼠标滚轮',
@@ -818,7 +818,7 @@ export default {
     },
     Toast: {
       label: 'Toast',
-      description: '弹 GUI toast 提示. Phase 4 兜底走 LogService.Info; Phase 5 wire 真 emit 到 frontend.',
+      description: '弹 GUI toast 提示. 当前无 toast service, 退化为 LogService.Info (有 trace, FE 见不到).',
       input: {
         Title: { label: '标题', hint: '任意类型, 自动 stringify' },
         Message: { label: '消息', hint: '任意类型, 自动 stringify' },
@@ -1016,10 +1016,10 @@ export default {
     },
     Subgraph: {
       label: '调用子图',
-      description: '调用容器内 SubgraphID 指定的子图. body 回调由 runner 构造 + 跑完返回, 无 error → 走 Done. Phase 5: 静态 ID + 简化 Params JSON, Phase 6 加 dynamic InputParams.',
+      description: '调用容器内 SubgraphID 指定的子图. body 回调由 runner 构造 + 跑完返回, 无 error → 走 Done. 当前静态 ID + 单个 Params JSON (强类型 dynamic InputParams pin 是未来选项).',
       input: {
         SubgraphID: { label: '子图 ID' },
-        Params: { label: '参数', hint: '调用参数 (Phase 5 透传给 runner — runner 决定如何注入 callee 的 SubgraphInput).' },
+        Params: { label: '参数', hint: '调用参数 — 透传给 runner, 由 runner 注入 callee 的 SubgraphInput.' },
       },
       output: { Done: { label: '完成' } },
       fallback_missing: '(子图未找到)',
