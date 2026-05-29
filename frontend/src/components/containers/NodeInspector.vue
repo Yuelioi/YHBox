@@ -574,6 +574,13 @@ function setLiteral(pin: string, v: any) {
   cfg.literal = { ...(cfg.literal ?? {}), [pin]: v }
   emit('update', cfg)
 }
+// 批量写多个 config.literal pin (一次 emit) — 屏幕拾取 point 同时写 XRatio+YRatio 用。
+function setLiteralBatch(patch: Record<string, any>) {
+  if (!props.node) return
+  const cfg = { ...(props.node.config ?? {}) }
+  cfg.literal = { ...(cfg.literal ?? {}), ...patch }
+  emit('update', cfg)
+}
 // 查 pin 对应的 widget 元数据 (类型/选项), 喂给 PinInput 渲染正确控件。
 // 动态 input (Expr config.Inputs[]) 在 fields 里查不到 → undefined, PinInput 走 pinType fallback。
 function fieldFor(pin: string): Field | undefined {
@@ -632,10 +639,10 @@ const isCalibrationForeign = computed(() => {
 
 function onOpenCalibrator() {
   if (!props.node) return
-  const cfg = props.node.config ?? {}
   window.dispatchEvent(new CustomEvent('open-calibrator-modal', {
     detail: {
-      onSave: (counts: number) => emit('update', { ...cfg, counts360: counts }),
+      // 正源 config.literal.Counts360 (runtime PinInt 读它, 无小写 fallback) — 走 setMcCounts。
+      onSave: (counts: number) => setMcCounts(counts),
     },
   }))
 }
@@ -750,31 +757,21 @@ const fields = computed<Field[]>(() => (props.node ? (NODE_FIELD_SCHEMAS[props.n
 const BESPOKE_SECTION_KINDS = new Set(['Subgraph', 'MouseCalibration', 'WindowTarget', 'PlayClip', 'Switch'])
 const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.has(props.node.kind))
 
-function setCfg(key: string, val: string) {
-  if (!props.node) return
-  const next = { ...props.node.config }
-  if (val === '') delete next[key]
-  else next[key] = val
-  emit('update', next)
-}
-
-function setCfgBatch(patch: Record<string, string>) {
-  if (!props.node) return
-  const next = { ...props.node.config }
-  for (const k in patch) {
-    if (patch[k] === '') delete next[k]
-    else next[k] = patch[k]
-  }
-  emit('update', next)
-}
-
-// 屏幕拾取 (打开 ScreenPicker 子窗口 → 回填 xRatio/yRatio 或 region)
+// 屏幕拾取 → 回填 config.literal (PascalCase Spec.Input 名 + 正确类型):
+//   - point: XRatio/YRatio (Number pin, ClickAt/Scroll) — 存 number 不存字符串。
+//   - rect:  Region ({x,y,w,h} object, DetectColor Rect pin) — runtime buildDataWireFor coerce 成 node.Rect。
 const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD } = useScreenPick({
   node: toRef(props, 'node'),
-  applyPoint: (x, y) => setCfgBatch({ xRatio: x.toFixed(4), yRatio: y.toFixed(4) }),
+  applyPoint: (x, y) => setLiteralBatch({ XRatio: round4(x), YRatio: round4(y) }),
   applyRect: (r) =>
-    setCfg('region', `${r[0].toFixed(3)},${r[1].toFixed(3)},${r[2].toFixed(3)},${r[3].toFixed(3)}`),
+    setLiteral('Region', { x: round3(r[0]), y: round3(r[1]), w: round3(r[2]), h: round3(r[3]) }),
 })
+function round4(n: number): number {
+  return Math.round(n * 1e4) / 1e4
+}
+function round3(n: number): number {
+  return Math.round(n * 1e3) / 1e3
+}
 
 // Parallel / Race 并发分支写同名变量警告
 const { concurrencyWarning } = useConcurrencyWarning({

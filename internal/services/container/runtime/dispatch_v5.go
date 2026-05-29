@@ -58,7 +58,7 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 		if err != nil || v == nil {
 			continue
 		}
-		dw[ip.Name] = v
+		dw[ip.Name] = coerceToType(v, ip.Type)
 	}
 	// Expr 节点 dynamic data-in pins 在 Spec 里登记不到 — 走 config.Inputs[] 声明.
 	// 必须额外 pull 一轮把声明的 dynamic name 喂进 dataWire, Expr.Evaluate 再从

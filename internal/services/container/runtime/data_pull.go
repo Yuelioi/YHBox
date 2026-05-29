@@ -154,13 +154,70 @@ func toExprValue(v any) expr.Value {
 	case int64:
 		return float64(x)
 	case map[string]any:
-		// Point literal: { "x": ..., "y": ... }
-		if xv, hasX := x["x"]; hasX {
-			if yv, hasY := x["y"]; hasY {
-				return expr.Point{X: asFloat(xv), Y: asFloat(yv)}
+		// Point literal: { "x": ..., "y": ... }. 带 w/h 的是 Rect — 留 raw map,
+		// 交给 buildDataWireFor 按声明类型 coerce 成 node.Rect (否则 w/h 会被丢)。
+		_, hasW := x["w"]
+		_, hasH := x["h"]
+		if !hasW && !hasH {
+			if xv, hasX := x["x"]; hasX {
+				if yv, hasY := x["y"]; hasY {
+					return expr.Point{X: asFloat(xv), Y: asFloat(yv)}
+				}
 			}
 		}
 		return x
 	}
 	return v
+}
+
+// coerceToType 把 data-pin 解析出的 JSON 值按声明 pin 类型转成节点期望的域类型。
+// Rect/Point pin 的 literal (画布 rect-editor / 屏幕拾取 / 录制) 存成 JSON map/array,
+// 但 in.Rect()/in.Point() 断言 node.Rect/node.Point → 这里按 ip.Type 物化。
+// 其余类型原样返 (Number/String/Bool 由 in.Float64/String/Bool 各自解析)。
+func coerceToType(v any, typ string) any {
+	switch typ {
+	case "Rect":
+		if r, ok := asNodeRect(v); ok {
+			return r
+		}
+	case "Point":
+		if p, ok := asNodePoint(v); ok {
+			return p
+		}
+	}
+	return v
+}
+
+// asNodeRect 把 node.Rect / map{x,y,w,h} / [x,y,w,h] 转 node.Rect。
+func asNodeRect(v any) (nodepkg.Rect, bool) {
+	switch t := v.(type) {
+	case nodepkg.Rect:
+		return t, true
+	case map[string]any:
+		return nodepkg.Rect{X: asFloat(t["x"]), Y: asFloat(t["y"]), W: asFloat(t["w"]), H: asFloat(t["h"])}, true
+	case []any:
+		if len(t) >= 4 {
+			return nodepkg.Rect{X: asFloat(t[0]), Y: asFloat(t[1]), W: asFloat(t[2]), H: asFloat(t[3])}, true
+		}
+	}
+	return nodepkg.Rect{}, false
+}
+
+// asNodePoint 把 node.Point / expr.Point / map{x,y} / [x,y] 转 node.Point。
+func asNodePoint(v any) (nodepkg.Point, bool) {
+	switch t := v.(type) {
+	case nodepkg.Point:
+		return t, true
+	case expr.Point:
+		return nodepkg.Point{X: t.X, Y: t.Y}, true
+	case map[string]any:
+		if _, ok := t["x"]; ok {
+			return nodepkg.Point{X: asFloat(t["x"]), Y: asFloat(t["y"])}, true
+		}
+	case []any:
+		if len(t) >= 2 {
+			return nodepkg.Point{X: asFloat(t[0]), Y: asFloat(t[1])}, true
+		}
+	}
+	return nodepkg.Point{}, false
 }
