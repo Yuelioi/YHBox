@@ -8,7 +8,7 @@
       isRunning ? 'is-running' : '',
       isDisabled ? 'is-disabled' : '',
     ]"
-    :style="{ minWidth: '220px', maxWidth: '360px' }"
+    :style="{ minWidth: '240px', maxWidth: '360px' }"
   >
     <!-- Header (浓 saturation, accent bar 在左侧) -->
     <div class="node-header" :class="v.headerBg">
@@ -35,11 +35,21 @@
     <div class="node-body" :style="{ minHeight: bodyHeight + 'px' }">
       <template v-for="i in maxRows" :key="'row-' + i">
         <div class="pin-row pin-row-left">
-          <span
-            v-if="leftPins[i - 1]"
-            class="pin-label truncate"
-            :style="{ color: labelColor(leftPins[i - 1]) }"
-          >{{ leftPins[i - 1].label }}</span>
+          <template v-if="leftPins[i - 1]">
+            <span
+              class="pin-label truncate"
+              :style="{ color: labelColor(leftPins[i - 1]) }"
+            >{{ leftPins[i - 1].label }}</span>
+            <PinLiteral
+              v-if="showInlineLiteral(leftPins[i - 1])"
+              class="pin-inline-input nodrag"
+              :type="leftPins[i - 1].type"
+              :model-value="inlineLiteralValue(leftPins[i - 1].id)"
+              @update:model-value="(v: any) => onInlineLiteralUpdate(leftPins[i - 1].id, v)"
+              @mousedown.stop
+              @click.stop
+            />
+          </template>
         </div>
         <div class="pin-row pin-row-right">
           <span
@@ -92,11 +102,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Handle, Position } from '@vue-flow/core'
 import { useExecutionStore } from '@/stores/execution'
-import { pinsFor, KIND_VISUAL, KIND_LABEL_ZH, resolveSubgraphCallExecOut } from './pinSpec'
+import { pinsFor, KIND_VISUAL, KIND_LABEL_ZH, PIN_SPECS, resolveSubgraphCallExecOut } from './pinSpec'
+import PinLiteral from './inline/PinLiteral.vue'
+import { unconnectedDataInPins, ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { getSpec } from './nodeRegistry/registry'
 import { TYPE_COLOR } from './nodeRegistry/index'
 import type { PinType } from './nodeRegistry/index'
@@ -151,6 +163,27 @@ const v = computed(() => {
 
 const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
 const editorStore = useContainerEditorStore()
+
+// 画布内联 pin literal — view 通过 ContainerCanvasApiKey provide; 测试/孤立渲染时为 null。
+const canvasApi = inject(ContainerCanvasApiKey, null)
+
+// 未连线 + scalar (排 point) 的 data-in pin 名集合 → 这些 pin 行渲染内联 input。
+const inlineLiteralPins = computed<Set<string>>(() => {
+  const edges = canvasApi?.edges.value ?? []
+  const dataIn = PIN_SPECS[kind.value]?.dataIn ?? {}
+  const ps = unconnectedDataInPins(kind.value, dataIn, props.data?.config ?? null, edges, props.id)
+  return new Set(ps.filter((p) => p.type !== 'point').map((p) => p.name))
+})
+
+function showInlineLiteral(p: PinEntry): boolean {
+  return p.kind === 'data' && p.dir === 'in' && inlineLiteralPins.value.has(p.id)
+}
+function inlineLiteralValue(pin: string): unknown {
+  return (props.data?.config?.literal as Record<string, unknown> | undefined)?.[pin]
+}
+function onInlineLiteralUpdate(pin: string, v: unknown) {
+  canvasApi?.setPinLiteral(props.id, pin, v)
+}
 
 const boundSubgraphNodeCount = computed<number | null>(() => {
   if (kind.value !== 'Subgraph') return null
@@ -262,7 +295,7 @@ const preview = computed(() => {
 
 const HEADER_H = 42
 const BODY_PAD_TOP = 6
-const ROW_H = 22
+const ROW_H = 28
 
 const maxRows = computed(() => Math.max(leftPins.value.length, rightPins.value.length))
 const bodyHeight = computed(() => maxRows.value * ROW_H)
@@ -419,19 +452,30 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 .node-body {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 22px;
+  grid-auto-rows: 28px;
   padding: 6px 0 8px 0;
 }
 .pin-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 22px;
+  height: 28px;
   font-size: 11px;
   line-height: 1;
   user-select: none;
   pointer-events: none;
   min-width: 0; /* 防 truncate 失效 */
+}
+
+/* 内联 pin literal input — .pin-row 是 pointer-events:none, input 要单独 auto 才能交互。
+   handle 在行左缘 (x=0), input 在 padding-left:16px + label 之后, 不压 handle 命中区。
+   nodrag class + @mousedown.stop 防打字/点击触发节点拖动 / 画布平移 / 误拖连线。 */
+.pin-inline-input {
+  pointer-events: auto;
+  flex: 1;
+  min-width: 0;
+  max-width: 110px;
+  margin-left: 4px;
 }
 .pin-row-left {
   padding-left: 16px;
