@@ -22,18 +22,14 @@ const (
 
 func (GetSys) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "GetSys",
-		Category:    "Variable",
-		DisplayName: "读系统值",
-		Description: "pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastDualBarTrack.innerX). 数据流求值.",
+		Kind:     "GetSys",
+		Category: "Variable",
 		Inputs: []node.InputSpec{
 			{Name: gsInPath, Type: "String", Required: true,
-				DisplayName: "路径",
-				Doc:         "点路径, e.g. now_ms / lastDualBarTrack.innerX",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: gsOutValue, Type: "*", DisplayName: "值"},
+			{Name: gsOutValue, Type: "*"},
 		},
 		IsPureData: true,
 	}
@@ -54,4 +50,3 @@ func (GetSys) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	v, _ := ctx.Sys().Get(path)
 	return v, nil
 }
-

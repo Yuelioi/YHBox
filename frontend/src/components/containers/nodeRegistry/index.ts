@@ -1,6 +1,6 @@
 // frontend/src/components/containers/nodeRegistry/index.ts
 // Single source of truth for node Kind metadata on the frontend.
-// Mirrors backend internal/services/container/nodekind/spec.go.
+// Mirrors backend node.Spec (internal/node/spec.go) — structural fields (kind/category/pins/types).
 //
 // Adding a kind = 1 register({...}) call in specs/<group>.ts. Nothing else.
 // pinSpec.ts / nodeFieldSchemas.ts / NodePalette.vue all derive views over this.
@@ -44,7 +44,8 @@ export interface FieldSchema {
     | 'key-capture'
     | 'monaco'
     | 'subgraph-picker'
-  options?: Array<{ value: string; label: string }>
+  /** dropdown 选项. label 是 i18n key (node.<kind>.input.<name>.option.<value>), consumer 走 t(). */
+  options?: Array<{ value: string; labelKey: string }>
   placeholder?: string
   /** Inline help text shown below the input. Migrated from old nodeFieldSchemas.ts. */
   hint?: string
@@ -66,7 +67,7 @@ export type NodeGroup =
 
 /**
  * Single-source-of-truth descriptor for a node kind.
- * Mirrors backend nodekind.Spec (Go) field-for-field where applicable.
+ * Mirrors backend node.Spec (internal/node/spec.go) — structural fields only; display text lives in i18n.
  */
 export interface NodeKindSpec {
   kind: string

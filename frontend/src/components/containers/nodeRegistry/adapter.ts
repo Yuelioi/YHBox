@@ -129,9 +129,9 @@ function splitOutputs(outputs: OutputSpec[]): {
 }
 
 // Inspector form schema: 从 backend Inputs[] 派生. exec pin 跳过 (它是连边不是 form 项).
-// label/hint 字段语义改: 现在存 i18n key 字符串 ('node.<kind>.input.<name>.label' / '.hint'),
-// 不再是 backend 字面值. consumer 必须 t(field.label) / t(field.hint) 渲染.
-// hint 只在 backend 给了 doc 时设, 没 doc 留 undefined → consumer skip 渲染.
+// label / hint / option label 全是 i18n key 字符串 (node.<kind>.input.<name>.{label,hint,option.<value>}),
+// 不再是 backend 字面值 — backend Spec 已不带任何展示文案. consumer 必须 t() 渲染.
+// hint 对所有 field 都出 key; 渲染层用 te() 判存在性 (key 没配 → 不渲染), 取代旧的 backend doc gate.
 function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
   const fields: FieldSchema[] = []
   for (const i of inputs) {
@@ -141,14 +141,15 @@ function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
       key: i.name,
       label: `node.${kind}.input.${i.name}.label`,
       type: widgetKindToFieldType(widget?.kind ?? 'text'),
-      hint: i.doc ? `node.${kind}.input.${i.name}.hint` : undefined,
+      hint: `node.${kind}.input.${i.name}.hint`,
     }
-    // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写过来的).
+    // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写来的, 静态 dropdown 只有 value).
+    // label 走 i18n key node.<kind>.input.<name>.option.<value> — backend 不再带 enum 中文.
     const props = (widget?.props ?? {}) as Record<string, unknown>
     if (f.type === 'select' && Array.isArray(props.options)) {
-      f.options = (props.options as Array<{ value: unknown; label: string }>).map((o) => ({
+      f.options = (props.options as Array<{ value: unknown }>).map((o) => ({
         value: String(o.value),
-        label: o.label,
+        labelKey: `node.${kind}.input.${i.name}.option.${String(o.value)}`,
       }))
     }
     fields.push(f)

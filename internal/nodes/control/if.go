@@ -22,19 +22,16 @@ const (
 
 func (If) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "If",
-		Category:    "Control",
-		DisplayName: "条件分支",
-		Description: "Condition true → True 出口; false → False 出口. 老 v4 If.",
+		Kind:     "If",
+		Category: "Control",
 		Inputs: []node.InputSpec{
 			{Name: ifInExec, Type: "Exec"},
 			{Name: ifInCond, Type: "Bool", Default: true,
-				DisplayName: "条件",
-				Widget:      node.WidgetSpec{Kind: "checkbox"}},
+				Widget: node.WidgetSpec{Kind: "checkbox"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: ifOutTrue, Type: "Exec", DisplayName: "True"},
-			{Name: ifOutFalse, Type: "Exec", DisplayName: "False"},
+			{Name: ifOutTrue, Type: "Exec"},
+			{Name: ifOutFalse, Type: "Exec"},
 		},
 	}
 }

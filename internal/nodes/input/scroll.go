@@ -22,27 +22,21 @@ const (
 
 func (Scroll) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Scroll",
-		Category:    "Input",
-		DisplayName: "鼠标滚轮",
-		Description: "在 (xRatio, yRatio) 客户区坐标发送鼠标滚轮事件. Delta = notches, 正向上 / 负向下.",
+		Kind:     "Scroll",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: scInExec, Type: "Exec"},
 			{Name: scInXRatio, Type: "Number", Default: json.Number("0.5"),
-				DisplayName: "X 比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: scInYRatio, Type: "Number", Default: json.Number("0.5"),
-				DisplayName: "Y 比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: scInDelta, Type: "Number", Default: json.Number("3"),
-				DisplayName: "滚动量 (notches)",
-				Doc:         "正值向上滚, 负值向下滚",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: scOutDone, Type: "Exec", DisplayName: "完成"},
+			{Name: scOutDone, Type: "Exec"},
 		},
 	}
 }

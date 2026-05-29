@@ -287,7 +287,7 @@
       </div>
     </section>
 
-    <!-- WindowTarget: v3 Phase B 声明目标游戏窗口 + input/capture backend -->
+    <!-- WindowTarget: 声明目标游戏窗口 + input/capture backend -->
     <section v-else-if="node.kind === 'WindowTarget'" class="mb-5 space-y-4">
       <!-- 捕获按钮 (F9 全局热键流程) -->
       <div>
@@ -502,7 +502,7 @@
           <USelect
             v-if="field.type === 'select'"
             :model-value="getCfg(field.key)"
-            :items="field.options ?? []"
+            :items="selectItems(field)"
             size="md"
             class="w-full"
             :ui="{ content: 'min-w-[280px]' }"
@@ -535,7 +535,7 @@
             :model-value="getCfg(field.key)"
             @update:model-value="setCfg(field.key, $event)"
           />
-          <p v-if="field.hint" class="text-[11px] text-dimmed leading-snug">{{ t(field.hint) }}</p>
+          <p v-if="field.hint && te(field.hint)" class="text-[11px] text-dimmed leading-snug">{{ t(field.hint) }}</p>
         </div>
       </div>
     </section>
@@ -558,7 +558,12 @@ import ClipTimeline from './ClipTimeline.vue'
 import { useI18n } from 'vue-i18n'
 import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
+
+// 静态 dropdown 选项: adapter 给的是 {value, labelKey}, 渲染走 t(labelKey) (locale 响应式).
+function selectItems(field: { options?: Array<{ value: string; labelKey: string }> }) {
+  return (field.options ?? []).map((o) => ({ value: o.value, label: t(o.labelKey) }))
+}
 import PinLiteral from './inline/PinLiteral.vue'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
@@ -908,7 +913,7 @@ function formatDate(iso: string): string {
   }
 }
 
-// ─── WindowTarget section (v3 Phase B) ─────────────────────────────────────
+// ─── WindowTarget section ──────────────────────────────────────────────────
 // 双向绑定 — config 顶层 PascalCase 字段, 对齐 internal/nodes/system/window_target.go Spec.Inputs.
 // 直接 mutate props.node.config 让父图 deep watch 标 dirty (跟 PlayClip keepRanges 一样).
 const wtConfig = computed(() => {
@@ -984,7 +989,7 @@ onMounted(() => {
       wtConfig.value.Class = data.class ?? ''
       wtConfig.value.ProcessName = data.processName ?? ''
     }
-    // 把捕获时的 resolution 存到 node config — 给 Phase C ROI 节点 metadata 用
+    // 把捕获时的 resolution 存到 node config — 给 ROI 节点 metadata 用
     if (props.node && data.clientW && data.clientH) {
       ;(props.node.config as any)._capturedAtResolution = [data.clientW, data.clientH]
     }

@@ -15,13 +15,11 @@ const (
 
 func (Start) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Start",
-		Category:    "Control",
-		DisplayName: "起点",
-		Description: "图入口. 框架启动时从 Start 节点开始执行. 每图恰好 1 个.",
+		Kind:     "Start",
+		Category: "Control",
 		// 不要 exec-in — Start 是入口
 		Outputs: []node.OutputSpec{
-			{Name: startOutOut, Type: "Exec", DisplayName: "开始"},
+			{Name: startOutOut, Type: "Exec"},
 		},
 	}
 }

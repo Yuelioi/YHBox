@@ -1,6 +1,5 @@
 // internal/nodes/detect/check_template.go
-// CheckTemplate — 第一个真节点. 展示节点作者完整模式: const + Spec + Run + Display + Validate + Dependencies.
-// 所有后续 70 节点都照这个模式 (Phase 4 subagent template).
+// CheckTemplate — 模板匹配检测, 命中与否分别走 Found / NotFound 出口.
 package detect
 
 import (
@@ -31,30 +30,26 @@ const (
 // === Spec: declarative metadata ===
 func (CheckTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "CheckTemplate",
-		Category:    "Detect",
-		DisplayName: "检查模板",
-		Description: "在当前帧 NCC 匹配模板. 命中走 Found 带坐标, 没命中走 NotFound.",
+		Kind:     "CheckTemplate",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: ctInExec, Type: "Exec"},
 			{Name: ctInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,
-				DisplayName: "模板", Doc: "命名空间.名 格式, e.g. fishing.hook_icon",
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
 			{Name: ctInThreshold, Type: "Number", Default: json.Number("0.85"),
-				DisplayName: "阈值", Doc: "NCC 阈值",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: ctOutFound, Type: "Exec", DisplayName: "命中",
+			{Name: ctOutFound, Type: "Exec",
 				Data: []node.DataField{
-					{Name: ctDataPoint, Type: "Point", Doc: "命中中心 (ratio)"},
-					{Name: ctDataConf, Type: "Number", Doc: "实际匹配度"},
+					{Name: ctDataPoint, Type: "Point"},
+					{Name: ctDataConf, Type: "Number"},
 				}},
-			{Name: ctOutNotFound, Type: "Exec", DisplayName: "未命中",
+			{Name: ctOutNotFound, Type: "Exec",
 				Data: []node.DataField{
-					{Name: ctDataConf, Type: "Number", Optional: true, Doc: "最高匹配度 (低于阈值)"},
+					{Name: ctDataConf, Type: "Number", Optional: true},
 				}},
 		},
 	}

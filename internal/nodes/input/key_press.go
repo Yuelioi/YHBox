@@ -24,22 +24,17 @@ const (
 
 func (KeyPress) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyPress",
-		Category:    "Input",
-		DisplayName: "按键",
-		Description: "按下并松开一个虚拟键. DurationMs 是按下到松开间隔.",
+		Kind:     "KeyPress",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: kpInExec, Type: "Exec"},
 			{Name: kpInVK, Type: "String", Required: true, Default: "W",
-				DisplayName: "按键",
-				Doc:         "虚拟键名 (e.g. A / W / F9 / space / esc)",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: kpInDurationMs, Type: "Number", Default: json.Number("50"),
-				DisplayName: "时长 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: kpOutDone, Type: "Exec", DisplayName: "完成"},
+			{Name: kpOutDone, Type: "Exec"},
 		},
 	}
 }

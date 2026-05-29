@@ -8,7 +8,7 @@ import (
 )
 
 func TestSpecBuilder_HasResultOutput(t *testing.T) {
-	s := specBuilder("Test", "测试", "", numIn(), "Number")
+	s := specBuilder("Test", numIn(), "Number")
 	if s.Outputs[0].Name != "Result" {
 		t.Errorf("output name = %q, want Result", s.Outputs[0].Name)
 	}
@@ -18,7 +18,7 @@ func TestSpecBuilder_HasResultOutput(t *testing.T) {
 }
 
 // TestEvaluate_22PureFuncs 覆盖 22 个实现 Evaluator 的节点 (Add/.../Select), 验证 EvaluatePureData
-// 走 framework 拿到预期值. Expr 不实现 Evaluator (Phase 6+ partial), 单独 fallback 测试在 dispatch_v5 层.
+// 走 framework 拿到预期值. Expr 不实现 Evaluator, 单独 fallback 测试在 dispatch_v5 层.
 func TestEvaluate_22PureFuncs(t *testing.T) {
 	node.ResetRegistryForTest()
 	for _, n := range []node.Node{
@@ -108,7 +108,7 @@ func TestEvaluate_ShortCircuit(t *testing.T) {
 	}
 }
 
-// TestEvaluate_DivByZero Div(_, 0) → NaN, 跟老 evalPureFunc 一致.
+// TestEvaluate_DivByZero Div(_, 0) → NaN.
 func TestEvaluate_DivByZero(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Div{})

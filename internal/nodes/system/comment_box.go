@@ -22,23 +22,17 @@ const (
 
 func (CommentBox) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "CommentBox",
-		Category:    "System",
-		DisplayName: "注释框",
-		Description: "纯渲染节点 — 在画布上画带颜色的标签框. 不参与执行, 不连边.",
+		Kind:     "CommentBox",
+		Category: "System",
 		Inputs: []node.InputSpec{
 			{Name: cbInLabel, Type: "String", Default: "注释",
-				DisplayName: "标签",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: cbInColor, Type: "String", Default: "#fbbf24",
-				DisplayName: "颜色",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: cbInWidth, Type: "Number", Default: json.Number("200"),
-				DisplayName: "宽度",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: cbInHeight, Type: "Number", Default: json.Number("150"),
-				DisplayName: "高度",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		// no Outputs — render-only
 		IsVisualOnly: true,

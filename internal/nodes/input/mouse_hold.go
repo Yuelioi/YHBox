@@ -25,32 +25,27 @@ const (
 
 func (MouseHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseHoldStart",
-		Category:    "Input",
-		DisplayName: "按住鼠标",
-		Description: "在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.",
+		Kind:     "MouseHoldStart",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: mhStartInExec, Type: "Exec"},
 			{Name: mhStartInXRatio, Type: "Number", Default: json.Number("0.5"),
-				DisplayName: "X 比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: mhStartInYRatio, Type: "Number", Default: json.Number("0.5"),
-				DisplayName: "Y 比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: mhStartInButton, Type: "String", Default: "left",
-				DisplayName: "按键",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "left", Label: "左键"},
-							{Value: "right", Label: "右键"},
-							{Value: "middle", Label: "中键"},
+							{Value: "left"},
+							{Value: "right"},
+							{Value: "middle"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: mhStartOutOut, Type: "Exec", DisplayName: "已按下"},
+			{Name: mhStartOutOut, Type: "Exec"},
 		},
 	}
 }
@@ -92,25 +87,21 @@ const (
 
 func (MouseHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseHoldStop",
-		Category:    "Input",
-		DisplayName: "松开鼠标",
-		Description: "松开鼠标按键, 配对 MouseHoldStart.",
+		Kind:     "MouseHoldStop",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: mhStopInExec, Type: "Exec"},
 			{Name: mhStopInButton, Type: "String", Default: "left",
-				DisplayName: "按键",
-				Doc:         "跟之前 MouseHoldStart 同一个 button",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "left", Label: "左键"},
-							{Value: "right", Label: "右键"},
-							{Value: "middle", Label: "中键"},
+							{Value: "left"},
+							{Value: "right"},
+							{Value: "middle"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: mhStopOutOut, Type: "Exec", DisplayName: "已松开"},
+			{Name: mhStopOutOut, Type: "Exec"},
 		},
 	}
 }

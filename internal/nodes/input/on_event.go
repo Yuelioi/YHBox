@@ -20,69 +20,58 @@ func init() { node.Register(&OnEvent{}) }
 type OnEvent struct{}
 
 const (
-	oeInKind              = "Kind"
-	oeInTemplate          = "Template"
-	oeInThreshold         = "Threshold"
-	oeInPollIntervalMs    = "PollIntervalMs"
-	oeInMaxConcurrent     = "MaxConcurrent"
-	oeInCooldownMs        = "CooldownMs"
-	oeInRetriggerPolicy   = "RetriggerPolicy"
-	oeOutOut              = "Out"
+	oeInKind            = "Kind"
+	oeInTemplate        = "Template"
+	oeInThreshold       = "Threshold"
+	oeInPollIntervalMs  = "PollIntervalMs"
+	oeInMaxConcurrent   = "MaxConcurrent"
+	oeInCooldownMs      = "CooldownMs"
+	oeInRetriggerPolicy = "RetriggerPolicy"
+	oeOutOut            = "Out"
 )
 
-// errOnEventPhase5 sentinel returned by OnEvent.Run. Phase 5 wire 加 EventBus +
-// RegionRunner 后 Run 走真订阅; 当前 stub 防御性报错 (实际主 dispatch 不会
-// 调到 OnEvent — 它没 exec-in, 但 region runner 误触可被 catch).
+// errOnEventPhase5 — stub 防御性报错 (主 dispatch 不会调到 OnEvent, 它没
+// exec-in, 但 region runner 误触可被 catch).
 var errOnEventPhase5 = errors.New("OnEvent — Phase 5 wire 需要 EventBus + listener spawn 机制")
 
 func (OnEvent) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "OnEvent",
-		Category:    "Input",
-		DisplayName: "事件监听",
-		Description: "(Phase 5 stub) listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.",
+		Kind:     "OnEvent",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: oeInKind, Type: "String", Default: "template_appeared",
-				DisplayName: "事件类型",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "template_appeared", Label: "Template Appeared"},
+							{Value: "template_appeared"},
 						}})}},
 			{Name: oeInTemplate, Type: "String", Semantic: "TemplateKey",
-				DisplayName: "模板",
-				Doc:         "命名空间.名 格式, kind=template_appeared 时必填",
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
 			{Name: oeInThreshold, Type: "Number", Default: json.Number("0.85"),
-				DisplayName: "阈值",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: oeInPollIntervalMs, Type: "Number", Default: json.Number("100"),
-				DisplayName: "轮询间隔 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: oeInMaxConcurrent, Type: "Number", Default: json.Number("1"),
-				DisplayName: "并发上限",
-				Advanced:    true,
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Advanced: true,
+				Widget:   node.WidgetSpec{Kind: "number"}},
 			{Name: oeInCooldownMs, Type: "Number", Default: json.Number("0"),
-				DisplayName: "冷却 (ms)",
-				Advanced:    true,
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Advanced: true,
+				Widget:   node.WidgetSpec{Kind: "number"}},
 			{Name: oeInRetriggerPolicy, Type: "String", Default: "drop",
-				DisplayName: "重触发策略",
-				Advanced:    true,
+				Advanced: true,
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "drop", Label: "Drop (忽略, 等当前完)"},
-							{Value: "queue", Label: "Queue (FIFO 排队)"},
-							{Value: "restart", Label: "Restart (取消旧, 跑新)"},
+							{Value: "drop"},
+							{Value: "queue"},
+							{Value: "restart"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
 			// 没 exec-in, 单 exec-out (listener spawn 子 runner 入口).
-			{Name: oeOutOut, Type: "Exec", DisplayName: "事件触发 (Phase 5)"},
+			{Name: oeOutOut, Type: "Exec"},
 		},
 	}
 }

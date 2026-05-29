@@ -31,42 +31,36 @@ const (
 
 func (ClickTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "ClickTemplate",
-		Category:    "Detect",
-		DisplayName: "点击模板",
-		Description: "等模板在 timeoutMs 内出现, 命中后在中心点鼠标点击. 超时走 Timeout.",
+		Kind:     "ClickTemplate",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: clkInExec, Type: "Exec"},
 			{Name: clkInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,
-				DisplayName: "模板", Doc: "命名空间.名 格式, e.g. fishing.start_fish",
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
 			{Name: clkInTimeoutMs, Type: "Number", Default: json.Number("5000"),
-				DisplayName: "超时 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkInThreshold, Type: "Number", Default: json.Number("0.85"),
-				DisplayName: "阈值",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: clkInButton, Type: "String", Default: "left",
-				DisplayName: "按键",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "left", Label: "左键"},
-							{Value: "right", Label: "右键"},
-							{Value: "middle", Label: "中键"},
+							{Value: "left"},
+							{Value: "right"},
+							{Value: "middle"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: clkOutDone, Type: "Exec", DisplayName: "完成",
+			{Name: clkOutDone, Type: "Exec",
 				Data: []node.DataField{
-					{Name: clkDataPoint, Type: "Point", Doc: "点击点 (ratio)"},
-					{Name: clkDataConf, Type: "Number", Doc: "实际匹配度"},
+					{Name: clkDataPoint, Type: "Point"},
+					{Name: clkDataConf, Type: "Number"},
 				}},
-			{Name: clkOutTimeout, Type: "Exec", DisplayName: "超时",
+			{Name: clkOutTimeout, Type: "Exec",
 				Data: []node.DataField{
-					{Name: clkDataConf, Type: "Number", Optional: true, Doc: "最高匹配度 (低于阈值)"},
+					{Name: clkDataConf, Type: "Number", Optional: true},
 				}},
 		},
 	}

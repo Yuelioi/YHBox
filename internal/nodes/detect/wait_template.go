@@ -29,33 +29,28 @@ const (
 
 func (WaitTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "WaitTemplate",
-		Category:    "Detect",
-		DisplayName: "等待模板",
-		Description: "在 timeoutMs 内轮询匹配模板. 命中走 Found 带坐标, 超时走 Timeout.",
+		Kind:     "WaitTemplate",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,
-				DisplayName: "模板", Doc: "命名空间.名 格式, e.g. fishing.hook_icon",
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
 			{Name: wtInTimeoutMs, Type: "Number", Default: json.Number("5000"),
-				DisplayName: "超时 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: wtInThreshold, Type: "Number", Default: json.Number("0.85"),
-				DisplayName: "阈值", Doc: "NCC 阈值",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: wtOutFound, Type: "Exec", DisplayName: "命中",
+			{Name: wtOutFound, Type: "Exec",
 				Data: []node.DataField{
-					{Name: wtDataPoint, Type: "Point", Doc: "命中中心 (ratio)"},
-					{Name: wtDataConf, Type: "Number", Doc: "实际匹配度"},
+					{Name: wtDataPoint, Type: "Point"},
+					{Name: wtDataConf, Type: "Number"},
 				}},
-			{Name: wtOutTimeout, Type: "Exec", DisplayName: "超时",
+			{Name: wtOutTimeout, Type: "Exec",
 				Data: []node.DataField{
-					{Name: wtDataConf, Type: "Number", Optional: true, Doc: "最高匹配度 (低于阈值)"},
+					{Name: wtDataConf, Type: "Number", Optional: true},
 				}},
 		},
 	}

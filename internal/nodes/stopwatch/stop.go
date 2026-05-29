@@ -19,19 +19,15 @@ const (
 
 func (Stop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "StopwatchStop",
-		Category:    "Stopwatch",
-		DisplayName: "秒表 停止",
-		Description: "停止指定 key 的秒表 (不存在 key 静默 no-op, validator 已 static-warn).",
+		Kind:     "StopwatchStop",
+		Category: "Stopwatch",
 		Inputs: []node.InputSpec{
 			{Name: swStopInExec, Type: "Exec"},
 			{Name: swStopInKey, Type: "String", Required: true, Default: "default",
-				DisplayName: "key",
-				Doc:         "跟之前 StopwatchStart 同一个 key",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: swStopOutOut, Type: "Exec", DisplayName: "完成"},
+			{Name: swStopOutOut, Type: "Exec"},
 		},
 	}
 }

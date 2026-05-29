@@ -23,35 +23,29 @@ const (
 
 func (ClickAt) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "ClickAt",
-		Category:    "Input",
-		DisplayName: "点击坐标",
-		Description: "在客户区比例坐标 (xRatio, yRatio) 单击鼠标. xRatio/yRatio ∈ [0,1].",
+		Kind:     "ClickAt",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: caInExec, Type: "Exec"},
 			{Name: caInXRatio, Type: "Number", Default: json.Number("0.5"),
-				DisplayName: "X 比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: caInYRatio, Type: "Number", Default: json.Number("0.5"),
-				DisplayName: "Y 比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: caInButton, Type: "String", Default: "left",
-				DisplayName: "按键",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "left", Label: "左键"},
-							{Value: "right", Label: "右键"},
-							{Value: "middle", Label: "中键"},
+							{Value: "left"},
+							{Value: "right"},
+							{Value: "middle"},
 						}})}},
 			{Name: caInDurationMs, Type: "Number", Default: json.Number("50"),
-				DisplayName: "时长 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: caOutDone, Type: "Exec", DisplayName: "完成"},
+			{Name: caOutDone, Type: "Exec"},
 		},
 	}
 }

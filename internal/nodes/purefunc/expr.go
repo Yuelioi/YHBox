@@ -25,19 +25,15 @@ type Expr struct{}
 
 func (Expr) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Expr",
-		Category:    "PureFunc",
-		DisplayName: "表达式",
-		Description: "求值表达式. dynamic inputs (config.Inputs[]) 声明的 input name 可在表达式里引用.",
+		Kind:     "Expr",
+		Category: "PureFunc",
 		Inputs: []node.InputSpec{
 			{Name: exprInExpression, Type: "String", Default: "", Required: true,
-				DisplayName: "表达式",
-				Doc:         "Go-like 表达式. dynamic Inputs[] 声明的 input name 可在表达式里引用.",
 				Widget: node.WidgetSpec{Kind: "textarea",
 					Props: node.MarshalProps(node.TextareaProps{Rows: 3})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: exprOutResult, Type: "*", DisplayName: "结果"},
+			{Name: exprOutResult, Type: "*"},
 		},
 		IsPureData: true,
 	}

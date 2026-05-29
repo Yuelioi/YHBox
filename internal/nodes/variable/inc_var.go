@@ -23,30 +23,25 @@ const (
 
 func (IncVar) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "IncVar",
-		Category:    "Variable",
-		DisplayName: "变量自增",
-		Description: "给容器变量加 Delta (默认 1). scope=auto/local/global.",
+		Kind:     "IncVar",
+		Category: "Variable",
 		Inputs: []node.InputSpec{
 			{Name: ivInExec, Type: "Exec"},
 			{Name: ivInVarName, Type: "String", Required: true,
-				DisplayName: "变量名",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: ivInScope, Type: "String", Default: "auto",
-				DisplayName: "作用域",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "auto", Label: "auto"},
-							{Value: "local", Label: "local"},
-							{Value: "global", Label: "global"},
+							{Value: "auto"},
+							{Value: "local"},
+							{Value: "global"},
 						}})}},
 			{Name: ivInDelta, Type: "Number", Default: json.Number("1"),
-				DisplayName: "增量",
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: ivOutOut, Type: "Exec", DisplayName: "完成"},
+			{Name: ivOutOut, Type: "Exec"},
 		},
 	}
 }

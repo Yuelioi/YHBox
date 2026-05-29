@@ -4,17 +4,17 @@
 //   controls.<k>           BotControls 按钮 / 状态
 //   common.<k>             通用 (确认/取消/保存/关闭/加载中)
 //   settings.<k>           Settings* view 内文案
-//   editor.<k>             编辑器主壳 (P2)
-//   editor.canvas.<k>      画布操作提示 (P2)
-//   editor.menu.<k>        右键菜单 item (P3)
-//   editor.palette.<k>     CommandPalette item (P3)
-//   editor.inspector.<k>   Inspector 表单 label/hint (P3/P4)
-//   editor.snippet.<k>     SnippetsPanel / SaveSnippetDrawer (P3)
+//   editor.<k>             编辑器主壳
+//   editor.canvas.<k>      画布操作提示
+//   editor.menu.<k>        右键菜单 item
+//   editor.palette.<k>     CommandPalette item
+//   editor.inspector.<k>   Inspector 表单 label/hint
+//   editor.snippet.<k>     SnippetsPanel / SaveSnippetDrawer
 //   log.<k>                LogPanel header / filter / settings popover
 //   status.<k>             AppStatusBar 状态
 //   hotkeys.<k>            SettingsHotkeys group label / 状态文案
 //   hotkeys.label.<k>      HotkeyEntry.Label 翻译键 (backend 填 key, FE t() 渲染)
-//   dialog.<k>             ConfirmDialog / Modal title/body (P3)
+//   dialog.<k>             ConfirmDialog / Modal title/body
 //   toast.<k>              所有 toast.add({title,description})
 //   error.<k>              ValidationError.Code → user message
 //   validation.<k>         ValidationErrorPanel 壳文案
@@ -494,7 +494,7 @@ export default {
       label: '循环',
       description: 'Body 子图执行 N 次 / forever. Body 内 Break sentinel 跳出, Continue sentinel 跳下一轮.',
       input: {
-        Mode: { label: '模式' },
+        Mode: { label: '模式', option: { count: '次数', forever: '永远' } },
         Count: { label: '次数 (mode=count)' },
       },
       output: {
@@ -606,7 +606,7 @@ export default {
         Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish' },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值' },
-        Button: { label: '按键' },
+        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
       },
       output: {
         Done: {
@@ -624,7 +624,7 @@ export default {
       description: '在 region (ratio) 内统计落在颜色范围内的像素. count >= minPixels → Yes.',
       input: {
         Region: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
-        Mode: { label: '模式' },
+        Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
         Range: { label: '范围 [aMin..vMax]', hint: '6 元素: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
         MinPixels: { label: '最小像素' },
       },
@@ -675,7 +675,7 @@ export default {
       input: {
         ROI: { label: 'ROI (像素)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'}` },
         HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
-        Axis: { label: '扫描轴' },
+        Axis: { label: '扫描轴', option: { x: '水平 (x)', y: '垂直 (y)' } },
         MinClusterPx: { label: '最小段长 (px)' },
         MaxClusterPx: { label: '最大段长 (px)', hint: '<=0 默认 ROI 大小 / 3' },
         MinClusterCount: { label: '最少 cluster 数' },
@@ -714,7 +714,7 @@ export default {
       input: {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
-        Button: { label: '按键' },
+        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         DurationMs: { label: '时长 (ms)' },
       },
       output: { Done: { label: '完成' } },
@@ -746,14 +746,14 @@ export default {
       input: {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
-        Button: { label: '按键' },
+        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
       },
       output: { Done: { label: '已按下' } },
     },
     MouseHoldStop: {
       label: '松开鼠标',
       description: '松开鼠标按键, 配对 MouseHoldStart.',
-      input: { Button: { label: '按键', hint: '跟之前 MouseHoldStart 同一个 button' } },
+      input: { Button: { label: '按键', hint: '跟之前 MouseHoldStart 同一个 button', option: { left: '左键', right: '右键', middle: '中键' } } },
       output: { Done: { label: '已松开' } },
     },
     MouseMoveRel: {
@@ -770,7 +770,7 @@ export default {
       label: '事件监听',
       description: '(Phase 5 stub) listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',
       input: {
-        Kind: { label: '事件类型' },
+        Kind: { label: '事件类型', option: { template_appeared: 'Template Appeared' } },
         Template: { label: '模板', hint: '命名空间.名 格式, kind=template_appeared 时必填' },
         Threshold: { label: '阈值' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
@@ -796,7 +796,7 @@ export default {
       description: '写一条日志到 framework LogService. Message 接 wildcard (任意类型, 自动 fmt.Sprint).',
       input: {
         Message: { label: '消息', hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, framework 自动 stringify' },
-        Level: { label: '级别' },
+        Level: { label: '级别', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
       },
       output: { Done: { label: '完成' } },
     },
@@ -822,7 +822,7 @@ export default {
       input: {
         Title: { label: '标题', hint: '任意类型, 自动 stringify' },
         Message: { label: '消息', hint: '任意类型, 自动 stringify' },
-        Color: { label: '颜色' },
+        Color: { label: '颜色', option: { primary: 'Primary', success: 'Success', warning: 'Warning', danger: 'Danger' } },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1068,9 +1068,9 @@ export default {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
-        TitleMatch: { label: '标题匹配方式' },
-        InputBackend: { label: '输入后端' },
-        CaptureBackend: { label: '截屏后端' },
+        TitleMatch: { label: '标题匹配方式', option: { exact: 'exact', contains: 'contains', prefix: 'prefix', suffix: 'suffix', regex: 'regex' } },
+        InputBackend: { label: '输入后端', option: { postmessage: 'postmessage', sendinput: 'sendinput' } },
+        CaptureBackend: { label: '截屏后端', option: { auto: 'auto', bitblt: 'bitblt', wgc: 'wgc' } },
       },
       output: { Fire: { label: 'Fire' } },
       inspector: {
@@ -1103,7 +1103,7 @@ export default {
       description: 'pure-data 节点 — 读容器变量供 data edge 下游消费. scope=auto/local/global.',
       input: {
         VarName: { label: '变量名' },
-        Scope: { label: '作用域' },
+        Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
       },
       output: { Value: { label: '值' } },
     },
@@ -1112,7 +1112,7 @@ export default {
       description: '写一个容器变量. scope=auto/local/global (auto: 当前 frame 有就 local, 否则 global).',
       input: {
         VarName: { label: '变量名' },
-        Scope: { label: '作用域' },
+        Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
         Value: { label: '值', hint: 'wildcard — 任意类型' },
       },
       output: { Done: { label: '完成' } },
@@ -1122,7 +1122,7 @@ export default {
       description: '给容器变量加 Delta (默认 1). scope=auto/local/global.',
       input: {
         VarName: { label: '变量名' },
-        Scope: { label: '作用域' },
+        Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
         Delta: { label: '增量' },
       },
       output: { Done: { label: '完成' } },

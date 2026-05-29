@@ -20,17 +20,14 @@ const (
 
 func (GetParam) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "GetParam",
-		Category:    "Variable",
-		DisplayName: "读子图参数",
-		Description: "pure-data 节点 — 读 Subgraph 调用时传入的 input param. 仅子图内有效.",
+		Kind:     "GetParam",
+		Category: "Variable",
 		Inputs: []node.InputSpec{
 			{Name: gpInParamName, Type: "String", Required: true,
-				DisplayName: "参数名",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: gpOutValue, Type: "*", DisplayName: "值"},
+			{Name: gpOutValue, Type: "*"},
 		},
 		IsPureData: true,
 	}
@@ -44,4 +41,3 @@ func (GetParam) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	v, _ := ctx.Params().Get(name)
 	return v, nil
 }
-

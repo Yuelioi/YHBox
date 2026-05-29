@@ -1,6 +1,6 @@
 // internal/nodes/control/continue.go
 // Continue — request innermost Loop region to skip rest of body + start next iteration.
-// Phase 4 stub: returns errContinueRequested. Phase 5 Loop region catches it.
+// Returns errContinueRequested; the enclosing Loop region catches it.
 package control
 
 import "yhbox/internal/node"
@@ -15,10 +15,8 @@ const (
 
 func (Continue) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Continue",
-		Category:    "Control",
-		DisplayName: "跳过本轮",
-		Description: "跳到最近 Loop 的下一次迭代. Phase 5 Loop region 截获 sentinel.",
+		Kind:     "Continue",
+		Category: "Control",
 		Inputs: []node.InputSpec{
 			{Name: continueInExec, Type: "Exec"},
 		},

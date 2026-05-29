@@ -474,7 +474,7 @@ export default {
       label: 'Loop',
       description: 'Body subgraph executes N times / forever. Break inside body jumps out, Continue jumps to next iteration.',
       input: {
-        Mode: { label: 'Mode' },
+        Mode: { label: 'Mode', option: { count: 'Count', forever: 'Forever' } },
         Count: { label: 'Count (mode=count)' },
       },
       output: {
@@ -586,7 +586,7 @@ export default {
         Template: { label: 'Template', hint: 'namespace.name format, e.g. fishing.start_fish' },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold' },
-        Button: { label: 'Button' },
+        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
       },
       output: {
         Done: {
@@ -604,7 +604,7 @@ export default {
       description: 'Counts pixels in the region (ratio) falling in the color range. count >= minPixels → Yes.',
       input: {
         Region: { label: 'Region (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        Mode: { label: 'Mode' },
+        Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
         Range: { label: 'Range [aMin..vMax]', hint: '6 elements: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
         MinPixels: { label: 'Min pixels' },
       },
@@ -655,7 +655,7 @@ export default {
       input: {
         ROI: { label: 'ROI (pixels)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'}` },
         HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
-        Axis: { label: 'Scan axis' },
+        Axis: { label: 'Scan axis', option: { x: 'Horizontal (x)', y: 'Vertical (y)' } },
         MinClusterPx: { label: 'Min cluster length (px)' },
         MaxClusterPx: { label: 'Max cluster length (px)', hint: '<=0 = default ROI size / 3' },
         MinClusterCount: { label: 'Min cluster count' },
@@ -694,7 +694,7 @@ export default {
       input: {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
-        Button: { label: 'Button' },
+        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         DurationMs: { label: 'Duration (ms)' },
       },
       output: { Done: { label: 'Done' } },
@@ -726,14 +726,14 @@ export default {
       input: {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
-        Button: { label: 'Button' },
+        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
       },
       output: { Done: { label: 'Pressed' } },
     },
     MouseHoldStop: {
       label: 'Release mouse',
       description: 'Releases the mouse button. Pairs with MouseHoldStart.',
-      input: { Button: { label: 'Button', hint: 'Same button as the prior MouseHoldStart' } },
+      input: { Button: { label: 'Button', hint: 'Same button as the prior MouseHoldStart', option: { left: 'Left', right: 'Right', middle: 'Middle' } } },
       output: { Done: { label: 'Released' } },
     },
     MouseMoveRel: {
@@ -750,7 +750,7 @@ export default {
       label: 'On event',
       description: '(Phase 5 stub) listener node — periodically Detect-hits a condition → spawns child runner for Out descendants. No exec-in.',
       input: {
-        Kind: { label: 'Event kind' },
+        Kind: { label: 'Event kind', option: { template_appeared: 'Template Appeared' } },
         Template: { label: 'Template', hint: 'namespace.name format; required when kind=template_appeared' },
         Threshold: { label: 'Threshold' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
@@ -776,7 +776,7 @@ export default {
       description: 'Writes a log entry to framework LogService. Message accepts wildcard (any type, auto fmt.Sprint).',
       input: {
         Message: { label: 'Message', hint: 'Any type — string / number / Point / Rect etc., framework auto-stringifies' },
-        Level: { label: 'Level' },
+        Level: { label: 'Level', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -802,7 +802,7 @@ export default {
       input: {
         Title: { label: 'Title', hint: 'Any type, auto-stringified' },
         Message: { label: 'Message', hint: 'Any type, auto-stringified' },
-        Color: { label: 'Color' },
+        Color: { label: 'Color', option: { primary: 'Primary', success: 'Success', warning: 'Warning', danger: 'Danger' } },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1048,9 +1048,9 @@ export default {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
         ProcessName: { label: 'Process name' },
-        TitleMatch: { label: 'Title match mode' },
-        InputBackend: { label: 'Input backend' },
-        CaptureBackend: { label: 'Capture backend' },
+        TitleMatch: { label: 'Title match mode', option: { exact: 'exact', contains: 'contains', prefix: 'prefix', suffix: 'suffix', regex: 'regex' } },
+        InputBackend: { label: 'Input backend', option: { postmessage: 'postmessage', sendinput: 'sendinput' } },
+        CaptureBackend: { label: 'Capture backend', option: { auto: 'auto', bitblt: 'bitblt', wgc: 'wgc' } },
       },
       output: { Fire: { label: 'Fire' } },
       inspector: {
@@ -1083,7 +1083,7 @@ export default {
       description: 'pure-data node — reads a container variable for data-edge downstream consumers. scope=auto/local/global.',
       input: {
         VarName: { label: 'Variable name' },
-        Scope: { label: 'Scope' },
+        Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
       },
       output: { Value: { label: 'Value' } },
     },
@@ -1092,7 +1092,7 @@ export default {
       description: 'Writes a container variable. scope=auto/local/global (auto: local if present in current frame; otherwise global).',
       input: {
         VarName: { label: 'Variable name' },
-        Scope: { label: 'Scope' },
+        Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
         Value: { label: 'Value', hint: 'wildcard — any type' },
       },
       output: { Done: { label: 'Done' } },
@@ -1102,7 +1102,7 @@ export default {
       description: 'Adds Delta (default 1) to a container variable. scope=auto/local/global.',
       input: {
         VarName: { label: 'Variable name' },
-        Scope: { label: 'Scope' },
+        Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
         Delta: { label: 'Delta' },
       },
       output: { Done: { label: 'Done' } },

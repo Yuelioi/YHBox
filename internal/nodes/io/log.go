@@ -20,28 +20,23 @@ const (
 
 func (Log) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Log",
-		Category:    "IO",
-		DisplayName: "日志",
-		Description: "写一条日志到 framework LogService. Message 接 wildcard (任意类型, 自动 fmt.Sprint).",
+		Kind:     "Log",
+		Category: "IO",
 		Inputs: []node.InputSpec{
 			{Name: logInExec, Type: "Exec"},
 			{Name: logInMessage, Type: "*", Required: true,
-				DisplayName: "消息",
-				Doc:         "任意类型 — 字符串 / 数字 / Point / Rect 等, framework 自动 stringify",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: logInLevel, Type: "String", Default: "info",
-				DisplayName: "级别",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "debug", Label: "Debug"},
-							{Value: "info", Label: "Info"},
-							{Value: "warn", Label: "Warn"},
+							{Value: "debug"},
+							{Value: "info"},
+							{Value: "warn"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: logOutDone, Type: "Exec", DisplayName: "完成"},
+			{Name: logOutDone, Type: "Exec"},
 		},
 	}
 }

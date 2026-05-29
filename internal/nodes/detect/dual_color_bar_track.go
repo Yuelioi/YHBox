@@ -32,32 +32,23 @@ const (
 )
 
 func (DualColorBarTrack) Spec() node.Spec {
-	// 默认 HSV: fishing v1 实测值 (cursor 浅黄 + target 高饱和青). 通用 case 改自己的.
-	defaultInner := `{"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255}`
-	defaultOuter := `{"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255}`
 	return node.Spec{
-		Kind:        "DualColorBarTrack",
-		Category:    "Detect",
-		DisplayName: "双色条追踪",
-		Description: "ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 (前景+背景) / 进度条 (空+满) / QTE 双色条 / 钓鱼溜鱼 (cursor 高亮+target 区域). rois=[{resolution:[W,H], x,y,w,h}, ...], 当前 client size 没匹配项走 Missing.",
+		Kind:     "DualColorBarTrack",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: dcbtInExec, Type: "Exec"},
-			{Name: dcbtInRois, Type: "JSON", Required: true, DisplayName: "ROI 数组 (多分辨率)",
-				Doc: `[{"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54}, ...]`,
+			{Name: dcbtInRois, Type: "JSON", Required: true,
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 4})}},
-			{Name: dcbtInInnerColor, Type: "JSON", DisplayName: "inner HSV (默认 fishing cursor 黄)",
-				Doc:    defaultInner,
+			{Name: dcbtInInnerColor, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
-			{Name: dcbtInOuterColor, Type: "JSON", DisplayName: "outer HSV (默认 fishing target 青)",
-				Doc:    defaultOuter,
+			{Name: dcbtInOuterColor, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
-			{Name: dcbtInOptions, Type: "JSON", DisplayName: "算法参数 (Optional)",
-				Doc: `{"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58} (0/空字段走默认; 默认是 fishing UI 实测值)`,
+			{Name: dcbtInOptions, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: dcbtOutFound, Type: "Exec", DisplayName: "命中",
+			{Name: dcbtOutFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dcbtDataInnerX, Type: "Number"},
 					{Name: dcbtDataOuterX, Type: "Number"},
@@ -66,7 +57,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 					{Name: dcbtDataInnerPx, Type: "Number"},
 					{Name: dcbtDataOuterPx, Type: "Number"},
 				}},
-			{Name: dcbtOutMissing, Type: "Exec", DisplayName: "未命中",
+			{Name: dcbtOutMissing, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dcbtDataConf, Type: "Number", Optional: true},
 				}},

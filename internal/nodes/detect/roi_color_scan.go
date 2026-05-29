@@ -1,6 +1,5 @@
 // internal/nodes/detect/roi_color_scan.go
 // ROIColorScan — ROI 内沿 axis 找连续 HSV 命中像素段 (cluster) + 轮询.
-//
 package detect
 
 import (
@@ -34,54 +33,45 @@ const (
 
 func (ROIColorScan) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "ROIColorScan",
-		Category:    "Detect",
-		DisplayName: "ROI 颜色 cluster 扫描",
-		Description: "沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.",
+		Kind:     "ROIColorScan",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: rcsInExec, Type: "Exec"},
-			{Name: rcsInROI, Type: "JSON", DisplayName: "ROI (像素)",
-				Doc: `{"x":0,"y":0,"w":100,"h":100}`,
+			{Name: rcsInROI, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
-			{Name: rcsInHSV, Type: "JSON", DisplayName: "HSV 范围",
-				Doc: `{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}`,
+			{Name: rcsInHSV, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
-			{Name: rcsInAxis, Type: "String", Default: "x", DisplayName: "扫描轴",
+			{Name: rcsInAxis, Type: "String", Default: "x",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "x", Label: "水平 (x)"},
-							{Value: "y", Label: "垂直 (y)"},
+							{Value: "x"},
+							{Value: "y"},
 						}})}},
 			{Name: rcsInMinClusterPx, Type: "Number", Default: json.Number("2"),
-				DisplayName: "最小段长 (px)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsInMaxClusterPx, Type: "Number", Default: json.Number("0"),
-				DisplayName: "最大段长 (px)", Doc: "<=0 默认 ROI 大小 / 3",
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsInMinClusterCount, Type: "Number", Default: json.Number("1"),
-				DisplayName: "最少 cluster 数",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsInPollIntervalMs, Type: "Number", Default: json.Number("100"),
-				DisplayName: "轮询间隔 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsInTimeoutMs, Type: "Number", Default: json.Number("5000"),
-				DisplayName: "超时 (ms)", Doc: "<=0 单次扫描",
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: rcsOutFound, Type: "Exec", DisplayName: "命中",
+			{Name: rcsOutFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: rcsDataClusters, Type: "JSON"},
 					{Name: rcsDataClusterCount, Type: "Number"},
 				}},
-			{Name: rcsOutNotFound, Type: "Exec", DisplayName: "未命中",
+			{Name: rcsOutNotFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: rcsDataClusterCount, Type: "Number"},
 				}},
-			{Name: rcsOutTimeout, Type: "Exec", DisplayName: "超时",
+			{Name: rcsOutTimeout, Type: "Exec",
 				Data: []node.DataField{
 					{Name: rcsDataClusterCount, Type: "Number"},
 				}},

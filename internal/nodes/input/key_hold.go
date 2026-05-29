@@ -12,11 +12,11 @@ func init() {
 	node.Register(&KeyHoldStop{})
 }
 
-// KeyHoldStart 按下虚拟键 (不松开). 配对 KeyHoldStop. 老 runtime: hold_nodes.go::execKeyHoldStart.
+// KeyHoldStart 按下虚拟键 (不松开). 配对 KeyHoldStop.
 //
 // 跟 KeyPress 不同, KeyHoldStart 不在节点内闭环 — 允许在 Start/Stop 之间插任意流程
 // (Sleep / WaitTemplate / 子图调用 / ...). Backend.KeyDown/KeyUp 是 stateful, 配 ReleaseAll
-// 兜底, 所以 runner cancel/panic 不会留残留按键 — 详见 pkg/input/backend.go.
+// 兜底, 所以 runner cancel/panic 不会留残留按键.
 type KeyHoldStart struct{}
 
 const (
@@ -27,19 +27,15 @@ const (
 
 func (KeyHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyHoldStart",
-		Category:    "Input",
-		DisplayName: "按住按键",
-		Description: "按下虚拟键 (不松开). 配对 KeyHoldStop 节点释放. 之间可插任意流程.",
+		Kind:     "KeyHoldStart",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: khStartInExec, Type: "Exec"},
 			{Name: khStartInVK, Type: "String", Required: true, Default: "A",
-				DisplayName: "按键",
-				Doc:         "虚拟键名 (e.g. A / W / shift)",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: khStartOutOut, Type: "Exec", DisplayName: "已按下"},
+			{Name: khStartOutOut, Type: "Exec"},
 		},
 	}
 }
@@ -71,19 +67,15 @@ const (
 
 func (KeyHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyHoldStop",
-		Category:    "Input",
-		DisplayName: "松开按键",
-		Description: "松开虚拟键, 配对 KeyHoldStart.",
+		Kind:     "KeyHoldStop",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: khStopInExec, Type: "Exec"},
 			{Name: khStopInVK, Type: "String", Required: true, Default: "A",
-				DisplayName: "按键",
-				Doc:         "虚拟键名 — 跟之前 KeyHoldStart 同一个",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: khStopOutOut, Type: "Exec", DisplayName: "已松开"},
+			{Name: khStopOutOut, Type: "Exec"},
 		},
 	}
 }

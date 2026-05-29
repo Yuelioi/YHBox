@@ -27,51 +27,43 @@ const (
 
 func (WindowTarget) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "WindowTarget",
-		Category:    "System",
-		DisplayName: "目标窗口",
-		Description: "声明式 — runtime 启动期读 title/class/processName 解析 hwnd, 读 inputBackend/captureBackend 选 backend. 节点本体 no-op, 走 Fire 出口.",
+		Kind:     "WindowTarget",
+		Category: "System",
 		Inputs: []node.InputSpec{
 			{Name: wtInTitle, Type: "String", Default: "",
-				DisplayName: "窗口标题",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: wtInClass, Type: "String", Default: "",
-				DisplayName: "窗口类名",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: wtInProcessName, Type: "String", Default: "",
-				DisplayName: "进程名",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: wtInTitleMatch, Type: "String", Default: "exact",
-				DisplayName: "标题匹配方式",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "exact", Label: "exact"},
-							{Value: "contains", Label: "contains"},
-							{Value: "prefix", Label: "prefix"},
-							{Value: "suffix", Label: "suffix"},
-							{Value: "regex", Label: "regex"},
+							{Value: "exact"},
+							{Value: "contains"},
+							{Value: "prefix"},
+							{Value: "suffix"},
+							{Value: "regex"},
 						}})}},
 			{Name: wtInInputBackend, Type: "String", Default: "postmessage",
-				DisplayName: "输入后端",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "postmessage", Label: "postmessage"},
-							{Value: "sendinput", Label: "sendinput"},
+							{Value: "postmessage"},
+							{Value: "sendinput"},
 						}})}},
 			{Name: wtInCaptureBackend, Type: "String", Default: "auto",
-				DisplayName: "截屏后端",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "auto", Label: "auto"},
-							{Value: "bitblt", Label: "bitblt"},
-							{Value: "wgc", Label: "wgc"},
+							{Value: "auto"},
+							{Value: "bitblt"},
+							{Value: "wgc"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: wtOutFire, Type: "Exec", DisplayName: "Fire"},
+			{Name: wtOutFire, Type: "Exec"},
 		},
 	}
 }

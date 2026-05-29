@@ -1,9 +1,8 @@
 // internal/nodes/control/loop.go
-// Loop — 第一个 RegionRunner 节点. Body 子图执行 N 次 / forever.
+// Loop — RegionRunner 节点. Body 子图执行 N 次 / forever.
 // Body 内 Break sentinel → 跳完成出口; Continue sentinel → 下一轮.
 //
-// 跟老 runtime nodes.go::execLoop 行为对齐 (count + forever 两 mode), 但 while mode
-// 老有, 新版砍掉 — while 用 If + Break 拼接更直白, mode dropdown 不再列.
+// 只有 count + forever 两 mode, 无 while mode — while 用 If + Break 拼接更直白.
 package control
 
 import (
@@ -29,29 +28,25 @@ const (
 
 func (Loop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Loop",
-		Category:    "Control",
-		DisplayName: "循环",
-		Description: "Body 子图执行 N 次 / forever. Body 内 Break sentinel 跳出, Continue sentinel 跳下一轮.",
+		Kind:     "Loop",
+		Category: "Control",
 		Inputs: []node.InputSpec{
 			{Name: loopInExec, Type: "Exec"},
 			{Name: loopInMode, Type: "String", Default: "count",
-				DisplayName: "模式",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "count", Label: "次数"},
-							{Value: "forever", Label: "永远"},
+							{Value: "count"},
+							{Value: "forever"},
 						},
 					})}},
 			{Name: loopInCount, Type: "Integer", Default: json.Number("10"),
-				DisplayName: "次数 (mode=count)",
 				Widget:      node.WidgetSpec{Kind: "number"},
 				VisibleWhen: &node.VisibleRule{Field: loopInMode, Equals: "count"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: loopOutBody, Type: "Exec", DisplayName: "循环体 (每轮触发)"},
-			{Name: loopOutDone, Type: "Exec", DisplayName: "完成"},
+			{Name: loopOutBody, Type: "Exec"},
+			{Name: loopOutDone, Type: "Exec"},
 		},
 	}
 }

@@ -27,25 +27,20 @@ const (
 
 func (Screenshot) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Screenshot",
-		Category:    "Detect",
-		DisplayName: "截图",
-		Description: "抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.",
+		Kind:     "Screenshot",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: ssInExec, Type: "Exec"},
 			{Name: ssInPathTemplate, Type: "String", Default: "screenshots/{ts}.png",
-				DisplayName: "路径模板",
-				Doc:         "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开.",
-				Widget:      node.WidgetSpec{Kind: "text"}},
-			{Name: ssInROI, Type: "JSON", DisplayName: "ROI (像素, 可选)",
-				Doc:    `{"x":0,"y":0,"w":100,"h":100} — 缺省/全 0 = 全帧`,
+				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: ssInROI, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: ssOutDone, Type: "Exec", DisplayName: "完成",
+			{Name: ssOutDone, Type: "Exec",
 				Data: []node.DataField{
-					{Name: ssDataPath, Type: "String", Doc: "写入的绝对路径"},
+					{Name: ssDataPath, Type: "String"},
 				}},
 		},
 	}
@@ -59,8 +54,7 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err := checkSafeScreenshotPath(tmpl); err != nil {
 		return nil, err
 	}
-	// containerId/nodeId 节点拿不到 (Phase 4 framework 没暴露), 老 runtime 走 r.rt.Container.ID 跟 node.ID;
-	// 这里用 timestamp + 空 placeholder. Phase 5 wire 时 Ctx 可加 NodeID() / ContainerID() 暴露.
+	// Ctx 不暴露 containerId/nodeId, 这两个 placeholder 传空; 路径靠 timestamp 区分.
 	rel := expandScreenshotTemplate(tmpl, "", "", ctx.Now())
 
 	root := screenshotOutputRoot()
@@ -135,7 +129,7 @@ func (Screenshot) Validate(in node.Inputs) []node.ValidationError {
 	return nil
 }
 
-// checkSafeScreenshotPath 跟老 runtime checkSafePath 一致 — 拒绝绝对路径 / 盘符 / ".." 段.
+// checkSafeScreenshotPath 拒绝绝对路径 / 盘符 / ".." 段, 防止写出沙箱根目录.
 func checkSafeScreenshotPath(tmpl string) error {
 	if strings.HasPrefix(tmpl, "/") || strings.HasPrefix(tmpl, "\\") {
 		return fmt.Errorf("Screenshot: unsafe pathTemplate (absolute)")

@@ -1,7 +1,6 @@
 // internal/nodes/detect/detect_color.go
 // DetectColor — 在 region 内统计落在颜色范围内的像素数 (RGB 或 HSV 模式).
 // 跟 DetectColorHSV 区别: DetectColor 用 ratio region + CSV-like range, 单次扫描无轮询.
-//
 package detect
 
 import (
@@ -29,38 +28,34 @@ const (
 
 func (DetectColor) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DetectColor",
-		Category:    "Detect",
-		DisplayName: "颜色检测",
-		Description: "在 region (ratio) 内统计落在颜色范围内的像素. count >= minPixels → Yes.",
+		Kind:     "DetectColor",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: dcInExec, Type: "Exec"},
-			{Name: dcInRegion, Type: "Rect", DisplayName: "区域 (ratio)",
-				Doc:    "客户区 ratio 矩形, 全 0 = 全屏",
+			{Name: dcInRegion, Type: "Rect",
 				Widget: node.WidgetSpec{Kind: "rect-editor"}},
-			{Name: dcInMode, Type: "String", Default: "hsv", DisplayName: "模式",
+			{Name: dcInMode, Type: "String", Default: "hsv",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "hsv", Label: "HSV"},
-							{Value: "rgb", Label: "RGB"},
+							{Value: "hsv"},
+							{Value: "rgb"},
 						}})}},
-			{Name: dcInRange, Type: "JSON", DisplayName: "范围 [aMin..vMax]",
-				Doc: "6 元素: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]",
+			{Name: dcInRange, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
 			{Name: dcInMinPixels, Type: "Number", Default: json.Number("5"),
-				DisplayName: "最小像素", Widget: node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: dcOutYes, Type: "Exec", DisplayName: "命中",
+			{Name: dcOutYes, Type: "Exec",
 				Data: []node.DataField{
-					{Name: dcDataCount, Type: "Number", Doc: "命中像素数"},
-					{Name: dcDataCenter, Type: "Point", Doc: "命中中心 (ratio)"},
+					{Name: dcDataCount, Type: "Number"},
+					{Name: dcDataCenter, Type: "Point"},
 				}},
-			{Name: dcOutNo, Type: "Exec", DisplayName: "未命中",
+			{Name: dcOutNo, Type: "Exec",
 				Data: []node.DataField{
-					{Name: dcDataCount, Type: "Number", Doc: "命中像素数"},
+					{Name: dcDataCount, Type: "Number"},
 				}},
 		},
 	}

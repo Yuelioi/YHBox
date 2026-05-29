@@ -1,9 +1,7 @@
 // internal/nodes/control/stop.go
 // Stop — terminate graph dispatch cleanly. Has exec-in, no exec-out.
-// Run returns errStopRun sentinel; Phase 5 runner catches it and halts the
-// dispatch loop without emitting container:error (same behavior as old
-// runtime.errStopRun — see internal/services/container/runtime/nodes.go::execNode
-// case "Stop" + runSubFlow's errors.Is(err, errStopRun) check).
+// Run returns the errStopRun sentinel; the runner catches it and halts the
+// dispatch loop without emitting container:error.
 package control
 
 import "yhbox/internal/node"
@@ -18,10 +16,8 @@ const (
 
 func (Stop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Stop",
-		Category:    "Control",
-		DisplayName: "终点",
-		Description: "终止图执行. 框架捕获 sentinel 后停止 dispatch, 不报错.",
+		Kind:     "Stop",
+		Category: "Control",
 		Inputs: []node.InputSpec{
 			{Name: stopInExec, Type: "Exec"},
 		},

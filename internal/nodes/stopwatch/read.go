@@ -20,29 +20,25 @@ func init() { node.Register(&Read{}) }
 type Read struct{}
 
 const (
-	swReadInExec       = "In"
-	swReadInKey        = "Key"
-	swReadOutOut       = "Done"
+	swReadInExec        = "In"
+	swReadInKey         = "Key"
+	swReadOutOut        = "Done"
 	swReadDataElapsedMs = "ElapsedMs"
 )
 
 func (Read) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "StopwatchRead",
-		Category:    "Stopwatch",
-		DisplayName: "秒表 读取",
-		Description: "读指定 key 的 elapsed (毫秒). running 返 now-start; stopped 返 stoppedAt-start; 不存在 → 0.",
+		Kind:     "StopwatchRead",
+		Category: "Stopwatch",
 		Inputs: []node.InputSpec{
 			{Name: swReadInExec, Type: "Exec"},
 			{Name: swReadInKey, Type: "String", Required: true, Default: "default",
-				DisplayName: "key",
-				Doc:         "跟之前 StopwatchStart 同一个 key",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: swReadOutOut, Type: "Exec", DisplayName: "完成",
+			{Name: swReadOutOut, Type: "Exec",
 				Data: []node.DataField{
-					{Name: swReadDataElapsedMs, Type: "Number", Doc: "elapsed 毫秒"},
+					{Name: swReadDataElapsedMs, Type: "Number"},
 				}},
 		},
 	}

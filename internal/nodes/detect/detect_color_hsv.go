@@ -1,7 +1,6 @@
 // internal/nodes/detect/detect_color_hsv.go
 // DetectColorHSV — ROI 内 HSV 像素比例阈值 + 轮询直到命中或超时.
 // 跟 DetectColor 区别: ROI 像素坐标 + HSV-only + 比例阈值 + 轮询 (3 出口 yes/no/timeout).
-//
 package detect
 
 import (
@@ -37,43 +36,36 @@ const (
 
 func (DetectColorHSV) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DetectColorHSV",
-		Category:    "Detect",
-		DisplayName: "HSV 颜色检测",
-		Description: "ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.",
+		Kind:     "DetectColorHSV",
+		Category: "Detect",
 		Inputs: []node.InputSpec{
 			{Name: dchInExec, Type: "Exec"},
-			{Name: dchInROI, Type: "JSON", DisplayName: "ROI (像素)",
-				Doc: `{"x":0,"y":0,"w":100,"h":100} 客户区像素坐标`,
+			{Name: dchInROI, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
-			{Name: dchInHSV, Type: "JSON", DisplayName: "HSV 范围",
-				Doc: `{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}`,
+			{Name: dchInHSV, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
 			{Name: dchInMinPixelRatio, Type: "Number", Default: json.Number("0.05"),
-				DisplayName: "最小命中比例",
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: dchInPollIntervalMs, Type: "Number", Default: json.Number("100"),
-				DisplayName: "轮询间隔 (ms)",
-				Widget:      node.WidgetSpec{Kind: "number"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dchInTimeoutMs, Type: "Number", Default: json.Number("5000"),
-				DisplayName: "超时 (ms)", Doc: "<=0 单次扫描",
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: dchOutYes, Type: "Exec", DisplayName: "命中",
+			{Name: dchOutYes, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dchDataCount, Type: "Number"},
 					{Name: dchDataRatio, Type: "Number"},
 				}},
-			{Name: dchOutNo, Type: "Exec", DisplayName: "未命中",
+			{Name: dchOutNo, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dchDataCount, Type: "Number"},
 					{Name: dchDataRatio, Type: "Number"},
 				}},
-			{Name: dchOutTimeout, Type: "Exec", DisplayName: "超时",
+			{Name: dchOutTimeout, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dchDataCount, Type: "Number"},
 					{Name: dchDataRatio, Type: "Number"},

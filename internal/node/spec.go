@@ -1,18 +1,17 @@
 // internal/node/spec.go
 // Package node 节点系统核心 — declarative spec + runtime registry + inspector-first.
-// 详见 workshop/specs/2026-05-24-node-system-refactor-design.md (Spec v3).
 package node
 
-// TypeExec exec pin 类型 tag. P2.7: 抽 const 避免 "Exec" magic string 散落.
+// TypeExec exec pin 类型 tag. 抽 const 避免 "Exec" magic string 散落.
 // 跟 InputSpec.Type / OutputSpec.Type 字段值对齐.
 const TypeExec = "Exec"
 
 // Spec 节点 metadata. 节点作者实现 Spec() 方法返这个.
+// 展示文本 (节点名 / 描述 / pin label / hint / enum option label) 全由 FE i18n 单源持有
+// (frontend/src/i18n/zh.ts node.<kind>.*), backend 只出结构 (kind / pin name / type / widget / enum value).
 type Spec struct {
-	Kind        string `json:"kind"`
-	Category    string `json:"category"`    // FE palette 分组
-	DisplayName string `json:"displayName"`
-	Description string `json:"description"`
+	Kind     string `json:"kind"`
+	Category string `json:"category"` // FE palette 分组
 
 	Inputs  []InputSpec  `json:"inputs"`
 	Outputs []OutputSpec `json:"outputs"`
@@ -30,8 +29,6 @@ type InputSpec struct {
 	Name        string       `json:"name"`
 	Type        string       `json:"type"`               // runtime 类型 tag
 	Semantic    string       `json:"semantic,omitempty"` // UI 语义提示
-	DisplayName string       `json:"displayName,omitempty"`
-	Doc         string       `json:"doc,omitempty"`
 	Required    bool         `json:"required,omitempty"`
 	Advanced    bool         `json:"advanced,omitempty"`
 	Default     any          `json:"default,omitempty"` // JSON 序列化用 json.Number
@@ -40,22 +37,25 @@ type InputSpec struct {
 }
 
 type OutputSpec struct {
-	Name        string      `json:"name"`
-	Type        string      `json:"type"` // "Exec" / 其他数据类型
-	DisplayName string      `json:"displayName,omitempty"`
-	Data        []DataField `json:"data,omitempty"` // 仅 Type=Exec 出口有
+	Name string      `json:"name"`
+	Type string      `json:"type"`           // "Exec" / 其他数据类型
+	Data []DataField `json:"data,omitempty"` // 仅 Type=Exec 出口有
 }
 
 type DataField struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`
 	Optional bool   `json:"optional,omitempty"`
-	Doc      string `json:"doc,omitempty"`
 }
 
+// EnumOption — dropdown 选项.
+//   - 静态 dropdown (Spec 里 DropdownProps.Options): 只填 Value, label 由 FE i18n 持有
+//     (node.<kind>.input.<name>.option.<value>).
+//   - async source (RegisterAsyncSource 运行时返回, e.g. 模板键 / clip / subgraph):
+//     Label 是动态数据 (非 UI 文案, 不可 i18n), 必须填.
 type EnumOption struct {
-	Value any    `json:"value"` // json.Number for 精度
-	Label string `json:"label"`
+	Value any    `json:"value"`           // json.Number for 精度
+	Label string `json:"label,omitempty"` // 仅 async 源填; 静态 dropdown 留空走 i18n
 }
 
 type VisibleRule struct {

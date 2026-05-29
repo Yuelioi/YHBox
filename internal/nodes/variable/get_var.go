@@ -21,26 +21,22 @@ const (
 
 func (GetVar) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "GetVar",
-		Category:    "Variable",
-		DisplayName: "读变量",
-		Description: "pure-data 节点 — 读容器变量供 data edge 下游消费. scope=auto/local/global.",
+		Kind:     "GetVar",
+		Category: "Variable",
 		Inputs: []node.InputSpec{
 			{Name: gvInVarName, Type: "String", Required: true,
-				DisplayName: "变量名",
-				Widget:      node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: gvInScope, Type: "String", Default: "auto",
-				DisplayName: "作用域",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
-							{Value: "auto", Label: "auto"},
-							{Value: "local", Label: "local"},
-							{Value: "global", Label: "global"},
+							{Value: "auto"},
+							{Value: "local"},
+							{Value: "global"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: gvOutValue, Type: "*", DisplayName: "值"},
+			{Name: gvOutValue, Type: "*"},
 		},
 		IsPureData: true,
 	}
@@ -58,4 +54,3 @@ func (GetVar) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	v, _ := ctx.Vars().GetScoped(name, scope)
 	return v, nil
 }
-

@@ -8,13 +8,9 @@ import (
 
 func init() { node.Register(&BringGameForeground{}) }
 
-// BringGameForeground 把游戏窗口置前台. 老 runtime 在节点外做 3×50ms 重试 +
-// 失败仅日志不报错 (bring_foreground.go::execBringGameForegroundImpl). 新节点
-// 把"是否重试 / 失败处理策略"下沉到 WindowService 适配层 — 节点本身一次调用,
-// error 直接走 Done 路径前的报错 (跟其他 input 节点一致).
-//
-// Phase 5 wire 时 WindowService.BringForeground() 适配 GameProvider.BringToForeground
-// + 内部 3×50ms 重试, 仍保持失败 → 仅日志不阻塞流程 (老语义).
+// BringGameForeground 把游戏窗口置前台. "是否重试 / 失败处理策略"下沉到
+// WindowService 适配层 — 节点本身只做一次调用, error 直接走报错路径
+// (跟其他 input 节点一致).
 type BringGameForeground struct{}
 
 const (
@@ -24,15 +20,13 @@ const (
 
 func (BringGameForeground) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "BringGameForeground",
-		Category:    "Input",
-		DisplayName: "游戏窗口置前台",
-		Description: "把游戏窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.",
+		Kind:     "BringGameForeground",
+		Category: "Input",
 		Inputs: []node.InputSpec{
 			{Name: bgfInExec, Type: "Exec"},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: bgfOutDone, Type: "Exec", DisplayName: "完成"},
+			{Name: bgfOutDone, Type: "Exec"},
 		},
 	}
 }
