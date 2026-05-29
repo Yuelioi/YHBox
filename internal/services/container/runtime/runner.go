@@ -111,6 +111,12 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	// container, 保证 sg.Entry / OutputPins[*].NodeID 不空. Store-loaded container 已 normalize 过, 幂等.
 	rt.Container.Normalize()
 	cc := CompileContainer(rt.Container)
+	// PlayClip 回放 target (rt.MouseCounts360) 用主图 MouseCalibration 节点值 — 容器自包含,
+	// 跟 MouseMoveRel 的 state.CalibCounts 同源 (都来自 snapshotMainCalibCounts). 无节点 (=0)
+	// 时保留构造期传入的 settings 本机值兜底.
+	if cc.MainCalibCounts > 0 {
+		rt.MouseCounts360 = cc.MainCalibCounts
+	}
 	r := &ContainerRunner{
 		rt:          rt,
 		compiled:    cc,

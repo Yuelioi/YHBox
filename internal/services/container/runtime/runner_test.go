@@ -291,6 +291,35 @@ func TestRunner_StopHalts(t *testing.T) {
 	}
 }
 
+// PlayClip 回放 target (rt.MouseCounts360) 必须来自主图 MouseCalibration 节点值, 不是
+// 构造期传入的 settings 本机值 — 否则改节点 Counts360 对 PlayClip 缩放无效 (容器2 实测整圈 bug).
+// 无节点时保留 settings 兜底.
+func TestRunner_PlayClipTargetUsesNodeCalibCounts(t *testing.T) {
+	// 有 MouseCalibration 节点 (Counts360=2000): 节点值覆盖构造期 settings=9999.
+	withNode := newTestContainer(
+		[]container.GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "mc", Kind: "MouseCalibration", Config: map[string]any{"literal": map[string]any{"Counts360": 2000.0}}},
+		},
+		nil, nil,
+	)
+	rt := NewRuntimeContext(withNode, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 9999)
+	NewContainerRunner(rt)
+	if rt.MouseCounts360 != 2000 {
+		t.Errorf("有节点: rt.MouseCounts360 = %d, want 2000 (节点值覆盖 settings 9999)", rt.MouseCounts360)
+	}
+
+	// 无 MouseCalibration 节点: 保留构造期 settings 兜底 9999.
+	noNode := newTestContainer(
+		[]container.GraphNode{{ID: "start", Kind: "Start"}}, nil, nil,
+	)
+	rt2 := NewRuntimeContext(noNode, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 9999)
+	NewContainerRunner(rt2)
+	if rt2.MouseCounts360 != 9999 {
+		t.Errorf("无节点: rt.MouseCounts360 = %d, want 9999 (settings 兜底)", rt2.MouseCounts360)
+	}
+}
+
 func TestRunner_NoStartNode(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{{ID: "s", Kind: "Sleep"}}, nil, nil,
