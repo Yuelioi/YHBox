@@ -115,11 +115,17 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	if filterMode == "" {
 		filterMode = "precise"
 	}
+	// 录制基准分辨率取目标窗口客户区实际尺寸 (回放跨分辨率缩放用). GetClientRect
+	// 异常返 0 时兜底 1080p, 避免下游缩放除零.
+	baseW, baseH := wh.ClientW, wh.ClientH
+	if baseW <= 0 || baseH <= 0 {
+		baseW, baseH = 1920, 1080
+	}
 	meta := inputclip.ClipMeta{
 		MouseMode:      mouseMode,
 		FilterMode:     filterMode,
 		StopHotkeyVK:   stopVK,
-		BaseResolution: [2]int{1920, 1080}, // TODO: 真实读取游戏窗口尺寸
+		BaseResolution: [2]int{baseW, baseH},
 		WindowMode:     "fullscreen",
 	}
 	id, recErr := s.rec.Start(win.HWND(hwnd), meta)
