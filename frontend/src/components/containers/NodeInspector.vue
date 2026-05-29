@@ -565,6 +565,7 @@ function selectItems(field: { options?: Array<{ value: string; labelKey: string 
   return (field.options ?? []).map((o) => ({ value: o.value, label: t(o.labelKey) }))
 }
 import PinLiteral from './inline/PinLiteral.vue'
+import { unconnectedDataInPins } from '@/composables/containerEditor/pinLiterals'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -593,31 +594,17 @@ const globalCounts360 = computed(() => settingsStore.data?.ui?.mouseCounts360 ??
 
 // Inline pin literal — Inspector 版.
 // 对每个 PIN_SPECS[kind].dataIn 里没连入边的 pin, 暴露一个绑 config.literal[pinName] 的编辑器.
-interface LiteralEntry { name: string; type: string }
-const dataInLiterals = computed<LiteralEntry[]>(() => {
+// 用全部返回值 (含 point) — Inspector 是宽面板, point 也在此编辑。判定逻辑跟画布共用纯函数。
+const dataInLiterals = computed(() => {
   if (!props.node) return []
-  const spec = PIN_SPECS[props.node.kind]
-  if (!spec) return []
-  const incomingPins = new Set<string>()
-  for (const e of props.edges ?? []) {
-    // v4 C2: derive edge kind via (srcNode.kind, srcPin) — edge.kind field is gone.
-    const [src, srcPin] = (e.from ?? '').split('.')
-    const srcNode = (props.nodes ?? []).find((n: any) => n.id === src)
-    if (!srcNode || edgeKind(srcNode.kind, srcPin) !== 'data') continue
-    const [tgt, pin] = (e.to ?? '').split('.')
-    if (tgt === props.node.id) incomingPins.add(pin)
-  }
-  // Expr has dynamic inputs (config.inputs[]); include those.
-  const out: LiteralEntry[] = []
-  if (props.node.kind === 'Expr') {
-    for (const inp of (props.node.config?.inputs ?? []) as Array<{ name: string; type: string }>) {
-      if (!incomingPins.has(inp.name)) out.push({ name: inp.name, type: inp.type ?? 'any' })
-    }
-  }
-  for (const [name, type] of Object.entries(spec.dataIn ?? {})) {
-    if (!incomingPins.has(name)) out.push({ name, type: String(type) })
-  }
-  return out
+  const dataIn = PIN_SPECS[props.node.kind]?.dataIn ?? {}
+  return unconnectedDataInPins(
+    props.node.kind,
+    dataIn,
+    props.node.config,
+    props.edges ?? [],
+    props.node.id,
+  )
 })
 
 function getLiteral(pin: string): any {
