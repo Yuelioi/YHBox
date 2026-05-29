@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 
@@ -52,6 +53,10 @@ type ClipPlayer struct {
 
 	// run 写, Wait 后读. 不需要锁 — Wait 阻塞到 done close, happens-after.
 	sentCount int
+
+	// RawDelta 缩放的小数余量 (误差扩散 carry). 每事件独立截断会把小 delta (1~3 counts)
+	// 成片抹平 (360° 塌成 120° 的根因); 累积余量保住缩放总量. run-only, 单次播放零初始化即可.
+	residX, residY float64
 }
 
 // SentCount Wait 返回后调. 真正调 backend.Send 的次数.
@@ -181,8 +186,15 @@ func (p *ClipPlayer) run(ctx context.Context) {
 				target := p.targetCounts360
 				if source > 0 && target > 0 && source != target {
 					factor := float64(target) / float64(source)
-					outEv.B = int32(float64(ev.B) * factor)
-					outEv.C = int32(float64(ev.C) * factor)
+					// 误差扩散: 累积小数余量再 round, 防小 delta 截断成片丢失 (保住缩放总量).
+					sx := float64(ev.B)*factor + p.residX
+					sy := float64(ev.C)*factor + p.residY
+					rx := math.Round(sx)
+					ry := math.Round(sy)
+					p.residX = sx - rx
+					p.residY = sy - ry
+					outEv.B = int32(rx)
+					outEv.C = int32(ry)
 				}
 			} else if absScaleNeeded(ev.Type) {
 				baseW := p.clip.Meta.BaseResolution[0]

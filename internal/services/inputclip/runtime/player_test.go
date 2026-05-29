@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -190,6 +191,36 @@ func TestClipPlayer_PlayRawDeltaScales(t *testing.T) {
 	}
 	if evs[0].B != 200 || evs[0].C != 100 {
 		t.Fatalf("scale failed: expected B=200 C=100, got B=%d C=%d", evs[0].B, evs[0].C)
+	}
+}
+
+// 误差扩散回归: 一堆小 delta (相机转向典型) 缩放后总量必须保住, 不能被每事件截断成片抹平.
+// (这是 "改 4111→4000 却从 360° 塌成 120°" 的根因 — 旧代码 int32(delta*factor) 把 3→2、1→0.)
+func TestClipPlayer_PlayRawDelta_SmallDeltasPreserveSum(t *testing.T) {
+	const n = 600
+	evs := make([]inputclip.Event, n)
+	for i := range evs {
+		evs[i] = inputclip.Event{TUs: 0, Type: inputclip.EventTypeRawDelta, B: 3, C: 0}
+	}
+	clip := &inputclip.InputClip{
+		ID:     "c-smalldelta",
+		Meta:   inputclip.ClipMeta{MouseCounts360: 4111},
+		Events: evs,
+	}
+	cap := &captureBackend{}
+	p := NewClipPlayer(clip, nil, cap, DefaultPlaybackPolicy(), 4000, nil) // factor ≈ 0.973
+	p.Start(context.Background())
+	if err := p.Wait(); err != nil {
+		t.Fatalf("Wait: %v", err)
+	}
+	sent, _ := cap.snapshot()
+	var sum int32
+	for _, e := range sent {
+		sum += e.B
+	}
+	want := int32(math.Round(float64(n*3) * 4000.0 / 4111.0)) // ≈ 1751
+	if sum < want-2 || sum > want+2 {
+		t.Fatalf("缩放总量丢失: sum=%d, want≈%d (旧截断会塌到 ~%d)", sum, want, n*2)
 	}
 }
 
