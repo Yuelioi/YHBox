@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
@@ -145,21 +144,11 @@ func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 // snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot.
 // 没节点 / counts360=0 → 返 0 (runtime 不缩放).
 func snapshotMainCalibCounts(c *container.Container) int {
-	for _, n := range c.Graph.Nodes {
+	for i := range c.Graph.Nodes {
+		n := &c.Graph.Nodes[i]
 		if n.Kind == "MouseCalibration" {
-			if v, ok := n.Config["Counts360"]; ok {
-				switch x := v.(type) {
-				case int:
-					return x
-				case int64:
-					return int(x)
-				case float64:
-					return int(x)
-				case json.Number:
-					if i, err := x.Int64(); err == nil {
-						return int(i)
-					}
-				}
+			if v, ok := container.PinInt(n, "Counts360"); ok {
+				return v
 			}
 		}
 	}
@@ -279,15 +268,10 @@ var errStopRun = errors.New("stop")
 // Variables / sys / params are routed via GetVar / GetSys / GetParam nodes wired through
 // data edges, NOT through env paths in expressions.
 
-// configString 拿 config[key] 当字面量字符串（不当表达式 parse）。
+// configString 读 pin 字面量字符串 (literal 优先 + 顶层 config fallback, 镜像 newInputs)。
+// key 必须是规范 PascalCase Spec.Input 名。
 func configString(node *container.GraphNode, key string) string {
-	if node.Config == nil {
-		return ""
-	}
-	if v, ok := node.Config[key].(string); ok {
-		return v
-	}
-	return ""
+	return container.PinString(node, key)
 }
 
 // ----------------------------------------------------------------------------
@@ -405,15 +389,11 @@ func readWindowTargetMatchSpec(n *container.GraphNode) winutil.MatchSpec {
 	if n.Config == nil {
 		return winutil.MatchSpec{}
 	}
-	getStr := func(k string) string {
-		v, _ := n.Config[k].(string)
-		return v
-	}
 	return winutil.MatchSpec{
-		Title:       getStr("Title"),
-		Class:       getStr("Class"),
-		ProcessName: getStr("ProcessName"),
-		TitleMatch:  getStr("TitleMatch"),
+		Title:       container.PinString(n, "Title"),
+		Class:       container.PinString(n, "Class"),
+		ProcessName: container.PinString(n, "ProcessName"),
+		TitleMatch:  container.PinString(n, "TitleMatch"),
 	}
 }
 
@@ -425,7 +405,7 @@ func readWindowTargetRuntimeSpec(n *container.GraphNode) map[string]string {
 	}
 	out := map[string]string{}
 	for _, k := range []string{"InputBackend", "CaptureBackend"} {
-		if s, ok := n.Config[k].(string); ok {
+		if s := container.PinString(n, k); s != "" {
 			out[k] = s
 		}
 	}

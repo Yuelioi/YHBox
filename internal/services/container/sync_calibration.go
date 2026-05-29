@@ -36,10 +36,7 @@ func SyncLocalMouseCalibration(store *Store, newCounts int) (SyncMouseCalibratio
 		for ni := range c.Graph.Nodes {
 			n := &c.Graph.Nodes[ni]
 			if n.Kind == "MouseCalibration" {
-				if n.Config == nil {
-					n.Config = map[string]any{}
-				}
-				n.Config["Counts360"] = newCounts
+				SetPinValue(n, "Counts360", newCounts)
 				patched = true
 			}
 		}

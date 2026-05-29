@@ -14,7 +14,7 @@ func validateGetParamNodes(c *Container) []ValidationError {
 			if n.Kind != "GetParam" {
 				continue
 			}
-			name, _ := n.Config["ParamName"].(string)
+			name := PinString(&n, "ParamName")
 			if name == "" || !paramSet[name] {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeGetParamUnknownParam,

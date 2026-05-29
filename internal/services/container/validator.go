@@ -284,7 +284,7 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 	}
 
 	if calNode != nil {
-		counts, _ := intFromConfig(calNode.Config, "counts360")
+		counts, _ := PinInt(calNode, "Counts360")
 		if counts == 0 {
 			errs = append(errs, ValidationError{
 				Severity: SeverityWarning, Code: CodeMouseCalibrationNotSet,
@@ -339,7 +339,7 @@ func validateInvalidPins(c *Container) []ValidationError {
 				isExecOut := nodeHasExecOutPin(node, fromPin)
 				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
 				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {
-					if sgID := cfgString(node.Config, "SubgraphID"); sgID != "" {
+					if sgID := PinString(node, "SubgraphID"); sgID != "" {
 						if set, ok := subgraphOutputIDsByID[sgID]; ok {
 							if _, has := set[fromPin]; has {
 								isExecOut = true
@@ -396,7 +396,7 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 			if n.Kind != "Subgraph" {
 				continue
 			}
-			id := cfgString(n.Config, "SubgraphID")
+			id := PinString(&n, "SubgraphID")
 			if id == "" {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingSubgraph,
@@ -435,7 +435,7 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 			default:
 				continue
 			}
-			key, _ := n.Config["template"].(string)
+			key := PinString(&n, "Template")
 			if key == "" {
 				continue // 未配 template 由其它规则报（节点功能性 validation 不在 v1）
 			}
@@ -466,7 +466,7 @@ func validatePlayClip(c *Container) []ValidationError {
 			if n.Kind != "PlayClip" {
 				continue
 			}
-			id, _ := n.Config["ClipID"].(string)
+			id := PinString(&n, "ClipID")
 			if id == "" {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodePlayClipNoClipID,
@@ -532,7 +532,7 @@ func validateCyclicSubgraphs(c *Container) []ValidationError {
 		var calls []string
 		for _, n := range sg.Graph.Nodes {
 			if n.Kind == "Subgraph" {
-				if calledID := cfgString(n.Config, "SubgraphID"); calledID != "" {
+				if calledID := PinString(&n, "SubgraphID"); calledID != "" {
 					calls = append(calls, calledID)
 				}
 			}
@@ -675,15 +675,11 @@ func readWindowTargetMatchSpec(n *GraphNode) windowTargetMatchSpec {
 	if n.Config == nil {
 		return windowTargetMatchSpec{}
 	}
-	getStr := func(k string) string {
-		v, _ := n.Config[k].(string)
-		return v
-	}
 	return windowTargetMatchSpec{
-		Title:       getStr("Title"),
-		Class:       getStr("Class"),
-		ProcessName: getStr("ProcessName"),
-		TitleMatch:  getStr("TitleMatch"),
+		Title:       PinString(n, "Title"),
+		Class:       PinString(n, "Class"),
+		ProcessName: PinString(n, "ProcessName"),
+		TitleMatch:  PinString(n, "TitleMatch"),
 	}
 }
 
@@ -747,7 +743,7 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 			nodeErrs = validateMouseHold(n)
 		case "StopwatchStart":
 			nodeErrs = validateStopwatch(n)
-			if key, _ := n.Config["key"].(string); key != "" {
+			if key := PinString(n, "Key"); key != "" {
 				startKeys[key] = struct{}{}
 			}
 		case "StopwatchStop", "StopwatchRead":
@@ -779,7 +775,7 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 		if n.Kind != "StopwatchStop" && n.Kind != "StopwatchRead" {
 			continue
 		}
-		key, _ := n.Config["key"].(string)
+		key := PinString(n, "Key")
 		if key == "" {
 			continue // already reported by validateStopwatch
 		}
@@ -802,7 +798,7 @@ func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []Vali
 func validateDetectColorHSV(n *GraphNode) []ValidationError {
 	var errs []ValidationError
 
-	roi, _ := n.Config["roi"].(map[string]any)
+	roi := PinMap(n, "ROI")
 	if roi == nil {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError,
@@ -822,7 +818,7 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 		}
 	}
 
-	if hsv, _ := n.Config["hsv"].(map[string]any); hsv != nil {
+	if hsv := PinMap(n, "HSV"); hsv != nil {
 		get := func(k string) float64 { v, _ := hsv[k].(float64); return v }
 		if get("hMin") > get("hMax") || get("sMin") > get("sMax") || get("vMin") > get("vMax") {
 			errs = append(errs, ValidationError{
@@ -833,8 +829,7 @@ func validateDetectColorHSV(n *GraphNode) []ValidationError {
 		}
 	}
 
-	// v4: numeric thresholds live at config.literal.<pin>, not config root.
-	if poll := literalFloat(n, "pollIntervalMs"); poll > 0 && poll < 30 {
+	if poll, _ := PinFloat(n, "PollIntervalMs"); poll > 0 && poll < 30 {
 		errs = append(errs, ValidationError{
 			Severity: SeverityWarning,
 			NodeID:   n.ID,
@@ -858,7 +853,7 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 			if n.Kind != "DualColorBarTrack" {
 				continue
 			}
-			rois, ok := n.Config["Rois"].([]any)
+			rois, ok := PinValue(&n, "Rois").([]any)
 			if !ok || len(rois) == 0 {
 				errs = append(errs, ValidationError{
 					Severity:  SeverityError,
@@ -957,32 +952,11 @@ func validateDualColorBarTrack(c *Container) []ValidationError {
 	return errs
 }
 
-// literalFloat reads n.Config["literal"][pinName] as float64 (v4 inline pin literal).
-// Returns 0 if missing or wrong type. Validator-only helper — runtime uses r.pullNumber.
-func literalFloat(n *GraphNode, pinName string) float64 {
-	if n == nil || n.Config == nil {
-		return 0
-	}
-	lit, _ := n.Config["literal"].(map[string]any)
-	if lit == nil {
-		return 0
-	}
-	switch v := lit[pinName].(type) {
-	case float64:
-		return v
-	case int:
-		return float64(v)
-	case int64:
-		return float64(v)
-	}
-	return 0
-}
-
 // validateROIColorScan extends validateDetectColorHSV with axis + cluster checks.
 func validateROIColorScan(n *GraphNode) []ValidationError {
 	errs := validateDetectColorHSV(n)
 
-	axis, _ := n.Config["scanAxis"].(string)
+	axis := PinString(n, "Axis")
 	if axis != "x" && axis != "y" {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError,
@@ -992,9 +966,8 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 		})
 	}
 
-	// v4: cluster bounds live at config.literal.<pin>, not config root.
-	minC := literalFloat(n, "minClusterPx")
-	maxC := literalFloat(n, "maxClusterPx")
+	minC, _ := PinFloat(n, "MinClusterPx")
+	maxC, _ := PinFloat(n, "MaxClusterPx")
 	if maxC > 0 && minC > maxC {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError,
@@ -1009,7 +982,7 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 
 // validateScreenshot checks that pathTemplate is relative and contains no "..".
 func validateScreenshot(n *GraphNode) []ValidationError {
-	tpl, _ := n.Config["pathTemplate"].(string)
+	tpl := PinString(n, "PathTemplate")
 	if tpl == "" {
 		return nil // no template set: no path safety concern
 	}
@@ -1032,7 +1005,7 @@ func validateScreenshot(n *GraphNode) []ValidationError {
 // (let runtime fail loudly for unknown VK names).
 //
 func validateKeyHold(n *GraphNode) []ValidationError {
-	vk := cfgString(n.Config, "VK")
+	vk := PinString(n, "VK")
 	if vk == "" {
 		return []ValidationError{{
 			Severity: SeverityError,
@@ -1045,7 +1018,7 @@ func validateKeyHold(n *GraphNode) []ValidationError {
 
 // validateMouseHold checks that button is one of left/right/middle.
 func validateMouseHold(n *GraphNode) []ValidationError {
-	btn, _ := n.Config["button"].(string)
+	btn := PinString(n, "Button")
 	if btn != "left" && btn != "right" && btn != "middle" {
 		return []ValidationError{{
 			Severity: SeverityError,
@@ -1124,8 +1097,7 @@ var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom
 // 动态来源 (上游 data edge 推 expr) 解析失败由 runtime 报同款 err.
 func validateCronConfig(n *GraphNode) []ValidationError {
 	var errs []ValidationError
-	lit, _ := n.Config["literal"].(map[string]any)
-	s, _ := lit["Expression"].(string)
+	s := PinString(n, "Expression")
 	if s == "" {
 		return nil // 空 = 用户准备连上游 / 还没填 (dangling pin validator 别处报)
 	}
@@ -1143,7 +1115,7 @@ func validateCronConfig(n *GraphNode) []ValidationError {
 
 // validateStopwatch checks that key is non-empty.
 func validateStopwatch(n *GraphNode) []ValidationError {
-	key, _ := n.Config["key"].(string)
+	key := PinString(n, "Key")
 	if key == "" {
 		return []ValidationError{{
 			Severity: SeverityError,
@@ -1156,25 +1128,3 @@ func validateStopwatch(n *GraphNode) []ValidationError {
 
 // ---------------------------------------------------------------------------
 
-func intFromConfig(cfg map[string]any, key string) (int, bool) {
-	if cfg == nil {
-		return 0, false
-	}
-	v, ok := cfg[key]
-	if !ok {
-		return 0, false
-	}
-	switch x := v.(type) {
-	case int:
-		return x, true
-	case int64:
-		return int(x), true
-	case float64:
-		return int(x), true
-	case string:
-		var n int
-		_, err := fmt.Sscanf(x, "%d", &n)
-		return n, err == nil
-	}
-	return 0, false
-}

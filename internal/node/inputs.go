@@ -45,8 +45,19 @@ func NewInputsFromConfig(cfg map[string]any) Inputs {
 	merged := map[string]any{}
 	present := map[string]bool{}
 	for k, v := range cfg {
+		if k == "literal" {
+			continue // 单独 overlay (下方), 不把 literal 这个 meta key 自身当 input
+		}
 		merged[k] = v
 		present[k] = true
+	}
+	// pin 字面量正源 = config.literal[name]; 优先级镜像 dispatch newInputs (literal > 顶层 config)。
+	// 让 scanner / dependency extractor (PlayClip ClipID / Subgraph SubgraphID 等) 也读到 literal 值。
+	if lit, ok := cfg["literal"].(map[string]any); ok {
+		for k, v := range lit {
+			merged[k] = v
+			present[k] = true
+		}
 	}
 	return &inputsImpl{merged: merged, present: present}
 }

@@ -53,11 +53,9 @@ func (r *GraphRewriter) Apply(g *Graph) {
 		if newID, ok := r.nodeIDMap[g.Nodes[i].ID]; ok {
 			g.Nodes[i].ID = newID
 		}
-		// 2. 节点 config 里 template key 改写
-		if newKey, ok := r.templateKeyMap[stringFromConfig(g.Nodes[i].Config, "template")]; ok {
-			if g.Nodes[i].Config != nil {
-				g.Nodes[i].Config["template"] = newKey
-			}
+		// 2. 节点 config.literal 里 template key 改写 (template 是 Spec.Input → config.literal.Template)
+		if newKey, ok := r.templateKeyMap[PinString(&g.Nodes[i], "Template")]; ok {
+			SetPinValue(&g.Nodes[i], "Template", newKey)
 		}
 	}
 
@@ -66,17 +64,6 @@ func (r *GraphRewriter) Apply(g *Graph) {
 		g.Edges[i].From = rewriteEdgeRef(g.Edges[i].From, r.nodeIDMap)
 		g.Edges[i].To = rewriteEdgeRef(g.Edges[i].To, r.nodeIDMap)
 	}
-}
-
-// stringFromConfig 取 config[key] 的字符串值，缺失返空串。
-func stringFromConfig(cfg map[string]any, key string) string {
-	if cfg == nil {
-		return ""
-	}
-	if v, ok := cfg[key].(string); ok {
-		return v
-	}
-	return ""
 }
 
 // rewriteEdgeRef "<nodeID>.<pin>" 格式里把 nodeID 改写。

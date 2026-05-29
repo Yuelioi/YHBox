@@ -28,7 +28,7 @@ func validateSentinelScope(c *Container) []ValidationError {
 			if n.Kind != "Try" {
 				continue
 			}
-			if sgID, _ := n.Config["SubgraphID"].(string); sgID != "" {
+			if sgID := PinString(&n, "SubgraphID"); sgID != "" {
 				tryBodySubgraphs[sgID] = struct{}{}
 			}
 		}

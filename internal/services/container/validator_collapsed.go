@@ -25,7 +25,7 @@ func validateCollapsedReferences(c *Container) []ValidationError {
 	walk := func(g Graph, path []string) []ValidationError {
 		var errs []ValidationError
 		for _, n := range g.Nodes {
-			sgID := cfgString(n.Config, "SubgraphID")
+			sgID := PinString(&n, "SubgraphID")
 
 			switch n.Kind {
 			case "Subgraph":

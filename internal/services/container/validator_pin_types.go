@@ -74,7 +74,7 @@ func validateDataPinTypes(c *Container) []ValidationError {
 			// Resolve source type
 			var srcType string
 			if src.Kind == "GetVar" {
-				varName, _ := src.Config["VarName"].(string)
+				varName := PinString(src, "VarName")
 				srcType = varsTypes[varName]
 			} else {
 				srcType = dataOutPinTypeForKind(src.Kind, srcPin)

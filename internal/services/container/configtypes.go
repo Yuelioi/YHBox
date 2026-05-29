@@ -23,7 +23,7 @@ func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 	}
 	for i := 1; i <= 16; i++ {
 		key := fmt.Sprintf("Case%dValue", i)
-		if cs, ok := n.Config[key].(string); ok && cs != "" {
+		if cs := PinString(n, key); cs != "" {
 			c.Cases = append(c.Cases, cs)
 		}
 	}
@@ -54,9 +54,7 @@ func ParseExprConfig(n *GraphNode) (ExprConfig, error) {
 	if n == nil || n.Config == nil {
 		return c, nil
 	}
-	if v, ok := n.Config["Expression"].(string); ok {
-		c.Expr = v
-	}
+	c.Expr = PinString(n, "Expression")
 	if t, ok := n.Config["OutType"].(string); ok && t != "" {
 		c.OutType = t
 	}

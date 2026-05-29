@@ -462,6 +462,7 @@ export default {
     screen_pick_action_click: '点一下',
     literal_section: '数据输入 (literal)',
     config_section: '配置',
+    pin_input_json_invalid: 'JSON 格式错误 — 未保存',
     select_var_placeholder: '选择变量',
     no_config: '此节点无可配置项。',
   },

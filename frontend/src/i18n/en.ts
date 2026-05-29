@@ -447,6 +447,7 @@ export default {
     screen_pick_action_click: 'one click to',
     literal_section: 'Data inputs (literal)',
     config_section: 'Config',
+    pin_input_json_invalid: 'Invalid JSON — not saved',
     select_var_placeholder: 'Select variable',
     no_config: 'This node has no configurable fields.',
   },

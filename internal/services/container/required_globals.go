@@ -26,11 +26,11 @@ func computeRequiredGlobals(sg *Subgraph, containerVars []VarDecl) []SubgraphReq
 		if !varKinds[n.Kind] {
 			continue
 		}
-		scope, _ := n.Config["Scope"].(string)
+		scope := PinString(&n, "Scope")
 		if scope == "local" {
 			continue
 		}
-		name, _ := n.Config["VarName"].(string)
+		name := PinString(&n, "VarName")
 		if name == "" || seen[name] {
 			continue
 		}

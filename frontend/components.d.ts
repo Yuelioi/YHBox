@@ -49,6 +49,7 @@ declare module 'vue' {
     NodePalette: typeof import('./src/components/containers/NodePalette.vue')['default']
     NodeSearchModal: typeof import('./src/components/containers/NodeSearchModal.vue')['default']
     PinContextMenu: typeof import('./src/components/containers/menus/PinContextMenu.vue')['default']
+    PinInput: typeof import('./src/components/containers/inline/PinInput.vue')['default']
     PinLiteral: typeof import('./src/components/containers/inline/PinLiteral.vue')['default']
     PromoteToVarModal: typeof import('./src/components/containers/PromoteToVarModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

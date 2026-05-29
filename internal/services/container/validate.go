@@ -60,14 +60,6 @@ func splitRef(ref string) (nodeID, pin string) {
 	return ref[:idx], ref[idx+1:]
 }
 
-// cfgString 读 cfg[k] as string. 缺失 / 非 string → "".
-func cfgString(cfg map[string]any, k string) string {
-	if v, ok := cfg[k].(string); ok {
-		return v
-	}
-	return ""
-}
-
 // pinExists 检查 (kind, pin) 是否合法。out=true 查 out pins / data-out；out=false 查 in pins / data-in。
 // data-in 走 static-only 路径 — Expr 等动态 data-in 节点需 cfg, caller 用 dataInPinTypeForNode.
 func pinExists(kind, pin string, out bool) bool {

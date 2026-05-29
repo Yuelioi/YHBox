@@ -17,7 +17,7 @@ func validateTemplateKeyConfig(n *GraphNode) []ValidationError {
 	default:
 		return nil
 	}
-	key, _ := n.Config["template"].(string)
+	key := PinString(n, "Template")
 	if key == "" {
 		return nil // 未配 template，由其它规则负责
 	}

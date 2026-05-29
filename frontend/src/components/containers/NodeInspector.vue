@@ -222,7 +222,7 @@
         class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-[12px] text-amber-300"
       >
         <UIcon name="i-tabler-alert-triangle" class="size-3.5 inline mr-1 align-middle" />
-        {{ t('node.MouseCalibration.inspector.foreign_warn', { nodeVal: node.config?.counts360, globalVal: globalCounts360 }) }}<br />
+        {{ t('node.MouseCalibration.inspector.foreign_warn', { nodeVal: mcCounts, globalVal: globalCounts360 }) }}<br />
         {{ t('node.MouseCalibration.inspector.foreign_hint') }}
         <div class="mt-2 flex gap-1.5 flex-wrap">
           <UButton
@@ -230,7 +230,7 @@
             color="warning"
             variant="solid"
             icon="i-tabler-refresh"
-            @click="$emit('update', { ...node.config, counts360: globalCounts360 })"
+            @click="setMcCounts(globalCounts360)"
           >{{ t('node.MouseCalibration.inspector.override_with_local', { n: globalCounts360 }) }}</UButton>
           <UButton
             size="xs"
@@ -249,9 +249,9 @@
         <div class="flex items-center gap-2">
           <span
             class="text-2xl font-mono tabular-nums"
-            :class="(node.config?.counts360 ?? 0) > 0 ? 'text-emerald-300' : 'text-rose-300'"
-          >{{ node.config?.counts360 ?? 0 }}</span>
-          <span class="text-[11px] text-dimmed">{{ (node.config?.counts360 ?? 0) > 0 ? t('node.MouseCalibration.inspector.calibrated') : t('node.MouseCalibration.inspector.not_calibrated') }}</span>
+            :class="mcCounts > 0 ? 'text-emerald-300' : 'text-rose-300'"
+          >{{ mcCounts }}</span>
+          <span class="text-[11px] text-dimmed">{{ mcCounts > 0 ? t('node.MouseCalibration.inspector.calibrated') : t('node.MouseCalibration.inspector.not_calibrated') }}</span>
         </div>
         <p class="text-[11px] text-dimmed leading-relaxed">
           {{ t('node.MouseCalibration.inspector.counts_hint') }}<br />
@@ -277,10 +277,10 @@
 
           <template #content>
             <UInputNumber
-              :model-value="node.config?.counts360 ?? 0"
+              :model-value="mcCounts"
               size="sm"
               class="w-full mt-2"
-              @update:model-value="(v: number) => $emit('update', { ...(node?.config ?? {}), counts360: v })"
+              @update:model-value="(v: number) => setMcCounts(v)"
             />
           </template>
         </UCollapsible>
@@ -471,76 +471,35 @@
       />
     </section>
 
-    <!-- Data-in pin literal 编辑 (未连入边时 → 走 config.literal inline 值) -->
+    <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。
+         连线的 pin 不显 (值走 data 边)。有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 这里返空。 -->
     <section v-if="dataInLiterals.length > 0" class="mb-5">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
         {{ t('inspector.literal_section') }}
       </h4>
-      <div class="space-y-3">
+      <div class="space-y-4">
         <div v-for="lit in dataInLiterals" :key="lit.name" class="space-y-1.5">
           <label class="block text-xs text-toned">
-            {{ lit.name }}
+            {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
             <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
           </label>
-          <PinLiteral
+          <PinInput
             :type="(lit.type as any)"
+            :widget-kind="fieldFor(lit.name)?.widgetKind"
+            :options="fieldFor(lit.name)?.options"
+            :placeholder="fieldFor(lit.name)?.placeholder"
             :model-value="getLiteral(lit.name)"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
           />
+          <p
+            v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"
+            class="text-[11px] text-dimmed leading-snug"
+          >{{ t(fieldFor(lit.name)!.hint!) }}</p>
         </div>
       </div>
     </section>
 
-    <!-- Config fields (non-pin config — enum/path/template/etc) -->
-    <section v-if="fields.length > 0">
-      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">{{ t('inspector.config_section') }}</h4>
-      <div class="space-y-4">
-        <div v-for="field in fields" :key="field.key" class="space-y-1.5">
-          <label class="block text-xs text-toned">{{ t(field.label) }}</label>
-          <!-- v4: 'expr' field type removed; v3 expr inputs migrated to data-in pin literals
-               (shown in "数据输入 (literal)" section above). -->
-          <USelect
-            v-if="field.type === 'select'"
-            :model-value="getCfg(field.key)"
-            :items="selectItems(field)"
-            size="md"
-            class="w-full"
-            :ui="{ content: 'min-w-[280px]' }"
-            @update:model-value="setCfg(field.key, String($event))"
-          />
-          <UInput
-            v-else-if="field.type === 'text'"
-            :model-value="getCfg(field.key)"
-            size="md"
-            :placeholder="field.placeholder"
-            @update:model-value="setCfg(field.key, String($event))"
-          />
-          <USelect
-            v-else-if="field.type === 'var-name-select'"
-            :model-value="getCfg(field.key)"
-            :items="varOptions"
-            size="md"
-            class="w-full"
-            :ui="{ content: 'min-w-[280px]' }"
-            :placeholder="t('inspector.select_var_placeholder')"
-            @update:model-value="setCfg(field.key, String($event))"
-          />
-          <TemplatePicker
-            v-else-if="field.type === 'template-picker'"
-            :model-value="getCfg(field.key)"
-            @update:model-value="setCfg(field.key, $event)"
-          />
-          <KeyCapture
-            v-else-if="field.type === 'key-capture'"
-            :model-value="getCfg(field.key)"
-            @update:model-value="setCfg(field.key, $event)"
-          />
-          <p v-if="field.hint && te(field.hint)" class="text-[11px] text-dimmed leading-snug">{{ t(field.hint) }}</p>
-        </div>
-      </div>
-    </section>
-
-    <p v-else class="text-[12px] text-dimmed">{{ t('inspector.no_config') }}</p>
+    <p v-else-if="!hasBespokeSection" class="text-[12px] text-dimmed">{{ t('inspector.no_config') }}</p>
   </div>
 </template>
 
@@ -552,19 +511,13 @@ import { backend } from '@/lib/backend'
 // v4: ExpressionInput no longer imported — v3 'expr' field type removed in nodeFieldSchemas
 // (config strings like $vars.X are gone; data-in pin literals handle their replacement).
 import SwitchInspector from './inspector/SwitchInspector.vue'
-import TemplatePicker from './TemplatePicker.vue'
-import KeyCapture from './KeyCapture.vue'
 import ClipTimeline from './ClipTimeline.vue'
 import { useI18n } from 'vue-i18n'
 import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
 
 const { t, te } = useI18n()
 
-// 静态 dropdown 选项: adapter 给的是 {value, labelKey}, 渲染走 t(labelKey) (locale 响应式).
-function selectItems(field: { options?: Array<{ value: string; labelKey: string }> }) {
-  return (field.options ?? []).map((o) => ({ value: o.value, label: t(o.labelKey) }))
-}
-import PinLiteral from './inline/PinLiteral.vue'
+import PinInput from './inline/PinInput.vue'
 import { unconnectedDataInPins } from '@/composables/containerEditor/pinLiterals'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
@@ -607,14 +560,24 @@ const dataInLiterals = computed(() => {
   )
 })
 
+// 读 pin 字面量: config.literal[pin] 优先, 顶层 config[pin] fallback —
+// 镜像后端 PinValue / newInputs 优先级。让尚未跑迁移脚本的旧数据 (值在顶层 config) 也能正确显示。
 function getLiteral(pin: string): any {
-  return props.node?.config?.literal?.[pin]
+  const lit = props.node?.config?.literal as Record<string, unknown> | undefined
+  if (lit && pin in lit) return lit[pin]
+  return props.node?.config?.[pin]
 }
+// 写回唯一走 config.literal[pin] (input-editing-unification guardrail: 不写顶层同名 key)。
 function setLiteral(pin: string, v: any) {
   if (!props.node) return
   const cfg = { ...(props.node.config ?? {}) }
   cfg.literal = { ...(cfg.literal ?? {}), [pin]: v }
   emit('update', cfg)
+}
+// 查 pin 对应的 widget 元数据 (类型/选项), 喂给 PinInput 渲染正确控件。
+// 动态 input (Expr config.Inputs[]) 在 fields 里查不到 → undefined, PinInput 走 pinType fallback。
+function fieldFor(pin: string): Field | undefined {
+  return fields.value.find((f) => f.key === pin)
 }
 
 // 一键 fusion — Inspector 通过 editorBus store 请求, ContainerEditorView watch + 处理.
@@ -649,9 +612,21 @@ const exprChainHint = computed<ChainHint | null>(() => {
   if (tgtNode?.kind !== 'Expr') return null
   return { targetID: tgtID, targetPin: tgtPin }
 })
+// MouseCalibration Counts360 读写 — 正源 config.literal.Counts360。
+// 读 fallback: literal.Counts360 → 顶层 Counts360 → 顶层 counts360 (旧小写遗留, 迁移脚本会清)。
+const mcCounts = computed<number>(() => {
+  const cfg = props.node?.config as any
+  if (!cfg) return 0
+  const raw = cfg.literal?.Counts360 ?? cfg.Counts360 ?? cfg.counts360 ?? 0
+  return Number(raw) || 0
+})
+function setMcCounts(v: number) {
+  setLiteral('Counts360', v)
+}
+
 const isCalibrationForeign = computed(() => {
   if (!props.node || props.node.kind !== 'MouseCalibration') return false
-  const nodeVal = props.node.config?.counts360 ?? 0
+  const nodeVal = mcCounts.value
   return nodeVal > 0 && globalCounts360.value > 0 && nodeVal !== globalCounts360.value
 })
 
@@ -684,13 +659,6 @@ async function onSyncAllFromForeign() {
 
 // Subgraph 调用节点：1:1 模型，只显示绑定的子图（不需 USelect 选择）
 const editorStore = useContainerEditorStore()
-
-// v4: 'var-name-select' 字段类型的候选 = NodeInspector 的 varNames prop (从父容器拿).
-// 父容器 (ContainerEditorView) 把 draft.vars.map(v=>v.name) 传进来作 ExpressionInput 自动完成,
-// 这里复用同源. 后续可扩 prop 为 varDecls 带 type, 在 label 显示 "name (type)".
-const varOptions = computed<{ label: string; value: string }[]>(() => {
-  return (props.varNames ?? []).map((name) => ({ label: name, value: name }))
-})
 
 const boundSubgraph = computed(() => {
   const sgID = props.node?.config?.SubgraphID
@@ -777,11 +745,10 @@ const visual = computed(() =>
 
 const fields = computed<Field[]>(() => (props.node ? (NODE_FIELD_SCHEMAS[props.node.kind] ?? []) : []))
 
-function getCfg(key: string): string {
-  if (!props.node?.config) return ''
-  const v = props.node.config[key]
-  return v == null ? '' : String(v)
-}
+// 有专属 Inspector section 的 kind — 这些不显通用「数据输入」section (BESPOKE_EDITOR_KINDS 同源),
+// 也不显 "no_config" 占位 (它们有自己的 UI)。
+const BESPOKE_SECTION_KINDS = new Set(['Subgraph', 'MouseCalibration', 'WindowTarget', 'PlayClip', 'Switch'])
+const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.has(props.node.kind))
 
 function setCfg(key: string, val: string) {
   if (!props.node) return
@@ -903,17 +870,24 @@ function formatDate(iso: string): string {
 // ─── WindowTarget section ──────────────────────────────────────────────────
 // 双向绑定 — config 顶层 PascalCase 字段, 对齐 internal/nodes/system/window_target.go Spec.Inputs.
 // 直接 mutate props.node.config 让父图 deep watch 标 dirty (跟 PlayClip keepRanges 一样).
+// 绑 config.literal (pin 字面量正源). seed: 优先沿用已有 literal, 否则从顶层 config 旧值迁入,
+// 再否则用默认。v-model 写 literal.* → 跟 runtime PinString 同源。顶层旧 key 由迁移脚本清理。
 const wtConfig = computed(() => {
   if (props.node?.kind !== 'WindowTarget') return null as any
   if (!props.node.config) (props.node as any).config = {}
   const cfg = props.node.config as any
-  if (cfg.Title === undefined) cfg.Title = ''
-  if (cfg.Class === undefined) cfg.Class = ''
-  if (cfg.ProcessName === undefined) cfg.ProcessName = ''
-  if (cfg.TitleMatch === undefined) cfg.TitleMatch = 'exact'
-  if (cfg.InputBackend === undefined) cfg.InputBackend = 'postmessage'
-  if (cfg.CaptureBackend === undefined) cfg.CaptureBackend = 'auto'
-  return cfg
+  if (!cfg.literal) cfg.literal = {}
+  const lit = cfg.literal as Record<string, any>
+  const seed = (k: string, def: string) => {
+    if (lit[k] === undefined) lit[k] = cfg[k] !== undefined ? cfg[k] : def
+  }
+  seed('Title', '')
+  seed('Class', '')
+  seed('ProcessName', '')
+  seed('TitleMatch', 'exact')
+  seed('InputBackend', 'postmessage')
+  seed('CaptureBackend', 'auto')
+  return lit
 })
 
 const titleMatchOptions = computed(() => [

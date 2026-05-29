@@ -74,7 +74,7 @@ func TestValidator_MissingTemplate_WithContext(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "wait1", Kind: "WaitTemplate",
-			Config: map[string]any{"template": "fish/onhook"}, CreatedAt: time.Now().UTC()},
+			Config: map[string]any{"literal": map[string]any{"Template": "fish/onhook"}}, CreatedAt: time.Now().UTC()},
 	)
 	// 不带 context → 跳过 MISSING_TEMPLATE 检查
 	plain := ValidateContainer(c)
@@ -99,7 +99,7 @@ func TestValidator_MouseCalibrationForeign(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "calib", Kind: "MouseCalibration",
-			Config: map[string]any{"counts360": 4000}, CreatedAt: time.Now().UTC()},
+			Config: map[string]any{"literal": map[string]any{"Counts360": 4000}}, CreatedAt: time.Now().UTC()},
 	)
 	// Settings 与节点值一致 → 不报 FOREIGN
 	same := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 4000})
@@ -117,7 +117,7 @@ func TestValidator_MouseCalibrationForeign(t *testing.T) {
 		t.Errorf("settings=0 should not trigger FOREIGN, got %+v", zero)
 	}
 	// 节点 counts360 = 0 → 不报 FOREIGN（应只报 NOT_SET）
-	c.Graph.Nodes[len(c.Graph.Nodes)-1].Config["counts360"] = 0
+	c.Graph.Nodes[len(c.Graph.Nodes)-1].Config["literal"].(map[string]any)["Counts360"] = 0
 	uncal := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 2200})
 	if hasCode(uncal, CodeMouseCalibrationForeign) {
 		t.Errorf("node counts360=0 should report NOT_SET not FOREIGN, got %+v", uncal)

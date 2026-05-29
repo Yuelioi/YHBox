@@ -263,14 +263,10 @@ func readMatchSpecFromConfig(n *container.GraphNode) winutil.MatchSpec {
 	if n.Config == nil {
 		return winutil.MatchSpec{}
 	}
-	getStr := func(k string) string {
-		v, _ := n.Config[k].(string)
-		return v
-	}
 	return winutil.MatchSpec{
-		Title:       getStr("Title"),
-		Class:       getStr("Class"),
-		ProcessName: getStr("ProcessName"),
-		TitleMatch:  getStr("TitleMatch"),
+		Title:       container.PinString(n, "Title"),
+		Class:       container.PinString(n, "Class"),
+		ProcessName: container.PinString(n, "ProcessName"),
+		TitleMatch:  container.PinString(n, "TitleMatch"),
 	}
 }

@@ -13,7 +13,7 @@ func ResolveSubgraphCall(c *container.Container, callNode *container.GraphNode) 
 	if callNode == nil || (callNode.Kind != "Subgraph" && callNode.Kind != "CollapsedNode") {
 		return nil, errors.New("not a Subgraph / CollapsedNode call node")
 	}
-	sgID, _ := callNode.Config["SubgraphID"].(string)
+	sgID := container.PinString(callNode, "SubgraphID")
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph 节点 %s 缺 config.SubgraphID", callNode.ID)
 	}

@@ -51,7 +51,7 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 	c2, _ := st.Get(cid)
 	for _, n := range c2.Graph.Nodes {
 		if n.ID == "cal" {
-			counts, _ := intFromConfig(n.Config, "Counts360")
+			counts, _ := PinInt(&n, "Counts360")
 			if counts != 2200 {
 				t.Errorf("main cal.counts360 = %d, want 2200", counts)
 			}

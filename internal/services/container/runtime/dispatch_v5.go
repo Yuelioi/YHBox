@@ -411,7 +411,7 @@ func (r *ContainerRunner) makeBodyForTry(ctx context.Context, node *container.Gr
 //
 // SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟 Spec.Inputs.SubgraphID 对齐) 取.
 func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
-	sgID, _ := node.Config["SubgraphID"].(string)
+	sgID := container.PinString(node, "SubgraphID")
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
 	}
@@ -431,7 +431,7 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 	//   2. sg.InputParams 声明的入参, 每个 pullDataPin(callerNode, paramName), 让 caller 通过
 	//      data-in pin 或 literal pin 推 dynamic param.
 	//   3. p.Default fallback if pull 出 nil.
-	staticParams, _ := node.Config["Params"].(map[string]any)
+	staticParams := container.PinMap(node, "Params")
 	type pulledParam struct {
 		name string
 		val  any

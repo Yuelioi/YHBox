@@ -45,4 +45,14 @@ describe('unconnectedDataInPins', () => {
     const out = unconnectedDataInPins('Expr', {}, config, edges, 'n1')
     expect(out.map((p) => p.name)).toEqual(['b'])
   })
+
+  it('有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 不暴露通用 literal pin', () => {
+    // 这些节点 input 由各自专属 Inspector section / 画布也不出内联框。与存储位置正交。
+    const wtDataIn: Record<string, PinType> = { Title: 'string', Class: 'string' }
+    expect(unconnectedDataInPins('WindowTarget', wtDataIn, null, [], 'n1')).toEqual([])
+    expect(unconnectedDataInPins('MouseCalibration', { Counts360: 'number' }, null, [], 'n2')).toEqual([])
+    expect(unconnectedDataInPins('Subgraph', { SubgraphID: 'string' }, null, [], 'n3')).toEqual([])
+    expect(unconnectedDataInPins('PlayClip', { ClipID: 'string' }, null, [], 'n4')).toEqual([])
+    expect(unconnectedDataInPins('Switch', { Value: 'string' }, null, [], 'n5')).toEqual([])
+  })
 })

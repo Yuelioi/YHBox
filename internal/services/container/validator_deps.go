@@ -20,7 +20,7 @@ func ValidateContainerWithDeps(
 				if hasTemplate == nil {
 					continue
 				}
-				key, _ := n.Config["template"].(string)
+				key := PinString(&n, "Template")
 				if key == "" {
 					continue
 				}
@@ -37,7 +37,7 @@ func ValidateContainerWithDeps(
 				if hasClip == nil {
 					continue
 				}
-				id, _ := n.Config["ClipID"].(string)
+				id := PinString(&n, "ClipID")
 				if id == "" {
 					continue
 				}

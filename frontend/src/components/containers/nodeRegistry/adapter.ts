@@ -141,6 +141,7 @@ function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
       key: i.name,
       label: `node.${kind}.input.${i.name}.label`,
       type: widgetKindToFieldType(widget?.kind ?? 'text'),
+      widgetKind: widget?.kind ?? 'text',
       hint: `node.${kind}.input.${i.name}.hint`,
     }
     // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写来的, 静态 dropdown 只有 value).

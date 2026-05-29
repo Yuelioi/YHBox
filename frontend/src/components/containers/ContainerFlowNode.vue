@@ -179,7 +179,11 @@ function showInlineLiteral(p: PinEntry): boolean {
   return p.kind === 'data' && p.dir === 'in' && inlineLiteralPins.value.has(p.id)
 }
 function inlineLiteralValue(pin: string): unknown {
-  return (props.data?.config?.literal as Record<string, unknown> | undefined)?.[pin]
+  // literal 优先 + 顶层 config fallback (镜像后端 PinValue / Inspector getLiteral) —
+  // 让尚未迁移的旧数据 (值在顶层 config) 也能在画布内联框显示。
+  const lit = props.data?.config?.literal as Record<string, unknown> | undefined
+  if (lit && pin in lit) return lit[pin]
+  return props.data?.config?.[pin]
 }
 function onInlineLiteralUpdate(pin: string, v: unknown) {
   canvasApi?.setPinLiteral(props.id, pin, v)

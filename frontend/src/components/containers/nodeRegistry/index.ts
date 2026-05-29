@@ -44,6 +44,10 @@ export interface FieldSchema {
     | 'key-capture'
     | 'monaco'
     | 'subgraph-picker'
+  /** 原始 backend widget kind (text/textarea/json/duration/slider/number/checkbox/dropdown/
+   * async-dropdown/password/rect-editor) — `type` 把这些收敛成 4 类后丢了 json/textarea/duration
+   * 等区分; PinInput 用 widgetKind 还原正确控件 (修 JSON [object Object] 等)。 */
+  widgetKind?: string
   /** dropdown 选项. label 是 i18n key (node.<kind>.input.<name>.option.<value>), consumer 走 t(). */
   options?: Array<{ value: string; labelKey: string }>
   placeholder?: string
