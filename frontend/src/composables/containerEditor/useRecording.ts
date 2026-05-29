@@ -22,6 +22,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
+import { useSettingsStore } from '@/stores/settings'
 import { randID } from './ids'
 
 export interface RecordOpts {
@@ -44,6 +45,7 @@ export interface StartRecordingOpts {
 export function useRecording(opts: RecordOpts) {
   const { draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft, toast } = opts
   const recordStore = useRecordingStore()
+  const settingsStore = useSettingsStore()
   const { t } = useI18n()
 
   const countdownSec = ref(0)
@@ -74,14 +76,16 @@ export function useRecording(opts: RecordOpts) {
       console.warn('OpenRecordingHUD failed (countdown continues in editor)', e)
     }
 
+    // 停录键标签传给 HUD 显示 (settings 配的, 默认 F12). HUD 是独立窗口拿不到本窗 store, 经事件带过去.
+    const stopKey = settingsStore.data?.ui?.recordingStopHotkey || 'F12'
     countdownSec.value = 3
     for (let i = 3; i >= 1; i--) {
       countdownSec.value = i
-      Events.Emit('recording:countdown', { sec: i, mode })
+      Events.Emit('recording:countdown', { sec: i, mode, stopKey })
       await new Promise((r) => setTimeout(r, 1000))
       if (countdownSec.value === 0) {
         try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-        Events.Emit('recording:countdown', { sec: 0, mode })
+        Events.Emit('recording:countdown', { sec: 0, mode, stopKey })
         return
       }
     }
@@ -89,7 +93,6 @@ export function useRecording(opts: RecordOpts) {
 
     try {
       await recordStore.start(mode, containerID)
-      Events.Emit('recording:started', { mode })
       toast.add({
         title: t('recordComposable.recording_in_progress', { mode: mode === 'precise' ? t('recordComposable.mode_precise') : t('recordComposable.mode_simple') }),
         description: t('recordComposable.stop_methods'),
@@ -251,14 +254,23 @@ export function useRecording(opts: RecordOpts) {
     }
   }
 
+  // 窗口重新聚焦 → 跟后端对账录制状态. 这是 "切回 YHBox 自愈" 的核心: 录制中 F12/HUD 停了
+  // 但 recording:state 事件没收到 (窗口在后台/race), 聚焦回来立即收敛, 不会卡 "录制中".
+  function onWindowFocus() {
+    void recordStore.reconcile()
+  }
+
   // 订阅 'recording:completed' (F12 全局热键 / HUD 关 / StopAsync 触发).
-  // payload: {subgraphID, containerID, label, filterMode} 或 {error}.
+  // payload: {subgraphID, containerID, label, filterMode} 或 {error}. (状态本身走 recording:state.)
   let unsubscribe: (() => void) | null = null
   onMounted(() => {
+    void recordStore.reconcile() // 挂载即对账, 修正任何陈旧状态
+    window.addEventListener('focus', onWindowFocus)
     unsubscribe = Events.On('recording:completed', async (ev: any) => {
       const raw = ev?.data ?? ev
       const firstArg = Array.isArray(raw) ? raw[0] : raw
-      recordStore.markStopped()
+      // 状态由后端 'recording:state' 广播 (已收敛到 idle); 这里对账一次兜底防丢事件.
+      void recordStore.reconcile()
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
       const errMsg = firstArg?.error
       if (errMsg) {
@@ -280,6 +292,7 @@ export function useRecording(opts: RecordOpts) {
   })
   onUnmounted(() => {
     if (unsubscribe) unsubscribe()
+    window.removeEventListener('focus', onWindowFocus)
   })
 
   return {

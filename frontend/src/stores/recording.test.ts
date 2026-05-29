@@ -1,47 +1,61 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
-// recordStore 依赖 backend RPC + i18n — 都 mock 掉, 只验 activeTargetContainerID 生命周期 (A1).
+// recordStore 是后端状态机的纯镜像. 验: applyState 镜像 / isRecording 派生 /
+// activeTargetContainerID 派生 / reconcile 走 getState 对账.
+// vi.hoisted: vi.mock 工厂被提升到文件顶, 引用的 mock 必须也提升, 否则 ReferenceError.
+const { getStateMock } = vi.hoisted(() => ({
+  getStateMock: vi.fn(async () => ({
+    phase: 'recording',
+    containerID: 'cReconciled',
+    filterMode: 'precise',
+    tempID: 't1',
+    startedAtMs: 123,
+  })),
+}))
 vi.mock('@/lib/backend', () => ({
-  backend: {
-    recording: {
-      start: vi.fn(async () => 'temp-123'),
-      stop: vi.fn(async () => ({
-        subgraphID: 'sg-x',
-        containerID: 'cA',
-        label: 'rec',
-        filterMode: 'precise',
-      })),
-    },
-  },
+  backend: { recording: { getState: getStateMock, start: vi.fn(), stop: vi.fn() } },
 }))
 vi.mock('@/i18n', () => ({ i18n: { global: { t: (k: string) => k } } }))
+// store 体内 Events.On('recording:state') 订阅后端广播 — 测试里 stub 掉, 只验镜像逻辑.
+vi.mock('@wailsio/runtime', () => ({ Events: { On: vi.fn(() => () => {}) } }))
 
 import { useRecordingStore } from './recording'
 
-describe('recordStore activeTargetContainerID 生命周期 (A1 单一来源)', () => {
+describe('recordStore — 后端状态机镜像', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('start 锁定 target; stop 清空', async () => {
+  it('applyState(recording) → isRecording 派生 true, activeTargetContainerID 派生容器', () => {
     const s = useRecordingStore()
+    expect(s.isRecording).toBe(false) // 初始 idle
     expect(s.activeTargetContainerID).toBe('')
 
-    await s.start('precise', 'cA')
+    s.applyState({ phase: 'recording', containerID: 'cA', filterMode: 'precise', tempID: 'x', startedAtMs: 1 })
     expect(s.isRecording).toBe(true)
     expect(s.activeTargetContainerID).toBe('cA')
-
-    await s.stop()
-    expect(s.isRecording).toBe(false)
-    expect(s.activeTargetContainerID).toBe('') // stop() finally 清
   })
 
-  it('markStopped 清 isRecording + target (F12/HUD 异步停录路径, 不经 stop RPC)', async () => {
+  it('applyState(idle) → isRecording false, target 清空 (镜像收敛)', () => {
     const s = useRecordingStore()
-    await s.start('precise', 'cB')
-    expect(s.activeTargetContainerID).toBe('cB')
-
-    s.markStopped()
+    s.applyState({ phase: 'recording', containerID: 'cA' })
+    s.applyState({ phase: 'idle' })
     expect(s.isRecording).toBe(false)
     expect(s.activeTargetContainerID).toBe('')
+  })
+
+  it('finalizing 阶段不算 recording, 但 target 仍可见 (收尾期)', () => {
+    const s = useRecordingStore()
+    s.applyState({ phase: 'finalizing', containerID: 'cA' })
+    expect(s.isRecording).toBe(false)
+    expect(s.activeTargetContainerID).toBe('cA')
+  })
+
+  it('reconcile() 调 getState 对账 → 镜像后端权威状态 (丢事件自愈)', async () => {
+    const s = useRecordingStore()
+    expect(s.isRecording).toBe(false)
+    await s.reconcile()
+    expect(getStateMock).toHaveBeenCalled()
+    expect(s.isRecording).toBe(true)
+    expect(s.activeTargetContainerID).toBe('cReconciled')
   })
 })

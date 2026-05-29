@@ -441,6 +441,7 @@ import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals
 import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
+import { useConfirm } from '@/composables/useConfirm'
 import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -516,6 +517,7 @@ const route = useRoute()
 const router = useRouter()
 const isStandalone = computed(() => route.query.standalone === '1')
 const toast = useToast()
+const { confirm } = useConfirm()
 const recordStore = useRecordingStore()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
@@ -588,9 +590,16 @@ const recordingTargetName = computed(() => {
 
 // A3: 录制进行中离开"正在录的容器"编辑器 → 确认. 留下 → 录完正常 autoConnect 接节点;
 // 确认离开 → 放行 (子图已落盘, 但不自动接入当前视图; onSubgraphCreated 的 mismatch 守卫兜底不 dangling).
-onBeforeRouteLeave(() => {
+onBeforeRouteLeave(async () => {
   if (recordStore.isRecording && recordStore.activeTargetContainerID === containerID) {
-    return window.confirm(t('recordComposable.leave_during_recording'))
+    const ok = await confirm({
+      title: t('recordComposable.leave_title'),
+      description: t('recordComposable.leave_during_recording'),
+      color: 'warning',
+      confirmText: t('recordComposable.leave_confirm'),
+      cancelText: t('common.cancel'),
+    })
+    return ok === true
   }
   return true
 })

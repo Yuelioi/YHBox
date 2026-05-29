@@ -57,12 +57,58 @@ type Service struct {
 	containerGet ContainerGetter
 	emit         func(name string, data any)
 
-	mu                sync.Mutex // 防 F12 stop callback 跟 UI Stop 同时跑
-	activeContainerID string     // Start 时记下, Stop 时落 subgraph 用
+	mu      sync.Mutex   // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
+	stateMu sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
+	state   RecordingState
 }
 
 func NewService(rec *Recorder, game GameHwndProvider, hkProv HotkeySettingsProvider, clipSvc *inputclip.Service) *Service {
-	return &Service{rec: rec, game: game, hkProv: hkProv, clipSvc: clipSvc}
+	return &Service{
+		rec: rec, game: game, hkProv: hkProv, clipSvc: clipSvc,
+		state: RecordingState{Phase: PhaseIdle},
+	}
+}
+
+// Phase 常量 — 录制生命周期的三个权威阶段.
+const (
+	PhaseIdle       = "idle"
+	PhaseRecording  = "recording"
+	PhaseFinalizing = "finalizing"
+)
+
+// RecordingState 录制子系统的权威状态. 后端是唯一真相源; 前端/HUD 只镜像
+// (recording:state 事件 + GetState 对账), 不自己存可 desync 的 flag.
+type RecordingState struct {
+	Phase       string `json:"phase"`       // idle | recording | finalizing
+	ContainerID string `json:"containerID"` // 录制目标容器 (录完子图落这)
+	FilterMode  string `json:"filterMode"`  // precise | simple
+	TempID      string `json:"tempID"`
+	StartedAtMs int64  `json:"startedAtMs"`
+}
+
+// GetState 返回当前权威状态快照. RPC — 前端任何时候可查 (reconcile 对账用).
+// 走 stateMu 读路径, 不被慢的 rec.Stop() 阻塞.
+func (s *Service) GetState() RecordingState {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.state
+}
+
+// phase 读当前 phase (命令幂等判定用).
+func (s *Service) phase() string {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.state.Phase
+}
+
+// setState 写状态快照 + 广播 recording:state (全量). 不持 stateMu emit, 防 re-entry / 慢 emit 卡转换.
+func (s *Service) setState(st RecordingState) {
+	s.stateMu.Lock()
+	s.state = st
+	s.stateMu.Unlock()
+	if s.emit != nil {
+		s.emit("recording:state", st)
+	}
 }
 
 // SetEmit main.go 启动期注入. wails3 application.Event.Emit 包一层.
@@ -85,6 +131,14 @@ type StartArgs struct {
 // Start 后会 atomic 设 LL hook 的 stopHotkeyVK + callback — 用户在游戏前台按 F12 时,
 // hook 直接拦截 (不透传游戏) 并异步触发 StopAsync.
 func (s *Service) Start(args StartArgs) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 幂等: 已经在录 (或正在收尾) → 不重复启动, 返当前 tempID. 前端误触/重入无害.
+	if s.phase() != PhaseIdle {
+		return s.GetState().TempID, nil
+	}
+
 	if args.ContainerID == "" {
 		return "", errors.New("containerID 必填 — 录制 Subgraph 要落到某个 container")
 	}
@@ -132,9 +186,13 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	if recErr != nil {
 		return "", fmt.Errorf("recorder.Start: %w", recErr)
 	}
-	s.mu.Lock()
-	s.activeContainerID = args.ContainerID
-	s.mu.Unlock()
+	s.setState(RecordingState{
+		Phase:       PhaseRecording,
+		ContainerID: args.ContainerID,
+		FilterMode:  filterMode,
+		TempID:      id,
+		StartedAtMs: time.Now().UnixMilli(),
+	})
 	SetActiveStopHotkey(stopVK, func() {
 		s.StopAsync()
 	})
@@ -157,19 +215,35 @@ type StopResultPayload struct {
 func (s *Service) Stop() (*StopResultPayload, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.rec.Active() {
-		return nil, ErrRecorderNotActive
+
+	// 幂等: 不在 recording (idle / 已 finalizing) → no-op, 返 (nil, nil) 不报错.
+	// 杀掉 ErrRecorderNotActive 这个伪错误 — 陈旧/重复 stop 点击对前端无害.
+	if s.phase() != PhaseRecording {
+		return nil, nil
 	}
+	cur := s.GetState()
+	containerID := cur.ContainerID
+
+	// 进 finalizing — 收尾期 GetState 反映真实阶段; 同时挡住并发 Stop (phase != recording 直接 no-op).
+	s.setState(RecordingState{
+		Phase: PhaseFinalizing, ContainerID: containerID,
+		FilterMode: cur.FilterMode, TempID: cur.TempID, StartedAtMs: cur.StartedAtMs,
+	})
+	// 无论成败回 idle (前端镜像始终收敛).
+	defer s.setState(RecordingState{Phase: PhaseIdle})
+
 	if s.containers == nil {
 		return nil, errors.New("ContainerSubgraphSaver 未注入 (main.go 启动期 SetContainerSaver?)")
 	}
-	containerID := s.activeContainerID
-	s.activeContainerID = ""
 
 	res, err := s.rec.Stop()
 	// 不管成败都清 stopHotkey, 避免悬挂 callback 引发误触
 	SetActiveStopHotkey(0, nil)
 	if err != nil {
+		// recorder 自己已不活跃 (理论上 phase 守卫挡住, 防御性): 当 no-op, 不抛伪错误.
+		if errors.Is(err, ErrRecorderNotActive) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -231,6 +305,10 @@ func (s *Service) StopAsync() {
 			s.emit("recording:completed", map[string]any{"error": err.Error()})
 			return
 		}
+		// 幂等 no-op (payload nil): 不在录时被触发, 状态已走 recording:state, 不发结果事件.
+		if payload == nil {
+			return
+		}
 		s.emit("recording:completed", map[string]any{
 			"subgraphID":  payload.SubgraphID,
 			"containerID": payload.ContainerID,
@@ -238,11 +316,6 @@ func (s *Service) StopAsync() {
 			"filterMode":  payload.FilterMode,
 		})
 	}()
-}
-
-// IsRecording 状态查询.
-func (s *Service) IsRecording() bool {
-	return s.rec.Active()
 }
 
 // findWindowTargetNode 在 container.Graph.Nodes 里找第一个 Kind=="WindowTarget" 的节点.

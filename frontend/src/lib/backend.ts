@@ -307,7 +307,9 @@ export const backend = {
     // 前端拿 subgraphID 在 activeGraph 加 Subgraph 引用节点.
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
-    isRecording: () => invoke(RecordingService.IsRecording),
+    // GetState 返回后端权威录制状态 {phase, containerID, filterMode, tempID, startedAtMs}.
+    // 前端 recordStore reconcile 对账用 — 取代旧的 isRecording (bool 不够, desync 无法自愈).
+    getState: () => invoke(RecordingService.GetState),
   },
   // 容器级 ClipService (main.go 只 RegisterService(clipSvc); libClipSvc 不注册).
   // 暴露 list/get/save/update/delete + Resolve (runtime 用, 前端基本不直接调).

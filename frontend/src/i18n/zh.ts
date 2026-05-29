@@ -1472,7 +1472,7 @@ export default {
     recording_in_progress: '正在录制 ({mode})',
     mode_precise: '精准',
     mode_simple: '简易',
-    stop_methods: '游戏前台按 F12 / 点悬浮窗 / 切回 YHBox 都能停止',
+    stop_methods: '游戏前台按 F12 或点悬浮窗停止',
     refresh_subgraphs_failed: '刷新子图列表失败',
     replace_node_missing: '替换目标节点已不存在, 改为新建',
     replace_node_wrong_kind: '目标节点 kind={kind}, 非 Subgraph, 改为新建',
@@ -1480,7 +1480,9 @@ export default {
     no_subgraph_id: '录制结束但未拿到 subgraphID',
     default_clip_name: '录制片段',
     container_mismatch: '录制子图已存入容器「{target}」，但当前打开的是「{current}」。请切到「{target}」查看录制结果。',
-    leave_during_recording: '录制进行中。离开后录制结果无法自动接入当前视图, 需手动去目标容器查看。确定离开?',
+    leave_title: '录制进行中',
+    leave_during_recording: '离开后录制结果无法自动接入当前视图, 需手动去目标容器查看。确定离开?',
+    leave_confirm: '仍然离开',
   },
   // SubgraphLifecycle
   subgraphLifecycle: {
