@@ -18,6 +18,10 @@ export const useRecordingStore = defineStore('recording', () => {
   const isRecording = ref(false)
   const tempID = ref<string>('')
   const lastResult = ref<RecordingStopPayload | null>(null)
+  // A1: 录制目标容器的单一来源. 录制开始时锁定 (= 子图最终落盘的容器), 任何收尾路径清空.
+  // 全 FE "正在录哪个容器" 只认这个值: A2 删除守卫 / A3 离开确认 / A4 指示器 都读它.
+  // F12/HUD 异步停录走 'recording:completed' (不经 stop()), 那条路径在 useRecording 里清.
+  const activeTargetContainerID = ref<string>('')
 
   async function start(
     filterMode: 'precise' | 'simple',
@@ -29,9 +33,11 @@ export const useRecordingStore = defineStore('recording', () => {
       const id = (await backend.recording.start({ filterMode, containerID })) as string | undefined
       tempID.value = id ?? ''
       isRecording.value = true
+      activeTargetContainerID.value = containerID
       lastResult.value = null
     } catch (e) {
       console.error('recording.start failed', e)
+      activeTargetContainerID.value = ''
       throw e
     }
   }
@@ -46,8 +52,16 @@ export const useRecordingStore = defineStore('recording', () => {
       console.error('recording.stop failed', e)
       isRecording.value = false
       throw e
+    } finally {
+      activeTargetContainerID.value = ''
     }
   }
 
-  return { isRecording, tempID, lastResult, start, stop }
+  // markStopped: 异步停录路径 (F12/HUD 的 'recording:completed' 事件) 复位状态. 不经 stop() RPC.
+  function markStopped() {
+    isRecording.value = false
+    activeTargetContainerID.value = ''
+  }
+
+  return { isRecording, tempID, lastResult, activeTargetContainerID, start, stop, markStopped }
 })

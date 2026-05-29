@@ -101,6 +101,7 @@
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-standalone="isStandalone"
         :is-recording="recordStore.isRecording"
+        :recording-target-name="recordingTargetName"
         :countdown-sec="countdownSec"
         :selected-count="selectedCount"
         :exec-store-running="execStore.running"
@@ -438,7 +439,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } f
 import { useI18n } from 'vue-i18n'
 import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { useWindowControls } from '@/composables/useWindowControls'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -575,6 +576,24 @@ const {
 
 // 编辑路径 + 当前子图（useEditorPath，转发 editorStore）
 const { sgLabel, currentSubgraph } = useEditorPath()
+
+// A4: 录制态显眼标 "录制中 → 容器名". target 来源是 recordStore 单一值; 名字优先本容器 draft.name
+// (正常录制就是录本容器), fallback 容器列表 / 裸 ID.
+const recordingTargetName = computed(() => {
+  const id = recordStore.activeTargetContainerID
+  if (!id) return ''
+  if (id === containerID) return draft.value?.name ?? id
+  return containersStore.list.find((c) => c.id === id)?.name ?? id
+})
+
+// A3: 录制进行中离开"正在录的容器"编辑器 → 确认. 留下 → 录完正常 autoConnect 接节点;
+// 确认离开 → 放行 (子图已落盘, 但不自动接入当前视图; onSubgraphCreated 的 mismatch 守卫兜底不 dangling).
+onBeforeRouteLeave(() => {
+  if (recordStore.isRecording && recordStore.activeTargetContainerID === containerID) {
+    return window.confirm(t('recordComposable.leave_during_recording'))
+  }
+  return true
+})
 
 // 子图 metadata 外部编辑 (NodeInspector / SubgraphPropsPanel) 改的是 store 里 sg 对象,
 // useContainerDraft 的 deep watch 自动标 dirty — 之前的 window 总线桥接已删除.

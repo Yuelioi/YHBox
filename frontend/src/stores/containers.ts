@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container } from '@/lib/backend'
+import { useRecordingStore } from '@/stores/recording'
 
 export const useContainersStore = defineStore('containers', () => {
   const list = ref<Container[]>([])
@@ -51,7 +52,16 @@ export const useContainersStore = defineStore('containers', () => {
     return true
   }
 
+  // A2: 录制目标容器在录制态不可删 — 否则停录 SaveSubgraph 撞 "container not found".
+  // 单一来源是 recordStore.activeTargetContainerID (本窗口). 这是 chokepoint backstop;
+  // UI (ContainersTab) 另做一次带 toast 的前置拦截.
+  function isRecordingLocked(id: string): boolean {
+    const rec = useRecordingStore()
+    return rec.isRecording && rec.activeTargetContainerID === id
+  }
+
   async function remove(id: string): Promise<boolean> {
+    if (isRecordingLocked(id)) return false
     const r = await backend.containers.delete_(id)
     if (r === undefined) return false
     await reload()
@@ -59,6 +69,7 @@ export const useContainersStore = defineStore('containers', () => {
   }
 
   async function deleteMany(ids: string[]): Promise<boolean> {
+    if (ids.some((id) => isRecordingLocked(id))) return false
     const r = await backend.containers.deleteMany(ids)
     // r 在批删失败时是 error string；undefined 即成功
     await reload()
@@ -75,6 +86,6 @@ export const useContainersStore = defineStore('containers', () => {
 
   return {
     list, reload, create, update, remove, deleteMany, run, stopAll,
-    editingContainerIDs, isEditing,
+    editingContainerIDs, isEditing, isRecordingLocked,
   }
 })

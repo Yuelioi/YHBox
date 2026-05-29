@@ -233,6 +233,8 @@ export default {
       redo: '重做 Ctrl+Y',
       stop_record: '停止录制',
       stop_record_tip: '点这里 或在游戏前台按 F12 停止',
+      recording_target: '录制中 → {name}',
+      recording_target_tip: '录制结果将存入容器「{name}」',
       cancel_countdown: '取消 ({n})',
       cancel_countdown_tip: '点这里取消录制倒计时',
       record_precise: '精准录制',
@@ -1343,6 +1345,7 @@ export default {
       stop_signal: '已发出停止信号',
       deleted_count: '已删除 {n} 个',
       batch_partial_fail: '批量删除部分失败 (详情见日志)',
+      recording_locked: '录制进行中, 无法删除目标容器',
       open_window_fail: '打开新窗口失败',
     },
     create_default_name: '容器 {n}',
@@ -1476,6 +1479,8 @@ export default {
     recording_failed: '录制失败',
     no_subgraph_id: '录制结束但未拿到 subgraphID',
     default_clip_name: '录制片段',
+    container_mismatch: '录制子图已存入容器「{target}」，但当前打开的是「{current}」。请切到「{target}」查看录制结果。',
+    leave_during_recording: '录制进行中。离开后录制结果无法自动接入当前视图, 需手动去目标容器查看。确定离开?',
   },
   // SubgraphLifecycle
   subgraphLifecycle: {

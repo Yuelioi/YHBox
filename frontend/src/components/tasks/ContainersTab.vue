@@ -189,6 +189,10 @@ const { confirm } = useConfirm()
 async function onBatchDelete() {
   const ids = [...batch.selected.value]
   if (ids.length === 0) return
+  if (ids.some((id) => store.isRecordingLocked(id))) {
+    toast.add({ title: t('containers.toast.recording_locked'), color: 'warning' })
+    return
+  }
   const yes = await confirm({
     title: t('containers.batch_delete.title'),
     description: t('containers.batch_delete.desc', { n: ids.length }),
@@ -287,6 +291,10 @@ async function onEditInWindow(c: Container) {
 }
 
 function onAskDelete(c: Container) {
+  if (store.isRecordingLocked(c.id)) {
+    toast.add({ title: t('containers.toast.recording_locked'), color: 'warning' })
+    return
+  }
   pendingDelete.value = c
 }
 

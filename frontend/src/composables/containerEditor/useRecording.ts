@@ -135,6 +135,23 @@ export function useRecording(opts: RecordOpts) {
       return
     }
 
+    // 绑定守卫: 子图由后端存进 payload.containerID (录制开始时锁定的容器). 若用户在录制期间
+    // 切换/新建到别的容器, draft.value.id 已变 — 此时把 caller 节点加到当前 draft 会引用一个
+    // 不在本容器的子图 → 永久 dangling (MISSING_SUBGRAPH + 输出 pin __missing__). 故拒绝加节点,
+    // 提示用户切到真正存子图的容器. 子图本身已落盘, 不丢.
+    if (payload.containerID && payload.containerID !== draft.value.id) {
+      toast.add({
+        title: t('recordComposable.container_mismatch', {
+          target: payload.containerID,
+          current: draft.value.id,
+        }),
+        color: 'warning',
+        duration: 8000,
+      })
+      try { await refreshSubgraphStore() } catch { /* ignore */ }
+      return
+    }
+
     // 1) 刷新 editorStore 让 editorStore.subgraphsForCurrentContainer 拿到新 subgraph
     try {
       await refreshSubgraphStore()
@@ -241,7 +258,7 @@ export function useRecording(opts: RecordOpts) {
     unsubscribe = Events.On('recording:completed', async (ev: any) => {
       const raw = ev?.data ?? ev
       const firstArg = Array.isArray(raw) ? raw[0] : raw
-      ;(recordStore as any).isRecording = false
+      recordStore.markStopped()
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
       const errMsg = firstArg?.error
       if (errMsg) {

@@ -48,6 +48,14 @@
       <UButton size="sm" color="error" variant="solid" icon="i-tabler-square"
                :title="t('editor.toolbar.stop_record_tip')"
                @click="$emit('stop-record')">{{ t('editor.toolbar.stop_record') }}</UButton>
+      <span
+        v-if="recordingTargetName"
+        class="inline-flex items-center gap-1.5 rounded-md bg-error/15 border border-error/40 px-2 py-0.5 text-[11px] text-error"
+        :title="t('editor.toolbar.recording_target_tip', { name: recordingTargetName })"
+      >
+        <span class="size-1.5 rounded-full bg-error animate-pulse" />
+        {{ t('editor.toolbar.recording_target', { name: recordingTargetName }) }}
+      </span>
     </template>
     <template v-else-if="countdownSec > 0">
       <UButton size="sm" color="warning" variant="solid" icon="i-tabler-x"
@@ -134,6 +142,8 @@ const props = defineProps<{
   inspectorCollapsed: boolean
   // recording 三态:  isRecording (后端真的在录) / countdownSec>0 (倒计时中) / 都不是 (空闲)
   isRecording: boolean
+  // A4: 录制目标容器名 (录制态显示绑定指示器, 空则不显示)
+  recordingTargetName?: string
   countdownSec: number
   selectedCount: number
   execStoreRunning: boolean
