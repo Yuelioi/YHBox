@@ -12,6 +12,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 
@@ -179,6 +180,11 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		// errors.Is(err, errStopRun) graceful halt path 仍 work.
 		if control.IsStopRequested(result.Error) {
 			return nil, errStopRun
+		}
+		// ctx 取消 (graph stop / 上层 cancel) 不是节点失败 — 透传, 不 emit node-error 高亮.
+		// 跟主 dispatch loop 顶部 ctx.Err() 退出语义一致.
+		if errors.Is(result.Error, context.Canceled) {
+			return nil, result.Error
 		}
 		// 注意 Break/Continue/Throw sentinel 错误必须透传 — 外层 Loop.RunRegion / Try.RunRegion
 		// 截获. 顶层 leak 防御在 ContainerRunner.Run / runSubFlow 主 loop.

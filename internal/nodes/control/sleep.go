@@ -38,9 +38,14 @@ func (Sleep) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if d <= 0 {
 		return nil, fmt.Errorf("Sleep Duration 必须 > 0, got %v", d)
 	}
-	// 阻塞 sleep, 不响应 ctx 取消.
-	time.Sleep(d)
-	return ctx.Out(sleepOutDone).Fire(), nil
+	// 可取消 sleep: graph stop/cancel 时立即中断, 不等满 d. 返 ctx.Err()
+	// (context.Canceled) — dispatch 把它当优雅 halt, 不当节点失败高亮.
+	select {
+	case <-ctx.Context().Done():
+		return nil, ctx.Context().Err()
+	case <-time.After(d):
+		return ctx.Out(sleepOutDone).Fire(), nil
+	}
 }
 
 func (Sleep) Display(in node.Inputs, exitName string, out node.OutputData) string {
