@@ -107,7 +107,7 @@ export default {
       },
       counts: {
         title: 'Local 360° HID counts',
-        hint: 'Cumulative |dx| reported by mouse hardware during a 360° in-place turn',
+        hint: `Cumulative {'|'}dx{'|'} reported by mouse hardware during a 360° in-place turn`,
         save_manual: 'Save manual value',
         recalibrate: 'Recalibrate',
         calibrate: 'Start calibration',
@@ -623,8 +623,8 @@ export default {
       label: 'Detect color (HSV)',
       description: 'Polls HSV hit ratio in ROI until ratio >= minPixelRatio (Yes) or timeout (Timeout). timeoutMs<=0 = single scan, miss → No.',
       input: {
-        ROI: { label: 'ROI (pixels)', hint: '{"x":0,"y":0,"w":100,"h":100} client-area pixel coords' },
-        HSV: { label: 'HSV range', hint: '{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}' },
+        ROI: { label: 'ROI (pixels)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} client-area pixel coords` },
+        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
@@ -637,12 +637,12 @@ export default {
     },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
-      description: 'Tracks two HSV clusters (inner + outer) in ROI, computes inner position within outer region. Used for: health bar / progress bar / QTE dual bar / fishing reel. rois=[{resolution:[W,H], x,y,w,h}, ...]; no match for current client size → Missing.',
+      description: `Tracks two HSV clusters (inner + outer) in ROI, computes inner position within outer region. Used for: health bar / progress bar / QTE dual bar / fishing reel. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...]; no match for current client size → Missing.`,
       input: {
-        Rois: { label: 'ROI list (multi-resolution)', hint: '[{"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54}, ...]' },
-        InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: '{"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255}' },
-        OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: '{"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255}' },
-        Options: { label: 'Algorithm params (Optional)', hint: '{"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58} (0/empty = default; defaults are fishing-UI measured values)' },
+        Rois: { label: 'ROI list (multi-resolution)', hint: `[{'{'}"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54{'}'}, ...]` },
+        InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
+        OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255{'}'}` },
+        Options: { label: 'Algorithm params (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)` },
       },
       output: {
         Found: { label: 'Found' },
@@ -653,8 +653,8 @@ export default {
       label: 'ROI color cluster scan',
       description: 'Scans HSV-hit pixels along axis (x/y) in ROI, merges contiguous spans into clusters. count >= minClusterCount → Found. timeoutMs<=0 + first scan short → NotFound.',
       input: {
-        ROI: { label: 'ROI (pixels)', hint: '{"x":0,"y":0,"w":100,"h":100}' },
-        HSV: { label: 'HSV range', hint: '{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}' },
+        ROI: { label: 'ROI (pixels)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'}` },
+        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         Axis: { label: 'Scan axis' },
         MinClusterPx: { label: 'Min cluster length (px)' },
         MaxClusterPx: { label: 'Max cluster length (px)', hint: '<=0 = default ROI size / 3' },
@@ -673,7 +673,7 @@ export default {
       description: 'Captures a frame and writes to file. pathTemplate supports {ts} / {nodeId} / {containerId} / {date}. Empty ROI = full frame.',
       input: {
         PathTemplate: { label: 'Path template', hint: "Relative path, no '..' / drive letter / leading '/' or '\\\\'. {ts}/{nodeId}/{containerId}/{date} auto-expanded." },
-        ROI: { label: 'ROI (pixels, optional)', hint: '{"x":0,"y":0,"w":100,"h":100} — empty/all-zero = full frame' },
+        ROI: { label: 'ROI (pixels, optional)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — empty/all-zero = full frame` },
       },
       output: {
         Done: {
@@ -879,7 +879,7 @@ export default {
       output: { Result: { label: 'Result' } },
     },
     Or: {
-      label: 'Logical OR', description: 'a || b',
+      label: 'Logical OR', description: `a {'||'} b`,
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },

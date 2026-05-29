@@ -125,7 +125,7 @@ export default {
       },
       counts: {
         title: '本机 360° HID counts',
-        hint: '原地转身 360° 鼠标硬件上报的累积 |dx|',
+        hint: `原地转身 360° 鼠标硬件上报的累积 {'|'}dx{'|'}`,
         save_manual: '保存手填值',
         recalibrate: '重新校准',
         calibrate: '开始校准',
@@ -643,8 +643,8 @@ export default {
       label: 'HSV 颜色检测',
       description: 'ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.',
       input: {
-        ROI: { label: 'ROI (像素)', hint: '{"x":0,"y":0,"w":100,"h":100} 客户区像素坐标' },
-        HSV: { label: 'HSV 范围', hint: '{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}' },
+        ROI: { label: 'ROI (像素)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} 客户区像素坐标` },
+        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
@@ -657,12 +657,12 @@ export default {
     },
     DualColorBarTrack: {
       label: '双色条追踪',
-      description: 'ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{resolution:[W,H], x,y,w,h}, ...], 当前 client size 没匹配项走 Missing.',
+      description: `ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...], 当前 client size 没匹配项走 Missing.`,
       input: {
-        Rois: { label: 'ROI 数组 (多分辨率)', hint: '[{"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54}, ...]' },
-        InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: '{"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255}' },
-        OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: '{"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255}' },
-        Options: { label: '算法参数 (Optional)', hint: '{"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58} (0/空字段走默认; 默认是 fishing UI 实测值)' },
+        Rois: { label: 'ROI 数组 (多分辨率)', hint: `[{'{'}"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54{'}'}, ...]` },
+        InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
+        OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255{'}'}` },
+        Options: { label: '算法参数 (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 fishing UI 实测值)` },
       },
       output: {
         Found: { label: '命中' },
@@ -673,8 +673,8 @@ export default {
       label: 'ROI 颜色 cluster 扫描',
       description: '沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.',
       input: {
-        ROI: { label: 'ROI (像素)', hint: '{"x":0,"y":0,"w":100,"h":100}' },
-        HSV: { label: 'HSV 范围', hint: '{"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255}' },
+        ROI: { label: 'ROI (像素)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'}` },
+        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         Axis: { label: '扫描轴' },
         MinClusterPx: { label: '最小段长 (px)' },
         MaxClusterPx: { label: '最大段长 (px)', hint: '<=0 默认 ROI 大小 / 3' },
@@ -693,7 +693,7 @@ export default {
       description: '抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.',
       input: {
         PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
-        ROI: { label: 'ROI (像素, 可选)', hint: '{"x":0,"y":0,"w":100,"h":100} — 缺省/全 0 = 全帧' },
+        ROI: { label: 'ROI (像素, 可选)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — 缺省/全 0 = 全帧` },
       },
       output: {
         Done: {
@@ -899,7 +899,7 @@ export default {
       output: { Result: { label: '结果' } },
     },
     Or: {
-      label: '逻辑或', description: 'a || b',
+      label: '逻辑或', description: `a {'||'} b`,
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },

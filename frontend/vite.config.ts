@@ -54,6 +54,11 @@ export default defineConfig({
       // 不开这个的话默认 jit 模式会在浏览器 runtime 调 message compiler，
       // 某些 unicode 字符（如全角括号）会让它 throw SyntaxError 让整个 view 挂掉。
       jitCompilation: false,
+      // 必须显式 false: 插件默认 runtimeOnly=true 会把 `vue-i18n` alias 到 runtime-only
+      // bundle (无 message compiler), 导致 `t('x', { n: 5 })` 这类带 placeholder 的
+      // 翻译字符串无人 compile, 字面渲染 `{n}` 出来. zh.ts 全用 plain string + ts
+      // 模式喂 createI18n, 必须保留 compiler.
+      runtimeOnly: false,
     }),
     wails("./bindings"),
   ],

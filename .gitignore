@@ -43,7 +43,7 @@ CLAUDE.md
 .claude/
 
 # Agent workspace
-workshop/
+flightdeck/
 
 # User Data
 settings.json
