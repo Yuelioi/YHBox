@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"yhbox/internal/services/container"
 )
 
@@ -158,16 +160,14 @@ func (l *EventListener) handleFire(ctx context.Context) {
 
 // makeSubRunner 给一次 spawn 用的独立 dispatch 实例。
 //
-// 独立: edges / nodesByID / state — 避免跟主 dispatch 抢 swap 字段 + 不污染 frame 栈.
-// 共享: rt / bundle / compiled / dataEdges / stopwatches — bundle.Snapshot 走 ctx
-// (tickCtxKey) 已 goroutine-safe; compiled/dataEdges 是 immutable 预编译产物;
-// stopwatches 是 *stopwatchTable 全 container 共享.
-//
-// 注意: bundle 内 stateGetter closure capture 的是 main runner.state, listener subRunner
-// 调 Vars/Params adapter 时拿到的是 main r.state (不是 sub.state). 这是 listener subRunner
-// 共享 bundle 的副作用 — LocalVars/LocalParams 尚未隔离.
+// 独立: edges / nodesByID / state / bundle — 避免跟主 dispatch 抢 swap 字段 + 不污染
+// frame 栈; 独立 bundle 的 stateGetter 闭 sub.state, 让 Vars (scope=local/auto) / Params
+// 落到子流程自己的 frame 栈, 不 stomp 主 runner.state.
+// 共享: rt / compiled / dataEdges / stopwatches — compiled/dataEdges 是 immutable 预编译
+// 产物; stopwatches 是 *stopwatchTable 全 container 共享; rt.Vars (容器级 global 变量,
+// 有锁) 仍跨 flow 共享 — global scope 走 rt 不走 frame.
 func (l *EventListener) makeSubRunner() *ContainerRunner {
-	return &ContainerRunner{
+	sub := &ContainerRunner{
 		rt:          l.runner.rt,
 		compiled:    l.runner.compiled,
 		nodesByID:   l.homeNodesByID,
@@ -175,8 +175,16 @@ func (l *EventListener) makeSubRunner() *ContainerRunner {
 		dataEdges:   l.runner.dataEdges,
 		state:       NewExecState(l.runner.rt.Container.ID, l.runner.state.CalibCounts),
 		stopwatches: l.runner.stopwatches,
-		bundle:      l.runner.bundle,
 	}
+	sub.bundle = NewServiceBundleFor(
+		l.runner.rt,
+		l.runner.stopwatches,
+		zerolog.Nop(),
+		func() *ExecState { return sub.state },
+	)
+	// 主 bundle 启动期被 SetLogger 注入真 logger; 子流程沿用同一 Log adapter.
+	sub.bundle.Log = l.runner.bundle.Log
+	return sub
 }
 
 func (l *EventListener) spawn(parentCtx context.Context) {
@@ -208,11 +216,11 @@ func (l *EventListener) spawn(parentCtx context.Context) {
 				}
 			}
 		}()
-		// Listener 子流程跑一个独立的 ContainerRunner 实例（共享 rt，独立 edges/nodesByID/state）
-		// 避免跟主 dispatch 的 r.edges 抢（主 dispatch 进 subgraph 时会改写那两字段产生数据
-		// 竞争和行为错乱）。独立 ExecState 让 listener 子流程也能入嵌套子图而不污染主 dispatch
-		// 的 frame 栈。注意：rt.vars（容器级变量）是 rt 上的字段且有锁，跨 flow 共享 OK；
-		// ExecState.GlobalVars 不共享，因为节点执行器尚未接入 LocalVars/GlobalVars。
+		// Listener 子流程跑一个独立的 ContainerRunner 实例（共享 rt，独立 edges/nodesByID/
+		// state/bundle）避免跟主 dispatch 的 r.edges 抢（主 dispatch 进 subgraph 时会改写那
+		// 两字段产生数据竞争和行为错乱）。独立 ExecState + 独立 bundle 让 listener 子流程入
+		// 嵌套子图不污染主 dispatch 的 frame 栈, 且 Vars(local/auto)/Params 隔离到 sub.state。
+		// rt.Vars（容器级 global 变量, 有锁）跨 flow 共享 OK — global scope 仍走 rt。
 		sub := l.makeSubRunner()
 		seeds := sub.edges.next(l.node.ID+".out", nil)
 		_ = sub.runSubFlow(subCtx, seeds)
