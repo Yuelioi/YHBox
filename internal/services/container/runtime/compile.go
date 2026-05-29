@@ -1,8 +1,7 @@
-// compile.go — B3 三阶段中 Compile 阶段实现.
+// compile.go — Compile 阶段.
 //
-// 把以前散在 NewContainerRunner / dispatch_v5.go subgraph swap / listener.go newEventListener 的
-// edge index / data edge index / node ID 查表构造统一到 CompileContainer 一次跑完.
-// runtime dispatch 改读 r.compiled 字段, 不再 hot rebuild.
+// CompileContainer 把 edge index / data edge index / node ID 查表构造一次跑完;
+// runtime dispatch 读 r.compiled 字段, 不在热路径重建.
 package runtime
 
 import (
@@ -10,16 +9,16 @@ import (
 )
 
 // CompiledGraph 单 graph 的编译产物 — main graph 或一个 subgraph.
-// 三件套: exec edge / data edge / 节点 ID 查表. 一次构建, runtime dispatch 直接读, 不再 hot rebuild.
+// 三件套: exec edge / data edge / 节点 ID 查表. 一次构建, runtime dispatch 直接读.
 //
-// B2: subgraph 还含 entry/output 虚拟 marker ID (main graph 字段为零). dispatch 走 metadata
-// 不再 scan Graph.Nodes 找 SubgraphInput/Output kind.
+// subgraph 还含 entry/output 虚拟 marker ID (main graph 字段为零). dispatch 走 metadata
+// 不 scan Graph.Nodes 找 SubgraphInput/Output kind.
 type CompiledGraph struct {
 	Edges     *edgeIndex
 	DataEdges *dataEdgeIndex
 	NodesByID map[string]*container.GraphNode
 
-	// B2 subgraph-only:
+	// subgraph-only (main graph 留零值):
 	EntryNodeID     string                                       // sg.Entry.NodeID; main graph = ""
 	OutputDeclsByID map[string]*container.SubgraphOutputDecl // virtualNodeID → decl; main graph = nil
 }

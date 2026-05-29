@@ -6,7 +6,6 @@ import "fmt"
 // NodeService Wails3 RPC service. FE 启动调 GetAllNodeSpecs / GetAllTypes / AsyncOptions.
 type NodeService struct {
 	// AsyncOptions 注册表: asyncSource → handler.
-	// Phase 0 用 hardcoded mock, Phase 1+ 真接 (e.g. templateKeys 接 template.Service.List).
 	asyncSources map[string]AsyncOptionsHandler
 }
 

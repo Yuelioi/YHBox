@@ -391,11 +391,11 @@ func (r *HotkeyRegistry) Resume() error {
 
 // RegisterEditor 注册 editor in-app key (webview only, 不占 OS).
 //
-// 跟老 Register 区别:
+// 跟 Register 区别:
 //   - source 固定 HotkeySourceEditor, InAppOnly=true (跳 r.manager.Register)
 //   - 不接 onFire — editor key 派发由 FE keydown 处理, registry 只挂可见性 + 冲突检查
 //   - conflict / parse / reserved 失败时不 delete entry: 保留 + Status=failed + LastError 填.
-//     FE 表里能看见 (SettingsHotkeys.vue lastError 渲染). 老 Register 路径 delete + return err
+//     FE 表里能看见 (SettingsHotkeys.vue lastError 渲染). Register 路径 delete + return err
 //     不适合 editor 自动注册场景 (用户视角 "Ctrl+K 撞了" 没线索).
 func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason string) error {
 	r.mu.Lock()

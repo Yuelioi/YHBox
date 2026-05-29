@@ -63,7 +63,6 @@ func main() {
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
 	// → 新 layout（containers/<id>/{container.json,subgraphs/,templates/} + library/）。
-	// 见 docs/superpowers/specs/2026-05-16-v2-architecture-subgraph-library-design.md §阶段 0。
 	// 检测信号：bin/data/actions/ 存在 或 bin/data/templates/_index.json 存在（旧全局模板库）。
 	// 命中即 rename 整个 bin/data 到 bin/data.legacy-2026-05-16/。Best-effort，失败仅日志。
 	backupLegacyDataIfNeeded(rootLog)
@@ -176,9 +175,9 @@ func main() {
 	// 模板库 (per-container, dataRoot 注入) / Container / Schedule 数据层
 	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{app: app})
 
-	// 节点系统 (Phase 0: mock 节点 + FE inspector 验证)
+	// 节点系统 (mock 节点 + FE inspector 验证)
 	nodeSvc := node.NewService()
-	// Phase 0 mock asyncSource: templateKeys 返 hardcoded 列表. Phase 1+ 真接 templateSvc.List.
+	// mock asyncSource: templateKeys 返 hardcoded 列表, 未接 templateSvc.List.
 	nodeSvc.RegisterAsyncSource("templateKeys", func(nodeID, specKind string, params map[string]any) ([]node.EnumOption, error) {
 		return []node.EnumOption{
 			{Value: "fishing.hook_icon", Label: "fishing.hook_icon"},
@@ -213,12 +212,11 @@ func main() {
 	inputBus := execution.NewInputBus()
 
 	// 真模板匹配 + 真颜色检测
-	// v3 Phase B: input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析,
-	// 不再走 main.go 全局注入. containerInputDriver / wire_container 适配器已退役.
-	// T1.5: per-container template store 按需加载, containerID 作为 Detect 参数传入.
+	// input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析, 不走 main.go 全局注入.
+	// per-container template store 按需加载, containerID 作为 Detect 参数传入.
 	//
-	// Phase 5.9: container:warning emit 同时 zerolog.Warn — 让 warning 进
-	// logs/yhfish-*.log (LogSink) 给 post-mortem 用; 之前只走 wails Event.
+	// container:warning emit 同时 zerolog.Warn — 让 warning 进
+	// logs/yhfish-*.log (LogSink) 给 post-mortem 用.
 	templateMatcher := newTemplateMatcherAdapter(dataDir, func(name string, payload map[string]any) {
 		app.Emit(name, payload)
 		if name == "container:warning" {
@@ -243,7 +241,7 @@ func main() {
 	})
 
 	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
-	// Phase 5.9: container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
+	// container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
 	emitForRuntime := func(name string, data any) {
 		app.Emit(name, data)
 		if name == "container:warning" {
@@ -271,7 +269,7 @@ func main() {
 			clipSvc, clipInputBackend, app.Settings().UI.MouseCounts360,
 		)
 		r := containerruntime.NewContainerRunner(rt)
-		// Phase 5.4: 把 zerolog 注入到 ServiceBundle.Log, Phase 5.5 dispatch 真节点时生效.
+		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
 		r.SetLogger(rootLog)
 		return r.Run(ctx)
 	}
@@ -371,7 +369,7 @@ func main() {
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接走 containerStore.SaveSubgraph 落到容器 subgraphs/
 	recordingSvc.SetContainerSaver(containerStore)
-	// Start 时按 containerID 拉 container, 取 WindowTarget 节点解析 hwnd (v3 Phase B)
+	// Start 时按 containerID 拉 container, 取 WindowTarget 节点解析 hwnd
 	recordingSvc.SetContainerGetter(containerStore)
 
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
@@ -457,7 +455,7 @@ func main() {
 	// 应用 logger 写一条启动日志，证明日志桥路打通
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("YHBox started")
 
-	// 节点 registry 锁死 — Phase 0+. init() 注册完毕, RPC handler 之后只读.
+	// 节点 registry 锁死: init() 注册完毕, RPC handler 之后只读.
 	node.Freeze()
 
 	// 阻塞直到关窗口

@@ -1,6 +1,6 @@
 // Package input/backend 定义 Backend 接口给 ContainerRunner per-container 选 input impl.
-// 现有 package-level Click/KeyPress/... 函数 (input.go) 保留 — 老 bot 代码 (tools/*) 还在用,
-// Phase A 删 bot 时随 caller 一起退役. Backend interface 是 v3 ContainerRunner 唯一通路.
+// 现有 package-level Click/KeyPress/... 函数 (input.go) 保留 — 老 bot 代码 (tools/*) 还在用.
+// Backend interface 是 ContainerRunner 唯一通路.
 //
 // Backend 必须 stateful — KeyDown/Up/MouseDown/Up 后必须能 ReleaseAll 知道放谁.
 // SendInput backend 不是 hwnd-scoped (全局 OS state), 所以 ReleaseAll 不带 hwnd 参数.
@@ -13,8 +13,7 @@ import (
 )
 
 // Capabilities 让 runtime / 高级节点判断 backend 能不能干某事.
-// Phase B 1.0 只 PostMessage backend, 都填 {true, false, false}. Phase D 加 SendInput 时
-// 这些字段开始有差异.
+// 当前只 PostMessage backend, 都填 {true, false, false}; 加 SendInput backend 后这些字段才有差异.
 type Capabilities struct {
 	BackgroundInput bool // false = 必须前台窗口 (SendInput); true = 后台也能注入 (PostMessage)
 	RelativeMouse   bool // 是否支持原生相对鼠标移动 (RawInput / SendInput=yes, PostMessage 弱)

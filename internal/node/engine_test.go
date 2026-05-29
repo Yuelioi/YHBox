@@ -138,7 +138,7 @@ func TestRunNode_DoubleFire_Panics(t *testing.T) {
 }
 
 // ============================================================================
-// EvaluatePureData (Phase 6+ partial)
+// EvaluatePureData
 // ============================================================================
 
 // pureAdd minimal Evaluator-implementing pure-data node for engine test (避免依赖 purefunc 包).
@@ -234,9 +234,9 @@ func TestEvaluatePureData_PanicRecovered(t *testing.T) {
 }
 
 // ============================================================================
-// C4a: engine dispatch + panic hygiene 守护
+// engine dispatch + panic hygiene 守护
 // ============================================================================
-// P2.2a+b+d: engine dispatch invariant 验证. 跟 Register strict (C5 激活) 解耦 —
+// engine dispatch invariant 验证. 跟 Register strict 解耦 —
 // 这组只验 RunNode/RunNodeAsRegion/EvaluatePureData 对错 capability 节点返 error.
 
 type runnableOnlyNode struct{}
@@ -281,7 +281,7 @@ func TestEvaluatePureData_NonEvaluator_Errors(t *testing.T) {
 	}
 }
 
-// P2.2: panic hygiene 验证. 两条路径分开测:
+// panic hygiene 验证. 两条路径分开测:
 //   1. Run 内 panic — Set 之后, Fire 之前 panic. fn() 没返回 → result.ExitName/OutputData
 //      根本没被赋值 → recover 时已是 zero, clear 块不会改变啥. 这是 "panic 路径整体被 recover
 //      干净" 的 smoke.

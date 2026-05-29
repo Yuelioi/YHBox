@@ -48,11 +48,8 @@ func (NoopMatcher) Detect(ctx context.Context, containerID string, hwnd uintptr,
 	return false, expr.Point{}, [4]float64{}, nil
 }
 
-// GameProvider runtime 需要知道当前游戏窗口 HWND + 能调 BringToForeground。
-// main.go 启动时注入适配器（1.22 wire）。
-//
-// v3 Phase B: WindowTarget 已经把 hwnd 解析放在 rt.Window, 这里只剩 BringToForeground
-// 是仍由 GameProvider 提供的能力 (跨进程窗口置前). HWND() 字段已经无 caller, 待后续清理.
+// GameProvider 提供跨进程窗口置前能力。main.go 启动时注入适配器。
+// hwnd 解析已落在 rt.Window (WindowTarget 节点填), GameProvider 只剩 BringToForeground。
 type GameProvider interface {
 	// BringToForeground 尝试把 hwnd 置前。返 true 表示 OS 接受调用；
 	// 注意：成功 ≠ 一定到前台（OS 可能延迟切换），但 false 一定是失败。

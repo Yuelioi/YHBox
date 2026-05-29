@@ -5,8 +5,7 @@ import "fmt"
 // SwitchConfig 是 Switch 节点的 typed config.
 // validator / runtime / pin schema 必须走 ParseSwitchConfig 入口, 不许各自 cast map[string]any.
 //
-// P1.8b: Value 字段已删 — Switch.Value 现在是 data-in pin (走 r.pullValue), 不是 config 字段.
-// 字段只剩 Cases (Case1Value..Case16Value 规整数组).
+// 待比较的值是 data-in pin (走 r.pullValue), 不是 config 字段; config 只剩 Cases.
 type SwitchConfig struct {
 	Cases []string // 规整过 (类型转 + 过滤非字符串)
 }

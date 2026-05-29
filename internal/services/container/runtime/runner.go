@@ -34,7 +34,7 @@ type ExecToken struct {
 	LoopStack []*LoopFrame // 最深的 frame 在尾
 	// ExecData carry — 上游节点 ctx.Out("exit").Set("k", v).Fire() 推下来的 OutputData
 	// 字段, 下游 build inputs 时通过 buildExecDataFor 读. 比 data-edge 更轻 (不走 spec 声明,
-	// 跟 exit pin 绑定; 多下游 fanout 共享同一份 map). 老 v4 runtime "exec-data" 行为.
+	// 跟 exit pin 绑定; 多下游 fanout 共享同一份 map).
 	ExecData map[string]any
 }
 
@@ -88,30 +88,28 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 }
 
 // ContainerRunner 跑一个 container 节点图 (token dispatch loop).
-//
-// Backlog: 改 cooperative scheduler 让 Stop 真·瞬停 + 多容器公平调度 — 见 backend-backlog.md B6.
 type ContainerRunner struct {
 	rt        *RuntimeContext
-	compiled  *CompiledContainer // B3: 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
-	currentSG *CompiledGraph     // B2: subgraph swap 时设, runRegionBody 用来识 entry/output marker.
+	compiled  *CompiledContainer // 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
+	currentSG *CompiledGraph     // subgraph swap 时设, runRegionBody 用来识 entry/output marker.
 	nodesByID map[string]*container.GraphNode
 	edges     *edgeIndex
 	dataEdges *dataEdgeIndex
 	state     *ExecState
 	stopwatches *stopwatchTable
 
-	// bundle 是 Phase 5.4 wire 的 node.ServiceBundle (LogService / VarStore / VisionService 等
-	// 8 个 adapter). Phase 5.5 ContainerRunner.execNode 改 node.RunNode dispatch 时消费.
-	// 默认 Log 是 zerolog.Nop, main.go 启动后 SetLogger 注入真 logger.
+	// bundle 是 node.ServiceBundle (LogService / VarStore / VisionService 等 8 个 adapter),
+	// execNode 走 node.RunNode dispatch 时消费. 默认 Log 是 zerolog.Nop, main.go 启动后
+	// SetLogger 注入真 logger.
 	//
-	// B1: per-tick snapshot 不再是 instance 字段, 而是 ctx (tickCtxKey) — dispatchInRegion
-	// 入口 withTickSnapshot 写, bundle.Snapshot 闭包从 ctx 读. per-goroutine 独立.
+	// per-tick snapshot 不是 instance 字段, 而是 ctx (tickCtxKey) — dispatchInRegion 入口
+	// withTickSnapshot 写, bundle.Snapshot 闭包从 ctx 读, per-goroutine 独立.
 	bundle node.ServiceBundle
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
-	// B2: 防御性 normalize — 兜底 in-memory 构造 (test fixture / 工具脚本) 没走 Store.Save 路径的
-	// container, sg.Entry / OutputPins[*].NodeID 不空. Store-loaded container 已 normalize 过, 幂等.
+	// 防御性 normalize — 兜底 in-memory 构造 (test fixture / 工具脚本) 没走 Store.Save 路径的
+	// container, 保证 sg.Entry / OutputPins[*].NodeID 不空. Store-loaded container 已 normalize 过, 幂等.
 	rt.Container.Normalize()
 	cc := CompileContainer(rt.Container)
 	r := &ContainerRunner{
@@ -123,9 +121,9 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		stopwatches: newStopwatchTable(),
 	}
 	r.state = NewExecState(rt.Container.ID, cc.MainCalibCounts)
-	// Phase 5.4: 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
+	// 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
 	// stateGetter — closure 让 VarStoreAdapter scope=local/auto 拿到 frame.LocalVars 栈.
-	// B1: tick snapshot 走 ctx (tickCtxKey) 不再传 getter — bundle.Snapshot 闭包内部读 ctx.
+	// tick snapshot 走 ctx (tickCtxKey) 不传 getter — bundle.Snapshot 闭包内部读 ctx.
 	r.bundle = NewServiceBundleFor(
 		rt,
 		r.stopwatches,
@@ -141,7 +139,7 @@ func (r *ContainerRunner) SetLogger(log zerolog.Logger) {
 	r.bundle.Log = NewLogAdapter(log)
 }
 
-// Bundle 返当前 ContainerRunner 持有的 ServiceBundle (Phase 5.5 dispatch 用).
+// Bundle 返当前 ContainerRunner 持有的 ServiceBundle (dispatch 用).
 func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 
 // snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot.
@@ -169,10 +167,10 @@ func snapshotMainCalibCounts(c *container.Container) int {
 }
 
 // Run 启动 token dispatch：找 Start → 入队 → 主循环。
-// 同时为每个 OnEvent 节点起 listener goroutine（§5.4）。
+// 同时为每个 OnEvent 节点起 listener goroutine。
 // Run 返回 = 主流程结束 + 所有 listener 退出。
 func (r *ContainerRunner) Run(ctx context.Context) error {
-	// Phase B: resolve WindowTarget → Window/Input/Capture (per-run state).
+	// resolve WindowTarget → Window/Input/Capture (per-run state).
 	// 必须最先做 — 后续 startNode/listener 都假设 rt.Window/Input/Capture 已 populate.
 	if err := r.setupRuntime(); err != nil {
 		return err
@@ -242,7 +240,7 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 			})
 		}
 
-		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (P1.6 单一抓点), 这里不再抓.
+		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (单一抓点), 这里不再抓.
 		// passthroughDisabled / IsVisualOnly / IsPureData reject 路径都不需要 snapshot
 		// (consumer GetVar/GetSys.Evaluate 经 framework snapshot wrap 在 data pull 阶段读).
 		out, err := r.execNode(ctx, node, tok)
@@ -250,7 +248,7 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 			if errors.Is(err, errStopRun) {
 				return nil
 			}
-			// P1.2: Break/Continue/Throw sentinel 漏到顶层 dispatch — Loop/Try 没截获,
+			// Break/Continue/Throw sentinel 漏到顶层 dispatch — Loop/Try 没截获,
 			// validator 应已报 *_OUTSIDE_* 但跑到此说明 graph 跑了未校验路径或 runtime path bug.
 			// emit container:node-validation 让前端高亮.
 			if _, wrapped := r.checkSentinelLeak(node, err); wrapped != err {
@@ -276,8 +274,7 @@ func (r *ContainerRunner) findStart() *container.GraphNode {
 // errStopRun Stop 节点用：让主循环优雅退。
 var errStopRun = errors.New("stop")
 
-// v4 single-path: configExpr / configFloat / runnerEnv / r.env() removed.
-// All exec nodes now read inputs via r.pullDataPin (data edge or inline literal).
+// All exec nodes read inputs via r.pullDataPin (data edge or inline literal).
 // Expr nodes use expr.InputEnv (bare-identifier only — no $-namespace).
 // Variables / sys / params are routed via GetVar / GetSys / GetParam nodes wired through
 // data edges, NOT through env paths in expressions.
@@ -294,7 +291,7 @@ func configString(node *container.GraphNode, key string) string {
 }
 
 // ----------------------------------------------------------------------------
-// v3 Phase B runtime bootstrap: setupRuntime / teardownRuntime / WindowTarget 解析.
+// runtime bootstrap: setupRuntime / teardownRuntime / WindowTarget 解析.
 // ----------------------------------------------------------------------------
 
 // setupRuntime 找 WindowTarget 节点 → resolve hwnd → 建 input/capture backend → populate rt.
@@ -392,7 +389,7 @@ func (r *ContainerRunner) teardownRuntime() {
 	}
 }
 
-// findMainGraphNode 主图找指定 kind 的第一个节点. v3 WindowTarget / MouseCalibration 等
+// findMainGraphNode 主图找指定 kind 的第一个节点. WindowTarget / MouseCalibration 等
 // 声明式节点都是 single-instance per container — 找到即停.
 func findMainGraphNode(c *container.Container, kind string) *container.GraphNode {
 	for i := range c.Graph.Nodes {
@@ -404,7 +401,6 @@ func findMainGraphNode(c *container.Container, kind string) *container.GraphNode
 }
 
 // readWindowTargetMatchSpec 解析 WindowTarget.config 顶级匹配字段.
-// P2.1: 之前 nested 在 config.match — 已扁平化跟 Spec.Inputs 对齐.
 func readWindowTargetMatchSpec(n *container.GraphNode) winutil.MatchSpec {
 	if n.Config == nil {
 		return winutil.MatchSpec{}
@@ -422,8 +418,7 @@ func readWindowTargetMatchSpec(n *container.GraphNode) winutil.MatchSpec {
 }
 
 // readWindowTargetRuntimeSpec 解析 WindowTarget.config 顶级 runtime 字段 (InputBackend /
-// CaptureBackend). 之前 nested 在 config.runtime — 已扁平化.
-// 返 map[string]string 兼容老 caller (key 是 PascalCase: "InputBackend"/"CaptureBackend").
+// CaptureBackend). 返 map[string]string, key 是 PascalCase: "InputBackend"/"CaptureBackend".
 func readWindowTargetRuntimeSpec(n *container.GraphNode) map[string]string {
 	if n.Config == nil {
 		return map[string]string{}

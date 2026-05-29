@@ -2,16 +2,14 @@
 // Sentinel errors for halt / loop control nodes.
 //
 // Stop/Break/Continue can't express their semantics through normal exec-out
-// edges — they require runner cooperation. Phase 4 ships these as plain errors
-// returned from Run; Phase 5 runner intercepts them:
+// edges — they require runner cooperation. They are returned as plain errors
+// from Run, and the runner intercepts them:
 //   - errStopRun           → halt graph dispatch cleanly (no container:error emit)
 //   - errBreakRequested    → Loop region pops frame + walks to .complete out
 //   - errContinueRequested → Loop region rewinds to header for next iter
 //
-// Until the Phase 5 runner integrates these, Break/Continue outside a Loop
-// region just surface as node errors. That's acceptable: the old v3/v4 runtime
-// rejects Break/Continue outside Loop with the same "not in Loop" error
-// (see internal/services/container/runtime/nodes.go::execBreak/execContinue).
+// Break/Continue used outside a Loop region just surface as node errors. That's
+// acceptable.
 package control
 
 import "errors"

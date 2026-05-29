@@ -1,5 +1,4 @@
 // Pin-aware snap engine (PS smart-guides style).
-// 从 ContainerEditorView 抽离 — 见 backlog C1.
 //
 // 工作流:
 //   drag 中 → onSnapNodeDrag 算引导线 (cyan Y / magenta X), 写 snapGuides
@@ -7,8 +6,7 @@
 //
 // 用 event.node.position (vue-flow store 的 live 坐标) 而非 flowNodes.value:
 // v-model store→model watcher shallow 监听 array ref + length, drag 中 element.position
-// 突变不触发同步 → flowNodes[i].position 在 dragStop 时仍是拖动前坐标. 详见 scar
-// 2026-05-28-vue-flow-store-vmodel-shallow-sync.md.
+// 突变不触发同步 → flowNodes[i].position 在 dragStop 时仍是拖动前坐标.
 
 import { ref, type Ref } from 'vue'
 import { useVueFlow, type NodeDragEvent } from '@vue-flow/core'

@@ -551,7 +551,7 @@ function onBackToList() {
 }
 
 // 嵌入路由 /containers/:id/edit 用 params.id; 子窗口同款路由 + ?standalone=1 也走 params.
-// 老 /container-editor?id=xxx 已删, query.id fallback 仅兜底极少数老链接.
+// query.id 仅作兜底.
 const containerID = String(route.params.id ?? route.query.id ?? '')
 
 // 标 "正在编辑这个容器" — 侧栏 '容器' 跳法用. ContainersView mount 时会 clear.
@@ -590,7 +590,6 @@ const {
 const selectedID = ref<string | null>(null)
 
 // 节点创建 pipeline (drop / picker / programmatic add) — 9 处 GraphNode push 散落抽这里.
-// C6 follow-up 会进一步统一到单 addNode({kind, pos, configOverrides?, autoConnect?}).
 const {
   dropVar, dropNodeSpec, dropSnippet,
   onInsertIncVar, onApplySnippet,
@@ -870,8 +869,8 @@ function miniNodeColor(node: any): string {
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
 const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
 
-// Pin-aware snap engine (PS smart-guides) — 抽到 useSnapEngine. 见 scar
-// 2026-05-28-vue-flow-store-vmodel-shallow-sync.md (event.node.position 必读, 不读 flowNodes).
+// Pin-aware snap engine (PS smart-guides) — 抽到 useSnapEngine.
+// 拖拽位置必读 event.node.position, 不读 flowNodes (vmodel shallow sync 下 flowNodes 滞后).
 const { snapGuides, onSnapNodeDrag, onSnapNodeDragStop } = useSnapEngine({
   sidebarPrefs,
   activeGraph,

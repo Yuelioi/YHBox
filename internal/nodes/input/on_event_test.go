@@ -29,8 +29,7 @@ func TestOnEvent_StubReturnsPhase5Error(t *testing.T) {
 }
 
 func TestOnEvent_SpecNoExecIn(t *testing.T) {
-	// listener 节点没 exec-in pin — 跟老 nodekind/specs/input.go::OnEvent
-	// 一致 (ExecIn: nil).
+	// listener 节点没 exec-in pin (ExecIn: nil).
 	spec := (OnEvent{}).Spec()
 	for _, p := range spec.Inputs {
 		if p.Type == "Exec" {

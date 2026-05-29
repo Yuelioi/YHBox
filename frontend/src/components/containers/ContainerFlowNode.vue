@@ -119,7 +119,7 @@ const props = defineProps<{
 }>()
 
 const kind = computed(() => props.data?.kind ?? '')
-// KIND_LABEL_ZH[k] 现在是 i18n key 字符串 (P4.a). t() 渲染; 未注册 kind fallback kind 字面.
+// KIND_LABEL_ZH[k] 是 i18n key 字符串, 经 t() 渲染; 未注册 kind 时 fallback 到 kind 字面.
 function kindLabel(k: string): string {
   const key = KIND_LABEL_ZH[k]
   return key ? t(key) : k

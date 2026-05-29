@@ -57,7 +57,7 @@ type SysState struct {
 	}
 	// ColorBarTrack 节点输出：cursor/target 位置 + 置信度 + 像素计数。
 	// $sys.lastBarTrack.{cursorX/targetX/targetW/confidence/yellowPx/greenPx}。
-	// 直接 hold nodepkg.DualColorBarResult — P1.3 砍重复 typedef, VisionAdapter.DualBarTrack 写回直传.
+	// 直接 hold nodepkg.DualColorBarResult — VisionAdapter.DualBarTrack 写回直传.
 	LastDualBarTrack nodepkg.DualColorBarResult
 }
 
@@ -67,8 +67,8 @@ type SysState struct {
 //   - templateMatcher 注入：Wait/Check/ClickTemplate 用
 //   - emit 注入：Log/Toast 节点把消息推到前端
 //
-// v3 Phase B: Input / Window / Capture 由 ContainerRunner.setupRuntime 在 Run 启动期间
-// 解析 WindowTarget 节点后 populate. Game 字段保留 (BringGameForeground 节点还在用).
+// Input / Window / Capture 由 ContainerRunner.setupRuntime 在 Run 启动期间解析
+// WindowTarget 节点后 populate. Game 字段供 BringGameForeground 节点用.
 type RuntimeContext struct {
 	Container *container.Container
 	InputBus  *execution.InputBus
@@ -78,7 +78,7 @@ type RuntimeContext struct {
 	Game      GameProvider
 	Emit      func(name string, data any)
 
-	// v3 Phase B: WindowTarget 解析结果. setupRuntime populate; Window.HWND=0 = 未解析.
+	// WindowTarget 解析结果. setupRuntime populate; Window.HWND=0 = 未解析.
 	Window  winutil.WindowHandle
 	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
 
@@ -197,9 +197,9 @@ func (rt *RuntimeContext) UpdateSys(f func(s *SysState)) {
 	f(&rt.sys)
 }
 
-// v4: Env() / envAdapter removed. Variables / sys / params are accessed via dedicated
-// pure-data nodes (GetVar / GetSys / GetParam) that read from per-exec-tick snapshots
-// (see snapshot.go + getvar.go + getsys.go). resolveSysPath remains as the GetSys backend.
+// Variables / sys / params are accessed via dedicated pure-data nodes (GetVar / GetSys /
+// GetParam) that read from per-exec-tick snapshots (see snapshot.go + getvar.go + getsys.go).
+// resolveSysPath is the GetSys backend.
 
 func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 	switch rest {

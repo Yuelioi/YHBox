@@ -208,7 +208,7 @@ func mapBtn(btn uint32) input.MouseButton {
 	}
 }
 
-// SendBatch foreach 调 Send. Phase 3 不真合批, 后续优化合 SendInput 一次多 input.
+// SendBatch foreach 调 Send, 不真合批成单次 SendInput.
 func (b *SendInputBackend) SendBatch(evs []inputclip.Event) error {
 	for _, ev := range evs {
 		if err := b.Send(ev); err != nil {
@@ -358,7 +358,7 @@ func (b *SendInputBackend) sendMouseBtnRaw(btn uint32, x, y int32, btnUp bool) e
 // sendMouseMove A=mode (0 absolute, 1 relative), B/C = x/y.
 //
 // absolute 模式 x/y 应是 normalized 0..65535 全屏坐标; 调用方决定要不要 normalize.
-// Phase 3 暂时透传, recorder 当前用 screen px → 后续 ClipPlayer 那一层做坐标映射.
+// 这里透传 x/y, 坐标映射在 ClipPlayer 那一层做.
 func (b *SendInputBackend) sendMouseMove(mode uint32, x, y int32) error {
 	flags := mouseEventfMove
 	if mode == 0 {

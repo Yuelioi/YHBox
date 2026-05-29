@@ -13,7 +13,7 @@ type stopwatchState struct {
 }
 
 // stopwatchTable per-ContainerRunner 多 stopwatch 存储, key 用户命名空间.
-// 与 SetVar 的 $vars.* 表独立 (即同名 key 不冲突), 见 spec v3 Phase C.
+// 与 SetVar 的 $vars.* 表独立 (即同名 key 不冲突).
 //
 // 并发: ContainerRunner 在 Parallel/Race 子分支下会并发 dispatch 节点, stopwatch 操作
 // 必须互斥. mu 粒度足够 — 节点只调用 start/stop/read, 单次操作均为 O(1).

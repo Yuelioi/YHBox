@@ -25,7 +25,7 @@ type ExecFrame struct {
 
 // ExecState 整个 run 的运行时状态。每次 RunOnce 一次新 state。
 type ExecState struct {
-	RunID        string         // UUID per run（GPT 第三轮）
+	RunID        string         // UUID per run
 	CurrentFrame *ExecFrame
 	GlobalVars   map[string]any // 容器级变量（"全局"，scope == global 的 SetVar/IncVar 用）
 	CalibCounts  int            // 主图 MouseCalibration 节点 config.counts360 启动 snapshot；运行中改节点无效
@@ -58,7 +58,7 @@ func (s *ExecState) PushFrame(graph container.GraphRef, sg *container.Subgraph, 
 		Graph:       graph,
 		Parent:      s.CurrentFrame,
 		LocalVars:   map[string]any{},
-		LocalParams: map[string]any{}, // v4: input param storage (populated by execSubgraph)
+		LocalParams: map[string]any{}, // input param storage (populated by execSubgraph)
 		SubgraphRef: sg,
 		CallNodeID:  callNodeID,
 	}
@@ -95,7 +95,7 @@ func (s *ExecState) GetLocalVarHere(name string) (any, bool) {
 }
 
 // GetLocalVarChain 沿 frame chain 从当前向 root 走, 第一个命中即返回.
-// v4 GetVar scope=auto 用. 不 fallback 到 rt.vars (调用方自己组合).
+// GetVar scope=auto 用. 不 fallback 到 rt.vars (调用方自己组合).
 func (s *ExecState) GetLocalVarChain(name string) (any, bool) {
 	for f := s.CurrentFrame; f != nil; f = f.Parent {
 		if v, ok := f.LocalVars[name]; ok {

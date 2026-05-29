@@ -1,6 +1,6 @@
 // Container Editor — shared layout / interaction constants.
 //
-// 集中 magic number, 让 view 跟 composables 都引一份. backlog C2.
+// 集中 magic number, 让 view 跟 composables 都引一份.
 
 /** Pin auto-connect threshold (flow-coord px). 拖 pin 出来松手, 跟最近 pin 距离小于此则自动连. */
 export const AUTO_CONNECT_THRESHOLD_FLOW_PX = 30

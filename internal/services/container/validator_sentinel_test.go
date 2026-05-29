@@ -2,7 +2,7 @@ package container
 
 import "testing"
 
-// P1.2: validateSentinelScope 测试 — Break/Continue/Throw 作用域校验.
+// validateSentinelScope 测试 — Break/Continue/Throw 作用域校验.
 
 func TestValidate_BreakInsideLoop_OK(t *testing.T) {
 	c := &Container{

@@ -51,7 +51,6 @@ type GraphEdge struct {
 }
 
 // Graph 节点图。有 ID (UUID) + Version (= GraphSchemaVersion).
-// Backlog: 加 Revision 字段支持撤回/HMR/协作 — 见 backend-backlog.md B4.
 type Graph struct {
 	ID      string      `json:"id"`      // UUID；graph 自己有 identity
 	Version int         `json:"version"` // = GraphSchemaVersion 写入时

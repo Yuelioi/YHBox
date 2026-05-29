@@ -1,7 +1,7 @@
-// node_services.go — Phase 5.4
+// node_services.go
 //
 // 桥接 RuntimeContext (+ stopwatchTable + zerolog) 到 node.* service interfaces.
-// 给 Phase 5.5 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.
+// 给 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.
 //
 // 8 个 adapter: log / vars / sys / stopwatch / input / window / capture / vision.
 // 全部 hold *RuntimeContext (live 读 rt.Window/Input/Capture, setupRuntime 后才 populate).
@@ -38,7 +38,6 @@ func NewLogAdapter(log zerolog.Logger) node.LogService { return logAdapter{log: 
 
 // ============================================================================
 // VarStoreAdapter — RuntimeContext.vars → node.VarStore
-// Phase 5.5 加 RegionRunner frame.LocalVars 时改 — 当前只走 global rt.vars.
 // ============================================================================
 
 type varStoreAdapter struct {
@@ -62,7 +61,7 @@ func (a *varStoreAdapter) Inc(name string, delta float64) float64 {
 }
 
 // scoped 变种: scope=global → rt.vars; scope=local → frame.LocalVars; scope=auto →
-// frame.LocalVars 已有 → local, 否则 global. 镜像老 execSetVar/execIncVar/GetVar.
+// frame.LocalVars 已有 → local, 否则 global.
 //
 // Adapter 持 *RuntimeContext, RuntimeContext.State() 拿当前 ExecState (LocalVars 栈).
 
@@ -213,7 +212,7 @@ func newFrozenSysStore(sys SysState, rt *RuntimeContext) node.SysStore {
 
 // ============================================================================
 // StopwatchAdapter — stopwatchTable → node.StopwatchStore
-// 1:1 pass-through, 镜像老 start/stop/read 语义.
+// 1:1 pass-through (start/stop/read).
 // ============================================================================
 
 type stopwatchAdapter struct{ tbl *stopwatchTable }
@@ -377,7 +376,7 @@ func NewCaptureAdapter(rt *RuntimeContext) node.CaptureService { return &capture
 // DetectColorHSV / ROIColorScan / DualBarTrack 自抓帧 + 复用包内 helper (countHSVInROI / scanClusters / vision.AnalyzeDualColorBar).
 // ============================================================================
 
-// visionWaitPollMs WaitMatch 默认轮询间隔, 跟老 runtime defaultPollMs (100ms) 同值.
+// visionWaitPollMs WaitMatch 默认轮询间隔 (ms).
 const visionWaitPollMs = 100
 
 type visionAdapter struct{ rt *RuntimeContext }
@@ -445,9 +444,9 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, key string, threshold flo
 	}
 }
 
-// writeLastTemplate 写 SysState.LastFound/LastPoint — Match/WaitMatch 复刻老 runtime
-// execCheckTemplate/execWaitTemplate 的副作用, 让 GetSys path=lastTemplate.{found,point}
-// 下游节点能读. fishing-v2 watchdog_check / inspect_phase 等子图依赖.
+// writeLastTemplate 写 SysState.LastFound/LastPoint (Match/WaitMatch), 让 GetSys
+// path=lastTemplate.{found,point} 下游节点能读. fishing-v2 watchdog_check / inspect_phase
+// 等子图依赖.
 func (a *visionAdapter) writeLastTemplate(found bool, pt expr.Point) {
 	a.rt.UpdateSys(func(s *SysState) {
 		s.LastFound = found
@@ -495,8 +494,8 @@ func (a *visionAdapter) DualBarTrack(roi node.Rect, inner, outer node.HSVRange, 
 	}
 
 	// 写 SysState.LastDualBarTrack — fishing-v2 state_FISHING 子图通过 GetSys
-	// path=lastDualBarTrack.{innerX,outerX,outerWidth,...} 读. atomic #5 拆老后这写回
-	// 责任落到 VisionAdapter (新框架节点只 emit exec-data, 不知 SysState).
+	// path=lastDualBarTrack.{innerX,outerX,outerWidth,...} 读. 写回责任落在 VisionAdapter
+	// (节点只 emit exec-data, 不碰 SysState).
 	a.rt.UpdateSys(func(s *SysState) {
 		s.LastDualBarTrack = out
 	})
@@ -509,8 +508,7 @@ func (a *visionAdapter) DetectColor(region [4]float64, mode string, rng [6]int) 
 	}
 	count, cx, cy, err := a.rt.Color.Detect(context.Background(), a.rt.Window.HWND, region, mode, rng)
 	if err == nil {
-		// 老 runtime execDetectColor 写 LastColorCount/LastColorCenter — GetSys
-		// path=lastColor.count/cx/cy 下游读.
+		// 写 LastColorCount/LastColorCenter — GetSys path=lastColor.count/cx/cy 下游读.
 		a.rt.UpdateSys(func(s *SysState) {
 			s.LastColorCount = int64(count)
 			s.LastColorCenter = expr.Point{X: cx, Y: cy}
@@ -532,7 +530,7 @@ func (a *visionAdapter) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, f
 		return 0, 0, fmt.Errorf("capture: nil frame")
 	}
 	count, ratio := countHSVInROI(frame, hsvRangeFromNode(hsv))
-	// 老 runtime execDetectColorHSV 写 LastDetect — GetSys path=lastDetect.pixelCount/pixelRatio 读.
+	// 写 LastDetect — GetSys path=lastDetect.pixelCount/pixelRatio 读.
 	a.rt.UpdateSys(func(s *SysState) {
 		s.LastDetect.PixelCount = count
 		s.LastDetect.PixelRatio = ratio
@@ -562,7 +560,7 @@ func (a *visionAdapter) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis stri
 			PxCount:  c.PxCount,
 		}
 	}
-	// 老 runtime execROIColorScan 写 LastROIScan — GetSys path=lastROIScan.{clusterCount,clusters} 读.
+	// 写 LastROIScan — GetSys path=lastROIScan.{clusterCount,clusters} 读.
 	a.rt.UpdateSys(func(s *SysState) {
 		s.LastROIScan.Clusters = internal
 		s.LastROIScan.ClusterCount = len(internal)
@@ -587,12 +585,12 @@ func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAda
 // ============================================================================
 
 // NewServiceBundleFor 用 RuntimeContext + stopwatchTable + logger 构造完整 ServiceBundle.
-// Phase 5.5 ContainerRunner.execNode 拿这个走 node.RunNode dispatch.
+// ContainerRunner.execNode 拿这个走 node.RunNode dispatch.
 //
 // stateGetter — live ExecState 入口 (frame.LocalVars / LocalParams scope). ContainerRunner
 // 构造时传 func() *ExecState { return r.state }. nil 兜底 — adapter scoped 方法降级.
 //
-// Snapshot — per-tick view 从 ctx (tickCtxKey, B1) 读. dispatchInRegion 入口
+// Snapshot — per-tick view 从 ctx (tickCtxKey) 读. dispatchInRegion 入口
 // withTickSnapshot 写入, EvaluatePureData wrap 时调 Snapshot(ctx) 拿 frozen Vars/Sys view.
 // ctx 无 value → 返空 Snapshot{}, 等价跳过 wrap.
 func NewServiceBundleFor(

@@ -2,9 +2,8 @@
 // 跨权限读 admin 进程 exe 名用 PROCESS_QUERY_LIMITED_INFORMATION (Vista+).
 //
 // 文件里有两套 API:
-//   - 旧版 (Target / FindGame / BringToFront): 写死匹配"异环"+"UnrealWindow",
-//     v1/v2 时期遗留, main/cmd 还在用, 后续 Phase B 完工会迁走.
-//   - 新版 (WindowHandle / MatchSpec / ResolveWindow): Phase B WindowTarget 节点用,
+//   - 旧版 (Target / FindGame / BringToFront): 写死匹配"异环"+"UnrealWindow", main/cmd 还在用.
+//   - 新版 (WindowHandle / MatchSpec / ResolveWindow): WindowTarget 节点用,
 //     支持任意 title/class/processName 匹配 + 元数据完整返回.
 package winutil
 
@@ -47,7 +46,7 @@ const (
 )
 
 // ---------------------------------------------------------------------------
-// 旧版 API (Target / FindGame / BringToFront) — v1/v2 遗留, Phase B 完工后清理.
+// 旧版 API (Target / FindGame / BringToFront).
 // ---------------------------------------------------------------------------
 
 type Target struct {
@@ -118,7 +117,7 @@ func FindGame() []Target {
 }
 
 // ---------------------------------------------------------------------------
-// 新版 API (Phase B WindowTarget) — runtime/recording/tools 共用.
+// 新版 API (WindowTarget) — runtime/recording/tools 共用.
 // ---------------------------------------------------------------------------
 
 // WindowHandle 解析后窗口的完整元数据. runtime 整 run 持有, 不只 hwnd.
@@ -300,7 +299,7 @@ func getClientSize(hwnd win.HWND) (int, int) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase B WindowTarget capture hotkey helpers (tools.CaptureForegroundWindow).
+// WindowTarget capture hotkey helpers (tools.CaptureForegroundWindow).
 // 用户先把目标窗口切到前台, 然后我们查它的 hwnd + metadata 一次性返给前端填表.
 // ---------------------------------------------------------------------------
 

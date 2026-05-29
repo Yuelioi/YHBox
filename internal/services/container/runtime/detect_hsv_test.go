@@ -10,8 +10,7 @@ import (
 	"yhbox/internal/services/container"
 )
 
-// TestDetectColorHSVMatchesYellowFrame deleted in atomic #5 — 老 runtime 写 Sys.LastDetect
-// 已废弃, 新框架行为 (Outputs) 由 internal/nodes/detect/detect_color_hsv_test.go 覆盖.
+// DetectColorHSV Outputs 行为由 internal/nodes/detect/detect_color_hsv_test.go 覆盖.
 // runtime 集成靠 TestDetectColorHSVTimeoutOnNoMatch (execNode + 测 elapsed).
 
 // TestDetectColorHSVTimeoutOnNoMatch: 100x100 全蓝帧, HSV 黄色范围 → 无命中 → timeout 出口。
@@ -41,7 +40,7 @@ func TestDetectColorHSVTimeoutOnNoMatch(t *testing.T) {
 				"sMin": float64(200), "sMax": float64(255),
 				"vMin": float64(200), "vMax": float64(255),
 			},
-			// v4: numeric thresholds via inline literal pin.
+			// numeric thresholds via inline literal pin.
 			"literal": map[string]any{
 				"MinPixelRatio":  float64(0.5),
 				"PollIntervalMs": float64(20),
@@ -52,7 +51,7 @@ func TestDetectColorHSVTimeoutOnNoMatch(t *testing.T) {
 	if r.nodesByID == nil {
 		r.nodesByID = map[string]*container.GraphNode{}
 	}
-	r.nodesByID[node.ID] = node // v4: pullDataPin lookup
+	r.nodesByID[node.ID] = node // pullDataPin lookup
 	start := time.Now()
 	_, err := r.execNode(context.Background(), node, ExecToken{InPin: "in"})
 	if err != nil {

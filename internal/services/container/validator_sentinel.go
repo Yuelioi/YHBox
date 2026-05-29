@@ -1,6 +1,6 @@
 package container
 
-// validateSentinelScope 拦截 Break/Continue/Throw 作用域错置 (P1.2).
+// validateSentinelScope 拦截 Break/Continue/Throw 作用域错置.
 //
 // Break / Continue: 必须 exec 可达自同图某个 Loop 节点的 body 出口 — 否则 sentinel
 // 漏到顶层 dispatch, 当前只能 emit generic error. fishing-v2 所有 Break 都跟其

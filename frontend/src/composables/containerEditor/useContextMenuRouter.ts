@@ -1,5 +1,4 @@
 // 4 个 context menu (Node / Multi / Edge / Pin) 路由 + 各 action dispatcher.
-// 从 ContainerEditorView 抽 (backlog C1).
 //
 // 内部持有 4 个 menu state ref; capture handler (onNodeContextMenu /
 // onSelectionContextMenu / onEdgeContextMenu / onCanvasContextMenuCapture) 开 menu,

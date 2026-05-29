@@ -11,10 +11,10 @@ import (
 )
 
 // TestPhaseA_E2E_SetVarGlobal: end-to-end exec → SetVar (literal pin) → tick boundary
-// → next exec sees new global var. Validates the full Phase A integration:
-//   - per-exec-tick snapshot (A3)
-//   - data-in pin pullDataPin (A5) + literal config storage
-//   - SetVar v4 (A6) reading via pull instead of expr config
+// → next exec sees new global var. Validates:
+//   - per-exec-tick snapshot
+//   - data-in pin pullDataPin + literal config storage
+//   - SetVar reading via pull instead of expr config
 //   - global scope writing rt.vars
 func TestPhaseA_E2E_SetVarGlobal(t *testing.T) {
 	c := &container.Container{
@@ -56,7 +56,7 @@ func TestPhaseA_E2E_SetVarGlobal(t *testing.T) {
 }
 
 // TestPhaseA_E2E_IncVarDeltaLiteral: SetVar(counter=10) → IncVar(delta=5) → counter==15.
-// Validates IncVar v4 (A7) pulling delta from literal pin.
+// Validates IncVar pulling delta from literal pin.
 func TestPhaseA_E2E_IncVarDeltaLiteral(t *testing.T) {
 	c := &container.Container{
 		SchemaVersion: 1,
@@ -102,7 +102,7 @@ func TestPhaseA_E2E_IncVarDeltaLiteral(t *testing.T) {
 }
 
 // TestPhaseA_E2E_GetVarViaDataEdge: SetVar(src="hello") → SetVar(dst pulls from GetVar(src)) → dst=="hello"
-// Validates GetVar (A4) + dataEdgeIndex (A5) + cross-tick snapshot consistency.
+// Validates GetVar + dataEdgeIndex + cross-tick snapshot consistency.
 //
 // Graph:
 //

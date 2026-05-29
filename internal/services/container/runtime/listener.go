@@ -19,7 +19,7 @@ type EventListener struct {
 
 	// homeEdges / homeNodesByID: 主图视图快照，listener 自家持有避免跟主 dispatch 抢
 	// runner.edges / runner.nodesByID（主 dispatch 进 subgraph 时会改写那两字段，
-	// 此处使用 runner 的字段会产生 data race + 行为错乱，Gemini review B-2 修复）。
+	// 此处使用 runner 的字段会产生 data race + 行为错乱）。
 	// listener 永远跑主图视图——OnEvent 节点只允许在主图，subgraph dispatch 由主流程处理。
 	homeEdges     *edgeIndex
 	homeNodesByID map[string]*container.GraphNode
@@ -47,8 +47,8 @@ type EventListener struct {
 }
 
 func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener {
-	// B3: r.compiled.Main 是 immutable 预编译产物 (CompileContainer 后从不写),
-	// 直接复用即可 — 不再手抓 snapshot. runner.edges/nodesByID 是 swap 目标 不能直接读, 但 r.compiled.Main 安全.
+	// r.compiled.Main 是 immutable 预编译产物 (CompileContainer 后从不写), 直接复用.
+	// runner.edges/nodesByID 是 swap 目标不能直接读, 但 r.compiled.Main 安全.
 	l := &EventListener{
 		runner:          r,
 		node:            n,
@@ -56,7 +56,7 @@ func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener
 		homeNodesByID:   r.compiled.Main.NodesByID,
 		kind:            configString(n, "kind"),
 		template:        configString(n, "template"),
-		// v4: thresholds via data-in pin. listener init 不在 dispatch tick scope, 传
+		// thresholds via data-in pin. listener init 不在 dispatch tick scope, 传
 		// context.Background() — config 走 literal/常量 不依赖 frozen Vars, 无 tick 行为一致.
 		threshold:       r.pullNumber(context.Background(), n, "threshold", 0.85),
 		pollIntervalMs:  int(r.pullNumber(context.Background(), n, "pollIntervalMs", 100)),
@@ -160,15 +160,12 @@ func (l *EventListener) handleFire(ctx context.Context) {
 //
 // 独立: edges / nodesByID / state — 避免跟主 dispatch 抢 swap 字段 + 不污染 frame 栈.
 // 共享: rt / bundle / compiled / dataEdges / stopwatches — bundle.Snapshot 走 ctx
-// (B1, tickCtxKey) 已 goroutine-safe; compiled/dataEdges 是 immutable 预编译产物;
+// (tickCtxKey) 已 goroutine-safe; compiled/dataEdges 是 immutable 预编译产物;
 // stopwatches 是 *stopwatchTable 全 container 共享.
-//
-// B1 前 bundle/compiled/dataEdges/stopwatches 都 nil — OnEvent 触发 → execNode →
-// dispatchInRegion → RunNode(... r.bundle) 立即 nil-panic. 现修.
 //
 // 注意: bundle 内 stateGetter closure capture 的是 main runner.state, listener subRunner
 // 调 Vars/Params adapter 时拿到的是 main r.state (不是 sub.state). 这是 listener subRunner
-// 共享 bundle 的副作用 — LocalVars/LocalParams 隔离归 B10 (GlobalVars/LocalVars 接入) 处理.
+// 共享 bundle 的副作用 — LocalVars/LocalParams 尚未隔离.
 func (l *EventListener) makeSubRunner() *ContainerRunner {
 	return &ContainerRunner{
 		rt:          l.runner.rt,
@@ -213,10 +210,9 @@ func (l *EventListener) spawn(parentCtx context.Context) {
 		}()
 		// Listener 子流程跑一个独立的 ContainerRunner 实例（共享 rt，独立 edges/nodesByID/state）
 		// 避免跟主 dispatch 的 r.edges 抢（主 dispatch 进 subgraph 时会改写那两字段产生数据
-		// 竞争和行为错乱，Gemini review B-2）。独立 ExecState 让 listener 子流程也能入嵌套子图
-		// 而不污染主 dispatch 的 frame 栈。注意：rt.vars（容器级变量）是 rt 上的字段且有锁，跨
-		// flow 共享 OK；ExecState.GlobalVars 不共享是当前节点执行器尚未接入 LocalVars/GlobalVars
-		// 的现状，B-10 修完后再处理跨流程共享。
+		// 竞争和行为错乱）。独立 ExecState 让 listener 子流程也能入嵌套子图而不污染主 dispatch
+		// 的 frame 栈。注意：rt.vars（容器级变量）是 rt 上的字段且有锁，跨 flow 共享 OK；
+		// ExecState.GlobalVars 不共享，因为节点执行器尚未接入 LocalVars/GlobalVars。
 		sub := l.makeSubRunner()
 		seeds := sub.edges.next(l.node.ID+".out", nil)
 		_ = sub.runSubFlow(subCtx, seeds)

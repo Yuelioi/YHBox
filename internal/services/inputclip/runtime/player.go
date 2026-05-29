@@ -1,6 +1,6 @@
 // Package runtime — ClipPlayer: InputClip 回放调度核心.
 //
-// 关键算法 (Gemini "freeze 3s" bug 修复):
+// 关键算法 (否则 cut 段后会 freeze 等待):
 //   不能用 event.TUs 直接做 schedule target. 否则 cut 掉一段后下个 event 的
 //   时间不变 → wallclock 多等 cut 长度的秒数.
 // 正解: 对每个 event 计算 effectiveTUs = event.TUs - accumulatedCut, accumulatedCut

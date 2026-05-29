@@ -15,7 +15,7 @@ type RegisteredNode struct {
 	Impl Node
 	Spec Spec
 
-	// exactly-one capability — Register 时验证 (C5 激活). nil = 节点未实现该 capability.
+	// exactly-one capability — Register 时验证. nil = 节点未实现该 capability.
 	Run       func(Ctx, Inputs) (Outputs, error)
 	RunRegion func(Ctx, Inputs, func(Ctx) error) (Outputs, error)
 	Evaluate  func(Ctx, Inputs) (any, error)
@@ -25,7 +25,7 @@ type RegisteredNode struct {
 	Validate     func(in Inputs) []ValidationError
 	Dependencies func(in Inputs) []Dependency
 
-	// Defaults — Spec.Inputs 中非 nil Default 值的 name→value 缓存. P1.9: per-token 不再
+	// Defaults — Spec.Inputs 中非 nil Default 值的 name→value 缓存. per-token 不再
 	// 重算 defaultsFromSpec — Register 时 build 一次, 引擎 newInputs 复用.
 	Defaults map[string]any
 }
@@ -73,7 +73,7 @@ func Register(impl Node) {
 		rn.Evaluate = e.Evaluate
 	}
 
-	// Strict capability invariant — P2.2 a+b+d 完成 (C5b):
+	// Strict capability invariant:
 	//   - 非 IsGraphMarker / IsVisualOnly 节点必须 exactly one capability
 	//   - IsPureData 节点必须 Evaluator
 	// 违反 → Register panic, init-time 失败立刻可见.

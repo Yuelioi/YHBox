@@ -6,7 +6,6 @@ import (
 )
 
 // passthroughDisabled routes a disabled node's token through a kind-specific exit pin.
-// Spec: editor-v2-quick-actions-design.md §6.2 — Phase 5.6 atomic 后 pin name 改新 spec.
 //
 // Mapping:
 //
@@ -16,7 +15,6 @@ import (
 //	Try                     → .out (正常完成出口)
 //	Subgraph / CollapsedNode → .Done / 动态 OutputPins[0] (dynamic outputs)
 //	Linear nodes (Sleep, KeyPress, SetVar, etc.) → 走 nodepkg.Spec 第一个 Type=Exec 出口
-//	                          (P1.4 砍硬编码 "out"/"Done" 双 fallback, 改 Spec 单一源)
 //	Throw / Stop / terminals → noop (return nil; runner naturally terminates this token's path)
 //	Start / WindowTarget / MouseCalibration / OnEvent → validator should have errored (INVALID_DISABLED_TERMINAL).
 func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
@@ -30,7 +28,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 	case "Try":
 		return tryExits(r, node, tok, "out"), nil
 	case "Subgraph", "CollapsedNode":
-		// 新框架 Subgraph/CollapsedNode 都是单 Done 出口 (固定). 老 Subgraph 用 OutputPins[0].
+		// Subgraph/CollapsedNode 是单 Done 出口; 无下游时 fallback 到 OutputPins[0].
 		tokens := r.edges.next(node.ID+".Done", tok.LoopStack)
 		if len(tokens) > 0 {
 			return tokens, nil
@@ -47,7 +45,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 		// Container-level — validator should have caught this. Defensive: noop.
 		return nil, nil
 	default:
-		// Linear nodes: 走 Spec 单一源, 拿第一个 Type=Exec 出口名 (砍 "out"/"Done" 双 fallback).
+		// Linear nodes: 走 Spec, 拿第一个 Type=Exec 出口名.
 		exit := firstExecOutPin(node.Kind)
 		if exit == "" {
 			return nil, nil
@@ -58,7 +56,6 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 
 // firstExecOutPin 返 nodepkg.Get(kind).Spec.Outputs 中 Type=="Exec" 的第一个出口名.
 // kind 未注册 / 无 exec 出口 → 空字符串 (caller 视为无出口, 路径自然终止).
-// P1.4: linear 节点 disabled passthrough 用这个, 砍硬编码 "out"/"Done" 双 fallback.
 func firstExecOutPin(kind string) string {
 	rn, ok := nodepkg.Get(kind)
 	if !ok {

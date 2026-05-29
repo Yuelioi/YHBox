@@ -239,7 +239,7 @@ func TestNewServiceBundleFor_AllSlotsFilled(t *testing.T) {
 }
 
 // ============================================================================
-// VisionAdapter SysState writeback (cleanup plan P0.1)
+// VisionAdapter SysState writeback
 // ============================================================================
 
 // stubMatcher 控 found / point 让 test 验 LastFound/LastPoint 写回.

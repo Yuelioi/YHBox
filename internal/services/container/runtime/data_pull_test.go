@@ -98,7 +98,7 @@ func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 }
 
 func TestDataEdgeIndex_IgnoresExecEdges(t *testing.T) {
-	// v4 (C1): edge type derived from (from-node.kind, from-pin).
+	// edge type derived from (from-node.kind, from-pin).
 	// Sleep.out is exec-out (not in DataOut) → filtered out.
 	// GetVar.value is data-out → kept.
 	idx := buildDataEdgeIndex(container.Graph{
@@ -141,7 +141,7 @@ func TestToExprValue_IntPromotedToFloat64(t *testing.T) {
 	}
 }
 
-// A4 regression: evalDataSource must reject exec kinds as data-edge sources.
+// evalDataSource must reject exec kinds as data-edge sources.
 // Catches drift where a new exec kind's data-out is mistakenly pulled
 // instead of read from the sys snapshot.
 func TestEvalDataSourceRejectsExecKind(t *testing.T) {
@@ -158,7 +158,7 @@ func TestEvalDataSourceRejectsExecKind(t *testing.T) {
 	}
 }
 
-// A4 regression: evalDataSource must reject unknown kinds (registry miss).
+// evalDataSource must reject unknown kinds (registry miss).
 func TestEvalDataSourceRejectsUnknownKind(t *testing.T) {
 	_, r := newTestRunner(t)
 	r.nodesByID = map[string]*container.GraphNode{

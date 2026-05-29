@@ -399,10 +399,9 @@ func TestValidateWindowTarget_Valid(t *testing.T) {
 	}
 }
 
-// TestValidate_DataEdgeNoLongerRaisesInvalidPin pins the C1 fix.
-// Pre-C1: edge.Kind=="" (legacy / forgotten field) → validator's switch default
-// ran exec-pin check on GetVar.value (which has no exec-out) → spurious INVALID_PIN.
-// Post-C1: edge type is derived from (from-node.kind, from-pin) — bug structurally impossible.
+// TestValidate_DataEdgeNoLongerRaisesInvalidPin: a data edge must not raise INVALID_PIN.
+// Edge type is derived from (from-node.kind, from-pin), so a missing edge.Kind can't make
+// the validator run an exec-pin check on a data-out pin (e.g. GetVar.value) — structurally impossible.
 func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 	c := &Container{
 		SchemaVersion: CurrentSchemaVersion,

@@ -11,9 +11,9 @@ import (
 )
 
 // TestV4_FishingV2Proto_StateMachine validates v4 expressiveness for the fish bot
-// state-machine pattern (the v2 north star). Real Fishing v2 has 9 states wired through
-// subgraphs + image/HSV detection — that's Phase F work. This proto exercises just the
-// state-machine dispatch core: SetVar state → Switch on state → branch to per-state SetVar.
+// state-machine pattern. Real Fishing v2 has 9 states wired through subgraphs + image/HSV
+// detection. This proto exercises just the state-machine dispatch core: SetVar state →
+// Switch on state → branch to per-state SetVar.
 //
 // Topology:
 //

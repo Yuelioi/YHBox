@@ -10,9 +10,8 @@ import (
 	"yhbox/internal/node"
 )
 
-// mockVision 实现 VisionService — 跨 detect 包测试文件复用 (定义在 check_template_test.go,
-// 字母序最早). 各字段按需 set, 用不到的方法返零值. Phase 4.2 加 ColorBarTrack /
-// DetectColor / DetectColorHSV / ROIColorScan 后, 同一 mock 覆盖所有 detect 节点测试.
+// mockVision 实现 VisionService — 跨 detect 包测试文件复用 (定义在字母序最早的
+// 文件里以免重复定义). 各字段按需 set, 用不到的方法返零值.
 type mockVision struct {
 	// Match / WaitMatch 用
 	point *node.Point

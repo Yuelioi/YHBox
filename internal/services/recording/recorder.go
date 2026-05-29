@@ -4,7 +4,7 @@
 //
 // v2 设计原则: Recorder dumb 化 — drain loop 不做任何合并 / 配对 / dedupe,
 // 每个 HookEvent 直接转换成 inputclip.Event append 进 slice. 智能化全部下放到
-// inputclip transform 层 (Phase 3+).
+// inputclip transform 层.
 //
 // 关键 Win32 约束：
 //   - SetWindowsHookEx + GetMessage 必须同一个 OS 线程
@@ -237,7 +237,7 @@ func (r *Recorder) workerThread() {
 }
 
 // drainLoop dumb 转换 — 每个 HookEvent 直接 append 进 clipEvents, 不做任何合并 /
-// 配对 / dedupe. mouseMode='relative' (FPS) 时不做窗口检测 — 防 Gemini 隐藏坑.
+// 配对 / dedupe. mouseMode='relative' (FPS) 时不做窗口检测.
 func (r *Recorder) drainLoop() {
 	defer close(r.drainDone)
 	for ev := range r.rawEvents {
@@ -297,7 +297,7 @@ func (r *Recorder) drainLoop() {
 
 		default:
 			// 鼠标按键 down/up
-			// 关键: mouseMode='relative' (FPS) 时不做窗口检测 — 防 Gemini 隐藏坑
+			// 关键: mouseMode='relative' (FPS) 时不做窗口检测
 			if r.meta.MouseMode == "absolute" && !IsPointInsideGameWindow(r.hwnd, ev.ScreenX, ev.ScreenY) {
 				continue
 			}

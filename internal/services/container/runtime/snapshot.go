@@ -44,9 +44,8 @@ func (s *TickSnapshot) GetVar(name string) (expr.Value, bool) {
 // tickCtxKey 是 ctx.Value 的 key, 持 per-tick *TickSnapshot. dispatchInRegion
 // 入口 withTickSnapshot 写, ServiceBundle.Snapshot 闭包 tickFromCtx 读.
 //
-// per-goroutine / per-token scope — 同 *ContainerRunner 跑多 goroutine (listener
-// subRunner 共享 bundle 后 + Phase 6 Parallel/Race 未来) 时, 各 goroutine 自己
-// ctx chain 独立, 不撞 instance 字段.
+// per-goroutine / per-token scope — 同 *ContainerRunner 跑多 goroutine (如共享 bundle
+// 的 listener subRunner / 并发分支) 时, 各 goroutine 自己 ctx chain 独立, 不撞 instance 字段.
 type tickCtxKeyT struct{}
 
 var tickCtxKey = tickCtxKeyT{}

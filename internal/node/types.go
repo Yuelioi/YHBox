@@ -24,7 +24,7 @@ type Color struct {
 	V int `json:"v"`
 }
 
-// P2.7: typeRegistry 加 mutex (跟 globalRegistry 对称). init() 之外的 RegisterType
+// typeRegistry 加 mutex (跟 globalRegistry 对称). init() 之外的 RegisterType
 // 罕见, 但 AllTypes RPC handler 并发读取需安全.
 var (
 	typeRegistryMu sync.RWMutex

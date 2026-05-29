@@ -1,6 +1,5 @@
 // VariableRef — unified schema for variable references across GetVar/SetVar/IncVar nodes
 // and editor surfaces (VarsPanel / FavoritesPanel / Promote-to-Var op).
-// Spec: debug/docs/superpowers/specs/2026-05-19-editor-v2-vars-panel-design.md §4.7
 
 export type VarType = 'number' | 'string' | 'bool' | 'point' | 'any'
 

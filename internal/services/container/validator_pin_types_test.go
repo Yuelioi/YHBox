@@ -39,8 +39,8 @@ func TestValidate_PinTypeMismatch_StringToNumber(t *testing.T) {
 // TestValidate_PinTypeCoercion_NumberToBool_Warning:
 // number → bool is allowed but produces a warning.
 func TestValidate_PinTypeCoercion_NumberToBool_Warning(t *testing.T) {
-	// We need a node with a bool-typed data-in pin. Phase A doesn't ship one yet
-	// (SetVar/IncVar are any/number). Skip until Phase C migrates If.
+	// We need a node with a bool-typed data-in pin; no node ships one yet
+	// (SetVar/IncVar are any/number).
 	t.Skip("no bool data-in pin in Phase A (If migration is Phase C task C3)")
 }
 

@@ -1,5 +1,5 @@
-// 跨 graph (主图 + 所有子图) walker. 从 useNodeSearch / useContextMenuRouter
-// (find-references) 共用模板抽 (backlog C5).
+// 跨 graph (主图 + 所有子图) walker. useNodeSearch / useContextMenuRouter
+// (find-references) 共用.
 //
 // Usage:
 //   walkAllGraphs(container, (node, { location, sgID }) => {

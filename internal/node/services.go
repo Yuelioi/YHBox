@@ -1,5 +1,5 @@
 // internal/node/services.go
-// Phase 1-4 stub services. Phase 5 由 main.go 注入真实 backend (wire from wire_container.go).
+// stub services. 真实 backend 由 main.go 注入 (wire from wire_container.go).
 //
 // 全部 stub 实现 no-op / zero value, 不 panic. 测试用; production 真节点应 main.go
 // inject 真 backend, 节点拿到 nil service 调方法才 panic.
@@ -52,7 +52,7 @@ func (stubVisionService) ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx
 	return nil, nil
 }
 
-// StubVisionService — Phase 1-4 test 用. Phase 5 main.go 注入真 wire_container.go::templateMatcherAdapter.
+// StubVisionService — test 用. main.go 注入真 wire_container.go::templateMatcherAdapter.
 func StubVisionService() VisionService { return stubVisionService{} }
 
 // ---- InputService ----
@@ -69,13 +69,12 @@ func (stubInputService) Scroll(x, y float64, notches int) error                 
 func (stubInputService) MouseDown(x, y float64, button string) error                       { return nil }
 func (stubInputService) MouseUp(button string) error                                       { return nil }
 
-// StubInputService — Phase 4 test 用. Phase 5 main.go 注入 pkg/input.Backend 适配.
+// StubInputService — test 用. main.go 注入 pkg/input.Backend 适配.
 func StubInputService() InputService { return stubInputService{} }
 
 // ---- VarStore ----
 
 // stubVarStore in-memory map, mutex-safe — 测试 + 单 graph 实例够用.
-// Phase 5 wire 真 RuntimeContext.SetVar/Vars 时这个 stub 报废.
 type stubVarStore struct {
 	mu sync.RWMutex
 	m  map[string]any
@@ -129,8 +128,7 @@ func (s *stubVarStore) IncScoped(name, _ string, d float64) float64 {
 
 // ---- SysStore ----
 
-// StubSysStore in-memory key→any. Phase 5 wire SysState resolveSysPath 时这 stub
-// 仍可能被测试直接复用 (preset 几个 path 值 via SetForTest).
+// StubSysStore in-memory key→any. 测试可直接复用 (preset 几个 path 值 via SetForTest).
 type StubSysStore struct {
 	mu sync.RWMutex
 	m  map[string]any
@@ -243,7 +241,7 @@ func NewStubStopwatchStore() StopwatchStore { return &stubStopwatchStore{m: map[
 // ---- ServiceBundle helpers ----
 
 // StubServices 返一个全 stub 填充的 ServiceBundle, test 用.
-// Phase 5 main.go 不用这个, 直接 new ServiceBundle 塞真 backend.
+// main.go 不用这个, 直接 new ServiceBundle 塞真 backend.
 //
 // Snapshot 默认 nil — EvaluatePureData 检查 nil 跳过 wrap, 现有 PureData Evaluator
 // 测试 (Expr 等) 走 stub Vars/Sys, 不需要 snapshot 行为.

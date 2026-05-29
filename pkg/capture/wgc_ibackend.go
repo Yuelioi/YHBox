@@ -56,7 +56,6 @@ func (b *wgcBackend) ClientSize(hwnd win.HWND) (int, int, error) {
 }
 
 func (b *wgcBackend) Close() error {
-	// Phase D 加 Direct3D11CaptureFramePool / COM 资源时这里 Release.
-	// 1.0 wgc backend 是 stateless wrapper, no-op.
+	// wgc backend 当前是 stateless wrapper, 无 Direct3D11CaptureFramePool / COM 资源要 Release, no-op.
 	return nil
 }

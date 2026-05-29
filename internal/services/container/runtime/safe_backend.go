@@ -12,7 +12,7 @@ import (
 )
 
 // SafeInputBackend wraps pkginput.Backend, 集中 invalid-hwnd warn-once + emit.
-// Phase C 加新节点直接调 rt.Input.Click(...), 不知道 SafeBackend 存在, 也不重复 warn 模板.
+// 新节点直接调 rt.Input.Click(...) 无需知道 SafeBackend 存在, warn 模板也不重复.
 type SafeInputBackend struct {
 	inner  pkginput.Backend
 	rt     *RuntimeContext

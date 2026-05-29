@@ -1,4 +1,4 @@
-// 画布节点搜索 (Ctrl+F). 从 ContainerEditorView 抽 (backlog C1).
+// 画布节点搜索 (Ctrl+F).
 // open ref 跟 useEditorHotkeys 共享 — hotkey toggle, modal pick 后关.
 
 import { computed, nextTick, ref, type Ref } from 'vue'

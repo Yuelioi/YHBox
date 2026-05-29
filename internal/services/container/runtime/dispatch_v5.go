@@ -1,4 +1,4 @@
-// dispatch_v5.go — Phase 5.5 新 dispatch 路径 (atomic #3 ship: execNode 走这里).
+// dispatch_v5.go — dispatch 路径: execNode 走这里.
 //
 // 通过 node.RunNode / RunNodeAsRegion 派发节点.
 //
@@ -21,8 +21,8 @@ import (
 	"yhbox/internal/services/container"
 )
 
-// execNodeViaFramework dispatch 单节点 via 新 framework. 返下游 token 或 error.
-// 不处理 RegionRunner — 那些走 r.execNodeAsRegionViaFramework (Phase 5.5b).
+// execNodeViaFramework dispatch 单节点 via framework. 返下游 token 或 error.
+// 不处理 RegionRunner — 那些走 r.execNodeAsRegionViaFramework.
 func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	rn, ok := nodepkg.Get(node.Kind)
 	if !ok {
@@ -44,11 +44,9 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 //
 // 每个 pin 走 resolveDataPinV5 — 上游是 IsPureData + 实现 Evaluator → 框架 EvaluatePureData
 // (递归 build 上游 dataWire); 否则 (GetVar/GetSys/GetParam/Expr/exec-node data-out/literal/无 edge)
-// fallback 老 r.pullDataPin. 这就是 Phase 6+ partial 的 "上游是 pure-data → 框架 evaluate, 否则
-// 兜底转换期".
+// fallback r.pullDataPin.
 //
-// 注意 pin name 大小写: 用 Spec.Inputs[].Name 当 pin name 查 r.dataEdges. 老 JSON edges 用 lowercase,
-// 新 Spec 用 PascalCase — Phase 5.6 fishing-v2 redraw 后, 新 JSON 跟 Spec 一致就 work.
+// 注意 pin name 大小写: 用 Spec.Inputs[].Name 当 pin name 查 r.dataEdges, 两侧都是 PascalCase.
 func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.GraphNode, rn *nodepkg.RegisteredNode) map[string]any {
 	dw := map[string]any{}
 	for _, ip := range rn.Spec.Inputs {
@@ -83,17 +81,17 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 	return dw
 }
 
-// resolveDataPinV5 解析单个 data-in pin 值. transition-period dispatch:
-//   - 没 data edge → literal / default → 走老 r.pullDataPin
-//   - 上游节点不在 framework registry / 不 IsPureData / 没实现 Evaluator → 走老 r.pullDataPin
+// resolveDataPinV5 解析单个 data-in pin 值:
+//   - 没 data edge → literal / default → 走 r.pullDataPin
+//   - 上游节点不在 framework registry / 不 IsPureData / 没实现 Evaluator → 走 r.pullDataPin
 //   - 上游 IsPureData + 实现 Evaluator → 走 nodepkg.EvaluatePureData (递归 build 上游 dataWire)
 //
 // 22 purefunc + Expr 走 framework. GetVar/GetSys/GetParam 依赖 runtime state (frame /
-// per-tick snapshot), 暂走 fallback 老 evalDataSource switch — C4 后续单独处理.
+// per-tick snapshot), 走 fallback evalDataSource switch.
 func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName string) (any, error) {
 	srcID, _ := r.dataEdges.Source(nodeID, pinName)
 	if srcID == "" {
-		// 无 data edge — literal 或 default. 老 pullDataPin 处理 (其内部会读 config["literal"]).
+		// 无 data edge — literal 或 default. pullDataPin 处理 (其内部会读 config["literal"]).
 		v, err := r.pullDataPin(ctx, nodeID, pinName)
 		return v, err
 	}
@@ -101,7 +99,7 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 	if !ok {
 		return r.pullDataPin(ctx, nodeID, pinName)
 	}
-	// Editor v2 C: disabled pure-data → nil (跟老 evalDataSource 行为一致).
+	// disabled pure-data → nil.
 	if srcNode.Disabled {
 		return nil, nil
 	}
@@ -118,8 +116,7 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 // buildConfigFor 复制 node.Config 当 framework config map. 扣 "literal" 内部字段
 // (pullDataPin 已经消费它做 inline data-edge literal source).
 //
-// Config key 跟 Spec.Inputs[].Name 严格 case-sensitive 比. fishing-v2 JSON 跟所有 test
-// fixture 已 redraw 到 PascalCase, 不再需要 lowercase 镜像.
+// Config key 跟 Spec.Inputs[].Name 严格 case-sensitive 比 (两侧都是 PascalCase).
 func (r *ContainerRunner) buildConfigFor(node *container.GraphNode) map[string]any {
 	out := make(map[string]any, len(node.Config))
 	for k, v := range node.Config {
@@ -132,8 +129,8 @@ func (r *ContainerRunner) buildConfigFor(node *container.GraphNode) map[string]a
 }
 
 // buildExecDataFor 读 tok.ExecData (上游 routeResult 通过 edges.nextWithData 挂上).
-// 老 v4 runtime "exec-data" 行为复刻: 上游 ctx.Out("exit").Set("k", v).Fire() → 下游
-// in.X("k") 读到 v. nil safe (源节点无 data 时 tok.ExecData == nil).
+// exec-data 语义: 上游 ctx.Out("exit").Set("k", v).Fire() → 下游 in.X("k") 读到 v.
+// nil safe (源节点无 data 时 tok.ExecData == nil).
 func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
 	if tok.ExecData == nil {
 		return map[string]any{}
@@ -145,8 +142,7 @@ func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
 //
 // Priority order:
 //  1. Panic   → emit container:node-panic + return error (framework invariant broken)
-//  2. Validation → emit container:node-validation + return error (graph 写错, Phase 5.5a 中断 run;
-//     后续可改 emit + continue 让前端高亮但不停)
+//  2. Validation → emit container:node-validation + return error (graph 写错, 中断 run)
 //  3. Error   → emit container:node-error + return error (Run 返 runtime fail, caller 决定 stop /
 //     冒泡 / 走 Try; Stop sentinel / Try internal catch 走早返不 emit)
 //  4. Display → emit container:node-log (Display() 非空才 emit)
@@ -185,16 +181,16 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 			return nil, errStopRun
 		}
 		// 注意 Break/Continue/Throw sentinel 错误必须透传 — 外层 Loop.RunRegion / Try.RunRegion
-		// 截获. 顶层 leak 防御在 ContainerRunner.Run / runSubFlow 主 loop (P1.2).
-		// Try 的 error path 写 SysState.LastTry.ErrorMsg — 老 runtime execTry 副作用,
-		// state_FISHING 等子图通过 GetSys path=lastTry.errorMsg 读. 注意 Try.RunRegion
-		// 内部已 catch error 走 catch 出口, 这里 result.Error 漏到 routeResult 表示真
-		// 失败 (validator drift / framework bug), 仍存一份 ErrorMsg 给诊断.
+		// 截获. 顶层 leak 防御在 ContainerRunner.Run / runSubFlow 主 loop.
+		// Try 的 error path 写 SysState.LastTry.ErrorMsg — state_FISHING 等子图通过
+		// GetSys path=lastTry.errorMsg 读. 注意 Try.RunRegion 内部已 catch error 走 catch
+		// 出口, 这里 result.Error 漏到 routeResult 表示真失败 (validator drift / framework
+		// bug), 仍存一份 ErrorMsg 给诊断.
 		if node.Kind == "Try" {
 			msg := result.Error.Error()
 			r.rt.UpdateSys(func(s *SysState) { s.LastTry.ErrorMsg = msg })
 		}
-		// P1.1: 跟 Panic / Validation 对齐 — emit container:node-error 让前端高亮失败节点.
+		// 跟 Panic / Validation 对齐 — emit container:node-error 让前端高亮失败节点.
 		if r.rt.Emit != nil {
 			r.rt.Emit("container:node-error", map[string]any{
 				"containerId": r.rt.Container.ID,
@@ -215,9 +211,8 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		})
 	}
 
-	// 节点 OutputData 摘录写到 SysState — 复刻老 runtime 自管 SysState 的副作用.
-	// 新框架 Spec SysStore 设计成 read-only, 写责任落到 dispatch 层 (类似 VisionAdapter
-	// 在 vision call 里写). 只对真有 GetSys 路径消费的节点做.
+	// 节点 OutputData 摘录写到 SysState. Spec SysStore 是 read-only, 写责任落到 dispatch
+	// 层 (类似 VisionAdapter 在 vision call 里写). 只对真有 GetSys 路径消费的节点做.
 	r.writeSysStateFromOutput(node, result)
 
 	if result.ExitName == "" {
@@ -228,7 +223,7 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 }
 
 // writeSysStateFromOutput 按 node.Kind 摘录 result.OutputData 字段写 SysState.
-// 老 runtime 节点内部直接写 rt.UpdateSys, 新框架 spec 不暴露写口, 责任转到 dispatch.
+// Spec 不暴露写口, 责任转到 dispatch.
 //
 // 当前只覆盖 Screenshot (LastScreenshot.Path). Match/WaitMatch/DetectColor/HSV/ROIScan/
 // BarTrack 在 VisionAdapter 内已写, 不重复. Try.LastTry.ErrorMsg 走 error 路径单独写.
@@ -245,7 +240,7 @@ func (r *ContainerRunner) writeSysStateFromOutput(node *container.GraphNode, res
 }
 
 // ============================================================================
-// Phase 5.5b — Region runner sub-dispatch.
+// Region runner sub-dispatch.
 // ============================================================================
 
 // execNodeAsRegionViaFramework dispatch RegionRunner 节点 (Loop / Subgraph / 未来 Try).
@@ -272,12 +267,10 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	return r.routeResult(node, tok, result)
 }
 
-// dispatchInRegion 统一 dispatch entry for nodes inside region body.
+// dispatchInRegion 统一 dispatch entry for nodes inside region body. 这是 execNode 主入口.
 // runRegionBody 调它派发 child 节点 — 自动 route 到 region (RunNodeAsRegion) 或 normal (RunNode).
 //
-// Phase 5.5c cutover 后这是 execNode 主入口 (替换老 switch).
-//
-// per-exec-tick snapshot 也只在这里抓 (P1.6 单一抓点) — runner.go::Run / nodes.go::runSubFlow /
+// per-exec-tick snapshot 只在这里抓 (单一抓点) — runner.go::Run / nodes.go::runSubFlow /
 // runRegionBody 都不重复抓. consumers (GetVar.Evaluate / GetSys.Evaluate 经 framework
 // snapshot wrap) 只在节点 data pull 阶段读, 跟 dispatchInRegion → execNode(AsRegion)ViaFramework
 // → buildDataWireFor 同周期, 入口抓一次足够.
@@ -286,8 +279,8 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 	if !ok {
 		return nil, fmt.Errorf("dispatchInRegion: kind %q not registered", n.Kind)
 	}
-	// B1: per-tick snapshot 走 ctx (tickCtxKey) — per-goroutine/per-token scope,
-	// listener subRunner 共享 bundle / Phase 6 Parallel/Race 未来都安全, 不撞 instance 字段.
+	// per-tick snapshot 走 ctx (tickCtxKey) — per-goroutine/per-token scope, 让共享 bundle
+	// 的 listener subRunner / 并发 runner 都安全, 不撞 instance 字段.
 	ctx = withTickSnapshot(ctx, CaptureSnapshot(r.rt.Vars(), r.rt.Sys()))
 	if rn.RunRegion != nil {
 		return r.execNodeAsRegionViaFramework(ctx, n, tok)
@@ -299,7 +292,6 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 // 正常路径里 Loop.RunRegion 截获 Break/Continue, Try.RunRegion 截获 Throw — 漏到
 // 顶层主 loop 说明 validator 漏报或子图 misplace. 返非空 leakCode + 包装 err 让主
 // loop emit container:node-validation 高亮失败节点; 不属 sentinel 返空 + 原 err.
-// P1.2.
 func (r *ContainerRunner) checkSentinelLeak(node *container.GraphNode, err error) (leakCode string, wrapped error) {
 	switch {
 	case control.IsBreakRequested(err):
@@ -340,7 +332,7 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		}
 		tok := queue[0]
 		queue = queue[1:]
-		// B2: entry/output 是 virtual marker (不在 nodesByID), 走 metadata 路由.
+		// entry/output 是 virtual marker (不在 nodesByID), 走 metadata 路由.
 		if r.currentSG != nil {
 			if tok.NodeID == r.currentSG.EntryNodeID {
 				queue = append(queue, r.edges.next(tok.NodeID+".Done", tok.LoopStack)...)
@@ -354,8 +346,7 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		if !ok {
 			return fmt.Errorf("runRegionBody: unknown node %q", tok.NodeID)
 		}
-		// 节点级事件 — 跟 runner.go::Run 主 loop 同 emit, 让 GUI 高亮子图 / Loop body 内
-		// 跑的节点 (老 runner 只 emit 顶层一层, 子区域走 runRegionBody 不进 execNode 也没 emit).
+		// 节点级事件 — 跟 runner.go::Run 主 loop 同 emit, 让 GUI 高亮子图 / Loop body 内跑的节点.
 		if r.rt.Emit != nil {
 			r.rt.Emit("container:node-enter", map[string]any{
 				"containerId": r.rt.Container.ID,
@@ -363,7 +354,7 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 				"nodeKind":    n.Kind,
 			})
 		}
-		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (P1.6 单一抓点), 这里不重复.
+		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (单一抓点), 这里不重复.
 		out, err := r.dispatchInRegion(ctx, n, tok)
 		if err != nil {
 			return err
@@ -373,10 +364,9 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 	return nil
 }
 
-// makeBodyFor build region body callback per node kind.
-// Phase 5.5b 支持 Loop / Subgraph / CollapsedNode / Try.
+// makeBodyFor build region body callback per node kind: Loop / Subgraph / CollapsedNode / Try.
 //
-// ctx 来自 execNodeAsRegionViaFramework — 携带 tickCtxKey (B1), Subgraph/Try eager pullDataPin
+// ctx 来自 execNodeAsRegionViaFramework — 携带 tickCtxKey, Subgraph/Try eager pullDataPin
 // 链下去 bundle.Snapshot 能拿 frozen Vars. Loop body 不 pullDataPin 不需要外部 ctx.
 func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	switch node.Kind {
@@ -413,7 +403,7 @@ func (r *ContainerRunner) makeBodyForTry(ctx context.Context, node *container.Gr
 // makeBodyForSubgraph body 调一次 — 解析 SubgraphID + push frame + 切 dispatch table 到 callee +
 // SubgraphInput.Done 出发 sub-dispatch + SubgraphOutput 终点 return nil + restore frame & tables.
 //
-// SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟新 Spec.Inputs.SubgraphID 对齐) 取.
+// SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟 Spec.Inputs.SubgraphID 对齐) 取.
 func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	sgID, _ := node.Config["SubgraphID"].(string)
 	if sgID == "" {
@@ -431,13 +421,10 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 	}
 	parentLoopStack := tok.LoopStack
 	// Params 来源 (3 路 union, 优先级 1→3):
-	//   1. node.Config["Params"] static JSON map (Phase 5.5 设计).
-	//   2. sg.InputParams 声明的入参, 每个 pullDataPin(callerNode, paramName) — 复刻老
-	//      execSubgraph 行为, 让 caller 通过 data-in pin 或 literal pin 推 dynamic param.
-	//      Phase 6+ pull-eval 让上游 pure-data via framework 走通这条.
+	//   1. node.Config["Params"] static JSON map.
+	//   2. sg.InputParams 声明的入参, 每个 pullDataPin(callerNode, paramName), 让 caller 通过
+	//      data-in pin 或 literal pin 推 dynamic param.
 	//   3. p.Default fallback if pull 出 nil.
-	//
-	// 转换期里 #1 + #2 同时认 — atomic #5 拆老后只留 #2 (规范 dynamic Params 走 InputParams + data-in).
 	staticParams, _ := node.Config["Params"].(map[string]any)
 	type pulledParam struct {
 		name string
@@ -468,8 +455,8 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 		defer r.state.PopFrame()
 
 		// Save dispatch tables, swap to subgraph's.
-		// B3: 改读 r.compiled.Subgraphs 预编译产物, 不再 hot rebuild edge index.
-		// B2: 同时 swap currentSG, runRegionBody 用来识 entry/output marker.
+		// 读 r.compiled.Subgraphs 预编译产物 (不 hot rebuild edge index).
+		// 同时 swap currentSG, runRegionBody 用来识 entry/output marker.
 		savedEdges := r.edges
 		savedDataEdges := r.dataEdges
 		savedNodesByID := r.nodesByID
@@ -489,7 +476,7 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 			r.currentSG = savedCurrentSG
 		}()
 
-		// B2: entry NodeID 从 sg.Entry metadata 拿, 不再 scan Graph.Nodes.
+		// entry NodeID 从 sg.Entry metadata 拿 (不 scan Graph.Nodes).
 		entryID := sg.Entry.NodeID
 		if entryID == "" {
 			return fmt.Errorf("Subgraph %s: callee %q missing Entry (Normalize 漏?)", node.ID, sg.ID)

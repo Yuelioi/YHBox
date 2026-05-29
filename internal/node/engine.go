@@ -100,7 +100,7 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 // 跟 RunNode 同套 Required/Validate/recover/Display 管线, 区别在调 rn.RunRegion(c, in, body)
 // 而非 rn.Run(c, in).
 //
-// body 是 "执行 region 内部下游" 的回调, 由调用方 (Phase 5.10 runner) 提供 — 节点决定
+// body 是 "执行 region 内部下游" 的回调, 由调用方 (region runner) 提供 — 节点决定
 // 调 0 / 1 / N 次. body 返 error → 节点可截获 (Try) / 翻译 sentinel (Loop Break/Continue)
 // 或直接 propagate.
 //

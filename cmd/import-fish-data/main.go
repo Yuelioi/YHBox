@@ -234,7 +234,7 @@ func planColorBarPatches(fishCfgDir, ctnDir string) ([]ColorBarPatch, error) {
 func executePlan(plan *ImportPlan) error {
 	templatesDir := filepath.Join(ctnDir, "templates")
 
-	// clean old (user backup at bin/data.legacy-2026-05-23/)
+	// clean old templates before re-import
 	if err := os.RemoveAll(templatesDir); err != nil {
 		return fmt.Errorf("rm old templates: %w", err)
 	}

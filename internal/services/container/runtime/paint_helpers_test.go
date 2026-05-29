@@ -7,7 +7,6 @@ import (
 
 // paintCursorBar / paintTargetBar: 合成 ColorBarTrack 测试帧 (黄 cursor + 青 target).
 // inspect_phase / state_fishing / state_waiting / try_hook_f 测试用.
-// 之前在 color_bar_track_test.go 内, atomic #5 删那个文件时挪出.
 
 func paintCursorBar(img *image.RGBA, x int) {
 	cursor := color.RGBA{R: 255, G: 240, B: 60, A: 255} // H=55 S=195 V=255; H[45,70] S>=40 V>=200

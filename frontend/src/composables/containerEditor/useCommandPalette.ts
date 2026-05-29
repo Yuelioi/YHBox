@@ -1,4 +1,4 @@
-// 命令面板 commands 列表 builder. 从 ContainerEditorView 抽 (backlog C1).
+// 命令面板 commands 列表 builder.
 // 纯 declarative — ref + actions 进 opts, computed<Command[]> 出.
 //
 // 注意: 调用位置必须在所有 action 声明之后 (onSave / onValidate / ... 不能前向引用).

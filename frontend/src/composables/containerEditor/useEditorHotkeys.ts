@@ -1,5 +1,4 @@
-// 全局快捷键注册. 从 ContainerEditorView 抽出 (backlog C1).
-// 顺手 dedup 5 处 isTypingTarget 重复.
+// 全局快捷键注册.
 //
 // EDITOR_KEYS 进 hotkey registry: webview only (inAppOnly), readonly.
 // 用户在 Settings → 快捷键 '编辑器' 分组看得见, 跟其它 source 撞 normalized

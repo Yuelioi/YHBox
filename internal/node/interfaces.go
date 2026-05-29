@@ -47,8 +47,8 @@ type RegionRunner interface {
 // 不返 Outputs (没 exit 出口), 直接返算出来的标量 — 给 data-edge 下游消费.
 //
 // 节点不实现 Evaluator → EvaluatePureData 返 error; dispatch 可探测后 fallback 老路径.
-// 设计目的: GetVar/GetSys/GetParam 依赖 runtime state (frame/snapshot), Phase 6+ partial 阶段
-// 这几个不实现 Evaluator, dispatch 走 fallback. Add/Sub/.../Select 等 22 purefunc 自包含, 实现即可.
+// 设计目的: GetVar/GetSys/GetParam 依赖 runtime state (frame/snapshot), 这几个不实现 Evaluator,
+// dispatch 走 fallback. Add/Sub/.../Select 等 22 purefunc 自包含, 实现即可.
 type Evaluator interface {
 	Evaluate(ctx Ctx, in Inputs) (any, error)
 }
@@ -58,7 +58,7 @@ type Evaluator interface {
 //   2. Inspector config
 //   3. exec-data wire (上游 exec 出口 Data 字段同名注入)
 //   4. InputSpec.Default
-//   5. Required + 缺 → framework 返 ValidationError (NOT panic, GPT r4 #8)
+//   5. Required + 缺 → framework 返 ValidationError (NOT panic)
 //   6. Optional + 缺 → 零值, Has() = false
 type Inputs interface {
 	String(name string) string
@@ -92,8 +92,7 @@ type OutputData interface {
 	Has(field string) bool
 }
 
-// Ctx — Run 期间框架注入. 服务接口都返 nil-safe; 节点拿到 nil 调方法会 panic
-// (清晰报错, Phase 5 wire 时 main.go 注入真 backend).
+// Ctx — Run 期间框架注入. 服务接口都返 nil-safe; 节点拿到 nil 调方法会 panic (清晰报错).
 type Ctx interface {
 	Context() context.Context
 	Now() time.Time
@@ -209,8 +208,6 @@ type LogService interface {
 // InputService — KeyPress / Click / Scroll / MouseMoveRel + Hold start/stop.
 // 镜像 pkg/input.Backend, 但 hwnd 由 Ctx 隐式提供 (内层 backend wire 时塞 hwnd).
 // xRatio/yRatio 是 0-1 客户区比例.
-//
-// Phase 4 节点: KeyPress / ClickAt / Scroll / MouseMoveRel / KeyHoldStart/Stop / MouseHoldStart/Stop.
 type InputService interface {
 	KeyPress(vk string, durationMs int) error
 	KeyDown(vk string) error
@@ -258,8 +255,8 @@ type WindowService interface {
 	ClientSize() (w, h int, err error)
 }
 
-// CaptureService — Screenshot 节点用. PNG 字节流; Phase 5 wire 时连 pkg/capture
-// IBackend.Frame/FrameROI + png.Encode (跟 screenshot.go 一致).
+// CaptureService — Screenshot 节点用. PNG 字节流; wire 连 pkg/capture
+// IBackend.Frame/FrameROI + png.Encode.
 type CaptureService interface {
 	Capture() (pngData []byte, err error)
 	CaptureROI(x, y, w, h int) (pngData []byte, err error)

@@ -40,7 +40,7 @@ func TestIf_FalseBranch(t *testing.T) {
 }
 
 func TestIf_DefaultIsTrue(t *testing.T) {
-	// Spec Default = true → 没传 Condition 应走 True (跟老 v4 Defaults.literal.condition=true 对齐).
+	// Spec Default = true → 没传 Condition 应走 True.
 	node.ResetRegistryForTest()
 	node.Register(&If{})
 	rn, _ := node.Get("If")

@@ -47,7 +47,7 @@ export interface HotkeyEntry {
   readonlyReason: string
 }
 
-// ---- 新数据层类型（spec 2026-05-15 容器架构）----
+// ---- 容器架构数据层类型 ----
 
 export interface VarDecl {
   name: string
@@ -67,9 +67,7 @@ export interface GraphNode {
 export interface GraphEdge {
   from: string
   to: string
-  // kind removed in v4 (C2) — derived from (fromNode.kind, fromPin) via
-  // nodeRegistry.edgeKindOf. Mirrors backend C1 deletion of GraphEdge.Kind.
-  // Loaded JSON containing legacy "kind" is silently ignored by JSON.parse.
+  // edge kind 由 (fromNode.kind, fromPin) 经 nodeRegistry.edgeKindOf 派生, 不存字段.
 }
 
 // Graph v2: 加 id + version

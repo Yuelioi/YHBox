@@ -87,7 +87,7 @@ export function useExprFusion(deps: FusionDeps) {
       delete b.config.literal[targetInputName]
     }
 
-    // Helper: v4 C2 — derive edge kind from (srcNode.kind, srcPin) since edge.kind field is gone.
+    // Helper: derive edge kind from (srcNode.kind, srcPin) since there is no edge.kind field.
     const isDataEdge = (e: any): boolean => {
       const [src, srcPin] = String(e.from ?? '').split('.')
       const srcNode = g.nodes.find((n: any) => n.id === src)

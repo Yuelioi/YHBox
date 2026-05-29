@@ -53,7 +53,7 @@ const props = defineProps<{
   icon: string
   cardTitle: string
   cardBody: string
-  /** "敬请期待" | "Current" — Phase 4 about uses Current */
+  /** "敬请期待" (pending) | "Current" */
   badge?: 'pending' | 'current'
   /** Disabled action button label (only shown for bot views) */
   actionLabel?: string

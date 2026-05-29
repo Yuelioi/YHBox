@@ -1,8 +1,6 @@
 package container
 
 // PinTypeCompat 单一源 — runtime + validator + 任何 cross-cutting 调用方都 import 这一个.
-// P1.5 之前 runtime/pin_types.go (typed) 跟 validator_pin_types.go (lowercase) 两份手抄,
-// "MUST stay in sync" 靠人盯; 切到容器层后单一源, 无 drift 风险.
 //
 // !! Frontend `pinTypeCompat` in nodeRegistry/index.ts 仍是 TS 平行 impl, TestRegistryParity 抓 drift.
 //

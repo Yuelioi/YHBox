@@ -217,7 +217,7 @@ func (s *Service) ClosePicker(requestID string) error {
 	return nil
 }
 
-// --- Phase B WindowTarget capture (F9 global hotkey, async via event) ---
+// --- WindowTarget capture (F9 global hotkey, async via event) ---
 
 // StartWindowTargetCapture 注册 F9 (或指定 VK) 全局热键, 用户按下后:
 //  1. 查前台窗口 metadata

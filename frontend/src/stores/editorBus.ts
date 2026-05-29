@@ -1,6 +1,6 @@
 // 编辑器内部跨组件 signal bus. 替原 window.dispatchEvent('expr-fuse', ...) 全局总线.
 // Pinia store 让请求 source/target 都明确 + Vue devtools 可见 + 无全局 listener
-// 泄漏风险. backlog C10.
+// 泄漏风险.
 //
 // 当前用例:
 // - NodeInspector "合并到下游 Expr" 按钮 → requestExprFusion(...)

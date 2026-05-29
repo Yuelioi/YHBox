@@ -1,7 +1,7 @@
 <!--
 NodeCard — 节点 canvas 视觉. 多 exec 出口 + Data 字段 hover tooltip.
-Phase 0 设计点: 不做 nested pin visual (GPT r4 #7), Data 字段走 hover 展开.
-DS r4 #1: 下游节点连 exec line 后, 自动注入上游 Data 字段, FE 在 hover tooltip 显示.
+不做 nested pin visual; Data 字段走 hover 展开.
+下游节点连 exec line 后会自动注入上游 Data 字段, 在 hover tooltip 显示.
 -->
 <script setup lang="ts">
 import { computed, ref } from 'vue'
@@ -70,7 +70,7 @@ function dataFieldHint(outName: string, fieldName: string): string {
              @mouseleave="hoveredOut = null">
           <span class="text-xs">{{ outputLabel(o.name) }}</span>
           <div class="w-2.5 h-2.5 bg-white" />
-          <!-- hover tooltip: Data 字段列表 (DS r4 #1 + GPT r4 #7) -->
+          <!-- hover tooltip: Data 字段列表 -->
           <div v-if="hoveredOut === o.name && o.data && o.data.length > 0"
                class="absolute left-full top-0 ml-2 z-50 bg-elevated border border-default rounded-md p-2 shadow-md min-w-[220px]">
             <div class="text-xs text-toned mb-1">Data fields:</div>

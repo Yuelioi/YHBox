@@ -47,7 +47,7 @@ func loadFishingV2Main(t *testing.T) *container.Container {
 		}
 		c.Subgraphs = append(c.Subgraphs, sg)
 	}
-	// B2: 老 fishing-v2 JSON 含 SubgraphInput/Output 节点, 走 Normalize 迁移到 metadata 后 validator 才认.
+	// fishing-v2 JSON 含 SubgraphInput/Output 节点, 走 Normalize 迁移到 metadata 后 validator 才认.
 	c.Normalize()
 	return &c
 }
@@ -80,8 +80,8 @@ func TestFishingV2Main_StateCycleSmoke(t *testing.T) {
 				}
 			}
 		}
-		// Main loop Sleep override — 老 fixture 用 sleepIdle.Duration=500ms 但 test 总 timeout
-		// 也 500ms, 一轮没跑完. 改 1ms 让 IDLE→SETUP 同 cycle 跑完.
+		// Main loop Sleep override — fixture 的 sleepIdle.Duration=500ms 跟 test 总 timeout
+		// 相同, 一轮跑不完. 改 1ms 让 IDLE→SETUP 同 cycle 跑完.
 		if n.Kind == "Sleep" {
 			lit, _ := c.Graph.Nodes[i].Config["literal"].(map[string]any)
 			if lit == nil {

@@ -4,7 +4,7 @@
 // 或 Figma 的 Component 类似. 举例: 用户在画布配好"目标窗口节点" 含 title=异环 + class=UnrealWindow,
 // 保存为 snippet, 下次新容器直接拖出来 = 无需再点选窗口.
 //
-// 字段设计 (含 GPT critique 建议):
+// 字段设计:
 //   - name/description/tags: 基础元数据
 //   - category: 单值 — sidebar 树状导航维度 (按游戏/项目分: '异环'/'原神'/'通用')
 //   - tags: 多值 — 搜索 / filter 维度 (跨 category)

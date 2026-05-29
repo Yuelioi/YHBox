@@ -9,8 +9,8 @@ import (
 	"yhbox/internal/services/container"
 )
 
-// execNode 单节点执行入口. atomic #3 cutover: 老 964 行 switch 已拆, 改走 dispatchInRegion
-// (Phase 5.5b 新 framework, 内部 route Loop/Subgraph/Try 等 RegionRunner 或普通节点).
+// execNode 单节点执行入口. 走 dispatchInRegion — 内部 route Loop/Subgraph/Try 等
+// RegionRunner 或普通节点.
 //
 // IsPureData / IsVisualOnly / Disabled 3 个 gatekeep 走 nodepkg.Get(kind).Spec.
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
@@ -37,7 +37,7 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 
 // runSubFlow OnEvent listener 子分支用的迷你 dispatch (与主 dispatch 同语义).
 // listener.go 持独立 ContainerRunner subRunner (makeSubRunner) 调它跑 OnEvent.out 下游.
-// per-exec-tick snapshot 由 dispatchInRegion 入口写到 ctx (tickCtxKey, B1), per-goroutine
+// per-exec-tick snapshot 由 dispatchInRegion 入口写到 ctx (tickCtxKey), per-goroutine
 // 独立, 跟主 runner.go::Run 不撞.
 func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) error {
 	queue := append([]ExecToken{}, seeds...)
@@ -56,7 +56,7 @@ func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) err
 			if errors.Is(err, errStopRun) {
 				return nil
 			}
-			// P1.2: 同 ContainerRunner.Run, listener subflow 顶层也防 sentinel leak.
+			// 同 ContainerRunner.Run, listener subflow 顶层也防 sentinel leak.
 			if _, wrapped := r.checkSentinelLeak(node, err); wrapped != err {
 				return wrapped
 			}

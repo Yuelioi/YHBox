@@ -7,10 +7,9 @@ import (
 )
 
 // Vision helpers shared by node_services.go's VisionAdapter (DetectColorHSV /
-// ROIColorScan / DualBarTrack). 从老 detect_hsv.go / roi_scan.go / color_bar_track.go
-// 抽出来 — atomic #5 拆老 execX 时把这些 pure helper 留下.
+// ROIColorScan / DualBarTrack).
 
-// confBarV2 — DualBarTrack 的置信度阈值. 历史: 复刻 fishing v1 config.
+// confBarV2 — DualBarTrack 的置信度阈值.
 const confBarV2 = 0.50
 
 // clusterEntry — ROIColorScan 结果. SysROIScanResult.Clusters 仍引用此类型.

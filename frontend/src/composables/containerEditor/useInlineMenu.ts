@@ -1,5 +1,4 @@
 // InlineContextMenu (右键画布空白 / 拖 pin 到空白 → 添加节点) 状态机.
-// 从 ContainerEditorView 抽 (backlog C1).
 //
 // 状态机:
 //   pin-drag start → onVfConnectStart 记 connectionStart

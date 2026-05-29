@@ -20,7 +20,7 @@ func TestTryDonePath(t *testing.T) {
 	node := &container.GraphNode{
 		ID:     "try1",
 		Kind:   "Try",
-		Config: map[string]any{"SubgraphID": "sg1", "literal": map[string]any{"TimeoutMs": 5000.0}}, // v4 literal pin
+		Config: map[string]any{"SubgraphID": "sg1", "literal": map[string]any{"TimeoutMs": 5000.0}}, // literal pin
 	}
 	if r.nodesByID == nil {
 		r.nodesByID = map[string]*container.GraphNode{}
@@ -39,6 +39,4 @@ func TestTryDonePath(t *testing.T) {
 	}
 }
 
-// TestTryTimeoutPath / TestTryErrorPath deleted in atomic #5 — 老 Try (timeoutMs +
-// LastTry.ErrorMsg side effect) API 已 removed. 新 Try 框架由 dispatch_v5_test.go
-// (TryDone/TryCatch/TryThrow/TryMissingSubgraphID) 覆盖.
+// Try 行为由 dispatch_v5_test.go (TryDone/TryCatch/TryThrow/TryMissingSubgraphID) 覆盖.

@@ -240,7 +240,7 @@ func (s *Service) IsRecording() bool {
 }
 
 // findWindowTargetNode 在 container.Graph.Nodes 里找第一个 Kind=="WindowTarget" 的节点.
-// v3 Phase B container 强制有且只有一个 WindowTarget 节点, 这里假设也是 1.
+// container 强制有且只有一个 WindowTarget 节点, 这里假设也是 1.
 func findWindowTargetNode(c *container.Container) *container.GraphNode {
 	for i := range c.Graph.Nodes {
 		if c.Graph.Nodes[i].Kind == "WindowTarget" {
@@ -251,7 +251,7 @@ func findWindowTargetNode(c *container.Container) *container.GraphNode {
 }
 
 // readMatchSpecFromConfig 从 WindowTarget 节点 config 顶级字段解出 winutil.MatchSpec.
-// P2.1: 之前 nested config.match — 已扁平化跟 Spec.Inputs 对齐.
+// 字段是扁平的, 跟 Spec.Inputs 对齐.
 // config 缺字段或类型不对 → 留空字段 (winutil.ResolveWindow 会报 IsEmptyMatch).
 func readMatchSpecFromConfig(n *container.GraphNode) winutil.MatchSpec {
 	if n.Config == nil {

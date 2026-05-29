@@ -1,11 +1,10 @@
 // CollapsedNode composable — scaffold.
 //
-// 当前是 stub: 三个 op 都 console.warn no-op. CollapsedNode runtime 工作 (validators 已 ship),
+// 当前是 stub: 三个 op 都 console.warn no-op. CollapsedNode runtime 已可工作,
 // 但用户必须手写 JSON: container.subgraphs[] 含 isAnonymous:true Subgraph + main graph
 // CollapsedNode 引用 config.subgraphId.
 //
-// 实装 backlog 见 debug/docs/superpowers/specs/2026-05-20-editor-v2-backlog.md (相关条目).
-// 需要的后端 RPC: backend.containers.createSubgraph / deleteSubgraph / updateSubgraphMeta.
+// 实装这些 op 需要后端 RPC: backend.containers.createSubgraph / deleteSubgraph / updateSubgraphMeta.
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 

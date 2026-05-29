@@ -10,7 +10,7 @@ import (
 //   - EXPR_UNKNOWN_INPUT — expr references identifier not declared in inputs[]
 //
 // EXPR_TYPE_MISMATCH (explicit outType vs static inference) is deferred — implementing
-// proper type inference is non-trivial and gated on Phase B+ pure-func type schemas.
+// proper type inference is non-trivial and depends on pure-func type schemas.
 func validateExprNodes(c *Container) []ValidationError {
 	if c == nil {
 		return nil

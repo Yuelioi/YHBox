@@ -53,9 +53,7 @@ func TestResolveSubgraphCall_NotFound(t *testing.T) {
 
 // TestSubgraph_MultiCallSiteRouting 防回归: 同 parent graph 调用同 subgraph 两次,
 // 两次 Done 必须分别路由回各自 call-site 下游 (callA.Done → markA, callB.Done → markB),
-// 不能把第二次的 Done 也错路由回第一次的 markA. 2026-05-20 撞过这条 (老 execSubgraphOutput
-// 按 SubgraphID 找第一个匹配); atomic #3 之后走 LoopStack push frame 携带 call-site ID
-// 直接修了, 此处只是 regression test 防未来回退.
+// 不能把第二次的 Done 也错路由回第一次的 markA.
 func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 	sg := container.Subgraph{
 		ID:    "sub_inc",

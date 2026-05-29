@@ -2,7 +2,7 @@ package container
 
 import "testing"
 
-// TestPinTypeCompat 守护 P1.5 单一源 matrix — 任何修改要同时反映 FE pinTypeCompat (TS).
+// TestPinTypeCompat 守护单一源 matrix — 任何修改要同时反映 FE pinTypeCompat (TS).
 func TestPinTypeCompat(t *testing.T) {
 	cases := []struct {
 		from, to            string

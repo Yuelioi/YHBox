@@ -3,8 +3,7 @@ package container
 // validateVarRefs checks that GetVar/SetVar/IncVar nodes reference declared Container.Vars,
 // EXCEPT for scope=local references which are frame-private (runtime check only).
 //
-// Spec: editor-v2-vars-panel-design.md §4.3.2 (GPT review #3 — delete var leaves
-// invalid references instead of cascading deletes).
+// 删除变量时保留无效引用而非级联删除引用它的节点.
 //
 // Rule:
 //

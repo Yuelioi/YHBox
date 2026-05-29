@@ -1,6 +1,6 @@
 // modal 打开时自动 focus search input. 可选 onOpen 回调 (常用于 reset query/activeIdx).
 // 5 modal 重复 (CommandPalette / InlineContextMenu / LibraryExplorer / NodeExplorer
-// / NodeSearch) 抽这里. backlog C4.
+// / NodeSearch) 收口到这里.
 //
 // Usage:
 //   const searchInputRef = ref<any>(null)

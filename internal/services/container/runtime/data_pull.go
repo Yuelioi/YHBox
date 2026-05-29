@@ -19,8 +19,8 @@ type dataEdgeIndex struct {
 
 // buildDataEdgeIndex filters Graph.Edges to data-flow edges only.
 //
-// v4 (C1): GraphEdge.Kind 已删除 — 边类型从 (from-node.kind, from-pin) 派生:
-// 若 fromPin 在 nodekind.Spec.DataOut 里 → data 边; 否则 exec 边. 跟 validator 同源.
+// 边类型从 (from-node.kind, from-pin) 派生: 若 fromPin 在 nodekind.Spec.DataOut 里
+// → data 边; 否则 exec 边. 跟 validator 同源.
 func buildDataEdgeIndex(g container.Graph) *dataEdgeIndex {
 	idx := &dataEdgeIndex{bySrc: map[string]string{}}
 	kindByID := make(map[string]string, len(g.Nodes))
@@ -68,7 +68,7 @@ func (d *dataEdgeIndex) Source(nodeID, pinName string) (string, string) {
 // Pure data sources (GetVar / GetSys / GetParam / Expr / pure functions) eval on-demand.
 // Exec nodes that expose data-out (e.g. Race.winnerIdx) read from the sys snapshot.
 //
-// ctx 必传 — B1 后 tick snapshot 走 ctx (tickCtxKey). dispatch hot path 传 dispatchInRegion
+// ctx 必传 — tick snapshot 走 ctx (tickCtxKey). dispatch hot path 传 dispatchInRegion
 // 已 withTickSnapshot 的 ctx; init/cold path (listener config) 传 context.Background() (无 tick OK).
 func (r *ContainerRunner) pullDataPin(ctx context.Context, nodeID, pinName string) (expr.Value, error) {
 	// 1. Data edge lookup
@@ -118,14 +118,14 @@ func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin 
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("evalDataSource: IsPureData=true but kind %q does not implement Evaluator", n.Kind)
 	}
-	// B1: 传 ctx 给递归 buildDataWireFor + EvaluatePureData, 让 bundle.Snapshot(ctx) 拿到 tick.
+	// 传 ctx 给递归 buildDataWireFor + EvaluatePureData, 让 bundle.Snapshot(ctx) 拿到 tick.
 	srcDataWire := r.buildDataWireFor(ctx, n, rn)
 	srcConfig := r.buildConfigFor(n)
 	v, err := nodepkg.EvaluatePureData(ctx, rn, srcDataWire, srcConfig, r.bundle)
 	return toExprValue(v), err
 }
 
-// pullNumber: v4-only data-pin resolution (data edge or inline literal). No v3 fallback.
+// pullNumber resolves a numeric data-pin (data edge or inline literal).
 // Returns `fallback` if pin is unset / type-incompatible.
 //
 // ctx — listener config init 时传 context.Background() (无 tick OK, listener config 走 literal

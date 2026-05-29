@@ -14,7 +14,7 @@ import (
 // 进 expr.InputEnv.
 
 // evalExprViaFramework 走当前生产 path (resolveDataPinV5/evalDataSource 转 EvaluatePureData),
-// 测试只调一次 helper, 不重复 dispatch 拼装. ctx 携 withTickSnapshot 的 tick (B1) 给 bundle.Snapshot.
+// 测试只调一次 helper, 不重复 dispatch 拼装. ctx 携 withTickSnapshot 的 tick 给 bundle.Snapshot.
 func (r *ContainerRunner) evalExprViaFramework(t *testing.T, ctx context.Context, n *container.GraphNode) (any, error) {
 	t.Helper()
 	rn, ok := nodepkg.Get("Expr")

@@ -9,8 +9,7 @@ import (
 	"github.com/lxn/win"
 )
 
-// IBackend per-container instance interface. 与现有的 Backend enum + 包级 Frame/FrameROI
-// 并存 — Phase A 删 bot 时旧 caller 随之退役, 那时再清理重名.
+// IBackend per-container instance interface. 与包级 Backend enum + Frame/FrameROI 并存.
 //
 // impl 必须 IsWindow(hwnd) 前置 + defer recover(), invalid hwnd 返 (nil, error) 永不 panic.
 // WGC impl 额外捕 WGC Session 错误 (Direct3D11CaptureFramePool 在窗口刚关闭瞬间会抛 Closed).

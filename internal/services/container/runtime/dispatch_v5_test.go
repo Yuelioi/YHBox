@@ -13,7 +13,7 @@ import (
 	_ "yhbox/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
 	_ "yhbox/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringGameForeground / OnEvent
 	_ "yhbox/internal/nodes/io"        // Log / Toast / PlayClip
-	_ "yhbox/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr (Phase 6+ pull-eval partial)
+	_ "yhbox/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
 	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
 	_ "yhbox/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
 	_ "yhbox/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam / GetSys
@@ -148,7 +148,7 @@ func (tdNoExit) Run(node.Ctx, node.Inputs) (node.Outputs, error) {
 }
 
 // tdSource — Run 时通过 OutputData.Set("Path", "/foo").Set("Count", 42) 推 exec-data.
-// 用于验 P0.3 OutputData carry plumb 到下游 ExecToken.
+// 用于验 OutputData carry plumb 到下游 ExecToken.
 const tkSource = "test_dispatch_source"
 
 type tdSource struct{}
@@ -292,7 +292,7 @@ func TestExecNodeViaFramework_Happy(t *testing.T) {
 	}
 }
 
-// TestExecNodeViaFramework_OutputDataCarry — P0.3 cleanup plan.
+// TestExecNodeViaFramework_OutputDataCarry:
 // 源节点 ctx.Out("Out").Set("Path","/foo").Set("Count", 42).Fire() →
 // routeResult 通过 edges.nextWithData 把 OutputData 挂到下游 ExecToken.ExecData →
 // 下游节点 in.String("Path") / in.Int("Count") 拿到值.
@@ -385,7 +385,7 @@ func TestExecNodeViaFramework_Error(t *testing.T) {
 	if got := len(dt.eventsByName("container:node-panic")); got != 0 {
 		t.Errorf("Error path should not emit node-panic, got %d", got)
 	}
-	// P1.1: Error 路径 emit node-error 让 GUI 高亮失败节点.
+	// Error 路径 emit node-error 让 GUI 高亮失败节点.
 	events := dt.eventsByName("container:node-error")
 	if len(events) != 1 {
 		t.Fatalf("got %d node-error events, want 1", len(events))
@@ -502,7 +502,7 @@ func TestBuildConfigFor_StripsLiteral(t *testing.T) {
 }
 
 // ============================================================================
-// Phase 5.5b — Region runner 测试 (Loop + Subgraph)
+// Region runner 测试 (Loop + Subgraph)
 // ============================================================================
 
 // newRegionTest 建一个含 Loop 节点的测试 container.
@@ -734,7 +734,7 @@ func TestDispatchInRegion_RoutesRegionToRunNodeAsRegion(t *testing.T) {
 }
 
 // ============================================================================
-// Try 测试 (Phase 5.5b 收尾)
+// Try 测试
 // ============================================================================
 
 // newTryTest 建主图 { try_n (Try w/ SubgraphID=trybody), out_n (Stop), catch_n (Stop) } +
@@ -867,7 +867,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 	}
 }
 
-// TestExecNodeAsRegionViaFramework_SubgraphPassesParams 验证 Phase 5.5b 补丁:
+// TestExecNodeAsRegionViaFramework_SubgraphPassesParams 验证:
 // Subgraph 节点 Config["Params"] 是 JSON map, runner PushFrame 后 unpack 到
 // frame.LocalParams. callee 子图内 GetParam 节点 (走 framework GetParam.Evaluate) 应能读到值.
 //
@@ -928,7 +928,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 }
 
 // ============================================================================
-// Phase 6+ pull-eval partial — buildDataWireFor / resolveDataPinV5
+// pull-eval — buildDataWireFor / resolveDataPinV5
 // ============================================================================
 
 // tdEcho 单输入回声节点 — 把 data-in pin "Value" 的值塞 OutputData.echo, 出口 Out 触发.
@@ -969,7 +969,7 @@ func init() { node.Register(&tdEcho{}) }
 // 验证 buildDataWireFor 走 resolveDataPinV5 → 检测 Add IsPureData + Evaluator → 调 EvaluatePureData
 // 拿到结果 5.0 → 塞 tdEcho dataWire. tdEcho.Run 通过 in.Raw 读 5.0.
 //
-// 这是 Phase 6+ partial 的 happy path — pure-data 节点 (Add) 在 framework 路径上被 evaluate.
+// happy path — pure-data 节点 (Add) 在 framework 路径上被 evaluate.
 func TestBuildDataWireFor_UpstreamPureFuncViaFramework(t *testing.T) {
 	resetTdEcho()
 	// 拓扑: add_n (Add a=2,b=3) → echo_n.Value (data edge); echo_n.Out → done_n.in
@@ -1052,7 +1052,7 @@ func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
 // resolveDataPinV5 走 nodepkg.EvaluatePureData, framework snapshot wrap 把 ctx.Vars()
 // 替成 snapshot view, scope="global" 拿 frozen Vars (从 currentTick.Vars 读).
 //
-// 验证 C5b Get* cutover 后, dispatch 经 framework path 跨节点拉 GetVar 值.
+// 验证 dispatch 经 framework path 跨节点拉 GetVar 值.
 func TestBuildDataWireFor_GetVarViaFramework(t *testing.T) {
 	resetTdEcho()
 	c := &container.Container{

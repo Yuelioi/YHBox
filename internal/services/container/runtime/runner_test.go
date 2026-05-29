@@ -52,13 +52,11 @@ func TestRunner_StartSleep(t *testing.T) {
 	}
 }
 
-// B-10 regression: SetVar/IncVar 显式 scope=local 时，值写入 ExecState.LocalVars，
-// rt.vars 保持 Default 不变。GetVar(scope=auto) 读取应该看到 local 值（覆盖 rt.vars 默认）。
-//
-// 2026-05-19 默认 scope 从 "local" 改成 "auto" 后, 本测试改成显式 scope: "local" 来
-// 锁定隔离行为. 默认 auto 行为另在 TestRunner_SetVarAutoDefaultFindOrCreate.
+// SetVar/IncVar 显式 scope=local 时，值写入 ExecState.LocalVars，rt.vars 保持 Default
+// 不变。GetVar(scope=auto) 读取应该看到 local 值（覆盖 rt.vars 默认）。
+// 默认 auto 行为另在 TestRunner_SetVarAutoDefaultFindOrCreate.
 func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
-	// v4: 用 GetVar(scope=auto) + Eq + If data-flow 验证 local 写入对后续 read 可见.
+	// 用 GetVar(scope=auto) + Eq + If data-flow 验证 local 写入对后续 read 可见.
 	// auto scope 优先 frame.LocalVars (其中 set 写了 42), 兜底 rt.vars (默认 0).
 	c := newTestContainer(
 		[]container.GraphNode{
@@ -102,11 +100,11 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 	}
 }
 
-// 2026-05-19 默认 scope 从 "local" 改 "auto" 后的新行为锁定:
+// 默认 scope=auto 行为锁定:
 // SetVar 默认 scope=auto — 当前 frame.LocalVars 没 name → 写 rt.vars (find-or-create-global,
 // 跟 Container.Vars 面板默认值合流). GetVar 默认 scope=auto — frame chain → rt.vars fallback.
 // 用户场景: 容器面板声明 x=1, y=2; SetVar(x, 默认 auto, 5); GetVar(x, 默认 auto) + GetVar(y, 默认 auto)
-// → 5, 2; Add = 7. (image copy 4.png 验证的 bug 修复后行为.)
+// → 5, 2; Add = 7.
 func TestRunner_SetVarAutoDefaultFindOrCreate(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{
@@ -172,7 +170,7 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 }
 
 func TestRunner_IfBranch(t *testing.T) {
-	// v4: GetVar(y, global) → Eq(==1) → If.condition data flow.
+	// GetVar(y, global) → Eq(==1) → If.condition data flow.
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
@@ -208,7 +206,7 @@ func TestRunner_IfBranch(t *testing.T) {
 }
 
 func TestRunner_LoopCount(t *testing.T) {
-	// v4: Loop.count via inline literal (no more v3 expr-string config).
+	// Loop.count via inline literal.
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},
@@ -234,7 +232,7 @@ func TestRunner_LoopCount(t *testing.T) {
 }
 
 func TestRunner_BreakExitsLoop(t *testing.T) {
-	// v4: GetVar(i, global) → GtEq(b=2) → If.condition.
+	// GetVar(i, global) → GtEq(b=2) → If.condition.
 	c := newTestContainer(
 		[]container.GraphNode{
 			{ID: "start", Kind: "Start"},

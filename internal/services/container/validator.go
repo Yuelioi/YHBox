@@ -1,6 +1,6 @@
 // validator.go 容器/子图 graph 校验器 (Validate 阶段入口).
 //
-// 三阶段协作 (B3 落地, 2026-05-27):
+// 三阶段协作:
 //   Validate  — 这里, 纯检查不 mutate. 入口 ValidateContainerWithContext / (c).Validate().
 //                内部分 3 sub-phase (Structural/Reference/Type-Semantic), 见 ValidateContainerWithContext.
 //   Normalize — validate.go::Container.Normalize, self-heal 默认 + 子图 normalizeSubgraph 一次跑完.
@@ -50,7 +50,7 @@ const (
 	CodeInvalidWindowTargetEmptyMatch = "INVALID_WINDOW_TARGET_EMPTY_MATCH"
 )
 
-// Phase C node-kind config validation codes.
+// node-kind config validation codes.
 const (
 	CodeInvalidROI           = "INVALID_ROI"
 	CodeInvalidHSVRange      = "INVALID_HSV_RANGE"
@@ -103,7 +103,7 @@ const (
 	CodeInvalidDisabledTerminal = "INVALID_DISABLED_TERMINAL"
 
 	// Sentinel scope (Break/Continue 必须在 Loop body 内; Throw 必须在 Try body 子图内).
-	// P1.2: 静态拦截, 避免 sentinel 漏到主 dispatch 顶层只看 generic error.
+	// 静态拦截, 避免 sentinel 漏到主 dispatch 顶层只看 generic error.
 	CodeBreakOutsideLoop    = "BREAK_OUTSIDE_LOOP"
 	CodeContinueOutsideLoop = "CONTINUE_OUTSIDE_LOOP"
 	CodeThrowOutsideTry     = "THROW_OUTSIDE_TRY"
@@ -457,8 +457,8 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 }
 
 // validatePlayClip 校验 PlayClip 节点必须设 ClipID (空 = 没绑录制片段, 运行时报错).
-// Phase 4: 不校验 ClipID 在 clip store 是否真实存在 (clip 可能在另台机器 / 还没同步过来),
-// 仅静态校验 config.ClipID != "". 库管理后续阶段可加 PLAYCLIP_MISSING_CLIP rule.
+// 不校验 ClipID 在 clip store 是否真实存在 (clip 可能在另台机器 / 还没同步过来),
+// 仅静态校验 config.ClipID != "".
 func validatePlayClip(c *Container) []ValidationError {
 	var errs []ValidationError
 	check := func(nodes []GraphNode, graphPath []string) {
@@ -592,7 +592,7 @@ func edgeNodeID(ref string) string {
 	return ""
 }
 
-// validateWindowTarget v3 Phase B: 主图必须 1 个 WindowTarget, 子图禁,
+// validateWindowTarget: 主图必须 1 个 WindowTarget, 子图禁,
 // match 不能全空 / 不能万能 regex / regex 编译必须过.
 // 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
 func validateWindowTarget(c *Container) []ValidationError {
@@ -702,11 +702,11 @@ func windowTargetIsEmptyMatch(spec windowTargetMatchSpec) bool {
 }
 
 // ---------------------------------------------------------------------------
-// Phase C node-kind config validators
+// node-kind config validators
 // ---------------------------------------------------------------------------
 
 // validatePhaseCNodeKinds runs per-kind config checks over every graph
-// (main + all subgraphs) and emits Phase C ValidationErrors.
+// (main + all subgraphs) and emits ValidationErrors.
 // It also performs the cross-node Stopwatch key coherence check per graph.
 func validatePhaseCNodeKinds(c *Container) []ValidationError {
 	var errs []ValidationError
@@ -1029,7 +1029,7 @@ func validateScreenshot(n *GraphNode) []ValidationError {
 
 // validateKeyHold checks that vk is a non-empty string.
 // Runtime calls pkginput.VK(name); we do not pre-validate the name here
-// (Phase C precedent: let runtime fail loudly for unknown VK names).
+// (let runtime fail loudly for unknown VK names).
 //
 func validateKeyHold(n *GraphNode) []ValidationError {
 	vk := cfgString(n.Config, "VK")
@@ -1121,8 +1121,7 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 
 // validateCronConfig 静态校验 Cron 节点的 inline literal expr.
-// 动态来源 (上游 data edge 推 expr) 解析失败由 runtime 报同款 err — 见
-// debug/docs/superpowers/specs/2026-05-19-cron-node-design.md §3.1.
+// 动态来源 (上游 data edge 推 expr) 解析失败由 runtime 报同款 err.
 func validateCronConfig(n *GraphNode) []ValidationError {
 	var errs []ValidationError
 	lit, _ := n.Config["literal"].(map[string]any)
