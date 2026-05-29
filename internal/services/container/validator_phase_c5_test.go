@@ -28,8 +28,8 @@ func TestValidateSwitch_EmptyCases(t *testing.T) {
 
 func TestValidateSwitch_DotInCase(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"Value":      "$vars.x",
-		"Case1Value": "v1.0",
+		"Value": "$vars.x",
+		"cases": []any{"v1.0"},
 	}})
 	if len(errs) == 0 || errs[0].Code != CodeInvalidSwitchCases {
 		t.Errorf("case 含 . 应报 INVALID_SWITCH_CASES")
@@ -38,9 +38,8 @@ func TestValidateSwitch_DotInCase(t *testing.T) {
 
 func TestValidateSwitch_DuplicateCase(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"Value":      "$vars.x",
-		"Case1Value": "A",
-		"Case2Value": "A",
+		"Value": "$vars.x",
+		"cases": []any{"A", "A"},
 	}})
 	if len(errs) == 0 || errs[0].Code != CodeInvalidSwitchCases {
 		t.Errorf("重复 case 应报 INVALID_SWITCH_CASES")
@@ -49,8 +48,8 @@ func TestValidateSwitch_DuplicateCase(t *testing.T) {
 
 func TestValidateSwitch_ReservedDefaultCase(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"Value":      "$vars.x",
-		"Case1Value": "default",
+		"Value": "$vars.x",
+		"cases": []any{"default"},
 	}})
 	if len(errs) == 0 {
 		t.Fatalf("case='default' 应报错")
@@ -68,8 +67,8 @@ func TestValidateSwitch_ReservedDefaultCase(t *testing.T) {
 
 func TestValidateSwitch_LeadingTrailingWhitespace(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"Value":      "$vars.x",
-		"Case1Value": "IDLE ",
+		"Value": "$vars.x",
+		"cases": []any{"IDLE "},
 	}})
 	if len(errs) == 0 {
 		t.Errorf("尾空格应报错")
@@ -78,10 +77,8 @@ func TestValidateSwitch_LeadingTrailingWhitespace(t *testing.T) {
 
 func TestValidateSwitch_HappyPath_NoErr(t *testing.T) {
 	errs := helperRunValidate(&GraphNode{Kind: "Switch", Config: map[string]any{
-		"Value":      "$vars.state",
-		"Case1Value": "IDLE",
-		"Case2Value": "钓鱼",
-		"Case3Value": "🎣",
+		"Value": "$vars.state",
+		"cases": []any{"IDLE", "钓鱼", "🎣"},
 	}})
 	if len(errs) != 0 {
 		t.Errorf("合法 config 不应报错, got %+v", errs)

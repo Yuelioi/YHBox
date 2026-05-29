@@ -41,8 +41,8 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "WindowTarget"},
 				{ID: "sw", Kind: "Switch", Config: map[string]any{
-					"Case1Value": "a",
-					"literal":    map[string]any{"Value": true}, // should be string
+					"cases":   []any{"a"},
+					"literal": map[string]any{"Value": true}, // should be string
 				}},
 			},
 		},

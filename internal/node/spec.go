@@ -23,6 +23,10 @@ type Spec struct {
 	// 跟 IsVisualOnly 对称 (一个渲染标, 一个结构标), 跟 IsPureData 区分.
 	// Register 允许 IsGraphMarker=true 时 zero capability.
 	IsGraphMarker bool `json:"isGraphMarker,omitempty"`
+	// DynamicOutputs — 出口名运行时按 config 推导, 不在静态 Outputs 里枚举 (e.g. Switch
+	// 的 named-by-value case 出口). 置真时 ctx.Out(name) 放行任意 name (跳过 Outputs 成员检查);
+	// 出口名合法性由节点自身 + validator 静态保证. Outputs 仍可列固定兜底出口 (Switch 的 default).
+	DynamicOutputs bool `json:"dynamicOutputs,omitempty"`
 }
 
 type InputSpec struct {

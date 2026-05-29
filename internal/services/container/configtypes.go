@@ -1,30 +1,29 @@
 package container
 
-import "fmt"
-
 // SwitchConfig 是 Switch 节点的 typed config.
 // validator / runtime / pin schema 必须走 ParseSwitchConfig 入口, 不许各自 cast map[string]any.
 //
-// 待比较的值是 data-in pin (走 r.pullValue), 不是 config 字段; config 只剩 Cases.
+// named-by-value 模型: config.cases[] 是 case 值列表, 每个 case 值即一个同名 exec 出口 pin;
+// 待比较的 Value 是 data-in pin (走 literal/边), 不是 config 字段.
 type SwitchConfig struct {
-	Cases []string // 规整过 (类型转 + 过滤非字符串)
+	Cases []string // config.cases 原样 (仅 string 转换, 不过滤空/重复 — 留给 validateSwitchConfig 报错)
 }
 
 // ParseSwitchConfig 解析 Switch 节点 config 成 typed struct.
-// 容错: nil node / nil config 返零值. 严格验证 (空 / 重复 / 含 '.' / 'default') 由
-// validateSwitchConfig 负责.
-//
-// Switch config schema (nodepkg Spec): Case1Value..Case16Value=string (单值).
-// 空值 ("") 视为未声明该 case, 不进 Cases 列表.
+// 容错: nil node / nil config / cases 非数组 → 返零值. 严格验证 (空 / 重复 / 含 '.' / 'default') 由
+// validateSwitchConfig 负责 — 故此处**不**过滤空/重复, 原样返 (非 string 项跳过).
 func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 	var c SwitchConfig
 	if n == nil || n.Config == nil {
 		return c, nil
 	}
-	for i := 1; i <= 16; i++ {
-		key := fmt.Sprintf("Case%dValue", i)
-		if cs := PinString(n, key); cs != "" {
-			c.Cases = append(c.Cases, cs)
+	arr, ok := n.Config["cases"].([]any)
+	if !ok {
+		return c, nil
+	}
+	for _, item := range arr {
+		if s, ok := item.(string); ok {
+			c.Cases = append(c.Cases, s)
 		}
 	}
 	return c, nil
@@ -36,9 +35,9 @@ func ParseSwitchConfig(n *GraphNode) (SwitchConfig, error) {
 // inputs[] 在画布上动态加 — 每个 input 对应一个 data-in pin (name + type).
 // expr 字符串只能引用 inputs 中声明的 name (bare identifier), 不能直接访问 $vars/$sys/$params.
 type ExprConfig struct {
-	Expr    string           // 用户写的表达式 (e.g. "i + 1", "s == 'FISHING' && hp > 0.5")
-	OutType string           // "auto" (默认, 静态推断) 或显式 number/bool/string/point/any
-	Inputs  []ExprInputDecl  // {Name, Type} — 每个对应 data-in pin
+	Expr    string          // 用户写的表达式 (e.g. "i + 1", "s == 'FISHING' && hp > 0.5")
+	OutType string          // "auto" (默认, 静态推断) 或显式 number/bool/string/point/any
+	Inputs  []ExprInputDecl // {Name, Type} — 每个对应 data-in pin
 }
 
 type ExprInputDecl struct {

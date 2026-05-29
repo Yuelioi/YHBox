@@ -46,7 +46,7 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 					"VarName": "state", "Scope": "global",
 				}},
 				{ID: "switch1", Kind: "Switch", Config: map[string]any{
-					"Case1Value": "IDLE", "Case2Value": "FISHING", "Case3Value": "RESULT",
+					"cases": []any{"IDLE", "FISHING", "RESULT"},
 				}},
 				{ID: "logIDLE", Kind: "SetVar", Config: map[string]any{
 					"VarName": "stepLog", "Scope": "global",
@@ -70,10 +70,10 @@ func TestV4_FishingV2Proto_StateMachine(t *testing.T) {
 				// Exec
 				{From: "start.Done", To: "setInitState.In"},
 				{From: "setInitState.Done", To: "switch1.In"},
-				{From: "switch1.Case1", To: "logIDLE.In"},
-				{From: "switch1.Case2", To: "logFISHING.In"},
-				{From: "switch1.Case3", To: "logRESULT.In"},
-				{From: "switch1.Default", To: "logDefault.In"},
+				{From: "switch1.IDLE", To: "logIDLE.In"},
+				{From: "switch1.FISHING", To: "logFISHING.In"},
+				{From: "switch1.RESULT", To: "logRESULT.In"},
+				{From: "switch1.default", To: "logDefault.In"},
 				{From: "logIDLE.Done", To: "stop.In"},
 				{From: "logFISHING.Done", To: "stop.In"},
 				{From: "logRESULT.Done", To: "stop.In"},

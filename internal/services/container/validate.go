@@ -116,6 +116,18 @@ func execOutPinsForNode(n *GraphNode) map[string]struct{} {
 	if n == nil {
 		return pins
 	}
+	// Switch: 出口动态 = config.cases 里每个 case 值 + 'default' (named-by-value).
+	// 镜像 nodeRegistry/adapter.ts DYNAMIC_EXEC_OUT.Switch + switch.go Run.
+	if n.Kind == "Switch" {
+		cfg, _ := ParseSwitchConfig(n)
+		for _, c := range cfg.Cases {
+			if c != "" {
+				pins[c] = struct{}{}
+			}
+		}
+		pins["default"] = struct{}{}
+		return pins
+	}
 	rn, ok := nodepkg.Get(n.Kind)
 	if !ok {
 		return pins

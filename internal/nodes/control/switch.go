@@ -1,8 +1,10 @@
 // internal/nodes/control/switch.go
-// Switch — 多 case 路由. Value 跟 CaseNValue (N=1..16) 逐一比较, 命中走对应 CaseN exec out;
-// 全不命中走 Default. 前 4 case 默认展开, 5-16 折叠到 Advanced.
+// Switch — 多 case 路由 (named-by-value). Value 跟 config.cases[] 里每个 case 字符串逐一比较,
+// 命中走同名 exec 出口 (case 值即出口 pin 名), 全不命中走 default。
 //
-// 16 case 上限: 留足典型状态机 (~9 状态 + default) 的余量.
+// 动态输出: 出口由 config.cases 推导, 不在静态 Spec 里枚举 → Spec.DynamicOutputs=true,
+// 框架放行任意 ctx.Out(caseValue)。case 值合法性 (非空 / 无 '.' / 非 default / 不重复) 由
+// validator.validateSwitchConfig 静态保证; 运行时 switchCases 再做一层防御性规整。
 //
 // 跟 Loop 不同 — Switch 不是 region (无 body), 走 Run() 而非 RunRegion().
 package control
@@ -17,56 +19,57 @@ func init() { node.Register(&Switch{}) }
 
 type Switch struct{}
 
-// Switch 最多支持 N 个 case 出口. 改这个值要同时调 Spec 生成 + tests.
-const switchMaxCases = 16
-
 const (
 	swInExec     = "In"
 	swInValue    = "Value"
-	swOutDefault = "Default"
+	swOutDefault = "default"
 )
 
 func (Switch) Spec() node.Spec {
-	inputs := []node.InputSpec{
-		{Name: swInExec, Type: "Exec"},
-		{Name: swInValue, Type: "String", Required: true,
-			Widget: node.WidgetSpec{Kind: "text"}},
-	}
-	outputs := []node.OutputSpec{}
-
-	for i := 1; i <= switchMaxCases; i++ {
-		inputs = append(inputs, node.InputSpec{
-			Name:     fmt.Sprintf("Case%dValue", i),
-			Type:     "String",
-			Advanced: i > 4, // 前 4 默认显示, 5-16 折叠到 Advanced
-			Widget:   node.WidgetSpec{Kind: "text"},
-		})
-		outputs = append(outputs, node.OutputSpec{
-			Name: fmt.Sprintf("Case%d", i),
-			Type: "Exec",
-		})
-	}
-	outputs = append(outputs, node.OutputSpec{
-		Name: swOutDefault, Type: "Exec",
-	})
-
 	return node.Spec{
-		Kind:     "Switch",
-		Category: "Control",
-		Inputs:   inputs,
-		Outputs:  outputs,
+		Kind:           "Switch",
+		Category:       "Control",
+		DynamicOutputs: true, // 出口名 = config.cases[] 里的 case 值, 运行时动态
+		Inputs: []node.InputSpec{
+			{Name: swInExec, Type: "Exec"},
+			{Name: swInValue, Type: "String", Required: true,
+				Widget: node.WidgetSpec{Kind: "text"}},
+		},
+		Outputs: []node.OutputSpec{
+			// 唯一静态出口 — 兜底. case 出口动态 (DynamicOutputs).
+			{Name: swOutDefault, Type: "Exec"},
+		},
 	}
 }
 
 func (Switch) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	v := in.String(swInValue)
-	for i := 1; i <= switchMaxCases; i++ {
-		caseField := fmt.Sprintf("Case%dValue", i)
-		if in.Has(caseField) && v == in.String(caseField) {
-			return ctx.Out(fmt.Sprintf("Case%d", i)).Fire(), nil
+	for _, c := range switchCases(in) {
+		if v == c {
+			return ctx.Out(c).Fire(), nil
 		}
 	}
 	return ctx.Out(swOutDefault).Fire(), nil
+}
+
+// switchCases 从 config.cases (顶层 metadata, buildConfigFor 拷进 inputs) 取 case 值列表,
+// 防御性规整: 过滤非字符串 / 空串 / 重复。镜像 container.ParseSwitchConfig (跨包不共享, 各一份)。
+func switchCases(in node.Inputs) []string {
+	arr, ok := in.Raw("cases").([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	seen := map[string]bool{}
+	for _, item := range arr {
+		s, ok := item.(string)
+		if !ok || s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 func (Switch) Display(in node.Inputs, exitName string, out node.OutputData) string {

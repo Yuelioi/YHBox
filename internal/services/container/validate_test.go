@@ -16,23 +16,27 @@ func TestExecOutPinsForNode_Static_Sleep(t *testing.T) {
 	}
 }
 
-func TestExecOutPinsForNode_Switch_StaticCases(t *testing.T) {
-	n := &GraphNode{Kind: "Switch"}
+func TestExecOutPinsForNode_Switch_NamedByValue(t *testing.T) {
+	// named-by-value: 出口 = config.cases 里每个值 + 'default'.
+	n := &GraphNode{Kind: "Switch", Config: map[string]any{"cases": []any{"IDLE", "FISHING"}}}
 	pins := execOutPinsForNode(n)
-	for _, want := range []string{"Case1", "Case8", "Case16", "Default"} {
+	for _, want := range []string{"IDLE", "FISHING", "default"} {
 		if _, ok := pins[want]; !ok {
 			t.Errorf("Switch 应有 %s exec-out pin, got %v", want, pins)
 		}
 	}
+	if len(pins) != 3 {
+		t.Errorf("应只 3 pins (2 case + default), got %d: %v", len(pins), pins)
+	}
 }
 
 func TestNodeHasExecOutPin(t *testing.T) {
-	n := &GraphNode{Kind: "Switch"}
-	if !nodeHasExecOutPin(n, "Case1") {
-		t.Error("应识别 Case1 pin")
+	n := &GraphNode{Kind: "Switch", Config: map[string]any{"cases": []any{"IDLE"}}}
+	if !nodeHasExecOutPin(n, "IDLE") {
+		t.Error("应识别 case pin IDLE")
 	}
-	if !nodeHasExecOutPin(n, "Default") {
-		t.Error("应识别 Default pin")
+	if !nodeHasExecOutPin(n, "default") {
+		t.Error("应识别 default pin")
 	}
 	if nodeHasExecOutPin(n, "BogusPin") {
 		t.Error("不应识别未知 pin")

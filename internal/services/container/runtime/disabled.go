@@ -22,7 +22,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 	case "Loop", "Race", "Parallel":
 		return tryExits(r, node, tok, "done"), nil
 	case "Switch":
-		return tryExits(r, node, tok, "Default"), nil
+		return tryExits(r, node, tok, "default"), nil
 	case "If":
 		return tryExits(r, node, tok, "True"), nil
 	case "Try":

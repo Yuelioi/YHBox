@@ -2,177 +2,113 @@ package control
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"yhbox/internal/node"
 )
 
-func TestSwitch_Case1Hit(t *testing.T) {
+// runSwitch 跑一个 Switch: cases (named-by-value 列表, 传 nil 表示无 cases),
+// value (待比较值), hasValue (false 模拟 Required 缺失)。
+func runSwitch(t *testing.T, value string, cases []any, hasValue bool) node.RunResult {
+	t.Helper()
 	node.ResetRegistryForTest()
 	node.Register(&Switch{})
 	rn, _ := node.Get("Switch")
+	cfg := map[string]any{}
+	if cases != nil {
+		cfg["cases"] = cases
+	}
+	if hasValue {
+		cfg[swInValue] = value
+	}
+	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices())
+}
 
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			swInValue:    "A",
-			"Case1Value": "A",
-			"Case2Value": "B",
-		},
-		nil, node.StubServices())
-	if r.ExitName != "Case1" {
-		t.Errorf("exit = %q, want Case1", r.ExitName)
+func TestSwitch_CaseHit(t *testing.T) {
+	// 命中 → 走同名出口 (case 值即 exit 名).
+	r := runSwitch(t, "B", []any{"A", "B", "C"}, true)
+	if r.ExitName != "B" {
+		t.Errorf("exit = %q, want B (named-by-value)", r.ExitName)
 	}
 }
 
-func TestSwitch_Case16Hit(t *testing.T) {
-	// 最后一个 case 也能命中, 验 16 上限循环覆盖.
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			swInValue:     "Z",
-			"Case16Value": "Z",
-		},
-		nil, node.StubServices())
-	if r.ExitName != "Case16" {
-		t.Errorf("exit = %q, want Case16", r.ExitName)
-	}
-}
-
-func TestSwitch_Default(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			swInValue:    "X",
-			"Case1Value": "A",
-			"Case2Value": "B",
-			"Case3Value": "C",
-		},
-		nil, node.StubServices())
+func TestSwitch_DefaultOnMiss(t *testing.T) {
+	r := runSwitch(t, "X", []any{"A", "B"}, true)
 	if r.ExitName != swOutDefault {
-		t.Errorf("exit = %q, want Default", r.ExitName)
+		t.Errorf("exit = %q, want %q", r.ExitName, swOutDefault)
 	}
 }
 
-func TestSwitch_DefaultWhenNoCasesSet(t *testing.T) {
-	// 仅 Value 没任何 CaseN — 直接走 Default.
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swInValue: "anything"},
-		nil, node.StubServices())
+func TestSwitch_DefaultWhenNoCases(t *testing.T) {
+	r := runSwitch(t, "anything", nil, true)
 	if r.ExitName != swOutDefault {
-		t.Errorf("exit = %q, want Default (no cases set)", r.ExitName)
+		t.Errorf("exit = %q, want %q (no cases)", r.ExitName, swOutDefault)
 	}
 }
 
 func TestSwitch_FirstMatchWins(t *testing.T) {
-	// 两个 case 同 value, Case1 先匹配.
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			swInValue:    "A",
-			"Case1Value": "A",
-			"Case2Value": "A",
-		},
-		nil, node.StubServices())
-	if r.ExitName != "Case1" {
-		t.Errorf("exit = %q, want Case1 (first match)", r.ExitName)
+	// 重复 case 被 switchCases 规整 (dedup), 仍命中.
+	r := runSwitch(t, "A", []any{"A", "A"}, true)
+	if r.ExitName != "A" {
+		t.Errorf("exit = %q, want A", r.ExitName)
 	}
 }
 
-func TestSwitch_EmptyCaseFieldDoesNotMatchEmptyValue(t *testing.T) {
-	// 未设的 CaseN 字段 Has=false, 不参与匹配; Value 空跟未设 Case 都不算命中 → Default.
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swInValue: ""},
-		nil, node.StubServices())
-	if r.ExitName != swOutDefault {
-		t.Errorf("exit = %q, want Default (empty value + no cases → default)", r.ExitName)
+func TestSwitch_CJKAndEmoji(t *testing.T) {
+	r := runSwitch(t, "钓鱼", []any{"待机", "钓鱼", "恢复"}, true)
+	if r.ExitName != "钓鱼" {
+		t.Errorf("exit = %q, want 钓鱼", r.ExitName)
+	}
+	r2 := runSwitch(t, "🎣", []any{"🎣", "⚔️"}, true)
+	if r2.ExitName != "🎣" {
+		t.Errorf("exit = %q, want 🎣", r2.ExitName)
 	}
 }
 
-func TestSwitch_AllCases_StateMachineStyle(t *testing.T) {
-	// 模拟 fishing-v2 main swState — 9 case 字符串 + default. 验中间 case 命中.
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	states := []string{
-		"IDLE", "SETUP", "WAITING", "FISHING", "RESULT",
-		"RECOVERING", "SHOPSELL", "BUYBAIT", "CHANGEBAIT",
-	}
-
-	config := map[string]any{}
-	for i, state := range states {
-		config[fmt.Sprintf("Case%dValue", i+1)] = state
-	}
-
-	for i, state := range states {
-		config[swInValue] = state
-		r := node.RunNode(context.Background(), rn, nil, config, nil, node.StubServices())
-		want := fmt.Sprintf("Case%d", i+1)
-		if r.ExitName != want {
-			t.Errorf("state=%q exit=%q, want %q", state, r.ExitName, want)
+func TestSwitch_StateMachineStyle(t *testing.T) {
+	// 模拟 fishing-v2 swState 9 态 — 每个都能命中同名出口.
+	states := []any{"IDLE", "SETUP", "WAITING", "FISHING", "RESULT",
+		"RECOVERING", "SHOPSELL", "BUYBAIT", "CHANGEBAIT"}
+	for _, s := range states {
+		r := runSwitch(t, s.(string), states, true)
+		if r.ExitName != s.(string) {
+			t.Errorf("state %q exit %q, want %q", s, r.ExitName, s)
 		}
 	}
-
-	config[swInValue] = "UNKNOWN_STATE"
-	r := node.RunNode(context.Background(), rn, nil, config, nil, node.StubServices())
+	r := runSwitch(t, "UNKNOWN", states, true)
 	if r.ExitName != swOutDefault {
-		t.Errorf("unknown state exit=%q, want Default", r.ExitName)
+		t.Errorf("unknown state exit %q, want %q", r.ExitName, swOutDefault)
+	}
+}
+
+func TestSwitch_EmptyAndNonStringCasesSkipped(t *testing.T) {
+	// 空串 / 非字符串项被 switchCases 跳过; value="" 不命中空 case → default.
+	r := runSwitch(t, "", []any{"", "A"}, true)
+	if r.ExitName != swOutDefault {
+		t.Errorf("exit = %q, want %q (空 case 不参与匹配)", r.ExitName, swOutDefault)
 	}
 }
 
 func TestSwitch_RequiredValueMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
-
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := runSwitch(t, "", []any{"A"}, false)
 	if len(r.Validation) == 0 {
 		t.Errorf("expected REQUIRED_FIELD_MISSING for Value, got %+v", r)
 	}
 }
 
-func TestSwitch_Spec_16CasesPlusDefault(t *testing.T) {
+func TestSwitch_Spec_DynamicOutputs(t *testing.T) {
 	sp := Switch{}.Spec()
-	if len(sp.Outputs) != switchMaxCases+1 {
-		t.Errorf("Outputs = %d, want %d (16 cases + Default)", len(sp.Outputs), switchMaxCases+1)
+	if !sp.DynamicOutputs {
+		t.Error("Switch.Spec.DynamicOutputs should be true (named-by-value 出口)")
 	}
-	// 最后一个必须是 Default
-	if sp.Outputs[len(sp.Outputs)-1].Name != swOutDefault {
-		t.Errorf("last output = %q, want %q", sp.Outputs[len(sp.Outputs)-1].Name, swOutDefault)
+	// 唯一静态出口 = default 兜底
+	if len(sp.Outputs) != 1 || sp.Outputs[0].Name != swOutDefault {
+		t.Errorf("Outputs = %+v, want single %q", sp.Outputs, swOutDefault)
 	}
-	// 前 4 case 输入 Advanced=false, 5-16 Advanced=true
-	caseInputs := map[string]node.InputSpec{}
+	// 不再有 CaseNValue 输入 — 只 In + Value
 	for _, in := range sp.Inputs {
-		caseInputs[in.Name] = in
-	}
-	for i := 1; i <= switchMaxCases; i++ {
-		key := fmt.Sprintf("Case%dValue", i)
-		in, ok := caseInputs[key]
-		if !ok {
-			t.Errorf("missing input %q", key)
-			continue
-		}
-		wantAdvanced := i > 4
-		if in.Advanced != wantAdvanced {
-			t.Errorf("%s.Advanced = %v, want %v", key, in.Advanced, wantAdvanced)
+		if in.Name != swInExec && in.Name != swInValue {
+			t.Errorf("unexpected input %q (named-by-value 不应有 CaseNValue)", in.Name)
 		}
 	}
 }

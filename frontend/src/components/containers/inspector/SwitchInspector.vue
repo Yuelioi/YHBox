@@ -95,15 +95,19 @@ async function removeCase(i: number) {
   rows.value.splice(i, 1)
 }
 
+// Value 是 Spec.Input → 正源 config.literal.Value (input-editing-unification guardrail)。
 function updateValue(v: string) {
+  const cfg = props.node.config ?? {}
   emit('update', {
-    ...(props.node.config ?? {}),
-    value: v,
+    ...cfg,
+    literal: { ...((cfg.literal as Record<string, any>) ?? {}), Value: v },
   })
 }
 
 function currentValue(): string {
-  const v = props.node.config?.value
+  const cfg = props.node.config as any
+  // 正源 literal.Value; fallback 顶层 Value/value (旧数据), 镜像后端 PinValue。
+  const v = cfg?.literal?.Value ?? cfg?.Value ?? cfg?.value
   return typeof v === 'string' ? v : ''
 }
 </script>

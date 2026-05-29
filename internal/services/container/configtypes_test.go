@@ -13,19 +13,26 @@ func TestParseSwitchConfig(t *testing.T) {
 	}{
 		{
 			"happy path",
-			map[string]any{"Case1Value": "IDLE", "Case2Value": "WAITING"},
+			map[string]any{"cases": []any{"IDLE", "WAITING"}},
 			[]string{"IDLE", "WAITING"},
 		},
 		{"nil config", nil, nil},
-		{"missing fields", map[string]any{}, nil},
+		{"missing cases", map[string]any{}, nil},
+		{"cases not array", map[string]any{"cases": "nope"}, nil},
 		{
-			"CaseN gaps silently skipped",
-			map[string]any{"Case1Value": "A", "Case3Value": "B"},
+			// 原样返 (含空/重复) — 留给 validateSwitchConfig 报错, 不在此过滤.
+			"raw passthrough incl empty/dup",
+			map[string]any{"cases": []any{"A", "", "A"}},
+			[]string{"A", "", "A"},
+		},
+		{
+			"non-string items skipped",
+			map[string]any{"cases": []any{"A", 5, "B"}},
 			[]string{"A", "B"},
 		},
 		{
 			"CJK + emoji",
-			map[string]any{"Case1Value": "钓鱼", "Case2Value": "🎣"},
+			map[string]any{"cases": []any{"钓鱼", "🎣"}},
 			[]string{"钓鱼", "🎣"},
 		},
 	}

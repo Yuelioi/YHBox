@@ -42,7 +42,13 @@ func (b *outBuilderImpl) Fire() Outputs {
 
 // validateExitName 在 Out(name) 调用时检查 name 是否在 Spec.Outputs.
 // 错 → 立即 panic (author bug, fail fast — Claude r4 #2).
+//
+// DynamicOutputs 节点 (Switch named-by-value) 放行任意 name — 出口由 config 推导,
+// 静态 Outputs 列不全; 合法性由节点 Run + validator 保证.
 func validateExitName(spec *Spec, name string) {
+	if spec.DynamicOutputs {
+		return
+	}
 	for _, o := range spec.Outputs {
 		if o.Name == name {
 			return

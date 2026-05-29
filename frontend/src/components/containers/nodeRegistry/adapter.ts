@@ -177,11 +177,9 @@ const DYNAMIC_EXEC_OUT: Record<
   (cfg: Record<string, unknown> | null | undefined) => string[]
 > = {
   Switch: (cfg) => {
-    const cases = Array.isArray(cfg?.Cases)
-      ? (cfg!.Cases as unknown[])
-      : Array.isArray(cfg?.cases)
-      ? (cfg!.cases as unknown[])
-      : []
+    // named-by-value: 出口 = config.cases 里每个 case 值 + 'default' 兜底.
+    // 镜像 backend switch.go Run + validate.go execOutPinsForNode.
+    const cases = Array.isArray(cfg?.cases) ? (cfg!.cases as unknown[]) : []
     const out: string[] = []
     const seen = new Set<string>()
     for (const c of cases) {
