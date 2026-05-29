@@ -10,6 +10,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image/png"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 	"yhbox/internal/node"
 	"yhbox/internal/services/expr"
+	clipruntime "yhbox/internal/services/inputclip/runtime"
 	"yhbox/pkg/vision"
 )
 
@@ -223,6 +225,58 @@ func (a *stopwatchAdapter) Read(key string) int64 { return a.tbl.read(key) }
 
 // NewStopwatchAdapter wrap *stopwatchTable into node.StopwatchStore.
 func NewStopwatchAdapter(tbl *stopwatchTable) node.StopwatchStore { return &stopwatchAdapter{tbl: tbl} }
+
+// ============================================================================
+// ClipPlayerAdapter — RuntimeContext (ClipResolver + InputBackend + InputBus +
+// ClipPolicy + MouseCounts360 + Window) → node.ClipPlayer. PlayClip 节点用.
+// ============================================================================
+
+type clipPlayerAdapter struct{ rt *RuntimeContext }
+
+func newClipPlayerAdapter(rt *RuntimeContext) node.ClipPlayer { return &clipPlayerAdapter{rt: rt} }
+
+// Play 阻塞回放 clipID. 抢 InputBus 独占锁 hold 整段, ctx 取消即 Cancel + 释放按下键.
+// keepRanges 暂传 nil (整段播) — 片段裁剪 follow-up 见 playclip-phase5-wire spec.
+func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
+	rt := a.rt
+	if rt.ClipResolver == nil {
+		return errors.New("PlayClip: ClipResolver 未注入 (main.go SetClipResolver?)")
+	}
+	clip, ok := rt.ClipResolver.Resolve(clipID)
+	if !ok {
+		return fmt.Errorf("PlayClip: clip %q 未找到", clipID)
+	}
+	if rt.InputBackend == nil {
+		return errors.New("PlayClip: InputBackend 未注入")
+	}
+
+	rt.InputBus.Lock()
+	defer rt.InputBus.Unlock()
+
+	p := clipruntime.NewClipPlayer(clip, nil, rt.InputBackend, rt.ClipPolicy, rt.MouseCounts360,
+		func() (int, int) {
+			if rt.Window.HWND == 0 {
+				return 0, 0 // 未解析窗口 → 不缩放
+			}
+			return rt.Window.ClientW, rt.Window.ClientH
+		},
+	)
+	p.Start(ctx)
+
+	select {
+	case <-p.Done():
+		// ErrCancelled (Cancel 触发) 视为正常收尾; ctx.Canceled 透传给 dispatch 优雅 halt;
+		// 其它是真回放错 (backend.Send 失败等) → 业务 error 出口.
+		if err := p.Wait(); err != nil && !errors.Is(err, clipruntime.ErrCancelled) {
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		p.Cancel()
+		<-p.Done()
+		return ctx.Err()
+	}
+}
 
 // ============================================================================
 // InputAdapter — pkginput.Backend (+ rt.Window.HWND) → node.InputService
@@ -609,6 +663,7 @@ func NewServiceBundleFor(
 		Window:      NewWindowAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),
 		Stopwatches: NewStopwatchAdapter(stopwatches),
+		Clip:        newClipPlayerAdapter(rt),
 		Snapshot: func(ctx context.Context) node.Snapshot {
 			tick := tickFromCtx(ctx)
 			if tick == nil {

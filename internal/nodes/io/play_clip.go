@@ -1,10 +1,10 @@
 // internal/nodes/io/play_clip.go
-// PlayClip — 回放录制的 InputClip. 目前是 stub: 注册 Spec (FE 节点列表可见),
-// Run 直接报错, 因为还没有 ClipService (Resolve + Play 阻塞跑完 + InputBus 独占).
+// PlayClip — 阻塞回放一条录制的 InputClip. clipID 经 ctx.Clip() (runtime 注入的
+// ClipResolver + InputBackend + InputBus 独占) 解析并跑完整段, ctx 取消即中断.
 package io
 
 import (
-	"errors"
+	"fmt"
 
 	"yhbox/internal/node"
 )
@@ -18,10 +18,6 @@ const (
 	pcInClipID = "ClipID"
 	pcOutDone  = "Done"
 )
-
-// errPlayClipPhase5 — PlayClip 没有 ClipService 时 Run 立即返回此 sentinel;
-// 放进 graph 跑会报错, validator 同时检 clipID 是否存在.
-var errPlayClipPhase5 = errors.New("PlayClip — Phase 5 wire 需要 ClipService (Resolve + Play + InputBus 独占)")
 
 func (PlayClip) Spec() node.Spec {
 	return node.Spec{
@@ -40,7 +36,13 @@ func (PlayClip) Spec() node.Spec {
 }
 
 func (PlayClip) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errPlayClipPhase5
+	clipID := in.String(pcInClipID)
+	// ctx.Context() 透传当前 Run 的 cancel — 取消时 Play 内部释放按下键并返 context.Canceled,
+	// dispatch 当优雅 halt 不当节点失败.
+	if err := ctx.Clip().Play(ctx.Context(), clipID); err != nil {
+		return nil, fmt.Errorf("PlayClip clipID=%q: %w", clipID, err)
+	}
+	return ctx.Out(pcOutDone).Fire(), nil
 }
 
 func (PlayClip) Dependencies(in node.Inputs) []node.Dependency {

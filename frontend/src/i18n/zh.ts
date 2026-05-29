@@ -802,9 +802,9 @@ export default {
     },
     PlayClip: {
       label: '回放录像',
-      description: '(Phase 5 stub) 回放录制的 InputClip. 老 runtime 走 ClipPlayer + InputBus 独占; 框架 Ctx 还没 ClipService.',
+      description: '阻塞回放一条录制的 InputClip. 整段独占 InputBus; 取消 (Stop) 即中断并释放按下的键.',
       input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' } },
-      output: { Done: { label: '完成 (Phase 5)' } },
+      output: { Done: { label: '完成' } },
       inspector: {
         clip_unset_placeholder: '(未设)',
         clip_missing: 'clip {id} 不在 clips 库. 重新录制覆盖.',

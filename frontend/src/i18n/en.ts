@@ -782,9 +782,9 @@ export default {
     },
     PlayClip: {
       label: 'Play clip',
-      description: '(Phase 5 stub) Replay a recorded InputClip. Old runtime used ClipPlayer + InputBus; framework Ctx still lacks ClipService.',
+      description: 'Replays a recorded InputClip, blocking until done. Grabs the InputBus exclusively for the whole playback; cancel (Stop) interrupts and releases held keys.',
       input: { ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' } },
-      output: { Done: { label: 'Done (Phase 5)' } },
+      output: { Done: { label: 'Done' } },
       inspector: {
         clip_unset_placeholder: '(unset)',
         clip_missing: 'clip {id} not found in the clip library. Re-record to overwrite.',

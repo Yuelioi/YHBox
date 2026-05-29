@@ -109,6 +109,7 @@ type Ctx interface {
 	Window() WindowService
 	Capture() CaptureService
 	Stopwatches() StopwatchStore
+	Clip() ClipPlayer
 }
 
 // OutBuilder — fluent builder.
@@ -275,6 +276,16 @@ type StopwatchStore interface {
 	Read(key string) (elapsedMs int64)
 }
 
+// ClipPlayer — PlayClip 节点用. 阻塞回放一整条录制的 InputClip (内部抢 InputBus 独占),
+// ctx 取消即中断并释放已按下的键/键. runtime 端 wire 时持 ClipResolver + InputBackend +
+// PlaybackPolicy + MouseCounts360 + Window 缩放; 节点端只调 Play.
+//
+// ctx 显式入参 (不藏在 bundle): bundle 是 per-runner 构造一次, ctx 是 per-Run tick —
+// 回放取消必须接当前 Run 的 ctx, 跟 VisionService.Match 同模式.
+type ClipPlayer interface {
+	Play(ctx context.Context, clipID string) error
+}
+
 // ServiceBundle — RunNode 入参集合, 替代 8-arg signature. 全部字段 nullable;
 // 节点 spec / 实测 wire 时决定哪些必填.
 //
@@ -291,6 +302,7 @@ type ServiceBundle struct {
 	Window      WindowService
 	Capture     CaptureService
 	Stopwatches StopwatchStore
+	Clip        ClipPlayer // PlayClip 用, runtime 端 wire
 	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
 }
 
