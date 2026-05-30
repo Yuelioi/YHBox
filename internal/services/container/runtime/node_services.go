@@ -12,6 +12,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/draw"
 	"image/png"
 	"strings"
 	"time"
@@ -622,23 +624,26 @@ func (a *visionAdapter) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis stri
 	return out, nil
 }
 
-// GridSignature 抓 roi 帧 (roi w/h≥1 → FrameROI 像素子区; 否则全帧 Frame) → box-average
-// 降采样成 gridSize×gridSize RGB 签名. 每调一次新抓一帧 (无缓存, 同 DetectColorHSV 路径).
-func (a *visionAdapter) GridSignature(roi node.Rect, gridSize int) ([]uint8, error) {
+// cropFrameByGeometry 全帧抓到后按 Geometry 解析的像素区裁子图.
+// fullFrame=true (Geometry 零值/无匹配分辨率且 Pct 全 0) 直接返原帧, 避免无谓拷贝.
+// 所有 override / pct 路径统一经 ResolveGeometry, 是通用 adapter crop 的规范范式.
+func cropFrameByGeometry(frame *image.RGBA, roi node.Geometry) *image.RGBA {
+	x, y, w, h, fullFrame := ResolveGeometry(roi, frame.Bounds().Dx(), frame.Bounds().Dy())
+	if fullFrame || w <= 0 || h <= 0 {
+		return frame
+	}
+	sub := image.NewRGBA(image.Rect(0, 0, w, h))
+	draw.Draw(sub, sub.Bounds(), frame, image.Point{X: x, Y: y}, draw.Src)
+	return sub
+}
+
+// GridSignature 抓全帧后按 roi Geometry 裁子区 → box-average 降采样成
+// gridSize×gridSize RGB 签名. Geometry 零值 = 全帧; 每调一次新抓一帧 (无缓存).
+func (a *visionAdapter) GridSignature(roi node.Geometry, gridSize int) ([]uint8, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
 	hwnd := win.HWND(a.rt.Window.HWND)
-	if roi.W >= 1 && roi.H >= 1 {
-		frame, err := a.rt.Capture.FrameROI(hwnd, int(roi.X), int(roi.Y), int(roi.W), int(roi.H))
-		if err != nil {
-			return nil, err
-		}
-		if frame == nil {
-			return nil, fmt.Errorf("capture: nil frame")
-		}
-		return vision.Downsample(frame, gridSize), nil
-	}
 	frame, err := a.rt.Capture.Frame(hwnd)
 	if err != nil {
 		return nil, err
@@ -646,7 +651,8 @@ func (a *visionAdapter) GridSignature(roi node.Rect, gridSize int) ([]uint8, err
 	if frame == nil {
 		return nil, fmt.Errorf("capture: nil frame")
 	}
-	return vision.Downsample(frame, gridSize), nil
+	sub := cropFrameByGeometry(frame, roi)
+	return vision.Downsample(sub, gridSize), nil
 }
 
 // hsvRangeFromNode 转 node.HSVRange (导出字段) → 包内 hsvRange (非导出字段).

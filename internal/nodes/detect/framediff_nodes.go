@@ -63,10 +63,7 @@ const (
 func commonInputs() []node.InputSpec {
 	return []node.InputSpec{
 		{Name: wfIn, Type: "Exec"},
-		{Name: wfROI, Type: "JSON",
-			Widget: node.WidgetSpec{Kind: "json",
-				Props: node.MarshalProps(node.JSONProps{Rows: 2,
-					Placeholder: `{"x":100,"y":80,"w":400,"h":300}`})}},
+		{Name: wfROI, Type: "Geometry", Schema: node.GeometrySchema()},
 		{Name: wfGridSize, Type: "Number", Default: json.Number("32"),
 			Widget: node.WidgetSpec{Kind: "number"}},
 		{Name: wfMetric, Type: "String", Default: metricChangedRatio,
@@ -122,7 +119,7 @@ func (WaitChange) Spec() node.Spec {
 
 // frameDiffParams 两节点共用的解析结果.
 type frameDiffParams struct {
-	roi       node.Rect
+	roi       node.Geometry
 	grid      int
 	metric    string
 	cellDelta int
@@ -131,10 +128,7 @@ type frameDiffParams struct {
 }
 
 func parseFrameDiffParams(in node.Inputs) (frameDiffParams, error) {
-	roi, err := parseOptionalROI(in.JSON(wfROI))
-	if err != nil {
-		return frameDiffParams{}, err
-	}
+	roi := in.Geometry(wfROI)
 	metric := in.String(wfMetric)
 	if metric == "" {
 		metric = metricChangedRatio
@@ -164,33 +158,6 @@ func parseFrameDiffParams(in node.Inputs) (frameDiffParams, error) {
 		p.deadline = time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
 	}
 	return p, nil
-}
-
-// parseOptionalROI: 空/缺省 → 全帧 (零 Rect); 给了就要 w/h≥1.
-func parseOptionalROI(m map[string]any) (node.Rect, error) {
-	if len(m) == 0 {
-		return node.Rect{}, nil
-	}
-	f := func(k string) float64 {
-		switch v := m[k].(type) {
-		case float64:
-			return v
-		case int:
-			return float64(v)
-		case json.Number:
-			x, _ := v.Float64()
-			return x
-		}
-		return 0
-	}
-	r := node.Rect{X: f("x"), Y: f("y"), W: f("w"), H: f("h")}
-	if r.W == 0 && r.H == 0 && r.X == 0 && r.Y == 0 {
-		return node.Rect{}, nil // 全 0 视作全帧
-	}
-	if r.W < 1 || r.H < 1 {
-		return r, fmt.Errorf("ROI w/h must be >=1, got %vx%v", r.W, r.H)
-	}
-	return r, nil
 }
 
 func frameDiffValue(metric string, a, b []uint8, cellDelta int) float64 {

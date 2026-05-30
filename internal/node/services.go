@@ -52,7 +52,7 @@ func (stubVisionService) ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx
 	return nil, nil
 }
 
-func (stubVisionService) GridSignature(roi Rect, gridSize int) ([]uint8, error) {
+func (stubVisionService) GridSignature(roi Geometry, gridSize int) ([]uint8, error) {
 	return nil, nil
 }
 

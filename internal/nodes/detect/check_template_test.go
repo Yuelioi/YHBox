@@ -89,7 +89,7 @@ func (m *mockVision) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis string,
 	return m.clusters, m.clustersErr
 }
 
-func (m *mockVision) GridSignature(roi node.Rect, gridSize int) ([]uint8, error) {
+func (m *mockVision) GridSignature(roi node.Geometry, gridSize int) ([]uint8, error) {
 	if m.gridErr != nil {
 		return nil, m.gridErr
 	}
