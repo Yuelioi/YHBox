@@ -28,8 +28,9 @@ type AsyncDropdownProps struct {
 }
 
 type JSONProps struct {
-	Rows   int    `json:"rows,omitempty"`
-	Schema string `json:"schema,omitempty"`
+	Rows        int    `json:"rows,omitempty"`
+	Schema      string `json:"schema,omitempty"`
+	Placeholder string `json:"placeholder,omitempty"` // 空 textarea 占位示例 (前端透到 <textarea placeholder>)
 }
 
 type TextareaProps struct {

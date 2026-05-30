@@ -610,11 +610,14 @@ func validateWindowTarget(c *Container) []ValidationError {
 		}
 	}
 	if mainCount == 0 {
-		errs = append(errs, ValidationError{
-			Severity:  SeverityError,
-			Code:      CodeMissingWindowTarget,
-			GraphPath: []string{"main"},
-		})
+		// 按需要求: 只有图里有窗口类节点 (NeedsWindow) 才报缺 WindowTarget; 纯窗口无关容器放行.
+		if containerNeedsWindow(c) {
+			errs = append(errs, ValidationError{
+				Severity:  SeverityError,
+				Code:      CodeMissingWindowTarget,
+				GraphPath: []string{"main"},
+			})
+		}
 	} else if mainCount > 1 {
 		errs = append(errs, ValidationError{
 			Severity:  SeverityError,

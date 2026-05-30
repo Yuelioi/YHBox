@@ -28,8 +28,9 @@ const (
 
 func (DetectColor) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "DetectColor",
-		Category: "Detect",
+		Kind:        "DetectColor",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dcInExec, Type: "Exec"},
 			{Name: dcInRegion, Type: "Rect",

@@ -25,8 +25,9 @@ const (
 
 func (MouseHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "MouseHoldStart",
-		Category: "Input",
+		Kind:        "MouseHoldStart",
+		Category:    "Input",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: mhStartInExec, Type: "Exec"},
 			{Name: mhStartInXRatio, Type: "Number", Default: json.Number("0.5"),
@@ -87,8 +88,9 @@ const (
 
 func (MouseHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "MouseHoldStop",
-		Category: "Input",
+		Kind:        "MouseHoldStop",
+		Category:    "Input",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: mhStopInExec, Type: "Exec"},
 			{Name: mhStopInButton, Type: "String", Default: "left",

@@ -27,8 +27,9 @@ const (
 
 func (Screenshot) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "Screenshot",
-		Category: "Detect",
+		Kind:        "Screenshot",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: ssInExec, Type: "Exec"},
 			{Name: ssInPathTemplate, Type: "String", Default: "screenshots/{ts}.png",

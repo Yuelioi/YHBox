@@ -23,8 +23,9 @@ const (
 
 func (ClickAt) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "ClickAt",
-		Category: "Input",
+		Kind:        "ClickAt",
+		Category:    "Input",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: caInExec, Type: "Exec"},
 			{Name: caInXRatio, Type: "Number", Default: json.Number("0.5"),

@@ -293,6 +293,12 @@ func (r *ContainerRunner) setupRuntime() error {
 		return nil
 	}
 
+	// 按需要求: 纯窗口无关容器 (无 NeedsWindow 节点) 不解析窗口, rt.Window 留零值.
+	// 跟 validator.validateWindowTarget 同判定 — 含窗口节点才要求/解析 WindowTarget.
+	if !containerNeedsWindow(r.rt.Container) {
+		return nil
+	}
+
 	wtNode := findMainGraphNode(r.rt.Container, "WindowTarget")
 	if wtNode == nil {
 		return errors.New("MISSING_WINDOW_TARGET — container 缺 WindowTarget 节点")
@@ -388,6 +394,30 @@ func findMainGraphNode(c *container.Container, kind string) *container.GraphNode
 		}
 	}
 	return nil
+}
+
+// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或任一子图.
+// 跟 validator.containerNeedsWindow 同判定: 决定 runtime 是否解析 WindowTarget. 纯窗口无关
+// 容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
+func containerNeedsWindow(c *container.Container) bool {
+	if graphHasWindowNode(c.Graph.Nodes) {
+		return true
+	}
+	for i := range c.Subgraphs {
+		if graphHasWindowNode(c.Subgraphs[i].Graph.Nodes) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasWindowNode(nodes []container.GraphNode) bool {
+	for i := range nodes {
+		if rn, ok := node.Get(nodes[i].Kind); ok && rn.Spec.NeedsWindow {
+			return true
+		}
+	}
+	return false
 }
 
 // readWindowTargetMatchSpec 解析 WindowTarget.config 顶级匹配字段.

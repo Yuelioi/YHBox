@@ -31,8 +31,9 @@ const (
 
 func (ClickTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "ClickTemplate",
-		Category: "Detect",
+		Kind:        "ClickTemplate",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: clkInExec, Type: "Exec"},
 			{Name: clkInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,

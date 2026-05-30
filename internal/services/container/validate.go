@@ -275,3 +275,28 @@ func dataOutPinTypeForKind(kind, pinName string) string {
 func IsDataOutPin(kind, pin string) bool {
 	return dataOutPinTypeForKind(kind, pin) != ""
 }
+
+// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或任一子图.
+// WindowTarget 改"按需要求": 只有含窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才必须有
+// WindowTarget; 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免. 扫全部子图 (它们跟主图共用同一
+// 运行时 hwnd; 哪怕暂未被调用, 含窗口节点就当需要 — 安全方向, 录制容器的 Subgraph(PlayClip) 命中此).
+func containerNeedsWindow(c *Container) bool {
+	if graphHasWindowNode(c.Graph.Nodes) {
+		return true
+	}
+	for i := range c.Subgraphs {
+		if graphHasWindowNode(c.Subgraphs[i].Graph.Nodes) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasWindowNode(nodes []GraphNode) bool {
+	for i := range nodes {
+		if rn, ok := nodepkg.Get(nodes[i].Kind); ok && rn.Spec.NeedsWindow {
+			return true
+		}
+	}
+	return false
+}

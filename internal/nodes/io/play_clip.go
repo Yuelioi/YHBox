@@ -21,8 +21,9 @@ const (
 
 func (PlayClip) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "PlayClip",
-		Category: "IO",
+		Kind:        "PlayClip",
+		Category:    "IO",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: pcInExec, Type: "Exec"},
 			{Name: pcInClipID, Type: "String", Required: true, Semantic: "ClipID",

@@ -18,6 +18,11 @@ type Spec struct {
 
 	IsPureData   bool `json:"isPureData,omitempty"`
 	IsVisualOnly bool `json:"isVisualOnly,omitempty"`
+	// NeedsWindow — 节点 Run 依赖目标窗口 hwnd (调 ctx.Input/Capture/Vision/Window/Clip).
+	// validator/runner 据此判定: 图里有 NeedsWindow 节点才要求 WindowTarget; 纯窗口无关
+	// 容器 (Sleep/Log/Cron/Expr...) 免 WindowTarget. 新节点用了上述 ctx 服务务必置真
+	// (漏置 → 该节点在无窗口容器里 SafeBackend 静默 no-op).
+	NeedsWindow bool `json:"needsWindow,omitempty"`
 	// IsGraphMarker — graph 结构标记节点 (SubgraphInput / SubgraphOutput).
 	// runtime 在 dispatch_v5 / runRegionBody 里 special-route 跳过 Run.
 	// 跟 IsVisualOnly 对称 (一个渲染标, 一个结构标), 跟 IsPureData 区分.

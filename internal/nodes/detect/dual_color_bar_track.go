@@ -33,8 +33,9 @@ const (
 
 func (DualColorBarTrack) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "DualColorBarTrack",
-		Category: "Detect",
+		Kind:        "DualColorBarTrack",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dcbtInExec, Type: "Exec"},
 			{Name: dcbtInRois, Type: "JSON", Required: true,

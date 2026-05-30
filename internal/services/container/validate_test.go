@@ -46,11 +46,12 @@ func TestNodeHasExecOutPin(t *testing.T) {
 // A.6: Validate() 返 *ValidationFailure 聚合多个 error, caller errors.As 取结构化列表.
 func TestValidateReturnsValidationFailure(t *testing.T) {
 	// Container with multiple errors: no Start node + missing WindowTarget.
+	// 用 ClickAt (NeedsWindow) — validate-on-use 下它才触发 MISSING_WINDOW_TARGET (Sleep 不会).
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
 			ID: "g", Version: 1,
-			Nodes: []GraphNode{{ID: "n1", Kind: "Sleep", Config: map[string]any{}}},
+			Nodes: []GraphNode{{ID: "n1", Kind: "ClickAt", Config: map[string]any{}}},
 		},
 	}
 	err := c.Validate()

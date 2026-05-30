@@ -20,8 +20,9 @@ const (
 
 func (BringGameForeground) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "BringGameForeground",
-		Category: "Input",
+		Kind:        "BringGameForeground",
+		Category:    "Input",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: bgfInExec, Type: "Exec"},
 		},

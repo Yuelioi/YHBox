@@ -301,13 +301,46 @@ func TestValidator_HappyPath(t *testing.T) {
 }
 
 func TestValidateWindowTarget_Missing(t *testing.T) {
-	// 非空图 (含 Start) 但无 WindowTarget → 触发 MISSING. 空图豁免 (刚创建).
+	// 含窗口类节点 (ClickAt, NeedsWindow) 但无 WindowTarget → 触发 MISSING (validate-on-use).
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "s", Kind: "Start"},
+		{ID: "c", Kind: "ClickAt"},
 	}}}
 	errs := validateWindowTarget(c)
 	if !hasCode(errs, CodeMissingWindowTarget) {
 		t.Errorf("want MISSING_WINDOW_TARGET, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_WindowlessSkipped(t *testing.T) {
+	// 纯窗口无关容器 (Start 无 NeedsWindow) 无 WindowTarget → 不报 MISSING (validate-on-use).
+	c := &Container{Graph: Graph{Nodes: []GraphNode{
+		{ID: "s", Kind: "Start"},
+		{ID: "lg", Kind: "Log"},
+		{ID: "sl", Kind: "Sleep"},
+	}}}
+	errs := validateWindowTarget(c)
+	if hasCode(errs, CodeMissingWindowTarget) {
+		t.Errorf("窗口无关容器不该报 MISSING_WINDOW_TARGET, got %+v", errs)
+	}
+}
+
+func TestValidateWindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
+	// 主图窗口无关, 但子图含 ClickAt → 仍要求 WindowTarget (子图跟主图共用 hwnd).
+	c := &Container{
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "s", Kind: "Start"},
+			{ID: "sg", Kind: "Subgraph"},
+		}},
+		Subgraphs: []Subgraph{
+			{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
+				{ID: "c", Kind: "ClickAt"},
+			}}},
+		},
+	}
+	errs := validateWindowTarget(c)
+	if !hasCode(errs, CodeMissingWindowTarget) {
+		t.Errorf("子图含窗口节点应要求 WindowTarget, got %+v", errs)
 	}
 }
 

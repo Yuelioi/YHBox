@@ -29,8 +29,9 @@ const (
 
 func (WaitTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "WaitTemplate",
-		Category: "Detect",
+		Kind:        "WaitTemplate",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,

@@ -33,8 +33,9 @@ const (
 
 func (ROIColorScan) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "ROIColorScan",
-		Category: "Detect",
+		Kind:        "ROIColorScan",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: rcsInExec, Type: "Exec"},
 			{Name: rcsInROI, Type: "JSON",

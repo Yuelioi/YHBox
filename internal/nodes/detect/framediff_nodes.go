@@ -65,7 +65,8 @@ func commonInputs() []node.InputSpec {
 		{Name: wfIn, Type: "Exec"},
 		{Name: wfROI, Type: "JSON",
 			Widget: node.WidgetSpec{Kind: "json",
-				Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+				Props: node.MarshalProps(node.JSONProps{Rows: 2,
+					Placeholder: `{"x":100,"y":80,"w":400,"h":300}`})}},
 		{Name: wfGridSize, Type: "Number", Default: json.Number("32"),
 			Widget: node.WidgetSpec{Kind: "number"}},
 		{Name: wfMetric, Type: "String", Default: metricChangedRatio,
@@ -91,8 +92,9 @@ func valueExit(name string) node.OutputSpec {
 
 func (WaitStable) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "WaitStable",
-		Category: "Detect",
+		Kind:        "WaitStable",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: append(commonInputs(),
 			node.InputSpec{Name: wsStableThreshold, Type: "Number", Default: json.Number("0.02"),
 				Widget: node.WidgetSpec{Kind: "slider",
@@ -106,8 +108,9 @@ func (WaitStable) Spec() node.Spec {
 
 func (WaitChange) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "WaitChange",
-		Category: "Detect",
+		Kind:        "WaitChange",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: append(commonInputs(),
 			node.InputSpec{Name: wcChangeThreshold, Type: "Number", Default: json.Number("0.05"),
 				Widget: node.WidgetSpec{Kind: "slider",

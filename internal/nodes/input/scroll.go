@@ -22,8 +22,9 @@ const (
 
 func (Scroll) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "Scroll",
-		Category: "Input",
+		Kind:        "Scroll",
+		Category:    "Input",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: scInExec, Type: "Exec"},
 			{Name: scInXRatio, Type: "Number", Default: json.Number("0.5"),

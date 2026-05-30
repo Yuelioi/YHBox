@@ -30,8 +30,9 @@ const (
 // === Spec: declarative metadata ===
 func (CheckTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "CheckTemplate",
-		Category: "Detect",
+		Kind:        "CheckTemplate",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: ctInExec, Type: "Exec"},
 			{Name: ctInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,

@@ -36,8 +36,9 @@ const (
 
 func (DetectColorHSV) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "DetectColorHSV",
-		Category: "Detect",
+		Kind:        "DetectColorHSV",
+		Category:    "Detect",
+		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dchInExec, Type: "Exec"},
 			{Name: dchInROI, Type: "JSON",
