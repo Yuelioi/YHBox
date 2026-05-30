@@ -73,7 +73,7 @@ func (m *mockVision) WaitMatch(ctx context.Context, key string, threshold float6
 	return nil, m.conf, nil
 }
 
-func (m *mockVision) DualBarTrack(roi node.Rect, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
+func (m *mockVision) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
 	return m.barResult, m.barErr
 }
 

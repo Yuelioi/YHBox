@@ -515,16 +515,17 @@ func (a *visionAdapter) writeLastTemplate(found bool, pt expr.Point) {
 	})
 }
 
-func (a *visionAdapter) DualBarTrack(roi node.Rect, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
+func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
 	if a.rt.Capture == nil {
 		return node.DualColorBarResult{}, fmt.Errorf("capture backend not initialised")
 	}
 	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.FrameROI(hwnd, int(roi.X), int(roi.Y), int(roi.W), int(roi.H))
+	frame, err := a.rt.Capture.Frame(hwnd)
 	if err != nil || frame == nil {
 		// 抓帧失败 (常见: HWND 失效 / 截图后台权限丢失) → 视 Missing 不冒泡 error.
 		return node.DualColorBarResult{Found: false}, nil
 	}
+	sub := cropFrameByGeometry(frame, roi)
 	vInner := vision.HSVRange{HMin: inner.HMin, HMax: inner.HMax, SMin: inner.SMin, SMax: inner.SMax, VMin: inner.VMin, VMax: inner.VMax}
 	vOuter := vision.HSVRange{HMin: outer.HMin, HMax: outer.HMax, SMin: outer.SMin, SMax: outer.SMax, VMin: outer.VMin, VMax: outer.VMax}
 	vOpts := vision.DualBarOptions{
@@ -536,7 +537,7 @@ func (a *visionAdapter) DualBarTrack(roi node.Rect, inner, outer node.HSVRange, 
 		ConfInnerWeight: opts.ConfInnerWeight,
 		ConfOuterWeight: opts.ConfOuterWeight,
 	}
-	result := vision.AnalyzeDualColorBar(frame, vInner, vOuter, vOpts)
+	result := vision.AnalyzeDualColorBar(sub, vInner, vOuter, vOpts)
 	if result == nil {
 		return node.DualColorBarResult{Found: false}, nil
 	}

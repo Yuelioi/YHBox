@@ -17,7 +17,7 @@ func TestDetectColor_Hit(t *testing.T) {
 	vision := &mockVision{colorCount: 42, colorCX: 0.5, colorCY: 0.6}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			dcInRegion:    node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05},
+			dcInRegion:    node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
 			dcInMode:      "hsv",
 			dcInRange:     []any{50.0, 60.0, 67.0, 127.0, 253.0, 255.0},
 			dcInMinPixels: 5,

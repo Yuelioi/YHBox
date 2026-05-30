@@ -66,6 +66,7 @@ func validateLiteralTypes(c *Container) []ValidationError {
 //   - bool as bool
 //   - string as string
 //   - point as map[string]any{x:float64, y:float64}
+//   - geometry as map[string]any{pct:{...}, overrides:[...]}
 //   - any matches anything (escape hatch)
 func literalMatchesType(v any, pinType string) bool {
 	if pinType == "any" {
@@ -91,6 +92,10 @@ func literalMatchesType(v any, pinType string) bool {
 		_, hasX := m["x"]
 		_, hasY := m["y"]
 		return hasX && hasY
+	case "geometry":
+		// Geometry JSON: {pct:{x,y,w,h}, overrides:[...]} or at minimum a map.
+		_, ok := v.(map[string]any)
+		return ok
 	}
 	return false
 }

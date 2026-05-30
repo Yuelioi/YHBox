@@ -1,7 +1,6 @@
 // internal/nodes/detect/dual_color_bar_track.go
-// DualColorBarTrack — 在多分辨率 ROI 数组中按当前 client size 选 ROI, 抓帧 → 双色 HSV
-// cluster 检测算 inner 在 outer 区域里的位置. 通用双色条算法 (血条/进度条/QTE 双色条
-// /钓鱼 cursor-target).
+// DualColorBarTrack — 按 Geometry ROI 裁子帧, 双色 HSV cluster 检测算 inner 在 outer 区域里
+// 的位置. 通用双色条算法 (血条/进度条/QTE 双色条/钓鱼 cursor-target).
 package detect
 
 import (
@@ -17,7 +16,7 @@ type DualColorBarTrack struct{}
 
 const (
 	dcbtInExec       = "In"
-	dcbtInRois       = "Rois"
+	dcbtInRoi        = "Roi"
 	dcbtInInnerColor = "InnerColor"
 	dcbtInOuterColor = "OuterColor"
 	dcbtInOptions    = "Options"
@@ -31,6 +30,17 @@ const (
 	dcbtDataOuterPx  = "OuterPx"
 )
 
+// dualBarOptionsSchema Options 字段结构化 schema — 所有 parseDualBarOptions 实际读取的键.
+var dualBarOptionsSchema = node.ObjSchema(
+	node.Field("innerMinPx", node.NumberSchema(), false),
+	node.Field("innerMaxPx", node.NumberSchema(), false),
+	node.Field("outerMinPx", node.NumberSchema(), false),
+	node.Field("bandRatioH", node.NumberSchema(), false),
+	node.Field("bandRatioInner", node.NumberSchema(), false),
+	node.Field("confInnerWeight", node.NumberSchema(), false),
+	node.Field("confOuterWeight", node.NumberSchema(), false),
+)
+
 func (DualColorBarTrack) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "DualColorBarTrack",
@@ -38,15 +48,17 @@ func (DualColorBarTrack) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dcbtInExec, Type: "Exec"},
-			{Name: dcbtInRois, Type: "JSON", Required: true,
-				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 4})}},
+			{Name: dcbtInRoi, Type: "Geometry", Required: true,
+				Schema: node.GeometrySchema()},
 			{Name: dcbtInInnerColor, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})},
+				Schema: hsvObjSchema},
 			{Name: dcbtInOuterColor, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})},
+				Schema: hsvObjSchema},
 			{Name: dcbtInOptions, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})},
+				Schema: dualBarOptionsSchema},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dcbtOutFound, Type: "Exec",
@@ -67,12 +79,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 }
 
 func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	clientW, clientH, _ := ctx.Window().ClientSize()
-	roi, ok := pickDualBarROI(in.Raw(dcbtInRois), clientW, clientH)
-	if !ok {
-		ctx.Log().Warn("DualColorBarTrack: no rois entry matches client %dx%d", clientW, clientH)
-		return ctx.Out(dcbtOutMissing).Fire(), nil
-	}
+	roi := in.Geometry(dcbtInRoi)
 	inner := parseDualBarHSV(in.JSON(dcbtInInnerColor), defaultInnerHSV)
 	outer := parseDualBarHSV(in.JSON(dcbtInOuterColor), defaultOuterHSV)
 	opts := parseDualBarOptions(in.JSON(dcbtInOptions))
@@ -184,52 +191,6 @@ func parseDualBarOptions(m map[string]any) node.DualBarOptions {
 	}
 }
 
-// pickDualBarROI 按 client size 选 ROI. rois 是 []any (JSON 反序列化), 每项
-// map[string]any 含 resolution=[W,H] + x/y/w/h. 返 node.Rect.
-func pickDualBarROI(raw any, frameW, frameH int) (node.Rect, bool) {
-	arr, ok := raw.([]any)
-	if !ok {
-		return node.Rect{}, false
-	}
-	for _, item := range arr {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		res, ok := m["resolution"].([]any)
-		if !ok || len(res) != 2 {
-			continue
-		}
-		w := numAsInt(res[0])
-		h := numAsInt(res[1])
-		if w != frameW || h != frameH {
-			continue
-		}
-		return node.Rect{
-			X: float64(numAsInt(m["x"])),
-			Y: float64(numAsInt(m["y"])),
-			W: float64(numAsInt(m["w"])),
-			H: float64(numAsInt(m["h"])),
-		}, true
-	}
-	return node.Rect{}, false
-}
-
-func numAsInt(v any) int {
-	switch x := v.(type) {
-	case float64:
-		return int(x)
-	case int:
-		return x
-	case int64:
-		return int(x)
-	case json.Number:
-		n, _ := x.Int64()
-		return int(n)
-	}
-	return 0
-}
-
 func (DualColorBarTrack) Display(in node.Inputs, exitName string, out node.OutputData) string {
 	switch exitName {
 	case dcbtOutFound:
@@ -246,82 +207,7 @@ func (DualColorBarTrack) Display(in node.Inputs, exitName string, out node.Outpu
 }
 
 func (DualColorBarTrack) Validate(in node.Inputs) []node.ValidationError {
-	raw := in.Raw(dcbtInRois)
-	if raw == nil {
-		return []node.ValidationError{{
-			Code:    "INVALID_DUALBAR_ROIS",
-			Message: "rois 必须非空数组 [{resolution:[W,H], x,y,w,h}, ...]",
-			Field:   dcbtInRois,
-		}}
-	}
-	arr, ok := raw.([]any)
-	if !ok || len(arr) == 0 {
-		return []node.ValidationError{{
-			Code:    "INVALID_DUALBAR_ROIS",
-			Message: "rois 必须是非空数组",
-			Field:   dcbtInRois,
-		}}
-	}
-	var errs []node.ValidationError
-	seen := map[[2]int]bool{}
-	for i, item := range arr {
-		m, ok := item.(map[string]any)
-		if !ok {
-			errs = append(errs, node.ValidationError{
-				Code:    "INVALID_DUALBAR_ROIS",
-				Message: fmt.Sprintf("rois[%d] 不是对象", i),
-				Field:   dcbtInRois,
-			})
-			continue
-		}
-		res, ok := m["resolution"].([]any)
-		if !ok || len(res) != 2 {
-			errs = append(errs, node.ValidationError{
-				Code:    "INVALID_DUALBAR_ROIS",
-				Message: fmt.Sprintf("rois[%d].resolution 必须 [W,H]", i),
-				Field:   dcbtInRois,
-			})
-			continue
-		}
-		resW := numAsInt(res[0])
-		resH := numAsInt(res[1])
-		if resW <= 0 || resH <= 0 {
-			errs = append(errs, node.ValidationError{
-				Code:    "INVALID_DUALBAR_ROIS",
-				Message: fmt.Sprintf("rois[%d].resolution 必须正数 (got %dx%d)", i, resW, resH),
-				Field:   dcbtInRois,
-			})
-			continue
-		}
-		rw := numAsInt(m["w"])
-		rh := numAsInt(m["h"])
-		if rw < 1 || rh < 1 {
-			errs = append(errs, node.ValidationError{
-				Code:    "INVALID_DUALBAR_ROIS",
-				Message: fmt.Sprintf("rois[%d] w/h 必须 >= 1 (got %dx%d)", i, rw, rh),
-				Field:   dcbtInRois,
-			})
-			continue
-		}
-		x := numAsInt(m["x"])
-		y := numAsInt(m["y"])
-		if x+rw > resW || y+rh > resH {
-			errs = append(errs, node.ValidationError{
-				Code:    "INVALID_DUALBAR_ROIS",
-				Message: fmt.Sprintf("rois[%d] (%d,%d)+%dx%d 超出 %dx%d", i, x, y, rw, rh, resW, resH),
-				Field:   dcbtInRois,
-			})
-			continue
-		}
-		key := [2]int{resW, resH}
-		if seen[key] {
-			errs = append(errs, node.ValidationError{
-				Code:    "DUPLICATE_DUALBAR_ROI",
-				Message: fmt.Sprintf("rois[%d] resolution %dx%d 重复声明", i, resW, resH),
-				Field:   dcbtInRois,
-			})
-		}
-		seen[key] = true
-	}
-	return errs
+	// Geometry 输入由 framework 的 Required 校验兜 (Required: true in Spec).
+	// 无需再手动校验; 具体 Geometry 值合法性由 ResolveGeometry 在 adapter 侧处理.
+	return nil
 }

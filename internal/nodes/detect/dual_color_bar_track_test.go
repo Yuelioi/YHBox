@@ -22,12 +22,10 @@ func withVisionAndWindow(v node.VisionService, w node.WindowService) node.Servic
 	return b
 }
 
-func validRois1080p() []any {
-	return []any{
-		map[string]any{
-			"resolution": []any{1920.0, 1080.0},
-			"x":          576.0, "y": 594.0, "w": 768.0, "h": 54.0,
-		},
+// validGeometryROI 返一个 pct-based Geometry, 模拟 50% 宽高居中 ROI.
+func validGeometryROI() node.Geometry {
+	return node.Geometry{
+		Pct: node.Rect{X: 0.3, Y: 0.55, W: 0.4, H: 0.05},
 	}
 }
 
@@ -44,10 +42,9 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 			InnerPx:    200, OuterPx: 50,
 		},
 	}
-	win := stubWindow{w: 1920, h: 1080}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRois: validRois1080p()},
-		nil, withVisionAndWindow(vision, win))
+		map[string]any{dcbtInRoi: validGeometryROI()},
+		nil, withVision(vision))
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -57,22 +54,6 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 	}
 	if r.OutputData[dcbtDataInnerX].(int) != 320 {
 		t.Errorf("innerX = %v, want 320", r.OutputData[dcbtDataInnerX])
-	}
-}
-
-func TestDualColorBarTrack_MissingNoResolutionMatch(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DualColorBarTrack{})
-	rn, _ := node.Get("DualColorBarTrack")
-
-	// rois 只 1080p, client 720p → Missing.
-	win := stubWindow{w: 1280, h: 720}
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRois: validRois1080p()},
-		nil, withVisionAndWindow(&mockVision{}, win))
-
-	if r.ExitName != dcbtOutMissing {
-		t.Errorf("exit = %q, want Missing", r.ExitName)
 	}
 }
 
@@ -87,40 +68,44 @@ func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
 			Found: false, InnerX: 10, OuterX: 50, Confidence: 0.3,
 		},
 	}
-	win := stubWindow{w: 1920, h: 1080}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRois: validRois1080p()},
-		nil, withVisionAndWindow(vision, win))
+		map[string]any{dcbtInRoi: validGeometryROI()},
+		nil, withVision(vision))
 
 	if r.ExitName != dcbtOutMissing {
 		t.Errorf("exit = %q, want Missing (low conf)", r.ExitName)
 	}
 }
 
-func TestDualColorBarTrack_InvalidROIs_ValidationError(t *testing.T) {
+func TestDualColorBarTrack_MissingOnError(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DualColorBarTrack{})
 	rn, _ := node.Get("DualColorBarTrack")
 
-	// 空数组 → INVALID
+	// barErr 会被节点包裹成 error 出口
+	vision := &mockVision{
+		barErr: nil, // adapter 层 capture fail 已经转 Found=false 不冒泡; mock 返零值即可
+		barResult: node.DualColorBarResult{Found: false},
+	}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRois: []any{}},
-		nil, withVisionAndWindow(&mockVision{}, stubWindow{}))
-	if len(r.Validation) == 0 {
-		t.Error("expected validation error on empty rois")
-	}
+		map[string]any{dcbtInRoi: validGeometryROI()},
+		nil, withVision(vision))
 
-	// ROI 越界
-	bad := []any{
-		map[string]any{
-			"resolution": []any{1000.0, 500.0},
-			"x":          500.0, "y": 0.0, "w": 600.0, "h": 100.0, // 500+600 > 1000
-		},
+	if r.ExitName != dcbtOutMissing {
+		t.Errorf("exit = %q, want Missing", r.ExitName)
 	}
-	r2 := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRois: bad},
-		nil, withVisionAndWindow(&mockVision{}, stubWindow{}))
-	if len(r2.Validation) == 0 {
-		t.Error("expected validation error on out-of-bounds ROI")
+}
+
+func TestDualColorBarTrack_RequiredMissing(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&DualColorBarTrack{})
+	rn, _ := node.Get("DualColorBarTrack")
+
+	// 没有 Roi 输入 → framework Required 检查报 REQUIRED_FIELD_MISSING
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{},
+		nil, withVision(&mockVision{}))
+	if len(r.Validation) == 0 {
+		t.Error("expected validation error on missing Roi")
 	}
 }

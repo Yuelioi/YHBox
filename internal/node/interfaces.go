@@ -136,11 +136,11 @@ type VisionService interface {
 	// 命中: pt!=nil, conf>=threshold. timeout: pt=nil, conf=最高near-miss.
 	WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (pt *Point, conf float64, err error)
 
-	// DualBarTrack 抓 roi 帧 + 双色 HSV cluster → 算 inner 在 outer 区域里的位置.
+	// DualBarTrack 抓全帧后按 roi Geometry 裁子区 + 双色 HSV cluster → 算 inner 在 outer 区域里的位置.
 	// 通用双色条算法 (适用: 血条/进度条/QTE 双色条/钓鱼 cursor-target).
-	// roi 是当前 client 区域 pixel 坐标 (x,y,w,h). Found=false 即 missing.
+	// roi 经 ResolveGeometry 解析像素区 (override-by-resolution / pct / 全帧). Found=false 即 missing.
 	// opts 零值字段走 vision 包默认 (fishing 实测出来的; 通用 case 可能要调).
-	DualBarTrack(roi Rect, inner, outer HSVRange, opts DualBarOptions) (result DualColorBarResult, err error)
+	DualBarTrack(roi Geometry, inner, outer HSVRange, opts DualBarOptions) (result DualColorBarResult, err error)
 
 	// DetectColor 在 region (ratio [x,y,w,h], 全 0 = 全屏) 内统计落在 rng 内的像素数.
 	// mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].

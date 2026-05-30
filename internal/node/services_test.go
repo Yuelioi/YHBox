@@ -198,7 +198,7 @@ func TestStubVisionService_AlwaysMiss(t *testing.T) {
 	if pt2 != nil || err2 != nil {
 		t.Errorf("WaitMatch = (%v,%v), want (nil,nil)", pt2, err2)
 	}
-	br, err3 := v.DualBarTrack(Rect{X: 0, Y: 0, W: 100, H: 50}, HSVRange{}, HSVRange{}, DualBarOptions{})
+	br, err3 := v.DualBarTrack(Geometry{Pct: Rect{W: 0.5, H: 0.5}}, HSVRange{}, HSVRange{}, DualBarOptions{})
 	if err3 != nil || br.Found {
 		t.Errorf("DualBarTrack = (%+v,%v), want zero/Found=false,nil", br, err3)
 	}

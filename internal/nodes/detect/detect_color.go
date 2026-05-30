@@ -33,8 +33,7 @@ func (DetectColor) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dcInExec, Type: "Exec"},
-			{Name: dcInRegion, Type: "Rect",
-				Widget: node.WidgetSpec{Kind: "rect-editor"}},
+			{Name: dcInRegion, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: dcInMode, Type: "String", Default: "hsv",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -63,7 +62,7 @@ func (DetectColor) Spec() node.Spec {
 }
 
 func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	region := in.Rect(dcInRegion)
+	geo := in.Geometry(dcInRegion)
 	mode := in.String(dcInMode)
 	if mode == "" {
 		mode = "hsv"
@@ -74,7 +73,9 @@ func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	minPx := in.Int(dcInMinPixels)
 
-	regionArr := [4]float64{region.X, region.Y, region.W, region.H}
+	// DetectColor adapter 接受 ratio [x,y,w,h], 全 0 = 全屏 (adapter 内 rw==0||rh==0 检测).
+	// override-by-resolution 对 DetectColor 不适用 (YAGNI) — 直接取 pct.
+	regionArr := [4]float64{geo.Pct.X, geo.Pct.Y, geo.Pct.W, geo.Pct.H}
 	count, cx, cy, err := ctx.Vision().DetectColor(regionArr, mode, rngArr)
 	if err != nil {
 		return nil, fmt.Errorf("DetectColor: %w", err)

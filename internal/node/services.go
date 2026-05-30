@@ -36,7 +36,7 @@ func (stubVisionService) WaitMatch(ctx context.Context, key string, threshold fl
 	return nil, 0, nil
 }
 
-func (stubVisionService) DualBarTrack(roi Rect, inner, outer HSVRange, opts DualBarOptions) (DualColorBarResult, error) {
+func (stubVisionService) DualBarTrack(roi Geometry, inner, outer HSVRange, opts DualBarOptions) (DualColorBarResult, error) {
 	return DualColorBarResult{}, nil
 }
 

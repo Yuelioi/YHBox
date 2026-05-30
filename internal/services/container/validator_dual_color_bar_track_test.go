@@ -4,99 +4,41 @@ import (
 	"testing"
 )
 
-// TestValidate_DualColorBarTrack_EmptyRois: rois 空数组 → 报 INVALID_DUALBAR_ROIS.
-func TestValidate_DualColorBarTrack_EmptyRois(t *testing.T) {
+// validateDualColorBarTrack は Geometry 移行後 no-op. 以下は移行後の期待動作を確認するテスト.
+
+// TestValidate_DualColorBarTrack_NoopValidator: validateDualColorBarTrack 常に nil を返す.
+func TestValidate_DualColorBarTrack_NoopValidator(t *testing.T) {
 	c := &Container{
 		Graph: Graph{
 			Nodes: []GraphNode{
-				{ID: "cbt1", Kind: "DualColorBarTrack", Config: map[string]any{"Rois": []any{}}},
+				{ID: "cbt1", Kind: "DualColorBarTrack", Config: map[string]any{}},
 			},
 		},
 	}
 	errs := validateDualColorBarTrack(c)
-	if len(errs) != 1 || errs[0].Code != CodeInvalidDualBarROIs {
-		t.Errorf("expected 1 INVALID_DUALBAR_ROIS, got %v", errs)
+	if len(errs) != 0 {
+		t.Errorf("validateDualColorBarTrack should be no-op, got %v", errs)
 	}
 }
 
-// TestValidate_DualColorBarTrack_MissingResolution: rois 项缺 resolution → 报 INVALID_DUALBAR_ROIS.
-func TestValidate_DualColorBarTrack_MissingResolution(t *testing.T) {
-	c := &Container{
-		Graph: Graph{
-			Nodes: []GraphNode{
-				{ID: "cbt1", Kind: "DualColorBarTrack", Config: map[string]any{
-					"Rois": []any{
-						map[string]any{"x": float64(100), "y": float64(100), "w": float64(50), "h": float64(50)},
-					},
-				}},
+// TestLiteralMatchesType_Geometry: map 値は geometry として受け入れる.
+func TestLiteralMatchesType_Geometry(t *testing.T) {
+	geo := map[string]any{
+		"pct": map[string]any{"x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0},
+		"overrides": []any{
+			map[string]any{
+				"resolution": map[string]any{"w": float64(1920), "h": float64(1080)},
+				"px":         map[string]any{"x": float64(612), "y": float64(69), "w": float64(704), "h": float64(12)},
 			},
 		},
 	}
-	errs := validateDualColorBarTrack(c)
-	if len(errs) != 1 || errs[0].Code != CodeInvalidDualBarROIs {
-		t.Errorf("expected 1 INVALID_DUALBAR_ROIS, got %v", errs)
+	if !literalMatchesType(geo, "geometry") {
+		t.Error("expected map[string]any to match geometry")
 	}
-}
-
-// TestValidate_DualColorBarTrack_ROIOutOfBounds: ROI 越界 resolution → 报 INVALID_DUALBAR_ROIS.
-func TestValidate_DualColorBarTrack_ROIOutOfBounds(t *testing.T) {
-	c := &Container{
-		Graph: Graph{
-			Nodes: []GraphNode{
-				{ID: "cbt1", Kind: "DualColorBarTrack", Config: map[string]any{
-					"Rois": []any{
-						map[string]any{
-							"resolution": []any{float64(1920), float64(1080)},
-							"x":          float64(1900),
-							"y":          float64(1070),
-							"w":          float64(50),
-							"h":          float64(50),
-						},
-					},
-				}},
-			},
-		},
+	if literalMatchesType("not-a-map", "geometry") {
+		t.Error("expected string to NOT match geometry")
 	}
-	errs := validateDualColorBarTrack(c)
-	if len(errs) != 1 || errs[0].Code != CodeInvalidDualBarROIs {
-		t.Errorf("expected 1 INVALID_DUALBAR_ROIS, got %v", errs)
-	}
-}
-
-// TestValidate_DualColorBarTrack_DuplicateResolution: 同 resolution 两条 → 报 DUPLICATE_DUALBAR_ROI warning.
-func TestValidate_DualColorBarTrack_DuplicateResolution(t *testing.T) {
-	c := &Container{
-		Graph: Graph{
-			Nodes: []GraphNode{
-				{ID: "cbt1", Kind: "DualColorBarTrack", Config: map[string]any{
-					"Rois": []any{
-						map[string]any{
-							"resolution": []any{float64(1920), float64(1080)},
-							"x":          float64(100),
-							"y":          float64(100),
-							"w":          float64(50),
-							"h":          float64(50),
-						},
-						map[string]any{
-							"resolution": []any{float64(1920), float64(1080)},
-							"x":          float64(200),
-							"y":          float64(200),
-							"w":          float64(50),
-							"h":          float64(50),
-						},
-					},
-				}},
-			},
-		},
-	}
-	errs := validateDualColorBarTrack(c)
-	hasDup := false
-	for _, e := range errs {
-		if e.Code == CodeDuplicateDualBarROI && e.Severity == SeverityWarning {
-			hasDup = true
-		}
-	}
-	if !hasDup {
-		t.Errorf("expected DUPLICATE_DUALBAR_ROI warning, got %v", errs)
+	if literalMatchesType(42.0, "geometry") {
+		t.Error("expected float64 to NOT match geometry")
 	}
 }
