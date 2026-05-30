@@ -170,8 +170,8 @@ func TestRegistry_RegisterEditorBasic(t *testing.T) {
 	if got.Source != HotkeySourceEditor {
 		t.Errorf("Source=%q, want editor", got.Source)
 	}
-	if !got.InAppOnly {
-		t.Error("InAppOnly 应为 true")
+	if got.Mechanism != HotkeyMechanismEditorInApp {
+		t.Errorf("Mechanism=%q, want editor-inapp", got.Mechanism)
 	}
 	if got.ReadonlyReason == "" {
 		t.Error("ReadonlyReason 应保留")
@@ -193,7 +193,7 @@ func TestRegistry_RegisterEditorSkipsOSBinding(t *testing.T) {
 	e := r.entries["editor.bar"]
 	r.mu.RUnlock()
 	if e.bindingID != 0 {
-		t.Errorf("InAppOnly entry bindingID=%d, want 0 (跳 OS register)", e.bindingID)
+		t.Errorf("editor-inapp entry bindingID=%d, want 0 (跳 OS register)", e.bindingID)
 	}
 	_ = r.Unregister("editor.bar")
 }
@@ -219,4 +219,102 @@ func TestRegistry_RegisterEditorConflictKeepsEntryAsFailed(t *testing.T) {
 	}
 	_ = r.Unregister("system.taken")
 	_ = r.Unregister("editor.collide")
+}
+
+func TestRegisterLLHook(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F12", "")
+	if err != nil {
+		t.Fatalf("RegisterLLHook err=%v", err)
+	}
+	got, ok := r.Get("recording.stop")
+	if !ok {
+		t.Fatal("Get 应找到 recording.stop")
+	}
+	if got.Mechanism != HotkeyMechanismLLHook {
+		t.Errorf("Mechanism=%q, want ll-hook", got.Mechanism)
+	}
+	if got.Status != HotkeyStatusActive {
+		t.Errorf("Status=%q, want active", got.Status)
+	}
+	if got.HotkeyStr != "F12" {
+		t.Errorf("HotkeyStr=%q, want F12", got.HotkeyStr)
+	}
+	r.mu.RLock()
+	e := r.entries["recording.stop"]
+	r.mu.RUnlock()
+	if e.bindingID != 0 {
+		t.Errorf("ll-hook entry bindingID=%d, want 0 (不占 OS)", e.bindingID)
+	}
+	_ = r.Unregister("recording.stop")
+}
+
+func TestRegisterLLHook_Rebind(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	if err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F12", ""); err != nil {
+		t.Fatalf("RegisterLLHook err=%v", err)
+	}
+	if err := r.Update("recording.stop", "F9"); err != nil {
+		t.Fatalf("Update err=%v", err)
+	}
+	got, _ := r.Get("recording.stop")
+	if got.HotkeyStr != "F9" {
+		t.Errorf("HotkeyStr=%q, want F9", got.HotkeyStr)
+	}
+	if got.Status != HotkeyStatusActive {
+		t.Errorf("Status=%q, want active", got.Status)
+	}
+	r.mu.RLock()
+	e := r.entries["recording.stop"]
+	r.mu.RUnlock()
+	if e.bindingID != 0 {
+		t.Errorf("rebind 后 ll-hook entry bindingID=%d, want 0 (不占 OS)", e.bindingID)
+	}
+	_ = r.Unregister("recording.stop")
+}
+
+func TestRegisterLLHook_ConflictAcrossSource(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	_ = r.Register("system.execution-stop", HotkeySourceSystem, "停止", nil, "F9", "", func() {})
+	err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F9", "")
+	var cerr *HotkeyConflictError
+	if !errors.As(err, &cerr) {
+		t.Errorf("撞 system.execution-stop 应返 ConflictError, got %v", err)
+	}
+	if _, ok := r.Get("recording.stop"); ok {
+		t.Error("冲突时 entry 不应注册进 (Get 应返 false)")
+	}
+	_ = r.Unregister("system.execution-stop")
+}
+
+func TestResumeSkipsLLHook(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+
+	if err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F12", ""); err != nil {
+		t.Fatalf("RegisterLLHook err=%v", err)
+	}
+	if err := r.Pause(); err != nil {
+		t.Fatalf("Pause err=%v", err)
+	}
+	if err := r.Resume(); err != nil {
+		t.Fatalf("Resume err=%v", err)
+	}
+	got, _ := r.Get("recording.stop")
+	if got.Status != HotkeyStatusActive {
+		t.Errorf("Resume 后 Status=%q, want active (ll-hook 不被 OS 抢键)", got.Status)
+	}
+	r.mu.RLock()
+	e := r.entries["recording.stop"]
+	r.mu.RUnlock()
+	if e.bindingID != 0 {
+		t.Errorf("Resume 后 ll-hook entry bindingID=%d, want 0 (不重注册 OS)", e.bindingID)
+	}
+	_ = r.Unregister("recording.stop")
 }
