@@ -1,6 +1,6 @@
 // 全局快捷键注册.
 //
-// EDITOR_KEYS 进 hotkey registry: webview only (inAppOnly), readonly.
+// EDITOR_KEYS 进 hotkey registry: webview only (editor-inapp mechanism), readonly.
 // 用户在 Settings → 快捷键 '编辑器' 分组看得见, 跟其它 source 撞 normalized
 // 时 lastError 写回 entry 表里能看见. 派发不变: 仍硬编码 key 比较,
 // registry 只挂可见性 + 冲突检查.

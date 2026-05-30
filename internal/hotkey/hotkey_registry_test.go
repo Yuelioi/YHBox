@@ -177,7 +177,7 @@ func TestRegistry_RegisterEditorBasic(t *testing.T) {
 		t.Error("ReadonlyReason 应保留")
 	}
 	if got.Status != HotkeyStatusActive {
-		t.Errorf("Status=%q, want active (inAppOnly 跳 OS, 直接 active)", got.Status)
+		t.Errorf("Status=%q, want active (editor-inapp 机制跳 OS, 直接 active)", got.Status)
 	}
 	_ = r.Unregister("editor.foo")
 }

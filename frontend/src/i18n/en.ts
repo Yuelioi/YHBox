@@ -93,7 +93,7 @@ export default {
       },
       record: {
         title: 'Recording config',
-        hint: 'Changes require YHBox restart to apply (injected at startup).',
+        hint: 'Config applies on the next recording.',
         mouse_mode_label: 'Mouse semantics',
         mouse_mode_hint:
           'relative (FPS): records RawDelta for camera turn. absolute (UI/Slate): records screen px MouseMove for click/hover.',

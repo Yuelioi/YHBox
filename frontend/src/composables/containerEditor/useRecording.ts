@@ -22,7 +22,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
-import { useSettingsStore } from '@/stores/settings'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import { randID } from './ids'
 
 export interface RecordOpts {
@@ -45,7 +45,7 @@ export interface StartRecordingOpts {
 export function useRecording(opts: RecordOpts) {
   const { draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft, toast } = opts
   const recordStore = useRecordingStore()
-  const settingsStore = useSettingsStore()
+  const hotkeysStore = useHotkeysStore()
   const { t } = useI18n()
 
   const countdownSec = ref(0)
@@ -88,9 +88,11 @@ export function useRecording(opts: RecordOpts) {
       console.warn('OpenRecordingHUD failed (countdown continues in editor)', e)
     }
 
-    // 停录/暂停键标签传给 HUD 显示 (settings 配的). HUD 是独立窗口拿不到本窗 store, 经事件带过去.
-    const stopKey = settingsStore.data?.ui?.recordingStopHotkey || 'F12'
-    const pauseKey = settingsStore.data?.ui?.recordingPauseHotkey || 'F11'
+    // 停录/暂停键标签传给 HUD 显示. registry 是权威 (用户在「快捷键」页 rebind 即时生效),
+    // 先 reload 拿最新值. HUD 是独立窗口拿不到本窗 store, 经事件带过去.
+    await hotkeysStore.reload()
+    const stopKey = hotkeysStore.list.find((e) => e.key === 'recording.stop')?.hotkeyStr || 'F12'
+    const pauseKey = hotkeysStore.list.find((e) => e.key === 'recording.pause')?.hotkeyStr || 'F11'
     countdownSec.value = 3
     for (let i = 3; i >= 1; i--) {
       countdownSec.value = i

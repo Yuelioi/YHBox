@@ -112,7 +112,7 @@ export default {
       },
       record: {
         title: '录制配置',
-        hint: '改动需重启 YHBox 生效 (启动期注入).',
+        hint: '配置在下次录制时生效.',
         mouse_mode_label: '鼠标语义',
         mouse_mode_hint:
           'relative (FPS): 录 RawDelta 给相机转向. absolute (UI/Slate): 录 screen px MouseMove 给 click/hover.',
