@@ -19,7 +19,7 @@
           v-if="textMode && !jsonOk"
           :text="t('structured_input.json_error_tooltip')"
         >
-          <span class="text-[10px] text-error">JSON 有误</span>
+          <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
         </UTooltip>
         <UButton
           size="xs"
@@ -64,7 +64,7 @@
       >
         <label class="block text-[11px] text-toned">
           {{ childLabel(field.key) }}
-          <span v-if="field.required && isEmpty(modelValue?.[field.key])" class="text-[10px] text-error ml-1">必填</span>
+          <span v-if="field.required && isEmpty(modelValue?.[field.key])" class="text-[10px] text-error ml-1">{{ t('structured_input.field_required') }}</span>
         </label>
         <StructuredInput
           :schema="field.schema"

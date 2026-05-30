@@ -461,6 +461,23 @@ export default {
     switch_to_struct: 'Switch back to structured mode',
     json_error_tooltip: 'JSON is invalid — fix or discard before switching back',
     abandon_changes: 'Discard changes',
+    json_invalid: 'Invalid',
+    field_required: 'Required',
+  },
+  geometry: {
+    default_region: 'Default region',
+    full_frame: '(full frame)',
+    placeholder_empty: 'leave empty',
+    pct_over_100: 'Some values exceed 100% — please verify.',
+    pick_screen_rect: 'Pick region',
+    advanced_overrides: 'Advanced: resolution overrides',
+    pick_disabled_tooltip: 'Only available when screen resolution matches',
+    pick_override_rect: 'Pick region (px)',
+    add_override_title: 'Add resolution override',
+    dup_resolution: 'Override for this resolution already exists',
+    add: 'Add',
+    preset_screen: 'Current screen',
+    preset_custom: 'Custom',
   },
   node: {
     // control

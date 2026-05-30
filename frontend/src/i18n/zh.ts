@@ -475,6 +475,23 @@ export default {
     switch_to_struct: '切换回结构模式',
     json_error_tooltip: 'JSON 有误，请修正或放弃后切回',
     abandon_changes: '放弃修改',
+    json_invalid: '有误',
+    field_required: '必填',
+  },
+  geometry: {
+    default_region: '默认区域',
+    full_frame: '(全帧)',
+    placeholder_empty: '留空',
+    pct_over_100: '部分值超过 100%，请确认是否正确',
+    pick_screen_rect: '截图框选',
+    advanced_overrides: '高级: 分辨率覆盖',
+    pick_disabled_tooltip: '仅屏幕分辨率匹配时可框选',
+    pick_override_rect: '截图框选 (px)',
+    add_override_title: '添加分辨率覆盖',
+    dup_resolution: '此分辨率已存在覆盖',
+    add: '添加',
+    preset_screen: '当前屏幕',
+    preset_custom: '自定义',
   },
   // 节点 metadata — kind label + description + input/output 字段 i18n.
   // FE 单源, backend Spec.DisplayName/Description 不再被 FE 用. 加新节点 → 这里 + en.ts 同步.

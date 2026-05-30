@@ -3,8 +3,8 @@
     <!-- 默认段: 百分比 -->
     <div class="space-y-2">
       <div class="flex items-center gap-1.5">
-        <span class="text-[11px] text-toned font-medium">默认区域</span>
-        <span v-if="isFullFrame" class="text-[10px] text-dimmed">(全帧)</span>
+        <span class="text-[11px] text-toned font-medium">{{ t('geometry.default_region') }}</span>
+        <span v-if="isFullFrame" class="text-[10px] text-dimmed">{{ t('geometry.full_frame') }}</span>
       </div>
 
       <div class="grid grid-cols-2 gap-1.5">
@@ -17,7 +17,7 @@
             :min="0"
             :max="100"
             :step="0.1"
-            :placeholder="isFullFrame ? '留空' : undefined"
+            :placeholder="isFullFrame ? t('geometry.placeholder_empty') : undefined"
             @update:model-value="(v: number) => onPctChange('x', v)"
           />
         </div>
@@ -30,7 +30,7 @@
             :min="0"
             :max="100"
             :step="0.1"
-            :placeholder="isFullFrame ? '留空' : undefined"
+            :placeholder="isFullFrame ? t('geometry.placeholder_empty') : undefined"
             @update:model-value="(v: number) => onPctChange('y', v)"
           />
         </div>
@@ -43,7 +43,7 @@
             :min="0"
             :max="100"
             :step="0.1"
-            :placeholder="isFullFrame ? '留空' : undefined"
+            :placeholder="isFullFrame ? t('geometry.placeholder_empty') : undefined"
             @update:model-value="(v: number) => onPctChange('w', v)"
           />
         </div>
@@ -56,7 +56,7 @@
             :min="0"
             :max="100"
             :step="0.1"
-            :placeholder="isFullFrame ? '留空' : undefined"
+            :placeholder="isFullFrame ? t('geometry.placeholder_empty') : undefined"
             @update:model-value="(v: number) => onPctChange('h', v)"
           />
         </div>
@@ -64,7 +64,7 @@
 
       <!-- 超 100% 提示 -->
       <p v-if="hasPctOver100" class="text-[10px] text-error leading-snug">
-        部分值超过 100%，请确认是否正确
+        {{ t('geometry.pct_over_100') }}
       </p>
 
       <!-- 截图框选按钮 -->
@@ -76,7 +76,7 @@
         :loading="picking"
         @click="onPickScreenRect"
       >
-        截图框选
+        {{ t('geometry.pick_screen_rect') }}
       </UButton>
     </div>
 
@@ -89,7 +89,7 @@
         :icon="overridesOpen ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'"
         class="w-full justify-start text-dimmed"
       >
-        高级: 分辨率覆盖
+        {{ t('geometry.advanced_overrides') }}
         <UBadge
           v-if="safeValue.overrides && safeValue.overrides.length > 0"
           size="xs"
@@ -173,7 +173,7 @@
 
             <!-- 截图框选 (仅当前屏幕分辨率匹配时可用) -->
             <UTooltip
-              :text="screenResMatches(ov.resolution) ? '' : '仅屏幕分辨率匹配时可框选'"
+              :text="screenResMatches(ov.resolution) ? '' : t('geometry.pick_disabled_tooltip')"
               :disabled="screenResMatches(ov.resolution)"
             >
               <UButton
@@ -185,14 +185,14 @@
                 :loading="picking"
                 @click="onPickOverrideRect(idx)"
               >
-                截图框选 (px)
+                {{ t('geometry.pick_override_rect') }}
               </UButton>
             </UTooltip>
           </div>
 
           <!-- 添加覆盖面板 -->
           <div class="space-y-2 pt-1 border-t border-default/40">
-            <p class="text-[10px] text-dimmed">添加分辨率覆盖</p>
+            <p class="text-[10px] text-dimmed">{{ t('geometry.add_override_title') }}</p>
 
             <!-- 分辨率预设选择 -->
             <USelect
@@ -223,7 +223,7 @@
 
             <!-- 重复分辨率警告 -->
             <p v-if="isDupResolution" class="text-[10px] text-error">
-              此分辨率已存在覆盖
+              {{ t('geometry.dup_resolution') }}
             </p>
 
             <UButton
@@ -234,7 +234,7 @@
               :disabled="isDupResolution || !canAddResolution"
               @click="addOverride"
             >
-              添加
+              {{ t('geometry.add') }}
             </UButton>
           </div>
         </div>
@@ -245,9 +245,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import type { GeometryValue } from '@/components/containers/nodeRegistry/index'
+
+const { t } = useI18n()
 
 type RectPayload = {
   region: [number, number, number, number]
@@ -377,15 +380,13 @@ async function onPickOverrideRect(idx: number) {
 // ─── Override CRUD ─────────────────────────────────────────────────────────
 const overridesOpen = ref(false)
 
-const PRESET_RESOLUTIONS = [
-  { label: '当前屏幕', value: 'screen' },
+const resPresetItems = computed(() => [
+  { label: t('geometry.preset_screen'), value: 'screen' },
   { label: '1920×1080', value: '1920x1080' },
   { label: '2560×1440', value: '2560x1440' },
   { label: '3840×2160', value: '3840x2160' },
-  { label: '自定义', value: 'custom' },
-] as const
-
-const resPresetItems = PRESET_RESOLUTIONS.map((p) => ({ label: p.label, value: p.value }))
+  { label: t('geometry.preset_custom'), value: 'custom' },
+])
 
 const addResPreset = ref<string>('1920x1080')
 const addCustomW = ref<number>(1920)

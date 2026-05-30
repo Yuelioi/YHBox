@@ -108,14 +108,16 @@ describe('StructuredInput — object schema', () => {
   })
 
   it('required field with null value shows 必填 hint', async () => {
-    const { app, el } = mountStructuredInput(objectSchema, { hue: null, sat: 50 })
+    const msgs = { structured_input: { field_required: '必填' } }
+    const { app, el } = mountStructuredInput(objectSchema, { hue: null, sat: 50 }, { messages: msgs })
     await nextTick()
     expect(el.innerHTML).toContain('必填')
     cleanup(app, el)
   })
 
   it('no 必填 hint when required field has a valid value', async () => {
-    const { app, el } = mountStructuredInput(objectSchema, { hue: 5, sat: 50 })
+    const msgs = { structured_input: { field_required: '必填' } }
+    const { app, el } = mountStructuredInput(objectSchema, { hue: 5, sat: 50 }, { messages: msgs })
     await nextTick()
     expect(el.innerHTML).not.toContain('必填')
     cleanup(app, el)
