@@ -38,12 +38,11 @@ func (ROIColorScan) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: rcsInExec, Type: "Exec"},
-			{Name: rcsInROI, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+			{Name: rcsInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: rcsInHSV, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+					Props: node.MarshalProps(node.JSONProps{Rows: 2})},
+				Schema: hsvObjSchema},
 			{Name: rcsInAxis, Type: "String", Default: "x",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -81,10 +80,7 @@ func (ROIColorScan) Spec() node.Spec {
 }
 
 func (ROIColorScan) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	roi, err := parseROIRect(in.JSON(rcsInROI))
-	if err != nil {
-		return nil, fmt.Errorf("ROIColorScan roi: %w", err)
-	}
+	roi := in.Geometry(rcsInROI)
 	hsv, err := parseHSVRange(in.JSON(rcsInHSV))
 	if err != nil {
 		return nil, fmt.Errorf("ROIColorScan hsv: %w", err)
@@ -94,14 +90,8 @@ func (ROIColorScan) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("ROIColorScan axis must be x or y, got %q", axis)
 	}
 	minPx := in.Int(rcsInMinClusterPx)
+	// maxPx<=0 → adapter 按裁后子帧尺寸算默认 (宽/3 或 高/3), 节点直传不覆盖.
 	maxPx := in.Int(rcsInMaxClusterPx)
-	if maxPx <= 0 {
-		if axis == "x" {
-			maxPx = int(roi.W) / 3
-		} else {
-			maxPx = int(roi.H) / 3
-		}
-	}
 	minCount := in.Int(rcsInMinClusterCount)
 	pollMs := in.Int(rcsInPollIntervalMs)
 	if pollMs < dchPollClampMs {

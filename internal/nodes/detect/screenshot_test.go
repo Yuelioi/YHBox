@@ -4,7 +4,6 @@ package detect
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,8 +23,8 @@ func (s *stubCapture) Capture() ([]byte, error) {
 	s.calls = append(s.calls, "Capture")
 	return s.pngFull, s.err
 }
-func (s *stubCapture) CaptureROI(x, y, w, h int) ([]byte, error) {
-	s.calls = append(s.calls, fmt.Sprintf("CaptureROI:%d:%d:%d:%d", x, y, w, h))
+func (s *stubCapture) CaptureROI(roi node.Geometry) ([]byte, error) {
+	s.calls = append(s.calls, "CaptureROI")
 	return s.pngROI, s.err
 }
 
@@ -44,7 +43,8 @@ func TestScreenshot_FullFrame(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("YHBOX_DATA_DIR", tmp)
 
-	cap := &stubCapture{pngFull: []byte{0x89, 0x50, 0x4e, 0x47}} // PNG signature 4 bytes
+	// 全帧路径: ROI pin 不传 → Geometry 零值 → adapter 视为全帧. 节点始终走 CaptureROI.
+	cap := &stubCapture{pngROI: []byte{0x89, 0x50, 0x4e, 0x47}} // PNG signature 4 bytes
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ssInPathTemplate: "screenshots/test-{ts}.png"},
 		nil, withCapture(cap))
@@ -63,8 +63,8 @@ func TestScreenshot_FullFrame(t *testing.T) {
 	if len(data) != 4 {
 		t.Errorf("file size = %d, want 4 (PNG sig)", len(data))
 	}
-	if len(cap.calls) != 1 || cap.calls[0] != "Capture" {
-		t.Errorf("calls = %v, want [Capture]", cap.calls)
+	if len(cap.calls) != 1 || cap.calls[0] != "CaptureROI" {
+		t.Errorf("calls = %v, want [CaptureROI]", cap.calls)
 	}
 	// abs 必须在 tmp 下
 	if !filepath.HasPrefix(abs, tmp) {
@@ -79,19 +79,21 @@ func TestScreenshot_ROI(t *testing.T) {
 
 	t.Setenv("YHBOX_DATA_DIR", t.TempDir())
 
+	// ROI Geometry → CaptureROI; adapter 内 cropFrameByGeometry 按比例裁.
+	roi := node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.2, W: 0.5, H: 0.3}}
 	cap := &stubCapture{pngROI: []byte{0x01}}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
 			ssInPathTemplate: "screenshots/roi-{ts}.png",
-			ssInROI:          map[string]any{"x": 10.0, "y": 20.0, "w": 100.0, "h": 50.0},
+			ssInROI:          roi,
 		},
 		nil, withCapture(cap))
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if len(cap.calls) != 1 || cap.calls[0] != "CaptureROI:10:20:100:50" {
-		t.Errorf("calls = %v, want [CaptureROI:10:20:100:50]", cap.calls)
+	if len(cap.calls) != 1 || cap.calls[0] != "CaptureROI" {
+		t.Errorf("calls = %v, want [CaptureROI]", cap.calls)
 	}
 }
 

@@ -405,19 +405,20 @@ func (a *captureAdapter) Capture() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (a *captureAdapter) CaptureROI(x, y, w, h int) ([]byte, error) {
+func (a *captureAdapter) CaptureROI(roi node.Geometry) ([]byte, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	frame, err := a.rt.Capture.FrameROI(win.HWND(a.rt.Window.HWND), x, y, w, h)
+	frame, err := a.rt.Capture.Frame(win.HWND(a.rt.Window.HWND))
 	if err != nil {
 		return nil, err
 	}
 	if frame == nil {
 		return nil, fmt.Errorf("capture: nil frame")
 	}
+	sub := cropFrameByGeometry(frame, roi)
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, frame); err != nil {
+	if err := png.Encode(&buf, sub); err != nil {
 		return nil, fmt.Errorf("png encode: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -573,19 +574,20 @@ func (a *visionAdapter) DetectColor(region [4]float64, mode string, rng [6]int) 
 	return count, cx, cy, err
 }
 
-func (a *visionAdapter) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, float64, error) {
+func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (int, float64, error) {
 	if a.rt.Capture == nil {
 		return 0, 0, fmt.Errorf("capture backend not initialised")
 	}
 	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.FrameROI(hwnd, int(roi.X), int(roi.Y), int(roi.W), int(roi.H))
+	frame, err := a.rt.Capture.Frame(hwnd)
 	if err != nil {
 		return 0, 0, err
 	}
 	if frame == nil {
 		return 0, 0, fmt.Errorf("capture: nil frame")
 	}
-	count, ratio := countHSVInROI(frame, hsvRangeFromNode(hsv))
+	sub := cropFrameByGeometry(frame, roi)
+	count, ratio := countHSVInROI(sub, hsvRangeFromNode(hsv))
 	// 写 LastDetect — GetSys path=lastDetect.pixelCount/pixelRatio 读.
 	a.rt.UpdateSys(func(s *SysState) {
 		s.LastDetect.PixelCount = count
@@ -594,19 +596,28 @@ func (a *visionAdapter) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, f
 	return count, ratio, nil
 }
 
-func (a *visionAdapter) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
+func (a *visionAdapter) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
 	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.FrameROI(hwnd, int(roi.X), int(roi.Y), int(roi.W), int(roi.H))
+	frame, err := a.rt.Capture.Frame(hwnd)
 	if err != nil {
 		return nil, err
 	}
 	if frame == nil {
 		return nil, fmt.Errorf("capture: nil frame")
 	}
-	internal := scanClusters(frame, hsvRangeFromNode(hsv), axis, minPx, maxPx)
+	sub := cropFrameByGeometry(frame, roi)
+	// maxPx<=0: 按子帧实际尺寸算默认上限 (axis x → 宽/3, y → 高/3), 与节点解耦.
+	if maxPx <= 0 {
+		if axis == "x" {
+			maxPx = sub.Bounds().Dx() / 3
+		} else {
+			maxPx = sub.Bounds().Dy() / 3
+		}
+	}
+	internal := scanClusters(sub, hsvRangeFromNode(hsv), axis, minPx, maxPx)
 	out := make([]node.ClusterEntry, len(internal))
 	for i, c := range internal {
 		out[i] = node.ClusterEntry{

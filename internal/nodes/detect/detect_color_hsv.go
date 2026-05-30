@@ -11,6 +11,16 @@ import (
 	"yhbox/internal/node"
 )
 
+// hsvObjSchema HSV 阈值 6 字段的结构化 schema, 供 FE StructuredInput 渲染.
+var hsvObjSchema = node.ObjSchema(
+	node.Field("hMin", node.NumberSchema(), false),
+	node.Field("hMax", node.NumberSchema(), false),
+	node.Field("sMin", node.NumberSchema(), false),
+	node.Field("sMax", node.NumberSchema(), false),
+	node.Field("vMin", node.NumberSchema(), false),
+	node.Field("vMax", node.NumberSchema(), false),
+)
+
 func init() { node.Register(&DetectColorHSV{}) }
 
 type DetectColorHSV struct{}
@@ -41,12 +51,11 @@ func (DetectColorHSV) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dchInExec, Type: "Exec"},
-			{Name: dchInROI, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+			{Name: dchInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: dchInHSV, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+					Props: node.MarshalProps(node.JSONProps{Rows: 2})},
+				Schema: hsvObjSchema},
 			{Name: dchInMinPixelRatio, Type: "Number", Default: json.Number("0.05"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
@@ -76,10 +85,7 @@ func (DetectColorHSV) Spec() node.Spec {
 }
 
 func (DetectColorHSV) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	roi, err := parseROIRect(in.JSON(dchInROI))
-	if err != nil {
-		return nil, fmt.Errorf("DetectColorHSV roi: %w", err)
-	}
+	roi := in.Geometry(dchInROI)
 	hsv, err := parseHSVRange(in.JSON(dchInHSV))
 	if err != nil {
 		return nil, fmt.Errorf("DetectColorHSV hsv: %w", err)
@@ -132,30 +138,6 @@ func (DetectColorHSV) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		case <-time.After(pollDur):
 		}
 	}
-}
-
-// parseROIRect 把 inputs JSON map 转 node.Rect (像素坐标, X/Y/W/H 走 float64 兼容).
-func parseROIRect(m map[string]any) (node.Rect, error) {
-	if m == nil {
-		return node.Rect{}, fmt.Errorf("missing")
-	}
-	f := func(k string) float64 {
-		switch v := m[k].(type) {
-		case float64:
-			return v
-		case int:
-			return float64(v)
-		case json.Number:
-			x, _ := v.Float64()
-			return x
-		}
-		return 0
-	}
-	r := node.Rect{X: f("x"), Y: f("y"), W: f("w"), H: f("h")}
-	if r.W < 1 || r.H < 1 {
-		return r, fmt.Errorf("w/h must be >=1, got %vx%v", r.W, r.H)
-	}
-	return r, nil
 }
 
 // parseHSVRange 把 inputs JSON map 转 node.HSVRange. min > max 报错.

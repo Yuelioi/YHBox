@@ -147,12 +147,14 @@ type VisionService interface {
 	// 返 count + 命中像素中心客户区比例坐标 (cx,cy). 无命中 cx/cy = 0.
 	DetectColor(region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
 
-	// DetectColorHSV 在 roi (像素) 内统计落在 hsv 区间的像素数 + 比例.
-	DetectColorHSV(roi Rect, hsv HSVRange) (count int, ratio float64, err error)
+	// DetectColorHSV 按 roi (ratio Geometry) 裁子帧后统计落在 hsv 区间的像素数 + 比例.
+	// Geometry 零值 = 全帧.
+	DetectColorHSV(roi Geometry, hsv HSVRange) (count int, ratio float64, err error)
 
-	// ROIColorScan 沿 axis ("x"|"y") 扫描 roi 内 HSV 命中像素, 合并为连续 cluster.
-	// 只返长度 ∈ [minPx, maxPx] 的段.
-	ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
+	// ROIColorScan 按 roi (ratio Geometry) 裁子帧后沿 axis ("x"|"y") 扫描 HSV 命中像素,
+	// 合并为连续 cluster; 只返长度 ∈ [minPx, maxPx] 的段.
+	// maxPx<=0 → adapter 默认 = 子帧宽/3 (axis x) 或 高/3 (axis y).
+	ROIColorScan(roi Geometry, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
 
 	// GridSignature 抓全帧后按 roi Geometry 裁子区 → box-average 降采样成
 	// gridSize×gridSize RGB 签名 (flat, 行主序, len = gridSize²×3). 每调一次抓
@@ -264,10 +266,11 @@ type WindowService interface {
 }
 
 // CaptureService — Screenshot 节点用. PNG 字节流; wire 连 pkg/capture
-// IBackend.Frame/FrameROI + png.Encode.
+// IBackend.Frame + png.Encode.
 type CaptureService interface {
 	Capture() (pngData []byte, err error)
-	CaptureROI(x, y, w, h int) (pngData []byte, err error)
+	// CaptureROI 按 roi (ratio Geometry) 裁子帧后 png 编码返回. Geometry 零值 = 全帧.
+	CaptureROI(roi Geometry) (pngData []byte, err error)
 }
 
 // StopwatchStore — StopwatchStart / Stop / Read 节点用. Per-key 多 stopwatch

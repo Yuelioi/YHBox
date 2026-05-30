@@ -81,11 +81,11 @@ func (m *mockVision) DetectColor(region [4]float64, mode string, rng [6]int) (in
 	return m.colorCount, m.colorCX, m.colorCY, m.colorErr
 }
 
-func (m *mockVision) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, float64, error) {
+func (m *mockVision) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (int, float64, error) {
 	return m.hsvCount, m.hsvRatio, m.hsvErr
 }
 
-func (m *mockVision) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
+func (m *mockVision) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
 	return m.clusters, m.clustersErr
 }
 

@@ -34,9 +34,7 @@ func (Screenshot) Spec() node.Spec {
 			{Name: ssInExec, Type: "Exec"},
 			{Name: ssInPathTemplate, Type: "String", Default: "screenshots/{ts}.png",
 				Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: ssInROI, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+			{Name: ssInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: ssOutDone, Type: "Exec",
@@ -67,13 +65,9 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("Screenshot mkdir %s: %w", filepath.Dir(abs), err)
 	}
 
-	var pngData []byte
-	roi, hasROI := pickScreenshotROI(in.JSON(ssInROI))
-	if hasROI {
-		pngData, err = ctx.Capture().CaptureROI(roi.X, roi.Y, roi.W, roi.H)
-	} else {
-		pngData, err = ctx.Capture().Capture()
-	}
+	// Geometry 零值 = 全帧; adapter 内 ResolveGeometry 统一处理, 无需节点侧区分.
+	roi := in.Geometry(ssInROI)
+	pngData, err := ctx.Capture().CaptureROI(roi)
 	if err != nil {
 		return nil, fmt.Errorf("Screenshot capture: %w", err)
 	}
@@ -86,29 +80,6 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("Screenshot write %s: %w", abs, err)
 	}
 	return ctx.Out(ssOutDone).Set(ssDataPath, abs).Fire(), nil
-}
-
-// ssROI Screenshot 用的 ROI 像素整数. 不复用 detect_color_hsv 的 parseROIRect (那个用 Rect 浮点).
-type ssROI struct{ X, Y, W, H int }
-
-func pickScreenshotROI(m map[string]any) (ssROI, bool) {
-	if m == nil {
-		return ssROI{}, false
-	}
-	f := func(k string) int {
-		switch v := m[k].(type) {
-		case float64:
-			return int(v)
-		case int:
-			return v
-		}
-		return 0
-	}
-	r := ssROI{X: f("x"), Y: f("y"), W: f("w"), H: f("h")}
-	if r.W < 1 || r.H < 1 {
-		return ssROI{}, false
-	}
-	return r, true
 }
 
 func (Screenshot) Display(in node.Inputs, exitName string, out node.OutputData) string {

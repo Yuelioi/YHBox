@@ -10,7 +10,8 @@ import (
 
 func validScanCfg() map[string]any {
 	return map[string]any{
-		rcsInROI: map[string]any{"x": 0.0, "y": 0.0, "w": 200.0, "h": 50.0},
+		// ROI 零值 Geometry → 全帧 (adapter 内 ResolveGeometry 处理).
+		rcsInROI: node.Geometry{},
 		rcsInHSV: map[string]any{"hMin": 0.0, "hMax": 180.0,
 			"sMin": 0.0, "sMax": 255.0, "vMin": 0.0, "vMax": 255.0},
 		rcsInAxis: "x",

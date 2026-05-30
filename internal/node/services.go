@@ -44,11 +44,11 @@ func (stubVisionService) DetectColor(region [4]float64, mode string, rng [6]int)
 	return 0, 0, 0, nil
 }
 
-func (stubVisionService) DetectColorHSV(roi Rect, hsv HSVRange) (int, float64, error) {
+func (stubVisionService) DetectColorHSV(roi Geometry, hsv HSVRange) (int, float64, error) {
 	return 0, 0, nil
 }
 
-func (stubVisionService) ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx, maxPx int) ([]ClusterEntry, error) {
+func (stubVisionService) ROIColorScan(roi Geometry, hsv HSVRange, axis string, minPx, maxPx int) ([]ClusterEntry, error) {
 	return nil, nil
 }
 
@@ -183,8 +183,8 @@ func StubWindowService() WindowService { return stubWindowService{} }
 
 type stubCaptureService struct{}
 
-func (stubCaptureService) Capture() ([]byte, error)                          { return nil, nil }
-func (stubCaptureService) CaptureROI(x, y, w, h int) ([]byte, error)         { return nil, nil }
+func (stubCaptureService) Capture() ([]byte, error)                    { return nil, nil }
+func (stubCaptureService) CaptureROI(roi Geometry) ([]byte, error)     { return nil, nil }
 
 // StubCaptureService — 测试用. 返 nil bytes, 节点应当能处理 (skip write) 或自己报错.
 func StubCaptureService() CaptureService { return stubCaptureService{} }

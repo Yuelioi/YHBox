@@ -10,7 +10,8 @@ import (
 
 func validHSVCfg() map[string]any {
 	return map[string]any{
-		dchInROI: map[string]any{"x": 0.0, "y": 0.0, "w": 100.0, "h": 50.0},
+		// ROI 零值 Geometry → 全帧 (adapter 内 ResolveGeometry 处理).
+		dchInROI: node.Geometry{},
 		dchInHSV: map[string]any{"hMin": 0.0, "hMax": 180.0,
 			"sMin": 0.0, "sMax": 255.0, "vMin": 0.0, "vMax": 255.0},
 	}
@@ -69,20 +70,3 @@ func TestDetectColorHSV_Timeout(t *testing.T) {
 	}
 }
 
-func TestDetectColorHSV_InvalidROI(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColorHSV{})
-	rn, _ := node.Get("DetectColorHSV")
-
-	cfg := map[string]any{
-		dchInROI: map[string]any{"x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0},
-		dchInHSV: map[string]any{"hMin": 0.0, "hMax": 180.0,
-			"sMin": 0.0, "sMax": 255.0, "vMin": 0.0, "vMax": 255.0},
-		dchInTimeoutMs: 100,
-	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(&mockVision{}))
-
-	if r.Error == nil {
-		t.Error("expected error on invalid ROI w/h=0")
-	}
-}

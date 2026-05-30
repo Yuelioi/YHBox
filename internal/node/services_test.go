@@ -136,7 +136,7 @@ func TestStubCaptureService_NilBytes(t *testing.T) {
 	if err != nil || b != nil {
 		t.Errorf("Capture = %v,%v want nil,nil", b, err)
 	}
-	b2, err2 := c.CaptureROI(0, 0, 100, 100)
+	b2, err2 := c.CaptureROI(Geometry{})
 	if err2 != nil || b2 != nil {
 		t.Errorf("CaptureROI = %v,%v want nil,nil", b2, err2)
 	}
