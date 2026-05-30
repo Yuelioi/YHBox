@@ -67,6 +67,7 @@ type Inputs interface {
 	Bool(name string) bool
 	Point(name string) Point
 	Rect(name string) Rect
+	Geometry(name string) Geometry
 	Color(name string) Color
 	Duration(name string) time.Duration
 	JSON(name string) map[string]any

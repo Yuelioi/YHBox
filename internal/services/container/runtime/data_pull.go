@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -184,6 +185,11 @@ func coerceToType(v any, typ string) any {
 		if p, ok := asNodePoint(v); ok {
 			return p
 		}
+	case "Geometry":
+		b, _ := json.Marshal(v)
+		var g nodepkg.Geometry
+		_ = json.Unmarshal(b, &g)
+		return g
 	}
 	return v
 }

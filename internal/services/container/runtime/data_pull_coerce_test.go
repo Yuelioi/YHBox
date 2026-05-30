@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"reflect"
 	"testing"
 
 	nodepkg "yhbox/internal/node"
@@ -37,6 +38,20 @@ func TestCoerceToType_ScalarPassthrough(t *testing.T) {
 	}
 	if coerceToType(5.0, "Number") != 5.0 {
 		t.Error("Number 应原样返")
+	}
+}
+
+func TestCoerceToType_Geometry(t *testing.T) {
+	// map[string]any {"pct": {w,h}} → node.Geometry via JSON re-marshal
+	raw := map[string]any{"pct": map[string]any{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5}}
+	got := coerceToType(raw, "Geometry")
+	g, ok := got.(nodepkg.Geometry)
+	if !ok {
+		t.Fatalf("Geometry coerce: not nodepkg.Geometry, got %T", got)
+	}
+	want := nodepkg.Geometry{Pct: nodepkg.Rect{W: 0.5, H: 0.5}}
+	if !reflect.DeepEqual(g, want) {
+		t.Fatalf("Geometry coerce = %+v, want %+v", g, want)
 	}
 }
 

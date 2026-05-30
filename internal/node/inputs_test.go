@@ -3,6 +3,7 @@ package node
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -44,6 +45,19 @@ func TestInputs_TypeCast(t *testing.T) {
 	}
 	if in.Int("f") != 3 {
 		t.Error("float→int cast failed")
+	}
+}
+
+func TestInputs_Geometry(t *testing.T) {
+	want := Geometry{Pct: Rect{X: 0.1, Y: 0.2, W: 0.5, H: 0.5}}
+	in := newInputs(nil, map[string]any{"ROI": want}, nil, nil)
+	got := in.Geometry("ROI")
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Geometry(ROI) = %+v, want %+v", got, want)
+	}
+	// 缺失 → 零值
+	if z := in.Geometry("missing"); !reflect.DeepEqual(z, Geometry{}) {
+		t.Fatalf("missing Geometry should be zero, got %+v", z)
 	}
 }
 

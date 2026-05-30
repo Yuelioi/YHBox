@@ -131,6 +131,13 @@ func (i *inputsImpl) Rect(name string) Rect {
 	return Rect{}
 }
 
+func (i *inputsImpl) Geometry(name string) Geometry {
+	if v, ok := i.merged[name].(Geometry); ok {
+		return v
+	}
+	return Geometry{}
+}
+
 func (i *inputsImpl) Color(name string) Color {
 	if v, ok := i.merged[name].(Color); ok {
 		return v
