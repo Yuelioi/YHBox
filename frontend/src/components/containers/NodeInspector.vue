@@ -763,7 +763,8 @@ const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.h
 const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD } = useScreenPick({
   node: toRef(props, 'node'),
   applyPoint: (x, y) => setLiteralBatch({ XRatio: round4(x), YRatio: round4(y) }),
-  applyRect: (r) =>
+  // fieldPath 由 onPickRect(fieldPath) 透传 — DetectColor 固定走 'Region'
+  applyRect: (_fieldPath, r) =>
     setLiteral('Region', { x: round3(r[0]), y: round3(r[1]), w: round3(r[2]), h: round3(r[3]) }),
 })
 function round4(n: number): number {
