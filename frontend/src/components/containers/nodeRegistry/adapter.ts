@@ -19,7 +19,7 @@
 
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import { __resetForTests, register } from './registry'
-import type { FieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
+import type { FieldSchema, NodeFieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
 import type { Spec, InputSpec, OutputSpec } from '@bindings/yhbox/internal/node'
 
 // Backend Category → FE NodeGroup. backend 用 TitleCase, FE 历史 lowercase + 'variables'.
@@ -132,7 +132,8 @@ function splitOutputs(outputs: OutputSpec[]): {
 // label / hint / option label 全是 i18n key 字符串 (node.<kind>.input.<name>.{label,hint,option.<value>}),
 // 不再是 backend 字面值 — backend Spec 已不带任何展示文案. consumer 必须 t() 渲染.
 // hint 对所有 field 都出 key; 渲染层用 te() 判存在性 (key 没配 → 不渲染), 取代旧的 backend doc gate.
-function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
+// 导出供测试; app 内部仍通过 adaptSpec → populateRegistryFromBackend 调用.
+export function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
   const fields: FieldSchema[] = []
   for (const i of inputs) {
     if (i.type === 'Exec') continue
@@ -144,6 +145,8 @@ function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
       widgetKind: widget?.kind ?? 'text',
       hint: `node.${kind}.input.${i.name}.hint`,
     }
+    // schema 透传: 后端 InputSpec.schema 非空 → FE FieldSchema.schema (StructuredInput 渲染路径).
+    if (i.schema) f.schema = i.schema as unknown as NodeFieldSchema
     // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写来的, 静态 dropdown 只有 value).
     // label 走 i18n key node.<kind>.input.<name>.option.<value> — backend 不再带 enum 中文.
     const props = (widget?.props ?? {}) as Record<string, unknown>

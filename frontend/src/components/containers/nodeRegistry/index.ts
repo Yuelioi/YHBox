@@ -30,6 +30,20 @@ export function pinTypeCompat(from: PinType, to: PinType): { allow: boolean; war
   return { allow: false, warn: false }
 }
 
+/** 镜像后端 node.FieldSchema — 结构化输入的递归数据 schema. StructuredInput.vue 据此渲染. */
+export interface NodeFieldSchema {
+  type: 'object' | 'number' | 'string' | 'bool' | 'enum'
+  widget?: string // '' | 'geometry'
+  fields?: { key: string; schema: NodeFieldSchema; required?: boolean }[]
+  options?: { value: unknown }[]
+}
+
+/** 几何输入存储值 (pct ratio 0-1 + 可选每分辨率像素覆盖). */
+export interface GeometryValue {
+  pct: { x: number; y: number; w: number; h: number }
+  overrides?: { resolution: { w: number; h: number }; px: { x: number; y: number; w: number; h: number } }[]
+}
+
 /** Field schema for Inspector form (replaces nodeFieldSchemas.NODE_FIELD_SCHEMAS). */
 export interface FieldSchema {
   key: string
@@ -53,6 +67,8 @@ export interface FieldSchema {
   placeholder?: string
   /** Inline help text shown below the input. Migrated from old nodeFieldSchemas.ts. */
   hint?: string
+  /** 结构化输入的递归 schema (后端 InputSpec.schema 透传); 非空 → NodeInspector 用 StructuredInput 渲染. */
+  schema?: NodeFieldSchema
 }
 
 /** Group name for palette categorization. Mirrors backend Spec.Category (lowercase'd).
