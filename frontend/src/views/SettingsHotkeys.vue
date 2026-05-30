@@ -86,6 +86,7 @@ const filteredGrouped = computed(() => {
   // 顺序: system → action → container → schedule (key 顺序即 UI 顺序)
   const groups: Record<string, typeof filtered> = {
     system: [],
+    recording: [],
     action: [],
     container: [],
     schedule: [],
@@ -107,6 +108,7 @@ const filteredGrouped = computed(() => {
 function groupIcon(source: string): string {
   switch (source) {
     case 'system': return 'i-tabler-tool'
+    case 'recording': return 'i-tabler-player-record'
     case 'action': return 'i-tabler-bolt'
     case 'container': return 'i-tabler-box'
     case 'schedule': return 'i-tabler-calendar-clock'
@@ -117,6 +119,7 @@ function groupIcon(source: string): string {
 function groupLabel(source: string): string {
   switch (source) {
     case 'system': return t('hotkeys.group.system')
+    case 'recording': return t('hotkeys.group.recording')
     case 'action': return t('hotkeys.group.action')
     case 'container': return t('hotkeys.group.container')
     case 'schedule': return t('hotkeys.group.schedule')

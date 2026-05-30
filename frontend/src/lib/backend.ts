@@ -38,13 +38,14 @@ export interface LogLinesEvent {
 // 装 vue-i18n named interpolation (容器名 / 计划名等动态), backend Register 时填.
 export interface HotkeyEntry {
   key: string
-  source: 'system' | 'action' | 'container' | 'schedule'
+  source: 'system' | 'action' | 'container' | 'schedule' | 'editor' | 'recording'
   label: string
   labelParams?: Record<string, string>
   hotkeyStr: string
   status: 'active' | 'unbound' | 'failed'
   lastError: string
   readonlyReason: string
+  mechanism?: 'os-global' | 'editor-inapp' | 'll-hook'
 }
 
 // ---- 容器架构数据层类型 ----

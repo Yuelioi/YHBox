@@ -32,38 +32,6 @@
         <p class="text-[11px] text-dimmed mt-0.5">{{ t('settings.input.record.hint') }}</p>
       </header>
 
-      <!-- 停录热键 -->
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <div class="text-sm text-default">{{ t('settings.input.record.stop_hotkey_label') }}</div>
-          <div class="text-[11px] text-dimmed">
-            {{ t('settings.input.record.stop_hotkey_hint') }}
-          </div>
-        </div>
-        <div class="w-56 shrink-0">
-          <HotkeyCaptureInput
-            :model-value="settings?.ui.recordingStopHotkey ?? 'F12'"
-            @update:model-value="(v: string) => patchRecord({ recordingStopHotkey: v })"
-          />
-        </div>
-      </div>
-
-      <!-- 暂停/继续热键 -->
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <div class="text-sm text-default">{{ t('settings.input.record.pause_hotkey_label') }}</div>
-          <div class="text-[11px] text-dimmed">
-            {{ t('settings.input.record.pause_hotkey_hint') }}
-          </div>
-        </div>
-        <div class="w-56 shrink-0">
-          <HotkeyCaptureInput
-            :model-value="settings?.ui.recordingPauseHotkey ?? 'F11'"
-            @update:model-value="(v: string) => patchRecord({ recordingPauseHotkey: v })"
-          />
-        </div>
-      </div>
-
       <!-- 鼠标语义 -->
       <div class="flex items-center justify-between gap-4">
         <div class="min-w-0">
@@ -168,7 +136,6 @@ import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import CalibratorModal from '@/components/calibration/CalibratorModal.vue'
-import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 

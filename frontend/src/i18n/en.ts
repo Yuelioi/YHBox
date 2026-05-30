@@ -94,12 +94,6 @@ export default {
       record: {
         title: 'Recording config',
         hint: 'Changes require YHBox restart to apply (injected at startup).',
-        stop_hotkey_label: 'Stop recording hotkey',
-        stop_hotkey_hint:
-          'Pressed in-game to stop recording (LL hook intercepts, not forwarded to game). Default F12.',
-        pause_hotkey_label: 'Pause/resume hotkey',
-        pause_hotkey_hint:
-          'Press while recording to pause; press while paused to resume after a 3s countdown. Using a hotkey avoids recording HUD-button clicks into the clip. Default F11.',
         mouse_mode_label: 'Mouse semantics',
         mouse_mode_hint:
           'relative (FPS): records RawDelta for camera turn. absolute (UI/Slate): records screen px MouseMove for click/hover.',
@@ -1233,6 +1227,7 @@ export default {
     search_placeholder: 'Search hotkey name or binding...',
     group: {
       system: 'System',
+      recording: 'Recording',
       action: 'Action',
       container: 'Container',
       schedule: 'Schedule',
@@ -1251,6 +1246,10 @@ export default {
       system: {
         execution_stop: 'Stop all running',
         calibrate_toggle: 'DPI calibration toggle',
+      },
+      recording: {
+        stop: 'Stop recording',
+        pause: 'Pause / resume recording',
       },
       container: 'Container {name}',
       schedule: 'Schedule {name}',

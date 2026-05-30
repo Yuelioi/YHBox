@@ -113,10 +113,6 @@ export default {
       record: {
         title: '录制配置',
         hint: '改动需重启 YHBox 生效 (启动期注入).',
-        stop_hotkey_label: '停录热键',
-        stop_hotkey_hint: '游戏前台按下停止录制 (LL hook 拦截, 不透传游戏). 默认 F12.',
-        pause_hotkey_label: '暂停/继续热键',
-        pause_hotkey_hint: '录制中按暂停, 暂停中按走 3s 倒计时继续. 走热键避免点 HUD 按钮被录进 clip. 默认 F11.',
         mouse_mode_label: '鼠标语义',
         mouse_mode_hint:
           'relative (FPS): 录 RawDelta 给相机转向. absolute (UI/Slate): 录 screen px MouseMove 给 click/hover.',
@@ -1252,6 +1248,7 @@ export default {
     search_placeholder: '搜索热键名或绑定...',
     group: {
       system: '系统',
+      recording: '录制',
       action: '动作',
       container: '容器',
       schedule: '计划',
@@ -1270,6 +1267,10 @@ export default {
       system: {
         execution_stop: '强停所有运行',
         calibrate_toggle: 'DPI 校准 启动/停止',
+      },
+      recording: {
+        stop: '停止录制',
+        pause: '暂停/继续录制',
       },
       container: '容器 {name}',
       schedule: '计划 {name}',
