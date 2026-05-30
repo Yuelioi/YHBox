@@ -43,6 +43,7 @@ type InputSpec struct {
 	Default     any          `json:"default,omitempty"` // JSON 序列化用 json.Number
 	Widget      WidgetSpec   `json:"widget,omitempty"`
 	VisibleWhen *VisibleRule `json:"visibleWhen,omitempty"`
+	Schema      *FieldSchema `json:"schema,omitempty"` // 结构化输入的数据 schema; 非 nil → FE StructuredInput
 }
 
 type OutputSpec struct {
