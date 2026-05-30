@@ -97,6 +97,9 @@ export default {
         stop_hotkey_label: 'Stop recording hotkey',
         stop_hotkey_hint:
           'Pressed in-game to stop recording (LL hook intercepts, not forwarded to game). Default F12.',
+        pause_hotkey_label: 'Pause/resume hotkey',
+        pause_hotkey_hint:
+          'Press while recording to pause; press while paused to resume after a 3s countdown. Using a hotkey avoids recording HUD-button clicks into the clip. Default F11.',
         mouse_mode_label: 'Mouse semantics',
         mouse_mode_hint:
           'relative (FPS): records RawDelta for camera turn. absolute (UI/Slate): records screen px MouseMove for click/hover.',
@@ -675,7 +678,7 @@ export default {
       label: 'Wait for stable frame',
       description: 'Downsamples ROI and compares each poll; diff <= StableThreshold for StableFrames consecutive frames → Stable; timeout → Timeout. Avoids mis-detection during animation/loading.',
       input: {
-        ROI: { label: 'ROI (pixels, optional)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — empty/all 0 = full frame` },
+        ROI: { label: 'ROI (pixels, optional)', hint: `Empty = full frame; pixels, relative to window client area (x,y = top-left, w/h = size)` },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]; larger = finer but slower' },
         Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
         CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only: cell mean channel diff > this = changed' },
@@ -693,7 +696,7 @@ export default {
       label: 'Wait for frame change',
       description: 'Downsamples ROI and compares against baseline each poll; diff >= ChangeThreshold → Changed (e.g. popup/loading done); timeout → Timeout.',
       input: {
-        ROI: { label: 'ROI (pixels, optional)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — empty/all 0 = full frame` },
+        ROI: { label: 'ROI (pixels, optional)', hint: `Empty = full frame; pixels, relative to window client area (x,y = top-left, w/h = size)` },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]' },
         Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
         CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only' },

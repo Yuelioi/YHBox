@@ -51,6 +51,9 @@ export function useRecording(opts: RecordOpts) {
   const countdownSec = ref(0)
   const filterMode = ref<'precise' | 'simple'>('precise')
   const replaceNodeID = ref<string | null>(null)
+  // 归属化: 仅本窗发起的录制才处理 recording:completed. recording:completed 是全局广播,
+  // 多个容器编辑器窗口都订阅 — 非发起方窗口若也处理会误报 container_mismatch (子图存对了, 别的窗口瞎报警).
+  const ownsRecording = ref(false)
 
   // startRecording: 倒计时 → recordStore.start(mode, containerID). 倒计时中再点 = 取消.
   async function startRecording(mode: 'precise' | 'simple', extra?: StartRecordingOpts) {
@@ -70,22 +73,32 @@ export function useRecording(opts: RecordOpts) {
 
     filterMode.value = mode
 
+    // 倒计时前预检窗口 (① 没设/找不到窗口立刻报错, 不用等录完; ④ 顺带把游戏拉到前台).
+    // 失败 → 不开 HUD 不进倒计时. Start 内仍有同样校验作 race 兜底.
+    try {
+      await backend.recording.validateTarget(containerID)
+    } catch (e: any) {
+      toast.add({ title: t('recording.launch_failed'), description: String(e?.message ?? e), color: 'error' })
+      return
+    }
+
     try {
       await backend.tools.openRecordingHUD()
     } catch (e) {
       console.warn('OpenRecordingHUD failed (countdown continues in editor)', e)
     }
 
-    // 停录键标签传给 HUD 显示 (settings 配的, 默认 F12). HUD 是独立窗口拿不到本窗 store, 经事件带过去.
+    // 停录/暂停键标签传给 HUD 显示 (settings 配的). HUD 是独立窗口拿不到本窗 store, 经事件带过去.
     const stopKey = settingsStore.data?.ui?.recordingStopHotkey || 'F12'
+    const pauseKey = settingsStore.data?.ui?.recordingPauseHotkey || 'F11'
     countdownSec.value = 3
     for (let i = 3; i >= 1; i--) {
       countdownSec.value = i
-      Events.Emit('recording:countdown', { sec: i, mode, stopKey })
+      Events.Emit('recording:countdown', { sec: i, mode, stopKey, pauseKey })
       await new Promise((r) => setTimeout(r, 1000))
       if (countdownSec.value === 0) {
         try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-        Events.Emit('recording:countdown', { sec: 0, mode, stopKey })
+        Events.Emit('recording:countdown', { sec: 0, mode, stopKey, pauseKey })
         return
       }
     }
@@ -93,6 +106,7 @@ export function useRecording(opts: RecordOpts) {
 
     try {
       await recordStore.start(mode, containerID)
+      ownsRecording.value = true // 本窗发起 — 后续 recording:completed 由本窗处理
       toast.add({
         title: t('recordComposable.recording_in_progress', { mode: mode === 'precise' ? t('recordComposable.mode_precise') : t('recordComposable.mode_simple') }),
         description: t('recordComposable.stop_methods'),
@@ -107,7 +121,8 @@ export function useRecording(opts: RecordOpts) {
 
   // stopRecording: toolbar / 主窗口主动停 — 同步路径, recordStore.stop() 拿 payload.
   async function stopRecording() {
-    if (!recordStore.isRecording) return
+    // recording 或 paused 都可停 (paused 直接停, 后端守卫已放开).
+    if (!recordStore.isRecording && !recordStore.isPaused) return
     try {
       const payload = await recordStore.stop()
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
@@ -127,6 +142,8 @@ export function useRecording(opts: RecordOpts) {
   // ⚠ 必须先 refreshSubgraphStore — activeGraph computed 从 editorStore 读子图列表,
   // 不刷新的话双击进 Subgraph 节点会拿不到, 画布空白 (实测踩过).
   async function onSubgraphCreated(payload: RecordingStopPayload) {
+    // 会话结束 (无论哪条停录路径都汇流到这) → 清归属标记.
+    ownsRecording.value = false
     if (!activeGraph.value || !draft.value) {
       toast.add({
         title: t('recording.completed_no_graph'),
@@ -143,10 +160,16 @@ export function useRecording(opts: RecordOpts) {
     // 不在本容器的子图 → 永久 dangling (MISSING_SUBGRAPH + 输出 pin __missing__). 故拒绝加节点,
     // 提示用户切到真正存子图的容器. 子图本身已落盘, 不丢.
     if (payload.containerID && payload.containerID !== draft.value.id) {
+      // 显示用容器名而非 UUID. target 名查容器表 (取不到 fallback 短 ID).
+      let targetName = payload.containerID
+      try {
+        const c = await backend.containers.get(payload.containerID)
+        if (c?.name) targetName = c.name
+      } catch { /* fallback 裸 ID */ }
       toast.add({
         title: t('recordComposable.container_mismatch', {
-          target: payload.containerID,
-          current: draft.value.id,
+          target: targetName,
+          current: draft.value.name || draft.value.id,
         }),
         color: 'warning',
         duration: 8000,
@@ -267,6 +290,12 @@ export function useRecording(opts: RecordOpts) {
     void recordStore.reconcile() // 挂载即对账, 修正任何陈旧状态
     window.addEventListener('focus', onWindowFocus)
     unsubscribe = Events.On('recording:completed', async (ev: any) => {
+      // 归属守卫: recording:completed 是全局广播, 非本窗发起的录制 → 静默 return.
+      // 不弹 toast / 不加节点 / 不关 HUD (那是发起方窗口的事). 状态镜像走 recording:state, 无需本窗插手.
+      if (!ownsRecording.value) return
+      // 本窗会话到此结束 — 立即清归属, 覆盖下面 error / 无 subgraph 等所有提前 return 分支,
+      // 否则残留 true 会让本窗误处理下一次别窗的录制完成事件 (正是要修的多窗口误报根因).
+      ownsRecording.value = false
       const raw = ev?.data ?? ev
       const firstArg = Array.isArray(raw) ? raw[0] : raw
       // 状态由后端 'recording:state' 广播 (已收敛到 idle); 这里对账一次兜底防丢事件.

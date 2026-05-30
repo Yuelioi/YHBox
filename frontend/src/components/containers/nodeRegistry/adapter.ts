@@ -147,6 +147,8 @@ function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
     // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写来的, 静态 dropdown 只有 value).
     // label 走 i18n key node.<kind>.input.<name>.option.<value> — backend 不再带 enum 中文.
     const props = (widget?.props ?? {}) as Record<string, unknown>
+    // placeholder (e.g. JSONProps.Placeholder) 透到 PinInput 的 textarea/input 占位示例.
+    if (typeof props.placeholder === 'string') f.placeholder = props.placeholder
     if (f.type === 'select' && Array.isArray(props.options)) {
       f.options = (props.options as Array<{ value: unknown }>).map((o) => ({
         value: String(o.value),

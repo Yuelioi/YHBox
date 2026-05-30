@@ -115,6 +115,8 @@ export default {
         hint: '改动需重启 YHBox 生效 (启动期注入).',
         stop_hotkey_label: '停录热键',
         stop_hotkey_hint: '游戏前台按下停止录制 (LL hook 拦截, 不透传游戏). 默认 F12.',
+        pause_hotkey_label: '暂停/继续热键',
+        pause_hotkey_hint: '录制中按暂停, 暂停中按走 3s 倒计时继续. 走热键避免点 HUD 按钮被录进 clip. 默认 F11.',
         mouse_mode_label: '鼠标语义',
         mouse_mode_hint:
           'relative (FPS): 录 RawDelta 给相机转向. absolute (UI/Slate): 录 screen px MouseMove 给 click/hover.',
@@ -695,7 +697,7 @@ export default {
       label: '等待画面稳定',
       description: 'ROI 降采样后逐 poll 比对, 连续 StableFrames 帧差 <= StableThreshold → Stable (画面稳了); 超时 → Timeout. 防动画/加载中误识别.',
       input: {
-        ROI: { label: 'ROI (像素, 可选)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — 缺省/全 0 = 全帧` },
+        ROI: { label: 'ROI (像素, 可选)', hint: `留空 = 全帧; 单位像素, 相对窗口客户区 (x,y = 左上角, w/h = 宽高)` },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]; 越大越细越慢' },
         Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
         CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio: 格均值通道差 > 此视作变了' },
@@ -713,7 +715,7 @@ export default {
       label: '等待画面变化',
       description: 'ROI 降采样后跟 baseline 逐 poll 比对, 差 >= ChangeThreshold → Changed (画面变了, e.g. 弹窗/加载完成); 超时 → Timeout.',
       input: {
-        ROI: { label: 'ROI (像素, 可选)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — 缺省/全 0 = 全帧` },
+        ROI: { label: 'ROI (像素, 可选)', hint: `留空 = 全帧; 单位像素, 相对窗口客户区 (x,y = 左上角, w/h = 宽高)` },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]' },
         Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
         CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio' },

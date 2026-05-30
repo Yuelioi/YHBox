@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,6 +70,14 @@ type Recorder struct {
 	// 时间基准 (Start 时设, drain 用来计算每个 Event.TUs 相对 0 的微秒偏移)
 	tStartUs uint64
 
+	// 暂停 (切除间隔语义): 暂停期 drainLoop 丢事件, 时间戳扣除累计暂停时长 → 回放无空档.
+	//   - paused: drainLoop 无锁高频读 → atomic.
+	//   - pausedAccumUs: 累计已暂停微秒, drainLoop 无锁读 + Resume 写 → atomic.
+	//   - pauseStartUs: 本次暂停起点, 仅 Pause/Resume 持 mu 读写, 不需 atomic.
+	paused        atomic.Bool
+	pausedAccumUs atomic.Uint64
+	pauseStartUs  uint64
+
 	// seq 单调递增, 同 TUs 内 tie-break
 	seqCounter uint32
 
@@ -94,6 +103,30 @@ func (r *Recorder) Active() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.active
+}
+
+// Pause 暂停录制 — 标记 paused, 记录本次暂停起点. drainLoop 据此丢弃暂停期事件.
+// 非 active 或已 paused 时 no-op (幂等). Service 层守状态机, 这里只做无害的本地标记.
+func (r *Recorder) Pause() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.active || r.paused.Load() {
+		return
+	}
+	r.pauseStartUs = nowMicros()
+	r.paused.Store(true)
+}
+
+// Resume 继续录制 — 把本次暂停时长累加进 pausedAccumUs (后续事件时间戳扣除它 → 切除间隔).
+// 非 active 或未 paused 时 no-op (幂等).
+func (r *Recorder) Resume() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.active || !r.paused.Load() {
+		return
+	}
+	r.pausedAccumUs.Add(nowMicros() - r.pauseStartUs)
+	r.paused.Store(false)
 }
 
 // Start 启动录制。返回临时 recording ID（前端订阅事件流过滤用）。
@@ -125,6 +158,9 @@ func (r *Recorder) Start(gameHwnd win.HWND, meta inputclip.ClipMeta) (string, er
 	r.clipEvents = nil
 	r.seqCounter = 0
 	r.tStartUs = nowMicros()
+	r.paused.Store(false)
+	r.pausedAccumUs.Store(0)
+	r.pauseStartUs = 0
 	tempID := r.tempID
 	r.mu.Unlock()
 
@@ -241,8 +277,13 @@ func (r *Recorder) workerThread() {
 func (r *Recorder) drainLoop() {
 	defer close(r.drainDone)
 	for ev := range r.rawEvents {
+		// 暂停期: 丢弃事件 (在 drain 点判定; 暂停是用户级粗动作, drain 延迟内的边界事件丢弃可接受).
+		if r.paused.Load() {
+			continue
+		}
 		var clipEv inputclip.Event
-		clipEv.TUs = nowMicros() - r.tStartUs
+		// 扣除累计暂停时长 → 暂停前后事件时间戳无缝拼接, 回放无空档.
+		clipEv.TUs = nowMicros() - r.tStartUs - r.pausedAccumUs.Load()
 		clipEv.Seq = r.seqCounter
 		r.seqCounter++
 

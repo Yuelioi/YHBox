@@ -53,6 +53,9 @@ type UISettings struct {
 	// RecordingStopHotkey 录制停止热键 (LL hook 拦截, 不透传游戏). 默认 "F12".
 	// 改动需重启生效 (Service 注入 adapter 启动期读一次).
 	RecordingStopHotkey string `json:"recordingStopHotkey"`
+	// RecordingPauseHotkey 录制暂停/继续切换热键 (LL hook 拦截, 不透传游戏也不进 clip). 默认 "F11".
+	// 录制中按 → 暂停; 暂停中按 → 走 3s 倒计时后继续. 走热键避免点 HUD 按钮的点击被录进 clip.
+	RecordingPauseHotkey string `json:"recordingPauseHotkey"`
 	// RecordingMouseMode 录制时鼠标语义. "relative" (FPS 相机 RawDelta, 默认) / "absolute" (UI 点击 MouseMove screen px).
 	// 决定 recorder drainLoop 是否窗口过滤. 改动需重启生效.
 	RecordingMouseMode string `json:"recordingMouseMode"`
@@ -89,9 +92,10 @@ func defaultSettings() *Settings {
 				WrapText: false, WriteFile: true, FileDir: "logs",
 			},
 			Window:              WindowSettings{Width: 1100, Height: 720},
-			ActionStopHotkey:    "Ctrl+Shift+F9",
-			RecordingStopHotkey: "F12",
-			RecordingMouseMode:  "relative",
+			ActionStopHotkey:     "Ctrl+Shift+F9",
+			RecordingStopHotkey:  "F12",
+			RecordingPauseHotkey: "F11",
+			RecordingMouseMode:   "relative",
 		},
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
@@ -136,6 +140,10 @@ func LoadSettings(path string) *Settings {
 	// 归一：旧 settings 没 recordingStopHotkey 字段，回落默认 F12
 	if loaded.UI.RecordingStopHotkey == "" {
 		loaded.UI.RecordingStopHotkey = "F12"
+	}
+	// 归一：旧 settings 没 recordingPauseHotkey 字段，回落默认 F11
+	if loaded.UI.RecordingPauseHotkey == "" {
+		loaded.UI.RecordingPauseHotkey = "F11"
 	}
 	// 归一：旧 settings 没 recordingMouseMode 字段，回落默认 relative.
 	if loaded.UI.RecordingMouseMode != "relative" && loaded.UI.RecordingMouseMode != "absolute" {

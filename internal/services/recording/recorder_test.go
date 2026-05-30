@@ -102,3 +102,91 @@ func TestRecorderAppendOrdering(t *testing.T) {
 		}
 	}
 }
+
+// TestRecorder_PausedDropsEvents: paused 期到达的事件在 drain 点被丢弃 (全 0 落盘).
+// 预填 + 关闭 channel 后同步 drain, paused 全程 true → 不 append 任何 event.
+func TestRecorder_PausedDropsEvents(t *testing.T) {
+	r := &Recorder{
+		tStartUs:  uint64(time.Now().UnixMicro()),
+		meta:      inputclip.ClipMeta{MouseMode: "relative"},
+		rawEvents: make(chan HookEvent, 10),
+		drainDone: make(chan struct{}),
+	}
+	r.paused.Store(true)
+	for i := 0; i < 5; i++ {
+		r.rawEvents <- HookEvent{IsKeyboard: true, IsKeyDown: true, Vk: 0x57}
+	}
+	close(r.rawEvents)
+	r.drainLoop() // 同步: channel 已关, 处理完所有 (全丢) 后返回
+
+	r.eventMu.Lock()
+	defer r.eventMu.Unlock()
+	if len(r.clipEvents) != 0 {
+		t.Errorf("paused 期事件应全丢, got %d", len(r.clipEvents))
+	}
+}
+
+// TestRecorder_TimestampSubtractsPausedAccum: 事件时间戳扣除累计暂停时长 → 切除间隔.
+// 造 tStartUs = 100ms 前 + accum = 50ms → 事件 TUs ≈ 50ms (真实录制时长, 不含暂停段).
+func TestRecorder_TimestampSubtractsPausedAccum(t *testing.T) {
+	r := &Recorder{
+		tStartUs:  uint64(time.Now().UnixMicro()) - 100_000, // 录制开始于 100ms 前
+		meta:      inputclip.ClipMeta{MouseMode: "relative"},
+		rawEvents: make(chan HookEvent, 2),
+		drainDone: make(chan struct{}),
+	}
+	r.pausedAccumUs.Store(50_000) // 已累计暂停 50ms
+	r.rawEvents <- HookEvent{IsKeyboard: true, IsKeyDown: true, Vk: 0x57}
+	close(r.rawEvents)
+	r.drainLoop()
+
+	r.eventMu.Lock()
+	defer r.eventMu.Unlock()
+	if len(r.clipEvents) != 1 {
+		t.Fatalf("want 1 event, got %d", len(r.clipEvents))
+	}
+	tus := r.clipEvents[0].TUs
+	if tus < 45_000 || tus > 70_000 {
+		t.Errorf("TUs = %d us, want ≈50000 (wall 100ms - paused 50ms); drain jitter 容差内", tus)
+	}
+}
+
+// TestRecorder_ResumeAccumulatesPauseDuration: Pause→sleep→Resume 把暂停时长累加进 accum.
+func TestRecorder_ResumeAccumulatesPauseDuration(t *testing.T) {
+	r := &Recorder{tStartUs: uint64(time.Now().UnixMicro())}
+	r.active = true
+	r.Pause()
+	if !r.paused.Load() {
+		t.Fatal("Pause 后应 paused")
+	}
+	time.Sleep(30 * time.Millisecond)
+	r.Resume()
+	if r.paused.Load() {
+		t.Fatal("Resume 后不应 paused")
+	}
+	accum := r.pausedAccumUs.Load()
+	if accum < 20_000 || accum > 100_000 {
+		t.Errorf("accum = %d us, want ≈30000 (30ms 暂停); 容差内", accum)
+	}
+}
+
+// TestRecorder_PauseResumeGuards: 非 active / 未暂停 / 重复暂停 全幂等无副作用.
+func TestRecorder_PauseResumeGuards(t *testing.T) {
+	r := &Recorder{}
+	r.Pause() // 非 active
+	if r.paused.Load() {
+		t.Error("非 active Pause 不应置 paused")
+	}
+	r.active = true
+	r.Resume() // 未暂停
+	if r.pausedAccumUs.Load() != 0 {
+		t.Error("未暂停 Resume 不应累加 accum")
+	}
+	r.Pause()
+	first := r.pauseStartUs
+	time.Sleep(2 * time.Millisecond)
+	r.Pause() // 重复 Pause
+	if r.pauseStartUs != first {
+		t.Error("重复 Pause 不应覆盖 pauseStartUs")
+	}
+}

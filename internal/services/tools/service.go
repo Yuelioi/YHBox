@@ -110,8 +110,9 @@ func (s *Service) OpenMouseHUD() error {
 	return nil
 }
 
-// OpenRecordingHUD 打开录制控制悬浮窗 — 200×60 frameless + AlwaysOnTop.
-// 内容: REC 红点 + 计时 + 停止按钮. 解决 "录制时切回 YHBox 不方便" 痛点.
+// OpenRecordingHUD 打开录制控制悬浮窗 — 双行卡片 frameless + AlwaysOnTop + 透明背景.
+// 内容: REC 红点 + 计时 + 模式 / 暂停·继续·停止按钮 / F12 hint. 解决 "录制时切回 YHBox 不方便" 痛点.
+// BackgroundTypeTransparent: 窗口本体透明, 圆角外露桌面 (修黑角); 卡片视觉由前端半透明玻璃画.
 // 已开则 focus. 用户关闭窗口 / 录制结束都触发自动关.
 func (s *Service) OpenRecordingHUD() error {
 	app := s.wailsApp()
@@ -126,14 +127,14 @@ func (s *Service) OpenRecordingHUD() error {
 	}
 	s.mu.Unlock()
 	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:                             "录制控制",
-		Width:                             220,
-		Height:                            60,
-		URL:                               "/#/tools/recording-hud",
-		Frameless:        true,
-		AlwaysOnTop:      true,
-		DisableResize:    true,
-		BackgroundColour: application.NewRGB(24, 24, 27),
+		Title:          "录制控制",
+		Width:          260,
+		Height:         96,
+		URL:            "/#/tools/recording-hud",
+		Frameless:      true,
+		AlwaysOnTop:    true,
+		DisableResize:  true,
+		BackgroundType: application.BackgroundTypeTransparent,
 	})
 	s.mu.Lock()
 	s.recordingHUD = w

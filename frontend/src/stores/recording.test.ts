@@ -13,8 +13,14 @@ const { getStateMock } = vi.hoisted(() => ({
     startedAtMs: 123,
   })),
 }))
+const { pauseMock, resumeMock } = vi.hoisted(() => ({
+  pauseMock: vi.fn(async () => {}),
+  resumeMock: vi.fn(async () => {}),
+}))
 vi.mock('@/lib/backend', () => ({
-  backend: { recording: { getState: getStateMock, start: vi.fn(), stop: vi.fn() } },
+  backend: {
+    recording: { getState: getStateMock, start: vi.fn(), stop: vi.fn(), pause: pauseMock, resume: resumeMock },
+  },
 }))
 vi.mock('@/i18n', () => ({ i18n: { global: { t: (k: string) => k } } }))
 // store 体内 Events.On('recording:state') 订阅后端广播 — 测试里 stub 掉, 只验镜像逻辑.
@@ -48,6 +54,32 @@ describe('recordStore — 后端状态机镜像', () => {
     s.applyState({ phase: 'finalizing', containerID: 'cA' })
     expect(s.isRecording).toBe(false)
     expect(s.activeTargetContainerID).toBe('cA')
+  })
+
+  it('applyState(paused) → isPaused 派生 true, isRecording false, target 仍可见', () => {
+    const s = useRecordingStore()
+    s.applyState({ phase: 'paused', containerID: 'cA', startedAtMs: 1, pausedMs: 500, pausedAtMs: 2000 })
+    expect(s.isPaused).toBe(true)
+    expect(s.isRecording).toBe(false) // 暂停时严格 false (会话进行中判 isRecording||isPaused)
+    expect(s.activeTargetContainerID).toBe('cA')
+    expect(s.state.pausedMs).toBe(500)
+    expect(s.state.pausedAtMs).toBe(2000)
+  })
+
+  it('pause() 仅 recording 态调后端 RPC; resume() 仅 paused 态调', async () => {
+    const s = useRecordingStore()
+    // recording → pause 调 RPC; resume 此时 no-op (非 paused).
+    s.applyState({ phase: 'recording', containerID: 'cA' })
+    await s.resume()
+    expect(resumeMock).not.toHaveBeenCalled()
+    await s.pause()
+    expect(pauseMock).toHaveBeenCalledTimes(1)
+    // paused → resume 调 RPC; pause no-op.
+    s.applyState({ phase: 'paused', containerID: 'cA' })
+    await s.pause()
+    expect(pauseMock).toHaveBeenCalledTimes(1) // 没再调
+    await s.resume()
+    expect(resumeMock).toHaveBeenCalledTimes(1)
   })
 
   it('reconcile() 调 getState 对账 → 镜像后端权威状态 (丢事件自愈)', async () => {

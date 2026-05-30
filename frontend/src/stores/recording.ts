@@ -13,11 +13,13 @@ import { backend } from '@/lib/backend'
 import { i18n } from '@/i18n'
 
 export interface RecordingState {
-  phase: 'idle' | 'recording' | 'finalizing'
+  phase: 'idle' | 'recording' | 'paused' | 'finalizing'
   containerID: string
   filterMode: string
   tempID: string
   startedAtMs: number
+  pausedMs: number   // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
+  pausedAtMs: number // 本次暂停起点 (>0 即暂停态, HUD 冻结计时); recording 态为 0
 }
 
 export interface RecordingStopPayload {
@@ -27,15 +29,18 @@ export interface RecordingStopPayload {
   filterMode: string
 }
 
-const IDLE: RecordingState = { phase: 'idle', containerID: '', filterMode: '', tempID: '', startedAtMs: 0 }
+const IDLE: RecordingState = { phase: 'idle', containerID: '', filterMode: '', tempID: '', startedAtMs: 0, pausedMs: 0, pausedAtMs: 0 }
 
 function normalize(st: any): RecordingState {
+  const p = st?.phase
   return {
-    phase: st?.phase === 'recording' || st?.phase === 'finalizing' ? st.phase : 'idle',
+    phase: p === 'recording' || p === 'paused' || p === 'finalizing' ? p : 'idle',
     containerID: st?.containerID ?? '',
     filterMode: st?.filterMode ?? '',
     tempID: st?.tempID ?? '',
     startedAtMs: st?.startedAtMs ?? 0,
+    pausedMs: st?.pausedMs ?? 0,
+    pausedAtMs: st?.pausedAtMs ?? 0,
   }
 }
 
@@ -44,8 +49,10 @@ export const useRecordingStore = defineStore('recording', () => {
   const lastResult = ref<RecordingStopPayload | null>(null)
 
   // 派生值 — 无独立 flag, 不可能跟后端 desync.
+  // isRecording 严格 = phase==='recording' (暂停时 false); 判"录制会话进行中"用 isRecording||isPaused.
   const isRecording = computed(() => state.value.phase === 'recording')
-  // 录制目标容器 (A2 删除守卫 / A3 离开确认 / A4 指示器 读它). idle 时为空.
+  const isPaused = computed(() => state.value.phase === 'paused')
+  // 录制目标容器 (A2 删除守卫 / A3 离开确认 / A4 指示器 读它). idle 时为空 (paused 仍有目标).
   const activeTargetContainerID = computed(() =>
     state.value.phase === 'idle' ? '' : state.value.containerID,
   )
@@ -80,6 +87,18 @@ export const useRecordingStore = defineStore('recording', () => {
     await reconcile()
   }
 
+  // pause/resume: 后端幂等 (非对应 phase no-op). 不乐观置态 — 后端广播 recording:state 收敛.
+  async function pause(): Promise<void> {
+    if (!isRecording.value) return
+    await backend.recording.pause()
+    await reconcile()
+  }
+  async function resume(): Promise<void> {
+    if (!isPaused.value) return
+    await backend.recording.resume()
+    await reconcile()
+  }
+
   async function stop(): Promise<RecordingStopPayload | null> {
     // 幂等: 后端不在录 → 返 null 不抛错. 拿到产物 (或 null) 后对账收敛状态.
     const payload = (await backend.recording.stop()) as RecordingStopPayload | null | undefined
@@ -88,5 +107,5 @@ export const useRecordingStore = defineStore('recording', () => {
     return payload ?? null
   }
 
-  return { state, lastResult, isRecording, activeTargetContainerID, applyState, reconcile, start, stop }
+  return { state, lastResult, isRecording, isPaused, activeTargetContainerID, applyState, reconcile, start, pause, resume, stop }
 })

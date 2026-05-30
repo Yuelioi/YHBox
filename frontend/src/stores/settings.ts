@@ -38,6 +38,7 @@ export interface Settings {
     actionStopHotkey: string // 全局打断动作热键（默认 "F9"），改完需重启 exe 生效
     mouseCounts360: number // 鼠标转 360° 累积 HID counts；0 = 未校准
     recordingStopHotkey: string // 录制停止热键（默认 "F12"，LL hook 拦截不透传游戏），改完需重启
+    recordingPauseHotkey: string // 录制暂停/继续切换热键（默认 "F11"），改完需重启
     recordingMouseMode: 'relative' | 'absolute' // 录制鼠标语义；改完需重启
   }
   locale: 'zh' | 'en' // i18n 口子；目前仅 zh 有翻译

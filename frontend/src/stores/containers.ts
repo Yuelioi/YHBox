@@ -57,7 +57,8 @@ export const useContainersStore = defineStore('containers', () => {
   // UI (ContainersTab) 另做一次带 toast 的前置拦截.
   function isRecordingLocked(id: string): boolean {
     const rec = useRecordingStore()
-    return rec.isRecording && rec.activeTargetContainerID === id
+    // 暂停态 (isPaused) 仍是进行中的录制会话 — 同样锁删, 否则暂停期删容器 → 恢复/停录 SaveSubgraph 撞 not found.
+    return (rec.isRecording || rec.isPaused) && rec.activeTargetContainerID === id
   }
 
   async function remove(id: string): Promise<boolean> {

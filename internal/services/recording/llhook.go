@@ -164,6 +164,14 @@ var activeStopHotkeyVK uint32
 // 跟 Start/Stop 线程写的同步 (普通指针赋值 Go 不保证跨线程可见).
 var activeStopCallback atomic.Pointer[func()]
 
+// activePauseHotkeyVK / activePauseCallback 暂停/继续切换热键. 跟停录不同: callback
+// 可重复触发 (录制全程多次暂停/继续), 不能 Swap(nil) 一次性消费 — 用 Load.
+// pauseKeyHeld 去抖 autorepeat: 按住 OS 高频重发 keydown, 只在 down 跳变 (held false→true)
+// 时 fire 一次, keyup 复位 (对照 ll-hook-keydown-coalesce incident).
+var activePauseHotkeyVK uint32
+var activePauseCallback atomic.Pointer[func()]
+var pauseKeyHeld atomic.Bool
+
 // InstallHooks 注册键盘+鼠标 LL hook。callback 在 OS hook 线程被调，
 // 非阻塞 push 到 events channel；channel 满则 drop（caller 自己定 cap）。
 // 返回的 HookHandle 必须由 caller 在停录时 Uninstall。
@@ -248,6 +256,22 @@ func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
 			return 1 // 不调 CallNextHookEx — 游戏收不到这个 keydown
 		}
 
+		// 暂停/继续切换热键拦截: down 跳变 fire (autorepeat 不重复), up 复位.
+		// down+up 都 return 1 拦截 → 既不透传游戏也不进 clip (录制器收不到这个键).
+		pauseVK := atomic.LoadUint32(&activePauseHotkeyVK)
+		if pauseVK != 0 && kbd.VkCode == pauseVK {
+			if isKeyDown {
+				if !pauseKeyHeld.Swap(true) {
+					if cbp := activePauseCallback.Load(); cbp != nil {
+						go (*cbp)()
+					}
+				}
+			} else {
+				pauseKeyHeld.Store(false)
+			}
+			return 1
+		}
+
 		ev := HookEvent{
 			TimestampMs: kbd.Time,
 			IsKeyboard:  true,
@@ -271,6 +295,18 @@ func SetActiveStopHotkey(vk uint32, callback func()) {
 		activeStopCallback.Store(nil)
 	} else {
 		activeStopCallback.Store(&callback)
+	}
+}
+
+// SetActivePauseHotkey 暂停/继续切换热键. Start 时设, Stop 时清 (vk=0,nil).
+// 复位 pauseKeyHeld 防上个 session 残留的"按住"态串到新 session.
+func SetActivePauseHotkey(vk uint32, callback func()) {
+	atomic.StoreUint32(&activePauseHotkeyVK, vk)
+	pauseKeyHeld.Store(false)
+	if callback == nil {
+		activePauseCallback.Store(nil)
+	} else {
+		activePauseCallback.Store(&callback)
 	}
 }
 

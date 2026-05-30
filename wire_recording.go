@@ -39,6 +39,18 @@ func (a *recordingHkAdapter) GetStopHotkeyVK() uint32 {
 	return vk
 }
 
+func (a *recordingHkAdapter) GetPauseHotkeyVK() uint32 {
+	hk := a.app.Settings().UI.RecordingPauseHotkey
+	if hk == "" {
+		return 0x7A // F11 fallback
+	}
+	_, vk, err := hotkey.ParseHotkey(hk)
+	if err != nil || vk == 0 {
+		return 0x7A
+	}
+	return vk
+}
+
 func (a *recordingHkAdapter) GetMouseMode() string {
 	m := a.app.Settings().UI.RecordingMouseMode
 	if m != "absolute" {

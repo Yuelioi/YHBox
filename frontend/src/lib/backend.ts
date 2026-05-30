@@ -307,6 +307,12 @@ export const backend = {
     // 前端拿 subgraphID 在 activeGraph 加 Subgraph 引用节点.
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
+    // Pause/Resume 切除间隔: 暂停期不录, 时间戳扣除该段 → 回放无空档. HUD 按钮 / 暂停热键触发.
+    pause: () => invoke(RecordingService.Pause),
+    resume: () => invoke(RecordingService.Resume),
+    // ValidateTarget 录制前预检: 找不到 WindowTarget 窗口返 error (倒计时前调, 不用等录完才报错);
+    // 成功则把游戏窗口拉到前台. 失败抛出供前端 toast + 中止倒计时.
+    validateTarget: (containerID: string) => invoke(RecordingService.ValidateTarget, containerID),
     // GetState 返回后端权威录制状态 {phase, containerID, filterMode, tempID, startedAtMs}.
     // 前端 recordStore reconcile 对账用 — 取代旧的 isRecording (bool 不够, desync 无法自愈).
     getState: () => invoke(RecordingService.GetState),

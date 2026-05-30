@@ -48,6 +48,22 @@
         </div>
       </div>
 
+      <!-- 暂停/继续热键 -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-sm text-default">{{ t('settings.input.record.pause_hotkey_label') }}</div>
+          <div class="text-[11px] text-dimmed">
+            {{ t('settings.input.record.pause_hotkey_hint') }}
+          </div>
+        </div>
+        <div class="w-56 shrink-0">
+          <HotkeyCaptureInput
+            :model-value="settings?.ui.recordingPauseHotkey ?? 'F11'"
+            @update:model-value="(v: string) => patchRecord({ recordingPauseHotkey: v })"
+          />
+        </div>
+      </div>
+
       <!-- 鼠标语义 -->
       <div class="flex items-center justify-between gap-4">
         <div class="min-w-0">

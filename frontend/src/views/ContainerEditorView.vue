@@ -100,7 +100,7 @@
         v-model:palette-collapsed="sidebarPrefs.leftSidebarCollapsed"
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-standalone="isStandalone"
-        :is-recording="recordStore.isRecording"
+        :is-recording="recordStore.isRecording || recordStore.isPaused"
         :recording-target-name="recordingTargetName"
         :countdown-sec="countdownSec"
         :selected-count="selectedCount"
@@ -591,7 +591,7 @@ const recordingTargetName = computed(() => {
 // A3: 录制进行中离开"正在录的容器"编辑器 → 确认. 留下 → 录完正常 autoConnect 接节点;
 // 确认离开 → 放行 (子图已落盘, 但不自动接入当前视图; onSubgraphCreated 的 mismatch 守卫兜底不 dangling).
 onBeforeRouteLeave(async () => {
-  if (recordStore.isRecording && recordStore.activeTargetContainerID === containerID) {
+  if ((recordStore.isRecording || recordStore.isPaused) && recordStore.activeTargetContainerID === containerID) {
     const ok = await confirm({
       title: t('recordComposable.leave_title'),
       description: t('recordComposable.leave_during_recording'),
