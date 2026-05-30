@@ -157,13 +157,19 @@ func main() {
 		nil,
 		// onSystemHotkeyChange：写回 settings.UI.ActionStopHotkey
 		func(key, newStr string) error {
-			if key == "system.execution-stop" {
-				cur := app.SnapshotSettings()
+			cur := app.SnapshotSettings()
+			switch key {
+			case "system.execution-stop":
 				cur.UI.ActionStopHotkey = newStr
-				app.SwapSettings(cur)
-				return app.SaveSettings()
+			case "recording.stop":
+				cur.UI.RecordingStopHotkey = newStr
+			case "recording.pause":
+				cur.UI.RecordingPauseHotkey = newStr
+			default:
+				return nil
 			}
-			return nil
+			app.SwapSettings(cur)
+			return app.SaveSettings()
 		},
 		// emit 回调：广播给所有 webview
 		func() { app.Emit("hotkey:changed", map[string]any{}) },
@@ -316,7 +322,7 @@ func main() {
 	// 容器级走 wails RPC 给前端 (录制产物 CRUD); 库级暂保留构造, 后续 library 集成挂上.
 
 	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
-	recordingSvc := newRecordingService(app, clipSvc)
+	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
@@ -330,6 +336,25 @@ func main() {
 			app.Emit("calibration:toggle", nil)
 		}); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("注册 DPI 校准热键失败")
+	}
+
+	// 录制热键 (LL-hook 全局拦截, 不占 OS RegisterHotKey — 游戏会 reserve)。
+	// 默认从 settings.UI 读; registry 是编辑权威, rebind 经 onSystemHotkeyChange 写回 settings.UI。
+	recStopHk := strings.TrimSpace(app.Settings().UI.RecordingStopHotkey)
+	if recStopHk == "" {
+		recStopHk = "F12"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("recording.stop", hotkey.HotkeySourceRecording,
+		"hotkeys.label.recording.stop", recStopHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recStopHk).Msg("注册停录热键失败")
+	}
+	recPauseHk := strings.TrimSpace(app.Settings().UI.RecordingPauseHotkey)
+	if recPauseHk == "" {
+		recPauseHk = "F11"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("recording.pause", hotkey.HotkeySourceRecording,
+		"hotkeys.label.recording.pause", recPauseHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recPauseHk).Msg("注册暂停录制热键失败")
 	}
 
 	wailsServices = append(wailsServices,
