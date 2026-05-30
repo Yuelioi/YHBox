@@ -456,6 +456,12 @@ export default {
     select_var_placeholder: 'Select variable',
     no_config: 'This node has no configurable fields.',
   },
+  structured_input: {
+    switch_to_text: 'Switch to JSON text mode',
+    switch_to_struct: 'Switch back to structured mode',
+    json_error_tooltip: 'JSON is invalid — fix or discard before switching back',
+    abandon_changes: 'Discard changes',
+  },
   node: {
     // control
     Start: {

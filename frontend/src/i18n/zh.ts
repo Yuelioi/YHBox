@@ -470,6 +470,12 @@ export default {
     select_var_placeholder: '选择变量',
     no_config: '此节点无可配置项。',
   },
+  structured_input: {
+    switch_to_text: '切换到 JSON 文本模式',
+    switch_to_struct: '切换回结构模式',
+    json_error_tooltip: 'JSON 有误，请修正或放弃后切回',
+    abandon_changes: '放弃修改',
+  },
   // 节点 metadata — kind label + description + input/output 字段 i18n.
   // FE 单源, backend Spec.DisplayName/Description 不再被 FE 用. 加新节点 → 这里 + en.ts 同步.
   // 没加 → t() fallback 返 raw key 'node.<kind>.label' (诊断价值).

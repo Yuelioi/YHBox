@@ -483,7 +483,16 @@
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
             <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
           </label>
+          <StructuredInput
+            v-if="fieldFor(lit.name)?.schema"
+            :schema="fieldFor(lit.name)!.schema!"
+            :model-value="getLiteral(lit.name)"
+            :field-path="lit.name"
+            :kind="node!.kind"
+            @update:model-value="(v: any) => setLiteral(lit.name, v)"
+          />
           <PinInput
+            v-else
             :type="(lit.type as any)"
             :widget-kind="fieldFor(lit.name)?.widgetKind"
             :options="fieldFor(lit.name)?.options"
@@ -518,6 +527,7 @@ import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } fro
 const { t, te } = useI18n()
 
 import PinInput from './inline/PinInput.vue'
+import StructuredInput from './inline/StructuredInput.vue'
 import { unconnectedDataInPins } from '@/composables/containerEditor/pinLiterals'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
