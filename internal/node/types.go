@@ -17,6 +17,33 @@ type Rect struct {
 	H float64 `json:"h"`
 }
 
+// PixelRect 像素整数矩形 (几何 override 用; 跟 Rect 的 ratio float 区分).
+type PixelRect struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// Resolution 分辨率键 (具名 + 小写 tag, 不用匿名 struct 防大写 JSON).
+type Resolution struct {
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// GeoOverride 某分辨率的像素 ROI 覆盖.
+type GeoOverride struct {
+	Resolution Resolution `json:"resolution"`
+	Px         PixelRect  `json:"px"`
+}
+
+// Geometry 几何输入值: pct 自适应默认 (ratio 0-1) + 可选每分辨率像素覆盖.
+// runtime 解析: override 匹配当前帧分辨率优先, 否则 pct×帧尺寸; pct.W==0||pct.H==0 且无匹配 = 全帧.
+type Geometry struct {
+	Pct       Rect          `json:"pct"`
+	Overrides []GeoOverride `json:"overrides,omitempty"`
+}
+
 // Color HSV.
 type Color struct {
 	H int `json:"h"`
@@ -61,6 +88,7 @@ func init() {
 		{Tag: "Bool", GoType: "bool", WidgetKind: "checkbox", Color: "#facc15"},
 		{Tag: "Point", GoType: "node.Point", WidgetKind: "point-editor", Color: "#a855f7"},
 		{Tag: "Rect", GoType: "node.Rect", WidgetKind: "rect-editor", Color: "#a855f7"},
+		{Tag: "Geometry", GoType: "node.Geometry", WidgetKind: "geometry", Color: "#a855f7"},
 		{Tag: "Color", GoType: "node.Color", WidgetKind: "color-picker", Color: "#ef4444"},
 		{Tag: "Image", GoType: "*image.RGBA", WidgetKind: "preview", Color: "#9ca3af"},
 		{Tag: "Duration", GoType: "time.Duration", WidgetKind: "duration", Color: "#3b82f6"},
