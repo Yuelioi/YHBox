@@ -41,6 +41,11 @@ type mockVision struct {
 	// ROIColorScan 用
 	clusters    []node.ClusterEntry
 	clustersErr error
+
+	// GridSignature 用: 按调用次序返 gridSigs[i] (越界返最后一个); gridErr 非 nil 直接返错.
+	gridSigs [][]uint8
+	gridIdx  int
+	gridErr  error
 }
 
 func (m *mockVision) Match(ctx context.Context, key string, threshold float64) (*node.Point, float64, error) {
@@ -82,6 +87,21 @@ func (m *mockVision) DetectColorHSV(roi node.Rect, hsv node.HSVRange) (int, floa
 
 func (m *mockVision) ROIColorScan(roi node.Rect, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
 	return m.clusters, m.clustersErr
+}
+
+func (m *mockVision) GridSignature(roi node.Rect, gridSize int) ([]uint8, error) {
+	if m.gridErr != nil {
+		return nil, m.gridErr
+	}
+	if len(m.gridSigs) == 0 {
+		return nil, nil
+	}
+	i := m.gridIdx
+	if i >= len(m.gridSigs) {
+		i = len(m.gridSigs) - 1
+	}
+	m.gridIdx++
+	return m.gridSigs[i], nil
 }
 
 // withVision 把 ServiceBundle 的 Vision 字段换成给定 mock, 其余 stub.

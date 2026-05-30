@@ -52,6 +52,10 @@ func (stubVisionService) ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx
 	return nil, nil
 }
 
+func (stubVisionService) GridSignature(roi Rect, gridSize int) ([]uint8, error) {
+	return nil, nil
+}
+
 // StubVisionService — test 用. main.go 注入真 wire_container.go::templateMatcherAdapter.
 func StubVisionService() VisionService { return stubVisionService{} }
 

@@ -691,6 +691,41 @@ export default {
         Timeout: { label: '超时' },
       },
     },
+    WaitStable: {
+      label: '等待画面稳定',
+      description: 'ROI 降采样后逐 poll 比对, 连续 StableFrames 帧差 <= StableThreshold → Stable (画面稳了); 超时 → Timeout. 防动画/加载中误识别.',
+      input: {
+        ROI: { label: 'ROI (像素, 可选)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — 缺省/全 0 = 全帧` },
+        GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]; 越大越细越慢' },
+        Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
+        CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio: 格均值通道差 > 此视作变了' },
+        PollIntervalMs: { label: '轮询间隔 (ms)' },
+        TimeoutMs: { label: '超时 (ms)', hint: '<=0 = 无限轮询' },
+        StableThreshold: { label: '稳定阈 (0-1)', hint: '差 <= 此视作没变' },
+        StableFrames: { label: '连续稳定帧数' },
+      },
+      output: {
+        Stable: { label: '已稳定' },
+        Timeout: { label: '超时' },
+      },
+    },
+    WaitChange: {
+      label: '等待画面变化',
+      description: 'ROI 降采样后跟 baseline 逐 poll 比对, 差 >= ChangeThreshold → Changed (画面变了, e.g. 弹窗/加载完成); 超时 → Timeout.',
+      input: {
+        ROI: { label: 'ROI (像素, 可选)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — 缺省/全 0 = 全帧` },
+        GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]' },
+        Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
+        CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio' },
+        PollIntervalMs: { label: '轮询间隔 (ms)' },
+        TimeoutMs: { label: '超时 (ms)', hint: '<=0 = 无限轮询' },
+        ChangeThreshold: { label: '变化阈 (0-1)', hint: '差 >= 此视作变了' },
+      },
+      output: {
+        Changed: { label: '已变化' },
+        Timeout: { label: '超时' },
+      },
+    },
     Screenshot: {
       label: '截图',
       description: '抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.',

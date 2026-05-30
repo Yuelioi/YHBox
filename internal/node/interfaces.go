@@ -152,6 +152,11 @@ type VisionService interface {
 	// ROIColorScan 沿 axis ("x"|"y") 扫描 roi 内 HSV 命中像素, 合并为连续 cluster.
 	// 只返长度 ∈ [minPx, maxPx] 的段.
 	ROIColorScan(roi Rect, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
+
+	// GridSignature 抓 roi 帧 (roi 全 0 → 全帧, 否则 FrameROI 像素子区) → box-average
+	// 降采样成 gridSize×gridSize RGB 签名 (flat, 行主序, len = gridSize²×3). 每调一次抓
+	// 一张新帧 (无缓存). 给帧差节点 (WaitStable/WaitChange) 跨 poll 比对用.
+	GridSignature(roi Rect, gridSize int) (sig []uint8, err error)
 }
 
 // HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,255]. 给 DetectColorHSV / ROIColorScan 用.

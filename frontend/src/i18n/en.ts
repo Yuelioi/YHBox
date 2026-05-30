@@ -671,6 +671,41 @@ export default {
         Timeout: { label: 'Timeout' },
       },
     },
+    WaitStable: {
+      label: 'Wait for stable frame',
+      description: 'Downsamples ROI and compares each poll; diff <= StableThreshold for StableFrames consecutive frames → Stable; timeout → Timeout. Avoids mis-detection during animation/loading.',
+      input: {
+        ROI: { label: 'ROI (pixels, optional)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — empty/all 0 = full frame` },
+        GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]; larger = finer but slower' },
+        Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
+        CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only: cell mean channel diff > this = changed' },
+        PollIntervalMs: { label: 'Poll interval (ms)' },
+        TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
+        StableThreshold: { label: 'Stable threshold (0-1)', hint: 'diff <= this = unchanged' },
+        StableFrames: { label: 'Consecutive stable frames' },
+      },
+      output: {
+        Stable: { label: 'Stable' },
+        Timeout: { label: 'Timeout' },
+      },
+    },
+    WaitChange: {
+      label: 'Wait for frame change',
+      description: 'Downsamples ROI and compares against baseline each poll; diff >= ChangeThreshold → Changed (e.g. popup/loading done); timeout → Timeout.',
+      input: {
+        ROI: { label: 'ROI (pixels, optional)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — empty/all 0 = full frame` },
+        GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]' },
+        Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
+        CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only' },
+        PollIntervalMs: { label: 'Poll interval (ms)' },
+        TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
+        ChangeThreshold: { label: 'Change threshold (0-1)', hint: 'diff >= this = changed' },
+      },
+      output: {
+        Changed: { label: 'Changed' },
+        Timeout: { label: 'Timeout' },
+      },
+    },
     Screenshot: {
       label: 'Screenshot',
       description: 'Captures a frame and writes to file. pathTemplate supports {ts} / {nodeId} / {containerId} / {date}. Empty ROI = full frame.',
