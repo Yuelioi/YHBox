@@ -36,6 +36,11 @@ type Backend interface {
 	MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) error
 	Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int) error
 
+	// MoveTo 瞬时把光标移到客户区比例 (xRatio,yRatio) 并发 hover. 无 sleep —— 分帧由 caller(节点层) 控.
+	MoveTo(hwnd win.HWND, xRatio, yRatio float64) error
+	// CursorRatio 读当前光标在该 hwnd 客户区的比例坐标. 分帧滑动取起点用. client rect 为 0 时返 error.
+	CursorRatio(hwnd win.HWND) (xRatio, yRatio float64, err error)
+
 	// ReleaseAll 释放 backend 跟踪的所有 down 集合. ContainerRunner stop/panic/cancel 时 defer 调.
 	// 无 hwnd 参数 — SendInput 是全局 OS state, backend 内部知道自己按下了什么.
 	ReleaseAll() error

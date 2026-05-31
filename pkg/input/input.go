@@ -52,6 +52,7 @@ var (
 	procGetCursorPos      = user32.NewProc("GetCursorPos")
 	procSetCursorPos      = user32.NewProc("SetCursorPos")
 	procClientToScreen    = user32.NewProc("ClientToScreen")
+	procScreenToClient    = user32.NewProc("ScreenToClient")
 	procGetClientRect     = user32.NewProc("GetClientRect")
 	procMapVirtualKeyW    = user32.NewProc("MapVirtualKeyW")
 	procSendInput         = user32.NewProc("SendInput")
@@ -142,6 +143,22 @@ func clientToScreen(hwnd win.HWND, x, y int32) (int32, int32) {
 	p := point{X: x, Y: y}
 	procClientToScreen.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&p)))
 	return p.X, p.Y
+}
+
+// screenToClient 屏幕坐标 → 客户区坐标 (clientToScreen 的逆).
+func screenToClient(hwnd win.HWND, x, y int32) (int32, int32) {
+	p := point{X: x, Y: y}
+	procScreenToClient.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&p)))
+	return p.X, p.Y
+}
+
+// MoveToClient 把光标移到客户区坐标 + 发一帧 WM_MOUSEMOVE (hover), 无 activate / 无 sleep.
+// 分帧滑动的「单帧」原语 —— 帧间隔与 ctx 取消由节点层控制 (见 internal/nodes/input.moveCursor),
+// 本函数只负责「移一帧」, 自己绝不 sleep (避免重蹈裸 time.Sleep 停不下的覆辙).
+func MoveToClient(hwnd win.HWND, clientX, clientY int) {
+	sx, sy := clientToScreen(hwnd, int32(clientX), int32(clientY))
+	setCursorPos(sx, sy)
+	postMessage(hwnd, WM_MOUSEMOVE, 0, makeLParam(int32(clientX), int32(clientY)))
 }
 
 // FakeActivate 把窗口内部 IsActive 翻成 true，不抢前台焦点。

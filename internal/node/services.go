@@ -69,6 +69,8 @@ func (stubInputService) KeyDown(vk string) error                                
 func (stubInputService) KeyUp(vk string) error                                             { return nil }
 func (stubInputService) Click(x, y float64, button string, durationMs int) error           { return nil }
 func (stubInputService) MouseMoveRel(dx, dy, durationMs int) error                         { return nil }
+func (stubInputService) MoveTo(x, y float64) error                                         { return nil }
+func (stubInputService) CursorRatio() (float64, float64, error)                            { return 0, 0, nil }
 func (stubInputService) Scroll(x, y float64, notches int) error                            { return nil }
 func (stubInputService) MouseDown(x, y float64, button string) error                       { return nil }
 func (stubInputService) MouseUp(button string) error                                       { return nil }

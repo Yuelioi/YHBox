@@ -225,6 +225,8 @@ type InputService interface {
 
 	Click(xRatio, yRatio float64, button string, durationMs int) error
 	MouseMoveRel(dx, dy, durationMs int) error
+	MoveTo(xRatio, yRatio float64) error
+	CursorRatio() (xRatio, yRatio float64, err error)
 	Scroll(xRatio, yRatio float64, notches int) error
 
 	MouseDown(xRatio, yRatio float64, button string) error

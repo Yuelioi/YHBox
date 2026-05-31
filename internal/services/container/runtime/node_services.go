@@ -331,6 +331,20 @@ func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
 	return a.rt.Input.MouseMoveRel(a.hwnd(), dx, dy, durationMs)
 }
 
+func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {
+	if err := a.ensure(); err != nil {
+		return err
+	}
+	return a.rt.Input.MoveTo(a.hwnd(), xRatio, yRatio)
+}
+
+func (a *inputAdapter) CursorRatio() (float64, float64, error) {
+	if err := a.ensure(); err != nil {
+		return 0, 0, err
+	}
+	return a.rt.Input.CursorRatio(a.hwnd())
+}
+
 func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int) error {
 	if err := a.ensure(); err != nil {
 		return err

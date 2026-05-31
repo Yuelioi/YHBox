@@ -49,6 +49,14 @@ func (r *recordingInput) MouseUp(button string) error {
 	r.calls = append(r.calls, fmt.Sprintf("MouseUp:%s", button))
 	return r.err
 }
+func (r *recordingInput) MoveTo(xRatio, yRatio float64) error {
+	r.calls = append(r.calls, fmt.Sprintf("MoveTo:%.3f:%.3f", xRatio, yRatio))
+	return r.err
+}
+func (r *recordingInput) CursorRatio() (float64, float64, error) {
+	// spy 起点固定原点; err 注入时一并返回 (复用 r.err).
+	return 0, 0, r.err
+}
 
 // withInput 替 ServiceBundle.Input 字段, 其余 stub.
 func withInput(in node.InputService) node.ServiceBundle {

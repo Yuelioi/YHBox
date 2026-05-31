@@ -1,6 +1,7 @@
 package input
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -148,6 +149,26 @@ func (b *PostMessageBackend) MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) erro
 	}
 	MouseMoveRel(hwnd, dx, dy, time.Duration(durMs)*time.Millisecond, defaultActivateDelay)
 	return nil
+}
+
+func (b *PostMessageBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
+	b.ensureActivated(hwnd)
+	x, y := b.pixelCoords(hwnd, xRatio, yRatio)
+	MoveToClient(hwnd, x, y) // input.go: setCursorPos + WM_MOUSEMOVE, 无 sleep
+	return nil
+}
+
+func (b *PostMessageBackend) CursorRatio(hwnd win.HWND) (float64, float64, error) {
+	var rect win.RECT
+	win.GetClientRect(hwnd, &rect)
+	w := float64(rect.Right - rect.Left)
+	h := float64(rect.Bottom - rect.Top)
+	if w <= 0 || h <= 0 {
+		return 0, 0, fmt.Errorf("CursorRatio: client rect 为空 (hwnd=%v)", hwnd)
+	}
+	sx, sy := getCursorPos()
+	cx, cy := screenToClient(hwnd, sx, sy)
+	return float64(cx) / w, float64(cy) / h, nil
 }
 
 func (b *PostMessageBackend) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int) error {

@@ -99,6 +99,20 @@ func (s *SafeInputBackend) MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) error 
 	}
 	return s.inner.MouseMoveRel(hwnd, dx, dy, durMs)
 }
+func (s *SafeInputBackend) MoveTo(hwnd win.HWND, xr, yr float64) error {
+	if !isValidHwnd(hwnd) {
+		s.warnOnce("MoveTo", hwnd)
+		return nil
+	}
+	return s.inner.MoveTo(hwnd, xr, yr)
+}
+func (s *SafeInputBackend) CursorRatio(hwnd win.HWND) (float64, float64, error) {
+	if !isValidHwnd(hwnd) {
+		s.warnOnce("CursorRatio", hwnd)
+		return 0, 0, nil
+	}
+	return s.inner.CursorRatio(hwnd)
+}
 func (s *SafeInputBackend) Scroll(hwnd win.HWND, xr, yr float64, notches int) error {
 	if !isValidHwnd(hwnd) {
 		s.warnOnce("Scroll", hwnd)
