@@ -2,21 +2,10 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { backend } from '@/lib/backend'
 
-// 跟 Go services.Settings 对齐
+// 跟 Go services.Settings 对齐（v2：fish/cook/piano/battle 等 v1 游戏专属字段已删）
 export interface Settings {
-  fish: { autoSell: boolean; captureGolden: boolean }
-  cook: { intervalMs: number }
-  piano: {
-    mode: number
-    trackPick: number
-    autoTranspose: boolean
-    octaveOffset: number
-    melodyOnly: boolean
-    lastMidiPath: string
-  }
   ui: {
     logger: {
-      show: boolean
       panelOpen: boolean
       autoScroll: boolean
       showTime: boolean
@@ -25,21 +14,18 @@ export interface Settings {
       writeFile: boolean
       fileDir: string
     }
-    battle: {
-      hotkeyEnabled: boolean
-      hotkeyMods: string
-    }
     window: {
       width: number
       height: number
     }
     autostart: boolean // 开机自启（写 HKCU Run 注册表）
     minimizeToTray: boolean // 关闭按钮 → 隐藏到托盘
-    actionStopHotkey: string // 全局打断动作热键（默认 "F9"），改完需重启 exe 生效
-    mouseCounts360: number // 鼠标转 360° 累积 HID counts；0 = 未校准
-    recordingStopHotkey: string // 录制停止热键（默认 "F12"，LL hook 拦截不透传游戏），改完需重启
-    recordingPauseHotkey: string // 录制暂停/继续切换热键（默认 "F11"），改完需重启
+    actionStopHotkey: string // 全局强停热键（默认 "Ctrl+Shift+F9"），改完即时生效（热键中心 rebind）
+    calibrateHotkey: string // DPI 校准启动/停止热键（默认 "F8"），改完即时生效
+    recordingStopHotkey: string // 录制停止热键（默认 "F12"，LL hook 拦截不透传游戏）
+    recordingPauseHotkey: string // 录制暂停/继续切换热键（默认 "F11"）
     recordingMouseMode: 'relative' | 'absolute' // 录制鼠标语义；改完需重启
+    mouseCounts360: number // 鼠标转 360° 累积 HID counts；0 = 未校准
   }
   locale: 'zh' | 'en' // i18n 口子；目前仅 zh 有翻译
   capture: {
