@@ -139,6 +139,13 @@ async function openCalibrator() {
     const off = (await Events.On('calibration:toggle', onToggleHotkey)) as unknown as () => void
     unsubToggle = typeof off === 'function' ? off : null
   }
+  // 装 F8 全局 LL hook —— 切到游戏也能收 (不走 OS RegisterHotKey, 游戏 reserve 不掉)。
+  // 校准窗关闭 (teardown) 时卸钩。装钩失败 (杀软拦截等) 提示用户。
+  try {
+    await backend.calibration.startHotkeyWatch()
+  } catch {
+    hotkeyWarn.value = t('calibration.service_failed')
+  }
 }
 
 function resetSession() {
@@ -228,6 +235,7 @@ async function teardown() {
     pollTimer = null
   }
   await backend.calibration.stop()
+  void backend.calibration.stopHotkeyWatch()
   if (unsubToggle) {
     unsubToggle()
     unsubToggle = null

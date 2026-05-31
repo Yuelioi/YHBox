@@ -340,7 +340,22 @@ func main() {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", stopAllHk).Msg("注册全局强停热键失败")
 	}
 
-	calibrationSvc := calibration.NewService()
+	// 校准 F8 走自治 LL hook (calibrationSvc 持有), 不走 OS RegisterHotKey (游戏 reserve).
+	// emit 把 'calibration:toggle' 广播给前端推进状态机; vkGetter 读热键中心当前 F8 绑定。
+	calibrationSvc := calibration.NewService(
+		func(name string, data any) { app.Emit(name, data) },
+		func() uint32 {
+			e, ok := hotkeyRegistry.Get("system.calibrate-toggle")
+			if !ok || e.HotkeyStr == "" {
+				return calibration.VKF8
+			}
+			_, vk, err := hotkey.ParseHotkey(e.HotkeyStr)
+			if err != nil || vk == 0 {
+				return calibration.VKF8
+			}
+			return vk
+		},
+	)
 
 	// clipSvc / libClipSvc 提前构造 (runFunc 注入 PlayClip 用 ClipResolver).
 	// 容器级走 wails RPC 给前端 (录制产物 CRUD); 库级暂保留构造, 后续 library 集成挂上.
@@ -365,17 +380,15 @@ func main() {
 	})
 
 	// DPI 校准 toggle 热键：默认 F8，从 settings.UI 读（rebind 经 onSystemHotkeyChange 写回）。
-	// 前端订阅 'calibration:toggle' event 推进状态机。
-	// 注册无副作用——只有 SettingsInput 打开校准对话框时才有效。
+	// LL-hook 机制 (值持有条目, 不占 OS RegisterHotKey — 游戏会 reserve, 切游戏后失效)。
+	// 真正装钩由 calibrationSvc 在校准窗开关时做 (StartHotkeyWatch 读上面的 vkGetter);
+	// 命中 emit 'calibration:toggle' 推进前端状态机。热键中心仍可见 + rebind + 冲突检测。
 	calibHk := strings.TrimSpace(app.Settings().UI.CalibrateHotkey)
 	if calibHk == "" {
 		calibHk = "F8"
 	}
-	if err := hotkeyRegistry.Register("system.calibrate-toggle", hotkey.HotkeySourceSystem,
-		"hotkeys.label.system.calibrate_toggle", nil, calibHk, "",
-		func() {
-			app.Emit("calibration:toggle", nil)
-		}); err != nil {
+	if err := hotkeyRegistry.RegisterLLHook("system.calibrate-toggle", hotkey.HotkeySourceSystem,
+		"hotkeys.label.system.calibrate_toggle", calibHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", calibHk).Msg("注册 DPI 校准热键失败")
 	}
 

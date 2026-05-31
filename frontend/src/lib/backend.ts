@@ -299,6 +299,8 @@ export const backend = {
     start: () => invoke(CalibrationService.Start),
     stop: () => invoke(CalibrationService.Stop),
     status: () => invoke(CalibrationService.Status),
+    startHotkeyWatch: () => invoke(CalibrationService.StartHotkeyWatch),
+    stopHotkeyWatch: () => invoke(CalibrationService.StopHotkeyWatch),
   },
   appInfo: {
     info: () => invoke(AppInfoService.Info),
