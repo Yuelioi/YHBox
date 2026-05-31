@@ -86,6 +86,18 @@ export function useExprFusion(deps: FusionDeps) {
     if (b.config.literal && typeof b.config.literal === 'object') {
       delete b.config.literal[targetInputName]
     }
+    // Carry A's per-input literals to B under the renamed keys. A's node (and its
+    // config.literal) is deleted in step 7, so an unconnected A input holding a literal
+    // would otherwise lose its value — the fused expr's renamed pin then evaluates empty,
+    // silently changing the result. Literals on pins that get rewired below are ignored at
+    // runtime, so copying unconditionally per renameMap is safe.
+    const aLiteral = a.config?.literal as Record<string, unknown> | undefined
+    if (aLiteral && typeof aLiteral === 'object') {
+      b.config.literal = b.config.literal ?? {}
+      for (const [oldName, newName] of Object.entries(renameMap)) {
+        if (oldName in aLiteral) b.config.literal[newName] = aLiteral[oldName]
+      }
+    }
 
     // Helper: derive edge kind from (srcNode.kind, srcPin) since there is no edge.kind field.
     const isDataEdge = (e: any): boolean => {
