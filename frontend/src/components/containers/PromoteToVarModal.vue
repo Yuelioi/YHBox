@@ -90,8 +90,8 @@ watch(() => props.context, async (c) => {
     varName.value = suggestName(c.pinName)
     varType.value = c.pinType
     await nextTick()
-    nameInputRef.value?.input?.focus?.()
-    nameInputRef.value?.input?.select?.()
+    nameInputRef.value?.inputRef?.focus?.()
+    nameInputRef.value?.inputRef?.select?.()
   }
 }, { immediate: true })
 

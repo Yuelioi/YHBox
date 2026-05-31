@@ -16,20 +16,20 @@ interface AutoFocusOpts {
 
 export function useAutoFocusOnOpen(
   modelOpen: Ref<boolean>,
-  inputRef: Ref<{ input?: HTMLInputElement | null } | null>,
+  inputRef: Ref<{ inputRef?: HTMLInputElement | null } | null>,
   opts: AutoFocusOpts = {},
 ) {
   watch(modelOpen, async (v) => {
     if (!v) return
     opts.onOpen?.()
     await nextTick()
-    // 死磕到搜索框真拿到焦点: 连续几帧反复 focus, 直到它真成 activeElement.
-    // 起因是 pin 拖出开菜单走 vue-flow 拖线手势, 松手那下画布会把焦点抢回去, 比单次
-    // focus 晚 → 抢不过. 这里每帧再抢一次 (最多 ~12 帧 ≈ 200ms), 谁晚抢都抢得回来.
-    // 已聚焦时立即停, 对右键/双击等无竞争场景是一次成功、无副作用.
+    // 抢搜索框焦点: focus 一次, 若被抢则连帧重试直到它真成 activeElement.
+    // NuxtUI UInput 把原生 <input> 经 defineExpose({ inputRef }) 暴露成 .inputRef
+    // (不是 .input — 早先按 .input 取永远 undefined, 焦点根本没设过). 无竞争场景一次成功;
+    // 万一有谁晚抢 (最多 ~12 帧 ≈ 200ms) 也抢得回, 抢到立即停、无副作用.
     let tries = 0
     const grab = () => {
-      const el = inputRef.value?.input
+      const el = inputRef.value?.inputRef
       el?.focus?.()
       if (el && document.activeElement === el) return // 抢到了
       if (tries++ < 12) {

@@ -16,7 +16,7 @@
       :color="capturing ? 'primary' : 'neutral'"
       :icon="capturing ? 'i-tabler-circle-dot' : 'i-tabler-keyboard'"
       :title="capturing ? t('hotkeyInput.click_to_cancel') : t('hotkeyInput.click_to_record')"
-      @click="capturing ? stopCapture() : inputRef?.focus()"
+      @click="capturing ? stopCapture() : inputRef?.inputRef?.focus()"
     />
   </div>
 </template>

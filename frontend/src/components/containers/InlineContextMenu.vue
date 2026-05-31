@@ -117,7 +117,7 @@ const emit = defineEmits<{
 const query = ref('')
 const searchInputRef = ref<any>(null)
 
-// Re-focus search + reset state on open (UInput exposes native input via .input)
+// Re-focus search + reset state on open (UInput exposes native input via .inputRef)
 useAutoFocusOnOpen(toRef(props, 'open'), searchInputRef, {
   onOpen: () => {
     query.value = ''
