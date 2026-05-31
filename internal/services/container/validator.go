@@ -435,16 +435,18 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 			default:
 				continue
 			}
-			key := PinString(&n, "Template")
-			if key == "" {
+			keys := PinStringList(&n, "Templates")
+			if len(keys) == 0 {
 				continue // 未配 template 由其它规则报（节点功能性 validation 不在 v1）
 			}
-			if _, ok := vctx.AvailableTemplateKeys[key]; !ok {
-				errs = append(errs, ValidationError{
-					Severity: SeverityError, Code: CodeMissingTemplate,
-					GraphPath: graphPath, NodeID: n.ID,
-					Params:  map[string]any{"nodeID": n.ID, "template": key},
-				})
+			for _, key := range keys {
+				if _, ok := vctx.AvailableTemplateKeys[key]; !ok {
+					errs = append(errs, ValidationError{
+						Severity: SeverityError, Code: CodeMissingTemplate,
+						GraphPath: graphPath, NodeID: n.ID,
+						Params:  map[string]any{"nodeID": n.ID, "template": key},
+					})
+				}
 			}
 		}
 	}

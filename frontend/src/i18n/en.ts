@@ -81,15 +81,15 @@ export default {
         'Mouse hardware DPI affects cross-machine replay of relative-motion recordings (camera turn). When recording a subgraph, the local 360° counts are written into RecordingContext as the source; on replay, MouseMoveRel scales by target/source ratio.',
       intro_box: {
         what_label: 'What this changes',
-        what_desc: 'The "default source" for local values. Effects:',
+        what_desc: 'Local calibration profiles. The selected "default profile" affects:',
         item_default_source:
-          'Next-created MouseCalibration node uses this as default',
+          'When recording, if a container has no MouseCalibration node, the default profile value is used as the fallback source',
         item_sync_action:
-          '"Sync local value to all containers" button + node Inspector "FOREIGN" warning sync button writes this value into all containers',
+          '"Sync default profile to all containers" button + node Inspector "FOREIGN" warning sync button writes the default profile value into all containers',
         footnote_prefix: 'Changing this here',
         footnote_negation: 'does NOT',
         footnote_rest:
-          'automatically update MouseCalibration nodes inside existing containers — they hold their own value (containers are self-contained). To bulk-update, click "Sync local value to all containers" above, or edit each container manually.',
+          'automatically update MouseCalibration nodes inside existing containers — they hold their own value (containers are self-contained). To bulk-update, click "Sync default profile to all containers" above, or edit each container manually.',
       },
       record: {
         title: 'Recording config',
@@ -103,13 +103,19 @@ export default {
         },
       },
       counts: {
-        title: 'Local 360° HID counts',
-        hint: `Cumulative {'|'}dx{'|'} reported by mouse hardware during a 360° in-place turn`,
-        save_manual: 'Save manual value',
-        recalibrate: 'Recalibrate',
-        calibrate: 'Start calibration',
+        title: 'Mouse calibration profiles',
+        hint: `Each profile = one game's cumulative {'|'}dx{'|'} for a 360° turn; if in-game sensitivity differs per game on the same machine, make one profile each and pick a default`,
+        col_active: 'Default',
+        col_label: 'Name',
+        col_counts: 'counts360',
+        label_placeholder: 'e.g. Genshin / Valorant',
+        empty: 'No calibration profiles yet. Click "Add profile" below, then "Calibrate" to measure the value.',
+        add_profile: 'Add profile',
+        new_profile_label: 'New profile',
+        delete_profile: 'Delete this profile',
+        recalibrate: 'Calibrate this profile',
         open_hud: 'Open mouse HUD',
-        sync_all: 'Sync local value to all containers',
+        sync_all: 'Sync default profile to all containers',
         share_hint:
           'You can also hand-enter counts shared from another machine\'s script',
       },
@@ -135,8 +141,6 @@ export default {
           'Current local counts360 = {cur}.\nSyncing overwrites the value in every local container\'s main-graph MouseCalibration node.',
         sync_confirm: 'Sync',
         sync_cancel: 'Do not sync',
-        calibrator_done_desc:
-          'New value: {counts}\nOne-click sync to all local containers?\n(Recommended: replaces counts360 in every container\'s main-graph MouseCalibration node)',
       },
     },
   },
@@ -572,7 +576,8 @@ export default {
       label: 'Wait template',
       description: 'Polls for a template match within timeoutMs. Hit → Found with coords; timeout → Timeout.',
       input: {
-        Template: { label: 'Template', hint: 'namespace.name format, e.g. fishing.hook_icon' },
+        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
+        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit fires / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
       },
@@ -591,7 +596,8 @@ export default {
       label: 'Check template',
       description: 'NCC match the template on the current frame. Hit → Found with coords; miss → NotFound.',
       input: {
-        Template: { label: 'Template', hint: 'namespace.name format, e.g. fishing.hook_icon' },
+        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
+        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit → Found / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
       },
       output: {
@@ -609,7 +615,8 @@ export default {
       label: 'Click template',
       description: 'Waits for template within timeoutMs, then clicks at the match center. Timeout → Timeout.',
       input: {
-        Template: { label: 'Template', hint: 'namespace.name format, e.g. fishing.start_fish' },
+        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed' },
+        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit clicks / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
@@ -825,7 +832,8 @@ export default {
       description: 'Listener node — periodically Detect-hits a condition → spawns a child runner for the Out descendants. No exec-in.',
       input: {
         Kind: { label: 'Event kind', option: { template_appeared: 'Template Appeared' } },
-        Template: { label: 'Template', hint: 'namespace.name format; required when kind=template_appeared' },
+        Templates: { label: 'Templates', hint: 'namespace.name format; required when kind=template_appeared; multiple allowed' },
+        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any appears fires / all must appear in same frame', option: { any: 'Any', all: 'All' } },
         Threshold: { label: 'Threshold' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         MaxConcurrent: { label: 'Max concurrent' },
@@ -1061,6 +1069,8 @@ export default {
         counts_hint: 'How many |dx| counts your mouse reports per 360° physical rotation — depends on hardware DPI, OS sensitivity, and in-game sensitivity.',
         counts_warn: '⚠ This value MUST be measured on your machine + this game; do not copy it from someone else\'s container.',
         start_calibrate: '▶ Start calibration',
+        load_from_settings_one: '⬇ Load from settings ({label}: {n})',
+        load_from_settings_pick: '⬇ Pick a calibration profile from settings…',
         advanced_manual: 'Advanced (manual entry)',
         sync_confirm_title: 'Sync to all containers?',
         sync_confirm_desc: 'Sync the local counts360 = {cur} to all local containers (not just this node).',
@@ -1701,6 +1711,10 @@ export default {
     picker: {
       not_selected: 'Not selected',
       select_placeholder: 'Select template...',
+      selected_count: '{n} templates',
+      capture_new: '＋ Capture now',
+      library_empty: 'No templates in this container yet — capture one above',
+      no_template_selected: 'No template selected — node will not run',
       no_match: 'No matching template',
     },
   },

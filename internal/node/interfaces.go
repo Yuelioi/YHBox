@@ -65,6 +65,7 @@ type Inputs interface {
 	Float64(name string) float64
 	Int(name string) int
 	Bool(name string) bool
+	StringList(name string) []string
 	Point(name string) Point
 	Rect(name string) Rect
 	Geometry(name string) Geometry
@@ -128,13 +129,15 @@ type OutBuilder interface {
 // 颜色: DetectColor (RGB/HSV 全 ROI 像素计数) / DetectColorHSV (HSV 比例阈值) /
 // ROIColorScan (沿 axis 找连续 cluster).
 type VisionService interface {
-	// Match 单次模板匹配. nil pt = miss.
-	// ctx 透传容器 cancel — 长 Match (磁盘读模板 + CPU 比对) 配合 Stop 瞬停.
-	Match(ctx context.Context, key string, threshold float64) (pt *Point, conf float64, err error)
+	// Match 单帧多模板匹配. keys 是模板 key 列表, mode = "any" | "all":
+	//   - any: 任一 key 命中即返该 key 的命中点 (按列表序取首个命中). nil pt = 全 miss.
+	//   - all: 全部 key 同帧命中才返 (点取列表首个 key 的命中点); 任一 miss → nil pt.
+	// 空 keys → nil pt. ctx 透传容器 cancel — 长 Match (磁盘读模板 + CPU 比对) 配合 Stop 瞬停.
+	Match(ctx context.Context, keys []string, threshold float64, mode string) (pt *Point, conf float64, err error)
 
-	// WaitMatch 阻塞轮询直到命中或 timeout. timeout<=0 视为 0 (单次).
-	// 命中: pt!=nil, conf>=threshold. timeout: pt=nil, conf=最高near-miss.
-	WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (pt *Point, conf float64, err error)
+	// WaitMatch 阻塞轮询直到 (按 mode) 命中或 timeout. timeout<=0 视为 0 (单帧).
+	// mode 语义同 Match. 命中: pt!=nil. timeout: pt=nil.
+	WaitMatch(ctx context.Context, keys []string, threshold float64, mode string, timeout time.Duration) (pt *Point, conf float64, err error)
 
 	// DualBarTrack 抓全帧后按 roi Geometry 裁子区 + 双色 HSV cluster → 算 inner 在 outer 区域里的位置.
 	// 通用双色条算法 (适用: 血条/进度条/QTE 双色条/钓鱼 cursor-target).

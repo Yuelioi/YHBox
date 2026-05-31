@@ -15,8 +15,8 @@ func TestOnEvent_StubReturnsPhase5Error(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			oeInKind:     "template_appeared",
-			oeInTemplate: "fishing.hook_icon",
+			oeInKind:      "template_appeared",
+			oeInTemplates: []string{"fishing.hook_icon"},
 		},
 		nil, node.StubServices())
 
@@ -50,7 +50,7 @@ func TestOnEvent_Dependencies(t *testing.T) {
 	}
 	// 间接验证 via RunNode (Dependencies 跟 Run 用同一份 Inputs 构造)
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{oeInKind: "template_appeared", oeInTemplate: "fishing.hook_icon"},
+		map[string]any{oeInKind: "template_appeared", oeInTemplates: []string{"fishing.hook_icon"}},
 		nil, node.StubServices())
 	_ = r // Validation 0, Error 是 stub
 }

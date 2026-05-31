@@ -189,11 +189,11 @@ func TestStubVisionService_AlwaysMiss(t *testing.T) {
 	if v == nil {
 		t.Fatal("StubVisionService() returned nil")
 	}
-	pt, conf, err := v.Match(context.Background(), "any", 0.5)
+	pt, conf, err := v.Match(context.Background(), []string{"any"}, 0.5, "any")
 	if pt != nil || conf != 0 || err != nil {
 		t.Errorf("Match = (%v,%v,%v), want (nil,0,nil)", pt, conf, err)
 	}
-	pt2, _, err2 := v.WaitMatch(context.Background(), "any", 0.5, 10*time.Millisecond)
+	pt2, _, err2 := v.WaitMatch(context.Background(), []string{"any"}, 0.5, "any", 10*time.Millisecond)
 	if pt2 != nil || err2 != nil {
 		t.Errorf("WaitMatch = (%v,%v), want (nil,nil)", pt2, err2)
 	}

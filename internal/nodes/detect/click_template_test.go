@@ -46,7 +46,7 @@ func TestClickTemplate_Done(t *testing.T) {
 	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{clkInTemplate: "fishing.start_fish", clkInButton: "left",
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
 			clkInTimeoutMs: 200, clkInThreshold: 0.85},
 		nil, withVisionAndInput(vision, rec))
 
@@ -69,7 +69,7 @@ func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 	vision := &mockVision{hitOnCall: -1, conf: 0.3}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{clkInTemplate: "fishing.start_fish", clkInTimeoutMs: 30},
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInTimeoutMs: 30},
 		nil, withVisionAndInput(vision, rec))
 
 	if r.ExitName != clkOutTimeout {
@@ -89,7 +89,7 @@ func TestClickTemplate_BackendError(t *testing.T) {
 	vision := &mockVision{point: &pt, conf: 0.9, hitOnCall: 1}
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{clkInTemplate: "fishing.start_fish"},
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}},
 		nil, withVisionAndInput(vision, rec))
 
 	if r.Error == nil {
@@ -103,7 +103,7 @@ func TestClickTemplate_InvalidButton_ValidationError(t *testing.T) {
 	rn, _ := node.Get("ClickTemplate")
 
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{clkInTemplate: "fishing.start_fish", clkInButton: "side1"},
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "side1"},
 		nil, withVisionAndInput(&mockVision{}, &recordingInput{}))
 
 	if len(r.Validation) == 0 {

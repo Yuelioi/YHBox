@@ -74,7 +74,7 @@ func TestValidator_MissingTemplate_WithContext(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "wait1", Kind: "WaitTemplate",
-			Config: map[string]any{"literal": map[string]any{"Template": "fish/onhook"}}, CreatedAt: time.Now().UTC()},
+			Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}}}, CreatedAt: time.Now().UTC()},
 	)
 	// 不带 context → 跳过 MISSING_TEMPLATE 检查
 	plain := ValidateContainer(c)

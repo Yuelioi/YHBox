@@ -56,6 +56,28 @@ func PinInt(n *GraphNode, name string) (int, bool) {
 	return 0, false
 }
 
+// PinStringList 读 string 列表型 pin (e.g. 模板节点 Templates)。JSON 反序列化成 []any,
+// 也容忍 []string 和裸 string (单值当一元列表, 兼容未迁移旧数据)。空串元素跳过。
+func PinStringList(n *GraphNode, name string) []string {
+	switch v := PinValue(n, name).(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, e := range v {
+			if s, ok := e.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		if v != "" {
+			return []string{v}
+		}
+	}
+	return nil
+}
+
 // PinMap 读 JSON 型 pin 当 map。非 map / 未设 → nil。
 func PinMap(n *GraphNode, name string) map[string]any {
 	m, _ := PinValue(n, name).(map[string]any)

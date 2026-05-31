@@ -71,6 +71,28 @@ func (i *inputsImpl) String(name string) string {
 	return ""
 }
 
+// StringList 读 string 列表型 pin (e.g. 模板节点 Templates). JSON 反序列化成 []any,
+// 也容忍 []string 和裸 string (单值当一元列表). 空串元素跳过.
+func (i *inputsImpl) StringList(name string) []string {
+	switch v := i.merged[name].(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, e := range v {
+			if s, ok := e.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		if v != "" {
+			return []string{v}
+		}
+	}
+	return nil
+}
+
 func (i *inputsImpl) Float64(name string) float64 {
 	switch v := i.merged[name].(type) {
 	case float64:

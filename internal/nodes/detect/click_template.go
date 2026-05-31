@@ -19,7 +19,8 @@ type ClickTemplate struct{}
 
 const (
 	clkInExec      = "In"
-	clkInTemplate  = "Template"
+	clkInTemplates = "Templates"
+	clkInMatchMode = "MatchMode"
 	clkInTimeoutMs = "TimeoutMs"
 	clkInThreshold = "Threshold"
 	clkInButton    = "Button"
@@ -36,9 +37,12 @@ func (ClickTemplate) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: clkInExec, Type: "Exec"},
-			{Name: clkInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,
-				Widget: node.WidgetSpec{Kind: "async-dropdown",
-					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
+			{Name: clkInTemplates, Type: "String", Semantic: "TemplateKey", Required: true,
+				Widget: node.WidgetSpec{Kind: "template-picker"}},
+			{Name: clkInMatchMode, Type: "String", Default: "any", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{{Value: "any"}, {Value: "all"}}})}},
 			{Name: clkInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkInThreshold, Type: "Number", Default: json.Number("0.85"),
@@ -68,49 +72,43 @@ func (ClickTemplate) Spec() node.Spec {
 }
 
 func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	key := in.String(clkInTemplate)
+	keys := in.StringList(clkInTemplates)
+	mode := in.String(clkInMatchMode)
 	threshold := in.Float64(clkInThreshold)
 	timeout := time.Duration(in.Int(clkInTimeoutMs)) * time.Millisecond
 	btn := in.String(clkInButton)
 	if btn == "" {
 		btn = "left"
 	}
-	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), key, threshold, timeout)
+	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("ClickTemplate wait %q: %w", key, err)
+		return nil, fmt.Errorf("ClickTemplate wait %s: %w", strings.Join(keys, "+"), err)
 	}
 	if pt == nil {
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Fire(), nil
 	}
 	// 50ms duration 对齐老 runtime (execClickTemplate 硬编码 50).
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
-		return nil, fmt.Errorf("ClickTemplate click %q @ (%.3f,%.3f): %w", key, pt.X, pt.Y, err)
+		return nil, fmt.Errorf("ClickTemplate click %s @ (%.3f,%.3f): %w", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}
 	return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Fire(), nil
 }
 
 func (ClickTemplate) Display(in node.Inputs, exitName string, out node.OutputData) string {
+	label := strings.Join(in.StringList(clkInTemplates), "+")
 	switch exitName {
 	case clkOutDone:
 		pt := out.Point(clkDataPoint)
 		return fmt.Sprintf("✓ click %s %s @ (%.2f,%.2f)",
-			in.String(clkInButton), in.String(clkInTemplate), pt.X, pt.Y)
+			in.String(clkInButton), label, pt.X, pt.Y)
 	case clkOutTimeout:
-		return fmt.Sprintf("⌛ %s timeout (%dms)", in.String(clkInTemplate), in.Int(clkInTimeoutMs))
+		return fmt.Sprintf("⌛ %s timeout (%dms)", label, in.Int(clkInTimeoutMs))
 	}
 	return ""
 }
 
 func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
-	var errs []node.ValidationError
-	key := in.String(clkInTemplate)
-	if key != "" && !strings.Contains(key, ".") {
-		errs = append(errs, node.ValidationError{
-			Code:    "INVALID_TEMPLATE_KEY",
-			Message: fmt.Sprintf("template key 必须 namespace.name 格式, got %q", key),
-			Field:   clkInTemplate,
-		})
-	}
+	errs := validateTemplateKeys(in.StringList(clkInTemplates), clkInTemplates)
 	btn := in.String(clkInButton)
 	if btn != "" && btn != "left" && btn != "right" && btn != "middle" {
 		errs = append(errs, node.ValidationError{
@@ -123,5 +121,5 @@ func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
 }
 
 func (ClickTemplate) Dependencies(in node.Inputs) []node.Dependency {
-	return []node.Dependency{{Kind: "template", Key: in.String(clkInTemplate)}}
+	return templateDeps(in.StringList(clkInTemplates))
 }

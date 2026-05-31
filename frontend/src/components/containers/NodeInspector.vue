@@ -266,6 +266,28 @@
           @click="onOpenCalibrator"
         >{{ t('node.MouseCalibration.inspector.start_calibrate') }}</UButton>
 
+        <!-- 未校准 + 设置里有档 → 「从设置加载」: 单档直接填, 多档下拉选 -->
+        <template v-if="mcCounts === 0 && mouseProfiles.length > 0">
+          <UButton
+            v-if="mouseProfiles.length === 1"
+            size="sm"
+            variant="soft"
+            color="primary"
+            icon="i-tabler-download"
+            block
+            @click="loadProfileIntoNode(mouseProfiles[0].label)"
+          >{{ t('node.MouseCalibration.inspector.load_from_settings_one', { label: mouseProfiles[0].label || '?', n: mouseProfiles[0].counts360 }) }}</UButton>
+          <USelect
+            v-else
+            :items="profileSelectItems"
+            :placeholder="t('node.MouseCalibration.inspector.load_from_settings_pick')"
+            icon="i-tabler-download"
+            size="sm"
+            class="w-full"
+            @update:model-value="(v: string) => loadProfileIntoNode(v)"
+          />
+        </template>
+
         <UCollapsible class="mt-3">
           <UButton
             size="xs"
@@ -491,6 +513,12 @@
             :kind="node!.kind"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
           />
+          <!-- 模板字段 (WaitTemplate/ClickTemplate/CheckTemplate/OnEvent) → 多选缩略图拾取器 + 现截一张 -->
+          <TemplatePicker
+            v-else-if="fieldFor(lit.name)?.widgetKind === 'template-picker'"
+            :model-value="asTemplateList(getLiteral(lit.name))"
+            @update:model-value="(v: string[]) => setLiteral(lit.name, v)"
+          />
           <PinInput
             v-else
             :type="(lit.type as any)"
@@ -521,6 +549,7 @@ import { backend } from '@/lib/backend'
 // (config strings like $vars.X are gone; data-in pin literals handle their replacement).
 import SwitchInspector from './inspector/SwitchInspector.vue'
 import ClipTimeline from './ClipTimeline.vue'
+import TemplatePicker from './TemplatePicker.vue'
 import { useI18n } from 'vue-i18n'
 import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
 
@@ -554,7 +583,24 @@ const emit = defineEmits<{
 }>()
 
 const settingsStore = useSettingsStore()
-const globalCounts360 = computed(() => settingsStore.data?.ui?.mouseCounts360 ?? 0)
+// globalCounts360 = 当前默认校准档的值 (FOREIGN 警告 + "用本机值覆盖" 用它).
+const globalCounts360 = computed(() => settingsStore.activeMouseCounts360)
+// 节点未校准时「从设置加载」用: 全部校准档. 多档 → 下拉选, 单档 → 直接填.
+const mouseProfiles = computed(() => settingsStore.mouseProfiles)
+function loadProfileIntoNode(label: string) {
+  const p = mouseProfiles.value.find((x) => x.label === label)
+  if (p) setMcCounts(p.counts360)
+}
+const profileSelectItems = computed(() =>
+  mouseProfiles.value.map((p) => ({ label: `${p.label || '?'} · ${p.counts360}`, value: p.label })),
+)
+
+// 模板字段值容错: undefined / 单 string (迁移前残留) / string[] → string[]。
+function asTemplateList(v: any): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
+  if (typeof v === 'string' && v) return [v]
+  return []
+}
 
 // Inline pin literal — Inspector 版.
 // 对每个 PIN_SPECS[kind].dataIn 里没连入边的 pin, 暴露一个绑 config.literal[pinName] 的编辑器.

@@ -67,7 +67,7 @@ func (a *recordingHkAdapter) GetMouseMode() string {
 func newRecordingService(app *services.App, clipSvc *inputclip.Service, reg *hotkey.HotkeyRegistry) *recording.Service {
 	rec := recording.NewRecorder()
 	rec.SetMouseCounts360Getter(func() int {
-		return app.Settings().UI.MouseCounts360
+		return app.Settings().ActiveMouseCounts360()
 	})
 	return recording.NewService(rec, &recordingGameHwndAdapter{app: app}, &recordingHkAdapter{app: app, reg: reg}, clipSvc)
 }

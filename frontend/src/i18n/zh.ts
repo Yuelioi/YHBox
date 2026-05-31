@@ -101,14 +101,14 @@ export default {
         '鼠标硬件 DPI 影响"相对位移"类录制(视角转动)的跨电脑回放. 录制子图时会把本机 360° counts 写入 RecordingContext 作为源; 回放时按 target/source 比例缩放 MouseMoveRel.',
       intro_box: {
         what_label: '这里改的是什么',
-        what_desc: '本机值的"默认源". 改它影响:',
-        item_default_source: '下次新建的 MouseCalibration 节点用这个值当默认',
+        what_desc: '本机校准档. 选中的"默认档"影响:',
+        item_default_source: '录制时若容器没 MouseCalibration 节点, 用默认档的值当兜底源',
         item_sync_action:
-          '"同步本机值到所有容器"按钮 + 节点 Inspector "FOREIGN" 警告里的"同步"按钮, 把这个值写到所有容器',
+          '"同步默认档到所有容器"按钮 + 节点 Inspector "FOREIGN" 警告里的"同步"按钮, 把默认档的值写到所有容器',
         footnote_prefix: '这里改它',
         footnote_negation: '不会',
         footnote_rest:
-          '自动改已有容器里的 MouseCalibration 节点 — 它们各自持值(容器自包含). 要批量更新点上面"同步本机值到所有容器", 或进入容器手动改.',
+          '自动改已有容器里的 MouseCalibration 节点 — 它们各自持值(容器自包含). 要批量更新点上面"同步默认档到所有容器", 或进入容器手动改.',
       },
       record: {
         title: '录制配置',
@@ -122,13 +122,19 @@ export default {
         },
       },
       counts: {
-        title: '本机 360° HID counts',
-        hint: `原地转身 360° 鼠标硬件上报的累积 {'|'}dx{'|'}`,
-        save_manual: '保存手填值',
-        recalibrate: '重新校准',
-        calibrate: '开始校准',
+        title: '鼠标校准档',
+        hint: `每个档 = 一个游戏的转身 360° 累积 {'|'}dx{'|'}; 同机不同游戏内灵敏度不同就各建一档, 选一个当默认`,
+        col_active: '默认',
+        col_label: '名字',
+        col_counts: 'counts360',
+        label_placeholder: '如: 异环 / 原神',
+        empty: '还没有校准档. 点下面「新建档」加一个, 再用「校准」实测填值.',
+        add_profile: '新建档',
+        new_profile_label: '新档',
+        delete_profile: '删除此档',
+        recalibrate: '校准此档',
         open_hud: '打开鼠标 HUD',
-        sync_all: '同步本机值到所有容器',
+        sync_all: '把默认档的值同步到所有容器',
         share_hint: '也可以从其他电脑分享脚本附带的 counts, 直接手填',
       },
       howto: {
@@ -151,8 +157,6 @@ export default {
           '当前本机 counts360 = {cur}.\n同步会覆盖所有本地容器主图 MouseCalibration 节点的值.',
         sync_confirm: '同步',
         sync_cancel: '不同步',
-        calibrator_done_desc:
-          '新值: {counts}\n是否一键同步到所有本地容器?\n(推荐: 替换所有容器主图 MouseCalibration 节点的 counts360)',
       },
     },
   },
@@ -593,7 +597,8 @@ export default {
       label: '等待模板',
       description: '在 timeoutMs 内轮询匹配模板. 命中走 Found 带坐标, 超时走 Timeout.',
       input: {
-        Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon' },
+        Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
+        MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即触发 / 全部同帧命中才触发', option: { any: '任一命中', all: '全部命中' } },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
       },
@@ -612,7 +617,8 @@ export default {
       label: '检查模板',
       description: '在当前帧 NCC 匹配模板. 命中走 Found 带坐标, 没命中走 NotFound.',
       input: {
-        Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon' },
+        Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
+        MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中走 Found / 全部同帧命中才走 Found', option: { any: '任一命中', all: '全部命中' } },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
       },
       output: {
@@ -630,7 +636,8 @@ export default {
       label: '点击模板',
       description: '等模板在 timeoutMs 内出现, 命中后在中心点鼠标点击. 超时走 Timeout.',
       input: {
-        Template: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish' },
+        Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish; 可选多个' },
+        MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即点击 / 全部同帧命中才点击', option: { any: '任一命中', all: '全部命中' } },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
@@ -846,7 +853,8 @@ export default {
       description: 'listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',
       input: {
         Kind: { label: '事件类型', option: { template_appeared: 'Template Appeared' } },
-        Template: { label: '模板', hint: '命名空间.名 格式, kind=template_appeared 时必填' },
+        Templates: { label: '模板', hint: '命名空间.名 格式, kind=template_appeared 时必填; 可选多个' },
+        MatchMode: { label: '匹配模式', hint: '多模板时: 任一出现即触发 / 全部同帧出现才触发', option: { any: '任一命中', all: '全部命中' } },
         Threshold: { label: '阈值' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         MaxConcurrent: { label: '并发上限' },
@@ -1082,6 +1090,8 @@ export default {
         counts_hint: '转 360° 你的鼠标硬件累积上报多少 |dx|；跟硬件 DPI、OS 灵敏度、游戏内灵敏度都有关。',
         counts_warn: '⚠ 这个值必须是你本机+游戏实测的，不是从别人容器导入的值。',
         start_calibrate: '▶ 开始校准',
+        load_from_settings_one: '⬇ 从设置加载（{label}: {n}）',
+        load_from_settings_pick: '⬇ 从设置选一个校准档…',
         advanced_manual: '高级（手动输入）',
         sync_confirm_title: '同步到所有容器？',
         sync_confirm_desc: '把本机 counts360 = {cur} 同步到所有本地容器（不只是这个节点）',
@@ -1744,6 +1754,10 @@ export default {
     picker: {
       not_selected: '未选择',
       select_placeholder: '选择模板...',
+      selected_count: '{n} 个模板',
+      capture_new: '＋ 现截一张',
+      library_empty: '本容器还没有模板, 点上面现截一张',
+      no_template_selected: '未选模板 — 节点跑不起来',
       no_match: '没有匹配的模板',
     },
   },

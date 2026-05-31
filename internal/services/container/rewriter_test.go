@@ -11,8 +11,8 @@ func newTestGraph() Graph {
 		Version: GraphSchemaVersion,
 		Nodes: []GraphNode{
 			{ID: "start", Kind: "Start", CreatedAt: time.Now().UTC()},
-			{ID: "wait", Kind: "WaitTemplate", Config: map[string]any{"literal": map[string]any{"Template": "fish/onhook", "Threshold": "0.85"}}, CreatedAt: time.Now().UTC()},
-			{ID: "click", Kind: "ClickTemplate", Config: map[string]any{"literal": map[string]any{"Template": "fish/onhook"}}, CreatedAt: time.Now().UTC()},
+			{ID: "wait", Kind: "WaitTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}, "Threshold": "0.85"}}, CreatedAt: time.Now().UTC()},
+			{ID: "click", Kind: "ClickTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}}}, CreatedAt: time.Now().UTC()},
 		},
 		Edges: []GraphEdge{
 			{From: "start.Done", To: "wait.in"},
@@ -55,9 +55,9 @@ func TestGraphRewriter_RenameTemplateKey(t *testing.T) {
 
 	for _, n := range g.Nodes {
 		if n.Kind == "WaitTemplate" || n.Kind == "ClickTemplate" {
-			got := PinString(&n, "Template")
-			if got != "fish/onhook_2" {
-				t.Errorf("node %s template = %q, want fish/onhook_2", n.ID, got)
+			got := PinStringList(&n, "Templates")
+			if len(got) != 1 || got[0] != "fish/onhook_2" {
+				t.Errorf("node %s templates = %v, want [fish/onhook_2]", n.ID, got)
 			}
 		}
 	}
@@ -74,7 +74,8 @@ func TestGraphRewriter_Combined(t *testing.T) {
 		t.Errorf("rename + rename: edge not updated: %q", g.Edges[0].To)
 	}
 	waitNode := g.Nodes[1]
-	if waitNode.ID != "w2" || PinString(&waitNode, "Template") != "fish/onhook_v2" {
+	gotTpls := PinStringList(&waitNode, "Templates")
+	if waitNode.ID != "w2" || len(gotTpls) != 1 || gotTpls[0] != "fish/onhook_v2" {
 		t.Errorf("rename + rename: node not fully updated: %+v", waitNode)
 	}
 }

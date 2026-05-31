@@ -18,7 +18,8 @@ type WaitTemplate struct{}
 
 const (
 	wtInExec      = "In"
-	wtInTemplate  = "Template"
+	wtInTemplates = "Templates"
+	wtInMatchMode = "MatchMode"
 	wtInTimeoutMs = "TimeoutMs"
 	wtInThreshold = "Threshold"
 	wtOutFound    = "Found"
@@ -34,9 +35,12 @@ func (WaitTemplate) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
-			{Name: wtInTemplate, Type: "String", Semantic: "TemplateKey", Required: true,
-				Widget: node.WidgetSpec{Kind: "async-dropdown",
-					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
+			{Name: wtInTemplates, Type: "String", Semantic: "TemplateKey", Required: true,
+				Widget: node.WidgetSpec{Kind: "template-picker"}},
+			{Name: wtInMatchMode, Type: "String", Default: "any", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{{Value: "any"}, {Value: "all"}}})}},
 			{Name: wtInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: wtInThreshold, Type: "Number", Default: json.Number("0.85"),
@@ -58,12 +62,13 @@ func (WaitTemplate) Spec() node.Spec {
 }
 
 func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	key := in.String(wtInTemplate)
+	keys := in.StringList(wtInTemplates)
+	mode := in.String(wtInMatchMode)
 	threshold := in.Float64(wtInThreshold)
 	timeout := time.Duration(in.Int(wtInTimeoutMs)) * time.Millisecond
-	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), key, threshold, timeout)
+	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("vision wait %q: %w", key, err)
+		return nil, fmt.Errorf("vision wait %s: %w", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
 		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Fire(), nil
@@ -72,29 +77,22 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 }
 
 func (WaitTemplate) Display(in node.Inputs, exitName string, out node.OutputData) string {
+	label := strings.Join(in.StringList(wtInTemplates), "+")
 	switch exitName {
 	case wtOutFound:
 		pt := out.Point(wtDataPoint)
 		return fmt.Sprintf("✓ %s conf=%.2f @ (%.2f,%.2f)",
-			in.String(wtInTemplate), out.Float64(wtDataConf), pt.X, pt.Y)
+			label, out.Float64(wtDataConf), pt.X, pt.Y)
 	case wtOutTimeout:
-		return fmt.Sprintf("⌛ %s timeout (%dms)", in.String(wtInTemplate), in.Int(wtInTimeoutMs))
+		return fmt.Sprintf("⌛ %s timeout (%dms)", label, in.Int(wtInTimeoutMs))
 	}
 	return ""
 }
 
 func (WaitTemplate) Validate(in node.Inputs) []node.ValidationError {
-	key := in.String(wtInTemplate)
-	if key != "" && !strings.Contains(key, ".") {
-		return []node.ValidationError{{
-			Code:    "INVALID_TEMPLATE_KEY",
-			Message: fmt.Sprintf("template key 必须 namespace.name 格式, got %q", key),
-			Field:   wtInTemplate,
-		}}
-	}
-	return nil
+	return validateTemplateKeys(in.StringList(wtInTemplates), wtInTemplates)
 }
 
 func (WaitTemplate) Dependencies(in node.Inputs) []node.Dependency {
-	return []node.Dependency{{Kind: "template", Key: in.String(wtInTemplate)}}
+	return templateDeps(in.StringList(wtInTemplates))
 }

@@ -28,11 +28,11 @@ func DefaultLogService() LogService { return stdoutLogService{} }
 // stubVisionService 测试用. 任何 key 都返 nil/0/nil (always miss).
 type stubVisionService struct{}
 
-func (stubVisionService) Match(ctx context.Context, key string, threshold float64) (*Point, float64, error) {
+func (stubVisionService) Match(ctx context.Context, keys []string, threshold float64, mode string) (*Point, float64, error) {
 	return nil, 0, nil
 }
 
-func (stubVisionService) WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (*Point, float64, error) {
+func (stubVisionService) WaitMatch(ctx context.Context, keys []string, threshold float64, mode string, timeout time.Duration) (*Point, float64, error) {
 	return nil, 0, nil
 }
 

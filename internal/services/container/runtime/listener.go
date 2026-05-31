@@ -28,7 +28,8 @@ type EventListener struct {
 
 	// 配置（启动时一次性 eval；运行期不重算）
 	kind            string
-	template        string
+	templates       []string
+	matchMode       string // any | all
 	threshold       float64
 	pollIntervalMs  int
 	maxConcurrent   int
@@ -57,7 +58,8 @@ func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener
 		homeEdges:       r.compiled.Main.Edges,
 		homeNodesByID:   r.compiled.Main.NodesByID,
 		kind:            configString(n, "Kind"),
-		template:        configString(n, "Template"),
+		templates:       configStringList(n, "Templates"),
+		matchMode:       configString(n, "MatchMode"),
 		// thresholds via data-in pin. listener init 不在 dispatch tick scope, 传
 		// context.Background() — config 走 literal/常量 不依赖 frozen Vars, 无 tick 行为一致.
 		threshold:       r.pullNumber(context.Background(), n, "Threshold", 0.85),
@@ -114,13 +116,37 @@ func (l *EventListener) run(ctx context.Context) {
 				continue
 			}
 		}
-		// Detect
-		found, _, _, err := l.runner.rt.Matcher.Detect(ctx, l.runner.rt.Container.ID, l.runner.rt.Window.HWND, l.template, l.threshold, nil)
-		if err != nil || !found {
+		// Detect (多模板 any/all)
+		if !l.detectFired(ctx) {
 			continue
 		}
 		l.handleFire(ctx)
 	}
+}
+
+// detectFired 单帧多模板判定. matchMode="all": 全部命中才 fire; 否则 "any": 任一命中即 fire.
+// Detect error 视作该 key miss (跟旧单值 `err != nil || !found` 行为一致).
+func (l *EventListener) detectFired(ctx context.Context) bool {
+	if len(l.templates) == 0 {
+		return false
+	}
+	rt := l.runner.rt
+	if l.matchMode == "all" {
+		for _, key := range l.templates {
+			found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, rt.Window.HWND, key, l.threshold, nil)
+			if err != nil || !found {
+				return false
+			}
+		}
+		return true
+	}
+	for _, key := range l.templates {
+		found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, rt.Window.HWND, key, l.threshold, nil)
+		if err == nil && found {
+			return true
+		}
+	}
+	return false
 }
 
 func (l *EventListener) handleFire(ctx context.Context) {

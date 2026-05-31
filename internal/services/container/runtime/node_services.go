@@ -452,52 +452,33 @@ func (a *visionAdapter) containerID() string {
 	return a.rt.Container.ID
 }
 
-func (a *visionAdapter) Match(ctx context.Context, key string, threshold float64) (*node.Point, float64, error) {
-	if a.rt.Matcher == nil {
+func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
+	if a.rt.Matcher == nil || len(keys) == 0 {
 		return nil, 0, nil
 	}
-	found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
-	if err != nil {
-		return nil, 0, err
-	}
-	a.writeLastTemplate(found, pt)
-	if !found {
-		return nil, 0, nil
-	}
-	return &node.Point{X: pt.X, Y: pt.Y}, 1.0, nil
+	return a.matchOnce(ctx, keys, threshold, mode)
 }
 
-func (a *visionAdapter) WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (*node.Point, float64, error) {
-	if a.rt.Matcher == nil {
+func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold float64, mode string, timeout time.Duration) (*node.Point, float64, error) {
+	if a.rt.Matcher == nil || len(keys) == 0 {
 		return nil, 0, nil
 	}
 	if timeout <= 0 {
-		// 单次 (interface 注: timeout<=0 视为 0).
-		found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
-		if err != nil {
-			return nil, 0, err
-		}
-		a.writeLastTemplate(found, pt)
-		if !found {
-			return nil, 0, nil
-		}
-		return &node.Point{X: pt.X, Y: pt.Y}, 1.0, nil
+		return a.matchOnce(ctx, keys, threshold, mode) // 单帧 (interface 注: timeout<=0 视为 0).
 	}
 	deadline := time.Now().Add(timeout)
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, 0, err
 		}
-		found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
+		pt, conf, err := a.matchOnce(ctx, keys, threshold, mode)
 		if err != nil {
 			return nil, 0, err
 		}
-		if found {
-			a.writeLastTemplate(true, pt)
-			return &node.Point{X: pt.X, Y: pt.Y}, 1.0, nil
+		if pt != nil {
+			return pt, conf, nil
 		}
 		if time.Now().After(deadline) {
-			a.writeLastTemplate(false, expr.Point{})
 			return nil, 0, nil
 		}
 		select {
@@ -506,6 +487,42 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, key string, threshold flo
 		case <-time.After(visionWaitPollMs * time.Millisecond):
 		}
 	}
+}
+
+// matchOnce 单帧多模板判定. mode="all": 全部 key 同帧命中才算命中 (点取首个 key); 否则 "any":
+// 按列表序取首个命中. 写 SysState.LastFound/LastPoint (整体命中与否 + 命中点).
+func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
+	if mode == "all" {
+		var firstPt expr.Point
+		for idx, key := range keys {
+			found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
+			if err != nil {
+				return nil, 0, err
+			}
+			if !found {
+				a.writeLastTemplate(false, expr.Point{})
+				return nil, 0, nil
+			}
+			if idx == 0 {
+				firstPt = pt
+			}
+		}
+		a.writeLastTemplate(true, firstPt)
+		return &node.Point{X: firstPt.X, Y: firstPt.Y}, 1.0, nil
+	}
+	// any (默认)
+	for _, key := range keys {
+		found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
+		if err != nil {
+			return nil, 0, err
+		}
+		if found {
+			a.writeLastTemplate(true, pt)
+			return &node.Point{X: pt.X, Y: pt.Y}, 1.0, nil
+		}
+	}
+	a.writeLastTemplate(false, expr.Point{})
+	return nil, 0, nil
 }
 
 // writeLastTemplate 写 SysState.LastFound/LastPoint (Match/WaitMatch), 让 GetSys

@@ -6,7 +6,7 @@ func TestValidateTemplateKey_InvalidKey(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Template": "no_dot"}}},
+			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"no_dot"}}}},
 		}},
 	}
 	c := &Container{Subgraphs: []Subgraph{sg}}
@@ -27,7 +27,7 @@ func TestValidateTemplateKey_Valid(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Template": "fishing.hook_icon"}}},
+			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fishing.hook_icon"}}}},
 		}},
 	}
 	c := &Container{Subgraphs: []Subgraph{sg}}
@@ -43,7 +43,7 @@ func TestValidateContainerWithDeps_TemplateNotFound(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Template": "fishing.hook_icon"}}},
+			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fishing.hook_icon"}}}},
 		}},
 	}
 	c := &Container{Subgraphs: []Subgraph{sg}}
@@ -65,7 +65,7 @@ func TestValidateContainerWithDeps_TemplateFound(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Template": "fishing.hook_icon"}}},
+			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fishing.hook_icon"}}}},
 		}},
 	}
 	c := &Container{Subgraphs: []Subgraph{sg}}

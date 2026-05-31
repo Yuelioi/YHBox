@@ -50,38 +50,76 @@
     </section>
 
     <section class="rounded-md border border-default bg-elevated/40 p-4 space-y-4">
-      <div class="flex items-center justify-between gap-4">
+      <header class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <h3 class="text-sm font-medium text-highlighted">{{ t('settings.input.counts.title') }}</h3>
           <p class="text-[11px] text-dimmed mt-0.5">{{ t('settings.input.counts.hint') }}</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+      </header>
+
+      <!-- profile 列表：每行 = 默认单选 + 名字 + counts + 校准 + 删除 -->
+      <div v-if="profiles.length" class="space-y-2">
+        <div class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-dimmed px-1">
+          <span class="w-8 text-center">{{ t('settings.input.counts.col_active') }}</span>
+          <span class="flex-1">{{ t('settings.input.counts.col_label') }}</span>
+          <span class="w-28">{{ t('settings.input.counts.col_counts') }}</span>
+          <span class="w-[88px]" />
+        </div>
+        <div
+          v-for="(p, i) in profiles"
+          :key="i"
+          class="flex items-center gap-2 rounded-md border px-2 py-1.5"
+          :class="p.label === activeLabel ? 'border-primary/50 bg-primary/5' : 'border-default/40'"
+        >
+          <div class="w-8 flex justify-center">
+            <URadio
+              :model-value="activeLabel"
+              :value="p.label"
+              :disabled="!p.label"
+              @update:model-value="() => setActive(p.label)"
+            />
+          </div>
+          <UInput
+            :model-value="p.label"
+            size="sm"
+            class="flex-1"
+            :placeholder="t('settings.input.counts.label_placeholder')"
+            @update:model-value="(v: string) => updateLabel(i, v)"
+          />
           <UInputNumber
-            v-model="manualCounts"
+            :model-value="p.counts360"
             :min="0"
             :max="999999"
             :step="100"
-            class="w-32"
-            @blur="onCommitManual"
+            size="sm"
+            class="w-28"
+            @update:model-value="(v: number) => updateCounts(i, v)"
           />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-check"
-            :title="t('settings.input.counts.save_manual')"
-            @click="onCommitManual"
-          />
+          <div class="w-[88px] flex gap-1 justify-end">
+            <UButton
+              size="xs"
+              variant="soft"
+              color="primary"
+              icon="i-tabler-target"
+              :title="t('settings.input.counts.recalibrate')"
+              @click="openCalibratorFor(i)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-tabler-trash"
+              :title="t('settings.input.counts.delete_profile')"
+              @click="removeProfile(i)"
+            />
+          </div>
         </div>
       </div>
+      <p v-else class="text-[11px] text-dimmed italic">{{ t('settings.input.counts.empty') }}</p>
 
       <div class="flex items-center gap-2 flex-wrap">
-        <UButton size="sm" color="primary" icon="i-tabler-target" @click="calibratorOpen = true">
-          {{
-            (settings?.ui.mouseCounts360 ?? 0) > 0
-              ? t('settings.input.counts.recalibrate')
-              : t('settings.input.counts.calibrate')
-          }}
+        <UButton size="sm" color="primary" variant="soft" icon="i-tabler-plus" @click="addProfile">
+          {{ t('settings.input.counts.add_profile') }}
         </UButton>
         <UButton
           size="sm"
@@ -93,7 +131,7 @@
           {{ t('settings.input.counts.open_hud') }}
         </UButton>
         <UButton
-          v-if="(settings?.ui.mouseCounts360 ?? 0) > 0"
+          v-if="activeCounts > 0"
           size="sm"
           variant="soft"
           color="primary"
@@ -131,10 +169,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
-import { useSettingsStore } from '@/stores/settings'
+import { useSettingsStore, type MouseProfile } from '@/stores/settings'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import CalibratorModal from '@/components/calibration/CalibratorModal.vue'
 import { useToast } from '@nuxt/ui/composables'
@@ -153,21 +191,61 @@ const mouseModeItems = computed(() => [
   { label: t('settings.input.record.mouse_mode.absolute'), value: 'absolute' },
 ])
 
-const manualCounts = ref<number>(0)
-watch(
-  () => settings.value?.ui.mouseCounts360,
-  (v) => {
-    manualCounts.value = v ?? 0
-  },
-  { immediate: true },
-)
+// ─── 鼠标校准 profile 列表 ───────────────────────────────────────────────
+const profiles = computed<MouseProfile[]>(() => settingsStore.mouseProfiles)
+const activeLabel = computed(() => settings.value?.ui.activeMouseProfile ?? '')
+const activeCounts = computed(() => settingsStore.activeMouseCounts360)
 
-async function onCommitManual() {
-  const v = Number(manualCounts.value)
-  if (!Number.isFinite(v) || v < 0) return
-  const cur = settings.value?.ui.mouseCounts360 ?? 0
-  if (v === cur) return
-  await settingsStore.patch({ ui: { mouseCounts360: Math.floor(v) } })
+// profiles 是数组, RFC7386 整体替换 — 每次改都提交全新列表 (+ 可选改 active label)。
+async function patchProfiles(list: MouseProfile[], active?: string) {
+  const ui: Record<string, any> = { mouseProfiles: list }
+  if (active !== undefined) ui.activeMouseProfile = active
+  await settingsStore.patch({ ui })
+}
+
+function uniqueLabel(base: string): string {
+  const taken = new Set(profiles.value.map((p) => p.label))
+  if (!taken.has(base)) return base
+  for (let i = 2; ; i++) {
+    const cand = `${base} ${i}`
+    if (!taken.has(cand)) return cand
+  }
+}
+
+async function addProfile() {
+  const label = uniqueLabel(t('settings.input.counts.new_profile_label'))
+  const list = [...profiles.value, { label, counts360: 0 }]
+  // 列表本来空 → 新档自动设为 active。
+  await patchProfiles(list, profiles.value.length === 0 ? label : undefined)
+}
+
+async function removeProfile(i: number) {
+  const removed = profiles.value[i]
+  const list = profiles.value.filter((_, idx) => idx !== i)
+  // 删的是当前 active → active 落到剩下第一个 (没了就清空)。
+  const active = removed.label === activeLabel.value ? (list[0]?.label ?? '') : undefined
+  await patchProfiles(list, active)
+}
+
+async function setActive(label: string) {
+  if (!label) return
+  await patchProfiles(profiles.value, label)
+}
+
+async function updateLabel(i: number, v: string) {
+  const old = profiles.value[i]
+  if (!old || v === old.label) return
+  const list = profiles.value.map((p, idx) => (idx === i ? { ...p, label: v } : p))
+  // 改的是 active 那行 → active 引用跟着改名。
+  const active = old.label === activeLabel.value ? v : undefined
+  await patchProfiles(list, active)
+}
+
+async function updateCounts(i: number, v: number) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return
+  const list = profiles.value.map((p, idx) => (idx === i ? { ...p, counts360: Math.floor(n) } : p))
+  await patchProfiles(list)
 }
 
 async function patchRecord(patch: Record<string, any>) {
@@ -180,7 +258,7 @@ async function openMouseHUD() {
 }
 
 async function onSyncAll() {
-  const cur = settings.value?.ui.mouseCounts360 ?? 0
+  const cur = activeCounts.value
   if (cur <= 0) {
     toast.add({ title: t('settings.input.toast.counts_not_set'), color: 'warning' })
     return
@@ -204,27 +282,18 @@ async function onSyncAll() {
   }
 }
 
+// 校准窗：记住正在校准哪一档, 存好后把 counts 写回那一档。
 const calibratorOpen = ref(false)
+const calibratingIndex = ref<number>(-1)
+
+function openCalibratorFor(i: number) {
+  calibratingIndex.value = i
+  calibratorOpen.value = true
+}
 
 async function onCalibratorSaved(counts: number) {
-  await settingsStore.patch({ ui: { mouseCounts360: counts } })
-  const yes = await confirm({
-    title: t('settings.input.confirm.sync_title'),
-    description: t('settings.input.confirm.calibrator_done_desc', { counts }),
-    confirmText: t('settings.input.confirm.sync_confirm'),
-    cancelText: t('settings.input.confirm.sync_cancel'),
-    color: 'primary',
-  })
-  if (yes === true) {
-    const r = await backend.containers.syncLocalMouseCalibration(counts)
-    if (r) {
-      toast.add({
-        title: t('settings.input.toast.synced_title', {
-          n: (r as any).updated?.length ?? 0,
-        }),
-        color: 'success',
-      })
-    }
-  }
+  const i = calibratingIndex.value
+  if (i < 0 || i >= profiles.value.length) return
+  await updateCounts(i, counts)
 }
 </script>

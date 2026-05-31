@@ -53,9 +53,21 @@ func (r *GraphRewriter) Apply(g *Graph) {
 		if newID, ok := r.nodeIDMap[g.Nodes[i].ID]; ok {
 			g.Nodes[i].ID = newID
 		}
-		// 2. 节点 config.literal 里 template key 改写 (template 是 Spec.Input → config.literal.Template)
-		if newKey, ok := r.templateKeyMap[PinString(&g.Nodes[i], "Template")]; ok {
-			SetPinValue(&g.Nodes[i], "Template", newKey)
+		// 2. 节点 config.literal 里 template key 改写 (Templates 是 Spec.Input → config.literal.Templates 列表)
+		if keys := PinStringList(&g.Nodes[i], "Templates"); len(keys) > 0 {
+			changed := false
+			out := make([]any, len(keys))
+			for j, k := range keys {
+				if newKey, ok := r.templateKeyMap[k]; ok {
+					out[j] = newKey
+					changed = true
+				} else {
+					out[j] = k
+				}
+			}
+			if changed {
+				SetPinValue(&g.Nodes[i], "Templates", out)
+			}
 		}
 	}
 

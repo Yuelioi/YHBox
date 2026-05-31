@@ -20,18 +20,19 @@ func ValidateContainerWithDeps(
 				if hasTemplate == nil {
 					continue
 				}
-				key := PinString(&n, "Template")
-				if key == "" {
-					continue
-				}
-				if !hasTemplate(key) {
-					errs = append(errs, ValidationError{
-						Severity:  SeverityError,
-						Code:      CodeTemplateNotFound,
-						GraphPath: []string{"subgraph", sg.ID},
-						NodeID:    n.ID,
-						Params:    map[string]any{"key": key},
-					})
+				for _, key := range PinStringList(&n, "Templates") {
+					if key == "" {
+						continue
+					}
+					if !hasTemplate(key) {
+						errs = append(errs, ValidationError{
+							Severity:  SeverityError,
+							Code:      CodeTemplateNotFound,
+							GraphPath: []string{"subgraph", sg.ID},
+							NodeID:    n.ID,
+							Params:    map[string]any{"key": key},
+						})
+					}
 				}
 			case "PlayClip":
 				if hasClip == nil {

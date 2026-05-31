@@ -48,11 +48,11 @@ type mockVision struct {
 	gridErr  error
 }
 
-func (m *mockVision) Match(ctx context.Context, key string, threshold float64) (*node.Point, float64, error) {
+func (m *mockVision) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
 	return m.point, m.conf, m.err
 }
 
-func (m *mockVision) WaitMatch(ctx context.Context, key string, threshold float64, timeout time.Duration) (*node.Point, float64, error) {
+func (m *mockVision) WaitMatch(ctx context.Context, keys []string, threshold float64, mode string, timeout time.Duration) (*node.Point, float64, error) {
 	// 模拟 framework 真接的语义: 一次性 (timeout<=0 也算一次). 节点的 WaitTemplate
 	// 是直接调 WaitMatch (服务内部轮询), 这里 hitOnCall 控制返不返命中.
 	m.callCount++
@@ -120,7 +120,7 @@ func TestCheckTemplate_Hit(t *testing.T) {
 	vision := &mockVision{point: &pt, conf: 0.92}
 	r := node.RunNode(context.Background(), rn,
 		nil,
-		map[string]any{ctInTemplate: "fishing.hook_icon", ctInThreshold: 0.85},
+		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}, ctInThreshold: 0.85},
 		nil, withVision(vision))
 
 	if r.Error != nil {
@@ -142,7 +142,7 @@ func TestCheckTemplate_Miss(t *testing.T) {
 	vision := &mockVision{point: nil, conf: 0.3}
 	r := node.RunNode(context.Background(), rn,
 		nil,
-		map[string]any{ctInTemplate: "fishing.hook_icon", ctInThreshold: 0.85},
+		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}, ctInThreshold: 0.85},
 		nil, withVision(vision))
 
 	if r.ExitName != ctOutNotFound {
@@ -158,7 +158,7 @@ func TestCheckTemplate_Error(t *testing.T) {
 	vision := &mockVision{err: errors.New("window closed")}
 	r := node.RunNode(context.Background(), rn,
 		nil,
-		map[string]any{ctInTemplate: "fishing.hook_icon"},
+		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}},
 		nil, withVision(vision))
 
 	if r.Error == nil {
@@ -173,7 +173,7 @@ func TestCheckTemplate_InvalidKey_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn,
 		nil,
-		map[string]any{ctInTemplate: "no_dot"},
+		map[string]any{ctInTemplates: []string{"no_dot"}},
 		nil, withVision(&mockVision{}))
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_TEMPLATE_KEY" {

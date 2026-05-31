@@ -280,6 +280,10 @@ func configString(node *container.GraphNode, key string) string {
 	return container.PinString(node, key)
 }
 
+func configStringList(node *container.GraphNode, key string) []string {
+	return container.PinStringList(node, key)
+}
+
 // ----------------------------------------------------------------------------
 // runtime bootstrap: setupRuntime / teardownRuntime / WindowTarget 解析.
 // ----------------------------------------------------------------------------

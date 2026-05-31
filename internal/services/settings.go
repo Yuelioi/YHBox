@@ -65,10 +65,36 @@ type UISettings struct {
 	// RecordingMouseMode 录制时鼠标语义. "relative" (FPS 相机 RawDelta, 默认) / "absolute" (UI 点击 MouseMove screen px).
 	// 决定 recorder drainLoop 是否窗口过滤. 改动需重启生效.
 	RecordingMouseMode string `json:"recordingMouseMode"`
-	// MouseCounts360 鼠标转身 360° 累积的 HID counts（用户在游戏里实测得到）。
-	// 跨电脑共享脚本时用：录制时存源机基准，回放时 dx *= localCounts / sourceCounts。
-	// 0 = 未校准（回放不做缩放）。
-	MouseCounts360 int `json:"mouseCounts360"`
+	// MouseProfiles 命名鼠标校准 profile 列表。同一台机器玩不同游戏 (异环 vs 原神) 内灵敏度不同 →
+	// 360° counts 不同, 装不进单个全局值。每个 profile 存一个 {Label, Counts360}。
+	// 跨电脑共享脚本时, counts360 是 (本机 × 游戏内灵敏度) 的函数, 本就 per-machine, 不跨机同步。
+	MouseProfiles []MouseProfile `json:"mouseProfiles"`
+	// ActiveMouseProfile 指向 MouseProfiles 里某个 Label, 标记"当前默认"。
+	// 录制兜底 getter (无 MouseCalibration 节点时) + 新建节点默认值 + "同步所有容器" 用它。
+	// 空 / 指向不存在的 label → ActiveMouseCounts360() 兜底 (见该方法)。
+	ActiveMouseProfile string `json:"activeMouseProfile"`
+}
+
+// MouseProfile 一个命名校准档。Counts360 = 原地转身 360° 鼠标硬件累积的 |dx| (用户在游戏里实测)。
+type MouseProfile struct {
+	Label     string `json:"label"`
+	Counts360 int    `json:"counts360"`
+}
+
+// ActiveMouseCounts360 返回当前生效 profile 的 counts360。
+//   - ActiveMouseProfile 命中某个 profile.Label → 返该值
+//   - 没命中但恰好只有一个 profile → 返那个 (单 profile 场景免设 active 的便利, 非兼容垫片)
+//   - 否则 (空列表 / 多 profile 没选 active 没命中) → 0 (= 未校准, 回放不缩放)
+func (s *Settings) ActiveMouseCounts360() int {
+	for _, p := range s.UI.MouseProfiles {
+		if p.Label == s.UI.ActiveMouseProfile {
+			return p.Counts360
+		}
+	}
+	if len(s.UI.MouseProfiles) == 1 {
+		return s.UI.MouseProfiles[0].Counts360
+	}
+	return 0
 }
 
 // WindowSettings 记录用户调到的窗口尺寸。main.go 启动时读取，

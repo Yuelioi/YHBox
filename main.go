@@ -194,16 +194,10 @@ func main() {
 	// 模板库 (per-container, dataRoot 注入) / Container / Schedule 数据层
 	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{app: app})
 
-	// 节点系统 (mock 节点 + FE inspector 验证)
+	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate/OnEvent) 的 Template 字段
+	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 templateSvc.List(containerID),
+	// 不再走 mock asyncSource.
 	nodeSvc := node.NewService()
-	// mock asyncSource: templateKeys 返 hardcoded 列表, 未接 templateSvc.List.
-	nodeSvc.RegisterAsyncSource("templateKeys", func(nodeID, specKind string, params map[string]any) ([]node.EnumOption, error) {
-		return []node.EnumOption{
-			{Value: "fishing.hook_icon", Label: "fishing.hook_icon"},
-			{Value: "fishing.start_fish", Label: "fishing.start_fish"},
-			{Value: "fishing.bait_product", Label: "fishing.bait_product"},
-		}, nil
-	})
 
 	// v2: 库 store + service (Task 1.22)
 	libStore, err := library.NewStore(filepath.Join(dataDir, "library"))
@@ -285,7 +279,7 @@ func main() {
 		rt := containerruntime.NewRuntimeContext(
 			&c, inputBus, templateMatcher, containerColor,
 			newGameProviderAdapter(app), emitForRuntime,
-			clipSvc, clipInputBackend, app.Settings().UI.MouseCounts360,
+			clipSvc, clipInputBackend, app.Settings().ActiveMouseCounts360(),
 		)
 		r := containerruntime.NewContainerRunner(rt)
 		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.

@@ -21,7 +21,8 @@ type OnEvent struct{}
 
 const (
 	oeInKind            = "Kind"
-	oeInTemplate        = "Template"
+	oeInTemplates       = "Templates"
+	oeInMatchMode       = "MatchMode"
 	oeInThreshold       = "Threshold"
 	oeInPollIntervalMs  = "PollIntervalMs"
 	oeInMaxConcurrent   = "MaxConcurrent"
@@ -45,9 +46,12 @@ func (OnEvent) Spec() node.Spec {
 						Options: []node.EnumOption{
 							{Value: "template_appeared"},
 						}})}},
-			{Name: oeInTemplate, Type: "String", Semantic: "TemplateKey",
-				Widget: node.WidgetSpec{Kind: "async-dropdown",
-					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "templateKeys"})}},
+			{Name: oeInTemplates, Type: "String", Semantic: "TemplateKey",
+				Widget: node.WidgetSpec{Kind: "template-picker"}},
+			{Name: oeInMatchMode, Type: "String", Default: "any", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{{Value: "any"}, {Value: "all"}}})}},
 			{Name: oeInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
@@ -84,9 +88,11 @@ func (OnEvent) Dependencies(in node.Inputs) []node.Dependency {
 	if in.String(oeInKind) != "template_appeared" {
 		return nil
 	}
-	key := in.String(oeInTemplate)
-	if key == "" {
-		return nil
+	var deps []node.Dependency
+	for _, key := range in.StringList(oeInTemplates) {
+		if key != "" {
+			deps = append(deps, node.Dependency{Kind: "template", Key: key})
+		}
 	}
-	return []node.Dependency{{Kind: "template", Key: key}}
+	return deps
 }

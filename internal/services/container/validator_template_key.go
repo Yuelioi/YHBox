@@ -17,19 +17,21 @@ func validateTemplateKeyConfig(n *GraphNode) []ValidationError {
 	default:
 		return nil
 	}
-	key := PinString(n, "Template")
-	if key == "" {
-		return nil // 未配 template，由其它规则负责
+	var errs []ValidationError
+	for _, key := range PinStringList(n, "Templates") {
+		if key == "" {
+			continue // 未配 template，由其它规则负责
+		}
+		if err := template.ValidateKey(key); err != nil {
+			errs = append(errs, ValidationError{
+				Severity: SeverityError,
+				Code:     CodeInvalidTemplateKey,
+				NodeID:   n.ID,
+				Params:   map[string]any{"key": key, "error": err.Error()},
+			})
+		}
 	}
-	if err := template.ValidateKey(key); err != nil {
-		return []ValidationError{{
-			Severity: SeverityError,
-			Code:     CodeInvalidTemplateKey,
-			NodeID:   n.ID,
-			Params:   map[string]any{"key": key, "error": err.Error()},
-		}}
-	}
-	return nil
+	return errs
 }
 
 // validateTemplateKeyNodes 扫主图 + 所有子图，对每个 template 节点调 validateTemplateKeyConfig.

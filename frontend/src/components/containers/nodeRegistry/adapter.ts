@@ -57,6 +57,8 @@ function widgetKindToFieldType(k: string): FieldSchema['type'] {
   // key-capture/monaco/subgraph-picker. backend Widget.Kind 是: async-dropdown/checkbox/
   // dropdown/duration/json/number/password/rect-editor/slider/text/textarea. 映射:
   switch (k) {
+    case 'template-picker':
+      return 'template-picker'
     case 'dropdown':
     case 'async-dropdown':
       return 'select'

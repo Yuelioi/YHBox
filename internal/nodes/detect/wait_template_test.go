@@ -17,7 +17,7 @@ func TestWaitTemplate_Found(t *testing.T) {
 	pt := node.Point{X: 0.4, Y: 0.6}
 	vision := &mockVision{point: &pt, conf: 0.91, hitOnCall: 1}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{wtInTemplate: "fishing.hook_icon", wtInTimeoutMs: 100, wtInThreshold: 0.85},
+		map[string]any{wtInTemplates: []string{"fishing.hook_icon"}, wtInTimeoutMs: 100, wtInThreshold: 0.85},
 		nil, withVision(vision))
 
 	if r.Error != nil {
@@ -39,7 +39,7 @@ func TestWaitTemplate_Timeout(t *testing.T) {
 	// hitOnCall=-1 → 永不命中, 走 timeout
 	vision := &mockVision{hitOnCall: -1, conf: 0.4}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{wtInTemplate: "fishing.hook_icon", wtInTimeoutMs: 30, wtInThreshold: 0.85},
+		map[string]any{wtInTemplates: []string{"fishing.hook_icon"}, wtInTimeoutMs: 30, wtInThreshold: 0.85},
 		nil, withVision(vision))
 
 	if r.Error != nil {
@@ -57,7 +57,7 @@ func TestWaitTemplate_Error(t *testing.T) {
 
 	vision := &mockVision{err: errors.New("window closed")}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{wtInTemplate: "fishing.x"},
+		map[string]any{wtInTemplates: []string{"fishing.x"}},
 		nil, withVision(vision))
 
 	if r.Error == nil {
@@ -71,7 +71,7 @@ func TestWaitTemplate_InvalidKey_ValidationError(t *testing.T) {
 	rn, _ := node.Get("WaitTemplate")
 
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{wtInTemplate: "no_dot"},
+		map[string]any{wtInTemplates: []string{"no_dot"}},
 		nil, withVision(&mockVision{}))
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_TEMPLATE_KEY" {
