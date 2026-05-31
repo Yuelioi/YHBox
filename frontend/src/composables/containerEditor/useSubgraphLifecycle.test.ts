@@ -3,7 +3,14 @@
 //   deepCloneSubgraphForCopy
 // 不测 backend-touching 函数 (autoCreateSubgraphForNewNode / cascadeIfOrphan): 涉及 RPC mock + await chain,
 // 集成测试合理点, 单元层投入产出比低.
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+// composable 内 useI18n() 只用于文案; 单元测纯逻辑, 把 useI18n mock 成 identity t
+// (否则非组件 setup 调 useI18n 抛 "Must be called at top of setup function")。
+// 保留模块其余导出 (createI18n 等被 app i18n setup 经 import 链用到, 不能整模块替掉)。
+vi.mock('vue-i18n', async (importActual) => ({
+  ...(await importActual<typeof import('vue-i18n')>()),
+  useI18n: () => ({ t: (k: string) => k }),
+}))
 import { computed, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -52,9 +59,9 @@ function setup(draft: Container | null, sgs: Array<{ id: string; graph: Graph; o
 describe('useSubgraphLifecycle.countSubgraphReferencesIncludeMain', () => {
   it('计数主图引用', () => {
     const draft = makeContainer([
-      makeNode('n1', 'Subgraph', { subgraphId: 'sg-a' }),
-      makeNode('n2', 'Subgraph', { subgraphId: 'sg-a' }),
-      makeNode('n3', 'Subgraph', { subgraphId: 'sg-b' }),
+      makeNode('n1', 'Subgraph', { SubgraphID: 'sg-a' }),
+      makeNode('n2', 'Subgraph', { SubgraphID: 'sg-a' }),
+      makeNode('n3', 'Subgraph', { SubgraphID: 'sg-b' }),
       makeNode('n4', 'Sleep'),
     ])
     const { lifecycle } = setup(draft, [])
@@ -64,14 +71,14 @@ describe('useSubgraphLifecycle.countSubgraphReferencesIncludeMain', () => {
   })
 
   it('计数嵌套子图内引用 (主图 + 子图 都加)', () => {
-    const draft = makeContainer([makeNode('m1', 'Subgraph', { subgraphId: 'sg-a' })])
+    const draft = makeContainer([makeNode('m1', 'Subgraph', { SubgraphID: 'sg-a' })])
     const sgs = [
       {
         id: 'sg-a',
         graph: {
           id: 'g-a',
           version: 1,
-          nodes: [makeNode('a1', 'Subgraph', { subgraphId: 'sg-b' })],
+          nodes: [makeNode('a1', 'Subgraph', { SubgraphID: 'sg-b' })],
           edges: [],
         },
       },
@@ -81,8 +88,8 @@ describe('useSubgraphLifecycle.countSubgraphReferencesIncludeMain', () => {
           id: 'g-b',
           version: 1,
           nodes: [
-            makeNode('b1', 'Subgraph', { subgraphId: 'sg-c' }),
-            makeNode('b2', 'Subgraph', { subgraphId: 'sg-c' }),
+            makeNode('b1', 'Subgraph', { SubgraphID: 'sg-c' }),
+            makeNode('b2', 'Subgraph', { SubgraphID: 'sg-c' }),
           ],
           edges: [],
         },
@@ -127,7 +134,7 @@ describe('useSubgraphLifecycle.findNodeAcrossGraphs', () => {
 
 describe('useSubgraphLifecycle.gcOrphanSubgraphs', () => {
   it('返无引用的子图 ID', () => {
-    const draft = makeContainer([makeNode('m1', 'Subgraph', { subgraphId: 'sg-used' })])
+    const draft = makeContainer([makeNode('m1', 'Subgraph', { SubgraphID: 'sg-used' })])
     const sgs = [
       { id: 'sg-used', graph: { id: 'g1', version: 1, nodes: [], edges: [] } },
       { id: 'sg-orphan-1', graph: { id: 'g2', version: 1, nodes: [], edges: [] } },
@@ -139,14 +146,14 @@ describe('useSubgraphLifecycle.gcOrphanSubgraphs', () => {
   })
 
   it('嵌套引用算被引用 (不算 orphan)', () => {
-    const draft = makeContainer([makeNode('m1', 'Subgraph', { subgraphId: 'sg-a' })])
+    const draft = makeContainer([makeNode('m1', 'Subgraph', { SubgraphID: 'sg-a' })])
     const sgs = [
       {
         id: 'sg-a',
         graph: {
           id: 'g-a',
           version: 1,
-          nodes: [makeNode('a1', 'Subgraph', { subgraphId: 'sg-b' })],
+          nodes: [makeNode('a1', 'Subgraph', { SubgraphID: 'sg-b' })],
           edges: [],
         },
       },
@@ -219,8 +226,8 @@ describe('useSubgraphLifecycle 集成: cascade 引用计数语义', () => {
   // 链交集成测).
   it('countSubgraphReferencesIncludeMain > 0 时 cascade 入口必须 return 不删', () => {
     const draft = makeContainer([
-      makeNode('a', 'Subgraph', { subgraphId: 'sg-shared' }),
-      makeNode('b', 'Subgraph', { subgraphId: 'sg-shared' }),
+      makeNode('a', 'Subgraph', { SubgraphID: 'sg-shared' }),
+      makeNode('b', 'Subgraph', { SubgraphID: 'sg-shared' }),
     ])
     const { lifecycle } = setup(draft, [
       { id: 'sg-shared', graph: { id: 'g', version: 1, nodes: [], edges: [] } },

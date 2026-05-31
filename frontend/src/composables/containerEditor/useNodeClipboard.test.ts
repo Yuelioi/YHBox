@@ -4,6 +4,13 @@
 //   - Subgraph 节点联动 deep copy 对应子图到 clipboard
 // onPasteSelection 涉及 backend.createSubgraph / updateSubgraph + 异步链, 集成测试合理.
 import { describe, it, expect, vi } from 'vitest'
+// composable 内 useI18n() 只用于 toast/label 文案; 单元测纯逻辑, 把 useI18n mock 成 identity t
+// (否则非组件 setup 调 useI18n 抛 "Must be called at top of setup function")。
+// 保留模块其余导出 (createI18n 等被 app i18n setup 经 import 链用到, 不能整模块替掉)。
+vi.mock('vue-i18n', async (importActual) => ({
+  ...(await importActual<typeof import('vue-i18n')>()),
+  useI18n: () => ({ t: (k: string) => k }),
+}))
 import { computed, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -111,7 +118,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       graph: {
         id: 'g',
         version: 1,
-        nodes: [makeNode('call', 'Subgraph', { subgraphId: 'sg-x' })],
+        nodes: [makeNode('call', 'Subgraph', { SubgraphID: 'sg-x' })],
         edges: [],
       },
       createdAt: '',
