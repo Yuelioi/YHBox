@@ -113,6 +113,24 @@ func TestKeyPress_CtxCancel_ReleasesAndReturns(t *testing.T) {
 	}
 }
 
+func TestKeyPress_JitterPct_StillDownUp(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&KeyPress{})
+	rn, _ := node.Get("KeyPress")
+
+	rec := &recordingInput{}
+	// JitterPct 仅扰动按住时长, 不改 down/up 行为
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{kpInVK: "F", kpInDurationMs: 10, kpInJitterPct: 20},
+		nil, withInput(rec))
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if len(rec.calls) != 2 || rec.calls[0] != "KeyDown:F" || rec.calls[1] != "KeyUp:F" {
+		t.Errorf("calls = %v, want [KeyDown:F KeyUp:F]", rec.calls)
+	}
+}
+
 func TestKeyPress_BackendError_Propagates(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&KeyPress{})

@@ -505,7 +505,10 @@ export default {
     Sleep: {
       label: '等待',
       description: '阻塞当前 exec 流指定时长. MVP 不支持 cancel (ctx.Context() 接口在但 noop).',
-      input: { Duration: { label: '时长' } },
+      input: {
+        Duration: { label: '时长' },
+        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 等待时长在 ±10% 内近正态波动' },
+      },
       output: { Done: { label: '完成' } },
     },
     If: {
@@ -776,6 +779,7 @@ export default {
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移到点; >0=先滑过去再点' },
         DurationMs: { label: '时长 (ms)' },
+        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -797,6 +801,7 @@ export default {
       input: {
         VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: '时长 (ms)' },
+        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
       },
       output: { Done: { label: '完成' } },
     },

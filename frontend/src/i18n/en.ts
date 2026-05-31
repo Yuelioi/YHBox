@@ -484,7 +484,10 @@ export default {
     Sleep: {
       label: 'Sleep',
       description: 'Blocks current exec stream for the given duration. MVP does not support cancel (ctx.Context() exists but is noop).',
-      input: { Duration: { label: 'Duration' } },
+      input: {
+        Duration: { label: 'Duration' },
+        JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = duration varies within ±10% (near-normal)' },
+      },
       output: { Done: { label: 'Done' } },
     },
     If: {
@@ -755,6 +758,7 @@ export default {
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = slide over then click' },
         DurationMs: { label: 'Duration (ms)' },
+        JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -776,6 +780,7 @@ export default {
       input: {
         VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: 'Duration (ms)' },
+        JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
       },
       output: { Done: { label: 'Done' } },
     },

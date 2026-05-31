@@ -20,6 +20,7 @@ const (
 	caInButton     = "Button"
 	caInMoveMs     = "MoveMs"
 	caInDurationMs = "DurationMs"
+	caInJitterPct  = "JitterPct"
 	caOutDone      = "Done"
 )
 
@@ -48,6 +49,8 @@ func (ClickAt) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: caInDurationMs, Type: "Number", Default: json.Number("50"),
 				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: caInJitterPct, Type: "Number", Default: json.Number("0"),
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: caOutDone, Type: "Exec"},
@@ -66,6 +69,7 @@ func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if dur <= 0 {
 		dur = 50
 	}
+	dur = node.JitterInt(dur, in.Int(caInJitterPct)) // ±% 近正态抖动 (pct=0 → 原值)
 	// 先 (可选) 滑到目标 + 发 hover, 再按下. MoveMs=0 → 单帧瞬移 hover (恢复 #4 丢掉的 hover).
 	// moveCursor 可被 ctx 取消; 此时还没按下, 直接返回无需释放.
 	if err := moveCursor(ctx, x, y, in.Int(caInMoveMs)); err != nil {

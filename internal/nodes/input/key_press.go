@@ -20,6 +20,7 @@ const (
 	kpInExec       = "In"
 	kpInVK         = "VK"
 	kpInDurationMs = "DurationMs"
+	kpInJitterPct  = "JitterPct"
 	kpOutDone      = "Done"
 )
 
@@ -34,6 +35,8 @@ func (KeyPress) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: kpInDurationMs, Type: "Number", Default: json.Number("50"),
 				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: kpInJitterPct, Type: "Number", Default: json.Number("0"),
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: kpOutDone, Type: "Exec"},
@@ -47,6 +50,7 @@ func (KeyPress) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if dur <= 0 {
 		dur = 50 // 对齐原 backend 默认
 	}
+	dur = node.JitterInt(dur, in.Int(kpInJitterPct)) // ±% 近正态抖动 (pct=0 → 原值)
 	if err := ctx.Input().KeyDown(vk); err != nil {
 		return nil, fmt.Errorf("KeyPress keydown vk=%q: %w", vk, err)
 	}
