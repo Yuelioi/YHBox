@@ -315,7 +315,7 @@
         runMode: draft.runMode || 'background',
       }"
       :all-tags="allSubgraphTags"
-      @save="(form) => applyDraftMutation((d) => Object.assign(d, form))"
+      @save="onSettingsSave"
     />
 
     <DeleteVarConfirmModal
@@ -920,6 +920,22 @@ const { onFoldSelection } = useFolding({
 // 保存 + 孤儿 GC（onSaveAndClose 留在 view 因为依赖 view-local close 状态）
 // 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave } = useEditorSave({ draft, dirty, gcOrphanSubgraphs, toast })
+
+// ⚙ 容器设置 (name/hotkey/description/tags/runMode) 改完即落盘 —— 不必等保存整个蓝图。
+// 容器热键靠后端 containers.update → emitChange → binder.Refresh 注册到热键中心;
+// 只 mutate draft 不落盘 → 热键永远进不了注册中心 (「快捷键」页无容器分组)。
+// 只 patch 元数据字段, 不带 graph/vars → Update 的 Unmarshal 只覆盖这几个键, 蓝图 draft 不受影响。
+async function onSettingsSave(form: { name: string; hotkey: string; description: string; tags: string[]; runMode: string }) {
+  applyDraftMutation((d) => Object.assign(d, form))
+  if (!draft.value) return
+  await backend.containers.update(draft.value.id, JSON.stringify({
+    name: form.name,
+    hotkey: form.hotkey,
+    description: form.description,
+    tags: form.tags,
+    runMode: form.runMode,
+  }))
+}
 
 // 全局快捷键: Ctrl+K palette / Ctrl+F search / Ctrl+S save / Ctrl+, settings /
 // Ctrl+Z undo / Ctrl+Shift+Z(Y) redo / Tab toggle NodeExplorer.
