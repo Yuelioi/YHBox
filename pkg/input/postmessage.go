@@ -44,7 +44,6 @@ const (
 	defaultActivateDelay = 30 * time.Millisecond
 	defaultCursorSettle  = 30 * time.Millisecond
 	defaultClickHoldMs   = 50
-	defaultKeyPressMs    = 50
 )
 
 // pickButton 字符串 → MouseButton 枚举 (MouseButton 在 input.go 已定义)
@@ -92,15 +91,6 @@ func (b *PostMessageBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button
 	}
 	x, y := b.pixelCoords(hwnd, xRatio, yRatio)
 	ClickButton(hwnd, x, y, pickButton(button), time.Duration(durMs)*time.Millisecond, defaultActivateDelay, defaultCursorSettle)
-	return nil
-}
-
-func (b *PostMessageBackend) KeyPress(hwnd win.HWND, vk string, durMs int) error {
-	b.ensureActivated(hwnd)
-	if durMs <= 0 {
-		durMs = defaultKeyPressMs
-	}
-	Tap(hwnd, vk, time.Duration(durMs)*time.Millisecond, defaultActivateDelay)
 	return nil
 }
 

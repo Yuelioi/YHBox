@@ -17,7 +17,6 @@ type recordingInput struct {
 	err   error
 }
 
-func (r *recordingInput) KeyPress(vk string, durationMs int) error { return r.err }
 func (r *recordingInput) KeyDown(vk string) error                  { return r.err }
 func (r *recordingInput) KeyUp(vk string) error                    { return r.err }
 func (r *recordingInput) Click(xRatio, yRatio float64, button string, durationMs int) error {

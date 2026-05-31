@@ -64,13 +64,6 @@ func (s *SafeInputBackend) Click(hwnd win.HWND, xr, yr float64, btn string, durM
 	}
 	return s.inner.Click(hwnd, xr, yr, btn, durMs)
 }
-func (s *SafeInputBackend) KeyPress(hwnd win.HWND, vk string, durMs int) error {
-	if !isValidHwnd(hwnd) {
-		s.warnOnce("KeyPress", hwnd)
-		return nil
-	}
-	return s.inner.KeyPress(hwnd, vk, durMs)
-}
 func (s *SafeInputBackend) KeyDown(hwnd win.HWND, vk string) error {
 	if !isValidHwnd(hwnd) {
 		s.warnOnce("KeyDown", hwnd)

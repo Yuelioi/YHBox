@@ -64,7 +64,6 @@ func StubVisionService() VisionService { return stubVisionService{} }
 // stubInputService 测试用 no-op. 所有方法吞输入返 nil error.
 type stubInputService struct{}
 
-func (stubInputService) KeyPress(vk string, durationMs int) error                          { return nil }
 func (stubInputService) KeyDown(vk string) error                                           { return nil }
 func (stubInputService) KeyUp(vk string) error                                             { return nil }
 func (stubInputService) Click(x, y float64, button string, durationMs int) error           { return nil }

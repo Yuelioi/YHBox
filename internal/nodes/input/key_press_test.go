@@ -17,10 +17,6 @@ type recordingInput struct {
 	err   error // 注入到下一次调用返回
 }
 
-func (r *recordingInput) KeyPress(vk string, durationMs int) error {
-	r.calls = append(r.calls, fmt.Sprintf("KeyPress:%s:%d", vk, durationMs))
-	return r.err
-}
 func (r *recordingInput) KeyDown(vk string) error {
 	r.calls = append(r.calls, fmt.Sprintf("KeyDown:%s", vk))
 	return r.err

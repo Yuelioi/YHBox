@@ -296,13 +296,6 @@ func (a *inputAdapter) ensure() error {
 	return nil
 }
 
-func (a *inputAdapter) KeyPress(vk string, durationMs int) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	return a.rt.Input.KeyPress(a.hwnd(), vk, durationMs)
-}
-
 func (a *inputAdapter) KeyDown(vk string) error {
 	if err := a.ensure(); err != nil {
 		return err

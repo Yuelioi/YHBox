@@ -100,7 +100,6 @@ func (f *fakeInputBackend) Click(_ win.HWND, _, _ float64, _ string, _ int) erro
 	f.clicks++
 	return nil
 }
-func (f *fakeInputBackend) KeyPress(win.HWND, string, int) error               { return nil }
 func (f *fakeInputBackend) KeyDown(win.HWND, string) error                     { return nil }
 func (f *fakeInputBackend) KeyUp(win.HWND, string) error                       { return nil }
 func (f *fakeInputBackend) MouseDown(win.HWND, float64, float64, string) error { return nil }

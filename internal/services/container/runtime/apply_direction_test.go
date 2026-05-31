@@ -32,11 +32,6 @@ func (s *spyInputBackend) KeyUp(_ win.HWND, k string) error {
 	return nil
 }
 
-func (s *spyInputBackend) KeyPress(_ win.HWND, k string, _ int) error {
-	s.keyEvents = append(s.keyEvents, "press:"+k)
-	return nil
-}
-
 var _ pkginput.Backend = (*spyInputBackend)(nil)
 
 func loadApplyDirection(t *testing.T) container.Subgraph {

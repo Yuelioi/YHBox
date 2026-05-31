@@ -215,11 +215,10 @@ type LogService interface {
 	Warn(format string, args ...any)
 }
 
-// InputService — KeyPress / Click / Scroll / MouseMoveRel + Hold start/stop.
+// InputService — KeyDown/KeyUp / Click / Scroll / MouseMoveRel + Hold start/stop.
 // 镜像 pkg/input.Backend, 但 hwnd 由 Ctx 隐式提供 (内层 backend wire 时塞 hwnd).
 // xRatio/yRatio 是 0-1 客户区比例.
 type InputService interface {
-	KeyPress(vk string, durationMs int) error
 	KeyDown(vk string) error
 	KeyUp(vk string) error
 

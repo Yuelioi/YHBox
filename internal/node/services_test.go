@@ -19,7 +19,6 @@ func TestStubInputService_AllMethodsNoOp(t *testing.T) {
 		t.Fatal("StubInputService() returned nil")
 	}
 	checks := []func() error{
-		func() error { return in.KeyPress("A", 50) },
 		func() error { return in.KeyDown("A") },
 		func() error { return in.KeyUp("A") },
 		func() error { return in.Click(0.5, 0.5, "left", 50) },

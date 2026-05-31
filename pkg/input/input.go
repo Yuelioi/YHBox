@@ -228,26 +228,6 @@ func keyLParam(vk uint32, keyUp bool) uintptr {
 	return lp
 }
 
-// Tap 瞬时按键（抛竿 F、收线 F、Esc 等）。
-//   - activateDelay: FakeActivate 后等 Slate 翻 IsActive 的时间
-//   - hold:          DOWN 到 UP 的间隔
-func Tap(hwnd win.HWND, key string, hold, activateDelay time.Duration) bool {
-	vk := VK(key)
-	if vk == 0 {
-		return false
-	}
-	FakeActivate(hwnd)
-	if activateDelay > 0 {
-		time.Sleep(activateDelay)
-	}
-	postMessage(hwnd, WM_KEYDOWN, uintptr(vk), keyLParam(vk, false))
-	if hold > 0 {
-		time.Sleep(hold)
-	}
-	postMessage(hwnd, WM_KEYUP, uintptr(vk), keyLParam(vk, true))
-	return true
-}
-
 // KeyDown 按下键不松（溜鱼长按 A/D）。
 func KeyDown(hwnd win.HWND, key string) bool {
 	vk := VK(key)

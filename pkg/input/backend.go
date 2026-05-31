@@ -1,5 +1,5 @@
 // Package input/backend 定义 Backend 接口给 ContainerRunner per-container 选 input impl.
-// 现有 package-level Click/KeyPress/... 函数 (input.go) 保留 — 老 bot 代码 (tools/*) 还在用.
+// package-level 原语 (Click/KeyDown/KeyUp/ReleaseAll... input.go) 由 PostMessageBackend 调.
 // Backend interface 是 ContainerRunner 唯一通路.
 //
 // Backend 必须 stateful — KeyDown/Up/MouseDown/Up 后必须能 ReleaseAll 知道放谁.
@@ -28,7 +28,6 @@ type Backend interface {
 	// 输入操作 — hwnd 是当前 container 的目标窗口.
 	// xRatio/yRatio 是 0-1 客户区比例, backend 自己 * ClientSize 拿像素.
 	Click(hwnd win.HWND, xRatio, yRatio float64, button string, durMs int) error
-	KeyPress(hwnd win.HWND, vk string, durMs int) error
 	KeyDown(hwnd win.HWND, vk string) error
 	KeyUp(hwnd win.HWND, vk string) error
 	MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error
