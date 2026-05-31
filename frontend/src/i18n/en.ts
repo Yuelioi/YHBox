@@ -753,6 +753,7 @@ export default {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+        MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = slide over then click' },
         DurationMs: { label: 'Duration (ms)' },
       },
       output: { Done: { label: 'Done' } },

@@ -774,6 +774,7 @@ export default {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+        MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移到点; >0=先滑过去再点' },
         DurationMs: { label: '时长 (ms)' },
       },
       output: { Done: { label: '完成' } },
