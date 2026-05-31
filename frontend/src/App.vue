@@ -38,8 +38,6 @@
 
       </div>
 
-    <!-- 全局 CalibratorModal：供 NodeInspector MouseCalibration 节点触发 -->
-    <CalibratorModal v-model:open="globalCalibOpen" @save="onGlobalCalibSave" />
 
     <!-- 全局 ConfirmDialog：useConfirm() Promise API 触发 -->
     <ConfirmDialog
@@ -53,13 +51,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTitleBar from './components/AppTitleBar.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import LogPanel from './components/LogPanel.vue'
 import AppStatusBar from './components/AppStatusBar.vue'
-import CalibratorModal from './components/calibration/CalibratorModal.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import { useConfirm } from './composables/useConfirm'
 import { useSettingsStore } from './stores/settings'
@@ -67,9 +64,6 @@ import { setLocale, type Locale } from './i18n'
 
 const route = useRoute()
 const settingsStore = useSettingsStore()
-
-const globalCalibOpen = ref(false)
-let pendingSave: ((counts: number) => void) | null = null
 
 // 全局 ConfirmDialog 单例 state
 const { state: confirmState, resolveActive } = useConfirm()
@@ -79,26 +73,6 @@ function onConfirmDialogUpdateOpen(v: boolean) {
     resolveActive(confirmState.opts.inputDefault !== undefined ? '' : false)
   }
 }
-
-function handleOpenEvent(e: Event) {
-  const detail = (e as CustomEvent).detail
-  pendingSave = detail?.onSave ?? null
-  globalCalibOpen.value = true
-}
-
-function onGlobalCalibSave(counts: number) {
-  if (pendingSave) {
-    pendingSave(counts)
-    pendingSave = null
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('open-calibrator-modal', handleOpenEvent)
-})
-onUnmounted(() => {
-  window.removeEventListener('open-calibrator-modal', handleOpenEvent)
-})
 
 // 子窗口模式（不包主壳）:
 //   meta.standalone — MouseHUD / ScreenPicker / RecordingHUD 老路径

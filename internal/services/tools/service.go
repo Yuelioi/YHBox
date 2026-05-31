@@ -9,6 +9,8 @@ import (
 	"github.com/lxn/win"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"yhbox/pkg/winutil"
 )
 
 // GameProvider 由 main.go 注入，返当前游戏 hwnd + client 尺寸。
@@ -24,6 +26,10 @@ type Service struct {
 	app            *application.App // 后注入（wailsApp 创建后才有）
 	hud            *application.WebviewWindow
 	recordingHUD   *application.WebviewWindow
+	calibratorHUD  *application.WebviewWindow
+	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
+	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
+	onCalibratorClose func()
 	// pickerWindows: requestID → window，方便复用（同 id 重开聚焦旧窗口）
 	pickerWindows map[string]*application.WebviewWindow
 	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
@@ -155,6 +161,75 @@ func (s *Service) OpenRecordingHUD() error {
 		s.recordingHUD = nil
 		s.mu.Unlock()
 	})
+	return nil
+}
+
+// SetCalibratorCloseHandler main.go 注入: 校准 HUD 窗关闭时卸 F8 钩 + 停 session。
+func (s *Service) SetCalibratorCloseHandler(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onCalibratorClose = fn
+}
+
+// OpenCalibratorHUD 打开独立置顶校准窗 (frameless + AlwaysOnTop), 并自动把目标游戏窗口置前
+// (用户不用自己 alt-tab)。检测不到游戏窗口 → 返 error 让前端提示。requestID 透到窗口 URL,
+// 校准完成时窗口 emit 'calibration:result' 带 id 给调用方匹配。已开则 focus。
+func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
+	app := s.wailsApp()
+	if app == nil {
+		return false, fmt.Errorf("wails app 未初始化")
+	}
+	hwnd, _, _, ok := s.game.GameHWND()
+	if !ok || hwnd == 0 {
+		return false, fmt.Errorf("未检测到目标游戏窗口, 先在容器里捕获游戏窗口再校准")
+	}
+	s.mu.Lock()
+	if s.calibratorHUD != nil {
+		w := s.calibratorHUD
+		s.mu.Unlock()
+		w.Focus()
+		winutil.BringToFront(hwnd) // 仍把游戏置前
+		return true, nil
+	}
+	s.mu.Unlock()
+
+	hashURL := "/#/tools/calibration-hud?id=" + url.QueryEscape(requestID)
+	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:            "鼠标校准",
+		Width:            360,
+		Height:           220,
+		URL:              hashURL,
+		Frameless:        true,
+		AlwaysOnTop:      true,
+		DisableResize:    true,
+		BackgroundColour: application.NewRGB(18, 18, 18),
+	})
+	s.mu.Lock()
+	s.calibratorHUD = w
+	s.mu.Unlock()
+	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		s.mu.Lock()
+		s.calibratorHUD = nil
+		cb := s.onCalibratorClose
+		s.mu.Unlock()
+		if cb != nil {
+			cb() // 兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都走这)
+		}
+	})
+	// 窗口建好后把游戏置前 — HUD 是 AlwaysOnTop 仍浮在游戏上, 但焦点给游戏 (鼠标转动才进游戏)。
+	winutil.BringToFront(hwnd)
+	return true, nil
+}
+
+// CloseCalibratorHUD 前端校准完成/取消时调, 让后端关窗 (前端拿不到 self handle)。幂等。
+func (s *Service) CloseCalibratorHUD() error {
+	s.mu.Lock()
+	w := s.calibratorHUD
+	s.calibratorHUD = nil
+	s.mu.Unlock()
+	if w != nil {
+		w.Close()
+	}
 	return nil
 }
 

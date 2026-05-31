@@ -360,6 +360,11 @@ func main() {
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
 	toolsSvc := tools.NewService(&toolsGameAdapter{app: app})
+	// 校准 HUD 窗关闭兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都覆盖, 不依赖前端正常关)。
+	toolsSvc.SetCalibratorCloseHandler(func() {
+		calibrationSvc.StopHotkeyWatch()
+		_, _ = calibrationSvc.Stop()
+	})
 	// 窗口捕获键走热键中心: 捕获时读 tools.window-capture 当前绑定 (mods+vk)，回退 F9。
 	toolsSvc.SetCaptureHotkeyGetter(func() (uint32, uint32) {
 		e, ok := hotkeyRegistry.Get("tools.window-capture")

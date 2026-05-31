@@ -155,9 +155,6 @@
         <li>{{ t('settings.input.howto.step_save') }}</li>
       </ol>
     </section>
-
-    <!-- 校准 Modal -->
-    <CalibratorModal v-model:open="calibratorOpen" @save="onCalibratorSaved" />
   </div>
 </template>
 
@@ -167,9 +164,9 @@ import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { useSettingsStore, type MouseProfile } from '@/stores/settings'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import CalibratorModal from '@/components/calibration/CalibratorModal.vue'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
+import { awaitWailsEvent } from '@/composables/useWailsEvent'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -271,18 +268,18 @@ async function onSyncAll() {
   }
 }
 
-// 校准窗：记住正在校准哪一档, 存好后把 counts 写回那一档。
-const calibratorOpen = ref(false)
-const calibratingIndex = ref<number>(-1)
-
-function openCalibratorFor(i: number) {
-  calibratingIndex.value = i
-  calibratorOpen.value = true
-}
-
-async function onCalibratorSaved(counts: number) {
-  const i = calibratingIndex.value
+// 校准：开独立置顶校准 HUD 窗 (后端自动把游戏置前), 等它 emit 结果写回这一档。
+async function openCalibratorFor(i: number) {
   if (i < 0 || i >= profiles.value.length) return
-  await updateCounts(i, counts)
+  const id = 'calib-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
+  const ok = await backend.tools.openCalibratorHUD(id)
+  if (!ok) return // 没检测到游戏窗口等 → invoke 已 toast
+  const r = await awaitWailsEvent<{ id: string; counts?: number; cancelled?: boolean }>(
+    'calibration:result',
+    (p) => p?.id === id,
+  )
+  if (!r.cancelled && typeof r.counts === 'number' && r.counts > 0) {
+    await updateCounts(i, r.counts)
+  }
 }
 </script>

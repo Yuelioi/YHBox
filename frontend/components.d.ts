@@ -15,7 +15,6 @@ declare module 'vue' {
     AppStatusBar: typeof import('./src/components/AppStatusBar.vue')['default']
     AppTitleBar: typeof import('./src/components/AppTitleBar.vue')['default']
     BotControls: typeof import('./src/components/BotControls.vue')['default']
-    CalibratorModal: typeof import('./src/components/calibration/CalibratorModal.vue')['default']
     ClipTimeline: typeof import('./src/components/containers/ClipTimeline.vue')['default']
     ComingSoonCard: typeof import('./src/components/ComingSoonCard.vue')['default']
     ComingSoonSection: typeof import('./src/components/library/ComingSoonSection.vue')['default']

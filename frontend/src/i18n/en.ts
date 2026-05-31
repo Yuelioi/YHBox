@@ -1749,6 +1749,9 @@ export default {
     save_or_retest: 'Click "Save" below to write the local baseline; or press {hk} to retest',
     save_with_value: 'Save ({value})',
     service_failed: 'Calibration service failed to start (port in use?)',
+    hud: {
+      press_to_start: 'Switched to game — press {hk} to start calibration',
+    },
   },
   var: {
     title: 'Variables',

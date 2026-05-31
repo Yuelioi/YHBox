@@ -32,6 +32,12 @@ const routes = [
     component: () => import('@/views/tools/RecordingHUDView.vue'),
     meta: { standalone: true },
   },
+  {
+    path: '/tools/calibration-hud',
+    name: 'calibration-hud',
+    component: () => import('@/views/tools/CalibrationHUDView.vue'),
+    meta: { standalone: true },
+  },
 ]
 
 export const router = createRouter({

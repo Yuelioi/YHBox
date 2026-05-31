@@ -543,6 +543,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, toRef } from 'vue'
 import { Events } from '@wailsio/runtime'
+import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
 // v4: ExpressionInput no longer imported — v3 'expr' field type removed in nodeFieldSchemas
@@ -694,14 +695,17 @@ const isCalibrationForeign = computed(() => {
   return nodeVal > 0 && globalCounts360.value > 0 && nodeVal !== globalCounts360.value
 })
 
-function onOpenCalibrator() {
+async function onOpenCalibrator() {
   if (!props.node) return
-  window.dispatchEvent(new CustomEvent('open-calibrator-modal', {
-    detail: {
-      // 正源 config.literal.Counts360 (runtime PinInt 读它, 无小写 fallback) — 走 setMcCounts。
-      onSave: (counts: number) => setMcCounts(counts),
-    },
-  }))
+  // 开独立置顶校准 HUD 窗 (后端自动把游戏置前), 等结果写进本节点 config.literal.Counts360。
+  const id = 'calib-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
+  const ok = await backend.tools.openCalibratorHUD(id)
+  if (!ok) return // 没检测到游戏窗口等 → invoke 已 toast
+  const r = await awaitWailsEvent<{ id: string; counts?: number; cancelled?: boolean }>(
+    'calibration:result',
+    (p) => p?.id === id,
+  )
+  if (!r.cancelled && typeof r.counts === 'number' && r.counts > 0) setMcCounts(r.counts)
 }
 
 // Plan B Task E.8: FOREIGN warning 旁加"同步所有容器"按钮

@@ -341,6 +341,8 @@ export const backend = {
     openMouseHUD: () => invoke(ToolsService.OpenMouseHUD),
     openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
+    openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
+    closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
     openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string, containerID = '') =>
       invoke(ToolsService.OpenScreenPicker, mode, id, containerID),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
