@@ -155,6 +155,24 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 	_ = r.Unregister("action.abc")
 }
 
+func TestUpdateContainerPersistsViaCallback(t *testing.T) {
+	mgr := NewHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+	var gotID, gotStr string
+	r.SetContainerHotkeyChange(func(containerID, newStr string) error {
+		gotID, gotStr = containerID, newStr
+		return nil
+	})
+	_ = r.Register("container.abc", HotkeySourceContainer, "C", nil, "", "", func() {})
+	if err := r.Update("container.abc", "Ctrl+Shift+Alt+F7"); err != nil {
+		t.Fatal(err)
+	}
+	if gotID != "abc" || gotStr != "Ctrl+Shift+Alt+F7" {
+		t.Errorf("container callback got (%q, %q), want (abc, Ctrl+Shift+Alt+F7)", gotID, gotStr)
+	}
+	_ = r.Unregister("container.abc")
+}
+
 func TestRegistry_RegisterEditorBasic(t *testing.T) {
 	mgr := NewHotkeyManager()
 	r := NewHotkeyRegistry(mgr)

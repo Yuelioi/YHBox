@@ -293,6 +293,17 @@ func main() {
 	containerHotkeys.Refresh()
 	containerSvc.SetOnChange(containerHotkeys.Refresh)
 
+	// 容器热键在「快捷键」中心页 rebind → 回写 container.json (直接 store.Save, 不走 service.Update
+	// 以免 emitChange→Refresh→registry 再抢锁死锁; registry entry 已由 Update 更新, 两边一致)。
+	hotkeyRegistry.SetContainerHotkeyChange(func(containerID, newStr string) error {
+		c, ok := containerStore.Get(containerID)
+		if !ok {
+			return nil
+		}
+		c.Hotkey = newStr
+		return containerStore.Save(&c)
+	})
+
 	// ScheduleDaemon：注册 enabled schedules 到 cron/hotkey/once，触发后入 queue
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
 	scheduleDaemon := schedule.NewDaemon(scheduleStore, execQueue, scheduleHotkeyAdapter)

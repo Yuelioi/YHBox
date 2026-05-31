@@ -90,9 +90,10 @@ type HotkeyRegistry struct {
 	paused  bool // Pause 暂停所有 OS hotkey 时为 true
 
 	// 持久化回调（构造后由 SetCallbacks 注入）
-	onActionHotkeyChange func(actionID, newStr string) error
-	onSystemHotkeyChange func(key, newStr string) error
-	emitChanged          func()
+	onActionHotkeyChange    func(actionID, newStr string) error
+	onSystemHotkeyChange    func(key, newStr string) error
+	onContainerHotkeyChange func(containerID, newStr string) error
+	emitChanged             func()
 }
 
 // NewHotkeyRegistry 构造。
@@ -114,6 +115,14 @@ func (r *HotkeyRegistry) SetCallbacks(
 	r.onActionHotkeyChange = onAction
 	r.onSystemHotkeyChange = onSystem
 	r.emitChanged = emit
+}
+
+// SetContainerHotkeyChange 注入容器热键持久化回调 (main.go 在 containerStore 就绪后调)。
+// 跟 onSystemHotkeyChange 平行 — 容器源热键 rebind 时回写 container.json。
+func (r *HotkeyRegistry) SetContainerHotkeyChange(fn func(containerID, newStr string) error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onContainerHotkeyChange = fn
 }
 
 // Register 注册新 entry。
@@ -231,6 +240,11 @@ func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 		case HotkeySourceSystem, HotkeySourceRecording:
 			if r.onSystemHotkeyChange != nil {
 				_ = r.onSystemHotkeyChange(key, entry.spec.HotkeyStr)
+			}
+		case HotkeySourceContainer:
+			containerID := strings.TrimPrefix(key, "container.")
+			if r.onContainerHotkeyChange != nil {
+				_ = r.onContainerHotkeyChange(containerID, entry.spec.HotkeyStr)
 			}
 		}
 	}
