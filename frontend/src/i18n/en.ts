@@ -1112,10 +1112,10 @@ export default {
       },
       output: { Fire: { label: 'Fire' } },
       inspector: {
-        capture_waiting: 'Waiting for F9 (click again to cancel)',
-        capture_start: 'Capture target window (press F9)',
-        capture_hint_a: 'Click, then switch to the game window and press F9 to capture title/class/processName.',
-        capture_hint_b: 'If F9 is intercepted by the game anti-cheat, contact the developer for another key (1.0 hard-codes F9).',
+        capture_waiting: 'Waiting for {hk} (click again to cancel)',
+        capture_start: 'Capture target window (press {hk})',
+        capture_hint_a: 'Click, then switch to the game window and press {hk} to capture title/class/processName.',
+        capture_hint_b: 'Key clashes with other software? Change it under Settings → Hotkeys → System → Window capture.',
         match_section: 'Window match (match)',
         title_label: 'Title (title)',
         title_placeholder: 'Where Winds Meet',
@@ -1238,14 +1238,28 @@ export default {
       unbound: 'Unbound',
     },
     empty: 'No matching hotkey',
+    reset_system: 'Reset defaults',
+    clear_containers: 'Clear container hotkeys',
     toast: {
       bound: 'Bound to {hk}',
       cleared: 'Hotkey cleared',
+      reset_done: 'Built-in hotkeys reset to defaults',
+      containers_cleared: 'Cleared {n} container hotkey(s)',
+      containers_none: 'No container has a hotkey set',
+    },
+    confirm: {
+      reset_title: 'Reset built-in hotkeys?',
+      reset_desc: 'Strong-stop / calibrate / recording stop / recording pause will return to factory defaults. Container hotkeys are unaffected.',
+      reset_ok: 'Reset',
+      clear_title: 'Clear all container hotkeys?',
+      clear_desc: 'Every container hotkey binding will be removed (containers and blueprints are kept). This cannot be undone.',
+      clear_ok: 'Clear',
     },
     label: {
       system: {
         execution_stop: 'Stop all running',
         calibrate_toggle: 'DPI calibration toggle',
+        window_capture: 'Window capture (press key to grab game window)',
       },
       recording: {
         stop: 'Stop recording',

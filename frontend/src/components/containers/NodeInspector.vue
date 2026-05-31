@@ -298,10 +298,10 @@
           block
           @click="toggleWindowCapture"
         >
-          {{ capturing ? t('node.WindowTarget.inspector.capture_waiting') : t('node.WindowTarget.inspector.capture_start') }}
+          {{ capturing ? t('node.WindowTarget.inspector.capture_waiting', { hk: captureHk }) : t('node.WindowTarget.inspector.capture_start', { hk: captureHk }) }}
         </UButton>
         <p class="text-xs text-dimmed mt-1">
-          {{ t('node.WindowTarget.inspector.capture_hint_a') }}
+          {{ t('node.WindowTarget.inspector.capture_hint_a', { hk: captureHk }) }}
           {{ t('node.WindowTarget.inspector.capture_hint_b') }}
         </p>
       </div>
@@ -531,6 +531,7 @@ import StructuredInput from './inline/StructuredInput.vue'
 import { unconnectedDataInPins } from '@/composables/containerEditor/pinLiterals'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useEditorBusStore } from '@/stores/editorBus'
 import { useClipsStore } from '@/stores/clips'
@@ -913,6 +914,9 @@ const captureBackendOptions = computed(() => [
 
 const capturing = ref(false)
 const captureID = ref('')
+// 窗口捕获键: 读热键中心 tools.window-capture 实时绑定 (用户可在「快捷键」页 rebind), 回退 F9。
+const hotkeysStore = useHotkeysStore()
+const captureHk = computed(() => hotkeysStore.keyFor('tools.window-capture', 'F9'))
 
 // 点按钮: 开 capture session → backend 注册 F9 全局热键; 或 cancel 已开的 session.
 // 跟旧同步流程不同 — 这里立刻返回 captureID, 真正捕获在 'windowtarget:captured' event.
@@ -930,7 +934,7 @@ async function toggleWindowCapture() {
     return
   }
   try {
-    const id = (await backend.tools.startWindowTargetCapture(0x78)) as string // VK_F9
+    const id = (await backend.tools.startWindowTargetCapture()) as string
     captureID.value = id
     capturing.value = true
   } catch (e: any) {

@@ -26,6 +26,9 @@ type Service struct {
 	recordingHUD   *application.WebviewWindow
 	// pickerWindows: requestID → window，方便复用（同 id 重开聚焦旧窗口）
 	pickerWindows map[string]*application.WebviewWindow
+	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
+	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWindowTargetCapture 回退 F9。
+	captureHotkey func() (mods, vk uint32)
 }
 
 func NewService(game GameProvider) *Service {
@@ -40,6 +43,14 @@ func (s *Service) SetApp(app *application.App) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.app = app
+}
+
+// SetCaptureHotkeyGetter main.go 注入「窗口捕获」键读取器（从 hotkey registry 读
+// tools.window-capture 当前绑定）。让捕获键统一走热键中心、可 rebind，不再硬编 F9。
+func (s *Service) SetCaptureHotkeyGetter(fn func() (mods, vk uint32)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.captureHotkey = fn
 }
 
 func (s *Service) wailsApp() *application.App {
@@ -220,25 +231,34 @@ func (s *Service) ClosePicker(requestID string) error {
 
 // --- WindowTarget capture (F9 global hotkey, async via event) ---
 
-// StartWindowTargetCapture 注册 F9 (或指定 VK) 全局热键, 用户按下后:
+// StartWindowTargetCapture 注册「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
+// 用户按下后:
 //  1. 查前台窗口 metadata
 //  2. emit "windowtarget:captured" event {title, class, processName, clientW, clientH}
 //  3. 自动反注册热键
 //
+// 键来源 = SetCaptureHotkeyGetter 注入的 registry 绑定值 (mods+vk); 未注入回退 F9。
 // 同时只能一个 capture session. 用户多次开启需要先 CancelWindowTargetCapture.
 // 返 captureID 给前端用来 cancel.
 //
-// 流程: 前端 NodeInspector 点 "捕获" → 调本 RPC → 用户 Alt-Tab 到游戏 → 按 F9
+// 流程: 前端 NodeInspector 点 "捕获" → 调本 RPC → 用户 Alt-Tab 到游戏 → 按该键
 // → 前端收 event 填表. 取代旧 CaptureForegroundWindow (用户在游戏前台时无法点按钮).
-func (s *Service) StartWindowTargetCapture(hotkeyVK uint32) (string, error) {
-	if hotkeyVK == 0 {
-		hotkeyVK = 0x78 // VK_F9
+func (s *Service) StartWindowTargetCapture() (string, error) {
+	var mods, vk uint32
+	s.mu.Lock()
+	getter := s.captureHotkey
+	s.mu.Unlock()
+	if getter != nil {
+		mods, vk = getter()
+	}
+	if vk == 0 {
+		mods, vk = 0, 0x78 // VK_F9 回退
 	}
 	app := s.wailsApp()
 	if app == nil {
 		return "", errors.New("wails app 未初始化, 无法 emit event")
 	}
-	return startWindowTargetCapture(hotkeyVK, func(name string, data any) {
+	return startWindowTargetCapture(mods, vk, func(name string, data any) {
 		app.Event.Emit(name, data)
 	})
 }

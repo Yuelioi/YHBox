@@ -1,13 +1,42 @@
 package hotkey
 
+import (
+	"fmt"
+	"strings"
+)
+
 // HotkeyService 是 wails3 binding RPC 入口，前端通过它读/改热键。
 // 所有 mutation 都走 HotkeyRegistry，由它做 reserved / conflict / 持久化 / emit。
 type HotkeyService struct {
-	reg *HotkeyRegistry
+	reg            *HotkeyRegistry
+	systemDefaults map[string]string // 内置热键出厂默认 (key→hotkeyStr)，给 ResetSystemDefaults 用
 }
 
 func NewHotkeyService(reg *HotkeyRegistry) *HotkeyService {
 	return &HotkeyService{reg: reg}
+}
+
+// SetSystemDefaults 注入内置热键的出厂默认值 (key→hotkeyStr)。main.go 启动期调一次。
+// 「重置默认」只覆盖这些 key — 容器 / action / schedule 是用户数据，不在内。
+func (s *HotkeyService) SetSystemDefaults(d map[string]string) { s.systemDefaults = d }
+
+// ResetSystemDefaults 把所有内置热键恢复出厂默认 (强停 / 校准 / 录制停止 / 录制暂停)。
+// 两遍：先全清再逐条设默认 —— 避免新旧默认值跟当前自定义值瞬时冲突 (e.g. 用户把两个键对调)。
+// 逐条走 registry.Update → 各自持久化 + emit。容器热键不动。
+func (s *HotkeyService) ResetSystemDefaults() error {
+	for key := range s.systemDefaults {
+		_ = s.reg.Update(key, "")
+	}
+	var errs []string
+	for key, def := range s.systemDefaults {
+		if err := s.reg.Update(key, def); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", key, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("部分重置失败: %s", strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 // List 返回所有 hotkey entry 给前端"快捷键" tab 渲染。

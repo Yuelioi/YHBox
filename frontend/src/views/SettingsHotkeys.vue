@@ -1,12 +1,30 @@
 <template>
   <div class="px-8 py-6 space-y-5">
-    <!-- 搜索框 -->
-    <UInput
-      v-model="searchText"
-      :placeholder="t('hotkeys.search_placeholder')"
-      icon="i-tabler-search"
-      class="w-full"
-    />
+    <!-- 搜索框 + 批量操作 -->
+    <div class="flex items-center gap-2">
+      <UInput
+        v-model="searchText"
+        :placeholder="t('hotkeys.search_placeholder')"
+        icon="i-tabler-search"
+        class="flex-1"
+      />
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-tabler-restore"
+        @click="onResetSystem"
+      >
+        {{ t('hotkeys.reset_system') }}
+      </UButton>
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-tabler-eraser"
+        @click="onClearContainers"
+      >
+        {{ t('hotkeys.clear_containers') }}
+      </UButton>
+    </div>
 
     <!-- 按 source 分组渲染 -->
     <section
@@ -64,11 +82,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useHotkeysStore } from '@/stores/hotkeys'
+import { useConfirm } from '@/composables/useConfirm'
+import { backend } from '@/lib/backend'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 
 const { t } = useI18n()
 const store = useHotkeysStore()
 const toast = useToast()
+const { confirm } = useConfirm()
 const searchText = ref('')
 
 onMounted(() => {
@@ -138,5 +159,39 @@ async function onUpdate(key: string, hotkeyStr: string) {
     })
   }
   // 失败 invoke wrapper 已 toast 带 [conflict]/[reserved]/[invalid] 前缀，不再重复
+}
+
+// 重置内置热键 (强停/校准/录制停止/录制暂停) 为出厂默认。容器热键不动。
+async function onResetSystem() {
+  const ok = await confirm({
+    title: t('hotkeys.confirm.reset_title'),
+    description: t('hotkeys.confirm.reset_desc'),
+    confirmText: t('hotkeys.confirm.reset_ok'),
+    cancelText: t('common.cancel'),
+    color: 'warning',
+  })
+  if (ok !== true) return
+  await backend.hotkeys.resetSystemDefaults()
+  await store.reload()
+  toast.add({ title: t('hotkeys.toast.reset_done'), icon: 'i-tabler-check', color: 'neutral' })
+}
+
+// 清空所有容器的热键绑定 (容器/蓝图保留)。
+async function onClearContainers() {
+  const ok = await confirm({
+    title: t('hotkeys.confirm.clear_title'),
+    description: t('hotkeys.confirm.clear_desc'),
+    confirmText: t('hotkeys.confirm.clear_ok'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (ok !== true) return
+  const n = await backend.containers.clearAllHotkeys()
+  await store.reload()
+  if (typeof n === 'number' && n > 0) {
+    toast.add({ title: t('hotkeys.toast.containers_cleared', { n }), icon: 'i-tabler-check', color: 'neutral' })
+  } else {
+    toast.add({ title: t('hotkeys.toast.containers_none'), icon: 'i-tabler-info-circle', color: 'neutral' })
+  }
 }
 </script>

@@ -50,6 +50,12 @@ type UISettings struct {
 	// ActionStopHotkey 全局打断动作热键（默认 "Ctrl+Shift+F9"）。
 	// 改动需重启生效（main.go 启动期注册一次，不监听 settings 变化）。
 	ActionStopHotkey string `json:"actionStopHotkey"`
+	// CalibrateHotkey DPI 校准启动/停止 toggle 热键（默认 "F8"）。
+	// 「快捷键」页 rebind 经 onSystemHotkeyChange 写回, 启动期 main.go 读这字段注册。
+	CalibrateHotkey string `json:"calibrateHotkey"`
+	// WindowCaptureHotkey 窗口捕获键（默认 "F9"）—— NodeInspector「捕获目标窗口」按下它抓前台游戏窗口。
+	// registry 值持有者条目 (tools.window-capture)，「快捷键」页可 rebind；捕获时临时 OS 注册它。
+	WindowCaptureHotkey string `json:"windowCaptureHotkey"`
 	// RecordingStopHotkey 录制停止热键 (LL hook 拦截, 不透传游戏). 默认 "F12".
 	// 改动需重启生效 (Service 注入 adapter 启动期读一次).
 	RecordingStopHotkey string `json:"recordingStopHotkey"`
@@ -93,6 +99,8 @@ func defaultSettings() *Settings {
 			},
 			Window:              WindowSettings{Width: 1100, Height: 720},
 			ActionStopHotkey:     "Ctrl+Shift+F9",
+			CalibrateHotkey:      "F8",
+			WindowCaptureHotkey:  "F9",
 			RecordingStopHotkey:  "F12",
 			RecordingPauseHotkey: "F11",
 			RecordingMouseMode:   "relative",
@@ -136,6 +144,14 @@ func LoadSettings(path string) *Settings {
 	// 归一：旧 settings 没 actionStopHotkey 字段，回落默认 F9
 	if loaded.UI.ActionStopHotkey == "" {
 		loaded.UI.ActionStopHotkey = "Ctrl+Shift+F9"
+	}
+	// 归一：旧 settings 没 calibrateHotkey 字段，回落默认 F8
+	if loaded.UI.CalibrateHotkey == "" {
+		loaded.UI.CalibrateHotkey = "F8"
+	}
+	// 归一：旧 settings 没 windowCaptureHotkey 字段，回落默认 F9
+	if loaded.UI.WindowCaptureHotkey == "" {
+		loaded.UI.WindowCaptureHotkey = "F9"
 	}
 	// 归一：旧 settings 没 recordingStopHotkey 字段，回落默认 F12
 	if loaded.UI.RecordingStopHotkey == "" {

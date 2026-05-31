@@ -165,6 +165,10 @@ func main() {
 				cur.UI.RecordingStopHotkey = newStr
 			case "recording.pause":
 				cur.UI.RecordingPauseHotkey = newStr
+			case "system.calibrate-toggle":
+				cur.UI.CalibrateHotkey = newStr
+			case "tools.window-capture":
+				cur.UI.WindowCaptureHotkey = newStr
 			default:
 				return nil
 			}
@@ -177,6 +181,15 @@ func main() {
 
 	// 暴露 HotkeyService RPC 给前端
 	hotkeySvc := hotkey.NewHotkeyService(hotkeyRegistry)
+	// 「重置默认」用的内置热键出厂默认 (跟 services.defaultSettings 一致, 也是下方各 Register 的 fallback)。
+	// 容器热键是用户数据, 不在内 — 容器侧另给「一键清空」。
+	hotkeySvc.SetSystemDefaults(map[string]string{
+		"system.execution-stop":   "Ctrl+Shift+F9",
+		"system.calibrate-toggle": "F8",
+		"tools.window-capture":    "F9",
+		"recording.stop":          "F12",
+		"recording.pause":         "F11",
+	})
 
 	// 模板库 (per-container, dataRoot 注入) / Container / Schedule 数据层
 	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{app: app})
@@ -338,15 +351,32 @@ func main() {
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
 	toolsSvc := tools.NewService(&toolsGameAdapter{app: app})
+	// 窗口捕获键走热键中心: 捕获时读 tools.window-capture 当前绑定 (mods+vk)，回退 F9。
+	toolsSvc.SetCaptureHotkeyGetter(func() (uint32, uint32) {
+		e, ok := hotkeyRegistry.Get("tools.window-capture")
+		if !ok || e.HotkeyStr == "" {
+			return 0, 0x78 // VK_F9
+		}
+		mods, vk, err := hotkey.ParseHotkey(e.HotkeyStr)
+		if err != nil || vk == 0 {
+			return 0, 0x78
+		}
+		return mods, vk
+	})
 
-	// DPI 校准 toggle 热键：默认 F8。前端订阅 'calibration:toggle' event 推进状态机。
+	// DPI 校准 toggle 热键：默认 F8，从 settings.UI 读（rebind 经 onSystemHotkeyChange 写回）。
+	// 前端订阅 'calibration:toggle' event 推进状态机。
 	// 注册无副作用——只有 SettingsInput 打开校准对话框时才有效。
+	calibHk := strings.TrimSpace(app.Settings().UI.CalibrateHotkey)
+	if calibHk == "" {
+		calibHk = "F8"
+	}
 	if err := hotkeyRegistry.Register("system.calibrate-toggle", hotkey.HotkeySourceSystem,
-		"hotkeys.label.system.calibrate_toggle", nil, "F8", "",
+		"hotkeys.label.system.calibrate_toggle", nil, calibHk, "",
 		func() {
 			app.Emit("calibration:toggle", nil)
 		}); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("注册 DPI 校准热键失败")
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", calibHk).Msg("注册 DPI 校准热键失败")
 	}
 
 	// 录制热键 (LL-hook 全局拦截, 不占 OS RegisterHotKey — 游戏会 reserve)。
@@ -366,6 +396,18 @@ func main() {
 	if err := hotkeyRegistry.RegisterLLHook("recording.pause", hotkey.HotkeySourceRecording,
 		"hotkeys.label.recording.pause", recPauseHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recPauseHk).Msg("注册暂停录制热键失败")
+	}
+
+	// 窗口捕获键 (NodeInspector「捕获目标窗口」按下它抓前台游戏窗口)。
+	// 值持有者条目 (mechanism=ll-hook, 不持久占 OS) — 进热键中心可见 + 可 rebind + 冲突检测；
+	// 真正注册由 toolsSvc 捕获时临时做 (读下方 SetCaptureHotkeyGetter)。默认 F9。
+	winCapHk := strings.TrimSpace(app.Settings().UI.WindowCaptureHotkey)
+	if winCapHk == "" {
+		winCapHk = "F9"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("tools.window-capture", hotkey.HotkeySourceSystem,
+		"hotkeys.label.system.window_capture", winCapHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", winCapHk).Msg("注册窗口捕获热键失败")
 	}
 
 	wailsServices = append(wailsServices,

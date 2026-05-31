@@ -16,9 +16,10 @@ import (
 
 // captureSession 一次 capture 调用的状态. 同时只能有一个.
 type captureSession struct {
-	id       string
-	hotkeyVK uint32
-	threadID uint32        // 给 PostThreadMessage 用; worker 启动后写一次, 之后只读
+	id         string
+	hotkeyMods uint32
+	hotkeyVK   uint32
+	threadID   uint32        // 给 PostThreadMessage 用; worker 启动后写一次, 之后只读
 	done     chan struct{} // worker 退出信号
 	cancel   chan struct{} // 主动 cancel 信号 (worker 收到后退出, 不 emit)
 	emit     func(name string, data any)
@@ -32,21 +33,22 @@ var (
 )
 
 // startWindowTargetCapture 注册 hotkey + 起 goroutine 等待按键.
-// 返 captureID 给前端 cancel 用. hotkeyVK 是 Win32 VK_* 码 (例 0x78 = F9).
+// 返 captureID 给前端 cancel 用. hotkeyMods/hotkeyVK 是 Win32 MOD_*/VK_* 码 (例 vk 0x78 = F9).
 // emit 在 hotkey 触发时调 (name="windowtarget:captured", data=map).
 // 同时只能一个 session — 之前的没清就报错.
-func startWindowTargetCapture(hotkeyVK uint32, emit func(name string, data any)) (string, error) {
+func startWindowTargetCapture(hotkeyMods, hotkeyVK uint32, emit func(name string, data any)) (string, error) {
 	captureMu.Lock()
 	if activeCapture != nil {
 		captureMu.Unlock()
 		return "", errors.New("已有 capture session 在等待, 先 cancel")
 	}
 	sess := &captureSession{
-		id:       "wt-capture-" + randID(),
-		hotkeyVK: hotkeyVK,
-		done:     make(chan struct{}),
-		cancel:   make(chan struct{}),
-		emit:     emit,
+		id:         "wt-capture-" + randID(),
+		hotkeyMods: hotkeyMods,
+		hotkeyVK:   hotkeyVK,
+		done:       make(chan struct{}),
+		cancel:     make(chan struct{}),
+		emit:       emit,
 	}
 	activeCapture = sess
 	captureMu.Unlock()
@@ -114,9 +116,9 @@ func (s *captureSession) workerThread(started chan<- error) {
 
 	// RegisterHotKey id 用一个固定值 (一个 session 一个 hotkey, 不冲突)
 	const hotkeyID = 0x9001
-	r, _, err := procRegisterHotKey.Call(0, uintptr(hotkeyID), 0 /* no modifiers */, uintptr(s.hotkeyVK))
+	r, _, err := procRegisterHotKey.Call(0, uintptr(hotkeyID), uintptr(s.hotkeyMods), uintptr(s.hotkeyVK))
 	if r == 0 {
-		started <- fmt.Errorf("RegisterHotKey vk=0x%x: %v", s.hotkeyVK, err)
+		started <- fmt.Errorf("RegisterHotKey mods=0x%x vk=0x%x: %v", s.hotkeyMods, s.hotkeyVK, err)
 		return
 	}
 	defer procUnregisterHotKey.Call(0, uintptr(hotkeyID))

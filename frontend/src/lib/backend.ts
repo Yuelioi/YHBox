@@ -240,6 +240,8 @@ export const backend = {
     syncLocalMouseCalibration: (newCounts: number) =>
       invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
     deleteMany: (ids: string[]) => invoke(ContainerService.DeleteMany, ids),
+    // 「清空容器热键」: 去掉所有容器的热键绑定 (容器/蓝图保留)。返回清掉数量。
+    clearAllHotkeys: () => invoke(ContainerService.ClearAllHotkeys) as Promise<number | undefined>,
     validate: (id: string) =>
       invoke(ContainerService.ValidateContainerByID, id) as Promise<ValidationError[]>,
   },
@@ -290,6 +292,8 @@ export const backend = {
       invoke(HotkeyService.RegisterEditor, key, label, hotkeyStr, readonlyReason),
     // useEditorHotkeys onDeactivated 时调 — 从 registry 摘 editor key.
     unregister: (key: string) => invoke(HotkeyService.Unregister, key),
+    // 「重置默认」: 把内置热键 (强停/校准/录制停止/录制暂停) 恢复出厂默认。容器热键不动。
+    resetSystemDefaults: () => invoke(HotkeyService.ResetSystemDefaults),
   },
   calibration: {
     start: () => invoke(CalibrationService.Start),
@@ -341,8 +345,8 @@ export const backend = {
     // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
     // — 用户在游戏前台时根本点不到 YHBox 按钮.
-    startWindowTargetCapture: (hotkeyVK: number) =>
-      invoke(ToolsService.StartWindowTargetCapture, hotkeyVK),
+    // 捕获键来源 = 后端读热键中心 tools.window-capture 绑定 (可在「快捷键」页 rebind)，不再 FE 传死。
+    startWindowTargetCapture: () => invoke(ToolsService.StartWindowTargetCapture),
     cancelWindowTargetCapture: (id: string) =>
       invoke(ToolsService.CancelWindowTargetCapture, id),
   },

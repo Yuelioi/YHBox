@@ -1133,10 +1133,10 @@ export default {
       },
       output: { Fire: { label: 'Fire' } },
       inspector: {
-        capture_waiting: '等待 F9 按键 (再点取消)',
-        capture_start: '捕获目标窗口 (按 F9)',
-        capture_hint_a: '点开后切到游戏窗口, 按 F9 即可捕获 title/class/processName.',
-        capture_hint_b: '若 F9 被游戏反作弊吞掉, 联系开发者换其他键 (当前 1.0 写死 F9).',
+        capture_waiting: '等待 {hk} 按键 (再点取消)',
+        capture_start: '捕获目标窗口 (按 {hk})',
+        capture_hint_a: '点开后切到游戏窗口, 按 {hk} 即可捕获 title/class/processName.',
+        capture_hint_b: '该键跟其它软件冲突? 去「设置 → 快捷键 → 系统 → 窗口捕获」改键.',
         match_section: '窗口匹配 (match)',
         title_label: '标题 (title)',
         title_placeholder: '异环',
@@ -1259,14 +1259,28 @@ export default {
       unbound: '未绑定',
     },
     empty: '没有匹配的热键',
+    reset_system: '重置默认',
+    clear_containers: '清空容器热键',
     toast: {
       bound: '已绑定 {hk}',
       cleared: '已清除热键',
+      reset_done: '已把内置热键重置为默认',
+      containers_cleared: '已清空 {n} 个容器热键',
+      containers_none: '没有容器设置了热键',
+    },
+    confirm: {
+      reset_title: '重置内置热键？',
+      reset_desc: '强停 / 校准 / 录制停止 / 录制暂停 都会恢复出厂默认。容器热键不受影响。',
+      reset_ok: '重置',
+      clear_title: '清空所有容器热键？',
+      clear_desc: '所有容器的热键绑定都会被移除（容器和蓝图保留）。此操作不可撤销。',
+      clear_ok: '清空',
     },
     label: {
       system: {
         execution_stop: '强停所有运行',
         calibrate_toggle: 'DPI 校准 启动/停止',
+        window_capture: '窗口捕获 (按键抓游戏窗口)',
       },
       recording: {
         stop: '停止录制',
