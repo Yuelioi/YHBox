@@ -825,6 +825,16 @@ export default {
       },
       output: { Done: { label: '完成' } },
     },
+    MouseMoveTo: {
+      label: '鼠标移动到',
+      description: '把光标滑到客户区比例坐标 (XRatio,YRatio), 不点击. MoveMs=0 瞬移, >0 在该时长内滑过去.',
+      input: {
+        XRatio: { label: 'X 比例' },
+        YRatio: { label: 'Y 比例' },
+        MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移; >0=在此时长内可见地滑过去' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     OnEvent: {
       label: '事件监听',
       description: 'listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',

@@ -804,6 +804,16 @@ export default {
       },
       output: { Done: { label: 'Done' } },
     },
+    MouseMoveTo: {
+      label: 'Mouse Move To',
+      description: 'Slide the cursor to client-ratio (XRatio,YRatio) without clicking. MoveMs=0 teleports, >0 slides over that duration.',
+      input: {
+        XRatio: { label: 'X ratio' },
+        YRatio: { label: 'Y ratio' },
+        MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = visible slide' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     OnEvent: {
       label: 'On event',
       description: 'Listener node — periodically Detect-hits a condition → spawns a child runner for the Out descendants. No exec-in.',
