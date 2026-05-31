@@ -1,69 +1,73 @@
 <template>
-  <!-- 录制控制 HUD: 260×96 Frameless + AlwaysOnTop + 透明背景 (BackgroundTypeTransparent).
-       卡片外是真透明 (露桌面/游戏, 修圆角黑角); 卡片本体半透明玻璃 (bg-*/85 + backdrop-blur).
-       态:
-         - countdown: 单行大数字 3/2/1 (主窗口 'recording:countdown')
-         - recording: 双行 — REC 红点+计时+模式 / 暂停·停止 / F12 hint
-         - paused:    双行 — ‖ 已暂停+冻结计时+模式 / 继续·停止 / F12 hint
-         - idle:      启动期兜底 (一般看不到) -->
-  <div class="h-screen w-screen flex items-center justify-center select-none p-1.5">
-    <!-- resume countdown (继续录制前的 3s 倒计时; 优先于 paused 卡片显示) -->
-    <div
-      v-if="resumeCountdown > 0"
-      class="w-full rounded-xl bg-zinc-900/85 backdrop-blur border border-success/60 px-3 py-2 flex items-center gap-2 shadow-lg"
+  <!-- 录制控制 HUD: 360×200 实心盒子窗 (Frameless + AlwaysOnTop), 跟校准窗同风格.
+       标题栏 / 大号状态 + 计时 / 底栏按钮.
+       态: countdown(3/2/1) · recording · paused · idle(兜底). -->
+  <div class="h-screen w-screen bg-default flex flex-col select-none">
+    <header
+      class="flex items-center gap-2 px-3 py-2 border-b border-default shrink-0"
       style="--wails-draggable: drag"
     >
-      <UIcon name="i-tabler-player-play-filled" class="size-4 text-success animate-pulse shrink-0" />
-      <span class="text-[11px] text-success tracking-wide shrink-0">继续录制</span>
-      <span class="text-3xl text-success font-bold tabular-nums leading-none ml-0.5">{{ resumeCountdown }}</span>
-      <span class="text-[11px] text-zinc-400 shrink-0">秒后继续 · 切到游戏</span>
+      <UIcon name="i-tabler-video" class="size-4 text-error" />
+      <h3 class="text-xs font-medium text-highlighted">鼠标录制</h3>
+      <span class="ml-auto" />
+      <UButton
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        icon="i-tabler-x"
+        style="--wails-draggable: no-drag"
+        title="关闭悬浮窗 (录制不停, 仍可按热键停)"
+        @click="onCloseHud"
+      />
+    </header>
+
+    <div class="flex-1 min-h-0 flex flex-col items-center justify-center px-4 text-center gap-1">
+      <!-- resume countdown (继续录制前的 3s 倒计时; 优先于 paused 显示) -->
+      <template v-if="resumeCountdown > 0">
+        <UIcon name="i-tabler-player-play-filled" class="size-6 text-success animate-pulse" />
+        <div class="text-4xl font-mono tabular-nums text-success">{{ resumeCountdown }}</div>
+        <p class="text-[11px] text-success/80">秒后继续 · 切到游戏</p>
+      </template>
+
+      <!-- countdown -->
+      <template v-else-if="state === 'countdown'">
+        <span class="text-[11px] text-primary">{{ modeLabel }}</span>
+        <div class="text-5xl font-mono tabular-nums text-primary">{{ countdownSec }}</div>
+        <p class="text-[11px] text-dimmed">秒后开始 · 切到游戏</p>
+      </template>
+
+      <!-- recording / paused -->
+      <template v-else-if="state === 'recording' || state === 'paused'">
+        <div class="flex items-center gap-2">
+          <template v-if="state === 'recording'">
+            <span class="size-2.5 rounded-full bg-error animate-pulse" />
+            <span class="text-xs text-error font-semibold">REC</span>
+          </template>
+          <template v-else>
+            <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-amber-400" />
+            <span class="text-xs text-amber-400 font-semibold">已暂停</span>
+          </template>
+        </div>
+        <div class="text-4xl font-mono tabular-nums text-highlighted">{{ elapsedLabel }}</div>
+        <p v-if="modeLabel" class="text-[10px] text-dimmed">{{ modeLabel }}</p>
+      </template>
+
+      <!-- idle 兜底 -->
+      <template v-else>
+        <UIcon name="i-tabler-loader" class="size-5 text-dimmed animate-spin" />
+        <p class="text-[11px] text-dimmed">准备录制...</p>
+      </template>
     </div>
 
-    <!-- countdown -->
-    <div
-      v-else-if="state === 'countdown'"
-      class="w-full rounded-xl bg-zinc-900/85 backdrop-blur border border-primary/60 px-3 py-2 flex items-center gap-2 shadow-lg"
-      style="--wails-draggable: drag"
-    >
-      <UIcon name="i-tabler-circle-dot" class="size-4 text-primary animate-pulse shrink-0" />
-      <span class="text-[11px] text-primary tracking-wide shrink-0">{{ modeLabel }}</span>
-      <span class="text-3xl text-primary font-bold tabular-nums leading-none ml-0.5">{{ countdownSec }}</span>
-      <span class="text-[11px] text-zinc-400 shrink-0">秒后开始 · 切到游戏</span>
-    </div>
-
-    <!-- recording / paused: 双行卡片 -->
-    <div
-      v-else-if="state === 'recording' || state === 'paused'"
-      class="w-full rounded-xl bg-zinc-900/85 backdrop-blur px-3 py-2 flex flex-col gap-1.5 border shadow-lg"
-      :class="state === 'paused' ? 'border-amber-500/50' : 'border-error/50'"
-      style="--wails-draggable: drag"
-    >
-      <!-- 第一行: 状态 + 计时 + 模式 -->
-      <div class="flex items-center gap-2">
-        <template v-if="state === 'recording'">
-          <span class="size-2.5 rounded-full bg-error animate-pulse shrink-0" />
-          <span class="text-xs text-error font-semibold shrink-0">REC</span>
-        </template>
-        <template v-else>
-          <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-amber-400 shrink-0" />
-          <span class="text-xs text-amber-400 font-semibold shrink-0">已暂停</span>
-        </template>
-        <span class="text-sm text-zinc-100 font-mono tabular-nums">{{ elapsedLabel }}</span>
-        <div class="flex-1" />
-        <span v-if="modeLabel" class="text-[10px] text-zinc-400 shrink-0">{{ modeLabel }}</span>
-      </div>
-
-      <!-- 第二行: 暂停/继续 + 停止 -->
-      <div class="flex items-center gap-1.5">
+    <footer class="flex items-center gap-2 px-3 py-2 border-t border-default shrink-0">
+      <template v-if="state === 'recording' || state === 'paused'">
         <UButton
           v-if="state === 'recording'"
           size="xs"
           color="warning"
           variant="soft"
           icon="i-tabler-player-pause-filled"
-          block
-          class="flex-1"
-          style="--wails-draggable: no-drag"
+          class="flex-1 justify-center"
           @click="onPause"
         >暂停</UButton>
         <UButton
@@ -72,9 +76,7 @@
           color="success"
           variant="soft"
           icon="i-tabler-player-play-filled"
-          block
-          class="flex-1"
-          style="--wails-draggable: no-drag"
+          class="flex-1 justify-center"
           @click="onResume"
         >继续</UButton>
         <UButton
@@ -82,27 +84,14 @@
           color="error"
           variant="solid"
           icon="i-tabler-player-stop-filled"
-          block
-          class="flex-1"
-          style="--wails-draggable: no-drag"
+          class="flex-1 justify-center"
           :title="`点此或按 ${stopKey} 停止`"
           @click="onStop"
         >停止</UButton>
-      </div>
-
-      <!-- 热键 hint (小字, 不进按钮防截断). 暂停/继续走热键不污染录制内容 -->
-      <div class="text-[10px] text-zinc-500 text-center leading-none">{{ stopKey }} 停止 · {{ pauseKey }} 暂停/继续</div>
-    </div>
-
-    <!-- idle 兜底 -->
-    <div
-      v-else
-      class="w-full rounded-xl bg-zinc-900/85 backdrop-blur border border-zinc-700/60 px-3 py-2 flex items-center gap-2 shadow-lg"
-      style="--wails-draggable: drag"
-    >
-      <UIcon name="i-tabler-loader" class="size-3.5 text-zinc-400 animate-spin shrink-0" />
-      <span class="text-[11px] text-zinc-400">准备录制...</span>
-    </div>
+        <span class="text-[10px] text-dimmed shrink-0 ml-0.5">{{ stopKey }}</span>
+      </template>
+      <span v-else class="text-[10px] text-dimmed mx-auto">{{ stopKey }} 停止 · {{ pauseKey }} 暂停/继续</span>
+    </footer>
   </div>
 </template>
 
@@ -240,5 +229,10 @@ async function onStop() {
   } finally {
     Window.Close()
   }
+}
+
+// 关 HUD 悬浮窗 (录制不停, 仍可按热键停). 录制结束时 recording:state 监听会自动关。
+function onCloseHud() {
+  Window.Close()
 }
 </script>
