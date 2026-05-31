@@ -215,33 +215,8 @@
       </div>
     </section>
 
-    <!-- MouseCalibration 节点 — 强制 sync 形态防止误用 -->
+    <!-- MouseCalibration 节点 — 多 profile 后不再跟"全局单值"比对报 FOREIGN (各游戏 counts 本就不同)。 -->
     <section v-else-if="node.kind === 'MouseCalibration'" class="space-y-3">
-      <div
-        v-if="isCalibrationForeign"
-        class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 text-[12px] text-amber-300"
-      >
-        <UIcon name="i-tabler-alert-triangle" class="size-3.5 inline mr-1 align-middle" />
-        {{ t('node.MouseCalibration.inspector.foreign_warn', { nodeVal: mcCounts, globalVal: globalCounts360 }) }}<br />
-        {{ t('node.MouseCalibration.inspector.foreign_hint') }}
-        <div class="mt-2 flex gap-1.5 flex-wrap">
-          <UButton
-            size="xs"
-            color="warning"
-            variant="solid"
-            icon="i-tabler-refresh"
-            @click="setMcCounts(globalCounts360)"
-          >{{ t('node.MouseCalibration.inspector.override_with_local', { n: globalCounts360 }) }}</UButton>
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="warning"
-            icon="i-tabler-bolt"
-            @click="onSyncAllFromForeign"
-          >{{ t('node.MouseCalibration.inspector.sync_all') }}</UButton>
-        </div>
-      </div>
-
       <div class="rounded-md bg-elevated/30 border border-default/40 p-3 space-y-2">
         <div class="flex items-baseline gap-2">
           <span class="text-xs text-toned">{{ t('node.MouseCalibration.inspector.counts_label') }}</span>
@@ -584,8 +559,6 @@ const emit = defineEmits<{
 }>()
 
 const settingsStore = useSettingsStore()
-// globalCounts360 = 当前默认校准档的值 (FOREIGN 警告 + "用本机值覆盖" 用它).
-const globalCounts360 = computed(() => settingsStore.activeMouseCounts360)
 // 节点未校准时「从设置加载」用: 全部校准档. 多档 → 下拉选, 单档 → 直接填.
 const mouseProfiles = computed(() => settingsStore.mouseProfiles)
 function loadProfileIntoNode(label: string) {
@@ -689,12 +662,6 @@ function setMcCounts(v: number) {
   setLiteral('Counts360', v)
 }
 
-const isCalibrationForeign = computed(() => {
-  if (!props.node || props.node.kind !== 'MouseCalibration') return false
-  const nodeVal = mcCounts.value
-  return nodeVal > 0 && globalCounts360.value > 0 && nodeVal !== globalCounts360.value
-})
-
 async function onOpenCalibrator() {
   if (!props.node) return
   // 开独立置顶校准 HUD 窗 (后端自动把游戏置前), 等结果写进本节点 config.literal.Counts360。
@@ -708,22 +675,8 @@ async function onOpenCalibrator() {
   if (!r.cancelled && typeof r.counts === 'number' && r.counts > 0) setMcCounts(r.counts)
 }
 
-// Plan B Task E.8: FOREIGN warning 旁加"同步所有容器"按钮
 const toastForSync = useToast()
 const { confirm: confirmDialog } = useConfirm()
-async function onSyncAllFromForeign() {
-  const cur = globalCounts360.value
-  if (cur <= 0) return
-  const yes = await confirmDialog({
-    title: t('node.MouseCalibration.inspector.sync_confirm_title'),
-    description: t('node.MouseCalibration.inspector.sync_confirm_desc', { cur }),
-    color: 'primary',
-    confirmText: t('node.MouseCalibration.inspector.sync_confirm_ok'),
-  })
-  if (yes !== true) return
-  const r = (await backend.containers.syncLocalMouseCalibration(cur)) as any
-  toastForSync.add({ title: t('node.MouseCalibration.inspector.sync_toast_ok', { n: r?.updated?.length ?? 0 }), color: 'success' })
-}
 
 // Subgraph 调用节点：1:1 模型，只显示绑定的子图（不需 USelect 选择）
 const editorStore = useContainerEditorStore()

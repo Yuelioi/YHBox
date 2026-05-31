@@ -33,7 +33,6 @@ const (
 	CodeMissingMouseCalibration    = "MISSING_MOUSE_CALIBRATION"
 	CodeDuplicateMouseCalibration  = "DUPLICATE_MOUSE_CALIBRATION"
 	CodeMouseCalibrationNotSet     = "MOUSE_CALIBRATION_NOT_SET"
-	CodeMouseCalibrationForeign    = "MOUSE_CALIBRATION_FOREIGN"
 	CodeEmptySubgraphOutput        = "EMPTY_SUBGRAPH_OUTPUT"
 	CodeMouseCalibrationInSubgraph = "MOUSE_CALIBRATION_IN_SUBGRAPH"
 	CodeMultipleStarts             = "MULTIPLE_STARTS"
@@ -130,8 +129,6 @@ type ValidateContext struct {
 	// AvailableTemplateKeys 容器 templates/ 目录下所有可用 key（含库下载夹带过来的）。
 	// nil = 跳过 MISSING_TEMPLATE 检查（向后兼容老调用方）。
 	AvailableTemplateKeys map[string]struct{}
-	// SettingsMouseCounts360 用户本机 settings.ui.mouseCounts360。0 = 跳过 FOREIGN 警告。
-	SettingsMouseCounts360 int
 }
 
 // ValidateContainer 无 context 短版：只跑结构级校验（dangling edge / cyclic / pin / etc.）
@@ -245,7 +242,7 @@ func validateMainGraph(c *Container) []ValidationError {
 	return errs
 }
 
-func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationError {
+func validateMouseCalibration(c *Container, _ ValidateContext) []ValidationError {
 	var errs []ValidationError
 	calCount := 0
 	var calNode *GraphNode
@@ -292,16 +289,8 @@ func validateMouseCalibration(c *Container, vctx ValidateContext) []ValidationEr
 				NodeID:    calNode.ID,
 			})
 		}
-		// MOUSE_CALIBRATION_FOREIGN: 节点值 != 本机 settings 当前值 且 settings > 0
-		// → 容器疑似从别人机器来。Settings 0 / 节点 0 都不触发（避免噪音）。
-		if counts > 0 && vctx.SettingsMouseCounts360 > 0 && counts != vctx.SettingsMouseCounts360 {
-			errs = append(errs, ValidationError{
-				Severity: SeverityWarning, Code: CodeMouseCalibrationForeign,
-				GraphPath: []string{"main"},
-				NodeID:    calNode.ID,
-				Params: map[string]any{"nodeValue": counts, "settingsValue": vctx.SettingsMouseCounts360},
-			})
-		}
+		// 注: 多 profile 后不再有"本机单一全局值", 节点值跟某个 profile 不一致是常态
+		// (各游戏 counts 本就不同), 故删 MOUSE_CALIBRATION_FOREIGN 校验。
 	}
 	return errs
 }

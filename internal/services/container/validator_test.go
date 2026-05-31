@@ -95,38 +95,6 @@ func TestValidator_MissingTemplate_WithContext(t *testing.T) {
 	}
 }
 
-func TestValidator_MouseCalibrationForeign(t *testing.T) {
-	c := minContainer()
-	c.Graph.Nodes = append(c.Graph.Nodes,
-		GraphNode{ID: "calib", Kind: "MouseCalibration",
-			Config: map[string]any{"literal": map[string]any{"Counts360": 4000}}, CreatedAt: time.Now().UTC()},
-	)
-	// Settings 与节点值一致 → 不报 FOREIGN
-	same := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 4000})
-	if hasCode(same, CodeMouseCalibrationForeign) {
-		t.Errorf("matching settings should not trigger FOREIGN, got %+v", same)
-	}
-	// Settings 跟节点值不一致 → 报 FOREIGN
-	mismatch := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 2200})
-	if !hasCode(mismatch, CodeMouseCalibrationForeign) {
-		t.Errorf("expected FOREIGN with mismatched settings, got %+v", mismatch)
-	}
-	// Settings = 0 → 不报（视为用户尚未本机校准，不应误报）
-	zero := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 0})
-	if hasCode(zero, CodeMouseCalibrationForeign) {
-		t.Errorf("settings=0 should not trigger FOREIGN, got %+v", zero)
-	}
-	// 节点 counts360 = 0 → 不报 FOREIGN（应只报 NOT_SET）
-	c.Graph.Nodes[len(c.Graph.Nodes)-1].Config["literal"].(map[string]any)["Counts360"] = 0
-	uncal := ValidateContainerWithContext(c, ValidateContext{SettingsMouseCounts360: 2200})
-	if hasCode(uncal, CodeMouseCalibrationForeign) {
-		t.Errorf("node counts360=0 should report NOT_SET not FOREIGN, got %+v", uncal)
-	}
-	if !hasCode(uncal, CodeMouseCalibrationNotSet) {
-		t.Errorf("expected NOT_SET when counts360=0, got %+v", uncal)
-	}
-}
-
 func TestValidator_NoStart(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = []GraphNode{
