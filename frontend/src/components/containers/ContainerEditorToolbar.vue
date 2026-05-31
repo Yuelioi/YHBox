@@ -46,7 +46,7 @@
     <!-- ====== 中组: 录制 + 折叠子图 + 自动布局 ====== -->
     <template v-if="isRecording">
       <UButton size="sm" color="error" variant="solid" icon="i-tabler-square"
-               :title="t('editor.toolbar.stop_record_tip')"
+               :title="t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })"
                @click="$emit('stop-record')">{{ t('editor.toolbar.stop_record') }}</UButton>
       <span
         v-if="recordingTargetName"
@@ -99,7 +99,7 @@
       <span v-if="runningNodeKind" class="text-emerald-200/80">· {{ runningNodeLabel }}</span>
     </div>
     <UButton v-if="execStoreRunning" size="sm" color="error" variant="solid" icon="i-tabler-square"
-             :title="t('editor.toolbar.stop_run_tip')"
+             :title="t('editor.toolbar.stop_run_tip', { hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9') })"
              @click="$emit('stop-run')">{{ t('editor.toolbar.stop_run') }}</UButton>
 
     <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-checks"
@@ -134,8 +134,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useHotkeysStore } from '@/stores/hotkeys'
 
 const { t } = useI18n()
+const hotkeys = useHotkeysStore()
 
 const props = defineProps<{
   paletteCollapsed: boolean

@@ -24,7 +24,7 @@
         <button
           type="button"
           class="ml-2 px-2 py-0.5 rounded text-[10px] bg-error/15 border border-error/40 text-error hover:bg-error/25 transition-colors inline-flex items-center gap-1"
-          :title="t('status.stop_tooltip')"
+          :title="t('status.stop_tooltip', { hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9') })"
           @click="onStopAll"
         >
           <UIcon name="i-tabler-square" class="size-2.5" /> {{ t('status.stop_button') }}
@@ -40,10 +40,12 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
+import { useHotkeysStore } from '@/stores/hotkeys'
 
 const { t } = useI18n()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
+const hotkeys = useHotkeysStore()
 
 // 显示当前正在跑的节点 (走 i18n key, KIND_LABEL_ZH[k] 值是 'node.<k>.label' 字符串)
 import { KIND_LABEL_ZH } from '@/components/containers/pinSpec'

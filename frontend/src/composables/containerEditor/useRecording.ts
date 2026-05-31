@@ -111,7 +111,7 @@ export function useRecording(opts: RecordOpts) {
       ownsRecording.value = true // 本窗发起 — 后续 recording:completed 由本窗处理
       toast.add({
         title: t('recordComposable.recording_in_progress', { mode: mode === 'precise' ? t('recordComposable.mode_precise') : t('recordComposable.mode_simple') }),
-        description: t('recordComposable.stop_methods'),
+        description: t('recordComposable.stop_methods', { hk: hotkeysStore.keyFor('recording.stop', 'F12') }),
         color: 'success',
         duration: 5000,
       })

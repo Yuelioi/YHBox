@@ -13,6 +13,9 @@ export function wireEvents() {
   // 共享
   backend.events.onGameStatus((d) => useGameStore().setStatus(d))
 
+  // 启动期初始 reload — 保证 keyFor() 在没开过「快捷键」页时也有真实绑定值 (否则一直回退).
+  void useHotkeysStore().reload()
+
   // hotkey:changed: HotkeyRegistry mutate 后广播 — 各窗口 reload 热键列表.
   backend.events.onHotkeyChanged(() => {
     void useHotkeysStore().reload()

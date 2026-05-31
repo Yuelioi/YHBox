@@ -37,7 +37,7 @@
           >
             <div class="text-6xl font-mono tabular-nums text-amber-400">{{ countdown }}</div>
             <p class="text-sm text-amber-300">{{ t('calibration.ready_status') }}</p>
-            <p class="text-[10px] text-dimmed">{{ t('calibration.f8_shortcut') }}</p>
+            <p class="text-[10px] text-dimmed">{{ t('calibration.f8_shortcut', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</p>
           </div>
 
           <div
@@ -51,7 +51,7 @@
             <div class="text-4xl font-mono tabular-nums text-emerald-300">{{ liveAbsDx }}</div>
             <p class="text-[10px] text-dimmed font-mono">|dy| {{ liveAbsDy }} {{ t('calibration.vertical_hint') }}</p>
             <p class="text-[11px] text-emerald-300/80 pt-2">
-              {{ t('calibration.press_f8_stop') }}
+              {{ t('calibration.press_f8_stop', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}
             </p>
           </div>
 
@@ -62,7 +62,7 @@
             <UIcon name="i-tabler-circle-check" class="size-8 text-primary mx-auto" />
             <p class="text-sm text-highlighted">{{ t('calibration.recorded_label') }}</p>
             <div class="text-4xl font-mono tabular-nums text-primary">{{ liveAbsDx }}</div>
-            <p class="text-[11px] text-dimmed">{{ t('calibration.save_or_retest') }}</p>
+            <p class="text-[11px] text-dimmed">{{ t('calibration.save_or_retest', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</p>
           </div>
 
           <p v-if="hotkeyWarn" class="text-[11px] text-warning">
@@ -102,8 +102,10 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
+import { useHotkeysStore } from '@/stores/hotkeys'
 
 const { t } = useI18n()
+const hotkeys = useHotkeysStore()
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{

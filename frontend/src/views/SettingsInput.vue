@@ -118,9 +118,9 @@
       <ol class="list-decimal pl-5 space-y-1">
         <li>{{ t('settings.input.howto.step_open') }}</li>
         <li>{{ t('settings.input.howto.step_focus') }}</li>
-        <li>{{ t('settings.input.howto.step_start') }}</li>
+        <li>{{ t('settings.input.howto.step_start', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>
         <li>{{ t('settings.input.howto.step_spin') }}</li>
-        <li>{{ t('settings.input.howto.step_stop') }}</li>
+        <li>{{ t('settings.input.howto.step_stop', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>
         <li>{{ t('settings.input.howto.step_save') }}</li>
       </ol>
     </section>
@@ -135,12 +135,14 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import CalibratorModal from '@/components/calibration/CalibratorModal.vue'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
+const hotkeys = useHotkeysStore()
 
 const settingsStore = useSettingsStore()
 const settings = computed(() => settingsStore.data)
