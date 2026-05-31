@@ -114,7 +114,6 @@ export default {
         new_profile_label: 'New profile',
         delete_profile: 'Delete this profile',
         recalibrate: 'Calibrate this profile',
-        open_hud: 'Open mouse HUD',
         sync_all: 'Sync default profile to all containers',
         share_hint:
           'You can also hand-enter counts shared from another machine\'s script',

@@ -82,19 +82,21 @@
           <UInput
             :model-value="p.label"
             size="sm"
-            class="flex-1"
+            class="flex-1 min-w-0"
             :placeholder="t('settings.input.counts.label_placeholder')"
             @update:model-value="(v: string) => updateLabel(i, v)"
           />
-          <UInputNumber
-            :model-value="p.counts360"
-            :min="0"
-            :max="999999"
-            :step="100"
-            size="sm"
-            class="w-28"
-            @update:model-value="(v: number) => updateCounts(i, v)"
-          />
+          <div class="w-28 shrink-0">
+            <UInputNumber
+              :model-value="p.counts360"
+              :min="0"
+              :max="999999"
+              :step="100"
+              size="sm"
+              class="w-full"
+              @update:model-value="(v: number) => updateCounts(i, v)"
+            />
+          </div>
           <div class="w-[88px] flex gap-1 justify-end">
             <UButton
               size="xs"
@@ -120,15 +122,6 @@
       <div class="flex items-center gap-2 flex-wrap">
         <UButton size="sm" color="primary" variant="soft" icon="i-tabler-plus" @click="addProfile">
           {{ t('settings.input.counts.add_profile') }}
-        </UButton>
-        <UButton
-          size="sm"
-          variant="soft"
-          color="neutral"
-          icon="i-tabler-pointer"
-          @click="openMouseHUD"
-        >
-          {{ t('settings.input.counts.open_hud') }}
         </UButton>
         <UButton
           v-if="activeCounts > 0"
@@ -251,10 +244,6 @@ async function updateCounts(i: number, v: number) {
 async function patchRecord(patch: Record<string, any>) {
   if (!settings.value) return
   await settingsStore.patch({ ui: patch })
-}
-
-async function openMouseHUD() {
-  await backend.tools.openMouseHUD()
 }
 
 async function onSyncAll() {

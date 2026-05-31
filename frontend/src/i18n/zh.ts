@@ -133,7 +133,6 @@ export default {
         new_profile_label: '新档',
         delete_profile: '删除此档',
         recalibrate: '校准此档',
-        open_hud: '打开鼠标 HUD',
         sync_all: '把默认档的值同步到所有容器',
         share_hint: '也可以从其他电脑分享脚本附带的 counts, 直接手填',
       },
