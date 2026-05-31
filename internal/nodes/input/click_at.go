@@ -3,6 +3,7 @@ package input
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"yhbox/internal/node"
 )
@@ -59,8 +60,22 @@ func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		btn = "left"
 	}
 	dur := in.Int(caInDurationMs)
-	if err := ctx.Input().Click(x, y, btn, dur); err != nil {
-		return nil, fmt.Errorf("ClickAt (%.3f,%.3f) %s: %w", x, y, btn, err)
+	if dur <= 0 {
+		dur = 50
+	}
+	// 拆 down→可取消 sleep→up: cancel 时立即松键返回 (修长按停不下)。
+	// MouseDown(x,y,btn) 已含定位 (backend pixelCoords), 不必单独 move。
+	if err := ctx.Input().MouseDown(x, y, btn); err != nil {
+		return nil, fmt.Errorf("ClickAt down (%.3f,%.3f) %s: %w", x, y, btn, err)
+	}
+	select {
+	case <-ctx.Context().Done():
+		_ = ctx.Input().MouseUp(btn)
+		return nil, ctx.Context().Err()
+	case <-time.After(time.Duration(dur) * time.Millisecond):
+	}
+	if err := ctx.Input().MouseUp(btn); err != nil {
+		return nil, fmt.Errorf("ClickAt up %s: %w", btn, err)
 	}
 	return ctx.Out(caOutDone).Fire(), nil
 }

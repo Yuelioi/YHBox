@@ -2,7 +2,9 @@ package input
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"yhbox/internal/node"
 )
@@ -23,8 +25,8 @@ func TestClickAt_HappyPath(t *testing.T) {
 	if r.ExitName != caOutDone {
 		t.Errorf("exit = %q, want Done", r.ExitName)
 	}
-	if len(rec.calls) != 1 || rec.calls[0] != "Click:0.300:0.700:right:80" {
-		t.Errorf("calls = %v, want [Click:0.300:0.700:right:80]", rec.calls)
+	if len(rec.calls) != 2 || rec.calls[0] != "MouseDown:0.300:0.700:right" || rec.calls[1] != "MouseUp:right" {
+		t.Errorf("calls = %v, want [MouseDown:0.300:0.700:right MouseUp:right]", rec.calls)
 	}
 }
 
@@ -39,8 +41,34 @@ func TestClickAt_DefaultsApplied(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if len(rec.calls) != 1 || rec.calls[0] != "Click:0.500:0.500:left:50" {
-		t.Errorf("calls = %v, want [Click:0.500:0.500:left:50]", rec.calls)
+	if len(rec.calls) != 2 || rec.calls[0] != "MouseDown:0.500:0.500:left" || rec.calls[1] != "MouseUp:left" {
+		t.Errorf("calls = %v, want [MouseDown:0.500:0.500:left MouseUp:left]", rec.calls)
+	}
+}
+
+func TestClickAt_CtxCancel_ReleasesAndReturns(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
+
+	rec := &recordingInput{}
+	start := time.Now()
+	r := node.RunNode(ctx, rn, nil,
+		map[string]any{caInXRatio: 0.5, caInYRatio: 0.5, caInButton: "left", caInDurationMs: 10000},
+		nil, withInput(rec))
+	elapsed := time.Since(start)
+
+	if elapsed > time.Second {
+		t.Fatalf("elapsed %v — ClickAt 没响应 ctx 取消", elapsed)
+	}
+	if r.Error == nil || !errors.Is(r.Error, context.Canceled) {
+		t.Errorf("error = %v, want context.Canceled", r.Error)
+	}
+	if len(rec.calls) != 2 || rec.calls[0] != "MouseDown:0.500:0.500:left" || rec.calls[1] != "MouseUp:left" {
+		t.Errorf("calls = %v, want [MouseDown:0.500:0.500:left MouseUp:left]", rec.calls)
 	}
 }
 
