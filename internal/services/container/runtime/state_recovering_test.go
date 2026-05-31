@@ -91,8 +91,8 @@ func TestStateRECOVERING_FirstESC_NoMatch(t *testing.T) {
 	if !escDone {
 		t.Errorf("FirstESC_NoMatch: want recoveryEscDone=true after first kick, got false")
 	}
-	if !containsKeyEvent(spy.keyEvents, "press:esc") {
-		t.Errorf("FirstESC_NoMatch: want spy.keyEvents to include press:esc, got %v", spy.keyEvents)
+	if !containsKeyEvent(spy.keyEvents, "down:esc") {
+		t.Errorf("FirstESC_NoMatch: want spy.keyEvents to include down:esc, got %v", spy.keyEvents)
 	}
 }
 
@@ -109,7 +109,7 @@ func TestStateRECOVERING_SecondTick_AlreadyEscDone(t *testing.T) {
 	if !escDone {
 		t.Errorf("SecondTick: want recoveryEscDone=true (unchanged), got false")
 	}
-	if containsKeyEvent(spy.keyEvents, "press:esc") {
+	if containsKeyEvent(spy.keyEvents, "down:esc") {
 		t.Errorf("SecondTick: want no ESC press (already done), got %v", spy.keyEvents)
 	}
 }

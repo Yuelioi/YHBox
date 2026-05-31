@@ -78,7 +78,7 @@ func TestTryHookF_FoundFast(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	want := []string{"press:f"}
+	want := []string{"down:f", "up:f"} // KeyPress 节点 #4 后拆 down/up
 	if !equalStrings(spy.keyEvents, want) {
 		t.Fatalf("FoundFast: want keyEvents %v, got %v", want, spy.keyEvents)
 	}
@@ -93,12 +93,17 @@ func TestTryHookF_Exhausted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if len(spy.keyEvents) != 30 {
-		t.Fatalf("Exhausted: want 30 KeyPress events, got %d: %v", len(spy.keyEvents), spy.keyEvents)
+	// 30 次 cast，每次 KeyPress 节点拆成 down:f + up:f (#4 可取消长按) → 60 事件，交替成对
+	if len(spy.keyEvents) != 60 {
+		t.Fatalf("Exhausted: want 60 events (30 casts × down/up), got %d: %v", len(spy.keyEvents), spy.keyEvents)
 	}
 	for i, ev := range spy.keyEvents {
-		if ev != "press:f" {
-			t.Fatalf("Exhausted: event %d want press:f, got %q", i, ev)
+		want := "down:f"
+		if i%2 == 1 {
+			want = "up:f"
+		}
+		if ev != want {
+			t.Fatalf("Exhausted: event %d want %q, got %q", i, want, ev)
 		}
 	}
 	found, _ := rt.Vars()["_hookFFound"].(bool)

@@ -113,7 +113,7 @@ func TestStateIDLE_CastToWaiting(t *testing.T) {
 	if got != "WAITING" {
 		t.Fatalf("CastToWaiting: want state=WAITING, got %q", got)
 	}
-	want := []string{"press:f"}
+	want := []string{"down:f", "up:f"} // KeyPress 节点 #4 后拆 down/up (可取消长按)
 	if !equalStrings(spy.keyEvents, want) {
 		t.Fatalf("CastToWaiting: want spy.keyEvents %v, got %v", want, spy.keyEvents)
 	}
@@ -128,7 +128,7 @@ func TestStateIDLE_CastBlockedNeedBait(t *testing.T) {
 	if got != "BUYBAIT" {
 		t.Fatalf("CastBlockedNeedBait: want state=BUYBAIT, got %q", got)
 	}
-	want := []string{"press:f"}
+	want := []string{"down:f", "up:f"} // KeyPress 节点 #4 后拆 down/up (可取消长按)
 	if !equalStrings(spy.keyEvents, want) {
 		t.Fatalf("CastBlockedNeedBait: want spy.keyEvents %v, got %v", want, spy.keyEvents)
 	}
