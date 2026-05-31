@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"yhbox/internal/node"
 )
@@ -72,8 +73,35 @@ func TestKeyPress_HappyPath(t *testing.T) {
 	if r.ExitName != kpOutDone {
 		t.Errorf("exit = %q, want Done", r.ExitName)
 	}
-	if len(rec.calls) != 1 || rec.calls[0] != "KeyPress:F:100" {
-		t.Errorf("calls = %v, want [KeyPress:F:100]", rec.calls)
+	if len(rec.calls) != 2 || rec.calls[0] != "KeyDown:F" || rec.calls[1] != "KeyUp:F" {
+		t.Errorf("calls = %v, want [KeyDown:F KeyUp:F]", rec.calls)
+	}
+}
+
+func TestKeyPress_CtxCancel_ReleasesAndReturns(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&KeyPress{})
+	rn, _ := node.Get("KeyPress")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
+
+	rec := &recordingInput{}
+	start := time.Now()
+	r := node.RunNode(ctx, rn, nil,
+		map[string]any{kpInVK: "F", kpInDurationMs: 10000},
+		nil, withInput(rec))
+	elapsed := time.Since(start)
+
+	if elapsed > time.Second {
+		t.Fatalf("elapsed %v — KeyPress 没响应 ctx 取消, 仍等满 10s", elapsed)
+	}
+	if r.Error == nil || !errors.Is(r.Error, context.Canceled) {
+		t.Errorf("error = %v, want context.Canceled", r.Error)
+	}
+	// 取消也必须松键: KeyDown 后 KeyUp
+	if len(rec.calls) != 2 || rec.calls[0] != "KeyDown:F" || rec.calls[1] != "KeyUp:F" {
+		t.Errorf("calls = %v, want [KeyDown:F KeyUp:F]", rec.calls)
 	}
 }
 

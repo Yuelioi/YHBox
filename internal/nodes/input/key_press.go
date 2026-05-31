@@ -5,6 +5,7 @@ package input
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"yhbox/internal/node"
 	pkginput "yhbox/pkg/input"
@@ -43,8 +44,22 @@ func (KeyPress) Spec() node.Spec {
 func (KeyPress) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	vk := in.String(kpInVK)
 	dur := in.Int(kpInDurationMs)
-	if err := ctx.Input().KeyPress(vk, dur); err != nil {
-		return nil, fmt.Errorf("KeyPress vk=%q: %w", vk, err)
+	if dur <= 0 {
+		dur = 50 // 对齐原 backend 默认
+	}
+	if err := ctx.Input().KeyDown(vk); err != nil {
+		return nil, fmt.Errorf("KeyPress keydown vk=%q: %w", vk, err)
+	}
+	// 可取消按住: stop/强停 cancel ctx 时立即松键返回, 不死等 dur
+	// (修「长按 999999ms 停不下来」—— 裸 time.Sleep 不看 ctx 的旧 bug)。
+	select {
+	case <-ctx.Context().Done():
+		_ = ctx.Input().KeyUp(vk) // 释放, 别留残留按键
+		return nil, ctx.Context().Err()
+	case <-time.After(time.Duration(dur) * time.Millisecond):
+	}
+	if err := ctx.Input().KeyUp(vk); err != nil {
+		return nil, fmt.Errorf("KeyPress keyup vk=%q: %w", vk, err)
 	}
 	return ctx.Out(kpOutDone).Fire(), nil
 }
