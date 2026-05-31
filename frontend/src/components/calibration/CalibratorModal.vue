@@ -24,7 +24,7 @@
             <UIcon name="i-tabler-keyboard" class="size-8 text-primary mx-auto" />
             <p class="text-sm text-highlighted">
               {{ t('calibration.switch_game_hint') }}
-              <code class="bg-elevated/60 px-1.5 py-0.5 rounded text-toned">F8</code> {{ t('calibration.start_label') }}
+              <code class="bg-elevated/60 px-1.5 py-0.5 rounded text-toned">{{ hotkeys.keyFor('system.calibrate-toggle', 'F8') }}</code> {{ t('calibration.start_label') }}
             </p>
             <p class="text-[11px] text-dimmed">
               {{ t('calibration.countdown_desc') }}
