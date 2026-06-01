@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"yhbox/internal/hotkey"
 	"yhbox/internal/node"
 	_ "yhbox/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
 	_ "yhbox/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
@@ -24,14 +25,13 @@ import (
 	_ "yhbox/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetSys/GetParam
 	"yhbox/internal/services"
 	"yhbox/internal/services/calibration"
-	"yhbox/internal/services/tools"
 	"yhbox/internal/services/container"
-	containerruntime "yhbox/internal/services/container/runtime"
 	"yhbox/internal/services/container/library"
+	containerruntime "yhbox/internal/services/container/runtime"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/schedule"
-	"yhbox/internal/hotkey"
 	"yhbox/internal/services/template"
+	"yhbox/internal/services/tools"
 	"yhbox/pkg/capture"
 	"yhbox/pkg/locale"
 	"yhbox/pkg/platform"
@@ -341,7 +341,7 @@ func main() {
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
-	toolsSvc := tools.NewService(&toolsGameAdapter{app: app})
+	toolsSvc := tools.NewService(containerSvc)
 	// 校准 HUD 窗关闭兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都覆盖, 不依赖前端正常关)。
 	toolsSvc.SetCalibratorCloseHandler(func() {
 		calibrationSvc.StopHotkeyWatch()

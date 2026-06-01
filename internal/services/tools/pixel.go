@@ -3,6 +3,8 @@ package tools
 import (
 	"fmt"
 
+	"github.com/lxn/win"
+
 	"yhbox/pkg/capture"
 	"yhbox/pkg/vision"
 )
@@ -23,15 +25,16 @@ type PixelInfo struct {
 
 // PixelAt 截当前帧，读光标位置的像素颜色。前端"取色"按钮按一次调一次。
 // 太频繁会拖性能（每次都 capture）。
-func (s *Service) PixelAt() (PixelInfo, error) {
+func (s *Service) PixelAt(containerID string) (PixelInfo, error) {
 	sx, sy, ok := readCursor()
 	if !ok {
 		return PixelInfo{}, fmt.Errorf("GetCursorPos failed")
 	}
-	hwnd, cw, ch, hasGame := s.game.GameHWND()
+	wh, hasGame := s.gameWindowFor(containerID)
 	if !hasGame {
 		return PixelInfo{}, fmt.Errorf("游戏窗口未就绪")
 	}
+	hwnd, cw, ch := win.HWND(wh.HWND), wh.ClientW, wh.ClientH
 	cx, cy, ok2 := screenToClient(hwnd, sx, sy)
 	if !ok2 || cx < 0 || cy < 0 || cx >= cw || cy >= ch {
 		return PixelInfo{OK: false, ClientX: cx, ClientY: cy}, nil

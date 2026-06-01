@@ -5,26 +5,37 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/lxn/win"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"yhbox/pkg/winutil"
 )
 
-// GameProvider 由 main.go 注入，返当前游戏 hwnd + client 尺寸。
-type GameProvider interface {
-	GameHWND() (hwnd win.HWND, w int, h int, ok bool)
+// WindowResolver 由 main.go 注入 (concrete *container.Service)，按 containerID 解析目标窗口。
+// 本包不 import container 包以保持解耦。
+type WindowResolver interface {
+	ResolveWindow(containerID string) (winutil.WindowHandle, error)
+}
+
+// cachedWindow gameWindowFor 的短期缓存条目 (MousePos 高频 poll，不能每帧 EnumWindows)。
+type cachedWindow struct {
+	wh winutil.WindowHandle
+	at time.Time
 }
 
 // Service wails3 RPC 入口。
 type Service struct {
-	game GameProvider
+	resolver WindowResolver
 
-	mu             sync.Mutex
-	app            *application.App // 后注入（wailsApp 创建后才有）
-	hud            *application.WebviewWindow
-	recordingHUD   *application.WebviewWindow
-	calibratorHUD  *application.WebviewWindow
+	mu            sync.Mutex
+	winCache      map[string]cachedWindow // containerID → 解析结果 (2s TTL)
+	app           *application.App        // 后注入（wailsApp 创建后才有）
+	hud           *application.WebviewWindow
+	recordingHUD  *application.WebviewWindow
+	calibratorHUD *application.WebviewWindow
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
 	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
 	onCalibratorClose func()
@@ -35,11 +46,27 @@ type Service struct {
 	captureHotkey func() (mods, vk uint32)
 }
 
-func NewService(game GameProvider) *Service {
+func NewService(resolver WindowResolver) *Service {
 	return &Service{
-		game:          game,
+		resolver:      resolver,
+		winCache:      map[string]cachedWindow{},
 		pickerWindows: map[string]*application.WebviewWindow{},
 	}
+}
+
+// gameWindowFor 按 containerID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
+func (s *Service) gameWindowFor(containerID string) (winutil.WindowHandle, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if c, ok := s.winCache[containerID]; ok && time.Since(c.at) < 2*time.Second {
+		return c.wh, true
+	}
+	wh, err := s.resolver.ResolveWindow(containerID)
+	if err != nil {
+		return winutil.WindowHandle{}, false
+	}
+	s.winCache[containerID] = cachedWindow{wh, time.Now()}
+	return wh, true
 }
 
 // SetApp main.go wailsApp 创建后注入。
@@ -63,14 +90,15 @@ func (s *Service) wailsApp() *application.App {
 	return s.app
 }
 
-// MousePos 当前鼠标在屏幕 + 游戏客户区的位置。HUD 高频 poll。
-func (s *Service) MousePos() MousePosInfo {
+// MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
+func (s *Service) MousePos(containerID string) MousePosInfo {
 	sx, sy, ok := readCursor()
 	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
 	if !ok {
 		return info
 	}
-	hwnd, cw, ch, hasGame := s.game.GameHWND()
+	wh, hasGame := s.gameWindowFor(containerID)
+	hwnd, cw, ch := win.HWND(wh.HWND), wh.ClientW, wh.ClientH
 	if !hasGame || hwnd == 0 || cw <= 0 || ch <= 0 {
 		return info
 	}
@@ -90,8 +118,8 @@ func (s *Service) MousePos() MousePosInfo {
 	return info
 }
 
-// OpenMouseHUD 打开鼠标位置 HUD 小窗口。已开则 focus。
-func (s *Service) OpenMouseHUD() error {
+// OpenMouseHUD 打开鼠标位置 HUD 小窗口 (按 containerID 解析目标窗口)。已开则 focus。
+func (s *Service) OpenMouseHUD(containerID string) error {
 	app := s.wailsApp()
 	if app == nil {
 		return fmt.Errorf("wails app 未初始化")
@@ -103,15 +131,16 @@ func (s *Service) OpenMouseHUD() error {
 		return nil
 	}
 	s.mu.Unlock()
+	hashURL := "/#/tools/mouse-hud?containerID=" + url.QueryEscape(containerID)
 	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:           "鼠标位置",
-		Width:           320,
-		Height:          240,
-		MinWidth:        260,
-		MinHeight:       180,
-		URL:             "/#/tools/mouse-hud",
-		Frameless:       true,
-		AlwaysOnTop:     true,
+		Title:            "鼠标位置",
+		Width:            320,
+		Height:           240,
+		MinWidth:         260,
+		MinHeight:        180,
+		URL:              hashURL,
+		Frameless:        true,
+		AlwaysOnTop:      true,
 		BackgroundColour: application.NewRGB(18, 18, 18),
 	})
 	s.mu.Lock()

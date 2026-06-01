@@ -85,7 +85,7 @@ export function useScreenPick(opts: {
   }
 
   async function onOpenHUD() {
-    await backend.tools.openMouseHUD()
+    await backend.tools.openMouseHUD(tplStore.containerId)
   }
 
   return { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD }

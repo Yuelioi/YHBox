@@ -336,9 +336,9 @@ export const backend = {
     resolve: (id: string) => invoke(ClipService.Resolve, id),
   },
   tools: {
-    mousePos: () => invoke(ToolsService.MousePos),
-    pixelAt: () => invoke(ToolsService.PixelAt),
-    openMouseHUD: () => invoke(ToolsService.OpenMouseHUD),
+    mousePos: (containerID: string) => invoke(ToolsService.MousePos, containerID),
+    pixelAt: (containerID: string) => invoke(ToolsService.PixelAt, containerID),
+    openMouseHUD: (containerID: string) => invoke(ToolsService.OpenMouseHUD, containerID),
     openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
     openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
