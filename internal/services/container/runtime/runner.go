@@ -318,9 +318,10 @@ func (r *ContainerRunner) setupRuntime() error {
 	}
 	r.rt.Window = wh
 
-	// 前台 RunMode: 把本容器目标窗口拉到前台 (取代旧的全局 FindGame 预拉).
+	// 前台 RunMode: 把本容器目标窗口拉到前台.
 	if r.rt.Container.RunMode == "foreground" && r.rt.Game != nil {
 		r.rt.Game.BringToForeground(r.rt.Window.HWND)
+		time.Sleep(150 * time.Millisecond) // 等窗口 restore + 焦点切换完成, 否则前台模式下早期 SendInput/相机输入可能落空
 	}
 
 	// 2) input backend (默认 postmessage)
@@ -334,7 +335,7 @@ func (r *ContainerRunner) setupRuntime() error {
 	}
 	r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
 
-	// PlayClip 输入后端 (inputclip): per-run, hwnd 取本容器 rt.Window.
+	// PlayClip 输入后端 (inputclip): per-run, hwnd 取本容器 rt.Window. nil 守卫让测试可预设 fake backend.
 	if r.rt.InputBackend == nil {
 		r.rt.InputBackend = backends.NewSendInputBackend(func() uintptr { return r.rt.Window.HWND })
 	}
