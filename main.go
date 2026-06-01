@@ -188,8 +188,7 @@ func main() {
 		"recording.pause":         "F11",
 	})
 
-	// 模板库 (per-container, dataRoot 注入) / Container / Schedule 数据层
-	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{app: app})
+	// Container / Schedule 数据层
 
 	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate/OnEvent) 的 Template 字段
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 templateSvc.List(containerID),
@@ -208,6 +207,9 @@ func main() {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("container store init")
 	}
 	containerSvc := container.NewService(containerStore)
+
+	// 模板库 (per-container, dataRoot 注入). 截模板按 containerID 经 containerSvc 解析目标窗口.
+	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{containers: containerSvc})
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {

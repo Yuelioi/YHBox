@@ -55,7 +55,8 @@ export const useTemplatesStore = defineStore('templates', () => {
   }
 
   async function capture(): Promise<string | null> {
-    const r = await backend.templates.capture()
+    if (!containerId.value) return null
+    const r = await backend.templates.capture(containerId.value)
     return r === undefined ? null : (r as string)
   }
 

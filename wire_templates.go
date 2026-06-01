@@ -8,23 +8,24 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/internal/services"
+	"yhbox/internal/services/container"
 	"yhbox/pkg/capture"
 )
 
 // templateCaptureAdapter 实现 template.CaptureAdapter interface.
-// 用户在 UI 截"模板"时, 抓当前游戏窗口一帧 → PNG bytes. game window 没就绪则 error.
+// 用户在 UI 截"模板"时, 按 containerID 解析目标窗口抓一帧 → PNG bytes.
+// 容器不存在 / 无 WindowTarget / 窗口没开则 error.
 type templateCaptureAdapter struct {
-	app *services.App
+	containers *container.Service
 }
 
-// Capture 抓游戏窗口一帧, 返 PNG bytes. width/height 调用方从 PNG header 自己读.
-func (t *templateCaptureAdapter) Capture() ([]byte, error) {
-	g := t.app.Game()
-	if g == nil || !g.OK {
-		return nil, fmt.Errorf("游戏窗口未就绪, 无法截屏")
+// Capture 解析 containerID 目标窗口抓一帧, 返 PNG bytes. width/height 调用方从 PNG header 自己读.
+func (t *templateCaptureAdapter) Capture(containerID string) ([]byte, error) {
+	wh, err := t.containers.ResolveWindow(containerID)
+	if err != nil {
+		return nil, fmt.Errorf("解析目标窗口: %w", err)
 	}
-	img, err := capture.Frame(win.HWND(g.HWND))
+	img, err := capture.Frame(win.HWND(wh.HWND))
 	if err != nil {
 		return nil, fmt.Errorf("capture.Frame: %w", err)
 	}

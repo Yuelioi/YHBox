@@ -338,7 +338,7 @@ async function capture() {
   rectSel.value = null
   pointSel.value = null
   try {
-    const r = await backend.templates.capture()
+    const r = await backend.templates.capture(containerID.value)
     if (r) dataURL.value = r as string
   } finally {
     capturing.value = false

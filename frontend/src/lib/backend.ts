@@ -276,7 +276,7 @@ export const backend = {
       region: [number, number, number, number],
     ) => invoke(TemplateService.Save, containerID, key, dataURL, name, description, recordedResolution, region),
     delete_: (containerID: string, key: string) => invoke(TemplateService.Delete, containerID, key),
-    capture: () => invoke(TemplateService.Capture),
+    capture: (containerID: string) => invoke(TemplateService.Capture, containerID),
     readPngDataURL: (containerID: string, key: string) => invoke(TemplateService.ReadPngDataURL, containerID, key),
   },
   hotkeys: {

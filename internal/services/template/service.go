@@ -18,7 +18,7 @@ type Service struct {
 }
 
 type CaptureAdapter interface {
-	Capture() ([]byte, error) // 返 PNG bytes
+	Capture(containerID string) ([]byte, error) // 返指定容器目标窗口当前帧 PNG bytes
 }
 
 func NewService(dataRoot string, capture CaptureAdapter) *Service {
@@ -174,9 +174,9 @@ func (s *Service) ReadPngDataURL(containerID, key string) (string, error) {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
-// Capture 截取游戏窗口当前帧 (跟 containerID 无关, 共享 capture backend).
-func (s *Service) Capture() (string, error) {
-	pngData, err := s.capture.Capture()
+// Capture 截取指定容器目标窗口当前帧.
+func (s *Service) Capture(containerID string) (string, error) {
+	pngData, err := s.capture.Capture(containerID)
 	if err != nil {
 		return "", err
 	}
