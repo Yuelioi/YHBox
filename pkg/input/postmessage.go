@@ -68,7 +68,7 @@ func (b *PostMessageBackend) ensureActivated(hwnd win.HWND) {
 	if !already {
 		FakeActivate(hwnd) // input.go 现有函数
 		// 首次激活后等 Slate 在下一 UE tick 翻 IsActive=true 再放行后续 PostMessage —— 否则首个
-		// keydown/down 在 IsActive 仍 false 时被异环 IMC 丢弃 (FakeActivate 是 SendMessage, 同步返回
+		// keydown/down 在 IsActive 仍 false 时被部分游戏的 IMC 丢弃 (FakeActivate 是 SendMessage, 同步返回
 		// 不代表 Slate 已处理). 复原 #4 前 Tap/Click 自带的 activateDelay: #4 把 KeyPress/ClickAt 改
 		// 节点层 KeyDown/MouseDown 后, 这条 settle 只剩这里兜. 仅首次 per-hwnd → 分帧 MoveTo 不重复付.
 		time.Sleep(defaultActivateDelay)
