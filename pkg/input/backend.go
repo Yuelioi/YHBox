@@ -53,7 +53,9 @@ func NewBackend(name string) (Backend, error) {
 	switch name {
 	case "", "postmessage":
 		return newPostMessageBackend(), nil
+	case "sendinput":
+		return newSendInputBackend(), nil
 	default:
-		return nil, fmt.Errorf("unknown input backend %q (supported: postmessage)", name)
+		return nil, fmt.Errorf("unknown input backend %q (supported: postmessage, sendinput)", name)
 	}
 }
