@@ -812,6 +812,7 @@ export default {
         Dx: { label: 'Δx (px)' },
         Dy: { label: 'Δy (px)' },
         DurationMs: { label: 'Duration (ms)' },
+        JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = move distance (Dx/Dy) varies within ±10%' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -822,6 +823,7 @@ export default {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = visible slide' },
+        JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = glide duration (MoveMs) varies within ±10%' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -847,6 +849,7 @@ export default {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
         Delta: { label: 'Delta (notches)', hint: 'Positive scrolls up, negative scrolls down' },
+        JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = scroll amount varies within ±10%' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -875,16 +878,6 @@ export default {
         keep_ranges_hint: 'Empty = play full clip. With ranges, only those segments play; gaps between segments are auto-compressed.',
         full_playback: 'None — play full clip',
       },
-    },
-    Toast: {
-      label: 'Toast',
-      description: 'Intended to show a GUI toast; no toast service yet, so it currently logs via LogService.Info (trace only, not shown in the GUI).',
-      input: {
-        Title: { label: 'Title', hint: 'Any type, auto-stringified' },
-        Message: { label: 'Message', hint: 'Any type, auto-stringified' },
-        Color: { label: 'Color', option: { primary: 'Primary', success: 'Success', warning: 'Warning', danger: 'Danger' } },
-      },
-      output: { Done: { label: 'Done' } },
     },
     // purefunc
     Expr: {

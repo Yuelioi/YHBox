@@ -16,8 +16,9 @@ const (
 	scInExec   = "In"
 	scInXRatio = "XRatio"
 	scInYRatio = "YRatio"
-	scInDelta  = "Delta"
-	scOutDone  = "Done"
+	scInDelta     = "Delta"
+	scInJitterPct = "JitterPct"
+	scOutDone     = "Done"
 )
 
 func (Scroll) Spec() node.Spec {
@@ -35,6 +36,8 @@ func (Scroll) Spec() node.Spec {
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: scInDelta, Type: "Number", Default: json.Number("3"),
 				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: scInJitterPct, Type: "Number", Default: json.Number("0"),
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: scOutDone, Type: "Exec"},
@@ -46,6 +49,7 @@ func (Scroll) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	x := in.Float64(scInXRatio)
 	y := in.Float64(scInYRatio)
 	delta := in.Int(scInDelta)
+	delta = node.JitterInt(delta, in.Int(scInJitterPct)) // ±% 抖滚动量 (pct=0 → 原值)
 	if err := ctx.Input().Scroll(x, y, delta); err != nil {
 		return nil, fmt.Errorf("Scroll (%.3f,%.3f) Δ=%d: %w", x, y, delta, err)
 	}

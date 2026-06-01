@@ -12,7 +12,7 @@ import (
 	_ "yhbox/internal/nodes/control"   // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
 	_ "yhbox/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
 	_ "yhbox/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringGameForeground / OnEvent
-	_ "yhbox/internal/nodes/io"        // Log / Toast / PlayClip
+	_ "yhbox/internal/nodes/io"        // Log / PlayClip
 	_ "yhbox/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
 	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
 	_ "yhbox/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode

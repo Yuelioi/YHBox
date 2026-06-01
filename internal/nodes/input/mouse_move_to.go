@@ -18,8 +18,9 @@ const (
 	mmtInExec   = "In"
 	mmtInXRatio = "XRatio"
 	mmtInYRatio = "YRatio"
-	mmtInMoveMs = "MoveMs"
-	mmtOutDone  = "Done"
+	mmtInMoveMs    = "MoveMs"
+	mmtInJitterPct = "JitterPct"
+	mmtOutDone     = "Done"
 )
 
 func (MouseMoveTo) Spec() node.Spec {
@@ -37,6 +38,8 @@ func (MouseMoveTo) Spec() node.Spec {
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: mmtInMoveMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: mmtInJitterPct, Type: "Number", Default: json.Number("0"),
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: mmtOutDone, Type: "Exec"},
@@ -47,7 +50,8 @@ func (MouseMoveTo) Spec() node.Spec {
 func (MouseMoveTo) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	x := in.Float64(mmtInXRatio)
 	y := in.Float64(mmtInYRatio)
-	if err := moveCursor(ctx, x, y, in.Int(mmtInMoveMs)); err != nil {
+	moveMs := node.JitterInt(in.Int(mmtInMoveMs), in.Int(mmtInJitterPct)) // ±% 抖滑行时长 (pct=0 → 原值)
+	if err := moveCursor(ctx, x, y, moveMs); err != nil {
 		return nil, err
 	}
 	return ctx.Out(mmtOutDone).Fire(), nil

@@ -53,12 +53,14 @@ const VISUAL_BY_GROUP: Record<NodeGroup, { icon: string; bg: string; border: str
 
 // backend Input.Widget.Kind → FE FieldSchema.type. 1:1 直传 (11 种 widget kind).
 function widgetKindToFieldType(k: string): FieldSchema['type'] {
-  // FE FieldSchema.type 类型 union: select/text/number/bool/var-name-select/template-picker/
-  // key-capture/monaco/subgraph-picker. backend Widget.Kind 是: async-dropdown/checkbox/
+  // FE FieldSchema.type 类型 union: select/text/number/bool/template-picker/key-capture.
+  // backend Widget.Kind 是: async-dropdown/checkbox/key-capture/
   // dropdown/duration/json/number/password/rect-editor/slider/text/textarea. 映射:
   switch (k) {
     case 'template-picker':
       return 'template-picker'
+    case 'key-capture':
+      return 'key-capture'
     case 'dropdown':
     case 'async-dropdown':
       return 'select'

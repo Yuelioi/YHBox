@@ -32,7 +32,7 @@ func (KeyPress) Spec() node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: kpInExec, Type: "Exec"},
 			{Name: kpInVK, Type: "String", Required: true, Default: "W",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "key-capture"}},
 			{Name: kpInDurationMs, Type: "Number", Default: json.Number("50"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: kpInJitterPct, Type: "Number", Default: json.Number("0"),

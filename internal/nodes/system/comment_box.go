@@ -30,9 +30,9 @@ func (CommentBox) Spec() node.Spec {
 			{Name: cbInColor, Type: "String", Default: "#fbbf24",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: cbInWidth, Type: "Number", Default: json.Number("200"),
-				Widget: node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: cbInHeight, Type: "Number", Default: json.Number("150"),
-				Widget: node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		// no Outputs — render-only
 		IsVisualOnly: true,

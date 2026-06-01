@@ -27,7 +27,7 @@ func (MouseCalibration) Spec() node.Spec {
 		Category: "System",
 		Inputs: []node.InputSpec{
 			{Name: mcInCounts360, Type: "Number", Default: json.Number("0"),
-				Widget: node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: mcOutFire, Type: "Exec"},

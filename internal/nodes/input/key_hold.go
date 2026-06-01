@@ -33,7 +33,7 @@ func (KeyHoldStart) Spec() node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: khStartInExec, Type: "Exec"},
 			{Name: khStartInVK, Type: "String", Required: true, Default: "A",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "key-capture"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: khStartOutOut, Type: "Exec"},
@@ -74,7 +74,7 @@ func (KeyHoldStop) Spec() node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: khStopInExec, Type: "Exec"},
 			{Name: khStopInVK, Type: "String", Required: true, Default: "A",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				Widget: node.WidgetSpec{Kind: "key-capture"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: khStopOutOut, Type: "Exec"},

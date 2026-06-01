@@ -172,3 +172,20 @@ func parseHSVRange(m map[string]any) (node.HSVRange, error) {
 func (DetectColorHSV) Display(in node.Inputs, exitName string, out node.OutputData) string {
 	return fmt.Sprintf("[%s] count=%d ratio=%.3f", exitName, out.Int(dchDataCount), out.Float64(dchDataRatio))
 }
+
+// Validate 在编辑期就抓 HSV 范围倒置 (min>max), 不再等 Run 时炸.
+// 跟 DetectColor / ROIColorScan / DualColorBarTrack 的 Validate 对齐.
+func (DetectColorHSV) Validate(in node.Inputs) []node.ValidationError {
+	m := in.JSON(dchInHSV)
+	if m == nil {
+		return nil // 未填 → 由 Run 默认处理, 不在编辑期报
+	}
+	if _, err := parseHSVRange(m); err != nil {
+		return []node.ValidationError{{
+			Code:    "INVALID_HSV_RANGE",
+			Message: fmt.Sprintf("HSV range invalid: %v", err),
+			Field:   dchInHSV,
+		}}
+	}
+	return nil
+}

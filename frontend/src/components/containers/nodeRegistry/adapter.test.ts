@@ -61,4 +61,17 @@ describe('deriveFields schema passthrough', () => {
     expect(fields).toHaveLength(1)
     expect(fields[0].schema).toBeUndefined()
   })
+
+  it('key-capture widget kind 映射成 key-capture field type (接 KeyCapture 控件)', () => {
+    const vkInput = {
+      name: 'VK',
+      type: 'String',
+      widget: { kind: 'key-capture', props: {} },
+    } as unknown as InputSpec
+
+    const fields = deriveFields('KeyPress', [vkInput])
+    expect(fields).toHaveLength(1)
+    expect(fields[0].type).toBe('key-capture')
+    expect(fields[0].widgetKind).toBe('key-capture')
+  })
 })

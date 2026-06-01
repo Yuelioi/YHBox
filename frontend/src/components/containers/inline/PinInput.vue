@@ -55,6 +55,13 @@
     @update:model-value="(v: string) => emit('update:modelValue', v)"
   />
 
+  <!-- key-capture: 聚焦后按物理键自动填 vk (KeyPress/KeyHold* 的 VK 字段) -->
+  <KeyCapture
+    v-else-if="kind === 'key-capture'"
+    :model-value="modelValue == null ? '' : String(modelValue)"
+    @update:model-value="(v: string) => emit('update:modelValue', v)"
+  />
+
   <!-- text / password / duration / async-dropdown / 默认 → 文本框
        async-dropdown 的候选源 (templateKeys/clipIDs/subgraphIDs) 多由 bespoke section 处理;
        走到这里的 (e.g. WaitTemplate.Template) 当字符串 key 编辑 (跟旧 literal section 一致)。 -->
@@ -72,6 +79,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import KeyCapture from '@/components/containers/KeyCapture.vue'
 import type { PinType } from '../pinSpec'
 
 const { t } = useI18n()

@@ -833,6 +833,7 @@ export default {
         Dx: { label: 'Δx (px)' },
         Dy: { label: 'Δy (px)' },
         DurationMs: { label: '时长 (ms)' },
+        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 移动距离 (Dx/Dy) 在 ±10% 内近正态波动' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -843,6 +844,7 @@ export default {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
         MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移; >0=在此时长内可见地滑过去' },
+        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滑行时长 (MoveMs) 在 ±10% 内近正态波动' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -868,6 +870,7 @@ export default {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
         Delta: { label: '滚动量 (notches)', hint: '正值向上滚, 负值向下滚' },
+        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滚动量在 ±10% 内近正态波动' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -896,16 +899,6 @@ export default {
         keep_ranges_hint: '不指定 = 整段播放. 加多段后只播这些段, 跨段的停顿会自动压缩.',
         full_playback: '无, 整段播放',
       },
-    },
-    Toast: {
-      label: 'Toast',
-      description: '弹 GUI toast 提示. 当前无 toast service, 退化为 LogService.Info (有 trace, FE 见不到).',
-      input: {
-        Title: { label: '标题', hint: '任意类型, 自动 stringify' },
-        Message: { label: '消息', hint: '任意类型, 自动 stringify' },
-        Color: { label: '颜色', option: { primary: 'Primary', success: 'Success', warning: 'Warning', danger: 'Danger' } },
-      },
-      output: { Done: { label: '完成' } },
     },
     // purefunc
     Expr: {

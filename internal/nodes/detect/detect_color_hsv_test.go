@@ -70,3 +70,35 @@ func TestDetectColorHSV_Timeout(t *testing.T) {
 	}
 }
 
+func TestDetectColorHSV_Validate_InvertedRange(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&DetectColorHSV{})
+	rn, _ := node.Get("DetectColorHSV")
+
+	cfg := map[string]any{
+		dchInROI: node.Geometry{},
+		dchInHSV: map[string]any{"hMin": 100.0, "hMax": 10.0, // 倒置
+			"sMin": 0.0, "sMax": 255.0, "vMin": 0.0, "vMax": 255.0},
+	}
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices())
+
+	if len(r.Validation) == 0 || r.Validation[0].Code != "INVALID_HSV_RANGE" {
+		t.Fatalf("want INVALID_HSV_RANGE, got %+v", r.Validation)
+	}
+}
+
+func TestDetectColorHSV_Validate_OK(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&DetectColorHSV{})
+	rn, _ := node.Get("DetectColorHSV")
+
+	vision := &mockVision{hsvCount: 0, hsvRatio: 0.0}
+	cfg := validHSVCfg()
+	cfg[dchInTimeoutMs] = 0 // 单次扫描即返, 不轮询
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+
+	if len(r.Validation) != 0 {
+		t.Fatalf("want no validation errors, got %+v", r.Validation)
+	}
+}
+
