@@ -21,6 +21,7 @@ type WindowResolver interface {
 }
 
 // cachedWindow gameWindowFor 的短期缓存条目 (MousePos 高频 poll，不能每帧 EnumWindows)。
+// 注意: wh.HWND 在 2s TTL 内若游戏关了又开会变陈旧失效，调用方 (screenToClient / capture.Frame) 需容错。
 type cachedWindow struct {
 	wh winutil.WindowHandle
 	at time.Time
@@ -57,15 +58,28 @@ func NewService(resolver WindowResolver) *Service {
 // gameWindowFor 按 containerID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
 func (s *Service) gameWindowFor(containerID string) (winutil.WindowHandle, bool) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if c, ok := s.winCache[containerID]; ok && time.Since(c.at) < 2*time.Second {
-		return c.wh, true
+		wh := c.wh
+		s.mu.Unlock()
+		return wh, wh.HWND != 0
 	}
+	s.mu.Unlock()
+
+	// 锁外调阻塞解析 (winutil.ResolveWindow 窗口没开时最长等 3s), 不持锁, 不卡其它 RPC.
 	wh, err := s.resolver.ResolveWindow(containerID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// double-check: 期间并发 poll 可能已写缓存
+	if c, ok := s.winCache[containerID]; ok && time.Since(c.at) < 2*time.Second {
+		return c.wh, c.wh.HWND != 0
+	}
 	if err != nil {
+		// 负缓存: 失败也存零值 2s, 避免游戏关着时高频 poll 反复阻塞解析
+		s.winCache[containerID] = cachedWindow{at: time.Now()}
 		return winutil.WindowHandle{}, false
 	}
-	s.winCache[containerID] = cachedWindow{wh, time.Now()}
+	s.winCache[containerID] = cachedWindow{wh: wh, at: time.Now()}
 	return wh, true
 }
 
@@ -98,8 +112,11 @@ func (s *Service) MousePos(containerID string) MousePosInfo {
 		return info
 	}
 	wh, hasGame := s.gameWindowFor(containerID)
+	if !hasGame {
+		return info
+	}
 	hwnd, cw, ch := win.HWND(wh.HWND), wh.ClientW, wh.ClientH
-	if !hasGame || hwnd == 0 || cw <= 0 || ch <= 0 {
+	if hwnd == 0 || cw <= 0 || ch <= 0 {
 		return info
 	}
 	info.HasGame = true
