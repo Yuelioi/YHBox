@@ -467,6 +467,7 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold 
 		return a.matchOnce(ctx, keys, threshold, mode) // 单帧 (interface 注: timeout<=0 视为 0).
 	}
 	deadline := time.Now().Add(timeout)
+	bestConf := 0.0 // 轮询期间见过的最高匹配度; 超时时返回它供诊断 (「差多少」)
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, 0, err
@@ -475,11 +476,14 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold 
 		if err != nil {
 			return nil, 0, err
 		}
+		if conf > bestConf {
+			bestConf = conf
+		}
 		if pt != nil {
 			return pt, conf, nil
 		}
 		if time.Now().After(deadline) {
-			return nil, 0, nil
+			return nil, bestConf, nil
 		}
 		select {
 		case <-ctx.Done():
@@ -502,35 +506,43 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 	}
 	if mode == "all" {
 		var firstPt expr.Point
+		minConf := 1.0 // all 命中 = 全部 ≥ 阈值; 报最弱那个 (瓶颈) 的真实匹配度
 		for idx, key := range keys {
-			found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
+			found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
 			if err != nil {
 				return nil, 0, err
 			}
+			if conf < minConf {
+				minConf = conf
+			}
 			if !found {
 				a.writeLastTemplate(false, expr.Point{})
-				return nil, 0, nil
+				return nil, conf, nil // 报这个没过的 key 的真实匹配度
 			}
 			if idx == 0 {
 				firstPt = pt
 			}
 		}
 		a.writeLastTemplate(true, firstPt)
-		return &node.Point{X: firstPt.X, Y: firstPt.Y}, 1.0, nil
+		return &node.Point{X: firstPt.X, Y: firstPt.Y}, minConf, nil
 	}
 	// any (默认)
+	bestConf := 0.0 // 全 miss 时报见过的最高匹配度 (诊断: 差多少)
 	for _, key := range keys {
-		found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
+		found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
 		if err != nil {
 			return nil, 0, err
 		}
+		if conf > bestConf {
+			bestConf = conf
+		}
 		if found {
 			a.writeLastTemplate(true, pt)
-			return &node.Point{X: pt.X, Y: pt.Y}, 1.0, nil
+			return &node.Point{X: pt.X, Y: pt.Y}, conf, nil // 命中: 报真实匹配度 (不再写死 1.0)
 		}
 	}
 	a.writeLastTemplate(false, expr.Point{})
-	return nil, 0, nil
+	return nil, bestConf, nil
 }
 
 // writeLastTemplate 写 SysState.LastFound/LastPoint (Match/WaitMatch), 让 GetSys

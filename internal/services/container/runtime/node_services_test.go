@@ -248,10 +248,15 @@ func TestNewServiceBundleFor_AllSlotsFilled(t *testing.T) {
 type stubMatcher struct {
 	found bool
 	pt    expr.Point
+	conf  float64 // 0 = 按 found 取 (found→1.0); 非 0 = 显式真实匹配度
 }
 
-func (m stubMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, _ string, _ float64, _ []float64) (bool, expr.Point, [4]float64, error) {
-	return m.found, m.pt, [4]float64{}, nil
+func (m stubMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, _ string, _ float64, _ []float64) (bool, expr.Point, [4]float64, float64, error) {
+	conf := m.conf
+	if conf == 0 && m.found {
+		conf = 1.0
+	}
+	return m.found, m.pt, [4]float64{}, conf, nil
 }
 
 func TestVisionAdapter_Match_WritesLastTemplate(t *testing.T) {
@@ -268,6 +273,22 @@ func TestVisionAdapter_Match_WritesLastTemplate(t *testing.T) {
 	}
 	if sys.LastPoint.X != 0.42 || sys.LastPoint.Y != 0.13 {
 		t.Errorf("LastPoint = %v, want {0.42, 0.13}", sys.LastPoint)
+	}
+}
+
+func TestVisionAdapter_WaitMatch_TimeoutReportsBestConf(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.Matcher = stubMatcher{found: false, conf: 0.62} // 没过阈值, 但真实匹配度 0.62
+	a := &visionAdapter{rt: rt}
+	pt, conf, err := a.WaitMatch(context.Background(), []string{"foo"}, 0.85, "any", 60*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pt != nil {
+		t.Errorf("pt = %v, want nil on timeout", pt)
+	}
+	if conf < 0.61 || conf > 0.63 {
+		t.Errorf("timeout conf = %.3f, want ~0.62 (best seen during poll)", conf)
 	}
 }
 

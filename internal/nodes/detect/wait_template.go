@@ -84,7 +84,7 @@ func (WaitTemplate) Display(in node.Inputs, exitName string, out node.OutputData
 		return fmt.Sprintf("✓ %s conf=%.2f @ (%.2f,%.2f)",
 			label, out.Float64(wtDataConf), pt.X, pt.Y)
 	case wtOutTimeout:
-		return fmt.Sprintf("⌛ %s timeout (%dms)", label, in.Int(wtInTimeoutMs))
+		return fmt.Sprintf("⌛ %s timeout (best %.2f < 阈值, %dms)", label, out.Float64(wtDataConf), in.Int(wtInTimeoutMs))
 	}
 	return ""
 }

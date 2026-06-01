@@ -244,21 +244,21 @@ func (m *templateMatcherAdapter) loadVariantTemplate(containerID, key string, re
 	return v.(*vision.Template), nil
 }
 
-func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, frame *image.RGBA, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
+func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, frame *image.RGBA, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, float64, error) {
 	if frame == nil {
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	frameW := frame.Bounds().Dx()
 	frameH := frame.Bounds().Dy()
 
 	store, err := m.storeFor(containerID)
 	if err != nil {
-		return false, expr.Point{}, [4]float64{}, err
+		return false, expr.Point{}, [4]float64{}, 0, err
 	}
 	variant, ok := store.PickBest(key, frameW, frameH)
 	if !ok {
 		m.emitMissingVariantWarning(containerID, key, frameW, frameH)
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	// 跨分辨率缩放兜底: PickBest 可能返回非精确分辨率的最近档. 按长边比算缩放比,
 	// 超出容器 ScaleTolerance ([1/k, k]) 则判太远不缩放, 仍 miss (emit 警告).
@@ -266,17 +266,17 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, f
 	k := m.scaleTolerance(containerID)
 	if !withinScaleTolerance(scale, k) {
 		m.emitScaleTooFarWarning(containerID, key, frameW, frameH, variant.Resolution, scale, k)
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	tpl, err := m.loadVariantTemplate(containerID, key, variant.Resolution)
 	if err != nil {
-		return false, expr.Point{}, [4]float64{}, err
+		return false, expr.Point{}, [4]float64{}, 0, err
 	}
 	// 精确命中 scale==1.0 不缩 (零开销); 否则按长边比缩到 frame 分辨率再 NCC.
 	if scale != 1.0 {
 		scaled := vision.ScaleTemplate(tpl, float32(scale))
 		if scaled == nil {
-			return false, expr.Point{}, [4]float64{}, nil // 缩后 <8px, 当 miss.
+			return false, expr.Point{}, [4]float64{}, 0, nil // 缩后 <8px, 当 miss.
 		}
 		tpl = scaled
 	}
@@ -314,30 +314,31 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, f
 
 	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
 	if roiPxW <= 0 || roiPxH <= 0 {
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
 	if x < 0 || conf < float32(threshold) {
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, float64(conf), nil // 报真实匹配度供超时/miss 诊断
 	}
 	cx := float64(roiPxX+x+tpl.W/2) / float64(frameW)
 	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
 	out := [4]float64{rx, ry, rw, rh}
-	return true, expr.Point{X: cx, Y: cy}, out, nil
+	return true, expr.Point{X: cx, Y: cy}, out, float64(conf), nil
 }
 
 // detectMultiRegion 多槽 ROI 各跑 NCC, 收 conf>=threshold hit, 按 reading-order 末位返回.
 // 1:1 复刻 v1 fish bot Detector.BaitInShop 思路, 处理多槽位 UI (商店货架 3×2 grid).
 // regions 每条 pixel bbox 在 variantRes 坐标系下, 自动加 30px padding (跟 single-BBox 路径一致).
-func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]int, variantRes [2]int, threshold float64) (bool, expr.Point, [4]float64, error) {
+func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]int, variantRes [2]int, threshold float64) (bool, expr.Point, [4]float64, float64, error) {
 	if variantRes[0] <= 0 || variantRes[1] <= 0 {
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	type hit struct {
 		cx, cy         float64
 		rx, ry, rw, rh float64
 	}
 	var hits []hit
+	bestConf := float32(-1) // 各槽见过的最高匹配度 (供 miss 诊断)
 	frameW := frame.Bounds().Dx()
 	frameH := frame.Bounds().Dy()
 	vw, vh := float64(variantRes[0]), float64(variantRes[1])
@@ -358,6 +359,9 @@ func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *visio
 			continue
 		}
 		x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
+		if conf > bestConf {
+			bestConf = conf
+		}
 		if x < 0 || conf < float32(threshold) {
 			continue
 		}
@@ -367,8 +371,12 @@ func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *visio
 			rx: rx, ry: ry, rw: rw, rh: rh,
 		})
 	}
+	cf := float64(bestConf)
+	if cf < 0 {
+		cf = 0
+	}
 	if len(hits) == 0 {
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, cf, nil
 	}
 	// reading-order 末位: ry 升序, ry 同时 rx 升序, 取最后一个 (右下).
 	last := hits[0]
@@ -377,7 +385,7 @@ func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *visio
 			last = h
 		}
 	}
-	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, nil
+	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, cf, nil
 }
 
 // ---- Container Runner: ExecutionQueue + Worker → container.Runner ----

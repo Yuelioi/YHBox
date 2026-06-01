@@ -141,7 +141,7 @@ func (l *EventListener) detectFired(ctx context.Context) bool {
 	}
 	if l.matchMode == "all" {
 		for _, key := range l.templates {
-			found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, frame, key, l.threshold, nil)
+			found, _, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, frame, key, l.threshold, nil)
 			if err != nil || !found {
 				return false
 			}
@@ -149,7 +149,7 @@ func (l *EventListener) detectFired(ctx context.Context) bool {
 		return true
 	}
 	for _, key := range l.templates {
-		found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, frame, key, l.threshold, nil)
+		found, _, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, frame, key, l.threshold, nil)
 		if err == nil && found {
 			return true
 		}

@@ -19,11 +19,16 @@ type mockMatcher struct {
 	HitTemplates map[string]bool
 }
 
-func (m *mockMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, k string, _ float64, _ []float64) (bool, expr.Point, [4]float64, error) {
+func (m *mockMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, k string, _ float64, _ []float64) (bool, expr.Point, [4]float64, float64, error) {
 	if m.HitTemplates == nil {
-		return false, expr.Point{}, [4]float64{}, nil
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
-	return m.HitTemplates[k], expr.Point{}, [4]float64{}, nil
+	hit := m.HitTemplates[k]
+	conf := 0.0
+	if hit {
+		conf = 1.0
+	}
+	return hit, expr.Point{}, [4]float64{}, conf, nil
 }
 
 var _ TemplateMatcher = (*mockMatcher)(nil)
