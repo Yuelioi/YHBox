@@ -1,10 +1,10 @@
 //go:build windows
 
-// Package backends — SendInputBackend: 主路注入后端.
+// Package backends — HybridBackend: clip 回放的混合后端.
 //
-// 走 user32.SendInput, 直接进 OS raw input pipeline. 游戏读 RawInput / DirectInput / WM_*
-// 都能收到 (前提是前台 / 有 RIDEV_INPUTSINK). 缺点: 不能精确目标窗口 (全局), 用户在
-// 玩别的就会被打扰; 优点: 兼容性最广, 相机转向 (RawDelta) 唯一可行路径.
+// 有目标 hwnd 时键盘/鼠标按钮/移动/滚轮全走 PostMessage (精确投递给目标窗口, 后台也能收);
+// 相机转向 (RawDelta) 无条件走 SendInput —— 某些游戏的窗口消息只接 PostMessage 键鼠, 但
+// 相机/视角转向只认 SendInput 的 OS raw input. 无 hwnd 时整体降级走 SendInput (录到桌面也能凑合).
 //
 // heldKeys / heldButtons 状态机: 每次 KeyDown/MouseBtnDown 加入, KeyUp/MouseBtnUp 移除.
 // Cancel 时 ReleaseHeld 遍历发对应 Up, 防止键卡住 (Migration must-have).
@@ -93,21 +93,21 @@ var (
 	procMapVirtualKey = user32.NewProc("MapVirtualKeyW")
 )
 
-// SendInputBackend 混合后端: PostMessage 路径 (键盘/鼠标按钮/移动/滚轮) + SendInput 路径 (RawDelta 相机).
+// HybridBackend 混合后端: PostMessage 路径 (键盘/鼠标按钮/移动/滚轮) + SendInput 路径 (RawDelta 相机).
 //
-// 关键: 异环 IMC 只接 PostMessage WM_KEYDOWN/WM_LBUTTONDOWN, 不接 SendInput 键鼠.
-// RawDelta 是相机转向唯一路径 (走 OS raw input pipeline).
-// 这套是 pkg/input v0/v1 验证可用的, ClipPlayer 调度后只是路由到对应 PostMessage / SendInput.
-type SendInputBackend struct {
+// 关键: 某些游戏的窗口消息处理只接 PostMessage 的 WM_KEYDOWN/WM_LBUTTONDOWN, 不接 SendInput 键鼠;
+// 但相机/视角转向只认 SendInput 的 OS raw input pipeline (RawDelta 唯一路径).
+// ClipPlayer 调度后只是把每个 event 路由到对应 PostMessage / SendInput.
+type HybridBackend struct {
 	hwndGetter  func() uintptr      // 拿当前游戏 hwnd. 0 = SendInput fallback (录到桌面也能凑合).
 	mu          sync.Mutex
 	heldKeys    map[uint32]struct{} // vk → present
 	heldButtons map[uint32]struct{} // btn (1L 2R 3M 4X1 5X2) → present
 }
 
-// NewSendInputBackend 构造. hwndGetter 拿游戏窗口 hwnd, nil = 永远走 SendInput.
-func NewSendInputBackend(hwndGetter func() uintptr) IInputBackend {
-	return &SendInputBackend{
+// NewHybridBackend 构造. hwndGetter 拿游戏窗口 hwnd, nil = 永远走 SendInput.
+func NewHybridBackend(hwndGetter func() uintptr) IInputBackend {
+	return &HybridBackend{
 		hwndGetter:  hwndGetter,
 		heldKeys:    make(map[uint32]struct{}),
 		heldButtons: make(map[uint32]struct{}),
@@ -115,10 +115,10 @@ func NewSendInputBackend(hwndGetter func() uintptr) IInputBackend {
 }
 
 // Name 实现 IInputBackend.
-func (b *SendInputBackend) Name() string { return "postmessage+sendinput" }
+func (b *HybridBackend) Name() string { return "postmessage+sendinput" }
 
 // Send 投递单 event. 同步.
-func (b *SendInputBackend) Send(ev inputclip.Event) error {
+func (b *HybridBackend) Send(ev inputclip.Event) error {
 	var hwnd win.HWND
 	if b.hwndGetter != nil {
 		hwnd = win.HWND(b.hwndGetter())
@@ -176,7 +176,7 @@ func (b *SendInputBackend) Send(ev inputclip.Event) error {
 }
 
 // trackKey / trackBtn 状态机更新, Send 路径用 (不发实际 input — 由路由决定 Post / SendInput).
-func (b *SendInputBackend) trackKey(vk uint32, keyUp bool) {
+func (b *HybridBackend) trackKey(vk uint32, keyUp bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if keyUp {
@@ -186,7 +186,7 @@ func (b *SendInputBackend) trackKey(vk uint32, keyUp bool) {
 	}
 }
 
-func (b *SendInputBackend) trackBtn(btn uint32, btnUp bool) {
+func (b *HybridBackend) trackBtn(btn uint32, btnUp bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if btnUp {
@@ -209,7 +209,7 @@ func mapBtn(btn uint32) input.MouseButton {
 }
 
 // SendBatch foreach 调 Send, 不真合批成单次 SendInput.
-func (b *SendInputBackend) SendBatch(evs []inputclip.Event) error {
+func (b *HybridBackend) SendBatch(evs []inputclip.Event) error {
 	for _, ev := range evs {
 		if err := b.Send(ev); err != nil {
 			return err
@@ -219,7 +219,7 @@ func (b *SendInputBackend) SendBatch(evs []inputclip.Event) error {
 }
 
 // ReleaseHeld 遍历 held 状态发对应 Up. 防止键卡住.
-func (b *SendInputBackend) ReleaseHeld() error {
+func (b *HybridBackend) ReleaseHeld() error {
 	b.mu.Lock()
 	keys := make([]uint32, 0, len(b.heldKeys))
 	for k := range b.heldKeys {
@@ -249,7 +249,7 @@ func (b *SendInputBackend) ReleaseHeld() error {
 //
 // scan=0 时调 MapVirtualKey 自动填. flags 是来自 Event.C 的 bitmask
 // (e.g. KEYEVENTF_EXTENDEDKEY); KEYUP 由 keyUp 参数补.
-func (b *SendInputBackend) sendKeyRaw(vk, scan, flags uint32, keyUp bool) error {
+func (b *HybridBackend) sendKeyRaw(vk, scan, flags uint32, keyUp bool) error {
 	if scan == 0 {
 		r, _, _ := procMapVirtualKey.Call(uintptr(vk), uintptr(mapVKToVSC))
 		scan = uint32(r) & 0xFFFF
@@ -276,7 +276,7 @@ func (b *SendInputBackend) sendKeyRaw(vk, scan, flags uint32, keyUp bool) error 
 // sendMouseBtnRaw 不动状态机.
 //
 // btn 1=L 2=R 3=M 4=X1 5=X2. x/y screen px (-1 = 不移动, 当前光标位置).
-func (b *SendInputBackend) sendMouseBtnRaw(btn uint32, x, y int32, btnUp bool) error {
+func (b *HybridBackend) sendMouseBtnRaw(btn uint32, x, y int32, btnUp bool) error {
 	var flags uint32
 	var mouseData uint32
 	switch btn {
@@ -335,7 +335,7 @@ func (b *SendInputBackend) sendMouseBtnRaw(btn uint32, x, y int32, btnUp bool) e
 //
 // absolute 模式 x/y 应是 normalized 0..65535 全屏坐标; 调用方决定要不要 normalize.
 // 这里透传 x/y, 坐标映射在 ClipPlayer 那一层做.
-func (b *SendInputBackend) sendMouseMove(mode uint32, x, y int32) error {
+func (b *HybridBackend) sendMouseMove(mode uint32, x, y int32) error {
 	flags := mouseEventfMove
 	if mode == 0 {
 		flags |= mouseEventfAbsolute
@@ -356,7 +356,7 @@ func (b *SendInputBackend) sendMouseMove(mode uint32, x, y int32) error {
 }
 
 // sendScroll notches * 120 = wheel delta.
-func (b *SendInputBackend) sendScroll(notches, x, y int32) error {
+func (b *HybridBackend) sendScroll(notches, x, y int32) error {
 	delta := uint32(int32(notches) * 120)
 	in := sendInputMouseBlock{
 		Type: inputMouse,

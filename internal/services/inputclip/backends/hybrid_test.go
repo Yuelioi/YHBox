@@ -8,16 +8,16 @@ import (
 	"yhbox/internal/services/inputclip"
 )
 
-func TestSendInputBackend_Name(t *testing.T) {
-	b := NewSendInputBackend(nil)
+func TestHybridBackend_Name(t *testing.T) {
+	b := NewHybridBackend(nil)
 	name := b.Name()
 	if name != "postmessage+sendinput" {
 		t.Fatalf("unexpected name: %q", name)
 	}
 }
 
-func TestSendInputBackend_Smoke(t *testing.T) {
-	b := NewSendInputBackend(nil)
+func TestHybridBackend_Smoke(t *testing.T) {
+	b := NewHybridBackend(nil)
 	// 不真敲键盘 — 用 ReleaseHeld 验状态机.
 	if err := b.ReleaseHeld(); err != nil {
 		t.Fatalf("empty ReleaseHeld should be no-op, got: %v", err)
@@ -32,8 +32,8 @@ func TestSendInputBackend_Smoke(t *testing.T) {
 	}
 }
 
-func TestSendInputBackend_ReleaseHeld_ClearsState(t *testing.T) {
-	b := NewSendInputBackend(nil).(*SendInputBackend)
+func TestHybridBackend_ReleaseHeld_ClearsState(t *testing.T) {
+	b := NewHybridBackend(nil).(*HybridBackend)
 	// 直接塞 held 状态. 用不存在的 vk (0xFE/0xFF) 避免测试真敲键盘 —
 	// MapVirtualKey 对未知 vk 返 0, sendInput 静默丢. 鼠标按钮不模拟,
 	// 否则 ReleaseHeld 会真发 LeftUp 影响测试机.

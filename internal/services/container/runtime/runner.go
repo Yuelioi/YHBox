@@ -337,7 +337,7 @@ func (r *ContainerRunner) setupRuntime() error {
 
 	// PlayClip 输入后端 (inputclip): per-run, hwnd 取本容器 rt.Window. nil 守卫让测试可预设 fake backend.
 	if r.rt.InputBackend == nil {
-		r.rt.InputBackend = backends.NewSendInputBackend(func() uintptr { return r.rt.Window.HWND })
+		r.rt.InputBackend = backends.NewHybridBackend(func() uintptr { return r.rt.Window.HWND })
 	}
 
 	// 3) capture backend (auto + fallback)
