@@ -108,6 +108,7 @@ import { useLibraryStore } from '@/stores/library'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useToast } from '@nuxt/ui/composables'
 import { backend, type Subgraph } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec, NodeGroup } from '@/components/containers/nodeRegistry/index'
 
@@ -185,7 +186,7 @@ async function onImport(sg: Subgraph) {
     await backend.library.importToContainer(sg.id, editorStore.activeContainerID, '')
     toast.add({ title: t('nodePalette.toast_imported', { name: sg.label || sg.id }), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: t('toast.import_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.import_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 
@@ -194,7 +195,7 @@ async function onCopyID(id: string) {
     await navigator.clipboard.writeText(id)
     toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: t('toast.copy_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 

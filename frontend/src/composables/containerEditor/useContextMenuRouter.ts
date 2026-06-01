@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { dataInTypeFor, dataOutTypeFor } from '@/components/containers/nodeRegistry/registry'
 import { type VarType } from '@/lib/variableRef'
 import { newNodeID } from './ids'
@@ -169,7 +170,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       await backend.library.exportSubgraph(containerID, sgID, true)
       toast.add({ title: t('contextMenu.share_success', { sgID }), color: 'success', icon: 'i-tabler-check' })
     } catch (e: any) {
-      toast.add({ title: t('contextMenu.share_failed'), description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('contextMenu.share_failed'), description: errorMessage(e), color: 'error' })
     }
   }
 

@@ -17,6 +17,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useSnippetsStore, type Snippet } from '@/stores/snippets'
 import { useLibraryStore } from '@/stores/library'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge, type VarDecl } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { dataInTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 import { KIND_DEFAULTS } from '@/components/containers/pinSpec'
@@ -259,7 +260,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       console.error('LibraryExplorer pick failed:', e)
       toast.add({
         title: t('nodeCreation.lib_import_failed'),
-        description: String(e?.message ?? e),
+        description: errorMessage(e),
         color: 'error',
       })
     }

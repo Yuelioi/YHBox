@@ -21,6 +21,7 @@ import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container, type Graph } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import { randID } from './ids'
@@ -78,7 +79,7 @@ export function useRecording(opts: RecordOpts) {
     try {
       await backend.recording.validateTarget(containerID)
     } catch (e: any) {
-      toast.add({ title: t('recording.launch_failed'), description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recording.launch_failed'), description: errorMessage(e), color: 'error' })
       return
     }
 
@@ -117,7 +118,7 @@ export function useRecording(opts: RecordOpts) {
       })
     } catch (e: any) {
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-      toast.add({ title: t('recording.launch_failed'), description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recording.launch_failed'), description: errorMessage(e), color: 'error' })
     }
   }
 
@@ -134,7 +135,7 @@ export function useRecording(opts: RecordOpts) {
       }
       await onSubgraphCreated(payload)
     } catch (e: any) {
-      toast.add({ title: t('recording.stop_failed'), description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recording.stop_failed'), description: errorMessage(e), color: 'error' })
     }
   }
 
@@ -184,7 +185,7 @@ export function useRecording(opts: RecordOpts) {
     try {
       await refreshSubgraphStore()
     } catch (e: any) {
-      toast.add({ title: t('recordComposable.refresh_subgraphs_failed'), description: String(e?.message ?? e), color: 'error' })
+      toast.add({ title: t('recordComposable.refresh_subgraphs_failed'), description: errorMessage(e), color: 'error' })
       return
     }
 

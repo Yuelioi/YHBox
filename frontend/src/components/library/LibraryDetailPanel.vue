@@ -88,6 +88,7 @@ import type { SubgraphPackage } from '@/lib/backend'
 import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@nuxt/ui/composables'
+import { errorMessage } from '@/lib/invoke'
 
 const { t } = useI18n()
 
@@ -112,7 +113,7 @@ async function onCopyID() {
     await navigator.clipboard.writeText(props.sgID)
     toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: t('toast.copy_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 

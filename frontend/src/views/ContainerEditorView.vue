@@ -452,6 +452,7 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
 import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
@@ -1120,7 +1121,7 @@ async function onTryRun() {
       return
     }
   } catch (e) {
-    toast.add({ title: t('toast.validate_failed'), description: String(e), color: 'error' })
+    toast.add({ title: t('toast.validate_failed'), description: errorMessage(e), color: 'error' })
     return
   }
   await backend.containers.run(draft.value.id)
@@ -1141,7 +1142,7 @@ async function onValidate() {
     validationErrors.value = errs ?? []
     validationPanelOpen.value = true
   } catch (e) {
-    toast.add({ title: t('toast.validate_call_failed'), description: String(e), color: 'error' })
+    toast.add({ title: t('toast.validate_call_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 

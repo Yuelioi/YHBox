@@ -524,6 +524,7 @@ import { Events } from '@wailsio/runtime'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 // 不 import ExpressionInput: 没有 'expr' field type (data-in pin literals 取代了 $vars.X 配置串).
 import SwitchInspector from './inspector/SwitchInspector.vue'
 import ClipTimeline from './ClipTimeline.vue'
@@ -719,7 +720,7 @@ async function onPublishToLibrary() {
       icon: 'i-tabler-cloud-upload',
     })
   } catch (e) {
-    toastForSync.add({ title: t('node.Subgraph.inspector.publish_toast_fail'), description: String(e), color: 'error' })
+    toastForSync.add({ title: t('node.Subgraph.inspector.publish_toast_fail'), description: errorMessage(e), color: 'error' })
   } finally {
     publishing.value = false
   }

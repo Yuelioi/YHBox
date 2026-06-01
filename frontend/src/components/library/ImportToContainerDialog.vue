@@ -69,6 +69,7 @@ import { useI18n } from 'vue-i18n'
 import { backend, type ImportConflict, type ImportResult, type SubgraphRequiredGlobal, type VarDecl } from '@/lib/backend'
 import { useContainersStore } from '@/stores/containers'
 import { useToast } from '@nuxt/ui/composables'
+import { errorMessage } from '@/lib/invoke'
 
 const { t } = useI18n()
 
@@ -126,7 +127,7 @@ async function doDryRun() {
       await doRealImport('')
     }
   } catch (e: any) {
-    toast.add({ title: t('toast.import_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.import_failed'), description: errorMessage(e), color: 'error' })
   } finally {
     busy.value = false
   }
@@ -165,7 +166,7 @@ async function doAddGlobalsAndImport() {
       await doRealImport('')
     }
   } catch (e: any) {
-    toast.add({ title: t('library.import.add_vars_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('library.import.add_vars_failed'), description: errorMessage(e), color: 'error' })
   } finally {
     busy.value = false
   }
@@ -182,7 +183,7 @@ async function doRealImport(strategy: string) {
     importedCount.value = ((result as ImportResult)?.imported ?? []).length
     step.value = 'done'
   } catch (e: any) {
-    toast.add({ title: t('toast.import_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.import_failed'), description: errorMessage(e), color: 'error' })
   } finally {
     busy.value = false
   }

@@ -172,6 +172,7 @@ import { useExecutionStore } from '@/stores/execution'
 import { useBatchSelect } from '@/composables/useBatchSelect'
 import { useConfirm } from '@/composables/useConfirm'
 import { backend, type Container } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
@@ -286,7 +287,7 @@ async function onEditInWindow(c: Container) {
     await backend.containers.openEditorWindow(c.id)
   } catch (e) {
     console.error('openEditorWindow failed:', e)
-    toast.add({ title: t('toast.open_window_failed'), description: String(e), color: 'error' })
+    toast.add({ title: t('toast.open_window_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 

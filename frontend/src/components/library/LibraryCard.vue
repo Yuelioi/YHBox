@@ -49,6 +49,7 @@ import { useI18n } from 'vue-i18n'
 import type { SubgraphPackage } from '@/lib/backend'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
+import { errorMessage } from '@/lib/invoke'
 import { useLibraryStore } from '@/stores/library'
 
 const { t } = useI18n()
@@ -110,7 +111,7 @@ async function onCopyID() {
     await navigator.clipboard.writeText(props.sgID)
     toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
-    toast.add({ title: t('toast.copy_failed'), description: String(e?.message ?? e), color: 'error' })
+    toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 
