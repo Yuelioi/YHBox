@@ -148,7 +148,7 @@ export default {
     autostart_off: 'Auto-start disabled',
     lang_en_warn_title: 'Language switched to English',
     lang_en_warn_desc:
-      'EN templates not yet supported: fish / cook / battle visual templates not captured in EN, those features will show unavailable. UI strings switched.',
+      "Some scenarios' visual templates haven't been captured in English yet; related features may show as unavailable. UI strings switched.",
     subgraph_not_set: 'Subgraph not specified on this node',
     runqueue_added: 'Added to run queue',
     validate_failed: 'Validation failed',

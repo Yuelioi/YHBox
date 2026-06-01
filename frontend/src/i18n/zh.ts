@@ -164,7 +164,7 @@ export default {
     autostart_off: '已关闭开机自启',
     lang_en_warn_title: 'Language switched to English',
     lang_en_warn_desc:
-      '尚未支持英文模板: fish / cook / battle 的视觉模板未采集 EN 版本, 这几个功能会显示为不可用. UI 字符串已切换.',
+      '部分场景的视觉模板尚未采集英文版本, 相关功能可能显示为不可用. UI 字符串已切换.',
     subgraph_not_set: '该节点未指定子图',
     runqueue_added: '已加入运行队列',
     validate_failed: '校验失败',
