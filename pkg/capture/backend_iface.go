@@ -53,10 +53,12 @@ func ensureMockInit() error {
 //
 // warning 是 string (空 = 没事); err 是 fatal (caller 应该停 container 启动).
 //
-// 阈值跟 AutoBackend() 保持一致 (Win11/Server2022 才默选 WGC). Win10 下 WGC 对 DX 游戏
-// 容易抓黑帧 / stale buffer, 之前 v2 这里写 18362 (Win10 1903) 跟包级 20348 不一致 →
-// fishing v2 实测时 ColorBarTrack 抓到的帧 yellow/green 像素全 0, v1 (走 AutoBackend GDI)
-// 同窗口同 ROI 跑得通. 统一到 AutoBackend() 避免再分叉.
+// 两个 WGC 版本阈值是有意分流, 不是 bug, 也不是"跟 AutoBackend() 一致":
+//   - "auto" 分支调 AutoBackend() → build>=20348 (Win11/Server2022) 才默选 WGC.
+//     保守: Win10 上 WGC 对 DX 游戏容易抓黑帧/stale buffer (fishing v2 实测踩过),
+//     自动选择不冒这个险, 默走 GDI.
+//   - "wgc" 显式分支 → build>=18362 (Win10 1903, WGC API 下限) 就放行.
+//     用户自己点了 wgc 就尊重选择, 不强制 fallback GDI.
 func NewIBackend(name string) (b IBackend, warning string, err error) {
 	switch name {
 	case "", "auto":
