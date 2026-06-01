@@ -13,11 +13,6 @@ import (
 	"yhbox/pkg/winutil"
 )
 
-// GameHwndProvider 给录制器拿当前游戏窗口 hwnd. main.go 启动时注入.
-type GameHwndProvider interface {
-	HWND() (uintptr, bool)
-}
-
 // HotkeySettingsProvider 给 Service 拿停录热键 VK + mouseMode.
 // nil = 默认 F12 + relative.
 type HotkeySettingsProvider interface {
@@ -51,7 +46,6 @@ type ContainerGetter interface {
 // StopAsync 完成时 emit 'recording:completed' {subgraphID, containerID, label} | {error}.
 type Service struct {
 	rec          *Recorder
-	game         GameHwndProvider
 	hkProv       HotkeySettingsProvider
 	clipSvc      *inputclip.Service
 	containers   ContainerSubgraphSaver
@@ -63,9 +57,9 @@ type Service struct {
 	state   RecordingState
 }
 
-func NewService(rec *Recorder, game GameHwndProvider, hkProv HotkeySettingsProvider, clipSvc *inputclip.Service) *Service {
+func NewService(rec *Recorder, hkProv HotkeySettingsProvider, clipSvc *inputclip.Service) *Service {
 	return &Service{
-		rec: rec, game: game, hkProv: hkProv, clipSvc: clipSvc,
+		rec: rec, hkProv: hkProv, clipSvc: clipSvc,
 		state: RecordingState{Phase: PhaseIdle},
 	}
 }

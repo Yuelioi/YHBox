@@ -7,19 +7,6 @@ import (
 	"yhbox/internal/services/recording"
 )
 
-// recordingGameHwndAdapter 把 services.App.Game() 适配到 recording.GameHwndProvider
-type recordingGameHwndAdapter struct {
-	app *services.App
-}
-
-func (a *recordingGameHwndAdapter) HWND() (uintptr, bool) {
-	g := a.app.Game()
-	if g == nil || !g.OK {
-		return 0, false
-	}
-	return uintptr(g.HWND), true
-}
-
 // recordingHkAdapter 拿停录/暂停热键 VK (读 hotkey registry) + mouseMode (读 settings)。
 // 录制热键现进了热键中心 (recording.stop/pause, ll-hook 机制), registry 是权威;
 // 用户在「快捷键」页 rebind → 下次录制 Start 读到新值 (无需重启)。
@@ -69,5 +56,5 @@ func newRecordingService(app *services.App, clipSvc *inputclip.Service, reg *hot
 	rec.SetMouseCounts360Getter(func() int {
 		return app.Settings().ActiveMouseCounts360()
 	})
-	return recording.NewService(rec, &recordingGameHwndAdapter{app: app}, &recordingHkAdapter{app: app, reg: reg}, clipSvc)
+	return recording.NewService(rec, &recordingHkAdapter{app: app, reg: reg}, clipSvc)
 }
