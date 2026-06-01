@@ -770,9 +770,9 @@ export default {
       },
     },
     // input
-    BringGameForeground: {
-      label: '游戏窗口置前台',
-      description: '把游戏窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.',
+    BringWindowForeground: {
+      label: '窗口置前台',
+      description: '把目标窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.',
       output: { Done: { label: '完成' } },
     },
     ClickAt: {

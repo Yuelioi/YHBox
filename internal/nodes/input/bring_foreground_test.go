@@ -27,10 +27,10 @@ func withWindow(w node.WindowService) node.ServiceBundle {
 	return b
 }
 
-func TestBringGameForeground_HappyPath(t *testing.T) {
+func TestBringWindowForeground_HappyPath(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&BringGameForeground{})
-	rn, _ := node.Get("BringGameForeground")
+	node.Register(&BringWindowForeground{})
+	rn, _ := node.Get("BringWindowForeground")
 
 	win := &recordingWindow{}
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win))
@@ -46,11 +46,11 @@ func TestBringGameForeground_HappyPath(t *testing.T) {
 	}
 }
 
-// 失败仅 warn log, 不报 error, 仍走 Done. 复刻老 execBringGameForegroundImpl 语义.
-func TestBringGameForeground_BackendError_StillDone(t *testing.T) {
+// 失败仅 warn log, 不报 error, 仍走 Done. 复刻老 execBringWindowForegroundImpl 语义.
+func TestBringWindowForeground_BackendError_StillDone(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&BringGameForeground{})
-	rn, _ := node.Get("BringGameForeground")
+	node.Register(&BringWindowForeground{})
+	rn, _ := node.Get("BringWindowForeground")
 
 	win := &recordingWindow{err: errors.New("fullscreen exclusive")}
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win))

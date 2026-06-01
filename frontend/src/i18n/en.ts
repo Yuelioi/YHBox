@@ -749,9 +749,9 @@ export default {
       },
     },
     // input
-    BringGameForeground: {
-      label: 'Bring game to foreground',
-      description: 'Sets the game window as foreground focus. Exclusive-fullscreen / anti-cheat may reject; logs and continues on failure.',
+    BringWindowForeground: {
+      label: 'Bring window to foreground',
+      description: 'Sets the target window as foreground focus. Exclusive-fullscreen / anti-cheat may reject; logs and continues on failure.',
       output: { Done: { label: 'Done' } },
     },
     ClickAt: {

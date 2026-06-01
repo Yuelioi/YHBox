@@ -74,7 +74,7 @@ type SysState struct {
 //   - emit 注入：Log/Toast 节点把消息推到前端
 //
 // Input / Window / Capture 由 ContainerRunner.setupRuntime 在 Run 启动期间解析
-// WindowTarget 节点后 populate. Game 字段供 BringGameForeground 节点用.
+// WindowTarget 节点后 populate. Game 字段供 BringWindowForeground 节点用.
 type RuntimeContext struct {
 	Container *container.Container
 	InputBus  *execution.InputBus

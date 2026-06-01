@@ -17,7 +17,7 @@ import (
 	"yhbox/internal/node"
 	_ "yhbox/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
 	_ "yhbox/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
-	_ "yhbox/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringGameForeground/OnEvent
+	_ "yhbox/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground/OnEvent
 	_ "yhbox/internal/nodes/io"        // Log/Toast/PlayClip
 	_ "yhbox/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
 	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
