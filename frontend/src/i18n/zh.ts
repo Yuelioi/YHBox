@@ -189,6 +189,7 @@ export default {
     import_failed: '导入失败',
     container_not_found: '容器未找到',
     open_window_failed: '打开新窗口失败',
+    and_n_more: '，还有 {n} 个错误',
   },
   editor: {
     header: {
@@ -1330,6 +1331,10 @@ export default {
     CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
     MISSING_WINDOW_TARGET: '主图缺 WindowTarget 节点',
+    UNKNOWN_ERROR: '发生未知错误',
+    WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
+    CONTAINER_ID_REQUIRED: '缺容器 ID',
+    RECORDING_NO_WINDOW_TARGET: '容器缺 WindowTarget 节点（录制需要目标窗口）',
     DUPLICATE_WINDOW_TARGET: '主图有多个 WindowTarget（应恰好 1 个）',
     WINDOW_TARGET_IN_SUBGRAPH: 'WindowTarget 节点必须在主图',
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget 正则不合法: {error}',

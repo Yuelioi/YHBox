@@ -174,6 +174,7 @@ export default {
     import_failed: 'Import failed',
     container_not_found: 'Container not found',
     open_window_failed: 'Open window failed',
+    and_n_more: ' (and {n} more)',
   },
   editor: {
     header: {
@@ -1309,6 +1310,10 @@ export default {
     CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
     MISSING_WINDOW_TARGET: 'Main graph missing WindowTarget node',
+    UNKNOWN_ERROR: 'An unknown error occurred',
+    WAILS_NOT_READY: 'The app is not ready yet, please retry',
+    CONTAINER_ID_REQUIRED: 'Container ID is required',
+    RECORDING_NO_WINDOW_TARGET: 'Container has no WindowTarget node (recording needs a target window)',
     DUPLICATE_WINDOW_TARGET: 'Main graph has multiple WindowTargets (expected exactly 1)',
     WINDOW_TARGET_IN_SUBGRAPH: 'WindowTarget node must be in main graph',
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget regex invalid: {error}',
