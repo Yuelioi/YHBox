@@ -1857,7 +1857,7 @@ export default {
     press_key: '按下任意键...',
     key_example: '如 W / Space',
     click_to_record: '点录制按键',
-    click_to_cancel: '点其它处取消',
+    click_to_cancel: '取消录制',
   },
   // CommentBox 默认 label.
   nodeMisc: {

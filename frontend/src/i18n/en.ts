@@ -1806,7 +1806,7 @@ export default {
     press_key: 'Press any key...',
     key_example: 'e.g. W / Space',
     click_to_record: 'Click to record key',
-    click_to_cancel: 'Click outside to cancel',
+    click_to_cancel: 'Cancel recording',
   },
   nodeMisc: {
     comment_default: 'Comment',
