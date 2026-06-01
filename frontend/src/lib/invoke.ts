@@ -14,22 +14,51 @@ export function setupInvoker(toastAdd: ToastAdd) {
   _toastAdd = toastAdd
 }
 
-/** 从任意 thrown 值提取人类可读 message。Wails3 抛 {message,cause,kind} 对象。 */
-export function errorMessage(e: unknown): string {
-  if (e == null) return 'unknown error'
-  if (e instanceof Error) return e.message
-  if (typeof e === 'string') return e
-  if (typeof e === 'object') {
-    const obj = e as Record<string, unknown>
-    if (typeof obj.message === 'string' && obj.message) return obj.message
-    if (typeof obj.error === 'string' && obj.error) return obj.error
-    try {
-      return JSON.stringify(e)
-    } catch {
-      return String(e)
-    }
+export type NormalizedError = {
+  errors?: Array<{ code: string; params?: Record<string, unknown> }>
+  code?: string
+  params?: Record<string, unknown>
+  message?: string
+}
+
+/** 把两条投递通道(wails RPC .cause / worker 事件信封)规整成统一形态。 */
+export function normalizeError(e: unknown): NormalizedError {
+  if (e == null) return {}
+  const obj = typeof e === 'object' ? (e as Record<string, unknown>) : {}
+  // 通道A: wails 包了一层 .cause; 通道B: e 本身就是 RunError 对象。两者都从 src 取。
+  const src = (obj.cause ?? obj) as Record<string, unknown>
+  // validation 数组: 通道A 是大写 Errors (无 json tag), 通道B 是小写 errors。
+  const errs = (src.Errors ?? src.errors) as unknown
+  if (Array.isArray(errs) && errs.length > 0) {
+    return { errors: errs as NormalizedError['errors'] }
   }
-  return String(e)
+  if (typeof src.code === 'string' && src.code) {
+    return { code: src.code, params: src.params as Record<string, unknown> | undefined }
+  }
+  if (e instanceof Error && e.message) return { message: e.message }
+  if (typeof e === 'string' && e) return { message: e }
+  if (typeof obj.message === 'string' && obj.message) return { message: obj.message }
+  return {}
+}
+
+/** 从任意 thrown 值/事件错误信封提取**已本地化**的人类可读 message。 */
+export function errorMessage(e: unknown): string {
+  const t = i18n.global.t
+  const te = i18n.global.te
+  const n = normalizeError(e)
+  if (n.errors && n.errors.length > 0) {
+    const first = n.errors[0]
+    const key = `error.${first.code}`
+    const head = te(key) ? t(key, (first.params ?? {}) as Record<string, unknown>) : first.code
+    const rest = n.errors.length - 1
+    return rest > 0 ? `${head}${t('toast.and_n_more', { n: rest })}` : head
+  }
+  if (n.code) {
+    const key = `error.${n.code}`
+    return te(key) ? t(key, (n.params ?? {}) as Record<string, unknown>) : n.code
+  }
+  if (n.message) return n.message
+  return t('error.UNKNOWN_ERROR')
 }
 
 function copyText(s: string) {
