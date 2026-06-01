@@ -9,7 +9,11 @@
 // (titleMatch / inputBackend / captureBackend).
 package system
 
-import "yhbox/internal/node"
+import (
+	"encoding/json"
+
+	"yhbox/internal/node"
+)
 
 func init() { node.Register(&WindowTarget{}) }
 
@@ -21,8 +25,9 @@ const (
 	wtInProcessName    = "ProcessName"
 	wtInTitleMatch     = "TitleMatch"
 	wtInInputBackend   = "InputBackend"
-	wtInCaptureBackend = "CaptureBackend"
-	wtOutFire          = "Fire"
+	wtInCaptureBackend  = "CaptureBackend"
+	wtInScaleTolerance  = "ScaleTolerance"
+	wtOutFire           = "Fire"
 )
 
 func (WindowTarget) Spec() node.Spec {
@@ -62,6 +67,9 @@ func (WindowTarget) Spec() node.Spec {
 							{Value: "wgc"},
 							{Value: "mock"},
 						}})}},
+			{Name: wtInScaleTolerance, Type: "Number", Default: json.Number("2.0"), Advanced: true,
+				Widget: node.WidgetSpec{Kind: "slider",
+					Props: node.MarshalProps(node.SliderProps{Min: 1, Max: 4, Step: 0.1})}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: wtOutFire, Type: "Exec"},
