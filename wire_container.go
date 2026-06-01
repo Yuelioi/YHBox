@@ -183,6 +183,22 @@ func (m *templateMatcherAdapter) emitScaleTooFarWarning(containerID, key string,
 	})
 }
 
+// Invalidate 丢弃某容器缓存的 store + 已解码模板, 让下次 Detect 重读磁盘.
+// 用户在同一 session 内新存/改/删模板后, templateSvc 经 SetOnChange 调这里 ——
+// 否则 matcher 一直拿首次 preload 的旧索引, 新模板匹配不上 (报 MISSING_TEMPLATE_VARIANT).
+func (m *templateMatcherAdapter) Invalidate(containerID string) {
+	m.storesMu.Lock()
+	delete(m.stores, containerID)
+	m.storesMu.Unlock()
+	prefix := containerID + ":"
+	m.loadCache.Range(func(k, _ any) bool {
+		if ks, ok := k.(string); ok && strings.HasPrefix(ks, prefix) {
+			m.loadCache.Delete(ks)
+		}
+		return true
+	})
+}
+
 func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, error) {
 	m.storesMu.Lock()
 	defer m.storesMu.Unlock()

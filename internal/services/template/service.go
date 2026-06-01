@@ -15,6 +15,19 @@ type Service struct {
 	capture  CaptureAdapter
 	mu       sync.Mutex
 	stores   map[string]*Store // containerID → store
+
+	// onChange: 模板 Save/Delete/DeleteVariant 后触发. main.go 接 matcher 缓存失效,
+	// 让同一 session 新存的模板立刻能匹配上. 可 nil.
+	onChange func(containerID string)
+}
+
+// SetOnChange 注册模板变更回调 (Save/Delete/DeleteVariant 成功后触发).
+func (s *Service) SetOnChange(fn func(containerID string)) { s.onChange = fn }
+
+func (s *Service) notifyChange(containerID string) {
+	if s.onChange != nil {
+		s.onChange(containerID)
+	}
 }
 
 type CaptureAdapter interface {
@@ -83,11 +96,14 @@ func (s *Service) Save(containerID, key, dataURL, name, description string, recR
 		int((region[0] + region[2]) * float32(recRes[0])),
 		int((region[1] + region[3]) * float32(recRes[1])),
 	}
-	_, err = st.SaveVariant(key, pngData, VariantMeta{
+	if _, err = st.SaveVariant(key, pngData, VariantMeta{
 		Resolution: recRes,
 		BBox:       bbox,
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	s.notifyChange(containerID)
+	return nil
 }
 
 // ifStr 返 a 非空时 a, 否则 fallback. file-local helper.
@@ -152,7 +168,11 @@ func (s *Service) Delete(containerID, key string) error {
 	if err != nil {
 		return err
 	}
-	return st.Delete(key)
+	if err := st.Delete(key); err != nil {
+		return err
+	}
+	s.notifyChange(containerID)
+	return nil
 }
 
 // ReadPngDataURL 给 FE thumbnail 用. 返最大分辨率 variant 的 PNG (area DESC first).
@@ -198,7 +218,11 @@ func (s *Service) DeleteVariant(containerID, key string, resolution [2]int) erro
 	if err != nil {
 		return err
 	}
-	return st.DeleteVariant(key, resolution)
+	if err := st.DeleteVariant(key, resolution); err != nil {
+		return err
+	}
+	s.notifyChange(containerID)
+	return nil
 }
 
 // ReadVariantPngDataURL 读指定 variant PNG. FE 后续 multi-variant UI 用.

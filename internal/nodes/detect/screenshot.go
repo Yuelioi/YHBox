@@ -1,5 +1,6 @@
 // internal/nodes/detect/screenshot.go
-// Screenshot — 抓全帧或 ROI, 按 pathTemplate 展开后写到 YHBOX_DATA_DIR (默认 bin/data/screenshots).
+// Screenshot — 抓全帧或 ROI, 按 pathTemplate 展开后写到 YHBOX_DATA_DIR 下 (默认 bin/data).
+// pathTemplate 默认 "screenshots/{ts}.png" → 落 <dataDir>/screenshots/{ts}.png.
 // 路径安全检查: 拒绝绝对路径 / 盘符 / ".." 路径段.
 package detect
 
@@ -127,9 +128,12 @@ func expandScreenshotTemplate(tmpl, nodeID, containerID string, now time.Time) s
 	return r.Replace(tmpl)
 }
 
+// screenshotOutputRoot 写盘根 = dataDir (pathTemplate 里再带 screenshots/ 段).
+// 生产 main.go 设 YHBOX_DATA_DIR 为绝对 dataDir; 兜底用相对 "bin/data" (不含 screenshots,
+// 否则跟默认 pathTemplate 的 screenshots/ 段重复成 screenshots/screenshots).
 func screenshotOutputRoot() string {
 	if dir := os.Getenv("YHBOX_DATA_DIR"); dir != "" {
 		return dir
 	}
-	return filepath.Join("bin", "data", "screenshots")
+	return filepath.Join("bin", "data")
 }

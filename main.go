@@ -110,6 +110,9 @@ func main() {
 	if exe, err := os.Executable(); err == nil {
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
 	}
+	// Screenshot 节点写盘根目录 = dataDir (绝对). 不设的话节点回落到相对 "bin/data"，
+	// 在 exeDir 已是 bin/ 时会拼成 bin/bin/data/... 还跟模板里的 screenshots/ 段重复。
+	_ = os.Setenv("YHBOX_DATA_DIR", dataDir)
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
 	// 系统热键 (execution-stop) + container 热键全部走这条路。
@@ -176,6 +179,7 @@ func main() {
 
 	// 模板库 (per-container, dataRoot 注入). 截模板按 containerID 经 containerSvc 解析目标窗口.
 	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{containers: containerSvc})
+	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存模板立刻让 matcher 缓存失效.
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {
@@ -201,6 +205,8 @@ func main() {
 			rootLog.Warn().Interface("payload", payload).Msg("container warning")
 		}
 	}, containerSvc.ScaleToleranceFor)
+	// 用户在编辑器里存/删模板后, 让 matcher 丢弃该容器缓存的旧索引 (否则新模板要重启 app 才认).
+	templateSvc.SetOnChange(templateMatcher.Invalidate)
 	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
 	clipSvc, libClipSvc := newInputClipServices(dataDir)
 
