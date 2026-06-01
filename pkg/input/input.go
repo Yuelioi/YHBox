@@ -1,7 +1,7 @@
 // Package input 后台键盘 / 鼠标控制。
 //
 // 关键 trick：
-//   - 异环 IMC 在窗口内部 IsActive=false 时丢弃 PostMessage 键盘消息。
+//   - 部分 UE/Slate 游戏（如异环）在窗口内部 IsActive=false 时丢弃 PostMessage 键盘消息。
 //     必须先 SendMessage(WM_ACTIVATE, WA_ACTIVE) 翻 IsActive=true，再 PostMessage。
 //   - Slate UI 按钮必须先 SetCursorPos 移真实光标，再 PostMessage DOWN/UP。
 package input
@@ -362,7 +362,7 @@ func ClickButtonNoRestore(hwnd win.HWND, clientX, clientY int, button MouseButto
 // MouseMove 把光标移到指定客户区坐标 + 给游戏发 WM_MOUSEMOVE。
 // 不还原光标位置（跟 Click 不同 —— 用户明确要光标停在那）。
 //   - 游戏读 cursor 位置（旧 UI/Slate 等）：生效
-//   - 游戏读 Raw Input（FPS camera 等）：**不生效**，需要 v2 SendInput driver
+//   - 游戏读 Raw Input（FPS camera 等）：**不生效**，改用 SendInputMouseRel（本包已实现）
 func MouseMove(hwnd win.HWND, clientX, clientY int, activateDelay, cursorSettle time.Duration) {
 	FakeActivate(hwnd)
 	if activateDelay > 0 {
