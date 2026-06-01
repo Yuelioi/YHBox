@@ -1,7 +1,7 @@
 // wire_container.go 适配器：容器节点运行时跟 services / pkg 类型对接。
 //
-// container/runtime 包定义了 Matcher / Color / Runner 等接口；这里把具体实现
-// (pkg/vision + pkg/capture) 绑到接口上.
+// container/runtime 包定义了 Matcher / Runner 等接口；这里把具体实现
+// (pkg/vision) 绑到接口上.
 // v3 Phase B 删除 InputDriver 适配 — input backend 由 runtime.setupRuntime 直接构造.
 package main
 
@@ -50,11 +50,11 @@ func clamp01Bound(w, x float64) float64 {
 	return w
 }
 
-// ---- TemplateMatcher: 接 pkg/vision + template store + capture ----
+// ---- TemplateMatcher: 接 pkg/vision + template store ----
 //
 // 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用:
 //   - PickBest(key, frameW, frameH) 选精确分辨率 variant (v2.2 多变体 schema)
-//   - 抓当前游戏窗口一帧 (100ms TTL 缓存)
+//   - 由 caller (matchOnce / detectFired) 传入一帧 (帧缓存在 RuntimeContext, 100ms TTL)
 //   - 用 pkg/vision.Match 在 caller 指定 ROI 内做 CCOEFF_NORMED 匹配
 //   - 返 found + 命中比例坐标 + 实际 region
 //
