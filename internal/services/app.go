@@ -2,7 +2,6 @@ package services
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -10,7 +9,7 @@ import (
 )
 
 // App 是顶层协调器（不暴露给 JS，不进 application.Options.Services）。
-// 持有所有 service 共享的 mutex / Settings / LogSink / Game 缓存。
+// 持有所有 service 共享的 mutex / Settings / LogSink。
 // service 通过反向引用 *App 拿这些共享资源。
 type App struct {
 	wailsApp *application.App
@@ -19,7 +18,6 @@ type App struct {
 	settings     *Settings
 	settingsMu   sync.RWMutex
 
-	game    atomic.Pointer[GameStatusEvent]
 	logSink *LogSink
 	rootLog zerolog.Logger // app/service 层 logger
 
@@ -164,12 +162,6 @@ func (a *App) SaveSettings() error {
 	a.settingsMu.RUnlock()
 	return SaveSettings(a.settingsPath, s)
 }
-
-// SetGame 缓存最新的游戏窗口检测结果。GameService.Detect 调。
-func (a *App) SetGame(g GameStatusEvent) { a.game.Store(&g) }
-
-// Game 返回最新缓存的游戏窗口状态（nil 表示从未检测过）。
-func (a *App) Game() *GameStatusEvent { return a.game.Load() }
 
 // LogSink 暴露给跨包构造 zerolog MultiWriter 时用。
 func (a *App) GetLogSink() *LogSink { return a.logSink }

@@ -1,17 +1,13 @@
 import { Events } from '@wailsio/runtime'
 import { backend } from './backend'
-import { useGameStore } from '@/stores/game'
 import { useLogStore } from '@/stores/log'
 import { useHotkeysStore } from '@/stores/hotkeys'
 
 // wireEvents 把后端推送绑到对应 pinia store.
-// v2: bot 概念已删, 只剩 log/game/hotkey 共享 event + container:* (Task 9 接入).
+// v2: bot 概念已删, 只剩 log/hotkey 共享 event + container:* (Task 9 接入).
 export function wireEvents() {
   // 日志: SYSTEM 路径 (zerolog → LogSink → log:lines)
   backend.events.onLogLines((d) => useLogStore().appendSystem(d.seq, d.lines))
-
-  // 共享
-  backend.events.onGameStatus((d) => useGameStore().setStatus(d))
 
   // 启动期初始 reload — 保证 keyFor() 在没开过「快捷键」页时也有真实绑定值 (否则一直回退).
   void useHotkeysStore().reload()

@@ -137,7 +137,6 @@ func main() {
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
 	settingsSvc := services.NewSettingsService(app)
-	gameSvc := services.NewGameService(app)
 
 	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
 	dataDir := "data"
@@ -407,7 +406,6 @@ func main() {
 	wailsServices = append(wailsServices,
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
-		application.NewService(gameSvc),
 		application.NewService(hotkeySvc),
 		application.NewService(templateSvc),
 		application.NewService(containerSvc),
@@ -457,7 +455,6 @@ func main() {
 	})
 
 	// 注册事件 payload 类型（让 bindings 生成器产 TS 类型）
-	application.RegisterEvent[services.GameStatusEvent](services.EventGameStatus)
 	application.RegisterEvent[services.LogLinesEvent](services.EventLogLines)
 
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
@@ -520,9 +517,6 @@ func main() {
 	if err := services.ApplyAutostart(app.Settings().UI.Autostart); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("启动期自启注册表同步失败")
 	}
-
-	// 启动后异步触发一次游戏检测（emit game:status 给前端 hydrate）
-	go gameSvc.Detect()
 
 	// 应用 logger 写一条启动日志，证明日志桥路打通
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("YHBox started")

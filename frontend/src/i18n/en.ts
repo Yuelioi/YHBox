@@ -1218,7 +1218,6 @@ export default {
     },
   },
   common: {
-    game_not_detected: 'Game window not detected',
     cancel: 'Cancel',
     confirm: 'Confirm',
     save: 'Save',

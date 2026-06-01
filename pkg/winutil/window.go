@@ -1,10 +1,9 @@
 // Package winutil 提供 Windows 顶层窗口枚举 / 匹配 / 元数据查询.
 // 跨权限读 admin 进程 exe 名用 PROCESS_QUERY_LIMITED_INFORMATION (Vista+).
 //
-// 文件里有两套 API:
-//   - 旧版 (Target / FindGame / BringToFront): 写死匹配"异环"+"UnrealWindow", main/cmd 还在用.
-//   - 新版 (WindowHandle / MatchSpec / ResolveWindow): WindowTarget 节点用,
-//     支持任意 title/class/processName 匹配 + 元数据完整返回.
+// 核心 API: WindowHandle / MatchSpec / ResolveWindow — WindowTarget 节点用,
+// 支持任意 title/class/processName 匹配 + 元数据完整返回. 另有 BringToFront
+// (置前台) 给 recording 用.
 package winutil
 
 import (
@@ -46,22 +45,8 @@ const (
 )
 
 // ---------------------------------------------------------------------------
-// 旧版 API (Target / FindGame / BringToFront).
+// BringToFront — 把窗口置前台 (recording 用).
 // ---------------------------------------------------------------------------
-
-type Target struct {
-	HWND  win.HWND
-	Title string
-	Class string
-}
-
-func utf16ToString(buf []uint16) string {
-	n := 0
-	for n < len(buf) && buf[n] != 0 {
-		n++
-	}
-	return syscall.UTF16ToString(buf[:n])
-}
 
 // BringToFront 把目标窗口拉到前台并恢复（如最小化）。Windows 限制：当前进程
 // 不持有 fg 锁时直接 SetForegroundWindow 会被忽略，这里用 AttachThreadInput 借
@@ -92,32 +77,8 @@ func BringToFront(hwnd win.HWND) bool {
 	return ret != 0
 }
 
-// FindGame 枚举所有可见顶层窗口，返回所有匹配"异环"+"UnrealWindow"的（通常只有一个）。
-func FindGame() []Target {
-	var found []Target
-	cb := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
-		if !win.IsWindowVisible(hwnd) {
-			return 1
-		}
-		var tBuf [256]uint16
-		var cBuf [256]uint16
-		procGetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&tBuf[0])), uintptr(len(tBuf)))
-		win.GetClassName(hwnd, &cBuf[0], len(cBuf))
-		t := utf16ToString(tBuf[:])
-		c := utf16ToString(cBuf[:])
-		titleMatch := len(t) >= len("异环") && t[:len("异环")] == "异环"
-		classMatch := c == "UnrealWindow"
-		if titleMatch && classMatch {
-			found = append(found, Target{hwnd, t, c})
-		}
-		return 1
-	})
-	procEnumWindows.Call(cb, 0)
-	return found
-}
-
 // ---------------------------------------------------------------------------
-// 新版 API (WindowTarget) — runtime/recording/tools 共用.
+// WindowTarget API — runtime/recording/tools 共用.
 // ---------------------------------------------------------------------------
 
 // WindowHandle 解析后窗口的完整元数据. runtime 整 run 持有, 不只 hwnd.

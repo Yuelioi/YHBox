@@ -1239,7 +1239,6 @@ export default {
     },
   },
   common: {
-    game_not_detected: '未检测到异环窗口',
     cancel: '取消',
     confirm: '确认',
     save: '保存',

@@ -1,5 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { useGameStore } from '@/stores/game'
 
 const routes = [
   { path: '/', redirect: '/containers' },
@@ -43,11 +42,4 @@ const routes = [
 export const router = createRouter({
   history: createWebHashHistory(),
   routes,
-})
-
-// 进编辑器路由时触发游戏检测 (容器编辑才需要 game.status; 列表页不需要).
-router.beforeEach((to) => {
-  if (to.name === 'container-edit') {
-    useGameStore().detect()
-  }
 })

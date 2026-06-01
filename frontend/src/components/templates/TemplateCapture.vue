@@ -191,7 +191,6 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTemplatesStore } from '@/stores/templates'
-import { useGameStore } from '@/stores/game'
 
 const { t } = useI18n()
 
@@ -199,7 +198,6 @@ const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const templates = useTemplatesStore()
-const gameStore = useGameStore()
 
 const dataURL = ref('')
 const keyPath = ref('')
@@ -235,10 +233,10 @@ const selNat = computed<Rect>(() => {
   }
 })
 
+// 录制分辨率 = 截到的帧自身的自然像素尺寸 (即该容器目标窗口的客户区分辨率).
 const resolutionLabel = computed(() => {
-  const s = gameStore.status
-  if (!s?.ok || !s.w) return t('template.capture.no_game_window')
-  return `${s.w} × ${s.h}`
+  if (!imgNatW.value || !imgNatH.value) return t('template.capture.no_game_window')
+  return `${imgNatW.value} × ${imgNatH.value}`
 })
 
 const keyPattern = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/
@@ -374,9 +372,9 @@ async function onSave() {
   saving.value = true
   try {
     const png = await cropToDataURL()
-    const s = gameStore.status
-    const screenW = s?.w ?? 0
-    const screenH = s?.h ?? 0
+    // 录制分辨率 = 截帧的自然像素尺寸 (per-container 目标窗口客户区).
+    const screenW = imgNatW.value
+    const screenH = imgNatH.value
     // region: 框选在原 PNG 中的 ratio xywh；没框选 → [0,0,1,1] 全图
     let region: [number, number, number, number] = [0, 0, 1, 1]
     if (hasSelection.value && imgNatW.value && imgNatH.value) {

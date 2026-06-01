@@ -3,7 +3,6 @@
 
 import { Events } from '@wailsio/runtime'
 import * as SettingsService from '@bindings/yhbox/internal/services/settingsservice.js'
-import * as GameService from '@bindings/yhbox/internal/services/gameservice.js'
 import * as HotkeyService from '@bindings/yhbox/internal/hotkey/hotkeyservice.js'
 import * as ContainerService from '@bindings/yhbox/internal/services/container/service.js'
 import * as ScheduleService from '@bindings/yhbox/internal/services/schedule/service.js'
@@ -19,13 +18,6 @@ import * as E from '@/constants/events'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
 // 这里手写一份用于 store 引用更稳，避免 bindings 路径变化）
-export interface GameStatusEvent {
-  ok: boolean
-  hwnd: number
-  title: string
-  w: number
-  h: number
-}
 export interface LogLinesEvent {
   seq: number
   lines: string[]
@@ -217,9 +209,6 @@ export const backend = {
     get: () => invoke(SettingsService.Get),
     update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),
   },
-  game: {
-    detect: () => invoke(GameService.Detect),
-  },
   containers: {
     list: () => invoke(ContainerService.List),
     get: (id: string) => invoke(ContainerService.Get, id),
@@ -356,8 +345,6 @@ export const backend = {
   },
   events: {
     // 共享事件
-    onGameStatus: (cb: (e: GameStatusEvent) => void) =>
-      Events.On(E.EVENT_GAME_STATUS, (e: any) => cb(e.data)),
     onLogLines: (cb: (e: LogLinesEvent) => void) =>
       Events.On(E.EVENT_LOG_LINES, (e: any) => cb(e.data)),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),

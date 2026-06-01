@@ -14,7 +14,6 @@ import { router } from './router'
 import { wireEvents } from './lib/events'
 import { setupInvoker } from './lib/invoke'
 import { useSettingsStore } from './stores/settings'
-import { useGameStore } from './stores/game'
 import { i18n } from './i18n'
 
 import './style.css'
@@ -44,6 +43,5 @@ wireEvents()
   // 节点 registry RPC populate: 必须 mount 前, 否则 NodePalette / ContextMenu / 等
   // 6 处 consumer 用 allSpecs() 拿空. backend NodeService.GetAllNodeSpecs 是 SoT.
   await populateRegistryFromBackend()
-  useGameStore().detect()
   app.mount('#app')
 })()
