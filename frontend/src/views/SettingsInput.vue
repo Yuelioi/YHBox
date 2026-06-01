@@ -268,12 +268,12 @@ async function onSyncAll() {
   }
 }
 
-// 校准：开独立置顶校准 HUD 窗 (后端自动把游戏置前), 等它 emit 结果写回这一档。
+// 校准：开独立置顶校准 HUD 窗 (用户自己切到目标游戏按 F8), 等它 emit 结果写回这一档。
 async function openCalibratorFor(i: number) {
   if (i < 0 || i >= profiles.value.length) return
   const id = 'calib-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
   const ok = await backend.tools.openCalibratorHUD(id)
-  if (!ok) return // 没检测到游戏窗口等 → invoke 已 toast
+  if (!ok) return // 开窗失败 (invoke 已 toast)
   const r = await awaitWailsEvent<{ id: string; counts?: number; cancelled?: boolean }>(
     'calibration:result',
     (p) => p?.id === id,

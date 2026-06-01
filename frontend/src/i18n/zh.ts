@@ -1786,7 +1786,7 @@ export default {
     save_with_value: '保存 ({value})',
     service_failed: '校准服务启动失败 (端口被占?)',
     hud: {
-      press_to_start: '已切到游戏, 按 {hk} 开始校准',
+      press_to_start: '切到目标游戏/软件, 按 {hk} 开始校准',
     },
   },
   // 变量 (VarsPanel / VarRow / DeleteVarConfirmModal / PromoteToVarModal / FindReferencesModal).

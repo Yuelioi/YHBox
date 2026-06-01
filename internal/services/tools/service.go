@@ -9,8 +9,6 @@ import (
 	"github.com/lxn/win"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-
-	"yhbox/pkg/winutil"
 )
 
 // GameProvider 由 main.go 注入，返当前游戏 hwnd + client 尺寸。
@@ -170,24 +168,24 @@ func (s *Service) SetCalibratorCloseHandler(fn func()) {
 	s.onCalibratorClose = fn
 }
 
-// OpenCalibratorHUD 打开独立置顶校准窗 (frameless + AlwaysOnTop), 并自动把目标游戏窗口置前
-// (用户不用自己 alt-tab)。检测不到游戏窗口 → 返 error 让前端提示。requestID 透到窗口 URL,
-// 校准完成时窗口 emit 'calibration:result' 带 id 给调用方匹配。已开则 focus。
+// OpenCalibratorHUD 打开独立置顶校准窗 (frameless + AlwaysOnTop)。
+// 校准测量走全局 raw-input (INPUTSINK, 不挑前台窗口), F8 走自治 LL 钩 —— 所以这里不绑任何游戏:
+// 开窗后用户自己切到想校准的游戏/软件按 F8 即可。通用框架不假设"唯一的那个游戏", 也不强制把某个
+// 检测到的游戏置前 (那是 v1 单游戏残留)。requestID 透到窗口 URL, 校准完成时窗口 emit
+// 'calibration:result' 带 id 给调用方匹配。已开则 focus。
+//
+// 返 (opened, error) 而非纯 error: wails3 纯 error 方法经 FE invoke 后成功/失败都返 undefined,
+// 调用方无法区分 (见 incident wails-error-only-rpc-invoke-undefined)。
 func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
 	app := s.wailsApp()
 	if app == nil {
 		return false, fmt.Errorf("wails app 未初始化")
-	}
-	hwnd, _, _, ok := s.game.GameHWND()
-	if !ok || hwnd == 0 {
-		return false, fmt.Errorf("未检测到目标游戏窗口, 先在容器里捕获游戏窗口再校准")
 	}
 	s.mu.Lock()
 	if s.calibratorHUD != nil {
 		w := s.calibratorHUD
 		s.mu.Unlock()
 		w.Focus()
-		winutil.BringToFront(hwnd) // 仍把游戏置前
 		return true, nil
 	}
 	s.mu.Unlock()
@@ -215,8 +213,6 @@ func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
 			cb() // 兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都走这)
 		}
 	})
-	// 窗口建好后把游戏置前 — HUD 是 AlwaysOnTop 仍浮在游戏上, 但焦点给游戏 (鼠标转动才进游戏)。
-	winutil.BringToFront(hwnd)
 	return true, nil
 }
 

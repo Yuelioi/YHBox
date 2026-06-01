@@ -1741,7 +1741,7 @@ export default {
     save_with_value: 'Save ({value})',
     service_failed: 'Calibration service failed to start (port in use?)',
     hud: {
-      press_to_start: 'Switched to game — press {hk} to start calibration',
+      press_to_start: 'Switch to your target game/app, press {hk} to start calibration',
     },
   },
   var: {

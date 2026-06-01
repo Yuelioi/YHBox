@@ -664,10 +664,10 @@ function setMcCounts(v: number) {
 
 async function onOpenCalibrator() {
   if (!props.node) return
-  // 开独立置顶校准 HUD 窗 (后端自动把游戏置前), 等结果写进本节点 config.literal.Counts360。
+  // 开独立置顶校准 HUD 窗 (用户自己切到目标游戏按 F8), 等结果写进本节点 config.literal.Counts360。
   const id = 'calib-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
   const ok = await backend.tools.openCalibratorHUD(id)
-  if (!ok) return // 没检测到游戏窗口等 → invoke 已 toast
+  if (!ok) return // 开窗失败 (invoke 已 toast)
   const r = await awaitWailsEvent<{ id: string; counts?: number; cancelled?: boolean }>(
     'calibration:result',
     (p) => p?.id === id,
