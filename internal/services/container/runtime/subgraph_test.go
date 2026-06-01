@@ -107,7 +107,7 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {

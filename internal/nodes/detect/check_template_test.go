@@ -77,7 +77,7 @@ func (m *mockVision) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange,
 	return m.barResult, m.barErr
 }
 
-func (m *mockVision) DetectColor(region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
+func (m *mockVision) DetectColor(roi node.Geometry, mode string, rng [6]int) (int, float64, float64, error) {
 	return m.colorCount, m.colorCX, m.colorCY, m.colorErr
 }
 

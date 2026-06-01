@@ -234,10 +234,6 @@ func main() {
 			rootLog.Warn().Interface("payload", payload).Msg("container warning")
 		}
 	})
-	containerColor := &containerColorAdapter{
-		fcEntries: make(map[uintptr]frameCacheEntry),
-	}
-
 	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
 	clipSvc, libClipSvc := newInputClipServices(dataDir)
 
@@ -258,7 +254,7 @@ func main() {
 			return fmt.Errorf("container %q not found", target.ID)
 		}
 		rt := containerruntime.NewRuntimeContext(
-			&c, inputBus, templateMatcher, containerColor,
+			&c, inputBus, templateMatcher,
 			newGameProviderAdapter(), emitForRuntime,
 			clipSvc, app.Settings().ActiveMouseCounts360(),
 		)

@@ -53,6 +53,34 @@ func hsvInRange(rv, gv, bv uint8, h hsvRange) bool {
 		vv >= h.vMin && vv <= h.vMax
 }
 
+// countColorPixels 在全帧 [x0,x1)×[y0,y1) 矩形内数落在 rng 内的像素, 累加命中坐标 (全帧坐标系).
+// mode="rgb": rng=[rMin,rMax,gMin,gMax,bMin,bMax]; 否则 HSV: rng=[hMin,hMax,sMin,sMax,vMin,vMax].
+// 给 DetectColor 用 (需 RGB/HSV 双模 + 中心点); HSV-only/比例语义见 countHSVInROI.
+func countColorPixels(frame *image.RGBA, x0, y0, x1, y1 int, mode string, rng [6]int) (count, sumX, sumY int) {
+	useHSV := mode != "rgb"
+	stride := frame.Stride
+	for y := y0; y < y1; y++ {
+		off := y * stride
+		for x := x0; x < x1; x++ {
+			i := off + x*4
+			r, g, b := frame.Pix[i], frame.Pix[i+1], frame.Pix[i+2]
+			var hit bool
+			if useHSV {
+				hh, ss, vv := vision.RGBToHSV(r, g, b)
+				hit = hh >= rng[0] && hh <= rng[1] && ss >= rng[2] && ss <= rng[3] && vv >= rng[4] && vv <= rng[5]
+			} else {
+				hit = int(r) >= rng[0] && int(r) <= rng[1] && int(g) >= rng[2] && int(g) <= rng[3] && int(b) >= rng[4] && int(b) <= rng[5]
+			}
+			if hit {
+				count++
+				sumX += x
+				sumY += y
+			}
+		}
+	}
+	return
+}
+
 // scanClusters 沿 axis (x/y) 扫描连通 cluster (满足 HSV 范围的连续行/列).
 // 输出按 axis 顺序 start→end. minPx/maxPx 区间外的 cluster 丢弃.
 func scanClusters(img *image.RGBA, h hsvRange, axis string, minPx, maxPx int) []clusterEntry {

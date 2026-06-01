@@ -40,7 +40,7 @@ func (stubVisionService) DualBarTrack(roi Geometry, inner, outer HSVRange, opts 
 	return DualColorBarResult{}, nil
 }
 
-func (stubVisionService) DetectColor(region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
+func (stubVisionService) DetectColor(roi Geometry, mode string, rng [6]int) (int, float64, float64, error) {
 	return 0, 0, 0, nil
 }
 

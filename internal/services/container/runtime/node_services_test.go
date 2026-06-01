@@ -1,10 +1,12 @@
-package runtime
+﻿package runtime
 
 import (
 	"context"
+	"image"
 	"testing"
 	"time"
 
+	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
 	"yhbox/internal/node"
@@ -26,7 +28,7 @@ func newAdapterTestRT(t *testing.T, vars []container.VarDecl) *RuntimeContext {
 			Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}},
 		},
 	}
-	return NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	return NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 }
 
 // ============================================================================
@@ -252,16 +254,6 @@ func (m stubMatcher) Detect(_ context.Context, _ string, _ uintptr, _ string, _ 
 	return m.found, m.pt, [4]float64{}, nil
 }
 
-// stubColorDetector 控返回 count/cx/cy 验 DetectColor 写 LastColorCount/LastColorCenter.
-type stubColorDetector struct {
-	count   int
-	cx, cy  float64
-}
-
-func (d stubColorDetector) Detect(_ context.Context, _ uintptr, _ [4]float64, _ string, _ [6]int) (int, float64, float64, error) {
-	return d.count, d.cx, d.cy, nil
-}
-
 func TestVisionAdapter_Match_WritesLastTemplate(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.Matcher = stubMatcher{found: true, pt: expr.Point{X: 0.42, Y: 0.13}}
@@ -298,23 +290,28 @@ func TestVisionAdapter_Match_NotFoundResetsState(t *testing.T) {
 	}
 }
 
+
 func TestVisionAdapter_DetectColor_WritesLastColor(t *testing.T) {
+	// 2x1 帧: 全红. 检测全帧 rgb, 应命中 2 像素, SysState 写回正确.
+	img := image.NewRGBA(image.Rect(0, 0, 2, 1))
+	img.Pix[0], img.Pix[3] = 255, 255 // x=0 红
+	img.Pix[4], img.Pix[7] = 255, 255 // x=1 红
 	rt := newAdapterTestRT(t, nil)
-	rt.Color = stubColorDetector{count: 42, cx: 0.5, cy: 0.6}
+	rt.Capture = fakeCapture{img: img}
+	rt.Window.HWND = 1
 	a := &visionAdapter{rt: rt}
-	_, _, _, err := a.DetectColor([4]float64{}, "hsv", [6]int{})
+	count, _, _, err := a.DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
 	if err != nil {
 		t.Fatal(err)
 	}
 	sys := newAdapterSysSnapshot(rt)
-	if sys.LastColorCount != 42 {
-		t.Errorf("LastColorCount = %d, want 42", sys.LastColorCount)
+	if int64(count) != sys.LastColorCount {
+		t.Errorf("LastColorCount = %d, want %d", sys.LastColorCount, count)
 	}
-	if sys.LastColorCenter.X != 0.5 || sys.LastColorCenter.Y != 0.6 {
-		t.Errorf("LastColorCenter = %v, want {0.5, 0.6}", sys.LastColorCenter)
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
 	}
 }
-
 // newAdapterSysSnapshot 借 SysStoreAdapter 拿 SysState snapshot (避免直接访问 mu 保护字段).
 func newAdapterSysSnapshot(rt *RuntimeContext) SysState {
 	rt.mu.Lock()
@@ -336,4 +333,51 @@ var (
 	_ node.VisionService  = (*visionAdapter)(nil)
 	_ node.LogService     = logAdapter{}
 )
+
+// ============================================================================
+// DetectColor override test
+// ============================================================================
+
+type fakeCapture struct{ img *image.RGBA }
+
+func (f fakeCapture) Name() string                                            { return "fake" }
+func (f fakeCapture) Frame(_ win.HWND) (*image.RGBA, error)                  { return f.img, nil }
+func (f fakeCapture) FrameROI(_ win.HWND, _, _, _, _ int) (*image.RGBA, error) {
+	return f.img, nil
+}
+func (f fakeCapture) ClientSize(_ win.HWND) (int, int, error) {
+	return f.img.Bounds().Dx(), f.img.Bounds().Dy(), nil
+}
+func (f fakeCapture) Close() error { return nil }
+
+func TestDetectColor_UsesGeometryOverride(t *testing.T) {
+	// 4x4 帧: 左上 2x2 红, 其余黑.
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			i := y*img.Stride + x*4
+			img.Pix[i], img.Pix[i+3] = 255, 255
+		}
+	}
+	rt, _ := newTestRunner(t)
+	rt.Capture = fakeCapture{img: img}
+	rt.Window.HWND = 1
+	va := &visionAdapter{rt: rt}
+
+	// override 精确匹配 4x4 → 只数左上 2x2 像素 rect, 应得 4 红.
+	geo := node.Geometry{
+		Pct: node.Rect{X: 0.9, Y: 0.9, W: 0.05, H: 0.05}, // pct 故意指到右下空区
+		Overrides: []node.GeoOverride{{
+			Resolution: node.Resolution{W: 4, H: 4},
+			Px:         node.PixelRect{X: 0, Y: 0, W: 2, H: 2},
+		}},
+	}
+	count, _, _, err := va.DetectColor(geo, "rgb", [6]int{200, 255, 0, 50, 0, 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Fatalf("count = %d, want 4 (override rect, 非 pct)", count)
+	}
+}
 

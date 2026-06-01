@@ -44,7 +44,7 @@ func TestRunner_StartSleep(t *testing.T) {
 		},
 		nil,
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -84,7 +84,7 @@ func TestRunner_SetVarLocalScopeIsolation(t *testing.T) {
 			{Name: "branch", Type: "string", Default: ""},
 		},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -128,7 +128,7 @@ func TestRunner_SetVarAutoDefaultFindOrCreate(t *testing.T) {
 			{Name: "captured", Type: "number", Default: 0.0},
 		},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -157,7 +157,7 @@ func TestRunner_SetVarThenIncVar(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -194,7 +194,7 @@ func TestRunner_IfBranch(t *testing.T) {
 			{Name: "branch", Type: "string", Default: ""},
 		},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -220,7 +220,7 @@ func TestRunner_LoopCount(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -254,7 +254,7 @@ func TestRunner_BreakExitsLoop(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "i", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -280,7 +280,7 @@ func TestRunner_StopHalts(t *testing.T) {
 		},
 		[]container.VarDecl{{Name: "a", Type: "number", Default: 0.0}},
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {
@@ -303,7 +303,7 @@ func TestRunner_PlayClipTargetUsesNodeCalibCounts(t *testing.T) {
 		},
 		nil, nil,
 	)
-	rt := NewRuntimeContext(withNode, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 9999)
+	rt := NewRuntimeContext(withNode, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 9999)
 	NewContainerRunner(rt)
 	if rt.MouseCounts360 != 2000 {
 		t.Errorf("有节点: rt.MouseCounts360 = %d, want 2000 (节点值覆盖 settings 9999)", rt.MouseCounts360)
@@ -313,7 +313,7 @@ func TestRunner_PlayClipTargetUsesNodeCalibCounts(t *testing.T) {
 	noNode := newTestContainer(
 		[]container.GraphNode{{ID: "start", Kind: "Start"}}, nil, nil,
 	)
-	rt2 := NewRuntimeContext(noNode, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 9999)
+	rt2 := NewRuntimeContext(noNode, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 9999)
 	NewContainerRunner(rt2)
 	if rt2.MouseCounts360 != 9999 {
 		t.Errorf("无节点: rt.MouseCounts360 = %d, want 9999 (settings 兜底)", rt2.MouseCounts360)
@@ -324,7 +324,7 @@ func TestRunner_NoStartNode(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{{ID: "s", Kind: "Sleep"}}, nil, nil,
 	)
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil /* game */, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil /* game */, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err == nil {

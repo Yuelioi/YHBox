@@ -91,7 +91,7 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 
@@ -138,7 +138,7 @@ func TestV4_E2E_FishingFightLite(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 

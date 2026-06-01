@@ -7,7 +7,6 @@ import (
 // ResolveGeometry 把 Geometry (pct + overrides) 按当前帧尺寸还原成像素 ROI.
 //
 // 优先级: override 精确匹配当前分辨率 > pct×帧尺寸 > 全帧 (w==0||h==0, 忽略 x/y).
-// 复刻 wire_container.go::containerColorAdapter.Detect 的转换逻辑.
 // fullFrame=true 时返回 (0,0,frameW,frameH), 调用方可跳过裁剪直接用全帧.
 func ResolveGeometry(g node.Geometry, frameW, frameH int) (x, y, w, h int, fullFrame bool) {
 	for _, ov := range g.Overrides {

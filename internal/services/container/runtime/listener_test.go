@@ -19,7 +19,7 @@ func TestListener_SubRunnerStateIsolated(t *testing.T) {
 			Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	l := &EventListener{
 		runner:        r,

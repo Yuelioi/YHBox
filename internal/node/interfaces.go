@@ -145,10 +145,10 @@ type VisionService interface {
 	// opts 零值字段走 vision 包默认 (fishing 实测出来的; 通用 case 可能要调).
 	DualBarTrack(roi Geometry, inner, outer HSVRange, opts DualBarOptions) (result DualColorBarResult, err error)
 
-	// DetectColor 在 region (ratio [x,y,w,h], 全 0 = 全屏) 内统计落在 rng 内的像素数.
-	// mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].
+	// DetectColor 按 roi (ratio Geometry, 享 per-resolution override) 裁区后统计落在 rng 内的像素数.
+	// Geometry 零值 = 全帧. mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].
 	// 返 count + 命中像素中心客户区比例坐标 (cx,cy). 无命中 cx/cy = 0.
-	DetectColor(region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
+	DetectColor(roi Geometry, mode string, rng [6]int) (count int, cx, cy float64, err error)
 
 	// DetectColorHSV 按 roi (ratio Geometry) 裁子帧后统计落在 hsv 区间的像素数 + 比例.
 	// Geometry 零值 = 全帧.

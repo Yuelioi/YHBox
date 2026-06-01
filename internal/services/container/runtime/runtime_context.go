@@ -7,10 +7,12 @@ package runtime
 
 import (
 	"fmt"
+	"image"
 	"maps"
 	"sync"
 	"time"
 
+	"github.com/lxn/win"
 	nodepkg "yhbox/internal/node"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/execution"
@@ -21,6 +23,10 @@ import (
 	pkginput "yhbox/pkg/input"
 	"yhbox/pkg/winutil"
 )
+
+// frameCacheTTL: 同 hwnd 100ms 内复用一帧. 100ms 是 fishing v2 主循环 Sleep 下限,
+// 单 iter 内多次 Detect 命中缓存; 跨 iter (Sleep>=100ms) 自然 miss → 重新抓帧.
+const frameCacheTTL = 100 * time.Millisecond
 
 // SysState $sys.* 只读视图。每次 Container run 开局清零。
 type SysState struct {
@@ -74,13 +80,18 @@ type RuntimeContext struct {
 	InputBus  *execution.InputBus
 	Matcher   TemplateMatcher
 	Input     pkginput.Backend   // per-container 实例, setupRuntime 注入
-	Color     ColorDetector
 	Game      GameProvider
 	Emit      func(name string, data any)
 
 	// WindowTarget 解析结果. setupRuntime populate; Window.HWND=0 = 未解析.
 	Window  winutil.WindowHandle
 	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
+
+	// 帧缓存: 同一 iter 内模板/DetectColor 多次抓帧复用 (100ms TTL, 单窗口单条目).
+	// DualBar/HSV/ROIScan/Grid 不走此缓存 (QTE 高频轮询要新帧).
+	frameMu      sync.Mutex
+	frameCache   *image.RGBA
+	frameCacheAt time.Time
 
 	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
 	ClipResolver   ClipResolver
@@ -102,20 +113,15 @@ func NewRuntimeContext(
 	c *container.Container,
 	bus *execution.InputBus,
 	matcher TemplateMatcher,
-	color ColorDetector,
 	game GameProvider,
 	emit func(name string, data any),
 	clipResolver ClipResolver,
 	mouseCounts360 int,
 ) *RuntimeContext {
-	if color == nil {
-		color = NoopColorDetector{}
-	}
 	rt := &RuntimeContext{
 		Container:      c,
 		InputBus:       bus,
 		Matcher:        matcher,
-		Color:          color,
 		Game:           game,
 		Emit:           emit,
 		ClipResolver:   clipResolver,
@@ -253,4 +259,24 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 		return float64(s.LastDualBarTrack.OuterPx), nil
 	}
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
+}
+
+// CaptureFrameCached 走 rt.Capture 抓帧, 100ms TTL 缓存. 仅模板匹配 + DetectColor 用.
+func (rt *RuntimeContext) CaptureFrameCached(hwnd uintptr) (*image.RGBA, error) {
+	rt.frameMu.Lock()
+	if rt.frameCache != nil && time.Since(rt.frameCacheAt) < frameCacheTTL {
+		f := rt.frameCache
+		rt.frameMu.Unlock()
+		return f, nil
+	}
+	rt.frameMu.Unlock()
+
+	f, err := rt.Capture.Frame(win.HWND(hwnd))
+	if err != nil {
+		return nil, err
+	}
+	rt.frameMu.Lock()
+	rt.frameCache, rt.frameCacheAt = f, time.Now()
+	rt.frameMu.Unlock()
+	return f, nil
 }

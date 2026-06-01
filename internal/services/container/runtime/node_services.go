@@ -435,7 +435,7 @@ func (a *captureAdapter) CaptureROI(roi node.Geometry) ([]byte, error) {
 func NewCaptureAdapter(rt *RuntimeContext) node.CaptureService { return &captureAdapter{rt: rt} }
 
 // ============================================================================
-// VisionAdapter — rt.Matcher + rt.Color + rt.Capture → node.VisionService
+// VisionAdapter — rt.Matcher + rt.Capture → node.VisionService
 // Match/WaitMatch 走 Matcher; DetectColor 走 Color;
 // DetectColorHSV / ROIColorScan / DualBarTrack 自抓帧 + 复用包内 helper (countHSVInROI / scanClusters / vision.AnalyzeDualColorBar).
 // ============================================================================
@@ -584,19 +584,33 @@ func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRan
 	return out, nil
 }
 
-func (a *visionAdapter) DetectColor(region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
-	if a.rt.Color == nil {
+func (a *visionAdapter) DetectColor(roi node.Geometry, mode string, rng [6]int) (int, float64, float64, error) {
+	if a.rt.Capture == nil {
 		return 0, 0, 0, nil
 	}
-	count, cx, cy, err := a.rt.Color.Detect(context.Background(), a.rt.Window.HWND, region, mode, rng)
-	if err == nil {
-		// 写 LastColorCount/LastColorCenter — GetSys path=lastColor.count/cx/cy 下游读.
-		a.rt.UpdateSys(func(s *SysState) {
-			s.LastColorCount = int64(count)
-			s.LastColorCenter = expr.Point{X: cx, Y: cy}
-		})
+	frame, err := a.rt.CaptureFrameCached(a.rt.Window.HWND)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("capture: %w", err)
 	}
-	return count, cx, cy, err
+	if frame == nil {
+		return 0, 0, 0, fmt.Errorf("capture: nil frame")
+	}
+	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
+	// ResolveGeometry 给全帧上的像素 rect (override 优先 > pct×帧 > 全帧), 已 clamp.
+	// 在全帧坐标系数像素并累加中心 → 中心还原成全帧比例.
+	x0, y0, w, h, _ := ResolveGeometry(roi, frameW, frameH)
+	count, sumX, sumY := countColorPixels(frame, x0, y0, x0+w, y0+h, mode, rng)
+	var cx, cy float64
+	if count > 0 {
+		cx = float64(sumX) / float64(count) / float64(frameW)
+		cy = float64(sumY) / float64(count) / float64(frameH)
+	}
+	// 写 LastColorCount/LastColorCenter — GetSys path=lastColor.count/cx/cy 下游读.
+	a.rt.UpdateSys(func(s *SysState) {
+		s.LastColorCount = int64(count)
+		s.LastColorCenter = expr.Point{X: cx, Y: cy}
+	})
+	return count, cx, cy, nil
 }
 
 func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (int, float64, error) {

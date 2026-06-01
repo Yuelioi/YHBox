@@ -73,10 +73,7 @@ func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	minPx := in.Int(dcInMinPixels)
 
-	// DetectColor adapter 接受 ratio [x,y,w,h], 全 0 = 全屏 (adapter 内 rw==0||rh==0 检测).
-	// override-by-resolution 对 DetectColor 不适用 (YAGNI) — 直接取 pct.
-	regionArr := [4]float64{geo.Pct.X, geo.Pct.Y, geo.Pct.W, geo.Pct.H}
-	count, cx, cy, err := ctx.Vision().DetectColor(regionArr, mode, rngArr)
+	count, cx, cy, err := ctx.Vision().DetectColor(geo, mode, rngArr)
 	if err != nil {
 		return nil, fmt.Errorf("DetectColor: %w", err)
 	}

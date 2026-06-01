@@ -250,7 +250,7 @@ func newDispatchTest(t *testing.T, testNodeKind string) *dispatchTestCtx {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	dt := &dispatchTestCtx{rt: rt, r: r}
 	dt.node = r.nodesByID["n1"]
@@ -312,7 +312,7 @@ func TestExecNodeViaFramework_OutputDataCarry(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	srcNode := r.nodesByID["src"]
 	tokens, err := r.execNodeViaFramework(context.Background(), srcNode, ExecToken{NodeID: "src", InPin: "in"})
@@ -528,7 +528,7 @@ func newRegionTestLoop(t *testing.T, loopConfig map[string]any) *dispatchTestCtx
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	dt := &dispatchTestCtx{rt: rt, r: r}
 	dt.node = r.nodesByID["loop"]
@@ -591,7 +591,7 @@ func TestExecNodeAsRegionViaFramework_LoopForeverWithBreak(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	loopNode := r.nodesByID["loop"]
 	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), loopNode, ExecToken{NodeID: "loop", InPin: "in"})
@@ -656,7 +656,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 		},
 		Subgraphs: []container.Subgraph{subgraph},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	sgNode := r.nodesByID["sg_call"]
 	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
@@ -691,7 +691,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphUnknownID(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	sgNode := r.nodesByID["sg_call"]
 	_, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
@@ -775,7 +775,7 @@ func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
 		},
 		Subgraphs: []container.Subgraph{subgraph},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	dt := &dispatchTestCtx{rt: rt, r: r}
 	dt.node = r.nodesByID["try_n"]
@@ -851,7 +851,7 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 		},
 		Subgraphs: []container.Subgraph{subgraph},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	tryNode := r.nodesByID["try_n"]
 	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), tryNode, ExecToken{NodeID: "try_n", InPin: "in"})
@@ -914,7 +914,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 		},
 		Subgraphs: []container.Subgraph{subgraph},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	sgNode := r.nodesByID["sg_call"]
 	_, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
@@ -992,7 +992,7 @@ func TestBuildDataWireFor_UpstreamPureFuncViaFramework(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	echoNode := r.nodesByID["echo_n"]
 
@@ -1034,7 +1034,7 @@ func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	echoNode := r.nodesByID["echo_n"]
 
@@ -1070,7 +1070,7 @@ func TestBuildDataWireFor_GetVarViaFramework(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	rt.SetVar("myvar", "from-old-path")
 	r := NewContainerRunner(rt)
 	// GetVar.Evaluate 经 snapshot wrap 读 frozen Vars; 主循环抓 snapshot 模拟之.
@@ -1097,7 +1097,7 @@ func TestExecNodeAsRegionViaFramework_TryMissingSubgraphID(t *testing.T) {
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
 	tryNode := r.nodesByID["try_n"]
 	_, err := r.execNodeAsRegionViaFramework(context.Background(), tryNode, ExecToken{NodeID: "try_n", InPin: "in"})
