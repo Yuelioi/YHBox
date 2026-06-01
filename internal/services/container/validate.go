@@ -230,6 +230,21 @@ func dataInPinTypeForKind(kind, pinName string) string {
 	return ""
 }
 
+// dataInPinSemanticForKind 返该 data-in pin 的 Semantic ("TemplateKey" 等), 无则 "".
+// literal 校验用它识别 list 型 pin (e.g. TemplateKey = 字符串列表).
+func dataInPinSemanticForKind(kind, pinName string) string {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return ""
+	}
+	for _, ip := range rn.Spec.Inputs {
+		if ip.Name == pinName {
+			return ip.Semantic
+		}
+	}
+	return ""
+}
+
 // dataInPinTypeForNode cfg-aware 变种 — Expr.inputs[] 动态声明的 pin 走 ParseExprConfig 查.
 func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 	if n == nil {

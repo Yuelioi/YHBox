@@ -36,20 +36,28 @@ func validateLiteralTypes(c *Container) []ValidationError {
 				if pinType == "" {
 					continue // pin not in static schema — INVALID_PIN handles unknown pins
 				}
-				if !literalMatchesType(raw, pinType) {
-					errs = append(errs, ValidationError{
-						Severity:  SeverityError,
-						Code:      CodeLiteralTypeMismatch,
-						GraphPath: graphPath,
-						NodeID:    n.ID,
-						Params: map[string]any{
-							"nodeID":   n.ID,
-							"pin":      pinName,
-							"value":    raw,
-							"expected": pinType,
-						},
-					})
+				if literalMatchesType(raw, pinType) {
+					continue
 				}
+				// TemplateKey 语义 pin (WaitTemplate/CheckTemplate/ClickTemplate/OnEvent 的 Templates)
+				// 实为字符串列表: template-picker 多选, runtime 走 PinStringList 读. 标量
+				// literalMatchesType 会把数组误判成 string mismatch, 这里按列表放行 (元素全 string,
+				// 或裸 string 单值兜底, 跟 PinStringList 的容忍一致).
+				if dataInPinSemanticForKind(n.Kind, pinName) == "TemplateKey" && isStringList(raw) {
+					continue
+				}
+				errs = append(errs, ValidationError{
+					Severity:  SeverityError,
+					Code:      CodeLiteralTypeMismatch,
+					GraphPath: graphPath,
+					NodeID:    n.ID,
+					Params: map[string]any{
+						"nodeID":   n.ID,
+						"pin":      pinName,
+						"value":    raw,
+						"expected": pinType,
+					},
+				})
 			}
 		}
 	}
@@ -58,6 +66,25 @@ func validateLiteralTypes(c *Container) []ValidationError {
 		check(sg.Graph.Nodes, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)})
 	}
 	return errs
+}
+
+// isStringList: TemplateKey 列表 literal 的容忍形态 — []any(元素全 string) / []string / 裸 string.
+// 跟 container.PinStringList 的读取容忍一致 (裸 string 当一元列表).
+func isStringList(v any) bool {
+	switch vv := v.(type) {
+	case string:
+		return true
+	case []string:
+		return true
+	case []any:
+		for _, e := range vv {
+			if _, ok := e.(string); !ok {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // literalMatchesType: JSON-decoded value type vs declared PinType.
