@@ -64,7 +64,10 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 	mock := &mockCaptureBackend{FrameROIResult: frame}
 	rt.Capture = mock
 	r := NewContainerRunner(rt)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 15s 而非 5s: Exhausted 路径真跑 30 casts × 每次 bar-track 超时 ≈ 5s, 贴着 5s deadline
+	// 在并行满载跑 `go test ./...` 时会偶发 deadline exceeded (假阳)。断言是「60 事件 + 没找到」,
+	// 不是「正好 5s 内跑完」, 故放宽 deadline 当安全网, 不削弱断言。
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	err := r.Run(ctx)
 	return spy, c, rt, err
