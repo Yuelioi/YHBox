@@ -260,8 +260,34 @@ func (s *Store) PickBest(key string, frameW, frameH int) (VariantMeta, bool) {
 	if !ok {
 		return VariantMeta{}, false
 	}
-	v, ok := vs[[2]int{frameW, frameH}]
-	return v, ok
+	if v, ok := vs[[2]int{frameW, frameH}]; ok {
+		return v, true // 精确命中优先, 行为不变.
+	}
+	// miss → 挑长边比最接近的一档 (跨分辨率缩放兜底候选). 调用方据 v.Resolution 算缩放比.
+	frameLong := frameW
+	if frameH > frameLong {
+		frameLong = frameH
+	}
+	var best VariantMeta
+	bestScore := 0.0
+	found := false
+	for _, v := range vs {
+		vl := v.Resolution[0]
+		if v.Resolution[1] > vl {
+			vl = v.Resolution[1]
+		}
+		if vl <= 0 || frameLong <= 0 {
+			continue
+		}
+		ratio := float64(frameLong) / float64(vl)
+		if ratio < 1.0 {
+			ratio = 1.0 / ratio // 对称比距: 缩小/放大同等看待.
+		}
+		if !found || ratio < bestScore {
+			best, bestScore, found = v, ratio, true
+		}
+	}
+	return best, found
 }
 
 func (s *Store) ReadVariantPng(key string, resolution [2]int) ([]byte, error) {

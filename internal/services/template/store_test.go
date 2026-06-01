@@ -63,13 +63,14 @@ func TestStore_SaveVariant_GetVariant(t *testing.T) {
 	}
 }
 
-func TestStore_PickBest_ExactMatch(t *testing.T) {
+func TestStore_PickBest_ExactThenNearest(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 	s.SaveMeta("fishing.hook_icon", KeyMeta{Name: "Hook"})
 	png := []byte{0x89, 0x50}
 	s.SaveVariant("fishing.hook_icon", png, VariantMeta{Resolution: [2]int{1920, 1080}})
 	s.SaveVariant("fishing.hook_icon", png, VariantMeta{Resolution: [2]int{1280, 720}})
 
+	// 精确命中优先.
 	v, ok := s.PickBest("fishing.hook_icon", 1280, 720)
 	if !ok || v.Resolution != [2]int{1280, 720} {
 		t.Errorf("PickBest(1280,720) = %v, want 1280x720", v.Resolution)
@@ -78,9 +79,10 @@ func TestStore_PickBest_ExactMatch(t *testing.T) {
 	if !ok || v.Resolution != [2]int{1920, 1080} {
 		t.Errorf("PickBest(1920,1080) = %v, want 1920x1080", v.Resolution)
 	}
-	_, ok = s.PickBest("fishing.hook_icon", 1366, 768)
-	if ok {
-		t.Error("PickBest(1366,768) should miss (no fallback)")
+	// miss exact → 挑长边比最近档. 1366 长边: 1280(对称比 1.067) < 1920(对称比 1.406) → 1280x720.
+	v, ok = s.PickBest("fishing.hook_icon", 1366, 768)
+	if !ok || v.Resolution != [2]int{1280, 720} {
+		t.Errorf("PickBest(1366,768) = %v, want nearest 1280x720", v.Resolution)
 	}
 }
 
