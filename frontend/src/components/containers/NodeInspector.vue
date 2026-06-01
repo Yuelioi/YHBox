@@ -911,6 +911,7 @@ const titleMatchOptions = computed(() => [
 ])
 const inputBackendOptions = computed(() => [
   { value: 'postmessage', label: t('node.WindowTarget.inspector.input_backend_postmessage') },
+  { value: 'sendinput', label: t('node.WindowTarget.inspector.input_backend_sendinput') },
 ])
 const captureBackendOptions = computed(() => [
   { value: 'auto', label: t('node.WindowTarget.inspector.capture_backend_auto') },

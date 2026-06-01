@@ -1136,6 +1136,7 @@ export default {
         runtime_section: 'Runtime backend (runtime)',
         input_backend_label: 'Input backend (inputBackend)',
         input_backend_postmessage: 'PostMessage (background input, 1.0 default)',
+        input_backend_sendinput: 'SendInput (global foreground injection, for games that only accept real input)',
         capture_backend_label: 'Capture backend (captureBackend)',
         capture_backend_auto: 'auto (OS-picked; WGC on Win10+)',
         capture_backend_gdi: 'GDI (all Windows)',
