@@ -39,7 +39,12 @@ func (s *Service) PixelAt(containerID string) (PixelInfo, error) {
 	if !ok2 || cx < 0 || cy < 0 || cx >= cw || cy >= ch {
 		return PixelInfo{OK: false, ClientX: cx, ClientY: cy}, nil
 	}
-	frame, err := capture.Frame(hwnd)
+	backend, _, err := capture.NewIBackend(s.resolver.CaptureBackendFor(containerID))
+	if err != nil {
+		return PixelInfo{}, fmt.Errorf("capture backend: %w", err)
+	}
+	defer backend.Close()
+	frame, err := backend.Frame(hwnd)
 	if err != nil {
 		return PixelInfo{}, fmt.Errorf("capture: %w", err)
 	}

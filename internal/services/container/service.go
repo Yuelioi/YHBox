@@ -320,3 +320,12 @@ func (s *Service) ResolveWindow(containerID string) (winutil.WindowHandle, error
 	}
 	return ResolveWindowTarget(&c, 3*time.Second, 500*time.Millisecond)
 }
+
+// CaptureBackendFor 返容器配置的截图后端名 (auto/gdi/wgc/mock). 容器不存在 → "auto".
+func (s *Service) CaptureBackendFor(containerID string) string {
+	c, ok := s.store.Get(containerID)
+	if !ok {
+		return "auto"
+	}
+	return ReadWindowTargetCaptureBackend(&c)
+}

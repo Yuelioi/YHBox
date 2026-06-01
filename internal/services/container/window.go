@@ -38,6 +38,19 @@ func ReadWindowTargetMatchSpec(n *GraphNode) winutil.MatchSpec {
 	}
 }
 
+// ReadWindowTargetCaptureBackend 读容器主图 WindowTarget 节点的 CaptureBackend 配置.
+// 无节点/无配置 → "auto". 制作工具(截模板/取色)按此现建一次性 IBackend, 与运行时同后端.
+func ReadWindowTargetCaptureBackend(c *Container) string {
+	wt := FindMainGraphNode(c, "WindowTarget")
+	if wt == nil {
+		return "auto"
+	}
+	if s := PinString(wt, "CaptureBackend"); s != "" {
+		return s
+	}
+	return "auto"
+}
+
 // ResolveWindowTarget 找主图 WindowTarget 节点并 resolve 成 WindowHandle。
 // 无节点 → ErrNoWindowTarget；resolve 失败 → winutil 原始 error。
 func ResolveWindowTarget(c *Container, timeout, interval time.Duration) (winutil.WindowHandle, error) {

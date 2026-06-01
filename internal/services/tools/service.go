@@ -18,6 +18,7 @@ import (
 // 本包不 import container 包以保持解耦。
 type WindowResolver interface {
 	ResolveWindow(containerID string) (winutil.WindowHandle, error)
+	CaptureBackendFor(containerID string) string
 }
 
 // cachedWindow gameWindowFor 的短期缓存条目 (MousePos 高频 poll，不能每帧 EnumWindows)。

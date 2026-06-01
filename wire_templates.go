@@ -25,9 +25,15 @@ func (t *templateCaptureAdapter) Capture(containerID string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("解析目标窗口: %w", err)
 	}
-	img, err := capture.Frame(win.HWND(wh.HWND))
+	backend, warning, err := capture.NewIBackend(t.containers.CaptureBackendFor(containerID))
 	if err != nil {
-		return nil, fmt.Errorf("capture.Frame: %w", err)
+		return nil, fmt.Errorf("capture backend: %w", err)
+	}
+	_ = warning // 制作工具单帧, fallback warning 不冒泡
+	defer backend.Close()
+	img, err := backend.Frame(win.HWND(wh.HWND))
+	if err != nil {
+		return nil, fmt.Errorf("capture: %w", err)
 	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
