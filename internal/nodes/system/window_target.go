@@ -25,9 +25,9 @@ const (
 	wtInProcessName    = "ProcessName"
 	wtInTitleMatch     = "TitleMatch"
 	wtInInputBackend   = "InputBackend"
-	wtInCaptureBackend  = "CaptureBackend"
-	wtInScaleTolerance  = "ScaleTolerance"
-	wtOutFire           = "Fire"
+	wtInCaptureBackend = "CaptureBackend"
+	wtInScaleTolerance = "ScaleTolerance"
+	wtOutFire          = "Fire"
 )
 
 func (WindowTarget) Spec() node.Spec {
