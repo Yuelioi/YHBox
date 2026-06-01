@@ -55,7 +55,7 @@ func runWatchdogCheck(t *testing.T, thresholdMs float64, initialState string) *R
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	rt.SetVar("state", initialState)
 	r := NewContainerRunner(rt)

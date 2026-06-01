@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -30,7 +29,6 @@ import (
 	containerruntime "yhbox/internal/services/container/runtime"
 	"yhbox/internal/services/container/library"
 	"yhbox/internal/services/execution"
-	"yhbox/internal/services/inputclip/backends"
 	"yhbox/internal/services/schedule"
 	"yhbox/internal/hotkey"
 	"yhbox/internal/services/template"
@@ -38,7 +36,6 @@ import (
 	"yhbox/pkg/locale"
 	"yhbox/pkg/platform"
 	"yhbox/pkg/screenshot"
-	"yhbox/pkg/winutil"
 )
 
 //go:embed all:frontend/dist
@@ -243,16 +240,6 @@ func main() {
 	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
 	clipSvc, libClipSvc := newInputClipServices(dataDir)
 
-	// 混合后端: PostMessage 路径 (键盘/鼠标按钮) + SendInput (RawDelta 相机).
-	// 异环 IMC 不接 SendInput 键盘 — 必须 PostMessage WM_KEYDOWN. hwndGetter 拿当前游戏 hwnd.
-	clipInputBackend := backends.NewSendInputBackend(func() uintptr {
-		g := app.Game()
-		if g == nil || !g.OK {
-			return 0
-		}
-		return uintptr(g.HWND)
-	})
-
 	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
 	// container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
 	emitForRuntime := func(name string, data any) {
@@ -269,17 +256,10 @@ func main() {
 		if !ok {
 			return fmt.Errorf("container %q not found", target.ID)
 		}
-		// 前台模式：跑之前把游戏窗口拉到前台（必须前台运行的脚本/视觉确认场景）
-		if c.RunMode == "foreground" {
-			if targets := winutil.FindGame(); len(targets) > 0 {
-				winutil.BringToFront(targets[0].HWND)
-				time.Sleep(150 * time.Millisecond) // 让窗口完成 restore + 焦点切换
-			}
-		}
 		rt := containerruntime.NewRuntimeContext(
 			&c, inputBus, templateMatcher, containerColor,
 			newGameProviderAdapter(app), emitForRuntime,
-			clipSvc, clipInputBackend, app.Settings().ActiveMouseCounts360(),
+			clipSvc, app.Settings().ActiveMouseCounts360(),
 		)
 		r := containerruntime.NewContainerRunner(rt)
 		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.

@@ -106,7 +106,6 @@ func NewRuntimeContext(
 	game GameProvider,
 	emit func(name string, data any),
 	clipResolver ClipResolver,
-	inputBackend backends.IInputBackend,
 	mouseCounts360 int,
 ) *RuntimeContext {
 	if color == nil {
@@ -120,7 +119,6 @@ func NewRuntimeContext(
 		Game:           game,
 		Emit:           emit,
 		ClipResolver:   clipResolver,
-		InputBackend:   inputBackend,
 		MouseCounts360: mouseCounts360,
 		ClipPolicy:     clipruntime.DefaultPlaybackPolicy(),
 		vars:           make(map[string]expr.Value),

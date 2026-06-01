@@ -52,7 +52,7 @@ func runStateBUYBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *Run
 			},
 		},
 	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

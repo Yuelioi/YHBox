@@ -26,7 +26,7 @@ func newAdapterTestRT(t *testing.T, vars []container.VarDecl) *RuntimeContext {
 			Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}},
 		},
 	}
-	return NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	return NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
 }
 
 // ============================================================================

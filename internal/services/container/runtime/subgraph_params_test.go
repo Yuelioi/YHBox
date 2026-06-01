@@ -71,7 +71,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 		},
 	}
 
-	rtCtx := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, nil, 0)
+	rtCtx := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, NoopColorDetector{}, nil, nil, nil, 0)
 	stubRuntimeWindowAndInput(rtCtx)
 	r := NewContainerRunner(rtCtx)
 

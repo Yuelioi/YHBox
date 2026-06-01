@@ -13,6 +13,7 @@ import (
 
 	"yhbox/internal/node"
 	"yhbox/internal/services/container"
+	"yhbox/internal/services/inputclip/backends"
 	pkgcapture "yhbox/pkg/capture"
 	pkginput "yhbox/pkg/input"
 	"yhbox/pkg/winutil"
@@ -317,6 +318,11 @@ func (r *ContainerRunner) setupRuntime() error {
 	}
 	r.rt.Window = wh
 
+	// 前台 RunMode: 把本容器目标窗口拉到前台 (取代旧的全局 FindGame 预拉).
+	if r.rt.Container.RunMode == "foreground" && r.rt.Game != nil {
+		r.rt.Game.BringToForeground(r.rt.Window.HWND)
+	}
+
 	// 2) input backend (默认 postmessage)
 	inputName := runtimeSpec["InputBackend"]
 	if inputName == "" {
@@ -327,6 +333,11 @@ func (r *ContainerRunner) setupRuntime() error {
 		return fmt.Errorf("input backend %q: %w", inputName, err)
 	}
 	r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
+
+	// PlayClip 输入后端 (inputclip): per-run, hwnd 取本容器 rt.Window.
+	if r.rt.InputBackend == nil {
+		r.rt.InputBackend = backends.NewSendInputBackend(func() uintptr { return r.rt.Window.HWND })
+	}
 
 	// 3) capture backend (auto + fallback)
 	captureName := runtimeSpec["CaptureBackend"]
