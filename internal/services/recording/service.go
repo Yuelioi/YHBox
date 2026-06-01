@@ -8,6 +8,7 @@ import (
 
 	"github.com/lxn/win"
 
+	"yhbox/internal/apperr"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/inputclip"
 	"yhbox/pkg/winutil"
@@ -123,7 +124,7 @@ func (s *Service) SetContainerGetter(c ContainerGetter) { s.containerGet = c }
 // 纯预检 — 不装 hook 不起 recorder. Start 内仍保留同样校验作 race 兜底 (倒计时期间窗口可能消失).
 func (s *Service) ValidateTarget(containerID string) error {
 	if containerID == "" {
-		return errors.New("containerID 必填")
+		return apperr.New(apperr.CodeContainerIDRequired, nil)
 	}
 	if s.containerGet == nil {
 		return errors.New("ContainerGetter 未注入")
@@ -134,7 +135,7 @@ func (s *Service) ValidateTarget(containerID string) error {
 	}
 	wtNode := findWindowTargetNode(&cont)
 	if wtNode == nil {
-		return errors.New("container 缺 WindowTarget 节点, 无法录制")
+		return apperr.New(apperr.CodeRecordingNoWindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
 	wh, err := winutil.ResolveWindow(spec, 3*time.Second, 500*time.Millisecond)
@@ -166,7 +167,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	}
 
 	if args.ContainerID == "" {
-		return "", errors.New("containerID 必填 — 录制 Subgraph 要落到某个 container")
+		return "", apperr.New(apperr.CodeContainerIDRequired, nil)
 	}
 	if s.containerGet == nil {
 		return "", errors.New("ContainerGetter 未注入 (main.go 启动期 SetContainerGetter?)")
@@ -177,7 +178,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	}
 	wtNode := findWindowTargetNode(&cont)
 	if wtNode == nil {
-		return "", errors.New("container 缺 WindowTarget 节点, 无法录制")
+		return "", apperr.New(apperr.CodeRecordingNoWindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
 	wh, err := winutil.ResolveWindow(spec, 3*time.Second, 500*time.Millisecond)

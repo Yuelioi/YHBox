@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -11,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"yhbox/internal/apperr"
 	"yhbox/pkg/winutil"
 )
 
@@ -140,7 +140,7 @@ func (s *Service) MousePos(containerID string) MousePosInfo {
 func (s *Service) OpenMouseHUD(containerID string) error {
 	app := s.wailsApp()
 	if app == nil {
-		return fmt.Errorf("wails app 未初始化")
+		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	s.mu.Lock()
 	if s.hud != nil {
@@ -178,7 +178,7 @@ func (s *Service) OpenMouseHUD(containerID string) error {
 func (s *Service) OpenRecordingHUD() error {
 	app := s.wailsApp()
 	if app == nil {
-		return fmt.Errorf("wails app 未初始化")
+		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	s.mu.Lock()
 	if s.recordingHUD != nil {
@@ -226,7 +226,7 @@ func (s *Service) SetCalibratorCloseHandler(fn func()) {
 func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
 	app := s.wailsApp()
 	if app == nil {
-		return false, fmt.Errorf("wails app 未初始化")
+		return false, apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	s.mu.Lock()
 	if s.calibratorHUD != nil {
@@ -293,7 +293,7 @@ func (s *Service) CloseRecordingHUD() {
 func (s *Service) OpenScreenPicker(mode, requestID, containerID string) error {
 	app := s.wailsApp()
 	if app == nil {
-		return fmt.Errorf("wails app 未初始化")
+		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	if mode != "point" && mode != "rect" && mode != "template_save" {
 		return fmt.Errorf("unsupported mode %q", mode)
@@ -373,7 +373,7 @@ func (s *Service) StartWindowTargetCapture() (string, error) {
 	}
 	app := s.wailsApp()
 	if app == nil {
-		return "", errors.New("wails app 未初始化, 无法 emit event")
+		return "", apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	return startWindowTargetCapture(mods, vk, func(name string, data any) {
 		app.Event.Emit(name, data)
