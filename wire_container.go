@@ -75,15 +75,61 @@ type templateMatcherAdapter struct {
 	// 防止 missing variant 等高频警告刷屏 (30s 窗口内同 key 只 emit 一次).
 	throttleMu sync.Mutex
 	throttle   map[string]int64
+
+	// scaleToleranceFor: 按 containerID 读模板缩放容差 (WindowTarget.ScaleTolerance).
+	// nil → 用 defaultScaleTolerance (测试场景). main.go 注入 container.Service.ScaleToleranceFor.
+	scaleToleranceFor func(containerID string) float64
 }
 
-func newTemplateMatcherAdapter(dataRoot string, emit func(string, map[string]any)) *templateMatcherAdapter {
+func newTemplateMatcherAdapter(dataRoot string, emit func(string, map[string]any), scaleToleranceFor func(string) float64) *templateMatcherAdapter {
 	return &templateMatcherAdapter{
-		dataRoot: dataRoot,
-		stores:   map[string]*template.Store{},
-		emit:     emit,
-		throttle: map[string]int64{},
+		dataRoot:          dataRoot,
+		stores:            map[string]*template.Store{},
+		emit:              emit,
+		throttle:          map[string]int64{},
+		scaleToleranceFor: scaleToleranceFor,
 	}
+}
+
+// defaultScaleTolerance: scaleToleranceFor 未注入时 (测试) 的兜底, 与 container.DefaultScaleTolerance 一致.
+const defaultScaleTolerance = 2.0
+
+// longEdgeScale 把 variant 模板缩到 frame 分辨率的比例 (长边比). variant 或 frame 为零尺寸时返 0.
+func longEdgeScale(frameW, frameH, varW, varH int) float64 {
+	fl := frameW
+	if frameH > fl {
+		fl = frameH
+	}
+	vl := varW
+	if varH > vl {
+		vl = varH
+	}
+	if vl <= 0 || fl <= 0 {
+		return 0
+	}
+	return float64(fl) / float64(vl)
+}
+
+// withinScaleTolerance 判断缩放比是否落在 [1/k, k]. k<1 归一到 1 (仅精确). scale<=0 一律 false.
+func withinScaleTolerance(scale, k float64) bool {
+	if scale <= 0 {
+		return false
+	}
+	if k < 1.0 {
+		k = 1.0
+	}
+	return scale >= 1.0/k && scale <= k
+}
+
+// scaleTolerance 取容器的缩放容差; 未注入 (测试) 回落默认 2.0, 注入值 <1 (异常) 回落 1.0 仅精确.
+func (m *templateMatcherAdapter) scaleTolerance(containerID string) float64 {
+	if m.scaleToleranceFor == nil {
+		return defaultScaleTolerance
+	}
+	if k := m.scaleToleranceFor(containerID); k >= 1.0 {
+		return k
+	}
+	return 1.0
 }
 
 // emitThrottled 同 (containerID, eventKey) 在 window 内只 emit 一次.

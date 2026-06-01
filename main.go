@@ -200,7 +200,7 @@ func main() {
 		if name == "container:warning" {
 			rootLog.Warn().Interface("payload", payload).Msg("container warning")
 		}
-	})
+	}, containerSvc.ScaleToleranceFor)
 	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
 	clipSvc, libClipSvc := newInputClipServices(dataDir)
 
