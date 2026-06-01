@@ -303,11 +303,11 @@ func (r *ContainerRunner) setupRuntime() error {
 		return nil
 	}
 
-	wtNode := findMainGraphNode(r.rt.Container, "WindowTarget")
+	wtNode := container.FindMainGraphNode(r.rt.Container, "WindowTarget")
 	if wtNode == nil {
-		return errors.New("MISSING_WINDOW_TARGET — container 缺 WindowTarget 节点")
+		return container.ErrNoWindowTarget
 	}
-	matchSpec := readWindowTargetMatchSpec(wtNode)
+	matchSpec := container.ReadWindowTargetMatchSpec(wtNode)
 	runtimeSpec := readWindowTargetRuntimeSpec(wtNode)
 
 	// 1) hwnd + metadata
@@ -389,17 +389,6 @@ func (r *ContainerRunner) teardownRuntime() {
 	}
 }
 
-// findMainGraphNode 主图找指定 kind 的第一个节点. WindowTarget / MouseCalibration 等
-// 声明式节点都是 single-instance per container — 找到即停.
-func findMainGraphNode(c *container.Container, kind string) *container.GraphNode {
-	for i := range c.Graph.Nodes {
-		if c.Graph.Nodes[i].Kind == kind {
-			return &c.Graph.Nodes[i]
-		}
-	}
-	return nil
-}
-
 // containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或任一子图.
 // 跟 validator.containerNeedsWindow 同判定: 决定 runtime 是否解析 WindowTarget. 纯窗口无关
 // 容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
@@ -424,18 +413,6 @@ func graphHasWindowNode(nodes []container.GraphNode) bool {
 	return false
 }
 
-// readWindowTargetMatchSpec 解析 WindowTarget.config 顶级匹配字段.
-func readWindowTargetMatchSpec(n *container.GraphNode) winutil.MatchSpec {
-	if n.Config == nil {
-		return winutil.MatchSpec{}
-	}
-	return winutil.MatchSpec{
-		Title:       container.PinString(n, "Title"),
-		Class:       container.PinString(n, "Class"),
-		ProcessName: container.PinString(n, "ProcessName"),
-		TitleMatch:  container.PinString(n, "TitleMatch"),
-	}
-}
 
 // readWindowTargetRuntimeSpec 解析 WindowTarget.config 顶级 runtime 字段 (InputBackend /
 // CaptureBackend). 返 map[string]string, key 是 PascalCase: "InputBackend"/"CaptureBackend".
