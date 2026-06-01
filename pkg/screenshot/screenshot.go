@@ -77,7 +77,7 @@ func (w *Writer) Enabled() bool     { return w.enabled.Load() }
 // img 必须是 caller 独立分配的副本（Writer 异步用，原 caller 不能再 mutate）；
 // 推荐 caller 在 Submit 之前 image.NewRGBA + copy。
 func (w *Writer) Submit(bot string, img *image.RGBA, boxes []Box, suffix string) bool {
-	if !w.enabled.Load() || w == nil {
+	if !w.enabled.Load() {
 		return false
 	}
 	select {
