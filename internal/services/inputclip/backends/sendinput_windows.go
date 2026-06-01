@@ -234,7 +234,7 @@ func (b *SendInputBackend) ReleaseHeld() error {
 	b.mu.Unlock()
 
 	for _, vk := range keys {
-		// 0 scan / 0 flag, sendKey 内会补 scan; 状态机已清空所以这里直接调底层.
+		// 0 scan / 0 flag, sendKeyRaw 内 scan=0 会自动补; 状态机已清空所以这里直接调底层.
 		_ = b.sendKeyRaw(vk, 0, 0, true)
 	}
 	for _, btn := range btns {
@@ -244,18 +244,6 @@ func (b *SendInputBackend) ReleaseHeld() error {
 }
 
 // --- 内部实现 ---
-
-// sendKey 包装状态机更新 + 底层 sendKeyRaw.
-func (b *SendInputBackend) sendKey(vk, scan, flags uint32, keyUp bool) error {
-	b.mu.Lock()
-	if keyUp {
-		delete(b.heldKeys, vk)
-	} else {
-		b.heldKeys[vk] = struct{}{}
-	}
-	b.mu.Unlock()
-	return b.sendKeyRaw(vk, scan, flags, keyUp)
-}
 
 // sendKeyRaw 不动状态机, 真发 SendInput.
 //
@@ -283,18 +271,6 @@ func (b *SendInputBackend) sendKeyRaw(vk, scan, flags uint32, keyUp bool) error 
 		return fmt.Errorf("SendInput failed: %v", lastErr)
 	}
 	return nil
-}
-
-// sendMouseBtn 包装状态机.
-func (b *SendInputBackend) sendMouseBtn(btn uint32, x, y int32, btnUp bool) error {
-	b.mu.Lock()
-	if btnUp {
-		delete(b.heldButtons, btn)
-	} else {
-		b.heldButtons[btn] = struct{}{}
-	}
-	b.mu.Unlock()
-	return b.sendMouseBtnRaw(btn, x, y, btnUp)
 }
 
 // sendMouseBtnRaw 不动状态机.
@@ -370,23 +346,6 @@ func (b *SendInputBackend) sendMouseMove(mode uint32, x, y int32) error {
 			Dx:      x,
 			Dy:      y,
 			DwFlags: flags,
-		},
-	}
-	r, _, lastErr := procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
-	if r == 0 {
-		return fmt.Errorf("SendInput failed: %v", lastErr)
-	}
-	return nil
-}
-
-// sendRawDelta 相对位移 (相机转向). 不带 ABSOLUTE.
-func (b *SendInputBackend) sendRawDelta(dx, dy int32) error {
-	in := sendInputMouseBlock{
-		Type: inputMouse,
-		Mi: mouseInput{
-			Dx:      dx,
-			Dy:      dy,
-			DwFlags: mouseEventfMove,
 		},
 	}
 	r, _, lastErr := procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
