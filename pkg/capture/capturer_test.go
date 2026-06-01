@@ -10,10 +10,10 @@ import (
 // TestCapturer_ConstructFailsOnZeroHWND HWND=0 → 拿不到 DC → 返回 err，不 panic
 func TestCapturer_ConstructFailsOnZeroHWND(t *testing.T) {
 	rois := []image.Rectangle{image.Rect(0, 0, 10, 10)}
-	c, err := NewCapturer(win.HWND(0), rois)
+	c, err := newGDICapturer(win.HWND(0), rois)
 	if err == nil {
 		_ = c.Close()
-		t.Fatalf("NewCapturer with HWND=0 should fail")
+		t.Fatalf("newGDICapturer with HWND=0 should fail")
 	}
 }
 
@@ -30,9 +30,9 @@ func TestCapturer_FrameSizeMatchesROIs(t *testing.T) {
 		image.Rect(10, 10, 60, 50),    // 50×40
 		image.Rect(100, 10, 169, 95),  // 69×85
 	}
-	c, err := NewCapturer(hwnd, rois)
+	c, err := newGDICapturer(hwnd, rois)
 	if err != nil {
-		t.Fatalf("NewCapturer: %v", err)
+		t.Fatalf("newGDICapturer: %v", err)
 	}
 	defer c.Close()
 
@@ -72,9 +72,9 @@ func TestCapturer_BuffersAreReused(t *testing.T) {
 		image.Rect(10, 10, 30, 30),
 		image.Rect(50, 10, 70, 30),
 	}
-	c, err := NewCapturer(hwnd, rois)
+	c, err := newGDICapturer(hwnd, rois)
 	if err != nil {
-		t.Fatalf("NewCapturer: %v", err)
+		t.Fatalf("newGDICapturer: %v", err)
 	}
 	defer c.Close()
 
@@ -101,9 +101,9 @@ func TestCapturer_CloseIdempotent(t *testing.T) {
 	if hwnd == 0 {
 		t.Skip("no foreground window")
 	}
-	c, err := NewCapturer(hwnd, []image.Rectangle{image.Rect(0, 0, 10, 10)})
+	c, err := newGDICapturer(hwnd, []image.Rectangle{image.Rect(0, 0, 10, 10)})
 	if err != nil {
-		t.Fatalf("NewCapturer: %v", err)
+		t.Fatalf("newGDICapturer: %v", err)
 	}
 	if err := c.Close(); err != nil {
 		t.Errorf("first Close: %v", err)

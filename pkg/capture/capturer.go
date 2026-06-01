@@ -26,7 +26,7 @@ type Capturer interface {
 //
 // ROI 用客户区坐标。内部 ClientToScreen 算偏移翻成 hbm 全窗口索引。
 //
-// 调用方走 NewCapturer(hwnd, rois)，拿到的是 Capturer interface；
+// 调用方走 newGDICapturer(hwnd, rois)，拿到的是 *gdiCapturer (满足 Capturer interface)；
 // 这个 struct 不导出。
 type gdiCapturer struct {
 	hwnd win.HWND
@@ -236,10 +236,4 @@ func (c *gdiCapturer) Frame() ([]*image.RGBA, error) {
 		}
 	}
 	return c.imgs, nil
-}
-
-// NewCapturer 创建高频多 ROI 会话 (GDI). 失败返回错误（窗口尺寸异常、ROI 越界等）.
-// 高频 QTE 路径 (rhythm 等) 用; 低频单帧路径走 IBackend.Frame.
-func NewCapturer(hwnd win.HWND, rois []image.Rectangle) (Capturer, error) {
-	return newGDICapturer(hwnd, rois)
 }
