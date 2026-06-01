@@ -138,63 +138,30 @@ func defaultSettings() *Settings {
 	}
 }
 
-// LoadSettings 从 path 读 JSON。文件不存在或损坏都用默认值（不报错）。
-// Validate 失败也用默认值。
+// LoadSettings 从 path 读 JSON。文件不存在/损坏/Validate 失败都用默认值（不报错）。
+// 直接 unmarshal 进 defaultSettings() 基底：缺失字段天然保留默认，无需逐字段空值回落。
 func LoadSettings(path string) *Settings {
-	s := defaultSettings()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return s
+		return defaultSettings()
 	}
-	loaded := &Settings{}
-	if err := json.Unmarshal(data, loaded); err != nil {
-		return s
+	s := defaultSettings()
+	if err := json.Unmarshal(data, s); err != nil {
+		return defaultSettings() // 损坏 → 全新默认（s 已被部分改写，不能返回）
 	}
-	// 归一：空 FileDir 落到 default "logs"
-	if loaded.UI.Logger.FileDir == "" {
-		loaded.UI.Logger.FileDir = "logs"
+	// Window 显式 0/负值会覆盖默认 → 兜底（非空值垫片，保留）
+	if s.UI.Window.Width <= 0 || s.UI.Window.Height <= 0 {
+		s.UI.Window.Width = 1100
+		s.UI.Window.Height = 720
 	}
-	// 归一：空 Locale 落到 default "zh"（旧 settings.json 没这字段）
-	if loaded.Locale == "" {
-		loaded.Locale = "zh"
+	// RecordingMouseMode 枚举校验：非 relative/absolute → relative（非空值垫片，保留）
+	if s.UI.RecordingMouseMode != "relative" && s.UI.RecordingMouseMode != "absolute" {
+		s.UI.RecordingMouseMode = "relative"
 	}
-	// 归一：空 Capture.Method 落到 default "auto"（旧 settings.json 没这字段）
-	if loaded.Capture.Method == "" {
-		loaded.Capture.Method = "auto"
+	if err := s.Validate(); err != nil {
+		return defaultSettings()
 	}
-	// 归一：旧 settings 没 window 字段或被改成 0，回落到默认尺寸
-	if loaded.UI.Window.Width <= 0 || loaded.UI.Window.Height <= 0 {
-		loaded.UI.Window.Width = 1100
-		loaded.UI.Window.Height = 720
-	}
-	// 归一：旧 settings 没 actionStopHotkey 字段，回落默认 F9
-	if loaded.UI.ActionStopHotkey == "" {
-		loaded.UI.ActionStopHotkey = "Ctrl+Shift+F9"
-	}
-	// 归一：旧 settings 没 calibrateHotkey 字段，回落默认 F8
-	if loaded.UI.CalibrateHotkey == "" {
-		loaded.UI.CalibrateHotkey = "F8"
-	}
-	// 归一：旧 settings 没 windowCaptureHotkey 字段，回落默认 F9
-	if loaded.UI.WindowCaptureHotkey == "" {
-		loaded.UI.WindowCaptureHotkey = "F9"
-	}
-	// 归一：旧 settings 没 recordingStopHotkey 字段，回落默认 F12
-	if loaded.UI.RecordingStopHotkey == "" {
-		loaded.UI.RecordingStopHotkey = "F12"
-	}
-	// 归一：旧 settings 没 recordingPauseHotkey 字段，回落默认 F11
-	if loaded.UI.RecordingPauseHotkey == "" {
-		loaded.UI.RecordingPauseHotkey = "F11"
-	}
-	// 归一：旧 settings 没 recordingMouseMode 字段，回落默认 relative.
-	if loaded.UI.RecordingMouseMode != "relative" && loaded.UI.RecordingMouseMode != "absolute" {
-		loaded.UI.RecordingMouseMode = "relative"
-	}
-	if err := loaded.Validate(); err != nil {
-		return s
-	}
-	return loaded
+	return s
 }
 
 // SaveSettings 把 s 全量序列化写到 path（覆盖）。

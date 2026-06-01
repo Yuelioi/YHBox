@@ -88,3 +88,42 @@ func TestLoadSettings_EmptyFileDirFallsToDefault(t *testing.T) {
 		t.Errorf("expected FileDir=logs fallback, got %q", s.UI.Logger.FileDir)
 	}
 }
+
+func TestLoadSettings_UnmarshalIntoBase(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "s.json")
+
+	// 1) 部分字段缺失 → 缺的保默认, 有的生效
+	_ = os.WriteFile(p, []byte(`{"locale":"en"}`), 0o644)
+	s := LoadSettings(p)
+	if s.Locale != "en" {
+		t.Fatalf("locale: want en, got %q", s.Locale)
+	}
+	if s.UI.Logger.FileDir != "logs" || s.Capture.Method != "auto" {
+		t.Fatalf("missing fields should keep defaults, got FileDir=%q Method=%q", s.UI.Logger.FileDir, s.Capture.Method)
+	}
+	if s.UI.RecordingStopHotkey != "F12" {
+		t.Fatalf("missing hotkey should keep default F12, got %q", s.UI.RecordingStopHotkey)
+	}
+
+	// 2) Window 显式 0 → 兜底
+	_ = os.WriteFile(p, []byte(`{"ui":{"window":{"width":0,"height":0}}}`), 0o644)
+	s = LoadSettings(p)
+	if s.UI.Window.Width != 1100 || s.UI.Window.Height != 720 {
+		t.Fatalf("window 0 should fall back, got %dx%d", s.UI.Window.Width, s.UI.Window.Height)
+	}
+
+	// 3) 非法 RecordingMouseMode → relative
+	_ = os.WriteFile(p, []byte(`{"ui":{"recordingMouseMode":"bogus"}}`), 0o644)
+	s = LoadSettings(p)
+	if s.UI.RecordingMouseMode != "relative" {
+		t.Fatalf("bogus mouse mode should fall back to relative, got %q", s.UI.RecordingMouseMode)
+	}
+
+	// 4) 损坏 JSON → 全新默认
+	_ = os.WriteFile(p, []byte(`{bad`), 0o644)
+	s = LoadSettings(p)
+	if s.Locale != "zh" || s.UI.Window.Width != 1100 {
+		t.Fatalf("corrupt should return fresh defaults, got locale=%q w=%d", s.Locale, s.UI.Window.Width)
+	}
+}
