@@ -171,23 +171,21 @@
               </div>
             </div>
 
-            <!-- 截图框选 (仅当前屏幕分辨率匹配时可用) -->
-            <UTooltip
-              :text="screenResMatches(ov.resolution) ? '' : t('geometry.pick_disabled_tooltip')"
-              :disabled="screenResMatches(ov.resolution)"
+            <!-- 截图框选 (任意分辨率可点; 回传客户区与该 override 分辨率不符时给提示) -->
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="primary"
+              icon="i-tabler-camera"
+              :disabled="picking"
+              :loading="picking"
+              @click="onPickOverrideRect(idx)"
             >
-              <UButton
-                size="xs"
-                variant="ghost"
-                color="primary"
-                icon="i-tabler-camera"
-                :disabled="!screenResMatches(ov.resolution) || picking"
-                :loading="picking"
-                @click="onPickOverrideRect(idx)"
-              >
-                {{ t('geometry.pick_override_rect') }}
-              </UButton>
-            </UTooltip>
+              {{ t('geometry.pick_override_rect') }}
+            </UButton>
+            <p v-if="pickResMismatch[idx]" class="text-[10px] text-warning">
+              {{ t('geometry.pick_res_mismatch', { w: pickResMismatch[idx]!.w, h: pickResMismatch[idx]!.h }) }}
+            </p>
           </div>
 
           <!-- 添加覆盖面板 -->
@@ -356,16 +354,15 @@ async function onPickScreenRect() {
 }
 
 // ─── Override: 截图框选 (px) ───────────────────────────────────────────────
-function screenResMatches(res: { w: number; h: number }): boolean {
-  return window.screen.width === res.w && window.screen.height === res.h
-}
+// 框选回传客户区尺寸 ≠ 该 override 声明分辨率时记下来给非阻塞提示 (按 override 索引).
+const pickResMismatch = ref<Record<number, { w: number; h: number }>>({})
 
 async function onPickOverrideRect(idx: number) {
   const ov = safeValue.value.overrides?.[idx]
   if (!ov) return
   const p = await openRectPicker()
   if (!p) return
-  // region ratio → px (乘以 override 分辨率)
+  // px = region ratio × override 声明分辨率 (ratio 已归一, 与框选时实际分辨率无关).
   const [rx, ry, rw, rh] = p.region
   const resW = ov.resolution.w
   const resH = ov.resolution.h
@@ -377,13 +374,20 @@ async function onPickOverrideRect(idx: number) {
     h: Math.round(rh * resH),
   }
   emit('update:modelValue', next)
+  // 回传客户区 (picker 截游戏窗口的原生尺寸) 与该 override 分辨率不符 → 提示, 不禁用.
+  const m = { ...pickResMismatch.value }
+  if (p.screenW != null && p.screenH != null && (p.screenW !== resW || p.screenH !== resH)) {
+    m[idx] = { w: p.screenW, h: p.screenH }
+  } else {
+    delete m[idx]
+  }
+  pickResMismatch.value = m
 }
 
 // ─── Override CRUD ─────────────────────────────────────────────────────────
 const overridesOpen = ref(false)
 
 const resPresetItems = computed(() => [
-  { label: t('geometry.preset_screen'), value: 'screen' },
   { label: '1920×1080', value: '1920x1080' },
   { label: '2560×1440', value: '2560x1440' },
   { label: '3840×2160', value: '3840x2160' },
@@ -395,9 +399,6 @@ const addCustomW = ref<number>(1920)
 const addCustomH = ref<number>(1080)
 
 const resolvedAddRes = computed<{ w: number; h: number }>(() => {
-  if (addResPreset.value === 'screen') {
-    return { w: window.screen.width, h: window.screen.height }
-  }
   if (addResPreset.value === 'custom') {
     return { w: addCustomW.value || 1920, h: addCustomH.value || 1080 }
   }
@@ -429,6 +430,8 @@ function removeOverride(idx: number) {
   const next = cloneValue()
   next.overrides!.splice(idx, 1)
   emit('update:modelValue', next)
+  // override 删除会让后面的 idx 整体前移, 按 idx 索引的 mismatch 提示会错位 → 整体清掉, 重框即重得.
+  pickResMismatch.value = {}
 }
 
 function updateOverridePx(idx: number, field: 'x' | 'y' | 'w' | 'h', v: number) {

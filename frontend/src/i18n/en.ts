@@ -468,12 +468,11 @@ export default {
     pct_over_100: 'Some values exceed 100% — please verify.',
     pick_screen_rect: 'Pick region',
     advanced_overrides: 'Advanced: resolution overrides',
-    pick_disabled_tooltip: 'Only available when screen resolution matches',
     pick_override_rect: 'Pick region (px)',
+    pick_res_mismatch: 'Picked while window was {w}×{h}, differs from this resolution slot; coords mapped by slot resolution',
     add_override_title: 'Add resolution override',
     dup_resolution: 'Override for this resolution already exists',
     add: 'Add',
-    preset_screen: 'Current screen',
     preset_custom: 'Custom',
   },
   node: {
