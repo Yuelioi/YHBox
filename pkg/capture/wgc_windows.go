@@ -7,7 +7,7 @@
 //	void     wgc_session_close(sid)
 //	const char* wgc_last_error()
 //
-// 每个 wgcCapturer 自己开一个 session（HashMap 在 DLL 内部）。多 bot 同时跑
+// 每个 session 在 DLL 内部对应一个 sid（HashMap 管理）。多个 session 同时跑
 // 各持各的 sid，互不干扰。
 //
 // 文件名带 _windows.go 因为 syscall.LazyDLL 是 Windows 专属。本项目本来就只跑
@@ -102,9 +102,8 @@ func cstrToGo(p unsafe.Pointer) string {
 // wgcSession 是单个 HWND 的捕获会话。
 //
 // mu 保护 grab path (buf / width / height / DLL sid). 同 session 多 goroutine 调
-// grab 会 race buf 写入, 加锁串行化. 单线程调用方 (老 wgcCapturer + 老 wgcFrame
-// 自己开 session) 不会 contend; cache 复用模式 (新 wgcFrame) 才真有可能并发, 加锁
-// 是 safety net.
+// grab 会 race buf 写入, 加锁串行化. cache 复用模式 (wgcFrame 共享同 HWND session)
+// 可能并发, 加锁是 safety net.
 type wgcSession struct {
 	mu     sync.Mutex
 	sid    uint64
@@ -211,8 +210,6 @@ func wgcBGRAtoRGBA(src []byte, srcW, srcH, roiX, roiY, roiW, roiH int) *image.RG
 
 // 包级 WGC session cache: wgcFrame / wgcFrameROI 共享同 HWND 的 session 避免黄框
 // 反复 open/close (用户体验黄框一闪一闪很诡异). idle > wgcIdleTimeout 后 reaper 关.
-//
-// 不影响 wgcCapturer — 那个本来就是用户主动持久持有 (NewCapturer/Close), 不走 cache.
 var (
 	wgcCacheMu     sync.Mutex
 	wgcCache       map[win.HWND]*wgcCachedSession
@@ -278,7 +275,7 @@ func startWGCReaper() {
 
 // wgcFrame: 一次性抓帧，包级 Frame() 走这里。
 // session 走 cache 复用同 HWND, idle 10s 后 reaper 关 (黄框跟 session 绑死,
-// 不复用就一闪一闪很诡异). 高频路径 (rhythm 等) 仍可走 newWGCCapturer.
+// 不复用就一闪一闪很诡异).
 func wgcFrame(hwnd win.HWND) (*image.RGBA, error) {
 	s, err := getCachedWGCSession(hwnd)
 	if err != nil {
@@ -351,93 +348,3 @@ var procSleep = syscall.NewLazyDLL("kernel32.dll").NewProc("Sleep")
 
 func sleepMs(ms uint32) { procSleep.Call(uintptr(ms)) }
 
-// wgcCapturer: BackendWGC 下的 Capturer 实现。
-// keep session open + ROI 列表，每次 Frame() 抓全帧后裁 N 个 ROI。
-//
-// 注意 ROI 坐标语义：跟 gdi 一样用客户区坐标。WGC 抓到的就是客户区帧（不含
-// 非客户区如标题栏），所以不需要 offsetX/Y 翻译。
-type wgcCapturer struct {
-	mu      sync.Mutex
-	session *wgcSession
-	rois    []image.Rectangle
-	imgs    []*image.RGBA
-	closed  bool
-}
-
-func newWGCCapturer(hwnd win.HWND, rois []image.Rectangle) (*wgcCapturer, error) {
-	if len(rois) == 0 {
-		return nil, fmt.Errorf("rois 不能为空")
-	}
-	s, err := openWGCSession(hwnd)
-	if err != nil {
-		return nil, err
-	}
-	// ROI 边界校验（WGC session 的 width/height 是开 session 时的客户区尺寸）
-	cw, ch := int(s.width), int(s.height)
-	for i, r := range rois {
-		if r.Min.X < 0 || r.Min.Y < 0 || r.Max.X > cw || r.Max.Y > ch ||
-			r.Dx() <= 0 || r.Dy() <= 0 {
-			s.close()
-			return nil, fmt.Errorf("rois[%d]=%v 越出客户区 %dx%d 或尺寸无效", i, r, cw, ch)
-		}
-	}
-	c := &wgcCapturer{
-		session: s,
-		rois:    append([]image.Rectangle{}, rois...),
-		imgs:    make([]*image.RGBA, len(rois)),
-	}
-	for i, r := range rois {
-		c.imgs[i] = &image.RGBA{
-			Pix:    make([]byte, r.Dx()*r.Dy()*4),
-			Stride: r.Dx() * 4,
-			Rect:   r,
-		}
-	}
-	return c, nil
-}
-
-func (c *wgcCapturer) Frame() ([]*image.RGBA, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.closed {
-		return nil, fmt.Errorf("capturer closed")
-	}
-	w, h, err := c.session.grabWithRetry()
-	if err != nil {
-		return nil, err
-	}
-	for i, roi := range c.rois {
-		img := c.imgs[i]
-		dst := img.Pix
-		dstStride := img.Stride
-		roiW := roi.Dx()
-		roiH := roi.Dy()
-		for y := 0; y < roiH; y++ {
-			sy := roi.Min.Y + y
-			if sy < 0 || sy >= h {
-				continue
-			}
-			srcRow := sy*w*4 + roi.Min.X*4
-			dstRow := y * dstStride
-			src := c.session.buf[srcRow:]
-			for x := 0; x < roiW; x++ {
-				dst[dstRow+x*4+0] = src[x*4+2]
-				dst[dstRow+x*4+1] = src[x*4+1]
-				dst[dstRow+x*4+2] = src[x*4+0]
-				dst[dstRow+x*4+3] = 255
-			}
-		}
-	}
-	return c.imgs, nil
-}
-
-func (c *wgcCapturer) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.closed {
-		return nil
-	}
-	c.closed = true
-	c.session.close()
-	return nil
-}
