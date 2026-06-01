@@ -331,14 +331,23 @@ func (b *HybridBackend) sendMouseBtnRaw(btn uint32, x, y int32, btnUp bool) erro
 	return nil
 }
 
-// sendMouseMove A=mode (0 absolute, 1 relative), B/C = x/y.
+// sendMouseMove A=mode (0 absolute, 1 relative), B/C = x/y (client px).
 //
-// absolute 模式 x/y 应是 normalized 0..65535 全屏坐标; 调用方决定要不要 normalize.
-// 这里透传 x/y, 坐标映射在 ClipPlayer 那一层做.
+// 只在无 hwnd 降级路径触发 (正常有 hwnd 走 PostMessage MouseMove, 不到这里)。
+// absolute 模式: 无目标窗口客户区可用, 按主屏尺寸把 client px 归一化到 0..65535
+// (Win32 MOUSEEVENTF_ABSOLUTE 约定; 不归一化的话 client px 会被当全屏绝对值 → 光标贴左上角)。
 func (b *HybridBackend) sendMouseMove(mode uint32, x, y int32) error {
 	flags := mouseEventfMove
 	if mode == 0 {
 		flags |= mouseEventfAbsolute
+		sw := win.GetSystemMetrics(win.SM_CXSCREEN)
+		sh := win.GetSystemMetrics(win.SM_CYSCREEN)
+		if sw > 1 {
+			x = clampAbs(x * 65535 / (sw - 1))
+		}
+		if sh > 1 {
+			y = clampAbs(y * 65535 / (sh - 1))
+		}
 	}
 	in := sendInputMouseBlock{
 		Type: inputMouse,
@@ -353,6 +362,17 @@ func (b *HybridBackend) sendMouseMove(mode uint32, x, y int32) error {
 		return fmt.Errorf("SendInput failed: %v", lastErr)
 	}
 	return nil
+}
+
+// clampAbs 夹到 Win32 ABSOLUTE 合法范围 0..65535.
+func clampAbs(v int32) int32 {
+	if v < 0 {
+		return 0
+	}
+	if v > 65535 {
+		return 65535
+	}
+	return v
 }
 
 // sendScroll notches * 120 = wheel delta.
