@@ -436,7 +436,7 @@ func NewCaptureAdapter(rt *RuntimeContext) node.CaptureService { return &capture
 
 // ============================================================================
 // VisionAdapter — rt.Matcher + rt.Capture → node.VisionService
-// Match/WaitMatch 走 Matcher; DetectColor 走 Color;
+// Match/WaitMatch 走 Matcher; DetectColor 走 rt.Capture + CaptureFrameCached (100ms 缓存);
 // DetectColorHSV / ROIColorScan / DualBarTrack 自抓帧 + 复用包内 helper (countHSVInROI / scanClusters / vision.AnalyzeDualColorBar).
 // ============================================================================
 

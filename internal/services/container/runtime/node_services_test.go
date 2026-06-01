@@ -372,12 +372,21 @@ func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 			Px:         node.PixelRect{X: 0, Y: 0, W: 2, H: 2},
 		}},
 	}
-	count, _, _, err := va.DetectColor(geo, "rgb", [6]int{200, 255, 0, 50, 0, 50})
+	count, cx, cy, err := va.DetectColor(geo, "rgb", [6]int{200, 255, 0, 50, 0, 50})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if count != 4 {
 		t.Fatalf("count = %d, want 4 (override rect, 非 pct)", count)
+	}
+	// 中心还原成全帧比例: 命中像素 (0,0)(1,0)(0,1)(1,1) → sumX=sumY=2, count=4, 帧 4x4
+	// → cx=cy=2/4/4=0.125. 验 ResolveGeometry rect 偏移没丢 + 全帧坐标系映射对.
+	if cx != 0.125 || cy != 0.125 {
+		t.Fatalf("center = (%v,%v), want (0.125,0.125)", cx, cy)
+	}
+	sys := newAdapterSysSnapshot(rt)
+	if sys.LastColorCenter.X != cx || sys.LastColorCenter.Y != cy {
+		t.Fatalf("LastColorCenter = %v, want (%v,%v)", sys.LastColorCenter, cx, cy)
 	}
 }
 
