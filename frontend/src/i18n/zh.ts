@@ -1146,7 +1146,7 @@ export default {
         ProcessName: { label: '进程名' },
         TitleMatch: { label: '标题匹配方式', option: { exact: 'exact', contains: 'contains', prefix: 'prefix', suffix: 'suffix', regex: 'regex' } },
         InputBackend: { label: '输入后端', option: { postmessage: 'postmessage', sendinput: 'sendinput' } },
-        CaptureBackend: { label: '截屏后端', option: { auto: 'auto', bitblt: 'bitblt', wgc: 'wgc' } },
+        CaptureBackend: { label: '截屏后端', option: { auto: 'auto', gdi: 'gdi', wgc: 'wgc', mock: 'mock' } },
       },
       output: { Fire: { label: 'Fire' } },
       inspector: {
@@ -1169,6 +1169,7 @@ export default {
         capture_backend_auto: 'auto (按 OS 选, Win10+ 用 WGC)',
         capture_backend_gdi: 'GDI (所有 Windows)',
         capture_backend_wgc: 'WGC (要 Win10 1903+)',
+        capture_backend_mock: 'Mock (离线回放)',
       },
     },
     SubgraphInput: { label: '子图入口', description: '子图入口 virtual marker — 位置可改, 不可删/复制.' },

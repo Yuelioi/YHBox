@@ -58,8 +58,9 @@ func (WindowTarget) Spec() node.Spec {
 					Props: node.MarshalProps(node.DropdownProps{
 						Options: []node.EnumOption{
 							{Value: "auto"},
-							{Value: "bitblt"},
+							{Value: "gdi"},
 							{Value: "wgc"},
+							{Value: "mock"},
 						}})}},
 		},
 		Outputs: []node.OutputSpec{

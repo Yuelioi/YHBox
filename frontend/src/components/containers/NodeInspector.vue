@@ -898,7 +898,7 @@ const wtConfig = computed(() => {
   seed('ProcessName', '')
   seed('TitleMatch', 'exact')
   seed('InputBackend', 'postmessage')
-  seed('CaptureBackend', 'auto')
+  seed('CaptureBackend', settingsStore.data?.capture?.method ?? 'auto')
   return lit
 })
 
@@ -913,6 +913,7 @@ const captureBackendOptions = computed(() => [
   { value: 'auto', label: t('node.WindowTarget.inspector.capture_backend_auto') },
   { value: 'gdi', label: t('node.WindowTarget.inspector.capture_backend_gdi') },
   { value: 'wgc', label: t('node.WindowTarget.inspector.capture_backend_wgc') },
+  { value: 'mock', label: t('node.WindowTarget.inspector.capture_backend_mock') },
 ])
 
 const capturing = ref(false)

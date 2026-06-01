@@ -1125,7 +1125,7 @@ export default {
         ProcessName: { label: 'Process name' },
         TitleMatch: { label: 'Title match mode', option: { exact: 'exact', contains: 'contains', prefix: 'prefix', suffix: 'suffix', regex: 'regex' } },
         InputBackend: { label: 'Input backend', option: { postmessage: 'postmessage', sendinput: 'sendinput' } },
-        CaptureBackend: { label: 'Capture backend', option: { auto: 'auto', bitblt: 'bitblt', wgc: 'wgc' } },
+        CaptureBackend: { label: 'Capture backend', option: { auto: 'auto', gdi: 'gdi', wgc: 'wgc', mock: 'mock' } },
       },
       output: { Fire: { label: 'Fire' } },
       inspector: {
@@ -1148,6 +1148,7 @@ export default {
         capture_backend_auto: 'auto (OS-picked; WGC on Win10+)',
         capture_backend_gdi: 'GDI (all Windows)',
         capture_backend_wgc: 'WGC (Win10 1903+)',
+        capture_backend_mock: 'Mock (offline replay)',
       },
     },
     SubgraphInput: { label: 'Subgraph input', description: 'Subgraph entry virtual marker — position movable; not deletable/copyable.' },
