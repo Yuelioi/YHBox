@@ -167,6 +167,22 @@ func (m *templateMatcherAdapter) emitMissingVariantWarning(containerID, key stri
 	})
 }
 
+// emitScaleTooFarWarning Detect 找到最近 variant 但缩放比超出容器 ScaleTolerance 时调用.
+// 跟「无 variant」分开, 方便真机 smoke 时从日志看清是「没录这分辨率」还是「容差挡了」.
+func (m *templateMatcherAdapter) emitScaleTooFarWarning(containerID, key string, frameW, frameH int, variantRes [2]int, scale, tolerance float64) {
+	eventKey := fmt.Sprintf("scale-too-far:%s:%dx%d", key, frameW, frameH)
+	m.emitThrottled(containerID, eventKey, 30*time.Second, map[string]any{
+		"code":        "VARIANT_OUT_OF_SCALE_TOLERANCE",
+		"severity":    "warning",
+		"message":     fmt.Sprintf("template %q nearest variant %dx%d 对帧 %dx%d 缩放比 %.2f 超出容差 [1/%.1f, %.1f], 判 miss", key, variantRes[0], variantRes[1], frameW, frameH, scale, tolerance, tolerance),
+		"key":         key,
+		"frameSize":   []int{frameW, frameH},
+		"variantSize": []int{variantRes[0], variantRes[1]},
+		"scale":       scale,
+		"tolerance":   tolerance,
+	})
+}
+
 func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, error) {
 	m.storesMu.Lock()
 	defer m.storesMu.Unlock()
@@ -228,15 +244,33 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, f
 		m.emitMissingVariantWarning(containerID, key, frameW, frameH)
 		return false, expr.Point{}, [4]float64{}, nil
 	}
+	// 跨分辨率缩放兜底: PickBest 可能返回非精确分辨率的最近档. 按长边比算缩放比,
+	// 超出容器 ScaleTolerance ([1/k, k]) 则判太远不缩放, 仍 miss (emit 警告).
+	scale := longEdgeScale(frameW, frameH, variant.Resolution[0], variant.Resolution[1])
+	k := m.scaleTolerance(containerID)
+	if !withinScaleTolerance(scale, k) {
+		m.emitScaleTooFarWarning(containerID, key, frameW, frameH, variant.Resolution, scale, k)
+		return false, expr.Point{}, [4]float64{}, nil
+	}
 	tpl, err := m.loadVariantTemplate(containerID, key, variant.Resolution)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, err
+	}
+	// 精确命中 scale==1.0 不缩 (零开销); 否则按长边比缩到 frame 分辨率再 NCC.
+	if scale != 1.0 {
+		scaled := vision.ScaleTemplate(tpl, float32(scale))
+		if scaled == nil {
+			return false, expr.Point{}, [4]float64{}, nil // 缩后 <8px, 当 miss.
+		}
+		tpl = scaled
 	}
 
 	// 多槽分支 (e.g. 商店 bait_product 3×2 grid): variant.Regions 非空 → 各 region 各跑 NCC,
 	// 收 conf>=threshold 的 hit, 按 reading order (y 升, 同 y 按 x 升) 取末位 (右下).
 	// fish bot 原 Detector.BaitInShop 思路: 避点选中态金币款 (左上), 选未选中态用户款 (右下).
 	// caller 显式 region 优先于多槽 (常用于强制单点测试).
+	// 传 variant.Resolution (原始录制分辨率) 是有意的: regions 的 pixel bbox 在原分辨率坐标系,
+	// 转 ratio 后分辨率无关; tpl 已按长边比缩到 frame 尺度, 与裁自真实 frame 的 ROI 同尺度.
 	if len(variant.Regions) > 0 && !(len(region) == 4 && (region[2] > 0 || region[3] > 0)) {
 		return m.detectMultiRegion(frame, tpl, variant.Regions, variant.Resolution, threshold)
 	}
