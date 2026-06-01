@@ -260,7 +260,7 @@ func main() {
 		}
 		rt := containerruntime.NewRuntimeContext(
 			&c, inputBus, templateMatcher, containerColor,
-			newGameProviderAdapter(app), emitForRuntime,
+			newGameProviderAdapter(), emitForRuntime,
 			clipSvc, app.Settings().ActiveMouseCounts360(),
 		)
 		r := containerruntime.NewContainerRunner(rt)
