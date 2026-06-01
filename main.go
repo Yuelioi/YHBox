@@ -23,12 +23,12 @@ import (
 	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
 	_ "yhbox/internal/nodes/system"    // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
 	_ "yhbox/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetSys/GetParam
+	"yhbox/internal/runclassify"
 	"yhbox/internal/services"
 	"yhbox/internal/services/calibration"
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/container/library"
 	containerruntime "yhbox/internal/services/container/runtime"
-	"yhbox/internal/runclassify"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/schedule"
 	"yhbox/internal/services/template"
