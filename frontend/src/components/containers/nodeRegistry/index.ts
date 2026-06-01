@@ -65,6 +65,10 @@ export interface FieldSchema {
   /** dropdown 选项. label 是 i18n key (node.<kind>.input.<name>.option.<value>), consumer 走 t(). */
   options?: Array<{ value: string; labelKey: string }>
   placeholder?: string
+  /** number/slider 的 min/max/step (后端 SliderProps). 透到 UInputNumber, 否则小数步进 (如阈值 0.01) 失效, 只能整数. */
+  min?: number
+  max?: number
+  step?: number
   /** Inline help text shown below the input. Migrated from old nodeFieldSchemas.ts. */
   hint?: string
   /** 结构化输入的递归 schema (后端 InputSpec.schema 透传); 非空 → NodeInspector 用 StructuredInput 渲染. */

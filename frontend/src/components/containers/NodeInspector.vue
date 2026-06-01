@@ -500,6 +500,9 @@
             :widget-kind="fieldFor(lit.name)?.widgetKind"
             :options="fieldFor(lit.name)?.options"
             :placeholder="fieldFor(lit.name)?.placeholder"
+            :min="fieldFor(lit.name)?.min"
+            :max="fieldFor(lit.name)?.max"
+            :step="fieldFor(lit.name)?.step"
             :model-value="getLiteral(lit.name)"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
           />

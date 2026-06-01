@@ -154,6 +154,10 @@ export function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
     const props = (widget?.props ?? {}) as Record<string, unknown>
     // placeholder (e.g. JSONProps.Placeholder) 透到 PinInput 的 textarea/input 占位示例.
     if (typeof props.placeholder === 'string') f.placeholder = props.placeholder
+    // number/slider 的 min/max/step (SliderProps) → 透到 PinInput 的 UInputNumber, 让小数步进生效.
+    if (typeof props.min === 'number') f.min = props.min
+    if (typeof props.max === 'number') f.max = props.max
+    if (typeof props.step === 'number') f.step = props.step
     if (f.type === 'select' && Array.isArray(props.options)) {
       f.options = (props.options as Array<{ value: unknown }>).map((o) => ({
         value: String(o.value),

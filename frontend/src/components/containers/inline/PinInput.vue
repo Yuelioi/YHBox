@@ -12,6 +12,9 @@
   <UInputNumber
     v-else-if="kind === 'number' || kind === 'slider' || (kind === '' && type === 'number')"
     :model-value="numModel"
+    :min="min"
+    :max="max"
+    :step="step"
     size="sm"
     class="w-full"
     @update:model-value="(v: number) => emit('update:modelValue', Number.isFinite(v) ? v : 0)"
@@ -81,6 +84,10 @@ const props = defineProps<{
   modelValue: any
   options?: Array<{ value: string; labelKey: string }>
   placeholder?: string
+  /** number/slider 步进与范围 (后端 SliderProps). 不传则 UInputNumber 默认 step=1 (整数). */
+  min?: number
+  max?: number
+  step?: number
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: any): void }>()
 
