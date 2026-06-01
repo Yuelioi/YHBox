@@ -195,18 +195,17 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	if filterMode == "" {
 		filterMode = "precise"
 	}
-	// 录制基准分辨率取目标窗口客户区实际尺寸 (回放跨分辨率缩放用). GetClientRect
-	// 异常返 0 时兜底 1080p, 避免下游缩放除零.
+	// 录制基准分辨率取目标窗口客户区实际尺寸 (回放跨分辨率缩放用). 取不到 (≤0) 直接
+	// 返 error 让用户重试 —— 兜底 1080p 反而让回放按错基准缩放绝对坐标, 比不缩放更糟.
 	baseW, baseH := wh.ClientW, wh.ClientH
 	if baseW <= 0 || baseH <= 0 {
-		baseW, baseH = 1920, 1080
+		return "", fmt.Errorf("无法读取目标窗口客户区尺寸 (得 %dx%d), 请确认窗口已正常显示后重试", baseW, baseH)
 	}
 	meta := inputclip.ClipMeta{
 		MouseMode:      mouseMode,
 		FilterMode:     filterMode,
 		StopHotkeyVK:   stopVK,
 		BaseResolution: [2]int{baseW, baseH},
-		WindowMode:     "fullscreen",
 	}
 	id, recErr := s.rec.Start(win.HWND(hwnd), meta)
 	if recErr != nil {

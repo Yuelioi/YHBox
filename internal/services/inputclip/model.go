@@ -48,7 +48,6 @@ type Range struct {
 type ClipMeta struct {
 	MouseMode      string `json:"mouseMode"`      // 'relative' | 'absolute' | 'mixed'
 	BaseResolution [2]int `json:"baseResolution"` // [w, h]
-	WindowMode     string `json:"windowMode"`     // 'fullscreen' | 'borderless' | 'windowed'
 	MouseCounts360 int    `json:"mouseCounts360"` // 相机转向缩放分母
 	FilterMode     string `json:"filterMode"`     // 'precise' | 'simple'
 	StopHotkeyVK   uint32 `json:"stopHotkeyVK"`   // 默认 0x7B (F12)

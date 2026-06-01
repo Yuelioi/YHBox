@@ -12,7 +12,6 @@ import { backend } from '@/lib/backend'
 export interface ClipMeta {
   mouseMode: string // 'relative' | 'absolute' | 'mixed'
   baseResolution: [number, number] // [w, h]
-  windowMode: string // 'fullscreen' | 'borderless' | 'windowed'
   mouseCounts360: number
   filterMode: string // 'precise' | 'simple'
   stopHotkeyVK: number // 默认 0x7B (F12)
