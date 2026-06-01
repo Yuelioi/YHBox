@@ -248,9 +248,11 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
+import { useTemplatesStore } from '@/stores/templates'
 import type { GeometryValue } from '@/components/containers/nodeRegistry/index'
 
 const { t } = useI18n()
+const tplStore = useTemplatesStore()
 
 type RectPayload = {
   region: [number, number, number, number]
@@ -334,7 +336,7 @@ async function openRectPicker(): Promise<RectPayload | null> {
   picking.value = true
   try {
     const waiter = awaitWailsEvent<PickerResult>('tools:picker-result', (p) => p?.id === id)
-    const r = await backend.tools.openScreenPicker('rect', id)
+    const r = await backend.tools.openScreenPicker('rect', id, tplStore.containerId)
     if (r === undefined) return null
     const result = await waiter
     if (result.payload?.cancelled) return null

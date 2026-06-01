@@ -6,6 +6,7 @@
 import { computed, ref, type Ref } from 'vue'
 import { backend, type GraphNode } from '@/lib/backend'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
+import { useTemplatesStore } from '@/stores/templates'
 
 type PointPayload = { xRatio: number; yRatio: number; cancelled?: boolean }
 export type RectPayload = {
@@ -37,6 +38,7 @@ export function useScreenPick(opts: {
   applyRect: (fieldPath: string, region: [number, number, number, number]) => void
 }) {
   const picking = ref(false)
+  const tplStore = useTemplatesStore()
 
   function getNode(): GraphNode | null {
     return typeof opts.node === 'function' ? opts.node() : opts.node.value
@@ -57,7 +59,7 @@ export function useScreenPick(opts: {
     try {
       // 先挂监听再开窗口, 防 race
       const waiter = awaitWailsEvent<PickerResult<T>>('tools:picker-result', (p) => p?.id === id)
-      const r = await backend.tools.openScreenPicker(mode, id)
+      const r = await backend.tools.openScreenPicker(mode, id, tplStore.containerId)
       if (r === undefined) return null
       const result = await waiter
       const cancelled = (result.payload as { cancelled?: boolean } | undefined)?.cancelled
