@@ -54,3 +54,27 @@ func TestReadWindowTargetMatchSpec_NilNode(t *testing.T) {
 		t.Errorf("expected empty MatchSpec for nil node, got %+v", spec)
 	}
 }
+
+func TestReadWindowTargetScaleTolerance(t *testing.T) {
+	mk := func(cfg map[string]any) *Container {
+		nodes := []GraphNode{{ID: "wt", Kind: "WindowTarget", Config: cfg}}
+		return &Container{Graph: Graph{Nodes: nodes}}
+	}
+	cases := []struct {
+		name string
+		c    *Container
+		want float64
+	}{
+		{"无 WindowTarget 节点", &Container{Graph: Graph{Nodes: []GraphNode{{ID: "s", Kind: "Start"}}}}, DefaultScaleTolerance},
+		{"无 pin → 默认", mk(map[string]any{}), DefaultScaleTolerance},
+		{"显式 1.5", mk(map[string]any{"ScaleTolerance": 1.5}), 1.5},
+		{"非法 <1 → 默认", mk(map[string]any{"ScaleTolerance": 0.3}), DefaultScaleTolerance},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ReadWindowTargetScaleTolerance(c.c); got != c.want {
+				t.Errorf("got %v, want %v", got, c.want)
+			}
+		})
+	}
+}

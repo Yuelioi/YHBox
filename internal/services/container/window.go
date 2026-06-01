@@ -51,6 +51,22 @@ func ReadWindowTargetCaptureBackend(c *Container) string {
 	return "auto"
 }
 
+// DefaultScaleTolerance 模板跨分辨率缩放容差默认值. k=2.0 → 允许缩放比 ∈ [0.5, 2.0].
+const DefaultScaleTolerance = 2.0
+
+// ReadWindowTargetScaleTolerance 读容器主图 WindowTarget 节点的 ScaleTolerance 配置.
+// 无节点/无配置/非法 (<1.0) → DefaultScaleTolerance. 模板匹配按此做跨分辨率缩放兜底.
+func ReadWindowTargetScaleTolerance(c *Container) float64 {
+	wt := FindMainGraphNode(c, "WindowTarget")
+	if wt == nil {
+		return DefaultScaleTolerance
+	}
+	if v, ok := PinFloat(wt, "ScaleTolerance"); ok && v >= 1.0 {
+		return v
+	}
+	return DefaultScaleTolerance
+}
+
 // ResolveWindowTarget 找主图 WindowTarget 节点并 resolve 成 WindowHandle。
 // 无节点 → ErrNoWindowTarget；resolve 失败 → winutil 原始 error。
 func ResolveWindowTarget(c *Container, timeout, interval time.Duration) (winutil.WindowHandle, error) {
