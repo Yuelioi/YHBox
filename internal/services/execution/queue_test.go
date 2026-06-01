@@ -2,6 +2,7 @@ package execution
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestWorkerExecutesSequentially(t *testing.T) {
 	w := NewWorker(q, func(ctx context.Context, t TargetRef) error {
 		counter.Add(1)
 		return nil
-	}, nil)
+	}, nil, nil)
 	w.Start()
 	defer w.Stop()
 	q.Enqueue(QueuedRun{Targets: []TargetRef{{ID: "A"}, {ID: "B"}, {ID: "C"}}})
@@ -56,7 +57,7 @@ func TestWorkerOnErrorStop(t *testing.T) {
 			return context.Canceled // 故意报错
 		}
 		return nil
-	}, nil)
+	}, nil, nil)
 	w.Start()
 	defer w.Stop()
 	q.Enqueue(QueuedRun{Targets: []TargetRef{{ID: "A"}, {ID: "B"}, {ID: "C"}}, OnError: OnErrorStop})
@@ -81,7 +82,7 @@ func TestWorkerDeadlineCancel(t *testing.T) {
 			finished.Store(true)
 			return nil
 		}
-	}, nil)
+	}, nil, nil)
 	w.Start()
 	defer w.Stop()
 
@@ -91,5 +92,46 @@ func TestWorkerDeadlineCancel(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	if finished.Load() {
 		t.Error("deadline 应该把 run 切断，target 不应该自然完成")
+	}
+}
+
+func TestWorker_EmitsClassifiedError(t *testing.T) {
+	q := NewExecutionQueue()
+	runFunc := func(ctx context.Context, target TargetRef) error {
+		return errors.New("boom")
+	}
+	classify := func(err error) *RunError {
+		return &RunError{Message: err.Error()}
+	}
+
+	var lastState atomic.Pointer[WorkerState]
+	emit := func(s WorkerState) {
+		cp := s
+		lastState.Store(&cp)
+	}
+
+	w := NewWorker(q, runFunc, emit, classify)
+	w.Start()
+	defer w.Stop()
+
+	q.Enqueue(QueuedRun{Targets: []TargetRef{{ID: "T"}}, OnError: OnErrorStop})
+
+	// 等 Running:false 状态到达（与其他测试相同的轮询节奏）。
+	for i := 0; i < 100; i++ {
+		if s := lastState.Load(); s != nil && !s.Running {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	s := lastState.Load()
+	if s == nil || s.Running {
+		t.Fatal("未收到 Running:false 状态")
+	}
+	if s.Error == nil {
+		t.Fatal("Error 应为非 nil")
+	}
+	if s.Error.Message != "boom" {
+		t.Fatalf("Error.Message 期望 \"boom\", 实际 %q", s.Error.Message)
 	}
 }

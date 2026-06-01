@@ -28,6 +28,7 @@ import (
 	"yhbox/internal/services/container"
 	"yhbox/internal/services/container/library"
 	containerruntime "yhbox/internal/services/container/runtime"
+	"yhbox/internal/runclassify"
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/schedule"
 	"yhbox/internal/services/template"
@@ -238,7 +239,7 @@ func main() {
 	}
 	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {
 		app.Emit("execution:state", s)
-	})
+	}, runclassify.RunError)
 	worker.Start()
 
 	// 给 containerSvc 注入运行入口 — 前端 ▶ 按钮走 Run，■ 走 StopAll
