@@ -46,7 +46,7 @@ func TestScreenshot_FullFrame(t *testing.T) {
 	// 全帧路径: ROI pin 不传 → Geometry 零值 → adapter 视为全帧. 节点始终走 CaptureROI.
 	cap := &stubCapture{pngROI: []byte{0x89, 0x50, 0x4e, 0x47}} // PNG signature 4 bytes
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{ssInPathTemplate: "screenshots/test-{ts}.png"},
+		map[string]any{ssInPathTemplate: "test-{ts}.png"},
 		nil, withCapture(cap))
 
 	if r.Error != nil {
@@ -84,7 +84,7 @@ func TestScreenshot_ROI(t *testing.T) {
 	cap := &stubCapture{pngROI: []byte{0x01}}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			ssInPathTemplate: "screenshots/roi-{ts}.png",
+			ssInPathTemplate: "roi-{ts}.png",
 			ssInROI:          roi,
 		},
 		nil, withCapture(cap))
@@ -106,7 +106,7 @@ func TestScreenshot_BackendError(t *testing.T) {
 
 	cap := &stubCapture{err: errors.New("hwnd not found")}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{ssInPathTemplate: "screenshots/x.png"},
+		map[string]any{ssInPathTemplate: "x.png"},
 		nil, withCapture(cap))
 
 	if r.Error == nil {

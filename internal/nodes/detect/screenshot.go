@@ -1,6 +1,6 @@
 // internal/nodes/detect/screenshot.go
-// Screenshot — 抓全帧或 ROI, 按 pathTemplate 展开后写到 YHBOX_DATA_DIR 下 (默认 bin/data).
-// pathTemplate 默认 "screenshots/{ts}.png" → 落 <dataDir>/screenshots/{ts}.png.
+// Screenshot — 抓全帧或 ROI, 按 pathTemplate 展开后写到 <dataDir>/screenshots/ 下.
+// screenshots/ 这层是固定的 (节点内置), 用户只填文件名部分 (默认 "{ts}.png").
 // 路径安全检查: 拒绝绝对路径 / 盘符 / ".." 路径段.
 package detect
 
@@ -33,7 +33,7 @@ func (Screenshot) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: ssInExec, Type: "Exec"},
-			{Name: ssInPathTemplate, Type: "String", Default: "screenshots/{ts}.png",
+			{Name: ssInPathTemplate, Type: "String", Default: "{ts}.png",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: ssInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 		},
@@ -49,7 +49,7 @@ func (Screenshot) Spec() node.Spec {
 func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	tmpl := in.String(ssInPathTemplate)
 	if tmpl == "" {
-		tmpl = "screenshots/{ts}.png"
+		tmpl = "{ts}.png"
 	}
 	if err := checkSafeScreenshotPath(tmpl); err != nil {
 		return nil, err
@@ -128,12 +128,13 @@ func expandScreenshotTemplate(tmpl, nodeID, containerID string, now time.Time) s
 	return r.Replace(tmpl)
 }
 
-// screenshotOutputRoot 写盘根 = dataDir (pathTemplate 里再带 screenshots/ 段).
-// 生产 main.go 设 YHBOX_DATA_DIR 为绝对 dataDir; 兜底用相对 "bin/data" (不含 screenshots,
-// 否则跟默认 pathTemplate 的 screenshots/ 段重复成 screenshots/screenshots).
+// screenshotOutputRoot 写盘根 = <dataDir>/screenshots. screenshots/ 这层节点内置,
+// 用户的 pathTemplate 只填文件名 (默认 {ts}.png). 生产 main.go 设 YHBOX_DATA_DIR
+// 为绝对 dataDir; 兜底相对 "bin/data".
 func screenshotOutputRoot() string {
-	if dir := os.Getenv("YHBOX_DATA_DIR"); dir != "" {
-		return dir
+	base := os.Getenv("YHBOX_DATA_DIR")
+	if base == "" {
+		base = filepath.Join("bin", "data")
 	}
-	return filepath.Join("bin", "data")
+	return filepath.Join(base, "screenshots")
 }
