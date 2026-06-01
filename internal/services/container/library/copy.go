@@ -18,7 +18,7 @@ type ImportConflict struct {
 
 // ImportResult Import 操作结果.
 //
-// B11: MissingGlobals 反映 import 的 sg 集合 (Root+Embedded) RequiredGlobals union 减去
+// MissingGlobals 反映 import 的 sg 集合 (Root+Embedded) RequiredGlobals union 减去
 // 目标 container.Vars 已声明的, 是 caller 需要补 declare 的 var. dry-run (strategy="cancel") 时计算,
 // FE 据此弹 "添加变量并继续" 提示 → 用 container.update RPC 补 vars 后再调真 import.
 type ImportResult struct {
@@ -30,7 +30,7 @@ type ImportResult struct {
 // ImportToContainer 把 library package 复制到容器.
 // strategy: "overwrite_all" | "skip_all" | "cancel", 空串等同 overwrite_all.
 //
-// B11: containerVars 是目标容器当前已声明的 vars (caller 注入, e.g. Service.ImportToContainer
+// containerVars 是目标容器当前已声明的 vars (caller 注入, e.g. Service.ImportToContainer
 // 用 LookupContainerVars 拿). 用来算 ImportResult.MissingGlobals diff. 传 nil 退化为不算 diff
 // (老 caller / test fixture 兼容).
 func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string, containerVars []container.VarDecl) (*ImportResult, error) {
@@ -64,7 +64,7 @@ func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string, conta
 		}
 	}
 
-	// B11: 算 missing globals diff (无论 strategy, dry-run + 真 import 都返). FE 看 dry-run 弹 prompt.
+	// 算 missing globals diff (无论 strategy, dry-run + 真 import 都返). FE 看 dry-run 弹 prompt.
 	missingGlobals := computeMissingGlobals(pkg, containerVars)
 
 	if len(conflicts) > 0 {

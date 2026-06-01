@@ -10,8 +10,8 @@ import (
 	"yhbox/internal/services/expr"
 )
 
-// TestV4_FishingV2Proto_StateMachine validates v4 expressiveness for the fish bot
-// state-machine pattern. Real Fishing v2 has 9 states wired through subgraphs + image/HSV
+// TestV4_FishingV2Proto_StateMachine validates framework expressiveness for the
+// state-machine pattern. Fishing-v2 has 9 states wired through subgraphs + image/HSV
 // detection. This proto exercises just the state-machine dispatch core: SetVar state →
 // Switch on state → branch to per-state SetVar.
 //

@@ -76,7 +76,7 @@ func runWithRecover(rn *RegisteredNode, p *preparedExec, fn func() (Outputs, err
 
 // RunNode framework 入口. 调用方传 RegisteredNode + 已 merged inputs sources + services bundle.
 //
-// 错误分类 (spec v3 §4.2):
+// 错误分类:
 //   - Validation:  user graph 写错 (Required 缺值 / Validator 返错) → 节点变红 (NOT panic)
 //   - Error:       runtime fail (Run 返 error) → 节点变红
 //   - Panic:       framework invariant broken (double Fire / Out(unknown) / impossible state) → recover + stack 进 log

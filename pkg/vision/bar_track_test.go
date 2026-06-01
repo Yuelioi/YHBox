@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// fishing default HSV ranges (复刻 tools/fish/bar.go 包级常量) — 给 test 用.
+// 示例 HSV 阈值 — 给 test 用.
 var (
 	fishingCursorHSV = HSVRange{HMin: 45, HMax: 70, SMin: 40, SMax: 255, VMin: 200, VMax: 255}
 	fishingTargetHSV = HSVRange{HMin: 160, HMax: 180, SMin: 140, SMax: 255, VMin: 100, VMax: 255}

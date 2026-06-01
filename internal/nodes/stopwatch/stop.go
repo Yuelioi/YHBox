@@ -1,5 +1,4 @@
-// internal/nodes/stopwatch/stop.go
-// StopwatchStop — 停止指定 key 的秒表 (不存在 key 静默 no-op, 镜像老 runtime).
+// StopwatchStop — 停止指定 key 的秒表 (不存在 key 静默 no-op).
 // 由 container validator 处理 (key 不在 Start 列表) — 节点本身 runtime 不报错.
 package stopwatch
 
@@ -37,7 +36,7 @@ func (Stop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if key == "" {
 		return nil, errStopwatchEmptyKey
 	}
-	ctx.Stopwatches().Stop(key) // no-op on missing — 老 runtime 一致
+	ctx.Stopwatches().Stop(key) // no-op on missing
 	return ctx.Out(swStopOutOut).Fire(), nil
 }
 

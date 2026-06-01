@@ -4,9 +4,8 @@ import "math"
 
 // RGBToHSV 把 8-bit RGB 转 HSV。返回 H ∈ [0,360]，S/V ∈ [0,255]。
 //
-// 之前在 action_adapters.go / tools/fish/bar.go / internal/services/tools/pixel.go
-// 各有一份实现；同时存在容易漂——比如有版本算 H 时漏了 60 倍精度，曾导致
-// DetectColor 节点的 hsv 阈值对不上钓鱼脚本调出的阈值。统一在这里。
+// 统一一份实现避免漂移：H 算法若漏 60 倍精度，会让 DetectColor 的 hsv 阈值对不上
+// 取色工具调出的阈值。
 func RGBToHSV(r, g, b uint8) (h int, s int, v int) {
 	rf := float64(r) / 255.0
 	gf := float64(g) / 255.0

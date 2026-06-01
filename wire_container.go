@@ -25,7 +25,7 @@ import (
 	"yhbox/pkg/vision"
 )
 
-// roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余 (1:1 fish bot constants.roiPaddingPx).
+// roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余.
 // 角色/UI 轻微抖动 icon 偏出 BBox 时, padding 给 NCC search 余量.
 const roiPaddingPx = 30.0
 
@@ -283,7 +283,7 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, f
 
 	// 多槽分支 (e.g. 商店 bait_product 3×2 grid): variant.Regions 非空 → 各 region 各跑 NCC,
 	// 收 conf>=threshold 的 hit, 按 reading order (y 升, 同 y 按 x 升) 取末位 (右下).
-	// fish bot 原 Detector.BaitInShop 思路: 避点选中态金币款 (左上), 选未选中态用户款 (右下).
+	// 取右下而非左上: 多槽 UI 常把已选中/默认项放左上, 末位拿未选中项更稳.
 	// caller 显式 region 优先于多槽 (常用于强制单点测试).
 	// 传 variant.Resolution (原始录制分辨率) 是有意的: regions 的 pixel bbox 在原分辨率坐标系,
 	// 转 ratio 后分辨率无关; tpl 已按长边比缩到 frame 尺度, 与裁自真实 frame 的 ROI 同尺度.
@@ -294,7 +294,6 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, f
 	// ROI 优先级:
 	//   1. caller 传 region (node config 显式 ROI) — 用 caller
 	//   2. variant.BBox 非零 — pixel bbox / variant.Resolution 转 ratio + 30px padding
-	//      (1:1 复刻 fish bot tools/fish/detect.go::MatchTextROI + constants.roiPaddingPx)
 	//   3. 全屏 (1×1) — 1080p 大模板 3-5s/match, 兜底
 	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
 	switch {
@@ -327,7 +326,7 @@ func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, f
 }
 
 // detectMultiRegion 多槽 ROI 各跑 NCC, 收 conf>=threshold hit, 按 reading-order 末位返回.
-// 1:1 复刻 v1 fish bot Detector.BaitInShop 思路, 处理多槽位 UI (商店货架 3×2 grid).
+// 处理多槽位 UI (e.g. 货架 3×2 grid).
 // regions 每条 pixel bbox 在 variantRes 坐标系下, 自动加 30px padding (跟 single-BBox 路径一致).
 func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]int, variantRes [2]int, threshold float64) (bool, expr.Point, [4]float64, float64, error) {
 	if variantRes[0] <= 0 || variantRes[1] <= 0 {

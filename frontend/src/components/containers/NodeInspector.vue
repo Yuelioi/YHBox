@@ -524,8 +524,7 @@ import { Events } from '@wailsio/runtime'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
-// v4: ExpressionInput no longer imported — v3 'expr' field type removed in nodeFieldSchemas
-// (config strings like $vars.X are gone; data-in pin literals handle their replacement).
+// 不 import ExpressionInput: 没有 'expr' field type (data-in pin literals 取代了 $vars.X 配置串).
 import SwitchInspector from './inspector/SwitchInspector.vue'
 import ClipTimeline from './ClipTimeline.vue'
 import TemplatePicker from './TemplatePicker.vue'
@@ -641,7 +640,7 @@ const exprChainHint = computed<ChainHint | null>(() => {
   const outgoing = (props.edges ?? []).filter(
     (e: any) => {
       const [src, srcPin] = (e.from ?? '').split('.')
-      // v4 C2: derive edge kind via (srcNode.kind, srcPin) — edge.kind field is gone.
+      // edge kind 由 (srcNode.kind, srcPin) 推导 (无 edge.kind 字段).
       if (src !== myID || srcPin !== 'value') return false
       const srcNode = (props.nodes ?? []).find((n: any) => n.id === src)
       return srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
@@ -687,7 +686,7 @@ const editorStore = useContainerEditorStore()
 const boundSubgraph = computed(() => {
   const sgID = props.node?.config?.SubgraphID
   if (!sgID) return null
-  // v4: only visible (non-anonymous) subgraphs are valid Subgraph-call targets.
+  // only visible (non-anonymous) subgraphs are valid Subgraph-call targets.
   // CollapsedNode-backers (isAnonymous) shouldn't show editable label/tags here.
   return editorStore.visibleSubgraphs.find((s) => s.id === sgID) ?? null
 })
@@ -726,7 +725,7 @@ async function onPublishToLibrary() {
   }
 }
 
-// 所有子图聚合 tags（给 UInputMenu autocomplete）— v4: 排除 isAnonymous (用 visibleSubgraphs).
+// 所有子图聚合 tags（给 UInputMenu autocomplete）— 排除 isAnonymous (用 visibleSubgraphs).
 const allSubgraphTagsList = computed(() => {
   const set = new Set<string>()
   for (const sg of editorStore.visibleSubgraphs ?? []) {

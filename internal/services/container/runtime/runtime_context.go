@@ -182,7 +182,7 @@ func (rt *RuntimeContext) VarLastChange(name string) int64 {
 // nowMillis 当前 unix 毫秒. 包内 helper, 跟 GetSys($sys.now_ms) 同源.
 func nowMillis() int64 { return time.Now().UnixMilli() }
 
-// SetParam 仅 ContainerRunner 启动时设（v1 Container 无 params；spec 留扩展位）。
+// SetParam 仅 ContainerRunner 启动时设（Container 目前无 params）。
 func (rt *RuntimeContext) SetParam(name string, val expr.Value) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()

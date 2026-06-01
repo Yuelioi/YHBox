@@ -46,7 +46,7 @@ func TestBringWindowForeground_HappyPath(t *testing.T) {
 	}
 }
 
-// 失败仅 warn log, 不报 error, 仍走 Done. 复刻老 execBringWindowForegroundImpl 语义.
+// 失败仅 warn log, 不报 error, 仍走 Done.
 func TestBringWindowForeground_BackendError_StillDone(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&BringWindowForeground{})

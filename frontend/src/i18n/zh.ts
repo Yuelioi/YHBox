@@ -1156,7 +1156,7 @@ export default {
         title_match_regex: '正则 RE2 (partial match)',
         runtime_section: '运行后端 (runtime)',
         input_backend_label: '输入后端 (inputBackend)',
-        input_backend_postmessage: 'PostMessage (后台输入, 1.0 默认)',
+        input_backend_postmessage: 'PostMessage (后台输入, 默认)',
         input_backend_sendinput: 'SendInput (全局前台注入, 适合只认真实输入的游戏)',
         capture_backend_label: '截图后端 (captureBackend)',
         capture_backend_auto: 'auto (按 OS 选, Win10+ 用 WGC)',

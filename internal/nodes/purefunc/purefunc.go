@@ -261,7 +261,7 @@ func (NotEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return !equalAny(in.Raw("A"), in.Raw("B")), nil
 }
 
-// equalAny same-type direct compare; cross-type via formatValue (镜像老 evalEq).
+// equalAny same-type direct compare; cross-type via formatValue.
 func equalAny(a, b any) bool {
 	if sameType(a, b) {
 		return a == b

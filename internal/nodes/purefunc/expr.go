@@ -43,8 +43,8 @@ func (Expr) Spec() node.Spec {
 // dynamic inputs (config.Inputs[].Name) 通过 in.Raw(name) 读, framework 已 merge.
 //
 // env 隔离: 跳过本节点 Spec 静态 input ("Expression") 跟 config 元数据 ("OutType",
-// "Inputs"). 防止用户 expression 误引用 framework config 字段为 identifier (老
-// evalExpr 只走 cfg.Inputs[].Name 自然隔离, 框架路径走 in.Keys() 需要显式 skip).
+// "Inputs"). 防止用户 expression 误引用 framework config 字段为 identifier
+// (框架路径走 in.Keys() 会带上 config 字段, 需显式 skip).
 func (Expr) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	src := in.String(exprInExpression)
 	if src == "" {

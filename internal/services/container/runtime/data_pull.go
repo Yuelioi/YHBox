@@ -100,7 +100,7 @@ func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin 
 	if n == nil {
 		return nil, fmt.Errorf("evalDataSource: source node %q not found", srcNodeID)
 	}
-	// Editor v2 C — Disable Node: pure-data nodes (GetVar/GetSys/GetParam/Expr/pure funcs)
+	// Disable Node: pure-data nodes (GetVar/GetSys/GetParam/Expr/pure funcs)
 	// don't reach execNode, so the execNode disable gate doesn't cover them. Gate here too.
 	// Disabled pure-data node returns nil (untyped — consumer's fallback / pullNumber default fires).
 	if n.Disabled {

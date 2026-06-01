@@ -57,7 +57,7 @@ func (KeyHoldStart) Validate(in node.Inputs) []node.ValidationError {
 	return validateVKField(in.String(khStartInVK), khStartInVK)
 }
 
-// KeyHoldStop 松开虚拟键 (跟 KeyHoldStart 配对). 老 runtime: hold_nodes.go::execKeyHoldStop.
+// KeyHoldStop 松开虚拟键 (跟 KeyHoldStart 配对).
 type KeyHoldStop struct{}
 
 const (
@@ -98,7 +98,7 @@ func (KeyHoldStop) Validate(in node.Inputs) []node.ValidationError {
 	return validateVKField(in.String(khStopInVK), khStopInVK)
 }
 
-// validateVKField 复刻老 validator.go::validateKeyHold + hold_nodes.go::resolveVK:
+// validateVKField vk 字段校验:
 //   - 空 → INVALID_VK
 //   - 未知 keyname (pkg/input.VK(name)==0) → INVALID_VK
 //

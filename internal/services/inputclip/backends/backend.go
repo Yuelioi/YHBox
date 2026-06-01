@@ -12,7 +12,7 @@ type IInputBackend interface {
 	SendBatch(evs []inputclip.Event) error
 
 	// ReleaseHeld 取消时调. 释放所有 backend 认为"按下"的 keys / mouseBtns.
-	// ⚠ Migration 必做: 防键卡住.
+	// ⚠ 防键卡住.
 	ReleaseHeld() error
 
 	// Name backend 名 (日志 + UI 显示).

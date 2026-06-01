@@ -8,7 +8,7 @@ import (
 	"yhbox/internal/node"
 )
 
-func TestOnEvent_StubReturnsPhase5Error(t *testing.T) {
+func TestOnEvent_StubReturnsNotWiredError(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&OnEvent{})
 	rn, _ := node.Get("OnEvent")
@@ -21,10 +21,10 @@ func TestOnEvent_StubReturnsPhase5Error(t *testing.T) {
 		nil, node.StubServices())
 
 	if r.Error == nil {
-		t.Fatal("expected Phase 5 stub error")
+		t.Fatal("expected not-wired stub error")
 	}
-	if !errors.Is(r.Error, errOnEventPhase5) {
-		t.Errorf("error = %v, want errOnEventPhase5", r.Error)
+	if !errors.Is(r.Error, errOnEventNotWired) {
+		t.Errorf("error = %v, want errOnEventNotWired", r.Error)
 	}
 }
 

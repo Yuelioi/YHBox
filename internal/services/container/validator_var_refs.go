@@ -14,7 +14,7 @@ package container
 //
 // scope=local is skipped here entirely (frame-scoped, declared implicitly via SetVar).
 //
-// B11: subgraph 内 var ref 若在 sg.RequiredGlobals 白名单 — 视作 caller 会 provide, 不报错.
+// subgraph 内 var ref 若在 sg.RequiredGlobals 白名单 — 视作 caller 会 provide, 不报错.
 // (Library import / 跨容器拖时, caller 容器可能缺 var; RequiredGlobals 自我声明依赖.)
 func validateVarRefs(c *Container) []ValidationError {
 	if c == nil {
@@ -47,7 +47,7 @@ func validateVarRefs(c *Container) []ValidationError {
 				continue
 			}
 			if extraDeclared != nil && extraDeclared[varName] {
-				continue // B11: subgraph RequiredGlobals 白名单
+				continue // subgraph RequiredGlobals 白名单
 			}
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,

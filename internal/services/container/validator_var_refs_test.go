@@ -66,7 +66,7 @@ func TestValidateVarRefs_SubgraphAlsoChecked(t *testing.T) {
 	}
 }
 
-// B11: subgraph 内 var ref 若在 sg.RequiredGlobals 白名单 — 视作 caller 会 provide.
+// subgraph 内 var ref 若在 sg.RequiredGlobals 白名单 — 视作 caller 会 provide.
 func TestValidateVarRefs_SubgraphRequiredGlobalWhitelisted(t *testing.T) {
 	c := &Container{
 		Vars:  nil, // container 故意没声明
@@ -85,7 +85,7 @@ func TestValidateVarRefs_SubgraphRequiredGlobalWhitelisted(t *testing.T) {
 	}
 }
 
-// B11 regression: subgraph 引用既不在 container.Vars 也不在 RequiredGlobals 的 var, 仍报错.
+// regression: subgraph 引用既不在 container.Vars 也不在 RequiredGlobals 的 var, 仍报错.
 func TestValidateVarRefs_SubgraphUnknownVarStillErrors(t *testing.T) {
 	c := &Container{
 		Vars:  nil,

@@ -40,7 +40,7 @@ func builtinVersionHash() (string, error) {
 // launch or when the embedded content changes (version hash mismatch).
 // User-created files (those not present in the embed) are never touched.
 // Builtin-named files are overwritten only on hash change; users who want to
-// customise a builtin should fork it as a _user.json file (Task 17).
+// customise a builtin should fork it as a _user.json file.
 func EnsureBuiltinLibrary(libraryDir string) error {
 	versionFile := filepath.Join(libraryDir, ".builtin_version")
 	existing, _ := os.ReadFile(versionFile)
@@ -87,7 +87,7 @@ func EnsureBuiltinLibrary(libraryDir string) error {
 
 // IsBuiltinPath reports whether the given relative path (e.g. "subgraphs/foo.json")
 // exists in the embedded builtin library FS.
-// Task 17 will call this before save to prompt the user to fork as _user.json.
+// Used before save to decide whether to prompt the user to fork as _user.json.
 func IsBuiltinPath(rel string) bool {
 	_, err := builtinFS.Open(filepath.Join("builtin_library", rel))
 	return err == nil

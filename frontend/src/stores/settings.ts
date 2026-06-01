@@ -35,7 +35,7 @@ export interface Settings {
     mouseProfiles: MouseProfile[] // 命名鼠标校准档列表（异环/原神…各一档）
     activeMouseProfile: string // 指向 mouseProfiles 里某个 label；空/失配 → activeMouseCounts360 兜底
   }
-  locale: 'zh' | 'en' // i18n 口子；目前仅 zh 有翻译
+  locale: 'zh' | 'en' // i18n 口子
   capture: {
     method: 'auto' | 'gdi' | 'wgc' | 'mock' // 截屏后端；改完需重启 exe 才生效
     dumpDebug: boolean // bot detect 落盘带框 PNG 到 debug/captures/

@@ -1,6 +1,5 @@
-// frontend/src/components/containers/nodeRegistry/index.ts
 // Single source of truth for node Kind metadata on the frontend.
-// Mirrors backend node.Spec (internal/node/spec.go) — structural fields (kind/category/pins/types).
+// 须与后端 node.Spec 结构一致 — structural fields (kind/category/pins/types).
 //
 // Adding a kind = 1 register({...}) call in specs/<group>.ts. Nothing else.
 // pinSpec.ts / nodeFieldSchemas.ts / NodePalette.vue all derive views over this.
@@ -72,8 +71,8 @@ export interface FieldSchema {
   schema?: NodeFieldSchema
 }
 
-/** Group name for palette categorization. Mirrors backend Spec.Category (lowercase'd).
- * 'variables' 历史命名 (FE 老用复数), backend 是 'Variable'; adapter 映射. */
+/** Group name for palette categorization. 对应后端 Spec.Category (lowercase'd).
+ * 'variables' FE 用复数, backend 是 'Variable'; adapter 映射. */
 export type NodeGroup =
   | 'control'
   | 'variables'
@@ -88,7 +87,7 @@ export type NodeGroup =
 
 /**
  * Single-source-of-truth descriptor for a node kind.
- * Mirrors backend node.Spec (internal/node/spec.go) — structural fields only; display text lives in i18n.
+ * 须与后端 node.Spec 结构一致 — structural fields only; display text lives in i18n.
  */
 export interface NodeKindSpec {
   kind: string

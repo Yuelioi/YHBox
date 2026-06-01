@@ -176,7 +176,7 @@ func (s *Service) Delete(containerID, key string) error {
 }
 
 // ReadPngDataURL 给 FE thumbnail 用. 返最大分辨率 variant 的 PNG (area DESC first).
-// FE 若要拿特定分辨率走 ReadVariantPngDataURL (新加, Task 4.4).
+// FE 若要拿特定分辨率走 ReadVariantPngDataURL.
 func (s *Service) ReadPngDataURL(containerID, key string) (string, error) {
 	st, err := s.storeFor(containerID)
 	if err != nil {

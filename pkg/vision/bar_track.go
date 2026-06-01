@@ -14,8 +14,7 @@
 //     段 (宽度 >= OuterMinPx).
 //  3. confidence: min(0.98, inner_conf*ConfInnerWeight + outer_conf*ConfOuterWeight).
 //
-// 业务包 (tools/fish) wrap 这个 API + 自己的业务 HSV 默认值 + 字段名映射, vision 包
-// 自己不带任何 fishing-specific 知识.
+// 业务层 wrap 这个 API + 自己的 HSV 默认值 + 字段名映射, vision 包不带任何业务/游戏特定知识.
 
 package vision
 
@@ -39,7 +38,7 @@ func (r HSVRange) match(h, s, v int) bool {
 		v >= r.VMin && v <= r.VMax
 }
 
-// DualBarOptions 双色条算法可调参数. 0 值字段走 default (fishing UI 实测出来的默认).
+// DualBarOptions 双色条算法可调参数. 0 值字段走 default (示例默认值, 实测调出).
 type DualBarOptions struct {
 	// InnerMinPx / InnerMaxPx: inner cluster 宽度范围 (px). 默认 [2, max(15, w/40)].
 	InnerMinPx int

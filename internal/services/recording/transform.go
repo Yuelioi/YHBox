@@ -175,7 +175,7 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 }
 
 // assembleSubgraph 把 stepNode 切片拼成线性 Subgraph.
-// B2 后: SubgraphInput/Output 不在 Graph.Nodes, 改 sg.Entry / sg.OutputPins[].NodeID metadata.
+// SubgraphInput/Output 不在 Graph.Nodes, 用 sg.Entry / sg.OutputPins[].NodeID metadata.
 // 结构: entry(virtual) → step0 → step1 → ... → stepN-1 → output(virtual, declID, name="done")
 // steps 为空时仍合法: entry 直连 output.
 func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingContext) container.Subgraph {

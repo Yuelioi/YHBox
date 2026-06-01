@@ -83,17 +83,17 @@ type Container struct {
 // 父图 edge / runtime dispatch / validator 都用 ID 引用；UI 用 Name 显示。
 // rename 只改 Name 不动 ID，父图无感。
 //
-// B2: NodeID/X/Y 是子图内 virtual "出口节点" 的 metadata —
+// NodeID/X/Y 是子图内 virtual "出口节点" 的 metadata —
 // edges 仍按 `<NodeID>.<pin>` 引用, validator/dispatch 白名单识别. 不再存进 Graph.Nodes.
 type SubgraphOutputDecl struct {
 	ID     string  `json:"id"`               // UUID，稳定不变
 	Name   string  `json:"name"`             // 用户可见显示名（"done"/"found"/"timeout"...）
-	NodeID string  `json:"nodeID,omitempty"` // B2: virtual marker ID, edges 引用
-	X      float32 `json:"x,omitempty"`      // B2: editor canvas position
-	Y      float32 `json:"y,omitempty"`      // B2: editor canvas position
+	NodeID string  `json:"nodeID,omitempty"` // virtual marker ID, edges 引用
+	X      float32 `json:"x,omitempty"`      // editor canvas position
+	Y      float32 `json:"y,omitempty"`      // editor canvas position
 }
 
-// SubgraphMarker B2: Subgraph entry 的 virtual 节点位置 + ID. Edges 引用 NodeID,
+// SubgraphMarker Subgraph entry 的 virtual 节点位置 + ID. Edges 引用 NodeID,
 // validator/dispatch 白名单识别. 不在 Graph.Nodes 里 — user 无法误删/误改 kind.
 type SubgraphMarker struct {
 	NodeID string  `json:"nodeID"`
@@ -119,7 +119,7 @@ type RecordingContext struct {
 	RecordedAt     string `json:"recordedAt"`     // RFC3339 时间戳
 }
 
-// SubgraphRequiredGlobal 子图运行时所需的容器级 global var (B11).
+// SubgraphRequiredGlobal 子图运行时所需的容器级 global var.
 // Container.Normalize / SaveSubgraph 时根据 sg 内 GetVar/SetVar/IncVar 节点 (scope!=local) 自动派生,
 // 不手填. Library import 时 diff caller container.Vars, 缺则 auto-add.
 type SubgraphRequiredGlobal struct {
@@ -135,12 +135,12 @@ type Subgraph struct {
 	ID               string                   `json:"id"`
 	Label            string                   `json:"label"`
 	Description      string                   `json:"description,omitempty"`
-	Graph            Graph                    `json:"graph"`                      // 内部节点 + 边 (B2: 不再含 SubgraphInput/Output)
-	Entry            SubgraphMarker           `json:"entry"`                      // B2: 子图入口 virtual marker
-	OutputPins       []SubgraphOutputDecl     `json:"outputPins"`                 // 出口声明 + virtual marker (B2)
+	Graph            Graph                    `json:"graph"`                      // 内部节点 + 边 (不含 SubgraphInput/Output)
+	Entry            SubgraphMarker           `json:"entry"`                      // 子图入口 virtual marker
+	OutputPins       []SubgraphOutputDecl     `json:"outputPins"`                 // 出口声明 + virtual marker
 	InputParams      []SubgraphInputParam     `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
 	Tags             []string                 `json:"tags,omitempty"`             // 容器内 + 库 都用
-	RequiredGlobals  []SubgraphRequiredGlobal `json:"requiredGlobals,omitempty"`  // B11: 派生于 Normalize/SaveSubgraph, validator + library import 用
+	RequiredGlobals  []SubgraphRequiredGlobal `json:"requiredGlobals,omitempty"`  // 派生于 Normalize/SaveSubgraph, validator + library import 用
 	RecordingContext *RecordingContext        `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
 	IsAnonymous      bool                     `json:"isAnonymous,omitempty"`      // CollapsedNode 后备子图, 不入 NodePalette/Subgraph 候选下拉
 	CreatedAt        time.Time                `json:"createdAt"`

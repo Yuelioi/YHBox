@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// jitterSamples — 取 N 个 uniform 样本求均值 → 中心极限近正态 (复刻 ok-script
-// random_normal_distribution: 值聚在中点, 极端值罕见, 比纯 uniform 拟人).
+// jitterSamples — 取 N 个 uniform 样本求均值 → 中心极限近正态
+// (值聚在中点, 极端值罕见, 比纯 uniform 拟人).
 const jitterSamples = 5
 
 // normalJitterFactor 返回近正态的双边抖动系数, 落在 [-pct/100, +pct/100] (含端点保证: N 个

@@ -30,7 +30,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 		return nil, fmt.Errorf("execNodeViaFramework: kind %q not registered in node package", node.Kind)
 	}
 	if rn.RunRegion != nil {
-		return nil, fmt.Errorf("execNodeViaFramework: kind %q is RegionRunner, must route via region path (Phase 5.5b)", node.Kind)
+		return nil, fmt.Errorf("execNodeViaFramework: kind %q is RegionRunner, must route via region path", node.Kind)
 	}
 
 	dataWire := r.buildDataWireFor(ctx, node, rn)

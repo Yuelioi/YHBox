@@ -197,7 +197,7 @@ func TestBuildSimpleSubgraph_LinearLayout(t *testing.T) {
 		t.Errorf("RecordingContext 应带 MouseCounts360=9000, got %+v", sg.RecordingContext)
 	}
 
-	// B2: Graph.Nodes 只含真实 step 节点 (KeyPress×2). entry/output 在 metadata.
+	// Graph.Nodes 只含真实 step 节点 (KeyPress×2). entry/output 在 metadata.
 	wantKinds := []string{"KeyPress", "KeyPress"}
 	if len(sg.Graph.Nodes) != len(wantKinds) {
 		t.Fatalf("节点数 want %d, got %d", len(wantKinds), len(sg.Graph.Nodes))
@@ -211,7 +211,7 @@ func TestBuildSimpleSubgraph_LinearLayout(t *testing.T) {
 	if len(sg.Graph.Edges) != 3 {
 		t.Fatalf("3 条边 (entry→k1, k1→k2, k2→output), got %d", len(sg.Graph.Edges))
 	}
-	// B2: Entry / OutputPins 都有 NodeID metadata
+	// Entry / OutputPins 都有 NodeID metadata
 	if sg.Entry.NodeID == "" {
 		t.Errorf("Entry.NodeID 必须非空")
 	}
@@ -223,7 +223,7 @@ func TestBuildSimpleSubgraph_LinearLayout(t *testing.T) {
 func TestBuildSimpleSubgraph_EmptyEvents(t *testing.T) {
 	meta := inputclip.ClipMeta{BaseResolution: [2]int{tw, th}}
 	sg := BuildSimpleSubgraph(nil, meta, tw, th, "空录制")
-	// B2: 0 step → 0 真实节点, entry/output 在 metadata. 1 边 (entry→output direct)
+	// 0 step → 0 真实节点, entry/output 在 metadata. 1 边 (entry→output direct)
 	if len(sg.Graph.Nodes) != 0 {
 		t.Errorf("空录制应 0 真实节点 (entry/output 在 metadata), got %d", len(sg.Graph.Nodes))
 	}
@@ -235,7 +235,7 @@ func TestBuildSimpleSubgraph_EmptyEvents(t *testing.T) {
 func TestBuildPreciseSubgraph_SinglePlayClip(t *testing.T) {
 	meta := inputclip.ClipMeta{BaseResolution: [2]int{tw, th}, MouseCounts360: 9000}
 	sg := BuildPreciseSubgraph("clip-xyz", meta, "精准录制")
-	// B2: 只 1 真实节点 PlayClip, entry/output 在 metadata
+	// 只 1 真实节点 PlayClip, entry/output 在 metadata
 	if len(sg.Graph.Nodes) != 1 || sg.Graph.Nodes[0].Kind != "PlayClip" {
 		t.Fatalf("want 1 PlayClip node, got %+v", sg.Graph.Nodes)
 	}

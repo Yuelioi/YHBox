@@ -31,8 +31,8 @@ func (BringWindowForeground) Spec() node.Spec {
 }
 
 func (BringWindowForeground) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	// 老 runtime: 重试 3×50ms, 全 fail 仅 warn log, 不阻塞流程.
-	// 新实现: 由 WindowService 适配层封装重试. 节点拿到 error 时 warn log 然后继续走 Done.
+	// 重试由 WindowService 适配层封装. 拿到 error 仅 warn log 不阻塞 — 目标窗口全屏独占时
+	// 常拉不动, 不该卡住流程, 继续走 Done.
 	if err := ctx.Window().BringForeground(); err != nil {
 		ctx.Log().Warn("BringWindowForeground: %v (目标窗口可能是全屏独占)", err)
 	}

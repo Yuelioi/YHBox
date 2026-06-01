@@ -164,7 +164,7 @@ func main() {
 	// 不再走 mock asyncSource.
 	nodeSvc := node.NewService()
 
-	// v2: 库 store + service (Task 1.22)
+	// 库 store + service
 	libStore, err := library.NewStore(filepath.Join(dataDir, "library"))
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("library store init")
@@ -386,7 +386,7 @@ func main() {
 		application.NewService(clipSvc),
 		application.NewService(nodeSvc),
 	)
-	_ = scheduleDaemon // 防 import 未用 + 留扩展位
+	_ = scheduleDaemon // 防 import 未用
 
 	// wails3 application
 	wailsApp := application.New(application.Options{

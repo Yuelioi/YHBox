@@ -48,7 +48,7 @@ func (KeyPress) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	vk := in.String(kpInVK)
 	dur := in.Int(kpInDurationMs)
 	if dur <= 0 {
-		dur = 50 // 对齐原 backend 默认
+		dur = 50 // 默认 50ms 按压
 	}
 	dur = node.JitterInt(dur, in.Int(kpInJitterPct)) // ±% 近正态抖动 (pct=0 → 原值)
 	if err := ctx.Input().KeyDown(vk); err != nil {
@@ -72,7 +72,7 @@ func (KeyPress) Display(in node.Inputs, exitName string, out node.OutputData) st
 	return fmt.Sprintf("key %s (%dms)", in.String(kpInVK), in.Int(kpInDurationMs))
 }
 
-// Validate vk 必须非空, 且为已知 keyname (复刻老 resolveVK 校验).
+// Validate vk 必须非空, 且为已知 keyname.
 func (KeyPress) Validate(in node.Inputs) []node.ValidationError {
 	vk := in.String(kpInVK)
 	if vk == "" {

@@ -73,7 +73,7 @@ export function dataOutTypeFor(kind: string, pin: string): PinType | '' {
 
 /**
  * Derives edge type from (from-kind, from-pin) — never stored as edge field.
- * Mirrors backend validator logic.
+ * 须与后端 validator 推导一致.
  */
 export function edgeKindOf(fromKind: string, fromPin: string): 'data' | 'exec' {
   return dataOutTypeFor(fromKind, fromPin) !== '' ? 'data' : 'exec'

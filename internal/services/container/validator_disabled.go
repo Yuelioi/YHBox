@@ -5,8 +5,6 @@ package container
 //     (invalid: no entry / target lost)
 //  2. Loop/Switch/Race/Parallel/Try disabled → warn (passthrough behavior is opinionated;
 //     user might want to delete instead)
-//
-// Spec: editor-v2-quick-actions-design.md §6.3.
 func validateDisabledNodes(c *Container) []ValidationError {
 	if c == nil {
 		return nil

@@ -1,10 +1,5 @@
-// frontend/src/components/containers/pinSpec.ts
-//
-// Thin compatibility shell. All data lives in nodeRegistry/. This file
-// exports the legacy named maps (PIN_SPECS / KIND_LABEL_ZH / ...) by
-// deriving them from the registry. Existing call sites keep working
-// without changes; new code should import from
-// '@/components/containers/nodeRegistry' directly.
+// 从 nodeRegistry/ 派生命名 map (PIN_SPECS / KIND_LABEL_ZH / ...). 正源在 registry,
+// 新代码直接 import '@/components/containers/nodeRegistry'.
 //
 // DO NOT add new entries here — register them in nodeRegistry/specs/*.ts.
 
@@ -19,14 +14,14 @@ import { TYPE_COLOR, pinTypeCompat } from '@/components/containers/nodeRegistry/
 import type { PinType, FieldSchema, NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { i18n } from '@/i18n'
 
-// Re-exports — preserves the v3/v4 API surface for existing callers.
+// Re-exports from nodeRegistry.
 export { TYPE_COLOR, pinTypeCompat }
 export type { PinType, FieldSchema }
 
-/** Legacy alias for callers that use PinDataType. */
+/** PinDataType 别名. */
 export type PinDataType = PinType
 
-/** Legacy alias used by GetVar/SetVar/Expr/pure-func nodes. */
+/** DataPinSpec — GetVar/SetVar/Expr/pure-func 节点用. */
 export type DataPinSpec = { name: string; type: PinType }
 
 /** Legacy shape for PIN_SPECS entries. */
@@ -118,7 +113,7 @@ export function pinsFor(
 /** Re-exported for legacy callers. */
 export const execOutPinsFor = registryExecOutPinsFor
 
-/** Edge type derived from pin (kind, fromPin). Mirrors backend logic. */
+/** Edge type derived from pin (kind, fromPin). 须与后端 edge-kind 推导一致. */
 export function edgeKind(fromKind: string, fromPin: string): 'exec' | 'data' {
   return edgeKindOf(fromKind, fromPin)
 }

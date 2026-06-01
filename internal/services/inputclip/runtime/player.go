@@ -41,7 +41,7 @@ type ClipPlayer struct {
 	policy          PlaybackPolicy
 	targetCounts360 int
 	// windowProvider 返回回放目标窗口的 clientW/clientH.
-	// nil 或返回 0 → 不缩放 (compat fallback).
+	// nil 或返回 0 → 拿不到目标窗口尺寸, 按原始坐标回放不缩放.
 	windowProvider func() (clientW, clientH int)
 
 	done     chan struct{}

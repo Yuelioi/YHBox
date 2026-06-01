@@ -198,7 +198,7 @@ type stubStopwatchEntry struct {
 	running bool
 }
 
-// stubStopwatchStore in-memory, mutex-safe. 镜像老 stopwatchTable 语义.
+// stubStopwatchStore in-memory, mutex-safe.
 type stubStopwatchStore struct {
 	mu sync.Mutex
 	m  map[string]*stubStopwatchEntry
@@ -218,7 +218,7 @@ func (s *stubStopwatchStore) Stop(key string) {
 	defer s.mu.Unlock()
 	st, ok := s.m[key]
 	if !ok {
-		return // no-op, 镜像老语义
+		return // no-op
 	}
 	if !st.running {
 		return // 已停, 保留首次 stopAt

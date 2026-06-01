@@ -160,7 +160,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	}
 	var errs []ValidationError
 
-	// Phase 1: Structural
+	// 结构检查
 	errs = append(errs, validateMainGraph(c)...)
 	errs = append(errs, validateWindowTarget(c)...)
 	errs = append(errs, validateMouseCalibration(c, vctx)...)
@@ -169,7 +169,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	}
 	errs = append(errs, validateCyclicSubgraphs(c)...)
 
-	// Phase 2: Reference
+	// 引用检查
 	errs = append(errs, validateInvalidPins(c)...)
 	errs = append(errs, validateMissingSubgraph(c)...)
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
@@ -183,8 +183,8 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateDisabledNodes(c)...)
 	errs = append(errs, validateSentinelScope(c)...)
 
-	// Phase 3: Type / Semantic
-	errs = append(errs, validatePhaseCNodeKinds(c)...)
+	// 类型 / 语义检查
+	errs = append(errs, validatePerKindConfig(c)...)
 	errs = append(errs, validateDataPinTypes(c)...)
 	errs = append(errs, validateLiteralTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
@@ -494,7 +494,7 @@ func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
 	var errs []ValidationError
 	graphPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 
-	// B2: 用 OutputPins 数检 EMPTY (老版本检 SubgraphOutput 节点数). normalize 兜底非空,
+	// 用 OutputPins 数检 EMPTY. normalize 兜底非空,
 	// 这里 defensive 检 — load 后 normalize 漏跑或 raw mutate sg 才可能 0.
 	if len(sg.OutputPins) == 0 {
 		errs = append(errs, ValidationError{
@@ -695,26 +695,26 @@ func windowTargetIsEmptyMatch(spec windowTargetMatchSpec) bool {
 // node-kind config validators
 // ---------------------------------------------------------------------------
 
-// validatePhaseCNodeKinds runs per-kind config checks over every graph
+// validatePerKindConfig runs per-kind config checks over every graph
 // (main + all subgraphs) and emits ValidationErrors.
 // It also performs the cross-node Stopwatch key coherence check per graph.
-func validatePhaseCNodeKinds(c *Container) []ValidationError {
+func validatePerKindConfig(c *Container) []ValidationError {
 	var errs []ValidationError
 
 	// main graph — graphPath ["main"], isMain=true
-	errs = append(errs, checkPhaseCGraph(c.Graph.Nodes, []string{"main"}, true)...)
+	errs = append(errs, checkGraphPerKind(c.Graph.Nodes, []string{"main"}, true)...)
 
 	// subgraphs — isMain=false
 	for _, sg := range c.Subgraphs {
 		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
-		errs = append(errs, checkPhaseCGraph(sg.Graph.Nodes, sgPath, false)...)
+		errs = append(errs, checkGraphPerKind(sg.Graph.Nodes, sgPath, false)...)
 	}
 	return errs
 }
 
-// checkPhaseCGraph runs per-node dispatch + cross-node Stopwatch key check
+// checkGraphPerKind runs per-node dispatch + cross-node Stopwatch key check
 // for a single graph (main or subgraph).
-func checkPhaseCGraph(nodes []GraphNode, graphPath []string, isMain bool) []ValidationError {
+func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []ValidationError {
 	var errs []ValidationError
 
 	// Collect StopwatchStart keys for cross-node coherence check.

@@ -1,9 +1,7 @@
-// internal/nodes/system/mouse_calibration.go
 // MouseCalibration — 声明式校准节点. 没 exec-in, 单 exec-out "Fire" 表达
 // declarative passthrough 语义 (仅一个 counts360 数值字段).
 //
-// 主图唯一性约束 (validator MOUSE_CAL_DUPLICATE) 不在节点内做 — 由 graph
-// validator 做 cross-node check.
+// 主图唯一性约束不在节点内做 — 由 graph validator 做 cross-node check.
 package system
 
 import (

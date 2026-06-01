@@ -87,7 +87,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if pt == nil {
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Fire(), nil
 	}
-	// 50ms duration 对齐老 runtime (execClickTemplate 硬编码 50).
+	// 50ms click duration.
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
 		return nil, fmt.Errorf("ClickTemplate click %s @ (%.3f,%.3f): %w", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}

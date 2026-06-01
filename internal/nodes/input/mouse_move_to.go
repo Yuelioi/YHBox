@@ -65,7 +65,7 @@ func (MouseMoveTo) Display(in node.Inputs, exitName string, out node.OutputData)
 // moveCursor 把光标滑到客户区比例 (xR,yR), 耗时 durMs. MouseMoveTo 与 ClickAt(MoveMs>0) 共用.
 //
 // 刻意放在本文件而非单独 helpers.go: input 包约定「1 文件 1 节点无共享 helper」, 但分帧+ctx
-// 取消逻辑非平凡且被 2 节点用, DRY 优先 (spec #1 明确要共用 move helper). 由「主」节点 MouseMoveTo 持有.
+// 取消逻辑非平凡且被 2 节点用, DRY 优先共用. 由「主」节点 MouseMoveTo 持有.
 //
 // durMs<=0 → 单帧瞬移 (MoveTo 同时发 hover WM_MOUSEMOVE). >0 → 从当前光标位置直线分帧 (~16ms/帧),
 // 帧间 select ctx.Done 可被 停止/强停 立即打断 (跟 Sleep/KeyPress 同范式, 不重蹈裸 sleep 停不下).

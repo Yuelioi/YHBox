@@ -1,12 +1,8 @@
-// internal/nodes/system/window_target.go
-// WindowTarget — 声明式窗口目标节点. 老 spec (nodekind/specs/system.go) 用嵌套
-// config.match{title,class,processName,titleMatch} + config.runtime{inputBackend,
-// captureBackend} 描述目标; runtime/nodes.go::case "WindowTarget" 是 no-op (runtime
-// 在 RuntimeContext 启动期通过 wire_container.go 读取这些字段解析 hwnd + 选 backend).
-//
-// 新框架 declarative 形态保持 (no exec-in), 单 Fire exec-out 表达 passthrough.
-// 字段拆 6 个顶级 String 来对应原 match.*/runtime.* 子字段, widget 选 dropdown
-// (titleMatch / inputBackend / captureBackend).
+// WindowTarget — 声明式窗口目标节点. config 用 6 个顶级 String 字段描述目标
+// (title/class/processName/titleMatch + inputBackend/captureBackend), widget 选 dropdown
+// (titleMatch / inputBackend / captureBackend). 无 exec-in, 单 Fire exec-out 表达 passthrough.
+// runtime/nodes.go::case "WindowTarget" 是 no-op — RuntimeContext 启动期由 wire_container.go
+// 读这些字段解析 hwnd + 选 backend.
 package system
 
 import (

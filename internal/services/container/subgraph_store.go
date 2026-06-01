@@ -11,14 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// normalizeSubgraph self-heal + B2 migration:
+// normalizeSubgraph self-heal + 老格式 marker 迁移:
 //   - 扫 sg.Graph.Nodes 里老格式 SubgraphInput/Output 节点, 提取到 sg.Entry / sg.OutputPins[].NodeID metadata, 节点本身删.
 //   - 没 Entry → 生成新 entry NodeID + 默认位置.
 //   - 没 OutputPins[i].NodeID → 生成新 out NodeID + 错位排开.
 //   - 空 OutputPins → 兜底加一个 "done" pin.
 // 幂等: 已 normalize 过的 sg 再调一次, sg.Entry.NodeID / OutputPins[*].NodeID 都存在, 不动节点列表.
 func normalizeSubgraph(sg *Subgraph) {
-	// B2: 迁移老格式 marker 节点 → metadata.
+	// 迁移老格式 marker 节点 → metadata.
 	// 暂存找到的 SubgraphOutput 节点, 后面统一 reconcile (避免 declID 缺失/未声明 OutputPin 时丢节点 ID).
 	type outputNode struct {
 		nodeID string
@@ -126,9 +126,9 @@ func (s *Store) SaveSubgraph(containerID string, sg *Subgraph) error {
 	if sg.CreatedAt.IsZero() {
 		sg.CreatedAt = now
 	}
-	// B3: 单独保 sg 也走 self-heal — 之前只 store.load() / Container.Normalize 调, SaveSubgraph 漏.
+	// 单独保 sg 也走 self-heal (跟 store.load / Container.Normalize 同一入口).
 	normalizeSubgraph(sg)
-	// B11: 同步 RequiredGlobals — 从 in-memory container.Vars 拿 type/default.
+	// 同步 RequiredGlobals — 从 in-memory container.Vars 拿 type/default.
 	sg.RequiredGlobals = computeRequiredGlobals(sg, c.Vars)
 	dir := filepath.Join(s.root, containerID, "subgraphs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {

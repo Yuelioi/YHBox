@@ -16,7 +16,7 @@ import (
 
 func init() { node.Register(&Start{}) }
 
-// Start 启动 / reset 指定 key 的秒表. 老 runtime: stopwatch_nodes.go::execStopwatchStart.
+// Start 启动 / reset 指定 key 的秒表.
 type Start struct{}
 
 const (

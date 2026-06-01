@@ -1,7 +1,7 @@
 // internal/services/container/pin_value.go
 // PinValue — data-in pin 字面量的唯一读取入口 (validator + runtime setup 共用)。
 //
-// 正源 = config.literal[<Spec.Input 名>] (input-editing-unification spec)。读取优先级
+// 正源 = config.literal[<Spec.Input 名>]。读取优先级
 // 镜像 runtime node.newInputs (literal > 顶层 config), 让静态 validator 看到的值跟运行时一致。
 //   - 编辑器一律写 config.literal[name] (PascalCase Spec.Input 名)。
 //   - 顶层 config[name] fallback 只为兼容尚未跑一次性迁移脚本的旧数据; 迁移后该分支休眠。
@@ -85,7 +85,7 @@ func PinMap(n *GraphNode, name string) map[string]any {
 }
 
 // SetPinValue 写 node 某 input pin 值到 config.literal[name] (唯一规范写入口)。
-// 任何写 "== Spec.Input 名" 的 key 都走这, 禁止再写顶层 config (input-editing-unification guardrail)。
+// 任何写 "== Spec.Input 名" 的 key 都走这, 禁止再写顶层 config。
 func SetPinValue(n *GraphNode, name string, value any) {
 	if n == nil {
 		return

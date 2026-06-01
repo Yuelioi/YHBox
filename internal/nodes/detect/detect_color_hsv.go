@@ -38,7 +38,7 @@ const (
 	dchDataCount        = "PixelCount"
 	dchDataRatio        = "PixelRatio"
 
-	// poll 间隔下限 — 老 runtime detect_hsv.go::pollClampMs.
+	// poll 间隔下限.
 	dchPollClampMs   = 10
 	dchDefaultPollMs = 100
 	dchDefaultToMs   = 5000
@@ -122,7 +122,7 @@ func (DetectColorHSV) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return ctx.Out(dchOutYes).
 				Set(dchDataCount, count).Set(dchDataRatio, ratio).Fire(), nil
 		}
-		// timeoutMs<=0 且首次未命中 → No (跟 ROIColorScan v4 fix 同款语义).
+		// timeoutMs<=0 且首次未命中 → No (跟 ROIColorScan 同款语义).
 		if timeoutMs <= 0 && firstScan {
 			return ctx.Out(dchOutNo).
 				Set(dchDataCount, count).Set(dchDataRatio, ratio).Fire(), nil

@@ -1,9 +1,5 @@
-// frontend/src/components/containers/nodeFieldSchemas.ts
-//
-// Thin compatibility shell. All field schemas live in nodeRegistry/specs/*.ts
-// (each kind's `fields: FieldSchema[]`). This file exports the legacy
-// NODE_FIELD_SCHEMAS map by deriving it from the registry, so existing
-// callers (NodeInspector.vue etc.) keep working without edits.
+// 从 nodeRegistry/specs/*.ts (各 kind 的 `fields: FieldSchema[]`) 派生 NODE_FIELD_SCHEMAS map.
+// field schemas 的正源在 registry, 这里只 re-export.
 //
 // DO NOT add new entries here — put them in nodeRegistry/specs/<group>.ts.
 // nodeRegistry/specs is imported once at app entry (main.ts). No side-effect needed here.
@@ -11,7 +7,7 @@ import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { FieldSchema } from '@/components/containers/nodeRegistry/index'
 
 export type { FieldSchema }
-/** Legacy alias — NodeInspector.vue imports `Field`. */
+/** `Field` 别名 (NodeInspector.vue 用). */
 export type Field = FieldSchema
 
 // mutable empty, 由 rebuildNodeFieldSchemas() 在 RPC populate 后填.

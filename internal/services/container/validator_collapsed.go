@@ -1,6 +1,6 @@
 package container
 
-// validateCollapsedReferences (v4 §9.2 spec): two related checks.
+// validateCollapsedReferences: two related checks.
 //
 // 1. COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: a regular `Subgraph` call node refers to a
 //    subgraph that has isAnonymous=true (which is reserved for `CollapsedNode` use).

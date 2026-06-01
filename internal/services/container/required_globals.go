@@ -1,4 +1,4 @@
-// required_globals.go — B11 SubgraphRequiredGlobals 派生.
+// SubgraphRequiredGlobals 派生.
 //
 // Container.Normalize / SaveSubgraph 调 computeRequiredGlobals 重算 sg.RequiredGlobals.
 // validator (validator_var_refs.go) 白名单 sg.RequiredGlobals 不报 INVALID_VAR_REF.

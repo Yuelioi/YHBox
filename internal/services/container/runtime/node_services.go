@@ -238,7 +238,7 @@ type clipPlayerAdapter struct{ rt *RuntimeContext }
 func newClipPlayerAdapter(rt *RuntimeContext) node.ClipPlayer { return &clipPlayerAdapter{rt: rt} }
 
 // Play 阻塞回放 clipID. 抢 InputBus 独占锁 hold 整段, ctx 取消即 Cancel + 释放按下键.
-// keepRanges 暂传 nil (整段播) — 片段裁剪 follow-up 见 playclip-phase5-wire spec.
+// keepRanges 暂传 nil — 整段播, 片段裁剪未实装.
 func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
 	rt := a.rt
 	if rt.ClipResolver == nil {

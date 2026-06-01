@@ -66,7 +66,7 @@ func TestRunNode_RequiredMissing_ValidationError(t *testing.T) {
 		t.Errorf("validation = %v, want 1 REQUIRED_FIELD_MISSING", r.Validation)
 	}
 	if r.Panic != nil {
-		t.Errorf("Required missing should NOT panic (GPT r4 #8), got panic: %v", r.Panic)
+		t.Errorf("Required missing should NOT panic, got panic: %v", r.Panic)
 	}
 }
 

@@ -101,8 +101,8 @@ func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error)
 		Fire(), nil
 }
 
-// 默认 HSV 阈值 (fishing v1 实测): inner=cursor 浅黄, outer=target 高饱和青.
-// 通用 case 用户填自己的, 这是 fishing-friendly 默认.
+// 默认 HSV 阈值 (示例, 实测调出): inner=cursor 浅黄, outer=target 高饱和青.
+// 通用 case 用户填自己的, 这是一组示例默认.
 var (
 	defaultInnerHSV = node.HSVRange{HMin: 45, HMax: 70, SMin: 40, SMax: 255, VMin: 200, VMax: 255}
 	defaultOuterHSV = node.HSVRange{HMin: 160, HMax: 180, SMin: 140, SMax: 255, VMin: 100, VMax: 255}

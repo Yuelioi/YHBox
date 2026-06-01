@@ -1,12 +1,6 @@
-// internal/nodes/stopwatch/read.go
-// StopwatchRead — 读指定 key 的秒表 elapsed (毫秒). 老 runtime:
-// stopwatch_nodes.go::execStopwatchRead 把结果推 SysState.LastStopwatchElapsedMs
-// (因为老 runtime 没有通用 dataOut 总线). 新框架的 v4 spec 已声明
-// DataOut: {elapsedMs: PinNumber} (specs/system.go), 所以这里走数据出口
-// — exec exit "Out" 带 Data 字段 elapsedMs (跟 CheckTemplate Found 带
-// Point/Conf 同模式).
-//
-// 不存在 key → 0 (老 runtime 一致).
+// StopwatchRead — 读指定 key 的秒表 elapsed (毫秒).
+// 结果走数据出口: exec exit "Out" 带 Data 字段 elapsedMs (跟 CheckTemplate Found 带 Point/Conf 同模式).
+// 不存在 key → 0.
 package stopwatch
 
 import (

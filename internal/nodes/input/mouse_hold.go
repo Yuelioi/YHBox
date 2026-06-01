@@ -56,7 +56,7 @@ func (MouseHoldStart) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if btn == "" {
 		btn = "left"
 	}
-	// 老 runtime 在 Run 内对 button 二次校验 (Validate 已覆盖, 但保留显式 err 防 wire 跳过 Validate)
+	// Run 内对 button 二次校验 (Validate 已覆盖, 但显式 err 防 wire 跳过 Validate)
 	if btn != "left" && btn != "right" && btn != "middle" {
 		return nil, fmt.Errorf("MouseHoldStart: invalid button %q", btn)
 	}
@@ -77,7 +77,7 @@ func (MouseHoldStart) Validate(in node.Inputs) []node.ValidationError {
 	return validateMouseButtonField(in.String(mhStartInButton), mhStartInButton)
 }
 
-// MouseHoldStop 松开鼠标按键 (跟 MouseHoldStart 配对). 老 runtime: hold_nodes.go::execMouseHoldStop.
+// MouseHoldStop 松开鼠标按键 (跟 MouseHoldStart 配对).
 type MouseHoldStop struct{}
 
 const (
@@ -130,7 +130,7 @@ func (MouseHoldStop) Validate(in node.Inputs) []node.ValidationError {
 	return validateMouseButtonField(in.String(mhStopInButton), mhStopInButton)
 }
 
-// validateMouseButtonField 复刻老 validator.go::validateMouseHold:
+// validateMouseButtonField:
 // button 必须 in {left, right, middle}. 空字符串视为有效 (run 时 fallback "left").
 //
 // 本 helper 仅本文件内 Start/Stop 复用, 不算 cross-node abstraction (跟 key_hold.go::validateVKField 同理).

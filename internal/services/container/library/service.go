@@ -13,7 +13,7 @@ type Service struct {
 	store          *Store
 	emit           func(name string, data any)
 	containersRoot string
-	// B11: 注入回调拿目标容器当前 Vars[], 给 import 算 MissingGlobals diff 用.
+	// 注入回调拿目标容器当前 Vars[], 给 import 算 MissingGlobals diff 用.
 	// nil 时退化为不算 diff (老 caller / test 兼容). main.go SetContainerLookup(containerStore.Get).
 	lookupContainer func(id string) (container.Container, bool)
 }
@@ -28,7 +28,7 @@ func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
 // ImportToContainer + ExportSubgraph 用来把 containerID 解析成文件系统路径.
 func (s *Service) SetContainersRoot(dir string) { s.containersRoot = dir }
 
-// SetContainerLookup B11: 注入 containerStore.Get 让 ImportToContainer 算 MissingGlobals diff.
+// SetContainerLookup 注入 containerStore.Get 让 ImportToContainer 算 MissingGlobals diff.
 func (s *Service) SetContainerLookup(f func(id string) (container.Container, bool)) {
 	s.lookupContainer = f
 }
@@ -65,7 +65,7 @@ func (s *Service) DeleteSubgraphPackage(sgID string) error {
 // ImportToContainer 把 library package 复制到容器.
 // containerID 是目标容器 ID (由 containersRoot 解析为文件系统路径).
 //
-// B11: 用 lookupContainer 拿目标容器 Vars 算 MissingGlobals diff (lookup nil 时跳过 diff).
+// 用 lookupContainer 拿目标容器 Vars 算 MissingGlobals diff (lookup nil 时跳过 diff).
 func (s *Service) ImportToContainer(libSgID, containerID, strategy string) (*ImportResult, error) {
 	root, err := s.containerRoot(containerID)
 	if err != nil {

@@ -55,7 +55,7 @@ func ensureMockInit() error {
 //
 // 两个 WGC 版本阈值是有意分流, 不是 bug, 也不是"跟 AutoBackend() 一致":
 //   - "auto" 分支调 AutoBackend() → build>=20348 (Win11/Server2022) 才默选 WGC.
-//     保守: Win10 上 WGC 对 DX 游戏容易抓黑帧/stale buffer (fishing v2 实测踩过),
+//     保守: Win10 上 WGC 对 DX 游戏容易抓黑帧/stale buffer,
 //     自动选择不冒这个险, 默走 GDI.
 //   - "wgc" 显式分支 → build>=18362 (Win10 1903, WGC API 下限) 就放行.
 //     用户自己点了 wgc 就尊重选择, 不强制 fallback GDI.

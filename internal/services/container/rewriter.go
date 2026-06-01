@@ -12,8 +12,8 @@ import "strings"
 // 一次性记录所有要 rename 的映射, 最后 Apply 到 graph 一次性应用.
 // 集中改写避免散落字符串 patch 容易漏 + 难单测.
 //
-// B2: SubgraphOutput 节点 config.DeclID 改写路径删 (节点本身不再在 Graph.Nodes; OutputPins 的 ID
-// 由 caller 直接 mutate, 不经此 rewriter).
+// SubgraphOutput 节点 config.DeclID 不经此 rewriter (节点不在 Graph.Nodes; OutputPins 的 ID
+// 由 caller 直接 mutate).
 type GraphRewriter struct {
 	nodeIDMap      map[string]string // oldID → newID
 	templateKeyMap map[string]string // oldKey → newKey

@@ -1,7 +1,7 @@
 // Package sys owns the single source of truth for $sys runtime state schema.
 // Both nodes/variable GetSys.Evaluate and validator (`validateGetSysNodes`) import this
 // — eliminates the duplicated SysPathSchema / sysPathSchemaCopy maps that
-// drifted easily (review §2 finding).
+// drifted easily.
 //
 // Leaf package: imports only stdlib. Container / runtime / validator depend on
 // this; this package depends on nothing — no cycle.

@@ -142,7 +142,7 @@ type VisionService interface {
 	// DualBarTrack 抓全帧后按 roi Geometry 裁子区 + 双色 HSV cluster → 算 inner 在 outer 区域里的位置.
 	// 通用双色条算法 (适用: 血条/进度条/QTE 双色条/钓鱼 cursor-target).
 	// roi 经 ResolveGeometry 解析像素区 (override-by-resolution / pct / 全帧). Found=false 即 missing.
-	// opts 零值字段走 vision 包默认 (fishing 实测出来的; 通用 case 可能要调).
+	// opts 零值字段走 vision 包默认 (示例默认值; 通用 case 可能要调).
 	DualBarTrack(roi Geometry, inner, outer HSVRange, opts DualBarOptions) (result DualColorBarResult, err error)
 
 	// DetectColor 按 roi (ratio Geometry, 享 per-resolution override) 裁区后统计落在 rng 内的像素数.
@@ -199,7 +199,7 @@ type DualColorBarResult struct {
 	OuterPx    int     `json:"outerPx"`
 }
 
-// DualBarOptions DualBarTrack 算法可调参数. 0 值字段走 vision 默认 (fishing UI 实测).
+// DualBarOptions DualBarTrack 算法可调参数. 0 值字段走 vision 默认 (示例默认值).
 // 跟 pkg/vision.DualBarOptions 形态一致.
 type DualBarOptions struct {
 	InnerMinPx      int     `json:"innerMinPx,omitempty"`

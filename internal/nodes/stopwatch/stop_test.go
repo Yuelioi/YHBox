@@ -40,7 +40,7 @@ func TestStop_MissingKeyIsNoop(t *testing.T) {
 	node.Register(&Stop{})
 	rn, _ := node.Get("StopwatchStop")
 
-	// 不 Start, 直接 Stop — 老 runtime 静默 no-op
+	// 不 Start, 直接 Stop — 静默 no-op
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{swStopInKey: "never_started"}, nil, node.StubServices())
 	if r.Error != nil {

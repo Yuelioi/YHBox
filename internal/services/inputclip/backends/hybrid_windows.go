@@ -7,7 +7,7 @@
 // 相机/视角转向只认 SendInput 的 OS raw input. 无 hwnd 时整体降级走 SendInput (录到桌面也能凑合).
 //
 // heldKeys / heldButtons 状态机: 每次 KeyDown/MouseBtnDown 加入, KeyUp/MouseBtnUp 移除.
-// Cancel 时 ReleaseHeld 遍历发对应 Up, 防止键卡住 (Migration must-have).
+// Cancel 时 ReleaseHeld 遍历发对应 Up, 防止键卡住.
 package backends
 
 import (

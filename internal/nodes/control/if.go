@@ -1,5 +1,4 @@
-// internal/nodes/control/if.go
-// If — boolean branch. 老 runtime nodes.go::execIf 1:1.
+// If — boolean branch.
 // Condition true → True 出口; false → False 出口.
 package control
 

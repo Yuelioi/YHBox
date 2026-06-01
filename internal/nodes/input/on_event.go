@@ -31,9 +31,9 @@ const (
 	oeOutOut            = "Out"
 )
 
-// errOnEventPhase5 — stub 防御性报错 (主 dispatch 不会调到 OnEvent, 它没
+// errOnEventNotWired — stub 防御性报错 (主 dispatch 不会调到 OnEvent, 它没
 // exec-in, 但 region runner 误触可被 catch).
-var errOnEventPhase5 = errors.New("OnEvent — Phase 5 wire 需要 EventBus + listener spawn 机制")
+var errOnEventNotWired = errors.New("OnEvent 尚未接线: 需 EventBus + listener spawn 机制")
 
 func (OnEvent) Spec() node.Spec {
 	return node.Spec{
@@ -81,7 +81,7 @@ func (OnEvent) Spec() node.Spec {
 }
 
 func (OnEvent) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, errOnEventPhase5
+	return nil, errOnEventNotWired
 }
 
 func (OnEvent) Dependencies(in node.Inputs) []node.Dependency {

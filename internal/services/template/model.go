@@ -22,7 +22,7 @@ type KeyMeta struct {
 // VariantMeta 单 variant 元数据 (跟 PNG 同分辨率). 文件 = <root>/<key>/<W>x<H>.json.
 type VariantMeta struct {
 	Resolution [2]int    `json:"resolution"` // [W, H], 录制时 frame size
-	BBox       [4]int    `json:"bbox"`       // [x1, y1, x2, y2] 源帧像素位置. runtime → ratio+30px padding ROI (1:1 fish bot), GUI repaint 也用.
+	BBox       [4]int    `json:"bbox"`       // [x1, y1, x2, y2] 源帧像素位置. runtime → ratio+30px padding ROI, GUI repaint 也用.
 	Regions    [][4]int  `json:"regions,omitempty"` // 多槽检测 (商店 grid 等). 每条 [x1,y1,x2,y2] 同 BBox 坐标系. 空 → 单 BBox detection.
 	SHA256     string    `json:"sha256"`
 	Width      int       `json:"width"`     // bbox[2]-bbox[0]
