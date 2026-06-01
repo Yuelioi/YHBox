@@ -24,6 +24,30 @@ describe('normalizeError', () => {
   it('空/未知 → {}', () => {
     expect(normalizeError({})).toEqual({})
   })
+  // wails dev-mode fetch transport (runtime.js:103) 抛 `new Error(responseText)`:
+  // 整个 {message,cause,kind} 信封被塞进 Error.message 字符串, 没拆成 .cause 属性。
+  it('dev-fetch transport: 信封塞进 Error.message (validation)', () => {
+    const e = new Error(
+      JSON.stringify({
+        message: 'MISSING_WINDOW_TARGET map[]',
+        cause: { Errors: [{ severity: 'error', code: 'MISSING_WINDOW_TARGET', graphPath: ['main'] }] },
+        kind: 'RuntimeError',
+      }),
+    )
+    expect(normalizeError(e)).toEqual({
+      errors: [{ severity: 'error', code: 'MISSING_WINDOW_TARGET', graphPath: ['main'] }],
+    })
+  })
+  it('dev-fetch transport: 信封塞进 Error.message (apperr code)', () => {
+    const e = new Error(
+      JSON.stringify({ message: 'WAILS_NOT_READY', cause: { code: 'WAILS_NOT_READY', params: { x: 1 } }, kind: 'RuntimeError' }),
+    )
+    expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
+  })
+  it('dev-fetch transport: e 本身是 JSON 字符串', () => {
+    const e = JSON.stringify({ cause: { Errors: [{ code: 'NO_START' }] } })
+    expect(normalizeError(e)).toEqual({ errors: [{ code: 'NO_START' }] })
+  })
 })
 
 describe('errorMessage', () => {
@@ -43,5 +67,18 @@ describe('errorMessage', () => {
     const msg = errorMessage({})
     expect(msg).not.toBe('[object Object]')
     expect(msg.length).toBeGreaterThan(0)
+  })
+  it('dev-fetch transport 信封 → 本地化, 不糊 JSON', () => {
+    const e = new Error(
+      JSON.stringify({
+        message: 'MISSING_WINDOW_TARGET map[]',
+        cause: { Errors: [{ code: 'MISSING_WINDOW_TARGET' }] },
+        kind: 'RuntimeError',
+      }),
+    )
+    const msg = errorMessage(e)
+    expect(msg).not.toContain('{') // 不再糊裸 JSON
+    expect(msg).not.toContain('map[]')
+    expect(msg).toContain('WindowTarget') // zh '主图缺 WindowTarget 节点' / en 'Main graph missing WindowTarget node'
   })
 })

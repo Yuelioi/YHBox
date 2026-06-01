@@ -24,7 +24,19 @@ export type NormalizedError = {
 /** 把两条投递通道(wails RPC .cause / worker 事件信封)规整成统一形态。 */
 export function normalizeError(e: unknown): NormalizedError {
   if (e == null) return {}
-  const obj = typeof e === 'object' ? (e as Record<string, unknown>) : {}
+  let obj = typeof e === 'object' ? (e as Record<string, unknown>) : {}
+  // wails dev-mode fetch transport (@wailsio/runtime runtime.js:103) 抛 `new Error(responseText)` ——
+  // 整个 {message,cause,kind} 信封被塞进字符串 (e 本身是 string, 或 Error.message), 没拆成 .cause 属性。
+  // 先把信封 JSON 解出来当错误对象, 才能拿到 cause。原生 transport 直接给对象时这步是 no-op。
+  const envStr = typeof e === 'string' ? e : typeof obj.message === 'string' ? obj.message : ''
+  if (envStr.startsWith('{')) {
+    try {
+      const env = JSON.parse(envStr)
+      if (env && typeof env === 'object') obj = env as Record<string, unknown>
+    } catch {
+      /* 不是 JSON 信封, 保持原 obj */
+    }
+  }
   // 通道A: wails 包了一层 .cause; 通道B: e 本身就是 RunError 对象。两者都从 src 取。
   const src = (obj.cause ?? obj) as Record<string, unknown>
   // validation 数组: 通道A 是大写 Errors (无 json tag), 通道B 是小写 errors。
@@ -35,9 +47,10 @@ export function normalizeError(e: unknown): NormalizedError {
   if (typeof src.code === 'string' && src.code) {
     return { code: src.code, params: src.params as Record<string, unknown> | undefined }
   }
+  // obj.message 优先: 信封已解包时这是人类可读的那行, 不是整坨 JSON。
+  if (typeof obj.message === 'string' && obj.message) return { message: obj.message }
   if (e instanceof Error && e.message) return { message: e.message }
   if (typeof e === 'string' && e) return { message: e }
-  if (typeof obj.message === 'string' && obj.message) return { message: obj.message }
   return {}
 }
 
