@@ -259,6 +259,21 @@ func getClientSize(hwnd win.HWND) (int, int) {
 	return int(rect.Right - rect.Left), int(rect.Bottom - rect.Top)
 }
 
+// ClientSize 客户区像素尺寸 (录制等非 capture 路径用, 不依赖 capture 全局后端).
+// GetClientRect 失败或窗口尺寸为 0 时返 error.
+func ClientSize(hwnd win.HWND) (int, int, error) {
+	var rect win.RECT
+	r, _, _ := procGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
+	if r == 0 {
+		return 0, 0, fmt.Errorf("GetClientRect 失败")
+	}
+	w, h := int(rect.Right-rect.Left), int(rect.Bottom-rect.Top)
+	if w <= 0 || h <= 0 {
+		return 0, 0, fmt.Errorf("GetClientRect 失败或窗口尺寸为 0")
+	}
+	return w, h, nil
+}
+
 // ---------------------------------------------------------------------------
 // WindowTarget capture hotkey helpers (tools.CaptureForegroundWindow).
 // 用户先把目标窗口切到前台, 然后我们查它的 hwnd + metadata 一次性返给前端填表.

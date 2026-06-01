@@ -52,7 +52,7 @@ func (b *wgcBackend) ClientSize(hwnd win.HWND) (int, int, error) {
 	if !isWindow(hwnd) {
 		return 0, 0, errors.New("wgc.ClientSize: invalid hwnd")
 	}
-	return ClientSize(hwnd)
+	return winClientSize(hwnd)
 }
 
 func (b *wgcBackend) Close() error {

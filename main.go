@@ -32,7 +32,6 @@ import (
 	"yhbox/internal/services/schedule"
 	"yhbox/internal/services/template"
 	"yhbox/internal/services/tools"
-	"yhbox/pkg/capture"
 	"yhbox/pkg/locale"
 	"yhbox/pkg/platform"
 	"yhbox/pkg/screenshot"
@@ -78,38 +77,6 @@ func main() {
 		}
 		logSink.SetFileWriter(dir)
 	}
-
-	// 截屏后端选择：auto 根据 OS build 自动选；其它按 settings 指定。
-	// WGC / Mock 初始化失败时回退 GDI + warn，确保用户至少能跑。
-	method := app.Settings().Capture.Method
-	if method == "auto" {
-		auto := capture.AutoBackend()
-		method = auto.String()
-		rootLog.Info().Str("tag", "SYSTEM").Uint32("build", capture.WindowsBuild()).Msgf("截屏 auto: 选中 %s", method)
-	}
-	switch method {
-	case "wgc":
-		if err := capture.SetBackend(capture.BackendWGC); err != nil {
-			rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("WGC 截屏初始化失败，回退到 GDI")
-			_ = capture.SetBackend(capture.BackendGDI)
-		} else {
-			rootLog.Info().Str("tag", "SYSTEM").Msg("截屏后端: WGC (Windows Graphics Capture)")
-		}
-	case "mock":
-		if err := capture.SetBackend(capture.BackendMock); err != nil {
-			rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("Mock 截屏初始化失败，回退到 GDI（mock-frames/ 目录里放 PNG 再切回 mock）")
-			_ = capture.SetBackend(capture.BackendGDI)
-		} else {
-			rootLog.Info().Str("tag", "SYSTEM").Msg("截屏后端: Mock (离线回放，不读游戏窗口)")
-		}
-	default:
-		_ = capture.SetBackend(capture.BackendGDI)
-		rootLog.Info().Str("tag", "SYSTEM").Msg("截屏后端: GDI (PrintWindow)")
-	}
-	// WGC 的 SetIsBorderRequired 等非致命 API 失败会写到 LastInitWarning，
-	// 这里读出来给用户看（黄框关不掉、cursor 抓帧关不掉等场景）。
-	// 注意：这个变量在第一次 openWGCSession 时才填，所以延迟到首次 detect 之后才有值。
-	// 想立即检查得在 SetBackend 时跑一次试探 session —— 暂时不做，等用户反馈再扩。
 
 	// Screenshot writer: 给 bot 异步落盘带标注 PNG 用，调试调参时打开 Capture.DumpDebug
 	// settings 在 debug/captures/<bot>/<date>/ 累积。默认关，写盘走独立 goroutine。

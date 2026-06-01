@@ -44,7 +44,7 @@ func (b *gdiBackend) ClientSize(hwnd win.HWND) (int, int, error) {
 	if !isWindow(hwnd) {
 		return 0, 0, errors.New("gdi.ClientSize: invalid hwnd")
 	}
-	return ClientSize(hwnd)
+	return winClientSize(hwnd)
 }
 
 func (b *gdiBackend) Close() error { return nil }

@@ -1,6 +1,5 @@
 // GDI backend: 用 PrintWindow(PW_RENDERFULLCONTENT) 抓客户区帧。
-// 调用方走 capture.Frame / FrameROI / NewCapturer 包级入口（backend.go），
-// active == BackendGDI 时分发到本文件里的 gdiFrame / gdiFrameROI / newGDICapturer。
+// gdi/wgc IBackend.ClientSize 走 winClientSize (纯 GetClientRect, 不经全局分发).
 package capture
 
 import (
@@ -201,11 +200,8 @@ func gdiFrameROI(hwnd win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error)
 	return img, nil
 }
 
-// ClientSize 返回客户区像素尺寸。mock backend 下走 mock 帧的尺寸，省得用户开游戏。
-func ClientSize(hwnd win.HWND) (int, int, error) {
-	if active == BackendMock {
-		return mockClientSize(hwnd)
-	}
+// winClientSize 纯 GetClientRect 客户区像素尺寸 (真窗口). gdi/wgc IBackend.ClientSize 用.
+func winClientSize(hwnd win.HWND) (int, int, error) {
 	var r win.RECT
 	if !win.GetClientRect(hwnd, &r) {
 		return 0, 0, fmt.Errorf("GetClientRect 失败")

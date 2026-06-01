@@ -46,7 +46,7 @@ func (b *mockBackend) ClientSize(hwnd win.HWND) (int, int, error) {
 	if !isWindow(hwnd) {
 		return 0, 0, errors.New("mock.ClientSize: invalid hwnd")
 	}
-	return ClientSize(hwnd)
+	return mockClientSize(hwnd)
 }
 
 func (b *mockBackend) Close() error { return nil }

@@ -25,7 +25,7 @@ import (
 	"github.com/lxn/win"
 
 	"yhbox/internal/services/inputclip"
-	"yhbox/pkg/capture"
+	"yhbox/pkg/winutil"
 )
 
 // StopResult Recorder.Stop 输出. Service 层据此分流:
@@ -140,7 +140,7 @@ func (r *Recorder) Start(gameHwnd win.HWND, meta inputclip.ClipMeta) (string, er
 		r.mu.Unlock()
 		return "", errors.New("recorder already active")
 	}
-	w, h, err := capture.ClientSize(gameHwnd)
+	w, h, err := winutil.ClientSize(gameHwnd)
 	if err != nil {
 		r.mu.Unlock()
 		return "", fmt.Errorf("ClientSize: %w", err)

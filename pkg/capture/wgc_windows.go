@@ -127,13 +127,6 @@ func openWGCSession(hwnd win.HWND) (*wgcSession, error) {
 	if r == 0 {
 		return nil, fmt.Errorf("wgc_session_open: %s", dllLastError())
 	}
-	// session_open 即使主流程成功，SetIsBorderRequired / SetIsCursorCaptureEnabled
-	// 可能在 Win10 老版本上返回 Err 被 rust 端记到 last_err。这里读出来挂到包级
-	// LastInitWarning，main.go 启动期检查并通过 zerolog 写到日志面板，方便诊断
-	// "黄框为何关不掉"。
-	if extra := dllLastError(); extra != "" && LastInitWarning == "" {
-		LastInitWarning = extra
-	}
 	return &wgcSession{
 		sid:    uint64(r),
 		hwnd:   hwnd,

@@ -9,13 +9,24 @@ import (
 	"github.com/lxn/win"
 )
 
+// Capturer 是高频抓多 ROI 的会话句柄。GDI/WGC 各自实现。
+//
+// 调用约定：
+//   - Frame() 必须串行调用（同一 capturer 内不并发）
+//   - Close() 可从任意 goroutine 调用，重复调用安全
+//   - 返回的 imgs[i].Pix 是 capturer 内部复用 buffer，下次 Frame 会被覆盖
+type Capturer interface {
+	Frame() ([]*image.RGBA, error)
+	Close() error
+}
+
 // gdiCapturer 是 BackendGDI 下的 Capturer 实现：持有可复用的 GDI 资源
 // (full-window hbm) 和 N 个 ROI-size *image.RGBA buffer，给 rhythm 这种
 // 120Hz 高频抓多 ROI 的场景用，稳态运行不再 alloc 全窗口 RGBA。
 //
 // ROI 用客户区坐标。内部 ClientToScreen 算偏移翻成 hbm 全窗口索引。
 //
-// 调用方走包级 capture.NewCapturer(hwnd, rois)，拿到的是 Capturer interface；
+// 调用方走 NewCapturer(hwnd, rois)，拿到的是 Capturer interface；
 // 这个 struct 不导出。
 type gdiCapturer struct {
 	hwnd win.HWND
@@ -225,4 +236,10 @@ func (c *gdiCapturer) Frame() ([]*image.RGBA, error) {
 		}
 	}
 	return c.imgs, nil
+}
+
+// NewCapturer 创建高频多 ROI 会话 (GDI). 失败返回错误（窗口尺寸异常、ROI 越界等）.
+// 高频 QTE 路径 (rhythm 等) 用; 低频单帧路径走 IBackend.Frame.
+func NewCapturer(hwnd win.HWND, rois []image.Rectangle) (Capturer, error) {
+	return newGDICapturer(hwnd, rois)
 }
