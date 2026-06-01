@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	jsonpatch "github.com/evanphx/json-patch/v5"
+
+	"yhbox/pkg/winutil"
 )
 
 // Runner Container 运行入口。main.go 注入：把 RunOnce 转成"enqueue 单 target run"。
@@ -307,4 +309,14 @@ func (s *Service) SyncLocalMouseCalibration(newCounts int) (SyncMouseCalibration
 		s.emitChange()
 	}
 	return res, err
+}
+
+// ResolveWindow 按 containerID 的 WindowTarget 节点解析目标窗口. 制作工具(截模板/取色/HUD)用.
+// 容器不存在 / 无 WindowTarget / 窗口没开 → error.
+func (s *Service) ResolveWindow(containerID string) (winutil.WindowHandle, error) {
+	c, ok := s.store.Get(containerID)
+	if !ok {
+		return winutil.WindowHandle{}, fmt.Errorf("container %q not found", containerID)
+	}
+	return ResolveWindowTarget(&c, 3*time.Second, 500*time.Millisecond)
 }
