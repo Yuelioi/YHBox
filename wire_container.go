@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lxn/win"
 	"golang.org/x/sync/singleflight"
 
 	"yhbox/internal/hotkey"
@@ -23,15 +22,8 @@ import (
 	"yhbox/internal/services/execution"
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/template"
-	"yhbox/pkg/capture"
 	"yhbox/pkg/vision"
 )
-
-// frameCacheTTL: 同 hwnd 100ms 内复用一帧，避免 IDLE 一轮 3 个 CheckTemplate 各
-// 跑一次 capture.Frame (1080p 5-30ms × 3). 100ms 是 fishing v2 主循环 Sleep 下限,
-// state machine 单 iter 内的多次 Detect 全部命中缓存; 跨 iter 之间 (Sleep ≥ 100ms)
-// 会自然 miss → 重新抓帧.
-const frameCacheTTL = 100 * time.Millisecond
 
 // roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余 (1:1 fish bot constants.roiPaddingPx).
 // 角色/UI 轻微抖动 icon 偏出 BBox 时, padding 给 NCC search 余量.
@@ -58,31 +50,6 @@ func clamp01Bound(w, x float64) float64 {
 	return w
 }
 
-type frameCacheEntry struct {
-	frame *image.RGBA
-	ts    time.Time
-}
-
-// captureFrameCached 同 hwnd 100ms TTL 内复用. 不同 hwnd 互不影响 (key 含 hwnd).
-func captureFrameCached(mu *sync.Mutex, entries map[uintptr]frameCacheEntry, hwnd uintptr) (*image.RGBA, error) {
-	mu.Lock()
-	ent, ok := entries[hwnd]
-	if ok && time.Since(ent.ts) < frameCacheTTL {
-		mu.Unlock()
-		return ent.frame, nil
-	}
-	mu.Unlock()
-
-	frame, err := capture.Frame(win.HWND(hwnd))
-	if err != nil {
-		return nil, err
-	}
-	mu.Lock()
-	entries[hwnd] = frameCacheEntry{frame: frame, ts: time.Now()}
-	mu.Unlock()
-	return frame, nil
-}
-
 // ---- TemplateMatcher: 接 pkg/vision + template store + capture ----
 //
 // 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用:
@@ -101,9 +68,6 @@ type templateMatcherAdapter struct {
 	loadCache sync.Map                   // "containerID:key:WxH" → *vision.Template
 	loadSF    singleflight.Group
 
-	fcMu      sync.Mutex
-	fcEntries map[uintptr]frameCacheEntry // hwnd → 最近一帧
-
 	// emit: 投递前端事件 (e.g. App.Emit). 测试可传 nil 跳过.
 	emit func(eventName string, payload map[string]any)
 
@@ -115,11 +79,10 @@ type templateMatcherAdapter struct {
 
 func newTemplateMatcherAdapter(dataRoot string, emit func(string, map[string]any)) *templateMatcherAdapter {
 	return &templateMatcherAdapter{
-		dataRoot:  dataRoot,
-		stores:    map[string]*template.Store{},
-		fcEntries: map[uintptr]frameCacheEntry{},
-		emit:      emit,
-		throttle:  map[string]int64{},
+		dataRoot: dataRoot,
+		stores:   map[string]*template.Store{},
+		emit:     emit,
+		throttle: map[string]int64{},
 	}
 }
 
@@ -203,13 +166,9 @@ func (m *templateMatcherAdapter) loadVariantTemplate(containerID, key string, re
 	return v.(*vision.Template), nil
 }
 
-func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, hwnd uintptr, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
-	if hwnd == 0 {
+func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, frame *image.RGBA, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
+	if frame == nil {
 		return false, expr.Point{}, [4]float64{}, nil
-	}
-	frame, err := captureFrameCached(&m.fcMu, m.fcEntries, hwnd)
-	if err != nil {
-		return false, expr.Point{}, [4]float64{}, fmt.Errorf("capture.Frame: %w", err)
 	}
 	frameW := frame.Bounds().Dx()
 	frameH := frame.Bounds().Dy()

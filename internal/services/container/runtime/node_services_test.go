@@ -250,7 +250,7 @@ type stubMatcher struct {
 	pt    expr.Point
 }
 
-func (m stubMatcher) Detect(_ context.Context, _ string, _ uintptr, _ string, _ float64, _ []float64) (bool, expr.Point, [4]float64, error) {
+func (m stubMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, _ string, _ float64, _ []float64) (bool, expr.Point, [4]float64, error) {
 	return m.found, m.pt, [4]float64{}, nil
 }
 

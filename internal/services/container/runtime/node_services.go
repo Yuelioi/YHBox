@@ -492,10 +492,18 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold 
 // matchOnce 单帧多模板判定. mode="all": 全部 key 同帧命中才算命中 (点取首个 key); 否则 "any":
 // 按列表序取首个命中. 写 SysState.LastFound/LastPoint (整体命中与否 + 命中点).
 func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
+	var frame *image.RGBA
+	if a.rt.Capture != nil {
+		f, err := a.rt.CaptureFrameCached(a.rt.Window.HWND)
+		if err != nil {
+			return nil, 0, err
+		}
+		frame = f
+	}
 	if mode == "all" {
 		var firstPt expr.Point
 		for idx, key := range keys {
-			found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
+			found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -512,7 +520,7 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 	}
 	// any (默认)
 	for _, key := range keys {
-		found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), a.rt.Window.HWND, key, threshold, nil)
+		found, pt, _, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
 		if err != nil {
 			return nil, 0, err
 		}

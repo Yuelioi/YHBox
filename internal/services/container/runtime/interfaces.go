@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"image"
 
 	"yhbox/internal/services/expr"
 	"yhbox/internal/services/inputclip"
@@ -14,18 +15,18 @@ type ClipResolver interface {
 
 // TemplateMatcher Wait/Check/ClickTemplate 节点用。注入实现见 main.go 适配器。
 // v2.1 加 containerID — 模板按容器隔离, 每容器自己的 templates/ 目录.
-// ctx 用于 timeout/cancel, hwnd 从 rt.Window.HWND 拿.
+// ctx 用于 timeout/cancel, frame 由 caller 抓好传入.
 type TemplateMatcher interface {
-	// Detect 单次检测。region [r,r,r,r]（0..1 比例），nil → 全屏。
-	// containerID 用于定位该容器的模板目录. hwnd 0 表示 noop.
-	// 返 found + 命中位置（屏幕比例坐标）+ 命中 region。
-	Detect(ctx context.Context, containerID string, hwnd uintptr, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
+	// Detect 单次检测. frame 由 caller 抓好传入 (nil → 无帧, 返 false).
+	// region [r,r,r,r]（0..1 比例），nil → 全屏. containerID 定位模板目录.
+	// 返 found + 命中位置（屏幕比例坐标）+ 命中 region.
+	Detect(ctx context.Context, containerID string, frame *image.RGBA, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
 }
 
 // NoopMatcher：测试 + 启动前没注入实现时的默认。
 type NoopMatcher struct{}
 
-func (NoopMatcher) Detect(ctx context.Context, containerID string, hwnd uintptr, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
+func (NoopMatcher) Detect(ctx context.Context, containerID string, frame *image.RGBA, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
 	return false, expr.Point{}, [4]float64{}, nil
 }
 

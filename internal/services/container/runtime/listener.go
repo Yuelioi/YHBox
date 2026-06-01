@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"image"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -131,9 +132,16 @@ func (l *EventListener) detectFired(ctx context.Context) bool {
 		return false
 	}
 	rt := l.runner.rt
+	var frame *image.RGBA
+	if rt.Capture != nil {
+		f, err := rt.CaptureFrameCached(rt.Window.HWND)
+		if err == nil {
+			frame = f
+		}
+	}
 	if l.matchMode == "all" {
 		for _, key := range l.templates {
-			found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, rt.Window.HWND, key, l.threshold, nil)
+			found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, frame, key, l.threshold, nil)
 			if err != nil || !found {
 				return false
 			}
@@ -141,7 +149,7 @@ func (l *EventListener) detectFired(ctx context.Context) bool {
 		return true
 	}
 	for _, key := range l.templates {
-		found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, rt.Window.HWND, key, l.threshold, nil)
+		found, _, _, err := rt.Matcher.Detect(ctx, rt.Container.ID, frame, key, l.threshold, nil)
 		if err == nil && found {
 			return true
 		}
