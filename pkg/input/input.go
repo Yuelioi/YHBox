@@ -248,12 +248,6 @@ func KeyUp(hwnd win.HWND, key string) bool {
 	return true
 }
 
-// ReleaseAll 释放溜鱼用到的 A/D 键。
-func ReleaseAll(hwnd win.HWND) {
-	KeyUp(hwnd, "a")
-	KeyUp(hwnd, "d")
-}
-
 // makeLParam 把客户区坐标编码进 LPARAM：低 16 位 = x，高 16 位 = y
 func makeLParam(x, y int32) uintptr {
 	return uintptr(uint32(uint16(x)) | uint32(uint16(y))<<16)

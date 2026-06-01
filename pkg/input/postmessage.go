@@ -221,8 +221,6 @@ func (b *PostMessageBackend) ReleaseAll() error {
 		for _, bb := range btns {
 			MouseBtnUp(h, 0, 0, pickButton(bb))
 		}
-		// input.ReleaseAll 是 hwnd-scoped 大杀器 — 清残留
-		ReleaseAll(h)
 	}
 	return nil
 }
