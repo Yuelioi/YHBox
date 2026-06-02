@@ -1,7 +1,7 @@
 package container
 
 import (
-	"yhbox/internal/services/expr"
+	"yotta/internal/services/expr"
 )
 
 // validateExprNodes scans main + subgraph graphs for Expr kind nodes, validates:

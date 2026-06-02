@@ -16,10 +16,10 @@ import (
 	"fmt"
 	"maps"
 
-	nodepkg "yhbox/internal/node"
-	"yhbox/internal/nodes/control"
-	"yhbox/internal/nodes/system"
-	"yhbox/internal/services/container"
+	nodepkg "yotta/internal/node"
+	"yotta/internal/nodes/control"
+	"yotta/internal/nodes/system"
+	"yotta/internal/services/container"
 )
 
 // execNodeViaFramework dispatch 单节点 via framework. 返下游 token 或 error.

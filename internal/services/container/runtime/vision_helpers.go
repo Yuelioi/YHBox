@@ -3,7 +3,7 @@ package runtime
 import (
 	"image"
 
-	"yhbox/pkg/vision"
+	"yotta/pkg/vision"
 )
 
 // Vision helpers shared by node_services.go's VisionAdapter (DetectColorHSV /

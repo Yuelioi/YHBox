@@ -3,7 +3,7 @@ package main
 import (
 	"path/filepath"
 
-	"yhbox/internal/services/inputclip"
+	"yotta/internal/services/inputclip"
 )
 
 // newInputClipServices 构造 container 级 + library 级 InputClip Service.

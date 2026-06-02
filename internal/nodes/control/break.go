@@ -3,7 +3,7 @@
 // Returns errBreakRequested; the enclosing Loop region catches it.
 package control
 
-import "yhbox/internal/node"
+import "yotta/internal/node"
 
 func init() { node.Register(&Break{}) }
 

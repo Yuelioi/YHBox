@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // IsPureData spec flag 校验.

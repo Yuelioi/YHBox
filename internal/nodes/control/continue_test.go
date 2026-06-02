@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestContinue_ReturnsSentinel(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&MouseMoveTo{}) }

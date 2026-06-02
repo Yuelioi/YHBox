@@ -67,7 +67,7 @@ import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 
 const { t } = useI18n()
 
-const EXPANDED_KEY = 'yhfish.explorer.expanded'
+const EXPANDED_KEY = 'yotta.explorer.expanded'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{

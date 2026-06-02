@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestThrow_ReturnsThrowErrorWithMessage(t *testing.T) {

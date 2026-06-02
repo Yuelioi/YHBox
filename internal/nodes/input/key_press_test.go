@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // recordingInput 实现 node.InputService, 把每次调用 append 到 calls.

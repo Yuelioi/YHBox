@@ -9,7 +9,7 @@ import (
 	"sort"
 	"sync"
 
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 // Store 库存储 (library/). 内部仅 subgraphs/<sgid>/ package 目录, 顶级无 templates/clips.

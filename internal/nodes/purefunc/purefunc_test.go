@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestSpecBuilder_HasResultOutput(t *testing.T) {

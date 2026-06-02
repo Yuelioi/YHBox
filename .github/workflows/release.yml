@@ -54,9 +54,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: YHBox ${{ github.ref_name }}
+          name: Yotta ${{ github.ref_name }}
           body: |
-            ## YHBox ${{ github.ref_name }}
+            ## Yotta ${{ github.ref_name }}
 
             Windows 后台游戏自动化（Wails 3 + Vue 3）：
             - 🎣 钓鱼：全自动 + 售卖 + 补饵
@@ -66,12 +66,12 @@ jobs:
             - ⚔️ 战斗：Ctrl+Shift+1~6 全局热键切队伍
 
             ### 使用方法
-            1. 下载 `YHBox.exe`，双击运行
+            1. 下载 `Yotta.exe`，双击运行
             2. UAC 弹窗点"是"
             3. GUI 选 tab → 配置 → 开始
 
             设置存到 exe 同目录 `settings.json`。
-          files: bin/YHBox.exe
+          files: bin/Yotta.exe
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}

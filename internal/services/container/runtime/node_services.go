@@ -21,10 +21,10 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
-	"yhbox/internal/node"
-	"yhbox/internal/services/expr"
-	clipruntime "yhbox/internal/services/inputclip/runtime"
-	"yhbox/pkg/vision"
+	"yotta/internal/node"
+	"yotta/internal/services/expr"
+	clipruntime "yotta/internal/services/inputclip/runtime"
+	"yotta/pkg/vision"
 )
 
 // ============================================================================

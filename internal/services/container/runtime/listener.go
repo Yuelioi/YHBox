@@ -9,7 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 // EventListener 单 OnEvent 节点配套的监听 goroutine。

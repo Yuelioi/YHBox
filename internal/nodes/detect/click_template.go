@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&ClickTemplate{}) }

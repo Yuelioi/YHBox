@@ -9,7 +9,7 @@ package system
 import (
 	"fmt"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&Try{}) }

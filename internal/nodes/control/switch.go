@@ -12,7 +12,7 @@ package control
 import (
 	"fmt"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&Switch{}) }

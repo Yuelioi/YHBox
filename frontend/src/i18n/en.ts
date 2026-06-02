@@ -5,11 +5,6 @@ export default {
     collapse: 'Collapse',
     collapse_tip: 'Collapse sidebar',
     expand_tip: 'Expand sidebar',
-    fish: 'Fishing',
-    cook: 'Cooking',
-    piano: 'Piano',
-    battle: 'Battle',
-    rhythm: 'Rhythm',
     actions: 'Actions',
     tasks: 'Tasks',
     containers: 'Containers',
@@ -44,7 +39,7 @@ export default {
       section_title: 'Startup & Close',
       autostart_label: 'Auto-start on login',
       autostart_hint:
-        'Start YHBox after Windows login. Writes registry HKCU\\...\\Run\\YHBox, no admin needed.',
+        'Start Yotta after Windows login. Writes registry HKCU\\...\\Run\\Yotta, no admin needed.',
       tray_label: 'Close minimizes to tray',
       tray_hint:
         'Clicking close (×) hides to system tray instead of exiting. Right-click tray icon to force quit.',
@@ -1201,7 +1196,7 @@ export default {
     header_title: 'Log',
     count: '{n} lines',
     has_errors: 'has errors',
-    write_file_tooltip_on: 'Writing to {dir}/yhfish-*.log',
+    write_file_tooltip_on: 'Writing to {dir}/yotta-*.log',
     write_file_tooltip_off: 'Not writing to file',
     empty: 'No logs.',
     popover: {
@@ -1859,7 +1854,7 @@ export default {
     input_calibration: 'Input calibration',
   },
   about: {
-    tagline: 'YHFish desktop game automation toolkit.',
+    tagline: 'Compose nodes. Run automatically.',
     section_author: 'Author · Links',
     label_author: 'Author',
     label_source: 'Source',

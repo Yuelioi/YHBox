@@ -6,7 +6,7 @@ NodeCard — 节点 canvas 视觉. 多 exec 出口 + Data 字段 hover tooltip.
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Spec, DataField } from '@bindings/yhbox/internal/node'
+import type { Spec, DataField } from '@bindings/yotta/internal/node'
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 
 const { t, te } = useI18n()

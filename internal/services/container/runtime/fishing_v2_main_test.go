@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
 )
 
 func loadFishingV2Main(t *testing.T) *container.Container {

@@ -5,10 +5,10 @@
 	"info": {
 		"0000": {
 			"ProductVersion": "2.0.0",
-			"CompanyName": "YHBox",
-			"FileDescription": "异环工具箱 — 钓鱼 / 店长 / 弹琴 / 战斗",
-			"LegalCopyright": "(c) 2026 YHBox",
-			"ProductName": "YHBox",
+			"CompanyName": "Yotta",
+			"FileDescription": "节点编排，自动执行",
+			"LegalCopyright": "(c) 2026 Yotta",
+			"ProductName": "Yotta",
 			"Comments": "Wails 3 + Vue 3 + NuxtUI v4"
 		}
 	}

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
 )
 
 // TestV4_FishingV2Proto_StateMachine validates framework expressiveness for the

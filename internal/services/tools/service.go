@@ -10,8 +10,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yhbox/internal/apperr"
-	"yhbox/pkg/winutil"
+	"yotta/internal/apperr"
+	"yotta/pkg/winutil"
 )
 
 // WindowResolver 由 main.go 注入 (concrete *container.Service)，按 containerID 解析目标窗口。
@@ -173,7 +173,7 @@ func (s *Service) OpenMouseHUD(containerID string) error {
 }
 
 // OpenRecordingHUD 打开录制控制悬浮窗 — 实心盒子窗 frameless + AlwaysOnTop (跟校准窗同风格).
-// 内容: 标题栏(X) / 大号 REC 计时 + 模式 / 暂停·继续·停止按钮 + 热键 hint. 解决 "录制时切回 YHBox 不方便" 痛点.
+// 内容: 标题栏(X) / 大号 REC 计时 + 模式 / 暂停·继续·停止按钮 + 热键 hint. 解决 "录制时切回 Yotta 不方便" 痛点.
 // 已开则 focus. 用户关闭窗口 / 录制结束都触发自动关.
 func (s *Service) OpenRecordingHUD() error {
 	app := s.wailsApp()

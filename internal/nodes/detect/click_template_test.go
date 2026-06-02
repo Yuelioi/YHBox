@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // recordingInput 实现 InputService — ClickTemplate 测试用. detect 包内仅 ClickTemplate

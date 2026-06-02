@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	"yhbox/internal/services/expr"
+	"yotta/internal/services/expr"
 )
 
 // TickSnapshot is a frozen view of rt.vars + rt.sys captured at execNode entry.

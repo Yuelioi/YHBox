@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/container/dependency"
+	"yotta/internal/services/container"
+	"yotta/internal/services/container/dependency"
 )
 
 func TestImportToContainer_Clean(t *testing.T) {

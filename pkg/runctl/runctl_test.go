@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// 简单测试 mock Control 实现行为正确（实际 GUI 实现在 cmd/yhbox/gui/control.go）。
+// 简单测试 mock Control 实现行为正确（实际 GUI 实现在 cmd/yotta/gui/control.go）。
 // 这里给一个 mock 验证 interface 契约。
 
 type mockCtrl struct {

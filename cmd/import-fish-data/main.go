@@ -23,8 +23,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 
-	"yhbox/internal/services/container"
-	templatepkg "yhbox/internal/services/template"
+	"yotta/internal/services/container"
+	templatepkg "yotta/internal/services/template"
 )
 
 const (

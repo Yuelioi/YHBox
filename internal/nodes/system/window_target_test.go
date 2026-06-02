@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestWindowTarget_Passthrough(t *testing.T) {

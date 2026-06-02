@@ -2,7 +2,7 @@
 package main
 
 import (
-	"yhbox/internal/hotkey"
+	"yotta/internal/hotkey"
 )
 
 // ---- Schedule HotkeyRegistrar: *hotkey.HotkeyRegistry → schedule.HotkeyRegistrar ----

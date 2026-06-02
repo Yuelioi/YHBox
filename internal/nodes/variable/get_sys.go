@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"yhbox/internal/node"
-	"yhbox/internal/services/container/sys"
+	"yotta/internal/node"
+	"yotta/internal/services/container/sys"
 )
 
 func init() { node.Register(&GetSys{}) }

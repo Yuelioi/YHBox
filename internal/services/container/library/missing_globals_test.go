@@ -3,7 +3,7 @@ package library
 import (
 	"testing"
 
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 func TestComputeMissingGlobals_AllMissing(t *testing.T) {

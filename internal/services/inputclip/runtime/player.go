@@ -18,8 +18,8 @@ import (
 	"sort"
 	"sync"
 
-	"yhbox/internal/services/inputclip"
-	"yhbox/internal/services/inputclip/backends"
+	"yotta/internal/services/inputclip"
+	"yotta/internal/services/inputclip/backends"
 )
 
 // ErrCancelled ClipPlayer 因 Cancel() 或 ctx 取消而终止 Wait() 返这个.

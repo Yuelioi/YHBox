@@ -1,10 +1,10 @@
 package main
 
 import (
-	"yhbox/internal/hotkey"
-	"yhbox/internal/services"
-	"yhbox/internal/services/inputclip"
-	"yhbox/internal/services/recording"
+	"yotta/internal/hotkey"
+	"yotta/internal/services"
+	"yotta/internal/services/inputclip"
+	"yotta/internal/services/recording"
 )
 
 // recordingHkAdapter 拿停录/暂停热键 VK (读 hotkey registry) + mouseMode (读 settings)。

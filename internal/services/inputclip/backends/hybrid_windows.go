@@ -18,8 +18,8 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/internal/services/inputclip"
-	"yhbox/pkg/input"
+	"yotta/internal/services/inputclip"
+	"yotta/pkg/input"
 )
 
 // Win32 INPUT 常量.

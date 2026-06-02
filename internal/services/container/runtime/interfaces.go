@@ -4,8 +4,8 @@ import (
 	"context"
 	"image"
 
-	"yhbox/internal/services/expr"
-	"yhbox/internal/services/inputclip"
+	"yotta/internal/services/expr"
+	"yotta/internal/services/inputclip"
 )
 
 // ClipResolver PlayClip 节点用: clipID → InputClip. main.go 注入 inputclip.Service 适配.

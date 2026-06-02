@@ -17,12 +17,12 @@ import (
 
 const (
 	autostartRegPath = `Software\Microsoft\Windows\CurrentVersion\Run`
-	autostartRegName = "YHBox"
+	autostartRegName = "Yotta"
 )
 
 // ApplyAutostart 写或删 HKCU Run 表项。
 //   - enabled=true：写入当前 exe 的绝对路径（外加 "" 包起来，路径带空格也安全）
-//   - enabled=false：删除 YHBox 子键（不存在也不报错）
+//   - enabled=false：删除 Yotta 子键（不存在也不报错）
 func ApplyAutostart(enabled bool) error {
 	if !enabled {
 		k, err := registry.OpenKey(registry.CURRENT_USER, autostartRegPath, registry.SET_VALUE)

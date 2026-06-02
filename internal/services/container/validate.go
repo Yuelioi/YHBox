@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	nodepkg "yhbox/internal/node"
+	nodepkg "yotta/internal/node"
 )
 
 var varNameRE = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)

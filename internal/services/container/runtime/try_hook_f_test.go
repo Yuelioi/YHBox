@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
 )
 
 func loadTryHookF(t *testing.T) container.Subgraph {

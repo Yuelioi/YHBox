@@ -7,7 +7,7 @@
           <UIcon name="i-tabler-info-circle" class="size-9 text-muted" />
         </div>
         <h2 class="text-lg font-semibold text-highlighted mb-2">
-          {{ info?.name ?? 'YHBox' }}
+          {{ info?.name ?? 'Yotta' }}
           <span class="text-muted font-normal ml-1">v{{ info?.version ?? '...' }}</span>
         </h2>
         <p class="text-sm text-muted leading-relaxed max-w-sm">

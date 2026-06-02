@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"time"
 
-	"yhbox/internal/node"
-	"yhbox/pkg/vision"
+	"yotta/internal/node"
+	"yotta/pkg/vision"
 )
 
 func init() {

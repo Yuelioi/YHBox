@@ -10,7 +10,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"yhbox/internal/services/execution"
+	"yotta/internal/services/execution"
 )
 
 // HotkeyRegistrar 由 main.go 注入 services.HotkeyRegistry 适配。

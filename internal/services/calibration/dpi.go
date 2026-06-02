@@ -247,7 +247,7 @@ func ensureClass() error {
 	if wndProcCallback == 0 {
 		wndProcCallback = syscall.NewCallback(wndProc)
 	}
-	className, _ := syscall.UTF16PtrFromString("YHBoxCalibrationWnd")
+	className, _ := syscall.UTF16PtrFromString("YottaCalibrationWnd")
 	hInst, _, _ := procGetModuleHandleW.Call(0)
 	wc := wndclassex{
 		Size:      uint32(unsafe.Sizeof(wndclassex{})),
@@ -267,7 +267,7 @@ func makeWindow() (syscall.Handle, error) {
 	if err := ensureClass(); err != nil {
 		return 0, err
 	}
-	className, _ := syscall.UTF16PtrFromString("YHBoxCalibrationWnd")
+	className, _ := syscall.UTF16PtrFromString("YottaCalibrationWnd")
 	hInst, _, _ := procGetModuleHandleW.Call(0)
 	h, _, callErr := procCreateWindowExW.Call(
 		0,

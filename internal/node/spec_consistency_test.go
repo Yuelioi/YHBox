@@ -5,17 +5,17 @@ import (
 	"testing"
 	"unicode"
 
-	nodepkg "yhbox/internal/node"
+	nodepkg "yotta/internal/node"
 
 	// 触发所有节点 init().
-	_ "yhbox/internal/nodes/control"
-	_ "yhbox/internal/nodes/detect"
-	_ "yhbox/internal/nodes/input"
-	_ "yhbox/internal/nodes/io"
-	_ "yhbox/internal/nodes/purefunc"
-	_ "yhbox/internal/nodes/stopwatch"
-	_ "yhbox/internal/nodes/system"
-	_ "yhbox/internal/nodes/variable"
+	_ "yotta/internal/nodes/control"
+	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/input"
+	_ "yotta/internal/nodes/io"
+	_ "yotta/internal/nodes/purefunc"
+	_ "yotta/internal/nodes/stopwatch"
+	_ "yotta/internal/nodes/system"
+	_ "yotta/internal/nodes/variable"
 )
 
 // lint — 守护 node-spec 风格约定. 任何节点新加 / 改 Spec 违反这些规则 → fail.

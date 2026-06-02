@@ -3,7 +3,7 @@
 // 实现: body() 调一次 → Done 出口.
 package system
 
-import "yhbox/internal/node"
+import "yotta/internal/node"
 
 func init() { node.Register(&CollapsedNode{}) }
 

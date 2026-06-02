@@ -8,7 +8,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 // containerWindowAdapter 给每个 containerID 开一个独立 Frameless 子窗口。

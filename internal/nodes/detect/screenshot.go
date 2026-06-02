@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&Screenshot{}) }
@@ -129,10 +129,10 @@ func expandScreenshotTemplate(tmpl, nodeID, containerID string, now time.Time) s
 }
 
 // screenshotOutputRoot 写盘根 = <dataDir>/screenshots. screenshots/ 这层节点内置,
-// 用户的 pathTemplate 只填文件名 (默认 {ts}.png). 生产 main.go 设 YHBOX_DATA_DIR
+// 用户的 pathTemplate 只填文件名 (默认 {ts}.png). 生产 main.go 设 YOTTA_DATA_DIR
 // 为绝对 dataDir; 兜底相对 "bin/data".
 func screenshotOutputRoot() string {
-	base := os.Getenv("YHBOX_DATA_DIR")
+	base := os.Getenv("YOTTA_DATA_DIR")
 	if base == "" {
 		base = filepath.Join("bin", "data")
 	}

@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // specBuilder 构造单 Result 数据出口的 pure-data Spec. pin name 用 PascalCase.

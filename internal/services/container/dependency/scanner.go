@@ -3,7 +3,7 @@ package dependency
 import (
 	"fmt"
 
-	nodepkg "yhbox/internal/node"
+	nodepkg "yotta/internal/node"
 )
 
 // NodeInfo 节点的最小描述, 供 ScanSubgraphDependencies 迭代. 跟 container.GraphNode 解耦

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"yhbox/pkg/locale"
+	"yotta/pkg/locale"
 )
 
 // settingsFileName / settingsFilePath 跟 walk 时代保持兼容：exe 同目录的 settings.json。
@@ -36,7 +36,7 @@ type Settings struct {
 //   - "wgc": Windows Graphics Capture（Win10 1903+），后台抓帧稳定，
 //     依赖 bin/capture_wgc.dll；Win10 上有黄框关不掉
 //   - "mock": 从磁盘 PNG 序列回放（调试用），需把帧放进 bin/mock-frames/
-//     或设置环境变量 YHBOX_MOCK_DIR 指向目录
+//     或设置环境变量 YOTTA_MOCK_DIR 指向目录
 type CaptureSettings struct {
 	Method    string `json:"method"`    // "auto" | "gdi" | "wgc" | "mock"
 	DumpDebug bool   `json:"dumpDebug"` // bot detect 关键路径 dump 带框 PNG 到 bin/captures/，调试用

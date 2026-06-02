@@ -11,7 +11,7 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/pkg/winutil"
+	"yotta/pkg/winutil"
 )
 
 // captureSession 一次 capture 调用的状态. 同时只能有一个.

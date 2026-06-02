@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&Loop{}) }

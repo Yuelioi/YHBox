@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 // DetectColorHSV Outputs 行为由 internal/nodes/detect/detect_color_hsv_test.go 覆盖.

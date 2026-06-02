@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // ResolveGeometry 把 Geometry (pct + overrides) 按当前帧尺寸还原成像素 ROI.

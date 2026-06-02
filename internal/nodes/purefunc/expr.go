@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"sync"
 
-	"yhbox/internal/node"
-	"yhbox/internal/services/expr"
+	"yotta/internal/node"
+	"yotta/internal/services/expr"
 )
 
 func init() { node.Register(&Expr{}) }

@@ -17,12 +17,12 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"yhbox/internal/hotkey"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
-	"yhbox/internal/services/template"
-	"yhbox/pkg/vision"
+	"yotta/internal/hotkey"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
+	"yotta/internal/services/template"
+	"yotta/pkg/vision"
 )
 
 // roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余.

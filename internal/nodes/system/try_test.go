@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestTry_RunRegion_BodySucceedsThenNormal(t *testing.T) {

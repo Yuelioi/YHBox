@@ -4,7 +4,7 @@ package recording
 import (
 	"testing"
 
-	"yhbox/internal/services/inputclip"
+	"yotta/internal/services/inputclip"
 )
 
 const (

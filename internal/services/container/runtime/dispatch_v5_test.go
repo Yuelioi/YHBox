@@ -8,17 +8,17 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"yhbox/internal/node"
-	_ "yhbox/internal/nodes/control"   // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
-	_ "yhbox/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
-	_ "yhbox/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringWindowForeground / OnEvent
-	_ "yhbox/internal/nodes/io"        // Log / PlayClip
-	_ "yhbox/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
-	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
-	_ "yhbox/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
-	_ "yhbox/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam / GetSys
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
+	"yotta/internal/node"
+	_ "yotta/internal/nodes/control"   // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
+	_ "yotta/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
+	_ "yotta/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringWindowForeground / OnEvent
+	_ "yotta/internal/nodes/io"        // Log / PlayClip
+	_ "yotta/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
+	_ "yotta/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
+	_ "yotta/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
+	_ "yotta/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam / GetSys
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
 )
 
 // ============================================================================

@@ -9,10 +9,10 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
-	"yhbox/internal/node"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
+	"yotta/internal/node"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
 )
 
 // newAdapterTestRT 构造一个最小 RuntimeContext 供 adapter 测试用.

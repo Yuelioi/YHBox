@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // mockClipPlayer — 测试用 node.ClipPlayer. blockCtx=true 时阻塞到 ctx 取消 (模拟回放中途停).

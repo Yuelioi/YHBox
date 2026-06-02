@@ -1,6 +1,6 @@
-# YHBox — 异环工具箱
+# Yotta
 
-[![GitHub](https://img.shields.io/github/v/release/Yuelioi/YHBox)](https://github.com/Yuelioi/YHBox/releases)
+[![GitHub](https://img.shields.io/github/v/release/Yuelioi/Yotta)](https://github.com/Yuelioi/Yotta/releases)
 
 Windows 桌面工具，给《异环 / Neverness to Everness》提供后台自动化。**真后台**：不抢前台焦点、不动鼠标光标，挂机时可以正常用电脑写代码、看视频、刷网页。
 
@@ -18,7 +18,7 @@ Windows 桌面工具，给《异环 / Neverness to Everness》提供后台自动
 
 ## 快速开始
 
-下载 `YHBox.exe`，双击运行，UAC 弹窗点"是"。
+下载 `Yotta.exe`，双击运行，UAC 弹窗点"是"。
 
 - **侧栏选择 bot** → 点 `开始` / `暂停` / `停止`
 - **战斗** 启动全局热键后用 `Ctrl+Shift+1~6`（修饰键可换）切上阵队伍

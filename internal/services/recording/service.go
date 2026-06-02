@@ -8,10 +8,10 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/internal/apperr"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/inputclip"
-	"yhbox/pkg/winutil"
+	"yotta/internal/apperr"
+	"yotta/internal/services/container"
+	"yotta/internal/services/inputclip"
+	"yotta/pkg/winutil"
 )
 
 // HotkeySettingsProvider 给 Service 拿停录热键 VK + mouseMode.

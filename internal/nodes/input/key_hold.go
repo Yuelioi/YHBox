@@ -3,8 +3,8 @@ package input
 import (
 	"fmt"
 
-	"yhbox/internal/node"
-	pkginput "yhbox/pkg/input"
+	"yotta/internal/node"
+	pkginput "yotta/pkg/input"
 )
 
 func init() {

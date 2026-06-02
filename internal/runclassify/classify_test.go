@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"yhbox/internal/apperr"
-	"yhbox/internal/services/container"
+	"yotta/internal/apperr"
+	"yotta/internal/services/container"
 )
 
 func TestRunError_ValidationFailure(t *testing.T) {

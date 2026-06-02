@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestMouseHoldStart_HappyPath(t *testing.T) {

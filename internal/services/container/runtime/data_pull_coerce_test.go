@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	nodepkg "yhbox/internal/node"
-	"yhbox/internal/services/expr"
+	nodepkg "yotta/internal/node"
+	"yotta/internal/services/expr"
 )
 
 func TestCoerceToType_Rect(t *testing.T) {

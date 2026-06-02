@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&OnEvent{}) }

@@ -20,7 +20,7 @@
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import { __resetForTests, register } from './registry'
 import type { FieldSchema, NodeFieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
-import type { Spec, InputSpec, OutputSpec } from '@bindings/yhbox/internal/node'
+import type { Spec, InputSpec, OutputSpec } from '@bindings/yotta/internal/node'
 
 // Backend Category → FE NodeGroup. backend 用 TitleCase, FE 历史 lowercase + 'variables'.
 const GROUP_MAP: Record<string, NodeGroup> = {

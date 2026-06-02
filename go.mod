@@ -1,4 +1,4 @@
-module yhbox
+module yotta
 
 go 1.25.1
 

@@ -1,7 +1,7 @@
 // frontend/src/composables/editor/useSidebarPrefs.ts
 import { ref, watch } from 'vue'
 
-export const SIDEBAR_PREFS_KEY = 'yhfish.editor.sidebar'
+export const SIDEBAR_PREFS_KEY = 'yotta.editor.sidebar'
 
 export interface SidebarPrefs {
   leftSidebarCollapsed: boolean

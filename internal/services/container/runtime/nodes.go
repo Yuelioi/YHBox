@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	nodepkg "yhbox/internal/node"
-	"yhbox/internal/services/container"
+	nodepkg "yotta/internal/node"
+	"yotta/internal/services/container"
 )
 
 // execNode 单节点执行入口. 走 dispatchInRegion — 内部 route Loop/Subgraph/Try 等

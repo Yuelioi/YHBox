@@ -280,7 +280,7 @@ export function useRecording(opts: RecordOpts) {
     }
   }
 
-  // 窗口重新聚焦 → 跟后端对账录制状态. 这是 "切回 YHBox 自愈" 的核心: 录制中 F12/HUD 停了
+  // 窗口重新聚焦 → 跟后端对账录制状态. 这是 "切回 Yotta 自愈" 的核心: 录制中 F12/HUD 停了
   // 但 recording:state 事件没收到 (窗口在后台/race), 聚焦回来立即收敛, 不会卡 "录制中".
   function onWindowFocus() {
     void recordStore.reconcile()

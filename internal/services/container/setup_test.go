@@ -4,12 +4,12 @@ package container
 // pin-type 测试可以通过 nodepkg.Get(kind) 查到注册. 没这步, 测试里裸节点会被 validator
 // 报 INVALID_PIN / 等. 业务代码本身从 main.go 引各节点包.
 import (
-	_ "yhbox/internal/nodes/control"
-	_ "yhbox/internal/nodes/detect"
-	_ "yhbox/internal/nodes/input"
-	_ "yhbox/internal/nodes/io"
-	_ "yhbox/internal/nodes/purefunc"
-	_ "yhbox/internal/nodes/stopwatch"
-	_ "yhbox/internal/nodes/system"
-	_ "yhbox/internal/nodes/variable"
+	_ "yotta/internal/nodes/control"
+	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/input"
+	_ "yotta/internal/nodes/io"
+	_ "yotta/internal/nodes/purefunc"
+	_ "yotta/internal/nodes/stopwatch"
+	_ "yotta/internal/nodes/system"
+	_ "yotta/internal/nodes/variable"
 )

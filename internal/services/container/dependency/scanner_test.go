@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	// blank import 真节点 — scanner 现走 nodepkg.Get(kind).Dependencies, 不再有 fake Extractor.
-	_ "yhbox/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
-	_ "yhbox/internal/nodes/io"     // PlayClip
-	_ "yhbox/internal/nodes/system" // Subgraph / CollapsedNode / Try
+	_ "yotta/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
+	_ "yotta/internal/nodes/io"     // PlayClip
+	_ "yotta/internal/nodes/system" // Subgraph / CollapsedNode / Try
 )
 
 func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {

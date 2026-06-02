@@ -5,9 +5,9 @@ package runclassify
 import (
 	"errors"
 
-	"yhbox/internal/apperr"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
+	"yotta/internal/apperr"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
 )
 
 // RunError 把 run 失败 error 分类成结构化信封。nil error → nil。

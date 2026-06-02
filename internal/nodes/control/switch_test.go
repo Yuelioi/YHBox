@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // runSwitch 跑一个 Switch: cases (named-by-value 列表, 传 nil 表示无 cases),

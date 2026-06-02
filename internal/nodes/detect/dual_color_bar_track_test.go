@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // stubWindow 用于注 ClientSize 报 1920x1080. 跟 stubCapture 同款本地一份.

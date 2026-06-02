@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/container/dependency"
+	"yotta/internal/services/container"
+	"yotta/internal/services/container/dependency"
 )
 
 // ImportConflict 单条冲突信息. Kind 是 "subgraph" | "template" | "clip".

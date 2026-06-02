@@ -8,8 +8,8 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/internal/services/container"
-	"yhbox/pkg/capture"
+	"yotta/internal/services/container"
+	"yotta/pkg/capture"
 )
 
 // templateCaptureAdapter 实现 template.CaptureAdapter interface.

@@ -1,7 +1,7 @@
 // adapter.test.ts — 验证 deriveFields schema 透传行为 (D1 结构化输入基建).
 import { describe, it, expect } from 'vitest'
 import { deriveFields } from './adapter'
-import type { InputSpec } from '@bindings/yhbox/internal/node'
+import type { InputSpec } from '@bindings/yotta/internal/node'
 
 describe('deriveFields schema passthrough', () => {
   it('InputSpec.schema 透传到 FieldSchema.schema (object + fields)', () => {

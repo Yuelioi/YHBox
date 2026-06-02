@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/inputclip"
-	"yhbox/internal/services/inputclip/backends"
+	"yotta/internal/services/inputclip"
+	"yotta/internal/services/inputclip/backends"
 )
 
 // captureBackend mock 后端: 记录 Send 顺序 + 调用时点 (QPC us).

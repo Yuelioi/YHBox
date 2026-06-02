@@ -6,11 +6,11 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	pkgcapture "yhbox/pkg/capture"
-	pkginput "yhbox/pkg/input"
-	"yhbox/pkg/winutil"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	pkgcapture "yotta/pkg/capture"
+	pkginput "yotta/pkg/input"
+	"yotta/pkg/winutil"
 )
 
 // newTestRunnerWithSubgraph 构造一个最小容器 + 注入子图 + stub backend,

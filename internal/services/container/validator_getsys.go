@@ -1,6 +1,6 @@
 package container
 
-import "yhbox/internal/services/container/sys"
+import "yotta/internal/services/container/sys"
 
 // E1: sysPathSchemaCopy duplicate map removed. Single source of truth now lives
 // in the leaf container/sys package, imported by both runtime and validator.

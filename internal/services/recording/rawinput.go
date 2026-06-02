@@ -148,7 +148,7 @@ func registerRawInputClass() error {
 	if rawWndProcCallback == 0 {
 		rawWndProcCallback = syscall.NewCallback(rawInputWndProc)
 	}
-	className, _ := syscall.UTF16PtrFromString("YHBoxRawInputWnd")
+	className, _ := syscall.UTF16PtrFromString("YottaRawInputWnd")
 	hInst, _, _ := procGetModuleHandleW.Call(0)
 
 	wc := wndclassex{
@@ -171,7 +171,7 @@ func createRawInputWindow() (syscall.Handle, error) {
 	if err := registerRawInputClass(); err != nil {
 		return 0, err
 	}
-	className, _ := syscall.UTF16PtrFromString("YHBoxRawInputWnd")
+	className, _ := syscall.UTF16PtrFromString("YottaRawInputWnd")
 	hInst, _, _ := procGetModuleHandleW.Call(0)
 
 	hwnd, _, callErr := procCreateWindowExW.Call(

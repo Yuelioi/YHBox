@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"yhbox/pkg/winutil"
+	"yotta/pkg/winutil"
 )
 
 // ErrNoWindowTarget 容器主图里找不到 WindowTarget 节点时返回。

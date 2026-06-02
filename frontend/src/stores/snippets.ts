@@ -40,7 +40,7 @@ export type SnippetPayload = {
   config: Record<string, unknown>
 }
 
-const STORAGE_KEY = 'yhfish.snippets'
+const STORAGE_KEY = 'yotta.snippets'
 
 export const useSnippetsStore = defineStore('snippets', () => {
   const snippets = ref<Snippet[]>([])

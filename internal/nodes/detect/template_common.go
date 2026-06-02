@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // validateTemplateKeys 逐个校验列表里的 key 是 namespace.name 格式. 空列表 / 空 key 跳过

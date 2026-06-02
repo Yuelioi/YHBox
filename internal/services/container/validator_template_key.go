@@ -5,7 +5,7 @@ package container
 import (
 	"fmt"
 
-	"yhbox/internal/services/template"
+	"yotta/internal/services/template"
 )
 
 

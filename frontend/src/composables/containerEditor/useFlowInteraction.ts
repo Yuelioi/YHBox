@@ -1,7 +1,7 @@
 // useFlowInteraction 画布 drag / drop 交互。
 // 支持两种 dataTransfer：
-//   - application/x-yhbox-node：NodePalette 节点拖入（kind 字符串）
-//   - application/yhfish-library-item：LibraryView 卡片拖入（copy-on-use 生成独立子图副本）
+//   - application/x-yotta-node：NodePalette 节点拖入（kind 字符串）
+//   - application/yotta-library-item：LibraryView 卡片拖入（copy-on-use 生成独立子图副本）
 // 节点 drop 时若 cursor 命中某条 edge 且新节点是 1in/1out，自动断边重连（A→B 变 A→C→B）
 import type { Ref, ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -82,13 +82,13 @@ export function useFlowInteraction(opts: {
 
   async function onCanvasDrop(e: DragEvent) {
     // 先检测库拖入（优先级高于节点拖入）
-    const libData = e.dataTransfer?.getData('application/yhfish-library-item')
+    const libData = e.dataTransfer?.getData('application/yotta-library-item')
     if (libData) {
       await handleLibraryDrop(e, libData)
       return
     }
     // 节点 palette 拖入
-    const kind = e.dataTransfer?.getData('application/x-yhbox-node')
+    const kind = e.dataTransfer?.getData('application/x-yotta-node')
     if (!kind) return
     const target = e.currentTarget as HTMLElement
     const rect = target.getBoundingClientRect()

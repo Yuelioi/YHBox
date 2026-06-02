@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestMouseMoveTo_Instant(t *testing.T) {

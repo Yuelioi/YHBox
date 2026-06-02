@@ -18,7 +18,7 @@ const (
 
 // LogSink 实现 io.Writer。zerolog 输出 JSON Lines → 按 \n 切行 →
 // trailing-edge debounce + maxBatch 双保险 → flush 时给 emit 加单调 seq → 推 log:lines。
-// 同时把每完整行原始 bytes 顺手写入 logs/yhfish-YYYYMMDD.log (post-mortem 调试).
+// 同时把每完整行原始 bytes 顺手写入 logs/yotta-YYYYMMDD.log (post-mortem 调试).
 type LogSink struct {
 	mu      sync.Mutex
 	buf     strings.Builder // 累积未完整行
@@ -27,7 +27,7 @@ type LogSink struct {
 	timer   *time.Timer
 	seq     atomic.Uint64
 	emit    func(LogLinesEvent) // flush 时调；外部装配（app.Emit）
-	file    *os.File           // 当日日志文件 (logs/yhfish-YYYYMMDD.log), 持续 append
+	file    *os.File           // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
 	fileDay string             // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
 	fileDir string             // logs 目录路径
 }
@@ -75,7 +75,7 @@ func (s *LogSink) openTodayFileLocked() {
 		_ = s.file.Close()
 		s.file = nil
 	}
-	path := filepath.Join(s.fileDir, "yhfish-"+day+".log")
+	path := filepath.Join(s.fileDir, "yotta-"+day+".log")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "LogSink: open %s failed: %v\n", path, err)

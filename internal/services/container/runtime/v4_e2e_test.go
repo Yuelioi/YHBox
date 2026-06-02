@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
 )
 
 // TestV4_E2E_AllCategories: a "kitchen sink" container exercising the full v4 data-flow stack.

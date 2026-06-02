@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() {

@@ -1,4 +1,4 @@
-// cmd/yhbox 异环工具箱主入口。双击 exe 启动 wails3 应用。
+// Yotta 主入口。双击 exe 启动 wails3 应用。
 package main
 
 import (
@@ -13,36 +13,36 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yhbox/internal/hotkey"
-	"yhbox/internal/node"
-	_ "yhbox/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
-	_ "yhbox/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
-	_ "yhbox/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground/OnEvent
-	_ "yhbox/internal/nodes/io"        // Log/Toast/PlayClip
-	_ "yhbox/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
-	_ "yhbox/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
-	_ "yhbox/internal/nodes/system"    // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
-	_ "yhbox/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetSys/GetParam
-	"yhbox/internal/runclassify"
-	"yhbox/internal/services"
-	"yhbox/internal/services/calibration"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/container/library"
-	containerruntime "yhbox/internal/services/container/runtime"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/schedule"
-	"yhbox/internal/services/template"
-	"yhbox/internal/services/tools"
-	"yhbox/pkg/locale"
-	"yhbox/pkg/platform"
-	"yhbox/pkg/screenshot"
+	"yotta/internal/hotkey"
+	"yotta/internal/node"
+	_ "yotta/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
+	_ "yotta/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
+	_ "yotta/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground/OnEvent
+	_ "yotta/internal/nodes/io"        // Log/Toast/PlayClip
+	_ "yotta/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
+	_ "yotta/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
+	_ "yotta/internal/nodes/system"    // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
+	_ "yotta/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetSys/GetParam
+	"yotta/internal/runclassify"
+	"yotta/internal/services"
+	"yotta/internal/services/calibration"
+	"yotta/internal/services/container"
+	"yotta/internal/services/container/library"
+	containerruntime "yotta/internal/services/container/runtime"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/schedule"
+	"yotta/internal/services/template"
+	"yotta/internal/services/tools"
+	"yotta/pkg/locale"
+	"yotta/pkg/platform"
+	"yotta/pkg/screenshot"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 // 用跟 exe icon 同一份 build/windows/icon.ico —— 多 size 容器，Windows 自动挑 16/32px 进托盘。
-// 老 cmd/yhbox/winres/*.png 是旧资源生成器留下的，已废弃。
+// 老 cmd/yotta/winres/*.png 是旧资源生成器留下的，已废弃。
 //
 //go:embed build/windows/icon.ico
 var trayIcon []byte
@@ -52,7 +52,7 @@ var version = "1.1.0"
 func main() {
 	platform.EnsureAdmin()
 
-	// 日志栈：zerolog → LogSink → wails3 Event.Emit + 顺便 append 到 logs/yhfish-YYYYMMDD.log
+	// 日志栈：zerolog → LogSink → wails3 Event.Emit + 顺便 append 到 logs/yotta-YYYYMMDD.log
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	// 启动期先按 default 接通 (settings 未加载, 用 "logs" 兜底)
 	logSink.SetFileWriter("logs")
@@ -113,7 +113,7 @@ func main() {
 	}
 	// Screenshot 节点写盘根目录 = dataDir (绝对). 不设的话节点回落到相对 "bin/data"，
 	// 在 exeDir 已是 bin/ 时会拼成 bin/bin/data/... 还跟模板里的 screenshots/ 段重复。
-	_ = os.Setenv("YHBOX_DATA_DIR", dataDir)
+	_ = os.Setenv("YOTTA_DATA_DIR", dataDir)
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
 	// 系统热键 (execution-stop) + container 热键全部走这条路。
@@ -199,7 +199,7 @@ func main() {
 	// per-container template store 按需加载, containerID 作为 Detect 参数传入.
 	//
 	// container:warning emit 同时 zerolog.Warn — 让 warning 进
-	// logs/yhfish-*.log (LogSink) 给 post-mortem 用.
+	// logs/yotta-*.log (LogSink) 给 post-mortem 用.
 	templateMatcher := newTemplateMatcherAdapter(dataDir, func(name string, payload map[string]any) {
 		app.Emit(name, payload)
 		if name == "container:warning" {
@@ -391,8 +391,8 @@ func main() {
 
 	// wails3 application
 	wailsApp := application.New(application.Options{
-		Name:        "YHBox",
-		Description: "异环工具箱",
+		Name:        "Yotta",
+		Description: "节点编排，自动执行",
 		Services:    wailsServices,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -430,7 +430,7 @@ func main() {
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window
 	mainWin := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "YHBox " + version,
+		Title:            "Yotta " + version,
 		Width:            winCfg.Width,
 		Height:           winCfg.Height,
 		MinWidth:         900,
@@ -458,7 +458,7 @@ func main() {
 	// （桌面右下角），还会让部分内容溢出屏幕。我们要的是"回到上次位置"，
 	// 所以手动 OnClick → Show().Focus()（操作系统会把它还原到 Hide() 前的位置）。
 	tray := wailsApp.SystemTray.New()
-	tray.SetIcon(trayIcon).SetTooltip("YHBox " + version)
+	tray.SetIcon(trayIcon).SetTooltip("Yotta " + version)
 	tray.OnClick(func() {
 		if mainWin.IsVisible() && !mainWin.IsMinimised() {
 			mainWin.Hide()
@@ -469,7 +469,7 @@ func main() {
 	trayMenu := application.NewMenu()
 	trayMenu.Add("显示窗口").OnClick(func(*application.Context) { mainWin.Show().Focus() })
 	trayMenu.AddSeparator()
-	trayMenu.Add("退出 YHBox").OnClick(func(*application.Context) { wailsApp.Quit() })
+	trayMenu.Add("退出 Yotta").OnClick(func(*application.Context) { wailsApp.Quit() })
 	tray.SetMenu(trayMenu)
 
 	// 关闭按钮（X）行为：MinimizeToTray=true 时 cancel 事件 + 隐藏到托盘；
@@ -489,7 +489,7 @@ func main() {
 	}
 
 	// 应用 logger 写一条启动日志，证明日志桥路打通
-	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("YHBox started")
+	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("Yotta started")
 
 	// 节点 registry 锁死: init() 注册完毕, RPC handler 之后只读.
 	node.Freeze()

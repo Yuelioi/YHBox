@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yhbox/internal/services/template"
+	"yotta/internal/services/template"
 )
 
 func TestMatcherInvalidate_PicksUpNewVariant(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func validScanCfg() map[string]any {

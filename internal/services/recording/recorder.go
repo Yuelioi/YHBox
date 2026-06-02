@@ -24,8 +24,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/lxn/win"
 
-	"yhbox/internal/services/inputclip"
-	"yhbox/pkg/winutil"
+	"yotta/internal/services/inputclip"
+	"yotta/pkg/winutil"
 )
 
 // StopResult Recorder.Stop 输出. Service 层据此分流:

@@ -48,7 +48,7 @@ func TestMockLoadsAndCycles(t *testing.T) {
 	writeTestPNG(t, dir, "01.png", 100, 50, color.RGBA{255, 0, 0, 255}) // 红
 	writeTestPNG(t, dir, "02.png", 100, 50, color.RGBA{0, 255, 0, 255}) // 绿
 
-	t.Setenv("YHBOX_MOCK_DIR", dir)
+	t.Setenv("YOTTA_MOCK_DIR", dir)
 	resetMockState()
 
 	if err := initMock(); err != nil {
@@ -82,7 +82,7 @@ func TestMockLoadsAndCycles(t *testing.T) {
 
 func TestMockEmptyDirFails(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("YHBOX_MOCK_DIR", dir)
+	t.Setenv("YOTTA_MOCK_DIR", dir)
 	resetMockState()
 	if err := initMock(); err == nil {
 		t.Fatal("空目录应该返错")

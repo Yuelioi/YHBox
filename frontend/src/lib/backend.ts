@@ -2,17 +2,17 @@
 // 不直接 import bindings 或 @wailsio/runtime。理由：wails3 alpha API 漂移时只改这一个文件。
 
 import { Events } from '@wailsio/runtime'
-import * as SettingsService from '@bindings/yhbox/internal/services/settingsservice.js'
-import * as HotkeyService from '@bindings/yhbox/internal/hotkey/hotkeyservice.js'
-import * as ContainerService from '@bindings/yhbox/internal/services/container/service.js'
-import * as ScheduleService from '@bindings/yhbox/internal/services/schedule/service.js'
-import * as TemplateService from '@bindings/yhbox/internal/services/template/service.js'
-import * as CalibrationService from '@bindings/yhbox/internal/services/calibration/service.js'
-import * as ToolsService from '@bindings/yhbox/internal/services/tools/service.js'
-import * as AppInfoService from '@bindings/yhbox/internal/services/appinfoservice.js'
-import * as RecordingService from '@bindings/yhbox/internal/services/recording/service.js'
-import * as ClipService from '@bindings/yhbox/internal/services/inputclip/service.js'
-import * as LibraryService from '@bindings/yhbox/internal/services/container/library/service.js'
+import * as SettingsService from '@bindings/yotta/internal/services/settingsservice.js'
+import * as HotkeyService from '@bindings/yotta/internal/hotkey/hotkeyservice.js'
+import * as ContainerService from '@bindings/yotta/internal/services/container/service.js'
+import * as ScheduleService from '@bindings/yotta/internal/services/schedule/service.js'
+import * as TemplateService from '@bindings/yotta/internal/services/template/service.js'
+import * as CalibrationService from '@bindings/yotta/internal/services/calibration/service.js'
+import * as ToolsService from '@bindings/yotta/internal/services/tools/service.js'
+import * as AppInfoService from '@bindings/yotta/internal/services/appinfoservice.js'
+import * as RecordingService from '@bindings/yotta/internal/services/recording/service.js'
+import * as ClipService from '@bindings/yotta/internal/services/inputclip/service.js'
+import * as LibraryService from '@bindings/yotta/internal/services/container/library/service.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
 
@@ -343,7 +343,7 @@ export const backend = {
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
     // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
-    // — 用户在游戏前台时根本点不到 YHBox 按钮.
+    // — 用户在游戏前台时根本点不到 Yotta 按钮.
     // 捕获键来源 = 后端读热键中心 tools.window-capture 绑定 (可在「快捷键」页 rebind)，不再 FE 传死。
     startWindowTargetCapture: () => invoke(ToolsService.StartWindowTargetCapture),
     cancelWindowTargetCapture: (id: string) =>

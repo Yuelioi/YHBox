@@ -150,7 +150,7 @@ func TestLogSink_SetFileWriter_OnOff(t *testing.T) {
 	sink.SetFileWriter(dir)
 	_, _ = sink.Write([]byte("line1\n"))
 	sink.Flush()
-	files, _ := filepath.Glob(filepath.Join(dir, "yhfish-*.log"))
+	files, _ := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
 	if len(files) != 1 {
 		t.Fatalf("expected 1 log file, got %d", len(files))
 	}
@@ -176,7 +176,7 @@ func TestLogSink_SetFileWriter_Reopen(t *testing.T) {
 	sink.SetFileWriter(dir)
 	_, _ = sink.Write([]byte("b\n"))
 	sink.Flush()
-	files, _ := filepath.Glob(filepath.Join(dir, "yhfish-*.log"))
+	files, _ := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
 	data, _ := os.ReadFile(files[0])
 	if !strings.Contains(string(data), "b") {
 		t.Fatalf("line b should be in file after re-enable, got: %s", string(data))

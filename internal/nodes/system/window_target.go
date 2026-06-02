@@ -8,7 +8,7 @@ package system
 import (
 	"encoding/json"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&WindowTarget{}) }

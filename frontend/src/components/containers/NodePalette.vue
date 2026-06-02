@@ -202,14 +202,14 @@ async function onCopyID(id: string) {
 function onNodeDragStart(e: DragEvent, kind: string) {
   if (!e.dataTransfer) return
   e.dataTransfer.effectAllowed = 'copy'
-  e.dataTransfer.setData('application/x-yhbox-node', kind)
+  e.dataTransfer.setData('application/x-yotta-node', kind)
 }
 
 function onLibraryDragStart(e: DragEvent, sg: Subgraph) {
   if (!e.dataTransfer) return
   e.dataTransfer.effectAllowed = 'copy'
   e.dataTransfer.setData(
-    'application/yhfish-library-item',
+    'application/yotta-library-item',
     JSON.stringify({ kind: 'subgraph', id: sg.id }),
   )
 }

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func init() { node.Register(&Scroll{}) }

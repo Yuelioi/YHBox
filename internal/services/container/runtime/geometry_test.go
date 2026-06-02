@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestResolveGeometry_ResolutionSwitch(t *testing.T) {

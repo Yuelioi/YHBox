@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/expr"
+	"yotta/internal/services/container"
+	"yotta/internal/services/expr"
 )
 
 // TestDisabled_LinearPassthrough: Disabled Sleep skips to .out

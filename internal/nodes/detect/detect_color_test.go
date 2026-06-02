@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestDetectColor_Hit(t *testing.T) {

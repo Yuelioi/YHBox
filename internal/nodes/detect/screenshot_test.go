@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // stubCapture 实现 CaptureService — 跟 input 包 recordingInput 同款思路, 本地一份避免跨包.
@@ -39,9 +39,9 @@ func TestScreenshot_FullFrame(t *testing.T) {
 	node.Register(&Screenshot{})
 	rn, _ := node.Get("Screenshot")
 
-	// 用 t.TempDir 隔离, YHBOX_DATA_DIR 覆盖默认 bin/data/screenshots.
+	// 用 t.TempDir 隔离, YOTTA_DATA_DIR 覆盖默认 bin/data/screenshots.
 	tmp := t.TempDir()
-	t.Setenv("YHBOX_DATA_DIR", tmp)
+	t.Setenv("YOTTA_DATA_DIR", tmp)
 
 	// 全帧路径: ROI pin 不传 → Geometry 零值 → adapter 视为全帧. 节点始终走 CaptureROI.
 	cap := &stubCapture{pngROI: []byte{0x89, 0x50, 0x4e, 0x47}} // PNG signature 4 bytes
@@ -77,7 +77,7 @@ func TestScreenshot_ROI(t *testing.T) {
 	node.Register(&Screenshot{})
 	rn, _ := node.Get("Screenshot")
 
-	t.Setenv("YHBOX_DATA_DIR", t.TempDir())
+	t.Setenv("YOTTA_DATA_DIR", t.TempDir())
 
 	// ROI Geometry → CaptureROI; adapter 内 cropFrameByGeometry 按比例裁.
 	roi := node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.2, W: 0.5, H: 0.3}}
@@ -102,7 +102,7 @@ func TestScreenshot_BackendError(t *testing.T) {
 	node.Register(&Screenshot{})
 	rn, _ := node.Get("Screenshot")
 
-	t.Setenv("YHBOX_DATA_DIR", t.TempDir())
+	t.Setenv("YOTTA_DATA_DIR", t.TempDir())
 
 	cap := &stubCapture{err: errors.New("hwnd not found")}
 	r := node.RunNode(context.Background(), rn, nil,

@@ -1,6 +1,6 @@
 import { ref, watch } from 'vue'
 
-const STORAGE_KEY = 'yhbox.sidebar.collapsed'
+const STORAGE_KEY = 'yotta.sidebar.collapsed'
 
 // Module-singleton state — 同步在所有 component 之间。
 function readInitial(): boolean {

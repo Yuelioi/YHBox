@@ -7,7 +7,7 @@
         <h2 class="text-sm font-medium text-highlighted">快速上手</h2>
       </div>
       <p class="text-xs text-muted">
-        YHBox 是通用游戏自动化脚本框架. 工作流: 建容器 → 编排节点图 → 触发执行.
+        Yotta 是通用游戏自动化脚本框架. 工作流: 建容器 → 编排节点图 → 触发执行.
       </p>
       <ol class="space-y-1 text-xs text-toned list-decimal pl-5 marker:text-dimmed">
         <li>侧栏点 <span class="text-highlighted">容器</span> → 新建一个</li>
@@ -165,14 +165,14 @@ const faq = [
   },
   {
     q: '日志文件存在哪里?',
-    a: '在 YHBox.exe 同目录的 logs/ 下. JSON Lines 格式, 可用 jq 解析. 设置 → 通用 → 日志 可关闭文件写入.',
+    a: '在 Yotta.exe 同目录的 logs/ 下. JSON Lines 格式, 可用 jq 解析. 设置 → 通用 → 日志 可关闭文件写入.',
   },
 ]
 
 const troubleshoot = [
   {
-    symptom: 'YHBox 启动时没弹出 UAC 提权窗',
-    fix: '右键 YHBox.exe → "以管理员身份运行". 注入输入到游戏需要管理员权限, 否则无法工作.',
+    symptom: 'Yotta 启动时没弹出 UAC 提权窗',
+    fix: '右键 Yotta.exe → "以管理员身份运行". 注入输入到游戏需要管理员权限, 否则无法工作.',
   },
   {
     symptom: '模板节点疯狂 MISS',

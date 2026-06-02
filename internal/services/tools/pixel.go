@@ -5,8 +5,8 @@ import (
 
 	"github.com/lxn/win"
 
-	"yhbox/pkg/capture"
-	"yhbox/pkg/vision"
+	"yotta/pkg/capture"
+	"yotta/pkg/vision"
 )
 
 // PixelInfo 当前光标下的颜色采样。client 坐标在游戏窗口客户区内。

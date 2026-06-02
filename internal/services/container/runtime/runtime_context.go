@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/lxn/win"
-	nodepkg "yhbox/internal/node"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
-	"yhbox/internal/services/inputclip/backends"
-	clipruntime "yhbox/internal/services/inputclip/runtime"
-	pkgcapture "yhbox/pkg/capture"
-	pkginput "yhbox/pkg/input"
-	"yhbox/pkg/winutil"
+	nodepkg "yotta/internal/node"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
+	"yotta/internal/services/inputclip/backends"
+	clipruntime "yotta/internal/services/inputclip/runtime"
+	pkgcapture "yotta/pkg/capture"
+	pkginput "yotta/pkg/input"
+	"yotta/pkg/winutil"
 )
 
 // frameCacheTTL: 同 hwnd 100ms 内复用一帧. 100ms 是 fishing v2 主循环 Sleep 下限,

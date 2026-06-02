@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestSubgraph_RunRegion_InvokesBodyOnceThenDone(t *testing.T) {

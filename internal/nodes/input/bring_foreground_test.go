@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // recordingWindow 接 node.WindowService, 计 BringForeground 调用次数 + 注入 err.

@@ -3,7 +3,7 @@
 
 import type { VariableRef } from '@/lib/variableRef'
 
-export const MIME = 'application/x-yhfish'
+export const MIME = 'application/x-yotta'
 
 export type EditorDragPayload =
   | { type: 'var'; ref: VariableRef; modifier: 'none' | 'alt' }
@@ -25,7 +25,7 @@ export function startEditorDrag(payload: EditorDragPayload, e: DragEvent): void 
 }
 
 /**
- * Call from drop / dragover. Returns null if not a YHFish payload (lets
+ * Call from drop / dragover. Returns null if not a Yotta payload (lets
  * existing handlers like vue-flow continue).
  */
 export function readDragPayload(e: DragEvent): EditorDragPayload | null {

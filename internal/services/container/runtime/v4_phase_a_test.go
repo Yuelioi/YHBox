@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
 )
 
 // TestPhaseA_E2E_SetVarGlobal: end-to-end exec → SetVar (literal pin) → tick boundary

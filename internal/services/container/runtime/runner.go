@@ -11,12 +11,12 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"yhbox/internal/node"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/inputclip/backends"
-	pkgcapture "yhbox/pkg/capture"
-	pkginput "yhbox/pkg/input"
-	"yhbox/pkg/winutil"
+	"yotta/internal/node"
+	"yotta/internal/services/container"
+	"yotta/internal/services/inputclip/backends"
+	pkgcapture "yotta/pkg/capture"
+	pkginput "yotta/pkg/input"
+	"yotta/pkg/winutil"
 )
 
 // LoopFrame Loop body 期间的"我在哪个 Loop 里"上下文。Break/Continue 跳目标。

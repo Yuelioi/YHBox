@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/container/dependency"
+	"yotta/internal/services/container"
+	"yotta/internal/services/container/dependency"
 )
 
 // Service 给 wails3 RPC 用的瘦皮层。所有方法直接转发到 Store。

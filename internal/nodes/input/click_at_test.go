@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestClickAt_HappyPath(t *testing.T) {

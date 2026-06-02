@@ -1,7 +1,7 @@
 // Package backends 定义 InputClip 回放的注入后端抽象.
 package backends
 
-import "yhbox/internal/services/inputclip"
+import "yotta/internal/services/inputclip"
 
 // IInputBackend 抽象注入层. ClipPlayer 不直接调 SendInput, 走这个接口.
 type IInputBackend interface {

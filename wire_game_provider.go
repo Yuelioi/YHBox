@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/lxn/win"
 
-	containerruntime "yhbox/internal/services/container/runtime"
-	"yhbox/pkg/input"
+	containerruntime "yotta/internal/services/container/runtime"
+	"yotta/pkg/input"
 )
 
 // gameProviderAdapter 实现 runtime.GameProvider — 只做跨进程窗口置前.

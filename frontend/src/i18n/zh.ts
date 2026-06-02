@@ -30,11 +30,6 @@ export default {
     collapse: '收起',
     collapse_tip: '收起侧栏',
     expand_tip: '展开侧栏',
-    fish: '钓鱼',
-    cook: '店长',
-    piano: '弹琴',
-    battle: '战斗',
-    rhythm: '音游',
     actions: '动作',
     tasks: '任务',
     containers: '容器',
@@ -68,7 +63,7 @@ export default {
       section_title: '启动与关闭',
       autostart_label: '开机自启',
       autostart_hint:
-        '登录 Windows 后自动启动 YHBox. 写入注册表 HKCU\\...\\Run\\YHBox, 不需要管理员权限.',
+        '登录 Windows 后自动启动 Yotta. 写入注册表 HKCU\\...\\Run\\Yotta, 不需要管理员权限.',
       tray_label: '关闭最小化到托盘',
       tray_hint: '点关闭按钮(×)时不退出, 而是收到右下角系统托盘. 右键托盘图标可强制退出.',
     },
@@ -1222,7 +1217,7 @@ export default {
     header_title: '日志',
     count: '{n} 条',
     has_errors: '含错误',
-    write_file_tooltip_on: '写入 {dir}/yhfish-*.log',
+    write_file_tooltip_on: '写入 {dir}/yotta-*.log',
     write_file_tooltip_off: '未写入文件',
     empty: '无日志.',
     popover: {
@@ -1917,7 +1912,7 @@ export default {
   },
   // 关于页 (AboutView).
   about: {
-    tagline: '异环 桌面端游戏自动化工具集.',
+    tagline: '节点编排，自动执行',
     section_author: '作者 · 链接',
     label_author: '作者',
     label_source: '源码',

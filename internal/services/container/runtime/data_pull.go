@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	nodepkg "yhbox/internal/node"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/expr"
+	nodepkg "yotta/internal/node"
+	"yotta/internal/services/container"
+	"yotta/internal/services/expr"
 )
 
 // dataEdgeIndex maps target pin → source pin for data-flow edges.

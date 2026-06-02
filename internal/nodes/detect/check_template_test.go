@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 // mockVision 实现 VisionService — 跨 detect 包测试文件复用 (定义在字母序最早的

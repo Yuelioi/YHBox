@@ -17,7 +17,7 @@
         <UIcon name="i-tabler-device-gamepad-2" class="size-4 text-primary" />
       </div>
       <template v-if="!collapsed">
-        <span class="text-sm font-semibold tracking-tight text-highlighted">YHBox</span>
+        <span class="text-sm font-semibold tracking-tight text-highlighted">Yotta</span>
       </template>
     </div>
 

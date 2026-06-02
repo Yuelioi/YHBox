@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 func TestStore_ListGetPackage(t *testing.T) {

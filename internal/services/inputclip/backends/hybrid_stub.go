@@ -2,7 +2,7 @@
 
 package backends
 
-import "yhbox/internal/services/inputclip"
+import "yotta/internal/services/inputclip"
 
 // HybridBackend 非 Windows 平台 stub. 不真做任何 OS 调用.
 type HybridBackend struct{}

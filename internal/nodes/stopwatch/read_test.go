@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"yhbox/internal/node"
+	"yotta/internal/node"
 )
 
 func TestRead_RunningReturnsPositive(t *testing.T) {

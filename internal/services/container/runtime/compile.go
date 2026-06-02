@@ -5,7 +5,7 @@
 package runtime
 
 import (
-	"yhbox/internal/services/container"
+	"yotta/internal/services/container"
 )
 
 // CompiledGraph 单 graph 的编译产物 — main graph 或一个 subgraph.

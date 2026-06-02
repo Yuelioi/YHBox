@@ -2,7 +2,7 @@
 // 走 module-singleton state，LibraryView 主程序和潜在的 NodePalette mini 可以共享。
 import { ref, watch } from 'vue'
 
-const STORAGE_KEY = 'yhbox.library.viewMode'
+const STORAGE_KEY = 'yotta.library.viewMode'
 
 export type LibraryViewMode = 'grid' | 'list'
 

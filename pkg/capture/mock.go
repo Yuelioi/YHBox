@@ -6,7 +6,7 @@
 //      `bin/captures/<bot>/<date>/`
 //   2. 把该容器 WindowTarget 节点的 CaptureBackend 设成 "mock" (per-container,
 //      settings.capture.method 现在只作新建容器的默认值, 不再全局生效),
-//      可选设环境变量 YHBOX_MOCK_DIR 指向那个目录
+//      可选设环境变量 YOTTA_MOCK_DIR 指向那个目录
 //   3. 启动 bot，detect 拿到的就是录制好的帧，调参立即可见
 //
 // 跟 hwnd 无关——mock 忽略 hwnd 参数，只看磁盘 PNG。mockBackend.Frame 也一样。
@@ -36,12 +36,12 @@ var (
 )
 
 // MockDir 是 mock backend 读 PNG 的目录。优先级：
-//  1. 环境变量 YHBOX_MOCK_DIR
+//  1. 环境变量 YOTTA_MOCK_DIR
 //  2. exe 同目录 mock-frames/
 //
 // 没找到目录或目录空 → SetBackend(BackendMock) 失败，main.go 回退 GDI。
 func mockDir() string {
-	if env := os.Getenv("YHBOX_MOCK_DIR"); env != "" {
+	if env := os.Getenv("YOTTA_MOCK_DIR"); env != "" {
 		return env
 	}
 	exe, err := os.Executable()
