@@ -3,9 +3,6 @@
 // This is the LLM-facing entry point for node-graph authoring: an LLM client
 // connects over stdio using JSON-RPC 2.0 and calls tools to inspect the node
 // catalog, build/validate container graphs, and run automation scripts.
-//
-// Task 4 scaffolds the minimal skeleton with a single `ping` tool.
-// More tools (catalog_list, graph_validate, graph_run, …) come in later tasks.
 package main
 
 import (
@@ -17,7 +14,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	// Anonymous imports — trigger init() node registration so all nodes are
-	// available in the registry when catalog/graph tools are added later.
+	// available in the registry when catalog/graph tools are called.
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
 	_ "yotta/internal/nodes/input"
@@ -31,12 +28,13 @@ import (
 func main() {
 	s := server.NewMCPServer("yotta-mcp", "0.1.0")
 
-	pingTool := mcp.NewTool("ping",
-		mcp.WithDescription("Liveness check — returns \"pong\"."),
+	s.AddTool(
+		mcp.NewTool("list_nodes",
+			mcp.WithDescription("List all available Yotta node kinds with their pins (inputs/outputs), types, required flags, defaults, category, and capability flags. The building blocks for authoring a container graph.")),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText(string(listNodesJSON())), nil
+		},
 	)
-	s.AddTool(pingTool, func(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return mcp.NewToolResultText("pong"), nil
-	})
 
 	if err := server.ServeStdio(s); err != nil {
 		fmt.Printf("server error: %v\n", err)
