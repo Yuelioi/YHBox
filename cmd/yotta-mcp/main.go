@@ -44,6 +44,24 @@ func main() {
 		},
 	)
 
+	s.AddTool(
+		mcp.NewTool("validate_container",
+			mcp.WithDescription("Validate a Yotta container graph JSON. Returns a JSON array of structured ValidationErrors (severity error|warning, code, nodeId, pin, params). Empty array = clean. Use this to repair generated containers before saving."),
+			mcp.WithString("container",
+				mcp.Required(),
+				mcp.Description("The container graph JSON string to validate."),
+			),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			raw, err := req.RequireString("container")
+			if err != nil || raw == "" {
+				return mcp.NewToolResultError("missing 'container' argument"), nil
+			}
+			out, _ := validateContainerJSON([]byte(raw))
+			return mcp.NewToolResultText(string(out)), nil
+		},
+	)
+
 	if err := server.ServeStdio(s); err != nil {
 		fmt.Printf("server error: %v\n", err)
 		log.Fatal(err)

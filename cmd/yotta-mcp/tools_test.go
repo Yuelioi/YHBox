@@ -35,6 +35,32 @@ func TestSchemaExamples_AllValid(t *testing.T) {
 	}
 }
 
+func TestValidateContainerJSON_GoodAndBad(t *testing.T) {
+	good := schemaExamples()[1] // rich example (already known-valid)
+	out, hadErr := validateContainerJSON(good)
+	if hadErr {
+		t.Fatalf("rich example should have no error-level issues, got: %s", string(out))
+	}
+
+	// 缺 WindowTarget (KeyPress needsWindow) + KeyPress 缺 VK 来源 → 该有 error。
+	bad := []byte(`{"schemaVersion":1,"name":"x","graph":{"version":1,"nodes":[
+      {"id":"s","kind":"Start"},
+      {"id":"k","kind":"KeyPress","config":{}},
+      {"id":"t","kind":"Stop"}],
+      "edges":[{"from":"s.Done","to":"k.In"},{"from":"k.Done","to":"t.In"}]}}`)
+	out2, hadErr2 := validateContainerJSON(bad)
+	if !hadErr2 {
+		t.Fatalf("bad container should have error-level issues, got: %s", string(out2))
+	}
+	var errs []container.ValidationError
+	if err := json.Unmarshal(out2, &errs); err != nil {
+		t.Fatalf("output not a []ValidationError JSON: %v", err)
+	}
+	if len(errs) == 0 {
+		t.Fatal("expected validation errors in output")
+	}
+}
+
 func TestListNodesJSON_NonEmpty(t *testing.T) {
 	b := listNodesJSON()
 	var arr []map[string]any
