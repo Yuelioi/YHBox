@@ -53,66 +53,99 @@ func (s *Store) load() error {
 		if !ent.IsDir() {
 			continue
 		}
-		path := filepath.Join(s.root, ent.Name(), "container.json")
-		b, err := os.ReadFile(path)
+		c, err := s.loadOne(ent.Name())
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			// 文件存在但读取失败 → 标 incompatible，不阻断启动
-			s.byID[ent.Name()] = Container{
-				ID:                 ent.Name(),
-				Name:               ent.Name(),
-				Status:             StatusIncompatible,
-				IncompatibleReason: fmt.Sprintf("读取失败：%v", err),
-			}
-			continue
-		}
-		var c Container
-		if err := json.Unmarshal(b, &c); err != nil {
-			s.byID[ent.Name()] = Container{
-				ID:                 ent.Name(),
-				Name:               ent.Name(),
-				Status:             StatusIncompatible,
-				IncompatibleReason: fmt.Sprintf("JSON 解析失败：%v", err),
-			}
-			continue
-		}
-		// Graph.Version 检查
-		// > GraphSchemaVersion → 未来版本（真 incompatible）
-		// == 0 → 旧数据（v1 / Create 早期 bug 漏写），auto-upgrade 不阻塞使用
-		switch {
-		case c.Graph.Version > GraphSchemaVersion:
-			c.Status = StatusIncompatible
-			c.IncompatibleReason = fmt.Sprintf("graph version=%d 不支持（当前 %d）", c.Graph.Version, GraphSchemaVersion)
-		case c.Graph.Version == 0:
-			c.Graph.Version = GraphSchemaVersion
-			if c.Graph.ID == "" {
-				c.Graph.ID = "g-" + ent.Name()
-			}
-		}
-		// 加载该容器的所有 subgraph
-		sgDir := filepath.Join(s.root, ent.Name(), "subgraphs")
-		if sgEntries, err := os.ReadDir(sgDir); err == nil {
-			for _, sgEnt := range sgEntries {
-				if sgEnt.IsDir() || !strings.HasSuffix(sgEnt.Name(), ".json") {
-					continue
-				}
-				sgB, err := os.ReadFile(filepath.Join(sgDir, sgEnt.Name()))
-				if err != nil {
-					continue
-				}
-				var sg Subgraph
-				if err := json.Unmarshal(sgB, &sg); err != nil {
-					continue
-				}
-				normalizeSubgraph(&sg)
-				c.Subgraphs = append(c.Subgraphs, sg)
-			}
+			return err
 		}
 		s.byID[c.ID] = c
 	}
 	return nil
+}
+
+// loadOne 读单个容器目录 (<root>/<id>/container.json + subgraphs/*.json)。
+// 不加锁 —— caller (load 构造期 / Reload 持写锁) 负责并发安全。
+//   - 目录或 container.json 不存在 → 返 os.ErrNotExist (caller 区分: load skip / Reload 删 byID)。
+//   - 读失败 / JSON 解析失败 → 返 StatusIncompatible 占位 Container + nil error (不阻断, 与原 load 容错一致)。
+func (s *Store) loadOne(id string) (Container, error) {
+	path := filepath.Join(s.root, id, "container.json")
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Container{}, err
+	}
+	if err != nil {
+		return Container{
+			ID:                 id,
+			Name:               id,
+			Status:             StatusIncompatible,
+			IncompatibleReason: fmt.Sprintf("读取失败：%v", err),
+		}, nil
+	}
+	var c Container
+	if err := json.Unmarshal(b, &c); err != nil {
+		return Container{
+			ID:                 id,
+			Name:               id,
+			Status:             StatusIncompatible,
+			IncompatibleReason: fmt.Sprintf("JSON 解析失败：%v", err),
+		}, nil
+	}
+	// Graph.Version 检查
+	// > GraphSchemaVersion → 未来版本（真 incompatible）
+	// == 0 → 旧数据（v1 / Create 早期 bug 漏写），auto-upgrade 不阻塞使用
+	switch {
+	case c.Graph.Version > GraphSchemaVersion:
+		c.Status = StatusIncompatible
+		c.IncompatibleReason = fmt.Sprintf("graph version=%d 不支持（当前 %d）", c.Graph.Version, GraphSchemaVersion)
+	case c.Graph.Version == 0:
+		c.Graph.Version = GraphSchemaVersion
+		if c.Graph.ID == "" {
+			c.Graph.ID = "g-" + id
+		}
+	}
+	// 加载该容器的所有 subgraph
+	sgDir := filepath.Join(s.root, id, "subgraphs")
+	if sgEntries, err := os.ReadDir(sgDir); err == nil {
+		for _, sgEnt := range sgEntries {
+			if sgEnt.IsDir() || !strings.HasSuffix(sgEnt.Name(), ".json") {
+				continue
+			}
+			sgB, err := os.ReadFile(filepath.Join(sgDir, sgEnt.Name()))
+			if err != nil {
+				continue
+			}
+			var sg Subgraph
+			if err := json.Unmarshal(sgB, &sg); err != nil {
+				continue
+			}
+			normalizeSubgraph(&sg)
+			c.Subgraphs = append(c.Subgraphs, sg)
+		}
+	}
+	return c, nil
+}
+
+// Reload 从磁盘重读单个容器 (container.json + subgraphs/), 替换内存缓存。
+// 配合 MCP / 外部进程改盘后, 编辑器「重载」按钮调用 (走 Service.Reload RPC)。
+// 容器目录已不存在 → 从 byID 删除并返 not-found error。
+func (s *Store) Reload(id string) (Container, error) {
+	if err := validateID(id); err != nil {
+		return Container{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, err := s.loadOne(id)
+	if errors.Is(err, os.ErrNotExist) {
+		delete(s.byID, id)
+		return Container{}, fmt.Errorf("container %q 不存在（可能已被删除）", id)
+	}
+	if err != nil {
+		return Container{}, err
+	}
+	s.byID[c.ID] = c
+	return c, nil
 }
 
 // Save 持久化（含 validate）。

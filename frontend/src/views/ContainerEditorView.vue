@@ -118,6 +118,7 @@
         @try-run="onTryRun"
         @stop-run="onStopRun"
         @save="onSave"
+        @reload="onReload"
         @auto-layout="onAutoLayout"
         @align-selected="onAlignSelected"
         @validate="onValidate"
@@ -537,6 +538,27 @@ async function onStopRun() {
   await containersStore.stopAll()
 }
 
+// 工具栏「重载」: 从磁盘重读当前容器 (MCP / 外部改盘后同步)。
+// 脏 (有未保存改动) → 先确认; 干净 → 直接重载。重载强制回主图根 (见 useContainerDraft.reload)。
+async function onReload() {
+  if (dirty.value) {
+    const ok = await confirm({
+      title: t('editor.reload.title'),
+      description: t('editor.reload.desc'),
+      color: 'warning',
+      confirmText: t('editor.reload.confirm'),
+      cancelText: t('editor.dirty.cancel'),
+    })
+    if (ok !== true) return
+  }
+  try {
+    await reload()
+    toast.add({ title: t('editor.reload.success'), color: 'success', icon: 'i-tabler-refresh' })
+  } catch (e) {
+    toast.add({ title: t('editor.reload.failed'), description: errorMessage(e), color: 'error' })
+  }
+}
+
 async function onOpenNewWindow() {
   const id = containerID
   if (!id) return
@@ -575,6 +597,7 @@ const {
   redo,
   canUndo,
   canRedo,
+  reload,
 } = useContainerDraft(containerID)
 
 // 编辑路径 + 当前子图（useEditorPath，转发 editorStore）

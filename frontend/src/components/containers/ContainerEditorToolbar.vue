@@ -121,6 +121,9 @@
     />
     <UButton size="sm" color="primary" icon="i-tabler-check" :disabled="!dirty"
              @click="$emit('save')">{{ t('editor.toolbar.save') }}</UButton>
+    <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-refresh"
+             :title="t('editor.toolbar.reload_tip')"
+             @click="$emit('reload')" />
     <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-settings"
              :title="t('editor.toolbar.open_settings')"
              @click="$emit('open-settings')" />
@@ -169,6 +172,7 @@ const emit = defineEmits<{
   'try-run': []
   'stop-run': []
   'save': []
+  'reload': []
   'validate': []
   'auto-layout': [direction: 'LR' | 'TB']
   'align-selected': [

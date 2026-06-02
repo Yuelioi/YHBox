@@ -212,6 +212,8 @@ export const backend = {
   containers: {
     list: () => invoke(ContainerService.List),
     get: (id: string) => invoke(ContainerService.Get, id),
+    // 从磁盘重读单个容器 (MCP / 外部改盘后, 编辑器「重载」按钮用)。返回最新容器, 同时刷新后端 byID 缓存。
+    reload: (id: string) => invoke(ContainerService.Reload, id),
     create: (name: string) => invoke(ContainerService.Create, name),
     update: (id: string, patchJSON: string) => invoke(ContainerService.Update, id, patchJSON),
     // 裸版本: 不走 invoke 自动 toast, 抛错给调用方自己 catch 定制错误提示

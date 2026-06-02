@@ -205,6 +205,13 @@ export default {
       discard: '丢弃并关闭',
       save_and_close: '保存并关闭',
     },
+    reload: {
+      title: '重载容器',
+      desc: '将丢弃未保存的本地改动，从磁盘重新加载这个容器。',
+      confirm: '丢弃并重载',
+      success: '已从磁盘重载',
+      failed: '重载失败',
+    },
     sidebar: {
       palette_tab: '节点库',
     },
@@ -255,6 +262,8 @@ export default {
       try_run_busy_tip: '已有任务在跑，先停',
       open_new_window: '在新窗口打开',
       save: '保存',
+      reload: '重载',
+      reload_tip: '从磁盘重载这个容器（MCP / 外部改动后同步）',
       open_settings: '容器设置 (Ctrl+,)',
       inspector_expand: '展开属性面板',
       inspector_collapse: '折叠属性面板',

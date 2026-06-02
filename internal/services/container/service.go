@@ -84,6 +84,13 @@ func (s *Service) List() []Container {
 	return s.store.List()
 }
 
+// Reload 从磁盘重读单个容器, 替换内存缓存, 返回最新内容。
+// 给前端编辑器「重载」按钮用: MCP / 外部进程改盘后, 主 app 内存不知情, 靠这个重读。
+// 不触发 emitChange —— 重载不是 CRUD, 不需重注册 hotkey/schedule。
+func (s *Service) Reload(id string) (Container, error) {
+	return s.store.Reload(id)
+}
+
 func (s *Service) Get(id string) (Container, error) {
 	c, ok := s.store.Get(id)
 	if !ok {

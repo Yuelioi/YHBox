@@ -190,6 +190,13 @@ export default {
       discard: 'Discard and close',
       save_and_close: 'Save and close',
     },
+    reload: {
+      title: 'Reload container',
+      desc: 'Discard unsaved local changes and reload this container from disk.',
+      confirm: 'Discard and reload',
+      success: 'Reloaded from disk',
+      failed: 'Reload failed',
+    },
     sidebar: {
       palette_tab: 'Node Palette',
     },
@@ -241,6 +248,8 @@ export default {
       try_run_busy_tip: 'A task is already running — stop first',
       open_new_window: 'Open in new window',
       save: 'Save',
+      reload: 'Reload',
+      reload_tip: 'Reload this container from disk (sync after MCP / external changes)',
       open_settings: 'Container settings (Ctrl+,)',
       inspector_expand: 'Expand inspector panel',
       inspector_collapse: 'Collapse inspector panel',

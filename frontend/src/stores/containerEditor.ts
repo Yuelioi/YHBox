@@ -51,6 +51,10 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   function gotoPathIndex(idx: number) {
     editorPath.value = editorPath.value.slice(0, idx + 1)
   }
+  // 回主图根 —— 编辑器「重载」后用 (子图可能已被外部改/删, 停旧子图视图会出错)。
+  function resetPath() {
+    editorPath.value = []
+  }
 
   // 1:1 模型 helpers：扫子图内 Subgraph 节点引用计数（主图引用由 view 层另算）
   function countSubgraphRefs(sgID: string): number {
@@ -84,6 +88,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     pushPath,
     popPath,
     gotoPathIndex,
+    resetPath,
     countSubgraphRefs,
     clipboard,
   }

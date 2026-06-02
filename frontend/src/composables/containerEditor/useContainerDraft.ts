@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MarkerType } from '@vue-flow/core'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
@@ -170,21 +170,18 @@ export function useContainerDraft(containerID: string) {
   // 原方案: watch 在 setup 阶段立即装 + setTimeout(0) 重置初始 fire — 依赖 microtask 顺序, brittle.
   // 新方案: load 完毕显式装 watcher, 初始化期间根本不触发, 不需要重置 hack.
 
-  onMounted(async () => {
-    if (!containerID) return
-    const r = await backend.containers.get(containerID)
-    if (r === undefined) {
-      console.error('container not found:', containerID)
-      return
-    }
-    const c = r as unknown as Container
+  /**
+   * loadIntoEditor — 把一份 Container 装进编辑器: 重置 draft / 子图 store / flow 渲染 / undo 基线。
+   * onMounted 首次加载 + reload 重载共用。不装 watcher、不动 editorPath。
+   */
+  async function loadIntoEditor(c: Container) {
     draft.value = JSON.parse(JSON.stringify(c))
     // 把子图列表同步给 store（NodeInspector / ContainerFlowNode + activeGraph computed 用）
     // ⚠ 必须把完整 subgraph 数据传进去（含 graph）；只传 summary 会让双击进子图后画布空白。
     try {
-      const sgList = (await backend.containers.listSubgraphs(containerID)) as any[]
+      const sgList = (await backend.containers.listSubgraphs(c.id)) as any[]
       editorStore.setActiveContainer(
-        containerID,
+        c.id,
         (sgList ?? []).map((s) => ({
           id: s.id,
           label: s.label,
@@ -198,7 +195,7 @@ export function useContainerDraft(containerID: string) {
       )
     } catch (e) {
       console.warn('listSubgraphs failed', e)
-      editorStore.setActiveContainer(containerID, [])
+      editorStore.setActiveContainer(c.id, [])
     }
     syncFlowFromDraft()
     // Push initial snapshot so undo can return to the just-loaded state (idx 0 = clean baseline)
@@ -207,6 +204,16 @@ export function useContainerDraft(containerID: string) {
       history.value = [initial]
       historyIdx.value = 0
     }
+  }
+
+  onMounted(async () => {
+    if (!containerID) return
+    const r = await backend.containers.get(containerID)
+    if (r === undefined) {
+      console.error('container not found:', containerID)
+      return
+    }
+    await loadIntoEditor(r as unknown as Container)
     // load 完毕后才装 dirty watcher; 初始化阶段不触发 → 不再需要 setTimeout 重置 hack
     watch(draft, () => { dirty.value = true }, { deep: true })
     watch(
@@ -215,6 +222,22 @@ export function useContainerDraft(containerID: string) {
       { deep: true },
     )
   })
+
+  /**
+   * reload — 从磁盘重读这个容器, 覆盖编辑器当前内容 (配合 MCP / 外部改盘)。
+   * 先调后端 Reload RPC 让 byID 缓存刷新、拿到最新容器, 再 loadIntoEditor。
+   * 强制回主图根 (子图可能已被外部改/删)。重载后清 dirty —— loadIntoEditor 替换 draft
+   * 会触发已装的 dirty watcher, 故 await nextTick() 等其 fire 完再强制 false。
+   * 失败 (容器被删等) 向上抛, 由调用方 toast。
+   */
+  async function reload() {
+    if (!containerID) return
+    const c = (await backend.containers.reload(containerID)) as unknown as Container
+    editorStore.resetPath()
+    await loadIntoEditor(c)
+    await nextTick()
+    dirty.value = false
+  }
 
   /** 重新从后端拉最新子图列表并同步 store */
   async function refreshSubgraphStore() {
@@ -323,5 +346,6 @@ export function useContainerDraft(containerID: string) {
     flowEdges,
     syncFlowFromDraft,
     refreshSubgraphStore,
+    reload,
   }
 }
