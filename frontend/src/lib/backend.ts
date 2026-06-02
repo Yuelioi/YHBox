@@ -214,6 +214,9 @@ export const backend = {
     get: (id: string) => invoke(ContainerService.Get, id),
     create: (name: string) => invoke(ContainerService.Create, name),
     update: (id: string, patchJSON: string) => invoke(ContainerService.Update, id, patchJSON),
+    // 裸版本: 不走 invoke 自动 toast, 抛错给调用方自己 catch 定制错误提示
+    // (useEditorSave 合并进「主图保存失败」单条, 不叠两条 toast)。
+    updateSilent: (id: string, patchJSON: string) => ContainerService.Update(id, patchJSON),
     delete_: (id: string) => invoke(ContainerService.Delete, id),
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
@@ -222,6 +225,9 @@ export const backend = {
     createSubgraph: (cid: string, label: string) => invoke(ContainerService.CreateSubgraph, cid, label),
     updateSubgraph: (cid: string, sgid: string, patchJSON: string) =>
       invoke(ContainerService.UpdateSubgraph, cid, sgid, patchJSON),
+    // 裸版本: 同 updateSilent, 让 useEditorSave 子图循环只汇总成一条失败 toast。
+    updateSubgraphSilent: (cid: string, sgid: string, patchJSON: string) =>
+      ContainerService.UpdateSubgraph(cid, sgid, patchJSON),
     deleteSubgraph: (cid: string, sgid: string) =>
       invoke(ContainerService.DeleteSubgraph, cid, sgid),
     openEditorWindow: (id: string) => invoke(ContainerService.OpenEditorWindow, id),

@@ -3,6 +3,7 @@
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend, type Container } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
 export function useEditorSave(opts: {
@@ -31,9 +32,11 @@ export function useEditorSave(opts: {
       }
     }
 
-    const ok = await backend.containers.update(draft.value.id, JSON.stringify(patch))
-    if (ok === undefined) {
-      toast.add({ title: t('editorSave.main_save_failed'), color: 'error' })
+    try {
+      await backend.containers.updateSilent(draft.value.id, JSON.stringify(patch))
+    } catch (e) {
+      // 一条 toast 收口: 标题「主图保存失败」+ 本地化原因, 不再叠 invoke 的自动 toast。
+      toast.add({ title: t('editorSave.main_save_failed'), description: errorMessage(e), color: 'error' })
       return false
     }
     const orphanSet = new Set(orphanIDs)
@@ -42,7 +45,7 @@ export function useEditorSave(opts: {
       if (orphanSet.has(sg.id)) continue
       const sgPatch = JSON.stringify(sg)
       try {
-        await backend.containers.updateSubgraph(draft.value.id, sg.id, sgPatch)
+        await backend.containers.updateSubgraphSilent(draft.value.id, sg.id, sgPatch)
       } catch (e) {
         console.warn('updateSubgraph failed', sg.id, e)
         failed.push(sg.id)
