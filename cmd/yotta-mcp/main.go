@@ -36,6 +36,14 @@ func main() {
 		},
 	)
 
+	s.AddTool(
+		mcp.NewTool("get_graph_schema",
+			mcp.WithDescription("Return the Yotta container-graph JSON schema conventions and validated example containers. Read this before generating a container.")),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText(string(graphSchemaJSON())), nil
+		},
+	)
+
 	if err := server.ServeStdio(s); err != nil {
 		fmt.Printf("server error: %v\n", err)
 		log.Fatal(err)

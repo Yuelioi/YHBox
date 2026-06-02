@@ -3,7 +3,37 @@ package main
 import (
 	"encoding/json"
 	"testing"
+
+	"yotta/internal/services/container"
 )
+
+func TestSchemaExamples_AllValid(t *testing.T) {
+	exs := schemaExamples()
+	if len(exs) < 2 {
+		t.Fatalf("need >=2 examples, got %d", len(exs))
+	}
+	sawNeedsWindow := false
+	for i, raw := range exs {
+		var c container.Container
+		if err := json.Unmarshal(raw, &c); err != nil {
+			t.Fatalf("example %d not valid JSON: %v", i, err)
+		}
+		c.Normalize()
+		for _, e := range container.ValidateContainer(&c) {
+			if e.Severity == container.SeverityError {
+				t.Fatalf("example %d has validation error: %s @ %s", i, e.Code, e.NodeID)
+			}
+		}
+		for _, n := range c.Graph.Nodes {
+			if n.Kind == "WindowTarget" {
+				sawNeedsWindow = true
+			}
+		}
+	}
+	if !sawNeedsWindow {
+		t.Fatal("examples must cover a needsWindow scenario (WindowTarget present)")
+	}
+}
 
 func TestListNodesJSON_NonEmpty(t *testing.T) {
 	b := listNodesJSON()
