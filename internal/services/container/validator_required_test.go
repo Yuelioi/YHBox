@@ -61,3 +61,14 @@ func TestRequired_DefaultSuppresses(t *testing.T) {
 		t.Fatalf("KeyPress.VK has Default='W', must not flag, got %+v", errs)
 	}
 }
+
+// 必填 pin 的值存在顶层 config[pin] (非 literal 子对象, 老/真实容器的存法) → 满足, 不报。
+// 镜像 PinValue 的两级回退; 防回归: fishing-v2 容器即此形态。
+func TestRequired_TopLevelConfigSatisfies(t *testing.T) {
+	c := reqContainer([]GraphNode{
+		{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg1"}},
+	}, nil)
+	if errs := validateRequiredPins(c); hasCodeForNode(errs, CodeMissingRequiredPin, "call") {
+		t.Fatalf("top-level config[SubgraphID] should satisfy required, got %+v", errs)
+	}
+}

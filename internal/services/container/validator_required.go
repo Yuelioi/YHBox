@@ -45,6 +45,9 @@ func validateRequiredPins(c *Container) []ValidationError {
 						continue
 					}
 				}
+				if _, present := n.Config[ip.Name]; present { // top-level config (mirror PinValue fallback)
+					continue
+				}
 				if ip.Default != nil {
 					continue
 				}
