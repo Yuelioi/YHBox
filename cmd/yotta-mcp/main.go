@@ -7,11 +7,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	"yotta/internal/services/container"
 
 	// Anonymous imports — trigger init() node registration so all nodes are
 	// available in the registry when catalog/graph tools are called.
@@ -26,6 +31,21 @@ import (
 )
 
 func main() {
+	// 数据根：镜像主 main.go 的解析逻辑。
+	// 优先读 YOTTA_DATA_DIR 环境变量（主 app 启动时会 Setenv，MCP 独立跑时用户可手动设）；
+	// 为空则回落到 <exeDir>/data，exeDir 读失败再回落 "data"。
+	dataDir := os.Getenv("YOTTA_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "data"
+		if exe, err := os.Executable(); err == nil {
+			dataDir = filepath.Join(filepath.Dir(exe), "data")
+		}
+	}
+	st, err := container.NewStore(filepath.Join(dataDir, "containers"))
+	if err != nil {
+		log.Fatalf("container store init: %v", err)
+	}
+
 	s := server.NewMCPServer("yotta-mcp", "0.1.0")
 
 	s.AddTool(
@@ -59,6 +79,25 @@ func main() {
 			}
 			out, _ := validateContainerJSON([]byte(raw))
 			return mcp.NewToolResultText(string(out)), nil
+		},
+	)
+
+	s.AddTool(
+		mcp.NewTool("save_container",
+			mcp.WithDescription("Validate and persist a Yotta container graph. Rejects (returns ValidationErrors) if there are error-level issues; warnings do not block. The server assigns the container id; the input id is ignored. Returns {id, path, warnings}."),
+			mcp.WithString("container", mcp.Required(), mcp.Description("The container graph JSON.")),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			raw, err := req.RequireString("container")
+			if err != nil {
+				return mcp.NewToolResultError("missing 'container' argument"), nil
+			}
+			res, saveErrs := saveContainer(st, []byte(raw))
+			if saveErrs != nil {
+				return mcp.NewToolResultText(string(saveErrs)), nil
+			}
+			b, _ := json.MarshalIndent(res, "", "  ")
+			return mcp.NewToolResultText(string(b)), nil
 		},
 	)
 
