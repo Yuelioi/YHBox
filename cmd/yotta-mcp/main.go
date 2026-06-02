@@ -66,7 +66,7 @@ func main() {
 
 	s.AddTool(
 		mcp.NewTool("validate_container",
-			mcp.WithDescription("Validate a Yotta container graph JSON. Returns a JSON array of structured ValidationErrors (severity error|warning, code, nodeId, pin, params). Empty array = clean. Use this to repair generated containers before saving."),
+			mcp.WithDescription("Validate a Yotta container graph JSON. Returns a JSON array of structured ValidationErrors (severity error|warning, code, nodeId, graphPath, params — pin/kind/etc. live inside params). Empty array = clean. Use this to repair generated containers before saving."),
 			mcp.WithString("container",
 				mcp.Required(),
 				mcp.Description("The container graph JSON string to validate."),
@@ -94,7 +94,7 @@ func main() {
 			}
 			res, saveErrs := saveContainer(st, []byte(raw))
 			if saveErrs != nil {
-				return mcp.NewToolResultText(string(saveErrs)), nil
+				return mcp.NewToolResultError(string(saveErrs)), nil
 			}
 			b, _ := json.MarshalIndent(res, "", "  ")
 			return mcp.NewToolResultText(string(b)), nil
