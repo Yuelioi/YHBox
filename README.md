@@ -39,7 +39,6 @@ Windows 桌面工具，给《异环 / Neverness to Everness》提供后台自动
 ## 文档
 
 - **用户**：本 README + 应用内"帮助"页
-- **维护者 / 二次开发**：[docs/tech/](docs/tech/) — 每个 bot 一份技术文档 + 总体架构 + 开发指南（加新分辨率 / 加新语言 / 加新 bot）
 
 ## 从源码构建
 
