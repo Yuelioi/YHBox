@@ -6,6 +6,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/google/uuid v1.6.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
+	github.com/mark3labs/mcp-go v0.32.0
 	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.35.1
@@ -48,8 +49,10 @@ require (
 	github.com/samber/lo v1.52.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
 	github.com/wailsapp/wails/webview2 v1.0.24 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
