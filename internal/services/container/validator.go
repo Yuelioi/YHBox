@@ -39,6 +39,7 @@ const (
 	CodeNoStart                    = "NO_START"
 	CodeCyclicSubgraphDependency   = "CYCLIC_SUBGRAPH_DEPENDENCY"
 	CodePlayClipNoClipID           = "PLAYCLIP_NO_CLIP_ID"
+	CodeMissingRequiredPin         = "MISSING_REQUIRED_PIN"
 )
 
 const (
@@ -189,6 +190,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateLiteralTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
 	errs = append(errs, validateDataGraphAcyclic(c)...)
+	errs = append(errs, validateRequiredPins(c)...)
 
 	return errs
 }
