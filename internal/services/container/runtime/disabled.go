@@ -16,7 +16,8 @@ import (
 //	Subgraph / CollapsedNode → .Done / 动态 OutputPins[0] (dynamic outputs)
 //	Linear nodes (Sleep, KeyPress, SetVar, etc.) → 走 nodepkg.Spec 第一个 Type=Exec 出口
 //	Throw / Stop / terminals → noop (return nil; runner naturally terminates this token's path)
-//	Start / WindowTarget / MouseCalibration / OnEvent → validator should have errored (INVALID_DISABLED_TERMINAL).
+//	Start / MouseCalibration / OnEvent → validator should have errored (INVALID_DISABLED_TERMINAL).
+//	WindowTarget — 普通 exec 节点: 未禁用走 execNodeViaFramework→Run; 禁用走 default→firstExecOutPin("Fire").
 func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	switch node.Kind {
 	case "Loop", "Race", "Parallel":
@@ -41,7 +42,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 	case "Throw", "Stop":
 		// Terminal — passthrough = noop, runner ends this path naturally.
 		return nil, nil
-	case "Start", "WindowTarget", "MouseCalibration", "OnEvent":
+	case "Start", "MouseCalibration", "OnEvent":
 		// Container-level — validator should have caught this. Defensive: noop.
 		return nil, nil
 	default:
