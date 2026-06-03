@@ -39,15 +39,11 @@ func ReadWindowTargetMatchSpec(n *GraphNode) winutil.MatchSpec {
 	}
 }
 
-// ReadWindowTargetCaptureBackend 读容器主图 WindowTarget 节点的 CaptureBackend 配置.
-// 无节点/无配置 → "auto". 制作工具(截模板/取色)按此现建一次性 IBackend, 与运行时同后端.
+// ReadWindowTargetCaptureBackend 读容器级 CaptureBackend 配置.
+// 无配置 → "auto". 制作工具(截模板/取色)按此现建一次性 IBackend, 与运行时同后端.
 func ReadWindowTargetCaptureBackend(c *Container) string {
-	wt := FindMainGraphNode(c, "WindowTarget")
-	if wt == nil {
-		return "auto"
-	}
-	if s := PinString(wt, "CaptureBackend"); s != "" {
-		return s
+	if c.CaptureBackend != "" {
+		return c.CaptureBackend
 	}
 	return "auto"
 }
@@ -55,15 +51,11 @@ func ReadWindowTargetCaptureBackend(c *Container) string {
 // DefaultScaleTolerance 模板跨分辨率缩放容差默认值. k=2.0 → 允许缩放比 ∈ [0.5, 2.0].
 const DefaultScaleTolerance = 2.0
 
-// ReadWindowTargetScaleTolerance 读容器主图 WindowTarget 节点的 ScaleTolerance 配置.
-// 无节点/无配置/非法 (<1.0) → DefaultScaleTolerance. 模板匹配按此做跨分辨率缩放兜底.
+// ReadWindowTargetScaleTolerance 读容器级 ScaleTolerance 配置.
+// 未填/非法 (<1.0) → DefaultScaleTolerance. 模板匹配按此做跨分辨率缩放兜底.
 func ReadWindowTargetScaleTolerance(c *Container) float64 {
-	wt := FindMainGraphNode(c, "WindowTarget")
-	if wt == nil {
-		return DefaultScaleTolerance
-	}
-	if v, ok := PinFloat(wt, "ScaleTolerance"); ok && v >= 1.0 {
-		return v
+	if c.ScaleTolerance >= 1.0 {
+		return c.ScaleTolerance
 	}
 	return DefaultScaleTolerance
 }

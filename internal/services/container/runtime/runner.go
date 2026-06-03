@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -16,7 +15,6 @@ import (
 	"yotta/internal/services/inputclip/backends"
 	pkgcapture "yotta/pkg/capture"
 	pkginput "yotta/pkg/input"
-	"yotta/pkg/winutil"
 )
 
 // LoopFrame Loop body 期间的"我在哪个 Loop 里"上下文。Break/Continue 跳目标。
@@ -289,43 +287,20 @@ func configStringList(node *container.GraphNode, key string) []string {
 // runtime bootstrap: setupRuntime / teardownRuntime / WindowTarget 解析.
 // ----------------------------------------------------------------------------
 
-// setupRuntime 找 WindowTarget 节点 → resolve hwnd → 建 input/capture backend → populate rt.
-// 幂等: 如果 rt.Window.HWND != 0 且 rt.Input != nil (测试预设过) 就跳过 — 测试 fixture 可以
-// 注入 fake backend + stub hwnd 不走 Win32 resolve.
+// setupRuntime 按容器级配置建 input/capture backend → populate rt.
+// 不在启动期解析窗口 — 窗口由 WindowTarget.Run 运行时解析 (SetActive).
+// 幂等: 测试预设过 (fixture 注入 window + input) 就跳过.
 func (r *ContainerRunner) setupRuntime() error {
+	// 测试预设过 (fixture 注入 window + input) 就跳过.
 	if r.rt.WindowHandle().HWND != 0 && r.rt.Input != nil {
-		// 测试预设过了, 跳过 resolve. capture 也跳过 (测试通常用不到 capture).
 		return nil
 	}
-
-	// 按需要求: 纯窗口无关容器 (无 NeedsWindow 节点) 不解析窗口, rt.Window 留零值.
-	// 跟 validator.validateWindowTarget 同判定 — 含窗口节点才要求/解析 WindowTarget.
 	if !containerNeedsWindow(r.rt.Container) {
 		return nil
 	}
 
-	wtNode := container.FindMainGraphNode(r.rt.Container, "WindowTarget")
-	if wtNode == nil {
-		return container.ErrNoWindowTarget
-	}
-	matchSpec := container.ReadWindowTargetMatchSpec(wtNode)
-	runtimeSpec := readWindowTargetRuntimeSpec(wtNode)
-
-	// 1) hwnd + metadata
-	wh, err := winutil.ResolveWindow(context.Background(), matchSpec, 3*time.Second, 500*time.Millisecond)
-	if err != nil {
-		return fmt.Errorf("WindowTarget resolve: %w", err)
-	}
-	r.rt.SetActiveWindow(wh)
-
-	// 前台 RunMode: 把本容器目标窗口拉到前台.
-	if r.rt.Container.RunMode == "foreground" && r.rt.Game != nil {
-		r.rt.Game.BringToForeground(r.rt.WindowHandle().HWND)
-		time.Sleep(150 * time.Millisecond) // 等窗口 restore + 焦点切换完成, 否则前台模式下早期 SendInput/相机输入可能落空
-	}
-
-	// 2) input backend (默认 postmessage)
-	inputName := runtimeSpec["InputBackend"]
+	// 后端按容器级配置建 (hwnd 按调用传参, 无窗口也能先建). 窗口由 WindowTarget.Run 运行时解析.
+	inputName := r.rt.Container.InputBackend
 	if inputName == "" {
 		inputName = "postmessage"
 	}
@@ -333,15 +308,18 @@ func (r *ContainerRunner) setupRuntime() error {
 	if err != nil {
 		return fmt.Errorf("input backend %q: %w", inputName, err)
 	}
-	r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
-
-	// PlayClip 输入后端 (inputclip): per-run, hwnd 取本容器 rt.Window. nil 守卫让测试可预设 fake backend.
-	if r.rt.InputBackend == nil {
-		r.rt.InputBackend = backends.NewHybridBackend(func() uintptr { return r.rt.WindowHandle().HWND })
+	if r.rt.Input == nil {
+		r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
 	}
 
-	// 3) capture backend (auto + fallback)
-	captureName := runtimeSpec["CaptureBackend"]
+	if r.rt.InputBackend == nil {
+		r.rt.InputBackend = backends.NewHybridBackend(func() uintptr {
+			h, _ := r.rt.ActiveHWND()
+			return h
+		})
+	}
+
+	captureName := r.rt.Container.CaptureBackend
 	if captureName == "" {
 		captureName = "auto"
 	}
@@ -352,39 +330,9 @@ func (r *ContainerRunner) setupRuntime() error {
 	if captureWarning != "" && r.rt.Emit != nil {
 		r.rt.Emit("container:warning", map[string]any{"message": captureWarning})
 	}
-	r.rt.Capture = NewSafeCaptureBackend(rawCapture, r.rt)
-
-	// ROI 分辨率检查: 遍历主图 + 所有子图，找带 _capturedAtResolution 的节点。
-	// 窗口 clientW/clientH 已由上面的 ResolveWindow 填好，逐节点对比后发出 warning（不阻断）。
-	if r.rt.Emit != nil {
-		wh := r.rt.WindowHandle()
-		clientW := wh.ClientW
-		clientH := wh.ClientH
-		checkROINode := func(n *container.GraphNode) {
-			rawCap, ok := n.Config["_capturedAtResolution"].([]any)
-			if !ok || len(rawCap) != 2 {
-				return
-			}
-			cw, _ := rawCap[0].(float64)
-			ch, _ := rawCap[1].(float64)
-			if int(cw) != clientW || int(ch) != clientH {
-				r.rt.Emit("container:warning", map[string]any{
-					"nodeId":  n.ID,
-					"code":    "ROI_RESOLUTION_MISMATCH",
-					"message": fmt.Sprintf("node %q ROI captured at %vx%v but window is %dx%d — accuracy may degrade", n.ID, cw, ch, clientW, clientH),
-				})
-			}
-		}
-		for i := range r.rt.Container.Graph.Nodes {
-			checkROINode(&r.rt.Container.Graph.Nodes[i])
-		}
-		for i := range r.rt.Container.Subgraphs {
-			for j := range r.rt.Container.Subgraphs[i].Graph.Nodes {
-				checkROINode(&r.rt.Container.Subgraphs[i].Graph.Nodes[j])
-			}
-		}
+	if r.rt.Capture == nil {
+		r.rt.Capture = NewSafeCaptureBackend(rawCapture, r.rt)
 	}
-
 	return nil
 }
 
@@ -426,18 +374,3 @@ func graphHasWindowNode(nodes []container.GraphNode) bool {
 	return false
 }
 
-
-// readWindowTargetRuntimeSpec 解析 WindowTarget.config 顶级 runtime 字段 (InputBackend /
-// CaptureBackend). 返 map[string]string, key 是 PascalCase: "InputBackend"/"CaptureBackend".
-func readWindowTargetRuntimeSpec(n *container.GraphNode) map[string]string {
-	if n.Config == nil {
-		return map[string]string{}
-	}
-	out := map[string]string{}
-	for _, k := range []string{"InputBackend", "CaptureBackend"} {
-		if s := container.PinString(n, k); s != "" {
-			out[k] = s
-		}
-	}
-	return out
-}

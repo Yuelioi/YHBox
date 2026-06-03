@@ -69,6 +69,10 @@ type Container struct {
 	Hotkey        string   `json:"hotkey,omitempty"`
 	// RunMode "foreground" 启动前激活游戏窗口；"background" 默认 PostMessage 不抢焦点。
 	RunMode   string     `json:"runMode,omitempty"`
+	// 容器级窗口后端配置 (原在 WindowTarget 节点, v2 挪容器级 — 整容器一套后端).
+	InputBackend   string  `json:"inputBackend,omitempty"`
+	CaptureBackend string  `json:"captureBackend,omitempty"`
+	ScaleTolerance float64 `json:"scaleTolerance,omitempty"`
 	Vars      []VarDecl  `json:"vars,omitempty"`
 	Graph     Graph      `json:"graph"`
 	Subgraphs []Subgraph `json:"-"` // 运行时从 subgraphs/*.json 读入；不存进 container.json

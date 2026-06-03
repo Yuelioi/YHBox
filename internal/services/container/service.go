@@ -107,23 +107,25 @@ func (s *Service) Create(name string) (Container, error) {
 	stopID := uuid.NewString()
 	winTargetID := uuid.NewString()
 	c := Container{
-		SchemaVersion: CurrentSchemaVersion,
-		ID:            uuid.NewString(),
-		Name:          name,
+		SchemaVersion:  CurrentSchemaVersion,
+		ID:             uuid.NewString(),
+		Name:           name,
+		InputBackend:   "postmessage",
+		CaptureBackend: "auto",
+		ScaleTolerance: DefaultScaleTolerance,
 		Graph: Graph{
 			ID:      uuid.NewString(),
 			Version: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: startID, Kind: "Start", X: 100, Y: 120, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
-				{ID: stopID, Kind: "Stop", X: 500, Y: 120, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
-				// 新建容器自带 WindowTarget 占位 (匿名 title), 用户必须改成实际窗口标题
-				// 才能 Save (validator 拒空 match). 这里给 placeholder 让首次创建不报错.
 				{ID: winTargetID, Kind: "WindowTarget", X: 100, Y: 260, Config: map[string]any{
 					"Title": name,
 				}, CreatedAt: time.Now().UTC()},
+				{ID: stopID, Kind: "Stop", X: 500, Y: 260, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
 			},
 			Edges: []GraphEdge{
-				{From: startID + ".Done", To: stopID + ".In"},
+				{From: startID + ".Done", To: winTargetID + ".In"},
+				{From: winTargetID + ".Fire", To: stopID + ".In"},
 			},
 		},
 	}
