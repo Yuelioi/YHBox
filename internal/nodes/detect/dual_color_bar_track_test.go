@@ -14,6 +14,9 @@ type stubWindow struct{ w, h int }
 func (s stubWindow) BringForeground() error        { return nil }
 func (s stubWindow) HWND() uintptr                 { return 0 }
 func (s stubWindow) ClientSize() (int, int, error) { return s.w, s.h, nil }
+func (s stubWindow) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
+	return nil
+}
 
 func withVisionAndWindow(v node.VisionService, w node.WindowService) node.ServiceBundle {
 	b := node.StubServices()

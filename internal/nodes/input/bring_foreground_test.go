@@ -20,6 +20,9 @@ func (r *recordingWindow) BringForeground() error {
 }
 func (r *recordingWindow) HWND() uintptr                 { return 0 }
 func (r *recordingWindow) ClientSize() (int, int, error) { return 0, 0, nil }
+func (r *recordingWindow) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
+	return nil
+}
 
 func withWindow(w node.WindowService) node.ServiceBundle {
 	b := node.StubServices()
