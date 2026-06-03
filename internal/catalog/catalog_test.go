@@ -26,6 +26,40 @@ func TestBuild_HasNodesAndSorted(t *testing.T) {
 	}
 }
 
+func TestBuildWithI18n_KeyPressLabeled(t *testing.T) {
+	for _, n := range BuildWithI18n() {
+		if n.Kind != "KeyPress" {
+			continue
+		}
+		if n.Label != "按键" {
+			t.Errorf("KeyPress.Label = %q, want 按键", n.Label)
+		}
+		if n.Description == "" {
+			t.Error("KeyPress.Description should be non-empty")
+		}
+		for _, p := range n.Inputs {
+			if p.Name == "VK" && p.Label == "" {
+				t.Error("KeyPress.VK should have a label")
+			}
+		}
+		return
+	}
+	t.Fatal("KeyPress not found in catalog")
+}
+
+// drift guard: zh.ts 加节点没同步 node-i18n.json (忘跑 pnpm gen:node-i18n) 即 fail。
+func TestBuildWithI18n_AllKindsLabeled(t *testing.T) {
+	var missing []string
+	for _, n := range BuildWithI18n() {
+		if n.Label == "" || n.Description == "" {
+			missing = append(missing, n.Kind)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("缺 label/description 的节点 (zh.ts 改了没跑 `pnpm gen:node-i18n`?): %v", missing)
+	}
+}
+
 func TestBuild_KeyPressShape(t *testing.T) {
 	for _, n := range Build() {
 		if n.Kind != "KeyPress" {

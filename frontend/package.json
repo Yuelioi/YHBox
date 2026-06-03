@@ -13,6 +13,7 @@
     "typecheck": "vue-tsc --noEmit",
     "type-check": "vue-tsc --noEmit",
     "i18n:check": "node src/i18n/check.cjs",
+    "gen:node-i18n": "esbuild src/i18n/zh.ts --bundle --format=esm --outfile=node_modules/.cache/zh-i18n.mjs --log-level=silent && node scripts/extract-node-i18n.mjs",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",

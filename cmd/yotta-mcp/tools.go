@@ -9,9 +9,9 @@ import (
 	"yotta/internal/services/container"
 )
 
-// listNodesJSON 返节点目录 JSON (catalog.Build 已按 category→kind 稳定排序)。
+// listNodesJSON 返节点目录 JSON (catalog.BuildWithI18n 含展示文案, 已按 category→kind 稳定排序)。
 func listNodesJSON() []byte {
-	b, _ := json.MarshalIndent(catalog.Build(), "", "  ")
+	b, _ := json.MarshalIndent(catalog.BuildWithI18n(), "", "  ")
 	return b
 }
 

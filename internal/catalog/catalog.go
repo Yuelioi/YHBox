@@ -3,6 +3,8 @@
 package catalog
 
 import (
+	_ "embed"
+	"encoding/json"
 	"sort"
 
 	"yotta/internal/node"
@@ -15,6 +17,9 @@ type Pin struct {
 	Required bool   `json:"required,omitempty"`
 	Advanced bool   `json:"advanced,omitempty"`
 	Default  any    `json:"default,omitempty"`
+	// 展示文案 (仅 BuildWithI18n 填充; Build 结构-only 时为空, omitempty 不输出)。
+	Label string `json:"label,omitempty"`
+	Hint  string `json:"hint,omitempty"`
 }
 
 type Node struct {
@@ -24,6 +29,9 @@ type Node struct {
 	IsPureData  bool   `json:"isPureData,omitempty"`
 	Inputs      []Pin  `json:"inputs"`
 	Outputs     []Pin  `json:"outputs"`
+	// 展示文案 (仅 BuildWithI18n 填充)。
+	Label       string `json:"label,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // Build 读全注册表, 返按 category→kind 稳定排序的目录。
@@ -51,5 +59,53 @@ func Build() []Node {
 		}
 		return out[i].Kind < out[j].Kind
 	})
+	return out
+}
+
+// node-i18n.json 由 frontend `pnpm gen:node-i18n` 从 zh.ts 的 node.* 块抽取生成。
+//
+//go:embed node-i18n.json
+var nodeI18nJSON []byte
+
+type pinI18n struct {
+	Label string `json:"label"`
+	Hint  string `json:"hint"`
+}
+
+type nodeI18n struct {
+	Label       string             `json:"label"`
+	Description string             `json:"description"`
+	Input       map[string]pinI18n `json:"input"`
+	Output      map[string]pinI18n `json:"output"`
+}
+
+// BuildWithI18n 在 Build() 结构基础上按 kind JOIN 进展示文案 (label/description/pin label+hint),
+// 供 list_nodes 给 LLM 更全语境。zh.ts 缺某 kind 的文案则该字段留空 (drift guard 测试会兜)。
+func BuildWithI18n() []Node {
+	out := Build()
+	var i18n map[string]nodeI18n
+	if err := json.Unmarshal(nodeI18nJSON, &i18n); err != nil {
+		panic("catalog: node-i18n.json 解析失败: " + err.Error())
+	}
+	for i := range out {
+		n := &out[i]
+		t, ok := i18n[n.Kind]
+		if !ok {
+			continue
+		}
+		n.Label = t.Label
+		n.Description = t.Description
+		for j := range n.Inputs {
+			if p, ok := t.Input[n.Inputs[j].Name]; ok {
+				n.Inputs[j].Label = p.Label
+				n.Inputs[j].Hint = p.Hint
+			}
+		}
+		for j := range n.Outputs {
+			if p, ok := t.Output[n.Outputs[j].Name]; ok {
+				n.Outputs[j].Label = p.Label
+			}
+		}
+	}
 	return out
 }
