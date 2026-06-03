@@ -76,7 +76,9 @@ export function rebuildPinSpecMaps(): void {
 
   // B2: SubgraphInput/Output 不再 backend register, 但编辑器仍要渲染 virtual marker.
   // 手动加 PIN_SPECS + visual 让 ContainerFlowNode 能画 (1 exec-out / 1 exec-in).
-  PIN_SPECS['SubgraphInput'] = { execIn: [], execOut: ['out'], dataIn: {}, dataOut: {} }
+  // entry marker 的 exec-out 名必须是 'Done' — runtime 从 entryID+".Done" 播种 (dispatch_v5.go),
+  // 与 SubgraphOutput.execIn='In' 同走 PascalCase exec 约定; 用 'out' 会让边渲染错位 + 运行时不播种.
+  PIN_SPECS['SubgraphInput'] = { execIn: [], execOut: ['Done'], dataIn: {}, dataOut: {} }
   KIND_LABEL_ZH['SubgraphInput'] = 'node.SubgraphInput.label'
   KIND_DESCRIPTION['SubgraphInput'] = 'node.SubgraphInput.description'
   KIND_DEFAULTS['SubgraphInput'] = {}
@@ -99,6 +101,18 @@ export function pinsFor(
 ): { execIn: string[]; execOut: string[]; dataIn: string[]; dataOut: string[] } {
   const s = getSpec(kind)
   if (!s) {
+    // virtual marker (SubgraphInput/Output) 不在 registry, pin 定义在 PIN_SPECS —
+    // 必须从这里取 (entry exec-out='Done' / output exec-in='In'), 否则 fallback 的
+    // in/out 跟边 + runtime 的 Done/In 对不上 → 边渲染掉到节点底部 + 运行时不播种.
+    const marker = PIN_SPECS[kind]
+    if (marker) {
+      return {
+        execIn: marker.execIn,
+        execOut: marker.execOut,
+        dataIn: Object.keys(marker.dataIn),
+        dataOut: Object.keys(marker.dataOut),
+      }
+    }
     return { execIn: ['in'], execOut: ['out'], dataIn: [], dataOut: [] }
   }
   const dynDataIn = s.dataInDynamicFn ? s.dataInDynamicFn(config) : {}

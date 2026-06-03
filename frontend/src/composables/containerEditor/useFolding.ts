@@ -88,8 +88,12 @@ export function useFolding(opts: {
 
     const innerEdges: any[] = [...movedEdges]
     if (autoConnectable && sgEntryNodeID && sgOutNodeID && declID && firstNodeID && lastNodeID) {
-      innerEdges.push({ from: `${sgEntryNodeID}.out`, to: `${firstNodeID}.in` })
-      innerEdges.push({ from: `${lastNodeID}.out`, to: `${sgOutNodeID}.in` })
+      // pin 名走真实约定, 不硬编码 in/out:
+      // - entry marker exec-out = "Done" (runtime 从 entryID+".Done" 播种)
+      // - output marker exec-in = "In" (SubgraphOutput.execIn)
+      // - 边界节点端保留原 external 边的真实 pin (e.g. WindowTarget 的 In/Fire), 不重建成 in/out
+      innerEdges.push({ from: `${sgEntryNodeID}.Done`, to: externalIns[0].to })
+      innerEdges.push({ from: externalOuts[0].from, to: `${sgOutNodeID}.In` })
     }
 
     await backend.containers.updateSubgraph(draft.value.id, sgRaw.id, JSON.stringify({
@@ -123,7 +127,7 @@ export function useFolding(opts: {
       if (autoConnectable && declID) {
         // 改写 external 边的 dangling 端指向新 call node
         for (const e of activeGraph.value.edges as any[]) {
-          if (e === externalIns[0]) e.to = `${callNodeID}.in`
+          if (e === externalIns[0]) e.to = `${callNodeID}.In` // Subgraph 调用节点 exec-in = "In"
           else if (e === externalOuts[0]) e.from = `${callNodeID}.${declID}`
         }
       }
