@@ -331,6 +331,21 @@ func (s *Service) ResolveWindow(containerID string) (winutil.WindowHandle, error
 	return ResolveWindowTarget(context.Background(), &c, 3*time.Second, 500*time.Millisecond)
 }
 
+// ResolveWindowForNode 按节点最近上游 WindowTarget 解析目标窗口.
+// nodeID 为空 → 回落主 WindowTarget（同 ResolveWindow）.
+// 容器不存在 / 无 WindowTarget / 窗口没开 → error.
+func (s *Service) ResolveWindowForNode(containerID, nodeID string) (winutil.WindowHandle, error) {
+	c, ok := s.store.Get(containerID)
+	if !ok {
+		return winutil.WindowHandle{}, fmt.Errorf("container %q not found", containerID)
+	}
+	wt := windowTargetForNode(&c, nodeID)
+	if wt == nil {
+		return winutil.WindowHandle{}, ErrNoWindowTarget
+	}
+	return winutil.ResolveWindow(context.Background(), ReadWindowTargetMatchSpec(wt), 3*time.Second, 500*time.Millisecond)
+}
+
 // CaptureBackendFor 返容器配置的截图后端名 (auto/gdi/wgc/mock). 容器不存在 → "auto".
 func (s *Service) CaptureBackendFor(containerID string) string {
 	c, ok := s.store.Get(containerID)

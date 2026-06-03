@@ -17,7 +17,7 @@ import (
 // WindowResolver 由 main.go 注入 (concrete *container.Service)，按 containerID 解析目标窗口。
 // 本包不 import container 包以保持解耦。
 type WindowResolver interface {
-	ResolveWindow(containerID string) (winutil.WindowHandle, error)
+	ResolveWindowForNode(containerID, nodeID string) (winutil.WindowHandle, error)
 	CaptureBackendFor(containerID string) string
 }
 
@@ -56,10 +56,12 @@ func NewService(resolver WindowResolver) *Service {
 	}
 }
 
-// gameWindowFor 按 containerID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
-func (s *Service) gameWindowFor(containerID string) (winutil.WindowHandle, bool) {
+// gameWindowFor 按 containerID + nodeID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
+// nodeID 为空时回落容器主 WindowTarget。
+func (s *Service) gameWindowFor(containerID, nodeID string) (winutil.WindowHandle, bool) {
+	cacheKey := containerID + "|" + nodeID
 	s.mu.Lock()
-	if c, ok := s.winCache[containerID]; ok && time.Since(c.at) < 2*time.Second {
+	if c, ok := s.winCache[cacheKey]; ok && time.Since(c.at) < 2*time.Second {
 		wh := c.wh
 		s.mu.Unlock()
 		return wh, wh.HWND != 0
@@ -67,20 +69,20 @@ func (s *Service) gameWindowFor(containerID string) (winutil.WindowHandle, bool)
 	s.mu.Unlock()
 
 	// 锁外调阻塞解析 (winutil.ResolveWindow 窗口没开时最长等 3s), 不持锁, 不卡其它 RPC.
-	wh, err := s.resolver.ResolveWindow(containerID)
+	wh, err := s.resolver.ResolveWindowForNode(containerID, nodeID)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// double-check: 期间并发 poll 可能已写缓存
-	if c, ok := s.winCache[containerID]; ok && time.Since(c.at) < 2*time.Second {
+	if c, ok := s.winCache[cacheKey]; ok && time.Since(c.at) < 2*time.Second {
 		return c.wh, c.wh.HWND != 0
 	}
 	if err != nil {
 		// 负缓存: 失败也存零值 2s, 避免游戏关着时高频 poll 反复阻塞解析
-		s.winCache[containerID] = cachedWindow{at: time.Now()}
+		s.winCache[cacheKey] = cachedWindow{at: time.Now()}
 		return winutil.WindowHandle{}, false
 	}
-	s.winCache[containerID] = cachedWindow{wh: wh, at: time.Now()}
+	s.winCache[cacheKey] = cachedWindow{wh: wh, at: time.Now()}
 	return wh, true
 }
 
@@ -106,13 +108,14 @@ func (s *Service) wailsApp() *application.App {
 }
 
 // MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
-func (s *Service) MousePos(containerID string) MousePosInfo {
+// nodeID 指定当前编辑节点（按最近上游 WindowTarget 解析窗口）；无节点上下文传 ""。
+func (s *Service) MousePos(containerID, nodeID string) MousePosInfo {
 	sx, sy, ok := readCursor()
 	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
 	if !ok {
 		return info
 	}
-	wh, hasGame := s.gameWindowFor(containerID)
+	wh, hasGame := s.gameWindowFor(containerID, nodeID)
 	if !hasGame {
 		return info
 	}
@@ -290,7 +293,8 @@ func (s *Service) CloseRecordingHUD() {
 // OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save"。
 // requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
 // 带上 id 给调用方匹配。containerID 仅 template_save 模式需要（空字符串则保存失败）。
-func (s *Service) OpenScreenPicker(mode, requestID, containerID string) error {
+// nodeID 指定当前编辑节点（按最近上游 WindowTarget 截图）；无节点上下文传 ""。
+func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID string) error {
 	app := s.wailsApp()
 	if app == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
@@ -309,7 +313,7 @@ func (s *Service) OpenScreenPicker(mode, requestID, containerID string) error {
 	}
 	s.mu.Unlock()
 
-	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID) + "&containerID=" + url.QueryEscape(containerID)
+	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID) + "&containerID=" + url.QueryEscape(containerID) + "&nodeID=" + url.QueryEscape(nodeID)
 	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "选择屏幕位置",
 		Width:     1280,

@@ -25,12 +25,13 @@ type PixelInfo struct {
 
 // PixelAt 截当前帧，读光标位置的像素颜色。前端"取色"按钮按一次调一次。
 // 太频繁会拖性能（每次都 capture）。
-func (s *Service) PixelAt(containerID string) (PixelInfo, error) {
+// nodeID 指定当前编辑节点（按最近上游 WindowTarget 解析窗口）；无节点上下文传 ""。
+func (s *Service) PixelAt(containerID, nodeID string) (PixelInfo, error) {
 	sx, sy, ok := readCursor()
 	if !ok {
 		return PixelInfo{}, fmt.Errorf("GetCursorPos failed")
 	}
-	wh, hasGame := s.gameWindowFor(containerID)
+	wh, hasGame := s.gameWindowFor(containerID, nodeID)
 	if !hasGame {
 		return PixelInfo{}, fmt.Errorf("游戏窗口未就绪")
 	}
