@@ -241,8 +241,8 @@
     "description": "ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.",
     "input": {
       "ROI": {
-        "label": "ROI (像素)",
-        "hint": "{'{'}\"x\":0,\"y\":0,\"w\":100,\"h\":100{'}'} 客户区像素坐标"
+        "label": "ROI (ratio)",
+        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       },
       "HSV": {
         "label": "HSV 范围",
@@ -292,9 +292,9 @@
     "label": "双色条追踪",
     "description": "ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...], 当前 client size 没匹配项走 Missing.",
     "input": {
-      "Rois": {
-        "label": "ROI 数组 (多分辨率)",
-        "hint": "[{'{'}\"resolution\":[1920,1080],\"x\":576,\"y\":594,\"w\":768,\"h\":54{'}'}, ...]"
+      "Roi": {
+        "label": "ROI (ratio)",
+        "hint": "客户区 ratio 矩形"
       },
       "InnerColor": {
         "label": "inner HSV (默认 fishing cursor 黄)",
@@ -857,8 +857,8 @@
     "description": "沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.",
     "input": {
       "ROI": {
-        "label": "ROI (像素)",
-        "hint": "{'{'}\"x\":0,\"y\":0,\"w\":100,\"h\":100{'}'}"
+        "label": "ROI (ratio)",
+        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       },
       "HSV": {
         "label": "HSV 范围",
@@ -906,8 +906,8 @@
         "hint": "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开."
       },
       "ROI": {
-        "label": "ROI (像素, 可选)",
-        "hint": "{'{'}\"x\":0,\"y\":0,\"w\":100,\"h\":100{'}'} — 缺省/全 0 = 全帧"
+        "label": "ROI (ratio)",
+        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       }
     },
     "output": {
@@ -1285,8 +1285,8 @@
     "description": "ROI 降采样后跟 baseline 逐 poll 比对, 差 >= ChangeThreshold → Changed (画面变了, e.g. 弹窗/加载完成); 超时 → Timeout.",
     "input": {
       "ROI": {
-        "label": "ROI (像素, 可选)",
-        "hint": "留空 = 全帧; 单位像素, 相对窗口客户区 (x,y = 左上角, w/h = 宽高)"
+        "label": "ROI (ratio)",
+        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       },
       "GridSize": {
         "label": "降采样网格",
@@ -1325,8 +1325,8 @@
     "description": "ROI 降采样后逐 poll 比对, 连续 StableFrames 帧差 <= StableThreshold → Stable (画面稳了); 超时 → Timeout. 防动画/加载中误识别.",
     "input": {
       "ROI": {
-        "label": "ROI (像素, 可选)",
-        "hint": "留空 = 全帧; 单位像素, 相对窗口客户区 (x,y = 左上角, w/h = 宽高)"
+        "label": "ROI (ratio)",
+        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       },
       "GridSize": {
         "label": "降采样网格",
@@ -1394,7 +1394,7 @@
   },
   "WindowTarget": {
     "label": "目标窗口",
-    "description": "声明式 — runtime 启动期读 title/class/processName 解析 hwnd, 读 inputBackend/captureBackend 选 backend. 节点本体 no-op, 走 Fire 出口.",
+    "description": "运行时解析 title/class/processName 切换当前活动窗口; 普通节点, 可放多个切不同窗口.",
     "input": {
       "Title": {
         "label": "窗口标题"
@@ -1407,12 +1407,6 @@
       },
       "TitleMatch": {
         "label": "标题匹配方式"
-      },
-      "InputBackend": {
-        "label": "输入后端"
-      },
-      "CaptureBackend": {
-        "label": "截屏后端"
       }
     },
     "output": {

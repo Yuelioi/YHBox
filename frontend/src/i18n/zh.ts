@@ -679,7 +679,7 @@ export default {
       label: 'HSV 颜色检测',
       description: 'ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.',
       input: {
-        ROI: { label: 'ROI (像素)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} 客户区像素坐标` },
+        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
@@ -695,7 +695,7 @@ export default {
       label: '双色条追踪',
       description: `ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...], 当前 client size 没匹配项走 Missing.`,
       input: {
-        Rois: { label: 'ROI 数组 (多分辨率)', hint: `[{'{'}"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54{'}'}, ...]` },
+        Roi: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形' },
         InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
         OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255{'}'}` },
         Options: { label: '算法参数 (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 fishing UI 实测值)` },
@@ -709,7 +709,7 @@ export default {
       label: 'ROI 颜色 cluster 扫描',
       description: '沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.',
       input: {
-        ROI: { label: 'ROI (像素)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'}` },
+        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         Axis: { label: '扫描轴', option: { x: '水平 (x)', y: '垂直 (y)' } },
         MinClusterPx: { label: '最小段长 (px)' },
@@ -728,7 +728,7 @@ export default {
       label: '等待画面稳定',
       description: 'ROI 降采样后逐 poll 比对, 连续 StableFrames 帧差 <= StableThreshold → Stable (画面稳了); 超时 → Timeout. 防动画/加载中误识别.',
       input: {
-        ROI: { label: 'ROI (像素, 可选)', hint: `留空 = 全帧; 单位像素, 相对窗口客户区 (x,y = 左上角, w/h = 宽高)` },
+        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]; 越大越细越慢' },
         Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
         CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio: 格均值通道差 > 此视作变了' },
@@ -746,7 +746,7 @@ export default {
       label: '等待画面变化',
       description: 'ROI 降采样后跟 baseline 逐 poll 比对, 差 >= ChangeThreshold → Changed (画面变了, e.g. 弹窗/加载完成); 超时 → Timeout.',
       input: {
-        ROI: { label: 'ROI (像素, 可选)', hint: `留空 = 全帧; 单位像素, 相对窗口客户区 (x,y = 左上角, w/h = 宽高)` },
+        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]' },
         Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
         CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio' },
@@ -764,7 +764,7 @@ export default {
       description: '抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.',
       input: {
         PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
-        ROI: { label: 'ROI (像素, 可选)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — 缺省/全 0 = 全帧` },
+        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
       },
       output: {
         Done: {
@@ -1330,7 +1330,6 @@ export default {
     RECORDING_NO_WINDOW_TARGET: '容器缺 WindowTarget 节点（录制需要目标窗口）',
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget 正则不合法: {error}',
     INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match 不能为空',
-    INVALID_ROI: 'ROI 配置不合法 (w/h 必须 >= 1, 得到 {w}x{h})',
     INVALID_DUALBAR_ROIS: 'DualColorBarTrack rois 配置无效',
     DUPLICATE_DUALBAR_ROI: 'DualColorBarTrack rois 含重复分辨率 ({w}x{h})',
     INVALID_HSV_RANGE: 'HSV 范围不合法',

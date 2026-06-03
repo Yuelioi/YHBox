@@ -658,7 +658,7 @@ export default {
       label: 'Detect color (HSV)',
       description: 'Polls HSV hit ratio in ROI until ratio >= minPixelRatio (Yes) or timeout (Timeout). timeoutMs<=0 = single scan, miss → No.',
       input: {
-        ROI: { label: 'ROI (pixels)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} client-area pixel coords` },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
@@ -674,7 +674,7 @@ export default {
       label: 'Dual-color bar track',
       description: `Tracks two HSV clusters (inner + outer) in ROI, computes inner position within outer region. Used for: health bar / progress bar / QTE dual bar / fishing reel. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...]; no match for current client size → Missing.`,
       input: {
-        Rois: { label: 'ROI list (multi-resolution)', hint: `[{'{'}"resolution":[1920,1080],"x":576,"y":594,"w":768,"h":54{'}'}, ...]` },
+        Roi: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
         InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
         OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255{'}'}` },
         Options: { label: 'Algorithm params (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)` },
@@ -688,7 +688,7 @@ export default {
       label: 'ROI color cluster scan',
       description: 'Scans HSV-hit pixels along axis (x/y) in ROI, merges contiguous spans into clusters. count >= minClusterCount → Found. timeoutMs<=0 + first scan short → NotFound.',
       input: {
-        ROI: { label: 'ROI (pixels)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'}` },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
         Axis: { label: 'Scan axis', option: { x: 'Horizontal (x)', y: 'Vertical (y)' } },
         MinClusterPx: { label: 'Min cluster length (px)' },
@@ -707,7 +707,7 @@ export default {
       label: 'Wait for stable frame',
       description: 'Downsamples ROI and compares each poll; diff <= StableThreshold for StableFrames consecutive frames → Stable; timeout → Timeout. Avoids mis-detection during animation/loading.',
       input: {
-        ROI: { label: 'ROI (pixels, optional)', hint: `Empty = full frame; pixels, relative to window client area (x,y = top-left, w/h = size)` },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]; larger = finer but slower' },
         Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
         CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only: cell mean channel diff > this = changed' },
@@ -725,7 +725,7 @@ export default {
       label: 'Wait for frame change',
       description: 'Downsamples ROI and compares against baseline each poll; diff >= ChangeThreshold → Changed (e.g. popup/loading done); timeout → Timeout.',
       input: {
-        ROI: { label: 'ROI (pixels, optional)', hint: `Empty = full frame; pixels, relative to window client area (x,y = top-left, w/h = size)` },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]' },
         Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
         CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only' },
@@ -743,7 +743,7 @@ export default {
       description: 'Captures a frame and writes to file. pathTemplate supports {ts} / {nodeId} / {containerId} / {date}. Empty ROI = full frame.',
       input: {
         PathTemplate: { label: 'Path template', hint: "Relative path, no '..' / drive letter / leading '/' or '\\\\'. {ts}/{nodeId}/{containerId}/{date} auto-expanded." },
-        ROI: { label: 'ROI (pixels, optional)', hint: `{'{'}"x":0,"y":0,"w":100,"h":100{'}'} — empty/all-zero = full frame` },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
       },
       output: {
         Done: {
@@ -1309,7 +1309,6 @@ export default {
     RECORDING_NO_WINDOW_TARGET: 'Container has no WindowTarget node (recording needs a target window)',
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget regex invalid: {error}',
     INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match cannot be empty',
-    INVALID_ROI: 'ROI config invalid (w/h must be >= 1, got {w}x{h})',
     INVALID_DUALBAR_ROIS: 'DualColorBarTrack rois config invalid',
     DUPLICATE_DUALBAR_ROI: 'DualColorBarTrack rois contains duplicate resolution ({w}x{h})',
     INVALID_HSV_RANGE: 'HSV range is invalid',
