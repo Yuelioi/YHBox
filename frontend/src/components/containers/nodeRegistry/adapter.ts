@@ -80,11 +80,12 @@ function widgetKindToFieldType(k: string): FieldSchema['type'] {
   }
 }
 
-// backend Type ("Number" / "String" / "Bool" / "Point" / "*" / 等) → FE PinType.
+// backend Type ("Number" / "String" / "Bool" / "Point" / "Duration" / "*" / 等) → FE PinType.
 function backendTypeToPinType(t: string): PinType {
   switch (t.toLowerCase()) {
     case 'number':
     case 'integer':
+    case 'duration': // Duration 值就是毫秒数 (Go 把裸数字按 ms 解析); 当 number 渲染可填数字
       return 'number'
     case 'bool':
     case 'boolean':
