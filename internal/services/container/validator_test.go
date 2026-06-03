@@ -320,22 +320,27 @@ func TestValidateWindowTarget_EmptyGraphSkipped(t *testing.T) {
 	}
 }
 
-func TestValidateWindowTarget_Duplicate(t *testing.T) {
+func TestValidate_MultipleWindowTargetsAllowed(t *testing.T) {
+	// 主图两个合法 WindowTarget (各有 Title) → 不再报 DUPLICATE_WINDOW_TARGET
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
 			"Title": "异环",
 		}},
 		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
-			"Title": "异环",
+			"Title": "原神",
 		}},
 	}}}
 	errs := validateWindowTarget(c)
-	if !hasCode(errs, CodeDuplicateWindowTarget) {
-		t.Errorf("want DUPLICATE, got %+v", errs)
+	if hasCode(errs, "DUPLICATE_WINDOW_TARGET") {
+		t.Errorf("多个 WindowTarget 不应再报 DUPLICATE_WINDOW_TARGET, got %+v", errs)
+	}
+	if len(errs) != 0 {
+		t.Errorf("两个合法 WindowTarget 应无错误, got %+v", errs)
 	}
 }
 
-func TestValidateWindowTarget_InSubgraph(t *testing.T) {
+func TestValidate_SubgraphWindowTargetAllowed(t *testing.T) {
+	// 子图含 WindowTarget → 不再报 WINDOW_TARGET_IN_SUBGRAPH
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
@@ -344,13 +349,45 @@ func TestValidateWindowTarget_InSubgraph(t *testing.T) {
 		}},
 		Subgraphs: []Subgraph{
 			{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
-				{ID: "w2", Kind: "WindowTarget"},
+				{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
+					"Title": "原神",
+				}},
 			}}},
 		},
 	}
 	errs := validateWindowTarget(c)
-	if !hasCode(errs, CodeWindowTargetInSubgraph) {
-		t.Errorf("want IN_SUBGRAPH, got %+v", errs)
+	if hasCode(errs, "WINDOW_TARGET_IN_SUBGRAPH") {
+		t.Errorf("子图 WindowTarget 不应再报 WINDOW_TARGET_IN_SUBGRAPH, got %+v", errs)
+	}
+	if len(errs) != 0 {
+		t.Errorf("子图合法 WindowTarget 应无错误, got %+v", errs)
+	}
+}
+
+func TestValidate_EachWindowTargetMatchValidated(t *testing.T) {
+	// 两个 WindowTarget: 第一个合法, 第二个 Title/Class/ProcessName 全空 → 报 CodeInvalidWindowTargetEmptyMatch
+	c := &Container{Graph: Graph{Nodes: []GraphNode{
+		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+			"Title": "异环",
+		}},
+		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{}},
+	}}}
+	errs := validateWindowTarget(c)
+	if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
+		t.Errorf("第二个空匹配 WindowTarget 应报 INVALID_WINDOW_TARGET_EMPTY_MATCH, got %+v", errs)
+	}
+	// 只有 w2 报错, w1 不报
+	count := 0
+	for _, e := range errs {
+		if e.Code == CodeInvalidWindowTargetEmptyMatch {
+			count++
+			if e.NodeID != "w2" {
+				t.Errorf("期望错误指向 w2, 实际 NodeID=%s", e.NodeID)
+			}
+		}
+	}
+	if count != 1 {
+		t.Errorf("期望 EMPTY_MATCH 报 1 次, 实际 %d", count)
 	}
 }
 

@@ -1,8 +1,9 @@
 package container
 
 // validateDisabledNodes checks rules for nodes marked disabled=true:
-//  1. Container-level nodes (Start/WindowTarget/MouseCalibration/OnEvent) disabled → error
-//     (invalid: no entry / target lost)
+//  1. Container-level terminals (Start/MouseCalibration/OnEvent) disabled → error
+//     (invalid: no entry / calibration lost)
+//     WindowTarget 是普通可执行节点, 允许禁用.
 //  2. Loop/Switch/Race/Parallel/Try disabled → warn (passthrough behavior is opinionated;
 //     user might want to delete instead)
 func validateDisabledNodes(c *Container) []ValidationError {
@@ -10,7 +11,7 @@ func validateDisabledNodes(c *Container) []ValidationError {
 		return nil
 	}
 	branchKinds := map[string]bool{"Loop": true, "Switch": true, "Race": true, "Parallel": true, "Try": true}
-	terminalKinds := map[string]bool{"Start": true, "WindowTarget": true, "MouseCalibration": true, "OnEvent": true}
+	terminalKinds := map[string]bool{"Start": true, "MouseCalibration": true, "OnEvent": true}
 
 	var errs []ValidationError
 	check := func(g Graph, path []string) {

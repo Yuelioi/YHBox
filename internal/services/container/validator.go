@@ -45,10 +45,11 @@ const (
 
 const (
 	CodeMissingWindowTarget           = "MISSING_WINDOW_TARGET"
-	CodeDuplicateWindowTarget         = "DUPLICATE_WINDOW_TARGET"
-	CodeWindowTargetInSubgraph        = "WINDOW_TARGET_IN_SUBGRAPH"
 	CodeInvalidWindowTargetRegex      = "INVALID_WINDOW_TARGET_REGEX"
 	CodeInvalidWindowTargetEmptyMatch = "INVALID_WINDOW_TARGET_EMPTY_MATCH"
+	// CodeNoActiveWindow は runtime 用 (ErrNoActiveWindow); validator 不主动发,
+	// 此常量供错码集合 / 前端 i18n 对齐.
+	CodeNoActiveWindow = "NO_ACTIVE_WINDOW"
 )
 
 // node-kind config validation codes.
@@ -587,25 +588,36 @@ func edgeNodeID(ref string) string {
 	return ""
 }
 
-// validateWindowTarget: 主图必须 1 个 WindowTarget, 子图禁,
-// match 不能全空 / 不能万能 regex / regex 编译必须过.
+// validateWindowTarget: 收集主图 + 子图所有 WindowTarget, 逐个校验 MatchSpec.
+// 若容器需要窗口 (containerNeedsWindow) 但一个都没有, 报 MISSING_WINDOW_TARGET.
 // 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
 func validateWindowTarget(c *Container) []ValidationError {
 	if len(c.Graph.Nodes) == 0 {
 		return nil
 	}
 	var errs []ValidationError
-	mainCount := 0
-	var mainNode *GraphNode
+
+	// 收集所有 WindowTarget (主图 + 子图), 逐个校验 MatchSpec.
+	type wt struct {
+		node      *GraphNode
+		graphPath []string
+	}
+	var all []wt
 	for i := range c.Graph.Nodes {
-		n := &c.Graph.Nodes[i]
-		if n.Kind == "WindowTarget" {
-			mainCount++
-			mainNode = n
+		if c.Graph.Nodes[i].Kind == "WindowTarget" {
+			all = append(all, wt{node: &c.Graph.Nodes[i], graphPath: []string{"main"}})
 		}
 	}
-	if mainCount == 0 {
-		// 按需要求: 只有图里有窗口类节点 (NeedsWindow) 才报缺 WindowTarget; 纯窗口无关容器放行.
+	for si := range c.Subgraphs {
+		sg := &c.Subgraphs[si]
+		for ni := range sg.Graph.Nodes {
+			if sg.Graph.Nodes[ni].Kind == "WindowTarget" {
+				all = append(all, wt{node: &sg.Graph.Nodes[ni], graphPath: []string{"subgraph:" + sg.ID}})
+			}
+		}
+	}
+
+	if len(all) == 0 {
 		if containerNeedsWindow(c) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
@@ -613,54 +625,31 @@ func validateWindowTarget(c *Container) []ValidationError {
 				GraphPath: []string{"main"},
 			})
 		}
-	} else if mainCount > 1 {
-		errs = append(errs, ValidationError{
-			Severity:  SeverityError,
-			Code:      CodeDuplicateWindowTarget,
-			GraphPath: []string{"main"},
-		})
+		return errs
 	}
 
-	// 子图不能有 WindowTarget
-	for _, sg := range c.Subgraphs {
-		for _, n := range sg.Graph.Nodes {
-			if n.Kind == "WindowTarget" {
-				errs = append(errs, ValidationError{
-					Severity:  SeverityError,
-					Code:      CodeWindowTargetInSubgraph,
-					GraphPath: []string{"subgraph:" + sg.ID},
-					NodeID:    n.ID,
-				})
-			}
-		}
-	}
-
-	// 主图唯一 WindowTarget config 合法性
-	if mainNode != nil {
-		spec := readWindowTargetMatchSpec(mainNode)
-		// regex 编译
+	for _, w := range all {
+		spec := readWindowTargetMatchSpec(w.node)
 		if spec.TitleMatch == "regex" && spec.Title != "" {
 			if _, err := regexp.Compile(spec.Title); err != nil {
 				errs = append(errs, ValidationError{
 					Severity:  SeverityError,
 					Code:      CodeInvalidWindowTargetRegex,
-					GraphPath: []string{"main"},
-					NodeID:    mainNode.ID,
+					GraphPath: w.graphPath,
+					NodeID:    w.node.ID,
 					Params:    map[string]any{"error": err.Error()},
 				})
 			}
 		}
-		// empty match (含 .* / .+ 万能)
 		if windowTargetIsEmptyMatch(spec) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
 				Code:      CodeInvalidWindowTargetEmptyMatch,
-				GraphPath: []string{"main"},
-				NodeID:    mainNode.ID,
+				GraphPath: w.graphPath,
+				NodeID:    w.node.ID,
 			})
 		}
 	}
-
 	return errs
 }
 
