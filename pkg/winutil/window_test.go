@@ -1,6 +1,10 @@
 package winutil
 
-import "testing"
+import (
+	"context"
+	"testing"
+	"time"
+)
 
 func TestIsEmptyMatch(t *testing.T) {
 	cases := []struct {
@@ -37,5 +41,19 @@ func TestCompileTitle(t *testing.T) {
 	}
 	if _, err := CompileTitle(MatchSpec{Title: "[invalid", TitleMatch: "regex"}); err == nil {
 		t.Errorf("invalid regex should fail")
+	}
+}
+
+func TestResolveWindow_CtxCancelledReturnsPromptly(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 立即取消
+	spec := MatchSpec{Title: "definitely-no-such-window-zzz", TitleMatch: "exact"}
+	start := time.Now()
+	_, err := ResolveWindow(ctx, spec, 3*time.Second, 500*time.Millisecond)
+	if err == nil {
+		t.Fatal("want error on cancelled ctx, got nil")
+	}
+	if time.Since(start) > 1*time.Second {
+		t.Fatalf("ResolveWindow ignored ctx cancel, waited %v", time.Since(start))
 	}
 }

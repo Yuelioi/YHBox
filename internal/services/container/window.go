@@ -4,6 +4,7 @@
 package container
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -69,10 +70,10 @@ func ReadWindowTargetScaleTolerance(c *Container) float64 {
 
 // ResolveWindowTarget 找主图 WindowTarget 节点并 resolve 成 WindowHandle。
 // 无节点 → ErrNoWindowTarget；resolve 失败 → winutil 原始 error。
-func ResolveWindowTarget(c *Container, timeout, interval time.Duration) (winutil.WindowHandle, error) {
+func ResolveWindowTarget(ctx context.Context, c *Container, timeout, interval time.Duration) (winutil.WindowHandle, error) {
 	wt := FindMainGraphNode(c, "WindowTarget")
 	if wt == nil {
 		return winutil.WindowHandle{}, ErrNoWindowTarget
 	}
-	return winutil.ResolveWindow(ReadWindowTargetMatchSpec(wt), timeout, interval)
+	return winutil.ResolveWindow(ctx, ReadWindowTargetMatchSpec(wt), timeout, interval)
 }

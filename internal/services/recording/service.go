@@ -1,6 +1,7 @@
 package recording
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -138,7 +139,7 @@ func (s *Service) ValidateTarget(containerID string) error {
 		return apperr.New(apperr.CodeRecordingNoWindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
-	wh, err := winutil.ResolveWindow(spec, 3*time.Second, 500*time.Millisecond)
+	wh, err := winutil.ResolveWindow(context.Background(), spec, 3*time.Second, 500*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("窗口未找到: %w", err)
 	}
@@ -181,7 +182,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		return "", apperr.New(apperr.CodeRecordingNoWindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
-	wh, err := winutil.ResolveWindow(spec, 3*time.Second, 500*time.Millisecond)
+	wh, err := winutil.ResolveWindow(context.Background(), spec, 3*time.Second, 500*time.Millisecond)
 	if err != nil {
 		return "", fmt.Errorf("窗口未找到: %w", err)
 	}

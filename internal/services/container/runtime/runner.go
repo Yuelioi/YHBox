@@ -312,7 +312,7 @@ func (r *ContainerRunner) setupRuntime() error {
 	runtimeSpec := readWindowTargetRuntimeSpec(wtNode)
 
 	// 1) hwnd + metadata
-	wh, err := winutil.ResolveWindow(matchSpec, 3*time.Second, 500*time.Millisecond)
+	wh, err := winutil.ResolveWindow(context.Background(), matchSpec, 3*time.Second, 500*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("WindowTarget resolve: %w", err)
 	}

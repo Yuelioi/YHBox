@@ -7,6 +7,7 @@
 package winutil
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -131,7 +132,7 @@ func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
 // callback 只构造一次, 在 retry loop 外. syscall.NewCallback 分配的内存进程生命周期不回收,
 // 每次构造都是永久 leak. 闭包持 spec/titleRe/targetProc (read-only) + 指 result/found 的 ptr,
 // 每轮 retry 前 reset result/found.
-func ResolveWindow(spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
+func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
 	if IsEmptyMatch(spec) {
 		return WindowHandle{}, errors.New("WindowTarget match spec is empty or matches anything")
 	}
@@ -193,6 +194,10 @@ func ResolveWindow(spec MatchSpec, timeout, interval time.Duration) (WindowHandl
 
 	deadline := time.Now().Add(timeout)
 	for {
+		// ctx 取消优先检查 — 已取消直接返, 不做无效 EnumWindows
+		if err := ctx.Err(); err != nil {
+			return WindowHandle{}, err
+		}
 		// reset before each attempt — 上轮 partial match 残留要清掉
 		result = WindowHandle{}
 		found = false
@@ -204,7 +209,11 @@ func ResolveWindow(spec MatchSpec, timeout, interval time.Duration) (WindowHandl
 			return WindowHandle{}, fmt.Errorf("窗口未找到 (title=%q class=%q process=%q), 请打开游戏后重试",
 				spec.Title, spec.Class, spec.ProcessName)
 		}
-		time.Sleep(interval)
+		select {
+		case <-ctx.Done():
+			return WindowHandle{}, ctx.Err()
+		case <-time.After(interval):
+		}
 	}
 }
 

@@ -1,12 +1,13 @@
 package container
 
 import (
+	"context"
 	"testing"
 )
 
 func TestResolveWindowTarget_NoNode(t *testing.T) {
 	c := &Container{}
-	_, err := ResolveWindowTarget(c, 0, 0)
+	_, err := ResolveWindowTarget(context.Background(), c, 0, 0)
 	if err != ErrNoWindowTarget {
 		t.Fatalf("expected ErrNoWindowTarget, got %v", err)
 	}

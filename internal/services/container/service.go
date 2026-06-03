@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -325,7 +326,7 @@ func (s *Service) ResolveWindow(containerID string) (winutil.WindowHandle, error
 	if !ok {
 		return winutil.WindowHandle{}, fmt.Errorf("container %q not found", containerID)
 	}
-	return ResolveWindowTarget(&c, 3*time.Second, 500*time.Millisecond)
+	return ResolveWindowTarget(context.Background(), &c, 3*time.Second, 500*time.Millisecond)
 }
 
 // CaptureBackendFor 返容器配置的截图后端名 (auto/gdi/wgc/mock). 容器不存在 → "auto".
