@@ -284,8 +284,13 @@
       </div>
     </section>
 
-    <!-- WindowTarget: 声明目标游戏窗口 + input/capture backend -->
+    <!-- WindowTarget: 运行时切换目标游戏窗口 -->
     <section v-else-if="node.kind === 'WindowTarget'" class="mb-5 space-y-4">
+      <!-- 子图内提示 -->
+      <p v-if="editorStore.editorPath.length > 0" class="text-xs text-warning">
+        {{ t('node.WindowTarget.subgraph_hint') }}
+      </p>
+
       <!-- 捕获按钮 (F9 全局热键流程) -->
       <div>
         <UButton
@@ -320,25 +325,6 @@
             v-model="wtConfig.TitleMatch"
             class="w-full"
             :items="titleMatchOptions"
-          />
-        </UFormField>
-      </div>
-
-      <!-- runtime section -->
-      <div class="border border-default rounded-lg p-3 space-y-2">
-        <h4 class="text-sm font-semibold">{{ t('node.WindowTarget.inspector.runtime_section') }}</h4>
-        <UFormField :label="t('node.WindowTarget.inspector.input_backend_label')">
-          <USelect
-            v-model="wtConfig.InputBackend"
-            class="w-full"
-            :items="inputBackendOptions"
-          />
-        </UFormField>
-        <UFormField :label="t('node.WindowTarget.inspector.capture_backend_label')">
-          <USelect
-            v-model="wtConfig.CaptureBackend"
-            class="w-full"
-            :items="captureBackendOptions"
           />
         </UFormField>
       </div>
@@ -900,24 +886,12 @@ const wtConfig = computed(() => {
   seed('Class', '')
   seed('ProcessName', '')
   seed('TitleMatch', 'exact')
-  seed('InputBackend', 'postmessage')
-  seed('CaptureBackend', settingsStore.data?.capture?.method ?? 'auto')
   return lit
 })
 
 const titleMatchOptions = computed(() => [
   { value: 'exact', label: t('node.WindowTarget.inspector.title_match_exact') },
   { value: 'regex', label: t('node.WindowTarget.inspector.title_match_regex') },
-])
-const inputBackendOptions = computed(() => [
-  { value: 'postmessage', label: t('node.WindowTarget.inspector.input_backend_postmessage') },
-  { value: 'sendinput', label: t('node.WindowTarget.inspector.input_backend_sendinput') },
-])
-const captureBackendOptions = computed(() => [
-  { value: 'auto', label: t('node.WindowTarget.inspector.capture_backend_auto') },
-  { value: 'gdi', label: t('node.WindowTarget.inspector.capture_backend_gdi') },
-  { value: 'wgc', label: t('node.WindowTarget.inspector.capture_backend_wgc') },
-  { value: 'mock', label: t('node.WindowTarget.inspector.capture_backend_mock') },
 ])
 
 const capturing = ref(false)

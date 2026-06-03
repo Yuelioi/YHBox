@@ -93,6 +93,41 @@
             {{ t('containers.run_mode_fg_hint') }}
           </p>
         </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-xs text-toned">{{ t('containers.input_backend_label') }}</label>
+          <USelect
+            :model-value="container.inputBackend || 'postmessage'"
+            size="md"
+            class="w-full"
+            :items="[{ value: 'postmessage', label: t('containers.input_backend_postmessage') }, { value: 'sendinput', label: t('containers.input_backend_sendinput') }]"
+            @update:model-value="$emit('update', { inputBackend: $event })"
+          />
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-xs text-toned">{{ t('containers.capture_backend_label') }}</label>
+          <USelect
+            :model-value="container.captureBackend || 'auto'"
+            size="md"
+            class="w-full"
+            :items="[{ value: 'auto', label: 'auto' }, { value: 'gdi', label: 'GDI' }, { value: 'wgc', label: 'WGC' }, { value: 'mock', label: 'Mock' }]"
+            @update:model-value="$emit('update', { captureBackend: $event })"
+          />
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-xs text-toned">{{ t('containers.scale_tolerance_label') }}</label>
+          <UInputNumber
+            :model-value="container.scaleTolerance ?? 2.0"
+            :min="1"
+            :max="4"
+            :step="0.1"
+            size="md"
+            class="w-full"
+            @update:model-value="(v: number) => $emit('update', { scaleTolerance: Number.isFinite(v) ? v : 2.0 })"
+          />
+        </div>
       </div>
     </section>
 

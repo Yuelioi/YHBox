@@ -154,6 +154,9 @@ export interface Container {
   tags?: string[]
   hotkey?: string
   runMode?: 'foreground' | 'background'
+  inputBackend?: string
+  captureBackend?: string
+  scaleTolerance?: number
   vars?: VarDecl[]
   graph: Graph
   // subgraphs json:"-" 后端不持久化到 container.json 但 runtime 注入; 前端通过 listSubgraphs 单独拿
@@ -333,15 +336,15 @@ export const backend = {
     resolve: (id: string) => invoke(ClipService.Resolve, id),
   },
   tools: {
-    mousePos: (containerID: string) => invoke(ToolsService.MousePos, containerID),
-    pixelAt: (containerID: string) => invoke(ToolsService.PixelAt, containerID),
+    mousePos: (containerID: string, nodeID = '') => invoke(ToolsService.MousePos, containerID, nodeID),
+    pixelAt: (containerID: string, nodeID = '') => invoke(ToolsService.PixelAt, containerID, nodeID),
     openMouseHUD: (containerID: string) => invoke(ToolsService.OpenMouseHUD, containerID),
     openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
     openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
     closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
-    openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string, containerID = '') =>
-      invoke(ToolsService.OpenScreenPicker, mode, id, containerID),
+    openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string, containerID = '', nodeID = '') =>
+      invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
     // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow

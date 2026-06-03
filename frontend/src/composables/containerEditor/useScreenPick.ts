@@ -59,7 +59,7 @@ export function useScreenPick(opts: {
     try {
       // 先挂监听再开窗口, 防 race
       const waiter = awaitWailsEvent<PickerResult<T>>('tools:picker-result', (p) => p?.id === id)
-      const r = await backend.tools.openScreenPicker(mode, id, tplStore.containerId)
+      const r = await backend.tools.openScreenPicker(mode, id, tplStore.containerId, getNode()?.id ?? '')
       if (r === undefined) return null
       const result = await waiter
       const cancelled = (result.payload as { cancelled?: boolean } | undefined)?.cancelled

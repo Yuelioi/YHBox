@@ -1195,11 +1195,6 @@ async function onValidationPanelRun() {
 function onFixMissingWindowTarget() {
   if (!draft.value) return
   const mainGraph = draft.value.graph
-  // 已存在则不重复加
-  if (mainGraph.nodes.some((n) => n.kind === 'WindowTarget')) {
-    toast.add({ title: t('toast.window_target_exists'), color: 'warning' })
-    return
-  }
   const defaults = KIND_DEFAULTS.WindowTarget ?? {}
   const newNode: GraphNode = {
     id: newNodeID('WindowTarget'),
