@@ -173,9 +173,10 @@ func NewStubParamStore() ParamStore { return stubParamStore{} }
 
 type stubWindowService struct{}
 
-func (stubWindowService) BringForeground() error          { return nil }
-func (stubWindowService) HWND() uintptr                   { return 0 }
-func (stubWindowService) ClientSize() (int, int, error)   { return 0, 0, nil }
+func (stubWindowService) BringForeground() error                                                          { return nil }
+func (stubWindowService) HWND() uintptr                                                                   { return 0 }
+func (stubWindowService) ClientSize() (int, int, error)                                                   { return 0, 0, nil }
+func (stubWindowService) SetActive(_ context.Context, _, _, _, _ string) error                            { return nil }
 
 // StubWindowService — 测试用 no-op.
 func StubWindowService() WindowService { return stubWindowService{} }

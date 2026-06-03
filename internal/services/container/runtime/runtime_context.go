@@ -353,3 +353,34 @@ func (rt *RuntimeContext) CaptureFrameCached(hwnd uintptr) (*image.RGBA, error) 
 	rt.putFrameCache(hwnd, f)
 	return f, nil
 }
+
+// emitROIResolutionWarnings 遍历主图+子图, 节点 _capturedAtResolution 与当前窗口 clientW/H 不符则发 warning.
+// rt.Emit 为 nil 时直接返回. (原在 setupRuntime, 多窗口后挪到每次切窗调用.)
+func (rt *RuntimeContext) emitROIResolutionWarnings(clientW, clientH int) {
+	if rt.Emit == nil {
+		return
+	}
+	checkROINode := func(n *container.GraphNode) {
+		rawCap, ok := n.Config["_capturedAtResolution"].([]any)
+		if !ok || len(rawCap) != 2 {
+			return
+		}
+		cw, _ := rawCap[0].(float64)
+		ch, _ := rawCap[1].(float64)
+		if int(cw) != clientW || int(ch) != clientH {
+			rt.Emit("container:warning", map[string]any{
+				"nodeId":  n.ID,
+				"code":    "ROI_RESOLUTION_MISMATCH",
+				"message": fmt.Sprintf("node %q ROI captured at %vx%v but window is %dx%d — accuracy may degrade", n.ID, cw, ch, clientW, clientH),
+			})
+		}
+	}
+	for i := range rt.Container.Graph.Nodes {
+		checkROINode(&rt.Container.Graph.Nodes[i])
+	}
+	for i := range rt.Container.Subgraphs {
+		for j := range rt.Container.Subgraphs[i].Graph.Nodes {
+			checkROINode(&rt.Container.Subgraphs[i].Graph.Nodes[j])
+		}
+	}
+}

@@ -2,6 +2,7 @@
 
 import (
 	"context"
+	"errors"
 	"image"
 	"testing"
 	"time"
@@ -412,3 +413,37 @@ func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// WindowAdapter.SetActive
+// ============================================================================
+
+func TestWindowAdapter_SetActive_SetsStickyWindow(t *testing.T) {
+	rt := &RuntimeContext{Container: &container.Container{}}
+	rt.initFrameCache()
+	orig := resolveWindowFn
+	defer func() { resolveWindowFn = orig }()
+	resolveWindowFn = func(ctx context.Context, spec winutil.MatchSpec, timeout, interval time.Duration) (winutil.WindowHandle, error) {
+		return winutil.WindowHandle{HWND: 99, ClientW: 1280, ClientH: 720}, nil
+	}
+	a := &windowAdapter{rt: rt}
+	if err := a.SetActive(context.Background(), "Game", "", "", "exact"); err != nil {
+		t.Fatalf("SetActive err: %v", err)
+	}
+	if rt.WindowHandle().HWND != 99 {
+		t.Fatalf("active hwnd = %d, want 99", rt.WindowHandle().HWND)
+	}
+}
+
+func TestWindowAdapter_SetActive_PropagatesResolveError(t *testing.T) {
+	rt := &RuntimeContext{Container: &container.Container{}}
+	rt.initFrameCache()
+	orig := resolveWindowFn
+	defer func() { resolveWindowFn = orig }()
+	resolveWindowFn = func(ctx context.Context, spec winutil.MatchSpec, timeout, interval time.Duration) (winutil.WindowHandle, error) {
+		return winutil.WindowHandle{}, errors.New("窗口未找到")
+	}
+	a := &windowAdapter{rt: rt}
+	if err := a.SetActive(context.Background(), "Nope", "", "", "exact"); err == nil {
+		t.Fatal("want error propagated, got nil")
+	}
+}

@@ -25,6 +25,7 @@ import (
 	"yotta/internal/services/expr"
 	clipruntime "yotta/internal/services/inputclip/runtime"
 	"yotta/pkg/vision"
+	"yotta/pkg/winutil"
 )
 
 // ============================================================================
@@ -433,6 +434,28 @@ func (a *windowAdapter) ClientSize() (int, int, error) {
 		return 0, 0, ErrNoActiveWindow
 	}
 	return wh.ClientW, wh.ClientH, nil
+}
+
+// resolveWindowFn 测试可替换; 默认真 Win32 解析.
+var resolveWindowFn = winutil.ResolveWindow
+
+func (a *windowAdapter) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
+	spec := winutil.MatchSpec{Title: title, Class: class, ProcessName: processName, TitleMatch: titleMatch}
+	wh, err := resolveWindowFn(ctx, spec, 3*time.Second, 500*time.Millisecond)
+	if err != nil {
+		return fmt.Errorf("WindowTarget resolve: %w", err)
+	}
+	a.rt.SetActiveWindow(wh) // 整体替换 + 清该 hwnd 帧缓存
+
+	// 前台 RunMode: 拉到前台 (固定 150ms 有界等待, 沿用 setupRuntime 旧逻辑).
+	if a.rt.Container != nil && a.rt.Container.RunMode == "foreground" && a.rt.Game != nil {
+		a.rt.Game.BringToForeground(wh.HWND)
+		time.Sleep(150 * time.Millisecond)
+	}
+
+	// ROI 分辨率检查.
+	a.rt.emitROIResolutionWarnings(wh.ClientW, wh.ClientH)
+	return nil
 }
 
 // NewWindowAdapter wrap *RuntimeContext into node.WindowService.

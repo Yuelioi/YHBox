@@ -267,6 +267,9 @@ type WindowService interface {
 	BringForeground() error
 	HWND() uintptr
 	ClientSize() (w, h int, err error)
+	// SetActive 运行时解析 title/class/processName 匹配的窗口, 设为当前活动窗口 (粘性).
+	// 解析失败 (超时/取消) 返 error. ctx 用于取消等待.
+	SetActive(ctx context.Context, title, class, processName, titleMatch string) error
 }
 
 // CaptureService — Screenshot 节点用. PNG 字节流; wire 连 pkg/capture
