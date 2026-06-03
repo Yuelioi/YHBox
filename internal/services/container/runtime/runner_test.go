@@ -29,7 +29,7 @@ func newTestContainer(nodes []container.GraphNode, edges []container.GraphEdge, 
 // ClientW/ClientH 默认 1920x1080 (匹配 fishing-v2 ROI table 主分辨率), 让 ColorBarTrack
 // 等需要 ClientSize 的节点能 pick ROI.
 func stubRuntimeWindowAndInput(rt *RuntimeContext) {
-	rt.Window = winutil.WindowHandle{HWND: 1, ClientW: 1920, ClientH: 1080}
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1, ClientW: 1920, ClientH: 1080})
 	rt.Input = &fakeInputBackend{}
 }
 

@@ -134,9 +134,10 @@ func (l *EventListener) detectFired(ctx context.Context) bool {
 	rt := l.runner.rt
 	var frame *image.RGBA
 	if rt.Capture != nil {
-		f, err := rt.CaptureFrameCached(rt.Window.HWND)
-		if err == nil {
-			frame = f
+		if h, err := rt.ActiveHWND(); err == nil {
+			if f, err := rt.CaptureFrameCached(h); err == nil {
+				frame = f
+			}
 		}
 	}
 	if l.matchMode == "all" {

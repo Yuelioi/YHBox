@@ -40,7 +40,7 @@ func newTestRunnerWithSubgraph(t *testing.T, sgID string, sgNodes []*container.G
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	// stub Window + Input 让 setupRuntime 幂等跳过
-	rt.Window = winutil.WindowHandle{HWND: 1}
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	rt.Input = &fakeInputBackend{}
 	r := NewContainerRunner(rt)
 	return rt, r
@@ -59,7 +59,7 @@ func newTestRunner(t *testing.T) (*RuntimeContext, *ContainerRunner) {
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
-	rt.Window = winutil.WindowHandle{HWND: 1}
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	rt.Input = &fakeInputBackend{}
 	mock := &mockCaptureBackend{}
 	rt.Capture = mock

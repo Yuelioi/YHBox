@@ -257,10 +257,11 @@ func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
 
 	p := clipruntime.NewClipPlayer(clip, nil, rt.InputBackend, rt.ClipPolicy, rt.MouseCounts360,
 		func() (int, int) {
-			if rt.Window.HWND == 0 {
+			wh := rt.WindowHandle()
+			if wh.HWND == 0 {
 				return 0, 0 // 未解析窗口 → 不缩放
 			}
-			return rt.Window.ClientW, rt.Window.ClientH
+			return wh.ClientW, wh.ClientH
 		},
 	)
 	p.Start(ctx)
@@ -287,7 +288,10 @@ func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
 
 type inputAdapter struct{ rt *RuntimeContext }
 
-func (a *inputAdapter) hwnd() win.HWND { return win.HWND(a.rt.Window.HWND) }
+func (a *inputAdapter) hwnd() (win.HWND, error) {
+	h, err := a.rt.ActiveHWND()
+	return win.HWND(h), err
+}
 
 func (a *inputAdapter) ensure() error {
 	if a.rt.Input == nil {
@@ -300,63 +304,99 @@ func (a *inputAdapter) KeyDown(vk string) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.KeyDown(a.hwnd(), vk)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.KeyDown(h, vk)
 }
 
 func (a *inputAdapter) KeyUp(vk string) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.KeyUp(a.hwnd(), vk)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.KeyUp(h, vk)
 }
 
 func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs int) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.Click(a.hwnd(), xRatio, yRatio, button, durationMs)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.Click(h, xRatio, yRatio, button, durationMs)
 }
 
 func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.MouseMoveRel(a.hwnd(), dx, dy, durationMs)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.MouseMoveRel(h, dx, dy, durationMs)
 }
 
 func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.MoveTo(a.hwnd(), xRatio, yRatio)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.MoveTo(h, xRatio, yRatio)
 }
 
 func (a *inputAdapter) CursorRatio() (float64, float64, error) {
 	if err := a.ensure(); err != nil {
 		return 0, 0, err
 	}
-	return a.rt.Input.CursorRatio(a.hwnd())
+	h, err := a.hwnd()
+	if err != nil {
+		return 0, 0, err
+	}
+	return a.rt.Input.CursorRatio(h)
 }
 
 func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.Scroll(a.hwnd(), xRatio, yRatio, notches)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.Scroll(h, xRatio, yRatio, notches)
 }
 
 func (a *inputAdapter) MouseDown(xRatio, yRatio float64, button string) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.MouseDown(a.hwnd(), xRatio, yRatio, button)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.MouseDown(h, xRatio, yRatio, button)
 }
 
 func (a *inputAdapter) MouseUp(button string) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
-	return a.rt.Input.MouseUp(a.hwnd(), button)
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.MouseUp(h, button)
 }
 
 // NewInputAdapter wrap *RuntimeContext into node.InputService.
@@ -372,16 +412,27 @@ func (a *windowAdapter) BringForeground() error {
 	if a.rt.Game == nil {
 		return fmt.Errorf("game provider not initialised")
 	}
-	if !a.rt.Game.BringToForeground(a.rt.Window.HWND) {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	if !a.rt.Game.BringToForeground(h) {
 		return fmt.Errorf("OS rejected BringToForeground")
 	}
 	return nil
 }
 
-func (a *windowAdapter) HWND() uintptr { return a.rt.Window.HWND }
+func (a *windowAdapter) HWND() uintptr {
+	h, _ := a.rt.ActiveHWND()
+	return h
+}
 
 func (a *windowAdapter) ClientSize() (int, int, error) {
-	return a.rt.Window.ClientW, a.rt.Window.ClientH, nil
+	wh := a.rt.WindowHandle()
+	if wh.HWND == 0 {
+		return 0, 0, ErrNoActiveWindow
+	}
+	return wh.ClientW, wh.ClientH, nil
 }
 
 // NewWindowAdapter wrap *RuntimeContext into node.WindowService.
@@ -398,7 +449,11 @@ func (a *captureAdapter) Capture() ([]byte, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	frame, err := a.rt.Capture.Frame(win.HWND(a.rt.Window.HWND))
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(h))
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +471,11 @@ func (a *captureAdapter) CaptureROI(roi node.Geometry) ([]byte, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	frame, err := a.rt.Capture.Frame(win.HWND(a.rt.Window.HWND))
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(h))
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +557,11 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold 
 func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
 	var frame *image.RGBA
 	if a.rt.Capture != nil {
-		f, err := a.rt.CaptureFrameCached(a.rt.Window.HWND)
+		h, err := a.rt.ActiveHWND()
+		if err != nil {
+			return nil, 0, err
+		}
+		f, err := a.rt.CaptureFrameCached(h)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -563,8 +626,11 @@ func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRan
 	if a.rt.Capture == nil {
 		return node.DualColorBarResult{}, fmt.Errorf("capture backend not initialised")
 	}
-	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.Frame(hwnd)
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return node.DualColorBarResult{Found: false}, nil
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(h))
 	if err != nil || frame == nil {
 		// 抓帧失败 (常见: HWND 失效 / 截图后台权限丢失) → 视 Missing 不冒泡 error.
 		return node.DualColorBarResult{Found: false}, nil
@@ -608,7 +674,11 @@ func (a *visionAdapter) DetectColor(roi node.Geometry, mode string, rng [6]int) 
 	if a.rt.Capture == nil {
 		return 0, 0, 0, nil
 	}
-	frame, err := a.rt.CaptureFrameCached(a.rt.Window.HWND)
+	hwnd, err := a.rt.ActiveHWND()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	frame, err := a.rt.CaptureFrameCached(hwnd)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("capture: %w", err)
 	}
@@ -637,8 +707,11 @@ func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (in
 	if a.rt.Capture == nil {
 		return 0, 0, fmt.Errorf("capture backend not initialised")
 	}
-	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.Frame(hwnd)
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return 0, 0, err
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(h))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -659,8 +732,11 @@ func (a *visionAdapter) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis 
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.Frame(hwnd)
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(h))
 	if err != nil {
 		return nil, err
 	}
@@ -713,8 +789,11 @@ func (a *visionAdapter) GridSignature(roi node.Geometry, gridSize int) ([]uint8,
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	hwnd := win.HWND(a.rt.Window.HWND)
-	frame, err := a.rt.Capture.Frame(hwnd)
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(h))
 	if err != nil {
 		return nil, err
 	}

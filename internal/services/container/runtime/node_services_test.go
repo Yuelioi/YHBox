@@ -13,6 +13,7 @@ import (
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/expr"
+	"yotta/pkg/winutil"
 )
 
 // newAdapterTestRT 构造一个最小 RuntimeContext 供 adapter 测试用.
@@ -319,7 +320,7 @@ func TestVisionAdapter_DetectColor_WritesLastColor(t *testing.T) {
 	img.Pix[4], img.Pix[7] = 255, 255 // x=1 红
 	rt := newAdapterTestRT(t, nil)
 	rt.Capture = fakeCapture{img: img}
-	rt.Window.HWND = 1
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	a := &visionAdapter{rt: rt}
 	count, _, _, err := a.DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
 	if err != nil {
@@ -382,7 +383,7 @@ func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 	}
 	rt, _ := newTestRunner(t)
 	rt.Capture = fakeCapture{img: img}
-	rt.Window.HWND = 1
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	va := &visionAdapter{rt: rt}
 
 	// override 精确匹配 4x4 → 只数左上 2x2 像素 rect, 应得 4 红.

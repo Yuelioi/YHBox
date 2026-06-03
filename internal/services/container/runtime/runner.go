@@ -293,7 +293,7 @@ func configStringList(node *container.GraphNode, key string) []string {
 // 幂等: 如果 rt.Window.HWND != 0 且 rt.Input != nil (测试预设过) 就跳过 — 测试 fixture 可以
 // 注入 fake backend + stub hwnd 不走 Win32 resolve.
 func (r *ContainerRunner) setupRuntime() error {
-	if r.rt.Window.HWND != 0 && r.rt.Input != nil {
+	if r.rt.WindowHandle().HWND != 0 && r.rt.Input != nil {
 		// 测试预设过了, 跳过 resolve. capture 也跳过 (测试通常用不到 capture).
 		return nil
 	}
@@ -316,11 +316,11 @@ func (r *ContainerRunner) setupRuntime() error {
 	if err != nil {
 		return fmt.Errorf("WindowTarget resolve: %w", err)
 	}
-	r.rt.Window = wh
+	r.rt.SetActiveWindow(wh)
 
 	// 前台 RunMode: 把本容器目标窗口拉到前台.
 	if r.rt.Container.RunMode == "foreground" && r.rt.Game != nil {
-		r.rt.Game.BringToForeground(r.rt.Window.HWND)
+		r.rt.Game.BringToForeground(r.rt.WindowHandle().HWND)
 		time.Sleep(150 * time.Millisecond) // 等窗口 restore + 焦点切换完成, 否则前台模式下早期 SendInput/相机输入可能落空
 	}
 
@@ -337,7 +337,7 @@ func (r *ContainerRunner) setupRuntime() error {
 
 	// PlayClip 输入后端 (inputclip): per-run, hwnd 取本容器 rt.Window. nil 守卫让测试可预设 fake backend.
 	if r.rt.InputBackend == nil {
-		r.rt.InputBackend = backends.NewHybridBackend(func() uintptr { return r.rt.Window.HWND })
+		r.rt.InputBackend = backends.NewHybridBackend(func() uintptr { return r.rt.WindowHandle().HWND })
 	}
 
 	// 3) capture backend (auto + fallback)
@@ -357,8 +357,9 @@ func (r *ContainerRunner) setupRuntime() error {
 	// ROI 分辨率检查: 遍历主图 + 所有子图，找带 _capturedAtResolution 的节点。
 	// 窗口 clientW/clientH 已由上面的 ResolveWindow 填好，逐节点对比后发出 warning（不阻断）。
 	if r.rt.Emit != nil {
-		clientW := r.rt.Window.ClientW
-		clientH := r.rt.Window.ClientH
+		wh := r.rt.WindowHandle()
+		clientW := wh.ClientW
+		clientH := wh.ClientH
 		checkROINode := func(n *container.GraphNode) {
 			rawCap, ok := n.Config["_capturedAtResolution"].([]any)
 			if !ok || len(rawCap) != 2 {

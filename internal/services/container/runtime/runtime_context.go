@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"maps"
@@ -83,15 +84,17 @@ type RuntimeContext struct {
 	Game      GameProvider
 	Emit      func(name string, data any)
 
-	// WindowTarget 解析结果. setupRuntime populate; Window.HWND=0 = 未解析.
-	Window  winutil.WindowHandle
 	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
 
-	// 帧缓存: 同一 iter 内模板/DetectColor 多次抓帧复用 (100ms TTL, 单窗口单条目).
+	// 粘性活动窗口寄存器. 运行时由 WindowTarget.Run 经 SetActiveWindow 改写;
+	// 输入/检测节点 + OnEvent listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
+	windowMu sync.RWMutex
+	window   winutil.WindowHandle // HWND==0 = 未解析
+
+	// 帧缓存: 同一 iter 内模板/DetectColor 多次抓帧复用 (100ms TTL, 按 hwnd 分条).
 	// DualBar/HSV/ROIScan/Grid 不走此缓存 (QTE 高频轮询要新帧).
-	frameMu      sync.Mutex
-	frameCache   *image.RGBA
-	frameCacheAt time.Time
+	frameMu    sync.Mutex
+	frameCache map[uintptr]frameCacheEntry
 
 	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
 	ClipResolver   ClipResolver
@@ -132,6 +135,7 @@ func NewRuntimeContext(
 		varTimestamps:  make(map[string]int64),
 	}
 	rt.initVars()
+	rt.initFrameCache()
 	return rt
 }
 
@@ -261,22 +265,91 @@ func resolveSysPath(s SysState, rest string) (expr.Value, error) {
 	return nil, fmt.Errorf("expr: unknown $sys.%s", rest)
 }
 
-// CaptureFrameCached 走 rt.Capture 抓帧, 100ms TTL 缓存. 仅模板匹配 + DetectColor 用.
-func (rt *RuntimeContext) CaptureFrameCached(hwnd uintptr) (*image.RGBA, error) {
+// ErrNoActiveWindow 窗口类节点在任何 WindowTarget 点之前执行时返回. 走标准节点错误路.
+var ErrNoActiveWindow = errors.New("NO_ACTIVE_WINDOW — 当前无活动窗口, 先放并执行一个 WindowTarget 节点")
+
+// WindowHandle 并发安全读取当前粘性活动窗口.
+func (rt *RuntimeContext) WindowHandle() winutil.WindowHandle {
+	rt.windowMu.RLock()
+	defer rt.windowMu.RUnlock()
+	return rt.window
+}
+
+// ActiveHWND 并发安全读取 HWND. HWND==0 时返回 ErrNoActiveWindow.
+func (rt *RuntimeContext) ActiveHWND() (uintptr, error) {
+	rt.windowMu.RLock()
+	defer rt.windowMu.RUnlock()
+	if rt.window.HWND == 0 {
+		return 0, ErrNoActiveWindow
+	}
+	return rt.window.HWND, nil
+}
+
+// SetActiveWindow 整体替换活动窗口 (粘性) + 清该 hwnd 帧缓存 + prune 过期.
+func (rt *RuntimeContext) SetActiveWindow(wh winutil.WindowHandle) {
+	rt.windowMu.Lock()
+	rt.window = wh
+	rt.windowMu.Unlock()
+	rt.invalidateFrameCacheFor(wh.HWND)
+}
+
+// frameCacheEntry 单条帧缓存项.
+type frameCacheEntry struct {
+	frame *image.RGBA
+	at    time.Time
+}
+
+func (rt *RuntimeContext) initFrameCache() {
 	rt.frameMu.Lock()
-	if rt.frameCache != nil && time.Since(rt.frameCacheAt) < frameCacheTTL {
-		f := rt.frameCache
-		rt.frameMu.Unlock()
+	defer rt.frameMu.Unlock()
+	if rt.frameCache == nil {
+		rt.frameCache = map[uintptr]frameCacheEntry{}
+	}
+}
+
+func (rt *RuntimeContext) peekFrameCache(hwnd uintptr) *image.RGBA {
+	rt.frameMu.Lock()
+	defer rt.frameMu.Unlock()
+	e, ok := rt.frameCache[hwnd]
+	if !ok || time.Since(e.at) >= frameCacheTTL {
+		return nil
+	}
+	return e.frame
+}
+
+func (rt *RuntimeContext) putFrameCache(hwnd uintptr, f *image.RGBA) {
+	rt.frameMu.Lock()
+	defer rt.frameMu.Unlock()
+	if rt.frameCache == nil {
+		rt.frameCache = map[uintptr]frameCacheEntry{}
+	}
+	rt.frameCache[hwnd] = frameCacheEntry{frame: f, at: time.Now()}
+}
+
+// invalidateFrameCacheFor 清指定 hwnd 条目 + prune 全部过期.
+func (rt *RuntimeContext) invalidateFrameCacheFor(hwnd uintptr) {
+	rt.frameMu.Lock()
+	defer rt.frameMu.Unlock()
+	if rt.frameCache == nil {
+		return
+	}
+	delete(rt.frameCache, hwnd)
+	for h, e := range rt.frameCache {
+		if time.Since(e.at) >= frameCacheTTL {
+			delete(rt.frameCache, h)
+		}
+	}
+}
+
+// CaptureFrameCached 走 rt.Capture 抓帧, 100ms TTL 缓存 (按 hwnd 分条). 仅模板匹配 + DetectColor 用.
+func (rt *RuntimeContext) CaptureFrameCached(hwnd uintptr) (*image.RGBA, error) {
+	if f := rt.peekFrameCache(hwnd); f != nil {
 		return f, nil
 	}
-	rt.frameMu.Unlock()
-
 	f, err := rt.Capture.Frame(win.HWND(hwnd))
 	if err != nil {
 		return nil, err
 	}
-	rt.frameMu.Lock()
-	rt.frameCache, rt.frameCacheAt = f, time.Now()
-	rt.frameMu.Unlock()
+	rt.putFrameCache(hwnd, f)
 	return f, nil
 }
