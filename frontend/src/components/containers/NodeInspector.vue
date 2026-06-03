@@ -767,8 +767,15 @@ const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD }
   node: toRef(props, 'node'),
   applyPoint: (x, y) => setLiteralBatch({ XRatio: round4(x), YRatio: round4(y) }),
   // fieldPath 由 onPickRect(fieldPath) 透传 — DetectColor 固定走 'Region'
-  applyRect: (_fieldPath, r) =>
-    setLiteral('Region', { x: round3(r[0]), y: round3(r[1]), w: round3(r[2]), h: round3(r[3]) }),
+  // Region 是 Geometry 类型 ({ pct, overrides }) — 回填必须写 .pct 外壳, 否则
+  // GeometryWidget 读不到 .pct 会整体回退成全 0 (不显示框选结果). overrides 原样保留。
+  applyRect: (_fieldPath, r) => {
+    const cur = (getLiteral('Region') ?? {}) as { overrides?: unknown[] }
+    setLiteral('Region', {
+      pct: { x: round3(r[0]), y: round3(r[1]), w: round3(r[2]), h: round3(r[3]) },
+      overrides: cur.overrides ?? [],
+    })
+  },
 })
 function round4(n: number): number {
   return Math.round(n * 1e4) / 1e4
