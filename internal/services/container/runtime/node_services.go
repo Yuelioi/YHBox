@@ -4,7 +4,7 @@
 // 给 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.
 //
 // 8 个 adapter: log / vars / sys / stopwatch / input / window / capture / vision.
-// 全部 hold *RuntimeContext (live 读 rt.Window/Input/Capture, setupRuntime 后才 populate).
+// 全部 hold *RuntimeContext (live 经 rt.ActiveHWND()/WindowHandle() 读当前活动窗口及 Input/Capture, setupRuntime 后才 populate).
 package runtime
 
 import (
@@ -283,8 +283,8 @@ func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
 }
 
 // ============================================================================
-// InputAdapter — pkginput.Backend (+ rt.Window.HWND) → node.InputService
-// hwnd 每次方法调用 live 读 rt.Window.HWND, setupRuntime 后才有值.
+// InputAdapter — pkginput.Backend (+ 当前活动窗口 hwnd) → node.InputService
+// hwnd 每次方法调用经 rt.ActiveHWND() live 读, setupRuntime 后才有值.
 // ============================================================================
 
 type inputAdapter struct{ rt *RuntimeContext }
@@ -404,7 +404,7 @@ func (a *inputAdapter) MouseUp(button string) error {
 func NewInputAdapter(rt *RuntimeContext) node.InputService { return &inputAdapter{rt: rt} }
 
 // ============================================================================
-// WindowAdapter — rt.Window + rt.Game → node.WindowService
+// WindowAdapter — 当前活动窗口（经 rt.WindowHandle()/SetActiveWindow() 访问）+ rt.Game → node.WindowService
 // ============================================================================
 
 type windowAdapter struct{ rt *RuntimeContext }

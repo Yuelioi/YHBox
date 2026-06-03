@@ -15,7 +15,7 @@ import (
 var ErrNoWindowTarget = errors.New("MISSING_WINDOW_TARGET — 容器缺 WindowTarget 节点，先放一个并捕获目标窗口")
 
 // FindMainGraphNode 在容器主图里找指定 kind 的第一个节点。
-// WindowTarget / MouseCalibration 等声明式节点均 single-instance per container — 找到即停。
+// 返回主图中第一个匹配 kind 的节点；主图可包含多个同 kind 节点（如多 WindowTarget），找到即停。
 func FindMainGraphNode(c *Container, kind string) *GraphNode {
 	for i := range c.Graph.Nodes {
 		if c.Graph.Nodes[i].Kind == kind {

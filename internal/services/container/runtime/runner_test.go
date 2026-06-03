@@ -24,7 +24,7 @@ func newTestContainer(nodes []container.GraphNode, edges []container.GraphEdge, 
 	}
 }
 
-// stubRuntimeWindowAndInput 把 rt.Window / rt.Input stub 成非零, 让 setupRuntime
+// stubRuntimeWindowAndInput 把活动窗口（rt.window，经 SetActiveWindow 写入）/ rt.Input stub 成非零, 让 setupRuntime
 // 走幂等跳过分支 — 测试不需要真 hwnd / 真 backend / 真 capture.
 // ClientW/ClientH 默认 1920x1080 (匹配 fishing-v2 ROI table 主分辨率), 让 ColorBarTrack
 // 等需要 ClientSize 的节点能 pick ROI.

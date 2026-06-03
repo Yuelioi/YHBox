@@ -164,8 +164,8 @@ func snapshotMainCalibCounts(c *container.Container) int {
 // 同时为每个 OnEvent 节点起 listener goroutine。
 // Run 返回 = 主流程结束 + 所有 listener 退出。
 func (r *ContainerRunner) Run(ctx context.Context) error {
-	// resolve WindowTarget → Window/Input/Capture (per-run state).
-	// 必须最先做 — 后续 startNode/listener 都假设 rt.Window/Input/Capture 已 populate.
+	// resolve WindowTarget → 活动窗口/Input/Capture (per-run state).
+	// 必须最先做 — 后续 startNode/listener 都假设 rt.window(经 accessor)/Input/Capture 已 populate.
 	if err := r.setupRuntime(); err != nil {
 		return err
 	}

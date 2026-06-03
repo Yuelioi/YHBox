@@ -355,7 +355,7 @@ func (s *Service) CaptureBackendFor(containerID string) string {
 	return ReadWindowTargetCaptureBackend(&c)
 }
 
-// ScaleToleranceFor 读容器 WindowTarget 节点的模板缩放容差. 镜像 CaptureBackendFor.
+// ScaleToleranceFor 读容器级 ScaleTolerance 字段. 镜像 CaptureBackendFor.
 // templateMatcherAdapter 按此决定 miss 精确分辨率时缩放兜底的允许范围.
 func (s *Service) ScaleToleranceFor(containerID string) float64 {
 	c, ok := s.store.Get(containerID)

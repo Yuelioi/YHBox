@@ -5,6 +5,8 @@ import "strings"
 // windowTargetForNode 求编辑期工具该用的窗口 = 该节点最近上游 WindowTarget.
 // 规则: 沿 exec 边从 nodeID 反向 BFS, 第一层遇到的 WindowTarget; 唯一 → 用它;
 // 0/多个 或 nodeID 空 → 回落主窗口 (Graph.Nodes 数组序第一个 WindowTarget).
+// 已知限制: 被编辑节点在子图里时, 反向 BFS 只遍历主图 c.Graph, 子图节点会回落主窗口
+// (编辑期工具截图限制, 非目标范围).
 func windowTargetForNode(c *Container, nodeID string) *GraphNode {
 	mainWT := firstMainWindowTarget(c)
 	if nodeID == "" {
