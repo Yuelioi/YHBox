@@ -15,7 +15,6 @@ func TestLegacyEdgeKindIgnored(t *testing.T) {
 		"id": "c1",
 		"schemaVersion": 4,
 		"label": "test",
-		"runMode": "background",
 		"graph": {
 			"id": "g1",
 			"version": 1,
@@ -65,7 +64,6 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 		"id": "c1",
 		"schemaVersion": 4,
 		"label": "test",
-		"runMode": "background",
 		"vars": [{"name": "x", "type": "any"}],
 		"graph": {
 			"id": "g1",

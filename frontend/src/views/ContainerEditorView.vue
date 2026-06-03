@@ -313,7 +313,9 @@
         hotkey: draft.hotkey ?? '',
         description: draft.description ?? '',
         tags: draft.tags ?? [],
-        runMode: draft.runMode || 'background',
+        inputBackend: draft.inputBackend || 'postmessage',
+        captureBackend: draft.captureBackend || 'auto',
+        scaleTolerance: draft.scaleTolerance ?? 2.0,
       }"
       :all-tags="allSubgraphTags"
       @save="onSettingsSave"
@@ -945,11 +947,11 @@ const { onFoldSelection } = useFolding({
 // 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave } = useEditorSave({ draft, dirty, gcOrphanSubgraphs, toast })
 
-// ⚙ 容器设置 (name/hotkey/description/tags/runMode) 改完即落盘 —— 不必等保存整个蓝图。
+// ⚙ 容器设置 (name/hotkey/description/tags + 输入/截图后端/缩放容差) 改完即落盘 —— 不必等保存整个蓝图。
 // 容器热键靠后端 containers.update → emitChange → binder.Refresh 注册到热键中心;
 // 只 mutate draft 不落盘 → 热键永远进不了注册中心 (「快捷键」页无容器分组)。
 // 只 patch 元数据字段, 不带 graph/vars → Update 的 Unmarshal 只覆盖这几个键, 蓝图 draft 不受影响。
-async function onSettingsSave(form: { name: string; hotkey: string; description: string; tags: string[]; runMode: string }) {
+async function onSettingsSave(form: { name: string; hotkey: string; description: string; tags: string[]; inputBackend: string; captureBackend: string; scaleTolerance: number }) {
   applyDraftMutation((d) => Object.assign(d, form))
   if (!draft.value) return
   await backend.containers.update(draft.value.id, JSON.stringify({
@@ -957,7 +959,9 @@ async function onSettingsSave(form: { name: string; hotkey: string; description:
     hotkey: form.hotkey,
     description: form.description,
     tags: form.tags,
-    runMode: form.runMode,
+    inputBackend: form.inputBackend,
+    captureBackend: form.captureBackend,
+    scaleTolerance: form.scaleTolerance,
   }))
 }
 

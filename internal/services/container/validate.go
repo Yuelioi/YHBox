@@ -170,17 +170,13 @@ func canonPinType(t string) string {
 	return strings.ToLower(t)
 }
 
-// Normalize self-heal — 填默认值 (SchemaVersion/RunMode/Graph.ID/Graph.Version) + 子图补缺
+// Normalize self-heal — 填默认值 (SchemaVersion/Graph.ID/Graph.Version) + 子图补缺
 // SubgraphOutput. self-heal 的唯一入口.
 func (c *Container) Normalize() {
 	if c.SchemaVersion == 0 {
 		c.SchemaVersion = CurrentSchemaVersion
 	}
 	c.Hotkey = strings.TrimSpace(c.Hotkey)
-	c.RunMode = strings.TrimSpace(c.RunMode)
-	if c.RunMode != "foreground" && c.RunMode != "background" {
-		c.RunMode = "background"
-	}
 	if c.Graph.Nodes == nil {
 		c.Graph.Nodes = []GraphNode{}
 	}

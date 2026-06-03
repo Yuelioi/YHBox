@@ -26,14 +26,19 @@
             <UInputMenu v-model="form.tags" multiple :items="allTags" :create-item="true" size="sm" />
           </UFormField>
 
-          <UFormField :label="t('containers.run_mode_label')">
-            <USelect v-model="form.runMode" :items="RUN_MODE_OPTIONS" size="sm" />
+          <UFormField :label="t('containers.input_backend_label')">
+            <USelect v-model="form.inputBackend" :items="INPUT_BACKEND_OPTIONS" size="sm" />
             <template #help>
-              <p class="text-xs text-muted">
-                {{ t('containers.run_mode_bg_hint') }}<br>
-                {{ t('containers.run_mode_fg_hint') }}
-              </p>
+              <p class="text-xs text-muted">{{ t('containers.input_backend_hint') }}</p>
             </template>
+          </UFormField>
+
+          <UFormField :label="t('containers.capture_backend_label')">
+            <USelect v-model="form.captureBackend" :items="CAPTURE_BACKEND_OPTIONS" size="sm" />
+          </UFormField>
+
+          <UFormField :label="t('containers.scale_tolerance_label')">
+            <UInputNumber v-model="form.scaleTolerance" :min="1" :max="4" :step="0.1" size="sm" class="w-full" />
           </UFormField>
         </div>
 
@@ -59,7 +64,9 @@ interface FormState {
   hotkey: string
   description: string
   tags: string[]
-  runMode: string
+  inputBackend: string
+  captureBackend: string
+  scaleTolerance: number
 }
 
 const props = defineProps<{
@@ -78,10 +85,17 @@ const modelOpen = useDialogOpen(props, emit)
 const form = ref<FormState>({ ...props.initial })
 watch(() => props.initial, v => { form.value = { ...v } }, { deep: true })
 
-const RUN_MODE_OPTIONS = computed(() => [
-  { value: 'background', label: t('containers.run_mode_bg') },
-  { value: 'foreground', label: t('containers.run_mode_fg_short') },
+const INPUT_BACKEND_OPTIONS = computed(() => [
+  { value: 'postmessage', label: t('containers.input_backend_postmessage') },
+  { value: 'sendinput', label: t('containers.input_backend_sendinput') },
 ])
+
+const CAPTURE_BACKEND_OPTIONS = [
+  { value: 'auto', label: 'auto' },
+  { value: 'gdi', label: 'GDI' },
+  { value: 'wgc', label: 'WGC' },
+  { value: 'mock', label: 'Mock' },
+]
 
 function onConfirm() {
   emit('save', { ...form.value })

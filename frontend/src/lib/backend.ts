@@ -153,7 +153,6 @@ export interface Container {
   description?: string
   tags?: string[]
   hotkey?: string
-  runMode?: 'foreground' | 'background'
   inputBackend?: string
   captureBackend?: string
   scaleTolerance?: number

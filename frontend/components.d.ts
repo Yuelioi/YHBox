@@ -25,7 +25,6 @@ declare module 'vue' {
     ContainerEditorInspector: typeof import('./src/components/containers/ContainerEditorInspector.vue')['default']
     ContainerEditorToolbar: typeof import('./src/components/containers/ContainerEditorToolbar.vue')['default']
     ContainerFlowNode: typeof import('./src/components/containers/ContainerFlowNode.vue')['default']
-    ContainerPropsPanel: typeof import('./src/components/containers/ContainerPropsPanel.vue')['default']
     ContainerSettingsModal: typeof import('./src/components/containers/ContainerSettingsModal.vue')['default']
     ContainersTab: typeof import('./src/components/tasks/ContainersTab.vue')['default']
     DeleteVarConfirmModal: typeof import('./src/components/containers/sidebar/DeleteVarConfirmModal.vue')['default']
