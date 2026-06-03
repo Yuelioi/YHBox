@@ -54,7 +54,6 @@ const (
 
 // node-kind config validation codes.
 const (
-	CodeInvalidROI           = "INVALID_ROI"
 	CodeInvalidHSVRange      = "INVALID_HSV_RANGE"
 	CodeInvalidScanAxis      = "INVALID_SCAN_AXIS"
 	CodeInvalidClusterRange  = "INVALID_CLUSTER_RANGE"
@@ -780,30 +779,10 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 	return errs
 }
 
-// validateDetectColorHSV checks ROI presence/size, HSV range ordering,
-// and poll interval sanity.
+// validateDetectColorHSV checks HSV range ordering and poll interval sanity.
+// ROI 是 Geometry (ratio) — 留空 / 全帧 (w=h=0) 合法, 跟 DetectColor 一致, 不强制框选。
 func validateDetectColorHSV(n *GraphNode) []ValidationError {
 	var errs []ValidationError
-
-	roi := PinMap(n, "ROI")
-	if roi == nil {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeInvalidROI,
-		})
-	} else {
-		w, _ := roi["w"].(float64)
-		h, _ := roi["h"].(float64)
-		if w < 1 || h < 1 {
-			errs = append(errs, ValidationError{
-				Severity: SeverityError,
-				NodeID:   n.ID,
-				Code:     CodeInvalidROI,
-				Params:   map[string]any{"w": w, "h": h},
-			})
-		}
-	}
 
 	if hsv := PinMap(n, "HSV"); hsv != nil {
 		get := func(k string) float64 { v, _ := hsv[k].(float64); return v }
