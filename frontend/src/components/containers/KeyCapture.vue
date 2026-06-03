@@ -37,15 +37,15 @@ const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
 const capturing = ref(false)
 
 // 把 Web KeyboardEvent.key / code 映射到我们 vk 字符串。
-// vk 在 backend / pkg/input 里需匹配 vkName 表（字母 / 数字 / Fn / 特殊键），单键，不带组合。
-// 组合键 (Ctrl+R 这类) 不是节点 vk 概念 —— backend 一个 vk 只按一个键; 要组合走
-// KeyHoldStart(Ctrl) → KeyPress(R) → KeyHoldStop(Ctrl) 的节点编排, 所以这里只录单键。
+// vk 在 backend / pkg/input 里需匹配 vkName 表（字母 / 数字 / Fn / 特殊键 / Ctrl·Shift·Alt），
+// 单键，不带组合。组合键 (Ctrl+R 这类) 走 KeyHoldStart(Ctrl) → KeyPress(R) → KeyHoldStop(Ctrl)
+// 的节点编排 —— 那个 Ctrl 也是这里录的单键。录制是用户手动进入的, 按啥录啥, 修饰键照收。
 function keyToVK(e: KeyboardEvent): string {
   // 字母直接大写
   if (/^[a-zA-Z]$/.test(e.key)) return e.key.toUpperCase()
   // 数字
   if (/^[0-9]$/.test(e.key)) return e.key
-  // 特殊键
+  // 特殊键 + 修饰键 (映射到 pkg/input vkMap 认的名字)
   const map: Record<string, string> = {
     ' ': 'Space',
     Enter: 'Enter',
@@ -57,6 +57,9 @@ function keyToVK(e: KeyboardEvent): string {
     ArrowDown: 'Down',
     ArrowLeft: 'Left',
     ArrowRight: 'Right',
+    Control: 'Ctrl',
+    Shift: 'Shift',
+    Alt: 'Alt',
   }
   if (map[e.key]) return map[e.key]
   // F1..F12
@@ -67,8 +70,9 @@ function keyToVK(e: KeyboardEvent): string {
 
 function onKeyDown(e: KeyboardEvent) {
   if (!capturing.value) return
-  // 忽略只按修饰键（用户可能正按 Shift 准备按字母）—— 单键 vk 不收修饰键本身
-  if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return
+  // Meta (Win 键) backend vkMap 不认 → 录进去 runtime 报 INVALID_VK, 忽略掉。
+  // Ctrl/Shift/Alt 照录 —— 录制是手动进入的, 用户按哪个就是要哪个。
+  if (e.key === 'Meta') return
   e.preventDefault()
   e.stopPropagation()
   emit('update:modelValue', keyToVK(e))
