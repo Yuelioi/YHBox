@@ -867,7 +867,7 @@ export default {
     // purefunc
     Expr: {
       label: 'Expression',
-      description: 'Write a one-line formula to freely combine operations and get a result. Supports arithmetic (+ - * / %), comparisons (< <= > >= == !=), logic (&& || !), the ternary (cond ? a : b), the built-in functions abs, min, max, now, and string literals in double quotes joined with +. To reference an outside value, add an input pin to this node, then use the matching name as a variable in the formula (e.g. hp, count).',
+      description: `Write a one-line formula to freely combine operations and get a result. Supports arithmetic (+ - * / %), comparisons (< <= > >= == !=), logic (&& {'||'} !), the ternary (cond ? a : b), the built-in functions abs, min, max, now, and string literals in double quotes joined with +. To reference an outside value, add an input pin to this node, then use the matching name as a variable in the formula (e.g. hp, count).`,
       example: 'Add two input pins hp and max, then write hp / max * 100 to get the health percentage; or hp < max * 0.3 ? "heal up" : "safe" to give different hints based on health. Variable names are exactly the names of the input pins you added.',
       input: { Expression: { label: 'Expression', hint: 'Go-like expression. Dynamic Inputs[] declared input names can be referenced.' } },
       output: { Result: { label: 'Result' } },
