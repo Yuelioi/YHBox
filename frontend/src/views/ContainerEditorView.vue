@@ -219,6 +219,8 @@
           >
             {{ t('editor.canvas.hint') }}
           </div>
+          <!-- pan-on-drag 只用中键(1), 不能含右键(2): vue-flow Pane.onContextMenu 见 panOnDrag 含 2
+               会 preventDefault+return 不 emit paneContextMenu → 右键加节点菜单永远弹不出. -->
           <VueFlow
             v-model:nodes="flowNodes"
             v-model:edges="flowEdges"
@@ -227,7 +229,7 @@
             :delete-key-code="['Delete', 'Backspace']"
             :multi-selection-key-code="['Shift', 'Control', 'Meta']"
             :selection-key-code="true"
-            :pan-on-drag="[1, 2]"
+            :pan-on-drag="[1]"
             :selection-mode="SelectionMode.Partial"
             :nodes-draggable="true"
             :elements-selectable="true"
