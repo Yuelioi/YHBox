@@ -1386,11 +1386,15 @@ async function onSaveAndClose() {
   font-size: 9px;
 }
 
-/* ---- Edge selected: vue-flow 默认 #555 在深 canvas 上看不清, override 走 primary + 加粗 ---- */
+/* ---- Edge selected: 边的 stroke 色是 useContainerDraft 内联 style 设的 (data蓝/exec灰),
+   内联样式优先级高于类选择器 → 必须 !important 才压得过, 否则点了边看不出高亮.
+   只换 primary 色 + 取消虚线 + 发光, 不改 stroke-width — 加粗会让箭头(markerUnits=strokeWidth)
+   跟着放大, 用户只要高亮. ---- */
 :deep(.vue-flow__edge.selected .vue-flow__edge-path),
 :deep(.vue-flow__edge:focus .vue-flow__edge-path),
 :deep(.vue-flow__edge:focus-visible .vue-flow__edge-path) {
-  stroke: var(--ui-primary, #6366f1);
-  stroke-width: 2.5;
+  stroke: var(--ui-primary, #6366f1) !important;
+  stroke-dasharray: none !important;
+  filter: drop-shadow(0 0 5px var(--ui-primary, #6366f1));
 }
 </style>
