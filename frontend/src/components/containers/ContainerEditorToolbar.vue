@@ -192,18 +192,20 @@ const emit = defineEmits<{
   'back-to-list': []
 }>()
 
-// 连线样式下拉: 曲线(default) / 直角(smoothstep) / 折线(step). 当前项打 check.
+// 连线样式下拉: 曲线/直角/折线. 每项前置线型图标 + type:checkbox 给当前项打勾(单选语义).
 const edgeStyleMenuItems = computed(() => {
   const cur = props.edgeStyle ?? 'default'
-  const item = (v: 'default' | 'smoothstep' | 'step', labelKey: string) => ({
+  const item = (v: 'default' | 'smoothstep' | 'step', labelKey: string, icon: string) => ({
     label: t(labelKey),
-    icon: cur === v ? 'i-tabler-check' : undefined,
-    onSelect: () => emit('set-edge-style', v),
+    icon,
+    type: 'checkbox' as const,
+    checked: cur === v,
+    onUpdateChecked: (c: boolean) => { if (c) emit('set-edge-style', v) },
   })
   return [[
-    item('default', 'editor.toolbar.edge_style_bezier'),
-    item('smoothstep', 'editor.toolbar.edge_style_smoothstep'),
-    item('step', 'editor.toolbar.edge_style_step'),
+    item('default', 'editor.toolbar.edge_style_bezier', 'i-tabler-vector-spline'),
+    item('smoothstep', 'editor.toolbar.edge_style_smoothstep', 'i-tabler-vector-bezier-2'),
+    item('step', 'editor.toolbar.edge_style_step', 'i-tabler-line'),
   ]]
 })
 
@@ -265,13 +267,13 @@ const layoutMenuItems = computed(() => [
     },
     {
       label: t('editor.layout.center_h'),
-      icon: 'i-tabler-align-center-horizontal',
+      icon: 'i-tabler-layout-align-middle',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'center-h'),
     },
     {
       label: t('editor.layout.center_v'),
-      icon: 'i-tabler-align-center-vertical',
+      icon: 'i-tabler-layout-align-center',
       disabled: props.selectedCount < 2,
       onSelect: () => emit('align-selected', 'center-v'),
     },
