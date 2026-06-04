@@ -338,6 +338,26 @@
       }
     }
   },
+  "EventTick": {
+    "label": "定时触发",
+    "description": "每隔一段时间在后台触发一次，不挡主流程。常用于定时检测并改变量。",
+    "input": {
+      "IntervalMs": {
+        "label": "间隔(毫秒)"
+      },
+      "MaxConcurrent": {
+        "label": "最大并发"
+      },
+      "RetriggerPolicy": {
+        "label": "重触发策略"
+      }
+    },
+    "output": {
+      "Out": {
+        "label": "触发"
+      }
+    }
+  },
   "Expr": {
     "label": "表达式",
     "description": "求值表达式. dynamic inputs (config.Inputs[]) 声明的 input name 可在表达式里引用.",

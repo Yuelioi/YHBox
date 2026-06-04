@@ -840,6 +840,16 @@ export default {
       },
       output: { Out: { label: 'Event fired' } },
     },
+    EventTick: {
+      label: 'Event Tick',
+      description: 'Fires periodically in the background without blocking the main flow.',
+      input: {
+        IntervalMs: { label: 'Interval (ms)' },
+        MaxConcurrent: { label: 'Max concurrent' },
+        RetriggerPolicy: { label: 'Retrigger policy', option: { drop: 'Drop', queue: 'Queue', restart: 'Restart' } },
+      },
+      output: { Out: { label: 'Tick' } },
+    },
     Scroll: {
       label: 'Mouse scroll',
       description: 'Sends a mouse wheel event at client-area (xRatio, yRatio). Delta = notches, positive up / negative down.',
@@ -1791,6 +1801,7 @@ export default {
     stopwatch: 'Timer',
     mock: 'Test',
     test: 'Test',
+    event: 'Event',
     other: 'Other',
   },
   hotkeyInput: {

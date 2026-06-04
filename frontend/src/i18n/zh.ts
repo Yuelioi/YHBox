@@ -861,6 +861,16 @@ export default {
       },
       output: { Out: { label: '事件触发' } },
     },
+    EventTick: {
+      label: '定时触发',
+      description: '每隔一段时间在后台触发一次，不挡主流程。常用于定时检测并改变量。',
+      input: {
+        IntervalMs: { label: '间隔(毫秒)' },
+        MaxConcurrent: { label: '最大并发' },
+        RetriggerPolicy: { label: '重触发策略', option: { drop: '跳过', queue: '排队', restart: '打断重来' } },
+      },
+      output: { Out: { label: '触发' } },
+    },
     Scroll: {
       label: '鼠标滚轮',
       description: '在 (xRatio, yRatio) 客户区坐标发送鼠标滚轮事件. Delta = notches, 正向上 / 负向下.',
@@ -1841,6 +1851,7 @@ export default {
     stopwatch: '计时器',
     mock: '测试用',
     test: '测试用',
+    event: '事件',
     other: '其它',
   },
   // KeyCapture / 通用 hotkey 输入.

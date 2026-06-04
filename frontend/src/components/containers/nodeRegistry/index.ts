@@ -86,6 +86,7 @@ export type NodeGroup =
   | 'stopwatch'
   | 'mock'
   | 'test'
+  | 'event'
 
 /**
  * Single-source-of-truth descriptor for a node kind.

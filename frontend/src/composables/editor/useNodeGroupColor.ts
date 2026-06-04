@@ -22,6 +22,7 @@ export const ALL_NODE_GROUPS: NodeGroup[] = [
   'stopwatch',
   'mock',
   'test',
+  'event',
 ]
 
 /** Tailwind text color class for a group label/chevron. 从视觉注册中心派生 (单一真源). */
@@ -54,6 +55,7 @@ const GROUP_I18N_KEY: Record<string, string> = {
   stopwatch: 'nodeGroup.stopwatch',
   mock: 'nodeGroup.mock',
   test: 'nodeGroup.test',
+  event: 'nodeGroup.event',
   misc: 'nodeGroup.other',
 }
 

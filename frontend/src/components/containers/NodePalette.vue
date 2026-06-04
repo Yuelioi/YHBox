@@ -237,6 +237,7 @@ const GROUP_LABEL = computed<Record<NodeGroup, string>>(() => ({
   stopwatch: t('nodeGroup.stopwatch'),
   mock: t('nodeGroup.mock'),
   test: t('nodeGroup.test'),
+  event: t('nodeGroup.event'),
 }))
 
 interface PaletteItem {
@@ -262,6 +263,7 @@ const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
     stopwatch: { label: labels.stopwatch, items: [] },
     mock: { label: labels.mock, items: [] },
     test: { label: labels.test, items: [] },
+    event: { label: labels.event, items: [] },
   }
   for (const s of allSpecs() as NodeKindSpec[]) {
     if (s.excludeFromPalette) continue // 不入面板的节点 (markers/visual-only — CommentBox 例外, adapter 已放行)
