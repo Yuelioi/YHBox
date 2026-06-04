@@ -1489,6 +1489,7 @@ export default {
     auto_layout_done: 'Auto layout done ({dir})',
     horizontal: 'Horizontal',
     vertical: 'Vertical',
+    layout_failed: 'Auto-layout failed',
   },
   nodeClipboard: {
     subgraph_word: 'Subgraph',

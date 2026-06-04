@@ -1523,6 +1523,7 @@ export default {
     auto_layout_done: '已自动布局 ({dir})',
     horizontal: '横向',
     vertical: '纵向',
+    layout_failed: '自动布局失败',
   },
   // NodeClipboard
   nodeClipboard: {
