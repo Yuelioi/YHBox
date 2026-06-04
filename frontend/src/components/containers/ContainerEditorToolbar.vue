@@ -87,7 +87,7 @@
       @click="$emit('toggle-snap')"
     />
     <UDropdownMenu :items="edgeStyleMenuItems">
-      <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-vector-spline"
+      <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-vector"
                :title="t('editor.toolbar.edge_style')" />
     </UDropdownMenu>
 
