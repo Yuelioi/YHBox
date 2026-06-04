@@ -32,6 +32,7 @@
     "@vue-flow/minimap": "^1.5.4",
     "@vueuse/core": "^14.3.0",
     "@wailsio/runtime": "latest",
+    "elkjs": "0.11.1",
     "markdown-it": "^14.2.0",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.3.0",
