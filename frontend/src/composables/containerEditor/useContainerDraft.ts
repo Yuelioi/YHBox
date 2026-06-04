@@ -4,6 +4,7 @@ import { MarkerType } from '@vue-flow/core'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { edgeKind } from '@/components/containers/pinSpec'
+import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 
 // ---- History constants ----
 const HISTORY_MAX = 50
@@ -55,6 +56,8 @@ export function useContainerDraft(containerID: string) {
   const dirty = ref(false)
   const flowNodes = ref<FlowNode[]>([])
   const flowEdges = ref<FlowEdge[]>([])
+  // 连线样式偏好 (曲线/直角/折线) — 单例 pref, 切换时 watch 重刷 flowEdges.
+  const { prefs: sidebarPrefs } = useSidebarPrefs()
 
   // ---- Undo/redo history (post-mutation snapshots) ----
   const history = ref<ContainerSnapshot[]>([])
@@ -144,7 +147,7 @@ export function useContainerDraft(containerID: string) {
         target: tgt,
         sourceHandle: srcPin,
         targetHandle: tgtPin,
-        type: 'smoothstep',
+        type: sidebarPrefs.value.edgeStyle,
         animated: isData,
         style: isData
           ? { stroke: '#60a5fa', strokeWidth: 1.5, strokeDasharray: '4 4' } // data edge: dashed blue
@@ -164,6 +167,12 @@ export function useContainerDraft(containerID: string) {
       syncFlowFromDraft()
     },
     { deep: true },
+  )
+
+  // 连线样式切换 → 重建 flowEdges (type 变) — 不动 draft, 不标 dirty.
+  watch(
+    () => sidebarPrefs.value.edgeStyle,
+    () => syncFlowFromDraft(),
   )
 
   // dirty watcher 推迟到 onMounted load 完成后才装 (见末尾 installDirtyWatchers)

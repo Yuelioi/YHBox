@@ -10,6 +10,8 @@ export interface SidebarPrefs {
   leftSidebarTab: 'palette' | 'snippets'
   varsExpanded: boolean
   snapEnabled: boolean
+  /** 连线渲染样式 (vue-flow edge type): default=贝塞尔曲线 / smoothstep=圆角直角 / step=折线. */
+  edgeStyle: 'default' | 'smoothstep' | 'step'
 }
 
 const DEFAULTS: SidebarPrefs = {
@@ -18,6 +20,7 @@ const DEFAULTS: SidebarPrefs = {
   leftSidebarTab: 'palette',
   varsExpanded: true,
   snapEnabled: true,
+  edgeStyle: 'default',
 }
 
 function loadInitial(): SidebarPrefs {

@@ -86,6 +86,10 @@
       :title="snapEnabled ? t('editor.toolbar.snap_on') : t('editor.toolbar.snap_off')"
       @click="$emit('toggle-snap')"
     />
+    <UDropdownMenu :items="edgeStyleMenuItems">
+      <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-vector-spline"
+               :title="t('editor.toolbar.edge_style')" />
+    </UDropdownMenu>
 
     <div class="flex-1" />
 
@@ -155,6 +159,7 @@ const props = defineProps<{
   canUndo?: boolean
   canRedo?: boolean
   snapEnabled?: boolean
+  edgeStyle?: 'default' | 'smoothstep' | 'step'
   isStandalone?: boolean
 }>()
 
@@ -182,9 +187,25 @@ const emit = defineEmits<{
   'undo': []
   'redo': []
   'toggle-snap': []
+  'set-edge-style': [v: 'default' | 'smoothstep' | 'step']
   'open-new-window': []
   'back-to-list': []
 }>()
+
+// 连线样式下拉: 曲线(default) / 直角(smoothstep) / 折线(step). 当前项打 check.
+const edgeStyleMenuItems = computed(() => {
+  const cur = props.edgeStyle ?? 'default'
+  const item = (v: 'default' | 'smoothstep' | 'step', labelKey: string) => ({
+    label: t(labelKey),
+    icon: cur === v ? 'i-tabler-check' : undefined,
+    onSelect: () => emit('set-edge-style', v),
+  })
+  return [[
+    item('default', 'editor.toolbar.edge_style_bezier'),
+    item('smoothstep', 'editor.toolbar.edge_style_smoothstep'),
+    item('step', 'editor.toolbar.edge_style_step'),
+  ]]
+})
 
 // ⋯ 更多菜单: 低频操作 (新窗口打开仅嵌入态有; 重载两态都有). 设置保留在主行, 不进菜单.
 const moreMenuItems = computed(() => {

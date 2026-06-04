@@ -111,6 +111,7 @@
         :can-undo="canUndo"
         :can-redo="canRedo"
         :snap-enabled="sidebarPrefs.snapEnabled"
+        :edge-style="sidebarPrefs.edgeStyle"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -128,6 +129,7 @@
         @undo="undo"
         @redo="redo"
         @toggle-snap="sidebarPrefs.snapEnabled = !sidebarPrefs.snapEnabled"
+        @set-edge-style="sidebarPrefs.edgeStyle = $event"
         @open-new-window="onOpenNewWindow"
         @back-to-list="onBackToList"
       />
