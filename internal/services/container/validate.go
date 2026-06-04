@@ -84,7 +84,7 @@ func pinExists(kind, pin string, out bool) bool {
 }
 
 // execInPinsOf 返回 kind 的 exec-in pin 集合 (Type="Exec" Inputs).
-// nil = 没有 exec-in (Start / OnEvent / SubgraphInput / MouseCalibration / pure-data 节点).
+// nil = 没有 exec-in (Start / EventTick / SubgraphInput / MouseCalibration / pure-data 节点).
 // 未注册 kind 防御性返 ["in"].
 func execInPinsOf(kind string) []string {
 	rn, ok := nodepkg.Get(kind)

@@ -11,12 +11,11 @@ import (
 	"yotta/internal/services/execution"
 
 	_ "yotta/internal/nodes/event"    // EventTick
-	_ "yotta/internal/nodes/input"    // OnEvent
 	_ "yotta/internal/nodes/variable" // SetVar
 )
 
-// buildSpawnListener 造一个只含 [eventKind 节点 → SetVar(global)] 的容器, 返回 listener + runner 供断言。
-func buildSpawnListener(t *testing.T, eventKind string, setVarName string, value any) (*EventListener, *ContainerRunner) {
+// buildSpawnListener 造一个只含 [EventTick → SetVar(global)] 的容器, 返回 listener + runner 供断言。
+func buildSpawnListener(t *testing.T, setVarName string, value any) (*EventListener, *ContainerRunner) {
 	t.Helper()
 	c := &container.Container{
 		SchemaVersion: 1,
@@ -24,7 +23,7 @@ func buildSpawnListener(t *testing.T, eventKind string, setVarName string, value
 		Name:          "test-seed",
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "ev", Kind: eventKind},
+				{ID: "ev", Kind: "EventTick"},
 				{ID: "sv", Kind: "SetVar", Config: map[string]any{
 					"VarName": setVarName,
 					"Scope":   "global",
@@ -48,8 +47,8 @@ func buildSpawnListener(t *testing.T, eventKind string, setVarName string, value
 	return l, r
 }
 
-func TestEventListener_SeedReachesDownstream_OnEvent(t *testing.T) {
-	l, r := buildSpawnListener(t, "OnEvent", "seeded", float64(1))
+func TestEventListener_SeedReachesDownstream(t *testing.T) {
+	l, r := buildSpawnListener(t, "seeded", float64(1))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -160,7 +159,7 @@ func TestEventListener_TickInjectsDeltaMs(t *testing.T) {
 }
 
 func TestEventListener_TickStopsOnCtxCancel(t *testing.T) {
-	l, _ := buildSpawnListener(t, "EventTick", "ticked", float64(1))
+	l, _ := buildSpawnListener(t, "ticked", float64(1))
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { l.run(ctx); close(done) }()

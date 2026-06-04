@@ -39,7 +39,7 @@ func validateLiteralTypes(c *Container) []ValidationError {
 				if literalMatchesType(raw, pinType) {
 					continue
 				}
-				// TemplateKey 语义 pin (WaitTemplate/CheckTemplate/ClickTemplate/OnEvent 的 Templates)
+				// TemplateKey 语义 pin (WaitTemplate/CheckTemplate/ClickTemplate 的 Templates)
 				// 实为字符串列表: template-picker 多选, runtime 走 PinStringList 读. 标量
 				// literalMatchesType 会把数组误判成 string mismatch, 这里按列表放行 (元素全 string,
 				// 或裸 string 单值兜底, 跟 PinStringList 的容忍一致).

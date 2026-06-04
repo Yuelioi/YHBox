@@ -87,7 +87,7 @@ type RuntimeContext struct {
 	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
 
 	// 粘性活动窗口寄存器. 运行时由 WindowTarget.Run 经 SetActiveWindow 改写;
-	// 输入/检测节点 + OnEvent listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
+	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
 	windowMu sync.RWMutex
 	window   winutil.WindowHandle // HWND==0 = 未解析
 

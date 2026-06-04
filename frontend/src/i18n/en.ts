@@ -825,21 +825,6 @@ export default {
       },
       output: { Done: { label: 'Done' } },
     },
-    OnEvent: {
-      label: 'On event',
-      description: 'Listener node — periodically Detect-hits a condition → spawns a child runner for the Out descendants. No exec-in.',
-      input: {
-        Kind: { label: 'Event kind', option: { template_appeared: 'Template Appeared' } },
-        Templates: { label: 'Templates', hint: 'namespace.name format; required when kind=template_appeared; multiple allowed' },
-        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any appears fires / all must appear in same frame', option: { any: 'Any', all: 'All' } },
-        Threshold: { label: 'Threshold' },
-        PollIntervalMs: { label: 'Poll interval (ms)' },
-        MaxConcurrent: { label: 'Max concurrent' },
-        CooldownMs: { label: 'Cooldown (ms)' },
-        RetriggerPolicy: { label: 'Retrigger policy' },
-      },
-      output: { Out: { label: 'Event fired' } },
-    },
     EventTick: {
       label: 'Event Tick',
       description: 'Fires periodically in the background without blocking the main flow.',
@@ -1348,7 +1333,7 @@ export default {
     INVALID_VAR_REF: 'Node references undeclared container variable {varName} (scope={scope})',
     // disabled nodes
     WARN_DISABLED_BRANCH_NODE: 'Branch/async node {nodeID} (kind={kind}) disabled passthrough exit pin — non-deterministic, prefer delete over disable',
-    INVALID_DISABLED_TERMINAL: 'Container-level node {nodeID} (kind={kind}) cannot be disabled (Start/MouseCalibration/OnEvent)',
+    INVALID_DISABLED_TERMINAL: 'Container-level node {nodeID} (kind={kind}) cannot be disabled (Start/MouseCalibration/EventTick)',
     // sentinel scope
     BREAK_OUTSIDE_LOOP: 'Break node must be downstream of a Loop body (exec-reachable in same graph)',
     CONTINUE_OUTSIDE_LOOP: 'Continue node must be downstream of a Loop body (exec-reachable in same graph)',

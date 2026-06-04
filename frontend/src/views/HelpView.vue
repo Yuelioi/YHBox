@@ -131,7 +131,7 @@ const nodeGroups = [
   { label: '变量', desc: 'SetVar / IncVar — 容器作用域 + 子图局部作用域 (runtime 自动隔离)' },
   { label: '图像', desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — 模板匹配与颜色检测' },
   { label: '输入', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到目标窗口' },
-  { label: '事件', desc: 'OnEvent — listener 形态入口, 匹配触发即 spawn 子图执行' },
+  { label: '事件', desc: 'EventTick — 定时后台触发器, 每隔 N ms spawn 子图执行 (不挡主流程)' },
   { label: '子图', desc: 'Subgraph 调用 / SubgraphInput 入口 / SubgraphOutput 出口' },
   { label: '系统', desc: 'WindowTarget — 选定目标窗口 (title / class / processName 任意组合匹配)' },
   { label: '配置', desc: 'MouseCalibration — 标定本机 360° HID counts, 给 MouseMoveRel 缩放用' },
@@ -180,7 +180,7 @@ const troubleshoot = [
   },
   {
     symptom: '容器跑一会儿就卡住不动',
-    fix: '目标窗口弹了对话框或事件提示遮住 ROI. 手动关掉, 容器会自动恢复. 想让脚本绕过 → 加 OnEvent listener 检测弹窗特征 + 自动关闭子图.',
+    fix: '目标窗口弹了对话框或事件提示遮住 ROI. 手动关掉, 容器会自动恢复. 想让脚本绕过 → 加 EventTick + CheckTemplate 检测弹窗特征 + 自动关闭子图.',
   },
   {
     symptom: '容器"未保存"标记一直亮, 怎么也保存不掉',

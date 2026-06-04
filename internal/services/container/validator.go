@@ -424,7 +424,7 @@ func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationErr
 	check := func(nodes []GraphNode, graphPath []string) {
 		for _, n := range nodes {
 			switch n.Kind {
-			case "WaitTemplate", "CheckTemplate", "ClickTemplate", "OnEvent":
+			case "WaitTemplate", "CheckTemplate", "ClickTemplate":
 			default:
 				continue
 			}

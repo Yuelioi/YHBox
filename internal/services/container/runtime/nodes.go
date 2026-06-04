@@ -35,8 +35,8 @@ func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNod
 	return r.dispatchInRegion(ctx, node, tok)
 }
 
-// runSubFlow OnEvent listener 子分支用的迷你 dispatch (与主 dispatch 同语义).
-// listener.go 持独立 ContainerRunner subRunner (makeSubRunner) 调它跑 OnEvent.out 下游.
+// runSubFlow EventTick listener 子分支用的迷你 dispatch (与主 dispatch 同语义).
+// listener.go 持独立 ContainerRunner subRunner (makeSubRunner) 调它跑 EventTick.Out 下游.
 // per-exec-tick snapshot 由 dispatchInRegion 入口写到 ctx (tickCtxKey), per-goroutine
 // 独立, 跟主 runner.go::Run 不撞.
 func (r *ContainerRunner) runSubFlow(ctx context.Context, seeds []ExecToken) error {

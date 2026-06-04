@@ -161,7 +161,7 @@ func snapshotMainCalibCounts(c *container.Container) int {
 }
 
 // Run 启动 token dispatch：找 Start → 入队 → 主循环。
-// 同时为每个 listener-driven 节点 (OnEvent / EventTick) 起后台 listener goroutine。
+// 同时为每个 listener-driven 节点 (EventTick) 起后台 listener goroutine。
 // 返回时机:
 //   - 无 listener: 主流程 (queue 清空) 即返回。
 //   - 有 listener: 等外层 ctx 取消/超时 → defer cancelChild → listenerWG.Wait → 返回
@@ -393,6 +393,6 @@ func graphHasWindowNode(nodes []container.GraphNode) bool {
 // isListenerDriven — kind 是否走后台 listener goroutine (无 exec-in, 不进主 dispatch)。
 // 新增同类事件节点在这里加 kind 即可, 无需动 spawn 循环。
 func isListenerDriven(kind string) bool {
-	return kind == "OnEvent" || kind == "EventTick"
+	return kind == "EventTick"
 }
 

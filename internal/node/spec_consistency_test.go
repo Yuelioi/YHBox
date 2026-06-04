@@ -23,7 +23,7 @@ import (
 // 覆盖:
 //   1. 所有 data pin (Type != "Exec") Name 首字母大写 (节点级 whitelist 例外).
 //   2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
-//   3. Exec in pin 名统一 "In" (fire-only 节点 — Start/OnEvent/SubgraphInput — 没 exec in, 不约束).
+//   3. Exec in pin 名统一 "In" (fire-only 节点 — Start/EventTick/SubgraphInput — 没 exec in, 不约束).
 //
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
@@ -54,7 +54,7 @@ func TestSpecConsistency_DataPinNamingConvention(t *testing.T) {
 }
 
 // TestSpecConsistency_ExecInPinNamedIn 守护 exec in pin 命名约定 — 必须叫 "In".
-// fire-only 节点 (Start/OnEvent/SubgraphInput) 没 exec in, 不约束.
+// fire-only 节点 (Start/EventTick/SubgraphInput) 没 exec in, 不约束.
 func TestSpecConsistency_ExecInPinNamedIn(t *testing.T) {
 	for _, rn := range nodepkg.All() {
 		spec := rn.Spec

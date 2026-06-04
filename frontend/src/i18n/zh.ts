@@ -846,21 +846,6 @@ export default {
       },
       output: { Done: { label: '完成' } },
     },
-    OnEvent: {
-      label: '事件监听',
-      description: 'listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.',
-      input: {
-        Kind: { label: '事件类型', option: { template_appeared: 'Template Appeared' } },
-        Templates: { label: '模板', hint: '命名空间.名 格式, kind=template_appeared 时必填; 可选多个' },
-        MatchMode: { label: '匹配模式', hint: '多模板时: 任一出现即触发 / 全部同帧出现才触发', option: { any: '任一命中', all: '全部命中' } },
-        Threshold: { label: '阈值' },
-        PollIntervalMs: { label: '轮询间隔 (ms)' },
-        MaxConcurrent: { label: '并发上限' },
-        CooldownMs: { label: '冷却 (ms)' },
-        RetriggerPolicy: { label: '重触发策略' },
-      },
-      output: { Out: { label: '事件触发' } },
-    },
     EventTick: {
       label: '定时触发',
       description: '每隔一段时间在后台触发一次，不挡主流程。常用于定时检测并改变量。',
@@ -1369,7 +1354,7 @@ export default {
     INVALID_VAR_REF: '节点引用未声明的容器变量 {varName} (scope={scope})',
     // 禁用节点
     WARN_DISABLED_BRANCH_NODE: '分支/异步节点 {nodeID} (kind={kind}) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁',
-    INVALID_DISABLED_TERMINAL: '容器级节点 {nodeID} (kind={kind}) 不允许禁用 (Start/MouseCalibration/OnEvent)',
+    INVALID_DISABLED_TERMINAL: '容器级节点 {nodeID} (kind={kind}) 不允许禁用 (Start/MouseCalibration/EventTick)',
     // sentinel scope
     BREAK_OUTSIDE_LOOP: 'Break 节点必须在 Loop body 下游 (同图内 exec 可达)',
     CONTINUE_OUTSIDE_LOOP: 'Continue 节点必须在 Loop body 下游 (同图内 exec 可达)',

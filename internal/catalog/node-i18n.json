@@ -806,43 +806,6 @@
       }
     }
   },
-  "OnEvent": {
-    "label": "事件监听",
-    "description": "listener 节点 — 周期性 Detect 命中条件 → spawn 子 runner 跑 Out 后裔. 没 exec-in.",
-    "input": {
-      "Kind": {
-        "label": "事件类型"
-      },
-      "Templates": {
-        "label": "模板",
-        "hint": "命名空间.名 格式, kind=template_appeared 时必填; 可选多个"
-      },
-      "MatchMode": {
-        "label": "匹配模式",
-        "hint": "多模板时: 任一出现即触发 / 全部同帧出现才触发"
-      },
-      "Threshold": {
-        "label": "阈值"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)"
-      },
-      "MaxConcurrent": {
-        "label": "并发上限"
-      },
-      "CooldownMs": {
-        "label": "冷却 (ms)"
-      },
-      "RetriggerPolicy": {
-        "label": "重触发策略"
-      }
-    },
-    "output": {
-      "Out": {
-        "label": "事件触发"
-      }
-    }
-  },
   "Or": {
     "label": "逻辑或",
     "description": "a {'||'} b",

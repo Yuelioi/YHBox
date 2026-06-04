@@ -474,7 +474,7 @@
             :kind="node!.kind"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
           />
-          <!-- 模板字段 (WaitTemplate/ClickTemplate/CheckTemplate/OnEvent) → 多选缩略图拾取器 + 现截一张 -->
+          <!-- 模板字段 (WaitTemplate/ClickTemplate/CheckTemplate) → 多选缩略图拾取器 + 现截一张 -->
           <TemplatePicker
             v-else-if="fieldFor(lit.name)?.widgetKind === 'template-picker'"
             :model-value="asTemplateList(getLiteral(lit.name))"
