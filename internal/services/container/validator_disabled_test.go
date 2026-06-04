@@ -14,6 +14,19 @@ func TestValidateDisabledNodes_TerminalError(t *testing.T) {
 	}
 }
 
+func TestValidateDisabledNodes_EventTickTerminalError(t *testing.T) {
+	// EventTick 是 listener-driven container-level 终端: 禁用 = listener 永不启动 → error。
+	c := &Container{
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "ev", Kind: "EventTick", Disabled: true},
+		}},
+	}
+	errs := validateDisabledNodes(c)
+	if len(errs) != 1 || errs[0].Code != CodeInvalidDisabledTerminal || errs[0].Severity != SeverityError {
+		t.Fatalf("disabled EventTick should error, got: %+v", errs)
+	}
+}
+
 func TestValidateDisabledNodes_BranchWarn(t *testing.T) {
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{

@@ -18,7 +18,7 @@ import (
 	_ "yotta/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
 	_ "yotta/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
 	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
-	_ "yotta/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground/OnEvent
+	_ "yotta/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground
 	_ "yotta/internal/nodes/io"        // Log/Toast/PlayClip
 	_ "yotta/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
 	_ "yotta/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
@@ -161,7 +161,7 @@ func main() {
 
 	// Container / Schedule 数据层
 
-	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate/OnEvent) 的 Template 字段
+	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate) 的 Template 字段
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 templateSvc.List(containerID),
 	// 不再走 mock asyncSource.
 	nodeSvc := node.NewService()

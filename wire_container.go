@@ -54,7 +54,7 @@ func clamp01Bound(w, x float64) float64 {
 //
 // 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用:
 //   - PickBest(key, frameW, frameH) 选精确分辨率 variant (v2.2 多变体 schema)
-//   - 由 caller (matchOnce / detectFired) 传入一帧 (帧缓存在 RuntimeContext, 100ms TTL)
+//   - 由 caller (matchOnce) 传入一帧 (帧缓存在 RuntimeContext, 100ms TTL)
 //   - 用 pkg/vision.Match 在 caller 指定 ROI 内做 CCOEFF_NORMED 匹配
 //   - 返 found + 命中比例坐标 + 实际 region
 //

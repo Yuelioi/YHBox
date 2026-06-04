@@ -1,6 +1,6 @@
 // cmd/migrate-templates — 一次性数据迁移: 模板节点的单 key 字段 Template → 列表 Templates.
 //
-// 背景: WaitTemplate/ClickTemplate/CheckTemplate/OnEvent 的模板字段从单 key 升成多模板
+// 背景: WaitTemplate/ClickTemplate/CheckTemplate 的模板字段从单 key 升成多模板
 // 列表 (config.literal.Template: "x" → config.literal.Templates: ["x"]) + MatchMode(any/all).
 // MatchMode 不写入数据 (节点 Spec Default="any" 兜底). 跑一次即可, 之后删本 cmd.
 //
@@ -18,7 +18,7 @@ import (
 )
 
 var templateKinds = map[string]bool{
-	"WaitTemplate": true, "ClickTemplate": true, "CheckTemplate": true, "OnEvent": true,
+	"WaitTemplate": true, "ClickTemplate": true, "CheckTemplate": true,
 }
 
 func main() {
