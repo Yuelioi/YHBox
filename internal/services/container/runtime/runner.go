@@ -176,19 +176,27 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 		return errors.New("container: no Start node")
 	}
 
-	// 子 ctx：主流程结束时 cancel listener；同时 listener 自己跑 sub-runner 用这个 ctx 派生。
-	// Defer 顺序敏感（LIFO）：Wait 必须晚于 cancel 注册，cancel 先触发 → listener 退出 → Wait 解锁。
-	// 顺序反了会死锁：Wait 阻塞等 listener，但 listener 等 ctx cancel 才退。
+	// 子 ctx：监听 goroutine 生命周期由 childCtx 控制。
+	// cancelChild 在 Run 退出时调用（defer）确保 ctx 资源回收。
+	// listener 跑完后 listenerWG 归零，Run 才真正返回。
+	//
+	// 生命周期语义:
+	//   - 主 dispatch 正常结束 (队列空) 且有 listener: 等外层 ctx 超时/取消后再 cancel + wait.
+	//   - 提前退出 (Stop / error / ctx.Err): cancelChild() 先发, listener 收到立即退; Wait 随后解锁.
 	childCtx, cancelChild := context.WithCancel(ctx)
 	var listenerWG sync.WaitGroup
-	defer listenerWG.Wait() // LIFO 后注册 → 后执行（在 cancelChild 之后跑）
-	defer cancelChild()     // LIFO 后注册 → 先执行（先 cancel，让 listener 退出）
+	// LIFO: cancelChild 后注册先执行 → listener 收到 cancel → listenerWG.Wait() 解锁 → Run 返回.
+	// 正常队列结束路径会先等外层 ctx (见下方), 此 defer 只作兜底资源释放.
+	defer listenerWG.Wait()
+	defer cancelChild()
 
+	hasListeners := false
 	for i := range r.rt.Container.Graph.Nodes {
 		n := &r.rt.Container.Graph.Nodes[i]
-		if n.Kind != "OnEvent" {
+		if !isListenerDriven(n.Kind) {
 			continue
 		}
+		hasListeners = true
 		l := newEventListener(r, n)
 		listenerWG.Add(1)
 		go func() {
@@ -251,6 +259,11 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 			return err
 		}
 		queue = append(queue, out...)
+	}
+	// 主 dispatch 结束：若容器含 listener-driven 节点, 它们仍在后台跑直到 ctx 取消。
+	// 等外部 ctx 超时/取消后再返回, 让 listener 完成当前触发周期再退。
+	if hasListeners {
+		<-ctx.Done()
 	}
 	return nil
 }
@@ -372,5 +385,11 @@ func graphHasWindowNode(nodes []container.GraphNode) bool {
 		}
 	}
 	return false
+}
+
+// isListenerDriven — kind 是否走后台 listener goroutine (无 exec-in, 不进主 dispatch)。
+// 新增同类事件节点在这里加 kind 即可, 无需动 spawn 循环。
+func isListenerDriven(kind string) bool {
+	return kind == "OnEvent" || kind == "EventTick"
 }
 

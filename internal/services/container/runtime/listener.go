@@ -54,30 +54,43 @@ func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener
 	// r.compiled.Main 是 immutable 预编译产物 (CompileContainer 后从不写), 直接复用.
 	// runner.edges/nodesByID 是 swap 目标不能直接读, 但 r.compiled.Main 安全.
 	l := &EventListener{
-		runner:          r,
-		node:            n,
-		homeEdges:       r.compiled.Main.Edges,
-		homeNodesByID:   r.compiled.Main.NodesByID,
-		kind:            configString(n, "Kind"),
-		templates:       configStringList(n, "Templates"),
-		matchMode:       configString(n, "MatchMode"),
+		runner:        r,
+		node:          n,
+		homeEdges:     r.compiled.Main.Edges,
+		homeNodesByID: r.compiled.Main.NodesByID,
+		queueSig:      make(chan struct{}, 16),
+	}
+	switch n.Kind {
+	case "EventTick":
+		l.kind = "tick"
+		l.pollIntervalMs = int(r.pullNumber(context.Background(), n, "IntervalMs", 100))
+		l.maxConcurrent = int(r.pullNumber(context.Background(), n, "MaxConcurrent", 1))
+		l.retriggerPolicy = configString(n, "RetriggerPolicy")
+		if l.pollIntervalMs < 1 {
+			l.pollIntervalMs = 1 // 下限保护; 实际分辨率看 OS
+		}
+		// DeltaMs 基准: lastFired 必须初始化为启动时刻, 否则首次后 delta 从零值算出天文数字。
+		l.lastFired.Store(time.Now().UnixNano())
+	default: // OnEvent —— 原有字段读取
+		l.kind = configString(n, "Kind")
+		if l.kind == "" {
+			l.kind = "template_appeared"
+		}
+		l.templates = configStringList(n, "Templates")
+		l.matchMode = configString(n, "MatchMode")
 		// thresholds via data-in pin. listener init 不在 dispatch tick scope, 传
 		// context.Background() — config 走 literal/常量 不依赖 frozen Vars, 无 tick 行为一致.
-		threshold:       r.pullNumber(context.Background(), n, "Threshold", 0.85),
-		pollIntervalMs:  int(r.pullNumber(context.Background(), n, "PollIntervalMs", 100)),
-		maxConcurrent:   int(r.pullNumber(context.Background(), n, "MaxConcurrent", 1)),
-		retriggerPolicy: configString(n, "RetriggerPolicy"),
-		cooldownMs:      int(r.pullNumber(context.Background(), n, "CooldownMs", 0)),
-		queueSig:        make(chan struct{}, 16),
-	}
-	if l.kind == "" {
-		l.kind = "template_appeared"
+		l.threshold = r.pullNumber(context.Background(), n, "Threshold", 0.85)
+		l.pollIntervalMs = int(r.pullNumber(context.Background(), n, "PollIntervalMs", 100))
+		l.maxConcurrent = int(r.pullNumber(context.Background(), n, "MaxConcurrent", 1))
+		l.retriggerPolicy = configString(n, "RetriggerPolicy")
+		l.cooldownMs = int(r.pullNumber(context.Background(), n, "CooldownMs", 0))
+		if l.pollIntervalMs <= 0 {
+			l.pollIntervalMs = 100
+		}
 	}
 	if l.maxConcurrent <= 0 {
 		l.maxConcurrent = 1
-	}
-	if l.pollIntervalMs <= 0 {
-		l.pollIntervalMs = 100
 	}
 	if l.retriggerPolicy == "" {
 		l.retriggerPolicy = "drop"
@@ -92,8 +105,9 @@ func newEventListener(r *ContainerRunner, n *container.GraphNode) *EventListener
 // run 长跑 goroutine：ctx cancel 即退。除了周期性 Detect，还要消费 queue 信号
 // （queue 模式下 spawn 完成后 push 信号让我们再 spawn 下一个）。
 func (l *EventListener) run(ctx context.Context) {
-	if l.kind != "template_appeared" {
-		// v1 不支持别的 kind
+	switch l.kind {
+	case "template_appeared", "tick":
+	default:
 		return
 	}
 	ticker := time.NewTicker(time.Duration(l.pollIntervalMs) * time.Millisecond)
@@ -117,12 +131,19 @@ func (l *EventListener) run(ctx context.Context) {
 				continue
 			}
 		}
-		// Detect (多模板 any/all)
-		if !l.detectFired(ctx) {
+		if !l.shouldFire(ctx) {
 			continue
 		}
 		l.handleFire(ctx)
 	}
+}
+
+// shouldFire — 触发源判定 (FireSource seam, 别长成 if(kind) 大泥球): tick 永真; template_appeared 走 detect。
+func (l *EventListener) shouldFire(ctx context.Context) bool {
+	if l.kind == "tick" {
+		return true
+	}
+	return l.detectFired(ctx)
 }
 
 // detectFired 单帧多模板判定. matchMode="all": 全部命中才 fire; 否则 "any": 任一命中即 fire.
@@ -236,7 +257,12 @@ func (l *EventListener) spawn(parentCtx context.Context) {
 	l.mu.Unlock()
 
 	l.activeSubs.Add(1)
-	l.lastFired.Store(time.Now().UnixNano())
+	now := time.Now()
+	var deltaMs float64
+	if l.kind == "tick" {
+		deltaMs = float64(now.Sub(time.Unix(0, l.lastFired.Load())).Milliseconds())
+	}
+	l.lastFired.Store(now.UnixNano())
 
 	go func() {
 		defer cancel()
@@ -259,7 +285,13 @@ func (l *EventListener) spawn(parentCtx context.Context) {
 		sub := l.makeSubRunner()
 		// pin 名必须等同 OnEvent/EventTick Spec 的 OutputSpec.Name ("Out") —— 前端 Handle id
 		// 用 pin 名原样, 边存 "<id>.Out"; 小写 .out 历史 bug 会 seed 不到下游。
-		seeds := sub.edges.next(l.node.ID+".Out", nil)
+		var seeds []ExecToken
+		if l.kind == "tick" {
+			seeds = sub.edges.nextWithData(l.node.ID+".Out", nil,
+				map[string]any{"DeltaMs": deltaMs}) // 注入侧显式 float64
+		} else {
+			seeds = sub.edges.next(l.node.ID+".Out", nil)
+		}
 		_ = sub.runSubFlow(subCtx, seeds)
 	}()
 }
