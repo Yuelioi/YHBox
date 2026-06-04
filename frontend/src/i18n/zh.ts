@@ -434,17 +434,6 @@ export default {
         delete_dialog_title: '删除 Snippet',
         delete_dialog_desc: '确定删除 "{name}"?\n此操作不可撤销.',
         delete_dialog_fallback_name: '此 snippet',
-        color: {
-          red: '红 (危险)',
-          orange: '橙',
-          yellow: '黄',
-          green: '绿 (OCR)',
-          cyan: '青 (通用)',
-          blue: '蓝 (窗口)',
-          purple: '紫',
-          pink: '粉',
-          gray: '灰',
-        },
       },
     },
   },
@@ -1061,12 +1050,13 @@ export default {
     },
     CommentBox: {
       label: '注释框',
-      description: '纯渲染节点 — 在画布上画带颜色的标签框. 不参与执行, 不连边.',
+      description: '富文本注释节点 — 写标题 + markdown 正文给容器做说明. 不参与执行, 不连边. 双击编辑.',
       input: {
-        Label: { label: '标签' },
+        Title: { label: '标题' },
+        Content: { label: '正文 (markdown)' },
         Color: { label: '颜色' },
-        Width: { label: '宽度' },
-        Height: { label: '高度' },
+        Icon: { label: '图标' },
+        Width: { label: '宽度 (px)' },
       },
     },
     MouseCalibration: {
@@ -1856,9 +1846,29 @@ export default {
     click_to_record: '点录制按键',
     click_to_cancel: '取消录制',
   },
-  // CommentBox 默认 label.
-  nodeMisc: {
-    comment_default: '注释',
+  // CommentBox 注释框 UI 文案.
+  commentBox: {
+    title_placeholder: '标题',
+    content_placeholder: '写点说明… 支持 markdown',
+  },
+  // 视觉注册中心 (visualRegistry) 色名 — 色块选择器 tooltip.
+  palette: {
+    red: '红',
+    orange: '橙',
+    amber: '琥珀',
+    yellow: '黄',
+    lime: '青柠',
+    green: '绿',
+    emerald: '翠绿',
+    teal: '蓝绿',
+    cyan: '青',
+    sky: '天蓝',
+    blue: '蓝',
+    violet: '紫罗兰',
+    purple: '紫',
+    pink: '粉',
+    rose: '玫红',
+    zinc: '灰',
   },
   // 编辑器 walker / interaction 辅助 (graphWalk / useFlowInteraction / useFolding / etc.).
   editorAux: {

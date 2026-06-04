@@ -1090,6 +1090,14 @@ provide(ContainerCanvasApiKey, {
       n.config = { ...(n.config ?? {}), literal }
     })
   },
+  patchNodeLiteral(nodeId: string, patch: Record<string, unknown>) {
+    applyDraftMutation(() => {
+      const n = activeGraph.value?.nodes.find((x) => x.id === nodeId)
+      if (!n) return
+      const literal = { ...((n.config?.literal as Record<string, unknown>) ?? {}), ...patch }
+      n.config = { ...(n.config ?? {}), literal }
+    })
+  },
   edges: computed(() => activeGraph.value?.edges ?? []),
 })
 

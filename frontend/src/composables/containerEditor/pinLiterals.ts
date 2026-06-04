@@ -60,6 +60,8 @@ export function unconnectedDataInPins(
 // 让画布自定义节点够得到 view 的 draft mutation + 活跃图 edges, 不直接耦合 useVueFlow。
 export interface ContainerCanvasApi {
   setPinLiteral: (nodeId: string, pin: string, value: unknown) => void
+  // 批量写多个 config.literal 键 (CommentBox 内联编辑一次写 Title/Content/Color, 单次 mutation).
+  patchNodeLiteral: (nodeId: string, patch: Record<string, unknown>) => void
   edges: ComputedRef<{ from: string; to: string }[]>
 }
 

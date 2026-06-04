@@ -154,19 +154,22 @@
   },
   "CommentBox": {
     "label": "注释框",
-    "description": "纯渲染节点 — 在画布上画带颜色的标签框. 不参与执行, 不连边.",
+    "description": "富文本注释节点 — 写标题 + markdown 正文给容器做说明. 不参与执行, 不连边. 双击编辑.",
     "input": {
-      "Label": {
-        "label": "标签"
+      "Title": {
+        "label": "标题"
+      },
+      "Content": {
+        "label": "正文 (markdown)"
       },
       "Color": {
         "label": "颜色"
       },
-      "Width": {
-        "label": "宽度"
+      "Icon": {
+        "label": "图标"
       },
-      "Height": {
-        "label": "高度"
+      "Width": {
+        "label": "宽度 (px)"
       }
     }
   },
