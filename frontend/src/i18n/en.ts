@@ -250,6 +250,7 @@ export default {
       reload: 'Reload',
       reload_tip: 'Reload this container from disk (sync after MCP / external changes)',
       open_settings: 'Container settings (Ctrl+,)',
+      more: 'More',
       inspector_expand: 'Expand inspector panel',
       inspector_collapse: 'Collapse inspector panel',
     },

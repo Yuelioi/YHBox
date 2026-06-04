@@ -110,23 +110,20 @@
              :disabled="dirty || execStoreRunning"
              :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : execStoreRunning ? t('editor.toolbar.try_run_busy_tip') : t('editor.toolbar.try_run_tip')"
              @click="$emit('try-run')">{{ t('editor.toolbar.try_run') }}</UButton>
-    <UButton
-      v-if="!isStandalone"
-      size="xs"
-      variant="ghost"
-      color="neutral"
-      icon="i-tabler-external-link"
-      :title="t('editor.toolbar.open_new_window')"
-      @click="$emit('open-new-window')"
-    />
     <UButton size="sm" color="primary" icon="i-tabler-check" :disabled="!dirty"
              @click="$emit('save')">{{ t('editor.toolbar.save') }}</UButton>
-    <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-refresh"
-             :title="t('editor.toolbar.reload_tip')"
-             @click="$emit('reload')" />
+
+    <div class="w-px h-5 bg-default mx-1" />
+
+    <!-- ⋯ 更多: 收纳低频操作 (新窗口打开 / 重载); 设置保留在主行 -->
+    <UDropdownMenu :items="moreMenuItems">
+      <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-dots"
+               :title="t('editor.toolbar.more')" />
+    </UDropdownMenu>
     <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-settings"
              :title="t('editor.toolbar.open_settings')"
              @click="$emit('open-settings')" />
+
     <UButton size="xs" variant="ghost" color="neutral"
              :icon="inspectorCollapsed ? 'i-tabler-layout-sidebar-right-expand' : 'i-tabler-layout-sidebar-right-collapse'"
              :title="inspectorCollapsed ? t('editor.toolbar.inspector_expand') : t('editor.toolbar.inspector_collapse')"
@@ -188,6 +185,24 @@ const emit = defineEmits<{
   'open-new-window': []
   'back-to-list': []
 }>()
+
+// ⋯ 更多菜单: 低频操作 (新窗口打开仅嵌入态有; 重载两态都有). 设置保留在主行, 不进菜单.
+const moreMenuItems = computed(() => {
+  const items: { label: string; icon: string; onSelect: () => void }[] = []
+  if (!props.isStandalone) {
+    items.push({
+      label: t('editor.toolbar.open_new_window'),
+      icon: 'i-tabler-external-link',
+      onSelect: () => emit('open-new-window'),
+    })
+  }
+  items.push({
+    label: t('editor.toolbar.reload'),
+    icon: 'i-tabler-refresh',
+    onSelect: () => emit('reload'),
+  })
+  return [items]
+})
 
 const layoutMenuItems = computed(() => [
   [

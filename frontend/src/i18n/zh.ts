@@ -264,6 +264,7 @@ export default {
       reload: '重载',
       reload_tip: '从磁盘重载这个容器（MCP / 外部改动后同步）',
       open_settings: '容器设置 (Ctrl+,)',
+      more: '更多',
       inspector_expand: '展开属性面板',
       inspector_collapse: '折叠属性面板',
     },
