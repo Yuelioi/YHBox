@@ -161,8 +161,11 @@ func snapshotMainCalibCounts(c *container.Container) int {
 }
 
 // Run 启动 token dispatch：找 Start → 入队 → 主循环。
-// 同时为每个 OnEvent 节点起 listener goroutine。
-// Run 返回 = 主流程结束 + 所有 listener 退出。
+// 同时为每个 listener-driven 节点 (OnEvent / EventTick) 起后台 listener goroutine。
+// 返回时机:
+//   - 无 listener: 主流程 (queue 清空) 即返回。
+//   - 有 listener: 等外层 ctx 取消/超时 → defer cancelChild → listenerWG.Wait → 返回
+//     (后台 listener 要活到容器被外部停掉, 不能因主流程跑完就被秒杀)。
 func (r *ContainerRunner) Run(ctx context.Context) error {
 	// resolve WindowTarget → 活动窗口/Input/Capture (per-run state).
 	// 必须最先做 — 后续 startNode/listener 都假设 rt.window(经 accessor)/Input/Capture 已 populate.

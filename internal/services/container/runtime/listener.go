@@ -14,8 +14,10 @@ import (
 
 // EventListener 单 OnEvent 节点配套的监听 goroutine。
 //
-// v1 只支持 kind=template_appeared：周期性 Detect，命中 → spawn 子 runner 跑 out
-// pin 后裔子图。maxConcurrent / retriggerPolicy / cooldownMs 决定 spawn 节奏。
+// 支持两种 kind: template_appeared (OnEvent, 周期性 Detect 命中即触发) 与 tick
+// (EventTick, 每 IntervalMs 无条件触发, Out 带 DeltaMs)。命中 → spawn 子 runner 跑 Out
+// pin 后裔子图。maxConcurrent / retriggerPolicy 决定 spawn 节奏。
+// cooldownMs 仅 OnEvent 适用 (tick 路径不读、恒为 0; IntervalMs 本身即频率控制)。
 type EventListener struct {
 	runner *ContainerRunner
 	node   *container.GraphNode
@@ -138,7 +140,9 @@ func (l *EventListener) run(ctx context.Context) {
 	}
 }
 
-// shouldFire — 触发源判定 (FireSource seam, 别长成 if(kind) 大泥球): tick 永真; template_appeared 走 detect。
+// shouldFire — 触发源「要不要 fire」判定 (FireSource seam 第一步): tick 永真; template_appeared 走 detect。
+// 注意: 这只是触发判定; 「fire 时注入什么数据」(tick 的 DeltaMs) 在 spawn() 里另有一处 kind 分流。
+// 未来加 EventTimer/EventCron 时, shouldFire 与 spawn 两处都要顾到, 别只改这里。
 func (l *EventListener) shouldFire(ctx context.Context) bool {
 	if l.kind == "tick" {
 		return true
