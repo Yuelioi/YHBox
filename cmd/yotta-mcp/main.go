@@ -22,6 +22,7 @@ import (
 	// available in the registry when catalog/graph tools are called.
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"

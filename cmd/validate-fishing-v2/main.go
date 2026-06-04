@@ -17,6 +17,7 @@ import (
 	// Anonymous imports — 触发 nodepkg 节点注册, 让 validator nodepkg union 在 validate path 生效.
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"

@@ -11,6 +11,7 @@ import (
 	"yotta/internal/node"
 	_ "yotta/internal/nodes/control"   // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
 	_ "yotta/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
+	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
 	_ "yotta/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringWindowForeground / OnEvent
 	_ "yotta/internal/nodes/io"        // Log / PlayClip
 	_ "yotta/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
