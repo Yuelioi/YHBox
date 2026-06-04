@@ -32,6 +32,7 @@ type Node struct {
 	// 展示文案 (仅 BuildWithI18n 填充)。
 	Label       string `json:"label,omitempty"`
 	Description string `json:"description,omitempty"`
+	Example     string `json:"example,omitempty"`
 }
 
 // Build 读全注册表, 返按 category→kind 稳定排序的目录。
@@ -75,6 +76,7 @@ type pinI18n struct {
 type nodeI18n struct {
 	Label       string             `json:"label"`
 	Description string             `json:"description"`
+	Example     string             `json:"example"`
 	Input       map[string]pinI18n `json:"input"`
 	Output      map[string]pinI18n `json:"output"`
 }
@@ -95,6 +97,7 @@ func BuildWithI18n() []Node {
 		}
 		n.Label = t.Label
 		n.Description = t.Description
+		n.Example = t.Example
 		for j := range n.Inputs {
 			if p, ok := t.Input[n.Inputs[j].Name]; ok {
 				n.Inputs[j].Label = p.Label

@@ -49,6 +49,8 @@ export const PIN_SPECS: Record<string, PinSpec> = {}
 export const KIND_LABEL_ZH: Record<string, string> = {}
 /** Map<kind, i18n key>. 值是 'node.<kind>.description'. consumer 走 t() 渲染. */
 export const KIND_DESCRIPTION: Record<string, string> = {}
+/** Map<kind, i18n key>. 值是 'node.<kind>.example'. consumer 走 te()/t() — 没翻译则不渲染示例区. */
+export const KIND_EXAMPLE: Record<string, string> = {}
 export const KIND_DEFAULTS: Record<string, Record<string, any>> = {}
 export const KIND_VISUAL: Record<string, { icon: string; bg: string; border: string }> = {}
 
@@ -57,6 +59,7 @@ export function rebuildPinSpecMaps(): void {
   for (const k of Object.keys(PIN_SPECS)) delete PIN_SPECS[k]
   for (const k of Object.keys(KIND_LABEL_ZH)) delete KIND_LABEL_ZH[k]
   for (const k of Object.keys(KIND_DESCRIPTION)) delete KIND_DESCRIPTION[k]
+  for (const k of Object.keys(KIND_EXAMPLE)) delete KIND_EXAMPLE[k]
   for (const k of Object.keys(KIND_DEFAULTS)) delete KIND_DEFAULTS[k]
   for (const k of Object.keys(KIND_VISUAL)) delete KIND_VISUAL[k]
 
@@ -70,6 +73,7 @@ export function rebuildPinSpecMaps(): void {
     }
     KIND_LABEL_ZH[s.kind] = s.labelZh
     KIND_DESCRIPTION[s.kind] = s.description
+    KIND_EXAMPLE[s.kind] = s.example
     KIND_DEFAULTS[s.kind] = s.defaults
     KIND_VISUAL[s.kind] = s.visual
   }

@@ -229,11 +229,15 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     useSnippetsStore().markUsed(s.id)
   }
 
-  // NodeExplorerModal 选 kind
-  function onPickKind(kind: string) {
+  // NodeExplorerModal 选 kind. screenPos = 唤起 explorer 那刻的鼠标屏幕坐标
+  // (view 在 explorer 打开时快照 lastMousePos); 给了就落在鼠标附近, 没给走老的随机偏移。
+  function onPickKind(kind: string, screenPos?: { x: number; y: number }) {
+    const pos = screenPos
+      ? screenToFlowCoordinate(screenPos)
+      : { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
     addNode({
       kind,
-      pos: { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 },
+      pos,
       config: { ...(getSpec(kind)?.defaults ?? {}) },
     })
   }

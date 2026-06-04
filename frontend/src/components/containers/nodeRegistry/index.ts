@@ -103,6 +103,8 @@ export interface NodeKindSpec {
    */
   labelZh: string
   description: string
+  /** i18n key 'node.<kind>.example' — 可选使用场景示例; te() 没翻译则 Inspector 不显示示例折叠区。 */
+  example: string
 
   /** Renders icon + tailwind class in node body */
   visual: { icon: string; bg: string; border: string }

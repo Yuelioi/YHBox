@@ -464,6 +464,7 @@ export default {
     literal_section: '数据输入 (literal)',
     config_section: '配置',
     pin_input_json_invalid: 'JSON 格式错误 — 未保存',
+    example_title: '示例',
     select_var_placeholder: '选择变量',
     no_config: '此节点无可配置项。',
   },
@@ -498,13 +499,14 @@ export default {
     // control
     Start: {
       label: '起点',
-      description: '图入口. 框架启动时从 Start 节点开始执行. 每图恰好 1 个.',
+      description: '脚本的起跑线。运行时从这里开始往下跑，整张图只能有一个起点。',
       output: { out: { label: '开始' } },
     },
-    Stop: { label: '终点', description: '终止图执行. 框架捕获 sentinel 后停止 dispatch, 不报错.' },
+    Stop: { label: '终点', description: '让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。' },
     Sleep: {
       label: '等待',
-      description: '阻塞当前 exec 流指定时长. MVP 不支持 cancel (ctx.Context() 接口在但 noop).',
+      description: '停在这里等一段时间再往下走，常用来给画面留出加载、动画的缓冲。可以加「抖动」，让每次等的时长在设定值上下随机浮动，模拟人手不那么机械。脚本中途停止时会立刻打断，不会傻等满。',
+      example: '点完按钮等弹窗出来：把时长设成 1 秒、抖动 ±20%，每次就会随机等 0.8 到 1.2 秒左右，看起来更像真人操作。',
       input: {
         Duration: { label: '时长' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 等待时长在 ±10% 内近正态波动' },
@@ -513,13 +515,15 @@ export default {
     },
     If: {
       label: '条件分支',
-      description: 'Condition true → True 出口; false → False 出口.',
+      description: '按一个「是 / 否」的条件岔成两条路：条件成立走 True 口，不成立走 False 口。用来让脚本根据当时情况做不同的事。',
+      example: '检测到「开始战斗」图标在屏幕上 → 条件接进来，True 口接攻击动作，False 口接继续走路，脚本就会看情况自动二选一。',
       input: { Condition: { label: '条件' } },
       output: { True: { label: 'True' }, False: { label: 'False' } },
     },
     Loop: {
       label: '循环',
-      description: 'Body 子图执行 N 次 / forever. Body 内 Break sentinel 跳出, Continue sentinel 跳下一轮.',
+      description: '把循环体里的步骤反复跑很多遍。可以选「次数」模式跑固定遍数，或「永远」模式一直跑到你手动停。循环体里用「跳出循环」可以提前结束，用「跳过本轮」可以略过剩下的步骤直接进下一遍。',
+      example: '想刷 50 次副本：模式选「次数」、次数填 50，把进副本到领奖的步骤接到循环体上，它就会自动重复 50 遍；要是检测到背包满了，循环体里接个「跳出循环」就能提前收工。',
       input: {
         Mode: { label: '模式', option: { count: '次数', forever: '永远' } },
         Count: { label: '次数 (mode=count)' },
@@ -531,44 +535,13 @@ export default {
     },
     Switch: {
       label: '分支 (多 Case)',
-      description: 'Value 跟 Case1..Case16 值逐一匹配 (first-match-wins), 命中走对应出口; 全不命中走 Default. 前 4 case 默认显示, 5-16 在 Advanced.',
+      description: '按一个输入值在多条路里挑一条走。你自己列好若干个值（每个值就是一个出口），运行时拿输入值跟它们逐一比对，对上哪个就走那个出口；一个都对不上就走 Default 兜底。比一堆「条件分支」串起来更清爽。',
+      example: '根据角色当前状态分流：输入值接「状态」，列出 IDLE、FIGHT、DEAD 三个 case，分别接发呆、打怪、复活的动作；状态是别的值时走 Default。',
       input: {
         Value: { label: '输入值' },
-        Case1Value: { label: 'Case 1 值' },
-        Case2Value: { label: 'Case 2 值' },
-        Case3Value: { label: 'Case 3 值' },
-        Case4Value: { label: 'Case 4 值' },
-        Case5Value: { label: 'Case 5 值' },
-        Case6Value: { label: 'Case 6 值' },
-        Case7Value: { label: 'Case 7 值' },
-        Case8Value: { label: 'Case 8 值' },
-        Case9Value: { label: 'Case 9 值' },
-        Case10Value: { label: 'Case 10 值' },
-        Case11Value: { label: 'Case 11 值' },
-        Case12Value: { label: 'Case 12 值' },
-        Case13Value: { label: 'Case 13 值' },
-        Case14Value: { label: 'Case 14 值' },
-        Case15Value: { label: 'Case 15 值' },
-        Case16Value: { label: 'Case 16 值' },
       },
       output: {
-        Case1: { label: 'Case 1' },
-        Case2: { label: 'Case 2' },
-        Case3: { label: 'Case 3' },
-        Case4: { label: 'Case 4' },
-        Case5: { label: 'Case 5' },
-        Case6: { label: 'Case 6' },
-        Case7: { label: 'Case 7' },
-        Case8: { label: 'Case 8' },
-        Case9: { label: 'Case 9' },
-        Case10: { label: 'Case 10' },
-        Case11: { label: 'Case 11' },
-        Case12: { label: 'Case 12' },
-        Case13: { label: 'Case 13' },
-        Case14: { label: 'Case 14' },
-        Case15: { label: 'Case 15' },
-        Case16: { label: 'Case 16' },
-        Default: { label: 'Default' },
+        default: { label: '默认 (兜底)' },
       },
       inspector: {
         value_label: 'Value 表达式',
@@ -586,12 +559,13 @@ export default {
         delete_confirm_desc: '该 case 的出口边 ({count} 条) 将断开，需手动重连。',
       },
     },
-    Break: { label: '跳出循环', description: '退出最近的 Loop 区域. Loop region 截获 sentinel, 不在任何 Loop 内则 framework 当 error 上报.' },
-    Continue: { label: '跳过本轮', description: '跳到最近 Loop 的下一次迭代. Loop region 截获 sentinel.' },
+    Break: { label: '跳出循环', description: '提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。' },
+    Continue: { label: '跳过本轮', description: '略过循环体里剩下的步骤，直接开始下一遍。必须放在循环体里用。' },
     // detect
     WaitTemplate: {
       label: '等待模板',
-      description: '在 timeoutMs 内轮询匹配模板. 命中走 Found 带坐标, 超时走 Timeout.',
+      description: '盯着屏幕反复找你指定的图片（模板），在超时时间内一出现就走 Found 口并给出它的位置；到点还没出现就走 Timeout 口。适合等某个图标/按钮加载出来再往下做。',
+      example: '钓鱼时等「上钩」图标冒出来：模板选 fishing.hook_icon，超时设 5 秒，命中后把 Found 口接收杆动作；5 秒没上钩就走 Timeout 口重新抛竿。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即触发 / 全部同帧命中才触发', option: { any: '任一命中', all: '全部命中' } },
@@ -611,7 +585,8 @@ export default {
     },
     CheckTemplate: {
       label: '检查模板',
-      description: '在当前帧 NCC 匹配模板. 命中走 Found 带坐标, 没命中走 NotFound.',
+      description: '只看当前这一帧画面，找你指定的图片（模板）在不在。在就走 Found 口并给出位置，不在就走 NotFound 口。它不等待、只看一眼，适合做「现在屏幕上有没有这个东西」的即时判断分流。',
+      example: '判断现在是不是在战斗界面：模板选战斗特有的图标，Found 口接打怪逻辑，NotFound 口接赶路逻辑，脚本就能看一眼当前画面自动二选一。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中走 Found / 全部同帧命中才走 Found', option: { any: '任一命中', all: '全部命中' } },
@@ -630,7 +605,8 @@ export default {
     },
     ClickTemplate: {
       label: '点击模板',
-      description: '等模板在 timeoutMs 内出现, 命中后在中心点鼠标点击. 超时走 Timeout.',
+      description: '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它的中心，然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。',
+      example: '自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish; 可选多个' },
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即点击 / 全部同帧命中才点击', option: { any: '任一命中', all: '全部命中' } },
@@ -651,7 +627,8 @@ export default {
     },
     DetectColor: {
       label: '颜色检测',
-      description: '在 region (ratio) 内统计落在颜色范围内的像素. count >= minPixels → Yes.',
+      description: '在你框的那块区域里数一数有多少像素落在指定颜色范围内，够多（达到最小像素数）就走 Yes 口并给出命中区域的中心点，不够就走 No 口。看一眼就出结果，不会反复等。颜色范围可用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）或 RGB（红绿蓝）两种方式填。',
+      example: '判断血条是不是红的（血量够）：在血条位置框一块区域，模式选 HSV、填红色的范围，命中够多就走 Yes 接正常逻辑，太少走 No 接吃药/撤退。',
       input: {
         Region: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
@@ -671,7 +648,8 @@ export default {
     },
     DetectColorHSV: {
       label: 'HSV 颜色检测',
-      description: 'ROI 内统计 HSV 命中比例, 轮询直到 ratio >= minPixelRatio (Yes) 或超时 (Timeout). timeoutMs<=0 时单次扫描, 未命中走 No.',
+      description: '在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Yes 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 No 口。',
+      example: '等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Yes 接放技能；一直没亮走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
@@ -687,7 +665,8 @@ export default {
     },
     DualColorBarTrack: {
       label: '双色条追踪',
-      description: `ROI 内追踪两组 HSV cluster (inner + outer), 算 inner 在 outer 区域里的位置. 适用: 血条 / 进度条 / QTE 双色条 / 钓鱼溜鱼. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...], 当前 client size 没匹配项走 Missing.`,
+      description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 Missing。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
+      example: '钓鱼溜鱼条：在溜鱼条上框 ROI，内层填光标黄、外层填目标青，Found 口拿到光标和目标位置后，判断光标偏左就按左、偏右就按右，把光标拽回目标区段里。',
       input: {
         Roi: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形' },
         InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
@@ -701,7 +680,8 @@ export default {
     },
     ROIColorScan: {
       label: 'ROI 颜色 cluster 扫描',
-      description: '沿 axis (x/y) 扫 ROI 内 HSV 命中像素, 合并连续段为 cluster. 命中 >= minClusterCount → Found. timeoutMs<=0 + 首扫不足 → NotFound.',
+      description: '在你框的 ROI（屏幕上框的一小块）里，沿水平或垂直方向找指定颜色的「连续段」——一串连在一起、长度在你设的范围内的同色像素算一段。找到的段数够（达到最少段数）就走 Found 口，并把每段的信息带出去；不够就一直按间隔重试，超时走 Timeout。颜色用 HSV（按色相/鲜艳度/明暗）填。把超时设成 0 或负数就只扫一遍，不够直接走 NotFound。',
+      example: '数背包里有几格亮着的物品：在背包行框 ROI，扫描轴选水平，填物品高亮的 HSV、最少段数填 1，扫到亮格就走 Found 接后续处理，一直没有走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
@@ -720,7 +700,8 @@ export default {
     },
     WaitStable: {
       label: '等待画面稳定',
-      description: 'ROI 降采样后逐 poll 比对, 连续 StableFrames 帧差 <= StableThreshold → Stable (画面稳了); 超时 → Timeout. 防动画/加载中误识别.',
+      description: '盯着你框的 ROI（屏幕上框的一小块），反复跟上一帧比，连续好几帧几乎没变化就认为「画面稳了」走 Stable 口；超时还在动走 Timeout。专门用来等动画播完、加载转圈停下、列表刷完再往下做，避免在画面还在动时就误判。',
+      example: '等加载界面转圈结束：在加载区域框 ROI，连续稳定帧数填 3，画面不动了走 Stable 接下一步；卡着一直转走 Timeout 处理。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]; 越大越细越慢' },
@@ -738,7 +719,8 @@ export default {
     },
     WaitChange: {
       label: '等待画面变化',
-      description: 'ROI 降采样后跟 baseline 逐 poll 比对, 差 >= ChangeThreshold → Changed (画面变了, e.g. 弹窗/加载完成); 超时 → Timeout.',
+      description: '先把你框的 ROI（屏幕上框的一小块）此刻的样子记下来当基准，然后反复跟它比，一旦变化够大就认为「画面变了」走 Changed 口；超时一直没变走 Timeout。专门用来等弹窗冒出来、加载完成、画面切换这类「等它动一下」的时机。',
+      example: '点确认后等结果弹窗出现：在弹窗会出现的位置框 ROI，画面一变就走 Changed 接读弹窗内容；半天没动静走 Timeout 当作没反应处理。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]' },
@@ -755,7 +737,8 @@ export default {
     },
     Screenshot: {
       label: '截图',
-      description: '抓帧并写文件. pathTemplate 支持 {ts} / {nodeId} / {containerId} / {date}. ROI 缺省 = 全帧.',
+      description: '抓一张当前画面存成图片文件，方便事后排查脚本当时看到了啥。可以只截你框的 ROI（屏幕上框的一小块），不框就截整个画面。文件名里能用 {ts}（时间戳）、{date}（日期）等占位符自动区分，存到固定的 screenshots 目录下。',
+      example: '检测失败时留个证据：在出错分支接一个截图，文件名填「fail_{ts}.png」，每次失败都会按时间戳存一张，回头翻图就知道当时画面长啥样。',
       input: {
         PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
@@ -770,12 +753,13 @@ export default {
     // input
     BringWindowForeground: {
       label: '窗口置前台',
-      description: '把目标窗口设为前台焦点. 全屏独占 / 反作弊场景可能被 OS 拒绝, 失败时记日志继续.',
+      description: '把目标窗口提到最前面、给它焦点，让后面的键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。',
       output: { Done: { label: '完成' } },
     },
     ClickAt: {
       label: '点击坐标',
-      description: '在客户区比例坐标 (xRatio, yRatio) 单击鼠标. xRatio/yRatio ∈ [0,1].',
+      description: '在窗口里某个位置单击一下鼠标。位置用比例填：X、Y 都是 0 到 1 之间的小数，0.5、0.5 就是窗口正中间，跟窗口大小无关。可以选左/右/中键，能先滑过去再点，按下时长也能调。',
+      example: '点屏幕右下角的「确认」按钮：X 填 0.9、Y 填 0.9，按键选左键，运行时就会在窗口右下角点一下。',
       input: {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
@@ -788,19 +772,20 @@ export default {
     },
     KeyHoldStart: {
       label: '按住按键',
-      description: '按下虚拟键 (不松开). 配对 KeyHoldStop 节点释放. 之间可插任意流程.',
+      description: '把一个键按下去就不松手，一直保持按住状态。它只负责「按下」，要配一个「松开按键」节点来放开；两个节点中间可以插任意流程（等待、检测、移动等），按住多久全由你安排。',
+      example: '想让角色一直往前走：先放「按住按键」按住 W，接一个「等待」3 秒，再放「松开按键」放开 W——角色就会持续前进 3 秒。两个节点的按键要填同一个 W。',
       input: { VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' } },
       output: { Done: { label: '已按下' } },
     },
     KeyHoldStop: {
       label: '松开按键',
-      description: '松开虚拟键, 配对 KeyHoldStart.',
+      description: '把之前「按住按键」按下去的那个键松开。两个节点要填同一个键，配成一对用。',
       input: { VK: { label: '按键', hint: '虚拟键名 — 跟之前 KeyHoldStart 同一个' } },
       output: { Done: { label: '已松开' } },
     },
     KeyPress: {
       label: '按键',
-      description: '按下并松开一个虚拟键. DurationMs 是按下到松开间隔.',
+      description: '按一下某个键（按下马上松开），就像手指敲一次键盘。时长是按下到松开之间停多久，留默认就行。要长按不松手用「按住按键」。',
       input: {
         VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: '时长 (ms)' },
@@ -810,7 +795,8 @@ export default {
     },
     MouseHoldStart: {
       label: '按住鼠标',
-      description: '在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.',
+      description: '在窗口里某个位置把鼠标键按下去就不松手。位置用比例填（0 到 1，0.5、0.5 是正中间）。它只负责「按下」，要配一个「松开鼠标」节点放开；中间可以插任意流程，常用来拖拽或长按。',
+      example: '拖动物品：在起点放「按住鼠标」按下左键，接「鼠标移动到」滑到终点，再放「松开鼠标」放开左键——就完成一次拖拽。',
       input: {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
@@ -820,13 +806,14 @@ export default {
     },
     MouseHoldStop: {
       label: '松开鼠标',
-      description: '松开鼠标按键, 配对 MouseHoldStart.',
+      description: '把之前「按住鼠标」按下去的那个鼠标键松开。两个节点选同一个键，配成一对用。',
       input: { Button: { label: '按键', hint: '跟之前 MouseHoldStart 同一个 button', option: { left: '左键', right: '右键', middle: '中键' } } },
       output: { Done: { label: '已松开' } },
     },
     MouseMoveRel: {
       label: '鼠标相对移动',
-      description: '相对当前光标位置移动 (dx, dy) 像素, 在 DurationMs 内插值.',
+      description: '从鼠标现在所在的位置，往某个方向挪一段距离（按像素算），不是挪到固定坐标。Δx 正数往右、负数往左，Δy 正数往下、负数往上。常用来转视角、微调准星。要直接移到窗口某个固定点用「鼠标移动到」。',
+      example: '游戏里向右转视角：Δx 填 200、Δy 填 0，运行时鼠标就从当前位置往右挪 200 像素，画面跟着右转。',
       input: {
         Dx: { label: 'Δx (px)' },
         Dy: { label: 'Δy (px)' },
@@ -837,7 +824,8 @@ export default {
     },
     MouseMoveTo: {
       label: '鼠标移动到',
-      description: '把光标滑到客户区比例坐标 (XRatio,YRatio), 不点击. MoveMs=0 瞬移, >0 在该时长内滑过去.',
+      description: '把鼠标移到窗口里某个固定位置，只移动不点击。位置用比例填（0 到 1，0.5、0.5 是正中间），跟窗口大小无关。滑动时长填 0 是瞬间跳过去，填大于 0 会在这段时间里看得见地滑过去（更像真人）。要往某方向挪一段而不是去固定点，用「鼠标相对移动」。',
+      example: '先把鼠标移到中间再点击：用「鼠标移动到」X、Y 都填 0.5，滑动时长填 300 让它平滑滑过去，后面再接「点击坐标」。',
       input: {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
@@ -848,7 +836,8 @@ export default {
     },
     EventTick: {
       label: '定时触发',
-      description: '每隔一段时间在后台触发一次，不挡主流程。常用于定时检测并改变量。',
+      description: '在后台每隔一段时间自动触发一次，跟主流程并行跑、互不打扰。从它的「触发」口往后接的那串节点，会被定时反复执行。常用来定时盯着屏幕某处、发现情况就改个全局变量通知主流程。',
+      example: '每秒检查一次血条是不是空了：间隔填 1000，触发口接「检测画面 → 如果血量低 → 设置全局变量 needHeal」，主流程读这个变量决定要不要嗑药。',
       input: {
         IntervalMs: { label: '间隔 (ms)' },
         MaxConcurrent: { label: '并发上限' },
@@ -858,7 +847,8 @@ export default {
     },
     Scroll: {
       label: '鼠标滚轮',
-      description: '在 (xRatio, yRatio) 客户区坐标发送鼠标滚轮事件. Delta = notches, 正向上 / 负向下.',
+      description: '在窗口里某个位置滚一下鼠标滚轮。位置用比例填（0 到 1，0.5、0.5 是正中间）。滚动量填几格，正数往上滚、负数往下滚。常用来翻列表、缩放、切武器。',
+      example: '把背包列表往下翻：X、Y 对准列表区域，滚动量填 -3，运行时就在那里往下滚三格。',
       input: {
         XRatio: { label: 'X 比例' },
         YRatio: { label: 'Y 比例' },
@@ -870,7 +860,8 @@ export default {
     // io
     Log: {
       label: '日志',
-      description: '写一条日志到 framework LogService. Message 接 wildcard (任意类型, 自动 fmt.Sprint).',
+      description: '把一条消息打到运行日志里，方便你调试时看脚本跑到哪一步、当时的值是多少。消息口什么都能接——文字、数字、坐标、区域都行，会自动转成文本。',
+      example: '调试循环时想确认跑了几次：把 Log 接进循环体，消息填「第几次」，运行日志里就会一次次打印出来。',
       input: {
         Message: { label: '消息', hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, framework 自动 stringify' },
         Level: { label: '级别', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
@@ -879,7 +870,8 @@ export default {
     },
     PlayClip: {
       label: '回放录像',
-      description: '阻塞回放一条录制的 InputClip. 整段独占 InputBus; 取消 (Stop) 即中断并释放按下的键.',
+      description: '把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。',
+      example: '游戏里有套固定连招：先录一段，再用本节点选中这段录像，脚本跑到这里就会自动把连招完整打一遍。',
       input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' } },
       output: { Done: { label: '完成' } },
       inspector: {
@@ -896,117 +888,120 @@ export default {
     // purefunc
     Expr: {
       label: '表达式',
-      description: '求值表达式. dynamic inputs (config.Inputs[]) 声明的 input name 可在表达式里引用.',
+      description: '写一行算式自由组合运算，得到结果。支持加减乘除取余 (+ - * / %)、比较 (< <= > >= == !=)、与或非 (&& || !)、三元 (条件 ? 甲 : 乙)，内置函数 abs、min、max、now，字符串用双引号包起来、用 + 拼接。想引用外部值，先给节点加输入口、再在算式里用同名变量（如 hp、count）。',
+      example: '先加两个输入口 hp 和 max，算式写 hp / max * 100 算出血量百分比；或写 hp < max * 0.3 ? "快补血" : "安全" 按血量给出不同提示。变量名就是你加的输入口的名字。',
       input: { Expression: { label: '表达式', hint: 'Go-like 表达式. dynamic Inputs[] 声明的 input name 可在表达式里引用.' } },
       output: { Result: { label: '结果' } },
     },
     Add: {
-      label: '加', description: 'a + b',
+      label: '加', description: '把两个数字相加，给出和。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Sub: {
-      label: '减', description: 'a - b',
+      label: '减', description: '用 A 减去 B，给出差。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Mul: {
-      label: '乘', description: 'a * b',
+      label: '乘', description: '把两个数字相乘，给出积。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Div: {
-      label: '除', description: 'a / b (b=0 → NaN)',
+      label: '除', description: '用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Mod: {
-      label: '取模', description: 'a mod b',
+      label: '取模', description: '求 A 除以 B 的余数，支持小数。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Neg: {
-      label: '取负', description: '-X',
+      label: '取负', description: '把数字变号：正数变负、负数变正。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     Lt: {
-      label: '小于', description: 'a < b',
+      label: '小于', description: '判断 A 是不是 < B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     LtEq: {
-      label: '小于等于', description: 'a <= b',
+      label: '小于等于', description: '判断 A 是不是 ≤ B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Gt: {
-      label: '大于', description: 'a > b',
+      label: '大于', description: '判断 A 是不是 > B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     GtEq: {
-      label: '大于等于', description: 'a >= b',
+      label: '大于等于', description: '判断 A 是不是 ≥ B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Eq: {
-      label: '等于', description: 'a == b (wildcard, 跨类型 ToString 比较)',
+      label: '等于', description: '判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     NotEq: {
-      label: '不等于', description: 'a != b (wildcard, 跨类型 ToString 比较)',
+      label: '不等于', description: '判断两个值是否不相等，给出真/假。比法跟「等于」一样：类型一样直接比，类型不一样都转成文字再比。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     And: {
-      label: '逻辑与', description: 'a && b',
+      label: '逻辑与', description: '两个条件都为真时才给出真，否则给假。没接线的输入默认当真，不会干扰结果。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Or: {
-      label: '逻辑或', description: `a {'||'} b`,
+      label: '逻辑或', description: '两个条件只要有一个为真就给出真，都为假才给假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Not: {
-      label: '逻辑非', description: '!X',
+      label: '逻辑非', description: '把真假反过来：真变假、假变真。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     Concat: {
-      label: '拼接', description: 'a + b (字符串)',
+      label: '拼接', description: '把两个值首尾接成一段文字。不是文字的（数字、真假等）会自动转成文字再接。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Contains: {
-      label: '包含', description: 'Haystack 含 Needle',
+      label: '包含', description: '判断源串里是否出现过子串这一段文字，给出真/假。区分大小写；非文字的输入会先转成文字再找。',
+      example: '识别到的文字接进源串、子串填「胜利」，出现「胜利」就给真，可接到条件节点决定下一步。注意区分大小写：源串是「Win」、子串填「win」会判为不包含。',
       input: { Haystack: { label: '源串' }, Needle: { label: '子串' } },
       output: { Result: { label: '结果' } },
     },
     Length: {
-      label: '字符串长度', description: 'len(S)',
+      label: '字符串长度', description: '数一段文字有多长，给出长度数字。按字节算，一个英文/数字算 1，一个中文字算 3。',
       input: { S: { label: '字符串' } },
       output: { Result: { label: '结果' } },
     },
     ToString: {
-      label: '转字符串', description: 'fmt.Sprint(X)',
+      label: '转字符串', description: '把任意值转成文字。数字、真假、坐标等都能转，空值转成「null」。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     ToNumber: {
-      label: '转数字', description: 'strconv.ParseFloat(X) 失败 → 0',
+      label: '转数字', description: '把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     ToBool: {
-      label: '转布尔', description: 'truthy: != 0 / 非空 / true',
+      label: '转布尔', description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     Select: {
-      label: '三元选择', description: 'Cond ? A : B',
+      label: '三元选择', description: '看条件真假，从 A、B 两个值里挑一个输出：条件为真给 A，为假给 B。A、B 什么类型都行。',
+      example: '条件接「血量是否充足」，A 填正常攻击的目标、B 填撤退点，条件成立就输出进攻目标、不成立就输出撤退点，再把结果接到后续动作。',
       input: {
         Cond: { label: '条件' },
         A: { label: 'A (Cond=true)' },
@@ -1017,13 +1012,15 @@ export default {
     // stopwatch
     StopwatchStart: {
       label: '秒表 启动',
-      description: '启动或 reset 指定 key 的秒表 (已存在 → reset).',
+      description: '按下一个秒表开始计时，用来测某段流程花了多久。每个秒表用一个 key（名字）区分，可以同时跑好几个互不干扰。如果这个 key 已经在跑，会从头重新计时。',
+      example: '想测「找图 + 点击」这段花多长：先接 StopwatchStart（key 填 click），跑完那段再接 StopwatchRead（key 同样填 click），就能拿到这段的毫秒数。',
       input: { Key: { label: 'key', hint: '秒表 key (命名空间独立于 $vars.*)' } },
       output: { Done: { label: '完成' } },
     },
     StopwatchRead: {
       label: '秒表 读取',
-      description: '读指定 key 的 elapsed (毫秒). running 返 now-start; stopped 返 stoppedAt-start; 不存在 → 0.',
+      description: '读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。',
+      example: '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
       input: { Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' } },
       output: {
         Done: {
@@ -1034,14 +1031,14 @@ export default {
     },
     StopwatchStop: {
       label: '秒表 停止',
-      description: '停止指定 key 的秒表 (不存在 key 静默 no-op, validator 已 static-warn).',
+      description: '让某个秒表停下来，之后再读它拿到的就是停的那一刻的总用时，不会再往上涨。这个 key 没启动过的话什么都不做。',
       input: { Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' } },
       output: { Done: { label: '完成' } },
     },
     // system
     CollapsedNode: {
       label: '折叠子图',
-      description: 'Subgraph 的折叠 (isAnonymous) 表示 — runtime 跟 Subgraph 同 dispatch (RegionRunner: body 调一次 → Done).',
+      description: '把画布上选中的一组节点折叠成一个小方块，让流程图看着清爽。双击进去能编辑里面的节点，运行时跟展开时一模一样，跑完走「完成」往下接。',
       input: {
         SubgraphID: { label: '子图 ID', hint: '目标 isAnonymous Subgraph 标识符' },
         Label: { label: '标签' },
@@ -1050,7 +1047,7 @@ export default {
     },
     CommentBox: {
       label: '注释框',
-      description: '富文本注释节点 — 写标题 + markdown 正文给容器做说明. 不参与执行, 不连边. 双击编辑.',
+      description: '画布上的一张便签，写标题加正文（支持 markdown）给脚本做说明。纯展示，不参与运行、不连线。双击就能编辑，颜色、图标、宽度都能调。',
       input: {
         Title: { label: '标题' },
         Content: { label: '正文 (markdown)' },
@@ -1061,7 +1058,7 @@ export default {
     },
     MouseCalibration: {
       label: '鼠标校准',
-      description: '声明式 — runtime 启动期读 counts360 供 MouseMoveRel scaling 用. 节点本体 no-op, 走 Fire 出口表达 passthrough.',
+      description: '告诉脚本「你这台机器鼠标转一整圈要走多少」，相对移动鼠标（MouseMoveRel）就靠这个值把角度换算成实际移动量。只放在主图、一个容器一个，本身不做动作，直接往下接。',
       input: { Counts360: { label: 'counts/360°', hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.' } },
       output: { Fire: { label: 'Fire' } },
       inspector: {
@@ -1078,7 +1075,8 @@ export default {
     },
     Subgraph: {
       label: '调用子图',
-      description: '调用容器内 SubgraphID 指定的子图. body 回调由 runner 构造 + 跑完返回, 无 error → 走 Done. 当前静态 ID + 单个 Params JSON (强类型 dynamic InputParams pin 是未来选项).',
+      description: '把一组节点打包成子图，在这里整段调用一次，跑完走「完成」往下接。同一段流程要在多处复用、或想拆分大流程时用它，还能通过「参数」把数据传进子图。',
+      example: '登录流程要在好几个脚本里反复用：做成子图，每个脚本放一个「调用子图」指过去就行，以后改登录只改子图一处。',
       input: {
         SubgraphID: { label: '子图 ID' },
         Params: { label: '参数', hint: '调用参数 — 透传给 runner, 由 runner 注入 callee 的 SubgraphInput.' },
@@ -1108,12 +1106,14 @@ export default {
     },
     Throw: {
       label: '抛错',
-      description: '立刻抛 ThrowError, 由最近的 Try 区域截获走 catch 出口; 没 Try 包就冒泡到主 runner 报 container:error.',
+      description: '主动报一个错并立刻中断当前流程，错误内容就是你填的「消息」。如果外面有 Try 包着，错会被 Try 接住走「捕获」出口；没人包就直接让整个脚本报错停下。',
+      example: '检查到血量为 0 说明角色已死，往下没法继续：接一个「抛错」消息填「角色死亡」，让外层 Try 接住去做复活处理。',
       input: { Message: { label: '消息' } },
     },
     Try: {
       label: 'Try Catch',
-      description: '捕获 body 子图内的 error (含 Throw). 正常完成走 out; 出错走 catch, error 字符串挂在 catch.error 字段.',
+      description: '把一段可能出错的步骤（做成子图）包起来跑：顺利跑完走「正常」出口；中途任何一步报错（含主动「抛错」）就被接住走「捕获」出口，错误文字会从「捕获」带出来，脚本不会整个崩掉。',
+      example: '点击某个按钮可能因为画面没加载出来而失败：把这步包进 Try 子图，「正常」往下继续，「捕获」接重试或截图记录，避免一出错整个脚本停掉。',
       input: { SubgraphID: { label: 'Body 子图', hint: 'Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch.' } },
       output: {
         Out: { label: '正常' },
@@ -1125,7 +1125,8 @@ export default {
     },
     WindowTarget: {
       label: '目标窗口',
-      description: '运行时解析 title/class/processName 切换当前活动窗口; 普通节点, 可放多个切不同窗口.',
+      description: '指定脚本接下来操作哪个窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个窗口就放多个，分别切到不同窗口。',
+      example: '脚本要操作游戏窗口：开头放一个「目标窗口」，标题填游戏名，后面的点击、按键就都打到这个窗口上。',
       input: {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
@@ -1149,12 +1150,12 @@ export default {
         title_match_regex: '正则 RE2 (partial match)',
       },
     },
-    SubgraphInput: { label: '子图入口', description: '子图入口 virtual marker — 位置可改, 不可删/复制.' },
-    SubgraphOutput: { label: '子图出口', description: '子图出口 virtual marker — 位置可改, 不可删/复制. 每个 OutputPin 对应一个 marker.' },
+    SubgraphInput: { label: '子图入口', description: '子图内部的入口连接点——外面调用子图时从这里开始往下跑，传进来的参数也从这里取。位置能挪，但不能删、不能复制。' },
+    SubgraphOutput: { label: '子图出口', description: '子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。' },
     // variable
     GetVar: {
       label: '读变量',
-      description: 'pure-data 节点 — 读容器变量供 data edge 下游消费. scope=auto/local/global.',
+      description: '取出一个你之前存过的变量的值，接到需要它的地方用。作用域 scope 决定去哪找：local 只找当前子图里的，global 找全局共享的，auto 先找当前子图、找不到再去全局。',
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1163,7 +1164,8 @@ export default {
     },
     SetVar: {
       label: '写变量',
-      description: '写一个容器变量. scope=auto/local/global (auto: 当前 frame 有就 local, 否则 global).',
+      description: '存一个变量，值随便填——文字、数字什么都行，之后用「读变量」取出来。作用域 scope 决定存到哪：local 存进当前子图（出了子图就没了），global 存到全局（哪都能读到），auto 当前子图已有同名就改它、否则存全局。',
+      example: '记录一个状态标记：SetVar（变量名 done、值 true），后面用 GetVar 读出来判断要不要跳过某步。',
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1173,7 +1175,8 @@ export default {
     },
     IncVar: {
       label: '变量自增',
-      description: '给容器变量加 Delta (默认 1). scope=auto/local/global.',
+      description: '给一个变量加上增量（默认加 1，填负数就是减），常用来当计数器。变量原来没值就当 0 起算。作用域 scope 跟读/写变量一样：local / global / auto。',
+      example: '统计循环跑了几次：循环体里接 IncVar（变量名 count），每跑一圈就 +1，结束后用 GetVar 读 count 看总次数。',
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1183,13 +1186,13 @@ export default {
     },
     GetParam: {
       label: '读子图参数',
-      description: 'pure-data 节点 — 读 Subgraph 调用时传入的 input param. 仅子图内有效.',
+      description: '读出调用这个子图时外面传进来的参数值，按参数名取。只能在子图内部用，相当于子图的「入参」。',
       input: { ParamName: { label: '参数名' } },
       output: { Value: { label: '值' } },
     },
     GetSys: {
       label: '读系统值',
-      description: 'pure-data 节点 — 读 sys 路径 (e.g. now_ms / lastDualBarTrack.innerX). 数据流求值.',
+      description: '读框架运行时自动记下来的内置值，按路径取——比如 now_ms（当前时间毫秒）、上一次找图的结果 lastTemplate.found / lastTemplate.point、上一次秒表读数 lastStopwatch.elapsedMs 等。这些是脚本跑的过程中系统帮你存好的，路径必须是系统认识的那几个。',
       input: { Path: { label: '路径', hint: '点路径, e.g. now_ms / lastDualBarTrack.innerX' } },
       output: { Value: { label: '值' } },
     },
@@ -1320,8 +1323,6 @@ export default {
     RECORDING_NO_WINDOW_TARGET: '容器缺 WindowTarget 节点（录制需要目标窗口）',
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget 正则不合法: {error}',
     INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match 不能为空',
-    INVALID_DUALBAR_ROIS: 'DualColorBarTrack rois 配置无效',
-    DUPLICATE_DUALBAR_ROI: 'DualColorBarTrack rois 含重复分辨率 ({w}x{h})',
     INVALID_HSV_RANGE: 'HSV 范围不合法',
     INVALID_SCAN_AXIS: 'scanAxis 必须是 x 或 y, 得到 {got}',
     INVALID_CLUSTER_RANGE: 'cluster 范围不合法 (min={min} > max={max})',

@@ -16,6 +16,7 @@ const minimalSpec: NodeKindSpec = {
   group: 'control',
   labelZh: 'test',
   description: '',
+  example: '',
   visual: { icon: 'x', bg: '', border: '' },
   execIn: ['in'],
   execOut: ['out'],

@@ -250,6 +250,7 @@ function adaptSpec(s: Spec): NodeKindSpec {
     // consumer 走 t(). backend Spec.displayName/description 不再被 FE 用 — FE 单源 (zh.ts node.* lookup).
     labelZh: `node.${s.kind}.label`,
     description: `node.${s.kind}.description`,
+    example: `node.${s.kind}.example`,
     visual,
     execIn,
     execOut,

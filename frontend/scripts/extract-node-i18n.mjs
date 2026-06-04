@@ -38,6 +38,7 @@ for (const [kind, v] of Object.entries(node)) {
   const e = {}
   if (typeof v.label === 'string') e.label = v.label
   if (typeof v.description === 'string') e.description = v.description
+  if (typeof v.example === 'string') e.example = v.example
   const ins = pinMap(v.input, true)   // input pin: label + hint
   const outs = pinMap(v.output, false) // output pin: label only
   if (ins) e.input = ins

@@ -336,7 +336,7 @@
 
     <NodeExplorerModal
       v-model:open="nodeExplorerOpen"
-      @pick-kind="onPickKind"
+      @pick-kind="(k: string) => onPickKind(k, nodeExplorerSpawnPos)"
     />
 
     <LibraryExplorerModal
@@ -779,6 +779,13 @@ const lastMousePos = ref({ x: 240, y: 180 })
 function trackMouse(e: MouseEvent) {
   lastMousePos.value = { x: e.clientX, y: e.clientY }
 }
+
+// Tab 唤起 NodeExplorerModal 时快照鼠标位置 — 等用户在 modal 里点完节点, 鼠标已挪到
+// modal 上, lastMousePos 不再是唤起时的画布位置, 所以在 explorer 打开那刻就定格。
+const nodeExplorerSpawnPos = ref({ x: 240, y: 180 })
+watch(nodeExplorerOpen, (open) => {
+  if (open) nodeExplorerSpawnPos.value = { ...lastMousePos.value }
+})
 function onSnippetShortcutKeydown(e: KeyboardEvent) {
   // 文本输入聚焦时不触发 (避免破坏 textarea/input)
   const t = e.target as HTMLElement | null

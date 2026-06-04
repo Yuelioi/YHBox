@@ -66,10 +66,6 @@ const (
 	CodeThrowInMainGraph     = "THROW_IN_MAIN_GRAPH"
 	CodeInvalidSwitchCases   = "INVALID_SWITCH_CASES"
 	CodeInvalidCronExpr      = "INVALID_CRON_EXPR"
-
-	// DualColorBarTrack rois 数组校验 (multi-resolution lookup).
-	CodeInvalidDualBarROIs   = "INVALID_DUALBAR_ROIS"
-	CodeDuplicateDualBarROI  = "DUPLICATE_DUALBAR_ROI"
 )
 
 // Data-pin + variable + literal validation codes.

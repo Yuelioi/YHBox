@@ -44,6 +44,8 @@
               v-if="showInlineLiteral(leftPins[i - 1])"
               class="pin-inline-input nodrag"
               :type="leftPins[i - 1].type"
+              :widget-kind="fieldFor(leftPins[i - 1].id)?.widgetKind"
+              :options="fieldFor(leftPins[i - 1].id)?.options"
               :model-value="inlineLiteralValue(leftPins[i - 1].id)"
               @update:model-value="(v: any) => onInlineLiteralUpdate(leftPins[i - 1].id, v)"
               @mousedown.stop
@@ -111,7 +113,7 @@ import PinLiteral from './inline/PinLiteral.vue'
 import { unconnectedDataInPins, ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { getSpec } from './nodeRegistry/registry'
 import { TYPE_COLOR } from './nodeRegistry/index'
-import type { PinType } from './nodeRegistry/index'
+import type { PinType, FieldSchema } from './nodeRegistry/index'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
 const { t, te } = useI18n()
@@ -177,6 +179,11 @@ const inlineLiteralPins = computed<Set<string>>(() => {
 
 function showInlineLiteral(p: PinEntry): boolean {
   return p.kind === 'data' && p.dir === 'in' && inlineLiteralPins.value.has(p.id)
+}
+// 查 pin 对应的 widget 元数据 (widgetKind/options) — 让画布内联框跟 Inspector 一样出下拉。
+// 动态 input (Expr config.Inputs[]) 在 fields 里查不到 → undefined, PinLiteral 走 type fallback。
+function fieldFor(pin: string): FieldSchema | undefined {
+  return getSpec(kind.value)?.fields?.find((f) => f.key === pin)
 }
 function inlineLiteralValue(pin: string): unknown {
   // literal 优先 + 顶层 config fallback (镜像后端 PinValue / Inspector getLiteral) —

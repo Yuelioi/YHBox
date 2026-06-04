@@ -50,6 +50,29 @@
       </div>
     </section>
 
+    <!-- 使用示例 (可折叠, 默认收起; 仅当该节点有 example 翻译时显示) -->
+    <section
+      v-if="example"
+      class="mb-5 rounded-md bg-elevated/30 border border-default/40"
+    >
+      <button
+        type="button"
+        class="flex items-center gap-2 w-full px-3 py-2 text-left"
+        @click="exampleOpen = !exampleOpen"
+      >
+        <UIcon name="i-tabler-bulb" class="size-3.5 text-amber-400 shrink-0" />
+        <span class="text-[12px] font-medium text-toned flex-1">{{ t('inspector.example_title') }}</span>
+        <UIcon
+          :name="exampleOpen ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+          class="size-3.5 text-dimmed shrink-0"
+        />
+      </button>
+      <p
+        v-if="exampleOpen"
+        class="px-3 pb-2.5 text-[12px] text-toned leading-relaxed whitespace-pre-line"
+      >{{ example }}</p>
+    </section>
+
     <!-- 并发警告 -->
     <section
       v-if="concurrencyWarning"
@@ -516,7 +539,7 @@ import SwitchInspector from './inspector/SwitchInspector.vue'
 import ClipTimeline from './ClipTimeline.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import { useI18n } from 'vue-i18n'
-import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
+import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_EXAMPLE, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
 
 const { t, te } = useI18n()
 
@@ -741,6 +764,13 @@ const description = computed(() => {
   if (!props.node) return ''
   const key = KIND_DESCRIPTION[props.node.kind]
   return key ? t(key) : ''
+})
+// 使用示例 — 仅当该 kind 配了 example 翻译 (te) 才返非空, 驱动折叠区显示.
+const exampleOpen = ref(false)
+const example = computed(() => {
+  if (!props.node) return ''
+  const key = KIND_EXAMPLE[props.node.kind]
+  return key && te(key) ? t(key) : ''
 })
 const visual = computed(() =>
   props.node

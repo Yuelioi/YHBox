@@ -448,6 +448,7 @@ export default {
     literal_section: 'Data inputs (literal)',
     config_section: 'Config',
     pin_input_json_invalid: 'Invalid JSON — not saved',
+    example_title: 'Example',
     select_var_placeholder: 'Select variable',
     no_config: 'This node has no configurable fields.',
   },
@@ -477,13 +478,14 @@ export default {
     // control
     Start: {
       label: 'Start',
-      description: 'Graph entry. Framework starts execution from the Start node. Exactly 1 per graph.',
+      description: 'The starting line of your script. Execution begins here and flows downward. A graph has exactly one Start.',
       output: { out: { label: 'Start' } },
     },
-    Stop: { label: 'Stop', description: 'Stops graph execution. Framework catches the sentinel and stops dispatch; no error.' },
+    Stop: { label: 'Stop', description: 'Cleanly halts the whole script right away — not treated as an error. Once it reaches here, no further steps run.' },
     Sleep: {
       label: 'Sleep',
-      description: 'Blocks current exec stream for the given duration. MVP does not support cancel (ctx.Context() exists but is noop).',
+      description: 'Pauses here for a set amount of time before moving on — handy for letting screens, animations, or loads settle. Add jitter to make each wait vary randomly around the set value, so it feels less robotic. Stopping the script interrupts the wait immediately instead of waiting it out.',
+      example: 'After clicking a button, wait for a dialog: set duration to 1 second with ±20% jitter, and each wait lands somewhere around 0.8–1.2 seconds, looking more human.',
       input: {
         Duration: { label: 'Duration' },
         JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = duration varies within ±10% (near-normal)' },
@@ -492,13 +494,15 @@ export default {
     },
     If: {
       label: 'If',
-      description: 'Condition true → True exit; false → False exit.',
+      description: 'Splits into two paths based on a yes/no condition: when true it takes the True exit, when false the False exit. Lets the script do different things depending on the situation.',
+      example: 'Detected the "start battle" icon on screen → wire it into the condition, connect attack to the True exit and keep-walking to the False exit, and the script picks one automatically.',
       input: { Condition: { label: 'Condition' } },
       output: { True: { label: 'True' }, False: { label: 'False' } },
     },
     Loop: {
       label: 'Loop',
-      description: 'Body subgraph executes N times / forever. Break inside body jumps out, Continue jumps to next iteration.',
+      description: 'Runs the steps in its body over and over. Pick Count mode for a fixed number of passes, or Forever to keep going until you stop it manually. Inside the body, Break ends the loop early and Continue skips the rest of the current pass to start the next one.',
+      example: 'To farm a dungeon 50 times: set mode to Count and count to 50, wire the enter-to-reward steps into the body, and it repeats 50 times; drop a Break in the body to bail out early when the bag is full.',
       input: {
         Mode: { label: 'Mode', option: { count: 'Count', forever: 'Forever' } },
         Count: { label: 'Count (mode=count)' },
@@ -510,44 +514,13 @@ export default {
     },
     Switch: {
       label: 'Switch (multi-case)',
-      description: 'Value matched against Case1..Case16 (first-match-wins); on miss goes to Default. First 4 cases shown by default, 5-16 under Advanced.',
+      description: 'Picks one of many paths based on an input value. You list out the values you care about (each value is an exit), and at run time the input is compared against them — it takes the matching exit, or falls back to Default if none match. Cleaner than chaining a pile of If nodes.',
+      example: 'Route by the character state: feed "state" into the value, list cases IDLE, FIGHT, DEAD wired to idle, fight, and revive actions; any other value takes Default.',
       input: {
         Value: { label: 'Value' },
-        Case1Value: { label: 'Case 1 value' },
-        Case2Value: { label: 'Case 2 value' },
-        Case3Value: { label: 'Case 3 value' },
-        Case4Value: { label: 'Case 4 value' },
-        Case5Value: { label: 'Case 5 value' },
-        Case6Value: { label: 'Case 6 value' },
-        Case7Value: { label: 'Case 7 value' },
-        Case8Value: { label: 'Case 8 value' },
-        Case9Value: { label: 'Case 9 value' },
-        Case10Value: { label: 'Case 10 value' },
-        Case11Value: { label: 'Case 11 value' },
-        Case12Value: { label: 'Case 12 value' },
-        Case13Value: { label: 'Case 13 value' },
-        Case14Value: { label: 'Case 14 value' },
-        Case15Value: { label: 'Case 15 value' },
-        Case16Value: { label: 'Case 16 value' },
       },
       output: {
-        Case1: { label: 'Case 1' },
-        Case2: { label: 'Case 2' },
-        Case3: { label: 'Case 3' },
-        Case4: { label: 'Case 4' },
-        Case5: { label: 'Case 5' },
-        Case6: { label: 'Case 6' },
-        Case7: { label: 'Case 7' },
-        Case8: { label: 'Case 8' },
-        Case9: { label: 'Case 9' },
-        Case10: { label: 'Case 10' },
-        Case11: { label: 'Case 11' },
-        Case12: { label: 'Case 12' },
-        Case13: { label: 'Case 13' },
-        Case14: { label: 'Case 14' },
-        Case15: { label: 'Case 15' },
-        Case16: { label: 'Case 16' },
-        Default: { label: 'Default' },
+        default: { label: 'Default' },
       },
       inspector: {
         value_label: 'Value expression',
@@ -565,12 +538,13 @@ export default {
         delete_confirm_desc: 'This case has {count} outgoing edge(s) — they will disconnect and need manual reconnect.',
       },
     },
-    Break: { label: 'Break', description: 'Exits the nearest enclosing Loop region. The Loop region catches the sentinel; outside any Loop the framework reports an error.' },
-    Continue: { label: 'Continue', description: 'Jumps to the next iteration of the nearest Loop. The Loop region catches the sentinel.' },
+    Break: { label: 'Break', description: 'Ends the loop it sits in early and jumps to whatever comes after the loop. Must be used inside a loop body — using it outside a loop raises an error.' },
+    Continue: { label: 'Continue', description: 'Skips the rest of the current loop pass and jumps straight to the next one. Must be used inside a loop body.' },
     // detect
     WaitTemplate: {
       label: 'Wait template',
-      description: 'Polls for a template match within timeoutMs. Hit → Found with coords; timeout → Timeout.',
+      description: 'Watches the screen and keeps looking for the image (template) you picked. The moment it appears, take the Found exit with its location; if the timeout runs out first, take Timeout. Use it to wait for an icon/button to load before continuing.',
+      example: 'Fishing, wait for the «hook» icon to pop up: pick fishing.hook_icon, set timeout 5s, wire Found to the reel-in action; if 5s pass with no bite, take Timeout and cast again.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit fires / all must hit in same frame', option: { any: 'Any', all: 'All' } },
@@ -590,7 +564,8 @@ export default {
     },
     CheckTemplate: {
       label: 'Check template',
-      description: 'NCC match the template on the current frame. Hit → Found with coords; miss → NotFound.',
+      description: 'Looks at the current frame only and checks whether the image (template) you picked is on screen. If it is, take Found with its location; if not, take NotFound. It does not wait — just one glance — so it is great for an instant «is this on screen right now?» branch.',
+      example: 'Decide if you are in the combat screen: pick a combat-only icon, wire Found to the fighting logic and NotFound to the travel logic, and the script branches automatically from one glance at the current frame.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit → Found / all must hit in same frame', option: { any: 'Any', all: 'All' } },
@@ -609,7 +584,8 @@ export default {
     },
     ClickTemplate: {
       label: 'Click template',
-      description: 'Waits for template within timeoutMs, then clicks at the match center. Timeout → Timeout.',
+      description: 'Waits for the image (template) you picked to appear, then clicks its center with the mouse and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots.',
+      example: 'Auto-click the «start fishing» button: pick fishing.start_fish, timeout 5s, button Left; when it shows up it gets clicked and takes Done; if it never appears, Timeout handles the error.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed' },
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit clicks / all must hit in same frame', option: { any: 'Any', all: 'All' } },
@@ -630,7 +606,8 @@ export default {
     },
     DetectColor: {
       label: 'Detect color',
-      description: 'Counts pixels in the region (ratio) falling in the color range. count >= minPixels → Yes.',
+      description: 'Counts how many pixels in the region you framed fall inside a color range. If there are enough (at least min pixels) it takes Yes and gives the center of the matched area; otherwise No. It is a single glance, no waiting. The color range can be described in HSV (hue / saturation / brightness — more robust to lighting changes) or RGB.',
+      example: 'Check if the health bar is red (HP is fine): frame the bar, set mode HSV with a red range; enough matched pixels takes Yes for normal flow, too few takes No for heal/retreat.',
       input: {
         Region: { label: 'Region (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
@@ -650,7 +627,8 @@ export default {
     },
     DetectColorHSV: {
       label: 'Detect color (HSV)',
-      description: 'Polls HSV hit ratio in ROI until ratio >= minPixelRatio (Yes) or timeout (Timeout). timeoutMs<=0 = single scan, miss → No.',
+      description: 'Repeatedly measures what share of the ROI (a small region you frame on screen) matches a given color, and takes Yes once it reaches your target ratio; if the timeout runs out first, takes Timeout. Unlike «Detect color», it keeps polling at your interval, and the color is given only in HSV (hue / saturation / brightness — robust to lighting). Set timeout to 0 or below for a single glance that takes No when short.',
+      example: 'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Yes to cast, never bright takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
@@ -666,7 +644,8 @@ export default {
     },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
-      description: `Tracks two HSV clusters (inner + outer) in ROI, computes inner position within outer region. Used for: health bar / progress bar / QTE dual bar / fishing reel. rois=[{'{'}resolution:[W,H], x,y,w,h{'}'}, ...]; no match for current client size → Missing.`,
+      description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → Missing. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
+      example: 'Fishing reel bar: frame the ROI over the bar, set inner to the cursor yellow and outer to the target cyan; from Found read the cursor and target positions, then press left if the cursor is too far left or right if too far right to pull it back into the target band.',
       input: {
         Roi: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
         InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
@@ -680,7 +659,8 @@ export default {
     },
     ROIColorScan: {
       label: 'ROI color cluster scan',
-      description: 'Scans HSV-hit pixels along axis (x/y) in ROI, merges contiguous spans into clusters. count >= minClusterCount → Found. timeoutMs<=0 + first scan short → NotFound.',
+      description: 'Inside the ROI (a small region you frame), scans horizontally or vertically for contiguous runs of a given color — a string of same-colored pixels whose length is within the range you set counts as one run. If it finds enough runs (at least your min count) it takes Found and passes out each run; otherwise it keeps retrying at your interval and takes Timeout when time runs out. Color is given in HSV (hue / saturation / brightness). Set timeout to 0 or below to scan once and take NotFound when short.',
+      example: 'Count how many inventory slots are lit: frame the ROI over the inventory row, axis Horizontal, give the highlight HSV and min count 1; lit slots found takes Found for follow-up, none found takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
@@ -699,7 +679,8 @@ export default {
     },
     WaitStable: {
       label: 'Wait for stable frame',
-      description: 'Downsamples ROI and compares each poll; diff <= StableThreshold for StableFrames consecutive frames → Stable; timeout → Timeout. Avoids mis-detection during animation/loading.',
+      description: 'Watches the ROI (a small region you frame) and keeps comparing it to the previous frame; once several frames in a row barely change, it calls the screen «settled» and takes Stable; if it is still moving when the timeout runs out, takes Timeout. Made for waiting until an animation finishes, a loading spinner stops, or a list finishes refreshing, so you do not act while things are still moving.',
+      example: 'Wait for a loading screen to finish spinning: frame the ROI over the loading area, set consecutive stable frames to 3; once it stops moving take Stable for the next step, if it keeps spinning take Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]; larger = finer but slower' },
@@ -717,7 +698,8 @@ export default {
     },
     WaitChange: {
       label: 'Wait for frame change',
-      description: 'Downsamples ROI and compares against baseline each poll; diff >= ChangeThreshold → Changed (e.g. popup/loading done); timeout → Timeout.',
+      description: 'First remembers how the ROI (a small region you frame) looks right now as a baseline, then keeps comparing against it; the moment it changes enough, calls the screen «changed» and takes Changed; if nothing changes before the timeout, takes Timeout. Made for waiting on a popup to appear, a load to finish, or a screen to switch — the «wait for something to happen» case.',
+      example: 'After clicking confirm, wait for the result popup: frame the ROI where the popup appears; the moment it changes take Changed to read the popup; if nothing happens for a while take Timeout as no-response.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]' },
@@ -734,7 +716,8 @@ export default {
     },
     Screenshot: {
       label: 'Screenshot',
-      description: 'Captures a frame and writes to file. pathTemplate supports {ts} / {nodeId} / {containerId} / {date}. Empty ROI = full frame.',
+      description: 'Grabs the current screen and saves it as an image file, handy for checking later what the script actually saw. You can capture just the ROI (a small region you frame) or, if you leave it empty, the whole screen. The filename can use placeholders like {ts} (timestamp) and {date} to keep shots apart, saved under the fixed screenshots folder.',
+      example: 'Leave evidence when detection fails: on the failure branch add a screenshot with filename «fail_{ts}.png»; every failure saves one stamped shot so you can look back and see what the screen looked like.',
       input: {
         PathTemplate: { label: 'Path template', hint: "Relative path, no '..' / drive letter / leading '/' or '\\\\'. {ts}/{nodeId}/{containerId}/{date} auto-expanded." },
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
@@ -749,12 +732,13 @@ export default {
     // input
     BringWindowForeground: {
       label: 'Bring window to foreground',
-      description: 'Sets the target window as foreground focus. Exclusive-fullscreen / anti-cheat may reject; logs and continues on failure.',
+      description: 'Brings the target window to the front and gives it focus so your later key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going, it will not get stuck.',
       output: { Done: { label: 'Done' } },
     },
     ClickAt: {
       label: 'Click at',
-      description: 'Single click at client-area ratio coords (xRatio, yRatio). xRatio/yRatio ∈ [0,1].',
+      description: 'Clicks the mouse once at a spot in the window. The position is given as ratios: X and Y are decimals from 0 to 1, so 0.5, 0.5 is dead center regardless of window size. You can pick left/right/middle button, optionally slide over first, and tune how long the button stays down.',
+      example: 'Click the "Confirm" button in the bottom-right: set X to 0.9 and Y to 0.9 with the left button, and it clicks the bottom-right of the window at runtime.',
       input: {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
@@ -767,19 +751,20 @@ export default {
     },
     KeyHoldStart: {
       label: 'Hold key down',
-      description: 'Presses a virtual key (no release). Pair with KeyHoldStop to release. Arbitrary flow can run in between.',
+      description: 'Presses a key down and keeps holding it. It only does the "press"; you pair it with a "Release key" node to let go. Anything can run between the two nodes (waits, detection, movement), so you control exactly how long the key stays held.',
+      example: 'Make a character keep walking forward: place "Hold key down" on W, then a "Wait" of 3 seconds, then "Release key" on W — the character moves forward for 3 seconds. Both nodes must use the same W.',
       input: { VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / shift)' } },
       output: { Done: { label: 'Pressed' } },
     },
     KeyHoldStop: {
       label: 'Release key',
-      description: 'Releases a virtual key. Pairs with KeyHoldStart.',
+      description: 'Releases the key that an earlier "Hold key down" pressed. Both nodes must use the same key — they work as a pair.',
       input: { VK: { label: 'Key', hint: 'Virtual key name — same as the prior KeyHoldStart' } },
       output: { Done: { label: 'Released' } },
     },
     KeyPress: {
       label: 'Key press',
-      description: 'Presses and releases a single virtual key. DurationMs = press-to-release interval.',
+      description: 'Taps a key once (press then release), like a single keystroke. Duration is how long it stays down between press and release — the default is fine. To hold a key without letting go, use "Hold key down".',
       input: {
         VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: 'Duration (ms)' },
@@ -789,7 +774,8 @@ export default {
     },
     MouseHoldStart: {
       label: 'Hold mouse down',
-      description: 'Presses the mouse button at client-area (xRatio, yRatio) without releasing. Pairs with MouseHoldStop.',
+      description: 'Presses a mouse button down at a spot in the window and keeps holding it. The position is given as ratios (0 to 1, where 0.5, 0.5 is center). It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
+      example: 'Drag an item: place "Hold mouse down" with the left button at the start point, add "Mouse move to" sliding to the end point, then "Release mouse" to let go of the left button — that completes one drag.',
       input: {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
@@ -799,13 +785,14 @@ export default {
     },
     MouseHoldStop: {
       label: 'Release mouse',
-      description: 'Releases the mouse button. Pairs with MouseHoldStart.',
+      description: 'Releases the mouse button that an earlier "Hold mouse down" pressed. Pick the same button on both nodes — they work as a pair.',
       input: { Button: { label: 'Button', hint: 'Same button as the prior MouseHoldStart', option: { left: 'Left', right: 'Right', middle: 'Middle' } } },
       output: { Done: { label: 'Released' } },
     },
     MouseMoveRel: {
       label: 'Mouse move relative',
-      description: 'Moves (dx, dy) pixels from current cursor position, interpolated over DurationMs.',
+      description: 'Moves the cursor a certain distance in some direction from where it currently is (measured in pixels) — not to a fixed coordinate. Δx positive is right, negative is left; Δy positive is down, negative is up. Common for turning the camera or nudging the crosshair. To move straight to a fixed spot in the window, use "Mouse move to".',
+      example: 'Turn the camera right in a game: set Δx to 200 and Δy to 0, and the cursor nudges 200 pixels right from its current spot, panning the view right.',
       input: {
         Dx: { label: 'Δx (px)' },
         Dy: { label: 'Δy (px)' },
@@ -816,7 +803,8 @@ export default {
     },
     MouseMoveTo: {
       label: 'Mouse Move To',
-      description: 'Slide the cursor to client-ratio (XRatio,YRatio) without clicking. MoveMs=0 teleports, >0 slides over that duration.',
+      description: 'Moves the cursor to a fixed spot in the window without clicking. The position is given as ratios (0 to 1, where 0.5, 0.5 is center), independent of window size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
+      example: 'Move to the center before clicking: use "Mouse move to" with X and Y both 0.5, set Move time to 300 for a smooth slide, then follow with "Click at".',
       input: {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
@@ -827,7 +815,8 @@ export default {
     },
     EventTick: {
       label: 'Event Tick',
-      description: 'Fires periodically in the background without blocking the main flow.',
+      description: 'Fires automatically every so often in the background, running alongside your main flow without interrupting it. The chain of nodes hanging off its "Tick" output runs over and over on that timer. Commonly used to keep watching a part of the screen and set a global variable to signal the main flow when something happens.',
+      example: 'Check once a second whether the health bar is empty: set the interval to 1000 and wire the Tick output to "Detect screen → if health is low → set global variable needHeal". The main flow reads that variable to decide whether to use a potion.',
       input: {
         IntervalMs: { label: 'Interval (ms)' },
         MaxConcurrent: { label: 'Max concurrent' },
@@ -837,7 +826,8 @@ export default {
     },
     Scroll: {
       label: 'Mouse scroll',
-      description: 'Sends a mouse wheel event at client-area (xRatio, yRatio). Delta = notches, positive up / negative down.',
+      description: 'Scrolls the mouse wheel once at a spot in the window. The position is given as ratios (0 to 1, where 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls up, negative scrolls down. Common for scrolling lists, zooming, or switching weapons.',
+      example: 'Scroll an inventory list down: aim X and Y at the list area and set Delta to -3, and it scrolls down three notches there at runtime.',
       input: {
         XRatio: { label: 'X ratio' },
         YRatio: { label: 'Y ratio' },
@@ -849,7 +839,8 @@ export default {
     // io
     Log: {
       label: 'Log',
-      description: 'Writes a log entry to framework LogService. Message accepts wildcard (any type, auto fmt.Sprint).',
+      description: 'Prints a message to the run log so you can see which step the script reached and what the values were while debugging. The message input takes anything — text, numbers, points, regions — and turns it into text automatically.',
+      example: 'Debugging a loop and want to confirm how many times it ran: wire Log into the loop body with the iteration count as the message, and it prints each pass to the run log.',
       input: {
         Message: { label: 'Message', hint: 'Any type — string / number / Point / Rect etc., framework auto-stringifies' },
         Level: { label: 'Level', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
@@ -858,7 +849,8 @@ export default {
     },
     PlayClip: {
       label: 'Play clip',
-      description: 'Replays a recorded InputClip, blocking until done. Grabs the InputBus exclusively for the whole playback; cancel (Stop) interrupts and releases held keys.',
+      description: 'Replays a mouse-and-keyboard sequence you recorded earlier, exactly as recorded — handy for reproducing a fixed combo or form-filling routine. It takes over the mouse and keyboard during playback and only moves on once done; stopping the script mid-clip interrupts it and releases any held keys.',
+      example: 'You have a fixed combo in a game: record it once, then point this node at that clip, and the script replays the whole combo whenever it reaches here.',
       input: { ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' } },
       output: { Done: { label: 'Done' } },
       inspector: {
@@ -875,117 +867,120 @@ export default {
     // purefunc
     Expr: {
       label: 'Expression',
-      description: 'Evaluates an expression. Dynamic inputs (config.Inputs[]) declared input names can be referenced in the expression.',
+      description: 'Write a one-line formula to freely combine operations and get a result. Supports arithmetic (+ - * / %), comparisons (< <= > >= == !=), logic (&& || !), the ternary (cond ? a : b), the built-in functions abs, min, max, now, and string literals in double quotes joined with +. To reference an outside value, add an input pin to this node, then use the matching name as a variable in the formula (e.g. hp, count).',
+      example: 'Add two input pins hp and max, then write hp / max * 100 to get the health percentage; or hp < max * 0.3 ? "heal up" : "safe" to give different hints based on health. Variable names are exactly the names of the input pins you added.',
       input: { Expression: { label: 'Expression', hint: 'Go-like expression. Dynamic Inputs[] declared input names can be referenced.' } },
       output: { Result: { label: 'Result' } },
     },
     Add: {
-      label: 'Add', description: 'a + b',
+      label: 'Add', description: 'Adds two numbers and gives the sum.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Sub: {
-      label: 'Subtract', description: 'a - b',
+      label: 'Subtract', description: 'Subtracts B from A and gives the difference.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Mul: {
-      label: 'Multiply', description: 'a * b',
+      label: 'Multiply', description: 'Multiplies two numbers and gives the product.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Div: {
-      label: 'Divide', description: 'a / b (b=0 → NaN)',
+      label: 'Divide', description: 'Divides A by B and gives the quotient. When the divisor is 0 the result is NaN (not a number).',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Mod: {
-      label: 'Modulo', description: 'a mod b',
+      label: 'Modulo', description: 'Gives the remainder of A divided by B; works with decimals too.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Neg: {
-      label: 'Negate', description: '-X',
+      label: 'Negate', description: 'Flips the sign of a number: positive becomes negative and vice versa.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Lt: {
-      label: 'Less than', description: 'a < b',
+      label: 'Less than', description: 'Tells whether A < B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     LtEq: {
-      label: 'Less or equal', description: 'a <= b',
+      label: 'Less or equal', description: 'Tells whether A ≤ B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Gt: {
-      label: 'Greater than', description: 'a > b',
+      label: 'Greater than', description: 'Tells whether A > B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     GtEq: {
-      label: 'Greater or equal', description: 'a >= b',
+      label: 'Greater or equal', description: 'Tells whether A ≥ B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Eq: {
-      label: 'Equals', description: 'a == b (wildcard, cross-type ToString comparison)',
+      label: 'Equals', description: 'Tells whether two values are equal, giving true/false. Accepts any type; same types compare directly, while different types are both turned into text first (so the number 1 and the text "1" count as equal).',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     NotEq: {
-      label: 'Not equals', description: 'a != b (wildcard, cross-type ToString comparison)',
+      label: 'Not equals', description: 'Tells whether two values are not equal, giving true/false. Compares the same way as Equals: same types directly, different types both turned into text first.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     And: {
-      label: 'Logical AND', description: 'a && b',
+      label: 'Logical AND', description: 'Gives true only when both conditions are true, otherwise false. An unconnected input defaults to true so it does not affect the result.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Or: {
-      label: 'Logical OR', description: `a {'||'} b`,
+      label: 'Logical OR', description: 'Gives true when at least one condition is true, and false only when both are false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Not: {
-      label: 'Logical NOT', description: '!X',
+      label: 'Logical NOT', description: 'Flips true/false: true becomes false and false becomes true.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Concat: {
-      label: 'Concatenate', description: 'a + b (string)',
+      label: 'Concatenate', description: 'Joins two values end to end into one piece of text. Non-text values (numbers, true/false, etc.) are turned into text first.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Contains: {
-      label: 'Contains', description: 'Haystack contains Needle',
+      label: 'Contains', description: 'Tells whether the needle text appears somewhere inside the haystack, giving true/false. Case-sensitive; non-text inputs are turned into text first.',
+      example: 'Feed recognized text into Haystack and put "Victory" in Needle; if "Victory" shows up it gives true, which you can wire into a condition node to decide the next step. Note it is case-sensitive: a haystack of "Win" with needle "win" counts as not contained.',
       input: { Haystack: { label: 'Haystack' }, Needle: { label: 'Needle' } },
       output: { Result: { label: 'Result' } },
     },
     Length: {
-      label: 'String length', description: 'len(S)',
+      label: 'String length', description: 'Counts how long a piece of text is and gives a number. Counted in bytes: each English letter/digit is 1, each Chinese character is 3.',
       input: { S: { label: 'String' } },
       output: { Result: { label: 'Result' } },
     },
     ToString: {
-      label: 'To string', description: 'fmt.Sprint(X)',
+      label: 'To string', description: 'Turns any value into text. Numbers, true/false, points and more all convert; an empty value becomes "null".',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     ToNumber: {
-      label: 'To number', description: 'strconv.ParseFloat(X) failure → 0',
+      label: 'To number', description: 'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     ToBool: {
-      label: 'To bool', description: 'truthy: != 0 / non-empty / true',
+      label: 'To bool', description: 'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Select: {
-      label: 'Select (ternary)', description: 'Cond ? A : B',
+      label: 'Select (ternary)', description: 'Looks at the condition and picks one of two values to output: A when the condition is true, B when it is false. A and B can be any type.',
+      example: 'Wire the condition to "is health sufficient", set A to the attack target and B to the retreat point; when true it outputs the attack target, when false the retreat point, then feed the result into the following action.',
       input: {
         Cond: { label: 'Condition' },
         A: { label: 'A (Cond=true)' },
@@ -996,13 +991,15 @@ export default {
     // stopwatch
     StopwatchStart: {
       label: 'Stopwatch start',
-      description: 'Starts or resets the stopwatch with the given key (existing key → reset).',
+      description: 'Starts a stopwatch so you can time how long part of your flow takes. Each stopwatch is identified by a key (name), so you can run several at once without them interfering. If that key is already running, it restarts from zero.',
+      example: 'To time a "find image + click" section: connect StopwatchStart (key = click), run that section, then connect StopwatchRead (key = click) afterward to get the elapsed milliseconds.',
       input: { Key: { label: 'key', hint: 'Stopwatch key (namespace independent of $vars.*)' } },
       output: { Done: { label: 'Done' } },
     },
     StopwatchRead: {
       label: 'Stopwatch read',
-      description: 'Reads elapsed (ms) for the given key. running → now-start; stopped → stoppedAt-start; not found → 0.',
+      description: 'Reads how many milliseconds a stopwatch has counted. If it is still running, you get "start until now"; if it was stopped, you get "start until the stop"; an unstarted key returns 0.',
+      example: 'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
       input: { Key: { label: 'key', hint: 'Same key as the prior StopwatchStart' } },
       output: {
         Done: {
@@ -1013,14 +1010,14 @@ export default {
     },
     StopwatchStop: {
       label: 'Stopwatch stop',
-      description: 'Stops the stopwatch for the given key (no-op if missing; validator already static-warns).',
+      description: 'Stops a stopwatch so that reading it later gives the total time at the moment it stopped, instead of continuing to climb. Does nothing if that key was never started.',
       input: { Key: { label: 'key', hint: 'Same key as the prior StopwatchStart' } },
       output: { Done: { label: 'Done' } },
     },
     // system
     CollapsedNode: {
       label: 'Collapsed subgraph',
-      description: 'Folded (isAnonymous) representation of a Subgraph — runtime dispatch same as Subgraph (RegionRunner: body called once → Done).',
+      description: 'Folds a group of selected nodes into one small box to keep the flow tidy. Double-click to edit the nodes inside; it runs exactly the same as when expanded, then continues via Done.',
       input: {
         SubgraphID: { label: 'Subgraph ID', hint: 'Target isAnonymous Subgraph identifier' },
         Label: { label: 'Label' },
@@ -1029,7 +1026,7 @@ export default {
     },
     CommentBox: {
       label: 'Comment box',
-      description: 'Rich-text annotation node — title + markdown body to document a container. Does not execute or connect. Double-click to edit.',
+      description: 'A sticky note on the canvas: a title plus body text (markdown supported) to document your script. Display only — it never runs and never connects. Double-click to edit; color, icon, and width are adjustable.',
       input: {
         Title: { label: 'Title' },
         Content: { label: 'Body (markdown)' },
@@ -1040,7 +1037,7 @@ export default {
     },
     MouseCalibration: {
       label: 'Mouse calibration',
-      description: 'Declarative — runtime reads counts360 at startup for MouseMoveRel scaling. Node body is no-op; passes through via Fire exit.',
+      description: 'Tells the script how far your mouse travels per full 360° turn on this machine; relative mouse moves (MouseMoveRel) use this value to convert angles into actual movement. Put one in the main graph (one per container); it does no action itself and just passes through.',
       input: { Counts360: { label: 'counts/360°', hint: 'Counts produced per full 360° mouse rotation. MouseMoveRel uses this to scale dx/dy.' } },
       output: { Fire: { label: 'Fire' } },
       inspector: {
@@ -1057,7 +1054,8 @@ export default {
     },
     Subgraph: {
       label: 'Call subgraph',
-      description: 'Calls the subgraph specified by SubgraphID. The runner builds the body callback + waits for completion; no error → Done. Currently a static ID + a single Params JSON (typed dynamic InputParams pins are a future option).',
+      description: 'Packages a group of nodes into a subgraph and runs the whole thing once here, then continues via Done. Use it to reuse the same flow in several places or to split a big flow into pieces; you can also pass data in through Params.',
+      example: 'Your login flow is reused across several scripts: turn it into a subgraph, drop one Call subgraph in each script pointing to it, and future login changes only touch the subgraph.',
       input: {
         SubgraphID: { label: 'Subgraph ID' },
         Params: { label: 'Params', hint: 'Call params — passed through to the runner, which injects them into the callee SubgraphInput.' },
@@ -1087,12 +1085,14 @@ export default {
     },
     Throw: {
       label: 'Throw',
-      description: 'Throws a ThrowError immediately; caught by the nearest Try region and routed to its catch exit. Without an enclosing Try, bubbles to the main runner and reports container:error.',
+      description: 'Deliberately raises an error and stops the current flow right away; the error text is whatever you put in Message. If a Try wraps it, the error is caught and routed to the Try catch exit; otherwise the whole script errors out and stops.',
+      example: 'You detect HP is 0, meaning the character is dead and there is no point continuing: add a Throw with Message «character dead» so the outer Try catches it and runs a revive routine.',
       input: { Message: { label: 'Message' } },
     },
     Try: {
       label: 'Try / catch',
-      description: 'Catches errors (incl. Throw) inside the body subgraph. Normal completion → out; error → catch, with error string in catch.error field.',
+      description: 'Wraps a group of error-prone steps (as a subgraph) and runs them: finishes cleanly → Normal exit; any step errors out (including a deliberate Throw) → caught and routed to the Catch exit, with the error text carried out from Catch — the script does not crash entirely.',
+      example: 'Clicking a button might fail because the screen has not loaded yet: wrap that step in a Try subgraph — Normal continues onward, Catch handles a retry or logs a screenshot — so one error does not stop the whole script.',
       input: { SubgraphID: { label: 'Body subgraph', hint: 'Subgraph ID wrapped by Try; runner pushes a frame to run it, body return error triggers catch.' } },
       output: {
         Out: { label: 'Normal' },
@@ -1104,7 +1104,8 @@ export default {
     },
     WindowTarget: {
       label: 'Target window',
-      description: 'Resolves title/class/processName at runtime to switch the active target window; regular node, multiple instances allowed for switching to different windows.',
+      description: 'Picks which window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple windows, each switching to a different one.',
+      example: 'Your script needs to operate the game window: put a Target window at the start with the game name as the title, and all later clicks and key presses go to that window.',
       input: {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
@@ -1128,12 +1129,12 @@ export default {
         title_match_regex: 'Regex RE2 (partial match)',
       },
     },
-    SubgraphInput: { label: 'Subgraph input', description: 'Subgraph entry virtual marker — position movable; not deletable/copyable.' },
-    SubgraphOutput: { label: 'Subgraph output', description: 'Subgraph exit virtual marker — position movable; not deletable/copyable. One marker per OutputPin.' },
+    SubgraphInput: { label: 'Subgraph input', description: 'The entry point inside a subgraph — when the subgraph is called, execution starts here, and any params passed in are read here. Position is movable, but it cannot be deleted or copied.' },
+    SubgraphOutput: { label: 'Subgraph output', description: 'The exit point inside a subgraph — reaching it ends the subgraph and returns to the caller to continue. One per output pin. Position is movable, but it cannot be deleted or copied.' },
     // variable
     GetVar: {
       label: 'Get variable',
-      description: 'pure-data node — reads a container variable for data-edge downstream consumers. scope=auto/local/global.',
+      description: 'Reads back the value of a variable you stored earlier, to feed wherever you need it. The scope decides where to look: local checks only the current subgraph, global checks the shared global store, and auto checks the current subgraph first then falls back to global.',
       input: {
         VarName: { label: 'Variable name' },
         Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1142,7 +1143,8 @@ export default {
     },
     SetVar: {
       label: 'Set variable',
-      description: 'Writes a container variable. scope=auto/local/global (auto: local if present in current frame; otherwise global).',
+      description: 'Stores a variable with any value you like — text, number, anything — to read back later with Get variable. The scope decides where it goes: local stores it in the current subgraph (gone once you leave it), global stores it everywhere, and auto updates an existing same-name var in the current subgraph or otherwise stores it globally.',
+      example: 'Record a status flag: SetVar (name = done, value = true), then later read it back with GetVar to decide whether to skip a step.',
       input: {
         VarName: { label: 'Variable name' },
         Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1152,7 +1154,8 @@ export default {
     },
     IncVar: {
       label: 'Increment variable',
-      description: 'Adds Delta (default 1) to a container variable. scope=auto/local/global.',
+      description: 'Adds a delta to a variable (default +1; use a negative number to subtract) — handy as a counter. If the variable has no value yet, it starts from 0. The scope works the same as Get/Set variable: local / global / auto.',
+      example: 'Count loop iterations: put IncVar (name = count) inside the loop body so it adds 1 each pass, then read count with GetVar afterward for the total.',
       input: {
         VarName: { label: 'Variable name' },
         Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1162,13 +1165,13 @@ export default {
     },
     GetParam: {
       label: 'Get subgraph param',
-      description: 'pure-data node — reads an input param passed to the Subgraph at call time. Valid only inside the subgraph.',
+      description: 'Reads the value of a parameter passed in when this subgraph was called, by parameter name. Only usable inside a subgraph — it is the subgraph\'s "input".',
       input: { ParamName: { label: 'Param name' } },
       output: { Value: { label: 'Value' } },
     },
     GetSys: {
       label: 'Get system value',
-      description: 'pure-data node — reads a sys path (e.g. now_ms / lastDualBarTrack.innerX). Data-flow evaluated.',
+      description: 'Reads a built-in value the runtime records automatically, by path — for example now_ms (current time in ms), the last find-image result lastTemplate.found / lastTemplate.point, or the last stopwatch reading lastStopwatch.elapsedMs. These are filled in by the system as the script runs, so the path must be one the system knows.',
       input: { Path: { label: 'Path', hint: 'dot path, e.g. now_ms / lastDualBarTrack.innerX' } },
       output: { Value: { label: 'Value' } },
     },
@@ -1299,8 +1302,6 @@ export default {
     RECORDING_NO_WINDOW_TARGET: 'Container has no WindowTarget node (recording needs a target window)',
     INVALID_WINDOW_TARGET_REGEX: 'WindowTarget regex invalid: {error}',
     INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match cannot be empty',
-    INVALID_DUALBAR_ROIS: 'DualColorBarTrack rois config invalid',
-    DUPLICATE_DUALBAR_ROI: 'DualColorBarTrack rois contains duplicate resolution ({w}x{h})',
     INVALID_HSV_RANGE: 'HSV range is invalid',
     INVALID_SCAN_AXIS: 'scanAxis must be x or y, got {got}',
     INVALID_CLUSTER_RANGE: 'cluster range invalid (min={min} > max={max})',
