@@ -117,3 +117,55 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
 
   return { id: 'root', children, edges: elkEdges } as unknown as ElkNode
 }
+
+// ── anchorOffset / placeDetached ───────────────────────────────────────────
+
+export interface Pos { x: number; y: number }
+export interface BBox { minX: number; minY: number; maxX: number; maxY: number }
+
+// ELK 布局后坐标系整体偏移量：使新布局重心与旧布局重心对齐，防整图跳位。
+export function anchorOffset(oldP: Record<string, Pos>, newP: Record<string, Pos>): { dx: number; dy: number } {
+  const center = (m: Record<string, Pos>) => {
+    const ks = Object.keys(m)
+    if (!ks.length) return { x: 0, y: 0 }
+    let sx = 0, sy = 0
+    for (const k of ks) { sx += m[k].x; sy += m[k].y }
+    return { x: sx / ks.length, y: sy / ks.length }
+  }
+  const o = center(oldP), n = center(newP)
+  return { dx: o.x - n.x, dy: o.y - n.y }
+}
+
+interface DetachedNode { id: string; x: number; y: number; width: number; height: number }
+
+// 判断游离节点是否与主图包围盒重叠（任一轴不重叠即视为在外侧）。
+function overlaps(n: DetachedNode, b: BBox): boolean {
+  return n.x < b.maxX && n.x + n.width > b.minX && n.y < b.maxY && n.y + n.height > b.minY
+}
+
+// 游离/注释节点安置：与主图包围盒重叠的，停到主轴垂直方向的外侧空白并按序堆叠；
+// RIGHT 布局→停下方(沿 y 堆叠)，DOWN 布局→停右侧(沿 x 堆叠)。不重叠的保持原位。
+const DETACHED_MARGIN = 200
+export function placeDetached(
+  detached: DetachedNode[],
+  bbox: BBox,
+  direction: 'RIGHT' | 'DOWN',
+): Record<string, Pos> {
+  const out: Record<string, Pos> = {}
+  let cursorY = bbox.maxY + DETACHED_MARGIN
+  let cursorX = bbox.maxX + DETACHED_MARGIN
+  for (const n of detached) {
+    if (!overlaps(n, bbox)) {
+      out[n.id] = { x: n.x, y: n.y }
+      continue
+    }
+    if (direction === 'RIGHT') {
+      out[n.id] = { x: bbox.minX, y: cursorY }
+      cursorY += n.height + 40
+    } else {
+      out[n.id] = { x: cursorX, y: bbox.minY }
+      cursorX += n.width + 40
+    }
+  }
+  return out
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estimateNodeSize, buildElkGraph, type BuildOpts } from './elkGraph'
+import { estimateNodeSize, buildElkGraph, anchorOffset, placeDetached, type BuildOpts, type Pos } from './elkGraph'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 
 const fakeGetSpec: BuildOpts['getSpec'] = (kind) => ({
@@ -65,5 +65,31 @@ describe('buildElkGraph', () => {
     const g = buildElkGraph([node('n1', 'If'), node('s', 'Switch', { cases: ['a', 'b'] })], [{ from: 'n1.then', to: 's.in' }], noDims())
     const sNode = g.children!.find((c) => c.id === 's')!
     expect(sNode.height).toBe(estimateNodeSize('Switch', { cases: ['a', 'b'] }).height)
+  })
+})
+
+describe('anchorOffset', () => {
+  it('使新布局重心对齐旧重心', () => {
+    const oldP = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 } }   // 旧中心 (50,0)
+    const newP = { a: { x: 0, y: 0 }, b: { x: 200, y: 0 } }   // 新中心 (100,0)
+    expect(anchorOffset(oldP, newP)).toEqual({ dx: -50, dy: 0 })
+  })
+})
+
+describe('placeDetached', () => {
+  it('RIGHT 布局：重叠的游离节点停到包围盒下方、按序堆叠', () => {
+    const bbox = { minX: 0, minY: 0, maxX: 200, maxY: 100 }
+    const detached = [
+      { id: 'c1', x: 10, y: 10, width: 80, height: 40 },
+      { id: 'c2', x: 20, y: 20, width: 80, height: 40 },
+    ]
+    const out = placeDetached(detached, bbox, 'RIGHT')
+    expect(out.c1.y).toBeGreaterThan(100)
+    expect(out.c2.y).toBeGreaterThan(out.c1.y)
+  })
+  it('不与 bbox 重叠的游离节点保持原位', () => {
+    const bbox = { minX: 0, minY: 0, maxX: 200, maxY: 100 }
+    const detached = [{ id: 'c', x: 999, y: 999, width: 80, height: 40 }]
+    expect(placeDetached(detached, bbox, 'RIGHT').c).toEqual({ x: 999, y: 999 })
   })
 })
