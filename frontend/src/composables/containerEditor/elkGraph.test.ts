@@ -33,8 +33,8 @@ describe('estimateNodeSize', () => {
 
 describe('buildElkGraph', () => {
   it('输入 pin 落 WEST、输出 pin 落 EAST', () => {
-    const g = buildElkGraph([node('n1', 'If')], [], opts())
-    const ports = g.children![0].ports!
+    const g = buildElkGraph([node('n1', 'If'), node('g', 'GetVar')], [{ from: 'g.value', to: 'n1.cond' }], opts())
+    const ports = g.children!.find((c) => c.id === 'n1')!.ports!
     expect(ports.find((p) => p.id === 'n1::cond')!.layoutOptions!['elk.port.side']).toBe('WEST')
     expect(ports.find((p) => p.id === 'n1::then')!.layoutOptions!['elk.port.side']).toBe('EAST')
   })
@@ -51,8 +51,8 @@ describe('buildElkGraph', () => {
     expect(Number(execEdge.layoutOptions!.__priority)).toBeGreaterThan(Number(dataEdge.layoutOptions!.__priority))
   })
   it('动态 pin(Switch.cases)派生为 port', () => {
-    const g = buildElkGraph([node('s', 'Switch', { cases: ['x', 'y'] })], [], opts())
-    const ids = g.children![0].ports!.map((p) => p.id)
+    const g = buildElkGraph([node('s', 'Switch', { cases: ['x', 'y'] }), node('g', 'GetVar')], [{ from: 'g.value', to: 's.in' }], opts())
+    const ids = g.children!.find((c) => c.id === 's')!.ports!.map((p) => p.id)
     expect(ids).toContain('s::case.0'); expect(ids).toContain('s::case.1')
   })
   it('无边节点(游离)被排除', () => {

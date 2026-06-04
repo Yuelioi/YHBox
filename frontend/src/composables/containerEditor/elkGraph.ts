@@ -62,13 +62,13 @@ function outputPins(spec: MiniSpec, cfg: any): string[] {
 }
 
 export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: BuildOpts): ElkNode {
-  // 有边时只保留被连接的节点；无边时全部参与（如单独展示动态 pin）。
+  // 参与规则：节点有 ≥1 条边才进 ELK；无边(游离/注释)排除，交给 placeDetached 安置。
   const connected = new Set<string>()
   for (const e of edges) {
     connected.add(srcId(e.from))
     connected.add(srcId(e.to))
   }
-  const layoutNodes = edges.length > 0 ? nodes.filter((n) => connected.has(n.id)) : nodes
+  const layoutNodes = nodes.filter((n) => connected.has(n.id))
 
   const inSide = opts.direction === 'RIGHT' ? 'WEST' : 'NORTH'
   const outSide = opts.direction === 'RIGHT' ? 'EAST' : 'SOUTH'
