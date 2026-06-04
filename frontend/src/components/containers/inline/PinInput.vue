@@ -62,6 +62,20 @@
     @update:model-value="(v: string) => emit('update:modelValue', v)"
   />
 
+  <!-- color-preset: 视觉注册中心色块选择器 (CommentBox.Color 等), 存 palette key -->
+  <ColorPalettePicker
+    v-else-if="kind === 'color-preset'"
+    :model-value="modelValue == null ? '' : String(modelValue)"
+    @update:model-value="(v: string) => emit('update:modelValue', v)"
+  />
+
+  <!-- icon-preset: 视觉注册中心图标选择器 (CommentBox.Icon 等), 存完整 tabler 名 -->
+  <IconPicker
+    v-else-if="kind === 'icon-preset'"
+    :model-value="modelValue == null ? '' : String(modelValue)"
+    @update:model-value="(v: string) => emit('update:modelValue', v)"
+  />
+
   <!-- text / password / duration / async-dropdown / 默认 → 文本框
        async-dropdown 的候选源 (templateKeys/clipIDs/subgraphIDs) 多由 bespoke section 处理;
        走到这里的 (e.g. WaitTemplate.Template) 当字符串 key 编辑 (跟旧 literal section 一致)。 -->
@@ -80,6 +94,8 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import KeyCapture from '@/components/containers/KeyCapture.vue'
+import ColorPalettePicker from './ColorPalettePicker.vue'
+import IconPicker from './IconPicker.vue'
 import type { PinType } from '../pinSpec'
 
 const { t } = useI18n()

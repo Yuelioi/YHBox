@@ -125,7 +125,6 @@ useAutoFocusOnOpen(modelOpen, searchInputRef, {
 const filteredGroups = computed(() => {
   const q = query.value.toLowerCase().trim()
   const matched = allSpecs().filter((s: NodeKindSpec) => {
-    if (s.isVisualOnly) return false
     if (s.excludeFromPalette) return false
     if (!q) return true
     const localizedLabel = s.labelZh ? t(s.labelZh) : ''

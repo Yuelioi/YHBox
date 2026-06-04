@@ -133,7 +133,7 @@ const positionStyle = computed(() => ({
 
 /** All specs eligible for insertion (excludes visual-only and palette-excluded kinds) */
 const allEligible = computed<NodeKindSpec[]>(() => {
-  let specs = allSpecs().filter((s) => !s.isVisualOnly && !s.excludeFromPalette)
+  let specs = allSpecs().filter((s) => !s.excludeFromPalette)
 
   if (!props.pinContext) return specs
 

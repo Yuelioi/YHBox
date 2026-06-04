@@ -5,6 +5,7 @@
 import { useI18n } from 'vue-i18n'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import type { NodeGroup, NodeKindSpec } from '@/components/containers/nodeRegistry/index'
+import { groupVisual, resolvePalette } from '@/components/containers/visualRegistry'
 
 /**
  * 10 个 canonical NodeGroup, 跟 nodeRegistry/index.ts NodeGroup 类型同步.
@@ -23,41 +24,17 @@ export const ALL_NODE_GROUPS: NodeGroup[] = [
   'test',
 ]
 
-/**
- * group → 该 group 主色 (Tailwind tone). 由该 group 各 spec.visual.bg 取众数派生.
- * key 'misc' 是 fallback string, 不在 NodeGroup 类型里 (那 10 个都有真色).
- */
-const GROUP_TONE: Record<string, string> = {
-  control: 'blue',
-  variables: 'amber',
-  purefunc: 'amber',
-  detect: 'violet',
-  input: 'orange',
-  system: 'cyan',
-  io: 'emerald',
-  stopwatch: 'rose',
-  mock: 'zinc',
-  test: 'zinc',
-  misc: 'zinc',
-}
-
-/** Tailwind text color class for a group label/chevron. */
+/** Tailwind text color class for a group label/chevron. 从视觉注册中心派生 (单一真源). */
 export function groupLabelColor(group: string): string {
-  const tone = GROUP_TONE[group] ?? GROUP_TONE.misc
-  return `text-${tone}-400`
+  return resolvePalette(groupVisual(group).color).text
 }
 
 /**
- * Extract a Tailwind color name (e.g., 'amber') from a node spec's visual.bg.
- * Expects format like 'bg-amber-500/15'. Falls back to group dominant if parse fails.
+ * 节点 icon 颜色 = 其 group 主色 (visual 本就按 group 派生, 直接走注册中心, 不再正则抠 class).
  */
 export function nodeIconColor(spec: NodeKindSpec | undefined): string {
-  if (!spec) return 'text-zinc-400'
-  const bg = spec.visual?.bg ?? ''
-  // Match 'bg-<tone>-<shade>/<opacity>' OR 'bg-<tone>-<shade>'
-  const m = bg.match(/^bg-([a-z]+)-\d+/)
-  if (m) return `text-${m[1]}-400`
-  return groupLabelColor(spec.group ?? 'misc')
+  if (!spec) return resolvePalette('zinc').text
+  return resolvePalette(groupVisual(spec.group ?? 'system').color).text
 }
 
 /** Resolve color from a kind string (convenience for templates). */
@@ -65,14 +42,14 @@ export function kindIconColor(kind: string): string {
   return nodeIconColor(getSpec(kind))
 }
 
-// group label key 映射到 i18n key (nodeGroup.* + 一个 system_subgraph)
+// group label key 映射到 i18n key (nodeGroup.*)
 const GROUP_I18N_KEY: Record<string, string> = {
   control: 'nodeGroup.control',
   variables: 'nodeGroup.variables',
   purefunc: 'nodeGroup.purefunc',
   detect: 'nodeGroup.detect',
   input: 'nodeGroup.input',
-  system: 'nodeGroup.system_subgraph',
+  system: 'nodeGroup.system',
   io: 'nodeGroup.io',
   stopwatch: 'nodeGroup.stopwatch',
   mock: 'nodeGroup.mock',

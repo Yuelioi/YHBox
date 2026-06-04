@@ -168,6 +168,7 @@ import {
   type Snippet,
 } from '@/stores/snippets'
 import { useConfirm } from '@/composables/useConfirm'
+import { PALETTE, PALETTE_KEYS } from '@/components/containers/visualRegistry'
 
 const { t } = useI18n()
 
@@ -243,17 +244,8 @@ function toggleTag(t: string) {
 const existingCategories = computed(() => store.allCategories)
 const allTags = computed(() => store.allTags)
 
-const colorPalette = [
-  { labelKey: 'editor.snippet.drawer.color.red', value: '#ef4444' },
-  { labelKey: 'editor.snippet.drawer.color.orange', value: '#f97316' },
-  { labelKey: 'editor.snippet.drawer.color.yellow', value: '#eab308' },
-  { labelKey: 'editor.snippet.drawer.color.green', value: '#22c55e' },
-  { labelKey: 'editor.snippet.drawer.color.cyan', value: '#06b6d4' },
-  { labelKey: 'editor.snippet.drawer.color.blue', value: '#3b82f6' },
-  { labelKey: 'editor.snippet.drawer.color.purple', value: '#a855f7' },
-  { labelKey: 'editor.snippet.drawer.color.pink', value: '#ec4899' },
-  { labelKey: 'editor.snippet.drawer.color.gray', value: '#71717a' },
-]
+// 色板从视觉注册中心取 (单一真源); snippet 仍存 hex, value=hex.
+const colorPalette = PALETTE_KEYS.map((k) => ({ labelKey: PALETTE[k].labelKey, value: PALETTE[k].hex }))
 
 const iconPalette = [
   'i-tabler-bookmark', 'i-tabler-target', 'i-tabler-eye', 'i-tabler-mouse',

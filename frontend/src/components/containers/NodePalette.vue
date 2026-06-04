@@ -264,8 +264,7 @@ const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
     test: { label: labels.test, items: [] },
   }
   for (const s of allSpecs() as NodeKindSpec[]) {
-    if (s.isVisualOnly) continue // CommentBox — not draggable from palette
-    if (s.excludeFromPalette) continue // SubgraphInput/Output/CollapsedNode — created via dedicated UI
+    if (s.excludeFromPalette) continue // 不入面板的节点 (markers/visual-only — CommentBox 例外, adapter 已放行)
     const g = groups[s.group]
     if (!g) continue
     g.items.push({ kind: s.kind, icon: s.visual.icon, label: s.labelZh ? t(s.labelZh) : s.kind })

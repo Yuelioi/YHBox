@@ -21,6 +21,7 @@ import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import { __resetForTests, register } from './registry'
 import type { FieldSchema, NodeFieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
 import type { Spec, InputSpec, OutputSpec } from '@bindings/yotta/internal/node'
+import { groupVisual, resolvePalette } from '../visualRegistry'
 
 // Backend Category → FE NodeGroup. backend 用 TitleCase, FE 历史 lowercase + 'variables'.
 const GROUP_MAP: Record<string, NodeGroup> = {
@@ -36,19 +37,12 @@ const GROUP_MAP: Record<string, NodeGroup> = {
   Test: 'test',
 }
 
-// 按 group fallback visual (icon + tailwind color). per-kind 装饰多样化目前不做,
-// 真要 fine-grain 需 backend Spec 加 Visual{Icon,Color} 字段, 60 节点都填一遍.
-const VISUAL_BY_GROUP: Record<NodeGroup, { icon: string; bg: string; border: string }> = {
-  control: { icon: 'i-tabler-arrow-bounce', bg: 'bg-blue-500/15', border: 'border-blue-500/40' },
-  variables: { icon: 'i-tabler-variable', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40' },
-  purefunc: { icon: 'i-tabler-math-function', bg: 'bg-lime-500/15', border: 'border-lime-500/40' },
-  detect: { icon: 'i-tabler-eye', bg: 'bg-violet-500/15', border: 'border-violet-500/40' },
-  input: { icon: 'i-tabler-device-gamepad', bg: 'bg-orange-500/15', border: 'border-orange-500/40' },
-  system: { icon: 'i-tabler-settings', bg: 'bg-zinc-500/15', border: 'border-zinc-500/40' },
-  io: { icon: 'i-tabler-message-circle', bg: 'bg-sky-500/15', border: 'border-sky-500/40' },
-  stopwatch: { icon: 'i-tabler-clock', bg: 'bg-amber-500/15', border: 'border-amber-500/40' },
-  mock: { icon: 'i-tabler-test-pipe', bg: 'bg-pink-500/15', border: 'border-pink-500/40' },
-  test: { icon: 'i-tabler-flask', bg: 'bg-pink-500/15', border: 'border-pink-500/40' },
+// 按 group 取 visual (icon + tailwind color) — 从视觉注册中心 (visualRegistry) 派生,
+// 不再本地 hardcode (消除与 useNodeGroupColor GROUP_TONE 的漂移).
+function visualForGroup(group: NodeGroup): { icon: string; bg: string; border: string } {
+  const gv = groupVisual(group)
+  const p = resolvePalette(gv.color)
+  return { icon: gv.icon, bg: p.bg, border: p.border }
 }
 
 // backend Input.Widget.Kind → FE FieldSchema.type. 1:1 直传 (11 种 widget kind).
@@ -61,6 +55,10 @@ function widgetKindToFieldType(k: string): FieldSchema['type'] {
       return 'template-picker'
     case 'key-capture':
       return 'key-capture'
+    case 'color-preset':
+      return 'color-preset'
+    case 'icon-preset':
+      return 'icon-preset'
     case 'dropdown':
     case 'async-dropdown':
       return 'select'
@@ -240,7 +238,7 @@ const DYNAMIC_DATA_IN: Record<
 // 主转换: backend Spec → NodeKindSpec.
 function adaptSpec(s: Spec): NodeKindSpec {
   const group = GROUP_MAP[s.category] ?? 'system'
-  const visual = VISUAL_BY_GROUP[group] ?? VISUAL_BY_GROUP.system
+  const visual = visualForGroup(group)
   const { execIn, dataIn } = splitInputs(s.inputs ?? [])
   const { execOut, dataOut } = splitOutputs(s.outputs ?? [])
 
@@ -261,8 +259,9 @@ function adaptSpec(s: Spec): NodeKindSpec {
     isPureData: s.isPureData,
     isVisualOnly: s.isVisualOnly,
   }
-  // 标记节点 (SubgraphInput/Output, CollapsedNode 等) 不在 palette 里显示
-  if (s.isGraphMarker || s.isVisualOnly) {
+  // 标记节点 (SubgraphInput/Output, CollapsedNode 等) 不在 palette 里显示;
+  // CommentBox 虽 visual-only 但要能从面板拖出来 (sticky note), 例外.
+  if ((s.isGraphMarker || s.isVisualOnly) && s.kind !== 'CommentBox') {
     out.excludeFromPalette = true
   }
   if (DYNAMIC_EXEC_OUT[s.kind]) out.execOutFn = DYNAMIC_EXEC_OUT[s.kind]
