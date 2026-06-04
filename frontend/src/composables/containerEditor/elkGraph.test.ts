@@ -24,10 +24,9 @@ describe('estimateNodeSize', () => {
   it('CommentBox 用 cfg 宽度', () => {
     expect(estimateNodeSize('CommentBox', { width: 600 }).width).toBe(600)
   })
-  it('Switch 高度随 cases 数增长', () => {
-    const few = estimateNodeSize('Switch', { cases: ['a'] }).height
-    const many = estimateNodeSize('Switch', { cases: ['a', 'b', 'c', 'd'] }).height
-    expect(many).toBeGreaterThan(few)
+  it('高度随 pin 数增长', () => {
+    // pinCount 由 buildElkGraph 从 registry 派生传入；估高随它增长
+    expect(estimateNodeSize('Switch', {}, 6).height).toBeGreaterThan(estimateNodeSize('Switch', {}, 2).height)
   })
 })
 
@@ -64,7 +63,8 @@ describe('buildElkGraph', () => {
     const noDims = (): BuildOpts => ({ ...opts(), getDims: () => null })
     const g = buildElkGraph([node('n1', 'If'), node('s', 'Switch', { cases: ['a', 'b'] })], [{ from: 'n1.then', to: 's.in' }], noDims())
     const sNode = g.children!.find((c) => c.id === 's')!
-    expect(sNode.height).toBe(estimateNodeSize('Switch', { cases: ['a', 'b'] }).height)
+    // Switch 's' 的 pin: execIn 'in'(1) + execOutFn cases→case.0/case.1(2) = 3
+    expect(sNode.height).toBe(estimateNodeSize('Switch', {}, 3).height)
   })
 })
 

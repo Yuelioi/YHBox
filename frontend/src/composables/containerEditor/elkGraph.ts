@@ -5,26 +5,14 @@ import type { ElkNode } from './elkConfig'
 export interface Size { width: number; height: number }
 
 const ROW_H = 26 // 每个 pin 行约高
-export function estimateNodeSize(kind: string, cfg: Record<string, any> = {}): Size {
-  switch (kind) {
-    case 'CommentBox':
-      return { width: Number(cfg.width) || 320, height: Number(cfg.height) || 160 }
-    case 'Switch': {
-      const n = Array.isArray(cfg.cases) ? cfg.cases.length : 1
-      return { width: 240, height: 90 + n * ROW_H }
-    }
-    case 'Parallel':
-    case 'Race': {
-      const n = Number(cfg.n) || 2
-      return { width: 240, height: 90 + n * ROW_H }
-    }
-    case 'Expr': {
-      const n = Array.isArray(cfg.inputs) ? cfg.inputs.length : 1
-      return { width: 240, height: 80 + n * ROW_H }
-    }
-    default:
-      return { width: 220, height: 90 }
-  }
+// 节点尺寸估算 —— 仅当 vue-flow 实测 dimensions 拿不到时的兜底(刚开容器、节点未 mount)。
+// 高度按 pinCount 估算; pinCount 由 buildElkGraph 从 registry(execOutFn/dataInDynamicFn)
+// 正确派生后传入 —— 不在这里自己解析 cfg.cases/N/Inputs: 各 kind 存法不一
+// (Parallel 读 literal.N、Expr 读顶层 Inputs ...)，自己解析必然 drift。基线 90≈2 行。
+export function estimateNodeSize(kind: string, cfg: Record<string, any> = {}, pinCount = 0): Size {
+  if (kind === 'CommentBox') return { width: Number(cfg.width) || 320, height: Number(cfg.height) || 160 }
+  const extra = Math.max(0, pinCount - 2) * ROW_H
+  return { width: 220, height: 90 + extra }
 }
 
 // ── buildElkGraph ──────────────────────────────────────────────────────────
@@ -69,6 +57,7 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
     connected.add(srcId(e.to))
   }
   const layoutNodes = nodes.filter((n) => connected.has(n.id))
+  const layoutIds = new Set(layoutNodes.map((n) => n.id))
 
   const inSide = opts.direction === 'RIGHT' ? 'WEST' : 'NORTH'
   const outSide = opts.direction === 'RIGHT' ? 'EAST' : 'SOUTH'
@@ -76,19 +65,14 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
   const children: ElkNode[] = layoutNodes.map((n) => {
     const spec = opts.getSpec(n.kind)
     const cfg = n.config ?? {}
-    const size = opts.getDims(n.id, n.kind) ?? estimateNodeSize(n.kind, cfg)
-    const ports = spec
-      ? [
-          ...inputPins(spec, cfg).map((p) => ({
-            id: `${n.id}::${p}`,
-            layoutOptions: { 'elk.port.side': inSide },
-          })),
-          ...outputPins(spec, cfg).map((p) => ({
-            id: `${n.id}::${p}`,
-            layoutOptions: { 'elk.port.side': outSide },
-          })),
-        ]
-      : []
+    // pin 列表用 registry 正确派生(含动态 pin)，算一次复用给 ports + 尺寸估算。
+    const inP = spec ? inputPins(spec, cfg) : []
+    const outP = spec ? outputPins(spec, cfg) : []
+    const size = opts.getDims(n.id, n.kind) ?? estimateNodeSize(n.kind, cfg, inP.length + outP.length)
+    const ports = [
+      ...inP.map((p) => ({ id: `${n.id}::${p}`, layoutOptions: { 'elk.port.side': inSide } })),
+      ...outP.map((p) => ({ id: `${n.id}::${p}`, layoutOptions: { 'elk.port.side': outSide } })),
+    ]
     return {
       id: n.id,
       width: size.width,
@@ -104,7 +88,9 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
     !!(fromKind && opts.getSpec(fromKind)?.dataOut?.[pin])
 
   const elkEdges = edges
-    .filter((e) => connected.has(srcId(e.from)) && connected.has(srcId(e.to)))
+    // 两端都须是参与布局的节点 —— 用 layoutIds 而非 connected: 悬空边(指向已删/不存在节点)
+    // 的 id 也在 connected 里, 漏给 ELK 会因未知 port 报错; layoutIds 才是真在图里的节点。
+    .filter((e) => layoutIds.has(srcId(e.from)) && layoutIds.has(srcId(e.to)))
     .map((e, i) => {
       const dataEdge = isData(kindOf(srcId(e.from)), srcPin(e.from))
       return {

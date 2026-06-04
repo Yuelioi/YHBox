@@ -125,13 +125,13 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
       {
         id: 'edit.auto-layout-lr', label: t('editor.palette.cmd.auto_layout_lr'), group: 'edit',
         icon: 'i-tabler-layout-board-split', shortcut: 'Ctrl+L',
-        keywords: ['layout', 'dagre', '布局'],
+        keywords: ['layout', 'elk', '布局'],
         exec: () => opts.onAutoLayout('LR'),
       },
       {
         id: 'edit.auto-layout-tb', label: t('editor.palette.cmd.auto_layout_tb'), group: 'edit',
         icon: 'i-tabler-layout-rows', shortcut: 'Ctrl+Shift+L',
-        keywords: ['layout', 'dagre', '布局'],
+        keywords: ['layout', 'elk', '布局'],
         exec: () => opts.onAutoLayout('TB'),
       },
 
