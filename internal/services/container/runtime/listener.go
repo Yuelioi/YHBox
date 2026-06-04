@@ -257,7 +257,9 @@ func (l *EventListener) spawn(parentCtx context.Context) {
 		// 嵌套子图不污染主 dispatch 的 frame 栈, 且 Vars(local/auto)/Params 隔离到 sub.state。
 		// rt.Vars（容器级 global 变量, 有锁）跨 flow 共享 OK — global scope 仍走 rt。
 		sub := l.makeSubRunner()
-		seeds := sub.edges.next(l.node.ID+".out", nil)
+		// pin 名必须等同 OnEvent/EventTick Spec 的 OutputSpec.Name ("Out") —— 前端 Handle id
+		// 用 pin 名原样, 边存 "<id>.Out"; 小写 .out 历史 bug 会 seed 不到下游。
+		seeds := sub.edges.next(l.node.ID+".Out", nil)
 		_ = sub.runSubFlow(subCtx, seeds)
 	}()
 }
