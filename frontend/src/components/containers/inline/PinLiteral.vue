@@ -2,14 +2,24 @@
   <!-- Inline pin literal — type-polymorphic input.
        NodeInspector + 画布节点 (ContainerFlowNode) 用它编辑未连接 data-in pin 的 config.literal[pinName]。
        有 dropdown widget (widgetKind + options) 时优先出下拉, 否则按 type 出 number/bool/text。 -->
-  <USelect
+  <!-- USelect (Nuxt UI) 设了 inheritAttrs:false, 会丢掉父级 fallthrough 的原生
+       @mousedown/@click 监听 → 画布上 vue-flow 把按下当节点拖动。套一层普通 div
+       承接 nodrag + stop (含 pointerdown), 保证下拉可正常点开而不触发拖动。 -->
+  <div
     v-if="widgetKind === 'dropdown' && (options?.length ?? 0) > 0"
-    class="w-full"
-    :model-value="modelValue == null ? '' : String(modelValue)"
-    :items="selectItems"
-    size="xs"
-    @update:model-value="(v: any) => emit('update:modelValue', String(v))"
-  />
+    class="w-full nodrag"
+    @pointerdown.stop
+    @mousedown.stop
+    @click.stop
+  >
+    <USelect
+      class="w-full"
+      :model-value="modelValue == null ? '' : String(modelValue)"
+      :items="selectItems"
+      size="xs"
+      @update:model-value="(v: any) => emit('update:modelValue', String(v))"
+    />
+  </div>
   <UInput
     v-else-if="type === 'number'"
     type="number"
