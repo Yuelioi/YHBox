@@ -1,9 +1,12 @@
 // node frontend/src/i18n/check.cjs  或  npm run i18n:check
 //
-// 三件事:
+// 四件事:
 //   1. zh.ts / en.ts 键集合对齐 — 缺则报 missing
-//   2. scan frontend/src/**/*.{vue,ts} 残留中文字面值 (排除 .i18n-ignore + i18n/ 自身)
-//   3. 任一项失败 → exit 1
+//   2. [compile] 每条 message 真过一遍 vue-i18n message compiler — 抓
+//      `||` / 裸 `{` `}` `@` 这类没 escape 的特殊字符 (parity 只对 key 不 compile,
+//      跑起来才炸整个组件; 见 incident vue-i18n-message-compiler-traps)
+//   3. scan frontend/src/**/*.{vue,ts} 残留中文字面值 (排除 .i18n-ignore + i18n/ 自身)
+//   4. 任一项失败 → exit 1
 //
 // 用 jiti 加载 ESM/TS module (zh.ts/en.ts 是 `export default {...}`).
 
@@ -49,6 +52,57 @@ function checkKeyParity() {
     console.error(`[parity] FAIL zh.ts 缺 ${missingInZh.length} 键:`)
     missingInZh.forEach((k) => console.error('  - ' + k))
   }
+  return false
+}
+
+// 每条 message 真过一遍 vue-i18n compiler。vue-i18n full build 编译失败时是
+// console.error 出 "Message compilation error: ..." 再 fallback (不 throw), 所以逐 key
+// t() 时捕获 console 判定。只需 vue-i18n (frontend 直接依赖, pnpm 下可解析)。
+function checkMessageCompile() {
+  let createI18n
+  try {
+    const vi = jiti('vue-i18n')
+    createI18n = vi.createI18n || (vi.default && vi.default.createI18n)
+  } catch (e) {
+    console.error('[compile] FAIL 无法加载 vue-i18n: ' + e.message)
+    return false
+  }
+  if (typeof createI18n !== 'function') {
+    console.error('[compile] FAIL vue-i18n.createI18n 不可用')
+    return false
+  }
+
+  const fails = []
+  for (const [loc, file] of [['zh', 'zh.ts'], ['en', 'en.ts']]) {
+    const msgs = jiti(path.join(ROOT_I18N, file))
+    const flat = flatten(msgs)
+    const i18n = createI18n({
+      legacy: false, locale: loc, fallbackLocale: false,
+      messages: { [loc]: msgs },
+      missingWarn: false, fallbackWarn: false, warnHtmlMessage: false,
+    })
+    const t = i18n.global.t
+    const origErr = console.error
+    const origWarn = console.warn
+    for (const key of Object.keys(flat)) {
+      if (typeof flat[key] !== 'string') continue
+      let err = null
+      const cap = (...a) => { const s = a.map(String).join(' '); if (/compil/i.test(s)) err = s }
+      console.error = cap
+      console.warn = cap
+      try { t(key) } catch (e) { err = e.message } finally {
+        console.error = origErr
+        console.warn = origWarn
+      }
+      if (err) fails.push(`[${loc}] ${key} :: ${String(err).split('\n')[0]}`)
+    }
+  }
+  if (fails.length === 0) {
+    console.log('[compile] OK 全部 message 编译通过')
+    return true
+  }
+  console.error(`[compile] FAIL ${fails.length} 处 (vue-i18n message compiler — 含特殊字符要 {'literal'} escape):`)
+  fails.forEach((f) => console.error('  ' + f))
   return false
 }
 
@@ -116,5 +170,6 @@ function checkResidueLiterals() {
 }
 
 const parityOK = checkKeyParity()
+const compileOK = checkMessageCompile()
 const residueOK = checkResidueLiterals()
-process.exit(parityOK && residueOK ? 0 : 1)
+process.exit(parityOK && compileOK && residueOK ? 0 : 1)
