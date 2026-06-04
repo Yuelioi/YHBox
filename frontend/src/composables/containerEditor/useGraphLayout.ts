@@ -1,13 +1,10 @@
-// useGraphLayout 自动布局 (dagre) + 选中节点对齐.
+// useGraphLayout 自动布局 (ELK) + 选中节点对齐.
 // 操作目标始终是 activeGraph (主图 / 当前子图层级), 与其他 composable 一致.
 import type { Ref, ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
-import type { Graph } from '@/lib/backend'
-import dagre from '@dagrejs/dagre'
-
-const NODE_W = 220
-const NODE_H = 90
+import type { Container, Graph } from '@/lib/backend'
+import { useElkLayout } from './useElkLayout'
 
 export type AlignMode =
   | 'left'
@@ -25,38 +22,12 @@ export function useGraphLayout(opts: {
   syncFlowFromDraft: () => void
   dirty: Ref<boolean>
   toast: { add: (o: Record<string, unknown>) => unknown }
+  applyDraftMutation: (m: (d: Container) => void) => void
 }) {
-  const { activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast } = opts
+  const { activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast, applyDraftMutation } = opts
   const { t } = useI18n()
 
-  function autoLayout(direction: 'LR' | 'TB' = 'LR') {
-    const g = activeGraph.value
-    if (!g || (g.nodes ?? []).length === 0) return
-    const dg = new dagre.graphlib.Graph()
-    dg.setGraph({ rankdir: direction, nodesep: 60, ranksep: 120, marginx: 40, marginy: 40 })
-    dg.setDefaultEdgeLabel(() => ({}))
-    for (const n of g.nodes) dg.setNode(n.id, { width: NODE_W, height: NODE_H })
-    for (const e of g.edges) {
-      const src = e.from.split('.')[0]
-      const tgt = e.to.split('.')[0]
-      dg.setEdge(src, tgt)
-    }
-    dagre.layout(dg)
-    for (const n of g.nodes) {
-      const p = dg.node(n.id)
-      if (p) {
-        n.x = p.x - NODE_W / 2
-        n.y = p.y - NODE_H / 2
-      }
-    }
-    dirty.value = true
-    syncFlowFromDraft()
-    toast.add({
-      title: t('graphLayout.auto_layout_done', { dir: direction === 'LR' ? t('graphLayout.horizontal') : t('graphLayout.vertical') }),
-      color: 'success',
-      icon: 'i-tabler-layout-grid',
-    })
-  }
+  const { autoLayout } = useElkLayout({ activeGraph, applyDraftMutation, toast, t })
 
   function alignSelected(mode: AlignMode) {
     const g = activeGraph.value

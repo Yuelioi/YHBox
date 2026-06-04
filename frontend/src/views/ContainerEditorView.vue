@@ -990,12 +990,12 @@ const { onCopySelection, onPasteSelection } = useNodeClipboard({
   genID: genNodeID, toast,
 })
 
-// 自动布局 (dagre) + 对齐
+// 自动布局 (ELK) + 对齐
 const { autoLayout, alignSelected } = useGraphLayout({
-  activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast,
+  activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast, applyDraftMutation,
 })
-function onAutoLayout(direction: 'LR' | 'TB') {
-  autoLayout(direction)
+async function onAutoLayout(direction: 'LR' | 'TB') {
+  await autoLayout(direction)
 }
 function onAlignSelected(mode: AlignMode) {
   alignSelected(mode)
