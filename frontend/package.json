@@ -21,7 +21,6 @@
     "format:check": "oxfmt src/ --check"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.0.0",
     "@iconify-json/tabler": "^1.2.35",
     "@intlify/unplugin-vue-i18n": "^11.2.0",
     "@nuxt/ui": "^4.7.1",
