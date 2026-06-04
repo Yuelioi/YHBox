@@ -95,8 +95,8 @@ const items = computed(() => {
       { key: 'align-right', label: t('editor.menu.multi.align_right'), icon: 'i-tabler-align-box-right-middle' },
       { key: 'align-top', label: t('editor.menu.multi.align_top'), icon: 'i-tabler-align-box-top-center' },
       { key: 'align-bottom', label: t('editor.menu.multi.align_bottom'), icon: 'i-tabler-align-box-bottom-center' },
-      { key: 'align-center-h', label: t('editor.menu.multi.center_h'), icon: 'i-tabler-align-center' },
-      { key: 'align-center-v', label: t('editor.menu.multi.center_v'), icon: 'i-tabler-align-center-vertical' },
+      { key: 'align-center-h', label: t('editor.menu.multi.center_h'), icon: 'i-tabler-layout-align-middle' },
+      { key: 'align-center-v', label: t('editor.menu.multi.center_v'), icon: 'i-tabler-layout-align-center' },
     )
   }
 

@@ -231,12 +231,12 @@ const layoutMenuItems = computed(() => [
   [
     {
       label: t('editor.layout.auto_lr'),
-      icon: 'i-tabler-layout-board-split',
+      icon: 'i-tabler-layout-rows',
       onSelect: () => emit('auto-layout', 'LR'),
     },
     {
       label: t('editor.layout.auto_tb'),
-      icon: 'i-tabler-layout-rows',
+      icon: 'i-tabler-layout-columns',
       onSelect: () => emit('auto-layout', 'TB'),
     },
   ],
