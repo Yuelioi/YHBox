@@ -865,8 +865,8 @@ export default {
       label: '定时触发',
       description: '每隔一段时间在后台触发一次，不挡主流程。常用于定时检测并改变量。',
       input: {
-        IntervalMs: { label: '间隔(毫秒)' },
-        MaxConcurrent: { label: '最大并发' },
+        IntervalMs: { label: '间隔 (ms)' },
+        MaxConcurrent: { label: '并发上限' },
         RetriggerPolicy: { label: '重触发策略', option: { drop: '跳过', queue: '排队', restart: '打断重来' } },
       },
       output: { Out: { label: '触发' } },
