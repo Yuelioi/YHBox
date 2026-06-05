@@ -31,6 +31,21 @@ func TestApplyMergePatch_DeepMergeUILogger(t *testing.T) {
 	}
 }
 
+func TestApplyMergePatch_AcceptsShowNodeEnter(t *testing.T) {
+	s := defaultSettings()
+	patch := json.RawMessage(`{"ui":{"logger":{"showNodeEnter":true}}}`)
+	if err := ApplyMergePatch(s, patch); err != nil {
+		t.Fatalf("showNodeEnter patch must be accepted, got: %v", err)
+	}
+	if !s.UI.Logger.ShowNodeEnter {
+		t.Fatalf("ShowNodeEnter should be true after patch")
+	}
+	// deep-merge unrelated logger fields preserved
+	if !s.UI.Logger.ShowTime {
+		t.Fatalf("ShowTime should remain true (deep merge)")
+	}
+}
+
 func TestApplyMergePatch_RejectsUnknownField(t *testing.T) {
 	s := defaultSettings()
 	patch := json.RawMessage(`{"nonExistentField": 42}`)

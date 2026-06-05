@@ -106,13 +106,14 @@ type WindowSettings struct {
 }
 
 type LoggerSettings struct {
-	PanelOpen  bool   `json:"panelOpen"`  // 面板折叠态 (false=折叠)
-	AutoScroll bool   `json:"autoScroll"`
-	ShowTime   bool   `json:"showTime"`
-	ShowTag    bool   `json:"showTag"`
-	WrapText   bool   `json:"wrapText"`
-	WriteFile  bool   `json:"writeFile"`
-	FileDir    string `json:"fileDir"` // 写文件目录, 空 = 默认 "logs"
+	PanelOpen     bool   `json:"panelOpen"`  // 面板折叠态 (false=折叠)
+	AutoScroll    bool   `json:"autoScroll"`
+	ShowTime      bool   `json:"showTime"`
+	ShowTag       bool   `json:"showTag"`
+	WrapText      bool   `json:"wrapText"`
+	WriteFile     bool   `json:"writeFile"`
+	ShowNodeEnter bool   `json:"showNodeEnter"` // 面板显示节点切换 trace (默认 false 隐藏)
+	FileDir       string `json:"fileDir"`       // 写文件目录, 空 = 默认 "logs"
 }
 
 // defaultSettings 返回内置默认值。
