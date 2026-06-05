@@ -26,9 +26,6 @@ func TestWaitTemplate_Found(t *testing.T) {
 	if r.ExitName != wtOutFound {
 		t.Errorf("exit = %q, want Found", r.ExitName)
 	}
-	if r.DisplayText == "" {
-		t.Error("Display should emit on Found")
-	}
 }
 
 func TestWaitTemplate_Timeout(t *testing.T) {

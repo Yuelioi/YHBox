@@ -54,7 +54,3 @@ func (Log) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	return ctx.Out(logOutDone).Fire(), nil
 }
-
-func (Log) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("[%s] %s", in.String(logInLevel), fmt.Sprint(in.Raw(logInMessage)))
-}

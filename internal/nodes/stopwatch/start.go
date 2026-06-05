@@ -49,9 +49,5 @@ func (Start) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(swStartOutOut).Fire(), nil
 }
 
-func (Start) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return "sw▶ " + in.String(swStartInKey)
-}
-
 // errStopwatchEmptyKey — Required 已防 nil, 这是 defensive.
 var errStopwatchEmptyKey = errors.New("stopwatch: empty key")

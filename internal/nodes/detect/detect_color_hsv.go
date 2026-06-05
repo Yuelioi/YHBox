@@ -168,7 +168,3 @@ func parseHSVRange(m map[string]any) (node.HSVRange, error) {
 	}
 	return h, nil
 }
-
-func (DetectColorHSV) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("[%s] count=%d ratio=%.3f", exitName, out.Int(dchDataCount), out.Float64(dchDataRatio))
-}

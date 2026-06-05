@@ -4,8 +4,6 @@
 package stopwatch
 
 import (
-	"fmt"
-
 	"yotta/internal/node"
 )
 
@@ -45,8 +43,4 @@ func (Read) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	elapsed := ctx.Stopwatches().Read(key)
 	return ctx.Out(swReadOutOut).Set(swReadDataElapsedMs, elapsed).Fire(), nil
-}
-
-func (Read) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("sw %s = %dms", in.String(swReadInKey), out.Int(swReadDataElapsedMs))
 }

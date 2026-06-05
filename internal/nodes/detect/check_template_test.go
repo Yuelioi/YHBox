@@ -129,9 +129,6 @@ func TestCheckTemplate_Hit(t *testing.T) {
 	if r.ExitName != ctOutFound {
 		t.Errorf("exit = %q, want Found", r.ExitName)
 	}
-	if r.DisplayText == "" {
-		t.Error("Display should emit on Found")
-	}
 }
 
 func TestCheckTemplate_Miss(t *testing.T) {

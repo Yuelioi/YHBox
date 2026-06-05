@@ -49,10 +49,6 @@ func (KeyHoldStart) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(khStartOutOut).Fire(), nil
 }
 
-func (KeyHoldStart) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("hold ▼ %s", in.String(khStartInVK))
-}
-
 func (KeyHoldStart) Validate(in node.Inputs) []node.ValidationError {
 	return validateVKField(in.String(khStartInVK), khStartInVK)
 }
@@ -88,10 +84,6 @@ func (KeyHoldStop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("KeyHoldStop vk=%q: %w", vk, err)
 	}
 	return ctx.Out(khStopOutOut).Fire(), nil
-}
-
-func (KeyHoldStop) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("hold ▲ %s", in.String(khStopInVK))
 }
 
 func (KeyHoldStop) Validate(in node.Inputs) []node.ValidationError {

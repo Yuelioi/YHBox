@@ -3,8 +3,6 @@
 package control
 
 import (
-	"fmt"
-
 	"yotta/internal/node"
 )
 
@@ -40,8 +38,4 @@ func (If) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return ctx.Out(ifOutTrue).Fire(), nil
 	}
 	return ctx.Out(ifOutFalse).Fire(), nil
-}
-
-func (If) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("if %v → %s", in.Bool(ifInCond), exitName)
 }

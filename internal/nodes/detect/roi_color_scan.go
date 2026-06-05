@@ -138,10 +138,6 @@ func (ROIColorScan) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 }
 
-func (ROIColorScan) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("[%s] clusters=%d axis=%s", exitName, out.Int(rcsDataClusterCount), in.String(rcsInAxis))
-}
-
 func (ROIColorScan) Validate(in node.Inputs) []node.ValidationError {
 	var errs []node.ValidationError
 	axis := in.String(rcsInAxis)

@@ -76,7 +76,4 @@ func TestLog_WildcardMessage(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.DisplayText == "" {
-		t.Error("Display should emit")
-	}
 }

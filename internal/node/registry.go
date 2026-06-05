@@ -21,7 +21,6 @@ type RegisteredNode struct {
 	Evaluate  func(Ctx, Inputs) (any, error)
 
 	// Optional extensions (unchanged)
-	Display      func(in Inputs, exitName string, out OutputData) string
 	Validate     func(in Inputs) []ValidationError
 	Dependencies func(in Inputs) []Dependency
 
@@ -53,9 +52,6 @@ func Register(impl Node) {
 		Defaults: defaultsFromSpec(&spec),
 	}
 	// 扩展 interface 探测
-	if d, ok := impl.(Displayer); ok {
-		rn.Display = d.Display
-	}
 	if v, ok := impl.(Validator); ok {
 		rn.Validate = v.Validate
 	}

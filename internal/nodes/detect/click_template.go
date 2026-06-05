@@ -94,19 +94,6 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Fire(), nil
 }
 
-func (ClickTemplate) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	label := strings.Join(in.StringList(clkInTemplates), "+")
-	switch exitName {
-	case clkOutDone:
-		pt := out.Point(clkDataPoint)
-		return fmt.Sprintf("✓ click %s %s @ (%.2f,%.2f)",
-			in.String(clkInButton), label, pt.X, pt.Y)
-	case clkOutTimeout:
-		return fmt.Sprintf("⌛ %s timeout (%dms)", label, in.Int(clkInTimeoutMs))
-	}
-	return ""
-}
-
 func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
 	errs := validateTemplateKeys(in.StringList(clkInTemplates), clkInTemplates)
 	btn := in.String(clkInButton)

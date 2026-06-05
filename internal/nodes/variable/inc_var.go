@@ -59,7 +59,3 @@ func (IncVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	ctx.Vars().IncScoped(name, scope, delta)
 	return ctx.Out(ivOutOut).Fire(), nil
 }
-
-func (IncVar) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("%s += %v", in.String(ivInVarName), in.Float64(ivInDelta))
-}

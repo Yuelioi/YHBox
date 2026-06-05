@@ -52,7 +52,3 @@ func (Sleep) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return ctx.Out(sleepOutDone).Fire(), nil
 	}
 }
-
-func (Sleep) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("sleep %v", in.Duration(sleepInDuration))
-}

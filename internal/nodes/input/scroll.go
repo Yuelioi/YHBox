@@ -13,9 +13,9 @@ func init() { node.Register(&Scroll{}) }
 type Scroll struct{}
 
 const (
-	scInExec   = "In"
-	scInXRatio = "XRatio"
-	scInYRatio = "YRatio"
+	scInExec      = "In"
+	scInXRatio    = "XRatio"
+	scInYRatio    = "YRatio"
 	scInDelta     = "Delta"
 	scInJitterPct = "JitterPct"
 	scOutDone     = "Done"
@@ -54,9 +54,4 @@ func (Scroll) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("Scroll (%.3f,%.3f) Δ=%d: %w", x, y, delta, err)
 	}
 	return ctx.Out(scOutDone).Fire(), nil
-}
-
-func (Scroll) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("scroll Δ=%d @ (%.2f,%.2f)",
-		in.Int(scInDelta), in.Float64(scInXRatio), in.Float64(scInYRatio))
 }

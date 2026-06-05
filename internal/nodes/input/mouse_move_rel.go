@@ -56,8 +56,3 @@ func (MouseMoveRel) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	return ctx.Out(mmrOutDone).Fire(), nil
 }
-
-func (MouseMoveRel) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("move Δ(%d,%d) %dms",
-		in.Int(mmrInDx), in.Int(mmrInDy), in.Int(mmrInDurationMs))
-}

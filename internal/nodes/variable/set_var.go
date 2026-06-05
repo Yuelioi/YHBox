@@ -58,7 +58,3 @@ func (SetVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	ctx.Vars().SetScoped(name, scope, val)
 	return ctx.Out(svOutOut).Fire(), nil
 }
-
-func (SetVar) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("%s := %v", in.String(svInVarName), in.Raw(svInValue))
-}

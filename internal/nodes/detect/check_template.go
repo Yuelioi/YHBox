@@ -75,24 +75,6 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(ctOutNotFound).Set(ctDataConf, conf).Fire(), nil
 }
 
-// === Display: 可选 (没实现 → 节点不出现在日志面板) ===
-func (CheckTemplate) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	label := strings.Join(in.StringList(ctInTemplates), "+")
-	switch exitName {
-	case ctOutFound:
-		pt := out.Point(ctDataPoint)
-		return fmt.Sprintf("✓ %s conf=%.2f @ (%.2f,%.2f)",
-			label, out.Float64(ctDataConf), pt.X, pt.Y)
-	case ctOutNotFound:
-		conf := out.Float64(ctDataConf)
-		if conf > 0.5 {
-			return fmt.Sprintf("· %s near-miss %.2f", label, conf)
-		}
-		return ""
-	}
-	return ""
-}
-
 // === Validate: 可选 ===
 func (CheckTemplate) Validate(in node.Inputs) []node.ValidationError {
 	return validateTemplateKeys(in.StringList(ctInTemplates), ctInTemplates)

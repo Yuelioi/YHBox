@@ -121,18 +121,6 @@ func parseRange6(raw any) ([6]int, error) {
 	return out, nil
 }
 
-func (DetectColor) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	switch exitName {
-	case dcOutYes:
-		c := out.Point(dcDataCenter)
-		return fmt.Sprintf("✓ %s count=%d @ (%.2f,%.2f)",
-			in.String(dcInMode), out.Int(dcDataCount), c.X, c.Y)
-	case dcOutNo:
-		return fmt.Sprintf("· %s count=%d", in.String(dcInMode), out.Int(dcDataCount))
-	}
-	return ""
-}
-
 func (DetectColor) Validate(in node.Inputs) []node.ValidationError {
 	mode := in.String(dcInMode)
 	if mode != "" && mode != "hsv" && mode != "rgb" {

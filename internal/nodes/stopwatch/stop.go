@@ -39,7 +39,3 @@ func (Stop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	ctx.Stopwatches().Stop(key) // no-op on missing
 	return ctx.Out(swStopOutOut).Fire(), nil
 }
-
-func (Stop) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return "sw■ " + in.String(swStopInKey)
-}

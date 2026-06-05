@@ -83,10 +83,6 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(ssOutDone).Set(ssDataPath, abs).Fire(), nil
 }
 
-func (Screenshot) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("↧ %s", out.String(ssDataPath))
-}
-
 func (Screenshot) Validate(in node.Inputs) []node.ValidationError {
 	tmpl := in.String(ssInPathTemplate)
 	if tmpl == "" {

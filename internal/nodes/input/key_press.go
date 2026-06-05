@@ -68,10 +68,6 @@ func (KeyPress) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(kpOutDone).Fire(), nil
 }
 
-func (KeyPress) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("key %s (%dms)", in.String(kpInVK), in.Int(kpInDurationMs))
-}
-
 // Validate vk 必须非空, 且为已知 keyname.
 func (KeyPress) Validate(in node.Inputs) []node.ValidationError {
 	vk := in.String(kpInVK)

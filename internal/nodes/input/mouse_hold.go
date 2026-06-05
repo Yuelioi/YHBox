@@ -68,11 +68,6 @@ func (MouseHoldStart) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(mhStartOutOut).Fire(), nil
 }
 
-func (MouseHoldStart) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("mouse ▼ %s @ (%.2f,%.2f)",
-		in.String(mhStartInButton), in.Float64(mhStartInXRatio), in.Float64(mhStartInYRatio))
-}
-
 func (MouseHoldStart) Validate(in node.Inputs) []node.ValidationError {
 	return validateMouseButtonField(in.String(mhStartInButton), mhStartInButton)
 }
@@ -120,10 +115,6 @@ func (MouseHoldStop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("MouseHoldStop %s: %w", btn, err)
 	}
 	return ctx.Out(mhStopOutOut).Fire(), nil
-}
-
-func (MouseHoldStop) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("mouse ▲ %s", in.String(mhStopInButton))
 }
 
 func (MouseHoldStop) Validate(in node.Inputs) []node.ValidationError {

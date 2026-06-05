@@ -5,6 +5,7 @@
 // 抓一张新帧 (无缓存, 同 DetectColorHSV) 降采样成 gridSize² RGB 签名, 跨 poll 比对:
 //   - WaitStable: diff(prev,cur) 连续 N 帧 ≤ 阈 → 画面稳了 (防动画中误识别).
 //   - WaitChange: diff(baseline,cur) ≥ 阈 → 画面变了 (弹窗/加载/卡死反面).
+//
 // 度量 (Metric) 可选 changed_ratio | mean_diff, 都归一 [0,1], 共用同一 Threshold 语义.
 package detect
 
@@ -248,12 +249,4 @@ func (WaitChange) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return ctx.Out(wcOutTimeout).Set(wfDataValue, lastValue).Fire(), nil
 		}
 	}
-}
-
-func (WaitStable) Display(_ node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("[%s] diff=%.3f", exitName, out.Float64(wfDataValue))
-}
-
-func (WaitChange) Display(_ node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("[%s] diff=%.3f", exitName, out.Float64(wfDataValue))
 }

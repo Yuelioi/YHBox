@@ -191,21 +191,6 @@ func parseDualBarOptions(m map[string]any) node.DualBarOptions {
 	}
 }
 
-func (DualColorBarTrack) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	switch exitName {
-	case dcbtOutFound:
-		return fmt.Sprintf("✓ inner=%d outer=%d±%d conf=%.2f",
-			out.Int(dcbtDataInnerX), out.Int(dcbtDataOuterX), out.Int(dcbtDataOuterW)/2,
-			out.Float64(dcbtDataConf))
-	case dcbtOutMissing:
-		c := out.Float64(dcbtDataConf)
-		if c > 0 {
-			return fmt.Sprintf("· bar miss conf=%.2f", c)
-		}
-	}
-	return ""
-}
-
 func (DualColorBarTrack) Validate(in node.Inputs) []node.ValidationError {
 	// Geometry 输入由 framework 的 Required 校验兜 (Required: true in Spec).
 	// 无需再手动校验; 具体 Geometry 值合法性由 ResolveGeometry 在 adapter 侧处理.

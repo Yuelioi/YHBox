@@ -10,8 +10,6 @@
 package control
 
 import (
-	"fmt"
-
 	"yotta/internal/node"
 )
 
@@ -70,8 +68,4 @@ func switchCases(in node.Inputs) []string {
 		out = append(out, s)
 	}
 	return out
-}
-
-func (Switch) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("switch %q → %s", in.String(swInValue), exitName)
 }

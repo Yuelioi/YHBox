@@ -21,11 +21,6 @@ type Runnable interface {
 
 // 以下是扩展接口, 节点选择性实现. Framework type assertion 探测.
 
-// Displayer — 节点想自定义日志面板显示就实现. 不实现 → 节点不出现在 node-log.
-type Displayer interface {
-	Display(in Inputs, exitName string, out OutputData) string
-}
-
 // Validator — 节点自身静态校验.
 type Validator interface {
 	Validate(in Inputs) []ValidationError
@@ -81,17 +76,6 @@ type Inputs interface {
 // Outputs — Run 返回值. 节点不该直接构造, 通过 ctx.Out(...).Fire() 拿.
 type Outputs interface {
 	exit() (name string, data map[string]any)
-}
-
-// OutputData — Display 接收的出口数据 (immutable snapshot).
-type OutputData interface {
-	String(field string) string
-	Float64(field string) float64
-	Int(field string) int
-	Bool(field string) bool
-	Point(field string) Point
-	Raw(field string) any
-	Has(field string) bool
 }
 
 // Ctx — Run 期间框架注入. 服务接口都返 nil-safe; 节点拿到 nil 调方法会 panic (清晰报错).

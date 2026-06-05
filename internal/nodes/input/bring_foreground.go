@@ -38,7 +38,3 @@ func (BringWindowForeground) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, er
 	}
 	return ctx.Out(bgfOutDone).Fire(), nil
 }
-
-func (BringWindowForeground) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return "bring foreground"
-}

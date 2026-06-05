@@ -32,7 +32,6 @@ const (
 	tkValidation   = "test_dispatch_validation"
 	tkError        = "test_dispatch_error"
 	tkPanic        = "test_dispatch_panic"
-	tkDisplay      = "test_dispatch_display"
 	tkNoExit       = "test_dispatch_noexit"
 	tkHappyCounted = "test_dispatch_happy_counted"
 )
@@ -116,24 +115,6 @@ func (tdPanic) Run(node.Ctx, node.Inputs) (node.Outputs, error) {
 	panic("deliberate test panic")
 }
 
-type tdDisplay struct{}
-
-func (tdDisplay) Spec() node.Spec {
-	return node.Spec{
-		Kind:    tkDisplay,
-		Inputs:  []node.InputSpec{{Name: "in", Type: "Exec"}},
-		Outputs: []node.OutputSpec{{Name: "Out", Type: "Exec"}},
-	}
-}
-func (tdDisplay) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return ctx.Out("Out").Fire(), nil
-}
-
-// implements Displayer
-func (tdDisplay) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return "display-text-for-" + exitName
-}
-
 // tdNoExit Run 返 nil Outputs (出口为空) — 验证 routeResult 处理 empty ExitName.
 type tdNoExit struct{}
 
@@ -207,7 +188,6 @@ func init() {
 	node.Register(&tdValidation{})
 	node.Register(&tdError{})
 	node.Register(&tdPanic{})
-	node.Register(&tdDisplay{})
 	node.Register(&tdNoExit{})
 	node.Register(&tdHappyCounted{})
 	node.Register(&tdSource{})

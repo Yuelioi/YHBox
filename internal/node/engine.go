@@ -16,7 +16,6 @@ type RunResult struct {
 	Validation  []ValidationError
 	Panic       any    // recovered panic value, nil if no panic
 	PanicStack  string // stack trace if panic
-	DisplayText string // Display() 返回值, "" = 不 emit
 
 	ResolvedInputs map[string]any // 仅 logEnabled 时填: 声明 pin 的本次输入快照, 供 dump 日志
 }
@@ -43,7 +42,7 @@ func prepareExec(ctx context.Context, rn *RegisteredNode, dataWire, config, exec
 	return &preparedExec{in: in, ctx: c}, nil
 }
 
-// runWithRecover 跑 fn(), 包装 panic recover + Display 联动. fn 是 closure 包
+// runWithRecover 跑 fn(), 包装 panic recover. fn 是 closure 包
 // rn.Run(c, in) / rn.RunRegion(c, in, body). 用 named return 让 deferred recover
 // 写 result 后正常返回 (而非 panic 继续传播).
 func runWithRecover(rn *RegisteredNode, p *preparedExec, logEnabled bool, fn func() (Outputs, error)) (result RunResult) {
@@ -54,12 +53,11 @@ func runWithRecover(rn *RegisteredNode, p *preparedExec, logEnabled bool, fn fun
 		if r := recover(); r != nil {
 			result.Panic = r
 			result.PanicStack = string(debug.Stack())
-			// result.ExitName/OutputData 在 fn() 返回后已赋值, Display callback 可能 panic.
+			// result.ExitName/OutputData 在 fn() 返回后已赋值, 但 panic 路径不该让它们存活.
 			// 清空以防 dispatch 把 half-baked result 当合法路由.
 			// ResolvedInputs 不清 — panic dump 仍需要本次输入快照.
 			result.ExitName = ""
 			result.OutputData = nil
-			result.DisplayText = ""
 		}
 	}()
 	outs, err := fn()
@@ -73,10 +71,6 @@ func runWithRecover(rn *RegisteredNode, p *preparedExec, logEnabled bool, fn fun
 	name, data := outs.exit()
 	result.ExitName = name
 	result.OutputData = data
-	if rn.Display != nil {
-		od := &outputDataImpl{data: data}
-		result.DisplayText = rn.Display(p.in, name, od)
-	}
 	return result
 }
 
@@ -103,7 +97,7 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 }
 
 // RunNodeAsRegion framework 入口供 region runner 调用 RegionRunner-implementing 节点.
-// 跟 RunNode 同套 Required/Validate/recover/Display 管线, 区别在调 rn.RunRegion(c, in, body)
+// 跟 RunNode 同套 Required/Validate/recover 管线, 区别在调 rn.RunRegion(c, in, body)
 // 而非 rn.Run(c, in).
 //
 // body 是 "执行 region 内部下游" 的回调, 由调用方 (region runner) 提供 — 节点决定
@@ -168,47 +162,6 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 		v, runErr = rn.Evaluate(p.ctx, p.in)
 	}()
 	return v, runErr
-}
-
-// outputDataImpl 给 Display 用. snapshot, immutable view of OutputData map.
-type outputDataImpl struct{ data map[string]any }
-
-func (o *outputDataImpl) Has(field string) bool { _, ok := o.data[field]; return ok }
-func (o *outputDataImpl) Raw(field string) any  { return o.data[field] }
-
-func (o *outputDataImpl) String(field string) string {
-	v, _ := o.data[field].(string)
-	return v
-}
-
-func (o *outputDataImpl) Bool(field string) bool {
-	v, _ := o.data[field].(bool)
-	return v
-}
-
-func (o *outputDataImpl) Int(field string) int {
-	switch v := o.data[field].(type) {
-	case int:
-		return v
-	case float64:
-		return int(v)
-	}
-	return 0
-}
-
-func (o *outputDataImpl) Float64(field string) float64 {
-	switch v := o.data[field].(type) {
-	case float64:
-		return v
-	case int:
-		return float64(v)
-	}
-	return 0
-}
-
-func (o *outputDataImpl) Point(field string) Point {
-	v, _ := o.data[field].(Point)
-	return v
 }
 
 func defaultsFromSpec(spec *Spec) map[string]any {

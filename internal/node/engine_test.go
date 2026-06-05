@@ -282,12 +282,9 @@ func TestEvaluatePureData_NonEvaluator_Errors(t *testing.T) {
 	}
 }
 
-// panic hygiene 验证. 两条路径分开测:
-//   1. Run 内 panic — Set 之后, Fire 之前 panic. fn() 没返回 → result.ExitName/OutputData
-//      根本没被赋值 → recover 时已是 zero, clear 块不会改变啥. 这是 "panic 路径整体被 recover
-//      干净" 的 smoke.
-//   2. Display callback panic — fn() 已 return, result.ExitName + OutputData 已 assign, 然后
-//      Display 里炸. 这条 path 才是 engine.go clear 块的真实工作场景.
+// panic hygiene 验证: Run 内 panic — Set 之后, Fire 之前 panic. fn() 没返回 →
+// result.ExitName/OutputData 根本没被赋值 → recover 时已是 zero, clear 块不会改变啥.
+// 这是 "panic 路径整体被 recover 干净" 的 smoke.
 
 // runPanicNode — Run 内在 Fire 之前 panic. fn() never returns, result 字段全是 zero.
 type runPanicNode struct{}
@@ -319,47 +316,6 @@ func TestRunWithRecover_RunPanicYieldsRecoveredResult(t *testing.T) {
 	}
 	if r.OutputData != nil {
 		t.Errorf("OutputData should be nil, got %v", r.OutputData)
-	}
-	if r.DisplayText != "" {
-		t.Errorf("DisplayText should be empty, got %q", r.DisplayText)
-	}
-}
-
-// displayPanicNode — Run 正常 Fire 返 Outputs, Display callback panic. 这正是 engine.go
-// 那 3 行 clear 真正防御的场景: result.ExitName + OutputData 已 assign, Display 里炸 → 必须
-// 清掉 partial 不让 dispatch 把 ExitName="Out" 当合法路由.
-type displayPanicNode struct{}
-
-func (displayPanicNode) Spec() Spec {
-	return Spec{
-		Kind:    "DisplayPanic",
-		Outputs: []OutputSpec{{Name: "Out", Type: "Exec", Data: []DataField{{Name: "X", Type: "Number"}}}},
-	}
-}
-func (displayPanicNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
-	return ctx.Out("Out").Set("X", 42).Fire(), nil
-}
-func (displayPanicNode) Display(_ Inputs, _ string, _ OutputData) string {
-	panic("deliberate display panic")
-}
-
-func TestRunWithRecover_DisplayPanicClearsPartialResult(t *testing.T) {
-	ResetRegistryForTest()
-	Register(displayPanicNode{})
-	rn, _ := Get("DisplayPanic")
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
-	if r.Panic == nil {
-		t.Fatal("expected Panic to be set, got nil")
-	}
-	// Display 之前 result.ExitName="Out", OutputData={"X":42} 已写; clear 块必须把它们抹掉.
-	if r.ExitName != "" {
-		t.Errorf("ExitName should be cleared on Display panic, got %q", r.ExitName)
-	}
-	if r.OutputData != nil {
-		t.Errorf("OutputData should be nil on Display panic, got %v", r.OutputData)
-	}
-	if r.DisplayText != "" {
-		t.Errorf("DisplayText should be cleared on Display panic, got %q", r.DisplayText)
 	}
 }
 

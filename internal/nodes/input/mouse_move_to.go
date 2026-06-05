@@ -2,7 +2,6 @@ package input
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"yotta/internal/node"
@@ -15,9 +14,9 @@ func init() { node.Register(&MouseMoveTo{}) }
 type MouseMoveTo struct{}
 
 const (
-	mmtInExec   = "In"
-	mmtInXRatio = "XRatio"
-	mmtInYRatio = "YRatio"
+	mmtInExec      = "In"
+	mmtInXRatio    = "XRatio"
+	mmtInYRatio    = "YRatio"
 	mmtInMoveMs    = "MoveMs"
 	mmtInJitterPct = "JitterPct"
 	mmtOutDone     = "Done"
@@ -55,11 +54,6 @@ func (MouseMoveTo) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, err
 	}
 	return ctx.Out(mmtOutDone).Fire(), nil
-}
-
-func (MouseMoveTo) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("move → (%.2f,%.2f) %dms",
-		in.Float64(mmtInXRatio), in.Float64(mmtInYRatio), in.Int(mmtInMoveMs))
 }
 
 // moveCursor 把光标滑到客户区比例 (xR,yR), 耗时 durMs. MouseMoveTo 与 ClickAt(MoveMs>0) 共用.

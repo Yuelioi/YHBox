@@ -76,19 +76,6 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(wtOutTimeout).Set(wtDataConf, conf).Fire(), nil
 }
 
-func (WaitTemplate) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	label := strings.Join(in.StringList(wtInTemplates), "+")
-	switch exitName {
-	case wtOutFound:
-		pt := out.Point(wtDataPoint)
-		return fmt.Sprintf("✓ %s conf=%.2f @ (%.2f,%.2f)",
-			label, out.Float64(wtDataConf), pt.X, pt.Y)
-	case wtOutTimeout:
-		return fmt.Sprintf("⌛ %s timeout (best %.2f < 阈值, %dms)", label, out.Float64(wtDataConf), in.Int(wtInTimeoutMs))
-	}
-	return ""
-}
-
 func (WaitTemplate) Validate(in node.Inputs) []node.ValidationError {
 	return validateTemplateKeys(in.StringList(wtInTemplates), wtInTemplates)
 }

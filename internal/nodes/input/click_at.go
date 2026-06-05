@@ -91,11 +91,6 @@ func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(caOutDone).Fire(), nil
 }
 
-func (ClickAt) Display(in node.Inputs, exitName string, out node.OutputData) string {
-	return fmt.Sprintf("click %s @ (%.2f,%.2f)", in.String(caInButton),
-		in.Float64(caInXRatio), in.Float64(caInYRatio))
-}
-
 func (ClickAt) Validate(in node.Inputs) []node.ValidationError {
 	btn := in.String(caInButton)
 	if btn != "" && btn != "left" && btn != "right" && btn != "middle" {
