@@ -35,8 +35,9 @@ type GraphNode struct {
 	X         float32        `json:"x"`
 	Y         float32        `json:"y"`
 	Config    map[string]any `json:"config,omitempty"`
-	Disabled  bool           `json:"disabled,omitempty"`  // runtime 跳过该节点 (kind-aware passthrough)
-	CreatedAt time.Time      `json:"createdAt"`
+	Disabled    bool           `json:"disabled,omitempty"`    // runtime 跳过该节点 (kind-aware passthrough)
+	LogEnabled  bool           `json:"logEnabled,omitempty"`  // 勾选 → 执行时吐通用 dump 日志
+	CreatedAt   time.Time      `json:"createdAt"`
 }
 
 // GraphEdge 边。From/To 格式："<nodeId>.<pinName>"。
