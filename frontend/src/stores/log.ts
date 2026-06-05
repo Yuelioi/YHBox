@@ -15,10 +15,13 @@ interface ContainerLogPayload {
   message: string
 }
 
-interface NodeLogPayload {
+interface NodeDumpEntry {
   nodeId: string
   nodeKind: string
-  message: string
+  lineKey: string
+  line: string
+  count: number
+  final: boolean
 }
 
 function pushBounded(lines: LogLine[], line: LogLine) {
@@ -74,14 +77,29 @@ export const useLogStore = defineStore('log', () => {
     }
   }
 
-  function appendNodeLog(p: NodeLogPayload) {
-    if (!p.message) return
-    pushBounded(lines.value, {
-      time: nowIso(),
-      level: 'log',
-      message: `  ${p.message}  (${p.nodeId})`,
-      source: 'CTR',
-    })
+  function appendNodeDump(entries: NodeDumpEntry[]) {
+    for (const e of entries) {
+      const idx = lines.value.findIndex(
+        (l) => l.nodeId === e.nodeId && l.lineKey === e.lineKey && !l.frozen,
+      )
+      if (idx >= 0) {
+        const row = lines.value[idx]
+        row.count = e.count
+        row.message = e.line
+        if (e.final) row.frozen = true
+        continue
+      }
+      pushBounded(lines.value, {
+        time: nowIso(),
+        level: 'dump',
+        message: e.line,
+        source: 'CTR',
+        nodeId: e.nodeId,
+        lineKey: e.lineKey,
+        count: e.count,
+        frozen: e.final,
+      })
+    }
   }
 
   function clear() {
@@ -97,7 +115,7 @@ export const useLogStore = defineStore('log', () => {
     appendSystem,
     appendContainerLog,
     appendNodeEnter,
-    appendNodeLog,
+    appendNodeDump,
     clear,
   }
 })

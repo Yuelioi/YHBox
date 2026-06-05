@@ -37,12 +37,4 @@ export function wireEvents() {
       })))
     }
   })
-  Events.On('container:node-log', (e: any) => {
-    const payload = e?.data?.[0] ?? e?.data ?? e
-    useLogStore().appendNodeLog({
-      nodeId: String(payload?.nodeId ?? '?'),
-      nodeKind: String(payload?.nodeKind ?? '?'),
-      message: String(payload?.message ?? ''),
-    })
-  })
 }

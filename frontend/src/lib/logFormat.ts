@@ -10,6 +10,11 @@ export interface LogLine {
   tag?: string
   message: string
   source: 'SYS' | 'CTR'
+  // node dump 专用 (按节点 upsert + ×N)
+  nodeId?: string
+  lineKey?: string
+  count?: number
+  frozen?: boolean
 }
 
 export function parseLine(raw: string): LogLine {
