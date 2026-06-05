@@ -174,6 +174,13 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 	}
 	defer r.teardownRuntime() // LIFO 内部顺序保证 ReleaseAll → Input.Close → Capture.Close
 
+	// run 停止时通知 merger 收尾该容器未刷的 dump 段.
+	defer func() {
+		if r.rt.Emit != nil {
+			r.rt.Emit("container:node-dump-flush", map[string]any{"containerId": r.rt.Container.ID})
+		}
+	}()
+
 	startNode := r.findStart()
 	if startNode == nil {
 		return errors.New("container: no Start node")

@@ -18,8 +18,9 @@ type App struct {
 	settings     *Settings
 	settingsMu   sync.RWMutex
 
-	logSink *LogSink
-	rootLog zerolog.Logger // app/service 层 logger
+	logSink   *LogSink
+	rootLog   zerolog.Logger // app/service 层 logger
+	logMerger *LogMerger     // 把 raw container:node-dump 合并成 batch + 写 file
 
 	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 wails Event
 	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 200ms 累积一次, emit
@@ -56,7 +57,18 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 }
 
 // AttachWailsApp main.go 创建完 application.App 后调，让 App 能 Emit。
-func (a *App) AttachWailsApp(w *application.App) { a.wailsApp = w }
+// 此处 wailsApp + logSink 均已就绪，顺便构造 logMerger（合并 raw node-dump → batch + 写 file）。
+func (a *App) AttachWailsApp(w *application.App) {
+	a.wailsApp = w
+	a.logMerger = NewLogMerger(
+		func(name string, data any) {
+			if a.wailsApp != nil {
+				a.wailsApp.Event.Emit(name, data)
+			}
+		},
+		func(line string) { a.logSink.AppendDumpLine(line) },
+	)
+}
 
 // Emit 包装 wailsApp.Event.Emit。a.wailsApp == nil 时（启动前）静默丢弃。
 // container:* 事件镜像到 zerolog 方便 post-mortem; 但 container:node-enter 频率太高
@@ -70,12 +82,30 @@ func (a *App) Emit(name string, data any) {
 	if a.wailsApp == nil {
 		return
 	}
-	if name == "container:node-enter" {
+	switch name {
+	case "container:node-enter":
 		a.bufferNodeEnter(data)
+		return
+	case "container:node-dump":
+		// raw per-execution dump — 喂 merger 合并, 不直接转发前端 (merger 发 batch).
+		m, _ := data.(map[string]any)
+		if m != nil && a.logMerger != nil {
+			a.logMerger.Add(str(m["containerId"]), str(m["nodeId"]), str(m["nodeKind"]), str(m["line"]), str(m["lineKey"]), boolOf(m["isError"]))
+		}
+		return
+	case "container:node-dump-flush":
+		// run 停止信号 — 让 merger 收尾该容器未刷的段, 不转发前端.
+		m, _ := data.(map[string]any)
+		if m != nil && a.logMerger != nil {
+			a.logMerger.FlushContainer(str(m["containerId"]))
+		}
 		return
 	}
 	a.wailsApp.Event.Emit(name, data)
 }
+
+func str(v any) string { s, _ := v.(string); return s }
+func boolOf(v any) bool { b, _ := v.(bool); return b }
 
 // bufferNodeEnter 把 node-enter event 累积进 buf, 启动定时 flush.
 // 连续同 nodeId 折叠 (Loop body 反复进同节点是常态, e.g. state_FISHING.barTrack 30Hz).
