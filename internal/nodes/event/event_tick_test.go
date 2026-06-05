@@ -14,7 +14,7 @@ func TestEventTick_StubReturnsNotWiredError(t *testing.T) {
 	rn, _ := node.Get("EventTick")
 
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{etInIntervalMs: 100}, nil, node.StubServices())
+		map[string]any{etInIntervalMs: 100}, nil, node.StubServices(), false)
 
 	if r.Error == nil {
 		t.Fatal("expected not-wired stub error")

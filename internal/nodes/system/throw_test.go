@@ -16,7 +16,7 @@ func TestThrow_ReturnsThrowErrorWithMessage(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{thInMessage: "boom"},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 	if r.Error == nil {
 		t.Fatal("expected error")
 	}
@@ -33,7 +33,7 @@ func TestThrow_ErrorIsTypedThrowError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{thInMessage: "fish escaped"},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 
 	var te *ThrowError
 	if !errors.As(r.Error, &te) {
@@ -52,7 +52,7 @@ func TestThrow_ErrorIsBaseThrowSentinel(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{thInMessage: "any"},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 
 	if !errors.Is(r.Error, errThrow) {
 		t.Errorf("errors.Is(%v, errThrow) = false, want true", r.Error)
@@ -64,7 +64,7 @@ func TestThrow_EmptyMessage(t *testing.T) {
 	node.Register(&Throw{})
 	rn, _ := node.Get("Throw")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if r.Error == nil {
 		t.Fatal("expected error even with empty message")
 	}

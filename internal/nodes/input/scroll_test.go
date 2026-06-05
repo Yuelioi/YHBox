@@ -16,7 +16,7 @@ func TestScroll_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{scInXRatio: 0.4, scInYRatio: 0.6, scInDelta: -2},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -37,7 +37,7 @@ func TestScroll_BackendError_Propagates(t *testing.T) {
 	rec := &recordingInput{err: errors.New("not focused")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{scInXRatio: 0.5, scInYRatio: 0.5, scInDelta: 3},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error == nil {
 		t.Fatal("expected backend error to propagate")

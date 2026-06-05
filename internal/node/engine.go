@@ -17,6 +17,8 @@ type RunResult struct {
 	Panic       any    // recovered panic value, nil if no panic
 	PanicStack  string // stack trace if panic
 	DisplayText string // Display() 返回值, "" = 不 emit
+
+	ResolvedInputs map[string]any // 仅 logEnabled 时填: 声明 pin 的本次输入快照, 供 dump 日志
 }
 
 // preparedExec is the result of phases 1-3 (gates passed, ctx built). 内部 struct.
@@ -44,13 +46,17 @@ func prepareExec(ctx context.Context, rn *RegisteredNode, dataWire, config, exec
 // runWithRecover 跑 fn(), 包装 panic recover + Display 联动. fn 是 closure 包
 // rn.Run(c, in) / rn.RunRegion(c, in, body). 用 named return 让 deferred recover
 // 写 result 后正常返回 (而非 panic 继续传播).
-func runWithRecover(rn *RegisteredNode, p *preparedExec, fn func() (Outputs, error)) (result RunResult) {
+func runWithRecover(rn *RegisteredNode, p *preparedExec, logEnabled bool, fn func() (Outputs, error)) (result RunResult) {
+	if logEnabled {
+		result.ResolvedInputs = ExportDeclaredInputs(&rn.Spec, p.in)
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			result.Panic = r
 			result.PanicStack = string(debug.Stack())
 			// result.ExitName/OutputData 在 fn() 返回后已赋值, Display callback 可能 panic.
 			// 清空以防 dispatch 把 half-baked result 当合法路由.
+			// ResolvedInputs 不清 — panic dump 仍需要本次输入快照.
 			result.ExitName = ""
 			result.OutputData = nil
 			result.DisplayText = ""
@@ -83,7 +89,7 @@ func runWithRecover(rn *RegisteredNode, p *preparedExec, fn func() (Outputs, err
 //
 // services 内任何字段都可以 nil — 节点拿到 nil service 调方法时 panic, 由 framework
 // recover 报回 RunResult.Panic. 测试可用 StubServices() 一键填齐.
-func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle) RunResult {
+func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, logEnabled bool) RunResult {
 	if rn.Run == nil {
 		return RunResult{Error: fmt.Errorf("node %q is not Runnable", rn.Spec.Kind)}
 	}
@@ -91,7 +97,7 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 	if gateFail != nil {
 		return *gateFail
 	}
-	return runWithRecover(rn, p, func() (Outputs, error) {
+	return runWithRecover(rn, p, logEnabled, func() (Outputs, error) {
 		return rn.Run(p.ctx, p.in)
 	})
 }
@@ -105,7 +111,7 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 // 或直接 propagate.
 //
 // 节点没实现 RegionRunner → RunResult.Error = "not a RegionRunner".
-func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, body func(Ctx) error) RunResult {
+func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, logEnabled bool, body func(Ctx) error) RunResult {
 	if rn.RunRegion == nil {
 		return RunResult{Error: fmt.Errorf("node %q is not a RegionRunner", rn.Spec.Kind)}
 	}
@@ -113,7 +119,7 @@ func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, 
 	if gateFail != nil {
 		return *gateFail
 	}
-	return runWithRecover(rn, p, func() (Outputs, error) {
+	return runWithRecover(rn, p, logEnabled, func() (Outputs, error) {
 		return rn.RunRegion(p.ctx, p.in, body)
 	})
 }

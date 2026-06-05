@@ -14,7 +14,7 @@ func TestIf_TrueBranch(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ifInCond: true},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -30,7 +30,7 @@ func TestIf_FalseBranch(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ifInCond: false},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -45,7 +45,7 @@ func TestIf_DefaultIsTrue(t *testing.T) {
 	node.Register(&If{})
 	rn, _ := node.Get("If")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}

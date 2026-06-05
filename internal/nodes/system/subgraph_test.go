@@ -21,7 +21,7 @@ func TestSubgraph_RunRegion_InvokesBodyOnceThenDone(t *testing.T) {
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
 		map[string]any{sgInSubgraphID: "sg_foo"},
-		nil, node.StubServices(), body)
+		nil, node.StubServices(), false, body)
 
 	if r.Error != nil {
 		t.Fatalf("error = %v", r.Error)
@@ -47,7 +47,7 @@ func TestSubgraph_RunRegion_PropagatesBodyError(t *testing.T) {
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
 		map[string]any{sgInSubgraphID: "sg_foo"},
-		nil, node.StubServices(), body)
+		nil, node.StubServices(), false, body)
 
 	if !errors.Is(r.Error, boom) {
 		t.Errorf("error = %v, want boom", r.Error)
@@ -64,7 +64,7 @@ func TestSubgraph_RequiredSubgraphIDMissing(t *testing.T) {
 
 	// Subgraph 是 RegionRunner — 用 RunNodeAsRegion 走 Required gate.
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
-		node.StubServices(), func(node.Ctx) error { return nil })
+		node.StubServices(), false, func(node.Ctx) error { return nil })
 	if len(r.Validation) == 0 {
 		t.Errorf("expected REQUIRED_FIELD_MISSING for SubgraphID, got %+v", r)
 	}

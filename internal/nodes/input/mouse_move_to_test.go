@@ -17,7 +17,7 @@ func TestMouseMoveTo_Instant(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mmtInXRatio: 0.5, mmtInYRatio: 0.5, mmtInMoveMs: 0},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -39,7 +39,7 @@ func TestMouseMoveTo_Slide_FramesEndAtTarget(t *testing.T) {
 	// MoveMs=64 → 64/16 = 4 帧; spy 起点 (0,0); 直线插值, 末帧落终点 (1,1)
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mmtInXRatio: 1.0, mmtInYRatio: 1.0, mmtInMoveMs: 64},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -63,7 +63,7 @@ func TestMouseMoveTo_CtxCancel_StopsMidSlide(t *testing.T) {
 	start := time.Now()
 	r := node.RunNode(ctx, rn, nil,
 		map[string]any{mmtInXRatio: 1.0, mmtInYRatio: 1.0, mmtInMoveMs: 10000},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	elapsed := time.Since(start)
 
 	if elapsed > time.Second {

@@ -121,7 +121,7 @@ func TestCheckTemplate_Hit(t *testing.T) {
 	r := node.RunNode(context.Background(), rn,
 		nil,
 		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}, ctInThreshold: 0.85},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -143,7 +143,7 @@ func TestCheckTemplate_Miss(t *testing.T) {
 	r := node.RunNode(context.Background(), rn,
 		nil,
 		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}, ctInThreshold: 0.85},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.ExitName != ctOutNotFound {
 		t.Errorf("exit = %q, want NotFound", r.ExitName)
@@ -159,7 +159,7 @@ func TestCheckTemplate_Error(t *testing.T) {
 	r := node.RunNode(context.Background(), rn,
 		nil,
 		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error == nil {
 		t.Error("expected error propagation")
@@ -174,7 +174,7 @@ func TestCheckTemplate_InvalidKey_ValidationError(t *testing.T) {
 	r := node.RunNode(context.Background(), rn,
 		nil,
 		map[string]any{ctInTemplates: []string{"no_dot"}},
-		nil, withVision(&mockVision{}))
+		nil, withVision(&mockVision{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_TEMPLATE_KEY" {
 		t.Errorf("validation = %v, want INVALID_TEMPLATE_KEY", r.Validation)
@@ -186,7 +186,7 @@ func TestCheckTemplate_RequiredMissing(t *testing.T) {
 	node.Register(&CheckTemplate{})
 	rn, _ := node.Get("CheckTemplate")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, withVision(&mockVision{}))
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, withVision(&mockVision{}), false)
 	if len(r.Validation) == 0 {
 		t.Error("expected REQUIRED_FIELD_MISSING ValidationError for missing Template")
 	}

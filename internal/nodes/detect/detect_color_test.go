@@ -22,7 +22,7 @@ func TestDetectColor_Hit(t *testing.T) {
 			dcInRange:     []any{50.0, 60.0, 67.0, 127.0, 253.0, 255.0},
 			dcInMinPixels: 5,
 		},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -44,7 +44,7 @@ func TestDetectColor_Miss(t *testing.T) {
 			dcInRange:     []any{0.0, 180.0, 0.0, 255.0, 0.0, 255.0},
 			dcInMinPixels: 5,
 		},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.ExitName != dcOutNo {
 		t.Errorf("exit = %q, want No", r.ExitName)
@@ -59,7 +59,7 @@ func TestDetectColor_BackendError(t *testing.T) {
 	vision := &mockVision{colorErr: errors.New("capture failed")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{dcInMode: "rgb", dcInRange: []any{0.0, 255.0, 0.0, 255.0, 0.0, 255.0}},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error == nil {
 		t.Error("expected backend error propagation")
@@ -73,7 +73,7 @@ func TestDetectColor_InvalidMode_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{dcInMode: "yuv"},
-		nil, withVision(&mockVision{}))
+		nil, withVision(&mockVision{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_COLOR_MODE" {
 		t.Errorf("validation = %v, want INVALID_COLOR_MODE", r.Validation)

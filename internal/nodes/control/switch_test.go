@@ -21,7 +21,7 @@ func runSwitch(t *testing.T, value string, cases []any, hasValue bool) node.RunR
 	if hasValue {
 		cfg[swInValue] = value
 	}
-	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices())
+	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices(), false)
 }
 
 func TestSwitch_CaseHit(t *testing.T) {

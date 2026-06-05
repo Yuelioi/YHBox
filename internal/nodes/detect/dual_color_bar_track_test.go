@@ -47,7 +47,7 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 	}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{dcbtInRoi: validGeometryROI()},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -73,7 +73,7 @@ func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
 	}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{dcbtInRoi: validGeometryROI()},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.ExitName != dcbtOutMissing {
 		t.Errorf("exit = %q, want Missing (low conf)", r.ExitName)
@@ -92,7 +92,7 @@ func TestDualColorBarTrack_MissingOnError(t *testing.T) {
 	}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{dcbtInRoi: validGeometryROI()},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.ExitName != dcbtOutMissing {
 		t.Errorf("exit = %q, want Missing", r.ExitName)
@@ -107,7 +107,7 @@ func TestDualColorBarTrack_RequiredMissing(t *testing.T) {
 	// 没有 Roi 输入 → framework Required 检查报 REQUIRED_FIELD_MISSING
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{},
-		nil, withVision(&mockVision{}))
+		nil, withVision(&mockVision{}), false)
 	if len(r.Validation) == 0 {
 		t.Error("expected validation error on missing Roi")
 	}

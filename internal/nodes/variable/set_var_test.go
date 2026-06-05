@@ -50,7 +50,7 @@ func TestSetVar_HappyPath(t *testing.T) {
 	svc.Vars = vars
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{svInVarName: "x", svInValue: 42},
-		nil, svc)
+		nil, svc, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -67,7 +67,7 @@ func TestSetVar_MissingVarName(t *testing.T) {
 	svc.Vars = &recordingVars{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{svInVarName: "", svInValue: 1},
-		nil, svc)
+		nil, svc, false)
 	// Required check 会先报 — varName 是 required + 空 → ValidationError
 	if len(r.Validation) == 0 && r.Error == nil {
 		t.Error("expected validation or error for empty varName")

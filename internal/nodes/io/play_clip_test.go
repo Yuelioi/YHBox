@@ -36,7 +36,7 @@ func TestPlayClip_PlaysAndFiresDone(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{pcInClipID: "fishing_intro"},
-		nil, svc)
+		nil, svc, false)
 
 	if r.Error != nil {
 		t.Fatalf("unexpected error: %v", r.Error)
@@ -60,7 +60,7 @@ func TestPlayClip_PlayErrorPropagates(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{pcInClipID: "x"},
-		nil, svc)
+		nil, svc, false)
 
 	if r.Error == nil || !errors.Is(r.Error, sentinel) {
 		t.Errorf("error = %v, want wrap of %v", r.Error, sentinel)
@@ -86,7 +86,7 @@ func TestPlayClip_CtxCancelReturnsCanceled(t *testing.T) {
 
 	r := node.RunNode(ctx, rn, nil,
 		map[string]any{pcInClipID: "x"},
-		nil, svc)
+		nil, svc, false)
 
 	if r.Error == nil || !errors.Is(r.Error, context.Canceled) {
 		t.Errorf("error = %v, want context.Canceled", r.Error)
@@ -101,7 +101,7 @@ func TestPlayClip_RequiredClipIDMissing(t *testing.T) {
 	node.Register(&PlayClip{})
 	rn, _ := node.Get("PlayClip")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if len(r.Validation) == 0 {
 		t.Fatal("expected REQUIRED_FIELD_MISSING for ClipID")
 	}

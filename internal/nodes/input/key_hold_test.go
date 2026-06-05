@@ -15,7 +15,7 @@ func TestKeyHoldStart_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{khStartInVK: "D"},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -36,7 +36,7 @@ func TestKeyHoldStop_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{khStopInVK: "D"},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -56,7 +56,7 @@ func TestKeyHoldStart_UnknownVK_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{khStartInVK: "no-such-key"},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_VK" {
 		t.Errorf("validation = %v, want INVALID_VK", r.Validation)
@@ -70,7 +70,7 @@ func TestKeyHoldStop_EmptyVK_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{khStopInVK: ""},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_VK" {
 		t.Errorf("validation = %v, want INVALID_VK", r.Validation)
@@ -88,14 +88,14 @@ func TestKeyHold_StartStopPair(t *testing.T) {
 
 	rnStart, _ := node.Get("KeyHoldStart")
 	r1 := node.RunNode(context.Background(), rnStart, nil,
-		map[string]any{khStartInVK: "right"}, nil, bundle)
+		map[string]any{khStartInVK: "right"}, nil, bundle, false)
 	if r1.Error != nil {
 		t.Fatal(r1.Error)
 	}
 
 	rnStop, _ := node.Get("KeyHoldStop")
 	r2 := node.RunNode(context.Background(), rnStop, nil,
-		map[string]any{khStopInVK: "right"}, nil, bundle)
+		map[string]any{khStopInVK: "right"}, nil, bundle, false)
 	if r2.Error != nil {
 		t.Fatal(r2.Error)
 	}

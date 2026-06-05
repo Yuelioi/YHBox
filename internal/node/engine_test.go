@@ -4,6 +4,7 @@ package node
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestRunNode_HappyPath(t *testing.T) {
 	Register(happyNode{})
 	rn, _ := Get("Happy")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Error != nil {
 		t.Fatalf("error: %v", r.Error)
 	}
@@ -61,7 +62,7 @@ func TestRunNode_RequiredMissing_ValidationError(t *testing.T) {
 	Register(requiredNode{})
 	rn, _ := Get("Req")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if len(r.Validation) != 1 || r.Validation[0].Code != "REQUIRED_FIELD_MISSING" {
 		t.Errorf("validation = %v, want 1 REQUIRED_FIELD_MISSING", r.Validation)
 	}
@@ -85,7 +86,7 @@ func TestRunNode_RuntimeError(t *testing.T) {
 	Register(errorNode{})
 	rn, _ := Get("Err")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Error == nil || r.Error.Error() != "boom" {
 		t.Errorf("error = %v, want boom", r.Error)
 	}
@@ -106,7 +107,7 @@ func TestRunNode_Panic_Recovered(t *testing.T) {
 	Register(panicNode{})
 	rn, _ := Get("Panic")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
 		t.Error("expected panic recovered")
 	}
@@ -131,7 +132,7 @@ func TestRunNode_DoubleFire_Panics(t *testing.T) {
 	Register(doubleFireNode{})
 	rn, _ := Get("DF")
 
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
 		t.Error("double Fire should panic")
 	}
@@ -255,7 +256,7 @@ func TestRunNode_NonRunnable_Errors(t *testing.T) {
 	ResetRegistryForTest()
 	Register(evaluatorOnlyNode{})
 	rn, _ := Get("EvaluatorOnly")
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Error == nil || !strings.Contains(r.Error.Error(), "not Runnable") {
 		t.Errorf("expected 'not Runnable' error, got %v", r.Error)
 	}
@@ -265,7 +266,7 @@ func TestRunNodeAsRegion_NonRegionRunner_Errors(t *testing.T) {
 	ResetRegistryForTest()
 	Register(runnableOnlyNode{})
 	rn, _ := Get("RunnableOnly")
-	r := RunNodeAsRegion(context.Background(), rn, nil, nil, nil, StubServices(), func(Ctx) error { return nil })
+	r := RunNodeAsRegion(context.Background(), rn, nil, nil, nil, StubServices(), false, func(Ctx) error { return nil })
 	if r.Error == nil || !strings.Contains(r.Error.Error(), "not a RegionRunner") {
 		t.Errorf("expected 'not a RegionRunner' error, got %v", r.Error)
 	}
@@ -307,7 +308,7 @@ func TestRunWithRecover_RunPanicYieldsRecoveredResult(t *testing.T) {
 	ResetRegistryForTest()
 	Register(runPanicNode{})
 	rn, _ := Get("RunPanic")
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
 		t.Fatal("expected Panic to be set, got nil")
 	}
@@ -346,7 +347,7 @@ func TestRunWithRecover_DisplayPanicClearsPartialResult(t *testing.T) {
 	ResetRegistryForTest()
 	Register(displayPanicNode{})
 	rn, _ := Get("DisplayPanic")
-	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices())
+	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
 		t.Fatal("expected Panic to be set, got nil")
 	}
@@ -359,5 +360,42 @@ func TestRunWithRecover_DisplayPanicClearsPartialResult(t *testing.T) {
 	}
 	if r.DisplayText != "" {
 		t.Errorf("DisplayText should be cleared on Display panic, got %q", r.DisplayText)
+	}
+}
+
+// ============================================================================
+// ResolvedInputs — opt-in input snapshot (Task 3)
+// ============================================================================
+
+func TestRunNode_ResolvedInputs_OnlyWhenEnabled(t *testing.T) {
+	rn := &RegisteredNode{
+		Spec: Spec{Kind: "Echo", Inputs: []InputSpec{{Name: "msg", Type: "string"}}},
+		Run: func(c Ctx, in Inputs) (Outputs, error) {
+			return c.Out("Done").Set("echo", in.String("msg")).Fire(), nil
+		},
+	}
+	cfg := map[string]any{"msg": "hi"}
+	r1 := RunNode(context.Background(), rn, nil, cfg, nil, StubServices(), false)
+	if r1.ResolvedInputs != nil {
+		t.Fatalf("logEnabled=false should not populate ResolvedInputs, got %#v", r1.ResolvedInputs)
+	}
+	r2 := RunNode(context.Background(), rn, nil, cfg, nil, StubServices(), true)
+	if r2.ResolvedInputs["msg"] != "hi" {
+		t.Fatalf("ResolvedInputs[msg] = %v, want hi", r2.ResolvedInputs["msg"])
+	}
+}
+
+func TestRunNode_ResolvedInputs_SurvivesError(t *testing.T) {
+	rn := &RegisteredNode{
+		Spec: Spec{Kind: "Boom", Inputs: []InputSpec{{Name: "msg", Type: "string"}}},
+		Run:  func(c Ctx, in Inputs) (Outputs, error) { return nil, fmt.Errorf("boom") },
+	}
+	cfg := map[string]any{"msg": "hi"}
+	r := RunNode(context.Background(), rn, nil, cfg, nil, StubServices(), true)
+	if r.Error == nil {
+		t.Fatal("expected error")
+	}
+	if r.ResolvedInputs["msg"] != "hi" {
+		t.Fatalf("ResolvedInputs must survive error, got %#v", r.ResolvedInputs)
 	}
 }

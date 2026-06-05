@@ -36,7 +36,7 @@ func TestBringWindowForeground_HappyPath(t *testing.T) {
 	rn, _ := node.Get("BringWindowForeground")
 
 	win := &recordingWindow{}
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win))
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -56,7 +56,7 @@ func TestBringWindowForeground_BackendError_StillDone(t *testing.T) {
 	rn, _ := node.Get("BringWindowForeground")
 
 	win := &recordingWindow{err: errors.New("fullscreen exclusive")}
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win))
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win), false)
 
 	if r.Error != nil {
 		t.Fatalf("backend error should NOT propagate (warn log only), got %v", r.Error)

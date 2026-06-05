@@ -18,7 +18,7 @@ func TestStop_HappyPath(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swStopInKey: "k"}, nil, services)
+		map[string]any{swStopInKey: "k"}, nil, services, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -42,7 +42,7 @@ func TestStop_MissingKeyIsNoop(t *testing.T) {
 
 	// 不 Start, 直接 Stop — 静默 no-op
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swStopInKey: "never_started"}, nil, node.StubServices())
+		map[string]any{swStopInKey: "never_started"}, nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatalf("Stop on missing key should be no-op, got: %v", r.Error)
 	}

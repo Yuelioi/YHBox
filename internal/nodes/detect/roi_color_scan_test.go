@@ -32,7 +32,7 @@ func TestROIColorScan_Found(t *testing.T) {
 	cfg := validScanCfg()
 	cfg[rcsInMinClusterCount] = 2
 	cfg[rcsInTimeoutMs] = 500
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -51,7 +51,7 @@ func TestROIColorScan_NotFoundSingleScan(t *testing.T) {
 	cfg := validScanCfg()
 	cfg[rcsInMinClusterCount] = 1
 	cfg[rcsInTimeoutMs] = 0
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.ExitName != rcsOutNotFound {
 		t.Errorf("exit = %q, want NotFound", r.ExitName)
@@ -68,7 +68,7 @@ func TestROIColorScan_Timeout(t *testing.T) {
 	cfg[rcsInMinClusterCount] = 1
 	cfg[rcsInTimeoutMs] = 30
 	cfg[rcsInPollIntervalMs] = 10
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.ExitName != rcsOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
@@ -82,7 +82,7 @@ func TestROIColorScan_InvalidAxis_ValidationError(t *testing.T) {
 
 	cfg := validScanCfg()
 	cfg[rcsInAxis] = "z"
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(&mockVision{}))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(&mockVision{}), false)
 
 	if len(r.Validation) == 0 {
 		t.Fatal("expected validation error")

@@ -16,7 +16,7 @@ func TestMouseMoveRel_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mmrInDx: 10, mmrInDy: -20, mmrInDurationMs: 150},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -37,7 +37,7 @@ func TestMouseMoveRel_BackendError_Propagates(t *testing.T) {
 	rec := &recordingInput{err: errors.New("input rejected")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mmrInDx: 5, mmrInDy: 5, mmrInDurationMs: 100},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error == nil {
 		t.Fatal("expected backend error to propagate")

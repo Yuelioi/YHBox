@@ -12,7 +12,7 @@ func TestStart_HappyPath(t *testing.T) {
 	node.Register(&Start{})
 	rn, _ := node.Get("Start")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}

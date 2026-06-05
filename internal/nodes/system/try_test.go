@@ -23,7 +23,7 @@ func TestTry_RunRegion_BodySucceedsThenNormal(t *testing.T) {
 	// 实际 sub-dispatch 由 runner 端 makeBodyForTry 走, body callback 这里 mock.
 	cfg := map[string]any{tryInSubgraphID: "dummy"}
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, cfg, nil,
-		node.StubServices(), body)
+		node.StubServices(), false, body)
 
 	if r.Error != nil {
 		t.Fatalf("error = %v", r.Error)
@@ -50,7 +50,7 @@ func TestTry_RunRegion_BodyErrorRoutesToCatchWithMessage(t *testing.T) {
 	// 实际 sub-dispatch 由 runner 端 makeBodyForTry 走, body callback 这里 mock.
 	cfg := map[string]any{tryInSubgraphID: "dummy"}
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, cfg, nil,
-		node.StubServices(), body)
+		node.StubServices(), false, body)
 
 	if r.Error != nil {
 		t.Fatalf("error = %v, want nil (catch should swallow)", r.Error)
@@ -76,7 +76,7 @@ func TestTry_RunRegion_ThrowErrorCaughtMessageStripped(t *testing.T) {
 	// 实际 sub-dispatch 由 runner 端 makeBodyForTry 走, body callback 这里 mock.
 	cfg := map[string]any{tryInSubgraphID: "dummy"}
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, cfg, nil,
-		node.StubServices(), body)
+		node.StubServices(), false, body)
 
 	if r.Error != nil {
 		t.Fatalf("error = %v, want nil (catch should swallow)", r.Error)

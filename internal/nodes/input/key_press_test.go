@@ -69,7 +69,7 @@ func TestKeyPress_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{kpInVK: "F", kpInDurationMs: 100},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -94,7 +94,7 @@ func TestKeyPress_CtxCancel_ReleasesAndReturns(t *testing.T) {
 	start := time.Now()
 	r := node.RunNode(ctx, rn, nil,
 		map[string]any{kpInVK: "F", kpInDurationMs: 10000},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	elapsed := time.Since(start)
 
 	if elapsed > time.Second {
@@ -118,7 +118,7 @@ func TestKeyPress_JitterPct_StillDownUp(t *testing.T) {
 	// JitterPct 仅扰动按住时长, 不改 down/up 行为
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{kpInVK: "F", kpInDurationMs: 10, kpInJitterPct: 20},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -135,7 +135,7 @@ func TestKeyPress_BackendError_Propagates(t *testing.T) {
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{kpInVK: "A", kpInDurationMs: 50},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error == nil {
 		t.Fatal("expected backend error to propagate")
@@ -150,7 +150,7 @@ func TestKeyPress_EmptyVK_ValidationError(t *testing.T) {
 	// vk="" 触发 Validate
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{kpInVK: "", kpInDurationMs: 50},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_VK" {
 		t.Errorf("validation = %v, want INVALID_VK", r.Validation)
@@ -164,7 +164,7 @@ func TestKeyPress_UnknownVK_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{kpInVK: "not-a-real-key", kpInDurationMs: 50},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_VK" {
 		t.Errorf("validation = %v, want INVALID_VK for unknown keyname", r.Validation)

@@ -37,7 +37,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 
-	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle)
+	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, false)
 	return r.routeResult(node, tok, result)
 }
 
@@ -269,7 +269,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 
-	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, body)
+	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, false, body)
 	return r.routeResult(node, tok, result)
 }
 

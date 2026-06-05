@@ -17,7 +17,7 @@ func TestSleep_HappyPath(t *testing.T) {
 	start := time.Now()
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{sleepInDuration: 50 * time.Millisecond},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 	elapsed := time.Since(start)
 
 	if r.Error != nil {
@@ -45,7 +45,7 @@ func TestSleep_CtxCancel_InterruptsEarly(t *testing.T) {
 	start := time.Now()
 	r := node.RunNode(ctx, rn, nil,
 		map[string]any{sleepInDuration: 10 * time.Second},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 	elapsed := time.Since(start)
 
 	if elapsed > time.Second {
@@ -66,7 +66,7 @@ func TestSleep_ZeroDuration_Error(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{sleepInDuration: time.Duration(0)},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 
 	if r.Error == nil {
 		t.Error("expected error on zero Duration")
@@ -78,7 +78,7 @@ func TestSleep_RequiredMissing(t *testing.T) {
 	node.Register(&Sleep{})
 	rn, _ := node.Get("Sleep")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if len(r.Validation) == 0 {
 		t.Error("expected REQUIRED_FIELD_MISSING for Duration")
 	}

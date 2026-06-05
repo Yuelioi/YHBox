@@ -27,7 +27,7 @@ func TestWaitStable_BecomesStable(t *testing.T) {
 		wfPollIntervalMs:  5,
 		wfTimeoutMs:       2000,
 	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -51,7 +51,7 @@ func TestWaitStable_TimeoutWhenChurning(t *testing.T) {
 		wfPollIntervalMs:  10,
 		wfTimeoutMs:       30,
 	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 	if r.ExitName != wsOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
 	}
@@ -73,7 +73,7 @@ func TestWaitChange_DetectsChange(t *testing.T) {
 		wfPollIntervalMs:  5,
 		wfTimeoutMs:       2000,
 	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -98,7 +98,7 @@ func TestWaitChange_TimeoutWhenStatic(t *testing.T) {
 		wfPollIntervalMs:  10,
 		wfTimeoutMs:       30,
 	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 	if r.ExitName != wcOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
 	}
@@ -118,7 +118,7 @@ func TestWaitChange_MeanDiffMetric(t *testing.T) {
 		wfPollIntervalMs:  5,
 		wfTimeoutMs:       2000,
 	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 	if r.ExitName != wcOutChanged {
 		t.Errorf("exit = %q, want Changed", r.ExitName)
 	}
@@ -136,7 +136,7 @@ func TestWaitChange_UnknownMetricErrors(t *testing.T) {
 		wcChangeThreshold: 0.5,
 		wfTimeoutMs:       100,
 	}
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 	if r.Error == nil {
 		t.Error("expected error on unknown metric")
 	}

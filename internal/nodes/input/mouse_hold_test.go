@@ -15,7 +15,7 @@ func TestMouseHoldStart_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStartInXRatio: 0.25, mhStartInYRatio: 0.75, mhStartInButton: "right"},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -36,7 +36,7 @@ func TestMouseHoldStop_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStopInButton: "middle"},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -56,7 +56,7 @@ func TestMouseHoldStart_InvalidButton_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStartInButton: "x1"},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_MOUSE_BUTTON" {
 		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)
@@ -70,7 +70,7 @@ func TestMouseHoldStop_InvalidButton_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStopInButton: "x2"},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_MOUSE_BUTTON" {
 		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)
@@ -89,14 +89,14 @@ func TestMouseHold_StartStopPair(t *testing.T) {
 	rnStart, _ := node.Get("MouseHoldStart")
 	r1 := node.RunNode(context.Background(), rnStart, nil,
 		map[string]any{mhStartInXRatio: 0.5, mhStartInYRatio: 0.5, mhStartInButton: "left"},
-		nil, bundle)
+		nil, bundle, false)
 	if r1.Error != nil {
 		t.Fatal(r1.Error)
 	}
 
 	rnStop, _ := node.Get("MouseHoldStop")
 	r2 := node.RunNode(context.Background(), rnStop, nil,
-		map[string]any{mhStopInButton: "left"}, nil, bundle)
+		map[string]any{mhStopInButton: "left"}, nil, bundle, false)
 	if r2.Error != nil {
 		t.Fatal(r2.Error)
 	}

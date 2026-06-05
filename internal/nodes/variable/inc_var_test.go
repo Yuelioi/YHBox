@@ -16,7 +16,7 @@ func TestIncVar_HappyPath(t *testing.T) {
 	svc.Vars = vars
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ivInVarName: "counter", ivInDelta: 3.0},
-		nil, svc)
+		nil, svc, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -34,7 +34,7 @@ func TestIncVar_DefaultDelta(t *testing.T) {
 	svc.Vars = vars
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ivInVarName: "x"},
-		nil, svc)
+		nil, svc, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}

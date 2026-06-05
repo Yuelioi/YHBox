@@ -14,7 +14,7 @@ func TestMouseCalibration_Passthrough(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mcInCounts360: 800.0},
-		nil, node.StubServices())
+		nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -29,7 +29,7 @@ func TestMouseCalibration_DefaultCounts(t *testing.T) {
 	node.Register(&MouseCalibration{})
 	rn, _ := node.Get("MouseCalibration")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}

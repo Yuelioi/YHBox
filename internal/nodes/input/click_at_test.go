@@ -17,7 +17,7 @@ func TestClickAt_HappyPath(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInXRatio: 0.3, caInYRatio: 0.7, caInButton: "right", caInDurationMs: 80},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -40,7 +40,7 @@ func TestClickAt_DefaultsApplied(t *testing.T) {
 
 	rec := &recordingInput{}
 	// 不传任何 config — 全走 Default (0.5, 0.5, left, 50)
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, withInput(rec))
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, withInput(rec), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -64,7 +64,7 @@ func TestClickAt_CtxCancel_ReleasesAndReturns(t *testing.T) {
 	start := time.Now()
 	r := node.RunNode(ctx, rn, nil,
 		map[string]any{caInXRatio: 0.5, caInYRatio: 0.5, caInButton: "left", caInDurationMs: 10000},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	elapsed := time.Since(start)
 
 	if elapsed > time.Second {
@@ -91,7 +91,7 @@ func TestClickAt_MoveMs_SlidesBeforeDown(t *testing.T) {
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInXRatio: 1.0, caInYRatio: 1.0, caInButton: "left",
 			caInMoveMs: 64, caInDurationMs: 10},
-		nil, withInput(rec))
+		nil, withInput(rec), false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -113,7 +113,7 @@ func TestClickAt_InvalidButton_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInButton: "side1"},
-		nil, withInput(&recordingInput{}))
+		nil, withInput(&recordingInput{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_MOUSE_BUTTON" {
 		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)

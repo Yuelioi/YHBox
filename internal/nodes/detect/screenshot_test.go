@@ -47,7 +47,7 @@ func TestScreenshot_FullFrame(t *testing.T) {
 	cap := &stubCapture{pngROI: []byte{0x89, 0x50, 0x4e, 0x47}} // PNG signature 4 bytes
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ssInPathTemplate: "test-{ts}.png"},
-		nil, withCapture(cap))
+		nil, withCapture(cap), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -87,7 +87,7 @@ func TestScreenshot_ROI(t *testing.T) {
 			ssInPathTemplate: "roi-{ts}.png",
 			ssInROI:          roi,
 		},
-		nil, withCapture(cap))
+		nil, withCapture(cap), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -107,7 +107,7 @@ func TestScreenshot_BackendError(t *testing.T) {
 	cap := &stubCapture{err: errors.New("hwnd not found")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ssInPathTemplate: "x.png"},
-		nil, withCapture(cap))
+		nil, withCapture(cap), false)
 
 	if r.Error == nil {
 		t.Error("expected capture error propagation")
@@ -124,7 +124,7 @@ func TestScreenshot_UnsafePath_ValidationError(t *testing.T) {
 	} {
 		r := node.RunNode(context.Background(), rn, nil,
 			map[string]any{ssInPathTemplate: bad},
-			nil, withCapture(&stubCapture{}))
+			nil, withCapture(&stubCapture{}), false)
 		if len(r.Validation) == 0 {
 			t.Errorf("path %q: expected UNSAFE_SCREENSHOT_PATH validation", bad)
 		}

@@ -18,7 +18,7 @@ func TestWaitTemplate_Found(t *testing.T) {
 	vision := &mockVision{point: &pt, conf: 0.91, hitOnCall: 1}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wtInTemplates: []string{"fishing.hook_icon"}, wtInTimeoutMs: 100, wtInThreshold: 0.85},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -40,7 +40,7 @@ func TestWaitTemplate_Timeout(t *testing.T) {
 	vision := &mockVision{hitOnCall: -1, conf: 0.4}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wtInTemplates: []string{"fishing.hook_icon"}, wtInTimeoutMs: 30, wtInThreshold: 0.85},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -58,7 +58,7 @@ func TestWaitTemplate_Error(t *testing.T) {
 	vision := &mockVision{err: errors.New("window closed")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wtInTemplates: []string{"fishing.x"}},
-		nil, withVision(vision))
+		nil, withVision(vision), false)
 
 	if r.Error == nil {
 		t.Error("expected error propagation")
@@ -72,7 +72,7 @@ func TestWaitTemplate_InvalidKey_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wtInTemplates: []string{"no_dot"}},
-		nil, withVision(&mockVision{}))
+		nil, withVision(&mockVision{}), false)
 
 	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_TEMPLATE_KEY" {
 		t.Errorf("validation = %v, want INVALID_TEMPLATE_KEY", r.Validation)

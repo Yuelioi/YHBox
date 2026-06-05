@@ -37,7 +37,7 @@ func TestLog_Info(t *testing.T) {
 	cap := &captureLog{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{logInMessage: "hello", logInLevel: "info"},
-		nil, withLog(cap))
+		nil, withLog(cap), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -55,7 +55,7 @@ func TestLog_Warn(t *testing.T) {
 	cap := &captureLog{}
 	node.RunNode(context.Background(), rn, nil,
 		map[string]any{logInMessage: "danger", logInLevel: "warn"},
-		nil, withLog(cap))
+		nil, withLog(cap), false)
 
 	if len(cap.entries) != 1 || cap.entries[0] != "WARN %s" {
 		t.Errorf("entries = %v, want 1 WARN line", cap.entries)
@@ -71,7 +71,7 @@ func TestLog_WildcardMessage(t *testing.T) {
 	// Message 是 wildcard "*", 接任意类型. 这里传 number.
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{logInMessage: 42, logInLevel: "info"},
-		nil, withLog(cap))
+		nil, withLog(cap), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)

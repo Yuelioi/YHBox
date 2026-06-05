@@ -26,7 +26,7 @@ func TestDetectColorHSV_HitFirstPoll(t *testing.T) {
 	cfg := validHSVCfg()
 	cfg[dchInMinPixelRatio] = 0.1
 	cfg[dchInTimeoutMs] = 1000
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -46,7 +46,7 @@ func TestDetectColorHSV_NoOnSingleScan(t *testing.T) {
 	cfg := validHSVCfg()
 	cfg[dchInMinPixelRatio] = 0.5
 	cfg[dchInTimeoutMs] = 0
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.ExitName != dchOutNo {
 		t.Errorf("exit = %q, want No", r.ExitName)
@@ -63,7 +63,7 @@ func TestDetectColorHSV_Timeout(t *testing.T) {
 	cfg[dchInMinPixelRatio] = 0.99
 	cfg[dchInTimeoutMs] = 30
 	cfg[dchInPollIntervalMs] = 10
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision))
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.ExitName != dchOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)

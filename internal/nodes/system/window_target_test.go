@@ -61,7 +61,7 @@ func TestWindowTarget_Run_CallsSetActive(t *testing.T) {
 			wtInTitle:      "GameWindow",
 			wtInTitleMatch: "exact",
 		},
-		nil, svc)
+		nil, svc, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -87,7 +87,7 @@ func TestWindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wtInTitle: "Nope", wtInTitleMatch: "exact"},
-		nil, svc)
+		nil, svc, false)
 	if r.Error == nil {
 		t.Fatal("SetActive 报错时 Run 应返回 error")
 	}

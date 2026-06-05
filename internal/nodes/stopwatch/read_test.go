@@ -18,7 +18,7 @@ func TestRead_RunningReturnsPositive(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swReadInKey: "k"}, nil, services)
+		map[string]any{swReadInKey: "k"}, nil, services, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -38,7 +38,7 @@ func TestRead_MissingKeyReturnsZero(t *testing.T) {
 
 	services := node.StubServices()
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swReadInKey: "never_started"}, nil, services)
+		map[string]any{swReadInKey: "never_started"}, nil, services, false)
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -59,13 +59,13 @@ func TestRead_StoppedReturnsFrozen(t *testing.T) {
 	services.Stopwatches.Stop("k")
 
 	r1 := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swReadInKey: "k"}, nil, services)
+		map[string]any{swReadInKey: "k"}, nil, services, false)
 	first, _ := r1.OutputData[swReadDataElapsedMs].(int64)
 
 	time.Sleep(15 * time.Millisecond)
 
 	r2 := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swReadInKey: "k"}, nil, services)
+		map[string]any{swReadInKey: "k"}, nil, services, false)
 	second, _ := r2.OutputData[swReadDataElapsedMs].(int64)
 
 	if first != second {

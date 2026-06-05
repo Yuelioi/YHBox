@@ -13,7 +13,7 @@ func TestStop_ReturnsSentinel(t *testing.T) {
 	node.Register(&Stop{})
 	rn, _ := node.Get("Stop")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices())
+	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if !errors.Is(r.Error, errStopRun) {
 		t.Fatalf("Error = %v, want errStopRun", r.Error)
 	}

@@ -48,7 +48,7 @@ func TestClickTemplate_Done(t *testing.T) {
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
 			clkInTimeoutMs: 200, clkInThreshold: 0.85},
-		nil, withVisionAndInput(vision, rec))
+		nil, withVisionAndInput(vision, rec), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -70,7 +70,7 @@ func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInTimeoutMs: 30},
-		nil, withVisionAndInput(vision, rec))
+		nil, withVisionAndInput(vision, rec), false)
 
 	if r.ExitName != clkOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
@@ -90,7 +90,7 @@ func TestClickTemplate_BackendError(t *testing.T) {
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}},
-		nil, withVisionAndInput(vision, rec))
+		nil, withVisionAndInput(vision, rec), false)
 
 	if r.Error == nil {
 		t.Error("expected Click backend error propagation")
@@ -104,7 +104,7 @@ func TestClickTemplate_InvalidButton_ValidationError(t *testing.T) {
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "side1"},
-		nil, withVisionAndInput(&mockVision{}, &recordingInput{}))
+		nil, withVisionAndInput(&mockVision{}, &recordingInput{}), false)
 
 	if len(r.Validation) == 0 {
 		t.Fatal("expected validation error")
