@@ -18,7 +18,7 @@ export function wireEvents() {
   })
 
   // container 日志 — 后端 emit 走 string event name (container:log / container:node-enter-batch /
-  // container:node-log), 不在 wails bindings 里. 用 raw Events.On.
+  // container:node-dump-batch), 不在 wails bindings 里. 用 raw Events.On.
   Events.On('container:log', (e: any) => {
     const payload = e?.data?.[0] ?? e?.data ?? e
     useLogStore().appendContainerLog({
@@ -34,6 +34,20 @@ export function wireEvents() {
         nodeId: String(x?.nodeId ?? '?'),
         nodeKind: String(x?.nodeKind ?? '?'),
         count: Number(x?.count ?? 1),
+      })))
+    }
+  })
+  Events.On('container:node-dump-batch', (e: any) => {
+    const payload = e?.data?.[0] ?? e?.data ?? e
+    const entries = payload?.entries
+    if (Array.isArray(entries)) {
+      useLogStore().appendNodeDump(entries.map((x: any) => ({
+        nodeId: String(x?.nodeId ?? '?'),
+        nodeKind: String(x?.nodeKind ?? '?'),
+        lineKey: String(x?.lineKey ?? ''),
+        line: String(x?.line ?? ''),
+        count: Number(x?.count ?? 1),
+        final: Boolean(x?.final),
       })))
     }
   })
