@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -178,6 +179,29 @@ func (s *LogSink) appendLineLocked(line string) {
 			_, _ = s.file.WriteString("\n")
 		}
 	}
+}
+
+// AppendDumpLine 把一条 opt-in 节点 dump 行只写进文件 (不进 ring / 不 emit log:lines,
+// 避免与前端 container:node-dump-batch 双显). 写成 JSON 行, 与现有 file log 保持一致.
+func (s *LogSink) AppendDumpLine(line string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.fileDir == "" {
+		return
+	}
+	s.openTodayFileLocked()
+	if s.file == nil {
+		return
+	}
+	obj := map[string]any{
+		"level": "info",
+		"event": "node-dump",
+		"line":  line,
+		"time":  time.Now().Format(time.RFC3339Nano),
+	}
+	b, _ := json.Marshal(obj)
+	_, _ = s.file.Write(b)
+	_, _ = s.file.WriteString("\n")
 }
 
 // Close 关闭日志文件 (shutdown 时调).

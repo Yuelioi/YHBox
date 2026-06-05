@@ -10,6 +10,27 @@ import (
 	"time"
 )
 
+func TestLogSink_AppendDumpLine_FileOnly(t *testing.T) {
+	dir := t.TempDir()
+	emitted := 0
+	s := NewLogSink(func(LogLinesEvent) { emitted++ })
+	s.SetFileWriter(dir)
+	s.AppendDumpLine(`CheckTemplate(n1) in{a=1} ×3`)
+
+	files, _ := os.ReadDir(dir)
+	if len(files) == 0 {
+		t.Fatal("no log file written")
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, files[0].Name()))
+	if !strings.Contains(string(data), "×3") || !strings.Contains(string(data), "node-dump") {
+		t.Fatalf("dump line not in file: %s", data)
+	}
+	if emitted != 0 {
+		t.Fatalf("AppendDumpLine must not emit log:lines, emitted=%d", emitted)
+	}
+	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
+}
+
 func TestLogSink_DebounceFlush(t *testing.T) {
 	var got []LogLinesEvent
 	var mu sync.Mutex
