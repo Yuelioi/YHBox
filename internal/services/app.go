@@ -76,7 +76,7 @@ func (a *App) AttachWailsApp(w *application.App) {
 // 走 buf + 200ms 定时 flush 成 container:node-enter-batch (payload = list), 前端取 last 1 个
 // 作为 currentNode. IPC 数百/sec → 5/sec, 不丢 event.
 func (a *App) Emit(name string, data any) {
-	if name != "container:node-enter" && len(name) >= 10 && name[:10] == "container:" {
+	if shouldMirrorToRootLog(name) {
 		a.rootLog.Info().Str("event", name).Interface("data", data).Msg("runtime event")
 	}
 	if a.wailsApp == nil {
@@ -106,6 +106,21 @@ func (a *App) Emit(name string, data any) {
 
 func str(v any) string { s, _ := v.(string); return s }
 func boolOf(v any) bool { b, _ := v.(bool); return b }
+
+// shouldMirrorToRootLog 决定一个事件名是否镜像到 rootLog (→ file + log:lines SYS 行) 做 post-mortem.
+// 只镜像 container:* 事件, 但排除高频/内部 plumbing — 这些每次节点执行就来一发, 镜像 = 面板刷屏 + 重复:
+//   - container:node-enter        (数百/sec, 已有 batch 路径)
+//   - container:node-dump 家族    (每节点执行一次; file 走 LogMerger.AppendDumpLine, 面板走 node-dump-batch)
+func shouldMirrorToRootLog(name string) bool {
+	if len(name) < 10 || name[:10] != "container:" {
+		return false
+	}
+	switch name {
+	case "container:node-enter", "container:node-dump", "container:node-dump-batch", "container:node-dump-flush":
+		return false
+	}
+	return true
+}
 
 // bufferNodeEnter 把 node-enter event 累积进 buf, 启动定时 flush.
 // 连续同 nodeId 折叠 (Loop body 反复进同节点是常态, e.g. state_FISHING.barTrack 30Hz).
