@@ -41,9 +41,9 @@ type RegionRunner interface {
 // Evaluator — pure-data 节点 (IsPureData=true) 实现, 走 EvaluatePureData 入口求 single value.
 // 不返 Outputs (没 exit 出口), 直接返算出来的标量 — 给 data-edge 下游消费.
 //
-// 节点不实现 Evaluator → EvaluatePureData 返 error; dispatch 可探测后 fallback 老路径.
-// 设计目的: GetVar/GetSys/GetParam 依赖 runtime state (frame/snapshot), 这几个不实现 Evaluator,
-// dispatch 走 fallback. Add/Sub/.../Select 等 22 purefunc 自包含, 实现即可.
+// 没实现 Evaluator → EvaluatePureData 返 error. 依赖 runtime state 的 pure-data 节点
+// (GetVar/GetSys) 看到的是 tick-frozen 快照: dispatch 入口 wrap services.Vars/Sys, 节点照常
+// 写 ctx.Vars()/Sys() 即可拿到一致视图 (见 EvaluatePureData 的 snapshot wrap).
 type Evaluator interface {
 	Evaluate(ctx Ctx, in Inputs) (any, error)
 }
