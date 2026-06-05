@@ -37,7 +37,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 
-	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, false)
+	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled)
 	return r.routeResult(node, tok, result)
 }
 
@@ -142,15 +142,16 @@ func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
 // routeResult turns RunResult into next ExecToken batch + emit lifecycle events.
 //
 // Priority order:
-//  1. Panic   → emit container:node-panic + return error (framework invariant broken)
-//  2. Validation → emit container:node-validation + return error (graph 写错, 中断 run)
-//  3. Error   → emit container:node-error + return error (Run 返 runtime fail, caller 决定 stop /
+//  1. Panic   → emitDump(err) + emit container:node-panic + return error (framework invariant broken)
+//  2. Validation → emit container:node-validation + return error (graph 写错, 中断 run; 节点没真跑, 不 dump)
+//  3. Error   → emitDump(err) + emit container:node-error + return error (Run 返 runtime fail, caller 决定 stop /
 //     冒泡 / 走 Try; Stop sentinel / Try internal catch 走早返不 emit)
-//  4. Display → emit container:node-log (Display() 非空才 emit)
+//  4. Success → emitDump(nil) (仅勾选节点; opt-in node dump)
 //  5. ExitName 空 → return nil tokens (no-op 节点, queue 继续)
 //  6. ExitName 非空 → r.edges.next(nodeID.exitName)
 func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, result nodepkg.RunResult) ([]ExecToken, error) {
 	if result.Panic != nil {
+		r.emitDump(node, result, fmt.Errorf("panic: %v", result.Panic))
 		if r.rt.Emit != nil {
 			r.rt.Emit("container:node-panic", map[string]any{
 				"containerId": r.rt.Container.ID,
@@ -196,6 +197,8 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 			msg := result.Error.Error()
 			r.rt.UpdateSys(func(s *SysState) { s.LastTry.ErrorMsg = msg })
 		}
+		// dump 行先于 node-error (同 goroutine → 有序), 让勾选节点失败也吐 in/err.
+		r.emitDump(node, result, result.Error)
 		// 跟 Panic / Validation 对齐 — emit container:node-error 让前端高亮失败节点.
 		if r.rt.Emit != nil {
 			r.rt.Emit("container:node-error", map[string]any{
@@ -208,14 +211,8 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		return nil, result.Error
 	}
 
-	if result.DisplayText != "" && r.rt.Emit != nil {
-		r.rt.Emit("container:node-log", map[string]any{
-			"containerId": r.rt.Container.ID,
-			"nodeId":      node.ID,
-			"nodeKind":    node.Kind,
-			"message":     result.DisplayText,
-		})
-	}
+	// 成功路径: 勾选节点吐 dump 行 (in/out), 经 merger 合并.
+	r.emitDump(node, result, nil)
 
 	// 节点 OutputData 摘录写到 SysState. Spec SysStore 是 read-only, 写责任落到 dispatch
 	// 层 (类似 VisionAdapter 在 vision call 里写). 只对真有 GetSys 路径消费的节点做.
@@ -226,6 +223,27 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	}
 	tokens := r.edges.nextWithData(node.ID+"."+result.ExitName, tok.LoopStack, result.OutputData)
 	return tokens, nil
+}
+
+// emitDump 给勾选节点组 dump 行并经 Emit 送中央 merger (app 拦截 container:node-dump).
+// runErr != nil → error 行 (in{} err=, out 仅非空才带); 该行由 merger 落定不参与合并.
+func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.RunResult, runErr error) {
+	if !node.LogEnabled || r.rt.Emit == nil {
+		return
+	}
+	rn, ok := nodepkg.Get(node.Kind)
+	if !ok {
+		return
+	}
+	line, key := FormatDumpLine(&rn.Spec, node.Label, node.ID, result.ResolvedInputs, result.OutputData, runErr)
+	r.rt.Emit("container:node-dump", map[string]any{
+		"containerId": r.rt.Container.ID,
+		"nodeId":      node.ID,
+		"nodeKind":    node.Kind,
+		"line":        line,
+		"lineKey":     key,
+		"isError":     runErr != nil,
+	})
 }
 
 // writeSysStateFromOutput 按 node.Kind 摘录 result.OutputData 字段写 SysState.
@@ -269,7 +287,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 
-	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, false, body)
+	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled, body)
 	return r.routeResult(node, tok, result)
 }
 

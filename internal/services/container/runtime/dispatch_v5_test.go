@@ -379,7 +379,10 @@ func TestExecNodeViaFramework_Error(t *testing.T) {
 	if !strings.Contains(err.Error(), "deliberate test error") {
 		t.Errorf("error %q should propagate Run error", err)
 	}
-	// Error 路径不 emit node-validation / node-panic / node-log
+	// Error 路径不 emit node-validation / node-panic; 节点未勾选 → 不 dump
+	if got := len(dt.eventsByName("container:node-dump")); got != 0 {
+		t.Errorf("Error path on unflagged node should not emit node-dump, got %d", got)
+	}
 	if got := len(dt.eventsByName("container:node-validation")); got != 0 {
 		t.Errorf("Error path should not emit node-validation, got %d", got)
 	}
@@ -423,8 +426,11 @@ func TestExecNodeViaFramework_Panic(t *testing.T) {
 	}
 }
 
-func TestExecNodeViaFramework_Display(t *testing.T) {
-	dt := newDispatchTest(t, tkDisplay)
+// LogEnabled=true 节点跑成功 → emit container:node-dump (含 line/lineKey/nodeId/nodeKind),
+// 且 ZERO container:node-log (旧 auto emit 已删).
+func TestRouteResult_DumpEmittedWhenLogEnabled(t *testing.T) {
+	dt := newDispatchTest(t, tkHappy)
+	dt.node.LogEnabled = true
 	tokens, err := dt.r.execNodeViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -432,13 +438,40 @@ func TestExecNodeViaFramework_Display(t *testing.T) {
 	if len(tokens) != 1 {
 		t.Fatalf("got %d tokens, want 1", len(tokens))
 	}
-	events := dt.eventsByName("container:node-log")
+	if got := len(dt.eventsByName("container:node-log")); got != 0 {
+		t.Errorf("node-log emit must be gone, got %d", got)
+	}
+	events := dt.eventsByName("container:node-dump")
 	if len(events) != 1 {
-		t.Fatalf("got %d node-log events, want 1", len(events))
+		t.Fatalf("got %d node-dump events, want 1", len(events))
 	}
 	payload := events[0].Data.(map[string]any)
-	if payload["message"] != "display-text-for-Out" {
-		t.Errorf("log message = %v, want display-text-for-Out", payload["message"])
+	if payload["nodeId"] != "n1" {
+		t.Errorf("node-dump nodeId = %v, want n1", payload["nodeId"])
+	}
+	if payload["nodeKind"] != tkHappy {
+		t.Errorf("node-dump nodeKind = %v, want %s", payload["nodeKind"], tkHappy)
+	}
+	if line, _ := payload["line"].(string); line == "" {
+		t.Error("node-dump line must be non-empty")
+	}
+	if _, ok := payload["lineKey"]; !ok {
+		t.Error("node-dump payload missing lineKey")
+	}
+	if payload["isError"] != false {
+		t.Errorf("node-dump isError = %v, want false on success", payload["isError"])
+	}
+}
+
+// LogEnabled=false (默认) → ZERO container:node-dump.
+func TestRouteResult_NoDumpWhenLogDisabled(t *testing.T) {
+	dt := newDispatchTest(t, tkHappy) // LogEnabled defaults false
+	_, err := dt.r.execNodeViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := len(dt.eventsByName("container:node-dump")); got != 0 {
+		t.Errorf("unflagged node should not emit node-dump, got %d", got)
 	}
 }
 
