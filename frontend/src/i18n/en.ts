@@ -1196,6 +1196,7 @@ export default {
       wrap_text: 'Wrap text',
       auto_scroll: 'Auto-scroll',
       write_file: 'Write to file',
+      show_node_enter: 'Show node-enter trace',
     },
   },
   common: {

@@ -20,6 +20,7 @@ export interface Settings {
       wrapText: boolean
       writeFile: boolean
       fileDir: string
+      showNodeEnter?: boolean
     }
     window: {
       width: number

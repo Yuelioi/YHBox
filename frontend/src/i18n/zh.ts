@@ -1217,6 +1217,7 @@ export default {
       wrap_text: '自动折行',
       auto_scroll: '自动滚动',
       write_file: '写入文件',
+      show_node_enter: '显示节点切换',
     },
   },
   common: {

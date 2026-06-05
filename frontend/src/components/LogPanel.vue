@@ -79,6 +79,11 @@
               <input type="checkbox" :checked="writeFile" @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)" />
               {{ t('log.popover.write_file') }}
             </label>
+            <hr class="border-default my-1" />
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" :checked="showNodeEnter" @change="showNodeEnter = ($event.target as HTMLInputElement).checked" />
+              {{ t('log.popover.show_node_enter') }}
+            </label>
           </div>
         </template>
       </UPopover>
@@ -115,7 +120,7 @@
           class="shrink-0 uppercase tracking-wide w-12"
           :class="levelClass(l.level)"
         >{{ l.level }}</span>
-        <span class="text-default break-all">{{ l.message }}</span>
+        <span class="text-default break-all">{{ l.message }}<span v-if="(l.count ?? 1) > 1" class="text-dimmed"> ×{{ l.count }}</span></span>
       </div>
     </div>
   </div>
@@ -148,13 +153,20 @@ const autoScroll = computed(() => settingsStore.data?.ui.logger.autoScroll ?? tr
 const writeFile = computed(() => settingsStore.data?.ui.logger.writeFile ?? true)
 const fileDir = computed(() => settingsStore.data?.ui.logger.fileDir ?? 'logs')
 
+const showNodeEnter = computed({
+  get: () => settingsStore.data?.ui.logger.showNodeEnter ?? false,
+  set: (v: boolean) => settingsStore.patch({ ui: { logger: { showNodeEnter: v } } }),
+})
+
 function toggleField(field: string, v: boolean) {
   settingsStore.patch({ ui: { logger: { [field]: v } } })
 }
 
 const filteredLines = computed(() => {
-  if (filter.value === 'ALL') return logStore.lines
-  return logStore.lines.filter((l) => l.source === filter.value)
+  let ls = logStore.lines
+  if (!showNodeEnter.value) ls = ls.filter((l) => l.level !== 'node')
+  if (filter.value !== 'ALL') ls = ls.filter((l) => l.source === filter.value)
+  return ls
 })
 
 const hasErrors = computed(() =>
@@ -171,6 +183,7 @@ function levelClass(level: string) {
     case 'warn': return 'text-amber-400'
     case 'debug': return 'text-dimmed'
     case 'node': return 'text-violet-300'
+    case 'dump': return 'text-emerald-300'
     case 'log': return 'text-emerald-400'
     default: return 'text-blue-400'
   }
