@@ -434,6 +434,8 @@ export default {
     label_field_label: 'Label',
     label_field_hint: 'Empty → uses the node type default name',
     label_field_placeholder: '(empty)',
+    log_enabled_label: 'Log output',
+    log_enabled_hint: 'When on, this node writes its inputs/outputs to the log panel & file each run (auto-merged ×N in loops)',
     concurrency_warn_title: 'Concurrent branches writing the same variable',
     expr_chain_title: 'Expr chain detected',
     expr_chain_desc: 'After fusion, the current node\'s expression inlines into the downstream Expr (as a parenthesized sub-expression); the current node is removed.',

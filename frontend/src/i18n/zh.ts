@@ -450,6 +450,8 @@ export default {
     label_field_label: '标签 (Label)',
     label_field_hint: '留空则用节点类型的默认名',
     label_field_placeholder: '(留空)',
+    log_enabled_label: '打印日志',
+    log_enabled_hint: '勾选后该节点每次执行把输入/输出写进日志面板与文件 (循环里自动合并 ×N)',
     concurrency_warn_title: '并发分支写入同一变量',
     expr_chain_title: '检测到 Expr 链',
     expr_chain_desc: '合并后当前节点的表达式会内联到下游 Expr (作为括号子表达式), 当前节点被删除.',

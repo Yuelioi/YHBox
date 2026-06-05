@@ -55,6 +55,7 @@ export interface GraphNode {
   y: number
   config?: Record<string, any>
   disabled?: boolean   // runtime 跳过该节点 — 走 kind-aware passthrough
+  logEnabled?: boolean // 勾选 → 执行时吐通用 dump 日志到面板/文件
   createdAt?: string
 }
 export interface GraphEdge {

@@ -39,6 +39,17 @@
       </UFormField>
     </section>
 
+    <!-- 打印日志 (LogEnabled) — 勾选后该节点执行时吐通用 dump 日志 -->
+    <section class="mb-4">
+      <UFormField :label="t('inspector.log_enabled_label')" :hint="t('inspector.log_enabled_hint')">
+        <USwitch
+          :model-value="node.logEnabled ?? false"
+          size="sm"
+          @update:model-value="(v: boolean) => $emit('log-enabled-update', v)"
+        />
+      </UFormField>
+    </section>
+
     <!-- 用法说明 -->
     <section
       v-if="description"
@@ -566,6 +577,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [config: Record<string, any>]
   'label-update': [v: string]
+  'log-enabled-update': [v: boolean]
   delete: []
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
 }>()

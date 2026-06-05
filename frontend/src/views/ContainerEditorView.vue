@@ -293,6 +293,7 @@
           :all-subgraph-tags="allSubgraphTags"
           @config-update="onConfigUpdate"
           @label-update="onLabelUpdate"
+          @log-enabled-update="onLogEnabledUpdate"
           @delete-selected="onDeleteSelected"
           @subgraph-update="onSubgraphPropsUpdate"
           @request-record="(e) => startRecording(e.mode, { replaceNodeID: e.replaceNodeID })"
@@ -1123,6 +1124,19 @@ function onLabelUpdate(newLabel: string) {
     const trimmed = newLabel.trim()
     if (trimmed) n.label = trimmed
     else delete n.label
+  })
+}
+
+function onLogEnabledUpdate(enabled: boolean) {
+  if (!selectedNode.value) return
+  const targetID = selectedNode.value.id
+  applyDraftMutation(() => {
+    const g = activeGraph.value
+    if (!g) return
+    const n = g.nodes.find((x) => x.id === targetID)
+    if (!n) return
+    if (enabled) n.logEnabled = true
+    else delete n.logEnabled
   })
 }
 
