@@ -3,7 +3,7 @@
 // 桥接 RuntimeContext (+ stopwatchTable + zerolog) 到 node.* service interfaces.
 // 给 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.
 //
-// 8 个 adapter: log / vars / sys / stopwatch / input / window / capture / vision.
+// adapter: log / vars / param / stopwatch / input / window / capture / vision / clip.
 // 全部 hold *RuntimeContext (live 经 rt.ActiveHWND()/WindowHandle() 读当前活动窗口及 Input/Capture, setupRuntime 后才 populate).
 package runtime
 
@@ -15,7 +15,6 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
-	"strings"
 	"time"
 
 	"github.com/lxn/win"
@@ -136,32 +135,6 @@ func NewVarStoreAdapter(rt *RuntimeContext, state ...func() *ExecState) node.Var
 }
 
 // ============================================================================
-// SysStoreAdapter — RuntimeContext.sys + special-cases → node.SysStore.
-// 镜像 GetSys path 解析: now_ms / varLastChange.<name> live 读, 其余走 resolveSysPath.
-// 注: PureData Evaluator 经 framework snapshot wrap 拿到的是 frozenSysStoreAdapter
-// (持 tick-frozen SysState), 不是这个 live adapter. live adapter 给 Runnable 节点.
-// ============================================================================
-
-type sysStoreAdapter struct{ rt *RuntimeContext }
-
-func (a *sysStoreAdapter) Get(path string) (any, bool) {
-	if path == "now_ms" {
-		return float64(nowMillis()), true
-	}
-	if name, ok := strings.CutPrefix(path, "varLastChange."); ok {
-		return float64(a.rt.VarLastChange(name)), true
-	}
-	v, err := resolveSysPath(a.rt.Sys(), path)
-	if err != nil {
-		return nil, false
-	}
-	return v, true
-}
-
-// NewSysStoreAdapter wrap *RuntimeContext into node.SysStore.
-func NewSysStoreAdapter(rt *RuntimeContext) node.SysStore { return &sysStoreAdapter{rt: rt} }
-
-// ============================================================================
 // ParamStoreAdapter — frame.LocalParams → node.ParamStore
 // 当前 frame 是 dispatch live, 持 *ExecState getter (跟 varStoreAdapter 同模式).
 // ============================================================================
@@ -185,37 +158,6 @@ func (a *paramStoreAdapter) Get(name string) (any, bool) {
 // NewParamStoreAdapter wrap *ExecState getter into node.ParamStore.
 func NewParamStoreAdapter(state func() *ExecState) node.ParamStore {
 	return &paramStoreAdapter{state: state}
-}
-
-// ============================================================================
-// FrozenSysStoreAdapter — Snapshot.Sys 的 runtime-side wrapper.
-// 持 frozen SysState 值 + live rt (for now_ms / varLastChange.X escape).
-// PureData Evaluator 通过 ctx.Sys() 读, framework wrap 时把 services.Sys 换成此实例.
-// ============================================================================
-
-type frozenSysStoreAdapter struct {
-	sys SysState        // frozen snapshot
-	rt  *RuntimeContext // for now_ms / varLastChange.X live read
-}
-
-func (a *frozenSysStoreAdapter) Get(path string) (any, bool) {
-	if path == "now_ms" {
-		return float64(nowMillis()), true
-	}
-	if name, ok := strings.CutPrefix(path, "varLastChange."); ok {
-		return float64(a.rt.VarLastChange(name)), true
-	}
-	v, err := resolveSysPath(a.sys, path)
-	if err != nil {
-		return nil, false
-	}
-	return v, true
-}
-
-// newFrozenSysStore wraps a frozen SysState + live rt closure into node.SysStore.
-// Called by ContainerRunner when building bundle.Snapshot getter.
-func newFrozenSysStore(sys SysState, rt *RuntimeContext) node.SysStore {
-	return &frozenSysStoreAdapter{sys: sys, rt: rt}
 }
 
 // ============================================================================
@@ -580,7 +522,7 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold 
 }
 
 // matchOnce 单帧多模板判定. mode="all": 全部 key 同帧命中才算命中 (点取首个 key); 否则 "any":
-// 按列表序取首个命中. 写 SysState.LastFound/LastPoint (整体命中与否 + 命中点).
+// 按列表序取首个命中. 命中点经节点 OutputData 显式捕获到用户变量.
 func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
 	var frame *image.RGBA
 	if a.rt.Capture != nil {
@@ -606,14 +548,12 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 				minConf = conf
 			}
 			if !found {
-				a.writeLastTemplate(false, expr.Point{})
 				return nil, conf, nil // 报这个没过的 key 的真实匹配度
 			}
 			if idx == 0 {
 				firstPt = pt
 			}
 		}
-		a.writeLastTemplate(true, firstPt)
 		return &node.Point{X: firstPt.X, Y: firstPt.Y}, minConf, nil
 	}
 	// any (默认)
@@ -627,26 +567,10 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 			bestConf = conf
 		}
 		if found {
-			a.writeLastTemplate(true, pt)
 			return &node.Point{X: pt.X, Y: pt.Y}, conf, nil // 命中: 报真实匹配度 (不再写死 1.0)
 		}
 	}
-	a.writeLastTemplate(false, expr.Point{})
 	return nil, bestConf, nil
-}
-
-// writeLastTemplate 写 SysState.LastFound/LastPoint (Match/WaitMatch), 让 GetSys
-// path=lastTemplate.{found,point} 下游节点能读. fishing-v2 watchdog_check / inspect_phase
-// 等子图依赖.
-func (a *visionAdapter) writeLastTemplate(found bool, pt expr.Point) {
-	a.rt.UpdateSys(func(s *SysState) {
-		s.LastFound = found
-		if found {
-			s.LastPoint = pt
-		} else {
-			s.LastPoint = expr.Point{}
-		}
-	})
 }
 
 func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
@@ -687,13 +611,6 @@ func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRan
 		InnerPx:    result.InnerPx,
 		OuterPx:    result.OuterPx,
 	}
-
-	// 写 SysState.LastDualBarTrack — fishing-v2 state_FISHING 子图通过 GetSys
-	// path=lastDualBarTrack.{innerX,outerX,outerWidth,...} 读. 写回责任落在 VisionAdapter
-	// (节点只 emit exec-data, 不碰 SysState).
-	a.rt.UpdateSys(func(s *SysState) {
-		s.LastDualBarTrack = out
-	})
 	return out, nil
 }
 
@@ -722,11 +639,6 @@ func (a *visionAdapter) DetectColor(roi node.Geometry, mode string, rng [6]int) 
 		cx = float64(sumX) / float64(count) / float64(frameW)
 		cy = float64(sumY) / float64(count) / float64(frameH)
 	}
-	// 写 LastColorCount/LastColorCenter — GetSys path=lastColor.count/cx/cy 下游读.
-	a.rt.UpdateSys(func(s *SysState) {
-		s.LastColorCount = int64(count)
-		s.LastColorCenter = expr.Point{X: cx, Y: cy}
-	})
 	return count, cx, cy, nil
 }
 
@@ -747,11 +659,6 @@ func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (in
 	}
 	sub := cropFrameByGeometry(frame, roi)
 	count, ratio := countHSVInROI(sub, hsvRangeFromNode(hsv))
-	// 写 LastDetect — GetSys path=lastDetect.pixelCount/pixelRatio 读.
-	a.rt.UpdateSys(func(s *SysState) {
-		s.LastDetect.PixelCount = count
-		s.LastDetect.PixelRatio = ratio
-	})
 	return count, ratio, nil
 }
 
@@ -789,11 +696,6 @@ func (a *visionAdapter) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis 
 			PxCount:  c.PxCount,
 		}
 	}
-	// 写 LastROIScan — GetSys path=lastROIScan.{clusterCount,clusters} 读.
-	a.rt.UpdateSys(func(s *SysState) {
-		s.LastROIScan.Clusters = internal
-		s.LastROIScan.ClusterCount = len(internal)
-	})
 	return out, nil
 }
 
@@ -854,7 +756,7 @@ func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAda
 // 构造时传 func() *ExecState { return r.state }. nil 兜底 — adapter scoped 方法降级.
 //
 // Snapshot — per-tick view 从 ctx (tickCtxKey) 读. dispatchInRegion 入口
-// withTickSnapshot 写入, EvaluatePureData wrap 时调 Snapshot(ctx) 拿 frozen Vars/Sys view.
+// withTickSnapshot 写入, EvaluatePureData wrap 时调 Snapshot(ctx) 拿 frozen Vars view.
 // ctx 无 value → 返空 Snapshot{}, 等价跳过 wrap.
 func NewServiceBundleFor(
 	rt *RuntimeContext,
@@ -867,7 +769,6 @@ func NewServiceBundleFor(
 		Log:         NewLogAdapter(log),
 		Input:       NewInputAdapter(rt),
 		Vars:        NewVarStoreAdapter(rt, stateGetter),
-		Sys:         NewSysStoreAdapter(rt),
 		Params:      NewParamStoreAdapter(stateGetter),
 		Window:      NewWindowAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),
@@ -880,7 +781,6 @@ func NewServiceBundleFor(
 			}
 			return node.Snapshot{
 				Vars: tick.Vars,
-				Sys:  newFrozenSysStore(tick.Sys, rt),
 			}
 		},
 	}

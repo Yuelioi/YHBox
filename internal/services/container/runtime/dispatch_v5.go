@@ -44,7 +44,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 // buildDataWireFor pulls all non-Exec data-in pins from node Spec.
 //
 // 每个 pin 走 resolveDataPinV5 — 上游是 IsPureData + 实现 Evaluator → 框架 EvaluatePureData
-// (递归 build 上游 dataWire); 否则 (GetVar/GetSys/GetParam/Expr/exec-node data-out/literal/无 edge)
+// (递归 build 上游 dataWire); 否则 (GetVar/GetParam/Expr/exec-node data-out/literal/无 edge)
 // fallback r.pullDataPin.
 //
 // 注意 pin name 大小写: 用 Spec.Inputs[].Name 当 pin name 查 r.dataEdges, 两侧都是 PascalCase.
@@ -87,7 +87,7 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 //   - 上游节点不在 framework registry / 不 IsPureData / 没实现 Evaluator → 走 r.pullDataPin
 //   - 上游 IsPureData + 实现 Evaluator → 走 nodepkg.EvaluatePureData (递归 build 上游 dataWire)
 //
-// 22 purefunc + Expr 走 framework. GetVar/GetSys/GetParam 依赖 runtime state (frame /
+// 22 purefunc + Expr 走 framework. GetVar/GetParam 依赖 runtime state (frame /
 // per-tick snapshot), 走 fallback evalDataSource switch.
 func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName string) (any, error) {
 	srcID, _ := r.dataEdges.Source(nodeID, pinName)
@@ -189,14 +189,6 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		}
 		// 注意 Break/Continue/Throw sentinel 错误必须透传 — 外层 Loop.RunRegion / Try.RunRegion
 		// 截获. 顶层 leak 防御在 ContainerRunner.Run / runSubFlow 主 loop.
-		// Try 的 error path 写 SysState.LastTry.ErrorMsg — state_FISHING 等子图通过
-		// GetSys path=lastTry.errorMsg 读. 注意 Try.RunRegion 内部已 catch error 走 catch
-		// 出口, 这里 result.Error 漏到 routeResult 表示真失败 (validator drift / framework
-		// bug), 仍存一份 ErrorMsg 给诊断.
-		if node.Kind == "Try" {
-			msg := result.Error.Error()
-			r.rt.UpdateSys(func(s *SysState) { s.LastTry.ErrorMsg = msg })
-		}
 		// dump 行先于 node-error (同 goroutine → 有序), 让勾选节点失败也吐 in/err.
 		r.emitDump(node, result, result.Error)
 		// 跟 Panic / Validation 对齐 — emit container:node-error 让前端高亮失败节点.
@@ -213,10 +205,6 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 
 	// 成功路径: 勾选节点吐 dump 行 (in/out), 经 merger 合并.
 	r.emitDump(node, result, nil)
-
-	// 节点 OutputData 摘录写到 SysState. Spec SysStore 是 read-only, 写责任落到 dispatch
-	// 层 (类似 VisionAdapter 在 vision call 里写). 只对真有 GetSys 路径消费的节点做.
-	r.writeSysStateFromOutput(node, result)
 
 	if result.ExitName == "" {
 		return nil, nil
@@ -244,23 +232,6 @@ func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.Run
 		"lineKey":     key,
 		"isError":     runErr != nil,
 	})
-}
-
-// writeSysStateFromOutput 按 node.Kind 摘录 result.OutputData 字段写 SysState.
-// Spec 不暴露写口, 责任转到 dispatch.
-//
-// 当前只覆盖 Screenshot (LastScreenshot.Path). Match/WaitMatch/DetectColor/HSV/ROIScan/
-// BarTrack 在 VisionAdapter 内已写, 不重复. Try.LastTry.ErrorMsg 走 error 路径单独写.
-func (r *ContainerRunner) writeSysStateFromOutput(node *container.GraphNode, result nodepkg.RunResult) {
-	if result.OutputData == nil {
-		return
-	}
-	switch node.Kind {
-	case "Screenshot":
-		if path, _ := result.OutputData["Path"].(string); path != "" {
-			r.rt.UpdateSys(func(s *SysState) { s.LastScreenshot.Path = path })
-		}
-	}
 }
 
 // ============================================================================
@@ -295,7 +266,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 // runRegionBody 调它派发 child 节点 — 自动 route 到 region (RunNodeAsRegion) 或 normal (RunNode).
 //
 // per-exec-tick snapshot 只在这里抓 (单一抓点) — runner.go::Run / nodes.go::runSubFlow /
-// runRegionBody 都不重复抓. consumers (GetVar.Evaluate / GetSys.Evaluate 经 framework
+// runRegionBody 都不重复抓. consumers (GetVar.Evaluate 经 framework
 // snapshot wrap) 只在节点 data pull 阶段读, 跟 dispatchInRegion → execNode(AsRegion)ViaFramework
 // → buildDataWireFor 同周期, 入口抓一次足够.
 func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
@@ -305,7 +276,7 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 	}
 	// per-tick snapshot 走 ctx (tickCtxKey) — per-goroutine/per-token scope, 让共享 bundle
 	// 的 listener subRunner / 并发 runner 都安全, 不撞 instance 字段.
-	ctx = withTickSnapshot(ctx, CaptureSnapshot(r.rt.Vars(), r.rt.Sys()))
+	ctx = withTickSnapshot(ctx, CaptureSnapshot(r.rt.Vars()))
 	if rn.RunRegion != nil {
 		return r.execNodeAsRegionViaFramework(ctx, n, tok)
 	}
