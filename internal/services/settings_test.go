@@ -104,6 +104,51 @@ func TestLoadSettings_EmptyFileDirFallsToDefault(t *testing.T) {
 	}
 }
 
+func TestUISettings_LauncherRoundTrip(t *testing.T) {
+	s := &Settings{
+		UI: UISettings{
+			LauncherToggleHotkey: "Ctrl+Shift+L",
+			LauncherGroups: []LauncherGroup{
+				{ID: "g1", Name: "战斗", ContainerIDs: []string{"c1", "c2"}},
+			},
+		},
+	}
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var out Settings
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if out.UI.LauncherToggleHotkey != "Ctrl+Shift+L" {
+		t.Errorf("LauncherToggleHotkey: want %q, got %q", "Ctrl+Shift+L", out.UI.LauncherToggleHotkey)
+	}
+	if len(out.UI.LauncherGroups) != 1 {
+		t.Fatalf("LauncherGroups len: want 1, got %d", len(out.UI.LauncherGroups))
+	}
+	g := out.UI.LauncherGroups[0]
+	if g.Name != "战斗" {
+		t.Errorf("group Name: want %q, got %q", "战斗", g.Name)
+	}
+	if len(g.ContainerIDs) != 2 {
+		t.Errorf("ContainerIDs len: want 2, got %d", len(g.ContainerIDs))
+	}
+}
+
+func TestUISettings_LauncherZeroValue(t *testing.T) {
+	var s Settings
+	if err := json.Unmarshal([]byte(`{"ui":{}}`), &s); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if s.UI.LauncherToggleHotkey != "" {
+		t.Errorf("LauncherToggleHotkey zero: want empty, got %q", s.UI.LauncherToggleHotkey)
+	}
+	if len(s.UI.LauncherGroups) != 0 {
+		t.Errorf("LauncherGroups zero: want len 0, got %d", len(s.UI.LauncherGroups))
+	}
+}
+
 func TestLoadSettings_UnmarshalIntoBase(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "s.json")

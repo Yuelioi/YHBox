@@ -9,6 +9,14 @@ export interface MouseProfile {
   counts360: number
 }
 
+// LauncherGroup 悬浮窗启动器的一个分组（跟 Go services.LauncherGroup 对齐）。
+// containerIds 有序，只存 ID；名字/状态/热键运行时拉。
+export interface LauncherGroup {
+  id: string
+  name: string
+  containerIds: string[]
+}
+
 // 跟 Go services.Settings 对齐（v2：fish/cook/piano/battle 等 v1 游戏专属字段已删）
 export interface Settings {
   ui: {
@@ -35,6 +43,8 @@ export interface Settings {
     recordingMouseMode: 'relative' | 'absolute' // 录制鼠标语义；改完需重启
     mouseProfiles: MouseProfile[] // 命名鼠标校准档列表（异环/原神…各一档）
     activeMouseProfile: string // 指向 mouseProfiles 里某个 label；空/失配 → activeMouseCounts360 兜底
+    launcherGroups: LauncherGroup[] // 悬浮窗启动器分组（用户编排）
+    launcherToggleHotkey: string // 呼出/隐藏悬浮窗的全局热键（空=未绑）
   }
   locale: 'zh' | 'en' // i18n 口子
   capture: {
