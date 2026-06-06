@@ -13,8 +13,8 @@ export interface UsageRef {
 }
 
 const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar', 'VarLastChange'])
+// VAR_READ_KINDS 是读引用 kind；VAR_NODE_KINDS 里其余成员视为写。新增变量节点 kind 时须同步这两个 Set。
 const VAR_READ_KINDS = new Set(['GetVar', 'VarLastChange'])
-const VAR_WRITE_KINDS = new Set(['SetVar', 'IncVar'])
 
 // 某 kind 的捕获框字段名 (semantic==='capture'); 来自 NODE_FIELD_SCHEMAS 派生.
 function captureFieldsOf(kind: string): string[] {
