@@ -58,5 +58,7 @@ func (s *SettingsService) Update(patchJSON string) error {
 		}
 		sink.SetFileWriter(dir)
 	}
+	// 通知所有 webview（尤其独立悬浮窗这种自带 store 的窗口）设置已变 → 各自 reload。
+	s.app.Emit("settings:changed", map[string]any{})
 	return nil
 }

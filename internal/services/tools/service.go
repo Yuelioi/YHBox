@@ -232,8 +232,10 @@ func (s *Service) OpenLauncher() error {
 	s.mu.Unlock()
 	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "启动器",
-		Width:            340,
-		Height:           560,
+		Width:            240,
+		Height:           300,
+		MinWidth:         140,
+		MinHeight:        120,
 		URL:              "/#/tools/launcher",
 		Frameless:        true,
 		AlwaysOnTop:      true,
@@ -276,6 +278,17 @@ func (s *Service) HideLauncher() error {
 	s.mu.Unlock()
 	if w != nil {
 		w.Hide()
+	}
+	return nil
+}
+
+// SetLauncherAlwaysOnTop 图钉切换：运行时改启动器窗口置顶（默认开窗即置顶）。
+func (s *Service) SetLauncherAlwaysOnTop(on bool) error {
+	s.mu.Lock()
+	w := s.launcher
+	s.mu.Unlock()
+	if w != nil {
+		w.SetAlwaysOnTop(on)
 	}
 	return nil
 }

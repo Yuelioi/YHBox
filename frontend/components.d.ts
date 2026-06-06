@@ -34,6 +34,7 @@ declare module 'vue' {
     FindReferencesModal: typeof import('./src/components/containers/FindReferencesModal.vue')['default']
     GeometryWidget: typeof import('./src/components/containers/inline/GeometryWidget.vue')['default']
     HotkeyCaptureInput: typeof import('./src/components/hotkeys/HotkeyCaptureInput.vue')['default']
+    HudShell: typeof import('./src/components/tools/HudShell.vue')['default']
     IconPicker: typeof import('./src/components/containers/inline/IconPicker.vue')['default']
     ImportToContainerDialog: typeof import('./src/components/library/ImportToContainerDialog.vue')['default']
     InlineContextMenu: typeof import('./src/components/containers/InlineContextMenu.vue')['default']
