@@ -1371,6 +1371,7 @@ export default {
     exit_select: 'Exit select',
     delete_count: 'Delete ({n})',
     create: 'New container',
+    launcher: 'Floating launcher',
     empty_title: 'No containers yet',
     empty_desc: 'A container is a node-graph blueprint with variables, control flow, template detection, and Action calls.',
     editing_locked_tip: 'Editing in another window',

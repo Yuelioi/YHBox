@@ -1393,6 +1393,7 @@ export default {
     exit_select: '退出选择',
     delete_count: '删除 ({n})',
     create: '新建容器',
+    launcher: '悬浮启动器',
     empty_title: '还没有容器',
     empty_desc: '容器是节点图蓝图, 包含变量、控制流、模板检测和 Action 调用.',
     editing_locked_tip: '另一窗口正在编辑中',

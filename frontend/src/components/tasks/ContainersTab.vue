@@ -21,7 +21,7 @@
         {{ t('containers.delete_count', { n: batch.count.value }) }}
       </UButton>
       <UButton color="primary" icon="i-tabler-plus" @click="onCreate">{{ t('containers.create') }}</UButton>
-      <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-layout-grid" @click="openLauncher">悬浮启动器</UButton>
+      <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-layout-grid" @click="openLauncher">{{ t('containers.launcher') }}</UButton>
     </header>
 
     <!-- Tag chip 筛选（按使用计数倒序，横向滚动） -->
