@@ -95,4 +95,40 @@ describe('useVarMutations', () => {
     m.reorderVars(0, 1)
     expect(draft.value.vars!.map(v => v.name)).toEqual(['y', 'x'])
   })
+
+  // ── Task 11: VarLastChange 纳入 VAR_NODE_KINDS ──────────────────────────────
+  it('VarLastChange: countUsage includes VarLastChange nodes', () => {
+    const draft = ref<Container>({
+      schemaVersion: 1, id: 'c2', name: 'c2',
+      vars: [{ name: 'hp', type: 'number', default: 0 }],
+      graph: {
+        id: 'g2', version: 1,
+        nodes: [
+          { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { varName: 'hp', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
+        ],
+        edges: [],
+      },
+      subgraphs: [], tags: [], createdAt: '', updatedAt: '',
+    } as unknown as Container)
+    const m = useVarMutations(draft)
+    expect(m.countUsage('hp')).toBeGreaterThanOrEqual(1)
+  })
+
+  it('VarLastChange: renameVar renames VarLastChange node config.varName', () => {
+    const draft = ref<Container>({
+      schemaVersion: 1, id: 'c3', name: 'c3',
+      vars: [{ name: 'hp', type: 'number', default: 0 }],
+      graph: {
+        id: 'g3', version: 1,
+        nodes: [
+          { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { varName: 'hp', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
+        ],
+        edges: [],
+      },
+      subgraphs: [], tags: [], createdAt: '', updatedAt: '',
+    } as unknown as Container)
+    const m = useVarMutations(draft)
+    m.renameVar('hp', 'x')
+    expect(draft.value.graph.nodes[0].config!.varName).toBe('x')
+  })
 })

@@ -5,7 +5,7 @@ export interface DeleteVarOptions {
   cascade: boolean
 }
 
-const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar'])
+const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar', 'VarLastChange'])
 
 /**
  * useVarMutations — Container.Vars 增删改查 + scope-aware rename + cascade delete.
