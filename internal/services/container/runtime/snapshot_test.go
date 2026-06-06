@@ -8,7 +8,7 @@ import (
 
 func TestSnapshotIsACopy(t *testing.T) {
 	vars := map[string]expr.Value{"hp": float64(0.8)}
-	snap := CaptureSnapshot(vars, SysState{})
+	snap := CaptureSnapshot(vars)
 	// Mutate backing store after snapshot — snapshot must NOT see it.
 	vars["hp"] = float64(0.2)
 
@@ -18,17 +18,6 @@ func TestSnapshotIsACopy(t *testing.T) {
 	}
 	if v != expr.Value(0.8) {
 		t.Fatalf("snapshot must be isolated from backing store: got %v want 0.8", v)
-	}
-}
-
-func TestSnapshotCapturesSys(t *testing.T) {
-	sys := SysState{LastFound: true, Iter: 5}
-	snap := CaptureSnapshot(nil, sys)
-	if !snap.Sys.LastFound {
-		t.Fatal("snapshot Sys.LastFound lost")
-	}
-	if snap.Sys.Iter != 5 {
-		t.Fatalf("snapshot Sys.Iter: got %d want 5", snap.Sys.Iter)
 	}
 }
 

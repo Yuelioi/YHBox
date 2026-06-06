@@ -76,7 +76,7 @@ func TestDisabled_Throw_Noop(t *testing.T) {
 func TestDisabled_PureData_GetVarReturnsNil(t *testing.T) {
 	rt, r := newTestRunner(t)
 	rt.SetVar("x", expr.Value(42.0))
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"x": 42.0}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"x": 42.0}))
 
 	disabledGV := &container.GraphNode{
 		ID: "gv1", Kind: "GetVar", Disabled: true,

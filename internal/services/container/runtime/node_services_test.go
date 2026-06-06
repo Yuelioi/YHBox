@@ -125,64 +125,6 @@ func TestVarStoreAdapter_IncTwice(t *testing.T) {
 }
 
 // ============================================================================
-// SysStoreAdapter
-// ============================================================================
-
-func TestSysStoreAdapter_NowMs(t *testing.T) {
-	rt := newAdapterTestRT(t, nil)
-	a := NewSysStoreAdapter(rt)
-	before := float64(time.Now().UnixMilli())
-	v, ok := a.Get("now_ms")
-	after := float64(time.Now().UnixMilli())
-	if !ok {
-		t.Fatal("Get now_ms returned ok=false")
-	}
-	got := v.(float64)
-	if got < before || got > after {
-		t.Errorf("now_ms = %v, want in [%v, %v]", got, before, after)
-	}
-}
-
-func TestSysStoreAdapter_VarLastChange(t *testing.T) {
-	rt := newAdapterTestRT(t, nil)
-	a := NewSysStoreAdapter(rt)
-
-	// 未 SetVar 时返 0.
-	if v, ok := a.Get("varLastChange.foo"); !ok || v.(float64) != 0 {
-		t.Errorf("unset varLastChange = %v, %v; want 0, true", v, ok)
-	}
-	// SetVar 后跟 rt.VarLastChange 同步.
-	rt.SetVar("foo", "bar")
-	expected := float64(rt.VarLastChange("foo"))
-	if v, ok := a.Get("varLastChange.foo"); !ok || v.(float64) != expected {
-		t.Errorf("after SetVar varLastChange = %v, %v; want %v, true", v, ok, expected)
-	}
-}
-
-func TestSysStoreAdapter_ResolveSysPath(t *testing.T) {
-	rt := newAdapterTestRT(t, nil)
-	a := NewSysStoreAdapter(rt)
-	rt.UpdateSys(func(s *SysState) {
-		s.LastFound = true
-		s.LastDualBarTrack.InnerX = 123
-	})
-	if v, ok := a.Get("lastTemplate.found"); !ok || v.(bool) != true {
-		t.Errorf("lastTemplate.found = %v, %v; want true, true", v, ok)
-	}
-	if v, ok := a.Get("lastDualBarTrack.innerX"); !ok || v.(float64) != 123 {
-		t.Errorf("lastDualBarTrack.innerX = %v, %v; want 123, true", v, ok)
-	}
-}
-
-func TestSysStoreAdapter_UnknownPath(t *testing.T) {
-	rt := newAdapterTestRT(t, nil)
-	a := NewSysStoreAdapter(rt)
-	if v, ok := a.Get("does.not.exist"); ok {
-		t.Errorf("unknown path returned (%v, true), want (_, false)", v)
-	}
-}
-
-// ============================================================================
 // StopwatchAdapter
 // ============================================================================
 
@@ -246,9 +188,6 @@ func TestNewServiceBundleFor_AllSlotsFilled(t *testing.T) {
 	if bundle.Vars == nil {
 		t.Error("bundle.Vars is nil")
 	}
-	if bundle.Sys == nil {
-		t.Error("bundle.Sys is nil")
-	}
 	if bundle.Window == nil {
 		t.Error("bundle.Window is nil")
 	}
@@ -261,10 +200,10 @@ func TestNewServiceBundleFor_AllSlotsFilled(t *testing.T) {
 }
 
 // ============================================================================
-// VisionAdapter SysState writeback
+// VisionAdapter Match
 // ============================================================================
 
-// stubMatcher 控 found / point 让 test 验 LastFound/LastPoint 写回.
+// stubMatcher 控 found / point / conf 让 test 验 Match 返回值.
 type stubMatcher struct {
 	found bool
 	pt    expr.Point
@@ -279,20 +218,19 @@ func (m stubMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, _ string
 	return m.found, m.pt, [4]float64{}, conf, nil
 }
 
-func TestVisionAdapter_Match_WritesLastTemplate(t *testing.T) {
+func TestVisionAdapter_Match_Found(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.Matcher = stubMatcher{found: true, pt: expr.Point{X: 0.42, Y: 0.13}}
 	a := &visionAdapter{rt: rt}
-	_, _, err := a.Match(context.Background(), []string{"foo"}, 0.8, "any")
+	pt, _, err := a.Match(context.Background(), []string{"foo"}, 0.8, "any")
 	if err != nil {
 		t.Fatal(err)
 	}
-	sys := newAdapterSysSnapshot(rt)
-	if !sys.LastFound {
-		t.Error("LastFound = false, want true after Match found")
+	if pt == nil {
+		t.Fatal("pt = nil, want non-nil after Match found")
 	}
-	if sys.LastPoint.X != 0.42 || sys.LastPoint.Y != 0.13 {
-		t.Errorf("LastPoint = %v, want {0.42, 0.13}", sys.LastPoint)
+	if pt.X != 0.42 || pt.Y != 0.13 {
+		t.Errorf("pt = %v, want {0.42, 0.13}", pt)
 	}
 }
 
@@ -312,28 +250,8 @@ func TestVisionAdapter_WaitMatch_TimeoutReportsBestConf(t *testing.T) {
 	}
 }
 
-func TestVisionAdapter_Match_NotFoundResetsState(t *testing.T) {
-	rt := newAdapterTestRT(t, nil)
-	rt.Matcher = stubMatcher{found: false}
-	// 先 inject found state, 再调 Match 确认被清回
-	rt.UpdateSys(func(s *SysState) { s.LastFound = true; s.LastPoint = expr.Point{X: 1, Y: 1} })
-	a := &visionAdapter{rt: rt}
-	_, _, err := a.Match(context.Background(), []string{"foo"}, 0.8, "any")
-	if err != nil {
-		t.Fatal(err)
-	}
-	sys := newAdapterSysSnapshot(rt)
-	if sys.LastFound {
-		t.Error("LastFound = true, want false after Match miss")
-	}
-	if sys.LastPoint != (expr.Point{}) {
-		t.Errorf("LastPoint = %v, want zero", sys.LastPoint)
-	}
-}
-
-
-func TestVisionAdapter_DetectColor_WritesLastColor(t *testing.T) {
-	// 2x1 帧: 全红. 检测全帧 rgb, 应命中 2 像素, SysState 写回正确.
+func TestVisionAdapter_DetectColor_Counts(t *testing.T) {
+	// 2x1 帧: 全红. 检测全帧 rgb, 应命中 2 像素.
 	img := image.NewRGBA(image.Rect(0, 0, 2, 1))
 	img.Pix[0], img.Pix[3] = 255, 255 // x=0 红
 	img.Pix[4], img.Pix[7] = 255, 255 // x=1 红
@@ -345,19 +263,9 @@ func TestVisionAdapter_DetectColor_WritesLastColor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sys := newAdapterSysSnapshot(rt)
-	if int64(count) != sys.LastColorCount {
-		t.Errorf("LastColorCount = %d, want %d", sys.LastColorCount, count)
-	}
 	if count != 2 {
 		t.Errorf("count = %d, want 2", count)
 	}
-}
-// newAdapterSysSnapshot 借 SysStoreAdapter 拿 SysState snapshot (避免直接访问 mu 保护字段).
-func newAdapterSysSnapshot(rt *RuntimeContext) SysState {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	return rt.sys
 }
 
 // ============================================================================
@@ -366,7 +274,6 @@ func newAdapterSysSnapshot(rt *RuntimeContext) SysState {
 
 var (
 	_ node.VarStore       = (*varStoreAdapter)(nil)
-	_ node.SysStore       = (*sysStoreAdapter)(nil)
 	_ node.StopwatchStore = (*stopwatchAdapter)(nil)
 	_ node.InputService   = (*inputAdapter)(nil)
 	_ node.WindowService  = (*windowAdapter)(nil)
@@ -424,10 +331,6 @@ func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 	// → cx=cy=2/4/4=0.125. 验 ResolveGeometry rect 偏移没丢 + 全帧坐标系映射对.
 	if cx != 0.125 || cy != 0.125 {
 		t.Fatalf("center = (%v,%v), want (0.125,0.125)", cx, cy)
-	}
-	sys := newAdapterSysSnapshot(rt)
-	if sys.LastColorCenter.X != cx || sys.LastColorCenter.Y != cy {
-		t.Fatalf("LastColorCenter = %v, want (%v,%v)", sys.LastColorCenter, cx, cy)
 	}
 }
 

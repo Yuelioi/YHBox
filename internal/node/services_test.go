@@ -2,7 +2,7 @@
 // stub-service sanity tests. 验:
 //   1. Stub constructor 不返 nil interface (不会让 ctx.X() return nil 触发 panic at call site).
 //   2. 每个 stub 方法跑通不 panic, 返 zero/no-op.
-//   3. VarStore / SysStore / StopwatchStore 的 set/get 双向行为正确.
+//   3. VarStore / StopwatchStore 的 set/get 双向行为正确.
 package node
 
 import (
@@ -75,33 +75,6 @@ func TestStubVarStore_SetGetInc(t *testing.T) {
 	n3 := vs.Inc("z", 5)
 	if n3 != 15.0 {
 		t.Errorf("Inc(z,5) after int 10 = %v, want 15", n3)
-	}
-}
-
-// ---- SysStore stub ----
-
-func TestStubSysStore_GetSetForTest(t *testing.T) {
-	s := NewStubSysStore()
-	if s == nil {
-		t.Fatal("NewStubSysStore() returned nil")
-	}
-
-	// Get on empty
-	if _, ok := s.Get("now_ms"); ok {
-		t.Error("Get(now_ms) on empty should return ok=false")
-	}
-
-	// SetForTest + Get
-	s.SetForTest("now_ms", int64(123456))
-	v, ok := s.Get("now_ms")
-	if !ok || v != int64(123456) {
-		t.Errorf("Get(now_ms) = %v ok=%v, want 123456 true", v, ok)
-	}
-
-	// 跟 SysStore interface 也能用
-	var iface SysStore = s
-	if _, ok := iface.Get("none"); ok {
-		t.Error("interface Get on missing should ok=false")
 	}
 }
 
@@ -231,9 +204,6 @@ func TestStubServices_AllFieldsNonNil(t *testing.T) {
 	}
 	if b.Vars == nil {
 		t.Error("StubServices().Vars is nil")
-	}
-	if b.Sys == nil {
-		t.Error("StubServices().Sys is nil")
 	}
 	if b.Window == nil {
 		t.Error("StubServices().Window is nil")

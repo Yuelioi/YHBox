@@ -44,7 +44,7 @@ func TestPullDataPin_NoEdgeNoLiteral_ReturnsNil(t *testing.T) {
 // Verifies that pullDataPin follows a data edge to a GetVar source and resolves it.
 func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}))
 
 	src := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
@@ -71,7 +71,7 @@ func TestPullDataPin_FromGetVarEdge(t *testing.T) {
 // Literal under "literal" key is ignored when edge is present (edge wins).
 func TestPullDataPin_EdgeWinsOverLiteral(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(0.8)}))
 
 	src := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",

@@ -17,7 +17,7 @@ import (
 	_ "yotta/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
 	_ "yotta/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
 	_ "yotta/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
-	_ "yotta/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam / GetSys
+	_ "yotta/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 )
@@ -1088,7 +1088,7 @@ func TestBuildDataWireFor_GetVarViaFramework(t *testing.T) {
 	rt.SetVar("myvar", "from-old-path")
 	r := NewContainerRunner(rt)
 	// GetVar.Evaluate 经 snapshot wrap 读 frozen Vars; 主循环抓 snapshot 模拟之.
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(rt.Vars(), rt.Sys()))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(rt.Vars()))
 	echoNode := r.nodesByID["echo_n"]
 
 	_, err := r.execNodeViaFramework(ctx, echoNode, ExecToken{NodeID: "echo_n", InPin: "in"})

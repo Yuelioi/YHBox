@@ -77,17 +77,14 @@ func TestTryHookF_FoundFast(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
 	paintCursorBar(img, 50)
 	paintTargetBar(img, 100, 115)
-	spy, _, rt, err := runTryHookF(t, 1.0, img)
+	spy, _, _, err := runTryHookF(t, 1.0, img)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+	// 按出 F (down/up) 即证明 DualBar 找到了内/外条 → 走 hook 命中分支.
 	want := []string{"down:f", "up:f"} // KeyPress 节点 #4 后拆 down/up
 	if !equalStrings(spy.keyEvents, want) {
 		t.Fatalf("FoundFast: want keyEvents %v, got %v", want, spy.keyEvents)
-	}
-	sys := rt.Sys()
-	if sys.LastDualBarTrack.InnerX <= 0 {
-		t.Errorf("FoundFast: expected sys.LastDualBarTrack.InnerX > 0, got %d", sys.LastDualBarTrack.InnerX)
 	}
 }
 

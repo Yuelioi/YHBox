@@ -24,7 +24,6 @@ func (c *ctxImpl) Vision() VisionService        { return c.services.Vision }
 func (c *ctxImpl) Log() LogService              { return c.services.Log }
 func (c *ctxImpl) Input() InputService          { return c.services.Input }
 func (c *ctxImpl) Vars() VarStore               { return c.services.Vars }
-func (c *ctxImpl) Sys() SysStore                { return c.services.Sys }
 func (c *ctxImpl) Params() ParamStore           { return c.services.Params }
 func (c *ctxImpl) Window() WindowService        { return c.services.Window }
 func (c *ctxImpl) Capture() CaptureService      { return c.services.Capture }

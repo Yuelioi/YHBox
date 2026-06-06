@@ -33,10 +33,6 @@ func TestTryDonePath(t *testing.T) {
 	// done 出口无边连出 → toks 为空 (edges.next 返 nil)
 	// 关键是没报错且走 done pin (不是 error/timeout)
 	_ = toks
-	// errorMsg 应为空 (done 路径)
-	if got := r.rt.Sys().LastTry.ErrorMsg; got != "" {
-		t.Fatalf("done path: expected empty errorMsg, got %q", got)
-	}
 }
 
 // Try 行为由 dispatch_v5_test.go (TryDone/TryCatch/TryThrow/TryMissingSubgraphID) 覆盖.

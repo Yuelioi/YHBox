@@ -145,9 +145,9 @@ func (l *lexer) next() (token, error) {
 	case '"':
 		return l.readString(start)
 	case '$':
-		// v4: $-namespace removed (no $vars / $sys / $params). Variables / sys / params
-		// are routed into Expr via bare-identifier inputs fed by GetVar / GetSys / GetParam nodes.
-		return token{}, fmt.Errorf("expr: '$' not allowed (v4) at col %d — use GetVar / GetSys / GetParam node + Expr input pin", start)
+		// v4: $-namespace removed (no $vars / $params). Variables / params
+		// are routed into Expr via bare-identifier inputs fed by GetVar / GetParam nodes.
+		return token{}, fmt.Errorf("expr: '$' not allowed (v4) at col %d — use GetVar / GetParam node + Expr input pin", start)
 	}
 
 	if unicode.IsDigit(r) || (r == '.' && l.pos < len(l.src) && unicode.IsDigit(l.src[l.pos])) {

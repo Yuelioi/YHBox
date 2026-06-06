@@ -254,7 +254,7 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 
 		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (单一抓点), 这里不再抓.
 		// passthroughDisabled / IsVisualOnly / IsPureData reject 路径都不需要 snapshot
-		// (consumer GetVar/GetSys.Evaluate 经 framework snapshot wrap 在 data pull 阶段读).
+		// (consumer GetVar.Evaluate 经 framework snapshot wrap 在 data pull 阶段读).
 		out, err := r.execNode(ctx, node, tok)
 		if err != nil {
 			if errors.Is(err, errStopRun) {
@@ -293,7 +293,7 @@ var errStopRun = errors.New("stop")
 
 // All exec nodes read inputs via r.pullDataPin (data edge or inline literal).
 // Expr nodes use expr.InputEnv (bare-identifier only — no $-namespace).
-// Variables / sys / params are routed via GetVar / GetSys / GetParam nodes wired through
+// Variables / params are routed via GetVar / GetParam nodes wired through
 // data edges, NOT through env paths in expressions.
 
 // configString 读 pin 字面量字符串 (literal 优先 + 顶层 config fallback, 镜像 newInputs)。

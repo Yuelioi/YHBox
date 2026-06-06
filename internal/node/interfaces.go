@@ -42,8 +42,8 @@ type RegionRunner interface {
 // 不返 Outputs (没 exit 出口), 直接返算出来的标量 — 给 data-edge 下游消费.
 //
 // 没实现 Evaluator → EvaluatePureData 返 error. 依赖 runtime state 的 pure-data 节点
-// (GetVar/GetSys) 看到的是 tick-frozen 快照: dispatch 入口 wrap services.Vars/Sys, 节点照常
-// 写 ctx.Vars()/Sys() 即可拿到一致视图 (见 EvaluatePureData 的 snapshot wrap).
+// (GetVar) 看到的是 tick-frozen 快照: dispatch 入口 wrap services.Vars, 节点照常
+// 写 ctx.Vars() 即可拿到一致视图 (见 EvaluatePureData 的 snapshot wrap).
 type Evaluator interface {
 	Evaluate(ctx Ctx, in Inputs) (any, error)
 }
@@ -90,7 +90,6 @@ type Ctx interface {
 	Log() LogService
 	Input() InputService
 	Vars() VarStore
-	Sys() SysStore
 	Params() ParamStore
 	Window() WindowService
 	Capture() CaptureService
@@ -235,12 +234,6 @@ type VarStore interface {
 	LastChange(name string) int64
 }
 
-// SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastDualBarTrack.innerX" /
-// "lastTemplate.found" — schema 见 services/container/sys/schema.go.
-type SysStore interface {
-	Get(path string) (value any, ok bool)
-}
-
 // ParamStore — GetParam 节点用. 读当前 frame 的 LocalParams (subgraph 入参).
 // frame-private state, runtime 端 wire 时持 *ExecState getter; 节点端只 read.
 // Snapshot wrap 不包 ParamStore (frame-state per-frame-private, 不需要 snapshot 语义).
@@ -294,13 +287,12 @@ type ClipPlayer interface {
 //
 // Snapshot 是 framework-internal wrap hook: EvaluatePureData 入口调一次, nil → 跳过 wrap
 // (StubServices 默认 nil, 测试不需要). 调用方 (runtime ContainerRunner) 负责 capture
-// tick-frozen view; node 包不知 SysState 内部结构, 用 SysStore interface 承载.
+// tick-frozen view.
 type ServiceBundle struct {
 	Vision      VisionService
 	Log         LogService
 	Input       InputService
 	Vars        VarStore
-	Sys         SysStore
 	Params      ParamStore // frame.LocalParams getter, GetParam 用
 	Window      WindowService
 	Capture     CaptureService

@@ -29,7 +29,7 @@ func (r *ContainerRunner) evalExprViaFramework(t *testing.T, ctx context.Context
 // TestExpr_LiteralInputs: Expr "i + 1" with input i (literal pin) → 6 when i=5.
 func TestExpr_LiteralInputs(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}))
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
@@ -55,7 +55,7 @@ func TestExpr_LiteralInputs(t *testing.T) {
 // TestExpr_BoolExpression: complex boolean expression with multiple inputs.
 func TestExpr_BoolExpression(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}))
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
@@ -80,7 +80,7 @@ func TestExpr_BoolExpression(t *testing.T) {
 // Even if rt.vars has the value, Expr returns nil for $vars.X.
 func TestExpr_DollarPathsAreIsolated(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(99)}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(99)}))
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
@@ -100,7 +100,7 @@ func TestExpr_DollarPathsAreIsolated(t *testing.T) {
 // TestExpr_PullFromGetVarEdge: input value comes via data edge from GetVar.
 func TestExpr_PullFromGetVarEdge(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"counter": float64(10)}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"counter": float64(10)}))
 
 	gv := &container.GraphNode{
 		ID: "gv", Kind: "GetVar",
@@ -138,7 +138,7 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 // 所以空串走到 Evaluate, defensive 返 nil (而非 ValidationError).
 func TestExpr_EmptyExprReturnsNil(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}))
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
@@ -158,7 +158,7 @@ func TestExpr_EmptyExprReturnsNil(t *testing.T) {
 // TestExpr_ParseError: malformed expr returns parse error.
 func TestExpr_ParseError(t *testing.T) {
 	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}, SysState{}))
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}))
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",

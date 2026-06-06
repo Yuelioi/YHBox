@@ -134,34 +134,6 @@ func (s *stubVarStore) IncScoped(name, _ string, d float64) float64 {
 // LastChange — stub 不跟踪时间戳, 恒返 0.
 func (s *stubVarStore) LastChange(_ string) int64 { return 0 }
 
-// ---- SysStore ----
-
-// StubSysStore in-memory key→any. 测试可直接复用 (preset 几个 path 值 via SetForTest).
-type StubSysStore struct {
-	mu sync.RWMutex
-	m  map[string]any
-}
-
-func (s *StubSysStore) Get(path string) (any, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	v, ok := s.m[path]
-	return v, ok
-}
-
-// SetForTest 仅 test 用 — production wire 不该有 Set, sys 只读.
-func (s *StubSysStore) SetForTest(path string, value any) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.m == nil {
-		s.m = map[string]any{}
-	}
-	s.m[path] = value
-}
-
-// NewStubSysStore — 测试用. 返 *StubSysStore 露 SetForTest 给 test preset 字段.
-func NewStubSysStore() *StubSysStore { return &StubSysStore{m: map[string]any{}} }
-
 // ---- ParamStore ----
 
 // stubParamStore 测试用 no-op. Get 总返 (nil, false).
@@ -260,7 +232,6 @@ func StubServices() ServiceBundle {
 		Log:         DefaultLogService(),
 		Input:       StubInputService(),
 		Vars:        NewStubVarStore(),
-		Sys:         NewStubSysStore(),
 		Params:      NewStubParamStore(),
 		Window:      StubWindowService(),
 		Capture:     StubCaptureService(),

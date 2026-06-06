@@ -66,8 +66,7 @@ func (d *dataEdgeIndex) Source(nodeID, pinName string) (string, string) {
 //  2. Else if config["literal"][pinName] exists, return it (inline literal).
 //  3. Else return nil (caller handles default).
 //
-// Pure data sources (GetVar / GetSys / GetParam / Expr / pure functions) eval on-demand.
-// Exec nodes that expose data-out (e.g. Race.winnerIdx) read from the sys snapshot.
+// Pure data sources (GetVar / GetParam / Expr / pure functions) eval on-demand.
 //
 // ctx 必传 — tick snapshot 走 ctx (tickCtxKey). dispatch hot path 传 dispatchInRegion
 // 已 withTickSnapshot 的 ctx; init/cold path (listener config) 传 context.Background() (无 tick OK).
@@ -100,7 +99,7 @@ func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin 
 	if n == nil {
 		return nil, fmt.Errorf("evalDataSource: source node %q not found", srcNodeID)
 	}
-	// Disable Node: pure-data nodes (GetVar/GetSys/GetParam/Expr/pure funcs)
+	// Disable Node: pure-data nodes (GetVar/GetParam/Expr/pure funcs)
 	// don't reach execNode, so the execNode disable gate doesn't cover them. Gate here too.
 	// Disabled pure-data node returns nil (untyped — consumer's fallback / pullNumber default fires).
 	if n.Disabled {

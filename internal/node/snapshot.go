@@ -1,16 +1,14 @@
 // internal/node/snapshot.go
 package node
 
-// Snapshot — tick 起始时 capture 的全局状态. Vars/Sys 在同 tick 内对 PureData
-// Evaluator 是 frozen view. 调用方 (runtime ContainerRunner) 负责 capture; node 包
-// 不知 SysState 内部结构, 用 SysStore interface 承载已 freeze 的 view.
+// Snapshot — tick 起始时 capture 的全局状态. Vars 在同 tick 内对 PureData
+// Evaluator 是 frozen view. 调用方 (runtime ContainerRunner) 负责 capture.
 //
 // IMPORTANT: snapshot consistency is guaranteed only within one dispatch/tick.
 // Caller MUST NOT cache the Snapshot returned by services.Snapshot() across ticks
-// — Vars map 和 Sys reference 由 runtime 持有, 跨 tick 会变.
+// — Vars map 由 runtime 持有, 跨 tick 会变.
 type Snapshot struct {
 	Vars map[string]any // global vars frozen at tick start
-	Sys  SysStore       // frozen SysStore (runtime 端构造)
 }
 
 // snapshotVarStore wraps live VarStore + frozen Snapshot.
