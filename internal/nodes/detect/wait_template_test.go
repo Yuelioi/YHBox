@@ -47,6 +47,33 @@ func TestWaitTemplate_Timeout(t *testing.T) {
 	}
 }
 
+func TestWaitTemplate_Capture_Found(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&WaitTemplate{})
+	rn, _ := node.Get("WaitTemplate")
+
+	pt := node.Point{X: 0.4, Y: 0.6}
+	vision := &mockVision{point: &pt, conf: 0.91, hitOnCall: 1}
+	vars := newRecVars()
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{wtInTemplates: []string{"fishing.hook_icon"}, wtInTimeoutMs: 100, wtInThreshold: 0.85,
+			wtCapFound: "f", wtCapPoint: "p"},
+		nil, withVisionVars(vision, vars), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != wtOutFound {
+		t.Fatalf("exit = %q, want Found", r.ExitName)
+	}
+	if got, ok := vars.Get("f"); !ok || got != true {
+		t.Errorf("capture f = %v (ok=%v), want true", got, ok)
+	}
+	if gp, ok := vars.Get("p"); !ok || gp != pt {
+		t.Errorf("capture p = %v (ok=%v), want %v", gp, ok, pt)
+	}
+}
+
 func TestWaitTemplate_Error(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&WaitTemplate{})

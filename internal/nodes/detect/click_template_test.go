@@ -61,6 +61,38 @@ func TestClickTemplate_Done(t *testing.T) {
 	}
 }
 
+func TestClickTemplate_Capture_Done(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	pt := node.Point{X: 0.55, Y: 0.4}
+	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
+	rec := &recordingInput{}
+	vars := newRecVars()
+	b := node.StubServices()
+	b.Vision = vision
+	b.Input = rec
+	b.Vars = vars
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
+			clkInTimeoutMs: 200, clkInThreshold: 0.85, clkCapFound: "f", clkCapPoint: "p"},
+		nil, b, false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Fatalf("exit = %q, want Done", r.ExitName)
+	}
+	if got, ok := vars.Get("f"); !ok || got != true {
+		t.Errorf("capture f = %v (ok=%v), want true", got, ok)
+	}
+	if gp, ok := vars.Get("p"); !ok || gp != pt {
+		t.Errorf("capture p = %v (ok=%v), want %v", gp, ok, pt)
+	}
+}
+
 func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ClickTemplate{})

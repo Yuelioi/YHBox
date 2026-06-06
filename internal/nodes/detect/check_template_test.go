@@ -175,6 +175,69 @@ func TestCheckTemplate_Miss(t *testing.T) {
 	}
 }
 
+func TestCheckTemplate_Capture_Hit(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&CheckTemplate{})
+	rn, _ := node.Get("CheckTemplate")
+
+	pt := node.Point{X: 0.5, Y: 0.6}
+	vision := &mockVision{point: &pt, conf: 0.92}
+	vars := newRecVars()
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			ctInTemplates: []string{"fishing.hook_icon"},
+			ctInThreshold: 0.85,
+			ctCapFound:    "f",
+			ctCapPoint:    "p",
+		},
+		nil, withVisionVars(vision, vars), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != ctOutFound {
+		t.Fatalf("exit = %q, want Found", r.ExitName)
+	}
+	if got, ok := vars.Get("f"); !ok || got != true {
+		t.Errorf("capture f = %v (ok=%v), want true", got, ok)
+	}
+	gp, ok := vars.Get("p")
+	if !ok {
+		t.Fatal("capture p not written")
+	}
+	if gp != pt {
+		t.Errorf("capture p = %v, want %v", gp, pt)
+	}
+}
+
+func TestCheckTemplate_Capture_Miss(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&CheckTemplate{})
+	rn, _ := node.Get("CheckTemplate")
+
+	vision := &mockVision{point: nil, conf: 0.3}
+	vars := newRecVars()
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			ctInTemplates: []string{"fishing.hook_icon"},
+			ctInThreshold: 0.85,
+			ctCapFound:    "f",
+			ctCapPoint:    "p",
+		},
+		nil, withVisionVars(vision, vars), false)
+
+	if r.ExitName != ctOutNotFound {
+		t.Fatalf("exit = %q, want NotFound", r.ExitName)
+	}
+	if got, ok := vars.Get("f"); !ok || got != false {
+		t.Errorf("capture f = %v (ok=%v), want false", got, ok)
+	}
+	// miss exit 不带 Point → 不写.
+	if _, ok := vars.Get("p"); ok {
+		t.Error("capture p written on NotFound exit, want unwritten")
+	}
+}
+
 func TestCheckTemplate_Error(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&CheckTemplate{})

@@ -28,6 +28,8 @@ const (
 	clkOutTimeout  = "Timeout"
 	clkDataPoint   = "Point"
 	clkDataConf    = "Conf"
+	clkCapFound    = "CaptureFound"
+	clkCapPoint    = "CapturePoint"
 )
 
 func (ClickTemplate) Spec() node.Spec {
@@ -56,6 +58,10 @@ func (ClickTemplate) Spec() node.Spec {
 							{Value: "right"},
 							{Value: "middle"},
 						}})}},
+			{Name: clkCapFound, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: clkCapPoint, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: clkOutDone, Type: "Exec",
@@ -85,12 +91,15 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("ClickTemplate wait %s: %w", strings.Join(keys, "+"), err)
 	}
 	if pt == nil {
+		node.Capture(ctx, in, clkCapFound, false) // timeout 不写 point
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Fire(), nil
 	}
 	// 50ms click duration.
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
 		return nil, fmt.Errorf("ClickTemplate click %s @ (%.3f,%.3f): %w", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}
+	node.Capture(ctx, in, clkCapFound, true)
+	node.Capture(ctx, in, clkCapPoint, *pt)
 	return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Fire(), nil
 }
 

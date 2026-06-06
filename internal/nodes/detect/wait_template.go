@@ -26,6 +26,8 @@ const (
 	wtOutTimeout  = "Timeout"
 	wtDataPoint   = "Point"
 	wtDataConf    = "Conf"
+	wtCapFound    = "CaptureFound"
+	wtCapPoint    = "CapturePoint"
 )
 
 func (WaitTemplate) Spec() node.Spec {
@@ -46,6 +48,10 @@ func (WaitTemplate) Spec() node.Spec {
 			{Name: wtInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: wtCapFound, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: wtCapPoint, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: wtOutFound, Type: "Exec",
@@ -71,8 +77,11 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("vision wait %s: %w", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
+		node.Capture(ctx, in, wtCapFound, true)
+		node.Capture(ctx, in, wtCapPoint, *pt)
 		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Fire(), nil
 	}
+	node.Capture(ctx, in, wtCapFound, false) // timeout 不写 point
 	return ctx.Out(wtOutTimeout).Set(wtDataConf, conf).Fire(), nil
 }
 

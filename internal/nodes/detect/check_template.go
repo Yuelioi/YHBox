@@ -26,6 +26,8 @@ const (
 	ctOutNotFound = "NotFound"
 	ctDataPoint   = "Point"
 	ctDataConf    = "Conf"
+	ctCapFound    = "CaptureFound"
+	ctCapPoint    = "CapturePoint"
 )
 
 // === Spec: declarative metadata ===
@@ -45,6 +47,10 @@ func (CheckTemplate) Spec() node.Spec {
 			{Name: ctInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: ctCapFound, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: ctCapPoint, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: ctOutFound, Type: "Exec",
@@ -70,8 +76,11 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("vision match %s: %w", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
+		node.Capture(ctx, in, ctCapFound, true)
+		node.Capture(ctx, in, ctCapPoint, *pt)
 		return ctx.Out(ctOutFound).Set(ctDataPoint, *pt).Set(ctDataConf, conf).Fire(), nil
 	}
+	node.Capture(ctx, in, ctCapFound, false) // miss 不写 point
 	return ctx.Out(ctOutNotFound).Set(ctDataConf, conf).Fire(), nil
 }
 
