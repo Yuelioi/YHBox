@@ -28,7 +28,7 @@ func (Read) Spec() node.Spec {
 			{Name: swReadInKey, Type: "String", Required: true, Default: "default",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: swReadCapElapsed, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: swReadOutOut, Type: "Exec",

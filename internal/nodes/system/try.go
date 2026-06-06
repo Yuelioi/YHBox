@@ -33,7 +33,7 @@ func (Try) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "subgraphIDs"})}},
 			{Name: tryCapError, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "string", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: tryOutNormal, Type: "Exec"},

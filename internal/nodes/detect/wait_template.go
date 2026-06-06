@@ -49,9 +49,9 @@ func (WaitTemplate) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: wtCapFound, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: wtCapPoint, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: wtOutFound, Type: "Exec",

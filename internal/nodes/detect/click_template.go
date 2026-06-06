@@ -59,9 +59,9 @@ func (ClickTemplate) Spec() node.Spec {
 							{Value: "middle"},
 						}})}},
 			{Name: clkCapFound, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: clkCapPoint, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: clkOutDone, Type: "Exec",

@@ -66,9 +66,9 @@ func (DetectColorHSV) Spec() node.Spec {
 			{Name: dchInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dchCapCount, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: dchCapRatio, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dchOutYes, Type: "Exec",

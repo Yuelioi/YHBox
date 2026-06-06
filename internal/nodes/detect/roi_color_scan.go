@@ -63,9 +63,9 @@ func (ROIColorScan) Spec() node.Spec {
 			{Name: rcsInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsCapCount, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: rcsCapClusters, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "any", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: rcsOutFound, Type: "Exec",

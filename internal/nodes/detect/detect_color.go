@@ -49,9 +49,9 @@ func (DetectColor) Spec() node.Spec {
 			{Name: dcInMinPixels, Type: "Number", Default: json.Number("5"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dcCapCount, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: dcCapCenter, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dcOutYes, Type: "Exec",

@@ -38,7 +38,7 @@ func (Screenshot) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: ssInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: ssCapPath, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "string", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: ssOutDone, Type: "Exec",

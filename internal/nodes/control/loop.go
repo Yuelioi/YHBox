@@ -46,7 +46,7 @@ func (Loop) Spec() node.Spec {
 				Widget:      node.WidgetSpec{Kind: "number"},
 				VisibleWhen: &node.VisibleRule{Field: loopInMode, Equals: "count"}},
 			{Name: loopCapIndex, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: loopOutBody, Type: "Exec"},

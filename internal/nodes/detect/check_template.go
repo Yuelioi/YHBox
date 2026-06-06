@@ -48,9 +48,9 @@ func (CheckTemplate) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: ctCapFound, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: ctCapPoint, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
+				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: ctOutFound, Type: "Exec",
