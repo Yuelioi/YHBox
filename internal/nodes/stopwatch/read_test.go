@@ -85,6 +85,10 @@ func TestRead_Capture_ElapsedMs(t *testing.T) {
 	if got != want {
 		t.Errorf("capture e = %v, want %v (= ElapsedMs out)", got, want)
 	}
+	// CaptureType=number: 断言写入值的 Go 类型是 int64 (stopwatch elapsed).
+	if _, isInt64 := got.(int64); !isInt64 {
+		t.Errorf("capture e Go type = %T, want int64", got)
+	}
 }
 
 func TestRead_StoppedReturnsFrozen(t *testing.T) {

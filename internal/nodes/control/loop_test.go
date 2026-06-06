@@ -79,6 +79,12 @@ func TestLoop_Capture_IndexEachIteration(t *testing.T) {
 	if len(seen) != 3 || seen[0] != 0 || seen[1] != 1 || seen[2] != 2 {
 		t.Errorf("seen = %v, want [0 1 2]", seen)
 	}
+	// CaptureType=number: 断言写入值的 Go 类型是 int (loop index).
+	for idx, v := range seen {
+		if _, isInt := v.(int); !isInt {
+			t.Errorf("capture index[%d] Go type = %T, want int", idx, v)
+		}
+	}
 }
 
 func TestLoop_BreakSentinel(t *testing.T) {

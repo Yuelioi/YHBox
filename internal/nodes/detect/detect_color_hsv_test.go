@@ -75,9 +75,15 @@ func TestDetectColorHSV_Capture_Hit(t *testing.T) {
 	}
 	if got, ok := vars.Get("n"); !ok || got != 100 {
 		t.Errorf("capture n = %v (ok=%v), want 100", got, ok)
+	} else if _, isInt := got.(int); !isInt {
+		// CaptureType=number: 断言写入值的 Go 类型是 int.
+		t.Errorf("capture n Go type = %T, want int", got)
 	}
 	if got, ok := vars.Get("r"); !ok || got != 0.2 {
 		t.Errorf("capture r = %v (ok=%v), want 0.2", got, ok)
+	} else if _, isF64 := got.(float64); !isF64 {
+		// CaptureType=number: 断言写入值的 Go 类型是 float64.
+		t.Errorf("capture r Go type = %T, want float64", got)
 	}
 }
 

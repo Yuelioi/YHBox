@@ -105,6 +105,19 @@ func TestDualColorBarTrack_Capture_Found(t *testing.T) {
 			t.Errorf("capture %s = %v (ok=%v), want %v", c.name, got, ok, c.want)
 		}
 	}
+	// CaptureType=number: 断言每个捕获字段的 Go 类型符合声明.
+	// ix/ox/ow/ipx/opx → int; cf → float64.
+	intFields := []string{"ix", "ox", "ow", "ipx", "opx"}
+	for _, name := range intFields {
+		got, _ := vars.Get(name)
+		if _, isInt := got.(int); !isInt {
+			t.Errorf("capture %s Go type = %T, want int", name, got)
+		}
+	}
+	cfGot, _ := vars.Get("cf")
+	if _, isF64 := cfGot.(float64); !isF64 {
+		t.Errorf("capture cf Go type = %T, want float64", cfGot)
+	}
 }
 
 func TestDualColorBarTrack_MissingNotFound(t *testing.T) {

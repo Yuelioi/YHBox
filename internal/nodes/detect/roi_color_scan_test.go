@@ -84,11 +84,15 @@ func TestROIColorScan_Capture_Found(t *testing.T) {
 	}
 	if got, ok := vars.Get("n"); !ok || got != 2 {
 		t.Errorf("capture n = %v (ok=%v), want 2", got, ok)
+	} else if _, isInt := got.(int); !isInt {
+		// CaptureType=number: 断言写入值的 Go 类型是 int.
+		t.Errorf("capture n Go type = %T, want int", got)
 	}
 	gc, ok := vars.Get("cl")
 	if !ok {
 		t.Fatal("capture cl not written")
 	}
+	// CaptureType=any: 只断言写入, 不断 Go 类型. 实际是 []node.ClusterEntry.
 	if got, ok := gc.([]node.ClusterEntry); !ok || len(got) != 2 {
 		t.Errorf("capture cl = %T len mismatch, want []node.ClusterEntry len 2", gc)
 	}

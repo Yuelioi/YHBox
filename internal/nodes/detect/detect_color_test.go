@@ -92,11 +92,15 @@ func TestDetectColor_Capture_Hit(t *testing.T) {
 	}
 	if got, ok := vars.Get("n"); !ok || got != 10 {
 		t.Errorf("capture n = %v (ok=%v), want 10", got, ok)
+	} else if _, isInt := got.(int); !isInt {
+		// CaptureType=number: 断言写入值的 Go 类型是 int.
+		t.Errorf("capture n Go type = %T, want int", got)
 	}
 	c, ok := vars.Get("c")
 	if !ok {
 		t.Fatal("capture c not written")
 	}
+	// CaptureType=point: 断言写入值的 Go 类型是 node.Point.
 	if _, ok := c.(node.Point); !ok {
 		t.Errorf("capture c = %T, want node.Point", c)
 	}

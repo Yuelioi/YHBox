@@ -68,9 +68,17 @@ func TestWaitTemplate_Capture_Found(t *testing.T) {
 	}
 	if got, ok := vars.Get("f"); !ok || got != true {
 		t.Errorf("capture f = %v (ok=%v), want true", got, ok)
+	} else if _, isBool := got.(bool); !isBool {
+		// CaptureType=bool: 断言写入值的 Go 类型是 bool.
+		t.Errorf("capture f Go type = %T, want bool", got)
 	}
-	if gp, ok := vars.Get("p"); !ok || gp != pt {
+	gp, ok := vars.Get("p")
+	if !ok || gp != pt {
 		t.Errorf("capture p = %v (ok=%v), want %v", gp, ok, pt)
+	}
+	// CaptureType=point: 断言写入值的 Go 类型是 node.Point.
+	if _, isPoint := gp.(node.Point); !isPoint {
+		t.Errorf("capture p Go type = %T, want node.Point", gp)
 	}
 }
 

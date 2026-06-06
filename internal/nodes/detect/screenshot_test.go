@@ -122,6 +122,7 @@ func TestScreenshot_Capture_Path(t *testing.T) {
 	if !ok {
 		t.Fatal("capture p not written")
 	}
+	// CaptureType=string: 断言写入值的 Go 类型是 string.
 	s, isStr := got.(string)
 	if !isStr || s == "" {
 		t.Errorf("capture p = %v (%T), want non-empty string", got, got)
