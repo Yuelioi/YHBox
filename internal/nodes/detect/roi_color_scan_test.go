@@ -58,6 +58,68 @@ func TestROIColorScan_NotFoundSingleScan(t *testing.T) {
 	}
 }
 
+func TestROIColorScan_Capture_Found(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ROIColorScan{})
+	rn, _ := node.Get("ROIColorScan")
+
+	clusters := []node.ClusterEntry{
+		{StartPx: 10, EndPx: 20, CenterPx: 15, PxCount: 10},
+		{StartPx: 30, EndPx: 35, CenterPx: 32, PxCount: 5},
+	}
+	vision := &mockVision{clusters: clusters}
+	cfg := validScanCfg()
+	cfg[rcsInMinClusterCount] = 2
+	cfg[rcsInTimeoutMs] = 500
+	cfg[rcsCapCount] = "n"
+	cfg[rcsCapClusters] = "cl"
+	vars := newRecVars()
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVisionVars(vision, vars), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != rcsOutFound {
+		t.Fatalf("exit = %q, want Found", r.ExitName)
+	}
+	if got, ok := vars.Get("n"); !ok || got != 2 {
+		t.Errorf("capture n = %v (ok=%v), want 2", got, ok)
+	}
+	gc, ok := vars.Get("cl")
+	if !ok {
+		t.Fatal("capture cl not written")
+	}
+	if got, ok := gc.([]node.ClusterEntry); !ok || len(got) != 2 {
+		t.Errorf("capture cl = %T len mismatch, want []node.ClusterEntry len 2", gc)
+	}
+}
+
+func TestROIColorScan_Capture_NotFound(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ROIColorScan{})
+	rn, _ := node.Get("ROIColorScan")
+
+	vision := &mockVision{clusters: nil}
+	cfg := validScanCfg()
+	cfg[rcsInMinClusterCount] = 1
+	cfg[rcsInTimeoutMs] = 0
+	cfg[rcsCapCount] = "n"
+	cfg[rcsCapClusters] = "cl"
+	vars := newRecVars()
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVisionVars(vision, vars), false)
+
+	if r.ExitName != rcsOutNotFound {
+		t.Fatalf("exit = %q, want NotFound", r.ExitName)
+	}
+	if got, ok := vars.Get("n"); !ok || got != 0 {
+		t.Errorf("capture n = %v (ok=%v), want 0", got, ok)
+	}
+	// NotFound exit 不带 Clusters → 不写.
+	if _, ok := vars.Get("cl"); ok {
+		t.Error("capture cl written on NotFound exit, want unwritten")
+	}
+}
+
 func TestROIColorScan_Timeout(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ROIColorScan{})

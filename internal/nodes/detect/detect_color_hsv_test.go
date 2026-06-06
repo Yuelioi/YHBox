@@ -53,6 +53,34 @@ func TestDetectColorHSV_NoOnSingleScan(t *testing.T) {
 	}
 }
 
+func TestDetectColorHSV_Capture_Hit(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&DetectColorHSV{})
+	rn, _ := node.Get("DetectColorHSV")
+
+	vision := &mockVision{hsvCount: 100, hsvRatio: 0.2}
+	cfg := validHSVCfg()
+	cfg[dchInMinPixelRatio] = 0.1
+	cfg[dchInTimeoutMs] = 1000
+	cfg[dchCapCount] = "n"
+	cfg[dchCapRatio] = "r"
+	vars := newRecVars()
+	res := node.RunNode(context.Background(), rn, nil, cfg, nil, withVisionVars(vision, vars), false)
+
+	if res.Error != nil {
+		t.Fatal(res.Error)
+	}
+	if res.ExitName != dchOutYes {
+		t.Fatalf("exit = %q, want Yes", res.ExitName)
+	}
+	if got, ok := vars.Get("n"); !ok || got != 100 {
+		t.Errorf("capture n = %v (ok=%v), want 100", got, ok)
+	}
+	if got, ok := vars.Get("r"); !ok || got != 0.2 {
+		t.Errorf("capture r = %v (ok=%v), want 0.2", got, ok)
+	}
+}
+
 func TestDetectColorHSV_Timeout(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DetectColorHSV{})
