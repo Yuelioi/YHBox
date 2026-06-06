@@ -37,6 +37,12 @@ const routes = [
     component: () => import('@/views/tools/CalibrationHUDView.vue'),
     meta: { standalone: true },
   },
+  {
+    path: '/tools/launcher',
+    name: 'launcher',
+    component: () => import('@/views/tools/FloatingLauncherView.vue'),
+    meta: { standalone: true },
+  },
 ]
 
 export const router = createRouter({

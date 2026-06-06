@@ -353,6 +353,9 @@ export const backend = {
     startWindowTargetCapture: () => invoke(ToolsService.StartWindowTargetCapture),
     cancelWindowTargetCapture: (id: string) =>
       invoke(ToolsService.CancelWindowTargetCapture, id),
+    openLauncher: () => invoke(ToolsService.OpenLauncher),
+    toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
+    hideLauncher: () => invoke(ToolsService.HideLauncher),
   },
   events: {
     // 共享事件
