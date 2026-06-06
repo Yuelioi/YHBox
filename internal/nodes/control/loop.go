@@ -24,6 +24,8 @@ const (
 
 	loopOutBody = "Body"
 	loopOutDone = "Done"
+
+	loopCapIndex = "CaptureIndex"
 )
 
 func (Loop) Spec() node.Spec {
@@ -43,6 +45,8 @@ func (Loop) Spec() node.Spec {
 			{Name: loopInCount, Type: "Integer", Default: json.Number("10"),
 				Widget:      node.WidgetSpec{Kind: "number"},
 				VisibleWhen: &node.VisibleRule{Field: loopInMode, Equals: "count"}},
+			{Name: loopCapIndex, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: loopOutBody, Type: "Exec"},
@@ -58,6 +62,7 @@ func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (
 	case "count":
 		count := in.Int(loopInCount)
 		for i := 0; i < count; i++ {
+			node.Capture(ctx, in, loopCapIndex, i)
 			if err := body(ctx); err != nil {
 				if errors.Is(err, errBreakRequested) {
 					return ctx.Out(loopOutDone).Fire(), nil
@@ -70,7 +75,8 @@ func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (
 		}
 		return ctx.Out(loopOutDone).Fire(), nil
 	case "forever":
-		for {
+		for i := 0; ; i++ {
+			node.Capture(ctx, in, loopCapIndex, i)
 			if err := body(ctx); err != nil {
 				if errors.Is(err, errBreakRequested) {
 					return ctx.Out(loopOutDone).Fire(), nil

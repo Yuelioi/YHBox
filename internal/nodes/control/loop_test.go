@@ -37,6 +37,50 @@ func TestLoop_CountMode_BodyInvokedN(t *testing.T) {
 	}
 }
 
+// recVars 记录式 VarStore — 验证捕获. 本包独立 stub (不跨包).
+type recVars struct{ m map[string]any }
+
+func newRecVars() *recVars { return &recVars{m: map[string]any{}} }
+
+func (r *recVars) Get(name string) (any, bool)               { v, ok := r.m[name]; return v, ok }
+func (r *recVars) Set(name string, v any)                    { r.m[name] = v }
+func (r *recVars) Inc(string, float64) float64               { return 0 }
+func (r *recVars) GetScoped(name, _ string) (any, bool)      { v, ok := r.m[name]; return v, ok }
+func (r *recVars) SetScoped(name, _ string, v any)           { r.m[name] = v }
+func (r *recVars) IncScoped(string, string, float64) float64 { return 0 }
+func (r *recVars) LastChange(string) int64                   { return 0 }
+
+func TestLoop_Capture_IndexEachIteration(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&Loop{})
+	rn, _ := node.Get("Loop")
+
+	vars := newRecVars()
+	services := node.StubServices()
+	services.Vars = vars
+
+	var seen []any
+	body := func(_ node.Ctx) error {
+		v, ok := vars.Get("i")
+		if !ok {
+			t.Fatal("CaptureIndex var 'i' not set before body")
+		}
+		seen = append(seen, v)
+		return nil
+	}
+
+	r := node.RunNodeAsRegion(context.Background(), rn, nil,
+		map[string]any{loopInMode: "count", loopInCount: 3, loopCapIndex: "i"},
+		nil, services, false, body)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if len(seen) != 3 || seen[0] != 0 || seen[1] != 1 || seen[2] != 2 {
+		t.Errorf("seen = %v, want [0 1 2]", seen)
+	}
+}
+
 func TestLoop_BreakSentinel(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Loop{})
