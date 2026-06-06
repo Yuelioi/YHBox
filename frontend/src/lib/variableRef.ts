@@ -32,3 +32,14 @@ export function isCompatibleType(src: VarType, dst: VarType): boolean {
   if (src === 'any' || dst === 'any') return true
   return src === dst
 }
+
+// 新建变量的零值 default — 对齐 VarDecl.Default (any 类型) 现有约定 (后端 model.go: point 是 map{x,y})。
+export function zeroDefaultFor(t: VarType): unknown {
+  switch (t) {
+    case 'number': return 0
+    case 'string': return ''
+    case 'bool': return false
+    case 'point': return { x: 0, y: 0 }
+    case 'any': return null
+  }
+}
