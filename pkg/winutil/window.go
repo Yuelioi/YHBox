@@ -125,6 +125,11 @@ func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
 	return regexp.Compile(spec.Title)
 }
 
+// ErrWindowNotFound — ResolveWindow 在 timeout 内没枚到匹配窗口时返回 (wrap 进带定位信息的
+// error)。调用方用 errors.Is 区分「超时没找到」(可兜底分支) 与「空 match / regex 非法 / ctx 取消」
+// (真错)。
+var ErrWindowNotFound = errors.New("窗口未找到")
+
 // ResolveWindow 按 spec 匹配条件枚 top-level visible window, 第一个匹配返 WindowHandle.
 // EnumWindows 按 Z-order (前台最上为先) 顺序回调, MSDN 有写. fallback: GetTopWindow + GetWindow(GW_HWNDNEXT).
 // OpenProcess 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限. 单进程 query 失败 → 视该进程不匹配 + 继续.
@@ -206,8 +211,8 @@ func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.D
 			return result, nil
 		}
 		if time.Now().After(deadline) {
-			return WindowHandle{}, fmt.Errorf("窗口未找到 (title=%q class=%q process=%q), 请打开游戏后重试",
-				spec.Title, spec.Class, spec.ProcessName)
+			return WindowHandle{}, fmt.Errorf("%w (title=%q class=%q process=%q), 请打开游戏后重试",
+				ErrWindowNotFound, spec.Title, spec.Class, spec.ProcessName)
 		}
 		select {
 		case <-ctx.Done():

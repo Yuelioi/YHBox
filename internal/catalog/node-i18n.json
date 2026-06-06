@@ -255,7 +255,7 @@
       },
       "HSV": {
         "label": "HSV 范围",
-        "hint": "{'{'}\"hMin\":0,\"hMax\":180,\"sMin\":0,\"sMax\":255,\"vMin\":0,\"vMax\":255{'}'}"
+        "hint": "{'{'}\"hMin\":0,\"hMax\":360,\"sMin\":0,\"sMax\":100,\"vMin\":0,\"vMax\":100{'}'}"
       },
       "MinPixelRatio": {
         "label": "最小命中比例"
@@ -308,11 +308,11 @@
       },
       "InnerColor": {
         "label": "inner HSV (默认 fishing cursor 黄)",
-        "hint": "{'{'}\"hMin\":45,\"hMax\":70,\"sMin\":40,\"sMax\":255,\"vMin\":200,\"vMax\":255{'}'}"
+        "hint": "{'{'}\"hMin\":45,\"hMax\":70,\"sMin\":16,\"sMax\":100,\"vMin\":78,\"vMax\":100{'}'}"
       },
       "OuterColor": {
         "label": "outer HSV (默认 fishing target 青)",
-        "hint": "{'{'}\"hMin\":160,\"hMax\":180,\"sMin\":140,\"sMax\":255,\"vMin\":100,\"vMax\":255{'}'}"
+        "hint": "{'{'}\"hMin\":160,\"hMax\":180,\"sMin\":55,\"sMax\":100,\"vMin\":39,\"vMax\":100{'}'}"
       },
       "Options": {
         "label": "算法参数 (Optional)",
@@ -867,7 +867,7 @@
       },
       "HSV": {
         "label": "HSV 范围",
-        "hint": "{'{'}\"hMin\":0,\"hMax\":180,\"sMin\":0,\"sMax\":255,\"vMin\":0,\"vMax\":255{'}'}"
+        "hint": "{'{'}\"hMin\":0,\"hMax\":360,\"sMin\":0,\"sMax\":100,\"vMin\":0,\"vMax\":100{'}'}"
       },
       "Axis": {
         "label": "扫描轴"
@@ -899,6 +899,33 @@
       },
       "Timeout": {
         "label": "超时"
+      }
+    }
+  },
+  "RunProgram": {
+    "label": "运行程序",
+    "description": "用系统默认方式打开一个目标：可执行文件直接运行、网址用默认浏览器打开、文档/文件夹用关联程序打开。启动后立刻往下走，不等程序退出。",
+    "example": "想在脚本开头自动开游戏：目标填游戏 exe 完整路径；或目标填一个网址，跑到这里就用默认浏览器打开它。",
+    "input": {
+      "Target": {
+        "label": "目标",
+        "hint": "程序路径 / 网址 / 文件 / 文件夹。如 C:\\Game\\game.exe 或 https://example.com"
+      },
+      "Args": {
+        "label": "启动参数",
+        "hint": "可选。传给程序的命令行参数。"
+      },
+      "WorkingDir": {
+        "label": "工作目录",
+        "hint": "可选。程序启动的工作目录，留空用默认。"
+      },
+      "WindowState": {
+        "label": "窗口状态"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
       }
     }
   },
@@ -1309,6 +1336,37 @@
     "output": {
       "Found": {
         "label": "命中"
+      },
+      "Timeout": {
+        "label": "超时"
+      }
+    }
+  },
+  "WaitWindow": {
+    "label": "等待窗口",
+    "description": "轮询等待某个窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「目标窗口」锁定（这时窗口已存在会立刻命中）。",
+    "example": "「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「目标窗口」+ 后续操作，超时就发提示或重试。",
+    "input": {
+      "Title": {
+        "label": "窗口标题"
+      },
+      "Class": {
+        "label": "窗口类名"
+      },
+      "ProcessName": {
+        "label": "进程名"
+      },
+      "TitleMatch": {
+        "label": "标题匹配方式"
+      },
+      "TimeoutMs": {
+        "label": "超时 (毫秒)",
+        "hint": "在这段时间内轮询等待窗口出现，到点还没出现走「超时」。"
+      }
+    },
+    "output": {
+      "Found": {
+        "label": "出现"
       },
       "Timeout": {
         "label": "超时"
