@@ -62,6 +62,14 @@
       "Threshold": {
         "label": "阈值",
         "hint": "NCC 阈值"
+      },
+      "CaptureFound": {
+        "label": "是否命中→变量",
+        "hint": "填变量名, 把是否命中 (1/0) 捕获进该变量"
+      },
+      "CapturePoint": {
+        "label": "命中点→变量",
+        "hint": "填变量名, 把命中中心 (ratio) 捕获进该变量"
       }
     },
     "output": {
@@ -126,6 +134,14 @@
       },
       "Button": {
         "label": "按键"
+      },
+      "CaptureFound": {
+        "label": "是否命中→变量",
+        "hint": "填变量名, 把是否命中 (1/0) 捕获进该变量"
+      },
+      "CapturePoint": {
+        "label": "点击点→变量",
+        "hint": "填变量名, 把点击点 (ratio) 捕获进该变量"
       }
     },
     "output": {
@@ -233,6 +249,14 @@
       },
       "MinPixels": {
         "label": "最小像素"
+      },
+      "CaptureCount": {
+        "label": "命中像素数→变量",
+        "hint": "填变量名, 把命中像素数捕获进该变量"
+      },
+      "CaptureCenter": {
+        "label": "命中中心点→变量",
+        "hint": "填变量名, 把命中中心 (ratio) 捕获进该变量"
       }
     },
     "output": {
@@ -266,6 +290,14 @@
       "TimeoutMs": {
         "label": "超时 (ms)",
         "hint": "<=0 单次扫描"
+      },
+      "CapturePixelCount": {
+        "label": "命中像素数→变量",
+        "hint": "填变量名, 把命中像素数捕获进该变量"
+      },
+      "CapturePixelRatio": {
+        "label": "命中比例→变量",
+        "hint": "填变量名, 把命中像素比例捕获进该变量"
       }
     },
     "output": {
@@ -317,6 +349,30 @@
       "Options": {
         "label": "算法参数 (Optional)",
         "hint": "{'{'}\"innerMinPx\":2,\"innerMaxPx\":0,\"outerMinPx\":0,\"bandRatioH\":0.30,\"bandRatioInner\":0.85,\"confInnerWeight\":0.42,\"confOuterWeight\":0.58{'}'} (0/空字段走默认; 默认是 fishing UI 实测值)"
+      },
+      "CaptureInnerX": {
+        "label": "内层位置→变量",
+        "hint": "填变量名, 把内层 (滑块) 在区段里的位置捕获进该变量"
+      },
+      "CaptureOuterX": {
+        "label": "外层位置→变量",
+        "hint": "填变量名, 把外层 (目标区段) 位置捕获进该变量"
+      },
+      "CaptureOuterWidth": {
+        "label": "外层宽度→变量",
+        "hint": "填变量名, 把外层区段宽度捕获进该变量"
+      },
+      "CaptureConfidence": {
+        "label": "置信度→变量",
+        "hint": "填变量名, 把识别置信度捕获进该变量"
+      },
+      "CaptureInnerPx": {
+        "label": "内层像素宽→变量",
+        "hint": "填变量名, 把内层像素宽度捕获进该变量"
+      },
+      "CaptureOuterPx": {
+        "label": "外层像素宽→变量",
+        "hint": "填变量名, 把外层像素宽度捕获进该变量"
       }
     },
     "output": {
@@ -388,21 +444,6 @@
     "input": {
       "ParamName": {
         "label": "参数名"
-      }
-    },
-    "output": {
-      "Value": {
-        "label": "值"
-      }
-    }
-  },
-  "GetSys": {
-    "label": "读系统值",
-    "description": "读框架运行时自动记下来的内置值，按路径取——比如 now_ms（当前时间毫秒）、上一次找图的结果 lastTemplate.found / lastTemplate.point、上一次秒表读数 lastStopwatch.elapsedMs 等。这些是脚本跑的过程中系统帮你存好的，路径必须是系统认识的那几个。",
-    "input": {
-      "Path": {
-        "label": "路径",
-        "hint": "点路径, e.g. now_ms / lastDualBarTrack.innerX"
       }
     },
     "output": {
@@ -597,6 +638,10 @@
       },
       "Count": {
         "label": "次数 (mode=count)"
+      },
+      "CaptureIndex": {
+        "label": "循环序号→变量",
+        "hint": "填变量名, 每轮把当前循环序号 (从 0 起) 捕获进该变量"
       }
     },
     "output": {
@@ -823,6 +868,16 @@
       }
     }
   },
+  "Now": {
+    "label": "当前时间",
+    "description": "返回当前时间的毫秒数（unix 毫秒，每次读都是实时的最新值）。常配「变量上次变化时间」算「某状态已经多久没动了」：当前时间 − 变量上次变化时间。",
+    "example": "看血量多久没变（卡住了）：用「当前时间」减去「变量上次变化时间」（变量名填 hp），差值超过 5000 毫秒就当作卡住，触发重连。",
+    "output": {
+      "Value": {
+        "label": "当前时间(ms)"
+      }
+    }
+  },
   "Or": {
     "label": "逻辑或",
     "description": "两个条件只要有一个为真就给出真，都为假才给假。",
@@ -888,6 +943,14 @@
       "TimeoutMs": {
         "label": "超时 (ms)",
         "hint": "<=0 单次扫描"
+      },
+      "CaptureClusterCount": {
+        "label": "段数→变量",
+        "hint": "填变量名, 把找到的连续段数量捕获进该变量"
+      },
+      "CaptureClusters": {
+        "label": "各段信息→变量",
+        "hint": "填变量名, 把每段的信息捕获进该变量"
       }
     },
     "output": {
@@ -941,6 +1004,10 @@
       "ROI": {
         "label": "ROI (ratio)",
         "hint": "客户区 ratio 矩形, 全 0 = 全屏"
+      },
+      "CapturePath": {
+        "label": "截图路径→变量",
+        "hint": "填变量名, 把写入的截图绝对路径捕获进该变量"
       }
     },
     "output": {
@@ -1058,6 +1125,10 @@
       "Key": {
         "label": "key",
         "hint": "跟之前 StopwatchStart 同一个 key"
+      },
+      "CaptureElapsedMs": {
+        "label": "用时(ms)→变量",
+        "hint": "填变量名, 把读到的 elapsed 毫秒数捕获进该变量"
       }
     },
     "output": {
@@ -1216,6 +1287,10 @@
       "SubgraphID": {
         "label": "Body 子图",
         "hint": "Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch."
+      },
+      "CaptureError": {
+        "label": "Catch 错误信息→变量",
+        "hint": "填变量名, 出错时把错误文字捕获进该变量"
       }
     },
     "output": {
@@ -1224,6 +1299,22 @@
       },
       "Catch": {
         "label": "捕获"
+      }
+    }
+  },
+  "VarLastChange": {
+    "label": "变量上次变化时间",
+    "description": "返回某个变量上一次被写入/自增的时间（unix 毫秒），从没被改过返回 0。配「当前时间」算「这个值有多久没变了」，常用来做卡死检测/看门狗。",
+    "example": "检测某状态卡死：变量名填 state，用「当前时间」减去本节点的结果，差值很大说明 state 很久没更新了，可触发恢复流程。",
+    "input": {
+      "VarName": {
+        "label": "变量名",
+        "hint": "要查询上次变化时间的变量名"
+      }
+    },
+    "output": {
+      "Value": {
+        "label": "上次变化时间(ms)"
       }
     }
   },
@@ -1331,6 +1422,14 @@
       "Threshold": {
         "label": "阈值",
         "hint": "NCC 阈值"
+      },
+      "CaptureFound": {
+        "label": "是否命中→变量",
+        "hint": "填变量名, 把是否命中 (1/0) 捕获进该变量"
+      },
+      "CapturePoint": {
+        "label": "命中点→变量",
+        "hint": "填变量名, 把命中中心 (ratio) 捕获进该变量"
       }
     },
     "output": {

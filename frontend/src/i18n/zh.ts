@@ -465,6 +465,7 @@ export default {
     screen_pick_action_drag: '拖矩形',
     screen_pick_action_click: '点一下',
     literal_section: '数据输入 (literal)',
+    capture_section: '输出捕获',
     config_section: '配置',
     pin_input_json_invalid: 'JSON 格式错误 — 未保存',
     example_title: '示例',
@@ -530,6 +531,7 @@ export default {
       input: {
         Mode: { label: '模式', option: { count: '次数', forever: '永远' } },
         Count: { label: '次数 (mode=count)' },
+        CaptureIndex: { label: '循环序号→变量', hint: '填变量名, 每轮把当前循环序号 (从 0 起) 捕获进该变量' },
       },
       output: {
         Body: { label: '循环体 (每轮触发)' },
@@ -574,6 +576,8 @@ export default {
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即触发 / 全部同帧命中才触发', option: { any: '任一命中', all: '全部命中' } },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
+        CapturePoint: { label: '命中点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
         Found: {
@@ -594,6 +598,8 @@ export default {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中走 Found / 全部同帧命中才走 Found', option: { any: '任一命中', all: '全部命中' } },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
+        CapturePoint: { label: '命中点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
         Found: {
@@ -616,6 +622,8 @@ export default {
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+        CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
+        CapturePoint: { label: '点击点→变量', hint: '填变量名, 把点击点 (ratio) 捕获进该变量' },
       },
       output: {
         Done: {
@@ -637,6 +645,8 @@ export default {
         Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
         Range: { label: '范围 [aMin..vMax]', hint: '6 元素: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
         MinPixels: { label: '最小像素' },
+        CaptureCount: { label: '命中像素数→变量', hint: '填变量名, 把命中像素数捕获进该变量' },
+        CaptureCenter: { label: '命中中心点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
         Yes: {
@@ -659,6 +669,8 @@ export default {
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
+        CapturePixelCount: { label: '命中像素数→变量', hint: '填变量名, 把命中像素数捕获进该变量' },
+        CapturePixelRatio: { label: '命中比例→变量', hint: '填变量名, 把命中像素比例捕获进该变量' },
       },
       output: {
         Yes: { label: '命中' },
@@ -675,6 +687,12 @@ export default {
         InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
         OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
         Options: { label: '算法参数 (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 fishing UI 实测值)` },
+        CaptureInnerX: { label: '内层位置→变量', hint: '填变量名, 把内层 (滑块) 在区段里的位置捕获进该变量' },
+        CaptureOuterX: { label: '外层位置→变量', hint: '填变量名, 把外层 (目标区段) 位置捕获进该变量' },
+        CaptureOuterWidth: { label: '外层宽度→变量', hint: '填变量名, 把外层区段宽度捕获进该变量' },
+        CaptureConfidence: { label: '置信度→变量', hint: '填变量名, 把识别置信度捕获进该变量' },
+        CaptureInnerPx: { label: '内层像素宽→变量', hint: '填变量名, 把内层像素宽度捕获进该变量' },
+        CaptureOuterPx: { label: '外层像素宽→变量', hint: '填变量名, 把外层像素宽度捕获进该变量' },
       },
       output: {
         Found: { label: '命中' },
@@ -694,6 +712,8 @@ export default {
         MinClusterCount: { label: '最少 cluster 数' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
+        CaptureClusterCount: { label: '段数→变量', hint: '填变量名, 把找到的连续段数量捕获进该变量' },
+        CaptureClusters: { label: '各段信息→变量', hint: '填变量名, 把每段的信息捕获进该变量' },
       },
       output: {
         Found: { label: '命中' },
@@ -745,6 +765,7 @@ export default {
       input: {
         PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
+        CapturePath: { label: '截图路径→变量', hint: '填变量名, 把写入的截图绝对路径捕获进该变量' },
       },
       output: {
         Done: {
@@ -1036,7 +1057,10 @@ export default {
       label: '秒表 读取',
       description: '读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。',
       example: '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
-      input: { Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' } },
+      input: {
+        Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' },
+        CaptureElapsedMs: { label: '用时(ms)→变量', hint: '填变量名, 把读到的 elapsed 毫秒数捕获进该变量' },
+      },
       output: {
         Done: {
           label: '完成',
@@ -1129,7 +1153,10 @@ export default {
       label: 'Try Catch',
       description: '把一段可能出错的步骤（做成子图）包起来跑：顺利跑完走「正常」出口；中途任何一步报错（含主动「抛错」）就被接住走「捕获」出口，错误文字会从「捕获」带出来，脚本不会整个崩掉。',
       example: '点击某个按钮可能因为画面没加载出来而失败：把这步包进 Try 子图，「正常」往下继续，「捕获」接重试或截图记录，避免一出错整个脚本停掉。',
-      input: { SubgraphID: { label: 'Body 子图', hint: 'Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch.' } },
+      input: {
+        SubgraphID: { label: 'Body 子图', hint: 'Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch.' },
+        CaptureError: { label: 'Catch 错误信息→变量', hint: '填变量名, 出错时把错误文字捕获进该变量' },
+      },
       output: {
         Out: { label: '正常' },
         Catch: {
@@ -1218,11 +1245,18 @@ export default {
       input: { ParamName: { label: '参数名' } },
       output: { Value: { label: '值' } },
     },
-    GetSys: {
-      label: '读系统值',
-      description: '读框架运行时自动记下来的内置值，按路径取——比如 now_ms（当前时间毫秒）、上一次找图的结果 lastTemplate.found / lastTemplate.point、上一次秒表读数 lastStopwatch.elapsedMs 等。这些是脚本跑的过程中系统帮你存好的，路径必须是系统认识的那几个。',
-      input: { Path: { label: '路径', hint: '点路径, e.g. now_ms / lastDualBarTrack.innerX' } },
-      output: { Value: { label: '值' } },
+    Now: {
+      label: '当前时间',
+      description: '返回当前时间的毫秒数（unix 毫秒，每次读都是实时的最新值）。常配「变量上次变化时间」算「某状态已经多久没动了」：当前时间 − 变量上次变化时间。',
+      example: '看血量多久没变（卡住了）：用「当前时间」减去「变量上次变化时间」（变量名填 hp），差值超过 5000 毫秒就当作卡住，触发重连。',
+      output: { Value: { label: '当前时间(ms)' } },
+    },
+    VarLastChange: {
+      label: '变量上次变化时间',
+      description: '返回某个变量上一次被写入/自增的时间（unix 毫秒），从没被改过返回 0。配「当前时间」算「这个值有多久没变了」，常用来做卡死检测/看门狗。',
+      example: '检测某状态卡死：变量名填 state，用「当前时间」减去本节点的结果，差值很大说明 state 很久没更新了，可触发恢复流程。',
+      input: { VarName: { label: '变量名', hint: '要查询上次变化时间的变量名' } },
+      output: { Value: { label: '上次变化时间(ms)' } },
     },
   },
   status: {
@@ -1377,7 +1411,6 @@ export default {
     EXPR_UNKNOWN_INPUT: 'Expr 引用未声明的输入 {name}',
     EXPR_TYPE_MISMATCH: 'Expr outType 与推断不符 (期望 {expected}, 实际 {actual})',
     EXPR_DUPLICATE_INPUT: 'Expr inputs 重复名: {name}',
-    GETSYS_UNKNOWN_PATH: 'GetSys 路径 {path} 不在 sys schema 中',
     GETPARAM_UNKNOWN_PARAM: 'GetParam 引用未声明入参 {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
@@ -1846,7 +1879,7 @@ export default {
       paren_mismatch: '括号不匹配',
       string_unclosed: '字符串未闭合: 缺少 "',
       paren_missing: '括号不匹配: 缺 {count} 个 {char}',
-      bare_word: '看起来是裸词; 字符串字面量请加双引号 "{var}", 变量请加 $vars./$params./$sys.',
+      bare_word: '看起来是裸词; 字符串字面量请加双引号 "{var}", 要用变量/参数请改用 GetVar / GetParam 节点接到输入 pin.',
       op_end: '表达式以运算符结尾, 缺右侧操作数',
       expect_number: '预期 number 类型, 看起来不是数字',
       expect_bool: '预期 bool, 应为 true / false',

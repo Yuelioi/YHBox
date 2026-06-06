@@ -449,6 +449,7 @@ export default {
     screen_pick_action_drag: 'drag a rectangle to',
     screen_pick_action_click: 'one click to',
     literal_section: 'Data inputs (literal)',
+    capture_section: 'Output capture',
     config_section: 'Config',
     pin_input_json_invalid: 'Invalid JSON — not saved',
     example_title: 'Example',
@@ -509,6 +510,7 @@ export default {
       input: {
         Mode: { label: 'Mode', option: { count: 'Count', forever: 'Forever' } },
         Count: { label: 'Count (mode=count)' },
+        CaptureIndex: { label: 'Loop index → variable', hint: 'Enter a variable name to capture the current loop index (0-based) into it each pass' },
       },
       output: {
         Body: { label: 'Body (per iteration)' },
@@ -553,6 +555,8 @@ export default {
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit fires / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
+        CapturePoint: { label: 'Hit point → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
         Found: {
@@ -573,6 +577,8 @@ export default {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit → Found / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
+        CapturePoint: { label: 'Hit point → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
         Found: {
@@ -595,6 +601,8 @@ export default {
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+        CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
+        CapturePoint: { label: 'Click point → variable', hint: 'Enter a variable name to capture the click point (ratio) into it' },
       },
       output: {
         Done: {
@@ -616,6 +624,8 @@ export default {
         Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
         Range: { label: 'Range [aMin..vMax]', hint: '6 elements: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
         MinPixels: { label: 'Min pixels' },
+        CaptureCount: { label: 'Hit pixel count → variable', hint: 'Enter a variable name to capture the hit pixel count into it' },
+        CaptureCenter: { label: 'Hit center → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
         Yes: {
@@ -638,6 +648,8 @@ export default {
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
+        CapturePixelCount: { label: 'Hit pixel count → variable', hint: 'Enter a variable name to capture the hit pixel count into it' },
+        CapturePixelRatio: { label: 'Hit ratio → variable', hint: 'Enter a variable name to capture the hit pixel ratio into it' },
       },
       output: {
         Yes: { label: 'Yes' },
@@ -654,6 +666,12 @@ export default {
         InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
         OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
         Options: { label: 'Algorithm params (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)` },
+        CaptureInnerX: { label: 'Inner position → variable', hint: 'Enter a variable name to capture the inner marker position within the band into it' },
+        CaptureOuterX: { label: 'Outer position → variable', hint: 'Enter a variable name to capture the outer (target band) position into it' },
+        CaptureOuterWidth: { label: 'Outer width → variable', hint: 'Enter a variable name to capture the outer band width into it' },
+        CaptureConfidence: { label: 'Confidence → variable', hint: 'Enter a variable name to capture the detection confidence into it' },
+        CaptureInnerPx: { label: 'Inner pixel width → variable', hint: 'Enter a variable name to capture the inner pixel width into it' },
+        CaptureOuterPx: { label: 'Outer pixel width → variable', hint: 'Enter a variable name to capture the outer pixel width into it' },
       },
       output: {
         Found: { label: 'Found' },
@@ -673,6 +691,8 @@ export default {
         MinClusterCount: { label: 'Min cluster count' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
+        CaptureClusterCount: { label: 'Cluster count → variable', hint: 'Enter a variable name to capture the number of clusters found into it' },
+        CaptureClusters: { label: 'Cluster details → variable', hint: 'Enter a variable name to capture per-cluster details into it' },
       },
       output: {
         Found: { label: 'Found' },
@@ -724,6 +744,7 @@ export default {
       input: {
         PathTemplate: { label: 'Path template', hint: "Relative path, no '..' / drive letter / leading '/' or '\\\\'. {ts}/{nodeId}/{containerId}/{date} auto-expanded." },
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
+        CapturePath: { label: 'Screenshot path → variable', hint: 'Enter a variable name to capture the written screenshot absolute path into it' },
       },
       output: {
         Done: {
@@ -1015,7 +1036,10 @@ export default {
       label: 'Stopwatch read',
       description: 'Reads how many milliseconds a stopwatch has counted. If it is still running, you get "start until now"; if it was stopped, you get "start until the stop"; an unstarted key returns 0.',
       example: 'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
-      input: { Key: { label: 'key', hint: 'Same key as the prior StopwatchStart' } },
+      input: {
+        Key: { label: 'key', hint: 'Same key as the prior StopwatchStart' },
+        CaptureElapsedMs: { label: 'Elapsed (ms) → variable', hint: 'Enter a variable name to capture the read elapsed milliseconds into it' },
+      },
       output: {
         Done: {
           label: 'Done',
@@ -1108,7 +1132,10 @@ export default {
       label: 'Try / catch',
       description: 'Wraps a group of error-prone steps (as a subgraph) and runs them: finishes cleanly → Normal exit; any step errors out (including a deliberate Throw) → caught and routed to the Catch exit, with the error text carried out from Catch — the script does not crash entirely.',
       example: 'Clicking a button might fail because the screen has not loaded yet: wrap that step in a Try subgraph — Normal continues onward, Catch handles a retry or logs a screenshot — so one error does not stop the whole script.',
-      input: { SubgraphID: { label: 'Body subgraph', hint: 'Subgraph ID wrapped by Try; runner pushes a frame to run it, body return error triggers catch.' } },
+      input: {
+        SubgraphID: { label: 'Body subgraph', hint: 'Subgraph ID wrapped by Try; runner pushes a frame to run it, body return error triggers catch.' },
+        CaptureError: { label: 'Catch error text → variable', hint: 'Enter a variable name to capture the error text into it on failure' },
+      },
       output: {
         Out: { label: 'Normal' },
         Catch: {
@@ -1197,11 +1224,18 @@ export default {
       input: { ParamName: { label: 'Param name' } },
       output: { Value: { label: 'Value' } },
     },
-    GetSys: {
-      label: 'Get system value',
-      description: 'Reads a built-in value the runtime records automatically, by path — for example now_ms (current time in ms), the last find-image result lastTemplate.found / lastTemplate.point, or the last stopwatch reading lastStopwatch.elapsedMs. These are filled in by the system as the script runs, so the path must be one the system knows.',
-      input: { Path: { label: 'Path', hint: 'dot path, e.g. now_ms / lastDualBarTrack.innerX' } },
-      output: { Value: { label: 'Value' } },
+    Now: {
+      label: 'Now',
+      description: 'Returns the current time in milliseconds (unix ms, re-read live each time). Often paired with "Variable last-change time" to compute "how long a state has stayed unchanged": Now − VarLastChange.',
+      example: 'Check how long HP has stayed unchanged (stuck): subtract "Variable last-change time" (name = hp) from Now; if the gap exceeds 5000 ms treat it as stuck and trigger a reconnect.',
+      output: { Value: { label: 'Now (ms)' } },
+    },
+    VarLastChange: {
+      label: 'Variable last-change time',
+      description: 'Returns the time a variable was last written/incremented (unix ms), or 0 if it was never changed. Paired with Now to compute "how long this value has stayed unchanged" — handy for stuck detection / watchdogs.',
+      example: 'Detect a stuck state: name = state, subtract this node\'s result from Now; a large gap means state has not updated for a long time and can trigger recovery.',
+      input: { VarName: { label: 'Variable name', hint: 'Name of the variable whose last-change time to query' } },
+      output: { Value: { label: 'Last-change time (ms)' } },
     },
   },
   status: {
@@ -1356,7 +1390,6 @@ export default {
     EXPR_UNKNOWN_INPUT: 'Expr references undeclared input {name}',
     EXPR_TYPE_MISMATCH: 'Expr outType differs from inferred (expected {expected}, got {actual})',
     EXPR_DUPLICATE_INPUT: 'Expr inputs has duplicate name: {name}',
-    GETSYS_UNKNOWN_PATH: 'GetSys path {path} not in sys schema',
     GETPARAM_UNKNOWN_PARAM: 'GetParam references undeclared input param {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode external pin has no matching marker in backing Subgraph',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
@@ -1799,7 +1832,7 @@ export default {
       paren_mismatch: 'Parenthesis mismatch',
       string_unclosed: 'Unclosed string: missing "',
       paren_missing: 'Parenthesis mismatch: missing {count} {char}',
-      bare_word: 'Looks like a bare word; for string literals use "..." around "{var}"; for variables use $vars./$params./$sys.',
+      bare_word: 'Looks like a bare word; for string literals wrap "{var}" in double quotes; for variables/params use a GetVar / GetParam node wired into an input pin.',
       op_end: 'Expression ends with operator, right operand missing',
       expect_number: 'Expected number type, does not look numeric',
       expect_bool: 'Expected bool, should be true / false',
