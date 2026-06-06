@@ -21,6 +21,7 @@
       <SettingsGeneral v-if="activeTab === 'general'" />
       <SettingsHotkeys v-if="activeTab === 'hotkeys'" />
       <SettingsInput v-if="activeTab === 'input'" />
+      <SettingsLauncher v-if="activeTab === 'launcher'" />
     </div>
   </div>
 </template>
@@ -31,15 +32,17 @@ import { useI18n } from 'vue-i18n'
 import SettingsGeneral from './SettingsGeneral.vue'
 import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
+import SettingsLauncher from './SettingsLauncher.vue'
 
 const { t } = useI18n()
 
-type TabKey = 'general' | 'hotkeys' | 'input'
+type TabKey = 'general' | 'hotkeys' | 'input' | 'launcher'
 
 const tabs = computed<{ key: TabKey; label: string }[]>(() => [
   { key: 'general', label: t('settingsTab.general') },
   { key: 'hotkeys', label: t('settingsTab.hotkeys') },
   { key: 'input', label: t('settingsTab.input_calibration') },
+  { key: 'launcher', label: t('settingsTab.launcher') },
 ])
 const activeTab = ref<TabKey>('general')
 </script>

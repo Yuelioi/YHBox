@@ -1923,6 +1923,7 @@ export default {
     general: '通用',
     hotkeys: '快捷键',
     input_calibration: '输入校准',
+    launcher: '悬浮窗',
   },
   // 关于页 (AboutView).
   about: {

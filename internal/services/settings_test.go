@@ -108,8 +108,10 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	s := &Settings{
 		UI: UISettings{
 			LauncherToggleHotkey: "Ctrl+Shift+L",
-			LauncherGroups: []LauncherGroup{
-				{ID: "g1", Name: "战斗", ContainerIDs: []string{"c1", "c2"}},
+			LauncherColumns:      4,
+			LauncherItems: []LauncherItem{
+				{ContainerID: "c1", Icon: "i-tabler-fish"},
+				{ContainerID: "c2"},
 			},
 		},
 	}
@@ -124,15 +126,14 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	if out.UI.LauncherToggleHotkey != "Ctrl+Shift+L" {
 		t.Errorf("LauncherToggleHotkey: want %q, got %q", "Ctrl+Shift+L", out.UI.LauncherToggleHotkey)
 	}
-	if len(out.UI.LauncherGroups) != 1 {
-		t.Fatalf("LauncherGroups len: want 1, got %d", len(out.UI.LauncherGroups))
+	if out.UI.LauncherColumns != 4 {
+		t.Errorf("LauncherColumns: want 4, got %d", out.UI.LauncherColumns)
 	}
-	g := out.UI.LauncherGroups[0]
-	if g.Name != "战斗" {
-		t.Errorf("group Name: want %q, got %q", "战斗", g.Name)
+	if len(out.UI.LauncherItems) != 2 {
+		t.Fatalf("LauncherItems len: want 2, got %d", len(out.UI.LauncherItems))
 	}
-	if len(g.ContainerIDs) != 2 {
-		t.Errorf("ContainerIDs len: want 2, got %d", len(g.ContainerIDs))
+	if out.UI.LauncherItems[0].ContainerID != "c1" || out.UI.LauncherItems[0].Icon != "i-tabler-fish" {
+		t.Errorf("item[0]: got %+v", out.UI.LauncherItems[0])
 	}
 }
 
@@ -144,8 +145,8 @@ func TestUISettings_LauncherZeroValue(t *testing.T) {
 	if s.UI.LauncherToggleHotkey != "" {
 		t.Errorf("LauncherToggleHotkey zero: want empty, got %q", s.UI.LauncherToggleHotkey)
 	}
-	if len(s.UI.LauncherGroups) != 0 {
-		t.Errorf("LauncherGroups zero: want len 0, got %d", len(s.UI.LauncherGroups))
+	if len(s.UI.LauncherItems) != 0 {
+		t.Errorf("LauncherItems zero: want len 0, got %d", len(s.UI.LauncherItems))
 	}
 }
 

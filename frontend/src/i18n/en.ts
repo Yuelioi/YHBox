@@ -1866,6 +1866,7 @@ export default {
     general: 'General',
     hotkeys: 'Hotkeys',
     input_calibration: 'Input calibration',
+    launcher: 'Launcher',
   },
   about: {
     tagline: 'Compose nodes. Run automatically.',

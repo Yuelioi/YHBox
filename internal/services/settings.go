@@ -73,8 +73,10 @@ type UISettings struct {
 	// 录制兜底 getter (无 MouseCalibration 节点时) + 新建节点默认值 + "同步所有容器" 用它。
 	// 空 / 指向不存在的 label → ActiveMouseCounts360() 兜底 (见该方法)。
 	ActiveMouseProfile string `json:"activeMouseProfile"`
-	// LauncherGroups 悬浮窗启动器分组（用户编排，只这里持久化）。空 = 空启动器。
-	LauncherGroups []LauncherGroup `json:"launcherGroups"`
+	// LauncherItems 悬浮窗启动器的按钮项（用户在设置里编排，有序）。空 = 空启动器。
+	LauncherItems []LauncherItem `json:"launcherItems"`
+	// LauncherColumns 悬浮窗每排按钮数；<=0 → 渲染端兜底默认。
+	LauncherColumns int `json:"launcherColumns"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
 	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
 }
@@ -85,11 +87,11 @@ type MouseProfile struct {
 	Counts360 int    `json:"counts360"`
 }
 
-// LauncherGroup 悬浮窗启动器的一个分组。ContainerIDs 有序，只存 ID（名字/状态/热键运行时拉）。
-type LauncherGroup struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	ContainerIDs []string `json:"containerIds"`
+// LauncherItem 悬浮窗启动器的一个按钮：指向一个容器，可选自定义图标（完整 tabler 名 i-tabler-xxx）。
+// 只存 containerId + icon；名字/状态/热键运行时拉。
+type LauncherItem struct {
+	ContainerID string `json:"containerId"`
+	Icon        string `json:"icon"`
 }
 
 // ActiveMouseCounts360 返回当前生效 profile 的 counts360。
