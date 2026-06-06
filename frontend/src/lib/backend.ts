@@ -357,6 +357,7 @@ export const backend = {
     toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
     hideLauncher: () => invoke(ToolsService.HideLauncher),
     setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),
+    setLauncherSize: (width: number, height: number) => invoke(ToolsService.SetLauncherSize, width, height),
   },
   events: {
     // 共享事件

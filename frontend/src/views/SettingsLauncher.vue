@@ -12,6 +12,8 @@
       <div class="w-28">
         <UInputNumber :model-value="columns" :min="1" :max="10" size="sm" class="w-full" @update:model-value="setColumns" />
       </div>
+      <label class="text-xs text-toned">显示</label>
+      <USelect :model-value="display" :items="displayItems" size="sm" class="w-28" @update:model-value="(v: string) => setDisplay(v)" />
       <UButton size="sm" variant="soft" color="primary" icon="i-tabler-plus" class="ml-auto" @click="addGroup">
         新建分组
       </UButton>
@@ -58,7 +60,11 @@
               </div>
             </template>
           </UPopover>
-          <span class="flex-1 min-w-0 truncate text-sm text-highlighted">{{ containerName(it.containerId) }}</span>
+          <UInput
+            :model-value="it.label" size="sm" class="flex-1 min-w-0"
+            :placeholder="containerName(it.containerId)" :title="containerName(it.containerId)"
+            @update:model-value="(v: string | number) => setLabel(g.id, it.containerId, String(v))"
+          />
           <HotkeyCaptureInput
             class="w-28 sm:w-32 shrink-0" :model-value="containerHotkey(it.containerId)"
             @update:model-value="(v: string) => setHotkey(it.containerId, v)"
@@ -102,6 +108,15 @@ function syncFromStore() {
 watch(() => settingsStore.data?.ui.launcherGroups, syncFromStore, { immediate: true })
 
 const columns = computed(() => settingsStore.data?.ui.launcherColumns || 3)
+const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both')
+const displayItems = [
+  { label: '图标 + 文字', value: 'both' },
+  { label: '仅图标', value: 'icon' },
+  { label: '仅文字', value: 'text' },
+]
+function setDisplay(v: string) {
+  void settingsStore.patch({ ui: { launcherDisplay: v } })
+}
 
 function persist() {
   void settingsStore.patch({ ui: { launcherGroups: copyGroups(editGroups.value) } })
@@ -130,7 +145,7 @@ function deleteGroup(id: string) {
 function addItem(gid: string, cid: string) {
   const g = group(gid)
   if (g && cid && !g.items.some((it) => it.containerId === cid)) {
-    g.items.push({ containerId: cid, icon: '' })
+    g.items.push({ containerId: cid, icon: '', label: '' })
     persist()
   }
 }
@@ -141,6 +156,10 @@ function removeItem(gid: string, cid: string) {
 function setIcon(gid: string, cid: string, icon: string) {
   const it = group(gid)?.items.find((x) => x.containerId === cid)
   if (it) { it.icon = icon; persist() }
+}
+function setLabel(gid: string, cid: string, label: string) {
+  const it = group(gid)?.items.find((x) => x.containerId === cid)
+  if (it) { it.label = label; persist() }
 }
 async function setHotkey(cid: string, hk: string) {
   await backend.hotkeys.update('container.' + cid, hk)

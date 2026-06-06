@@ -1,5 +1,5 @@
 <template>
-  <!-- 哑工具条：渲染分组图标按钮 + 单击跑 + 图钉置顶 + 隐藏。编排在 设置→悬浮窗。 -->
+  <!-- 哑工具条：渲染分组按钮 + 单击跑 + 图钉置顶 + 隐藏。自适应高度 + 右下角拖拽改尺寸。编排在 设置→悬浮窗。 -->
   <HudShell dense close-title="隐藏（可热键再呼出）" @close="onHide">
     <template #actions>
       <UButton
@@ -10,10 +10,10 @@
       />
     </template>
 
-    <div class="flex-1 min-h-0 overflow-auto p-1.5 space-y-2">
+    <div ref="contentRef" class="flex-1 min-h-0 overflow-auto p-1.5 space-y-2">
       <div
         v-if="groups.length === 0"
-        class="h-full flex items-center justify-center text-center text-[11px] text-dimmed px-3"
+        class="h-full flex items-center justify-center text-center text-[11px] text-dimmed px-3 py-4"
       >
         还没配置 — 到 主程序 设置 → 悬浮窗 里添加
       </div>
@@ -24,27 +24,40 @@
             v-for="(it, i) in g.items"
             :key="it.containerId + ':' + i"
             type="button"
-            class="flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-md border border-default/50 bg-elevated/40 hover:bg-elevated transition-colors disabled:opacity-70"
+            class="flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-md border border-default/50 bg-elevated/40 hover:bg-elevated transition-colors disabled:opacity-70"
             :class="{ 'ring-1 ring-primary': isRunning(it.containerId) }"
-            :title="it.name"
+            :title="it.label"
             :disabled="isRunning(it.containerId)"
             @click="onRun(it.containerId)"
           >
             <UIcon
+              v-if="display !== 'text' || isRunning(it.containerId)"
               :name="isRunning(it.containerId) ? 'i-tabler-loader-2' : it.icon || 'i-tabler-square-rounded'"
-              class="size-5"
-              :class="isRunning(it.containerId) ? 'animate-spin text-primary' : 'text-toned'"
+              :class="[isRunning(it.containerId) ? 'animate-spin text-primary' : 'text-toned', display === 'icon' ? 'size-6' : 'size-5']"
             />
-            <span class="w-full text-[10px] leading-none text-center truncate text-highlighted">{{ it.name }}</span>
+            <span
+              v-if="display !== 'icon'"
+              class="w-full text-[10px] leading-none text-center truncate text-highlighted"
+            >{{ it.label }}</span>
           </button>
         </div>
       </section>
+    </div>
+
+    <!-- 右下角拖拽手柄：改窗口宽高 -->
+    <div
+      class="absolute bottom-0 right-0 size-3.5 cursor-nwse-resize text-dimmed/70 hover:text-toned"
+      style="--wails-draggable: no-drag"
+      title="拖拽改大小"
+      @pointerdown="onGripDown"
+    >
+      <svg viewBox="0 0 10 10" class="size-full"><path d="M9 1v8H1" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/><path d="M9 5v4H5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </div>
   </HudShell>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
@@ -56,7 +69,9 @@ const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const execStore = useExecutionStore()
 
-const pinned = ref(true) // 开窗即置顶（后端 AlwaysOnTop:true）
+const contentRef = ref<HTMLElement | null>(null)
+
+const pinned = ref(true)
 function togglePin() {
   pinned.value = !pinned.value
   void backend.tools.setLauncherAlwaysOnTop(pinned.value)
@@ -67,8 +82,9 @@ const columns = computed(() => {
   const n = settingsStore.data?.ui.launcherColumns ?? 0
   return n > 0 ? n : DEFAULT_COLUMNS
 })
+const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both') // both | icon | text
 
-interface RItem { containerId: string; icon: string; name: string }
+interface RItem { containerId: string; icon: string; label: string }
 interface RGroup { id: string; name: string; items: RItem[] }
 const groups = computed<RGroup[]>(() => {
   const raw = settingsStore.data?.ui.launcherGroups ?? []
@@ -79,11 +95,11 @@ const groups = computed<RGroup[]>(() => {
       items: g.items
         .map((it) => {
           const c = containersStore.list.find((x) => x.id === it.containerId)
-          return c ? { containerId: it.containerId, icon: it.icon, name: c.name } : null
+          return c ? { containerId: it.containerId, icon: it.icon, label: it.label || c.name } : null
         })
-        .filter((x): x is RItem => x !== null), // 过滤已删容器
+        .filter((x): x is RItem => x !== null),
     }))
-    .filter((g) => g.items.length > 0) // 空组不渲染
+    .filter((g) => g.items.length > 0)
 })
 const flat = computed<string[]>(() => groups.value.flatMap((g) => g.items.map((i) => i.containerId)))
 
@@ -91,13 +107,12 @@ function isRunning(id: string): boolean {
   return execStore.running && execStore.currentTargetID === id
 }
 async function onRun(id: string) {
-  if (isRunning(id)) return // 点正在跑的 = no-op
+  if (isRunning(id)) return
   await backend.containers.run(id)
 }
 function onHide() {
   void backend.tools.hideLauncher()
 }
-// 数字键 1-9：跑扁平第 N 个（窗口聚焦时）
 function onKeyDown(e: KeyboardEvent) {
   if (e.key < '1' || e.key > '9') return
   const id = flat.value[Number(e.key) - 1]
@@ -106,16 +121,53 @@ function onKeyDown(e: KeyboardEvent) {
   void onRun(id)
 }
 
+// ── 自适应高度：内容变化 → 量内容高 + chrome → SetSize（保持当前宽度）──
+const CHROME_H = 34 // 标题栏 + 边框估算
+function fitHeight() {
+  const el = contentRef.value
+  if (!el) return
+  const h = Math.min(900, Math.max(120, Math.ceil(el.scrollHeight) + CHROME_H))
+  void backend.tools.setLauncherSize(Math.round(window.innerWidth), h)
+}
+watch([groups, columns, display], () => void nextTick(fitHeight))
+
+// ── 右下角手柄拖拽改宽高 ──
+let startX = 0
+let startY = 0
+let startW = 0
+let startH = 0
+function onGripMove(e: PointerEvent) {
+  const w = Math.max(140, startW + (e.clientX - startX))
+  const h = Math.max(120, startH + (e.clientY - startY))
+  void backend.tools.setLauncherSize(Math.round(w), Math.round(h))
+}
+function onGripUp() {
+  window.removeEventListener('pointermove', onGripMove)
+  window.removeEventListener('pointerup', onGripUp)
+}
+function onGripDown(e: PointerEvent) {
+  e.preventDefault()
+  startX = e.clientX
+  startY = e.clientY
+  startW = window.innerWidth
+  startH = window.innerHeight
+  window.addEventListener('pointermove', onGripMove)
+  window.addEventListener('pointerup', onGripUp)
+}
+
 let offSettings: (() => void) | null = null
 onMounted(() => {
-  void settingsStore.load()
-  void containersStore.reload()
-  // 设置在主程序窗口改 → 后端 emit settings:changed → 本独立窗口 reload（修 icon 不反应）
-  offSettings = Events.On('settings:changed', () => void settingsStore.load()) as unknown as () => void
+  void settingsStore.load().then(() => nextTick(fitHeight))
+  void containersStore.reload().then(() => nextTick(fitHeight))
+  offSettings = Events.On('settings:changed', () =>
+    void settingsStore.load().then(() => nextTick(fitHeight)),
+  ) as unknown as () => void
   window.addEventListener('keydown', onKeyDown)
 })
 onUnmounted(() => {
   offSettings?.()
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('pointermove', onGripMove)
+  window.removeEventListener('pointerup', onGripUp)
 })
 </script>

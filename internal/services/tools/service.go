@@ -293,6 +293,17 @@ func (s *Service) SetLauncherAlwaysOnTop(on bool) error {
 	return nil
 }
 
+// SetLauncherSize 程序化设启动器窗口尺寸（前端按内容自适应高度 / 右下角手柄拖拽时调用）。
+func (s *Service) SetLauncherSize(width, height int) error {
+	s.mu.Lock()
+	w := s.launcher
+	s.mu.Unlock()
+	if w != nil && width > 0 && height > 0 {
+		w.SetSize(width, height)
+	}
+	return nil
+}
+
 // SetCalibratorCloseHandler main.go 注入: 校准 HUD 窗关闭时卸 F8 钩 + 停 session。
 func (s *Service) SetCalibratorCloseHandler(fn func()) {
 	s.mu.Lock()

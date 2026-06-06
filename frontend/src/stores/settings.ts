@@ -14,6 +14,7 @@ export interface MouseProfile {
 export interface LauncherItem {
   containerId: string
   icon: string
+  label: string // 自定义文字；空 = 用容器名
 }
 
 // LauncherGroup 悬浮窗启动器的一个分组（跟 Go services.LauncherGroup 对齐）。
@@ -51,6 +52,7 @@ export interface Settings {
     activeMouseProfile: string // 指向 mouseProfiles 里某个 label；空/失配 → activeMouseCounts360 兜底
     launcherGroups: LauncherGroup[] // 悬浮窗启动器分组（设置里编排，有序）
     launcherColumns: number // 每排按钮数；<=0 渲染端兜底默认
+    launcherDisplay: string // 'both'(默认)|'icon'|'text'
     launcherToggleHotkey: string // 呼出/隐藏悬浮窗的全局热键（空=未绑）
   }
   locale: 'zh' | 'en' // i18n 口子

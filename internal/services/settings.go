@@ -77,6 +77,8 @@ type UISettings struct {
 	LauncherGroups []LauncherGroup `json:"launcherGroups"`
 	// LauncherColumns 悬浮窗每排按钮数；<=0 → 渲染端兜底默认。
 	LauncherColumns int `json:"launcherColumns"`
+	// LauncherDisplay 按钮显示：""/"both"=图标+文字 | "icon"=仅图标 | "text"=仅文字。
+	LauncherDisplay string `json:"launcherDisplay"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
 	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
 }
@@ -92,6 +94,7 @@ type MouseProfile struct {
 type LauncherItem struct {
 	ContainerID string `json:"containerId"`
 	Icon        string `json:"icon"`
+	Label       string `json:"label"` // 自定义文字；空 = 用容器名
 }
 
 // LauncherGroup 悬浮窗启动器的一个分组：组名 + 有序按钮项。
