@@ -33,9 +33,26 @@ export function isCompatibleType(src: VarType, dst: VarType): boolean {
   return src === dst
 }
 
+// 变量名校验 — 返 i18n key (未翻译) 或 null。
+// allowSelf: 编辑已有变量时传当前名, 自身不算重名。
+export function validateVarName(
+  raw: string,
+  existingNames: string[],
+  allowSelf?: string,
+): 'var.error.name_empty' | 'var.error.invalid_name' | 'var.error.duplicate' | null {
+  const n = raw.trim()
+  if (!n) return 'var.error.name_empty'
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return 'var.error.invalid_name'
+  if (n !== allowSelf && existingNames.includes(n)) return 'var.error.duplicate'
+  return null
+}
+
+export const VAR_TYPE_VALUES = ['number', 'string', 'bool', 'point', 'any'] as const satisfies VarType[]
+export const VAR_TYPE_OPTIONS = VAR_TYPE_VALUES.map(v => ({ value: v, label: v }))
+
 // 新建变量的零值 default — 对齐 VarDecl.Default (any 类型) 现有约定 (后端 model.go: point 是 map{x,y})。
-export function zeroDefaultFor(t: VarType): unknown {
-  switch (t) {
+export function zeroDefaultFor(varType: VarType): unknown {
+  switch (varType) {
     case 'number': return 0
     case 'string': return ''
     case 'bool': return false

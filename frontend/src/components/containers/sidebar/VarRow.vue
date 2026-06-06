@@ -97,6 +97,7 @@ import { useI18n } from 'vue-i18n'
 import type { VarDecl } from '@/lib/backend'
 import VarPointInput from './VarPointInput.vue'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
+import { validateVarName, VAR_TYPE_OPTIONS, type VarType } from '@/lib/variableRef'
 
 const { t } = useI18n()
 
@@ -112,10 +113,7 @@ const emit = defineEmits<{
   'insert-incvar': [name: string]
 }>()
 
-const TYPE_OPTIONS = ['number', 'string', 'bool', 'point', 'any'] as const
-type VarType = typeof TYPE_OPTIONS[number]
-
-const TYPE_OPTIONS_OBJ = TYPE_OPTIONS.map(v => ({ value: v, label: v }))
+const TYPE_OPTIONS_OBJ = VAR_TYPE_OPTIONS
 
 const expanded = ref(false)
 const nameInputRef = ref<HTMLInputElement | null>(null)
@@ -138,11 +136,8 @@ watch(expanded, async (v) => {
 })
 
 const nameError = computed<string | null>(() => {
-  const n = editName.value.trim()
-  if (!n) return t('var.error.name_empty')
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return t('var.error.invalid_name')
-  if (n !== props.decl.name && props.existingNames.includes(n)) return t('var.error.duplicate', { name: n })
-  return null
+  const key = validateVarName(editName.value, props.existingNames, props.decl.name)
+  return key ? t(key, key === 'var.error.duplicate' ? { name: editName.value.trim() } : {}) : null
 })
 
 const defaultAsPoint = computed(() => {

@@ -25,7 +25,7 @@
         </UFormField>
 
         <UFormField :label="t('var.promote.type_label')">
-          <USelect v-model="varType" :items="TYPE_OPTIONS" size="sm" />
+          <USelect v-model="varType" :items="VAR_TYPE_OPTIONS" size="sm" />
         </UFormField>
 
         <UFormField :label="t('var.promote.default_label')">
@@ -50,7 +50,7 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
-import type { VarType } from '@/lib/variableRef'
+import { validateVarName, VAR_TYPE_OPTIONS, type VarType } from '@/lib/variableRef'
 
 const { t } = useI18n()
 
@@ -70,14 +70,6 @@ const emit = defineEmits<{
   'update:open': [v: boolean]
   confirm: [args: { varName: string; varType: VarType }]
 }>()
-
-const TYPE_OPTIONS = [
-  { value: 'number' as VarType, label: 'number' },
-  { value: 'string' as VarType, label: 'string' },
-  { value: 'bool' as VarType, label: 'bool' },
-  { value: 'point' as VarType, label: 'point' },
-  { value: 'any' as VarType, label: 'any' },
-]
 
 const modelOpen = useDialogOpen(props, emit)
 
@@ -100,11 +92,8 @@ function suggestName(pinName: string): string {
 }
 
 const nameError = computed<string | null>(() => {
-  const n = varName.value.trim()
-  if (!n) return t('var.error.name_empty')
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(n)) return t('var.error.invalid_name')
-  if (props.existingVarNames.includes(n)) return t('var.error.duplicate', { name: n })
-  return null
+  const key = validateVarName(varName.value, props.existingVarNames)
+  return key ? t(key, key === 'var.error.duplicate' ? { name: varName.value.trim() } : {}) : null
 })
 
 function formatLit(v: unknown): string {
