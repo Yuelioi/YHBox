@@ -60,6 +60,53 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 	}
 }
 
+func TestDualColorBarTrack_Capture_Found(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&DualColorBarTrack{})
+	rn, _ := node.Get("DualColorBarTrack")
+
+	vision := &mockVision{
+		barResult: node.DualColorBarResult{
+			Found:      true,
+			InnerX:     320, OuterX: 400, OuterWidth: 80,
+			Confidence: 0.85,
+			InnerPx:    200, OuterPx: 50,
+		},
+	}
+	vars := newRecVars()
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			dcbtInRoi:      validGeometryROI(),
+			dcbtCapInnerX:  "ix",
+			dcbtCapOuterX:  "ox",
+			dcbtCapOuterW:  "ow",
+			dcbtCapConf:    "cf",
+			dcbtCapInnerPx: "ipx",
+			dcbtCapOuterPx: "opx",
+		},
+		nil, withVisionVars(vision, vars), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != dcbtOutFound {
+		t.Fatalf("exit = %q, want Found", r.ExitName)
+	}
+	checks := []struct {
+		name string
+		want any
+	}{
+		{"ix", 320}, {"ox", 400}, {"ow", 80},
+		{"cf", 0.85}, {"ipx", 200}, {"opx", 50},
+	}
+	for _, c := range checks {
+		got, ok := vars.Get(c.name)
+		if !ok || got != c.want {
+			t.Errorf("capture %s = %v (ok=%v), want %v", c.name, got, ok, c.want)
+		}
+	}
+}
+
 func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DualColorBarTrack{})
