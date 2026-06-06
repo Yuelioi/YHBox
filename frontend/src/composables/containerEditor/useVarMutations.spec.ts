@@ -112,7 +112,7 @@ describe('useVarMutations', () => {
       subgraphs: [], tags: [], createdAt: '', updatedAt: '',
     } as unknown as Container)
     const m = useVarMutations(draft)
-    expect(m.countUsage('hp')).toBeGreaterThanOrEqual(1)
+    expect(m.countUsage('hp')).toBe(1)
   })
 
   it('VarLastChange: renameVar renames VarLastChange node config.varName', () => {
@@ -155,7 +155,7 @@ describe('useVarMutations', () => {
       subgraphs: [], tags: [], createdAt: '', updatedAt: '',
     } as unknown as Container)
     const m = useVarMutations(draft)
-    expect(m.countUsage('hp')).toBeGreaterThanOrEqual(1)
+    expect(m.countUsage('hp')).toBe(1)
   })
 
   it('capture field: renameVar renames capture field value', () => {
