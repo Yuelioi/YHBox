@@ -38,6 +38,8 @@ type Service struct {
 	hud           *application.WebviewWindow
 	recordingHUD  *application.WebviewWindow
 	calibratorHUD *application.WebviewWindow
+	launcher        *application.WebviewWindow
+	launcherVisible bool // 只反映本 feature 的 Show/Hide，不强保证跟 OS 同步
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
 	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
 	onCalibratorClose func()
@@ -208,6 +210,73 @@ func (s *Service) OpenRecordingHUD() error {
 		s.recordingHUD = nil
 		s.mu.Unlock()
 	})
+	return nil
+}
+
+// OpenLauncher 打开（或显示+聚焦）悬浮窗启动器。frameless + AlwaysOnTop，仿 OpenRecordingHUD。
+// 入口按钮调；关闭按钮走 HideLauncher（隐藏不销毁）。
+func (s *Service) OpenLauncher() error {
+	app := s.wailsApp()
+	if app == nil {
+		return apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	s.mu.Lock()
+	if s.launcher != nil {
+		w := s.launcher
+		s.launcherVisible = true
+		s.mu.Unlock()
+		w.Show()
+		w.Focus()
+		return nil
+	}
+	s.mu.Unlock()
+	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:            "启动器",
+		Width:            340,
+		Height:           560,
+		URL:              "/#/tools/launcher",
+		Frameless:        true,
+		AlwaysOnTop:      true,
+		BackgroundColour: application.NewRGB(18, 18, 18),
+	})
+	s.mu.Lock()
+	s.launcher = w
+	s.launcherVisible = true
+	s.mu.Unlock()
+	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		s.mu.Lock()
+		s.launcher = nil
+		s.launcherVisible = false
+		s.mu.Unlock()
+	})
+	return nil
+}
+
+// ToggleLauncher 呼出/隐藏（toggle 全局热键调）。可见 → 隐；否则 → 开/显示。
+func (s *Service) ToggleLauncher() error {
+	s.mu.Lock()
+	visible := s.launcherVisible && s.launcher != nil
+	w := s.launcher
+	s.mu.Unlock()
+	if visible {
+		s.mu.Lock()
+		s.launcherVisible = false
+		s.mu.Unlock()
+		w.Hide()
+		return nil
+	}
+	return s.OpenLauncher()
+}
+
+// HideLauncher 标题栏 × 按钮调（FE）：隐藏不销毁，状态保留。
+func (s *Service) HideLauncher() error {
+	s.mu.Lock()
+	w := s.launcher
+	s.launcherVisible = false
+	s.mu.Unlock()
+	if w != nil {
+		w.Hide()
+	}
 	return nil
 }
 
