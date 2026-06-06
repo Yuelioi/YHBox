@@ -26,6 +26,13 @@
               <span class="font-medium">{{ ref.label || ref.kind }}</span>
               <span v-if="ref.label" class="text-[10px] text-dimmed">({{ ref.kind }})</span>
               <span class="text-dimmed font-mono text-[10px]">{{ ref.id }}</span>
+              <span
+                v-if="ref.access"
+                class="text-[9px] font-semibold px-1 py-0.5 rounded"
+                :class="ref.access === 'read'
+                  ? 'bg-sky-500/20 text-sky-400'
+                  : 'bg-amber-500/20 text-amber-400'"
+              >{{ t(ref.access === 'read' ? 'var.refs.read' : 'var.refs.write') }}</span>
               <span v-if="ref.location" class="ml-auto text-[10px] text-indigo-400">{{ ref.location }}</span>
             </button>
           </div>
@@ -49,8 +56,9 @@ const { t } = useI18n()
 export interface RefEntry {
   id: string
   kind: string
-  label?: string      // user-set display name
-  location?: string   // e.g. "主图" or "子图: foo"
+  label?: string           // user-set display name
+  location?: string        // e.g. "主图" or "子图: foo"
+  access?: 'read' | 'write'
 }
 
 const props = defineProps<{

@@ -210,12 +210,13 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'find-references': {
         const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
         if (!varName) return
-        const ids = varMutations.listUsageNodeIDs(varName)
+        const usageRefs = varMutations.listUsageRefs(varName)
+        const accessByID = new Map(usageRefs.map(r => [r.nodeID, r.access]))
         const refs: RefEntry[] = []
         if (draft.value) {
           walkAllGraphs(draft.value, (n, { location }) => {
-            if (ids.includes(n.id)) {
-              refs.push({ id: n.id, kind: n.kind, label: n.label, location })
+            if (accessByID.has(n.id)) {
+              refs.push({ id: n.id, kind: n.kind, label: n.label, location, access: accessByID.get(n.id) })
             }
           })
         }

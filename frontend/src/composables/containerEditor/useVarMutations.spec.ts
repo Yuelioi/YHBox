@@ -180,6 +180,35 @@ describe('useVarMutations', () => {
     expect(lit['CaptureFound']).toBe('x')
   })
 
+  // ── Task 13: listUsageRefs — read/write 标注 + 捕获框 ────────────────────────
+  it('listUsageRefs: returns read for GetVar and write for capture field', () => {
+    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
+      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
+    ]
+    const draft = ref<Container>({
+      schemaVersion: 1, id: 'c13', name: 'c13',
+      vars: [{ name: 'hp', type: 'number', default: 0 }],
+      graph: {
+        id: 'g13', version: 1,
+        nodes: [
+          { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { varName: 'hp', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+        ],
+        edges: [],
+      },
+      subgraphs: [], tags: [], createdAt: '', updatedAt: '',
+    } as unknown as Container)
+    const m = useVarMutations(draft)
+    const refs = m.listUsageRefs('hp')
+    expect(refs).toHaveLength(2)
+    const readRef = refs.find(r => r.nodeID === 'gv1')
+    const writeRef = refs.find(r => r.nodeID === 'ct1')
+    expect(readRef?.access).toBe('read')
+    expect(readRef?.kind).toBe('GetVar')
+    expect(writeRef?.access).toBe('write')
+    expect(writeRef?.kind).toBe('CheckTemplate')
+  })
+
   it('capture field: deleteVar(cascade=true) clears capture field, preserves node', () => {
     NODE_FIELD_SCHEMAS['CheckTemplate'] = [
       { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,

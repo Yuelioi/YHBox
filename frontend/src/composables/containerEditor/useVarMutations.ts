@@ -6,7 +6,15 @@ export interface DeleteVarOptions {
   cascade: boolean
 }
 
+export interface UsageRef {
+  nodeID: string
+  access: 'read' | 'write'
+  kind: string
+}
+
 const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar', 'VarLastChange'])
+const VAR_READ_KINDS = new Set(['GetVar', 'VarLastChange'])
+const VAR_WRITE_KINDS = new Set(['SetVar', 'IncVar'])
 
 // 某 kind 的捕获框字段名 (semantic==='capture'); 来自 NODE_FIELD_SCHEMAS 派生.
 function captureFieldsOf(kind: string): string[] {
@@ -149,6 +157,28 @@ export function useVarMutations(draft: Ref<Container | null>) {
     })
   }
 
+  function listUsageRefs(name: string): UsageRef[] {
+    if (!draft.value) return []
+    const refs: UsageRef[] = []
+    walkAllGraphs(draft.value, g => {
+      for (const node of g.nodes) {
+        // VAR_NODE_KINDS: read vs write based on kind
+        if (VAR_NODE_KINDS.has(node.kind) && node.config?.varName === name && isContainerScope(node)) {
+          const access: 'read' | 'write' = VAR_READ_KINDS.has(node.kind) ? 'read' : 'write'
+          refs.push({ nodeID: node.id, access, kind: node.kind })
+        }
+        // capture fields → write
+        for (const f of captureFieldsOf(node.kind)) {
+          if (captureLiteralOf(node, f) === name) {
+            refs.push({ nodeID: node.id, access: 'write', kind: node.kind })
+            break  // 同一节点多个 capture 字段命中同名变量, 只计一条
+          }
+        }
+      }
+    })
+    return refs
+  }
+
   function reorderVars(fromIdx: number, toIdx: number): void {
     if (!draft.value || !draft.value.vars) return
     if (fromIdx < 0 || fromIdx >= draft.value.vars.length) return
@@ -157,5 +187,5 @@ export function useVarMutations(draft: Ref<Container | null>) {
     draft.value.vars.splice(toIdx, 0, moved)
   }
 
-  return { addVar, renameVar, deleteVar, reorderVars, countUsage, listUsageNodeIDs }
+  return { addVar, renameVar, deleteVar, reorderVars, countUsage, listUsageNodeIDs, listUsageRefs }
 }
