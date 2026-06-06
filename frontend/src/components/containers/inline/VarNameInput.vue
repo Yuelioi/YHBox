@@ -6,7 +6,7 @@
   />
   <div v-else class="relative">
     <UInput
-      ref="inputRef" :model-value="draft" size="sm" class="w-full"
+      :model-value="draft" size="sm" class="w-full"
       :ui="undeclared ? { base: 'ring-1 ring-warning' } : undefined"
       @update:model-value="onType" @focus="open = true" @blur="onBlur"
     />
@@ -53,7 +53,6 @@ const emit = defineEmits<{
   'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()
 
-const inputRef = ref<any>(null)
 const open = ref(false)
 const modalOpen = ref(false)
 const draft = ref(props.modelValue)
@@ -81,6 +80,7 @@ function onCreate() {
   open.value = false
   const name = draft.value.trim()
   if (validateVarName(name, names.value) !== null) return // 非法/重名不建
+  // captureType 为空串视同 undefined(缺有效类型)→ 走 modal 让用户自选
   if (props.captureType) declare(name, props.captureType as VarType)
   else modalOpen.value = true
 }
