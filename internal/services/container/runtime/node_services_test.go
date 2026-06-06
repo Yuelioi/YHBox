@@ -83,6 +83,24 @@ func TestVarStoreAdapter_SetUpdatesTimestamp(t *testing.T) {
 	}
 }
 
+func TestVarStoreAdapter_LastChange(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	a := NewVarStoreAdapter(rt)
+	// 未设过的变量返 0.
+	if got := a.LastChange("foo"); got != 0 {
+		t.Errorf("LastChange unset = %d, want 0", got)
+	}
+	// SetVar 后返 >0, 且与 rt.VarLastChange 同步.
+	rt.SetVar("foo", expr.Value("bar"))
+	got := a.LastChange("foo")
+	if got <= 0 {
+		t.Errorf("LastChange after Set = %d, want > 0", got)
+	}
+	if got != rt.VarLastChange("foo") {
+		t.Errorf("LastChange = %d, want %d (rt.VarLastChange)", got, rt.VarLastChange("foo"))
+	}
+}
+
 func TestVarStoreAdapter_IncFromZero(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	a := NewVarStoreAdapter(rt)

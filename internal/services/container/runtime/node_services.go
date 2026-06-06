@@ -115,6 +115,9 @@ func (a *varStoreAdapter) IncScoped(name, scope string, delta float64) float64 {
 	return newV
 }
 
+// LastChange 透传 rt.VarLastChange — 该变量上次 Set/Inc 的 unix-ms; 没设过返 0.
+func (a *varStoreAdapter) LastChange(name string) int64 { return a.rt.VarLastChange(name) }
+
 // getScopedRaw — IncScoped helper. scope 同 GetScoped, 但缺值返 0 不返 bool.
 func (a *varStoreAdapter) getScopedRaw(name, scope string) any {
 	v, _ := a.GetScoped(name, scope)

@@ -131,6 +131,9 @@ func (s *stubVarStore) IncScoped(name, _ string, d float64) float64 {
 	return s.Inc(name, d)
 }
 
+// LastChange — stub 不跟踪时间戳, 恒返 0.
+func (s *stubVarStore) LastChange(_ string) int64 { return 0 }
+
 // ---- SysStore ----
 
 // StubSysStore in-memory key→any. 测试可直接复用 (preset 几个 path 值 via SetForTest).

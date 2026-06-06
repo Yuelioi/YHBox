@@ -68,3 +68,6 @@ func (s *snapshotVarStore) SetScoped(name, scope string, value any) {
 func (s *snapshotVarStore) IncScoped(name, scope string, delta float64) float64 {
 	panic("snapshot VarStore is read-only: PureData Evaluator must not write Vars")
 }
+
+// LastChange 透传 live — 时间戳不进快照, PureData 读到的是当前真值.
+func (s *snapshotVarStore) LastChange(name string) int64 { return s.live.LastChange(name) }

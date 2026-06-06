@@ -40,6 +40,7 @@ func (r *recordingVars) Inc(name string, delta float64) float64 {
 func (r *recordingVars) GetScoped(name, _ string) (any, bool)      { return r.Get(name) }
 func (r *recordingVars) SetScoped(name, _ string, v any)            { r.Set(name, v) }
 func (r *recordingVars) IncScoped(name, _ string, d float64) float64 { return r.Inc(name, d) }
+func (r *recordingVars) LastChange(name string) int64                { return 0 }
 
 func TestSetVar_HappyPath(t *testing.T) {
 	node.ResetRegistryForTest()

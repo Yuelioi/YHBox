@@ -231,6 +231,8 @@ type VarStore interface {
 	GetScoped(name, scope string) (value any, ok bool)
 	SetScoped(name, scope string, value any)
 	IncScoped(name, scope string, delta float64) (newValue float64)
+	// LastChange 返该变量上次 Set/Inc 的 unix-ms 时间戳；从未写过返 0。live 读，不受快照影响。
+	LastChange(name string) int64
 }
 
 // SysStore — GetSys 节点用 (read-only). path 形如 "now_ms" / "lastDualBarTrack.innerX" /

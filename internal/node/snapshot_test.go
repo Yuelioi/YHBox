@@ -44,6 +44,7 @@ func (f *fakeLiveVarStore) SetScoped(name, scope string, value any) {
 	}
 }
 func (f *fakeLiveVarStore) IncScoped(name, scope string, delta float64) float64 { return 0 }
+func (f *fakeLiveVarStore) LastChange(name string) int64                        { return 0 }
 
 func TestSnapshotVarStore_GlobalReturnsFrozen(t *testing.T) {
 	live := newFakeLiveVarStore()
