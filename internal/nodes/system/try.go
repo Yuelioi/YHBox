@@ -20,6 +20,7 @@ const (
 	tryOutNormal    = "Out"
 	tryOutCatch     = "Catch"
 	tryDataError    = "Error"
+	tryCapError     = "CaptureError"
 )
 
 func (Try) Spec() node.Spec {
@@ -31,6 +32,8 @@ func (Try) Spec() node.Spec {
 			{Name: tryInSubgraphID, Type: "String", Semantic: "SubgraphID", Required: true,
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "subgraphIDs"})}},
+			{Name: tryCapError, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: tryOutNormal, Type: "Exec"},
@@ -55,7 +58,9 @@ func (Try) Dependencies(in node.Inputs) []node.Dependency {
 func (Try) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
 	err := body(ctx)
 	if err != nil {
+		node.Capture(ctx, in, tryCapError, err.Error())
 		return ctx.Out(tryOutCatch).Set(tryDataError, err.Error()).Fire(), nil
 	}
+	node.Capture(ctx, in, tryCapError, "")
 	return ctx.Out(tryOutNormal).Fire(), nil
 }
