@@ -52,16 +52,9 @@ const props = withDefaults(
     placeholder?: string
     /** 期望类型 — 影响 hint 与类型猜测 */
     expectedType?: 'number' | 'bool' | 'string' | 'point'
-    /** 当前 Container 已声明的变量名（用于 autocomplete） */
-    varNames?: string[]
-    /** Action.params 名（InvokeAction 的子表单用） */
-    paramNames?: string[]
-    /** 允许 $sys.* 补全（默认 true） */
-    allowSys?: boolean
     size?: 'sm' | 'md' | 'lg' | 'xs'
   }>(),
   {
-    allowSys: true,
     size: 'sm',
   },
 )
@@ -113,39 +106,14 @@ const suggestions = computed<Suggestion[]>(() => {
   if (tok === '') return []
   const out: Suggestion[] = []
 
-  if (tok.startsWith('$')) {
-    // $vars.X / $params.Y / $sys.Z
-    const segs = tok.split('.')
-    const root = segs[0]
-    if (root === '$vars' || root === '$') {
-      for (const n of props.varNames ?? []) {
-        out.push({ label: `$vars.${n}`, value: `$vars.${n}`, kind: 'var' })
-      }
-    }
-    if (root === '$params' || root === '$') {
-      for (const n of props.paramNames ?? []) {
-        out.push({ label: `$params.${n}`, value: `$params.${n}`, kind: 'param' })
-      }
-    }
-    if ((root === '$sys' || root === '$') && props.allowSys) {
-      const sysKeys = [
-        '$sys.runId',
-        '$sys.iter',
-        '$sys.winnerIdx',
-        '$sys.lastTemplate.found',
-        '$sys.lastTemplate.point.x',
-        '$sys.lastTemplate.point.y',
-      ]
-      for (const k of sysKeys) out.push({ label: k, value: k, kind: 'sys' })
-    }
-  } else {
-    // 函数 / true / false / null
-    for (const f of FN_NAMES) {
-      if (f.startsWith(tok)) out.push({ label: `${f}(...)`, value: `${f}(`, kind: 'fn' })
-    }
-    for (const lit of ['true', 'false', 'null']) {
-      if (lit.startsWith(tok)) out.push({ label: lit, value: lit, kind: 'lit' })
-    }
+  // v4: $-namespace ($vars / $params / $sys) removed from the grammar — lexer
+  // rejects '$' outright. Variables/params now flow via GetVar / GetParam nodes
+  // into input pins, so there is no $-prefix autocomplete. Only fn / literal hints.
+  for (const f of FN_NAMES) {
+    if (f.startsWith(tok)) out.push({ label: `${f}(...)`, value: `${f}(`, kind: 'fn' })
+  }
+  for (const lit of ['true', 'false', 'null']) {
+    if (lit.startsWith(tok)) out.push({ label: lit, value: lit, kind: 'lit' })
   }
 
   // 子串前缀过滤
