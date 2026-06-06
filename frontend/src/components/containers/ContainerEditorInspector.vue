@@ -3,7 +3,7 @@
     <NodeInspector
       v-if="selectedNode"
       :node="selectedNode"
-      :var-names="varNames"
+      :declared-vars="declaredVars"
       :nodes="activeGraph?.nodes ?? []"
       :edges="activeGraph?.edges ?? []"
       @update="$emit('config-update', $event)"
@@ -11,6 +11,7 @@
       @log-enabled-update="$emit('log-enabled-update', $event)"
       @delete="$emit('delete-selected')"
       @request-record="$emit('request-record', $event)"
+      @declare-var="$emit('declare-var', $event)"
     />
     <SubgraphPropsPanel
       v-else-if="inSubgraph"
@@ -52,6 +53,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Graph, GraphNode } from '@/lib/backend'
+import type { VarType } from '@/lib/variableRef'
 import type { SubgraphSummary } from '@/stores/containerEditor'
 import NodeInspector from '@/components/containers/NodeInspector.vue'
 import SubgraphPropsPanel from '@/components/containers/SubgraphPropsPanel.vue'
@@ -66,7 +68,7 @@ defineProps<{
   // SubgraphPropsPanel 内部用结构相容的 SubgraphLike 接收。
   currentSubgraph: SubgraphSummary | null
   activeGraph: Graph | null
-  varNames: string[]
+  declaredVars: { name: string; type: VarType }[]
   allSubgraphTags: string[]
 }>()
 
@@ -77,5 +79,6 @@ defineEmits<{
   'delete-selected': []
   'subgraph-update': [patch: Record<string, any>]
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
+  'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()
 </script>

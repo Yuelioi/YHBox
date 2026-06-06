@@ -500,8 +500,16 @@
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
             <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
           </label>
+          <VarNameInput
+            v-if="fieldFor(lit.name)?.semantic === 'varname'"
+            :model-value="String(getLiteral(lit.name) ?? '')"
+            :declared-vars="declaredVars ?? []"
+            :scope="nodeScope"
+            @update:model-value="(v: string) => setLiteral(lit.name, v)"
+            @declare-var="(a) => emit('declare-var', a)"
+          />
           <StructuredInput
-            v-if="fieldFor(lit.name)?.schema"
+            v-else-if="fieldFor(lit.name)?.schema"
             :schema="fieldFor(lit.name)!.schema!"
             :model-value="getLiteral(lit.name)"
             :field-path="lit.name"
@@ -560,13 +568,13 @@
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
             <span class="text-[10px] text-dimmed font-mono ml-1">({{ fieldFor(lit.name)?.captureType ?? lit.type }})</span>
           </label>
-          <PinInput
-            :type="(lit.type as any)"
-            :widget-kind="fieldFor(lit.name)?.widgetKind"
-            :options="fieldFor(lit.name)?.options"
-            :placeholder="fieldFor(lit.name)?.placeholder"
-            :model-value="getLiteral(lit.name)"
-            @update:model-value="(v: any) => setLiteral(lit.name, v)"
+          <VarNameInput
+            :model-value="String(getLiteral(lit.name) ?? '')"
+            :declared-vars="declaredVars ?? []"
+            :capture-type="fieldFor(lit.name)?.captureType"
+            scope="auto"
+            @update:model-value="(v: string) => setLiteral(lit.name, v)"
+            @declare-var="(a) => emit('declare-var', a)"
           />
           <p
             v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"
@@ -601,7 +609,9 @@ const { t, te } = useI18n()
 
 import PinInput from './inline/PinInput.vue'
 import StructuredInput from './inline/StructuredInput.vue'
+import VarNameInput from './inline/VarNameInput.vue'
 import { unconnectedDataInPins } from '@/composables/containerEditor/pinLiterals'
+import { type VarType } from '@/lib/variableRef'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
 import { useHotkeysStore } from '@/stores/hotkeys'
@@ -615,7 +625,7 @@ import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurre
 
 const props = defineProps<{
   node: GraphNode | null
-  varNames?: string[]
+  declaredVars?: { name: string; type: VarType }[]
   nodes?: GraphNode[]
   edges?: { from: string; to: string }[]
 }>()
@@ -625,6 +635,7 @@ const emit = defineEmits<{
   'log-enabled-update': [v: boolean]
   delete: []
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
+  'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()
 
 const settingsStore = useSettingsStore()
@@ -672,6 +683,11 @@ const captureFilledCount = computed(
 )
 // 折叠状态: 默认折叠。
 const captureOpen = ref(false)
+
+// 节点 scope — 传给 VarNameInput，影响补全行为。
+const nodeScope = computed(
+  () => (props.node?.config?.scope as 'auto' | 'global' | 'local' | undefined) ?? 'auto',
+)
 
 // 读 pin 字面量: config.literal[pin] 优先, 顶层 config[pin] fallback —
 // 镜像后端 PinValue / newInputs 优先级。让尚未跑迁移脚本的旧数据 (值在顶层 config) 也能正确显示。

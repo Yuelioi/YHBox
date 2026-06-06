@@ -289,9 +289,10 @@
           :in-subgraph="editorStore.editorPath.length > 0"
           :current-subgraph="currentSubgraph"
           :active-graph="activeGraph"
-          :var-names="varNames"
+          :declared-vars="declaredVars"
           :all-subgraph-tags="allSubgraphTags"
           @config-update="onConfigUpdate"
+          @declare-var="onDeclareVar"
           @label-update="onLabelUpdate"
           @log-enabled-update="onLogEnabledUpdate"
           @delete-selected="onDeleteSelected"
@@ -460,6 +461,7 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
 import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError } from '@/lib/backend'
+import { type VarType } from '@/lib/variableRef'
 import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
@@ -903,7 +905,13 @@ const selectedNode = computed<GraphNode | null>(() => {
   return g.nodes.find((n) => n.id === selectedID.value) ?? null
 })
 
-const varNames = computed<string[]>(() => (draft.value?.vars ?? []).map((v) => v.name))
+const declaredVars = computed<{ name: string; type: VarType }[]>(
+  () => (draft.value?.vars ?? []).map((v) => ({ name: v.name, type: v.type as VarType })),
+)
+
+function onDeclareVar(a: { name: string; type: VarType; default: unknown }) {
+  applyDraftMutation(() => varMutations.addVar({ name: a.name, type: a.type, default: a.default }))
+}
 
 // recording 状态 — 三态在 toolbar 内部判断 (isRecording / countdownSec / idle); 这里只暴露
 // recordStore.isRecording 给 RecordingOverlay (countdownSec 通过 useRecording 返回).
