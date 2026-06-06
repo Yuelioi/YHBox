@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useContainersStore } from '@/stores/containers'
@@ -118,9 +118,24 @@ function onHide() {
   void backend.tools.hideLauncher()
 }
 
+function isTypingTarget(): boolean {
+  const el = document.activeElement as HTMLElement | null
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+}
+function onKeyDown(e: KeyboardEvent) {
+  if (editing.value || isTypingTarget()) return // 编辑态 / 输入框聚焦时禁用
+  if (e.key < '1' || e.key > '9') return
+  const id = flatItems.value[Number(e.key) - 1]
+  if (!id) return
+  e.preventDefault()
+  void onRun(id) // onRun 内对运行中已 no-op
+}
+
 onMounted(() => {
   void settingsStore.load()
   void containersStore.reload()
   void hotkeysStore.reload()
+  window.addEventListener('keydown', onKeyDown)
 })
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 </script>
