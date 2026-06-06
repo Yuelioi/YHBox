@@ -1,11 +1,23 @@
 import type { Ref } from 'vue'
 import type { Container, VarDecl, Graph, GraphNode } from '@/lib/backend'
+import { NODE_FIELD_SCHEMAS } from '@/components/containers/nodeFieldSchemas'
 
 export interface DeleteVarOptions {
   cascade: boolean
 }
 
 const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar', 'VarLastChange'])
+
+// 某 kind 的捕获框字段名 (semantic==='capture'); 来自 NODE_FIELD_SCHEMAS 派生.
+function captureFieldsOf(kind: string): string[] {
+  return (NODE_FIELD_SCHEMAS[kind] ?? []).filter(f => f.semantic === 'capture').map(f => f.key)
+}
+
+// 读 node.config.literal[field] 的 string 值, 不存在返回 ''.
+function captureLiteralOf(node: GraphNode, field: string): string {
+  const lit = node.config?.literal as Record<string, unknown> | undefined
+  return typeof lit?.[field] === 'string' ? (lit[field] as string) : ''
+}
 
 /**
  * useVarMutations — Container.Vars 增删改查 + scope-aware rename + cascade delete.
@@ -44,10 +56,22 @@ export function useVarMutations(draft: Ref<Container | null>) {
     decl.name = newName
     walkAllGraphs(draft.value, g => {
       for (const node of g.nodes) {
-        if (!VAR_NODE_KINDS.has(node.kind)) continue
-        if (node.config?.varName !== oldName) continue
-        if (!isContainerScope(node)) continue  // preserve scope=local
-        node.config.varName = newName
+        // VAR_NODE_KINDS: rename config.varName
+        if (VAR_NODE_KINDS.has(node.kind)) {
+          if (node.config?.varName === oldName && isContainerScope(node)) {
+            node.config.varName = newName
+          }
+        }
+        // capture fields: rename config.literal[field]
+        const captureFields = captureFieldsOf(node.kind)
+        if (captureFields.length > 0) {
+          const lit = node.config?.literal as Record<string, unknown> | undefined
+          if (lit) {
+            for (const f of captureFields) {
+              if (lit[f] === oldName) lit[f] = newName
+            }
+          }
+        }
       }
     })
   }
@@ -57,10 +81,16 @@ export function useVarMutations(draft: Ref<Container | null>) {
     let count = 0
     walkAllGraphs(draft.value, g => {
       for (const node of g.nodes) {
-        if (!VAR_NODE_KINDS.has(node.kind)) continue
-        if (node.config?.varName !== name) continue
-        if (!isContainerScope(node)) continue
-        count++
+        // VAR_NODE_KINDS: count config.varName refs
+        if (VAR_NODE_KINDS.has(node.kind)) {
+          if (node.config?.varName === name && isContainerScope(node)) {
+            count++
+          }
+        }
+        // capture fields: count config.literal[field] refs
+        for (const f of captureFieldsOf(node.kind)) {
+          if (captureLiteralOf(node, f) === name) count++
+        }
       }
     })
     return count
@@ -71,10 +101,18 @@ export function useVarMutations(draft: Ref<Container | null>) {
     const ids: string[] = []
     walkAllGraphs(draft.value, g => {
       for (const node of g.nodes) {
-        if (!VAR_NODE_KINDS.has(node.kind)) continue
-        if (node.config?.varName !== name) continue
-        if (!isContainerScope(node)) continue
-        ids.push(node.id)
+        let matched = false
+        // VAR_NODE_KINDS
+        if (VAR_NODE_KINDS.has(node.kind) && node.config?.varName === name && isContainerScope(node)) {
+          matched = true
+        }
+        // capture fields
+        if (!matched) {
+          for (const f of captureFieldsOf(node.kind)) {
+            if (captureLiteralOf(node, f) === name) { matched = true; break }
+          }
+        }
+        if (matched) ids.push(node.id)
       }
     })
     return ids
@@ -98,6 +136,16 @@ export function useVarMutations(draft: Ref<Container | null>) {
         const toID = e.to.split('.')[0]
         return !removedIDs.has(fromID) && !removedIDs.has(toID)
       })
+      // cascade: clear capture fields on surviving nodes (保留节点, 清空字段)
+      for (const node of g.nodes) {
+        const captureFields = captureFieldsOf(node.kind)
+        if (captureFields.length === 0) continue
+        const lit = node.config?.literal as Record<string, unknown> | undefined
+        if (!lit) continue
+        for (const f of captureFields) {
+          if (lit[f] === name) lit[f] = ''
+        }
+      }
     })
   }
 

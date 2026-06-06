@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { ref } from 'vue'
 import { useVarMutations } from './useVarMutations'
 import type { Container } from '@/lib/backend'
+import { NODE_FIELD_SCHEMAS } from '@/components/containers/nodeFieldSchemas'
 
 function makeDraft(): Container {
   return {
@@ -130,5 +131,76 @@ describe('useVarMutations', () => {
     const m = useVarMutations(draft)
     m.renameVar('hp', 'x')
     expect(draft.value.graph.nodes[0].config!.varName).toBe('x')
+  })
+
+  // ── Task 12: 捕获框字段纳入 refs/rename/cascade-clear ──────────────────────
+  afterEach(() => {
+    delete NODE_FIELD_SCHEMAS['CheckTemplate']
+  })
+
+  it('capture field: countUsage includes capture field values', () => {
+    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
+      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
+    ]
+    const draft = ref<Container>({
+      schemaVersion: 1, id: 'c4', name: 'c4',
+      vars: [{ name: 'hp', type: 'number', default: 0 }],
+      graph: {
+        id: 'g4', version: 1,
+        nodes: [
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+        ],
+        edges: [],
+      },
+      subgraphs: [], tags: [], createdAt: '', updatedAt: '',
+    } as unknown as Container)
+    const m = useVarMutations(draft)
+    expect(m.countUsage('hp')).toBeGreaterThanOrEqual(1)
+  })
+
+  it('capture field: renameVar renames capture field value', () => {
+    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
+      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
+    ]
+    const draft = ref<Container>({
+      schemaVersion: 1, id: 'c5', name: 'c5',
+      vars: [{ name: 'hp', type: 'number', default: 0 }],
+      graph: {
+        id: 'g5', version: 1,
+        nodes: [
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+        ],
+        edges: [],
+      },
+      subgraphs: [], tags: [], createdAt: '', updatedAt: '',
+    } as unknown as Container)
+    const m = useVarMutations(draft)
+    m.renameVar('hp', 'x')
+    const lit = draft.value.graph.nodes[0].config!.literal as Record<string, string>
+    expect(lit['CaptureFound']).toBe('x')
+  })
+
+  it('capture field: deleteVar(cascade=true) clears capture field, preserves node', () => {
+    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
+      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
+    ]
+    const draft = ref<Container>({
+      schemaVersion: 1, id: 'c6', name: 'c6',
+      vars: [{ name: 'hp', type: 'number', default: 0 }],
+      graph: {
+        id: 'g6', version: 1,
+        nodes: [
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+        ],
+        edges: [],
+      },
+      subgraphs: [], tags: [], createdAt: '', updatedAt: '',
+    } as unknown as Container)
+    const m = useVarMutations(draft)
+    m.deleteVar('hp', { cascade: true })
+    expect(draft.value.graph.nodes).toHaveLength(1)  // 节点保留
+    expect(draft.value.graph.nodes[0].id).toBe('ct1')
+    const lit = draft.value.graph.nodes[0].config!.literal as Record<string, string>
+    expect(lit['CaptureFound']).toBe('')  // 字段清空
   })
 })
