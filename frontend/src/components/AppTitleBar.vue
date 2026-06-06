@@ -29,7 +29,15 @@
 
     <!-- RIGHT: quick-access icons + window controls -->
     <div class="shrink-0 flex items-stretch" style="--wails-draggable: no-drag">
-      <!-- 快捷 icon：设置 / 帮助。任何路由 1 步可达 -->
+      <!-- 快捷 icon：悬浮启动器 / 设置 / 帮助。任何路由 1 步可达 -->
+      <button
+        type="button"
+        class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
+        :title="t('sidebar.launcher')"
+        @click="openLauncher"
+      >
+        <UIcon name="i-tabler-rocket" class="size-4" />
+      </button>
       <RouterLink
         to="/settings"
         class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
@@ -82,6 +90,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useSidebarCollapsed } from '@/composables/useSidebarCollapsed'
 import { useWindowControls } from '@/composables/useWindowControls'
+import { backend } from '@/lib/backend'
 
 const { t } = useI18n()
 const version = '1.1.0'
@@ -104,5 +113,9 @@ const currentTitle = computed(() => {
   return meta ? t(meta.titleKey) : ''
 })
 const currentIcon = computed(() => VIEW_META[route.name as string]?.icon ?? '')
+
+function openLauncher() {
+  void backend.tools.openLauncher()
+}
 // 窗口控件 (isMaximised + onMinimise / onToggleMaximise / onClose) 全由 useWindowControls 提供
 </script>

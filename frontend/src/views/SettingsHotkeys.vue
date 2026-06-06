@@ -1,5 +1,5 @@
 <template>
-  <div class="px-8 py-6 space-y-5">
+  <div class="px-8 py-6 space-y-6">
     <!-- 搜索框 + 批量操作 -->
     <div class="flex items-center gap-2">
       <UInput
@@ -32,10 +32,10 @@
       :key="group.source"
       class="rounded-xl bg-default border border-default p-5 space-y-3"
     >
-      <h3 class="text-sm font-medium text-highlighted flex items-center gap-2">
+      <div class="flex items-center gap-2">
         <UIcon :name="groupIcon(group.source)" class="size-4 text-dimmed" />
-        {{ groupLabel(group.source) }}
-      </h3>
+        <h2 class="text-sm font-medium text-highlighted">{{ groupLabel(group.source) }}</h2>
+      </div>
       <div class="space-y-2">
         <div
           v-for="entry in group.entries"

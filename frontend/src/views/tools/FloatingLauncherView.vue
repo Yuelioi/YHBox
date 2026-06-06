@@ -19,7 +19,7 @@
       </div>
       <section v-for="g in groups" :key="g.id" class="space-y-1">
         <h4 v-if="g.name" class="text-[10px] uppercase tracking-wider text-dimmed px-0.5 truncate">{{ g.name }}</h4>
-        <div class="grid gap-1" :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }">
+        <div class="grid gap-1 justify-start" :style="{ gridTemplateColumns: `repeat(auto-fill, ${colW}px)` }">
           <button
             v-for="(it, i) in g.items"
             :key="it.containerId + ':' + i"
@@ -77,12 +77,10 @@ function togglePin() {
   void backend.tools.setLauncherAlwaysOnTop(pinned.value)
 }
 
-const DEFAULT_COLUMNS = 3
-const columns = computed(() => {
-  const n = settingsStore.data?.ui.launcherColumns ?? 0
-  return n > 0 ? n : DEFAULT_COLUMNS
-})
 const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both') // both | icon | text
+// 按钮固定紧凑宽度（auto-fill 自动换行，窗口越宽每排塞越多，按钮不被拉伸）。各模式宽度不同：纯图标方块最窄，带文字的要给标签留位。
+const COL_W: Record<string, number> = { icon: 48, both: 80, text: 100 }
+const colW = computed(() => COL_W[display.value] ?? 80)
 
 interface RItem { containerId: string; icon: string; label: string }
 interface RGroup { id: string; name: string; items: RItem[] }
@@ -126,10 +124,10 @@ const CHROME_H = 34 // 标题栏 + 边框估算
 function fitHeight() {
   const el = contentRef.value
   if (!el) return
-  const h = Math.min(900, Math.max(120, Math.ceil(el.scrollHeight) + CHROME_H))
+  const h = Math.min(900, Math.max(56, Math.ceil(el.scrollHeight) + CHROME_H))
   void backend.tools.setLauncherSize(Math.round(window.innerWidth), h)
 }
-watch([groups, columns, display], () => void nextTick(fitHeight))
+watch([groups, display], () => void nextTick(fitHeight))
 
 // ── 右下角手柄拖拽改宽高 ──
 let startX = 0
@@ -138,7 +136,7 @@ let startW = 0
 let startH = 0
 function onGripMove(e: PointerEvent) {
   const w = Math.max(140, startW + (e.clientX - startX))
-  const h = Math.max(120, startH + (e.clientY - startY))
+  const h = Math.max(56, startH + (e.clientY - startY))
   void backend.tools.setLauncherSize(Math.round(w), Math.round(h))
 }
 function onGripUp() {

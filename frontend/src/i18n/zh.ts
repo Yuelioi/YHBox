@@ -39,6 +39,7 @@ export default {
     help: '帮助',
     about: '关于',
     container_edit: '编辑容器',
+    launcher: '悬浮启动器',
   },
   controls: {
     start: '开始',
@@ -887,6 +888,18 @@ export default {
         full_playback: '无, 整段播放',
       },
     },
+    RunProgram: {
+      label: '运行程序',
+      description: '用系统默认方式打开一个目标：可执行文件直接运行、网址用默认浏览器打开、文档/文件夹用关联程序打开。启动后立刻往下走，不等程序退出。',
+      example: '想在脚本开头自动开游戏：目标填游戏 exe 完整路径；或目标填一个网址，跑到这里就用默认浏览器打开它。',
+      input: {
+        Target: { label: '目标', hint: '程序路径 / 网址 / 文件 / 文件夹。如 C:\\Game\\game.exe 或 https://example.com' },
+        Args: { label: '启动参数', hint: '可选。传给程序的命令行参数。' },
+        WorkingDir: { label: '工作目录', hint: '可选。程序启动的工作目录，留空用默认。' },
+        WindowState: { label: '窗口状态', option: { normal: '正常', minimized: '最小化', maximized: '最大化', hidden: '隐藏' } },
+      },
+      output: { Done: { label: '完成' } },
+    },
     // purefunc
     Expr: {
       label: '表达式',
@@ -1152,6 +1165,19 @@ export default {
         title_match_regex: '正则 RE2 (partial match)',
       },
     },
+    WaitWindow: {
+      label: '等待窗口',
+      description: '轮询等待某个窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「目标窗口」锁定（这时窗口已存在会立刻命中）。',
+      example: '「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「目标窗口」+ 后续操作，超时就发提示或重试。',
+      input: {
+        Title: { label: '窗口标题' },
+        Class: { label: '窗口类名' },
+        ProcessName: { label: '进程名' },
+        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
+        TimeoutMs: { label: '超时 (毫秒)', hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。' },
+      },
+      output: { Found: { label: '出现' }, Timeout: { label: '超时' } },
+    },
     SubgraphInput: { label: '子图入口', description: '子图内部的入口连接点——外面调用子图时从这里开始往下跑，传进来的参数也从这里取。位置能挪，但不能删、不能复制。' },
     SubgraphOutput: { label: '子图出口', description: '子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。' },
     // variable
@@ -1393,7 +1419,6 @@ export default {
     exit_select: '退出选择',
     delete_count: '删除 ({n})',
     create: '新建容器',
-    launcher: '悬浮启动器',
     empty_title: '还没有容器',
     empty_desc: '容器是节点图蓝图, 包含变量、控制流、模板检测和 Action 调用.',
     editing_locked_tip: '另一窗口正在编辑中',

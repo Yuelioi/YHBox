@@ -235,7 +235,7 @@ func (s *Service) OpenLauncher() error {
 		Width:            240,
 		Height:           300,
 		MinWidth:         140,
-		MinHeight:        120,
+		MinHeight:        56,
 		URL:              "/#/tools/launcher",
 		Frameless:        true,
 		AlwaysOnTop:      true,

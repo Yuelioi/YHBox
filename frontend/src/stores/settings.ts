@@ -51,7 +51,6 @@ export interface Settings {
     mouseProfiles: MouseProfile[] // 命名鼠标校准档列表（异环/原神…各一档）
     activeMouseProfile: string // 指向 mouseProfiles 里某个 label；空/失配 → activeMouseCounts360 兜底
     launcherGroups: LauncherGroup[] // 悬浮窗启动器分组（设置里编排，有序）
-    launcherColumns: number // 每排按钮数；<=0 渲染端兜底默认
     launcherDisplay: string // 'both'(默认)|'icon'|'text'
     launcherToggleHotkey: string // 呼出/隐藏悬浮窗的全局热键（空=未绑）
   }

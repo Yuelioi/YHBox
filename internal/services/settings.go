@@ -75,8 +75,6 @@ type UISettings struct {
 	ActiveMouseProfile string `json:"activeMouseProfile"`
 	// LauncherGroups 悬浮窗启动器的分组（用户在设置里编排，有序）。空 = 空启动器。
 	LauncherGroups []LauncherGroup `json:"launcherGroups"`
-	// LauncherColumns 悬浮窗每排按钮数；<=0 → 渲染端兜底默认。
-	LauncherColumns int `json:"launcherColumns"`
 	// LauncherDisplay 按钮显示：""/"both"=图标+文字 | "icon"=仅图标 | "text"=仅文字。
 	LauncherDisplay string `json:"launcherDisplay"`
 	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。

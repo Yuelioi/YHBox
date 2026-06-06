@@ -108,7 +108,6 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	s := &Settings{
 		UI: UISettings{
 			LauncherToggleHotkey: "Ctrl+Shift+L",
-			LauncherColumns:      4,
 			LauncherGroups: []LauncherGroup{
 				{ID: "g1", Name: "战斗", Items: []LauncherItem{
 					{ContainerID: "c1", Icon: "i-tabler-fish"},
@@ -127,9 +126,6 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	}
 	if out.UI.LauncherToggleHotkey != "Ctrl+Shift+L" {
 		t.Errorf("LauncherToggleHotkey: want %q, got %q", "Ctrl+Shift+L", out.UI.LauncherToggleHotkey)
-	}
-	if out.UI.LauncherColumns != 4 {
-		t.Errorf("LauncherColumns: want 4, got %d", out.UI.LauncherColumns)
 	}
 	if len(out.UI.LauncherGroups) != 1 || len(out.UI.LauncherGroups[0].Items) != 2 {
 		t.Fatalf("LauncherGroups: got %+v", out.UI.LauncherGroups)

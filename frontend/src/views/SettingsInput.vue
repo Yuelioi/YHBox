@@ -1,10 +1,14 @@
 <template>
-  <div class="p-6 space-y-6 max-w-2xl">
-    <header class="space-y-2">
-      <h2 class="text-base font-medium text-highlighted">{{ t('settings.input.title') }}</h2>
+  <div class="px-8 py-6 space-y-6">
+    <!-- 总说明 -->
+    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-mouse" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.title') }}</h2>
+      </div>
       <p class="text-xs text-dimmed">{{ t('settings.input.intro') }}</p>
       <div
-        class="rounded-md bg-elevated/30 border border-default/50 px-3 py-2 text-[11px] text-muted leading-relaxed"
+        class="rounded-md bg-elevated/30 border border-default/60 px-3 py-2 text-xs text-muted leading-relaxed"
       >
         <UIcon
           name="i-tabler-info-circle"
@@ -23,22 +27,23 @@
           >{{ t('settings.input.intro_box.footnote_rest') }}
         </span>
       </div>
-    </header>
+    </section>
 
     <!-- 录制配置 -->
-    <section class="rounded-md border border-default bg-elevated/40 p-4 space-y-3">
-      <header>
-        <h3 class="text-sm font-medium text-highlighted">{{ t('settings.input.record.title') }}</h3>
-        <p class="text-[11px] text-dimmed mt-0.5">{{ t('settings.input.record.hint') }}</p>
-      </header>
+    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-player-record" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.record.title') }}</h2>
+      </div>
+      <p class="text-xs text-dimmed">{{ t('settings.input.record.hint') }}</p>
+
+      <div class="border-t border-default/60" />
 
       <!-- 鼠标语义 -->
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center justify-between gap-6">
         <div class="min-w-0">
           <div class="text-sm text-default">{{ t('settings.input.record.mouse_mode_label') }}</div>
-          <div class="text-[11px] text-dimmed leading-snug">
-            {{ t('settings.input.record.mouse_mode_hint') }}
-          </div>
+          <p class="text-xs text-dimmed mt-0.5">{{ t('settings.input.record.mouse_mode_hint') }}</p>
         </div>
         <USelect
           :model-value="settings?.ui.recordingMouseMode ?? 'relative'"
@@ -49,17 +54,16 @@
       </div>
     </section>
 
-    <section class="rounded-md border border-default bg-elevated/40 p-4 space-y-4">
-      <header class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <h3 class="text-sm font-medium text-highlighted">{{ t('settings.input.counts.title') }}</h3>
-          <p class="text-[11px] text-dimmed mt-0.5">{{ t('settings.input.counts.hint') }}</p>
-        </div>
-      </header>
+    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-target" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.counts.title') }}</h2>
+      </div>
+      <p class="text-xs text-dimmed">{{ t('settings.input.counts.hint') }}</p>
 
       <!-- profile 列表：每行 = 默认单选 + 名字 + counts + 校准 + 删除 -->
       <div v-if="profiles.length" class="space-y-2">
-        <div class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-dimmed px-1">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wider text-dimmed px-3">
           <span class="w-8 text-center">{{ t('settings.input.counts.col_active') }}</span>
           <span class="flex-1">{{ t('settings.input.counts.col_label') }}</span>
           <span class="w-28">{{ t('settings.input.counts.col_counts') }}</span>
@@ -68,8 +72,8 @@
         <div
           v-for="(p, i) in profiles"
           :key="i"
-          class="flex items-center gap-2 rounded-md border px-2 py-1.5"
-          :class="p.label === activeLabel ? 'border-primary/50 bg-primary/5' : 'border-default/40'"
+          class="flex items-center gap-2 rounded-md border px-3 py-2"
+          :class="p.label === activeLabel ? 'border-primary/50 bg-primary/5' : 'border-default/60 bg-elevated/30'"
         >
           <div class="w-8 flex justify-center">
             <URadio
@@ -117,7 +121,7 @@
           </div>
         </div>
       </div>
-      <p v-else class="text-[11px] text-dimmed italic">{{ t('settings.input.counts.empty') }}</p>
+      <p v-else class="text-xs text-dimmed italic">{{ t('settings.input.counts.empty') }}</p>
 
       <div class="flex items-center gap-2 flex-wrap">
         <UButton size="sm" color="primary" variant="soft" icon="i-tabler-plus" @click="addProfile">
@@ -133,20 +137,19 @@
         >
           {{ t('settings.input.counts.sync_all') }}
         </UButton>
-        <span class="ml-auto text-[11px] text-dimmed">
+        <span class="ml-auto text-xs text-dimmed">
           {{ t('settings.input.counts.share_hint') }}
         </span>
       </div>
     </section>
 
     <!-- 说明 -->
-    <section
-      class="rounded-md border border-default/60 bg-default/50 p-4 text-xs text-dimmed space-y-2"
-    >
-      <h4 class="text-xs uppercase tracking-wider text-toned">
-        {{ t('settings.input.howto.title') }}
-      </h4>
-      <ol class="list-decimal pl-5 space-y-1">
+    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-list-numbers" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.howto.title') }}</h2>
+      </div>
+      <ol class="list-decimal pl-5 space-y-1 text-xs text-dimmed">
         <li>{{ t('settings.input.howto.step_open') }}</li>
         <li>{{ t('settings.input.howto.step_focus') }}</li>
         <li>{{ t('settings.input.howto.step_start', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>

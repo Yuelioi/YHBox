@@ -14,6 +14,7 @@ export default {
     help: 'Help',
     about: 'About',
     container_edit: 'Edit container',
+    launcher: 'Floating launcher',
   },
   controls: {
     start: 'Start',
@@ -866,6 +867,18 @@ export default {
         full_playback: 'None — play full clip',
       },
     },
+    RunProgram: {
+      label: 'Run program',
+      description: 'Open a target the system default way: run an executable, open a URL in the default browser, or open a document/folder with its associated app. Continues immediately without waiting for the program to exit.',
+      example: 'To auto-launch a game at the start of a script, set Target to the full path of the game exe; or set Target to a URL to open it in the default browser when the script reaches here.',
+      input: {
+        Target: { label: 'Target', hint: 'Program path / URL / file / folder, e.g. C:\\Game\\game.exe or https://example.com' },
+        Args: { label: 'Arguments', hint: 'Optional. Command-line arguments passed to the program.' },
+        WorkingDir: { label: 'Working dir', hint: 'Optional. Working directory the program starts in; empty = default.' },
+        WindowState: { label: 'Window state', option: { normal: 'Normal', minimized: 'Minimized', maximized: 'Maximized', hidden: 'Hidden' } },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     // purefunc
     Expr: {
       label: 'Expression',
@@ -1131,6 +1144,19 @@ export default {
         title_match_regex: 'Regex RE2 (partial match)',
       },
     },
+    WaitWindow: {
+      label: 'Wait for window',
+      description: 'Poll until a window appears, matched by title / class / process name. If it appears within the timeout, takes the Found exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Run program to wait for the program window to load. Note: this node only detects whether the window exists; it does not switch to it. To operate on it, follow Found with a Window target to lock it (it resolves instantly since the window now exists).',
+      example: 'After Run program launches a game, add Wait for window with the game title and a 20s timeout; on Found add Window target + actions, on Timeout show a message or retry.',
+      input: {
+        Title: { label: 'Window title' },
+        Class: { label: 'Window class' },
+        ProcessName: { label: 'Process name' },
+        TitleMatch: { label: 'Title match', option: { exact: 'Exact', regex: 'Regex' } },
+        TimeoutMs: { label: 'Timeout (ms)', hint: 'Poll-wait this long for the window to appear; takes Timeout if it never shows.' },
+      },
+      output: { Found: { label: 'Found' }, Timeout: { label: 'Timeout' } },
+    },
     SubgraphInput: { label: 'Subgraph input', description: 'The entry point inside a subgraph — when the subgraph is called, execution starts here, and any params passed in are read here. Position is movable, but it cannot be deleted or copied.' },
     SubgraphOutput: { label: 'Subgraph output', description: 'The exit point inside a subgraph — reaching it ends the subgraph and returns to the caller to continue. One per output pin. Position is movable, but it cannot be deleted or copied.' },
     // variable
@@ -1371,7 +1397,6 @@ export default {
     exit_select: 'Exit select',
     delete_count: 'Delete ({n})',
     create: 'New container',
-    launcher: 'Floating launcher',
     empty_title: 'No containers yet',
     empty_desc: 'A container is a node-graph blueprint with variables, control flow, template detection, and Action calls.',
     editing_locked_tip: 'Editing in another window',
