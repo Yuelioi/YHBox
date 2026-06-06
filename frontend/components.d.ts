@@ -96,6 +96,7 @@ declare module 'vue' {
     UTextarea: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
     ValidationErrorPanel: typeof import('./src/components/containers/ValidationErrorPanel.vue')['default']
+    VarNameInput: typeof import('./src/components/containers/inline/VarNameInput.vue')['default']
     VarPointInput: typeof import('./src/components/containers/sidebar/VarPointInput.vue')['default']
     VarRow: typeof import('./src/components/containers/sidebar/VarRow.vue')['default']
     VarsPanel: typeof import('./src/components/containers/sidebar/VarsPanel.vue')['default']
