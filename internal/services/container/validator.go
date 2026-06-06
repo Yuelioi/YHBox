@@ -84,8 +84,7 @@ const (
 	CodeExprTypeMismatch   = "EXPR_TYPE_MISMATCH"
 	CodeExprDuplicateInput = "EXPR_DUPLICATE_INPUT"
 
-	// GetSys / GetParam
-	CodeGetSysUnknownPath    = "GETSYS_UNKNOWN_PATH"
+	// GetParam
 	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
 
 	// CollapsedNode
@@ -146,8 +145,8 @@ func ValidateContainer(c *Container) []ValidationError {
 //
 //  1. Structural   — Start uniqueness, dangling edges, subgraph cycles,
 //                    MouseCalibration/WindowTarget rules.
-//  2. Reference    — pin existence, missing subgraphs/templates, GetSys/Param
-//                    path validity, CollapsedNode integrity.
+//  2. Reference    — pin existence, missing subgraphs/templates, GetParam
+//                    param validity, CollapsedNode integrity.
 //  3. Type/Semantic— pin types, literal types, Expr parse, data-graph DAG.
 //
 // Future hard-mode (short-circuit on fatal) can be opted-in via a flag without
@@ -174,7 +173,6 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validatePlayClip(c)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
 	errs = append(errs, validateTemplateKeyNodes(c)...)
-	errs = append(errs, validateGetSysNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
 	errs = append(errs, validateCollapsedReferences(c)...)
 	errs = append(errs, validateVarRefs(c)...)

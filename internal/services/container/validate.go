@@ -261,7 +261,7 @@ func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 }
 
 // dataOutPinTypeForKind 同上 outputs.
-// 动态类型节点 (GetVar / Expr / GetSys / GetParam) Spec 里登记 "any" / "*",
+// 动态类型节点 (GetVar / Expr / GetParam) Spec 里登记 "any" / "*",
 // 真实类型由 caller 按 config 解析 — validateDataPinTypes 已做.
 func dataOutPinTypeForKind(kind, pinName string) string {
 	rn, ok := nodepkg.Get(kind)
