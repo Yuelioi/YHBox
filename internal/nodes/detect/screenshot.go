@@ -24,6 +24,7 @@ const (
 	ssInROI          = "ROI"
 	ssOutDone        = "Done"
 	ssDataPath       = "Path"
+	ssCapPath        = "CapturePath"
 )
 
 func (Screenshot) Spec() node.Spec {
@@ -36,6 +37,8 @@ func (Screenshot) Spec() node.Spec {
 			{Name: ssInPathTemplate, Type: "String", Default: "{ts}.png",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: ssInROI, Type: "Geometry", Schema: node.GeometrySchema()},
+			{Name: ssCapPath, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: ssOutDone, Type: "Exec",
@@ -80,6 +83,7 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err := os.WriteFile(abs, pngData, 0o644); err != nil {
 		return nil, fmt.Errorf("Screenshot write %s: %w", abs, err)
 	}
+	node.Capture(ctx, in, ssCapPath, abs)
 	return ctx.Out(ssOutDone).Set(ssDataPath, abs).Fire(), nil
 }
 
