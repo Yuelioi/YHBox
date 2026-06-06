@@ -111,6 +111,34 @@ func withVision(v node.VisionService) node.ServiceBundle {
 	return b
 }
 
+// recVars 记录式 VarStore — 跨 detect 包测试文件复用, 验证节点捕获到变量.
+// 只把 SetScoped 写进 m (capture 走 SetScoped); 其余方法满足接口即可.
+// 定义在 mockVision 同文件 (字母序最早) 以免重复定义.
+type recVars struct {
+	m map[string]any
+}
+
+func newRecVars() *recVars { return &recVars{m: map[string]any{}} }
+
+func (r *recVars) Get(name string) (any, bool) { v, ok := r.m[name]; return v, ok }
+func (r *recVars) Set(name string, v any)      { r.m[name] = v }
+func (r *recVars) Inc(string, float64) float64 { return 0 }
+func (r *recVars) GetScoped(name, _ string) (any, bool) {
+	v, ok := r.m[name]
+	return v, ok
+}
+func (r *recVars) SetScoped(name, _ string, v any)           { r.m[name] = v }
+func (r *recVars) IncScoped(string, string, float64) float64 { return 0 }
+func (r *recVars) LastChange(string) int64                   { return 0 }
+
+// withVisionVars 同 withVision 但额外注入记录式 VarStore, 验证捕获.
+func withVisionVars(v node.VisionService, vars node.VarStore) node.ServiceBundle {
+	b := node.StubServices()
+	b.Vision = v
+	b.Vars = vars
+	return b
+}
+
 func TestCheckTemplate_Hit(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&CheckTemplate{})

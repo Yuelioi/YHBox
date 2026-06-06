@@ -24,6 +24,8 @@ const (
 	dcOutNo       = "No"
 	dcDataCount   = "Count"
 	dcDataCenter  = "Center"
+	dcCapCount    = "CaptureCount"
+	dcCapCenter   = "CaptureCenter"
 )
 
 func (DetectColor) Spec() node.Spec {
@@ -46,6 +48,10 @@ func (DetectColor) Spec() node.Spec {
 					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
 			{Name: dcInMinPixels, Type: "Number", Default: json.Number("5"),
 				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: dcCapCount, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: dcCapCenter, Type: "String", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dcOutYes, Type: "Exec",
@@ -78,11 +84,14 @@ func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("DetectColor: %w", err)
 	}
 	if count >= minPx {
+		node.Capture(ctx, in, dcCapCount, count)
+		node.Capture(ctx, in, dcCapCenter, node.Point{X: cx, Y: cy})
 		return ctx.Out(dcOutYes).
 			Set(dcDataCount, count).
 			Set(dcDataCenter, node.Point{X: cx, Y: cy}).
 			Fire(), nil
 	}
+	node.Capture(ctx, in, dcCapCount, count)
 	return ctx.Out(dcOutNo).Set(dcDataCount, count).Fire(), nil
 }
 
