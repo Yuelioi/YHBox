@@ -102,7 +102,7 @@ func TestDualColorBarTrack_Capture_Found(t *testing.T) {
 	for _, c := range checks {
 		got, ok := vars.Get(c.name)
 		if !ok || got != c.want {
-			t.Errorf("capture %s = %v (ok=%v), want %v", c.name, got, ok, c.want)
+			t.Fatalf("capture %s = %v (ok=%v), want %v", c.name, got, ok, c.want)
 		}
 	}
 	// CaptureType=number: 断言每个捕获字段的 Go 类型符合声明.

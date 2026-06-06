@@ -124,7 +124,7 @@ func TestTry_Capture_ErrorOnCatch(t *testing.T) {
 	}
 	got, ok := vars.Get("e")
 	if !ok || got != "boom" {
-		t.Errorf("capture e = %v (ok=%v), want 'boom'", got, ok)
+		t.Fatalf("capture e = %v (ok=%v), want 'boom'", got, ok)
 	}
 	// CaptureType=string: 断言写入值的 Go 类型是 string.
 	if _, isStr := got.(string); !isStr {

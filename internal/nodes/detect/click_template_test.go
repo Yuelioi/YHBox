@@ -93,7 +93,7 @@ func TestClickTemplate_Capture_Done(t *testing.T) {
 	}
 	gp, ok := vars.Get("p")
 	if !ok || gp != pt {
-		t.Errorf("capture p = %v (ok=%v), want %v", gp, ok, pt)
+		t.Fatalf("capture p = %v (ok=%v), want %v", gp, ok, pt)
 	}
 	// CaptureType=point: 断言写入值的 Go 类型是 node.Point.
 	if _, isPoint := gp.(node.Point); !isPoint {
