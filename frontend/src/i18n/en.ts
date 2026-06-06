@@ -633,7 +633,7 @@ export default {
       example: 'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Yes to cast, never bright takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
+        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
@@ -650,8 +650,8 @@ export default {
       example: 'Fishing reel bar: frame the ROI over the bar, set inner to the cursor yellow and outer to the target cyan; from Found read the cursor and target positions, then press left if the cursor is too far left or right if too far right to pull it back into the target band.',
       input: {
         Roi: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
-        InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
-        OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255{'}'}` },
+        InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
+        OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
         Options: { label: 'Algorithm params (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)` },
       },
       output: {
@@ -665,7 +665,7 @@ export default {
       example: 'Count how many inventory slots are lit: frame the ROI over the inventory row, axis Horizontal, give the highlight HSV and min count 1; lit slots found takes Found for follow-up, none found takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
+        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
         Axis: { label: 'Scan axis', option: { x: 'Horizontal (x)', y: 'Vertical (y)' } },
         MinClusterPx: { label: 'Min cluster length (px)' },
         MaxClusterPx: { label: 'Max cluster length (px)', hint: '<=0 = default ROI size / 3' },

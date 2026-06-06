@@ -37,8 +37,8 @@ func TestDetectColorHSVTimeoutOnNoMatch(t *testing.T) {
 			},
 			"HSV": map[string]any{
 				"hMin": float64(50), "hMax": float64(70),
-				"sMin": float64(200), "sMax": float64(255),
-				"vMin": float64(200), "vMax": float64(255),
+				"sMin": float64(78), "sMax": float64(100),
+				"vMin": float64(78), "vMax": float64(100),
 			},
 			// numeric thresholds via inline literal pin.
 			"literal": map[string]any{

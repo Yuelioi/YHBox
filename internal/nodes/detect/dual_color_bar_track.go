@@ -104,8 +104,8 @@ func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error)
 // 默认 HSV 阈值 (示例, 实测调出): inner=cursor 浅黄, outer=target 高饱和青.
 // 通用 case 用户填自己的, 这是一组示例默认.
 var (
-	defaultInnerHSV = node.HSVRange{HMin: 45, HMax: 70, SMin: 40, SMax: 255, VMin: 200, VMax: 255}
-	defaultOuterHSV = node.HSVRange{HMin: 160, HMax: 180, SMin: 140, SMax: 255, VMin: 100, VMax: 255}
+	defaultInnerHSV = node.HSVRange{HMin: 45, HMax: 70, SMin: 16, SMax: 100, VMin: 78, VMax: 100}
+	defaultOuterHSV = node.HSVRange{HMin: 160, HMax: 180, SMin: 55, SMax: 100, VMin: 39, VMax: 100}
 )
 
 func parseDualBarHSV(m map[string]any, fallback node.HSVRange) node.HSVRange {

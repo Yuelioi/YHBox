@@ -9,7 +9,7 @@ import (
 // roiRect ROI 像素矩形（客户区绝对坐标）。
 type roiRect struct{ X, Y, W, H int }
 
-// hsvRange HSV 阈值区间。H ∈ [0,360]，S/V ∈ [0,255]。
+// hsvRange HSV 阈值区间。H ∈ [0,360]，S/V ∈ [0,100]。
 type hsvRange struct {
 	hMin, hMax int
 	sMin, sMax int

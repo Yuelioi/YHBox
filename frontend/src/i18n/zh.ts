@@ -654,7 +654,7 @@ export default {
       example: '等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Yes 接放技能；一直没亮走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
-        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
+        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
@@ -671,8 +671,8 @@ export default {
       example: '钓鱼溜鱼条：在溜鱼条上框 ROI，内层填光标黄、外层填目标青，Found 口拿到光标和目标位置后，判断光标偏左就按左、偏右就按右，把光标拽回目标区段里。',
       input: {
         Roi: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形' },
-        InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":40,"sMax":255,"vMin":200,"vMax":255{'}'}` },
-        OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":140,"sMax":255,"vMin":100,"vMax":255{'}'}` },
+        InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
+        OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
         Options: { label: '算法参数 (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 fishing UI 实测值)` },
       },
       output: {
@@ -686,7 +686,7 @@ export default {
       example: '数背包里有几格亮着的物品：在背包行框 ROI，扫描轴选水平，填物品高亮的 HSV、最少段数填 1，扫到亮格就走 Found 接后续处理，一直没有走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
-        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":180,"sMin":0,"sMax":255,"vMin":0,"vMax":255{'}'}` },
+        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
         Axis: { label: '扫描轴', option: { x: '水平 (x)', y: '垂直 (y)' } },
         MinClusterPx: { label: '最小段长 (px)' },
         MaxClusterPx: { label: '最大段长 (px)', hint: '<=0 默认 ROI 大小 / 3' },

@@ -19,7 +19,7 @@ func TestDetectColor_Hit(t *testing.T) {
 		map[string]any{
 			dcInRegion:    node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
 			dcInMode:      "hsv",
-			dcInRange:     []any{50.0, 60.0, 67.0, 127.0, 253.0, 255.0},
+			dcInRange:     []any{50.0, 60.0, 26.0, 50.0, 99.0, 100.0},
 			dcInMinPixels: 5,
 		},
 		nil, withVision(vision), false)
@@ -41,7 +41,7 @@ func TestDetectColor_Miss(t *testing.T) {
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
 			dcInMode:      "hsv",
-			dcInRange:     []any{0.0, 180.0, 0.0, 255.0, 0.0, 255.0},
+			dcInRange:     []any{0.0, 360.0, 0.0, 100.0, 0.0, 100.0},
 			dcInMinPixels: 5,
 		},
 		nil, withVision(vision), false)

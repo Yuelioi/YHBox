@@ -150,7 +150,7 @@ type VisionService interface {
 	GridSignature(roi Geometry, gridSize int) (sig []uint8, err error)
 }
 
-// HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,255]. 给 DetectColorHSV / ROIColorScan 用.
+// HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100]. 给 DetectColorHSV / ROIColorScan 用.
 type HSVRange struct {
 	HMin int `json:"hMin"`
 	HMax int `json:"hMax"`

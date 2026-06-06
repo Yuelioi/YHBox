@@ -23,7 +23,7 @@ import (
 	"math"
 )
 
-// HSVRange HSV 阈值区间. H ∈ [0,180] (OpenCV 风格), S/V ∈ [0,255].
+// HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100] (跟 RGBToHSV 输出一致).
 // 跟 internal/node.HSVRange 形态一致 (重复定义避免 pkg/vision 反向 import internal/node).
 type HSVRange struct {
 	HMin, HMax int

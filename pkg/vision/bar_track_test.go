@@ -8,8 +8,8 @@ import (
 
 // 示例 HSV 阈值 — 给 test 用.
 var (
-	fishingCursorHSV = HSVRange{HMin: 45, HMax: 70, SMin: 40, SMax: 255, VMin: 200, VMax: 255}
-	fishingTargetHSV = HSVRange{HMin: 160, HMax: 180, SMin: 140, SMax: 255, VMin: 100, VMax: 255}
+	fishingCursorHSV = HSVRange{HMin: 45, HMax: 70, SMin: 16, SMax: 100, VMin: 78, VMax: 100}
+	fishingTargetHSV = HSVRange{HMin: 160, HMax: 180, SMin: 55, SMax: 100, VMin: 39, VMax: 100}
 )
 
 // TestAnalyzeDualColorBar_EmptyImage: 全黑帧 → 不返 inner/outer.
@@ -37,7 +37,7 @@ func TestAnalyzeDualColorBar_SyntheticInnerAndOuter(t *testing.T) {
 		}
 	}
 	// 画青 outer (HSV H~172) 在 x=100, w=15, 中段
-	outer := color.RGBA{R: 0, G: 230, B: 200, A: 255} // H=172 S=255 V=230; 在 H[160,180] S>=140 V>=100 范围内
+	outer := color.RGBA{R: 0, G: 230, B: 200, A: 255} // H=172 S=100 V=90; 在 H[160,180] S>=55 V>=39 范围内
 	for y := 5; y < 15; y++ {
 		for x := 100; x <= 114; x++ {
 			img.Set(x, y, outer)
