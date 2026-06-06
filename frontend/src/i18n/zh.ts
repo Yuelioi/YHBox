@@ -1281,6 +1281,7 @@ export default {
         execution_stop: '强停所有运行',
         calibrate_toggle: 'DPI 校准 启动/停止',
         window_capture: '窗口捕获 (按键抓游戏窗口)',
+        launcher_toggle: '呼出/隐藏 启动器悬浮窗',
       },
       recording: {
         stop: '停止录制',

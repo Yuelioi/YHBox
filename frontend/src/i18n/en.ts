@@ -1260,6 +1260,7 @@ export default {
         execution_stop: 'Stop all running',
         calibrate_toggle: 'DPI calibration toggle',
         window_capture: 'Window capture (press key to grab game window)',
+        launcher_toggle: 'Show/hide launcher window',
       },
       recording: {
         stop: 'Stop recording',
