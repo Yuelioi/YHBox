@@ -558,7 +558,7 @@
         <div v-for="lit in captureLiterals" :key="lit.name" class="space-y-1.5">
           <label class="block text-xs text-toned">
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
-            <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
+            <span class="text-[10px] text-dimmed font-mono ml-1">({{ fieldFor(lit.name)?.captureType ?? lit.type }})</span>
           </label>
           <PinInput
             :type="(lit.type as any)"
