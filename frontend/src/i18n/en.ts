@@ -1810,10 +1810,27 @@ export default {
       mode_keep_desc: 'Nodes are marked INVALID_VAR_REF; graph not modified',
       mode_remove: 'Also delete {count} nodes + edges',
     },
+    new: {
+      modal_title: 'New global variable',
+      name_label: 'Name',
+      type_label: 'Type',
+      confirm: 'Create',
+    },
+    input: {
+      create: 'New global variable "{name}" ({type})',
+      declare_now: 'Declare as variable',
+      type_mismatch: 'Type mismatch: capturing {cap} into a {dst} variable (still written, converted at runtime)',
+    },
     refs: {
       title: 'References of variable {name}',
+      title_prefix: 'Variable',
+      title_suffix: 'references',
+      count_label: '{n} reference(s)',
       empty: 'No referencing nodes',
       click_to_select: 'Click to select + jump to canvas',
+      click_to_jump_hint: 'Click to jump to node',
+      read: 'read',
+      write: 'write',
     },
     promote: {
       title: 'Promote to variable',

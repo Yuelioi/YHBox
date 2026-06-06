@@ -1856,10 +1856,27 @@ export default {
       mode_keep_desc: '节点标红 INVALID_VAR_REF, 不删 graph',
       mode_remove: '一并删除 {count} 个节点 + 边',
     },
+    new: {
+      modal_title: '新建全局变量',
+      name_label: '变量名',
+      type_label: '类型',
+      confirm: '创建',
+    },
+    input: {
+      create: '新建全局变量「{name}」({type})',
+      declare_now: '声明为变量',
+      type_mismatch: '类型不符：捕获 {cap} 写入 {dst} 变量（仍会写入，运行时按值转换）',
+    },
     refs: {
       title: '变量 {name} 的引用',
+      title_prefix: '变量',
+      title_suffix: '的引用',
+      count_label: '{n} 处引用',
       empty: '无引用节点',
       click_to_select: '点击选中 + 跳到画布',
+      click_to_jump_hint: '点击跳转至节点',
+      read: '读',
+      write: '写',
     },
     promote: {
       title: '提取为变量',
