@@ -135,6 +135,8 @@ func main() {
 				cur.UI.RecordingPauseHotkey = newStr
 			case "system.calibrate-toggle":
 				cur.UI.CalibrateHotkey = newStr
+			case "system.launcher-toggle":
+				cur.UI.LauncherToggleHotkey = newStr
 			case "tools.window-capture":
 				cur.UI.WindowCaptureHotkey = newStr
 			default:
@@ -154,6 +156,7 @@ func main() {
 	hotkeySvc.SetSystemDefaults(map[string]string{
 		"system.execution-stop":   "Ctrl+Shift+F9",
 		"system.calibrate-toggle": "F8",
+		"system.launcher-toggle":  "",
 		"tools.window-capture":    "F9",
 		"recording.stop":          "F12",
 		"recording.pause":         "F11",
@@ -329,6 +332,15 @@ func main() {
 		}
 		return mods, vk
 	})
+
+	// 悬浮窗启动器 呼出/隐藏 热键：默认未绑（空），从 settings.UI 读，rebind 经 onSystemHotkeyChange 写回。
+	// os-global 机制（跟 execution-stop 一致）。按键 → toggle 启动器悬浮窗显隐。
+	launcherToggleHk := strings.TrimSpace(app.Settings().UI.LauncherToggleHotkey)
+	if err := hotkeyRegistry.Register("system.launcher-toggle", hotkey.HotkeySourceSystem,
+		"hotkeys.label.system.launcher_toggle", nil, launcherToggleHk, "",
+		func() { _ = toolsSvc.ToggleLauncher() }); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", launcherToggleHk).Msg("注册启动器 toggle 热键失败")
+	}
 
 	// DPI 校准 toggle 热键：默认 F8，从 settings.UI 读（rebind 经 onSystemHotkeyChange 写回）。
 	// LL-hook 机制 (值持有条目, 不占 OS RegisterHotKey — 游戏会 reserve, 切游戏后失效)。
