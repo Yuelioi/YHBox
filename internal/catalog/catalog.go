@@ -10,6 +10,14 @@ import (
 	"yotta/internal/node"
 )
 
+// PinData — exec 出口携带的一个数据字段 (下游 exec-data wire 收同名字段)。
+// 镜像 node.DataField; 只有 output 出口会填, input pin 留空。
+type PinData struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Optional bool   `json:"optional,omitempty"`
+}
+
 type Pin struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`
@@ -17,6 +25,8 @@ type Pin struct {
 	Required bool   `json:"required,omitempty"`
 	Advanced bool   `json:"advanced,omitempty"`
 	Default  any    `json:"default,omitempty"`
+	// Data 仅 output exec 出口填 (input pin 留空 → omitempty 不输出)。
+	Data []PinData `json:"data,omitempty"`
 	// 展示文案 (仅 BuildWithI18n 填充; Build 结构-only 时为空, omitempty 不输出)。
 	Label string `json:"label,omitempty"`
 	Hint  string `json:"hint,omitempty"`
@@ -50,7 +60,11 @@ func Build() []Node {
 			})
 		}
 		for _, o := range s.Outputs {
-			cn.Outputs = append(cn.Outputs, Pin{Name: o.Name, Type: o.Type, Exec: o.Type == node.TypeExec})
+			p := Pin{Name: o.Name, Type: o.Type, Exec: o.Type == node.TypeExec}
+			for _, d := range o.Data {
+				p.Data = append(p.Data, PinData{Name: d.Name, Type: d.Type, Optional: d.Optional})
+			}
+			cn.Outputs = append(cn.Outputs, p)
 		}
 		out = append(out, cn)
 	}

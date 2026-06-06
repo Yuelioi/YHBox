@@ -4,7 +4,8 @@
 //
 // 用法:
 //
-//	go run ./cmd/node-catalog export            # 导出全节点结构化目录 (JSON, stdout)
+//	go run ./cmd/node-catalog export            # 导出全节点目录 (JSON, 带大白话+出口Data, stdout)
+//	go run ./cmd/node-catalog export --md       # 同上但渲染成人读 Markdown 速查表
 //	go run ./cmd/node-catalog validate <path>   # 对一个 container.json 跑 ValidateContainer
 package main
 
@@ -32,12 +33,13 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: node-catalog export | validate <path>")
+		fmt.Fprintln(os.Stderr, "usage: node-catalog export [--md] | validate <path>")
 		os.Exit(2)
 	}
 	switch os.Args[1] {
 	case "export":
-		doExport()
+		md := len(os.Args) > 2 && os.Args[2] == "--md"
+		doExport(md)
 	case "validate":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: node-catalog validate <container.json>")
@@ -50,10 +52,14 @@ func main() {
 	}
 }
 
-func doExport() {
+func doExport(md bool) {
+	if md {
+		fmt.Print(catalog.Markdown(catalog.BuildWithI18n()))
+		return
+	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(catalog.Build()); err != nil {
+	if err := enc.Encode(catalog.BuildWithI18n()); err != nil {
 		fmt.Fprintf(os.Stderr, "encode: %v\n", err)
 		os.Exit(2)
 	}

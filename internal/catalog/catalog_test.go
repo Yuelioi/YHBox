@@ -60,6 +60,41 @@ func TestBuildWithI18n_AllKindsLabeled(t *testing.T) {
 	}
 }
 
+// Part A 守卫: exec 出口携带的 Data 字段被序列化进 catalog (此前丢失, 调研要 grep 源码才知道)。
+func TestBuild_OutputDataSerialized(t *testing.T) {
+	cat := Build()
+	outData := func(kind, exit string) []PinData {
+		for _, n := range cat {
+			if n.Kind != kind {
+				continue
+			}
+			for _, o := range n.Outputs {
+				if o.Name == exit {
+					return o.Data
+				}
+			}
+			t.Fatalf("%s: 出口 %q 不存在", kind, exit)
+		}
+		t.Fatalf("catalog 里没有 %s", kind)
+		return nil
+	}
+	hasField := func(data []PinData, name, typ string) bool {
+		for _, d := range data {
+			if d.Name == name && d.Type == typ {
+				return true
+			}
+		}
+		return false
+	}
+
+	if d := outData("DetectColor", "Yes"); !hasField(d, "Center", "Point") {
+		t.Errorf("DetectColor.Yes 应携带 Center(Point), 实得 %+v", d)
+	}
+	if d := outData("CheckTemplate", "Found"); !hasField(d, "Point", "Point") {
+		t.Errorf("CheckTemplate.Found 应携带 Point(Point), 实得 %+v", d)
+	}
+}
+
 func TestBuild_KeyPressShape(t *testing.T) {
 	for _, n := range Build() {
 		if n.Kind != "KeyPress" {

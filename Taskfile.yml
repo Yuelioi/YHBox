@@ -35,6 +35,11 @@ tasks:
     cmds:
       - task: "windows:build:capture-dll"
 
+  nodes:
+    summary: 导出节点速查表(Markdown)；要 JSON 用 `go run ./cmd/node-catalog export`
+    cmds:
+      - go run ./cmd/node-catalog export --md
+
   version:sync:
     summary: 把 pkg/version.Version 同步到 build/config.yml / windows/info.json / frontend/package.json
     desc: |
