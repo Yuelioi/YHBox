@@ -27,10 +27,10 @@ import (
 //
 // Data flow into If.condition:
 //
-//	[GetSys iter] → [Expr "i > -1"] → If.condition  (always true initially)
+//	[GetVar counter] → [Expr "i > -1"] → If.condition  (always true initially)
 //
 // Validates: per-tick snapshot, GetVar global, Add pure func via data edge,
-// GetSys data edge, Expr with bare identifier + InputEnv isolation, SetVar from edge,
+// GetVar data edge, Expr with bare identifier + InputEnv isolation, SetVar from edge,
 // exec branching following Expr→If chain.
 func TestV4_E2E_AllCategories(t *testing.T) {
 	c := &container.Container{
@@ -65,7 +65,9 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 					"VarName": "dst", "Scope": "global",
 				}},
 				// Branch condition
-				{ID: "getIter", Kind: "GetSys", Config: map[string]any{"Path": "iter"}},
+				{ID: "getIter", Kind: "GetVar", Config: map[string]any{
+					"VarName": "counter", "Scope": "global",
+				}},
 				{ID: "condExpr", Kind: "Expr", Config: map[string]any{
 					"Expression": "i > -1",
 					"OutType": "auto",
@@ -85,7 +87,7 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				// Data: GetVar(counter) → Add(A) → setDst.value
 				{From: "getCounter.Value", To: "add10.A"},
 				{From: "add10.Result", To: "setDst.Value"},
-				// Data: GetSys(iter) → Expr.i → If.condition
+				// Data: GetVar(counter) → Expr.i → If.condition
 				{From: "getIter.Value", To: "condExpr.i"},
 				{From: "condExpr.Result", To: "if1.Condition"},
 			},
@@ -114,8 +116,7 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 }
 
 // TestV4_E2E_FishingFightLite: minimal Fishing v2 fight-state pattern using v4 nodes.
-// Validates GetSys ($sys.iter), Expr boolean check, conditional output via If →
-// SetVar to record a step number. Stand-in for actual fish state-machine.
+// Validates SetVar to record a step number. Stand-in for actual fish state-machine.
 func TestV4_E2E_FishingFightLite(t *testing.T) {
 	c := &container.Container{
 		SchemaVersion: 1,

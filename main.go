@@ -23,7 +23,7 @@ import (
 	_ "yotta/internal/nodes/purefunc"  // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
 	_ "yotta/internal/nodes/stopwatch" // StopwatchStart/Stop/Read
 	_ "yotta/internal/nodes/system"    // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
-	_ "yotta/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetSys/GetParam
+	_ "yotta/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetParam
 	"yotta/internal/runclassify"
 	"yotta/internal/services"
 	"yotta/internal/services/calibration"
