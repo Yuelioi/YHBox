@@ -26,7 +26,7 @@ func (SetVar) Spec() node.Spec {
 		Category: "Variable",
 		Inputs: []node.InputSpec{
 			{Name: svInExec, Type: "Exec"},
-			{Name: svInVarName, Type: "String", Required: true,
+			{Name: svInVarName, Type: "String", Required: true, Semantic: "varname",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: svInScope, Type: "String", Default: "auto",
 				Widget: node.WidgetSpec{Kind: "dropdown",

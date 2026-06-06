@@ -23,7 +23,7 @@ func (VarLastChange) Spec() node.Spec {
 		Kind:     "VarLastChange",
 		Category: "Variable",
 		Inputs: []node.InputSpec{
-			{Name: vlcInVarName, Type: "String", Required: true,
+			{Name: vlcInVarName, Type: "String", Required: true, Semantic: "varname",
 				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs:    []node.OutputSpec{{Name: vlcOutValue, Type: "Number"}},

@@ -24,7 +24,7 @@ func (GetVar) Spec() node.Spec {
 		Kind:     "GetVar",
 		Category: "Variable",
 		Inputs: []node.InputSpec{
-			{Name: gvInVarName, Type: "String", Required: true,
+			{Name: gvInVarName, Type: "String", Required: true, Semantic: "varname",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: gvInScope, Type: "String", Default: "auto",
 				Widget: node.WidgetSpec{Kind: "dropdown",

@@ -27,7 +27,7 @@ func (IncVar) Spec() node.Spec {
 		Category: "Variable",
 		Inputs: []node.InputSpec{
 			{Name: ivInExec, Type: "Exec"},
-			{Name: ivInVarName, Type: "String", Required: true,
+			{Name: ivInVarName, Type: "String", Required: true, Semantic: "varname",
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: ivInScope, Type: "String", Default: "auto",
 				Widget: node.WidgetSpec{Kind: "dropdown",
