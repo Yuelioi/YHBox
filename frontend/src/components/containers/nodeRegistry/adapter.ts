@@ -154,6 +154,7 @@ export function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
     // advanced / semantic 透传: Inspector 用 semantic==='capture' 聚成「输出捕获」折叠组.
     if (i.advanced) f.advanced = true
     if (i.semantic) f.semantic = i.semantic
+    if (i.captureType) f.captureType = i.captureType
     // dropdown options 从 Widget.Props.options 抽 (backend MarshalProps 写来的, 静态 dropdown 只有 value).
     // label 走 i18n key node.<kind>.input.<name>.option.<value> — backend 不再带 enum 中文.
     const props = (widget?.props ?? {}) as Record<string, unknown>

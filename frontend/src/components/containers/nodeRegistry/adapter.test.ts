@@ -77,6 +77,21 @@ describe('deriveFields schema passthrough', () => {
     expect(fields[0].semantic).toBe('capture')
   })
 
+  it('captureType 透传 (capture 框被捕获值的 VarType)', () => {
+    const capInput = {
+      name: 'CaptureFound',
+      type: 'String',
+      semantic: 'capture',
+      captureType: 'bool',
+      widget: { kind: 'text', props: {} },
+    } as unknown as InputSpec
+
+    const fields = deriveFields('CheckTemplate', [capInput])
+    expect(fields).toHaveLength(1)
+    expect(fields[0].captureType).toBe('bool')
+    expect(fields[0].semantic).toBe('capture')
+  })
+
   it('普通输入 semantic/advanced 为 undefined', () => {
     const plain = {
       name: 'MinPixels',

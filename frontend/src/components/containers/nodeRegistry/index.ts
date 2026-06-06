@@ -75,6 +75,8 @@ export interface FieldSchema {
   advanced?: boolean
   /** backend InputSpec.Semantic — UI 语义标签 (e.g. 'capture' = 输出捕获到变量). */
   semantic?: string
+  /** backend InputSpec.CaptureType — 仅 semantic==='capture' 框: 被捕获值的 VarType. */
+  captureType?: string
 }
 
 /** Group name for palette categorization. 对应后端 Spec.Category (lowercase'd).
