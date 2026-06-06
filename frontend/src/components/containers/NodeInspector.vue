@@ -490,12 +490,12 @@
 
     <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。
          连线的 pin 不显 (值走 data 边)。有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 这里返空。 -->
-    <section v-if="dataInLiterals.length > 0" class="mb-5">
+    <section v-if="normalLiterals.length > 0" class="mb-5">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
         {{ t('inspector.literal_section') }}
       </h4>
       <div class="space-y-4">
-        <div v-for="lit in dataInLiterals" :key="lit.name" class="space-y-1.5">
+        <div v-for="lit in normalLiterals" :key="lit.name" class="space-y-1.5">
           <label class="block text-xs text-toned">
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
             <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
@@ -534,7 +534,52 @@
       </div>
     </section>
 
-    <p v-else-if="!hasBespokeSection" class="text-[12px] text-dimmed">{{ t('inspector.no_config') }}</p>
+    <!-- 输出捕获 — semantic==='capture' 的输入聚成默认折叠组, 折叠头带「总数 / 已填」徽章。
+         填变量名 → 节点运行时把对应输出值写进该变量。 -->
+    <section v-if="captureLiterals.length > 0" class="mb-5">
+      <button
+        type="button"
+        class="w-full flex items-center gap-2 mb-3 group"
+        @click="captureOpen = !captureOpen"
+      >
+        <UIcon
+          :name="captureOpen ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'"
+          class="size-3.5 text-dimmed shrink-0"
+        />
+        <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">
+          {{ t('inspector.capture_section') }}
+        </h4>
+        <span
+          class="text-[10px] font-mono px-1.5 py-0.5 rounded"
+          :class="captureFilledCount > 0 ? 'bg-primary/15 text-primary' : 'bg-elevated text-dimmed'"
+        >{{ captureFilledCount }}/{{ captureLiterals.length }}</span>
+      </button>
+      <div v-if="captureOpen" class="space-y-4">
+        <div v-for="lit in captureLiterals" :key="lit.name" class="space-y-1.5">
+          <label class="block text-xs text-toned">
+            {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
+            <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
+          </label>
+          <PinInput
+            :type="(lit.type as any)"
+            :widget-kind="fieldFor(lit.name)?.widgetKind"
+            :options="fieldFor(lit.name)?.options"
+            :placeholder="fieldFor(lit.name)?.placeholder"
+            :model-value="getLiteral(lit.name)"
+            @update:model-value="(v: any) => setLiteral(lit.name, v)"
+          />
+          <p
+            v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"
+            class="text-[11px] text-dimmed leading-snug"
+          >{{ t(fieldFor(lit.name)!.hint!) }}</p>
+        </div>
+      </div>
+    </section>
+
+    <p
+      v-else-if="normalLiterals.length === 0 && !hasBespokeSection"
+      class="text-[12px] text-dimmed"
+    >{{ t('inspector.no_config') }}</p>
   </div>
 </template>
 
@@ -615,6 +660,19 @@ const dataInLiterals = computed(() => {
   )
 })
 
+// semantic==='capture' 的输入聚成「输出捕获」折叠组, 其余正常平铺。
+function isCaptureLit(name: string): boolean {
+  return fieldFor(name)?.semantic === 'capture'
+}
+const normalLiterals = computed(() => dataInLiterals.value.filter((l) => !isCaptureLit(l.name)))
+const captureLiterals = computed(() => dataInLiterals.value.filter((l) => isCaptureLit(l.name)))
+// 已填的捕获项数 (literal 非空字符串) — 折叠头徽章用。
+const captureFilledCount = computed(
+  () => captureLiterals.value.filter((l) => String(getLiteral(l.name) ?? '').trim() !== '').length,
+)
+// 折叠状态: 默认折叠。
+const captureOpen = ref(false)
+
 // 读 pin 字面量: config.literal[pin] 优先, 顶层 config[pin] fallback —
 // 镜像后端 PinValue / newInputs 优先级。让尚未跑迁移脚本的旧数据 (值在顶层 config) 也能正确显示。
 function getLiteral(pin: string): any {
@@ -625,15 +683,15 @@ function getLiteral(pin: string): any {
 // 写回唯一走 config.literal[pin] (input-editing-unification guardrail: 不写顶层同名 key)。
 function setLiteral(pin: string, v: any) {
   if (!props.node) return
-  const cfg = { ...(props.node.config ?? {}) }
-  cfg.literal = { ...(cfg.literal ?? {}), [pin]: v }
+  const cfg = { ...props.node.config }
+  cfg.literal = { ...cfg.literal, [pin]: v }
   emit('update', cfg)
 }
 // 批量写多个 config.literal pin (一次 emit) — 屏幕拾取 point 同时写 XRatio+YRatio 用。
 function setLiteralBatch(patch: Record<string, any>) {
   if (!props.node) return
-  const cfg = { ...(props.node.config ?? {}) }
-  cfg.literal = { ...(cfg.literal ?? {}), ...patch }
+  const cfg = { ...props.node.config }
+  cfg.literal = { ...cfg.literal, ...patch }
   emit('update', cfg)
 }
 // 查 pin 对应的 widget 元数据 (类型/选项), 喂给 PinInput 渲染正确控件。
@@ -866,7 +924,7 @@ function addRange() {
   if (!props.node) return
   const next = currentRanges()
   next.push({ fromUs: 0, toUs: 0 })
-  emit('update', { ...(props.node.config ?? {}), keepRanges: next })
+  emit('update', { ...props.node.config, keepRanges: next })
 }
 
 function updateRange(idx: number, field: 'fromMs' | 'toMs', valMs: number) {
@@ -875,14 +933,14 @@ function updateRange(idx: number, field: 'fromMs' | 'toMs', valMs: number) {
   if (idx < 0 || idx >= next.length) return
   if (field === 'fromMs') next[idx].fromUs = Math.max(0, Math.floor(valMs * 1000))
   else next[idx].toUs = Math.max(0, Math.floor(valMs * 1000))
-  emit('update', { ...(props.node.config ?? {}), keepRanges: next })
+  emit('update', { ...props.node.config, keepRanges: next })
 }
 
 function removeRange(idx: number) {
   if (!props.node) return
   const next = currentRanges()
   next.splice(idx, 1)
-  emit('update', { ...(props.node.config ?? {}), keepRanges: next })
+  emit('update', { ...props.node.config, keepRanges: next })
 }
 
 function onTimelineAdd(r: { fromMs: number; toMs: number }) {
@@ -890,7 +948,7 @@ function onTimelineAdd(r: { fromMs: number; toMs: number }) {
   const cur = currentRanges()
   cur.push({ fromUs: r.fromMs * 1000, toUs: r.toMs * 1000 })
   cur.sort((a, b) => a.fromUs - b.fromUs)
-  emit('update', { ...(props.node.config ?? {}), keepRanges: cur })
+  emit('update', { ...props.node.config, keepRanges: cur })
 }
 
 function onTimelineUpdate(idx: number, r: { fromMs: number; toMs: number }) {
@@ -899,7 +957,7 @@ function onTimelineUpdate(idx: number, r: { fromMs: number; toMs: number }) {
   if (idx < 0 || idx >= cur.length) return
   cur[idx] = { fromUs: r.fromMs * 1000, toUs: r.toMs * 1000 }
   cur.sort((a, b) => a.fromUs - b.fromUs)
-  emit('update', { ...(props.node.config ?? {}), keepRanges: cur })
+  emit('update', { ...props.node.config, keepRanges: cur })
 }
 
 function formatDuration(us: number): string {

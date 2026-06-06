@@ -62,6 +62,33 @@ describe('deriveFields schema passthrough', () => {
     expect(fields[0].schema).toBeUndefined()
   })
 
+  it('semantic + advanced 透传 (capture 输入聚成「输出捕获」折叠组)', () => {
+    const capInput = {
+      name: 'CaptureCenter',
+      type: 'String',
+      advanced: true,
+      semantic: 'capture',
+      widget: { kind: 'text', props: {} },
+    } as unknown as InputSpec
+
+    const fields = deriveFields('DetectColor', [capInput])
+    expect(fields).toHaveLength(1)
+    expect(fields[0].advanced).toBe(true)
+    expect(fields[0].semantic).toBe('capture')
+  })
+
+  it('普通输入 semantic/advanced 为 undefined', () => {
+    const plain = {
+      name: 'MinPixels',
+      type: 'Number',
+      widget: { kind: 'number', props: {} },
+    } as unknown as InputSpec
+
+    const fields = deriveFields('DetectColor', [plain])
+    expect(fields[0].advanced).toBeUndefined()
+    expect(fields[0].semantic).toBeUndefined()
+  })
+
   it('key-capture widget kind 映射成 key-capture field type (接 KeyCapture 控件)', () => {
     const vkInput = {
       name: 'VK',

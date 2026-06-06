@@ -71,6 +71,10 @@ export interface FieldSchema {
   hint?: string
   /** 结构化输入的递归 schema (后端 InputSpec.schema 透传); 非空 → NodeInspector 用 StructuredInput 渲染. */
   schema?: NodeFieldSchema
+  /** backend InputSpec.Advanced — 进阶/不常用输入. */
+  advanced?: boolean
+  /** backend InputSpec.Semantic — UI 语义标签 (e.g. 'capture' = 输出捕获到变量). */
+  semantic?: string
 }
 
 /** Group name for palette categorization. 对应后端 Spec.Category (lowercase'd).
