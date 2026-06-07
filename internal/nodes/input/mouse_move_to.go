@@ -66,12 +66,18 @@ func (MouseMoveTo) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 // 直线轨迹; 贝塞尔/随机控制点留后续拟人化批次 (D1.2).
 func moveCursor(ctx node.Ctx, xR, yR float64, durMs int) error {
 	if durMs <= 0 {
-		return ctx.Input().MoveTo(xR, yR)
+		if err := ctx.Input().MoveTo(xR, yR); err != nil {
+			return node.Failf(node.CodeSendFailed, err, "move cursor: %v", err)
+		}
+		return nil
 	}
 	sx, sy, err := ctx.Input().CursorRatio()
 	if err != nil {
 		// 拿不到起点 (client rect 为空等) → 退化为瞬移, 别卡死.
-		return ctx.Input().MoveTo(xR, yR)
+		if err := ctx.Input().MoveTo(xR, yR); err != nil {
+			return node.Failf(node.CodeSendFailed, err, "move cursor: %v", err)
+		}
+		return nil
 	}
 	frames := durMs / 16
 	if frames < 1 {
@@ -81,7 +87,7 @@ func moveCursor(ctx node.Ctx, xR, yR float64, durMs int) error {
 	for i := 1; i <= frames; i++ {
 		t := float64(i) / float64(frames)
 		if err := ctx.Input().MoveTo(sx+t*(xR-sx), sy+t*(yR-sy)); err != nil {
-			return err
+			return node.Failf(node.CodeSendFailed, err, "move cursor: %v", err)
 		}
 		select {
 		case <-ctx.Context().Done():

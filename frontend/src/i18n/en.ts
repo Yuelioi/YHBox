@@ -1291,6 +1291,7 @@ export default {
     untitled: '(Untitled)',
     yes: 'Yes',
     no: 'No',
+    fail_pin: 'Fail',
   },
   hotkeys: {
     search_placeholder: 'Search hotkey name or binding...',
@@ -1410,7 +1411,6 @@ export default {
     // sentinel scope
     BREAK_OUTSIDE_LOOP: 'Break node must be downstream of a Loop body (exec-reachable in same graph)',
     CONTINUE_OUTSIDE_LOOP: 'Continue node must be downstream of a Loop body (exec-reachable in same graph)',
-    THROW_OUTSIDE_TRY: 'Throw node must be inside a Subgraph referenced by Try.SubgraphID',
     // template/clip key validation
     INVALID_TEMPLATE_KEY: 'Template key {key} invalid: {error}',
     TEMPLATE_NOT_FOUND: 'Template {key} not found in container',

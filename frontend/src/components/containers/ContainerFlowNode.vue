@@ -214,13 +214,18 @@ const execOutPinsForRender = computed<{ id: string; label: string; isError: bool
       { config: props.data?.config as any },
       editorStore.subgraphsForCurrentContainer,
     )
-    return decls.map((d) => ({ id: d.id, label: d.name, isError: false }))
+    const out = decls.map((d) => ({ id: d.id, label: d.name, isError: false }))
+    // Subgraph 节点 Spec 的静态 Fail 出口 (region 兜底) 不在子图 outputPins 里, 单独补.
+    for (const id of getSpec('Subgraph')?.errorOut ?? []) {
+      out.push({ id, label: t('common.fail_pin'), isError: true })
+    }
+    return out
   }
   // Semantic==='error' 的失败出口 (Fail) → 红引脚.
   const errorOut = new Set(getSpec(kind.value)?.errorOut ?? [])
   return pins.value.execOut.map((id: string) => ({
     id,
-    label: pinLabel(id, 'out'),
+    label: errorOut.has(id) ? t('common.fail_pin') : pinLabel(id, 'out'),
     isError: errorOut.has(id),
   }))
 })

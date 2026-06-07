@@ -1311,6 +1311,7 @@ export default {
     untitled: '(未命名)',
     yes: '是',
     no: '否',
+    fail_pin: '失败',
   },
   hotkeys: {
     search_placeholder: '搜索热键名或绑定...',
@@ -1430,7 +1431,6 @@ export default {
     // sentinel scope
     BREAK_OUTSIDE_LOOP: 'Break 节点必须在 Loop body 下游 (同图内 exec 可达)',
     CONTINUE_OUTSIDE_LOOP: 'Continue 节点必须在 Loop body 下游 (同图内 exec 可达)',
-    THROW_OUTSIDE_TRY: 'Throw 节点必须在被 Try.SubgraphID 引用的子图内',
     // template/clip key validation
     INVALID_TEMPLATE_KEY: '模板 key {key} 不合法: {error}',
     TEMPLATE_NOT_FOUND: '模板 {key} 在容器中找不到',
