@@ -53,6 +53,11 @@ func (WaitWindow) Spec() node.Spec {
 		Outputs: []node.OutputSpec{
 			{Name: wwOutFound, Type: node.TypeExec},
 			{Name: wwOutTimeout, Type: node.TypeExec},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }

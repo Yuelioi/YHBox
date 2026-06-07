@@ -45,6 +45,11 @@ func (Screenshot) Spec() node.Spec {
 				Data: []node.DataField{
 					{Name: ssDataPath, Type: "String"},
 				}},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }
@@ -63,17 +68,17 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	root := screenshotOutputRoot()
 	abs, err := filepath.Abs(filepath.Join(root, rel))
 	if err != nil {
-		return nil, fmt.Errorf("Screenshot resolve path: %w", err)
+		return nil, node.Failf(node.CodeWriteFailed, err, "Screenshot resolve path: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
-		return nil, fmt.Errorf("Screenshot mkdir %s: %w", filepath.Dir(abs), err)
+		return nil, node.Failf(node.CodeWriteFailed, err, "Screenshot mkdir %s: %v", filepath.Dir(abs), err)
 	}
 
 	// Geometry 零值 = 全帧; adapter 内 ResolveGeometry 统一处理, 无需节点侧区分.
 	roi := in.Geometry(ssInROI)
 	pngData, err := ctx.Capture().CaptureROI(roi)
 	if err != nil {
-		return nil, fmt.Errorf("Screenshot capture: %w", err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "Screenshot capture: %v", err)
 	}
 	if pngData == nil {
 		// stub / capture 返 nil bytes (e.g. test 环境). 写空文件以保持 Done 出口语义.
@@ -81,7 +86,7 @@ func (Screenshot) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		pngData = []byte{}
 	}
 	if err := os.WriteFile(abs, pngData, 0o644); err != nil {
-		return nil, fmt.Errorf("Screenshot write %s: %w", abs, err)
+		return nil, node.Failf(node.CodeWriteFailed, err, "Screenshot write %s: %v", abs, err)
 	}
 	node.Capture(ctx, in, ssCapPath, abs)
 	return ctx.Out(ssOutDone).Set(ssDataPath, abs).Fire(), nil

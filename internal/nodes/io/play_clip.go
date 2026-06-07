@@ -4,8 +4,6 @@
 package io
 
 import (
-	"fmt"
-
 	"yotta/internal/node"
 )
 
@@ -32,6 +30,11 @@ func (PlayClip) Spec() node.Spec {
 		},
 		Outputs: []node.OutputSpec{
 			{Name: pcOutDone, Type: "Exec"},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }
@@ -41,7 +44,7 @@ func (PlayClip) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	// ctx.Context() 透传当前 Run 的 cancel — 取消时 Play 内部释放按下键并返 context.Canceled,
 	// dispatch 当优雅 halt 不当节点失败.
 	if err := ctx.Clip().Play(ctx.Context(), clipID); err != nil {
-		return nil, fmt.Errorf("PlayClip clipID=%q: %w", clipID, err)
+		return nil, node.Failf(node.CodePlaybackFailed, err, "PlayClip clipID=%q: %v", clipID, err)
 	}
 	return ctx.Out(pcOutDone).Fire(), nil
 }

@@ -46,6 +46,11 @@ func (RunProgram) Spec() node.Spec {
 		},
 		Outputs: []node.OutputSpec{
 			{Name: rpOutDone, Type: node.TypeExec},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }
@@ -67,7 +72,7 @@ func (RunProgram) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 
 	if err := platform.ShellOpen(target, in.String(rpInArgs), in.String(rpInWorkDir), showCmd); err != nil {
-		return nil, fmt.Errorf("RunProgram 启动 %q 失败: %w", target, err)
+		return nil, node.Failf(node.CodeLaunchFailed, err, "RunProgram 启动 %q 失败: %v", target, err)
 	}
 	return ctx.Out(rpOutDone).Fire(), nil
 }

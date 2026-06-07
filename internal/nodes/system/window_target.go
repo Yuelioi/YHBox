@@ -3,7 +3,10 @@
 package system
 
 import (
+	"errors"
+
 	"yotta/internal/node"
+	"yotta/pkg/winutil"
 )
 
 func init() { node.Register(&WindowTarget{}) }
@@ -41,6 +44,11 @@ func (WindowTarget) Spec() node.Spec {
 		},
 		Outputs: []node.OutputSpec{
 			{Name: wtOutFire, Type: "Exec"},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }
@@ -48,6 +56,9 @@ func (WindowTarget) Spec() node.Spec {
 func (WindowTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err := ctx.Window().SetActive(ctx.Context(),
 		in.String(wtInTitle), in.String(wtInClass), in.String(wtInProcessName), in.String(wtInTitleMatch)); err != nil {
+		if errors.Is(err, winutil.ErrWindowNotFound) {
+			return nil, node.Failf(node.CodeNotFound, err, "WindowTarget: %v", err)
+		}
 		return nil, err
 	}
 	return ctx.Out(wtOutFire).Fire(), nil
