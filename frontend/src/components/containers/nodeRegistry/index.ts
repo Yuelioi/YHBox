@@ -118,6 +118,9 @@ export interface NodeKindSpec {
   /** Pin metadata — empty arrays/maps for no pins */
   execIn: string[]
   execOut: string[]
+  /** exec-out 名集合, 其中 backend OutputSpec.Semantic==='error' 的失败出口 (Fail).
+   * 节点画布据此把这些 exec 引脚渲染成红色. 普通 exec 出口不在此列. */
+  errorOut?: string[]
   /** Dynamic exec-out (Switch/Parallel/Race). When set, takes precedence over execOut. */
   execOutFn?: (cfg: Record<string, unknown> | null | undefined) => string[]
   dataIn: Record<string, PinType>

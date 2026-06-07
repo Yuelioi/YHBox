@@ -98,7 +98,11 @@
       type="source"
       :position="Position.Right"
       :style="handleStyle(p, i)"
-      :class="['handle-base', p.kind === 'exec' ? 'handle-exec' : 'handle-data']"
+      :class="[
+        'handle-base',
+        p.kind === 'exec' ? 'handle-exec' : 'handle-data',
+        p.isError ? 'handle-exec-error' : '',
+      ]"
     />
   </div>
 </template>
@@ -204,15 +208,21 @@ const boundSubgraphNodeCount = computed<number | null>(() => {
   return sg?.graph?.nodes?.length ?? null
 })
 
-const execOutPinsForRender = computed(() => {
+const execOutPinsForRender = computed<{ id: string; label: string; isError: boolean }[]>(() => {
   if (kind.value === 'Subgraph') {
     const decls = resolveSubgraphCallExecOut(
       { config: props.data?.config as any },
       editorStore.subgraphsForCurrentContainer,
     )
-    return decls.map((d) => ({ id: d.id, label: d.name }))
+    return decls.map((d) => ({ id: d.id, label: d.name, isError: false }))
   }
-  return pins.value.execOut.map((id: string) => ({ id, label: pinLabel(id, 'out') }))
+  // Semantic==='error' 的失败出口 (Fail) → 红引脚.
+  const errorOut = new Set(getSpec(kind.value)?.errorOut ?? [])
+  return pins.value.execOut.map((id: string) => ({
+    id,
+    label: pinLabel(id, 'out'),
+    isError: errorOut.has(id),
+  }))
 })
 
 const dataTypeMap = computed<{ in: Record<string, PinType>; out: Record<string, PinType> }>(() => {
@@ -231,6 +241,8 @@ interface PinEntry {
   kind: 'exec' | 'data'
   type: PinType
   dir: 'in' | 'out'
+  /** 失败出口 (Semantic==='error') — exec 引脚渲染成红色. */
+  isError?: boolean
 }
 
 const leftPins = computed<PinEntry[]>(() => [
@@ -241,7 +253,7 @@ const leftPins = computed<PinEntry[]>(() => [
 ])
 const rightPins = computed<PinEntry[]>(() => [
   ...execOutPinsForRender.value.map(
-    (p): PinEntry => ({ id: p.id, label: p.label, kind: 'exec', type: 'any', dir: 'out' }),
+    (p): PinEntry => ({ id: p.id, label: p.label, kind: 'exec', type: 'any', dir: 'out', isError: p.isError }),
   ),
   ...pins.value.dataOut.map(
     (p): PinEntry => ({ id: p, label: pinLabel(p, 'out'), kind: 'data', type: dataTypeMap.value.out[p] ?? 'any', dir: 'out' }),
@@ -260,7 +272,8 @@ function handleStyle(p: PinEntry, i: number): Record<string, string> {
   if (p.kind === 'exec') {
     return {
       top,
-      background: '#e5e7eb',
+      // 失败出口 (Fail / Semantic==='error') 用红, 普通 exec 用浅灰.
+      background: p.isError ? '#f87171' : '#e5e7eb',
       clipPath: 'polygon(0% 0%, 100% 50%, 0% 100%)',
       borderRadius: '0',
       border: 'none',
@@ -559,6 +572,11 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 }
 :deep(.vue-flow__handle.handle-exec) {
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.25));
+}
+/* 失败出口 (Fail / Semantic==='error') 红引脚 — 红色辉光对齐普通 exec 的视觉权重.
+   background 由 handleStyle inline 设 #f87171; 此处给红色 glow 增强. */
+:deep(.vue-flow__handle.handle-exec-error) {
+  filter: drop-shadow(0 0 2px rgba(248, 113, 113, 0.6));
 }
 .is-selected :deep(.vue-flow__handle.handle-data) {
   animation: data-idle 3s ease-in-out infinite;

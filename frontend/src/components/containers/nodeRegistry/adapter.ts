@@ -115,12 +115,16 @@ function splitInputs(inputs: InputSpec[]): {
 function splitOutputs(outputs: OutputSpec[]): {
   execOut: string[]
   dataOut: Record<string, PinType>
+  errorOut: string[]
 } {
   const execOut: string[] = []
   const dataOut: Record<string, PinType> = {}
+  // Semantic==='error' 的 exec 出口名 (后端 Fail 出口) — FE 上色成红引脚.
+  const errorOut: string[] = []
   for (const o of outputs) {
     if (o.type === 'Exec') {
       execOut.push(o.name)
+      if (o.semantic === 'error') errorOut.push(o.name)
       // exec 出口的 data 字段也算 dataOut (FE 拖数据边从 exec 出口的 data field 拉)
       for (const f of o.data ?? []) {
         dataOut[f.name] = backendTypeToPinType(f.type)
@@ -129,7 +133,7 @@ function splitOutputs(outputs: OutputSpec[]): {
       dataOut[o.name] = backendTypeToPinType(o.type)
     }
   }
-  return { execOut, dataOut }
+  return { execOut, dataOut, errorOut }
 }
 
 // Inspector form schema: 从 backend Inputs[] 派生. exec pin 跳过 (它是连边不是 form 项).
@@ -245,7 +249,7 @@ function adaptSpec(s: Spec): NodeKindSpec {
   const group = GROUP_MAP[s.category] ?? 'system'
   const visual = visualForGroup(group)
   const { execIn, dataIn } = splitInputs(s.inputs ?? [])
-  const { execOut, dataOut } = splitOutputs(s.outputs ?? [])
+  const { execOut, dataOut, errorOut } = splitOutputs(s.outputs ?? [])
 
   const out: NodeKindSpec = {
     kind: s.kind,
@@ -258,6 +262,7 @@ function adaptSpec(s: Spec): NodeKindSpec {
     visual,
     execIn,
     execOut,
+    errorOut,
     dataIn,
     dataOut,
     fields: deriveFields(s.kind, s.inputs ?? []),
