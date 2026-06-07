@@ -37,3 +37,18 @@ func TestNodeService_AsyncOptions_UnknownSource(t *testing.T) {
 		t.Error("expected error for unknown asyncSource")
 	}
 }
+
+func TestNodeService_GetErrorCodes(t *testing.T) {
+	svc := NewService()
+	codes := svc.GetErrorCodes()
+	if len(codes) != len(ErrorCodes) {
+		t.Errorf("got %d codes, want %d", len(codes), len(ErrorCodes))
+	}
+	seen := map[ErrCode]bool{}
+	for _, c := range codes {
+		seen[c] = true
+	}
+	if !seen[CodeCaptureFailed] {
+		t.Error("missing capture_failed")
+	}
+}

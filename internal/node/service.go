@@ -45,6 +45,15 @@ func (s *NodeService) GetAllTypes() []TypeSpec {
 	return AllTypes()
 }
 
+// GetErrorCodes FE 启动拉一次, 供 Switch/UI 提示已知错误码全集.
+func (s *NodeService) GetErrorCodes() []ErrCode {
+	out := make([]ErrCode, 0, len(ErrorCodes))
+	for c := range ErrorCodes {
+		out = append(out, c)
+	}
+	return out
+}
+
 // AsyncOptions 动态 dropdown 数据源. Widget.Props.AsyncSource 标识用哪个 handler.
 func (s *NodeService) AsyncOptions(nodeID, specKind, asyncSource string, currentInputs map[string]any) ([]EnumOption, error) {
 	h, ok := s.asyncSources[asyncSource]
