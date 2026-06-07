@@ -51,6 +51,11 @@ func (Loop) Spec() node.Spec {
 		Outputs: []node.OutputSpec{
 			{Name: loopOutBody, Type: "Exec"},
 			{Name: loopOutDone, Type: "Exec"},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }

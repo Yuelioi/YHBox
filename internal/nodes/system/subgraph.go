@@ -37,6 +37,11 @@ func (Subgraph) Spec() node.Spec {
 		},
 		Outputs: []node.OutputSpec{
 			{Name: sgOutDone, Type: "Exec"},
+			{Name: "Fail", Type: "Exec", Semantic: "error",
+				Data: []node.DataField{
+					{Name: "Error", Type: "String"},
+					{Name: "Code", Type: "String"},
+				}},
 		},
 	}
 }
