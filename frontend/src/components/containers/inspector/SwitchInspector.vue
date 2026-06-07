@@ -3,8 +3,13 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 import { useConfirm } from '@/composables/useConfirm'
+import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 
 const { t } = useI18n()
+
+// 已知错误码作下拉建议 (自由文本仍可输入任意 case 值 — creatable).
+const nodeRegistry = useNodeRegistryStore()
+const caseSuggestions = computed(() => nodeRegistry.errorCodes)
 
 const props = defineProps<{
   node: GraphNode
@@ -155,11 +160,14 @@ function currentValue(): string {
           :key="row.id"
           class="flex gap-2 items-center"
         >
-          <UInput
+          <UInputMenu
             v-model="row.value"
+            :create-item="'always'"
+            :items="caseSuggestions"
             size="sm"
             :placeholder="t('node.Switch.inspector.case_placeholder')"
             class="flex-1"
+            @create="(v: string) => (row.value = v)"
           />
           <UButton
             size="xs"
