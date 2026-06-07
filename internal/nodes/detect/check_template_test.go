@@ -42,6 +42,10 @@ type mockVision struct {
 	clusters    []node.ClusterEntry
 	clustersErr error
 
+	// DetectColorBlobs 用
+	blobs    []node.BlobEntry
+	blobsErr error
+
 	// GridSignature 用: 按调用次序返 gridSigs[i] (越界返最后一个); gridErr 非 nil 直接返错.
 	gridSigs [][]uint8
 	gridIdx  int
@@ -87,6 +91,10 @@ func (m *mockVision) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (int, 
 
 func (m *mockVision) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
 	return m.clusters, m.clustersErr
+}
+
+func (m *mockVision) DetectColorBlobs(roi node.Geometry, mode string, rng [6]int, minArea int) ([]node.BlobEntry, error) {
+	return m.blobs, m.blobsErr
 }
 
 func (m *mockVision) GridSignature(roi node.Geometry, gridSize int) ([]uint8, error) {

@@ -143,6 +143,9 @@ type VisionService interface {
 	// maxPx<=0 → adapter 默认 = 子帧宽/3 (axis x) 或 高/3 (axis y).
 	ROIColorScan(roi Geometry, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
 
+	// DetectColorBlobs 在 roi 内做 8-邻域连通域标记，返回每块归一化 center/bbox/area。
+	DetectColorBlobs(roi Geometry, mode string, rng [6]int, minArea int) ([]BlobEntry, error)
+
 	// GridSignature 抓全帧后按 roi Geometry 裁子区 → box-average 降采样成
 	// gridSize×gridSize RGB 签名 (flat, 行主序, len = gridSize²×3). 每调一次抓
 	// 一张新帧 (无缓存). Geometry 零值 = 全帧; adapter 内经 ResolveGeometry 解析像素区.
@@ -158,6 +161,17 @@ type HSVRange struct {
 	SMax int `json:"sMax"`
 	VMin int `json:"vMin"`
 	VMax int `json:"vMax"`
+}
+
+// BlobEntry DetectColorBlobs 找出的一个连通色块。坐标均为全帧绝对、归一化 0..1。
+type BlobEntry struct {
+	CenterX float64 `json:"centerX"` // 像素质心 X，归一化（全帧，原点=全帧左上角）
+	CenterY float64 `json:"centerY"` // 像素质心 Y
+	X       float64 `json:"x"`       // 外接 bbox 左上角 X，归一化
+	Y       float64 `json:"y"`       // 外接 bbox 左上角 Y
+	W       float64 `json:"w"`       // bbox 宽，归一化
+	H       float64 `json:"h"`       // bbox 高，归一化
+	Area    int     `json:"area"`    // foreground 命中像素数（不是 bbox 面积 W*H）
 }
 
 // ClusterEntry ROIColorScan 沿 axis 找出的一个连续命中段, 像素坐标 (相对 roi 起点).

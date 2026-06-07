@@ -52,6 +52,10 @@ func (stubVisionService) ROIColorScan(roi Geometry, hsv HSVRange, axis string, m
 	return nil, nil
 }
 
+func (stubVisionService) DetectColorBlobs(roi Geometry, mode string, rng [6]int, minArea int) ([]BlobEntry, error) {
+	return nil, nil
+}
+
 func (stubVisionService) GridSignature(roi Geometry, gridSize int) ([]uint8, error) {
 	return nil, nil
 }

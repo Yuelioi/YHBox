@@ -662,6 +662,10 @@ func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (in
 	return count, ratio, nil
 }
 
+func (a *visionAdapter) DetectColorBlobs(roi node.Geometry, mode string, rng [6]int, minArea int) ([]node.BlobEntry, error) {
+	return nil, fmt.Errorf("DetectColorBlobs not implemented yet")
+}
+
 func (a *visionAdapter) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
