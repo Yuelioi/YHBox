@@ -47,6 +47,31 @@ func TestValidator_InvalidPin_MainGraph(t *testing.T) {
 	}
 }
 
+// 失败出口的 Code 数据字段接到下游 data-in (Switch.Value 按错误码分流) 是合法的 data 边 —
+// 不应再报 INVALID_PIN / PIN_TYPE_MISMATCH. (回归: error-model 早期 Error/Code 只在前端暴露成
+// data 引脚, validator 不认 → 保存即 INVALID_PIN「out pin Code 不存在」.)
+func TestValidator_ExecOutputDataField_WiredAsData(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "rp", Kind: "RunProgram", CreatedAt: time.Now().UTC(),
+			Config: map[string]any{"literal": map[string]any{"Target": "notepad.exe"}}},
+		GraphNode{ID: "sw", Kind: "Switch", CreatedAt: time.Now().UTC(),
+			Config: map[string]any{"cases": []any{"launch_failed"}}},
+	)
+	c.Graph.Edges = []GraphEdge{
+		{From: "start.Done", To: "rp.In"},
+		{From: "rp.Fail", To: "sw.In"},     // exec 边: 失败分支
+		{From: "rp.Code", To: "sw.Value"},  // data 边: Code (Fail 出口的数据字段) → Switch 分流值
+	}
+	errs := ValidateContainer(c)
+	if hasCode(errs, CodeInvalidPin) {
+		t.Errorf("RunProgram.Code → Switch.Value 应是合法 data 边, 不该报 INVALID_PIN: %+v", errs)
+	}
+	if hasCode(errs, CodePinTypeMismatch) {
+		t.Errorf("Code(string) → Value(string) 类型相容, 不该报 PIN_TYPE_MISMATCH: %+v", errs)
+	}
+}
+
 func TestValidator_MissingSubgraph_UnknownID(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,

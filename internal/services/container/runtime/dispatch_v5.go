@@ -35,6 +35,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
+	r.applyExecDataEdges(node, rn, execData, dataWire)
 
 	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled)
 	return r.routeResult(node, tok, result)
@@ -79,6 +80,34 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 		}
 	}
 	return dw
+}
+
+// applyExecDataEdges 回填"源是 exec-output data 字段 (如 Fail.Code)"的 data-in pin.
+// 这类 pin 的值不走 pure-data pull (buildDataWireFor/pullDataPin 已跳过为 nil), 而是沿父
+// exec 边作为 exec-data 下发到本节点 —— srcPin (字段名, 如 "Code") 即 exec-data 的 key.
+// 让"失败出口的 Error/Code 数据线接到下游 data-in (如 Switch.Value)"端到端跑通.
+//
+// 约束: data 边应跟父 exec 边并行 (源 = 触发本节点的 exec 上游); 否则 execData 无该 key → 跳过.
+func (r *ContainerRunner) applyExecDataEdges(node *container.GraphNode, rn *nodepkg.RegisteredNode, execData, dw map[string]any) {
+	if len(execData) == 0 {
+		return
+	}
+	for _, ip := range rn.Spec.Inputs {
+		if ip.Type == nodepkg.TypeExec {
+			continue
+		}
+		srcID, srcPin := r.dataEdges.Source(node.ID, ip.Name)
+		if srcID == "" {
+			continue
+		}
+		src := r.nodesByID[srcID]
+		if src == nil || !container.IsExecOutputDataField(src.Kind, srcPin) {
+			continue
+		}
+		if v, ok := execData[srcPin]; ok {
+			dw[ip.Name] = coerceToType(v, ip.Type)
+		}
+	}
 }
 
 // resolveDataPinV5 解析单个 data-in pin 值:
@@ -276,6 +305,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
+	r.applyExecDataEdges(node, rn, execData, dataWire)
 
 	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled, body)
 	return r.routeResult(node, tok, result)

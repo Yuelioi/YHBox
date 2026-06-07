@@ -269,15 +269,43 @@ func dataOutPinTypeForKind(kind, pinName string) string {
 		return ""
 	}
 	for _, op := range rn.Spec.Outputs {
-		if op.Name != pinName {
+		if op.Type == nodepkg.TypeExec {
+			// exec 出口本身是 exec-out (非 data); 但它的 Data 字段 (Fail 出口的 Error/Code)
+			// 算 data-out —— 可被 data 边消费, 值由 exec-data 沿该 exec 边带下来 (runtime bridge 取).
+			for _, f := range op.Data {
+				if f.Name == pinName {
+					return canonPinType(f.Type)
+				}
+			}
 			continue
 		}
-		if op.Type == nodepkg.TypeExec {
-			return ""
+		if op.Name == pinName {
+			return canonPinType(op.Type)
 		}
-		return canonPinType(op.Type)
 	}
 	return ""
+}
+
+// IsExecOutputDataField reports whether (kind, pin) names a Data field nested under
+// an exec output (e.g. RunProgram.Fail 的 Error/Code). 这类 pin 连线/校验上算 data-out
+// (IsDataOutPin 真), 但值不靠 pure-data pull —— 它沿父 exec 出口边作为 exec-data 下发,
+// runtime 从 token 的 exec-data 取 (见 ContainerRunner.applyExecDataEdges).
+func IsExecOutputDataField(kind, pin string) bool {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return false
+	}
+	for _, op := range rn.Spec.Outputs {
+		if op.Type != nodepkg.TypeExec {
+			continue
+		}
+		for _, f := range op.Data {
+			if f.Name == pin {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // IsDataOutPin reports whether (kind, pin) is a registered data-out pin.

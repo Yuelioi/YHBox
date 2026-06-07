@@ -1148,6 +1148,45 @@ func TestRouteResult_FailRoute_CodedWired(t *testing.T) {
 	}
 }
 
+// TestExecDataEdge_FailCodeIntoDataPin — 失败出口 Code 数据线接进下游 data-in pin.
+// n1(Failf) --Fail(exec)--> echo.in, 且 n1.Code --data--> echo.Value.
+// 期望: echo 经 exec-data bridge 读到 "capture_failed" (而非旧 INVALID_PIN / nil).
+func TestExecDataEdge_FailCodeIntoDataPin(t *testing.T) {
+	resetTdEcho()
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-execdata-edge",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "n1", Kind: tkFailf},
+				{ID: "echo_n", Kind: tkEcho},
+			},
+			Edges: []container.GraphEdge{
+				{From: "n1.Fail", To: "echo_n.in"},    // exec 边 — 带 exec-data 下发
+				{From: "n1.Code", To: "echo_n.Value"}, // data 边 — Fail 出口的 Code 字段
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+
+	// 1) 跑 n1 → 失败路由产出带 ExecData{Error,Code} 的下游 token.
+	failTokens, err := r.execNodeViaFramework(context.Background(), r.nodesByID["n1"], ExecToken{NodeID: "n1", InPin: "in"})
+	if err != nil {
+		t.Fatalf("n1 fail-route must not bubble: %v", err)
+	}
+	if len(failTokens) != 1 || failTokens[0].NodeID != "echo_n" {
+		t.Fatalf("got tokens %+v, want 1 to echo_n", failTokens)
+	}
+	// 2) 跑 echo — bridge 应把 ExecData["Code"] 喂进 Value.
+	if _, err := r.execNodeViaFramework(context.Background(), r.nodesByID["echo_n"], failTokens[0]); err != nil {
+		t.Fatalf("echo exec: %v", err)
+	}
+	if got := getTdEchoLast(); got != "capture_failed" {
+		t.Errorf("echoed Value = %v (%T), want capture_failed (via exec-data bridge)", got, got)
+	}
+}
+
 // 2. Coded error (Failf) + .Fail 没接线 → 冒泡 (nil token, err!=nil), handled=false.
 func TestRouteResult_FailRoute_CodedUnwired(t *testing.T) {
 	dt := newFailRouteTest(t, tkFailf, "") // no edges → Fail unwired
