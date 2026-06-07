@@ -49,9 +49,10 @@ type InputSpec struct {
 }
 
 type OutputSpec struct {
-	Name string      `json:"name"`
-	Type string      `json:"type"`           // "Exec" / 其他数据类型
-	Data []DataField `json:"data,omitempty"` // 仅 Type=Exec 出口有
+	Name     string      `json:"name"`
+	Type     string      `json:"type"`               // "Exec" / 其他数据类型
+	Semantic string      `json:"semantic,omitempty"` // UI/dispatch 语义: "error" = 失败出口
+	Data     []DataField `json:"data,omitempty"`     // 仅 Type=Exec 出口有
 }
 
 type DataField struct {
