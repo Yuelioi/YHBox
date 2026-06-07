@@ -469,6 +469,34 @@ describe('StructuredInput — widget:colorRange eyedropper button', () => {
     expect(btn).toBeNull()
     cleanup(app, el)
   })
+
+  const colorRangeObjectSchema: NodeFieldSchema = {
+    type: 'object',
+    widget: 'colorRange',
+    fields: [
+      { key: 'hMin', schema: { type: 'number' } },
+      { key: 'hMax', schema: { type: 'number' } },
+      { key: 'sMin', schema: { type: 'number' } },
+      { key: 'sMax', schema: { type: 'number' } },
+      { key: 'vMin', schema: { type: 'number' } },
+      { key: 'vMax', schema: { type: 'number' } },
+    ],
+  }
+
+  it('object with widget:colorRange renders eyedropper button and emits pick-color', async () => {
+    const { emittedPickColor, app, el } = mountWithPickColor(
+      colorRangeObjectSchema,
+      { hMin: 0, hMax: 30 },
+      'HSV',
+    )
+    await nextTick()
+    const btn = el.querySelector('[data-testid="eyedropper-btn"]') as HTMLElement | null
+    expect(btn).not.toBeNull()
+    btn!.click()
+    await nextTick()
+    expect(emittedPickColor).toEqual(['HSV'])
+    cleanup(app, el)
+  })
 })
 
 describe('StructuredInput — scalar types', () => {

@@ -62,6 +62,7 @@ export function useScreenPick(opts: {
   })
 
   async function openPicker<T>(mode: 'point' | 'rect' | 'color', colorSpace = ''): Promise<T | null> {
+    if (picking.value) return null // 防并发: 已有拾取进行中, 忽略重复触发 (吸管按钮无 :loading 守卫, 在此兜底)
     const id = genID()
     picking.value = true
     try {
