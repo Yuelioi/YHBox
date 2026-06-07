@@ -16,6 +16,7 @@ type Throw struct{}
 const (
 	thInExec    = "In"
 	thInMessage = "Message"
+	thInCode    = "Code"
 )
 
 func (Throw) Spec() node.Spec {
@@ -26,11 +27,13 @@ func (Throw) Spec() node.Spec {
 			{Name: thInExec, Type: "Exec"},
 			{Name: thInMessage, Type: "String", Default: "",
 				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: thInCode, Type: "String", Default: "", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		// no Outputs — terminal node
 	}
 }
 
 func (Throw) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	return nil, &ThrowError{Message: in.String(thInMessage)}
+	return nil, &ThrowError{Message: in.String(thInMessage), Code: in.String(thInCode)}
 }

@@ -83,3 +83,27 @@ func TestThrow_NoOutputs(t *testing.T) {
 		t.Errorf("Throw.Spec.Outputs = %d entries, want 0 (terminal)", len(th.Spec().Outputs))
 	}
 }
+
+func TestThrow_CodeAndCoded(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&Throw{})
+	rn, _ := node.Get("Throw")
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{thInMessage: "boom", thInCode: "my_code"}, nil, node.StubServices(), false)
+
+	var te *ThrowError
+	if !errors.As(r.Error, &te) {
+		t.Fatal("expected *ThrowError")
+	}
+	if te.ErrCode() != node.ErrCode("my_code") {
+		t.Errorf("code = %q, want my_code", te.ErrCode())
+	}
+	// 空 Code → thrown
+	r2 := node.RunNode(context.Background(), rn, nil,
+		map[string]any{thInMessage: "x"}, nil, node.StubServices(), false)
+	var te2 *ThrowError
+	errors.As(r2.Error, &te2)
+	if te2.ErrCode() != node.CodeThrown {
+		t.Errorf("empty code → %q, want thrown", te2.ErrCode())
+	}
+}
