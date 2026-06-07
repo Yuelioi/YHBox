@@ -663,7 +663,40 @@ func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (in
 }
 
 func (a *visionAdapter) DetectColorBlobs(roi node.Geometry, mode string, rng [6]int, minArea int) ([]node.BlobEntry, error) {
-	return nil, fmt.Errorf("DetectColorBlobs not implemented yet")
+	if a.rt.Capture == nil {
+		return nil, fmt.Errorf("capture backend not initialised")
+	}
+	hwnd, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := a.rt.Capture.Frame(win.HWND(hwnd)) // 直接抓新帧，绕开 100ms 缓存（轮询需要）
+	if err != nil {
+		return nil, err
+	}
+	if frame == nil {
+		return nil, fmt.Errorf("capture: nil frame")
+	}
+	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
+	x0, y0, w, h, _ := ResolveGeometry(roi, frameW, frameH)
+	if w <= 0 || h <= 0 {
+		return []node.BlobEntry{}, nil
+	}
+	pxBlobs := findColorBlobs(frame, x0, y0, x0+w, y0+h, mode, rng, minArea)
+	out := make([]node.BlobEntry, len(pxBlobs))
+	fw, fh := float64(frameW), float64(frameH)
+	for i, b := range pxBlobs {
+		out[i] = node.BlobEntry{
+			CenterX: float64(b.CenterX) / fw,
+			CenterY: float64(b.CenterY) / fh,
+			X:       float64(b.X) / fw,
+			Y:       float64(b.Y) / fh,
+			W:       float64(b.W) / fw,
+			H:       float64(b.H) / fh,
+			Area:    b.Area,
+		}
+	}
+	return out, nil
 }
 
 func (a *visionAdapter) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
