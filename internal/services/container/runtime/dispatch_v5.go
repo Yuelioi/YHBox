@@ -18,7 +18,6 @@ import (
 
 	nodepkg "yotta/internal/node"
 	"yotta/internal/nodes/control"
-	"yotta/internal/nodes/system"
 	"yotta/internal/services/container"
 )
 
@@ -187,18 +186,38 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 		if errors.Is(result.Error, context.Canceled) {
 			return nil, result.Error
 		}
-		// 注意 Break/Continue/Throw sentinel 错误必须透传 — 外层 Loop.RunRegion / Try.RunRegion
-		// 截获. 顶层 leak 防御在 ContainerRunner.Run / runSubFlow 主 loop.
+		// Break/Continue 必须漏给 Loop.RunRegion — 永不进失败路由. 顶层 leak 防御在
+		// ContainerRunner.Run 主 loop (checkSentinelLeak).
+		if control.IsBreakRequested(result.Error) || control.IsContinueRequested(result.Error) {
+			return nil, result.Error
+		}
+		// 失败路由: 仅 Coded 错误 (Failf / Throw) + 本节点 Fail 出口接线 → 走失败分支;
+		// 裸 error (配置错) 或没接线 → 照旧冒泡中断.
+		var coded nodepkg.Coded
+		handled := errors.As(result.Error, &coded) && r.edges.has(node.ID+".Fail")
+
 		// dump 行先于 node-error (同 goroutine → 有序), 让勾选节点失败也吐 in/err.
 		r.emitDump(node, result, result.Error)
 		// 跟 Panic / Validation 对齐 — emit container:node-error 让前端高亮失败节点.
+		// handled=true → 前端柔和标记 (已就地处理); false → 红高亮 (冒泡中断).
 		if r.rt.Emit != nil {
-			r.rt.Emit("container:node-error", map[string]any{
+			ev := map[string]any{
 				"containerId": r.rt.Container.ID,
 				"nodeId":      node.ID,
 				"nodeKind":    node.Kind,
 				"message":     result.Error.Error(),
-			})
+				"handled":     handled,
+			}
+			if coded != nil {
+				ev["code"] = string(coded.ErrCode())
+			}
+			r.rt.Emit("container:node-error", ev)
+		}
+		if handled {
+			return r.edges.nextWithData(node.ID+".Fail", tok.LoopStack, map[string]any{
+				"Error": result.Error.Error(),
+				"Code":  string(coded.ErrCode()),
+			}), nil
 		}
 		return nil, result.Error
 	}
@@ -293,8 +312,6 @@ func (r *ContainerRunner) checkSentinelLeak(node *container.GraphNode, err error
 		leakCode = "BREAK_OUTSIDE_LOOP"
 	case control.IsContinueRequested(err):
 		leakCode = "CONTINUE_OUTSIDE_LOOP"
-	case system.IsThrowRequested(err):
-		leakCode = "THROW_OUTSIDE_TRY"
 	default:
 		return "", err
 	}

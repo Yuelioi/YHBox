@@ -1124,3 +1124,175 @@ func TestExecNodeAsRegionViaFramework_TryMissingSubgraphID(t *testing.T) {
 		t.Errorf("error %q should mention SubgraphID or validation", err)
 	}
 }
+
+// ============================================================================
+// 失败路由 (routeResult Coded-error → wired .Fail pin)
+// ============================================================================
+
+// tkFailf — Run 返 node.Failf(CodeCaptureFailed,...) (Coded error → 可被失败路由截获).
+const tkFailf = "test_dispatch_failf"
+
+type tdFailf struct{}
+
+func (tdFailf) Spec() node.Spec {
+	return node.Spec{
+		Kind:   tkFailf,
+		Inputs: []node.InputSpec{{Name: "in", Type: "Exec"}},
+		Outputs: []node.OutputSpec{
+			{Name: "Out", Type: "Exec"},
+			{Name: "Fail", Type: "Exec", Semantic: "error", Data: []node.DataField{
+				{Name: "Error", Type: "String"},
+				{Name: "Code", Type: "String"},
+			}},
+		},
+	}
+}
+func (tdFailf) Run(node.Ctx, node.Inputs) (node.Outputs, error) {
+	return nil, node.Failf(node.CodeCaptureFailed, errors.New("disk gone"), "capture boom")
+}
+
+func init() { node.Register(&tdFailf{}) }
+
+// newFailRouteTest 建 (failNode + downstream "target"), edge fromPin → target.In.
+// fromPin 传 "n1.Fail" 接失败出口; 传 "n1.Out" / "" 模拟 Fail 未接线.
+func newFailRouteTest(t *testing.T, testNodeKind, fromPin string) *dispatchTestCtx {
+	t.Helper()
+	edges := []container.GraphEdge{}
+	if fromPin != "" {
+		edges = append(edges, container.GraphEdge{From: fromPin, To: "target.In"})
+	}
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            "test-fail-route",
+		Name:          "test-fail-route",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "n1", Kind: testNodeKind},
+				{ID: "target", Kind: "Stop"},
+			},
+			Edges: edges,
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	dt := &dispatchTestCtx{rt: rt, r: r}
+	dt.node = r.nodesByID["n1"]
+	rt.Emit = func(name string, data any) {
+		dt.emitMu.Lock()
+		defer dt.emitMu.Unlock()
+		dt.emitted = append(dt.emitted, emittedEvent{Name: name, Data: data})
+	}
+	return dt
+}
+
+// 1. Coded error (Failf) + .Fail 接线 → 失败分支 (非空 token, err==nil),
+//    下游 ExecData["Code"]=="capture_failed", node-error handled=true + code.
+func TestRouteResult_FailRoute_CodedWired(t *testing.T) {
+	dt := newFailRouteTest(t, tkFailf, "n1.Fail")
+	tok := ExecToken{NodeID: "n1", InPin: "in"}
+	tokens, err := dt.r.execNodeViaFramework(context.Background(), dt.node, tok)
+	if err != nil {
+		t.Fatalf("Coded+wired must NOT bubble, got err: %v", err)
+	}
+	if len(tokens) != 1 || tokens[0].NodeID != "target" {
+		t.Fatalf("got tokens %+v, want 1 token to target", tokens)
+	}
+	if tokens[0].ExecData == nil {
+		t.Fatal("downstream token ExecData nil — Error/Code not carried")
+	}
+	if tokens[0].ExecData["Code"] != "capture_failed" {
+		t.Errorf("ExecData[Code] = %v, want capture_failed", tokens[0].ExecData["Code"])
+	}
+	if tokens[0].ExecData["Error"] != "capture boom" {
+		t.Errorf("ExecData[Error] = %v, want \"capture boom\"", tokens[0].ExecData["Error"])
+	}
+	events := dt.eventsByName("container:node-error")
+	if len(events) != 1 {
+		t.Fatalf("got %d node-error events, want 1", len(events))
+	}
+	payload := events[0].Data.(map[string]any)
+	if payload["handled"] != true {
+		t.Errorf("node-error handled = %v, want true", payload["handled"])
+	}
+	if payload["code"] != "capture_failed" {
+		t.Errorf("node-error code = %v, want capture_failed", payload["code"])
+	}
+}
+
+// 2. Coded error (Failf) + .Fail 没接线 → 冒泡 (nil token, err!=nil), handled=false.
+func TestRouteResult_FailRoute_CodedUnwired(t *testing.T) {
+	dt := newFailRouteTest(t, tkFailf, "") // no edges → Fail unwired
+	tok := ExecToken{NodeID: "n1", InPin: "in"}
+	tokens, err := dt.r.execNodeViaFramework(context.Background(), dt.node, tok)
+	if err == nil {
+		t.Fatal("Coded but unwired must bubble, got nil err")
+	}
+	if tokens != nil {
+		t.Errorf("bubble path must return nil tokens, got %+v", tokens)
+	}
+	if !strings.Contains(err.Error(), "capture boom") {
+		t.Errorf("bubbled err %q should be the node error", err)
+	}
+	events := dt.eventsByName("container:node-error")
+	if len(events) != 1 {
+		t.Fatalf("got %d node-error events, want 1", len(events))
+	}
+	payload := events[0].Data.(map[string]any)
+	if payload["handled"] != false {
+		t.Errorf("node-error handled = %v, want false", payload["handled"])
+	}
+}
+
+// 3. 裸 fmt.Errorf (非 Coded) 即使 .Fail 接线 → 冒泡, 不路由.
+func TestRouteResult_FailRoute_BareErrorNotRouted(t *testing.T) {
+	// tkError 节点 Spec 无 Fail 出口, 但我们手工接一条 n1.Fail 边 (模拟"接了线但错误不是 Coded").
+	dt := newFailRouteTest(t, tkError, "n1.Fail")
+	tok := ExecToken{NodeID: "n1", InPin: "in"}
+	tokens, err := dt.r.execNodeViaFramework(context.Background(), dt.node, tok)
+	if err == nil {
+		t.Fatal("bare error must bubble even with Fail wired, got nil err")
+	}
+	if tokens != nil {
+		t.Errorf("bare error must not route, got tokens %+v", tokens)
+	}
+	if !strings.Contains(err.Error(), "deliberate test error") {
+		t.Errorf("bubbled err %q should be the bare error", err)
+	}
+	events := dt.eventsByName("container:node-error")
+	if len(events) != 1 {
+		t.Fatalf("got %d node-error events, want 1", len(events))
+	}
+	payload := events[0].Data.(map[string]any)
+	if payload["handled"] != false {
+		t.Errorf("bare error handled = %v, want false", payload["handled"])
+	}
+	if _, hasCode := payload["code"]; hasCode {
+		t.Errorf("bare (non-Coded) error must NOT carry code, got %v", payload["code"])
+	}
+}
+
+// 4. Break sentinel 即使 .Fail 接线 → 冒泡 (passthrough 给 Loop.RunRegion), 不路由.
+func TestRouteResult_FailRoute_BreakPassthrough(t *testing.T) {
+	// 从真 Break 节点拿 errBreakRequested sentinel (control 包内未导出).
+	rn, ok := node.Get("Break")
+	if !ok {
+		t.Fatal("Break node not registered")
+	}
+	br := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
+	if br.Error == nil {
+		t.Fatal("Break.Run should return break sentinel")
+	}
+	// 用 routeResult 直接喂这个 sentinel error, 图里 n1.Fail 已接线.
+	dt := newFailRouteTest(t, tkFailf, "n1.Fail")
+	tok := ExecToken{NodeID: "n1", InPin: "in"}
+	tokens, err := dt.r.routeResult(dt.node, tok, node.RunResult{Error: br.Error})
+	if err == nil {
+		t.Fatal("Break must bubble (passthrough), got nil err")
+	}
+	if tokens != nil {
+		t.Errorf("Break must not route to Fail, got tokens %+v", tokens)
+	}
+	if !errors.Is(err, br.Error) {
+		t.Errorf("bubbled err %v should be the break sentinel", err)
+	}
+}
