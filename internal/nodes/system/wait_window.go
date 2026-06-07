@@ -53,11 +53,8 @@ func (WaitWindow) Spec() node.Spec {
 		Outputs: []node.OutputSpec{
 			{Name: wwOutFound, Type: node.TypeExec},
 			{Name: wwOutTimeout, Type: node.TypeExec},
-			{Name: "Fail", Type: "Exec", Semantic: "error",
-				Data: []node.DataField{
-					{Name: "Error", Type: "String"},
-					{Name: "Code", Type: "String"},
-				}},
+			// 无 Fail 出口: 找不到窗 = Timeout 结果分支 (:79); 空 match/regex 非法 = 配置错裸冒泡。
+			// 无真·运行时 Coded error → 不给死引脚。
 		},
 	}
 }
