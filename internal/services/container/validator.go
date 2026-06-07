@@ -61,6 +61,9 @@ const (
 	CodeInvalidMouseButton   = "INVALID_MOUSE_BUTTON"
 	CodeUnsafeScreenshotPath = "UNSAFE_SCREENSHOT_PATH"
 	CodePollTooFast          = "POLL_TOO_FAST"
+	CodeInvalidColorMode     = "INVALID_COLOR_MODE"
+	CodeInvalidBlobParam     = "INVALID_BLOB_PARAM"
+	CodeInvalidSortMode      = "INVALID_SORT_MODE"
 	CodeStopwatchEmptyKey    = "STOPWATCH_EMPTY_KEY"
 	CodeStopwatchKeyMismatch = "STOPWATCH_KEY_MISMATCH"
 	CodeThrowInMainGraph     = "THROW_IN_MAIN_GRAPH"
@@ -715,6 +718,8 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 			nodeErrs = validateDetectColorHSV(n)
 		case "ROIColorScan":
 			nodeErrs = validateROIColorScan(n)
+		case "DetectColorBlobs":
+			nodeErrs = validateDetectColorBlobs(n)
 		case "Screenshot":
 			nodeErrs = validateScreenshot(n)
 		case "KeyHoldStart", "KeyHoldStop":
@@ -833,6 +838,39 @@ func validateROIColorScan(n *GraphNode) []ValidationError {
 		})
 	}
 
+	return errs
+}
+
+// validateDetectColorBlobs checks color mode / blob params / sort enum / poll sanity.
+// RefPoint 必填不在此校验 (未设运行期默认 (0,0); 避开 Point 存在性检查 footgun).
+func validateDetectColorBlobs(n *GraphNode) []ValidationError {
+	var errs []ValidationError
+
+	if mode := PinString(n, "Mode"); mode != "" && mode != "hsv" && mode != "rgb" {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidColorMode,
+			Params: map[string]any{"got": mode}})
+	}
+	if minA, ok := PinFloat(n, "MinArea"); ok && minA < 0 {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidBlobParam,
+			Params: map[string]any{"field": "MinArea", "got": minA}})
+	}
+	if maxB, ok := PinFloat(n, "MaxBlobs"); ok && maxB < 0 {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidBlobParam,
+			Params: map[string]any{"field": "MaxBlobs", "got": maxB}})
+	}
+	if s := PinString(n, "Sort"); s != "" && s != "area_desc" && s != "dist_screen_center" && s != "dist_point" {
+		errs = append(errs, ValidationError{
+			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidSortMode,
+			Params: map[string]any{"got": s}})
+	}
+	if poll, _ := PinFloat(n, "PollIntervalMs"); poll > 0 && poll < 30 {
+		errs = append(errs, ValidationError{
+			Severity: SeverityWarning, NodeID: n.ID, Code: CodePollTooFast,
+			Params: map[string]any{"actual": poll, "minMs": 30}})
+	}
 	return errs
 }
 
