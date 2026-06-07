@@ -779,6 +779,11 @@ export default {
         CapturePrimaryArea: { label: '捕获·首块面积' },
         CaptureBlobCount: { label: '捕获·块数' },
       },
+      output: {
+        Found: { label: '找到' },
+        NotFound: { label: '未找到' },
+        Timeout: { label: '超时' },
+      },
     },
     DualColorBarTrack: {
       label: '双色条追踪',

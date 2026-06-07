@@ -73,3 +73,21 @@ func TestDetectColorBlobs_MaxBlobsTruncateButBlobCountFull(t *testing.T) {
 		t.Errorf("BlobCount = %v, want 37 (不受 MaxBlobs 影响)", r.OutputData[dcbDataBlobCount])
 	}
 }
+
+// dist_point 未设 RefPoint → 默认 (0,0)，按距原点排序，不报错（替代已废的 MISSING_REF_POINT 校验）。
+func TestDetectColorBlobs_DistPointDefaultsToOrigin(t *testing.T) {
+	vision := &mockVision{blobs: []node.BlobEntry{
+		{CenterX: 0.8, CenterY: 0.8, Area: 200}, // 远离原点
+		{CenterX: 0.1, CenterY: 0.1, Area: 30},  // 近原点
+	}}
+	r := runBlobs(t, vision, map[string]any{dcbInTimeoutMs: 0, dcbInSort: "dist_point"})
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != dcbOutFound {
+		t.Fatalf("exit = %q, want Found", r.ExitName)
+	}
+	if r.OutputData[dcbDataPrimaryArea] != 30 {
+		t.Errorf("PrimaryArea = %v, want 30 (距原点(0,0)最近)", r.OutputData[dcbDataPrimaryArea])
+	}
+}

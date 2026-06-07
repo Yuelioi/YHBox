@@ -759,6 +759,11 @@ export default {
         CapturePrimaryArea: { label: 'Capture · Primary Area' },
         CaptureBlobCount: { label: 'Capture · Blob Count' },
       },
+      output: {
+        Found: { label: 'Found' },
+        NotFound: { label: 'Not Found' },
+        Timeout: { label: 'Timeout' },
+      },
     },
     DualColorBarTrack: {
       label: 'Dual-color bar track',

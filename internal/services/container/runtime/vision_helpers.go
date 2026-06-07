@@ -178,6 +178,7 @@ func findColorBlobs(frame *image.RGBA, x0, y0, x1, y1 int, mode string, rng [6]i
 			continue
 		}
 		blobs = append(blobs, blobPx{
+			// 质心取整数像素 (sub-pixel 截断 ≤0.5px, loot/血条 use case 够用; 不需要亚像素).
 			CenterX: x0 + sumX/area,
 			CenterY: y0 + sumY/area,
 			X:       x0 + minX,
