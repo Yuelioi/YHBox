@@ -6,9 +6,9 @@ package node
 // geometry = Type:"object" + Widget:"geometry", 不污染 Type 系统.
 // Spec 1 只承载渲染 + 基础校验 (FieldEntry.Required); 复杂业务校验 (min/max/pattern) 不进 schema.
 type FieldSchema struct {
-	Type    string       `json:"type"`              // object | number | string | bool | enum
+	Type    string       `json:"type"`              // object | tuple | number | string | bool | enum
 	Widget  string       `json:"widget,omitempty"`  // "" 默认控件 | "geometry"
-	Fields  []FieldEntry `json:"fields,omitempty"`  // Type=object
+	Fields  []FieldEntry `json:"fields,omitempty"`  // Type=object (键值 map) / Type=tuple (定长数组, 按位置, Key 仅供 label)
 	Options []EnumOption `json:"options,omitempty"` // Type=enum (只填 Value, label 走 i18n)
 }
 
@@ -20,6 +20,12 @@ type FieldEntry struct {
 }
 
 func ObjSchema(fields ...FieldEntry) *FieldSchema { return &FieldSchema{Type: "object", Fields: fields} }
+
+// TupleSchema 定长数组 schema — 底层存 JSON 数组, fields[i] 按位置映射元素 i.
+// FieldEntry.Key 仅驱动 label i18n (node.<kind>.input.<path>.<key>.label), 不作 JSON key.
+// 用于「固定槽位、每槽含义不同」的数值向量 (如 DetectColor.Range 的颜色 6 元组),
+// 区别于键值 object, 也区别于同质可增删数组。前端 StructuredInput 渲染成逐项带标签输入。
+func TupleSchema(fields ...FieldEntry) *FieldSchema { return &FieldSchema{Type: "tuple", Fields: fields} }
 func Field(key string, s *FieldSchema, required bool) FieldEntry {
 	return FieldEntry{Key: key, Schema: s, Required: required}
 }

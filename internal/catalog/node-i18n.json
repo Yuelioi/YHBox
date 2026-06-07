@@ -244,8 +244,8 @@
         "label": "模式"
       },
       "Range": {
-        "label": "范围 [aMin..vMax]",
-        "hint": "6 元素: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]"
+        "label": "范围",
+        "hint": "HSV: 色相 0-360 / 饱和 0-100 / 明度 0-100; RGB: 各 0-255。高级技巧: 点右上角切 JSON 直接编辑数组。"
       },
       "MinPixels": {
         "label": "最小像素"

@@ -28,6 +28,18 @@ const (
 	dcCapCenter   = "CaptureCenter"
 )
 
+// dcRangeSchema 颜色范围 6 槽位 tuple — 底层仍是 [6]int 数组 (parseRange6 不变),
+// 槽位含义随 Mode 变 (HSV: H/S/V; RGB: R/G/B). 通道名 c1/c2/c3 mode-neutral,
+// label 双标注 (H/R)(S/G)(V/B) 走 i18n. 给 FE StructuredInput 渲染逐项数字框 + JSON 文本双模式.
+var dcRangeSchema = node.TupleSchema(
+	node.Field("c1Min", node.NumberSchema(), false),
+	node.Field("c1Max", node.NumberSchema(), false),
+	node.Field("c2Min", node.NumberSchema(), false),
+	node.Field("c2Max", node.NumberSchema(), false),
+	node.Field("c3Min", node.NumberSchema(), false),
+	node.Field("c3Max", node.NumberSchema(), false),
+)
+
 func (DetectColor) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "DetectColor",
@@ -45,7 +57,8 @@ func (DetectColor) Spec() node.Spec {
 						}})}},
 			{Name: dcInRange, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json",
-					Props: node.MarshalProps(node.JSONProps{Rows: 2})}},
+					Props: node.MarshalProps(node.JSONProps{Rows: 2})},
+				Schema: dcRangeSchema},
 			{Name: dcInMinPixels, Type: "Number", Default: json.Number("5"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dcCapCount, Type: "String", Advanced: true, Semantic: "capture",

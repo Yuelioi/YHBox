@@ -9,11 +9,9 @@
 
   <!-- object: 有字段列表 → 递归分组 -->
   <div v-else-if="schema.type === 'object'" class="space-y-3">
-    <!-- 文本模式切换按钮 (右上角) -->
-    <div class="flex items-center justify-between">
-      <span class="text-[11px] text-toned font-medium">
-        {{ fieldLabel }}
-      </span>
+    <!-- 文本模式切换按钮 (右上角). 标签由调用方渲染 (NodeInspector 外层 label / 父级 childLabel),
+         这里不再自渲染否则双标签。 -->
+    <div class="flex items-center justify-end">
       <div class="flex items-center gap-1">
         <UTooltip
           v-if="textMode && !jsonOk"
@@ -77,6 +75,69 @@
     </div>
   </div>
 
+  <!-- tuple: 定长数组, 逐位置渲染带标签子项 (DetectColor.Range 等). 结构 ⇄ JSON 双模式同 object. -->
+  <div v-else-if="schema.type === 'tuple'" class="space-y-3">
+    <div class="flex items-center justify-end">
+      <div class="flex items-center gap-1">
+        <UTooltip
+          v-if="textMode && !jsonOk"
+          :text="t('structured_input.json_error_tooltip')"
+        >
+          <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
+        </UTooltip>
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          :icon="textMode ? 'i-tabler-forms' : 'i-tabler-code'"
+          :disabled="textMode && !jsonOk"
+          :title="textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')"
+          @click="toggleTextMode"
+        />
+      </div>
+    </div>
+
+    <!-- 文本模式: 整个数组当 JSON 编辑 -->
+    <div v-if="textMode" class="space-y-1">
+      <UTextarea
+        :model-value="rawJson"
+        :rows="4"
+        size="sm"
+        class="w-full font-mono text-[11px]"
+        :color="jsonOk ? undefined : 'error'"
+        @update:model-value="onRawJsonInput"
+      />
+      <p v-if="!jsonOk" class="text-[10px] text-error leading-snug">{{ jsonError }}</p>
+      <UButton
+        v-if="!jsonOk"
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        @click="abandonTextMode"
+      >
+        {{ t('structured_input.abandon_changes') }}
+      </UButton>
+    </div>
+
+    <!-- 结构模式: 按位置逐项渲染 (childLabel 走 fieldPath.<key> i18n) -->
+    <div v-else class="pl-2 border-l border-default/40 space-y-3">
+      <div
+        v-for="(field, idx) in schema.fields ?? []"
+        :key="field.key"
+        class="space-y-1"
+      >
+        <label class="block text-[11px] text-toned">{{ childLabel(field.key) }}</label>
+        <StructuredInput
+          :schema="field.schema"
+          :model-value="Array.isArray(modelValue) ? modelValue[idx] : undefined"
+          :field-path="fieldPath + '.' + field.key"
+          :kind="kind"
+          @update:model-value="(v: any) => updateTupleChild(idx, v)"
+        />
+      </div>
+    </div>
+  </div>
+
   <!-- scalar: number -->
   <UInputNumber
     v-else-if="schema.type === 'number'"
@@ -135,12 +196,8 @@ function emitVal(v: any) {
 }
 
 // ─── label helpers ────────────────────────────────────────────────────────────
-const labelKey = computed(() => `node.${props.kind}.input.${props.fieldPath}.label`)
-const fieldLabel = computed(() => {
-  const k = labelKey.value
-  return te(k) ? t(k) : props.fieldPath.split('.').pop() ?? props.fieldPath
-})
-
+// 标签由调用方渲染 (NodeInspector 外层 label / 父级 childLabel); object/tuple 自身不渲染
+// 顶层标签, 故无 fieldLabel — 只有给子项用的 childLabel。
 function childLabel(key: string): string {
   const childPath = `${props.fieldPath}.${key}`
   const k = `node.${props.kind}.input.${childPath}.label`
@@ -168,6 +225,27 @@ const enumItems = computed(() =>
 function updateChild(key: string, v: any) {
   const next = { ...(props.modelValue ?? {}), [key]: v }
   emitVal(next)
+}
+
+// ─── tuple updateChild ──────────────────────────────────────────────────────────
+// 每次按 schema.fields 重建满长度数组 (空位填类型零值), 保证数组稠密 —
+// 否则稀疏位置会序列化成 null, 后端 parseRange6 之类按位置读会报「不是数字」。
+function tupleZero(type?: string): any {
+  if (type === 'number') return 0
+  if (type === 'string') return ''
+  if (type === 'bool') return false
+  return null
+}
+function updateTupleChild(idx: number, v: any) {
+  const fields = props.schema.fields ?? []
+  const cur = Array.isArray(props.modelValue) ? props.modelValue : []
+  const arr = fields.map((f, j) => {
+    if (j === idx) return v
+    const existing = cur[j]
+    if (existing !== undefined && existing !== null) return existing
+    return tupleZero(f.schema?.type)
+  })
+  emitVal(arr)
 }
 
 function isEmpty(v: any): boolean {
@@ -241,6 +319,15 @@ function validateAgainstSchema(value: unknown, schema: NodeFieldSchema): string 
         const childErr = validateAgainstSchema(obj[f.key], f.schema)
         if (childErr) return `${f.key}: ${childErr}`
       }
+    }
+    return null
+  }
+  if (schema.type === 'tuple') {
+    if (!Array.isArray(value)) return 'expected array'
+    const fields = schema.fields ?? []
+    for (let i = 0; i < fields.length && i < value.length; i++) {
+      const childErr = validateAgainstSchema(value[i], fields[i].schema)
+      if (childErr) return `[${i}]: ${childErr}`
     }
     return null
   }

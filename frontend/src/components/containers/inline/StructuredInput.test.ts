@@ -295,6 +295,92 @@ describe('StructuredInput — text mode (object)', () => {
   })
 })
 
+describe('StructuredInput — tuple schema', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const tupleSchema: NodeFieldSchema = {
+    type: 'tuple',
+    fields: [
+      { key: 'c1Min', schema: { type: 'number' } },
+      { key: 'c1Max', schema: { type: 'number' } },
+      { key: 'c2Min', schema: { type: 'number' } },
+      { key: 'c2Max', schema: { type: 'number' } },
+      { key: 'c3Min', schema: { type: 'number' } },
+      { key: 'c3Max', schema: { type: 'number' } },
+    ],
+  }
+
+  it('renders one number input per slot + child labels (fallback = key)', async () => {
+    const { app, el } = mountStructuredInput(tupleSchema, [0, 360, 0, 100, 0, 100])
+    await nextTick()
+    const spinbuttons = el.querySelectorAll('[role="spinbutton"]')
+    expect(spinbuttons.length).toBe(6)
+    const html = el.innerHTML
+    expect(html).toContain('c1Min')
+    expect(html).toContain('c3Max')
+    cleanup(app, el)
+  })
+
+  it('uses i18n child label via fieldPath.<key>', async () => {
+    const msgs = { node: { TestNode: { input: { myField: { c1Min: { label: '通道1 下限 (H/R)' } } } } } }
+    const { app, el } = mountStructuredInput(tupleSchema, [0, 0, 0, 0, 0, 0], { messages: msgs })
+    await nextTick()
+    expect(el.innerHTML).toContain('通道1 下限 (H/R)')
+    cleanup(app, el)
+  })
+
+  it('starts in struct mode (no textarea)', async () => {
+    const { app, el } = mountStructuredInput(tupleSchema, [1, 2, 3, 4, 5, 6])
+    await nextTick()
+    expect(el.querySelector('textarea')).toBeNull()
+    cleanup(app, el)
+  })
+
+  // updateTupleChild 契约: 编辑稀疏/缺值数组的某一槽, emit 出的数组必须是满长度且空位填 0 —
+  // 否则后端 parseRange6 按位置读到 null 会报「不是数字」。
+  it('updateTupleChild: emits dense full-length array, gaps filled with type zero', () => {
+    const fields = tupleSchema.fields ?? []
+    function tupleZero(type?: string): any {
+      if (type === 'number') return 0
+      if (type === 'string') return ''
+      if (type === 'bool') return false
+      return null
+    }
+    function updateTupleChild(modelValue: any, idx: number, v: any) {
+      const cur = Array.isArray(modelValue) ? modelValue : []
+      return fields.map((f, j) => {
+        if (j === idx) return v
+        const existing = cur[j]
+        if (existing !== undefined && existing !== null) return existing
+        return tupleZero(f.schema?.type)
+      })
+    }
+    // 从 undefined 起编辑第 3 槽 → 其余补 0, 长度 6
+    expect(updateTupleChild(undefined, 3, 77)).toEqual([0, 0, 0, 77, 0, 0])
+    // 已有部分值, 改第 0 槽 → 保留其余, 不丢
+    expect(updateTupleChild([5, 6, 7, 8, 9, 10], 0, 99)).toEqual([99, 6, 7, 8, 9, 10])
+  })
+
+  it('validateAgainstSchema: non-array tuple → error; element type checked', () => {
+    function validate(value: unknown, schema: NodeFieldSchema): string | null {
+      if (schema.type === 'tuple') {
+        if (!Array.isArray(value)) return 'expected array'
+        const fields = schema.fields ?? []
+        for (let i = 0; i < fields.length && i < value.length; i++) {
+          const err = validate(value[i], fields[i].schema)
+          if (err) return `[${i}]: ${err}`
+        }
+        return null
+      }
+      if (schema.type === 'number') return typeof value !== 'number' ? 'expected number' : null
+      return null
+    }
+    expect(validate({ a: 1 }, tupleSchema)).toBe('expected array')
+    expect(validate([0, 1, 2, 3, 4, 5], tupleSchema)).toBeNull()
+    expect(validate([0, 'x', 2], tupleSchema)).toBe('[1]: expected number')
+  })
+})
+
 describe('StructuredInput — scalar types', () => {
   beforeEach(() => vi.clearAllMocks())
 

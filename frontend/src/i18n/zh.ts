@@ -643,7 +643,16 @@ export default {
       input: {
         Region: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
-        Range: { label: '范围 [aMin..vMax]', hint: '6 元素: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
+        Range: {
+          label: '范围',
+          hint: 'HSV: 色相 0-360 / 饱和 0-100 / 明度 0-100; RGB: 各 0-255。高级技巧: 点右上角切 JSON 直接编辑数组。',
+          c1Min: { label: '通道1 下限 (H/R)' },
+          c1Max: { label: '通道1 上限 (H/R)' },
+          c2Min: { label: '通道2 下限 (S/G)' },
+          c2Max: { label: '通道2 上限 (S/G)' },
+          c3Min: { label: '通道3 下限 (V/B)' },
+          c3Max: { label: '通道3 上限 (V/B)' },
+        },
         MinPixels: { label: '最小像素' },
         CaptureCount: { label: '命中像素数→变量', hint: '填变量名, 把命中像素数捕获进该变量' },
         CaptureCenter: { label: '命中中心点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },

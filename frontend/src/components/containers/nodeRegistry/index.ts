@@ -31,7 +31,7 @@ export function pinTypeCompat(from: PinType, to: PinType): { allow: boolean; war
 
 /** 镜像后端 node.FieldSchema — 结构化输入的递归数据 schema. StructuredInput.vue 据此渲染. */
 export interface NodeFieldSchema {
-  type: 'object' | 'number' | 'string' | 'bool' | 'enum'
+  type: 'object' | 'tuple' | 'number' | 'string' | 'bool' | 'enum'
   widget?: string // '' | 'geometry'
   fields?: { key: string; schema: NodeFieldSchema; required?: boolean }[]
   options?: { value: unknown }[]

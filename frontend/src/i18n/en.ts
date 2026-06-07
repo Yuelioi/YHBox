@@ -622,7 +622,16 @@ export default {
       input: {
         Region: { label: 'Region (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
-        Range: { label: 'Range [aMin..vMax]', hint: '6 elements: hsv=[hMin,hMax,sMin,sMax,vMin,vMax] / rgb=[rMin..bMax]' },
+        Range: {
+          label: 'Range',
+          hint: 'HSV: hue 0-360 / sat 0-100 / val 0-100; RGB: each 0-255. Advanced: click the top-right toggle to edit the raw JSON array.',
+          c1Min: { label: 'Channel 1 min (H/R)' },
+          c1Max: { label: 'Channel 1 max (H/R)' },
+          c2Min: { label: 'Channel 2 min (S/G)' },
+          c2Max: { label: 'Channel 2 max (S/G)' },
+          c3Min: { label: 'Channel 3 min (V/B)' },
+          c3Max: { label: 'Channel 3 max (V/B)' },
+        },
         MinPixels: { label: 'Min pixels' },
         CaptureCount: { label: 'Hit pixel count → variable', hint: 'Enter a variable name to capture the hit pixel count into it' },
         CaptureCenter: { label: 'Hit center → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
