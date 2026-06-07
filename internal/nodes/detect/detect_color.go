@@ -10,7 +10,10 @@ import (
 	"yotta/internal/node"
 )
 
-func init() { node.Register(&DetectColor{}) }
+func init() {
+	dcRangeSchema.Widget = "colorRange"
+	node.Register(&DetectColor{})
+}
 
 type DetectColor struct{}
 

@@ -21,7 +21,10 @@ var hsvObjSchema = node.ObjSchema(
 	node.Field("vMax", node.NumberSchema(), false),
 )
 
-func init() { node.Register(&DetectColorHSV{}) }
+func init() {
+	hsvObjSchema.Widget = "colorRange"
+	node.Register(&DetectColorHSV{})
+}
 
 type DetectColorHSV struct{}
 
