@@ -478,6 +478,19 @@ export default {
     add: 'Add',
     preset_custom: 'Custom',
   },
+  // Machine error codes → English labels. The 9 codes from backend errorcodes.go registry
+  // (used for Switch suggestions / node failure display).
+  errorcode: {
+    error: 'Error',
+    launch_failed: 'Launch failed',
+    capture_failed: 'Capture failed',
+    write_failed: 'Write failed',
+    not_found: 'Target not found',
+    timeout: 'Timeout',
+    playback_failed: 'Playback failed',
+    send_failed: 'Send failed',
+    thrown: 'Thrown',
+  },
   node: {
     // control
     Start: {
@@ -1133,24 +1146,11 @@ export default {
     },
     Throw: {
       label: 'Throw',
-      description: 'Deliberately raises an error and stops the current flow right away; the error text is whatever you put in Message. If a Try wraps it, the error is caught and routed to the Try catch exit; otherwise the whole script errors out and stops.',
-      example: 'You detect HP is 0, meaning the character is dead and there is no point continuing: add a Throw with Message «character dead» so the outer Try catches it and runs a revive routine.',
-      input: { Message: { label: 'Message' } },
-    },
-    Try: {
-      label: 'Try / catch',
-      description: 'Wraps a group of error-prone steps (as a subgraph) and runs them: finishes cleanly → Normal exit; any step errors out (including a deliberate Throw) → caught and routed to the Catch exit, with the error text carried out from Catch — the script does not crash entirely.',
-      example: 'Clicking a button might fail because the screen has not loaded yet: wrap that step in a Try subgraph — Normal continues onward, Catch handles a retry or logs a screenshot — so one error does not stop the whole script.',
+      description: 'Deliberately raises an error and stops the current flow right away; the error text is whatever you put in Message. If an enclosing region (Loop / subgraph, etc.) has its Fail exit wired, the error is caught and routed down the Fail branch; otherwise the whole script errors out and stops. You can also set an error Code so a downstream Switch can branch on it.',
+      example: 'You detect HP is 0, meaning the character is dead and there is no point continuing: add a Throw with Message «character dead» so the enclosing region Fail exit catches it and runs a revive routine.',
       input: {
-        SubgraphID: { label: 'Body subgraph', hint: 'Subgraph ID wrapped by Try; runner pushes a frame to run it, body return error triggers catch.' },
-        CaptureError: { label: 'Catch error text → variable', hint: 'Enter a variable name to capture the error text into it on failure' },
-      },
-      output: {
-        Out: { label: 'Normal' },
-        Catch: {
-          label: 'Catch',
-          data: { Error: { hint: 'Caught error.Error() string — same as Throw node Message when thrown.' } },
-        },
+        Message: { label: 'Message' },
+        Code: { label: 'Error code (optional)' },
       },
     },
     WindowTarget: {

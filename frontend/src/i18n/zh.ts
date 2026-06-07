@@ -494,6 +494,18 @@ export default {
     add: '添加',
     preset_custom: '自定义',
   },
+  // 机器错误码 → 中文标签. 后端 errorcodes.go 注册表的 9 个码 (Switch 建议 / 节点失败展示用).
+  errorcode: {
+    error: '错误',
+    launch_failed: '启动失败',
+    capture_failed: '截屏失败',
+    write_failed: '写盘失败',
+    not_found: '找不到目标',
+    timeout: '超时',
+    playback_failed: '回放失败',
+    send_failed: '发送失败',
+    thrown: '主动抛错',
+  },
   // 节点 metadata — kind label + description + input/output 字段 i18n.
   // FE 单源, backend Spec.DisplayName/Description 不再被 FE 用. 加新节点 → 这里 + en.ts 同步.
   // 没加 → t() fallback 返 raw key 'node.<kind>.label' (诊断价值).
@@ -1154,24 +1166,11 @@ export default {
     },
     Throw: {
       label: '抛错',
-      description: '主动报一个错并立刻中断当前流程，错误内容就是你填的「消息」。如果外面有 Try 包着，错会被 Try 接住走「捕获」出口；没人包就直接让整个脚本报错停下。',
-      example: '检查到血量为 0 说明角色已死，往下没法继续：接一个「抛错」消息填「角色死亡」，让外层 Try 接住去做复活处理。',
-      input: { Message: { label: '消息' } },
-    },
-    Try: {
-      label: 'Try Catch',
-      description: '把一段可能出错的步骤（做成子图）包起来跑：顺利跑完走「正常」出口；中途任何一步报错（含主动「抛错」）就被接住走「捕获」出口，错误文字会从「捕获」带出来，脚本不会整个崩掉。',
-      example: '点击某个按钮可能因为画面没加载出来而失败：把这步包进 Try 子图，「正常」往下继续，「捕获」接重试或截图记录，避免一出错整个脚本停掉。',
+      description: '主动报一个错并立刻中断当前流程，错误内容就是你填的「消息」。如果外层有 Loop / 子图等区域的「失败」出口接了线，错会被接住走「失败」分支；没人接就直接让整个脚本报错停下。还能填「错误码」让下游 Switch 按码分流。',
+      example: '检查到血量为 0 说明角色已死，往下没法继续：接一个「抛错」消息填「角色死亡」，让外层区域的「失败」出口接住去做复活处理。',
       input: {
-        SubgraphID: { label: 'Body 子图', hint: 'Try 包裹的子图 ID; runner 端 push frame 跑该子图, body return error 触发 catch.' },
-        CaptureError: { label: 'Catch 错误信息→变量', hint: '填变量名, 出错时把错误文字捕获进该变量' },
-      },
-      output: {
-        Out: { label: '正常' },
-        Catch: {
-          label: '捕获',
-          data: { Error: { hint: '捕获的 error.Error() 字符串. ThrowError 抛出时即 Throw 节点的 Message.' } },
-        },
+        Message: { label: '消息' },
+        Code: { label: '错误码 (可选)' },
       },
     },
     WindowTarget: {
