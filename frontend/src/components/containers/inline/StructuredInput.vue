@@ -20,6 +20,16 @@
           <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
         </UTooltip>
         <UButton
+          v-if="schema.widget === 'colorRange'"
+          data-testid="eyedropper-btn"
+          size="xs"
+          variant="ghost"
+          color="primary"
+          icon="i-tabler-color-picker"
+          :title="t('structured_input.pick_color')"
+          @click="emit('pick-color', fieldPath)"
+        />
+        <UButton
           size="xs"
           variant="ghost"
           color="neutral"
@@ -85,6 +95,16 @@
         >
           <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
         </UTooltip>
+        <UButton
+          v-if="schema.widget === 'colorRange'"
+          data-testid="eyedropper-btn"
+          size="xs"
+          variant="ghost"
+          color="primary"
+          icon="i-tabler-color-picker"
+          :title="t('structured_input.pick_color')"
+          @click="emit('pick-color', fieldPath)"
+        />
         <UButton
           size="xs"
           variant="ghost"
@@ -188,7 +208,10 @@ const props = defineProps<{
   fieldPath: string
   kind: string
 }>()
-const emit = defineEmits<{ (e: 'update:modelValue', v: any): void }>()
+const emit = defineEmits<{
+  (e: 'update:modelValue', v: any): void
+  (e: 'pick-color', fieldPath: string): void
+}>()
 
 // ─── emit helper ──────────────────────────────────────────────────────────────
 function emitVal(v: any) {

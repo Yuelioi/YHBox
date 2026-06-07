@@ -381,6 +381,96 @@ describe('StructuredInput — tuple schema', () => {
   })
 })
 
+describe('StructuredInput — widget:colorRange eyedropper button', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // 复用 mountStructuredInput 但同时捕获 pick-color 事件.
+  function mountWithPickColor(
+    schema: NodeFieldSchema,
+    modelValue: any,
+    fieldPath = 'colorField',
+  ) {
+    const emittedPickColor: string[] = []
+    const valueRef = ref(modelValue)
+
+    const Wrapper = defineComponent({
+      setup() {
+        return () =>
+          h(StructuredInput, {
+            schema,
+            modelValue: valueRef.value,
+            fieldPath,
+            kind: 'TestNode',
+            'onUpdate:modelValue': (v: any) => { valueRef.value = v },
+            'onPick-color': (fp: string) => { emittedPickColor.push(fp) },
+          })
+      },
+    })
+
+    const app = createApp(Wrapper)
+    app.use(createPinia())
+    app.use(createI18n({ legacy: false, locale: 'zh', messages: { zh: {} } }))
+
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    app.mount(el)
+
+    return { emittedPickColor, app, el }
+  }
+
+  const colorRangeTupleSchema: NodeFieldSchema = {
+    type: 'tuple',
+    widget: 'colorRange',
+    fields: [
+      { key: 'hMin', schema: { type: 'number' } },
+      { key: 'hMax', schema: { type: 'number' } },
+      { key: 'sMin', schema: { type: 'number' } },
+      { key: 'sMax', schema: { type: 'number' } },
+      { key: 'vMin', schema: { type: 'number' } },
+      { key: 'vMax', schema: { type: 'number' } },
+    ],
+  }
+
+  const plainTupleSchema: NodeFieldSchema = {
+    type: 'tuple',
+    fields: [
+      { key: 'c1', schema: { type: 'number' } },
+      { key: 'c2', schema: { type: 'number' } },
+    ],
+  }
+
+  it('tuple with widget:colorRange renders eyedropper button (data-testid=eyedropper-btn)', async () => {
+    const { app, el } = mountWithPickColor(colorRangeTupleSchema, [0, 30, 40, 100, 50, 100])
+    await nextTick()
+    const btn = el.querySelector('[data-testid="eyedropper-btn"]')
+    expect(btn).not.toBeNull()
+    cleanup(app, el)
+  })
+
+  it('clicking eyedropper button emits pick-color with the fieldPath prop', async () => {
+    const { emittedPickColor, app, el } = mountWithPickColor(
+      colorRangeTupleSchema,
+      [0, 30, 40, 100, 50, 100],
+      'Range',
+    )
+    await nextTick()
+    const btn = el.querySelector('[data-testid="eyedropper-btn"]') as HTMLElement | null
+    expect(btn).not.toBeNull()
+    btn!.click()
+    await nextTick()
+    expect(emittedPickColor).toEqual(['Range'])
+    cleanup(app, el)
+  })
+
+  it('plain tuple WITHOUT widget:colorRange has no eyedropper button', async () => {
+    const { app, el } = mountWithPickColor(plainTupleSchema, [0, 0])
+    await nextTick()
+    const btn = el.querySelector('[data-testid="eyedropper-btn"]')
+    expect(btn).toBeNull()
+    cleanup(app, el)
+  })
+})
+
 describe('StructuredInput — scalar types', () => {
   beforeEach(() => vi.clearAllMocks())
 

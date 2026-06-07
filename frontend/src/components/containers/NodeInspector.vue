@@ -515,6 +515,7 @@
             :field-path="lit.name"
             :kind="node!.kind"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
+            @pick-color="onColorPick"
           />
           <!-- 模板字段 (WaitTemplate/ClickTemplate/CheckTemplate) → 多选缩略图拾取器 + 现截一张 -->
           <TemplatePicker
@@ -621,6 +622,7 @@ import { useClipsStore } from '@/stores/clips'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
+import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
 
 const props = defineProps<{
@@ -885,7 +887,19 @@ const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.h
 // 屏幕拾取 → 回填 config.literal (PascalCase Spec.Input 名 + 正确类型):
 //   - point: XRatio/YRatio (Number pin, ClickAt/Scroll) — 存 number 不存字符串。
 //   - rect:  Region ({x,y,w,h} object, DetectColor Rect pin) — runtime buildDataWireFor coerce 成 node.Rect。
-const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD } = useScreenPick({
+//   - color: Range / 对应 pin (DetectColor/DetectColorHSV) — tuple 直传数组, object 映射 hsv 字段。
+
+// 按目标 pin 决定 schemaType + colorSpace (开吸管前和回填时都用).
+function colorMetaFor(fieldPath: string): { schemaType: 'tuple' | 'object'; colorSpace: 'hsv' | 'rgb' } {
+  const sc = fieldFor(fieldPath)?.schema
+  const schemaType = sc?.type === 'tuple' ? 'tuple' : 'object'
+  // object schema 恒 hsv; tuple 读 config.literal.Mode (缺/空 → hsv)
+  const colorSpace =
+    schemaType === 'object' ? 'hsv' : String(getLiteral('Mode') ?? '') === 'rgb' ? 'rgb' : 'hsv'
+  return { schemaType, colorSpace }
+}
+
+const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onPickColor, onOpenHUD } = useScreenPick({
   node: toRef(props, 'node'),
   applyPoint: (x, y) => setLiteralBatch({ XRatio: round4(x), YRatio: round4(y) }),
   // fieldPath 由 onPickRect(fieldPath) 透传 — DetectColor 固定走 'Region'
@@ -898,7 +912,25 @@ const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD }
       overrides: cur.overrides ?? [],
     })
   },
+  applyColor: (fieldPath, range, hueWrap) => {
+    const { schemaType } = colorMetaFor(fieldPath)
+    setLiteral(fieldPath, fillColorLiteral(range, schemaType))
+    if (hueWrap) {
+      toastForSync.add({
+        title: t('inspector.color_pick_huewrap_title'),
+        description: t('inspector.color_pick_huewrap_desc'),
+        color: 'warning',
+        icon: 'i-tabler-color-swatch',
+      })
+    }
+  },
 })
+
+// 吸管按钮点击 — 按 pin 决定 colorSpace 后开颜色拾取器.
+function onColorPick(fieldPath: string) {
+  const { colorSpace } = colorMetaFor(fieldPath)
+  void onPickColor(fieldPath, colorSpace)
+}
 function round4(n: number): number {
   return Math.round(n * 1e4) / 1e4
 }
