@@ -50,6 +50,9 @@ func buildEdgeIndex(g container.Graph) *edgeIndex {
 	return idx
 }
 
+// has 报 from "<nodeId>.<pin>" 出口是否有出边 (失败路由判定用).
+func (idx *edgeIndex) has(from string) bool { return len(idx.out[from]) > 0 }
+
 // next 走 from "<nodeId>.<pin>" 输出，返下游 token 列表（一般 1 个；Parallel 可能 N 个）。
 func (idx *edgeIndex) next(from string, currentLoops []*LoopFrame) []ExecToken {
 	return idx.nextWithData(from, currentLoops, nil)
