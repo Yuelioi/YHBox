@@ -97,6 +97,15 @@
             <p>正在截屏...</p>
           </div>
 
+          <!-- color mode 提取中遮罩 -->
+          <div
+            v-if="extracting"
+            class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white text-sm gap-2 z-20"
+          >
+            <UIcon name="i-tabler-loader-2" class="size-8 animate-spin" />
+            <p>正在提取颜色范围...</p>
+          </div>
+
           <template v-else>
             <!-- 图 (transform 缩放/平移) -->
             <img
@@ -230,10 +239,10 @@
           </template>
         </section>
 
-        <!-- 当前选择: rect / template_save -->
+        <!-- 当前选择: rect / template_save / color -->
         <section v-else class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-2">
-          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">框选</h4>
-          <div v-if="!rectSelNat" class="text-[11px] text-dimmed">在图上拖一个矩形</div>
+          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">{{ mode === 'color' ? '取色' : '框选' }}</h4>
+          <div v-if="!rectSelNat" class="text-[11px] text-dimmed">{{ mode === 'color' ? '框选颜色区域或点击单点取色' : '在图上拖一个矩形' }}</div>
           <template v-else>
             <div class="grid grid-cols-2 gap-1.5">
               <div class="flex items-center gap-1">
@@ -287,6 +296,7 @@
           <UButton size="sm" variant="ghost" color="neutral" @click="cancel">取消</UButton>
           <span class="grow" />
           <UButton
+            v-if="mode !== 'color'"
             size="sm"
             color="primary"
             icon="i-tabler-check"
@@ -313,8 +323,10 @@ import PickerMagnifier from '@/components/tools/PickerMagnifier.vue'
 
 const route = useRoute()
 const mode = computed(
-  () => String(route.query.mode ?? 'point') as 'point' | 'rect' | 'template_save',
+  () => String(route.query.mode ?? 'point') as 'point' | 'rect' | 'template_save' | 'color',
 )
+const colorSpace = computed(() => String(route.query.colorSpace ?? 'hsv') as 'hsv' | 'rgb')
+const extracting = ref(false)
 const requestID = computed(() => String(route.query.id ?? ''))
 const containerID = computed(() => String(route.query.containerID ?? ''))
 
@@ -326,6 +338,8 @@ const titleByMode = computed(() => {
       return '屏幕框选'
     case 'template_save':
       return '截图新模板'
+    case 'color':
+      return '屏幕取色'
   }
   return '屏幕选择器'
 })
@@ -338,6 +352,8 @@ const hint = computed(() => {
       return '在图上拖一个矩形选取区域'
     case 'template_save':
       return '可选拖一个矩形裁剪；不拖则保存全图'
+    case 'color':
+      return '框选目标颜色区域（点一下取单点色）'
   }
   return ''
 })
@@ -428,6 +444,7 @@ const canConfirm = computed(() => {
   if (mode.value === 'point') return !!pointSelNat.value
   if (mode.value === 'rect') return !!rectSelNat.value
   if (mode.value === 'template_save') return keyValid.value && !!tplName.value.trim()
+  // color mode 自动提取 (pointerup 触发), 不走 confirm 按钮
   return false
 })
 const confirmLabel = computed(() => {
@@ -573,8 +590,12 @@ function onWinPointerMove(e: PointerEvent) {
   updateCursor(e.clientX, e.clientY)
 }
 function onWinPointerUp() {
-  if (interacting.value === 'rect' && rectSelNat.value && (rectSelNat.value.w < 2 || rectSelNat.value.h < 2)) {
-    rectSelNat.value = null
+  if (interacting.value === 'rect' && rectSelNat.value) {
+    if (mode.value === 'color') {
+      void extractColorAt(rectSelNat.value)
+    } else if (rectSelNat.value.w < 2 || rectSelNat.value.h < 2) {
+      rectSelNat.value = null
+    }
   }
   if (interacting.value === 'pan') viewport.endPan()
   interacting.value = null
@@ -632,6 +653,32 @@ function onKeyDown(e: KeyboardEvent) {
 }
 function onKeyUp(e: KeyboardEvent) {
   viewport.onKeyUp(e)
+}
+
+// ── 颜色范围提取 (color mode) ──────────────────────────
+async function extractColorAt(region: { x: number; y: number; w: number; h: number }) {
+  if (!sampleCtx || extracting.value) return
+  extracting.value = true
+  try {
+    const x = Math.max(0, Math.round(region.x))
+    const y = Math.max(0, Math.round(region.y))
+    const w = Math.min(natW.value - x, Math.max(1, Math.round(region.w)))
+    const h = Math.min(natH.value - y, Math.max(1, Math.round(region.h)))
+    const img = sampleCtx.getImageData(x, y, w, h).data
+    const total = w * h
+    const stride = Math.max(1, Math.ceil(total / 4096))
+    const samples: { R: number; G: number; B: number }[] = []
+    for (let i = 0; i < total; i += stride) {
+      const o = i * 4
+      samples.push({ R: img[o], G: img[o + 1], B: img[o + 2] })
+    }
+    const res = await backend.tools.extractColorRange(samples, colorSpace.value)
+    if (!res) return
+    await emitResult({ range: res.range, hueWrap: res.hueWrap })
+    await closeWindow()
+  } finally {
+    extracting.value = false
+  }
 }
 
 // ── 确定 / 取消 ────────────────────────────────────────

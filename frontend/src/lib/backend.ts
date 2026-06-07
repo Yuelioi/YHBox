@@ -343,8 +343,15 @@ export const backend = {
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
     openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
     closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
-    openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string, containerID = '', nodeID = '') =>
-      invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID),
+    openScreenPicker: (
+      mode: 'point' | 'rect' | 'template_save' | 'color',
+      id: string,
+      containerID = '',
+      nodeID = '',
+      colorSpace = '',
+    ) => invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID, colorSpace),
+    extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
+      invoke(ToolsService.ExtractColorRange, samples, colorSpace),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
     // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow

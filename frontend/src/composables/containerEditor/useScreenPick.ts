@@ -15,6 +15,7 @@ export type RectPayload = {
   screenH?: number
   cancelled?: boolean
 }
+export type ColorPayload = { range: number[]; hueWrap: boolean; cancelled?: boolean }
 
 interface PickerResult<T = unknown> {
   id: string
@@ -36,6 +37,13 @@ export function useScreenPick(opts: {
    * @param region    ratio [x,y,w,h] 0-1
    */
   applyRect: (fieldPath: string, region: [number, number, number, number]) => void
+  /**
+   * 接收颜色范围结果时调用. Unit C 负责提供; 此处可选以避免在 Unit C 合入前破坏类型检查.
+   * @param fieldPath 字段路径 (同 applyRect)
+   * @param range     颜色范围数组
+   * @param hueWrap   色相是否跨 0/360 回绕
+   */
+  applyColor?: (fieldPath: string, range: number[], hueWrap: boolean) => void
 }) {
   const picking = ref(false)
   const tplStore = useTemplatesStore()
@@ -53,13 +61,13 @@ export function useScreenPick(opts: {
     return k === 'DetectColor'
   })
 
-  async function openPicker<T>(mode: 'point' | 'rect'): Promise<T | null> {
+  async function openPicker<T>(mode: 'point' | 'rect' | 'color', colorSpace = ''): Promise<T | null> {
     const id = genID()
     picking.value = true
     try {
       // 先挂监听再开窗口, 防 race
       const waiter = awaitWailsEvent<PickerResult<T>>('tools:picker-result', (p) => p?.id === id)
-      const r = await backend.tools.openScreenPicker(mode, id, tplStore.containerId, getNode()?.id ?? '')
+      const r = await backend.tools.openScreenPicker(mode, id, tplStore.containerId, getNode()?.id ?? '', colorSpace)
       if (r === undefined) return null
       const result = await waiter
       const cancelled = (result.payload as { cancelled?: boolean } | undefined)?.cancelled
@@ -84,9 +92,14 @@ export function useScreenPick(opts: {
     if (p) opts.applyRect(fieldPath, p.region)
   }
 
+  async function onPickColor(fieldPath: string, colorSpace: 'hsv' | 'rgb') {
+    const p = await openPicker<ColorPayload>('color', colorSpace)
+    if (p) opts.applyColor?.(fieldPath, p.range, p.hueWrap)
+  }
+
   async function onOpenHUD() {
     await backend.tools.openMouseHUD(tplStore.containerId)
   }
 
-  return { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onOpenHUD }
+  return { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onPickColor, onOpenHUD }
 }
