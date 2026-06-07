@@ -52,7 +52,7 @@ func (KeyPress) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	dur = node.JitterInt(dur, in.Int(kpInJitterPct)) // ±% 近正态抖动 (pct=0 → 原值)
 	if err := ctx.Input().KeyDown(vk); err != nil {
-		return nil, fmt.Errorf("KeyPress keydown vk=%q: %w", vk, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "KeyPress keydown vk=%q: %v", vk, err)
 	}
 	// 可取消按住: stop/强停 cancel ctx 时立即松键返回, 不死等 dur
 	// (修「长按 999999ms 停不下来」—— 裸 time.Sleep 不看 ctx 的旧 bug)。
@@ -63,7 +63,7 @@ func (KeyPress) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	case <-time.After(time.Duration(dur) * time.Millisecond):
 	}
 	if err := ctx.Input().KeyUp(vk); err != nil {
-		return nil, fmt.Errorf("KeyPress keyup vk=%q: %w", vk, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "KeyPress keyup vk=%q: %v", vk, err)
 	}
 	return ctx.Out(kpOutDone).Fire(), nil
 }

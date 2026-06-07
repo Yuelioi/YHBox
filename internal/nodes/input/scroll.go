@@ -2,7 +2,6 @@ package input
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"yotta/internal/node"
 )
@@ -51,7 +50,7 @@ func (Scroll) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	delta := in.Int(scInDelta)
 	delta = node.JitterInt(delta, in.Int(scInJitterPct)) // ±% 抖滚动量 (pct=0 → 原值)
 	if err := ctx.Input().Scroll(x, y, delta); err != nil {
-		return nil, fmt.Errorf("Scroll (%.3f,%.3f) Δ=%d: %w", x, y, delta, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "Scroll (%.3f,%.3f) Δ=%d: %v", x, y, delta, err)
 	}
 	return ctx.Out(scOutDone).Fire(), nil
 }

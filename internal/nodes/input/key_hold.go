@@ -44,7 +44,7 @@ func (KeyHoldStart) Spec() node.Spec {
 func (KeyHoldStart) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	vk := in.String(khStartInVK)
 	if err := ctx.Input().KeyDown(vk); err != nil {
-		return nil, fmt.Errorf("KeyHoldStart vk=%q: %w", vk, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "KeyHoldStart vk=%q: %v", vk, err)
 	}
 	return ctx.Out(khStartOutOut).Fire(), nil
 }
@@ -81,7 +81,7 @@ func (KeyHoldStop) Spec() node.Spec {
 func (KeyHoldStop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	vk := in.String(khStopInVK)
 	if err := ctx.Input().KeyUp(vk); err != nil {
-		return nil, fmt.Errorf("KeyHoldStop vk=%q: %w", vk, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "KeyHoldStop vk=%q: %v", vk, err)
 	}
 	return ctx.Out(khStopOutOut).Fire(), nil
 }

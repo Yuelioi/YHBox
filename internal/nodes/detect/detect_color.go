@@ -94,7 +94,7 @@ func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 
 	count, cx, cy, err := ctx.Vision().DetectColor(geo, mode, rngArr)
 	if err != nil {
-		return nil, fmt.Errorf("DetectColor: %w", err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "DetectColor: %v", err)
 	}
 	if count >= minPx {
 		node.Capture(ctx, in, dcCapCount, count)

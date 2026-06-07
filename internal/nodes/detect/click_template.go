@@ -88,7 +88,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("ClickTemplate wait %s: %w", strings.Join(keys, "+"), err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate wait %s: %v", strings.Join(keys, "+"), err)
 	}
 	if pt == nil {
 		node.Capture(ctx, in, clkCapFound, false) // timeout 不写 point
@@ -96,7 +96,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	// 50ms click duration.
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
-		return nil, fmt.Errorf("ClickTemplate click %s @ (%.3f,%.3f): %w", strings.Join(keys, "+"), pt.X, pt.Y, err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}
 	node.Capture(ctx, in, clkCapFound, true)
 	node.Capture(ctx, in, clkCapPoint, *pt)

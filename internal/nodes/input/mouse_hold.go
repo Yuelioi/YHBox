@@ -63,7 +63,7 @@ func (MouseHoldStart) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	x := in.Float64(mhStartInXRatio)
 	y := in.Float64(mhStartInYRatio)
 	if err := ctx.Input().MouseDown(x, y, btn); err != nil {
-		return nil, fmt.Errorf("MouseHoldStart (%.3f,%.3f) %s: %w", x, y, btn, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "MouseHoldStart (%.3f,%.3f) %s: %v", x, y, btn, err)
 	}
 	return ctx.Out(mhStartOutOut).Fire(), nil
 }
@@ -112,7 +112,7 @@ func (MouseHoldStop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, fmt.Errorf("MouseHoldStop: invalid button %q", btn)
 	}
 	if err := ctx.Input().MouseUp(btn); err != nil {
-		return nil, fmt.Errorf("MouseHoldStop %s: %w", btn, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "MouseHoldStop %s: %v", btn, err)
 	}
 	return ctx.Out(mhStopOutOut).Fire(), nil
 }

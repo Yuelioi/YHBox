@@ -4,7 +4,6 @@ package detect
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"yotta/internal/node"
@@ -73,7 +72,7 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	threshold := in.Float64(ctInThreshold)
 	pt, conf, err := ctx.Vision().Match(ctx.Context(), keys, threshold, mode)
 	if err != nil {
-		return nil, fmt.Errorf("vision match %s: %w", strings.Join(keys, "+"), err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "vision match %s: %v", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
 		node.Capture(ctx, in, ctCapFound, true)

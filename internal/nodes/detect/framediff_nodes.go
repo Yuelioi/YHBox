@@ -191,7 +191,7 @@ func (WaitStable) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 
 	prev, err := ctx.Vision().GridSignature(p.roi, p.grid)
 	if err != nil {
-		return nil, fmt.Errorf("WaitStable capture: %w", err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "WaitStable capture: %v", err)
 	}
 	stableCount := 0
 	var lastValue float64
@@ -201,7 +201,7 @@ func (WaitStable) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		cur, cerr := ctx.Vision().GridSignature(p.roi, p.grid)
 		if cerr != nil {
-			return nil, fmt.Errorf("WaitStable capture: %w", cerr)
+			return nil, node.Failf(node.CodeCaptureFailed, cerr, "WaitStable capture: %v", cerr)
 		}
 		v := frameDiffValue(p.metric, prev, cur, p.cellDelta)
 		lastValue = v
@@ -229,7 +229,7 @@ func (WaitChange) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 
 	baseline, err := ctx.Vision().GridSignature(p.roi, p.grid)
 	if err != nil {
-		return nil, fmt.Errorf("WaitChange capture: %w", err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "WaitChange capture: %v", err)
 	}
 	var lastValue float64
 	for {
@@ -238,7 +238,7 @@ func (WaitChange) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		cur, cerr := ctx.Vision().GridSignature(p.roi, p.grid)
 		if cerr != nil {
-			return nil, fmt.Errorf("WaitChange capture: %w", cerr)
+			return nil, node.Failf(node.CodeCaptureFailed, cerr, "WaitChange capture: %v", cerr)
 		}
 		v := frameDiffValue(p.metric, baseline, cur, p.cellDelta)
 		lastValue = v

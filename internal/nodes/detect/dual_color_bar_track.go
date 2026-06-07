@@ -5,7 +5,6 @@ package detect
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"yotta/internal/node"
 )
@@ -104,7 +103,7 @@ func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error)
 
 	result, err := ctx.Vision().DualBarTrack(roi, inner, outer, opts)
 	if err != nil {
-		return nil, fmt.Errorf("DualColorBarTrack: %w", err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "DualColorBarTrack: %v", err)
 	}
 	if !result.Found || result.InnerX < 0 || result.OuterX < 0 {
 		node.Capture(ctx, in, dcbtCapConf, result.Confidence) // missing 仅带 Conf

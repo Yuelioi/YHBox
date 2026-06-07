@@ -5,7 +5,6 @@ package detect
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -74,7 +73,7 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	timeout := time.Duration(in.Int(wtInTimeoutMs)) * time.Millisecond
 	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("vision wait %s: %w", strings.Join(keys, "+"), err)
+		return nil, node.Failf(node.CodeCaptureFailed, err, "vision wait %s: %v", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
 		node.Capture(ctx, in, wtCapFound, true)

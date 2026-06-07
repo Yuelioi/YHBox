@@ -77,7 +77,7 @@ func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	// 拆 down→可取消 sleep→up: cancel 时立即松键返回 (修长按停不下)。
 	if err := ctx.Input().MouseDown(x, y, btn); err != nil {
-		return nil, fmt.Errorf("ClickAt down (%.3f,%.3f) %s: %w", x, y, btn, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "ClickAt down (%.3f,%.3f) %s: %v", x, y, btn, err)
 	}
 	select {
 	case <-ctx.Context().Done():
@@ -86,7 +86,7 @@ func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	case <-time.After(time.Duration(dur) * time.Millisecond):
 	}
 	if err := ctx.Input().MouseUp(btn); err != nil {
-		return nil, fmt.Errorf("ClickAt up %s: %w", btn, err)
+		return nil, node.Failf(node.CodeSendFailed, err, "ClickAt up %s: %v", btn, err)
 	}
 	return ctx.Out(caOutDone).Fire(), nil
 }

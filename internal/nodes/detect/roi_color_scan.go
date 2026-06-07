@@ -121,7 +121,7 @@ func (ROIColorScan) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		clusters, serr := ctx.Vision().ROIColorScan(roi, hsv, axis, minPx, maxPx)
 		if serr != nil {
-			return nil, fmt.Errorf("ROIColorScan: %w", serr)
+			return nil, node.Failf(node.CodeCaptureFailed, serr, "ROIColorScan: %v", serr)
 		}
 		lastCount = len(clusters)
 		if lastCount >= minCount {
