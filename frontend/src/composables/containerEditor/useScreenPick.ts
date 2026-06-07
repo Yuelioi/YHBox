@@ -38,12 +38,12 @@ export function useScreenPick(opts: {
    */
   applyRect: (fieldPath: string, region: [number, number, number, number]) => void
   /**
-   * 接收颜色范围结果时调用. Unit C 负责提供; 此处可选以避免在 Unit C 合入前破坏类型检查.
+   * 接收颜色范围结果时调用.
    * @param fieldPath 字段路径 (同 applyRect)
    * @param range     颜色范围数组
    * @param hueWrap   色相是否跨 0/360 回绕
    */
-  applyColor?: (fieldPath: string, range: number[], hueWrap: boolean) => void
+  applyColor: (fieldPath: string, range: number[], hueWrap: boolean) => void
 }) {
   const picking = ref(false)
   const tplStore = useTemplatesStore()
@@ -95,7 +95,7 @@ export function useScreenPick(opts: {
 
   async function onPickColor(fieldPath: string, colorSpace: 'hsv' | 'rgb') {
     const p = await openPicker<ColorPayload>('color', colorSpace)
-    if (p) opts.applyColor?.(fieldPath, p.range, p.hueWrap)
+    if (p) opts.applyColor(fieldPath, p.range, p.hueWrap)
   }
 
   async function onOpenHUD() {
