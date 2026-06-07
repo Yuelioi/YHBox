@@ -16,6 +16,24 @@
       </div>
     </section>
 
+    <!-- 核心概念 -->
+    <section class="rounded-xl bg-default border border-default p-5">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.concepts.title') }}</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div
+          v-for="c in concepts"
+          :key="c.key"
+          class="rounded-lg bg-default/50 border border-default/60 p-4"
+        >
+          <div class="flex items-center gap-2 mb-2">
+            <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
+            <span class="text-sm font-medium text-highlighted">{{ t(`about.concepts.${c.key}.name`) }}</span>
+          </div>
+          <p class="text-xs text-muted leading-relaxed">{{ t(`about.concepts.${c.key}.desc`) }}</p>
+        </div>
+      </div>
+    </section>
+
     <!-- 作者 / 链接 -->
     <section class="rounded-xl bg-default border border-default p-5">
       <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_author') }}</h3>
@@ -125,6 +143,14 @@ interface AppInfo {
 }
 
 const info = ref<AppInfo | null>(null)
+
+// 核心概念（从原帮助页迁来；文案走 about.concepts.* i18n）。
+const concepts = [
+  { key: 'container', icon: 'i-tabler-package', iconClass: 'text-primary' },
+  { key: 'subgraph', icon: 'i-tabler-schema', iconClass: 'text-fuchsia-300' },
+  { key: 'library', icon: 'i-tabler-books', iconClass: 'text-emerald-300' },
+  { key: 'schedule', icon: 'i-tabler-calendar-clock', iconClass: 'text-amber-300' },
+]
 
 onMounted(async () => {
   const r = await backend.appInfo.info()

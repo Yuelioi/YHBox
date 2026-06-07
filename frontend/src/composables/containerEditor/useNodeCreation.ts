@@ -158,10 +158,12 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     pos: { x: number; y: number },
   ) {
     const kind = payload.modifier === 'alt' ? 'SetVar' : 'GetVar'
-    const config: Record<string, unknown> = { varName: payload.ref.name, scope: 'auto' }
+    // VarName/Scope/Value 是 pin 字面量 → config.literal[PinName] (大写, 跟后端 + 真实存盘 shape 对齐)。
+    const literal: Record<string, unknown> = { VarName: payload.ref.name, Scope: 'auto' }
     if (kind === 'SetVar') {
-      config.literal = { value: defaultLiteralFor(payload.ref.type) }
+      literal.Value = defaultLiteralFor(payload.ref.type)
     }
+    const config: Record<string, unknown> = { literal }
     // Pin-aware auto-connect: DOM query 必须在 applyDraftMutation 触发 re-render 前
     const autoConnectTarget = kind === 'GetVar'
       ? findNearestEligibleDataInPin(pos, payload.ref.type as VarType)
@@ -171,7 +173,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       kind, pos, config,
       connectEdge: autoConnectTarget
         ? (node) => ({
-            from: `${node.id}.value`,
+            from: `${node.id}.Value`,
             to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
           } as GraphEdge)
         : undefined,
@@ -214,7 +216,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     addNode({
       kind: 'IncVar',
       pos: center,
-      config: { varName: name, scope: 'auto', literal: { delta: 1 } },
+      config: { literal: { VarName: name, Scope: 'auto', Delta: 1 } },
     })
   }
 

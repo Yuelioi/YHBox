@@ -27,6 +27,12 @@ function captureLiteralOf(node: GraphNode, field: string): string {
   return typeof lit?.[field] === 'string' ? (lit[field] as string) : ''
 }
 
+// VAR_NODE_KINDS (GetVar/SetVar/IncVar/VarLastChange) 的变量名 = VarName pin 字面量 = config.literal.VarName.
+// (跟后端 PinString(n,"VarName") / 真实存盘 shape 对齐; 历史小写 config.varName 是错的, 后端读不到。)
+function varNodeName(node: GraphNode): string {
+  return captureLiteralOf(node, 'VarName')
+}
+
 /**
  * useVarMutations — Container.Vars 增删改查 + scope-aware rename + cascade delete.
  * 所有 mutation 直接改 draft.value (caller 用 applyDraftMutation 包裹保证 dirty+sync).
@@ -35,7 +41,8 @@ export function useVarMutations(draft: Ref<Container | null>) {
   function isContainerScope(n: GraphNode): boolean {
     // scope=auto / global / undefined → resolves to container var (applies rename/delete)
     // scope=local → frame-private, preserved (allowed to shadow container var)
-    const scope = (n.config?.scope as string | undefined) ?? 'auto'
+    // Scope pin 字面量 = config.literal.Scope (VarLastChange 无 Scope pin → undefined → auto)。
+    const scope = captureLiteralOf(n, 'Scope') || 'auto'
     return scope !== 'local'
   }
 
@@ -64,10 +71,10 @@ export function useVarMutations(draft: Ref<Container | null>) {
     decl.name = newName
     walkAllGraphs(draft.value, g => {
       for (const node of g.nodes) {
-        // VAR_NODE_KINDS: rename config.varName
+        // VAR_NODE_KINDS: rename config.literal.VarName
         if (VAR_NODE_KINDS.has(node.kind)) {
-          if (node.config?.varName === oldName && isContainerScope(node)) {
-            node.config.varName = newName
+          if (varNodeName(node) === oldName && isContainerScope(node)) {
+            (node.config!.literal as Record<string, unknown>).VarName = newName
           }
         }
         // capture fields: rename config.literal[field]
@@ -89,9 +96,9 @@ export function useVarMutations(draft: Ref<Container | null>) {
     let count = 0
     walkAllGraphs(draft.value, g => {
       for (const node of g.nodes) {
-        // VAR_NODE_KINDS: count config.varName refs
+        // VAR_NODE_KINDS: count config.literal.VarName refs
         if (VAR_NODE_KINDS.has(node.kind)) {
-          if (node.config?.varName === name && isContainerScope(node)) {
+          if (varNodeName(node) === name && isContainerScope(node)) {
             count++
           }
         }
@@ -111,7 +118,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
       for (const node of g.nodes) {
         let matched = false
         // VAR_NODE_KINDS
-        if (VAR_NODE_KINDS.has(node.kind) && node.config?.varName === name && isContainerScope(node)) {
+        if (VAR_NODE_KINDS.has(node.kind) && varNodeName(node) === name && isContainerScope(node)) {
           matched = true
         }
         // capture fields
@@ -134,7 +141,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
       const removedIDs = new Set<string>()
       g.nodes = g.nodes.filter(node => {
         if (!VAR_NODE_KINDS.has(node.kind)) return true
-        if (node.config?.varName !== name) return true
+        if (varNodeName(node) !== name) return true
         if (!isContainerScope(node)) return true
         removedIDs.add(node.id)
         return false
@@ -163,7 +170,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
     walkAllGraphs(draft.value, g => {
       for (const node of g.nodes) {
         // VAR_NODE_KINDS: read vs write based on kind
-        if (VAR_NODE_KINDS.has(node.kind) && node.config?.varName === name && isContainerScope(node)) {
+        if (VAR_NODE_KINDS.has(node.kind) && varNodeName(node) === name && isContainerScope(node)) {
           const access: 'read' | 'write' = VAR_READ_KINDS.has(node.kind) ? 'read' : 'write'
           refs.push({ nodeID: node.id, access, kind: node.kind })
         }

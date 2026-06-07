@@ -103,7 +103,6 @@
         :is-recording="recordStore.isRecording || recordStore.isPaused"
         :recording-target-name="recordingTargetName"
         :countdown-sec="countdownSec"
-        :selected-count="selectedCount"
         :exec-store-running="execStore.running"
         :running-node-kind="execStore.currentNodeKind ?? undefined"
         :running-node-label="runningNodeLabel"
@@ -112,16 +111,18 @@
         :can-redo="canRedo"
         :snap-enabled="sidebarPrefs.snapEnabled"
         :edge-style="sidebarPrefs.edgeStyle"
+        :root-label="draft?.name"
+        :editor-path="editorStore.editorPath"
+        :sg-label-fn="sgLabel"
+        :active-node-count="activeGraph?.nodes?.length ?? null"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
-        @fold="onFoldSelection"
         @try-run="onTryRun"
         @stop-run="onStopRun"
         @save="onSave"
         @reload="onReload"
         @auto-layout="onAutoLayout"
-        @align-selected="onAlignSelected"
         @validate="onValidate"
         @open-node-explorer="onOpenNodeExplorer"
         @open-library-explorer="onOpenLibraryExplorer"
@@ -132,14 +133,7 @@
         @set-edge-style="sidebarPrefs.edgeStyle = $event"
         @open-new-window="onOpenNewWindow"
         @back-to-list="onBackToList"
-      />
-
-      <!-- 面包屑栏：主图 > 子图层级导航 + 当前层级节点数 -->
-      <ContainerEditorBreadcrumb
-        :root-label="draft?.name"
-        :editor-path="editorStore.editorPath"
-        :sg-label-fn="sgLabel"
-        :active-node-count="activeGraph?.nodes?.length ?? null"
+        @open-help="helpModalOpen = true"
         @pop="editorStore.popPath()"
         @goto="editorStore.gotoPathIndex($event)"
       />
@@ -215,6 +209,14 @@
           @drop.prevent="onCanvasDrop"
           @contextmenu.capture="onCanvasContextMenuCapture"
         >
+          <!-- 浮动上下文条：选中节点时画布顶部居中浮现 (折叠 / 对齐 / 分布 / 删除) -->
+          <CanvasContextBar
+            v-if="selectedCount > 0"
+            :selected-count="selectedCount"
+            @fold="onFoldSelection"
+            @align-selected="onAlignSelected"
+            @delete-selected="onDeleteSelectedNodes"
+          />
           <!-- 操作提示 -->
           <div
             class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-dimmed pointer-events-none bg-default/70 px-2 py-1 rounded"
@@ -291,6 +293,9 @@
           :active-graph="activeGraph"
           :declared-vars="declaredVars"
           :all-subgraph-tags="allSubgraphTags"
+          :hotkey="draft?.hotkey ?? ''"
+          :subgraph-count="editorStore.visibleSubgraphs.length"
+          @open-help="helpModalOpen = true"
           @config-update="onConfigUpdate"
           @declare-var="onDeclareVar"
           @label-update="onLabelUpdate"
@@ -340,6 +345,8 @@
       v-model:open="nodeExplorerOpen"
       @pick-kind="(k: string) => onPickKind(k, nodeExplorerSpawnPos)"
     />
+
+    <ContainerHelpModal v-model:open="helpModalOpen" />
 
     <LibraryExplorerModal
       v-model:open="libraryExplorerOpen"
@@ -493,7 +500,7 @@ import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
 import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
-import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBreadcrumb.vue'
+import CanvasContextBar from '@/components/containers/CanvasContextBar.vue'
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
 import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
@@ -504,6 +511,7 @@ import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
 import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
+import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
@@ -669,6 +677,7 @@ const leftPane = useSplitpane('editor.splitpane.left', { default: 280, min: 200,
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
+const helpModalOpen = ref(false)
 const libraryExplorerOpen = ref(false)
 
 // ===== 命令面板 =====
@@ -992,6 +1001,8 @@ async function onSettingsSave(form: { name: string; hotkey: string; description:
 useEditorHotkeys({
   commandPaletteOpen, nodeSearchOpen, settingsOpen, nodeExplorerOpen,
   dirty, onSave, undo, redo,
+  togglePalette: () => { sidebarPrefs.value.leftSidebarCollapsed = !sidebarPrefs.value.leftSidebarCollapsed },
+  toggleInspector: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
 })
 
 // 录制流程 (v2): 拿 subgraphID → refreshSubgraphStore 让 editorStore 知道新子图 →
@@ -1172,6 +1183,15 @@ function onDeleteSelected() {
   if (!draft.value || !selectedID.value) return
   // 走 vue-flow removeNodes → 触发 onNodesChange(remove) → 统一处理 Subgraph cascade
   removeNodes([selectedID.value])
+  selectedID.value = null
+}
+
+// 浮动上下文条「删除」：删全部选中节点 (多选)，走同一 removeNodes → cascade。
+function onDeleteSelectedNodes() {
+  if (!draft.value) return
+  const ids = getSelectedNodes.value.map((n) => n.id)
+  if (!ids.length) return
+  removeNodes(ids)
   selectedID.value = null
 }
 

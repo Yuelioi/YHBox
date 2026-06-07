@@ -55,7 +55,9 @@ export function useConcurrencyWarning(opts: {
         const node = nodes.find((x) => x.id === id)
         if (!node) continue
         if (node.kind === 'SetVar' || node.kind === 'IncVar') {
-          const v = (node.config?.varName as string | undefined) ?? ''
+          // VarName pin 字面量 = config.literal.VarName (跟后端 + 真实存盘 shape 对齐)。
+          const lit = node.config?.literal as Record<string, unknown> | undefined
+          const v = (lit?.VarName as string | undefined) ?? ''
           if (v) vars.add(v)
         }
       }

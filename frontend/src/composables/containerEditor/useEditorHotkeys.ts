@@ -17,11 +17,13 @@ interface UseEditorHotkeysOpts {
   onSave: () => Promise<unknown>
   undo: () => void
   redo: () => void
+  togglePalette: () => void
+  toggleInspector: () => void
 }
 
 // 7 editor in-app key. 跟 onKeydown 7 if 分支对得上.
-// label 是 i18n key, SettingsHotkeys.vue t() 渲染.
-const EDITOR_KEYS: ReadonlyArray<{ key: string; label: string; hotkeyStr: string }> = [
+// label 是 i18n key, SettingsHotkeys.vue / ContainerHelpModal 快捷键 tab t() 渲染.
+export const EDITOR_KEYS: ReadonlyArray<{ key: string; label: string; hotkeyStr: string }> = [
   { key: 'editor.command-palette', label: 'hotkeys.label.editor.commandPalette', hotkeyStr: 'Ctrl+K' },
   { key: 'editor.node-search',     label: 'hotkeys.label.editor.nodeSearch',     hotkeyStr: 'Ctrl+F' },
   { key: 'editor.save',            label: 'hotkeys.label.editor.save',           hotkeyStr: 'Ctrl+S' },
@@ -29,6 +31,8 @@ const EDITOR_KEYS: ReadonlyArray<{ key: string; label: string; hotkeyStr: string
   { key: 'editor.undo',            label: 'hotkeys.label.editor.undo',           hotkeyStr: 'Ctrl+Z' },
   { key: 'editor.redo',            label: 'hotkeys.label.editor.redo',           hotkeyStr: 'Ctrl+Shift+Z' },
   { key: 'editor.toggle-explorer', label: 'hotkeys.label.editor.toggleExplorer', hotkeyStr: 'Tab' },
+  { key: 'editor.toggle-palette', label: 'hotkeys.label.editor.togglePalette', hotkeyStr: 'Alt+1' },
+  { key: 'editor.toggle-inspector', label: 'hotkeys.label.editor.toggleInspector', hotkeyStr: 'Alt+2' },
 ]
 const READONLY_REASON = 'hotkeys.readonly.editorBuiltin'
 
@@ -74,6 +78,19 @@ export function useEditorHotkeys(opts: UseEditorHotkeysOpts) {
       if (isTypingTarget(e)) return
       e.preventDefault()
       opts.redo()
+      return
+    }
+    // Alt+1 / Alt+2: 折叠/展开 左侧栏 / 右属性栏. 用 e.code 避开键盘布局差异.
+    if (e.altKey && e.code === 'Digit1') {
+      if (isTypingTarget(e)) return
+      e.preventDefault()
+      opts.togglePalette()
+      return
+    }
+    if (e.altKey && e.code === 'Digit2') {
+      if (isTypingTarget(e)) return
+      e.preventDefault()
+      opts.toggleInspector()
       return
     }
     if (e.key === 'Tab') {

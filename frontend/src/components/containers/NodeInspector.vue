@@ -685,8 +685,14 @@ const captureFilledCount = computed(
 const captureOpen = ref(false)
 
 // 节点 scope — 传给 VarNameInput，影响补全行为。
+// Scope pin 字面量 = config.literal.Scope (跟后端 + 真实存盘 shape 对齐)。
 const nodeScope = computed(
-  () => (props.node?.config?.scope as 'auto' | 'global' | 'local' | undefined) ?? 'auto',
+  () =>
+    ((props.node?.config?.literal as Record<string, unknown> | undefined)?.Scope as
+      | 'auto'
+      | 'global'
+      | 'local'
+      | undefined) ?? 'auto',
 )
 
 // 读 pin 字面量: config.literal[pin] 优先, 顶层 config[pin] fallback —

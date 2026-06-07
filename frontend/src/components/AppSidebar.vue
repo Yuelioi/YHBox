@@ -118,7 +118,6 @@ const automationItems = computed(() => [
 
 const toolItems = computed(() => [
   { label: t('sidebar.settings'), to: '/settings', icon: 'i-tabler-settings' },
-  { label: t('sidebar.help'), to: '/help', icon: 'i-tabler-help-circle' },
   { label: t('sidebar.about'), to: '/about', icon: 'i-tabler-info-circle' },
 ])
 

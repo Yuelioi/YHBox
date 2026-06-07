@@ -46,14 +46,6 @@
       >
         <UIcon name="i-tabler-settings" class="size-4" />
       </RouterLink>
-      <RouterLink
-        to="/help"
-        class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
-        :class="route.name === 'help' ? 'text-primary' : ''"
-        :title="t('sidebar.help')"
-      >
-        <UIcon name="i-tabler-help-circle" class="size-4" />
-      </RouterLink>
       <span class="w-px bg-default/60 my-3" />
 
       <button
@@ -105,7 +97,6 @@ const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
   library: { titleKey: 'sidebar.library', icon: 'i-tabler-books' },
   schedules: { titleKey: 'sidebar.schedules', icon: 'i-tabler-clock' },
   settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
-  help: { titleKey: 'sidebar.help', icon: 'i-tabler-help-circle' },
   about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
 }
 const currentTitle = computed(() => {

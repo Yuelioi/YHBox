@@ -440,13 +440,13 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         kind: 'GetVar',
         x: (origNode.x ?? 0) - 200,
         y: origNode.y ?? 0,
-        config: { varName: args.varName, scope: 'auto' },
+        config: { literal: { VarName: args.varName, Scope: 'auto' } },
         createdAt: new Date().toISOString(),
       } as GraphNode)
 
-      // 4. Add data edge: GetVar.value → originalNode.pinName
+      // 4. Add data edge: GetVar.Value → originalNode.pinName
       g.edges.push({
-        from: `${getVarID}.value`,
+        from: `${getVarID}.Value`,
         to: `${ctx.nodeID}.${ctx.pinName}`,
       } as GraphEdge)
     })

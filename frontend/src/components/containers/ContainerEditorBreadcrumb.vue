@@ -1,5 +1,5 @@
 <template>
-  <div class="shrink-0 h-9 px-4 border-b border-default flex items-center gap-2 text-xs">
+  <div class="flex items-center gap-1.5 text-xs min-w-0">
     <UButton
       v-if="editorPath.length > 0"
       size="xs"
@@ -8,7 +8,7 @@
       icon="i-tabler-arrow-left"
       @click="$emit('pop')"
     >{{ t('editor.breadcrumb.pop') }}</UButton>
-    <span class="text-toned">{{ rootLabel ?? t('editor.breadcrumb.root_fallback') }}</span>
+    <span class="text-toned truncate max-w-[180px]">{{ rootLabel ?? t('editor.breadcrumb.root_fallback') }}</span>
     <template v-for="(sgID, idx) in editorPath" :key="sgID">
       <UIcon name="i-tabler-chevron-right" class="size-3 text-dimmed" />
       <UButton

@@ -5,6 +5,9 @@ debug/
 .vscode/
 .idea/
 
+# brainstorming visual-companion mockups (transient)
+.superpowers/
+
 # OS
 Thumbs.db
 .DS_Store

@@ -2,8 +2,6 @@
 # 节点 kind metadata + pin label 留 P4 spec 处理
 # Command palette: label 走 i18n, keywords 保留中英双语字面值作搜索辅助 (非显示内容)
 src/composables/containerEditor/useCommandPalette.ts
-# Help: 大段中文教程, 翻译 50+ 段文档没人审, 中文用户主要群体
-src/views/HelpView.vue
 # 开发调试 HUD: 不是日常用户路径, 工作量不抵价值
 src/views/tools/MouseHUDView.vue
 src/views/tools/RecordingHUDView.vue

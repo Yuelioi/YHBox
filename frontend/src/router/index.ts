@@ -11,7 +11,6 @@ const routes = [
   { path: '/library', name: 'library', component: () => import('@/views/LibraryView.vue') },
   { path: '/schedules', name: 'schedules', component: () => import('@/views/SchedulesView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
-  { path: '/help', name: 'help', component: () => import('@/views/HelpView.vue') },
   { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
   {
     path: '/tools/mouse-hud',

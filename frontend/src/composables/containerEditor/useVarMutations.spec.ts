@@ -11,9 +11,9 @@ function makeDraft(): Container {
     graph: {
       id: 'g1', version: 1,
       nodes: [
-        { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { varName: 'x', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
-        { id: 'gv2', kind: 'GetVar', x: 0, y: 0, config: { varName: 'x', scope: 'local' }, createdAt: '2026-05-19T00:00:00Z' },
-        { id: 'sv',  kind: 'SetVar', x: 0, y: 0, config: { varName: 'x', scope: 'global' }, createdAt: '2026-05-19T00:00:00Z' },
+        { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'x', Scope: 'auto' } }, createdAt: '2026-05-19T00:00:00Z' },
+        { id: 'gv2', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'x', Scope: 'local' } }, createdAt: '2026-05-19T00:00:00Z' },
+        { id: 'sv',  kind: 'SetVar', x: 0, y: 0, config: { literal: { VarName: 'x', Scope: 'global' } }, createdAt: '2026-05-19T00:00:00Z' },
       ],
       edges: [],
     },
@@ -29,9 +29,10 @@ describe('useVarMutations', () => {
     m.renameVar('x', 'state')
     expect(draft.value.vars![0].name).toBe('state')
     const nodes = draft.value.graph.nodes
-    expect(nodes.find(n => n.id === 'gv1')!.config!.varName).toBe('state')  // auto
-    expect(nodes.find(n => n.id === 'gv2')!.config!.varName).toBe('x')      // local preserved
-    expect(nodes.find(n => n.id === 'sv')!.config!.varName).toBe('state')   // global
+    const litOf = (id: string) => (nodes.find(n => n.id === id)!.config!.literal as Record<string, unknown>).VarName
+    expect(litOf('gv1')).toBe('state')  // auto
+    expect(litOf('gv2')).toBe('x')      // local preserved
+    expect(litOf('sv')).toBe('state')   // global
   })
 
   it('renameVar: nonexistent var is no-op', () => {
@@ -105,7 +106,7 @@ describe('useVarMutations', () => {
       graph: {
         id: 'g2', version: 1,
         nodes: [
-          { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { varName: 'hp', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { literal: { VarName: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
       },
@@ -115,14 +116,14 @@ describe('useVarMutations', () => {
     expect(m.countUsage('hp')).toBe(1)
   })
 
-  it('VarLastChange: renameVar renames VarLastChange node config.varName', () => {
+  it('VarLastChange: renameVar renames VarLastChange node config.literal.VarName', () => {
     const draft = ref<Container>({
       schemaVersion: 1, id: 'c3', name: 'c3',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
         id: 'g3', version: 1,
         nodes: [
-          { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { varName: 'hp', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { literal: { VarName: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
       },
@@ -130,7 +131,7 @@ describe('useVarMutations', () => {
     } as unknown as Container)
     const m = useVarMutations(draft)
     m.renameVar('hp', 'x')
-    expect(draft.value.graph.nodes[0].config!.varName).toBe('x')
+    expect((draft.value.graph.nodes[0].config!.literal as Record<string, unknown>).VarName).toBe('x')
   })
 
   // ── Task 12: 捕获框字段纳入 refs/rename/cascade-clear ──────────────────────
@@ -191,7 +192,7 @@ describe('useVarMutations', () => {
       graph: {
         id: 'g13', version: 1,
         nodes: [
-          { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { varName: 'hp', scope: 'auto' }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'hp', Scope: 'auto' } }, createdAt: '2026-05-19T00:00:00Z' },
           { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
