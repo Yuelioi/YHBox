@@ -61,6 +61,14 @@ func TestExtractColorRange_GrayExcludedFromHue(t *testing.T) {
 	}
 }
 
+func TestExtractColorRange_AllGray_HueFullDomain(t *testing.T) {
+	// 整块灰: 无像素过 Sgate → H 给全域 [0,360], HueWrap=false, 靠 S/V 约束.
+	got, _ := extractColorRange(rgbN(50, 128, 128, 128), "hsv")
+	if got.HueWrap || got.Range[0] != 0 || got.Range[1] != 360 {
+		t.Fatalf("全灰应 H=[0,360] 且 HueWrap=false, got wrap=%v H=[%d,%d]", got.HueWrap, got.Range[0], got.Range[1])
+	}
+}
+
 func TestExtractColorRange_HueWrap(t *testing.T) {
 	s := append(append(rgbN(30, 255, 0, 0), rgbN(30, 255, 0, 20)...), rgbN(30, 255, 20, 0)...)
 	got, _ := extractColorRange(s, "hsv")
