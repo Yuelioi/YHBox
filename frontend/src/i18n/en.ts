@@ -504,6 +504,8 @@ export default {
     screen_pick_hint: 'Opens a window that captures the current game screen — {action} auto-fills the field.',
     screen_pick_action_drag: 'drag a rectangle to',
     screen_pick_action_click: 'one click to',
+    color_pick_huewrap_title: 'Hue crosses the red boundary — downgraded',
+    color_pick_huewrap_desc: 'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
     literal_section: 'Data inputs (literal)',
     capture_section: 'Output capture',
     config_section: 'Config',
@@ -519,6 +521,7 @@ export default {
     abandon_changes: 'Discard changes',
     json_invalid: 'Invalid',
     field_required: 'Required',
+    pick_color: 'Pick color',
   },
   geometry: {
     default_region: 'Default region',

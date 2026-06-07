@@ -520,6 +520,8 @@ export default {
     screen_pick_hint: '打开独立窗口截当前游戏画面，{action}后自动回填字段',
     screen_pick_action_drag: '拖矩形',
     screen_pick_action_click: '点一下',
+    color_pick_huewrap_title: '色相跨红色边界，已降级',
+    color_pick_huewrap_desc: '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
     literal_section: '数据输入 (literal)',
     capture_section: '输出捕获',
     config_section: '配置',
@@ -535,6 +537,7 @@ export default {
     abandon_changes: '放弃修改',
     json_invalid: '有误',
     field_required: '必填',
+    pick_color: '屏幕取色',
   },
   geometry: {
     default_region: '默认区域',
