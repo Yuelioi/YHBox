@@ -735,6 +735,31 @@ export default {
         Timeout: { label: 'Timeout' },
       },
     },
+    DetectColorBlobs: {
+      label: 'Color Blob Locate',
+      description: 'Find all connected regions of a target color in an area; returns each blob center/bbox/area (normalized). For glow loot, health bars, color-marked targets.',
+      input: {
+        ROI: { label: 'Region' },
+        Mode: { label: 'Color Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
+        Range: { label: 'Color Range' },
+        MinArea: { label: 'Min Pixels' },
+        MaxBlobs: { label: 'Max Blobs (0=unlimited)' },
+        Sort: {
+          label: 'Sort By',
+          option: {
+            area_desc: 'Area desc',
+            dist_screen_center: 'Nearest to screen center',
+            dist_point: 'Nearest to ref point',
+          },
+        },
+        RefPoint: { label: 'Ref Point (normalized)' },
+        PollIntervalMs: { label: 'Poll Interval (ms)' },
+        TimeoutMs: { label: 'Timeout (ms, 0=single)' },
+        CapturePrimaryCenter: { label: 'Capture · Primary Center' },
+        CapturePrimaryArea: { label: 'Capture · Primary Area' },
+        CaptureBlobCount: { label: 'Capture · Blob Count' },
+      },
+    },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
       description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → Missing. Common for fishing reel bars, health bars, progress bars, and QTE bars.',

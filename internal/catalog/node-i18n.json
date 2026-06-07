@@ -268,6 +268,48 @@
       }
     }
   },
+  "DetectColorBlobs": {
+    "label": "颜色块定位",
+    "description": "在区域内找出指定颜色的所有连通块，返回每块的中心/外接框/面积（归一化）。用于发光物资、血条、颜色标记目标的定位。",
+    "input": {
+      "ROI": {
+        "label": "区域"
+      },
+      "Mode": {
+        "label": "颜色模式"
+      },
+      "Range": {
+        "label": "颜色范围"
+      },
+      "MinArea": {
+        "label": "最小像素数"
+      },
+      "MaxBlobs": {
+        "label": "最多返回块数（0=不限）"
+      },
+      "Sort": {
+        "label": "排序方式"
+      },
+      "RefPoint": {
+        "label": "参考点（归一化）"
+      },
+      "PollIntervalMs": {
+        "label": "轮询间隔(ms)"
+      },
+      "TimeoutMs": {
+        "label": "超时(ms，0=单次)"
+      },
+      "CapturePrimaryCenter": {
+        "label": "捕获·首块中心"
+      },
+      "CapturePrimaryArea": {
+        "label": "捕获·首块面积"
+      },
+      "CaptureBlobCount": {
+        "label": "捕获·块数"
+      }
+    }
+  },
   "DetectColorHSV": {
     "label": "HSV 颜色检测",
     "description": "在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Yes 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 No 口。",

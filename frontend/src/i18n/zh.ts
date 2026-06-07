@@ -755,6 +755,31 @@ export default {
         Timeout: { label: '超时' },
       },
     },
+    DetectColorBlobs: {
+      label: '颜色块定位',
+      description: '在区域内找出指定颜色的所有连通块，返回每块的中心/外接框/面积（归一化）。用于发光物资、血条、颜色标记目标的定位。',
+      input: {
+        ROI: { label: '区域' },
+        Mode: { label: '颜色模式', option: { hsv: 'HSV', rgb: 'RGB' } },
+        Range: { label: '颜色范围' },
+        MinArea: { label: '最小像素数' },
+        MaxBlobs: { label: '最多返回块数（0=不限）' },
+        Sort: {
+          label: '排序方式',
+          option: {
+            area_desc: '面积降序',
+            dist_screen_center: '距屏幕中心近优先',
+            dist_point: '距参考点近优先',
+          },
+        },
+        RefPoint: { label: '参考点（归一化）' },
+        PollIntervalMs: { label: '轮询间隔(ms)' },
+        TimeoutMs: { label: '超时(ms，0=单次)' },
+        CapturePrimaryCenter: { label: '捕获·首块中心' },
+        CapturePrimaryArea: { label: '捕获·首块面积' },
+        CaptureBlobCount: { label: '捕获·块数' },
+      },
+    },
     DualColorBarTrack: {
       label: '双色条追踪',
       description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 Missing。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
