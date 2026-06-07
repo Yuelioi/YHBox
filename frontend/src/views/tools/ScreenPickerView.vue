@@ -97,16 +97,15 @@
             <p>正在截屏...</p>
           </div>
 
-          <!-- color mode 提取中遮罩 -->
-          <div
-            v-if="extracting"
-            class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white text-sm gap-2 z-20"
-          >
-            <UIcon name="i-tabler-loader-2" class="size-8 animate-spin" />
-            <p>正在提取颜色范围...</p>
-          </div>
-
           <template v-else>
+            <!-- color mode 提取中遮罩 (叠在图上方) -->
+            <div
+              v-if="extracting"
+              class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white text-sm gap-2 z-20"
+            >
+              <UIcon name="i-tabler-loader-2" class="size-8 animate-spin" />
+              <p>正在提取颜色范围...</p>
+            </div>
             <!-- 图 (transform 缩放/平移) -->
             <img
               ref="imgRef"
