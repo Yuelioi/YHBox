@@ -263,8 +263,8 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 			if errors.Is(err, errStopRun) {
 				return nil
 			}
-			// Break/Continue/Throw sentinel 漏到顶层 dispatch — Loop/Try 没截获,
-			// validator 应已报 *_OUTSIDE_* 但跑到此说明 graph 跑了未校验路径或 runtime path bug.
+			// Break/Continue sentinel 漏到顶层 dispatch — Loop 没截获,
+			// validator 应已报 *_OUTSIDE_LOOP 但跑到此说明 graph 跑了未校验路径或 runtime path bug.
 			// emit container:node-validation 让前端高亮.
 			if _, wrapped := r.checkSentinelLeak(node, err); wrapped != err {
 				return wrapped

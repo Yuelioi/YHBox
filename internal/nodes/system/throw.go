@@ -1,8 +1,8 @@
 // internal/nodes/system/throw.go
-// Throw — 显式抛 error. 返 typed ThrowError 让最近 Try 节点截获走 error 出口;
-// 没 Try 包就冒泡到主 runner 当 container:error.
+// Throw — 显式抛 error. 返 typed ThrowError (实现 node.Coded) 让最近一个接线的 region
+// Fail 出口截获走失败分支; 没 region 接就冒泡到主 runner 当 container:error.
 //
-// Try region 用 errors.As(err, &te) 抽 message 注入 catch 出口 data field.
+// dispatch 失败路由用 errors.As(err, &coded) 抽 Code + message 注入 Fail 出口 data field.
 package system
 
 import (

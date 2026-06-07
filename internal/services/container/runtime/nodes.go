@@ -9,8 +9,8 @@ import (
 	"yotta/internal/services/container"
 )
 
-// execNode 单节点执行入口. 走 dispatchInRegion — 内部 route Loop/Subgraph/Try 等
-// RegionRunner 或普通节点.
+// execNode 单节点执行入口. 走 dispatchInRegion — 内部 route Loop/Subgraph/CollapsedNode
+// 等 RegionRunner 或普通节点.
 //
 // IsPureData / IsVisualOnly / Disabled 3 个 gatekeep 走 nodepkg.Get(kind).Spec.
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {

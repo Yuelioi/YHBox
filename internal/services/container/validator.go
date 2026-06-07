@@ -98,11 +98,11 @@ const (
 	CodeDisabledBranchNodeWarn  = "WARN_DISABLED_BRANCH_NODE"
 	CodeInvalidDisabledTerminal = "INVALID_DISABLED_TERMINAL"
 
-	// Sentinel scope (Break/Continue 必须在 Loop body 内; Throw 必须在 Try body 子图内).
+	// Sentinel scope (Break/Continue 必须在 Loop body 内).
 	// 静态拦截, 避免 sentinel 漏到主 dispatch 顶层只看 generic error.
+	// (Throw 不再受 scope 限制 — 由 region 的 Fail 出口截获或冒泡到顶层.)
 	CodeBreakOutsideLoop    = "BREAK_OUTSIDE_LOOP"
 	CodeContinueOutsideLoop = "CONTINUE_OUTSIDE_LOOP"
-	CodeThrowOutsideTry     = "THROW_OUTSIDE_TRY"
 
 	// Template key / dependency codes
 	CodeInvalidTemplateKey = "INVALID_TEMPLATE_KEY"

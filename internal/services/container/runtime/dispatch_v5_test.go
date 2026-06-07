@@ -16,7 +16,7 @@ import (
 	_ "yotta/internal/nodes/io"        // Log / PlayClip
 	_ "yotta/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
 	_ "yotta/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
-	_ "yotta/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Try / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
+	_ "yotta/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
 	_ "yotta/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -748,101 +748,20 @@ func TestDispatchInRegion_RoutesRegionToRunNodeAsRegion(t *testing.T) {
 }
 
 // ============================================================================
-// Try 测试
+// Region 失败路由 (Throw inside region → region 的 Fail 出口截获)
 // ============================================================================
 
-// newTryTest 建主图 { try_n (Try w/ SubgraphID=trybody), out_n (Stop), catch_n (Stop) } +
-// 子图 trybody 含 sub_in / inner_n (节点 Kind 由 caller 指定) / sub_out.
-// 主图边: try_n.out → out_n.in, try_n.catch → catch_n.in.
-// 子图边: sub_in.Done → inner_n.in, inner_n.<outPin> → sub_out.in (outPin caller 指定).
-func newTryTest(t *testing.T, innerKind, innerOutPin string) *dispatchTestCtx {
-	t.Helper()
+// TestExecNodeAsRegionViaFramework_SubgraphThrowCaughtByFail 验证新错误模型:
+// Throw 节点 (返 *ThrowError, 实现 node.Coded) 跑在 Subgraph region body 内 →
+// body error 裸透传 → routeResult 失败路由到 Subgraph 的 .Fail 出口 (接线) →
+// 走失败分支带 Code, 不冒泡. (取代旧 Try.RunRegion 截 Throw 走 catch.)
+func TestExecNodeAsRegionViaFramework_SubgraphThrowCaughtByFail(t *testing.T) {
 	subgraph := container.Subgraph{
-		ID:    "trybody",
-		Label: "trybody",
+		ID: "sg_throw",
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "sub_in", Kind: "SubgraphInput"},
-				{ID: "inner_n", Kind: innerKind},
-				{ID: "sub_out", Kind: "SubgraphOutput"},
-			},
-			Edges: []container.GraphEdge{
-				{From: "sub_in.Done", To: "inner_n.In"},
-				{From: "inner_n." + innerOutPin, To: "sub_out.In"},
-			},
-		},
-	}
-	c := &container.Container{
-		SchemaVersion: 1,
-		ID:            "test-try",
-		Name:          "test-try",
-		Graph: container.Graph{
-			Nodes: []container.GraphNode{
-				{ID: "try_n", Kind: "Try", Config: map[string]any{"SubgraphID": "trybody"}},
-				{ID: "out_n", Kind: "Stop"},
-				{ID: "catch_n", Kind: "Stop"},
-			},
-			Edges: []container.GraphEdge{
-				{From: "try_n.Out", To: "out_n.In"},
-				{From: "try_n.Catch", To: "catch_n.In"},
-			},
-		},
-		Subgraphs: []container.Subgraph{subgraph},
-	}
-	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
-	r := NewContainerRunner(rt)
-	dt := &dispatchTestCtx{rt: rt, r: r}
-	dt.node = r.nodesByID["try_n"]
-	rt.Emit = func(name string, data any) {
-		dt.emitMu.Lock()
-		defer dt.emitMu.Unlock()
-		dt.emitted = append(dt.emitted, emittedEvent{Name: name, Data: data})
-	}
-	return dt
-}
-
-func TestExecNodeAsRegionViaFramework_TryDone(t *testing.T) {
-	resetTdHappyCounter()
-	// body 跑通 (tdHappyCounted Fire("Out") 然后 SubgraphOutput 终点) → out 出口 → out_n.in
-	dt := newTryTest(t, tkHappyCounted, "Out")
-	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "try_n", InPin: "in"})
-	if err != nil {
-		t.Fatalf("try done: %v", err)
-	}
-	if got := tdHappyCounter.Load(); got != 1 {
-		t.Errorf("inner called %d times, want 1", got)
-	}
-	if len(tokens) != 1 || tokens[0].NodeID != "out_n" {
-		t.Errorf("try done token = %+v, want {out_n, In}", tokens)
-	}
-}
-
-func TestExecNodeAsRegionViaFramework_TryCatch(t *testing.T) {
-	// body 节点 tkError 返 error "deliberate test error" → catch 出口 → catch_n.in
-	dt := newTryTest(t, tkError, "Out") // tkError Run 返 error 前不会 Fire, outPin 不相关
-	tokens, err := dt.r.execNodeAsRegionViaFramework(context.Background(), dt.node, ExecToken{NodeID: "try_n", InPin: "in"})
-	if err != nil {
-		t.Fatalf("try catch: %v", err)
-	}
-	if len(tokens) != 1 || tokens[0].NodeID != "catch_n" {
-		t.Errorf("try catch token = %+v, want {catch_n, In}", tokens)
-	}
-}
-
-// tdThrow 在 body 里 panic-style 抛 Throw-like error. 复用 nodes/system 的 ThrowError.
-// (ThrowError 是 exported type, Try.RunRegion 不区别处理 — 跟普通 error 同样走 catch.)
-//
-// 实际上 nodes/system 已经有 Throw 节点 — 直接用它. 它读 config["Message"] 触发 ThrowError.
-// 见 nodes/system/throw.go.
-
-func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
-	// body 用 Throw 节点 (config["Message"] = "fish escaped") → Try.RunRegion 截 → catch
-	subgraph := container.Subgraph{
-		ID: "trybody_throw",
-		Graph: container.Graph{
-			Nodes: []container.GraphNode{
-				{ID: "sub_in", Kind: "SubgraphInput"},
-				{ID: "throw_n", Kind: "Throw", Config: map[string]any{"message": "fish escaped"}},
+				{ID: "throw_n", Kind: "Throw", Config: map[string]any{"Message": "fish escaped", "Code": "thrown"}},
 				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
@@ -853,31 +772,41 @@ func TestExecNodeAsRegionViaFramework_TryThrow(t *testing.T) {
 	}
 	c := &container.Container{
 		SchemaVersion: 1,
-		ID:            "test-try-throw",
+		ID:            "test-sg-throw",
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "try_n", Kind: "Try", Config: map[string]any{"SubgraphID": "trybody_throw"}},
-				{ID: "catch_n", Kind: "Stop"},
+				{ID: "sg_n", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg_throw"}},
+				{ID: "fail_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "try_n.Catch", To: "catch_n.In"},
+				{From: "sg_n.Fail", To: "fail_n.In"},
 			},
 		},
 		Subgraphs: []container.Subgraph{subgraph},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
-	tryNode := r.nodesByID["try_n"]
-	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), tryNode, ExecToken{NodeID: "try_n", InPin: "in"})
+	emitted := []emittedEvent{}
+	var emitMu sync.Mutex
+	rt.Emit = func(name string, data any) {
+		emitMu.Lock()
+		defer emitMu.Unlock()
+		emitted = append(emitted, emittedEvent{Name: name, Data: data})
+	}
+	sgNode := r.nodesByID["sg_n"]
+	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_n", InPin: "in"})
 	if err != nil {
-		t.Fatalf("try throw: %v", err)
+		t.Fatalf("Throw in region with wired Fail must NOT bubble, got err: %v", err)
 	}
-	if len(tokens) != 1 || tokens[0].NodeID != "catch_n" {
-		t.Errorf("try throw token = %+v, want {catch_n, In}", tokens)
+	if len(tokens) != 1 || tokens[0].NodeID != "fail_n" {
+		t.Fatalf("token = %+v, want 1 token to fail_n", tokens)
 	}
-	// 验证 PopFrame
+	if tokens[0].ExecData == nil || tokens[0].ExecData["Code"] != "thrown" {
+		t.Errorf("Fail ExecData[Code] = %v, want thrown", tokens[0].ExecData)
+	}
+	// 验证 PopFrame: region 退出后恢复主 frame.
 	if r.state.CurrentFrame == nil || r.state.CurrentFrame.Parent != nil {
-		t.Errorf("PopFrame did not restore main frame after Try catch: %+v", r.state.CurrentFrame)
+		t.Errorf("PopFrame did not restore main frame after region Fail: %+v", r.state.CurrentFrame)
 	}
 }
 
@@ -1101,24 +1030,24 @@ func TestBuildDataWireFor_GetVarViaFramework(t *testing.T) {
 	}
 }
 
-func TestExecNodeAsRegionViaFramework_TryMissingSubgraphID(t *testing.T) {
+func TestExecNodeAsRegionViaFramework_SubgraphMissingSubgraphID(t *testing.T) {
 	c := &container.Container{
 		SchemaVersion: 1,
-		ID:            "test-try-missing-id",
+		ID:            "test-sg-missing-id",
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "try_n", Kind: "Try"}, // Config nil → SubgraphID missing
+				{ID: "sg_n", Kind: "Subgraph"}, // Config nil → SubgraphID missing
 			},
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
-	tryNode := r.nodesByID["try_n"]
-	_, err := r.execNodeAsRegionViaFramework(context.Background(), tryNode, ExecToken{NodeID: "try_n", InPin: "in"})
+	sgNode := r.nodesByID["sg_n"]
+	_, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_n", InPin: "in"})
 	if err == nil {
 		t.Fatal("expected error for missing SubgraphID")
 	}
-	// makeBodyForTry → makeBodyForSubgraph 返 "missing SubgraphID" 在 framework Required check
+	// makeBodyForSubgraph 返 "missing SubgraphID" 在 framework Required check
 	// 之前; 实际上 Required check 会先触发 validation. 接受任何路径错信号.
 	if !strings.Contains(err.Error(), "SubgraphID") && !strings.Contains(err.Error(), "validation") {
 		t.Errorf("error %q should mention SubgraphID or validation", err)

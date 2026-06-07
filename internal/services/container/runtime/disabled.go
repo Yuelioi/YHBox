@@ -12,7 +12,6 @@ import (
 //	Loop / Race / Parallel  → .done (skip body — 不是 first exec out, 语义专选)
 //	Switch                  → .Default (无配置 case 走 default — 不是 Case1)
 //	If                      → .True (默认走 true 分支)
-//	Try                     → .out (正常完成出口)
 //	Subgraph / CollapsedNode → .Done / 动态 OutputPins[0] (dynamic outputs)
 //	Linear nodes (Sleep, KeyPress, SetVar, etc.) → 走 nodepkg.Spec 第一个 Type=Exec 出口
 //	Throw / Stop / terminals → noop (return nil; runner naturally terminates this token's path)
@@ -26,8 +25,6 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 		return tryExits(r, node, tok, "default"), nil
 	case "If":
 		return tryExits(r, node, tok, "True"), nil
-	case "Try":
-		return tryExits(r, node, tok, "out"), nil
 	case "Subgraph", "CollapsedNode":
 		// Subgraph/CollapsedNode 是单 Done 出口; 无下游时 fallback 到 OutputPins[0].
 		tokens := r.edges.next(node.ID+".Done", tok.LoopStack)

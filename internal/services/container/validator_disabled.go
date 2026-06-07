@@ -4,13 +4,13 @@ package container
 //  1. Container-level terminals (Start/MouseCalibration/EventTick) disabled → error
 //     (invalid: no entry / calibration lost / listener 永不启动)
 //     WindowTarget 是普通可执行节点, 允许禁用.
-//  2. Loop/Switch/Race/Parallel/Try disabled → warn (passthrough behavior is opinionated;
+//  2. Loop/Switch/Race/Parallel disabled → warn (passthrough behavior is opinionated;
 //     user might want to delete instead)
 func validateDisabledNodes(c *Container) []ValidationError {
 	if c == nil {
 		return nil
 	}
-	branchKinds := map[string]bool{"Loop": true, "Switch": true, "Race": true, "Parallel": true, "Try": true}
+	branchKinds := map[string]bool{"Loop": true, "Switch": true, "Race": true, "Parallel": true}
 	terminalKinds := map[string]bool{"Start": true, "MouseCalibration": true, "EventTick": true}
 
 	var errs []ValidationError

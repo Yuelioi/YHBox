@@ -14,7 +14,7 @@ import (
 )
 
 // newTestRunnerWithSubgraph 构造一个最小容器 + 注入子图 + stub backend,
-// 返回 (RuntimeContext, ContainerRunner) — Try 测试用.
+// 返回 (RuntimeContext, ContainerRunner) — region (Subgraph/CollapsedNode) 测试用.
 // sgID: 子图 ID; sgNodes/sgEdges: 子图内节点+边.
 func newTestRunnerWithSubgraph(t *testing.T, sgID string, sgNodes []*container.GraphNode, sgEdges []container.GraphEdge) (*RuntimeContext, *ContainerRunner) {
 	t.Helper()
@@ -28,7 +28,7 @@ func newTestRunnerWithSubgraph(t *testing.T, sgID string, sgNodes []*container.G
 		Label: sgID,
 		Graph: container.Graph{Nodes: nodes, Edges: sgEdges},
 	}
-	// 主图只需 Start 节点 (Try 测试直接调 execNode, 不走 Run)
+	// 主图只需 Start 节点 (region 测试直接调 execNode, 不走 Run)
 	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "test-try",

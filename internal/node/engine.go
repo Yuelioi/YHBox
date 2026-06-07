@@ -101,8 +101,8 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 // 而非 rn.Run(c, in).
 //
 // body 是 "执行 region 内部下游" 的回调, 由调用方 (region runner) 提供 — 节点决定
-// 调 0 / 1 / N 次. body 返 error → 节点可截获 (Try) / 翻译 sentinel (Loop Break/Continue)
-// 或直接 propagate.
+// 调 0 / 1 / N 次. body 返 error → 节点翻译 sentinel (Loop Break/Continue) 或直接
+// propagate (Subgraph/CollapsedNode 裸透传, 由 dispatch 失败路由到 Fail 出口).
 //
 // 节点没实现 RegionRunner → RunResult.Error = "not a RegionRunner".
 func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, logEnabled bool, body func(Ctx) error) RunResult {

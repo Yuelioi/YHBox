@@ -2,7 +2,7 @@ package container
 
 import "testing"
 
-// validateSentinelScope 测试 — Break/Continue/Throw 作用域校验.
+// validateSentinelScope 测试 — Break/Continue 作用域校验.
 
 func TestValidate_BreakInsideLoop_OK(t *testing.T) {
 	c := &Container{
@@ -74,7 +74,9 @@ func TestValidate_ContinueInMainNoLoop_ERROR(t *testing.T) {
 	}
 }
 
-func TestValidate_ThrowInMainNoTryBody_ERROR(t *testing.T) {
+// Try 删除后 Throw 不再受 scope 限制 — 由 region Fail 出口截获或冒泡, 任意位置合法.
+// validateSentinelScope 对 Throw 不应产生任何 sentinel-scope 错误.
+func TestValidate_ThrowAnywhere_NoScopeError(t *testing.T) {
 	c := &Container{
 		Graph: Graph{
 			Nodes: []GraphNode{
@@ -87,47 +89,9 @@ func TestValidate_ThrowInMainNoTryBody_ERROR(t *testing.T) {
 		},
 	}
 	errs := validateSentinelScope(c)
-	found := false
 	for _, e := range errs {
-		if e.Code == CodeThrowOutsideTry && e.NodeID == "thr" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("Throw in main without Try should emit THROW_OUTSIDE_TRY, got %+v", errs)
-	}
-}
-
-func TestValidate_ThrowInTryBodySubgraph_OK(t *testing.T) {
-	c := &Container{
-		Graph: Graph{
-			Nodes: []GraphNode{
-				{ID: "start", Kind: "Start"},
-				{ID: "try", Kind: "Try", Config: map[string]any{"SubgraphID": "sg-try-body"}},
-			},
-			Edges: []GraphEdge{
-				{From: "start.Done", To: "try.In"},
-			},
-		},
-		Subgraphs: []Subgraph{
-			{
-				ID: "sg-try-body",
-				Graph: Graph{
-					Nodes: []GraphNode{
-						{ID: "in", Kind: "SubgraphInput"},
-						{ID: "thr", Kind: "Throw"},
-					},
-					Edges: []GraphEdge{
-						{From: "in.out", To: "thr.In"},
-					},
-				},
-			},
-		},
-	}
-	errs := validateSentinelScope(c)
-	for _, e := range errs {
-		if e.Code == CodeThrowOutsideTry {
-			t.Errorf("Throw inside Try body subgraph should NOT emit THROW_OUTSIDE_TRY, got %+v", e)
+		if e.NodeID == "thr" {
+			t.Errorf("Throw in main should produce no sentinel-scope error, got %+v", e)
 		}
 	}
 }

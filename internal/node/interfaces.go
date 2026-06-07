@@ -31,8 +31,9 @@ type Dependencer interface {
 	Dependencies(in Inputs) []Dependency
 }
 
-// RegionRunner — 控制流节点 (Loop / Try / Subgraph / CollapsedNode) 实现. body 回调
-// 由 dispatch 构造, region 节点决定调用次数 (Loop 多次, Try 单次截获 error).
+// RegionRunner — 控制流节点 (Loop / Subgraph / CollapsedNode) 实现. body 回调
+// 由 dispatch 构造, region 节点决定调用次数 (Loop 多次, Subgraph 单次). body error
+// 裸透传, 由 dispatch 失败路由到 region 的 Fail 出口.
 type RegionRunner interface {
 	Node
 	RunRegion(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)

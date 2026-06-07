@@ -1,48 +1,29 @@
 package container
 
-// validateSentinelScope 拦截 Break/Continue/Throw 作用域错置.
+// validateSentinelScope 拦截 Break/Continue 作用域错置.
 //
 // Break / Continue: 必须 exec 可达自同图某个 Loop 节点的 body 出口 — 否则 sentinel
 // 漏到顶层 dispatch, 当前只能 emit generic error. fishing-v2 所有 Break 都跟其
 // target Loop 同图同 subgraph, 此检查不会误报.
 //
-// Throw: 必须在某个 Try 节点的 body subgraph 内 — Try 节点 config.SubgraphID 引用
-// 的子图. main graph + 非 Try-body subgraph 内放 Throw → 漏到顶层 panic-level fail.
+// Throw 不再受 scope 限制: Try 删除后 Throw 实现 node.Coded, 由 region 的 Fail 出口
+// 截获 (没接就冒泡到顶层), 任意位置合法.
 //
 // Limitations (双 graph 不分析):
 //   - Break inside subgraph A, A called from Subgraph 节点 in Loop body of main →
 //     运行时 OK (sentinel 透传到 main Loop), 但此检查 emit BREAK_OUTSIDE_LOOP.
 //     当前 fishing-v2 无此用法, 真要支持往 follow-up: 加 call-graph 分析标"调用栈含
 //     Loop body 的 subgraph 集合".
-//   - Throw 同理: 只放过 Try-body 子图本身, 不传 transitively.
 func validateSentinelScope(c *Container) []ValidationError {
 	if c == nil {
 		return nil
 	}
 	var errs []ValidationError
 
-	// 找出所有被 Try.SubgraphID 引用的子图 — Throw 只允许在这些里.
-	tryBodySubgraphs := map[string]struct{}{}
-	collectTryBodies := func(g Graph) {
-		for _, n := range g.Nodes {
-			if n.Kind != "Try" {
-				continue
-			}
-			if sgID := PinString(&n, "SubgraphID"); sgID != "" {
-				tryBodySubgraphs[sgID] = struct{}{}
-			}
-		}
-	}
-	collectTryBodies(c.Graph)
-	for i := range c.Subgraphs {
-		collectTryBodies(c.Subgraphs[i].Graph)
-	}
-
-	checkGraph := func(g Graph, path []string, subgraphID string) []ValidationError {
+	checkGraph := func(g Graph, path []string) []ValidationError {
 		var out []ValidationError
 
 		inLoopBody := buildLoopBodyReachSet(g)
-		_, graphIsTryBody := tryBodySubgraphs[subgraphID]
 
 		for _, n := range g.Nodes {
 			switch n.Kind {
@@ -64,24 +45,15 @@ func validateSentinelScope(c *Container) []ValidationError {
 						NodeID:    n.ID,
 					})
 				}
-			case "Throw":
-				if !graphIsTryBody {
-					out = append(out, ValidationError{
-						Severity:  SeverityError,
-						Code:      CodeThrowOutsideTry,
-						GraphPath: path,
-						NodeID:    n.ID,
-					})
-				}
 			}
 		}
 		return out
 	}
 
-	errs = append(errs, checkGraph(c.Graph, []string{"main"}, "")...)
+	errs = append(errs, checkGraph(c.Graph, []string{"main"})...)
 	for i := range c.Subgraphs {
 		sg := &c.Subgraphs[i]
-		errs = append(errs, checkGraph(sg.Graph, []string{"subgraph", sg.ID}, sg.ID)...)
+		errs = append(errs, checkGraph(sg.Graph, []string{"subgraph", sg.ID})...)
 	}
 	return errs
 }

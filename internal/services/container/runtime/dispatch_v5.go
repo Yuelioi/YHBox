@@ -7,7 +7,7 @@
 //   - execNodeAsRegionViaFramework: RegionRunner 节点 → RunNodeAsRegion + body 回调
 //   - dispatchInRegion: 统一 router, 自动 route 到 region 或 normal path. execNode 主入口
 //   - runRegionBody: region body sub-dispatch loop
-//   - makeBodyFor*: per-kind body callback (Loop / Subgraph / CollapsedNode / Try)
+//   - makeBodyFor*: per-kind body callback (Loop / Subgraph / CollapsedNode)
 package runtime
 
 import (
@@ -144,7 +144,7 @@ func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
 //  1. Panic   → emitDump(err) + emit container:node-panic + return error (framework invariant broken)
 //  2. Validation → emit container:node-validation + return error (graph 写错, 中断 run; 节点没真跑, 不 dump)
 //  3. Error   → emitDump(err) + emit container:node-error + return error (Run 返 runtime fail, caller 决定 stop /
-//     冒泡 / 走 Try; Stop sentinel / Try internal catch 走早返不 emit)
+//     冒泡 / 走 Fail 出口; Stop sentinel 走早返不 emit)
 //  4. Success → emitDump(nil) (仅勾选节点; opt-in node dump)
 //  5. ExitName 空 → return nil tokens (no-op 节点, queue 继续)
 //  6. ExitName 非空 → r.edges.next(nodeID.exitName)
@@ -257,7 +257,7 @@ func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.Run
 // Region runner sub-dispatch.
 // ============================================================================
 
-// execNodeAsRegionViaFramework dispatch RegionRunner 节点 (Loop / Subgraph / 未来 Try).
+// execNodeAsRegionViaFramework dispatch RegionRunner 节点 (Loop / Subgraph / CollapsedNode).
 // 构造 body callback (per kind), 调 nodepkg.RunNodeAsRegion, 走 routeResult.
 func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	rn, ok := nodepkg.Get(node.Kind)
@@ -302,10 +302,11 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 	return r.execNodeViaFramework(ctx, n, tok)
 }
 
-// checkSentinelLeak detect Break/Continue/Throw sentinel 漏到顶层 dispatch loop.
-// 正常路径里 Loop.RunRegion 截获 Break/Continue, Try.RunRegion 截获 Throw — 漏到
-// 顶层主 loop 说明 validator 漏报或子图 misplace. 返非空 leakCode + 包装 err 让主
-// loop emit container:node-validation 高亮失败节点; 不属 sentinel 返空 + 原 err.
+// checkSentinelLeak detect Break/Continue sentinel 漏到顶层 dispatch loop.
+// 正常路径里 Loop.RunRegion 截获 Break/Continue — 漏到顶层主 loop 说明 validator
+// 漏报或子图 misplace. 返非空 leakCode + 包装 err 让主 loop emit
+// container:node-validation 高亮失败节点; 不属 sentinel 返空 + 原 err.
+// (Throw 不再视为 leak — 它是 Coded error, 由 routeResult 失败路由处理.)
 func (r *ContainerRunner) checkSentinelLeak(node *container.GraphNode, err error) (leakCode string, wrapped error) {
 	switch {
 	case control.IsBreakRequested(err):
@@ -376,9 +377,9 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 	return nil
 }
 
-// makeBodyFor build region body callback per node kind: Loop / Subgraph / CollapsedNode / Try.
+// makeBodyFor build region body callback per node kind: Loop / Subgraph / CollapsedNode.
 //
-// ctx 来自 execNodeAsRegionViaFramework — 携带 tickCtxKey, Subgraph/Try eager pullDataPin
+// ctx 来自 execNodeAsRegionViaFramework — 携带 tickCtxKey, Subgraph eager pullDataPin
 // 链下去 bundle.Snapshot 能拿 frozen Vars. Loop body 不 pullDataPin 不需要外部 ctx.
 func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	switch node.Kind {
@@ -386,8 +387,6 @@ func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.Graph
 		return r.makeBodyForLoop(node, tok), nil
 	case "Subgraph", "CollapsedNode":
 		return r.makeBodyForSubgraph(ctx, node, tok)
-	case "Try":
-		return r.makeBodyForTry(ctx, node, tok)
 	}
 	return nil, fmt.Errorf("makeBodyFor: no body builder for kind %q (region runner not yet supported)", node.Kind)
 }
@@ -400,16 +399,6 @@ func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecTok
 		seeds := r.edges.next(node.ID+".Body", parentLoopStack)
 		return r.runRegionBody(c.Context(), seeds)
 	}
-}
-
-// makeBodyForTry — Try 节点 body 行为跟 Subgraph 几乎完全一致 (解 SubgraphID, push frame,
-// 切 dispatch table, sub-dispatch), 但 body 返 error 时不需要在这里特殊处理 — Try.RunRegion
-// 内部已经把 error → catch 出口 + error.Error() 字符串挂 catch.error 字段.
-//
-// 复用 makeBodyForSubgraph 的实现就好. (如果 Try 未来要区别 Throw vs 普通 error 等更细
-// 语义, Try.RunRegion 内做, 这里继续透传.)
-func (r *ContainerRunner) makeBodyForTry(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
-	return r.makeBodyForSubgraph(ctx, node, tok)
 }
 
 // makeBodyForSubgraph body 调一次 — 解析 SubgraphID + push frame + 切 dispatch table 到 callee +
