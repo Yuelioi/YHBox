@@ -46,7 +46,9 @@ CLAUDE.md
 .claude/
 
 # Agent workspace
-flightdeck/
+flightdeck/references
+flightdeck/tmp
+flightdeck/archive
 
 # User Data
 settings.json
