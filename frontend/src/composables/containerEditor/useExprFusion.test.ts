@@ -9,23 +9,22 @@ function makeGraph() {
       {
         id: 'A',
         kind: 'Expr',
+        // 表达式存 literal.Expression, 动态输入声明存 config.Inputs[] (PascalCase Name/Type).
         config: {
-          expr: 'x * 2',
-          inputs: [{ name: 'x', type: 'number' }],
-          literal: { x: 5 },
+          Inputs: [{ Name: 'x', Type: 'number' }],
+          literal: { Expression: 'x * 2', x: 5 },
         },
       },
       {
         id: 'B',
         kind: 'Expr',
         config: {
-          expr: 'in + x',
           // B already has its own input named `x` → forces A's `x` to be renamed.
-          inputs: [
-            { name: 'in', type: 'number' },
-            { name: 'x', type: 'number' },
+          Inputs: [
+            { Name: 'in', Type: 'number' },
+            { Name: 'x', Type: 'number' },
           ],
-          literal: { in: 99, x: 7 },
+          literal: { Expression: 'in + x', in: 99, x: 7 },
         },
       },
     ],
@@ -41,7 +40,7 @@ describe('useExprFusion literal migration', () => {
     expect(fuse('A', 'B', 'in')).toBe(true)
 
     const b = g.value.nodes.find((n: any) => n.id === 'B')! as any
-    const inputNames = (b.config.inputs as any[]).map((i) => i.name)
+    const inputNames = (b.config.Inputs as any[]).map((i) => i.Name)
 
     // A's `x` collided with B's `x` → renamed to `x1`; both present.
     expect(inputNames).toEqual(['x', 'x1'])
@@ -54,7 +53,7 @@ describe('useExprFusion literal migration', () => {
     expect(b.config.literal.x1).toBe(5)
     expect(b.config.literal.x).toBe(7)
 
-    // targetPin `in` in B.expr replaced by the parenthesized, renamed A expr.
-    expect(b.config.expr).toBe('(x1 * 2) + x')
+    // targetPin `in` in B's expression replaced by the parenthesized, renamed A expr.
+    expect(b.config.literal.Expression).toBe('(x1 * 2) + x')
   })
 })

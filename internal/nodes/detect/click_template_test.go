@@ -17,18 +17,18 @@ type recordingInput struct {
 	err   error
 }
 
-func (r *recordingInput) KeyDown(vk string) error                  { return r.err }
-func (r *recordingInput) KeyUp(vk string) error                    { return r.err }
+func (r *recordingInput) KeyDown(vk string) error { return r.err }
+func (r *recordingInput) KeyUp(vk string) error   { return r.err }
 func (r *recordingInput) Click(xRatio, yRatio float64, button string, durationMs int) error {
 	r.calls = append(r.calls, fmt.Sprintf("Click:%.3f:%.3f:%s:%d", xRatio, yRatio, button, durationMs))
 	return r.err
 }
-func (r *recordingInput) MouseMoveRel(dx, dy, durationMs int) error      { return r.err }
-func (r *recordingInput) MoveTo(xRatio, yRatio float64) error            { return r.err }
-func (r *recordingInput) CursorRatio() (float64, float64, error)         { return 0, 0, r.err }
-func (r *recordingInput) Scroll(xRatio, yRatio float64, notches int) error { return r.err }
+func (r *recordingInput) MouseMoveRel(dx, dy, durationMs int) error             { return r.err }
+func (r *recordingInput) MoveTo(xRatio, yRatio float64) error                   { return r.err }
+func (r *recordingInput) CursorRatio() (float64, float64, error)                { return 0, 0, r.err }
+func (r *recordingInput) Scroll(xRatio, yRatio float64, notches int) error      { return r.err }
 func (r *recordingInput) MouseDown(xRatio, yRatio float64, button string) error { return r.err }
-func (r *recordingInput) MouseUp(button string) error                          { return r.err }
+func (r *recordingInput) MouseUp(button string) error                           { return r.err }
 
 func withVisionAndInput(v node.VisionService, in node.InputService) node.ServiceBundle {
 	b := node.StubServices()

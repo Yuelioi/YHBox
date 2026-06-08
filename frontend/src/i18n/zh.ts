@@ -575,7 +575,7 @@ export default {
     Start: {
       label: '起点',
       description: '脚本的起跑线。运行时从这里开始往下跑，整张图只能有一个起点。',
-      output: { out: { label: '开始' } },
+      output: { Done: { label: '开始' } },
     },
     Stop: { label: '终点', description: '让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。' },
     Sleep: {
@@ -607,6 +607,7 @@ export default {
       output: {
         Body: { label: '循环体 (每轮触发)' },
         Done: { label: '完成' },
+        Fail: { label: '失败' },
       },
     },
     Switch: {
@@ -709,10 +710,10 @@ export default {
     },
     DetectColor: {
       label: '颜色检测',
-      description: '在你框的那块区域里数一数有多少像素落在指定颜色范围内，够多（达到最小像素数）就走 Yes 口并给出命中区域的中心点，不够就走 No 口。看一眼就出结果，不会反复等。颜色范围可用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）或 RGB（红绿蓝）两种方式填。',
-      example: '判断血条是不是红的（血量够）：在血条位置框一块区域，模式选 HSV、填红色的范围，命中够多就走 Yes 接正常逻辑，太少走 No 接吃药/撤退。',
+      description: '在你框的那块区域里数一数有多少像素落在指定颜色范围内，够多（达到最小像素数）就走 Found 口并给出命中区域的中心点，不够就走 NotFound 口。看一眼就出结果，不会反复等。颜色范围可用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）或 RGB（红绿蓝）两种方式填。',
+      example: '判断血条是不是红的（血量够）：在血条位置框一块区域，模式选 HSV、填红色的范围，命中够多就走 Found 接正常逻辑，太少走 NotFound 接吃药/撤退。',
       input: {
-        Region: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
+        ROI: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
         Range: {
           label: '范围',
@@ -729,20 +730,20 @@ export default {
         CaptureCenter: { label: '命中中心点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
-        Yes: {
+        Found: {
           label: '命中',
           data: { Count: { hint: '命中像素数' }, Center: { hint: '命中中心 (ratio)' } },
         },
-        No: {
+        NotFound: {
           label: '未命中',
           data: { Count: { hint: '命中像素数' } },
         },
       },
     },
     DetectColorHSV: {
-      label: 'HSV 颜色检测',
-      description: '在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Yes 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 No 口。',
-      example: '等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Yes 接放技能；一直没亮走 Timeout。',
+      label: '颜色检测 (HSV)',
+      description: '在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Found 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 NotFound 口。',
+      example: '等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Found 接放技能；一直没亮走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
@@ -753,8 +754,8 @@ export default {
         CapturePixelRatio: { label: '命中比例→变量', hint: '填变量名, 把命中像素比例捕获进该变量' },
       },
       output: {
-        Yes: { label: '命中' },
-        No: { label: '未命中' },
+        Found: { label: '命中' },
+        NotFound: { label: '未命中' },
         Timeout: { label: '超时' },
       },
     },
@@ -762,9 +763,17 @@ export default {
       label: '颜色块定位',
       description: '在区域内找出指定颜色的所有连通块，返回每块的中心/外接框/面积（归一化）。用于发光物资、血条、颜色标记目标的定位。',
       input: {
-        ROI: { label: '区域' },
-        Mode: { label: '颜色模式', option: { hsv: 'HSV', rgb: 'RGB' } },
-        Range: { label: '颜色范围' },
+        ROI: { label: '区域 (ratio)' },
+        Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
+        Range: {
+          label: '范围',
+          c1Min: { label: '通道1 下限 (H/R)' },
+          c1Max: { label: '通道1 上限 (H/R)' },
+          c2Min: { label: '通道2 下限 (S/G)' },
+          c2Max: { label: '通道2 上限 (S/G)' },
+          c3Min: { label: '通道3 下限 (V/B)' },
+          c3Max: { label: '通道3 上限 (V/B)' },
+        },
         MinArea: { label: '最小像素数' },
         MaxBlobs: { label: '最多返回块数（0=不限）' },
         Sort: {
@@ -776,11 +785,11 @@ export default {
           },
         },
         RefPoint: { label: '参考点（归一化）' },
-        PollIntervalMs: { label: '轮询间隔(ms)' },
-        TimeoutMs: { label: '超时(ms，0=单次)' },
-        CapturePrimaryCenter: { label: '捕获·首块中心' },
-        CapturePrimaryArea: { label: '捕获·首块面积' },
-        CaptureBlobCount: { label: '捕获·块数' },
+        PollIntervalMs: { label: '轮询间隔 (ms)' },
+        TimeoutMs: { label: '超时 (ms, 0=单次)' },
+        CapturePrimaryCenter: { label: '首块中心→变量' },
+        CapturePrimaryArea: { label: '首块面积→变量' },
+        CaptureBlobCount: { label: '块数→变量' },
       },
       output: {
         Found: { label: '找到' },
@@ -790,13 +799,23 @@ export default {
     },
     DualColorBarTrack: {
       label: '双色条追踪',
-      description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 Missing。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
+      description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
       example: '钓鱼溜鱼条：在溜鱼条上框 ROI，内层填光标黄、外层填目标青，Found 口拿到光标和目标位置后，判断光标偏左就按左、偏右就按右，把光标拽回目标区段里。',
       input: {
-        Roi: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形' },
-        InnerColor: { label: 'inner HSV (默认 fishing cursor 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
-        OuterColor: { label: 'outer HSV (默认 fishing target 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
-        Options: { label: '算法参数 (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 fishing UI 实测值)` },
+        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形' },
+        InnerColor: { label: '内层 HSV (默认 钓鱼光标 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
+        OuterColor: { label: '外层 HSV (默认 钓鱼目标 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
+        Options: {
+          label: '算法参数 (可选)',
+          hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 钓鱼 UI 实测值)`,
+          innerMinPx: { label: '内层最小像素' },
+          innerMaxPx: { label: '内层最大像素 (0=不限)' },
+          outerMinPx: { label: '外层最小像素 (0=不限)' },
+          bandRatioH: { label: '横向带宽比例' },
+          bandRatioInner: { label: '内层带宽比例' },
+          confInnerWeight: { label: '内层置信权重' },
+          confOuterWeight: { label: '外层置信权重' },
+        },
         CaptureInnerX: { label: '内层位置→变量', hint: '填变量名, 把内层 (滑块) 在区段里的位置捕获进该变量' },
         CaptureOuterX: { label: '外层位置→变量', hint: '填变量名, 把外层 (目标区段) 位置捕获进该变量' },
         CaptureOuterWidth: { label: '外层宽度→变量', hint: '填变量名, 把外层区段宽度捕获进该变量' },
@@ -806,11 +825,11 @@ export default {
       },
       output: {
         Found: { label: '命中' },
-        Missing: { label: '未命中' },
+        NotFound: { label: '未命中' },
       },
     },
     ROIColorScan: {
-      label: 'ROI 颜色 cluster 扫描',
+      label: 'ROI 颜色连续段扫描',
       description: '在你框的 ROI（屏幕上框的一小块）里，沿水平或垂直方向找指定颜色的「连续段」——一串连在一起、长度在你设的范围内的同色像素算一段。找到的段数够（达到最少段数）就走 Found 口，并把每段的信息带出去；不够就一直按间隔重试，超时走 Timeout。颜色用 HSV（按色相/鲜艳度/明暗）填。把超时设成 0 或负数就只扫一遍，不够直接走 NotFound。',
       example: '数背包里有几格亮着的物品：在背包行框 ROI，扫描轴选水平，填物品高亮的 HSV、最少段数填 1，扫到亮格就走 Found 接后续处理，一直没有走 Timeout。',
       input: {
@@ -819,7 +838,7 @@ export default {
         Axis: { label: '扫描轴', option: { x: '水平 (x)', y: '垂直 (y)' } },
         MinClusterPx: { label: '最小段长 (px)' },
         MaxClusterPx: { label: '最大段长 (px)', hint: '<=0 默认 ROI 大小 / 3' },
-        MinClusterCount: { label: '最少 cluster 数' },
+        MinClusterCount: { label: '最少段数' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
         CaptureClusterCount: { label: '段数→变量', hint: '填变量名, 把找到的连续段数量捕获进该变量' },
@@ -882,6 +901,7 @@ export default {
           label: '完成',
           data: { Path: { hint: '写入的绝对路径' } },
         },
+        Fail: { label: '失败' },
       },
     },
     // input
@@ -914,7 +934,7 @@ export default {
     KeyHoldStop: {
       label: '松开按键',
       description: '把之前「按住按键」按下去的那个键松开。两个节点要填同一个键，配成一对用。',
-      input: { VK: { label: '按键', hint: '虚拟键名 — 跟之前 KeyHoldStart 同一个' } },
+      input: { VK: { label: '按键', hint: '虚拟键名 — 跟上一个「按住按键」节点同一个' } },
       output: { Done: { label: '已松开' } },
     },
     KeyPress: {
@@ -941,7 +961,7 @@ export default {
     MouseHoldStop: {
       label: '松开鼠标',
       description: '把之前「按住鼠标」按下去的那个鼠标键松开。两个节点选同一个键，配成一对用。',
-      input: { Button: { label: '按键', hint: '跟之前 MouseHoldStart 同一个 button', option: { left: '左键', right: '右键', middle: '中键' } } },
+      input: { Button: { label: '按键', hint: '跟上一个「按住鼠标」节点同一个', option: { left: '左键', right: '右键', middle: '中键' } } },
       output: { Done: { label: '已松开' } },
     },
     MouseMoveRel: {
@@ -997,7 +1017,7 @@ export default {
       description: '把一条消息打到运行日志里，方便你调试时看脚本跑到哪一步、当时的值是多少。消息口什么都能接——文字、数字、坐标、区域都行，会自动转成文本。',
       example: '调试循环时想确认跑了几次：把 Log 接进循环体，消息填「第几次」，运行日志里就会一次次打印出来。',
       input: {
-        Message: { label: '消息', hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, framework 自动 stringify' },
+        Message: { label: '消息', hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, 自动转成文本' },
         Level: { label: '级别', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
       },
       output: { Done: { label: '完成' } },
@@ -1007,7 +1027,7 @@ export default {
       description: '把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。',
       example: '游戏里有套固定连招：先录一段，再用本节点选中这段录像，脚本跑到这里就会自动把连招完整打一遍。',
       input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' } },
-      output: { Done: { label: '完成' } },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
       inspector: {
         clip_unset_placeholder: '(未设)',
         clip_missing: 'clip {id} 不在 clips 库. 重新录制覆盖.',
@@ -1029,14 +1049,14 @@ export default {
         WorkingDir: { label: '工作目录', hint: '可选。程序启动的工作目录，留空用默认。' },
         WindowState: { label: '窗口状态', option: { normal: '正常', minimized: '最小化', maximized: '最大化', hidden: '隐藏' } },
       },
-      output: { Done: { label: '完成' } },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     // purefunc
     Expr: {
       label: '表达式',
       description: `写一行算式自由组合运算，得到结果。支持加减乘除取余 (+ - * / %)、比较 (< <= > >= == !=)、与或非 (&& {'||'} !)、三元 (条件 ? 甲 : 乙)，内置函数 abs、min、max、now，字符串用双引号包起来、用 + 拼接。想引用外部值，先给节点加输入口、再在算式里用同名变量（如 hp、count）。`,
       example: '先加两个输入口 hp 和 max，算式写 hp / max * 100 算出血量百分比；或写 hp < max * 0.3 ? "快补血" : "安全" 按血量给出不同提示。变量名就是你加的输入口的名字。',
-      input: { Expression: { label: '表达式', hint: 'Go-like 表达式. dynamic Inputs[] 声明的 input name 可在表达式里引用.' } },
+      input: { Expression: { label: '表达式', hint: '类 Go 表达式。给节点加的输入口名字可在表达式里引用。' } },
       output: { Result: { label: '结果' } },
     },
     Add: {
@@ -1160,7 +1180,7 @@ export default {
       label: '秒表 启动',
       description: '按下一个秒表开始计时，用来测某段流程花了多久。每个秒表用一个 key（名字）区分，可以同时跑好几个互不干扰。如果这个 key 已经在跑，会从头重新计时。',
       example: '想测「找图 + 点击」这段花多长：先接 StopwatchStart（key 填 click），跑完那段再接 StopwatchRead（key 同样填 click），就能拿到这段的毫秒数。',
-      input: { Key: { label: 'key', hint: '秒表 key (命名空间独立于 $vars.*)' } },
+      input: { Key: { label: '秒表名', hint: '秒表 key (命名空间独立于 $vars.*)' } },
       output: { Done: { label: '完成' } },
     },
     StopwatchRead: {
@@ -1168,7 +1188,7 @@ export default {
       description: '读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。',
       example: '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
       input: {
-        Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' },
+        Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' },
         CaptureElapsedMs: { label: '用时(ms)→变量', hint: '填变量名, 把读到的 elapsed 毫秒数捕获进该变量' },
       },
       output: {
@@ -1181,7 +1201,7 @@ export default {
     StopwatchStop: {
       label: '秒表 停止',
       description: '让某个秒表停下来，之后再读它拿到的就是停的那一刻的总用时，不会再往上涨。这个 key 没启动过的话什么都不做。',
-      input: { Key: { label: 'key', hint: '跟之前 StopwatchStart 同一个 key' } },
+      input: { Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' } },
       output: { Done: { label: '完成' } },
     },
     // system
@@ -1189,10 +1209,10 @@ export default {
       label: '折叠子图',
       description: '把画布上选中的一组节点折叠成一个小方块，让流程图看着清爽。双击进去能编辑里面的节点，运行时跟展开时一模一样，跑完走「完成」往下接。',
       input: {
-        SubgraphID: { label: '子图 ID', hint: '目标 isAnonymous Subgraph 标识符' },
+        SubgraphID: { label: '子图 ID', hint: '目标匿名子图标识符' },
         Label: { label: '标签' },
       },
-      output: { Done: { label: '完成' } },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     CommentBox: {
       label: '注释框',
@@ -1208,8 +1228,8 @@ export default {
     MouseCalibration: {
       label: '鼠标校准',
       description: '告诉脚本「你这台机器鼠标转一整圈要走多少」，相对移动鼠标（MouseMoveRel）就靠这个值把角度换算成实际移动量。只放在主图、一个容器一个，本身不做动作，直接往下接。',
-      input: { Counts360: { label: 'counts/360°', hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.' } },
-      output: { Fire: { label: 'Fire' } },
+      input: { Counts360: { label: '每圈 counts', hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.' } },
+      output: { Done: { label: '完成' } },
       inspector: {
         counts_label: '本机 360° HID counts',
         calibrated: '✅ 已校准',
@@ -1228,9 +1248,9 @@ export default {
       example: '登录流程要在好几个脚本里反复用：做成子图，每个脚本放一个「调用子图」指过去就行，以后改登录只改子图一处。',
       input: {
         SubgraphID: { label: '子图 ID' },
-        Params: { label: '参数', hint: '调用参数 — 透传给 runner, 由 runner 注入 callee 的 SubgraphInput.' },
+        Params: { label: '参数', hint: '调用参数 — 传给被调子图的入口' },
       },
-      output: { Done: { label: '完成' } },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
       fallback_missing: '(子图未找到)',
       fallback_empty: '(无出口)',
       inspector: {
@@ -1270,9 +1290,9 @@ export default {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
-        TitleMatch: { label: '标题匹配方式', option: { exact: 'exact', contains: 'contains', prefix: 'prefix', suffix: 'suffix', regex: 'regex' } },
+        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', contains: '包含', prefix: '前缀', suffix: '后缀', regex: '正则' } },
       },
-      output: { Fire: { label: 'Fire' } },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
       subgraph_hint: '子图内切窗口会影响调用方, 返回不自动还原',
       inspector: {
         capture_waiting: '等待 {hk} 按键 (再点取消)',
@@ -1286,7 +1306,7 @@ export default {
         process_label: '进程名 (processName)',
         title_match_label: 'title 匹配方式',
         title_match_exact: '精确匹配 (区分大小写)',
-        title_match_regex: '正则 RE2 (partial match)',
+        title_match_regex: '正则 RE2 (部分匹配)',
       },
     },
     WaitWindow: {
@@ -1298,7 +1318,7 @@ export default {
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
         TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
-        TimeoutMs: { label: '超时 (毫秒)', hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。' },
+        TimeoutMs: { label: '超时 (ms)', hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。' },
       },
       output: { Found: { label: '出现' }, Timeout: { label: '超时' } },
     },
@@ -1321,7 +1341,7 @@ export default {
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
-        Value: { label: '值', hint: 'wildcard — 任意类型' },
+        Value: { label: '值', hint: '任意类型' },
       },
       output: { Done: { label: '完成' } },
     },

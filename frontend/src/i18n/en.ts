@@ -555,7 +555,7 @@ export default {
     Start: {
       label: 'Start',
       description: 'The starting line of your script. Execution begins here and flows downward. A graph has exactly one Start.',
-      output: { out: { label: 'Start' } },
+      output: { Done: { label: 'Start' } },
     },
     Stop: { label: 'Stop', description: 'Cleanly halts the whole script right away — not treated as an error. Once it reaches here, no further steps run.' },
     Sleep: {
@@ -587,6 +587,7 @@ export default {
       output: {
         Body: { label: 'Body (per iteration)' },
         Done: { label: 'Done' },
+        Fail: { label: 'Failed' },
       },
     },
     Switch: {
@@ -689,10 +690,10 @@ export default {
     },
     DetectColor: {
       label: 'Detect color',
-      description: 'Counts how many pixels in the region you framed fall inside a color range. If there are enough (at least min pixels) it takes Yes and gives the center of the matched area; otherwise No. It is a single glance, no waiting. The color range can be described in HSV (hue / saturation / brightness — more robust to lighting changes) or RGB.',
-      example: 'Check if the health bar is red (HP is fine): frame the bar, set mode HSV with a red range; enough matched pixels takes Yes for normal flow, too few takes No for heal/retreat.',
+      description: 'Counts how many pixels in the region you framed fall inside a color range. If there are enough (at least min pixels) it takes Found and gives the center of the matched area; otherwise NotFound. It is a single glance, no waiting. The color range can be described in HSV (hue / saturation / brightness — more robust to lighting changes) or RGB.',
+      example: 'Check if the health bar is red (HP is fine): frame the bar, set mode HSV with a red range; enough matched pixels takes Found for normal flow, too few takes NotFound for heal/retreat.',
       input: {
-        Region: { label: 'Region (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
         Range: {
           label: 'Range',
@@ -709,20 +710,20 @@ export default {
         CaptureCenter: { label: 'Hit center → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
-        Yes: {
-          label: 'Yes',
+        Found: {
+          label: 'Found',
           data: { Count: { hint: 'Hit pixel count' }, Center: { hint: 'Hit center (ratio)' } },
         },
-        No: {
-          label: 'No',
+        NotFound: {
+          label: 'Not found',
           data: { Count: { hint: 'Hit pixel count' } },
         },
       },
     },
     DetectColorHSV: {
       label: 'Detect color (HSV)',
-      description: 'Repeatedly measures what share of the ROI (a small region you frame on screen) matches a given color, and takes Yes once it reaches your target ratio; if the timeout runs out first, takes Timeout. Unlike «Detect color», it keeps polling at your interval, and the color is given only in HSV (hue / saturation / brightness — robust to lighting). Set timeout to 0 or below for a single glance that takes No when short.',
-      example: 'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Yes to cast, never bright takes Timeout.',
+      description: 'Repeatedly measures what share of the ROI (a small region you frame on screen) matches a given color, and takes Found once it reaches your target ratio; if the timeout runs out first, takes Timeout. Unlike «Detect color», it keeps polling at your interval, and the color is given only in HSV (hue / saturation / brightness — robust to lighting). Set timeout to 0 or below for a single glance that takes NotFound when short.',
+      example: 'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Found to cast, never bright takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
@@ -733,50 +734,68 @@ export default {
         CapturePixelRatio: { label: 'Hit ratio → variable', hint: 'Enter a variable name to capture the hit pixel ratio into it' },
       },
       output: {
-        Yes: { label: 'Yes' },
-        No: { label: 'No' },
+        Found: { label: 'Found' },
+        NotFound: { label: 'Not found' },
         Timeout: { label: 'Timeout' },
       },
     },
     DetectColorBlobs: {
-      label: 'Color Blob Locate',
+      label: 'Color blob locate',
       description: 'Find all connected regions of a target color in an area; returns each blob center/bbox/area (normalized). For glow loot, health bars, color-marked targets.',
       input: {
-        ROI: { label: 'Region' },
-        Mode: { label: 'Color Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
-        Range: { label: 'Color Range' },
-        MinArea: { label: 'Min Pixels' },
-        MaxBlobs: { label: 'Max Blobs (0=unlimited)' },
+        ROI: { label: 'ROI (ratio)' },
+        Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
+        Range: {
+          label: 'Range',
+          c1Min: { label: 'Channel 1 min (H/R)' },
+          c1Max: { label: 'Channel 1 max (H/R)' },
+          c2Min: { label: 'Channel 2 min (S/G)' },
+          c2Max: { label: 'Channel 2 max (S/G)' },
+          c3Min: { label: 'Channel 3 min (V/B)' },
+          c3Max: { label: 'Channel 3 max (V/B)' },
+        },
+        MinArea: { label: 'Min pixels' },
+        MaxBlobs: { label: 'Max blobs (0=unlimited)' },
         Sort: {
-          label: 'Sort By',
+          label: 'Sort by',
           option: {
             area_desc: 'Area desc',
             dist_screen_center: 'Nearest to screen center',
             dist_point: 'Nearest to ref point',
           },
         },
-        RefPoint: { label: 'Ref Point (normalized)' },
-        PollIntervalMs: { label: 'Poll Interval (ms)' },
+        RefPoint: { label: 'Ref point (normalized)' },
+        PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms, 0=single)' },
-        CapturePrimaryCenter: { label: 'Capture · Primary Center' },
-        CapturePrimaryArea: { label: 'Capture · Primary Area' },
-        CaptureBlobCount: { label: 'Capture · Blob Count' },
+        CapturePrimaryCenter: { label: 'Primary center → variable' },
+        CapturePrimaryArea: { label: 'Primary area → variable' },
+        CaptureBlobCount: { label: 'Blob count → variable' },
       },
       output: {
         Found: { label: 'Found' },
-        NotFound: { label: 'Not Found' },
+        NotFound: { label: 'Not found' },
         Timeout: { label: 'Timeout' },
       },
     },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
-      description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → Missing. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
+      description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
       example: 'Fishing reel bar: frame the ROI over the bar, set inner to the cursor yellow and outer to the target cyan; from Found read the cursor and target positions, then press left if the cursor is too far left or right if too far right to pull it back into the target band.',
       input: {
-        Roi: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
-        InnerColor: { label: 'inner HSV (default fishing cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
-        OuterColor: { label: 'outer HSV (default fishing target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
-        Options: { label: 'Algorithm params (Optional)', hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)` },
+        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
+        InnerColor: { label: 'Inner HSV (default fishing-cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
+        OuterColor: { label: 'Outer HSV (default fishing-target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
+        Options: {
+          label: 'Algorithm params (optional)',
+          hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)`,
+          innerMinPx: { label: 'Inner min px' },
+          innerMaxPx: { label: 'Inner max px (0=unlimited)' },
+          outerMinPx: { label: 'Outer min px (0=unlimited)' },
+          bandRatioH: { label: 'Band height ratio' },
+          bandRatioInner: { label: 'Inner band ratio' },
+          confInnerWeight: { label: 'Inner confidence weight' },
+          confOuterWeight: { label: 'Outer confidence weight' },
+        },
         CaptureInnerX: { label: 'Inner position → variable', hint: 'Enter a variable name to capture the inner marker position within the band into it' },
         CaptureOuterX: { label: 'Outer position → variable', hint: 'Enter a variable name to capture the outer (target band) position into it' },
         CaptureOuterWidth: { label: 'Outer width → variable', hint: 'Enter a variable name to capture the outer band width into it' },
@@ -786,7 +805,7 @@ export default {
       },
       output: {
         Found: { label: 'Found' },
-        Missing: { label: 'Missing' },
+        NotFound: { label: 'Not found' },
       },
     },
     ROIColorScan: {
@@ -862,6 +881,7 @@ export default {
           label: 'Done',
           data: { Path: { hint: 'Written absolute path' } },
         },
+        Fail: { label: 'Failed' },
       },
     },
     // input
@@ -987,7 +1007,7 @@ export default {
       description: 'Replays a mouse-and-keyboard sequence you recorded earlier, exactly as recorded — handy for reproducing a fixed combo or form-filling routine. It takes over the mouse and keyboard during playback and only moves on once done; stopping the script mid-clip interrupts it and releases any held keys.',
       example: 'You have a fixed combo in a game: record it once, then point this node at that clip, and the script replays the whole combo whenever it reaches here.',
       input: { ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' } },
-      output: { Done: { label: 'Done' } },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
       inspector: {
         clip_unset_placeholder: '(unset)',
         clip_missing: 'clip {id} not found in the clip library. Re-record to overwrite.',
@@ -1009,7 +1029,7 @@ export default {
         WorkingDir: { label: 'Working dir', hint: 'Optional. Working directory the program starts in; empty = default.' },
         WindowState: { label: 'Window state', option: { normal: 'Normal', minimized: 'Minimized', maximized: 'Maximized', hidden: 'Hidden' } },
       },
-      output: { Done: { label: 'Done' } },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
     },
     // purefunc
     Expr: {
@@ -1140,7 +1160,7 @@ export default {
       label: 'Stopwatch start',
       description: 'Starts a stopwatch so you can time how long part of your flow takes. Each stopwatch is identified by a key (name), so you can run several at once without them interfering. If that key is already running, it restarts from zero.',
       example: 'To time a "find image + click" section: connect StopwatchStart (key = click), run that section, then connect StopwatchRead (key = click) afterward to get the elapsed milliseconds.',
-      input: { Key: { label: 'key', hint: 'Stopwatch key (namespace independent of $vars.*)' } },
+      input: { Key: { label: 'Key', hint: 'Stopwatch key (namespace independent of $vars.*)' } },
       output: { Done: { label: 'Done' } },
     },
     StopwatchRead: {
@@ -1148,7 +1168,7 @@ export default {
       description: 'Reads how many milliseconds a stopwatch has counted. If it is still running, you get "start until now"; if it was stopped, you get "start until the stop"; an unstarted key returns 0.',
       example: 'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
       input: {
-        Key: { label: 'key', hint: 'Same key as the prior StopwatchStart' },
+        Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' },
         CaptureElapsedMs: { label: 'Elapsed (ms) → variable', hint: 'Enter a variable name to capture the read elapsed milliseconds into it' },
       },
       output: {
@@ -1161,7 +1181,7 @@ export default {
     StopwatchStop: {
       label: 'Stopwatch stop',
       description: 'Stops a stopwatch so that reading it later gives the total time at the moment it stopped, instead of continuing to climb. Does nothing if that key was never started.',
-      input: { Key: { label: 'key', hint: 'Same key as the prior StopwatchStart' } },
+      input: { Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' } },
       output: { Done: { label: 'Done' } },
     },
     // system
@@ -1172,7 +1192,7 @@ export default {
         SubgraphID: { label: 'Subgraph ID', hint: 'Target isAnonymous Subgraph identifier' },
         Label: { label: 'Label' },
       },
-      output: { Done: { label: 'Done' } },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
     },
     CommentBox: {
       label: 'Comment box',
@@ -1188,8 +1208,8 @@ export default {
     MouseCalibration: {
       label: 'Mouse calibration',
       description: 'Tells the script how far your mouse travels per full 360° turn on this machine; relative mouse moves (MouseMoveRel) use this value to convert angles into actual movement. Put one in the main graph (one per container); it does no action itself and just passes through.',
-      input: { Counts360: { label: 'counts/360°', hint: 'Counts produced per full 360° mouse rotation. MouseMoveRel uses this to scale dx/dy.' } },
-      output: { Fire: { label: 'Fire' } },
+      input: { Counts360: { label: 'Counts per 360°', hint: 'Counts produced per full 360° mouse rotation. MouseMoveRel uses this to scale dx/dy.' } },
+      output: { Done: { label: 'Done' } },
       inspector: {
         counts_label: 'Local 360° HID counts',
         calibrated: '✅ Calibrated',
@@ -1210,7 +1230,7 @@ export default {
         SubgraphID: { label: 'Subgraph ID' },
         Params: { label: 'Params', hint: 'Call params — passed through to the runner, which injects them into the callee SubgraphInput.' },
       },
-      output: { Done: { label: 'Done' } },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
       fallback_missing: '(subgraph not found)',
       fallback_empty: '(no outputs)',
       inspector: {
@@ -1250,9 +1270,9 @@ export default {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
         ProcessName: { label: 'Process name' },
-        TitleMatch: { label: 'Title match mode', option: { exact: 'exact', contains: 'contains', prefix: 'prefix', suffix: 'suffix', regex: 'regex' } },
+        TitleMatch: { label: 'Title match mode', option: { exact: 'Exact', contains: 'Contains', prefix: 'Prefix', suffix: 'Suffix', regex: 'Regex' } },
       },
-      output: { Fire: { label: 'Fire' } },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
       subgraph_hint: 'Switching windows inside a subgraph affects the caller; the window is not restored automatically on return.',
       inspector: {
         capture_waiting: 'Waiting for {hk} (click again to cancel)',

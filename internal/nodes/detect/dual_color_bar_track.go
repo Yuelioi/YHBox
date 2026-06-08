@@ -15,12 +15,12 @@ type DualColorBarTrack struct{}
 
 const (
 	dcbtInExec       = "In"
-	dcbtInRoi        = "Roi"
+	dcbtInROI        = "ROI"
 	dcbtInInnerColor = "InnerColor"
 	dcbtInOuterColor = "OuterColor"
 	dcbtInOptions    = "Options"
 	dcbtOutFound     = "Found"
-	dcbtOutMissing   = "Missing"
+	dcbtOutNotFound  = "NotFound"
 	dcbtDataInnerX   = "InnerX"
 	dcbtDataOuterX   = "OuterX"
 	dcbtDataOuterW   = "OuterWidth"
@@ -53,7 +53,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dcbtInExec, Type: "Exec"},
-			{Name: dcbtInRoi, Type: "Geometry", Required: true,
+			{Name: dcbtInROI, Type: "Geometry", Required: true,
 				Schema: node.GeometrySchema()},
 			{Name: dcbtInInnerColor, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})},
@@ -87,7 +87,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 					{Name: dcbtDataInnerPx, Type: "Number"},
 					{Name: dcbtDataOuterPx, Type: "Number"},
 				}},
-			{Name: dcbtOutMissing, Type: "Exec",
+			{Name: dcbtOutNotFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dcbtDataConf, Type: "Number", Optional: true},
 				}},
@@ -96,7 +96,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 }
 
 func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	roi := in.Geometry(dcbtInRoi)
+	roi := in.Geometry(dcbtInROI)
 	inner := parseDualBarHSV(in.JSON(dcbtInInnerColor), defaultInnerHSV)
 	outer := parseDualBarHSV(in.JSON(dcbtInOuterColor), defaultOuterHSV)
 	opts := parseDualBarOptions(in.JSON(dcbtInOptions))
@@ -107,7 +107,7 @@ func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error)
 	}
 	if !result.Found || result.InnerX < 0 || result.OuterX < 0 {
 		node.Capture(ctx, in, dcbtCapConf, result.Confidence) // missing 仅带 Conf
-		return ctx.Out(dcbtOutMissing).Set(dcbtDataConf, result.Confidence).Fire(), nil
+		return ctx.Out(dcbtOutNotFound).Set(dcbtDataConf, result.Confidence).Fire(), nil
 	}
 	node.Capture(ctx, in, dcbtCapInnerX, result.InnerX)
 	node.Capture(ctx, in, dcbtCapOuterX, result.OuterX)

@@ -19,12 +19,12 @@ type DetectColor struct{}
 
 const (
 	dcInExec      = "In"
-	dcInRegion    = "Region"
+	dcInROI       = "ROI"
 	dcInMode      = "Mode"
 	dcInRange     = "Range"
 	dcInMinPixels = "MinPixels"
-	dcOutYes      = "Yes"
-	dcOutNo       = "No"
+	dcOutFound    = "Found"
+	dcOutNotFound = "NotFound"
 	dcDataCount   = "Count"
 	dcDataCenter  = "Center"
 	dcCapCount    = "CaptureCount"
@@ -50,7 +50,7 @@ func (DetectColor) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: dcInExec, Type: "Exec"},
-			{Name: dcInRegion, Type: "Geometry", Schema: node.GeometrySchema()},
+			{Name: dcInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: dcInMode, Type: "String", Default: "hsv",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -70,12 +70,12 @@ func (DetectColor) Spec() node.Spec {
 				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: dcOutYes, Type: "Exec",
+			{Name: dcOutFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dcDataCount, Type: "Number"},
 					{Name: dcDataCenter, Type: "Point"},
 				}},
-			{Name: dcOutNo, Type: "Exec",
+			{Name: dcOutNotFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dcDataCount, Type: "Number"},
 				}},
@@ -84,7 +84,7 @@ func (DetectColor) Spec() node.Spec {
 }
 
 func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	geo := in.Geometry(dcInRegion)
+	geo := in.Geometry(dcInROI)
 	mode := in.String(dcInMode)
 	if mode == "" {
 		mode = "hsv"
@@ -102,13 +102,13 @@ func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if count >= minPx {
 		node.Capture(ctx, in, dcCapCount, count)
 		node.Capture(ctx, in, dcCapCenter, node.Point{X: cx, Y: cy})
-		return ctx.Out(dcOutYes).
+		return ctx.Out(dcOutFound).
 			Set(dcDataCount, count).
 			Set(dcDataCenter, node.Point{X: cx, Y: cy}).
 			Fire(), nil
 	}
 	node.Capture(ctx, in, dcCapCount, count)
-	return ctx.Out(dcOutNo).Set(dcDataCount, count).Fire(), nil
+	return ctx.Out(dcOutNotFound).Set(dcDataCount, count).Fire(), nil
 }
 
 // parseRange6 把 Raw any (JSON [Number,...] / [int...] / [float64...]) 转 [6]int.

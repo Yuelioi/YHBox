@@ -39,8 +39,8 @@ describe('unconnectedDataInPins', () => {
     expect(out).toEqual([{ name: 'Pos', type: 'point' }])
   })
 
-  it('Expr 节点并入 config.inputs[] 未连线动态输入', () => {
-    const config = { inputs: [{ name: 'a', type: 'number' }, { name: 'b', type: 'number' }] }
+  it('Expr 节点并入 config.Inputs[] 未连线动态输入', () => {
+    const config = { Inputs: [{ Name: 'a', Type: 'number' }, { Name: 'b', Type: 'number' }] }
     const edges = [{ from: 's.out', to: 'n1.a' }]
     const out = unconnectedDataInPins('Expr', {}, config, edges, 'n1')
     expect(out.map((p) => p.name)).toEqual(['b'])

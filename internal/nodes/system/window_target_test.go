@@ -65,8 +65,8 @@ func TestWindowTarget_Run_CallsSetActive(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != wtOutFire {
-		t.Errorf("exit = %q, want %q", r.ExitName, wtOutFire)
+	if r.ExitName != wtOutDone {
+		t.Errorf("exit = %q, want %q", r.ExitName, wtOutDone)
 	}
 	if !stub.called {
 		t.Fatal("SetActive 应被调用")

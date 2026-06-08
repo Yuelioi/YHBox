@@ -31,7 +31,7 @@ func TestDetectColorHSV_HitFirstPoll(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != dchOutYes {
+	if r.ExitName != dchOutFound {
 		t.Errorf("exit = %q, want Yes", r.ExitName)
 	}
 }
@@ -48,7 +48,7 @@ func TestDetectColorHSV_NoOnSingleScan(t *testing.T) {
 	cfg[dchInTimeoutMs] = 0
 	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
-	if r.ExitName != dchOutNo {
+	if r.ExitName != dchOutNotFound {
 		t.Errorf("exit = %q, want No", r.ExitName)
 	}
 }
@@ -70,7 +70,7 @@ func TestDetectColorHSV_Capture_Hit(t *testing.T) {
 	if res.Error != nil {
 		t.Fatal(res.Error)
 	}
-	if res.ExitName != dchOutYes {
+	if res.ExitName != dchOutFound {
 		t.Fatalf("exit = %q, want Yes", res.ExitName)
 	}
 	if got, ok := vars.Get("n"); !ok || got != 100 {
@@ -103,4 +103,3 @@ func TestDetectColorHSV_Timeout(t *testing.T) {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
 	}
 }
-

@@ -43,10 +43,11 @@ export function unconnectedDataInPins(
   }
   const out: LiteralPin[] = []
   if (kind === 'Expr') {
-    const inputs = (config?.inputs ?? []) as Array<{ name?: string; type?: string }>
+    // Expr dynamic inputs 存在 config.Inputs[] (PascalCase Name/Type, 跟后端 ParseExprConfig 一致)。
+    const inputs = (config?.Inputs ?? []) as Array<{ Name?: string; Type?: string }>
     for (const inp of inputs) {
-      if (inp?.name && !incoming.has(inp.name)) {
-        out.push({ name: inp.name, type: (inp.type ?? 'any') as PinType })
+      if (inp?.Name && !incoming.has(inp.Name)) {
+        out.push({ name: inp.Name, type: (inp.Type ?? 'any') as PinType })
       }
     }
   }

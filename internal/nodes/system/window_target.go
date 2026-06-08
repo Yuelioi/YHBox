@@ -1,5 +1,5 @@
 // WindowTarget — 运行时解析 title/class/processName 切换当前活动窗口; 普通 exec 节点,
-// 可放多个切换不同窗口. 有 exec-in "In" 和 exec-out "Fire".
+// 可放多个切换不同窗口. 有 exec-in "In" 和 exec-out "Done".
 package system
 
 import (
@@ -19,7 +19,7 @@ const (
 	wtInClass       = "Class"
 	wtInProcessName = "ProcessName"
 	wtInTitleMatch  = "TitleMatch"
-	wtOutFire       = "Fire"
+	wtOutDone       = "Done"
 )
 
 func (WindowTarget) Spec() node.Spec {
@@ -43,7 +43,7 @@ func (WindowTarget) Spec() node.Spec {
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: wtOutFire, Type: "Exec"},
+			{Name: wtOutDone, Type: "Exec"},
 			{Name: "Fail", Type: "Exec", Semantic: "error",
 				Data: []node.DataField{
 					{Name: "Error", Type: "String"},
@@ -61,5 +61,5 @@ func (WindowTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		return nil, err
 	}
-	return ctx.Out(wtOutFire).Fire(), nil
+	return ctx.Out(wtOutDone).Fire(), nil
 }

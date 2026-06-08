@@ -125,7 +125,7 @@ func (s *Service) Create(name string) (Container, error) {
 			},
 			Edges: []GraphEdge{
 				{From: startID + ".Done", To: winTargetID + ".In"},
-				{From: winTargetID + ".Fire", To: stopID + ".In"},
+				{From: winTargetID + ".Done", To: stopID + ".In"},
 			},
 		},
 	}

@@ -16,7 +16,7 @@ import (
 //	Linear nodes (Sleep, KeyPress, SetVar, etc.) → 走 nodepkg.Spec 第一个 Type=Exec 出口
 //	Throw / Stop / terminals → noop (return nil; runner naturally terminates this token's path)
 //	Start / MouseCalibration / EventTick → validator should have errored (INVALID_DISABLED_TERMINAL).
-//	WindowTarget — 普通 exec 节点: 未禁用走 execNodeViaFramework→Run; 禁用走 default→firstExecOutPin("Fire").
+//	WindowTarget — 普通 exec 节点: 未禁用走 execNodeViaFramework→Run; 禁用走 default→firstExecOutPin("Done").
 func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
 	switch node.Kind {
 	case "Loop", "Race", "Parallel":

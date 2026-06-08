@@ -39,7 +39,7 @@ func TestWindowTarget_RunIsCalledInDispatch(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.Done", To: "wt.In"},
-				{From: "wt.Fire", To: "stop.In"},
+				{From: "wt.Done", To: "stop.In"},
 			},
 		},
 	}

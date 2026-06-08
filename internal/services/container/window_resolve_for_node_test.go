@@ -15,9 +15,9 @@ func TestWindowTargetForNode(t *testing.T) {
 		},
 		Edges: []GraphEdge{
 			{From: "start.Done", To: "wta.In"},
-			{From: "wta.Fire", To: "n1.In"},
+			{From: "wta.Done", To: "n1.In"},
 			{From: "n1.Done", To: "wtb.In"},
-			{From: "wtb.Fire", To: "n2.In"},
+			{From: "wtb.Done", To: "n2.In"},
 		},
 	}}
 	if wt := windowTargetForNode(c, "n2"); wt == nil || PinString(wt, "Title") != "B" {

@@ -38,10 +38,11 @@ export function useExprFusion(deps: FusionDeps) {
     const b = g.nodes.find((n: any) => n.id === targetNodeID)
     if (!a || !b || a.kind !== 'Expr' || b.kind !== 'Expr') return false
 
-    const aExpr = String(a.config?.expr ?? '')
-    const bExpr = String(b.config?.expr ?? '')
-    const aInputs: ExprInput[] = (a.config?.inputs ?? []).map((i: any) => ({ name: String(i.name), type: String(i.type ?? 'any') }))
-    const bInputs: ExprInput[] = (b.config?.inputs ?? []).map((i: any) => ({ name: String(i.name), type: String(i.type ?? 'any') }))
+    // 表达式存 Expression pin literal, 动态输入存 config.Inputs[] (PascalCase Name/Type) — 跟后端 ParseExprConfig 对齐。
+    const aExpr = String(a.config?.literal?.Expression ?? '')
+    const bExpr = String(b.config?.literal?.Expression ?? '')
+    const aInputs: ExprInput[] = (a.config?.Inputs ?? []).map((i: any) => ({ name: String(i.Name), type: String(i.Type ?? 'any') }))
+    const bInputs: ExprInput[] = (b.config?.Inputs ?? []).map((i: any) => ({ name: String(i.Name), type: String(i.Type ?? 'any') }))
 
     // Step 2: rename A.inputs to avoid collision with B's input names
     // (and the targetPin we're about to remove from B but still must avoid).
@@ -80,12 +81,11 @@ export function useExprFusion(deps: FusionDeps) {
     // Step 5: B.inputs gets targetPin removed + A.inputs (renamed) appended.
     const newBInputs = bInputs.filter((i) => i.name !== targetInputName).concat(renamedAInputs)
     b.config = b.config ?? {}
-    b.config.expr = newBExpr
-    b.config.inputs = newBInputs
+    b.config.literal = b.config.literal ?? {}
+    b.config.literal.Expression = newBExpr
+    b.config.Inputs = newBInputs.map((i) => ({ Name: i.name, Type: i.type }))
     // Drop literal that fed the now-removed targetPin (if any).
-    if (b.config.literal && typeof b.config.literal === 'object') {
-      delete b.config.literal[targetInputName]
-    }
+    delete b.config.literal[targetInputName]
     // Carry A's per-input literals to B under the renamed keys. A's node (and its
     // config.literal) is deleted in step 7, so an unconnected A input holding a literal
     // would otherwise lose its value — the fused expr's renamed pin then evaluates empty,
@@ -93,7 +93,6 @@ export function useExprFusion(deps: FusionDeps) {
     // runtime, so copying unconditionally per renameMap is safe.
     const aLiteral = a.config?.literal as Record<string, unknown> | undefined
     if (aLiteral && typeof aLiteral === 'object') {
-      b.config.literal = b.config.literal ?? {}
       for (const [oldName, newName] of Object.entries(renameMap)) {
         if (oldName in aLiteral) b.config.literal[newName] = aLiteral[oldName]
       }

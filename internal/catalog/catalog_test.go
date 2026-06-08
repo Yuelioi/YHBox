@@ -87,8 +87,8 @@ func TestBuild_OutputDataSerialized(t *testing.T) {
 		return false
 	}
 
-	if d := outData("DetectColor", "Yes"); !hasField(d, "Center", "Point") {
-		t.Errorf("DetectColor.Yes 应携带 Center(Point), 实得 %+v", d)
+	if d := outData("DetectColor", "Found"); !hasField(d, "Center", "Point") {
+		t.Errorf("DetectColor.Found 应携带 Center(Point), 实得 %+v", d)
 	}
 	if d := outData("CheckTemplate", "Found"); !hasField(d, "Point", "Point") {
 		t.Errorf("CheckTemplate.Found 应携带 Point(Point), 实得 %+v", d)

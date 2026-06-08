@@ -68,7 +68,7 @@ func TestWaitChange_DetectsChange(t *testing.T) {
 	// baseline=base, poll1=base (无变化), poll2=changed → Changed.
 	vision := &mockVision{gridSigs: [][]uint8{base, base, changed}}
 	cfg := map[string]any{
-		wfGridSize:       1,
+		wfGridSize:        1,
 		wcChangeThreshold: 0.5,
 		wfPollIntervalMs:  5,
 		wfTimeoutMs:       2000,
@@ -93,7 +93,7 @@ func TestWaitChange_TimeoutWhenStatic(t *testing.T) {
 	a := sig1(10, 10, 10)
 	vision := &mockVision{gridSigs: [][]uint8{a}} // mock 耗尽返最后一个 → 恒 a → 永不变.
 	cfg := map[string]any{
-		wfGridSize:       1,
+		wfGridSize:        1,
 		wcChangeThreshold: 0.5,
 		wfPollIntervalMs:  10,
 		wfTimeoutMs:       30,
@@ -112,7 +112,7 @@ func TestWaitChange_MeanDiffMetric(t *testing.T) {
 	base, changed := sig1(0, 0, 0), sig1(255, 255, 255) // mean_diff = 1.0
 	vision := &mockVision{gridSigs: [][]uint8{base, changed}}
 	cfg := map[string]any{
-		wfGridSize:       1,
+		wfGridSize:        1,
 		wfMetric:          metricMeanDiff,
 		wcChangeThreshold: 0.5,
 		wfPollIntervalMs:  5,
@@ -131,7 +131,7 @@ func TestWaitChange_UnknownMetricErrors(t *testing.T) {
 
 	vision := &mockVision{gridSigs: [][]uint8{sig1(0, 0, 0)}}
 	cfg := map[string]any{
-		wfGridSize:       1,
+		wfGridSize:        1,
 		wfMetric:          "bogus",
 		wcChangeThreshold: 0.5,
 		wfTimeoutMs:       100,

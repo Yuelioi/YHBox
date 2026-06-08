@@ -18,8 +18,8 @@ func TestMouseCalibration_Passthrough(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != mcOutFire {
-		t.Errorf("exit = %q, want %q", r.ExitName, mcOutFire)
+	if r.ExitName != mcOutDone {
+		t.Errorf("exit = %q, want %q", r.ExitName, mcOutDone)
 	}
 }
 
@@ -33,7 +33,7 @@ func TestMouseCalibration_DefaultCounts(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != mcOutFire {
-		t.Errorf("exit = %q, want %q", r.ExitName, mcOutFire)
+	if r.ExitName != mcOutDone {
+		t.Errorf("exit = %q, want %q", r.ExitName, mcOutDone)
 	}
 }

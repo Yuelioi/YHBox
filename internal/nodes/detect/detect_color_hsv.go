@@ -35,8 +35,8 @@ const (
 	dchInMinPixelRatio  = "MinPixelRatio"
 	dchInPollIntervalMs = "PollIntervalMs"
 	dchInTimeoutMs      = "TimeoutMs"
-	dchOutYes           = "Yes"
-	dchOutNo            = "No"
+	dchOutFound         = "Found"
+	dchOutNotFound      = "NotFound"
 	dchOutTimeout       = "Timeout"
 	dchDataCount        = "PixelCount"
 	dchDataRatio        = "PixelRatio"
@@ -74,12 +74,12 @@ func (DetectColorHSV) Spec() node.Spec {
 				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: dchOutYes, Type: "Exec",
+			{Name: dchOutFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dchDataCount, Type: "Number"},
 					{Name: dchDataRatio, Type: "Number"},
 				}},
-			{Name: dchOutNo, Type: "Exec",
+			{Name: dchOutNotFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: dchDataCount, Type: "Number"},
 					{Name: dchDataRatio, Type: "Number"},
@@ -130,14 +130,14 @@ func (DetectColorHSV) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		if ratio >= minRatio {
 			node.Capture(ctx, in, dchCapCount, count)
 			node.Capture(ctx, in, dchCapRatio, ratio)
-			return ctx.Out(dchOutYes).
+			return ctx.Out(dchOutFound).
 				Set(dchDataCount, count).Set(dchDataRatio, ratio).Fire(), nil
 		}
 		// timeoutMs<=0 且首次未命中 → No (跟 ROIColorScan 同款语义).
 		if timeoutMs <= 0 && firstScan {
 			node.Capture(ctx, in, dchCapCount, count)
 			node.Capture(ctx, in, dchCapRatio, ratio)
-			return ctx.Out(dchOutNo).
+			return ctx.Out(dchOutNotFound).
 				Set(dchDataCount, count).Set(dchDataRatio, ratio).Fire(), nil
 		}
 		firstScan = false

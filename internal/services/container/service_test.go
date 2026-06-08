@@ -121,7 +121,7 @@ func TestCreate_SeedsBackendFieldsAndWiresWindowTarget(t *testing.T) {
 		if e.To == wtID+".In" {
 			hasStartToWT = true
 		}
-		if e.From == wtID+".Fire" {
+		if e.From == wtID+".Done" {
 			hasWTToStop = true
 		}
 	}

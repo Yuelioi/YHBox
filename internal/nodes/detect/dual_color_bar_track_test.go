@@ -39,14 +39,14 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 
 	vision := &mockVision{
 		barResult: node.DualColorBarResult{
-			Found:      true,
-			InnerX:     320, OuterX: 400, OuterWidth: 80,
+			Found:  true,
+			InnerX: 320, OuterX: 400, OuterWidth: 80,
 			Confidence: 0.85,
 			InnerPx:    200, OuterPx: 50,
 		},
 	}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRoi: validGeometryROI()},
+		map[string]any{dcbtInROI: validGeometryROI()},
 		nil, withVision(vision), false)
 
 	if r.Error != nil {
@@ -67,8 +67,8 @@ func TestDualColorBarTrack_Capture_Found(t *testing.T) {
 
 	vision := &mockVision{
 		barResult: node.DualColorBarResult{
-			Found:      true,
-			InnerX:     320, OuterX: 400, OuterWidth: 80,
+			Found:  true,
+			InnerX: 320, OuterX: 400, OuterWidth: 80,
 			Confidence: 0.85,
 			InnerPx:    200, OuterPx: 50,
 		},
@@ -76,7 +76,7 @@ func TestDualColorBarTrack_Capture_Found(t *testing.T) {
 	vars := newRecVars()
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			dcbtInRoi:      validGeometryROI(),
+			dcbtInROI:      validGeometryROI(),
 			dcbtCapInnerX:  "ix",
 			dcbtCapOuterX:  "ox",
 			dcbtCapOuterW:  "ow",
@@ -132,11 +132,11 @@ func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
 		},
 	}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRoi: validGeometryROI()},
+		map[string]any{dcbtInROI: validGeometryROI()},
 		nil, withVision(vision), false)
 
-	if r.ExitName != dcbtOutMissing {
-		t.Errorf("exit = %q, want Missing (low conf)", r.ExitName)
+	if r.ExitName != dcbtOutNotFound {
+		t.Errorf("exit = %q, want NotFound (low conf)", r.ExitName)
 	}
 }
 
@@ -147,15 +147,15 @@ func TestDualColorBarTrack_MissingOnError(t *testing.T) {
 
 	// barErr 会被节点包裹成 error 出口
 	vision := &mockVision{
-		barErr: nil, // adapter 层 capture fail 已经转 Found=false 不冒泡; mock 返零值即可
+		barErr:    nil, // adapter 层 capture fail 已经转 Found=false 不冒泡; mock 返零值即可
 		barResult: node.DualColorBarResult{Found: false},
 	}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{dcbtInRoi: validGeometryROI()},
+		map[string]any{dcbtInROI: validGeometryROI()},
 		nil, withVision(vision), false)
 
-	if r.ExitName != dcbtOutMissing {
-		t.Errorf("exit = %q, want Missing", r.ExitName)
+	if r.ExitName != dcbtOutNotFound {
+		t.Errorf("exit = %q, want NotFound", r.ExitName)
 	}
 }
 

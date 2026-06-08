@@ -17,7 +17,7 @@ func TestDetectColor_Hit(t *testing.T) {
 	vision := &mockVision{colorCount: 42, colorCX: 0.5, colorCY: 0.6}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			dcInRegion:    node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
+			dcInROI:       node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
 			dcInMode:      "hsv",
 			dcInRange:     []any{50.0, 60.0, 26.0, 50.0, 99.0, 100.0},
 			dcInMinPixels: 5,
@@ -27,8 +27,8 @@ func TestDetectColor_Hit(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != dcOutYes {
-		t.Errorf("exit = %q, want Yes", r.ExitName)
+	if r.ExitName != dcOutFound {
+		t.Errorf("exit = %q, want Found", r.ExitName)
 	}
 }
 
@@ -46,8 +46,8 @@ func TestDetectColor_Miss(t *testing.T) {
 		},
 		nil, withVision(vision), false)
 
-	if r.ExitName != dcOutNo {
-		t.Errorf("exit = %q, want No", r.ExitName)
+	if r.ExitName != dcOutNotFound {
+		t.Errorf("exit = %q, want NotFound", r.ExitName)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestDetectColor_Capture_Hit(t *testing.T) {
 	vars := newRecVars()
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			dcInRegion:    node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
+			dcInROI:       node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
 			dcInMode:      "hsv",
 			dcInRange:     []any{50.0, 60.0, 26.0, 50.0, 99.0, 100.0},
 			dcInMinPixels: 5,
@@ -87,8 +87,8 @@ func TestDetectColor_Capture_Hit(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != dcOutYes {
-		t.Fatalf("exit = %q, want Yes", r.ExitName)
+	if r.ExitName != dcOutFound {
+		t.Fatalf("exit = %q, want Found", r.ExitName)
 	}
 	if got, ok := vars.Get("n"); !ok || got != 10 {
 		t.Errorf("capture n = %v (ok=%v), want 10", got, ok)
@@ -124,8 +124,8 @@ func TestDetectColor_Capture_Miss(t *testing.T) {
 		},
 		nil, withVisionVars(vision, vars), false)
 
-	if r.ExitName != dcOutNo {
-		t.Fatalf("exit = %q, want No", r.ExitName)
+	if r.ExitName != dcOutNotFound {
+		t.Fatalf("exit = %q, want NotFound", r.ExitName)
 	}
 	if got, ok := vars.Get("n"); !ok || got != 1 {
 		t.Errorf("capture n = %v (ok=%v), want 1", got, ok)
