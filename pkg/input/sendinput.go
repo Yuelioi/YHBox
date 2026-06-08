@@ -169,8 +169,9 @@ func (b *sendInputBackend) KeyUp(_ win.HWND, vk string) error {
 	return nil
 }
 
-func (b *sendInputBackend) MouseDown(_ win.HWND, xRatio, yRatio float64, button string) error {
-	sendAbsMove(xRatio, yRatio)
+func (b *sendInputBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
+	sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
+	sendAbsMove(sx, sy)
 	b.mu.Lock()
 	b.heldBtns[siButtonVK(button)] = struct{}{}
 	b.mu.Unlock()
@@ -197,8 +198,9 @@ func (b *sendInputBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button s
 	return b.MouseUp(hwnd, button)
 }
 
-func (b *sendInputBackend) MoveTo(_ win.HWND, xRatio, yRatio float64) error {
-	sendAbsMove(xRatio, yRatio)
+func (b *sendInputBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
+	sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
+	sendAbsMove(sx, sy)
 	return nil
 }
 
@@ -213,14 +215,17 @@ func (b *sendInputBackend) Scroll(_ win.HWND, _, _ float64, notches int) error {
 }
 
 // CursorRatio 读 OS 光标 → 相对主屏比例 (全局注入无单窗口概念, 基准取主屏).
-func (b *sendInputBackend) CursorRatio(_ win.HWND) (float64, float64, error) {
-	x, y := getCursorPos()
-	sw := win.GetSystemMetrics(win.SM_CXSCREEN)
-	sh := win.GetSystemMetrics(win.SM_CYSCREEN)
-	if sw <= 0 || sh <= 0 {
-		return 0, 0, fmt.Errorf("sendinput CursorRatio: bad screen metrics %dx%d", sw, sh)
+func (b *sendInputBackend) CursorRatio(hwnd win.HWND) (float64, float64, error) {
+	var rect win.RECT
+	win.GetClientRect(hwnd, &rect)
+	w := float64(rect.Right - rect.Left)
+	h := float64(rect.Bottom - rect.Top)
+	if w <= 0 || h <= 0 {
+		return 0, 0, fmt.Errorf("sendinput CursorRatio: client rect 为空")
 	}
-	return float64(x) / float64(sw), float64(y) / float64(sh), nil
+	sx, sy := getCursorPos()
+	cx, cy := screenToClient(hwnd, sx, sy) // 屏幕像素 → 客户区像素
+	return float64(cx) / w, float64(cy) / h, nil
 }
 
 func (b *sendInputBackend) ReleaseAll() error {
@@ -253,3 +258,16 @@ func (b *sendInputBackend) ReleaseAll() error {
 }
 
 func (b *sendInputBackend) Close() error { return nil }
+
+// clientRatioToScreenRatio 把窗口客户区比例坐标转换成 SendInput 需要的全屏绝对比例坐标.
+// ClickAt / MoveTo 传入的 xRatio/yRatio 是相对窗口客户区的, sendAbsMove 需要的是相对整个屏幕的.
+func clientRatioToScreenRatio(hwnd win.HWND, xRatio, yRatio float64) (float64, float64) {
+	var rect win.RECT
+	win.GetClientRect(hwnd, &rect)
+	clientX := int32(xRatio * float64(rect.Right-rect.Left))
+	clientY := int32(yRatio * float64(rect.Bottom-rect.Top))
+	sx, sy := clientToScreen(hwnd, clientX, clientY) // 客户区像素 → 屏幕像素
+	sw := float64(win.GetSystemMetrics(win.SM_CXSCREEN))
+	sh := float64(win.GetSystemMetrics(win.SM_CYSCREEN))
+	return float64(sx) / sw, float64(sy) / sh
+}

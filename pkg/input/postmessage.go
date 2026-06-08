@@ -16,15 +16,15 @@ import (
 // 的成熟实现. 本 struct 只加 state 跟踪 + interface 适配.
 type PostMessageBackend struct {
 	mu        sync.Mutex
-	heldKeys  map[string]struct{}              // vk name → tracked
-	heldBtns  map[win.HWND]map[string]struct{} // hwnd → button name → tracked
-	activated map[win.HWND]bool                // hwnd → 是否已 FakeActivate 过
+	heldKeys  map[string]struct{}           // vk name → tracked
+	heldBtns  map[win.HWND]map[string]point // hwnd → button name → 按下时客户区坐标
+	activated map[win.HWND]bool             // hwnd → 是否已 FakeActivate 过
 }
 
 func newPostMessageBackend() *PostMessageBackend {
 	return &PostMessageBackend{
 		heldKeys:  map[string]struct{}{},
-		heldBtns:  map[win.HWND]map[string]struct{}{},
+		heldBtns:  map[win.HWND]map[string]point{},
 		activated: map[win.HWND]bool{},
 	}
 }
@@ -117,23 +117,31 @@ func (b *PostMessageBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, bu
 	MouseBtnDown(hwnd, x, y, pickButton(button))
 	b.mu.Lock()
 	if b.heldBtns[hwnd] == nil {
-		b.heldBtns[hwnd] = map[string]struct{}{}
+		b.heldBtns[hwnd] = map[string]point{}
 	}
-	b.heldBtns[hwnd][button] = struct{}{}
+	b.heldBtns[hwnd][button] = point{X: int32(x), Y: int32(y)}
 	b.mu.Unlock()
 	return nil
 }
 
 func (b *PostMessageBackend) MouseUp(hwnd win.HWND, button string) error {
-	MouseBtnUp(hwnd, 0, 0, pickButton(button)) // 坐标对 Up 基本无关紧要
 	b.mu.Lock()
-	if set, ok := b.heldBtns[hwnd]; ok {
+	pt, ok := b.heldBtns[hwnd][button]
+	if set := b.heldBtns[hwnd]; set != nil {
 		delete(set, button)
 		if len(set) == 0 {
 			delete(b.heldBtns, hwnd)
 		}
 	}
 	b.mu.Unlock()
+	if !ok {
+		// 没记到按下坐标 (理论上不该发生) → 退回当前光标客户区位置, 而不是 (0,0).
+		sx, sy := getCursorPos()
+		cx, cy := screenToClient(hwnd, sx, sy)
+		pt = point{X: cx, Y: cy}
+	}
+	// 在按下坐标松键 — UE Slate 在 BUTTONUP 上判 click 且看坐标, (0,0) 会被当成控件外松手 → 不触发.
+	MouseBtnUp(hwnd, int(pt.X), int(pt.Y), pickButton(button))
 	return nil
 }
 
@@ -182,11 +190,11 @@ func (b *PostMessageBackend) ReleaseAll() error {
 	for k := range b.heldKeys {
 		keys = append(keys, k)
 	}
-	hwndBtns := make(map[win.HWND][]string, len(b.heldBtns))
+	hwndBtns := make(map[win.HWND]map[string]point, len(b.heldBtns))
 	for h, set := range b.heldBtns {
-		btns := make([]string, 0, len(set))
-		for bb := range set {
-			btns = append(btns, bb)
+		btns := make(map[string]point, len(set))
+		for bb, pt := range set {
+			btns[bb] = pt
 		}
 		hwndBtns[h] = btns
 	}
@@ -195,7 +203,7 @@ func (b *PostMessageBackend) ReleaseAll() error {
 		activated = append(activated, h)
 	}
 	b.heldKeys = map[string]struct{}{}
-	b.heldBtns = map[win.HWND]map[string]struct{}{}
+	b.heldBtns = map[win.HWND]map[string]point{}
 	b.mu.Unlock()
 
 	// 单 container 一个 backend = 一个 hwnd. 优先用有 mouse button held 的 hwnd,
@@ -218,8 +226,8 @@ func (b *PostMessageBackend) ReleaseAll() error {
 		}
 	}
 	for h, btns := range hwndBtns {
-		for _, bb := range btns {
-			MouseBtnUp(h, 0, 0, pickButton(bb))
+		for bb, pt := range btns {
+			MouseBtnUp(h, int(pt.X), int(pt.Y), pickButton(bb))
 		}
 	}
 	return nil

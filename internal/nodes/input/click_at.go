@@ -3,7 +3,6 @@ package input
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"yotta/internal/node"
 )
@@ -69,24 +68,13 @@ func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if dur <= 0 {
 		dur = 50
 	}
-	dur = node.JitterInt(dur, in.Int(caInJitterPct)) // ±% 近正态抖动 (pct=0 → 原值)
-	// 先 (可选) 滑到目标 + 发 hover, 再按下. MoveMs=0 → 单帧瞬移 hover (恢复 #4 丢掉的 hover).
-	// moveCursor 可被 ctx 取消; 此时还没按下, 直接返回无需释放.
+	dur = node.JitterInt(dur, in.Int(caInJitterPct))
 	if err := moveCursor(ctx, x, y, in.Int(caInMoveMs)); err != nil {
 		return nil, err
 	}
-	// 拆 down→可取消 sleep→up: cancel 时立即松键返回 (修长按停不下)。
-	if err := ctx.Input().MouseDown(x, y, btn); err != nil {
-		return nil, node.Failf(node.CodeSendFailed, err, "ClickAt down (%.3f,%.3f) %s: %v", x, y, btn, err)
-	}
-	select {
-	case <-ctx.Context().Done():
-		_ = ctx.Input().MouseUp(btn)
-		return nil, ctx.Context().Err()
-	case <-time.After(time.Duration(dur) * time.Millisecond):
-	}
-	if err := ctx.Input().MouseUp(btn); err != nil {
-		return nil, node.Failf(node.CodeSendFailed, err, "ClickAt up %s: %v", btn, err)
+	// Click 内部已 hover→settle→down→hold(dur)→up, 不再额外 sleep (原来那段是双倍停留).
+	if err := ctx.Input().Click(x, y, btn, dur); err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "ClickAt (%.3f,%.3f) %s: %v", x, y, btn, err)
 	}
 	return ctx.Out(caOutDone).Fire(), nil
 }

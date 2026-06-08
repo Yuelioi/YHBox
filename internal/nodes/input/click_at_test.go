@@ -3,6 +3,7 @@ package input
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,11 +26,10 @@ func TestClickAt_HappyPath(t *testing.T) {
 	if r.ExitName != caOutDone {
 		t.Errorf("exit = %q, want Done", r.ExitName)
 	}
-	if len(rec.calls) != 3 ||
+	if len(rec.calls) != 2 ||
 		rec.calls[0] != "MoveTo:0.300:0.700" ||
-		rec.calls[1] != "MouseDown:0.300:0.700:right" ||
-		rec.calls[2] != "MouseUp:right" {
-		t.Errorf("calls = %v, want [MoveTo MouseDown MouseUp]", rec.calls)
+		rec.calls[1] != "Click:0.300:0.700:right:80" {
+		t.Errorf("calls = %v, want [MoveTo Click]", rec.calls)
 	}
 }
 
@@ -44,15 +44,16 @@ func TestClickAt_DefaultsApplied(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if len(rec.calls) != 3 ||
+	if len(rec.calls) != 2 ||
 		rec.calls[0] != "MoveTo:0.500:0.500" ||
-		rec.calls[1] != "MouseDown:0.500:0.500:left" ||
-		rec.calls[2] != "MouseUp:left" {
-		t.Errorf("calls = %v, want [MoveTo MouseDown MouseUp]", rec.calls)
+		rec.calls[1] != "Click:0.500:0.500:left:50" {
+		t.Errorf("calls = %v, want [MoveTo Click]", rec.calls)
 	}
 }
 
-func TestClickAt_CtxCancel_ReleasesAndReturns(t *testing.T) {
+// ClickAt 走 Click (内部 down→hold→up 原子, 不可中途取消) → 取消语义在「滑动阶段」:
+// 长 MoveMs 滑动途中取消 → 还没按下就返回, 不会发 Click, 不会有按键残留.
+func TestClickAt_CtxCancel_AbortsBeforeClick(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ClickAt{})
 	rn, _ := node.Get("ClickAt")
@@ -63,21 +64,21 @@ func TestClickAt_CtxCancel_ReleasesAndReturns(t *testing.T) {
 	rec := &recordingInput{}
 	start := time.Now()
 	r := node.RunNode(ctx, rn, nil,
-		map[string]any{caInXRatio: 0.5, caInYRatio: 0.5, caInButton: "left", caInDurationMs: 10000},
+		map[string]any{caInXRatio: 1.0, caInYRatio: 1.0, caInButton: "left",
+			caInMoveMs: 2000, caInDurationMs: 50},
 		nil, withInput(rec), false)
 	elapsed := time.Since(start)
 
 	if elapsed > time.Second {
-		t.Fatalf("elapsed %v — ClickAt 没响应 ctx 取消", elapsed)
+		t.Fatalf("elapsed %v — ClickAt 没在滑动途中响应 ctx 取消", elapsed)
 	}
 	if r.Error == nil || !errors.Is(r.Error, context.Canceled) {
 		t.Errorf("error = %v, want context.Canceled", r.Error)
 	}
-	if len(rec.calls) != 3 ||
-		rec.calls[0] != "MoveTo:0.500:0.500" ||
-		rec.calls[1] != "MouseDown:0.500:0.500:left" ||
-		rec.calls[2] != "MouseUp:left" {
-		t.Errorf("calls = %v, want [MoveTo MouseDown MouseUp]", rec.calls)
+	for _, c := range rec.calls {
+		if strings.HasPrefix(c, "Click") {
+			t.Errorf("取消应发生在按下前, 不该有 Click; calls = %v", rec.calls)
+		}
 	}
 }
 
@@ -95,14 +96,14 @@ func TestClickAt_MoveMs_SlidesBeforeDown(t *testing.T) {
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if len(rec.calls) != 6 {
-		t.Fatalf("calls = %v, want 6 (4 滑动帧 + down + up)", rec.calls)
+	if len(rec.calls) != 5 {
+		t.Fatalf("calls = %v, want 5 (4 滑动帧 + Click)", rec.calls)
 	}
 	if rec.calls[3] != "MoveTo:1.000:1.000" {
 		t.Errorf("末滑帧 = %q, want MoveTo:1.000:1.000", rec.calls[3])
 	}
-	if rec.calls[4] != "MouseDown:1.000:1.000:left" || rec.calls[5] != "MouseUp:left" {
-		t.Errorf("down/up = %v, want [MouseDown:1.000:1.000:left MouseUp:left]", rec.calls[4:])
+	if rec.calls[4] != "Click:1.000:1.000:left:10" {
+		t.Errorf("click = %q, want Click:1.000:1.000:left:10", rec.calls[4])
 	}
 }
 
