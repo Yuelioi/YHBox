@@ -31,28 +31,21 @@ describe('estimateNodeSize', () => {
 })
 
 describe('buildElkGraph', () => {
-  it('输入 pin 落 WEST、输出 pin 落 EAST', () => {
-    const g = buildElkGraph([node('n1', 'If'), node('g', 'GetVar')], [{ from: 'g.value', to: 'n1.cond' }], opts())
-    const ports = g.children!.find((c) => c.id === 'n1')!.ports!
-    expect(ports.find((p) => p.id === 'n1::cond')!.layoutOptions!['elk.port.side']).toBe('WEST')
-    expect(ports.find((p) => p.id === 'n1::then')!.layoutOptions!['elk.port.side']).toBe('EAST')
-  })
-  it('边映射到正确 port id', () => {
+  it('边连源/目标节点 (连节点中心, 不连端口 — 防楼梯)', () => {
     const g = buildElkGraph([node('n1', 'If'), node('g1', 'GetVar')], [{ from: 'g1.value', to: 'n1.cond' }], opts())
-    expect(g.edges![0].sources).toEqual(['g1::value'])
-    expect(g.edges![0].targets).toEqual(['n1::cond'])
+    expect(g.edges![0].sources).toEqual(['g1'])
+    expect(g.edges![0].targets).toEqual(['n1'])
   })
-  it('exec 边比 data 边 priority 高', () => {
+  it('节点不带 ELK 端口', () => {
+    const g = buildElkGraph([node('n1', 'If'), node('g', 'GetVar')], [{ from: 'g.value', to: 'n1.cond' }], opts())
+    expect(g.children!.find((c) => c.id === 'n1')!.ports).toBeUndefined()
+  })
+  it('exec 边比 data 边 priority 高 (分类按 from 的 pin 名, 与去端口无关)', () => {
     const edges: GraphEdge[] = [{ from: 'a.then', to: 'b.in' }, { from: 'g1.value', to: 'b.cond' }]
     const g = buildElkGraph([node('a', 'If'), node('b', 'If'), node('g1', 'GetVar')], edges, opts())
-    const execEdge = g.edges!.find((e) => e.sources[0] === 'a::then')!
-    const dataEdge = g.edges!.find((e) => e.sources[0] === 'g1::value')!
+    const execEdge = g.edges!.find((e) => e.sources[0] === 'a')!
+    const dataEdge = g.edges!.find((e) => e.sources[0] === 'g1')!
     expect(Number(execEdge.layoutOptions!.__priority)).toBeGreaterThan(Number(dataEdge.layoutOptions!.__priority))
-  })
-  it('动态 pin(Switch.cases)派生为 port', () => {
-    const g = buildElkGraph([node('s', 'Switch', { cases: ['x', 'y'] }), node('g', 'GetVar')], [{ from: 'g.value', to: 's.in' }], opts())
-    const ids = g.children!.find((c) => c.id === 's')!.ports!.map((p) => p.id)
-    expect(ids).toContain('s::case.0'); expect(ids).toContain('s::case.1')
   })
   it('无边节点(游离)被排除', () => {
     const g = buildElkGraph([node('c', 'Comment'), node('n1', 'If'), node('x', 'GetVar')], [{ from: 'x.value', to: 'n1.cond' }], opts())

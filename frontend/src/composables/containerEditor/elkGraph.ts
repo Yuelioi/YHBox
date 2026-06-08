@@ -59,27 +59,18 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
   const layoutNodes = nodes.filter((n) => connected.has(n.id))
   const layoutIds = new Set(layoutNodes.map((n) => n.id))
 
-  const inSide = opts.direction === 'RIGHT' ? 'WEST' : 'NORTH'
-  const outSide = opts.direction === 'RIGHT' ? 'EAST' : 'SOUTH'
-
   const children: ElkNode[] = layoutNodes.map((n) => {
     const spec = opts.getSpec(n.kind)
     const cfg = n.config ?? {}
-    // pin 列表用 registry 正确派生(含动态 pin)，算一次复用给 ports + 尺寸估算。
+    // pin 列表用 registry 正确派生(含动态 pin)，算一次给尺寸估算。
+    // 注意：pin 不再当 ELK 端口、边也不连端口（见下方 elkEdges）。原来给每个 pin 建固定顺序
+    // 端口 + 边连端口，ELK 拉直「端口↔端口」边时，端口在多口节点里高低不一，它只能整体上下
+    // 挪节点去对齐 → 链式图被摊成往右上爬的楼梯（实测 FIXED_ORDER/SIDE/FREE 都歪；边连节点
+    // 中心才排平）。我们又不渲染 ELK 的端口/边路由（VueFlow 自己画），去端口零渲染损失。
     const inP = spec ? inputPins(spec, cfg) : []
     const outP = spec ? outputPins(spec, cfg) : []
     const size = opts.getDims(n.id, n.kind) ?? estimateNodeSize(n.kind, cfg, inP.length + outP.length)
-    const ports = [
-      ...inP.map((p) => ({ id: `${n.id}::${p}`, layoutOptions: { 'elk.port.side': inSide } })),
-      ...outP.map((p) => ({ id: `${n.id}::${p}`, layoutOptions: { 'elk.port.side': outSide } })),
-    ]
-    return {
-      id: n.id,
-      width: size.width,
-      height: size.height,
-      ports,
-      layoutOptions: { 'elk.portConstraints': 'FIXED_ORDER' },
-    } as unknown as ElkNode
+    return { id: n.id, width: size.width, height: size.height } as unknown as ElkNode
   })
 
   const kindOf = (id: string) => layoutNodes.find((n) => n.id === id)?.kind
@@ -93,10 +84,11 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
     .filter((e) => layoutIds.has(srcId(e.from)) && layoutIds.has(srcId(e.to)))
     .map((e, i) => {
       const dataEdge = isData(kindOf(srcId(e.from)), srcPin(e.from))
+      // 连节点(不连端口) —— exec/data 分类仍按 from 的 pin 名判, 只是 ELK 边端点用节点 id.
       return {
         id: `e${i}`,
-        sources: [`${srcId(e.from)}::${srcPin(e.from)}`],
-        targets: [`${srcId(e.to)}::${srcPin(e.to)}`],
+        sources: [srcId(e.from)],
+        targets: [srcId(e.to)],
         layoutOptions: { __priority: dataEdge ? DATA_PRIORITY : EXEC_PRIORITY },
       }
     })
