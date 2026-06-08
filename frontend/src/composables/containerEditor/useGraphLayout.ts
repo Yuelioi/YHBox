@@ -16,6 +16,13 @@ export type AlignMode =
   | 'h-equal'
   | 'v-equal'
 
+// sizeLookup 从 VueFlow 量好的 dimensions 建 id→尺寸 查表 (兜底 fallback, 含 0/缺失).
+function sizeLookup(nodes: VueFlowNode[], dim: 'width' | 'height', fallback: number): (id: string) => number {
+  const byID = new Map<string, number>()
+  for (const n of nodes) byID.set(n.id, n.dimensions?.[dim] || fallback)
+  return (id) => byID.get(id) ?? fallback
+}
+
 export function useGraphLayout(opts: {
   activeGraph: ComputedRef<Graph | null>
   getSelectedNodes: Ref<VueFlowNode[]>
@@ -73,19 +80,27 @@ export function useGraphLayout(opts: {
         break
       }
       case 'h-equal': {
+        // 按"宽度"留等宽空隙 (edge-to-edge), 而非按原点等距 —— 否则窄跨度里塞宽节点会重叠.
+        // 首尾节点保持不动, 中间节点摊成相邻边距相等. 尺寸取自 VueFlow 量好的 dimensions (兜底 220).
+        const w = sizeLookup(sel, 'width', 220)
         const sorted = [...targets].sort((a, b) => a.x - b.x)
-        const min = sorted[0].x
-        const max = sorted[sorted.length - 1].x
-        const gap = (max - min) / (sorted.length - 1)
-        for (let i = 0; i < sorted.length; i++) sorted[i].x = min + i * gap
+        const first = sorted[0], last = sorted[sorted.length - 1]
+        const span = (last.x + w(last.id)) - first.x
+        const totalW = sorted.reduce((s, n) => s + w(n.id), 0)
+        const gap = (span - totalW) / (sorted.length - 1)
+        let cursor = first.x
+        for (const n of sorted) { n.x = cursor; cursor += w(n.id) + gap }
         break
       }
       case 'v-equal': {
+        const h = sizeLookup(sel, 'height', 90)
         const sorted = [...targets].sort((a, b) => a.y - b.y)
-        const min = sorted[0].y
-        const max = sorted[sorted.length - 1].y
-        const gap = (max - min) / (sorted.length - 1)
-        for (let i = 0; i < sorted.length; i++) sorted[i].y = min + i * gap
+        const first = sorted[0], last = sorted[sorted.length - 1]
+        const span = (last.y + h(last.id)) - first.y
+        const totalH = sorted.reduce((s, n) => s + h(n.id), 0)
+        const gap = (span - totalH) / (sorted.length - 1)
+        let cursor = first.y
+        for (const n of sorted) { n.y = cursor; cursor += h(n.id) + gap }
         break
       }
     }
