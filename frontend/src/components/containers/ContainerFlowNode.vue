@@ -502,7 +502,10 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 .pin-inline-input {
   pointer-events: auto;
   flex: 1;
-  min-width: 0;
+  /* min-width 必须够大才能"逼"长 label 截断让位 —— flex 只在空间不足时才压缩 label,
+     min-width 太小(≈原剩余宽)等于没用. 88px 保证长 label 行也有可用编辑区, 上限仍 110px.
+     配合 .pin-label 的 min-width:0 (overflow:hidden 已让其可缩, 这里显式标注意图). */
+  min-width: 88px;
   max-width: 110px;
   margin-left: 4px;
 }
@@ -519,6 +522,9 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   grid-column: 2;
 }
 .pin-label {
+  /* truncate (white-space:nowrap + ellipsis) 在 flex 里必须配 min-width:0 才真截断,
+     否则长 label 撑满、把同行的内联输入框挤到几乎为 0 (见 .pin-inline-input). */
+  min-width: 0;
   font-family:
     'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, SFMono-Regular, Menlo,
     monospace;
