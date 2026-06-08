@@ -6,6 +6,7 @@
 //
 //	go run ./cmd/node-catalog export            # 导出全节点目录 (JSON, 带大白话+出口Data, stdout)
 //	go run ./cmd/node-catalog export --md       # 同上但渲染成人读 Markdown 速查表
+//	go run ./cmd/node-catalog pins              # 全节点 pin 名按名合并 → 命名参考表 (Markdown) + 命名分裂告警
 //	go run ./cmd/node-catalog validate <path>   # 对一个 container.json 跑 ValidateContainer
 package main
 
@@ -22,7 +23,7 @@ import (
 	// Anonymous imports — 触发 init() 节点注册.
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
+	_ "yotta/internal/nodes/event" // EventTick (listener-driven 定时触发)
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"
@@ -33,13 +34,15 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: node-catalog export [--md] | validate <path>")
+		fmt.Fprintln(os.Stderr, "usage: node-catalog export [--md] | pins | validate <path>")
 		os.Exit(2)
 	}
 	switch os.Args[1] {
 	case "export":
 		md := len(os.Args) > 2 && os.Args[2] == "--md"
 		doExport(md)
+	case "pins":
+		doPins()
 	case "validate":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: node-catalog validate <container.json>")
@@ -107,4 +110,182 @@ func doValidate(path string) {
 	if hasError {
 		os.Exit(1)
 	}
+}
+
+// pinAgg — 一个 pin 名在全节点里的合并视图: 见过的类型集 / 用它的节点集 / 首个非空文案。
+type pinAgg struct {
+	types map[string]struct{}
+	nodes map[string]struct{}
+	label string
+}
+
+func newPinMap() map[string]*pinAgg { return map[string]*pinAgg{} }
+
+func addPin(m map[string]*pinAgg, name, typ, label, kind string) {
+	a := m[name]
+	if a == nil {
+		a = &pinAgg{types: map[string]struct{}{}, nodes: map[string]struct{}{}}
+		m[name] = a
+	}
+	if typ != "" {
+		a.types[typ] = struct{}{}
+	}
+	if label != "" && a.label == "" {
+		a.label = label
+	}
+	a.nodes[kind] = struct{}{}
+}
+
+func sortedSet(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sortedPinKeys(m map[string]*pinAgg) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// normPinKey — 规范化 (小写 + 去非字母数字) 用于揪形近撞名 (Roi vs ROI, region vs Region)。
+func normPinKey(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// doPins — 遍历全节点 spec, 把 pin 名按用途分组、按名合并, 输出命名参考表 + 命名分裂告警。
+func doPins() {
+	nodes := catalog.BuildWithI18n()
+
+	inParam := newPinMap() // 输入参数 (非 exec): 真正填值的 config pin
+	inExec := newPinMap()  // 输入 exec 口 (流程入口, 通常 In)
+	outExec := newPinMap() // 出口 exec (分支: Found/Done/Fail/Timeout…)
+	outVal := newPinMap()  // 纯数据输出 (Expr/Add… 的 Result 等)
+	data := newPinMap()    // exec 出口携带的数据字段 (exec-data)
+
+	for _, n := range nodes {
+		for _, p := range n.Inputs {
+			if p.Exec {
+				addPin(inExec, p.Name, p.Type, p.Label, n.Kind)
+			} else {
+				addPin(inParam, p.Name, p.Type, p.Label, n.Kind)
+			}
+		}
+		for _, p := range n.Outputs {
+			if p.Exec {
+				addPin(outExec, p.Name, "", p.Label, n.Kind)
+			} else {
+				addPin(outVal, p.Name, p.Type, p.Label, n.Kind)
+			}
+			for _, d := range p.Data {
+				addPin(data, d.Name, d.Type, "", n.Kind)
+			}
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString("# 节点 pin 命名参考 (合并)\n\n")
+	fmt.Fprintf(&b, "> `task nodes:pins` 生成, 共 %d 个节点。加新节点时先查此表对齐命名, 别造同义新词。\n\n", len(nodes))
+
+	render := func(title, note string, m map[string]*pinAgg, showType bool) {
+		fmt.Fprintf(&b, "## %s\n\n", title)
+		if note != "" {
+			b.WriteString(note + "\n\n")
+		}
+		if len(m) == 0 {
+			b.WriteString("(无)\n\n")
+			return
+		}
+		if showType {
+			b.WriteString("| pin | 类型 | 文案 | 用量 | 用于节点 |\n|---|---|---|---|---|\n")
+		} else {
+			b.WriteString("| pin | 文案 | 用量 | 用于节点 |\n|---|---|---|---|\n")
+		}
+		for _, name := range sortedPinKeys(m) {
+			a := m[name]
+			ns := sortedSet(a.nodes)
+			if showType {
+				fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %s |\n",
+					name, strings.Join(sortedSet(a.types), " / "), a.label, len(ns), strings.Join(ns, ", "))
+			} else {
+				fmt.Fprintf(&b, "| `%s` | %s | %d | %s |\n",
+					name, a.label, len(ns), strings.Join(ns, ", "))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	render("输入参数 (config)", "填值的参数 pin —— 新节点的同类参数请复用这里已有的名。", inParam, true)
+	render("输入 exec 口", "流程入口 (约定统一 `In`)。", inExec, false)
+	render("出口 exec", "分支出口 (成功/失败/超时/循环体…)。", outExec, false)
+	render("出口数据字段 (exec-data)", "exec 出口携带、下游同名 data wire 接收的字段。", data, true)
+	render("纯数据输出", "纯函数节点的值输出。", outVal, true)
+
+	// 命名分裂告警: 形近撞名 + 同名不同类型。
+	b.WriteString("## ⚠ 命名分裂告警\n\n")
+	warned := false
+
+	all := newPinMap()
+	for _, m := range []map[string]*pinAgg{inParam, inExec, outExec, outVal, data} {
+		for name, a := range m {
+			for k := range a.nodes {
+				addPin(all, name, "", "", k)
+			}
+		}
+	}
+	byNorm := map[string][]string{}
+	for name := range all {
+		k := normPinKey(name)
+		byNorm[k] = append(byNorm[k], name)
+	}
+	normKeys := make([]string, 0, len(byNorm))
+	for k := range byNorm {
+		normKeys = append(normKeys, k)
+	}
+	sort.Strings(normKeys)
+	for _, k := range normKeys {
+		variants := byNorm[k]
+		if len(variants) > 1 {
+			sort.Strings(variants)
+			for i := range variants {
+				variants[i] = "`" + variants[i] + "`"
+			}
+			fmt.Fprintf(&b, "- 形近撞名: %s —— 选一个统一\n", strings.Join(variants, " vs "))
+			warned = true
+		}
+	}
+	for _, grp := range []struct {
+		label string
+		m     map[string]*pinAgg
+	}{{"输入参数", inParam}, {"数据字段", data}} {
+		for _, name := range sortedPinKeys(grp.m) {
+			a := grp.m[name]
+			// 含 `*` (通配/任意) 的是有意泛型 pin (Add/Eq 的 A/B 等), 不算分裂; 只揪 ≥2 个具体类型撞名。
+			if _, wild := a.types["*"]; wild {
+				continue
+			}
+			if len(a.types) > 1 {
+				fmt.Fprintf(&b, "- 同名不同类型 [%s] `%s`: %s —— 确认是否该统一\n",
+					grp.label, name, strings.Join(sortedSet(a.types), " / "))
+				warned = true
+			}
+		}
+	}
+	if !warned {
+		b.WriteString("(无)\n")
+	}
+
+	fmt.Print(b.String())
 }
