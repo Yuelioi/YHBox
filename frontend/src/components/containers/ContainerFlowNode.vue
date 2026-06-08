@@ -173,12 +173,18 @@ const editorStore = useContainerEditorStore()
 // 画布内联 pin literal — view 通过 ContainerCanvasApiKey provide; 测试/孤立渲染时为 null。
 const canvasApi = inject(ContainerCanvasApiKey, null)
 
-// 未连线 + scalar (排 point) 的 data-in pin 名集合 → 这些 pin 行渲染内联 input。
+// 未连线 + scalar 的 data-in pin 名集合 → 这些 pin 行渲染内联 input。
+// 排除 point 和 geometry(widget==='geometry'): 这俩是复杂结构, PinLiteral 文本兜底会
+// String(obj) 成 "[object Object]"; 它们走 Inspector 的专用 widget (GeometryWidget 等) 编辑。
 const inlineLiteralPins = computed<Set<string>>(() => {
   const edges = canvasApi?.edges.value ?? []
   const dataIn = PIN_SPECS[kind.value]?.dataIn ?? {}
   const ps = unconnectedDataInPins(kind.value, dataIn, props.data?.config ?? null, edges, props.id)
-  return new Set(ps.filter((p) => p.type !== 'point').map((p) => p.name))
+  return new Set(
+    ps
+      .filter((p) => p.type !== 'point' && fieldFor(p.name)?.schema?.widget !== 'geometry')
+      .map((p) => p.name),
+  )
 })
 
 function showInlineLiteral(p: PinEntry): boolean {
