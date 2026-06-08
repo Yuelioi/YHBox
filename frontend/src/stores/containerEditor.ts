@@ -42,6 +42,15 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     subgraphsForCurrentContainer.value = subgraphs
   }
 
+  // mergeSubgraphs: 后端子图快照同步进 store, 但不整体覆盖 —— 两边都有的子图保留内存版,
+  // 否则正在编辑、还没落盘的子图修改会被磁盘旧版盖掉、引用丢失 (录制雪崩根因③)。
+  // 后端列表为基准: 不在列表里的 (后端已删) 自然移除。
+  function mergeSubgraphs(id: string, fresh: SubgraphSummary[]) {
+    activeContainerID.value = id
+    const existing = new Map(subgraphsForCurrentContainer.value.map((s) => [s.id, s]))
+    subgraphsForCurrentContainer.value = fresh.map((f) => existing.get(f.id) ?? f)
+  }
+
   function pushPath(sgID: string) {
     editorPath.value = [...editorPath.value, sgID]
   }
@@ -85,6 +94,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     setLastEditing,
     clearLastEditing,
     setActiveContainer,
+    mergeSubgraphs,
     pushPath,
     popPath,
     gotoPathIndex,

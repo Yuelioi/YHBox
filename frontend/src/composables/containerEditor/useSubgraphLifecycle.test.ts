@@ -1,5 +1,5 @@
 // 单元测 useSubgraphLifecycle 纯查询 + 纯变换函数:
-//   countSubgraphReferencesIncludeMain / findNodeAcrossGraphs / gcOrphanSubgraphs /
+//   countSubgraphReferencesIncludeMain / findNodeAcrossGraphs /
 //   deepCloneSubgraphForCopy
 // 不测 backend-touching 函数 (autoCreateSubgraphForNewNode / cascadeIfOrphan): 涉及 RPC mock + await chain,
 // 集成测试合理点, 单元层投入产出比低.
@@ -129,38 +129,6 @@ describe('useSubgraphLifecycle.findNodeAcrossGraphs', () => {
   it('不存在返 null', () => {
     const { lifecycle } = setup(makeContainer([]), [])
     expect(lifecycle.findNodeAcrossGraphs('nope')).toBeNull()
-  })
-})
-
-describe('useSubgraphLifecycle.gcOrphanSubgraphs', () => {
-  it('返无引用的子图 ID', () => {
-    const draft = makeContainer([makeNode('m1', 'Subgraph', { SubgraphID: 'sg-used' })])
-    const sgs = [
-      { id: 'sg-used', graph: { id: 'g1', version: 1, nodes: [], edges: [] } },
-      { id: 'sg-orphan-1', graph: { id: 'g2', version: 1, nodes: [], edges: [] } },
-      { id: 'sg-orphan-2', graph: { id: 'g3', version: 1, nodes: [], edges: [] } },
-    ]
-    const { lifecycle } = setup(draft, sgs)
-    const orphans = lifecycle.gcOrphanSubgraphs().sort()
-    expect(orphans).toEqual(['sg-orphan-1', 'sg-orphan-2'])
-  })
-
-  it('嵌套引用算被引用 (不算 orphan)', () => {
-    const draft = makeContainer([makeNode('m1', 'Subgraph', { SubgraphID: 'sg-a' })])
-    const sgs = [
-      {
-        id: 'sg-a',
-        graph: {
-          id: 'g-a',
-          version: 1,
-          nodes: [makeNode('a1', 'Subgraph', { SubgraphID: 'sg-b' })],
-          edges: [],
-        },
-      },
-      { id: 'sg-b', graph: { id: 'g-b', version: 1, nodes: [], edges: [] } },
-    ]
-    const { lifecycle } = setup(draft, sgs)
-    expect(lifecycle.gcOrphanSubgraphs()).toEqual([])
   })
 })
 

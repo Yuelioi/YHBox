@@ -253,7 +253,7 @@ export function useContainerDraft(containerID: string) {
     if (!draft.value) return
     try {
       const fresh = (await backend.containers.listSubgraphs(draft.value.id)) as any[]
-      editorStore.setActiveContainer(
+      editorStore.mergeSubgraphs(
         draft.value.id,
         (fresh ?? []).map((s) => ({
           id: s.id,

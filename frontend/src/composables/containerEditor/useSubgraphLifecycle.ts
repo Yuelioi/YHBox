@@ -127,35 +127,11 @@ export function useSubgraphLifecycle(opts: {
     return { graph: { id: genNodeID(), version: 1, nodes, edges }, outputPins }
   }
 
-  /**
-   * gcOrphanSubgraphs 扫无引用的子图，返 sgID 列表（caller 决定何时实际 backend.deleteSubgraph）。
-   */
-  function gcOrphanSubgraphs(): string[] {
-    if (!draft.value) return []
-    const referenced = new Set<string>()
-    for (const n of draft.value.graph.nodes) {
-      if (n.kind === 'Subgraph' && n.config?.SubgraphID) {
-        referenced.add(String(n.config.SubgraphID))
-      }
-    }
-    for (const sg of editorStore.subgraphsForCurrentContainer) {
-      for (const n of sg.graph?.nodes ?? []) {
-        if (n.kind === 'Subgraph' && n.config?.SubgraphID) {
-          referenced.add(String(n.config.SubgraphID))
-        }
-      }
-    }
-    return editorStore.subgraphsForCurrentContainer
-      .filter((s) => !referenced.has(s.id))
-      .map((s) => s.id)
-  }
-
   return {
     autoCreateSubgraphForNewNode,
     countSubgraphReferencesIncludeMain,
     findNodeAcrossGraphs,
     deleteSubgraphCascade,
     deepCloneSubgraphForCopy,
-    gcOrphanSubgraphs,
   }
 }

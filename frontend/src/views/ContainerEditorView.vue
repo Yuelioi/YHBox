@@ -654,7 +654,6 @@ const {
   findNodeAcrossGraphs,
   deleteSubgraphCascade,
   deepCloneSubgraphForCopy,
-  gcOrphanSubgraphs,
 } = useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
 
 const selectedID = ref<string | null>(null)
@@ -974,7 +973,7 @@ const { onFoldSelection } = useFolding({
 
 // 保存 + 孤儿 GC（onSaveAndClose 留在 view 因为依赖 view-local close 状态）
 // 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
-const { onSave } = useEditorSave({ draft, dirty, gcOrphanSubgraphs, toast })
+const { onSave } = useEditorSave({ draft, dirty, toast })
 
 // ⚙ 容器设置 (name/hotkey/description/tags + 输入/截图后端/缩放容差) 改完即落盘 —— 不必等保存整个蓝图。
 // 容器热键靠后端 containers.update → emitChange → binder.Refresh 注册到热键中心;
