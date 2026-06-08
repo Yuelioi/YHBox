@@ -134,6 +134,8 @@ DataField (exec 出口携带数据) 命名:
 
 **实时核对 / 揪分裂**: 上面是手维护的"规矩", 会跟代码漂。跑 `task nodes:pins` (= `go run ./cmd/node-catalog pins`) 按名合并**全节点实际 pin 名** + 列用量, 末尾「命名分裂告警」揪形近撞名 (`Roi` vs `ROI`) 与同名不同具体类型 —— **告警段为空 = 没分裂, 表与代码一致**。加 pin 后跑一次核对。
 
+这套检测已做成 guard 测试 `TestNoPinNameSplit`（`internal/catalog`，逻辑在 `catalog.DetectNameSplits`）：`go test ./internal/catalog/` 会 FAIL —— CI **自动卡机械分裂**（拼写撞名 / 同角色同名不同类型）。但**"同概念异名"**（如把区域口叫 `Zone` 而非 `ROI`）属语义、lint 测不出，仍靠本表 + review。
+
 ## 10. i18n 文案规范 (`frontend/src/i18n/{zh,en}.ts` 的 `node.<Kind>` 块)
 
 - **zh 一律人话中文**, label/hint **不准夹内部黑话**: ❌ `runner`/`callee`/`SubgraphInput`/`framework`/`stringify`/`wildcard`/`dynamic Inputs[]`/`isAnonymous`. 合法保留缩写: HSV / RGB / ROI / ms / ID / URL / px / DPI。

@@ -17,7 +17,7 @@ portable: false
 
 - [ ] `func init() { node.Register(&X{}) }`。
 - [ ] `Spec()`：`Kind`（PascalCase）、`Category`、`Inputs`/`Outputs`。exec-in pin 必须叫 `"In"`；pin 名 PascalCase（守卫测试 `TestSpecConsistency_*`）。Number Default 用 `json.Number("...")`。
-- [ ] **同概念必须复用既有 pin 名** — 加 pin 前先查 [node-spec-style §9 Canonical pin 词汇表](node-spec-style.md)（屏幕区域=`ROI`、超时=`TimeoutMs`、命中分支=`Found`/`NotFound`、捕获=`Capture<字段>` 等）。lint 测不出"同概念异名"，全靠这张表 + 加完跑 `task nodes:pins` 核对（「命名分裂告警」段为空 = 没撞名）。
+- [ ] **同概念必须复用既有 pin 名** — 加 pin 前先查 [node-spec-style §9 Canonical pin 词汇表](node-spec-style.md)（屏幕区域=`ROI`、超时=`TimeoutMs`、命中分支=`Found`/`NotFound`、捕获=`Capture<字段>` 等）。"同概念异名"（语义层，如区域口叫 `Zone`）lint 测不出，全靠这张表 + review；但**机械分裂**（拼写撞名 / 同角色同名不同类型）已有 guard `TestNoPinNameSplit`，`go test ./internal/catalog/`（下方验证步骤本就含）会卡，也可 `task nodes:pins` 看明细。
 - [ ] **恰好一种 capability**：实现 `Runnable`(Run) / `RegionRunner`(RunRegion) / `Evaluator`(Evaluate) **之一**；或纯展示设 `IsVisualOnly: true`、图标记设 `IsGraphMarker: true`（这两类可零 capability）。注册时 `registry.go` 会校验。
 - [ ] 字段默认值：`InputSpec.Default` —— 前端建节点时会经 `deriveDefaults` 收成 `{ literal: {...} }` 自动填进 `config.literal`。要有默认值就在这写。
 
