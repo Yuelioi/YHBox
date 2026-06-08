@@ -2,6 +2,7 @@ package input
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -114,6 +115,11 @@ func (b *PostMessageBackend) KeyUp(hwnd win.HWND, vk string) error {
 func (b *PostMessageBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
 	b.ensureActivated(hwnd)
 	x, y := b.pixelCoords(hwnd, xRatio, yRatio)
+	// 跟 ClickButton 同序: 先 hover (setCursorPos + WM_MOUSEMOVE) + settle 让 Slate 在它的
+	// tick 更新 hover 元素, 再 DOWN —— 否则按下可能落不到目标控件 (跟 ClickAt 旧路径同源).
+	// 不松开 / 不复位光标 (hold 语义: 光标留在按下点直到 MouseHoldStop).
+	MoveToClient(hwnd, x, y)
+	time.Sleep(defaultCursorSettle)
 	MouseBtnDown(hwnd, x, y, pickButton(button))
 	b.mu.Lock()
 	if b.heldBtns[hwnd] == nil {
@@ -193,9 +199,7 @@ func (b *PostMessageBackend) ReleaseAll() error {
 	hwndBtns := make(map[win.HWND]map[string]point, len(b.heldBtns))
 	for h, set := range b.heldBtns {
 		btns := make(map[string]point, len(set))
-		for bb, pt := range set {
-			btns[bb] = pt
-		}
+		maps.Copy(btns, set)
 		hwndBtns[h] = btns
 	}
 	activated := make([]win.HWND, 0, len(b.activated))
