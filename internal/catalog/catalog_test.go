@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"strings"
 	"testing"
 
 	_ "yotta/internal/nodes/control"
@@ -115,4 +116,13 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		return
 	}
 	t.Fatal("KeyPress not found in catalog")
+}
+
+// TestNoPinNameSplit — 守卫: 全节点 pin 名不准出现命名分裂 (形近撞名 / 同名不同具体类型)。
+// 新加节点若另起同义名 (如又写个 `Roi`), 这条 FAIL。详情/对齐看 node-spec-style §9 + `task nodes:pins`。
+func TestNoPinNameSplit(t *testing.T) {
+	if splits := DetectNameSplits(); len(splits) > 0 {
+		t.Errorf("检测到 pin 命名分裂 %d 处 — 同概念复用既有名 (见 node-spec-style §9 / 跑 `task nodes:pins`):\n  %s",
+			len(splits), strings.Join(splits, "\n  "))
+	}
 }

@@ -154,17 +154,6 @@ func sortedPinKeys(m map[string]*pinAgg) []string {
 	return out
 }
 
-// normPinKey — 规范化 (小写 + 去非字母数字) 用于揪形近撞名 (Roi vs ROI, region vs Region)。
-func normPinKey(s string) string {
-	var b strings.Builder
-	for _, r := range strings.ToLower(s) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
 // doPins — 遍历全节点 spec, 把 pin 名按用途分组、按名合并, 输出命名参考表 + 命名分裂告警。
 func doPins() {
 	nodes := catalog.BuildWithI18n()
@@ -233,58 +222,14 @@ func doPins() {
 	render("出口数据字段 (exec-data)", "exec 出口携带、下游同名 data wire 接收的字段。", data, true)
 	render("纯数据输出", "纯函数节点的值输出。", outVal, true)
 
-	// 命名分裂告警: 形近撞名 + 同名不同类型。
+	// 命名分裂告警 — 检测逻辑在 catalog.DetectNameSplits (guard 测试 TestNoPinNameSplit 共用)。
 	b.WriteString("## ⚠ 命名分裂告警\n\n")
-	warned := false
-
-	all := newPinMap()
-	for _, m := range []map[string]*pinAgg{inParam, inExec, outExec, outVal, data} {
-		for name, a := range m {
-			for k := range a.nodes {
-				addPin(all, name, "", "", k)
-			}
-		}
-	}
-	byNorm := map[string][]string{}
-	for name := range all {
-		k := normPinKey(name)
-		byNorm[k] = append(byNorm[k], name)
-	}
-	normKeys := make([]string, 0, len(byNorm))
-	for k := range byNorm {
-		normKeys = append(normKeys, k)
-	}
-	sort.Strings(normKeys)
-	for _, k := range normKeys {
-		variants := byNorm[k]
-		if len(variants) > 1 {
-			sort.Strings(variants)
-			for i := range variants {
-				variants[i] = "`" + variants[i] + "`"
-			}
-			fmt.Fprintf(&b, "- 形近撞名: %s —— 选一个统一\n", strings.Join(variants, " vs "))
-			warned = true
-		}
-	}
-	for _, grp := range []struct {
-		label string
-		m     map[string]*pinAgg
-	}{{"输入参数", inParam}, {"数据字段", data}} {
-		for _, name := range sortedPinKeys(grp.m) {
-			a := grp.m[name]
-			// 含 `*` (通配/任意) 的是有意泛型 pin (Add/Eq 的 A/B 等), 不算分裂; 只揪 ≥2 个具体类型撞名。
-			if _, wild := a.types["*"]; wild {
-				continue
-			}
-			if len(a.types) > 1 {
-				fmt.Fprintf(&b, "- 同名不同类型 [%s] `%s`: %s —— 确认是否该统一\n",
-					grp.label, name, strings.Join(sortedSet(a.types), " / "))
-				warned = true
-			}
-		}
-	}
-	if !warned {
+	if splits := catalog.DetectNameSplits(); len(splits) == 0 {
 		b.WriteString("(无)\n")
+	} else {
+		for _, s := range splits {
+			fmt.Fprintf(&b, "- %s\n", s)
+		}
 	}
 
 	fmt.Print(b.String())
