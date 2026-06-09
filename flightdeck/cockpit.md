@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
 **Last updated**: 2026-06-08 by 月离 (颜色范围吸管 ship 完成：schema widget 标记 + ExtractColorRange 纯 CV + picker color 模式 + StructuredInput 吸管按钮 + i18n，真机 smoke 过。spec/plan done+归档。)
-**Active focus**: 资产子系统重构实现中。spec(graduate)+plan 已落并 commit。subagent 执行：**Phase 0-1 完成**(asset 包 blob 池+记录库+PickVariant+GC，-race 全绿，已 commit)。下一步 Phase 2 起的耦合改造(matcher/节点/clip/分享/RPC/前端/接线)。
+**Active focus**: 资产子系统重构 **代码全部完成、所有自动门绿**(go build/vet/test + 前端 vue-tsc + pnpm build)。subagent 执行 Phase 0-7 + 接线全完。唯一剩 **真机 smoke 需用户跑**(spec §13)。template 包+旧 inputclip 存储+cmd/import-fish-data 已整删(二号铁律)。
 
 ## 进行中
 
@@ -9,7 +9,9 @@
 
 ## 下一步
 
-按 [plan](plans/2026-06-09-asset-subsystem-guid-cas.md) 续执行 **Phase 2**：运行时匹配 `templateMatcherAdapter` 改全局 asset store + Detect 按 GUID + 缓存按 blob sha（`wire_container.go`）。注意 Phase 2-8 是耦合 swap，`go build ./...` 会红到整批完成才绿；**Phase 8 真机 smoke 必须用户在自己机器跑**（真实游戏窗口+模板）。已完成 commit：b90b584(P0)→c900d36(P1)。
+**用户真机 smoke**（spec §13，必须在用户机器+真实游戏跑）：`task build` 起 app（会自动重生成 wails bindings + 填 fish fixture）→ ① 截两模板各得 GUID、同图截两次 blob 只一份 ② 节点引用 GUID 跨分辨率命中 ③ 重拍同 GUID 换图所有引用自动跟随 ④ 导出子图+导出整容器→导入另一容器幂等无冲突弹窗 ⑤ 删引用共享模板的子图→资产仍在 ⑥ 库里删资产→弹"被 N 处引用"→GC 回收。smoke 全过后 spec 可 graduate 进 docs、归档 spec/plan。
+可选：smoke 前过一轮 final code review（/code-review 或喂 diff 给 AI reviewer）。
+commit 链：1af14f5→792bcaa→f048268→4bf8f82→94c0e0f→50ff19c(后端)→dd12be8(前端)。已知预存失败(非回归)：runtime 的 TestApplyDirection_*/TestWatchdog_*/TestScanSubgraphDependencies_* 缺 fish fixture，见 [build.md](checklists/build.md)。
 
 ## Hanging tasks
 
