@@ -175,18 +175,23 @@ func (s *Store) PutVariant(guid string, res [2]int, blobSha string, bbox [4]int,
 		Regions:    regions,
 		Blob:       blobSha,
 	}
+	// clone 后再改：rec.Variants 与 map value / 历史 List() 结果共享 backing array,
+	// 原地改会污染别处持有的快照。
+	vs := make([]Variant, len(rec.Variants), len(rec.Variants)+1)
+	copy(vs, rec.Variants)
 	// 同 Resolution 覆盖，否则追加。
 	found := false
-	for i, existing := range rec.Variants {
+	for i, existing := range vs {
 		if existing.Resolution == res {
-			rec.Variants[i] = v
+			vs[i] = v
 			found = true
 			break
 		}
 	}
 	if !found {
-		rec.Variants = append(rec.Variants, v)
+		vs = append(vs, v)
 	}
+	rec.Variants = vs
 	if err := s.writeRecord(rec); err != nil {
 		return fmt.Errorf("PutVariant write: %w", err)
 	}
@@ -202,7 +207,8 @@ func (s *Store) RemoveVariant(guid string, res [2]int) error {
 	if !ok {
 		return fmt.Errorf("RemoveVariant: guid %q not found", guid)
 	}
-	filtered := rec.Variants[:0]
+	// 新建 slice, 不复用 rec.Variants 的 backing array (避免污染 List() 快照)。
+	filtered := make([]Variant, 0, len(rec.Variants))
 	for _, v := range rec.Variants {
 		if v.Resolution != res {
 			filtered = append(filtered, v)
