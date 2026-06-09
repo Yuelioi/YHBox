@@ -2,48 +2,13 @@ package container
 
 import "testing"
 
-func TestValidateTemplateKey_InvalidKey(t *testing.T) {
-	sg := Subgraph{
-		ID: "sg1",
-		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"no_dot"}}}},
-		}},
-	}
-	c := &Container{Subgraphs: []Subgraph{sg}}
-	errs := ValidateContainer(c)
-	found := false
-	for _, e := range errs {
-		if e.Code == "INVALID_TEMPLATE_KEY" && e.NodeID == "n1" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected INVALID_TEMPLATE_KEY error, got %v", errs)
-	}
-}
-
-func TestValidateTemplateKey_Valid(t *testing.T) {
-	sg := Subgraph{
-		ID: "sg1",
-		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fishing.hook_icon"}}}},
-		}},
-	}
-	c := &Container{Subgraphs: []Subgraph{sg}}
-	errs := ValidateContainer(c)
-	for _, e := range errs {
-		if e.Code == "INVALID_TEMPLATE_KEY" {
-			t.Errorf("unexpected INVALID_TEMPLATE_KEY for valid key: %v", e)
-		}
-	}
-}
+// 资产改 GUID 后无格式校验 (合法性 = 存在性). 这里只验存在性 (hasTemplate 注入).
 
 func TestValidateContainerWithDeps_TemplateNotFound(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fishing.hook_icon"}}}},
+			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"some-guid"}}}},
 		}},
 	}
 	c := &Container{Subgraphs: []Subgraph{sg}}
@@ -65,7 +30,7 @@ func TestValidateContainerWithDeps_TemplateFound(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fishing.hook_icon"}}}},
+			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"some-guid"}}}},
 		}},
 	}
 	c := &Container{Subgraphs: []Subgraph{sg}}

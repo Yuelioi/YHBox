@@ -97,16 +97,3 @@ func TestWaitTemplate_Error(t *testing.T) {
 	}
 }
 
-func TestWaitTemplate_InvalidKey_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplate{})
-	rn, _ := node.Get("WaitTemplate")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{wtInTemplates: []string{"no_dot"}},
-		nil, withVision(&mockVision{}), false)
-
-	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_TEMPLATE_KEY" {
-		t.Errorf("validation = %v, want INVALID_TEMPLATE_KEY", r.Validation)
-	}
-}

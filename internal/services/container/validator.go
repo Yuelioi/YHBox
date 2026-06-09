@@ -107,10 +107,9 @@ const (
 	CodeBreakOutsideLoop    = "BREAK_OUTSIDE_LOOP"
 	CodeContinueOutsideLoop = "CONTINUE_OUTSIDE_LOOP"
 
-	// Template key / dependency codes
-	CodeInvalidTemplateKey = "INVALID_TEMPLATE_KEY"
-	CodeTemplateNotFound   = "TEMPLATE_NOT_FOUND"
-	CodeClipNotFound       = "CLIP_NOT_FOUND"
+	// Template / dependency codes (GUID 存在性校验, 无格式校验)
+	CodeTemplateNotFound = "TEMPLATE_NOT_FOUND"
+	CodeClipNotFound     = "CLIP_NOT_FOUND"
 )
 
 // ValidationError is the i18n-ready error envelope.
@@ -175,7 +174,6 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
-	errs = append(errs, validateTemplateKeyNodes(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
 	errs = append(errs, validateCollapsedReferences(c)...)
 	errs = append(errs, validateVarRefs(c)...)

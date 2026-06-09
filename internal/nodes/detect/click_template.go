@@ -39,7 +39,7 @@ func (ClickTemplate) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: clkInExec, Type: "Exec"},
-			{Name: clkInTemplates, Type: "String", Semantic: "TemplateKey", Required: true,
+			{Name: clkInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
 			{Name: clkInMatchMode, Type: "String", Default: "any", Advanced: true,
 				Widget: node.WidgetSpec{Kind: "dropdown",
@@ -104,7 +104,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 }
 
 func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
-	errs := validateTemplateKeys(in.StringList(clkInTemplates), clkInTemplates)
+	var errs []node.ValidationError
 	btn := in.String(clkInButton)
 	if btn != "" && btn != "left" && btn != "right" && btn != "middle" {
 		errs = append(errs, node.ValidationError{

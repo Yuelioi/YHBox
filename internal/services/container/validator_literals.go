@@ -39,11 +39,11 @@ func validateLiteralTypes(c *Container) []ValidationError {
 				if literalMatchesType(raw, pinType) {
 					continue
 				}
-				// TemplateKey 语义 pin (WaitTemplate/CheckTemplate/ClickTemplate 的 Templates)
+				// TemplateGUID 语义 pin (WaitTemplate/CheckTemplate/ClickTemplate 的 Templates)
 				// 实为字符串列表: template-picker 多选, runtime 走 PinStringList 读. 标量
 				// literalMatchesType 会把数组误判成 string mismatch, 这里按列表放行 (元素全 string,
 				// 或裸 string 单值兜底, 跟 PinStringList 的容忍一致).
-				if dataInPinSemanticForKind(n.Kind, pinName) == "TemplateKey" && isStringList(raw) {
+				if dataInPinSemanticForKind(n.Kind, pinName) == "TemplateGUID" && isStringList(raw) {
 					continue
 				}
 				errs = append(errs, ValidationError{
@@ -68,7 +68,7 @@ func validateLiteralTypes(c *Container) []ValidationError {
 	return errs
 }
 
-// isStringList: TemplateKey 列表 literal 的容忍形态 — []any(元素全 string) / []string / 裸 string.
+// isStringList: TemplateGUID 列表 literal 的容忍形态 — []any(元素全 string) / []string / 裸 string.
 // 跟 container.PinStringList 的读取容忍一致 (裸 string 当一元列表).
 func isStringList(v any) bool {
 	switch vv := v.(type) {

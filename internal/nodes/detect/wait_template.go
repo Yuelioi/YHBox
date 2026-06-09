@@ -36,7 +36,7 @@ func (WaitTemplate) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
-			{Name: wtInTemplates, Type: "String", Semantic: "TemplateKey", Required: true,
+			{Name: wtInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
 			{Name: wtInMatchMode, Type: "String", Default: "any", Advanced: true,
 				Widget: node.WidgetSpec{Kind: "dropdown",
@@ -85,7 +85,8 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 }
 
 func (WaitTemplate) Validate(in node.Inputs) []node.ValidationError {
-	return validateTemplateKeys(in.StringList(wtInTemplates), wtInTemplates)
+	// 模板引用现为 GUID, 合法性 = 存在性 (由 container validator_deps 校验), 节点级无格式校验.
+	return nil
 }
 
 func (WaitTemplate) Dependencies(in node.Inputs) []node.Dependency {

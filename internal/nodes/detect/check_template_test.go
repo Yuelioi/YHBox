@@ -269,21 +269,6 @@ func TestCheckTemplate_Error(t *testing.T) {
 	}
 }
 
-func TestCheckTemplate_InvalidKey_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
-
-	r := node.RunNode(context.Background(), rn,
-		nil,
-		map[string]any{ctInTemplates: []string{"no_dot"}},
-		nil, withVision(&mockVision{}), false)
-
-	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_TEMPLATE_KEY" {
-		t.Errorf("validation = %v, want INVALID_TEMPLATE_KEY", r.Validation)
-	}
-}
-
 func TestCheckTemplate_RequiredMissing(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&CheckTemplate{})

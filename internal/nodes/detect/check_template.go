@@ -37,7 +37,7 @@ func (CheckTemplate) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: ctInExec, Type: "Exec"},
-			{Name: ctInTemplates, Type: "String", Semantic: "TemplateKey", Required: true,
+			{Name: ctInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
 			{Name: ctInMatchMode, Type: "String", Default: "any", Advanced: true,
 				Widget: node.WidgetSpec{Kind: "dropdown",
@@ -85,7 +85,8 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 
 // === Validate: 可选 ===
 func (CheckTemplate) Validate(in node.Inputs) []node.ValidationError {
-	return validateTemplateKeys(in.StringList(ctInTemplates), ctInTemplates)
+	// 模板引用现为 GUID, 合法性 = 存在性 (由 container validator_deps 校验), 节点级无格式校验.
+	return nil
 }
 
 // === Dependencies: 可选 ===

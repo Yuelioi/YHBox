@@ -35,10 +35,23 @@ type Service struct {
 	runner   Runner
 	onChange ChangeListener
 	windows  WindowOpener
+
+	// hasTemplate / hasClip: 注入式查全局 asset 库某 GUID 是否存在 (validator 存在性检查用).
+	// main.go 注入 (查 asset.Store). nil → 校验时跳过该 kind 存在性检查.
+	hasTemplate func(guid string) bool
+	hasClip     func(guid string) bool
 }
 
 func NewService(store *Store) *Service {
 	return &Service{store: store}
+}
+
+// SetAssetExistence 注入资产存在性查询 (main.go 用全局 asset.Store).
+// 校验时 CheckTemplate/ClickTemplate/WaitTemplate 引用的 GUID 不存在 → TEMPLATE_NOT_FOUND;
+// PlayClip 引用的 GUID 不存在 → CLIP_NOT_FOUND.
+func (s *Service) SetAssetExistence(hasTemplate, hasClip func(guid string) bool) {
+	s.hasTemplate = hasTemplate
+	s.hasClip = hasClip
 }
 
 // SetRunner 启动期 main.go 注入。Runner=nil 时 Run/Stop 返 error。
@@ -193,6 +206,9 @@ func (s *Service) ValidateContainerByID(id string) []ValidationError {
 		return []ValidationError{
 			{Severity: SeverityError, Code: "CONTAINER_NOT_FOUND", Params: map[string]any{"id": id}},
 		}
+	}
+	if s.hasTemplate != nil || s.hasClip != nil {
+		return ValidateContainerWithDeps(&c, s.hasTemplate, s.hasClip)
 	}
 	return ValidateContainer(&c)
 }
@@ -353,14 +369,4 @@ func (s *Service) CaptureBackendFor(containerID string) string {
 		return "auto"
 	}
 	return ReadWindowTargetCaptureBackend(&c)
-}
-
-// ScaleToleranceFor 读容器级 ScaleTolerance 字段. 镜像 CaptureBackendFor.
-// templateMatcherAdapter 按此决定 miss 精确分辨率时缩放兜底的允许范围.
-func (s *Service) ScaleToleranceFor(containerID string) float64 {
-	c, ok := s.store.Get(containerID)
-	if !ok {
-		return DefaultScaleTolerance
-	}
-	return ReadWindowTargetScaleTolerance(&c)
 }
