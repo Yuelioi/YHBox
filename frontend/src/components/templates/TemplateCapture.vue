@@ -124,32 +124,10 @@
               {{ t('template.capture.drag_hint') }}
             </p>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div class="space-y-1.5">
-                <UFormField :error="keyError" :label="t('template.capture.key_label')">
-                  <UInput
-                    v-model="keyPath"
-                    size="md"
-                    class="w-full"
-                    :placeholder="t('template.capture.key_example')"
-                    :ui="{ base: 'font-mono' }"
-                  />
-                </UFormField>
-              </div>
-              <div class="space-y-1.5">
-                <label class="block text-[11px] text-toned">{{ t('template.capture.name_label') }}</label>
-                <UInput v-model="name" size="md" class="w-full" :placeholder="t('template.capture.name_example')" />
-              </div>
-            </div>
-
+            <!-- 只需填名称 — GUID 由后端分配, 用户不可见 -->
             <div class="space-y-1.5">
-              <label class="block text-[11px] text-toned">{{ t('template.capture.desc_label') }}</label>
-              <UTextarea
-                v-model="description"
-                :rows="2"
-                class="w-full"
-                :placeholder="t('template.capture.desc_hint')"
-              />
+              <label class="block text-[11px] text-toned">{{ t('template.capture.name_label') }}</label>
+              <UInput v-model="name" size="md" class="w-full" :placeholder="t('template.capture.name_example')" />
             </div>
 
             <div class="flex items-center gap-3 text-[11px] text-dimmed flex-wrap">
@@ -195,14 +173,12 @@ import { useTemplatesStore } from '@/stores/templates'
 const { t } = useI18n()
 
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; saved: [guid: string] }>()
 
 const templates = useTemplatesStore()
 
 const dataURL = ref('')
-const keyPath = ref('')
 const name = ref('')
-const description = ref('')
 const capturing = ref(false)
 const saving = ref(false)
 
@@ -239,15 +215,8 @@ const resolutionLabel = computed(() => {
   return `${imgNatW.value} × ${imgNatH.value}`
 })
 
-const keyPattern = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/
-const keyValid = computed(() => keyPattern.test(keyPath.value))
-const keyError = computed(() => {
-  if (!keyPath.value) return ''
-  if (keyValid.value) return ''
-  return t('template.capture.invalid_key_format')
-})
-
-const canSave = computed(() => !!dataURL.value && keyValid.value && !!name.value.trim())
+// 名称必填, dataURL 必须已截; key 已移除 (后端分配 GUID)
+const canSave = computed(() => !!dataURL.value && !!name.value.trim())
 
 watch(
   () => props.open,
@@ -258,9 +227,7 @@ watch(
 
 function reset() {
   dataURL.value = ''
-  keyPath.value = ''
   name.value = ''
-  description.value = ''
   imgNatW.value = 0
   imgNatH.value = 0
   imgDispW.value = 0
@@ -385,15 +352,12 @@ async function onSave() {
         selNat.value.h / imgNatH.value,
       ]
     }
-    const ok = await templates.save(
-      keyPath.value.trim(),
-      png,
-      name.value.trim(),
-      description.value.trim(),
-      [screenW, screenH],
-      region,
-    )
-    if (ok) emit('close')
+    // save() 返回 guid (成功) 或 null
+    const guid = await templates.save(png, name.value.trim(), [screenW, screenH], region)
+    if (guid) {
+      emit('saved', guid)
+      emit('close')
+    }
   } finally {
     saving.value = false
   }

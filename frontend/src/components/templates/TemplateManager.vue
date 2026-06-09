@@ -9,12 +9,6 @@
         class="flex-1 min-w-48 max-w-md"
       />
       <USelect
-        v-model="resolutionFilter"
-        :items="resolutionItems"
-        class="w-40"
-        :ui="{ content: 'min-w-[180px]' }"
-      />
-      <USelect
         v-model="sortKey"
         :items="sortItems"
         class="w-44"
@@ -56,21 +50,21 @@
       class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3"
     >
       <div
-        v-for="[key, meta] in filtered"
-        :key="key"
+        v-for="s in filtered"
+        :key="s.guid"
         class="group rounded-md border border-default bg-elevated/30 overflow-hidden hover:border-primary/60 transition-colors flex flex-col"
       >
         <!-- 缩略图 -->
         <button
           type="button"
           class="relative w-full aspect-[4/3] bg-elevated flex items-center justify-center overflow-hidden cursor-zoom-in"
-          @click="openPreview(key, meta)"
+          @click="openPreview(s)"
         >
           <img
-            v-if="thumbCache[key]"
-            :src="thumbCache[key]"
+            v-if="thumbCache[s.guid]"
+            :src="thumbCache[s.guid]"
             class="max-w-full max-h-full object-contain"
-            :alt="meta.name"
+            :alt="s.name"
           />
           <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
           <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -83,25 +77,15 @@
         </button>
 
         <div class="p-2 space-y-0.5 min-w-0">
-          <div class="text-[11px] font-mono text-toned truncate" :title="key">{{ key }}</div>
-          <div class="text-xs text-highlighted truncate" :title="meta.name">{{ meta.name }}</div>
+          <div class="text-xs text-highlighted truncate" :title="s.name">{{ s.name }}</div>
+          <div v-if="s.tags?.length" class="text-[10px] text-dimmed truncate">
+            {{ s.tags.join(', ') }}
+          </div>
           <div class="text-[10px] text-dimmed flex items-center gap-1.5 truncate">
             <span class="inline-flex items-center gap-0.5">
-              <UIcon name="i-tabler-aspect-ratio" class="size-3" />
-              {{ meta.width }}×{{ meta.height }}
+              <UIcon name="i-tabler-layers" class="size-3" />
+              {{ s.variantCount }} {{ t('template.manager.variant_count') }}
             </span>
-            <span class="text-default/40">·</span>
-            <span class="inline-flex items-center gap-0.5">
-              <UIcon name="i-tabler-device-desktop" class="size-3" />
-              {{ meta.recordedResolution[0] }}×{{ meta.recordedResolution[1] }}
-            </span>
-          </div>
-          <div
-            v-if="meta.description"
-            class="text-[10px] text-dimmed truncate"
-            :title="meta.description"
-          >
-            {{ meta.description }}
           </div>
         </div>
 
@@ -112,16 +96,15 @@
             color="neutral"
             icon="i-tabler-copy"
             :title="t('template.manager.copy_key')"
-            @click="copyKey(key)"
+            @click="copyGuid(s.guid)"
           />
-          <!-- 编辑元数据按钮已移除: backend UpdateMeta RPC 已删除 (v2.1 per-container) -->
           <UButton
             size="xs"
             variant="ghost"
             color="error"
             icon="i-tabler-trash"
-            :title="t('template.manager.delete_template_tip', { key })"
-            @click="onDelete(key)"
+            :title="t('template.manager.delete_template_tip', { key: s.name })"
+            @click="onDelete(s)"
           />
         </div>
       </div>
@@ -137,10 +120,8 @@
         <div class="bg-default flex flex-col">
           <header class="flex items-center gap-2 px-5 py-3 border-b border-default">
             <UIcon name="i-tabler-photo" class="size-4 text-primary" />
-            <h3 class="text-sm font-medium font-mono truncate">{{ previewKey }}</h3>
-            <span class="ml-auto text-[11px] text-dimmed"
-              >{{ previewMeta?.width }}×{{ previewMeta?.height }}</span
-            >
+            <h3 class="text-sm font-medium truncate">{{ previewSummary?.name }}</h3>
+            <span class="ml-auto text-[11px] text-dimmed font-mono truncate max-w-[200px]">{{ previewSummary?.guid }}</span>
             <UButton
               size="xs"
               variant="ghost"
@@ -163,16 +144,13 @@
               <div v-else class="text-xs text-dimmed py-12">{{ t('common.loading') }}</div>
             </div>
             <div class="text-xs space-y-1">
-              <div>
-                <span class="text-dimmed">{{ t('template.manager.display_name_label') }}</span
-                ><span class="text-highlighted">{{ previewMeta?.name }}</span>
-              </div>
-              <div v-if="previewMeta?.description">
-                <span class="text-dimmed">{{ t('template.manager.desc_label') }}</span>{{ previewMeta?.description }}
+              <div v-if="previewSummary?.tags?.length">
+                <span class="text-dimmed">{{ t('template.manager.tags_label') }}</span>
+                <span class="text-highlighted">{{ previewSummary.tags.join(', ') }}</span>
               </div>
               <div class="text-[11px] text-dimmed">
-                {{ t('template.capture.recorded_res', { res: `${previewMeta?.recordedResolution?.[0]}×${previewMeta?.recordedResolution?.[1]}` }) }}
-                · {{ t('template.manager.created_at', { time: formatTime(previewMeta?.createdAt) }) }}
+                {{ t('template.manager.variant_count') }}: {{ previewSummary?.variantCount }}
+                · {{ t('template.manager.created_at', { time: formatTime(previewSummary?.createdAt) }) }}
               </div>
             </div>
           </div>
@@ -188,7 +166,7 @@ import { useI18n } from 'vue-i18n'
 import { useTemplatesStore } from '@/stores/templates'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
-import { type TemplateMeta } from '@/lib/backend'
+import { type AssetSummary } from '@/lib/backend'
 
 const { t } = useI18n()
 
@@ -197,69 +175,43 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 const search = ref('')
-const sortKey = ref<'key' | 'name' | 'resolution' | 'createdAt'>('key')
+const sortKey = ref<'name' | 'createdAt' | 'variantCount'>('name')
 const sortDesc = ref(false)
-const resolutionFilter = ref<string>('__all__')
 const thumbCache = ref<Record<string, string>>({})
 
 const sortItems = computed(() => [
-  { label: t('template.manager.view_by_key'), value: 'key' },
   { label: t('template.manager.view_by_name'), value: 'name' },
-  { label: t('template.manager.view_by_res'), value: 'resolution' },
   { label: t('template.manager.view_by_created'), value: 'createdAt' },
+  { label: t('template.manager.view_by_res'), value: 'variantCount' },
 ])
 
-const entries = computed(() => Object.entries(store.map))
-
-// 从模板库收集 unique 录制分辨率
-const resolutionItems = computed(() => {
-  const seen = new Map<string, number>()
-  for (const [, m] of entries.value) {
-    const w = m.recordedResolution?.[0] ?? 0
-    const h = m.recordedResolution?.[1] ?? 0
-    if (!w || !h) continue
-    const k = `${w}x${h}`
-    seen.set(k, (seen.get(k) ?? 0) + 1)
-  }
-  const list = [...seen.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, n]) => ({ label: `${k.replace('x', ' × ')} (${n})`, value: k }))
-  return [{ label: t('template.manager.all_resolutions'), value: '__all__' }, ...list]
-})
+// entries: AssetSummary[] (template kind, map 已过滤)
+const entries = computed(() => Object.values(store.map))
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
   let arr = entries.value
   if (q) {
-    arr = arr.filter(([k, m]) => {
+    arr = arr.filter((s) => {
       return (
-        k.toLowerCase().includes(q) ||
-        m.name?.toLowerCase().includes(q) ||
-        m.description?.toLowerCase().includes(q)
+        s.name?.toLowerCase().includes(q) ||
+        s.guid.toLowerCase().includes(q) ||
+        s.tags?.some((tag) => tag.toLowerCase().includes(q))
       )
     })
   }
-  if (resolutionFilter.value !== '__all__') {
-    const [fw, fh] = resolutionFilter.value.split('x').map(Number)
-    arr = arr.filter(
-      ([, m]) => m.recordedResolution?.[0] === fw && m.recordedResolution?.[1] === fh,
-    )
-  }
   const sorted = [...arr]
-  sorted.sort(([ak, am], [bk, bm]) => {
+  sorted.sort((a, b) => {
     let cmp = 0
     switch (sortKey.value) {
-      case 'key':
-        cmp = ak.localeCompare(bk)
-        break
       case 'name':
-        cmp = (am.name ?? '').localeCompare(bm.name ?? '')
-        break
-      case 'resolution':
-        cmp = am.width * am.height - bm.width * bm.height
+        cmp = (a.name ?? '').localeCompare(b.name ?? '')
         break
       case 'createdAt':
-        cmp = (am.createdAt ?? '').localeCompare(bm.createdAt ?? '')
+        cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
+        break
+      case 'variantCount':
+        cmp = (a.variantCount ?? 0) - (b.variantCount ?? 0)
         break
     }
     return sortDesc.value ? -cmp : cmp
@@ -267,37 +219,37 @@ const filtered = computed(() => {
   return sorted
 })
 
-async function loadThumb(key: string) {
-  if (thumbCache.value[key]) return
-  const r = await store.readPng(key)
-  if (typeof r === 'string') thumbCache.value[key] = r
+async function loadThumb(s: AssetSummary) {
+  if (thumbCache.value[s.guid] || !s.firstBlobSha) return
+  const r = await store.readBlobDataURL(s.firstBlobSha)
+  if (typeof r === 'string') thumbCache.value[s.guid] = r
 }
 
 // 监听 filtered 变化，懒加载未加载的缩略图
 watch(
   filtered,
   async (list) => {
-    for (const [k] of list) {
-      if (!thumbCache.value[k]) await loadThumb(k)
+    for (const s of list) {
+      if (!thumbCache.value[s.guid]) await loadThumb(s)
     }
   },
   { immediate: true },
 )
 
-async function onDelete(key: string) {
+async function onDelete(s: AssetSummary) {
   const yes = await confirm({
     title: t('template.manager.delete_title'),
-    description: t('template.manager.delete_confirm', { key }),
+    description: t('template.manager.delete_confirm', { key: s.name }),
     color: 'error',
     confirmText: t('common.delete'),
   })
   if (yes !== true) return
-  await store.remove(key)
-  delete thumbCache.value[key]
+  await store.remove(s.guid)
+  delete thumbCache.value[s.guid]
 }
 
-function copyKey(key: string) {
-  navigator.clipboard?.writeText(key).then(
+function copyGuid(guid: string) {
+  navigator.clipboard?.writeText(guid).then(
     () => toast.add({ title: t('template.manager.key_copied'), color: 'success', duration: 1500 }),
     () => toast.add({ title: t('toast.copy_failed'), color: 'error' }),
   )
@@ -305,20 +257,18 @@ function copyKey(key: string) {
 
 // Preview modal state
 const previewOpen = ref(false)
-const previewKey = ref('')
-const previewMeta = ref<TemplateMeta | null>(null)
+const previewSummary = ref<AssetSummary | null>(null)
 const previewDataURL = ref('')
 
-async function openPreview(key: string, meta: TemplateMeta) {
-  previewKey.value = key
-  previewMeta.value = meta
-  previewDataURL.value = thumbCache.value[key] ?? ''
+async function openPreview(s: AssetSummary) {
+  previewSummary.value = s
+  previewDataURL.value = thumbCache.value[s.guid] ?? ''
   previewOpen.value = true
-  if (!previewDataURL.value) {
-    const r = await store.readPng(key)
+  if (!previewDataURL.value && s.firstBlobSha) {
+    const r = await store.readBlobDataURL(s.firstBlobSha)
     if (typeof r === 'string') {
       previewDataURL.value = r
-      thumbCache.value[key] = r
+      thumbCache.value[s.guid] = r
     }
   }
 }

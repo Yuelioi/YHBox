@@ -274,16 +274,9 @@
           class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-3"
         >
           <h4 class="text-[10px] uppercase tracking-wider text-dimmed">保存为模板</h4>
-          <UFormField :error="keyError" label="key (namespace.name, 必填)">
-            <UInput v-model="tplKey" size="sm" class="w-full" placeholder="fishing.hook_icon" :ui="{ base: 'font-mono' }" />
-          </UFormField>
           <div class="space-y-1.5">
             <label class="block text-[11px] text-toned">显示名 (必填)</label>
             <UInput v-model="tplName" size="sm" class="w-full" placeholder="例：上钩图标" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="block text-[11px] text-toned">描述</label>
-            <UTextarea v-model="tplDescription" :rows="2" class="w-full" placeholder="可选" />
           </div>
           <p class="text-[10px] text-dimmed">不框选 = 保存全图；框选 = 自动裁剪</p>
         </section>
@@ -426,23 +419,14 @@ const loupeStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px` }
 })
 
-// template form
-const tplKey = ref('')
+// template form — key 已移除，后端分配 GUID; 只需填名称
 const tplName = ref('')
-const tplDescription = ref('')
-const keyPattern = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/
-const keyValid = computed(() => keyPattern.test(tplKey.value))
-const keyError = computed(() => {
-  if (!tplKey.value) return ''
-  if (keyValid.value) return ''
-  return 'key 必须形如 fishing.hook_icon（字母数字下划线 + 至少 1 个点）'
-})
 
 const canConfirm = computed(() => {
   if (!dataURL.value) return false
   if (mode.value === 'point') return !!pointSelNat.value
   if (mode.value === 'rect') return !!rectSelNat.value
-  if (mode.value === 'template_save') return keyValid.value && !!tplName.value.trim()
+  if (mode.value === 'template_save') return !!tplName.value.trim()
   // color mode 自动提取 (pointerup 触发), 不走 confirm 按钮
   return false
 })
@@ -459,7 +443,7 @@ async function capture() {
   cursorNat.value = null
   cursorColor.value = null
   try {
-    const r = await backend.templates.capture(containerID.value)
+    const r = await backend.assets.capture(containerID.value)
     if (r) dataURL.value = r as string
   } finally {
     capturing.value = false
@@ -714,20 +698,18 @@ async function confirm() {
             rectSelNat.value.h / natH.value,
           ]
         : [0, 0, 1, 1]
-      const ok = await backend.templates.save(
-        containerID.value,
-        tplKey.value.trim(),
+      // SaveTemplateCapture: 无 containerID / key; 返回新分配的 guid
+      const guid = await backend.assets.saveTemplateCapture(
         png,
         tplName.value.trim(),
-        tplDescription.value.trim(),
         [natW.value, natH.value],
         region,
       )
-      if (!ok) {
+      if (!guid) {
         saving.value = false
         return
       }
-      await emitResult({ key: tplKey.value.trim() })
+      await emitResult({ guid: guid as string })
     } else if (mode.value === 'point' && pointSelNat.value) {
       await emitResult({
         x: Math.round(pointSelNat.value.x),

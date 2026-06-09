@@ -31,6 +31,7 @@ async function onNewTemplate() {
   await backend.tools.openScreenPicker('template_save', id, tplStore.containerId)
   const result = await waiter
   if (!result.payload?.cancelled) {
+    // payload.guid (新) 或 payload.cancelled; reload 刷新全局列表
     await tplStore.reload()
   }
 }

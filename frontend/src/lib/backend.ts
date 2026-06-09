@@ -6,7 +6,7 @@ import * as SettingsService from '@bindings/yotta/internal/services/settingsserv
 import * as HotkeyService from '@bindings/yotta/internal/hotkey/hotkeyservice.js'
 import * as ContainerService from '@bindings/yotta/internal/services/container/service.js'
 import * as ScheduleService from '@bindings/yotta/internal/services/schedule/service.js'
-import * as TemplateService from '@bindings/yotta/internal/services/template/service.js'
+import * as AssetService from '@bindings/yotta/internal/services/asset/service.js'
 import * as CalibrationService from '@bindings/yotta/internal/services/calibration/service.js'
 import * as ToolsService from '@bindings/yotta/internal/services/tools/service.js'
 import * as AppInfoService from '@bindings/yotta/internal/services/appinfoservice.js'
@@ -189,22 +189,36 @@ export interface Schedule {
   updatedAt: string
 }
 
-export interface TemplateMeta {
+// AssetSummary 全局资产列表项 — 对应后端 asset.AssetSummary.
+// 键 = guid (稳定 UUID), 不再是 namespace.name key.
+export interface AssetSummary {
+  guid: string
+  kind: string         // "template" | "clip"
   name: string
-  description?: string
-  // 后端 [2]int Go fixed-size array → wails3 binding 生成 number[] (encoding/json 视作普通 slice).
-  // 这里跟 binding 对齐用 number[]; 实际固定 2 元素, 消费者按 indexed access 用就行.
-  recordedResolution: number[]
-  sha256: string
-  width: number
-  height: number
-  // 同理: Go [4]int → number[].
-  region: number[]
-  createdAt: string
-  // v2: 仅库模板使用；容器内模板该字段为空。
   tags?: string[]
-  // v2: 来源追踪（screenshot / library / imported / embedded）。
-  origin?: { kind: string; sourceID?: string }
+  variantCount: number
+  firstBlobSha?: string // 首变体 blob sha (FE 用 ReadBlobDataURL 拉缩略图)
+  createdAt?: string
+}
+
+// AssetRecord 全局资产完整记录 — 对应后端 asset.AssetRecord.
+export interface AssetRecord {
+  guid: string
+  kind: string
+  name: string
+  tags?: string[]
+  origin: { kind: string; sourceID?: string }
+  variants?: Array<{ resolution: number[]; bbox: number[]; blob: string }>
+  blob?: string
+  createdAt: string
+}
+
+// Referrer 引用位置 — Delete 返回, FE 据此弹"被 N 处引用"确认.
+export interface AssetReferrer {
+  containerID: string
+  subgraphID?: string
+  nodeID: string
+  nodeKind: string
 }
 
 export const backend = {
@@ -264,20 +278,30 @@ export const backend = {
     update: (id: string, patchJSON: string) => invoke(ScheduleService.Update, id, patchJSON),
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
-  templates: {
-    list: (containerID: string) => invoke(TemplateService.List, containerID),
-    save: (
-      containerID: string,
-      key: string,
+  assets: {
+    // List 全局资产列表 (template + clip), 无 containerID.
+    list: () => invoke(AssetService.List),
+    // SaveTemplateCapture 截图存为新模板资产, 返 GUID.
+    saveTemplateCapture: (
       dataURL: string,
       name: string,
-      description: string,
-      recordedResolution: [number, number],
+      recRes: [number, number],
       region: [number, number, number, number],
-    ) => invoke(TemplateService.Save, containerID, key, dataURL, name, description, recordedResolution, region),
-    delete_: (containerID: string, key: string) => invoke(TemplateService.Delete, containerID, key),
-    capture: (containerID: string) => invoke(TemplateService.Capture, containerID),
-    readPngDataURL: (containerID: string, key: string) => invoke(TemplateService.ReadPngDataURL, containerID, key),
+    ) => invoke(AssetService.SaveTemplateCapture, dataURL, name, recRes, region),
+    // AddTemplateVariant 给已有资产加/换分辨率变体.
+    addTemplateVariant: (
+      guid: string,
+      dataURL: string,
+      recRes: [number, number],
+      region: [number, number, number, number],
+    ) => invoke(AssetService.AddTemplateVariant, guid, dataURL, recRes, region),
+    delete_: (guid: string) => invoke(AssetService.Delete, guid),
+    rename: (guid: string, name: string) => invoke(AssetService.Rename, guid, name),
+    // Capture 截当前容器目标窗口帧 (保留 containerID — 截帧需窗口上下文).
+    capture: (containerID: string) => invoke(AssetService.Capture, containerID),
+    // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
+    readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
+    gcBlobs: () => invoke(AssetService.GCBlobs),
   },
   hotkeys: {
     list: () => invoke(HotkeyService.List),
