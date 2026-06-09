@@ -1668,7 +1668,9 @@ export default {
   },
   // ContextMenuRouter
   contextMenu: {
+    share_confirm_title: '分享子图到库?',
     share_confirm: '将子图 "{sgID}" 及其依赖打包分享到库 (覆盖已有同名 package)?',
+    share_ok: '分享',
     share_success: '已分享 {sgID} 到库',
     share_failed: '分享失败',
     no_literal_pin: '此节点无 literal pin 可提取',

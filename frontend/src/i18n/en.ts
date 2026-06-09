@@ -1639,7 +1639,9 @@
     group_purefunc: 'Pure functions',
   },
   contextMenu: {
+    share_confirm_title: 'Share subgraph to library?',
     share_confirm: 'Package subgraph "{sgID}" and dependencies to library (overwrite existing)?',
+    share_ok: 'Share',
     share_success: 'Shared {sgID} to library',
     share_failed: 'Share failed',
     no_literal_pin: 'This node has no literal pin to extract',

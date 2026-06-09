@@ -11,6 +11,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
+import { useConfirm } from '@/composables/useConfirm'
 import { dataInTypeFor, dataOutTypeFor } from '@/components/containers/nodeRegistry/registry'
 import { type VarType } from '@/lib/variableRef'
 import { newNodeID } from './ids'
@@ -59,6 +60,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
 
   const editorStore = useContainerEditorStore()
   const { t } = useI18n()
+  const { confirm } = useConfirm()
   const { getSelectedNodes, removeNodes, setCenter } = useVueFlow()
 
   // ===== Menu state (4 个 menu 互斥) =====
@@ -165,7 +167,13 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   // ===== Action dispatchers =====
   async function shareSubgraphToLibrary(sgID: string) {
     if (!containerID) return
-    if (!window.confirm(t('contextMenu.share_confirm', { sgID }))) return
+    const yes = await confirm({
+      title: t('contextMenu.share_confirm_title'),
+      description: t('contextMenu.share_confirm', { sgID }),
+      color: 'primary',
+      confirmText: t('contextMenu.share_ok'),
+    })
+    if (yes !== true) return
     try {
       await backend.library.exportSubgraph(containerID, sgID, true)
       toast.add({ title: t('contextMenu.share_success', { sgID }), color: 'success', icon: 'i-tabler-check' })
