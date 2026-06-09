@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-09 by 月离 (修两条 "(子图未找到)" 真 bug：① 库导入绕容器 Store 缓存 [SetContainerReloader]；② keep-alive 多容器编辑器共享全局单例 store 切回污染 [useContainerDraft onActivated, 9ccccbf]。各记 incident。子图深层单例债留待集中重构。)
+**Last updated**: 2026-06-09 by 月离 (子图三连修：① 库导入绕容器 Store 缓存 [SetContainerReloader]；② keep-alive 多容器共享全局单例 store 切回污染——**已根治**：store 按容器隔离 [20e25a9, 替换补丁 9ccccbf]，单测 59 绿，vue-tsc 仅剩 2 个预存红(资产子系统漂移,已回退越界)。待真机 smoke 复验切容器场景。)
 **Active focus**: 资产子系统重构**代码全完 + 已过 3 维 final review + 修了 review 抓的真问题**。所有自动门绿(go build/vet/test + vue-tsc + pnpm i18n:check)。修复: validator 漏扫主图(真 bug)+ 一批二号铁律死代码删净 + 前端 i18n 缺 key 补齐。唯一剩 **真机 smoke 需用户跑**(spec §13)。
 
 ## 进行中
@@ -14,5 +14,5 @@ final review 已做(3 维并行 + 我回源码核验)，修复 commit：50bd4f8(
 
 ## Hanging tasks
 
-- [ ] **子图系统一批问题待彻底解决**（用户 smoke 完其它后回头处理）。已修两条真 bug，同症状 "(子图未找到)" 不同根因：① 库导入绕过容器 Store 内存缓存 → [incident](incidents/2026-06-09-import-bypasses-container-store-cache.md)（library SetContainerReloader + 回归测试）；② keep-alive 缓存多容器编辑器共享全局单例子图 store，切回容器单例污染 → [incident](incidents/2026-06-09-keepalive-singleton-subgraph-store-stale.md)（useContainerDraft onActivated 重置，commit 9ccccbf）。**深层债未根治（留给集中重构）**：`useContainerEditorStore` 的 subgraphsForCurrentContainer / activeContainerID / editorPath 是全局单例，正解是按容器隔离（map keyed by containerID），onActivated 只是补丁。**预存红（非本次引入）**：frontend vue-tsc 2 错 — backend.ts importToContainer 多传 stale `strategy` 参 + 手写 SubgraphPackage 类型缺 templates/clips（bindings/类型漂移，task build 重生成 + 类型对齐时清）。
+- [ ] **子图系统问题（大部分已根治，剩真机 smoke 复验）**。修了三条真 bug，前两条同症状 "(子图未找到)" 不同根因：① 库导入绕过容器 Store 内存缓存 → [incident](incidents/2026-06-09-import-bypasses-container-store-cache.md)（library SetContainerReloader + 回归测试）；② keep-alive 多容器编辑器共享全局单例子图 store 切回污染 → [incident](incidents/2026-06-09-keepalive-singleton-subgraph-store-stale.md)。② 已**根治**（commit 20e25a9）：store 状态按容器隔离（subgraphsByContainer / editorPathByContainer keyed by containerID），activeContainerID 降级成前台指针，对外 API 不变、单测 59 绿；顺带消除未落盘子图编辑/层级切换丢失 + id 碰撞 mergeSubgraphs 取错版本。先前的 onActivated 补丁(9ccccbf)已被根治替换。**待用户真机 smoke 复验**：容器2 折叠子图 → 切容器3 → 切回容器2，子图节点应仍正常 + 分享成功。**预存红（非本次引入，已回退越界改动）**：frontend vue-tsc 2 错 — backend.ts importToContainer stale `strategy` 参（ImportToContainerDialog/useFlowInteraction 等还在传）+ 手写 SubgraphPackage 缺 templates/clips（LibraryCard/LibraryDetailPanel 在用）；这俩属**资产子系统** strategy/类型漂移，归 asset 重构那波清，别单独动（会牵出 import-strategy UI 是否废弃的决策）。
 - [ ] 无阻塞待办。（原积压已路由：编辑器 footgun → [editor-footgun-backlog](specs/editor-footgun-backlog.md)；bindings/测试 fixture/AlwaysOnTop/通道B smoke → [checklists/build.md](checklists/build.md)；删符号全仓 grep → [checklists/code-style.md](checklists/code-style.md)；i18n residue → [misc-tools-backlog](specs/misc-tools-backlog.md)；诊断探针目录已删。）

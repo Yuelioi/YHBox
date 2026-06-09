@@ -3,7 +3,7 @@ status: active
 when_to_read: 撞容器编辑器里 Subgraph 节点渲染 "(子图未找到)" 但子图磁盘上/后端 ListSubgraphs 明明有; 在多个容器编辑器间切换后某容器独有的子图节点失效; 改 useContainerEditorStore (subgraphsForCurrentContainer / activeContainerID / editorPath 这些全局单例) 或给 <keep-alive> 缓存的编辑器加状态前; 设计"当前容器"类全局单例时
 applies_to: [frontend, vue, keep-alive, pinia, singleton-store, container-editor, subgraph, onActivated, useContainerDraft, ContainerFlowNode]
 last_updated: 2026-06-09
-resolved_by: 9ccccbf (useContainerDraft onActivated 重置子图 store)
+resolved_by: 20e25a9 (子图 store 按容器隔离, 根治) — 先有 9ccccbf onActivated 补丁, 后被根治替换
 ---
 
 # keep-alive 缓存编辑器共享全局单例子图 store 致跨容器"(子图未找到)"
@@ -32,9 +32,11 @@ A 容器折叠/建一个**只属于 A** 的子图 (sg-X) → 切到 B 容器编�
 
 ## 修法
 
-`useContainerDraft` 加 `onActivated`: keep-alive 重新激活时用**本容器**磁盘子图 `setActiveContainer` 重置单例; 残留的 `editorPath` 头节点不在本容器子图里就 `resetPath` 回主图 (否则 activeGraph 算空白)。首次挂载 (draft 未就绪) 跳过, 交给 onMounted。抽 `toSubgraphSummaries` 去重 load/refresh/activate 三处映射。
+**根治 (20e25a9)**: 把 store 状态**按容器隔离** —— `subgraphsByContainer` / `editorPathByContainer` (keyed by containerID) 取代全局单一 ref。`activeContainerID` 降级成"哪个编辑器在前台"的指针, 各实例 `onMounted`(setActiveContainer) + `onActivated`(markActive 廉价翻指针) 指向自己; `onBeforeUnmount` dropContainer 释放 slot。对外 API (subgraphsForCurrentContainer / editorPath / pushPath...) 名字签名不变, 作用在 active slot 上, descendant 组件 + 单测零改动。`editorPath` 改只读 computed + `setPath` action (Pinia setup store 把 computed 当 getter, 原 `editorStore.editorPath=[...]` 直接赋值不可靠)。`useContainerDraft` 读改为按自己 containerID (myPath/mySubgraphs), activeGraph / dirty watch 不再被别的容器切前台误触发。
 
-**未根治 (用户已知, 留待子图系统集中重构)**: 单例模型本身的债 —— `editorPath` 跨容器共享、子图未存盘编辑在切容器时被覆盖 (mergeSubgraphs 注释提过)、id 碰撞时 mergeSubgraphs 跨容器取错版本。彻底解法是把这些状态**按容器隔离** (map keyed by containerID) 而非全局单例 + onActivated 补丁。onActivated 只保证"可见的编辑器看到对的列表"。
+效果: 切到别的容器不再覆盖本容器 slot → 切回来子图/层级原样还在, 不再 "(子图未找到)"; 顺带消除 **未落盘子图编辑/导航层级切换丢失**、**id 碰撞 mergeSubgraphs 跨容器取错版本** 两个同源债。
+
+历史: 先有补丁 9ccccbf (`onActivated` 切回时重新拉盘 + resetPath) —— 能止血但每次激活重 fetch、且切走时本容器未存盘编辑已丢。20e25a9 用按容器隔离根治后**替换**了它 (无需重 fetch / 无数据丢失)。教训: "当前 X" 类全局单例一旦遇上 keep-alive 多实例并存就破, 正解是按实例 key 隔离, 别用"激活时重置全局"打补丁。
 
 ## Cases
 - 2026-06-09 首次 (用户报: 容器2 折叠 ClickTemplate 成子图后分享 → "(子图未找到)"; 实为切到容器3 再回容器2 后单例污染)
