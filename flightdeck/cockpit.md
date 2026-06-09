@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
 **Last updated**: 2026-06-10 by 月离 (modal + HUD 风格统一定稿。`common/BaseModal.vue` = **纯黑平铺**外壳(经多轮试错收敛: 包裹面板/凹陷井/emerald 边都试过, 用户选回原版纯黑), 11 modal 统一; 输入校准 + 录制 HUD 统一成**彩色状态面板**(border-{色}/40+bg-{色}/10)。试错 commit 已 squash 干净(8→`2b1ebef`+`3d96c3e`+`34faaef`)。门绿。)
-**Active focus**: **modal + HUD 风格统一定稿,待真机最终扫一眼 → push**。modal=纯黑平铺(BaseModal+11), 校准/录制 HUD=彩色状态面板。剩(可选): 其它 frameless HUD(截屏/鼠标检测)是否也统一、搜索面板/大复合 modal 未转。资产子系统已归档(→ [docs/asset-subsystem.md](docs/asset-subsystem.md))。
+**Active focus**: **modal + HUD 风格统一完成(真机已过)**。modal=纯黑平铺(BaseModal+11), 校准/录制 HUD=彩色状态面板。约定已落 checklist([ui.md](checklists/ui.md) BaseModal · [standalone-window-style.md](checklists/standalone-window-style.md) HUD 状态面板)。**整批待 push**。资产子系统已归档(→ [docs/asset-subsystem.md](docs/asset-subsystem.md))。
 
 ## 进行中
 
@@ -9,7 +9,7 @@
 
 ## 下一步
 
-**真机最终扫一眼 → push**。`task dev`: ① 11 个 modal(纯黑平铺, 看框/标题/✕/滚动/footer 正常)② 输入校准 HUD(F8 流程: 倒计时琥珀/录制翠绿/完成主色 彩框)③ 录制 HUD(简易/精准录制: 倒计时主色/录制红/暂停琥珀 彩框)。OK 后 push(整批 0d744de→34faaef, 资产子系统 + modal/HUD 统一, 尚未 push)。剩候选: 其它 HUD(截屏/鼠标检测)统一 / 搜索面板·大复合 modal / 子图切换 smoke(Hanging)/ idea 池。已知预存失败(非回归): runtime 缺 fish fixture, 见 [build.md](checklists/build.md)。
+**push 整批**(真机已过)—— 资产子系统 + modal/HUD 风格统一这一大波(`0d744de`→本次 landing)还在本地没 push, 用户拍了就 `git push`。之后候选(看用户): 其它 frameless HUD(截屏 ScreenPicker / 鼠标检测 MouseHUDView)是否也上彩色状态面板 / 搜索面板(CommandPalette·NodeSearch)+ 大复合(TemplatePicker·TemplateManager)modal 是否收 / 子图切换 smoke(Hanging)/ idea 池(cv-perception · editor-footgun · misc-tools)。已知预存失败(非回归): runtime 缺 fish fixture, 见 [build.md](checklists/build.md)。
 
 ## Hanging tasks
 

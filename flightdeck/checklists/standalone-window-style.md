@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-06-06
+last_updated: 2026-06-10
 when_to_read: 新建 / 改任何独立工具窗 (frameless HUD —— 录屏 / 截图 / 鼠标检测 / 校准 / 悬浮窗启动器 等) 前; 想让这些窗口风格统一 / "像一个产品" 时
 applies_to: [frontend, wails, hud, standalone-window, style, HudShell, consistency, tools-service]
 when_to_update: 改 HudShell / frameless 独立工具窗的公共风格约定时
@@ -39,6 +39,14 @@ when_to_update: 改 HudShell / frameless 独立工具窗的公共风格约定时
 - 文字 `text-highlighted`(主) / `text-toned`(次) / `text-dimmed`(弱)；强调用 `text-primary`/`text-error` 等
 - 数字用 `font-mono tabular-nums`；按钮统一 `UButton size="xs"`
 - 过渡 150–300ms (`transition-colors` 等)；minimal chrome，别堆装饰
+
+## 状态面板 (HUD body 内容区)
+
+HUD 各状态 (校准: 等待/倒计时/录制/完成；录制: 倒计时/录制/暂停/继续/待机) 用**彩色状态面板**传达语义，**别只堆居中纯文字**：
+
+- 每态一个 `w-full rounded-lg border border-{色}/40 bg-{色}/10 px-4 py-3 text-center space-y-1`
+- 色按语义：进行/倒计时 `primary` 或 `amber-500`、录制/危险 `error`、成功/完成 `success`/`primary`、等待中性 `border-dashed border-default/60 bg-elevated/40`
+- 范例：`CalibrationHUDView`(校准三档) / `RecordingHUDView`(录制五态) —— 两窗共用这套观感。
 
 ## 两个坑
 

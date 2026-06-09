@@ -4,6 +4,7 @@ last_updated: 2026-05-20
 when_to_read: before writing / editing .vue components or Tailwind classes
 applies_to: [vue, tailwind, nuxtui, ui, frontend, component, modal, button]
 when_to_update: 改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公共组件风格) 时
+last_updated: 2026-06-10
 ---
 
 # UI Playbook (NuxtUI 偏好)
@@ -15,6 +16,17 @@ when_to_update: 改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / �
 有 NuxtUI 对应组件就用它. **禁止**裸 `<button>` / `<input>` / `<div role="dialog">` 自搭样式. 自研复合组件 (ConfirmDialog 等) 也只能由 NuxtUI 原子组合: `UButton` / `UInput` / `UModal` / `UPopover` / `UCheckbox` / `UTooltip` / `UTabs` / `UIcon` / `UTextarea` / `USelect` / `UDropdownMenu`.
 
 **唯一例外**: 真无对应 NuxtUI 组件, 或其内部 dom 阻碍原生交互 (e.g. NodePalette 拖拽列表项 — `UButton` 包装层吞 drag 事件). 裸 HTML OK, 但视觉 token 仍走 `bg-elevated` / `text-toned` 等 semantic class.
+
+### 通用 modal 用共享外壳 `components/common/BaseModal.vue`
+
+普通 modal (确认 / 表单 / 面板 / 浏览器) **不要各自手写 `UModal` + `#content`**, 用 `BaseModal`:
+
+- props: `open`(v-model) / `title` / `icon` / `iconColor`(primary|error|warning|success|info, 给删除/错误类上严重度色) / `size`(md..5xl) / `showClose`
+- slots: 默认 = body、`#footer` = 按钮行、`#header-extra` = 标题右侧 (tabs / 步骤指示)
+- 风格 = **纯黑平铺**: `bg-default` + header(border-b) + body 内容平铺(px-5 py-4) + footer(border-t)。层次靠**内容自身元素** (列表/卡片用 `bg-elevated` 自抬升), 外壳不套浅色面板/不上描边 (试过包裹面板/emerald 边, 用户定回纯黑)。
+- 开关跟 `useDialogOpen()` 正交。`ConfirmDialog` (useConfirm Promise API) 也基于它。
+- **例外不套 BaseModal**: 搜索面板 (CommandPalette / NodeSearch 结构特殊)、大复合 (TemplatePicker 资产浏览 / TemplateManager 预览)。
+- **frameless 独立工具窗 (HUD) 不用这个** → 走 [standalone-window-style](standalone-window-style.md)。
 
 ### 永远 dark mode — 四件套一个不能少
 
