@@ -1,9 +1,9 @@
 # flightdeck — INDEX
 
 <!-- AUTO:root -->
-- specs/ — 4 (3 idea, 1 blank status: bug.md)
-- plans/ — 0
-- incidents/ — 18 active
+- specs/ — 5 (4 idea, 1 active)
+- plans/ — 1 active
+- incidents/ — 19 active
 - checklists/ — 12 active
 - docs/ — 5 active
 - references/ — 3 project imported

@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
 **Last updated**: 2026-06-08 by 月离 (颜色范围吸管 ship 完成：schema widget 标记 + ExtractColorRange 纯 CV + picker color 模式 + StructuredInput 吸管按钮 + i18n，真机 smoke 过。spec/plan done+归档。)
-**Active focus**: 无进行中 spec/plan。颜色范围吸管（屏幕取色/主色提取）已 ship+归档。下一话题待决策。
+**Active focus**: 资产子系统重构 — 模板/clip 改 Unity 式 GUID + 全局内容寻址 blob 池。spec 已落 (graduate)：[asset-subsystem-guid-cas](specs/2026-06-09-asset-subsystem-guid-cas.md)。待用户复审 spec → 写实现 plan。
 
 ## 进行中
 
@@ -9,7 +9,7 @@
 
 ## 下一步
 
-待决策新话题。可从 idea 池（[cv-perception-pool](specs/cv-perception-pool.md) / [editor-footgun-backlog](specs/editor-footgun-backlog.md) / [misc-tools-backlog](specs/misc-tools-backlog.md)）选一项启动。
+用户复审 spec [asset-subsystem-guid-cas](specs/2026-06-09-asset-subsystem-guid-cas.md) → 拍板后写实现 plan（flightdeck plan，按 spec §10 改动面分相位：新 asset 包 → 运行时匹配 → 节点/校验/依赖 → 分享导入坍缩 → 前端 picker/捕获 → 接线）。决策已定：方案 B（GUID+CAS）、全局 blob 池、模板+clip 一起、资产独立于图存在、零迁移。
 
 ## Hanging tasks
 
