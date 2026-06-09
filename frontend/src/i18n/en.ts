@@ -1,4 +1,4 @@
-export default {
+﻿export default {
   sidebar: {
     automation: 'Automation',
     tools: 'Tools',
@@ -1854,13 +1854,18 @@ export default {
       no_match: 'No template matching "{search}"',
       sort_asc: 'Ascending',
       sort_desc: 'Descending',
-      view_by_key: 'Sort by key',
       view_by_name: 'Sort by display name',
       view_by_res: 'Sort by resolution',
       view_by_created: 'Sort by created time',
+      delete_title: 'Delete template',
       delete_confirm: 'Delete template "{key}"? Cannot undo; nodes referencing it will fail.',
-      copy_key: 'Copy key',
-      recorded_at: 'Recorded at {time}',
+      delete_template_tip: 'Delete "{key}"',
+      copy_key: 'Copy GUID',
+      key_copied: 'GUID copied',
+      preview: 'Preview',
+      variant_count: 'variants',
+      tags_label: 'Tags: ',
+      created_at: 'Created {time}',
     },
     picker: {
       not_selected: 'Not selected',
@@ -1871,6 +1876,7 @@ export default {
       no_template_selected: 'No template selected — node will not run',
       no_match: 'No matching template',
     },
+    tab_intro: 'The template library stores screenshot snippets for image matching. Capture a screenshot, frame your target, save — then pick it in any node.',
   },
   recording: {
     foreign_machine: 'This subgraph was imported from another machine',

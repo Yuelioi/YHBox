@@ -1,4 +1,4 @@
-// 中文文案. 单源 of truth (en.ts 是平行翻译).
+﻿// 中文文案. 单源 of truth (en.ts 是平行翻译).
 // 键命名约定 (扁平 namespace, 数据驱动 chrome):
 //   sidebar.<k>            侧栏 label
 //   controls.<k>           BotControls 按钮 / 状态
@@ -1896,13 +1896,18 @@ export default {
       no_match: '没有匹配「{search}」的模板',
       sort_asc: '升序',
       sort_desc: '降序',
-      view_by_key: '按 key 排序',
       view_by_name: '按显示名排序',
       view_by_res: '按分辨率排序',
       view_by_created: '按创建时间排序',
+      delete_title: '删除模板',
       delete_confirm: '确认删除模板「{key}」? 此操作不可恢复, 引用此模板的节点会失效.',
-      copy_key: '复制 key',
-      recorded_at: '录制于 {time}',
+      delete_template_tip: '删除「{key}」',
+      copy_key: '复制 GUID',
+      key_copied: '已复制 GUID',
+      preview: '预览',
+      variant_count: '个变体',
+      tags_label: '标签: ',
+      created_at: '创建于 {time}',
     },
     picker: {
       not_selected: '未选择',
@@ -1913,6 +1918,7 @@ export default {
       no_template_selected: '未选模板 — 节点跑不起来',
       no_match: '没有匹配的模板',
     },
+    tab_intro: '模板库保存的是截图识别素材。截一张 → 框选目标区域 → 保存，节点里选它就能匹配。',
   },
   // 录制 (useRecording + RecordingHUD).
   recording: {
