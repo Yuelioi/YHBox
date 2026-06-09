@@ -6,99 +6,66 @@ import (
 	"os"
 	"path/filepath"
 
+	"yotta/internal/services/asset"
 	"yotta/internal/services/container"
 	"yotta/internal/services/container/dependency"
 )
 
-// ImportConflict 单条冲突信息. Kind 是 "subgraph" | "template" | "clip".
-type ImportConflict struct {
-	Kind string `json:"kind"`
-	Key  string `json:"key"`
-}
-
 // ImportResult Import 操作结果.
 //
-// MissingGlobals 反映 import 的 sg 集合 (Root+Embedded) RequiredGlobals union 减去
-// 目标 container.Vars 已声明的, 是 caller 需要补 declare 的 var. dry-run (strategy="cancel") 时计算,
-// FE 据此弹 "添加变量并继续" 提示 → 用 container.update RPC 补 vars 后再调真 import.
+// Imported 列本次写入的依赖 (subgraph / asset). MissingGlobals 反映 import 的 sg 集合
+// (Root+Embedded) RequiredGlobals union 减去目标 container.Vars 已声明的, 是 caller 需要补
+// declare 的 var (跟资产 GUID 正交). FE 据此弹 "添加变量并继续" 提示.
 type ImportResult struct {
-	Imported        []dependency.Dependency           `json:"imported"`
-	Conflicts       []ImportConflict                  `json:"conflicts"`
-	MissingGlobals  []container.SubgraphRequiredGlobal `json:"missingGlobals,omitempty"`
+	Imported       []dependency.Dependency            `json:"imported"`
+	MissingGlobals []container.SubgraphRequiredGlobal `json:"missingGlobals,omitempty"`
 }
 
-// ImportToContainer 把 library package 复制到容器.
-// strategy: "overwrite_all" | "skip_all" | "cancel", 空串等同 overwrite_all.
+// ImportToContainer 把 library package 幂等合并到容器 + 全局 asset 库.
 //
-// containerVars 是目标容器当前已声明的 vars (caller 注入, e.g. Service.ImportToContainer
-// 用 LookupContainerVars 拿). 用来算 ImportResult.MissingGlobals diff. 传 nil 退化为不算 diff
-// (老 caller / test fixture 兼容).
-func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string, containerVars []container.VarDecl) (*ImportResult, error) {
+// 资产: GUID 不存在 → 整条写入; 已存在 → 按 resolution 加性合并变体 (本地缺的 res 加入,
+// 本地已有 res 保留本地; name/tags 保留本地). blob 按 sha 落池去重. clip (单 blob) 已存在则跳过.
+// 图: subgraph 直接写入 (提交点). 无 conflict/strategy — GUID/sha 寻址天然幂等.
+//
+// containerVars 是目标容器当前已声明的 vars, 用来算 MissingGlobals diff (nil → 返 union 全集).
+func (s *Store) ImportToContainer(libSgID, containerRoot string, assetStore *asset.Store, containerVars []container.VarDecl) (*ImportResult, error) {
 	pkg, err := s.GetSubgraphPackage(libSgID)
 	if err != nil {
 		return nil, err
 	}
 
+	libPkgDir := filepath.Join(s.root, "subgraphs", libSgID)
+	result := &ImportResult{}
+
+	// 1) 资产合并 (record 加性 / blob 去重). 先于图写入 — 图是提交点.
+	for _, guid := range pkg.Assets {
+		recPath := filepath.Join(libPkgDir, "assets", guid+".json")
+		b, err := os.ReadFile(recPath)
+		if err != nil {
+			return nil, fmt.Errorf("read bundle asset %q: %w", guid, err)
+		}
+		var rec asset.AssetRecord
+		if err := json.Unmarshal(b, &rec); err != nil {
+			return nil, fmt.Errorf("parse bundle asset %q: %w", guid, err)
+		}
+		if err := importAsset(assetStore, libPkgDir, rec); err != nil {
+			return nil, err
+		}
+		depKind := dependency.KindTemplate
+		if rec.Kind == asset.KindClip {
+			depKind = dependency.KindClip
+		}
+		result.Imported = append(result.Imported, dependency.Dependency{Kind: depKind, Key: guid})
+	}
+
+	// 2) 图写入 (提交点). subgraph 直接覆盖写 (GUID 寻址, 幂等).
 	containerSgDir := filepath.Join(containerRoot, "subgraphs")
-	containerTplDir := filepath.Join(containerRoot, "templates")
-	containerClipDir := filepath.Join(containerRoot, "clips")
-
-	var conflicts []ImportConflict
-	checkSg := func(sg container.Subgraph) {
-		if _, err := os.Stat(filepath.Join(containerSgDir, sg.ID+".json")); err == nil {
-			conflicts = append(conflicts, ImportConflict{Kind: "subgraph", Key: sg.ID})
-		}
+	if err := os.MkdirAll(containerSgDir, 0o755); err != nil {
+		return nil, err
 	}
-	checkSg(pkg.Root)
-	for _, sg := range pkg.Embedded {
-		checkSg(sg)
-	}
-	for _, key := range pkg.Templates {
-		if _, err := os.Stat(filepath.Join(containerTplDir, key+".png")); err == nil {
-			conflicts = append(conflicts, ImportConflict{Kind: "template", Key: key})
-		}
-	}
-	for _, id := range pkg.Clips {
-		if _, err := os.Stat(filepath.Join(containerClipDir, id+".json")); err == nil {
-			conflicts = append(conflicts, ImportConflict{Kind: "clip", Key: id})
-		}
-	}
-
-	// 算 missing globals diff (无论 strategy, dry-run + 真 import 都返). FE 看 dry-run 弹 prompt.
-	missingGlobals := computeMissingGlobals(pkg, containerVars)
-
-	if len(conflicts) > 0 {
-		switch strategy {
-		case "cancel":
-			return &ImportResult{Conflicts: conflicts, MissingGlobals: missingGlobals}, nil
-		case "skip_all":
-			// 后续 copy 时按 conflictKeys 跳过
-		case "overwrite_all", "":
-			// 默认 overwrite, 不跳过
-		default:
-			return nil, fmt.Errorf("unknown strategy %q", strategy)
-		}
-	} else if strategy == "cancel" {
-		// 无 conflict + dry-run → 仍返 missing globals 让 FE 决定是否要补 var
-		return &ImportResult{MissingGlobals: missingGlobals}, nil
-	}
-	skipAll := strategy == "skip_all"
-	conflictKeys := map[string]bool{}
-	for _, c := range conflicts {
-		conflictKeys[c.Kind+":"+c.Key] = true
-	}
-
-	os.MkdirAll(containerSgDir, 0o755)
-	os.MkdirAll(containerTplDir, 0o755)
-	os.MkdirAll(containerClipDir, 0o755)
-
-	result := &ImportResult{Conflicts: conflicts}
 	writeSg := func(sg container.Subgraph) error {
-		if skipAll && conflictKeys["subgraph:"+sg.ID] {
-			return nil
-		}
-		b, _ := json.MarshalIndent(sg, "", "  ")
-		if err := os.WriteFile(filepath.Join(containerSgDir, sg.ID+".json"), b, 0o644); err != nil {
+		jb, _ := json.MarshalIndent(sg, "", "  ")
+		if err := os.WriteFile(filepath.Join(containerSgDir, sg.ID+".json"), jb, 0o644); err != nil {
 			return err
 		}
 		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindSubgraph, Key: sg.ID})
@@ -113,35 +80,63 @@ func (s *Store) ImportToContainer(libSgID, containerRoot, strategy string, conta
 		}
 	}
 
-	libPkgDir := filepath.Join(s.root, "subgraphs", libSgID)
-	for _, key := range pkg.Templates {
-		if skipAll && conflictKeys["template:"+key] {
-			continue
-		}
-		if err := copyFile(filepath.Join(libPkgDir, "templates", key+".png"), filepath.Join(containerTplDir, key+".png")); err != nil {
-			return nil, err
-		}
-		if err := copyFile(filepath.Join(libPkgDir, "templates", key+".json"), filepath.Join(containerTplDir, key+".json")); err != nil {
-			return nil, err
-		}
-		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindTemplate, Key: key})
-	}
-	for _, id := range pkg.Clips {
-		if skipAll && conflictKeys["clip:"+id] {
-			continue
-		}
-		srcJSON := filepath.Join(libPkgDir, "clips", id+".json")
-		if err := copyFile(srcJSON, filepath.Join(containerClipDir, id+".json")); err != nil {
-			return nil, err
-		}
-		srcCsbf := filepath.Join(libPkgDir, "clips", id+".csbf")
-		if _, err := os.Stat(srcCsbf); err == nil {
-			copyFile(srcCsbf, filepath.Join(containerClipDir, id+".csbf"))
-		}
-		result.Imported = append(result.Imported, dependency.Dependency{Kind: dependency.KindClip, Key: id})
-	}
-	result.MissingGlobals = missingGlobals
+	result.MissingGlobals = computeMissingGlobals(pkg, containerVars)
 	return result, nil
+}
+
+// importAsset 把 bundle 里一条资产记录幂等合并进全局 asset 库.
+// blob 先按 sha 落池去重; record 按 GUID 加性合并 (见 ImportToContainer 注释).
+func importAsset(store *asset.Store, libPkgDir string, rec asset.AssetRecord) error {
+	// 收集本条记录引用的全部 blob sha → 从 bundle blobs/ 落池.
+	putBlob := func(sha string) error {
+		if sha == "" || store.Blobs().Has(sha) {
+			return nil
+		}
+		data, err := os.ReadFile(filepath.Join(libPkgDir, "blobs", sha))
+		if err != nil {
+			return fmt.Errorf("read bundle blob %s: %w", sha, err)
+		}
+		got, err := store.Blobs().Put(data)
+		if err != nil {
+			return fmt.Errorf("put blob %s: %w", sha, err)
+		}
+		if got != sha {
+			return fmt.Errorf("bundle blob sha mismatch: declared %s, computed %s", sha, got)
+		}
+		return nil
+	}
+	for _, v := range rec.Variants {
+		if err := putBlob(v.Blob); err != nil {
+			return err
+		}
+	}
+	if err := putBlob(rec.Blob); err != nil {
+		return err
+	}
+
+	existing, ok := store.Get(rec.GUID)
+	if !ok {
+		// 新资产 → 整条写入.
+		return store.PutRecord(rec)
+	}
+	// clip (单 blob, 无变体): 已存在则保留本地, 不动.
+	if rec.Kind == asset.KindClip {
+		return nil
+	}
+	// template: 按 resolution 加性合并 — 本地缺的 res 加入, 本地已有 res 保留本地.
+	have := map[[2]int]bool{}
+	for _, v := range existing.Variants {
+		have[v.Resolution] = true
+	}
+	for _, v := range rec.Variants {
+		if have[v.Resolution] {
+			continue // 本地已有该分辨率 → 保留本地, 忽略 bundle 同档.
+		}
+		if err := store.PutVariant(rec.GUID, v.Resolution, v.Blob, v.BBox, v.Regions); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // computeMissingGlobals 算 (pkg.Root + pkg.Embedded[*]).RequiredGlobals union 减去 containerVars
@@ -170,28 +165,24 @@ func computeMissingGlobals(pkg *SubgraphPackage, containerVars []container.VarDe
 	return out
 }
 
-// ExportFromContainer 把容器内子图 + 递归依赖打成 library package.
-// scanDeps: 调用方注入 dependency.ScanSubgraphDependencies (避免 library 直接依赖 dependency.GetExtractor).
-func (s *Store) ExportFromContainer(
-	srcContainerRoot string,
-	rootSgID string,
-	scanDeps func(rootSgID string, getNodes func(string) ([]dependency.NodeInfo, error)) ([]dependency.Dependency, error),
-	overwrite bool,
-) error {
-	readSubgraph := func(sgID string) (*container.Subgraph, error) {
-		path := filepath.Join(srcContainerRoot, "subgraphs", sgID+".json")
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return nil, nil
-		}
-		var sg container.Subgraph
-		if err := json.Unmarshal(b, &sg); err != nil {
-			return nil, err
-		}
-		return &sg, nil
+// readSubgraph 从容器 subgraphs/ 读一个子图. 不存在返 (nil, nil).
+func readSubgraph(srcContainerRoot, sgID string) (*container.Subgraph, error) {
+	path := filepath.Join(srcContainerRoot, "subgraphs", sgID+".json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil
 	}
-	getNodes := func(sgID string) ([]dependency.NodeInfo, error) {
-		sg, err := readSubgraph(sgID)
+	var sg container.Subgraph
+	if err := json.Unmarshal(b, &sg); err != nil {
+		return nil, err
+	}
+	return &sg, nil
+}
+
+// getNodesFromContainer 适配 dependency scanner 的 getNodes 回调.
+func getNodesFromContainer(srcContainerRoot string) func(string) ([]dependency.NodeInfo, error) {
+	return func(sgID string) ([]dependency.NodeInfo, error) {
+		sg, err := readSubgraph(srcContainerRoot, sgID)
 		if err != nil || sg == nil {
 			return nil, err
 		}
@@ -201,54 +192,126 @@ func (s *Store) ExportFromContainer(
 		}
 		return nodes, nil
 	}
+}
 
-	deps, err := scanDeps(rootSgID, getNodes)
-	if err != nil {
-		return fmt.Errorf("scan deps: %w", err)
-	}
-
-	pkgDir := filepath.Join(s.root, "subgraphs", rootSgID)
+// writeBundle 把 (rootSg + deps 闭包) 打成 library package: graphs + assets/<guid>.json + blobs/<sha256>.
+// rootSg 是 bundle 根子图; pkgID 是 package 目录名. embedded = deps 里非 rootSg.ID 的 subgraph.
+// 资产记录从全局 asset.Store 读; record 引用的 blob 缺失 / graph 引用的 GUID 无 record → 报错中止 (不写半包).
+func (s *Store) writeBundle(srcContainerRoot, pkgID string, rootSg *container.Subgraph, deps []dependency.Dependency, assetStore *asset.Store, overwrite bool) error {
+	pkgDir := filepath.Join(s.root, "subgraphs", pkgID)
 	if !overwrite {
 		if _, err := os.Stat(pkgDir); err == nil {
-			return fmt.Errorf("library package %q already exists, use overwrite=true to replace", rootSgID)
+			return fmt.Errorf("library package %q already exists, use overwrite=true to replace", pkgID)
 		}
 	}
-	os.RemoveAll(pkgDir)
-	os.MkdirAll(filepath.Join(pkgDir, "embedded"), 0o755)
-	os.MkdirAll(filepath.Join(pkgDir, "templates"), 0o755)
-	os.MkdirAll(filepath.Join(pkgDir, "clips"), 0o755)
 
-	rootSg, err := readSubgraph(rootSgID)
-	if err != nil || rootSg == nil {
-		return fmt.Errorf("root subgraph %q not found", rootSgID)
+	// 先全量校验资产闭包完整性 (record 存在 + blob 落盘), 再动文件 — 任一缺失整体中止.
+	type assetBlob struct {
+		rec   asset.AssetRecord
+		blobs []string
 	}
+	var bundleAssets []assetBlob
+	for _, d := range deps {
+		if d.Kind != dependency.KindTemplate && d.Kind != dependency.KindClip {
+			continue
+		}
+		rec, ok := assetStore.Get(d.Key)
+		if !ok {
+			return fmt.Errorf("export: graph 引用资产 GUID %q 无 record", d.Key)
+		}
+		var shas []string
+		for _, v := range rec.Variants {
+			if !assetStore.Blobs().Has(v.Blob) {
+				return fmt.Errorf("export: 资产 %q 变体 blob %s 缺失", d.Key, v.Blob)
+			}
+			shas = append(shas, v.Blob)
+		}
+		if rec.Blob != "" {
+			if !assetStore.Blobs().Has(rec.Blob) {
+				return fmt.Errorf("export: clip %q blob %s 缺失", d.Key, rec.Blob)
+			}
+			shas = append(shas, rec.Blob)
+		}
+		bundleAssets = append(bundleAssets, assetBlob{rec: rec, blobs: shas})
+	}
+
+	os.RemoveAll(pkgDir)
+	if err := os.MkdirAll(filepath.Join(pkgDir, "embedded"), 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(pkgDir, "assets"), 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(pkgDir, "blobs"), 0o755); err != nil {
+		return err
+	}
+
 	rb, _ := json.MarshalIndent(rootSg, "", "  ")
 	if err := os.WriteFile(filepath.Join(pkgDir, "subgraph.json"), rb, 0o644); err != nil {
 		return err
 	}
 
 	for _, d := range deps {
-		switch d.Kind {
-		case dependency.KindSubgraph:
-			if d.Key == rootSgID {
-				continue
-			}
-			sg, _ := readSubgraph(d.Key)
+		if d.Kind == dependency.KindSubgraph && d.Key != rootSg.ID {
+			sg, _ := readSubgraph(srcContainerRoot, d.Key)
 			if sg == nil {
 				continue
 			}
 			b, _ := json.MarshalIndent(sg, "", "  ")
-			os.WriteFile(filepath.Join(pkgDir, "embedded", d.Key+".json"), b, 0o644)
-		case dependency.KindTemplate:
-			copyFile(filepath.Join(srcContainerRoot, "templates", d.Key+".png"), filepath.Join(pkgDir, "templates", d.Key+".png"))
-			copyFile(filepath.Join(srcContainerRoot, "templates", d.Key+".json"), filepath.Join(pkgDir, "templates", d.Key+".json"))
-		case dependency.KindClip:
-			copyFile(filepath.Join(srcContainerRoot, "clips", d.Key+".json"), filepath.Join(pkgDir, "clips", d.Key+".json"))
-			srcCsbf := filepath.Join(srcContainerRoot, "clips", d.Key+".csbf")
-			if _, err := os.Stat(srcCsbf); err == nil {
-				copyFile(srcCsbf, filepath.Join(pkgDir, "clips", d.Key+".csbf"))
+			if err := os.WriteFile(filepath.Join(pkgDir, "embedded", d.Key+".json"), b, 0o644); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, ab := range bundleAssets {
+		rb, _ := json.MarshalIndent(ab.rec, "", "  ")
+		if err := os.WriteFile(filepath.Join(pkgDir, "assets", ab.rec.GUID+".json"), rb, 0o644); err != nil {
+			return err
+		}
+		for _, sha := range ab.blobs {
+			data, err := assetStore.Blobs().Read(sha)
+			if err != nil {
+				return fmt.Errorf("export read blob %s: %w", sha, err)
+			}
+			if err := os.WriteFile(filepath.Join(pkgDir, "blobs", sha), data, 0o644); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+// ExportSubgraph 把容器内子图 + 递归依赖打成 library package (子图闭包根).
+func (s *Store) ExportSubgraph(srcContainerRoot, rootSgID string, assetStore *asset.Store, overwrite bool) error {
+	rootSg, err := readSubgraph(srcContainerRoot, rootSgID)
+	if err != nil || rootSg == nil {
+		return fmt.Errorf("root subgraph %q not found", rootSgID)
+	}
+	deps, err := dependency.ScanSubgraphDependencies(rootSgID, getNodesFromContainer(srcContainerRoot))
+	if err != nil {
+		return fmt.Errorf("scan deps: %w", err)
+	}
+	return s.writeBundle(srcContainerRoot, rootSgID, rootSg, deps, assetStore, overwrite)
+}
+
+// ExportContainer 把整容器顶层图 + 全部子图 + 资产闭包打成 library package (容器闭包根=顶层图 BFS).
+// bundleID = package 目录名 (用容器 ID). 容器顶层图包成一个合成根子图存进 bundle:
+// 闭包从顶层图节点 BFS, 递归 Subgraph-call → 收齐整容器的 template/clip GUID + 全子图.
+func (s *Store) ExportContainer(srcContainerRoot, bundleID string, c *container.Container, assetStore *asset.Store, overwrite bool) error {
+	infos := make([]dependency.NodeInfo, len(c.Graph.Nodes))
+	for i, n := range c.Graph.Nodes {
+		infos[i] = dependency.NodeInfo{Kind: n.Kind, Config: n.Config}
+	}
+	deps, err := dependency.ScanContainerDependencies(infos, getNodesFromContainer(srcContainerRoot))
+	if err != nil {
+		return fmt.Errorf("scan container deps: %w", err)
+	}
+	// 合成根子图: 用容器顶层图作 Graph, ID = bundleID. 它本身不在 deps 闭包里, 不会被当 embedded.
+	rootSg := &container.Subgraph{
+		ID:    bundleID,
+		Label: c.Name,
+		Graph: c.Graph,
+	}
+	return s.writeBundle(srcContainerRoot, bundleID, rootSg, deps, assetStore, overwrite)
 }

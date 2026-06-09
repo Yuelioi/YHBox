@@ -13,7 +13,7 @@ func TestStore_ListGetPackage(t *testing.T) {
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "subgraphs", "test_pkg")
 	os.MkdirAll(filepath.Join(pkgDir, "embedded"), 0o755)
-	os.MkdirAll(filepath.Join(pkgDir, "templates"), 0o755)
+	os.MkdirAll(filepath.Join(pkgDir, "assets"), 0o755)
 
 	root := container.Subgraph{ID: "test_pkg", Label: "Test"}
 	rootBytes, _ := json.Marshal(root)
@@ -23,8 +23,7 @@ func TestStore_ListGetPackage(t *testing.T) {
 	calleeBytes, _ := json.Marshal(callee)
 	os.WriteFile(filepath.Join(pkgDir, "embedded", "callee_1.json"), calleeBytes, 0o644)
 
-	os.WriteFile(filepath.Join(pkgDir, "templates", "ns.x.png"), []byte{1}, 0o644)
-	os.WriteFile(filepath.Join(pkgDir, "templates", "ns.x.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(pkgDir, "assets", "guid-x.json"), []byte("{}"), 0o644)
 
 	s, err := NewStore(dir)
 	if err != nil {
@@ -48,8 +47,8 @@ func TestStore_ListGetPackage(t *testing.T) {
 	if _, ok := pkg.Embedded["callee_1"]; !ok {
 		t.Error("missing embedded callee_1")
 	}
-	if len(pkg.Templates) != 1 || pkg.Templates[0] != "ns.x" {
-		t.Errorf("Templates = %v", pkg.Templates)
+	if len(pkg.Assets) != 1 || pkg.Assets[0] != "guid-x" {
+		t.Errorf("Assets = %v", pkg.Assets)
 	}
 }
 

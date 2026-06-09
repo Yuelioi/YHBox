@@ -14,8 +14,8 @@ import (
 func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 	nodes := map[string][]NodeInfo{
 		"sg1": {
-			{Kind: "CheckTemplate", Config: map[string]any{"Template": "ns.a"}},
-			{Kind: "PlayClip", Config: map[string]any{"ClipID": "c1"}},
+			{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"ns.a"}}}},
+			{Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "c1"}}},
 		},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
@@ -39,10 +39,10 @@ func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 func TestScanSubgraphDependencies_RecursiveSubgraph(t *testing.T) {
 	nodes := map[string][]NodeInfo{
 		"root": {
-			{Kind: "Subgraph", Config: map[string]any{"SubgraphID": "callee"}},
+			{Kind: "Subgraph", Config: map[string]any{"literal": map[string]any{"SubgraphID": "callee"}}},
 		},
 		"callee": {
-			{Kind: "CheckTemplate", Config: map[string]any{"Template": "ns.x"}},
+			{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"ns.x"}}}},
 		},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }

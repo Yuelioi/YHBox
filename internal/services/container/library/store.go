@@ -25,12 +25,11 @@ func NewStore(root string) (*Store, error) {
 	return &Store{root: root}, nil
 }
 
-// SubgraphPackage 一个 library subgraph package (root + 嵌入 callee + 共用 asset).
+// SubgraphPackage 一个 library subgraph package (root + 嵌入 callee + 资产 GUID 闭包).
 type SubgraphPackage struct {
-	Root      container.Subgraph            `json:"root"`
-	Embedded  map[string]container.Subgraph `json:"embedded"`  // sgID → callee subgraph
-	Templates []string                      `json:"templates"` // key list
-	Clips     []string                      `json:"clips"`     // clip id list
+	Root     container.Subgraph            `json:"root"`
+	Embedded map[string]container.Subgraph `json:"embedded"` // sgID → callee subgraph
+	Assets   []string                      `json:"assets"`   // 资产 GUID 列表 (template + clip 统一)
 }
 
 // ListSubgraphs 列 library 所有 package (按目录名).
@@ -89,33 +88,21 @@ func (s *Store) GetSubgraphPackage(sgID string) (*SubgraphPackage, error) {
 		}
 	}
 
-	var tplKeys []string
-	tplDir := filepath.Join(pkgDir, "templates")
-	if entries, err := os.ReadDir(tplDir); err == nil {
+	var assetGUIDs []string
+	assetsDir := filepath.Join(pkgDir, "assets")
+	if entries, err := os.ReadDir(assetsDir); err == nil {
 		for _, e := range entries {
 			if filepath.Ext(e.Name()) != ".json" {
 				continue
 			}
-			key := e.Name()[:len(e.Name())-len(".json")]
-			tplKeys = append(tplKeys, key)
-		}
-	}
-
-	var clipIDs []string
-	clipDir := filepath.Join(pkgDir, "clips")
-	if entries, err := os.ReadDir(clipDir); err == nil {
-		for _, e := range entries {
-			if filepath.Ext(e.Name()) != ".json" {
-				continue
-			}
-			id := e.Name()[:len(e.Name())-len(".json")]
-			clipIDs = append(clipIDs, id)
+			guid := e.Name()[:len(e.Name())-len(".json")]
+			assetGUIDs = append(assetGUIDs, guid)
 		}
 	}
 
 	return &SubgraphPackage{
 		Root: root, Embedded: embedded,
-		Templates: tplKeys, Clips: clipIDs,
+		Assets: assetGUIDs,
 	}, nil
 }
 

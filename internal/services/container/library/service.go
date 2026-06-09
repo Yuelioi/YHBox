@@ -4,22 +4,23 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"yotta/internal/services/asset"
 	"yotta/internal/services/container"
-	"yotta/internal/services/container/dependency"
 )
 
 // Service 给 wails3 RPC 用的瘦皮层。所有方法直接转发到 Store。
 type Service struct {
 	store          *Store
+	assetStore     *asset.Store
 	emit           func(name string, data any)
 	containersRoot string
 	// 注入回调拿目标容器当前 Vars[], 给 import 算 MissingGlobals diff 用.
-	// nil 时退化为不算 diff (老 caller / test 兼容). main.go SetContainerLookup(containerStore.Get).
+	// nil 时退化为不算 diff. main.go SetContainerLookup(containerStore.Get).
 	lookupContainer func(id string) (container.Container, bool)
 }
 
-func NewService(store *Store) *Service {
-	return &Service{store: store}
+func NewService(store *Store, assetStore *asset.Store) *Service {
+	return &Service{store: store, assetStore: assetStore}
 }
 
 func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
@@ -62,11 +63,12 @@ func (s *Service) DeleteSubgraphPackage(sgID string) error {
 	return nil
 }
 
-// ImportToContainer 把 library package 复制到容器.
+// ImportToContainer 把 library package 幂等合并到容器 + 全局 asset 库.
 // containerID 是目标容器 ID (由 containersRoot 解析为文件系统路径).
 //
+// 资产按 GUID/sha 幂等合并 (加性变体), 图写入为提交点, 无 conflict/strategy.
 // 用 lookupContainer 拿目标容器 Vars 算 MissingGlobals diff (lookup nil 时跳过 diff).
-func (s *Service) ImportToContainer(libSgID, containerID, strategy string) (*ImportResult, error) {
+func (s *Service) ImportToContainer(libSgID, containerID string) (*ImportResult, error) {
 	root, err := s.containerRoot(containerID)
 	if err != nil {
 		return nil, err
@@ -77,7 +79,7 @@ func (s *Service) ImportToContainer(libSgID, containerID, strategy string) (*Imp
 			containerVars = c.Vars
 		}
 	}
-	result, err := s.store.ImportToContainer(libSgID, root, strategy, containerVars)
+	result, err := s.store.ImportToContainer(libSgID, root, s.assetStore, containerVars)
 	if err != nil {
 		return nil, err
 	}
@@ -85,14 +87,33 @@ func (s *Service) ImportToContainer(libSgID, containerID, strategy string) (*Imp
 	return result, nil
 }
 
-// ExportSubgraph 把容器内子图 + 递归依赖打成 library package.
+// ExportSubgraph 把容器内子图 + 递归依赖 + 资产闭包打成 library package.
 func (s *Service) ExportSubgraph(containerID, sgID string, overwrite bool) error {
 	root, err := s.containerRoot(containerID)
 	if err != nil {
 		return err
 	}
-	scanDeps := dependency.ScanSubgraphDependencies
-	if err := s.store.ExportFromContainer(root, sgID, scanDeps, overwrite); err != nil {
+	if err := s.store.ExportSubgraph(root, sgID, s.assetStore, overwrite); err != nil {
+		return err
+	}
+	s.emitChanged()
+	return nil
+}
+
+// ExportContainer 把整容器顶层图 + 全部子图 + 资产闭包打成 library package (bundle ID = 容器 ID).
+func (s *Service) ExportContainer(containerID string, overwrite bool) error {
+	root, err := s.containerRoot(containerID)
+	if err != nil {
+		return err
+	}
+	if s.lookupContainer == nil {
+		return fmt.Errorf("lookupContainer 未注入 (main.go SetContainerLookup 调了吗?)")
+	}
+	c, ok := s.lookupContainer(containerID)
+	if !ok {
+		return fmt.Errorf("container %q not found", containerID)
+	}
+	if err := s.store.ExportContainer(root, containerID, &c, s.assetStore, overwrite); err != nil {
 		return err
 	}
 	s.emitChanged()
