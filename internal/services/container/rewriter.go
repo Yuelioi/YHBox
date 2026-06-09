@@ -1,11 +1,11 @@
-package container
+﻿package container
 
 import "strings"
 
 // GraphRewriter 统一 graph 改写抽象。
 //
 // 调用点:
-//   - Copy-on-use 库 → 容器: subgraph clone 时所有内部节点 id 重发；template key 冲突时 rename + patch.
+//   - Copy-on-use 库 → 容器: subgraph clone 时所有内部节点 id 重发.
 //   - 折叠为 Subgraph: 父图选中节点搬进新 subgraph, 新 subgraph 内 id 重发.
 //   - 粘贴: 复制的 nodes 在目标 graph 内可能 id 冲突, 重发 id.
 //
@@ -15,15 +15,13 @@ import "strings"
 // SubgraphOutput 节点 config.DeclID 不经此 rewriter (节点不在 Graph.Nodes; OutputPins 的 ID
 // 由 caller 直接 mutate).
 type GraphRewriter struct {
-	nodeIDMap      map[string]string // oldID → newID
-	templateKeyMap map[string]string // oldKey → newKey
+	nodeIDMap map[string]string // oldID → newID
 }
 
 // NewGraphRewriter 创建空 rewriter。
 func NewGraphRewriter() *GraphRewriter {
 	return &GraphRewriter{
-		nodeIDMap:      map[string]string{},
-		templateKeyMap: map[string]string{},
+		nodeIDMap: map[string]string{},
 	}
 }
 
@@ -33,14 +31,6 @@ func (r *GraphRewriter) RenameNodeID(old, new string) {
 		return
 	}
 	r.nodeIDMap[old] = new
-}
-
-// RenameTemplateKey 注册一个 template key rename。
-func (r *GraphRewriter) RenameTemplateKey(old, new string) {
-	if old == new || old == "" || new == "" {
-		return
-	}
-	r.templateKeyMap[old] = new
 }
 
 // Apply 应用所有 rename 到给定 graph。原地修改。
@@ -53,25 +43,9 @@ func (r *GraphRewriter) Apply(g *Graph) {
 		if newID, ok := r.nodeIDMap[g.Nodes[i].ID]; ok {
 			g.Nodes[i].ID = newID
 		}
-		// 2. 节点 config.literal 里 template key 改写 (Templates 是 Spec.Input → config.literal.Templates 列表)
-		if keys := PinStringList(&g.Nodes[i], "Templates"); len(keys) > 0 {
-			changed := false
-			out := make([]any, len(keys))
-			for j, k := range keys {
-				if newKey, ok := r.templateKeyMap[k]; ok {
-					out[j] = newKey
-					changed = true
-				} else {
-					out[j] = k
-				}
-			}
-			if changed {
-				SetPinValue(&g.Nodes[i], "Templates", out)
-			}
-		}
 	}
 
-	// 3. edges 的 from/to 引用 nodeID 改写
+	// 2. edges 的 from/to 引用 nodeID 改写
 	for i := range g.Edges {
 		g.Edges[i].From = rewriteEdgeRef(g.Edges[i].From, r.nodeIDMap)
 		g.Edges[i].To = rewriteEdgeRef(g.Edges[i].To, r.nodeIDMap)

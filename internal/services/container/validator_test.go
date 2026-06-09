@@ -1,4 +1,4 @@
-package container
+﻿package container
 
 import (
 	"testing"
@@ -92,31 +92,6 @@ func TestValidator_MissingSubgraph_EmptyID(t *testing.T) {
 	errs := ValidateContainer(c)
 	if !hasCode(errs, CodeMissingSubgraph) {
 		t.Errorf("expected MISSING_SUBGRAPH (empty subgraphId), got %+v", errs)
-	}
-}
-
-func TestValidator_MissingTemplate_WithContext(t *testing.T) {
-	c := minContainer()
-	c.Graph.Nodes = append(c.Graph.Nodes,
-		GraphNode{ID: "wait1", Kind: "WaitTemplate",
-			Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}}}, CreatedAt: time.Now().UTC()},
-	)
-	// 不带 context → 跳过 MISSING_TEMPLATE 检查
-	plain := ValidateContainer(c)
-	if hasCode(plain, CodeMissingTemplate) {
-		t.Errorf("nil AvailableTemplateKeys should skip MISSING_TEMPLATE check, got %+v", plain)
-	}
-	// 带空 keys 集合 → key 不存在，报 MISSING_TEMPLATE
-	ctx := ValidateContext{AvailableTemplateKeys: map[string]struct{}{}}
-	withCtx := ValidateContainerWithContext(c, ctx)
-	if !hasCode(withCtx, CodeMissingTemplate) {
-		t.Errorf("expected MISSING_TEMPLATE with empty key set, got %+v", withCtx)
-	}
-	// 带正确 key → 不报
-	ctx2 := ValidateContext{AvailableTemplateKeys: map[string]struct{}{"fish/onhook": {}}}
-	clean := ValidateContainerWithContext(c, ctx2)
-	if hasCode(clean, CodeMissingTemplate) {
-		t.Errorf("key present should not trigger MISSING_TEMPLATE, got %+v", clean)
 	}
 }
 

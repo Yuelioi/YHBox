@@ -1,4 +1,4 @@
-// Yotta 主入口。双击 exe 启动 wails3 应用。
+﻿// Yotta 主入口。双击 exe 启动 wails3 应用。
 package main
 
 import (
@@ -577,7 +577,6 @@ func ensureV2DataLayout(log zerolog.Logger) {
 		filepath.Join(base, "containers"),
 		filepath.Join(base, "library"),
 		filepath.Join(base, "library", "subgraphs"),
-		filepath.Join(base, "library", "templates"),
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {

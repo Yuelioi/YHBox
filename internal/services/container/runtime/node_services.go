@@ -1,4 +1,4 @@
-// node_services.go
+﻿// node_services.go
 //
 // 桥接 RuntimeContext (+ stopwatchTable + zerolog) 到 node.* service interfaces.
 // 给 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.
@@ -473,13 +473,6 @@ func NewCaptureAdapter(rt *RuntimeContext) node.CaptureService { return &capture
 const visionWaitPollMs = 100
 
 type visionAdapter struct{ rt *RuntimeContext }
-
-func (a *visionAdapter) containerID() string {
-	if a.rt.Container == nil {
-		return ""
-	}
-	return a.rt.Container.ID
-}
 
 // scaleTolerance 读容器级模板缩放容差, 透传给 matcher.Detect (matcher 已不再 per-container).
 func (a *visionAdapter) scaleTolerance() float64 {

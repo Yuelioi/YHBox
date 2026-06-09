@@ -1,8 +1,8 @@
-// validator.go 容器/子图 graph 校验器 (Validate 阶段入口).
+﻿// validator.go 容器/子图 graph 校验器 (Validate 阶段入口).
 //
 // 三阶段协作:
-//   Validate  — 这里, 纯检查不 mutate. 入口 ValidateContainerWithContext / (c).Validate().
-//                内部分 3 sub-phase (Structural/Reference/Type-Semantic), 见 ValidateContainerWithContext.
+//   Validate  — 这里, 纯检查不 mutate. 入口 ValidateContainer / (c).Validate().
+//                内部分 3 sub-phase (Structural/Reference/Type-Semantic), 见 ValidateContainer.
 //   Normalize — validate.go::Container.Normalize, self-heal 默认 + 子图 normalizeSubgraph 一次跑完.
 //   Compile   — runtime/compile.go::CompileContainer, 编译 main+全部 subgraphs 的 edge/node 索引.
 //
@@ -122,22 +122,7 @@ type ValidationError struct {
 	Params    map[string]any `json:"params,omitempty"` // 占位符 keys 跟 i18n string 的 {name} 对齐
 }
 
-// ValidateContext 给 ValidateContainerWithContext 用，传入文件系统 / 设置态等
-// "纯 graph 结构本身得不到" 的信息。各字段空 zero 值意味着"该项检查跳过"。
-type ValidateContext struct {
-	// AvailableTemplateKeys 容器 templates/ 目录下所有可用 key（含库下载夹带过来的）。
-	// nil = 跳过 MISSING_TEMPLATE 检查（向后兼容老调用方）。
-	AvailableTemplateKeys map[string]struct{}
-}
-
-// ValidateContainer 无 context 短版：只跑结构级校验（dangling edge / cyclic / pin / etc.）
-// MISSING_TEMPLATE 和 MOUSE_CALIBRATION_FOREIGN 需要外部信息，调 ValidateContainerWithContext。
-func ValidateContainer(c *Container) []ValidationError {
-	return ValidateContainerWithContext(c, ValidateContext{})
-}
-
-// ValidateContainerWithContext 全量校验。
-// 业务层（service.go ValidateContainerByID）应该用这个版本传入完整上下文。
+// ValidateContainer 全量校验。
 //
 // E5: 3-phase ORDERING (documentation-driven, no short-circuit). Validators
 // are grouped + commented by dependency layer so readers can map errors back
@@ -153,7 +138,7 @@ func ValidateContainer(c *Container) []ValidationError {
 //
 // Future hard-mode (short-circuit on fatal) can be opted-in via a flag without
 // touching this signature. Tests would need fuller fixtures first.
-func ValidateContainerWithContext(c *Container, vctx ValidateContext) []ValidationError {
+func ValidateContainer(c *Container) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -162,7 +147,7 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	// 结构检查
 	errs = append(errs, validateMainGraph(c)...)
 	errs = append(errs, validateWindowTarget(c)...)
-	errs = append(errs, validateMouseCalibration(c, vctx)...)
+	errs = append(errs, validateMouseCalibration(c)...)
 	for i := range c.Subgraphs {
 		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
 	}
@@ -171,7 +156,6 @@ func ValidateContainerWithContext(c *Container, vctx ValidateContext) []Validati
 	// 引用检查
 	errs = append(errs, validateInvalidPins(c)...)
 	errs = append(errs, validateMissingSubgraph(c)...)
-	errs = append(errs, validateMissingTemplate(c, vctx)...)
 	errs = append(errs, validatePlayClip(c)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
 	errs = append(errs, validateGetParamNodes(c)...)
@@ -241,7 +225,7 @@ func validateMainGraph(c *Container) []ValidationError {
 	return errs
 }
 
-func validateMouseCalibration(c *Container, _ ValidateContext) []ValidationError {
+func validateMouseCalibration(c *Container) []ValidationError {
 	var errs []ValidationError
 	calCount := 0
 	var calNode *GraphNode
@@ -398,43 +382,6 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 					GraphPath: graphPath, NodeID: n.ID,
 					Params:  map[string]any{"subgraphId": id},
 				})
-			}
-		}
-	}
-	check(c.Graph.Nodes, []string{"main"})
-	for _, sg := range c.Subgraphs {
-		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
-		check(sg.Graph.Nodes, sgPath)
-	}
-	return errs
-}
-
-// validateMissingTemplate 扫 template-引用节点的 config.template，确认 key 存在于容器的
-// templates/ 目录。AvailableTemplateKeys = nil → 跳过此项（向后兼容老调用方 / 单测）。
-func validateMissingTemplate(c *Container, vctx ValidateContext) []ValidationError {
-	if vctx.AvailableTemplateKeys == nil {
-		return nil
-	}
-	var errs []ValidationError
-	check := func(nodes []GraphNode, graphPath []string) {
-		for _, n := range nodes {
-			switch n.Kind {
-			case "WaitTemplate", "CheckTemplate", "ClickTemplate":
-			default:
-				continue
-			}
-			keys := PinStringList(&n, "Templates")
-			if len(keys) == 0 {
-				continue // 未配 template 由其它规则报（节点功能性 validation 不在 v1）
-			}
-			for _, key := range keys {
-				if _, ok := vctx.AvailableTemplateKeys[key]; !ok {
-					errs = append(errs, ValidationError{
-						Severity: SeverityError, Code: CodeMissingTemplate,
-						GraphPath: graphPath, NodeID: n.ID,
-						Params:  map[string]any{"nodeID": n.ID, "template": key},
-					})
-				}
 			}
 		}
 	}

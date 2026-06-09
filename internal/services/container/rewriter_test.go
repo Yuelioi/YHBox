@@ -1,4 +1,4 @@
-package container
+﻿package container
 
 import (
 	"testing"
@@ -44,39 +44,6 @@ func TestGraphRewriter_RenameNodeID(t *testing.T) {
 	}
 	if g.Edges[1].From != "wait-new.found" {
 		t.Errorf("edge[1].From = %q, want wait-new.found", g.Edges[1].From)
-	}
-}
-
-func TestGraphRewriter_RenameTemplateKey(t *testing.T) {
-	g := newTestGraph()
-	r := NewGraphRewriter()
-	r.RenameTemplateKey("fish/onhook", "fish/onhook_2")
-	r.Apply(&g)
-
-	for _, n := range g.Nodes {
-		if n.Kind == "WaitTemplate" || n.Kind == "ClickTemplate" {
-			got := PinStringList(&n, "Templates")
-			if len(got) != 1 || got[0] != "fish/onhook_2" {
-				t.Errorf("node %s templates = %v, want [fish/onhook_2]", n.ID, got)
-			}
-		}
-	}
-}
-
-func TestGraphRewriter_Combined(t *testing.T) {
-	g := newTestGraph()
-	r := NewGraphRewriter()
-	r.RenameNodeID("wait", "w2")
-	r.RenameTemplateKey("fish/onhook", "fish/onhook_v2")
-	r.Apply(&g)
-
-	if g.Edges[0].To != "w2.in" {
-		t.Errorf("rename + rename: edge not updated: %q", g.Edges[0].To)
-	}
-	waitNode := g.Nodes[1]
-	gotTpls := PinStringList(&waitNode, "Templates")
-	if waitNode.ID != "w2" || len(gotTpls) != 1 || gotTpls[0] != "fish/onhook_v2" {
-		t.Errorf("rename + rename: node not fully updated: %+v", waitNode)
 	}
 }
 

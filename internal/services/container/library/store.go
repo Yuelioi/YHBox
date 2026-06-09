@@ -1,4 +1,4 @@
-package library
+﻿package library
 
 import (
 	"encoding/json"
@@ -113,11 +113,4 @@ func (s *Store) DeleteSubgraphPackage(sgID string) error {
 	return os.RemoveAll(filepath.Join(s.root, "subgraphs", sgID))
 }
 
-// copyFile helper.
-func copyFile(src, dst string) error {
-	b, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dst, b, 0o644)
-}
+
