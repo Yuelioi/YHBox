@@ -21,42 +21,62 @@
       />
     </header>
 
-    <div class="flex-1 min-h-0 flex flex-col items-center justify-center px-4 text-center gap-1">
+    <div class="flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-3 gap-2">
+      <!-- 状态面板: 深底 + 语义实彩描边 (跟输入校准 HUD 同风格) -->
       <!-- resume countdown (继续录制前的 3s 倒计时; 优先于 paused 显示) -->
-      <template v-if="resumeCountdown > 0">
-        <UIcon name="i-tabler-player-play-filled" class="size-6 text-success animate-pulse" />
+      <div
+        v-if="resumeCountdown > 0"
+        class="w-full rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-center space-y-1"
+      >
+        <UIcon name="i-tabler-player-play-filled" class="size-6 text-success animate-pulse mx-auto" />
         <div class="text-4xl font-mono tabular-nums text-success">{{ resumeCountdown }}</div>
         <p class="text-[11px] text-success/80">秒后继续 · 切到游戏</p>
-      </template>
+      </div>
 
       <!-- countdown -->
-      <template v-else-if="state === 'countdown'">
+      <div
+        v-else-if="state === 'countdown'"
+        class="w-full rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-center space-y-1"
+      >
         <span class="text-[11px] text-primary">{{ modeLabel }}</span>
         <div class="text-5xl font-mono tabular-nums text-primary">{{ countdownSec }}</div>
         <p class="text-[11px] text-dimmed">秒后开始 · 切到游戏</p>
-      </template>
+      </div>
 
-      <!-- recording / paused -->
-      <template v-else-if="state === 'recording' || state === 'paused'">
-        <div class="flex items-center gap-2">
-          <template v-if="state === 'recording'">
-            <span class="size-2.5 rounded-full bg-error animate-pulse" />
-            <span class="text-xs text-error font-semibold">REC</span>
-          </template>
-          <template v-else>
-            <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-amber-400" />
-            <span class="text-xs text-amber-400 font-semibold">已暂停</span>
-          </template>
+      <!-- recording -->
+      <div
+        v-else-if="state === 'recording'"
+        class="w-full rounded-lg border border-error/40 bg-error/10 px-4 py-3 text-center space-y-1"
+      >
+        <div class="flex items-center justify-center gap-2">
+          <span class="size-2.5 rounded-full bg-error animate-pulse" />
+          <span class="text-xs text-error font-semibold">REC</span>
         </div>
         <div class="text-4xl font-mono tabular-nums text-highlighted">{{ elapsedLabel }}</div>
         <p v-if="modeLabel" class="text-[10px] text-dimmed">{{ modeLabel }}</p>
-      </template>
+      </div>
+
+      <!-- paused -->
+      <div
+        v-else-if="state === 'paused'"
+        class="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center space-y-1"
+      >
+        <div class="flex items-center justify-center gap-2">
+          <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-amber-400" />
+          <span class="text-xs text-amber-400 font-semibold">已暂停</span>
+        </div>
+        <div class="text-4xl font-mono tabular-nums text-highlighted">{{ elapsedLabel }}</div>
+        <p v-if="modeLabel" class="text-[10px] text-dimmed">{{ modeLabel }}</p>
+      </div>
 
       <!-- idle 兜底 -->
-      <template v-else>
-        <UIcon name="i-tabler-loader" class="size-5 text-dimmed animate-spin" />
+      <div
+        v-else
+        class="w-full rounded-lg border border-dashed border-default/60 bg-elevated/40 px-4 py-3 text-center space-y-1"
+      >
+        <UIcon name="i-tabler-loader" class="size-5 text-dimmed animate-spin mx-auto" />
         <p class="text-[11px] text-dimmed">准备录制...</p>
-      </template>
+      </div>
     </div>
 
     <footer class="flex items-center gap-2 px-3 py-2 border-t border-default shrink-0">
