@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-08 by 月离 (颜色范围吸管 ship 完成：schema widget 标记 + ExtractColorRange 纯 CV + picker color 模式 + StructuredInput 吸管按钮 + i18n，真机 smoke 过。spec/plan done+归档。)
+**Last updated**: 2026-06-09 by 月离 (修真 bug：库导入子图绕过容器 Store 内存缓存→"(子图未找到)"，加 SetContainerReloader 写盘后 Reload + 回归测试，build/vet/test 绿。记 incident。子图系统其余问题用户 smoke 完回头集中解决。)
 **Active focus**: 资产子系统重构**代码全完 + 已过 3 维 final review + 修了 review 抓的真问题**。所有自动门绿(go build/vet/test + vue-tsc + pnpm i18n:check)。修复: validator 漏扫主图(真 bug)+ 一批二号铁律死代码删净 + 前端 i18n 缺 key 补齐。唯一剩 **真机 smoke 需用户跑**(spec §13)。
 
 ## 进行中
@@ -14,4 +14,5 @@ final review 已做(3 维并行 + 我回源码核验)，修复 commit：50bd4f8(
 
 ## Hanging tasks
 
+- [ ] **子图系统一批问题待彻底解决**（用户 smoke 完其它后回头处理）。已修一条真 bug：库导入子图绕过容器 Store 内存缓存致"(子图未找到)"，根因+修法见 [incident](incidents/2026-06-09-import-bypasses-container-store-cache.md)（library/service.go SetContainerReloader + main.go 接 Reload + 回归测试，build/vet/test 绿）。剩余子图问题用户未逐条列，回头集中梳理。次生项：FE `useContainerEditorStore` 是全局单例，跨容器切换/多挂载时 `subgraphsForCurrentContainer` 会被覆盖（原容器编辑器跟着显示未找到，重载自愈）——是否要隔离按容器存留待定。
 - [ ] 无阻塞待办。（原积压已路由：编辑器 footgun → [editor-footgun-backlog](specs/editor-footgun-backlog.md)；bindings/测试 fixture/AlwaysOnTop/通道B smoke → [checklists/build.md](checklists/build.md)；删符号全仓 grep → [checklists/code-style.md](checklists/code-style.md)；i18n residue → [misc-tools-backlog](specs/misc-tools-backlog.md)；诊断探针目录已删。）

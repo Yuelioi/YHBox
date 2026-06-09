@@ -17,6 +17,10 @@ type Service struct {
 	// 注入回调拿目标容器当前 Vars[], 给 import 算 MissingGlobals diff 用.
 	// nil 时退化为不算 diff. main.go SetContainerLookup(containerStore.Get).
 	lookupContainer func(id string) (container.Container, bool)
+	// 注入回调让 import 写盘后同步容器 Store 内存缓存 (containerStore.Reload).
+	// import 直接写 subgraphs/*.json 绕过 Store, 不 reload 则 ListSubgraphs 返旧值,
+	// 刚导入的子图查不到 → 节点 "(子图未找到)". nil 时跳过 (测试可省).
+	reloadContainer func(id string) error
 }
 
 func NewService(store *Store, assetStore *asset.Store) *Service {
@@ -32,6 +36,11 @@ func (s *Service) SetContainersRoot(dir string) { s.containersRoot = dir }
 // SetContainerLookup 注入 containerStore.Get 让 ImportToContainer 算 MissingGlobals diff.
 func (s *Service) SetContainerLookup(f func(id string) (container.Container, bool)) {
 	s.lookupContainer = f
+}
+
+// SetContainerReloader 注入 containerStore.Reload 让 ImportToContainer 写盘后刷新目标容器内存缓存.
+func (s *Service) SetContainerReloader(f func(id string) error) {
+	s.reloadContainer = f
 }
 
 func (s *Service) emitChanged() {
@@ -82,6 +91,12 @@ func (s *Service) ImportToContainer(libSgID, containerID string) (*ImportResult,
 	result, err := s.store.ImportToContainer(libSgID, root, s.assetStore, containerVars)
 	if err != nil {
 		return nil, err
+	}
+	// import 直接写盘绕过容器 Store, reload 让内存缓存看见新子图 (否则 ListSubgraphs 返旧值).
+	if s.reloadContainer != nil {
+		if err := s.reloadContainer(containerID); err != nil {
+			return nil, fmt.Errorf("reload container %q after import: %w", containerID, err)
+		}
 	}
 	s.emitChanged()
 	return result, nil

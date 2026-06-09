@@ -430,6 +430,8 @@ func main() {
 	librarySvc.SetContainersRoot(filepath.Join(dataDir, "containers"))
 	// B11: 注入容器 lookup, ImportToContainer dry-run 算 MissingGlobals diff.
 	librarySvc.SetContainerLookup(containerStore.Get)
+	// import 写盘后刷新目标容器内存缓存, 否则 ListSubgraphs 返旧值 → 刚导入子图 "(子图未找到)".
+	librarySvc.SetContainerReloader(func(id string) error { _, err := containerStore.Reload(id); return err })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接走 containerStore.SaveSubgraph 落到容器 subgraphs/
