@@ -1,6 +1,7 @@
 # docs/ — INDEX
 
 <!-- AUTO:docs -->
+- [asset-subsystem.md](asset-subsystem.md) — active — when_to_read: 改模板/clip 存储 / 节点引用素材 / 运行时模板匹配 / 子图分享导入 / 资产 picker UI 前; 撞"刚导入/重拍的素材查不到"、"(子图未找到)"、节点引用 GUID 失效、变体分辨率挑错档 类问题 — applies_to: [asset, template, clip, blob, guid, content-addressed, variant, PickVariant, library, import, export, subgraph-share, internal/services/asset, wire_container.go, wire_templates.go, internal/services/container/library, TemplatePicker.vue, stores/library.ts, stores/templates.ts]
 - [error-model.md](error-model.md) — active — when_to_read: 给节点加错误处理 / 加新错误码 / 改 dispatch 失败路由 / 加 region 容错 / 撞「节点报错没被 Fail 出口接住」类问题前 — applies_to: [error-model, node-framework, dispatch, Failf, NodeError, Coded, errorcode, Fail-output, Throw, region, validator]
 - [framework-extension-dispatch-context.md](framework-extension-dispatch-context.md) — active — when_to_read: 设计 framework / DI 容器扩展 / 节点 Ctx 加新方法前 / "这种节点该看到不同的 X" 类需求 — applies_to: [framework-design, node-system, ctx-interface, ServiceBundle, dependency-injection]
 - [node-system-architecture.md](node-system-architecture.md) — active — when_to_read: 第一次碰节点系统 / 设计新节点前想搞懂"节点怎么被定义·注册·派发" / 不确定一个节点该实现哪种 capability / 改 framework dispatch 或 validator 前 — applies_to: [node-system, framework, spec, registry, capability, dispatch, runnable, regionrunner, evaluator, validation]
