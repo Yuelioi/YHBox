@@ -2,8 +2,8 @@
 status: active
 when_to_read: 撞容器编辑器里 Subgraph 节点渲染 "(子图未找到)" 但子图磁盘上/后端 ListSubgraphs 明明有; 在多个容器编辑器间切换后某容器独有的子图节点失效; 改 useContainerEditorStore (subgraphsForCurrentContainer / activeContainerID / editorPath 这些全局单例) 或给 <keep-alive> 缓存的编辑器加状态前; 设计"当前容器"类全局单例时
 applies_to: [frontend, vue, keep-alive, pinia, singleton-store, container-editor, subgraph, onActivated, useContainerDraft, ContainerFlowNode]
-last_updated: 2026-06-09
-resolved_by: 20e25a9 (子图 store 按容器隔离, 根治) — 先有 9ccccbf onActivated 补丁, 后被根治替换
+last_updated: 2026-06-10
+resolved_by: 20e25a9 (store 按容器隔离) + 66538fe (firewall: __missing__ 哨兵不进存盘边 + onActivated 重拉; 补 20e25a9 遗留) — 见下 Cases 复发#4
 ---
 
 # keep-alive 缓存编辑器共享全局单例子图 store 致跨容器"(子图未找到)"
@@ -40,3 +40,13 @@ A 容器折叠/建一个**只属于 A** 的子图 (sg-X) → 切到 B 容器编�
 
 ## Cases
 - 2026-06-09 首次 (用户报: 容器2 折叠 ClickTemplate 成子图后分享 → "(子图未找到)"; 实为切到容器3 再回容器2 后单例污染)
+- 2026-06-10 **复发#4** (用户: 容器2 建子图+分享 → 容器3 用它 → **主图保存失败 "不存在 out pin `__missing__`"**)。
+  两个叠加问题: (a) 20e25a9 按容器隔离后, `onActivated` 改成只 markActive **不重拉子图** —— 引出新 gap: 本容器
+  keep-alive 后台期间被 import/分享写入新子图, 切回不重拉 → `subgraphsByContainer` 滞后 → 节点 `__missing__`。
+  (b) **更深的真根, 前 3 次都没碰**: Subgraph 节点子图未解析的渲染兜底 `__missing__` 是**纯显示哨兵**, 却被
+  `onConnect` 当真 pin 连成边、存进图 → 后端校验拒。**补根 66538fe (两层)**: ① **防火墙** —— `onConnect` 拦哨兵
+  pin (`isSentinelPin`), 哨兵**永不落盘** → 根除"主图保存失败 out pin __missing__"这一类, **与列表是否滞后无关**
+  (有 useGraphMutations.test.ts 单测); ② `onActivated` 切回时 `refreshSubgraphStore` (merge 式, 保留未落盘编辑、
+  只补盘上新子图、只动本容器 slot) → 治滞后, 节点正常解析。真机验过。
+  **教训**: 渲染兜底哨兵 (`__missing__`/`__empty__`) 必须**与持久化隔离** —— 显示可兜底, 但绝不能进存盘数据;
+  否则任何瞬时 store 滞后都会被固化成坏图。前 3 次只堵"怎么别让子图丢", 没堵"哨兵漏进存盘", 所以反复。
