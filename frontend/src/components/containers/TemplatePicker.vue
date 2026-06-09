@@ -631,6 +631,7 @@ async function removeVariant(res: number[]) {
   if (!guid || (detailRecord.value?.variants?.length ?? 0) <= 1) return
   const yes = await confirm({
     title: t('template.picker.del_variant_title', { res: `${res[0]}×${res[1]}` }),
+    description: t('template.picker.del_variant_desc'),
     confirmText: t('common.delete'),
     color: 'error',
   })

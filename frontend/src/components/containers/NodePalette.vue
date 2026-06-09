@@ -183,7 +183,7 @@ async function onImport(sg: Subgraph) {
     return
   }
   try {
-    await backend.library.importToContainer(sg.id, editorStore.activeContainerID)
+    await libraryStore.importEnsuringGlobals(sg.id, editorStore.activeContainerID)
     toast.add({ title: t('nodePalette.toast_imported', { name: sg.label || sg.id }), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
     toast.add({ title: t('toast.import_failed'), description: errorMessage(e), color: 'error' })

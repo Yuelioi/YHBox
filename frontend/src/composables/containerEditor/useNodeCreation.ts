@@ -16,7 +16,7 @@ import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useSnippetsStore, type Snippet } from '@/stores/snippets'
 import { useLibraryStore } from '@/stores/library'
-import { backend, type Container, type Graph, type GraphNode, type GraphEdge, type VarDecl } from '@/lib/backend'
+import { type Container, type Graph, type GraphNode, type GraphEdge, type VarDecl } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { dataInTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
@@ -248,7 +248,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   async function onPickLibrarySubgraph(libraryID: string) {
     if (!draft.value) return
     try {
-      await backend.library.importToContainer(libraryID, draft.value.id)
+      await useLibraryStore().importEnsuringGlobals(libraryID, draft.value.id)
       await refreshSubgraphStore()
       addNode({
         kind: 'Subgraph',

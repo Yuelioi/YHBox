@@ -1860,6 +1860,7 @@ export default {
       complete_simple: '导入完成 ({count} 项)',
       done: '关闭',
       add_vars_failed: '添加变量失败',
+      auto_added_vars: '已自动补充 {n} 个变量: {names}',
     },
   },
   // 模板 (TemplateCapture / TemplateManager / TemplatePicker).
@@ -1948,6 +1949,7 @@ export default {
       add_variant: '新增 {res}',
       current_badge: '当前',
       del_variant_title: '删除分辨率档 {res}?',
+      del_variant_desc: '只删这一档, 其它分辨率档保留; 引用此素材的节点会用剩下的档匹配。',
     },
     tab_intro: '模板库保存的是截图识别素材。截一张 → 框选目标区域 → 保存，节点里选它就能匹配。',
   },

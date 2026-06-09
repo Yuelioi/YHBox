@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-10 by 月离 (import-strategy 收口 + 单变体删除。删 strategy/conflict 整套: ImportToContainerDialog 简化成单次幂等导入、SubgraphPackage 类型 templates/clips→assets、LibraryCard/DetailPanel 改 assets 计数、3 调用点去 strategy 参 → **vue-tsc 2 预存红清零(现 0 红)**。单变体删除: 详情页 >1 档时 chip 加 ✕ + 后端 `RemoveVariant`(守卫最后一档不可删)。门全绿: vue-tsc **0**、i18n 1749+compile、go asset+library test、vitest 198。i18n residue 28 = 未碰文件旧 backlog 非回归。｜前序: 当前分辨率感知; 翻页; 钻入式 modal。)
-**Active focus**: 资产子系统**代码全完 + vue-tsc 全清(0 红)+ smoke 主体全过**。剩 2 项待真机快验: ① 导入子图到容器 dialog(已简化成单次幂等导入)② 单变体删除。两项过 → asset plan/spec → done → graduate 进 docs、归档,资产子系统彻底收口。
+**Last updated**: 2026-06-10 by 月离 (smoke 反馈 2 修: ① 删分辨率档确认框补说明文字(原 body 空) ② **容器编辑器导入子图自动补缺失全局变量**(editor 拖/点导入原不提示缺 var → 现 import 后把子图 RequiredGlobals 缺的自动补进容器 + toast; 共享 helper `library.importEnsuringGlobals`, 走 NodePalette/useNodeCreation/useFlowInteraction; 库管理页 dialog 维持原提示步不动)。门全绿: vue-tsc **0**、i18n 1751+compile、vitest 198。｜前序: import-strategy 收口(vue-tsc 0 红); 单变体删除; 当前分辨率感知; 翻页。)
+**Active focus**: 资产子系统**代码全完 + vue-tsc 0 红 + smoke 基本全过(剩本轮 2 修复待复验)**。复验 ① 删档确认框有说明 ② editor 导入用了全局变量的子图 → 自动补 var + toast。过后 asset plan/spec → done → graduate 进 docs、归档,资产子系统彻底收口。
 
 ## 进行中
 
@@ -9,7 +9,7 @@
 
 ## 下一步
 
-**真机快验 2 项 → 然后 graduate**(代码已绿、待 commit): ① **导入子图到容器**(库面板某子图 → 导入 → 选目标容器 → 「下一步」: 无缺失变量直接 done / 有则提示补变量再 done; **已无冲突步、单次导入即落盘**) ② **单变体删除**(详情页某素材有 ≥2 分辨率档时每个 chip 右侧有 ✕ → 删一档, 另一档还在、引用节点用剩下的档; 仅 1 档时无 ✕, 删它走整删按钮)。两项过 → asset plan/spec 转 done → spec graduate 进 docs(graduate:true)、归档 spec+plan, 资产子系统彻底收口。已知预存失败(非回归): runtime TestApplyDirection_*/TestWatchdog_*/TestScanSubgraphDependencies_* 缺 fish fixture, 见 [build.md](checklists/build.md)。
+**真机复验本轮 2 个 smoke 修复 → 然后 graduate**(代码已绿、待 commit): ① **删分辨率档确认框**(详情页 ≥2 档某 chip 点 ✕ → 确认框现在应有说明文字「只删这一档…」, 不再空 body) ② **editor 导入子图自动补变量**(把用了全局变量的库子图拖/点进某容器 → 应**自动把缺的变量补进容器 + 弹 toast「已自动补充 v1」**, 不再静默丢; 用 sg-9d6e9849 进新容器可复现, 它要 v1)。两项过 → asset plan/spec 转 done → spec graduate 进 docs(graduate:true)、归档 spec+plan, 资产子系统彻底收口。已知预存失败(非回归): runtime TestApplyDirection_*/TestWatchdog_*/TestScanSubgraphDependencies_* 缺 fish fixture, 见 [build.md](checklists/build.md)。
 
 ## Hanging tasks
 

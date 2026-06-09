@@ -1819,6 +1819,7 @@
       complete_simple: 'Import complete ({count} items)',
       done: 'Close',
       add_vars_failed: 'Add variables failed',
+      auto_added_vars: 'Auto-added {n} variable(s): {names}',
     },
   },
   template: {
@@ -1906,6 +1907,7 @@
       add_variant: 'Add {res}',
       current_badge: 'current',
       del_variant_title: 'Delete variant {res}?',
+      del_variant_desc: 'Only this variant is removed; other resolutions stay, and nodes using this asset match with the remaining ones.',
     },
     tab_intro: 'The template library stores screenshot snippets for image matching. Capture a screenshot, frame your target, save — then pick it in any node.',
   },

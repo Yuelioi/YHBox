@@ -7,6 +7,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
+import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { PIN_SPECS } from '@/components/containers/pinSpec'
 import { randID } from './ids'
@@ -134,7 +135,7 @@ export function useFlowInteraction(opts: {
       const py = e.clientY - rect.top
       const pos = project({ x: px, y: py })
 
-      await backend.library.importToContainer(parsed.id, draft.value.id)
+      await useLibraryStore().importEnsuringGlobals(parsed.id, draft.value.id)
       const newSubgraphID: string = parsed.id
       const newNode = {
         id: randID('n-call'),

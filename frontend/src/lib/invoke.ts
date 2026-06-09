@@ -108,6 +108,11 @@ export function toastError(msg: string, title?: string) {
   })
 }
 
+/** 信息/成功类 toast (走模块级 toast, 可在 store / 异步后安全调用). */
+export function toastInfo(title: string, description?: string) {
+  _toastAdd?.({ title, description, color: 'success', icon: 'i-tabler-check', duration: 4000 })
+}
+
 export async function invoke<R, A extends any[]>(
   fn: (...args: A) => Promise<R>,
   ...args: A
