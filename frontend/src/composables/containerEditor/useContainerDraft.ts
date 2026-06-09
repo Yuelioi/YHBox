@@ -243,11 +243,14 @@ export function useContainerDraft(containerID: string) {
     )
   })
 
-  // keep-alive 缓存命中重新激活: 子图数据按容器存在 store slot 里, 切别的容器不会动本容器的,
-  // 所以无需重新拉盘 / 重置 path —— 只把"前台容器"指针指回本实例即可, descendant 组件
-  // (ContainerFlowNode 等读 active 视图) 立刻看到本容器的子图。
+  // keep-alive 缓存命中重新激活: 先把"前台容器"指针指回本实例。
+  // 再**重拉本容器子图**: 后台期间本容器可能被 import/分享/外部写入新子图 (写盘但没刷本 keep-alive
+  // 编辑器的 store slot) → 不重拉则 subgraphsByContainer 滞后 → Subgraph 节点解析不到 → __missing__
+  // → 主图保存被拒 (反复出现的"子图未找到"根因之一)。mergeSubgraphs 保留内存未落盘的编辑、仅补盘上新子图,
+  // 且只动本容器 slot (按容器隔离), 安全。
   onActivated(() => {
     if (containerID) editorStore.markActive(containerID)
+    void refreshSubgraphStore()
   })
 
   // 实例销毁 (keep-alive 淘汰 / 离开不缓存) → 释放本容器 store slot, 防多容器编辑后内存堆积。

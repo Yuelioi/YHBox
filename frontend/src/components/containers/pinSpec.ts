@@ -137,8 +137,19 @@ export function edgeKind(fromKind: string, fromPin: string): 'exec' | 'data' {
 }
 
 /**
+ * 子图未解析时 resolveSubgraphCallExecOut 的渲染兜底 pin —— 纯**显示哨兵**。
+ * 绝不能连成持久化边 (会被后端校验拒 "不存在 out pin __missing__"); 由 useGraphMutations.onConnect 拦截。
+ */
+export const MISSING_PIN = '__missing__'
+export const EMPTY_PIN = '__empty__'
+export function isSentinelPin(pin: string | null | undefined): boolean {
+  return pin === MISSING_PIN || pin === EMPTY_PIN
+}
+
+/**
  * Subgraph 调用节点 exec-out 是动态查 subgraph.outputPins 派生, 不在 registry spec 表达范围内.
  * 保留此 helper — 调用方 (ContainerFlowNode.vue 等) 直接使用.
+ * 子图查不到 → 返回 MISSING_PIN 哨兵 (仅渲染, onConnect 不让它连成边)。
  */
 export function resolveSubgraphCallExecOut(
   node: { config?: { SubgraphID?: string } },
@@ -147,8 +158,8 @@ export function resolveSubgraphCallExecOut(
   const sgID = node.config?.SubgraphID ?? ''
   const sg = allSubgraphs.find((s) => s.id === sgID)
   const t = i18n.global.t
-  if (!sg) return [{ id: '__missing__', name: t('node.Subgraph.fallback_missing') }]
-  if (sg.outputPins.length === 0) return [{ id: '__empty__', name: t('node.Subgraph.fallback_empty') }]
+  if (!sg) return [{ id: MISSING_PIN, name: t('node.Subgraph.fallback_missing') }]
+  if (sg.outputPins.length === 0) return [{ id: EMPTY_PIN, name: t('node.Subgraph.fallback_empty') }]
   return sg.outputPins.map((p) => ({ id: p.id, name: p.name }))
 }
 

@@ -10,7 +10,7 @@ import type { Ref, ComputedRef } from 'vue'
 import type { NodeChange, EdgeChange, Connection } from '@vue-flow/core'
 import type { Graph, GraphNode, GraphEdge } from '@/lib/backend'
 import type { FlowEdge } from './useContainerDraft'
-import { edgeKind } from '@/components/containers/pinSpec'
+import { edgeKind, isSentinelPin } from '@/components/containers/pinSpec'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
 export function useGraphMutations(opts: {
@@ -114,10 +114,14 @@ export function useGraphMutations(opts: {
   function onConnect(c: Connection) {
     const g = activeGraph.value
     if (!g) return
-    const srcNode = g.nodes.find((n) => n.id === c.source)
     const srcPin = c.sourceHandle ?? 'out'
+    const tgtPin = c.targetHandle ?? 'in'
+    // 防火墙: 哨兵 pin (子图未解析的渲染兜底 __missing__ / 无出口 __empty__) 绝不连成持久化边。
+    // 否则 FE 子图 store 一旦滞后, 连出的边带 __missing__ → 主图保存被后端拒 → 反复出现的"子图未找到"存盘失败。
+    if (isSentinelPin(srcPin) || isSentinelPin(tgtPin)) return
+    const srcNode = g.nodes.find((n) => n.id === c.source)
     const from = `${c.source}.${srcPin}`
-    const to = `${c.target}.${c.targetHandle ?? 'in'}`
+    const to = `${c.target}.${tgtPin}`
     // Derive edge type for dedup policy. data: single-source (replace same to);
     // exec: exec-out single target + exec-in single source (replace same from or to).
     const isData = srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
