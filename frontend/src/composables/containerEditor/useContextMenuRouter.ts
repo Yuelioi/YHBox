@@ -394,7 +394,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         }
       }
       if (targetSgID) {
-        editorStore.editorPath = [targetSgID]
+        editorStore.setPath([targetSgID])
         await nextTick()
         selectedID.value = nodeID
         if (targetNode) centerOnNode(setCenter, targetNode)

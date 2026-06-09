@@ -1,4 +1,4 @@
-import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MarkerType } from '@vue-flow/core'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
@@ -88,19 +88,24 @@ export function useContainerDraft(containerID: string) {
   const canUndo = computed(() => historyIdx.value > 0)
   const canRedo = computed(() => historyIdx.value < history.value.length - 1)
 
+  // 本实例(本容器)专属视图 — 按自己的 containerID 读 store slot, 不受前台 activeContainerID
+  // 漂移影响。keep-alive 下别的容器编辑器切到前台时, 本实例的 activeGraph / dirty watch 不会
+  // 被它的数据变化误触发。
+  const myPath = computed(() => editorStore.editorPathFor(containerID))
+  const mySubgraphs = computed(() => editorStore.subgraphsFor(containerID))
+
   // activeGraph: 跟随 editorPath 切换. 空 path → 主图; 否则 = 当前 path 末尾对应子图的 graph.
   // 返回 Graph | null, 不带 any: 下游 mutation 必须显式 null check.
   const activeGraph = computed<Graph | null>(() => {
     if (!draft.value) return null
-    if (editorStore.editorPath.length === 0) return draft.value.graph
-    const sgs = editorStore.subgraphsForCurrentContainer
-    let cur = sgs.find((s) => s.id === editorStore.editorPath[0])
+    const path = myPath.value
+    if (path.length === 0) return draft.value.graph
+    const sgs = mySubgraphs.value
+    let cur = sgs.find((s) => s.id === path[0])
     if (!cur) return null
-    for (let i = 1; i < editorStore.editorPath.length; i++) {
-      // 嵌套子图: 当前层级是 cur.graph 的内部 (cur 本身就是 SubgraphSummary), 但 editorPath
-      // 表示层级 id 列表, 嵌套需要在 cur 的子图列表里继续找 — v2 1:1 模型下子图全部平铺在容器
-      // subgraphsForCurrentContainer, editorPath 每一段都 lookup 同一个平铺列表.
-      cur = sgs.find((s) => s.id === editorStore.editorPath[i])
+    for (let i = 1; i < path.length; i++) {
+      // 嵌套子图: v2 1:1 模型下子图全部平铺在容器 slot, editorPath 每一段都 lookup 同一平铺列表.
+      cur = sgs.find((s) => s.id === path[i])
       if (!cur) return null
     }
     return (cur?.graph as Graph) ?? null
@@ -123,9 +128,9 @@ export function useContainerDraft(containerID: string) {
     // B2: 在 subgraph 上下文里, 注入 entry/output virtual marker flowNodes.
     // 这些 node ID 跟 sg.entry.nodeID / sg.outputPins[].nodeID 对齐, edges 引用它们.
     const virtualNodes: FlowNode[] = []
-    if (editorStore.editorPath.length > 0) {
-      const curSgID = editorStore.editorPath[editorStore.editorPath.length - 1]
-      const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === curSgID)
+    if (myPath.value.length > 0) {
+      const curSgID = myPath.value[myPath.value.length - 1]
+      const sg = mySubgraphs.value.find((s) => s.id === curSgID)
       if (sg) {
         if (sg.entry && sg.entry.nodeID) {
           virtualNodes.push({
@@ -175,9 +180,10 @@ export function useContainerDraft(containerID: string) {
     })
   }
 
-  // editorPath 变化时重新 sync（进/出子图层级）— 不参与 dirty 判定，可立即装
+  // editorPath 变化时重新 sync（进/出子图层级）— 不参与 dirty 判定，可立即装。
+  // watch 本容器 slot 的 path, 不watch 全局 active (别的容器切前台不该触发本实例 re-sync)。
   watch(
-    () => editorStore.editorPath,
+    () => myPath.value,
     () => {
       syncFlowFromDraft()
     },
@@ -226,36 +232,27 @@ export function useContainerDraft(containerID: string) {
       return
     }
     await loadIntoEditor(r as unknown as Container)
-    // load 完毕后才装 dirty watcher; 初始化阶段不触发 → 不再需要 setTimeout 重置 hack
+    // load 完毕后才装 dirty watcher; 初始化阶段不触发 → 不再需要 setTimeout 重置 hack。
+    // 子图 dirty watch 本容器 slot (mySubgraphs), 不watch 全局 active —— 否则别的容器编辑器
+    // 切到前台时本实例会被误标 dirty。
     watch(draft, () => { dirty.value = true }, { deep: true })
     watch(
-      () => editorStore.subgraphsForCurrentContainer,
+      () => mySubgraphs.value,
       () => { dirty.value = true },
       { deep: true },
     )
   })
 
-  // keep-alive 缓存命中重新激活: 全局单例 editorStore.subgraphsForCurrentContainer /
-  // activeContainerID / editorPath 是所有缓存编辑器共享的一份, 切到别的容器编辑器时会被它覆盖。
-  // 切回本容器时 onMounted 不再跑, 单例仍停在别的容器的子图列表 → 本容器只属于自己的 Subgraph
-  // 节点(别的容器没有的)会渲染成 "(子图未找到)"。这里用本容器磁盘子图把单例重置回来。
-  // 首次挂载 draft 还没装好(onMounted 异步未完), 跳过交给 onMounted。
-  onActivated(async () => {
-    if (!draft.value) return
-    try {
-      const sgList = (await backend.containers.listSubgraphs(draft.value.id)) as any[]
-      editorStore.setActiveContainer(draft.value.id, toSubgraphSummaries(sgList))
-    } catch (e) {
-      console.warn('onActivated listSubgraphs failed', e)
-    }
-    // editorPath 可能残留别的容器的层级 — 头节点不在本容器子图里就回主图, 否则 activeGraph 算空白。
-    if (
-      editorStore.editorPath.length > 0 &&
-      !editorStore.subgraphsForCurrentContainer.some((s) => s.id === editorStore.editorPath[0])
-    ) {
-      editorStore.resetPath()
-    }
-    syncFlowFromDraft()
+  // keep-alive 缓存命中重新激活: 子图数据按容器存在 store slot 里, 切别的容器不会动本容器的,
+  // 所以无需重新拉盘 / 重置 path —— 只把"前台容器"指针指回本实例即可, descendant 组件
+  // (ContainerFlowNode 等读 active 视图) 立刻看到本容器的子图。
+  onActivated(() => {
+    if (containerID) editorStore.markActive(containerID)
+  })
+
+  // 实例销毁 (keep-alive 淘汰 / 离开不缓存) → 释放本容器 store slot, 防多容器编辑后内存堆积。
+  onBeforeUnmount(() => {
+    if (containerID) editorStore.dropContainer(containerID)
   })
 
   /**

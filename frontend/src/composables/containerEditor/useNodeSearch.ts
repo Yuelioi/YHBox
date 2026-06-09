@@ -47,7 +47,7 @@ export function useNodeSearch(opts: UseNodeSearchOpts) {
     const inCurrent = (!r.sgID && editorStore.editorPath.length === 0)
       || (!!r.sgID && editorStore.editorPath[editorStore.editorPath.length - 1] === r.sgID)
     if (!inCurrent) {
-      editorStore.editorPath = r.sgID ? [r.sgID] : []
+      editorStore.setPath(r.sgID ? [r.sgID] : [])
       await nextTick()
     }
     selectedID.value = r.id
