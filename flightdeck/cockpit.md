@@ -1,15 +1,15 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-10 by 月离 (资产子系统 **graduate 归档** —— spec → [docs/asset-subsystem.md](docs/asset-subsystem.md), plan → archive。全套真机 smoke 过、vue-tsc 0、UX 反馈全收口(变体删确认/editor 导入自动补 var/分享改 NuxtUI)。资产子系统彻底收口。)
-**Active focus**: 资产子系统**已收口归档**(→ [docs/asset-subsystem.md](docs/asset-subsystem.md))。无 active spec/plan。下一步候选见下(modal 风格统一已拍范围 / 子图切换真机 smoke / idea 池)。
+**Last updated**: 2026-06-10 by 月离 (modal + HUD 风格统一定稿。`common/BaseModal.vue` = **纯黑平铺**外壳(经多轮试错收敛: 包裹面板/凹陷井/emerald 边都试过, 用户选回原版纯黑), 11 modal 统一; 输入校准 + 录制 HUD 统一成**彩色状态面板**(border-{色}/40+bg-{色}/10)。试错 commit 已 squash 干净(8→`2b1ebef`+`3d96c3e`+`34faaef`)。门绿。)
+**Active focus**: **modal + HUD 风格统一定稿,待真机最终扫一眼 → push**。modal=纯黑平铺(BaseModal+11), 校准/录制 HUD=彩色状态面板。剩(可选): 其它 frameless HUD(截屏/鼠标检测)是否也统一、搜索面板/大复合 modal 未转。资产子系统已归档(→ [docs/asset-subsystem.md](docs/asset-subsystem.md))。
 
 ## 进行中
 
-- [ ] **资产 modal 收尾 + 全局 modal 风格统一(待用户拍范围)**。已修(多轮): 删除提示(无引用不再误报"引用失效")、网格批量删除(footer「删除选中 N」, **批量也汇总显示被引用处数**)、详情页"包裹"框感(缩放区/信息栏圆角描边+留白)、**详情 ✕ 改返回网格(不直接关 modal, 免误触)**、**截图时可设标签**(SaveTemplateCapture 加 tags 参 + ScreenPicker template_save 表单加标签输入)、**网格按标签筛选 + 卡片缩略图显示标签**。门绿(go build/test、vue-tsc 0 新增、i18n 1744、198 单测)。**用户已拍范围(2026-06-09)**: 先 smoke 确认资产 modal "包裹"基准 → 然后**抽共享 modal 外壳 + 扫一遍常规 UModal**(确认框/导入/容器设置/计划等)统一;**frameless HUD(录制/截屏/DPI 校准)单独评估**(HudShell 独立小窗, 套大面板未必合适)。**资产 modal 基准已 smoke 确认(2026-06-10),可启动统一这步。**
+- [ ] **modal + HUD 风格统一(定稿, 待真机最终扫一眼)**。① **BaseModal**(`common/BaseModal.vue`)= **纯黑平铺**(bg-default + header border-b + body 平铺 px-5 py-4 + footer border-t; props open/title/icon/iconColor/size md..5xl/showClose)。多轮试错(包裹面板→emerald 边→凹陷井→回纯黑)后用户定**纯黑平铺**。11 modal 已统一(NewVar/PromoteToVar/ContainerSettings/DeleteVarConfirm/FindReferences/ValidationErrorPanel/ContainerHelp/NodeExplorer/LibraryExplorer + ConfirmDialog 保 API 重皮 + ImportToContainerDialog 多步)。② **校准 + 录制 HUD** 统一成**彩色状态面板**(border-{色}/40+bg-{色}/10, 按状态语义上色)。门绿。**剩(可选, 看用户)**: 其它 frameless HUD(截屏/鼠标检测 MouseHUDView)是否也上彩色面板、搜索面板(NodeSearch/CommandPalette)+ 大复合(TemplatePicker/TemplateManager)未转。
 
 ## 下一步
 
-资产子系统已收口。候选下一步(用户拍): ① **全局 modal 风格统一**(资产 modal 基准已立、范围已拍 2026-06-09): 抽共享 modal 外壳 → 扫常规 UModal(确认框/导入/容器设置/计划)统一; frameless HUD 单独评估。② **子图切换真机 smoke 复验**(Hanging, 见下: 容器2 折叠子图→切容器3→切回容器2 应正常+分享成功)。③ idea 池(cv-perception / editor-footgun / misc-tools)。已知预存失败(非回归): runtime TestApplyDirection_*/TestWatchdog_*/TestScanSubgraphDependencies_* 缺 fish fixture, 见 [build.md](checklists/build.md)。
+**真机最终扫一眼 → push**。`task dev`: ① 11 个 modal(纯黑平铺, 看框/标题/✕/滚动/footer 正常)② 输入校准 HUD(F8 流程: 倒计时琥珀/录制翠绿/完成主色 彩框)③ 录制 HUD(简易/精准录制: 倒计时主色/录制红/暂停琥珀 彩框)。OK 后 push(整批 0d744de→34faaef, 资产子系统 + modal/HUD 统一, 尚未 push)。剩候选: 其它 HUD(截屏/鼠标检测)统一 / 搜索面板·大复合 modal / 子图切换 smoke(Hanging)/ idea 池。已知预存失败(非回归): runtime 缺 fish fixture, 见 [build.md](checklists/build.md)。
 
 ## Hanging tasks
 
