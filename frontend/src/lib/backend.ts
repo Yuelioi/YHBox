@@ -267,6 +267,9 @@ export const backend = {
       invoke(LibraryService.ImportToContainer, libSgID, containerID, strategy),
     exportSubgraph: (containerID: string, sgID: string, overwrite: boolean) =>
       invoke(LibraryService.ExportSubgraph, containerID, sgID, overwrite),
+    // ExportContainer 把整容器顶层图 + 全部子图 + 资产闭包打成 library package (bundle ID = 容器 ID).
+    exportContainer: (containerID: string, overwrite: boolean) =>
+      invoke(LibraryService.ExportContainer, containerID, overwrite),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),
@@ -281,13 +284,14 @@ export const backend = {
   assets: {
     // List 全局资产列表 (template + clip), 无 containerID.
     list: () => invoke(AssetService.List),
-    // SaveTemplateCapture 截图存为新模板资产, 返 GUID.
+    // SaveTemplateCapture 截图存为新模板资产, 返 GUID. tags 截图时可选设标签.
     saveTemplateCapture: (
       dataURL: string,
       name: string,
+      tags: string[],
       recRes: [number, number],
       region: [number, number, number, number],
-    ) => invoke(AssetService.SaveTemplateCapture, dataURL, name, recRes, region),
+    ) => invoke(AssetService.SaveTemplateCapture, dataURL, name, tags, recRes, region),
     // AddTemplateVariant 给已有资产加/换分辨率变体.
     addTemplateVariant: (
       guid: string,
@@ -295,13 +299,43 @@ export const backend = {
       recRes: [number, number],
       region: [number, number, number, number],
     ) => invoke(AssetService.AddTemplateVariant, guid, dataURL, recRes, region),
+    // Get 单条资产完整记录 (含 variants[] — 详情页看分辨率档/元信息).
+    get: (guid: string) => invoke(AssetService.Get, guid) as Promise<AssetRecord | undefined>,
     delete_: (guid: string) => invoke(AssetService.Delete, guid),
-    rename: (guid: string, name: string) => invoke(AssetService.Rename, guid, name),
+    // Referrers 只扫不删 — 删除前拿引用列表, FE 据此弹"被 N 处引用"确认.
+    referrers: (guid: string) =>
+      invoke(AssetService.Referrers, guid) as Promise<AssetReferrer[] | undefined>,
+    // UpdateMeta 改显示名 + 标签 (记录级元数据).
+    updateMeta: (guid: string, name: string, tags: string[]) =>
+      invoke(AssetService.UpdateMeta, guid, name, tags),
     // Capture 截当前容器目标窗口帧 (保留 containerID — 截帧需窗口上下文).
     capture: (containerID: string) => invoke(AssetService.Capture, containerID),
     // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
     readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
     gcBlobs: () => invoke(AssetService.GCBlobs),
+    // CurrentResolution 当前容器目标窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
+    // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.
+    currentResolution: async (containerID: string): Promise<[number, number] | undefined> => {
+      try {
+        const r = await AssetService.CurrentResolution(containerID)
+        return Array.isArray(r) && r.length === 2 ? [r[0], r[1]] : undefined
+      } catch {
+        return undefined
+      }
+    },
+    // PickVariant 给定分辨率, 返运行时真会用的那档在 variants[] 里的下标 + 是否精确命中. 自动调用, 失败静默.
+    pickVariant: async (
+      guid: string,
+      w: number,
+      h: number,
+    ): Promise<{ index: number; exact: boolean } | undefined> => {
+      try {
+        const r = await AssetService.PickVariant(guid, w, h)
+        return { index: r.index, exact: r.exact }
+      } catch {
+        return undefined
+      }
+    },
   },
   hotkeys: {
     list: () => invoke(HotkeyService.List),
@@ -368,12 +402,13 @@ export const backend = {
     openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
     closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
     openScreenPicker: (
-      mode: 'point' | 'rect' | 'template_save' | 'color',
+      mode: 'point' | 'rect' | 'template_save' | 'template_recapture' | 'color',
       id: string,
       containerID = '',
       nodeID = '',
       colorSpace = '',
-    ) => invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID, colorSpace),
+      guid = '',
+    ) => invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID, colorSpace, guid),
     extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
       invoke(ToolsService.ExtractColorRange, samples, colorSpace),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),

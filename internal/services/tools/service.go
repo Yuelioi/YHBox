@@ -383,17 +383,18 @@ func (s *Service) CloseRecordingHUD() {
 	}
 }
 
-// OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save" | "color"。
+// OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save" | "template_recapture" | "color"。
 // requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
-// 带上 id 给调用方匹配。containerID 仅 template_save 模式需要（空字符串则保存失败）。
+// 带上 id 给调用方匹配。containerID 仅 template_save / template_recapture 模式需要（空字符串则保存失败）。
 // nodeID 指定当前编辑节点（按最近上游 WindowTarget 截图）；无节点上下文传 ""。
 // colorSpace 仅 color 模式需要（"hsv" | "rgb"），其他模式传 ""。
-func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSpace string) error {
+// guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
+func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSpace, guid string) error {
 	app := s.wailsApp()
 	if app == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "color" {
+	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "template_recapture" && mode != "color" {
 		return fmt.Errorf("unsupported mode %q", mode)
 	}
 	if requestID == "" {
@@ -407,7 +408,7 @@ func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSp
 	}
 	s.mu.Unlock()
 
-	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID) + "&containerID=" + url.QueryEscape(containerID) + "&nodeID=" + url.QueryEscape(nodeID) + "&colorSpace=" + url.QueryEscape(colorSpace)
+	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID) + "&containerID=" + url.QueryEscape(containerID) + "&nodeID=" + url.QueryEscape(nodeID) + "&colorSpace=" + url.QueryEscape(colorSpace) + "&guid=" + url.QueryEscape(guid)
 	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "选择屏幕位置",
 		Width:     1280,

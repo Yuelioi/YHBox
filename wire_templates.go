@@ -46,3 +46,17 @@ func (t *templateCaptureAdapter) Capture(containerID string) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// Resolution 解析 containerID 目标窗口客户区分辨率 [宽,高], 不截帧 (走 GetClientRect).
+// 与 Capture 的帧尺寸同源 (gdiFrame/wgcFrame 都用 GetClientRect 定尺寸), 故可拿来精确匹配变体档.
+// 容器不存在 / 无 WindowTarget / 窗口没开 / 客户区为 0 → error.
+func (t *templateCaptureAdapter) Resolution(containerID string) ([2]int, error) {
+	wh, err := t.containers.ResolveWindow(containerID)
+	if err != nil {
+		return [2]int{}, fmt.Errorf("解析目标窗口: %w", err)
+	}
+	if wh.ClientW <= 0 || wh.ClientH <= 0 {
+		return [2]int{}, fmt.Errorf("目标窗口客户区为 %d×%d (可能最小化或不可见)", wh.ClientW, wh.ClientH)
+	}
+	return [2]int{wh.ClientW, wh.ClientH}, nil
+}

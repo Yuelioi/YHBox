@@ -33,10 +33,11 @@ export const useTemplatesStore = defineStore('templates', () => {
   async function save(
     dataURL: string,
     name: string,
+    tags: string[],
     recordedResolution: [number, number],
     region: [number, number, number, number],
   ): Promise<string | null> {
-    const guid = await backend.assets.saveTemplateCapture(dataURL, name, recordedResolution, region)
+    const guid = await backend.assets.saveTemplateCapture(dataURL, name, tags, recordedResolution, region)
     if (guid === undefined || guid === null) return null
     await reload()
     return guid as string

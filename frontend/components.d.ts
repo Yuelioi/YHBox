@@ -72,7 +72,6 @@ declare module 'vue' {
     SubgraphPropsPanel: typeof import('./src/components/containers/SubgraphPropsPanel.vue')['default']
     SwitchInspector: typeof import('./src/components/containers/inspector/SwitchInspector.vue')['default']
     TabToolbar: typeof import('./src/components/common/TabToolbar.vue')['default']
-    TemplateCapture: typeof import('./src/components/templates/TemplateCapture.vue')['default']
     TemplateManager: typeof import('./src/components/templates/TemplateManager.vue')['default']
     TemplatePicker: typeof import('./src/components/containers/TemplatePicker.vue')['default']
     TemplatesTab: typeof import('./src/components/tasks/TemplatesTab.vue')['default']

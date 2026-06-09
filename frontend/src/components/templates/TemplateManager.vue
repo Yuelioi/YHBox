@@ -166,7 +166,7 @@ import { useI18n } from 'vue-i18n'
 import { useTemplatesStore } from '@/stores/templates'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
-import { type AssetSummary } from '@/lib/backend'
+import { backend, type AssetSummary } from '@/lib/backend'
 
 const { t } = useI18n()
 
@@ -237,9 +237,16 @@ watch(
 )
 
 async function onDelete(s: AssetSummary) {
+  // 删前同步扫一遍引用 → 有引用则弹"被 N 处引用"确认.
+  const refs = await backend.assets.referrers(s.guid)
+  const n = refs?.length ?? 0
+  const description =
+    n > 0
+      ? t('template.manager.delete_confirm_referenced', { key: s.name, n })
+      : t('template.manager.delete_confirm', { key: s.name })
   const yes = await confirm({
     title: t('template.manager.delete_title'),
-    description: t('template.manager.delete_confirm', { key: s.name }),
+    description,
     color: 'error',
     confirmText: t('common.delete'),
   })

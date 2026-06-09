@@ -1,16 +1,17 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-09 by 月离 (子图三连修：① 库导入绕容器 Store 缓存 [SetContainerReloader]；② keep-alive 多容器共享全局单例 store 切回污染——**已根治**：store 按容器隔离 [20e25a9, 替换补丁 9ccccbf]，单测 59 绿，vue-tsc 仅剩 2 个预存红(资产子系统漂移,已回退越界)。待真机 smoke 复验切容器场景。)
-**Active focus**: 资产子系统重构**代码全完 + 已过 3 维 final review + 修了 review 抓的真问题**。所有自动门绿(go build/vet/test + vue-tsc + pnpm i18n:check)。修复: validator 漏扫主图(真 bug)+ 一批二号铁律死代码删净 + 前端 i18n 缺 key 补齐。唯一剩 **真机 smoke 需用户跑**(spec §13)。
+**Last updated**: 2026-06-10 by 月离 (详情页**当前分辨率感知**(用户提的 UX 收口, brainstorm 定方案+approve): 进详情**自动切到「运行时真会用的那档」**(后端 PickVariant 权威挑档, 前端只接下标不复刻算法)、顶部**显示当前游戏窗口客户区分辨率**(无精确档补「运行时用 W×H 缩放」/ 窗口没开显「窗口未开」)、对应档 chip 标「当前」、**重拍按钮语义化**(当前分辨率有精确档=「重拍」覆盖 / 无=「新增 W×H」)。新增 2 轻量 RPC: `asset.CurrentResolution`(走 `ResolveWindow.ClientW/H` — 与截图帧同源 `GetClientRect`, 零截图开销) + `asset.PickVariant`(包已有 `store.PickVariant` 返下标+exact), `CaptureAdapter` 加 `Resolution`。bindings 重生成。门全绿: vue-tsc 仅 2 预存红零新增、i18n parity **1751**+compile 绿、go build/vet 绿、asset test 过(+2 新单测)、vitest **198 过**。i18n residue 28 = 未碰文件旧 backlog 非回归。｜前序: 翻页 prev/next; 钻入式资产 modal。)
+**Active focus**: 资产子系统重构**代码全完 + 详情页当前分辨率感知已补**。smoke: 用户真机已过 ⓐ缩放/ⓑ改名标签/ⓓ重拍/ⓔ删除/ⓕ翻页 + **多分辨率变体追加**(改窗口分辨率重拍→多一档, 验过); ⓒ单分辨率只 1 档=**设计如此**(单档运行时长边比缩放, ②跨分辨率命中已背书)。①⑤ 已过/合理跳过。所有自动门绿(零新增红)。**下一步: 真机验"当前分辨率感知"新行为**(需游戏窗口开着, 见下) + **剩 2 个预存 vue-tsc 红仍待清**(import-strategy 漂移).
 
 ## 进行中
 
-(无)
+- [ ] **资产 modal 收尾 + 全局 modal 风格统一(待用户拍范围)**。已修(多轮): 删除提示(无引用不再误报"引用失效")、网格批量删除(footer「删除选中 N」, **批量也汇总显示被引用处数**)、详情页"包裹"框感(缩放区/信息栏圆角描边+留白)、**详情 ✕ 改返回网格(不直接关 modal, 免误触)**、**截图时可设标签**(SaveTemplateCapture 加 tags 参 + ScreenPicker template_save 表单加标签输入)、**网格按标签筛选 + 卡片缩略图显示标签**。门绿(go build/test、vue-tsc 0 新增、i18n 1744、198 单测)。**用户已拍范围(2026-06-09)**: 先 smoke 确认资产 modal "包裹"基准 → 然后**抽共享 modal 外壳 + 扫一遍常规 UModal**(确认框/导入/容器设置/计划等)统一;**frameless HUD(录制/截屏/DPI 校准)单独评估**(HudShell 独立小窗, 套大面板未必合适)。**铺开这步先不写, 等用户确认资产 modal 基准后再启动。**
 
 ## 下一步
 
-**用户真机 smoke**（spec §13，必须在用户机器+真实游戏跑）：`task build` 起 app（会自动重生成 wails bindings + 填 fish fixture）→ ① 截两模板各得 GUID、同图截两次 blob 只一份 ② 节点引用 GUID 跨分辨率命中 ③ 重拍同 GUID 换图所有引用自动跟随 ④ 导出子图+导出整容器→导入另一容器幂等无冲突弹窗 ⑤ 删引用共享模板的子图→资产仍在 ⑥ 库里删资产→弹"被 N 处引用"→GC 回收。smoke 全过后 spec 可 graduate 进 docs、归档 spec/plan。
-final review 已做(3 维并行 + 我回源码核验)，修复 commit：50bd4f8(validator 主图)+43b1858(死代码)+f27a6be(i18n)。**Review 留的非阻塞小项(可 smoke 后再说)**：① Delete 返回的 referrer 列表前端未展示成"被 N 处引用"确认弹窗(spec §6 半实现，后端已返、前端 discard)；② backend.ts 手写 AssetRecord 类型缺 regions 字段(Nit，build 重生成覆盖)；③ asset.Rename 对 clip 不改 blob header Label(Nit，UI 走 clip Update 不踩)；④ runtime 的 fishing-v2 测试 fixture 是旧 key 格式，重建 fish 时一并更新。已知预存失败(非回归)：runtime TestApplyDirection_*/TestWatchdog_*/TestScanSubgraphDependencies_* 缺 fish fixture，见 [build.md](checklists/build.md)。
+**真机验"当前分辨率感知"新行为**（需**游戏窗口开着**, `task build` 起 app → 容器编辑器 → 节点「选择模板」→ 钻入某素材详情）: ① 顶部应显示**当前窗口分辨率**, 且大图**自动停在该分辨率对应档**(有精确档=该档; 无精确档=长边比最近档 + 补红字「运行时用 X×Y 缩放」); ② 该档 chip 右边有「**当前**」标; ③ 重拍按钮: 当前分辨率**已有档**显示「**重拍**」(覆盖)、**没有**显示「**新增 W×H**」(加档); ④ 点新增/重拍截图后 → 详情大图 + 按钮(变「重拍」) + chip「当前」标都跟着更新; ⑤ **关掉游戏窗口**再开详情 → 顶部显「**窗口未开**」、不报错不弹 toast、退回第一档。资产 modal 基础(ⓐ-ⓕ + 多分辨率)用户**已过**。全过后 spec 可 graduate 进 docs、归档 spec/plan。
+**仍待清的 2 个预存 vue-tsc 红**(非本轮引入, 资产子系统 import-strategy 漂移): `backend.ts:267` importToContainer 废弃 strategy 参 + `stores/library.ts:24` SubgraphPackage 旧 templates/clips。spec §7 已删 import conflict/strategy → 清理牵出 ImportToContainerDialog 冲突 UI 废弃决策, 留作专门收口。已知预存失败(非回归): runtime 缺 fish fixture 测试, 见 [build.md](checklists/build.md)。
+**仍待清的 2 个预存 vue-tsc 红**(非本轮引入, cockpit 一直记的资产子系统漂移): ① `backend.ts:267` importToContainer 多传废弃 `strategy` 参; ② `stores/library.ts:24` 手写 SubgraphPackage 仍带已废弃 templates/clips。spec §7 已删 import conflict/strategy 整套 → 清理会牵出 **ImportToContainerDialog 冲突 UI 是否整个废弃**的决策, 故本轮**没单独动**(怕越界), 留作下一步专门收口(改 backend.ts wrapper 去 strategy + 4 处调用点 + ImportToContainerDialog 简化 + SubgraphPackage 类型改 assets)。已知预存失败(非回归): runtime TestApplyDirection_*/TestWatchdog_*/TestScanSubgraphDependencies_* 缺 fish fixture, 见 [build.md](checklists/build.md)。
 
 ## Hanging tasks
 

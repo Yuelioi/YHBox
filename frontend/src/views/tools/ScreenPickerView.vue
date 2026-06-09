@@ -278,6 +278,20 @@
             <label class="block text-[11px] text-toned">显示名 (必填)</label>
             <UInput v-model="tplName" size="sm" class="w-full" placeholder="例：上钩图标" />
           </div>
+          <div class="space-y-1.5">
+            <label class="block text-[11px] text-toned">标签 (可选)</label>
+            <div v-if="tplTags.length" class="flex flex-wrap gap-1">
+              <span
+                v-for="(tag, i) in tplTags"
+                :key="tag + i"
+                class="inline-flex items-center gap-1 rounded bg-elevated/60 border border-default/40 pl-1.5 pr-1 py-0.5 text-[10px] text-toned"
+              >
+                {{ tag }}
+                <UIcon name="i-tabler-x" class="size-3 cursor-pointer hover:text-error" @click="tplTags.splice(i, 1)" />
+              </span>
+            </div>
+            <UInput v-model="tplTagInput" size="sm" class="w-full" placeholder="输入后回车添加" @keyup.enter="addTplTag" />
+          </div>
           <p class="text-[10px] text-dimmed">不框选 = 保存全图；框选 = 自动裁剪</p>
         </section>
 
@@ -315,12 +329,20 @@ import PickerMagnifier from '@/components/tools/PickerMagnifier.vue'
 
 const route = useRoute()
 const mode = computed(
-  () => String(route.query.mode ?? 'point') as 'point' | 'rect' | 'template_save' | 'color',
+  () =>
+    String(route.query.mode ?? 'point') as
+      | 'point'
+      | 'rect'
+      | 'template_save'
+      | 'template_recapture'
+      | 'color',
 )
 const colorSpace = computed(() => String(route.query.colorSpace ?? 'hsv') as 'hsv' | 'rgb')
 const extracting = ref(false)
 const requestID = computed(() => String(route.query.id ?? ''))
 const containerID = computed(() => String(route.query.containerID ?? ''))
+// template_recapture: 重拍目标资产 GUID (存成同 GUID 的新分辨率档).
+const recaptureGUID = computed(() => String(route.query.guid ?? ''))
 
 const titleByMode = computed(() => {
   switch (mode.value) {
@@ -330,6 +352,8 @@ const titleByMode = computed(() => {
       return '屏幕框选'
     case 'template_save':
       return '截图新模板'
+    case 'template_recapture':
+      return '重拍模板'
     case 'color':
       return '屏幕取色'
   }
@@ -344,6 +368,8 @@ const hint = computed(() => {
       return '在图上拖一个矩形选取区域'
     case 'template_save':
       return '可选拖一个矩形裁剪；不拖则保存全图'
+    case 'template_recapture':
+      return '重拍：可选拖矩形裁剪，保存为同一资产的新图（保留 GUID，所有引用自动跟随）'
     case 'color':
       return '框选目标颜色区域（点一下取单点色）'
   }
@@ -419,19 +445,29 @@ const loupeStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px` }
 })
 
-// template form — key 已移除，后端分配 GUID; 只需填名称
+// template form — key 已移除，后端分配 GUID; 填名称 + 可选标签
 const tplName = ref('')
+const tplTags = ref<string[]>([])
+const tplTagInput = ref('')
+function addTplTag() {
+  const v = tplTagInput.value.trim()
+  if (v && !tplTags.value.includes(v)) tplTags.value.push(v)
+  tplTagInput.value = ''
+}
 
 const canConfirm = computed(() => {
   if (!dataURL.value) return false
   if (mode.value === 'point') return !!pointSelNat.value
   if (mode.value === 'rect') return !!rectSelNat.value
   if (mode.value === 'template_save') return !!tplName.value.trim()
+  // 重拍: 资产已有 name, 不用填; 有截图即可 (region 可选).
+  if (mode.value === 'template_recapture') return !!dataURL.value
   // color mode 自动提取 (pointerup 触发), 不走 confirm 按钮
   return false
 })
 const confirmLabel = computed(() => {
   if (mode.value === 'template_save') return rectSelNat.value ? '保存（裁剪）' : '保存（全图）'
+  if (mode.value === 'template_recapture') return rectSelNat.value ? '重拍（裁剪）' : '重拍（全图）'
   return '确定'
 })
 
@@ -688,7 +724,7 @@ async function confirm() {
   if (!canConfirm.value) return
   saving.value = true
   try {
-    if (mode.value === 'template_save') {
+    if (mode.value === 'template_save' || mode.value === 'template_recapture') {
       const png = await cropToDataURL()
       const region: [number, number, number, number] = rectSelNat.value
         ? [
@@ -698,18 +734,34 @@ async function confirm() {
             rectSelNat.value.h / natH.value,
           ]
         : [0, 0, 1, 1]
-      // SaveTemplateCapture: 无 containerID / key; 返回新分配的 guid
-      const guid = await backend.assets.saveTemplateCapture(
-        png,
-        tplName.value.trim(),
-        [natW.value, natH.value],
-        region,
-      )
-      if (!guid) {
-        saving.value = false
-        return
+      if (mode.value === 'template_recapture') {
+        // 重拍: 存成同 GUID 的新分辨率变体, 所有引用自动跟随新图.
+        const r = await backend.assets.addTemplateVariant(
+          recaptureGUID.value,
+          png,
+          [natW.value, natH.value],
+          region,
+        )
+        if (r === undefined) {
+          saving.value = false
+          return
+        }
+        await emitResult({ guid: recaptureGUID.value })
+      } else {
+        // SaveTemplateCapture: 无 containerID / key; 返回新分配的 guid
+        const guid = await backend.assets.saveTemplateCapture(
+          png,
+          tplName.value.trim(),
+          tplTags.value,
+          [natW.value, natH.value],
+          region,
+        )
+        if (!guid) {
+          saving.value = false
+          return
+        }
+        await emitResult({ guid: guid as string })
       }
-      await emitResult({ guid: guid as string })
     } else if (mode.value === 'point' && pointSelNat.value) {
       await emitResult({
         x: Math.round(pointSelNat.value.x),

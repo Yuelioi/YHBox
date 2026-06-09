@@ -123,6 +123,14 @@
             :title="t('containers.open_new_window_tip')"
             @click="onEditInWindow(c)"
           />
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-package-export"
+            :title="t('containers.export_tip')"
+            @click="onExport(c)"
+          />
           <div class="flex-1" />
           <UButton
             size="xs"
@@ -279,6 +287,24 @@ async function onCreate() {
 function onEdit(c: Container) {
   // 默认嵌入主壳; 用户在编辑器工具栏点 i-tabler-external-link 可拆独立窗口.
   router.push(`/containers/${c.id}/edit`)
+}
+
+// 导出整容器: 顶层图 + 全部子图 + 资产闭包 → library package (bundle ID = 容器 ID).
+async function onExport(c: Container) {
+  try {
+    await backend.library.exportContainer(c.id, true)
+    toast.add({
+      title: t('containers.toast.exported', { name: c.name }),
+      color: 'success',
+      icon: 'i-tabler-package-export',
+    })
+  } catch (e) {
+    toast.add({
+      title: t('containers.toast.export_failed'),
+      description: errorMessage(e),
+      color: 'error',
+    })
+  }
 }
 
 async function onEditInWindow(c: Container) {
