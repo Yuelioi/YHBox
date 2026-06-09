@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-09 by 月离 (修真 bug：库导入子图绕过容器 Store 内存缓存→"(子图未找到)"，加 SetContainerReloader 写盘后 Reload + 回归测试，build/vet/test 绿。记 incident。子图系统其余问题用户 smoke 完回头集中解决。)
+**Last updated**: 2026-06-09 by 月离 (修两条 "(子图未找到)" 真 bug：① 库导入绕容器 Store 缓存 [SetContainerReloader]；② keep-alive 多容器编辑器共享全局单例 store 切回污染 [useContainerDraft onActivated, 9ccccbf]。各记 incident。子图深层单例债留待集中重构。)
 **Active focus**: 资产子系统重构**代码全完 + 已过 3 维 final review + 修了 review 抓的真问题**。所有自动门绿(go build/vet/test + vue-tsc + pnpm i18n:check)。修复: validator 漏扫主图(真 bug)+ 一批二号铁律死代码删净 + 前端 i18n 缺 key 补齐。唯一剩 **真机 smoke 需用户跑**(spec §13)。
 
 ## 进行中
@@ -14,5 +14,5 @@ final review 已做(3 维并行 + 我回源码核验)，修复 commit：50bd4f8(
 
 ## Hanging tasks
 
-- [ ] **子图系统一批问题待彻底解决**（用户 smoke 完其它后回头处理）。已修一条真 bug：库导入子图绕过容器 Store 内存缓存致"(子图未找到)"，根因+修法见 [incident](incidents/2026-06-09-import-bypasses-container-store-cache.md)（library/service.go SetContainerReloader + main.go 接 Reload + 回归测试，build/vet/test 绿）。剩余子图问题用户未逐条列，回头集中梳理。次生项：FE `useContainerEditorStore` 是全局单例，跨容器切换/多挂载时 `subgraphsForCurrentContainer` 会被覆盖（原容器编辑器跟着显示未找到，重载自愈）——是否要隔离按容器存留待定。
+- [ ] **子图系统一批问题待彻底解决**（用户 smoke 完其它后回头处理）。已修两条真 bug，同症状 "(子图未找到)" 不同根因：① 库导入绕过容器 Store 内存缓存 → [incident](incidents/2026-06-09-import-bypasses-container-store-cache.md)（library SetContainerReloader + 回归测试）；② keep-alive 缓存多容器编辑器共享全局单例子图 store，切回容器单例污染 → [incident](incidents/2026-06-09-keepalive-singleton-subgraph-store-stale.md)（useContainerDraft onActivated 重置，commit 9ccccbf）。**深层债未根治（留给集中重构）**：`useContainerEditorStore` 的 subgraphsForCurrentContainer / activeContainerID / editorPath 是全局单例，正解是按容器隔离（map keyed by containerID），onActivated 只是补丁。**预存红（非本次引入）**：frontend vue-tsc 2 错 — backend.ts importToContainer 多传 stale `strategy` 参 + 手写 SubgraphPackage 类型缺 templates/clips（bindings/类型漂移，task build 重生成 + 类型对齐时清）。
 - [ ] 无阻塞待办。（原积压已路由：编辑器 footgun → [editor-footgun-backlog](specs/editor-footgun-backlog.md)；bindings/测试 fixture/AlwaysOnTop/通道B smoke → [checklists/build.md](checklists/build.md)；删符号全仓 grep → [checklists/code-style.md](checklists/code-style.md)；i18n residue → [misc-tools-backlog](specs/misc-tools-backlog.md)；诊断探针目录已删。）

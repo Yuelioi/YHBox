@@ -28,7 +28,7 @@ resolved_by: 50bd4f8-followup (library/service.go SetContainerReloader)
 - 但容器子图的**属主**是 `container.Store`, 它只在 `load()` (开 app) / `Reload()` 时才把 `subgraphs/*.json` 读进内存 `byID[id].Subgraphs`。import 这条路绕过了它。
 - FE 导入后调 `refreshSubgraphStore()` → `containers.ListSubgraphs(id)`, 拿的是**没刷新的内存旧名单**(缺刚导入的子图) → FE 又 addNode 引用该子图 → 名单里查不到 → `resolveSubgraphCallExecOut` 返回 `(子图未找到)`。
 
-原容器"也坏"是次生: `useContainerEditorStore` 是**全局单例 Pinia store**, `subgraphsForCurrentContainer` 被目标容器的旧名单覆盖; 原容器编辑器若还挂着(keep-alive)读同一份 → 跟着未找到。原容器磁盘本来自洽, 切回/重载即自愈。
+原容器"也坏"是次生: `useContainerEditorStore` 是**全局单例 Pinia store**, `subgraphsForCurrentContainer` 被目标容器的旧名单覆盖; 原容器编辑器若还挂着(keep-alive)读同一份 → 跟着未找到。原容器磁盘本来自洽, 切回/重载即自愈。**这个次生根因已单独成案并修**: 见 [[2026-06-09-keepalive-singleton-subgraph-store-stale]] (同症状 "(子图未找到)" 不同根因)。
 
 跟 [[2026-05-29-storage-convention-consumer-audit-gap]] 同一类坑: 改/写一处共享存储时没把**所有读它的人**(此处是属主 store 的内存缓存)一并对齐。
 
