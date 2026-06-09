@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -18,10 +17,10 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"yotta/internal/hotkey"
+	"yotta/internal/services/asset"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/expr"
-	"yotta/internal/services/template"
 	"yotta/pkg/vision"
 )
 
@@ -50,49 +49,55 @@ func clamp01Bound(w, x float64) float64 {
 	return w
 }
 
-// ---- TemplateMatcher: 接 pkg/vision + template store ----
+// ---- TemplateMatcher: 接 pkg/vision + 全局 asset store ----
 //
 // 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用:
-//   - PickBest(key, frameW, frameH) 选精确分辨率 variant (v2.2 多变体 schema)
-//   - 由 caller (matchOnce) 传入一帧 (帧缓存在 RuntimeContext, 100ms TTL)
+//   - asset.Store.PickVariant(guid, frameW, frameH) 选精确分辨率 variant
+//   - 由 caller (matchOnce) 传入一帧 (帧缓存在 RuntimeContext, 100ms TTL) + 该容器的 scaleTolerance
 //   - 用 pkg/vision.Match 在 caller 指定 ROI 内做 CCOEFF_NORMED 匹配
 //   - 返 found + 命中比例坐标 + 实际 region
+//
+// 资产全局 (非 per-container): matcher 持单个 *asset.Store. 解码缓存按 blob sha 键 —
+// 内容寻址让同像素跨容器/跨资产复用同一份解码 *vision.Template.
 //
 // 命中坐标转换: vision.Match 返 ROI 内左上角像素 → 转客户区比例.
 // 无匹配 variant 时 emit "container:warning" (30s 节流), Detect 返 false.
 
 type templateMatcherAdapter struct {
-	dataRoot  string
-	storesMu  sync.Mutex
-	stores    map[string]*template.Store // containerID → store
-	loadCache sync.Map                   // "containerID:key:WxH" → *vision.Template
+	store     *asset.Store
+	loadCache sync.Map // blob sha → *vision.Template (未缩放)
 	loadSF    singleflight.Group
 
 	// emit: 投递前端事件 (e.g. App.Emit). 测试可传 nil 跳过.
 	emit func(eventName string, payload map[string]any)
 
-	// throttle: key = containerID+":"+eventKey → lastEmitUnixMs.
+	// throttle: key = eventKey → lastEmitUnixMs.
 	// 防止 missing variant 等高频警告刷屏 (30s 窗口内同 key 只 emit 一次).
 	throttleMu sync.Mutex
 	throttle   map[string]int64
-
-	// scaleToleranceFor: 按 containerID 读模板缩放容差 (WindowTarget.ScaleTolerance).
-	// nil → 用 defaultScaleTolerance (测试场景). main.go 注入 container.Service.ScaleToleranceFor.
-	scaleToleranceFor func(containerID string) float64
 }
 
-func newTemplateMatcherAdapter(dataRoot string, emit func(string, map[string]any), scaleToleranceFor func(string) float64) *templateMatcherAdapter {
+func newTemplateMatcherAdapter(store *asset.Store, emit func(string, map[string]any)) *templateMatcherAdapter {
 	return &templateMatcherAdapter{
-		dataRoot:          dataRoot,
-		stores:            map[string]*template.Store{},
-		emit:              emit,
-		throttle:          map[string]int64{},
-		scaleToleranceFor: scaleToleranceFor,
+		store:    store,
+		emit:     emit,
+		throttle: map[string]int64{},
 	}
 }
 
-// defaultScaleTolerance: scaleToleranceFor 未注入时 (测试) 的兜底, 与 container.DefaultScaleTolerance 一致.
+// defaultScaleTolerance: caller 传 0 (未配) 时的兜底, 与 container.DefaultScaleTolerance 一致.
 const defaultScaleTolerance = 2.0
+
+// normScaleTolerance 归一化容器缩放容差: <=0 (未配/测试) 回落默认 2.0; (0,1) 异常回落 1.0 仅精确.
+func normScaleTolerance(k float64) float64 {
+	if k <= 0 {
+		return defaultScaleTolerance
+	}
+	if k < 1.0 {
+		return 1.0
+	}
+	return k
+}
 
 // longEdgeScale 把 variant 模板缩到 frame 分辨率的比例 (长边比). variant 或 frame 为零尺寸时返 0.
 func longEdgeScale(frameW, frameH, varW, varH int) float64 {
@@ -121,61 +126,47 @@ func withinScaleTolerance(scale, k float64) bool {
 	return scale >= 1.0/k && scale <= k
 }
 
-// scaleTolerance 取容器的缩放容差; 未注入 (测试) 回落默认 2.0, 注入值 <1 (异常) 回落 1.0 仅精确.
-func (m *templateMatcherAdapter) scaleTolerance(containerID string) float64 {
-	if m.scaleToleranceFor == nil {
-		return defaultScaleTolerance
-	}
-	if k := m.scaleToleranceFor(containerID); k >= 1.0 {
-		return k
-	}
-	return 1.0
-}
-
-// emitThrottled 同 (containerID, eventKey) 在 window 内只 emit 一次.
-// payload 自动注入 containerId, 复用同一 map.
-func (m *templateMatcherAdapter) emitThrottled(containerID, eventKey string, window time.Duration, payload map[string]any) {
+// emitThrottled 同 eventKey 在 window 内只 emit 一次.
+func (m *templateMatcherAdapter) emitThrottled(eventKey string, window time.Duration, payload map[string]any) {
 	if m.emit == nil {
 		return
 	}
-	key := containerID + ":" + eventKey
 	now := time.Now().UnixMilli()
 	m.throttleMu.Lock()
-	last := m.throttle[key]
+	last := m.throttle[eventKey]
 	if now-last < window.Milliseconds() {
 		m.throttleMu.Unlock()
 		return
 	}
-	m.throttle[key] = now
+	m.throttle[eventKey] = now
 	m.throttleMu.Unlock()
 	if payload == nil {
 		payload = map[string]any{}
 	}
-	payload["containerId"] = containerID
 	m.emit("container:warning", payload)
 }
 
-// emitMissingVariantWarning Detect 在 PickBest 失败时调用. 30s 节流避免循环刷屏.
-func (m *templateMatcherAdapter) emitMissingVariantWarning(containerID, key string, frameW, frameH int) {
-	eventKey := fmt.Sprintf("missing-variant:%s:%dx%d", key, frameW, frameH)
-	m.emitThrottled(containerID, eventKey, 30*time.Second, map[string]any{
+// emitMissingVariantWarning Detect 在 PickVariant 失败时调用. 30s 节流避免循环刷屏.
+func (m *templateMatcherAdapter) emitMissingVariantWarning(guid string, frameW, frameH int) {
+	eventKey := fmt.Sprintf("missing-variant:%s:%dx%d", guid, frameW, frameH)
+	m.emitThrottled(eventKey, 30*time.Second, map[string]any{
 		"code":      "MISSING_TEMPLATE_VARIANT",
 		"severity":  "warning",
-		"message":   fmt.Sprintf("template %q has no variant matching frame %dx%d", key, frameW, frameH),
-		"key":       key,
+		"message":   fmt.Sprintf("asset %q has no variant matching frame %dx%d", guid, frameW, frameH),
+		"guid":      guid,
 		"frameSize": []int{frameW, frameH},
 	})
 }
 
 // emitScaleTooFarWarning Detect 找到最近 variant 但缩放比超出容器 ScaleTolerance 时调用.
 // 跟「无 variant」分开, 方便真机 smoke 时从日志看清是「没录这分辨率」还是「容差挡了」.
-func (m *templateMatcherAdapter) emitScaleTooFarWarning(containerID, key string, frameW, frameH int, variantRes [2]int, scale, tolerance float64) {
-	eventKey := fmt.Sprintf("scale-too-far:%s:%dx%d", key, frameW, frameH)
-	m.emitThrottled(containerID, eventKey, 30*time.Second, map[string]any{
+func (m *templateMatcherAdapter) emitScaleTooFarWarning(guid string, frameW, frameH int, variantRes [2]int, scale, tolerance float64) {
+	eventKey := fmt.Sprintf("scale-too-far:%s:%dx%d", guid, frameW, frameH)
+	m.emitThrottled(eventKey, 30*time.Second, map[string]any{
 		"code":        "VARIANT_OUT_OF_SCALE_TOLERANCE",
 		"severity":    "warning",
-		"message":     fmt.Sprintf("template %q nearest variant %dx%d 对帧 %dx%d 缩放比 %.2f 超出容差 [1/%.1f, %.1f], 判 miss", key, variantRes[0], variantRes[1], frameW, frameH, scale, tolerance, tolerance),
-		"key":         key,
+		"message":     fmt.Sprintf("asset %q nearest variant %dx%d 对帧 %dx%d 缩放比 %.2f 超出容差 [1/%.1f, %.1f], 判 miss", guid, variantRes[0], variantRes[1], frameW, frameH, scale, tolerance, tolerance),
+		"guid":        guid,
 		"frameSize":   []int{frameW, frameH},
 		"variantSize": []int{variantRes[0], variantRes[1]},
 		"scale":       scale,
@@ -183,59 +174,34 @@ func (m *templateMatcherAdapter) emitScaleTooFarWarning(containerID, key string,
 	})
 }
 
-// Invalidate 丢弃某容器缓存的 store + 已解码模板, 让下次 Detect 重读磁盘.
-// 用户在同一 session 内新存/改/删模板后, templateSvc 经 SetOnChange 调这里 ——
-// 否则 matcher 一直拿首次 preload 的旧索引, 新模板匹配不上 (报 MISSING_TEMPLATE_VARIANT).
-func (m *templateMatcherAdapter) Invalidate(containerID string) {
-	m.storesMu.Lock()
-	delete(m.stores, containerID)
-	m.storesMu.Unlock()
-	prefix := containerID + ":"
+// Invalidate 丢弃所有已解码模板缓存, 让下次 Detect 重读 blob. 资产全局, 不再按容器分.
+// 用户在同一 session 内新存/改/删资产后, asset.Service 经 SetOnChange 调这里 ——
+// 否则 matcher 一直拿旧解码缓存 (新存的同 sha 不存在, 走重读没问题; 但重拍换 blob 后
+// 旧 sha 条目残留无害, 全清最省心).
+func (m *templateMatcherAdapter) Invalidate() {
 	m.loadCache.Range(func(k, _ any) bool {
-		if ks, ok := k.(string); ok && strings.HasPrefix(ks, prefix) {
-			m.loadCache.Delete(ks)
-		}
+		m.loadCache.Delete(k)
 		return true
 	})
 }
 
-func (m *templateMatcherAdapter) storeFor(containerID string) (*template.Store, error) {
-	m.storesMu.Lock()
-	defer m.storesMu.Unlock()
-	if s, ok := m.stores[containerID]; ok {
-		return s, nil
-	}
-	root := filepath.Join(m.dataRoot, "containers", containerID, "templates")
-	s, err := template.NewStore(root)
-	if err != nil {
-		return nil, err
-	}
-	m.stores[containerID] = s
-	return s, nil
-}
-
-// loadVariantTemplate 加载指定 (key, resolution) 变体的 PNG.
-// 缓存 key = containerID:key:WxH (variant 已带 resolution 区分), singleflight 防雪崩.
-// 不再做自动缩放 — Phase 2 删除老 doLoadTemplate, 由 PickBest 直接选精确匹配 variant.
-func (m *templateMatcherAdapter) loadVariantTemplate(containerID, key string, resolution [2]int) (*vision.Template, error) {
-	cacheKey := fmt.Sprintf("%s:%s:%dx%d", containerID, key, resolution[0], resolution[1])
-	if cached, ok := m.loadCache.Load(cacheKey); ok {
+// loadDecodedTemplate 按 blob sha 解码 PNG 成 *vision.Template, 缓存复用.
+// 缓存键 = blob sha (内容寻址, 跨容器/跨资产同像素复用), singleflight 防雪崩.
+// 缓存在 PickVariant 之后 (变体已选定) → 不存在跨分辨率误命中; blob 不可变 → 条目永不 stale.
+func (m *templateMatcherAdapter) loadDecodedTemplate(blobSha string) (*vision.Template, error) {
+	if cached, ok := m.loadCache.Load(blobSha); ok {
 		return cached.(*vision.Template), nil
 	}
-	v, err, _ := m.loadSF.Do(cacheKey, func() (interface{}, error) {
-		store, err := m.storeFor(containerID)
+	v, err, _ := m.loadSF.Do(blobSha, func() (interface{}, error) {
+		pngData, err := m.store.Blobs().Read(blobSha)
 		if err != nil {
-			return nil, err
-		}
-		pngData, err := store.ReadVariantPng(key, resolution)
-		if err != nil {
-			return nil, fmt.Errorf("read variant png %q@%dx%d: %w", key, resolution[0], resolution[1], err)
+			return nil, fmt.Errorf("read blob %s: %w", blobSha, err)
 		}
 		tpl, err := vision.LoadPNG(bytes.NewReader(pngData))
 		if err != nil {
-			return nil, fmt.Errorf("decode variant png %q@%dx%d: %w", key, resolution[0], resolution[1], err)
+			return nil, fmt.Errorf("decode blob %s: %w", blobSha, err)
 		}
-		m.loadCache.Store(cacheKey, tpl)
+		m.loadCache.Store(blobSha, tpl)
 		return tpl, nil
 	})
 	if err != nil {
@@ -244,31 +210,28 @@ func (m *templateMatcherAdapter) loadVariantTemplate(containerID, key string, re
 	return v.(*vision.Template), nil
 }
 
-func (m *templateMatcherAdapter) Detect(_ context.Context, containerID string, frame *image.RGBA, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, float64, error) {
+// Detect 单次模板检测. guid 定位全局资产; scaleTolerance 由 caller (VisionAdapter, 有容器上下文) 传入.
+func (m *templateMatcherAdapter) Detect(_ context.Context, frame *image.RGBA, guid string, threshold float64, region []float64, scaleTolerance float64) (bool, expr.Point, [4]float64, float64, error) {
 	if frame == nil {
 		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	frameW := frame.Bounds().Dx()
 	frameH := frame.Bounds().Dy()
 
-	store, err := m.storeFor(containerID)
-	if err != nil {
-		return false, expr.Point{}, [4]float64{}, 0, err
-	}
-	variant, ok := store.PickBest(key, frameW, frameH)
+	variant, ok := m.store.PickVariant(guid, frameW, frameH)
 	if !ok {
-		m.emitMissingVariantWarning(containerID, key, frameW, frameH)
+		m.emitMissingVariantWarning(guid, frameW, frameH)
 		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
-	// 跨分辨率缩放兜底: PickBest 可能返回非精确分辨率的最近档. 按长边比算缩放比,
+	// 跨分辨率缩放兜底: PickVariant 可能返回非精确分辨率的最近档. 按长边比算缩放比,
 	// 超出容器 ScaleTolerance ([1/k, k]) 则判太远不缩放, 仍 miss (emit 警告).
 	scale := longEdgeScale(frameW, frameH, variant.Resolution[0], variant.Resolution[1])
-	k := m.scaleTolerance(containerID)
+	k := normScaleTolerance(scaleTolerance)
 	if !withinScaleTolerance(scale, k) {
-		m.emitScaleTooFarWarning(containerID, key, frameW, frameH, variant.Resolution, scale, k)
+		m.emitScaleTooFarWarning(guid, frameW, frameH, variant.Resolution, scale, k)
 		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
-	tpl, err := m.loadVariantTemplate(containerID, key, variant.Resolution)
+	tpl, err := m.loadDecodedTemplate(variant.Blob)
 	if err != nil {
 		return false, expr.Point{}, [4]float64{}, 0, err
 	}

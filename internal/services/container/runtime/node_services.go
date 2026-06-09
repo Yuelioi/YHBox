@@ -21,6 +21,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"yotta/internal/node"
+	"yotta/internal/services/container"
 	"yotta/internal/services/expr"
 	clipruntime "yotta/internal/services/inputclip/runtime"
 	"yotta/pkg/vision"
@@ -480,6 +481,14 @@ func (a *visionAdapter) containerID() string {
 	return a.rt.Container.ID
 }
 
+// scaleTolerance 读容器级模板缩放容差, 透传给 matcher.Detect (matcher 已不再 per-container).
+func (a *visionAdapter) scaleTolerance() float64 {
+	if a.rt.Container == nil {
+		return container.DefaultScaleTolerance
+	}
+	return container.ReadWindowTargetScaleTolerance(a.rt.Container)
+}
+
 func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
 	if a.rt.Matcher == nil || len(keys) == 0 {
 		return nil, 0, nil
@@ -536,11 +545,12 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 		}
 		frame = f
 	}
+	tol := a.scaleTolerance()
 	if mode == "all" {
 		var firstPt expr.Point
 		minConf := 1.0 // all 命中 = 全部 ≥ 阈值; 报最弱那个 (瓶颈) 的真实匹配度
-		for idx, key := range keys {
-			found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
+		for idx, guid := range keys {
+			found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, frame, guid, threshold, nil, tol)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -548,7 +558,7 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 				minConf = conf
 			}
 			if !found {
-				return nil, conf, nil // 报这个没过的 key 的真实匹配度
+				return nil, conf, nil // 报这个没过的 guid 的真实匹配度
 			}
 			if idx == 0 {
 				firstPt = pt
@@ -558,8 +568,8 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 	}
 	// any (默认)
 	bestConf := 0.0 // 全 miss 时报见过的最高匹配度 (诊断: 差多少)
-	for _, key := range keys {
-		found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, a.containerID(), frame, key, threshold, nil)
+	for _, guid := range keys {
+		found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, frame, guid, threshold, nil, tol)
 		if err != nil {
 			return nil, 0, err
 		}

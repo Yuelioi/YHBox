@@ -210,7 +210,7 @@ type stubMatcher struct {
 	conf  float64 // 0 = 按 found 取 (found→1.0); 非 0 = 显式真实匹配度
 }
 
-func (m stubMatcher) Detect(_ context.Context, _ string, _ *image.RGBA, _ string, _ float64, _ []float64) (bool, expr.Point, [4]float64, float64, error) {
+func (m stubMatcher) Detect(_ context.Context, _ *image.RGBA, _ string, _ float64, _ []float64, _ float64) (bool, expr.Point, [4]float64, float64, error) {
 	conf := m.conf
 	if conf == 0 && m.found {
 		conf = 1.0
