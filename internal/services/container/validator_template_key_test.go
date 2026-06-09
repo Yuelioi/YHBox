@@ -26,6 +26,49 @@ func TestValidateContainerWithDeps_TemplateNotFound(t *testing.T) {
 	}
 }
 
+// 回归: template/clip 节点直接放在主图 (c.Graph.Nodes) 也要查存在性.
+// 曾漏扫主图 → 主图上引用不存在 GUID 的节点校验绿灯、运行时静默 miss.
+func TestValidateContainerWithDeps_TemplateNotFound_MainGraph(t *testing.T) {
+	c := &Container{
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "main1", Kind: "WaitTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"missing-guid"}}}},
+		}},
+	}
+	errs := ValidateContainerWithDeps(c, func(string) bool { return false }, nil)
+	found := false
+	for _, e := range errs {
+		if e.Code == "TEMPLATE_NOT_FOUND" && e.NodeID == "main1" {
+			if len(e.GraphPath) == 0 || e.GraphPath[0] != "main" {
+				t.Errorf("expected GraphPath [main], got %v", e.GraphPath)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected TEMPLATE_NOT_FOUND on main graph, got %v", errs)
+	}
+}
+
+func TestValidateContainerWithDeps_ClipNotFound_MainGraph(t *testing.T) {
+	c := &Container{
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "m1", Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "missing-clip"}}},
+		}},
+	}
+	errs := ValidateContainerWithDeps(c, nil, func(string) bool { return false })
+	found := false
+	for _, e := range errs {
+		if e.Code == "CLIP_NOT_FOUND" && e.NodeID == "m1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected CLIP_NOT_FOUND on main graph, got %v", errs)
+	}
+}
+
 func TestValidateContainerWithDeps_TemplateFound(t *testing.T) {
 	sg := Subgraph{
 		ID: "sg1",

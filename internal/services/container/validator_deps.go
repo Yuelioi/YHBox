@@ -13,8 +13,10 @@ func ValidateContainerWithDeps(
 	if hasTemplate == nil && hasClip == nil {
 		return errs
 	}
-	for _, sg := range c.Subgraphs {
-		for _, n := range sg.Graph.Nodes {
+	// 主图 + 每个子图都扫: template/clip 节点在顶层图也是合法的, 漏扫主图会让
+	// "引用了不存在的 GUID" 在主图上不报错 (运行时静默 miss).
+	checkNodes := func(nodes []GraphNode, graphPath []string) {
+		for _, n := range nodes {
 			switch n.Kind {
 			case "CheckTemplate", "ClickTemplate", "WaitTemplate":
 				if hasTemplate == nil {
@@ -28,7 +30,7 @@ func ValidateContainerWithDeps(
 						errs = append(errs, ValidationError{
 							Severity:  SeverityError,
 							Code:      CodeTemplateNotFound,
-							GraphPath: []string{"subgraph", sg.ID},
+							GraphPath: graphPath,
 							NodeID:    n.ID,
 							Params:    map[string]any{"key": key},
 						})
@@ -46,13 +48,17 @@ func ValidateContainerWithDeps(
 					errs = append(errs, ValidationError{
 						Severity:  SeverityError,
 						Code:      CodeClipNotFound,
-						GraphPath: []string{"subgraph", sg.ID},
+						GraphPath: graphPath,
 						NodeID:    n.ID,
 						Params:    map[string]any{"id": id},
 					})
 				}
 			}
 		}
+	}
+	checkNodes(c.Graph.Nodes, []string{"main"})
+	for _, sg := range c.Subgraphs {
+		checkNodes(sg.Graph.Nodes, []string{"subgraph", sg.ID})
 	}
 	return errs
 }
