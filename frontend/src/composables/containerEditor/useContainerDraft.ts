@@ -1,4 +1,4 @@
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MarkerType } from '@vue-flow/core'
 import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
@@ -37,6 +37,21 @@ export interface FlowEdge {
   animated?: boolean
   style?: Record<string, any>
   markerEnd?: any
+}
+
+// 后端 listSubgraphs 返回的原始项 → store SubgraphSummary 形态。loadIntoEditor /
+// refreshSubgraphStore / onActivated 重同步 三处共用，避免漂移。
+function toSubgraphSummaries(list: any[] | null | undefined) {
+  return (list ?? []).map((s) => ({
+    id: s.id,
+    label: s.label,
+    outputPins: s.outputPins ?? [],
+    entry: s.entry ?? { nodeID: '' },
+    graph: s.graph ?? { id: '', version: 1, nodes: [], edges: [] },
+    description: s.description,
+    recordingContext: s.recordingContext,
+    tags: s.tags,
+  }))
 }
 
 /**
@@ -189,19 +204,7 @@ export function useContainerDraft(containerID: string) {
     // ⚠ 必须把完整 subgraph 数据传进去（含 graph）；只传 summary 会让双击进子图后画布空白。
     try {
       const sgList = (await backend.containers.listSubgraphs(c.id)) as any[]
-      editorStore.setActiveContainer(
-        c.id,
-        (sgList ?? []).map((s) => ({
-          id: s.id,
-          label: s.label,
-          outputPins: s.outputPins ?? [],
-          entry: s.entry ?? { nodeID: '' },
-          graph: s.graph ?? { id: '', version: 1, nodes: [], edges: [] },
-          description: s.description,
-          recordingContext: s.recordingContext,
-          tags: s.tags,
-        })),
-      )
+      editorStore.setActiveContainer(c.id, toSubgraphSummaries(sgList))
     } catch (e) {
       console.warn('listSubgraphs failed', e)
       editorStore.setActiveContainer(c.id, [])
@@ -232,6 +235,29 @@ export function useContainerDraft(containerID: string) {
     )
   })
 
+  // keep-alive 缓存命中重新激活: 全局单例 editorStore.subgraphsForCurrentContainer /
+  // activeContainerID / editorPath 是所有缓存编辑器共享的一份, 切到别的容器编辑器时会被它覆盖。
+  // 切回本容器时 onMounted 不再跑, 单例仍停在别的容器的子图列表 → 本容器只属于自己的 Subgraph
+  // 节点(别的容器没有的)会渲染成 "(子图未找到)"。这里用本容器磁盘子图把单例重置回来。
+  // 首次挂载 draft 还没装好(onMounted 异步未完), 跳过交给 onMounted。
+  onActivated(async () => {
+    if (!draft.value) return
+    try {
+      const sgList = (await backend.containers.listSubgraphs(draft.value.id)) as any[]
+      editorStore.setActiveContainer(draft.value.id, toSubgraphSummaries(sgList))
+    } catch (e) {
+      console.warn('onActivated listSubgraphs failed', e)
+    }
+    // editorPath 可能残留别的容器的层级 — 头节点不在本容器子图里就回主图, 否则 activeGraph 算空白。
+    if (
+      editorStore.editorPath.length > 0 &&
+      !editorStore.subgraphsForCurrentContainer.some((s) => s.id === editorStore.editorPath[0])
+    ) {
+      editorStore.resetPath()
+    }
+    syncFlowFromDraft()
+  })
+
   /**
    * reload — 从磁盘重读这个容器, 覆盖编辑器当前内容 (配合 MCP / 外部改盘)。
    * 先调后端 Reload RPC 让 byID 缓存刷新、拿到最新容器, 再 loadIntoEditor。
@@ -253,19 +279,7 @@ export function useContainerDraft(containerID: string) {
     if (!draft.value) return
     try {
       const fresh = (await backend.containers.listSubgraphs(draft.value.id)) as any[]
-      editorStore.mergeSubgraphs(
-        draft.value.id,
-        (fresh ?? []).map((s) => ({
-          id: s.id,
-          label: s.label,
-          outputPins: s.outputPins ?? [],
-          entry: s.entry ?? { nodeID: '' },
-          graph: s.graph ?? { id: '', version: 1, nodes: [], edges: [] },
-          description: s.description,
-          recordingContext: s.recordingContext,
-          tags: s.tags,
-        })),
-      )
+      editorStore.mergeSubgraphs(draft.value.id, toSubgraphSummaries(fresh))
     } catch (e) {
       console.warn('refreshSubgraphStore failed', e)
     }
