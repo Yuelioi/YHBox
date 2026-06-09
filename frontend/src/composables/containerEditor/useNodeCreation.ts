@@ -248,7 +248,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   async function onPickLibrarySubgraph(libraryID: string) {
     if (!draft.value) return
     try {
-      await backend.library.importToContainer(libraryID, draft.value.id, '')
+      await backend.library.importToContainer(libraryID, draft.value.id)
       await refreshSubgraphStore()
       addNode({
         kind: 'Subgraph',

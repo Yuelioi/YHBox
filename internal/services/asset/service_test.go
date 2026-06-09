@@ -136,6 +136,34 @@ func TestService_PickVariant(t *testing.T) {
 	}
 }
 
+func TestService_RemoveVariant(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	svc := NewService(s, nil)
+	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
+	if _, err := svc.AddTemplateVariant(guid, pngDataURL(t, 8, 8), [2]int{1920, 1080}, [4]float32{0, 0, 1, 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 删 1280×720 一档 → 剩 1920×1080.
+	if g, err := svc.RemoveVariant(guid, 1280, 720); err != nil || g != guid {
+		t.Fatalf("RemoveVariant = %q, err %v", g, err)
+	}
+	rec, _ := svc.Get(guid)
+	if len(rec.Variants) != 1 || rec.Variants[0].Resolution != [2]int{1920, 1080} {
+		t.Fatalf("after remove, variants = %+v", rec.Variants)
+	}
+
+	// 仅剩 1 档 → 拒删 (走整删).
+	if _, err := svc.RemoveVariant(guid, 1920, 1080); err == nil {
+		t.Error("RemoveVariant on last variant should error")
+	}
+
+	// guid 不存在 → error.
+	if _, err := svc.RemoveVariant("missing", 1, 1); err == nil {
+		t.Error("RemoveVariant missing guid should error")
+	}
+}
+
 func TestService_CurrentResolution(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 

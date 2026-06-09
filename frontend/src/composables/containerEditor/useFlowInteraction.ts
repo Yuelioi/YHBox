@@ -134,7 +134,7 @@ export function useFlowInteraction(opts: {
       const py = e.clientY - rect.top
       const pos = project({ x: px, y: py })
 
-      await backend.library.importToContainer(parsed.id, draft.value.id, '')
+      await backend.library.importToContainer(parsed.id, draft.value.id)
       const newSubgraphID: string = parsed.id
       const newNode = {
         id: randID('n-call'),

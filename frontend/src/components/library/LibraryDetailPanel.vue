@@ -35,12 +35,8 @@
           <span>{{ Object.keys(pkg.embedded ?? {}).length }} {{ t('library.detail.count_unit') }}</span>
         </div>
         <div class="flex justify-between">
-          <span>{{ t('library.detail.templates') }}</span>
-          <span>{{ pkg.templates.length }} {{ t('library.detail.count_unit') }}</span>
-        </div>
-        <div class="flex justify-between">
-          <span>{{ t('library.detail.snippets') }}</span>
-          <span>{{ pkg.clips.length }} {{ t('library.detail.count_unit') }}</span>
+          <span>{{ t('library.detail.assets') }}</span>
+          <span>{{ pkg.assets.length }} {{ t('library.detail.count_unit') }}</span>
         </div>
       </section>
 

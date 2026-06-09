@@ -31,11 +31,8 @@
         </div>
         <p v-if="pkg.root.description" class="text-[11px] text-dimmed mb-2 line-clamp-2">{{ pkg.root.description }}</p>
         <div class="flex gap-1 flex-wrap">
-          <UBadge v-if="pkg.templates.length > 0" size="xs" variant="outline" color="neutral">
-            <UIcon name="i-tabler-photo" class="size-3 mr-0.5" />{{ t('library.card.templates_count', { n: pkg.templates.length }) }}
-          </UBadge>
-          <UBadge v-if="pkg.clips.length > 0" size="xs" variant="outline" color="neutral">
-            <UIcon name="i-tabler-vinyl" class="size-3 mr-0.5" />{{ t('library.card.clips_count', { n: pkg.clips.length }) }}
+          <UBadge v-if="pkg.assets.length > 0" size="xs" variant="outline" color="neutral">
+            <UIcon name="i-tabler-photo" class="size-3 mr-0.5" />{{ t('library.card.assets_count', { n: pkg.assets.length }) }}
           </UBadge>
         </div>
       </template>

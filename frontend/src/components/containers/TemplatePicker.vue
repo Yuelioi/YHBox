@@ -320,6 +320,13 @@
                   >
                     {{ v.resolution[0] }}×{{ v.resolution[1] }}
                     <span v-if="isCurResVariant(v)" class="ml-1 text-[9px] opacity-70">{{ t('template.picker.current_badge') }}</span>
+                    <UIcon
+                      v-if="(detailRecord?.variants?.length ?? 0) > 1"
+                      name="i-tabler-x"
+                      class="ml-1 size-3 opacity-60 hover:opacity-100 hover:text-error"
+                      :title="t('template.picker.del_variant_title', { res: `${v.resolution[0]}×${v.resolution[1]}` })"
+                      @click.stop="removeVariant(v.resolution)"
+                    />
                   </UButton>
                 </div>
               </div>
@@ -616,6 +623,29 @@ const recaptureLabel = computed(() =>
 )
 function isCurResVariant(v: { resolution: number[] }): boolean {
   return !!curRes.value && v.resolution[0] === curRes.value[0] && v.resolution[1] === curRes.value[1]
+}
+
+// 删单个分辨率档 (仅 >1 档时给入口; 最后一档走整删). 资产仍在, 不查引用.
+async function removeVariant(res: number[]) {
+  const guid = detailGuid.value
+  if (!guid || (detailRecord.value?.variants?.length ?? 0) <= 1) return
+  const yes = await confirm({
+    title: t('template.picker.del_variant_title', { res: `${res[0]}×${res[1]}` }),
+    confirmText: t('common.delete'),
+    color: 'error',
+  })
+  if (yes !== true) return
+  const r = await backend.assets.removeVariant(guid, res[0], res[1])
+  if (r === undefined) return // 失败 invoke 已 toast
+  variantThumbs.value = {}
+  delete thumbCache.value[guid]
+  await tplStore.reload()
+  const rec = await backend.assets.get(guid)
+  if (rec) {
+    detailRecord.value = rec
+    for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
+  }
+  await applyCurResPick(guid)
 }
 
 async function saveMeta() {

@@ -127,6 +127,23 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 	return guid, nil
 }
 
+// RemoveVariant 删指定分辨率的单个变体档 (详情页"删这一档"). 返目标 GUID 给 FE 区分成功/失败.
+// 守卫: 仅剩 1 档时拒删 (删它=废掉整个素材, 该走 Delete 整删 — 带引用警告). FE 也仅在 >1 档时给入口.
+func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
+	rec, ok := s.store.Get(guid)
+	if !ok {
+		return "", fmt.Errorf("asset %q not found", guid)
+	}
+	if len(rec.Variants) <= 1 {
+		return "", fmt.Errorf("asset %q 仅剩 1 个分辨率档, 删它请用删除整个素材", guid)
+	}
+	if err := s.store.RemoveVariant(guid, [2]int{w, h}); err != nil {
+		return "", err
+	}
+	s.notifyChange()
+	return guid, nil
+}
+
 // List 返全局资产摘要 (template + clip).
 func (s *Service) List() []AssetSummary {
 	out := []AssetSummary{}

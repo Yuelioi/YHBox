@@ -118,18 +118,11 @@ export interface Subgraph {
   createdAt: string
 }
 
-// SubgraphPackage library package: root + 嵌入 callee + 共用 asset key 列表.
+// SubgraphPackage library package: root + 嵌入 callee + 资产 GUID 闭包.
 export interface SubgraphPackage {
   root: Subgraph
   embedded: Record<string, Subgraph>
-  templates: string[]
-  clips: string[]
-}
-
-// ImportConflict 单条冲突信息.
-export interface ImportConflict {
-  kind: string
-  key: string
+  assets: string[]
 }
 
 // SubgraphRequiredGlobal B11: 子图需要的容器级 global var 声明.
@@ -139,11 +132,10 @@ export interface SubgraphRequiredGlobal {
   default?: unknown
 }
 
-// ImportResult Import 操作结果.
-// B11: missingGlobals 反映 import 的 sg union 需要但目标 container 未声明的 var, FE 据此弹 prompt.
+// ImportResult Import 操作结果. 资产按 GUID/sha 寻址天然幂等, 无 conflict/strategy.
+// missingGlobals 反映 import 的 sg union 需要但目标 container 未声明的 var, FE 据此弹 prompt.
 export interface ImportResult {
   imported: { kind: string; key: string }[]
-  conflicts: ImportConflict[]
   missingGlobals?: SubgraphRequiredGlobal[]
 }
 
@@ -263,8 +255,8 @@ export const backend = {
     listSubgraphs: () => invoke(LibraryService.ListSubgraphs),
     getSubgraphPackage: (sgID: string) => invoke(LibraryService.GetSubgraphPackage, sgID),
     deleteSubgraphPackage: (sgID: string) => invoke(LibraryService.DeleteSubgraphPackage, sgID),
-    importToContainer: (libSgID: string, containerID: string, strategy: string) =>
-      invoke(LibraryService.ImportToContainer, libSgID, containerID, strategy),
+    importToContainer: (libSgID: string, containerID: string) =>
+      invoke(LibraryService.ImportToContainer, libSgID, containerID),
     exportSubgraph: (containerID: string, sgID: string, overwrite: boolean) =>
       invoke(LibraryService.ExportSubgraph, containerID, sgID, overwrite),
     // ExportContainer 把整容器顶层图 + 全部子图 + 资产闭包打成 library package (bundle ID = 容器 ID).
@@ -336,6 +328,9 @@ export const backend = {
         return undefined
       }
     },
+    // RemoveVariant 删指定分辨率的单个变体档. 返目标 GUID (成功) / undefined (失败已 toast).
+    removeVariant: (guid: string, w: number, h: number) =>
+      invoke(AssetService.RemoveVariant, guid, w, h),
   },
   hotkeys: {
     list: () => invoke(HotkeyService.List),
