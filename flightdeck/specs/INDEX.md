@@ -9,4 +9,5 @@
 
 ### 进行中·完成（active·done）
 - [2026-06-10-random-nodes.md](2026-06-10-random-nodes.md) — active — 随机数节点 RandomInt/RandomFloat/RandomBool + per-dispatch 求值稳定 (加节点路线图阶段1)
+- [2026-06-10-collection-nodes.md](2026-06-10-collection-nodes.md) — active — 数组/集合子系统第一批 - List pin 类型 + in.List getter + ForEach + 9 个列表节点 (加节点路线图阶段2)
 <!-- /AUTO -->
