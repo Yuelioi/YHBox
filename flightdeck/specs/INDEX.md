@@ -8,5 +8,5 @@
 - [misc-tools-backlog.md](misc-tools-backlog.md) — idea — 杂项小工具 backlog — i18n residue 清理 (悬浮窗工具→转正 floating-launcher; 截图 UI 美化已做; 从 scratch-backlog 抢救保留)
 
 ### 进行中·完成（active·done）
-- [2026-06-10-random-nodes.md](2026-06-10-random-nodes.md) — active — 随机数节点 RandomInt/RandomFloat/RandomBool（加节点路线图阶段1，含 uniform/bell 分布选项）
+- [2026-06-10-random-nodes.md](2026-06-10-random-nodes.md) — active — 随机数节点 RandomInt/RandomFloat/RandomBool + per-dispatch 求值稳定 (加节点路线图阶段1)
 <!-- /AUTO -->
