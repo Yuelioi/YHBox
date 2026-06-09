@@ -43,25 +43,26 @@ last_updated: 2026-06-10
 
 ### 方案（用户拍：方案 1，最小 blast radius）
 
-给非确定节点纳入 Determinism contract：**同一 dispatch 内对同一非确定节点只求值一次，结果记忆化**。
+给非确定节点纳入 Determinism contract：**同一 dispatch 内对同一非确定节点只求值一次，成功结果记忆化**。
 
-1. **`node.Spec` 加字段 `IsNonDeterministic bool`**（默认 false）。随机三节点置 `true`。确定性节点（Add/Expr/GetVar/...）不动，行为可证明 100% 不变。
-2. **`TickSnapshot` 加 per-dispatch 求值缓存**（`runtime/snapshot.go`）：
+1. **`node.Spec` 加字段 `IsNonDeterministic bool`**（默认 false）。
+   - **字段契约**（写进 `Spec` 字段注释）：仅在 `IsPureData: true` 节点上有意义——记忆化发生在 pure-data 拉取路径；exec 节点不读此字段。随机三节点 `IsPureData:true + IsNonDeterministic:true`。确定性节点不动，行为可证明 100% 不变。
+2. **独立的 per-dispatch 求值缓存**（不挂在 `TickSnapshot` 上 —— 保持它纯"冻结只读视图"语义）。`runtime/snapshot.go` 加并列的 ctx 值：
    ```go
-   type TickSnapshot struct {
-       Vars      map[string]expr.Value
-       evalCache map[string]evalEntry // lazy; key = srcNodeID+"\x00"+srcPin
-   }
-   type evalEntry struct { v expr.Value; err error }
+   type evalKey struct{ nodeID, pin string }      // 结构体 key：零碰撞、零拼接分配
+   type dispatchEvalCache struct{ m map[evalKey]expr.Value } // 只存成功值
+   // 与 tickCtxKey 并列：另一个 ctx key + withEvalCache / evalCacheFromCtx
    ```
-3. **`evalDataSource`（`data_pull.go`）gate 缓存**：求值前，若 `rn.Spec.IsNonDeterministic` 且 `tick := tickFromCtx(ctx)` 非 nil → 查 `tick.evalCache[key]`，命中即返；未命中正常 `EvaluatePureData` 后写入。确定性节点完全跳过缓存路径。
-   - **cold path**（listener config init 传 `context.Background()`，无 tick）→ `tick==nil` → 不缓存，正常求值。无碍（随机节点不会出现在 listener config 静态求值里；即便出现也只是退化为每次新值）。
-4. **并发安全**：`TickSnapshot` 是 per-dispatch、per-goroutine ctx 作用域（`snapshot.go` 注释明确），单 dispatch 的 pure-data 拉取树顺序执行 → 普通 map 无需 mutex。impl 时复核此不变量（若未来出现并发拉取再加锁）。
+   在 `dispatch_v5.go:328` `withTickSnapshot` **同一处**并列 `ctx = withEvalCache(ctx, newDispatchEvalCache())`，与快照同生命周期。
+3. **`evalDataSource`（`data_pull.go`）gate 缓存**：求值前，若 `rn.Spec.IsNonDeterministic` 且 `c := evalCacheFromCtx(ctx)` 非 nil → 查 `c.m[evalKey{srcNodeID,srcPin}]`，命中即返。未命中正常 `EvaluatePureData`；**仅 `err==nil` 才写缓存**（错误不缓存 → 不把"第一次失败"钉死，下次重算）。确定性节点完全跳过缓存路径（零性能影响）。
+4. **cold path**（listener config init 传 `context.Background()`，无缓存）→ `c==nil` → 不缓存，正常求值。**已知限制**（非静默）：随机节点若出现在 listener config 静态求值路径，退化为每 pull 新值、多路径不一致。当前不加校验禁止（YAGNI）；listener config 用随机本属误用，将来需要再加 validator 拦。
+5. **并发安全 —— firm 结论（非 TODO）**：框架有 `Parallel`/`Race` 并发子分支（`runtime_context.go:32`），但 `withTickSnapshot`+`withEvalCache` 在**每个节点 dispatch 入口无条件新建**，并发是在 **exec 层**、每分支每节点各自 re-wrap → **单个 cache 永不跨 goroutine 共享**；单节点的 pure-data 拉取树同步执行（`Evaluate` 不 spawn goroutine）。故普通 map 无需 mutex。**不变量**（写进注释 + 测试守护）：一个 `dispatchEvalCache` 仅属一个 exec 节点 dispatch 的单 goroutine。阶段2 ForEach 即便并发迭代，每次迭代仍是独立 dispatch、独立 cache，不破坏此不变量。
+6. **生命周期/内存**：cache 随 per-dispatch ctx 走，dispatch 结束即 GC；容量上界 = 该 dispatch 拉取树里的非确定节点数（有限、通常个位数），无泄漏、无累积。
 
 ### 语义结果
 
 - 同一 exec 节点求值内，同一随机节点多路径引用 → **同值**（治本陷阱）。
-- 不同 exec 节点 dispatch（不同时刻 fire）→ 各自新快照 → 新随机值（命令式 exec 流下这是正确语义，非 bug）。
+- 不同 exec 节点 dispatch（不同时刻 fire）→ 各自新缓存 → 新随机值（命令式 exec 流下这是正确语义，非 bug）。
 
 ## B. 随机节点（3 个）
 
@@ -75,28 +76,30 @@ last_updated: 2026-06-10
 | 节点 | 输入 | 输出 | 语义 |
 |---|---|---|---|
 | **RandomInt** | `Min`(Integer,0)、`Max`(Integer,100)、`Distribution`(dropdown: `uniform`默认/`centered`) | `Result`(Integer) | **闭区间** `[Min,Max]`（两端含）。`Min>Max` 自动交换；`Min==Max` 返回 Min |
-| **RandomFloat** | `Min`(Number,0)、`Max`(Number,1)、`Distribution`(dropdown: `uniform`/`centered`) | `Result`(Number) | **半开** `[Min,Max)`；但 Max 概率测度为 0、实际不可达，用户可把两者都当 `[Min,Max]` 理解。`Min>Max` 自动交换；`Min==Max` 返回 Min |
+| **RandomFloat** | `Min`(Number,0)、`Max`(Number,1)、`Distribution`(dropdown: `uniform`/`centered`) | `Result`(Number) | **半开** `[Min,Max)`（精确语义，不另作"当闭区间"解释）。`Min>Max` 自动交换；`Min==Max` 返回 Min（空区间的明确定义边界，非静默错误）|
 | **RandomBool** | `Prob`(Number,0.5) | `Result`(Bool) | true 概率=Prob；`Prob≤0` 恒 false、`≥1` 恒 true（夹紧）。**无 Distribution**（二值无意义）|
 
 ### Distribution（分布选项）
 
-> ⚠ **不叫 "bell"**：实现是 Bates 分布（n 个 uniform 求均值），近钟形但**非高斯**、值域有界、不可调标准差。命名 `centered`（聚中），i18n 描述写明"向区间中点聚集，非正态，不可调集中度"，避免用户按高斯预期误用。
+> ⚠ **不叫 "bell"**：实现是 Bates 分布（n 个 uniform 求均值），近钟形但**非高斯**、值域有界、不可调标准差/集中度。命名 `centered`（聚中）。i18n 描述写明："值向区间中点聚集，是固定 5 样本 Bates 分布（非正态、集中度不可调），技术上 = Bates(5)。"——避免用户按"可调高斯"预期误用。
 
-- `uniform`：`rand.Float64()` 铺满区间。
+- `uniform`：`rand.Float64()` 铺满区间，各值等概率。
   - RandomFloat：`Min + rand.Float64()*(Max-Min)`
-  - RandomInt：`Min + rand.IntN(Max-Min+1)`（`IntN` 等宽桶、无偏）
-- `centered`：helper `bellUnit() float64` —— 取 `randomSamples=5` 个 `rand.Float64()` 求均值（Bates，向 0.5 聚集），缩放到区间。
+  - RandomInt：`Min + rand.IntN(Max-Min+1)`（各整数等概率）
+- `centered`：helper `bellUnit() float64` —— 取 `randomSamples=5` 个 `rand.Float64()` 求均值（Bates，向 0.5 聚集），缩放到区间。**注意是有意的中心加权分布**（中间值概率高、两端低），不是均匀。
   - RandomFloat：`Min + bellUnit()*(Max-Min)`
   - RandomInt：`clamp(Min + int(bellUnit()*float64(Max-Min+1)), Min, Max)`
-    - **clamp 是纯防御**：`rand/v2 Float64()∈[0,1)` → 均值 `<1` 严格成立 → `int(bellUnit()*(N))` 落 `[0,N-1]`、等宽桶无偏，clamp 实际永不触发。显式写**双端** clamp，注释说明"防越界纯防御，勿当冗余删除"（防实现者乱优化，也防未来 rand 实现变动）。
-  - **不复用** `normalJitterFactor`（base±pct%，非区间）；`bellUnit` 内 `randomSamples` 注释交叉引用 `node/jitter.go` 的 `jitterSamples`（同为 5，独立维护，避免跨包耦合一个常量）。
+    - **桶宽一致**（每整数对应等宽的 `bellUnit` 子区间，无量化偏斜），但**桶命中概率按 Bates 加权**（这正是 centered 的目的，非 bug）。
+    - **clamp 是纯防御性编程**：`rand/v2 Float64()∈[0,1)` → 5 样本均值 `<1` 严格成立 → `int(bellUnit()*N)` 落 `[0,N-1]`，clamp 实际不触发。仍显式写**双端** clamp + 注释"防御越界、勿当冗余删除"（守住不变量，不依赖对 rand 内部的乐观假设）。
+  - **不复用** `normalJitterFactor`（base±pct%，非区间）；`bellUnit` 内 `randomSamples` 注释交叉引用 `node/jitter.go::jitterSamples`（同为 5，独立维护——为一个 int 跨包耦合不值；若将来要统一抽 `internal/node` 公共 CLT helper 再说）。
 
 ### 边界与数值
 
 - `Min>Max`：交换后照常（宽容，不报错）。
-- 内部用 `int64` 算 `Max-Min+1`，避免普通 int32 满区间溢出。极端满 int64 区间出 scope（YAGNI：自动化区间都很小）。
-- `NaN/Inf` 输入（如上游 Div 除零返 `NaN` 流入）：透传（GIGO，与 Div 自身返 NaN 一致），不做特殊校验（YAGNI）。
-- `Prob` 越界自动夹紧 `[0,1]`（`rand.Float64()<Prob` 自然覆盖）。
+- **`Integer` 底层 = Go `int`**（`types.go`），64 位平台即 int64。RandomInt 内部用 int64 算 `Max-Min+1`，正常自动化区间（坐标/计数，量级小）绝无溢出。**极端满 int64 区间**（如 `MinInt64..MaxInt64`）`Max-Min+1` 仍会 wrap → 出 scope，不防护（YAGNI）；测试覆盖一个接近 int32 边界的大区间 case 证明常规安全即可。
+- **`NaN/Inf` 输入**（如上游 Div 除零返 `NaN` 流入 RandomFloat）：`NaN` 的任何比较为 false → `Min>Max` 判定不成立 → **不交换**，算术直接产出 `NaN/Inf` 透传（GIGO，与 Div 自身返 NaN 一致）。不做特殊校验（YAGNI）。
+- `Prob` 越界自动夹紧 `[0,1]`（`rand.Float64()<Prob` 自然覆盖；与框架"各节点各自宽容非法输入"惯例一致）。
+- **int 闭区间 vs float 半开**的不对称是**刻意**的标准约定（整数 `[Min,Max]` 直觉如骰子；浮点 `[Min,Max)` 是 `rand.Float64()` 的普遍约定，端点测度为 0），非疏漏。
 
 ### 多下游语义（核心，非脚注）
 
@@ -104,9 +107,9 @@ last_updated: 2026-06-10
 
 ## 全链路落地清单（按 checklists/add-node.md）
 
-1. **框架**：`node.Spec` 加 `IsNonDeterministic`；`runtime/snapshot.go` 加 `evalCache`；`data_pull.go::evalDataSource` 加 gate；单测：同 dispatch 内同随机节点两路径取值相等、跨 dispatch 不等、确定性节点不受影响。
+1. **框架**：`node.Spec` 加 `IsNonDeterministic`（+字段契约注释）；`runtime/snapshot.go` 加并列的 `dispatchEvalCache`（结构体 key `evalKey{nodeID,pin}`、只存成功值）+ `withEvalCache`/`evalCacheFromCtx`；`dispatch_v5.go:328` 并列 set；`data_pull.go::evalDataSource` 加 gate。单测：① 同 dispatch 内同随机节点两路径取值相等 ② **不同**随机节点/不同 pin 各自独立不串缓存 ③ 跨 dispatch 重新求值（断言"发生了重算/缓存未共享"，**不**断言值不等——随机可能碰巧相等）④ 确定性节点 `IsNonDeterministic:false` 不走缓存路径（零影响）。
 2. **后端节点**：`internal/nodes/random/{random.go, random_test.go}` —— 3 节点 + `init()` 注册 + `bellUnit`。`main.go` + `dispatch_v5_test.go` 加 `_ "yotta/internal/nodes/random"` blank import。
-3. **新 Category 注册**：`adapter.ts::GROUP_MAP` 加 `Random:'random'`；`NodeGroup` 联合类型加 `'random'`；`NodePalette.vue::GROUP_LABEL` + `useNodeGroupColor.ts::GROUP_I18N_KEY` 加 `random` → 真实 `nodeGroup.random`；`visualRegistry` 给 `random` 配图标+色；zh.ts/en.ts 加 `nodeGroup.random`。
+3. **新 Category 注册**：`adapter.ts::GROUP_MAP` 加 `Random:'random'`；**`NodeGroup` 联合类型定义处加 `'random'`**（`Record<NodeGroup,...>` 的 exhaustive 检查会强制编译报错指出所有待补点——按报错补全）；`NodePalette.vue::GROUP_LABEL` + `useNodeGroupColor.ts::GROUP_I18N_KEY` 加 `random` → 真实 `nodeGroup.random`；`visualRegistry` 给 `random` 配图标+色（**沿用现有分组视觉语言**：色板取未占用的相邻色相、图标取 Lucide 里语义贴近"骰子/随机"的，不拍脑袋造新风格）；zh.ts/en.ts 加 `nodeGroup.random`。
 4. **i18n**：zh.ts/en.ts 加 `node.RandomInt/RandomFloat/RandomBool`（label/description/各 pin label + `input.Distribution.option.uniform|centered`），zh/en 对称。跑 `cd frontend && pnpm gen:node-i18n`。
 5. **验证（全绿）**：
    - `go build ./... && go test ./internal/nodes/... ./internal/node/... ./internal/catalog/... ./internal/services/container/... -count=1`
@@ -119,5 +122,5 @@ last_updated: 2026-06-10
 - 不做 Seed/可复现（增状态复杂度，无 demand）。
 - 不做 RandomChoice（需 List 类型，归阶段 2）。
 - 不做正态/泊松等更多分布（uniform + centered 够用）。
-- **不碰 `now()` / 不做全 pure-data 记忆化**：`IsNonDeterministic` 只标随机三节点；Expr 含 `now()` 的非确定行为保持现状（不在本 spec 范围；若要同样纳入 Determinism contract，另开 spec）。
+- **不碰 `now()` / 不做全 pure-data 记忆化**：`IsNonDeterministic` 只标随机三节点。Expr 含 `now()` 的非确定性是**本 spec 之前就存在**的（非本次引入/回归），且无法用本静态标志干净解决——Expr 是否非确定取决于其表达式内容（含 `now()` 才非确定），不能整类静态标记。已知会造成"Random 稳定 / Expr-now() 不稳定"的语义不一致，留待将来若做表达式级非确定分析时统一，另开 spec。
 - 不做整体 pure-data 求值缓存的性能优化（方案 2 已否，避免改框架不变量 + 波及确定性测试）。
