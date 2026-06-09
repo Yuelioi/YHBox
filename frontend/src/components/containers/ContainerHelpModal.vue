@@ -1,39 +1,32 @@
 <!-- 容器编辑器帮助弹窗：多 tab（快速上手 / 错误码 / 快捷键 / 节点速查）。
      入口: 面包屑栏「帮助」按钮 / 右面板「打开帮助」。弹窗模式照 NodeExplorerModal。 -->
 <template>
-  <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-3xl' }">
-    <template #content>
-      <div
-        class="bg-default flex flex-col"
-        style="min-height: 60vh; max-height: 80vh"
-      >
-        <!-- Header: title + tabs -->
-        <div class="shrink-0 px-5 pt-4 pb-2 border-b border-default">
-          <div class="flex items-center gap-2 mb-3">
-            <UIcon name="i-tabler-help-circle" class="size-5 text-primary" />
-            <h3 class="text-sm font-medium">{{ t('editor.help.title') }}</h3>
-          </div>
-          <div class="flex flex-wrap gap-1">
-            <button
-              v-for="tb in tabs"
-              :key="tb.key"
-              type="button"
-              class="px-3 py-1.5 text-[12px] rounded-md transition-colors"
-              :class="
-                activeTab === tb.key
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-dimmed hover:text-default hover:bg-elevated/40'
-              "
-              @click="activeTab = tb.key"
-            >
-              {{ t(tb.label) }}
-            </button>
-          </div>
-        </div>
+  <BaseModal
+    v-model:open="modelOpen"
+    :title="t('editor.help.title')"
+    icon="i-tabler-help-circle"
+    size="3xl"
+  >
+    <div class="text-xs text-muted">
+      <!-- Tabs -->
+      <div class="flex flex-wrap gap-1 mb-3">
+        <button
+          v-for="tb in tabs"
+          :key="tb.key"
+          type="button"
+          class="px-3 py-1.5 text-[12px] rounded-md transition-colors"
+          :class="
+            activeTab === tb.key
+              ? 'bg-primary/15 text-primary'
+              : 'text-dimmed hover:text-default hover:bg-elevated/40'
+          "
+          @click="activeTab = tb.key"
+        >
+          {{ t(tb.label) }}
+        </button>
+      </div>
 
-        <!-- Body -->
-        <div class="flex-1 overflow-y-auto px-5 py-4 text-xs text-muted">
-          <!-- 快速上手 -->
+      <!-- 快速上手 -->
           <div v-if="activeTab === 'getting_started'" class="space-y-4">
             <p class="text-toned leading-relaxed">{{ t('editor.help.gs.intro') }}</p>
             <ol class="space-y-1.5 list-decimal pl-5 marker:text-dimmed text-toned">
@@ -91,10 +84,8 @@
               <span class="text-muted leading-relaxed">{{ t(g.desc) }}</span>
             </div>
           </div>
-        </div>
-      </div>
-    </template>
-  </UModal>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -103,6 +94,7 @@ import { useI18n } from 'vue-i18n'
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { EDITOR_KEYS } from '@/composables/containerEditor/useEditorHotkeys'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t, te } = useI18n()
 

@@ -1,29 +1,28 @@
 <!-- 子图库快查 modal. 入口: toolbar 📚. -->
 <template>
-  <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-4xl' }">
-    <template #content>
-      <div
-        class="p-5 bg-default space-y-3"
-        style="min-height: 60vh; max-height: 80vh; display: flex; flex-direction: column"
-      >
-        <!-- Header + search -->
-        <div class="flex items-center gap-3 shrink-0">
-          <UIcon name="i-tabler-books" class="size-5 text-primary" />
-          <h3 class="text-sm font-medium">{{ t('library.explorer.title') }}</h3>
-          <UInput
-            ref="searchInputRef"
-            v-model="query"
-            :placeholder="t('library.explorer.search')"
-            icon="i-tabler-search"
-            size="sm"
-            class="flex-1"
-            @keydown.escape="modelOpen = false"
-          />
-          <span class="text-[10px] text-dimmed">{{ t('library.explorer.esc_close') }}</span>
-        </div>
+  <BaseModal
+    v-model:open="modelOpen"
+    :title="t('library.explorer.title')"
+    icon="i-tabler-books"
+    size="4xl"
+  >
+    <div class="space-y-3">
+      <!-- Search -->
+      <div class="flex items-center gap-3">
+        <UInput
+          ref="searchInputRef"
+          v-model="query"
+          :placeholder="t('library.explorer.search')"
+          icon="i-tabler-search"
+          size="sm"
+          class="flex-1"
+          @keydown.escape="modelOpen = false"
+        />
+        <span class="text-[10px] text-dimmed">{{ t('library.explorer.esc_close') }}</span>
+      </div>
 
-        <!-- List -->
-        <div class="flex-1 overflow-y-auto pr-2">
+      <!-- List -->
+      <div>
           <div
             v-if="filteredItems.length === 0"
             class="text-center text-xs text-dimmed py-8 italic"
@@ -75,10 +74,9 @@
               </div>
             </template>
           </div>
-        </div>
       </div>
-    </template>
-  </UModal>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -87,6 +85,7 @@ import { useI18n } from 'vue-i18n'
 import { useLibraryStore } from '@/stores/library'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+import BaseModal from '@/components/common/BaseModal.vue'
 import type { Subgraph } from '@/lib/backend'
 
 const { t } = useI18n()

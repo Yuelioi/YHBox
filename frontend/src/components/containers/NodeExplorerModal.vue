@@ -1,31 +1,33 @@
 <!-- Houdini-style collapsible tree node browser.
      入口: toolbar 📐 / Tab 键 (canvas focused). -->
 <template>
-  <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-5xl' }">
-    <template #content>
-      <div class="p-5 bg-default space-y-3" style="min-height: 60vh; max-height: 80vh; display: flex; flex-direction: column;">
-        <!-- Header: title + search -->
-        <div class="flex items-center gap-3 shrink-0">
-          <UIcon name="i-tabler-grid-dots" class="size-5 text-primary" />
-          <h3 class="text-sm font-medium">{{ t('nodeExplorer.title') }}</h3>
-          <UInput
-            ref="searchInputRef"
-            v-model="query"
-            :placeholder="t('nodeExplorer.search_placeholder')"
-            icon="i-tabler-search"
-            size="sm"
-            class="flex-1"
-            @keydown.escape="onEsc"
-          />
-          <span class="text-[10px] text-dimmed">{{ t('nodeExplorer.esc_tab_close') }}</span>
-        </div>
+  <BaseModal
+    v-model:open="modelOpen"
+    :title="t('nodeExplorer.title')"
+    icon="i-tabler-grid-dots"
+    size="5xl"
+  >
+    <div class="space-y-3">
+      <!-- Search -->
+      <div class="flex items-center gap-3">
+        <UInput
+          ref="searchInputRef"
+          v-model="query"
+          :placeholder="t('nodeExplorer.search_placeholder')"
+          icon="i-tabler-search"
+          size="sm"
+          class="flex-1"
+          @keydown.escape="onEsc"
+        />
+        <span class="text-[10px] text-dimmed">{{ t('nodeExplorer.esc_tab_close') }}</span>
+      </div>
 
-        <!-- Tree body: per-group collapsible sections -->
-        <div class="flex-1 overflow-y-auto pr-2">
-          <div v-if="filteredGroups.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            {{ t('nodeExplorer.no_match') }}
-          </div>
-          <div v-else class="space-y-1">
+      <!-- Tree body: per-group collapsible sections -->
+      <div>
+        <div v-if="filteredGroups.length === 0" class="text-center text-xs text-dimmed py-8 italic">
+          {{ t('nodeExplorer.no_match') }}
+        </div>
+        <div v-else class="space-y-1">
             <div v-for="g in filteredGroups" :key="g.group">
               <button
                 type="button"
@@ -50,10 +52,9 @@
               </div>
             </div>
           </div>
-        </div>
       </div>
-    </template>
-  </UModal>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -64,6 +65,7 @@ import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
 

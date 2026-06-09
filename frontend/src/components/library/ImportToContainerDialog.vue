@@ -1,51 +1,44 @@
 <template>
-  <UModal v-model:open="open">
-    <UCard>
-      <template #header>
-        <div class="text-sm font-medium">{{ t('library.import.title_prefix') }} <strong>{{ libSgId }}</strong> {{ t('library.import.title_suffix') }}</div>
+  <BaseModal v-model:open="open" :title="dialogTitle" icon="i-tabler-arrow-bar-to-down" size="md">
+    <div v-if="step === 'select'" class="space-y-4">
+      <UFormField :label="t('library.import.target')">
+        <USelect v-model="targetContainerID" :items="containerOptions" :placeholder="t('library.import.select_placeholder')" />
+      </UFormField>
+    </div>
+
+    <div v-else-if="step === 'globals'" class="space-y-4">
+      <div class="text-sm text-toned">
+        {{ t('library.import.vars_needed_desc', { n: missingGlobals.length }) }}
+      </div>
+      <ul class="text-xs space-y-1 max-h-56 overflow-auto border border-default rounded p-2">
+        <li v-for="g in missingGlobals" :key="g.name" class="flex items-center gap-2">
+          <UIcon name="i-tabler-variable" class="size-3.5 text-info" />
+          <strong>{{ g.name }}</strong>
+          <span class="text-dimmed">({{ g.type || 'any' }})</span>
+          <span v-if="g.default !== undefined && g.default !== null" class="text-dimmed">
+            = {{ JSON.stringify(g.default) }}
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <div v-else-if="step === 'done'" class="text-sm text-success flex items-center gap-2">
+      <UIcon name="i-tabler-circle-check" class="size-5" />
+      {{ addedGlobalsCount ? t('library.import.complete_full', { count: importedCount, varsCount: addedGlobalsCount }) : t('library.import.complete_simple', { count: importedCount }) }}
+    </div>
+
+    <template #footer>
+      <template v-if="step === 'select'">
+        <UButton variant="ghost" color="neutral" @click="cancel">{{ t('common.cancel') }}</UButton>
+        <UButton :disabled="!targetContainerID" @click="doImport" :loading="busy">{{ t('library.import.next') }}</UButton>
       </template>
-
-      <div v-if="step === 'select'" class="space-y-4">
-        <UFormField :label="t('library.import.target')">
-          <USelect v-model="targetContainerID" :items="containerOptions" :placeholder="t('library.import.select_placeholder')" />
-        </UFormField>
-        <div class="flex gap-2 justify-end">
-          <UButton variant="ghost" color="neutral" @click="cancel">{{ t('common.cancel') }}</UButton>
-          <UButton :disabled="!targetContainerID" @click="doImport" :loading="busy">{{ t('library.import.next') }}</UButton>
-        </div>
-      </div>
-
-      <div v-else-if="step === 'globals'" class="space-y-4">
-        <div class="text-sm text-toned">
-          {{ t('library.import.vars_needed_desc', { n: missingGlobals.length }) }}
-        </div>
-        <ul class="text-xs space-y-1 max-h-56 overflow-auto border border-default rounded p-2">
-          <li v-for="g in missingGlobals" :key="g.name" class="flex items-center gap-2">
-            <UIcon name="i-tabler-variable" class="size-3.5 text-info" />
-            <strong>{{ g.name }}</strong>
-            <span class="text-dimmed">({{ g.type || 'any' }})</span>
-            <span v-if="g.default !== undefined && g.default !== null" class="text-dimmed">
-              = {{ JSON.stringify(g.default) }}
-            </span>
-          </li>
-        </ul>
-        <div class="flex gap-2 justify-end">
-          <UButton variant="ghost" color="neutral" @click="cancel">{{ t('common.cancel') }}</UButton>
-          <UButton color="primary" @click="doAddGlobals" :loading="busy">{{ t('library.import.add_vars_confirm') }}</UButton>
-        </div>
-      </div>
-
-      <div v-else-if="step === 'done'" class="space-y-4">
-        <div class="text-sm text-success flex items-center gap-2">
-          <UIcon name="i-tabler-circle-check" class="size-5" />
-          {{ addedGlobalsCount ? t('library.import.complete_full', { count: importedCount, varsCount: addedGlobalsCount }) : t('library.import.complete_simple', { count: importedCount }) }}
-        </div>
-        <div class="flex justify-end">
-          <UButton @click="cancel">{{ t('library.import.done') }}</UButton>
-        </div>
-      </div>
-    </UCard>
-  </UModal>
+      <template v-else-if="step === 'globals'">
+        <UButton variant="ghost" color="neutral" @click="cancel">{{ t('common.cancel') }}</UButton>
+        <UButton color="primary" @click="doAddGlobals" :loading="busy">{{ t('library.import.add_vars_confirm') }}</UButton>
+      </template>
+      <UButton v-else-if="step === 'done'" @click="cancel">{{ t('library.import.done') }}</UButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -55,6 +48,7 @@ import { backend, type ImportResult, type SubgraphRequiredGlobal, type VarDecl }
 import { useContainersStore } from '@/stores/containers'
 import { useToast } from '@nuxt/ui/composables'
 import { errorMessage } from '@/lib/invoke'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
 
@@ -65,6 +59,10 @@ const open = computed({
   get: () => props.open,
   set: v => emit('update:open', v),
 })
+
+const dialogTitle = computed(
+  () => `${t('library.import.title_prefix')} ${props.libSgId} ${t('library.import.title_suffix')}`,
+)
 
 const step = ref<'select' | 'globals' | 'done'>('select')
 const targetContainerID = ref('')
