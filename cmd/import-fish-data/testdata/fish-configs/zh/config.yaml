@@ -1,7 +1,0 @@
-version: 1
-capture:
-  bar_rois:
-    - resolution: [1920, 1080]
-      bbox: [612, 69, 1316, 81]
-    - resolution: [1280, 720]
-      bbox: [410, 46, 878, 54]

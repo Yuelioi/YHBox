@@ -12,7 +12,7 @@ import (
 	"yotta/pkg/capture"
 )
 
-// templateCaptureAdapter 实现 template.CaptureAdapter interface.
+// templateCaptureAdapter 实现 asset.CaptureAdapter interface.
 // 用户在 UI 截"模板"时, 按 containerID 解析目标窗口抓一帧 → PNG bytes.
 // 容器不存在 / 无 WindowTarget / 窗口没开则 error.
 type templateCaptureAdapter struct {

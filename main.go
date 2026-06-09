@@ -26,13 +26,13 @@ import (
 	_ "yotta/internal/nodes/variable"  // SetVar/IncVar/GetVar/GetParam
 	"yotta/internal/runclassify"
 	"yotta/internal/services"
+	"yotta/internal/services/asset"
 	"yotta/internal/services/calibration"
 	"yotta/internal/services/container"
 	"yotta/internal/services/container/library"
 	containerruntime "yotta/internal/services/container/runtime"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/schedule"
-	"yotta/internal/services/template"
 	"yotta/internal/services/tools"
 	"yotta/pkg/locale"
 	"yotta/pkg/platform"
@@ -164,27 +164,40 @@ func main() {
 
 	// Container / Schedule 数据层
 
-	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate) 的 Template 字段
-	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 templateSvc.List(containerID),
-	// 不再走 mock asyncSource.
+	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate) 的 Templates 字段 (GUID)
+	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
 	nodeSvc := node.NewService()
 
-	// 库 store + service
+	// 全局资产库 (template + clip 统一): <dataDir>/assets/{records,blobs}.
+	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.
+	assetStore, err := asset.NewStore(filepath.Join(dataDir, "assets"))
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("asset store init")
+	}
+
+	// 库 store + service (分享/导入坍缩成 GUID+sha 幂等合并, 注入全局 asset store).
 	libStore, err := library.NewStore(filepath.Join(dataDir, "library"))
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("library store init")
 	}
-	librarySvc := library.NewService(libStore)
+	librarySvc := library.NewService(libStore, assetStore)
 
 	containerStore, err := container.NewStore(filepath.Join(dataDir, "containers"))
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("container store init")
 	}
 	containerSvc := container.NewService(containerStore)
+	// validator 存在性检查: 节点引用的模板/clip GUID 必须存在于全局 asset 库.
+	containerSvc.SetAssetExistence(
+		assetExistence(assetStore, asset.KindTemplate),
+		assetExistence(assetStore, asset.KindClip),
+	)
 
-	// 模板库 (per-container, dataRoot 注入). 截模板按 containerID 经 containerSvc 解析目标窗口.
-	templateSvc := template.NewService(dataDir, &templateCaptureAdapter{containers: containerSvc})
-	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存模板立刻让 matcher 缓存失效.
+	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
+	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
+	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
+	assetSvc.SetReferrerScanner(scanAssetReferrers(containerStore))
+	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {
@@ -200,20 +213,20 @@ func main() {
 
 	// 真模板匹配 + 真颜色检测
 	// input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析, 不走 main.go 全局注入.
-	// per-container template store 按需加载, containerID 作为 Detect 参数传入.
+	// 资产全局 (asset.Store): matcher 按 guid 匹配, scaleTolerance 由 VisionAdapter (有容器上下文) 传入.
 	//
 	// container:warning emit 同时 zerolog.Warn — 让 warning 进
 	// logs/yotta-*.log (LogSink) 给 post-mortem 用.
-	templateMatcher := newTemplateMatcherAdapter(dataDir, func(name string, payload map[string]any) {
+	templateMatcher := newTemplateMatcherAdapter(assetStore, func(name string, payload map[string]any) {
 		app.Emit(name, payload)
 		if name == "container:warning" {
 			rootLog.Warn().Interface("payload", payload).Msg("container warning")
 		}
-	}, containerSvc.ScaleToleranceFor)
-	// 用户在编辑器里存/删模板后, 让 matcher 丢弃该容器缓存的旧索引 (否则新模板要重启 app 才认).
-	templateSvc.SetOnChange(templateMatcher.Invalidate)
-	// InputClip: 容器级 + 库级 Service. 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
-	clipSvc, libClipSvc := newInputClipServices(dataDir)
+	})
+	// 用户在编辑器里存/删/重拍资产后, 让 matcher 丢弃解码缓存 (否则重拍换 blob 后旧图还在匹配).
+	assetSvc.SetOnChange(templateMatcher.Invalidate)
+	// InputClip: 全局 clip Service (asset clip kind). 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
+	clipSvc := newClipService(assetStore)
 
 	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
 	// container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
@@ -306,8 +319,7 @@ func main() {
 		},
 	)
 
-	// clipSvc / libClipSvc 提前构造 (runFunc 注入 PlayClip 用 ClipResolver).
-	// 容器级走 wails RPC 给前端 (录制产物 CRUD); 库级暂保留构造, 后续 library 集成挂上.
+	// clipSvc 提前构造 (runFunc 注入 PlayClip 用 ClipResolver). 全局 clip 库走 wails RPC 给前端.
 
 	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
 	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry)
@@ -390,7 +402,7 @@ func main() {
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
 		application.NewService(hotkeySvc),
-		application.NewService(templateSvc),
+		application.NewService(assetSvc),
 		application.NewService(containerSvc),
 		application.NewService(librarySvc),
 		application.NewService(scheduleSvc),
@@ -427,7 +439,6 @@ func main() {
 
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
 	clipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	libClipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 
 	// tools 服务也是 wailsApp 创建后才能用（要开新窗口）
 	toolsSvc.SetApp(wailsApp)
