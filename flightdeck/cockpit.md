@@ -11,7 +11,7 @@
 
 **首选: 用户 2026-06-10 收尾提出的两个表达式问题, 下个对话先议**(用户原话记录):
 1. **"表达式都在一个 textarea 里操作不方便, 为什么不是一个单独的 modal"** — 候选方案: Inspector 小框旁加「放大编辑」按钮弹大 modal, 里面复用现成 CodeMirror ExprInput (组件 API 已解耦, 改动小); 顺路跟旧候选「搜索/大复合 modal 收进 BaseModal」一起考虑。
-2. **"不支持变量系统么 / 用 5 个变量岂不是要写 5 个 GetVar"** — 现状是 v4 设计决策 (变量走 GetVar 连线, 依赖画布可见, 见 [docs/expression-system.md](docs/expression-system.md)), 但 5 变量=5 节点+5 线确是真痛点。两路线已初评: **A (倾向)** Expr 动态输入声明加"来源"选项 (连线 | 读变量 xxx), 运行时直读变量快照, 画布零脚手架, 不动语法引擎; **B** 恢复 `$vars.*` 类语法, 打字最顺但推翻 v4 决策 — 走 B 前必须先翻 v4 删语法的完整理由 (头号铁律)。编辑器自动建 GetVar 的方案 (只省打字不省节点) 已淘汰。下个对话从 A 起议, 议完立项。
+2. **"不支持变量系统么 / 用 5 个变量岂不是要写 5 个 GetVar"** — 现状是 v4 设计决策 (变量走 GetVar 连线, 依赖画布可见, 见 [docs/expression-system.md](docs/expression-system.md)), 但 5 变量=5 节点+5 线确是真痛点。两路线已初评: **A (倾向, 已细化)** Inputs[] 项加可选 `Var`+`Scope` 字段 = 绑定变量: ① Expr.Evaluate 构 env 时绑定项直读 `ctx.Vars().GetScoped()` (ctx 现成, 快照语义现成, **零框架改动**); ② FE dataInDynamicFn 跳过绑定项 (不渲染引脚 → 画布零脚手架), 声明编辑加来源下拉+VarNameInput; ③ validator 绑定项跳 DATA_PIN_DANGLING、加变量存在性+类型兼容检查; ④ 补救可见性: 节点卡片列一行绑定变量名小字; **B** 恢复 `$vars.*` 类语法, 打字最顺但推翻 v4 决策 — 走 B 前必须先翻 v4 删语法的完整理由 (头号铁律)。编辑器自动建 GetVar 的方案 (只省打字不省节点) 已淘汰。下个对话从 A 起议, 议完立项。
 
 **还挂着: 真机 smoke CodeMirror 表达式编辑器**(1 分钟, 一并覆盖随机函数): ① Expr 写 `"abc" + 1` 看高亮; ② 敲 `ra` 补全 Tab 上屏; ③ `clmap(1)` 红波浪线+悬停提示; ④ `randint(1, 6)` 接 Log 跑两次落 1~6。验完报我清 verify。
 
