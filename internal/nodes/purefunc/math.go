@@ -1,4 +1,4 @@
-// math.go — 数学补全节点 (7 个): Abs/Min/Max/Floor/Ceil/Pow/Sqrt.
+// math.go — 数学补全节点 (9 个): Abs/Min/Max/Floor/Ceil/Round/Clamp/Pow/Sqrt.
 // 见 specs/2026-06-10-math-nodes.md. 注册在 purefunc.go::init() "数学" 组.
 // NaN/Inf 一律透传 (GIGO, 与 Div 除零返 NaN 同惯例), 不特判.
 package purefunc
