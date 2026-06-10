@@ -69,6 +69,7 @@ const (
 	CodeThrowInMainGraph     = "THROW_IN_MAIN_GRAPH"
 	CodeInvalidSwitchCases   = "INVALID_SWITCH_CASES"
 	CodeInvalidCronExpr      = "INVALID_CRON_EXPR"
+	CodeInvalidRegexPattern  = "INVALID_REGEX_PATTERN"
 )
 
 // Data-pin + variable + literal validation codes.
@@ -682,6 +683,8 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 			nodeErrs = validateSwitchConfig(n)
 		case "Cron":
 			nodeErrs = validateCronConfig(n)
+		case "RegexMatch", "RegexExtract":
+			nodeErrs = validateRegexPattern(n)
 		case "Throw":
 			if isMain {
 				nodeErrs = []ValidationError{{
@@ -950,6 +953,25 @@ func validateCronConfig(n *GraphNode) []ValidationError {
 		})
 	}
 	return errs
+}
+
+// validateRegexPattern 静态校验 RegexMatch/RegexExtract 的 inline literal Pattern.
+// 空 = 用户准备连上游 / 还没填 → 跳过 (同 validateCronConfig 惯例);
+// 动态来源 (上游 data edge) 编辑期不可知, 运行时节点自身 Log.Warn + 安全值兜.
+func validateRegexPattern(n *GraphNode) []ValidationError {
+	s := PinString(n, "Pattern")
+	if s == "" {
+		return nil
+	}
+	if _, err := regexp.Compile(s); err != nil {
+		return []ValidationError{{
+			Severity: SeverityError,
+			Code:     CodeInvalidRegexPattern,
+			NodeID:   n.ID,
+			Params:   map[string]any{"pattern": s, "parseErr": err.Error()},
+		}}
+	}
+	return nil
 }
 
 // validateStopwatch checks that key is non-empty.

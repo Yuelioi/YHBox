@@ -1620,6 +1620,7 @@
     THROW_IN_MAIN_GRAPH: 'Throw node cannot be in main graph (must be inside a subgraph)',
     INVALID_SWITCH_CASES: 'Switch cases invalid (empty / duplicate / contains . / named default)',
     INVALID_CRON_EXPR: 'Cron expression invalid: {expr} ({parseErr})',
+    INVALID_REGEX_PATTERN: 'Regular expression invalid: {pattern} ({parseErr})',
     // v4 new
     PIN_TYPE_MISMATCH: 'data pin type incompatible: {from} → {to} (edge: {edge})',
     PIN_TYPE_COERCION_WARNING: 'data pin implicit coercion: {from} → {to} (suggest explicit To* node)',

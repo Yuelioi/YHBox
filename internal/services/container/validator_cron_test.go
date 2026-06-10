@@ -47,3 +47,28 @@ func TestValidateCron_SyntaxError(t *testing.T) {
 		t.Errorf("语法错应报 INVALID_CRON_EXPR, got: %+v", errs)
 	}
 }
+
+func TestValidateRegexPattern(t *testing.T) {
+	// 非法 literal pattern → SeverityError + INVALID_REGEX_PATTERN
+	bad := GraphNode{ID: "r1", Kind: "RegexMatch", Config: map[string]any{
+		"literal": map[string]any{"Pattern": "("},
+	}}
+	errs := checkGraphPerKind([]GraphNode{bad}, []string{"main"}, true)
+	if len(errs) != 1 || errs[0].Code != CodeInvalidRegexPattern || errs[0].Severity != SeverityError {
+		t.Fatalf("want 1 INVALID_REGEX_PATTERN error, got %+v", errs)
+	}
+
+	// 合法 pattern → 无错
+	good := GraphNode{ID: "r2", Kind: "RegexExtract", Config: map[string]any{
+		"literal": map[string]any{"Pattern": `\d+`},
+	}}
+	if errs := checkGraphPerKind([]GraphNode{good}, []string{"main"}, true); len(errs) != 0 {
+		t.Fatalf("valid pattern should pass, got %+v", errs)
+	}
+
+	// 空 pattern → 跳过 (准备连上游/没填, 同 Cron 惯例)
+	empty := GraphNode{ID: "r3", Kind: "RegexMatch", Config: map[string]any{}}
+	if errs := checkGraphPerKind([]GraphNode{empty}, []string{"main"}, true); len(errs) != 0 {
+		t.Fatalf("empty pattern should be skipped, got %+v", errs)
+	}
+}

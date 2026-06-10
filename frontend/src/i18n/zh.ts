@@ -1640,6 +1640,7 @@ export default {
     THROW_IN_MAIN_GRAPH: 'Throw 节点不能在主图 (必须在子图内)',
     INVALID_SWITCH_CASES: 'Switch cases 不合法 (空 / 重复 / 含 . / 名 default)',
     INVALID_CRON_EXPR: 'Cron 表达式无效: {expr} ({parseErr})',
+    INVALID_REGEX_PATTERN: '正则表达式无效: {pattern} ({parseErr})',
     // v4 新增
     PIN_TYPE_MISMATCH: 'data pin 类型不兼容: {from} → {to} (edge: {edge})',
     PIN_TYPE_COERCION_WARNING: 'data pin 隐式类型转换: {from} → {to} (建议加 To* 节点显式)',
