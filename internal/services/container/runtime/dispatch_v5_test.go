@@ -17,6 +17,7 @@ import (
 	_ "yotta/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
 	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
 	_ "yotta/internal/nodes/random"    // RandomInt/RandomFloat/RandomBool
+	_ "yotta/internal/nodes/script"    // Script (内嵌 JS, goja)
 	_ "yotta/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
 	_ "yotta/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
 	_ "yotta/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam

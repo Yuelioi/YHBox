@@ -1,0 +1,121 @@
+// internal/nodes/script/script.go
+// Script — 内嵌 JS 脚本节点 (goja). 节点即函数: 全部 ScriptBindable 节点是脚本全局函数.
+// 设计: flightdeck/specs/2026-06-10-script-node.md.
+package script
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/dop251/goja"
+
+	"yotta/internal/node"
+	scriptsvc "yotta/internal/services/script"
+)
+
+func init() { node.Register(&Script{}) }
+
+const (
+	pinIn           = "In"
+	pinDone         = "Done"
+	pinFail         = "Fail"
+	inCode          = "Code"
+	inCaptureResult = "CaptureResult"
+	outDataResult   = "Result"
+)
+
+type Script struct{}
+
+func (Script) Spec() node.Spec {
+	return node.Spec{
+		Kind:     "Script",
+		Category: "Control",
+		Inputs: []node.InputSpec{
+			{Name: pinIn, Type: node.TypeExec},
+			{Name: inCode, Type: "String", Default: "", Required: true,
+				Widget: node.WidgetSpec{Kind: "code", Props: node.MarshalProps(node.TextareaProps{Rows: 8})}},
+			{Name: inCaptureResult, Type: "String", Default: "", Advanced: true, Semantic: "capture",
+				Widget: node.WidgetSpec{Kind: "text"}},
+		},
+		Outputs: []node.OutputSpec{
+			{Name: pinDone, Type: node.TypeExec,
+				Data: []node.DataField{{Name: outDataResult, Type: "*", Optional: true}}},
+			{Name: pinFail, Type: node.TypeExec, Semantic: "error",
+				Data: []node.DataField{{Name: "Error", Type: "String"}, {Name: "Code", Type: "String"}}},
+		},
+		NeedsWindow:   true, // 脚本可能调输入/视觉节点 — 保守要求 WindowTarget (用户拍板 2026-06-10)
+		DynamicInputs: true,
+	}
+}
+
+// scriptEnvSkipKeys — merged inputs 里非动态输入的 key (静态 pin + config 元数据).
+var scriptEnvSkipKeys = map[string]struct{}{
+	inCode: {}, inCaptureResult: {}, "Inputs": {},
+}
+
+func (Script) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	src := in.String(inCode)
+	prog, err := scriptsvc.CompileCached(src)
+	if err != nil {
+		// 配置错 (语法错): 裸 error 冒泡中断 (同 Expr parse 模式); 编辑期 SCRIPT_PARSE_ERROR 先拦.
+		return nil, fmt.Errorf("Script parse: %s", scriptsvc.AdjustWrapLine(err.Error()))
+	}
+
+	vm := goja.New()
+	scriptsvc.Install(vm, ctx)
+	for _, k := range in.Keys() {
+		if _, skip := scriptEnvSkipKeys[k]; skip {
+			continue
+		}
+		_ = vm.Set(k, in.Raw(k))
+	}
+
+	// watchdog: 容器停止 → Interrupt 立即掐断脚本 (含纯 JS 死循环).
+	watchDone := make(chan struct{})
+	defer close(watchDone)
+	go func() {
+		select {
+		case <-ctx.Context().Done():
+			vm.Interrupt(ctx.Context().Err())
+		case <-watchDone:
+		}
+	}()
+
+	v, err := vm.RunProgram(prog)
+	if err != nil {
+		return nil, mapScriptError(ctx, err)
+	}
+
+	out := ctx.Out(pinDone)
+	if v != nil && !goja.IsUndefined(v) && !goja.IsNull(v) {
+		result := scriptsvc.NormalizeJS(v.Export())
+		node.Capture(ctx, in, inCaptureResult, result)
+		out = out.Set(outDataResult, result)
+	}
+	return out.Fire(), nil
+}
+
+// mapScriptError — RunProgram 错误分类:
+//
+//	Interrupt (容器停止) → ctx.Err() graceful halt (同 Sleep/KeyPress);
+//	JS 异常带 code (绑定层节点失败) → 透传原错误码走 Fail;
+//	裸 throw → CodeThrown.
+func mapScriptError(ctx node.Ctx, err error) error {
+	var interrupted *goja.InterruptedError
+	if errors.As(err, &interrupted) {
+		if cerr := ctx.Context().Err(); cerr != nil {
+			return cerr
+		}
+	}
+	var jsErr *goja.Exception
+	if errors.As(err, &jsErr) {
+		if m, ok := jsErr.Value().Export().(map[string]any); ok {
+			if code, _ := m["code"].(string); code != "" {
+				msg, _ := m["message"].(string)
+				return node.Failf(node.ErrCode(code), nil, "Script: %s", msg)
+			}
+		}
+		return node.Failf(node.CodeThrown, nil, "Script throw: %s", scriptsvc.AdjustWrapLine(jsErr.Error()))
+	}
+	return node.Failf(node.CodeThrown, nil, "Script: %v", err)
+}
