@@ -1503,6 +1503,28 @@
       }
     }
   },
+  "Script": {
+    "label": "脚本",
+    "description": "用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用其他节点（写节点名当函数，如 ClickAt、WaitTemplate）。适合连线画起来太绕的复杂流程。",
+    "example": "等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。",
+    "input": {
+      "Code": {
+        "label": "代码",
+        "hint": "脚本用 return 返回结果。变量用 vars.get/set 读写，sleep(毫秒) 等待。"
+      },
+      "CaptureResult": {
+        "label": "结果→变量"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      },
+      "Fail": {
+        "label": "失败"
+      }
+    }
+  },
   "Scroll": {
     "label": "鼠标滚轮",
     "description": "在窗口里某个位置滚一下鼠标滚轮。位置用比例填（0 到 1，0.5、0.5 是正中间）。滚动量填几格，正数往上滚、负数往下滚。常用来翻列表、缩放、切武器。",

@@ -13,7 +13,7 @@
       color="neutral"
       size="xs"
       class="absolute top-1 right-1 opacity-60 hover:opacity-100"
-      :title="t('editor.window.maximize')"
+      :title="t('inspector.code_expand')"
       @click="modalOpen = true"
     />
     <CodeEditorModal

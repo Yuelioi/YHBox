@@ -3,7 +3,7 @@
 <template>
   <BaseModal
     :open="open"
-    :title="t('common.edit')"
+    :title="t('inspector.code_editor_title')"
     icon="i-tabler-code"
     size="4xl"
     @update:open="(v: boolean) => emit('update:open', v)"

@@ -507,6 +507,8 @@
     color_pick_huewrap_title: 'Hue crosses the red boundary — downgraded',
     color_pick_huewrap_desc: 'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
     dyn_inputs_title: 'Inputs',
+    code_expand: 'Expand editor',
+    code_editor_title: 'Edit code',
     literal_section: 'Data inputs (literal)',
     capture_section: 'Output capture',
     config_section: 'Config',
@@ -619,6 +621,16 @@
     },
     Break: { label: 'Break', description: 'Ends the loop it sits in early and jumps to whatever comes after the loop. Must be used inside a loop body — using it outside a loop raises an error.' },
     Continue: { label: 'Continue', description: 'Skips the rest of the current loop pass and jumps straight to the next one. Must be used inside a loop body.' },
+    Script: {
+      label: 'Script',
+      description: 'Write a piece of logic in JavaScript: loops, conditions and variables all work, and you can call other nodes directly by writing the node name as a function (e.g. ClickAt, WaitTemplate). Great for complex flows that would be too tangled to wire up.',
+      example: 'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
+      input: {
+        Code: { label: 'Code', hint: 'Use return to give back a result. Read/write variables with vars.get/set; sleep(ms) waits.' },
+        CaptureResult: { label: 'Result → variable' },
+      },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
+    },
     // detect
     WaitTemplate: {
       label: 'Wait template',
@@ -1682,6 +1694,8 @@
     EXPR_DUPLICATE_INPUT: 'Expr inputs has duplicate name: {name}',
     EXPR_UNKNOWN_FUNCTION: 'Unknown function {name} — check spelling; see the input autocomplete for available functions',
     EXPR_FN_ARITY: 'Function {name} expects {want} args, got {got}',
+    SCRIPT_PARSE_ERROR: 'Script syntax error: {error}',
+    SCRIPT_DUPLICATE_INPUT: 'Duplicate script input {name}',
     GETPARAM_UNKNOWN_PARAM: 'GetParam references undeclared input param {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode external pin has no matching marker in backing Subgraph',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',

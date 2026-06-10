@@ -523,6 +523,8 @@ export default {
     color_pick_huewrap_title: '色相跨红色边界，已降级',
     color_pick_huewrap_desc: '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
     dyn_inputs_title: '输入口',
+    code_expand: '放大编辑',
+    code_editor_title: '编辑代码',
     literal_section: '数据输入 (literal)',
     capture_section: '输出捕获',
     config_section: '配置',
@@ -639,6 +641,16 @@ export default {
     },
     Break: { label: '跳出循环', description: '提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。' },
     Continue: { label: '跳过本轮', description: '略过循环体里剩下的步骤，直接开始下一遍。必须放在循环体里用。' },
+    Script: {
+      label: '脚本',
+      description: '用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用其他节点（写节点名当函数，如 ClickAt、WaitTemplate）。适合连线画起来太绕的复杂流程。',
+      example: '等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。',
+      input: {
+        Code: { label: '代码', hint: '脚本用 return 返回结果。变量用 vars.get/set 读写，sleep(毫秒) 等待。' },
+        CaptureResult: { label: '结果→变量' },
+      },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
+    },
     // detect
     WaitTemplate: {
       label: '等待模板',
@@ -1702,6 +1714,8 @@ export default {
     EXPR_DUPLICATE_INPUT: 'Expr inputs 重复名: {name}',
     EXPR_UNKNOWN_FUNCTION: '未知函数 {name} — 检查拼写, 可用函数见输入框补全列表',
     EXPR_FN_ARITY: '函数 {name} 需要 {want} 个参数, 现在给了 {got} 个',
+    SCRIPT_PARSE_ERROR: '脚本语法错误: {error}',
+    SCRIPT_DUPLICATE_INPUT: '脚本输入口重名 {name}',
     GETPARAM_UNKNOWN_PARAM: 'GetParam 引用未声明入参 {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
