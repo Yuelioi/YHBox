@@ -246,7 +246,7 @@ const enumItems = computed(() =>
 
 // ─── object updateChild ───────────────────────────────────────────────────────
 function updateChild(key: string, v: any) {
-  const next = { ...(props.modelValue ?? {}), [key]: v }
+  const next = { ...props.modelValue, [key]: v }
   emitVal(next)
 }
 

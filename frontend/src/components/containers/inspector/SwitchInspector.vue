@@ -44,7 +44,7 @@ watch(
   rows,
   () => {
     emit('update', {
-      ...(props.node.config ?? {}),
+      ...props.node.config,
       cases: rows.value.map((r) => r.value),
     })
   },

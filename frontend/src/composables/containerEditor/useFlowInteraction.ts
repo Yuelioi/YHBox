@@ -181,7 +181,7 @@ export function useFlowInteraction(opts: {
       // 改主图 MouseCalibration 节点 counts360
       for (const n of draft.value.graph.nodes) {
         if (n.kind === 'MouseCalibration') {
-          n.config = { ...(n.config ?? {}), counts360: localCounts }
+          n.config = { ...n.config, counts360: localCounts }
         }
       }
       syncFlowFromDraft?.()

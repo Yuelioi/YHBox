@@ -31,7 +31,7 @@ export function useSubgraphLifecycle(opts: {
         draft.value.id,
         t('subgraphLifecycle.default_name_prefix') + ' ' + new Date().toLocaleTimeString().slice(0, 5),
       )) as Subgraph
-      node.config = { ...(node.config ?? {}), SubgraphID: created.id }
+      node.config = { ...node.config, SubgraphID: created.id }
       await refreshSubgraphStore()
       return true
     } catch (e) {

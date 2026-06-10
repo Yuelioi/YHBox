@@ -241,7 +241,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     addNode({
       kind,
       pos,
-      config: { ...(getSpec(kind)?.defaults ?? {}) },
+      config: { ...getSpec(kind)?.defaults },
     })
   }
 
@@ -295,7 +295,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     const n = buildNode({
       kind,
       pos: { x: atX ?? 200 + Math.random() * 200, y: atY ?? 100 + Math.random() * 200 },
-      config: { ...(KIND_DEFAULTS[kind] ?? {}) },
+      config: { ...KIND_DEFAULTS[kind] },
       id: kind === 'Start' ? 'start' : genNodeID(),
     })
     // onAddNode 老代码: 用 builtNode 时不 set createdAt — buildNode 强 set,

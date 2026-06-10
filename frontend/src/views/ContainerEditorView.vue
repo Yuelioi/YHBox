@@ -1117,7 +1117,7 @@ provide(ContainerCanvasApiKey, {
       const n = activeGraph.value?.nodes.find((x) => x.id === nodeId)
       if (!n) return
       const literal = { ...((n.config?.literal as Record<string, unknown>) ?? {}), [pin]: value }
-      n.config = { ...(n.config ?? {}), literal }
+      n.config = { ...n.config, literal }
     })
   },
   patchNodeLiteral(nodeId: string, patch: Record<string, unknown>) {
@@ -1125,7 +1125,7 @@ provide(ContainerCanvasApiKey, {
       const n = activeGraph.value?.nodes.find((x) => x.id === nodeId)
       if (!n) return
       const literal = { ...((n.config?.literal as Record<string, unknown>) ?? {}), ...patch }
-      n.config = { ...(n.config ?? {}), literal }
+      n.config = { ...n.config, literal }
     })
   },
   edges: computed(() => activeGraph.value?.edges ?? []),

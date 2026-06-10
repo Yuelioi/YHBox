@@ -47,7 +47,7 @@ watch(
   rows,
   () => {
     emit('update', {
-      ...(props.node.config ?? {}),
+      ...props.node.config,
       Inputs: rows.value
         .filter((r) => NAME_RE.test(r.name))
         .map((r) => ({ Name: r.name, Type: r.type })),
