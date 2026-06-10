@@ -542,6 +542,7 @@ export default {
     editor_params: '参数',
     editor_status_stats: '{lines} 行 · {chars} 字符',
     editor_indent_tidy: '整理缩进',
+    editor_ref_toggle: '参考 (F1)',
     editor_fold_all: '全部折叠',
     editor_unfold_all: '全部展开',
     editor_maximize: '放大窗口',

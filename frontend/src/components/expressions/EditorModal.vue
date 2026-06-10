@@ -52,6 +52,9 @@
             </div>
           </template>
           <div class="ml-auto flex items-center gap-0.5">
+            <UButton v-if="reference?.length" icon="i-tabler-book" variant="ghost"
+              :color="refDrawerOpen ? 'primary' : 'neutral'" size="xs"
+              :title="t('inspector.editor_ref_toggle')" @click="refDrawerOpen = !refDrawerOpen" />
             <UButton icon="i-tabler-indent-increase" variant="ghost" color="neutral" size="xs"
               :title="t('inspector.editor_indent_tidy')" @click="reindentAll" />
             <template v-if="foldable">
@@ -87,7 +90,12 @@
         </div>
       </div>
 
-      <aside v-if="reference?.length" class="w-80 shrink-0 flex flex-col gap-2 min-h-0">
+      <Transition name="ref-drawer">
+      <aside v-if="reference?.length && refDrawerOpen" class="w-80 shrink-0 flex flex-col gap-2 min-h-0">
+        <div class="flex items-center justify-between shrink-0">
+          <span class="text-[11px] font-medium text-muted">{{ t('inspector.editor_ref_toggle') }}</span>
+          <UButton icon="i-tabler-x" variant="ghost" color="neutral" size="xs" @click="refDrawerOpen = false" />
+        </div>
         <UInput
           v-model="search"
           icon="i-tabler-search"
@@ -154,6 +162,7 @@
           </p>
         </div>
       </aside>
+      </Transition>
     </div>
 
     <template #footer>
@@ -230,6 +239,16 @@ const maximized = ref(true)
 const expandedKeys = ref<Set<string>>(new Set())
 let view: EditorView | null = null
 
+// 参考面板抽屉开关 — 默认收起, 状态记本地, 工具栏按钮 + F1 切换。
+const REF_DRAWER_KEY = 'yotta.editor.refDrawer'
+function loadRefDrawer(): boolean {
+  try { return localStorage.getItem(REF_DRAWER_KEY) === '1' } catch { return false }
+}
+const refDrawerOpen = ref(loadRefDrawer())
+watch(refDrawerOpen, (v) => {
+  try { localStorage.setItem(REF_DRAWER_KEY, v ? '1' : '0') } catch { /* localStorage 不可用 → 静默 */ }
+})
+
 const statusError = computed<{ message: string; from: number } | null>(() =>
   props.lintFirst ? props.lintFirst(draftDoc.value) : null,
 )
@@ -301,6 +320,7 @@ watch(() => props.open, async (open) => {
         searchPanelTheme,
         keymap.of(searchKeymap),
         Prec.high(keymap.of([{ key: 'Mod-Enter', run: () => { confirm(); return true } }])),
+        Prec.high(keymap.of([{ key: 'F1', run: () => { refDrawerOpen.value = !refDrawerOpen.value; return true } }])),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) draftDoc.value = u.state.doc.toString()
           if (u.selectionSet || u.docChanged) {
@@ -377,3 +397,15 @@ onBeforeUnmount(() => {
 
 defineExpose({ insert: insertItem })
 </script>
+
+<style scoped>
+.ref-drawer-enter-active,
+.ref-drawer-leave-active {
+  transition: all 0.15s ease;
+}
+.ref-drawer-enter-from,
+.ref-drawer-leave-to {
+  transform: translateX(8px);
+  opacity: 0;
+}
+</style>
