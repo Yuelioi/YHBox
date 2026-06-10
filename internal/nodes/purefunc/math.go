@@ -88,3 +88,54 @@ func (Pow) Spec() node.Spec {
 func (Pow) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return math.Pow(in.Float64("Base"), in.Float64("Exp")), nil
 }
+
+// ===== Round / Clamp =====
+
+type Round struct{}
+
+func (Round) Spec() node.Spec {
+	return specBuilder("Round", []node.InputSpec{
+		numXIn(),
+		{Name: "Digits", Type: "Integer", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+	}, "Number")
+}
+
+// Evaluate — SQL ROUND 约定: Digits=0→最近整数, 2→两位小数, -2→取整到百位.
+// Digits clamp 到 [-15,15]: 防 10^Digits 上溢 Inf/下溢 0 出垃圾 (float64 有效位本就 ~15-17).
+func (Round) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	x := in.Float64("X")
+	d := in.Int("Digits")
+	if d > 15 {
+		d = 15
+	}
+	if d < -15 {
+		d = -15
+	}
+	factor := math.Pow(10, float64(d))
+	return math.Round(x*factor) / factor, nil
+}
+
+type Clamp struct{}
+
+func (Clamp) Spec() node.Spec {
+	return specBuilder("Clamp", []node.InputSpec{
+		numXIn(),
+		{Name: "Min", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+		{Name: "Max", Type: "Number", Default: json.Number("100"), Widget: node.WidgetSpec{Kind: "number"}},
+	}, "Number")
+}
+
+// Evaluate — Min>Max 先交换 (与 RandomInt 同惯例). NaN 比较恒 false → 原样透传.
+func (Clamp) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	x, lo, hi := in.Float64("X"), in.Float64("Min"), in.Float64("Max")
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	switch {
+	case x < lo:
+		return lo, nil
+	case x > hi:
+		return hi, nil
+	}
+	return x, nil
+}

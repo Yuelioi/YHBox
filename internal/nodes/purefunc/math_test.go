@@ -93,3 +93,70 @@ func TestMath_SpecShape(t *testing.T) {
 		}
 	}
 }
+
+func TestRound_SQLConvention(t *testing.T) {
+	cases := []struct {
+		name string
+		x    float64
+		d    int
+		want float64
+	}{
+		{"d0_half_up", 2.5, 0, 3.0},
+		{"d0_down", 2.4, 0, 2.0},
+		{"d2", 3.14159, 2, 3.14},
+		{"neg_d_hundreds", 12345, -2, 12300},
+		{"neg_d_tens", 149, -1, 150},
+		{"d_overclamp_hi", 1.23456, 99, 1.23456},   // Digits clamp 到 15, 精度内原样
+		{"d_overclamp_lo", 12345, -99, 0},          // clamp 到 -15 → 10^15 量级取整 → 0
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := evalMathNode(t, &Round{}, map[string]any{"X": tc.x, "Digits": tc.d})
+			wantNum(t, got, tc.want)
+		})
+	}
+}
+
+func TestRound_DefaultDigitsZero(t *testing.T) {
+	// 不传 Digits → 默认 0 → 取整.
+	wantNum(t, evalMathNode(t, &Round{}, map[string]any{"X": 7.6}), 8.0)
+}
+
+func TestClamp_Basic(t *testing.T) {
+	cases := []struct {
+		name          string
+		x, lo, hi, want float64
+	}{
+		{"below", -5, 0, 10, 0},
+		{"above", 15, 0, 10, 10},
+		{"inside", 5, 0, 10, 5},
+		{"swap_bounds", 5, 10, 0, 5},   // Min>Max 先交换 (与 RandomInt 同惯例)
+		{"swap_below", -1, 10, 0, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := evalMathNode(t, &Clamp{}, map[string]any{"X": tc.x, "Min": tc.lo, "Max": tc.hi})
+			wantNum(t, got, tc.want)
+		})
+	}
+}
+
+func TestClamp_NaNPassthrough(t *testing.T) {
+	// NaN 任何比较为 false → 不触发任何边界分支 → 原样透传.
+	wantNaN(t, evalMathNode(t, &Clamp{}, map[string]any{"X": math.NaN(), "Min": 0.0, "Max": 10.0}))
+}
+
+func TestRoundClamp_SpecShape(t *testing.T) {
+	for _, n := range []node.Node{&Round{}, &Clamp{}} {
+		s := n.Spec()
+		if !s.IsPureData || s.Category != "PureFunc" {
+			t.Fatalf("%s: bad spec %+v", s.Kind, s)
+		}
+	}
+	// Clamp 的 Min/Max 必须是 Number — 命名分裂守卫要求与 RandomInt/RandomFloat 一致.
+	for _, in := range (Clamp{}).Spec().Inputs {
+		if (in.Name == "Min" || in.Name == "Max") && in.Type != "Number" {
+			t.Fatalf("Clamp.%s must be Number (DetectNameSplits), got %s", in.Name, in.Type)
+		}
+	}
+}
