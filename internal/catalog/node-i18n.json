@@ -488,6 +488,23 @@
       }
     }
   },
+  "EndsWith": {
+    "label": "结尾是",
+    "description": "判断文本是否以 Suffix 结尾。Suffix 留空恒为真。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Suffix": {
+        "label": "结尾"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "Eq": {
     "label": "等于",
     "description": "判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。",
@@ -657,6 +674,23 @@
     "output": {
       "Done": {
         "label": "完成"
+      }
+    }
+  },
+  "IndexOf": {
+    "label": "查找位置",
+    "description": "Sub 在文本里第一次出现的位置（从 0 数，中文一个字算 1 个）。找不到得 -1。只想判断\"包含吗\"请用「包含」节点。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Sub": {
+        "label": "找什么"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "位置"
       }
     }
   },
@@ -1196,6 +1230,63 @@
       }
     }
   },
+  "RegexExtract": {
+    "label": "正则提取",
+    "description": "从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Pattern": {
+        "label": "正则表达式"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
+  "RegexMatch": {
+    "label": "正则匹配",
+    "description": "判断文本里是否有匹配正则表达式的部分（是\"包含\"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {'$'}。表达式写错时结果恒为否，并记一条警告日志。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Pattern": {
+        "label": "正则表达式"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
+  "Replace": {
+    "label": "替换文本",
+    "description": "把文本里的 Old 换成 New。「全部替换」开着换所有，关掉只换第一处。Old 留空时原样返回。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Old": {
+        "label": "找什么"
+      },
+      "New": {
+        "label": "换成什么"
+      },
+      "All": {
+        "label": "全部替换"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "Round": {
     "label": "四舍五入",
     "description": "把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。",
@@ -1381,6 +1472,23 @@
       }
     }
   },
+  "StartsWith": {
+    "label": "开头是",
+    "description": "判断文本是否以 Prefix 开头。Prefix 留空恒为真。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Prefix": {
+        "label": "开头"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "Stop": {
     "label": "终点",
     "description": "让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。"
@@ -1483,6 +1591,26 @@
     "label": "子图出口",
     "description": "子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。"
   },
+  "Substring": {
+    "label": "截取文本",
+    "description": "从第 Start 个字符开始截 Length 个字符（中文一个字算 1 个）。Length 填 -1（默认）截到末尾，0 得空串。Start 超出范围得空串。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      },
+      "Start": {
+        "label": "起点"
+      },
+      "Length": {
+        "label": "长度"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "Switch": {
     "label": "分支 (多 Case)",
     "description": "按一个输入值在多条路里挑一条走。你自己列好若干个值（每个值就是一个出口），运行时拿输入值跟它们逐一比对，对上哪个就走那个出口；一个都对不上就走 Default 兜底。比一堆「条件分支」串起来更清爽。",
@@ -1525,6 +1653,20 @@
       }
     }
   },
+  "ToLower": {
+    "label": "转小写",
+    "description": "把英文字母全部转成小写。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "ToNumber": {
     "label": "转数字",
     "description": "把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。",
@@ -1545,6 +1687,34 @@
     "input": {
       "X": {
         "label": "X"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
+  "ToUpper": {
+    "label": "转大写",
+    "description": "把英文字母全部转成大写。",
+    "input": {
+      "Text": {
+        "label": "文本"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
+  "Trim": {
+    "label": "去首尾空白",
+    "description": "去掉文本开头和结尾的空格、换行、制表符。",
+    "input": {
+      "Text": {
+        "label": "文本"
       }
     },
     "output": {

@@ -1221,6 +1221,57 @@ export default {
       input: { X: { label: '数值' } },
       output: { Result: { label: '结果' } },
     },
+    // string
+    Replace: {
+      label: '替换文本', description: '把文本里的 Old 换成 New。「全部替换」开着换所有，关掉只换第一处。Old 留空时原样返回。',
+      input: { Text: { label: '文本' }, Old: { label: '找什么' }, New: { label: '换成什么' }, All: { label: '全部替换' } },
+      output: { Result: { label: '结果' } },
+    },
+    Substring: {
+      label: '截取文本', description: '从第 Start 个字符开始截 Length 个字符（中文一个字算 1 个）。Length 填 -1（默认）截到末尾，0 得空串。Start 超出范围得空串。',
+      input: { Text: { label: '文本' }, Start: { label: '起点' }, Length: { label: '长度' } },
+      output: { Result: { label: '结果' } },
+    },
+    Trim: {
+      label: '去首尾空白', description: '去掉文本开头和结尾的空格、换行、制表符。',
+      input: { Text: { label: '文本' } },
+      output: { Result: { label: '结果' } },
+    },
+    ToUpper: {
+      label: '转大写', description: '把英文字母全部转成大写。',
+      input: { Text: { label: '文本' } },
+      output: { Result: { label: '结果' } },
+    },
+    ToLower: {
+      label: '转小写', description: '把英文字母全部转成小写。',
+      input: { Text: { label: '文本' } },
+      output: { Result: { label: '结果' } },
+    },
+    IndexOf: {
+      label: '查找位置', description: 'Sub 在文本里第一次出现的位置（从 0 数，中文一个字算 1 个）。找不到得 -1。只想判断"包含吗"请用「包含」节点。',
+      input: { Text: { label: '文本' }, Sub: { label: '找什么' } },
+      output: { Result: { label: '位置' } },
+    },
+    StartsWith: {
+      label: '开头是', description: '判断文本是否以 Prefix 开头。Prefix 留空恒为真。',
+      input: { Text: { label: '文本' }, Prefix: { label: '开头' } },
+      output: { Result: { label: '结果' } },
+    },
+    EndsWith: {
+      label: '结尾是', description: '判断文本是否以 Suffix 结尾。Suffix 留空恒为真。',
+      input: { Text: { label: '文本' }, Suffix: { label: '结尾' } },
+      output: { Result: { label: '结果' } },
+    },
+    RegexMatch: {
+      label: '正则匹配', description: `判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {'$'}。表达式写错时结果恒为否，并记一条警告日志。`,
+      input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
+      output: { Result: { label: '结果' } },
+    },
+    RegexExtract: {
+      label: '正则提取', description: '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。',
+      input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
+      output: { Result: { label: '结果' } },
+    },
     // random
     RandomInt: {
       label: '随机整数', description: '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',

@@ -1,4 +1,4 @@
-// Package purefunc 31 个纯函数节点 (Add/Sub/.../Select + 数学 Abs/.../Sqrt) + Expr.
+// Package purefunc 41 个纯函数节点 (Add/.../Select + 数学 Abs/.../Sqrt + 字符串 Replace/.../RegexExtract) + Expr.
 // 全是 IsPureData=true, 全部实现 node.Evaluator (EvaluatePureData 入口).
 // Expr 节点定义在 expr.go (dynamic inputs 用 Inputs.Keys() 遍历).
 //
@@ -141,6 +141,9 @@ func init() {
 		&Select{},
 		// 数学 (9)
 		&Abs{}, &Min{}, &Max{}, &Floor{}, &Ceil{}, &Round{}, &Clamp{}, &Pow{}, &Sqrt{},
+		// 字符串函数 (10)
+		&Replace{}, &Substring{}, &Trim{}, &ToUpper{}, &ToLower{},
+		&IndexOf{}, &StartsWith{}, &EndsWith{}, &RegexMatch{}, &RegexExtract{},
 	} {
 		node.Register(n)
 	}

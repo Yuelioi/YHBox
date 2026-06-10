@@ -1201,6 +1201,57 @@
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
+    // string
+    Replace: {
+      label: 'Replace', description: 'Replace Old with New in the text. With "Replace all" on it replaces every occurrence, off only the first. Empty Old returns the text unchanged.',
+      input: { Text: { label: 'Text' }, Old: { label: 'Find' }, New: { label: 'Replace with' }, All: { label: 'Replace all' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Substring: {
+      label: 'Substring', description: 'Take Length characters starting at Start (a CJK character counts as 1). Length -1 (default) takes to the end, 0 gives an empty string. Out-of-range Start gives an empty string.',
+      input: { Text: { label: 'Text' }, Start: { label: 'Start' }, Length: { label: 'Length' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Trim: {
+      label: 'Trim', description: 'Remove spaces, newlines and tabs from both ends of the text.',
+      input: { Text: { label: 'Text' } },
+      output: { Result: { label: 'Result' } },
+    },
+    ToUpper: {
+      label: 'To Upper', description: 'Convert letters to uppercase.',
+      input: { Text: { label: 'Text' } },
+      output: { Result: { label: 'Result' } },
+    },
+    ToLower: {
+      label: 'To Lower', description: 'Convert letters to lowercase.',
+      input: { Text: { label: 'Text' } },
+      output: { Result: { label: 'Result' } },
+    },
+    IndexOf: {
+      label: 'Index Of', description: 'Position of the first occurrence of Sub in the text (counting from 0, a CJK character counts as 1). -1 when not found. To just test "contains", use the Contains node.',
+      input: { Text: { label: 'Text' }, Sub: { label: 'Find' } },
+      output: { Result: { label: 'Position' } },
+    },
+    StartsWith: {
+      label: 'Starts With', description: 'Whether the text starts with Prefix. Empty Prefix is always true.',
+      input: { Text: { label: 'Text' }, Prefix: { label: 'Prefix' } },
+      output: { Result: { label: 'Result' } },
+    },
+    EndsWith: {
+      label: 'Ends With', description: 'Whether the text ends with Suffix. Empty Suffix is always true.',
+      input: { Text: { label: 'Text' }, Suffix: { label: 'Suffix' } },
+      output: { Result: { label: 'Result' } },
+    },
+    RegexMatch: {
+      label: 'Regex Match', description: `Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern always gives false and logs a warning.`,
+      input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
+      output: { Result: { label: 'Result' } },
+    },
+    RegexExtract: {
+      label: 'Regex Extract', description: 'Extract the first match of the regular expression; with capture groups, group 1 is taken. No match or an invalid pattern gives an empty string (invalid patterns also log a warning).',
+      input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
+      output: { Result: { label: 'Result' } },
+    },
     // random
     RandomInt: {
       label: 'Random Int', description: 'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',
