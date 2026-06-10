@@ -101,7 +101,7 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 | **Event** (1) | EventTick |
 | **Input** (10) | BringWindowForeground, ClickAt, KeyHoldStart, KeyHoldStop, KeyPress, MouseHoldStart, MouseHoldStop, MouseMoveRel, MouseMoveTo, Scroll — **全 NeedsWindow** |
 | **IO** (2) | Log, PlayClip(NeedsWindow) |
-| **PureFunc** (23) | Add, And, Concat, Contains, Div, Eq, Expr, Gt, GtEq, Length, Lt, LtEq, Mod, Mul, Neg, Not, NotEq, Or, Select, Sub, ToBool, ToNumber, ToString — **全 PureData (Evaluator)** |
+| **PureFunc** (32) | Abs, Add, And, Ceil, Clamp, Concat, Contains, Div, Eq, Expr, Floor, Gt, GtEq, Length, Lt, LtEq, Max, Min, Mod, Mul, Neg, Not, NotEq, Or, Pow, Round, Select, Sqrt, Sub, ToBool, ToNumber, ToString — **全 PureData (Evaluator)** |
 | **Stopwatch** (3) | StopwatchRead, StopwatchStart, StopwatchStop |
 | **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, Try(Region), WindowTarget |
 | **Variable** (5) | GetParam(PureData), GetSys(PureData), GetVar(PureData), IncVar, SetVar |
