@@ -123,6 +123,16 @@ func All() []*RegisteredNode {
 	return out
 }
 
+// ScriptBindable — Script 节点把注册节点暴露成脚本函数的判定单一源.
+// 绑定层 (services/script.Install) 与补全 RPC (GetScriptBindableKinds) 共用.
+// RegionRunner 排除 (脚本有原生循环, 调子图另立项); marker/visual 无执行语义; Script 自身防递归.
+func ScriptBindable(rn *RegisteredNode) bool {
+	if rn.Spec.IsGraphMarker || rn.Spec.IsVisualOnly || rn.Spec.Kind == "Script" {
+		return false
+	}
+	return rn.Run != nil || rn.Evaluate != nil
+}
+
 // ResetRegistryForTest 测试用.
 func ResetRegistryForTest() {
 	if !testing.Testing() {
