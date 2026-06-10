@@ -1146,7 +1146,7 @@ export default {
       output: { Result: { label: '结果' } },
     },
     Length: {
-      label: '字符串长度', description: '数一段文字有多长，给出长度数字。按字节算，一个英文/数字算 1，一个中文字算 3。',
+      label: '字符串长度', description: '数一段文字有多长，给出字符数。中文一个字算 1 个，与「截取文本」「查找位置」的位置口径一致。',
       input: { S: { label: '字符串' } },
       output: { Result: { label: '结果' } },
     },

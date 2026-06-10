@@ -1126,7 +1126,7 @@
       output: { Result: { label: 'Result' } },
     },
     Length: {
-      label: 'String length', description: 'Counts how long a piece of text is and gives a number. Counted in bytes: each English letter/digit is 1, each Chinese character is 3.',
+      label: 'String length', description: 'Counts how long a piece of text is and gives the character count. A CJK character counts as 1, matching the position semantics of Substring and Index Of.',
       input: { S: { label: 'String' } },
       output: { Result: { label: 'Result' } },
     },
