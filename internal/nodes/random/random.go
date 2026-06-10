@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	for _, n := range []node.Node{&RandomInt{}, &RandomFloat{}} {
+	for _, n := range []node.Node{&RandomInt{}, &RandomFloat{}, &RandomBool{}} {
 		node.Register(n)
 	}
 }
@@ -115,4 +115,25 @@ func (RandomFloat) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 		u = bellUnit()
 	}
 	return lo + u*(hi-lo), nil
+}
+
+// ===== RandomBool =====
+
+type RandomBool struct{}
+
+func (RandomBool) Spec() node.Spec {
+	return node.Spec{
+		Kind: "RandomBool", Category: "Random",
+		Inputs: []node.InputSpec{
+			{Name: "Prob", Type: "Number", Default: json.Number("0.5"), Widget: node.WidgetSpec{Kind: "number"}},
+		},
+		Outputs:            []node.OutputSpec{{Name: "Result", Type: "Bool"}},
+		IsPureData:         true,
+		IsNonDeterministic: true,
+	}
+}
+
+// Evaluate — Prob 越界自然夹紧: Float64()∈[0,1) → Prob<=0 恒 false, Prob>=1 恒 true.
+func (RandomBool) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	return rand.Float64() < in.Float64("Prob"), nil
 }

@@ -118,3 +118,54 @@ func TestRandomFloat_MinEqMax_ReturnsMin(t *testing.T) {
 		t.Fatalf("Min==Max: want 3.5, got %v", got)
 	}
 }
+
+func evalBool(t *testing.T, n node.Evaluator, cfg map[string]any) bool {
+	t.Helper()
+	in := node.NewInputsFromConfig(map[string]any{"literal": cfg})
+	v, err := n.Evaluate(nil, in)
+	if err != nil {
+		t.Fatalf("Evaluate err: %v", err)
+	}
+	got, ok := v.(bool)
+	if !ok {
+		t.Fatalf("want bool, got %T (%v)", v, v)
+	}
+	return got
+}
+
+func TestRandomBool_Spec_Flags(t *testing.T) {
+	s := RandomBool{}.Spec()
+	if !s.IsPureData || !s.IsNonDeterministic || s.Category != "Random" {
+		t.Fatalf("bad spec: %+v", s)
+	}
+}
+
+func TestRandomBool_ProbZero_AlwaysFalse(t *testing.T) {
+	for i := 0; i < 500; i++ {
+		if evalBool(t, RandomBool{}, map[string]any{"Prob": 0.0}) {
+			t.Fatal("Prob=0 should always be false")
+		}
+	}
+}
+
+func TestRandomBool_ProbOne_AlwaysTrue(t *testing.T) {
+	for i := 0; i < 500; i++ {
+		if !evalBool(t, RandomBool{}, map[string]any{"Prob": 1.0}) {
+			t.Fatal("Prob=1 should always be true")
+		}
+	}
+}
+
+func TestRandomBool_ProbHalf_BothSeen(t *testing.T) {
+	var sawT, sawF bool
+	for i := 0; i < 2000 && !(sawT && sawF); i++ {
+		if evalBool(t, RandomBool{}, map[string]any{"Prob": 0.5}) {
+			sawT = true
+		} else {
+			sawF = true
+		}
+	}
+	if !sawT || !sawF {
+		t.Fatalf("Prob=0.5 should yield both; sawT=%v sawF=%v", sawT, sawF)
+	}
+}
