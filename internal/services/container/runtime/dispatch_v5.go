@@ -413,7 +413,8 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 // 链下去 bundle.Snapshot 能拿 frozen Vars. Loop body 不 pullDataPin 不需要外部 ctx.
 func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
 	switch node.Kind {
-	case "Loop":
+	case "Loop", "ForEach":
+		// ForEach body 与 Loop 完全同构 (seed node.ID+".Body") — 共用 builder.
 		return r.makeBodyForLoop(node, tok), nil
 	case "Subgraph", "CollapsedNode":
 		return r.makeBodyForSubgraph(ctx, node, tok)
@@ -421,7 +422,7 @@ func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.Graph
 	return nil, fmt.Errorf("makeBodyFor: no body builder for kind %q (region runner not yet supported)", node.Kind)
 }
 
-// makeBodyForLoop body callback 每次调跑一轮 Loop body (从 node.body 出口下游 seed 到 queue 空).
+// makeBodyForLoop body callback 每次调跑一轮 Loop/ForEach body (从 node.Body 出口下游 seed 到 queue 空).
 // errBreakRequested / errContinueRequested sentinel 透传; Loop.RunRegion 截获.
 func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecToken) func(nodepkg.Ctx) error {
 	parentLoopStack := tok.LoopStack
