@@ -3,6 +3,7 @@ package node
 
 import (
 	"fmt"
+	"slices"
 
 	"yotta/internal/services/expr"
 )
@@ -53,6 +54,18 @@ func (s *NodeService) GetAllTypes() []TypeSpec {
 // 单一来源 expr/builtins.go; 加函数 = 改那张表 + zh/en 各 1 条 desc, FE 零手抄.
 func (s *NodeService) GetExprFunctions() []expr.FunctionSpec {
 	return expr.Functions()
+}
+
+// GetScriptBindableKinds — Script 编辑器补全用: 可在脚本里调用的节点 kind 全集.
+func (s *NodeService) GetScriptBindableKinds() []string {
+	var kinds []string
+	for _, rn := range All() {
+		if ScriptBindable(rn) {
+			kinds = append(kinds, rn.Spec.Kind)
+		}
+	}
+	slices.Sort(kinds)
+	return kinds
 }
 
 // GetErrorCodes FE 启动拉一次, 供 Switch/UI 提示已知错误码全集.

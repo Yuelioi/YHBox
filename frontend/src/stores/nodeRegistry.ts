@@ -12,19 +12,22 @@ export const useNodeRegistryStore = defineStore('nodeRegistry', () => {
   const types = ref(new Map<string, TypeSpec>())
   const errorCodes = ref<string[]>([])
   const exprFunctions = ref<FunctionSpec[]>([])
+  const scriptBindableKinds = ref<string[]>([])
   const loaded = ref(false)
 
   async function loadAll() {
-    const [specList, typeList, codeList, exprFnList] = await Promise.all([
+    const [specList, typeList, codeList, exprFnList, bindableKinds] = await Promise.all([
       NodeService.GetAllNodeSpecs(),
       NodeService.GetAllTypes(),
       NodeService.GetErrorCodes(),
       NodeService.GetExprFunctions(),
+      NodeService.GetScriptBindableKinds(),
     ])
     specs.value = new Map(specList.map((s: Spec) => [s.kind, s]))
     types.value = new Map(typeList.map((t: TypeSpec) => [t.tag, t]))
     errorCodes.value = codeList as string[]
     exprFunctions.value = exprFnList
+    scriptBindableKinds.value = bindableKinds as string[]
     loaded.value = true
   }
 
@@ -40,5 +43,5 @@ export const useNodeRegistryStore = defineStore('nodeRegistry', () => {
     return types.value.get(typeTag)?.color || '#888'
   }
 
-  return { specs, types, errorCodes, exprFunctions, loaded, loadAll, getSpec, getType, pinColor }
+  return { specs, types, errorCodes, exprFunctions, scriptBindableKinds, loaded, loadAll, getSpec, getType, pinColor }
 })

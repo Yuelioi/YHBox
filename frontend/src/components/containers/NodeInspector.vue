@@ -532,6 +532,7 @@
             :min="fieldFor(lit.name)?.min"
             :max="fieldFor(lit.name)?.max"
             :step="fieldFor(lit.name)?.step"
+            :input-names="dynamicInputNames"
             :model-value="getLiteral(lit.name)"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
           />
@@ -670,6 +671,15 @@ const dataInLiterals = computed(() => {
     props.edges ?? [],
     props.node.id,
   )
+})
+
+// 动态输入名 (config.Inputs[] 声明, 镜像后端 ParseDynamicInputDecls) — 喂 code widget 补全。
+const dynamicInputNames = computed<string[]>(() => {
+  const raw = props.node?.config?.Inputs
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((d: any) => String(d?.Name ?? ''))
+    .filter((n) => n !== '')
 })
 
 // semantic==='capture' 的输入聚成「输出捕获」折叠组, 其余正常平铺。

@@ -52,6 +52,15 @@
     @update:model-value="(v: string) => emit('update:modelValue', v)"
   />
 
+  <!-- code (Script.Code) — JS 编辑器: 节点函数/糖函数/动态输入补全 + 放大编辑 modal -->
+  <CodeInput
+    v-else-if="kind === 'code'"
+    :model-value="modelValue == null ? '' : String(modelValue)"
+    :placeholder="placeholder"
+    :input-names="inputNames"
+    @update:model-value="(v: string) => emit('update:modelValue', v)"
+  />
+
   <!-- textarea -->
   <UTextarea
     v-else-if="kind === 'textarea'"
@@ -111,6 +120,7 @@ import KeyCapture from '@/components/containers/KeyCapture.vue'
 import ColorPalettePicker from './ColorPalettePicker.vue'
 import IconPicker from './IconPicker.vue'
 import ExprInput from '@/components/expressions/ExprInput.vue'
+import CodeInput from '@/components/expressions/CodeInput.vue'
 import type { PinType } from '../pinSpec'
 
 const { t } = useI18n()
@@ -127,6 +137,8 @@ const props = defineProps<{
   min?: number
   max?: number
   step?: number
+  /** 动态输入名 (config.Inputs[] 声明) — 仅 code widget 用, 进脚本补全。 */
+  inputNames?: string[]
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: any): void }>()
 
