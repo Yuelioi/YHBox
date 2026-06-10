@@ -86,7 +86,7 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 
 `jitter.go`：`JitterInt(base, pct)` / `JitterDuration(d, pct)` —— 对值施加 **±pct% 近正态**抖动（取 5 个 uniform 样本求均值 → 中心极限，值聚在中点、极端罕见，比纯 uniform 拟人）。`pct<=0` → 原值不变。时间/移动类节点的 `JitterPct` 输入走这个。
 
-## 6. 节点目录（81 kinds / 11 category）
+## 6. 节点目录（103 kinds / 11 category）
 
 > **AI / 调研节点必读**：要某节点的**全 pin / 全出口 + 出口携带数据 (Data)** 明细，**跑命令拿当前值，别翻源码、别信本页下面这张表的数字**（它只存结构层、会过时）。三个口子同一数据源、都带大白话 + 出口 Data：
 > - `task nodes`（= `go run ./cmd/node-catalog export --md`）—— 人读 Markdown 速查表，扫一眼回答"哪些出口吐 Point/坐标"。
@@ -103,16 +103,16 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 | **Detect** (11) | CheckTemplate, ClickTemplate, DetectColor, DetectColorBlobs, DetectColorHSV, DualColorBarTrack, ROIColorScan, Screenshot, WaitChange, WaitStable, WaitTemplate — **全 NeedsWindow** |
 | **Event** (1) | EventTick |
 | **Input** (10) | BringWindowForeground, ClickAt, KeyHoldStart, KeyHoldStop, KeyPress, MouseHoldStart, MouseHoldStop, MouseMoveRel, MouseMoveTo, Scroll — **全 NeedsWindow** |
-| **IO** (2) | Log, PlayClip(NeedsWindow) |
+| **IO** (3) | Log, PlayClip(NeedsWindow), RunProgram |
 | **List** (8) | ForEach(Region), Join, ListAppend, ListContains, ListGet, ListLength, ListSlice, Split — ForEach 为 exec RegionRunner, 其余全 PureData |
 | **PureFunc** (42) | Abs, Add, And, Ceil, Clamp, Concat, Contains, Div, EndsWith, Eq, Expr, Floor, Gt, GtEq, IndexOf, Length, Lt, LtEq, Max, Min, Mod, Mul, Neg, Not, NotEq, Or, Pow, RegexExtract, RegexMatch, Replace, Round, Select, Sqrt, StartsWith, Sub, Substring, ToBool, ToLower, ToNumber, ToString, ToUpper, Trim — **全 PureData (Evaluator)** |
 | **Random** (4) | RandomBool, RandomChoice, RandomFloat, RandomInt — 全 PureData+NonDeterministic |
 | **Stopwatch** (3) | StopwatchRead, StopwatchStart, StopwatchStop |
-| **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, Try(Region), WindowTarget |
-| **Variable** (5) | GetParam(PureData), GetSys(PureData), GetVar(PureData), IncVar, SetVar |
+| **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, WaitWindow, WindowTarget |
+| **Variable** (6) | GetParam(PureData), GetVar(PureData), IncVar, Now(PureData), SetVar, VarLastChange(PureData) |
 
-能力小结：**PureData/Evaluator 26 个**（PureFunc 23 + Variable 的 3 个 Get*）；**RegionRunner 4 个**（Loop, Try, Subgraph, CollapsedNode）；**NeedsWindow 22 个**（Detect 11 + Input 10 + PlayClip）；其余 Runnable。
+能力小结：**PureData 57 个**（PureFunc 42 + List 7 + Random 4 + Variable 的 GetParam/GetVar/Now/VarLastChange）；**RegionRunner 4 个**（Loop, ForEach, Subgraph, CollapsedNode）；**NeedsWindow 22 个**（Detect 11 + Input 10 + PlayClip）；其余 Runnable。
 
-> 计数是 2026-06-08 实测（DetectColorBlobs 加入后）。加/删节点后数字会变 —— 要现值跑命令，别信这表过时数字。
+> 计数是 2026-06-10 实测（加节点路线图四阶段落地后, `node-catalog export` 全量核）。加/删节点后数字会变 —— 要现值跑命令，别信这表过时数字。
 
 **DetectColorBlobs**（2026-06-08 加）：颜色连通域定位 —— 给 Range(hsv/rgb 6 槽) + ROI → flood-fill(8-邻域) 找所有色块 → Found 出口带 `Blobs`(JSON: 每块归一化 centerX/centerY/x/y/w/h + area 像素数) + `BlobCount`(MinArea 过滤后总数, 不受 MaxBlobs) + `PrimaryCenter`/`PrimaryArea`(按 Sort 排序首项, **非必然最大**)。Sort: area_desc / dist_screen_center((0.5,0.5)) / dist_point(RefPoint 归一化, 未设默认(0,0))。TimeoutMs=0 单次扫描。坐标全帧归一化、质心=像素均值(非 bbox 中心)。**不做** 形态学合并(碎裂目标 v1 不保证)、精确血量%(走 DualColorBarTrack)、3D 导航。

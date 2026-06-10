@@ -48,8 +48,9 @@ func (ForEach) Spec() node.Spec {
 	}
 }
 
-// RunRegion — items 在 ForEach 自身 dispatch 入口取一次 (上游非确定节点由 per-dispatch
-// 缓存保证同值 → 列表对整轮循环稳定). 快照仅冻结切片头: 元素是引用, body 改其内容后续轮可见.
+// RunRegion — items 由 dataWire 在 ForEach 自身 dispatch 入口拉取一次 (稳定性来自单次拉取;
+// per-dispatch 缓存只负责同 dispatch 内多 pin 引用同值). 快照仅冻结切片头: 元素是引用,
+// body 改其内容后续轮可见.
 func (ForEach) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
 	items := in.List(feInList)
 	for i, el := range items {

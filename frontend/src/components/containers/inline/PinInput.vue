@@ -107,7 +107,7 @@ import type { PinType } from '../pinSpec'
 const { t } = useI18n()
 
 const props = defineProps<{
-  /** PinType (number/bool/string/point/any) — widgetKind 缺失时的 fallback 渲染依据。 */
+  /** PinType (number/bool/string/point/any/list) — widgetKind 缺失时的 fallback 渲染依据。 */
   type: PinType
   /** 原始 backend widget kind (见 FieldSchema.widgetKind)。空串 = 无 spec 字段 (Expr 动态输入), 走 type fallback。 */
   widgetKind?: string
