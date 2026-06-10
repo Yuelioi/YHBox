@@ -1155,6 +1155,52 @@
       },
       output: { Result: { label: 'Result' } },
     },
+    // math
+    Abs: {
+      label: 'Abs', description: 'Absolute value of X (negatives become positive).',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Min: {
+      label: 'Min', description: 'The smaller of two numbers.',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Max: {
+      label: 'Max', description: 'The larger of two numbers.',
+      input: { A: { label: 'A' }, B: { label: 'B' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Floor: {
+      label: 'Floor', description: 'Round X down: 3.7 gives 3, -3.2 gives -4.',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Ceil: {
+      label: 'Ceil', description: 'Round X up: 3.2 gives 4, -3.7 gives -3.',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Round: {
+      label: 'Round', description: 'Round X. Digits=0 rounds to integer; 2 keeps two decimals; -2 rounds to hundreds (12345 gives 12300). Digits is capped at +/-15 (beyond float precision).',
+      input: { X: { label: 'X' }, Digits: { label: 'Digits' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Clamp: {
+      label: 'Clamp', description: 'Limit X to the Min~Max range: below Min gives Min, above Max gives Max, otherwise X. Min/Max swap automatically if reversed.',
+      input: { X: { label: 'X' }, Min: { label: 'Min' }, Max: { label: 'Max' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Pow: {
+      label: 'Pow', description: 'Base raised to Exp. Math conventions apply: negative base with fractional exponent gives NaN, 0 to a negative power gives Infinity, 0^0 gives 1.',
+      input: { Base: { label: 'Base' }, Exp: { label: 'Exp' } },
+      output: { Result: { label: 'Result' } },
+    },
+    Sqrt: {
+      label: 'Sqrt', description: 'Square root of X. Negative X gives NaN (wire an Abs node first if needed).',
+      input: { X: { label: 'X' } },
+      output: { Result: { label: 'Result' } },
+    },
     // random
     RandomInt: {
       label: 'Random Int', description: 'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',

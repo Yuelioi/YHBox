@@ -1,8 +1,8 @@
-// Package purefunc 22 个纯函数节点 (Add/Sub/.../Select) + Expr.
+// Package purefunc 31 个纯函数节点 (Add/Sub/.../Select + 数学 Abs/.../Sqrt) + Expr.
 // 全是 IsPureData=true, 全部实现 node.Evaluator (EvaluatePureData 入口).
 // Expr 节点定义在 expr.go (dynamic inputs 用 Inputs.Keys() 遍历).
 //
-// 设计取舍: 22 节点用同一 spec shape (1 data-out "result"), 用 specBuilder 复用构造代码.
+// 设计取舍: 31 节点用同一 spec shape (1 data-out "result"), 用 specBuilder 复用构造代码.
 // 每节点仍独立 Go type — 符合 "1 type 1 node" 原则, builder 只复用 Spec 字段填充不引入抽象层.
 package purefunc
 
@@ -138,6 +138,8 @@ func init() {
 		&ToString{}, &ToNumber{}, &ToBool{},
 		// 三元 (1)
 		&Select{},
+		// 数学 (9)
+		&Abs{}, &Min{}, &Max{}, &Floor{}, &Ceil{}, &Round{}, &Clamp{}, &Pow{}, &Sqrt{},
 	} {
 		node.Register(n)
 	}

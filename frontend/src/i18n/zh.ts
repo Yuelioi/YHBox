@@ -1175,6 +1175,52 @@ export default {
       },
       output: { Result: { label: '结果' } },
     },
+    // math
+    Abs: {
+      label: '绝对值', description: '取 X 的绝对值（负变正）。',
+      input: { X: { label: '数值' } },
+      output: { Result: { label: '结果' } },
+    },
+    Min: {
+      label: '取较小', description: '两个数里取较小的那个。',
+      input: { A: { label: '甲' }, B: { label: '乙' } },
+      output: { Result: { label: '结果' } },
+    },
+    Max: {
+      label: '取较大', description: '两个数里取较大的那个。',
+      input: { A: { label: '甲' }, B: { label: '乙' } },
+      output: { Result: { label: '结果' } },
+    },
+    Floor: {
+      label: '向下取整', description: '把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。',
+      input: { X: { label: '数值' } },
+      output: { Result: { label: '结果' } },
+    },
+    Ceil: {
+      label: '向上取整', description: '把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。',
+      input: { X: { label: '数值' } },
+      output: { Result: { label: '结果' } },
+    },
+    Round: {
+      label: '四舍五入', description: '把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。',
+      input: { X: { label: '数值' }, Digits: { label: '位数' } },
+      output: { Result: { label: '结果' } },
+    },
+    Clamp: {
+      label: '限制范围', description: '把 X 限制在 Min~Max 里：小于 Min 出 Min，大于 Max 出 Max，否则原样出。Min 比 Max 大时自动交换。',
+      input: { X: { label: '数值' }, Min: { label: '下限' }, Max: { label: '上限' } },
+      output: { Result: { label: '结果' } },
+    },
+    Pow: {
+      label: '乘方', description: '算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。',
+      input: { Base: { label: '底数' }, Exp: { label: '指数' } },
+      output: { Result: { label: '结果' } },
+    },
+    Sqrt: {
+      label: '开平方', description: '算 X 的平方根。X 是负数时得 NaN（需要时先接"绝对值"节点）。',
+      input: { X: { label: '数值' } },
+      output: { Result: { label: '结果' } },
+    },
     // random
     RandomInt: {
       label: '随机整数', description: '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',

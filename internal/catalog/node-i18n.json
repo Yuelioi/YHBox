@@ -1,4 +1,18 @@
 {
+  "Abs": {
+    "label": "绝对值",
+    "description": "取 X 的绝对值（负变正）。",
+    "input": {
+      "X": {
+        "label": "数值"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "Add": {
     "label": "加",
     "description": "把两个数字相加，给出和。",
@@ -46,6 +60,20 @@
       }
     }
   },
+  "Ceil": {
+    "label": "向上取整",
+    "description": "把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。",
+    "input": {
+      "X": {
+        "label": "数值"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "CheckTemplate": {
     "label": "检查模板",
     "description": "只看当前这一帧画面，找你指定的图片（模板）在不在。在就走 Found 口并给出位置，不在就走 NotFound 口。它不等待、只看一眼，适合做「现在屏幕上有没有这个东西」的即时判断分流。",
@@ -78,6 +106,26 @@
       },
       "NotFound": {
         "label": "未命中"
+      }
+    }
+  },
+  "Clamp": {
+    "label": "限制范围",
+    "description": "把 X 限制在 Min~Max 里：小于 Min 出 Min，大于 Max 出 Max，否则原样出。Min 比 Max 大时自动交换。",
+    "input": {
+      "X": {
+        "label": "数值"
+      },
+      "Min": {
+        "label": "下限"
+      },
+      "Max": {
+        "label": "上限"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
       }
     }
   },
@@ -494,6 +542,20 @@
       }
     }
   },
+  "Floor": {
+    "label": "向下取整",
+    "description": "把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。",
+    "input": {
+      "X": {
+        "label": "数值"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "GetParam": {
     "label": "读子图参数",
     "description": "读出调用这个子图时外面传进来的参数值，按参数名取。只能在子图内部用，相当于子图的「入参」。",
@@ -746,6 +808,40 @@
       }
     }
   },
+  "Max": {
+    "label": "取较大",
+    "description": "两个数里取较大的那个。",
+    "input": {
+      "A": {
+        "label": "甲"
+      },
+      "B": {
+        "label": "乙"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
+  "Min": {
+    "label": "取较小",
+    "description": "两个数里取较小的那个。",
+    "input": {
+      "A": {
+        "label": "甲"
+      },
+      "B": {
+        "label": "乙"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "Mod": {
     "label": "取模",
     "description": "求 A 除以 B 的余数，支持小数。",
@@ -973,6 +1069,23 @@
       }
     }
   },
+  "Pow": {
+    "label": "乘方",
+    "description": "算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。",
+    "input": {
+      "Base": {
+        "label": "底数"
+      },
+      "Exp": {
+        "label": "指数"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
   "ROIColorScan": {
     "label": "ROI 颜色连续段扫描",
     "description": "在你框的 ROI（屏幕上框的一小块）里，沿水平或垂直方向找指定颜色的「连续段」——一串连在一起、长度在你设的范围内的同色像素算一段。找到的段数够（达到最少段数）就走 Found 口，并把每段的信息带出去；不够就一直按间隔重试，超时走 Timeout。颜色用 HSV（按色相/鲜艳度/明暗）填。把超时设成 0 或负数就只扫一遍，不够直接走 NotFound。",
@@ -1075,6 +1188,23 @@
       "Distribution": {
         "label": "分布",
         "hint": "均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
+      }
+    }
+  },
+  "Round": {
+    "label": "四舍五入",
+    "description": "把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。",
+    "input": {
+      "X": {
+        "label": "数值"
+      },
+      "Digits": {
+        "label": "位数"
       }
     },
     "output": {
@@ -1225,6 +1355,20 @@
     "output": {
       "Done": {
         "label": "完成"
+      }
+    }
+  },
+  "Sqrt": {
+    "label": "开平方",
+    "description": "算 X 的平方根。X 是负数时得 NaN（需要时先接\"绝对值\"节点）。",
+    "input": {
+      "X": {
+        "label": "数值"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "结果"
       }
     }
   },
