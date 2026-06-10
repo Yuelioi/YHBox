@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-10 by 月离 (表达式三连落地归档(RPC 单源/docs/CodeMirror); 用户收尾抛两问(表达式 modal 编辑 + 变量引用)留待下个对话先议。)
-**Active focus**: 下个对话先议**表达式两问**(modal 大编辑器 / 变量引用进表达式, 见「下一步」), 议完立项; 另挂 1 笔 CodeMirror 真机 smoke。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (Script 节点全链路落地+graduate 进 docs/script-system; 顺带补上 Expr 动态输入声明编辑 UI; 挂 2 笔真机 smoke。)
+**Active focus**: **Script 节点已落地待真机 smoke**(7 步, 见「下一步」, 连同 CodeMirror smoke 一起验); 验完议剩余表达式议题(Expr 放大编辑复用 CodeEditorModal 小项 / 变量绑定路线 A)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,17 +9,19 @@
 
 ## 下一步
 
-**首选: 用户 2026-06-10 收尾提出的两个表达式问题, 下个对话先议**(用户原话记录):
-1. **"表达式都在一个 textarea 里操作不方便, 为什么不是一个单独的 modal"** — 候选方案: Inspector 小框旁加「放大编辑」按钮弹大 modal, 里面复用现成 CodeMirror ExprInput (组件 API 已解耦, 改动小); 顺路跟旧候选「搜索/大复合 modal 收进 BaseModal」一起考虑。
-2. **"不支持变量系统么 / 用 5 个变量岂不是要写 5 个 GetVar"** — 现状是 v4 设计决策 (变量走 GetVar 连线, 依赖画布可见, 见 [docs/expression-system.md](docs/expression-system.md)), 但 5 变量=5 节点+5 线确是真痛点。两路线已初评: **A (倾向, 已细化)** Inputs[] 项加可选 `Var`+`Scope` 字段 = 绑定变量: ① Expr.Evaluate 构 env 时绑定项直读 `ctx.Vars().GetScoped()` (ctx 现成, 快照语义现成, **零框架改动**); ② FE dataInDynamicFn 跳过绑定项 (不渲染引脚 → 画布零脚手架), 声明编辑加来源下拉+VarNameInput; ③ validator 绑定项跳 DATA_PIN_DANGLING、加变量存在性+类型兼容检查; ④ 补救可见性: 节点卡片列一行绑定变量名小字; **B** 恢复 `$vars.*` 类语法, 打字最顺但推翻 v4 决策 — 走 B 前必须先翻 v4 删语法的完整理由 (头号铁律)。编辑器自动建 GetVar 的方案 (只省打字不省节点) 已淘汰。下个对话从 A 起议, 议完立项。
+**首选: 真机 smoke ×2, 一次跑完报我清 verify**:
+1. **Script 节点**(7 步): ① 面板/右键/explorer 搜「脚本」; ② 写 `log.info("hi"); return 1 + 1`, CaptureResult 填变量, 跑容器看日志 hi、GetVar 读到 2; ③ `while(true){}` 跑起来点停止立即停; ④ `ClickAt({XRatio: 0.5, YRatio: 0.5})` 真点击; ⑤ Inspector 放大按钮弹大编辑器, 敲 `Wait` 出补全; ⑥ 故意写 `let a = ;` 节点红错带行号; ⑦ Expr/Script 的 Inspector「输入口」区加 `hp:number` 出引脚可连线。
+2. **CodeMirror 表达式编辑器**(4 步, 一并覆盖随机函数): ① Expr 写 `"abc" + 1` 看高亮; ② 敲 `ra` 补全 Tab 上屏; ③ `clmap(1)` 红波浪线+悬停; ④ `randint(1, 6)` 接 Log 跑两次落 1~6。
 
-**还挂着: 真机 smoke CodeMirror 表达式编辑器**(1 分钟, 一并覆盖随机函数): ① Expr 写 `"abc" + 1` 看高亮; ② 敲 `ra` 补全 Tab 上屏; ③ `clmap(1)` 红波浪线+悬停提示; ④ `randint(1, 6)` 接 Log 跑两次落 1~6。验完报我清 verify。
+**之后议(表达式遗留议题)**:
+1. **Expr 放大编辑**: 用户原问"为什么不是单独 modal" — Script 落地后 [CodeEditorModal](../frontend/src/components/expressions/CodeEditorModal.vue) 壳已现成, 给 ExprInput 加同款放大按钮复用之 = 小项, 议完即可做。
+2. **变量绑定进 Expr (路线 A, 已细化)**: Inputs[] 项加可选 `Var`+`Scope` 字段 = 绑定变量: ① Expr.Evaluate 构 env 绑定项直读 `ctx.Vars().GetScoped()` (零框架改动); ② FE dataInDynamicFn 跳过绑定项 (不渲染引脚), 声明编辑加来源下拉+VarNameInput (声明编辑区本身已由 DynamicInputsEditor 落地, 路线 A 在它上面扩展); ③ validator 绑定项跳 DATA_PIN_DANGLING、加变量存在性+类型检查; ④ 节点卡片列绑定变量名小字。**B** (恢复 `$vars.*` 语法) 走前必须先翻 v4 删语法的完整理由 (头号铁律); 自动建 GetVar 方案已淘汰。注: Script 的 `vars.get` 已缓解部分痛点, 议时先确认路线 A 还要不要做。
 
-**之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
+**之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
 ## 待复核
 
-- ⚠待复核: [docs/node-system-architecture.md](docs/node-system-architecture.md) — RegionRunner/Evaluator 例子清单过期(列了不存在的 Try/GetSys、漏 ForEach、PureFunc 数旧), dispatch 流程未记 per-dispatch evalCache。when_to_update 命中(本次改了 dispatch/RegionRunner)。
+- ⚠待复核: [docs/node-system-architecture.md](docs/node-system-architecture.md) — RegionRunner/Evaluator 例子清单过期(列了不存在的 Try/GetSys、漏 ForEach、PureFunc 数旧), dispatch 流程未记 per-dispatch evalCache; 2026-06-11 又加: 未记 `Spec.DynamicInputs` 标志与 Script 节点。when_to_update 再次命中。
 - ⚠待复核: [docs/variable-system.md](docs/variable-system.md) — 正文是空壳(只有 frontmatter + 标题, 入库时就这样)。要么补正文要么删掉, 别让路由指到空文档; 补的话把 list 类型 + 类型消费点审计表(见 archive/specs/2026-06-10-list-var-type.md)一并写进去。
 
 ## Hanging tasks
@@ -30,5 +32,6 @@
 
 - 全程: 4 spec + 4 plan 在 `archive/specs|plans/2026-06-10-*-nodes.md`(含各 spec 落地修订与 A' 审计结论)。31 节点: 随机 4(含 RandomChoice) + 数学 9 + 字符串 10 + 列表 8(ForEach+7)。
 - 后续增量: **list 变量类型**(第 6 种, 值 `[]any`, JSON 数组默认值编辑器) 在 `archive/specs|plans/2026-06-10-list-var-type.md` — 含 VarDecl.Type 全消费点审计表; 顺路修了缺失的 `var.any_independent_placeholder` i18n key。**Expr 语法提示** 在 `archive/specs|plans/2026-06-10-expr-editor-hints.md` — expr 包 builtin 函数表成单一来源(`Builtins()`/`CallRefs`), validator 新增 EXPR_UNKNOWN_FUNCTION/EXPR_FN_ARITY, widget kind `expr` → ExprInput 组件(死代码 ExpressionInput 已删)。**Expr 随机函数** 在 `archive/specs|plans/2026-06-10-expr-random-fns.md` — rand()/randint() 进函数表 12 项, Expr 挂 `IsNonDeterministic`(per-dispatch 记忆化保同帧多路径同值, 顺带修了 now() 同帧不稳)。**表达式三连**(2026-06-10 晚): 函数元数据 RPC 单源(`expr.Functions()` → GetExprFunctions, FE 手写表已删, 加函数=Go 表一处+i18n 两条) + 常驻文档 [docs/expression-system.md](docs/expression-system.md) + ExprInput 换 CodeMirror 6(高亮/带位置红线/原生补全; 新依赖 @codemirror/*), 在 `archive/specs|plans/2026-06-10-expr-{fn-rpc-single-source,codemirror-editor}.md`。
+- **Script 节点**(2026-06-11, 7 commits de93639..b6cb89c+2eda928): 常驻知识全在 [docs/script-system.md](docs/script-system.md)(graduate 产物, 决策取舍也在); plan 含 9 任务执行记录在 `archive/plans/2026-06-10-script-node.md`(verify 挂真机 smoke)。框架侧顺带: `Spec.DynamicInputs` 标志(消 Expr kind 特判)、`ScriptBindable` 判定单一源、DynamicInputsEditor 补上 Expr 缺失的输入声明 UI、catalog drift 守卫补 event 包失明。新依赖 goja。
 - 框架增量: `IsNonDeterministic` + `evalPureDataCached` per-dispatch 缓存(单一 gate, 评审 C1 教训入 [consumer-audit-gap incident](incidents/2026-05-29-storage-convention-consumer-audit-gap.md) Case 2); `List` pin 类型 + `in.List` + `node.LooseEqual/FormatValue`(不可比防护); Expr +6 函数; validator `INVALID_REGEX_PATTERN`; 现有 `Length` 改 rune 计数。
 - 已知预存失败(非回归): runtime 缺 fish fixture([build.md](checklists/build.md)); i18n residue 28。
