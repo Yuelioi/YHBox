@@ -16,8 +16,12 @@ type Spec struct {
 	Inputs  []InputSpec  `json:"inputs"`
 	Outputs []OutputSpec `json:"outputs"`
 
-	IsPureData   bool `json:"isPureData,omitempty"`
-	IsVisualOnly bool `json:"isVisualOnly,omitempty"`
+	IsPureData bool `json:"isPureData,omitempty"`
+	// IsNonDeterministic — 节点 Evaluate 非确定 (如随机). 框架在 per-dispatch eval cache
+	// 里记忆化其成功结果, 让同一 dispatch 内多路径引用拿同值 (守住 Determinism contract).
+	// 仅在 IsPureData=true 节点上有意义 — 记忆化发生在 pure-data 拉取路径; exec 节点不读此字段.
+	IsNonDeterministic bool `json:"isNonDeterministic,omitempty"`
+	IsVisualOnly       bool `json:"isVisualOnly,omitempty"`
 	// NeedsWindow — 节点 Run 依赖目标窗口 hwnd (调 ctx.Input/Capture/Vision/Window/Clip).
 	// validator/runner 据此判定: 图里有 NeedsWindow 节点才要求 WindowTarget; 纯窗口无关
 	// 容器 (Sleep/Log/Cron/Expr...) 免 WindowTarget. 新节点用了上述 ctx 服务务必置真
@@ -35,9 +39,9 @@ type Spec struct {
 }
 
 type InputSpec struct {
-	Name        string       `json:"name"`
-	Type        string       `json:"type"`               // runtime 类型 tag
-	Semantic    string       `json:"semantic,omitempty"` // UI 语义提示
+	Name     string `json:"name"`
+	Type     string `json:"type"`               // runtime 类型 tag
+	Semantic string `json:"semantic,omitempty"` // UI 语义提示
 	// CaptureType 仅 Semantic=="capture" 框有效，被捕获值的 VarType（number/string/bool/point/any）。
 	CaptureType string       `json:"captureType,omitempty"`
 	Required    bool         `json:"required,omitempty"`
