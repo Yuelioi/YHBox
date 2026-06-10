@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-06-06
+last_updated: 2026-06-11
 when_to_read: 改了前端视图/样式想"亲眼"看渲染对不对又不想开完整 app 时; 用 Playwright MCP 离屏渲染 wails 前端做视觉自检; 给独立窗口/设置页调样式后自检前
 applies_to: [frontend, wails, playwright, mcp, visual-verify, vite, pinia, self-check]
 when_to_update: 改离屏视觉自检流程 (Playwright MCP / vite 离屏渲染入口 / pinia mock 方式) 时
@@ -34,6 +34,23 @@ when_to_update: 改离屏视觉自检流程 (Playwright MCP / vite 离屏渲染�
 5. **截图 + 看**：`browser_take_screenshot` → 用 Read 读 PNG 亲眼核。可 `browser_resize` 到真实窗口尺寸 (如悬浮窗 240×300) 看真实观感。
 
 6. **还原 + 清理**：还原 main.ts / 预览路由；删截图 PNG + `.playwright-mcp/` (别提交)。
+
+## Playwright MCP 不在时的备选 (验证过可用)
+
+会话没接 Playwright MCP → `pnpm add -D puppeteer-core` (零浏览器下载) + 系统 Edge:
+
+```js
+import puppeteer from 'puppeteer-core'
+const browser = await puppeteer.launch({
+  executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  headless: 'new', defaultViewport: { width: 1680, height: 1000 },
+})
+```
+
+- mock 数据可以不走 browser_evaluate: 临时预览组件自己往 pinia store 灌假数据更省事。
+- 坑1: `pnpm run dev -- --port 9246` 的 `--` 会被原样传给 vite, 端口不生效 — 直接 `pnpm exec vite --port 9246` 或认下 vite.config 的 9245。
+- 坑2: modal 打开后 `page.click('.cm-content')` 点到的是**背后小框的编辑器** (DOM 第一个) — 取 `page.$$('.cm-content')` 最后一个。
+- 截完: `pnpm remove puppeteer-core` + 删脚本/PNG/临时预览路由, 跟 main.ts 还原一起做。
 
 ## 局限
 

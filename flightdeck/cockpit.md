@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (用户真机确认 Script/$ 语法/编辑器系列没问题, 4 笔 verify 清账; 用户点了下一个方向: 美化脚本编辑器。)
-**Active focus**: **下个对话: 美化脚本编辑器** — 用户原话"现在的还是太简陋 太丑了" (功能已齐: 高亮/补全/参考面板/工具栏/状态栏, 痛点在**观感**)。先看现状截图议方向再动手。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (编辑器观感升级落地: 用户拍板 C 案 VSCode Dark+ + 功能全做, 实施+验证+离屏视觉自检完成, spec/plan 归档, 待真机过目。)
+**Active focus**: **编辑器观感升级已交付, 待用户真机过目** (verify 项见归档 spec)。三处编辑器 (ExprInput/CodeInput/EditorModal) 共享 `lib/editorTheme.ts` 成套主题 (VSCode Dark+; $变量例外橙标) + 基础手感件; 智能层 = 语法快速反馈/未声明 $变量/hover 文档/折叠/Ctrl+D; modal 7xl+全屏档; 字体 JetBrains Mono+Inter 本地打包。细节进 [docs/script-system.md](docs/script-system.md) / [docs/expression-system.md](docs/expression-system.md)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,7 +9,9 @@
 
 ## 下一步
 
-**首选: 美化脚本编辑器**(用户 2026-06-11 收尾点名, 原话"现在的还是太简陋 太丑了")。功能层已齐(JS 高亮/补全/snippet 占位/参考面板分类配色/工具栏/暗色查找/状态栏), 痛点在**视觉与质感**。入手建议: ① 先让用户截图圈出最丑的几处; ② 对照 VSCode 观感拉差距(编辑器配色主题成套化、选中行/光标行高亮、缩进参考线、字体与行距、modal 整体布局留白、面板卡片质感); ③ 改动集中在 `lib/editorTheme.ts`(共享主题)、`EditorModal.vue`、`scriptCompletions.ts` 的 HighlightStyle — 三处编辑器共用, 改一处全生效。可参考现成 CodeMirror 主题包(如 @uiw/codemirror-theme-vscode / thememirror)直接引主题替手写配色。
+**首选: 用户真机过目编辑器升级** (verify 项随归档 spec 在册, 见待验证扫描)。看完没问题即清账; 有不满意处直接报, 改动集中在 `lib/editorTheme.ts` 一张配色/chrome 表。
+
+**之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债(见关键上下文)。
 
 **表达式系列全部收口**(已真机确认): 变量引用最终形态 = **`$hp` 语法** (用户拍板推翻 v4, 决策史与依据在 [docs/expression-system.md](docs/expression-system.md) — 绑定模式被它取代删除, 输入口退化为纯连线引脚); EditorModal 统一壳承载 Expr/Script 放大编辑。
 
@@ -27,4 +29,4 @@
 ## 关键上下文
 
 - 常驻技术知识一律在 [docs/](docs/INDEX.md) (表达式 → expression-system; 脚本 → script-system); 历史设计/执行记录在 `archive/specs|plans/` 按日期文件名自查。本节只放**两边都装不下的活上下文**, 现在没有。(2026-06-11 清版: 原"加节点路线图存档指针"等五条已分别沉淀进 docs / 待复核 / build.md, 不再重复。)
-- 已知预存失败(非回归): runtime 缺 fish fixture([build.md](checklists/build.md)); i18n residue 28(misc-tools-backlog)。跑全套测试时按此判红。
+- 已知预存失败(非回归): runtime 缺 fish fixture([build.md](checklists/build.md)); i18n residue **39** = 28(misc-tools-backlog) + 11 处 editorTheme.ts 查找面板中文 phrases(**有意的 zh locale 文案映射, 扫描器误报类, 别去翻译**); `pnpm lint` 预存 16 错(oxlint 1.64 新规则, 散在 10 个未涉编辑器的文件)。跑全套测试/检查时按此判红。

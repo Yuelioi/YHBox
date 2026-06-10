@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-06-06
+last_updated: 2026-06-11
 when_to_read: before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 真机 smoke
 applies_to: [build, compile, task-dev, task-build, wails, exe, vite, bindings, smoke, test-fixture]
 when_to_update: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bindings 生成 / 测试套件入口时
@@ -9,6 +9,8 @@ when_to_update: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / 
 # Build Playbook
 
 编译 / 验证产物时**前置**读这份.
+
+- **frontend 包管理只用 pnpm** (有 pnpm-lock.yaml): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好.
 
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
 - **打包**: `task build` — 内部先 `vite build` 嵌入 dist, 再 `go build -tags production -ldflags="-w -s -H windowsgui" -o bin/YHBox.exe .`
