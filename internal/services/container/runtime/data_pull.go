@@ -95,6 +95,28 @@ func (r *ContainerRunner) pullDataPin(ctx context.Context, nodeID, pinName strin
 	return nil, nil
 }
 
+// evalPureDataCached — EvaluatePureData + per-dispatch 非确定记忆化 gate.
+// resolveDataPinV5 直连分支与 evalDataSource 共用 — 单一真相源, 两条 pull 路径同 dispatch 同值.
+// 缓存存裸值 (各调用方自做出口形态转换); 只缓存成功值 — 不把"第一次失败"钉死.
+func (r *ContainerRunner) evalPureDataCached(ctx context.Context, srcNodeID, srcPin string, n *container.GraphNode, rn *nodepkg.RegisteredNode) (any, error) {
+	cache := evalCacheFromCtx(ctx)
+	caching := rn.Spec.IsNonDeterministic && cache != nil
+	var key evalKey
+	if caching {
+		key = evalKey{nodeID: srcNodeID, pin: srcPin}
+		if cached, ok := cache.m[key]; ok {
+			return cached, nil
+		}
+	}
+	srcDataWire := r.buildDataWireFor(ctx, n, rn)
+	srcConfig := r.buildConfigFor(n)
+	v, err := nodepkg.EvaluatePureData(ctx, rn, srcDataWire, srcConfig, r.bundle)
+	if caching && err == nil {
+		cache.m[key] = v
+	}
+	return v, err
+}
+
 // evalDataSource dispatches by source node Kind. Only pure-data Kinds are valid sources
 // (a data edge from an exec node like Sleep would be a schema error caught by validator).
 //
@@ -124,25 +146,9 @@ func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin 
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("evalDataSource: IsPureData=true but kind %q does not implement Evaluator", n.Kind)
 	}
-	// per-dispatch 记忆化: 非确定节点 (随机) 同一 dispatch 内只求值一次, 守住 Determinism contract.
-	// 确定性节点完全跳过此路径 (零影响). cold path (无 cache) → 退化为每 pull 重算.
-	cache := evalCacheFromCtx(ctx)
-	var key evalKey
-	if rn.Spec.IsNonDeterministic && cache != nil {
-		key = evalKey{nodeID: srcNodeID, pin: srcPin}
-		if cached, ok := cache.m[key]; ok {
-			return cached, nil
-		}
-	}
 	// 传 ctx 给递归 buildDataWireFor + EvaluatePureData, 让 bundle.Snapshot(ctx) 拿到 tick.
-	srcDataWire := r.buildDataWireFor(ctx, n, rn)
-	srcConfig := r.buildConfigFor(n)
-	v, err := nodepkg.EvaluatePureData(ctx, rn, srcDataWire, srcConfig, r.bundle)
-	ev := toExprValue(v)
-	if err == nil && rn.Spec.IsNonDeterministic && cache != nil {
-		cache.m[key] = ev // 只缓存成功值 — 不把"第一次失败"钉死
-	}
-	return ev, err
+	v, err := r.evalPureDataCached(ctx, srcNodeID, srcPin, n, rn)
+	return toExprValue(v), err
 }
 
 // pullNumber resolves a numeric data-pin (data edge or inline literal).

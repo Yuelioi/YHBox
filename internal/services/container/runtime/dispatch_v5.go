@@ -118,7 +118,7 @@ func (r *ContainerRunner) applyExecDataEdges(node *container.GraphNode, rn *node
 // 22 purefunc + Expr 走 framework. GetVar/GetParam 依赖 runtime state (frame /
 // per-tick snapshot), 走 fallback evalDataSource switch.
 func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName string) (any, error) {
-	srcID, _ := r.dataEdges.Source(nodeID, pinName)
+	srcID, srcPin := r.dataEdges.Source(nodeID, pinName)
 	if srcID == "" {
 		// 无 data edge — literal 或 default. pullDataPin 处理 (其内部会读 config["literal"]).
 		v, err := r.pullDataPin(ctx, nodeID, pinName)
@@ -136,10 +136,8 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 	if !regOk || !srcRn.Spec.IsPureData || srcRn.Evaluate == nil {
 		return r.pullDataPin(ctx, nodeID, pinName)
 	}
-	// 上游是 framework-evaluable pure-data → 递归 build 上游 dataWire + 调 EvaluatePureData.
-	srcDataWire := r.buildDataWireFor(ctx, srcNode, srcRn)
-	srcConfig := r.buildConfigFor(srcNode)
-	return nodepkg.EvaluatePureData(ctx, srcRn, srcDataWire, srcConfig, r.bundle)
+	// 上游是 framework-evaluable pure-data → 共享 cache gate (evalPureDataCached) 递归求值.
+	return r.evalPureDataCached(ctx, srcID, srcPin, srcNode, srcRn)
 }
 
 // buildConfigFor 复制 node.Config 当 framework config map. 扣 "literal" 内部字段
