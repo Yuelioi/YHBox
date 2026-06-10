@@ -10,7 +10,7 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 
 配套 [node-system-architecture.md](node-system-architecture.md) 的速查表。源码：`internal/node/`。
 
-## 1. Pin 类型（12 内置）
+## 1. Pin 类型（13 内置）
 
 `types.go init()` 注册，前端启动时经 `GetAllTypes` RPC 拉颜色/widget 映射：
 
@@ -27,11 +27,14 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 | `Image` | `*image.RGBA` | preview | |
 | `Duration` | `time.Duration` | duration | 值是毫秒数字 |
 | `JSON` | `map[string]any` | json | |
+| `List` | `[]any` | list-preview | 异构列表；只读占位（不可在 Inspector 手输，必须由连线提供） |
 | `Exec` | (framework) | exec-pin | 控制流连线，非数据 |
 
 **域类型形状**（`types.go`）：`Point{X,Y}` / `Rect{X,Y,W,H}`（都是 ratio float）；`Geometry{Pct Rect, Overrides []GeoOverride}` —— 运行时解析：匹配当前帧分辨率的 override 优先，否则 `pct×帧尺寸`，`pct.W==0||H==0` 且无匹配 = 全帧。Geometry pin 值的存储形状坑见 incident [../incidents/2026-06-04-geometry-pin-value-pct-shape.md](../incidents/2026-06-04-geometry-pin-value-pct-shape.md)。
 
 自定义类型用 `node.RegisterType(TypeSpec{...})`。
+
+列表值存变量时变量类型声明 **any**（`List` 型变量暂不支持，`IncVar` 对 `any` 型 list 变量会静默改写，属 GIGO）；列表不能进 `Expr` 运算（会干净报错，但错误被数据线吞成 nil，调试看日志）。
 
 ## 2. Pin 值解析优先级
 
@@ -83,7 +86,7 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 
 `jitter.go`：`JitterInt(base, pct)` / `JitterDuration(d, pct)` —— 对值施加 **±pct% 近正态**抖动（取 5 个 uniform 样本求均值 → 中心极限，值聚在中点、极端罕见，比纯 uniform 拟人）。`pct<=0` → 原值不变。时间/移动类节点的 `JitterPct` 输入走这个。
 
-## 6. 节点目录（69 kinds / 9 category）
+## 6. 节点目录（81 kinds / 11 category）
 
 > **AI / 调研节点必读**：要某节点的**全 pin / 全出口 + 出口携带数据 (Data)** 明细，**跑命令拿当前值，别翻源码、别信本页下面这张表的数字**（它只存结构层、会过时）。三个口子同一数据源、都带大白话 + 出口 Data：
 > - `task nodes`（= `go run ./cmd/node-catalog export --md`）—— 人读 Markdown 速查表，扫一眼回答"哪些出口吐 Point/坐标"。
@@ -101,7 +104,9 @@ when_to_update: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 /
 | **Event** (1) | EventTick |
 | **Input** (10) | BringWindowForeground, ClickAt, KeyHoldStart, KeyHoldStop, KeyPress, MouseHoldStart, MouseHoldStop, MouseMoveRel, MouseMoveTo, Scroll — **全 NeedsWindow** |
 | **IO** (2) | Log, PlayClip(NeedsWindow) |
+| **List** (8) | ForEach(Region), Join, ListAppend, ListContains, ListGet, ListLength, ListSlice, Split — ForEach 为 exec RegionRunner, 其余全 PureData |
 | **PureFunc** (42) | Abs, Add, And, Ceil, Clamp, Concat, Contains, Div, EndsWith, Eq, Expr, Floor, Gt, GtEq, IndexOf, Length, Lt, LtEq, Max, Min, Mod, Mul, Neg, Not, NotEq, Or, Pow, RegexExtract, RegexMatch, Replace, Round, Select, Sqrt, StartsWith, Sub, Substring, ToBool, ToLower, ToNumber, ToString, ToUpper, Trim — **全 PureData (Evaluator)** |
+| **Random** (4) | RandomBool, RandomChoice, RandomFloat, RandomInt — 全 PureData+NonDeterministic |
 | **Stopwatch** (3) | StopwatchRead, StopwatchStart, StopwatchStop |
 | **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, Try(Region), WindowTarget |
 | **Variable** (5) | GetParam(PureData), GetSys(PureData), GetVar(PureData), IncVar, SetVar |
