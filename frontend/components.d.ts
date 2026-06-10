@@ -18,7 +18,6 @@ declare module 'vue' {
     BotControls: typeof import('./src/components/BotControls.vue')['default']
     CanvasContextBar: typeof import('./src/components/containers/CanvasContextBar.vue')['default']
     ClipTimeline: typeof import('./src/components/containers/ClipTimeline.vue')['default']
-    CodeEditorModal: typeof import('./src/components/expressions/CodeEditorModal.vue')['default']
     CodeInput: typeof import('./src/components/expressions/CodeInput.vue')['default']
     ColorPalettePicker: typeof import('./src/components/containers/inline/ColorPalettePicker.vue')['default']
     ComingSoonCard: typeof import('./src/components/ComingSoonCard.vue')['default']

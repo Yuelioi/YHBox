@@ -53,13 +53,15 @@
     @update:model-value="(v: string) => emit('update:modelValue', v)"
   />
 
-  <!-- code (Script.Code) — JS 编辑器: 节点函数/糖函数/动态输入补全 + 放大编辑 modal -->
+  <!-- code (Script.Code) — JS 编辑器: 节点函数/糖函数/动态输入/变量补全 + 放大编辑 modal -->
   <CodeInput
     v-else-if="kind === 'code'"
     :model-value="modelValue == null ? '' : String(modelValue)"
     :placeholder="placeholder"
     :input-names="inputNames"
+    :declared-vars="declaredVars"
     @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @declare-var="(a) => emit('declare-var', a)"
   />
 
   <!-- textarea -->
@@ -123,6 +125,7 @@ import IconPicker from './IconPicker.vue'
 import ExprInput from '@/components/expressions/ExprInput.vue'
 import CodeInput from '@/components/expressions/CodeInput.vue'
 import type { PinType } from '../pinSpec'
+import type { VarType } from '@/lib/variableRef'
 
 const { t } = useI18n()
 
@@ -140,8 +143,13 @@ const props = defineProps<{
   step?: number
   /** 动态输入名 (config.Inputs[] 声明) — 仅 code widget 用, 进脚本补全。 */
   inputNames?: string[]
+  /** 容器变量 (名+类型) — 仅 code widget 用: vars.get 补全 + 参考面板 + 新建变量。 */
+  declaredVars?: { name: string; type: VarType }[]
 }>()
-const emit = defineEmits<{ (e: 'update:modelValue', v: any): void }>()
+const emit = defineEmits<{
+  (e: 'update:modelValue', v: any): void
+  (e: 'declare-var', a: { name: string; type: VarType; default: unknown }): void
+}>()
 
 const kind = computed(() => props.widgetKind ?? '')
 

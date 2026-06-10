@@ -543,8 +543,10 @@
             :max="fieldFor(lit.name)?.max"
             :step="fieldFor(lit.name)?.step"
             :input-names="dynamicInputNames"
+            :declared-vars="declaredVars"
             :model-value="getLiteral(lit.name)"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
+            @declare-var="(a) => emit('declare-var', a)"
           />
           <p
             v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"

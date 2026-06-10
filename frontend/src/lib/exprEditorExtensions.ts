@@ -14,6 +14,7 @@ import { linter, type Diagnostic } from '@codemirror/lint'
 import { tags } from '@lezer/highlight'
 import type { Extension } from '@codemirror/state'
 import { allExprFunctions, exprFnNames, lintExpr, type ExprDiagnostic } from '@/lib/exprFunctions'
+import { completionTooltipTheme } from '@/lib/editorTheme'
 
 // ── 语法高亮: 手写 stream tokenizer (语法就一行表达式, 不上 Lezer grammar) ──
 
@@ -107,6 +108,7 @@ export function exprEditorExtensions(opts: {
     exprLanguage,
     syntaxHighlighting(exprHighlight),
     autocompletion({ override: [exprCompletionSource(opts)] }),
+    completionTooltipTheme,
     linter(lintSource, { delay: 300 }),
     cmPlaceholder(opts.placeholder ?? ''),
     keymap.of([{ key: 'Tab', run: acceptCompletion }, ...completionKeymap, ...defaultKeymap, ...historyKeymap]),

@@ -16,6 +16,7 @@ import { javascript } from '@codemirror/lang-javascript'
 import { tags } from '@lezer/highlight'
 import type { Extension } from '@codemirror/state'
 import type { Spec } from '@bindings/yotta/internal/node'
+import { completionTooltipTheme } from '@/lib/editorTheme'
 
 // apply 上屏后光标落进末尾括号/引号内 (caretBack = 从串尾回退几格)。
 function applyWithCaret(insert: string, caretBack: number) {
@@ -93,9 +94,21 @@ export function nodeFnCompletions(
 
 // ── CodeInput / EditorModal 共用的 CodeMirror 扩展 ──
 
-// 词匹配含 "." — 让 "vars.g" 能补出 "vars.get" 这类带点糖函数。
-function scriptCompletionSource(getOptions: () => Completion[]) {
+// vars.get("…")/set/inc 第一参字符串里 → 补容器变量名 (高频; 比手翻侧栏顺手)。
+// 其余位置: 词匹配含 "." — 让 "vars.g" 能补出 "vars.get" 这类带点糖函数。
+function scriptCompletionSource(getOptions: () => Completion[], varNames?: () => string[]) {
   return (ctx: CompletionContext): CompletionResult | null => {
+    if (varNames) {
+      const varCtx = ctx.matchBefore(/vars\.(get|set|inc)\(\s*"[A-Za-z0-9_]*/)
+      if (varCtx) {
+        const quote = varCtx.text.lastIndexOf('"')
+        return {
+          from: varCtx.from + quote + 1,
+          validFor: /^[A-Za-z0-9_]*$/,
+          options: varNames().map((n) => ({ label: n, type: 'variable' as const })),
+        }
+      }
+    }
     const word = ctx.matchBefore(/[A-Za-z_$][\w$.]*/)
     if (!word && !ctx.explicit) return null
     return {
@@ -121,6 +134,8 @@ const scriptHighlight = HighlightStyle.define([
 // 语法错不在前端 lint (后端 validator SCRIPT_PARSE_ERROR 是权威), 故无 linter 扩展。
 export function scriptEditorExtensions(opts: {
   completions: () => Completion[]
+  /** 容器变量名 — vars.get("…")/set/inc 第一参字符串内的补全源。 */
+  varNames?: () => string[]
   placeholder?: string
   onChange?: (doc: string) => void
 }): Extension[] {
@@ -128,7 +143,8 @@ export function scriptEditorExtensions(opts: {
     history(),
     javascript(),
     syntaxHighlighting(scriptHighlight),
-    autocompletion({ override: [scriptCompletionSource(opts.completions)] }),
+    autocompletion({ override: [scriptCompletionSource(opts.completions, opts.varNames)] }),
+    completionTooltipTheme,
     cmPlaceholder(opts.placeholder ?? ''),
     keymap.of([{ key: 'Tab', run: acceptCompletion }, ...completionKeymap, ...defaultKeymap, ...historyKeymap]),
     EditorView.lineWrapping,
