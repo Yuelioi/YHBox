@@ -99,7 +99,7 @@ function currentToken(s: string): string {
   return s.slice(i)
 }
 
-const FN_NAMES = ['abs', 'min', 'max', 'now']
+const FN_NAMES = ['abs', 'ceil', 'clamp', 'floor', 'max', 'min', 'now', 'pow', 'round', 'sqrt']
 
 const suggestions = computed<Suggestion[]>(() => {
   const tok = currentToken(props.modelValue)

@@ -168,3 +168,67 @@ func TestErrorPositionInfo(t *testing.T) {
 		t.Errorf("expected col in error, got %v", err)
 	}
 }
+
+// evalErr parses and evaluates src, returning the error (nil if none).
+// Used for arg-count / type error assertions.
+func evalErr(t *testing.T, src string, env Env) (Value, error) {
+	t.Helper()
+	n, perr := Parse(src)
+	if perr != nil {
+		return nil, perr
+	}
+	return Eval(n, env)
+}
+
+func TestEvalCall_MathFunctions(t *testing.T) {
+	env := MapEnv{}
+
+	// floor / ceil / sqrt — 1 arg
+	if got, _ := AsNumber(eval(t, "floor(3.7)", env)); got != 3 {
+		t.Errorf("floor(3.7) = %v, want 3", got)
+	}
+	if got, _ := AsNumber(eval(t, "ceil(3.2)", env)); got != 4 {
+		t.Errorf("ceil(3.2) = %v, want 4", got)
+	}
+	if got, _ := AsNumber(eval(t, "sqrt(9)", env)); got != 3 {
+		t.Errorf("sqrt(9) = %v, want 3", got)
+	}
+
+	// round — 1 or 2 args (aligned with Round node)
+	if got, _ := AsNumber(eval(t, "round(2.5)", env)); got != 3 {
+		t.Errorf("round(2.5) = %v, want 3", got)
+	}
+	if got, _ := AsNumber(eval(t, "round(3.14159, 2)", env)); math.Abs(got-3.14) > 1e-9 {
+		t.Errorf("round(3.14159, 2) = %v, want 3.14", got)
+	}
+	if got, _ := AsNumber(eval(t, "round(12345, -2)", env)); got != 12300 {
+		t.Errorf("round(12345, -2) = %v, want 12300", got)
+	}
+
+	// pow — 2 args
+	if got, _ := AsNumber(eval(t, "pow(10, 2)", env)); math.Abs(got-100) > 1e-9 {
+		t.Errorf("pow(10,2) = %v, want 100", got)
+	}
+
+	// clamp — 3 args, lo>hi swap
+	if got, _ := AsNumber(eval(t, "clamp(15, 0, 10)", env)); got != 10 {
+		t.Errorf("clamp(15,0,10) = %v, want 10", got)
+	}
+	if got, _ := AsNumber(eval(t, "clamp(5, 10, 0)", env)); got != 5 {
+		t.Errorf("clamp(5,10,0) = %v, want 5 (swap)", got)
+	}
+
+	// special value: sqrt negative → NaN
+	if got, _ := AsNumber(eval(t, "sqrt(-1)", env)); !math.IsNaN(got) {
+		t.Errorf("sqrt(-1) = %v, want NaN", got)
+	}
+}
+
+func TestEvalCall_MathFunctions_ArgErrors(t *testing.T) {
+	env := MapEnv{}
+	for _, expr := range []string{"floor()", "ceil(1, 2)", "sqrt()", "round()", "round(1, 2, 3)", "pow(1)", "clamp(1, 2)"} {
+		if _, err := evalErr(t, expr, env); err == nil {
+			t.Errorf("%s: want arg-count error, got nil", expr)
+		}
+	}
+}
