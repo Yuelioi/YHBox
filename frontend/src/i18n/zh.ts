@@ -1795,6 +1795,7 @@ export default {
     node_and_edge_count: '{n} 个节点 · {m} 条边',
     empty_string_label: '空字符串',
     default_value_label: '默认值',
+    listPinWireOnly: '由连线提供',
   },
   // 通用 dialog 文案.
   dialog: {
@@ -2277,6 +2278,7 @@ export default {
     cyan: '青',
     sky: '天蓝',
     blue: '蓝',
+    indigo: '靛蓝',
     violet: '紫罗兰',
     purple: '紫',
     pink: '粉',

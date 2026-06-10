@@ -1773,6 +1773,7 @@
     node_and_edge_count: '{n} nodes · {m} edges',
     empty_string_label: 'Empty string',
     default_value_label: 'Default value',
+    listPinWireOnly: 'Provided by wire',
   },
   dialog: {
     delete_confirm_title: 'Delete {item}?',
@@ -2226,6 +2227,7 @@
     cyan: 'Cyan',
     sky: 'Sky',
     blue: 'Blue',
+    indigo: 'Indigo',
     violet: 'Violet',
     purple: 'Purple',
     pink: 'Pink',

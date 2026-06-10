@@ -76,6 +76,12 @@
     @update:model-value="(v: string) => emit('update:modelValue', v)"
   />
 
+  <!-- list pin — wire-only, 不渲染可编辑 input 防手输垃圾 literal -->
+  <span
+    v-else-if="type === 'list'"
+    class="text-xs text-dimmed italic"
+  >{{ t('containers.listPinWireOnly') }}</span>
+
   <!-- text / password / duration / async-dropdown / 默认 → 文本框
        async-dropdown 的候选源 (templateKeys/clipIDs/subgraphIDs) 多由 bespoke section 处理;
        走到这里的 (e.g. WaitTemplate.Template) 当字符串 key 编辑 (跟旧 literal section 一致)。 -->

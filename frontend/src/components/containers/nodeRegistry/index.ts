@@ -4,7 +4,7 @@
 // Adding a kind = 1 register({...}) call in specs/<group>.ts. Nothing else.
 // pinSpec.ts / nodeFieldSchemas.ts / NodePalette.vue all derive views over this.
 
-export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any'
+export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list'
 
 /** Typed data pin 颜色表. vue-flow Handle background 用. */
 export const TYPE_COLOR: Record<PinType, string> = {
@@ -13,6 +13,7 @@ export const TYPE_COLOR: Record<PinType, string> = {
   string: '#a78bfa', // purple
   point: '#34d399', // green
   any: '#9ca3af', // gray
+  list: '#818cf8', // indigo
 }
 
 /**
@@ -94,6 +95,7 @@ export type NodeGroup =
   | 'test'
   | 'event'
   | 'random'
+  | 'list'
 
 /**
  * Single-source-of-truth descriptor for a node kind.

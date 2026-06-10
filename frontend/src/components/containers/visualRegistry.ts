@@ -30,6 +30,7 @@ export const PALETTE: Record<string, PaletteEntry> = {
   cyan: { key: 'cyan', labelKey: 'palette.cyan', bg: 'bg-cyan-500/15', border: 'border-cyan-500/40', text: 'text-cyan-400', hex: '#06b6d4' },
   sky: { key: 'sky', labelKey: 'palette.sky', bg: 'bg-sky-500/15', border: 'border-sky-500/40', text: 'text-sky-400', hex: '#0ea5e9' },
   blue: { key: 'blue', labelKey: 'palette.blue', bg: 'bg-blue-500/15', border: 'border-blue-500/40', text: 'text-blue-400', hex: '#3b82f6' },
+  indigo: { key: 'indigo', labelKey: 'palette.indigo', bg: 'bg-indigo-500/15', border: 'border-indigo-500/40', text: 'text-indigo-400', hex: '#6366f1' },
   violet: { key: 'violet', labelKey: 'palette.violet', bg: 'bg-violet-500/15', border: 'border-violet-500/40', text: 'text-violet-400', hex: '#8b5cf6' },
   purple: { key: 'purple', labelKey: 'palette.purple', bg: 'bg-purple-500/15', border: 'border-purple-500/40', text: 'text-purple-400', hex: '#a855f7' },
   pink: { key: 'pink', labelKey: 'palette.pink', bg: 'bg-pink-500/15', border: 'border-pink-500/40', text: 'text-pink-400', hex: '#ec4899' },
@@ -64,6 +65,7 @@ export const GROUP_VISUAL: Record<string, { color: string; icon: string }> = {
   test: { color: 'pink', icon: 'i-tabler-flask' },
   event: { color: 'rose', icon: 'i-tabler-player-play' },
   random: { color: 'teal', icon: 'i-tabler-dice' },
+  list: { color: 'indigo', icon: 'i-tabler-list' },
 }
 
 export function groupVisual(group: string | undefined): { color: string; icon: string } {

@@ -239,6 +239,7 @@ const GROUP_LABEL = computed<Record<NodeGroup, string>>(() => ({
   test: t('nodeGroup.test'),
   event: t('nodeGroup.event'),
   random: t('nodeGroup.random'),
+  list: t('nodeGroup.list'),
 }))
 
 interface PaletteItem {
@@ -266,6 +267,7 @@ const KINDS_BY_GROUP = computed<Record<NodeGroup, PaletteGroup>>(() => {
     test: { label: labels.test, items: [] },
     event: { label: labels.event, items: [] },
     random: { label: labels.random, items: [] },
+    list: { label: labels.list, items: [] },
   }
   for (const s of allSpecs() as NodeKindSpec[]) {
     if (s.excludeFromPalette) continue // 不入面板的节点 (markers/visual-only — CommentBox 例外, adapter 已放行)
