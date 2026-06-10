@@ -14,6 +14,8 @@ describe('EXPR_FUNCTIONS', () => {
     round: [1, 2],
     pow: [2, 2],
     clamp: [3, 3],
+    rand: [0, 0],
+    randint: [2, 2],
   }
 
   it('matches the Go builtin set and arity', () => {

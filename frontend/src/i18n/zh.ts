@@ -2243,6 +2243,8 @@ export default {
       min: { desc: '两数取小' },
       now: { desc: '当前时间戳 (毫秒)' },
       pow: { desc: 'x 的 y 次方' },
+      rand: { desc: '随机小数 0~1' },
+      randint: { desc: '随机整数, 含 min 和 max' },
       round: { desc: '四舍五入, 可选保留位数' },
       sqrt: { desc: '平方根' },
     },

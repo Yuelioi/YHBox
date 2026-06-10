@@ -2197,6 +2197,8 @@
       min: { desc: 'Smaller of two numbers' },
       now: { desc: 'Current timestamp (ms)' },
       pow: { desc: 'x to the power of y' },
+      rand: { desc: 'Random float 0~1' },
+      randint: { desc: 'Random integer, min and max inclusive' },
       round: { desc: 'Round, with optional digits' },
       sqrt: { desc: 'Square root' },
     },

@@ -141,6 +141,10 @@ func TestExpr_Registered(t *testing.T) {
 	if len(rn.Spec.Outputs) != 1 || rn.Spec.Outputs[0].Name != "Result" {
 		t.Errorf("Expr outputs = %+v, want [Result]", rn.Spec.Outputs)
 	}
+	// rand()/now() 非确定 — 不挂标记 = per-dispatch 不记忆化 = 同帧多路径引用出不同值.
+	if !rn.Spec.IsNonDeterministic {
+		t.Errorf("Expr.IsNonDeterministic = false, want true")
+	}
 }
 
 // Expr.Evaluate 静态 dataWire 直跑 — dynamic input 通过 dataWire 喂.

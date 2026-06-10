@@ -19,6 +19,8 @@ export const EXPR_FUNCTIONS: ExprFunction[] = [
   { name: 'min', sig: 'min(a, b)', minArgs: 2, maxArgs: 2 },
   { name: 'now', sig: 'now()', minArgs: 0, maxArgs: 0 },
   { name: 'pow', sig: 'pow(x, y)', minArgs: 2, maxArgs: 2 },
+  { name: 'rand', sig: 'rand()', minArgs: 0, maxArgs: 0 },
+  { name: 'randint', sig: 'randint(min, max)', minArgs: 2, maxArgs: 2 },
   { name: 'round', sig: 'round(x, digits?)', minArgs: 1, maxArgs: 2 },
   { name: 'sqrt', sig: 'sqrt(x)', minArgs: 1, maxArgs: 1 },
 ]

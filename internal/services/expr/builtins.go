@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"math/rand/v2"
 	"time"
 )
 
@@ -55,6 +56,27 @@ var builtins = map[string]Builtin{
 	"pow":   {2, 2, num2("pow", math.Pow)},
 	"now": {0, 0, func(_ []Value, _ int) (Value, error) {
 		return float64(time.Now().UnixMilli()), nil
+	}},
+	// rand/randint 非确定 — Expr Spec 必须挂 IsNonDeterministic, 让 per-dispatch
+	// 记忆化保同帧多路径同值 (语义对齐 random 节点包).
+	"rand": {0, 0, func(_ []Value, _ int) (Value, error) {
+		return rand.Float64(), nil
+	}},
+	// randint(min, max) — 整数闭区间, min>max 交换 (与 RandomInt 节点 uniform 路径一致).
+	"randint": {2, 2, func(args []Value, pos int) (Value, error) {
+		a, aok := AsNumber(args[0])
+		b, bok := AsNumber(args[1])
+		if !aok || !bok {
+			return nil, fmt.Errorf("expr: randint() needs numbers at col %d", pos)
+		}
+		lo, hi := int64(a), int64(b)
+		if lo > hi {
+			lo, hi = hi, lo
+		}
+		if lo == hi {
+			return float64(lo), nil
+		}
+		return float64(lo + rand.Int64N(hi-lo+1)), nil
 	}},
 	// round(x) 取整 / round(x, digits) 带位数 — 与 Round 节点对齐, digits clamp [-15,15].
 	"round": {1, 2, func(args []Value, pos int) (Value, error) {
