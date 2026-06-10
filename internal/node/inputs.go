@@ -93,6 +93,22 @@ func (i *inputsImpl) StringList(name string) []string {
 	return nil
 }
 
+// List 读 List 型 pin. 容忍 []any (原样) / []string (转 []any, 一次性分配不缓存);
+// nil 及其它任意类型 → nil (不 panic). 不把裸 string 当一元列表 (与 StringList 区别).
+func (i *inputsImpl) List(name string) []any {
+	switch v := i.merged[name].(type) {
+	case []any:
+		return v
+	case []string:
+		out := make([]any, len(v))
+		for idx, s := range v {
+			out[idx] = s
+		}
+		return out
+	}
+	return nil
+}
+
 func (i *inputsImpl) Float64(name string) float64 {
 	switch v := i.merged[name].(type) {
 	case float64:

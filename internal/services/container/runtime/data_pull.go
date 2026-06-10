@@ -179,6 +179,9 @@ func toExprValue(v any) expr.Value {
 		return float64(x)
 	case int64:
 		return float64(x)
+	case []any:
+		// List pin 值 — 原样透传 (之前靠 default 碰巧透传, 显式化防回归).
+		return x
 	case map[string]any:
 		// Point literal: { "x": ..., "y": ... }. 带 w/h 的是 Rect — 留 raw map,
 		// 交给 buildDataWireFor 按声明类型 coerce 成 node.Rect (否则 w/h 会被丢)。

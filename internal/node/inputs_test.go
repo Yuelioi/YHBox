@@ -79,3 +79,43 @@ func TestInputs_JsonNumberCoercion(t *testing.T) {
 		t.Errorf("Float64(string '3.14') = %v, want 3.14", in2.Float64("x"))
 	}
 }
+
+func TestInputs_List(t *testing.T) {
+	cases := []struct {
+		name string
+		val  any
+		want []any
+	}{
+		{"any_slice", []any{1.0, "a"}, []any{1.0, "a"}},
+		{"string_slice", []string{"a", "b"}, []any{"a", "b"}},
+		{"nil", nil, nil},
+		{"bare_string_not_list", "a,b", nil}, // 与 StringList 区别: 不把裸 string 当一元列表
+		{"number_not_list", 3.14, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := NewInputsFromConfig(map[string]any{"literal": map[string]any{"X": tc.val}})
+			got := in.List("X")
+			if len(got) != len(tc.want) {
+				t.Fatalf("len = %d, want %d (%v)", len(got), len(tc.want), got)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("[%d] = %v, want %v", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestListTypeRegistered(t *testing.T) {
+	for _, ts := range AllTypes() {
+		if ts.Tag == "List" {
+			if ts.GoType != "[]any" || ts.Color != "#818cf8" || ts.WidgetKind != "list-preview" {
+				t.Fatalf("List TypeSpec wrong: %+v", ts)
+			}
+			return
+		}
+	}
+	t.Fatal("List type not registered")
+}

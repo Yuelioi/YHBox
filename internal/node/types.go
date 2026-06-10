@@ -93,6 +93,7 @@ func init() {
 		{Tag: "Image", GoType: "*image.RGBA", WidgetKind: "preview", Color: "#9ca3af"},
 		{Tag: "Duration", GoType: "time.Duration", WidgetKind: "duration", Color: "#3b82f6"},
 		{Tag: "JSON", GoType: "map[string]any", WidgetKind: "json", Color: "#9ca3af"},
+		{Tag: "List", GoType: "[]any", WidgetKind: "list-preview", Color: "#818cf8"},
 		{Tag: "Exec", GoType: "(framework)", WidgetKind: "exec-pin", Color: "#ffffff"},
 	} {
 		typeRegistry[ts.Tag] = ts

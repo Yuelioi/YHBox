@@ -164,6 +164,8 @@ func canonPinType(t string) string {
 		return "point"
 	case "*", "JSON", "Color", "Rect", "Time":
 		return "any"
+	case "List":
+		return "list"
 	case "Exec":
 		return ""
 	}

@@ -62,6 +62,8 @@ type Inputs interface {
 	Int(name string) int
 	Bool(name string) bool
 	StringList(name string) []string
+	// List 读 List 型 pin ([]any). 非列表/nil → nil. 不把裸 string 当一元列表 (与 StringList 区别).
+	List(name string) []any
 	Point(name string) Point
 	Rect(name string) Rect
 	Geometry(name string) Geometry
