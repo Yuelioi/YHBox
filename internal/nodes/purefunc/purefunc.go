@@ -8,9 +8,7 @@ package purefunc
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -101,28 +99,6 @@ func asBool(v any) bool {
 		return x != ""
 	}
 	return true
-}
-
-// formatValue 软转 string (Log/Concat 用).
-func formatValue(v any) string {
-	switch x := v.(type) {
-	case nil:
-		return "null"
-	case bool:
-		if x {
-			return "true"
-		}
-		return "false"
-	case float64:
-		return strconv.FormatFloat(x, 'g', -1, 64)
-	case int:
-		return strconv.Itoa(x)
-	case int64:
-		return strconv.FormatInt(x, 10)
-	case string:
-		return x
-	}
-	return fmt.Sprintf("%v", v)
 }
 
 func init() {
@@ -255,7 +231,7 @@ func (Eq) Spec() node.Spec {
 	return specBuilder("Eq", anyIn(), "Bool")
 }
 func (Eq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return equalAny(in.Raw("A"), in.Raw("B")), nil
+	return node.LooseEqual(in.Raw("A"), in.Raw("B")), nil
 }
 
 type NotEq struct{}
@@ -264,30 +240,7 @@ func (NotEq) Spec() node.Spec {
 	return specBuilder("NotEq", anyIn(), "Bool")
 }
 func (NotEq) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return !equalAny(in.Raw("A"), in.Raw("B")), nil
-}
-
-// equalAny same-type direct compare; cross-type via formatValue.
-func equalAny(a, b any) bool {
-	if sameType(a, b) {
-		return a == b
-	}
-	return formatValue(a) == formatValue(b)
-}
-
-func sameType(a, b any) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return typeNameOf(a) == typeNameOf(b)
-}
-
-// typeNameOf 用 fmt.Sprintf("%T", v) 取类型名. 仅用于 sameType.
-func typeNameOf(v any) string {
-	return fmt.Sprintf("%T", v)
+	return !node.LooseEqual(in.Raw("A"), in.Raw("B")), nil
 }
 
 // ===== 逻辑 (3) =====
@@ -340,7 +293,7 @@ func (Concat) Spec() node.Spec {
 	return specBuilder("Concat", strIn(), "String")
 }
 func (Concat) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return formatValue(in.Raw("A")) + formatValue(in.Raw("B")), nil
+	return node.FormatValue(in.Raw("A")) + node.FormatValue(in.Raw("B")), nil
 }
 
 type Contains struct{}
@@ -352,7 +305,7 @@ func (Contains) Spec() node.Spec {
 	}, "Bool")
 }
 func (Contains) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return strings.Contains(formatValue(in.Raw("Haystack")), formatValue(in.Raw("Needle"))), nil
+	return strings.Contains(node.FormatValue(in.Raw("Haystack")), node.FormatValue(in.Raw("Needle"))), nil
 }
 
 type Length struct{}
@@ -365,7 +318,7 @@ func (Length) Spec() node.Spec {
 // Evaluate — rune 计数 (CJK 一个字算 1, 非字节). 与 Substring/IndexOf 的位置语义统一,
 // 见 specs/2026-06-10-string-nodes.md "byte vs rune 判断".
 func (Length) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return float64(utf8.RuneCountInString(formatValue(in.Raw("S")))), nil
+	return float64(utf8.RuneCountInString(node.FormatValue(in.Raw("S")))), nil
 }
 
 // ===== 转换 (3) =====
@@ -378,7 +331,7 @@ func (ToString) Spec() node.Spec {
 	}, "String")
 }
 func (ToString) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return formatValue(in.Raw("X")), nil
+	return node.FormatValue(in.Raw("X")), nil
 }
 
 type ToNumber struct{}
