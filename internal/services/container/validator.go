@@ -90,6 +90,10 @@ const (
 	CodeExprUnknownFunction = "EXPR_UNKNOWN_FUNCTION"
 	CodeExprFnArity         = "EXPR_FN_ARITY"
 
+	// Script node
+	CodeScriptParseError     = "SCRIPT_PARSE_ERROR"
+	CodeScriptDuplicateInput = "SCRIPT_DUPLICATE_INPUT"
+
 	// GetParam
 	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
 
@@ -172,6 +176,7 @@ func ValidateContainer(c *Container) []ValidationError {
 	errs = append(errs, validateDataPinTypes(c)...)
 	errs = append(errs, validateLiteralTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
+	errs = append(errs, validateScriptNodes(c)...)
 	errs = append(errs, validateDataGraphAcyclic(c)...)
 	errs = append(errs, validateRequiredPins(c)...)
 	errs = append(errs, validateUnknownLiteralPins(c)...)
