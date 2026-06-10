@@ -131,6 +131,59 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 	}
 }
 
+// TestExpr_VarBoundInput: 绑定项 (decl.Var 非空) 不连线直接读变量 — 等价"隐形 GetVar 连线",
+// 走同一条 snapshot 语义 (buildDataWireFor 合成 GetVar 求值)。
+func TestExpr_VarBoundInput(t *testing.T) {
+	_, r := newTestRunner(t)
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"counter": float64(10)}))
+
+	ex := &container.GraphNode{
+		ID: "ex", Kind: "Expr",
+		Config: map[string]any{
+			"Expression": "c * 2",
+			"Inputs": []any{
+				map[string]any{"Name": "c", "Type": "number", "Var": "counter", "Scope": "global"},
+			},
+		},
+	}
+	r.nodesByID = map[string]*container.GraphNode{"ex": ex}
+
+	v, err := r.evalExprViaFramework(t, ctx, ex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := expr.AsNumber(v)
+	if got != 20.0 {
+		t.Fatalf("Expr c*2 with c bound to counter=10: want 20, got %v", v)
+	}
+}
+
+// TestExpr_VarBoundInput_Missing: 绑定的变量不存在 → 不进 dataWire → 表达式里 undefined
+// (结果 nil), 不炸 — 编辑期由 BOUND_VAR_UNKNOWN 报。
+func TestExpr_VarBoundInput_Missing(t *testing.T) {
+	_, r := newTestRunner(t)
+	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}))
+
+	ex := &container.GraphNode{
+		ID: "ex", Kind: "Expr",
+		Config: map[string]any{
+			"Expression": "c",
+			"Inputs": []any{
+				map[string]any{"Name": "c", "Type": "number", "Var": "ghost"},
+			},
+		},
+	}
+	r.nodesByID = map[string]*container.GraphNode{"ex": ex}
+
+	v, err := r.evalExprViaFramework(t, ctx, ex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != nil {
+		t.Fatalf("missing bound var: want nil, got %v", v)
+	}
+}
+
 // TestExpr_EmptyExprReturnsNil: draft node with empty expr is non-fatal.
 //
 // 注意: Expression 在 Spec 里是 Required, framework 在 validateRequired 阶段

@@ -94,6 +94,10 @@ const (
 	CodeScriptParseError     = "SCRIPT_PARSE_ERROR"
 	CodeScriptDuplicateInput = "SCRIPT_DUPLICATE_INPUT"
 
+	// DynamicInputs 变量绑定项 (Expr/Script 共用)
+	CodeBoundVarUnknown      = "BOUND_VAR_UNKNOWN"
+	CodeBoundVarTypeMismatch = "BOUND_VAR_TYPE_MISMATCH"
+
 	// GetParam
 	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
 
@@ -177,6 +181,7 @@ func ValidateContainer(c *Container) []ValidationError {
 	errs = append(errs, validateLiteralTypes(c)...)
 	errs = append(errs, validateExprNodes(c)...)
 	errs = append(errs, validateScriptNodes(c)...)
+	errs = append(errs, validateBoundInputs(c)...)
 	errs = append(errs, validateDataGraphAcyclic(c)...)
 	errs = append(errs, validateRequiredPins(c)...)
 	errs = append(errs, validateUnknownLiteralPins(c)...)

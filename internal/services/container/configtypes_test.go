@@ -15,6 +15,25 @@ func TestParseDynamicInputDecls_AnyKind(t *testing.T) {
 	}
 }
 
+func TestParseDynamicInputDecls_VarBinding(t *testing.T) {
+	n := &GraphNode{Kind: "Expr", Config: map[string]any{
+		"Inputs": []any{
+			map[string]any{"Name": "hp", "Type": "number", "Var": "血量", "Scope": "global"},
+			map[string]any{"Name": "wired", "Type": "string"},
+		},
+	}}
+	decls := ParseDynamicInputDecls(n)
+	if len(decls) != 2 {
+		t.Fatalf("got %+v", decls)
+	}
+	if decls[0].Var != "血量" || decls[0].Scope != "global" {
+		t.Fatalf("bound decl: %+v", decls[0])
+	}
+	if decls[1].Var != "" || decls[1].Scope != "" {
+		t.Fatalf("wired decl 不该带绑定字段: %+v", decls[1])
+	}
+}
+
 func TestParseDynamicInputDecls_NilSafe(t *testing.T) {
 	if got := ParseDynamicInputDecls(nil); got != nil {
 		t.Fatalf("nil node: got %+v", got)

@@ -254,7 +254,8 @@ func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 	}
 	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicInputs {
 		for _, in := range ParseDynamicInputDecls(n) {
-			if in.Name == pinName && in.Type != "" {
+			// 绑定项 (Var 非空) 不是 pin — 不返回类型, 连到绑定名的数据线由 pin 检查拒掉.
+			if in.Name == pinName && in.Type != "" && in.Var == "" {
 				return strings.ToLower(in.Type)
 			}
 		}

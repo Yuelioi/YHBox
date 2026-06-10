@@ -75,6 +75,15 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 			if _, exists := dw[in.Name]; exists {
 				continue
 			}
+			// 绑定项 (Var 非空): 不走 pin pull, 合成一次 GetVar 求值 — 复用其
+			// snapshot/scope/兜底整条语义链, 等价"隐形 GetVar 连线"。变量缺失 → nil
+			// 不进 dataWire (节点侧是 undefined, 同未连线), 编辑期 BOUND_VAR_UNKNOWN 报.
+			if in.Var != "" {
+				if v := r.evalBoundVar(ctx, in); v != nil {
+					dw[in.Name] = v
+				}
+				continue
+			}
 			v, err := r.resolveDataPinV5(ctx, node.ID, in.Name)
 			if err != nil || v == nil {
 				continue
@@ -83,6 +92,24 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 		}
 	}
 	return dw
+}
+
+// evalBoundVar 读绑定变量值 (合成 GetVar 求值)。scope 空当 auto。
+func (r *ContainerRunner) evalBoundVar(ctx context.Context, in container.ExprInputDecl) any {
+	rnGet, ok := nodepkg.Get("GetVar")
+	if !ok {
+		return nil
+	}
+	scope := in.Scope
+	if scope == "" {
+		scope = "auto"
+	}
+	v, err := nodepkg.EvaluatePureData(ctx, rnGet,
+		map[string]any{"VarName": in.Var, "Scope": scope}, nil, r.bundle)
+	if err != nil {
+		return nil
+	}
+	return v
 }
 
 // applyExecDataEdges 回填"源是 exec-output data 字段 (如 Fail.Code)"的 data-in pin.
