@@ -50,6 +50,26 @@ related: [specs/2026-06-10-random-nodes.md]
 
 **产出**：plan/impl 前出一页"List 链路审计"结论；命中阻塞回炉。
 
+### A' 审计结论（2026-06-10，三路并行审计完毕 — **gate 通过，零架构阻塞**）
+
+**后端链路（全 PASS + caveats）**：var store（SetVar/GetVar 原样存取 `[]any`，runtime_context.go:120-125）、TickSnapshot 浅拷贝引用共享只读、`node.Capture` 无 coercion、`toExprValue`/`coerceToType` default 透传、库导出只搬结构、`dumpValue` 对 `[]any` 走 `json.Marshal` —— 全链路 OK。Caveats：
+- **⛔→设计修正：LooseEqual 必须加不可比类型防护**。`equalAny` 的 `sameType → a == b` 对 slice/map 动态类型是 Go 运行时 panic（被 EvaluatePureData recover 成 error → 再被数据线路径吞成 nil = 静默错值）。提升时改为：同类型且**可比**→直比；同类型但不可比（slice/map）→ FormatValue 串比。这是对"零行为变更纯搬移"的唯一修正（原行为=panic，无保留价值），ListContains 遇嵌套元素必踩。
+- IncVar 对 list 变量：`AsNumber`→0→静默改写为数字（GIGO，与框架"宽容非法输入"惯例一致，不修，文档化）。
+- Expr 读 list：全运算路径**干净 error 无 panic**（eval.go 各 AsNumber gate）；`AsBool([]any)`=true（恒真）；error 被 `buildDataWireFor` 吞（dispatch_v5.go:58，预存行为）。按选项 (a)：文档化"列表不进 Expr"。
+- `canonPinType` 靠 lowercase fallback 碰巧得 "list"——显式加 case 加固。
+- CaptureType：ForEach 用 `"any"`（spec_capture_test 白名单已含，不扩词表）。
+- 后端 `PinTypeCompat`：List→List 同型放行、List→Number 正确拒、List→`*` 放行 ✓。
+
+**前端类型矩阵（2 个必改站点，纳入落地清单）**：
+- **闭合词表三连**：`nodeRegistry/index.ts` 的 `PinType` 联合 + `TYPE_COLOR` 静态表（画布 pin 用它，**不是** RPC 色表）+ `adapter.ts::backendTypeToPinType`（现在 List→default `'any'` 静默降级灰色）——三处必须加 `'list'`（色 #818cf8）。`pinTypeCompat` 顺手扩（注：它是**死代码**，vue-flow 未接任何连线类型门禁——预存缺口，本批不接）。
+- widget `list-preview` 未注册会回退成可编辑文本框（能手输垃圾 literal）→ 实现为**只读"由连线提供"占位**（PinInput/PinLiteral 对 list 型分支）。
+- ExpressionInput `expectedType` 无 list——优雅降级，不改。
+
+**持久化/编辑链（全 PASS + 2 个词表 caveat，均 YAGNI 文档化不扩）**：
+- graph JSON / undo / clipboard / 库导出只搬结构+literal，wire 值不落盘 ✓。
+- 子图参数类型词表无 "list"：List 进子图须把参数类型设 **any**（typed 参数 PIN_TYPE_MISMATCH 正确拒绝）。
+- VarDecl/VarType 词表无 "list"：存列表的变量声明 **any** 型（SetVar 无类型门禁照存；VarRow JSON.stringify 显示正常）。
+
 ## B. ForEach（RegionRunner，放 `nodes/control` 包）
 
 > 与 Loop 同为 RegionRunner、同包（`nodes/control`，遵循机制归类，不混进纯数据 collection 包）。Category 标 `List`（palette 与列表节点同组）。
