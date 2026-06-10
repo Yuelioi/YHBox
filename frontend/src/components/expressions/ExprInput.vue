@@ -1,52 +1,28 @@
-<!-- Expr 表达式编辑器 (widget kind 'expr', PinInput 分发) — 函数补全下拉 + 即时启发式红错.
-     权威校验仍在后端 validator (EXPR_PARSE_ERROR / EXPR_UNKNOWN_FUNCTION / EXPR_FN_ARITY 节点红错);
-     这里只做打字时的快速反馈, 启发式宁缺勿滥. -->
+<!-- Expr 表达式编辑器 (widget kind 'expr', PinInput 分发) — CodeMirror 6 内核:
+     语法高亮 + 函数补全 (签名+说明) + 带位置红线 (lintExpr 启发式)。
+     权威校验仍在后端 validator (EXPR_* 节点红错); 这里是打字时的快速反馈。 -->
 <template>
-  <div class="relative">
-    <UTextarea
-      ref="textareaRef"
-      :model-value="modelValue"
-      :rows="3"
-      size="sm"
-      class="w-full font-mono"
-      :color="errorText ? 'error' : undefined"
-      :placeholder="placeholder"
-      @update:model-value="onInput"
-      @focus="onFocus"
-      @blur="onBlur"
-      @keydown="onKeydown"
-      @keyup="refreshCaret"
-      @click="refreshCaret"
-    />
-
-    <!-- 补全下拉: 签名 + 一行说明 -->
+  <div>
     <div
-      v-if="opened && suggestions.length > 0"
-      class="absolute left-0 right-0 top-full mt-1 z-50 bg-elevated border border-default rounded-md shadow-lg max-h-48 overflow-y-auto"
-    >
-      <button
-        v-for="(s, i) in suggestions"
-        :key="s.insert"
-        type="button"
-        class="w-full text-left px-2 py-1 text-xs flex items-center justify-between gap-2 hover:bg-primary/10"
-        :class="i === highlightedIdx ? 'bg-primary/10 text-primary' : 'text-default'"
-        @mousedown.prevent="onPick(s)"
-      >
-        <span class="font-mono">{{ s.label }}</span>
-        <span class="text-[10px] text-dimmed truncate">{{ s.desc }}</span>
-      </button>
-    </div>
-
+      ref="host"
+      class="bg-elevated/80 border border-default rounded-md overflow-hidden focus-within:border-emerald-500"
+    />
     <p v-if="errorText" class="text-[10px] text-rose-300/90 mt-0.5">{{ errorText }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { EXPR_FUNCTIONS, tokenAtCaret, unknownFnsIn } from '@/lib/exprFunctions'
+import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view'
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import { autocompletion, completionKeymap, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete'
+import { linter, type Diagnostic } from '@codemirror/lint'
+import { tags } from '@lezer/highlight'
+import { allExprFunctions, exprFnNames, lintExpr, type ExprDiagnostic } from '@/lib/exprFunctions'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const props = defineProps<{
   modelValue: string
@@ -55,133 +31,131 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
 
-const textareaRef = ref<any>(null)
-const opened = ref(false)
-const highlightedIdx = ref(0)
-const touched = ref(false)
-const caret = ref(0)
+const host = ref<HTMLElement | null>(null)
+let view: EditorView | null = null
 
-function textareaEl(): HTMLTextAreaElement | null {
-  return (textareaRef.value?.$el as HTMLElement | undefined)?.querySelector('textarea') ?? null
-}
+// ── 语法高亮: 手写 stream tokenizer (语法就一行表达式, 不上 Lezer grammar) ──
 
-function refreshCaret() {
-  const el = textareaEl()
-  if (el) caret.value = el.selectionStart ?? props.modelValue.length
-}
-
-interface Suggestion {
-  label: string
-  desc: string
-  insert: string
-  /** 插入后光标相对 insert 末尾的回退量 (函数补到括号内). */
-  caretBack: number
-}
-
-const suggestions = computed<Suggestion[]>(() => {
-  const { token } = tokenAtCaret(props.modelValue, caret.value)
-  if (token === '') return []
-  const q = token.toLowerCase()
-  const out: Suggestion[] = []
-  for (const f of EXPR_FUNCTIONS) {
-    if (!f.name.startsWith(q)) continue
-    out.push({
-      label: f.sig,
-      desc: t(`expression.fn.${f.name}.desc`),
-      insert: `${f.name}()`,
-      caretBack: f.maxArgs === 0 ? 0 : 1, // 有参函数光标落括号内
-    })
-  }
-  for (const lit of ['true', 'false', 'null']) {
-    if (lit.startsWith(q)) out.push({ label: lit, desc: '', insert: lit, caretBack: 0 })
-  }
-  return out.slice(0, 12)
-})
-
-// 即时启发式红错 (touched 后才报, 避免初始空值瞎报): 括号/引号/裸词/尾运算符/未知函数.
-const errorText = computed<string>(() => {
-  if (!touched.value) return ''
-  const v = props.modelValue.trim()
-  if (v === '') return ''
-
-  let depth = 0
-  let inStr = false
-  for (let i = 0; i < v.length; i++) {
-    const c = v[i]
-    if (c === '"' && v[i - 1] !== '\\') inStr = !inStr
-    if (inStr) continue
-    if (c === '(') depth++
-    else if (c === ')') {
-      depth--
-      if (depth < 0) return t('expression.error.paren_mismatch')
+const exprLanguage = StreamLanguage.define({
+  token(stream) {
+    if (stream.eatSpace()) return null
+    if (stream.match(/^"(?:[^"\\]|\\.)*"?/)) return 'string'
+    if (stream.match(/^\d+(\.\d+)?/)) return 'number'
+    if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/)) {
+      const word = stream.current()
+      if (word === 'true' || word === 'false' || word === 'null') return 'atom'
+      if (exprFnNames().has(word)) return 'keyword' // 内置函数名
+      return 'variableName' // 动态输入引用
     }
-  }
-  if (inStr) return t('expression.error.string_unclosed')
-  if (depth !== 0) return t('expression.error.paren_missing', { count: Math.abs(depth), char: depth > 0 ? ')' : '(' })
-
-  // 裸词: 单 identifier 且不是字面量 — 多半是想写字符串忘了引号
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v) && !['true', 'false', 'null'].includes(v)) {
-    return t('expression.error.bare_word', { var: v })
-  }
-
-  if (/[+\-*/%<>=!&|?:,]\s*$/.test(v)) return t('expression.error.op_end')
-
-  const unknown = unknownFnsIn(v)
-  if (unknown.length > 0) return t('expression.error.unknown_fn', { name: unknown[0] })
-
-  return ''
+    if (stream.match(/^[+\-*/%<>=!&|?:,.]+/)) return 'operator'
+    if (stream.match(/^[()]/)) return 'bracket'
+    stream.next()
+    return null
+  },
 })
 
-function onInput(v: string | number) {
-  emit('update:modelValue', String(v ?? ''))
-  opened.value = true
-  highlightedIdx.value = 0
-  nextTick(refreshCaret)
+// 配色对齐 pin 类型色 (types.go: string 绿 / number 蓝 / bool 黄系).
+const exprHighlight = HighlightStyle.define([
+  { tag: tags.string, color: '#4ade80' },
+  { tag: tags.number, color: '#60a5fa' },
+  { tag: tags.atom, color: '#facc15' },
+  { tag: tags.keyword, color: '#c084fc' },
+  { tag: tags.variableName, color: '#e2e8f0' },
+  { tag: tags.operator, color: '#94a3b8' },
+])
+
+// ── 补全: 函数 (sig + i18n 说明, 上屏光标落括号内) + 字面量 ──
+
+function fnDesc(name: string): string {
+  const key = `expression.fn.${name}.desc`
+  return te(key) ? t(key) : '' // 新函数没配说明 → 空, 不糊 raw key
 }
 
-function onFocus() {
-  opened.value = true
-  touched.value = true
-  refreshCaret()
-}
-
-function onBlur() {
-  // 延迟关闭, 让选项的 mousedown 先触发
-  setTimeout(() => {
-    opened.value = false
-  }, 150)
-}
-
-function onKeydown(e: KeyboardEvent) {
-  if (!opened.value || suggestions.value.length === 0) return
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    highlightedIdx.value = (highlightedIdx.value + 1) % suggestions.value.length
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    highlightedIdx.value = (highlightedIdx.value - 1 + suggestions.value.length) % suggestions.value.length
-  } else if (e.key === 'Enter' || e.key === 'Tab') {
-    e.preventDefault()
-    onPick(suggestions.value[highlightedIdx.value])
-  } else if (e.key === 'Escape') {
-    opened.value = false
+function exprCompletions(ctx: CompletionContext): CompletionResult | null {
+  const word = ctx.matchBefore(/[a-zA-Z_][a-zA-Z0-9_]*/)
+  if (!word && !ctx.explicit) return null
+  const from = word ? word.from : ctx.pos
+  return {
+    from,
+    validFor: /^[a-zA-Z0-9_]*$/,
+    options: [
+      ...allExprFunctions().map(f => ({
+        label: f.name,
+        displayLabel: f.sig,
+        type: 'function',
+        detail: fnDesc(f.name),
+        apply: (v: EditorView, _c: unknown, applyFrom: number, applyTo: number) => {
+          const insert = `${f.name}()`
+          const caret = applyFrom + insert.length - (f.maxArgs === 0 ? 0 : 1)
+          v.dispatch({ changes: { from: applyFrom, to: applyTo, insert }, selection: { anchor: caret } })
+        },
+      })),
+      ...['true', 'false', 'null'].map(l => ({ label: l, type: 'keyword' as const })),
+    ],
   }
 }
 
-async function onPick(s: Suggestion) {
-  const cur = props.modelValue
-  const { start } = tokenAtCaret(cur, caret.value)
-  const end = caret.value
-  const next = cur.slice(0, start) + s.insert + cur.slice(end)
-  emit('update:modelValue', next)
-  opened.value = false
-  await nextTick()
-  const el = textareaEl()
-  if (el) {
-    const pos = start + s.insert.length - s.caretBack
-    el.focus()
-    el.setSelectionRange(pos, pos)
-    caret.value = pos
-  }
+// ── lint: 启发式诊断 → 红波浪线 + hover 提示; 框下另留首条红字 ──
+
+function diagMessage(d: ExprDiagnostic): string {
+  return te(d.messageKey) ? t(d.messageKey, d.params ?? {}) : d.messageKey
 }
+
+function cmLintSource(v: EditorView): Diagnostic[] {
+  return lintExpr(v.state.doc.toString(), exprFnNames()).map(d => ({
+    from: d.from,
+    to: Math.max(d.to, d.from),
+    severity: 'error' as const,
+    message: diagMessage(d),
+  }))
+}
+
+const errorText = computed<string>(() => {
+  const first = lintExpr(props.modelValue ?? '', exprFnNames())[0]
+  return first ? diagMessage(first) : ''
+})
+
+// ── EditorView 生命周期 + v-model 双向 ──
+
+const theme = EditorView.theme({
+  '&': { backgroundColor: 'transparent', fontSize: '11px' },
+  '&.cm-focused': { outline: 'none' },
+  '.cm-content': { fontFamily: 'ui-monospace, monospace', minHeight: '3.9em', padding: '4px 0' },
+  '.cm-line': { padding: '0 6px' },
+  '.cm-tooltip': { fontSize: '11px' },
+}, { dark: true })
+
+onMounted(() => {
+  view = new EditorView({
+    parent: host.value!,
+    doc: props.modelValue ?? '',
+    extensions: [
+      history(),
+      exprLanguage,
+      syntaxHighlighting(exprHighlight),
+      autocompletion({ override: [exprCompletions] }),
+      linter(cmLintSource, { delay: 300 }),
+      cmPlaceholder(props.placeholder ?? ''),
+      theme,
+      keymap.of([{ key: 'Tab', run: acceptCompletion }, ...completionKeymap, ...defaultKeymap, ...historyKeymap]),
+      EditorView.lineWrapping,
+      EditorView.updateListener.of((u) => {
+        if (u.docChanged) emit('update:modelValue', u.state.doc.toString())
+      }),
+    ],
+  })
+})
+
+watch(() => props.modelValue, (v) => {
+  if (!view) return
+  const cur = view.state.doc.toString()
+  if (v !== cur) {
+    view.dispatch({ changes: { from: 0, to: cur.length, insert: v ?? '' } })
+  }
+})
+
+onBeforeUnmount(() => {
+  view?.destroy()
+  view = null
+})
 </script>
