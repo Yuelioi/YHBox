@@ -28,7 +28,7 @@ related: [specs/2026-06-10-random-nodes.md]
 | 节点 | 输入 | 输出 | 实现 |
 |---|---|---|---|
 | **Replace** | `Text`(String)、`Old`(String)、`New`(String) | `Result`(String) | `strings.ReplaceAll`（替换全部）|
-| **Substring** | `Text`(String)、`Start`(Integer,默认0)、`Length`(Integer,默认0) | `Result`(String) | **rune-based**：`r:=[]rune(Text)`；Start clamp `[0,len]`；`Length<=0`→取到末尾；end clamp `[0,len]`；返 `string(r[start:end])` |
+| **Substring** | `Text`(String)、`Start`(Integer,默认0)、`Length`(Integer,默认 **-1**) | `Result`(String) | **rune-based**：`r:=[]rune(Text)`；Start clamp `[0,len]`（负 Start→0）；`Length<0`→取到末尾(默认)、`Length==0`→**空串**(可表达取0)、`Length>0`→取 Length 个 rune；end=`min(start+Length,len)`；返 `string(r[start:end])` |
 | **Trim** | `Text`(String) | `Result`(String) | `strings.TrimSpace`（两端空白）|
 | **ToUpper** | `Text`(String) | `Result`(String) | `strings.ToUpper` |
 | **ToLower** | `Text`(String) | `Result`(String) | `strings.ToLower` |
@@ -43,7 +43,7 @@ related: [specs/2026-06-10-random-nodes.md]
 - **进 purefunc 包、Category PureFunc**——字符串就是纯函数，不新建包/分类，零前端 Category 工作。
 - **位置类 rune-based**（Substring/IndexOf）——CJK 正确。
 - **Replace = ReplaceAll**（替换全部，最常用）；要"只替一次/正则替换"将来按需加 ReplaceN/RegexReplace。
-- **Substring 用 Start+Length**（Length≤0=到末尾），与 [collection spec](2026-06-10-collection-nodes.md) 的 ListSlice 同款约定，绕开"End 默认值"难题、保持一致。
+- **Substring 用 Start+Length**（Length<0=到末尾默认、0=空、>0=N 个），与 [collection spec](2026-06-10-collection-nodes.md) 的 ListSlice **同款约定**（负=rest/0=空/正=N），0 能表达"取0个"，绕开"End 默认值"歧义。
 - **Regex 非法 Pattern → error**（不静默返 false/空）——让用户知道正则写错了。
 
 ## 非目标（YAGNI）
