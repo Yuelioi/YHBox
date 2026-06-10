@@ -169,3 +169,49 @@ func TestRandomBool_ProbHalf_BothSeen(t *testing.T) {
 		t.Fatalf("Prob=0.5 should yield both; sawT=%v sawF=%v", sawT, sawF)
 	}
 }
+
+func TestRandomChoice_Spec_Flags(t *testing.T) {
+	s := RandomChoice{}.Spec()
+	if !s.IsPureData || !s.IsNonDeterministic || s.Category != "Random" {
+		t.Fatalf("bad spec: %+v", s)
+	}
+	if s.Outputs[0].Type != "*" {
+		t.Fatalf("output type = %q, want *", s.Outputs[0].Type)
+	}
+}
+
+func TestRandomChoice_PicksFromList(t *testing.T) {
+	in := node.NewInputsFromConfig(map[string]any{"literal": map[string]any{"List": []any{"a", "b", "c"}}})
+	seen := map[any]bool{}
+	for i := 0; i < 500; i++ {
+		v, err := (RandomChoice{}).Evaluate(nil, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v != "a" && v != "b" && v != "c" {
+			t.Fatalf("picked %v, not in list", v)
+		}
+		seen[v] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("500 picks saw only %v — not random", seen)
+	}
+}
+
+func TestRandomChoice_EmptyOrNonList_Nil(t *testing.T) {
+	for _, lv := range []any{[]any{}, nil, "not a list"} {
+		in := node.NewInputsFromConfig(map[string]any{"literal": map[string]any{"List": lv}})
+		v, err := (RandomChoice{}).Evaluate(nil, in)
+		if err != nil || v != nil {
+			t.Fatalf("List=%v: got (%v, %v), want (nil, nil)", lv, v, err)
+		}
+	}
+}
+
+func TestRandomChoice_NilElementPickable(t *testing.T) {
+	in := node.NewInputsFromConfig(map[string]any{"literal": map[string]any{"List": []any{nil}}})
+	v, err := (RandomChoice{}).Evaluate(nil, in)
+	if err != nil || v != nil {
+		t.Fatalf("got (%v, %v), want (nil, nil) — 元素本身是 nil", v, err)
+	}
+}

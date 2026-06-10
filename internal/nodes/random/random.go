@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	for _, n := range []node.Node{&RandomInt{}, &RandomFloat{}, &RandomBool{}} {
+	for _, n := range []node.Node{&RandomInt{}, &RandomFloat{}, &RandomBool{}, &RandomChoice{}} {
 		node.Register(n)
 	}
 }
@@ -136,4 +136,28 @@ func (RandomBool) Spec() node.Spec {
 // Evaluate — Prob 越界自然夹紧: Float64()∈[0,1) → Prob<=0 恒 false, Prob>=1 恒 true.
 func (RandomBool) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return rand.Float64() < in.Float64("Prob"), nil
+}
+
+// ===== RandomChoice =====
+
+type RandomChoice struct{}
+
+func (RandomChoice) Spec() node.Spec {
+	return node.Spec{
+		Kind: "RandomChoice", Category: "Random",
+		Inputs:             []node.InputSpec{{Name: "List", Type: "List"}},
+		Outputs:            []node.OutputSpec{{Name: "Result", Type: "*"}},
+		IsPureData:         true,
+		IsNonDeterministic: true,
+	}
+}
+
+// Evaluate — 均匀取一元素. 空/非列表 → nil (与 ListGet 越界一致; nil 歧义 i18n 写明).
+// 受 per-dispatch 缓存覆盖: 同一求值内多路径引用同值.
+func (RandomChoice) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	items := in.List("List")
+	if len(items) == 0 {
+		return nil, nil
+	}
+	return items[rand.IntN(len(items))], nil
 }
