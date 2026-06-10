@@ -38,6 +38,10 @@ last_updated: 2026-06-11
 
 `vars.get/set/inc(name, [scope])` (scope 缺省 "auto") · `params.get(name)` · `sleep(ms)` (可取消) · `log.debug/info/warn(...)`。变量读的是 **live 值** (Snapshot 不包, 脚本是 exec 语境)。
 
+## $变量引用 (2026-06-11)
+
+脚本里 `$hp` 等价 `vars.get("hp")` — Run 起跑时给每个已知变量注入 live accessor getter (`installVarGetters`, goja DefineAccessorProperty; 变量名枚举走可选能力接口 `varNamer.Names()`, 生产 varStoreAdapter/测试 stub 实现, **不进 node.VarStore 主接口**免测试 fake 陪绑)。访问时实时读 (脚本中途 set 后 `$hp` 是新值)。运行中动态新建的变量没有 getter (注入集起跑时固定) — 用 `vars.get`。引用未声明变量 → JS ReferenceError → Fail 出口 (JS 太动态, 不做静态查)。
+
 ## 取消
 
 watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器时哪怕脚本在纯 JS 死循环也立即打断, Run 返 `ctx.Err()` (graceful halt, 同 Sleep/KeyPress)。被调的阻塞节点用同一 ctx, 原生取消。
@@ -51,9 +55,9 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 ## 动态输入机制 (Expr/Script 共用)
 
 - `Spec.DynamicInputs: true` 节点的额外输入由 `config.Inputs[]` 声明 (PascalCase `{Name, Type, Var?, Scope?}`), 后端统一走 `container.ParseDynamicInputDecls`; dispatch (`buildDataWireFor`) / validator (`dataInPinTypeForNode` / unknown-literal 跳过) / FE (`adapter.ts parseDynamicInputsCfg` / `pinLiterals.ts`) 全部标志驱动, **无 kind 字符串特判**。
-- **两种来源**: 绑定变量 (`Var` 非空, 编辑器默认 — 不渲染引脚, dispatch 合成 GetVar 求值直读变量, 节点卡片列 `名←变量` 小字) / 连线 (传统 data-in pin)。细节见 [expression-system](expression-system.md) 的「输入声明两种来源」。
-- 声明编辑 UI: Inspector「输入口」区 (`DynamicInputsEditor.vue`) — 来源切换 + VarNameInput(含新建变量) + 名字合法性/重名标红。
-- 值在脚本里是**同名只读全局变量** (Expr 里是表达式标识符)。
+- 输入口 = **连线 data-in pin** (接别的节点输出/字面量); 想用变量直接写 `$名` (见上节), 不必声明输入口。
+- 声明编辑 UI: Inspector「输入口」区 (`DynamicInputsEditor.vue`) — 名字合法性/重名标红 + 底部一句话提示 `$名` 用法。
+- 连线值在脚本里是**同名只读全局变量** (Expr 里是表达式标识符)。卡片 footer 自动列脚本/表达式里的 `$` 引用 (正则提取)。
 
 ## 前端编辑器链路
 

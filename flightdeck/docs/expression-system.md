@@ -16,17 +16,13 @@ Expr 是一个 pure-data 节点 (`internal/nodes/purefunc/expr.go`): 用户写�
 
 - 字面量: 数字 / `"字符串"` / `true` / `false` / `null`。
 - 运算: 算术 `+ - * / %`、比较 `== != < <= > >=`、逻辑 `&& || !`、三目 `cond ? a : b`、函数调用 `fn(args)`。
-- **裸标识符 = 动态输入引用**: 表达式里写 `hp`, 必须在节点 config 的 `Inputs[]` 里声明同名输入 (`$vars.*` 语法 v4 已删)。
+- **`$名字` = 变量引用** (2026-06-11 恢复): `$hp / $max * 100` 直读容器变量, auto scope (local 优先 global 兜底), 快照语义同 GetVar。**单标识符形态** — v3 的 `$vars.X` 点路径不回归 (`.` 处 parse error, 不静默)。
+- **裸标识符 = 动态输入引用**: 表达式里写 `hp`, 必须在节点 config 的 `Inputs[]` 里声明同名输入 (输入口 = 连线 data-in pin, 接别的节点输出/字面量; 用变量请直接写 `$名`)。
 - AST 按表达式串缓存 (`parseExprCached`), 跨节点共享。
 
-## 输入声明两种来源 (config.Inputs[], Expr/Script 共用机制)
+## $ 语法的决策史 (两次反转, 别再脑补第三次)
 
-每个声明项 `{Name, Type, Var?, Scope?}` (后端 `ParseDynamicInputDecls`):
-
-- **绑定变量 (`Var` 非空, 编辑器默认)**: 不渲染引脚不走连线, dispatch 的 `buildDataWireFor` 对绑定项**合成一次 GetVar 求值** (`evalBoundVar`, dispatch_v5.go) — 快照/scope/兜底语义与真 GetVar 连线完全一致, 画布零脚手架。可见性补救: 节点卡片 footer 列 `名 ← 变量名` 小字 (ContainerFlowNode `boundInputs`)。变量缺失 → 表达式里 undefined, 编辑期 `BOUND_VAR_UNKNOWN` (error) / 类型不合 `BOUND_VAR_TYPE_MISMATCH` (warning, validator_bound_inputs.go)。
-- **连线 (`Var` 空)**: 传统 data-in pin, 接 GetVar/Expr 等纯数据输出或填字面量 — 非变量数据源 (如 Expr→Expr 链, fusion 依赖) 仍走这条。
-- 声明编辑 UI: Inspector「输入口」区 (DynamicInputsEditor) 每行可切来源; 绑定模式用 VarNameInput (含新建变量), 选定后 Type 自动回填变量类型。
-- 用户拍板记录 (2026-06-11): 绑定为默认; "砍掉连线模式"被搁置 (破坏 Expr→Expr 链与 fusion), 日后单独议。
+v4 (2026-05-19) 删 `$vars.X`, 理由三条: 拼错静默 nil / 可见性差 / 类型无校验。**2026-06-11 用户拍板恢复** (`$名字` 新形态), 因为三条理由已被设施补上: ① validator `EXPR_UNKNOWN_VAR` 编辑期红错 (validator_expr.go × `expr.VarRefs`); ② 节点卡片 footer 自动列 `$` 引用小字 (ContainerFlowNode `dollarRefs`, 正则提取, 顶替声明式可见性); ③ VarDecl 类型系统已真。实现: lexer `tkVarRef` / AST `nVarRef` / eval 走 `env.Get("$"+name)` 前缀通道 (bare 与 $ 两命名空间不撞), Expr 节点 `exprEvalEnv` 组合 env (bare→inputs map, $→`ctx.Vars().GetScoped(名, "auto")`, 快照由 EvaluatePureData wrap 自动继承)。Script 侧 `$hp` 是 live getter (见 script-system)。中途曾以"输入声明绑定变量"(路线 A) 落地过一版, **同日被 $ 语法取代并删除** (archive/specs/2026-06-11-{var-bound-inputs,dollar-var-syntax}.md)。
 
 ## 内置函数 — 单一来源与同步链
 
