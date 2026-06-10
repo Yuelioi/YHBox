@@ -1,6 +1,6 @@
 ---
-status: active
-summary: 数学补全节点 Clamp/Round/Floor/Ceil/Pow/Sqrt/Abs/Min/Max + Expr 补函数 (加节点路线图阶段3)
+status: done
+summary: 数学补全节点 Clamp/Round/Floor/Ceil/Pow/Sqrt/Abs/Min/Max + Expr 补函数 (加节点路线图阶段3) — 已实现 (含 spec 漏列的 FN_NAMES/Expr-description 两站点)
 last_updated: 2026-06-10
 related: [specs/2026-06-10-random-nodes.md]
 ---

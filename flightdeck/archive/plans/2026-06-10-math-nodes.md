@@ -1,8 +1,9 @@
 ---
-status: active
-summary: 数学补全 9 节点 (purefunc 包) + Expr 补 6 函数的实现计划 (TDD 分任务)
+status: done
+summary: 数学补全 9 节点 (purefunc 包) + Expr 补 6 函数的实现计划 (TDD 分任务) — 已实现 (fea0d87..6402c4b), 终审 SHIP
 last_updated: 2026-06-10
 implements: specs/2026-06-10-math-nodes.md
+verify: 真机 smoke — Round(X=3.14159, 位数=2) 连 Log 出 3.14; Expr 节点写 clamp(15, 0, 10) 出 10
 ---
 
 # 数学补全节点 Implementation Plan

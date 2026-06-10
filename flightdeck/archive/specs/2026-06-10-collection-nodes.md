@@ -1,6 +1,6 @@
 ---
-status: active
-summary: 数组/集合子系统第一批 - List pin 类型 + in.List getter + ForEach + 8 个列表节点 (加节点路线图阶段2)
+status: done
+summary: 数组/集合子系统第一批 - List pin 类型 + in.List getter + ForEach + 8 个列表节点 (加节点路线图阶段2) — A' 审计过 gate 后已实现 (含 LooseEqual 不可比防护修正)
 last_updated: 2026-06-10
 related: [specs/2026-06-10-random-nodes.md]
 ---

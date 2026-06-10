@@ -1,6 +1,6 @@
 ---
-status: active
-summary: 字符串函数节点 Replace/Substring/Trim/Upper/Lower/IndexOf/StartsWith/EndsWith/Regex (加节点路线图阶段4)
+status: done
+summary: 字符串函数节点 Replace/Substring/Trim/Upper/Lower/IndexOf/StartsWith/EndsWith/Regex (加节点路线图阶段4) — 已实现 (含 Length rune 化 + INVALID_REGEX_PATTERN 编辑期校验)
 last_updated: 2026-06-10
 related: [specs/2026-06-10-random-nodes.md]
 ---

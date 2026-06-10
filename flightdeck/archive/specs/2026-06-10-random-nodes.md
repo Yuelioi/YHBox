@@ -1,6 +1,6 @@
 ---
-status: active
-summary: 随机数节点 RandomInt/RandomFloat/RandomBool + per-dispatch 求值稳定 (加节点路线图阶段1)
+status: done
+summary: 随机数节点 RandomInt/RandomFloat/RandomBool + per-dispatch 求值稳定 (加节点路线图阶段1) — 已实现, 含两处落地修订 (Min/Max Number + evalPureDataCached 单一 gate)
 last_updated: 2026-06-10
 ---
 

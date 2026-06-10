@@ -1,5 +1,5 @@
 ---
-status: active
+status: stale
 last_updated: 2026-06-06
 when_to_read: 第一次碰节点系统 / 设计新节点前想搞懂"节点怎么被定义·注册·派发" / 不确定一个节点该实现哪种 capability / 改 framework dispatch 或 validator 前
 applies_to: [node-system, framework, spec, registry, capability, dispatch, runnable, regionrunner, evaluator, validation]

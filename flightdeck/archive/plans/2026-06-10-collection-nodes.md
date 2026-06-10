@@ -1,8 +1,9 @@
 ---
-status: active
-summary: List 类型 + in.List + LooseEqual 提升 + ForEach + 7 列表节点 + RandomChoice 的实现计划 (TDD 分任务, A' 审计已过)
+status: done
+summary: List 类型 + in.List + LooseEqual 提升 + ForEach + 7 列表节点 + RandomChoice 的实现计划 (TDD 分任务, A' 审计已过) — 已实现 (d61e1d5..7425bca), 终审 SHIP
 last_updated: 2026-06-10
 implements: specs/2026-06-10-collection-nodes.md
+verify: 真机 smoke — Split(a,b,c)→ForEach(元素存 item, 变量类型 any)→读变量→Log 依次出 a/b/c; 未连线 List pin 显示「由连线提供」; 随机取一个 出 a/b/c 之一
 ---
 
 # 数组/集合节点 Implementation Plan

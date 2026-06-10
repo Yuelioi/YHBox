@@ -3,8 +3,9 @@ name: storage-convention-consumer-audit-gap
 description: 改"存储约定/config schema/pin 值读法"前必须 exhaustive grep 全部消费者 (validator/rewriter/listener/scanner/recording 等不在明显路径上的读取点), 否则 scope 翻倍。外部 reviewer 结构上无法 catch 漏掉的消费者 — 只能 vet spec 内部一致性, 不会 grep codebase
 when_to_read: 写"统一存储约定 / 改 config schema / 改 pin 值读写法"类 spec 前; impl 第一步就撞"还有一堆地方在直接读这个 key"; 评估改 config key 的真实影响面
 applies_to: [spec-design, storage-convention, config-schema, consumer-audit, validator, codebase-wide-grep]
-last_updated: 2026-05-29
+last_updated: 2026-06-10
 status: active
+recurrences: 2
 ---
 
 # Incident — 统一存储约定时漏审消费者, scope 翻倍
@@ -35,3 +36,9 @@ status: active
 
 - spec: [specs/2026-05-29-input-editing-unification-design.md](../archive/specs/2026-05-29-input-editing-unification-design.md) (§3.10 记录 reopen + §8 实况)
 - 同源既有 bug (本次顺带暴露, 未修): Switch FE/BE schema 漂移 / screen-pick case-drift / MouseCalibration 旧小写 counts360。
+
+## [Case 2] 2026-06-10 — eval cache 漏第二个 EvaluatePureData 调用点 (random-nodes C1)
+
+同根因变体: random-nodes spec 的"已验证源码事实"写"纯数据求值只有 `evalDataSource` 一个路径", 据此把 per-dispatch 缓存 gate 只加在那里。实际 `EvaluatePureData` 有**两个**生产调用点 — 漏了 `dispatch_v5.go::resolveDataPinV5` 的直连分支(恰是 exec 节点 data-in 的**主路径**), 缓存被完全绕过, 核心承诺(同 dispatch 多路径同随机值)在真实派发里不成立。spec 过了 2 轮外部 AI 审都没发现(reviewer 不会 grep 调用点, 同 Root cause)。impl 阶段质量审用 overlay 探针实测才抓到, 修法 = 两路并入 `evalPureDataCached` 单一 gate (commit 50de637)。
+
+**教训重申**: 下"X 是唯一路径/唯一调用点"的结论前, 必须 `grep 该函数名` 列全调用点 — 这次漏的不是"隐蔽消费者", 而是同文件邻函数里的直连分支。

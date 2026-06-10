@@ -1,8 +1,9 @@
 ---
-status: active
-summary: 随机节点 RandomInt/Float/Bool + per-dispatch 求值稳定的实现计划 (TDD 分任务)
+status: done
+summary: 随机节点 RandomInt/Float/Bool + per-dispatch 求值稳定的实现计划 (TDD 分任务) — 已实现 (2f093cb..13f6ae7), 终审 SHIP
 last_updated: 2026-06-10
 implements: specs/2026-06-10-random-nodes.md
+verify: 真机 smoke — 拖 RandomInt(Min=1/Max=6) 连 Log 跑一次, 输出落 1~6; 侧栏/右键/explorer 三处见「随机」分组 3 节点
 ---
 
 # 随机数节点 Implementation Plan
