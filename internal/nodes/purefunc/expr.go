@@ -8,6 +8,7 @@ package purefunc
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"yotta/internal/node"
@@ -68,7 +69,25 @@ func (Expr) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Expr parse %q: %w", src, err)
 	}
-	return expr.Eval(ast, env)
+	return expr.Eval(ast, exprEvalEnv{inputs: env, vars: ctx.Vars()})
+}
+
+// exprEvalEnv — Expr 求值环境: bare 名查 inputs map; $名 直读变量 (auto scope).
+// 快照语义自动继承 — EvaluatePureData 入口已把 ctx.Vars() wrap 成 tick-frozen view.
+type exprEvalEnv struct {
+	inputs expr.InputEnv
+	vars   node.VarStore
+}
+
+func (e exprEvalEnv) Get(path string) (expr.Value, error) {
+	if strings.HasPrefix(path, "$") {
+		if e.vars == nil {
+			return nil, nil
+		}
+		v, _ := e.vars.GetScoped(path[1:], "auto")
+		return v, nil
+	}
+	return e.inputs.Get(path)
 }
 
 // exprEnvSkipKeys — env build 时跳过的 key 集合. 内含本节点 Spec 静态 input 跟 config

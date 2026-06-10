@@ -155,3 +155,29 @@ func TestValidate_Expr_AllValid(t *testing.T) {
 		}
 	}
 }
+
+// $name 引用对照容器 Vars: 未声明 → EXPR_UNKNOWN_VAR; 已声明不报。
+func TestValidate_Expr_UnknownVar(t *testing.T) {
+	c := &Container{
+		Vars: []VarDecl{{Name: "hp", Type: "number"}},
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "e1", Kind: "Expr", Config: map[string]any{
+				"Expression": "$hp + $ghost",
+				"Inputs":     []any{},
+			}},
+		}},
+	}
+	errs := validateExprNodes(c)
+	var hit int
+	for _, e := range errs {
+		if e.Code == CodeExprUnknownVar {
+			hit++
+			if e.Params["name"] != "ghost" {
+				t.Fatalf("报错对象不对 (声明过的 hp 不该报): %+v", e)
+			}
+		}
+	}
+	if hit != 1 {
+		t.Fatalf("want exactly 1 EXPR_UNKNOWN_VAR, got %+v", errs)
+	}
+}

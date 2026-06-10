@@ -38,6 +38,40 @@ func TestLiterals(t *testing.T) {
 	}
 }
 
+// $名字 变量引用 (2026-06-11 恢复): MapEnv 的 $-键通道现成。
+func TestVarRef(t *testing.T) {
+	env := MapEnv{"$hp": 37.0, "$max": 50.0, "$名字": "鱼"}
+	if got := eval(t, "$hp / $max * 100", env); got != 74.0 {
+		t.Errorf("$hp/$max*100 → %v want 74", got)
+	}
+	if got := eval(t, `$名字 + "!"`, env); got != "鱼!" {
+		t.Errorf("unicode var → %v", got)
+	}
+	// 未知变量 → env miss → null (编辑期 validator 报 EXPR_UNKNOWN_VAR)
+	if got := eval(t, "$ghost", env); got != nil {
+		t.Errorf("$ghost → %v want nil", got)
+	}
+	// bare 与 $ 命名空间不撞: 同名 input 与变量互不干扰
+	env2 := struct{ MapEnv }{MapEnv{"hp": 1.0, "$hp": 2.0}}
+	if got := eval(t, "hp + $hp", env2); got != 3.0 {
+		t.Errorf("namespace split → %v want 3", got)
+	}
+	// v3 点路径不回归: $vars.hp 在 '.' 处报错
+	if _, err := Parse("$vars.hp"); err == nil {
+		t.Error("$vars.hp should be a parse error")
+	}
+	// $ 后非标识符 → 报错
+	if _, err := Parse("$ + 1"); err == nil {
+		t.Error("bare $ should be a lex error")
+	}
+	// VarRefs 收集
+	n, _ := Parse("$a + b + $c")
+	refs := VarRefs(n)
+	if len(refs) != 2 || refs[0] != "a" || refs[1] != "c" {
+		t.Errorf("VarRefs → %v", refs)
+	}
+}
+
 func TestArith(t *testing.T) {
 	env := MapEnv{}
 	cases := map[string]float64{

@@ -13,8 +13,8 @@ const (
 	tkNumber
 	tkString
 	tkIdent  // bareword (true / false / null / function names)
-	// v4: tkVarPath removed (no $-namespace). Slot retained to preserve const ordering.
-	tkVarPathReservedDoNotUse
+	// $名字 变量引用 (2026-06-11 恢复, 单标识符形态 — 不是 v3 的 $vars.X 点路径).
+	tkVarRef
 	tkLParen
 	tkRParen
 	tkComma
@@ -145,9 +145,16 @@ func (l *lexer) next() (token, error) {
 	case '"':
 		return l.readString(start)
 	case '$':
-		// v4: $-namespace removed (no $vars / $params). Variables / params
-		// are routed into Expr via bare-identifier inputs fed by GetVar / GetParam nodes.
-		return token{}, fmt.Errorf("expr: '$' not allowed (v4) at col %d — use GetVar / GetParam node + Expr input pin", start)
+		// $名字 = 变量引用 (auto scope)。注意不是 v3 的 $vars.X 点路径 — '.' 不属于
+		// 标识符, "$vars.hp" 会在 '.' 处报 unexpected character, 不会静默。
+		if next, ok := l.peekRune(); !ok || !isIdentStart(next) {
+			return token{}, fmt.Errorf("expr: '$' must be followed by a variable name at col %d", start)
+		}
+		identStart := l.pos
+		for l.pos < len(l.src) && isIdentPart(l.src[l.pos]) {
+			l.pos++
+		}
+		return token{kind: tkVarRef, val: string(l.src[identStart:l.pos]), pos: start}, nil
 	}
 
 	if unicode.IsDigit(r) || (r == '.' && l.pos < len(l.src) && unicode.IsDigit(l.src[l.pos])) {
@@ -211,8 +218,6 @@ func (l *lexer) readString(start int) (token, error) {
 	return token{}, fmt.Errorf("expr: unterminated string starting at col %d", start)
 }
 
-// v4: readVarPath / tkVarPath removed. $-prefix is rejected at the dispatch site (single
-// implementation path — no $vars/$sys/$params namespace exists in v4 grammar).
 func (l *lexer) readIdent(start int) (token, error) {
 	for l.pos < len(l.src) && isIdentPart(l.src[l.pos]) {
 		l.pos++

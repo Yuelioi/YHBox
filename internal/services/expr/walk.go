@@ -29,6 +29,34 @@ func walkIdentRefs(n *Node, out *[]string) {
 	}
 }
 
+// VarRefs 收集 AST 中所有 $变量引用 (nVarRef), 返名字不含 $ 前缀.
+// Validator 用: 比对容器 Vars 声明, 报 EXPR_UNKNOWN_VAR.
+func VarRefs(n *Node) []string {
+	if n == nil {
+		return nil
+	}
+	var out []string
+	walkVarRefs(n, &out)
+	return out
+}
+
+func walkVarRefs(n *Node, out *[]string) {
+	if n == nil {
+		return
+	}
+	if n.Kind == nVarRef {
+		*out = append(*out, n.VarPath)
+	}
+	walkVarRefs(n.Left, out)
+	walkVarRefs(n.Right, out)
+	walkVarRefs(n.Cond, out)
+	walkVarRefs(n.Then, out)
+	walkVarRefs(n.Else, out)
+	for _, a := range n.Args {
+		walkVarRefs(a, out)
+	}
+}
+
 // CallRef 一次函数调用引用 — validator 编辑期校验用 (对照 Builtins 报
 // EXPR_UNKNOWN_FUNCTION / EXPR_FN_ARITY).
 type CallRef struct {

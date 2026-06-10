@@ -10,6 +10,7 @@ import (
 //   - EXPR_DUPLICATE_INPUT — inputs[] has same name twice
 //   - EXPR_PARSE_ERROR — expr string fails to parse
 //   - EXPR_UNKNOWN_INPUT — expr references identifier not declared in inputs[]
+//   - EXPR_UNKNOWN_VAR — $name 引用未在容器 Vars 声明的变量
 //   - EXPR_UNKNOWN_FUNCTION / EXPR_FN_ARITY — call 名/参数个数对照 expr.Builtins()
 //
 // EXPR_TYPE_MISMATCH (explicit outType vs static inference) is deferred — implementing
@@ -17,6 +18,10 @@ import (
 func validateExprNodes(c *Container) []ValidationError {
 	if c == nil {
 		return nil
+	}
+	declaredVars := make(map[string]bool, len(c.Vars))
+	for _, v := range c.Vars {
+		declaredVars[v.Name] = true
 	}
 	walk := func(g Graph, path []string) []ValidationError {
 		var errs []ValidationError
@@ -63,6 +68,20 @@ func validateExprNodes(c *Container) []ValidationError {
 				reported[ref] = true
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeExprUnknownInput,
+					GraphPath: path, NodeID: n.ID,
+					Params: map[string]any{"name": ref},
+				})
+			}
+
+			// EXPR_UNKNOWN_VAR — $name 对照容器 Vars 声明 (拼错不再静默走 nil, v4 教训).
+			varReported := map[string]bool{}
+			for _, ref := range expr.VarRefs(ast) {
+				if declaredVars[ref] || varReported[ref] {
+					continue
+				}
+				varReported[ref] = true
+				errs = append(errs, ValidationError{
+					Severity: SeverityError, Code: CodeExprUnknownVar,
 					GraphPath: path, NodeID: n.ID,
 					Params: map[string]any{"name": ref},
 				})

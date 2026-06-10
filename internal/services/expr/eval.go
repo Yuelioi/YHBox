@@ -19,10 +19,15 @@ func Eval(n *Node, env Env) (Value, error) {
 		return n.Bool, nil
 	case nNull:
 		return nil, nil
-	// v4: nVar removed — only nIdent (bare identifier) accesses Env.
+	case nVarRef:
+		// $名字 变量引用 — 走 Env 的 $ 前缀通道 (InputEnv 对 $ 名天然 miss, 两命名空间不撞).
+		v, err := env.Get("$" + n.VarPath)
+		if err != nil {
+			return nil, fmt.Errorf("expr: env.Get($%s): %w", n.VarPath, err)
+		}
+		return v, nil
 	case nIdent:
-		// v4: bare identifier (no $ prefix). Env.Get receives the plain name.
-		// InputEnv looks it up in the inputs map; old envs that only know $-paths return nil.
+		// bare identifier (no $ prefix). Env.Get receives the plain name.
 		v, err := env.Get(n.VarPath)
 		if err != nil {
 			return nil, fmt.Errorf("expr: env.Get(%q): %w", n.VarPath, err)

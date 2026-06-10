@@ -34,6 +34,7 @@ func Install(vm *goja.Runtime, c node.Ctx) {
 		}
 	}
 	installSugar(vm, c)
+	installVarGetters(vm, c)
 }
 
 func bindNode(vm *goja.Runtime, c node.Ctx, rn *node.RegisteredNode, bundle node.ServiceBundle) {
@@ -119,6 +120,29 @@ func throwErr(vm *goja.Runtime, kind string, code node.ErrCode, msg string) {
 	_ = obj.Set("code", string(code))
 	_ = obj.Set("message", msg)
 	panic(vm.ToValue(obj))
+}
+
+// varNamer — VarStore 的可选能力: 枚举已知变量名 (生产 varStoreAdapter / 测试 stub 实现).
+// 不进 node.VarStore 主接口 — 只有 $getter 注入需要, 测试 fake 不必陪绑.
+type varNamer interface{ Names() []string }
+
+// installVarGetters 给每个已知变量注入 $name live getter — 脚本里 $hp 即
+// vars.get("hp") (访问时实时读, auto scope)。运行中动态新建的变量没有 getter
+// (脚本起跑后注入集固定), 用 vars.get 读。
+func installVarGetters(vm *goja.Runtime, c node.Ctx) {
+	nv, ok := c.Vars().(varNamer)
+	if !ok {
+		return
+	}
+	global := vm.GlobalObject()
+	for _, name := range nv.Names() {
+		n := name
+		getter := vm.ToValue(func() goja.Value {
+			v, _ := c.Vars().GetScoped(n, "auto")
+			return vm.ToValue(NormalizeJS(v))
+		})
+		_ = global.DefineAccessorProperty("$"+n, getter, nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+	}
 }
 
 func installSugar(vm *goja.Runtime, c node.Ctx) {

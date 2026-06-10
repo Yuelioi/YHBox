@@ -138,6 +138,17 @@ func (s *stubVarStore) IncScoped(name, _ string, d float64) float64 {
 // LastChange — stub 不跟踪时间戳, 恒返 0.
 func (s *stubVarStore) LastChange(_ string) int64 { return 0 }
 
+// Names — 可选能力 (services/script.varNamer): Script $getter 注入用.
+func (s *stubVarStore) Names() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.m))
+	for k := range s.m {
+		out = append(out, k)
+	}
+	return out
+}
+
 // ---- ParamStore ----
 
 // stubParamStore 测试用 no-op. Get 总返 (nil, false).

@@ -43,10 +43,6 @@ type ExprConfig struct {
 type ExprInputDecl struct {
 	Name string // identifier in expr (e.g. "i", "state")
 	Type string // PinType string ("number" / "bool" / "string" / "point" / "any")
-	// Var 非空 = 绑定变量: 该输入不渲染引脚不走连线, dispatch 直接按 Var/Scope 读变量值
-	// (合成 GetVar 求值, 见 buildDataWireFor)。Scope = auto/local/global, 空当 auto。
-	Var   string
-	Scope string
 }
 
 // ParseExprConfig 解析 Expr 节点 config. nil-safe.
@@ -85,12 +81,10 @@ func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
 		// Type (Pascal type tag). Dynamic input.name 在 graph 内是 data-pin 名, 由用户起.
 		name, _ := m["Name"].(string)
 		typ, _ := m["Type"].(string)
-		varName, _ := m["Var"].(string)
-		scope, _ := m["Scope"].(string)
 		if name == "" {
 			continue
 		}
-		decls = append(decls, ExprInputDecl{Name: name, Type: typ, Var: varName, Scope: scope})
+		decls = append(decls, ExprInputDecl{Name: name, Type: typ})
 	}
 	return decls
 }

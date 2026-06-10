@@ -36,9 +36,9 @@ const (
 	nString
 	nBool
 	nNull
-	// nVar removed in v4 (was: $vars.X / $sys.Y / $params.Z). Slot kept to preserve const ordering.
-	nVarReservedDoNotUse
-	nIdent // v4: bare identifier (e.g. `i`, `state`) — looked up via Env.Get(name) with no $ prefix
+	// $名字 变量引用 — eval 走 env.Get("$"+name) ($ 前缀通道, 跟 nIdent 的 bare 命名空间不撞).
+	nVarRef
+	nIdent // bare identifier (e.g. `i`, `state`) — looked up via Env.Get(name) with no $ prefix
 	nNeg     // unary -
 	nNot     // unary !
 	nAdd
@@ -211,7 +211,9 @@ func (p *parser) parsePrefix() (*Node, error) {
 	case tkString:
 		p.advance()
 		return &Node{Kind: nString, Str: t.val, Pos: t.pos}, nil
-	// v4: tkVarPath / nVar removed. Lexer rejects '$' so we never receive that token.
+	case tkVarRef:
+		p.advance()
+		return &Node{Kind: nVarRef, VarPath: t.val, Pos: t.pos}, nil
 	case tkIdent:
 		p.advance()
 		switch t.val {

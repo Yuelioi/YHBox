@@ -55,6 +55,18 @@ func (a *varStoreAdapter) Get(name string) (any, bool) {
 	return v, ok
 }
 
+// Names — 当前已知变量名全集 (global; 含运行中动态建的)。Script 绑定层注入 $name
+// live getter 用 (可选能力接口, 见 services/script.varNamer — 不进 node.VarStore 主接口,
+// 免得十来个测试 fake 全陪绑)。
+func (a *varStoreAdapter) Names() []string {
+	vars := a.rt.Vars()
+	out := make([]string, 0, len(vars))
+	for k := range vars {
+		out = append(out, k)
+	}
+	return out
+}
+
 func (a *varStoreAdapter) Set(name string, value any) {
 	a.rt.SetVar(name, expr.Value(value))
 }

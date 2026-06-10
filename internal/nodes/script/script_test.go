@@ -109,6 +109,18 @@ func TestScript_DynamicInput(t *testing.T) {
 	}
 }
 
+// $hp live getter: Run 起跑时按已知变量注入, 访问时实时读 (脚本中途 set 后 $hp 是新值)。
+func TestScript_DollarVarGetter(t *testing.T) {
+	rn := setup(t)
+	svcs := node.StubServices()
+	svcs.Vars.Set("hp", 37.0)
+	cfg := map[string]any{"Code": `vars.set("hp", 40); return $hp + 1`}
+	res := node.RunNode(context.Background(), rn, nil, cfg, nil, svcs, false)
+	if res.Error != nil || res.OutputData["Result"] != float64(41) {
+		t.Fatalf("res=%+v", res)
+	}
+}
+
 func TestScript_VarsRoundtrip(t *testing.T) {
 	rn := setup(t)
 	svcs := node.StubServices()

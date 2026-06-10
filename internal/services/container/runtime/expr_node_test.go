@@ -76,24 +76,37 @@ func TestExpr_BoolExpression(t *testing.T) {
 	}
 }
 
-// TestExpr_DollarPathsAreIsolated: Expr cannot access $vars (InputEnv design).
-// Even if rt.vars has the value, Expr returns nil for $vars.X.
-func TestExpr_DollarPathsAreIsolated(t *testing.T) {
+// TestExpr_DollarVarRef: $hp 直读变量 (2026-06-11 恢复) — 走快照, 同 GetVar 语义;
+// 旧 v3 点路径 $vars.hp 不回归 (parse error, 不静默)。
+func TestExpr_DollarVarRef(t *testing.T) {
 	_, r := newTestRunner(t)
 	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"hp": float64(99)}))
 
 	n := &container.GraphNode{
 		ID: "e1", Kind: "Expr",
 		Config: map[string]any{
-			"Expression": "$vars.hp",
+			"Expression": "$hp + 1",
 			"Inputs":     []any{},
 		},
 	}
 	r.nodesByID = map[string]*container.GraphNode{"e1": n}
 
-	v, _ := r.evalExprViaFramework(t, ctx, n)
-	if v != nil {
-		t.Fatalf("$vars in Expr must be isolated: want nil, got %v", v)
+	v, err := r.evalExprViaFramework(t, ctx, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := expr.AsNumber(v)
+	if got != 100.0 {
+		t.Fatalf("$hp+1 with hp=99: want 100, got %v", v)
+	}
+
+	bad := &container.GraphNode{
+		ID: "e2", Kind: "Expr",
+		Config: map[string]any{"Expression": "$vars.hp", "Inputs": []any{}},
+	}
+	r.nodesByID["e2"] = bad
+	if _, err := r.evalExprViaFramework(t, ctx, bad); err == nil {
+		t.Fatal("$vars.hp (v3 dotted path) should be a parse error")
 	}
 }
 
@@ -128,59 +141,6 @@ func TestExpr_PullFromGetVarEdge(t *testing.T) {
 	got, _ := expr.AsNumber(v)
 	if got != 20.0 {
 		t.Fatalf("Expr c*2 with c from GetVar(counter=10): want 20, got %v", v)
-	}
-}
-
-// TestExpr_VarBoundInput: 绑定项 (decl.Var 非空) 不连线直接读变量 — 等价"隐形 GetVar 连线",
-// 走同一条 snapshot 语义 (buildDataWireFor 合成 GetVar 求值)。
-func TestExpr_VarBoundInput(t *testing.T) {
-	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{"counter": float64(10)}))
-
-	ex := &container.GraphNode{
-		ID: "ex", Kind: "Expr",
-		Config: map[string]any{
-			"Expression": "c * 2",
-			"Inputs": []any{
-				map[string]any{"Name": "c", "Type": "number", "Var": "counter", "Scope": "global"},
-			},
-		},
-	}
-	r.nodesByID = map[string]*container.GraphNode{"ex": ex}
-
-	v, err := r.evalExprViaFramework(t, ctx, ex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, _ := expr.AsNumber(v)
-	if got != 20.0 {
-		t.Fatalf("Expr c*2 with c bound to counter=10: want 20, got %v", v)
-	}
-}
-
-// TestExpr_VarBoundInput_Missing: 绑定的变量不存在 → 不进 dataWire → 表达式里 undefined
-// (结果 nil), 不炸 — 编辑期由 BOUND_VAR_UNKNOWN 报。
-func TestExpr_VarBoundInput_Missing(t *testing.T) {
-	_, r := newTestRunner(t)
-	ctx := withTickSnapshot(context.Background(), CaptureSnapshot(map[string]expr.Value{}))
-
-	ex := &container.GraphNode{
-		ID: "ex", Kind: "Expr",
-		Config: map[string]any{
-			"Expression": "c",
-			"Inputs": []any{
-				map[string]any{"Name": "c", "Type": "number", "Var": "ghost"},
-			},
-		},
-	}
-	r.nodesByID = map[string]*container.GraphNode{"ex": ex}
-
-	v, err := r.evalExprViaFramework(t, ctx, ex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v != nil {
-		t.Fatalf("missing bound var: want nil, got %v", v)
 	}
 }
 
