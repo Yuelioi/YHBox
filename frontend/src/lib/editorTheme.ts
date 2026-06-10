@@ -99,6 +99,9 @@ const chromeTheme = EditorView.theme({
     backgroundColor: '#252526',
     border: '1px solid #454545',
     color: '#d4d4d4',
+    // 浮层挂到 document.body (见 baseEditorExtensions 的 tooltips parent) — z-index 必须盖过
+    // 放大编辑 modal (Nuxt UI z-[100]), 否则签名/hover 浮层会渲染到模态下方看不见。
+    zIndex: '1000',
   },
   '.cm-placeholder': { color: '#6b6b6b' },
   // $变量徽标: theme 规则带 scope 前缀, 特异性盖过 HighlightStyle 的 token 色
@@ -291,7 +294,9 @@ export interface BaseEditorOpts {
 export function baseEditorExtensions(opts: BaseEditorOpts = {}): Extension[] {
   return [
     chromeTheme,
-    tooltips({ position: 'fixed' }),
+    // position:fixed 逃 overflow-hidden; parent:body 再逃放大编辑 modal 的 transform/overflow 包含块
+    // (光标在第一行时签名/hover 浮层 above 出框, 只挂 body 才彻底不被裁)。z-index 见 chromeTheme .cm-tooltip。
+    tooltips({ position: 'fixed', parent: document.body }),
     opts.modal ? modalSizeTheme : smallSizeTheme(opts.minHeight ?? '3.9em'),
     syntaxHighlighting(editorHighlightStyle),
     completionTooltipTheme,
