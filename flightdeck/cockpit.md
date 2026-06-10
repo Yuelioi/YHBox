@@ -1,17 +1,15 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (editor-ux-v2 落地: hover 裁剪修复 + 全屏 modal + signature help/补全 info/类型色点/inline 行号 + 参考抽屉; 6 批自动门全绿, 真机视觉自检待验。)
-**Active focus**: **editor-ux-v2 已实现落地, 真机视觉自检待用户** — 接上版"观感升级"回访意见 (风格认可但功能弱+文档简陋+hover bug), 6 批全落 (commit 22cb6e9→6047247), 自动门全绿 (typecheck / 247 测试 / lint 16 基线 / i18n 39 基线 / build)。**下一步走 verify 真机看 5 批, 重点: F1 抽屉键是否被 webview 拦成帮助(拦则换键)、补全类型色点默认 glyph 有没被盖、签名浮层与补全弹窗共存是否吵**。细节 [archive/specs/2026-06-11-editor-ux-v2.md](archive/specs/2026-06-11-editor-ux-v2.md) + plan 同名。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (editor-ux-v2 收口真机过: hover 裁剪+全屏+signature help/info/色点/行号+参考抽屉 全落; tooltip 又补两笔[挂 body + 顶部 flip 到行下方]。下一程: 编辑器参数提示补 enum 值建议。)
+**Active focus**: **下个会话: 编辑器参数提示补 enum 值建议** — 节点函数的枚举参数 (用户例: `GetVar({VarName, Scope})` 里 Scope 只能 local/auto/global) 在脚本/表达式编辑器里打值时应**补全/提示可选值**, 现状只给签名不给候选。数据源 = 节点 Spec 的 dropdown widget options (开工先 grep 确认 Scope pin 的 options 怎么存)。editor-ux-v2 已落地+用户真机过 (含两笔 tooltip 补丁: `4ef58d5` 挂 document.body 逃 modal transform/overflow, `d43eeb2` tooltipSpace=编辑器矩形让第一行浮层翻到行下方)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
 - 无专项进行中。
 
-## 下一步
+**首选 (下个会话): 编辑器参数提示补 enum 值建议** —— 节点函数枚举参数 (例 `GetVar({Scope})` → local/auto/global) 在 Script/Expr 编辑器里打值位置应补全候选值 / 签名里列出可选集, 现在只给签名不给值。第一步: grep 确认这类 enum pin (Scope 等) 的可选值在 Spec 里怎么存 (dropdown widgetKind + options? 还是 backend 常量?), 设计补全/签名怎么读到。问清范围再开 spec。
 
-**首选: 真机自检 editor-ux-v2** —— 走 [archive/plans/2026-06-11-editor-ux-v2.md](archive/plans/2026-06-11-editor-ux-v2.md) 的 verify 5 批 (①hover 不裁 ②全屏/行号/色点 ③补全 info/Expr 参数模板 Tab 跳 ④参考抽屉 + **F1 键** ⑤signature help)。过了清 verify 账; 若 F1 被拦 / 色点露默认 glyph / 签名与补全打架 → 小修跟进。
-
-**"内容太少"原诉求已转译落地**: 用户最初模糊说"内容太少", 澄清后 = 样式(参考栏粗糙)+ 功能弱(缺 signature help 等), **非** i18n 文档覆盖率 —— 本批做的就是这些。若真机后用户仍觉少, 再问是否指节点/函数 description 覆盖率。
+**editor-ux-v2 已收口** (用户真机过): hover 裁剪→挂 body+flip、全屏 modal、signature help、补全 info 面板、类型色点、inline 行号、参考抽屉(F1)、Expr 参数模板。verify 已销账。原"内容太少"诉求 = 样式+功能弱 (非 i18n 覆盖率), 本批已落; 若后续仍觉少再问是否指 description 覆盖率。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
