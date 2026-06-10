@@ -72,6 +72,65 @@ func TestValidate_AnyAcceptsEverything(t *testing.T) {
 	}
 }
 
+// TestValidate_ListVarToListPin: GetVar(list) → ListContains.List 同型直连, 无错无 warn.
+func TestValidate_ListVarToListPin(t *testing.T) {
+	c := &Container{
+		SchemaVersion: 1,
+		Vars:          []VarDecl{{Name: "items", Type: "list", Default: []any{1.0, 2.0}}},
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "items", "Scope": "global"}},
+				{ID: "lc", Kind: "ListContains", Config: map[string]any{"Value": "1"}},
+			},
+			Edges: []GraphEdge{
+				{From: "gv.Value", To: "lc.List"}, // list → list = OK
+			},
+		},
+	}
+	errs := ValidateContainer(c)
+	for _, e := range errs {
+		if e.Code == CodePinTypeMismatch || e.Code == CodePinTypeCoercionWarning {
+			t.Errorf("list var → List pin should connect cleanly: %+v", e)
+		}
+	}
+}
+
+// TestValidate_ListVarToNumberPin_Mismatch: GetVar(list) → IncVar.Delta (number) must error.
+func TestValidate_ListVarToNumberPin_Mismatch(t *testing.T) {
+	c := &Container{
+		SchemaVersion: 1,
+		Vars: []VarDecl{
+			{Name: "items", Type: "list", Default: []any{}},
+			{Name: "n", Type: "number", Default: 0.0},
+		},
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "items", "Scope": "global"}},
+				{ID: "inc", Kind: "IncVar", Config: map[string]any{"VarName": "n", "Scope": "global"}},
+			},
+			Edges: []GraphEdge{
+				{From: "start.Done", To: "inc.in"},
+				{From: "gv.Value", To: "inc.Delta"}, // list → number = mismatch
+			},
+		},
+	}
+	errs := ValidateContainer(c)
+	found := false
+	for _, e := range errs {
+		if e.Code == CodePinTypeMismatch {
+			found = true
+			if e.Params["from"] != "list" || e.Params["to"] != "number" {
+				t.Errorf("params mismatch: %+v", e.Params)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected PIN_TYPE_MISMATCH, got %+v", errs)
+	}
+}
+
 // TestValidate_ExecEdgeNotPinTypeChecked: Kind="" (exec) edges are ignored by validateDataPinTypes.
 func TestValidate_ExecEdgeNotPinTypeChecked(t *testing.T) {
 	c := &Container{

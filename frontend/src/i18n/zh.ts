@@ -2173,6 +2173,9 @@ export default {
     independent: '自负',
     collapse: '收起',
     expand: '展开',
+    any_independent_placeholder: '任意值 (按文本存)',
+    list_placeholder: 'JSON 数组, 如 [1, 2, "a"]',
+    list_invalid: '不是合法的 JSON 数组, 没有保存',
     error: {
       name_empty: '名称不能为空',
       invalid_name: '需以字母/_ 起, 仅含字母数字下划线',

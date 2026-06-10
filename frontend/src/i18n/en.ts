@@ -2128,6 +2128,9 @@
     independent: 'Independent',
     collapse: 'Collapse',
     expand: 'Expand',
+    any_independent_placeholder: 'Any value (stored as text)',
+    list_placeholder: 'JSON array, e.g. [1, 2, "a"]',
+    list_invalid: 'Not a valid JSON array; not saved',
     error: {
       name_empty: 'Name cannot be empty',
       invalid_name: 'Must start with letter/_, only letters/digits/underscore',

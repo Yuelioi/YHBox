@@ -44,7 +44,7 @@ export interface HotkeyEntry {
 
 export interface VarDecl {
   name: string
-  type: 'number' | 'bool' | 'string' | 'point' | 'any'
+  type: 'number' | 'bool' | 'string' | 'point' | 'list' | 'any'
   default?: any
 }
 export interface GraphNode {

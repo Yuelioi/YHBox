@@ -18,8 +18,8 @@ const (
 
 // VarDecl Container 实例级变量声明。
 //
-// Type: "number" | "bool" | "string" | "point" | "any"
-// Default: 跟 Type 对应；point 是 map{"x":float, "y":float}
+// Type: "number" | "bool" | "string" | "point" | "list" | "any"
+// Default: 跟 Type 对应；point 是 map{"x":float, "y":float}；list 是 []any (元素不分类型)
 type VarDecl struct {
 	Name    string `json:"name"`
 	Type    string `json:"type"`

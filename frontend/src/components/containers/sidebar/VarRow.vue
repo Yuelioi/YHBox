@@ -70,6 +70,16 @@
           @update:model-value="(v: boolean) => commitField('default', v)"
         />
         <input
+          v-else-if="editType === 'list'"
+          type="text"
+          :value="listDraft"
+          class="flex-1 min-w-0 w-0 bg-elevated/80 border rounded px-1 py-0.5 text-[10px] focus:outline-none"
+          :class="listDraftInvalid ? 'border-red-500' : 'border-default focus:border-emerald-500'"
+          :placeholder="t('var.list_placeholder')"
+          :title="listDraftInvalid ? t('var.list_invalid') : ''"
+          @input="onListInput"
+        >
+        <input
           v-else
           :type="editType === 'number' ? 'number' : 'text'"
           :step="editType === 'number' ? 'any' : undefined"
@@ -97,7 +107,7 @@ import { useI18n } from 'vue-i18n'
 import type { VarDecl } from '@/lib/backend'
 import VarPointInput from './VarPointInput.vue'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
-import { validateVarName, VAR_TYPE_OPTIONS, type VarType } from '@/lib/variableRef'
+import { validateVarName, parseListDraft, VAR_TYPE_OPTIONS, type VarType } from '@/lib/variableRef'
 
 const { t } = useI18n()
 
@@ -145,6 +155,24 @@ const defaultAsPoint = computed(() => {
   if (!d || typeof d !== 'object') return { x: 0, y: 0 }
   return { x: d.x ?? 0, y: d.y ?? 0 }
 })
+
+// list 默认值草稿: 只在展开/切到 list 时从落盘值初始化, 输入中不回写 (避免打字被覆盖).
+const listDraft = ref('')
+const listDraftInvalid = ref(false)
+
+watch([expanded, editType], ([exp, type]) => {
+  if (exp && type === 'list') {
+    listDraft.value = JSON.stringify(Array.isArray(editDefault.value) ? editDefault.value : [])
+    listDraftInvalid.value = false
+  }
+}, { immediate: true })
+
+function onListInput(e: Event) {
+  listDraft.value = (e.target as HTMLInputElement).value
+  const r = parseListDraft(listDraft.value)
+  listDraftInvalid.value = !r.ok
+  if (r.ok) commitField('default', r.value)
+}
 
 function commitName() {
   if (nameError.value) return

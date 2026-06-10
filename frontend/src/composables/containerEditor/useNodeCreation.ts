@@ -108,6 +108,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       case 'string': return ''
       case 'bool': return false
       case 'point': return { x: 0.5, y: 0.5 }
+      case 'list': return []
       default: return null  // 'any' — no useful default
     }
   }

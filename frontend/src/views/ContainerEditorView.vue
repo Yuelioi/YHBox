@@ -467,7 +467,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
-import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError } from '@/lib/backend'
+import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError, type VarDecl } from '@/lib/backend'
 import { type VarType } from '@/lib/variableRef'
 import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore } from '@/stores/recording'
@@ -740,7 +740,7 @@ function onUpdateVarField(name: string, field: 'type' | 'default', value: unknow
     const v = (d.vars ?? []).find(x => x.name === name)
     if (!v) return
     if (field === 'type') {
-      v.type = value as 'number' | 'bool' | 'string' | 'point' | 'any'
+      v.type = value as VarDecl['type']
     } else {
       v.default = value
     }
