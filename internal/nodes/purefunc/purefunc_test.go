@@ -59,6 +59,7 @@ func TestEvaluate_22PureFuncs(t *testing.T) {
 		{"Concat", map[string]any{"A": "foo", "B": "bar"}, "foobar"},
 		{"Contains", map[string]any{"Haystack": "hello world", "Needle": "world"}, true},
 		{"Length", map[string]any{"S": "hello"}, 5.0},
+		{"Length", map[string]any{"S": "中文abc"}, 5.0}, // rune 计数 (字节是 9) — specs/2026-06-10-string-nodes.md
 		// 转换
 		{"ToString", map[string]any{"X": 42.0}, "42"},
 		{"ToNumber", map[string]any{"X": 3.14}, 3.14},

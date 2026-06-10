@@ -12,6 +12,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"yotta/internal/node"
 )
@@ -358,8 +359,10 @@ func (Length) Spec() node.Spec {
 		{Name: "S", Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
 	}, "Number")
 }
+// Evaluate — rune 计数 (CJK 一个字算 1, 非字节). 与 Substring/IndexOf 的位置语义统一,
+// 见 specs/2026-06-10-string-nodes.md "byte vs rune 判断".
 func (Length) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	return float64(len(formatValue(in.Raw("S")))), nil
+	return float64(utf8.RuneCountInString(formatValue(in.Raw("S")))), nil
 }
 
 // ===== 转换 (3) =====
