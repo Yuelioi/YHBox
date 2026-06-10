@@ -10,8 +10,8 @@
 //  - defaults: 从 InputSpec.Default 收集 (literal map)
 //  - visual: 按 group 用 fallback mapping (没每节点装饰多样化, 后续 backend Spec
 //    加 Visual 字段才能 fine-grain)
-//  - execOutFn / dataInDynamicFn: 几个特殊 Kind hardcode (Switch/Parallel/Race/Expr/
-//    Subgraph). 这些 dynamic 逻辑跟 backend validator 镜像, 必须人工保.
+//  - execOutFn: 几个特殊 Kind hardcode (Switch/Parallel/Race), 跟 backend validator 镜像.
+//  - dataInDynamicFn: Spec.DynamicInputs 标志驱动 (Expr/Script), config.Inputs[] 声明.
 //
 // app 入口 main.ts boot 时 await populateRegistryFromBackend() 把 RPC spec 注册到
 // 老 byKind, 6 处 consumer (Palette / ContextMenu / NodePalette / NodeExplorerModal /
@@ -230,23 +230,21 @@ function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): st
   return out
 }
 
-// dynamic data in — Expr.Inputs[] / Subgraph 参数. 跟 backend 镜像.
-const DYNAMIC_DATA_IN: Record<
-  string,
-  (cfg: Record<string, unknown> | null | undefined) => Record<string, PinType>
-> = {
-  Expr: (cfg) => {
-    const inputs = Array.isArray(cfg?.Inputs)
-      ? (cfg!.Inputs as Array<Record<string, unknown>>)
-      : []
-    const out: Record<string, PinType> = {}
-    for (const i of inputs) {
-      const name = typeof i.Name === 'string' ? i.Name : ''
-      const type = typeof i.Type === 'string' ? i.Type : 'any'
-      if (name) out[name] = backendTypeToPinType(type)
-    }
-    return out
-  },
+// dynamic data in — Spec.DynamicInputs 节点 (Expr / Script) 的 config.Inputs[] 声明.
+// 镜像 backend ParseDynamicInputDecls: PascalCase Name/Type 键, 空 Name 跳过.
+function parseDynamicInputsCfg(
+  cfg: Record<string, unknown> | null | undefined,
+): Record<string, PinType> {
+  const inputs = Array.isArray(cfg?.Inputs)
+    ? (cfg!.Inputs as Array<Record<string, unknown>>)
+    : []
+  const out: Record<string, PinType> = {}
+  for (const i of inputs) {
+    const name = typeof i.Name === 'string' ? i.Name : ''
+    const type = typeof i.Type === 'string' ? i.Type : 'any'
+    if (name) out[name] = backendTypeToPinType(type)
+  }
+  return out
 }
 
 // 主转换: backend Spec → NodeKindSpec.
@@ -281,7 +279,11 @@ function adaptSpec(s: Spec): NodeKindSpec {
     out.excludeFromPalette = true
   }
   if (DYNAMIC_EXEC_OUT[s.kind]) out.execOutFn = DYNAMIC_EXEC_OUT[s.kind]
-  if (DYNAMIC_DATA_IN[s.kind]) out.dataInDynamicFn = DYNAMIC_DATA_IN[s.kind]
+  // 标志驱动 (backend Spec.DynamicInputs): 动态 data-in pin 由 config.Inputs[] 声明.
+  if (s.dynamicInputs) {
+    out.dynamicInputs = true
+    out.dataInDynamicFn = parseDynamicInputsCfg
+  }
   return out
 }
 

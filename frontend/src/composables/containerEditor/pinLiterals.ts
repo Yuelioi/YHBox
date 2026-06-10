@@ -5,6 +5,7 @@
 // pin 名在单节点内唯一, exec 边落 exec-in pin (名不同) 天然被 dataIn 名取交集忽略。
 import type { ComputedRef, InjectionKey } from 'vue'
 import type { PinType } from '@/components/containers/nodeRegistry/index'
+import { getSpec } from '@/components/containers/nodeRegistry/registry'
 
 export interface LiteralPin {
   name: string
@@ -42,8 +43,8 @@ export function unconnectedDataInPins(
     if (tgt === nodeId && pin) incoming.add(pin)
   }
   const out: LiteralPin[] = []
-  if (kind === 'Expr') {
-    // Expr dynamic inputs 存在 config.Inputs[] (PascalCase Name/Type, 跟后端 ParseExprConfig 一致)。
+  if (getSpec(kind)?.dynamicInputs) {
+    // 动态输入声明存 config.Inputs[] (PascalCase Name/Type, 跟后端 ParseDynamicInputDecls 一致)。
     const inputs = (config?.Inputs ?? []) as Array<{ Name?: string; Type?: string }>
     for (const inp of inputs) {
       if (inp?.Name && !incoming.has(inp.Name)) {

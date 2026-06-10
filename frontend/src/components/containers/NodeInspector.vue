@@ -488,6 +488,16 @@
       />
     </section>
 
+    <!-- 动态输入声明 (spec.dynamicInputs: Expr/Script) — 编辑 config.Inputs[],
+         画布 data-in 引脚 + 下方 literal 区 + code 补全据此联动。独立 v-if (不进上面
+         bespoke v-else-if 链): 这些节点还要渲染通用 literal 区。 -->
+    <section v-if="specHasDynamicInputs" class="mb-5">
+      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
+        {{ t('inspector.dyn_inputs_title') }}
+      </h4>
+      <DynamicInputsEditor :node="node" @update="emit('update', $event)" />
+    </section>
+
     <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。
          连线的 pin 不显 (值走 data 边)。有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 这里返空。 -->
     <section v-if="normalLiterals.length > 0" class="mb-5">
@@ -587,7 +597,7 @@
     </section>
 
     <p
-      v-else-if="normalLiterals.length === 0 && !hasBespokeSection"
+      v-else-if="normalLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
       class="text-[12px] text-dimmed"
     >{{ t('inspector.no_config') }}</p>
   </div>
@@ -601,6 +611,8 @@ import type { GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import SwitchInspector from './inspector/SwitchInspector.vue'
+import DynamicInputsEditor from './inspector/DynamicInputsEditor.vue'
+import { getSpec } from './nodeRegistry/registry'
 import ClipTimeline from './ClipTimeline.vue'
 import TemplatePicker from './TemplatePicker.vue'
 import { useI18n } from 'vue-i18n'
@@ -672,6 +684,11 @@ const dataInLiterals = computed(() => {
     props.node.id,
   )
 })
+
+// spec.dynamicInputs 标志 (Expr/Script) — 驱动「输入口」声明编辑 section。
+const specHasDynamicInputs = computed(
+  () => !!props.node && !!getSpec(props.node.kind)?.dynamicInputs,
+)
 
 // 动态输入名 (config.Inputs[] 声明, 镜像后端 ParseDynamicInputDecls) — 喂 code widget 补全。
 const dynamicInputNames = computed<string[]>(() => {

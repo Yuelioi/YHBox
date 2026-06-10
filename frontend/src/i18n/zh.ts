@@ -522,6 +522,7 @@ export default {
     screen_pick_action_click: '点一下',
     color_pick_huewrap_title: '色相跨红色边界，已降级',
     color_pick_huewrap_desc: '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
+    dyn_inputs_title: '输入口',
     literal_section: '数据输入 (literal)',
     capture_section: '输出捕获',
     config_section: '配置',

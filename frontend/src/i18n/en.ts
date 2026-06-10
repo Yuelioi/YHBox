@@ -506,6 +506,7 @@
     screen_pick_action_click: 'one click to',
     color_pick_huewrap_title: 'Hue crosses the red boundary — downgraded',
     color_pick_huewrap_desc: 'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
+    dyn_inputs_title: 'Inputs',
     literal_section: 'Data inputs (literal)',
     capture_section: 'Output capture',
     config_section: 'Config',

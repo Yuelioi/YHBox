@@ -34,6 +34,7 @@ declare module 'vue' {
     ContainerSettingsModal: typeof import('./src/components/containers/ContainerSettingsModal.vue')['default']
     ContainersTab: typeof import('./src/components/tasks/ContainersTab.vue')['default']
     DeleteVarConfirmModal: typeof import('./src/components/containers/sidebar/DeleteVarConfirmModal.vue')['default']
+    DynamicInputsEditor: typeof import('./src/components/containers/inspector/DynamicInputsEditor.vue')['default']
     EdgeContextMenu: typeof import('./src/components/containers/menus/EdgeContextMenu.vue')['default']
     ExprInput: typeof import('./src/components/expressions/ExprInput.vue')['default']
     FindReferencesModal: typeof import('./src/components/containers/FindReferencesModal.vue')['default']

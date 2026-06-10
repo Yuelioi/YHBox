@@ -1,8 +1,30 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { unconnectedDataInPins } from './pinLiterals'
+import { register, __resetForTests } from '@/components/containers/nodeRegistry/registry'
 import type { PinType } from '@/components/containers/nodeRegistry/index'
 
 const KEYPRESS_DATAIN: Record<string, PinType> = { VK: 'string', Dur: 'number' }
+
+// 动态输入分支是标志驱动 (getSpec(kind)?.dynamicInputs) — 测试注册最小 Expr spec.
+beforeAll(() => {
+  __resetForTests()
+  register({
+    kind: 'Expr',
+    group: 'purefunc',
+    labelZh: 'node.Expr.label',
+    description: 'node.Expr.description',
+    example: 'node.Expr.example',
+    visual: { icon: '', bg: '', border: '' },
+    execIn: [],
+    execOut: [],
+    dataIn: {},
+    dataOut: { value: 'any' },
+    fields: [],
+    defaults: {},
+    isPureData: true,
+    dynamicInputs: true,
+  })
+})
 
 describe('unconnectedDataInPins', () => {
   it('无边时返回全部 data-in pin', () => {
@@ -39,7 +61,7 @@ describe('unconnectedDataInPins', () => {
     expect(out).toEqual([{ name: 'Pos', type: 'point' }])
   })
 
-  it('Expr 节点并入 config.Inputs[] 未连线动态输入', () => {
+  it('dynamicInputs 节点 (Expr) 并入 config.Inputs[] 未连线动态输入', () => {
     const config = { Inputs: [{ Name: 'a', Type: 'number' }, { Name: 'b', Type: 'number' }] }
     const edges = [{ from: 's.out', to: 'n1.a' }]
     const out = unconnectedDataInPins('Expr', {}, config, edges, 'n1')
