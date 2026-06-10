@@ -63,6 +63,7 @@ export const GROUP_VISUAL: Record<string, { color: string; icon: string }> = {
   mock: { color: 'pink', icon: 'i-tabler-test-pipe' },
   test: { color: 'pink', icon: 'i-tabler-flask' },
   event: { color: 'rose', icon: 'i-tabler-player-play' },
+  random: { color: 'teal', icon: 'i-tabler-dice' },
 }
 
 export function groupVisual(group: string | undefined): { color: string; icon: string } {

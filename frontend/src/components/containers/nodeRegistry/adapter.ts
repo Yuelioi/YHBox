@@ -36,6 +36,7 @@ const GROUP_MAP: Record<string, NodeGroup> = {
   Mock: 'mock',
   Test: 'test',
   Event: 'event',
+  Random: 'random',
 }
 
 // 按 group 取 visual (icon + tailwind color) — 从视觉注册中心 (visualRegistry) 派生,

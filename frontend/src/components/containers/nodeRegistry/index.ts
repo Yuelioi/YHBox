@@ -93,6 +93,7 @@ export type NodeGroup =
   | 'mock'
   | 'test'
   | 'event'
+  | 'random'
 
 /**
  * Single-source-of-truth descriptor for a node kind.
