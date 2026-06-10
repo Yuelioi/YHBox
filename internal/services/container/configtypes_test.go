@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+func TestParseDynamicInputDecls_AnyKind(t *testing.T) {
+	n := &GraphNode{Kind: "Script", Config: map[string]any{
+		"Inputs": []any{map[string]any{"Name": "hp", "Type": "number"}},
+	}}
+	decls := ParseDynamicInputDecls(n)
+	if len(decls) != 1 || decls[0].Name != "hp" || decls[0].Type != "number" {
+		t.Fatalf("got %+v", decls)
+	}
+}
+
+func TestParseDynamicInputDecls_NilSafe(t *testing.T) {
+	if got := ParseDynamicInputDecls(nil); got != nil {
+		t.Fatalf("nil node: got %+v", got)
+	}
+	if got := ParseDynamicInputDecls(&GraphNode{Kind: "Expr"}); got != nil {
+		t.Fatalf("nil config: got %+v", got)
+	}
+	// 空 Name 项跳过; 非 map 项跳过.
+	n := &GraphNode{Kind: "Expr", Config: map[string]any{
+		"Inputs": []any{map[string]any{"Name": "", "Type": "number"}, "junk", map[string]any{"Name": "i"}},
+	}}
+	decls := ParseDynamicInputDecls(n)
+	if len(decls) != 1 || decls[0].Name != "i" || decls[0].Type != "" {
+		t.Fatalf("got %+v", decls)
+	}
+}
+
 func TestParseSwitchConfig(t *testing.T) {
 	cases := []struct {
 		name     string

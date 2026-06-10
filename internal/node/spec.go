@@ -36,6 +36,10 @@ type Spec struct {
 	// 的 named-by-value case 出口). 置真时 ctx.Out(name) 放行任意 name (跳过 Outputs 成员检查);
 	// 出口名合法性由节点自身 + validator 静态保证. Outputs 仍可列固定兜底出口 (Switch 的 default).
 	DynamicOutputs bool `json:"dynamicOutputs,omitempty"`
+	// DynamicInputs — 动态 data-in pin 由 config.Inputs[] 声明, 不在静态 Inputs 里枚举
+	// (Expr / Script). dispatch / validator / FE 按此标志走 ParseDynamicInputDecls
+	// 解析声明列表; Inputs 仍可列固定静态 pin (Expr 的 Expression).
+	DynamicInputs bool `json:"dynamicInputs,omitempty"`
 }
 
 type InputSpec struct {

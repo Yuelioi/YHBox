@@ -57,21 +57,34 @@ func ParseExprConfig(n *GraphNode) (ExprConfig, error) {
 	if t, ok := n.Config["OutType"].(string); ok && t != "" {
 		c.OutType = t
 	}
-	if raw, ok := n.Config["Inputs"].([]any); ok {
-		for _, it := range raw {
-			m, ok := it.(map[string]any)
-			if !ok {
-				continue
-			}
-			// Inputs[] entry keys 跟节点 InputSpec.Name 风格对齐 — Name (PascalCase 用户面),
-			// Type (Pascal type tag). Dynamic input.name 在 graph 内是 data-pin 名, 由用户起.
-			name, _ := m["Name"].(string)
-			typ, _ := m["Type"].(string)
-			if name == "" {
-				continue
-			}
-			c.Inputs = append(c.Inputs, ExprInputDecl{Name: name, Type: typ})
-		}
-	}
+	c.Inputs = ParseDynamicInputDecls(n)
 	return c, nil
+}
+
+// ParseDynamicInputDecls 解析 config.Inputs[] 动态 data-in pin 声明 — 凡 Spec.DynamicInputs
+// 节点 (Expr / Script) 通用. nil-safe; 空 Name 项跳过. 重名不在这里去重 — 由 validator 报错.
+func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
+	if n == nil || n.Config == nil {
+		return nil
+	}
+	raw, ok := n.Config["Inputs"].([]any)
+	if !ok {
+		return nil
+	}
+	var decls []ExprInputDecl
+	for _, it := range raw {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		// Inputs[] entry keys 跟节点 InputSpec.Name 风格对齐 — Name (PascalCase 用户面),
+		// Type (Pascal type tag). Dynamic input.name 在 graph 内是 data-pin 名, 由用户起.
+		name, _ := m["Name"].(string)
+		typ, _ := m["Type"].(string)
+		if name == "" {
+			continue
+		}
+		decls = append(decls, ExprInputDecl{Name: name, Type: typ})
+	}
+	return decls
 }

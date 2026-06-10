@@ -10,7 +10,7 @@ import (
 // Text→Message) → UNKNOWN_LITERAL_PIN warning。现状是静默丢值 (literals.go 跳过未知 pin,
 // INVALID_PIN 只查边端点不查 literal key)。
 //
-// Expr 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
+// DynamicInputs 节点 (Expr/Script) 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
 func validateUnknownLiteralPins(c *Container) []ValidationError {
 	if c == nil {
 		return nil
@@ -19,15 +19,15 @@ func validateUnknownLiteralPins(c *Container) []ValidationError {
 	check := func(nodes []GraphNode, graphPath []string) {
 		for i := range nodes {
 			n := &nodes[i]
-			if n.Kind == "Expr" {
-				continue
-			}
 			lit, _ := n.Config["literal"].(map[string]any)
 			if lit == nil {
 				continue
 			}
 			rn, ok := nodepkg.Get(n.Kind)
 			if !ok {
+				continue
+			}
+			if rn.Spec.DynamicInputs {
 				continue
 			}
 			valid := map[string]bool{}

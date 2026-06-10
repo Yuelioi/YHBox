@@ -36,6 +36,9 @@ func (Expr) Spec() node.Spec {
 			{Name: exprOutResult, Type: "*"},
 		},
 		IsPureData: true,
+		// dynamic data-in pins 由 config.Inputs[] 声明 — dispatch/validator 走
+		// ParseDynamicInputDecls 解析 (见包注释).
+		DynamicInputs: true,
 		// rand()/now() 非确定: 挂标记让 per-dispatch eval cache 记忆化,
 		// 同一次求值内多路径引用同一 Expr 拿同值 (与 random 节点包同语义).
 		IsNonDeterministic: true,

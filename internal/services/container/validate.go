@@ -243,7 +243,8 @@ func dataInPinSemanticForKind(kind, pinName string) string {
 	return ""
 }
 
-// dataInPinTypeForNode cfg-aware 变种 — Expr.inputs[] 动态声明的 pin 走 ParseExprConfig 查.
+// dataInPinTypeForNode cfg-aware 变种 — DynamicInputs 节点 config.Inputs[] 动态声明的
+// pin 走 ParseDynamicInputDecls 查.
 func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 	if n == nil {
 		return ""
@@ -251,9 +252,8 @@ func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 	if t := dataInPinTypeForKind(n.Kind, pinName); t != "" {
 		return t
 	}
-	if n.Kind == "Expr" {
-		cfg, _ := ParseExprConfig(n)
-		for _, in := range cfg.Inputs {
+	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicInputs {
+		for _, in := range ParseDynamicInputDecls(n) {
 			if in.Name == pinName && in.Type != "" {
 				return strings.ToLower(in.Type)
 			}

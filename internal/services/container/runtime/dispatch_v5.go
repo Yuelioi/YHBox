@@ -60,13 +60,16 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 		}
 		dw[ip.Name] = coerceToType(v, ip.Type)
 	}
-	// Expr 节点 dynamic data-in pins 在 Spec 里登记不到 — 走 config.Inputs[] 声明.
-	// 必须额外 pull 一轮把声明的 dynamic name 喂进 dataWire, Expr.Evaluate 再从
-	// in.Keys() 遍历 (跳过 Expression 静态 pin) 构造 expr.InputEnv.
-	if node.Kind == "Expr" {
-		cfg, _ := container.ParseExprConfig(node)
-		for _, in := range cfg.Inputs {
-			if in.Name == "" || in.Name == "Expression" {
+	// DynamicInputs 节点 (Expr/Script) 的 dynamic data-in pins 在 Spec 里登记不到 —
+	// 走 config.Inputs[] 声明. 必须额外 pull 一轮把声明的 dynamic name 喂进 dataWire,
+	// 节点 Evaluate/Run 再从 in.Keys() 遍历 (跳过 Spec 静态 pin) 消费.
+	if rn.Spec.DynamicInputs {
+		static := map[string]bool{}
+		for _, ip := range rn.Spec.Inputs {
+			static[ip.Name] = true
+		}
+		for _, in := range container.ParseDynamicInputDecls(node) {
+			if in.Name == "" || static[in.Name] {
 				continue
 			}
 			if _, exists := dw[in.Name]; exists {
