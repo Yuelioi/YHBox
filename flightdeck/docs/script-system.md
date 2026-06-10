@@ -1,5 +1,5 @@
 ---
-status: active
+status: stale
 when_to_read: 写/改 Script 节点或绑定层前; 想知道脚本里能调什么函数、怎么传参取值接错误; 加新节点想确认脚本侧是否自动可见; 改 Expr/Script 动态输入机制前; 撞 SCRIPT_* 校验码或脚本取消/行号问题
 applies_to: [script, script-node, goja, node-as-function, ScriptBindable, binding, sugar, vars, sleep, dynamic-inputs, DynamicInputs, code-widget, CodeInput, internal/services/script, internal/nodes/script, internal/services/container/validator_script.go, frontend/src/components/expressions, frontend/src/lib/scriptCompletions.ts, frontend/src/components/containers/inspector/DynamicInputsEditor.vue]
 when_to_update: 改绑定调用/返回/错误约定、糖函数集合、ScriptBindable 排除规则、IIFE 包裹/行号修正、code widget 组件链路或 DynamicInputs 机制时

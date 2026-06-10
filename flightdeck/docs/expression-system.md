@@ -1,5 +1,5 @@
 ---
-status: active
+status: stale
 when_to_read: 加/改 Expr 内置函数前; 改表达式语法/parser/求值前; 碰 ExprInput 编辑器或函数补全前; 撞 EXPR_* 校验码不懂含义时
 applies_to: [expr, builtins, Expr, ExprInput, exprFunctions, internal/services/expr, internal/nodes/purefunc/expr.go, internal/services/container/validator_expr.go, frontend/src/lib/exprFunctions.ts, frontend/src/components/expressions]
 last_updated: 2026-06-11
