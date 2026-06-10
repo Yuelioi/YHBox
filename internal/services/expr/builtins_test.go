@@ -1,6 +1,10 @@
 package expr
 
-import "testing"
+import (
+	"sort"
+	"strings"
+	"testing"
+)
 
 // TestBuiltins_SetAndArity — 函数表是 validator/前端补全的单一来源, 集合+arity 锁死防漂移.
 func TestBuiltins_SetAndArity(t *testing.T) {
@@ -44,6 +48,31 @@ func TestEvalCall_ArityErrors(t *testing.T) {
 		}
 		if _, err := Eval(ast, nil); err == nil {
 			t.Errorf("Eval(%q): want arity error, got nil", src)
+		}
+	}
+}
+
+// TestFunctions_DTO — RPC 喂前端的元数据: 按名排序, 与 Builtins 同集合, Sig 以 name( 开头.
+// 这张表是补全/校验的唯一权威 (FE 手写表已删), 别让 Sig 缺项.
+func TestFunctions_DTO(t *testing.T) {
+	fns := Functions()
+	if len(fns) != len(builtins) {
+		t.Fatalf("Functions() = %d entries, builtins has %d", len(fns), len(builtins))
+	}
+	if !sort.SliceIsSorted(fns, func(i, j int) bool { return fns[i].Name < fns[j].Name }) {
+		t.Error("Functions() not sorted by name")
+	}
+	for _, f := range fns {
+		b, ok := builtins[f.Name]
+		if !ok {
+			t.Errorf("Functions() has %q not in builtins", f.Name)
+			continue
+		}
+		if f.MinArgs != b.MinArgs || f.MaxArgs != b.MaxArgs {
+			t.Errorf("%s arity DTO [%d,%d] != builtin [%d,%d]", f.Name, f.MinArgs, f.MaxArgs, b.MinArgs, b.MaxArgs)
+		}
+		if !strings.HasPrefix(f.Sig, f.Name+"(") {
+			t.Errorf("%s Sig = %q, want prefix %q", f.Name, f.Sig, f.Name+"(")
 		}
 	}
 }

@@ -1,34 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { EXPR_FUNCTIONS, tokenAtCaret, unknownFnsIn } from './exprFunctions'
+import { setExprFunctions, allExprFunctions, exprFnNames, tokenAtCaret, unknownFnsIn, lintExpr } from './exprFunctions'
 
-describe('EXPR_FUNCTIONS', () => {
-  // 与 Go expr.Builtins() 同一预期表 (internal/services/expr/builtins_test.go) — 两侧测试用字面常量互锁.
-  const WANT: Record<string, [number, number]> = {
-    abs: [1, 1],
-    min: [2, 2],
-    max: [2, 2],
-    now: [0, 0],
-    floor: [1, 1],
-    ceil: [1, 1],
-    sqrt: [1, 1],
-    round: [1, 2],
-    pow: [2, 2],
-    clamp: [3, 3],
-    rand: [0, 0],
-    randint: [2, 2],
-  }
+// 函数表集合/arity 的权威测试在 Go 侧 (builtins_test.go TestFunctions_DTO) —
+// FE 不再手写表, 这里只测 store 喂表 + 纯函数逻辑.
 
-  it('matches the Go builtin set and arity', () => {
-    expect(EXPR_FUNCTIONS.map(f => f.name).sort()).toEqual(Object.keys(WANT).sort())
-    for (const f of EXPR_FUNCTIONS) {
-      expect([f.minArgs, f.maxArgs], f.name).toEqual(WANT[f.name])
-    }
-  })
-
-  it('every function has a signature starting with its name', () => {
-    for (const f of EXPR_FUNCTIONS) {
-      expect(f.sig.startsWith(`${f.name}(`), f.name).toBe(true)
-    }
+describe('setExprFunctions', () => {
+  it('populates list and name set', () => {
+    setExprFunctions([
+      { name: 'clamp', sig: 'clamp(x, min, max)', minArgs: 3, maxArgs: 3 },
+      { name: 'rand', sig: 'rand()', minArgs: 0, maxArgs: 0 },
+    ])
+    expect(allExprFunctions().map(f => f.name)).toEqual(['clamp', 'rand'])
+    expect(exprFnNames().has('clamp')).toBe(true)
+    expect(exprFnNames().has('clmap')).toBe(false)
   })
 })
 
@@ -48,22 +32,68 @@ describe('tokenAtCaret', () => {
 })
 
 describe('unknownFnsIn', () => {
+  const KNOWN = new Set(['clamp', 'abs', 'max'])
+
   it('flags typo function', () => {
-    expect(unknownFnsIn('clmap(1, 2, 3)')).toEqual(['clmap'])
+    expect(unknownFnsIn('clmap(1, 2, 3)', KNOWN)).toEqual(['clmap'])
   })
   it('known functions pass', () => {
-    expect(unknownFnsIn('clamp(abs(x), 0, max(1, 2))')).toEqual([])
+    expect(unknownFnsIn('clamp(abs(x), 0, max(1, 2))', KNOWN)).toEqual([])
   })
   it('ignores calls inside string literals', () => {
-    expect(unknownFnsIn('"foo(1)" == s')).toEqual([])
+    expect(unknownFnsIn('"foo(1)" == s', KNOWN)).toEqual([])
   })
   it('identifier without paren is not a call', () => {
-    expect(unknownFnsIn('clmap + 1')).toEqual([])
+    expect(unknownFnsIn('clmap + 1', KNOWN)).toEqual([])
   })
   it('dedupes repeats', () => {
-    expect(unknownFnsIn('foo(1) + foo(2)')).toEqual(['foo'])
+    expect(unknownFnsIn('foo(1) + foo(2)', KNOWN)).toEqual(['foo'])
   })
   it('allows space between name and paren', () => {
-    expect(unknownFnsIn('foo (1)')).toEqual(['foo'])
+    expect(unknownFnsIn('foo (1)', KNOWN)).toEqual(['foo'])
+  })
+})
+
+describe('lintExpr', () => {
+  const KNOWN = new Set(['clamp', 'abs'])
+
+  it('valid expression → no diagnostics', () => {
+    expect(lintExpr('clamp(abs(x), 0, 10) > 5', KNOWN)).toEqual([])
+  })
+  it('extra closing paren points at the offending paren', () => {
+    const d = lintExpr('abs(x))', KNOWN)
+    expect(d).toHaveLength(1)
+    expect(d[0]).toMatchObject({ from: 6, to: 7, messageKey: 'expression.error.paren_mismatch' })
+  })
+  it('missing closing paren points at end', () => {
+    const d = lintExpr('clamp(1, 2', KNOWN)
+    expect(d).toHaveLength(1)
+    expect(d[0].messageKey).toBe('expression.error.paren_missing')
+    expect(d[0].from).toBe(10)
+  })
+  it('unclosed string points at opening quote', () => {
+    const d = lintExpr('x == "abc', KNOWN)
+    expect(d).toHaveLength(1)
+    expect(d[0]).toMatchObject({ from: 5, messageKey: 'expression.error.string_unclosed' })
+  })
+  it('unknown function underlines the name', () => {
+    const d = lintExpr('1 + clmap(1)', KNOWN)
+    expect(d).toHaveLength(1)
+    expect(d[0]).toMatchObject({ from: 4, to: 9, messageKey: 'expression.error.unknown_fn' })
+    expect(d[0].params).toEqual({ name: 'clmap' })
+  })
+  it('trailing operator points at end', () => {
+    const d = lintExpr('1 +', KNOWN)
+    expect(d).toHaveLength(1)
+    expect(d[0].messageKey).toBe('expression.error.op_end')
+  })
+  it('bare word covers the whole token', () => {
+    const d = lintExpr('hello', KNOWN)
+    expect(d).toHaveLength(1)
+    expect(d[0]).toMatchObject({ from: 0, to: 5, messageKey: 'expression.error.bare_word' })
+  })
+  it('empty text → no diagnostics', () => {
+    expect(lintExpr('', KNOWN)).toEqual([])
+    expect(lintExpr('   ', KNOWN)).toEqual([])
   })
 })

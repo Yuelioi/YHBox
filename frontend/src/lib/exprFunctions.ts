@@ -1,6 +1,7 @@
 // Expr 内置函数元数据 — ExprInput 补全下拉 + 即时未知函数检查用.
-// 单一来源是 Go internal/services/expr/builtins.go; 两侧测试用同一预期字面量互锁
-// (exprFunctions.spec.ts ↔ builtins_test.go), 改函数表必须四处同步.
+// 单一来源是 Go internal/services/expr/builtins.go, 启动时经 NodeService.GetExprFunctions
+// RPC 拉取 (populateRegistryFromBackend 后置 setExprFunctions 填). 本模块不再手写函数表 —
+// 加函数 = 改 Go 表 (含 Sig) + zh/en 各 1 条 expression.fn.<name>.desc.
 
 export interface ExprFunction {
   name: string
@@ -10,22 +11,22 @@ export interface ExprFunction {
   maxArgs: number
 }
 
-export const EXPR_FUNCTIONS: ExprFunction[] = [
-  { name: 'abs', sig: 'abs(x)', minArgs: 1, maxArgs: 1 },
-  { name: 'ceil', sig: 'ceil(x)', minArgs: 1, maxArgs: 1 },
-  { name: 'clamp', sig: 'clamp(x, min, max)', minArgs: 3, maxArgs: 3 },
-  { name: 'floor', sig: 'floor(x)', minArgs: 1, maxArgs: 1 },
-  { name: 'max', sig: 'max(a, b)', minArgs: 2, maxArgs: 2 },
-  { name: 'min', sig: 'min(a, b)', minArgs: 2, maxArgs: 2 },
-  { name: 'now', sig: 'now()', minArgs: 0, maxArgs: 0 },
-  { name: 'pow', sig: 'pow(x, y)', minArgs: 2, maxArgs: 2 },
-  { name: 'rand', sig: 'rand()', minArgs: 0, maxArgs: 0 },
-  { name: 'randint', sig: 'randint(min, max)', minArgs: 2, maxArgs: 2 },
-  { name: 'round', sig: 'round(x, digits?)', minArgs: 1, maxArgs: 2 },
-  { name: 'sqrt', sig: 'sqrt(x)', minArgs: 1, maxArgs: 1 },
-]
+let exprFunctions: ExprFunction[] = []
+let fnNames = new Set<string>()
 
-const FN_NAMES = new Set(EXPR_FUNCTIONS.map(f => f.name))
+/** 启动时由 populateRegistryFromBackend 填; 测试可直接调. */
+export function setExprFunctions(list: ExprFunction[]) {
+  exprFunctions = list
+  fnNames = new Set(list.map(f => f.name))
+}
+
+export function allExprFunctions(): ExprFunction[] {
+  return exprFunctions
+}
+
+export function exprFnNames(): Set<string> {
+  return fnNames
+}
 
 /** 光标处 token (往前扫 identifier 字符). 补全替换区间 = [start, caret). */
 export function tokenAtCaret(text: string, caret: number): { token: string; start: number } {
@@ -35,10 +36,9 @@ export function tokenAtCaret(text: string, caret: number): { token: string; star
   return { token: text.slice(i, end), start: i }
 }
 
-/** 文本里"长得像函数调用"且不在内置表的名字 (去重). 跳过双引号字符串字面量 (含 \" 转义). */
-export function unknownFnsIn(text: string): string[] {
-  const out: string[] = []
-  const seen = new Set<string>()
+/** 扫描"长得像函数调用"的 token (identifier 后跟 '('), 带位置. 跳过双引号字符串 (含 \" 转义). */
+function scanCalls(text: string): { name: string; from: number; to: number }[] {
+  const out: { name: string; from: number; to: number }[] = []
   let i = 0
   while (i < text.length) {
     const c = text[i]
@@ -51,17 +51,94 @@ export function unknownFnsIn(text: string): string[] {
     if (/[a-zA-Z_]/.test(c)) {
       let j = i + 1
       while (j < text.length && /[a-zA-Z0-9_]/.test(text[j])) j++
-      const name = text.slice(i, j)
       let k = j
       while (k < text.length && text[k] === ' ') k++
-      if (text[k] === '(' && !FN_NAMES.has(name) && !seen.has(name)) {
-        seen.add(name)
-        out.push(name)
-      }
+      if (text[k] === '(') out.push({ name: text.slice(i, j), from: i, to: j })
       i = j
       continue
     }
     i++
+  }
+  return out
+}
+
+/** 文本里调用了但不在 known 集合的函数名 (去重). */
+export function unknownFnsIn(text: string, known: Set<string>): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const call of scanCalls(text)) {
+    if (!known.has(call.name) && !seen.has(call.name)) {
+      seen.add(call.name)
+      out.push(call.name)
+    }
+  }
+  return out
+}
+
+/** 带位置的启发式诊断 — CodeMirror lint 红线 + 框下红字共用. messageKey 是 i18n key. */
+export interface ExprDiagnostic {
+  from: number
+  to: number
+  messageKey: string
+  params?: Record<string, unknown>
+}
+
+// lintExpr — 括号/引号错误互为级联噪音, 命中即短路只报一条; 其余 (裸词/尾运算符/未知函数) 可并存全收.
+export function lintExpr(text: string, known: Set<string>): ExprDiagnostic[] {
+  if (text.trim() === '') return []
+
+  let depth = 0
+  let inStr = false
+  let strStart = -1
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '"' && text[i - 1] !== '\\') {
+      if (!inStr) strStart = i
+      inStr = !inStr
+      continue
+    }
+    if (inStr) continue
+    if (c === '(') depth++
+    else if (c === ')') {
+      depth--
+      if (depth < 0) return [{ from: i, to: i + 1, messageKey: 'expression.error.paren_mismatch' }]
+    }
+  }
+  if (inStr) return [{ from: strStart, to: text.length, messageKey: 'expression.error.string_unclosed' }]
+  if (depth > 0) {
+    return [{
+      from: text.length, to: text.length,
+      messageKey: 'expression.error.paren_missing',
+      params: { count: depth, char: ')' },
+    }]
+  }
+
+  const out: ExprDiagnostic[] = []
+  const trimmed = text.trim()
+  const lead = text.indexOf(trimmed)
+
+  if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed) && !['true', 'false', 'null'].includes(trimmed)) {
+    out.push({
+      from: lead, to: lead + trimmed.length,
+      messageKey: 'expression.error.bare_word',
+      params: { var: trimmed },
+    })
+  }
+
+  if (/[+\-*/%<>=!&|?:,]$/.test(trimmed)) {
+    const pos = lead + trimmed.length - 1
+    out.push({ from: pos, to: pos + 1, messageKey: 'expression.error.op_end' })
+  }
+
+  const seen = new Set<string>()
+  for (const call of scanCalls(text)) {
+    if (known.has(call.name) || seen.has(call.name)) continue
+    seen.add(call.name)
+    out.push({
+      from: call.from, to: call.to,
+      messageKey: 'expression.error.unknown_fn',
+      params: { name: call.name },
+    })
   }
   return out
 }

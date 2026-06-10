@@ -18,6 +18,7 @@
 // FindReferencesModal / nodeFieldSchemas) 不变.
 
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
+import { setExprFunctions } from '@/lib/exprFunctions'
 import { __resetForTests, register } from './registry'
 import type { FieldSchema, NodeFieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
 import type { Spec, InputSpec, OutputSpec } from '@bindings/yotta/internal/node'
@@ -295,6 +296,8 @@ export async function populateRegistryFromBackend(): Promise<void> {
   for (const spec of store.specs.values()) {
     register(adaptSpec(spec))
   }
+  // Expr 函数元数据 (补全/未知函数检查) — RPC 单源, 喂给 exprFunctions 模块级表.
+  setExprFunctions(store.exprFunctions)
   // 异步 import 避免循环: pinSpec/nodeFieldSchemas → registry, registry 不应反 import.
   const { rebuildPinSpecMaps } = await import('@/components/containers/pinSpec')
   const { rebuildNodeFieldSchemas } = await import(

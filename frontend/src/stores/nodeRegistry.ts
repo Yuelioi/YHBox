@@ -5,22 +5,26 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { NodeService } from '@bindings/yotta/internal/node'
 import type { Spec, TypeSpec } from '@bindings/yotta/internal/node'
+import type { FunctionSpec } from '@bindings/yotta/internal/services/expr'
 
 export const useNodeRegistryStore = defineStore('nodeRegistry', () => {
   const specs = ref(new Map<string, Spec>())
   const types = ref(new Map<string, TypeSpec>())
   const errorCodes = ref<string[]>([])
+  const exprFunctions = ref<FunctionSpec[]>([])
   const loaded = ref(false)
 
   async function loadAll() {
-    const [specList, typeList, codeList] = await Promise.all([
+    const [specList, typeList, codeList, exprFnList] = await Promise.all([
       NodeService.GetAllNodeSpecs(),
       NodeService.GetAllTypes(),
       NodeService.GetErrorCodes(),
+      NodeService.GetExprFunctions(),
     ])
     specs.value = new Map(specList.map((s: Spec) => [s.kind, s]))
     types.value = new Map(typeList.map((t: TypeSpec) => [t.tag, t]))
     errorCodes.value = codeList as string[]
+    exprFunctions.value = exprFnList
     loaded.value = true
   }
 
@@ -36,5 +40,5 @@ export const useNodeRegistryStore = defineStore('nodeRegistry', () => {
     return types.value.get(typeTag)?.color || '#888'
   }
 
-  return { specs, types, errorCodes, loaded, loadAll, getSpec, getType, pinColor }
+  return { specs, types, errorCodes, exprFunctions, loaded, loadAll, getSpec, getType, pinColor }
 })

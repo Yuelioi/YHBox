@@ -1,7 +1,11 @@
 // internal/node/service.go
 package node
 
-import "fmt"
+import (
+	"fmt"
+
+	"yotta/internal/services/expr"
+)
 
 // NodeService Wails3 RPC service. FE 启动调 GetAllNodeSpecs / GetAllTypes / AsyncOptions.
 type NodeService struct {
@@ -43,6 +47,12 @@ func (s *NodeService) GetAllNodeSpecs() []Spec {
 // GetAllTypes FE 启动拉一次, 获颜色 + widget 映射.
 func (s *NodeService) GetAllTypes() []TypeSpec {
 	return AllTypes()
+}
+
+// GetExprFunctions FE 启动拉一次 — Expr 编辑器补全/未知函数检查的函数元数据.
+// 单一来源 expr/builtins.go; 加函数 = 改那张表 + zh/en 各 1 条 desc, FE 零手抄.
+func (s *NodeService) GetExprFunctions() []expr.FunctionSpec {
+	return expr.Functions()
 }
 
 // GetErrorCodes FE 启动拉一次, 供 Switch/UI 提示已知错误码全集.
