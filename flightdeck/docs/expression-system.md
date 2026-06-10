@@ -16,8 +16,17 @@ Expr 是一个 pure-data 节点 (`internal/nodes/purefunc/expr.go`): 用户写�
 
 - 字面量: 数字 / `"字符串"` / `true` / `false` / `null`。
 - 运算: 算术 `+ - * / %`、比较 `== != < <= > >=`、逻辑 `&& || !`、三目 `cond ? a : b`、函数调用 `fn(args)`。
-- **裸标识符 = 动态输入引用**: 表达式里写 `hp`, 必须在节点 config 的 `Inputs[]` 里声明同名输入 (`$vars.*` 语法 v4 已删, 变量走 GetVar 节点连进来)。
+- **裸标识符 = 动态输入引用**: 表达式里写 `hp`, 必须在节点 config 的 `Inputs[]` 里声明同名输入 (`$vars.*` 语法 v4 已删)。
 - AST 按表达式串缓存 (`parseExprCached`), 跨节点共享。
+
+## 输入声明两种来源 (config.Inputs[], Expr/Script 共用机制)
+
+每个声明项 `{Name, Type, Var?, Scope?}` (后端 `ParseDynamicInputDecls`):
+
+- **绑定变量 (`Var` 非空, 编辑器默认)**: 不渲染引脚不走连线, dispatch 的 `buildDataWireFor` 对绑定项**合成一次 GetVar 求值** (`evalBoundVar`, dispatch_v5.go) — 快照/scope/兜底语义与真 GetVar 连线完全一致, 画布零脚手架。可见性补救: 节点卡片 footer 列 `名 ← 变量名` 小字 (ContainerFlowNode `boundInputs`)。变量缺失 → 表达式里 undefined, 编辑期 `BOUND_VAR_UNKNOWN` (error) / 类型不合 `BOUND_VAR_TYPE_MISMATCH` (warning, validator_bound_inputs.go)。
+- **连线 (`Var` 空)**: 传统 data-in pin, 接 GetVar/Expr 等纯数据输出或填字面量 — 非变量数据源 (如 Expr→Expr 链, fusion 依赖) 仍走这条。
+- 声明编辑 UI: Inspector「输入口」区 (DynamicInputsEditor) 每行可切来源; 绑定模式用 VarNameInput (含新建变量), 选定后 Type 自动回填变量类型。
+- 用户拍板记录 (2026-06-11): 绑定为默认; "砍掉连线模式"被搁置 (破坏 Expr→Expr 链与 fusion), 日后单独议。
 
 ## 内置函数 — 单一来源与同步链
 

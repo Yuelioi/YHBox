@@ -50,9 +50,10 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 
 ## 动态输入机制 (Expr/Script 共用)
 
-- `Spec.DynamicInputs: true` 节点的额外 data-in pin 由 `config.Inputs[]` 声明 (PascalCase Name/Type), 后端统一走 `container.ParseDynamicInputDecls`; dispatch (`buildDataWireFor`) / validator (`dataInPinTypeForNode` / unknown-literal 跳过) / FE (`adapter.ts parseDynamicInputsCfg` / `pinLiterals.ts`) 全部标志驱动, **无 kind 字符串特判**。
-- 声明编辑 UI: Inspector「输入口」区 (`DynamicInputsEditor.vue`, 按 `spec.dynamicInputs` 显示) — 加/删行 + 名字合法性/重名标红; 此前 Expr 没有任何添加 UI (只能 fusion/手改 JSON), 这是 2026-06-11 一并补上的。
-- 连进来的值在脚本里是**同名只读全局变量** (Expr 里是表达式标识符)。
+- `Spec.DynamicInputs: true` 节点的额外输入由 `config.Inputs[]` 声明 (PascalCase `{Name, Type, Var?, Scope?}`), 后端统一走 `container.ParseDynamicInputDecls`; dispatch (`buildDataWireFor`) / validator (`dataInPinTypeForNode` / unknown-literal 跳过) / FE (`adapter.ts parseDynamicInputsCfg` / `pinLiterals.ts`) 全部标志驱动, **无 kind 字符串特判**。
+- **两种来源**: 绑定变量 (`Var` 非空, 编辑器默认 — 不渲染引脚, dispatch 合成 GetVar 求值直读变量, 节点卡片列 `名←变量` 小字) / 连线 (传统 data-in pin)。细节见 [expression-system](expression-system.md) 的「输入声明两种来源」。
+- 声明编辑 UI: Inspector「输入口」区 (`DynamicInputsEditor.vue`) — 来源切换 + VarNameInput(含新建变量) + 名字合法性/重名标红。
+- 值在脚本里是**同名只读全局变量** (Expr 里是表达式标识符)。
 
 ## 前端编辑器链路
 

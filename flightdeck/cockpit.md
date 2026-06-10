@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (Script 节点全链路落地+graduate 进 docs/script-system; 用户反馈后补齐: Expr/Script 统一放大编辑 modal(参考面板/点击插入/实时 lint); 挂 2 笔真机 smoke。)
-**Active focus**: **Script 节点 + 放大编辑 modal 已落地待真机 smoke**(见「下一步」, 连同 CodeMirror smoke 一起验); 验完议「变量绑定路线 A」(先确认 Script vars.get 缓解后还做不做)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (变量绑定路线 A 落地归档 — 表达式两问议题全部关闭; 编辑器三轮反馈打磨完; 挂 3 笔真机 smoke。)
+**Active focus**: **Script 节点 + 编辑器 + 变量绑定 已全部落地, 待真机 smoke ×3**(见「下一步」)。验完无挂账, 回 idea 池挑下一个方向。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,12 +9,12 @@
 
 ## 下一步
 
-**首选: 真机 smoke ×2, 一次跑完报我清 verify**:
+**首选: 真机 smoke ×3, 一次跑完报我清 verify**:
+0. **变量绑定输入**(3 步): ① 容器声明变量 hp=42, Expr「输入口」加行 a (来源默认「绑定变量」) 选 hp → Type 自动 number、卡片出小字 `a ← hp`、无 a 引脚, 表达式 `a + 1` 跑出 43; ② 绑不存在的变量 → 红错; ③ 来源切「连线」→ 引脚出现。
 1. **Script 节点 + 放大编辑 modal**(12 步): ① 面板/右键/explorer 搜「脚本」; ② 写 `log.info("hi"); return 1 + 1`, CaptureResult 填变量, 跑容器看日志 hi、GetVar 读到 2; ③ `while(true){}` 跑起来点停止立即停; ④ `ClickAt({XRatio: 0.5, YRatio: 0.5})` 真点击; ⑤ Inspector 点放大 → 大 modal: 敲 `Wait` 出补全(VSCode 风格提示框), **右侧面板节点按分类分组带配色**, 行点一下展开(说明+参数表+示例), 行尾按钮插入 → **落成 `ClickAt({XRatio: …, YRatio: …}) 占位, Tab 逐格填值**, Ctrl+Enter 确认回写; ⑥ 故意写 `let a = ;` 节点红错带行号; ⑦ Expr/Script 的 Inspector「输入口」区加 `hp:number` 出引脚可连线; ⑧ **Expr 小框也有放大按钮**, modal 右侧列全部函数(签名+说明)点击插入; ⑨ Expr modal 里写 `clmap(1` 底部状态栏实时红字; ⑩ **`vars.get("` 里出变量名补全**; ⑪ 面板「变量」组置顶点击插 vars.get, **工具栏右侧「新建变量」**(建完自动插一句); ⑫ 工具栏: 片段下拉插 for 循环、`//` 注释当前行、**查找替换面板是暗色中文样式**; 底部状态栏显示行数·字符数。
 2. **CodeMirror 表达式编辑器**(4 步, 一并覆盖随机函数): ① Expr 写 `"abc" + 1` 看高亮; ② 敲 `ra` 补全 Tab 上屏; ③ `clmap(1)` 红波浪线+悬停; ④ `randint(1, 6)` 接 Log 跑两次落 1~6。
 
-**之后议(表达式遗留议题)**:
-1. **变量绑定进 Expr (路线 A, 已细化)**: Inputs[] 项加可选 `Var`+`Scope` 字段 = 绑定变量: ① Expr.Evaluate 构 env 绑定项直读 `ctx.Vars().GetScoped()` (零框架改动); ② FE dataInDynamicFn 跳过绑定项 (不渲染引脚), 声明编辑加来源下拉+VarNameInput (声明编辑区本身已由 DynamicInputsEditor 落地, 路线 A 在它上面扩展); ③ validator 绑定项跳 DATA_PIN_DANGLING、加变量存在性+类型检查; ④ 节点卡片列绑定变量名小字。**B** (恢复 `$vars.*` 语法) 走前必须先翻 v4 删语法的完整理由 (头号铁律); 自动建 GetVar 方案已淘汰。注: Script 的 `vars.get` 已缓解部分痛点, 议时先确认路线 A 还要不要做。(原议题「Expr 放大编辑 modal」已于 2026-06-11 随 EditorModal 统一壳落地, 不再议。)
+**表达式两问全部落地** (原议题关闭): 「Expr 放大编辑 modal」随 EditorModal 统一壳落地; 「变量绑定路线 A」2026-06-11 用户拍板后落地 (绑定为默认, 连线保留兜底 — **"砍连线模式"** 被搁置: Expr→Expr 链与 fusion 依赖它, 用户日后想砍单独议)。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
