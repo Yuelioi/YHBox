@@ -48,6 +48,8 @@ const props = defineProps<{
   placeholder?: string
   /** 动态输入名 (config.Inputs[] 声明) — 进补全和参考面板。 */
   inputNames?: string[]
+  /** 容器变量 (名+类型) — $ 补全和参考面板「变量」组。 */
+  declaredVars?: { name: string; type: string }[]
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
@@ -72,8 +74,15 @@ function lintStatus(doc: string): string {
   return firstExprError(doc, diagMessage)
 }
 
-// 放大编辑的参考面板: 全部表达式函数 + 本节点动态输入, 点击插入。
+// 放大编辑的参考面板: 变量 ($引用) / 全部表达式函数 / 本节点动态输入, 点击插入。
 const referenceItems = computed<RefItem[]>(() => [
+  ...(props.declaredVars ?? []).map((v) => ({
+    label: `$${v.name}`,
+    desc: v.type,
+    insert: `$${v.name}`,
+    caretBack: 0,
+    group: t('inspector.editor_ref_group_vars'),
+  })),
   ...allExprFunctions().map((f) => ({
     label: f.name,
     detail: f.sig,
@@ -95,6 +104,7 @@ function buildExtensions(onChange?: (doc: string) => void) {
     fnDesc,
     diagMessage,
     inputNames: () => props.inputNames ?? [],
+    varNames: () => (props.declaredVars ?? []).map((v) => v.name),
     placeholder: props.placeholder,
     onChange,
   })

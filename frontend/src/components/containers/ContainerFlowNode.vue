@@ -63,11 +63,11 @@
       </template>
     </div>
 
-    <!-- 变量绑定输入 (声明 Var 非空) — v4 可见性补救: 不连线也一眼看出数据从哪个变量来 -->
-    <div v-if="boundInputs.length > 0" class="node-footer" :class="v.border">
-      <div v-for="b in boundInputs" :key="b.name" class="preview-row truncate">
-        <span class="preview-key font-mono">{{ b.name }}</span>
-        <span class="preview-val font-mono">← {{ b.varName }}</span>
+    <!-- $变量引用 (表达式/脚本里写的 $hp) — v4 可见性补救: 不连线也一眼看出读了哪些变量 -->
+    <div v-if="dollarRefs.length > 0" class="node-footer" :class="v.border">
+      <div class="preview-row truncate">
+        <span class="preview-key">vars</span>
+        <span class="preview-val font-mono">{{ dollarRefs.map((r) => '$' + r).join('  ') }}</span>
       </div>
     </div>
 
@@ -250,13 +250,16 @@ const execOutPinsForRender = computed<{ id: string; label: string; isError: bool
   }))
 })
 
-// 变量绑定输入声明 (config.Inputs[] 里 Var 非空的项) — 卡片小字行用。
-const boundInputs = computed<{ name: string; varName: string }[]>(() => {
+// $变量引用 — 从表达式/脚本源码正则提取 (展示用, 权威解析在后端 validator)。去重保序。
+const dollarRefs = computed<string[]>(() => {
   if (!getSpec(kind.value)?.dynamicInputs) return []
-  const inputs = (props.data?.config?.Inputs ?? []) as Array<{ Name?: string; Var?: string }>
-  return inputs
-    .filter((i) => i?.Name && typeof i.Var === 'string' && i.Var !== '')
-    .map((i) => ({ name: i.Name as string, varName: i.Var as string }))
+  const lit = props.data?.config?.literal as Record<string, unknown> | undefined
+  const src = `${lit?.Expression ?? ''}\n${lit?.Code ?? ''}`
+  const seen = new Set<string>()
+  for (const m of src.matchAll(/\$([A-Za-z_][A-Za-z0-9_]*)/g)) {
+    seen.add(m[1])
+  }
+  return [...seen]
 })
 
 const dataTypeMap = computed<{ in: Record<string, PinType>; out: Record<string, PinType> }>(() => {

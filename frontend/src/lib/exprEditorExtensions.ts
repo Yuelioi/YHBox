@@ -23,6 +23,7 @@ const exprLanguage = StreamLanguage.define({
     if (stream.eatSpace()) return null
     if (stream.match(/^"(?:[^"\\]|\\.)*"?/)) return 'string'
     if (stream.match(/^\d+(\.\d+)?/)) return 'number'
+    if (stream.match(/^\$[a-zA-Z_][a-zA-Z0-9_]*/)) return 'variableName.special' // $变量引用
     if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/)) {
       const word = stream.current()
       if (word === 'true' || word === 'false' || word === 'null') return 'atom'
@@ -42,6 +43,7 @@ const exprHighlight = HighlightStyle.define([
   { tag: tags.number, color: '#60a5fa' },
   { tag: tags.atom, color: '#facc15' },
   { tag: tags.keyword, color: '#c084fc' },
+  { tag: tags.special(tags.variableName), color: '#fb923c' }, // $变量引用 (橙)
   { tag: tags.variableName, color: '#e2e8f0' },
   { tag: tags.operator, color: '#94a3b8' },
 ])
@@ -51,8 +53,18 @@ const exprHighlight = HighlightStyle.define([
 function exprCompletionSource(opts: {
   fnDesc: (name: string) => string
   inputNames?: () => string[]
+  varNames?: () => string[]
 }) {
   return (ctx: CompletionContext): CompletionResult | null => {
+    // $ 触发容器变量补全 (打一个 $ 就弹全列表)
+    const dollar = ctx.matchBefore(/\$[a-zA-Z0-9_]*/)
+    if (dollar && opts.varNames) {
+      return {
+        from: dollar.from,
+        validFor: /^\$[a-zA-Z0-9_]*$/,
+        options: opts.varNames().map((n) => ({ label: `$${n}`, type: 'variable' as const })),
+      }
+    }
     const word = ctx.matchBefore(/[a-zA-Z_][a-zA-Z0-9_]*/)
     if (!word && !ctx.explicit) return null
     const from = word ? word.from : ctx.pos
@@ -92,6 +104,8 @@ export function exprEditorExtensions(opts: {
   fnDesc: (name: string) => string
   diagMessage: (d: ExprDiagnostic) => string
   inputNames?: () => string[]
+  /** 容器变量名 — $ 补全源。 */
+  varNames?: () => string[]
   placeholder?: string
   onChange?: (doc: string) => void
 }): Extension[] {

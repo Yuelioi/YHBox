@@ -495,12 +495,7 @@
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
         {{ t('inspector.dyn_inputs_title') }}
       </h4>
-      <DynamicInputsEditor
-        :node="node"
-        :declared-vars="declaredVars ?? []"
-        @update="emit('update', $event)"
-        @declare-var="(a) => emit('declare-var', a)"
-      />
+      <DynamicInputsEditor :node="node" @update="emit('update', $event)" />
     </section>
 
     <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。

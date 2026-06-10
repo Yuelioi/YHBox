@@ -106,6 +106,12 @@ const completionOptions = computed<Completion[]>(() => [
   ...nodeFnCompletions(registry.scriptBindableKinds, registry.specs, kindLabel),
   ...SUGAR_COMPLETIONS,
   ...(props.inputNames ?? []).map((n) => ({ label: n, type: 'variable' as const })),
+  // $hp live getter (脚本里等价 vars.get("hp"), 实时读)
+  ...(props.declaredVars ?? []).map((v) => ({
+    label: `$${v.name}`,
+    type: 'variable' as const,
+    detail: v.type,
+  })),
 ])
 
 // 常用片段 (工具栏下拉) — caretBack 把光标放进条件括号 / 循环体。
@@ -169,10 +175,9 @@ function groupedNodeItems(): RefItem[] {
 // 放大编辑的参考面板: 变量 / 糖函数 / 本节点动态输入 / 节点 (按分类, 可展开用法+参数)。
 const referenceItems = computed<RefItem[]>(() => [
   ...(props.declaredVars ?? []).map((v) => ({
-    label: v.name,
-    detail: `vars.get("${v.name}")`,
+    label: `$${v.name}`,
     desc: v.type,
-    insert: `vars.get("${v.name}")`,
+    insert: `$${v.name}`,
     caretBack: 0,
     group: t('inspector.editor_ref_group_vars'),
   })),
@@ -190,10 +195,10 @@ const referenceItems = computed<RefItem[]>(() => [
   ...groupedNodeItems(),
 ])
 
-// 新建变量 (面板内直接建, 免去切侧栏的割裂): 声明上抛 + 顺手插一句 vars.get。
+// 新建变量 (工具栏直接建, 免去切侧栏的割裂): 声明上抛 + 顺手插一个 $引用。
 function onNewVar(a: { name: string; type: VarType; default: unknown }) {
   emit('declare-var', a)
-  editorModalRef.value?.insert({ label: a.name, insert: `vars.get("${a.name}")`, caretBack: 0 })
+  editorModalRef.value?.insert({ label: a.name, insert: `$${a.name}`, caretBack: 0 })
 }
 
 // modal 的扩展工厂 — 不带 onChange (draft 由 modal 自管, 确认才回写)。

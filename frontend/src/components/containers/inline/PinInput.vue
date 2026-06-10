@@ -44,12 +44,13 @@
     <p v-if="!jsonValid" class="text-[10px] text-error">{{ t('inspector.pin_input_json_invalid') }}</p>
   </div>
 
-  <!-- expr (Expr Expression) — 函数补全 + 即时语法红错 + 放大编辑 modal -->
+  <!-- expr (Expr Expression) — 函数/$变量补全 + 即时语法红错 + 放大编辑 modal -->
   <ExprInput
     v-else-if="kind === 'expr'"
     :model-value="modelValue == null ? '' : String(modelValue)"
     :placeholder="placeholder"
     :input-names="inputNames"
+    :declared-vars="declaredVars"
     @update:model-value="(v: string) => emit('update:modelValue', v)"
   />
 

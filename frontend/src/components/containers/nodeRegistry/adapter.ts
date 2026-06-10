@@ -231,8 +231,7 @@ function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): st
 }
 
 // dynamic data in — Spec.DynamicInputs 节点 (Expr / Script) 的 config.Inputs[] 声明.
-// 镜像 backend ParseDynamicInputDecls: PascalCase Name/Type/Var 键, 空 Name 跳过;
-// 绑定项 (Var 非空) 不是 pin — 值由 dispatch 直读变量, 画布零脚手架.
+// 镜像 backend ParseDynamicInputDecls: PascalCase Name/Type 键, 空 Name 跳过.
 function parseDynamicInputsCfg(
   cfg: Record<string, unknown> | null | undefined,
 ): Record<string, PinType> {
@@ -243,8 +242,7 @@ function parseDynamicInputsCfg(
   for (const i of inputs) {
     const name = typeof i.Name === 'string' ? i.Name : ''
     const type = typeof i.Type === 'string' ? i.Type : 'any'
-    const bound = typeof i.Var === 'string' && i.Var !== ''
-    if (name && !bound) out[name] = backendTypeToPinType(type)
+    if (name) out[name] = backendTypeToPinType(type)
   }
   return out
 }
