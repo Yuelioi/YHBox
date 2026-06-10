@@ -7,6 +7,7 @@ import (
 	"yotta/internal/services/expr"
 )
 
+
 // TickSnapshot is a frozen view of rt.vars captured at execNode entry.
 // All data-pull operations (GetVar) within the same exec tick read this snapshot,
 // guaranteeing same-tick data consistency (Determinism contract).
@@ -61,4 +62,38 @@ func tickFromCtx(ctx context.Context) *TickSnapshot {
 	}
 	snap, _ := ctx.Value(tickCtxKey).(*TickSnapshot)
 	return snap
+}
+
+// evalKey — per-dispatch 求值缓存 key. 结构体 key: 零碰撞、零字符串拼接分配.
+type evalKey struct{ nodeID, pin string }
+
+// dispatchEvalCache — 单个 exec 节点 dispatch 作用域内的 pure-data 求值缓存.
+// 只缓存 IsNonDeterministic 节点的成功结果 (见 evalDataSource), 让随机在同一求值内多路径稳定,
+// 把随机纳入框架既有 Determinism contract.
+//
+// 并发: 一个实例只属一个 dispatch 的单 goroutine — 每个 dispatchInRegion 入口新建 (与
+// TickSnapshot 同), Parallel/Race 是 exec 层并发、各节点各自新建, 故不跨 goroutine 共享.
+// pure-data 拉取树同步执行. 普通 map 无需 mutex; 不变量靠 TestEvalCache_* 守护.
+type dispatchEvalCache struct{ m map[evalKey]expr.Value }
+
+func newDispatchEvalCache() *dispatchEvalCache {
+	return &dispatchEvalCache{m: map[evalKey]expr.Value{}}
+}
+
+type evalCacheKeyT struct{}
+
+var evalCacheKey = evalCacheKeyT{}
+
+// withEvalCache 把 cache 挂到 ctx. dispatchInRegion 入口与 withTickSnapshot 并列调.
+func withEvalCache(ctx context.Context, c *dispatchEvalCache) context.Context {
+	return context.WithValue(ctx, evalCacheKey, c)
+}
+
+// evalCacheFromCtx 读 ctx 上的 cache. 没挂 (cold path) → nil.
+func evalCacheFromCtx(ctx context.Context) *dispatchEvalCache {
+	if ctx == nil {
+		return nil
+	}
+	c, _ := ctx.Value(evalCacheKey).(*dispatchEvalCache)
+	return c
 }

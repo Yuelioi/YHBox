@@ -124,11 +124,25 @@ func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin 
 	if rn.Evaluate == nil {
 		return nil, fmt.Errorf("evalDataSource: IsPureData=true but kind %q does not implement Evaluator", n.Kind)
 	}
+	// per-dispatch 记忆化: 非确定节点 (随机) 同一 dispatch 内只求值一次, 守住 Determinism contract.
+	// 确定性节点完全跳过此路径 (零影响). cold path (无 cache) → 退化为每 pull 重算.
+	cache := evalCacheFromCtx(ctx)
+	var key evalKey
+	if rn.Spec.IsNonDeterministic && cache != nil {
+		key = evalKey{nodeID: srcNodeID, pin: srcPin}
+		if cached, ok := cache.m[key]; ok {
+			return cached, nil
+		}
+	}
 	// 传 ctx 给递归 buildDataWireFor + EvaluatePureData, 让 bundle.Snapshot(ctx) 拿到 tick.
 	srcDataWire := r.buildDataWireFor(ctx, n, rn)
 	srcConfig := r.buildConfigFor(n)
 	v, err := nodepkg.EvaluatePureData(ctx, rn, srcDataWire, srcConfig, r.bundle)
-	return toExprValue(v), err
+	ev := toExprValue(v)
+	if err == nil && rn.Spec.IsNonDeterministic && cache != nil {
+		cache.m[key] = ev // 只缓存成功值 — 不把"第一次失败"钉死
+	}
+	return ev, err
 }
 
 // pullNumber resolves a numeric data-pin (data edge or inline literal).

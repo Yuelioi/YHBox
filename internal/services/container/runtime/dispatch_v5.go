@@ -326,6 +326,7 @@ func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.Gra
 	// per-tick snapshot 走 ctx (tickCtxKey) — per-goroutine/per-token scope, 让共享 bundle
 	// 的 listener subRunner / 并发 runner 都安全, 不撞 instance 字段.
 	ctx = withTickSnapshot(ctx, CaptureSnapshot(r.rt.Vars()))
+	ctx = withEvalCache(ctx, newDispatchEvalCache())
 	if rn.RunRegion != nil {
 		return r.execNodeAsRegionViaFramework(ctx, n, tok)
 	}
