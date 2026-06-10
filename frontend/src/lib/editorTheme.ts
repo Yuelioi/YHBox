@@ -10,6 +10,7 @@ import {
   highlightActiveLine,
   highlightActiveLineGutter,
   scrollPastEnd,
+  tooltips,
 } from '@codemirror/view'
 import { EditorState, type Extension } from '@codemirror/state'
 import {
@@ -276,6 +277,7 @@ export interface BaseEditorOpts {
 export function baseEditorExtensions(opts: BaseEditorOpts = {}): Extension[] {
   return [
     chromeTheme,
+    tooltips({ position: 'fixed' }),
     opts.modal ? modalSizeTheme : smallSizeTheme(opts.minHeight ?? '3.9em'),
     syntaxHighlighting(editorHighlightStyle),
     completionTooltipTheme,
