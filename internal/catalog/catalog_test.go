@@ -6,6 +6,8 @@ import (
 
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/event" // EventTick — 曾漏 import 致 drift 守卫对其失明
+
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"
