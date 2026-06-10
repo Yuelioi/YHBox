@@ -109,7 +109,7 @@ function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => vo
     inputNames: () => props.inputNames ?? [],
     varNames: () => (props.declaredVars ?? []).map((v) => v.name),
     placeholder: props.placeholder,
-    minHeight: '3.9em',
+    minHeight: '5em',
     ...opts,
   })
 }

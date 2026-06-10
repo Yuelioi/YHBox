@@ -226,7 +226,7 @@ const host = ref<HTMLElement | null>(null)
 const search = ref('')
 const draftDoc = ref('')
 const cursorText = ref('1:1')
-const maximized = ref(false)
+const maximized = ref(true)
 const expandedKeys = ref<Set<string>>(new Set())
 let view: EditorView | null = null
 

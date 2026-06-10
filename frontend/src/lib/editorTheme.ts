@@ -134,7 +134,7 @@ function smallSizeTheme(minHeight: string): Extension {
   return EditorView.theme({
     '&': { fontSize: '12px' },
     '.cm-scroller': { lineHeight: '1.55' },
-    '.cm-content': { minHeight, padding: '6px 0' },
+    '.cm-content': { minHeight, padding: '8px 0' },
     '.cm-line': { padding: '0 8px' },
     '.cm-tooltip': { fontSize: '12px' },
   })
@@ -179,7 +179,20 @@ export const completionTooltipTheme: Extension = EditorView.theme({
     whiteSpace: 'nowrap',
     maxWidth: '24em',
   },
-  '.cm-completionIcon': { display: 'none' }, // 默认字符图标对不齐, 信息量低 — 去掉
+  '.cm-completionIcon': {
+    display: 'inline-block',
+    width: '7px',
+    height: '7px',
+    borderRadius: '50%',
+    padding: '0',
+    marginRight: '2px',
+    opacity: '1',
+    alignSelf: 'center',
+  },
+  '.cm-completionIcon::after': { content: "''" }, // 去掉默认字符图标
+  '.cm-completionIcon-function': { backgroundColor: '#dcdcaa' },
+  '.cm-completionIcon-variable': { backgroundColor: '#9cdcfe' },
+  '.cm-completionIcon-keyword': { backgroundColor: '#569cd6' },
   '.cm-tooltip.cm-completionInfo': {
     backgroundColor: '#252526',
     border: '1px solid #454545',
@@ -292,7 +305,7 @@ export function baseEditorExtensions(opts: BaseEditorOpts = {}): Extension[] {
     // gutter 顺序即扩展顺序: [lint 标记] [行号] (折叠由 script 工厂追加在更后 → 行号右侧)
     ...(opts.modal
       ? [lintGutter(), lineNumbers(), highlightActiveLine(), highlightActiveLineGutter(), scrollPastEnd()]
-      : []),
+      : [lineNumbers()]),
     keymap.of([
       // Tab 先补全上屏, 没有补全时缩进 (indentWithTab 含 Shift-Tab 反缩进)
       { key: 'Tab', run: acceptCompletion },
