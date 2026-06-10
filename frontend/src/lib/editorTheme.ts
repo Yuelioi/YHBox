@@ -296,7 +296,15 @@ export function baseEditorExtensions(opts: BaseEditorOpts = {}): Extension[] {
     chromeTheme,
     // position:fixed 逃 overflow-hidden; parent:body 再逃放大编辑 modal 的 transform/overflow 包含块
     // (光标在第一行时签名/hover 浮层 above 出框, 只挂 body 才彻底不被裁)。z-index 见 chromeTheme .cm-tooltip。
-    tooltips({ position: 'fixed', parent: document.body }),
+    // modal 档再把浮层限制在编辑器矩形内 → above 放不下 (第一行) 时 CM 自动翻到行下方, 不压工具栏;
+    // 小框档不限制 (浮层本就要逃出小框, 用默认视口空间)。
+    tooltips({
+      position: 'fixed',
+      parent: document.body,
+      ...(opts.modal
+        ? { tooltipSpace: (view: EditorView) => view.dom.getBoundingClientRect() }
+        : {}),
+    }),
     opts.modal ? modalSizeTheme : smallSizeTheme(opts.minHeight ?? '3.9em'),
     syntaxHighlighting(editorHighlightStyle),
     completionTooltipTheme,
