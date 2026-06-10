@@ -13,6 +13,7 @@ import type { Extension } from '@codemirror/state'
 import { allExprFunctions, exprFnNames, lintExpr, type ExprDiagnostic } from '@/lib/exprFunctions'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
 import { fnHoverTooltip, renderDoc } from '@/lib/editorHover'
+import { exprSigContext, signatureHelp } from '@/lib/editorSignature'
 
 // ── 语法 token: 手写 stream tokenizer (语法就一行表达式, 不上 Lezer grammar) ──
 
@@ -114,6 +115,10 @@ export function exprEditorExtensions(opts: {
       return f ? { sig: f.sig, desc: opts.fnDesc(f.name) || undefined } : null
     })),
     cmPlaceholder(opts.placeholder ?? ''),
+    signatureHelp({
+      context: (s, p) => exprSigContext(s.doc.toString(), p),
+      lookup: (n) => allExprFunctions().find((f) => f.name === n) ?? null,
+    }),
     ...baseEditorExtensions(opts),
   ]
   const onChange = opts.onChange

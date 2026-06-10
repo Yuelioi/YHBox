@@ -25,6 +25,7 @@ import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import type { Spec } from '@bindings/yotta/internal/node'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
 import { fnHoverTooltip, type HoverDoc } from '@/lib/editorHover'
+import { scriptSigContext, signatureHelp } from '@/lib/editorSignature'
 
 // apply 上屏后光标落进末尾括号/引号内 (caretBack = 从串尾回退几格)。
 function applyWithCaret(insert: string, caretBack: number) {
@@ -225,6 +226,8 @@ export function scriptEditorExtensions(opts: {
   varNames?: () => string[]
   /** 悬停函数名的文档数据 (节点/糖函数), 缺省不出 hover。 */
   hoverDoc?: (word: string) => HoverDoc | null
+  /** 函数签名查找 (节点/糖函数), 缺省不出 signature help。 */
+  signatureLookup?: (name: string) => { sig: string } | null
   /** lint 文案 (i18n 注入): 语法错 / 未声明 $变量。缺省不挂 linter。 */
   lintMessages?: {
     syntaxError: (line: number) => string
@@ -248,6 +251,14 @@ export function scriptEditorExtensions(opts: {
   ]
   if (opts.hoverDoc) {
     exts.push(hoverTooltip(fnHoverTooltip(opts.hoverDoc)))
+  }
+  if (opts.signatureLookup) {
+    exts.push(
+      signatureHelp({
+        context: (s, p) => scriptSigContext(s.doc.toString(), p),
+        lookup: opts.signatureLookup,
+      }),
+    )
   }
   const lintMessages = opts.lintMessages
   if (lintMessages) {

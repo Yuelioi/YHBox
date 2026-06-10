@@ -28,6 +28,28 @@ export function fnHoverTooltip(lookup: (word: string) => HoverDoc | null) {
   }
 }
 
+/** signature help 浮层 DOM: 渲染签名串, 高亮第 activeIndex 个参数。 */
+export function renderSignature(sig: string, activeIndex: number): HTMLElement {
+  const root = document.createElement('div')
+  root.className = 'cm-yh-doc'
+  const line = root.appendChild(document.createElement('div'))
+  line.className = 'cm-yh-doc-sig'
+  const open = sig.indexOf('(')
+  const close = sig.lastIndexOf(')')
+  if (open < 0 || close <= open) { line.textContent = sig; return root }
+  const name = sig.slice(0, open)
+  const params = sig.slice(open + 1, close).split(',').map((s) => s.trim()).filter(Boolean)
+  line.appendChild(document.createTextNode(`${name}(`))
+  params.forEach((p, i) => {
+    if (i > 0) line.appendChild(document.createTextNode(', '))
+    const span = line.appendChild(document.createElement('span'))
+    span.textContent = p
+    if (i === activeIndex) span.className = 'cm-yh-doc-sig-active'
+  })
+  line.appendChild(document.createTextNode(')'))
+  return root
+}
+
 export function renderDoc(doc: HoverDoc): HTMLElement {
   const root = document.createElement('div')
   root.className = 'cm-yh-doc'

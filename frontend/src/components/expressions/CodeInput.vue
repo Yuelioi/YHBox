@@ -254,6 +254,10 @@ function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => vo
     completions: () => completionOptions.value,
     varNames: () => varNames.value,
     hoverDoc,
+    signatureLookup: (name: string) => {
+      const d = hoverDoc(name)
+      return d ? { sig: d.sig } : null
+    },
     lintMessages,
     placeholder: props.placeholder,
     minHeight: '10em',

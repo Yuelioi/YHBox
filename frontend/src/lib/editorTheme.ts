@@ -114,6 +114,7 @@ const chromeTheme = EditorView.theme({
     lineHeight: '1.5',
   },
   '.cm-yh-doc-sig': { fontFamily: EDITOR_FONT, color: '#dcdcaa' },
+  '.cm-yh-doc-sig-active': { color: '#dcdcaa', fontWeight: 'bold' },
   '.cm-yh-doc-desc': { color: '#9da5b0', marginTop: '2px' },
   '.cm-yh-doc-param': { display: 'flex', gap: '8px', marginTop: '2px', fontSize: '11px' },
   '.cm-yh-doc-param-name': { fontFamily: EDITOR_FONT, color: '#9cdcfe', minWidth: '6em' },
