@@ -44,9 +44,11 @@ export function unconnectedDataInPins(
   }
   const out: LiteralPin[] = []
   if (getSpec(kind)?.dynamicInputs) {
-    // 动态输入声明存 config.Inputs[] (PascalCase Name/Type, 跟后端 ParseDynamicInputDecls 一致)。
-    const inputs = (config?.Inputs ?? []) as Array<{ Name?: string; Type?: string }>
+    // 动态输入声明存 config.Inputs[] (PascalCase Name/Type/Var, 跟后端 ParseDynamicInputDecls 一致)。
+    // 绑定项 (Var 非空) 不是 pin, 无字面量框 (值直读变量)。
+    const inputs = (config?.Inputs ?? []) as Array<{ Name?: string; Type?: string; Var?: string }>
     for (const inp of inputs) {
+      if (inp?.Var) continue
       if (inp?.Name && !incoming.has(inp.Name)) {
         out.push({ name: inp.Name, type: (inp.Type ?? 'any') as PinType })
       }

@@ -63,6 +63,14 @@
       </template>
     </div>
 
+    <!-- 变量绑定输入 (声明 Var 非空) — v4 可见性补救: 不连线也一眼看出数据从哪个变量来 -->
+    <div v-if="boundInputs.length > 0" class="node-footer" :class="v.border">
+      <div v-for="b in boundInputs" :key="b.name" class="preview-row truncate">
+        <span class="preview-key font-mono">{{ b.name }}</span>
+        <span class="preview-val font-mono">← {{ b.varName }}</span>
+      </div>
+    </div>
+
     <!-- Config preview -->
     <div v-if="preview.length > 0" class="node-footer" :class="v.border">
       <div v-for="p in preview" :key="p.k" class="preview-row truncate">
@@ -240,6 +248,15 @@ const execOutPinsForRender = computed<{ id: string; label: string; isError: bool
     label: errorOut.has(id) ? t('common.fail_pin') : pinLabel(id, 'out'),
     isError: errorOut.has(id),
   }))
+})
+
+// 变量绑定输入声明 (config.Inputs[] 里 Var 非空的项) — 卡片小字行用。
+const boundInputs = computed<{ name: string; varName: string }[]>(() => {
+  if (!getSpec(kind.value)?.dynamicInputs) return []
+  const inputs = (props.data?.config?.Inputs ?? []) as Array<{ Name?: string; Var?: string }>
+  return inputs
+    .filter((i) => i?.Name && typeof i.Var === 'string' && i.Var !== '')
+    .map((i) => ({ name: i.Name as string, varName: i.Var as string }))
 })
 
 const dataTypeMap = computed<{ in: Record<string, PinType>; out: Record<string, PinType> }>(() => {
