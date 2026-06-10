@@ -80,6 +80,56 @@ func TestValidate_Expr_UnknownInput(t *testing.T) {
 	}
 }
 
+func TestValidate_Expr_UnknownFunction(t *testing.T) {
+	c := &Container{
+		SchemaVersion: 1,
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "e1", Kind: "Expr", Config: map[string]any{
+					"Expression": "clmap(1, 2, 3)", // clamp 手滑
+					"Inputs":     []any{},
+				}},
+			},
+		},
+	}
+	errs := ValidateContainer(c)
+	found := false
+	for _, e := range errs {
+		if e.Code == CodeExprUnknownFunction && e.Params["name"] == "clmap" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("want EXPR_UNKNOWN_FUNCTION (name=clmap), got %+v", errs)
+	}
+}
+
+func TestValidate_Expr_FnArity(t *testing.T) {
+	c := &Container{
+		SchemaVersion: 1,
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "e1", Kind: "Expr", Config: map[string]any{
+					"Expression": "clamp(1)",
+					"Inputs":     []any{},
+				}},
+			},
+		},
+	}
+	errs := ValidateContainer(c)
+	found := false
+	for _, e := range errs {
+		if e.Code == CodeExprFnArity && e.Params["name"] == "clamp" && e.Params["got"] == 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("want EXPR_FN_ARITY (name=clamp got=1), got %+v", errs)
+	}
+}
+
 func TestValidate_Expr_AllValid(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 1,
@@ -87,7 +137,7 @@ func TestValidate_Expr_AllValid(t *testing.T) {
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
-					"Expression": `s == "FISHING" && hp > 0.5`,
+					"Expression": `s == "FISHING" && round(hp, 2) > 0.5`,
 					"Inputs": []any{
 						map[string]any{"Name": "s", "Type": "string"},
 						map[string]any{"Name": "hp", "Type": "number"},
@@ -98,7 +148,9 @@ func TestValidate_Expr_AllValid(t *testing.T) {
 	}
 	errs := ValidateContainer(c)
 	for _, e := range errs {
-		if e.Code == CodeExprDuplicateInput || e.Code == CodeExprParseError || e.Code == CodeExprUnknownInput {
+		switch e.Code {
+		case CodeExprDuplicateInput, CodeExprParseError, CodeExprUnknownInput,
+			CodeExprUnknownFunction, CodeExprFnArity:
 			t.Errorf("valid expr triggered unexpected: %+v", e)
 		}
 	}

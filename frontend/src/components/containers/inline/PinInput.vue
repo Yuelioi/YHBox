@@ -44,7 +44,15 @@
     <p v-if="!jsonValid" class="text-[10px] text-error">{{ t('inspector.pin_input_json_invalid') }}</p>
   </div>
 
-  <!-- textarea (e.g. Expr Expression) -->
+  <!-- expr (Expr Expression) — 函数补全 + 即时语法红错 -->
+  <ExprInput
+    v-else-if="kind === 'expr'"
+    :model-value="modelValue == null ? '' : String(modelValue)"
+    :placeholder="placeholder"
+    @update:model-value="(v: string) => emit('update:modelValue', v)"
+  />
+
+  <!-- textarea -->
   <UTextarea
     v-else-if="kind === 'textarea'"
     :model-value="modelValue == null ? '' : String(modelValue)"
@@ -102,6 +110,7 @@ import { useI18n } from 'vue-i18n'
 import KeyCapture from '@/components/containers/KeyCapture.vue'
 import ColorPalettePicker from './ColorPalettePicker.vue'
 import IconPicker from './IconPicker.vue'
+import ExprInput from '@/components/expressions/ExprInput.vue'
 import type { PinType } from '../pinSpec'
 
 const { t } = useI18n()

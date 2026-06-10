@@ -28,3 +28,38 @@ func walkIdentRefs(n *Node, out *[]string) {
 		walkIdentRefs(a, out)
 	}
 }
+
+// CallRef 一次函数调用引用 — validator 编辑期校验用 (对照 Builtins 报
+// EXPR_UNKNOWN_FUNCTION / EXPR_FN_ARITY).
+type CallRef struct {
+	Name string
+	ArgN int
+	Pos  int
+}
+
+// CallRefs 收集 AST 中所有函数调用 (nCall), 含嵌套.
+func CallRefs(n *Node) []CallRef {
+	if n == nil {
+		return nil
+	}
+	var out []CallRef
+	walkCallRefs(n, &out)
+	return out
+}
+
+func walkCallRefs(n *Node, out *[]CallRef) {
+	if n == nil {
+		return
+	}
+	if n.Kind == nCall {
+		*out = append(*out, CallRef{Name: n.FuncName, ArgN: len(n.Args), Pos: n.Pos})
+	}
+	walkCallRefs(n.Left, out)
+	walkCallRefs(n.Right, out)
+	walkCallRefs(n.Cond, out)
+	walkCallRefs(n.Then, out)
+	walkCallRefs(n.Else, out)
+	for _, a := range n.Args {
+		walkCallRefs(a, out)
+	}
+}

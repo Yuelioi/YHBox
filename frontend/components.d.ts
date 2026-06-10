@@ -33,7 +33,7 @@ declare module 'vue' {
     ContainersTab: typeof import('./src/components/tasks/ContainersTab.vue')['default']
     DeleteVarConfirmModal: typeof import('./src/components/containers/sidebar/DeleteVarConfirmModal.vue')['default']
     EdgeContextMenu: typeof import('./src/components/containers/menus/EdgeContextMenu.vue')['default']
-    ExpressionInput: typeof import('./src/components/expressions/ExpressionInput.vue')['default']
+    ExprInput: typeof import('./src/components/expressions/ExprInput.vue')['default']
     FindReferencesModal: typeof import('./src/components/containers/FindReferencesModal.vue')['default']
     GeometryWidget: typeof import('./src/components/containers/inline/GeometryWidget.vue')['default']
     HotkeyCaptureInput: typeof import('./src/components/hotkeys/HotkeyCaptureInput.vue')['default']

@@ -1,6 +1,8 @@
 package container
 
 import (
+	"fmt"
+
 	"yotta/internal/services/expr"
 )
 
@@ -8,6 +10,7 @@ import (
 //   - EXPR_DUPLICATE_INPUT — inputs[] has same name twice
 //   - EXPR_PARSE_ERROR — expr string fails to parse
 //   - EXPR_UNKNOWN_INPUT — expr references identifier not declared in inputs[]
+//   - EXPR_UNKNOWN_FUNCTION / EXPR_FN_ARITY — call 名/参数个数对照 expr.Builtins()
 //
 // EXPR_TYPE_MISMATCH (explicit outType vs static inference) is deferred — implementing
 // proper type inference is non-trivial and depends on pure-func type schemas.
@@ -63,6 +66,38 @@ func validateExprNodes(c *Container) []ValidationError {
 					GraphPath: path, NodeID: n.ID,
 					Params: map[string]any{"name": ref},
 				})
+			}
+
+			// EXPR_UNKNOWN_FUNCTION / EXPR_FN_ARITY — call 名与参数个数对照 builtin 表.
+			// 没这两条时函数 typo / 参数缺漏只能等运行时 evalCall 才炸.
+			builtins := expr.Builtins()
+			fnReported := map[string]bool{}
+			for _, call := range expr.CallRefs(ast) {
+				if fnReported[call.Name] {
+					continue
+				}
+				b, ok := builtins[call.Name]
+				if !ok {
+					fnReported[call.Name] = true
+					errs = append(errs, ValidationError{
+						Severity: SeverityError, Code: CodeExprUnknownFunction,
+						GraphPath: path, NodeID: n.ID,
+						Params: map[string]any{"name": call.Name},
+					})
+					continue
+				}
+				if call.ArgN < b.MinArgs || call.ArgN > b.MaxArgs {
+					fnReported[call.Name] = true
+					want := fmt.Sprintf("%d", b.MinArgs)
+					if b.MaxArgs != b.MinArgs {
+						want = fmt.Sprintf("%d-%d", b.MinArgs, b.MaxArgs)
+					}
+					errs = append(errs, ValidationError{
+						Severity: SeverityError, Code: CodeExprFnArity,
+						GraphPath: path, NodeID: n.ID,
+						Params: map[string]any{"name": call.Name, "want": want, "got": call.ArgN},
+					})
+				}
 			}
 		}
 		return errs

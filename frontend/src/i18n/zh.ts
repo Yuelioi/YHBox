@@ -1699,6 +1699,8 @@ export default {
     EXPR_UNKNOWN_INPUT: 'Expr 引用未声明的输入 {name}',
     EXPR_TYPE_MISMATCH: 'Expr outType 与推断不符 (期望 {expected}, 实际 {actual})',
     EXPR_DUPLICATE_INPUT: 'Expr inputs 重复名: {name}',
+    EXPR_UNKNOWN_FUNCTION: '未知函数 {name} — 检查拼写, 可用函数见输入框补全列表',
+    EXPR_FN_ARITY: '函数 {name} 需要 {want} 个参数, 现在给了 {got} 个',
     GETPARAM_UNKNOWN_PARAM: 'GetParam 引用未声明入参 {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
     COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
@@ -2222,7 +2224,7 @@ export default {
       confirm: '提取',
     },
   },
-  // 表达式输入校验 (ExpressionInput).
+  // 表达式编辑器 (ExprInput): 即时校验文案 + 函数说明.
   expression: {
     error: {
       paren_mismatch: '括号不匹配',
@@ -2230,9 +2232,19 @@ export default {
       paren_missing: '括号不匹配: 缺 {count} 个 {char}',
       bare_word: '看起来是裸词; 字符串字面量请加双引号 "{var}", 要用变量/参数请改用 GetVar / GetParam 节点接到输入 pin.',
       op_end: '表达式以运算符结尾, 缺右侧操作数',
-      expect_number: '预期 number 类型, 看起来不是数字',
-      expect_bool: '预期 bool, 应为 true / false',
-      expect_string: '预期 string, 应用 "..." 包起',
+      unknown_fn: '未知函数 {name}',
+    },
+    fn: {
+      abs: { desc: '绝对值' },
+      ceil: { desc: '向上取整' },
+      clamp: { desc: '把 x 限制在 [min, max] 区间' },
+      floor: { desc: '向下取整' },
+      max: { desc: '两数取大' },
+      min: { desc: '两数取小' },
+      now: { desc: '当前时间戳 (毫秒)' },
+      pow: { desc: 'x 的 y 次方' },
+      round: { desc: '四舍五入, 可选保留位数' },
+      sqrt: { desc: '平方根' },
     },
   },
   // 节点 group 中文名 (useNodeGroupColor / NodePalette).

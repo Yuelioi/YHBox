@@ -29,7 +29,7 @@ func (Expr) Spec() node.Spec {
 		Category: "PureFunc",
 		Inputs: []node.InputSpec{
 			{Name: exprInExpression, Type: "String", Default: "", Required: true,
-				Widget: node.WidgetSpec{Kind: "textarea",
+				Widget: node.WidgetSpec{Kind: "expr",
 					Props: node.MarshalProps(node.TextareaProps{Rows: 3})}},
 		},
 		Outputs: []node.OutputSpec{

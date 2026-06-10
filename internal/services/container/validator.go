@@ -83,10 +83,12 @@ const (
 	CodeDataGraphCycle         = "DATA_GRAPH_CYCLE"
 
 	// Expr node
-	CodeExprParseError     = "EXPR_PARSE_ERROR"
-	CodeExprUnknownInput   = "EXPR_UNKNOWN_INPUT"
-	CodeExprTypeMismatch   = "EXPR_TYPE_MISMATCH"
-	CodeExprDuplicateInput = "EXPR_DUPLICATE_INPUT"
+	CodeExprParseError      = "EXPR_PARSE_ERROR"
+	CodeExprUnknownInput    = "EXPR_UNKNOWN_INPUT"
+	CodeExprTypeMismatch    = "EXPR_TYPE_MISMATCH"
+	CodeExprDuplicateInput  = "EXPR_DUPLICATE_INPUT"
+	CodeExprUnknownFunction = "EXPR_UNKNOWN_FUNCTION"
+	CodeExprFnArity         = "EXPR_FN_ARITY"
 
 	// GetParam
 	CodeGetParamUnknownParam = "GETPARAM_UNKNOWN_PARAM"
