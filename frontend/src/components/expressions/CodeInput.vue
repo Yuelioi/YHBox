@@ -70,7 +70,7 @@ import {
   SUGAR_ITEMS,
   type InsertItem,
 } from '@/lib/scriptCompletions'
-import type { HoverDoc } from '@/lib/editorHover'
+import { renderDoc, type HoverDoc } from '@/lib/editorHover'
 import type { VarType } from '@/lib/variableRef'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { ALL_NODE_GROUPS, groupLabelColor } from '@/composables/editor/useNodeGroupColor'
@@ -108,9 +108,18 @@ function kindLabel(kind: string): string {
 
 const varNames = computed<string[]>(() => (props.declaredVars ?? []).map((v) => v.name))
 
+// 节点 + 糖函数补全项各带 info: 复用 hoverDoc 同一份文档数据 (单一来源)。
+const withInfo = (c: Completion): Completion => ({
+  ...c,
+  info: () => {
+    const d = hoverDoc(c.label)
+    return d ? renderDoc(d) : null
+  },
+})
+
 const completionOptions = computed<Completion[]>(() => [
-  ...nodeFnCompletions(registry.scriptBindableKinds, registry.specs, kindLabel),
-  ...SUGAR_COMPLETIONS,
+  ...nodeFnCompletions(registry.scriptBindableKinds, registry.specs, kindLabel).map(withInfo),
+  ...SUGAR_COMPLETIONS.map(withInfo),
   ...(props.inputNames ?? []).map((n) => ({ label: n, type: 'variable' as const })),
   // $hp live getter (脚本里等价 vars.get("hp"), 实时读)
   ...(props.declaredVars ?? []).map((v) => ({

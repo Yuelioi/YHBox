@@ -28,6 +28,16 @@ export function exprFnNames(): Set<string> {
   return fnNames
 }
 
+/** 从签名串取参数名 (snippet 占位 / signature help 共用). 'clamp(x, lo, hi)' → ['x','lo','hi']. */
+export function parseSigParams(sig: string): string[] {
+  const open = sig.indexOf('(')
+  const close = sig.lastIndexOf(')')
+  if (open < 0 || close <= open) return []
+  const inner = sig.slice(open + 1, close).trim()
+  if (!inner) return []
+  return inner.split(',').map((s) => s.trim().replace(/^\[|\]$/g, '').trim())
+}
+
 /** 光标处 token (往前扫 identifier 字符). 补全替换区间 = [start, caret). */
 export function tokenAtCaret(text: string, caret: number): { token: string; start: number } {
   const end = Math.min(Math.max(caret, 0), text.length)

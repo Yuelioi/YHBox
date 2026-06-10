@@ -12,7 +12,7 @@ import { linter, type Diagnostic } from '@codemirror/lint'
 import type { Extension } from '@codemirror/state'
 import { allExprFunctions, exprFnNames, lintExpr, type ExprDiagnostic } from '@/lib/exprFunctions'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
-import { fnHoverTooltip } from '@/lib/editorHover'
+import { fnHoverTooltip, renderDoc } from '@/lib/editorHover'
 
 // ── 语法 token: 手写 stream tokenizer (语法就一行表达式, 不上 Lezer grammar) ──
 
@@ -64,6 +64,7 @@ function exprCompletionSource(opts: {
           displayLabel: f.sig,
           type: 'function',
           detail: opts.fnDesc(f.name),
+          info: () => renderDoc({ sig: f.sig, desc: opts.fnDesc(f.name) || undefined }),
           apply: (v: EditorView, _c: unknown, applyFrom: number, applyTo: number) => {
             const insert = `${f.name}()`
             const caret = applyFrom + insert.length - (f.maxArgs === 0 ? 0 : 1)

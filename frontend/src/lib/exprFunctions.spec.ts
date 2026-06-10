@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { setExprFunctions, allExprFunctions, exprFnNames, tokenAtCaret, unknownFnsIn, lintExpr } from './exprFunctions'
+import { setExprFunctions, allExprFunctions, exprFnNames, tokenAtCaret, unknownFnsIn, lintExpr, parseSigParams } from './exprFunctions'
 
 // 函数表集合/arity 的权威测试在 Go 侧 (builtins_test.go TestFunctions_DTO) —
 // FE 不再手写表, 这里只测 store 喂表 + 纯函数逻辑.
@@ -51,6 +51,18 @@ describe('unknownFnsIn', () => {
   })
   it('allows space between name and paren', () => {
     expect(unknownFnsIn('foo (1)', KNOWN)).toEqual(['foo'])
+  })
+})
+
+describe('parseSigParams', () => {
+  it('splits arg names', () => {
+    expect(parseSigParams('clamp(x, lo, hi)')).toEqual(['x', 'lo', 'hi'])
+  })
+  it('zero args → empty', () => {
+    expect(parseSigParams('now()')).toEqual([])
+  })
+  it('strips optional brackets/space', () => {
+    expect(parseSigParams('vars.get(name, [scope])')).toEqual(['name', 'scope'])
   })
 })
 

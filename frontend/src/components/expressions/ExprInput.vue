@@ -38,7 +38,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { EditorView } from '@codemirror/view'
-import { allExprFunctions, type ExprDiagnostic } from '@/lib/exprFunctions'
+import { allExprFunctions, parseSigParams, type ExprDiagnostic } from '@/lib/exprFunctions'
 import { exprEditorExtensions, firstExprError } from '@/lib/exprEditorExtensions'
 import EditorModal, { type RefItem } from './EditorModal.vue'
 
@@ -86,14 +86,20 @@ const referenceItems = computed<RefItem[]>(() => [
     caretBack: 0,
     group: t('inspector.editor_ref_group_vars'),
   })),
-  ...allExprFunctions().map((f) => ({
-    label: f.name,
-    detail: f.sig,
-    desc: fnDesc(f.name) || undefined,
-    insert: `${f.name}()`,
-    caretBack: f.maxArgs === 0 ? 0 : 1,
-    group: t('inspector.editor_ref_group_fns'),
-  })),
+  ...allExprFunctions().map((f) => {
+    const params = parseSigParams(f.sig)
+    return {
+      label: f.name,
+      detail: f.sig,
+      desc: fnDesc(f.name) || undefined,
+      insert: `${f.name}()`,
+      caretBack: f.maxArgs === 0 ? 0 : 1,
+      snippet: params.length
+        ? `${f.name}(${params.map((p) => '${' + p + '}').join(', ')})`
+        : undefined,
+      group: t('inspector.editor_ref_group_fns'),
+    }
+  }),
   ...(props.inputNames ?? []).map((n) => ({
     label: n,
     insert: n,

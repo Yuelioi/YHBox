@@ -28,7 +28,7 @@ export function fnHoverTooltip(lookup: (word: string) => HoverDoc | null) {
   }
 }
 
-function renderDoc(doc: HoverDoc): HTMLElement {
+export function renderDoc(doc: HoverDoc): HTMLElement {
   const root = document.createElement('div')
   root.className = 'cm-yh-doc'
   const sig = root.appendChild(document.createElement('div'))
