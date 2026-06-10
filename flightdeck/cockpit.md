@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 ($ 变量语法恢复落地 (推翻 v4, 用户拍板) — 当天上午的绑定模式被它取代删除; 表达式系列全部收口; 挂 3 笔真机 smoke。)
-**Active focus**: **Script 节点 + 编辑器 + $hp 变量语法 已全部落地, 待真机 smoke ×3**(见「下一步」)。验完无挂账, 回 idea 池挑下一个方向。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (用户真机确认 Script/$ 语法/编辑器系列没问题, 4 笔 verify 清账; 用户点了下一个方向: 美化脚本编辑器。)
+**Active focus**: **下个对话: 美化脚本编辑器** — 用户原话"现在的还是太简陋 太丑了" (功能已齐: 高亮/补全/参考面板/工具栏/状态栏, 痛点在**观感**)。先看现状截图议方向再动手。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,12 +9,9 @@
 
 ## 下一步
 
-**首选: 真机 smoke ×3, 一次跑完报我清 verify**:
-0. **$ 变量语法**(6 步): ① 容器声明 hp=42, Expr 直接写 `$hp + 1` (橙色高亮) 跑出 43, 卡片 footer 出 `vars $hp` 小字; ② 打 `$` 弹变量补全; ③ 写 `$ghost` → 节点红错; ④ Script 写 `return $hp + 1` → 43; ⑤ 写 `$vars.hp` → 语法红错 (旧点路径不回归); ⑥ 「输入口」编辑区只剩 名+类型, 底部有 $ 用法提示。
-1. **Script 节点 + 放大编辑 modal**(12 步): ① 面板/右键/explorer 搜「脚本」; ② 写 `log.info("hi"); return 1 + 1`, CaptureResult 填变量, 跑容器看日志 hi、GetVar 读到 2; ③ `while(true){}` 跑起来点停止立即停; ④ `ClickAt({XRatio: 0.5, YRatio: 0.5})` 真点击; ⑤ Inspector 点放大 → 大 modal: 敲 `Wait` 出补全(VSCode 风格提示框), **右侧面板节点按分类分组带配色**, 行点一下展开(说明+参数表+示例), 行尾按钮插入 → **落成 `ClickAt({XRatio: …, YRatio: …}) 占位, Tab 逐格填值**, Ctrl+Enter 确认回写; ⑥ 故意写 `let a = ;` 节点红错带行号; ⑦ Expr/Script 的 Inspector「输入口」区加 `hp:number` 出引脚可连线; ⑧ **Expr 小框也有放大按钮**, modal 右侧列全部函数(签名+说明)点击插入; ⑨ Expr modal 里写 `clmap(1` 底部状态栏实时红字; ⑩ **`vars.get("` 里出变量名补全**; ⑪ 面板「变量」组置顶点击插 vars.get, **工具栏右侧「新建变量」**(建完自动插一句); ⑫ 工具栏: 片段下拉插 for 循环、`//` 注释当前行、**查找替换面板是暗色中文样式**; 底部状态栏显示行数·字符数。
-2. **CodeMirror 表达式编辑器**(4 步, 一并覆盖随机函数): ① Expr 写 `"abc" + 1` 看高亮; ② 敲 `ra` 补全 Tab 上屏; ③ `clmap(1)` 红波浪线+悬停; ④ `randint(1, 6)` 接 Log 跑两次落 1~6。
+**首选: 美化脚本编辑器**(用户 2026-06-11 收尾点名, 原话"现在的还是太简陋 太丑了")。功能层已齐(JS 高亮/补全/snippet 占位/参考面板分类配色/工具栏/暗色查找/状态栏), 痛点在**视觉与质感**。入手建议: ① 先让用户截图圈出最丑的几处; ② 对照 VSCode 观感拉差距(编辑器配色主题成套化、选中行/光标行高亮、缩进参考线、字体与行距、modal 整体布局留白、面板卡片质感); ③ 改动集中在 `lib/editorTheme.ts`(共享主题)、`EditorModal.vue`、`scriptCompletions.ts` 的 HighlightStyle — 三处编辑器共用, 改一处全生效。可参考现成 CodeMirror 主题包(如 @uiw/codemirror-theme-vscode / thememirror)直接引主题替手写配色。
 
-**表达式系列全部收口**: 「Expr 放大编辑 modal」随 EditorModal 统一壳落地; 变量引用最终形态 = **`$hp` 语法** (用户拍板推翻 v4, 决策史与依据在 [docs/expression-system.md](docs/expression-system.md) — 当天上午的"绑定模式"被它取代删除, 输入口退化为纯连线引脚)。
+**表达式系列全部收口**(已真机确认): 变量引用最终形态 = **`$hp` 语法** (用户拍板推翻 v4, 决策史与依据在 [docs/expression-system.md](docs/expression-system.md) — 绑定模式被它取代删除, 输入口退化为纯连线引脚); EditorModal 统一壳承载 Expr/Script 放大编辑。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
