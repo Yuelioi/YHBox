@@ -72,3 +72,49 @@ func TestRandomInt_LargeRange_NoOverflow(t *testing.T) {
 		t.Fatalf("large range out of bounds: %d", got)
 	}
 }
+
+func evalFloat(t *testing.T, n node.Evaluator, cfg map[string]any) float64 {
+	t.Helper()
+	in := node.NewInputsFromConfig(map[string]any{"literal": cfg})
+	v, err := n.Evaluate(nil, in)
+	if err != nil {
+		t.Fatalf("Evaluate err: %v", err)
+	}
+	got, ok := v.(float64)
+	if !ok {
+		t.Fatalf("want float64, got %T (%v)", v, v)
+	}
+	return got
+}
+
+func TestRandomFloat_Spec_Flags(t *testing.T) {
+	s := RandomFloat{}.Spec()
+	if !s.IsPureData || !s.IsNonDeterministic || s.Category != "Random" {
+		t.Fatalf("bad spec: %+v", s)
+	}
+}
+
+func TestRandomFloat_Uniform_InHalfOpenRange(t *testing.T) {
+	for i := 0; i < 2000; i++ {
+		got := evalFloat(t, RandomFloat{}, map[string]any{"Min": 2.0, "Max": 5.0})
+		if got < 2.0 || got >= 5.0 {
+			t.Fatalf("out of [2,5): %v", got)
+		}
+	}
+}
+
+func TestRandomFloat_Centered_InRange(t *testing.T) {
+	for i := 0; i < 2000; i++ {
+		got := evalFloat(t, RandomFloat{}, map[string]any{"Min": 0.0, "Max": 1.0, "Distribution": "centered"})
+		if got < 0.0 || got >= 1.0 {
+			t.Fatalf("centered out of [0,1): %v", got)
+		}
+	}
+}
+
+func TestRandomFloat_MinEqMax_ReturnsMin(t *testing.T) {
+	got := evalFloat(t, RandomFloat{}, map[string]any{"Min": 3.5, "Max": 3.5})
+	if got != 3.5 {
+		t.Fatalf("Min==Max: want 3.5, got %v", got)
+	}
+}

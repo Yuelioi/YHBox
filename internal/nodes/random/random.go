@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	for _, n := range []node.Node{&RandomInt{}} {
+	for _, n := range []node.Node{&RandomInt{}, &RandomFloat{}} {
 		node.Register(n)
 	}
 }
@@ -82,4 +82,37 @@ func (RandomInt) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 		return int(n), nil
 	}
 	return int(lo + rand.Int64N(span)), nil
+}
+
+// ===== RandomFloat =====
+
+type RandomFloat struct{}
+
+func (RandomFloat) Spec() node.Spec {
+	return node.Spec{
+		Kind: "RandomFloat", Category: "Random",
+		Inputs: []node.InputSpec{
+			{Name: "Min", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: "Max", Type: "Number", Default: json.Number("1"), Widget: node.WidgetSpec{Kind: "number"}},
+			distributionInput(),
+		},
+		Outputs:            []node.OutputSpec{{Name: "Result", Type: "Number"}},
+		IsPureData:         true,
+		IsNonDeterministic: true,
+	}
+}
+
+func (RandomFloat) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	lo, hi := in.Float64("Min"), in.Float64("Max")
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if lo == hi {
+		return lo, nil
+	}
+	u := rand.Float64()
+	if in.String("Distribution") == distCentered {
+		u = bellUnit()
+	}
+	return lo + u*(hi-lo), nil
 }
