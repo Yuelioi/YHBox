@@ -56,7 +56,8 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 
 ## 前端编辑器链路
 
-- widget kind `code` → `PinInput.vue` 分支 → `CodeInput.vue` (CodeMirror 6 + `@codemirror/lang-javascript`, 骨架同 ExprInput) + 右上「放大编辑」按钮 → `EditorModal.vue` (Expr/Script 共用的语言无关壳: 大编辑器 + 右侧可搜索参考面板「点击插入」+ 状态栏 + Ctrl+Enter 确认, draft 语义确认才回写)。参考面板与补全下拉共用一份插入项单源 (`scriptCompletions.ts` 的 `InsertItem`)。
+- widget kind `code` → `PinInput.vue` 分支 → `CodeInput.vue` (CodeMirror 6 + `@codemirror/lang-javascript`, 骨架同 ExprInput) + 右上「放大编辑」按钮 → `EditorModal.vue` (Expr/Script 共用的语言无关壳, draft 语义确认才回写): 工具栏 (撤销/重做/注释/查找替换中文化/片段下拉 if·for·while·try) + 右侧可搜索参考面板 (节点行**点击展开**用法: description/参数表带 i18n label/example; 行尾按钮插入) + 状态栏 + Ctrl+Enter 确认。参考面板与补全下拉共用插入项单源 (`scriptCompletions.ts` 的 `InsertItem`); 补全提示是 VSCode 风格主题 (`lib/editorTheme.ts`, 三处编辑器共用)。
+- **变量直达**: `vars.get("…")`/set/inc 第一参字符串里补容器变量名; 参考面板有「变量」组 (点击插 `vars.get("name")`); 面板头「新建变量」按钮复用 NewVarModal, 声明走 Inspector 的 `declare-var` 事件链 (PinInput → NodeInspector → useVarMutations.addVar), 建完顺手插一句 vars.get。
 - 补全 = 节点函数 (registry store 的 Spec 推导签名, `frontend/src/lib/scriptCompletions.ts`) + 四组糖 + 本节点动态输入名; **无前端 lint** (语法错归后端 validator)。
 - 画布内联框排除 code widget (8 行代码只在 Inspector/modal 编辑)。
 
