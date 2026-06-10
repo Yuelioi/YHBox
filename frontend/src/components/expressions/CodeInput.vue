@@ -28,7 +28,7 @@
       commentable
       @update:model-value="(v: string) => emit('update:modelValue', v)"
     >
-      <template #panel-actions>
+      <template #toolbar-extra>
         <UButton
           v-if="declaredVars"
           icon="i-tabler-variable-plus"
@@ -37,7 +37,9 @@
           size="xs"
           :title="t('inspector.editor_new_var')"
           @click="newVarOpen = true"
-        />
+        >
+          {{ t('inspector.editor_new_var') }}
+        </UButton>
       </template>
     </EditorModal>
     <NewVarModal
@@ -64,6 +66,8 @@ import {
   type InsertItem,
 } from '@/lib/scriptCompletions'
 import type { VarType } from '@/lib/variableRef'
+import { getSpec } from '@/components/containers/nodeRegistry/registry'
+import { ALL_NODE_GROUPS, groupLabelColor } from '@/composables/editor/useNodeGroupColor'
 import NewVarModal from '@/components/containers/NewVarModal.vue'
 import EditorModal, { type RefItem } from './EditorModal.vue'
 
@@ -140,20 +144,30 @@ function nodeText(kind: string, field: 'description' | 'example'): string {
   return te(key) ? t(key) : ''
 }
 
-// 放大编辑的参考面板: 糖函数 / 可调节点 (可展开用法+参数) / 变量 / 本节点动态输入。
+// 节点按画布同款分类分组 (nodeGroup.* 标签 + 分类配色), 组内按 kind 排; 分类顺序对齐面板。
+function groupedNodeItems(): RefItem[] {
+  const items = nodeFnItems(registry.scriptBindableKinds, registry.specs, kindLabel).map((it) => {
+    const g = getSpec(it.label)?.group ?? 'system'
+    const gKey = `nodeGroup.${g}`
+    return {
+      ...it,
+      group: te(gKey) ? t(gKey) : g,
+      groupClass: groupLabelColor(g),
+      docs: nodeText(it.label, 'description') || undefined,
+      example: nodeText(it.label, 'example') || undefined,
+      params: nodeParams(it.label),
+      _g: g,
+    }
+  })
+  const order = new Map(ALL_NODE_GROUPS.map((g, i) => [g as string, i]))
+  items.sort(
+    (a, b) => (order.get(a._g) ?? 99) - (order.get(b._g) ?? 99) || a.label.localeCompare(b.label),
+  )
+  return items
+}
+
+// 放大编辑的参考面板: 变量 / 糖函数 / 本节点动态输入 / 节点 (按分类, 可展开用法+参数)。
 const referenceItems = computed<RefItem[]>(() => [
-  ...SUGAR_ITEMS.map((it) => ({
-    ...it,
-    group: t('inspector.editor_ref_group_fns'),
-    docs: sugarDocs(it.label) || undefined,
-  })),
-  ...nodeFnItems(registry.scriptBindableKinds, registry.specs, kindLabel).map((it) => ({
-    ...it,
-    group: t('inspector.editor_ref_group_nodes'),
-    docs: nodeText(it.label, 'description') || undefined,
-    example: nodeText(it.label, 'example') || undefined,
-    params: nodeParams(it.label),
-  })),
   ...(props.declaredVars ?? []).map((v) => ({
     label: v.name,
     detail: `vars.get("${v.name}")`,
@@ -162,12 +176,18 @@ const referenceItems = computed<RefItem[]>(() => [
     caretBack: 0,
     group: t('inspector.editor_ref_group_vars'),
   })),
+  ...SUGAR_ITEMS.map((it) => ({
+    ...it,
+    group: t('inspector.editor_ref_group_fns'),
+    docs: sugarDocs(it.label) || undefined,
+  })),
   ...(props.inputNames ?? []).map((n) => ({
     label: n,
     insert: n,
     caretBack: 0,
     group: t('inspector.editor_ref_group_inputs'),
   })),
+  ...groupedNodeItems(),
 ])
 
 // 新建变量 (面板内直接建, 免去切侧栏的割裂): 声明上抛 + 顺手插一句 vars.get。

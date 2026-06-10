@@ -5,6 +5,7 @@ import {
   autocompletion,
   acceptCompletion,
   completionKeymap,
+  snippet,
   type Completion,
   type CompletionContext,
   type CompletionResult,
@@ -37,6 +38,8 @@ export interface InsertItem {
   desc?: string
   insert: string
   caretBack: number
+  /** CodeMirror snippet 模板 (`${Pin}` 占位 Tab 跳格) — 有则优先于 insert/caretBack。 */
+  snippet?: string
 }
 
 function toCompletion(it: InsertItem): Completion {
@@ -44,7 +47,7 @@ function toCompletion(it: InsertItem): Completion {
     label: it.label,
     type: 'function',
     detail: it.desc ? `${it.detail} · ${it.desc}` : it.detail,
-    apply: applyWithCaret(it.insert, it.caretBack),
+    apply: it.snippet ? snippet(it.snippet) : applyWithCaret(it.insert, it.caretBack),
   }
 }
 
@@ -68,18 +71,20 @@ export function nodeFnItems(
   labelOf?: (kind: string) => string,
 ): InsertItem[] {
   return kinds.map((kind) => {
-    const spec = specs.get(kind)
-    const pins = (spec?.inputs ?? [])
-      .filter((i) => i.type !== 'Exec')
-      .map((i) => i.name)
-      .join(', ')
+    const dataPins = (specs.get(kind)?.inputs ?? []).filter((i) => i.type !== 'Exec')
+    const pins = dataPins.map((i) => i.name).join(', ')
+    // snippet 占位只铺非 advanced pin (捕获框/高级项省略, 走默认值) — Tab 逐个跳格填值。
+    const fields = dataPins.filter((i) => !i.advanced).map((i) => i.name)
     const label = labelOf?.(kind) ?? ''
     return {
       label: kind,
       detail: `${kind}({${pins}})`,
       desc: label || undefined,
-      insert: `${kind}({})`,
-      caretBack: 2,
+      insert: fields.length ? `${kind}({})` : `${kind}()`,
+      caretBack: fields.length ? 2 : 0,
+      snippet: fields.length
+        ? `${kind}({${fields.map((f) => `${f}: \${${f}}`).join(', ')}})`
+        : undefined,
     }
   })
 }

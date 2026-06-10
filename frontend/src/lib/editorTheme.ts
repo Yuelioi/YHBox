@@ -54,6 +54,65 @@ export const completionTooltipTheme: Extension = EditorView.theme({
   },
 })
 
+// 查找/替换面板: CodeMirror 默认是裸原生控件 (白边输入框/按钮挤一排), 按 app 暗色风格重排。
+export const searchPanelTheme: Extension = EditorView.theme({
+  '.cm-panels': { backgroundColor: 'transparent', border: 'none' },
+  '.cm-panel.cm-search': {
+    backgroundColor: '#1f2428',
+    borderBottom: '1px solid #3c4147',
+    padding: '8px 34px 8px 10px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '11px',
+    color: '#9da5b0',
+    position: 'relative',
+  },
+  '.cm-panel.cm-search input[type="text"], .cm-panel.cm-search input:not([type])': {
+    backgroundColor: '#14171a',
+    border: '1px solid #3c4147',
+    borderRadius: '4px',
+    padding: '3px 8px',
+    fontSize: '12px',
+    color: '#d4d4d4',
+    outline: 'none',
+    width: '14em',
+  },
+  '.cm-panel.cm-search input:focus': { borderColor: '#10b981' },
+  '.cm-panel.cm-search button.cm-button': {
+    backgroundImage: 'none',
+    backgroundColor: '#2d333b',
+    border: '1px solid #3c4147',
+    borderRadius: '4px',
+    padding: '3px 10px',
+    fontSize: '11px',
+    color: '#d4d4d4',
+    cursor: 'pointer',
+  },
+  '.cm-panel.cm-search button.cm-button:hover': { backgroundColor: '#3c4147' },
+  '.cm-panel.cm-search label': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '11px',
+    color: '#9da5b0',
+    whiteSpace: 'nowrap',
+  },
+  '.cm-panel.cm-search input[type="checkbox"]': { accentColor: '#10b981' },
+  '.cm-panel.cm-search button[name="close"]': {
+    position: 'absolute',
+    top: '6px',
+    right: '8px',
+    color: '#9da5b0',
+    fontSize: '16px',
+    cursor: 'pointer',
+    background: 'none',
+    border: 'none',
+  },
+  '.cm-panel.cm-search button[name="close"]:hover': { color: '#ffffff' },
+})
+
 // CodeMirror 查找/替换面板的中文文案 (phrases key 是固定英文原文)。
 export const zhSearchPhrases: Extension = EditorState.phrases.of({
   'Find': '查找',

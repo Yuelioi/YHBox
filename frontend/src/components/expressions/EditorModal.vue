@@ -28,33 +28,35 @@
               {{ t('inspector.editor_snippets') }}
             </UButton>
           </UDropdownMenu>
+          <div class="ml-auto flex items-center gap-0.5">
+            <slot name="toolbar-extra" />
+          </div>
         </div>
         <div
           ref="host"
           class="flex-1 min-h-0 bg-elevated/80 border border-default rounded-md overflow-hidden focus-within:border-emerald-500"
         />
-        <div class="flex items-center gap-2 text-[10px] shrink-0 px-0.5">
+        <div class="flex items-center gap-3 text-[10px] shrink-0 px-0.5">
           <span v-if="statusError" class="text-rose-300/90 truncate">{{ statusError }}</span>
-          <span class="ml-auto text-muted shrink-0 font-mono">{{ cursorText }}</span>
+          <span class="ml-auto text-muted shrink-0">{{ statsText }}</span>
+          <span class="text-muted shrink-0 font-mono">{{ cursorText }}</span>
         </div>
       </div>
 
       <aside v-if="reference?.length" class="w-80 shrink-0 flex flex-col gap-2 min-h-0">
-        <div class="flex items-center gap-1.5 shrink-0">
-          <UInput
-            v-model="search"
-            icon="i-tabler-search"
-            size="xs"
-            class="flex-1 min-w-0"
-            :placeholder="t('inspector.editor_ref_search')"
-          />
-          <slot name="panel-actions" />
-        </div>
+        <UInput
+          v-model="search"
+          icon="i-tabler-search"
+          size="xs"
+          class="shrink-0"
+          :placeholder="t('inspector.editor_ref_search')"
+        />
         <div class="flex-1 min-h-0 overflow-y-auto pr-1">
           <template v-for="group in filteredGroups" :key="group.name">
             <div
               v-if="group.name"
-              class="text-[10px] text-muted px-1 pt-2.5 pb-0.5 first:pt-0.5 sticky top-0 bg-default z-10"
+              class="text-[10px] px-1 pt-2.5 pb-0.5 first:pt-0.5 sticky top-0 bg-default z-10"
+              :class="group.cls || 'text-muted'"
             >
               {{ group.name }}
             </div>
@@ -122,9 +124,10 @@ import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { Prec, type Extension } from '@codemirror/state'
 import { undo, redo, toggleComment } from '@codemirror/commands'
 import { search as cmSearch, searchKeymap, openSearchPanel } from '@codemirror/search'
+import { snippet, type Completion } from '@codemirror/autocomplete'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { InsertItem } from '@/lib/scriptCompletions'
-import { zhSearchPhrases } from '@/lib/editorTheme'
+import { searchPanelTheme, zhSearchPhrases } from '@/lib/editorTheme'
 
 const { t, locale } = useI18n()
 
@@ -132,6 +135,8 @@ const { t, locale } = useI18n()
     docs/params/example 是展开详情 (都缺省 = 行不可展开, 点击即插入)。 */
 export interface RefItem extends InsertItem {
   group?: string
+  /** 组标题的 tailwind 文字色 class (节点分类配色, 对齐画布) — 缺省灰。 */
+  groupClass?: string
   /** 展开详情: 用法说明 (节点 description / 函数长说明)。 */
   docs?: string
   /** 展开详情: 参数表 (节点 pin: 名/人话 label/类型/必填)。 */
@@ -176,32 +181,36 @@ const theme = EditorView.theme({
   '.cm-line': { padding: '0 8px' },
   '.cm-gutters': { backgroundColor: 'transparent', border: 'none' },
   '.cm-tooltip': { fontSize: '12px' },
-  '.cm-panels': { backgroundColor: 'transparent', border: 'none' },
-  '.cm-panel.cm-search': { fontSize: '11px', padding: '6px 8px' },
 }, { dark: true })
 
 const statusError = computed<string>(() =>
   props.lintStatus ? props.lintStatus(draftDoc.value) : '',
 )
 
+const statsText = computed<string>(() => {
+  const doc = draftDoc.value
+  const lines = (doc.match(/\n/g)?.length ?? 0) + 1
+  return t('inspector.editor_status_stats', { lines, chars: doc.length })
+})
+
 const snippetMenuItems = computed(() =>
   (props.snippets ?? []).map((it) => [{ label: it.label, onSelect: () => insertItem(it) }]),
 )
 
-const filteredGroups = computed<{ name: string; items: RefItem[] }[]>(() => {
+const filteredGroups = computed<{ name: string; cls?: string; items: RefItem[] }[]>(() => {
   const q = search.value.trim().toLowerCase()
   const hit = (it: RefItem) =>
     !q ||
     it.label.toLowerCase().includes(q) ||
     (it.detail ?? '').toLowerCase().includes(q) ||
     (it.desc ?? '').toLowerCase().includes(q)
-  const groups: { name: string; items: RefItem[] }[] = []
+  const groups: { name: string; cls?: string; items: RefItem[] }[] = []
   for (const it of props.reference ?? []) {
     if (!hit(it)) continue
     const name = it.group ?? ''
     const last = groups[groups.length - 1]
     if (last && last.name === name) last.items.push(it)
-    else groups.push({ name, items: [it] })
+    else groups.push({ name, cls: it.groupClass, items: [it] })
   }
   return groups
 })
@@ -243,6 +252,7 @@ watch(() => props.open, async (open) => {
         ...props.extensions(),
         lineNumbers(),
         searchExt(),
+        searchPanelTheme,
         keymap.of(searchKeymap),
         theme,
         Prec.high(keymap.of([{ key: 'Mod-Enter', run: () => { confirm(); return true } }])),
@@ -274,14 +284,19 @@ function run(cmd: (view: EditorView) => boolean) {
   view.focus()
 }
 
-// 参考面板/片段/外部 (新建变量) → 插到光标处 (替换选区), 光标按 caretBack 落进括号/引号内。
+// 参考面板/片段/外部 (新建变量) → 插到光标处 (替换选区)。
+// 带 snippet 模板的项走占位插入 (Tab 跳格填参数); 否则按 caretBack 落光标。
 function insertItem(it: InsertItem) {
   if (!view) return
   const { from, to } = view.state.selection.main
-  view.dispatch({
-    changes: { from, to, insert: it.insert },
-    selection: { anchor: from + it.insert.length - it.caretBack },
-  })
+  if (it.snippet) {
+    snippet(it.snippet)(view, null as unknown as Completion, from, to)
+  } else {
+    view.dispatch({
+      changes: { from, to, insert: it.insert },
+      selection: { anchor: from + it.insert.length - it.caretBack },
+    })
+  }
   view.focus()
 }
 
