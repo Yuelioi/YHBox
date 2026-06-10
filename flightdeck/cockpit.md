@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-10 by 月离 (表达式三连落地归档: 函数元数据 RPC 单源 + docs/expression-system + ExprInput 换 CodeMirror 6; 待用户 1 笔真机 smoke(覆盖随机函数验证)。)
-**Active focus**: 等**用户真机 smoke 1 笔**(CodeMirror 表达式编辑器, 见「待验证」, 已并入 randint 验证)。无新专项。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-10 by 月离 (表达式三连落地归档(RPC 单源/docs/CodeMirror); 用户收尾抛两问(表达式 modal 编辑 + 变量引用)留待下个对话先议。)
+**Active focus**: 下个对话先议**表达式两问**(modal 大编辑器 / 变量引用进表达式, 见「下一步」), 议完立项; 另挂 1 笔 CodeMirror 真机 smoke。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,7 +9,11 @@
 
 ## 下一步
 
-**首选: 用户真机 smoke CodeMirror 表达式编辑器**(1 分钟, 一并覆盖随机函数): 拖 Expr 节点 → ① 表达式框里写 `"abc" + 1` 看高亮 (字符串绿/数字蓝); ② 敲 `ra` → 原生补全弹出 (签名+中文说明), Tab 上屏且光标落括号内; ③ 写 `clmap(1)` → clmap 下面红波浪线, 鼠标悬停见「未知函数」; ④ 写 `randint(1, 6)` 接 Log 跑两次 → 两次都落 1~6。验完报我清 verify。
+**首选: 用户 2026-06-10 收尾提出的两个表达式问题, 下个对话先议**(用户原话记录):
+1. **"表达式都在一个 textarea 里操作不方便, 为什么不是一个单独的 modal"** — 候选方案: Inspector 小框旁加「放大编辑」按钮弹大 modal, 里面复用现成 CodeMirror ExprInput (组件 API 已解耦, 改动小); 顺路跟旧候选「搜索/大复合 modal 收进 BaseModal」一起考虑。
+2. **"不支持变量系统么"** — 现状是**设计决策不是缺陷**: v4 删了 `$vars.*` 语法, 变量必须 GetVar 节点连进 Expr 动态输入 (见 [docs/expression-system.md](docs/expression-system.md))。用户觉得绕。候选方向: (a) 补全里列容器变量, 选中自动声明 Inputs + 建 GetVar 连线 (编辑器侧自动化, 不动语法); (b) 恢复某种变量引用语法 (动 runtime, 影响面大)。议完再立项。
+
+**还挂着: 真机 smoke CodeMirror 表达式编辑器**(1 分钟, 一并覆盖随机函数): ① Expr 写 `"abc" + 1` 看高亮; ② 敲 `ra` 补全 Tab 上屏; ③ `clmap(1)` 红波浪线+悬停提示; ④ `randint(1, 6)` 接 Log 跑两次落 1~6。验完报我清 verify。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
