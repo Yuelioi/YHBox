@@ -71,8 +71,9 @@ type evalKey struct{ nodeID, pin string }
 // 把随机纳入框架既有 Determinism contract.
 //
 // 并发: 一个实例只属一个 dispatch 的单 goroutine — 唯一 wrap 点是 dispatchInRegion 入口
-// (dispatch_v5.go), 每节点 dispatch 新建; listener 子流程 ctx 链不经 dispatchInRegion、
-// 不带 cache → 单个 cache 永不跨 goroutine 共享. pure-data 拉取树同步执行.
+// (dispatch_v5.go), 每节点 dispatch 新建; 进入 listener 子流程的根 ctx 不带 cache, 子流程内
+// 每节点 dispatch 仍经 dispatchInRegion 在自己 goroutine 上各自新建 → 单个 cache 永不跨
+// goroutine 共享. pure-data 拉取树同步执行.
 // 普通 map 无需 mutex; 不变量靠 TestEvalCache_* 守护.
 type dispatchEvalCache struct{ m map[evalKey]expr.Value }
 

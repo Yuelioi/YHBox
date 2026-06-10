@@ -26,6 +26,7 @@ last_updated: 2026-06-10
 ## 已验证的源码事实（设计依据）
 
 - **纯数据求值无结果缓存**：`runtime/data_pull.go::evalDataSource` 每次 pin pull 都重调 `EvaluatePureData`；`node/engine.go::EvaluatePureData` 内部直接跑 `rn.Evaluate`、无记忆化。
+  - **修订（impl review 抓到的调研缺口）**：`EvaluatePureData` 其实有**两个**生产调用点 —— 本条漏了 `dispatch_v5.go::resolveDataPinV5` 的 pure-data 直连分支（exec 节点 data-in 的**主路径**）。只在 evalDataSource 加缓存会被主路径绕过（评审 C1）。落地改为两路共用 `evalPureDataCached` 单一 gate。教训：grep 一个函数的**全部**调用点再下"唯一路径"结论。
 - **框架已有「Determinism contract」**：`runtime/snapshot.go` 的 `TickSnapshot` 在 `dispatchInRegion` 入口（`dispatch_v5.go:328` `withTickSnapshot(ctx, CaptureSnapshot(...))`）冻结 Vars，挂在 ctx（`tickCtxKey`）上，保证同一 exec tick 内 GetVar 读到一致值。`TickSnapshot` 是 **per-消费节点-dispatch** 的可变对象（每个 exec 节点 dispatch 时新建一个）。
 - **pure-data 不走 `dispatchInRegion`**：纯数据节点经 `evalDataSource`→`EvaluatePureData` 求值，**不**各自换快照 → 一个消费 exec 节点的整棵 pure-data 拉取树共享它那一个 `TickSnapshot`，且单 goroutine 顺序拉取（并发分支各有独立 ctx chain）。
 - **Expr 已有 `abs/min/max/now`、无 `random`**（`services/expr/eval.go::evalCall`）。注：`now()` 用 `time.Now()`，本身非确定 —— 见本 spec「非目标」对它的处置。
@@ -75,7 +76,9 @@ last_updated: 2026-06-10
 
 | 节点 | 输入 | 输出 | 语义 |
 |---|---|---|---|
-| **RandomInt** | `Min`(Integer,0)、`Max`(Integer,100)、`Distribution`(dropdown: `uniform`默认/`centered`) | `Result`(Integer) | **闭区间** `[Min,Max]`（两端含）。`Min>Max` 自动交换；`Min==Max` 返回 Min |
+| **RandomInt** | `Min`(Number,0)、`Max`(Number,100)、`Distribution`(dropdown: `uniform`默认/`centered`) | `Result`(Integer) | **闭区间** `[Min,Max]`（两端含）。`Min>Max` 自动交换；`Min==Max` 返回 Min |
+
+> **修订（impl 时定）**：RandomInt 的 `Min`/`Max` 输入类型原设计为 Integer，落地改为 **Number** —— 既有守卫 `DetectNameSplits`（node-spec-style §9）禁止同名 pin 跨节点不同型（RandomFloat 的 Min/Max 是 Number）。运行时 `in.Int` 对 float64 截断，`Result` 出口仍是 Integer，语义不变。
 | **RandomFloat** | `Min`(Number,0)、`Max`(Number,1)、`Distribution`(dropdown: `uniform`/`centered`) | `Result`(Number) | **半开** `[Min,Max)`（精确语义，不另作"当闭区间"解释）。`Min>Max` 自动交换；`Min==Max` 返回 Min（空区间的明确定义边界，非静默错误）|
 | **RandomBool** | `Prob`(Number,0.5) | `Result`(Bool) | true 概率=Prob；`Prob≤0` 恒 false、`≥1` 恒 true（夹紧）。**无 Distribution**（二值无意义）|
 
@@ -85,7 +88,7 @@ last_updated: 2026-06-10
 
 - `uniform`：`rand.Float64()` 铺满区间，各值等概率。
   - RandomFloat：`Min + rand.Float64()*(Max-Min)`
-  - RandomInt：`Min + rand.IntN(Max-Min+1)`（各整数等概率）
+  - RandomInt：`Min + rand.Int64N(Max-Min+1)`（int64 内部运算，各整数等概率）
 - `centered`：helper `bellUnit() float64` —— 取 `randomSamples=5` 个 `rand.Float64()` 求均值（Bates，向 0.5 聚集），缩放到区间。**注意是有意的中心加权分布**（中间值概率高、两端低），不是均匀。
   - RandomFloat：`Min + bellUnit()*(Max-Min)`
   - RandomInt：`clamp(Min + int(bellUnit()*float64(Max-Min+1)), Min, Max)`

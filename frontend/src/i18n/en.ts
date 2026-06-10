@@ -1175,7 +1175,7 @@
       output: { Result: { label: 'Result' } },
     },
     RandomBool: {
-      label: 'Random Bool', description: 'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true.',
+      label: 'Random Bool', description: 'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true. Multiple references within one evaluation get the same value; different nodes get different values.',
       input: { Prob: { label: 'True probability' } },
       output: { Result: { label: 'Result' } },
     },

@@ -1195,7 +1195,7 @@ export default {
       output: { Result: { label: '结果' } },
     },
     RandomBool: {
-      label: '随机真假', description: '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。',
+      label: '随机真假', description: '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
       input: { Prob: { label: '为真概率' } },
       output: { Result: { label: '结果' } },
     },

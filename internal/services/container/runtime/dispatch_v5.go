@@ -113,7 +113,8 @@ func (r *ContainerRunner) applyExecDataEdges(node *container.GraphNode, rn *node
 // resolveDataPinV5 解析单个 data-in pin 值:
 //   - 没 data edge → literal / default → 走 r.pullDataPin
 //   - 上游节点不在 framework registry / 不 IsPureData / 没实现 Evaluator → 走 r.pullDataPin
-//   - 上游 IsPureData + 实现 Evaluator → 走 nodepkg.EvaluatePureData (递归 build 上游 dataWire)
+//   - 上游 IsPureData + 实现 Evaluator → 走 evalPureDataCached (共享 per-dispatch 缓存 gate,
+//     递归 build 上游 dataWire)
 //
 // 22 purefunc + Expr 走 framework. GetVar/GetParam 依赖 runtime state (frame /
 // per-tick snapshot), 走 fallback evalDataSource switch.
