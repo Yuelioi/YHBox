@@ -2,7 +2,7 @@
 status: active
 when_to_read: 加/改 Expr 内置函数前; 改表达式语法/parser/求值前; 碰 ExprInput 编辑器或函数补全前; 撞 EXPR_* 校验码不懂含义时
 applies_to: [expr, builtins, Expr, ExprInput, exprFunctions, internal/services/expr, internal/nodes/purefunc/expr.go, internal/services/container/validator_expr.go, frontend/src/lib/exprFunctions.ts, frontend/src/components/expressions]
-last_updated: 2026-06-10
+last_updated: 2026-06-11
 when_to_update: 加/删/改内置函数或其 arity·签名; 改 expr 语法 (lexer/parser); 改 EXPR_* 校验码; 改 ExprInput 编辑器或函数元数据管道时
 ---
 
@@ -51,3 +51,7 @@ Expr 是一个 pure-data 节点 (`internal/nodes/purefunc/expr.go`): 用户写�
 ## 前端编辑器 (ExprInput)
 
 Expr 的 Expression 输入 Widget Kind 是 `"expr"` → `PinInput` 分发到 `components/expressions/ExprInput.vue`: 光标处取词补全 (签名+i18n 说明, Tab/Enter 上屏, 光标落括号内) + 即时启发式红错 (括号/引号/裸词/尾运算符/未知函数, 纯函数在 `lib/exprFunctions.ts`)。启发式只是快速反馈, **权威是后端 validator 的节点红错**。画布上的内联编辑 (PinLiteral) 刻意保持裸文本 — 空间小, 不塞下拉。
+
+- 语言/补全/lint 的 CodeMirror 扩展抽在 `lib/exprEditorExtensions.ts` (纯函数, i18n 经回调注入), 小框和放大编辑共用。
+- 右上「放大编辑」按钮 → `EditorModal.vue` (Expr/Script 共用壳): 大编辑器 + 右侧可搜索函数参考面板 (签名+说明, 点击插入) + 状态栏实时报 lint 首错 + Ctrl+Enter 确认; draft 语义, 确认才回写。
+- 动态输入名 (config.Inputs[]) 进补全和参考面板 (PinInput 传 `inputNames`)。
