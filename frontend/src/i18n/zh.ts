@@ -1175,6 +1175,30 @@ export default {
       },
       output: { Result: { label: '结果' } },
     },
+    // random
+    RandomInt: {
+      label: '随机整数', description: '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
+      input: {
+        Min: { label: '最小值' },
+        Max: { label: '最大值' },
+        Distribution: { label: '分布', hint: '均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）', option: { uniform: '均匀', centered: '聚中' } },
+      },
+      output: { Result: { label: '结果' } },
+    },
+    RandomFloat: {
+      label: '随机小数', description: '在 Min~Max 之间随机取一个小数（含 Min、不含 Max）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
+      input: {
+        Min: { label: '最小值' },
+        Max: { label: '最大值' },
+        Distribution: { label: '分布', hint: '均匀=区间内等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）', option: { uniform: '均匀', centered: '聚中' } },
+      },
+      output: { Result: { label: '结果' } },
+    },
+    RandomBool: {
+      label: '随机真假', description: '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。',
+      input: { Prob: { label: '为真概率' } },
+      output: { Result: { label: '结果' } },
+    },
     // stopwatch
     StopwatchStart: {
       label: '秒表 启动',
@@ -2078,6 +2102,7 @@ export default {
     mock: '测试用',
     test: '测试用',
     event: '事件',
+    random: '随机',
     other: '其它',
   },
   // KeyCapture / 通用 hotkey 输入.

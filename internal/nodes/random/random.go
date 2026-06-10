@@ -52,8 +52,8 @@ func (RandomInt) Spec() node.Spec {
 	return node.Spec{
 		Kind: "RandomInt", Category: "Random",
 		Inputs: []node.InputSpec{
-			{Name: "Min", Type: "Integer", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: "Max", Type: "Integer", Default: json.Number("100"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: "Min", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: "Max", Type: "Number", Default: json.Number("100"), Widget: node.WidgetSpec{Kind: "number"}},
 			distributionInput(),
 		},
 		Outputs:            []node.OutputSpec{{Name: "Result", Type: "Integer"}},

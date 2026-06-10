@@ -11,6 +11,7 @@ import (
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"
+	_ "yotta/internal/nodes/random" // RandomInt/RandomFloat/RandomBool
 	_ "yotta/internal/nodes/stopwatch"
 	_ "yotta/internal/nodes/system"
 	_ "yotta/internal/nodes/variable"

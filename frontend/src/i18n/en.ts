@@ -1155,6 +1155,30 @@
       },
       output: { Result: { label: 'Result' } },
     },
+    // random
+    RandomInt: {
+      label: 'Random Int', description: 'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',
+      input: {
+        Min: { label: 'Min' },
+        Max: { label: 'Max' },
+        Distribution: { label: 'Distribution', hint: 'uniform = each integer equally likely; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)', option: { uniform: 'Uniform', centered: 'Centered' } },
+      },
+      output: { Result: { label: 'Result' } },
+    },
+    RandomFloat: {
+      label: 'Random Float', description: 'Random float in [Min, Max) (Min included, Max excluded). Multiple references within one evaluation get the same value; different nodes get different values.',
+      input: {
+        Min: { label: 'Min' },
+        Max: { label: 'Max' },
+        Distribution: { label: 'Distribution', hint: 'uniform = equal probability across the range; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)', option: { uniform: 'Uniform', centered: 'Centered' } },
+      },
+      output: { Result: { label: 'Result' } },
+    },
+    RandomBool: {
+      label: 'Random Bool', description: 'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true.',
+      input: { Prob: { label: 'True probability' } },
+      output: { Result: { label: 'Result' } },
+    },
     // stopwatch
     StopwatchStart: {
       label: 'Stopwatch start',
@@ -2029,6 +2053,7 @@
     mock: 'Test',
     test: 'Test',
     event: 'Event',
+    random: 'Random',
     other: 'Other',
   },
   hotkeyInput: {
