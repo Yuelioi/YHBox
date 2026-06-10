@@ -13,6 +13,7 @@ import (
 func init() {
 	for _, n := range []node.Node{
 		&Split{}, &Join{}, &ListLength{}, &ListGet{},
+		&ListContains{}, &ListAppend{}, &ListSlice{},
 	} {
 		node.Register(n)
 	}
@@ -108,4 +109,85 @@ func (ListGet) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 		return nil, nil
 	}
 	return items[idx], nil
+}
+
+// ===== ListContains =====
+
+type ListContains struct{}
+
+func (ListContains) Spec() node.Spec {
+	return listSpec("ListContains", []node.InputSpec{
+		listIn(),
+		{Name: "Value", Type: "*"},
+	}, "Bool")
+}
+
+// Evaluate — 与 Eq 节点完全同语义 (node.LooseEqual): 同类型直比、跨类型串比.
+func (ListContains) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	val := in.Raw("Value")
+	for _, el := range in.List("List") {
+		if node.LooseEqual(el, val) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ===== ListAppend =====
+
+type ListAppend struct{}
+
+func (ListAppend) Spec() node.Spec {
+	return listSpec("ListAppend", []node.InputSpec{
+		listIn(),
+		{Name: "Item", Type: "*"},
+	}, "List")
+}
+
+// Evaluate — 返回新列表, 必 copy: 防 append 原地改写上游 Evaluate 返回的切片 (底层数组别名).
+// 浅拷贝 — 嵌套 map/子 list 与原列表共享引用 (值语义同 Python list.copy(), 非 bug, i18n 写明).
+func (ListAppend) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	items := in.List("List")
+	out := make([]any, 0, len(items)+1)
+	out = append(out, items...)
+	return append(out, in.Raw("Item")), nil
+}
+
+// ===== ListSlice =====
+
+type ListSlice struct{}
+
+func (ListSlice) Spec() node.Spec {
+	return listSpec("ListSlice", []node.InputSpec{
+		listIn(),
+		{Name: "Start", Type: "Integer", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+		// Count 默认 -1 = 取到末尾 (与 Substring.Length 同约定: 负=到末尾/0=空/正=N).
+		{Name: "Count", Type: "Integer", Default: json.Number("-1"), Widget: node.WidgetSpec{Kind: "number"}},
+	}, "List")
+}
+
+// Evaluate — 返回新列表 (copy 防别名). Start clamp [0,len], Start>=len → 恒空.
+func (ListSlice) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	items := in.List("List")
+	start := in.Int("Start")
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(items) {
+		return []any{}, nil
+	}
+	count := in.Int("Count")
+	if count == 0 {
+		return []any{}, nil
+	}
+	end := len(items)
+	if count > 0 {
+		end = start + count
+		if end > len(items) {
+			end = len(items)
+		}
+	}
+	out := make([]any, end-start)
+	copy(out, items[start:end])
+	return out, nil
 }

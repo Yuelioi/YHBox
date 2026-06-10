@@ -88,10 +88,73 @@ func TestListGet(t *testing.T) {
 }
 
 func TestCollection_SpecShape(t *testing.T) {
-	for _, n := range []node.Node{&Split{}, &Join{}, &ListLength{}, &ListGet{}} {
+	for _, n := range []node.Node{&Split{}, &Join{}, &ListLength{}, &ListGet{}, &ListContains{}, &ListAppend{}, &ListSlice{}} {
 		s := n.Spec()
 		if !s.IsPureData || s.Category != "List" {
 			t.Fatalf("%s: must be IsPureData + Category List, got %+v", s.Kind, s)
 		}
+	}
+}
+
+func TestListContains(t *testing.T) {
+	lst := []any{1.0, "b", nil}
+	cases := []struct {
+		name  string
+		value any
+		want  bool
+	}{
+		{"same_type", "b", true},
+		{"cross_type_strcmp", "1", true}, // 与 Eq 节点同语义: 跨类型串比
+		{"nil_element", nil, true},       // LooseEqual(nil,nil)=true
+		{"absent", "x", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := evalNode(t, &ListContains{}, map[string]any{"List": lst, "Value": tc.value})
+			if got != tc.want {
+				t.Fatalf("Contains(%v) = %v, want %v", tc.value, got, tc.want)
+			}
+		})
+	}
+	// 嵌套子列表元素 — 防护回归 (直比 panic 路径), 串比语义
+	nested := []any{[]any{1, 2}}
+	if got := evalNode(t, &ListContains{}, map[string]any{"List": nested, "Value": []any{1, 2}}); got != true {
+		t.Fatalf("nested contains = %v, want true (串比)", got)
+	}
+	// nil vs "" 不等 (FormatValue(nil)="null")
+	if got := evalNode(t, &ListContains{}, map[string]any{"List": []any{nil}, "Value": ""}); got != false {
+		t.Fatalf(`Contains([nil], "") = %v, want false`, got)
+	}
+}
+
+func TestListAppend(t *testing.T) {
+	orig := []any{"a"}
+	got := evalNode(t, &ListAppend{}, map[string]any{"List": orig, "Item": "b"})
+	wantList(t, got, []any{"a", "b"})
+	// 必 copy: 原列表不被改 (防 append 别名上游切片)
+	if len(orig) != 1 || orig[0] != "a" {
+		t.Fatalf("orig mutated: %v", orig)
+	}
+	// 空/非列表 → 单元素新列表
+	wantList(t, evalNode(t, &ListAppend{}, map[string]any{"List": nil, "Item": "x"}), []any{"x"})
+}
+
+func TestListSlice(t *testing.T) {
+	lst := []any{"a", "b", "c", "d"}
+	// Count 默认 -1 → 取到末尾
+	wantList(t, evalNode(t, &ListSlice{}, map[string]any{"List": lst, "Start": 1}), []any{"b", "c", "d"})
+	// Count=0 → 空
+	wantList(t, evalNode(t, &ListSlice{}, map[string]any{"List": lst, "Start": 1, "Count": 0}), []any{})
+	// Count>0 → N 个, 超尾截断
+	wantList(t, evalNode(t, &ListSlice{}, map[string]any{"List": lst, "Start": 2, "Count": 99}), []any{"c", "d"})
+	// Start>=len → 恒空 (Count 忽略)
+	wantList(t, evalNode(t, &ListSlice{}, map[string]any{"List": lst, "Start": 9, "Count": 2}), []any{})
+	// 负 Start → 0
+	wantList(t, evalNode(t, &ListSlice{}, map[string]any{"List": lst, "Start": -3, "Count": 2}), []any{"a", "b"})
+	// copy: 改结果不影响原列表 — 用长度断言间接验 (返回的是新底层数组)
+	got := evalNode(t, &ListSlice{}, map[string]any{"List": lst, "Start": 0, "Count": 2}).([]any)
+	got[0] = "Z"
+	if lst[0] != "a" {
+		t.Fatalf("slice aliased original: %v", lst)
 	}
 }
