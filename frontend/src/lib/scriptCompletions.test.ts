@@ -1,7 +1,13 @@
-// scriptCompletions.test.ts — 节点函数补全签名推导 (非 exec pin 进签名, exec pin 排除)。
+// scriptCompletions.test.ts — 节点函数补全签名推导 (非 exec pin 进签名, exec pin 排除)
+// + 语法快速反馈与 $变量引用提取的纯函数。
 import { describe, it, expect } from 'vitest'
 import type { Spec } from '@bindings/yotta/internal/node'
-import { nodeFnCompletions, SUGAR_COMPLETIONS } from './scriptCompletions'
+import {
+  nodeFnCompletions,
+  scriptDollarRefs,
+  scriptSyntaxErrors,
+  SUGAR_COMPLETIONS,
+} from './scriptCompletions'
 
 function fakeSpec(kind: string, inputs: { name: string; type: string }[]): Spec {
   return { kind, inputs } as unknown as Spec
@@ -53,5 +59,45 @@ describe('SUGAR_COMPLETIONS', () => {
       expect.arrayContaining(['vars.get', 'vars.set', 'vars.inc', 'params.get', 'sleep', 'log.info']),
     )
     expect(SUGAR_COMPLETIONS.every((c) => c.type === 'function')).toBe(true)
+  })
+})
+
+describe('scriptSyntaxErrors', () => {
+  it('合法脚本无诊断', () => {
+    expect(scriptSyntaxErrors('let a = 1\nif (a > 0) {\n  sleep(100)\n}\n')).toEqual([])
+  })
+
+  it('空文档无诊断', () => {
+    expect(scriptSyntaxErrors('')).toEqual([])
+  })
+
+  it('括号不闭合报错且行号对', () => {
+    const errs = scriptSyntaxErrors('let a = 1\nif (a > 0 {\n}')
+    expect(errs.length).toBeGreaterThan(0)
+    expect(errs[0].line).toBe(2)
+  })
+
+  it('同一行级联错误只报一次', () => {
+    const errs = scriptSyntaxErrors('if ((( {')
+    const lines = errs.map((e) => e.line)
+    expect(new Set(lines).size).toBe(lines.length)
+  })
+})
+
+describe('scriptDollarRefs', () => {
+  it('提取 $引用, 字符串与注释里的 $ 不命中', () => {
+    const { refs } = scriptDollarRefs('let a = $hp\nlog.info("$fake")\n// $comment\n')
+    expect(refs.map((r) => r.name)).toEqual(['hp'])
+  })
+
+  it('本地 let $x 定义记入 defined, 不算外部引用', () => {
+    const { refs, defined } = scriptDollarRefs('let $x = 1\nlog.info($x + $hp)')
+    expect(defined.has('x')).toBe(true)
+    expect(refs.map((r) => r.name).sort()).toEqual(['hp', 'x'])
+  })
+
+  it('裸 $ 不命中', () => {
+    const { refs } = scriptDollarRefs('let $ = 1')
+    expect(refs).toEqual([])
   })
 })

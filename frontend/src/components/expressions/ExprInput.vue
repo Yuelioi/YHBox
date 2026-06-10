@@ -1,5 +1,5 @@
 <!-- Expr 表达式编辑器 (widget kind 'expr', PinInput 分发) — CodeMirror 6 内核:
-     语法高亮 + 函数补全 (签名+说明) + 带位置红线 (lintExpr 启发式)。
+     语法高亮 + 函数补全 (签名+说明) + 悬停函数文档 + 带位置红线 (lintExpr 启发式)。
      权威校验仍在后端 validator (EXPR_* 节点红错); 这里是打字时的快速反馈。
      右上放大按钮弹 EditorModal 大编辑器 (带函数参考面板)。扩展本体在 lib/exprEditorExtensions。 -->
 <template>
@@ -7,7 +7,7 @@
     <div class="relative">
       <div
         ref="host"
-        class="bg-elevated/80 border border-default rounded-md overflow-hidden focus-within:border-emerald-500"
+        class="border border-default rounded-md overflow-hidden focus-within:border-primary/60"
       />
       <UButton
         icon="i-tabler-maximize"
@@ -25,11 +25,12 @@
         icon="i-tabler-math-function"
         :extensions="modalExtensions"
         :reference="referenceItems"
-        :lint-status="lintStatus"
+        :lint-first="lintFirst"
+        :lang-label="t('inspector.editor_lang_expr')"
         @update:model-value="(v: string) => emit('update:modelValue', v)"
       />
     </div>
-    <p v-if="errorText" class="text-[10px] text-rose-300/90 mt-0.5">{{ errorText }}</p>
+    <p v-if="errorText" class="text-[10px] text-error mt-0.5">{{ errorText }}</p>
   </div>
 </template>
 
@@ -68,9 +69,11 @@ function diagMessage(d: ExprDiagnostic): string {
   return te(d.messageKey) ? t(d.messageKey, d.params ?? {}) : d.messageKey
 }
 
-const errorText = computed<string>(() => firstExprError(props.modelValue ?? '', diagMessage))
+const errorText = computed<string>(
+  () => firstExprError(props.modelValue ?? '', diagMessage)?.message ?? '',
+)
 
-function lintStatus(doc: string): string {
+function lintFirst(doc: string): { message: string; from: number } | null {
   return firstExprError(doc, diagMessage)
 }
 
@@ -99,40 +102,30 @@ const referenceItems = computed<RefItem[]>(() => [
   })),
 ])
 
-function buildExtensions(onChange?: (doc: string) => void) {
+function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => void } = {}) {
   return exprEditorExtensions({
     fnDesc,
     diagMessage,
     inputNames: () => props.inputNames ?? [],
     varNames: () => (props.declaredVars ?? []).map((v) => v.name),
     placeholder: props.placeholder,
-    onChange,
+    minHeight: '3.9em',
+    ...opts,
   })
 }
 
 // modal 的扩展工厂 — 不带 onChange (draft 由 modal 自管, 确认才回写)。
 function modalExtensions() {
-  return buildExtensions()
+  return buildExtensions({ modal: true })
 }
 
 // ── 小框 EditorView 生命周期 + v-model 双向 ──
-
-const theme = EditorView.theme({
-  '&': { backgroundColor: 'transparent', fontSize: '11px' },
-  '&.cm-focused': { outline: 'none' },
-  '.cm-content': { fontFamily: 'ui-monospace, monospace', minHeight: '3.9em', padding: '4px 0' },
-  '.cm-line': { padding: '0 6px' },
-  '.cm-tooltip': { fontSize: '11px' },
-}, { dark: true })
 
 onMounted(() => {
   view = new EditorView({
     parent: host.value!,
     doc: props.modelValue ?? '',
-    extensions: [
-      ...buildExtensions((doc) => emit('update:modelValue', doc)),
-      theme,
-    ],
+    extensions: buildExtensions({ onChange: (doc) => emit('update:modelValue', doc) }),
   })
 })
 

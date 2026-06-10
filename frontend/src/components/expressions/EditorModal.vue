@@ -1,45 +1,89 @@
 <!-- 表达式/代码放大编辑 modal — 语言无关的壳: 调用方经 extensions() 注入语言
-     (Expr 走 exprEditorExtensions, Script 走 scriptEditorExtensions)。
-     工具栏 (撤销/重做/注释/查找替换/片段) + 左编辑器 + 底部状态栏 (lint 首错 + 光标行列);
-     右侧可搜索参考面板: 行点击展开用法 (说明/参数/示例), 行尾按钮插入光标处。
+     (Expr 走 exprEditorExtensions, Script 走 scriptEditorExtensions, 都带 modal:true 档)。
+     工具栏分组 (撤销重做 | 注释/查找 | 片段/扩展 | 整理缩进/折叠) + 左编辑器
+     + 底部状态栏 (语法状态可点跳错 + 统计 + 光标 + 语言标签); 右侧可搜索参考面板。
      编辑的是 draft, 确认 (按钮或 Ctrl+Enter) 才回写 update:modelValue; 取消/关闭丢弃。 -->
 <template>
   <BaseModal
     :open="open"
     :title="title"
     :icon="icon ?? 'i-tabler-code'"
-    size="5xl"
+    size="7xl"
+    :tall="maximized"
+    :content-class="maximized ? 'sm:max-w-[96vw]' : undefined"
     @update:open="(v: boolean) => emit('update:open', v)"
   >
-    <div class="flex gap-3 h-[68vh] min-h-0">
+    <template #header-extra>
+      <UButton
+        :icon="maximized ? 'i-tabler-minimize' : 'i-tabler-maximize'"
+        variant="ghost"
+        color="neutral"
+        size="xs"
+        :title="maximized ? t('inspector.editor_restore') : t('inspector.editor_maximize')"
+        @click="maximized = !maximized"
+      />
+    </template>
+    <div class="flex gap-3 min-h-0" :class="maximized ? 'h-full' : 'h-[70vh]'">
       <div class="flex-1 min-w-0 flex flex-col gap-1.5">
-        <div class="flex items-center gap-0.5 shrink-0">
-          <UButton icon="i-tabler-arrow-back-up" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_undo')" @click="run(undo)" />
-          <UButton icon="i-tabler-arrow-forward-up" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_redo')" @click="run(redo)" />
-          <UButton v-if="commentable" variant="ghost" color="neutral" size="xs"
-            class="font-mono" :title="t('inspector.editor_comment')" @click="run(toggleComment)">//</UButton>
-          <UButton icon="i-tabler-list-search" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_search')" @click="run(openSearchPanel)" />
-          <UDropdownMenu v-if="snippets?.length" :items="snippetMenuItems">
-            <UButton icon="i-tabler-template" variant="ghost" color="neutral" size="xs"
-              trailing-icon="i-tabler-chevron-down" :title="t('inspector.editor_snippets')">
-              {{ t('inspector.editor_snippets') }}
-            </UButton>
-          </UDropdownMenu>
+        <div class="flex items-center shrink-0">
+          <div class="flex items-center gap-0.5">
+            <UButton icon="i-tabler-arrow-back-up" variant="ghost" color="neutral" size="xs"
+              :title="t('inspector.editor_undo')" @click="run(undo)" />
+            <UButton icon="i-tabler-arrow-forward-up" variant="ghost" color="neutral" size="xs"
+              :title="t('inspector.editor_redo')" @click="run(redo)" />
+          </div>
+          <span class="h-4 border-l border-default mx-1.5" />
+          <div class="flex items-center gap-0.5">
+            <UButton v-if="commentable" variant="ghost" color="neutral" size="xs"
+              class="font-mono" :title="t('inspector.editor_comment')" @click="run(toggleComment)">//</UButton>
+            <UButton icon="i-tabler-list-search" variant="ghost" color="neutral" size="xs"
+              :title="t('inspector.editor_search')" @click="run(openSearchPanel)" />
+          </div>
+          <template v-if="snippets?.length || $slots['toolbar-extra']">
+            <span class="h-4 border-l border-default mx-1.5" />
+            <div class="flex items-center gap-0.5">
+              <UDropdownMenu v-if="snippets?.length" :items="snippetMenuItems">
+                <UButton icon="i-tabler-template" variant="ghost" color="neutral" size="xs"
+                  trailing-icon="i-tabler-chevron-down" :title="t('inspector.editor_snippets')">
+                  {{ t('inspector.editor_snippets') }}
+                </UButton>
+              </UDropdownMenu>
+              <slot name="toolbar-extra" />
+            </div>
+          </template>
           <div class="ml-auto flex items-center gap-0.5">
-            <slot name="toolbar-extra" />
+            <UButton icon="i-tabler-indent-increase" variant="ghost" color="neutral" size="xs"
+              :title="t('inspector.editor_indent_tidy')" @click="reindentAll" />
+            <template v-if="foldable">
+              <UButton icon="i-tabler-fold" variant="ghost" color="neutral" size="xs"
+                :title="t('inspector.editor_fold_all')" @click="run(foldAll)" />
+              <UButton icon="i-tabler-fold-down" variant="ghost" color="neutral" size="xs"
+                :title="t('inspector.editor_unfold_all')" @click="run(unfoldAll)" />
+            </template>
           </div>
         </div>
         <div
           ref="host"
-          class="flex-1 min-h-0 bg-elevated/80 border border-default rounded-md overflow-hidden focus-within:border-emerald-500"
+          class="flex-1 min-h-0 border border-default rounded-md overflow-hidden focus-within:border-primary/60"
         />
-        <div class="flex items-center gap-3 text-[10px] shrink-0 px-0.5">
-          <span v-if="statusError" class="text-rose-300/90 truncate">{{ statusError }}</span>
-          <span class="ml-auto text-muted shrink-0">{{ statsText }}</span>
-          <span class="text-muted shrink-0 font-mono">{{ cursorText }}</span>
+        <div class="flex items-center gap-3 text-[11px] shrink-0 px-0.5">
+          <button
+            v-if="statusError"
+            type="button"
+            class="flex items-center gap-1 text-error truncate cursor-pointer hover:underline"
+            :title="t('inspector.editor_goto_error')"
+            @click="jumpToError"
+          >
+            <UIcon name="i-tabler-alert-circle" class="size-3.5 shrink-0" />
+            <span class="truncate">{{ statusError.message }}</span>
+          </button>
+          <span v-else class="flex items-center gap-1 text-success/80">
+            <UIcon name="i-tabler-check" class="size-3.5 shrink-0" />
+            {{ t('inspector.editor_status_ok') }}
+          </span>
+          <span class="ml-auto text-muted shrink-0 font-mono">{{ cursorText }}</span>
+          <span class="text-muted shrink-0">{{ statsText }}</span>
+          <span v-if="langLabel" class="text-dimmed shrink-0">{{ langLabel }}</span>
         </div>
       </div>
 
@@ -55,20 +99,27 @@
           <template v-for="group in filteredGroups" :key="group.name">
             <div
               v-if="group.name"
-              class="text-[10px] px-1 pt-2.5 pb-0.5 first:pt-0.5 sticky top-0 bg-default z-10"
+              class="flex items-center gap-1.5 text-[11px] font-medium px-1 pt-3 pb-1 first:pt-0.5 sticky top-0 bg-default z-10"
               :class="group.cls || 'text-muted'"
             >
-              {{ group.name }}
+              <span class="size-1.5 rounded-full bg-current shrink-0" />
+              <span class="text-toned">{{ group.name }}</span>
+              <span class="ml-auto font-normal text-dimmed">{{ group.items.length }}</span>
             </div>
-            <div v-for="it in group.items" :key="it.label" class="rounded" :class="isExpanded(it) ? 'bg-elevated/60' : ''">
+            <div
+              v-for="it in group.items"
+              :key="it.label"
+              class="rounded-md"
+              :class="isExpanded(it) ? 'bg-elevated/50 border border-default my-0.5' : ''"
+            >
               <div class="flex items-center group/row">
                 <button
                   type="button"
-                  class="flex-1 min-w-0 text-left px-2 py-1 rounded hover:bg-elevated/80 focus:bg-elevated/80 focus:outline-none"
+                  class="flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-md hover:bg-elevated/80 focus:bg-elevated/80 focus:outline-none"
                   @click="onRowClick(it)"
                 >
                   <div class="text-[12px] font-mono text-highlighted truncate">{{ it.detail ?? it.label }}</div>
-                  <div v-if="it.desc" class="text-[10px] text-muted truncate">{{ it.desc }}</div>
+                  <div v-if="it.desc" class="text-[11px] text-muted truncate">{{ it.desc }}</div>
                 </button>
                 <UButton
                   icon="i-tabler-corner-down-left"
@@ -80,7 +131,7 @@
                   @click="insertItem(it)"
                 />
               </div>
-              <div v-if="isExpanded(it)" class="px-2 pb-2 space-y-1.5">
+              <div v-if="isExpanded(it)" class="px-2.5 pb-2 space-y-1.5">
                 <p v-if="it.docs" class="text-[11px] text-toned leading-snug whitespace-pre-line">{{ it.docs }}</p>
                 <div v-if="it.params?.length" class="space-y-0.5">
                   <div class="text-[10px] text-muted">{{ t('inspector.editor_params') }}</div>
@@ -120,9 +171,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
+import { EditorView, keymap } from '@codemirror/view'
 import { Prec, type Extension } from '@codemirror/state'
-import { undo, redo, toggleComment } from '@codemirror/commands'
+import { undo, redo, toggleComment, indentSelection } from '@codemirror/commands'
+import { foldAll, unfoldAll } from '@codemirror/language'
 import { search as cmSearch, searchKeymap, openSearchPanel } from '@codemirror/search'
 import { snippet, type Completion } from '@codemirror/autocomplete'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -150,15 +202,19 @@ const props = defineProps<{
   modelValue: string
   title: string
   icon?: string
-  /** 每次打开时调用, 构建语言扩展 (高亮/补全/lint); 不要带 onChange — draft 由本组件管。 */
+  /** 每次打开时调用, 构建语言扩展 (高亮/补全/lint, modal 档); 不要带 onChange — draft 由本组件管。 */
   extensions: () => Extension[]
   reference?: RefItem[]
-  /** 实时状态栏: 返回首条错误文案, 空串 = 无错 (Expr lint 用)。 */
-  lintStatus?: (doc: string) => string
+  /** 实时状态栏: 首条问题 (文案+位置, 点击跳转), null = 无问题。 */
+  lintFirst?: (doc: string) => { message: string; from: number } | null
   /** 工具栏「注释」按钮 (需语言有注释语法 — Script JS 开, Expr 关)。 */
   commentable?: boolean
+  /** 工具栏「折叠」按钮组 (语言支持折叠时开 — Script 开, Expr 关)。 */
+  foldable?: boolean
   /** 工具栏「片段」下拉 (if/for/while/try 之类模板)。 */
   snippets?: InsertItem[]
+  /** 状态栏右侧语言标签 (JavaScript / 表达式)。 */
+  langLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -170,21 +226,12 @@ const host = ref<HTMLElement | null>(null)
 const search = ref('')
 const draftDoc = ref('')
 const cursorText = ref('1:1')
+const maximized = ref(false)
 const expandedKeys = ref<Set<string>>(new Set())
 let view: EditorView | null = null
 
-const theme = EditorView.theme({
-  '&': { backgroundColor: 'transparent', fontSize: '12px', height: '100%' },
-  '&.cm-focused': { outline: 'none' },
-  '.cm-scroller': { overflow: 'auto' },
-  '.cm-content': { fontFamily: 'ui-monospace, monospace', padding: '6px 0' },
-  '.cm-line': { padding: '0 8px' },
-  '.cm-gutters': { backgroundColor: 'transparent', border: 'none' },
-  '.cm-tooltip': { fontSize: '12px' },
-}, { dark: true })
-
-const statusError = computed<string>(() =>
-  props.lintStatus ? props.lintStatus(draftDoc.value) : '',
+const statusError = computed<{ message: string; from: number } | null>(() =>
+  props.lintFirst ? props.lintFirst(draftDoc.value) : null,
 )
 
 const statsText = computed<string>(() => {
@@ -250,11 +297,9 @@ watch(() => props.open, async (open) => {
       doc: props.modelValue ?? '',
       extensions: [
         ...props.extensions(),
-        lineNumbers(),
         searchExt(),
         searchPanelTheme,
         keymap.of(searchKeymap),
-        theme,
         Prec.high(keymap.of([{ key: 'Mod-Enter', run: () => { confirm(); return true } }])),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) draftDoc.value = u.state.doc.toString()
@@ -281,6 +326,26 @@ function searchExt(): Extension {
 function run(cmd: (view: EditorView) => boolean) {
   if (!view) return
   cmd(view)
+  view.focus()
+}
+
+// 整理缩进 = 全选跑语言缩进规则, 再把光标放回原处 (缩进变化导致的少量偏移可接受)。
+function reindentAll() {
+  if (!view) return
+  const head = view.state.selection.main.head
+  view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } })
+  indentSelection(view)
+  view.dispatch({ selection: { anchor: Math.min(head, view.state.doc.length) } })
+  view.focus()
+}
+
+function jumpToError() {
+  const err = statusError.value
+  if (!view || !err) return
+  view.dispatch({
+    selection: { anchor: Math.min(err.from, view.state.doc.length) },
+    scrollIntoView: true,
+  })
   view.focus()
 }
 

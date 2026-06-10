@@ -3,21 +3,28 @@
 // 末尾另放 CodeInput / EditorModal 共用的 CodeMirror 扩展 (组件间互不 import, 避免环)。
 import {
   autocompletion,
-  acceptCompletion,
-  completionKeymap,
   snippet,
   type Completion,
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete'
-import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  type ViewUpdate,
+  hoverTooltip,
+  placeholder as cmPlaceholder,
+} from '@codemirror/view'
+import { foldGutter, syntaxTree } from '@codemirror/language'
 import { javascript } from '@codemirror/lang-javascript'
-import { tags } from '@lezer/highlight'
-import type { Extension } from '@codemirror/state'
+import { linter, type Diagnostic } from '@codemirror/lint'
+import type { Extension, Range } from '@codemirror/state'
+import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import type { Spec } from '@bindings/yotta/internal/node'
-import { completionTooltipTheme } from '@/lib/editorTheme'
+import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
+import { fnHoverTooltip, type HoverDoc } from '@/lib/editorHover'
 
 // apply 上屏后光标落进末尾括号/引号内 (caretBack = 从串尾回退几格)。
 function applyWithCaret(insert: string, caretBack: number) {
@@ -97,6 +104,94 @@ export function nodeFnCompletions(
   return nodeFnItems(kinds, specs, labelOf).map(toCompletion)
 }
 
+// ── 语法快速反馈 (纯函数, 可单测): lezer 容错解析的 error 节点 → 行级诊断。
+//    权威仍是后端 validator (SCRIPT_PARSE_ERROR), 这里只是打字时的即时提示。 ──
+
+const jsParser = javascript().language.parser
+
+export interface ScriptSyntaxError {
+  from: number
+  to: number
+  line: number
+}
+
+export function scriptSyntaxErrors(doc: string): ScriptSyntaxError[] {
+  const out: ScriptSyntaxError[] = []
+  const seenLines = new Set<number>()
+  jsParser.parse(doc).iterate({
+    enter: (n) => {
+      if (!n.type.isError) return
+      const line = lineOf(doc, n.from)
+      if (seenLines.has(line)) return
+      seenLines.add(line)
+      out.push({ from: n.from, to: Math.max(n.to, n.from), line })
+    },
+  })
+  return out.slice(0, 10)
+}
+
+// $变量引用提取 (纯函数, 可单测): 走语法树只取 VariableName 节点,
+// 字符串/注释里的 $ 不会命中; 本地 `let $x` 定义记入 defined 免误报。
+export interface DollarRefs {
+  refs: { name: string; from: number; to: number }[]
+  defined: Set<string>
+}
+
+export function scriptDollarRefs(doc: string): DollarRefs {
+  const refs: DollarRefs['refs'] = []
+  const defined = new Set<string>()
+  jsParser.parse(doc).iterate({
+    enter: (n) => {
+      if (n.name !== 'VariableName' && n.name !== 'VariableDefinition') return
+      const text = doc.slice(n.from, n.to)
+      if (!text.startsWith('$') || text.length < 2) return
+      if (n.name === 'VariableDefinition') defined.add(text.slice(1))
+      else refs.push({ name: text.slice(1), from: n.from, to: n.to })
+    },
+  })
+  return { refs, defined }
+}
+
+function lineOf(doc: string, pos: number): number {
+  let line = 1
+  for (let i = 0; i < pos && i < doc.length; i++) if (doc[i] === '\n') line++
+  return line
+}
+
+// ── $变量徽标: 视口内 VariableName 且以 $ 开头 → 橙色 mark (样式在 editorTheme) ──
+
+const dollarMark = Decoration.mark({ class: 'cm-yh-dollar' })
+
+const dollarDecorations = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+    constructor(view: EditorView) {
+      this.decorations = buildDollarDecorations(view)
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = buildDollarDecorations(u.view)
+    }
+  },
+  { decorations: (v) => v.decorations },
+)
+
+function buildDollarDecorations(view: EditorView): DecorationSet {
+  const marks: Range<Decoration>[] = []
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter: (n) => {
+        if (n.name !== 'VariableName') return
+        if (view.state.sliceDoc(n.from, n.from + 1) === '$' && n.to > n.from + 1) {
+          marks.push(dollarMark.range(n.from, n.to))
+        }
+      },
+    })
+  }
+  return Decoration.set(marks)
+}
+
 // ── CodeInput / EditorModal 共用的 CodeMirror 扩展 ──
 
 // vars.get("…")/set/inc 第一参字符串里 → 补容器变量名 (高频; 比手翻侧栏顺手)。
@@ -124,36 +219,67 @@ function scriptCompletionSource(getOptions: () => Completion[], varNames?: () =>
   }
 }
 
-// 配色对齐 ExprInput (pin 类型色: string 绿 / number 蓝 / bool 黄系)。
-const scriptHighlight = HighlightStyle.define([
-  { tag: tags.string, color: '#4ade80' },
-  { tag: tags.number, color: '#60a5fa' },
-  { tag: [tags.bool, tags.null], color: '#facc15' },
-  { tag: tags.keyword, color: '#c084fc' },
-  { tag: tags.comment, color: '#64748b', fontStyle: 'italic' },
-  { tag: [tags.propertyName, tags.function(tags.variableName)], color: '#7dd3fc' },
-  { tag: tags.variableName, color: '#e2e8f0' },
-  { tag: tags.operator, color: '#94a3b8' },
-])
-
-// 语法错不在前端 lint (后端 validator SCRIPT_PARSE_ERROR 是权威), 故无 linter 扩展。
 export function scriptEditorExtensions(opts: {
   completions: () => Completion[]
-  /** 容器变量名 — vars.get("…")/set/inc 第一参字符串内的补全源。 */
+  /** 容器变量名 — vars.get("…") 串内补全源 + $引用未声明提醒。 */
   varNames?: () => string[]
+  /** 悬停函数名的文档数据 (节点/糖函数), 缺省不出 hover。 */
+  hoverDoc?: (word: string) => HoverDoc | null
+  /** lint 文案 (i18n 注入): 语法错 / 未声明 $变量。缺省不挂 linter。 */
+  lintMessages?: {
+    syntaxError: (line: number) => string
+    unknownVar: (name: string) => string
+  }
   placeholder?: string
   onChange?: (doc: string) => void
-}): Extension[] {
+} & BaseEditorOpts): Extension[] {
   const exts: Extension[] = [
-    history(),
     javascript(),
-    syntaxHighlighting(scriptHighlight),
+    dollarDecorations,
+    indentationMarkers({
+      highlightActiveBlock: true,
+      colors: { dark: '#404040', activeDark: '#6a6a6a', light: '#404040', activeLight: '#6a6a6a' },
+    }),
     autocompletion({ override: [scriptCompletionSource(opts.completions, opts.varNames)] }),
-    completionTooltipTheme,
     cmPlaceholder(opts.placeholder ?? ''),
-    keymap.of([{ key: 'Tab', run: acceptCompletion }, ...completionKeymap, ...defaultKeymap, ...historyKeymap]),
-    EditorView.lineWrapping,
+    ...baseEditorExtensions(opts),
+    // 在共享层之后追加 → 折叠 gutter 落在行号右侧 (VSCode 布局)
+    ...(opts.modal ? [foldGutter()] : []),
   ]
+  if (opts.hoverDoc) {
+    exts.push(hoverTooltip(fnHoverTooltip(opts.hoverDoc)))
+  }
+  const lintMessages = opts.lintMessages
+  if (lintMessages) {
+    exts.push(
+      linter(
+        (v) => {
+          const doc = v.state.doc.toString()
+          const diags: Diagnostic[] = scriptSyntaxErrors(doc).map((e) => ({
+            from: e.from,
+            to: e.to,
+            severity: 'error' as const,
+            message: lintMessages.syntaxError(e.line),
+          }))
+          if (opts.varNames) {
+            const known = new Set(opts.varNames())
+            const { refs, defined } = scriptDollarRefs(doc)
+            for (const r of refs) {
+              if (known.has(r.name) || defined.has(r.name)) continue
+              diags.push({
+                from: r.from,
+                to: r.to,
+                severity: 'warning' as const,
+                message: lintMessages.unknownVar(r.name),
+              })
+            }
+          }
+          return diags
+        },
+        { delay: 300 },
+      ),
+    )
+  }
   const onChange = opts.onChange
   if (onChange) {
     exts.push(

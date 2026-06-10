@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* 字体走本地打包 (fontsource): 桌面 app 离线时 Google CDN 会静默回退成系统字体 */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
@@ -9,7 +11,7 @@
 /* ── Global base ── */
 html,
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   height: 100%;
   overflow: hidden;
 }

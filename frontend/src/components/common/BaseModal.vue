@@ -7,9 +7,9 @@ BaseModal 共享 modal 外壳 (纯黑底, 内容平铺 — 复刻 BaseModal 之�
 open 走 v-model, 跟 useDialogOpen() 正交。复杂内部布局由调用方塞 slot。
 -->
 <template>
-  <UModal :open="open" :ui="{ content: contentClass }" @update:open="(v: boolean) => emit('update:open', v)">
+  <UModal :open="open" :ui="{ content: contentClasses }" @update:open="(v: boolean) => emit('update:open', v)">
     <template #content>
-      <div class="flex flex-col bg-default max-h-[85vh]">
+      <div class="flex flex-col bg-default" :class="tall ? 'h-[92vh] max-h-[92vh]' : 'max-h-[85vh]'">
         <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-default shrink-0">
           <UIcon v-if="icon" :name="icon" :class="['size-5 shrink-0', iconColorClass]" />
           <h3 class="text-sm font-medium text-highlighted flex-1 min-w-0 truncate">{{ title }}</h3>
@@ -43,7 +43,7 @@ open 走 v-model, 跟 useDialogOpen() 正交。复杂内部布局由调用方塞
 <script setup lang="ts">
 import { computed } from 'vue'
 
-type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl'
+type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl'
 type IconColor = 'primary' | 'error' | 'warning' | 'success' | 'info'
 
 const props = withDefaults(
@@ -54,6 +54,10 @@ const props = withDefaults(
     iconColor?: IconColor
     size?: ModalSize
     showClose?: boolean
+    /** 占满高度档 (92vh, 编辑器全屏用); 缺省内容自适应、上限 85vh。 */
+    tall?: boolean
+    /** 追加到 UModal content 的 class (如全屏宽度覆盖)。 */
+    contentClass?: string
   }>(),
   { title: '', iconColor: 'primary', size: 'md', showClose: true },
 )
@@ -78,6 +82,10 @@ const SIZE_MAP: Record<ModalSize, string> = {
   '3xl': 'sm:max-w-3xl',
   '4xl': 'sm:max-w-4xl',
   '5xl': 'sm:max-w-5xl',
+  '6xl': 'sm:max-w-6xl',
+  '7xl': 'sm:max-w-7xl',
 }
-const contentClass = computed(() => SIZE_MAP[props.size])
+const contentClasses = computed(() =>
+  [SIZE_MAP[props.size], props.contentClass].filter(Boolean).join(' '),
+)
 </script>
