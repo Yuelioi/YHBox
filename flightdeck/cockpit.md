@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-10 by 月离 (加节点路线图四阶段**全部实现落地并归档**, 31 个新节点 + List/ForEach/evalCache 框架地基; 待用户 4 笔真机 smoke。)
-**Active focus**: 加节点路线图已收官 — 等**用户真机 smoke**(4 笔 verify 债, 见「待复核/待验证」)。无新专项。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-10 by 月离 (真机 smoke 3/4 过(随机/数学/字符串 verify 已清); 列表 smoke 用户改测「any 变量手填 [1,2,3] → ListContains」得 false, 根因查明 = 变量系统无 list 类型, 等用户拍板。)
+**Active focus**: 列表能力收尾 — 用户 smoke 发现**变量系统装不了手填列表**(根因已查明, 非 ListContains bug), 等拍板是否加 list 变量类型; 另两笔候选: Expr 语法提示、原定 Split→ForEach smoke 未确认跑过。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,18 +9,18 @@
 
 ## 下一步
 
-**首选: 用户真机 smoke 四批新节点**(一次 app 启动可全验, 每条 30 秒):
-1. 随机: 拖 RandomInt(Min=1/Max=6) 连 Log 跑一次 → 输出落 1~6; 三处面板见「随机」分组。
-2. 数学: Round(X=3.14159, 位数=2) 连 Log → 出 3.14; Expr 写 `clamp(15, 0, 10)` → 出 10。
-3. 字符串: Substring(中文abc, 起点0, 长度2) → 出「中文」; RegexMatch Pattern 填 `(` → 节点红错, 改 `\d+` 红错消失。
-4. 列表: Split(a,b,c) → ForEach(元素存 item, 变量类型 any) → 读变量 → Log → 依次出 a/b/c; 未连线 List pin 显示「由连线提供」。
-验完报我, 我清掉对应 plan 的 verify 标记。
+**首选: 用户拍板三件事**(都来自 2026-06-10 smoke 反馈):
+1. **是否加 `list` 变量类型**: 现状 VarDecl 只有 number/string/bool/point/any; any 的默认值编辑器是纯文本框, 手填 `[1,2,3]` 存的是字符串, `in.List` 不收裸串 → ListContains 永远 false(静默)。推荐加 list 类型 + JSON 数组编辑器(非法 JSON 红错)。
+2. **Expr 语法提示要不要立项**: 用户反馈 Expr 编辑器裸文本难用, 想要函数补全/提示。
+3. **原定列表 smoke**(Split(a,b,c)→ForEach→读变量→Log 依次出 a/b/c)跑过没? collection plan 的 verify 标记还挂着。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
 ## 待复核
 
 - ⚠待复核: [docs/node-system-architecture.md](docs/node-system-architecture.md) — RegionRunner/Evaluator 例子清单过期(列了不存在的 Try/GetSys、漏 ForEach、PureFunc 数旧), dispatch 流程未记 per-dispatch evalCache。when_to_update 命中(本次改了 dispatch/RegionRunner)。
+- ⚠待复核: [docs/variable-system.md](docs/variable-system.md) — 正文是空壳(只有 frontmatter + 标题, 入库时就这样)。要么补正文要么删掉, 别让路由指到空文档。
+- 小 bug 在册: `VarRow.vue:78` 引用 i18n key `var.any_independent_placeholder`, zh/en 都没这个 key — any 类型变量默认值框的 placeholder 会显示生 key。一行修, 等顺路改 VarRow 时带上。
 
 ## Hanging tasks
 

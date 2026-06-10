@@ -3,7 +3,6 @@ status: done
 summary: 字符串函数 10 节点 + Length 改 rune + 正则编辑期校验的实现计划 (TDD 分任务) — 已实现 (3ceb6ae..f1d4a5d), 终审 SHIP
 last_updated: 2026-06-10
 implements: specs/2026-06-10-string-nodes.md
-verify: 真机 smoke — Substring(Text=中文abc, 起点0, 长度2) 连 Log 出「中文」; RegexMatch Pattern 填 ( 节点出红错「正则表达式无效」、改 \d+ 红错消失
 ---
 
 # 字符串函数节点 Implementation Plan
