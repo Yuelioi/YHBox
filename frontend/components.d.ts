@@ -36,6 +36,7 @@ declare module 'vue' {
     DeleteVarConfirmModal: typeof import('./src/components/containers/sidebar/DeleteVarConfirmModal.vue')['default']
     DynamicInputsEditor: typeof import('./src/components/containers/inspector/DynamicInputsEditor.vue')['default']
     EdgeContextMenu: typeof import('./src/components/containers/menus/EdgeContextMenu.vue')['default']
+    EditorModal: typeof import('./src/components/expressions/EditorModal.vue')['default']
     ExprInput: typeof import('./src/components/expressions/ExprInput.vue')['default']
     FindReferencesModal: typeof import('./src/components/containers/FindReferencesModal.vue')['default']
     GeometryWidget: typeof import('./src/components/containers/inline/GeometryWidget.vue')['default']
