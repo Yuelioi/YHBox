@@ -1,6 +1,6 @@
 <!-- Script 代码编辑器 (widget kind 'code', PinInput 分发) — CodeMirror 6 + JS 语法:
      高亮 + 补全 (节点函数/糖函数/动态输入名)。语法错由后端 validator (SCRIPT_PARSE_ERROR) 权威报。
-     右上放大按钮弹 CodeEditorModal 大编辑器。 -->
+     右上放大按钮弹 EditorModal 大编辑器 (带参考面板)。 -->
 <template>
   <div class="relative">
     <div
@@ -16,11 +16,12 @@
       :title="t('inspector.code_expand')"
       @click="modalOpen = true"
     />
-    <CodeEditorModal
+    <EditorModal
       v-model:open="modalOpen"
       :model-value="modelValue"
-      :completions="completionOptions"
-      :placeholder="placeholder"
+      :title="t('inspector.code_editor_title')"
+      :extensions="modalExtensions"
+      :reference="referenceItems"
       @update:model-value="(v: string) => emit('update:modelValue', v)"
     />
   </div>
@@ -34,10 +35,12 @@ import type { Completion } from '@codemirror/autocomplete'
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import {
   nodeFnCompletions,
+  nodeFnItems,
   scriptEditorExtensions,
   SUGAR_COMPLETIONS,
+  SUGAR_ITEMS,
 } from '@/lib/scriptCompletions'
-import CodeEditorModal from './CodeEditorModal.vue'
+import EditorModal, { type RefItem } from './EditorModal.vue'
 
 const { t, te } = useI18n()
 
@@ -66,6 +69,29 @@ const completionOptions = computed<Completion[]>(() => [
   ...SUGAR_COMPLETIONS,
   ...(props.inputNames ?? []).map((n) => ({ label: n, type: 'variable' as const })),
 ])
+
+// 放大编辑的参考面板: 糖函数 / 可调节点 / 本节点动态输入, 点击插入。
+const referenceItems = computed<RefItem[]>(() => [
+  ...SUGAR_ITEMS.map((it) => ({ ...it, group: t('inspector.editor_ref_group_fns') })),
+  ...nodeFnItems(registry.scriptBindableKinds, registry.specs, kindLabel).map((it) => ({
+    ...it,
+    group: t('inspector.editor_ref_group_nodes'),
+  })),
+  ...(props.inputNames ?? []).map((n) => ({
+    label: n,
+    insert: n,
+    caretBack: 0,
+    group: t('inspector.editor_ref_group_inputs'),
+  })),
+])
+
+// modal 的扩展工厂 — 不带 onChange (draft 由 modal 自管, 确认才回写)。
+function modalExtensions() {
+  return scriptEditorExtensions({
+    completions: () => completionOptions.value,
+    placeholder: props.placeholder,
+  })
+}
 
 const theme = EditorView.theme({
   '&': { backgroundColor: 'transparent', fontSize: '11px' },
