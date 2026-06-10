@@ -7,6 +7,7 @@ package purefunc
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -143,4 +144,51 @@ func (EndsWith) Spec() node.Spec {
 }
 func (EndsWith) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return strings.HasSuffix(in.String("Text"), in.String("Suffix")), nil
+}
+
+// ===== RegexMatch / RegexExtract =====
+// 错误路径契约: 非法 pattern 返安全值 (false/"") + ctx.Log().Warn — 不返 error
+// (pure-data error 被数据线路径静默吞). 编辑期 validator 对 literal pattern 报红
+// (validator.go::validateRegexPattern), 运行时 Warn 兜动态 (连线) pattern.
+
+type RegexMatch struct{}
+
+func (RegexMatch) Spec() node.Spec {
+	return specBuilder("RegexMatch", []node.InputSpec{strTextIn("Text"), strTextIn("Pattern")}, "Bool")
+}
+
+// Evaluate — 搜索/包含匹配 ("abc"+"b"→true); 全文匹配用户自己写 ^...$.
+func (RegexMatch) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
+	pat := in.String("Pattern")
+	ok, err := regexp.MatchString(pat, in.String("Text"))
+	if err != nil {
+		ctx.Log().Warn("RegexMatch: 非法 pattern %q: %v", pat, err)
+		return false, nil
+	}
+	return ok, nil
+}
+
+type RegexExtract struct{}
+
+func (RegexExtract) Spec() node.Spec {
+	return specBuilder("RegexExtract", []node.InputSpec{strTextIn("Text"), strTextIn("Pattern")}, "String")
+}
+
+// Evaluate — 有捕获组取组1 (多组只组1, 命名组也按位置), 无组取整匹配; 无匹配/非法 → "".
+// "" 不区分"匹配到空"与"没匹配" — 要判存在先用 RegexMatch (spec 已声明).
+func (RegexExtract) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
+	pat := in.String("Pattern")
+	re, err := regexp.Compile(pat)
+	if err != nil {
+		ctx.Log().Warn("RegexExtract: 非法 pattern %q: %v", pat, err)
+		return "", nil
+	}
+	m := re.FindStringSubmatch(in.String("Text"))
+	if m == nil {
+		return "", nil
+	}
+	if len(m) > 1 {
+		return m[1], nil
+	}
+	return m[0], nil
 }

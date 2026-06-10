@@ -106,3 +106,38 @@ func TestStringNodes_SpecShape(t *testing.T) {
 		}
 	}
 }
+
+func TestRegexMatch(t *testing.T) {
+	// 搜索/包含语义 (非全文): "abc" 配 "b" 也中
+	wantBool(t, evalMathNode(t, &RegexMatch{}, map[string]any{"Text": "abc", "Pattern": "b"}), true)
+	wantBool(t, evalMathNode(t, &RegexMatch{}, map[string]any{"Text": "abc", "Pattern": "^b$"}), false)
+	wantBool(t, evalMathNode(t, &RegexMatch{}, map[string]any{"Text": "户外 23 度", "Pattern": `\d+`}), true)
+	// 非法 pattern → false (安全值, 不 error 不 panic; Warn 走 StubServices stdout)
+	wantBool(t, evalMathNode(t, &RegexMatch{}, map[string]any{"Text": "abc", "Pattern": "("}), false)
+}
+
+func TestRegexExtract(t *testing.T) {
+	// 无捕获组 → 整匹配
+	wantStr(t, evalMathNode(t, &RegexExtract{}, map[string]any{"Text": "x=42;", "Pattern": `\d+`}), "42")
+	// 有捕获组 → 组1 (多组只组1)
+	wantStr(t, evalMathNode(t, &RegexExtract{}, map[string]any{"Text": "x=42;y=7", "Pattern": `x=(\d+);y=(\d+)`}), "42")
+	// (?:) 不计组 → 整匹配
+	wantStr(t, evalMathNode(t, &RegexExtract{}, map[string]any{"Text": "ab", "Pattern": "(?:a)b"}), "ab")
+	// 空捕获组 → 空串 (与"无匹配"同输出, spec 已声明不区分)
+	wantStr(t, evalMathNode(t, &RegexExtract{}, map[string]any{"Text": "ab", "Pattern": "a(x?)b"}), "")
+	// 无匹配 → 空串
+	wantStr(t, evalMathNode(t, &RegexExtract{}, map[string]any{"Text": "abc", "Pattern": `\d+`}), "")
+	// 非法 pattern → 空串
+	wantStr(t, evalMathNode(t, &RegexExtract{}, map[string]any{"Text": "abc", "Pattern": "("}), "")
+}
+
+func TestRegexNodes_SpecShape(t *testing.T) {
+	m := (RegexMatch{}).Spec()
+	if m.Outputs[0].Type != "Bool" {
+		t.Fatalf("RegexMatch output want Bool, got %s", m.Outputs[0].Type)
+	}
+	e := (RegexExtract{}).Spec()
+	if e.Outputs[0].Type != "String" {
+		t.Fatalf("RegexExtract output want String, got %s", e.Outputs[0].Type)
+	}
+}
