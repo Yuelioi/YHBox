@@ -107,7 +107,7 @@ const chromeTheme = EditorView.theme({
     backgroundColor: 'rgba(251,146,60,.09)',
     borderRadius: '3px',
   },
-  '.cm-tooltip.cm-tooltip-hover .cm-yh-doc': {
+  '.cm-tooltip .cm-yh-doc': {
     padding: '6px 10px',
     maxWidth: '30em',
     fontSize: '12px',
