@@ -1252,6 +1252,47 @@
       input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
       output: { Result: { label: 'Result' } },
     },
+    // list
+    ForEach: {
+      label: 'For Each', description: 'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',
+      input: { List: { label: 'List' }, CaptureItem: { label: 'Store item in' }, CaptureIndex: { label: 'Store index in' } },
+      output: { Body: { label: 'Body' }, Done: { label: 'Done' }, Fail: { label: 'Fail' } },
+    },
+    Split: {
+      label: 'Split', description: 'Split text into a list by a separator. Empty text gives an empty list; an empty separator splits into individual characters (CJK-safe).',
+      input: { Text: { label: 'Text' }, Separator: { label: 'Separator' } },
+      output: { Result: { label: 'List' } },
+    },
+    Join: {
+      label: 'Join', description: 'Join list items into one piece of text with a separator. Non-text items are converted automatically.',
+      input: { List: { label: 'List' }, Separator: { label: 'Separator' } },
+      output: { Result: { label: 'Result' } },
+    },
+    ListLength: {
+      label: 'List Length', description: 'Count the items in a list. A non-list counts as 0.',
+      input: { List: { label: 'List' } },
+      output: { Result: { label: 'Count' } },
+    },
+    ListGet: {
+      label: 'List Get', description: 'Take the item at Index (counting from 0). Out-of-range gives null — an item can itself be null, so check List Length first to tell them apart.',
+      input: { List: { label: 'List' }, Index: { label: 'Index' } },
+      output: { Result: { label: 'Item' } },
+    },
+    ListContains: {
+      label: 'List Contains', description: 'Whether the list has an item equal to Value. Same rules as the Equals node: same types compare directly, different types compare as text.',
+      input: { List: { label: 'List' }, Value: { label: 'Find' } },
+      output: { Result: { label: 'Result' } },
+    },
+    ListAppend: {
+      label: 'List Append', description: 'Add one item to the end, producing a NEW list (the original is unchanged; to accumulate, store it back with Set Variable using type "any").',
+      input: { List: { label: 'List' }, Item: { label: 'Item' } },
+      output: { Result: { label: 'New list' } },
+    },
+    ListSlice: {
+      label: 'List Slice', description: 'Take Count items starting at Start, as a new list. Count -1 (default) takes to the end, 0 gives an empty list. Out-of-range Start gives an empty list.',
+      input: { List: { label: 'List' }, Start: { label: 'Start' }, Count: { label: 'Count' } },
+      output: { Result: { label: 'New list' } },
+    },
     // random
     RandomInt: {
       label: 'Random Int', description: 'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',
@@ -1275,6 +1316,11 @@
       label: 'Random Bool', description: 'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true. Multiple references within one evaluation get the same value; different nodes get different values.',
       input: { Prob: { label: 'True probability' } },
       output: { Result: { label: 'Result' } },
+    },
+    RandomChoice: {
+      label: 'Random Choice', description: 'Pick one random item from the list. Multiple references within one evaluation get the same pick. An empty list gives null (an item can itself be null — check List Length to tell them apart).',
+      input: { List: { label: 'List' } },
+      output: { Result: { label: 'Item' } },
     },
     // stopwatch
     StopwatchStart: {
@@ -2152,6 +2198,7 @@
     test: 'Test',
     event: 'Event',
     random: 'Random',
+    list: 'List',
     other: 'Other',
   },
   hotkeyInput: {

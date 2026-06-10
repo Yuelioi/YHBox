@@ -1272,6 +1272,47 @@ export default {
       input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
       output: { Result: { label: '结果' } },
     },
+    // list
+    ForEach: {
+      label: '遍历列表', description: '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',
+      input: { List: { label: '列表' }, CaptureItem: { label: '元素存入变量' }, CaptureIndex: { label: '序号存入变量' } },
+      output: { Body: { label: '循环体' }, Done: { label: '完成' }, Fail: { label: '失败' } },
+    },
+    Split: {
+      label: '拆分文本', description: '把文本按分隔符拆成列表。文本留空得空列表；分隔符留空则一个字一个字拆（中文安全）。',
+      input: { Text: { label: '文本' }, Separator: { label: '分隔符' } },
+      output: { Result: { label: '列表' } },
+    },
+    Join: {
+      label: '拼接列表', description: '把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。',
+      input: { List: { label: '列表' }, Separator: { label: '分隔符' } },
+      output: { Result: { label: '结果' } },
+    },
+    ListLength: {
+      label: '列表长度', description: '数列表里有几个元素。不是列表算 0 个。',
+      input: { List: { label: '列表' } },
+      output: { Result: { label: '个数' } },
+    },
+    ListGet: {
+      label: '取列表元素', description: '取第 Index 个元素（从 0 数）。序号超出范围得 null——元素本身也可能是 null，要区分先用「列表长度」查。',
+      input: { List: { label: '列表' }, Index: { label: '序号' } },
+      output: { Result: { label: '元素' } },
+    },
+    ListContains: {
+      label: '列表包含', description: '判断列表里有没有等于 Value 的元素。比较规则与「等于」节点相同：类型相同直接比，类型不同转文字比。',
+      input: { List: { label: '列表' }, Value: { label: '找什么' } },
+      output: { Result: { label: '结果' } },
+    },
+    ListAppend: {
+      label: '追加元素', description: '在列表末尾加一个元素，得到一个新列表（原列表不变；要累积请配合「写变量」存回去，变量类型选 any）。',
+      input: { List: { label: '列表' }, Item: { label: '元素' } },
+      output: { Result: { label: '新列表' } },
+    },
+    ListSlice: {
+      label: '截取列表', description: '从第 Start 个元素开始取 Count 个，得到新列表。Count 填 -1（默认）取到末尾，0 得空列表。起点超出范围得空列表。',
+      input: { List: { label: '列表' }, Start: { label: '起点' }, Count: { label: '个数' } },
+      output: { Result: { label: '新列表' } },
+    },
     // random
     RandomInt: {
       label: '随机整数', description: '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
@@ -1295,6 +1336,11 @@ export default {
       label: '随机真假', description: '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
       input: { Prob: { label: '为真概率' } },
       output: { Result: { label: '结果' } },
+    },
+    RandomChoice: {
+      label: '随机取一个', description: '从列表里随机挑一个元素。同一次求值里多处引用拿到同一个。列表为空得 null（元素本身也可能是 null，要区分先用「列表长度」查）。',
+      input: { List: { label: '列表' } },
+      output: { Result: { label: '元素' } },
     },
     // stopwatch
     StopwatchStart: {
@@ -2201,6 +2247,7 @@ export default {
     test: '测试用',
     event: '事件',
     random: '随机',
+    list: '列表',
     other: '其它',
   },
   // KeyCapture / 通用 hotkey 输入.
