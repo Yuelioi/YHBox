@@ -41,9 +41,13 @@ import { useI18n } from 'vue-i18n'
 import { EditorView } from '@codemirror/view'
 import { allExprFunctions, parseSigParams, type ExprDiagnostic } from '@/lib/exprFunctions'
 import { exprEditorExtensions, firstExprError } from '@/lib/exprEditorExtensions'
+import { snippetCompletions } from '@/lib/snippetCompletion'
+import { useCodeSnippetsStore } from '@/stores/codeSnippets'
 import EditorModal, { type RefItem } from './EditorModal.vue'
 
 const { t, te } = useI18n()
+const codeSnippetsStore = useCodeSnippetsStore()
+void codeSnippetsStore.ensureLoaded() // prefix 补全要用, 小框编辑器一挂载就拉
 
 const props = defineProps<{
   modelValue: string
@@ -115,6 +119,7 @@ function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => vo
     diagMessage,
     inputNames: () => props.inputNames ?? [],
     varNames: () => (props.declaredVars ?? []).map((v) => v.name),
+    extraCompletions: () => snippetCompletions(codeSnippetsStore.byLang('expr')),
     placeholder: props.placeholder,
     minHeight: '5em',
     ...opts,

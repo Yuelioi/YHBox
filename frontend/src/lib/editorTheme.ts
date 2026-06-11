@@ -129,6 +129,13 @@ const chromeTheme = EditorView.theme({
   '.cm-yh-doc-param-name': { fontFamily: EDITOR_FONT, color: '#9cdcfe', minWidth: '6em' },
   '.cm-yh-doc-param-type': { fontFamily: EDITOR_FONT, color: '#4ec9b0' },
   '.cm-yh-doc-param-label': { color: 'var(--ui-text-muted)' },
+  '.cm-yh-doc-snippet-body': {
+    fontFamily: EDITOR_FONT,
+    whiteSpace: 'pre-wrap',
+    marginTop: '4px',
+    fontSize: '11px',
+    color: 'var(--ui-text-muted)',
+  },
 }, { dark: true })
 
 // 字号/行距/留白分两档: 放大编辑 (modal) 13px 宽松; 卡片内小框 12px 紧凑。
@@ -203,6 +210,7 @@ export const completionTooltipTheme: Extension = EditorView.theme({
   '.cm-completionIcon-function': { backgroundColor: '#dcdcaa' },
   '.cm-completionIcon-variable': { backgroundColor: '#9cdcfe' },
   '.cm-completionIcon-keyword': { backgroundColor: '#569cd6' },
+  '.cm-completionIcon-snippet': { backgroundColor: '#d7ba7d' },
   '.cm-tooltip.cm-completionInfo': {
     backgroundColor: 'var(--ui-bg-elevated)',
     border: '1px solid var(--ui-border-accented)',

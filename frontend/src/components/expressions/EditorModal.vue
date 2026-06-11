@@ -42,12 +42,10 @@
           <template v-if="snippetLang || $slots['toolbar-extra']">
             <span class="h-4 border-l border-default mx-1.5" />
             <div class="flex items-center gap-0.5">
-              <UDropdownMenu v-if="snippetLang" :items="snippetMenuItems">
-                <UButton icon="i-tabler-template" variant="ghost" color="neutral" size="xs"
-                  trailing-icon="i-tabler-chevron-down" :title="t('inspector.editor_snippets')">
-                  {{ t('inspector.editor_snippets') }}
-                </UButton>
-              </UDropdownMenu>
+              <UButton v-if="snippetLang" icon="i-tabler-template" variant="ghost" color="neutral" size="xs"
+                :title="t('inspector.editor_snippets_tip')" @click="openSnippetManager">
+                {{ t('inspector.editor_snippets') }}
+              </UButton>
               <slot name="toolbar-extra" />
             </div>
           </template>
@@ -220,7 +218,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import SnippetManagerModal from './SnippetManagerModal.vue'
 import type { InsertItem } from '@/lib/scriptCompletions'
 import { searchPanelTheme, zhSearchPhrases } from '@/lib/editorTheme'
-import { useCodeSnippetsStore, type CodeSnippetLang } from '@/stores/codeSnippets'
+import type { CodeSnippetLang } from '@/stores/codeSnippets'
 
 const { t, locale } = useI18n()
 
@@ -291,40 +289,19 @@ const statsText = computed<string>(() => {
   return t('inspector.editor_status_stats', { lines, chars: doc.length })
 })
 
-// 用户片段: store 按语言取; 「新建」在点击时读选区预填 (静态 label — 下拉 items 不随选区重算)。
-const codeSnippets = useCodeSnippetsStore()
+// 用户片段管理入口: 工具栏单图标 — 带非空选区点开 = 直接进新建表单预填 (选区入库);
+// 无选区 = 进列表。插入不走这里, 走编辑器内 prefix 补全。
 const managerOpen = ref(false)
 const managerCreate = ref(false)
 const managerBody = ref('')
 
-function openSnippetCreate() {
+function openSnippetManager() {
   const sel = view?.state.selection.main
-  managerBody.value = sel && !sel.empty ? view!.state.sliceDoc(sel.from, sel.to) : ''
-  managerCreate.value = true
+  const hasSel = !!sel && !sel.empty
+  managerCreate.value = hasSel
+  managerBody.value = hasSel ? view!.state.sliceDoc(sel!.from, sel!.to) : ''
   managerOpen.value = true
 }
-
-function openSnippetManage() {
-  managerCreate.value = false
-  managerOpen.value = true
-}
-
-const snippetMenuItems = computed(() => {
-  const groups: { label: string; icon?: string; onSelect: () => void }[][] = []
-  if (props.snippetLang) {
-    const mine = codeSnippets.byLang(props.snippetLang).map((s) => ({
-      label: s.name,
-      icon: 'i-tabler-template',
-      onSelect: () => insertItem({ label: s.name, insert: s.body, caretBack: 0 }),
-    }))
-    if (mine.length) groups.push(mine)
-    groups.push([
-      { label: t('inspector.editor_snippet_new'), icon: 'i-tabler-plus', onSelect: openSnippetCreate },
-      { label: t('inspector.editor_snippet_manage'), icon: 'i-tabler-adjustments', onSelect: openSnippetManage },
-    ])
-  }
-  return groups
-})
 
 const filteredGroups = computed<{ name: string; cls?: string; items: RefItem[] }[]>(() => {
   const q = search.value.trim().toLowerCase()
@@ -381,7 +358,6 @@ function onRowClick(it: RefItem) {
 // modal 内容随 open 挂/卸 (UModal 懒渲染) — editor 跟着 open 建/毁, 开时灌当前值当 draft。
 watch(() => props.open, async (open) => {
   if (open) {
-    if (props.snippetLang) void codeSnippets.ensureLoaded()
     await nextTick()
     if (!host.value) return
     search.value = ''

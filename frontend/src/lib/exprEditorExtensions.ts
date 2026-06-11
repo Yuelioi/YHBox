@@ -3,6 +3,7 @@
 // i18n 经回调注入, 本文件保持纯函数。
 import {
   autocompletion,
+  type Completion,
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete'
@@ -42,6 +43,7 @@ function exprCompletionSource(opts: {
   fnDesc: (name: string) => string
   inputNames?: () => string[]
   varNames?: () => string[]
+  extraCompletions?: () => Completion[]
 }) {
   return (ctx: CompletionContext): CompletionResult | null => {
     // $ 触发容器变量补全 (打一个 $ 就弹全列表)
@@ -74,6 +76,7 @@ function exprCompletionSource(opts: {
         })),
         ...['true', 'false', 'null'].map(l => ({ label: l, type: 'keyword' as const })),
         ...(opts.inputNames?.() ?? []).map(n => ({ label: n, type: 'variable' as const })),
+        ...(opts.extraCompletions?.() ?? []),
       ],
     }
   }
@@ -95,6 +98,8 @@ export function exprEditorExtensions(opts: {
   inputNames?: () => string[]
   /** 容器变量名 — $ 补全源。 */
   varNames?: () => string[]
+  /** 追加补全项 (用户片段 prefix 等), 与函数/字面量合并。 */
+  extraCompletions?: () => Completion[]
   placeholder?: string
   onChange?: (doc: string) => void
 } & BaseEditorOpts): Extension[] {

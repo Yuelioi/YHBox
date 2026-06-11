@@ -11,12 +11,26 @@
   >
     <!-- 表单态 (新建/编辑) -->
     <div v-if="editing" class="space-y-2">
+      <div class="flex gap-2">
+        <UInput
+          v-model="prefix"
+          size="sm"
+          class="w-40 shrink-0 font-mono"
+          :placeholder="t('inspector.snippet_manager_prefix')"
+          autofocus
+        />
+        <UInput
+          v-model="name"
+          size="sm"
+          class="flex-1"
+          :placeholder="t('inspector.snippet_manager_name')"
+        />
+      </div>
       <UInput
-        v-model="name"
+        v-model="description"
         size="sm"
         class="w-full"
-        :placeholder="t('inspector.snippet_manager_name')"
-        autofocus
+        :placeholder="t('inspector.snippet_manager_description')"
       />
       <UTextarea
         v-model="body"
@@ -24,6 +38,9 @@
         class="w-full font-mono"
         :placeholder="t('inspector.snippet_manager_body')"
       />
+      <p v-if="prefix && !prefixValid" class="text-[11px] text-error">
+        {{ t('inspector.snippet_manager_prefix_invalid') }}
+      </p>
     </div>
 
     <!-- 列表态 -->
@@ -38,8 +55,11 @@
         class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-elevated/60 group/row"
       >
         <div class="flex-1 min-w-0">
-          <div class="text-[12px] text-highlighted truncate">{{ s.name }}</div>
-          <div class="text-[11px] font-mono text-muted truncate">{{ firstLine(s.body) }}</div>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-[11px] font-mono text-primary bg-primary/10 rounded px-1 shrink-0">{{ s.prefix }}</span>
+            <span class="text-[12px] text-highlighted truncate">{{ s.name }}</span>
+          </div>
+          <div class="text-[11px] font-mono text-muted truncate">{{ s.description || firstLine(s.body) }}</div>
         </div>
         <UButton
           icon="i-tabler-pencil"
@@ -67,7 +87,7 @@
         <UButton variant="ghost" color="neutral" @click="editing = null">
           {{ t('common.cancel') }}
         </UButton>
-        <UButton color="primary" :disabled="!name.trim() || !body.trim()" @click="save">
+        <UButton color="primary" :disabled="!canSave" @click="save">
           {{ t('common.save') }}
         </UButton>
       </template>
@@ -109,30 +129,47 @@ const list = computed(() => store.byLang(props.lang))
 
 // editing: null = 列表态; 'new' = 新建; 其余 = 编辑中片段的 id。
 const editing = ref<string | null>(null)
+const prefix = ref('')
 const name = ref('')
+const description = ref('')
 const body = ref('')
+
+// 触发词 = 标识符形态才会被补全匹配到 (CM 词法按 identifier 截词)。
+const prefixValid = computed(() => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(prefix.value.trim()))
+const canSave = computed(() => prefixValid.value && !!name.value.trim() && !!body.value.trim())
 
 watch(() => props.open, (open) => {
   if (!open) return
+  void store.ensureLoaded()
   if (props.initialBody !== undefined) startNew(props.initialBody)
   else editing.value = null
 })
 
 function startNew(initial: string) {
   editing.value = 'new'
+  prefix.value = ''
   name.value = ''
+  description.value = ''
   body.value = initial
 }
 
 function startEdit(s: CodeSnippet) {
   editing.value = s.id
+  prefix.value = s.prefix
   name.value = s.name
+  description.value = s.description ?? ''
   body.value = s.body
 }
 
 function save() {
-  if (editing.value === 'new') store.add(props.lang, name.value.trim(), body.value)
-  else if (editing.value) store.update(editing.value, { name: name.value.trim(), body: body.value })
+  const draft = {
+    prefix: prefix.value.trim(),
+    name: name.value.trim(),
+    description: description.value.trim() || undefined,
+    body: body.value,
+  }
+  if (editing.value === 'new') store.add(props.lang, draft)
+  else if (editing.value) store.update(editing.value, draft)
   editing.value = null
 }
 

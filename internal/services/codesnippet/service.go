@@ -13,10 +13,12 @@ import (
 )
 
 type Snippet struct {
-	ID   string `json:"id"`
-	Lang string `json:"lang"` // "script" | "expr"
-	Name string `json:"name"`
-	Body string `json:"body"`
+	ID          string `json:"id"`
+	Lang        string `json:"lang"`   // "script" | "expr"
+	Prefix      string `json:"prefix"` // 补全触发词 (VSCode snippet prefix 同义)
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Body        string `json:"body"`
 }
 
 type Service struct {

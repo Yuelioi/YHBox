@@ -10,10 +10,15 @@ export type CodeSnippetLang = 'script' | 'expr'
 export interface CodeSnippet {
   id: string
   lang: CodeSnippetLang
+  /** 补全触发词 (VSCode snippet prefix 同义) — 编辑器里打它弹补全。 */
+  prefix: string
   name: string
-  /** 字面插入光标处 — 不支持 ${} 占位 (与 JS 模板字符串语法冲突, 见 spec)。 */
+  description?: string
+  /** 字面替换触发词 — 不支持 ${} 占位 (与 JS 模板字符串语法冲突, 见 spec)。 */
   body: string
 }
+
+export type CodeSnippetDraft = Pick<CodeSnippet, 'prefix' | 'name' | 'description' | 'body'>
 
 export const useCodeSnippetsStore = defineStore('codeSnippets', () => {
   const snippets = ref<CodeSnippet[]>([])
@@ -34,14 +39,14 @@ export const useCodeSnippetsStore = defineStore('codeSnippets', () => {
     return snippets.value.filter((s) => s.lang === lang)
   }
 
-  function add(lang: CodeSnippetLang, name: string, body: string): CodeSnippet {
-    const s: CodeSnippet = { id: crypto.randomUUID(), lang, name, body }
+  function add(lang: CodeSnippetLang, draft: CodeSnippetDraft): CodeSnippet {
+    const s: CodeSnippet = { id: crypto.randomUUID(), lang, ...draft }
     snippets.value.push(s)
     persist()
     return s
   }
 
-  function update(id: string, patch: Partial<Pick<CodeSnippet, 'name' | 'body'>>): void {
+  function update(id: string, patch: Partial<CodeSnippetDraft>): void {
     const idx = snippets.value.findIndex((s) => s.id === id)
     if (idx === -1) return
     snippets.value[idx] = { ...snippets.value[idx], ...patch }

@@ -70,6 +70,8 @@ import {
   SUGAR_ITEMS,
 } from '@/lib/scriptCompletions'
 import { renderDoc, type HoverDoc } from '@/lib/editorHover'
+import { snippetCompletions } from '@/lib/snippetCompletion'
+import { useCodeSnippetsStore } from '@/stores/codeSnippets'
 import type { VarType } from '@/lib/variableRef'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { ALL_NODE_GROUPS, groupLabelColor } from '@/composables/editor/useNodeGroupColor'
@@ -99,6 +101,8 @@ const editorModalRef = ref<InstanceType<typeof EditorModal> | null>(null)
 let view: EditorView | null = null
 
 const registry = useNodeRegistryStore()
+const codeSnippetsStore = useCodeSnippetsStore()
+void codeSnippetsStore.ensureLoaded() // prefix 补全要用, 小框编辑器一挂载就拉
 
 function kindLabel(kind: string): string {
   const key = `node.${kind}.label`
@@ -126,6 +130,8 @@ const completionOptions = computed<Completion[]>(() => [
     type: 'variable' as const,
     detail: v.type,
   })),
+  // 用户片段: 打触发词 → 整段 body 上屏
+  ...snippetCompletions(codeSnippetsStore.byLang('script')),
 ])
 
 // 糖函数展开说明 (i18n key 用 _ 替代 ".": vue-i18n 把 "." 当层级分隔)。

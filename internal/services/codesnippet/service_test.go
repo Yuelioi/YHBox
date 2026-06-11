@@ -19,8 +19,8 @@ func TestListMissingFileReturnsEmpty(t *testing.T) {
 func TestSaveAllRoundTrip(t *testing.T) {
 	svc := NewService(filepath.Join(t.TempDir(), "snippets.json"))
 	in := []Snippet{
-		{ID: "a", Lang: "script", Name: "循环", Body: "for (let i = 0; i < 10; i++) {\n}"},
-		{ID: "b", Lang: "expr", Name: "求和", Body: "Add({A: $x, B: 1})"},
+		{ID: "a", Lang: "script", Prefix: "forn", Name: "循环", Description: "数到 10", Body: "for (let i = 0; i < 10; i++) {\n}"},
+		{ID: "b", Lang: "expr", Prefix: "addx", Name: "求和", Body: "Add({A: $x, B: 1})"},
 	}
 	if err := svc.SaveAll(in); err != nil {
 		t.Fatalf("SaveAll: %v", err)
@@ -36,7 +36,7 @@ func TestSaveAllRoundTrip(t *testing.T) {
 
 func TestSaveAllNilClearsFile(t *testing.T) {
 	svc := NewService(filepath.Join(t.TempDir(), "snippets.json"))
-	if err := svc.SaveAll([]Snippet{{ID: "a", Lang: "script", Name: "x", Body: "y"}}); err != nil {
+	if err := svc.SaveAll([]Snippet{{ID: "a", Lang: "script", Prefix: "x", Name: "x", Body: "y"}}); err != nil {
 		t.Fatalf("SaveAll: %v", err)
 	}
 	if err := svc.SaveAll(nil); err != nil {

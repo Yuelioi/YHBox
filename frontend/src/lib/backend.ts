@@ -267,7 +267,7 @@ export const backend = {
   // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
   codeSnippets: {
     list: () => invoke(CodeSnippetService.List),
-    saveAll: (list: { id: string; lang: string; name: string; body: string }[]) =>
+    saveAll: (list: { id: string; lang: string; prefix: string; name: string; description?: string; body: string }[]) =>
       invoke(CodeSnippetService.SaveAll, list as any),
   },
   schedules: {
