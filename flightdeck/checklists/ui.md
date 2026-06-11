@@ -88,7 +88,9 @@ last_updated: 2026-06-10
 
 ### 输入框宽度: 默认撑满, 短输入直接加宽度类
 
-style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (表单不用处处写 w-full)。这条的 width 走 `:where()` 零优先级 — **组件上直接写 `w-36` / `max-w-*` / `flex-1` 就能压过它**, 不用包 div。数字步进 / 端口号 / 短数值类输入**不要**放任它撑满 (UInputNumber 拉满一行, ± 按钮分居两端很难用), 给个 `w-28`~`w-40`。
+style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (表单不用处处写 w-full), 这条放在 `@layer components` — **组件上直接写 `w-36` / `max-w-*` 就能压过它** (utilities 层更后), 不用包 div。数字步进 / 端口号 / 短数值类输入**不要**放任它撑满 (UInputNumber 拉满一行, ± 按钮分居两端很难用), 给个 `w-28`~`w-40`。
+
+**底层规律 (踩过两次)**: Tailwind v4 工具类全在 `@layer utilities`, 而 style.css 里**不分层的自定义规则永远压过任何工具类 — 跟优先级数值无关, `:where()` 也救不了**。想让工具类能覆盖的全局默认值, 必须写进 `@layer base/components`; 想压过工具类的 (如改 display), 留在层外。
 
 ### `:ui="{ base: '...' }"` 是替换不是 merge
 
