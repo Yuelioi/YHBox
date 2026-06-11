@@ -7,6 +7,7 @@ package script
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -107,9 +108,7 @@ func bindNode(vm *goja.Runtime, c node.Ctx, rn *node.RegisteredNode, bundle node
 			throwErr(vm, kind, code, res.Error.Error())
 		}
 		out := map[string]any{"exit": res.ExitName}
-		for k, v := range res.OutputData {
-			out[k] = v
-		}
+		maps.Copy(out, res.OutputData)
 		return vm.ToValue(out)
 	})
 }
@@ -161,9 +160,9 @@ func throwErr(vm *goja.Runtime, kind string, code node.ErrCode, msg string) {
 // 不进 node.VarStore 主接口 — 只有 $getter 注入需要, 测试 fake 不必陪绑.
 type varNamer interface{ Names() []string }
 
-// installVarGetters 给每个已知变量注入 $name live getter — 脚本里 $hp 即
-// vars.get("hp") (访问时实时读, auto scope)。运行中动态新建的变量没有 getter
-// (脚本起跑后注入集固定), 用 vars.get 读。
+// installVarGetters 给每个已知变量注入 $name live getter — 脚本里 $hp 实时读
+// auto scope 变量。运行中动态新建的变量没有 getter (脚本起跑后注入集固定),
+// 用 GetVar({VarName}) 节点函数读。
 func installVarGetters(vm *goja.Runtime, c node.Ctx) {
 	nv, ok := c.Vars().(varNamer)
 	if !ok {
@@ -181,19 +180,6 @@ func installVarGetters(vm *goja.Runtime, c node.Ctx) {
 }
 
 func installSugar(vm *goja.Runtime, c node.Ctx) {
-	vars := vm.NewObject()
-	_ = vars.Set("get", func(name string, scope ...string) goja.Value {
-		v, _ := c.Vars().GetScoped(name, scopeArg(scope))
-		return vm.ToValue(v)
-	})
-	_ = vars.Set("set", func(name string, value goja.Value, scope ...string) {
-		c.Vars().SetScoped(name, scopeArg(scope), NormalizeJS(value.Export()))
-	})
-	_ = vars.Set("inc", func(name string, delta float64, scope ...string) float64 {
-		return c.Vars().IncScoped(name, scopeArg(scope), delta)
-	})
-	_ = vm.Set("vars", vars)
-
 	params := vm.NewObject()
 	_ = params.Set("get", func(name string) goja.Value {
 		v, _ := c.Params().Get(name)
@@ -217,13 +203,6 @@ func installSugar(vm *goja.Runtime, c node.Ctx) {
 	_ = logObj.Set("info", func(args ...any) { c.Log().Info("%s", sprintArgs(args)) })
 	_ = logObj.Set("warn", func(args ...any) { c.Log().Warn("%s", sprintArgs(args)) })
 	_ = vm.Set("log", logObj)
-}
-
-func scopeArg(s []string) string {
-	if len(s) > 0 && s[0] != "" {
-		return s[0]
-	}
-	return "auto"
 }
 
 func sprintArgs(args []any) string {

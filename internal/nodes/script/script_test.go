@@ -109,25 +109,44 @@ func TestScript_DynamicInput(t *testing.T) {
 	}
 }
 
-// $hp live getter: Run 起跑时按已知变量注入, 访问时实时读 (脚本中途 set 后 $hp 是新值)。
+// fakeSetVar — 最小变量写替身 (真实 SetVar 在 nodes/variable, 不跨包陪绑)。
+type fakeSetVar struct{}
+
+func (fakeSetVar) Spec() node.Spec {
+	return node.Spec{Kind: "FakeSetVar", Category: "Test",
+		Inputs: []node.InputSpec{
+			{Name: "In", Type: node.TypeExec},
+			{Name: "Name", Type: "String", Required: true},
+			{Name: "Value", Type: "Number", Required: true},
+		},
+		Outputs: []node.OutputSpec{{Name: "Done", Type: node.TypeExec}}}
+}
+
+func (fakeSetVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	ctx.Vars().SetScoped(in.String("Name"), "auto", in.Float64("Value"))
+	return ctx.Out("Done").Fire(), nil
+}
+
+// $hp live getter: Run 起跑时按已知变量注入, 访问时实时读 — 脚本中途经节点函数
+// 写入后 $hp 读到新值 (写路径只剩节点函数, vars.* 糖已删)。
 func TestScript_DollarVarGetter(t *testing.T) {
-	rn := setup(t)
+	rn := setup(t, fakeSetVar{})
 	svcs := node.StubServices()
 	svcs.Vars.Set("hp", 37.0)
-	cfg := map[string]any{"Code": `vars.set("hp", 40); return $hp + 1`}
+	cfg := map[string]any{"Code": `FakeSetVar({Name: "hp", Value: 40}); return $hp + 1`}
 	res := node.RunNode(context.Background(), rn, nil, cfg, nil, svcs, false)
 	if res.Error != nil || res.OutputData["Result"] != float64(41) {
 		t.Fatalf("res=%+v", res)
 	}
 }
 
-func TestScript_VarsRoundtrip(t *testing.T) {
+// vars.* 糖已删干净: 引用 vars 必须是 ReferenceError → thrown。
+func TestScript_VarsSugarGone(t *testing.T) {
 	rn := setup(t)
-	svcs := node.StubServices()
-	cfg := map[string]any{"Code": `vars.set("k", 5); return vars.get("k") + 1`}
-	res := node.RunNode(context.Background(), rn, nil, cfg, nil, svcs, false)
-	if res.Error != nil || res.OutputData["Result"] != float64(6) {
-		t.Fatalf("res=%+v", res)
+	res := runScript(t, rn, `vars.set("k", 5)`, nil)
+	var coded node.Coded
+	if res.Error == nil || !errors.As(res.Error, &coded) || coded.ErrCode() != node.CodeThrown {
+		t.Fatalf("want thrown ReferenceError, res=%+v", res)
 	}
 }
 

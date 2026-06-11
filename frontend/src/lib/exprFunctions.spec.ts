@@ -62,7 +62,7 @@ describe('parseSigParams', () => {
     expect(parseSigParams('now()')).toEqual([])
   })
   it('strips optional brackets/space', () => {
-    expect(parseSigParams('vars.get(name, [scope])')).toEqual(['name', 'scope'])
+    expect(parseSigParams('params.get(name, [scope])')).toEqual(['name', 'scope'])
   })
 })
 

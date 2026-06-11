@@ -1510,7 +1510,7 @@
     "input": {
       "Code": {
         "label": "代码",
-        "hint": "脚本用 return 返回结果。变量用 vars.get/set 读写，sleep(毫秒) 等待。"
+        "hint": "脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。"
       },
       "CaptureResult": {
         "label": "结果→变量"

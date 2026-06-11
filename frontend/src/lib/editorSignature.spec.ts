@@ -24,10 +24,10 @@ describe('scriptSigContext', () => {
     expect(scriptSigContext('ClickAt({', 9)).toEqual({ name: 'ClickAt', argIndex: 0 })
   })
   it('member call counts args', () => {
-    expect(scriptSigContext('vars.get("hp", ', 15)).toEqual({ name: 'vars.get', argIndex: 1 })
+    expect(scriptSigContext('params.get("hp", ', 17)).toEqual({ name: 'params.get', argIndex: 1 })
   })
   it('outer call after closed inner', () => {
-    expect(scriptSigContext('log.info(vars.get("a"), ', 24)).toEqual({ name: 'log.info', argIndex: 1 })
+    expect(scriptSigContext('log.info(params.get("a"), ', 26)).toEqual({ name: 'log.info', argIndex: 1 })
   })
   it('null outside any call', () => {
     expect(scriptSigContext('let x = 1', 9)).toBeNull()
