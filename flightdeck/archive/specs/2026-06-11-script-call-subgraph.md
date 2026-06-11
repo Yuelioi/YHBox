@@ -4,7 +4,7 @@ summary: 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...param
 last_updated: 2026-06-11
 note: 用户拍板 A 路线并已落地 — 多出口路由(RunRegion body 回报出口 + DynamicOutputs + fishing-v2 数据迁移) + SubgraphCaller 服务 + Subgraph() 绑定 + 依赖提取 + 前端补全。实现验收 5 条全过(测试在册)。
 related: [specs/2026-06-11-script-template-dep-extraction.md]
-verify: 真机跑 fishing-v2 一轮确认状态机照常流转 (出口 key 已迁 decl ID); 编辑器造一个多出口子图 + 脚本 Subgraph() 调它, 确认返回的 exit 名和入参都对
+verify: 编辑器造一个多出口子图 + 脚本 Subgraph() 调它, 确认返回的 exit 名和入参都对 (fishing-v2 状态机流转 2026-06-12 真机已验过; 脚本调用首试因把节点 ID 当 SubgraphID 撞"子图不存在", 已加子图 ID 面板 + 用户改对 ID 后待重试)
 ---
 
 # 脚本调子图 (script-call-subgraph)
