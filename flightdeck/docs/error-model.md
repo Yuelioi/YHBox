@@ -3,7 +3,7 @@ status: active
 when_to_read: 给节点加错误处理 / 加新错误码 / 改 dispatch 失败路由 / 加 region 容错 / 撞「节点报错没被 Fail 出口接住」类问题前
 applies_to: [error-model, node-framework, dispatch, Failf, NodeError, Coded, errorcode, Fail-output, Throw, region, validator]
 when_to_update: 改 dispatch 失败路由 / Failf / NodeError / Coded 语义 / 集中错误码表 / Fail 出口约定 / region 容错策略时
-last_updated: 2026-06-07
+last_updated: 2026-06-11
 ---
 
 # 错误模型：节点失败出口 + Coded 路由 + 集中错误码
@@ -17,7 +17,7 @@ last_updated: 2026-06-07
 
 ## 三个核心概念（`internal/node/errorcodes.go`）
 
-1. **`ErrCode`**（snake_case 字面值）+ **集中注册表 `ErrorCodes`**：`launch_failed` / `capture_failed` / `write_failed` / `not_found` / `timeout` / `playback_failed` / `send_failed` / `thrown` + 兜底 `error`。常量 CamelCase（`CodeCaptureFailed` 等）。注册表是「推荐全集」，非强约束——用户 Throw 自填码、未来插件返非注册码仍合法。
+1. **`ErrCode`**（snake_case 字面值）+ **集中注册表 `ErrorCodes`**：`launch_failed` / `capture_failed` / `write_failed` / `not_found` / `timeout` / `playback_failed` / `send_failed` / `thrown` / `subgraph_no_exit`（多出口子图跑干没到任何出口 marker）/ `subgraph_recursion`（子图调用嵌套超 32 层，防脚本动态递归）+ 兜底 `error`。常量 CamelCase（`CodeCaptureFailed` 等）。注册表是「推荐全集」，非强约束——用户 Throw 自填码、未来插件返非注册码仍合法。
 2. **`Coded` 接口**：`interface{ ErrCode() ErrCode }`。**dispatch 失败路由的准入闸**——只有实现它的错误会被路由。`*NodeError` 和 `*ThrowError` 实现它。
 3. **`NodeError` + `Failf`**：
    ```go

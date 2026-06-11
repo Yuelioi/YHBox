@@ -28,6 +28,8 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 跑 `internal/services/container/runtime/` 套件前先 `task build` 填 `bin/data/.../subgraphs/*.json` fixture, 否则 `TestApplyDirection_*` / `TestWatchdog_*` 缺 fixture 失败. `TestScanSubgraphDependencies_*` 也是预存失败、非回归 (撞到别当成自己改坏的).
 
+`TestFishingV2Main_StateCycleSmoke` 本机预存红 (2026-06-11 git stash 实证改动前同样 `clicks=0 finalState=IDLE`): mock 模板没命中 → state_IDLE 一直走 NotFound 兜底分支, 疑与本机 fishing-v2 数据迁 GUID 资产后 mock 名解析有关, 待单独排查.
+
 ## 运行 / smoke 留意
 
 - **校准 / HUD 是 AlwaysOnTop**: 独占全屏游戏可能盖不住 (Windows 层限制) → 用窗口化 / 无边框全屏.

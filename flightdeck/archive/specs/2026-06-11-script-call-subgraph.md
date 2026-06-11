@@ -1,9 +1,10 @@
 ---
-status: active
-summary: 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(gated:撞前置缺口,需先定多出口路由)
+status: done
+summary: 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}) — 用户拍板 A 路线:先修好子图多出口路由(出口 key 统一 decl ID),再上脚本调子图。已全量落地(见同日 plan)。
 last_updated: 2026-06-11
-note: BLOCKED — 开工读源码撞前置缺口:v5 runtime 的 Subgraph 多出口路由根本没接线(见「开工发现」)。需用户拍板:先补多出口路由,还是 Stage 2 先上单 Done 出口语义。
+note: 用户拍板 A 路线并已落地 — 多出口路由(RunRegion body 回报出口 + DynamicOutputs + fishing-v2 数据迁移) + SubgraphCaller 服务 + Subgraph() 绑定 + 依赖提取 + 前端补全。实现验收 5 条全过(测试在册)。
 related: [specs/2026-06-11-script-template-dep-extraction.md]
+verify: 真机跑 fishing-v2 一轮确认状态机照常流转 (出口 key 已迁 decl ID); 编辑器造一个多出口子图 + 脚本 Subgraph() 调它, 确认返回的 exit 名和入参都对
 ---
 
 # 脚本调子图 (script-call-subgraph)

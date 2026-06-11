@@ -27,12 +27,21 @@ last_updated: 2026-06-11
 
 ## 节点即函数 (绑定层 `internal/services/script/binding.go`)
 
-- **哪些节点可调**: `node.ScriptBindable(rn)` (`internal/node/registry.go`) 是唯一判定源 — Runnable 或 Evaluator, 排除 RegionRunner (Loop/Subgraph/CollapsedNode — 脚本有原生循环, 调子图未实现)、IsGraphMarker、IsVisualOnly、Script 自身 (防递归)。前端补全 RPC `GetScriptBindableKinds` 走同一函数。
+- **哪些节点可调**: `node.ScriptBindable(rn)` (`internal/node/registry.go`) 是唯一判定源 — Runnable 或 Evaluator, 排除 RegionRunner (Loop/ForEach — 脚本有原生循环; Subgraph/CollapsedNode 不走自动绑定, 子图调用是下述定制函数)、IsGraphMarker、IsVisualOnly、Script 自身 (防递归)。前端补全 RPC `GetScriptBindableKinds` 走同一函数。
 - **调用约定**: 单对象参数, 键 = pin 名 (PascalCase); 省略键用 Spec 默认值; 缺必填抛异常。`ClickAt({XRatio: 0.5, YRatio: 0.5})`。
 - **返回约定**: exec 节点 → `{exit: "出口名", ...出口Data字段}` (如 `r.exit === "Found"`, `r.Point`); PureFunc (Evaluator) → 直接返回求值结果。
 - **错误约定**: 节点失败 = JS 异常, 异常对象带 `code` / `message` / `kind` 字段, `try/catch` 可接 (超时重试等); 未接住 → Script 走 `Fail` 出口, **透传原节点错误码**; 脚本自己 `throw` → 码 `thrown`。
 - 实现走框架公开入口 `node.RunNode` / `node.EvaluatePureData` (自带 Required/Validate 门 + 正确 Spec 的子 ctx + recover); RunResult.Panic 原样 re-panic, 不许被脚本 catch。
 - 数字归一: goja Export 整数是 int64, 绑定层 `NormalizeJS` 递归转 float64 (Inputs coercion 只认 float64/json.Number/string)。
+
+## 脚本调子图 — `Subgraph({SubgraphID, ...入参})` (2026-06-11)
+
+- **绑定形态**: 不是节点自动绑定, 是 `installSubgraphCall` (`binding.go`) 注入的定制函数, 走 runner 注入的 `node.SubgraphCaller` 服务 (ServiceBundle.Subgraphs = ContainerRunner 自身; 非 runner 语境如单节点测试为 nil → 函数不装, 调用得 ReferenceError)。
+- **语义**: 同步跑完容器内 SubgraphID 指定的子图才返回, 与 Subgraph 节点同核心 (`runtime/subgraph_call.go::runSubgraphCall` — push frame + 切表 + 跑到出口 marker)。除 `SubgraphID` 外的字段直接 seed 为子图入参 (声明入参缺省补 Default)。
+- **返回**: `{exit: "<出口名>"}` — 出口 decl 的 **Name** (人读名, 如 "done"/"failed"; 图层路由用的 decl ID 脚本不可见)。
+- **错误**: 同节点函数约定 (JS 异常带 code, try/catch 可接): 子图不存在 `not_found`; 多出口跑干 `subgraph_no_exit`; 嵌套超 32 层 `subgraph_recursion` (脚本动态递归的运行时兜底, 图层静态防环拦不住它)。容器停止由 Script watchdog Interrupt 兜底打断, 子图内阻塞节点用同一 ctx 原生取消。
+- **依赖提取**: `AssetDeps` 按调用形态正则抽 `Subgraph({SubgraphID: "<字面量>"})` → `Dependency{Kind:"subgraph"}` (分享导出闭包 / 删除 referrer 警告); 动态拼接的 ID 扫不到 — 约定 SubgraphID 用字面量。
+- **前端**: 补全/参考面板/hover 走 `SUGAR_ITEMS` 单源 (`scriptCompletions.ts`, snippet 占位 SubgraphID); `Subgraph({SubgraphID: ▮})` 值位按 `Semantic:"SubgraphID"` 通用补全容器内可见子图 (CodeInput.pinValues, 显示子图名); 文案 `script.fn.Subgraph`。
 
 ## 糖函数 (三组, 高频到值得短名字)
 

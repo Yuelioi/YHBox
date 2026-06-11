@@ -37,7 +37,7 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 | `IsPureData` | 纯数据节点（无副作用、求一个值）。**必须实现 Evaluator**（Register 强制） |
 | `IsVisualOnly` | 纯渲染节点（如 CommentBox）。允许零 capability |
 | `IsGraphMarker` | 图结构标记节点。允许零 capability（框架为 SubgraphInput/Output 预留；**当前没有后端节点用它**，子图入口/出口标记是前端 virtual 的） |
-| `DynamicOutputs` | 出口名运行时按 config 推导（如 Switch 的 named-by-value case 出口）。置真时 `ctx.Out(name)` 放行任意 name |
+| `DynamicOutputs` | 出口名运行时按 config 推导（Switch 的 named-by-value case 出口；Subgraph/CollapsedNode 的出口 = callee OutputPins decl ID）。置真时 `ctx.Out(name)` 放行任意 name |
 | `DynamicInputs` | data-in pin 由 `config.Inputs[]` 运行时声明、不在静态 `Inputs` 枚举（Expr / Script）。dispatch / validator / 前端都按此标志统一走 `container.ParseDynamicInputDecls`，**无 kind 字符串特判**（`spec.go`） |
 | `IsNonDeterministic` | Evaluate 非确定（随机 / now）。框架在 per-dispatch eval 缓存里**只记忆化带此标志的节点**（`runtime/data_pull.go::evalPureDataCached` 的 `caching` gate），保证同一次派发内多路径引用同一节点拿同一个值。仅对 `IsPureData` 节点有意义 |
 
@@ -50,14 +50,18 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 | 路线 | 接口（`interfaces.go`） | framework 入口（`engine.go`） | 用于 | 例子 |
 |---|---|---|---|---|
 | **Runnable** | `Run(ctx, in) (Outputs, error)` | `RunNode` | 普通 exec 节点，框架同步调一次 | KeyPress、Sleep、SetVar、CheckTemplate、Script（内嵌 JS） |
-| **RegionRunner** | `RunRegion(ctx, in, body func(Ctx) error) (Outputs, error)` | `RunNodeAsRegion` | 控制流 / 包子图 body —— body 回调由 dispatch 构造，**节点自己决定调几次** | **恰好 4 个**：Loop（调 N 次/forever）、ForEach（遍历 List 逐项调）、Subgraph、CollapsedNode |
+| **RegionRunner** | `RunRegion(ctx, in, body func(Ctx) (string, error)) (Outputs, error)` | `RunNodeAsRegion` | 控制流 / 包子图 body —— body 回调由 dispatch 构造，**节点自己决定调几次**；body 第一返回值 = region 内部到达的出口 | **恰好 4 个**：Loop（调 N 次/forever）、ForEach（遍历 List 逐项调）、Subgraph、CollapsedNode |
 | **Evaluator** | `Evaluate(ctx, in) (any, error)` | `EvaluatePureData` | 纯数据求值，返一个标量给 data-edge 下游，**无 exec 出口** | 41 个 PureFunc（Add/Eq/Select…）+ Expr、List 类（Join/ListGet…）、Random×4、GetVar/GetParam/Now/VarLastChange（PureData 全集计数见 [reference §6](node-system-reference.md)，别在这写死数字） |
 
 **两个例外**（允许零 capability）：`IsVisualOnly`（CommentBox）、`IsGraphMarker`（结构标记）。
 
 ### RegionRunner 的 body 回调
 
-`body func(Ctx) error` 是"执行 region 内部下游"的回调。节点对返回的 error 做语义翻译：Loop/ForEach 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate，由该 RegionRunner 的 **`Fail` 出口**（`Semantic: error`；Loop/ForEach/Subgraph 都声明了）接住（`loop.go` / `foreach.go`）。`Throw` 节点（Runnable，`internal/nodes/system/throw.go`）就是借这条 propagate 通道把错误抛给最近一层 RegionRunner 的 Fail。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制 —— **没有 Try 节点**（旧文档误记，截获是靠 RegionRunner 的 Fail 出口，不是一个专门节点）。
+`body func(Ctx) (string, error)` 是"执行 region 内部下游"的回调，第一返回值 = **region 内部到达的出口**（Subgraph/CollapsedNode：callee OutputPins 的 decl ID；Loop/ForEach 单轮迭代无出口语义，忽略它）。Subgraph/CollapsedNode 把 body 回报的出口原样 `ctx.Out(exit)` fire（Spec 是 `DynamicOutputs`，父图边 pin = decl ID）；`""` = 没到达任何出口 → 不 fire。节点对返回的 error 做语义翻译：Loop/ForEach 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate，由该 RegionRunner 的 **`Fail` 出口**（`Semantic: error`；四个 RegionRunner 都声明了）接住（`loop.go` / `foreach.go`）。`Throw` 节点（Runnable，`internal/nodes/system/throw.go`）就是借这条 propagate 通道把错误抛给最近一层 RegionRunner 的 Fail。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制 —— **没有 Try 节点**（旧文档误记，截获是靠 RegionRunner 的 Fail 出口，不是一个专门节点）。
+
+### 子图调用的出口路由（2026-06-11 起）
+
+子图调用（Subgraph / CollapsedNode 节点，或脚本 `Subgraph()` 函数）统一走 runtime 共享核心 `runSubgraphCall`（`runtime/subgraph_call.go`）：push frame + seed params + 切 dispatch 表到 callee + 从 entry 播种跑到出口 marker。**出口 key 单一来源 = callee OutputPins 的 decl ID**（父图边 / 前端 handle / runtime fire 三层一致；decl rename 只改 Name 不动 ID，父图无感）。出口裁决：到达 marker → 该 decl；跑干没到 marker → 单出口视同唯一出口，多出口 → `subgraph_no_exit` Coded 错误（可被 Fail 接）。嵌套深度上限 32（`subgraph_recursion`，防脚本动态递归）。脚本侧拿到的是 decl **Name**（人读名），图层路由用 decl **ID**。
 
 ### Evaluator 看到的是 tick-frozen 快照
 
