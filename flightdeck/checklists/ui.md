@@ -49,7 +49,8 @@ last_updated: 2026-06-10
 
 | 视觉            | 用                                                    |
 | --------------- | ----------------------------------------------------- |
-| 主背景 (最深)   | `bg-default`                                          |
+| 凹陷面 (比主背景更深: 终端日志区/时间轴轨道) | `bg-sunken` (自定 utility, style.css 从 --ui-bg 往黑混) |
+| 主背景 (最深 semantic) | `bg-default`                                   |
 | 卡片/弹层       | `bg-elevated`                                         |
 | 分隔区/muted    | `bg-muted`                                            |
 | 强调背景 (最高) | `bg-accented`                                         |
@@ -60,7 +61,7 @@ last_updated: 2026-06-10
 | 提示文字 (最弱) | `text-dimmed`                                         |
 | 边框            | `border-default` / `border-muted` / `border-accented` |
 
-状态色: `bg-primary` / `bg-error` / `bg-warning` / `bg-success` / `bg-info`.
+状态色: `bg-primary` / `bg-error` / `bg-warning` / `bg-success` / `bg-info`. **状态语义 (警告/错误/成功/提示/选中激活) 一律走这些, 不许直写 `text-amber-300` / `bg-rose-500/10` 这类色相**; 透明度照常加 (`bg-warning/10`)。直写色相只允许"功能识别色"且必须来自集中调色板: 节点分类 (visualRegistry PALETTE) / pin 类型 (TYPE_COLOR) / 日志 TAG·流 (logFormat / LogPanel) / 编辑器语法色 (editorTheme)。编辑器 chrome 色 → editorTheme.ts 只写 `var(--ui-*)`。
 
 **禁用 list** (写新组件前 grep 自己):
 
