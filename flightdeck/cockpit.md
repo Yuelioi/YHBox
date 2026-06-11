@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (pin 值补全落地+收口: Script 编辑器 `Kind({Pin:▮})` 枚举 pin 补候选值/varname pin 补变量名; 用户拍板删冗余 vars.* 糖 (节点函数已覆盖), 补全机制泛化承接变量名补全; 253 测试过, 真机视觉待验。前序当日: 文档复核 4 份 + 看板清理 + 三项 verify 销账。)
+**Last updated**: 2026-06-11 by 月离 (pin 值补全 + 删 vars.* 用户真机过, verify 销账 — 当日活全部收口零待验。本程: pin 值补全 (枚举值/变量名) + 删冗余 vars.* 糖 + 文档复核 4 份 + 看板清理 + 三项 verify 销账。)
 **Active focus**: **无专项进行中** — enum 值补全已落地 (archive/specs/2026-06-11-editor-enum-value-completion.md, 真机视觉待验)。下一程从「之后候选」挑或等用户指。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
@@ -15,7 +15,7 @@
 
 ## 待验证
 
-- ⚠未验证: archive/specs/2026-06-11-editor-enum-value-completion.md — pin 值补全真机视觉 (打 `GetVar({Scope: "` 弹 auto/local/global; `SetVar({VarName: "` 弹变量名; 裸值位补带引号; hover/参考面板列可选集; vars.* 应已从补全/参考消失)。
+- 无。
 
 ## Hanging tasks
 
