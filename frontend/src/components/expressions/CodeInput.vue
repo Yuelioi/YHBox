@@ -1,5 +1,5 @@
 <!-- Script 代码编辑器 (widget kind 'code', PinInput 分发) — CodeMirror 6 + JS 语法:
-     高亮 + 补全 (节点函数/糖函数/动态输入名/vars.get 串内变量名) + 悬停函数文档
+     高亮 + 补全 (节点函数/糖函数/动态输入名/pin 值位枚举值·变量名) + 悬停函数文档
      + 快速反馈 lint (语法错/未声明 $变量; 权威仍是后端 SCRIPT_PARSE_ERROR)。
      右上放大按钮弹 EditorModal 大编辑器: 工具栏/片段/折叠/参考面板/新建变量。 -->
 <template>
@@ -85,7 +85,7 @@ const props = defineProps<{
   placeholder?: string
   /** 动态输入名 (config.Inputs[] 声明) — 进补全, 让脚本里直接引用。 */
   inputNames?: string[]
-  /** 容器变量 (名+类型) — vars.get 串内补全 + $引用 lint + 参考面板「变量」组 + 新建变量。 */
+  /** 容器变量 (名+类型) — varname pin 值位补全 + $引用 lint + 参考面板「变量」组 + 新建变量。 */
   declaredVars?: { name: string; type: VarType }[]
 }>()
 
@@ -124,7 +124,7 @@ const completionOptions = computed<Completion[]>(() => [
   ...nodeFnCompletions(registry.scriptBindableKinds, registry.specs, kindLabel).map(withInfo),
   ...SUGAR_COMPLETIONS.map(withInfo),
   ...(props.inputNames ?? []).map((n) => ({ label: n, type: 'variable' as const })),
-  // $hp live getter (脚本里等价 vars.get("hp"), 实时读)
+  // $hp live getter (读容器变量 hp 的实时值)
   ...(props.declaredVars ?? []).map((v) => ({
     label: `$${v.name}`,
     type: 'variable' as const,
@@ -152,6 +152,21 @@ function pinEnumOptions(kind: string, pin: string): { value: string; label?: str
     const label = te(k) ? t(k) : ''
     return { value, label: label && label !== value ? label : undefined }
   })
+}
+
+// pin 值位置补全候选: 枚举 pin → 候选值 (type enum); varname pin (Semantic "varname",
+// 如 GetVar/SetVar 的 VarName) → 容器变量名 (type variable)。其余 pin 无候选。
+function pinValues(
+  kind: string,
+  pin: string,
+): { value: string; label?: string; type?: 'enum' | 'variable' }[] {
+  const enums = pinEnumOptions(kind, pin)
+  if (enums.length) return enums.map((e) => ({ ...e, type: 'enum' as const }))
+  const input = registry.specs.get(kind)?.inputs?.find((i) => i.name === pin)
+  if (input?.semantic === 'varname') {
+    return varNames.value.map((n) => ({ value: n, type: 'variable' as const }))
+  }
+  return []
 }
 
 // 节点 pin 参数表 (展开详情): 名 / i18n 人话 label / 类型 / 必填 / 枚举候选。
@@ -265,7 +280,7 @@ function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => vo
   return scriptEditorExtensions({
     completions: () => completionOptions.value,
     varNames: () => varNames.value,
-    enumOptions: pinEnumOptions,
+    pinValues,
     hoverDoc,
     signatureLookup: (name: string) => {
       const d = hoverDoc(name)

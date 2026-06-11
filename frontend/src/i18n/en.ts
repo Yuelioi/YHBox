@@ -539,7 +539,7 @@
     editor_status_ok: 'No syntax errors',
     editor_goto_error: 'Click to jump to the error',
     editor_syntax_error_line: 'Possible syntax issue near line {line} (save-time validation is authoritative)',
-    editor_unknown_var: `{'$'}{name} is not declared — fails at runtime; declare it first or use vars.get`,
+    editor_unknown_var: `{'$'}{name} is not declared — fails at runtime; declare it first or use the GetVar node function`,
     editor_lang_expr: 'Expression',
     dyn_inputs_hint: 'Inputs are data pins for wiring node outputs in; to use a variable, just write $name in the expression/script.',
     literal_section: 'Data inputs (literal)',
@@ -659,7 +659,7 @@
       description: 'Write a piece of logic in JavaScript: loops, conditions and variables all work, and you can call other nodes directly by writing the node name as a function (e.g. ClickAt, WaitTemplate). Great for complex flows that would be too tangled to wire up.',
       example: 'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
       input: {
-        Code: { label: 'Code', hint: 'Use return to give back a result. Read/write variables with vars.get/set; sleep(ms) waits.' },
+        Code: { label: 'Code', hint: 'Use return to give back a result. Read variables with $name or GetVar, write with SetVar; sleep(ms) waits.' },
         CaptureResult: { label: 'Result → variable' },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
@@ -2248,9 +2248,6 @@
   },
   script: {
     fn: {
-      vars_get: 'Read a variable. Optional second argument is the scope: auto/local/global, default auto.',
-      vars_set: 'Write a variable. Second argument is the new value, optional third is the scope.',
-      vars_inc: 'Add delta to a numeric variable and return the new value.',
       params_get: 'Read a subgraph parameter (only meaningful inside a subgraph).',
       sleep: 'Wait for the given milliseconds. Interrupts immediately when the run stops.',
       log_info: 'Write a log line to the run log; multiple arguments are joined with spaces.',

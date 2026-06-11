@@ -144,7 +144,7 @@ const props = defineProps<{
   step?: number
   /** 动态输入名 (config.Inputs[] 声明) — 仅 code widget 用, 进脚本补全。 */
   inputNames?: string[]
-  /** 容器变量 (名+类型) — 仅 code widget 用: vars.get 补全 + 参考面板 + 新建变量。 */
+  /** 容器变量 (名+类型) — 仅 code widget 用: varname pin 值位补全 + 参考面板 + 新建变量。 */
   declaredVars?: { name: string; type: VarType }[]
 }>()
 const emit = defineEmits<{

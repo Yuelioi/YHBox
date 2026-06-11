@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { exprSigContext, scriptEnumContext, scriptSigContext } from './editorSignature'
+import { exprSigContext, scriptPinValueContext, scriptSigContext } from './editorSignature'
 
 describe('exprSigContext', () => {
   it('inside first arg', () => {
@@ -34,24 +34,28 @@ describe('scriptSigContext', () => {
   })
 })
 
-describe('scriptEnumContext', () => {
+describe('scriptPinValueContext', () => {
   it('cursor inside string value of a pin', () => {
     const doc = 'GetVar({Scope: "au"})'
-    expect(scriptEnumContext(doc, doc.indexOf('au') + 1)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+    expect(scriptPinValueContext(doc, doc.indexOf('au') + 1)).toEqual({ kind: 'GetVar', pin: 'Scope' })
   })
   it('cursor right after colon (bare value position)', () => {
     const doc = 'GetVar({Scope: })'
-    expect(scriptEnumContext(doc, doc.indexOf(': ') + 2)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+    expect(scriptPinValueContext(doc, doc.indexOf(': ') + 2)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+  })
+  it('varname pin value (VarName)', () => {
+    const doc = 'SetVar({VarName: "h"})'
+    expect(scriptPinValueContext(doc, doc.indexOf('h"') + 1)).toEqual({ kind: 'SetVar', pin: 'VarName' })
   })
   it('second pin in the object', () => {
     const doc = 'SetVar({VarName: "hp", Scope: ""})'
-    expect(scriptEnumContext(doc, doc.lastIndexOf('"') )).toEqual({ kind: 'SetVar', pin: 'Scope' })
+    expect(scriptPinValueContext(doc, doc.lastIndexOf('"'))).toEqual({ kind: 'SetVar', pin: 'Scope' })
   })
   it('null when cursor is on the key, not the value', () => {
     const doc = 'GetVar({Scope: ""})'
-    expect(scriptEnumContext(doc, doc.indexOf('Scope') + 2)).toBeNull()
+    expect(scriptPinValueContext(doc, doc.indexOf('Scope') + 2)).toBeNull()
   })
   it('null when object literal is not a call argument', () => {
-    expect(scriptEnumContext('let x = { a: 1 }', 13)).toBeNull()
+    expect(scriptPinValueContext('let x = { a: 1 }', 13)).toBeNull()
   })
 })

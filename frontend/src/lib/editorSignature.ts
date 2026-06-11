@@ -72,9 +72,9 @@ export function scriptSigContext(doc: string, pos: number): { name: string; argI
 }
 
 // ── Script: 光标落在节点调用对象字面量的某个 pin 值位置 → {kind, pin} ──
-//    用于 `GetVar({Scope: ▮})` 这类枚举参数在值位置补全候选值。
+//    用于在值位置补全: 枚举 pin → 候选值 (Scope→auto/local/global); varname pin → 容器变量名。
 //    走 lezer 树: Property → ObjectExpression → ArgList → CallExpression。
-export function scriptEnumContext(doc: string, pos: number): { kind: string; pin: string } | null {
+export function scriptPinValueContext(doc: string, pos: number): { kind: string; pin: string } | null {
   const tree = jsParser.parse(doc)
   let prop = tree.resolveInner(pos, -1) as ReturnType<typeof tree.resolveInner> | null
   while (prop && prop.name !== 'Property') prop = prop.parent

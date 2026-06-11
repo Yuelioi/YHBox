@@ -555,7 +555,7 @@ export default {
     editor_status_ok: '无语法错误',
     editor_goto_error: '点击跳到出错处',
     editor_syntax_error_line: '第 {line} 行附近语法有误 (以保存时校验为准)',
-    editor_unknown_var: `{'$'}{name} 未声明 — 运行时会报错; 先在变量面板声明或改用 vars.get`,
+    editor_unknown_var: `{'$'}{name} 未声明 — 运行时会报错; 先在变量面板声明或改用 GetVar 节点函数`,
     editor_lang_expr: '表达式',
     dyn_inputs_hint: '输入口是连线用的数据引脚 (接别的节点输出); 想用变量, 直接在表达式/脚本里写 $变量名。',
     literal_section: '数据输入 (literal)',
@@ -679,7 +679,7 @@ export default {
       description: '用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用其他节点（写节点名当函数，如 ClickAt、WaitTemplate）。适合连线画起来太绕的复杂流程。',
       example: '等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。',
       input: {
-        Code: { label: '代码', hint: '脚本用 return 返回结果。变量用 vars.get/set 读写，sleep(毫秒) 等待。' },
+        Code: { label: '代码', hint: '脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。' },
         CaptureResult: { label: '结果→变量' },
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
@@ -2295,9 +2295,6 @@ export default {
   // Script 脚本编辑器糖函数说明 (参考面板展开详情)。key 用 _ 替代 "." (vue-i18n 层级分隔)。
   script: {
     fn: {
-      vars_get: '读变量当前值。第二个参数可选作用域 auto/local/global, 缺省 auto。',
-      vars_set: '写变量值。第二个参数是新值, 第三个参数可选作用域。',
-      vars_inc: '给数值变量加 delta, 返回加完的新值。',
       params_get: '读子图入参 (只在子图里运行时有值)。',
       sleep: '等待指定毫秒。停止运行时立即中断, 不会卡住。',
       log_info: '输出一条日志到运行日志, 多个参数用空格拼接。',

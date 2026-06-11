@@ -25,7 +25,7 @@ import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import type { Spec } from '@bindings/yotta/internal/node'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
 import { fnHoverTooltip, type HoverDoc } from '@/lib/editorHover'
-import { scriptEnumContext, scriptSigContext, signatureHelp } from '@/lib/editorSignature'
+import { scriptPinValueContext, scriptSigContext, signatureHelp } from '@/lib/editorSignature'
 
 // apply 上屏后光标落进末尾括号/引号内 (caretBack = 从串尾回退几格)。
 function applyWithCaret(insert: string, caretBack: number) {
@@ -40,7 +40,7 @@ function applyWithCaret(insert: string, caretBack: number) {
 // 可插入项的原始数据 — 补全下拉 (toCompletion) 和放大编辑 modal 的参考面板共用一份单源。
 export interface InsertItem {
   label: string
-  /** 签名 (如 vars.get(name, [scope]) / ClickAt({XRatio, YRatio})) */
+  /** 签名 (如 params.get(name) / ClickAt({XRatio, YRatio})) */
   detail?: string
   /** 人话说明 (节点中文名 / 函数 i18n desc) */
   desc?: string
@@ -59,10 +59,9 @@ function toCompletion(it: InsertItem): Completion {
   }
 }
 
+// 变量读写不再走 vars.* 糖 — 用 $hp (读 live 值) 或 GetVar/SetVar/IncVar 节点函数
+// (VarName/Scope pin 值位有补全)。糖只留没有节点替身或 $ 捷径的高频项。
 export const SUGAR_ITEMS: InsertItem[] = [
-  { label: 'vars.get', detail: 'vars.get(name, [scope])', insert: 'vars.get("")', caretBack: 2 },
-  { label: 'vars.set', detail: 'vars.set(name, value, [scope])', insert: 'vars.set("", )', caretBack: 4 },
-  { label: 'vars.inc', detail: 'vars.inc(name, delta, [scope])', insert: 'vars.inc("", 1)', caretBack: 5 },
   { label: 'params.get', detail: 'params.get(name)', insert: 'params.get("")', caretBack: 2 },
   { label: 'sleep', detail: 'sleep(ms)', insert: 'sleep()', caretBack: 1 },
   { label: 'log.info', detail: 'log.info(...args)', insert: 'log.info()', caretBack: 1 },
@@ -195,19 +194,17 @@ function buildDollarDecorations(view: EditorView): DecorationSet {
 
 // ── CodeInput / EditorModal 共用的 CodeMirror 扩展 ──
 
-// vars.get("…")/set/inc 第一参字符串里 → 补容器变量名 (高频; 比手翻侧栏顺手)。
-// 其余位置: 词匹配含 "." — 让 "vars.g" 能补出 "vars.get" 这类带点糖函数。
+// pin 值位置 (`Kind({Pin: ▮})`): 枚举 pin → 候选值, varname pin → 容器变量名。
+// 其余位置: 词匹配含 "." — 让 "log.i" 能补出 "log.info" 这类带点糖函数。
 function scriptCompletionSource(
   getOptions: () => Completion[],
-  varNames?: () => string[],
-  enumOptions?: (kind: string, pin: string) => { value: string; label?: string }[],
+  pinValues?: (kind: string, pin: string) => { value: string; label?: string; type?: 'enum' | 'variable' }[],
 ) {
   return (ctx: CompletionContext): CompletionResult | null => {
-    // 枚举 pin 值位置: `Kind({Pin: ▮})` → 补该 pin 的 dropdown 候选值。
-    if (enumOptions) {
-      const ec = scriptEnumContext(ctx.state.doc.toString(), ctx.pos)
-      if (ec) {
-        const opts = enumOptions(ec.kind, ec.pin)
+    if (pinValues) {
+      const pv = scriptPinValueContext(ctx.state.doc.toString(), ctx.pos)
+      if (pv) {
+        const opts = pinValues(pv.kind, pv.pin)
         if (opts.length) {
           const inStr = ctx.matchBefore(/"[A-Za-z0-9_]*$/)
           return {
@@ -215,23 +212,12 @@ function scriptCompletionSource(
             validFor: /^[A-Za-z0-9_]*$/,
             options: opts.map((o) => ({
               label: o.value,
-              type: 'enum' as const,
+              type: o.type ?? 'enum',
               detail: o.label,
               // 串内: 只补值 (引号已在); 裸值位: 自带引号上屏。
               apply: inStr ? o.value : `"${o.value}"`,
             })),
           }
-        }
-      }
-    }
-    if (varNames) {
-      const varCtx = ctx.matchBefore(/vars\.(get|set|inc)\(\s*"[A-Za-z0-9_]*/)
-      if (varCtx) {
-        const quote = varCtx.text.lastIndexOf('"')
-        return {
-          from: varCtx.from + quote + 1,
-          validFor: /^[A-Za-z0-9_]*$/,
-          options: varNames().map((n) => ({ label: n, type: 'variable' as const })),
         }
       }
     }
@@ -247,10 +233,10 @@ function scriptCompletionSource(
 
 export function scriptEditorExtensions(opts: {
   completions: () => Completion[]
-  /** 容器变量名 — vars.get("…") 串内补全源 + $引用未声明提醒。 */
+  /** 容器变量名 — $引用未声明提醒 (lint)。 */
   varNames?: () => string[]
-  /** 枚举 pin 候选值: (kind, pin) → 选项; 用于 `Kind({Pin: ▮})` 值位置补全。缺省不补枚举。 */
-  enumOptions?: (kind: string, pin: string) => { value: string; label?: string }[]
+  /** pin 值候选: (kind, pin) → 选项; 用于 `Kind({Pin: ▮})` 值位置补全 (枚举值 / 变量名)。缺省不补。 */
+  pinValues?: (kind: string, pin: string) => { value: string; label?: string; type?: 'enum' | 'variable' }[]
   /** 悬停函数名的文档数据 (节点/糖函数), 缺省不出 hover。 */
   hoverDoc?: (word: string) => HoverDoc | null
   /** 函数签名查找 (节点/糖函数), 缺省不出 signature help。 */
@@ -271,7 +257,7 @@ export function scriptEditorExtensions(opts: {
       colors: { dark: '#404040', activeDark: '#6a6a6a', light: '#404040', activeLight: '#6a6a6a' },
     }),
     autocompletion({
-      override: [scriptCompletionSource(opts.completions, opts.varNames, opts.enumOptions)],
+      override: [scriptCompletionSource(opts.completions, opts.pinValues)],
     }),
     cmPlaceholder(opts.placeholder ?? ''),
     ...baseEditorExtensions(opts),

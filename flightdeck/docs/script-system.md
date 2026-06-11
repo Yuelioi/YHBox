@@ -34,13 +34,15 @@ last_updated: 2026-06-11
 - 实现走框架公开入口 `node.RunNode` / `node.EvaluatePureData` (自带 Required/Validate 门 + 正确 Spec 的子 ctx + recover); RunResult.Panic 原样 re-panic, 不许被脚本 catch。
 - 数字归一: goja Export 整数是 int64, 绑定层 `NormalizeJS` 递归转 float64 (Inputs coercion 只认 float64/json.Number/string)。
 
-## 糖函数 (仅四组, 高频到值得短名字)
+## 糖函数 (三组, 高频到值得短名字)
 
-`vars.get/set/inc(name, [scope])` (scope 缺省 "auto") · `params.get(name)` · `sleep(ms)` (可取消) · `log.debug/info/warn(...)`。变量读的是 **live 值** (Snapshot 不包, 脚本是 exec 语境)。
+`params.get(name)` · `sleep(ms)` (可取消) · `log.debug/info/warn(...)`。
+
+> **变量读写不走糖** (2026-06-11 用户拍板删 `vars.*`): 读用 `$hp` (live getter) 或 `GetVar({VarName})` 节点函数; 写/自增用 `SetVar`/`IncVar` 节点函数。理由: 节点函数已完整覆盖变量操作, `vars.*` 是第三套重叠 API (与 `$hp` + 节点形式), 冗余。VarName/Scope 等 pin 在值位置有补全 (见前端编辑器链路)。变量读的是 **live 值** (Snapshot 不包, 脚本是 exec 语境)。
 
 ## $变量引用 (2026-06-11)
 
-脚本里 `$hp` 等价 `vars.get("hp")` — Run 起跑时给每个已知变量注入 live accessor getter (`installVarGetters`, goja DefineAccessorProperty; 变量名枚举走可选能力接口 `varNamer.Names()`, 生产 varStoreAdapter/测试 stub 实现, **不进 node.VarStore 主接口**免测试 fake 陪绑)。访问时实时读 (脚本中途 set 后 `$hp` 是新值)。运行中动态新建的变量没有 getter (注入集起跑时固定) — 用 `vars.get`。引用未声明变量 → JS ReferenceError → Fail 出口 (JS 太动态, 不做静态查)。
+脚本里 `$hp` = 读容器变量 `hp` 的 live 值 — Run 起跑时给每个已知变量注入 live accessor getter (`installVarGetters`, goja DefineAccessorProperty; 变量名枚举走可选能力接口 `varNamer.Names()`, 生产 varStoreAdapter/测试 stub 实现, **不进 node.VarStore 主接口**免测试 fake 陪绑)。访问时实时读 (脚本中途 set 后 `$hp` 是新值)。运行中动态新建的变量没有 getter (注入集起跑时固定) — 用 `GetVar({VarName: "…"})`。引用未声明变量 → JS ReferenceError → Fail 出口 (JS 太动态, 不做静态查)。`$hp` 只读; 写变量走 `SetVar`/`IncVar` 节点函数。
 
 ## 取消
 
@@ -64,9 +66,9 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 - widget kind `code` → `PinInput.vue` 分支 → `CodeInput.vue` (CodeMirror 6 + `@codemirror/lang-javascript`, 骨架同 ExprInput) + 右上「放大编辑」按钮 → `EditorModal.vue` (Expr/Script 共用的语言无关壳, draft 语义确认才回写): 分组工具栏 (撤销重做 | 注释·查找替换暗色中文面板 | 片段下拉 if·for·while·try·调用方 `#toolbar-extra` 槽 | 右侧 整理缩进·全部折叠/展开) + 右侧可搜索参考面板 (节点按**画布同款分类分组配色** `nodeGroup.*`+`groupLabelColor` 圆点组头带计数, 行点击展开用法: description/参数表带 i18n label/example; 行尾按钮插入) + 状态栏 (语法状态 ✓/首错**可点击跳行** + 光标行列 + 行·字符数 + 语言标签) + header 全屏切换 (BaseModal `tall`/`contentClass`) + Ctrl+Enter 确认。**节点插入是 snippet 占位** (`Kind({Pin: ${Pin}})`, 非 advanced pin 铺开, Tab 逐格填值), 补全 Tab 上屏同模板; 参考面板与补全下拉共用插入项单源 (`scriptCompletions.ts` 的 `InsertItem.snippet/insert`)。
 - **外观/手感单源 `lib/editorTheme.ts`** (三处编辑器共用): VSCode Dark+ 成套主题 (全覆盖 HighlightStyle + chrome: 编辑面/当前行/选区/选中词同款/括号配对/gutter/补全 tooltip/查找面板 —— **chrome 底色已另由配色统一改读 `var(--ui-*)` app token, 不再是写死的 #1e1e1e**; **$变量 例外保持橙色徽标** `.cm-yh-dollar`) + `baseEditorExtensions({modal,minHeight})` 基础件 (自动配对/括号高亮/indentOnInput/Tab 缩进/选中词高亮/多选区 Mod-D/连字关闭; modal 档加行号/当前行/lint gutter — **不挂 `scrollPastEnd`**, 它给几行代码也垫一屏虚拟空白常驻滚动条)。字体 JetBrains Mono Variable 本地打包 (@fontsource-variable, style.css)。
 - **signature help + 类型色点** (`lib/editorSignature.ts`, editor-ux-v2 加): 光标落在调用括号内时浮层显示函数签名 + 高亮当前参数 (Script 走 lezer 语法树定位调用上下文, 区别于 Expr 的字符串扫描); 签名/info/hover 浮层里参数类型用色块标 (`.cm-yh-doc-param-type`, required 带 `*`)。与 hover 文档互补: hover=停在词上看, signature help=打字进括号跟参数。
-- **变量直达**: `vars.get("…")`/set/inc 第一参字符串里补容器变量名; 参考面板「变量」组置顶 (点击插 `vars.get("name")`); 工具栏右侧「新建变量」按钮复用 NewVarModal, 声明走 Inspector 的 `declare-var` 事件链 (PinInput → NodeInspector → useVarMutations.addVar), 建完顺手插一句 vars.get。
-- **枚举参数值补全** (`scriptEnumContext` in `lib/editorSignature.ts`): 光标落在 `Kind({Pin: ▮})` 的 pin 值位 (lezer 树 Property→ObjectExpression→ArgList→CallExpression 定位) 且该 pin 是 dropdown → 补全弹候选值 (GetVar 的 Scope → auto/local/global); 串内补裸值、裸位补带引号。通用机制读 `widget.props.options`, 不写死 kind。签名/hover/参考面板的参数行同时列可选集 (`HoverDoc.params.options` / `.cm-yh-doc-param-enum`)。**仅 Script** (Expr 函数无 pin/widget 概念)。
-- 补全 = 节点函数 (registry store 的 Spec 推导签名, `frontend/src/lib/scriptCompletions.ts`) + 四组糖 + 本节点动态输入名。**快速反馈 lint** (`scriptSyntaxErrors` lezer error 节点按行去重 + `scriptDollarRefs` 未声明 `$名` warning, 纯函数可单测) + **悬停文档** (`lib/editorHover.ts` 通用浮层, 节点/糖/Expr 函数共用) — 权威仍是后端 validator (SCRIPT_PARSE_ERROR), 同 Expr 先例。$变量徽标装饰走语法树 (字符串/注释不命中)。
+- **pin 值位置补全** (`scriptPinValueContext` in `lib/editorSignature.ts`): 光标落在 `Kind({Pin: ▮})` 的 pin 值位 (lezer 树 Property→ObjectExpression→ArgList→CallExpression 定位), 按 pin 给候选 — **枚举 pin** (dropdown, 读 `widget.props.options`) → 候选值 (GetVar 的 Scope → auto/local/global, 同时在签名/hover/参考面板参数行列出, `HoverDoc.params.options` / `.cm-yh-doc-param-enum`); **varname pin** (`Semantic:"varname"`, 如 GetVar/SetVar/IncVar/VarLastChange 的 VarName) → 容器变量名。串内补裸值、裸位补带引号。通用机制不写死 kind。**仅 Script** (Expr 函数无 pin/widget 概念)。
+- **变量直达**: `$名` 补全列容器变量名 (读); `GetVar/SetVar({VarName: "▮"})` 的 VarName 值位也补变量名 (见上); 参考面板「变量」组置顶 (点击插 `$name`); 工具栏右侧「新建变量」按钮复用 NewVarModal, 声明走 Inspector 的 `declare-var` 事件链 (PinInput → NodeInspector → useVarMutations.addVar), 建完顺手插一句 `$name`。
+- 补全 = 节点函数 (registry store 的 Spec 推导签名, `frontend/src/lib/scriptCompletions.ts`) + 三组糖 (params.get/sleep/log) + 本节点动态输入名。**快速反馈 lint** (`scriptSyntaxErrors` lezer error 节点按行去重 + `scriptDollarRefs` 未声明 `$名` warning, 纯函数可单测) + **悬停文档** (`lib/editorHover.ts` 通用浮层, 节点/糖/Expr 函数共用) — 权威仍是后端 validator (SCRIPT_PARSE_ERROR), 同 Expr 先例。$变量徽标装饰走语法树 (字符串/注释不命中)。
 - 画布内联框排除 code widget (8 行代码只在 Inspector/modal 编辑)。
 
 ## 加新节点时脚本侧要做什么
@@ -76,5 +78,6 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 ## 设计取舍记录 (简)
 
 - 语言选 JS/goja 而非 Lua/starlark: 纯 Go + Interrupt 可打断 + 语法与 expr 同体系 + CodeMirror 官方包 + 默认无 IO (沙箱)。
-- 绑定走「节点即函数自动绑定」而非手写精选 API (用户 2026-06-10 拍板): 零维护、覆盖面随注册表增长; 高频操作用糖弥补人体工学。
+- 绑定走「节点即函数自动绑定」而非手写精选 API (用户 2026-06-10 拍板): 零维护、覆盖面随注册表增长; 没有节点替身或 `$` 捷径的高频项用糖弥补人体工学 (现仅 params.get/sleep/log)。
+- **删 `vars.*` 糖 (2026-06-11 用户拍板)**: 变量在脚本里曾有三套写法 — `$hp`(读) / `vars.get/set/inc` / `GetVar/SetVar/IncVar` 节点函数。节点函数已完整覆盖且 VarName/Scope pin 值位有补全, `vars.*` 是冗余的第三套, 删之 (单源 `SUGAR_ITEMS`, 连带清死 i18n `script.fn.vars_*`)。读用 `$hp`/GetVar, 写用 SetVar/IncVar。
 - 编辑器自动建 GetVar / 恢复 $vars 语法等方案的淘汰理由见变量系统议题 (cockpit 在册)。

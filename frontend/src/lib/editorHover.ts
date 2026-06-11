@@ -9,7 +9,7 @@ export interface HoverDoc {
 }
 
 /** hoverTooltip 的 source: 光标下提词 → lookup → 浮层。
-    链式名先整体查 (vars.get), 不中再查首段 (FindTemplate)。 */
+    链式名先整体查 (log.info), 不中再查首段 (FindTemplate)。 */
 export function fnHoverTooltip(lookup: (word: string) => HoverDoc | null) {
   return (view: EditorView, pos: number): Tooltip | null => {
     const line = view.state.doc.lineAt(pos)
