@@ -96,7 +96,13 @@ style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (
 
 调 NuxtUI 组件加 width / 样式 → `class="w-24"`, **不是** `:ui="{ base: 'w-24' }"`. 后者会把 base slot 默认那一长串 (`bg-default text-default ring-default ...`) 清空, 只剩 `w-24`, 背景变裸 HTML 白色. 踩过 Step editor 输入框白底的坑.
 
-### 验证脚本
+### 反馈方式: 成功内联在触发点, toast 只留错误/后台事件
+
+用户明确不喜欢成功类 toast (顶上弹出干扰视线、和操作点割裂)。约定:
+
+- **成功反馈**放在触发点上: 按钮短暂变「已保存 ✓」(success soft, ~1.6s 恢复, 参 ContainerEditorToolbar 保存按钮 + useEditorSave.saveFlash)、行内打勾、状态条变化。**新代码不加成功 toast**。
+- **toast 只留两类**: 错误 (invoke 自动错误 toast 保留); 没有明确触发点的后台/跨窗口事件 (热键触发运行、录制落盘完成这类)。
+- 存量成功 toast (撒在 ~26 文件) 逐步迁: 碰到哪个文件顺手迁哪个, 用户点名的优先。
 
 写完新 view 前跑:
 

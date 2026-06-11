@@ -13,7 +13,7 @@
 
 **配色统一已落地** (2026-06-11, 真机观感待验 — verify 在 archive spec): 全 app 只剩两类色源 — chrome 一律 NuxtUI semantic token (编辑器 chrome 也改读 `--ui-*` 变量, 语法高亮仍 VSCode Dark+), 功能识别色一律集中调色板 (visualRegistry PALETTE / TYPE_COLOR / logFormat TAG / 日志流)。新增 `bg-sunken` 凹陷档 (style.css); warning 在 vite.config 钉死 amber; 死组件 NodeCard 已删。铁律进 [checklists/ui.md](checklists/ui.md)。
 
-**之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
+**之后候选**(无紧迫): 存量成功 toast 内联化迁移 (~26 文件, 方针在 [ui.md](checklists/ui.md)「反馈方式」节, 样板=编辑器保存按钮; 碰到顺手迁/用户点名优先); 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
 **表达式系列全部收口**(已真机确认): 变量引用最终形态 = **`$hp` 语法**; EditorModal 统一壳承载 Expr/Script 放大编辑 (本批起默认全屏)。
 
