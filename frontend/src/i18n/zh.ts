@@ -2380,14 +2380,16 @@ export default {
   },
   // SubgraphPropsPanel.
   subgraphProps: {
+    no_selection: '未选中子图',
     name: '名称',
     description: '描述',
-    tags: '标签',
-    add_tag: '添加标签...',
-    inputs: '输入',
-    outputs: '出口',
-    name_placeholder: '子图名',
-    reset_recording: '重置录制元数据',
+    outputs_count: '{n} 个出口',
+    click_to_copy: '点击复制 — ',
+    recording_meta: '录制元数据',
+    reset_recording_tip: '重置录制元数据',
+    source_counts360: '源 360° counts',
+    source_resolution: '录制分辨率',
+    recorded_at: '录制于 {time}',
   },
   // execution store (运行时错误).
   execution: {
