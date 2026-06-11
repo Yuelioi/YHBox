@@ -4,8 +4,9 @@ import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
-import { subgraphToScript, type UnsupportedItem } from '@/lib/subgraphToScript'
-import type { Container, GraphNode, Subgraph } from '@/lib/backend'
+import { useContainerEditorStore } from '@/stores/containerEditor'
+import { subgraphToScript, type SubgraphLike, type UnsupportedItem } from '@/lib/subgraphToScript'
+import type { Container, GraphNode } from '@/lib/backend'
 
 type ToastApi = { add: (opts: { title: string; description?: string; color?: string }) => void }
 
@@ -32,10 +33,16 @@ export interface ToScriptState {
 export function useSubgraphToScript(opts: UseSubgraphToScriptOpts) {
   const { t } = useI18n()
   const registry = useNodeRegistryStore()
+  const editorStore = useContainerEditorStore()
   const state = ref<ToScriptState>({ open: false, sgLabel: '', code: '', unsupported: [], insertPos: null })
 
-  function convert(sg: Subgraph, insertPos: { x: number; y: number } | null) {
-    const subgraphsById = new Map((opts.draft.value?.subgraphs ?? []).map((s) => [s.id, s]))
+  // 子图完整数据(含 graph)只活在 editorStore 的本容器 slot — 后端 container.json 不持久化
+  // subgraphs(json:"-"), draft.value.subgraphs 恒 undefined, 别从那取。
+  const subgraphs = (): SubgraphLike[] =>
+    opts.draft.value ? editorStore.subgraphsFor(opts.draft.value.id) : []
+
+  function convert(sg: SubgraphLike, insertPos: { x: number; y: number } | null) {
+    const subgraphsById = new Map(subgraphs().map((s) => [s.id, s]))
     const res = subgraphToScript(sg, {
       specFor: getSpec,
       bindable: new Set(registry.scriptBindableKinds),
@@ -46,10 +53,10 @@ export function useSubgraphToScript(opts: UseSubgraphToScriptOpts) {
       : { open: true, sgLabel: sg.label, code: '', unsupported: res.unsupported, insertPos: null }
   }
 
-  // 节点右键入口: callee 从 draft 找, 插入位 = 被转节点旁。
+  // 节点右键入口: callee 从本容器 slot 找, 插入位 = 被转节点旁。
   function convertFromNode(node: GraphNode) {
     const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
-    const sg = opts.draft.value?.subgraphs?.find((s) => s.id === sgID)
+    const sg = subgraphs().find((s) => s.id === sgID)
     if (!sg) {
       opts.toast.add({ title: t('toast.subgraph_not_set'), color: 'warning' })
       return

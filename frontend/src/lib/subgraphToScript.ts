@@ -3,7 +3,7 @@
 // 调用, 出口 decl ID→Name) / GetParam(→params.get)。任何不支持结构整体拒转 — 攒全清单
 // 返回, 不出半对的代码。
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
-import type { GraphEdge, GraphNode, Subgraph } from '@/lib/backend'
+import type { GraphEdge, GraphNode } from '@/lib/backend'
 
 export interface UnsupportedItem {
   nodeID: string
@@ -11,10 +11,20 @@ export interface UnsupportedItem {
   reason: string // i18n key: subgraphScript.reason.*
 }
 
+// 转换器只需子图这几个结构字段; 用结构类型让前端 SubgraphSummary(editorStore 里的完整
+// 子图载体)与后端 Subgraph 都能直接喂进来, 不必关心 createdAt 等无关字段。
+export interface SubgraphLike {
+  id: string
+  label: string
+  graph: { nodes: GraphNode[]; edges: GraphEdge[] }
+  entry: { nodeID: string }
+  outputPins: { id: string; name: string; nodeID?: string }[]
+}
+
 export interface ConvertCtx {
   specFor: (kind: string) => NodeKindSpec | undefined
   bindable: ReadonlySet<string>
-  subgraphsById: ReadonlyMap<string, Subgraph>
+  subgraphsById: ReadonlyMap<string, SubgraphLike>
 }
 
 export type ConvertResult = { ok: true; code: string } | { ok: false; unsupported: UnsupportedItem[] }
@@ -40,7 +50,7 @@ function subgraphIDOf(n: GraphNode): string {
   return String(cfg.SubgraphID ?? lit.SubgraphID ?? '')
 }
 
-export function subgraphToScript(sg: Subgraph, ctx: ConvertCtx): ConvertResult {
+export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResult {
   const problems: UnsupportedItem[] = []
   const bad = (n: GraphNode, key: string) => {
     if (!problems.some((p) => p.nodeID === n.id && p.reason === R(key)))

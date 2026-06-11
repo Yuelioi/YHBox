@@ -690,11 +690,9 @@ const {
   insert: insertConvertedScript,
 } = useSubgraphToScript({ draft, addNode, toast })
 
-// 面板入口转的是「当前正在编辑的子图」— summary 只有摘要, 完整图从 draft 取。
+// 面板入口转的是「当前正在编辑的子图」— currentSubgraph 已是含完整 graph 的子图对象。
 function onSubgraphPanelToScript() {
-  const id = currentSubgraph.value?.id
-  const sg = draft.value?.subgraphs?.find((s) => s.id === id)
-  if (sg) convertSubgraphToScript(sg, null)
+  if (currentSubgraph.value) convertSubgraphToScript(currentSubgraph.value, null)
 }
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
