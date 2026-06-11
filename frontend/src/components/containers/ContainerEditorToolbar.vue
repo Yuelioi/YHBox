@@ -96,8 +96,11 @@
              :disabled="dirty || execStoreRunning"
              :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : execStoreRunning ? t('editor.toolbar.try_run_busy_tip') : t('editor.toolbar.try_run_tip')"
              @click="$emit('try-run')">{{ t('editor.toolbar.try_run') }}</UButton>
-    <UButton size="sm" color="primary" icon="i-tabler-check" :disabled="!dirty"
-             @click="$emit('save')">{{ t('editor.toolbar.save') }}</UButton>
+    <!-- 保存成功反馈内联在按钮上 (闪「已保存」), 不弹 toast -->
+    <UButton size="sm" :color="saveFlash ? 'success' : 'primary'" :variant="saveFlash ? 'soft' : 'solid'"
+             icon="i-tabler-check" :disabled="!dirty && !saveFlash"
+             @click="dirty && $emit('save')">
+      {{ saveFlash ? t('editor.toolbar.saved') : t('editor.toolbar.save') }}</UButton>
 
     <div class="w-px h-5 bg-default mx-1" />
 
@@ -137,6 +140,8 @@ const props = defineProps<{
   runningNodeKind: string | undefined
   runningNodeLabel: string
   dirty: boolean
+  /** 保存成功后的短暂窗口 — 保存按钮闪「已保存」(成功反馈内联, 不弹 toast)。 */
+  saveFlash?: boolean
   canUndo?: boolean
   canRedo?: boolean
   snapEnabled?: boolean

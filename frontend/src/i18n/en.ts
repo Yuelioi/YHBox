@@ -258,6 +258,7 @@
       try_run_busy_tip: 'A task is already running — stop first',
       open_new_window: 'Open in new window',
       save: 'Save',
+      saved: 'Saved',
       reload: 'Reload',
       reload_tip: 'Reload this container from disk (sync after MCP / external changes)',
       open_settings: 'Container settings (Ctrl+,)',

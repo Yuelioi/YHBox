@@ -78,28 +78,6 @@ textarea {
   }
 }
 
-/* ── 轻量 input/select：动作编辑器 step 行用，绕开 NuxtUI 重组件
-   长列表渲染开销（UInputNumber/USelect 内部 ~10 个子组件，97 步 ×3 输入会卡）。
-   用 NuxtUI semantic token 保持视觉一致。 */
-.input-flat {
-  background-color: var(--ui-bg);
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
-  padding: 4px 6px;
-  color: var(--ui-text);
-  font-size: 0.75rem;
-  line-height: 1.2;
-  outline: none;
-  font-variant-numeric: tabular-nums;
-}
-.input-flat:hover {
-  border-color: var(--ui-border-accented);
-}
-.input-flat:focus {
-  border-color: var(--ui-color-primary-500);
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ui-color-primary-500) 25%, transparent);
-}
-
 /* ── Compact toast: 顶部居中 / 暗色 + border / 无倒计时进度条 / 紧凑（Plan B Task A.5）── */
 /* NuxtUI v4 UToast 渲染在 [data-sonner-toaster] 容器 */
 [data-sonner-toaster] [data-sonner-toast] {

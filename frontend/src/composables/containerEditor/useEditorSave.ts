@@ -1,7 +1,7 @@
 // useEditorSave onSave。onSaveAndClose 留在 view（依赖 view-local close 状态）。
 // 不在保存路径做孤儿子图 GC —— 删子图只在用户显式删 Subgraph 节点时由 deleteSubgraphCascade 联动，
 // 否则自动保存撞上「store 快照落后于编辑真相」会误删仍被引用的子图 (录制雪崩根因)。
-import type { Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend, type Container } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
@@ -15,6 +15,10 @@ export function useEditorSave(opts: {
   const { draft, dirty, toast } = opts
   const editorStore = useContainerEditorStore()
   const { t } = useI18n()
+
+  // 保存成功的内联反馈窗口 (工具栏按钮闪「已保存」) — 成功不弹 toast, 反馈在触发点。
+  const saveFlash = ref(false)
+  let flashTimer = 0
 
   async function onSave(): Promise<boolean> {
     if (!draft.value) return false
@@ -49,10 +53,12 @@ export function useEditorSave(opts: {
       return false
     }
 
-    toast.add({ title: t('toast.saved'), color: 'success', icon: 'i-tabler-check' })
     dirty.value = false
+    saveFlash.value = true
+    window.clearTimeout(flashTimer)
+    flashTimer = window.setTimeout(() => { saveFlash.value = false }, 1600)
     return true
   }
 
-  return { onSave }
+  return { onSave, saveFlash }
 }

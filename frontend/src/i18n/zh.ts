@@ -272,6 +272,7 @@ export default {
       try_run_busy_tip: '已有任务在跑，先停',
       open_new_window: '在新窗口打开',
       save: '保存',
+      saved: '已保存',
       reload: '重载',
       reload_tip: '从磁盘重载这个容器（MCP / 外部改动后同步）',
       open_settings: '容器设置 (Ctrl+,)',
