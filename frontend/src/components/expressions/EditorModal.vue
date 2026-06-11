@@ -91,9 +91,15 @@
       </div>
 
       <Transition name="ref-drawer">
-      <aside v-if="reference?.length && refDrawerOpen" class="w-80 shrink-0 flex flex-col gap-2 min-h-0">
+      <aside
+        v-if="reference?.length && refDrawerOpen"
+        class="w-80 shrink-0 flex flex-col gap-2 min-h-0 border-l border-default pl-3"
+      >
         <div class="flex items-center justify-between shrink-0">
-          <span class="text-[11px] font-medium text-muted">{{ t('inspector.editor_ref_toggle') }}</span>
+          <span class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+            <UIcon name="i-tabler-book" class="size-3.5" />
+            {{ t('inspector.editor_ref_toggle') }}
+          </span>
           <UButton icon="i-tabler-x" variant="ghost" color="neutral" size="xs" @click="refDrawerOpen = false" />
         </div>
         <UInput
@@ -107,28 +113,37 @@
           <template v-for="group in filteredGroups" :key="group.name">
             <div
               v-if="group.name"
-              class="flex items-center gap-1.5 text-[11px] font-medium px-1 pt-3 pb-1 first:pt-0.5 sticky top-0 bg-default z-10"
+              class="flex items-center gap-1.5 px-1 pt-4 pb-1.5 first:pt-1 sticky top-0 bg-default z-10"
               :class="group.cls || 'text-muted'"
             >
               <span class="size-1.5 rounded-full bg-current shrink-0" />
-              <span class="text-toned">{{ group.name }}</span>
-              <span class="ml-auto font-normal text-dimmed">{{ group.items.length }}</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-toned">{{ group.name }}</span>
+              <span class="h-px flex-1 bg-accented/60 ml-1" />
+              <span class="text-[10px] font-normal text-dimmed tabular-nums">{{ group.items.length }}</span>
             </div>
             <div
               v-for="it in group.items"
               :key="it.label"
               class="rounded-md"
-              :class="isExpanded(it) ? 'bg-elevated/50 border border-default my-0.5' : ''"
+              :class="isExpanded(it) ? 'bg-elevated/50 ring-1 ring-default my-1' : ''"
             >
               <div class="flex items-center group/row">
                 <button
                   type="button"
-                  class="flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-md hover:bg-elevated/80 focus:bg-elevated/80 focus:outline-none"
+                  class="flex-1 min-w-0 text-left px-2 py-1.5 rounded-md hover:bg-elevated/60 focus:bg-elevated/60 focus:outline-none"
                   @click="onRowClick(it)"
                 >
-                  <div class="text-[12px] font-mono text-highlighted truncate">{{ it.detail ?? it.label }}</div>
-                  <div v-if="it.desc" class="text-[11px] text-muted truncate">{{ it.desc }}</div>
+                  <div class="text-[12px] font-mono truncate leading-snug">
+                    <span class="text-highlighted">{{ sigName(it) }}</span><span class="text-dimmed">{{ sigArgs(it) }}</span>
+                  </div>
+                  <div v-if="it.desc" class="text-[11px] text-muted truncate mt-0.5">{{ it.desc }}</div>
                 </button>
+                <UIcon
+                  v-if="expandable(it)"
+                  name="i-tabler-chevron-right"
+                  class="size-3 shrink-0 text-dimmed transition-transform duration-150 mr-0.5"
+                  :class="isExpanded(it) ? 'rotate-90' : ''"
+                />
                 <UButton
                   icon="i-tabler-corner-down-left"
                   variant="ghost"
@@ -139,27 +154,35 @@
                   @click="insertItem(it)"
                 />
               </div>
-              <div v-if="isExpanded(it)" class="px-2.5 pb-2 space-y-1.5">
+              <div v-if="isExpanded(it)" class="mx-2 pb-2 pt-1.5 space-y-1.5 border-t border-default/60">
                 <p v-if="it.docs" class="text-[11px] text-toned leading-snug whitespace-pre-line">{{ it.docs }}</p>
                 <div v-if="it.params?.length" class="space-y-0.5">
-                  <div class="text-[10px] text-muted">{{ t('inspector.editor_params') }}</div>
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">{{ t('inspector.editor_params') }}</div>
                   <div
                     v-for="p in it.params"
                     :key="p.name"
                     class="flex items-baseline gap-2 text-[11px] leading-snug"
                   >
                     <span class="font-mono text-highlighted shrink-0">{{ p.name }}</span>
-                    <span class="font-mono text-[10px] text-dimmed shrink-0">{{ p.type }}{{ p.required ? ' *' : '' }}</span>
+                    <span class="font-mono text-[10px] text-info/80 shrink-0">{{ p.type }}<span v-if="p.required" class="text-error">*</span></span>
                     <span class="text-muted truncate">{{ p.label }}</span>
                   </div>
                 </div>
                 <p v-if="it.example" class="text-[10px] text-dimmed leading-snug italic whitespace-pre-line">{{ it.example }}</p>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  color="primary"
+                  icon="i-tabler-corner-down-left"
+                  @click="insertItem(it)"
+                >{{ t('inspector.editor_insert') }}</UButton>
               </div>
             </div>
           </template>
-          <p v-if="!filteredGroups.length" class="text-[11px] text-muted px-1 py-2">
-            {{ t('inspector.editor_ref_empty') }}
-          </p>
+          <div v-if="!filteredGroups.length" class="flex flex-col items-center gap-1.5 py-8 text-muted">
+            <UIcon name="i-tabler-search-off" class="size-5 opacity-60" />
+            <p class="text-[11px]">{{ t('inspector.editor_ref_empty') }}</p>
+          </div>
         </div>
       </aside>
       </Transition>
@@ -280,6 +303,18 @@ const filteredGroups = computed<{ name: string; cls?: string; items: RefItem[] }
   }
   return groups
 })
+
+// 签名拆两段渲染: 函数名亮色, '(' 起的参数串暗色 — 长签名截断时名字仍可扫读。
+function sigName(it: RefItem): string {
+  const s = it.detail ?? it.label
+  const i = s.indexOf('(')
+  return i === -1 ? s : s.slice(0, i)
+}
+function sigArgs(it: RefItem): string {
+  const s = it.detail ?? it.label
+  const i = s.indexOf('(')
+  return i === -1 ? '' : s.slice(i)
+}
 
 function refKey(it: RefItem): string {
   return `${it.group ?? ''}/${it.label}`
