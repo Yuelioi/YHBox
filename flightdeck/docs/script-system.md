@@ -92,5 +92,5 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 
 - 语言选 JS/goja 而非 Lua/starlark: 纯 Go + Interrupt 可打断 + 语法与 expr 同体系 + CodeMirror 官方包 + 默认无 IO (沙箱)。
 - 绑定走「节点即函数自动绑定」而非手写精选 API (用户 2026-06-10 拍板): 零维护、覆盖面随注册表增长; 没有节点替身或 `$` 捷径的高频项用糖弥补人体工学 (现仅 params.get/sleep/log)。
-- **删 `vars.*` 糖 (2026-06-11 用户拍板)**: 变量在脚本里曾有三套写法 — `$hp`(读) / `vars.get/set/inc` / `GetVar/SetVar/IncVar` 节点函数。节点函数已完整覆盖且 VarName/Scope pin 值位有补全, `vars.*` 是冗余的第三套, 删之 (单源 `SUGAR_ITEMS`, 连带清死 i18n `script.fn.vars_*`)。读用 `$hp`/GetVar, 写用 SetVar/IncVar。
+- **删 `vars.*` 糖 (2026-06-11 用户拍板)**: 变量在脚本里曾有三套写法 — `$hp`(读) / `vars.get/set/inc` / `GetVar/SetVar/IncVar` 节点函数。节点函数已完整覆盖且 VarName/Scope pin 值位有补全, `vars.*` 是冗余的第三套, 删之 (单源 `SUGAR_ITEMS`, 连带清死 i18n `script.fn.vars_*`)。读用 `$hp`/GetVar, 写用 SetVar/IncVar。2026-06-12 复查发现后端 `binding.go` 的 vars 对象当时漏删, 用户拍板补删干净 (含 `scopeArg` 死 helper; 有 ReferenceError 回归测试钉死)。
 - 编辑器自动建 GetVar / 恢复 $vars 语法等方案的淘汰理由见变量系统议题 (cockpit 在册)。

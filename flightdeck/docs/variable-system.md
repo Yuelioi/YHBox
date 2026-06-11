@@ -10,7 +10,7 @@ last_updated: 2026-06-11
 
 ## 一句话
 
-变量 = **容器级的命名值存储**。用户在容器上声明若干变量（`VarDecl`），运行时由 `VarStore` 服务读写；节点（GetVar/SetVar/IncVar/VarLastChange/捕获框）、表达式（`$hp`）、脚本（`vars.get` / `$hp`）三条路都走同一个 `VarStore`。源码：声明结构 `internal/services/container/model.go`、运行时存储+读写 `internal/services/container/runtime/`、变量节点 `internal/nodes/variable/`。
+变量 = **容器级的命名值存储**。用户在容器上声明若干变量（`VarDecl`），运行时由 `VarStore` 服务读写；节点（GetVar/SetVar/IncVar/VarLastChange/捕获框）、表达式（`$hp`）、脚本（`$hp` / GetVar·SetVar 节点函数）三条路都走同一个 `VarStore`。源码：声明结构 `internal/services/container/model.go`、运行时存储+读写 `internal/services/container/runtime/`、变量节点 `internal/nodes/variable/`。
 
 配套：表达式里怎么用 `$` → [expression-system.md](expression-system.md)；脚本里怎么用 → [script-system.md](script-system.md)；变量节点的 pin 全表跑 `task nodes`。
 
@@ -118,7 +118,7 @@ GetVar/SetVar/IncVar 的 `VarName` / `Scope` 存在节点 config 里：
 ## 6. 表达式 / 脚本里的变量（连接点）
 
 - **Expr**：`$名字` 直读容器变量，固定 **auto** scope，快照语义同 GetVar（lexer `tkVarRef` → eval 走 `env.Get("$"+name)` 前缀通道）。细节 [expression-system.md](expression-system.md)。
-- **Script**：`$名字` 是 **live getter**（起跑时给每个已知变量注入 accessor，中途 set 后再读是新值）；动态新建的变量没 getter，用 `vars.get(name,[scope])`。细节 [script-system.md](script-system.md)。
+- **Script**：`$名字` 是 **live getter**（起跑时给每个已知变量注入 accessor，中途 set 后再读是新值）；动态新建的变量没 getter，用 `GetVar({VarName})` 节点函数读。细节 [script-system.md](script-system.md)。
 
 ## 7. List 变量类型 — 消费点审计（2026-06-10 落地）
 
