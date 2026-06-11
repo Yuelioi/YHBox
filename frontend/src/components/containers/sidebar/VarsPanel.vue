@@ -12,7 +12,7 @@
       <span class="text-[10px] text-dimmed">{{ vars.length }} vars · {{ usageCount }} refs</span>
       <button
         type="button"
-        class="text-emerald-400 hover:text-emerald-300 px-1 text-base leading-none"
+        class="text-primary hover:text-primary/80 px-1 text-base leading-none"
         :title="t('var.add')"
         @click.stop="$emit('add-var')"
       >+</button>

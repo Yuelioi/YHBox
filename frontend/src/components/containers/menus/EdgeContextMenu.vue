@@ -67,7 +67,7 @@ const items = computed(() => [
     label: t('editor.menu.edge.delete'),
     icon: 'i-tabler-trash',
     shortcut: 'Del',
-    colorClass: 'text-rose-400',
+    colorClass: 'text-error',
   },
 ])
 

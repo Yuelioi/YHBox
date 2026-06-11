@@ -80,7 +80,7 @@
         <!-- 图区视口 -->
         <div
           ref="viewportEl"
-          class="flex-1 min-h-0 relative overflow-hidden bg-zinc-900"
+          class="flex-1 min-h-0 relative overflow-hidden bg-default"
           :class="viewport.panning.value ? 'cursor-grabbing' : viewport.spaceHeld.value ? 'cursor-grab' : 'cursor-crosshair'"
           @wheel="viewport.onWheel"
           @pointerdown="onViewportPointerDown"
@@ -98,10 +98,10 @@
           </div>
 
           <template v-else>
-            <!-- color mode 提取中遮罩 (叠在图上方) -->
+            <!-- color mode 提取中遮罩 (叠在截图上, scrim — ui.md 在册例外) -->
             <div
               v-if="extracting"
-              class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white text-sm gap-2 z-20"
+              class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-highlighted text-sm gap-2 z-20"
             >
               <UIcon name="i-tabler-loader-2" class="size-8 animate-spin" />
               <p>正在提取颜色范围...</p>
@@ -133,7 +133,7 @@
                 />
               </template>
 
-              <!-- rect: 四块遮罩 + 高亮框 -->
+              <!-- rect: 四块遮罩 + 高亮框 (截图上的取景 scrim — ui.md 在册例外) -->
               <template v-if="rectScreen">
                 <div
                   class="absolute inset-x-0 top-0 bg-black/55"

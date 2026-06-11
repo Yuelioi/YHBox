@@ -21,7 +21,7 @@
       <h3 class="text-xs font-medium truncate text-toned">
         {{ draft?.name ?? t('editor.header.loading') }}
       </h3>
-      <span v-if="dirty" class="text-[10px] text-amber-300/80 shrink-0">{{ t('editor.header.dirty_dot') }}</span>
+      <span v-if="dirty" class="text-[10px] text-warning/80 shrink-0">{{ t('editor.header.dirty_dot') }}</span>
 
       <div class="flex-1" />
 
@@ -258,6 +258,7 @@
             @node-drag="onSnapNodeDrag"
             @node-drag-stop="onSnapNodeDragStop"
           >
+            <!-- 网点/minimap mask/stroke = 画布景深专用色 (有意非 token), 与 .canvas-bg 渐变同族 -->
             <Background pattern-color="#3a3a4d" :gap="22" :size="1.2" />
             <Controls position="bottom-left" />
             <MiniMap
@@ -924,28 +925,16 @@ function onDeclareVar(a: { name: string; type: VarType; default: unknown }) {
 // recording 状态 — 三态在 toolbar 内部判断 (isRecording / countdownSec / idle); 这里只暴露
 // recordStore.isRecording 给 RecordingOverlay (countdownSec 通过 useRecording 返回).
 
-// Minimap 节点颜色 — 按 kind 取调色板里的 border 色（深色基调）
+// Minimap 节点颜色 — 按 kind 取调色板 border 色对应的 hex (border class 都派生自 PALETTE, 反查即得)
 import { KIND_VISUAL } from '@/components/containers/pinSpec'
+import { PALETTE } from '@/components/containers/visualRegistry'
+const BORDER_CLASS_HEX: Record<string, string> = Object.fromEntries(
+  Object.values(PALETTE).map((p) => [p.border, p.hex]),
+)
 function miniNodeColor(node: any): string {
   const k = node?.data?.kind ?? ''
   const v = KIND_VISUAL[k]
-  // 取 border-class 转 hex（粗略映射）
-  const map: Record<string, string> = {
-    'border-emerald-500/40': '#10b981',
-    'border-zinc-500/40': '#71717a',
-    'border-blue-500/40': '#3b82f6',
-    'border-rose-500/40': '#f43f5e',
-    'border-amber-500/40': '#f59e0b',
-    'border-violet-500/40': '#8b5cf6',
-    'border-fuchsia-500/40': '#d946ef',
-    'border-orange-500/40': '#f97316',
-    'border-pink-500/40': '#ec4899',
-    'border-slate-500/40': '#64748b',
-    'border-sky-500/40': '#0ea5e9',
-    'border-yellow-500/40': '#eab308',
-    'border-cyan-500/40': '#06b6d4',
-  }
-  return map[v?.border ?? ''] ?? '#52525b'
+  return BORDER_CLASS_HEX[v?.border ?? ''] ?? PALETTE.zinc.hex
 }
 
 
@@ -1392,8 +1381,8 @@ async function onSaveAndClose() {
 :deep(.vue-flow__controls) {
   display: flex;
   flex-direction: column;
-  background: rgba(24, 24, 27, 0.85); /* zinc-900/85 */
-  border: 1px solid rgba(63, 63, 70, 0.8); /* zinc-700 */
+  background: color-mix(in oklab, var(--ui-bg) 85%, transparent);
+  border: 1px solid color-mix(in oklab, var(--ui-border-accented) 80%, transparent);
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
@@ -1401,8 +1390,8 @@ async function onSaveAndClose() {
 :deep(.vue-flow__controls-button) {
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(63, 63, 70, 0.6);
-  color: #d4d4d8; /* zinc-300 */
+  border-bottom: 1px solid color-mix(in oklab, var(--ui-border-accented) 60%, transparent);
+  color: var(--ui-text-toned);
   width: 26px;
   height: 26px;
   fill: currentColor;
@@ -1411,8 +1400,8 @@ async function onSaveAndClose() {
   border-bottom: none;
 }
 :deep(.vue-flow__controls-button:hover) {
-  background: rgba(63, 63, 70, 0.6);
-  color: #f4f4f5;
+  background: color-mix(in oklab, var(--ui-bg-accented) 60%, transparent);
+  color: var(--ui-text-highlighted);
 }
 :deep(.vue-flow__controls-button svg) {
   fill: currentColor;
@@ -1422,19 +1411,19 @@ async function onSaveAndClose() {
 
 /* ---- MiniMap (右下角) 深色 ---- */
 :deep(.vue-flow__minimap) {
-  background: rgba(24, 24, 27, 0.85);
-  border: 1px solid rgba(63, 63, 70, 0.8);
+  background: color-mix(in oklab, var(--ui-bg) 85%, transparent);
+  border: 1px solid color-mix(in oklab, var(--ui-border-accented) 80%, transparent);
   border-radius: 6px;
   overflow: hidden;
 }
 :deep(.vue-flow__minimap-mask) {
-  fill: rgba(9, 9, 11, 0.55);
+  fill: rgba(9, 9, 11, 0.55); /* 画布景深专用 (有意非 token), 与 .canvas-bg 渐变同族 */
 }
 
 /* ---- Attribution 左下角 "Vue Flow" 水印淡化 ---- */
 :deep(.vue-flow__attribution) {
   background: transparent;
-  color: rgba(161, 161, 170, 0.5);
+  color: color-mix(in oklab, var(--ui-text-muted) 50%, transparent);
   font-size: 9px;
 }
 
@@ -1445,8 +1434,8 @@ async function onSaveAndClose() {
 :deep(.vue-flow__edge.selected .vue-flow__edge-path),
 :deep(.vue-flow__edge:focus .vue-flow__edge-path),
 :deep(.vue-flow__edge:focus-visible .vue-flow__edge-path) {
-  stroke: var(--ui-primary, #6366f1) !important;
+  stroke: var(--ui-primary) !important;
   stroke-dasharray: none !important;
-  filter: drop-shadow(0 0 5px var(--ui-primary, #6366f1));
+  filter: drop-shadow(0 0 5px var(--ui-primary));
 }
 </style>

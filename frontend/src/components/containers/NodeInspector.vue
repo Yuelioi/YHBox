@@ -87,13 +87,13 @@
     <!-- 并发警告 -->
     <section
       v-if="concurrencyWarning"
-      class="mb-5 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5"
+      class="mb-5 rounded-md bg-warning/10 border border-warning/30 px-3 py-2.5"
     >
       <div class="flex items-start gap-2">
-        <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
-        <div class="text-[12px] text-amber-300">
+        <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-warning shrink-0 mt-0.5" />
+        <div class="text-[12px] text-warning">
           <div class="font-medium leading-tight">{{ t('inspector.concurrency_warn_title') }}</div>
-          <div class="text-amber-300/80 mt-1 leading-relaxed">{{ concurrencyWarning }}</div>
+          <div class="text-warning/80 mt-1 leading-relaxed">{{ concurrencyWarning }}</div>
         </div>
       </div>
     </section>
@@ -101,16 +101,16 @@
     <!-- Expr 链提示 + 一键合并按钮 -->
     <section
       v-if="exprChainHint"
-      class="mb-5 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2.5"
+      class="mb-5 rounded-md bg-warning/10 border border-warning/30 px-3 py-2.5"
     >
       <div class="flex items-start gap-2">
-        <UIcon name="i-tabler-info-circle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
-        <div class="text-[12px] text-amber-300 flex-1">
+        <UIcon name="i-tabler-info-circle" class="size-3.5 text-warning shrink-0 mt-0.5" />
+        <div class="text-[12px] text-warning flex-1">
           <div class="font-medium leading-tight">{{ t('inspector.expr_chain_title') }}</div>
-          <div class="text-amber-300/80 mt-1 leading-relaxed font-mono text-[11px]">
+          <div class="text-warning/80 mt-1 leading-relaxed font-mono text-[11px]">
             value → {{ exprChainHint.targetID }}.{{ exprChainHint.targetPin }}
           </div>
-          <div class="text-amber-300/80 mt-1 mb-2 leading-relaxed">
+          <div class="text-warning/80 mt-1 mb-2 leading-relaxed">
             {{ t('inspector.expr_chain_desc') }}
           </div>
           <UButton size="xs" color="warning" variant="soft" icon="i-tabler-arrow-merge" @click="onFuseExpr">
@@ -258,13 +258,13 @@
         <div class="flex items-center gap-2">
           <span
             class="text-2xl font-mono tabular-nums"
-            :class="mcCounts > 0 ? 'text-emerald-300' : 'text-rose-300'"
+            :class="mcCounts > 0 ? 'text-success' : 'text-error'"
           >{{ mcCounts }}</span>
           <span class="text-[11px] text-dimmed">{{ mcCounts > 0 ? t('node.MouseCalibration.inspector.calibrated') : t('node.MouseCalibration.inspector.not_calibrated') }}</span>
         </div>
         <p class="text-[11px] text-dimmed leading-relaxed">
           {{ t('node.MouseCalibration.inspector.counts_hint') }}<br />
-          <span class="text-rose-300/80">{{ t('node.MouseCalibration.inspector.counts_warn') }}</span>
+          <span class="text-error/80">{{ t('node.MouseCalibration.inspector.counts_warn') }}</span>
         </p>
         <UButton
           size="sm"
@@ -393,7 +393,7 @@
         </div>
         <div class="text-[10px] text-dimmed font-mono break-all">{{ selectedClip.id }}</div>
       </div>
-      <div v-else class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-[11px] text-amber-300">
+      <div v-else class="rounded-md bg-warning/10 border border-warning/30 px-3 py-2 text-[11px] text-warning">
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline mr-1" />
         {{ t('node.PlayClip.inspector.clip_missing', { id: node.config?.ClipID || t('node.PlayClip.inspector.clip_unset_placeholder') }) }}
       </div>

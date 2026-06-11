@@ -26,7 +26,7 @@
       />
       <span
         v-if="isRunning"
-        class="size-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"
+        class="size-1.5 rounded-full bg-primary animate-pulse shrink-0"
       />
     </div>
 
@@ -309,8 +309,8 @@ function handleStyle(p: PinEntry, i: number): Record<string, string> {
   if (p.kind === 'exec') {
     return {
       top,
-      // 失败出口 (Fail / Semantic==='error') 用红, 普通 exec 用浅灰.
-      background: p.isError ? '#f87171' : '#e5e7eb',
+      // 失败出口 (Fail / Semantic==='error') 用 error 红, 普通 exec 用浅灰.
+      background: p.isError ? 'var(--ui-error)' : '#e5e7eb',
       clipPath: 'polygon(0% 0%, 100% 50%, 0% 100%)',
       borderRadius: '0',
       border: 'none',
@@ -424,7 +424,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   animation: pulse-running 1.6s ease-in-out infinite;
 }
 .container-node.is-running::after {
-  /* 扫描线效果 — 顶部 emerald 流光横扫 */
+  /* 扫描线效果 — 顶部主色流光横扫 */
   content: '';
   position: absolute;
   inset: 0;
@@ -432,7 +432,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(52, 211, 153, 0.18) 50%,
+    color-mix(in oklab, var(--ui-primary) 18%, transparent) 50%,
     transparent 100%
   );
   background-size: 100% 30%;
@@ -648,14 +648,14 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   0%,
   100% {
     box-shadow:
-      0 0 0 2px rgba(52, 211, 153, 0.85),
-      0 0 20px rgba(52, 211, 153, 0.6),
+      0 0 0 2px color-mix(in oklab, var(--ui-primary) 85%, transparent),
+      0 0 20px color-mix(in oklab, var(--ui-primary) 60%, transparent),
       0 8px 22px -8px rgba(0, 0, 0, 0.55);
   }
   50% {
     box-shadow:
-      0 0 0 3px rgba(52, 211, 153, 1),
-      0 0 44px rgba(52, 211, 153, 0.95),
+      0 0 0 3px var(--ui-primary),
+      0 0 44px color-mix(in oklab, var(--ui-primary) 95%, transparent),
       0 8px 22px -8px rgba(0, 0, 0, 0.55);
   }
 }

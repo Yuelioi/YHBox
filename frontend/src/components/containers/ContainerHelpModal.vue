@@ -32,11 +32,11 @@
             <ol class="space-y-1.5 list-decimal pl-5 marker:text-dimmed text-toned">
               <li v-for="i in 4" :key="i">{{ t(`editor.help.gs.step${i}`) }}</li>
             </ol>
-            <div class="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
-              <UIcon name="i-tabler-shield-lock" class="size-4 text-amber-300 shrink-0 mt-0.5" />
-              <div class="text-amber-300">
+            <div class="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/30 p-3">
+              <UIcon name="i-tabler-shield-lock" class="size-4 text-warning shrink-0 mt-0.5" />
+              <div class="text-warning">
                 <div class="font-medium mb-0.5">{{ t('editor.help.gs.uac_title') }}</div>
-                <div class="text-[11px] leading-relaxed text-amber-200/90">{{ t('editor.help.gs.uac') }}</div>
+                <div class="text-[11px] leading-relaxed text-warning/90">{{ t('editor.help.gs.uac') }}</div>
               </div>
             </div>
           </div>
@@ -50,7 +50,7 @@
               class="flex items-start gap-3 rounded-lg bg-elevated/30 border border-default/50 p-2.5"
             >
               <code
-                class="shrink-0 font-mono text-[10px] text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5"
+                class="shrink-0 font-mono text-[10px] text-error bg-error/10 border border-error/20 rounded px-1.5 py-0.5"
               >{{ code }}</code>
               <div class="min-w-0">
                 <div class="text-default mb-0.5">{{ errorCodeLabel(code) }}</div>

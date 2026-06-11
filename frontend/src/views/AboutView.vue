@@ -51,7 +51,7 @@
           <button
             v-if="info?.repo"
             type="button"
-            class="text-default font-medium hover:text-sky-400 transition-colors cursor-pointer truncate"
+            class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
             @click="openExternal(info.repo)"
           >
             {{ info.repo.replace('https://', '') }} ↗
@@ -64,7 +64,7 @@
           <button
             v-if="info?.bilibili"
             type="button"
-            class="text-default font-medium hover:text-sky-400 transition-colors cursor-pointer truncate"
+            class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
             @click="openExternal(info.bilibili)"
           >
             {{ info.bilibili.replace('https://', '') }} ↗
@@ -112,7 +112,7 @@
           <span class="text-muted">{{ t('about.label_icon') }}</span>
           <button
             type="button"
-            class="text-default font-medium hover:text-sky-400 transition-colors cursor-pointer"
+            class="text-default font-medium hover:text-primary transition-colors cursor-pointer"
             @click="openExternal('https://www.pixiv.net/artworks/120610310')"
           >
             Pixiv #120610310 ↗
@@ -145,6 +145,7 @@ interface AppInfo {
 const info = ref<AppInfo | null>(null)
 
 // 核心概念（从原帮助页迁来；文案走 about.concepts.* i18n）。
+// icon 色是概念分类识别色（非状态语义），配色统一时不要改成 warning/success 等状态色。
 const concepts = [
   { key: 'container', icon: 'i-tabler-package', iconClass: 'text-primary' },
   { key: 'subgraph', icon: 'i-tabler-schema', iconClass: 'text-fuchsia-300' },

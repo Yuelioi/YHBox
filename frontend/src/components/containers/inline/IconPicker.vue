@@ -86,8 +86,8 @@ const shown = computed(() => {
   color: var(--ui-text-default);
 }
 .icp-chip.is-selected {
-  background: var(--ui-primary, #6366f1);
-  border-color: var(--ui-primary, #6366f1);
+  background: var(--ui-primary);
+  border-color: var(--ui-primary);
   color: white;
 }
 </style>

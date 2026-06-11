@@ -25,23 +25,23 @@
 
       <div
         v-else-if="stage === 'countingDown'"
-        class="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center space-y-1"
+        class="w-full rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-center space-y-1"
       >
-        <div class="text-5xl font-mono tabular-nums text-amber-400">{{ countdown }}</div>
-        <p class="text-xs text-amber-300">{{ t('calibration.ready_status') }}</p>
+        <div class="text-5xl font-mono tabular-nums text-warning">{{ countdown }}</div>
+        <p class="text-xs text-warning">{{ t('calibration.ready_status') }}</p>
       </div>
 
       <div
         v-else-if="stage === 'accumulating'"
-        class="w-full rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-center space-y-1"
+        class="w-full rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-center space-y-1"
       >
-        <div class="flex items-center justify-center gap-2 text-emerald-300">
-          <span class="size-2 rounded-full bg-emerald-400 animate-pulse" />
+        <div class="flex items-center justify-center gap-2 text-success">
+          <span class="size-2 rounded-full bg-success animate-pulse" />
           <span class="text-xs">{{ t('calibration.recording_status') }}</span>
         </div>
-        <div class="text-4xl font-mono tabular-nums text-emerald-300">{{ liveAbsDx }}</div>
+        <div class="text-4xl font-mono tabular-nums text-success">{{ liveAbsDx }}</div>
         <p class="text-[10px] text-dimmed font-mono">|dy| {{ liveAbsDy }}</p>
-        <p class="text-[10px] text-emerald-300/80">{{ t('calibration.press_f8_stop', { hk }) }}</p>
+        <p class="text-[10px] text-success/80">{{ t('calibration.press_f8_stop', { hk }) }}</p>
       </div>
 
       <div

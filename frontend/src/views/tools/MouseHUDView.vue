@@ -79,7 +79,7 @@
           <p v-else-if="pixel && !pixel.ok" class="text-[10px] text-warning">光标不在游戏窗口内</p>
         </div>
       </div>
-      <div v-else class="text-amber-300/80 text-[11px] pt-1">
+      <div v-else class="text-warning/80 text-[11px] pt-1">
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline" />
         未检测到游戏窗口（只显示屏幕坐标）
       </div>

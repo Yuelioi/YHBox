@@ -84,8 +84,8 @@ const items = computed(() => {
   const arr: Item[] = [
     { key: 'copy', label: t('editor.menu.multi.copy'), icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
     { key: 'duplicate', label: t('editor.menu.multi.duplicate'), icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
-    { key: 'delete', label: t('editor.menu.multi.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
-    { key: 'toggle-disable-all', label: t('editor.menu.multi.disable_all'), icon: 'i-tabler-ban', colorClass: 'text-amber-400' },
+    { key: 'delete', label: t('editor.menu.multi.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-error' },
+    { key: 'toggle-disable-all', label: t('editor.menu.multi.disable_all'), icon: 'i-tabler-ban', colorClass: 'text-warning' },
     { key: 'fold', label: t('editor.menu.multi.fold'), icon: 'i-tabler-package', colorClass: 'text-violet-300' },
   ]
 

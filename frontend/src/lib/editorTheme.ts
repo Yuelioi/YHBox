@@ -1,6 +1,8 @@
 // 编辑器共享外观与基础扩展 (ExprInput / CodeInput / EditorModal 三处统一引入):
-// VSCode Dark+ 移植的成套主题 (语法 token + chrome) + 编辑手感基础件
-// (自动配对/括号高亮/Tab 缩进/选中词同款/多选区) + 查找面板中文 phrases。
+// 语法 token 色 = VSCode Dark+ 移植 (代码内容色, 独立于 app 主题);
+// chrome (编辑面/gutter/浮层/查找面板) = NuxtUI semantic CSS 变量 (--ui-*),
+// 跟 app 同一套灰阶/主色 — 不许再写死 hex, 否则 modal/卡片里出现"第二种灰"。
+// 另含编辑手感基础件 (自动配对/括号高亮/Tab 缩进/选中词同款/多选区) + 查找面板中文 phrases。
 // 例外 token: $变量 保持橙色徽标 (与画布变量认知一致, 不随 Dark+)。
 import {
   EditorView,
@@ -61,34 +63,39 @@ export const editorHighlightStyle = HighlightStyle.define([
   { tag: tags.invalid, color: '#f44747' },
 ])
 
-// ── chrome: 编辑面/光标/选区/当前行/括号/gutter/tooltip (色值取自 VSCode Dark+) ──
+// ── chrome: 编辑面/光标/选区/当前行/括号/gutter/tooltip — 全走 --ui-* semantic 变量;
+//    选区/选中词用 primary 的 color-mix, 与全局 ::selection 同源 ──
 
 const chromeTheme = EditorView.theme({
-  '&': { backgroundColor: '#1e1e1e', color: '#d4d4d4' },
+  '&': { backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
   '&.cm-focused': { outline: 'none' },
   // 连字关掉: === 渲成三横长等号对脚本新手是误导, VSCode 默认也不开
   '.cm-scroller': { fontFamily: EDITOR_FONT, overflow: 'auto', fontVariantLigatures: 'none' },
-  '.cm-content': { caretColor: '#aeafad' },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#aeafad', borderLeftWidth: '2px' },
-  '.cm-selectionBackground, .cm-content ::selection': { backgroundColor: '#264f7866' },
-  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-    backgroundColor: '#264f78',
+  '.cm-content': { caretColor: 'var(--ui-text-toned)' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--ui-text-toned)', borderLeftWidth: '2px' },
+  '.cm-selectionBackground, .cm-content ::selection': {
+    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 20%, transparent)',
   },
-  '.cm-selectionMatch': { backgroundColor: '#add6ff26' },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 32%, transparent)',
+  },
+  '.cm-selectionMatch': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 12%, transparent)' },
   '.cm-activeLine': { backgroundColor: '#ffffff0a' },
-  '.cm-activeLineGutter': { backgroundColor: 'transparent', color: '#c6c6c6' },
-  '.cm-gutters': { backgroundColor: '#1e1e1e', color: '#858585', border: 'none' },
+  '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--ui-text-toned)' },
+  '.cm-gutters': { backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text-dimmed)', border: 'none' },
   '.cm-lineNumbers .cm-gutterElement': { paddingLeft: '14px', paddingRight: '6px' },
   '&.cm-focused .cm-matchingBracket': {
-    backgroundColor: '#0064001a',
-    outline: '1px solid #888888b0',
+    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 12%, transparent)',
+    outline: '1px solid var(--ui-text-dimmed)',
   },
-  '&.cm-focused .cm-nonmatchingBracket': { outline: '1px solid #f4474780' },
-  '.cm-foldGutter .cm-gutterElement': { color: '#5a5a5a', cursor: 'pointer' },
+  '&.cm-focused .cm-nonmatchingBracket': {
+    outline: '1px solid color-mix(in oklab, var(--ui-error) 60%, transparent)',
+  },
+  '.cm-foldGutter .cm-gutterElement': { color: 'var(--ui-text-dimmed)', cursor: 'pointer' },
   '.cm-foldPlaceholder': {
-    backgroundColor: '#252526',
-    border: '1px solid #454545',
-    color: '#d4d4d4',
+    backgroundColor: 'var(--ui-bg-elevated)',
+    border: '1px solid var(--ui-border-accented)',
+    color: 'var(--ui-text)',
     borderRadius: '3px',
     padding: '0 6px',
     margin: '0 2px',
@@ -96,14 +103,14 @@ const chromeTheme = EditorView.theme({
   '.cm-gutter-lint': { width: '8px' },
   '.cm-gutter-lint .cm-gutterElement': { padding: '2px 0 0 2px' },
   '.cm-tooltip': {
-    backgroundColor: '#252526',
-    border: '1px solid #454545',
-    color: '#d4d4d4',
+    backgroundColor: 'var(--ui-bg-elevated)',
+    border: '1px solid var(--ui-border-accented)',
+    color: 'var(--ui-text)',
     // 浮层挂到 document.body (见 baseEditorExtensions 的 tooltips parent) — z-index 必须盖过
     // 放大编辑 modal (Nuxt UI z-[100]), 否则签名/hover 浮层会渲染到模态下方看不见。
     zIndex: '1000',
   },
-  '.cm-placeholder': { color: '#6b6b6b' },
+  '.cm-placeholder': { color: 'var(--ui-text-dimmed)' },
   // $变量徽标: theme 规则带 scope 前缀, 特异性盖过 HighlightStyle 的 token 色
   '.cm-yh-dollar': {
     color: '#fb923c',
@@ -118,11 +125,11 @@ const chromeTheme = EditorView.theme({
   },
   '.cm-yh-doc-sig': { fontFamily: EDITOR_FONT, color: '#dcdcaa' },
   '.cm-yh-doc-sig-active': { color: '#dcdcaa', fontWeight: 'bold' },
-  '.cm-yh-doc-desc': { color: '#9da5b0', marginTop: '2px' },
+  '.cm-yh-doc-desc': { color: 'var(--ui-text-muted)', marginTop: '2px' },
   '.cm-yh-doc-param': { display: 'flex', gap: '8px', marginTop: '2px', fontSize: '11px' },
   '.cm-yh-doc-param-name': { fontFamily: EDITOR_FONT, color: '#9cdcfe', minWidth: '6em' },
   '.cm-yh-doc-param-type': { fontFamily: EDITOR_FONT, color: '#4ec9b0' },
-  '.cm-yh-doc-param-label': { color: '#9da5b0' },
+  '.cm-yh-doc-param-label': { color: 'var(--ui-text-muted)' },
 }, { dark: true })
 
 // 字号/行距/留白分两档: 放大编辑 (modal) 13px 宽松; 卡片内小框 12px 紧凑。
@@ -148,8 +155,8 @@ function smallSizeTheme(minHeight: string): Extension {
 
 export const completionTooltipTheme: Extension = EditorView.theme({
   '.cm-tooltip.cm-tooltip-autocomplete': {
-    backgroundColor: '#252526',
-    border: '1px solid #454545',
+    backgroundColor: 'var(--ui-bg-elevated)',
+    border: '1px solid var(--ui-border-accented)',
     borderRadius: '6px',
     boxShadow: '0 6px 16px rgba(0,0,0,.45)',
     overflow: 'hidden',
@@ -166,18 +173,18 @@ export const completionTooltipTheme: Extension = EditorView.theme({
     gap: '10px',
     padding: '4px 10px',
     lineHeight: '1.45',
-    color: '#d4d4d4',
+    color: 'var(--ui-text)',
   },
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-    backgroundColor: '#094771',
-    color: '#ffffff',
+    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 22%, var(--ui-bg-elevated))',
+    color: 'var(--ui-text-highlighted)',
   },
   '.cm-completionLabel': { flexShrink: '0' },
   '.cm-completionDetail': {
     marginLeft: 'auto',
     fontStyle: 'normal',
     fontSize: '11px',
-    color: '#9da5b0',
+    color: 'var(--ui-text-muted)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -198,8 +205,8 @@ export const completionTooltipTheme: Extension = EditorView.theme({
   '.cm-completionIcon-variable': { backgroundColor: '#9cdcfe' },
   '.cm-completionIcon-keyword': { backgroundColor: '#569cd6' },
   '.cm-tooltip.cm-completionInfo': {
-    backgroundColor: '#252526',
-    border: '1px solid #454545',
+    backgroundColor: 'var(--ui-bg-elevated)',
+    border: '1px solid var(--ui-border-accented)',
     borderRadius: '6px',
     fontSize: '12px',
     padding: '6px 10px',
@@ -207,64 +214,66 @@ export const completionTooltipTheme: Extension = EditorView.theme({
   },
 })
 
-// ── 查找/替换面板: CodeMirror 默认是裸原生控件, 按暗色重排; 控件强调色保持 app 主色 ──
+// ── 查找/替换面板: CodeMirror 默认是裸原生控件, 按 app 暗色 token 重排 ──
 
 export const searchPanelTheme: Extension = EditorView.theme({
   '.cm-panels': { backgroundColor: 'transparent', border: 'none' },
   '.cm-panel.cm-search': {
-    backgroundColor: '#252526',
-    borderBottom: '1px solid #454545',
+    backgroundColor: 'var(--ui-bg-elevated)',
+    borderBottom: '1px solid var(--ui-border-accented)',
     padding: '8px 34px 8px 10px',
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: '6px',
     fontSize: '11px',
-    color: '#9da5b0',
+    color: 'var(--ui-text-muted)',
     position: 'relative',
   },
   '.cm-panel.cm-search input[type="text"], .cm-panel.cm-search input:not([type])': {
-    backgroundColor: '#1e1e1e',
-    border: '1px solid #454545',
+    backgroundColor: 'var(--ui-bg)',
+    border: '1px solid var(--ui-border-accented)',
     borderRadius: '4px',
     padding: '3px 8px',
     fontSize: '12px',
-    color: '#d4d4d4',
+    color: 'var(--ui-text)',
     outline: 'none',
     width: '14em',
   },
-  '.cm-panel.cm-search input:focus': { borderColor: '#10b981' },
+  '.cm-panel.cm-search input:focus': { borderColor: 'var(--ui-primary)' },
   '.cm-panel.cm-search button.cm-button': {
     backgroundImage: 'none',
-    backgroundColor: '#37373d',
-    border: '1px solid #454545',
+    backgroundColor: 'var(--ui-bg-accented)',
+    border: '1px solid var(--ui-border-accented)',
     borderRadius: '4px',
     padding: '3px 10px',
     fontSize: '11px',
-    color: '#d4d4d4',
+    color: 'var(--ui-text)',
     cursor: 'pointer',
   },
-  '.cm-panel.cm-search button.cm-button:hover': { backgroundColor: '#454549' },
+  '.cm-panel.cm-search button.cm-button:hover': {
+    backgroundColor: 'color-mix(in oklab, var(--ui-bg-accented) 88%, white)',
+  },
   '.cm-panel.cm-search label': {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '4px',
     fontSize: '11px',
-    color: '#9da5b0',
+    color: 'var(--ui-text-muted)',
     whiteSpace: 'nowrap',
   },
-  '.cm-panel.cm-search input[type="checkbox"]': { accentColor: '#10b981' },
+  '.cm-panel.cm-search input[type="checkbox"]': { accentColor: 'var(--ui-primary)' },
   '.cm-panel.cm-search button[name="close"]': {
     position: 'absolute',
     top: '6px',
     right: '8px',
-    color: '#9da5b0',
+    color: 'var(--ui-text-muted)',
     fontSize: '16px',
     cursor: 'pointer',
     background: 'none',
     border: 'none',
   },
-  '.cm-panel.cm-search button[name="close"]:hover': { color: '#ffffff' },
+  '.cm-panel.cm-search button[name="close"]:hover': { color: 'var(--ui-text-highlighted)' },
 })
 
 // CodeMirror 查找/替换面板的中文文案 (phrases key 是固定英文原文)。

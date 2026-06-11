@@ -78,11 +78,11 @@
     <!-- ====== 右: 运行状态 + 主操作 + ⋯/设置 + 折叠 inspector ====== -->
     <div
       v-if="execStoreRunning"
-      class="inline-flex items-center gap-2 rounded-md bg-emerald-500/15 border border-emerald-500/40 px-2 py-0.5 text-[11px] text-emerald-300"
+      class="inline-flex items-center gap-2 rounded-md bg-primary/15 border border-primary/40 px-2 py-0.5 text-[11px] text-primary"
     >
-      <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      <span class="size-1.5 rounded-full bg-primary animate-pulse" />
       <span>{{ t('editor.toolbar.running') }}</span>
-      <span v-if="runningNodeKind" class="text-emerald-200/80">· {{ runningNodeLabel }}</span>
+      <span v-if="runningNodeKind" class="text-primary/80">· {{ runningNodeLabel }}</span>
     </div>
     <UButton v-if="execStoreRunning" size="sm" color="error" variant="solid" icon="i-tabler-square"
              :title="t('editor.toolbar.stop_run_tip', { hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9') })"

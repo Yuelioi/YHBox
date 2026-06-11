@@ -12,6 +12,7 @@
       <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed cursor-grab" />
       <span class="font-medium">{{ decl.name }}</span>
       <span class="text-dimmed text-[10px]">{{ shortType(decl.type) }}</span>
+      <!-- emerald 是变量区块身份色 (默认值展示), 不是 success 状态色 -->
       <span class="ml-auto text-emerald-400 text-[10px] truncate max-w-20">
         = {{ formatDefault(decl.default) }}
       </span>
@@ -37,13 +38,13 @@
           ref="nameInputRef"
           v-model="editName"
           class="flex-1 min-w-0 bg-elevated/80 border rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none"
-          :class="nameError ? 'border-red-500' : 'border-default focus:border-emerald-500'"
+          :class="nameError ? 'border-error' : 'border-default focus:border-primary'"
           :title="nameError || ''"
           @blur="commitName"
           @keydown.enter="commitName"
           @keydown.esc="cancelName"
         >
-        <button type="button" class="text-red-500 hover:text-red-400 px-1 shrink-0" :title="t('common.delete')" @click="$emit('delete', decl.name)">
+        <button type="button" class="text-error/80 hover:text-error px-1 shrink-0" :title="t('common.delete')" @click="$emit('delete', decl.name)">
           <UIcon name="i-tabler-trash" class="size-3" />
         </button>
       </div>
@@ -74,7 +75,7 @@
           type="text"
           :value="listDraft"
           class="flex-1 min-w-0 w-0 bg-elevated/80 border rounded px-1 py-0.5 text-[10px] focus:outline-none"
-          :class="listDraftInvalid ? 'border-red-500' : 'border-default focus:border-emerald-500'"
+          :class="listDraftInvalid ? 'border-error' : 'border-default focus:border-primary'"
           :placeholder="t('var.list_placeholder')"
           :title="listDraftInvalid ? t('var.list_invalid') : ''"
           @input="onListInput"
@@ -84,7 +85,7 @@
           :type="editType === 'number' ? 'number' : 'text'"
           :step="editType === 'number' ? 'any' : undefined"
           :value="editDefault ?? ''"
-          class="flex-1 min-w-0 w-0 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
+          class="flex-1 min-w-0 w-0 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
           :placeholder="editType === 'any' ? t('var.any_independent_placeholder') : ''"
           @input="commitField('default', parseDefault($event, editType))"
         >

@@ -91,7 +91,7 @@ const items = computed(() => {
       key: 'break-all-connections',
       label: t('editor.menu.pin.disconnect_all', { n: props.pin.edgeCount }),
       icon: 'i-tabler-link-off',
-      colorClass: 'text-rose-400',
+      colorClass: 'text-error',
     })
   }
   if (props.pin.side === 'input' && props.pin.pinType) {

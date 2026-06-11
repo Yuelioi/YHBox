@@ -45,6 +45,8 @@ export default defineConfig({
         colors: {
           primary: "emerald",
           neutral: "zinc",
+          // 项目警告色一直是 amber 系 (NuxtUI 默认 yellow) — 钉死防漂移
+          warning: "amber",
         },
       },
     }),

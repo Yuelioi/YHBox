@@ -59,11 +59,11 @@
       <!-- paused -->
       <div
         v-else-if="state === 'paused'"
-        class="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center space-y-1"
+        class="w-full rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-center space-y-1"
       >
         <div class="flex items-center justify-center gap-2">
-          <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-amber-400" />
-          <span class="text-xs text-amber-400 font-semibold">已暂停</span>
+          <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-warning" />
+          <span class="text-xs text-warning font-semibold">已暂停</span>
         </div>
         <div class="text-4xl font-mono tabular-nums text-highlighted">{{ elapsedLabel }}</div>
         <p v-if="modeLabel" class="text-[10px] text-dimmed">{{ modeLabel }}</p>

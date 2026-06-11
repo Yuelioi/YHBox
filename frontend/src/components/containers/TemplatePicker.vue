@@ -20,7 +20,7 @@
           v-else
           :name="selected.length ? 'i-tabler-photo' : 'i-tabler-photo-plus'"
           class="size-4 shrink-0"
-          :class="selected.length ? 'text-dimmed' : 'text-amber-400'"
+          :class="selected.length ? 'text-dimmed' : 'text-warning'"
         />
         <div class="min-w-0 flex-1 text-left">
           <div class="text-xs text-highlighted truncate">{{ summaryLabel }}</div>
@@ -74,7 +74,7 @@
 
           <!-- 空态 -->
           <div v-if="entries.length === 0" class="flex-1 flex items-center justify-center p-6">
-            <div class="text-center text-[12px] text-amber-300/80">
+            <div class="text-center text-[12px] text-warning/80">
               <UIcon name="i-tabler-alert-triangle" class="size-6 mx-auto mb-2" />
               {{ t('template.picker.library_empty') }}
             </div>
@@ -305,7 +305,7 @@
                   <template v-if="curRes">
                     <span class="text-dimmed">{{ t('template.picker.current_window') }}: </span>
                     <span class="text-toned">{{ curResLabel }}</span>
-                    <span v-if="curResHint" class="text-amber-300/80"> · {{ t('template.picker.scaled_from', { res: curResHint }) }}</span>
+                    <span v-if="curResHint" class="text-warning/80"> · {{ t('template.picker.scaled_from', { res: curResHint }) }}</span>
                   </template>
                   <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
                 </p>
@@ -380,7 +380,7 @@
         v-for="guid in selected"
         :key="guid"
         class="inline-flex items-center gap-1 rounded bg-elevated/60 border border-default/40 pl-1.5 pr-1 py-0.5 text-[10px]"
-        :class="tplStore.map[guid] ? 'text-toned' : 'text-rose-300/90 border-rose-500/30'"
+        :class="tplStore.map[guid] ? 'text-toned' : 'text-error/90 border-error/30'"
       >
         <UIcon v-if="!tplStore.map[guid]" name="i-tabler-alert-triangle" class="size-3" />
         <span class="truncate max-w-[140px]">{{ tplStore.map[guid]?.name || guid }}</span>

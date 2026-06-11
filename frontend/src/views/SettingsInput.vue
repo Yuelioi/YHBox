@@ -12,7 +12,7 @@
       >
         <UIcon
           name="i-tabler-info-circle"
-          class="size-3.5 inline-block align-middle mr-1 text-amber-300/80"
+          class="size-3.5 inline-block align-middle mr-1 text-warning/80"
         />
         <span class="text-toned">{{ t('settings.input.intro_box.what_label') }}</span
         >: {{ t('settings.input.intro_box.what_desc') }}

@@ -18,7 +18,7 @@
       <!-- 容器跑中 → 显示当前节点 + 一键停止按钮 -->
       <template v-if="activeStatus.kind === 'container'">
         <span v-if="currentNodeLabel" class="text-dimmed">·</span>
-        <span v-if="currentNodeLabel" class="text-emerald-300 truncate">
+        <span v-if="currentNodeLabel" class="text-primary truncate">
           ▶ {{ currentNodeLabel }}
         </span>
         <button

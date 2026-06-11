@@ -72,7 +72,7 @@
         <UIcon
           v-if="store.isEditing(c.id)"
           name="i-tabler-lock"
-          class="absolute top-2 right-2 size-3.5 text-amber-300"
+          class="absolute top-2 right-2 size-3.5 text-warning"
           :title="t('containers.editing_locked_tip')"
         />
         <div class="min-w-0">

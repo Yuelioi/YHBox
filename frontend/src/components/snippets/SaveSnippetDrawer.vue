@@ -411,8 +411,8 @@ function close() {
   color: var(--ui-text-default);
 }
 .suggestion-chip.is-active {
-  background: var(--ui-primary, #6366f1);
-  border-color: var(--ui-primary, #6366f1);
+  background: var(--ui-primary);
+  border-color: var(--ui-primary);
   color: white;
 }
 
@@ -450,8 +450,8 @@ function close() {
   color: var(--ui-text-default);
 }
 .icon-chip.is-selected {
-  background: var(--ui-primary, #6366f1);
-  border-color: var(--ui-primary, #6366f1);
+  background: var(--ui-primary);
+  border-color: var(--ui-primary);
   color: white;
 }
 

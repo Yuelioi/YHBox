@@ -70,9 +70,9 @@ const LEVEL_COLORS: Record<string, string> = {
   trace: 'text-dimmed',
   debug: 'text-muted',
   info: 'text-highlighted',
-  warn: 'text-amber-300',
-  error: 'text-rose-300',
-  fatal: 'text-rose-200 font-semibold',
+  warn: 'text-warning',
+  error: 'text-error',
+  fatal: 'text-error font-semibold',
 }
 
 export function levelClass(level: string): string {

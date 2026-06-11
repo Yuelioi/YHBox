@@ -29,7 +29,7 @@
             : t('log.write_file_tooltip_off')
         "
         class="size-2 rounded-full shrink-0"
-        :class="writeFile ? 'bg-emerald-400' : 'bg-zinc-500'"
+        :class="writeFile ? 'bg-success' : 'bg-accented'"
         @click.stop
       />
 
@@ -102,7 +102,7 @@
     <div
       v-show="!collapsed"
       ref="bodyRef"
-      class="flex-1 overflow-y-auto font-mono text-[11px] px-2 py-1 space-y-0.5 bg-zinc-950"
+      class="flex-1 overflow-y-auto font-mono text-[11px] px-2 py-1 space-y-0.5 bg-sunken"
     >
       <div v-if="filteredLines.length === 0" class="text-dimmed italic">{{ t('log.empty') }}</div>
       <div
@@ -180,12 +180,13 @@ function sourceClass(s: string) {
 function levelClass(level: string) {
   switch (level) {
     case 'error': return 'text-error'
-    case 'warn': return 'text-amber-400'
+    case 'warn': return 'text-warning'
     case 'debug': return 'text-dimmed'
+    // node/dump/log 是日志流身份色 (区分流, 非状态语义), 不走 semantic
     case 'node': return 'text-violet-300'
     case 'dump': return 'text-emerald-300'
     case 'log': return 'text-emerald-400'
-    default: return 'text-blue-400'
+    default: return 'text-info'
   }
 }
 

@@ -6,7 +6,7 @@
       type="number"
       step="0.01"
       :value="point.x"
-      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
+      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
       @input="onChange('x', $event)"
     >
     <span class="text-[10px] text-dimmed">y:</span>
@@ -14,7 +14,7 @@
       type="number"
       step="0.01"
       :value="point.y"
-      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-emerald-500 focus:outline-none"
+      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
       @input="onChange('y', $event)"
     >
   </div>

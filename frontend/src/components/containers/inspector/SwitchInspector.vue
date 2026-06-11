@@ -142,10 +142,10 @@ function currentValue(): string {
       <!-- Dangling edge warning -->
       <div
         v-if="danglingEdges.length > 0"
-        class="rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 flex items-start gap-2"
+        class="rounded-md bg-warning/10 border border-warning/30 px-3 py-2 flex items-start gap-2"
       >
-        <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-amber-300 shrink-0 mt-0.5" />
-        <p class="text-[11px] text-amber-300 leading-snug">
+        <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-warning shrink-0 mt-0.5" />
+        <p class="text-[11px] text-warning leading-snug">
           {{ t('node.Switch.inspector.dangling_warn', { n: danglingEdges.length }) }}
         </p>
       </div>

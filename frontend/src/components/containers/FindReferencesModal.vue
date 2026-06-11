@@ -22,6 +22,7 @@
           <span class="font-medium">{{ ref.label || ref.kind }}</span>
           <span v-if="ref.label" class="text-[10px] text-dimmed">({{ ref.kind }})</span>
           <span class="text-dimmed font-mono text-[10px]">{{ ref.id }}</span>
+          <!-- sky=读 / amber=写 是访问类型识别色, 不是状态语义, 别换成 semantic 状态色 -->
           <span
             v-if="ref.access"
             class="text-[9px] font-semibold px-1 py-0.5 rounded"

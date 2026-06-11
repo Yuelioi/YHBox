@@ -27,6 +27,12 @@ textarea {
   min-height: 2.5em;
 }
 
+/* ── 凹陷面: 比主背景 (--ui-bg) 再深一档, 给终端日志区 / 时间轴轨道这类要"挖下去"的面。
+   semantic token 到 bg-default 为止, 更深的统一从这里取 — 禁止散写 zinc-950/zinc-900 字面值。 ── */
+@utility bg-sunken {
+  background-color: color-mix(in oklab, var(--ui-bg) 45%, black);
+}
+
 /* ── Custom scrollbar (跟 dark theme 一致的细滚动条) ── */
 ::-webkit-scrollbar {
   width: 6px;

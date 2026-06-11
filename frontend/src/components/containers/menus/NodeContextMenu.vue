@@ -120,7 +120,7 @@ const commonItems = computed(() => [
   { key: 'cut' as const, label: t('editor.menu.node.cut'), icon: 'i-tabler-cut', shortcut: 'Ctrl+X' },
   { key: 'paste' as const, label: t('editor.menu.node.paste'), icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V' },
   { key: 'duplicate' as const, label: t('editor.menu.node.duplicate'), icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
-  { key: 'delete' as const, label: t('editor.menu.node.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-rose-400' },
+  { key: 'delete' as const, label: t('editor.menu.node.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-error' },
 ])
 
 const specialItems = computed(() => {
@@ -129,7 +129,7 @@ const specialItems = computed(() => {
       key: 'toggle-disable',
       label: isDisabled.value ? t('editor.menu.node.enable') : t('editor.menu.node.disable'),
       icon: isDisabled.value ? 'i-tabler-player-play' : 'i-tabler-ban',
-      colorClass: 'text-amber-400',
+      colorClass: 'text-warning',
     },
     {
       key: 'save-as-snippet',

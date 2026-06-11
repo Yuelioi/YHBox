@@ -6,36 +6,36 @@
     </div>
     <div
       ref="trackRef"
-      class="relative h-7 rounded-md bg-zinc-900 border border-default/60 cursor-crosshair overflow-hidden"
+      class="relative h-7 rounded-md bg-sunken border border-default/60 cursor-crosshair overflow-hidden"
       @mousedown="onTrackMouseDown"
       @mousemove="onTrackMouseMove"
       @mouseleave="onTrackMouseLeave"
     >
-      <!-- 整段背景 (灰 = 默认全播) -->
-      <div v-if="ranges.length === 0" class="absolute inset-0 bg-blue-500/15" />
+      <!-- 整段背景 (= 默认全播) -->
+      <div v-if="ranges.length === 0" class="absolute inset-0 bg-primary/15" />
 
-      <!-- 已选保留段 (蓝色高亮) -->
+      <!-- 已选保留段 (主色高亮) -->
       <div
         v-for="(r, idx) in ranges"
         :key="idx"
-        class="absolute top-0 bottom-0 bg-blue-500/35 border-x border-blue-400/80"
+        class="absolute top-0 bottom-0 bg-primary/35 border-x border-primary/80"
         :style="{ left: pct(r.fromMs) + '%', width: pct(r.toMs - r.fromMs) + '%' }"
         @mouseenter="hoverIdx = idx"
         @mouseleave="hoverIdx = null"
       >
         <!-- 拖把 (左/右) -->
         <div
-          class="absolute -left-1 top-0 bottom-0 w-1.5 bg-blue-400 cursor-ew-resize"
+          class="absolute -left-1 top-0 bottom-0 w-1.5 bg-primary cursor-ew-resize"
           @mousedown.stop="onHandleMouseDown(idx, 'from', $event)"
         />
         <div
-          class="absolute -right-1 top-0 bottom-0 w-1.5 bg-blue-400 cursor-ew-resize"
+          class="absolute -right-1 top-0 bottom-0 w-1.5 bg-primary cursor-ew-resize"
           @mousedown.stop="onHandleMouseDown(idx, 'to', $event)"
         />
         <!-- 删除小 X -->
         <button
           v-if="hoverIdx === idx"
-          class="absolute top-0.5 right-1 size-3 rounded-full bg-error text-white text-[8px] flex items-center justify-center"
+          class="absolute top-0.5 right-1 size-3 rounded-full bg-error text-highlighted text-[8px] flex items-center justify-center"
           @click.stop="$emit('remove', idx)"
         >×</button>
       </div>
