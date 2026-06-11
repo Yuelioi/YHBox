@@ -56,16 +56,16 @@ func TestResolveSubgraphCall_NotFound(t *testing.T) {
 // 不能把第二次的 Done 也错路由回第一次的 markA.
 func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 	sg := container.Subgraph{
-		ID:    "sub_inc",
-		Label: "sub_inc",
+		ID:         "sub_inc",
+		Label:      "sub_inc",
+		Entry:      container.SubgraphMarker{NodeID: "sin"},
+		OutputPins: []container.SubgraphOutputDecl{{ID: "done", Name: "done", NodeID: "sout"}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "sin", Kind: "SubgraphInput"},
 				{ID: "inc", Kind: "IncVar", Config: map[string]any{
 					"VarName": "visited", "Scope": "global",
 					"literal": map[string]any{"Delta": 1.0},
 				}},
-				{ID: "sout", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "sin.Done", To: "inc.In"},
@@ -100,9 +100,9 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.Done", To: "callA.in"},
-				{From: "callA.Done", To: "setA.In"},
+				{From: "callA.done", To: "setA.In"},
 				{From: "setA.Done", To: "callB.in"},
-				{From: "callB.Done", To: "setB.In"},
+				{From: "callB.done", To: "setB.In"},
 				{From: "setB.Done", To: "stop.in"},
 			},
 		},
@@ -121,20 +121,5 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 	}
 	if rt.Vars()["markB"] != "B" {
 		t.Errorf("markB = %v, want \"B\" (callB.Done 应路由到 setB 而非 setA — call-site routing 回归点)", rt.Vars()["markB"])
-	}
-}
-
-func TestResolveSubgraphOutputDestEdge(t *testing.T) {
-	parentEdges := []container.GraphEdge{
-		{From: "call-node.decl-1", To: "next-node.in"},
-		{From: "call-node.decl-2", To: "other.in"},
-	}
-	got := FindParentDownstreamByDeclID(parentEdges, "call-node", "decl-1")
-	if got != "next-node.in" {
-		t.Errorf("got %q want next-node.in", got)
-	}
-	got2 := FindParentDownstreamByDeclID(parentEdges, "call-node", "decl-3-missing")
-	if got2 != "" {
-		t.Errorf("expected empty for missing decl, got %q", got2)
 	}
 }

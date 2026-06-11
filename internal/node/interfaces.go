@@ -34,9 +34,12 @@ type Dependencer interface {
 // RegionRunner — 控制流节点 (Loop / Subgraph / CollapsedNode) 实现. body 回调
 // 由 dispatch 构造, region 节点决定调用次数 (Loop 多次, Subgraph 单次). body error
 // 裸透传, 由 dispatch 失败路由到 region 的 Fail 出口.
+//
+// body 第一返回值 = region 内部到达的出口 (Subgraph: callee OutputPins decl ID);
+// "" 表示没有出口语义 (Loop 单轮迭代) 或没到达任何出口 — 节点据此决定 fire 哪个 exit.
 type RegionRunner interface {
 	Node
-	RunRegion(ctx Ctx, in Inputs, body func(Ctx) error) (Outputs, error)
+	RunRegion(ctx Ctx, in Inputs, body func(Ctx) (string, error)) (Outputs, error)
 }
 
 // Evaluator — pure-data 节点 (IsPureData=true) 实现, 走 EvaluatePureData 入口求 single value.
@@ -98,6 +101,7 @@ type Ctx interface {
 	Capture() CaptureService
 	Stopwatches() StopwatchStore
 	Clip() ClipPlayer
+	Subgraphs() SubgraphCaller
 }
 
 // OutBuilder — fluent builder.
@@ -289,6 +293,16 @@ type StopwatchStore interface {
 	Read(key string) (elapsedMs int64)
 }
 
+// SubgraphCaller — 脚本绑定层调子图用. runtime ContainerRunner 实现并注入 bundle;
+// 非 runner 语境 (单节点测试 / StubServices) 为 nil — 绑定层据此决定是否暴露 Subgraph().
+//
+// CallSubgraph 同步跑完容器内 sgID 指定的子图 (push frame + 切 dispatch 表 + 跑到出口),
+// params 直接 seed 为 callee 入参 (缺的声明入参补 Default). 返回到达出口的 decl Name
+// (人读名, 非 decl ID — 脚本比对 r.exit 用). ctx 取消 / 递归超深 / 子图不存在 → error.
+type SubgraphCaller interface {
+	CallSubgraph(ctx context.Context, sgID string, params map[string]any) (exitName string, err error)
+}
+
 // ClipPlayer — PlayClip 节点用. 阻塞回放一整条录制的 InputClip (内部抢 InputBus 独占),
 // ctx 取消即中断并释放已按下的键/键. runtime 端 wire 时持 ClipResolver + InputBackend +
 // PlaybackPolicy + MouseCounts360 + Window 缩放; 节点端只调 Play.
@@ -314,7 +328,8 @@ type ServiceBundle struct {
 	Window      WindowService
 	Capture     CaptureService
 	Stopwatches StopwatchStore
-	Clip        ClipPlayer // PlayClip 用, runtime 端 wire
+	Clip        ClipPlayer     // PlayClip 用, runtime 端 wire
+	Subgraphs   SubgraphCaller // 脚本调子图用, runtime 端 wire (ContainerRunner 自身)
 	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
 }
 

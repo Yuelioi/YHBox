@@ -25,7 +25,7 @@ func BundleFromCtx(c node.Ctx) node.ServiceBundle {
 	}
 }
 
-// Install 注入全部可绑节点函数 + 高频糖 (vars/params/sleep/log).
+// Install 注入全部可绑节点函数 + Subgraph() 子图调用 + 高频糖 (params/sleep/log).
 func Install(vm *goja.Runtime, c node.Ctx) {
 	bundle := BundleFromCtx(c)
 	for _, rn := range node.All() {
@@ -33,8 +33,43 @@ func Install(vm *goja.Runtime, c node.Ctx) {
 			bindNode(vm, c, rn, bundle)
 		}
 	}
+	installSubgraphCall(vm, c)
 	installSugar(vm, c)
 	installVarGetters(vm, c)
+}
+
+// installSubgraphCall 注入 Subgraph({SubgraphID, ...入参}) — 同步跑容器内子图,
+// 返 {exit: <出口名>}. 走 runner 注入的 node.SubgraphCaller; 非 runner 语境 (单节点
+// 测试) 服务为 nil, 不装 — 脚本里调用得到 ReferenceError, 与未知函数同语义.
+// 失败 = 带 code 的 JS 异常 (同节点函数错误约定); 容器停止由 Script 节点 watchdog 兜底打断.
+func installSubgraphCall(vm *goja.Runtime, c node.Ctx) {
+	caller := c.Subgraphs()
+	if caller == nil {
+		return
+	}
+	vm.Set("Subgraph", func(call goja.FunctionCall) goja.Value {
+		args := exportArg(vm, "Subgraph", call)
+		sgID, _ := args["SubgraphID"].(string)
+		if sgID == "" {
+			throwErr(vm, "Subgraph", node.CodeError, `Subgraph(...) 需要字符串 SubgraphID`)
+		}
+		params := make(map[string]any, len(args))
+		for k, v := range args {
+			if k != "SubgraphID" {
+				params[k] = v
+			}
+		}
+		exit, err := caller.CallSubgraph(c.Context(), sgID, params)
+		if err != nil {
+			code := node.CodeError
+			var coded node.Coded
+			if errors.As(err, &coded) {
+				code = coded.ErrCode()
+			}
+			throwErr(vm, "Subgraph", code, err.Error())
+		}
+		return vm.ToValue(map[string]any{"exit": exit})
+	})
 }
 
 func bindNode(vm *goja.Runtime, c node.Ctx, rn *node.RegisteredNode, bundle node.ServiceBundle) {

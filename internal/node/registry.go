@@ -17,7 +17,7 @@ type RegisteredNode struct {
 
 	// exactly-one capability — Register 时验证. nil = 节点未实现该 capability.
 	Run       func(Ctx, Inputs) (Outputs, error)
-	RunRegion func(Ctx, Inputs, func(Ctx) error) (Outputs, error)
+	RunRegion func(Ctx, Inputs, func(Ctx) (string, error)) (Outputs, error)
 	Evaluate  func(Ctx, Inputs) (any, error)
 
 	// Optional extensions (unchanged)

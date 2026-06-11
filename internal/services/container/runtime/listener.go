@@ -157,6 +157,8 @@ func (l *EventListener) makeSubRunner() *ContainerRunner {
 	)
 	// 主 bundle 启动期被 SetLogger 注入真 logger; 子流程沿用同一 Log adapter.
 	sub.bundle.Log = l.runner.bundle.Log
+	// 子流程的脚本调子图走 sub 自己 (独立 swap 字段/frame 栈), 不借主 runner.
+	sub.bundle.Subgraphs = sub
 	return sub
 }
 

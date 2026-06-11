@@ -61,7 +61,15 @@ function toCompletion(it: InsertItem): Completion {
 
 // 变量读写不再走 vars.* 糖 — 用 $hp (读 live 值) 或 GetVar/SetVar/IncVar 节点函数
 // (VarName/Scope pin 值位有补全)。糖只留没有节点替身或 $ 捷径的高频项。
+// Subgraph 不是节点自动绑定 (RegionRunner 被排除), 是绑定层定制函数, 故在此登记。
 export const SUGAR_ITEMS: InsertItem[] = [
+  {
+    label: 'Subgraph',
+    detail: 'Subgraph({SubgraphID, ...params})',
+    insert: 'Subgraph({SubgraphID: ""})',
+    caretBack: 3,
+    snippet: 'Subgraph({SubgraphID: "${SubgraphID}"})',
+  },
   { label: 'params.get', detail: 'params.get(name)', insert: 'params.get("")', caretBack: 2 },
   { label: 'sleep', detail: 'sleep(ms)', insert: 'sleep()', caretBack: 1 },
   { label: 'log.info', detail: 'log.info(...args)', insert: 'log.info()', caretBack: 1 },

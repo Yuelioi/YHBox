@@ -18,12 +18,12 @@ func TestForEach_IteratesAllItems(t *testing.T) {
 	services.Vars = vars
 
 	var items, indices []any
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		v, _ := vars.Get("item")
 		i, _ := vars.Get("idx")
 		items = append(items, v)
 		indices = append(indices, i)
-		return nil
+		return "", nil
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn,
@@ -54,7 +54,7 @@ func TestForEach_EmptyOrNonList_ZeroIterationsDone(t *testing.T) {
 		iterations := 0
 		r := node.RunNodeAsRegion(context.Background(), rn,
 			map[string]any{feInList: listVal}, nil, nil,
-			node.StubServices(), false, func(_ node.Ctx) error { iterations++; return nil })
+			node.StubServices(), false, func(_ node.Ctx) (string, error) { iterations++; return "", nil })
 		if r.Error != nil {
 			t.Fatalf("listVal=%v: %v", listVal, r.Error)
 		}
@@ -73,12 +73,12 @@ func TestForEach_BreakSentinel(t *testing.T) {
 	rn, _ := node.Get("ForEach")
 
 	iterations := 0
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		iterations++
 		if iterations == 2 {
-			return errBreakRequested
+			return "", errBreakRequested
 		}
-		return nil
+		return "", nil
 	}
 	r := node.RunNodeAsRegion(context.Background(), rn,
 		map[string]any{feInList: []any{1, 2, 3, 4}}, nil, nil,
@@ -99,7 +99,7 @@ func TestForEach_ContinueSentinel(t *testing.T) {
 	iterations := 0
 	r := node.RunNodeAsRegion(context.Background(), rn,
 		map[string]any{feInList: []any{1, 2, 3}}, nil, nil,
-		node.StubServices(), false, func(_ node.Ctx) error { iterations++; return errContinueRequested })
+		node.StubServices(), false, func(_ node.Ctx) (string, error) { iterations++; return "", errContinueRequested })
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
@@ -116,7 +116,7 @@ func TestForEach_BodyErrorPropagates(t *testing.T) {
 	boom := errors.New("boom")
 	r := node.RunNodeAsRegion(context.Background(), rn,
 		map[string]any{feInList: []any{1, 2}}, nil, nil,
-		node.StubServices(), false, func(_ node.Ctx) error { return boom })
+		node.StubServices(), false, func(_ node.Ctx) (string, error) { return "", boom })
 	if !errors.Is(r.Error, boom) {
 		t.Errorf("error = %v, want boom", r.Error)
 	}

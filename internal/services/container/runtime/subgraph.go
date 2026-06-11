@@ -24,17 +24,3 @@ func ResolveSubgraphCall(c *container.Container, callNode *container.GraphNode) 
 	}
 	return nil, fmt.Errorf("subgraph %q not found in container %q", sgID, c.ID)
 }
-
-// FindParentDownstreamByDeclID 子图里 SubgraphOutput 节点跑完后，
-// 要找父图里"调用方那条边"对应的下游节点入 pin。
-// parentEdges：父图边列表。callNodeID：父图里 Subgraph 调用节点 id。declID：子图 OutputPin Decl 的 id。
-// 返回 "<nextNodeID>.<inPin>"；找不到返回空串。
-func FindParentDownstreamByDeclID(parentEdges []container.GraphEdge, callNodeID, declID string) string {
-	key := callNodeID + "." + declID
-	for _, e := range parentEdges {
-		if e.From == key {
-			return e.To
-		}
-	}
-	return ""
-}

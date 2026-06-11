@@ -18,12 +18,18 @@ const (
 	CodePlaybackFailed ErrCode = "playback_failed" // 回放失败
 	CodeSendFailed     ErrCode = "send_failed"     // 输入发送失败
 	CodeThrown         ErrCode = "thrown"          // Throw 节点默认码
+
+	// CodeSubgraphNoExit — 多出口子图体跑干没到达任何出口 marker, 出口歧义.
+	CodeSubgraphNoExit ErrCode = "subgraph_no_exit"
+	// CodeSubgraphRecursion — 子图调用嵌套超上限 (脚本动态调用可绕过图层静态防环).
+	CodeSubgraphRecursion ErrCode = "subgraph_recursion"
 )
 
 // ErrorCodes 合法码全集 (推荐集, 非强约束: 用户 Throw 自填码 / 插件返非注册码仍合法).
 var ErrorCodes = map[ErrCode]struct{}{
 	CodeError: {}, CodeLaunchFailed: {}, CodeCaptureFailed: {}, CodeWriteFailed: {},
 	CodeNotFound: {}, CodeTimeout: {}, CodePlaybackFailed: {}, CodeSendFailed: {}, CodeThrown: {},
+	CodeSubgraphNoExit: {}, CodeSubgraphRecursion: {},
 }
 
 // Coded — dispatch 失败路由的准入接口. *NodeError / *ThrowError 实现它.

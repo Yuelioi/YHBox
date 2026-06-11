@@ -366,15 +366,16 @@ func (r *ContainerRunner) checkSentinelLeak(node *container.GraphNode, err error
 //
 // SubgraphInput / SubgraphOutput 特殊处理:
 //   - SubgraphInput: framework 直通 .Done (其 Run 是 stub sentinel, 不该走 dispatchInRegion).
-//   - SubgraphOutput: body 终点, runRegionBody 直接 return nil (framework 不调 Run).
+//   - SubgraphOutput: body 终点 — 返回到达的出口 decl, 调用方据此 fire 对应动态出口.
+//     队列跑干没到任何 marker → 返 nil.
 //
 // 节点 Run 返 error sentinel (errBreakRequested / errContinueRequested / errThrow) 透传给 body caller.
 // 调用方 RunRegion 用 errors.Is 截获.
-func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) error {
+func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) (*container.SubgraphOutputDecl, error) {
 	queue := append([]ExecToken{}, seeds...)
 	for len(queue) > 0 {
 		if err := ctx.Err(); err != nil {
-			return err
+			return nil, err
 		}
 		tok := queue[0]
 		queue = queue[1:]
@@ -384,13 +385,13 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 				queue = append(queue, r.edges.next(tok.NodeID+".Done", tok.LoopStack)...)
 				continue
 			}
-			if _, isOutput := r.currentSG.OutputDeclsByID[tok.NodeID]; isOutput {
-				return nil
+			if decl, isOutput := r.currentSG.OutputDeclsByID[tok.NodeID]; isOutput {
+				return decl, nil
 			}
 		}
 		n, ok := r.nodesByID[tok.NodeID]
 		if !ok {
-			return fmt.Errorf("runRegionBody: unknown node %q", tok.NodeID)
+			return nil, fmt.Errorf("runRegionBody: unknown node %q", tok.NodeID)
 		}
 		// 节点级事件 — 跟 runner.go::Run 主 loop 同 emit, 让 GUI 高亮子图 / Loop body 内跑的节点.
 		if r.rt.Emit != nil {
@@ -403,18 +404,18 @@ func (r *ContainerRunner) runRegionBody(ctx context.Context, seeds []ExecToken) 
 		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (单一抓点), 这里不重复.
 		out, err := r.dispatchInRegion(ctx, n, tok)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		queue = append(queue, out...)
 	}
-	return nil
+	return nil, nil
 }
 
 // makeBodyFor build region body callback per node kind: Loop / Subgraph / CollapsedNode.
 //
 // ctx 来自 execNodeAsRegionViaFramework — 携带 tickCtxKey, Subgraph eager pullDataPin
 // 链下去 bundle.Snapshot 能拿 frozen Vars. Loop body 不 pullDataPin 不需要外部 ctx.
-func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
+func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) (string, error), error) {
 	switch node.Kind {
 	case "Loop", "ForEach":
 		// ForEach body 与 Loop 完全同构 (seed node.ID+".Body") — 共用 builder.
@@ -427,19 +428,22 @@ func (r *ContainerRunner) makeBodyFor(ctx context.Context, node *container.Graph
 
 // makeBodyForLoop body callback 每次调跑一轮 Loop/ForEach body (从 node.Body 出口下游 seed 到 queue 空).
 // errBreakRequested / errContinueRequested sentinel 透传; Loop.RunRegion 截获.
-func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecToken) func(nodepkg.Ctx) error {
+func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecToken) func(nodepkg.Ctx) (string, error) {
 	parentLoopStack := tok.LoopStack
-	return func(c nodepkg.Ctx) error {
+	return func(c nodepkg.Ctx) (string, error) {
 		seeds := r.edges.next(node.ID+".Body", parentLoopStack)
-		return r.runRegionBody(c.Context(), seeds)
+		// Loop body 单轮迭代无出口语义 — 即使 body 内命中子图出口 marker 也只结束本轮.
+		_, err := r.runRegionBody(c.Context(), seeds)
+		return "", err
 	}
 }
 
-// makeBodyForSubgraph body 调一次 — 解析 SubgraphID + push frame + 切 dispatch table 到 callee +
-// SubgraphInput.Done 出发 sub-dispatch + SubgraphOutput 终点 return nil + restore frame & tables.
+// makeBodyForSubgraph body 调一次 — 解析 SubgraphID + 组 params, 实跑走共享核心
+// runSubgraphCall (push frame + 切表 + 跑 body + 出口裁决), 出口以 decl ID fire
+// (父图边 pin = decl ID).
 //
 // SubgraphID 从 node.Config["SubgraphID"] (PascalCase, 跟 Spec.Inputs.SubgraphID 对齐) 取.
-func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) error, error) {
+func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) (string, error), error) {
 	sgID := container.PinString(node, "SubgraphID")
 	if sgID == "" {
 		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
@@ -458,14 +462,10 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 	// Params 来源 (3 路 union, 优先级 1→3):
 	//   1. node.Config["Params"] static JSON map.
 	//   2. sg.InputParams 声明的入参, 每个 pullDataPin(callerNode, paramName), 让 caller 通过
-	//      data-in pin 或 literal pin 推 dynamic param.
+	//      data-in pin 或 literal pin 推 dynamic param. pulled nil 不覆盖 static literal.
 	//   3. p.Default fallback if pull 出 nil.
-	staticParams := container.PinMap(node, "Params")
-	type pulledParam struct {
-		name string
-		val  any
-	}
-	var pulled []pulledParam
+	params := map[string]any{}
+	maps.Copy(params, container.PinMap(node, "Params"))
 	for _, p := range sg.InputParams {
 		v, perr := r.pullDataPin(ctx, node.ID, p.Name)
 		if perr != nil {
@@ -474,50 +474,15 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 		if v == nil && p.Default != nil {
 			v = toExprValue(p.Default)
 		}
-		pulled = append(pulled, pulledParam{name: p.Name, val: v})
+		if v != nil {
+			params[p.Name] = v
+		}
 	}
-	return func(c nodepkg.Ctx) error {
-		// Push frame + seed LocalParams (#1 static, then #2 pulled covers same name).
-		r.state.PushFrame(container.MainGraphRef(), sg, node.ID)
-		maps.Copy(r.state.CurrentFrame.LocalParams, staticParams)
-		for _, p := range pulled {
-			// Only override static Params if pulled value is non-nil — caller might use
-			// Config["Params"] static literal (no data-in pin), pulled nil would clobber.
-			if p.val != nil {
-				r.state.CurrentFrame.LocalParams[p.name] = p.val
-			}
+	return func(c nodepkg.Ctx) (string, error) {
+		decl, err := r.runSubgraphCall(c.Context(), sg, node.ID, params, parentLoopStack)
+		if err != nil {
+			return "", err
 		}
-		defer r.state.PopFrame()
-
-		// Save dispatch tables, swap to subgraph's.
-		// 读 r.compiled.Subgraphs 预编译产物 (不 hot rebuild edge index).
-		// 同时 swap currentSG, runRegionBody 用来识 entry/output marker.
-		savedEdges := r.edges
-		savedDataEdges := r.dataEdges
-		savedNodesByID := r.nodesByID
-		savedCurrentSG := r.currentSG
-		sgc, ok := r.compiled.Subgraphs[sg.ID]
-		if !ok {
-			return fmt.Errorf("Subgraph %s: callee %q not pre-compiled (compile bug)", node.ID, sg.ID)
-		}
-		r.edges = sgc.Edges
-		r.dataEdges = sgc.DataEdges
-		r.nodesByID = sgc.NodesByID
-		r.currentSG = sgc
-		defer func() {
-			r.edges = savedEdges
-			r.dataEdges = savedDataEdges
-			r.nodesByID = savedNodesByID
-			r.currentSG = savedCurrentSG
-		}()
-
-		// entry NodeID 从 sg.Entry metadata 拿 (不 scan Graph.Nodes).
-		entryID := sg.Entry.NodeID
-		if entryID == "" {
-			return fmt.Errorf("Subgraph %s: callee %q missing Entry (Normalize 漏?)", node.ID, sg.ID)
-		}
-
-		seeds := r.edges.next(entryID+".Done", parentLoopStack)
-		return r.runRegionBody(c.Context(), seeds)
+		return decl.ID, nil
 	}, nil
 }

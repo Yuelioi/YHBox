@@ -39,6 +39,7 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 		Name:          "try_hook_f_test",
 		Vars: []container.VarDecl{
 			{Name: "_hookFFound", Type: "bool", Default: false},
+			{Name: "exitTaken", Type: "string", Default: ""},
 		},
 		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
@@ -48,12 +49,21 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 					"SubgraphID": "try_hook_F",
 					"literal":    map[string]any{"pollIntervalMs": pollIntervalMs},
 				}},
+				{ID: "setDone", Kind: "SetVar", Config: map[string]any{
+					"VarName": "exitTaken", "Value": "done",
+				}},
+				{ID: "setFailed", Kind: "SetVar", Config: map[string]any{
+					"VarName": "exitTaken", "Value": "failed",
+				}},
 				{ID: "stop", Kind: "Stop"},
 			},
+			// 两出口各接各的下游 — 验多出口按到达 decl 路由 (pin = OutputPins decl ID).
 			Edges: []container.GraphEdge{
 				{From: "start.Done", To: "call.in"},
-				{From: "call.Done", To: "stop.in"},
-				{From: "call.failed", To: "stop.in"},
+				{From: "call.done", To: "setDone.In"},
+				{From: "call.failed", To: "setFailed.In"},
+				{From: "setDone.Done", To: "stop.in"},
+				{From: "setFailed.Done", To: "stop.in"},
 			},
 		},
 	}
@@ -77,7 +87,7 @@ func TestTryHookF_FoundFast(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 20))
 	paintCursorBar(img, 50)
 	paintTargetBar(img, 100, 115)
-	spy, _, _, err := runTryHookF(t, 1.0, img)
+	spy, _, rt, err := runTryHookF(t, 1.0, img)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -85,6 +95,9 @@ func TestTryHookF_FoundFast(t *testing.T) {
 	want := []string{"down:f", "up:f"} // KeyPress 节点 #4 后拆 down/up
 	if !equalStrings(spy.keyEvents, want) {
 		t.Fatalf("FoundFast: want keyEvents %v, got %v", want, spy.keyEvents)
+	}
+	if got := rt.Vars()["exitTaken"]; got != "done" {
+		t.Errorf("exitTaken = %v, want %q (命中应走 done 出口下游)", got, "done")
 	}
 }
 
@@ -109,5 +122,8 @@ func TestTryHookF_Exhausted(t *testing.T) {
 	found, _ := rt.Vars()["_hookFFound"].(bool)
 	if found {
 		t.Errorf("Exhausted: _hookFFound expected false, got true")
+	}
+	if got := rt.Vars()["exitTaken"]; got != "failed" {
+		t.Errorf("exitTaken = %v, want %q (耗尽应走 failed 出口下游)", got, "failed")
 	}
 }

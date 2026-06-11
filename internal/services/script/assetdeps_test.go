@@ -67,6 +67,26 @@ func TestAssetDeps_EmptyAndNoGUID(t *testing.T) {
 	}
 }
 
+func TestAssetDeps_SubgraphCall(t *testing.T) {
+	code := `
+let r = Subgraph({SubgraphID: "press_esc"});
+let q = Subgraph({ SubgraphID: 'try_hook_F', msg: "hi" });
+if (r.exit === "done") { log.info("ok"); }
+`
+	got := depKeys(code)
+	if got["press_esc"] != "subgraph" || got["try_hook_F"] != "subgraph" {
+		t.Errorf("want subgraph deps press_esc + try_hook_F, got %v", got)
+	}
+}
+
+func TestAssetDeps_SubgraphCall_UUIDForm(t *testing.T) {
+	// SubgraphID 是 uuid 时必须出 subgraph 依赖 (全文 uuid 扫的 template over-approx 共存无害).
+	got := depKeys(`Subgraph({SubgraphID: "2ba73f97-2820-4090-958a-c07dd3f8f48c"})`)
+	if got["2ba73f97-2820-4090-958a-c07dd3f8f48c"] != "subgraph" {
+		t.Errorf("want subgraph dep for uuid SubgraphID, got %v", got)
+	}
+}
+
 func TestAssetDeps_MultipleInOrder(t *testing.T) {
 	code := `"3680b3d2-d31d-461c-b697-0d9c3e6a87ed" "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"`
 	deps := AssetDeps(code)

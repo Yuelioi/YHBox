@@ -266,7 +266,7 @@ func TestRunNodeAsRegion_NonRegionRunner_Errors(t *testing.T) {
 	ResetRegistryForTest()
 	Register(runnableOnlyNode{})
 	rn, _ := Get("RunnableOnly")
-	r := RunNodeAsRegion(context.Background(), rn, nil, nil, nil, StubServices(), false, func(Ctx) error { return nil })
+	r := RunNodeAsRegion(context.Background(), rn, nil, nil, nil, StubServices(), false, func(Ctx) (string, error) { return "", nil })
 	if r.Error == nil || !strings.Contains(r.Error.Error(), "not a RegionRunner") {
 		t.Errorf("expected 'not a RegionRunner' error, got %v", r.Error)
 	}

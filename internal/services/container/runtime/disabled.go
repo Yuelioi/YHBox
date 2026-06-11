@@ -12,7 +12,7 @@ import (
 //	Loop / Race / Parallel  → .done (skip body — 不是 first exec out, 语义专选)
 //	Switch                  → .Default (无配置 case 走 default — 不是 Case1)
 //	If                      → .True (默认走 true 分支)
-//	Subgraph / CollapsedNode → .Done / 动态 OutputPins[0] (dynamic outputs)
+//	Subgraph / CollapsedNode → OutputPins[0].ID (decl ID 动态出口)
 //	Linear nodes (Sleep, KeyPress, SetVar, etc.) → 走 nodepkg.Spec 第一个 Type=Exec 出口
 //	Throw / Stop / terminals → noop (return nil; runner naturally terminates this token's path)
 //	Start / MouseCalibration / EventTick → validator should have errored (INVALID_DISABLED_TERMINAL).
@@ -26,11 +26,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 	case "If":
 		return tryExits(r, node, tok, "True"), nil
 	case "Subgraph", "CollapsedNode":
-		// Subgraph/CollapsedNode 是单 Done 出口; 无下游时 fallback 到 OutputPins[0].
-		tokens := r.edges.next(node.ID+".Done", tok.LoopStack)
-		if len(tokens) > 0 {
-			return tokens, nil
-		}
+		// 出口 = callee OutputPins decl ID (dynamic outputs); 禁用直通走第一个 decl.
 		sg, err := ResolveSubgraphCall(r.rt.Container, node)
 		if err != nil || sg == nil || len(sg.OutputPins) == 0 {
 			return nil, nil // No exit available — silent terminate

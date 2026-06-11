@@ -229,14 +229,16 @@ const boundSubgraphNodeCount = computed<number | null>(() => {
 })
 
 const execOutPinsForRender = computed<{ id: string; label: string; isError: boolean }[]>(() => {
-  if (kind.value === 'Subgraph') {
+  // 子图调用节点 (Subgraph / CollapsedNode) 的 exec-out = callee outputPins decl,
+  // pin id 用 decl ID (runtime 按它路由), 显示名用 decl name.
+  if (kind.value === 'Subgraph' || kind.value === 'CollapsedNode') {
     const decls = resolveSubgraphCallExecOut(
       { config: props.data?.config as any },
       editorStore.subgraphsForCurrentContainer,
     )
     const out = decls.map((d) => ({ id: d.id, label: d.name, isError: false }))
-    // Subgraph 节点 Spec 的静态 Fail 出口 (region 兜底) 不在子图 outputPins 里, 单独补.
-    for (const id of getSpec('Subgraph')?.errorOut ?? []) {
+    // Spec 的静态 Fail 出口 (region 兜底) 不在子图 outputPins 里, 单独补.
+    for (const id of getSpec(kind.value)?.errorOut ?? []) {
       out.push({ id, label: t('common.fail_pin'), isError: true })
     }
     return out

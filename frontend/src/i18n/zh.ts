@@ -600,6 +600,8 @@ export default {
     playback_failed: '回放失败',
     send_failed: '发送失败',
     thrown: '主动抛错',
+    subgraph_no_exit: '子图没走到出口',
+    subgraph_recursion: '子图调用嵌套过深',
   },
   // 节点 metadata — kind label + description + input/output 字段 i18n.
   // FE 单源, backend Spec.DisplayName/Description 不再被 FE 用. 加新节点 → 这里 + en.ts 同步.
@@ -2295,6 +2297,7 @@ export default {
   // Script 脚本编辑器糖函数说明 (参考面板展开详情)。key 用 _ 替代 "." (vue-i18n 层级分隔)。
   script: {
     fn: {
+      Subgraph: '调用本容器里的一个子图, 跑完才返回。除 SubgraphID 外的字段会作为入参传给子图; 返回的 exit 是子图实际走到的出口名 (如 "done" / "failed")。',
       params_get: '读子图入参 (只在子图里运行时有值)。',
       sleep: '等待指定毫秒。停止运行时立即中断, 不会卡住。',
       log_info: '输出一条日志到运行日志, 多个参数用空格拼接。',

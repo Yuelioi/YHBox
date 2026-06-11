@@ -14,9 +14,9 @@ func TestLoop_CountMode_BodyInvokedN(t *testing.T) {
 	rn, _ := node.Get("Loop")
 
 	iterations := 0
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		iterations++
-		return nil
+		return "", nil
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -60,13 +60,13 @@ func TestLoop_Capture_IndexEachIteration(t *testing.T) {
 	services.Vars = vars
 
 	var seen []any
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		v, ok := vars.Get("i")
 		if !ok {
 			t.Fatal("CaptureIndex var 'i' not set before body")
 		}
 		seen = append(seen, v)
-		return nil
+		return "", nil
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -93,12 +93,12 @@ func TestLoop_BreakSentinel(t *testing.T) {
 	rn, _ := node.Get("Loop")
 
 	iterations := 0
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		iterations++
 		if iterations == 3 {
-			return errBreakRequested
+			return "", errBreakRequested
 		}
-		return nil
+		return "", nil
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -123,9 +123,9 @@ func TestLoop_ContinueSentinel(t *testing.T) {
 	rn, _ := node.Get("Loop")
 
 	iterations := 0
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		iterations++
-		return errContinueRequested
+		return "", errContinueRequested
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -151,12 +151,12 @@ func TestLoop_BodyErrorPropagates(t *testing.T) {
 
 	boom := errors.New("boom")
 	iterations := 0
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		iterations++
 		if iterations == 2 {
-			return boom
+			return "", boom
 		}
-		return nil
+		return "", nil
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -181,12 +181,12 @@ func TestLoop_ForeverMode_BreakRequired(t *testing.T) {
 	rn, _ := node.Get("Loop")
 
 	iterations := 0
-	body := func(_ node.Ctx) error {
+	body := func(_ node.Ctx) (string, error) {
 		iterations++
 		if iterations == 7 {
-			return errBreakRequested
+			return "", errBreakRequested
 		}
-		return nil
+		return "", nil
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -211,7 +211,7 @@ func TestLoop_UnknownMode_Error(t *testing.T) {
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
 		map[string]any{loopInMode: "while"}, // while was old runtime, 砍掉了
-		nil, node.StubServices(), false, func(_ node.Ctx) error { return nil })
+		nil, node.StubServices(), false, func(_ node.Ctx) (string, error) { return "", nil })
 
 	if r.Error == nil {
 		t.Errorf("expected error on unknown mode, got nil")
@@ -225,7 +225,7 @@ func TestLoop_NoRegionRunner_NotARegionError(t *testing.T) {
 	rn, _ := node.Get("Sleep")
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
-		node.StubServices(), false, func(_ node.Ctx) error { return nil })
+		node.StubServices(), false, func(_ node.Ctx) (string, error) { return "", nil })
 
 	if r.Error == nil {
 		t.Errorf("expected error for non-RegionRunner, got nil")

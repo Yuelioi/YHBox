@@ -72,6 +72,7 @@ import {
 import { renderDoc, type HoverDoc } from '@/lib/editorHover'
 import { snippetCompletions } from '@/lib/snippetCompletion'
 import { useCodeSnippetsStore } from '@/stores/codeSnippets'
+import { useContainerEditorStore } from '@/stores/containerEditor'
 import type { VarType } from '@/lib/variableRef'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { ALL_NODE_GROUPS, groupLabelColor } from '@/composables/editor/useNodeGroupColor'
@@ -101,6 +102,7 @@ const editorModalRef = ref<InstanceType<typeof EditorModal> | null>(null)
 let view: EditorView | null = null
 
 const registry = useNodeRegistryStore()
+const containerEditorStore = useContainerEditorStore()
 const codeSnippetsStore = useCodeSnippetsStore()
 void codeSnippetsStore.ensureLoaded() // prefix 补全要用, 小框编辑器一挂载就拉
 
@@ -155,7 +157,8 @@ function pinEnumOptions(kind: string, pin: string): { value: string; label?: str
 }
 
 // pin 值位置补全候选: 枚举 pin → 候选值 (type enum); varname pin (Semantic "varname",
-// 如 GetVar/SetVar 的 VarName) → 容器变量名 (type variable)。其余 pin 无候选。
+// 如 GetVar/SetVar 的 VarName) → 容器变量名; SubgraphID pin (脚本 Subgraph() 调子图)
+// → 容器内可见子图 ID (显示子图名)。其余 pin 无候选。
 function pinValues(
   kind: string,
   pin: string,
@@ -165,6 +168,13 @@ function pinValues(
   const input = registry.specs.get(kind)?.inputs?.find((i) => i.name === pin)
   if (input?.semantic === 'varname') {
     return varNames.value.map((n) => ({ value: n, type: 'variable' as const }))
+  }
+  if (input?.semantic === 'SubgraphID') {
+    return containerEditorStore.visibleSubgraphs.map((s) => ({
+      value: s.id,
+      label: s.label,
+      type: 'enum' as const,
+    }))
   }
   return []
 }

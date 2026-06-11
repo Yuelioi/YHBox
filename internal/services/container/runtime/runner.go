@@ -137,6 +137,8 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		zerolog.Nop(),
 		func() *ExecState { return r.state },
 	)
+	// 脚本调子图 (node.SubgraphCaller) — runner 自身实现, 闭住本实例的 swap 字段/frame 栈.
+	r.bundle.Subgraphs = r
 	return r
 }
 

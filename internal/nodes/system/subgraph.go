@@ -2,8 +2,8 @@
 // Subgraph — 调用容器内 SubgraphID 指定的子图.
 //
 // 节点本身只 wrap region 边界 — body 回调由 runner 构造, 内含 "切换 dispatch
-// table 到目标子图 + 推 ExecFrame + 跑下游 + 返回" 全套. Subgraph.RunRegion
-// 调一次 body, body 返 error 透传, 无 error → 走 Done 出口.
+// table 到目标子图 + 推 ExecFrame + 跑下游 + 返回" 全套. body 回报 callee 到达的
+// 出口 decl ID, 节点原样 fire — 父图边以 decl ID 为 pin (DynamicOutputs).
 //
 // 只支持静态 SubgraphID 输入 + 单 Params JSON, 无 dynamic DataIn pin.
 package system
@@ -20,13 +20,14 @@ const (
 	sgInExec       = "In"
 	sgInSubgraphID = "SubgraphID"
 	sgInParams     = "Params"
-	sgOutDone      = "Done"
 )
 
 func (Subgraph) Spec() node.Spec {
 	return node.Spec{
 		Kind:     "Subgraph",
 		Category: "System",
+		// 出口 = callee OutputPins 的 decl ID, 随绑定子图动态变 — 静态只声明 Fail.
+		DynamicOutputs: true,
 		Inputs: []node.InputSpec{
 			{Name: sgInExec, Type: "Exec"},
 			{Name: sgInSubgraphID, Type: "String", Semantic: "SubgraphID", Required: true,
@@ -36,7 +37,6 @@ func (Subgraph) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "json"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: sgOutDone, Type: "Exec"},
 			{Name: "Fail", Type: "Exec", Semantic: "error",
 				Data: []node.DataField{
 					{Name: "Error", Type: "String"},
@@ -46,12 +46,17 @@ func (Subgraph) Spec() node.Spec {
 	}
 }
 
-// RunRegion — body() 调一次, 跑 callee 子图. error 透传; 无 error → Done.
-func (Subgraph) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
-	if err := body(ctx); err != nil {
+// RunRegion — body() 调一次, 跑 callee 子图. error 透传; exit = 到达的出口 decl ID,
+// "" (没到达任何出口) → 不 fire, 父图流到此为止.
+func (Subgraph) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string, error)) (node.Outputs, error) {
+	exit, err := body(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return ctx.Out(sgOutDone).Fire(), nil
+	if exit == "" {
+		return nil, nil
+	}
+	return ctx.Out(exit).Fire(), nil
 }
 
 // Dependencies — 子图分享 / library import 时 BFS 抽 callee 引用.

@@ -24,6 +24,8 @@ import { backend, type Container, type Graph } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
 import { useHotkeysStore } from '@/stores/hotkeys'
+import { useContainerEditorStore } from '@/stores/containerEditor'
+import { pinsFor } from '@/components/containers/pinSpec'
 import { randID } from './ids'
 
 export interface RecordOpts {
@@ -267,9 +269,22 @@ export function useRecording(opts: RecordOpts) {
     }
 
     if (endpoints.length === 1) {
-      ;(g.edges as any[]).push({ from: endpoints[0] + '.Done', to: newNodeId + '.In' })
+      const tail = (g.nodes as any[]).find((n) => n.id === endpoints[0])
+      ;(g.edges as any[]).push({ from: endpoints[0] + '.' + tailExecOutPin(tail), to: newNodeId + '.In' })
     }
     // 0 (环) 或 >1 (Parallel 分支) → 不连
+  }
+
+  // tailExecOutPin: 链尾节点的首个 exec-out pin 名. 子图调用节点 (上一次录制的产物)
+  // 的出口是 callee outputPins decl ID, 不能写死 'Done'.
+  function tailExecOutPin(tail: any): string {
+    if (!tail) return 'Done'
+    if (tail.kind === 'Subgraph' || tail.kind === 'CollapsedNode') {
+      const sgID = tail.config?.SubgraphID
+      const sg = useContainerEditorStore().subgraphsForCurrentContainer.find((s) => s.id === sgID)
+      return sg?.outputPins?.[0]?.id ?? 'Done'
+    }
+    return pinsFor(tail.kind).execOut[0] ?? 'Done'
   }
 
   async function maybeSave() {

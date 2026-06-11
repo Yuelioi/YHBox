@@ -585,6 +585,8 @@
     playback_failed: 'Playback failed',
     send_failed: 'Send failed',
     thrown: 'Thrown',
+    subgraph_no_exit: 'Subgraph reached no exit',
+    subgraph_recursion: 'Subgraph call nesting too deep',
   },
   node: {
     // control
@@ -2248,6 +2250,7 @@
   },
   script: {
     fn: {
+      Subgraph: 'Call a subgraph of this container and wait until it finishes. Fields other than SubgraphID are passed as input params; the returned exit is the output the subgraph actually reached (e.g. "done" / "failed").',
       params_get: 'Read a subgraph parameter (only meaningful inside a subgraph).',
       sleep: 'Wait for the given milliseconds. Interrupts immediately when the run stops.',
       log_info: 'Write a log line to the run log; multiple arguments are joined with spaces.',

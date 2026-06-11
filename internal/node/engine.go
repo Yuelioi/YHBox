@@ -105,7 +105,7 @@ func RunNode(ctx context.Context, rn *RegisteredNode, dataWire, config, execData
 // propagate (Subgraph/CollapsedNode 裸透传, 由 dispatch 失败路由到 Fail 出口).
 //
 // 节点没实现 RegionRunner → RunResult.Error = "not a RegionRunner".
-func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, logEnabled bool, body func(Ctx) error) RunResult {
+func RunNodeAsRegion(ctx context.Context, rn *RegisteredNode, dataWire, config, execData map[string]any, services ServiceBundle, logEnabled bool, body func(Ctx) (string, error)) RunResult {
 	if rn.RunRegion == nil {
 		return RunResult{Error: fmt.Errorf("node %q is not a RegionRunner", rn.Spec.Kind)}
 	}

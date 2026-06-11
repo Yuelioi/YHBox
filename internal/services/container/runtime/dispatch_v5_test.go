@@ -644,13 +644,13 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 	// Main container: { sg_call (Subgraph w/ SubgraphID=sub1), done_n }
 	// Subgraph "sub1": { sub_in (SubgraphInput), sub_node (counted), sub_out (SubgraphOutput) }
 	subgraph := container.Subgraph{
-		ID:    "sub1",
-		Label: "sub1",
+		ID:         "sub1",
+		Label:      "sub1",
+		Entry:      container.SubgraphMarker{NodeID: "sub_in"},
+		OutputPins: []container.SubgraphOutputDecl{{ID: "done", Name: "done", NodeID: "sub_out"}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
-				{ID: "sub_in", Kind: "SubgraphInput"},
 				{ID: "sub_node", Kind: tkHappyCounted},
-				{ID: "sub_out", Kind: "SubgraphOutput"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "sub_in.Done", To: "sub_node.In"},
@@ -668,7 +668,7 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 				{ID: "done_n", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
-				{From: "sg_call.Done", To: "done_n.In"},
+				{From: "sg_call.done", To: "done_n.In"},
 			},
 		},
 		Subgraphs: []container.Subgraph{subgraph},
@@ -691,8 +691,8 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 		t.Errorf("PopFrame did not restore main frame: %+v", r.state.CurrentFrame)
 	}
 	// 验证 edges restored to main (not subgraph).
-	// main edges 有 sg_call.Done → done_n.in. r.edges.out 应该包含这条.
-	if _, ok := r.edges.out["sg_call.Done"]; !ok {
+	// main edges 有 sg_call.done → done_n.in. r.edges.out 应该包含这条.
+	if _, ok := r.edges.out["sg_call.done"]; !ok {
 		t.Errorf("r.edges not restored to main graph after Subgraph body returned")
 	}
 }

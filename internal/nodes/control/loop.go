@@ -61,14 +61,15 @@ func (Loop) Spec() node.Spec {
 }
 
 // RunRegion — body() 调 N 次 / forever. break/continue sentinel 截获.
-func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
+// body 的出口回报对 Loop 无意义 (单轮迭代), 忽略.
+func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string, error)) (node.Outputs, error) {
 	mode := in.String(loopInMode)
 	switch mode {
 	case "count":
 		count := in.Int(loopInCount)
 		for i := 0; i < count; i++ {
 			node.Capture(ctx, in, loopCapIndex, i)
-			if err := body(ctx); err != nil {
+			if _, err := body(ctx); err != nil {
 				if errors.Is(err, errBreakRequested) {
 					return ctx.Out(loopOutDone).Fire(), nil
 				}
@@ -82,7 +83,7 @@ func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (
 	case "forever":
 		for i := 0; ; i++ {
 			node.Capture(ctx, in, loopCapIndex, i)
-			if err := body(ctx); err != nil {
+			if _, err := body(ctx); err != nil {
 				if errors.Is(err, errBreakRequested) {
 					return ctx.Out(loopOutDone).Fire(), nil
 				}

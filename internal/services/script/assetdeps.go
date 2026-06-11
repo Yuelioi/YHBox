@@ -17,32 +17,39 @@ const guidPat = `[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-
 // 贪婪的 (clip-)? 前缀保证 clip-<uuid> 整体算一条,内层 uuid 不再被当 template 重复命中。
 var blobGUIDRe = regexp.MustCompile(`(clip-)?` + guidPat)
 
+// subgraphCallRe 抓 Subgraph({SubgraphID: "<id>"}) 调用里的字面 SubgraphID(单双引号均可,
+// key 可带引号)。SubgraphID 可为非 uuid 人名, 与全文 uuid 扫不同路, 按调用形态抽。
+var subgraphCallRe = regexp.MustCompile(`Subgraph\(\s*\{[^)]*?["']?SubgraphID["']?\s*:\s*["']([^"']+)["']`)
+
 // AssetDeps 从脚本源码静态抽资产依赖。
 //   - (clip-)?<uuid> 字面量:clip- 前缀 → clip;否则 → template。
 //     over-approx 安全侧:多标只会少删一个 blob(无害),漏标才会误删(有害)。
-//   - 静态正则不解析 JS 语义:动态拼接出来的 GUID 扫不到(约定:模板/clip GUID 用字面量,别字符串拼)。
-//
-// subgraph 引用(Subgraph({SubgraphID:...}))在 Stage 2 脚本调子图落地时按 pin 名扩 ——
-// 子图无 blob、非 GC 关键,且 SubgraphID 可为非 uuid 人名,与本处全文 uuid 扫不同路。
+//   - Subgraph({SubgraphID: "<id>"}) → subgraph 依赖(分享导出闭包 / 删除 referrer 警告用;
+//     uuid 形态的 SubgraphID 会同时被全文扫多标一条 template — over-approx 无害)。
+//   - 静态正则不解析 JS 语义:动态拼接出来的 GUID / SubgraphID 扫不到(约定:用字面量,别字符串拼)。
 func AssetDeps(code string) []node.Dependency {
 	if code == "" {
 		return nil
 	}
 	seen := map[string]bool{}
 	var deps []node.Dependency
-	for _, m := range blobGUIDRe.FindAllStringSubmatch(code, -1) {
-		full, prefix := m[0], m[1]
-		kind := "template"
-		if prefix != "" {
-			kind = "clip"
-		}
-		d := node.Dependency{Kind: kind, Key: full}
-		k := kind + ":" + full
+	add := func(kind, key string) {
+		k := kind + ":" + key
 		if seen[k] {
-			continue
+			return
 		}
 		seen[k] = true
-		deps = append(deps, d)
+		deps = append(deps, node.Dependency{Kind: kind, Key: key})
+	}
+	for _, m := range blobGUIDRe.FindAllStringSubmatch(code, -1) {
+		kind := "template"
+		if m[1] != "" {
+			kind = "clip"
+		}
+		add(kind, m[0])
+	}
+	for _, m := range subgraphCallRe.FindAllStringSubmatch(code, -1) {
+		add("subgraph", m[1])
 	}
 	return deps
 }

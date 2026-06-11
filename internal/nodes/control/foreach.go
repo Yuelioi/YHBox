@@ -51,12 +51,12 @@ func (ForEach) Spec() node.Spec {
 // RunRegion — items 由 dataWire 在 ForEach 自身 dispatch 入口拉取一次 (稳定性来自单次拉取;
 // per-dispatch 缓存只负责同 dispatch 内多 pin 引用同值). 快照仅冻结切片头: 元素是引用,
 // body 改其内容后续轮可见.
-func (ForEach) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) error) (node.Outputs, error) {
+func (ForEach) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string, error)) (node.Outputs, error) {
 	items := in.List(feInList)
 	for i, el := range items {
 		node.Capture(ctx, in, feCapItem, el)
 		node.Capture(ctx, in, feCapIndex, i)
-		if err := body(ctx); err != nil {
+		if _, err := body(ctx); err != nil {
 			if errors.Is(err, errBreakRequested) {
 				return ctx.Out(feOutDone).Fire(), nil
 			}

@@ -96,6 +96,31 @@ PlayClip({ClipID:"clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"});`,
 	}
 }
 
+func TestScanSubgraphDependencies_ScriptCallsSubgraph(t *testing.T) {
+	// 脚本 Subgraph({SubgraphID}) 调用要被扫成 subgraph 依赖, 且 BFS 跟进 callee 的资产.
+	nodes := map[string][]NodeInfo{
+		"sg": {
+			{Kind: "Script", Config: map[string]any{"literal": map[string]any{
+				"Code": `let r = Subgraph({SubgraphID: "press_esc"}); return r.exit`,
+			}}},
+		},
+		"press_esc": {
+			{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"ns.esc"}}}},
+		},
+	}
+	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
+	got, err := ScanSubgraphDependencies("sg", get)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsDep(got, Dependency{Kind: KindSubgraph, Key: "press_esc"}) {
+		t.Errorf("script subgraph call not scanned, got %v", got)
+	}
+	if !containsDep(got, Dependency{Kind: KindTemplate, Key: "ns.esc"}) {
+		t.Errorf("callee assets not followed (BFS), got %v", got)
+	}
+}
+
 func sortDeps(d []Dependency) {
 	sort.Slice(d, func(i, j int) bool { return d[i].String() < d[j].String() })
 }
