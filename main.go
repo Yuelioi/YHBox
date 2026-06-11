@@ -31,6 +31,7 @@ import (
 	"yotta/internal/services"
 	"yotta/internal/services/asset"
 	"yotta/internal/services/calibration"
+	"yotta/internal/services/codesnippet"
 	"yotta/internal/services/container"
 	"yotta/internal/services/container/library"
 	containerruntime "yotta/internal/services/container/runtime"
@@ -207,6 +208,9 @@ func main() {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("schedule store init")
 	}
 	scheduleSvc := schedule.NewService(scheduleStore)
+
+	// 编辑器用户代码片段 (Script/Expr 放大编辑「片段」菜单): <dataDir>/snippets.json 整存整取.
+	codeSnippetSvc := codesnippet.NewService(filepath.Join(dataDir, "snippets.json"))
 
 	// ---- 运行时层：ExecutionQueue + Worker + ScheduleDaemon ----
 	//
@@ -414,6 +418,7 @@ func main() {
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
 		application.NewService(nodeSvc),
+		application.NewService(codeSnippetSvc),
 	)
 	_ = scheduleDaemon // 防 import 未用
 

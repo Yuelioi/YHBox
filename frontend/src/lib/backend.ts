@@ -13,6 +13,7 @@ import * as AppInfoService from '@bindings/yotta/internal/services/appinfoservic
 import * as RecordingService from '@bindings/yotta/internal/services/recording/service.js'
 import * as ClipService from '@bindings/yotta/internal/services/inputclip/service.js'
 import * as LibraryService from '@bindings/yotta/internal/services/container/library/service.js'
+import * as CodeSnippetService from '@bindings/yotta/internal/services/codesnippet/service.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
 
@@ -262,6 +263,12 @@ export const backend = {
     // ExportContainer 把整容器顶层图 + 全部子图 + 资产闭包打成 library package (bundle ID = 容器 ID).
     exportContainer: (containerID: string, overwrite: boolean) =>
       invoke(LibraryService.ExportContainer, containerID, overwrite),
+  },
+  // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
+  codeSnippets: {
+    list: () => invoke(CodeSnippetService.List),
+    saveAll: (list: { id: string; lang: string; name: string; body: string }[]) =>
+      invoke(CodeSnippetService.SaveAll, list as any),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),

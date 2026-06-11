@@ -1,8 +1,9 @@
-// 代码片段 store — Script/Expr 放大编辑工具栏「片段」下拉的用户自建部分
-// (内置模板仍由各编辑器以 props.snippets 传入, 不进这里)。
-// 存储: localStorage (对齐 stores/snippets.ts 先例; schema 稳定后迁 backend file)。
+// 代码片段 store — Script/Expr 放大编辑工具栏「片段」下拉的用户自建片段。
+// 持久化在后端 <dataDir>/snippets.json (codesnippet service, 整存整取):
+// 首次用到时 load 全量进内存, 每次增删改把全量列表回写。
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { backend } from '@/lib/backend'
 
 export type CodeSnippetLang = 'script' | 'expr'
 
@@ -12,31 +13,21 @@ export interface CodeSnippet {
   name: string
   /** 字面插入光标处 — 不支持 ${} 占位 (与 JS 模板字符串语法冲突, 见 spec)。 */
   body: string
-  updatedAt: number
 }
-
-const STORAGE_KEY = 'yotta.codeSnippets'
 
 export const useCodeSnippetsStore = defineStore('codeSnippets', () => {
   const snippets = ref<CodeSnippet[]>([])
+  let loaded = false
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) snippets.value = parsed
-    } catch {
-      // 坏数据 / localStorage 不可用 → 空列表起步
-    }
+  async function ensureLoaded() {
+    if (loaded) return
+    loaded = true
+    const list = await backend.codeSnippets.list()
+    if (Array.isArray(list)) snippets.value = list as CodeSnippet[]
   }
 
   function persist() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets.value))
-    } catch {
-      // quota / 不可用 → 静默 (片段仍在内存里可用)
-    }
+    void backend.codeSnippets.saveAll(snippets.value)
   }
 
   function byLang(lang: CodeSnippetLang): CodeSnippet[] {
@@ -44,7 +35,7 @@ export const useCodeSnippetsStore = defineStore('codeSnippets', () => {
   }
 
   function add(lang: CodeSnippetLang, name: string, body: string): CodeSnippet {
-    const s: CodeSnippet = { id: crypto.randomUUID(), lang, name, body, updatedAt: Date.now() }
+    const s: CodeSnippet = { id: crypto.randomUUID(), lang, name, body }
     snippets.value.push(s)
     persist()
     return s
@@ -53,7 +44,7 @@ export const useCodeSnippetsStore = defineStore('codeSnippets', () => {
   function update(id: string, patch: Partial<Pick<CodeSnippet, 'name' | 'body'>>): void {
     const idx = snippets.value.findIndex((s) => s.id === id)
     if (idx === -1) return
-    snippets.value[idx] = { ...snippets.value[idx], ...patch, updatedAt: Date.now() }
+    snippets.value[idx] = { ...snippets.value[idx], ...patch }
     persist()
   }
 
@@ -64,6 +55,5 @@ export const useCodeSnippetsStore = defineStore('codeSnippets', () => {
     persist()
   }
 
-  load()
-  return { snippets, byLang, add, update, remove }
+  return { snippets, ensureLoaded, byLang, add, update, remove }
 })

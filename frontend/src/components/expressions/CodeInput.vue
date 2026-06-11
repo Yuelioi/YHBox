@@ -24,7 +24,6 @@
       :title="t('inspector.code_editor_title')"
       :extensions="modalExtensions"
       :reference="referenceItems"
-      :snippets="SNIPPETS"
       snippet-lang="script"
       :lint-first="lintFirst"
       lang-label="JavaScript"
@@ -69,7 +68,6 @@ import {
   scriptSyntaxErrors,
   SUGAR_COMPLETIONS,
   SUGAR_ITEMS,
-  type InsertItem,
 } from '@/lib/scriptCompletions'
 import { renderDoc, type HoverDoc } from '@/lib/editorHover'
 import type { VarType } from '@/lib/variableRef'
@@ -129,15 +127,6 @@ const completionOptions = computed<Completion[]>(() => [
     detail: v.type,
   })),
 ])
-
-// 常用片段 (工具栏下拉) — caretBack 把光标放进条件括号 / 循环体。
-const SNIPPETS: InsertItem[] = [
-  { label: 'if', insert: 'if () {\n  \n}', caretBack: 8 },
-  { label: 'if / else', insert: 'if () {\n  \n} else {\n  \n}', caretBack: 20 },
-  { label: 'for', insert: 'for (let i = 0; i < 10; i++) {\n  \n}', caretBack: 2 },
-  { label: 'while', insert: 'while () {\n  \n}', caretBack: 8 },
-  { label: 'try / catch', insert: 'try {\n  \n} catch (e) {\n  \n}', caretBack: 19 },
-]
 
 // 糖函数展开说明 (i18n key 用 _ 替代 ".": vue-i18n 把 "." 当层级分隔)。
 function sugarDocs(label: string): string {

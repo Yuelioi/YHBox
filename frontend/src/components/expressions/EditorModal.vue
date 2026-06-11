@@ -39,10 +39,10 @@
             <UButton icon="i-tabler-list-search" variant="ghost" color="neutral" size="xs"
               :title="t('inspector.editor_search')" @click="run(openSearchPanel)" />
           </div>
-          <template v-if="snippets?.length || snippetLang || $slots['toolbar-extra']">
+          <template v-if="snippetLang || $slots['toolbar-extra']">
             <span class="h-4 border-l border-default mx-1.5" />
             <div class="flex items-center gap-0.5">
-              <UDropdownMenu v-if="snippets?.length || snippetLang" :items="snippetMenuItems">
+              <UDropdownMenu v-if="snippetLang" :items="snippetMenuItems">
                 <UButton icon="i-tabler-template" variant="ghost" color="neutral" size="xs"
                   trailing-icon="i-tabler-chevron-down" :title="t('inspector.editor_snippets')">
                   {{ t('inspector.editor_snippets') }}
@@ -252,9 +252,7 @@ const props = defineProps<{
   commentable?: boolean
   /** 工具栏「折叠」按钮组 (语言支持折叠时开 — Script 开, Expr 关)。 */
   foldable?: boolean
-  /** 工具栏「片段」下拉的内置模板组 (if/for/while/try 之类)。 */
-  snippets?: InsertItem[]
-  /** 传了就启用用户自建片段 (codeSnippets store 按语言取): 下拉多出「我的片段」组 + 新建/管理入口。 */
+  /** 传了就有「片段」下拉 (codeSnippets store 按语言取用户片段 + 新建/管理入口)。 */
   snippetLang?: CodeSnippetLang
   /** 状态栏右侧语言标签 (JavaScript / 表达式)。 */
   langLabel?: string
@@ -313,11 +311,6 @@ function openSnippetManage() {
 
 const snippetMenuItems = computed(() => {
   const groups: { label: string; icon?: string; onSelect: () => void }[][] = []
-  const builtin = (props.snippets ?? []).map((it) => ({
-    label: it.label,
-    onSelect: () => insertItem(it),
-  }))
-  if (builtin.length) groups.push(builtin)
   if (props.snippetLang) {
     const mine = codeSnippets.byLang(props.snippetLang).map((s) => ({
       label: s.name,
@@ -388,6 +381,7 @@ function onRowClick(it: RefItem) {
 // modal 内容随 open 挂/卸 (UModal 懒渲染) — editor 跟着 open 建/毁, 开时灌当前值当 draft。
 watch(() => props.open, async (open) => {
   if (open) {
+    if (props.snippetLang) void codeSnippets.ensureLoaded()
     await nextTick()
     if (!host.value) return
     search.value = ''
