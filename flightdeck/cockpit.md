@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-12 by 月离 (本日三件落地: 脚本调子图真机全验过债销; 子图一键转脚本全量落地归档(差真机); vars.\* 后端删漏补删净。子图 ID 面板可复制。)
+**Last updated**: 2026-06-12 by 月离 (子图转脚本必坏接线 bug 真机前发现并修复: 两入口从恒空的 draft.subgraphs 改取 editorStore.subgraphsFor(cid); 沉淀 phantom-field incident。待真机复验。)
 **Active focus**: **子图一键转脚本已落地** — 右键/属性面板转等价脚本, 预览+复制/插入, 不支持结构整体拒转。剩两条真机验证债(见 待验证)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
@@ -19,7 +19,7 @@
 
 ## 待验证
 
-- ⚠ [archive/specs/2026-06-12-subgraph-to-script.md](archive/specs/2026-06-12-subgraph-to-script.md) — 真机: 右键一个录制类线性子图「转为脚本」→ 预览 → 插入为 Script 节点 → 跑一轮行为与原子图一致; 再转一个含 Loop 的子图, 确认弹人话拒转清单。
+- ⚠ [archive/specs/2026-06-12-subgraph-to-script.md](archive/specs/2026-06-12-subgraph-to-script.md) — 真机: 右键一个录制类线性子图「转为脚本」→ 预览 → 插入为 Script 节点 → 跑一轮行为与原子图一致; 再转一个含 Loop 的子图, 确认弹人话拒转清单。**(2026-06-12 真机前已逮到并修了必坏的接线 bug — 两入口从恒空 draft.subgraphs 改取 editorStore, 见 [incidents/2026-06-12-draft-subgraphs-phantom-field](incidents/2026-06-12-draft-subgraphs-phantom-field.md); 本次复验即验此修复, typecheck/build/18 单测已绿。)**
 - ⚠ [archive/specs/2026-06-11-script-template-dep-extraction.md](archive/specs/2026-06-11-script-template-dep-extraction.md) — 库里删一个被某脚本引用的模板,确认弹「被引用」referrer 警告 + gcBlobs 不回收其 blob(单测已覆盖提取+扫描器接线,差集成/真机这一验)。
 
 ## Hanging tasks
