@@ -11,6 +11,21 @@ last_updated: 2026-06-10
 
 写/改 `.vue` 组件 / Tailwind class 时**前置**读这份.
 
+### 配色从哪来 — 新组件用色决策树 (2026-06-11 配色统一后)
+
+色源只有两类: **chrome 色 = NuxtUI semantic token; 功能识别色 = 集中 TS 调色板**. 按顺序问:
+
+1. **灰阶/文字/边框?** → 下面 semantic token 表 (`bg-default` / `text-muted` / `border-default` …)
+2. **状态语义 (警告/错误/成功/提示/选中激活)?** → `warning` / `error` / `success` / `info` / `primary` (透明度照常: `bg-warning/10`)
+3. **要比主背景更深 (终端/轨道/凹陷面)?** → `bg-sunken` (style.css 自定 utility)
+4. **多彩"身份/区分"色 (节点分类/用户可选色板/pin 类型/日志 TAG)?** → 从集中调色板取, **不自己发明色相**:
+   - 节点分类 + 用户色板: `visualRegistry.ts` (PALETTE / GROUP_VISUAL; class + hex 双形态)
+   - pin 类型色: `nodeRegistry/index.ts` TYPE_COLOR
+   - 日志 TAG/流: `logFormat.ts` / LogPanel
+5. **Tailwind class 够不着 (CodeMirror JS 主题 / scoped CSS / 内联 style / canvas 绘制)?** → 直接写 `var(--ui-bg)` / `var(--ui-primary)` 等 CSS 变量; 要透明度用 `color-mix(in oklab, var(--ui-primary) 20%, transparent)`. 范例: `editorTheme.ts` (chrome 全走 var, 语法高亮是有意的 VSCode Dark+ 内容色)
+
+**定义位置** (改基调只动这几处): 三个色相钉在 `vite.config.ts` ui.colors (primary=emerald / neutral=zinc / warning=amber) → NuxtUI 生成 `--ui-*` 变量; `bg-sunken` 在 `style.css`; 画布景深色 (背景渐变/网点/minimap mask) 是有意的非 token, 集中在 ContainerEditorView 带注释.
+
 ### 组件必须用 NuxtUI
 
 有 NuxtUI 对应组件就用它. **禁止**裸 `<button>` / `<input>` / `<div role="dialog">` 自搭样式. 自研复合组件 (ConfirmDialog 等) 也只能由 NuxtUI 原子组合: `UButton` / `UInput` / `UModal` / `UPopover` / `UCheckbox` / `UTooltip` / `UTabs` / `UIcon` / `UTextarea` / `USelect` / `UDropdownMenu`.
