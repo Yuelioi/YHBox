@@ -11,7 +11,6 @@ import {
   lineNumbers,
   highlightActiveLine,
   highlightActiveLineGutter,
-  scrollPastEnd,
   tooltips,
 } from '@codemirror/view'
 import { EditorState, type Extension } from '@codemirror/state'
@@ -326,8 +325,9 @@ export function baseEditorExtensions(opts: BaseEditorOpts = {}): Extension[] {
     indentUnit.of('  '),
     highlightSelectionMatches(),
     // gutter 顺序即扩展顺序: [lint 标记] [行号] (折叠由 script 工厂追加在更后 → 行号右侧)
+    // 不挂 scrollPastEnd — 它给滚动区垫一屏虚拟空白, 三行代码也常驻滚动条
     ...(opts.modal
-      ? [lintGutter(), lineNumbers(), highlightActiveLine(), highlightActiveLineGutter(), scrollPastEnd()]
+      ? [lintGutter(), lineNumbers(), highlightActiveLine(), highlightActiveLineGutter()]
       : [lineNumbers()]),
     keymap.of([
       // Tab 先补全上屏, 没有补全时缩进 (indentWithTab 含 Shift-Tab 反缩进)
