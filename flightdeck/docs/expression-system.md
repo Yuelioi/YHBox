@@ -1,5 +1,5 @@
 ---
-status: stale
+status: active
 when_to_read: 加/改 Expr 内置函数前; 改表达式语法/parser/求值前; 碰 ExprInput 编辑器或函数补全前; 撞 EXPR_* 校验码不懂含义时
 applies_to: [expr, builtins, Expr, ExprInput, exprFunctions, internal/services/expr, internal/nodes/purefunc/expr.go, internal/services/container/validator_expr.go, frontend/src/lib/exprFunctions.ts, frontend/src/components/expressions]
 last_updated: 2026-06-11
@@ -58,5 +58,8 @@ v4 (2026-05-19) 删 `$vars.X`, 理由三条: 拼错静默 nil / 可见性差 / �
 Expr 的 Expression 输入 Widget Kind 是 `"expr"` → `PinInput` 分发到 `components/expressions/ExprInput.vue`: 光标处取词补全 (签名+i18n 说明, Tab/Enter 上屏, 光标落括号内) + 即时启发式红错 (括号/引号/裸词/尾运算符/未知函数, 纯函数在 `lib/exprFunctions.ts`)。启发式只是快速反馈, **权威是后端 validator 的节点红错**。画布上的内联编辑 (PinLiteral) 刻意保持裸文本 — 空间小, 不塞下拉。
 
 - 语言/补全/lint/悬停文档的 CodeMirror 扩展抽在 `lib/exprEditorExtensions.ts` (纯函数, i18n 经回调注入), 小框和放大编辑共用; 主题与编辑手感 (VSCode Dark+ 成套 + 自动配对/括号/Tab 缩进等基础件) 在 `lib/editorTheme.ts` 的共享层, $变量保持橙色徽标; 内置函数名 token 走 `variableName.function` (黄, 同 Script 节点函数)。
+- **signature help** (`lib/editorSignature.ts`, editor-ux-v2 加): 光标落在函数调用括号内时, 浮层显示该函数签名 + 高亮当前参数 (Expr 走字符串扫描找最内层未闭合括号 + argIndex, 跳过双引号串)。与悬停文档区别: hover 是"停在词上才看", signature help 是"打字进括号实时跟着参数走"。
+- **类型色点**: 悬停/info/signature 浮层里, 参数行的类型用色块标出 (`renderSignature` / `.cm-yh-doc-param-type` span, required 带 `*`), 跟节点 pin 类型色一致, 一眼分清参数类型。
+- 行号: 小框档不挂行号 (省空间), 放大 modal 档挂 `lineNumbers` + 当前行 + lint gutter (`editorTheme.ts` 的 modal 分支; **不挂 `scrollPastEnd`** — 它给三行表达式也垫一屏虚拟空白常驻滚动条)。
 - 右上「放大编辑」按钮 → `EditorModal.vue` (Expr/Script 共用壳): 分组工具栏 + 大编辑器 + 右侧可搜索函数参考面板 (签名+说明, 点击插入) + 状态栏 (lint 首错可点击跳转 + 行列/统计/语言标签) + 全屏切换 + Ctrl+Enter 确认; draft 语义, 确认才回写。
 - 动态输入名 (config.Inputs[]) 进补全和参考面板 (PinInput 传 `inputNames`)。

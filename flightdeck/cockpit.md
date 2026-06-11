@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (看板清理: 配色统一 / 用户片段 prefix / 编辑器视觉底座三项 verify 销账 — 用户真机确认; cockpit 收掉已落地里程碑块。下一程不变: 编辑器参数提示补 enum 值建议。)
+**Last updated**: 2026-06-11 by 月离 (文档复核: 4 份待复核文档债全部销账 — node-system-architecture 修例子错+补框架增量、variable-system 空壳补全、expression+script-system 补 signature help/类型色点/修 scrollPastEnd, 均对源码核过 stale→active。前序当日: 看板清理 + 三项 verify 销账。下一程不变: 编辑器参数提示补 enum 值建议。)
 **Active focus**: **下个会话: 编辑器参数提示补 enum 值建议** — 节点函数的枚举参数 (用户例: `GetVar({VarName, Scope})` 里 Scope 只能 local/auto/global) 在脚本/表达式编辑器里打值时应**补全/提示可选值**, 现状只给签名不给候选。数据源 = 节点 Spec 的 dropdown widget options (开工先 grep 确认 Scope pin 的 options 怎么存)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
@@ -13,9 +13,7 @@
 
 ## 待复核
 
-- ⚠待复核: [docs/node-system-architecture.md](docs/node-system-architecture.md) — RegionRunner/Evaluator 例子清单过期(列了不存在的 Try/GetSys、漏 ForEach、PureFunc 数旧); 未记框架增量: per-dispatch evalCache(`IsNonDeterministic` 单一 gate)、`Spec.DynamicInputs` 标志、Script 节点、`List` pin 类型 + `in.List` + `node.LooseEqual/FormatValue`、validator `INVALID_REGEX_PATTERN`、`Length` rune 计数(这批原记在 cockpit 关键上下文, 2026-06-11 清版后唯一去处是这里)。when_to_update 多次命中。
-- ⚠待复核: [docs/variable-system.md](docs/variable-system.md) — 正文是空壳(只有 frontmatter + 标题, 入库时就这样)。要么补正文要么删掉, 别让路由指到空文档; 补的话把 list 类型 + 类型消费点审计表(见 archive/specs/2026-06-10-list-var-type.md)一并写进去。
-- ⚠待复核: [docs/expression-system.md](docs/expression-system.md) + [docs/script-system.md](docs/script-system.md) — editor-ux-v2 给 ExprInput/CodeInput 新增了 signature help / 补全 info 面板 / 类型色点 / inline 行号 / 参考抽屉(Expr 参考栏还加了参数模板), 两文档的"编辑器/补全"章节未覆盖这些。补时参 archive/specs/2026-06-11-editor-ux-v2.md。
+- 无。(2026-06-11 四份文档债已复核销账: node-system-architecture 修了 Try/GetSys/ForEach/23→41 PureFunc 例子错 + 补 DynamicInputs/IsNonDeterministic 标志·eval 缓存 gate·Script 节点·值/类型 helper·INVALID_REGEX_PATTERN·Length rune, stale→active; variable-system 空壳补全正文(VarDecl 6 类型/scope/VarStore/快照/4 节点+捕获框/config 校验/list 消费点审计); expression+script-system 补 signature help+类型色点+行号, 并修 script 里过期的 scrollPastEnd 说法, 均 stale→active。发现: 大部分"框架增量"其实早记在 node-system-reference.md, 真 stale 的只有 architecture。)
 
 ## Hanging tasks
 

@@ -1,5 +1,5 @@
 ---
-status: stale
+status: active
 when_to_read: 写/改 Script 节点或绑定层前; 想知道脚本里能调什么函数、怎么传参取值接错误; 加新节点想确认脚本侧是否自动可见; 改 Expr/Script 动态输入机制前; 撞 SCRIPT_* 校验码或脚本取消/行号问题
 applies_to: [script, script-node, goja, node-as-function, ScriptBindable, binding, sugar, vars, sleep, dynamic-inputs, DynamicInputs, code-widget, CodeInput, internal/services/script, internal/nodes/script, internal/services/container/validator_script.go, frontend/src/components/expressions, frontend/src/lib/scriptCompletions.ts, frontend/src/components/containers/inspector/DynamicInputsEditor.vue]
 when_to_update: 改绑定调用/返回/错误约定、糖函数集合、ScriptBindable 排除规则、IIFE 包裹/行号修正、code widget 组件链路或 DynamicInputs 机制时
@@ -62,7 +62,8 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 ## 前端编辑器链路
 
 - widget kind `code` → `PinInput.vue` 分支 → `CodeInput.vue` (CodeMirror 6 + `@codemirror/lang-javascript`, 骨架同 ExprInput) + 右上「放大编辑」按钮 → `EditorModal.vue` (Expr/Script 共用的语言无关壳, draft 语义确认才回写): 分组工具栏 (撤销重做 | 注释·查找替换暗色中文面板 | 片段下拉 if·for·while·try·调用方 `#toolbar-extra` 槽 | 右侧 整理缩进·全部折叠/展开) + 右侧可搜索参考面板 (节点按**画布同款分类分组配色** `nodeGroup.*`+`groupLabelColor` 圆点组头带计数, 行点击展开用法: description/参数表带 i18n label/example; 行尾按钮插入) + 状态栏 (语法状态 ✓/首错**可点击跳行** + 光标行列 + 行·字符数 + 语言标签) + header 全屏切换 (BaseModal `tall`/`contentClass`) + Ctrl+Enter 确认。**节点插入是 snippet 占位** (`Kind({Pin: ${Pin}})`, 非 advanced pin 铺开, Tab 逐格填值), 补全 Tab 上屏同模板; 参考面板与补全下拉共用插入项单源 (`scriptCompletions.ts` 的 `InsertItem.snippet/insert`)。
-- **外观/手感单源 `lib/editorTheme.ts`** (三处编辑器共用): VSCode Dark+ 成套主题 (全覆盖 HighlightStyle + chrome: 编辑面 #1e1e1e/当前行/选区/选中词同款/括号配对/gutter/补全 tooltip/查找面板; **$变量 例外保持橙色徽标** `.cm-yh-dollar`) + `baseEditorExtensions({modal,minHeight})` 基础件 (自动配对/括号高亮/indentOnInput/Tab 缩进/选中词高亮/多选区 Mod-D/连字关闭; modal 档加行号/当前行/lint gutter/scrollPastEnd)。字体 JetBrains Mono Variable 本地打包 (@fontsource-variable, style.css)。
+- **外观/手感单源 `lib/editorTheme.ts`** (三处编辑器共用): VSCode Dark+ 成套主题 (全覆盖 HighlightStyle + chrome: 编辑面/当前行/选区/选中词同款/括号配对/gutter/补全 tooltip/查找面板 —— **chrome 底色已另由配色统一改读 `var(--ui-*)` app token, 不再是写死的 #1e1e1e**; **$变量 例外保持橙色徽标** `.cm-yh-dollar`) + `baseEditorExtensions({modal,minHeight})` 基础件 (自动配对/括号高亮/indentOnInput/Tab 缩进/选中词高亮/多选区 Mod-D/连字关闭; modal 档加行号/当前行/lint gutter — **不挂 `scrollPastEnd`**, 它给几行代码也垫一屏虚拟空白常驻滚动条)。字体 JetBrains Mono Variable 本地打包 (@fontsource-variable, style.css)。
+- **signature help + 类型色点** (`lib/editorSignature.ts`, editor-ux-v2 加): 光标落在调用括号内时浮层显示函数签名 + 高亮当前参数 (Script 走 lezer 语法树定位调用上下文, 区别于 Expr 的字符串扫描); 签名/info/hover 浮层里参数类型用色块标 (`.cm-yh-doc-param-type`, required 带 `*`)。与 hover 文档互补: hover=停在词上看, signature help=打字进括号跟参数。
 - **变量直达**: `vars.get("…")`/set/inc 第一参字符串里补容器变量名; 参考面板「变量」组置顶 (点击插 `vars.get("name")`); 工具栏右侧「新建变量」按钮复用 NewVarModal, 声明走 Inspector 的 `declare-var` 事件链 (PinInput → NodeInspector → useVarMutations.addVar), 建完顺手插一句 vars.get。
 - 补全 = 节点函数 (registry store 的 Spec 推导签名, `frontend/src/lib/scriptCompletions.ts`) + 四组糖 + 本节点动态输入名。**快速反馈 lint** (`scriptSyntaxErrors` lezer error 节点按行去重 + `scriptDollarRefs` 未声明 `$名` warning, 纯函数可单测) + **悬停文档** (`lib/editorHover.ts` 通用浮层, 节点/糖/Expr 函数共用) — 权威仍是后端 validator (SCRIPT_PARSE_ERROR), 同 Expr 先例。$变量徽标装饰走语法树 (字符串/注释不命中)。
 - 画布内联框排除 code widget (8 行代码只在 Inspector/modal 编辑)。

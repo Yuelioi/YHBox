@@ -1,6 +1,6 @@
 ---
-status: stale
-last_updated: 2026-06-06
+status: active
+last_updated: 2026-06-11
 when_to_read: 第一次碰节点系统 / 设计新节点前想搞懂"节点怎么被定义·注册·派发" / 不确定一个节点该实现哪种 capability / 改 framework dispatch 或 validator 前
 applies_to: [node-system, framework, spec, registry, capability, dispatch, runnable, regionrunner, evaluator, validation]
 when_to_update: 改节点注册流程 / capability 分类 / dispatch 派发逻辑 / RegionRunner / Evaluator / validator 管线结构时
@@ -38,6 +38,8 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 | `IsVisualOnly` | 纯渲染节点（如 CommentBox）。允许零 capability |
 | `IsGraphMarker` | 图结构标记节点。允许零 capability（框架为 SubgraphInput/Output 预留；**当前没有后端节点用它**，子图入口/出口标记是前端 virtual 的） |
 | `DynamicOutputs` | 出口名运行时按 config 推导（如 Switch 的 named-by-value case 出口）。置真时 `ctx.Out(name)` 放行任意 name |
+| `DynamicInputs` | data-in pin 由 `config.Inputs[]` 运行时声明、不在静态 `Inputs` 枚举（Expr / Script）。dispatch / validator / 前端都按此标志统一走 `container.ParseDynamicInputDecls`，**无 kind 字符串特判**（`spec.go`） |
+| `IsNonDeterministic` | Evaluate 非确定（随机 / now）。框架在 per-dispatch eval 缓存里**只记忆化带此标志的节点**（`runtime/data_pull.go::evalPureDataCached` 的 `caching` gate），保证同一次派发内多路径引用同一节点拿同一个值。仅对 `IsPureData` 节点有意义 |
 
 `InputSpec` 关键字段：`Type`（类型 tag，见 reference）、`Required`、`Advanced`、`Default`（**Number 类用 `json.Number` 保精度**）、`Widget`（UI 控件，跟 Type 解耦）、`VisibleWhen`（条件显隐）、`Schema`（结构化输入递归 schema，非 nil → 前端 StructuredInput，如 Geometry/HSV）。
 
@@ -47,21 +49,21 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 
 | 路线 | 接口（`interfaces.go`） | framework 入口（`engine.go`） | 用于 | 例子 |
 |---|---|---|---|---|
-| **Runnable** | `Run(ctx, in) (Outputs, error)` | `RunNode` | 普通 exec 节点，框架同步调一次 | KeyPress、Sleep、SetVar、CheckTemplate |
-| **RegionRunner** | `RunRegion(ctx, in, body func(Ctx) error) (Outputs, error)` | `RunNodeAsRegion` | 控制流 / 包子图 body —— body 回调由 dispatch 构造，**节点自己决定调几次** | Loop（调 N 次/forever）、Try（调一次截 error）、Subgraph、CollapsedNode |
-| **Evaluator** | `Evaluate(ctx, in) (any, error)` | `EvaluatePureData` | 纯数据求值，返一个标量给 data-edge 下游，**无 exec 出口** | 23 个 PureFunc（Add/Eq/Select/Expr…）、GetVar/GetSys/GetParam |
+| **Runnable** | `Run(ctx, in) (Outputs, error)` | `RunNode` | 普通 exec 节点，框架同步调一次 | KeyPress、Sleep、SetVar、CheckTemplate、Script（内嵌 JS） |
+| **RegionRunner** | `RunRegion(ctx, in, body func(Ctx) error) (Outputs, error)` | `RunNodeAsRegion` | 控制流 / 包子图 body —— body 回调由 dispatch 构造，**节点自己决定调几次** | **恰好 4 个**：Loop（调 N 次/forever）、ForEach（遍历 List 逐项调）、Subgraph、CollapsedNode |
+| **Evaluator** | `Evaluate(ctx, in) (any, error)` | `EvaluatePureData` | 纯数据求值，返一个标量给 data-edge 下游，**无 exec 出口** | 41 个 PureFunc（Add/Eq/Select…）+ Expr、List 类（Join/ListGet…）、Random×4、GetVar/GetParam/Now/VarLastChange（PureData 全集计数见 [reference §6](node-system-reference.md)，别在这写死数字） |
 
 **两个例外**（允许零 capability）：`IsVisualOnly`（CommentBox）、`IsGraphMarker`（结构标记）。
 
 ### RegionRunner 的 body 回调
 
-`body func(Ctx) error` 是"执行 region 内部下游"的回调。节点对返回的 error 做语义翻译：Loop 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate（`loop.go`）；Try 截获 Throw。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制。
+`body func(Ctx) error` 是"执行 region 内部下游"的回调。节点对返回的 error 做语义翻译：Loop/ForEach 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate，由该 RegionRunner 的 **`Fail` 出口**（`Semantic: error`；Loop/ForEach/Subgraph 都声明了）接住（`loop.go` / `foreach.go`）。`Throw` 节点（Runnable，`internal/nodes/system/throw.go`）就是借这条 propagate 通道把错误抛给最近一层 RegionRunner 的 Fail。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制 —— **没有 Try 节点**（旧文档误记，截获是靠 RegionRunner 的 Fail 出口，不是一个专门节点）。
 
 ### Evaluator 看到的是 tick-frozen 快照
 
 PureData 节点 Evaluate 内看到的 `Vars`/`Sys` 是**当前 tick 冻结的快照**，不是 live state（`engine.go::EvaluatePureData` 入口 `services.Snapshot` wrap）。这保证同一 tick 内多个 data 节点读到一致的状态。为什么用 wrap 而不是给 Ctx 加方法，见 [framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)。
 
-> ⚠️ `interfaces.go:44-48` 有句**陈旧注释**说 GetVar/GetSys/GetParam 不实现 Evaluator、dispatch 走 fallback —— 已过时。实测（grep）这三个 + 全部 PureFunc 都实现了 Evaluator + `IsPureData`。以源码为准。
+> ⚠️ `interfaces.go:44-48` 有句**陈旧注释**说 GetVar/GetParam 不实现 Evaluator、dispatch 走 fallback —— 已过时。实测（grep）这俩 + 全部 PureFunc 都实现了 Evaluator + `IsPureData`。以源码为准。（注：**没有 GetSys 节点** —— `GetSys` 是 `ctx.Sys()` 服务的读方法，read-only 系统信息，不是一个可放画布的节点。）
 
 ### 选哪条路线（决策树）
 
@@ -89,7 +91,7 @@ PureData 节点 Evaluate 内看到的 `Vars`/`Sys` 是**当前 tick 冻结的快
 
 | 管线 | 在哪 | 何时跑 | 写什么 |
 |---|---|---|---|
-| **编辑期** | `internal/services/container/validator.go` 的 `checkGraphPerKind` → `validateXxx(n)` | NodeInspector 实时（编辑器红错） | 图级/容器级 per-kind 静态校验（断边、缺 WindowTarget、必填 pin 缺失 `MISSING_REQUIRED_PIN`、未知 literal pin 等） |
+| **编辑期** | `internal/services/container/validator.go` 的 `checkGraphPerKind` → `validateXxx(n)` | NodeInspector 实时（编辑器红错） | 图级/容器级 per-kind 静态校验（断边、缺 WindowTarget、必填 pin 缺失 `MISSING_REQUIRED_PIN`、未知 literal pin、RegexMatch/RegexExtract 的 `INVALID_REGEX_PATTERN` 等） |
 | **运行期** | 框架 `prepareExec`：`validateRequired`（`REQUIRED_FIELD_MISSING`）+ 节点的 `Validate()`（Validator 接口） | engine 真跑该节点时 | 节点自身输入合法性（HSV min>max 之类） |
 
 **编辑期校验写在 `checkGraphPerKind`，不是节点的 `Validate()` 方法**（后者只在 runtime 跑，编辑器看不到）。静态必填校验为什么要镜像 `PinValue` 的两级回退（literal + 顶层 config），见 incident [../incidents/2026-06-02-pin-presence-check-must-mirror-pinvalue.md](../incidents/2026-06-02-pin-presence-check-must-mirror-pinvalue.md)。
@@ -104,7 +106,14 @@ PureData 节点 Evaluate 内看到的 `Vars`/`Sys` 是**当前 tick 冻结的快
 
 services 内任何字段都可能 nil；节点拿到 nil service 调方法 → panic → 被 framework recover 报回 `RunResult.Panic`。
 
-## 7. 相关
+## 7. 值与类型 helper（框架级，常被新节点漏用）
+
+- **`node.FormatValue(v any) string`**（`value_helpers.go`）：任意值软转字符串（nil→`"null"`、bool→`"true"/"false"`、数字/字符串直转、其余 `fmt.Sprintf("%v")`）。日志 / 比较 / 字符串节点统一走它，别各写一份。
+- **`node.LooseEqual(a, b any) bool`**（同文件）：宽松等值 —— 同类型可比较的直比，否则 `FormatValue` 串比（slice 这类不可比较的也安全降级到串比）。Eq/NotEq/Contains 等 PureFunc 跨类型比较的统一口径。
+- **`List` pin 类型 + `in.List(name) []any`**（`inputs.go`）：List 型 pin（异构列表）取值 helper，容忍 `[]any` 原样 / `[]string` 转换，nil 及其它类型 → nil 不 panic；**不把裸 string 当一元列表**（与 `StringList` 区别）。List 类型表/颜色见 [reference §1](node-system-reference.md)。
+- **字符串位置语义按 rune**：`Length` 用 `utf8.RuneCountInString`（CJK 一字算 1，非 byte），与 `Substring`/`IndexOf` 的位置语义统一。
+
+## 8. 相关
 
 - 加节点全链路 checklist：[../checklists/add-node.md](../checklists/add-node.md)
 - pin 命名 / Default / exec exit 约定：[../checklists/node-spec-style.md](../checklists/node-spec-style.md)
