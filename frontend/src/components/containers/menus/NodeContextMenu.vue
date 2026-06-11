@@ -72,7 +72,7 @@ export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
   | 'toggle-disable' | 'save-as-snippet'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
-  | 'share-to-library'
+  | 'share-to-library' | 'to-script'
 
 const props = defineProps<{
   open: boolean
@@ -171,6 +171,12 @@ const specialItems = computed(() => {
       key: 'share-to-library',
       label: t('editor.menu.node.share_to_library'),
       icon: 'i-tabler-upload',
+      colorClass: 'text-sky-300',
+    })
+    items.push({
+      key: 'to-script',
+      label: t('editor.menu.node.to_script'),
+      icon: 'i-tabler-code',
       colorClass: 'text-sky-300',
     })
   }

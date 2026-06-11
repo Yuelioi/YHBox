@@ -21,6 +21,17 @@
       </button>
     </section>
 
+    <UButton
+      size="xs"
+      variant="soft"
+      color="neutral"
+      icon="i-tabler-code"
+      block
+      @click="$emit('to-script')"
+    >
+      {{ t('subgraphProps.to_script') }}
+    </UButton>
+
     <section class="space-y-2">
       <label class="text-xs text-toned">{{ t('subgraphProps.name') }}</label>
       <UInput
@@ -132,7 +143,7 @@ const props = defineProps<{
   subgraph: SubgraphLike | null
   allTags?: string[]
 }>()
-const emit = defineEmits<{ update: [patch: Record<string, any>] }>()
+const emit = defineEmits<{ update: [patch: Record<string, any>]; 'to-script': [] }>()
 
 const allTagsList = computed(() => props.allTags ?? [])
 

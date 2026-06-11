@@ -419,6 +419,7 @@ export default {
         promote_to_var: '提取为变量 (Promote)',
         enter_subgraph: '进入子图',
         share_to_library: '分享到 Library',
+        to_script: '转为脚本',
       },
       multi: {
         title_selected: '已选 {count} 个节点',
@@ -2390,6 +2391,25 @@ export default {
     source_counts360: '源 360° counts',
     source_resolution: '录制分辨率',
     recorded_at: '录制于 {time}',
+    to_script: '转为脚本',
+  },
+  // SubgraphScriptPreviewModal — 子图一键转脚本.
+  subgraphScript: {
+    title: '子图转脚本 — {name}',
+    insert: '插入为 Script 节点',
+    unsupported_title: '这个子图里有转不了的结构, 整体未转换:',
+    reason: {
+      not_bindable: '脚本里没有对应函数',
+      dynamic_inputs: '动态输入节点转不了 — 脚本里直接写 JS 表达式',
+      merge: '两条执行分支汇进同一个节点, 脚本表达不了',
+      cycle: '执行连线成环 — 改用脚本原生 for/while 写循环',
+      fan_out: '同一个出口连了多个目标',
+      fail_edge: 'Fail 出口接了线 — 脚本里用 try/catch 自己接错误',
+      cross_branch_data: '从别的执行分支取数据, 转出来会引用没赋值的变量',
+      multi_out_pure: '多输出纯函数, 脚本侧取不到指定字段',
+      disabled: '节点已禁用, 跳过语义转不了',
+      callee_missing: '引用的子图不存在',
+    },
   },
   // execution store (运行时错误).
   execution: {

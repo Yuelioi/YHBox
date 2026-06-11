@@ -18,6 +18,7 @@
       :subgraph="currentSubgraph"
       :all-tags="allSubgraphTags"
       @update="$emit('subgraph-update', $event)"
+      @to-script="$emit('subgraph-to-script')"
     />
     <div v-else class="p-4 space-y-4 text-xs text-muted">
       <!-- 容器概览：选中节点前的默认面板 — 统计 + 热键 -->
@@ -116,6 +117,7 @@ defineEmits<{
   'log-enabled-update': [v: boolean]
   'delete-selected': []
   'subgraph-update': [patch: Record<string, any>]
+  'subgraph-to-script': []
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
   'declare-var': [args: { name: string; type: VarType; default: unknown }]
   'open-help': []

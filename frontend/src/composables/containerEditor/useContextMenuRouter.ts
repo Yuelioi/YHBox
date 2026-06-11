@@ -44,6 +44,7 @@ interface UseContextMenuRouterOpts {
   onAlignSelected: (mode: AlignMode) => void
   onAutoLayout: (dir: 'LR' | 'TB') => void
   emitSaveSnippetIntent: (node: GraphNode) => void
+  onSubgraphToScript: (node: GraphNode) => void
   toast: ToastApi
 }
 
@@ -54,7 +55,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
     applyDraftMutation, varMutations,
     onCopySelection, onPasteSelection, onFoldSelection,
     onAlignSelected, onAutoLayout,
-    emitSaveSnippetIntent,
+    emitSaveSnippetIntent, onSubgraphToScript,
     toast,
   } = opts
 
@@ -259,6 +260,9 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         void shareSubgraphToLibrary(sgID)
         return
       }
+      case 'to-script':
+        onSubgraphToScript(node)
+        return
     }
   }
 

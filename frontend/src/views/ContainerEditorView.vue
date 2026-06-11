@@ -304,6 +304,7 @@
           @log-enabled-update="onLogEnabledUpdate"
           @delete-selected="onDeleteSelected"
           @subgraph-update="onSubgraphPropsUpdate"
+          @subgraph-to-script="onSubgraphPanelToScript"
           @request-record="(e) => startRecording(e.mode, { replaceNodeID: e.replaceNodeID })"
         />
       </div>
@@ -349,6 +350,14 @@
     />
 
     <ContainerHelpModal v-model:open="helpModalOpen" />
+
+    <SubgraphScriptPreviewModal
+      v-model:open="toScriptState.open"
+      :sg-label="toScriptState.sgLabel"
+      :code="toScriptState.code"
+      :unsupported="toScriptState.unsupported"
+      @insert="insertConvertedScript"
+    />
 
     <LibraryExplorerModal
       v-model:open="libraryExplorerOpen"
@@ -497,6 +506,7 @@ import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
 import { useContextMenuRouter } from '@/composables/containerEditor/useContextMenuRouter'
+import { useSubgraphToScript } from '@/composables/containerEditor/useSubgraphToScript'
 import { useNodeCreation } from '@/composables/containerEditor/useNodeCreation'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
@@ -516,6 +526,7 @@ import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
 import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
+import SubgraphScriptPreviewModal from '@/components/containers/SubgraphScriptPreviewModal.vue'
 import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
 import MultiNodeContextMenu from '@/components/containers/menus/MultiNodeContextMenu.vue'
 import EdgeContextMenu from '@/components/containers/menus/EdgeContextMenu.vue'
@@ -664,12 +675,27 @@ const {
   dropVar, dropNodeSpec, dropSnippet,
   onInsertIncVar, onApplySnippet,
   onPickKind, onPickLibrarySubgraph,
-  onAddNode,
+  onAddNode, addNode,
 } = useNodeCreation({
   draft, activeGraph, selectedID,
   applyDraftMutation, syncFlowFromDraft, refreshSubgraphStore,
   autoCreateSubgraphForNewNode, toast,
 })
+
+// 子图一键转脚本 (右键菜单 / 子图属性面板 → 预览 modal → 复制/插入 Script 节点)
+const {
+  state: toScriptState,
+  convert: convertSubgraphToScript,
+  convertFromNode: convertSubgraphNodeToScript,
+  insert: insertConvertedScript,
+} = useSubgraphToScript({ draft, addNode, toast })
+
+// 面板入口转的是「当前正在编辑的子图」— summary 只有摘要, 完整图从 draft 取。
+function onSubgraphPanelToScript() {
+  const id = currentSubgraph.value?.id
+  const sg = draft.value?.subgraphs?.find((s) => s.id === id)
+  if (sg) convertSubgraphToScript(sg, null)
+}
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
@@ -1032,6 +1058,7 @@ const {
   onCopySelection, onPasteSelection, onFoldSelection,
   onAlignSelected, onAutoLayout,
   emitSaveSnippetIntent,
+  onSubgraphToScript: convertSubgraphNodeToScript,
   toast,
 })
 

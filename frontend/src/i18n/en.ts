@@ -405,6 +405,7 @@
         promote_to_var: 'Promote to variable',
         enter_subgraph: 'Enter subgraph',
         share_to_library: 'Share to Library',
+        to_script: 'Convert to script',
       },
       multi: {
         title_selected: '{count} nodes selected',
@@ -2336,6 +2337,24 @@
     source_counts360: 'Source 360° counts',
     source_resolution: 'Recording resolution',
     recorded_at: 'Recorded at {time}',
+    to_script: 'Convert to script',
+  },
+  subgraphScript: {
+    title: 'Subgraph to script — {name}',
+    insert: 'Insert as Script node',
+    unsupported_title: 'This subgraph contains structures that cannot be converted:',
+    reason: {
+      not_bindable: 'No script function equivalent',
+      dynamic_inputs: 'Dynamic-input node — write the JS expression directly in script',
+      merge: 'Two exec branches merge into one node, not expressible in script',
+      cycle: 'Exec edges form a cycle — rewrite with native for/while',
+      fan_out: 'One exec output wired to multiple targets',
+      fail_edge: 'Fail output is wired — handle errors with try/catch in script',
+      cross_branch_data: 'Reads data from another exec branch',
+      multi_out_pure: 'Multi-output pure function, cannot address a single field',
+      disabled: 'Node is disabled, skip semantics not convertible',
+      callee_missing: 'Referenced subgraph does not exist',
+    },
   },
   execution: {
     run_failed: 'Run failed',
