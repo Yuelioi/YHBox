@@ -11,20 +11,25 @@
   >
     <!-- 表单态 (新建/编辑) -->
     <div v-if="editing" class="space-y-2">
+      <!-- 宽度定在外层 div: style.css 全局规则把 UInput 包装层强制 width:100%,
+           直接给 UInput 上 w-40/flex-1 会被它压掉 (触发词占满整行挤扁名称框)。 -->
       <div class="flex gap-2">
-        <UInput
-          v-model="prefix"
-          size="sm"
-          class="w-40 shrink-0 font-mono"
-          :placeholder="t('inspector.snippet_manager_prefix')"
-          autofocus
-        />
-        <UInput
-          v-model="name"
-          size="sm"
-          class="flex-1"
-          :placeholder="t('inspector.snippet_manager_name')"
-        />
+        <div class="w-40 shrink-0">
+          <UInput
+            v-model="prefix"
+            size="sm"
+            class="font-mono"
+            :placeholder="t('inspector.snippet_manager_prefix')"
+            autofocus
+          />
+        </div>
+        <div class="flex-1 min-w-0">
+          <UInput
+            v-model="name"
+            size="sm"
+            :placeholder="t('inspector.snippet_manager_name')"
+          />
+        </div>
       </div>
       <UInput
         v-model="description"
