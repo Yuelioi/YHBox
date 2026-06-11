@@ -1,19 +1,21 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (文档复核: 4 份待复核文档债全部销账 — node-system-architecture 修例子错+补框架增量、variable-system 空壳补全、expression+script-system 补 signature help/类型色点/修 scrollPastEnd, 均对源码核过 stale→active。前序当日: 看板清理 + 三项 verify 销账。下一程不变: 编辑器参数提示补 enum 值建议。)
-**Active focus**: **下个会话: 编辑器参数提示补 enum 值建议** — 节点函数的枚举参数 (用户例: `GetVar({VarName, Scope})` 里 Scope 只能 local/auto/global) 在脚本/表达式编辑器里打值时应**补全/提示可选值**, 现状只给签名不给候选。数据源 = 节点 Spec 的 dropdown widget options (开工先 grep 确认 Scope pin 的 options 怎么存)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (enum 值补全落地: Script 编辑器 `GetVar({Scope:▮})` 值位补 auto/local/global + 签名/参考列可选集, 纯前端通用机制读 widget.props.options, 252 测试过, 真机视觉待验。前序当日: 文档复核 4 份 + 看板清理 + 三项 verify 销账。)
+**Active focus**: **无专项进行中** — enum 值补全已落地 (archive/specs/2026-06-11-editor-enum-value-completion.md, 真机视觉待验)。下一程从「之后候选」挑或等用户指。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
 - 无专项进行中。
-
-**首选 (下个会话): 编辑器参数提示补 enum 值建议** —— 节点函数枚举参数 (例 `GetVar({Scope})` → local/auto/global) 在 Script/Expr 编辑器里打值位置应补全候选值 / 签名里列出可选集, 现在只给签名不给值。第一步: grep 确认这类 enum pin (Scope 等) 的可选值在 Spec 里怎么存 (dropdown widgetKind + options? 还是 backend 常量?), 设计补全/签名怎么读到。问清范围再开 spec。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
 ## 待复核
 
 - 无。
+
+## 待验证
+
+- ⚠未验证: archive/specs/2026-06-11-editor-enum-value-completion.md — enum 值补全真机视觉 (打 `GetVar({Scope: "` 看弹 auto/local/global; 裸值位补带引号; hover/参考面板列可选集)。
 
 ## Hanging tasks
 
