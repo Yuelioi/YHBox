@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (toast 全仓收口: 成功 toast 按"结果可见即删/复制内联/后台事件保留"约定收掉 ~20 处 + 清 12 个死文案 key; 约定进 ui.md。前序: 用户片段 prefix 形态、配色统一、add-service 检查单。下一程不变: 编辑器参数提示补 enum 值建议。)
-**Active focus**: **下个会话: 编辑器参数提示补 enum 值建议** — 节点函数的枚举参数 (用户例: `GetVar({VarName, Scope})` 里 Scope 只能 local/auto/global) 在脚本/表达式编辑器里打值时应**补全/提示可选值**, 现状只给签名不给候选。数据源 = 节点 Spec 的 dropdown widget options (开工先 grep 确认 Scope pin 的 options 怎么存)。editor-ux-v2 已落地+用户真机过 (含两笔 tooltip 补丁: `4ef58d5` 挂 document.body 逃 modal transform/overflow, `d43eeb2` tooltipSpace=编辑器矩形让第一行浮层翻到行下方)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (看板清理: 配色统一 / 用户片段 prefix / 编辑器视觉底座三项 verify 销账 — 用户真机确认; cockpit 收掉已落地里程碑块。下一程不变: 编辑器参数提示补 enum 值建议。)
+**Active focus**: **下个会话: 编辑器参数提示补 enum 值建议** — 节点函数的枚举参数 (用户例: `GetVar({VarName, Scope})` 里 Scope 只能 local/auto/global) 在脚本/表达式编辑器里打值时应**补全/提示可选值**, 现状只给签名不给候选。数据源 = 节点 Spec 的 dropdown widget options (开工先 grep 确认 Scope pin 的 options 怎么存)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -9,13 +9,7 @@
 
 **首选 (下个会话): 编辑器参数提示补 enum 值建议** —— 节点函数枚举参数 (例 `GetVar({Scope})` → local/auto/global) 在 Script/Expr 编辑器里打值位置应补全候选值 / 签名里列出可选集, 现在只给签名不给值。第一步: grep 确认这类 enum pin (Scope 等) 的可选值在 Spec 里怎么存 (dropdown widgetKind + options? 还是 backend 常量?), 设计补全/签名怎么读到。问清范围再开 spec。
 
-**editor-ux-v2 已收口** (用户真机过): hover 裁剪→挂 body+flip、全屏 modal、signature help、补全 info 面板、类型色点、inline 行号、参考抽屉(F1)、Expr 参数模板。verify 已销账。原"内容太少"诉求 = 样式+功能弱 (非 i18n 覆盖率), 本批已落; 若后续仍觉少再问是否指 description 覆盖率。
-
-**配色统一已落地** (2026-06-11, 真机观感待验 — verify 在 archive spec): 全 app 只剩两类色源 — chrome 一律 NuxtUI semantic token (编辑器 chrome 也改读 `--ui-*` 变量, 语法高亮仍 VSCode Dark+), 功能识别色一律集中调色板 (visualRegistry PALETTE / TYPE_COLOR / logFormat TAG / 日志流)。新增 `bg-sunken` 凹陷档 (style.css); warning 在 vite.config 钉死 amber; 死组件 NodeCard 已删。铁律进 [checklists/ui.md](checklists/ui.md)。
-
-**之后候选**(无紧迫): 存量成功 toast 内联化迁移 (~26 文件, 方针在 [ui.md](checklists/ui.md)「反馈方式」节, 样板=编辑器保存按钮; 碰到顺手迁/用户点名优先); 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
-
-**表达式系列全部收口**(已真机确认): 变量引用最终形态 = **`$hp` 语法**; EditorModal 统一壳承载 Expr/Script 放大编辑 (本批起默认全屏)。
+**之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; 脚本调子图 (Script 非目标遗留); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
 ## 待复核
 
