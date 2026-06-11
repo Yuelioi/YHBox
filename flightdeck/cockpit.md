@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (配色统一+编辑器跟进均真机过; 用户片段升级 VSCode prefix 形态[打触发词补全插入、工具栏单图标进管理器、schema 加 prefix/description]待真机; 新增 add-service 检查单。下一程不变: 编辑器参数提示补 enum 值建议。)
+**Last updated**: 2026-06-11 by 月离 (toast 全仓收口: 成功 toast 按"结果可见即删/复制内联/后台事件保留"约定收掉 ~20 处 + 清 12 个死文案 key; 约定进 ui.md。前序: 用户片段 prefix 形态、配色统一、add-service 检查单。下一程不变: 编辑器参数提示补 enum 值建议。)
 **Active focus**: **下个会话: 编辑器参数提示补 enum 值建议** — 节点函数的枚举参数 (用户例: `GetVar({VarName, Scope})` 里 Scope 只能 local/auto/global) 在脚本/表达式编辑器里打值时应**补全/提示可选值**, 现状只给签名不给候选。数据源 = 节点 Spec 的 dropdown widget options (开工先 grep 确认 Scope pin 的 options 怎么存)。editor-ux-v2 已落地+用户真机过 (含两笔 tooltip 补丁: `4ef58d5` 挂 document.body 逃 modal transform/overflow, `d43eeb2` tooltipSpace=编辑器矩形让第一行浮层翻到行下方)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
