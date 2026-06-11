@@ -164,6 +164,7 @@
                     <span class="font-mono text-highlighted shrink-0">{{ p.name }}</span>
                     <span class="font-mono text-[10px] text-info/80 shrink-0">{{ p.type }}<span v-if="p.required" class="text-error">*</span></span>
                     <span class="text-muted truncate">{{ p.label }}</span>
+                    <span v-if="p.options?.length" class="font-mono text-[10px] text-dimmed shrink-0">{{ p.options.join(' | ') }}</span>
                   </div>
                 </div>
                 <p v-if="it.example" class="text-[10px] text-dimmed leading-snug italic whitespace-pre-line">{{ it.example }}</p>
@@ -231,7 +232,7 @@ export interface RefItem extends InsertItem {
   /** 展开详情: 用法说明 (节点 description / 函数长说明)。 */
   docs?: string
   /** 展开详情: 参数表 (节点 pin: 名/人话 label/类型/必填)。 */
-  params?: { name: string; label: string; type: string; required?: boolean }[]
+  params?: { name: string; label: string; type: string; required?: boolean; options?: string[] }[]
   /** 展开详情: 示例。 */
   example?: string
 }

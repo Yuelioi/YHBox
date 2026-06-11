@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { exprSigContext, scriptSigContext } from './editorSignature'
+import { exprSigContext, scriptEnumContext, scriptSigContext } from './editorSignature'
 
 describe('exprSigContext', () => {
   it('inside first arg', () => {
@@ -31,5 +31,27 @@ describe('scriptSigContext', () => {
   })
   it('null outside any call', () => {
     expect(scriptSigContext('let x = 1', 9)).toBeNull()
+  })
+})
+
+describe('scriptEnumContext', () => {
+  it('cursor inside string value of a pin', () => {
+    const doc = 'GetVar({Scope: "au"})'
+    expect(scriptEnumContext(doc, doc.indexOf('au') + 1)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+  })
+  it('cursor right after colon (bare value position)', () => {
+    const doc = 'GetVar({Scope: })'
+    expect(scriptEnumContext(doc, doc.indexOf(': ') + 2)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+  })
+  it('second pin in the object', () => {
+    const doc = 'SetVar({VarName: "hp", Scope: ""})'
+    expect(scriptEnumContext(doc, doc.lastIndexOf('"') )).toEqual({ kind: 'SetVar', pin: 'Scope' })
+  })
+  it('null when cursor is on the key, not the value', () => {
+    const doc = 'GetVar({Scope: ""})'
+    expect(scriptEnumContext(doc, doc.indexOf('Scope') + 2)).toBeNull()
+  })
+  it('null when object literal is not a call argument', () => {
+    expect(scriptEnumContext('let x = { a: 1 }', 13)).toBeNull()
   })
 })

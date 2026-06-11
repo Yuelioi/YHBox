@@ -25,7 +25,7 @@ import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import type { Spec } from '@bindings/yotta/internal/node'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
 import { fnHoverTooltip, type HoverDoc } from '@/lib/editorHover'
-import { scriptSigContext, signatureHelp } from '@/lib/editorSignature'
+import { scriptEnumContext, scriptSigContext, signatureHelp } from '@/lib/editorSignature'
 
 // apply 上屏后光标落进末尾括号/引号内 (caretBack = 从串尾回退几格)。
 function applyWithCaret(insert: string, caretBack: number) {
@@ -197,8 +197,33 @@ function buildDollarDecorations(view: EditorView): DecorationSet {
 
 // vars.get("…")/set/inc 第一参字符串里 → 补容器变量名 (高频; 比手翻侧栏顺手)。
 // 其余位置: 词匹配含 "." — 让 "vars.g" 能补出 "vars.get" 这类带点糖函数。
-function scriptCompletionSource(getOptions: () => Completion[], varNames?: () => string[]) {
+function scriptCompletionSource(
+  getOptions: () => Completion[],
+  varNames?: () => string[],
+  enumOptions?: (kind: string, pin: string) => { value: string; label?: string }[],
+) {
   return (ctx: CompletionContext): CompletionResult | null => {
+    // 枚举 pin 值位置: `Kind({Pin: ▮})` → 补该 pin 的 dropdown 候选值。
+    if (enumOptions) {
+      const ec = scriptEnumContext(ctx.state.doc.toString(), ctx.pos)
+      if (ec) {
+        const opts = enumOptions(ec.kind, ec.pin)
+        if (opts.length) {
+          const inStr = ctx.matchBefore(/"[A-Za-z0-9_]*$/)
+          return {
+            from: inStr ? inStr.from + 1 : ctx.pos,
+            validFor: /^[A-Za-z0-9_]*$/,
+            options: opts.map((o) => ({
+              label: o.value,
+              type: 'enum' as const,
+              detail: o.label,
+              // 串内: 只补值 (引号已在); 裸值位: 自带引号上屏。
+              apply: inStr ? o.value : `"${o.value}"`,
+            })),
+          }
+        }
+      }
+    }
     if (varNames) {
       const varCtx = ctx.matchBefore(/vars\.(get|set|inc)\(\s*"[A-Za-z0-9_]*/)
       if (varCtx) {
@@ -224,6 +249,8 @@ export function scriptEditorExtensions(opts: {
   completions: () => Completion[]
   /** 容器变量名 — vars.get("…") 串内补全源 + $引用未声明提醒。 */
   varNames?: () => string[]
+  /** 枚举 pin 候选值: (kind, pin) → 选项; 用于 `Kind({Pin: ▮})` 值位置补全。缺省不补枚举。 */
+  enumOptions?: (kind: string, pin: string) => { value: string; label?: string }[]
   /** 悬停函数名的文档数据 (节点/糖函数), 缺省不出 hover。 */
   hoverDoc?: (word: string) => HoverDoc | null
   /** 函数签名查找 (节点/糖函数), 缺省不出 signature help。 */
@@ -243,7 +270,9 @@ export function scriptEditorExtensions(opts: {
       highlightActiveBlock: true,
       colors: { dark: '#404040', activeDark: '#6a6a6a', light: '#404040', activeLight: '#6a6a6a' },
     }),
-    autocompletion({ override: [scriptCompletionSource(opts.completions, opts.varNames)] }),
+    autocompletion({
+      override: [scriptCompletionSource(opts.completions, opts.varNames, opts.enumOptions)],
+    }),
     cmPlaceholder(opts.placeholder ?? ''),
     ...baseEditorExtensions(opts),
     // 在共享层之后追加 → 折叠 gutter 落在行号右侧 (VSCode 布局)

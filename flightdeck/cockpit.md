@@ -13,7 +13,7 @@
 
 ## 待复核
 
-- 无。(2026-06-11 四份文档债已复核销账: node-system-architecture 修了 Try/GetSys/ForEach/23→41 PureFunc 例子错 + 补 DynamicInputs/IsNonDeterministic 标志·eval 缓存 gate·Script 节点·值/类型 helper·INVALID_REGEX_PATTERN·Length rune, stale→active; variable-system 空壳补全正文(VarDecl 6 类型/scope/VarStore/快照/4 节点+捕获框/config 校验/list 消费点审计); expression+script-system 补 signature help+类型色点+行号, 并修 script 里过期的 scrollPastEnd 说法, 均 stale→active。发现: 大部分"框架增量"其实早记在 node-system-reference.md, 真 stale 的只有 architecture。)
+- 无。
 
 ## Hanging tasks
 

@@ -5,7 +5,7 @@ import type { EditorView, Tooltip } from '@codemirror/view'
 export interface HoverDoc {
   sig: string
   desc?: string
-  params?: { name: string; label: string; type: string; required?: boolean }[]
+  params?: { name: string; label: string; type: string; required?: boolean; options?: string[] }[]
 }
 
 /** hoverTooltip 的 source: 光标下提词 → lookup → 浮层。
@@ -74,6 +74,11 @@ export function renderDoc(doc: HoverDoc): HTMLElement {
       const label = row.appendChild(document.createElement('span'))
       label.className = 'cm-yh-doc-param-label'
       label.textContent = p.label
+    }
+    if (p.options?.length) {
+      const enumEl = row.appendChild(document.createElement('span'))
+      enumEl.className = 'cm-yh-doc-param-enum'
+      enumEl.textContent = p.options.join(' | ')
     }
   }
   return root

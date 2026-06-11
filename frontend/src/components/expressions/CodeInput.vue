@@ -140,18 +140,34 @@ function sugarDocs(label: string): string {
   return te(key) ? t(key) : ''
 }
 
-// 节点 pin 参数表 (展开详情): 名 / i18n 人话 label / 类型 / 必填。
+// 枚举 pin 候选值 (dropdown widget 的 options): (kind, pin) → [{value, i18n label}]。
+// 通用: 任何带 dropdown options 的 pin 自动覆盖 (Scope / Random dist …), 不写死 kind。
+function pinEnumOptions(kind: string, pin: string): { value: string; label?: string }[] {
+  const input = registry.specs.get(kind)?.inputs?.find((i) => i.name === pin)
+  const raw = (input?.widget?.props as Record<string, unknown> | undefined)?.options
+  if (!Array.isArray(raw)) return []
+  return raw.map((o) => {
+    const value = String((o as { value: unknown }).value)
+    const k = `node.${kind}.input.${pin}.option.${value}`
+    const label = te(k) ? t(k) : ''
+    return { value, label: label && label !== value ? label : undefined }
+  })
+}
+
+// 节点 pin 参数表 (展开详情): 名 / i18n 人话 label / 类型 / 必填 / 枚举候选。
 function nodeParams(kind: string): RefItem['params'] {
   const spec = registry.specs.get(kind)
   return (spec?.inputs ?? [])
     .filter((i) => i.type !== 'Exec')
     .map((i) => {
       const labelKey = `node.${kind}.input.${i.name}.label`
+      const opts = pinEnumOptions(kind, i.name)
       return {
         name: i.name,
         label: te(labelKey) ? t(labelKey) : '',
         type: i.type,
         required: !!i.required,
+        options: opts.length ? opts.map((o) => o.value) : undefined,
       }
     })
 }
@@ -249,6 +265,7 @@ function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => vo
   return scriptEditorExtensions({
     completions: () => completionOptions.value,
     varNames: () => varNames.value,
+    enumOptions: pinEnumOptions,
     hoverDoc,
     signatureLookup: (name: string) => {
       const d = hoverDoc(name)

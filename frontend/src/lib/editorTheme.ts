@@ -129,6 +129,7 @@ const chromeTheme = EditorView.theme({
   '.cm-yh-doc-param-name': { fontFamily: EDITOR_FONT, color: '#9cdcfe', minWidth: '6em' },
   '.cm-yh-doc-param-type': { fontFamily: EDITOR_FONT, color: '#4ec9b0' },
   '.cm-yh-doc-param-label': { color: 'var(--ui-text-muted)' },
+  '.cm-yh-doc-param-enum': { fontFamily: EDITOR_FONT, color: '#d7ba7d', opacity: '0.85' },
   '.cm-yh-doc-snippet-body': {
     fontFamily: EDITOR_FONT,
     whiteSpace: 'pre-wrap',

@@ -71,6 +71,28 @@ export function scriptSigContext(doc: string, pos: number): { name: string; argI
   return { name, argIndex }
 }
 
+// ── Script: 光标落在节点调用对象字面量的某个 pin 值位置 → {kind, pin} ──
+//    用于 `GetVar({Scope: ▮})` 这类枚举参数在值位置补全候选值。
+//    走 lezer 树: Property → ObjectExpression → ArgList → CallExpression。
+export function scriptEnumContext(doc: string, pos: number): { kind: string; pin: string } | null {
+  const tree = jsParser.parse(doc)
+  let prop = tree.resolveInner(pos, -1) as ReturnType<typeof tree.resolveInner> | null
+  while (prop && prop.name !== 'Property') prop = prop.parent
+  if (!prop) return null
+  // key = 属性名 (PropertyDefinition); 光标须在 key 之后 (值位, 不是在编辑 key 本身)
+  const key = prop.getChild('PropertyDefinition') ?? prop.getChild('PropertyName')
+  if (!key || pos <= key.to) return null
+  const obj = prop.parent
+  if (!obj || obj.name !== 'ObjectExpression') return null
+  const argList = obj.parent
+  if (!argList || argList.name !== 'ArgList') return null
+  const call = argList.parent
+  if (!call || call.name !== 'CallExpression') return null
+  const callee = call.firstChild
+  if (!callee) return null
+  return { kind: doc.slice(callee.from, callee.to), pin: doc.slice(key.from, key.to) }
+}
+
 // ── signature help 扩展: showTooltip StateField, 文档/选区变更时重算 ──
 
 export function signatureHelp(opts: {
