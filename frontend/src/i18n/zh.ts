@@ -166,17 +166,13 @@ export default {
     validate_call_failed: '校验调用失败',
     window_target_added_title: '已添加 WindowTarget 节点',
     window_target_added_desc: '请打开节点 Inspector 配置目标窗口 (或点"捕获前台窗口")',
-    expr_fuse_ok: 'Expr 合并完成',
     expr_fuse_failed: 'Expr 合并失败 (前置条件不满足)',
     subgraph_recording_reset_warn: '重置录制元数据需要重新录制此子图（v1 仅提示）',
     // 通用 toast (跨文件复用)
-    deleted: '已删除',
-    deleted_count: '已删除 {n} 个',
     delete_failed: '删除失败',
     delete_partial_fail: '批量删除部分失败 (详情见日志)',
     copy_id_success: '已复制 ID',
     copy_failed: '复制失败',
-    saved: '已保存',
     save_failed: '保存失败',
     operation_failed: '操作失败',
     import_success: '已导入: {name}',
@@ -208,7 +204,6 @@ export default {
       title: '重载容器',
       desc: '将丢弃未保存的本地改动，从磁盘重新加载这个容器。',
       confirm: '丢弃并重载',
-      success: '已从磁盘重载',
       failed: '重载失败',
     },
     sidebar: {
@@ -1620,6 +1615,7 @@ export default {
   common: {
     cancel: '取消',
     confirm: '确认',
+    copied: '已复制',
     save: '保存',
     delete: '删除',
     edit: '编辑',
@@ -1887,7 +1883,6 @@ export default {
     ctx_view_in_library: '在库管理中查看',
     ctx_copy_id: '复制 ID',
     toast_no_active_editor: '当前没有打开的容器编辑器',
-    toast_imported: '已导入子图: {name}',
     group_variables_data: '变量 / 数据',
     group_purefunc: '纯函数',
   },
@@ -1913,7 +1908,6 @@ export default {
   flowInteraction: {
     inserted_and_relinked: '已插入节点并断边重连',
     no_template_drop: '暂不支持拖入库模板 (请走容器内 template 管理)',
-    subgraph_imported: '已导入子图: {id}',
     modified_local_mouse_calibration: '已修改本容器主图 MouseCalibration',
   },
   // Folding
@@ -1926,13 +1920,11 @@ export default {
     subgraph_name_placeholder: '例如: 上钩处理',
     create_failed: '创建子图失败',
     multi_entry_unsupported: '多个外部入口暂不支持折叠 (v1 限制)',
-    folded_success: '已折叠 {n} 个节点为子图: {name}',
     auto_reconnected: '外部连线已自动重连到子图调用节点',
     manual_check_needed: '注意: 父图与子图之间的外部连线未自动重连, 请手动检查',
   },
   // GraphLayout
   graphLayout: {
-    auto_layout_done: '已自动布局 ({dir})',
     horizontal: '横向',
     vertical: '纵向',
     layout_failed: '自动布局失败',
@@ -1943,7 +1935,6 @@ export default {
   },
   // NodeCreation
   nodeCreation: {
-    lib_imported: '子图已从库导入',
     lib_import_failed: '从库导入失败',
     no_graph: '当前层级 graph 不可用',
     only_one_start: '只能有一个 Start 节点',
@@ -2137,9 +2128,7 @@ export default {
         '选中的 {n} 个模板共被 {refs} 处节点引用。删除后这些引用会失效(节点变红)。确认删除?',
       delete_template_tip: '删除「{key}」',
       recapture_tip: '重拍「{key}」(保留 GUID, 换图, 所有引用自动跟随)',
-      recaptured: '已重拍, 引用已自动跟随新图',
       copy_key: '复制 GUID',
-      key_copied: '已复制 GUID',
       preview: '预览',
       variant_count: '个变体',
       tags_label: '标签: ',

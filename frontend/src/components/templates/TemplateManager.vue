@@ -93,9 +93,9 @@
           <UButton
             size="xs"
             variant="ghost"
-            color="neutral"
-            icon="i-tabler-copy"
-            :title="t('template.manager.copy_key')"
+            :color="copiedGuid === s.guid ? 'success' : 'neutral'"
+            :icon="copiedGuid === s.guid ? 'i-tabler-check' : 'i-tabler-copy'"
+            :title="copiedGuid === s.guid ? t('common.copied') : t('template.manager.copy_key')"
             @click="copyGuid(s.guid)"
           />
           <UButton
@@ -255,9 +255,17 @@ async function onDelete(s: AssetSummary) {
   delete thumbCache.value[s.guid]
 }
 
+const copiedGuid = ref('')
+let copiedGuidTimer = 0
 function copyGuid(guid: string) {
   navigator.clipboard?.writeText(guid).then(
-    () => toast.add({ title: t('template.manager.key_copied'), color: 'success', duration: 1500 }),
+    () => {
+      copiedGuid.value = guid
+      window.clearTimeout(copiedGuidTimer)
+      copiedGuidTimer = window.setTimeout(() => {
+        copiedGuid.value = ''
+      }, 1500)
+    },
     () => toast.add({ title: t('toast.copy_failed'), color: 'error' }),
   )
 }

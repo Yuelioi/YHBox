@@ -257,12 +257,6 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
         config: { SubgraphID: libraryID },
       })
       useLibraryStore().reload()
-      toast.add({
-        title: t('nodeCreation.lib_imported'),
-        description: `SubgraphID: ${libraryID}`,
-        color: 'success',
-        icon: 'i-tabler-check',
-      })
     } catch (e: any) {
       console.error('LibraryExplorer pick failed:', e)
       toast.add({

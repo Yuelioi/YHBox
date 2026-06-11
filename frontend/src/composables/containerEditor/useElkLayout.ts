@@ -75,11 +75,6 @@ export function useElkLayout(opts: {
         }
       })
       if (o.fitView) fitView()
-      toast.add({
-        title: t('graphLayout.auto_layout_done', { dir: direction === 'LR' ? t('graphLayout.horizontal') : t('graphLayout.vertical') }),
-        color: 'success',
-        icon: 'i-tabler-layout-grid',
-      })
     } catch (e) {
       toast.add({ title: t('graphLayout.layout_failed'), description: String((e as Error)?.message ?? e), color: 'error' })
     } finally {

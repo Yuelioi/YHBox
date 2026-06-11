@@ -210,9 +210,7 @@ async function onBatchDelete() {
   })
   if (yes !== true) return
   const ok = await store.deleteMany(ids)
-  if (ok) {
-    toast.add({ title: t('toast.deleted_count', { n: ids.length }), color: 'success' })
-  } else {
+  if (!ok) {
     toast.add({ title: t('containers.toast.batch_partial_fail'), color: 'warning' })
   }
   batch.clear()

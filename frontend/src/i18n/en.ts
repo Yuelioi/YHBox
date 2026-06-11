@@ -151,17 +151,13 @@
     window_target_added_title: 'WindowTarget node added',
     window_target_added_desc:
       'Open the node Inspector to configure target window (or click "Capture foreground window")',
-    expr_fuse_ok: 'Expr merged',
     expr_fuse_failed: 'Expr merge failed (preconditions unmet)',
     subgraph_recording_reset_warn:
       'Resetting recording metadata requires re-recording this subgraph (v1 hint only)',
-    deleted: 'Deleted',
-    deleted_count: 'Deleted {n}',
     delete_failed: 'Delete failed',
     delete_partial_fail: 'Batch delete partially failed (see logs)',
     copy_id_success: 'ID copied',
     copy_failed: 'Copy failed',
-    saved: 'Saved',
     save_failed: 'Save failed',
     operation_failed: 'Operation failed',
     import_success: 'Imported: {name}',
@@ -193,7 +189,6 @@
       title: 'Reload container',
       desc: 'Discard unsaved local changes and reload this container from disk.',
       confirm: 'Discard and reload',
-      success: 'Reloaded from disk',
       failed: 'Reload failed',
     },
     sidebar: {
@@ -1600,6 +1595,7 @@
   common: {
     cancel: 'Cancel',
     confirm: 'Confirm',
+    copied: 'Copied',
     save: 'Save',
     delete: 'Delete',
     edit: 'Edit',
@@ -1859,7 +1855,6 @@
     ctx_view_in_library: 'View in library',
     ctx_copy_id: 'Copy ID',
     toast_no_active_editor: 'No active container editor',
-    toast_imported: 'Imported subgraph: {name}',
     group_variables_data: 'Variables / Data',
     group_purefunc: 'Pure functions',
   },
@@ -1882,7 +1877,6 @@
   flowInteraction: {
     inserted_and_relinked: 'Inserted node and reconnected edges',
     no_template_drop: 'Template drop not supported (use container template manager)',
-    subgraph_imported: 'Imported subgraph: {id}',
     modified_local_mouse_calibration: 'Modified MouseCalibration in current container',
   },
   folding: {
@@ -1894,12 +1888,10 @@
     subgraph_name_placeholder: 'e.g. Hook handler',
     create_failed: 'Create subgraph failed',
     multi_entry_unsupported: 'Multiple external entries not supported (v1)',
-    folded_success: 'Folded {n} nodes into subgraph: {name}',
     auto_reconnected: 'External edges auto-reconnected to subgraph call node',
     manual_check_needed: 'Note: external edges between parent and subgraph not auto-reconnected, please check manually',
   },
   graphLayout: {
-    auto_layout_done: 'Auto layout done ({dir})',
     horizontal: 'Horizontal',
     vertical: 'Vertical',
     layout_failed: 'Auto-layout failed',
@@ -1908,7 +1900,6 @@
     subgraph_word: 'Subgraph',
   },
   nodeCreation: {
-    lib_imported: 'Subgraph imported from library',
     lib_import_failed: 'Library import failed',
     no_graph: 'Current graph unavailable',
     only_one_start: 'Only one Start node allowed',
@@ -2095,9 +2086,7 @@
         'The {n} selected templates are referenced by {refs} node(s) in total. Deleting will break those references (nodes turn red). Delete anyway?',
       delete_template_tip: 'Delete "{key}"',
       recapture_tip: 'Recapture "{key}" (keeps GUID, swaps image, all references follow)',
-      recaptured: 'Recaptured; references now use the new image',
       copy_key: 'Copy GUID',
-      key_copied: 'GUID copied',
       preview: 'Preview',
       variant_count: 'variants',
       tags_label: 'Tags: ',

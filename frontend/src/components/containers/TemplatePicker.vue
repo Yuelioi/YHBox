@@ -344,11 +344,12 @@
                 <button
                   type="button"
                   class="flex items-center gap-1 font-mono truncate max-w-full hover:text-toned"
+                  :class="guidCopied ? 'text-success' : ''"
                   :title="detailGuid"
                   @click="copyGuid"
                 >
-                  <UIcon name="i-tabler-copy" class="size-3 shrink-0" />
-                  <span class="truncate">{{ detailGuid }}</span>
+                  <UIcon :name="guidCopied ? 'i-tabler-check' : 'i-tabler-copy'" class="size-3 shrink-0" />
+                  <span class="truncate">{{ guidCopied ? t('common.copied') : detailGuid }}</span>
                 </button>
               </div>
 
@@ -669,9 +670,17 @@ function removeTag(i: number) {
   void saveMeta()
 }
 
+const guidCopied = ref(false)
+let guidCopiedTimer = 0
 function copyGuid() {
   navigator.clipboard?.writeText(detailGuid.value).then(
-    () => toast.add({ title: t('template.manager.key_copied'), color: 'success', duration: 1200 }),
+    () => {
+      guidCopied.value = true
+      window.clearTimeout(guidCopiedTimer)
+      guidCopiedTimer = window.setTimeout(() => {
+        guidCopied.value = false
+      }, 1500)
+    },
     () => toast.add({ title: t('toast.copy_failed'), color: 'error' }),
   )
 }
@@ -743,7 +752,6 @@ async function onRecapture() {
   await refreshCurRes()
   await applyCurResPick(guid)
   resetZoom()
-  toast.add({ title: t('template.manager.recaptured'), color: 'success', duration: 1500 })
 }
 
 async function onDelete() {

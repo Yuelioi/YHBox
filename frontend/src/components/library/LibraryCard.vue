@@ -106,7 +106,7 @@ const ctxMenuItems = computed(() => [
 async function onCopyID() {
   try {
     await navigator.clipboard.writeText(props.sgID)
-    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check', duration: 1500 })
   } catch (e: any) {
     toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
@@ -121,9 +121,7 @@ async function onDelete() {
   })
   if (yes !== true) return
   const ok = await libraryStore.deletePackage(props.sgID)
-  if (ok) {
-    toast.add({ title: t('toast.deleted'), color: 'success' })
-  } else {
+  if (!ok) {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
 }

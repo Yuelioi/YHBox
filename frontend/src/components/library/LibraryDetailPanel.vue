@@ -51,11 +51,13 @@
         <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">ID</label>
         <button
           type="button"
-          class="w-full text-left text-[11px] text-dimmed font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate"
+          class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
+          :class="copied ? 'text-success' : 'text-dimmed'"
           :title="t('library.detail.click_to_copy') + sgID"
           @click="onCopyID"
         >
-          {{ sgID }}
+          <UIcon v-if="copied" name="i-tabler-check" class="size-3 shrink-0" />
+          <span class="truncate">{{ copied ? t('common.copied') : sgID }}</span>
         </button>
       </section>
 
@@ -78,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SubgraphPackage } from '@/lib/backend'
 import { useLibraryStore } from '@/stores/library'
@@ -103,11 +105,15 @@ const pkg = computed<SubgraphPackage | undefined>(() =>
   props.sgID ? libraryStore.packages[props.sgID] : undefined,
 )
 
+const copied = ref(false)
+let copiedTimer = 0
 async function onCopyID() {
   if (!props.sgID) return
   try {
     await navigator.clipboard.writeText(props.sgID)
-    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => { copied.value = false }, 1500)
   } catch (e: any) {
     toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
@@ -124,7 +130,6 @@ async function onDelete() {
   if (yes !== true) return
   const ok = await libraryStore.deletePackage(props.sgID)
   if (ok) {
-    toast.add({ title: t('toast.deleted'), color: 'success' })
     emit('cleared')
   } else {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })

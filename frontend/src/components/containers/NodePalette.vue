@@ -184,7 +184,6 @@ async function onImport(sg: Subgraph) {
   }
   try {
     await libraryStore.importEnsuringGlobals(sg.id, editorStore.activeContainerID)
-    toast.add({ title: t('nodePalette.toast_imported', { name: sg.label || sg.id }), color: 'success', icon: 'i-tabler-check' })
   } catch (e: any) {
     toast.add({ title: t('toast.import_failed'), description: errorMessage(e), color: 'error' })
   }
@@ -193,7 +192,7 @@ async function onImport(sg: Subgraph) {
 async function onCopyID(id: string) {
   try {
     await navigator.clipboard.writeText(id)
-    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check' })
+    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check', duration: 1500 })
   } catch (e: any) {
     toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }

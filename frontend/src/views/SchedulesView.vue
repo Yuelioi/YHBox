@@ -63,7 +63,6 @@ function onEdit(sc: Schedule) {
 async function onSaveEdit(sc: Schedule) {
   const ok = await store.save(sc)
   if (ok) {
-    toast.add({ title: t('toast.saved'), color: 'success', icon: 'i-tabler-check' })
     editing.value = null
   } else {
     toast.add({ title: t('toast.save_failed'), color: 'error', icon: 'i-tabler-x' })

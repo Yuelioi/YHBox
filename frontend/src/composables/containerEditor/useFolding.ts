@@ -136,10 +136,6 @@ export function useFolding(opts: {
     await refreshSubgraphStore()
     syncFlowFromDraft()
 
-    toast.add({
-      title: t('folding.folded_success', { n: candidates.length, name: label }),
-      color: 'success',
-    })
     if (autoConnectable) {
       toast.add({ title: t('folding.auto_reconnected'), color: 'primary', duration: 4000 })
     } else if (externalIns.length > 0 || externalOuts.length > 0) {

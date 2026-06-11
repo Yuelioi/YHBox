@@ -572,7 +572,6 @@ async function onReload() {
   }
   try {
     await reload()
-    toast.add({ title: t('editor.reload.success'), color: 'success', icon: 'i-tabler-refresh' })
   } catch (e) {
     toast.add({ title: t('editor.reload.failed'), description: errorMessage(e), color: 'error' })
   }
@@ -1159,7 +1158,6 @@ watch(() => editorBus.pendingExprFusion, (req) => {
   editorBus.clearExprFusion()
   if (ok) {
     selectedID.value = null
-    toast.add({ title: t('toast.expr_fuse_ok'), color: 'success' })
   } else {
     toast.add({ title: t('toast.expr_fuse_failed'), color: 'warning' })
   }

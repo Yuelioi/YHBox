@@ -148,7 +148,6 @@ export function useFlowInteraction(opts: {
       activeGraph.value.nodes.push(newNode)
       if (refreshSubgraphStore) await refreshSubgraphStore()
       if (syncFlowFromDraft) syncFlowFromDraft()
-      toast?.add({ title: t('flowInteraction.subgraph_imported', { id: newSubgraphID }), color: 'success', icon: 'i-tabler-check' })
     } catch (err) {
       console.error('library drop failed', err)
       toast?.add({ title: t('toast.import_failed'), description: String(err), color: 'error' })
