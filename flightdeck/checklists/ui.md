@@ -86,9 +86,9 @@ last_updated: 2026-06-10
 
 **唯一例外**: 录制叠加层这类"完全黑" scrim. 模态遮罩 **不要** override — Modal / Slideover 自带 overlay slot, 信任默认.
 
-### UInput 宽度类会被全局规则压掉 — 宽度定在外层 div
+### 输入框宽度: 默认撑满, 短输入直接加宽度类
 
-style.css 有条全局规则把含 input/textarea 的 NuxtUI 包装层强制 `width: 100%` (让表单默认撑满)。它特异性高, **直接给 `UInput` 写 `w-40` / `flex-1` 会被压掉** — 典型症状: 一行两个输入框, 第一个占满整行、第二个挤成小竖条、容器冒横向滚动条。修法: `<div class="w-40 shrink-0"><UInput/></div>` — 宽度定在外层容器, 100% 在其内生效。
+style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (表单不用处处写 w-full)。这条的 width 走 `:where()` 零优先级 — **组件上直接写 `w-36` / `max-w-*` / `flex-1` 就能压过它**, 不用包 div。数字步进 / 端口号 / 短数值类输入**不要**放任它撑满 (UInputNumber 拉满一行, ± 按钮分居两端很难用), 给个 `w-28`~`w-40`。
 
 ### `:ui="{ base: '...' }"` 是替换不是 merge
 
