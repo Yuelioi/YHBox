@@ -74,6 +74,7 @@ declare module 'vue' {
     StatCard: typeof import('./src/components/StatCard.vue')['default']
     StructuredInput: typeof import('./src/components/containers/inline/StructuredInput.vue')['default']
     SubgraphPropsPanel: typeof import('./src/components/containers/SubgraphPropsPanel.vue')['default']
+    SubgraphScriptPreviewModal: typeof import('./src/components/containers/SubgraphScriptPreviewModal.vue')['default']
     SwitchInspector: typeof import('./src/components/containers/inspector/SwitchInspector.vue')['default']
     TabToolbar: typeof import('./src/components/common/TabToolbar.vue')['default']
     TemplateManager: typeof import('./src/components/templates/TemplateManager.vue')['default']

@@ -80,6 +80,10 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 - 补全 = 节点函数 (registry store 的 Spec 推导签名, `frontend/src/lib/scriptCompletions.ts`) + 三组糖 (params.get/sleep/log) + 本节点动态输入名。**快速反馈 lint** (`scriptSyntaxErrors` lezer error 节点按行去重 + `scriptDollarRefs` 未声明 `$名` warning, 纯函数可单测) + **悬停文档** (`lib/editorHover.ts` 通用浮层, 节点/糖/Expr 函数共用) — 权威仍是后端 validator (SCRIPT_PARSE_ERROR), 同 Expr 先例。$变量徽标装饰走语法树 (字符串/注释不命中)。
 - 画布内联框排除 code widget (8 行代码只在 Inspector/modal 编辑)。
 
+## 子图一键转脚本 (2026-06-12)
+
+编辑器里子图可转成等价脚本 (Subgraph/CollapsedNode 节点右键「转为脚本」/ 子图编辑属性面板按钮 → 预览 modal → 复制或插入为 Script 节点)。转换器是前端纯函数 `frontend/src/lib/subgraphToScript.ts` (Spec 驱动, 映射规则与拒转清单见 archive/specs/2026-06-12-subgraph-to-script.md); 不支持结构 (Loop/汇合/成环/Fail 接线等) 整体拒转列原因。新节点注册后自动可转, 零维护。
+
 ## 加新节点时脚本侧要做什么
 
 **什么都不用做。** 注册即绑定 (ScriptBindable), 补全经 RPC 自动出现; 只要按 add-node checklist 把 i18n label 写了, 补全 detail 自动带中文名。
