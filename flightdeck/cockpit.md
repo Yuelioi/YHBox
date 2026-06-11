@@ -1,18 +1,17 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-11 by 月离 (fishing-v2 真机过 → 补做模板资产化迁移 (18 模板 namespace.name → GUID assets) + bin/data 清 48MB; Script 增强两阶段立项。)
-**Active focus**: **Script 增强两阶段立项** — Stage1 资产依赖提取 (active, 近期可做) / Stage2 脚本调子图 (gated 下一阶段)。fishing-v2 迁移已收口 (容器壳 + 模板资产化, 真机过)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-11 by 月离 (Stage1 资产依赖提取实现+落地(测试绿); 修早先模板迁移弄回归的 10 个 mock-based state 测试; Stage2 开工撞前置缺口(子图多出口路由没接线)→ 卡住待拍板。)
+**Active focus**: **Script 增强 — Stage1 done, Stage2 BLOCKED** 等用户拍板。Stage1(脚本资产依赖提取)已落地归档。Stage2(脚本调子图)读源码撞前置缺口:v5 Subgraph 多出口路由没接线 → 需定 A(先补多出口路由)/ B(先上单 Done 出口)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
-- [2026-06-11-script-template-dep-extraction.md](specs/2026-06-11-script-template-dep-extraction.md) — Script 节点扫 Code 里的模板/clip/subgraph GUID 字面量当依赖,堵住"脚本引用的资产被 GC 误删、库里删不警告"的盲区
-- [2026-06-11-script-call-subgraph.md](specs/2026-06-11-script-call-subgraph.md) — 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(下一阶段,gated 在 Stage 1 之后) [note: 下一阶段:自包含单脚本已够用,仅当要复用子图库时启动;先做 Stage 1]
+- [2026-06-11-script-call-subgraph.md](specs/2026-06-11-script-call-subgraph.md) — 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(gated:撞前置缺口,需先定多出口路由) — [note: BLOCKED — 开工读源码撞前置缺口:v5 runtime 的 Subgraph 多出口路由根本没接线(见「开工发现」)。需用户拍板:先补多出口路由,还是 Stage 2 先上单 Done 出口语义。]
 <!-- /AUTO -->
 
 ## 下一步
 
-启动 Stage 1 (script 资产依赖提取) 实现, 或先拿 fishing 写一个单脚本版 spike 验证 while-loop 主程序端到端能跑 (用户已倾向自包含路线)。
+用户拍板 Stage 2 走法:**A** 先补「子图多出口路由」(同时修好 fishing try_hook_F.failed 等 graph 层多出口子图,再做脚本调子图返正确出口) 还是 **B** Stage 2 先上单 Done 出口语义。详见 [script-call-subgraph spec 的「开工发现」](specs/2026-06-11-script-call-subgraph.md)。
 
 **之后候选**(无紧迫): 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册)。
 
@@ -22,7 +21,7 @@
 
 ## 待验证
 
-- 无。
+- ⚠ [archive/specs/2026-06-11-script-template-dep-extraction.md](archive/specs/2026-06-11-script-template-dep-extraction.md) — 库里删一个被某脚本引用的模板,确认弹「被引用」referrer 警告 + gcBlobs 不回收其 blob(单测已覆盖提取+扫描器接线,差集成/真机这一验)。
 
 ## Hanging tasks
 

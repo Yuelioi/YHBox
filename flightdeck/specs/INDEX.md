@@ -8,6 +8,5 @@
 - [misc-tools-backlog.md](misc-tools-backlog.md) — idea — 杂项小工具 backlog — i18n residue 清理 (悬浮窗工具→转正 floating-launcher; 截图 UI 美化已做; 从 scratch-backlog 抢救保留)
 
 ### 进行中·完成（active·done）
-- [2026-06-11-script-template-dep-extraction.md](2026-06-11-script-template-dep-extraction.md) — active — Script 节点扫 Code 里的模板/clip/subgraph GUID 字面量当依赖,堵住"脚本引用的资产被 GC 误删、库里删不警告"的盲区
-- [2026-06-11-script-call-subgraph.md](2026-06-11-script-call-subgraph.md) — active — 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(下一阶段,gated 在 Stage 1 之后)
+- [2026-06-11-script-call-subgraph.md](2026-06-11-script-call-subgraph.md) — active — 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(gated:撞前置缺口,需先定多出口路由)
 <!-- /AUTO -->

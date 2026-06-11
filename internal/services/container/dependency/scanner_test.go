@@ -8,6 +8,7 @@ import (
 	// blank import 真节点 — scanner 现走 nodepkg.Get(kind).Dependencies, 不再有 fake Extractor.
 	_ "yotta/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
 	_ "yotta/internal/nodes/io"     // PlayClip
+	_ "yotta/internal/nodes/script" // Script (资产依赖走 Code 文本扫描)
 	_ "yotta/internal/nodes/system" // Subgraph / CollapsedNode
 )
 
@@ -70,6 +71,28 @@ func TestScanSubgraphDependencies_Cyclic(t *testing.T) {
 	if !containsDep(got, Dependency{Kind: KindSubgraph, Key: "A"}) ||
 		!containsDep(got, Dependency{Kind: KindSubgraph, Key: "B"}) {
 		t.Errorf("cyclic ref dropped, got %v", got)
+	}
+}
+
+func TestScanSubgraphDependencies_ScriptNode(t *testing.T) {
+	// Script 节点的资产引用藏在 Code 字符串里 — Dependencies 走 AssetDeps 全文扫。
+	nodes := map[string][]NodeInfo{
+		"sg": {
+			{Kind: "Script", Config: map[string]any{"literal": map[string]any{
+				"Code": `const T = "3680b3d2-d31d-461c-b697-0d9c3e6a87ed";
+CheckTemplate({Templates:[T]});
+PlayClip({ClipID:"clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"});`,
+			}}},
+		},
+	}
+	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
+	got, err := ScanSubgraphDependencies("sg", get)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsDep(got, Dependency{Kind: KindTemplate, Key: "3680b3d2-d31d-461c-b697-0d9c3e6a87ed"}) ||
+		!containsDep(got, Dependency{Kind: KindClip, Key: "clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"}) {
+		t.Errorf("script asset deps not scanned, got %v", got)
 	}
 }
 

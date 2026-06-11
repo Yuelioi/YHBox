@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	gort "runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,16 +21,61 @@ type mockMatcher struct {
 	HitTemplates map[string]bool
 }
 
+// Detect — k 现为模板 GUID (fishing-v2 已迁 GUID 资产)。测试仍按模板名 (fishing.X) 表达命中,
+// 故先按 k 直查 (GUID-keyed 测试), miss 再把 GUID 解析回 record.name (= fishing.X) 查。
 func (m *mockMatcher) Detect(_ context.Context, _ *image.RGBA, k string, _ float64, _ []float64, _ float64) (bool, expr.Point, [4]float64, float64, error) {
 	if m.HitTemplates == nil {
 		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
 	hit := m.HitTemplates[k]
+	if !hit {
+		if name := templateNameForGUID(k); name != "" {
+			hit = m.HitTemplates[name]
+		}
+	}
 	conf := 0.0
 	if hit {
 		conf = 1.0
 	}
 	return hit, expr.Point{}, [4]float64{}, conf, nil
+}
+
+// templateNameForGUID 把模板 GUID 解析回 record.name (assets/records 里 kind=template 的记录)。
+// 懒加载一次。让按名字 keying 的旧测试在 GUID 迁移后无需逐个改。
+var (
+	tplNameOnce sync.Once
+	tplNameByID map[string]string
+)
+
+func templateNameForGUID(guid string) string {
+	tplNameOnce.Do(func() {
+		tplNameByID = map[string]string{}
+		_, thisFile, _, _ := gort.Caller(0)
+		root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
+		recDir := filepath.Join(root, "bin", "data", "assets", "records")
+		entries, err := os.ReadDir(recDir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+				continue
+			}
+			data, rerr := os.ReadFile(filepath.Join(recDir, e.Name()))
+			if rerr != nil {
+				continue
+			}
+			var r struct {
+				GUID string `json:"guid"`
+				Name string `json:"name"`
+				Kind string `json:"kind"`
+			}
+			if json.Unmarshal(data, &r) == nil && r.Kind == "template" && r.GUID != "" {
+				tplNameByID[r.GUID] = r.Name
+			}
+		}
+	})
+	return tplNameByID[guid]
 }
 
 var _ TemplateMatcher = (*mockMatcher)(nil)

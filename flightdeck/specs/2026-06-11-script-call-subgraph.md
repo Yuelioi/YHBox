@@ -1,8 +1,8 @@
 ---
 status: active
-summary: 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(下一阶段,gated 在 Stage 1 之后)
+summary: 把 Subgraph 暴露成脚本绑定函数 Subgraph({SubgraphID, ...params}),让脚本当编排层复用子图库(gated:撞前置缺口,需先定多出口路由)
 last_updated: 2026-06-11
-note: 下一阶段:自包含单脚本(JS helper 替代子图)已够用,本项仅当要复用子图库时启动;先做 Stage 1
+note: BLOCKED — 开工读源码撞前置缺口:v5 runtime 的 Subgraph 多出口路由根本没接线(见「开工发现」)。需用户拍板:先补多出口路由,还是 Stage 2 先上单 Done 出口语义。
 related: [specs/2026-06-11-script-template-dep-extraction.md]
 ---
 
@@ -33,9 +33,26 @@ related: [specs/2026-06-11-script-template-dep-extraction.md]
 
 - 依赖 [Stage 1: 资产依赖提取](2026-06-11-script-template-dep-extraction.md):脚本里 `Subgraph({SubgraphID:"<guid>"})` 的 subgraph 依赖也得被静态扫到(否则子图删除/分享导出闭包会漏),所以 Stage 1 把提取框架先搭好、本项扩一个 subgraph Kind 即可。
 
-## 验收
+## 开工发现 (2026-06-11) — 撞前置缺口:子图多出口路由没接线
 
-1. 脚本调一个现有子图,端到端跑通,出口名 + 输出 data + 入参传递都正确。
-2. 容器停止时子图内阻塞节点随 ctx 取消(同主脚本 watchdog 语义)。
-3. `ScanContainerDependencies` 能从脚本扫到被调子图(配合 Stage 1)。
-4. 防递归 / 防环(子图里又有 Script 调回自己)有明确行为(报错或深度限制)。
+读源码确认实现路径时发现一个**比本 spec 更底层的缺口**,直接卡住"脚本调子图返回正确出口":
+
+- **现状:v5 runtime 里 Subgraph 调用只会走单一 "Done" 出口,多出口(done/failed 之类)没路由。** 证据链:
+  1. `runtime/subgraph.go` 的 `FindParentDownstreamByDeclID`(子图出口 decl → 父图下游边的唯一 helper)**没有任何非测试调用方**(repo-wide grep)。
+  2. `dispatch_v5.go:runRegionBody` 到达 output marker 时直接 `return nil`,**丢弃是哪个出口 decl**。
+  3. `nodes/system/subgraph.go:RunRegion` 写死 `ctx.Out("Done").Fire()`;且 Subgraph spec 只有静态 Done/Fail 出口(非 DynamicOutputs),fire 一个 "failed" 名会 panic。
+  4. `try_hook_f_test.go` 把 `call.Done` 和 `call.failed` **都接到同一个 stop**、断言只看按键/变量 —— 多出口路由从未被测试区分。
+- **连带**:fishing-v2 的 `try_hook_F.failed → RECOVERING`、`state_*` 里若干非 Done 子图出口,在当前 runtime 其实都**落不到正确分支**(真机快测没触发到那条罕见路径,故没暴露)。属 fishing 既有隐患,与本 spec 正交但同根。
+
+### 需用户拍板的分叉
+
+- **A. 先补「子图多出口路由」再做 Stage 2**(推荐):让 Subgraph 调用按到达的 output decl 路由到 `call.<declName>` 动态出口。这同时修好 graph 层的多出口子图(含 fishing 的 try_hook_F.failed)。Stage 2 在此之上自然返回正确出口。工作量中等、动 dispatch + Subgraph 出口模型。
+- **B. Stage 2 先上「单 Done 出口」语义**:脚本 `Subgraph({...})` 只返 `{exit:"Done", ...}`,与当前 Subgraph 节点行为一致。能调用/复用单出口子图(press_esc 这类),但调多出口子图拿不到分支。等 A 落地再升级。
+
+## 实现验收 (A 路线落地后)
+
+1. graph 层:多出口子图调用按到达 decl 路由到对应父图下游(补 `FindParentDownstreamByDeclID` 接线 + runRegionBody 记录 reached decl)。
+2. 脚本调一个多出口子图,端到端跑通,返回的 exit 名正确 + 输出 data + 入参传递都对。
+3. 容器停止时子图内阻塞节点随 ctx 取消(同主脚本 watchdog 语义)。
+4. `ScanContainerDependencies` 能从脚本扫到被调子图(Stage 1 的提取扩 SubgraphID pin)。
+5. 防递归 / 防环(子图里又有 Script 调回自己)有明确行为(报错或深度限制)。
