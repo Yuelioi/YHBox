@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-06-06
+last_updated: 2026-06-12
 when_to_read: before writing / editing / deleting source code (.go / .ts / .vue) — including comments / 删疑似死代码或符号前
 applies_to: [code-style, comments, naming, go, typescript, vue, dead-code, delete-symbol, grep]
 ---
