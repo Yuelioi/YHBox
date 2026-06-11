@@ -31,7 +31,7 @@
       </UFormField>
 
       <UFormField :label="t('containers.scale_tolerance_label')">
-        <UInputNumber v-model="form.scaleTolerance" :min="1" :max="4" :step="0.1" size="sm" class="w-full" />
+        <UInputNumber v-model="form.scaleTolerance" :min="1" :max="4" :step="0.1" size="sm" class="w-36" />
       </UFormField>
     </div>
 

@@ -62,10 +62,14 @@ textarea {
 
 /* ── NuxtUI v4 UInput/UTextarea 默认 inline-flex 在表单里得显式 w-full
    才撑满，写起来麻烦。全局把含 input/textarea 的相对容器改 flex+100%。
-   :has() webview2 chromium 105+ 已支持。短输入需要时用 max-w-* 限制。 */
+   :has() webview2 chromium 105+ 已支持。
+   width 单独走 :where() 降成零优先级 — 默认仍撑满, 但组件上直接写的
+   w-* / max-w-* 宽度类能压过它 (短输入直接加类, 不必包 div)。 */
 .relative.inline-flex.items-center:has(> input),
 .relative.inline-flex.items-center:has(> textarea) {
   display: flex;
+}
+:where(.relative.inline-flex.items-center:has(> input), .relative.inline-flex.items-center:has(> textarea)) {
   width: 100%;
 }
 
