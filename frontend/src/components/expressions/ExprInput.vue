@@ -26,6 +26,7 @@
         :extensions="modalExtensions"
         :reference="referenceItems"
         :lint-first="lintFirst"
+        snippet-lang="expr"
         :lang-label="t('inspector.editor_lang_expr')"
         @update:model-value="(v: string) => emit('update:modelValue', v)"
       />

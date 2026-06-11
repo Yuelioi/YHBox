@@ -68,6 +68,7 @@ declare module 'vue' {
     ScheduleListPanel: typeof import('./src/components/schedules/ScheduleListPanel.vue')['default']
     SidebarSection: typeof import('./src/components/containers/sidebar/SidebarSection.vue')['default']
     SnapGuideOverlay: typeof import('./src/components/containers/SnapGuideOverlay.vue')['default']
+    SnippetManagerModal: typeof import('./src/components/expressions/SnippetManagerModal.vue')['default']
     SnippetsPanel: typeof import('./src/components/snippets/SnippetsPanel.vue')['default']
     SplitHandle: typeof import('./src/components/common/SplitHandle.vue')['default']
     StatCard: typeof import('./src/components/StatCard.vue')['default']

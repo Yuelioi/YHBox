@@ -25,6 +25,7 @@
       :extensions="modalExtensions"
       :reference="referenceItems"
       :snippets="SNIPPETS"
+      snippet-lang="script"
       :lint-first="lintFirst"
       lang-label="JavaScript"
       commentable
