@@ -60,3 +60,29 @@ describe('useListSelection', () => {
     expect([...sel.selected.value]).toEqual(['c'])
   })
 })
+
+describe('anchor (详情栏锚点)', () => {
+  it('单击/加选都把锚点设到该行', () => {
+    const { sel } = setup()
+    sel.click('a')
+    expect(sel.anchor.value).toBe('a')
+    sel.click('c', { ctrl: true })
+    expect(sel.anchor.value).toBe('c')
+  })
+  it('取消勾选锚点行 → 锚点清空; 取消非锚点行 → 锚点不动', () => {
+    const { sel } = setup()
+    sel.click('a')
+    sel.click('c', { ctrl: true })
+    sel.click('a', { ctrl: true }) // 取消非锚点 a
+    expect(sel.anchor.value).toBe('c')
+    sel.click('c', { ctrl: true }) // 取消锚点 c
+    expect(sel.anchor.value).toBeNull()
+  })
+  it('锚点行被过滤掉 → 锚点清空', async () => {
+    const { visible, sel } = setup()
+    sel.click('c')
+    visible.value = ['a', 'b']
+    await nextTick()
+    expect(sel.anchor.value).toBeNull()
+  })
+})

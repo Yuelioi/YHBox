@@ -25,10 +25,14 @@ export function useListSelection(visibleIds: Ref<string[]>) {
     }
     if (mods.ctrl) {
       const next = new Set(selected.value)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+        if (anchorId.value === id) anchorId.value = null
+      } else {
+        next.add(id)
+        anchorId.value = id
+      }
       selected.value = next
-      anchorId.value = id
       return
     }
     plainSelect(id)
@@ -50,5 +54,5 @@ export function useListSelection(visibleIds: Ref<string[]>) {
   const single = computed(() => (selected.value.size === 1 ? [...selected.value][0]! : null))
   const isSelected = (id: string) => selected.value.has(id)
 
-  return { selected, single, click, clear, isSelected }
+  return { selected, single, anchor: anchorId, click, clear, isSelected }
 }
