@@ -1762,8 +1762,12 @@ export default {
   // ContainersView / ContainersTab / TemplatesTab 文案.
   containers: {
     tab: {
-      containers: '容器',
-      templates: '模板',
+      local: '本地容器',
+      online: '在线容器',
+    },
+    online: {
+      title: '在线容器即将上线',
+      desc: '这里将展示由社区分享的整包容器, 可一键克隆到本机.',
     },
     search_placeholder: '搜索容器...',
     select: '选择',
@@ -1829,6 +1833,29 @@ export default {
     delete_confirm_desc: '此操作不可恢复.',
     confirm: '确认',
     cancel: '取消',
+  },
+  clip: {
+    manager: {
+      title: 'Clip 管理',
+      search: '搜索名称 / id / 标签...',
+      empty: '还没有录制片段',
+      empty_hint: '在工具栏录一段输入操作即可收录.',
+      no_match: '没有匹配「{search}」的片段',
+      sort_asc: '升序',
+      sort_desc: '降序',
+      view_by_name: '按名称排序',
+      view_by_created: '按创建时间排序',
+      view_by_duration: '按时长排序',
+      events: '个事件',
+      untitled: '(未命名)',
+      rename_tip: '双击改名',
+      copy_id: '复制 ID',
+      delete_tip: '删除「{name}」',
+      delete_title: '删除 Clip',
+      delete_confirm: '确认删除片段「{name}」? 此操作不可恢复。',
+      delete_confirm_referenced:
+        '片段「{name}」当前被 {n} 处节点引用。删除后这些引用会失效(节点变红)。确认删除?',
+    },
   },
   // ClipTimeline 单 key
   clipTimeline: {
@@ -2118,7 +2145,6 @@ export default {
       del_variant_title: '删除分辨率档 {res}?',
       del_variant_desc: '只删这一档, 其它分辨率档保留; 引用此素材的节点会用剩下的档匹配。',
     },
-    tab_intro: '模板库保存的是截图识别素材。截一张 → 框选目标区域 → 保存，节点里选它就能匹配。',
   },
   // 录制 (useRecording + RecordingHUD).
   recording: {

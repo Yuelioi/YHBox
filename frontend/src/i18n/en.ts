@@ -1741,8 +1741,12 @@
   },
   containers: {
     tab: {
-      containers: 'Containers',
-      templates: 'Templates',
+      local: 'Local',
+      online: 'Online',
+    },
+    online: {
+      title: 'Online containers coming soon',
+      desc: 'Community-shared containers will appear here — one-click clone to local.',
     },
     search_placeholder: 'Search containers...',
     select: 'Select',
@@ -1806,6 +1810,29 @@
     delete_confirm_desc: 'This cannot be undone.',
     confirm: 'Confirm',
     cancel: 'Cancel',
+  },
+  clip: {
+    manager: {
+      title: 'Clips',
+      search: 'Search name / id / tags...',
+      empty: 'No clips yet',
+      empty_hint: 'Record an input sequence from the toolbar to capture one.',
+      no_match: 'No clips matching "{search}"',
+      sort_asc: 'Ascending',
+      sort_desc: 'Descending',
+      view_by_name: 'By name',
+      view_by_created: 'By created',
+      view_by_duration: 'By duration',
+      events: 'events',
+      untitled: '(untitled)',
+      rename_tip: 'Double-click to rename',
+      copy_id: 'Copy ID',
+      delete_tip: 'Delete "{name}"',
+      delete_title: 'Delete clip',
+      delete_confirm: 'Delete clip "{name}"? This cannot be undone.',
+      delete_confirm_referenced:
+        'Clip "{name}" is referenced by {n} node(s). Deleting will break them (nodes turn red). Delete?',
+    },
   },
   clipTimeline: {
     hint: 'Drag on the track to add a kept range; drag blue edges to resize; hover shows × to delete',
@@ -2080,7 +2107,6 @@
       del_variant_title: 'Delete variant {res}?',
       del_variant_desc: 'Only this variant is removed; other resolutions stay, and nodes using this asset match with the remaining ones.',
     },
-    tab_intro: 'The template library stores screenshot snippets for image matching. Capture a screenshot, frame your target, save — then pick it in any node.',
   },
   recording: {
     launch_failed: 'Recording launch failed',
