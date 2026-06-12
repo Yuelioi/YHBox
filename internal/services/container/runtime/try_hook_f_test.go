@@ -18,7 +18,7 @@ func loadTryHookF(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "try_hook_F.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "try_hook_F.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read try_hook_F.json: %v", err)
@@ -41,7 +41,6 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 			{Name: "_hookFFound", Type: "bool", Default: false},
 			{Name: "exitTaken", Type: "string", Default: ""},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -68,6 +67,7 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

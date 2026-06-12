@@ -1,4 +1,4 @@
-﻿package runtime
+package runtime
 
 import (
 	"context"
@@ -288,8 +288,8 @@ var (
 
 type fakeCapture struct{ img *image.RGBA }
 
-func (f fakeCapture) Name() string                                            { return "fake" }
-func (f fakeCapture) Frame(_ win.HWND) (*image.RGBA, error)                  { return f.img, nil }
+func (f fakeCapture) Name() string                          { return "fake" }
+func (f fakeCapture) Frame(_ win.HWND) (*image.RGBA, error) { return f.img, nil }
 func (f fakeCapture) FrameROI(_ win.HWND, _, _, _, _ int) (*image.RGBA, error) {
 	return f.img, nil
 }

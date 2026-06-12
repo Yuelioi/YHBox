@@ -1,0 +1,464 @@
+{
+  "id": "state_BUYBAIT",
+  "label": "state_BUYBAIT",
+  "description": "复刻 tools/fish/states_shop.go:33-59 buyBaitFlow + handleBuyBait. 流程: waitLong(2s) → tap(r) → waitLong(2s) → ClickTemplate(bait_product, 5s) → waitDur(1s) → ClickTemplate(buy_max, 5s) → waitDur(1s) → ClickTemplate(buy_button, 5s) → waitDur(1s) → ClickTemplate(buy_confirm, 5s, missSkip) → waitDur(1s) → clickUntilGone(buy_success, 3 iter × 800ms) → tapUntilGone(esc, buy_max, 4 iter × 1s) → state=CHANGEBAIT. 任一 ClickTemplate(bait_product/buy_max/buy_button) timeout → state=RECOVERING (missFailPause). v2 简化: (a) 跳过 abortIfNoCurrency() — 不复刻 AutoSell pause / buyBaitAfterSell / buyBaitAbortIdle 串联, OnDone 固定 CHANGEBAIT (跟 fish bot 一致, 不复刻 dispatcher 改派); (b) buy_confirm missSkip — done 和 timeout 都接到下一步 Sleep, 钱不够 <99 时不弹也照常走; (c) clickUntilGone(buy_success) 简化为 Loop count=3 + ClickTemplate(timeoutMs=2000) — done 算一次点击 + Sleep 800ms continue, timeout 算 toast 消失 Break. 调用方义务: container 顶层声明 state: string default IDLE.",
+  "graph": {
+    "id": "state_BUYBAIT_graph",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "sleepInitial",
+        "kind": "Sleep",
+        "x": 200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 2000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "keyR",
+        "kind": "KeyPress",
+        "x": 400,
+        "y": 0,
+        "config": {
+          "literal": {
+            "DurationMs": 150,
+            "VK": "r"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterR",
+        "kind": "Sleep",
+        "x": 600,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 2000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "clickBaitProduct",
+        "kind": "ClickTemplate",
+        "x": 800,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "31bd87ce-443e-40b6-baaa-c954cc76d443"
+            ],
+            "Threshold": 0.75,
+            "TimeoutMs": 5000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterBait",
+        "kind": "Sleep",
+        "x": 1000,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 1000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "setStateRecoverBait",
+        "kind": "SetVar",
+        "x": 1000,
+        "y": 250,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "RECOVERING",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "clickBuyMax",
+        "kind": "ClickTemplate",
+        "x": 1200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "1929be28-168c-422d-be38-b0332a3588d0"
+            ],
+            "Threshold": 0.75,
+            "TimeoutMs": 5000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterBuyMax",
+        "kind": "Sleep",
+        "x": 1400,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 1000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "setStateRecoverMax",
+        "kind": "SetVar",
+        "x": 1400,
+        "y": 250,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "RECOVERING",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "clickBuyButton",
+        "kind": "ClickTemplate",
+        "x": 1600,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "45bf51ba-9ded-4065-8f8b-fd2388f409e3"
+            ],
+            "Threshold": 0.75,
+            "TimeoutMs": 5000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterBuyBtn",
+        "kind": "Sleep",
+        "x": 1800,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 1000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "setStateRecoverBtn",
+        "kind": "SetVar",
+        "x": 1800,
+        "y": 250,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "RECOVERING",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "clickBuyConfirm",
+        "kind": "ClickTemplate",
+        "x": 2000,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "9c863f11-f554-444d-a12e-5a4c0c2c5ef1"
+            ],
+            "Threshold": 0.75,
+            "TimeoutMs": 5000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterConfirm",
+        "kind": "Sleep",
+        "x": 2200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 1000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "loopSuccessToast",
+        "kind": "Loop",
+        "x": 2400,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Count": 3,
+            "Mode": "count"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "clickBuySuccess",
+        "kind": "ClickTemplate",
+        "x": 2600,
+        "y": 100,
+        "config": {
+          "literal": {
+            "Templates": [
+              "25ad9fe0-9986-4945-b9a6-760ca7503ec8"
+            ],
+            "Threshold": 0.75,
+            "TimeoutMs": 2000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterSuccessClick",
+        "kind": "Sleep",
+        "x": 2800,
+        "y": 100,
+        "config": {
+          "literal": {
+            "Duration": 800
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "breakSuccessLoop",
+        "kind": "Break",
+        "x": 2800,
+        "y": 250,
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "loopEsc",
+        "kind": "Loop",
+        "x": 3000,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Count": 4,
+            "Mode": "count"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "keyEsc",
+        "kind": "KeyPress",
+        "x": 3200,
+        "y": 100,
+        "config": {
+          "literal": {
+            "DurationMs": 150,
+            "VK": "esc"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepAfterEsc",
+        "kind": "Sleep",
+        "x": 3400,
+        "y": 100,
+        "config": {
+          "literal": {
+            "Duration": 1000
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "checkBuyMaxStillOpen",
+        "kind": "CheckTemplate",
+        "x": 3600,
+        "y": 100,
+        "config": {
+          "literal": {
+            "Templates": [
+              "1929be28-168c-422d-be38-b0332a3588d0"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "breakEscLoop",
+        "kind": "Break",
+        "x": 3800,
+        "y": 100,
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "setStateChangebait",
+        "kind": "SetVar",
+        "x": 3200,
+        "y": -150,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "CHANGEBAIT",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "sgin.Done",
+        "to": "sleepInitial.In"
+      },
+      {
+        "from": "sleepInitial.Done",
+        "to": "keyR.In"
+      },
+      {
+        "from": "keyR.Done",
+        "to": "sleepAfterR.In"
+      },
+      {
+        "from": "sleepAfterR.Done",
+        "to": "clickBaitProduct.In"
+      },
+      {
+        "from": "clickBaitProduct.Done",
+        "to": "sleepAfterBait.In"
+      },
+      {
+        "from": "clickBaitProduct.Timeout",
+        "to": "setStateRecoverBait.In"
+      },
+      {
+        "from": "setStateRecoverBait.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "sleepAfterBait.Done",
+        "to": "clickBuyMax.In"
+      },
+      {
+        "from": "clickBuyMax.Done",
+        "to": "sleepAfterBuyMax.In"
+      },
+      {
+        "from": "clickBuyMax.Timeout",
+        "to": "setStateRecoverMax.In"
+      },
+      {
+        "from": "setStateRecoverMax.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "sleepAfterBuyMax.Done",
+        "to": "clickBuyButton.In"
+      },
+      {
+        "from": "clickBuyButton.Done",
+        "to": "sleepAfterBuyBtn.In"
+      },
+      {
+        "from": "clickBuyButton.Timeout",
+        "to": "setStateRecoverBtn.In"
+      },
+      {
+        "from": "setStateRecoverBtn.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "sleepAfterBuyBtn.Done",
+        "to": "clickBuyConfirm.In"
+      },
+      {
+        "from": "clickBuyConfirm.Done",
+        "to": "sleepAfterConfirm.In"
+      },
+      {
+        "from": "clickBuyConfirm.Timeout",
+        "to": "sleepAfterConfirm.In"
+      },
+      {
+        "from": "sleepAfterConfirm.Done",
+        "to": "loopSuccessToast.In"
+      },
+      {
+        "from": "loopSuccessToast.Body",
+        "to": "clickBuySuccess.In"
+      },
+      {
+        "from": "clickBuySuccess.Done",
+        "to": "sleepAfterSuccessClick.In"
+      },
+      {
+        "from": "clickBuySuccess.Timeout",
+        "to": "breakSuccessLoop.In"
+      },
+      {
+        "from": "loopSuccessToast.Done",
+        "to": "loopEsc.In"
+      },
+      {
+        "from": "loopEsc.Body",
+        "to": "keyEsc.In"
+      },
+      {
+        "from": "keyEsc.Done",
+        "to": "sleepAfterEsc.In"
+      },
+      {
+        "from": "sleepAfterEsc.Done",
+        "to": "checkBuyMaxStillOpen.In"
+      },
+      {
+        "from": "checkBuyMaxStillOpen.NotFound",
+        "to": "breakEscLoop.In"
+      },
+      {
+        "from": "loopEsc.Done",
+        "to": "setStateChangebait.In"
+      },
+      {
+        "from": "setStateChangebait.Done",
+        "to": "sgout.In"
+      }
+    ]
+  },
+  "entry": {
+    "nodeID": "sgin"
+  },
+  "outputPins": [
+    {
+      "id": "done",
+      "name": "done",
+      "nodeID": "sgout",
+      "x": 4000
+    }
+  ],
+  "tags": [
+    "fishing-v2",
+    "state-machine",
+    "buybait"
+  ],
+  "requiredGlobals": [
+    "state"
+  ],
+  "createdAt": "2026-05-21T00:00:00Z",
+  "schemaVersion": 1,
+  "rev": 1
+}

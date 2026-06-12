@@ -12,11 +12,8 @@ import (
 )
 
 func TestResolveSubgraphCall_OK(t *testing.T) {
-	c := &container.Container{
-		ID: "c1",
-		Subgraphs: []container.Subgraph{
-			{ID: "sg-A", Label: "A"},
-		},
+	sgs := []container.Subgraph{
+		{ID: "sg-A", Label: "A"},
 	}
 	callNode := &container.GraphNode{
 		ID:        "call",
@@ -24,7 +21,7 @@ func TestResolveSubgraphCall_OK(t *testing.T) {
 		Config:    map[string]any{"SubgraphID": "sg-A"},
 		CreatedAt: time.Now().UTC(),
 	}
-	sg, err := ResolveSubgraphCall(c, callNode)
+	sg, err := ResolveSubgraphCall(sgs, callNode)
 	if err != nil {
 		t.Fatalf("expected ok, got %v", err)
 	}
@@ -34,18 +31,16 @@ func TestResolveSubgraphCall_OK(t *testing.T) {
 }
 
 func TestResolveSubgraphCall_MissingConfig(t *testing.T) {
-	c := &container.Container{ID: "c1"}
 	callNode := &container.GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{}, CreatedAt: time.Now().UTC()}
-	_, err := ResolveSubgraphCall(c, callNode)
+	_, err := ResolveSubgraphCall(nil, callNode)
 	if err == nil || !strings.Contains(err.Error(), "SubgraphID") {
 		t.Errorf("expected SubgraphID err, got %v", err)
 	}
 }
 
 func TestResolveSubgraphCall_NotFound(t *testing.T) {
-	c := &container.Container{ID: "c1", Subgraphs: nil}
 	callNode := &container.GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "ghost"}, CreatedAt: time.Now().UTC()}
-	_, err := ResolveSubgraphCall(c, callNode)
+	_, err := ResolveSubgraphCall(nil, callNode)
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected not found err, got %v", err)
 	}
@@ -82,7 +77,6 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 			{Name: "markA", Type: "string", Default: ""},
 			{Name: "markB", Type: "string", Default: ""},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -108,6 +102,7 @@ func TestSubgraph_MultiCallSiteRouting(t *testing.T) {
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	if err := r.Run(context.Background()); err != nil {

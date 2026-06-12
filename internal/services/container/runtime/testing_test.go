@@ -36,9 +36,9 @@ func newTestRunnerWithSubgraph(t *testing.T, sgID string, sgNodes []*container.G
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}},
 		},
-		Subgraphs: []container.Subgraph{sg},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	// stub Window + Input 让 setupRuntime 幂等跳过
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	rt.Input = &fakeInputBackend{}

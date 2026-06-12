@@ -17,7 +17,7 @@ func loadWatchdogCheck(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "watchdog_check.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "watchdog_check.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read watchdog_check.json: %v", err)
@@ -39,7 +39,6 @@ func runWatchdogCheck(t *testing.T, thresholdMs float64, initialState string) *R
 		Vars: []container.VarDecl{
 			{Name: "state", Type: "string", Default: "IDLE"},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -56,6 +55,7 @@ func runWatchdogCheck(t *testing.T, thresholdMs float64, initialState string) *R
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	rt.SetVar("state", initialState)
 	r := NewContainerRunner(rt)

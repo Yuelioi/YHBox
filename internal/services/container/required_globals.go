@@ -33,9 +33,11 @@ func computeRequiredGlobals(sg *Subgraph) []string {
 	return out
 }
 
-// validateRequiredGlobalsDeclared 引用闭包内子图的 RequiredGlobals 名字必须都已在容器
+// validateRequiredGlobalsDeclared 引用闭包内子图的 RequiredGlobals 名字应已在容器
 // Vars 声明 (2026-06-12 全局化新增 — 取代 library import 时的 MissingGlobals auto-add:
-// 现在插入引用即检, 编辑器对此错误码提供一键补全).
+// 现在插入引用即检, 编辑器对此码提供一键补全).
+// Severity=warning 不是 error: 既有图惯用"子图 SetVar 动态创建草稿全局再跨子图读"
+// (fishing-v2 的 _bar* 实证), 运行时本就支持未声明变量, 掐死会误伤存量.
 func validateRequiredGlobalsDeclared(c *Container, sgs []Subgraph) []ValidationError {
 	declared := map[string]bool{}
 	for _, v := range c.Vars {
@@ -51,7 +53,7 @@ func validateRequiredGlobalsDeclared(c *Container, sgs []Subgraph) []ValidationE
 			}
 			seen[name] = true
 			errs = append(errs, ValidationError{
-				Severity:  SeverityError,
+				Severity:  SeverityWarning,
 				Code:      CodeSubgraphVarUndeclared,
 				GraphPath: []string{"main"},
 				Params:    map[string]any{"name": name, "subgraphId": sg.ID, "subgraphLabel": sg.Label},

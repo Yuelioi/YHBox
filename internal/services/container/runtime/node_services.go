@@ -1,4 +1,4 @@
-﻿// node_services.go
+// node_services.go
 //
 // 桥接 RuntimeContext (+ stopwatchTable + zerolog) 到 node.* service interfaces.
 // 给 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.

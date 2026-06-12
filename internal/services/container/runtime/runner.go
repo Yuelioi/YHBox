@@ -90,13 +90,13 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 
 // ContainerRunner 跑一个 container 节点图 (token dispatch loop).
 type ContainerRunner struct {
-	rt        *RuntimeContext
-	compiled  *CompiledContainer // 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
-	currentSG *CompiledGraph     // subgraph swap 时设, runRegionBody 用来识 entry/output marker.
-	nodesByID map[string]*container.GraphNode
-	edges     *edgeIndex
-	dataEdges *dataEdgeIndex
-	state     *ExecState
+	rt          *RuntimeContext
+	compiled    *CompiledContainer // 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
+	currentSG   *CompiledGraph     // subgraph swap 时设, runRegionBody 用来识 entry/output marker.
+	nodesByID   map[string]*container.GraphNode
+	edges       *edgeIndex
+	dataEdges   *dataEdgeIndex
+	state       *ExecState
 	stopwatches *stopwatchTable
 
 	// bundle 是 node.ServiceBundle (LogService / VarStore / VisionService 等 8 个 adapter),
@@ -410,4 +410,3 @@ func graphHasWindowNode(nodes []container.GraphNode) bool {
 func isListenerDriven(kind string) bool {
 	return kind == "EventTick"
 }
-

@@ -1,11 +1,11 @@
-// useNodeClipboard 节点剪贴板（Ctrl+C/V）+ Subgraph 1:1 复制独立子图副本。
+// useNodeClipboard 节点剪贴板（Ctrl+C/V）。子图已全局化: 粘贴 Subgraph 节点 = 引用
+// 同一个全局子图 (引用即语义), 不再克隆副本 — 想要独立副本用「复制为新子图」。
 // clipboard 在 activeGraph 层级生效（主图 / 子图层级都能 copy/paste）。
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
-import { backend, type Container, type Graph, type GraphNode, type Subgraph } from '@/lib/backend'
-import { useContainerEditorStore } from '@/stores/containerEditor'
+import type { Container, Graph } from '@/lib/backend'
 import type { FlowNode } from './useContainerDraft'
 
 // deepCloneSubgraphForCopy 返回的形态: 重发了 id / outputPin id 的浅 wrap
@@ -21,16 +21,14 @@ export function useNodeClipboard(opts: {
   flowNodes: Ref<FlowNode[]>
   syncFlowFromDraft: () => void
   refreshSubgraphStore: () => Promise<void>
-  deepCloneSubgraphForCopy: (src: Subgraph) => ClonedSubgraphForPaste
   getSelectedNodes: Ref<VueFlowNode[]>
   genID: () => string
   toast: { add: (o: Record<string, unknown>) => unknown }
 }) {
   const {
     draft, activeGraph, flowNodes, syncFlowFromDraft, refreshSubgraphStore,
-    deepCloneSubgraphForCopy, getSelectedNodes, genID, toast,
+    getSelectedNodes, genID, toast,
   } = opts
-  const editorStore = useContainerEditorStore()
   const { t } = useI18n()
 
   const clipboard = ref<{
@@ -56,15 +54,9 @@ export function useNodeClipboard(opts: {
         return copiedIDs.has(fromID) && copiedIDs.has(toID)
       })
       .map((e: any) => ({ ...e }))
-    const subgraphsDeepCopy: Record<string, any> = {}
-    for (const n of nodes) {
-      if (n.kind === 'Subgraph' && n.config?.SubgraphID) {
-        const sgID = String(n.config.SubgraphID)
-        const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
-        if (sg) subgraphsDeepCopy[sgID] = JSON.parse(JSON.stringify(sg))
-      }
-    }
-    clipboard.value = { nodes, edges, subgraphsDeepCopy }
+    // 子图已全局化: 粘贴 = 引用同一个全局子图 (引用即语义), 不再深拷贝副本 —
+    // 想要独立副本用「复制为新子图」。subgraphsDeepCopy 留空仅为 clipboard 形状兼容。
+    clipboard.value = { nodes, edges, subgraphsDeepCopy: {} }
     toast.add({ title: t('editorAux.copied_nodes', { n: nodes.length }), color: 'success', duration: 1500 })
   }
 
@@ -77,33 +69,8 @@ export function useNodeClipboard(opts: {
     for (const n of cb.nodes) {
       const newID = genID()
       idMap[n.id] = newID
+      // Subgraph 节点的 config.SubgraphID 原样保留 — 粘贴出来的节点引用同一个全局子图。
       const newCfg = JSON.parse(JSON.stringify(n.config ?? {}))
-      if (n.kind === 'Subgraph' && newCfg.SubgraphID) {
-        const sourceSg = cb.subgraphsDeepCopy[String(newCfg.SubgraphID)]
-        if (sourceSg) {
-          try {
-            const created = (await backend.containers.createSubgraph(
-              draft.value.id,
-              (sourceSg.label ?? t('nodeClipboard.subgraph_word')) + t('editorAux.copy_suffix'),
-            )) as any
-            const newSgID = created.id
-            const cloneInner = deepCloneSubgraphForCopy(sourceSg)
-            await backend.containers.updateSubgraph(
-              draft.value.id,
-              newSgID,
-              JSON.stringify({
-                graph: cloneInner.graph,
-                outputPins: cloneInner.outputPins,
-                tags: sourceSg.tags,
-                recordingContext: sourceSg.recordingContext,
-              }),
-            )
-            newCfg.SubgraphID = newSgID
-          } catch (e) {
-            console.warn('paste: Subgraph clone failed', e)
-          }
-        }
-      }
       cloned.push({
         ...JSON.parse(JSON.stringify(n)),
         id: newID,

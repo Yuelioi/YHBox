@@ -11,7 +11,8 @@ import (
 // ExecFrame 单层 graph 调用栈帧.
 // LocalVars: frame-local 变量, 子图调用之间互不干扰.
 // LocalParams: 子图入参 (Subgraph.InputParams), 调用入栈时从父图 pull 进来,
-//    子图内 GetParam 节点读取. 跟 LocalVars 同生命周期 (pop frame 即销毁).
+//
+//	子图内 GetParam 节点读取. 跟 LocalVars 同生命周期 (pop frame 即销毁).
 type ExecFrame struct {
 	ContainerID string
 	Graph       container.GraphRef
@@ -25,7 +26,7 @@ type ExecFrame struct {
 
 // ExecState 整个 run 的运行时状态。每次 RunOnce 一次新 state。
 type ExecState struct {
-	RunID        string         // UUID per run
+	RunID        string // UUID per run
 	CurrentFrame *ExecFrame
 	GlobalVars   map[string]any // 容器级变量（"全局"，scope == global 的 SetVar/IncVar 用）
 	CalibCounts  int            // 主图 MouseCalibration 节点 config.counts360 启动 snapshot；运行中改节点无效

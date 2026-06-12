@@ -52,7 +52,6 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 		Vars: []container.VarDecl{
 			{Name: "result", Type: "number", Default: 0.0},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -72,6 +71,7 @@ func TestSubgraph_InputParams_PullFromLiteral(t *testing.T) {
 	}
 
 	rtCtx := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rtCtx.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rtCtx)
 	r := NewContainerRunner(rtCtx)
 

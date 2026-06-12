@@ -19,7 +19,7 @@ type CompiledGraph struct {
 	NodesByID map[string]*container.GraphNode
 
 	// subgraph-only (main graph 留零值):
-	EntryNodeID     string                                       // sg.Entry.NodeID; main graph = ""
+	EntryNodeID     string                                   // sg.Entry.NodeID; main graph = ""
 	OutputDeclsByID map[string]*container.SubgraphOutputDecl // virtualNodeID → decl; main graph = nil
 }
 

@@ -17,7 +17,7 @@ func loadStateRECOVERING(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_RECOVERING.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "state_RECOVERING.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_RECOVERING.json: %v", err)
@@ -42,7 +42,6 @@ func runStateRECOVERING(t *testing.T, hits map[string]bool, preEscDone bool) (*s
 			{Name: "_inspectPhaseResult", Type: "string", Default: "unknown"},
 			{Name: "recoveryEscDone", Type: "bool", Default: false},
 		},
-		Subgraphs: []container.Subgraph{stateRECOVERING, inspectPhase},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -56,6 +55,7 @@ func runStateRECOVERING(t *testing.T, hits map[string]bool, preEscDone bool) (*s
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{stateRECOVERING, inspectPhase}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

@@ -18,7 +18,7 @@ func loadStateWAITING(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_WAITING.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "state_WAITING.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_WAITING.json: %v", err)
@@ -34,7 +34,7 @@ func loadFishingV2Helper(t *testing.T, name string) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", name)
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", name)
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)
@@ -64,7 +64,6 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 			{Name: "_hookFFound", Type: "bool", Default: false},
 			{Name: "_inspectPhaseResult", Type: "string", Default: "unknown"},
 		},
-		Subgraphs: []container.Subgraph{stateWAITING, tryHookF, inspectPhase},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -81,6 +80,7 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{stateWAITING, tryHookF, inspectPhase}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

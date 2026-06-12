@@ -31,10 +31,10 @@ export function useGraphMutations(opts: {
   function virtualMarkerSlot(id: string): { kind: 'entry' | 'output'; sgID: string; declID?: string } | null {
     if (editorStore.editorPath.length === 0) return null
     const sgID = editorStore.editorPath[editorStore.editorPath.length - 1]
-    const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
+    const sg = editorStore.subgraphById(sgID)
     if (!sg) return null
     if (sg.entry?.nodeID === id) return { kind: 'entry', sgID }
-    const p = (sg.outputPins ?? []).find((p) => p.nodeID === id)
+    const p = (sg.outputPins ?? []).find((x) => x.nodeID === id)
     if (p) return { kind: 'output', sgID, declID: p.id }
     return null
   }
@@ -47,17 +47,19 @@ export function useGraphMutations(opts: {
         // B2: virtual marker → 写 sg.entry/outputPins metadata, 不写 g.nodes.
         const slot = virtualMarkerSlot(ch.id)
         if (slot) {
-          const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === slot.sgID)
+          const sg = editorStore.subgraphById(slot.sgID)
           if (sg) {
             if (slot.kind === 'entry') {
               sg.entry = { ...sg.entry, x: ch.position.x, y: ch.position.y }
             } else if (slot.declID) {
-              const p = (sg.outputPins ?? []).find((p) => p.id === slot.declID)
+              const p = (sg.outputPins ?? []).find((x) => x.id === slot.declID)
               if (p) {
                 p.x = ch.position.x
                 p.y = ch.position.y
               }
             }
+            // marker 元数据不在 sg.graph 里, activeGraph 深 watch 看不见 — 显式记改动归属。
+            editorStore.touchSubgraph(editorStore.activeContainerID, slot.sgID)
           }
           continue
         }

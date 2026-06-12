@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import type { Container, VarDecl, Graph, GraphNode } from '@/lib/backend'
 import { NODE_FIELD_SCHEMAS } from '@/components/containers/nodeFieldSchemas'
+import { useContainerEditorStore } from '@/stores/containerEditor'
 
 export interface DeleteVarOptions {
   cascade: boolean
@@ -46,10 +47,29 @@ export function useVarMutations(draft: Ref<Container | null>) {
     return scope !== 'local'
   }
 
+  // 变量改名/删除的图改写范围 = 主图 + 本容器引用闭包内的子图 (不是全池 —
+  // 池级全量改写会误伤别的容器恰好同名的变量)。被改写的子图记 touch 归属本容器。
   function walkAllGraphs(d: Container, fn: (g: Graph) => void) {
+    const editorStore = useContainerEditorStore()
     fn(d.graph)
-    for (const sg of d.subgraphs ?? []) {
-      if (sg.graph) fn(sg.graph)
+    const visited = new Set<string>()
+    const queue: string[] = []
+    const enqueueRefs = (g: Graph) => {
+      for (const n of g.nodes) {
+        const sgID = (n as GraphNode).config?.SubgraphID as string | undefined
+        if ((n.kind === 'Subgraph' || n.kind === 'CollapsedNode') && sgID && !visited.has(sgID)) {
+          visited.add(sgID)
+          queue.push(sgID)
+        }
+      }
+    }
+    enqueueRefs(d.graph)
+    while (queue.length > 0) {
+      const sg = editorStore.subgraphById(queue.shift()!)
+      if (!sg?.graph) continue
+      fn(sg.graph as Graph)
+      editorStore.touchSubgraph(d.id, sg.id)
+      enqueueRefs(sg.graph as Graph)
     }
   }
 

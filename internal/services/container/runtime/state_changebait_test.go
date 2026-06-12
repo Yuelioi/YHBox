@@ -17,7 +17,7 @@ func loadStateCHANGEBAIT(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_CHANGEBAIT.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "state_CHANGEBAIT.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_CHANGEBAIT.json: %v", err)
@@ -39,7 +39,6 @@ func runStateCHANGEBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *
 		Vars: []container.VarDecl{
 			{Name: "state", Type: "string", Default: "CHANGEBAIT"},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -53,6 +52,7 @@ func runStateCHANGEBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

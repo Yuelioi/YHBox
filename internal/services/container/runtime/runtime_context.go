@@ -44,7 +44,7 @@ type RuntimeContext struct {
 	Subgraphs []container.Subgraph
 	InputBus  *execution.InputBus
 	Matcher   TemplateMatcher
-	Input     pkginput.Backend   // per-container 实例, setupRuntime 注入
+	Input     pkginput.Backend // per-container 实例, setupRuntime 注入
 	Game      GameProvider
 	Emit      func(name string, data any)
 

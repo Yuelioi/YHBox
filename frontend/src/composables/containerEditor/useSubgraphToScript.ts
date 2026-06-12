@@ -36,10 +36,8 @@ export function useSubgraphToScript(opts: UseSubgraphToScriptOpts) {
   const editorStore = useContainerEditorStore()
   const state = ref<ToScriptState>({ open: false, sgLabel: '', code: '', unsupported: [], insertPos: null })
 
-  // 子图完整数据(含 graph)只活在 editorStore 的本容器 slot — 后端 container.json 不持久化
-  // subgraphs(json:"-"), draft.value.subgraphs 恒 undefined, 别从那取。
-  const subgraphs = (): SubgraphLike[] =>
-    opts.draft.value ? editorStore.subgraphsFor(opts.draft.value.id) : []
+  // 子图完整数据(含 graph)活在全局池 (2026-06-12 全局化) — 容器只引用不拥有。
+  const subgraphs = (): SubgraphLike[] => editorStore.subgraphList as unknown as SubgraphLike[]
 
   function convert(sg: SubgraphLike, insertPos: { x: number; y: number } | null) {
     const subgraphsById = new Map(subgraphs().map((s) => [s.id, s]))
@@ -53,7 +51,7 @@ export function useSubgraphToScript(opts: UseSubgraphToScriptOpts) {
       : { open: true, sgLabel: sg.label, code: '', unsupported: res.unsupported, insertPos: null }
   }
 
-  // 节点右键入口: callee 从本容器 slot 找, 插入位 = 被转节点旁。
+  // 节点右键入口: callee 从全局池找, 插入位 = 被转节点旁。
   function convertFromNode(node: GraphNode) {
     const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
     const sg = subgraphs().find((s) => s.id === sgID)

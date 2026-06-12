@@ -22,9 +22,9 @@ func TestExecCollapsedNode_DispatchesViaSameHandlerAsSubgraph(t *testing.T) {
 		{From: "sgin.Done", To: "sgout.In"},
 	})
 	// 给后备 subgraph 设 isAnonymous=true (验证 dispatch 不拒绝)
-	for i := range rt.Container.Subgraphs {
-		if rt.Container.Subgraphs[i].ID == sgID {
-			rt.Container.Subgraphs[i].IsAnonymous = true
+	for i := range rt.Subgraphs {
+		if rt.Subgraphs[i].ID == sgID {
+			rt.Subgraphs[i].IsAnonymous = true
 		}
 	}
 	node := &container.GraphNode{

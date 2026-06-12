@@ -14,49 +14,52 @@ import (
 // CallSubgraph (脚本调子图入口) 测试: 同步跑 callee 返到达出口的 decl Name,
 // params seed + 声明 default 补全, 递归深度防护.
 
-func newCallerRunner(t *testing.T, c *container.Container) (*ContainerRunner, *RuntimeContext) {
+func newCallerRunner(t *testing.T, c *container.Container, sgs []container.Subgraph) (*ContainerRunner, *RuntimeContext) {
 	t.Helper()
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = sgs
 	stubRuntimeWindowAndInput(rt)
 	return NewContainerRunner(rt), rt
 }
 
-func paramEchoContainer() *container.Container {
-	return &container.Container{
+func paramEchoContainer() (*container.Container, []container.Subgraph) {
+	sgs := []container.Subgraph{{
+		ID:    "sg_p",
+		Entry: container.SubgraphMarker{NodeID: "sgin"},
+		OutputPins: []container.SubgraphOutputDecl{
+			{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
+		},
+		InputParams: []container.SubgraphInputParam{
+			{Name: "msg", Type: "string", Default: "dv"},
+		},
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "gp", Kind: "GetParam", Config: map[string]any{
+					"literal": map[string]any{"ParamName": "msg"},
+				}},
+				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "got"}},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sgin.Done", To: "sv.In"},
+				{From: "sv.Done", To: "out_ok.In"},
+				{From: "gp.Value", To: "sv.Value"},
+			},
+		},
+	}}
+	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "call_sg_test",
 		Vars:          []container.VarDecl{{Name: "got", Type: "string", Default: ""}},
-		Subgraphs: []container.Subgraph{{
-			ID:    "sg_p",
-			Entry: container.SubgraphMarker{NodeID: "sgin"},
-			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
-			},
-			InputParams: []container.SubgraphInputParam{
-				{Name: "msg", Type: "string", Default: "dv"},
-			},
-			Graph: container.Graph{
-				Nodes: []container.GraphNode{
-					{ID: "gp", Kind: "GetParam", Config: map[string]any{
-						"literal": map[string]any{"ParamName": "msg"},
-					}},
-					{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "got"}},
-				},
-				Edges: []container.GraphEdge{
-					{From: "sgin.Done", To: "sv.In"},
-					{From: "sv.Done", To: "out_ok.In"},
-					{From: "gp.Value", To: "sv.Value"},
-				},
-			},
-		}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}},
 		},
 	}
+	return c, sgs
 }
 
 func TestCallSubgraph_ParamSeedAndExitName(t *testing.T) {
-	r, rt := newCallerRunner(t, paramEchoContainer())
+	c, sgs := paramEchoContainer()
+	r, rt := newCallerRunner(t, c, sgs)
 	exit, err := r.CallSubgraph(context.Background(), "sg_p", map[string]any{"msg": "hello"})
 	if err != nil {
 		t.Fatalf("CallSubgraph: %v", err)
@@ -70,7 +73,8 @@ func TestCallSubgraph_ParamSeedAndExitName(t *testing.T) {
 }
 
 func TestCallSubgraph_MissingParamFallsBackToDefault(t *testing.T) {
-	r, rt := newCallerRunner(t, paramEchoContainer())
+	c, sgs := paramEchoContainer()
+	r, rt := newCallerRunner(t, c, sgs)
 	if _, err := r.CallSubgraph(context.Background(), "sg_p", map[string]any{}); err != nil {
 		t.Fatalf("CallSubgraph: %v", err)
 	}
@@ -80,23 +84,23 @@ func TestCallSubgraph_MissingParamFallsBackToDefault(t *testing.T) {
 }
 
 func TestCallSubgraph_MultiExitReturnsReachedName(t *testing.T) {
+	sgs := []container.Subgraph{{
+		ID:    "sg_m",
+		Entry: container.SubgraphMarker{NodeID: "sgin"},
+		OutputPins: []container.SubgraphOutputDecl{
+			{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
+			{ID: "d-bad", Name: "bad", NodeID: "out_bad"},
+		},
+		Graph: container.Graph{
+			Edges: []container.GraphEdge{{From: "sgin.Done", To: "out_bad.In"}},
+		},
+	}}
 	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "call_sg_multi",
-		Subgraphs: []container.Subgraph{{
-			ID:    "sg_m",
-			Entry: container.SubgraphMarker{NodeID: "sgin"},
-			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
-				{ID: "d-bad", Name: "bad", NodeID: "out_bad"},
-			},
-			Graph: container.Graph{
-				Edges: []container.GraphEdge{{From: "sgin.Done", To: "out_bad.In"}},
-			},
-		}},
-		Graph: container.Graph{Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}}},
+		Graph:         container.Graph{Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}}},
 	}
-	r, _ := newCallerRunner(t, c)
+	r, _ := newCallerRunner(t, c, sgs)
 	exit, err := r.CallSubgraph(context.Background(), "sg_m", nil)
 	if err != nil {
 		t.Fatalf("CallSubgraph: %v", err)
@@ -107,14 +111,15 @@ func TestCallSubgraph_MultiExitReturnsReachedName(t *testing.T) {
 }
 
 func TestCallSubgraph_UnknownSubgraph_Error(t *testing.T) {
-	r, _ := newCallerRunner(t, paramEchoContainer())
+	c, sgs := paramEchoContainer()
+	r, _ := newCallerRunner(t, c, sgs)
 	if _, err := r.CallSubgraph(context.Background(), "ghost", nil); err == nil {
 		t.Fatal("expected error for unknown subgraph id")
 	}
 }
 
 func TestScriptCallsSubgraph_EndToEnd(t *testing.T) {
-	c := paramEchoContainer()
+	c, sgs := paramEchoContainer()
 	c.Vars = append(c.Vars, container.VarDecl{Name: "exitName", Type: "string", Default: ""})
 	c.Graph = container.Graph{
 		Nodes: []container.GraphNode{
@@ -129,7 +134,7 @@ return r.exit`,
 		},
 		Edges: []container.GraphEdge{{From: "start.Done", To: "sc.In"}},
 	}
-	r, rt := newCallerRunner(t, c)
+	r, rt := newCallerRunner(t, c, sgs)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := r.Run(ctx); err != nil {
@@ -144,27 +149,27 @@ return r.exit`,
 }
 
 func TestScriptCallsSubgraph_CancelUnblocksCalleeSleep(t *testing.T) {
+	sgs := []container.Subgraph{{
+		ID:    "sg_sleep",
+		Entry: container.SubgraphMarker{NodeID: "sgin"},
+		OutputPins: []container.SubgraphOutputDecl{
+			{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
+		},
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "zz", Kind: "Sleep", Config: map[string]any{
+					"literal": map[string]any{"Duration": 60000.0},
+				}},
+			},
+			Edges: []container.GraphEdge{
+				{From: "sgin.Done", To: "zz.In"},
+				{From: "zz.Done", To: "out_ok.In"},
+			},
+		},
+	}}
 	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "script_sg_cancel",
-		Subgraphs: []container.Subgraph{{
-			ID:    "sg_sleep",
-			Entry: container.SubgraphMarker{NodeID: "sgin"},
-			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
-			},
-			Graph: container.Graph{
-				Nodes: []container.GraphNode{
-					{ID: "zz", Kind: "Sleep", Config: map[string]any{
-						"literal": map[string]any{"Duration": 60000.0},
-					}},
-				},
-				Edges: []container.GraphEdge{
-					{From: "sgin.Done", To: "zz.In"},
-					{From: "zz.Done", To: "out_ok.In"},
-				},
-			},
-		}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -175,7 +180,7 @@ func TestScriptCallsSubgraph_CancelUnblocksCalleeSleep(t *testing.T) {
 			Edges: []container.GraphEdge{{From: "start.Done", To: "sc.In"}},
 		},
 	}
-	r, _ := newCallerRunner(t, c)
+	r, _ := newCallerRunner(t, c, sgs)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(200 * time.Millisecond)
@@ -189,10 +194,10 @@ func TestScriptCallsSubgraph_CancelUnblocksCalleeSleep(t *testing.T) {
 }
 
 func TestCallSubgraph_DepthGuard(t *testing.T) {
-	c := paramEchoContainer()
-	r, _ := newCallerRunner(t, c)
+	c, sgs := paramEchoContainer()
+	r, _ := newCallerRunner(t, c, sgs)
 	// 人工压满 frame 栈模拟深递归 (脚本里子图套 Script 再调回自己).
-	sg := &c.Subgraphs[0]
+	sg := &sgs[0]
 	for range 64 {
 		r.state.PushFrame(container.MainGraphRef(), sg, "fake")
 	}

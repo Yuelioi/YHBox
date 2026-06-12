@@ -12,14 +12,13 @@ export function useEditorPath() {
   const editorPath = computed(() => editorStore.editorPath)
 
   function sgLabel(sgID: string): string {
-    const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
-    return sg?.label ?? sgID
+    return editorStore.subgraphById(sgID)?.label ?? sgID
   }
 
   const currentSubgraph = computed(() => {
     if (editorStore.editorPath.length === 0) return null
     const sgID = editorStore.editorPath[editorStore.editorPath.length - 1]
-    return editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID) ?? null
+    return editorStore.subgraphById(sgID) ?? null
   })
 
   return {

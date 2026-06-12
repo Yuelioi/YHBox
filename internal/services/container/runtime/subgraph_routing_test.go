@@ -14,9 +14,10 @@ import (
 // 多出口路由测试: 父图边以 callee OutputPins decl ID 为 pin, 调用节点按 body
 // 实际到达的出口 marker 路由 — 不是无脑 "Done".
 
-func runRoutingContainer(t *testing.T, c *container.Container) (*RuntimeContext, error) {
+func runRoutingContainer(t *testing.T, c *container.Container, sgs []container.Subgraph) (*RuntimeContext, error) {
 	t.Helper()
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = sgs
 	stubRuntimeWindowAndInput(rt)
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -31,21 +32,21 @@ func setVarNode(id, varName string, value any) container.GraphNode {
 }
 
 func TestSubgraphCall_RoutesByReachedDecl(t *testing.T) {
+	sgs := []container.Subgraph{{
+		ID:    "sg_m",
+		Entry: container.SubgraphMarker{NodeID: "sgin"},
+		OutputPins: []container.SubgraphOutputDecl{
+			{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
+			{ID: "d-bad", Name: "bad", NodeID: "out_bad"},
+		},
+		Graph: container.Graph{
+			Edges: []container.GraphEdge{{From: "sgin.Done", To: "out_bad.In"}},
+		},
+	}}
 	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "route_test",
 		Vars:          []container.VarDecl{{Name: "reached", Type: "string", Default: ""}},
-		Subgraphs: []container.Subgraph{{
-			ID:    "sg_m",
-			Entry: container.SubgraphMarker{NodeID: "sgin"},
-			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "d-ok", Name: "ok", NodeID: "out_ok"},
-				{ID: "d-bad", Name: "bad", NodeID: "out_bad"},
-			},
-			Graph: container.Graph{
-				Edges: []container.GraphEdge{{From: "sgin.Done", To: "out_bad.In"}},
-			},
-		}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -60,7 +61,7 @@ func TestSubgraphCall_RoutesByReachedDecl(t *testing.T) {
 			},
 		},
 	}
-	rt, err := runRoutingContainer(t, c)
+	rt, err := runRoutingContainer(t, c, sgs)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -71,6 +72,17 @@ func TestSubgraphCall_RoutesByReachedDecl(t *testing.T) {
 
 func TestSubgraphCall_DrainedSingleExit_FallsBackToOnlyDecl(t *testing.T) {
 	// 子图体没接出口 marker (跑干) + 单出口 → 视同到达唯一出口, 父图继续.
+	sgs := []container.Subgraph{{
+		ID:    "sg_s",
+		Entry: container.SubgraphMarker{NodeID: "sgin"},
+		OutputPins: []container.SubgraphOutputDecl{
+			{ID: "d-only", Name: "done", NodeID: "out_only"},
+		},
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{setVarNode("mid", "inner", true)},
+			Edges: []container.GraphEdge{{From: "sgin.Done", To: "mid.In"}},
+		},
+	}}
 	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "drain_single_test",
@@ -78,17 +90,6 @@ func TestSubgraphCall_DrainedSingleExit_FallsBackToOnlyDecl(t *testing.T) {
 			{Name: "inner", Type: "bool", Default: false},
 			{Name: "after", Type: "bool", Default: false},
 		},
-		Subgraphs: []container.Subgraph{{
-			ID:    "sg_s",
-			Entry: container.SubgraphMarker{NodeID: "sgin"},
-			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "d-only", Name: "done", NodeID: "out_only"},
-			},
-			Graph: container.Graph{
-				Nodes: []container.GraphNode{setVarNode("mid", "inner", true)},
-				Edges: []container.GraphEdge{{From: "sgin.Done", To: "mid.In"}},
-			},
-		}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -101,7 +102,7 @@ func TestSubgraphCall_DrainedSingleExit_FallsBackToOnlyDecl(t *testing.T) {
 			},
 		},
 	}
-	rt, err := runRoutingContainer(t, c)
+	rt, err := runRoutingContainer(t, c, sgs)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -115,18 +116,18 @@ func TestSubgraphCall_DrainedSingleExit_FallsBackToOnlyDecl(t *testing.T) {
 
 func TestSubgraphCall_DrainedMultiExit_CodedError(t *testing.T) {
 	// 多出口子图体跑干 (没到达任何出口 marker) → 出口歧义, Coded 错误冒泡.
+	sgs := []container.Subgraph{{
+		ID:    "sg_d",
+		Entry: container.SubgraphMarker{NodeID: "sgin"},
+		OutputPins: []container.SubgraphOutputDecl{
+			{ID: "d-a", Name: "a", NodeID: "out_a"},
+			{ID: "d-b", Name: "b", NodeID: "out_b"},
+		},
+		Graph: container.Graph{},
+	}}
 	c := &container.Container{
 		SchemaVersion: 1,
 		ID:            "drain_multi_test",
-		Subgraphs: []container.Subgraph{{
-			ID:    "sg_d",
-			Entry: container.SubgraphMarker{NodeID: "sgin"},
-			OutputPins: []container.SubgraphOutputDecl{
-				{ID: "d-a", Name: "a", NodeID: "out_a"},
-				{ID: "d-b", Name: "b", NodeID: "out_b"},
-			},
-			Graph: container.Graph{},
-		}},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -135,7 +136,7 @@ func TestSubgraphCall_DrainedMultiExit_CodedError(t *testing.T) {
 			Edges: []container.GraphEdge{{From: "start.Done", To: "call.In"}},
 		},
 	}
-	_, err := runRoutingContainer(t, c)
+	_, err := runRoutingContainer(t, c, sgs)
 	if err == nil {
 		t.Fatal("expected subgraph_no_exit error, got nil")
 	}

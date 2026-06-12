@@ -1,0 +1,174 @@
+{
+  "id": "state_SETUP",
+  "label": "state_SETUP",
+  "description": "复刻 tools/fish/states_fishing.go:102-121 handleSetup. 找准备界面 start_fish 按钮 → 点击 → Sleep(postClickDelayMs=1000) → 检 need_bait 命中 → BUYBAIT; 否则 IDLE. start_fish 未找到 → IDLE (timeout). 调用方义务: (1) container 顶层声明 state: string default IDLE; (2) 调用上下文是主图 Switch on State 的 SETUP case; (3) production postClickDelayMs=1000, test 1ms fast-forward.",
+  "graph": {
+    "id": "state_SETUP_graph",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "clickStartFish",
+        "kind": "ClickTemplate",
+        "x": 200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"
+            ],
+            "Threshold": 0.75,
+            "TimeoutMs": 2000
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "sleepPostClick",
+        "kind": "Sleep",
+        "x": 400,
+        "y": -100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getParamPostClick",
+        "kind": "GetParam",
+        "x": 400,
+        "y": 100,
+        "config": {
+          "literal": {
+            "ParamName": "postClickDelayMs"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "checkNeedBait",
+        "kind": "CheckTemplate",
+        "x": 600,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Templates": [
+              "9105d7e7-75bf-40e2-b910-1704fc8aada4"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateBuyBait",
+        "kind": "SetVar",
+        "x": 800,
+        "y": -250,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "BUYBAIT",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateIdleAfterClick",
+        "kind": "SetVar",
+        "x": 800,
+        "y": 100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "IDLE",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateIdleNoClick",
+        "kind": "SetVar",
+        "x": 400,
+        "y": 250,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "IDLE",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "sgin.Done",
+        "to": "clickStartFish.In"
+      },
+      {
+        "from": "clickStartFish.Done",
+        "to": "sleepPostClick.In"
+      },
+      {
+        "from": "getParamPostClick.Value",
+        "to": "sleepPostClick.Duration"
+      },
+      {
+        "from": "sleepPostClick.Done",
+        "to": "checkNeedBait.In"
+      },
+      {
+        "from": "checkNeedBait.Found",
+        "to": "setStateBuyBait.In"
+      },
+      {
+        "from": "setStateBuyBait.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkNeedBait.NotFound",
+        "to": "setStateIdleAfterClick.In"
+      },
+      {
+        "from": "setStateIdleAfterClick.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "clickStartFish.Timeout",
+        "to": "setStateIdleNoClick.In"
+      },
+      {
+        "from": "setStateIdleNoClick.Done",
+        "to": "sgout.In"
+      }
+    ]
+  },
+  "entry": {
+    "nodeID": "sgin"
+  },
+  "outputPins": [
+    {
+      "id": "done",
+      "name": "done",
+      "nodeID": "sgout",
+      "x": 1000
+    }
+  ],
+  "inputParams": [
+    {
+      "name": "postClickDelayMs",
+      "type": "number",
+      "default": 1000
+    }
+  ],
+  "tags": [
+    "fishing-v2",
+    "state-machine",
+    "setup"
+  ],
+  "requiredGlobals": [
+    "state"
+  ],
+  "createdAt": "2026-05-20T00:00:00Z",
+  "schemaVersion": 1,
+  "rev": 1
+}

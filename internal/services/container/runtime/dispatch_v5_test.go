@@ -9,18 +9,18 @@ import (
 	"testing"
 
 	"yotta/internal/node"
-	_ "yotta/internal/nodes/control"   // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
-	_ "yotta/internal/nodes/detect"    // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
-	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
-	_ "yotta/internal/nodes/input"     // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringWindowForeground
-	_ "yotta/internal/nodes/io"        // Log / PlayClip
-	_ "yotta/internal/nodes/purefunc"  // Add / Sub / .../Select / Expr
 	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
-	_ "yotta/internal/nodes/random"    // RandomInt/RandomFloat/RandomBool
-	_ "yotta/internal/nodes/script"    // Script (内嵌 JS, goja)
-	_ "yotta/internal/nodes/stopwatch" // StopwatchStart / Stop / Read
-	_ "yotta/internal/nodes/system"    // Subgraph / SubgraphInput / SubgraphOutput / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
-	_ "yotta/internal/nodes/variable"  // SetVar / IncVar / GetVar / GetParam
+	_ "yotta/internal/nodes/control"    // Loop / Break / Continue / Start / Stop / If / Switch / Sleep
+	_ "yotta/internal/nodes/detect"     // CheckTemplate / WaitTemplate / ClickTemplate / DetectColor* / ColorBarTrack / Screenshot
+	_ "yotta/internal/nodes/event"      // EventTick (listener-driven 定时触发)
+	_ "yotta/internal/nodes/input"      // KeyPress / ClickAt / MouseMove / Scroll / KeyHold* / MouseHold* / BringWindowForeground
+	_ "yotta/internal/nodes/io"         // Log / PlayClip
+	_ "yotta/internal/nodes/purefunc"   // Add / Sub / .../Select / Expr
+	_ "yotta/internal/nodes/random"     // RandomInt/RandomFloat/RandomBool
+	_ "yotta/internal/nodes/script"     // Script (内嵌 JS, goja)
+	_ "yotta/internal/nodes/stopwatch"  // StopwatchStart / Stop / Read
+	_ "yotta/internal/nodes/system"     // Subgraph / SubgraphInput / SubgraphOutput / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
+	_ "yotta/internal/nodes/variable"   // SetVar / IncVar / GetVar / GetParam
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 )
@@ -671,9 +671,9 @@ func TestExecNodeAsRegionViaFramework_SubgraphBasic(t *testing.T) {
 				{From: "sg_call.done", To: "done_n.In"},
 			},
 		},
-		Subgraphs: []container.Subgraph{subgraph},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{subgraph}
 	r := NewContainerRunner(rt)
 	sgNode := r.nodesByID["sg_call"]
 	tokens, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
@@ -785,9 +785,9 @@ func TestExecNodeAsRegionViaFramework_SubgraphThrowCaughtByFail(t *testing.T) {
 				{From: "sg_n.Fail", To: "fail_n.In"},
 			},
 		},
-		Subgraphs: []container.Subgraph{subgraph},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{subgraph}
 	r := NewContainerRunner(rt)
 	emitted := []emittedEvent{}
 	var emitMu sync.Mutex
@@ -818,9 +818,10 @@ func TestExecNodeAsRegionViaFramework_SubgraphThrowCaughtByFail(t *testing.T) {
 // frame.LocalParams. callee 子图内 GetParam 节点 (走 framework GetParam.Evaluate) 应能读到值.
 //
 // 拓扑:
-//   主图: sg_call (Subgraph SubgraphID=paramSub Params={greeting:"hello"}) → done_n (Stop)
-//   子图 paramSub: sub_in → sv1 (SetVar capturedGreeting <= GetParam.value) → sub_out
-//   data wire: getp1.value (GetParam paramName=greeting) → sv1.value
+//
+//	主图: sg_call (Subgraph SubgraphID=paramSub Params={greeting:"hello"}) → done_n (Stop)
+//	子图 paramSub: sub_in → sv1 (SetVar capturedGreeting <= GetParam.value) → sub_out
+//	data wire: getp1.value (GetParam paramName=greeting) → sv1.value
 //
 // 验证: dispatch 完 rt.Vars()["capturedGreeting"] == "hello".
 func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
@@ -858,9 +859,9 @@ func TestExecNodeAsRegionViaFramework_SubgraphPassesParams(t *testing.T) {
 				{From: "sg_call.Done", To: "done_n.In"},
 			},
 		},
-		Subgraphs: []container.Subgraph{subgraph},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{subgraph}
 	r := NewContainerRunner(rt)
 	sgNode := r.nodesByID["sg_call"]
 	_, err := r.execNodeAsRegionViaFramework(context.Background(), sgNode, ExecToken{NodeID: "sg_call", InPin: "in"})
@@ -1117,8 +1118,8 @@ func newFailRouteTest(t *testing.T, testNodeKind, fromPin string) *dispatchTestC
 	return dt
 }
 
-// 1. Coded error (Failf) + .Fail 接线 → 失败分支 (非空 token, err==nil),
-//    下游 ExecData["Code"]=="capture_failed", node-error handled=true + code.
+//  1. Coded error (Failf) + .Fail 接线 → 失败分支 (非空 token, err==nil),
+//     下游 ExecData["Code"]=="capture_failed", node-error handled=true + code.
 func TestRouteResult_FailRoute_CodedWired(t *testing.T) {
 	dt := newFailRouteTest(t, tkFailf, "n1.Fail")
 	tok := ExecToken{NodeID: "n1", InPin: "in"}

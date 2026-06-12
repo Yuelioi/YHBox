@@ -13,11 +13,11 @@ import (
 	"yotta/internal/services/execution"
 )
 
-func loadFishingV2Main(t *testing.T) *container.Container {
+func loadFishingV2Main(t *testing.T) (*container.Container, []container.Subgraph) {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	containerDir := filepath.Join(root, "bin", "data", "containers", "fishing-v2")
+	containerDir := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2")
 
 	mainData, err := os.ReadFile(filepath.Join(containerDir, "container.json"))
 	if err != nil {
@@ -27,6 +27,7 @@ func loadFishingV2Main(t *testing.T) *container.Container {
 	if err := json.Unmarshal(mainData, &c); err != nil {
 		t.Fatalf("unmarshal container.json: %v", err)
 	}
+	var sgs []container.Subgraph
 
 	sgDir := filepath.Join(containerDir, "subgraphs")
 	entries, err := os.ReadDir(sgDir)
@@ -45,16 +46,17 @@ func loadFishingV2Main(t *testing.T) *container.Container {
 		if err := json.Unmarshal(data, &sg); err != nil {
 			t.Fatalf("unmarshal %s: %v", e.Name(), err)
 		}
-		c.Subgraphs = append(c.Subgraphs, sg)
+		container.NormalizeSubgraph(&sg)
+		sgs = append(sgs, sg)
 	}
 	// fishing-v2 JSON 含 SubgraphInput/Output 节点, 走 Normalize 迁移到 metadata 后 validator 才认.
 	c.Normalize()
-	return &c
+	return &c, sgs
 }
 
 func TestFishingV2Main_Validates(t *testing.T) {
-	c := loadFishingV2Main(t)
-	errs := container.ValidateContainer(c)
+	c, sgs := loadFishingV2Main(t)
+	errs := container.ValidateContainer(c, sgs)
 	for _, e := range errs {
 		if e.Severity == container.SeverityError {
 			t.Errorf("validator error: code=%s nodeID=%s params=%v", e.Code, e.NodeID, e.Params)
@@ -63,7 +65,7 @@ func TestFishingV2Main_Validates(t *testing.T) {
 }
 
 func TestFishingV2Main_StateCycleSmoke(t *testing.T) {
-	c := loadFishingV2Main(t)
+	c, sgs := loadFishingV2Main(t)
 	for i, n := range c.Graph.Nodes {
 		// Subgraph 参数 override (state machine internal delays).
 		if n.Kind == "Subgraph" {
@@ -93,6 +95,7 @@ func TestFishingV2Main_StateCycleSmoke(t *testing.T) {
 	}
 
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = sgs
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

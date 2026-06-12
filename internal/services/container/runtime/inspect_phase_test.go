@@ -53,7 +53,7 @@ func templateNameForGUID(guid string) string {
 		tplNameByID = map[string]string{}
 		_, thisFile, _, _ := gort.Caller(0)
 		root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-		recDir := filepath.Join(root, "bin", "data", "assets", "records")
+		recDir := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "templates")
 		entries, err := os.ReadDir(recDir)
 		if err != nil {
 			return
@@ -85,7 +85,7 @@ func loadInspectPhase(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "inspect_phase.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "inspect_phase.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read inspect_phase.json: %v", err)
@@ -107,7 +107,6 @@ func runInspectPhase(t *testing.T, hits map[string]bool, frame *image.RGBA) (*Ru
 		Vars: []container.VarDecl{
 			{Name: "_inspectPhaseResult", Type: "string", Default: "unknown"},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -123,6 +122,7 @@ func runInspectPhase(t *testing.T, hits map[string]bool, frame *image.RGBA) (*Ru
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
 	rt.Capture = &mockCaptureBackend{FrameROIResult: frame}

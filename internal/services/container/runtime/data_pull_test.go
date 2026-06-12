@@ -109,8 +109,8 @@ func TestDataEdgeIndex_IgnoresExecEdges(t *testing.T) {
 			{ID: "c", Kind: "SetVar", Config: map[string]any{"VarName": "x", "Scope": "global"}},
 		},
 		Edges: []container.GraphEdge{
-			{From: "a.Done", To: "b.in"},      // Sleep.out is exec-out → not data
-			{From: "gv.Value", To: "c.x"},    // GetVar.value is data-out → data
+			{From: "a.Done", To: "b.in"},  // Sleep.out is exec-out → not data
+			{From: "gv.Value", To: "c.x"}, // GetVar.value is data-out → data
 		},
 	})
 	if src, pin := idx.Source("b", "in"); src != "" || pin != "" {

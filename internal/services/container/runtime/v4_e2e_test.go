@@ -70,8 +70,8 @@ func TestV4_E2E_AllCategories(t *testing.T) {
 				}},
 				{ID: "condExpr", Kind: "Expr", Config: map[string]any{
 					"Expression": "i > -1",
-					"OutType": "auto",
-					"Inputs": []any{map[string]any{"Name": "i", "Type": "number"}},
+					"OutType":    "auto",
+					"Inputs":     []any{map[string]any{"Name": "i", "Type": "number"}},
 				}},
 				{ID: "if1", Kind: "If"},
 				{ID: "stop", Kind: "Stop"},

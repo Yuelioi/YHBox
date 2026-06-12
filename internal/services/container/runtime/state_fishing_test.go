@@ -18,7 +18,7 @@ func loadStateFISHING(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := gort.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "state_FISHING.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "state_FISHING.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read state_FISHING.json: %v", err)
@@ -44,7 +44,6 @@ func runStateFISHING(t *testing.T, preFishingStartMsAgo float64, hits map[string
 			{Name: "controlDir", Type: "number", Default: 0.0},
 			{Name: "_pressEscCleared", Type: "bool", Default: false},
 		},
-		Subgraphs: []container.Subgraph{stateFISHING, pressEsc},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -58,6 +57,7 @@ func runStateFISHING(t *testing.T, preFishingStartMsAgo float64, hits map[string
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{stateFISHING, pressEsc}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy

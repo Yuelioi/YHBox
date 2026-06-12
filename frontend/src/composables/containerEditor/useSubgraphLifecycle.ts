@@ -6,8 +6,9 @@ import type { ClonedSubgraphForPaste } from './useNodeClipboard'
 import { genNodeID } from './ids'
 
 /**
- * useSubgraphLifecycle Subgraph 1:1 模型 lifecycle 操作集。
- * 依赖 draft + activeGraph 来自 useContainerDraft。
+ * useSubgraphLifecycle Subgraph lifecycle 操作集 (2026-06-12 全局化后瘦身):
+ * 子图是全局共享资产 — 删除 Subgraph 节点不再级联删子图 (匿名孤儿由后端 GC 回收,
+ * 具名子图是用户资产留在库里); 旧 deleteSubgraphCascade/cascadeIfOrphan 整删。
  */
 export function useSubgraphLifecycle(opts: {
   draft: Ref<Container | null>
@@ -15,24 +16,24 @@ export function useSubgraphLifecycle(opts: {
   syncFlowFromDraft: () => void
   refreshSubgraphStore: () => Promise<void>
 }) {
-  const { draft, refreshSubgraphStore } = opts
+  const { draft } = opts
   const editorStore = useContainerEditorStore()
   const { t } = useI18n()
 
   /**
-   * autoCreateSubgraphForNewNode 当用户拖入 Subgraph 节点：调 backend.createSubgraph 建一个空子图，
+   * autoCreateSubgraphForNewNode 当用户拖入 Subgraph 节点：建一个空子图入全局池，
    * 把返回 id 写到 node.config.SubgraphID。失败返 false（caller 决定是否 push 节点）。
    */
   async function autoCreateSubgraphForNewNode(node: GraphNode): Promise<boolean> {
     if (node?.kind !== 'Subgraph') return true
     if (!draft.value) return false
     try {
-      const created = (await backend.containers.createSubgraph(
-        draft.value.id,
+      const created = await backend.subgraphs.create(
         t('subgraphLifecycle.default_name_prefix') + ' ' + new Date().toLocaleTimeString().slice(0, 5),
-      )) as Subgraph
+      )
+      if (!created) return false
       node.config = { ...node.config, SubgraphID: created.id }
-      await refreshSubgraphStore()
+      editorStore.replaceSubgraph(created)
       return true
     } catch (e) {
       console.error('autoCreateSubgraphForNewNode failed:', e)
@@ -41,7 +42,7 @@ export function useSubgraphLifecycle(opts: {
   }
 
   /**
-   * countSubgraphReferencesIncludeMain 扫主图 + 所有子图，统计指向 sgID 的 Subgraph 节点数。
+   * countSubgraphReferencesIncludeMain 扫本容器主图 + 全局池全部子图体，统计指向 sgID 的引用数。
    */
   function countSubgraphReferencesIncludeMain(sgID: string): number {
     if (!draft.value) return 0
@@ -49,11 +50,7 @@ export function useSubgraphLifecycle(opts: {
     for (const n of draft.value.graph.nodes) {
       if (n.kind === 'Subgraph' && n.config?.SubgraphID === sgID) count++
     }
-    for (const sg of editorStore.subgraphsForCurrentContainer) {
-      for (const n of sg.graph?.nodes ?? []) {
-        if (n.kind === 'Subgraph' && n.config?.SubgraphID === sgID) count++
-      }
-    }
+    count += editorStore.countSubgraphRefs(sgID)
     return count
   }
 
@@ -61,48 +58,15 @@ export function useSubgraphLifecycle(opts: {
     if (!draft.value) return null
     const main = draft.value.graph.nodes.find((n) => n.id === nodeID)
     if (main) return main as GraphNode
-    for (const sg of editorStore.subgraphsForCurrentContainer) {
-      const n = sg.graph?.nodes?.find((n) => n.id === nodeID)
+    for (const sg of editorStore.subgraphList) {
+      const n = sg.graph?.nodes?.find((x) => x.id === nodeID)
       if (n) return n as GraphNode
     }
     return null
   }
 
-  async function cascadeIfOrphan(sgID: string | undefined, visited: Set<string>) {
-    if (!sgID || visited.has(sgID) || !draft.value) return
-    visited.add(sgID)
-    if (countSubgraphReferencesIncludeMain(sgID) > 0) return
-    // snapshot nested children BEFORE await — refreshSubgraphStore 等 await 之间
-    // store 会被替换，原 sg 对象引用失效，遍历时拿到 stale 数据会漏删
-    const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
-    const nestedIDs: string[] = (sg?.graph?.nodes ?? [])
-      .filter((n) => n.kind === 'Subgraph')
-      .map((n) => n.config?.SubgraphID as string | undefined)
-      .filter((id): id is string => !!id)
-    try {
-      await backend.containers.deleteSubgraph(draft.value.id, sgID)
-    } catch (e) {
-      console.warn('cascade deleteSubgraph failed', sgID, e)
-    }
-    for (const nID of nestedIDs) {
-      await cascadeIfOrphan(nID, visited)
-    }
-  }
-
   /**
-   * deleteSubgraphCascade 给 onNodesChange remove 用：已知被删 Subgraph 节点的 subgraphID，
-   * 检查引用计数，0 时联动删子图 + 递归处理嵌套孙子图。
-   */
-  async function deleteSubgraphCascade(removedSubgraphID: string) {
-    if (!draft.value || !removedSubgraphID) return
-    if (countSubgraphReferencesIncludeMain(removedSubgraphID) > 0) return
-    const visited = new Set<string>()
-    await cascadeIfOrphan(removedSubgraphID, visited)
-    await refreshSubgraphStore()
-  }
-
-  /**
-   * deepCloneSubgraphForCopy paste Subgraph 节点时给副本子图用。
+   * deepCloneSubgraphForCopy paste Subgraph 节点要"复制一份"语义时用。
    * 重发内部 nodeID + outputPin decl ID + graph.id。
    */
   function deepCloneSubgraphForCopy(src: Subgraph): ClonedSubgraphForPaste {
@@ -131,7 +95,6 @@ export function useSubgraphLifecycle(opts: {
     autoCreateSubgraphForNewNode,
     countSubgraphReferencesIncludeMain,
     findNodeAcrossGraphs,
-    deleteSubgraphCascade,
     deepCloneSubgraphForCopy,
   }
 }

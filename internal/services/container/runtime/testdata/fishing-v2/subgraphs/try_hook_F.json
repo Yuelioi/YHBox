@@ -1,0 +1,286 @@
+{
+  "id": "try_hook_F",
+  "label": "try_hook_F",
+  "description": "复刻 tools/fish/states_fishing.go:217-255 tryHookF. 按 F 抛竿/收线 + 在 2s 窗口内 poll 耐力条出现. 外层 30 retry (hookFMaxRetries), 内层 7 polls × 300ms ≈ 2s (hookFRetryDelay). 调用方义务: (1) container 顶层声明 _hookFFound: bool default false; (2) 调用上下文是 state_WAITING (hook_text streak >= 2 后); (3) 返 done → SetVar(state, FISHING) + SetVar(controlDir, 0); (4) 返 failed → SetVar(state, RECOVERING); (5) DualColorBarTrack ROI 在节点 config.roi 写死 1080p pixel int (fish bot ratio × 1920×1080), runtime configROI 不接 ratio (B9 backlog); (6) pollIntervalMs 默认 300, test 传 1 fast-forward.",
+  "graph": {
+    "id": "try_hook_F_graph",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "setFoundFalse",
+        "kind": "SetVar",
+        "x": 200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": false,
+            "VarName": "_hookFFound"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "loopOuter",
+        "kind": "Loop",
+        "x": 400,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Count": 30,
+            "Mode": "count"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "tapF",
+        "kind": "KeyPress",
+        "x": 600,
+        "y": 0,
+        "config": {
+          "literal": {
+            "DurationMs": 150,
+            "VK": "f"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getParamPollInterval",
+        "kind": "GetParam",
+        "x": 600,
+        "y": 200,
+        "config": {
+          "literal": {
+            "ParamName": "pollIntervalMs"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "loopInner",
+        "kind": "Loop",
+        "x": 800,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Count": 7,
+            "Mode": "count"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "sleepPoll",
+        "kind": "Sleep",
+        "x": 1000,
+        "y": 0,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "barTrack",
+        "kind": "DualColorBarTrack",
+        "x": 1200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "ROI": {
+              "overrides": [
+                {
+                  "px": {
+                    "h": 12,
+                    "w": 704,
+                    "x": 612,
+                    "y": 69
+                  },
+                  "resolution": {
+                    "h": 1080,
+                    "w": 1920
+                  }
+                },
+                {
+                  "px": {
+                    "h": 8,
+                    "w": 468,
+                    "x": 410,
+                    "y": 46
+                  },
+                  "resolution": {
+                    "h": 720,
+                    "w": 1280
+                  }
+                }
+              ],
+              "pct": {
+                "h": 0,
+                "w": 0,
+                "x": 0,
+                "y": 0
+              }
+            }
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setFoundTrue",
+        "kind": "SetVar",
+        "x": 1400,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": true,
+            "VarName": "_hookFFound"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "breakInner",
+        "kind": "Break",
+        "x": 1600,
+        "y": -100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getFound",
+        "kind": "GetVar",
+        "x": 1600,
+        "y": 200,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "VarName": "_hookFFound"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "ifFoundForOuter",
+        "kind": "If",
+        "x": 1800,
+        "y": 0,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "breakOuter",
+        "kind": "Break",
+        "x": 2000,
+        "y": -100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "ifFoundFinal",
+        "kind": "If",
+        "x": 2000,
+        "y": 100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "sgin.Done",
+        "to": "setFoundFalse.In"
+      },
+      {
+        "from": "setFoundFalse.Done",
+        "to": "loopOuter.In"
+      },
+      {
+        "from": "loopOuter.Body",
+        "to": "tapF.In"
+      },
+      {
+        "from": "tapF.Done",
+        "to": "loopInner.In"
+      },
+      {
+        "from": "loopInner.Body",
+        "to": "sleepPoll.In"
+      },
+      {
+        "from": "getParamPollInterval.Value",
+        "to": "sleepPoll.Duration"
+      },
+      {
+        "from": "sleepPoll.Done",
+        "to": "barTrack.In"
+      },
+      {
+        "from": "barTrack.Found",
+        "to": "setFoundTrue.In"
+      },
+      {
+        "from": "setFoundTrue.Done",
+        "to": "breakInner.In"
+      },
+      {
+        "from": "loopInner.Done",
+        "to": "ifFoundForOuter.In"
+      },
+      {
+        "from": "getFound.Value",
+        "to": "ifFoundForOuter.Condition"
+      },
+      {
+        "from": "ifFoundForOuter.True",
+        "to": "breakOuter.In"
+      },
+      {
+        "from": "loopOuter.Done",
+        "to": "ifFoundFinal.In"
+      },
+      {
+        "from": "getFound.Value",
+        "to": "ifFoundFinal.Condition"
+      },
+      {
+        "from": "ifFoundFinal.True",
+        "to": "sgout_done.In"
+      },
+      {
+        "from": "ifFoundFinal.False",
+        "to": "sgout_failed.In"
+      }
+    ]
+  },
+  "entry": {
+    "nodeID": "sgin"
+  },
+  "outputPins": [
+    {
+      "id": "done",
+      "name": "done",
+      "nodeID": "sgout_done",
+      "x": 2200,
+      "y": -100
+    },
+    {
+      "id": "failed",
+      "name": "failed",
+      "nodeID": "sgout_failed",
+      "x": 2200,
+      "y": 100
+    }
+  ],
+  "inputParams": [
+    {
+      "name": "pollIntervalMs",
+      "type": "number",
+      "default": 300
+    }
+  ],
+  "tags": [
+    "fishing-v2",
+    "helper",
+    "waiting"
+  ],
+  "requiredGlobals": [
+    "_hookFFound"
+  ],
+  "createdAt": "2026-05-20T00:00:00Z",
+  "schemaVersion": 1,
+  "rev": 1
+}

@@ -38,7 +38,7 @@ func loadApplyDirection(t *testing.T) container.Subgraph {
 	t.Helper()
 	_, thisFile, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..")
-	jsonPath := filepath.Join(root, "bin", "data", "containers", "fishing-v2", "subgraphs", "apply_direction.json")
+	jsonPath := filepath.Join(root, "internal", "services", "container", "runtime", "testdata", "fishing-v2", "subgraphs", "apply_direction.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		t.Fatalf("read apply_direction.json: %v", err)
@@ -60,7 +60,6 @@ func runApplyDirection(t *testing.T, dirInput float64, preControlDir float64) ([
 		Vars: []container.VarDecl{
 			{Name: "controlDir", Type: "number", Default: 0.0},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -77,6 +76,7 @@ func runApplyDirection(t *testing.T, dirInput float64, preControlDir float64) ([
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy
@@ -156,7 +156,6 @@ func runApplyDirectionTwice(t *testing.T, d1, d2 float64) ([]string, float64) {
 		Vars: []container.VarDecl{
 			{Name: "controlDir", Type: "number", Default: 0.0},
 		},
-		Subgraphs: []container.Subgraph{sg},
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
@@ -178,6 +177,7 @@ func runApplyDirectionTwice(t *testing.T, d1, d2 float64) ([]string, float64) {
 		},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
 	rt.Input = spy
