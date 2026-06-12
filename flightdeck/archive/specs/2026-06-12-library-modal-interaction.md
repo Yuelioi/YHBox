@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: 子图库 modal 交互改版 — 单击选中出详情(删悬停)+双击/按钮插入 + Ctrl/Shift 多选 + 批量删除/加标签 + Subgraph 新增 category 字段(分组按分类) + 分类/标签过滤器
 last_updated: 2026-06-12
 ---

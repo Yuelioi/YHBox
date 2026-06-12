@@ -3,7 +3,6 @@ status: done
 summary: 9 任务全完 — Go category 字段 + FE 类型/i18n + libraryFilter/useListSelection TDD + 详情/批量面板 + modal 改版(选中模型+过滤+批量) + 属性面板分类。代码全绿, 差真机。
 last_updated: 2026-06-12
 implements: specs/2026-06-12-library-modal-interaction.md
-verify: 子图库 modal 真机验收(原③④⑤⑥的 编辑信息按钮/批量面板形态 已被 2026-06-12-library-modal-polish 美化 v3 取代, 批量与编辑以 v3 清单为准) — ①单击=选中出详情不插入, 悬停不再变右栏 ②双击插入引用+缺变量自动补不回归 ⑦分组按分类(空=未分类), 分类下拉+标签多选+文本搜索三过滤叠加 ⑧编辑器内子图属性面板能改分类, 与库内互通 ⑨右键菜单(插入/复制为新/复制ID/删除)与在线 tab 占位照旧
 ---
 
 # 子图库 modal 交互改版 — 实施计划

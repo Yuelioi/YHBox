@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: 选中行 primary 高亮(bg-primary/15+ring) + 折叠/裸建子图默认名改「子图 N」序号递增(弃时间戳, 删折叠前缀键) + ConfirmDialog 输入模式打开时全选默认值
 last_updated: 2026-06-12
 ---

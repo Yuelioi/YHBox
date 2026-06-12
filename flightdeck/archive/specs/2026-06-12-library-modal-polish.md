@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: hover 多选框 + 底部工具栏(双态: 计数/分页 ↔ 批量删/加标签/改分类) + 分页(每页条数记忆) + 右栏就地编辑(名称/描述双击, 标签/分类行内控件, 删编辑弹窗) + 插入引用单主 CTA + 删除/复制弱化 + LibraryBatchPanel 连根删
 last_updated: 2026-06-12
 ---
