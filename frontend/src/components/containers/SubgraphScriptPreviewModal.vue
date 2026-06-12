@@ -15,12 +15,14 @@
       </p>
       <ul class="space-y-1.5">
         <li
-          v-for="u in unsupported"
-          :key="u.nodeID + u.reason"
+          v-for="g in groupedUnsupported"
+          :key="g.kind + g.reason"
           class="flex items-start gap-2 text-xs rounded-md bg-elevated/40 px-3 py-2"
         >
-          <span class="font-mono text-toned shrink-0">{{ kindLabel(u.kind) }}</span>
-          <span class="text-muted">{{ t(u.reason) }}</span>
+          <span class="font-mono text-toned shrink-0">
+            {{ kindLabel(g.kind) }}<span v-if="g.count > 1" class="text-muted">&nbsp;×{{ g.count }}</span>
+          </span>
+          <span class="text-muted">{{ t(g.reason) }}</span>
         </li>
       </ul>
     </div>
@@ -79,6 +81,18 @@ const emit = defineEmits<{
 }>()
 
 const failed = computed(() => props.unsupported.length > 0)
+
+// 拒转清单按 (kind, 原因) 去重计数 — 同一类节点(如 6 个表达式)只列一行 + ×N, 不堆重复。
+const groupedUnsupported = computed(() => {
+  const m = new Map<string, { kind: string; reason: string; count: number }>()
+  for (const u of props.unsupported) {
+    const k = `${u.kind}|${u.reason}`
+    const e = m.get(k)
+    if (e) e.count++
+    else m.set(k, { kind: u.kind, reason: u.reason, count: 1 })
+  }
+  return [...m.values()]
+})
 
 function kindLabel(kind: string): string {
   const key = getSpec(kind)?.labelZh ?? ''

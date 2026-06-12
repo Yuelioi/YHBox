@@ -60,7 +60,7 @@
       :ui="{ content: 'sm:max-w-[460px]' }"
       @update:open="
         (v: boolean) => {
-          if (!v) confirmCloseOpen = false
+          if (!v) resolveDirty('cancel')
         }
       "
     >
@@ -72,17 +72,17 @@
           </div>
           <p class="text-xs text-muted">{{ t('editor.dirty.desc') }}</p>
           <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="ghost" color="neutral" @click="confirmCloseOpen = false"
+            <UButton variant="ghost" color="neutral" @click="resolveDirty('cancel')"
               >{{ t('editor.dirty.cancel') }}</UButton
             >
             <UButton
               class="ml-auto"
               color="error"
               icon="i-tabler-x"
-              @click="onConfirmDiscardAndClose"
+              @click="resolveDirty('discard')"
               >{{ t('editor.dirty.discard') }}</UButton
             >
-            <UButton color="primary" icon="i-tabler-check" @click="onSaveAndClose"
+            <UButton color="primary" icon="i-tabler-check" @click="resolveDirty('save')"
               >{{ t('editor.dirty.save_and_close') }}</UButton
             >
           </div>
@@ -462,11 +462,11 @@
 // draft / canvas viewport / selection / dirty 全保留, 不重新 load.
 defineOptions({ name: 'ContainerEditorView' })
 
-import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { useWindowControls } from '@/composables/useWindowControls'
-import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import { VueFlow, useVueFlow, SelectionMode } from '@vue-flow/core'
@@ -641,9 +641,13 @@ const recordingTargetName = computed(() => {
   return containersStore.list.find((c) => c.id === id)?.name ?? id
 })
 
-// A3: 录制进行中离开"正在录的容器"编辑器 → 确认. 留下 → 录完正常 autoConnect 接节点;
-// 确认离开 → 放行 (子图已落盘, 但不自动接入当前视图; onSubgraphCreated 的 mismatch 守卫兜底不 dangling).
-onBeforeRouteLeave(async () => {
+// 离开本编辑器的统一守卫. 两个钩子都挂:
+//  - onBeforeRouteLeave: 离开编辑器路由 (返回列表 / settings 等)
+//  - onBeforeRouteUpdate: 切到另一个容器 (/containers/A/edit → /B/edit, 同路由改 param,
+//    leave 不触发只触发 update) —— 不挂这个, 切容器就绕过 dirty/录制守卫, 把未保存改动留在
+//    keep-alive 缓存实例里, 跨容器状态串 (孤儿边 / 拿错 WindowTarget)。
+async function guardLeaveEditor(): Promise<boolean> {
+  // A3: 录制本容器进行中 → 确认. 留下 → 录完正常 autoConnect; 确认离开 → 放行.
   if ((recordStore.isRecording || recordStore.isPaused) && recordStore.activeTargetContainerID === containerID) {
     const ok = await confirm({
       title: t('recordComposable.leave_title'),
@@ -652,10 +656,14 @@ onBeforeRouteLeave(async () => {
       confirmText: t('recordComposable.leave_confirm'),
       cancelText: t('common.cancel'),
     })
-    return ok === true
+    if (ok !== true) return false
   }
-  return true
-})
+  // 未保存改动 → 保存/丢弃/取消. 丢弃要 reload 真正回盘 (本实例可能被 keep-alive 缓存,
+  // 光清 dirty 会让被丢弃的改动留在内存里, 切回来还在)。
+  return await guardDirty({ reloadOnDiscard: true })
+}
+onBeforeRouteLeave(guardLeaveEditor)
+onBeforeRouteUpdate(guardLeaveEditor)
 
 // 子图 metadata 外部编辑 (NodeInspector / SubgraphPropsPanel) 改的是 store 里 sg 对象,
 // useContainerDraft 的 deep watch 自动标 dirty — 之前的 window 总线桥接已删除.
@@ -984,8 +992,7 @@ const { onFoldSelection } = useFolding({
   draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast,
 })
 
-// 保存 + 孤儿 GC（onSaveAndClose 留在 view 因为依赖 view-local close 状态）
-// 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
+// 保存 + 孤儿 GC. 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave, saveFlash } = useEditorSave({ draft, dirty, toast })
 
 // ⚙ 容器设置 (name/hotkey/description/tags + 输入/截图后端/缩放容差) 改完即落盘 —— 不必等保存整个蓝图。
@@ -1187,7 +1194,14 @@ watch(() => editorBus.pendingExprFusion, (req) => {
     toast.add({ title: t('toast.expr_fuse_failed'), color: 'warning' })
   }
 })
+// tplStore.containerId 是全局单指针, capture()/openScreenPicker 靠它定位本容器目标窗口。
+// keep-alive 缓存多个容器编辑器时, 切到已缓存容器只走 onActivated(onMounted 不再触发),
+// 漏掉这里指针就停在上一个容器 → WaitTemplate 截图/校验拿错容器的 WindowTarget(「没有异环窗口」)。
+// 故 mount + 每次激活都重指, 跟 editorStore.markActive 同构(见 incident keepalive-singleton-subgraph-store-stale)。
 onMounted(() => {
+  tplStore.setContainer(containerID)
+})
+onActivated(() => {
   tplStore.setContainer(containerID)
 })
 
@@ -1315,56 +1329,49 @@ function onSubgraphPropsUpdate(patch: Record<string, any>) {
   dirty.value = true
 }
 
-function goBack() {
-  if (dirty.value) {
-    pendingNav.value = 'back'
-    confirmCloseOpen.value = true
-    return
-  }
-  doBack()
-}
-
-function doBack() {
-  // 独立 Frameless 窗口：返回 = 关窗（dashboard 在另一个窗口里继续显示）
-  closeImmediate()
-}
-
-// 窗口控件 (isMaximised + min/max 全 useWindowControls 提供; close 在下方包一层 dirty 拦截)
+// 独立 Frameless 窗口控件: 返回/关闭都走 wails 关窗 (不经路由, 故自挂 dirty 守卫;
+// 此处实例随窗口销毁, 丢弃只需清 dirty, 无需 reload)。
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate } = useWindowControls()
-function onClose() {
-  if (dirty.value) {
-    pendingNav.value = 'close'
-    confirmCloseOpen.value = true
-    return
-  }
-  closeImmediate()
+async function goBack() {
+  if (await guardDirty({ reloadOnDiscard: false })) closeImmediate()
+}
+async function onClose() {
+  if (await guardDirty({ reloadOnDiscard: false })) closeImmediate()
 }
 
-// Dirty 关闭确认
+// ── Dirty 守卫: 单例确认弹窗 (保存/丢弃/取消), Promise 化供路由守卫与窗口控件共用 ──
 const confirmCloseOpen = ref(false)
-const pendingNav = ref<'back' | 'close' | null>(null)
+let dirtyResolver: ((v: 'save' | 'discard' | 'cancel') => void) | null = null
 
-function onConfirmDiscardAndClose() {
+function askDirty(): Promise<'save' | 'discard' | 'cancel'> {
+  return new Promise((resolve) => {
+    dirtyResolver = resolve
+    confirmCloseOpen.value = true
+  })
+}
+function resolveDirty(v: 'save' | 'discard' | 'cancel') {
   confirmCloseOpen.value = false
-  const nav = pendingNav.value
-  pendingNav.value = null
-  dirty.value = false
-  if (nav === 'close') closeImmediate()
-  else doBack()
+  dirtyResolver?.(v)
+  dirtyResolver = null
 }
 
-async function onSaveAndClose() {
-  await onSave()
-  if (dirty.value) {
-    // 保存失败 → 不关闭
-    confirmCloseOpen.value = false
-    return
+// guardDirty: 干净(无未保存)直接放行; 否则弹窗等用户选。
+// 返回 true=可继续 (已存/已弃), false=取消。reloadOnDiscard: 嵌入态 keep-alive 实例丢弃需回盘。
+async function guardDirty({ reloadOnDiscard }: { reloadOnDiscard: boolean }): Promise<boolean> {
+  if (!dirty.value) return true
+  const choice = await askDirty()
+  if (choice === 'cancel') return false
+  if (choice === 'save') {
+    await onSave()
+    return !dirty.value // 保存失败 (校验错, dirty 仍 true) → 不放行
   }
-  confirmCloseOpen.value = false
-  const nav = pendingNav.value
-  pendingNav.value = null
-  if (nav === 'close') closeImmediate()
-  else doBack()
+  // discard
+  if (reloadOnDiscard) {
+    try { await reload() } catch { dirty.value = false }
+  } else {
+    dirty.value = false
+  }
+  return true
 }
 </script>
 
