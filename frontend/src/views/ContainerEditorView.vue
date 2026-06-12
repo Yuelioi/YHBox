@@ -294,6 +294,10 @@
       @pick-subgraph="onPickLibrarySubgraph"
     />
 
+    <TemplateExplorerModal v-model:open="templatesExplorerOpen" />
+
+    <ClipExplorerModal v-model:open="clipsExplorerOpen" />
+
     <InlineContextMenu
       :open="inlineMenu.open"
       :position="inlineMenu.position"
@@ -415,6 +419,7 @@ import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useTemplatesStore } from '@/stores/templates'
+import { useClipsStore } from '@/stores/clips'
 import { useContainerDraft } from '@/composables/containerEditor/useContainerDraft'
 import { useEditorPath } from '@/composables/containerEditor/useEditorPath'
 import { useSubgraphLifecycle } from '@/composables/containerEditor/useSubgraphLifecycle'
@@ -453,6 +458,8 @@ import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConf
 import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
 import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
+import TemplateExplorerModal from '@/components/containers/TemplateExplorerModal.vue'
+import ClipExplorerModal from '@/components/containers/ClipExplorerModal.vue'
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 import SubgraphScriptPreviewModal from '@/components/containers/SubgraphScriptPreviewModal.vue'
 import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
@@ -481,6 +488,7 @@ const recordStore = useRecordingStore()
 const execStore = useExecutionStore()
 const containersStore = useContainersStore()
 const tplStore = useTemplatesStore()
+const clipsStore = useClipsStore()
 
 const editorStore = useContainerEditorStore()
 
@@ -624,6 +632,8 @@ const leftRail = [
   { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets', kind: 'drawer' as const },
   { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer'), kind: 'modal' as const },
   { key: 'library' as const, icon: 'i-tabler-books', title: t('editor.toolbar.library_explorer'), kind: 'modal' as const },
+  { key: 'templates' as const, icon: 'i-tabler-photo', title: t('template.manager.title'), kind: 'modal' as const },
+  { key: 'clips' as const, icon: 'i-tabler-movie', title: t('clip.manager.title'), kind: 'modal' as const },
 ]
 function toggleLeftDrawer(key: 'vars' | 'snippets') {
   sidebarPrefs.value.leftDrawer = sidebarPrefs.value.leftDrawer === key ? null : key
@@ -632,11 +642,16 @@ function onRailClick(item: (typeof leftRail)[number]) {
   if (item.kind === 'drawer') toggleLeftDrawer(item.key as 'vars' | 'snippets')
   else if (item.key === 'nodes') onOpenNodeExplorer()
   else if (item.key === 'library') onOpenLibraryExplorer()
+  else if (item.key === 'templates') templatesExplorerOpen.value = true
+  else if (item.key === 'clips') clipsExplorerOpen.value = true
 }
 function railActive(item: (typeof leftRail)[number]): boolean {
   if (item.kind === 'drawer') return sidebarPrefs.value.leftDrawer === item.key
   if (item.key === 'nodes') return nodeExplorerOpen.value
-  return libraryExplorerOpen.value
+  if (item.key === 'library') return libraryExplorerOpen.value
+  if (item.key === 'templates') return templatesExplorerOpen.value
+  if (item.key === 'clips') return clipsExplorerOpen.value
+  return false
 }
 const leftPane = useSplitpane('editor.splitpane.left', { default: 280, min: 200, max: 480 })
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
@@ -644,6 +659,8 @@ const settingsOpen = ref(false)
 const nodeExplorerOpen = ref(false)
 const helpModalOpen = ref(false)
 const libraryExplorerOpen = ref(false)
+const templatesExplorerOpen = ref(false)
+const clipsExplorerOpen = ref(false)
 
 // ===== 命令面板 =====
 const commandPaletteOpen = ref(false)
@@ -1144,6 +1161,10 @@ watch(() => editorBus.pendingExprFusion, (req) => {
 // 故 mount + 每次激活都重指, 跟 editorStore.markActive 同构(见 incident keepalive-singleton-subgraph-store-stale)。
 onMounted(() => {
   tplStore.setContainer(containerID)
+  // clip:changed 全局订阅 (listen 幂等) + 首刷. clips 是全局资产、单例 store — 订阅一次即可,
+  // 不在 onUnmounted 退订: keep-alive 缓存多个编辑器时, 某个 unmount 退订会害到其他缓存编辑器的刷新。
+  clipsStore.listen()
+  void clipsStore.refresh()
 })
 onActivated(() => {
   tplStore.setContainer(containerID)
