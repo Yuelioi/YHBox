@@ -517,7 +517,7 @@
             @pick-color="onColorPick"
           />
           <!-- 模板字段 (WaitTemplate/ClickTemplate/CheckTemplate) → 多选缩略图拾取器 + 现截一张 -->
-          <TemplatePicker
+          <TemplatePickerField
             v-else-if="fieldFor(lit.name)?.widgetKind === 'template-picker'"
             :model-value="asTemplateList(getLiteral(lit.name))"
             @update:model-value="(v: string[]) => setLiteral(lit.name, v)"
@@ -605,7 +605,7 @@ import SwitchInspector from './inspector/SwitchInspector.vue'
 import DynamicInputsEditor from './inspector/DynamicInputsEditor.vue'
 import { getSpec } from './nodeRegistry/registry'
 import ClipTimeline from './ClipTimeline.vue'
-import TemplatePicker from './TemplatePicker.vue'
+import TemplatePickerField from './TemplatePickerField.vue'
 import { useI18n } from 'vue-i18n'
 import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_EXAMPLE, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
 
