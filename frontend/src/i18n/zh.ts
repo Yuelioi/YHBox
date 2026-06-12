@@ -1855,6 +1855,13 @@ export default {
       delete_confirm: '确认删除片段「{name}」? 此操作不可恢复。',
       delete_confirm_referenced:
         '片段「{name}」当前被 {n} 处节点引用。删除后这些引用会失效(节点变红)。确认删除?',
+      batch_delete_title: '批量删除 Clip',
+      batch_delete_confirm: '确认删除选中的 {n} 个片段? 此操作不可恢复。',
+      batch_delete_confirm_referenced:
+        '选中的 {n} 个片段共被 {refs} 处节点引用。删除后这些引用会失效(节点变红)。确认删除?',
+    },
+    detail: {
+      empty: '选择一个片段查看详情',
     },
   },
   // ClipTimeline 单 key
@@ -2111,6 +2118,9 @@ export default {
       variant_count: '个变体',
       tags_label: '标签: ',
       created_at: '创建于 {time}',
+    },
+    detail: {
+      empty: '选择一个模板查看详情',
     },
     picker: {
       not_selected: '未选择',

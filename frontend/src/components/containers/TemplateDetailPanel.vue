@@ -1,0 +1,261 @@
+<!-- 模板库右栏详情 (就地编辑): 名称/描述双击改, 分类/标签即改即存. 模板是全局资产、无 rev.
+     纯管理 (无插入/复制) — 模板由节点 picker 引用, 不作节点插入. 字段级 patch 缺省值用当前值补全 (updateMeta 全覆盖). -->
+<template>
+  <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
+    <div v-if="!tpl" class="h-full flex flex-col items-center justify-center text-center px-6 py-10">
+      <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
+      <p class="text-sm text-toned">{{ t('template.detail.empty') }}</p>
+    </div>
+
+    <div v-else class="p-4 space-y-4">
+      <!-- 缩略图 -->
+      <div class="rounded-md overflow-hidden border border-default bg-elevated flex items-center justify-center aspect-[4/3]">
+        <img v-if="thumb" :src="thumb" class="max-w-full max-h-full object-contain" :alt="tpl.name" />
+        <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
+      </div>
+
+      <!-- 名称 -->
+      <div>
+        <UInput
+          v-if="editingName"
+          ref="nameInputRef"
+          v-model="draftName"
+          size="sm"
+          @keyup.enter="saveName"
+          @keydown.esc.stop="editingName = false"
+          @blur="saveName"
+        />
+        <h3
+          v-else
+          class="group flex items-center gap-1 text-sm font-medium text-highlighted leading-tight cursor-text"
+          :title="t('library.detail.dblclick_edit')"
+          @dblclick="enterEditName"
+        >
+          <span class="truncate min-w-0">{{ tpl.name || tpl.guid }}</span>
+          <UIcon name="i-tabler-pencil" class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100" />
+        </h3>
+      </div>
+
+      <!-- 描述 -->
+      <section class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('library.detail.description') }}</label>
+        <UTextarea
+          v-if="editingDesc"
+          ref="descInputRef"
+          v-model="draftDesc"
+          :rows="3"
+          size="sm"
+          @keydown.esc.stop="editingDesc = false"
+          @blur="saveDesc"
+        />
+        <p
+          v-else-if="tpl.description"
+          class="text-xs text-default whitespace-pre-line cursor-text"
+          :title="t('library.detail.dblclick_edit')"
+          @dblclick="enterEditDesc"
+        >
+          {{ tpl.description }}
+        </p>
+        <p v-else class="text-xs text-dimmed italic cursor-text" @dblclick="enterEditDesc">
+          {{ t('library.detail.desc_empty') }}
+        </p>
+      </section>
+
+      <!-- 分类 -->
+      <section class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('common.category') }}</label>
+        <UInputMenu
+          :model-value="tpl.category ?? ''"
+          creatable
+          :items="allCategories"
+          size="sm"
+          :placeholder="t('library.explorer.category_placeholder')"
+          @update:model-value="(v: string) => patch({ category: v ?? '' })"
+        />
+      </section>
+
+      <!-- 标签 -->
+      <section class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('library.detail.tags') }}</label>
+        <UInputMenu
+          :model-value="tpl.tags ?? []"
+          multiple
+          creatable
+          :items="allTags"
+          size="sm"
+          @update:model-value="(v: string[]) => patch({ tags: v })"
+        />
+      </section>
+
+      <!-- 元信息 -->
+      <section class="space-y-1 text-[11px] text-dimmed">
+        <div class="flex justify-between">
+          <span>{{ t('template.manager.variant_count') }}</span>
+          <span>{{ tpl.variantCount }}</span>
+        </div>
+        <div v-if="tpl.createdAt" class="flex justify-between">
+          <span>{{ t('library.detail.created_at') }}</span>
+          <span>{{ new Date(tpl.createdAt).toLocaleString() }}</span>
+        </div>
+      </section>
+
+      <!-- ID -->
+      <section class="space-y-1.5">
+        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">ID</label>
+        <button
+          type="button"
+          class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
+          :class="copied ? 'text-success' : 'text-dimmed'"
+          @click="onCopyID"
+        >
+          <UIcon v-if="copied" name="i-tabler-check" class="size-3 shrink-0" />
+          <span class="truncate">{{ copied ? t('common.copied') : tpl.guid }}</span>
+        </button>
+      </section>
+
+      <div class="pt-3 border-t border-default flex">
+        <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" class="ml-auto" @click="onDelete">
+          {{ t('common.delete') }}
+        </UButton>
+      </div>
+    </div>
+  </aside>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { backend, type AssetSummary } from '@/lib/backend'
+import { useTemplatesStore } from '@/stores/templates'
+import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@nuxt/ui/composables'
+import { errorMessage } from '@/lib/invoke'
+
+const { t } = useI18n()
+const props = defineProps<{ guid: string | null }>()
+const store = useTemplatesStore()
+const { confirm } = useConfirm()
+const toast = useToast()
+
+const tpl = computed<AssetSummary | undefined>(() => (props.guid ? store.map[props.guid] : undefined))
+
+const allCategories = computed(() => {
+  const set = new Set<string>()
+  for (const s of Object.values(store.map)) if (s.category) set.add(s.category)
+  return [...set].sort()
+})
+const allTags = computed(() => {
+  const set = new Set<string>()
+  for (const s of Object.values(store.map)) for (const tg of s.tags ?? []) set.add(tg)
+  return [...set].sort()
+})
+
+// 缩略图 (firstBlobSha → dataURL)
+const thumb = ref<string | null>(null)
+watch(
+  () => props.guid,
+  async () => {
+    thumb.value = null
+    const s = tpl.value
+    if (s?.firstBlobSha) thumb.value = await store.readBlobDataURL(s.firstBlobSha)
+  },
+  { immediate: true },
+)
+
+// 字段级保存 — 模板无 rev, updateMeta 全覆盖; 缺的字段用当前值补全, 改完 store 自 reload.
+async function patch(p: { name?: string; description?: string; category?: string; tags?: string[] }) {
+  const s = tpl.value
+  if (!s) return
+  await store.updateMeta(
+    s.guid,
+    p.name ?? s.name,
+    p.description ?? s.description ?? '',
+    p.category ?? s.category ?? '',
+    p.tags ?? s.tags ?? [],
+  )
+}
+
+// 名称双击编辑
+const editingName = ref(false)
+const draftName = ref('')
+const nameInputRef = ref<any>(null)
+async function enterEditName() {
+  if (!tpl.value) return
+  draftName.value = tpl.value.name ?? ''
+  editingName.value = true
+  await nextTick()
+  const el: HTMLInputElement | undefined = nameInputRef.value?.inputRef
+  el?.focus()
+  el?.select()
+}
+function saveName() {
+  if (!editingName.value) return
+  editingName.value = false
+  const next = draftName.value.trim()
+  if (!next || next === tpl.value?.name) return
+  void patch({ name: next })
+}
+
+// 描述双击编辑
+const editingDesc = ref(false)
+const draftDesc = ref('')
+const descInputRef = ref<any>(null)
+async function enterEditDesc() {
+  if (!tpl.value) return
+  draftDesc.value = tpl.value.description ?? ''
+  editingDesc.value = true
+  await nextTick()
+  const el: HTMLTextAreaElement | undefined = descInputRef.value?.textareaRef
+  el?.focus()
+}
+function saveDesc() {
+  if (!editingDesc.value) return
+  editingDesc.value = false
+  const next = draftDesc.value.trim()
+  if (next === (tpl.value?.description ?? '')) return
+  void patch({ description: next })
+}
+
+watch(
+  () => props.guid,
+  () => {
+    editingName.value = false
+    editingDesc.value = false
+  },
+)
+
+const copied = ref(false)
+let copiedTimer = 0
+async function onCopyID() {
+  if (!props.guid) return
+  try {
+    await navigator.clipboard.writeText(props.guid)
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1500)
+  } catch (e: any) {
+    toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
+  }
+}
+
+async function onDelete() {
+  const s = tpl.value
+  if (!s) return
+  const refs = await backend.assets.referrers(s.guid)
+  const n = refs?.length ?? 0
+  const description =
+    n > 0
+      ? t('template.manager.delete_confirm_referenced', { key: s.name, n })
+      : t('template.manager.delete_confirm', { key: s.name })
+  const yes = await confirm({
+    title: t('template.manager.delete_title'),
+    description,
+    color: 'error',
+    confirmText: t('common.delete'),
+  })
+  if (yes !== true) return
+  await store.remove(s.guid)
+}
+</script>

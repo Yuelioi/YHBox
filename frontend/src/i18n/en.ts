@@ -1832,6 +1832,13 @@
       delete_confirm: 'Delete clip "{name}"? This cannot be undone.',
       delete_confirm_referenced:
         'Clip "{name}" is referenced by {n} node(s). Deleting will break them (nodes turn red). Delete?',
+      batch_delete_title: 'Delete clips',
+      batch_delete_confirm: 'Delete the {n} selected clips? This cannot be undone.',
+      batch_delete_confirm_referenced:
+        'The {n} selected clips are referenced by {refs} node(s). Deleting will break them (nodes turn red). Delete?',
+    },
+    detail: {
+      empty: 'Select a clip to view details',
     },
   },
   clipTimeline: {
@@ -2073,6 +2080,9 @@
       variant_count: 'variants',
       tags_label: 'Tags: ',
       created_at: 'Created {time}',
+    },
+    detail: {
+      empty: 'Select a template to view details',
     },
     picker: {
       not_selected: 'Not selected',
