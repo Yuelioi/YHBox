@@ -16,7 +16,7 @@ import (
 // Coverage: static data-in pins only. Expr's dynamic inputs are NOT scanned
 // here — the Expr Inspector validates its own literals against declared input
 // types.
-func validateLiteralTypes(c *Container) []ValidationError {
+func validateLiteralTypes(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -62,7 +62,7 @@ func validateLiteralTypes(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph.Nodes, []string{"main"})
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		check(sg.Graph.Nodes, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)})
 	}
 	return errs

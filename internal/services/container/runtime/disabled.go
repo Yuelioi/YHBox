@@ -27,7 +27,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 		return tryExits(r, node, tok, "True"), nil
 	case "Subgraph", "CollapsedNode":
 		// 出口 = callee OutputPins decl ID (dynamic outputs); 禁用直通走第一个 decl.
-		sg, err := ResolveSubgraphCall(r.rt.Container, node)
+		sg, err := ResolveSubgraphCall(r.rt.Subgraphs, node)
 		if err != nil || sg == nil || len(sg.OutputPins) == 0 {
 			return nil, nil // No exit available — silent terminate
 		}

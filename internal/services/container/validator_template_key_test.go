@@ -11,9 +11,9 @@ func TestValidateContainerWithDeps_TemplateNotFound(t *testing.T) {
 			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"some-guid"}}}},
 		}},
 	}
-	c := &Container{Subgraphs: []Subgraph{sg}}
+	c := &Container{}
 	// hasTemplate always returns false → expect TEMPLATE_NOT_FOUND
-	errs := ValidateContainerWithDeps(c, func(string) bool { return false }, nil)
+	errs := ValidateContainerWithDeps(c, []Subgraph{sg}, func(string) bool { return false }, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == "TEMPLATE_NOT_FOUND" && e.NodeID == "n1" {
@@ -34,7 +34,7 @@ func TestValidateContainerWithDeps_TemplateNotFound_MainGraph(t *testing.T) {
 			{ID: "main1", Kind: "WaitTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"missing-guid"}}}},
 		}},
 	}
-	errs := ValidateContainerWithDeps(c, func(string) bool { return false }, nil)
+	errs := ValidateContainerWithDeps(c, nil, func(string) bool { return false }, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == "TEMPLATE_NOT_FOUND" && e.NodeID == "main1" {
@@ -56,7 +56,7 @@ func TestValidateContainerWithDeps_ClipNotFound_MainGraph(t *testing.T) {
 			{ID: "m1", Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "missing-clip"}}},
 		}},
 	}
-	errs := ValidateContainerWithDeps(c, nil, func(string) bool { return false })
+	errs := ValidateContainerWithDeps(c, nil, nil, func(string) bool { return false })
 	found := false
 	for _, e := range errs {
 		if e.Code == "CLIP_NOT_FOUND" && e.NodeID == "m1" {
@@ -76,8 +76,8 @@ func TestValidateContainerWithDeps_TemplateFound(t *testing.T) {
 			{ID: "n1", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"some-guid"}}}},
 		}},
 	}
-	c := &Container{Subgraphs: []Subgraph{sg}}
-	errs := ValidateContainerWithDeps(c, func(string) bool { return true }, nil)
+	c := &Container{}
+	errs := ValidateContainerWithDeps(c, []Subgraph{sg}, func(string) bool { return true }, nil)
 	for _, e := range errs {
 		if e.Code == "TEMPLATE_NOT_FOUND" {
 			t.Errorf("unexpected TEMPLATE_NOT_FOUND when hasTemplate=true: %v", e)

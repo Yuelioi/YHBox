@@ -11,7 +11,7 @@ import (
 // INVALID_PIN 只查边端点不查 literal key)。
 //
 // DynamicInputs 节点 (Expr/Script) 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
-func validateUnknownLiteralPins(c *Container) []ValidationError {
+func validateUnknownLiteralPins(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -50,8 +50,8 @@ func validateUnknownLiteralPins(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph.Nodes, []string{"main"})
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		check(sg.Graph.Nodes, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)})
 	}
 	return errs

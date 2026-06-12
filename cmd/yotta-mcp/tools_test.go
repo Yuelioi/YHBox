@@ -21,7 +21,7 @@ func TestSchemaExamples_AllValid(t *testing.T) {
 			t.Fatalf("example %d not valid JSON: %v", i, err)
 		}
 		c.Normalize()
-		for _, e := range container.ValidateContainer(&c) {
+		for _, e := range container.ValidateContainer(&c, nil) {
 			if e.Severity == container.SeverityError {
 				t.Fatalf("example %d has validation error: %s @ %s", i, e.Code, e.NodeID)
 			}

@@ -7,7 +7,7 @@ func TestUnknownLiteral_BogusPinWarns(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "k", Kind: "KeyPress", Config: map[string]any{"literal": map[string]any{"Message": "hi"}}},
 	}, nil)
-	errs := validateUnknownLiteralPins(c)
+	errs := validateUnknownLiteralPins(c, nil)
 	if !hasCodeForNode(errs, CodeUnknownLiteralPin, "k") {
 		t.Fatalf("expected UNKNOWN_LITERAL_PIN for bogus pin, got %+v", errs)
 	}
@@ -23,7 +23,7 @@ func TestUnknownLiteral_ValidPinNoWarn(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "k", Kind: "KeyPress", Config: map[string]any{"literal": map[string]any{"VK": "F"}}},
 	}, nil)
-	if errs := validateUnknownLiteralPins(c); hasCodeForNode(errs, CodeUnknownLiteralPin, "k") {
+	if errs := validateUnknownLiteralPins(c, nil); hasCodeForNode(errs, CodeUnknownLiteralPin, "k") {
 		t.Fatalf("valid literal pin must not warn, got %+v", errs)
 	}
 }
@@ -33,7 +33,7 @@ func TestUnknownLiteral_ExprSkipped(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "e", Kind: "Expr", Config: map[string]any{"literal": map[string]any{"foo": 1}}},
 	}, nil)
-	if errs := validateUnknownLiteralPins(c); hasCodeForNode(errs, CodeUnknownLiteralPin, "e") {
+	if errs := validateUnknownLiteralPins(c, nil); hasCodeForNode(errs, CodeUnknownLiteralPin, "e") {
 		t.Fatalf("Expr dynamic inputs must be skipped, got %+v", errs)
 	}
 }

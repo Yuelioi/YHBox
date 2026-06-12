@@ -39,21 +39,6 @@ export interface FlowEdge {
   markerEnd?: any
 }
 
-// 后端 listSubgraphs 返回的原始项 → store SubgraphSummary 形态。loadIntoEditor /
-// refreshSubgraphStore / onActivated 重同步 三处共用，避免漂移。
-function toSubgraphSummaries(list: any[] | null | undefined) {
-  return (list ?? []).map((s) => ({
-    id: s.id,
-    label: s.label,
-    outputPins: s.outputPins ?? [],
-    entry: s.entry ?? { nodeID: '' },
-    graph: s.graph ?? { id: '', version: 1, nodes: [], edges: [] },
-    description: s.description,
-    recordingContext: s.recordingContext,
-    tags: s.tags,
-  }))
-}
-
 /**
  * useContainerDraft 容器编辑器数据中心。
  *  - draft: 本地编辑副本
@@ -88,26 +73,17 @@ export function useContainerDraft(containerID: string) {
   const canUndo = computed(() => historyIdx.value > 0)
   const canRedo = computed(() => historyIdx.value < history.value.length - 1)
 
-  // 本实例(本容器)专属视图 — 按自己的 containerID 读 store slot, 不受前台 activeContainerID
-  // 漂移影响。keep-alive 下别的容器编辑器切到前台时, 本实例的 activeGraph / dirty watch 不会
-  // 被它的数据变化误触发。
+  // 视图态按本容器隔离 (editorPathFor 自己的 containerID 读), 不受前台 activeContainerID
+  // 漂移影响; 子图数据走全局池 (全 app 共享资产, 多编辑器看同一份是全局化后的正确语义)。
   const myPath = computed(() => editorStore.editorPathFor(containerID))
-  const mySubgraphs = computed(() => editorStore.subgraphsFor(containerID))
 
-  // activeGraph: 跟随 editorPath 切换. 空 path → 主图; 否则 = 当前 path 末尾对应子图的 graph.
-  // 返回 Graph | null, 不带 any: 下游 mutation 必须显式 null check.
+  // activeGraph: 跟随 editorPath 切换. 空 path → 主图; 否则 = 当前 path 末尾对应子图的 graph
+  // (全局池 byID lookup)。返回 Graph | null, 不带 any: 下游 mutation 必须显式 null check.
   const activeGraph = computed<Graph | null>(() => {
     if (!draft.value) return null
     const path = myPath.value
     if (path.length === 0) return draft.value.graph
-    const sgs = mySubgraphs.value
-    let cur = sgs.find((s) => s.id === path[0])
-    if (!cur) return null
-    for (let i = 1; i < path.length; i++) {
-      // 嵌套子图: v2 1:1 模型下子图全部平铺在容器 slot, editorPath 每一段都 lookup 同一平铺列表.
-      cur = sgs.find((s) => s.id === path[i])
-      if (!cur) return null
-    }
+    const cur = editorStore.subgraphById(path[path.length - 1])
     return (cur?.graph as Graph) ?? null
   })
 
@@ -130,7 +106,7 @@ export function useContainerDraft(containerID: string) {
     const virtualNodes: FlowNode[] = []
     if (myPath.value.length > 0) {
       const curSgID = myPath.value[myPath.value.length - 1]
-      const sg = mySubgraphs.value.find((s) => s.id === curSgID)
+      const sg = editorStore.subgraphById(curSgID)
       if (sg) {
         if (sg.entry && sg.entry.nodeID) {
           virtualNodes.push({
@@ -206,14 +182,14 @@ export function useContainerDraft(containerID: string) {
    */
   async function loadIntoEditor(c: Container) {
     draft.value = JSON.parse(JSON.stringify(c))
-    // 把子图列表同步给 store（NodeInspector / ContainerFlowNode + activeGraph computed 用）
-    // ⚠ 必须把完整 subgraph 数据传进去（含 graph）；只传 summary 会让双击进子图后画布空白。
+    // 全局子图池同步 (NodeInspector / ContainerFlowNode + activeGraph computed 用)。
+    // mergePool: 同 id 保内存版 — 别的编辑器正在编辑未落盘的修改不被盖掉。
+    editorStore.setActiveContainer(c.id)
     try {
-      const sgList = (await backend.containers.listSubgraphs(c.id)) as any[]
-      editorStore.setActiveContainer(c.id, toSubgraphSummaries(sgList))
+      const pool = (await backend.subgraphs.list()) ?? []
+      editorStore.mergePool(pool)
     } catch (e) {
-      console.warn('listSubgraphs failed', e)
-      editorStore.setActiveContainer(c.id, [])
+      console.warn('subgraphs.list failed', e)
     }
     syncFlowFromDraft()
     // Push initial snapshot so undo can return to the just-loaded state (idx 0 = clean baseline)
@@ -233,12 +209,18 @@ export function useContainerDraft(containerID: string) {
     }
     await loadIntoEditor(r as unknown as Container)
     // load 完毕后才装 dirty watcher; 初始化阶段不触发 → 不再需要 setTimeout 重置 hack。
-    // 子图 dirty watch 本容器 slot (mySubgraphs), 不watch 全局 active —— 否则别的容器编辑器
-    // 切到前台时本实例会被误标 dirty。
+    // 子图 dirty: 只 watch 本实例当前正在编辑的那张图 (activeGraph), 不 watch 全局池 ——
+    // 否则别的容器编辑器改池里任意子图会误标本实例 dirty (复发#5 同类误触发)。
+    // 改动归属: path 非空时记 touch(本容器, 当前子图) — 保存流只写本容器动过的子图。
     watch(draft, () => { dirty.value = true }, { deep: true })
     watch(
-      () => mySubgraphs.value,
-      () => { dirty.value = true },
+      () => activeGraph.value,
+      () => {
+        const path = myPath.value
+        if (path.length === 0) return // 主图编辑 → draft watcher 已覆盖
+        dirty.value = true
+        editorStore.touchSubgraph(containerID, path[path.length - 1])
+      },
       { deep: true },
     )
   })
@@ -269,17 +251,29 @@ export function useContainerDraft(containerID: string) {
     if (!containerID) return
     const c = (await backend.containers.reload(containerID)) as unknown as Container
     editorStore.resetPath()
+    // 放弃本容器动过的子图: 用盘上版本覆盖内存版, 再清归属 — 别的编辑器的未落盘修改不受波及。
+    try {
+      const fresh = (await backend.subgraphs.list()) ?? []
+      const freshById = new Map(fresh.map((s) => [s.id, s]))
+      for (const id of editorStore.touchedFor(containerID)) {
+        const f = freshById.get(id)
+        if (f) editorStore.replaceSubgraph(f)
+      }
+      editorStore.clearTouched(containerID)
+      editorStore.mergePool(fresh)
+    } catch (e) {
+      console.warn('reload subgraph pool failed', e)
+    }
     await loadIntoEditor(c)
     await nextTick()
     dirty.value = false
   }
 
-  /** 重新从后端拉最新子图列表并同步 store */
+  /** 重新从后端拉全局子图池并合并 (保留内存未落盘编辑) */
   async function refreshSubgraphStore() {
-    if (!draft.value) return
     try {
-      const fresh = (await backend.containers.listSubgraphs(draft.value.id)) as any[]
-      editorStore.mergeSubgraphs(draft.value.id, toSubgraphSummaries(fresh))
+      const fresh = (await backend.subgraphs.list()) ?? []
+      editorStore.mergePool(fresh)
     } catch (e) {
       console.warn('refreshSubgraphStore failed', e)
     }

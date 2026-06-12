@@ -12,7 +12,7 @@ import * as ToolsService from '@bindings/yotta/internal/services/tools/service.j
 import * as AppInfoService from '@bindings/yotta/internal/services/appinfoservice.js'
 import * as RecordingService from '@bindings/yotta/internal/services/recording/service.js'
 import * as ClipService from '@bindings/yotta/internal/services/inputclip/service.js'
-import * as LibraryService from '@bindings/yotta/internal/services/container/library/service.js'
+import * as SubgraphService from '@bindings/yotta/internal/services/container/subgraphservice.js'
 import * as CodeSnippetService from '@bindings/yotta/internal/services/codesnippet/service.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
@@ -106,38 +106,30 @@ export interface RecordingContext {
   recordedAt: string
 }
 
-// Subgraph — 容器内的可执行函数
+// Subgraph — 全局子图池里的可执行函数 (2026-06-12 全局化: 容器只引用不复制)
 export interface Subgraph {
   id: string
+  rev: number // 单调版本号 — 保存/删除乐观锁基准 (仅单实例并发控制)
   label: string
   description?: string
   graph: Graph
   entry: SubgraphMarker // B2: 子图入口 virtual marker
   outputPins: SubgraphOutputDecl[]
   tags?: string[]
+  // 引用的容器级 var 名字 (保存时后端派生; Type/Default 由消费方按目标容器即时现算)
+  requiredGlobals?: string[]
   recordingContext?: RecordingContext
+  isAnonymous?: boolean // CollapsedNode 后备体 — 不进库浏览/候选列表
   createdAt: string
 }
 
-// SubgraphPackage library package: root + 嵌入 callee + 资产 GUID 闭包.
-export interface SubgraphPackage {
-  root: Subgraph
-  embedded: Record<string, Subgraph>
-  assets: string[]
-}
-
-// SubgraphRequiredGlobal B11: 子图需要的容器级 global var 声明.
-export interface SubgraphRequiredGlobal {
-  name: string
-  type?: string
-  default?: unknown
-}
-
-// ImportResult Import 操作结果. 资产按 GUID/sha 寻址天然幂等, 无 conflict/strategy.
-// missingGlobals 反映 import 的 sg union 需要但目标 container 未声明的 var, FE 据此弹 prompt.
-export interface ImportResult {
-  imported: { kind: string; key: string }[]
-  missingGlobals?: SubgraphRequiredGlobal[]
+// SubgraphReferrer 子图引用位置 — 删除前警告 + 库页"被 N 个容器使用"(按 containerID 去重).
+// 引用方在池子图内时 containerID 为空 (子图可被多容器使用, 无单一归属).
+export interface SubgraphReferrer {
+  containerID: string
+  subgraphID?: string
+  nodeID: string
+  nodeKind: string
 }
 
 export interface Container {
@@ -152,9 +144,7 @@ export interface Container {
   scaleTolerance?: number
   vars?: VarDecl[]
   graph: Graph
-  // subgraphs json:"-" 后端不持久化到 container.json 但 runtime 注入; 前端通过 listSubgraphs 单独拿
-  // 这里声明 optional 仅供 type 完整性
-  subgraphs?: Subgraph[]
+  // 子图已全局化 — 容器无 subgraphs 字段, 全池走 backend.subgraphs.list()
   status?: string
   incompatibleReason?: string
   createdAt: string
@@ -232,16 +222,6 @@ export const backend = {
     delete_: (id: string) => invoke(ContainerService.Delete, id),
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
-    listSubgraphs: (id: string) => invoke(ContainerService.ListSubgraphs, id),
-    getSubgraph: (cid: string, sgid: string) => invoke(ContainerService.GetSubgraph, cid, sgid),
-    createSubgraph: (cid: string, label: string) => invoke(ContainerService.CreateSubgraph, cid, label),
-    updateSubgraph: (cid: string, sgid: string, patchJSON: string) =>
-      invoke(ContainerService.UpdateSubgraph, cid, sgid, patchJSON),
-    // 裸版本: 同 updateSilent, 让 useEditorSave 子图循环只汇总成一条失败 toast。
-    updateSubgraphSilent: (cid: string, sgid: string, patchJSON: string) =>
-      ContainerService.UpdateSubgraph(cid, sgid, patchJSON),
-    deleteSubgraph: (cid: string, sgid: string) =>
-      invoke(ContainerService.DeleteSubgraph, cid, sgid),
     openEditorWindow: (id: string) => invoke(ContainerService.OpenEditorWindow, id),
     openInWindow: (id: string) => invoke(ContainerService.OpenInWindow, id),
     syncLocalMouseCalibration: (newCounts: number) =>
@@ -252,17 +232,22 @@ export const backend = {
     validate: (id: string) =>
       invoke(ContainerService.ValidateContainerByID, id) as Promise<ValidationError[]>,
   },
-  library: {
-    listSubgraphs: () => invoke(LibraryService.ListSubgraphs),
-    getSubgraphPackage: (sgID: string) => invoke(LibraryService.GetSubgraphPackage, sgID),
-    deleteSubgraphPackage: (sgID: string) => invoke(LibraryService.DeleteSubgraphPackage, sgID),
-    importToContainer: (libSgID: string, containerID: string) =>
-      invoke(LibraryService.ImportToContainer, libSgID, containerID),
-    exportSubgraph: (containerID: string, sgID: string, overwrite: boolean) =>
-      invoke(LibraryService.ExportSubgraph, containerID, sgID, overwrite),
-    // ExportContainer 把整容器顶层图 + 全部子图 + 资产闭包打成 library package (bundle ID = 容器 ID).
-    exportContainer: (containerID: string, overwrite: boolean) =>
-      invoke(LibraryService.ExportContainer, containerID, overwrite),
+  // 全局子图池 (2026-06-12 全局化): 无 containerID; 保存/删除带基准 rev 乐观锁.
+  subgraphs: {
+    list: () => invoke(SubgraphService.List) as Promise<Subgraph[] | undefined>,
+    get: (id: string) => invoke(SubgraphService.Get, id) as Promise<Subgraph | undefined>,
+    create: (label: string) => invoke(SubgraphService.Create, label) as Promise<Subgraph | undefined>,
+    update: (id: string, patchJSON: string, baseRev: number) =>
+      invoke(SubgraphService.Update, id, patchJSON, baseRev),
+    // 裸版本: 不走 invoke 自动 toast, useEditorSave 子图循环汇总失败 + 乐观锁拒绝走重载对话框。
+    updateSilent: (id: string, patchJSON: string, baseRev: number) =>
+      SubgraphService.Update(id, patchJSON, baseRev),
+    delete_: (id: string, baseRev: number) => invoke(SubgraphService.Delete, id, baseRev),
+    // 复制为新子图 (fork, ≈Blender Make Local): 新 ID / rev=1 / 一律具名.
+    duplicate: (id: string) => invoke(SubgraphService.Duplicate, id) as Promise<Subgraph | undefined>,
+    // 删除前警告 + 库页引用计数 ("被 N 个容器使用" = referrers 按 containerID 去重).
+    referrers: (id: string) =>
+      invoke(SubgraphService.Referrers, id) as Promise<SubgraphReferrer[] | undefined>,
   },
   // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
   codeSnippets: {

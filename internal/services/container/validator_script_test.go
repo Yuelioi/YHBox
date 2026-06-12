@@ -10,7 +10,7 @@ func TestValidateScriptNodes(t *testing.T) {
 			"Inputs":  []any{map[string]any{"Name": "x", "Type": "number"}, map[string]any{"Name": "x", "Type": "number"}},
 		}},
 	}}}
-	errs := validateScriptNodes(c)
+	errs := validateScriptNodes(c, nil)
 	want := map[string]bool{"SCRIPT_PARSE_ERROR": false, "SCRIPT_DUPLICATE_INPUT": false}
 	for _, e := range errs {
 		want[e.Code] = true

@@ -9,7 +9,14 @@ implements: specs/2026-06-12-data-layout-flatten-subgraph-globalize.md
 
 ## Progress
 
-current: 未开工(依赖 P1 完成)。
+current: 后端 1-8 全部落码, `go build ./...` 绿; Go 测试修复与前端消费面改造由两个子代理并行收尾中。前端核心数据层(backend.ts / containerEditor store 池化 / useContainerDraft / useEditorSave rev 乐观锁)已亲手完成, bindings 已再生成。
+
+**实现期修正(对 spec 的偏差, 均不损语义)**:
+- SubgraphStore/SubgraphService 落在 package container 内(`subgraph_store.go` 重写 + 新 `service_subgraph.go`), 没开新包 — 避免导出 normalize 内部件; "全局 store + RPC 无 containerID"语义不变。
+- 闭包缓存未实建(池规模无感), 写代数 `Generation()` 已留作未来缓存键 — spec 措辞是"允许复用缓存"非必须。
+- MCP / node-catalog 两个工具校验传 nil 池(引用子图会报 MISSING_SUBGRAPH, 码内注释已标已知限制, 真需要再接池)。
+- 前端 dirty 归属具体化为 `touchedByContainer`(本容器编辑会话动过的子图 ID 集) — 保存只写本容器动过的, 不跨容器代保; 池数据全局共享, 视图态仍按容器隔离(复发#5 红线)。
+- 录制落盘接口 `ContainerSubgraphSaver.SaveSubgraph(cid, sg)` → `SubgraphSaver.Create(sg)`。
 
 ## Tasks — 后端
 
@@ -47,7 +54,7 @@ current: 未开工(依赖 P1 完成)。
 ## Tasks — 迁移与验收
 
 16. **一次性迁移脚本** `tmp/migrate-flatten/main.go`(go run, 合并后删): 按 spec 迁移节 0-6 步实现(备份 rename → 读备份写新布局 → 全量重铸+去重(忽略集: 顶层 id+rev+schemaVersion+时间戳) → 引用改写(图节点+脚本静态字面, 动态构造阻断报告) → library 资产幂等并回 → 对账打印(计数 + 旧 ID 精确集合词边界扫描=0))。
-17. **跑迁移 + 真机验收**(用户): 跑脚本看对账 → 启动 app → 容器列表/编辑器/子图库正常 → fishing-v2 跑一轮 → 顺手验旧债"删被引用模板 → referrer 警告"。回滚预案: 删新 data/ 改回备份名。
+17. **跑迁移 + 真机验收**(用户): 跑脚本看对账 → 启动 app → 容器列表/编辑器/子图库正常 → fishing-v2 跑一轮 → 顺手验旧债"删被引用模板 → referrer 警告"。回滚预案: 删新 data/ 改回备份名。**迁移同一时刻翻转读真实 bin/data 的测试 fixture 路径**: `runtime/inspect_phase_test.go` templateNameForGUID 的 `assets/records` → `templates`(P1 期间提前翻会让整批 fish state 测试翻红 — 2026-06-12 实测回归后回退, 代码里已留 NOTE)。
 
 ## 设计要点
 

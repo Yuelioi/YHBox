@@ -12,7 +12,7 @@ import (
 // "无值" = config.literal map 无该 key (不看 ""/0 内容; present 即满足)。深层"非空/合法"
 // 归 runtime per-node Validate()。Required+Default 并存 (e.g. KeyPress.VK Default "W")
 // 走"有 Default 放过"分支。
-func validateRequiredPins(c *Container) []ValidationError {
+func validateRequiredPins(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -62,8 +62,8 @@ func validateRequiredPins(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph.Nodes, c.Graph.Edges, []string{"main"})
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		check(sg.Graph.Nodes, sg.Graph.Edges, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)})
 	}
 	return errs

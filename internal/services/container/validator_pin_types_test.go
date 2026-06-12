@@ -21,7 +21,7 @@ func TestValidate_PinTypeMismatch_StringToNumber(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodePinTypeMismatch {
@@ -64,7 +64,7 @@ func TestValidate_AnyAcceptsEverything(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodePinTypeMismatch || e.Code == CodePinTypeCoercionWarning {
 			t.Errorf("any-typed pin should accept string with no warning: %+v", e)
@@ -88,7 +88,7 @@ func TestValidate_ListVarToListPin(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodePinTypeMismatch || e.Code == CodePinTypeCoercionWarning {
 			t.Errorf("list var → List pin should connect cleanly: %+v", e)
@@ -116,7 +116,7 @@ func TestValidate_ListVarToNumberPin_Mismatch(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodePinTypeMismatch {
@@ -146,7 +146,7 @@ func TestValidate_ExecEdgeNotPinTypeChecked(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodePinTypeMismatch {
 			t.Errorf("exec edge should not trigger pin-type check: %+v", e)

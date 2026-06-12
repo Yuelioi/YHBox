@@ -83,7 +83,8 @@ func doValidate(path string) {
 		os.Exit(2)
 	}
 	c.Normalize()
-	errs := container.ValidateContainer(&c)
+	// 工具语境无全局子图池 — 引用子图的容器会报 MISSING_SUBGRAPH (已知限制, 真需要再接池).
+	errs := container.ValidateContainer(&c, nil)
 	if len(errs) == 0 {
 		fmt.Println("✅ All clean — 0 validation errors")
 		return

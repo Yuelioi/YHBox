@@ -6,7 +6,7 @@ package container
 //     WindowTarget 是普通可执行节点, 允许禁用.
 //  2. Loop/Switch/Race/Parallel disabled → warn (passthrough behavior is opinionated;
 //     user might want to delete instead)
-func validateDisabledNodes(c *Container) []ValidationError {
+func validateDisabledNodes(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -41,7 +41,7 @@ func validateDisabledNodes(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph, []string{"main"})
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		check(sg.Graph, []string{"subgraph", sg.ID})
 	}
 	return errs

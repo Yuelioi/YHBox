@@ -23,11 +23,10 @@ type HotkeySettingsProvider interface {
 	GetMouseMode() string     // 'relative' / 'absolute'
 }
 
-// ContainerSubgraphSaver 窄接口 — 录制完落 Subgraph 到 container.
-// 用接口注入避免循环 import (container 不直接进 recording 包依赖图).
-// container.Store 已实现这个签名.
-type ContainerSubgraphSaver interface {
-	SaveSubgraph(containerID string, sg *container.Subgraph) error
+// SubgraphSaver 窄接口 — 录制完落 Subgraph 到全局子图池 (2026-06-12 全局化).
+// 用接口注入避免循环 import. container.SubgraphStore 已实现这个签名 (Create).
+type SubgraphSaver interface {
+	Create(sg *container.Subgraph) error
 }
 
 // ContainerGetter 窄接口 — recording 拿 container 解析 WindowTarget hwnd 用.
@@ -50,7 +49,7 @@ type Service struct {
 	rec          *Recorder
 	hkProv       HotkeySettingsProvider
 	clipSvc      *inputclip.Service
-	containers   ContainerSubgraphSaver
+	subgraphs    SubgraphSaver
 	containerGet ContainerGetter
 	emit         func(name string, data any)
 
@@ -114,8 +113,8 @@ func (s *Service) setState(st RecordingState) {
 // SetEmit main.go 启动期注入. wails3 application.Event.Emit 包一层.
 func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
 
-// SetContainerSaver main.go 启动期注入. nil = Stop 时报错 (录制没出口).
-func (s *Service) SetContainerSaver(c ContainerSubgraphSaver) { s.containers = c }
+// SetSubgraphSaver main.go 启动期注入. nil = Stop 时报错 (录制没出口).
+func (s *Service) SetSubgraphSaver(c SubgraphSaver) { s.subgraphs = c }
 
 // SetContainerGetter main.go 启动期注入. nil = Start 时报错 (没法解 WindowTarget hwnd).
 func (s *Service) SetContainerGetter(c ContainerGetter) { s.containerGet = c }
@@ -311,8 +310,8 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	// 无论成败回 idle (前端镜像始终收敛).
 	defer s.setState(RecordingState{Phase: PhaseIdle})
 
-	if s.containers == nil {
-		return nil, errors.New("ContainerSubgraphSaver 未注入 (main.go 启动期 SetContainerSaver?)")
+	if s.subgraphs == nil {
+		return nil, errors.New("SubgraphSaver 未注入 (main.go 启动期 SetSubgraphSaver?)")
 	}
 
 	res, err := s.rec.Stop()
@@ -354,8 +353,8 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 		return nil, fmt.Errorf("unknown filterMode %q (前端 StartArgs.FilterMode 漏传?)", res.Meta.FilterMode)
 	}
 
-	if err := s.containers.SaveSubgraph(containerID, &sg); err != nil {
-		return nil, fmt.Errorf("save subgraph to container %q: %w", containerID, err)
+	if err := s.subgraphs.Create(&sg); err != nil {
+		return nil, fmt.Errorf("save subgraph (录制产物入全局池): %w", err)
 	}
 
 	return &StopResultPayload{

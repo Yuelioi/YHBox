@@ -11,7 +11,7 @@ func TestValidateVarRefs_DeclaredOK(t *testing.T) {
 			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "auto"}},
 		}},
 	}
-	errs := validateVarRefs(c)
+	errs := validateVarRefs(c, nil)
 	if len(errs) != 0 {
 		t.Fatalf("declared var should not error, got: %+v", errs)
 	}
@@ -24,7 +24,7 @@ func TestValidateVarRefs_UndeclaredAutoScope(t *testing.T) {
 			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "ghost", "Scope": "auto"}},
 		}},
 	}
-	errs := validateVarRefs(c)
+	errs := validateVarRefs(c, nil)
 	if len(errs) != 1 || errs[0].Code != CodeInvalidVarRef {
 		t.Fatalf("undeclared scope=auto should fire INVALID_VAR_REF, got: %+v", errs)
 	}
@@ -40,7 +40,7 @@ func TestValidateVarRefs_LocalScopeSkipped(t *testing.T) {
 			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "tmp", "Scope": "local"}},
 		}},
 	}
-	errs := validateVarRefs(c)
+	errs := validateVarRefs(c, nil)
 	if len(errs) != 0 {
 		t.Fatalf("scope=local should skip declared check, got: %+v", errs)
 	}
@@ -48,16 +48,16 @@ func TestValidateVarRefs_LocalScopeSkipped(t *testing.T) {
 
 func TestValidateVarRefs_SubgraphAlsoChecked(t *testing.T) {
 	c := &Container{
-		Vars: []VarDecl{{Name: "x", Type: "number"}},
+		Vars:  []VarDecl{{Name: "x", Type: "number"}},
 		Graph: Graph{Nodes: []GraphNode{}},
-		Subgraphs: []Subgraph{{
-			ID: "sg1",
-			Graph: Graph{Nodes: []GraphNode{
-				{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "ghost", "Scope": "global"}},
-			}},
-		}},
 	}
-	errs := validateVarRefs(c)
+	sgs := []Subgraph{{
+		ID: "sg1",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "sv", Kind: "SetVar", Config: map[string]any{"VarName": "ghost", "Scope": "global"}},
+		}},
+	}}
+	errs := validateVarRefs(c, sgs)
 	if len(errs) != 1 || errs[0].Code != CodeInvalidVarRef {
 		t.Fatalf("undeclared in subgraph should fire INVALID_VAR_REF, got: %+v", errs)
 	}
@@ -71,15 +71,15 @@ func TestValidateVarRefs_SubgraphRequiredGlobalWhitelisted(t *testing.T) {
 	c := &Container{
 		Vars:  nil, // container 故意没声明
 		Graph: Graph{Nodes: []GraphNode{}},
-		Subgraphs: []Subgraph{{
-			ID:              "sg1",
-			RequiredGlobals: []SubgraphRequiredGlobal{{Name: "state", Type: "string"}},
-			Graph: Graph{Nodes: []GraphNode{
-				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "state", "Scope": "auto"}},
-			}},
-		}},
 	}
-	errs := validateVarRefs(c)
+	sgs := []Subgraph{{
+		ID:              "sg1",
+		RequiredGlobals: []string{"state"},
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "state", "Scope": "auto"}},
+		}},
+	}}
+	errs := validateVarRefs(c, sgs)
 	if len(errs) != 0 {
 		t.Fatalf("subgraph RequiredGlobals 白名单应允许引用, got: %+v", errs)
 	}
@@ -90,15 +90,15 @@ func TestValidateVarRefs_SubgraphUnknownVarStillErrors(t *testing.T) {
 	c := &Container{
 		Vars:  nil,
 		Graph: Graph{Nodes: []GraphNode{}},
-		Subgraphs: []Subgraph{{
-			ID:              "sg1",
-			RequiredGlobals: []SubgraphRequiredGlobal{{Name: "state"}}, // 只声明 state
-			Graph: Graph{Nodes: []GraphNode{
-				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "unknown_var", "Scope": "auto"}},
-			}},
-		}},
 	}
-	errs := validateVarRefs(c)
+	sgs := []Subgraph{{
+		ID:              "sg1",
+		RequiredGlobals: []string{"state"}, // 只声明 state
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "unknown_var", "Scope": "auto"}},
+		}},
+	}}
+	errs := validateVarRefs(c, sgs)
 	if len(errs) != 1 || errs[0].Code != CodeInvalidVarRef {
 		t.Fatalf("未在 Vars 也未在 RequiredGlobals 应仍报错, got: %+v", errs)
 	}

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 )
@@ -31,6 +30,22 @@ type Store struct {
 	mu   sync.RWMutex
 	root string
 	byID map[string]Container
+	// resolveSubgraphs 容器 → 引用闭包子图集 (全局池来源, wire 层注入; 校验用).
+	// nil → 按空闭包校验 (纯测试/工具语境). 调用时持本 store 锁 → 全局锁序 Container → Subgraph.
+	resolveSubgraphs func(c *Container) []Subgraph
+}
+
+// SetSubgraphResolver 注入容器引用闭包解析 (main.go wire; 见 Store.resolveSubgraphs).
+func (s *Store) SetSubgraphResolver(f func(c *Container) []Subgraph) {
+	s.resolveSubgraphs = f
+}
+
+// subgraphsFor 解析容器引用闭包; resolver 未注入 → nil.
+func (s *Store) subgraphsFor(c *Container) []Subgraph {
+	if s.resolveSubgraphs == nil {
+		return nil
+	}
+	return s.resolveSubgraphs(c)
 }
 
 func NewStore(root string) (*Store, error) {
@@ -65,7 +80,7 @@ func (s *Store) load() error {
 	return nil
 }
 
-// loadOne 读单个容器目录 (<root>/<id>/container.json + subgraphs/*.json)。
+// loadOne 读单个容器目录 (<root>/<id>/container.json; 子图已全局化, 不在容器目录)。
 // 不加锁 —— caller (load 构造期 / Reload 持写锁) 负责并发安全。
 //   - 目录或 container.json 不存在 → 返 os.ErrNotExist (caller 区分: load skip / Reload 删 byID)。
 //   - 读失败 / JSON 解析失败 → 返 StatusIncompatible 占位 Container + nil error (不阻断, 与原 load 容错一致)。
@@ -105,29 +120,11 @@ func (s *Store) loadOne(id string) (Container, error) {
 			c.Graph.ID = "g-" + id
 		}
 	}
-	// 加载该容器的所有 subgraph
-	sgDir := filepath.Join(s.root, id, "subgraphs")
-	if sgEntries, err := os.ReadDir(sgDir); err == nil {
-		for _, sgEnt := range sgEntries {
-			if sgEnt.IsDir() || !strings.HasSuffix(sgEnt.Name(), ".json") {
-				continue
-			}
-			sgB, err := os.ReadFile(filepath.Join(sgDir, sgEnt.Name()))
-			if err != nil {
-				continue
-			}
-			var sg Subgraph
-			if err := json.Unmarshal(sgB, &sg); err != nil {
-				continue
-			}
-			normalizeSubgraph(&sg)
-			c.Subgraphs = append(c.Subgraphs, sg)
-		}
-	}
+	// 子图已全局化 (data/subgraphs/) — 容器目录不再有 subgraphs/, 这里不加载.
 	return c, nil
 }
 
-// Reload 从磁盘重读单个容器 (container.json + subgraphs/), 替换内存缓存。
+// Reload 从磁盘重读单个容器 (container.json), 替换内存缓存。
 // 配合 MCP / 外部进程改盘后, 编辑器「重载」按钮调用 (走 Service.Reload RPC)。
 // 容器目录已不存在 → 从 byID 删除并返 not-found error。
 func (s *Store) Reload(id string) (Container, error) {
@@ -156,7 +153,8 @@ func (s *Store) Save(c *Container) error {
 	// 本地副本：避免 mutation 通过指针泄漏到 caller，避免共享指针 race
 	local := *c
 	local.Normalize()
-	if err := local.Validate(); err != nil {
+	// 注: 此时未持本 store 锁, resolver 自由拿子图 store 读锁 (锁序无忧).
+	if err := local.Validate(s.subgraphsFor(&local)); err != nil {
 		return err
 	}
 	now := time.Now().UTC()
@@ -170,10 +168,6 @@ func (s *Store) Save(c *Container) error {
 
 	dir := filepath.Join(s.root, local.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	// 每个容器 1 个 subgraphs/ 子目录（即使空也存在; P2 子图全局化后此目录退役）
-	if err := os.MkdirAll(filepath.Join(dir, "subgraphs"), 0o755); err != nil {
 		return err
 	}
 	b, err := json.MarshalIndent(local, "", "  ")

@@ -10,7 +10,7 @@ package container
 // most one DATA_GRAPH_CYCLE per graph (first cycle found).
 //
 // v4 (C1): GraphEdge.Kind 已删 — "data 边" 派生自 "fromPin 在 src.kind 的 data-out 集合里".
-func validateDataGraphAcyclic(c *Container) []ValidationError {
+func validateDataGraphAcyclic(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -81,8 +81,8 @@ func validateDataGraphAcyclic(c *Container) []ValidationError {
 	if e := check(c.Graph, []string{"main"}); e != nil {
 		errs = append(errs, *e)
 	}
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		if e := check(sg.Graph, []string{"subgraph", sg.ID}); e != nil {
 			errs = append(errs, *e)
 		}

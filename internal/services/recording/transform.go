@@ -217,7 +217,7 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 	})
 
 	return container.Subgraph{
-		ID:    "sg-" + uuid.NewString()[:8],
+		ID:    container.NewSubgraphID(),
 		Label: label,
 		Graph: container.Graph{
 			ID:      uuid.NewString(),

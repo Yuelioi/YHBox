@@ -104,6 +104,8 @@ const (
 
 	// Container vars
 	CodeInvalidVarRef = "INVALID_VAR_REF"
+	// 引用的子图需要的容器级 var 未声明 (全局化后插入引用即检, 编辑器一键补全)
+	CodeSubgraphVarUndeclared = "SUBGRAPH_VAR_UNDECLARED"
 
 	// Disable Node
 	CodeDisabledBranchNodeWarn  = "WARN_DISABLED_BRANCH_NODE"
@@ -146,7 +148,9 @@ type ValidationError struct {
 //
 // Future hard-mode (short-circuit on fatal) can be opted-in via a flag without
 // touching this signature. Tests would need fuller fixtures first.
-func ValidateContainer(c *Container) []ValidationError {
+// ValidateContainer 全量校验。sgs = 该容器引用闭包解析出的子图集 (全局池来源,
+// 容器不再拥有子图 — 2026-06-12 全局化); nil = 容器不引用任何子图。
+func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -154,33 +158,34 @@ func ValidateContainer(c *Container) []ValidationError {
 
 	// 结构检查
 	errs = append(errs, validateMainGraph(c)...)
-	errs = append(errs, validateWindowTarget(c)...)
-	errs = append(errs, validateMouseCalibration(c)...)
-	for i := range c.Subgraphs {
-		errs = append(errs, validateSubgraph(c, &c.Subgraphs[i])...)
+	errs = append(errs, validateWindowTarget(c, sgs)...)
+	errs = append(errs, validateMouseCalibration(c, sgs)...)
+	for i := range sgs {
+		errs = append(errs, validateSubgraph(c, &sgs[i])...)
 	}
-	errs = append(errs, validateCyclicSubgraphs(c)...)
+	errs = append(errs, validateCyclicSubgraphs(sgs)...)
 
 	// 引用检查
-	errs = append(errs, validateInvalidPins(c)...)
-	errs = append(errs, validateMissingSubgraph(c)...)
-	errs = append(errs, validatePlayClip(c)...)
+	errs = append(errs, validateInvalidPins(c, sgs)...)
+	errs = append(errs, validateMissingSubgraph(c, sgs)...)
+	errs = append(errs, validatePlayClip(c, sgs)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
-	errs = append(errs, validateGetParamNodes(c)...)
-	errs = append(errs, validateCollapsedReferences(c)...)
-	errs = append(errs, validateVarRefs(c)...)
-	errs = append(errs, validateDisabledNodes(c)...)
-	errs = append(errs, validateSentinelScope(c)...)
+	errs = append(errs, validateGetParamNodes(c, sgs)...)
+	errs = append(errs, validateCollapsedReferences(c, sgs)...)
+	errs = append(errs, validateVarRefs(c, sgs)...)
+	errs = append(errs, validateRequiredGlobalsDeclared(c, sgs)...)
+	errs = append(errs, validateDisabledNodes(c, sgs)...)
+	errs = append(errs, validateSentinelScope(c, sgs)...)
 
 	// 类型 / 语义检查
-	errs = append(errs, validatePerKindConfig(c)...)
-	errs = append(errs, validateDataPinTypes(c)...)
-	errs = append(errs, validateLiteralTypes(c)...)
-	errs = append(errs, validateExprNodes(c)...)
-	errs = append(errs, validateScriptNodes(c)...)
-	errs = append(errs, validateDataGraphAcyclic(c)...)
-	errs = append(errs, validateRequiredPins(c)...)
-	errs = append(errs, validateUnknownLiteralPins(c)...)
+	errs = append(errs, validatePerKindConfig(c, sgs)...)
+	errs = append(errs, validateDataPinTypes(c, sgs)...)
+	errs = append(errs, validateLiteralTypes(c, sgs)...)
+	errs = append(errs, validateExprNodes(c, sgs)...)
+	errs = append(errs, validateScriptNodes(c, sgs)...)
+	errs = append(errs, validateDataGraphAcyclic(c, sgs)...)
+	errs = append(errs, validateRequiredPins(c, sgs)...)
+	errs = append(errs, validateUnknownLiteralPins(c, sgs)...)
 
 	return errs
 }
@@ -234,7 +239,7 @@ func validateMainGraph(c *Container) []ValidationError {
 	return errs
 }
 
-func validateMouseCalibration(c *Container) []ValidationError {
+func validateMouseCalibration(c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
 	calCount := 0
 	var calNode *GraphNode
@@ -252,7 +257,7 @@ func validateMouseCalibration(c *Container) []ValidationError {
 		})
 	}
 
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		for _, n := range sg.Graph.Nodes {
 			if n.Kind == "MouseCalibration" {
 				errs = append(errs, ValidationError{
@@ -264,7 +269,7 @@ func validateMouseCalibration(c *Container) []ValidationError {
 		}
 	}
 
-	hasMouseRel := containsMouseMoveRel(c)
+	hasMouseRel := containsMouseMoveRel(c, sgs)
 	if hasMouseRel && calCount == 0 {
 		errs = append(errs, ValidationError{
 			Severity: SeverityError, Code: CodeMissingMouseCalibration,
@@ -290,12 +295,12 @@ func validateMouseCalibration(c *Container) []ValidationError {
 // validateInvalidPins 扫所有 edges，确认 from/to 引用的 pin 名在 kind 的 pin 集合里。
 // Subgraph 调用节点的 exec-out pin 是动态的 = 绑定子图 OutputPins 的 decl ID, 不能走静态
 // pinExists. 这里查 subgraphById[node.config.subgraphId].OutputPins.
-func validateInvalidPins(c *Container) []ValidationError {
+func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
 
-	// 容器全部子图 id → outputPin decl id 集合 (Subgraph 调用节点 out pin 动态 check 用)
+	// 解析闭包内子图 id → outputPin decl id 集合 (Subgraph 调用节点 out pin 动态 check 用)
 	subgraphOutputIDsByID := map[string]map[string]struct{}{}
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		set := map[string]struct{}{}
 		for _, p := range sg.OutputPins {
 			set[p.ID] = struct{}{}
@@ -358,18 +363,19 @@ func validateInvalidPins(c *Container) []ValidationError {
 	}
 
 	checkEdges(c.Graph.Nodes, c.Graph.Edges, []string{"main"})
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 		checkEdges(sg.Graph.Nodes, sg.Graph.Edges, sgPath)
 	}
 	return errs
 }
 
-// validateMissingSubgraph 扫 Subgraph 调用节点，确认 config.subgraphId 在 c.Subgraphs 列表里。
-func validateMissingSubgraph(c *Container) []ValidationError {
+// validateMissingSubgraph 扫 Subgraph 调用节点，确认 config.subgraphId 能在解析闭包里找到
+// (闭包从全局池解析而来 — 不在 sgs 里 = 池里不存在或引用悬空)。
+func validateMissingSubgraph(c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
 	known := map[string]bool{}
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		known[sg.ID] = true
 	}
 	check := func(nodes []GraphNode, graphPath []string) {
@@ -395,7 +401,7 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph.Nodes, []string{"main"})
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 		check(sg.Graph.Nodes, sgPath)
 	}
@@ -405,7 +411,7 @@ func validateMissingSubgraph(c *Container) []ValidationError {
 // validatePlayClip 校验 PlayClip 节点必须设 ClipID (空 = 没绑录制片段, 运行时报错).
 // 不校验 ClipID 在 clip store 是否真实存在 (clip 可能在另台机器 / 还没同步过来),
 // 仅静态校验 config.ClipID != "".
-func validatePlayClip(c *Container) []ValidationError {
+func validatePlayClip(c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
 	check := func(nodes []GraphNode, graphPath []string) {
 		for _, n := range nodes {
@@ -422,20 +428,20 @@ func validatePlayClip(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph.Nodes, []string{"main"})
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 		check(sg.Graph.Nodes, sgPath)
 	}
 	return errs
 }
 
-func containsMouseMoveRel(c *Container) bool {
+func containsMouseMoveRel(c *Container, sgs []Subgraph) bool {
 	for _, n := range c.Graph.Nodes {
 		if n.Kind == "MouseMoveRel" {
 			return true
 		}
 	}
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		for _, n := range sg.Graph.Nodes {
 			if n.Kind == "MouseMoveRel" {
 				return true
@@ -472,9 +478,11 @@ func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
 	return errs
 }
 
-func validateCyclicSubgraphs(c *Container) []ValidationError {
+// validateCyclicSubgraphs 子图互调静态防环 (闭包内 DFS 三色)。运行时另有 32 层深度兜底
+// (脚本动态调用拦不住静态环检, 见 runtime/subgraph_call.go)。
+func validateCyclicSubgraphs(sgs []Subgraph) []ValidationError {
 	adj := map[string][]string{}
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		var calls []string
 		for _, n := range sg.Graph.Nodes {
 			if n.Kind == "Subgraph" {
@@ -541,7 +549,7 @@ func edgeNodeID(ref string) string {
 // validateWindowTarget: 收集主图 + 子图所有 WindowTarget, 逐个校验 MatchSpec.
 // 若容器需要窗口 (containerNeedsWindow) 但一个都没有, 报 MISSING_WINDOW_TARGET.
 // 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
-func validateWindowTarget(c *Container) []ValidationError {
+func validateWindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	if len(c.Graph.Nodes) == 0 {
 		return nil
 	}
@@ -558,8 +566,8 @@ func validateWindowTarget(c *Container) []ValidationError {
 			all = append(all, wt{node: &c.Graph.Nodes[i], graphPath: []string{"main"}})
 		}
 	}
-	for si := range c.Subgraphs {
-		sg := &c.Subgraphs[si]
+	for si := range sgs {
+		sg := &sgs[si]
 		for ni := range sg.Graph.Nodes {
 			if sg.Graph.Nodes[ni].Kind == "WindowTarget" {
 				all = append(all, wt{node: &sg.Graph.Nodes[ni], graphPath: []string{"subgraph:" + sg.ID}})
@@ -568,7 +576,7 @@ func validateWindowTarget(c *Container) []ValidationError {
 	}
 
 	if len(all) == 0 {
-		if containerNeedsWindow(c) {
+		if containerNeedsWindow(c, sgs) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
 				Code:      CodeMissingWindowTarget,
@@ -641,14 +649,14 @@ func windowTargetIsEmptyMatch(spec windowTargetMatchSpec) bool {
 // validatePerKindConfig runs per-kind config checks over every graph
 // (main + all subgraphs) and emits ValidationErrors.
 // It also performs the cross-node Stopwatch key coherence check per graph.
-func validatePerKindConfig(c *Container) []ValidationError {
+func validatePerKindConfig(c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
 
 	// main graph — graphPath ["main"], isMain=true
 	errs = append(errs, checkGraphPerKind(c.Graph.Nodes, []string{"main"}, true)...)
 
 	// subgraphs — isMain=false
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 		errs = append(errs, checkGraphPerKind(sg.Graph.Nodes, sgPath, false)...)
 	}

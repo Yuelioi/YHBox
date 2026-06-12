@@ -85,7 +85,7 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 	if err := json.Unmarshal([]byte(legacyJSON), &c); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	errs := ValidateContainer(&c)
+	errs := ValidateContainer(&c, nil)
 	for _, e := range errs {
 		if e.Code == CodeInvalidPin {
 			t.Errorf("regression: legacy data edge with kind:\"data\" still triggered INVALID_PIN: %+v", e)

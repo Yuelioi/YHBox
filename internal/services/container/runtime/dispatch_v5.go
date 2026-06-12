@@ -449,14 +449,14 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
 	}
 	var sg *container.Subgraph
-	for i := range r.rt.Container.Subgraphs {
-		if r.rt.Container.Subgraphs[i].ID == sgID {
-			sg = &r.rt.Container.Subgraphs[i]
+	for i := range r.rt.Subgraphs {
+		if r.rt.Subgraphs[i].ID == sgID {
+			sg = &r.rt.Subgraphs[i]
 			break
 		}
 	}
 	if sg == nil {
-		return nil, fmt.Errorf("Subgraph %s: subgraph %q not found in container %q", node.ID, sgID, r.rt.Container.ID)
+		return nil, fmt.Errorf("Subgraph %s: subgraph %q not found (容器 %q 的解析闭包里没有)", node.ID, sgID, r.rt.Container.ID)
 	}
 	parentLoopStack := tok.LoopStack
 	// Params 来源 (3 路 union, 优先级 1→3):

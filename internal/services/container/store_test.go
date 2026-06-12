@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestContainerStore_SaveLoadList(t *testing.T) {
@@ -71,33 +70,6 @@ func TestContainerStore_Save_InvalidRejected(t *testing.T) {
 	}
 	if err := s.Save(c); err == nil {
 		t.Error("expected validate error")
-	}
-}
-
-func TestStore_CreatesSubdirsOnSave(t *testing.T) {
-	root := t.TempDir()
-	st, err := NewStore(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := &Container{
-		SchemaVersion: CurrentSchemaVersion,
-		ID:            "ctest",
-		Name:          "test",
-		Graph: Graph{
-			ID:      "g",
-			Version: GraphSchemaVersion,
-			Nodes: []GraphNode{
-				{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()},
-				{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}, CreatedAt: time.Now().UTC()},
-			},
-		},
-	}
-	if err := st.Save(c); err != nil {
-		t.Fatalf("save: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "ctest", "subgraphs")); os.IsNotExist(err) {
-		t.Errorf("expected subgraphs/ dir created next to container.json")
 	}
 }
 
@@ -167,47 +139,5 @@ func TestContainerStore_Reload_DeletedDir(t *testing.T) {
 	}
 	if _, ok := s.Get("d1"); ok {
 		t.Error("Reload 应把已删容器从 byID 移除")
-	}
-}
-
-func TestStore_LoadsSubgraphs(t *testing.T) {
-	root := t.TempDir()
-	cid := "with-subs"
-	sgDir := filepath.Join(root, cid, "subgraphs")
-	if err := os.MkdirAll(sgDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cmain := Container{
-		SchemaVersion: CurrentSchemaVersion,
-		ID:            cid,
-		Name:          "withsubs",
-		Graph:         Graph{ID: "gm", Version: GraphSchemaVersion},
-	}
-	b, _ := json.Marshal(cmain)
-	os.WriteFile(filepath.Join(root, cid, "container.json"), b, 0o644)
-
-	sg := Subgraph{
-		ID:    "sg-1",
-		Label: "Sub1",
-		Graph: Graph{ID: "g-sg1", Version: GraphSchemaVersion},
-		OutputPins: []SubgraphOutputDecl{{ID: "d1", Name: "done"}},
-		CreatedAt: time.Now().UTC(),
-	}
-	sgB, _ := json.Marshal(sg)
-	os.WriteFile(filepath.Join(sgDir, "sg-1.json"), sgB, 0o644)
-
-	st, err := NewStore(root)
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	c, ok := st.Get(cid)
-	if !ok {
-		t.Fatal("container not loaded")
-	}
-	if len(c.Subgraphs) != 1 {
-		t.Fatalf("expected 1 subgraph, got %d", len(c.Subgraphs))
-	}
-	if c.Subgraphs[0].ID != "sg-1" {
-		t.Errorf("subgraph id wrong: %q", c.Subgraphs[0].ID)
 	}
 }

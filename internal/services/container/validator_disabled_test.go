@@ -8,7 +8,7 @@ func TestValidateDisabledNodes_TerminalError(t *testing.T) {
 			{ID: "s", Kind: "Start", Disabled: true},
 		}},
 	}
-	errs := validateDisabledNodes(c)
+	errs := validateDisabledNodes(c, nil)
 	if len(errs) != 1 || errs[0].Code != CodeInvalidDisabledTerminal || errs[0].Severity != SeverityError {
 		t.Fatalf("disabled Start should error, got: %+v", errs)
 	}
@@ -21,7 +21,7 @@ func TestValidateDisabledNodes_EventTickTerminalError(t *testing.T) {
 			{ID: "ev", Kind: "EventTick", Disabled: true},
 		}},
 	}
-	errs := validateDisabledNodes(c)
+	errs := validateDisabledNodes(c, nil)
 	if len(errs) != 1 || errs[0].Code != CodeInvalidDisabledTerminal || errs[0].Severity != SeverityError {
 		t.Fatalf("disabled EventTick should error, got: %+v", errs)
 	}
@@ -33,7 +33,7 @@ func TestValidateDisabledNodes_BranchWarn(t *testing.T) {
 			{ID: "loop", Kind: "Loop", Disabled: true},
 		}},
 	}
-	errs := validateDisabledNodes(c)
+	errs := validateDisabledNodes(c, nil)
 	if len(errs) != 1 || errs[0].Code != CodeDisabledBranchNodeWarn || errs[0].Severity != SeverityWarning {
 		t.Fatalf("disabled Loop should warn, got: %+v", errs)
 	}
@@ -45,7 +45,7 @@ func TestValidateDisabledNodes_LinearOK(t *testing.T) {
 			{ID: "sleep", Kind: "Sleep", Disabled: true},
 		}},
 	}
-	errs := validateDisabledNodes(c)
+	errs := validateDisabledNodes(c, nil)
 	if len(errs) != 0 {
 		t.Fatalf("disabled Sleep should not warn/error, got: %+v", errs)
 	}
@@ -57,7 +57,7 @@ func TestValidateDisabledNodes_NotDisabled(t *testing.T) {
 			{ID: "loop", Kind: "Loop"}, // not disabled
 		}},
 	}
-	errs := validateDisabledNodes(c)
+	errs := validateDisabledNodes(c, nil)
 	if len(errs) != 0 {
 		t.Fatalf("non-disabled Loop should not warn/error, got: %+v", errs)
 	}

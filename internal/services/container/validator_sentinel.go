@@ -14,7 +14,7 @@ package container
 //     运行时 OK (sentinel 透传到 main Loop), 但此检查 emit BREAK_OUTSIDE_LOOP.
 //     当前 fishing-v2 无此用法, 真要支持往 follow-up: 加 call-graph 分析标"调用栈含
 //     Loop body 的 subgraph 集合".
-func validateSentinelScope(c *Container) []ValidationError {
+func validateSentinelScope(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -51,8 +51,8 @@ func validateSentinelScope(c *Container) []ValidationError {
 	}
 
 	errs = append(errs, checkGraph(c.Graph, []string{"main"})...)
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		errs = append(errs, checkGraph(sg.Graph, []string{"subgraph", sg.ID})...)
 	}
 	return errs

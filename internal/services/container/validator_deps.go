@@ -6,10 +6,11 @@ package container
 // hasTemplate / hasClip 任一为 nil 时跳过对应 kind 检查.
 func ValidateContainerWithDeps(
 	c *Container,
+	sgs []Subgraph,
 	hasTemplate func(key string) bool,
 	hasClip func(id string) bool,
 ) []ValidationError {
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, sgs)
 	if hasTemplate == nil && hasClip == nil {
 		return errs
 	}
@@ -57,7 +58,7 @@ func ValidateContainerWithDeps(
 		}
 	}
 	checkNodes(c.Graph.Nodes, []string{"main"})
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		checkNodes(sg.Graph.Nodes, []string{"subgraph", sg.ID})
 	}
 	return errs

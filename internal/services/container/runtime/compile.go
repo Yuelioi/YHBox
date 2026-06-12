@@ -61,12 +61,13 @@ func CompileSubgraph(sg *container.Subgraph) *CompiledGraph {
 	return cg
 }
 
-// CompileContainer 完整 compile — main + 全部 subgraphs + MainCalibCounts.
-// Subgraphs map key 是 sg.ID, value CompiledGraph 内含的 *GraphNode 绑 c.Subgraphs[i].Graph.Nodes 元素地址.
-func CompileContainer(c *container.Container) *CompiledContainer {
-	sgs := make(map[string]*CompiledGraph, len(c.Subgraphs))
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+// CompileContainer 完整 compile — main + 解析闭包内全部 subgraphs + MainCalibCounts.
+// Subgraphs map key 是 sg.ID, value CompiledGraph 内含的 *GraphNode 绑 subgraphs[i].Graph.Nodes
+// 元素地址 — caller (NewContainerRunner) 持有的 rt.Subgraphs 切片在 run 生命周期内稳定.
+func CompileContainer(c *container.Container, subgraphs []container.Subgraph) *CompiledContainer {
+	sgs := make(map[string]*CompiledGraph, len(subgraphs))
+	for i := range subgraphs {
+		sg := &subgraphs[i]
 		sgs[sg.ID] = CompileSubgraph(sg)
 	}
 	return &CompiledContainer{

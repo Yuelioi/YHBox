@@ -41,7 +41,7 @@ func TestValidator_InvalidPin_MainGraph(t *testing.T) {
 		{From: "start.Done", To: "sleep1.In"},
 		{From: "sleep1.weird-out", To: "start.In"},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeInvalidPin) {
 		t.Errorf("expected INVALID_PIN, got %+v", errs)
 	}
@@ -63,7 +63,7 @@ func TestValidator_ExecOutputDataField_WiredAsData(t *testing.T) {
 		{From: "rp.Fail", To: "sw.In"},     // exec 边: 失败分支
 		{From: "rp.Code", To: "sw.Value"},  // data 边: Code (Fail 出口的数据字段) → Switch 分流值
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if hasCode(errs, CodeInvalidPin) {
 		t.Errorf("RunProgram.Code → Switch.Value 应是合法 data 边, 不该报 INVALID_PIN: %+v", errs)
 	}
@@ -78,7 +78,7 @@ func TestValidator_MissingSubgraph_UnknownID(t *testing.T) {
 		GraphNode{ID: "call1", Kind: "Subgraph",
 			Config: map[string]any{"SubgraphID": "sg-does-not-exist"}, CreatedAt: time.Now().UTC()},
 	)
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeMissingSubgraph) {
 		t.Errorf("expected MISSING_SUBGRAPH, got %+v", errs)
 	}
@@ -89,7 +89,7 @@ func TestValidator_MissingSubgraph_EmptyID(t *testing.T) {
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "call1", Kind: "Subgraph", Config: map[string]any{}, CreatedAt: time.Now().UTC()},
 	)
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeMissingSubgraph) {
 		t.Errorf("expected MISSING_SUBGRAPH (empty subgraphId), got %+v", errs)
 	}
@@ -100,7 +100,7 @@ func TestValidator_NoStart(t *testing.T) {
 	c.Graph.Nodes = []GraphNode{
 		{ID: "n1", Kind: "Sleep", CreatedAt: time.Now().UTC()},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeNoStart) {
 		t.Errorf("expected NO_START, got %+v", errs)
 	}
@@ -109,7 +109,7 @@ func TestValidator_NoStart(t *testing.T) {
 func TestValidator_MultipleStarts(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes, GraphNode{ID: "start2", Kind: "Start", CreatedAt: time.Now().UTC()})
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeMultipleStarts) {
 		t.Errorf("expected MULTIPLE_STARTS, got %+v", errs)
 	}
@@ -120,7 +120,7 @@ func TestValidator_DanglingEdge(t *testing.T) {
 	c.Graph.Edges = []GraphEdge{
 		{From: "start.Done", To: "ghost.In"},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeDanglingEdge) {
 		t.Errorf("expected DANGLING_EDGE, got %+v", errs)
 	}
@@ -132,7 +132,7 @@ func TestValidator_MissingMouseCalibration(t *testing.T) {
 		GraphNode{ID: "m", Kind: "MouseMoveRel", Config: map[string]any{"dx": "100", "dy": "0", "durationMs": "100"}, CreatedAt: time.Now().UTC()},
 	)
 	c.Graph.Edges = []GraphEdge{{From: "start.Done", To: "m.In"}}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeMissingMouseCalibration) {
 		t.Errorf("expected MISSING_MOUSE_CALIBRATION, got %+v", errs)
 	}
@@ -144,7 +144,7 @@ func TestValidator_DuplicateMouseCalibration(t *testing.T) {
 		GraphNode{ID: "cal1", Kind: "MouseCalibration", Config: map[string]any{"counts360": 4000}, CreatedAt: time.Now().UTC()},
 		GraphNode{ID: "cal2", Kind: "MouseCalibration", Config: map[string]any{"counts360": 4000}, CreatedAt: time.Now().UTC()},
 	)
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeDuplicateMouseCalibration) {
 		t.Errorf("expected DUPLICATE_MOUSE_CALIBRATION, got %+v", errs)
 	}
@@ -155,7 +155,7 @@ func TestValidator_MouseCalibrationNotSet(t *testing.T) {
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{ID: "cal", Kind: "MouseCalibration", Config: map[string]any{"counts360": 0}, CreatedAt: time.Now().UTC()},
 	)
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeMouseCalibrationNotSet) {
 		t.Errorf("expected MOUSE_CALIBRATION_NOT_SET warning, got %+v", errs)
 	}
@@ -169,7 +169,7 @@ func TestValidator_MouseCalibrationNotSet(t *testing.T) {
 func TestValidator_GraphPathPopulated(t *testing.T) {
 	c := minContainer()
 	c.Graph.Edges = []GraphEdge{{From: "ghost.Done", To: "start.In"}}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeDanglingEdge {
 			if len(e.GraphPath) == 0 {
@@ -186,7 +186,7 @@ func TestValidator_GraphPathPopulated(t *testing.T) {
 
 func TestValidator_CyclicSelfRecursive(t *testing.T) {
 	c := minContainer()
-	c.Subgraphs = []Subgraph{
+	sgs := []Subgraph{
 		{
 			ID:    "sg-A",
 			Label: "A",
@@ -201,7 +201,7 @@ func TestValidator_CyclicSelfRecursive(t *testing.T) {
 			OutputPins: []SubgraphOutputDecl{{ID: "d1", Name: "done"}},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, sgs)
 	if !hasCode(errs, CodeCyclicSubgraphDependency) {
 		t.Errorf("expected CYCLIC_SUBGRAPH_DEPENDENCY for self-recursive, got %+v", errs)
 	}
@@ -209,7 +209,7 @@ func TestValidator_CyclicSelfRecursive(t *testing.T) {
 
 func TestValidator_CyclicIndirect(t *testing.T) {
 	c := minContainer()
-	c.Subgraphs = []Subgraph{
+	sgs := []Subgraph{
 		{
 			ID:    "sg-A",
 			Label: "A",
@@ -231,7 +231,7 @@ func TestValidator_CyclicIndirect(t *testing.T) {
 			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, sgs)
 	if !hasCode(errs, CodeCyclicSubgraphDependency) {
 		t.Errorf("expected CYCLIC_SUBGRAPH_DEPENDENCY for indirect cycle, got %+v", errs)
 	}
@@ -248,7 +248,7 @@ func TestValidatePlayClip_MissingClipID(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := 0
 	for _, e := range errs {
 		if e.Code == CodePlayClipNoClipID {
@@ -262,7 +262,7 @@ func TestValidatePlayClip_MissingClipID(t *testing.T) {
 
 func TestValidator_HappyPath(t *testing.T) {
 	c := minContainer()
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	if hasCode(errs, CodeNoStart) || hasCode(errs, CodeMultipleStarts) || hasCode(errs, CodeDanglingEdge) {
 		t.Errorf("min container should be clean, got %+v", errs)
 	}
@@ -274,7 +274,7 @@ func TestValidateWindowTarget_Missing(t *testing.T) {
 		{ID: "s", Kind: "Start"},
 		{ID: "c", Kind: "ClickAt"},
 	}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if !hasCode(errs, CodeMissingWindowTarget) {
 		t.Errorf("want MISSING_WINDOW_TARGET, got %+v", errs)
 	}
@@ -287,7 +287,7 @@ func TestValidateWindowTarget_WindowlessSkipped(t *testing.T) {
 		{ID: "lg", Kind: "Log"},
 		{ID: "sl", Kind: "Sleep"},
 	}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if hasCode(errs, CodeMissingWindowTarget) {
 		t.Errorf("窗口无关容器不该报 MISSING_WINDOW_TARGET, got %+v", errs)
 	}
@@ -300,13 +300,13 @@ func TestValidateWindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
 			{ID: "s", Kind: "Start"},
 			{ID: "sg", Kind: "Subgraph"},
 		}},
-		Subgraphs: []Subgraph{
-			{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
-				{ID: "c", Kind: "ClickAt"},
-			}}},
-		},
 	}
-	errs := validateWindowTarget(c)
+	sgs := []Subgraph{
+		{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
+			{ID: "c", Kind: "ClickAt"},
+		}}},
+	}
+	errs := validateWindowTarget(c, sgs)
 	if !hasCode(errs, CodeMissingWindowTarget) {
 		t.Errorf("子图含窗口节点应要求 WindowTarget, got %+v", errs)
 	}
@@ -314,7 +314,7 @@ func TestValidateWindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
 
 func TestValidateWindowTarget_EmptyGraphSkipped(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if len(errs) != 0 {
 		t.Errorf("empty graph should skip WindowTarget check, got %+v", errs)
 	}
@@ -330,7 +330,7 @@ func TestValidate_MultipleWindowTargetsAllowed(t *testing.T) {
 			"Title": "原神",
 		}},
 	}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if hasCode(errs, "DUPLICATE_WINDOW_TARGET") {
 		t.Errorf("多个 WindowTarget 不应再报 DUPLICATE_WINDOW_TARGET, got %+v", errs)
 	}
@@ -347,15 +347,15 @@ func TestValidate_SubgraphWindowTargetAllowed(t *testing.T) {
 				"Title": "异环",
 			}},
 		}},
-		Subgraphs: []Subgraph{
-			{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
-				{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
-					"Title": "原神",
-				}},
-			}}},
-		},
 	}
-	errs := validateWindowTarget(c)
+	sgs := []Subgraph{
+		{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
+			{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
+				"Title": "原神",
+			}},
+		}}},
+	}
+	errs := validateWindowTarget(c, sgs)
 	if hasCode(errs, "WINDOW_TARGET_IN_SUBGRAPH") {
 		t.Errorf("子图 WindowTarget 不应再报 WINDOW_TARGET_IN_SUBGRAPH, got %+v", errs)
 	}
@@ -372,7 +372,7 @@ func TestValidate_EachWindowTargetMatchValidated(t *testing.T) {
 		}},
 		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{}},
 	}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
 		t.Errorf("第二个空匹配 WindowTarget 应报 INVALID_WINDOW_TARGET_EMPTY_MATCH, got %+v", errs)
 	}
@@ -397,7 +397,7 @@ func TestValidateWindowTarget_InvalidRegex(t *testing.T) {
 			"Title": "[invalid", "TitleMatch": "regex",
 		}},
 	}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if !hasCode(errs, CodeInvalidWindowTargetRegex) {
 		t.Errorf("want INVALID_REGEX, got %+v", errs)
 	}
@@ -417,7 +417,7 @@ func TestValidateWindowTarget_EmptyMatch(t *testing.T) {
 			c := &Container{Graph: Graph{Nodes: []GraphNode{
 				{ID: "w1", Kind: "WindowTarget", Config: tc.config},
 			}}}
-			errs := validateWindowTarget(c)
+			errs := validateWindowTarget(c, nil)
 			if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
 				t.Errorf("%s: want EMPTY_MATCH, got %+v", tc.name, errs)
 			}
@@ -431,7 +431,7 @@ func TestValidateWindowTarget_Valid(t *testing.T) {
 			"Title": "异环", "Class": "Unreal",
 		}},
 	}}}
-	errs := validateWindowTarget(c)
+	errs := validateWindowTarget(c, nil)
 	if len(errs) != 0 {
 		t.Errorf("valid WindowTarget should have no errors, got %+v", errs)
 	}
@@ -460,7 +460,7 @@ func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 		},
 		Vars: []VarDecl{{Name: "x", Type: "any"}},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeInvalidPin {
 			t.Errorf("regression: data edge without Kind field raised INVALID_PIN: %+v", e)

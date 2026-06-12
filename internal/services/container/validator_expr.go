@@ -15,7 +15,7 @@ import (
 //
 // EXPR_TYPE_MISMATCH (explicit outType vs static inference) is deferred — implementing
 // proper type inference is non-trivial and depends on pure-func type schemas.
-func validateExprNodes(c *Container) []ValidationError {
+func validateExprNodes(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -124,8 +124,8 @@ func validateExprNodes(c *Container) []ValidationError {
 
 	var all []ValidationError
 	all = append(all, walk(c.Graph, []string{"main"})...)
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		all = append(all, walk(sg.Graph, []string{"subgraph", sg.ID})...)
 	}
 	return all

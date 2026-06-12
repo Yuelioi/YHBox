@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	jsonpatch "github.com/evanphx/json-patch/v5"
 
 	"yotta/pkg/winutil"
 )
@@ -40,6 +39,9 @@ type Service struct {
 	// main.go 注入 (查 asset.Store). nil → 校验时跳过该 kind 存在性检查.
 	hasTemplate func(guid string) bool
 	hasClip     func(guid string) bool
+
+	// postDelete 容器删除完成后回调 (main.go 注入: 匿名子图 GC — 锁序 Container → Subgraph).
+	postDelete func()
 }
 
 func NewService(store *Store) *Service {
@@ -65,6 +67,9 @@ func (s *Service) SetOnChange(f ChangeListener) { s.onChange = f }
 func (s *Service) SetWindowOpener(w WindowOpener) {
 	s.windows = w
 }
+
+// SetPostDelete 注入容器删除后的回调 (main.go: 匿名子图 GC).
+func (s *Service) SetPostDelete(f func()) { s.postDelete = f }
 
 // OpenEditorWindow 给前端 RPC 用：打开 containerID 对应的容器编辑器独立窗口。
 // 同 containerID 多次调用走 focus 现有窗口，不会开第二个。
@@ -192,6 +197,9 @@ func (s *Service) Delete(id string) error {
 	if err := s.store.Delete(id); err != nil {
 		return err
 	}
+	if s.postDelete != nil {
+		s.postDelete()
+	}
 	s.emitChange()
 	return nil
 }
@@ -207,10 +215,11 @@ func (s *Service) ValidateContainerByID(id string) []ValidationError {
 			{Severity: SeverityError, Code: "CONTAINER_NOT_FOUND", Params: map[string]any{"id": id}},
 		}
 	}
+	sgs := s.store.subgraphsFor(&c)
 	if s.hasTemplate != nil || s.hasClip != nil {
-		return ValidateContainerWithDeps(&c, s.hasTemplate, s.hasClip)
+		return ValidateContainerWithDeps(&c, sgs, s.hasTemplate, s.hasClip)
 	}
-	return ValidateContainer(&c)
+	return ValidateContainer(&c, sgs)
 }
 
 // Run 立即跑一次（前端 ▶ 按钮）。manual source 入 ExecutionQueue 单 target run。
@@ -232,85 +241,7 @@ func (s *Service) StopAll() error {
 	return s.runner.StopAll()
 }
 
-// === Subgraph RPC（暴露给前端） ===
-
-// ListSubgraphs 列容器的全部子图。
-func (s *Service) ListSubgraphs(containerID string) []Subgraph {
-	return s.store.ListSubgraphs(containerID)
-}
-
-// GetSubgraph 拿单个子图。
-func (s *Service) GetSubgraph(containerID, sgID string) (Subgraph, error) {
-	sg, ok := s.store.GetSubgraph(containerID, sgID)
-	if !ok {
-		return Subgraph{}, fmt.Errorf("subgraph %q not found in container %q", sgID, containerID)
-	}
-	return sg, nil
-}
-
-// CreateSubgraph 新建 subgraph，自动分配 UUID id。
-// 预填 SubgraphInput + SubgraphOutput 节点：v2 validator 要求每个 sg 必须有 ≥1 SubgraphOutput，
-// 且 SubgraphOutput.config.declID 必须挂在 OutputPins 的某个 ID 上（runtime 才能 dispatch 父图）。
-// 不预填 → 用户每建一个子图都会撞 EMPTY_SUBGRAPH_OUTPUT。
-func (s *Service) CreateSubgraph(containerID, label string) (Subgraph, error) {
-	declID := uuid.NewString()
-	now := time.Now().UTC()
-	sg := Subgraph{
-		ID:    "sg-" + uuid.NewString()[:8],
-		Label: label,
-		Graph: Graph{
-			ID:      uuid.NewString(),
-			Version: GraphSchemaVersion,
-			Nodes: []GraphNode{
-				{ID: "in", Kind: "SubgraphInput", X: 80, Y: 160, CreatedAt: now},
-				{ID: "out", Kind: "SubgraphOutput", X: 420, Y: 160,
-					Config: map[string]any{"DeclID": declID}, CreatedAt: now},
-			},
-		},
-		OutputPins: []SubgraphOutputDecl{{ID: declID, Name: "done"}},
-		CreatedAt:  now,
-	}
-	if err := s.store.SaveSubgraph(containerID, &sg); err != nil {
-		return Subgraph{}, err
-	}
-	s.emitChange()
-	return sg, nil
-}
-
-// UpdateSubgraph 接 RFC7386 merge patch。
-func (s *Service) UpdateSubgraph(containerID, sgID, patchJSON string) error {
-	cur, ok := s.store.GetSubgraph(containerID, sgID)
-	if !ok {
-		return fmt.Errorf("subgraph %q not found", sgID)
-	}
-	curJSON, err := json.Marshal(cur)
-	if err != nil {
-		return err
-	}
-	merged, err := jsonpatch.MergePatch(curJSON, []byte(patchJSON))
-	if err != nil {
-		return fmt.Errorf("merge patch: %w", err)
-	}
-	var next Subgraph
-	if err := json.Unmarshal(merged, &next); err != nil {
-		return err
-	}
-	next.ID = sgID // 防 patch 改 id
-	if err := s.store.SaveSubgraph(containerID, &next); err != nil {
-		return err
-	}
-	s.emitChange()
-	return nil
-}
-
-// DeleteSubgraph 删除子图文件 + 内存。
-func (s *Service) DeleteSubgraph(containerID, sgID string) error {
-	if err := s.store.DeleteSubgraph(containerID, sgID); err != nil {
-		return err
-	}
-	s.emitChange()
-	return nil
-}
+// (子图 RPC 已全局化 — 见 service_subgraph.go 的 SubgraphService, 不再按容器路由。)
 
 // DeleteMany 批量删除容器。部分失败也继续；任一失败返 error。
 func (s *Service) DeleteMany(ids []string) error {
@@ -319,6 +250,10 @@ func (s *Service) DeleteMany(ids []string) error {
 		if err := s.store.Delete(id); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", id, err))
 		}
+	}
+	// 匿名子图 GC: 批量末尾跑一次 (GC 幂等).
+	if s.postDelete != nil {
+		s.postDelete()
 	}
 	s.emitChange()
 	if len(errs) > 0 {

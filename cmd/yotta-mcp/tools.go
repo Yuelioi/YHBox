@@ -34,7 +34,8 @@ func saveContainer(st *container.Store, raw []byte) (SaveResult, []byte) {
 		return SaveResult{}, b
 	}
 	c.Normalize()
-	all := container.ValidateContainer(&c)
+	// MCP 工具语境无全局子图池 — 引用子图会报 MISSING_SUBGRAPH (已知限制, 真需要再接池).
+	all := container.ValidateContainer(&c, nil)
 	var warnings []container.ValidationError
 	hasErr := false
 	for _, e := range all {
@@ -76,7 +77,7 @@ func validateContainerJSON(raw []byte) ([]byte, bool) {
 		return b, true
 	}
 	c.Normalize()
-	errs := container.ValidateContainer(&c)
+	errs := container.ValidateContainer(&c, nil)
 	hasErr := false
 	for _, e := range errs {
 		if e.Severity == container.SeverityError {

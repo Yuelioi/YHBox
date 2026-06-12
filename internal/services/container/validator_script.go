@@ -7,7 +7,7 @@ import (
 )
 
 // validateScriptNodes — Script 节点编辑期校验: JS 语法 (goja 编译) + 动态输入重名.
-func validateScriptNodes(c *Container) []ValidationError {
+func validateScriptNodes(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -41,8 +41,8 @@ func validateScriptNodes(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph.Nodes, []string{"main"})
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		check(sg.Graph.Nodes, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)})
 	}
 	return errs

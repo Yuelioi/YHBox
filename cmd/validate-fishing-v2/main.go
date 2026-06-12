@@ -1,5 +1,5 @@
-// validate-fishing-v2 加载 bin/data/containers/fishing-v2/{container.json, subgraphs/*.json}
-// 并跑 container ValidateContainer.
+// validate-fishing-v2 加载 bin/data/containers/fishing-v2/container.json + 全局子图池
+// bin/data/subgraphs/*.json (2026-06-12 全局化布局) 并跑 container ValidateContainer.
 //
 // 用法: go run ./cmd/validate-fishing-v2
 package main
@@ -43,7 +43,8 @@ func main() {
 		os.Exit(2)
 	}
 
-	subgraphsDir := filepath.Join(fishingV2Dir, "subgraphs")
+	// 全局子图池 (粗粒度: 全池都给 validator — known 集合语义, 工具不必精确闭包).
+	subgraphsDir := "bin/data/subgraphs"
 	entries, err := os.ReadDir(subgraphsDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "read subgraphs dir: %v\n", err)
@@ -65,15 +66,14 @@ func main() {
 			fmt.Fprintf(os.Stderr, "unmarshal subgraph %s: %v\n", path, err)
 			os.Exit(2)
 		}
+		container.NormalizeSubgraph(&sg)
 		subgraphs = append(subgraphs, sg)
 	}
 	sort.Slice(subgraphs, func(i, j int) bool { return subgraphs[i].ID < subgraphs[j].ID })
-	c.Subgraphs = subgraphs
 
-	// B2: 老 fishing-v2 JSON 含 SubgraphInput/Output 节点, 跑 Normalize 迁移到 metadata.
 	c.Normalize()
 
-	errs := container.ValidateContainer(&c)
+	errs := container.ValidateContainer(&c, subgraphs)
 	if len(errs) == 0 {
 		fmt.Println("✅ All clean — 0 validation errors")
 		return

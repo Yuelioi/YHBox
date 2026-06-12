@@ -10,11 +10,11 @@ func TestValidateDataGraph_DetectsCycle(t *testing.T) {
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
 					"Expression": "a + 1",
-					"Inputs": []any{map[string]any{"Name": "a", "Type": "number"}},
+					"Inputs":     []any{map[string]any{"Name": "a", "Type": "number"}},
 				}},
 				{ID: "e2", Kind: "Expr", Config: map[string]any{
 					"Expression": "b * 2",
-					"Inputs": []any{map[string]any{"Name": "b", "Type": "number"}},
+					"Inputs":     []any{map[string]any{"Name": "b", "Type": "number"}},
 				}},
 			},
 			Edges: []GraphEdge{
@@ -23,7 +23,7 @@ func TestValidateDataGraph_DetectsCycle(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeDataGraphCycle {
@@ -53,7 +53,7 @@ func TestValidateDataGraph_AcceptsDAG(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeDataGraphCycle {
 			t.Errorf("DAG falsely flagged as cycle: %+v", e)
@@ -78,7 +78,7 @@ func TestValidateDataGraph_IgnoresExecLoopback(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeDataGraphCycle {
 			t.Errorf("exec self-loop falsely flagged as data cycle: %+v", e)

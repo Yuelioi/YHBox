@@ -43,7 +43,7 @@ func PinTypeCompat(from, to string) (allow, warn bool) {
 // dynamic inputs[] data-in pins get validated (kind-only lookup would return "").
 //
 // Empty type ("") on either side → skip (unknown schema; not an error in itself).
-func validateDataPinTypes(c *Container) []ValidationError {
+func validateDataPinTypes(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -118,8 +118,8 @@ func validateDataPinTypes(c *Container) []ValidationError {
 
 	var all []ValidationError
 	all = append(all, walk(c.Graph, []string{"main"})...)
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		all = append(all, walk(sg.Graph, []string{"subgraph", sg.ID})...)
 	}
 	return all

@@ -109,10 +109,13 @@ type ContainerRunner struct {
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
-	// 防御性 normalize — 兜底 in-memory 构造 (test fixture / 工具脚本) 没走 Store.Save 路径的
-	// container, 保证 sg.Entry / OutputPins[*].NodeID 不空. Store-loaded container 已 normalize 过, 幂等.
+	// 防御性 normalize — 兜底 in-memory 构造 (test fixture / 工具脚本) 没走 Store 路径的
+	// container/子图, 保证 sg.Entry / OutputPins[*].NodeID 不空. Store-loaded 已 normalize 过, 幂等.
 	rt.Container.Normalize()
-	cc := CompileContainer(rt.Container)
+	for i := range rt.Subgraphs {
+		container.NormalizeSubgraph(&rt.Subgraphs[i])
+	}
+	cc := CompileContainer(rt.Container, rt.Subgraphs)
 	// PlayClip 回放 target (rt.MouseCounts360) 用主图 MouseCalibration 节点值 — 容器自包含,
 	// 跟 MouseMoveRel 的 state.CalibCounts 同源 (都来自 snapshotMainCalibCounts). 无节点 (=0)
 	// 时保留构造期传入的 settings 本机值兜底.
@@ -323,7 +326,7 @@ func (r *ContainerRunner) setupRuntime() error {
 	if r.rt.WindowHandle().HWND != 0 && r.rt.Input != nil {
 		return nil
 	}
-	if !containerNeedsWindow(r.rt.Container) {
+	if !containerNeedsWindow(r.rt.Container, r.rt.Subgraphs) {
 		return nil
 	}
 
@@ -378,15 +381,15 @@ func (r *ContainerRunner) teardownRuntime() {
 	}
 }
 
-// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或任一子图.
-// 跟 validator.containerNeedsWindow 同判定: 决定 runtime 是否解析 WindowTarget. 纯窗口无关
-// 容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
-func containerNeedsWindow(c *container.Container) bool {
+// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或解析
+// 闭包内任一子图. 跟 validator.containerNeedsWindow 同判定: 决定 runtime 是否解析
+// WindowTarget. 纯窗口无关容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
+func containerNeedsWindow(c *container.Container, sgs []container.Subgraph) bool {
 	if graphHasWindowNode(c.Graph.Nodes) {
 		return true
 	}
-	for i := range c.Subgraphs {
-		if graphHasWindowNode(c.Subgraphs[i].Graph.Nodes) {
+	for i := range sgs {
+		if graphHasWindowNode(sgs[i].Graph.Nodes) {
 			return true
 		}
 	}

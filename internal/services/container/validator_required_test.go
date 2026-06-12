@@ -24,7 +24,7 @@ func TestRequired_MissingNoSourceFlags(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "g", Kind: "GetVar", Config: map[string]any{}},
 	}, nil)
-	errs := validateRequiredPins(c)
+	errs := validateRequiredPins(c, nil)
 	if !hasCodeForNode(errs, CodeMissingRequiredPin, "g") {
 		t.Fatalf("expected MISSING_REQUIRED_PIN for GetVar.VarName, got %+v", errs)
 	}
@@ -35,7 +35,7 @@ func TestRequired_LiteralSatisfies(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "g", Kind: "GetVar", Config: map[string]any{"literal": map[string]any{"VarName": "myVar"}}},
 	}, nil)
-	if errs := validateRequiredPins(c); hasCodeForNode(errs, CodeMissingRequiredPin, "g") {
+	if errs := validateRequiredPins(c, nil); hasCodeForNode(errs, CodeMissingRequiredPin, "g") {
 		t.Fatalf("literal VarName present should satisfy required, got %+v", errs)
 	}
 }
@@ -47,7 +47,7 @@ func TestRequired_EdgeSatisfies(t *testing.T) {
 		{ID: "s", Kind: "Switch", Config: map[string]any{"cases": []any{"A", "B"}}},
 		{ID: "g", Kind: "GetVar", Config: map[string]any{"literal": map[string]any{"VarName": "x"}}},
 	}, []GraphEdge{{From: "g.Value", To: "s.Value"}})
-	if errs := validateRequiredPins(c); hasCodeForNode(errs, CodeMissingRequiredPin, "s") {
+	if errs := validateRequiredPins(c, nil); hasCodeForNode(errs, CodeMissingRequiredPin, "s") {
 		t.Fatalf("incoming data edge should satisfy required, got %+v", errs)
 	}
 }
@@ -57,7 +57,7 @@ func TestRequired_DefaultSuppresses(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "k", Kind: "KeyPress", Config: map[string]any{}},
 	}, nil)
-	if errs := validateRequiredPins(c); hasCodeForNode(errs, CodeMissingRequiredPin, "k") {
+	if errs := validateRequiredPins(c, nil); hasCodeForNode(errs, CodeMissingRequiredPin, "k") {
 		t.Fatalf("KeyPress.VK has Default='W', must not flag, got %+v", errs)
 	}
 }
@@ -68,7 +68,7 @@ func TestRequired_TopLevelConfigSatisfies(t *testing.T) {
 	c := reqContainer([]GraphNode{
 		{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg1"}},
 	}, nil)
-	if errs := validateRequiredPins(c); hasCodeForNode(errs, CodeMissingRequiredPin, "call") {
+	if errs := validateRequiredPins(c, nil); hasCodeForNode(errs, CodeMissingRequiredPin, "call") {
 		t.Fatalf("top-level config[SubgraphID] should satisfy required, got %+v", errs)
 	}
 }

@@ -10,13 +10,13 @@ package container
 //	kind ∈ {GetVar, SetVar, IncVar}
 //	AND config.scope ∈ {auto, global, undefined}     ← undefined treated as auto (backend default)
 //	AND config.varName ∉ Container.Vars[].Name
-//	AND (subgraph 内时) config.varName ∉ sg.RequiredGlobals[].Name → INVALID_VAR_REF
+//	AND (subgraph 内时) config.varName ∉ sg.RequiredGlobals → INVALID_VAR_REF
 //
 // scope=local is skipped here entirely (frame-scoped, declared implicitly via SetVar).
 //
 // subgraph 内 var ref 若在 sg.RequiredGlobals 白名单 — 视作 caller 会 provide, 不报错.
 // (Library import / 跨容器拖时, caller 容器可能缺 var; RequiredGlobals 自我声明依赖.)
-func validateVarRefs(c *Container) []ValidationError {
+func validateVarRefs(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -59,10 +59,10 @@ func validateVarRefs(c *Container) []ValidationError {
 		}
 	}
 	check(c.Graph, []string{"main"}, nil)
-	for _, sg := range c.Subgraphs {
+	for _, sg := range sgs {
 		sgWhitelist := map[string]bool{}
-		for _, rg := range sg.RequiredGlobals {
-			sgWhitelist[rg.Name] = true
+		for _, name := range sg.RequiredGlobals {
+			sgWhitelist[name] = true
 		}
 		check(sg.Graph, []string{"subgraph", sg.ID}, sgWhitelist)
 	}

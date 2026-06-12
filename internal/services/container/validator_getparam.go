@@ -4,7 +4,7 @@ package container
 // not declared in the containing subgraph's InputParams (GETPARAM_UNKNOWN_PARAM).
 //
 // Main-graph GetParam is meaningless (main has no inputParams) — flag as unknown too.
-func validateGetParamNodes(c *Container) []ValidationError {
+func validateGetParamNodes(c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -31,8 +31,8 @@ func validateGetParamNodes(c *Container) []ValidationError {
 	all = append(all, checkNodes(c.Graph, map[string]bool{}, []string{"main"})...)
 
 	// Each subgraph: its own InputParams.
-	for i := range c.Subgraphs {
-		sg := &c.Subgraphs[i]
+	for i := range sgs {
+		sg := &sgs[i]
 		paramSet := make(map[string]bool, len(sg.InputParams))
 		for _, p := range sg.InputParams {
 			paramSet[p.Name] = true

@@ -18,7 +18,7 @@ func TestValidate_BreakInsideLoop_OK(t *testing.T) {
 			},
 		},
 	}
-	errs := validateSentinelScope(c)
+	errs := validateSentinelScope(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeBreakOutsideLoop {
 			t.Errorf("Break exec-reachable from loop.body should NOT emit BREAK_OUTSIDE_LOOP, got %+v", e)
@@ -38,7 +38,7 @@ func TestValidate_BreakInMainNoLoop_ERROR(t *testing.T) {
 			},
 		},
 	}
-	errs := validateSentinelScope(c)
+	errs := validateSentinelScope(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeBreakOutsideLoop && e.NodeID == "brk" {
@@ -62,7 +62,7 @@ func TestValidate_ContinueInMainNoLoop_ERROR(t *testing.T) {
 			},
 		},
 	}
-	errs := validateSentinelScope(c)
+	errs := validateSentinelScope(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeContinueOutsideLoop && e.NodeID == "cont" {
@@ -88,7 +88,7 @@ func TestValidate_ThrowAnywhere_NoScopeError(t *testing.T) {
 			},
 		},
 	}
-	errs := validateSentinelScope(c)
+	errs := validateSentinelScope(c, nil)
 	for _, e := range errs {
 		if e.NodeID == "thr" {
 			t.Errorf("Throw in main should produce no sentinel-scope error, got %+v", e)

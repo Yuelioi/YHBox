@@ -33,7 +33,6 @@ import (
 	"yotta/internal/services/calibration"
 	"yotta/internal/services/codesnippet"
 	"yotta/internal/services/container"
-	"yotta/internal/services/container/library"
 	containerruntime "yotta/internal/services/container/runtime"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/schedule"
@@ -183,18 +182,35 @@ func main() {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("asset store init")
 	}
 
-	// 库 store + service (分享/导入坍缩成 GUID+sha 幂等合并, 注入全局 asset store).
-	libStore, err := library.NewStore(filepath.Join(dataDir, "library"))
+	// 全局子图池 (2026-06-12 全局化: 容器只引用不复制): <dataDir>/subgraphs/.
+	sgStore, err := container.NewSubgraphStore(filepath.Join(dataDir, "subgraphs"))
 	if err != nil {
-		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("library store init")
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("subgraph store init")
 	}
-	librarySvc := library.NewService(libStore, assetStore)
+	sgSvc := container.NewSubgraphService(sgStore)
 
 	containerStore, err := container.NewStore(filepath.Join(dataDir, "containers"))
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("container store init")
 	}
+	// 校验用引用闭包解析 (单一咽喉, 见 wire_subgraph.go).
+	containerStore.SetSubgraphResolver(func(c *container.Container) []container.Subgraph {
+		return subgraphClosureFor(c, sgStore)
+	})
 	containerSvc := container.NewService(containerStore)
+	sgSvc.SetReferrerScanner(scanSubgraphReferrers(containerStore, sgStore))
+
+	// 匿名子图 GC (mark-sweep, 幂等): 启动时 + 容器删除完成后. 锁序 Container → Subgraph.
+	gcAnonymousSubgraphs := func() {
+		removed, gcErr := sgStore.GCAnonymous(collectReferencedSubgraphIDs(containerStore, sgStore))
+		if gcErr != nil {
+			rootLog.Warn().Err(gcErr).Str("tag", "SUBGRAPH-GC").Msg("匿名子图 GC 失败")
+		} else if len(removed) > 0 {
+			rootLog.Info().Strs("removed", removed).Str("tag", "SUBGRAPH-GC").Msg("匿名子图回收")
+		}
+	}
+	gcAnonymousSubgraphs()
+	containerSvc.SetPostDelete(gcAnonymousSubgraphs)
 	// validator 存在性检查: 节点引用的模板/clip GUID 必须存在于全局 asset 库.
 	containerSvc.SetAssetExistence(
 		assetExistence(assetStore, asset.KindTemplate),
@@ -204,7 +220,7 @@ func main() {
 	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
 	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
 	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
-	assetSvc.SetReferrerScanner(scanAssetReferrers(containerStore))
+	assetSvc.SetReferrerScanner(scanAssetReferrers(containerStore, sgStore))
 	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
@@ -260,6 +276,8 @@ func main() {
 			newGameProviderAdapter(), emitForRuntime,
 			clipSvc, app.Settings().ActiveMouseCounts360(),
 		)
+		// 起跑时从全局池解析引用闭包 → 快照进 rt (跑中不回查 store, 编辑不影响在跑实例).
+		rt.Subgraphs = subgraphClosureFor(&c, sgStore)
 		r := containerruntime.NewContainerRunner(rt)
 		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
 		r.SetLogger(rootLog)
@@ -415,7 +433,7 @@ func main() {
 		application.NewService(hotkeySvc),
 		application.NewService(assetSvc),
 		application.NewService(containerSvc),
-		application.NewService(librarySvc),
+		application.NewService(sgSvc),
 		application.NewService(scheduleSvc),
 		application.NewService(calibrationSvc),
 		application.NewService(recordingSvc),
@@ -438,16 +456,11 @@ func main() {
 	app.AttachWailsApp(wailsApp)
 
 	containerSvc.SetWindowOpener(newContainerWindowAdapter(wailsApp))
-	librarySvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	librarySvc.SetContainersRoot(filepath.Join(dataDir, "containers"))
-	// B11: 注入容器 lookup, ImportToContainer dry-run 算 MissingGlobals diff.
-	librarySvc.SetContainerLookup(containerStore.Get)
-	// import 写盘后刷新目标容器内存缓存, 否则 ListSubgraphs 返旧值 → 刚导入子图 "(子图未找到)".
-	librarySvc.SetContainerReloader(func(id string) error { _, err := containerStore.Reload(id); return err })
+	sgSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	// 录制完产物是 *container.Subgraph, 直接走 containerStore.SaveSubgraph 落到容器 subgraphs/
-	recordingSvc.SetContainerSaver(containerStore)
+	// 录制完产物是 *container.Subgraph, 直接入全局子图池 (sgStore.Create)
+	recordingSvc.SetSubgraphSaver(sgStore)
 	// Start 时按 containerID 拉 container, 取 WindowTarget 节点解析 hwnd
 	recordingSvc.SetContainerGetter(containerStore)
 
@@ -589,6 +602,7 @@ func ensureV2DataLayout(log zerolog.Logger) {
 	base := filepath.Join(filepath.Dir(exeDir), "data")
 	dirs := []string{
 		filepath.Join(base, "containers"),
+		filepath.Join(base, "subgraphs"),
 		filepath.Join(base, "templates"),
 		filepath.Join(base, "clips"),
 		filepath.Join(base, "blobs"),

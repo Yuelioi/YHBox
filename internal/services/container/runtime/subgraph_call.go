@@ -74,9 +74,9 @@ func (r *ContainerRunner) runSubgraphCall(ctx context.Context, sg *container.Sub
 // 返回到达出口的 decl Name (人读名; 父图边用的 decl ID 是图层概念, 脚本不可见).
 func (r *ContainerRunner) CallSubgraph(ctx context.Context, sgID string, params map[string]any) (string, error) {
 	var sg *container.Subgraph
-	for i := range r.rt.Container.Subgraphs {
-		if r.rt.Container.Subgraphs[i].ID == sgID {
-			sg = &r.rt.Container.Subgraphs[i]
+	for i := range r.rt.Subgraphs {
+		if r.rt.Subgraphs[i].ID == sgID {
+			sg = &r.rt.Subgraphs[i]
 			break
 		}
 	}

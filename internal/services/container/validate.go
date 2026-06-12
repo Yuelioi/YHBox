@@ -35,11 +35,12 @@ func (f *ValidationFailure) Error() string {
 	return fmt.Sprintf("%s %v (and %d more)", f.Errors[0].Code, f.Errors[0].Params, len(f.Errors)-1)
 }
 
-// Validate 校验 Container 完整性. 任何 SeverityError → 返 *ValidationFailure 含完整错误列表;
+// Validate 校验 Container 完整性. sgs = 引用闭包解析出的子图集 (见 ValidateContainer)。
+// 任何 SeverityError → 返 *ValidationFailure 含完整错误列表;
 // 只有 warning → 返 nil (warning 通过 ValidateContainer 直接获取).
 // Save / Load 都调一次; 前端 "检查" 按钮 / 试运行前主动跑走 Service.ValidateContainerByID.
-func (c *Container) Validate() error {
-	errs := ValidateContainer(c)
+func (c *Container) Validate(sgs []Subgraph) error {
+	errs := ValidateContainer(c, sgs)
 	var fatal []ValidationError
 	for _, e := range errs {
 		if e.Severity == SeverityError {
@@ -192,12 +193,8 @@ func (c *Container) Normalize() {
 	if c.Graph.Version == 0 {
 		c.Graph.Version = GraphSchemaVersion
 	}
-	// subgraph self-heal 与 RequiredGlobals 派生都在此入口统一跑 (Save 路径也经此), 保证 c.Vars 同步.
-	// validator + library import 都依赖 RequiredGlobals 字段.
-	for i := range c.Subgraphs {
-		normalizeSubgraph(&c.Subgraphs[i])
-		c.Subgraphs[i].RequiredGlobals = computeRequiredGlobals(&c.Subgraphs[i], c.Vars)
-	}
+	// 子图已全局化 — self-heal 与 RequiredGlobals 派生在全局 SubgraphStore 的保存路径跑,
+	// 不再挂在容器 Normalize 上.
 }
 
 // --- Registry-backed helpers (nodepkg-only) ---
@@ -317,16 +314,16 @@ func IsDataOutPin(kind, pin string) bool {
 	return dataOutPinTypeForKind(kind, pin) != ""
 }
 
-// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或任一子图.
-// WindowTarget 改"按需要求": 只有含窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才必须有
-// WindowTarget; 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免. 扫全部子图 (它们跟主图共用同一
-// 运行时 hwnd; 哪怕暂未被调用, 含窗口节点就当需要 — 安全方向, 录制容器的 Subgraph(PlayClip) 命中此).
-func containerNeedsWindow(c *Container) bool {
+// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或引用
+// 闭包内任一子图. WindowTarget 改"按需要求": 只有含窗口类节点 (ClickAt/Detect/Capture/
+// PlayClip...) 才必须有 WindowTarget; 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免.
+// 注意范围是引用闭包 (不是全局池) — 没被本容器引用的子图含窗口节点与本容器无关.
+func containerNeedsWindow(c *Container, sgs []Subgraph) bool {
 	if graphHasWindowNode(c.Graph.Nodes) {
 		return true
 	}
-	for i := range c.Subgraphs {
-		if graphHasWindowNode(c.Subgraphs[i].Graph.Nodes) {
+	for i := range sgs {
+		if graphHasWindowNode(sgs[i].Graph.Nodes) {
 			return true
 		}
 	}

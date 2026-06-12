@@ -5,9 +5,34 @@ import (
 	"time"
 )
 
-func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
-	st, _ := setupStoreWithContainer(t)
+func setupStoreWithContainer(t *testing.T) (*Store, string) {
+	t.Helper()
+	root := t.TempDir()
+	st, err := NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cid := "c1"
+	c := &Container{
+		SchemaVersion: CurrentSchemaVersion,
+		ID:            cid,
+		Name:          "c1",
+		Graph: Graph{
+			ID: "gm", Version: GraphSchemaVersion,
+			Nodes: []GraphNode{
+				{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()},
+				{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}, CreatedAt: time.Now().UTC()},
+			},
+		},
+	}
+	if err := st.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	return st, cid
+}
+
+func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
+	st, cid := setupStoreWithContainer(t)
 	c, _ := st.Get(cid)
 	c.Graph.Nodes = append(c.Graph.Nodes,
 		GraphNode{
@@ -24,7 +49,11 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 	// Save container first with the new nodes
 	st.Save(&c)
 
-	// Now save the subgraph (need SubgraphOutput node to pass validation)
+	// 子图现在住全局池 — RecordingContext (录制源机器 counts) 不归容器同步管.
+	sgStore, err := NewSubgraphStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	sg := Subgraph{
 		ID:    "sg-1",
 		Label: "录制",
@@ -35,11 +64,13 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 				{ID: "out", Kind: "SubgraphOutput", CreatedAt: time.Now().UTC()},
 			},
 		},
-		OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
+		OutputPins:       []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		RecordingContext: &RecordingContext{MouseCounts360: 4120},
 		CreatedAt:        time.Now().UTC(),
 	}
-	st.SaveSubgraph(cid, &sg)
+	if err := sgStore.Create(&sg); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := SyncLocalMouseCalibration(st, 2200)
 	if err != nil {
@@ -57,7 +88,7 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 			}
 		}
 	}
-	sg2, _ := st.GetSubgraph(cid, "sg-1")
+	sg2, _ := sgStore.Get("sg-1")
 	if sg2.RecordingContext == nil || sg2.RecordingContext.MouseCounts360 != 4120 {
 		t.Errorf("subgraph RecordingContext was tampered: %+v", sg2.RecordingContext)
 	}

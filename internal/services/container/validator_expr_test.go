@@ -18,7 +18,7 @@ func TestValidate_Expr_DuplicateInput(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeExprDuplicateInput {
@@ -38,12 +38,12 @@ func TestValidate_Expr_ParseError(t *testing.T) {
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
 					"Expression": "1 +",
-					"Inputs": []any{},
+					"Inputs":     []any{},
 				}},
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeExprParseError {
@@ -63,12 +63,12 @@ func TestValidate_Expr_UnknownInput(t *testing.T) {
 				{ID: "start", Kind: "Start"},
 				{ID: "e1", Kind: "Expr", Config: map[string]any{
 					"Expression": "x + missing",
-					"Inputs": []any{map[string]any{"Name": "x", "Type": "number"}},
+					"Inputs":     []any{map[string]any{"Name": "x", "Type": "number"}},
 				}},
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeExprUnknownInput && e.Params["name"] == "missing" {
@@ -93,7 +93,7 @@ func TestValidate_Expr_UnknownFunction(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeExprUnknownFunction && e.Params["name"] == "clmap" {
@@ -118,7 +118,7 @@ func TestValidate_Expr_FnArity(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeExprFnArity && e.Params["name"] == "clamp" && e.Params["got"] == 1 {
@@ -146,7 +146,7 @@ func TestValidate_Expr_AllValid(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		switch e.Code {
 		case CodeExprDuplicateInput, CodeExprParseError, CodeExprUnknownInput,
@@ -167,7 +167,7 @@ func TestValidate_Expr_UnknownVar(t *testing.T) {
 			}},
 		}},
 	}
-	errs := validateExprNodes(c)
+	errs := validateExprNodes(c, nil)
 	var hit int
 	for _, e := range errs {
 		if e.Code == CodeExprUnknownVar {

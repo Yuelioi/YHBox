@@ -18,7 +18,7 @@ func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeLiteralTypeMismatch {
@@ -47,7 +47,7 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeLiteralTypeMismatch {
@@ -76,7 +76,7 @@ func TestLiteralTypeMatch_TemplateKeyList(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeLiteralTypeMismatch {
 			if pin, _ := e.Params["pin"].(string); pin == "Templates" {
@@ -101,7 +101,7 @@ func TestLiteralTypeMismatch_TemplateKeyNonString(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	found := false
 	for _, e := range errs {
 		if e.Code == CodeLiteralTypeMismatch {
@@ -133,7 +133,7 @@ func TestLiteralTypeMatch_CorrectTypes(t *testing.T) {
 			},
 		},
 	}
-	errs := ValidateContainer(c)
+	errs := ValidateContainer(c, nil)
 	for _, e := range errs {
 		if e.Code == CodeLiteralTypeMismatch {
 			t.Errorf("unexpected LITERAL_TYPE_MISMATCH on valid literals: %+v", e)

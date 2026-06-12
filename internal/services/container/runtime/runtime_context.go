@@ -38,6 +38,10 @@ const frameCacheTTL = 100 * time.Millisecond
 // WindowTarget 节点后 populate. Game 字段供 BringWindowForeground 节点用.
 type RuntimeContext struct {
 	Container *container.Container
+	// Subgraphs 起跑时从全局池解析出的引用闭包快照 (2026-06-12 全局化 — 容器不再拥有子图).
+	// 构造后由 caller 填 (main.go runFunc 解析闭包; 测试 fixture 直接赋); 跑中不回查 store,
+	// 编辑不影响在跑实例 (快照语义同旧 Container.Subgraphs 内存切片).
+	Subgraphs []container.Subgraph
 	InputBus  *execution.InputBus
 	Matcher   TemplateMatcher
 	Input     pkginput.Backend   // per-container 实例, setupRuntime 注入
@@ -268,9 +272,9 @@ func (rt *RuntimeContext) emitROIResolutionWarnings(clientW, clientH int) {
 	for i := range rt.Container.Graph.Nodes {
 		checkROINode(&rt.Container.Graph.Nodes[i])
 	}
-	for i := range rt.Container.Subgraphs {
-		for j := range rt.Container.Subgraphs[i].Graph.Nodes {
-			checkROINode(&rt.Container.Subgraphs[i].Graph.Nodes[j])
+	for i := range rt.Subgraphs {
+		for j := range rt.Subgraphs[i].Graph.Nodes {
+			checkROINode(&rt.Subgraphs[i].Graph.Nodes[j])
 		}
 	}
 }
