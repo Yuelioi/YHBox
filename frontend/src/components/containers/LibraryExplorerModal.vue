@@ -1,5 +1,6 @@
 <!-- 子图库 modal (编辑器内唯一库管理入口). 入口: toolbar 📚 / 左 rail.
-     本地 tab: 单击插引用; 右键 增删改查; 悬停右栏详情。在线 tab: 占位 (跨机分享留口)。 -->
+     本地 tab: 单击选中出详情; 双击/详情按钮插引用; Ctrl/Shift 多选 + 批量删/加标签;
+     右键单项菜单。在线 tab: 占位 (跨机分享留口)。 -->
 <template>
   <BaseModal
     v-model:open="modelOpen"
@@ -24,7 +25,7 @@
       <p class="text-xs text-dimmed mt-2 max-w-xs">{{ t('library.online.desc') }}</p>
     </div>
 
-    <!-- 本地: 列表 + 详情双栏 -->
+    <!-- 本地: 列表 + 右栏 (详情/批量) 双栏 -->
     <div v-else class="flex gap-4">
       <div class="flex-1 min-w-0 space-y-3">
         <div class="flex items-center gap-3">
@@ -40,7 +41,25 @@
           <span class="text-[10px] text-dimmed">{{ t('library.explorer.esc_close') }}</span>
         </div>
 
-        <div class="max-h-[60vh] overflow-y-auto">
+        <div class="flex items-center gap-2">
+          <USelectMenu
+            v-model="categoryFilter"
+            :items="categoryFilterItems"
+            value-key="id"
+            size="xs"
+            class="w-40"
+          />
+          <UInputMenu
+            v-model="tagFilter"
+            multiple
+            :items="allTags"
+            size="xs"
+            :placeholder="t('library.explorer.filter_tags')"
+            class="flex-1"
+          />
+        </div>
+
+        <div class="max-h-[56vh] overflow-y-auto select-none">
           <div
             v-if="filteredItems.length === 0"
             class="text-center text-xs text-dimmed py-8 italic"
@@ -53,18 +72,17 @@
           </div>
 
           <div v-else class="space-y-2">
-            <!-- Group by primary tag -->
-            <template v-for="group in groupedItems" :key="group.tag">
+            <template v-for="group in groupedItems" :key="group.category">
               <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
-                {{ group.tag }}
+                {{ group.category }}
               </div>
               <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
                 <div
                   class="rounded p-3 cursor-pointer"
-                  :class="detailID === item.id ? 'bg-elevated/60' : 'bg-elevated/30 hover:bg-elevated/60'"
-                  @click="onPick(item.id)"
-                  @mouseenter="onHoverRow(item.id)"
-                  @contextmenu="detailID = item.id"
+                  :class="isSelected(item.id) ? 'bg-elevated/60' : 'bg-elevated/30 hover:bg-elevated/60'"
+                  @click="onRowClick(item.id, $event)"
+                  @dblclick="onPick(item.id)"
+                  @contextmenu="selClick(item.id)"
                 >
                   <div class="flex items-start gap-2">
                     <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
@@ -81,11 +99,11 @@
                         class="flex flex-wrap gap-1 mt-1"
                       >
                         <span
-                          v-for="t in item.tags"
-                          :key="t"
+                          v-for="tg in item.tags"
+                          :key="tg"
                           class="px-1.5 py-0 bg-elevated/60 text-[9px] rounded text-dimmed"
                         >
-                          {{ t }}
+                          {{ tg }}
                         </span>
                       </div>
                     </div>
@@ -97,11 +115,26 @@
         </div>
       </div>
 
-      <LibraryDetailPanel class="max-h-[65vh]" :sgID="detailID" @cleared="detailID = null" />
+      <LibraryBatchPanel
+        v-if="selected.size >= 2"
+        class="max-h-[65vh]"
+        :count="selected.size"
+        @batch-delete="onBatchDelete"
+        @batch-add-tags="batchTagsOpen = true"
+        @clear="selClear()"
+      />
+      <LibraryDetailPanel
+        v-else
+        class="max-h-[65vh]"
+        :sgID="single"
+        @cleared="selClear()"
+        @insert="single && onPick(single)"
+        @edit="onEditSingle"
+      />
     </div>
   </BaseModal>
 
-  <!-- 编辑信息 (名称/描述/标签) — merge patch + rev 乐观锁 -->
+  <!-- 编辑信息 (名称/描述/分类/标签) — merge patch + rev 乐观锁 -->
   <BaseModal v-model:open="editOpen" :title="t('library.explorer.edit_title')" icon="i-tabler-pencil" size="md">
     <div class="space-y-3">
       <div class="space-y-1.5">
@@ -113,6 +146,16 @@
         <UTextarea v-model="editForm.description" :rows="3" size="sm" />
       </div>
       <div class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('common.category') }}</label>
+        <UInputMenu
+          v-model="editForm.category"
+          creatable
+          :items="allCategories"
+          size="sm"
+          :placeholder="t('library.explorer.category_placeholder')"
+        />
+      </div>
+      <div class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('common.tags') }}</label>
         <UInput v-model="editForm.tags" size="sm" :placeholder="t('library.explorer.tags_hint')" />
       </div>
@@ -122,18 +165,37 @@
       <UButton color="primary" :disabled="!editForm.label.trim()" @click="onSaveEdit">{{ t('common.save') }}</UButton>
     </template>
   </BaseModal>
+
+  <!-- 批量加标签 -->
+  <BaseModal v-model:open="batchTagsOpen" :title="t('library.batch.add_tags_title')" icon="i-tabler-tags" size="md">
+    <UInputMenu
+      v-model="batchTags"
+      multiple
+      creatable
+      :items="allTags"
+      size="sm"
+      :placeholder="t('library.batch.add_tags_placeholder')"
+    />
+    <template #footer>
+      <UButton variant="ghost" color="neutral" @click="batchTagsOpen = false">{{ t('common.cancel') }}</UButton>
+      <UButton color="primary" :disabled="batchTags.length === 0" @click="onBatchAddTags">{{ t('library.batch.add_tags_apply') }}</UButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+import { useListSelection } from '@/composables/editor/useListSelection'
+import { filterSubgraphs, groupByCategory } from '@/lib/libraryFilter'
 import BaseModal from '@/components/common/BaseModal.vue'
 import LibraryDetailPanel from '@/components/containers/LibraryDetailPanel.vue'
+import LibraryBatchPanel from '@/components/containers/LibraryBatchPanel.vue'
 import { backend, type Subgraph } from '@/lib/backend'
 import { errorMessage, toastError } from '@/lib/invoke'
 
@@ -165,51 +227,62 @@ async function refreshLibrary() {
   await lib.reload()
 }
 
+// ── 过滤 + 分组 ──
+// categoryFilter 用 'all' / 'none' / 'c:<名>' 前缀编码, 防用户分类名撞保留值。
+const categoryFilter = ref<string>('all')
+const tagFilter = ref<string[]>([])
+
+const allCategories = computed(() => {
+  const set = new Set<string>()
+  for (const sg of lib.subgraphs) if (sg.category) set.add(sg.category)
+  return [...set].sort()
+})
+const allTags = computed(() => {
+  const set = new Set<string>()
+  for (const sg of lib.subgraphs) for (const tg of sg.tags ?? []) set.add(tg)
+  return [...set].sort()
+})
+
+const categoryFilterItems = computed(() => [
+  { label: t('library.explorer.filter_category_all'), id: 'all' },
+  ...allCategories.value.map((c) => ({ label: c, id: `c:${c}` })),
+  { label: t('library.explorer.uncategorized'), id: 'none' },
+])
+
+const filteredItems = computed<Subgraph[]>(() =>
+  filterSubgraphs(lib.subgraphs, {
+    query: query.value,
+    category:
+      categoryFilter.value === 'all' ? null : categoryFilter.value === 'none' ? '' : categoryFilter.value.slice(2),
+    tags: tagFilter.value,
+  }),
+)
+
+const groupedItems = computed(() => groupByCategory(filteredItems.value, t('library.explorer.uncategorized')))
+
+// ── 选中 (单击/Ctrl/Shift; 右键收敛单选) ──
+const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
+const { selected, single, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+
 onMounted(() => refreshLibrary())
 useAutoFocusOnOpen(modelOpen, searchInputRef, {
-  onOpen: () => { void refreshLibrary(); query.value = '' },
+  onOpen: () => {
+    void refreshLibrary()
+    query.value = ''
+    categoryFilter.value = 'all'
+    tagFilter.value = []
+    selClear()
+  },
 })
 
-const filteredItems = computed<Subgraph[]>(() => {
-  const q = query.value.toLowerCase().trim()
-  if (!q) return lib.subgraphs
-  return lib.subgraphs.filter((item) => {
-    const hay =
-      `${item.label} ${item.description ?? ''} ${(item.tags ?? []).join(' ')}`.toLowerCase()
-    return hay.includes(q)
-  })
-})
-
-// Group by primary tag (first tag); untagged go under "(未分类)"
-interface TagGroup {
-  tag: string
-  items: Subgraph[]
+function onRowClick(id: string, e: MouseEvent) {
+  selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
-
-const groupedItems = computed<TagGroup[]>(() => {
-  const map = new Map<string, Subgraph[]>()
-  for (const item of filteredItems.value) {
-    const primaryTag = (item.tags ?? [])[0] ?? t('library.explorer.uncategorized')
-    if (!map.has(primaryTag)) map.set(primaryTag, [])
-    map.get(primaryTag)!.push(item)
-  }
-  return Array.from(map.entries()).map(([tag, items]) => ({ tag, items }))
-})
 
 function onPick(libraryID: string) {
   emit('pick-subgraph', libraryID)
   modelOpen.value = false
 }
-
-// 详情栏跟最后悬停/右键的行 (粘滞, 不随 mouseleave 清空 — 鼠标能移去面板操作)。
-// 悬停去抖 250ms: detailID 一变 LibraryDetailPanel 就拉 referrers, 不去抖扫库会刷成 RPC 雨。
-const detailID = ref<string | null>(null)
-let hoverTimer = 0
-function onHoverRow(id: string) {
-  window.clearTimeout(hoverTimer)
-  hoverTimer = window.setTimeout(() => { detailID.value = id }, 250)
-}
-onBeforeUnmount(() => window.clearTimeout(hoverTimer))
 
 function ctxMenuItems(item: Subgraph) {
   return [
@@ -260,26 +333,31 @@ async function onDelete(item: Subgraph) {
   })
   if (yes !== true) return
   const ok = await lib.deleteSubgraph(item.id)
-  if (ok) {
-    if (detailID.value === item.id) detailID.value = null
-  } else {
+  if (!ok) {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
+  // 选中项随 visibleIds 收缩自动剔除, 无需手动清。
 }
 
-// ── 编辑信息 (改名/描述/标签) ──
+// ── 编辑信息 (改名/描述/分类/标签) ──
 const editOpen = ref(false)
 const editTarget = ref<Subgraph | null>(null)
-const editForm = ref({ label: '', description: '', tags: '' })
+const editForm = ref({ label: '', description: '', category: '', tags: '' })
 
 function openEdit(item: Subgraph) {
   editTarget.value = item
   editForm.value = {
     label: item.label ?? '',
     description: item.description ?? '',
+    category: item.category ?? '',
     tags: (item.tags ?? []).join(', '),
   }
   editOpen.value = true
+}
+
+function onEditSingle() {
+  const sg = single.value ? lib.byId(single.value) : undefined
+  if (sg) openEdit(sg)
 }
 
 async function onSaveEdit() {
@@ -289,6 +367,7 @@ async function onSaveEdit() {
   const patch = {
     label: editForm.value.label.trim(),
     description: editForm.value.description.trim(),
+    category: (editForm.value.category ?? '').trim(),
     tags,
   }
   // 裸版本 + try/catch: error-only RPC 经 invoke 包装后成败同为 undefined, 辨不出结果。
@@ -300,5 +379,65 @@ async function onSaveEdit() {
   }
   await lib.reload()
   editOpen.value = false
+}
+
+// ── 批量删除: 逐项扫引用汇总警告, 确认后逐项删 (各带 rev), 失败聚合一条 toast ──
+async function onBatchDelete() {
+  const ids = [...selected.value]
+  const referenced: string[] = []
+  for (const id of ids) {
+    const refs = await lib.referrersOf(id)
+    if (lib.containerUseCount(refs) > 0) referenced.push(lib.byId(id)?.label || id)
+  }
+  const desc = referenced.length > 0
+    ? t('library.batch.delete_confirm_referenced', { n: ids.length, m: referenced.length, names: referenced.join('、') })
+    : t('library.batch.delete_confirm_desc', { n: ids.length })
+  const yes = await confirm({
+    title: t('library.batch.delete_confirm_title'),
+    description: desc,
+    color: 'error',
+    confirmText: t('common.delete'),
+  })
+  if (yes !== true) return
+  let failed = 0
+  for (const id of ids) {
+    if (!(await lib.deleteSubgraph(id))) failed++
+  }
+  if (failed > 0) {
+    toast.add({ title: t('library.batch.partial_failed', { n: failed }), color: 'error' })
+  }
+  selClear()
+}
+
+// ── 批量加标签: 客户端算并集发全量数组 (RFC7386 数组整体替换) ──
+const batchTagsOpen = ref(false)
+const batchTags = ref<string[]>([])
+
+async function onBatchAddTags() {
+  const add = batchTags.value.map((s) => s.trim()).filter(Boolean)
+  if (add.length === 0) {
+    batchTagsOpen.value = false
+    return
+  }
+  let failed = 0
+  for (const id of [...selected.value]) {
+    const sg = lib.byId(id)
+    if (!sg) {
+      failed++
+      continue
+    }
+    const tags = [...new Set([...(sg.tags ?? []), ...add])]
+    try {
+      await backend.subgraphs.updateSilent(sg.id, JSON.stringify({ tags }), sg.rev)
+    } catch {
+      failed++
+    }
+  }
+  await lib.reload()
+  if (failed > 0) {
+    toast.add({ title: t('library.batch.partial_failed', { n: failed }), color: 'error' })
+  }
+  batchTagsOpen.value = false
+  batchTags.value = []
 }
 </script>
