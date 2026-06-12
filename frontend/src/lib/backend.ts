@@ -368,7 +368,7 @@ export const backend = {
     // 前端 recordStore reconcile 对账用 — 取代旧的 isRecording (bool 不够, desync 无法自愈).
     getState: () => invoke(RecordingService.GetState),
   },
-  // 容器级 ClipService (main.go 只 RegisterService(clipSvc); libClipSvc 不注册).
+  // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
   // 暴露 list/get/save/update/delete + Resolve (runtime 用, 前端基本不直接调).
   clipsContainer: {
     list: () => invoke(ClipService.List),

@@ -1,6 +1,6 @@
-// clips store — 容器级 InputClip 元数据 + 单 clip get/save/update/delete.
-// list 返 ClipSummary (无 events); get 返 InputClip (events 通过 binary chunk 走 ClipResolver,
-// 这里 JSON RPC 仅拿 meta).
+// clips store — 全局 clip 资产 (asset 库 KindClip) 元数据 + 单 clip get/save/update/delete.
+// 资产全局化后无容器级/库级两套存储: list 列全局所有 clip (ClipSummary, 无 events);
+// get 返 InputClip (events 走 binary chunk + ClipResolver, JSON RPC 仅拿 meta).
 // 后端 Save/Delete/Update 均会 emit 'clip:changed' — listen() 订阅后自动 refresh 列表.
 
 import { defineStore } from 'pinia'
