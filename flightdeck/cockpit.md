@@ -1,19 +1,17 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-12 by 月离 (数据层大整理 spec 三轮外审收口(第三轮: schemaVersion 读取契约/引用只走 ID/rev 仅单机/RequiredGlobals 只存名字), P1/P2 两个 plan 落盘, 待用户过目后开干。)
-**Active focus**: **数据层大整理**(目录平铺 + 子图全局化) — spec 三轮外审定稿 + [P1 存储平铺](plans/2026-06-12-p1-storage-flatten.md) / [P2 子图全局化](plans/2026-06-12-p2-subgraph-globalize.md) 两计划就绪, 说 go 即开 P1。迁移一次性脚本在 P2 末跑+真机。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-12 by 月离 (数据层大整理 P1+P2 全部落地: 平铺布局/子图全局化/库 UI 池化/迁移已跑(备份 data.pre-flatten-2026-06-12)。代码全绿, 差真机验收一轮。)
+**Active focus**: **数据层大整理代码+迁移全完, 待真机验收**(清单见 待验证)。两个 plan 已归档(P1 57698a2 / P2 766e321+f95afaa+af5bd58)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
 - [2026-06-12-data-layout-flatten-subgraph-globalize.md](specs/2026-06-12-data-layout-flatten-subgraph-globalize.md) — 数据层大整理 — 目录平铺(删 assets/library 中间层) + 子图全局化(容器只引用不复制) + 架构耐久性根基
-- [2026-06-12-p1-storage-flatten.md](plans/2026-06-12-p1-storage-flatten.md) — Phase 1 存储平铺 — assets 按类拆 templates//clips/ + blobs 上提 + schedules 拍平 + 死目录清除 + 启动防呆闸 + schemaVersion 字段
-- [2026-06-12-p2-subgraph-globalize.md](plans/2026-06-12-p2-subgraph-globalize.md) — Phase 2 子图全局化 — 全局 subgraph.Store + rev 乐观锁 + 闭包咽喉 ClosureResult + referrer 删除安全 + 匿名 GC + library 整删 + 前端池化 + 一次性迁移脚本
 <!-- /AUTO -->
 
 ## 下一步
 
-用户过目 P1/P2 计划 → go 即按 [P1](plans/2026-06-12-p1-storage-flatten.md) 任务 1-7 开干(asset 按类拆 + blobs 上提 + schedules 拍平 + 死目录清除 + 防呆闸), 接 [P2](plans/2026-06-12-p2-subgraph-globalize.md) 1-17(全局 store → 咽喉 → 运行时 → RPC/GC → library 删 → 前端池化 → 迁移脚本+真机)。真机验证与数据迁移统一压 P2 末(P1 期间旧数据不可启动是预期, 防呆闸兜着)。真机债一条不变(待验证: 删被引用模板 referrer 警告)。其余候选(无紧迫): WaitTemplate 孤儿边原子性硬化(真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板, Phase 2 validator 全局校验会顺带覆盖大半); 搜索/大复合 modal 收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错; residue 28 处; StateCycleSmoke 预存红(build.md 在册)。
+真机验收数据层大整理(清单 = 待验证第一条; 删被引用模板 referrer 警告那条旧债顺手一起验)。过了之后: 删 tmp/migrate_flatten.py + tmp/make_testdata.py(一次性工具) + 可删 main.go 的 failIfPreFlattenLayout 防呆闸 + 删备份 bin/data.pre-flatten-2026-06-12(确认无回滚需要后)。spec 待全验过后拍板 flip done。其余候选(无紧迫): 修复 2a0ff140 测试容器的预存悬空引用 sg-0d53b1bb(删那个节点即可); WaitTemplate 孤儿边原子性硬化(真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板, validator 全局校验已覆盖大半); 搜索/大复合 modal 收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错; residue 28 处; StateCycleSmoke 预存红(build.md 在册)。
 
 ## 待复核
 
@@ -21,6 +19,7 @@
 
 ## 待验证
 
+- ⚠ [archive/plans/2026-06-12-p2-subgraph-globalize.md](archive/plans/2026-06-12-p2-subgraph-globalize.md) — 数据层大整理真机验收: 启动(防呆闸不拦新布局) → 容器列表 → fishing-v2 编辑器(子图解析/双击进) → 库页(列子图+引用计数+复制为新子图) → 子图库选中即插引用+缺变量自动补 → fishing-v2 跑一轮。已知点: 2a0ff140 测试容器报"子图缺失"是源数据预存悬空(sg-0d53b1bb), 非迁移损坏。
 - ⚠ [archive/specs/2026-06-11-script-template-dep-extraction.md](archive/specs/2026-06-11-script-template-dep-extraction.md) — 库里删一个被某脚本引用的模板,确认弹「被引用」referrer 警告 + gcBlobs 不回收其 blob(单测已覆盖提取+扫描器接线,差集成/真机这一验)。
 
 ## Hanging tasks

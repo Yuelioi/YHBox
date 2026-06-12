@@ -26,7 +26,7 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 ## 测试留意（预存非回归失败）
 
-跑 `internal/services/container/runtime/` 套件前先 `task build` 填 `bin/data/.../subgraphs/*.json` fixture, 否则 `TestApplyDirection_*` / `TestWatchdog_*` 缺 fixture 失败. `TestScanSubgraphDependencies_*` 也是预存失败、非回归 (撞到别当成自己改坏的).
+runtime 套件 fixture 已入仓 (2026-06-12 子图全局化时迁): `internal/services/container/runtime/testdata/fishing-v2/` + `testdata/templates/`, 不再读 bin/data (用户数据已重铸完整 uuid, 按名读必死)。`TestApplyDirection_*` / `TestWatchdog_*` 仍红 = `apply_direction.json` / `watchdog_check.json` 两个 fixture 本机从来没有 — 从有它们的机器补进 testdata/fishing-v2/subgraphs/ 即愈。`TestScanSubgraphDependencies_*` 也是预存失败、非回归 (撞到别当成自己改坏的).
 
 `TestFishingV2Main_StateCycleSmoke` 本机预存红 (2026-06-11 git stash 实证改动前同样 `clicks=0 finalState=IDLE`): mock 模板没命中 → state_IDLE 一直走 NotFound 兜底分支, 疑与本机 fishing-v2 数据迁 GUID 资产后 mock 名解析有关, 待单独排查.
 
