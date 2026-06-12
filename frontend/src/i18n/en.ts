@@ -1964,6 +1964,7 @@
     },
     batch: {
       selected_n: '{n} subgraphs selected',
+      menu: 'Batch actions',
       add_tags: 'Add tags',
       delete: 'Delete selected',
       clear: 'Clear selection',

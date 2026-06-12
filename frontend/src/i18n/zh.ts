@@ -2001,6 +2001,7 @@ export default {
     },
     batch: {
       selected_n: '已选 {n} 个子图',
+      menu: '批量操作',
       add_tags: '批量加标签',
       delete: '批量删除',
       clear: '取消选择',

@@ -131,12 +131,22 @@
           <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
             {{ t('library.toolbar.total', { n: pageResult.total }) }}
           </div>
-          <div v-else class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-[11px] text-toned">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
-            <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" @click="onBatchDelete">{{ t('library.batch.delete') }}</UButton>
-            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-tags" @click="batchTagsOpen = true">{{ t('library.batch.add_tags') }}</UButton>
-            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-category" @click="batchCategoryOpen = true">{{ t('library.batch.change_category') }}</UButton>
-            <UButton size="xs" variant="ghost" color="neutral" @click="selClear()">{{ t('library.batch.clear') }}</UButton>
+          <div v-else class="flex items-center gap-1.5 min-w-0">
+            <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
+            <UDropdownMenu :items="batchMenuItems">
+              <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
+                {{ t('library.batch.menu') }}
+              </UButton>
+            </UDropdownMenu>
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              icon="i-tabler-x"
+              :aria-label="t('library.batch.clear')"
+              :title="t('library.batch.clear')"
+              @click="selClear()"
+            />
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <UPagination
@@ -417,6 +427,17 @@ async function onBatchAddTags() {
   batchTagsOpen.value = false
   batchTags.value = []
 }
+
+// 批量动作收进下拉 (Gmail/GitHub 式 "N selected + 菜单"), 工具栏不被三个钮撑爆。
+const batchMenuItems = computed(() => [
+  [
+    { label: t('library.batch.add_tags'), icon: 'i-tabler-tags', onSelect: () => { batchTagsOpen.value = true } },
+    { label: t('library.batch.change_category'), icon: 'i-tabler-category', onSelect: () => { batchCategoryOpen.value = true } },
+  ],
+  [
+    { label: t('library.batch.delete'), icon: 'i-tabler-trash', color: 'error' as const, onSelect: () => { void onBatchDelete() } },
+  ],
+])
 
 // ── 批量改分类: 目标分类整体覆盖各选中项 (空 = 移到未分类) ──
 const batchCategoryOpen = ref(false)
