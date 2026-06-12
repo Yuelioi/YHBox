@@ -116,7 +116,7 @@
 
   <!-- 批量加标签 -->
   <BaseModal v-model:open="batchTagsOpen" :title="t('library.batch.add_tags_title')" icon="i-tabler-tags" size="md">
-    <UInputMenu v-model="batchTags" multiple creatable :items="allTags" size="sm" :placeholder="t('library.batch.add_tags_placeholder')" />
+    <UInputMenu v-model="batchTags" multiple :create-item="'always'" :items="allTags" size="sm" :placeholder="t('library.batch.add_tags_placeholder')" @create="(v: string) => (batchTags = [...batchTags, v])" />
     <template #footer>
       <UButton variant="ghost" color="neutral" @click="batchTagsOpen = false">{{ t('common.cancel') }}</UButton>
       <UButton color="primary" :disabled="batchTags.length === 0" @click="onBatchAddTags">{{ t('library.batch.add_tags_apply') }}</UButton>
@@ -125,7 +125,7 @@
 
   <!-- 批量改分类 -->
   <BaseModal v-model:open="batchCategoryOpen" :title="t('library.batch.change_category_title')" icon="i-tabler-category" size="md">
-    <UInputMenu v-model="batchCategory" creatable :items="allCategories" size="sm" :placeholder="t('library.batch.change_category_placeholder')" />
+    <UInputMenu v-model="batchCategory" :create-item="'always'" :items="allCategories" size="sm" :placeholder="t('library.batch.change_category_placeholder')" @create="(v: string) => (batchCategory = v)" />
     <template #footer>
       <UButton variant="ghost" color="neutral" @click="batchCategoryOpen = false">{{ t('common.cancel') }}</UButton>
       <UButton color="primary" @click="onBatchChangeCategory">{{ t('library.batch.change_category_apply') }}</UButton>

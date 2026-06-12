@@ -16,7 +16,7 @@
       </UFormField>
 
       <UFormField :label="t('common.tags')" :hint="t('containers.tags_hint')">
-        <UInputMenu v-model="form.tags" multiple :items="allTags" :create-item="true" size="sm" />
+        <UInputMenu v-model="form.tags" multiple :items="allTags" :create-item="'always'" size="sm" @create="(v: string) => (form.tags = [...(form.tags ?? []), v])" />
       </UFormField>
 
       <UFormField :label="t('containers.input_backend_label')">

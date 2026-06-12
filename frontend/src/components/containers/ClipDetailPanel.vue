@@ -67,11 +67,12 @@
         <label class="block text-xs text-toned">{{ t('common.category') }}</label>
         <UInputMenu
           :model-value="clip.category ?? ''"
-          creatable
+          :create-item="'always'"
           :items="allCategories"
           size="sm"
           :placeholder="t('library.explorer.category_placeholder')"
           @update:model-value="(v: string) => patch({ category: v ?? '' })"
+          @create="(v: string) => patch({ category: v })"
         />
       </section>
 
@@ -81,10 +82,11 @@
         <UInputMenu
           :model-value="clip.tags ?? []"
           multiple
-          creatable
+          :create-item="'always'"
           :items="allTags"
           size="sm"
           @update:model-value="(v: string[]) => patch({ tags: v })"
+          @create="(v: string) => patch({ tags: [...(clip?.tags ?? []), v] })"
         />
       </section>
 

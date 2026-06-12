@@ -183,10 +183,11 @@
     <UInputMenu
       v-model="batchTags"
       multiple
-      creatable
+      :create-item="'always'"
       :items="allTags"
       size="sm"
       :placeholder="t('library.batch.add_tags_placeholder')"
+      @create="(v: string) => (batchTags = [...batchTags, v])"
     />
     <template #footer>
       <UButton variant="ghost" color="neutral" @click="batchTagsOpen = false">{{ t('common.cancel') }}</UButton>
@@ -198,10 +199,11 @@
   <BaseModal v-model:open="batchCategoryOpen" :title="t('library.batch.change_category_title')" icon="i-tabler-category" size="md">
     <UInputMenu
       v-model="batchCategory"
-      creatable
+      :create-item="'always'"
       :items="allCategories"
       size="sm"
       :placeholder="t('library.batch.change_category_placeholder')"
+      @create="(v: string) => (batchCategory = v)"
     />
     <template #footer>
       <UButton variant="ghost" color="neutral" @click="batchCategoryOpen = false">{{ t('common.cancel') }}</UButton>

@@ -106,11 +106,12 @@
       <label class="text-xs text-toned">{{ t('common.category') }}</label>
       <UInputMenu
         :model-value="subgraph.category ?? ''"
-        creatable
+        :create-item="'always'"
         :items="allCategoriesList"
         size="sm"
         :placeholder="t('library.explorer.category_placeholder')"
         @update:model-value="(v: string) => $emit('update', { category: v ?? '' })"
+        @create="(v: string) => $emit('update', { category: v })"
       />
     </section>
 
@@ -120,10 +121,11 @@
       <UInputMenu
         :model-value="subgraph.tags ?? []"
         multiple
-        creatable
+        :create-item="'always'"
         :items="allTagsList"
         size="sm"
         @update:model-value="(v: string[]) => $emit('update', { tags: v })"
+        @create="(v: string) => $emit('update', { tags: [...(subgraph?.tags ?? []), v] })"
       />
     </section>
   </div>

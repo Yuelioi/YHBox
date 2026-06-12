@@ -210,12 +210,13 @@
           <UInputMenu
             :model-value="(boundSubgraph as any)?.tags ?? []"
             multiple
-            creatable
+            :create-item="'always'"
             :items="allSubgraphTagsList"
             size="sm"
             :placeholder="t('node.Subgraph.inspector.subgraph_tags_placeholder')"
             :disabled="!boundSubgraph"
             @update:model-value="(v: string[]) => onPatchSubgraph({ tags: v })"
+            @create="(v: string) => onPatchSubgraph({ tags: [...((boundSubgraph as any)?.tags ?? []), v] })"
           />
         </div>
 
