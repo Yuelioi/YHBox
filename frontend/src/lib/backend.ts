@@ -116,6 +116,7 @@ export interface Subgraph {
   entry: SubgraphMarker // B2: 子图入口 virtual marker
   outputPins: SubgraphOutputDecl[]
   tags?: string[]
+  category?: string
   // 引用的容器级 var 名字 (保存时后端派生; Type/Default 由消费方按目标容器即时现算)
   requiredGlobals?: string[]
   recordingContext?: RecordingContext
