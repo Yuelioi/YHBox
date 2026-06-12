@@ -22,6 +22,7 @@ export interface ClipSummary {
   id: string
   label: string
   description?: string
+  category?: string
   tags?: string[]
   durationUs: number
   createdAt: string
@@ -34,6 +35,7 @@ export interface InputClip {
   id: string
   label: string
   description?: string
+  category?: string
   tags?: string[]
   durationUs: number
   createdAt: string
@@ -71,12 +73,13 @@ export const useClipsStore = defineStore('clips', () => {
 
   async function update(
     id: string,
-    patch: { label?: string; description?: string; tags?: string[] },
+    patch: { label?: string; description?: string; category?: string; tags?: string[] },
   ): Promise<void> {
     await backend.clipsContainer.update(
       id,
       patch.label ?? '',
       patch.description ?? '',
+      patch.category ?? '',
       patch.tags ?? [],
     )
     await refresh()

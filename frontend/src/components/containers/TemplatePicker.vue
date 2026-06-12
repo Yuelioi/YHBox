@@ -652,7 +652,14 @@ async function removeVariant(res: number[]) {
 
 async function saveMeta() {
   if (!detailGuid.value) return
-  await backend.assets.updateMeta(detailGuid.value, editName.value.trim(), editTags.value)
+  // 保留现有 描述/分类 (picker 只编辑 名称+tag, 别清空管理面设的描述/分类).
+  await backend.assets.updateMeta(
+    detailGuid.value,
+    editName.value.trim(),
+    detailRecord.value?.description ?? '',
+    detailRecord.value?.category ?? '',
+    editTags.value,
+  )
   await tplStore.reload()
 }
 function addTag() {

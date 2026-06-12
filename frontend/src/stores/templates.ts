@@ -50,6 +50,18 @@ export const useTemplatesStore = defineStore('templates', () => {
     return true
   }
 
+  // updateMeta: 改名称/描述/分类/标签 (记录级, 不动变体/blob). 改完 reload 全局列表.
+  async function updateMeta(
+    guid: string,
+    name: string,
+    description: string,
+    category: string,
+    tags: string[],
+  ): Promise<void> {
+    await backend.assets.updateMeta(guid, name, description, category, tags)
+    await reload()
+  }
+
   // readBlobDataURL: 按 AssetSummary.firstBlobSha 拉缩略图.
   async function readBlobDataURL(sha: string): Promise<string | null> {
     if (!sha) return null
@@ -64,5 +76,5 @@ export const useTemplatesStore = defineStore('templates', () => {
     return r === undefined ? null : (r as string)
   }
 
-  return { containerId, map, setContainer, reload, save, remove, capture, readBlobDataURL }
+  return { containerId, map, setContainer, reload, save, remove, updateMeta, capture, readBlobDataURL }
 })

@@ -179,6 +179,8 @@ export interface AssetSummary {
   guid: string
   kind: string         // "template" | "clip"
   name: string
+  description?: string
+  category?: string
   tags?: string[]
   variantCount: number
   firstBlobSha?: string // 首变体 blob sha (FE 用 ReadBlobDataURL 拉缩略图)
@@ -190,6 +192,8 @@ export interface AssetRecord {
   guid: string
   kind: string
   name: string
+  description?: string
+  category?: string
   tags?: string[]
   origin: { kind: string; sourceID?: string }
   variants?: Array<{ resolution: number[]; bbox: number[]; blob: string }>
@@ -289,8 +293,8 @@ export const backend = {
     referrers: (guid: string) =>
       invoke(AssetService.Referrers, guid) as Promise<AssetReferrer[] | undefined>,
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
-    updateMeta: (guid: string, name: string, tags: string[]) =>
-      invoke(AssetService.UpdateMeta, guid, name, tags),
+    updateMeta: (guid: string, name: string, description: string, category: string, tags: string[]) =>
+      invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
     // Capture 截当前容器目标窗口帧 (保留 containerID — 截帧需窗口上下文).
     capture: (containerID: string) => invoke(AssetService.Capture, containerID),
     // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
@@ -374,8 +378,8 @@ export const backend = {
     list: () => invoke(ClipService.List),
     get: (id: string) => invoke(ClipService.Get, id),
     save: (clip: unknown) => invoke(ClipService.Save, clip as any),
-    update: (id: string, label: string, description: string, tags: string[]) =>
-      invoke(ClipService.Update, id, label, description, tags),
+    update: (id: string, label: string, description: string, category: string, tags: string[]) =>
+      invoke(ClipService.Update, id, label, description, category, tags),
     delete_: (id: string) => invoke(ClipService.Delete, id),
     resolve: (id: string) => invoke(ClipService.Resolve, id),
   },
