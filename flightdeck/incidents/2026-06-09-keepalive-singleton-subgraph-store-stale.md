@@ -1,8 +1,8 @@
 ---
 status: active
-when_to_read: 撞容器编辑器里 Subgraph 节点渲染 "(子图未找到)" 但子图磁盘上/后端 ListSubgraphs 明明有; 在多个容器编辑器间切换后某容器独有的子图节点失效; 改 useContainerEditorStore (subgraphsForCurrentContainer / activeContainerID / editorPath 这些全局单例) 或给 <keep-alive> 缓存的编辑器加状态前; 设计"当前容器"类全局单例时
-applies_to: [frontend, vue, keep-alive, pinia, singleton-store, container-editor, subgraph, onActivated, useContainerDraft, ContainerFlowNode]
-last_updated: 2026-06-10
+when_to_read: 撞容器编辑器里 Subgraph 节点渲染 "(子图未找到)" 但子图磁盘上/后端 ListSubgraphs 明明有; 在多个容器编辑器间切换后某容器独有的子图节点失效 / 拿错容器的 WindowTarget("没有异环窗口") / 模板截图定位错容器 / 莫名其妙的孤儿边; 改 useContainerEditorStore (subgraphsForCurrentContainer / activeContainerID / editorPath) 或 tplStore.containerId 等任何"当前/前台容器"全局指针前; 给 <keep-alive> 缓存的编辑器加状态前; 加任何新的"前台容器"全局指针时(必须 onMounted+onActivated 都设)
+applies_to: [frontend, vue, keep-alive, pinia, singleton-store, container-editor, subgraph, onActivated, onMounted, foreground-pointer, useContainerDraft, ContainerFlowNode, templates-store, tplStore, capture, WaitTemplate, screen-picker]
+last_updated: 2026-06-12
 resolved_by: 20e25a9 (store 按容器隔离) + 66538fe (firewall: __missing__ 哨兵不进存盘边 + onActivated 重拉; 补 20e25a9 遗留) — 见下 Cases 复发#4
 ---
 
@@ -50,3 +50,19 @@ A 容器折叠/建一个**只属于 A** 的子图 (sg-X) → 切到 B 容器编�
   只补盘上新子图、只动本容器 slot) → 治滞后, 节点正常解析。真机验过。
   **教训**: 渲染兜底哨兵 (`__missing__`/`__empty__`) 必须**与持久化隔离** —— 显示可兜底, 但绝不能进存盘数据;
   否则任何瞬时 store 滞后都会被固化成坏图。前 3 次只堵"怎么别让子图丢", 没堵"哨兵漏进存盘", 所以反复。
+- 2026-06-12 **复发#5** (用户: A 容器编辑中切到 B 容器, 编辑 B 时报"没有异环窗口"——拿的是**A 容器的 WindowTarget**;
+  新建 WaitTemplate 截图后子图保存失败, 边引用不存在的节点 `waittemplate_*` 孤儿边)。
+  **漏网的前台指针**: `tplStore.containerId` (templates.ts) 是**第二个**"前台容器"全局指针, `capture()` / `openScreenPicker`
+  (GeometryWidget.vue:337) 靠它定位本容器目标窗口。它只在 `ContainerEditorView` 的 **onMounted** 设 (setContainer),
+  **漏了 onActivated** —— keep-alive 切回已缓存容器时 onMounted 不跑, 指针停在上一个容器 → WaitTemplate 截图/校验拿错
+  容器的 WindowTarget("没有异环窗口"), 节点没建成留下孤儿边 → 主图保存被 validator 拒。
+  **修法 (本次)**: `onActivated` 也 `tplStore.setContainer(containerID)` —— 跟 `activeContainerID` 自己的
+  onMounted+onActivated(markActive) pattern **同构**。这**不违背**复发#4 line 39 "别用激活重置打补丁"教训: 那条针对
+  **per-container 数据**(re-fetch 丢未存盘编辑, 故按容器隔离); `tplStore.containerId` 背后**无 per-container 数据**
+  (模板资产全局), 纯"前台容器指针", 激活重指即完整正解。
+  **顺带防护**: dirty 守卫原只接 standalone 关窗; 嵌入态切容器(同路由改 param, `onBeforeRouteLeave` 不触发)/返回列表
+  全无 dirty 拦截 → 未保存改动留在 keep-alive 缓存实例里助长串味。本次把守卫收进路由钩子 `onBeforeRouteLeave` +
+  `onBeforeRouteUpdate`, 三态(保存/丢弃/取消), 丢弃 `reload()` 真正回盘。
+  **教训(收紧)**: 任何"当前/前台容器"全局指针, **onMounted 设了就必须 onActivated 也设**(keep-alive 多实例下 onMounted
+  只跑一次)。加这类指针前先分: 纯前台指针(→ onActivated 重指即可) vs 背后有 per-container 数据(→ 必须按容器 key 隔离)。
+  第 5 次同根因复发(指针/数据各踩), **promotion 候选: 该升进 checklist 硬规则**。
