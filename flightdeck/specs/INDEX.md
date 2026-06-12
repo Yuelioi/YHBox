@@ -9,6 +9,7 @@
 
 ### 进行中·完成（active·done）
 - [2026-06-12-library-selection-and-fold-naming.md](2026-06-12-library-selection-and-fold-naming.md) — active — 选中行 primary 高亮(bg-primary/15+ring) + 折叠/裸建子图默认名改「子图 N」序号递增(弃时间戳, 删折叠前缀键) + ConfirmDialog 输入模式打开时全选默认值
+- [2026-06-12-library-modal-polish.md](2026-06-12-library-modal-polish.md) — active — hover 多选框 + 底部工具栏(双态: 计数/分页 ↔ 批量删/加标签/改分类) + 分页(每页条数记忆) + 右栏就地编辑(名称/描述双击, 标签/分类行内控件, 删编辑弹窗) + 插入引用单主 CTA + 删除/复制弱化 + LibraryBatchPanel 连根删
 - [2026-06-12-library-modal-interaction.md](2026-06-12-library-modal-interaction.md) — active — 子图库 modal 交互改版 — 单击选中出详情(删悬停)+双击/按钮插入 + Ctrl/Shift 多选 + 批量删除/加标签 + Subgraph 新增 category 字段(分组按分类) + 分类/标签过滤器
 - [2026-06-12-editor-ux-consolidation.md](2026-06-12-editor-ux-consolidation.md) — active — 编辑器 UX 收口 — 删主界面库 tab(能力全收进编辑器子图库面板, 本地/在线两 tab + 全套增删改查) + 删"新窗口打开"模式(只维护主窗口一条路径) + 面包屑节点计数删除 + 主窗口补未保存标记
 <!-- /AUTO -->
