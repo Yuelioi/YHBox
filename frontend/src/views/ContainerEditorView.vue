@@ -95,13 +95,11 @@
     </div>
 
     <div v-else class="flex flex-col flex-1 min-h-0">
-      <!-- Toolbar 独立一行：左 [面包屑] [录制]，右 [运行状态] [试运行/停止] [保存] [折叠 inspector] -->
+      <!-- Toolbar：左 [面包屑][撤销/重做]，中间空，右 [运行状态][试运行/停止][保存][折叠 inspector]。
+           加内容(节点库/子图库)+ 录制 已移到左侧 rail。 -->
       <ContainerEditorToolbar
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-standalone="isStandalone"
-        :is-recording="recordStore.isRecording || recordStore.isPaused"
-        :recording-target-name="recordingTargetName"
-        :countdown-sec="countdownSec"
         :exec-store-running="execStore.running"
         :running-node-kind="execStore.currentNodeKind ?? undefined"
         :running-node-label="runningNodeLabel"
@@ -115,17 +113,12 @@
         :editor-path="editorStore.editorPath"
         :sg-label-fn="sgLabel"
         :active-node-count="activeGraph?.nodes?.length ?? null"
-        @record="(mode) => startRecording(mode)"
-        @stop-record="stopRecording"
-        @cancel-countdown="startRecording('precise')"
         @try-run="onTryRun"
         @stop-run="onStopRun"
         @save="onSave"
         @reload="onReload"
         @auto-layout="onAutoLayout"
         @validate="onValidate"
-        @open-node-explorer="onOpenNodeExplorer"
-        @open-library-explorer="onOpenLibraryExplorer"
         @open-settings="settingsOpen = true"
         @undo="undo"
         @redo="redo"
@@ -138,22 +131,55 @@
       />
 
       <div class="flex flex-1 min-h-0">
-        <!-- 左活动栏 rail (常驻细栏, VS Code 式): 点图标开/收对应 drawer, 互斥同时只开一个。
-             加节点不在这 (走 toolbar +节点 / Tab / 右键画布)。 -->
+        <!-- 左活动栏 rail (常驻细栏, VS Code 式)。顶部组: 变量/Snippets 开收停靠 drawer,
+             节点库/子图库 点开 5xl modal。底部: 录制 (主操作, 三态)。加节点也可走 Tab / 右键画布。 -->
         <nav class="shrink-0 w-11 border-r border-default flex flex-col items-center py-2 gap-1 bg-elevated/20">
           <button
             v-for="item in leftRail"
             :key="item.key"
             type="button"
             class="size-8 flex items-center justify-center rounded-md transition-colors"
-            :class="sidebarPrefs.leftDrawer === item.key
+            :class="railActive(item)
               ? 'text-primary bg-primary/10'
               : 'text-dimmed hover:text-default hover:bg-elevated/60'"
             :title="item.title"
-            @click="toggleLeftDrawer(item.key)"
+            @click="onRailClick(item)"
           >
             <UIcon :name="item.icon" class="size-5" />
           </button>
+
+          <!-- 底部: 录制主操作 (三态)。录制中=红脉冲点停止 / 倒计时=点立即 / 空闲=下拉精准·简易。 -->
+          <div class="mt-auto pt-1 w-full flex flex-col items-center border-t border-default/60">
+            <button
+              v-if="recordStore.isRecording || recordStore.isPaused"
+              type="button"
+              class="size-8 flex items-center justify-center rounded-md text-error bg-error/15 hover:bg-error/25 transition-colors"
+              :title="recordingTargetName
+                ? t('editor.toolbar.recording_target_tip', { name: recordingTargetName }) + ' · ' + t('editor.toolbar.stop_record')
+                : t('editor.toolbar.stop_record')"
+              @click="stopRecording"
+            >
+              <UIcon name="i-tabler-player-stop-filled" class="size-4 animate-pulse" />
+            </button>
+            <button
+              v-else-if="countdownSec > 0"
+              type="button"
+              class="size-8 flex items-center justify-center rounded-md text-warning bg-warning/15 hover:bg-warning/25 text-sm font-semibold transition-colors"
+              :title="t('editor.toolbar.cancel_countdown_tip')"
+              @click="startRecording('precise')"
+            >
+              {{ countdownSec }}
+            </button>
+            <UDropdownMenu v-else :items="recordMenuItems" :content="{ side: 'right', align: 'end' }">
+              <button
+                type="button"
+                class="size-8 flex items-center justify-center rounded-md text-primary hover:bg-primary/10 transition-colors"
+                :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')"
+              >
+                <UIcon name="i-tabler-circle-dot" class="size-5" />
+              </button>
+            </UDropdownMenu>
+          </div>
         </nav>
 
         <!-- 停靠 drawer: 选中的面板滑出 (挤画布, 不盖)。面板各自带标题/搜索, 无需额外 header。 -->
@@ -690,13 +716,26 @@ function onSubgraphPanelToScript() {
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
-// 左活动栏 rail 项 (变量 / Snippets); 点同图标二次收回。加节点不在此 (toolbar +节点 / Tab / 右键)。
+// 左活动栏 rail 顶部组: 面板类(变量/Snippets → 停靠 drawer, 点同图标收回) + 大目录类
+// (节点库/子图库 → 5xl modal 启动器, 窄 drawer 装不下)。录制单独渲染在 rail 底部 (见模板)。
 const leftRail = [
-  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title') },
-  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets' },
+  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title'), kind: 'drawer' as const },
+  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets', kind: 'drawer' as const },
+  { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer'), kind: 'modal' as const },
+  { key: 'library' as const, icon: 'i-tabler-books', title: t('editor.toolbar.library_explorer'), kind: 'modal' as const },
 ]
 function toggleLeftDrawer(key: 'vars' | 'snippets') {
   sidebarPrefs.value.leftDrawer = sidebarPrefs.value.leftDrawer === key ? null : key
+}
+function onRailClick(item: (typeof leftRail)[number]) {
+  if (item.kind === 'drawer') toggleLeftDrawer(item.key as 'vars' | 'snippets')
+  else if (item.key === 'nodes') onOpenNodeExplorer()
+  else if (item.key === 'library') onOpenLibraryExplorer()
+}
+function railActive(item: (typeof leftRail)[number]): boolean {
+  if (item.kind === 'drawer') return sidebarPrefs.value.leftDrawer === item.key
+  if (item.key === 'nodes') return nodeExplorerOpen.value
+  return libraryExplorerOpen.value
 }
 const leftPane = useSplitpane('editor.splitpane.left', { default: 280, min: 200, max: 480 })
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
@@ -1022,6 +1061,11 @@ useEditorHotkeys({
 const { startRecording, stopRecording, countdownSec } = useRecording({
   draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave, toast,
 })
+// rail 底部录制图标的空闲态下拉: 精准 / 简易。
+const recordMenuItems = [[
+  { label: t('editor.toolbar.record_precise'), icon: 'i-tabler-circle-dot', onSelect: () => startRecording('precise') },
+  { label: t('editor.toolbar.record_simple'), icon: 'i-tabler-bolt', onSelect: () => startRecording('simple') },
+]]
 
 // 节点剪贴板 (Ctrl+C/V) + Subgraph 1:1 复制独立子图副本
 const { onCopySelection, onPasteSelection } = useNodeClipboard({

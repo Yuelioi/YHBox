@@ -1,7 +1,8 @@
 <template>
-  <!-- C2 单行布局：左 [导航 + 面包屑身份] · 中 [撤销/重做 · 加内容 · 录制] · 右 [运行/主操作 · ⋯/设置 · 折叠属性] -->
+  <!-- 单行布局：左 [导航 + 面包屑 + 撤销/重做] · 中 [空] · 右 [运行/主操作 · ⋯/设置 · 折叠属性]
+       (加内容 节点库/子图库 + 录制 已移到左侧 rail) -->
   <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
-    <!-- ====== 左: 回列表(嵌入态) + palette 折叠 + 面包屑身份 ====== -->
+    <!-- ====== 左: 回列表(嵌入态) + 面包屑身份 + 撤销/重做 ====== -->
     <UButton
       v-if="!isStandalone"
       size="xs" variant="ghost" color="neutral"
@@ -18,9 +19,8 @@
       @goto="$emit('goto', $event)"
     />
 
-    <div class="flex-1" />
-
-    <!-- ====== 中: 撤销/重做 + 加内容(节点/库) + 录制 ====== -->
+    <!-- 撤销/重做: 跟在面包屑后 (标题栏左区). 加内容(节点库/子图库)+ 录制已移到左侧 rail。 -->
+    <div class="w-px h-5 bg-default mx-1" />
     <UButton
       size="sm" variant="ghost" color="neutral" icon="i-tabler-arrow-back-up"
       :disabled="!canUndo" :title="t('editor.toolbar.undo')" @click="$emit('undo')"
@@ -29,42 +29,6 @@
       size="sm" variant="ghost" color="neutral" icon="i-tabler-arrow-forward-up"
       :disabled="!canRedo" :title="t('editor.toolbar.redo')" @click="$emit('redo')"
     />
-    <div class="w-px h-5 bg-default mx-1" />
-    <UButton
-      size="sm" variant="ghost" color="neutral" icon="i-tabler-grid-dots"
-      :title="t('editor.toolbar.node_explorer')" @click="$emit('open-node-explorer')"
-    />
-    <UButton
-      size="sm" variant="ghost" color="neutral" icon="i-tabler-books"
-      :title="t('editor.toolbar.library_explorer')" @click="$emit('open-library-explorer')"
-    />
-    <div class="w-px h-5 bg-default mx-1" />
-    <template v-if="isRecording">
-      <UButton size="sm" color="error" variant="solid" icon="i-tabler-square"
-               :title="t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })"
-               @click="$emit('stop-record')">{{ t('editor.toolbar.stop_record') }}</UButton>
-      <span
-        v-if="recordingTargetName"
-        class="inline-flex items-center gap-1.5 rounded-md bg-error/15 border border-error/40 px-2 py-0.5 text-[11px] text-error"
-        :title="t('editor.toolbar.recording_target_tip', { name: recordingTargetName })"
-      >
-        <span class="size-1.5 rounded-full bg-error animate-pulse" />
-        {{ t('editor.toolbar.recording_target', { name: recordingTargetName }) }}
-      </span>
-    </template>
-    <template v-else-if="countdownSec > 0">
-      <UButton size="sm" color="warning" variant="solid" icon="i-tabler-x"
-               :title="t('editor.toolbar.cancel_countdown_tip')"
-               @click="$emit('cancel-countdown')">{{ t('editor.toolbar.cancel_countdown', { n: countdownSec }) }}</UButton>
-    </template>
-    <template v-else>
-      <UButton size="sm" color="primary" variant="soft" icon="i-tabler-circle-dot"
-               :title="t('editor.toolbar.record_precise_tip')"
-               @click="$emit('record', 'precise')">{{ t('editor.toolbar.record_precise') }}</UButton>
-      <UButton size="sm" color="neutral" variant="subtle" icon="i-tabler-bolt"
-               :title="t('editor.toolbar.record_simple_tip')"
-               @click="$emit('record', 'simple')">{{ t('editor.toolbar.record_simple') }}</UButton>
-    </template>
 
     <div class="flex-1" />
 
@@ -123,11 +87,6 @@ const hotkeys = useHotkeysStore()
 
 const props = defineProps<{
   inspectorCollapsed: boolean
-  // recording 三态:  isRecording (后端真的在录) / countdownSec>0 (倒计时中) / 都不是 (空闲)
-  isRecording: boolean
-  // A4: 录制目标容器名 (录制态显示绑定指示器, 空则不显示)
-  recordingTargetName?: string
-  countdownSec: number
   execStoreRunning: boolean
   runningNodeKind: string | undefined
   runningNodeLabel: string
@@ -148,10 +107,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:inspectorCollapsed': [v: boolean]
-  // 'record' 带 mode 参数: 'precise' | 'simple'
-  'record': [mode: 'precise' | 'simple']
-  'stop-record': []
-  'cancel-countdown': []
   'try-run': []
   'stop-run': []
   'save': []
@@ -159,8 +114,6 @@ const emit = defineEmits<{
   'validate': []
   'auto-layout': [direction: 'LR' | 'TB']
   // 工具栏按钮 emits (实际 modal 在父 ContainerEditorView 里挂):
-  'open-node-explorer': []
-  'open-library-explorer': []
   'open-settings': []
   'open-help': []
   'undo': []
