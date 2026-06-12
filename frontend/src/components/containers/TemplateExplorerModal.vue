@@ -58,19 +58,19 @@
                 v-for="item in group.items"
                 :key="item.guid"
                 class="group rounded p-2.5 cursor-pointer"
-                :class="isSelected(item.guid) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
+                :class="rowActive(item.guid) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
                 @click="onRowClick(item.guid, $event)"
               >
                 <div class="flex items-center gap-2">
                   <span
                     class="shrink-0 transition-opacity"
-                    :class="isSelected(item.guid) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+                    :class="pickMode || rowActive(item.guid) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
                     @click.stop
                   >
                     <UCheckbox
-                      :model-value="isSelected(item.guid)"
+                      :model-value="rowActive(item.guid)"
                       size="sm"
-                      @update:model-value="selClick(item.guid, { ctrl: true })"
+                      @update:model-value="onRowCheckbox(item.guid)"
                     />
                   </span>
                   <UIcon name="i-tabler-photo" class="size-4 text-primary shrink-0" />
@@ -89,7 +89,12 @@
 
         <!-- 底部双态: 无选中=计数+分页; 有选中=批量+分页 -->
         <div class="flex items-center justify-between gap-3 pt-2 border-t border-default">
-          <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
+          <!-- pick 模式: 已选用于节点 + 完成 -->
+          <div v-if="pickMode" class="flex items-center gap-2 min-w-0">
+            <span class="text-[11px] text-toned">{{ t('template.picker.selected_count', { n: assigned.length }) }}</span>
+            <UButton size="xs" color="primary" @click="modelOpen = false">{{ t('template.picker.done') }}</UButton>
+          </div>
+          <div v-else-if="selected.size === 0" class="text-[11px] text-dimmed">
             {{ t('library.toolbar.total', { n: pageResult.total }) }}
           </div>
           <div v-else class="flex items-center gap-1.5 min-w-0">
@@ -115,7 +120,13 @@
         </div>
       </div>
 
-      <TemplateDetailPanel class="max-h-[65vh]" :guid="anchor" />
+      <TemplateDetailPanel
+        class="max-h-[65vh]"
+        :guid="anchor"
+        :pick-mode="pickMode"
+        :assigned="anchor ? isAssigned(anchor) : false"
+        @toggle-assign="anchor && toggleAssign(anchor)"
+      />
     </div>
   </BaseModal>
 
@@ -155,9 +166,21 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import TemplateDetailPanel from '@/components/containers/TemplateDetailPanel.vue'
 
 const { t } = useI18n()
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ 'update:open': [v: boolean] }>()
+const props = defineProps<{ open: boolean; pickMode?: boolean; modelValue?: string[] }>()
+const emit = defineEmits<{ 'update:open': [v: boolean]; 'update:modelValue': [v: string[]] }>()
 const modelOpen = useDialogOpen(props, emit)
+
+// pick 模式: 行勾选框=指派给节点 (按 modelValue 回显); 管理模式=批量选 (useListSelection, isSelected/selClick 见下).
+const assigned = computed<string[]>(() => props.modelValue ?? [])
+function isAssigned(guid: string) { return assigned.value.includes(guid) }
+function toggleAssign(guid: string) {
+  emit('update:modelValue', isAssigned(guid) ? assigned.value.filter((g) => g !== guid) : [...assigned.value, guid])
+}
+function rowActive(guid: string) { return props.pickMode ? isAssigned(guid) : isSelected(guid) }
+function onRowCheckbox(guid: string) {
+  if (props.pickMode) toggleAssign(guid)
+  else selClick(guid, { ctrl: true })
+}
 
 const tplStore = useTemplatesStore()
 const toast = useToast()
@@ -244,6 +267,7 @@ useAutoFocusOnOpen(modelOpen, searchInputRef, {
 })
 
 function onRowClick(id: string, e: MouseEvent) {
+  if (props.pickMode) { selClick(id); return } // pick: 行点击只设详情锚点, 不做批量多选
   selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
@@ -253,7 +277,12 @@ async function onNewTemplate() {
   const waiter = awaitWailsEvent<{ id: string; mode: string; payload: any }>('tools:picker-result', (p) => p?.id === id)
   await backend.tools.openScreenPicker('template_save', id, tplStore.containerId)
   const result = await waiter
-  if (!result.payload?.cancelled) await tplStore.reload()
+  if (!result.payload?.cancelled) {
+    await tplStore.reload()
+    if (props.pickMode && result.payload?.guid && !isAssigned(result.payload.guid)) {
+      emit('update:modelValue', [...assigned.value, result.payload.guid])
+    }
+  }
 }
 
 // ── 批量: 直接发 RPC (不逐次 reload), 最后 reload 一次 ──
