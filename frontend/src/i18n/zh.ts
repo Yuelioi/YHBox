@@ -1863,7 +1863,6 @@ export default {
     no_foldable: '选中里没有可折叠的节点 (Start / MouseCalibration 不允许折叠)',
     new_subgraph_title: '新建子图',
     new_subgraph_desc: '为折叠出来的子图取个名字',
-    default_name_prefix: '折叠',
     subgraph_name_label: '子图名称',
     subgraph_name_placeholder: '例如: 上钩处理',
     create_failed: '创建子图失败',

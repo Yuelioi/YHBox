@@ -5,6 +5,8 @@ import { useI18n } from 'vue-i18n'
 import type { GraphNode as VueFlowNode } from '@vue-flow/core'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { useConfirm } from '@/composables/useConfirm'
+import { useContainerEditorStore } from '@/stores/containerEditor'
+import { nextSubgraphName } from '@/lib/subgraphNaming'
 import { randID } from './ids'
 
 export function useFolding(opts: {
@@ -17,6 +19,7 @@ export function useFolding(opts: {
 }) {
   const { draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast } = opts
   const { confirm } = useConfirm()
+  const editorStore = useContainerEditorStore()
   const { t } = useI18n()
 
   async function onFoldSelection() {
@@ -36,7 +39,10 @@ export function useFolding(opts: {
     const labelResult = await confirm({
       title: t('folding.new_subgraph_title'),
       description: t('folding.new_subgraph_desc'),
-      inputDefault: t('folding.default_name_prefix') + ' ' + new Date().toLocaleTimeString().slice(0, 5),
+      inputDefault: nextSubgraphName(
+        editorStore.visibleSubgraphs.map((s) => s.label),
+        t('subgraphLifecycle.default_name_prefix'),
+      ),
       inputLabel: t('folding.subgraph_name_label'),
       inputPlaceholder: t('folding.subgraph_name_placeholder'),
     })

@@ -1835,7 +1835,6 @@
     no_foldable: 'No foldable nodes selected (Start / MouseCalibration cannot be folded)',
     new_subgraph_title: 'New subgraph',
     new_subgraph_desc: 'Give the folded subgraph a name',
-    default_name_prefix: 'Folded',
     subgraph_name_label: 'Subgraph name',
     subgraph_name_placeholder: 'e.g. Hook handler',
     create_failed: 'Create subgraph failed',

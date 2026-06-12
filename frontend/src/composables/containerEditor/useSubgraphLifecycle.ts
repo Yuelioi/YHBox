@@ -2,6 +2,7 @@ import type { Ref, ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend, type Container, type Graph, type GraphNode, type Subgraph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+import { nextSubgraphName } from '@/lib/subgraphNaming'
 import type { ClonedSubgraphForPaste } from './useNodeClipboard'
 import { genNodeID } from './ids'
 
@@ -29,7 +30,7 @@ export function useSubgraphLifecycle(opts: {
     if (!draft.value) return false
     try {
       const created = await backend.subgraphs.create(
-        t('subgraphLifecycle.default_name_prefix') + ' ' + new Date().toLocaleTimeString().slice(0, 5),
+        nextSubgraphName(editorStore.visibleSubgraphs.map((s) => s.label), t('subgraphLifecycle.default_name_prefix')),
       )
       if (!created) return false
       node.config = { ...node.config, SubgraphID: created.id }
