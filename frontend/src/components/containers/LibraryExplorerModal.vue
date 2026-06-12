@@ -419,8 +419,9 @@ async function onBatchAddTags() {
     batchTagsOpen.value = false
     return
   }
+  const ids = [...selected.value]
   let failed = 0
-  for (const id of [...selected.value]) {
+  for (const id of ids) {
     const sg = lib.byId(id)
     if (!sg) {
       failed++

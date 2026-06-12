@@ -43,6 +43,7 @@ declare module 'vue' {
     IconPicker: typeof import('./src/components/containers/inline/IconPicker.vue')['default']
     InlineContextMenu: typeof import('./src/components/containers/InlineContextMenu.vue')['default']
     KeyCapture: typeof import('./src/components/containers/KeyCapture.vue')['default']
+    LibraryBatchPanel: typeof import('./src/components/containers/LibraryBatchPanel.vue')['default']
     LibraryDetailPanel: typeof import('./src/components/containers/LibraryDetailPanel.vue')['default']
     LibraryExplorerModal: typeof import('./src/components/containers/LibraryExplorerModal.vue')['default']
     LogPanel: typeof import('./src/components/LogPanel.vue')['default']
