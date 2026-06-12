@@ -69,6 +69,10 @@ func main() {
 	// 命中即 rename 整个 bin/data 到 bin/data.legacy-2026-05-16/。Best-effort，失败仅日志。
 	backupLegacyDataIfNeeded(rootLog)
 
+	// 平铺布局防呆闸 (2026-06-12 数据层大整理): 检测到旧布局精确标记还在 → 数据没迁移,
+	// 拒绝启动。否则 app 以全新空目录起跑, 用户数据"看起来全丢"且无报错。迁移期过后可删。
+	failIfPreFlattenLayout(rootLog)
+
 	ensureV2DataLayout(rootLog)
 
 	// App 协调器（不暴露 JS）
@@ -172,9 +176,9 @@ func main() {
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
 	nodeSvc := node.NewService()
 
-	// 全局资产库 (template + clip 统一): <dataDir>/assets/{records,blobs}.
+	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.
 	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.
-	assetStore, err := asset.NewStore(filepath.Join(dataDir, "assets"))
+	assetStore, err := asset.NewStore(dataDir)
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("asset store init")
 	}
@@ -574,23 +578,45 @@ func backupLegacyDataIfNeeded(log zerolog.Logger) {
 	log.Info().Str("tag", "MIGRATE").Str("backup", backupDir).Msg("v1 数据已备份；从空 layout 重新起步")
 }
 
-// ensureV2DataLayout 保证 v2 新数据 layout 的 4 个目录存在。
-// 调用点：main()，紧跟 backupLegacyDataIfNeeded 之后。
+// ensureV2DataLayout 保证平铺数据 layout 的顶层目录存在 (类型即目录, 2026-06-12 大整理)。
+// 调用点：main()，紧跟 failIfPreFlattenLayout 之后。
 func ensureV2DataLayout(log zerolog.Logger) {
 	exeDir, err := os.Executable()
 	if err != nil {
-		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 v2 layout 创建")
+		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 layout 创建")
 		return
 	}
 	base := filepath.Join(filepath.Dir(exeDir), "data")
 	dirs := []string{
 		filepath.Join(base, "containers"),
-		filepath.Join(base, "library"),
-		filepath.Join(base, "library", "subgraphs"),
+		filepath.Join(base, "templates"),
+		filepath.Join(base, "clips"),
+		filepath.Join(base, "blobs"),
+		filepath.Join(base, "schedules"),
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			log.Error().Err(err).Str("tag", "MIGRATE").Str("dir", d).Msg("mkdir 失败")
+		}
+	}
+}
+
+// failIfPreFlattenLayout 平铺迁移防呆闸：旧布局精确标记 (data/assets/records 或
+// data/library/subgraphs) 还在 = 数据没跑迁移脚本，拒绝启动。精确到二级路径，
+// 全新安装 / 用户自建无关目录不会误拒。迁移期过后整个函数可删。
+func failIfPreFlattenLayout(log zerolog.Logger) {
+	exeDir, err := os.Executable()
+	if err != nil {
+		return
+	}
+	base := filepath.Join(filepath.Dir(exeDir), "data")
+	for _, marker := range []string{
+		filepath.Join(base, "assets", "records"),
+		filepath.Join(base, "library", "subgraphs"),
+	} {
+		if st, err := os.Stat(marker); err == nil && st.IsDir() {
+			log.Fatal().Str("tag", "MIGRATE").Str("marker", marker).
+				Msg("检测到旧数据布局（2026-06-12 平铺改版前），请先运行迁移脚本再启动；数据本身未受影响")
 		}
 	}
 }

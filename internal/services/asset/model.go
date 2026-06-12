@@ -8,9 +8,13 @@ const (
 	KindClip     = "clip"
 )
 
+// RecordSchemaVersion 资产记录文件格式版本。读取契约: 磁盘上版本 > 此值 → 拒载报错
+// (版本号不是装饰品); 写入时统一盖当前值。演进时在此处升版 + 写一次性升级器。
+const RecordSchemaVersion = 1
+
 // Origin 描述资产来源。
 type Origin struct {
-	Kind     string `json:"kind"`               // "user" | "imported" | "subgraph"
+	Kind     string `json:"kind"` // "user" | "imported" | "subgraph"
 	SourceID string `json:"sourceID,omitempty"`
 }
 
@@ -24,12 +28,13 @@ type Variant struct {
 
 // AssetRecord 全局资产库的一条记录。
 type AssetRecord struct {
-	GUID      string    `json:"guid"`
-	Kind      string    `json:"kind"`               // KindTemplate | KindClip
-	Name      string    `json:"name"`               // 可变显示标签, 可重名
-	Tags      []string  `json:"tags,omitempty"`
-	Origin    Origin    `json:"origin"`
-	Variants  []Variant `json:"variants,omitempty"` // 仅 template; 按 Resolution 唯一
-	Blob      string    `json:"blob,omitempty"`     // 仅 clip: 事件流序列化字节的 sha256
-	CreatedAt time.Time `json:"createdAt"`
+	SchemaVersion int       `json:"schemaVersion"` // 写入时由 store 统一盖 RecordSchemaVersion
+	GUID          string    `json:"guid"`
+	Kind          string    `json:"kind"` // KindTemplate | KindClip
+	Name          string    `json:"name"` // 可变显示标签, 可重名
+	Tags          []string  `json:"tags,omitempty"`
+	Origin        Origin    `json:"origin"`
+	Variants      []Variant `json:"variants,omitempty"` // 仅 template; 按 Resolution 唯一
+	Blob          string    `json:"blob,omitempty"`     // 仅 clip: 事件流序列化字节的 sha256
+	CreatedAt     time.Time `json:"createdAt"`
 }

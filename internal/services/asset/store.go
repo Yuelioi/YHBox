@@ -10,11 +10,11 @@ import (
 	"sync"
 )
 
-// Store 全局资产记录库。
-// 目录布局：
+// Store 全局资产记录库。平铺布局 (类型即目录, kind 是权威、目录是索引):
 //
-//	<root>/records/<guid>.json
-//	<root>/blobs/<sha256>
+//	<dataRoot>/templates/<guid>.json   (kind=template)
+//	<dataRoot>/clips/<guid>.json       (kind=clip)
+//	<dataRoot>/blobs/<sha256>
 type Store struct {
 	mu    sync.RWMutex
 	root  string
@@ -22,34 +22,49 @@ type Store struct {
 	blobs *BlobStore
 }
 
-// NewStore 初始化目录结构，preload 已有记录，坏文件警告跳过不 fail。
-func NewStore(root string) (*Store, error) {
-	recDir := filepath.Join(root, "records")
-	blobDir := filepath.Join(root, "blobs")
+// kindDir kind → 顶层目录名。未知 kind 返回 ""。
+func kindDir(kind string) string {
+	switch kind {
+	case KindTemplate:
+		return "templates"
+	case KindClip:
+		return "clips"
+	}
+	return ""
+}
 
-	if err := os.MkdirAll(recDir, 0o755); err != nil {
-		return nil, fmt.Errorf("asset mkdir records: %w", err)
+// NewStore 初始化目录结构，preload 已有记录，坏 JSON 警告跳过不 fail;
+// kind↔目录不一致 / schemaVersion 超出支持 → 硬错误 (数据损坏, fail fast)。
+func NewStore(dataRoot string) (*Store, error) {
+	for _, d := range []string{"templates", "clips"} {
+		if err := os.MkdirAll(filepath.Join(dataRoot, d), 0o755); err != nil {
+			return nil, fmt.Errorf("asset mkdir %s: %w", d, err)
+		}
 	}
 
-	bs, err := NewBlobStore(blobDir)
+	bs, err := NewBlobStore(filepath.Join(dataRoot, "blobs"))
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Store{
-		root:  root,
+		root:  dataRoot,
 		recs:  map[string]AssetRecord{},
 		blobs: bs,
 	}
-	if err := s.preload(recDir); err != nil {
-		return nil, fmt.Errorf("asset preload: %w", err)
+	for _, kind := range []string{KindTemplate, KindClip} {
+		if err := s.preload(kind); err != nil {
+			return nil, fmt.Errorf("asset preload %s: %w", kindDir(kind), err)
+		}
 	}
 	return s, nil
 }
 
-// preload 扫 records/*.json → 填 recs。坏文件 stderr 跳过，不 fail。
-func (s *Store) preload(recDir string) error {
-	entries, err := os.ReadDir(recDir)
+// preload 扫单个 kind 目录的 *.json → 填 recs。坏文件 stderr 跳过;
+// kind 与目录不符 / 版本超前 → 返回错误让启动 fail fast。
+func (s *Store) preload(expectKind string) error {
+	dir := filepath.Join(s.root, kindDir(expectKind))
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -64,7 +79,7 @@ func (s *Store) preload(recDir string) error {
 		if len(name) < 5 || name[len(name)-5:] != ".json" {
 			continue
 		}
-		path := filepath.Join(recDir, name)
+		path := filepath.Join(dir, name)
 		b, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[asset.Store] skip %q: read error: %v\n", name, err)
@@ -79,23 +94,33 @@ func (s *Store) preload(recDir string) error {
 			fmt.Fprintf(os.Stderr, "[asset.Store] skip %q: empty GUID\n", name)
 			continue
 		}
+		if rec.SchemaVersion > RecordSchemaVersion {
+			return fmt.Errorf("%s: schemaVersion %d 超出本程序支持 (%d)", path, rec.SchemaVersion, RecordSchemaVersion)
+		}
+		if rec.Kind != expectKind {
+			return fmt.Errorf("%s: kind %q 与所在目录 %s/ 不符 (kind 是权威, 文件放错位置)", path, rec.Kind, kindDir(expectKind))
+		}
 		s.recs[rec.GUID] = rec
 	}
 	return nil
 }
 
-// recordPath 返回 guid 对应的 JSON 路径。
-func (s *Store) recordPath(guid string) string {
-	return filepath.Join(s.root, "records", guid+".json")
+// recordPath 返回记录对应的 JSON 路径 (按 kind 分目录)。
+func (s *Store) recordPath(kind, guid string) string {
+	return filepath.Join(s.root, kindDir(kind), guid+".json")
 }
 
-// writeRecord 原子写单条记录到磁盘（temp+rename）。调用方负责持锁。
+// writeRecord 原子写单条记录到磁盘（temp+rename）。统一盖 schemaVersion。调用方负责持锁。
 func (s *Store) writeRecord(rec AssetRecord) error {
+	if kindDir(rec.Kind) == "" {
+		return fmt.Errorf("writeRecord: 未知 kind %q (guid %s)", rec.Kind, rec.GUID)
+	}
+	rec.SchemaVersion = RecordSchemaVersion
 	b, err := json.MarshalIndent(rec, "", "  ")
 	if err != nil {
 		return err
 	}
-	return atomicWriteFile(s.recordPath(rec.GUID), b)
+	return atomicWriteFile(s.recordPath(rec.Kind, rec.GUID), b)
 }
 
 // Get 返回 guid 对应的记录。
@@ -124,6 +149,7 @@ func (s *Store) PutRecord(rec AssetRecord) error {
 	if err := s.writeRecord(rec); err != nil {
 		return fmt.Errorf("PutRecord write: %w", err)
 	}
+	rec.SchemaVersion = RecordSchemaVersion
 	s.recs[rec.GUID] = rec
 	return nil
 }
@@ -149,8 +175,10 @@ func (s *Store) PutRecordMeta(guid, name string, tags []string) error {
 func (s *Store) DeleteRecord(guid string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := os.Remove(s.recordPath(guid)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("DeleteRecord rm: %w", err)
+	if rec, ok := s.recs[guid]; ok {
+		if err := os.Remove(s.recordPath(rec.Kind, guid)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("DeleteRecord rm: %w", err)
+		}
 	}
 	delete(s.recs, guid)
 	return nil

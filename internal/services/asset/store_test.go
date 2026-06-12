@@ -36,7 +36,7 @@ func makeRecord(guid, name, kind string) AssetRecord {
 
 func TestStore_PreloadSkipsCorrupt(t *testing.T) {
 	dir := t.TempDir()
-	recDir := filepath.Join(dir, "records")
+	recDir := filepath.Join(dir, "templates")
 	if err := os.MkdirAll(recDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestStore_DeleteRecord(t *testing.T) {
 	}
 
 	// 磁盘文件也删掉了
-	_, err := os.Stat(filepath.Join(dir, "records", "d1.json"))
+	_, err := os.Stat(filepath.Join(dir, "templates", "d1.json"))
 	if err == nil {
 		t.Error("record file should be removed from disk")
 	}

@@ -172,11 +172,9 @@ func (s *Store) Save(c *Container) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	// v2：每个容器 1 个 subgraphs/ 子目录 + 1 个 templates/ 子目录（即使空也存在）
-	for _, sub := range []string{"subgraphs", "templates"} {
-		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
-			return err
-		}
+	// 每个容器 1 个 subgraphs/ 子目录（即使空也存在; P2 子图全局化后此目录退役）
+	if err := os.MkdirAll(filepath.Join(dir, "subgraphs"), 0o755); err != nil {
+		return err
 	}
 	b, err := json.MarshalIndent(local, "", "  ")
 	if err != nil {

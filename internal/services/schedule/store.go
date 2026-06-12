@@ -25,7 +25,7 @@ func validateID(id string) error {
 	return nil
 }
 
-// Store 跟 container.Store 同构：data/schedules/<id>/schedule.json。
+// Store 平铺单文件：data/schedules/<id>.json。
 type Store struct {
 	mu   sync.RWMutex
 	root string
@@ -46,14 +46,11 @@ func (s *Store) load() error {
 		return err
 	}
 	for _, ent := range entries {
-		if !ent.IsDir() {
+		if ent.IsDir() || filepath.Ext(ent.Name()) != ".json" {
 			continue
 		}
-		path := filepath.Join(s.root, ent.Name(), "schedule.json")
+		path := filepath.Join(s.root, ent.Name())
 		b, err := os.ReadFile(path)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
 		if err != nil {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
@@ -85,19 +82,16 @@ func (s *Store) Save(sc *Schedule) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	dir := filepath.Join(s.root, local.ID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
 	b, err := json.MarshalIndent(local, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, "schedule.json.tmp")
+	path := filepath.Join(s.root, local.ID+".json")
+	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o644); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, filepath.Join(dir, "schedule.json")); err != nil {
+	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
@@ -125,7 +119,7 @@ func (s *Store) List() []Schedule {
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := os.RemoveAll(filepath.Join(s.root, id)); err != nil {
+	if err := os.Remove(filepath.Join(s.root, id+".json")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	delete(s.byID, id)

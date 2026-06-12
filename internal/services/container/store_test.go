@@ -99,9 +99,6 @@ func TestStore_CreatesSubdirsOnSave(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "ctest", "subgraphs")); os.IsNotExist(err) {
 		t.Errorf("expected subgraphs/ dir created next to container.json")
 	}
-	if _, err := os.Stat(filepath.Join(root, "ctest", "templates")); os.IsNotExist(err) {
-		t.Errorf("expected templates/ dir created next to container.json")
-	}
 }
 
 func TestContainerStore_Reload(t *testing.T) {
