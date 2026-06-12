@@ -1,17 +1,19 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-12 by 月离 (编辑器外壳重排真机过 + 用户拍板微调落地: 录制从 rail 底部移回 toolbar 右区最左(检查左边, 紧凑三态单控件); rail 定稿 4 项(变量/Snippets drawer + 节点库/子图库 modal)。跨容器串修复真机过。)
-**Active focus**: **编辑器外壳重排已真机过**(rail 4 项 + 录制在 toolbar 右区 + 面包屑去冗余) + 跨容器状态串根治已真机过。子图转脚本真机过。剩录制新位置看一眼 + 删被引用模板真机债。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-12 by 月离 (数据层大整理 spec 三轮外审收口(第三轮: schemaVersion 读取契约/引用只走 ID/rev 仅单机/RequiredGlobals 只存名字), P1/P2 两个 plan 落盘, 待用户过目后开干。)
+**Active focus**: **数据层大整理**(目录平铺 + 子图全局化) — spec 三轮外审定稿 + [P1 存储平铺](plans/2026-06-12-p1-storage-flatten.md) / [P2 子图全局化](plans/2026-06-12-p2-subgraph-globalize.md) 两计划就绪, 说 go 即开 P1。迁移一次性脚本在 P2 末跑+真机。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
-
+- [2026-06-12-data-layout-flatten-subgraph-globalize.md](specs/2026-06-12-data-layout-flatten-subgraph-globalize.md) — 数据层大整理 — 目录平铺(删 assets/library 中间层) + 子图全局化(容器只引用不复制) + 架构耐久性根基
+- [2026-06-12-p1-storage-flatten.md](plans/2026-06-12-p1-storage-flatten.md) — Phase 1 存储平铺 — assets 按类拆 templates//clips/ + blobs 上提 + schedules 拍平 + 死目录清除 + 启动防呆闸 + schemaVersion 字段
+- [2026-06-12-p2-subgraph-globalize.md](plans/2026-06-12-p2-subgraph-globalize.md) — Phase 2 子图全局化 — 全局 subgraph.Store + rev 乐观锁 + 闭包咽喉 ClosureResult + referrer 删除安全 + 匿名 GC + library 整删 + 前端池化 + 一次性迁移脚本
 <!-- /AUTO -->
 
 ## 下一步
 
-清最后一条真机验证债(见 待验证: 库里删被脚本引用的模板 → 弹 referrer 警告)。编辑器外壳重排(含录制移位)/跨容器修复/子图转脚本真机均已过, 销。之后无在飞项目, 候选(无紧迫): WaitTemplate「先连边再建节点」失败留孤儿边的原子性硬化(本次根因修了暂不触发, 真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 规则升 checklist); 脚本 SubgraphID 容错(运行时报错附现有子图列表 / 编辑期校验字面 SubgraphID 存在性, 2026-06-12 提出未拍板); 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册); StateCycleSmoke 本机预存红排查(build.md 在册, mock 模板没命中)。
+用户过目 P1/P2 计划 → go 即按 [P1](plans/2026-06-12-p1-storage-flatten.md) 任务 1-7 开干(asset 按类拆 + blobs 上提 + schedules 拍平 + 死目录清除 + 防呆闸), 接 [P2](plans/2026-06-12-p2-subgraph-globalize.md) 1-17(全局 store → 咽喉 → 运行时 → RPC/GC → library 删 → 前端池化 → 迁移脚本+真机)。真机验证与数据迁移统一压 P2 末(P1 期间旧数据不可启动是预期, 防呆闸兜着)。真机债一条不变(待验证: 删被引用模板 referrer 警告)。其余候选(无紧迫): WaitTemplate 孤儿边原子性硬化(真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板, Phase 2 validator 全局校验会顺带覆盖大半); 搜索/大复合 modal 收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错; residue 28 处; StateCycleSmoke 预存红(build.md 在册)。
 
 ## 待复核
 
