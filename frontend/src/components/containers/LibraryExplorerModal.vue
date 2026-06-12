@@ -78,13 +78,25 @@
               </div>
               <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
                 <div
-                  class="rounded p-3 cursor-pointer"
+                  class="group rounded p-3 cursor-pointer"
                   :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
                   @click="onRowClick(item.id, $event)"
                   @dblclick="onPick(item.id)"
                   @contextmenu="selClick(item.id)"
                 >
                   <div class="flex items-start gap-2">
+                    <span
+                      class="mt-0.5 shrink-0 transition-opacity"
+                      :class="isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+                      @click.stop
+                      @dblclick.stop
+                    >
+                      <UCheckbox
+                        :model-value="isSelected(item.id)"
+                        size="sm"
+                        @update:model-value="selClick(item.id, { ctrl: true })"
+                      />
+                    </span>
                     <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
                     <div class="flex-1 min-w-0">
                       <div class="text-sm font-medium">{{ item.label }}</div>
@@ -113,57 +125,39 @@
             </template>
           </div>
         </div>
+
+        <!-- 底部工具栏 (双态): 无选中 = 计数 + 分页; 有选中 = 批量操作 + 分页 -->
+        <div class="flex items-center justify-between gap-3 pt-2 border-t border-default">
+          <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
+            {{ t('library.toolbar.total', { n: pageResult.total }) }}
+          </div>
+          <div v-else class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] text-toned">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
+            <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" @click="onBatchDelete">{{ t('library.batch.delete') }}</UButton>
+            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-tags" @click="batchTagsOpen = true">{{ t('library.batch.add_tags') }}</UButton>
+            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-category" @click="batchCategoryOpen = true">{{ t('library.batch.change_category') }}</UButton>
+            <UButton size="xs" variant="ghost" color="neutral" @click="selClear()">{{ t('library.batch.clear') }}</UButton>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <UPagination
+              v-if="pageResult.totalPages > 1"
+              v-model:page="page"
+              :total="pageResult.total"
+              :items-per-page="pageSize"
+              :sibling-count="1"
+              size="xs"
+            />
+            <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
+          </div>
+        </div>
       </div>
 
-      <LibraryBatchPanel
-        v-if="selected.size >= 2"
-        class="max-h-[65vh]"
-        :count="selected.size"
-        @batch-delete="onBatchDelete"
-        @batch-add-tags="batchTagsOpen = true"
-        @clear="selClear()"
-      />
       <LibraryDetailPanel
-        v-else
         class="max-h-[65vh]"
-        :sgID="single"
-        @cleared="selClear()"
-        @insert="single && onPick(single)"
-        @edit="onEditSingle"
+        :sgID="anchor"
+        @insert="anchor && onPick(anchor)"
       />
     </div>
-  </BaseModal>
-
-  <!-- 编辑信息 (名称/描述/分类/标签) — merge patch + rev 乐观锁 -->
-  <BaseModal v-model:open="editOpen" :title="t('library.explorer.edit_title')" icon="i-tabler-pencil" size="md">
-    <div class="space-y-3">
-      <div class="space-y-1.5">
-        <label class="block text-xs text-toned">{{ t('common.name') }}</label>
-        <UInput v-model="editForm.label" size="sm" />
-      </div>
-      <div class="space-y-1.5">
-        <label class="block text-xs text-toned">{{ t('common.description') }}</label>
-        <UTextarea v-model="editForm.description" :rows="3" size="sm" />
-      </div>
-      <div class="space-y-1.5">
-        <label class="block text-xs text-toned">{{ t('common.category') }}</label>
-        <UInputMenu
-          v-model="editForm.category"
-          creatable
-          :items="allCategories"
-          size="sm"
-          :placeholder="t('library.explorer.category_placeholder')"
-        />
-      </div>
-      <div class="space-y-1.5">
-        <label class="block text-xs text-toned">{{ t('common.tags') }}</label>
-        <UInput v-model="editForm.tags" size="sm" :placeholder="t('library.explorer.tags_hint')" />
-      </div>
-    </div>
-    <template #footer>
-      <UButton variant="ghost" color="neutral" @click="editOpen = false">{{ t('common.cancel') }}</UButton>
-      <UButton color="primary" :disabled="!editForm.label.trim()" @click="onSaveEdit">{{ t('common.save') }}</UButton>
-    </template>
   </BaseModal>
 
   <!-- 批量加标签 -->
@@ -181,23 +175,38 @@
       <UButton color="primary" :disabled="batchTags.length === 0" @click="onBatchAddTags">{{ t('library.batch.add_tags_apply') }}</UButton>
     </template>
   </BaseModal>
+
+  <!-- 批量改分类 -->
+  <BaseModal v-model:open="batchCategoryOpen" :title="t('library.batch.change_category_title')" icon="i-tabler-category" size="md">
+    <UInputMenu
+      v-model="batchCategory"
+      creatable
+      :items="allCategories"
+      size="sm"
+      :placeholder="t('library.batch.change_category_placeholder')"
+    />
+    <template #footer>
+      <UButton variant="ghost" color="neutral" @click="batchCategoryOpen = false">{{ t('common.cancel') }}</UButton>
+      <UButton color="primary" @click="onBatchChangeCategory">{{ t('library.batch.change_category_apply') }}</UButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
+import { useLocalStorage } from '@vueuse/core'
 import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 import { useListSelection } from '@/composables/editor/useListSelection'
-import { filterSubgraphs, groupByCategory } from '@/lib/libraryFilter'
+import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import BaseModal from '@/components/common/BaseModal.vue'
 import LibraryDetailPanel from '@/components/containers/LibraryDetailPanel.vue'
-import LibraryBatchPanel from '@/components/containers/LibraryBatchPanel.vue'
 import { backend, type Subgraph } from '@/lib/backend'
-import { errorMessage, toastError } from '@/lib/invoke'
+import { errorMessage } from '@/lib/invoke'
 
 const { t } = useI18n()
 
@@ -258,11 +267,20 @@ const filteredItems = computed<Subgraph[]>(() =>
   }),
 )
 
-const groupedItems = computed(() => groupByCategory(filteredItems.value, t('library.explorer.uncategorized')))
+// ── 分页 (过滤后扁平切页, 页内再分组; 每页条数本机记忆) ──
+const page = ref(1)
+const pageSize = useLocalStorage('library.pageSize', 50)
+const pageSizeItems = computed(() => [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })))
 
-// ── 选中 (单击/Ctrl/Shift; 右键收敛单选) ──
+const pageResult = computed(() => paginate(filteredItems.value, page.value, pageSize.value))
+const groupedItems = computed(() => groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')))
+
+watch([query, categoryFilter, tagFilter, pageSize], () => { page.value = 1 })
+watch(() => pageResult.value.totalPages, (tp) => { if (page.value > tp) page.value = tp })
+
+// ── 选中 (单击/Ctrl/Shift/勾选框; 右键收敛单选); 详情栏跟锚点 = 最后操作行 ──
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
-const { selected, single, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { selected, anchor, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
 
 onMounted(() => refreshLibrary())
 useAutoFocusOnOpen(modelOpen, searchInputRef, {
@@ -271,6 +289,7 @@ useAutoFocusOnOpen(modelOpen, searchInputRef, {
     query.value = ''
     categoryFilter.value = 'all'
     tagFilter.value = []
+    page.value = 1
     selClear()
   },
 })
@@ -289,7 +308,6 @@ function ctxMenuItems(item: Subgraph) {
     [
       { label: t('library.explorer.insert'), icon: 'i-tabler-package-import', onSelect: () => onPick(item.id) },
       { label: t('library.card.duplicate'), icon: 'i-tabler-copy-plus', onSelect: () => onDuplicate(item) },
-      { label: t('library.explorer.edit_info'), icon: 'i-tabler-pencil', onSelect: () => openEdit(item) },
     ],
     [
       { label: t('library.card.copy_id'), icon: 'i-tabler-copy', onSelect: () => onCopyID(item) },
@@ -337,48 +355,6 @@ async function onDelete(item: Subgraph) {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
   // 选中项随 visibleIds 收缩自动剔除, 无需手动清。
-}
-
-// ── 编辑信息 (改名/描述/分类/标签) ──
-const editOpen = ref(false)
-const editTarget = ref<Subgraph | null>(null)
-const editForm = ref({ label: '', description: '', category: '', tags: '' })
-
-function openEdit(item: Subgraph) {
-  editTarget.value = item
-  editForm.value = {
-    label: item.label ?? '',
-    description: item.description ?? '',
-    category: item.category ?? '',
-    tags: (item.tags ?? []).join(', '),
-  }
-  editOpen.value = true
-}
-
-function onEditSingle() {
-  const sg = single.value ? lib.byId(single.value) : undefined
-  if (sg) openEdit(sg)
-}
-
-async function onSaveEdit() {
-  const sg = editTarget.value
-  if (!sg) return
-  const tags = editForm.value.tags.split(',').map((s) => s.trim()).filter(Boolean)
-  const patch = {
-    label: editForm.value.label.trim(),
-    description: editForm.value.description.trim(),
-    category: (editForm.value.category ?? '').trim(),
-    tags,
-  }
-  // 裸版本 + try/catch: error-only RPC 经 invoke 包装后成败同为 undefined, 辨不出结果。
-  try {
-    await backend.subgraphs.updateSilent(sg.id, JSON.stringify(patch), sg.rev)
-  } catch (e) {
-    toastError(errorMessage(e))
-    return
-  }
-  await lib.reload()
-  editOpen.value = false
 }
 
 // ── 批量删除: 逐项扫引用汇总警告, 确认后逐项删 (各带 rev), 失败聚合一条 toast ──
@@ -440,5 +416,33 @@ async function onBatchAddTags() {
   }
   batchTagsOpen.value = false
   batchTags.value = []
+}
+
+// ── 批量改分类: 目标分类整体覆盖各选中项 (空 = 移到未分类) ──
+const batchCategoryOpen = ref(false)
+const batchCategory = ref('')
+
+async function onBatchChangeCategory() {
+  const target = batchCategory.value.trim()
+  const ids = [...selected.value]
+  let failed = 0
+  for (const id of ids) {
+    const sg = lib.byId(id)
+    if (!sg) {
+      failed++
+      continue
+    }
+    try {
+      await backend.subgraphs.updateSilent(sg.id, JSON.stringify({ category: target }), sg.rev)
+    } catch {
+      failed++
+    }
+  }
+  await lib.reload()
+  if (failed > 0) {
+    toast.add({ title: t('library.batch.partial_failed', { n: failed }), color: 'error' })
+  }
+  batchCategoryOpen.value = false
+  batchCategory.value = ''
 }
 </script>

@@ -1,3 +1,5 @@
+<!-- 子图库右栏详情 (就地编辑): 名称/描述双击改, 标签/分类行内即改即存;
+     插入引用 = 唯一主 CTA; 复制为新/删除弱化到底部一行。 -->
 <template>
   <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
     <div
@@ -10,13 +12,28 @@
     </div>
 
     <div v-else class="p-4 space-y-4">
-      <header class="flex items-start gap-3 pb-3 border-b border-default">
+      <header class="flex items-start gap-3">
         <div class="size-10 rounded-lg flex items-center justify-center shrink-0 bg-fuchsia-500/15 border border-fuchsia-500/40">
           <UIcon name="i-tabler-subtask" class="size-5 text-fuchsia-300" />
         </div>
         <div class="min-w-0 flex-1">
-          <h3 class="text-sm font-medium text-highlighted truncate leading-tight">
-            {{ sg.label || sg.id }}
+          <UInput
+            v-if="editingName"
+            ref="nameInputRef"
+            v-model="draftName"
+            size="sm"
+            @keyup.enter="saveName"
+            @keydown.esc.stop="editingName = false"
+            @blur="saveName"
+          />
+          <h3
+            v-else
+            class="group flex items-center gap-1 text-sm font-medium text-highlighted leading-tight cursor-text"
+            :title="t('library.detail.dblclick_edit')"
+            @dblclick="enterEditName"
+          >
+            <span class="truncate min-w-0">{{ sg.label || sg.id }}</span>
+            <UIcon name="i-tabler-pencil" class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100" />
           </h3>
           <p class="text-[11px] text-dimmed mt-0.5">
             {{ t('library.detail.nodes_and_outputs', { n: sg.graph?.nodes?.length ?? 0, m: sg.outputPins?.length ?? 0 }) }}
@@ -24,31 +41,66 @@
         </div>
       </header>
 
-      <section v-if="sg.description" class="space-y-1.5">
+      <UButton color="primary" icon="i-tabler-package-import" block @click="emit('insert')">
+        {{ t('library.explorer.insert') }}
+      </UButton>
+
+      <section class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('library.detail.description') }}</label>
-        <p class="text-xs text-default whitespace-pre-line">{{ sg.description }}</p>
+        <UTextarea
+          v-if="editingDesc"
+          ref="descInputRef"
+          v-model="draftDesc"
+          :rows="3"
+          size="sm"
+          @keydown.esc.stop="editingDesc = false"
+          @blur="saveDesc"
+        />
+        <p
+          v-else-if="sg.description"
+          class="text-xs text-default whitespace-pre-line cursor-text"
+          :title="t('library.detail.dblclick_edit')"
+          @dblclick="enterEditDesc"
+        >
+          {{ sg.description }}
+        </p>
+        <p v-else class="text-xs text-dimmed italic cursor-text" @dblclick="enterEditDesc">
+          {{ t('library.detail.desc_empty') }}
+        </p>
       </section>
 
-      <!-- 引用计数: 让用户知道在动共享物 (即扫即得, 选中时拉一次)。 -->
+      <section class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('common.category') }}</label>
+        <UInputMenu
+          :model-value="sg.category ?? ''"
+          creatable
+          :items="allCategories"
+          size="sm"
+          :placeholder="t('library.explorer.category_placeholder')"
+          @update:model-value="(v: string) => patchField({ category: v ?? '' })"
+        />
+      </section>
+
+      <section class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('library.detail.tags') }}</label>
+        <UInputMenu
+          :model-value="sg.tags ?? []"
+          multiple
+          creatable
+          :items="allTags"
+          size="sm"
+          @update:model-value="(v: string[]) => patchField({ tags: v })"
+        />
+      </section>
+
       <section class="space-y-1 text-[11px] text-dimmed">
         <div class="flex justify-between">
           <span>{{ t('library.detail.used_by') }}</span>
           <span>{{ useCount === null ? '…' : t('library.detail.used_by_n', { n: useCount }) }}</span>
         </div>
-        <div v-if="sg.category" class="flex justify-between">
-          <span>{{ t('common.category') }}</span>
-          <span>{{ sg.category }}</span>
-        </div>
         <div v-if="sg.createdAt" class="flex justify-between">
           <span>{{ t('library.detail.created_at') }}</span>
           <span>{{ new Date(sg.createdAt).toLocaleString() }}</span>
-        </div>
-      </section>
-
-      <section v-if="(sg.tags ?? []).length > 0" class="space-y-1.5">
-        <label class="block text-xs text-toned">{{ t('library.detail.tags') }}</label>
-        <div class="flex flex-wrap gap-1">
-          <UBadge v-for="tag in sg.tags ?? []" :key="tag" size="xs" variant="subtle">{{ tag }}</UBadge>
         </div>
       </section>
 
@@ -66,23 +118,11 @@
         </button>
       </section>
 
-      <div class="pt-3 border-t border-default flex flex-col gap-2">
-        <UButton size="sm" color="primary" icon="i-tabler-package-import" @click="emit('insert')">
-          {{ t('library.explorer.insert') }}
-        </UButton>
-        <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-pencil" @click="emit('edit')">
-          {{ t('library.explorer.edit_info') }}
-        </UButton>
-        <UButton
-          size="sm"
-          variant="soft"
-          color="primary"
-          icon="i-tabler-copy-plus"
-          @click="onDuplicate"
-        >
+      <div class="pt-3 border-t border-default flex items-center gap-2">
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-copy-plus" @click="onDuplicate">
           {{ t('library.card.duplicate') }}
         </UButton>
-        <UButton size="sm" variant="soft" color="error" icon="i-tabler-trash" @click="onDelete">
+        <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" class="ml-auto" @click="onDelete">
           {{ t('library.detail.delete') }}
         </UButton>
       </div>
@@ -91,29 +131,97 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Subgraph } from '@/lib/backend'
+import { backend, type Subgraph } from '@/lib/backend'
 import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@nuxt/ui/composables'
-import { errorMessage } from '@/lib/invoke'
+import { errorMessage, toastError } from '@/lib/invoke'
 
 const { t } = useI18n()
 
 const props = defineProps<{ sgID: string | null }>()
-
-const emit = defineEmits<{
-  cleared: []
-  insert: []
-  edit: []
-}>()
+const emit = defineEmits<{ insert: [] }>()
 
 const libraryStore = useLibraryStore()
 const { confirm } = useConfirm()
 const toast = useToast()
 
 const sg = computed<Subgraph | undefined>(() => (props.sgID ? libraryStore.byId(props.sgID) : undefined))
+
+const allCategories = computed(() => {
+  const set = new Set<string>()
+  for (const s of libraryStore.subgraphs) if (s.category) set.add(s.category)
+  return [...set].sort()
+})
+const allTags = computed(() => {
+  const set = new Set<string>()
+  for (const s of libraryStore.subgraphs) for (const tg of s.tags ?? []) set.add(tg)
+  return [...set].sort()
+})
+
+// ── 字段级保存 (merge patch + rev 乐观锁); 失败 toast, 成败都 reload 对齐磁盘 ──
+async function patchField(patch: Record<string, unknown>) {
+  if (!sg.value) return
+  try {
+    await backend.subgraphs.updateSilent(sg.value.id, JSON.stringify(patch), sg.value.rev)
+  } catch (e) {
+    toastError(errorMessage(e))
+  }
+  await libraryStore.reload()
+}
+
+// ── 名称双击编辑 (CommentBoxNode 习语: editing + draft + nextTick focus) ──
+const editingName = ref(false)
+const draftName = ref('')
+const nameInputRef = ref<any>(null)
+
+async function enterEditName() {
+  if (!sg.value) return
+  draftName.value = sg.value.label ?? ''
+  editingName.value = true
+  await nextTick()
+  const el: HTMLInputElement | undefined = nameInputRef.value?.inputRef
+  el?.focus()
+  el?.select()
+}
+
+function saveName() {
+  if (!editingName.value) return
+  editingName.value = false
+  const next = draftName.value.trim()
+  if (!next || next === sg.value?.label) return
+  void patchField({ label: next })
+}
+
+// ── 描述双击编辑 ──
+const editingDesc = ref(false)
+const draftDesc = ref('')
+const descInputRef = ref<any>(null)
+
+async function enterEditDesc() {
+  if (!sg.value) return
+  draftDesc.value = sg.value.description ?? ''
+  editingDesc.value = true
+  await nextTick()
+  const el: HTMLTextAreaElement | undefined = descInputRef.value?.textareaRef
+  el?.focus()
+}
+
+function saveDesc() {
+  if (!editingDesc.value) return
+  editingDesc.value = false
+  const next = draftDesc.value.trim()
+  if (next === (sg.value?.description ?? '')) return
+  void patchField({ description: next })
+}
+
+// 切换选中项时退出编辑态, 防 draft 串台
+watch(() => props.sgID, () => {
+  editingName.value = false
+  editingDesc.value = false
+})
 
 // 「被 N 个容器使用」— 选中时拉一次 referrers (null = 加载中)。
 const useCount = ref<number | null>(null)
@@ -161,10 +269,9 @@ async function onDelete() {
   })
   if (yes !== true) return
   const ok = await libraryStore.deleteSubgraph(props.sgID)
-  if (ok) {
-    emit('cleared')
-  } else {
+  if (!ok) {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
+  // 列表收缩 → 选中/锚点由 useListSelection 剪枝, 面板自动回空态
 }
 </script>
