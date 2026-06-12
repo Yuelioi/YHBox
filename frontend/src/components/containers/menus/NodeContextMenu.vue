@@ -72,7 +72,7 @@ export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
   | 'toggle-disable' | 'save-as-snippet'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
-  | 'share-to-library' | 'to-script'
+  | 'to-script'
 
 const props = defineProps<{
   open: boolean
@@ -165,12 +165,6 @@ const specialItems = computed(() => {
       key: 'jump-to-subgraph',
       label: t('editor.menu.node.enter_subgraph'),
       icon: 'i-tabler-corner-down-right',
-      colorClass: 'text-sky-300',
-    })
-    items.push({
-      key: 'share-to-library',
-      label: t('editor.menu.node.share_to_library'),
-      icon: 'i-tabler-upload',
       colorClass: 'text-sky-300',
     })
     items.push({

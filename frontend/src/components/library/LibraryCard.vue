@@ -6,33 +6,33 @@
         viewMode === 'list' ? 'p-2 flex items-center gap-3' : 'p-3',
         selected ? 'border-primary ring-2 ring-primary/40' : 'border-default hover:border-primary/50',
       ]"
-      @click="$emit('select', sgID)"
+      @click="$emit('select', sg.id)"
     >
       <div
         v-if="viewMode === 'list'"
         class="size-7 rounded-md flex items-center justify-center shrink-0 bg-fuchsia-500/15 border border-fuchsia-500/40"
       >
-        <UIcon name="i-tabler-package" class="size-4 text-fuchsia-300" />
+        <UIcon name="i-tabler-subtask" class="size-4 text-fuchsia-300" />
       </div>
 
       <div v-if="viewMode === 'list'" class="min-w-0 flex-1 flex items-center gap-2">
         <span class="text-sm font-medium truncate text-default">{{ displayName }}</span>
-        <span v-if="pkg.root.description" class="text-[11px] text-dimmed truncate flex-1">{{ pkg.root.description }}</span>
+        <span v-if="sg.description" class="text-[11px] text-dimmed truncate flex-1">{{ sg.description }}</span>
         <UBadge size="xs" variant="subtle" color="neutral" class="shrink-0">
-          {{ t('library.card.embedded_count', { n: embeddedCount }) }}
+          {{ t('library.card.node_count', { n: nodeCount }) }}
         </UBadge>
       </div>
 
       <template v-else>
         <div class="flex items-center gap-2 mb-2">
-          <UIcon name="i-tabler-package" class="size-4 text-fuchsia-300" />
+          <UIcon name="i-tabler-subtask" class="size-4 text-fuchsia-300" />
           <span class="text-sm font-medium truncate flex-1">{{ displayName }}</span>
-          <UBadge size="xs" variant="subtle" color="neutral">{{ embeddedCount }}</UBadge>
+          <UBadge size="xs" variant="subtle" color="neutral">{{ nodeCount }}</UBadge>
         </div>
-        <p v-if="pkg.root.description" class="text-[11px] text-dimmed mb-2 line-clamp-2">{{ pkg.root.description }}</p>
+        <p v-if="sg.description" class="text-[11px] text-dimmed mb-2 line-clamp-2">{{ sg.description }}</p>
         <div class="flex gap-1 flex-wrap">
-          <UBadge v-if="pkg.assets.length > 0" size="xs" variant="outline" color="neutral">
-            <UIcon name="i-tabler-photo" class="size-3 mr-0.5" />{{ t('library.card.assets_count', { n: pkg.assets.length }) }}
+          <UBadge v-for="tag in sg.tags ?? []" :key="tag" size="xs" variant="outline" color="neutral">
+            {{ tag }}
           </UBadge>
         </div>
       </template>
@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { SubgraphPackage } from '@/lib/backend'
+import type { Subgraph } from '@/lib/backend'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import { errorMessage } from '@/lib/invoke'
@@ -53,8 +53,7 @@ const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
-    sgID: string
-    pkg: SubgraphPackage
+    sg: Subgraph
     selected?: boolean
     viewMode?: 'grid' | 'list'
   }>(),
@@ -63,27 +62,26 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   select: [sgID: string]
-  import: [sgID: string]
 }>()
 
 const libraryStore = useLibraryStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const displayName = computed(() => props.pkg.root.label || props.sgID)
-const embeddedCount = computed(() => 1 + Object.keys(props.pkg.embedded ?? {}).length)
+const displayName = computed(() => props.sg.label || props.sg.id)
+const nodeCount = computed(() => props.sg.graph?.nodes?.length ?? 0)
 
 const ctxMenuItems = computed(() => [
   [
     {
       label: t('library.card.view_detail'),
       icon: 'i-tabler-info-circle',
-      onSelect: () => emit('select', props.sgID),
+      onSelect: () => emit('select', props.sg.id),
     },
     {
-      label: t('library.card.import'),
-      icon: 'i-tabler-arrow-bar-to-down',
-      onSelect: () => emit('import', props.sgID),
+      label: t('library.card.duplicate'),
+      icon: 'i-tabler-copy-plus',
+      onSelect: () => onDuplicate(),
     },
   ],
   [
@@ -105,22 +103,36 @@ const ctxMenuItems = computed(() => [
 
 async function onCopyID() {
   try {
-    await navigator.clipboard.writeText(props.sgID)
+    await navigator.clipboard.writeText(props.sg.id)
     toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check', duration: 1500 })
   } catch (e: any) {
     toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
 }
 
+// 复制为新子图 (fork, ≈Blender Make Local): 想独立改不影响引用方时用。
+async function onDuplicate() {
+  const dup = await libraryStore.duplicateSubgraph(props.sg.id)
+  if (dup) {
+    toast.add({ title: t('library.card.duplicated', { name: dup.label }), color: 'success', icon: 'i-tabler-check' })
+  }
+}
+
+// 删除安全: 先扫引用 — 被容器使用时警告里带"被 N 个容器使用", 确认才真删。
 async function onDelete() {
+  const refs = await libraryStore.referrersOf(props.sg.id)
+  const useCount = libraryStore.containerUseCount(refs)
+  const desc = useCount > 0
+    ? t('library.card.delete_confirm_referenced', { name: displayName.value, n: useCount })
+    : t('library.card.delete_confirm_desc', { name: displayName.value })
   const yes = await confirm({
     title: t('library.card.delete_confirm_title'),
-    description: t('library.card.delete_confirm_desc', { name: displayName.value }),
+    description: desc,
     color: 'error',
     confirmText: t('common.delete'),
   })
   if (yes !== true) return
-  const ok = await libraryStore.deletePackage(props.sgID)
+  const ok = await libraryStore.deleteSubgraph(props.sg.id)
   if (!ok) {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }

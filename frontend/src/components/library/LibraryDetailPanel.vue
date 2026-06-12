@@ -1,7 +1,7 @@
 <template>
   <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
     <div
-      v-if="!sgID"
+      v-if="!sg"
       class="h-full flex flex-col items-center justify-center text-center px-6 py-10"
     >
       <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
@@ -9,41 +9,42 @@
       <p class="text-[11px] text-dimmed mt-1">{{ t('library.detail.empty_hint') }}</p>
     </div>
 
-    <div v-else-if="pkg" class="p-4 space-y-4">
+    <div v-else class="p-4 space-y-4">
       <header class="flex items-start gap-3 pb-3 border-b border-default">
         <div class="size-10 rounded-lg flex items-center justify-center shrink-0 bg-fuchsia-500/15 border border-fuchsia-500/40">
-          <UIcon name="i-tabler-package" class="size-5 text-fuchsia-300" />
+          <UIcon name="i-tabler-subtask" class="size-5 text-fuchsia-300" />
         </div>
         <div class="min-w-0 flex-1">
           <h3 class="text-sm font-medium text-highlighted truncate leading-tight">
-            {{ pkg.root.label || sgID }}
+            {{ sg.label || sg.id }}
           </h3>
           <p class="text-[11px] text-dimmed mt-0.5">
-            {{ t('library.detail.nodes_and_outputs', { n: pkg.root.graph?.nodes?.length ?? 0, m: pkg.root.outputPins?.length ?? 0 }) }}
+            {{ t('library.detail.nodes_and_outputs', { n: sg.graph?.nodes?.length ?? 0, m: sg.outputPins?.length ?? 0 }) }}
           </p>
         </div>
       </header>
 
-      <section v-if="pkg.root.description" class="space-y-1.5">
+      <section v-if="sg.description" class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('library.detail.description') }}</label>
-        <p class="text-xs text-default whitespace-pre-line">{{ pkg.root.description }}</p>
+        <p class="text-xs text-default whitespace-pre-line">{{ sg.description }}</p>
       </section>
 
+      <!-- 引用计数: 让用户知道在动共享物 (即扫即得, 选中时拉一次)。 -->
       <section class="space-y-1 text-[11px] text-dimmed">
         <div class="flex justify-between">
-          <span>{{ t('library.detail.embedded') }}</span>
-          <span>{{ Object.keys(pkg.embedded ?? {}).length }} {{ t('library.detail.count_unit') }}</span>
+          <span>{{ t('library.detail.used_by') }}</span>
+          <span>{{ useCount === null ? '…' : t('library.detail.used_by_n', { n: useCount }) }}</span>
         </div>
-        <div class="flex justify-between">
-          <span>{{ t('library.detail.assets') }}</span>
-          <span>{{ pkg.assets.length }} {{ t('library.detail.count_unit') }}</span>
+        <div v-if="sg.createdAt" class="flex justify-between">
+          <span>{{ t('library.detail.created_at') }}</span>
+          <span>{{ new Date(sg.createdAt).toLocaleString() }}</span>
         </div>
       </section>
 
-      <section v-if="(pkg.root.tags ?? []).length > 0" class="space-y-1.5">
+      <section v-if="(sg.tags ?? []).length > 0" class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('library.detail.tags') }}</label>
         <div class="flex flex-wrap gap-1">
-          <UBadge v-for="t in pkg.root.tags ?? []" :key="t" size="xs" variant="subtle">{{ t }}</UBadge>
+          <UBadge v-for="tag in sg.tags ?? []" :key="tag" size="xs" variant="subtle">{{ tag }}</UBadge>
         </div>
       </section>
 
@@ -53,11 +54,11 @@
           type="button"
           class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
           :class="copied ? 'text-success' : 'text-dimmed'"
-          :title="t('library.detail.click_to_copy') + sgID"
+          :title="t('library.detail.click_to_copy') + sg.id"
           @click="onCopyID"
         >
           <UIcon v-if="copied" name="i-tabler-check" class="size-3 shrink-0" />
-          <span class="truncate">{{ copied ? t('common.copied') : sgID }}</span>
+          <span class="truncate">{{ copied ? t('common.copied') : sg.id }}</span>
         </button>
       </section>
 
@@ -66,10 +67,10 @@
           size="sm"
           variant="soft"
           color="primary"
-          icon="i-tabler-arrow-bar-to-down"
-          @click="$emit('import', sgID)"
+          icon="i-tabler-copy-plus"
+          @click="onDuplicate"
         >
-          {{ t('library.detail.import') }}
+          {{ t('library.card.duplicate') }}
         </UButton>
         <UButton size="sm" variant="soft" color="error" icon="i-tabler-trash" @click="onDelete">
           {{ t('library.detail.delete') }}
@@ -80,9 +81,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { SubgraphPackage } from '@/lib/backend'
+import type { Subgraph } from '@/lib/backend'
 import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@nuxt/ui/composables'
@@ -93,7 +94,6 @@ const { t } = useI18n()
 const props = defineProps<{ sgID: string | null }>()
 
 const emit = defineEmits<{
-  import: [sgID: string]
   cleared: []
 }>()
 
@@ -101,9 +101,16 @@ const libraryStore = useLibraryStore()
 const { confirm } = useConfirm()
 const toast = useToast()
 
-const pkg = computed<SubgraphPackage | undefined>(() =>
-  props.sgID ? libraryStore.packages[props.sgID] : undefined,
-)
+const sg = computed<Subgraph | undefined>(() => (props.sgID ? libraryStore.byId(props.sgID) : undefined))
+
+// 「被 N 个容器使用」— 选中时拉一次 referrers (null = 加载中)。
+const useCount = ref<number | null>(null)
+watch(() => props.sgID, async (id) => {
+  useCount.value = null
+  if (!id) return
+  const refs = await libraryStore.referrersOf(id)
+  useCount.value = libraryStore.containerUseCount(refs)
+}, { immediate: true })
 
 const copied = ref(false)
 let copiedTimer = 0
@@ -119,16 +126,29 @@ async function onCopyID() {
   }
 }
 
+async function onDuplicate() {
+  if (!props.sgID) return
+  const dup = await libraryStore.duplicateSubgraph(props.sgID)
+  if (dup) {
+    toast.add({ title: t('library.card.duplicated', { name: dup.label }), color: 'success', icon: 'i-tabler-check' })
+  }
+}
+
 async function onDelete() {
-  if (!props.sgID || !pkg.value) return
+  if (!props.sgID || !sg.value) return
+  const refs = await libraryStore.referrersOf(props.sgID)
+  const n = libraryStore.containerUseCount(refs)
+  const desc = n > 0
+    ? t('library.card.delete_confirm_referenced', { name: sg.value.label || props.sgID, n })
+    : t('library.card.delete_confirm_desc', { name: sg.value.label || props.sgID })
   const yes = await confirm({
     title: t('library.card.delete_confirm_title'),
-    description: t('library.card.delete_confirm_desc', { name: pkg.value.root.label || props.sgID }),
+    description: desc,
     color: 'error',
     confirmText: t('common.delete'),
   })
   if (yes !== true) return
-  const ok = await libraryStore.deletePackage(props.sgID)
+  const ok = await libraryStore.deleteSubgraph(props.sgID)
   if (ok) {
     emit('cleared')
   } else {

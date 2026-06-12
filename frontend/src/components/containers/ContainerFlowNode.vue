@@ -224,7 +224,7 @@ const boundSubgraphNodeCount = computed<number | null>(() => {
   if (kind.value !== 'Subgraph') return null
   const sgID = props.data?.config?.SubgraphID
   if (!sgID) return null
-  const sg = editorStore.subgraphsForCurrentContainer.find((s) => s.id === sgID)
+  const sg = editorStore.subgraphById(String(sgID))
   return sg?.graph?.nodes?.length ?? null
 })
 
@@ -234,7 +234,7 @@ const execOutPinsForRender = computed<{ id: string; label: string; isError: bool
   if (kind.value === 'Subgraph' || kind.value === 'CollapsedNode') {
     const decls = resolveSubgraphCallExecOut(
       { config: props.data?.config as any },
-      editorStore.subgraphsForCurrentContainer,
+      editorStore.subgraphList,
     )
     const out = decls.map((d) => ({ id: d.id, label: d.name, isError: false }))
     // Spec 的静态 Fail 出口 (region 兜底) 不在子图 outputPins 里, 单独补.

@@ -100,6 +100,7 @@ function makeSg(p: {
 }): Subgraph {
   return {
     id: 'sg-test',
+    rev: 1,
     label: 'T',
     graph: { id: 'g1', version: 1, nodes: p.nodes, edges: p.edges },
     entry: { nodeID: 'in' },

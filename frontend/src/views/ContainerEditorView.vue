@@ -656,8 +656,6 @@ const {
   autoCreateSubgraphForNewNode,
   countSubgraphReferencesIncludeMain,
   findNodeAcrossGraphs,
-  deleteSubgraphCascade,
-  deepCloneSubgraphForCopy,
 } = useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
 
 const selectedID = ref<string | null>(null)
@@ -997,8 +995,27 @@ const { onFoldSelection } = useFolding({
   draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast,
 })
 
-// 保存 + 孤儿 GC. 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
-const { onSave, saveFlash } = useEditorSave({ draft, dirty, toast })
+// 保存 (子图带 rev 乐观锁). 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
+const { onSave, saveFlash, staleSubgraphs, reloadStaleSubgraphs, dismissStaleSubgraphs } =
+  useEditorSave({ containerID, draft, dirty, toast })
+
+// 乐观锁被拒 → "盘上已有更新, 重载?" — 重载取盘上版本丢本地这些子图的修改; 取消保留本地继续改。
+watch(staleSubgraphs, async (ids) => {
+  if (ids.length === 0) return
+  const ok = await confirm({
+    title: t('editorSave.stale_title'),
+    description: t('editorSave.stale_desc', { n: ids.length }),
+    color: 'warning',
+    confirmText: t('editorSave.stale_reload'),
+    cancelText: t('editorSave.stale_keep'),
+  })
+  if (ok === true) {
+    await reloadStaleSubgraphs()
+    syncFlowFromDraft()
+  } else {
+    dismissStaleSubgraphs()
+  }
+})
 
 // ⚙ 容器设置 (name/hotkey/description/tags + 输入/截图后端/缩放容差) 改完即落盘 —— 不必等保存整个蓝图。
 // 容器热键靠后端 containers.update → emitChange → binder.Refresh 注册到热键中心;
@@ -1035,11 +1052,11 @@ const { startRecording, stopRecording, countdownSec } = useRecording({
   draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave, toast,
 })
 
-// 节点剪贴板 (Ctrl+C/V) + Subgraph 1:1 复制独立子图副本
+// 节点剪贴板 (Ctrl+C/V) — 全局化后粘贴 Subgraph 节点 = 引用同一个全局子图
 const { onCopySelection, onPasteSelection } = useNodeClipboard({
   draft, activeGraph, flowNodes,
   syncFlowFromDraft, refreshSubgraphStore,
-  deepCloneSubgraphForCopy, getSelectedNodes,
+  getSelectedNodes,
   genID: genNodeID, toast,
 })
 
@@ -1115,7 +1132,6 @@ const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect: _onConnectBa
   flowEdges,
   syncFlowFromDraft,
   findNodeAcrossGraphs,
-  deleteSubgraphCascade,
 })
 
 // Wrap onConnect: markConnectSuccess 让 useInlineMenu.onVfConnectEnd 退出 (不开 menu).
@@ -1315,7 +1331,7 @@ function onFixMissingWindowTarget() {
 
 const allSubgraphTags = computed(() => {
   const set = new Set<string>()
-  for (const sg of editorStore.subgraphsForCurrentContainer) {
+  for (const sg of editorStore.visibleSubgraphs) {
     for (const t of sg.tags ?? []) set.add(t)
   }
   return [...set]
@@ -1331,6 +1347,8 @@ function onSubgraphPropsUpdate(patch: Record<string, any>) {
     return
   }
   Object.assign(currentSubgraph.value, patch)
+  // 属性不在 sg.graph 里, activeGraph 深 watch 看不见 — 显式记改动归属本容器。
+  editorStore.touchSubgraph(containerID, currentSubgraph.value.id)
   dirty.value = true
 }
 

@@ -31,7 +31,7 @@ export function useNodeSearch(opts: UseNodeSearchOpts) {
     const q = query.value.toLowerCase().trim()
     if (!q) return []
     const out: NodeSearchResult[] = []
-    walkAllGraphs(draft.value, (n, { location, sgID }) => {
+    walkAllGraphs(draft.value, editorStore.subgraphList, (n, { location, sgID }) => {
       // KIND_LABEL_ZH[k] 值是 i18n key. 搜索 hay 含本地化 label, 跨 locale work.
       const labelKey = KIND_LABEL_ZH[n.kind]
       const localizedKind = labelKey ? t(labelKey) : ''

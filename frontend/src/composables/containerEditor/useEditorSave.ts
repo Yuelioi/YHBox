@@ -41,8 +41,9 @@ export function useEditorSave(opts: {
         const fresh = await backend.subgraphs.get(id)
         if (fresh) editorStore.replaceSubgraph(fresh)
       } catch (e) {
+        // 后端 ErrSubgraphRevStale 的稳定可机检段是英文前缀 "subgraph rev stale"。
         const msg = errorMessage(e)
-        if (msg.includes('rev stale') || msg.includes('盘上已有更新')) {
+        if (msg.includes('rev stale')) {
           stale.push(id)
         } else {
           console.warn('subgraph update failed', id, e)

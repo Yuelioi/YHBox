@@ -230,18 +230,7 @@
         >
           {{ t('node.Subgraph.inspector.enter_subgraph') }}
         </UButton>
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          icon="i-tabler-cloud-upload"
-          block
-          :disabled="!boundSubgraph || publishing"
-          :loading="publishing"
-          @click="onPublishToLibrary"
-        >
-          {{ publishing ? t('node.Subgraph.inspector.publishing') : t('node.Subgraph.inspector.publish_to_library') }}
-        </UButton>
+        <!-- 「发布到库」已删 — 子图全局化后天生在池里, 子图库直接可见。 -->
         <p class="text-[10px] text-dimmed leading-snug">
           {{ t('node.Subgraph.inspector.footer_meta_hint') }}<br />
           {{ t('node.Subgraph.inspector.footer_delete_hint') }}
@@ -829,33 +818,7 @@ function onEnterSubgraph() {
   editorStore.pushPath(String(sgID))
 }
 
-const publishing = ref(false)
-async function onPublishToLibrary() {
-  const sgID = props.node?.config?.SubgraphID
-  const cid = editorStore.activeContainerID
-  if (!sgID || !cid || !boundSubgraph.value) return
-  const yes = await confirmDialog({
-    title: t('node.Subgraph.inspector.publish_confirm_title'),
-    description: t('node.Subgraph.inspector.publish_confirm_desc', { name: boundSubgraph.value.label || sgID }),
-    color: 'primary',
-    confirmText: t('node.Subgraph.inspector.publish_confirm_ok'),
-  })
-  if (yes !== true) return
-  publishing.value = true
-  try {
-    await backend.library.exportSubgraph(cid, String(sgID), true)
-    toastForSync.add({
-      title: t('node.Subgraph.inspector.publish_toast_ok'),
-      description: `${String(sgID)}`,
-      color: 'success',
-      icon: 'i-tabler-cloud-upload',
-    })
-  } catch (e) {
-    toastForSync.add({ title: t('node.Subgraph.inspector.publish_toast_fail'), description: errorMessage(e), color: 'error' })
-  } finally {
-    publishing.value = false
-  }
-}
+// (「发布到库」已删 — 子图全局化后天生在池里。)
 
 // 所有子图聚合 tags（给 UInputMenu autocomplete）— 排除 isAnonymous (用 visibleSubgraphs).
 const allSubgraphTagsList = computed(() => {
@@ -872,7 +835,8 @@ const allSubgraphTagsList = computed(() => {
 function onPatchSubgraph(patch: Record<string, any>) {
   if (!boundSubgraph.value) return
   Object.assign(boundSubgraph.value as any, patch)
-  // dirty 由 useContainerDraft 的 watch(editorStore.subgraphsForCurrentContainer, deep) 自动监控.
+  // label/desc/tags 不在 sg.graph 里, activeGraph 深 watch 看不见 — 显式记改动归属本容器。
+  editorStore.touchSubgraph(editorStore.activeContainerID, (boundSubgraph.value as any).id)
 }
 
 // KIND_LABEL_ZH[k] 值是 i18n key, t() 渲染. fallback 走 kind 字面 (节点未注册).

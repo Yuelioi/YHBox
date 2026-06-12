@@ -22,7 +22,6 @@ function setup(nodes: GraphNode[]) {
     flowEdges,
     syncFlowFromDraft: () => {},
     findNodeAcrossGraphs: () => null,
-    deleteSubgraphCascade: async () => {},
   })
   return { m, graph }
 }

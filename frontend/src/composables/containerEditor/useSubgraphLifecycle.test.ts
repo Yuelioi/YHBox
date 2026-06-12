@@ -35,15 +35,17 @@ function makeContainer(mainNodes: GraphNode[]): Container {
 function setup(draft: Container | null, sgs: Array<{ id: string; graph: Graph; outputPins?: any[] }>) {
   setActivePinia(createPinia())
   const store = useContainerEditorStore()
-  store.setActiveContainer(
-    draft?.id ?? '',
+  store.setActiveContainer(draft?.id ?? '')
+  store.setPool(
     sgs.map((s) => ({
       id: s.id,
+      rev: 1,
       label: s.id,
       outputPins: s.outputPins ?? [],
       entry: { nodeID: 'test-entry' },
       graph: s.graph,
-    })),
+      createdAt: '',
+    })) as any,
   )
   const draftRef = ref<Container | null>(draft)
   const activeGraph = computed<Graph | null>(() => draftRef.value?.graph ?? null)

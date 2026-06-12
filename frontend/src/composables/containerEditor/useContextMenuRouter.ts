@@ -166,22 +166,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   }
 
   // ===== Action dispatchers =====
-  async function shareSubgraphToLibrary(sgID: string) {
-    if (!containerID) return
-    const yes = await confirm({
-      title: t('contextMenu.share_confirm_title'),
-      description: t('contextMenu.share_confirm', { sgID }),
-      color: 'primary',
-      confirmText: t('contextMenu.share_ok'),
-    })
-    if (yes !== true) return
-    try {
-      await backend.library.exportSubgraph(containerID, sgID, true)
-      toast.add({ title: t('contextMenu.share_success', { sgID }), color: 'success', icon: 'i-tabler-check' })
-    } catch (e: any) {
-      toast.add({ title: t('contextMenu.share_failed'), description: errorMessage(e), color: 'error' })
-    }
-  }
+  // (旧「分享到库」已删 — 子图全局化后天生在池里, 子图库直接可见, 无发布动作。)
 
   function onNodeMenuAction(a: NodeMenuAction) {
     const node = nodeMenu.value.node
@@ -223,7 +208,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         const accessByID = new Map(usageRefs.map(r => [r.nodeID, r.access]))
         const refs: RefEntry[] = []
         if (draft.value) {
-          walkAllGraphs(draft.value, (n, { location }) => {
+          walkAllGraphs(draft.value, editorStore.subgraphList, (n, { location }) => {
             if (accessByID.has(n.id)) {
               refs.push({ id: n.id, kind: n.kind, label: n.label, location, access: accessByID.get(n.id) })
             }
@@ -252,12 +237,6 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'jump-to-subgraph': {
         const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
         if (sgID) editorStore.pushPath(sgID)
-        return
-      }
-      case 'share-to-library': {
-        const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
-        if (!sgID) return
-        void shareSubgraphToLibrary(sgID)
         return
       }
       case 'to-script':
@@ -397,11 +376,11 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
     if (!inCurrent) {
       let targetSgID: string | null = null
       let targetNode: GraphNode | undefined
-      for (const sg of draft.value?.subgraphs ?? []) {
+      for (const sg of editorStore.subgraphList) {
         const found = sg.graph?.nodes?.find((n) => n.id === nodeID)
         if (found) {
           targetSgID = sg.id
-          targetNode = found
+          targetNode = found as GraphNode
           break
         }
       }

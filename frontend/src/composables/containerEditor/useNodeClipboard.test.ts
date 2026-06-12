@@ -1,8 +1,7 @@
 // 单元测 useNodeClipboard.onCopySelection 纯逻辑部分:
 //   - 过滤 Start 节点
 //   - 仅复制两端都在 copyset 里的边
-//   - Subgraph 节点联动 deep copy 对应子图到 clipboard
-// onPasteSelection 涉及 backend.createSubgraph / updateSubgraph + 异步链, 集成测试合理.
+//   - 全局化后 Subgraph 节点不再深拷贝子图 (粘贴 = 引用同一个全局子图)
 import { describe, it, expect, vi } from 'vitest'
 // composable 内 useI18n() 只用于 toast/label 文案; 单元测纯逻辑, 把 useI18n mock 成 identity t
 // (否则非组件 setup 调 useI18n 抛 "Must be called at top of setup function")。
@@ -29,15 +28,17 @@ function setup(opts: {
 }) {
   setActivePinia(createPinia())
   const store = useContainerEditorStore()
-  store.setActiveContainer(
-    opts.draft.id,
+  store.setActiveContainer(opts.draft.id)
+  store.setPool(
     (opts.sgs ?? []).map((s) => ({
       id: s.id,
+      rev: 1,
       label: s.label,
       outputPins: s.outputPins ?? [],
       entry: { nodeID: 'test-entry' },
       graph: s.graph,
-    })),
+      createdAt: '',
+    })) as any,
   )
   const draftRef = ref<Container | null>(opts.draft)
   const activeGraph = computed<Graph | null>(() => draftRef.value?.graph ?? null)
@@ -51,10 +52,6 @@ function setup(opts: {
     flowNodes,
     syncFlowFromDraft: () => {},
     refreshSubgraphStore: async () => {},
-    deepCloneSubgraphForCopy: (src) => ({
-      graph: { id: 'clone', version: 1, nodes: src.graph.nodes, edges: src.graph.edges },
-      outputPins: src.outputPins.map((p) => ({ id: 'clone-' + p.id, name: p.name })),
-    }),
     getSelectedNodes,
     genID: () => 'genid',
     toast,
@@ -110,7 +107,7 @@ describe('useNodeClipboard.onCopySelection', () => {
     expect(cb.clipboard.value?.edges[0]).toEqual({ from: 'n1.out', to: 'n2.in' })
   })
 
-  it('Subgraph 节点联动 deep copy 对应子图到 clipboard', () => {
+  it('全局化: Subgraph 节点复制保留引用, 不深拷贝子图', () => {
     const draft: Container = {
       schemaVersion: 1,
       id: 'c1',
@@ -133,8 +130,8 @@ describe('useNodeClipboard.onCopySelection', () => {
     ]
     const { cb } = setup({ draft, selected: [{ id: 'call' }], sgs })
     cb.onCopySelection()
-    expect(cb.clipboard.value?.subgraphsDeepCopy['sg-x']).toBeTruthy()
-    expect(cb.clipboard.value?.subgraphsDeepCopy['sg-x'].label).toBe('sub-x')
+    expect(cb.clipboard.value?.subgraphsDeepCopy).toEqual({})
+    expect(cb.clipboard.value?.nodes[0].config.SubgraphID).toBe('sg-x')
   })
 
   it('选中 0 节点 → clipboard 不动 + toast 不弹', () => {

@@ -1,7 +1,8 @@
-// onSave 保存顺序 + GC 摘除回归测 (录制雪崩根因修):
-//   ① 不再在自动保存里跑孤儿 GC — onSave 永不 deleteSubgraph.
-//   ② 先落盘所有子图, 再保存校验主图 — 主图校验依赖子图存在, 顺序反了会 MISSING_SUBGRAPH 误炸.
+// onSave 保存顺序 + 乐观锁回归测 (全局化版):
+//   ① 只保存本容器 touch 过的子图 (归属隔离), onSave 永不 deleteSubgraph.
+//   ② 先落盘子图, 再保存校验主图 — 主图校验依赖子图存在, 顺序反了会 MISSING_SUBGRAPH 误炸.
 //      子图落盘失败则不碰主图、保留 dirty 让用户重试.
+//   ③ 乐观锁被拒 (盘上 rev 更新) → staleSubgraphs 暴露给 view 弹"重载?", 不碰主图.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // useI18n mock 成 identity t (非组件 setup 调 useI18n 否则抛错).
@@ -16,16 +17,20 @@ const h = vi.hoisted(() => {
   return {
     calls,
     updateSilent: vi.fn(async () => { calls.push('main') }),
-    updateSubgraphSilent: vi.fn(async (_cid: string, sgID: string) => { calls.push('sg:' + sgID) }),
-    deleteSubgraph: vi.fn(async (_cid: string, sgID: string) => { calls.push('del:' + sgID) }),
+    sgUpdateSilent: vi.fn(async (sgID: string) => { calls.push('sg:' + sgID) }),
+    sgGet: vi.fn(async (sgID: string) => ({ id: sgID, rev: 2, label: sgID, outputPins: [], entry: { nodeID: '' }, graph: { id: 'g', version: 1, nodes: [], edges: [] }, createdAt: '' })),
+    sgDelete: vi.fn(async (sgID: string) => { calls.push('del:' + sgID) }),
   }
 })
 vi.mock('@/lib/backend', () => ({
   backend: {
     containers: {
       updateSilent: h.updateSilent,
-      updateSubgraphSilent: h.updateSubgraphSilent,
-      deleteSubgraph: h.deleteSubgraph,
+    },
+    subgraphs: {
+      updateSilent: h.sgUpdateSilent,
+      get: h.sgGet,
+      delete_: h.sgDelete,
     },
   },
 }))
@@ -40,6 +45,7 @@ import type { Container } from '@/lib/backend'
 function sg(id: string, refSubID?: string) {
   return {
     id,
+    rev: 1,
     label: id,
     outputPins: [],
     entry: { nodeID: '' },
@@ -49,13 +55,16 @@ function sg(id: string, refSubID?: string) {
       nodes: refSubID ? [{ id: 'n', kind: 'Subgraph', x: 0, y: 0, config: { SubgraphID: refSubID } }] : [],
       edges: [],
     },
+    createdAt: '',
   }
 }
 
-function setup(sgs: ReturnType<typeof sg>[], mainSubRefs: string[] = []) {
+function setup(sgs: ReturnType<typeof sg>[], mainSubRefs: string[] = [], touched: string[] = []) {
   setActivePinia(createPinia())
   const store = useContainerEditorStore()
-  store.setActiveContainer('c1', sgs as any)
+  store.setActiveContainer('c1')
+  store.setPool(sgs as any)
+  for (const id of touched) store.touchSubgraph('c1', id)
   const draft = ref<Container | null>({
     schemaVersion: 1,
     id: 'c1',
@@ -71,8 +80,8 @@ function setup(sgs: ReturnType<typeof sg>[], mainSubRefs: string[] = []) {
   } as unknown as Container)
   const dirty = ref(true)
   const toast = { add: vi.fn() }
-  const { onSave } = useEditorSave({ draft, dirty, toast })
-  return { onSave, dirty, toast, store }
+  const save = useEditorSave({ containerID: 'c1', draft, dirty, toast })
+  return { ...save, dirty, toast, store }
 }
 
 describe('useEditorSave.onSave', () => {
@@ -81,8 +90,8 @@ describe('useEditorSave.onSave', () => {
     vi.clearAllMocks()
   })
 
-  it('先落盘所有子图, 再保存主图', async () => {
-    const { onSave } = setup([sg('sg-a'), sg('sg-b')], ['sg-a'])
+  it('先落盘 touch 过的子图, 再保存主图', async () => {
+    const { onSave } = setup([sg('sg-a'), sg('sg-b')], ['sg-a'], ['sg-a', 'sg-b'])
     const ok = await onSave()
     expect(ok).toBe(true)
     const mainIdx = h.calls.indexOf('main')
@@ -91,26 +100,43 @@ describe('useEditorSave.onSave', () => {
     expect(h.calls.indexOf('sg:sg-b')).toBeLessThan(mainIdx)
   })
 
+  it('没 touch 的子图不保存 (归属隔离, 不跨容器代保)', async () => {
+    const { onSave } = setup([sg('sg-a'), sg('sg-other')], ['sg-a'], ['sg-a'])
+    await onSave()
+    expect(h.calls).toContain('sg:sg-a')
+    expect(h.calls).not.toContain('sg:sg-other')
+  })
+
   it('子图落盘失败 → 不保存主图, 保留 dirty, 返 false', async () => {
-    h.updateSubgraphSilent.mockImplementationOnce(async () => { throw new Error('boom') })
-    const { onSave, dirty } = setup([sg('sg-a')], ['sg-a'])
+    h.sgUpdateSilent.mockImplementationOnce(async () => { throw new Error('boom') })
+    const { onSave, dirty } = setup([sg('sg-a')], ['sg-a'], ['sg-a'])
     const ok = await onSave()
     expect(ok).toBe(false)
     expect(h.updateSilent).not.toHaveBeenCalled()
     expect(dirty.value).toBe(true)
   })
 
-  it('不删任何子图 (自动保存不跑孤儿 GC)', async () => {
-    // sg-orphan 无任何引用 — 旧逻辑会 GC 删掉, 新逻辑必须留着.
-    const { onSave } = setup([sg('sg-orphan')], [])
-    await onSave()
-    expect(h.deleteSubgraph).not.toHaveBeenCalled()
+  it('乐观锁被拒 → staleSubgraphs 暴露, 不碰主图, 不弹错误 toast', async () => {
+    h.sgUpdateSilent.mockImplementationOnce(async () => { throw new Error('subgraph rev stale: 盘上已有更新 (盘上 rev=3, 基准 rev=1)') })
+    const { onSave, staleSubgraphs, toast } = setup([sg('sg-a')], ['sg-a'], ['sg-a'])
+    const ok = await onSave()
+    expect(ok).toBe(false)
+    expect(staleSubgraphs.value).toEqual(['sg-a'])
+    expect(h.updateSilent).not.toHaveBeenCalled()
+    expect(toast.add).not.toHaveBeenCalled()
   })
 
-  it('全部成功 → dirty=false, 返 true', async () => {
-    const { onSave, dirty } = setup([sg('sg-a')], ['sg-a'])
+  it('不删任何子图 (自动保存不跑孤儿 GC)', async () => {
+    const { onSave } = setup([sg('sg-orphan')], [], ['sg-orphan'])
+    await onSave()
+    expect(h.sgDelete).not.toHaveBeenCalled()
+  })
+
+  it('全部成功 → dirty=false, 返 true, touched 清空', async () => {
+    const { onSave, dirty, store } = setup([sg('sg-a')], ['sg-a'], ['sg-a'])
     const ok = await onSave()
     expect(ok).toBe(true)
     expect(dirty.value).toBe(false)
+    expect(store.touchedFor('c1')).toEqual([])
   })
 })

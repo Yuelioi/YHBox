@@ -42,14 +42,12 @@
             :class="viewMode === 'grid' ? 'grid grid-cols-3 gap-3' : 'flex flex-col gap-1.5'"
           >
             <LibraryCard
-              v-for="sgID in filtered"
-              :key="sgID"
-              :sg-i-d="sgID"
-              :pkg="libraryStore.packages[sgID]"
-              :selected="selectedSgID === sgID"
+              v-for="sg in filtered"
+              :key="sg.id"
+              :sg="sg"
+              :selected="selectedSgID === sg.id"
               :view-mode="viewMode"
               @select="selectedSgID = $event"
-              @import="openImportDialog($event)"
             />
           </div>
           <p v-else class="text-xs text-dimmed text-center py-8">
@@ -66,18 +64,12 @@
 
       <LibraryDetailPanel
         :sg-i-d="selectedSgID"
-        @import="openImportDialog($event)"
         @cleared="selectedSgID = null"
       />
     </div>
 
     <ComingSoonSection v-else-if="sourceTab === 'online'" />
   </div>
-
-  <ImportToContainerDialog
-    v-model:open="importDialog.open"
-    :lib-sg-id="importDialog.sgID"
-  />
 </template>
 
 <script setup lang="ts">
@@ -89,9 +81,9 @@ const { t } = useI18n()
 import LibraryCard from '@/components/library/LibraryCard.vue'
 import LibraryDetailPanel from '@/components/library/LibraryDetailPanel.vue'
 import ComingSoonSection from '@/components/library/ComingSoonSection.vue'
-import ImportToContainerDialog from '@/components/library/ImportToContainerDialog.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useLibraryViewMode } from '@/composables/useLibraryViewMode'
+import type { Subgraph } from '@/lib/backend'
 
 const libraryStore = useLibraryStore()
 const { mode: viewMode, set: setViewMode } = useLibraryViewMode()
@@ -105,33 +97,20 @@ const sourceTabs = computed(() => [
 ])
 const sourceTab = ref('local')
 
-const filtered = computed<string[]>(() => {
-  if (!search.value) return libraryStore.subgraphIds
+const filtered = computed<Subgraph[]>(() => {
+  if (!search.value) return libraryStore.subgraphs
   const q = search.value.toLowerCase()
-  return libraryStore.subgraphIds.filter((id) => {
-    const pkg = libraryStore.packages[id]
-    if (!pkg) return id.toLowerCase().includes(q)
-    const label = pkg.root.label ?? ''
-    const desc = pkg.root.description ?? ''
-    return (
-      id.toLowerCase().includes(q) ||
-      label.toLowerCase().includes(q) ||
-      desc.toLowerCase().includes(q)
-    )
+  return libraryStore.subgraphs.filter((sg) => {
+    const hay = `${sg.id} ${sg.label ?? ''} ${sg.description ?? ''} ${(sg.tags ?? []).join(' ')}`.toLowerCase()
+    return hay.includes(q)
   })
 })
 
-watch(() => libraryStore.subgraphIds, () => {
-  if (selectedSgID.value && !libraryStore.subgraphIds.includes(selectedSgID.value)) {
+watch(() => libraryStore.subgraphs, (list) => {
+  if (selectedSgID.value && !list.some((s) => s.id === selectedSgID.value)) {
     selectedSgID.value = null
   }
 })
-
-const importDialog = ref({ open: false, sgID: '' })
-
-function openImportDialog(sgID: string) {
-  importDialog.value = { open: true, sgID }
-}
 
 async function reload() {
   await libraryStore.reload()

@@ -135,7 +135,15 @@ export function useFlowInteraction(opts: {
       const py = e.clientY - rect.top
       const pos = project({ x: px, y: py })
 
-      await useLibraryStore().importEnsuringGlobals(parsed.id, draft.value.id)
+      // 全局化: 拖入 = 插入引用 (无导入复制)。缺变量自动补 (老 import auto-add 同款体验)。
+      const lib = useLibraryStore()
+      if (lib.pool.length === 0) await lib.reload()
+      const declared = new Set((draft.value.vars ?? []).map((v) => v.name))
+      const missing = lib.missingGlobalsFor(parsed.id, declared)
+      if (missing.length > 0) {
+        if (!draft.value.vars) draft.value.vars = []
+        for (const name of missing) draft.value.vars.push({ name, type: 'any' })
+      }
       const newSubgraphID: string = parsed.id
       const newNode = {
         id: randID('n-call'),

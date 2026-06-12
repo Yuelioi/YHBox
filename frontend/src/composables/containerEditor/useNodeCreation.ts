@@ -245,18 +245,32 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     })
   }
 
-  // LibraryExplorerModal 选 library — 导入子图 + 加 Subgraph 引用节点
+  // LibraryExplorerModal 选子图 — 全局化后选中即插入引用节点 (无导入复制)。
+  // 缺变量检测: 该子图闭包的 requiredGlobals 名字 − 容器已声明 → 自动补 (type any),
+  // toast 告知 (老 import 流程的 auto-add 同款体验, 校验层另有 SUBGRAPH_VAR_UNDECLARED 兜底)。
   async function onPickLibrarySubgraph(libraryID: string) {
     if (!draft.value) return
     try {
-      await useLibraryStore().importEnsuringGlobals(libraryID, draft.value.id)
       await refreshSubgraphStore()
+      const lib = useLibraryStore()
+      if (lib.pool.length === 0) await lib.reload()
+      const declared = new Set((draft.value.vars ?? []).map((v) => v.name))
+      const missing = lib.missingGlobalsFor(libraryID, declared)
+      if (missing.length > 0) {
+        if (!draft.value.vars) draft.value.vars = []
+        for (const name of missing) {
+          draft.value.vars.push({ name, type: 'any' })
+        }
+        toast.add({
+          title: t('nodeCreation.auto_added_vars', { n: missing.length, names: missing.join(', ') }),
+          color: 'info',
+        })
+      }
       addNode({
         kind: 'Subgraph',
         pos: { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 },
         config: { SubgraphID: libraryID },
       })
-      useLibraryStore().reload()
     } catch (e: any) {
       console.error('LibraryExplorer pick failed:', e)
       toast.add({

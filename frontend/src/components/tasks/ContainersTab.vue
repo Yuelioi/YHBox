@@ -123,14 +123,6 @@
             :title="t('containers.open_new_window_tip')"
             @click="onEditInWindow(c)"
           />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-package-export"
-            :title="t('containers.export_tip')"
-            @click="onExport(c)"
-          />
           <div class="flex-1" />
           <UButton
             size="xs"
@@ -287,23 +279,7 @@ function onEdit(c: Container) {
   router.push(`/containers/${c.id}/edit`)
 }
 
-// 导出整容器: 顶层图 + 全部子图 + 资产闭包 → library package (bundle ID = 容器 ID).
-async function onExport(c: Container) {
-  try {
-    await backend.library.exportContainer(c.id, true)
-    toast.add({
-      title: t('containers.toast.exported', { name: c.name }),
-      color: 'success',
-      icon: 'i-tabler-package-export',
-    })
-  } catch (e) {
-    toast.add({
-      title: t('containers.toast.export_failed'),
-      description: errorMessage(e),
-      color: 'error',
-    })
-  }
-}
+// (旧「导出到库」已删 — 子图全局化后无库包概念; 跨机分享按 spec 留口子, 真需要时做 zip 导出。)
 
 async function onEditInWindow(c: Container) {
   // 直接开独立子窗口 (老行为). 同 id 重复点 → containerWindowAdapter focus 已有窗口.

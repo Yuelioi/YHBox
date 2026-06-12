@@ -1,87 +1,102 @@
+// 子图库 store (2026-06-12 全局化): 库 = 全局子图池的视图, 不再有"导入/导出包"。
+// 编辑器内的池由 containerEditor store 持有; 本 store 服务编辑器外的库页 (LibraryView)
+// 与 NodePalette 等独立消费方 — 自己拉 backend.subgraphs.list() 并订阅 subgraph:changed。
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { backend, type SubgraphPackage, type Subgraph, type ImportResult, type VarDecl } from '@/lib/backend'
-import { toastInfo } from '@/lib/invoke'
-import { i18n } from '@/i18n'
+import { backend, type Subgraph, type SubgraphReferrer } from '@/lib/backend'
 
 export const useLibraryStore = defineStore('library', () => {
-  const subgraphIds = ref<string[]>([])
-  const packages = ref<Record<string, SubgraphPackage>>({})
+  const pool = ref<Subgraph[]>([])
   const loading = ref(false)
 
-  // 兼容 NodePalette / LibraryExplorerModal 仍需 subgraphs[] 遍历的旧消费方.
-  const subgraphs = computed<Subgraph[]>(() =>
-    subgraphIds.value.map((id) => packages.value[id]?.root).filter(Boolean) as Subgraph[],
-  )
+  // 库浏览 = 具名子图 (匿名是 CollapsedNode 后备体, 实现细节不展示)。
+  const subgraphs = computed<Subgraph[]>(() => pool.value.filter((s) => !s.isAnonymous))
 
   async function reload() {
     loading.value = true
     try {
-      const ids = ((await backend.library.listSubgraphs()) as string[]) ?? []
-      subgraphIds.value = ids
-      packages.value = {}
-      for (const sgID of ids) {
-        const pkg = await backend.library.getSubgraphPackage(sgID)
-        if (pkg) packages.value[sgID] = pkg as SubgraphPackage
-      }
+      pool.value = ((await backend.subgraphs.list()) ?? []) as Subgraph[]
     } catch (e) {
-      console.warn('library.reload failed', e)
+      console.warn('subgraph pool reload failed', e)
     } finally {
       loading.value = false
     }
   }
 
-  async function deletePackage(sgID: string): Promise<boolean> {
+  function byId(id: string): Subgraph | undefined {
+    return pool.value.find((s) => s.id === id)
+  }
+
+  // referrers — 删除前警告 + 「被 N 个容器使用」(去重非空 containerID)。
+  async function referrersOf(id: string): Promise<SubgraphReferrer[]> {
+    return ((await backend.subgraphs.referrers(id)) ?? []) as SubgraphReferrer[]
+  }
+  function containerUseCount(refs: SubgraphReferrer[]): number {
+    return new Set(refs.map((r) => r.containerID).filter(Boolean)).size
+  }
+
+  async function deleteSubgraph(id: string): Promise<boolean> {
+    const sg = byId(id)
     try {
-      await backend.library.deleteSubgraphPackage(sgID)
+      await backend.subgraphs.delete_(id, sg?.rev ?? 0)
       await reload()
       return true
     } catch (e) {
-      console.warn('library.deletePackage failed', e)
+      console.warn('subgraph delete failed', e)
       return false
     }
   }
 
-  // 导入子图到容器, 并自动补齐目标容器缺的 required globals (子图要用的变量本就必须有).
-  // 用于容器编辑器里的直接导入 (拖拽/点选) — 这些路径不走带提示步的 ImportToContainerDialog.
-  // 补了变量则 toast 告知. 返回导入项 + 实际补的变量名.
-  async function importEnsuringGlobals(
-    libSgID: string,
-    containerID: string,
-  ): Promise<{ imported: { kind: string; key: string }[]; added: string[] } | undefined> {
-    const result = await backend.library.importToContainer(libSgID, containerID)
-    if (!result) return undefined
-    const r = result as ImportResult
-    const missing = r.missingGlobals ?? []
-    let added: string[] = []
-    if (missing.length > 0) {
-      const c = await backend.containers.get(containerID)
-      if (c) {
-        const existing = (c.vars ?? []) as VarDecl[]
-        const names = new Set(existing.map((v) => v.name))
-        const toAdd: VarDecl[] = missing
-          .filter((g) => !names.has(g.name))
-          .map((g) => ({
-            name: g.name,
-            type: (g.type || 'any') as VarDecl['type'],
-            default: (g.default ?? null) as VarDecl['default'],
-          }))
-        if (toAdd.length > 0) {
-          await backend.containers.update(containerID, JSON.stringify({ vars: [...existing, ...toAdd] }))
-          added = toAdd.map((v) => v.name)
-        }
-      }
-    }
-    if (added.length > 0) {
-      toastInfo(i18n.global.t('library.import.auto_added_vars', { n: added.length, names: added.join(', ') }))
-    }
-    return { imported: r.imported ?? [], added }
+  // 复制为新子图 (fork, ≈Blender Make Local)。返回副本。
+  async function duplicateSubgraph(id: string): Promise<Subgraph | undefined> {
+    const dup = await backend.subgraphs.duplicate(id)
+    if (dup) await reload()
+    return dup ?? undefined
   }
 
-  Events.On('library:changed', () => {
+  // missingGlobalsFor — 插入引用前检缺变量: 该子图 + 传递闭包内全部 callee 的
+  // requiredGlobals 名字, 减去 declared。Type/Default 由 caller 按目标容器现算 (这里只有名字)。
+  function missingGlobalsFor(sgID: string, declared: Set<string>): string[] {
+    const missing: string[] = []
+    const seen = new Set<string>()
+    const visited = new Set<string>()
+    const queue = [sgID]
+    while (queue.length > 0) {
+      const id = queue.shift()!
+      if (visited.has(id)) continue
+      visited.add(id)
+      const sg = pool.value.find((s) => s.id === id)
+      if (!sg) continue
+      for (const name of sg.requiredGlobals ?? []) {
+        if (!declared.has(name) && !seen.has(name)) {
+          seen.add(name)
+          missing.push(name)
+        }
+      }
+      for (const n of sg.graph?.nodes ?? []) {
+        const ref = (n as { kind?: string; config?: Record<string, unknown> })
+        const calleeID = ref.config?.SubgraphID as string | undefined
+        if ((ref.kind === 'Subgraph' || ref.kind === 'CollapsedNode') && calleeID) queue.push(calleeID)
+      }
+    }
+    return missing
+  }
+
+  Events.On('subgraph:changed', () => {
     void reload()
   })
 
-  return { subgraphIds, packages, subgraphs, loading, reload, deletePackage, importEnsuringGlobals }
+  return {
+    pool,
+    subgraphs,
+    loading,
+    reload,
+    byId,
+    referrersOf,
+    containerUseCount,
+    deleteSubgraph,
+    duplicateSubgraph,
+    missingGlobalsFor,
+  }
 })

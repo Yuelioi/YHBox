@@ -43,7 +43,7 @@ export function useFolding(opts: {
     if (typeof labelResult !== 'string' || !labelResult.trim()) return
     const label = labelResult.trim()
 
-    const sgRaw = (await backend.containers.createSubgraph(draft.value.id, label)) as any
+    const sgRaw = (await backend.subgraphs.create(label)) as any
     if (!sgRaw) {
       toast.add({ title: t('folding.create_failed'), color: 'error' })
       return
@@ -96,14 +96,15 @@ export function useFolding(opts: {
       innerEdges.push({ from: externalOuts[0].from, to: `${sgOutNodeID}.In` })
     }
 
-    await backend.containers.updateSubgraph(draft.value.id, sgRaw.id, JSON.stringify({
+    // 刚 create 的子图 rev=1, 乐观锁基准直接用返回值的 rev。
+    await backend.subgraphs.update(sgRaw.id, JSON.stringify({
       graph: {
         id: sgRaw.graph.id,
         version: sgRaw.graph.version,
         nodes: [...sgRaw.graph.nodes, ...movedNodes],
         edges: innerEdges,
       },
-    }))
+    }), sgRaw.rev ?? 1)
 
     let callNodeID = ''
     if (activeGraph.value) {

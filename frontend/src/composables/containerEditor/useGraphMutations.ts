@@ -18,10 +18,8 @@ export function useGraphMutations(opts: {
   flowEdges: Ref<FlowEdge[]>
   syncFlowFromDraft: () => void
   findNodeAcrossGraphs: (id: string) => GraphNode | null
-  deleteSubgraphCascade: (sgID: string) => Promise<void>
 }) {
-  const { activeGraph, flowEdges, syncFlowFromDraft, findNodeAcrossGraphs, deleteSubgraphCascade } =
-    opts
+  const { activeGraph, flowEdges, syncFlowFromDraft, findNodeAcrossGraphs } = opts
   const editorStore = useContainerEditorStore()
 
   type EdgeDblClickEvent = { edge: { id: string } }
@@ -72,21 +70,12 @@ export function useGraphMutations(opts: {
       if (ch.type === 'remove') {
         // B2: virtual marker 不能删
         if (virtualMarkerSlot(ch.id)) continue
-        // Subgraph 节点删前 snapshot, 用于级联删子图
-        const removedNode = findNodeAcrossGraphs(ch.id)
-        const removedSubgraphID =
-          removedNode?.kind === 'Subgraph'
-            ? (removedNode.config?.SubgraphID as string | undefined)
-            : undefined
-
+        // 全局化: 删 Subgraph 节点只删引用 — 子图是共享资产留在池里
+        // (匿名孤儿由后端 GC 回收, 具名子图在库页人肉管理), 不再级联删除。
         g.nodes = g.nodes.filter((n) => n.id !== ch.id)
         g.edges = g.edges.filter(
           (e) => !e.from.startsWith(ch.id + '.') && !e.to.startsWith(ch.id + '.'),
         )
-
-        if (removedSubgraphID) {
-          void deleteSubgraphCascade(removedSubgraphID)
-        }
       }
     }
   }

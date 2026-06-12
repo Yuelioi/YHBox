@@ -281,7 +281,7 @@ export function useRecording(opts: RecordOpts) {
     if (!tail) return 'Done'
     if (tail.kind === 'Subgraph' || tail.kind === 'CollapsedNode') {
       const sgID = tail.config?.SubgraphID
-      const sg = useContainerEditorStore().subgraphsForCurrentContainer.find((s) => s.id === sgID)
+      const sg = sgID ? useContainerEditorStore().subgraphById(String(sgID)) : undefined
       return sg?.outputPins?.[0]?.id ?? 'Done'
     }
     return pinsFor(tail.kind).execOut[0] ?? 'Done'

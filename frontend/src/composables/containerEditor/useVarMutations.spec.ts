@@ -1,5 +1,6 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 import { useVarMutations } from './useVarMutations'
 import type { Container } from '@/lib/backend'
 import { NODE_FIELD_SCHEMAS } from '@/components/containers/nodeFieldSchemas'
@@ -23,6 +24,9 @@ function makeDraft(): Container {
 }
 
 describe('useVarMutations', () => {
+  // walkAllGraphs 全局化后经 containerEditor store 解析引用闭包 — 需要活的 pinia。
+  beforeEach(() => setActivePinia(createPinia()))
+
   it('renameVar: changes scope=auto/global/undefined nodes only, preserves scope=local', () => {
     const draft = ref<Container>(makeDraft())
     const m = useVarMutations(draft)

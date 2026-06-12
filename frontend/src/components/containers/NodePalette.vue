@@ -152,16 +152,9 @@ function tooltipFor(sg: Subgraph): string {
   return parts.join('\n')
 }
 
+// (旧「导入到当前容器」已删 — 全局化后拖拽/点选即插入引用, 无导入动作。)
 function ctxMenuItemsFor(sg: Subgraph) {
   return [
-    [
-      {
-        label: t('nodePalette.ctx_import_current'),
-        icon: 'i-tabler-arrow-bar-to-down',
-        disabled: !editorStore.activeContainerID,
-        onSelect: () => onImport(sg),
-      },
-    ],
     [
       {
         label: t('nodePalette.ctx_view_in_library'),
@@ -175,18 +168,6 @@ function ctxMenuItemsFor(sg: Subgraph) {
       },
     ],
   ]
-}
-
-async function onImport(sg: Subgraph) {
-  if (!editorStore.activeContainerID) {
-    toast.add({ title: t('nodePalette.toast_no_active_editor'), color: 'warning' })
-    return
-  }
-  try {
-    await libraryStore.importEnsuringGlobals(sg.id, editorStore.activeContainerID)
-  } catch (e: any) {
-    toast.add({ title: t('toast.import_failed'), description: errorMessage(e), color: 'error' })
-  }
 }
 
 async function onCopyID(id: string) {

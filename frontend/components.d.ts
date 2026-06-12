@@ -42,7 +42,6 @@ declare module 'vue' {
     HotkeyCaptureInput: typeof import('./src/components/hotkeys/HotkeyCaptureInput.vue')['default']
     HudShell: typeof import('./src/components/tools/HudShell.vue')['default']
     IconPicker: typeof import('./src/components/containers/inline/IconPicker.vue')['default']
-    ImportToContainerDialog: typeof import('./src/components/library/ImportToContainerDialog.vue')['default']
     InlineContextMenu: typeof import('./src/components/containers/InlineContextMenu.vue')['default']
     KeyCapture: typeof import('./src/components/containers/KeyCapture.vue')['default']
     LibraryCard: typeof import('./src/components/library/LibraryCard.vue')['default']
