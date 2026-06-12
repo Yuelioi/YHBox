@@ -59,6 +59,7 @@ type InputClip struct {
 	ID          string    `json:"id"`
 	Label       string    `json:"label"`
 	Description string    `json:"description,omitempty"`
+	Category    string    `json:"category,omitempty"` // 库分组用; 同子图 Category 语义
 	Tags        []string  `json:"tags,omitempty"`
 	DurationUs  uint64    `json:"durationUs"` // = Events[last].TUs (Events[0].TUs ≡ 0)
 	CreatedAt   string    `json:"createdAt"`  // RFC3339

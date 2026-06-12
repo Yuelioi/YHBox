@@ -32,6 +32,8 @@ type AssetRecord struct {
 	GUID          string    `json:"guid"`
 	Kind          string    `json:"kind"` // KindTemplate | KindClip
 	Name          string    `json:"name"` // 可变显示标签, 可重名
+	Description   string    `json:"description,omitempty"` // 库管理用; 创建侧填值留后续
+	Category      string    `json:"category,omitempty"`    // 库分组用; 同子图 Category 语义
 	Tags          []string  `json:"tags,omitempty"`
 	Origin        Origin    `json:"origin"`
 	Variants      []Variant `json:"variants,omitempty"` // 仅 template; 按 Resolution 唯一

@@ -22,6 +22,8 @@ type AssetSummary struct {
 	GUID         string   `json:"guid"`
 	Kind         string   `json:"kind"`
 	Name         string   `json:"name"`
+	Description  string   `json:"description,omitempty"`
+	Category     string   `json:"category,omitempty"`
 	Tags         []string `json:"tags,omitempty"`
 	VariantCount int      `json:"variantCount"`
 	FirstBlobSha string   `json:"firstBlobSha,omitempty"`
@@ -149,7 +151,8 @@ func (s *Service) List() []AssetSummary {
 	out := []AssetSummary{}
 	for _, rec := range s.store.List() {
 		sum := AssetSummary{
-			GUID: rec.GUID, Kind: rec.Kind, Name: rec.Name, Tags: rec.Tags,
+			GUID: rec.GUID, Kind: rec.Kind, Name: rec.Name,
+			Description: rec.Description, Category: rec.Category, Tags: rec.Tags,
 			VariantCount: len(rec.Variants),
 		}
 		if !rec.CreatedAt.IsZero() {
@@ -175,12 +178,12 @@ func (s *Service) Get(guid string) (AssetRecord, error) {
 	return rec, nil
 }
 
-// UpdateMeta 改资产显示名 + 标签 (记录级元数据, 不动变体/blob).
-func (s *Service) UpdateMeta(guid, name string, tags []string) error {
+// UpdateMeta 改资产显示名 + 描述 + 分类 + 标签 (记录级元数据, 不动变体/blob).
+func (s *Service) UpdateMeta(guid, name, description, category string, tags []string) error {
 	if _, ok := s.store.Get(guid); !ok {
 		return fmt.Errorf("asset %q not found", guid)
 	}
-	if err := s.store.PutRecordMeta(guid, name, tags); err != nil {
+	if err := s.store.PutRecordMeta(guid, name, description, category, tags); err != nil {
 		return err
 	}
 	s.notifyChange()

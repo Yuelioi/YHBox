@@ -69,12 +69,15 @@ func TestService_RenameDelete(t *testing.T) {
 	svc := NewService(s, nil)
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "旧名", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 
-	if err := svc.UpdateMeta(guid, "新名", []string{"物品", "背包"}); err != nil {
+	if err := svc.UpdateMeta(guid, "新名", "测试描述", "采集", []string{"物品", "背包"}); err != nil {
 		t.Fatal(err)
 	}
 	rec, _ := svc.Get(guid)
 	if rec.Name != "新名" {
 		t.Errorf("rename failed: %q", rec.Name)
+	}
+	if rec.Description != "测试描述" || rec.Category != "采集" {
+		t.Errorf("desc/category update failed: %q / %q", rec.Description, rec.Category)
 	}
 	if len(rec.Tags) != 2 || rec.Tags[0] != "物品" {
 		t.Errorf("tags update failed: %v", rec.Tags)

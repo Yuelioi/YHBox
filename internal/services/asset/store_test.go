@@ -130,12 +130,18 @@ func TestStore_PutRecordMeta(t *testing.T) {
 	s, _ := newTestStore(t)
 	s.PutRecord(makeRecord("m1", "Old Name", KindTemplate))
 
-	if err := s.PutRecordMeta("m1", "New Name", []string{"tag1"}); err != nil {
+	if err := s.PutRecordMeta("m1", "New Name", "新描述", "战斗", []string{"tag1"}); err != nil {
 		t.Fatalf("PutRecordMeta: %v", err)
 	}
 	got, _ := s.Get("m1")
 	if got.Name != "New Name" {
 		t.Errorf("Name: %q", got.Name)
+	}
+	if got.Description != "新描述" {
+		t.Errorf("Description: %q", got.Description)
+	}
+	if got.Category != "战斗" {
+		t.Errorf("Category: %q", got.Category)
 	}
 	if len(got.Tags) != 1 || got.Tags[0] != "tag1" {
 		t.Errorf("Tags: %v", got.Tags)
@@ -144,7 +150,7 @@ func TestStore_PutRecordMeta(t *testing.T) {
 
 func TestStore_PutRecordMeta_NotFound(t *testing.T) {
 	s, _ := newTestStore(t)
-	err := s.PutRecordMeta("nope", "X", nil)
+	err := s.PutRecordMeta("nope", "X", "", "", nil)
 	if err == nil {
 		t.Error("PutRecordMeta on missing guid should error")
 	}

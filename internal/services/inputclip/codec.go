@@ -27,6 +27,7 @@ type headerJSON struct {
 	ID          string   `json:"id"`
 	Label       string   `json:"label"`
 	Description string   `json:"description,omitempty"`
+	Category    string   `json:"category,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 	DurationUs  uint64   `json:"durationUs"`
 	CreatedAt   string   `json:"createdAt"`
@@ -51,7 +52,7 @@ func Encode(w io.Writer, clip *InputClip) error {
 		chunkCount = 0
 	}
 	hdr := headerJSON{
-		ID: clip.ID, Label: clip.Label, Description: clip.Description, Tags: clip.Tags,
+		ID: clip.ID, Label: clip.Label, Description: clip.Description, Category: clip.Category, Tags: clip.Tags,
 		DurationUs: clip.DurationUs, CreatedAt: clip.CreatedAt, Meta: clip.Meta,
 		EventCount: uint32(len(clip.Events)), ChunkCount: chunkCount,
 	}
@@ -174,7 +175,7 @@ func Decode(r io.Reader) (*InputClip, error) {
 		return nil, fmt.Errorf("header json: %w", err)
 	}
 	clip := &InputClip{
-		ID: hdr.ID, Label: hdr.Label, Description: hdr.Description, Tags: hdr.Tags,
+		ID: hdr.ID, Label: hdr.Label, Description: hdr.Description, Category: hdr.Category, Tags: hdr.Tags,
 		DurationUs: hdr.DurationUs, CreatedAt: hdr.CreatedAt, Meta: hdr.Meta,
 	}
 	// Chunks

@@ -13,6 +13,7 @@ type ClipSummary struct {
 	ID          string   `json:"id"`
 	Label       string   `json:"label"`
 	Description string   `json:"description,omitempty"`
+	Category    string   `json:"category,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 	DurationUs  uint64   `json:"durationUs"`
 	CreatedAt   string   `json:"createdAt"`
@@ -109,7 +110,7 @@ func (s *Service) List() []ClipSummary {
 			continue
 		}
 		out = append(out, ClipSummary{
-			ID: clip.ID, Label: clip.Label, Description: clip.Description,
+			ID: clip.ID, Label: clip.Label, Description: clip.Description, Category: clip.Category,
 			Tags: clip.Tags, DurationUs: clip.DurationUs, CreatedAt: clip.CreatedAt,
 			Meta: clip.Meta, EventCount: len(clip.Events),
 		})
@@ -135,14 +136,15 @@ func (s *Service) Resolve(id string) (*InputClip, bool) {
 	return clip, true
 }
 
-// Update 改 metadata (label / description / tags) — 不改 events. 重编码 blob (header 含 metadata).
-func (s *Service) Update(id string, label, description string, tags []string) error {
+// Update 改 metadata (label / description / category / tags) — 不改 events. 重编码 blob (header 含 metadata).
+func (s *Service) Update(id string, label, description, category string, tags []string) error {
 	clip, err := s.Get(id)
 	if err != nil {
 		return err
 	}
 	clip.Label = label
 	clip.Description = description
+	clip.Category = category
 	clip.Tags = tags
 	if err := s.Save(clip); err != nil {
 		return err

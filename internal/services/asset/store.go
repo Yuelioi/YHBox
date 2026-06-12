@@ -155,7 +155,7 @@ func (s *Store) PutRecord(rec AssetRecord) error {
 }
 
 // PutRecordMeta 仅更新 Name 和 Tags，其余字段不变。
-func (s *Store) PutRecordMeta(guid, name string, tags []string) error {
+func (s *Store) PutRecordMeta(guid, name, description, category string, tags []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rec, ok := s.recs[guid]
@@ -163,6 +163,8 @@ func (s *Store) PutRecordMeta(guid, name string, tags []string) error {
 		return fmt.Errorf("PutRecordMeta: guid %q not found", guid)
 	}
 	rec.Name = name
+	rec.Description = description
+	rec.Category = category
 	rec.Tags = tags
 	if err := s.writeRecord(rec); err != nil {
 		return fmt.Errorf("PutRecordMeta write: %w", err)
