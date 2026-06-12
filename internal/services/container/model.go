@@ -142,6 +142,7 @@ type Subgraph struct {
 	OutputPins       []SubgraphOutputDecl `json:"outputPins"`                 // 出口声明 + virtual marker
 	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
 	Tags             []string             `json:"tags,omitempty"`
+	Category         string               `json:"category,omitempty"`         // 库分组键 (空 = 未分类)
 	RequiredGlobals  []string             `json:"requiredGlobals,omitempty"`  // 引用的容器级 var 名字 (保存时派生; 只存名字 — Type/Default 由消费方按目标容器即时现算)
 	RecordingContext *RecordingContext    `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
 	IsAnonymous      bool                 `json:"isAnonymous,omitempty"`      // CollapsedNode 后备子图, 不入库浏览/候选下拉 (实现细节, 非用户资产)
