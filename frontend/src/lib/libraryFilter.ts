@@ -39,3 +39,19 @@ export function groupByCategory<T extends { category?: string }>(items: T[], unc
   }
   return Array.from(map.entries()).map(([category, items]) => ({ category, items }))
 }
+
+export interface PageResult<T> {
+  pageItems: T[]
+  total: number
+  totalPages: number
+  // 钳制后的实际页码 (调用方可回写)
+  page: number
+}
+
+export function paginate<T>(items: T[], page: number, size: number): PageResult<T> {
+  const total = items.length
+  const totalPages = Math.max(1, Math.ceil(total / size))
+  const clamped = Math.min(Math.max(1, page), totalPages)
+  const start = (clamped - 1) * size
+  return { pageItems: items.slice(start, start + size), total, totalPages, page: clamped }
+}
