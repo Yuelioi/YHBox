@@ -20,15 +20,7 @@
         @click="$emit('goto', idx)"
       >{{ sgLabelFn(sgID) }}</UButton>
     </template>
-    <!-- 当前层级节点数 (Subgraph 算 1, 主图节点总数 / 子图内部节点总数) -->
-    <span
-      v-if="activeNodeCount !== null"
-      class="ml-2 text-[10px] text-dimmed inline-flex items-center gap-1"
-      :title="editorPath.length === 0 ? t('editor.breadcrumb.tooltip_main') : t('editor.breadcrumb.tooltip_subgraph')"
-    >
-      <UIcon name="i-tabler-cpu" class="size-3" />
-      {{ t('editor.breadcrumb.node_count', { n: activeNodeCount }) }}
-    </span>
+    <span v-if="dirty" class="ml-2 text-[10px] text-warning/80 shrink-0">{{ t('editor.header.dirty_dot') }}</span>
   </div>
 </template>
 
@@ -41,7 +33,7 @@ defineProps<{
   rootLabel: string | undefined
   editorPath: readonly string[]
   sgLabelFn: (id: string) => string
-  activeNodeCount: number | null
+  dirty: boolean
 }>()
 
 defineEmits<{

@@ -8,7 +8,6 @@ const routes = [
     name: 'container-edit',
     component: () => import('@/views/ContainerEditorView.vue'),
   },
-  { path: '/library', name: 'library', component: () => import('@/views/LibraryView.vue') },
   { path: '/schedules', name: 'schedules', component: () => import('@/views/SchedulesView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },

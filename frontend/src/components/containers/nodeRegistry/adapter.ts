@@ -14,7 +14,7 @@
 //  - dataInDynamicFn: Spec.DynamicInputs 标志驱动 (Expr/Script), config.Inputs[] 声明.
 //
 // app 入口 main.ts boot 时 await populateRegistryFromBackend() 把 RPC spec 注册到
-// 老 byKind, 6 处 consumer (Palette / ContextMenu / NodePalette / NodeExplorerModal /
+// 老 byKind, 各 consumer (ContextMenu / NodeExplorerModal /
 // FindReferencesModal / nodeFieldSchemas) 不变.
 
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'

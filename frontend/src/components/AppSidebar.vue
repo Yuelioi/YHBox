@@ -112,7 +112,6 @@ const containersTo = computed(() =>
 
 const automationItems = computed(() => [
   { label: t('sidebar.containers'), to: containersTo.value, icon: 'i-tabler-package' },
-  { label: t('sidebar.library'), to: '/library', icon: 'i-tabler-books' },
   { label: t('sidebar.schedules'), to: '/schedules', icon: 'i-tabler-clock' },
 ])
 

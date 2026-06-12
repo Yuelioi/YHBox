@@ -2,9 +2,8 @@
   <!-- 单行布局：左 [导航 + 面包屑 + 撤销/重做] · 中 [空] · 右 [录制 · 运行/主操作 · ⋯/设置 · 折叠属性]
        (加内容 节点库/子图库 在左侧 rail) -->
   <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
-    <!-- ====== 左: 回列表(嵌入态) + 面包屑身份 + 撤销/重做 ====== -->
+    <!-- ====== 左: 回列表 + 面包屑身份 + 撤销/重做 ====== -->
     <UButton
-      v-if="!isStandalone"
       size="xs" variant="ghost" color="neutral"
       icon="i-tabler-arrow-left"
       :title="t('editor.toolbar.back_to_list')"
@@ -15,7 +14,7 @@
       :root-label="rootLabel"
       :editor-path="editorPath"
       :sg-label-fn="sgLabelFn"
-      :active-node-count="activeNodeCount"
+      :dirty="dirty"
       @goto="$emit('goto', $event)"
     />
 
@@ -116,12 +115,10 @@ const props = defineProps<{
   canRedo?: boolean
   snapEnabled?: boolean
   edgeStyle?: 'default' | 'smoothstep' | 'step'
-  isStandalone?: boolean
   // 面包屑身份 (单行布局：面包屑内嵌工具栏左侧, 不再独立成行)
   rootLabel?: string
   editorPath: readonly string[]
   sgLabelFn: (id: string) => string
-  activeNodeCount: number | null
 }>()
 
 const emit = defineEmits<{
@@ -143,7 +140,6 @@ const emit = defineEmits<{
   'redo': []
   'toggle-snap': []
   'set-edge-style': [v: 'default' | 'smoothstep' | 'step']
-  'open-new-window': []
   'back-to-list': []
   // 面包屑层级导航 (goto -1 = 回主图根)
   'goto': [idx: number]
@@ -165,11 +161,9 @@ const moreMenuItems = computed(() => {
     checked: cur === v,
     onUpdateChecked: (c: boolean) => { if (c) emit('set-edge-style', v) },
   })
-  const system: { label: string; icon: string; onSelect: () => void }[] = []
-  if (!props.isStandalone) {
-    system.push({ label: t('editor.toolbar.open_new_window'), icon: 'i-tabler-external-link', onSelect: () => emit('open-new-window') })
-  }
-  system.push({ label: t('editor.toolbar.reload'), icon: 'i-tabler-refresh', onSelect: () => emit('reload') })
+  const system = [
+    { label: t('editor.toolbar.reload'), icon: 'i-tabler-refresh', onSelect: () => emit('reload') },
+  ]
 
   return [
     [

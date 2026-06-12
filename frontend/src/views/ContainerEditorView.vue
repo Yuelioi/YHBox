@@ -1,59 +1,7 @@
 <template>
-  <!-- h-full 撑满父 (嵌入: <main>; 子窗: App.vue isStandalone div). overflow-hidden 防 minimap/canvas
+  <!-- h-full 撑满父 <main>. overflow-hidden 防 minimap/canvas
        撑出来触发 <main> 的 overflow-auto 滚动条 — 编辑器自管 canvas 缩放, 不允许外层滚. -->
   <div class="flex flex-col h-full min-h-0 overflow-hidden bg-default text-default">
-    <!-- 子窗口形态自画 header (高度跟主壳 AppTitleBar 一致 h-14); 嵌入主壳时由 AppTitleBar 接管 -->
-    <header
-      v-if="isStandalone"
-      class="h-14 shrink-0 flex items-center gap-2 border-b border-default pl-3 pr-0"
-      style="--wails-draggable: drag"
-    >
-      <UButton
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        icon="i-tabler-arrow-left"
-        @click="goBack"
-        style="--wails-draggable: no-drag"
-        >{{ t('editor.header.back') }}</UButton
-      >
-      <UIcon name="i-tabler-schema" class="size-3.5 text-dimmed shrink-0" />
-      <h3 class="text-xs font-medium truncate text-toned">
-        {{ draft?.name ?? t('editor.header.loading') }}
-      </h3>
-      <span v-if="dirty" class="text-[10px] text-warning/80 shrink-0">{{ t('editor.header.dirty_dot') }}</span>
-
-      <div class="flex-1" />
-
-      <!-- 窗口控件（min / max-restore / close）-->
-      <div class="flex items-stretch h-full" style="--wails-draggable: no-drag">
-        <button
-          type="button"
-          class="w-11 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors"
-          :title="t('editor.window.minimize')"
-          @click="onMinimise"
-        >
-          <UIcon name="i-tabler-minus" class="size-4" />
-        </button>
-        <button
-          type="button"
-          class="w-11 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors"
-          :title="isMaximised ? t('editor.window.restore') : t('editor.window.maximize')"
-          @click="onToggleMaximise"
-        >
-          <UIcon :name="isMaximised ? 'i-tabler-copy' : 'i-tabler-square'" class="size-3.5" />
-        </button>
-        <button
-          type="button"
-          class="w-11 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors"
-          :title="t('editor.window.close')"
-          @click="onClose"
-        >
-          <UIcon name="i-tabler-x" class="size-4" />
-        </button>
-      </div>
-    </header>
-
     <!-- Dirty 关闭确认 -->
     <UModal
       :open="confirmCloseOpen"
@@ -99,7 +47,6 @@
            加内容(节点库/子图库)在左侧 rail。 -->
       <ContainerEditorToolbar
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
-        :is-standalone="isStandalone"
         :is-recording="recordStore.isRecording || recordStore.isPaused"
         :recording-target-name="recordingTargetName"
         :countdown-sec="countdownSec"
@@ -115,7 +62,6 @@
         :root-label="draft?.name"
         :editor-path="editorStore.editorPath"
         :sg-label-fn="sgLabel"
-        :active-node-count="activeGraph?.nodes?.length ?? null"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -130,7 +76,6 @@
         @redo="redo"
         @toggle-snap="sidebarPrefs.snapEnabled = !sidebarPrefs.snapEnabled"
         @set-edge-style="sidebarPrefs.edgeStyle = $event"
-        @open-new-window="onOpenNewWindow"
         @back-to-list="onBackToList"
         @open-help="helpModalOpen = true"
         @goto="editorStore.gotoPathIndex($event)"
@@ -449,7 +394,6 @@ defineOptions({ name: 'ContainerEditorView' })
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
-import { useWindowControls } from '@/composables/useWindowControls'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
@@ -473,7 +417,6 @@ import { useTemplatesStore } from '@/stores/templates'
 import { useContainerDraft } from '@/composables/containerEditor/useContainerDraft'
 import { useEditorPath } from '@/composables/containerEditor/useEditorPath'
 import { useSubgraphLifecycle } from '@/composables/containerEditor/useSubgraphLifecycle'
-import { useFlowInteraction } from '@/composables/containerEditor/useFlowInteraction'
 import { useFolding } from '@/composables/containerEditor/useFolding'
 import { useRecording } from '@/composables/containerEditor/useRecording'
 import { useEditorSave } from '@/composables/containerEditor/useEditorSave'
@@ -531,7 +474,6 @@ import { useSplitpane } from '@/composables/useSplitpane'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const isStandalone = computed(() => route.query.standalone === '1')
 const toast = useToast()
 const { confirm } = useConfirm()
 const recordStore = useRecordingStore()
@@ -572,26 +514,13 @@ async function onReload() {
   }
 }
 
-async function onOpenNewWindow() {
-  const id = containerID
-  if (!id) return
-  try {
-    await backend.containers.openInWindow(id)
-    // 嵌入态主动放手: 跳回 /containers 列表 (子窗口接管 edit acquisition)
-    router.push('/containers')
-  } catch (e) {
-    console.error('OpenInWindow failed:', e)
-  }
-}
-
-// 嵌入态 toolbar '返回列表' 入口. ContainersView mount 时 clearLastEditing →
+// toolbar '返回列表' 入口. ContainersView mount 时 clearLastEditing →
 // 之后 sidebar '容器' 不再跳回该编辑器, 回归列表行为.
 function onBackToList() {
   router.push('/containers')
 }
 
-// 嵌入路由 /containers/:id/edit 用 params.id; 子窗口同款路由 + ?standalone=1 也走 params.
-// query.id 仅作兜底.
+// 路由 /containers/:id/edit 用 params.id; query.id 仅作兜底.
 const containerID = String(route.params.id ?? route.query.id ?? '')
 
 // 标 "正在编辑这个容器" — 侧栏 '容器' 跳法用. ContainersView mount 时会 clear.
@@ -884,10 +813,7 @@ function onCanvasDrop(e: DragEvent) {
       case 'snippet': return dropSnippet(payload, pos)
       case 'library-subgraph': return  // not used yet
     }
-    return
   }
-  // Legacy: fallback to existing NodePalette / LibraryView drop logic
-  _legacyCanvasDrop(e)
 }
 
 // Real usage count — sum across all vars (derive from draft, reactive)
@@ -930,7 +856,7 @@ const {
 // FlowNode / FlowEdge 类型从 useContainerDraft export (公共声明), view 不再局部重复定义.
 
 // 注册自定义节点组件：从 PIN_SPECS keys 自动派生，无需手维护。
-// 加新 kind 只需在 pinSpec.ts 里加一条 PIN_SPECS 即可——nodeTypes / NodePalette / FlowNode 自动响应，避免漏注册。
+// 加新 kind 只需在 pinSpec.ts 里加一条 PIN_SPECS 即可——nodeTypes / NodeExplorerModal / FlowNode 自动响应，避免漏注册。
 // CommentBox 是 visual-only (no handles) — 用独立 Vue 组件, 其他 kind 共享 ContainerFlowNode.
 // All other kinds share ContainerFlowNode.
 const nodeTypes = markRaw({
@@ -984,11 +910,9 @@ const { snapGuides, onSnapNodeDrag, onSnapNodeDragStop } = useSnapEngine({
   applyDraftMutation,
 })
 
-// 画布 drag/drop 交互（NodePalette → Canvas + LibraryView 卡片 → Canvas copy-on-use）
-const { onCanvasDragOver, onCanvasDrop: _legacyCanvasDrop } = useFlowInteraction({
-  project, onAddNode,
-  draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, toast,
-})
+function onCanvasDragOver(e: DragEvent) {
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+}
 
 // 折叠选中节点为新子图
 const { onFoldSelection } = useFolding({
@@ -1092,8 +1016,6 @@ const {
 // 本地剪贴板：含节点 + edges + 被复制 Subgraph 节点绑定的子图 deep copy（1:1 联动用）
 // v2：clipboard 在 activeGraph 层级生效（主图 / 子图层级都能 copy/paste）
 // clipboard / onCopySelection / onPasteSelection / Ctrl+C/V 监听 由 useNodeClipboard composable 提供（见 setup 顶部）
-
-// onCanvasDragOver / onCanvasDrop 由 useFlowInteraction 提供（见 setup 顶部）
 
 function onNodeClick(evt: any) {
   selectedID.value = evt.node?.id ?? null
@@ -1352,17 +1274,7 @@ function onSubgraphPropsUpdate(patch: Record<string, any>) {
   dirty.value = true
 }
 
-// 独立 Frameless 窗口控件: 返回/关闭都走 wails 关窗 (不经路由, 故自挂 dirty 守卫;
-// 此处实例随窗口销毁, 丢弃只需清 dirty, 无需 reload)。
-const { isMaximised, onMinimise, onToggleMaximise, closeImmediate } = useWindowControls()
-async function goBack() {
-  if (await guardDirty({ reloadOnDiscard: false })) closeImmediate()
-}
-async function onClose() {
-  if (await guardDirty({ reloadOnDiscard: false })) closeImmediate()
-}
-
-// ── Dirty 守卫: 单例确认弹窗 (保存/丢弃/取消), Promise 化供路由守卫与窗口控件共用 ──
+// ── Dirty 守卫: 单例确认弹窗 (保存/丢弃/取消), Promise 化供路由守卫用 ──
 const confirmCloseOpen = ref(false)
 let dirtyResolver: ((v: 'save' | 'discard' | 'cancel') => void) | null = null
 

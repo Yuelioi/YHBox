@@ -56,7 +56,7 @@
         :key="c.id"
         class="rounded-xl bg-default border p-4 flex flex-col gap-3 transition-colors relative"
         :class="[
-          store.isEditing(c.id) ? 'opacity-50 pointer-events-none' : 'hover:border-accented',
+          'hover:border-accented',
           batch.isSelected(c.id) ? 'border-primary ring-2 ring-primary/40' : 'border-default',
         ]"
         @click="batch.enabled.value ? batch.toggle(c.id) : undefined"
@@ -68,12 +68,6 @@
           class="absolute top-2 left-2"
           @click.stop
           @update:model-value="batch.toggle(c.id)"
-        />
-        <UIcon
-          v-if="store.isEditing(c.id)"
-          name="i-tabler-lock"
-          class="absolute top-2 right-2 size-3.5 text-warning"
-          :title="t('containers.editing_locked_tip')"
         />
         <div class="min-w-0">
           <h3 class="text-sm font-medium text-highlighted truncate">
@@ -115,14 +109,6 @@
           <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-edit" @click="onEdit(c)"
             >{{ t('containers.edit') }}</UButton
           >
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-external-link"
-            :title="t('containers.open_new_window_tip')"
-            @click="onEditInWindow(c)"
-          />
           <div class="flex-1" />
           <UButton
             size="xs"
@@ -171,8 +157,7 @@ import { useContainersStore } from '@/stores/containers'
 import { useExecutionStore } from '@/stores/execution'
 import { useBatchSelect } from '@/composables/useBatchSelect'
 import { useConfirm } from '@/composables/useConfirm'
-import { backend, type Container } from '@/lib/backend'
-import { errorMessage } from '@/lib/invoke'
+import { type Container } from '@/lib/backend'
 import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
@@ -275,21 +260,10 @@ async function onCreate() {
 }
 
 function onEdit(c: Container) {
-  // 默认嵌入主壳; 用户在编辑器工具栏点 i-tabler-external-link 可拆独立窗口.
   router.push(`/containers/${c.id}/edit`)
 }
 
 // (旧「导出到库」已删 — 子图全局化后无库包概念; 跨机分享按 spec 留口子, 真需要时做 zip 导出。)
-
-async function onEditInWindow(c: Container) {
-  // 直接开独立子窗口 (老行为). 同 id 重复点 → containerWindowAdapter focus 已有窗口.
-  try {
-    await backend.containers.openEditorWindow(c.id)
-  } catch (e) {
-    console.error('openEditorWindow failed:', e)
-    toast.add({ title: t('toast.open_window_failed'), description: errorMessage(e), color: 'error' })
-  }
-}
 
 function onAskDelete(c: Container) {
   if (store.isRecordingLocked(c.id)) {

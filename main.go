@@ -451,7 +451,6 @@ func main() {
 	})
 	app.AttachWailsApp(wailsApp)
 
-	containerSvc.SetWindowOpener(newContainerWindowAdapter(wailsApp))
 	sgSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })

@@ -7,7 +7,7 @@
 //   onApplySnippet — SnippetsPanel 单击 snippet 中心 insert
 //   onPickKind — NodeExplorerModal 选 kind
 //   onPickLibrarySubgraph — LibraryExplorerModal 选 library import
-//   onAddNode — programmatic add (useFlowInteraction palette drop / 录制完成).
+//   onAddNode — programmatic add (录制完成等程序化加点).
 //              特殊: 不走 applyDraftMutation (直接 push + syncFlowFromDraft),
 //              Start 单例 guard, autoCreateSubgraphForNewNode 前置 hook.
 
@@ -281,7 +281,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     }
   }
 
-  // Programmatic add (useFlowInteraction palette drop / 录制完成).
+  // Programmatic add (录制完成等程序化加点).
   // 特殊: 不走 applyDraftMutation (直接 push + syncFlowFromDraft + 设 selected).
   // Start 单例 guard + autoCreateSubgraphForNewNode 前置 hook (失败不 push).
   async function onAddNode(

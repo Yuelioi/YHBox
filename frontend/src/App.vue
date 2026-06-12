@@ -1,6 +1,6 @@
 <template>
   <UApp :toaster="{ position: 'top-center', duration: 2500 }">
-    <!-- Standalone 子窗口（独立编辑器等）：跳过整个主壳，直接渲染 router-view -->
+    <!-- Standalone 工具窗（HUD / ScreenPicker 等 meta.standalone 路由）：跳过整个主壳，直接渲染 router-view -->
     <div v-if="isStandalone" class="h-screen overflow-hidden bg-default">
       <router-view />
     </div>
@@ -74,14 +74,8 @@ function onConfirmDialogUpdateOpen(v: boolean) {
   }
 }
 
-// 子窗口模式（不包主壳）:
-//   meta.standalone — MouseHUD / ScreenPicker / RecordingHUD 老路径
-//   query.standalone=1 — container-edit 子窗口形态 (Task 5+)
-const isStandalone = computed(() => {
-  if (route.meta.standalone) return true
-  if (route.query.standalone === '1') return true
-  return false
-})
+// 独立工具窗模式（不包主壳）: MouseHUD / ScreenPicker / RecordingHUD 等 meta.standalone 路由
+const isStandalone = computed(() => !!route.meta.standalone)
 
 watch(
   () => settingsStore.data?.locale,

@@ -2,7 +2,7 @@
 // 须与后端 node.Spec 结构一致 — structural fields (kind/category/pins/types).
 //
 // Adding a kind = 1 register({...}) call in specs/<group>.ts. Nothing else.
-// pinSpec.ts / nodeFieldSchemas.ts / NodePalette.vue all derive views over this.
+// pinSpec.ts / nodeFieldSchemas.ts / NodeExplorerModal.vue all derive views over this.
 
 export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list'
 
@@ -146,7 +146,7 @@ export interface NodeKindSpec {
   isPureData?: boolean // no exec pins, evaluated on-demand by data_pull
   isVisualOnly?: boolean // CommentBox — no runtime, no pin checks
 
-  /** Hide from NodePalette draggable list. The node is still a valid kind
+  /** Hide from the node palette (NodeExplorerModal) list. The node is still a valid kind
    * (runtime + validator know it), but users create it via a specific UI
    * flow rather than drag-and-drop: SubgraphInput/Output are auto-managed
    * by the subgraph editor; CollapsedNode is created via "fold selection"

@@ -33,7 +33,6 @@ export default {
     actions: '动作',
     tasks: '任务',
     containers: '容器',
-    library: '库',
     schedules: '计划',
     settings: '设置',
     about: '关于',
@@ -175,15 +174,11 @@ export default {
     copy_failed: '复制失败',
     save_failed: '保存失败',
     operation_failed: '操作失败',
-    import_success: '已导入: {name}',
-    import_failed: '导入失败',
     container_not_found: '容器未找到',
-    open_window_failed: '打开新窗口失败',
     and_n_more: '，还有 {n} 个错误',
   },
   editor: {
     header: {
-      back: '返回',
       loading: '加载中...',
       dirty_dot: '· 未保存',
     },
@@ -218,9 +213,6 @@ export default {
       },
     },
     breadcrumb: {
-      node_count: '{n} 节点',
-      tooltip_main: '主图节点数 (子图算 1)',
-      tooltip_subgraph: '当前子图内部节点数',
       root_fallback: '...',
     },
     toolbar: {
@@ -257,7 +249,6 @@ export default {
       try_run_tip: '入队运行一次',
       try_run_dirty_tip: '请先保存再试运行',
       try_run_busy_tip: '已有任务在跑，先停',
-      open_new_window: '在新窗口打开',
       save: '保存',
       saved: '已保存',
       reload: '重载',
@@ -1780,13 +1771,11 @@ export default {
     create: '新建容器',
     empty_title: '还没有容器',
     empty_desc: '容器是节点图蓝图, 包含变量、控制流、模板检测和 Action 调用.',
-    editing_locked_tip: '另一窗口正在编辑中',
     untitled: '(未命名)',
     node_count: '{n} 节点',
     run: '运行',
     stop: '停止',
     edit: '编辑',
-    open_new_window_tip: '在新窗口打开',
     delete: {
       title: '删除容器?',
       desc_prefix: '将删除',
@@ -1844,30 +1833,12 @@ export default {
   clipTimeline: {
     hint: '在轨道上拖一段添加保留段; 拖蓝条边缘改长度; hover 显示 × 删除',
   },
-  // LibraryExplorer extra
-  // (library.explorer.esc_close 直接挂在 library.explorer)
   // NodeExplorerModal
   nodeExplorer: {
     title: '节点 Explorer',
     search_placeholder: '搜节点 (substring)...',
     esc_tab_close: 'Esc / Tab 关',
     no_match: '没匹配的节点',
-  },
-  // NodePalette
-  nodePalette: {
-    search_node: '搜索节点 (kind 或 中文名)...',
-    no_match_node: '没匹配的节点',
-    search_library: '搜索库子图...',
-    library_empty: '库还是空的',
-    go_library_manage: '去库管理',
-    no_match_subgraph: '没有匹配的子图',
-    tab_nodes: '节点',
-    tab_library: '库',
-    ctx_view_in_library: '在库管理中查看',
-    ctx_copy_id: '复制 ID',
-    toast_no_active_editor: '当前没有打开的容器编辑器',
-    group_variables_data: '变量 / 数据',
-    group_purefunc: '纯函数',
   },
   // ContextMenuRouter
   contextMenu: {
@@ -1885,12 +1856,6 @@ export default {
     stale_desc: '有 {n} 个子图在别的窗口被保存过。重载会丢弃你本地对这些子图的修改; 保留本地则下次保存仍会提示。',
     stale_reload: '重载盘上版本',
     stale_keep: '保留本地修改',
-  },
-  // FlowInteraction
-  flowInteraction: {
-    inserted_and_relinked: '已插入节点并断边重连',
-    no_template_drop: '暂不支持拖入库模板 (请走容器内 template 管理)',
-    modified_local_mouse_calibration: '已修改本容器主图 MouseCalibration',
   },
   // Folding
   folding: {
@@ -2000,37 +1965,28 @@ export default {
     delete_title: '删除计划',
     delete_desc: '确认删除「{name}」? 此操作不可恢复.',
   },
-  // 库 (LibraryView / LibraryCard / LibraryDetailPanel / ImportToContainerDialog / etc.).
+  // 子图库 (编辑器内 LibraryExplorerModal / LibraryDetailPanel).
   library: {
-    refresh: '刷新',
-    search_placeholder: '搜索子图...',
-    view_grid: '网格视图',
-    view_list: '列表视图',
     loading: '加载中...',
-    empty: '库还是空的 — 容器里新建的子图会自动出现在这里',
-    no_match: '没有匹配的子图',
-    tab: {
-      local: '本机',
-      online: '在线 (即将上线)',
-    },
     explorer: {
-      title: '子图库 Explorer',
-      search: '搜库 (label / tag substring)...',
-      close: '关',
-      empty: '库为空 (在"库"页可添加新条目)',
+      title: '子图库',
+      search: '搜库 (名称 / 标签 / 描述)...',
+      esc_close: 'Esc 关',
+      empty: '库为空 (画布折叠节点成子图 / 录制保存后会入库)',
       no_match: '没匹配的库条目',
       uncategorized: '未分类',
+      tab_local: '本地',
+      tab_online: '在线',
+      insert: '插入引用',
+      edit_info: '编辑信息…',
+      edit_title: '编辑子图信息',
+      tags_hint: '逗号分隔, 第一个标签作为分组',
     },
     online: {
       title: '在线库即将上线',
       desc: '这里将展示由社区分享的子图 / 模板, 可一键克隆到本机.',
     },
     card: {
-      type_subgraph: '子图',
-      type_template: '模板',
-      type_snippet: '片段',
-      view_detail: '查看详情',
-      node_count: '{n} 节点',
       duplicate: '复制为新子图',
       duplicated: '已复制为 "{name}"',
       copy_id: '复制 ID',
@@ -2142,15 +2098,6 @@ export default {
   },
   // 录制 (useRecording + RecordingHUD).
   recording: {
-    foreign_machine: '导入的子图来自另一台机器',
-    counts_mismatch_desc: '源 360° counts: {src}\n你的本机值: {local}\n\n是否把本机值同步到所有本地容器? (推荐)',
-    sync_all: '同步所有容器',
-    no_sync: '不同步',
-    sync_success: '已同步所有容器',
-    modify_single_title: '仅修改本容器?',
-    modify_single_desc: '仅把当前容器主图 MouseCalibration 改为本机值. 其他容器保持不变.',
-    modify_single_only: '仅本容器',
-    modify_keep_source: '不改 (保持源值)',
     launch_failed: '启动录制失败',
     no_steps: '没录到任何步骤',
     stop_failed: '停止录制失败',
@@ -2274,7 +2221,7 @@ export default {
       log_debug: '输出一条调试级日志。',
     },
   },
-  // 节点 group 中文名 (useNodeGroupColor / NodePalette).
+  // 节点 group 中文名 (useNodeGroupColor / NodeExplorerModal).
   // node.* namespace 已有 (kind label/description), 这里加 group label.
   // 注意: 不能跟 node.<kind> 撞 — group 用 nodeGroup.* 独立 namespace.
   nodeGroup: {
@@ -2327,7 +2274,7 @@ export default {
     rose: '玫红',
     zinc: '灰',
   },
-  // 编辑器 walker / interaction 辅助 (graphWalk / useFlowInteraction / useFolding / etc.).
+  // 编辑器 walker / interaction 辅助 (graphWalk / useFolding / etc.).
   editorAux: {
     root_graph: '主图',
     subgraph_label: '子图: {name}',

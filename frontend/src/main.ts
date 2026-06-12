@@ -5,7 +5,7 @@ import { useToast } from '@nuxt/ui/composables'
 import { useDark } from '@vueuse/core'
 
 // Node registry: 启动期 RPC 拉 backend Spec → adapter 转 → 注册到老 byKind.
-// 替代手写 specs/*.ts. 6 处 consumer (Palette / ContextMenu / NodePalette / etc) 不动.
+// 替代手写 specs/*.ts. 各 consumer (ContextMenu / NodeExplorerModal / etc) 不动.
 // populateRegistryFromBackend 在 boot async 内 mount 前 await (见底).
 import { populateRegistryFromBackend } from '@/components/containers/nodeRegistry/adapter'
 
@@ -40,8 +40,8 @@ wireEvents()
 // Hydrate then mount
 ;(async () => {
   await useSettingsStore().load()
-  // 节点 registry RPC populate: 必须 mount 前, 否则 NodePalette / ContextMenu / 等
-  // 6 处 consumer 用 allSpecs() 拿空. backend NodeService.GetAllNodeSpecs 是 SoT.
+  // 节点 registry RPC populate: 必须 mount 前, 否则 ContextMenu / NodeExplorerModal 等
+  // consumer 用 allSpecs() 拿空. backend NodeService.GetAllNodeSpecs 是 SoT.
   await populateRegistryFromBackend()
   app.mount('#app')
 })()

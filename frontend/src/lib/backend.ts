@@ -222,8 +222,6 @@ export const backend = {
     delete_: (id: string) => invoke(ContainerService.Delete, id),
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
-    openEditorWindow: (id: string) => invoke(ContainerService.OpenEditorWindow, id),
-    openInWindow: (id: string) => invoke(ContainerService.OpenInWindow, id),
     syncLocalMouseCalibration: (newCounts: number) =>
       invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
     deleteMany: (ids: string[]) => invoke(ContainerService.DeleteMany, ids),

@@ -1,5 +1,5 @@
 // useBatchSelect 通用列表批量选择 state。
-// 用法：ContainersView / LibraryView 批量删除 UX 共用。
+// 用法：ContainersView 批量删除 UX。
 //   - enabled: 是否处于选择模式（true 时卡片显示 checkbox，正常点击 disable）
 //   - selected: 选中 id 集合
 //   - toggle(id) / clear() / selectAll(allIDs) / isSelected(id) / count

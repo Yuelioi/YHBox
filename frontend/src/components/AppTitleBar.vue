@@ -94,7 +94,6 @@ const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = u
 const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
   containers: { titleKey: 'sidebar.containers', icon: 'i-tabler-package' },
   'container-edit': { titleKey: 'sidebar.container_edit', icon: 'i-tabler-schema' },
-  library: { titleKey: 'sidebar.library', icon: 'i-tabler-books' },
   schedules: { titleKey: 'sidebar.schedules', icon: 'i-tabler-clock' },
   settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
   about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },

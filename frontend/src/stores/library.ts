@@ -1,6 +1,6 @@
 // 子图库 store (2026-06-12 全局化): 库 = 全局子图池的视图, 不再有"导入/导出包"。
-// 编辑器内的池由 containerEditor store 持有; 本 store 服务编辑器外的库页 (LibraryView)
-// 与 NodePalette 等独立消费方 — 自己拉 backend.subgraphs.list() 并订阅 subgraph:changed。
+// 编辑器内的池由 containerEditor store 持有; 本 store 服务子图库 modal / 详情面板
+// 等浏览消费方 — 自己拉 backend.subgraphs.list() 并订阅 subgraph:changed。
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'

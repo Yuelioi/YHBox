@@ -22,18 +22,11 @@ type Runner interface {
 // ChangeListener 容器 CRUD 后回调，给 hotkey registry / schedule daemon 重新注册用。
 type ChangeListener func()
 
-// WindowOpener 用于开/聚焦容器编辑器独立子窗口。adapter 在 main.go / wire_container.go 里注入。
-// 同 containerID 多次调用 → focus 已有窗口、不开第二个。
-type WindowOpener interface {
-	OpenEditor(containerID string) error
-}
-
 // Service wails3 RPC 入口。
 type Service struct {
 	store    *Store
 	runner   Runner
 	onChange ChangeListener
-	windows  WindowOpener
 
 	// hasTemplate / hasClip: 注入式查全局 asset 库某 GUID 是否存在 (validator 存在性检查用).
 	// main.go 注入 (查 asset.Store). nil → 校验时跳过该 kind 存在性检查.
@@ -62,36 +55,8 @@ func (s *Service) SetRunner(r Runner) { s.runner = r }
 // SetOnChange 启动期 main.go 注入。CRUD 后调一次（保存成功才调）。
 func (s *Service) SetOnChange(f ChangeListener) { s.onChange = f }
 
-// SetWindowOpener main.go 启动时注入。前端 OpenEditorWindow 调用前必须先注入；
-// 没注入时 OpenEditorWindow 返清晰错误。
-func (s *Service) SetWindowOpener(w WindowOpener) {
-	s.windows = w
-}
-
 // SetPostDelete 注入容器删除后的回调 (main.go: 匿名子图 GC).
 func (s *Service) SetPostDelete(f func()) { s.postDelete = f }
-
-// OpenEditorWindow 给前端 RPC 用：打开 containerID 对应的容器编辑器独立窗口。
-// 同 containerID 多次调用走 focus 现有窗口，不会开第二个。
-func (s *Service) OpenEditorWindow(containerID string) error {
-	if _, ok := s.store.Get(containerID); !ok {
-		return fmt.Errorf("container %q not found", containerID)
-	}
-	if s.windows == nil {
-		return fmt.Errorf("WindowOpener 未注入（main.go 启动期 SetWindowOpener 调用了吗？）")
-	}
-	return s.windows.OpenEditor(containerID)
-}
-
-// OpenInWindow 让前端从嵌入式编辑器一键开独立子窗口编辑同一容器.
-// 内部走 WindowOpener (main.go 注入 containerWindowAdapter).
-// 同 containerID 重复调 → windowAdapter focus 已有窗口, 不重复开.
-func (s *Service) OpenInWindow(containerID string) error {
-	if s.windows == nil {
-		return fmt.Errorf("window opener 未注入")
-	}
-	return s.windows.OpenEditor(containerID)
-}
 
 func (s *Service) emitChange() {
 	if s.onChange != nil {
