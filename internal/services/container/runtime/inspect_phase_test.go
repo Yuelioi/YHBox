@@ -40,9 +40,8 @@ func (m *mockMatcher) Detect(_ context.Context, _ *image.RGBA, k string, _ float
 	return hit, expr.Point{}, [4]float64{}, conf, nil
 }
 
-// templateNameForGUID 把模板 GUID 解析回 record.name (assets/records 里 kind=template 的记录)。
+// templateNameForGUID 把模板 GUID 解析回 record.name (testdata/templates 精简快照)。
 // 懒加载一次。让按名字 keying 的旧测试在 GUID 迁移后无需逐个改。
-// NOTE(P2 迁移时改): 本机 bin/data 迁到平铺布局后, 路径改 bin/data/templates — 跟数据迁移同步翻转。
 var (
 	tplNameOnce sync.Once
 	tplNameByID map[string]string
