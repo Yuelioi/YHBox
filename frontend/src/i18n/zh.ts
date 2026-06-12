@@ -2015,6 +2015,11 @@ export default {
       filter_category_all: '全部分类',
       filter_tags: '按标签过滤…',
       category_placeholder: '选择或输入新分类',
+      view_by_name: '按名称排序',
+      view_by_created: '按创建时间排序',
+      view_by_nodes: '按节点数排序',
+      sort_asc: '升序',
+      sort_desc: '降序',
     },
     online: {
       title: '在线库即将上线',

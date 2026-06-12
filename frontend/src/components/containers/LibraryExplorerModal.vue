@@ -38,6 +38,14 @@
             class="flex-1"
             @keydown.escape="modelOpen = false"
           />
+          <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+          <UButton
+            size="xs"
+            variant="ghost"
+            :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
+            :title="sortDesc ? t('library.explorer.sort_desc') : t('library.explorer.sort_asc')"
+            @click="sortDesc = !sortDesc"
+          />
           <span class="text-[10px] text-dimmed">{{ t('library.explorer.esc_close') }}</span>
         </div>
 
@@ -231,6 +239,15 @@ const modelOpen = useDialogOpen(props, emit)
 const query = ref('')
 const searchInputRef = ref<any>(null)
 
+// 排序 (镜像模板/clip 管理): 名称/创建时间/节点数 × 正逆序.
+const sortKey = ref<'label' | 'createdAt' | 'nodes'>('label')
+const sortDesc = ref(false)
+const sortItems = computed(() => [
+  { label: t('library.explorer.view_by_name'), value: 'label' },
+  { label: t('library.explorer.view_by_created'), value: 'createdAt' },
+  { label: t('library.explorer.view_by_nodes'), value: 'nodes' },
+])
+
 const lib = useLibraryStore()
 const toast = useToast()
 const { confirm } = useConfirm()
@@ -268,14 +285,25 @@ const categoryFilterItems = computed(() => [
   { label: t('library.explorer.uncategorized'), id: 'none' },
 ])
 
-const filteredItems = computed<Subgraph[]>(() =>
-  filterSubgraphs(lib.subgraphs, {
+const filteredItems = computed<Subgraph[]>(() => {
+  const arr = filterSubgraphs(lib.subgraphs, {
     query: query.value,
     category:
       categoryFilter.value === 'all' ? null : categoryFilter.value === 'none' ? '' : categoryFilter.value.slice(2),
     tags: tagFilter.value,
-  }),
-)
+  })
+  const sorted = [...arr]
+  sorted.sort((a, b) => {
+    let cmp = 0
+    switch (sortKey.value) {
+      case 'label': cmp = (a.label ?? '').localeCompare(b.label ?? ''); break
+      case 'createdAt': cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? ''); break
+      case 'nodes': cmp = (a.graph?.nodes?.length ?? 0) - (b.graph?.nodes?.length ?? 0); break
+    }
+    return sortDesc.value ? -cmp : cmp
+  })
+  return sorted
+})
 
 // ── 分页 (过滤后扁平切页, 页内再分组; 每页条数本机记忆) ──
 const page = ref(1)
@@ -285,7 +313,7 @@ const pageSizeItems = computed(() => [20, 50, 100].map((n) => ({ label: t('libra
 const pageResult = computed(() => paginate(filteredItems.value, page.value, pageSize.value))
 const groupedItems = computed(() => groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')))
 
-watch([query, categoryFilter, tagFilter, pageSize], () => { page.value = 1 })
+watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => { page.value = 1 })
 watch(() => pageResult.value.totalPages, (tp) => { if (page.value > tp) page.value = tp })
 
 // ── 选中 (单击/Ctrl/Shift/勾选框; 右键收敛单选); 详情栏跟锚点 = 最后操作行 ──

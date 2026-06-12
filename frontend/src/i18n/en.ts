@@ -1978,6 +1978,11 @@
       filter_category_all: 'All categories',
       filter_tags: 'Filter by tags…',
       category_placeholder: 'Pick or type a new category',
+      view_by_name: 'By name',
+      view_by_created: 'By created',
+      view_by_nodes: 'By node count',
+      sort_asc: 'Ascending',
+      sort_desc: 'Descending',
     },
     online: {
       title: 'Online library coming soon',
