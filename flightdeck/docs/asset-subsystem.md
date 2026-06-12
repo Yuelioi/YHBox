@@ -17,9 +17,9 @@ when_to_update: 改 asset 存储布局 / 记录或变体 schema / PickVariant �
   records/<guid>.json     # 一资产一文件 (git/diff 友好、并发安全)
 ```
 
-**模板记录**: `{guid, kind:"template", name, tags, origin, variants[], createdAt}`,其中
-`variants[] = [{resolution:[W,H], bbox, regions, blob:<sha256>}, ...]`。
-**clip 记录**同构、无 variant: `{guid, kind:"clip", name, tags, blob:<sha256>}`。
+**模板记录**: `{guid, kind:"template", name, description, category, tags, origin, variants[], createdAt}`,其中
+`variants[] = [{resolution:[W,H], bbox, regions, blob:<sha256>}, ...]`(`description`/`category` 2026-06-13 加,库管理面就地编辑;`updateMeta(guid,name,description,category,tags)`)。
+**clip 记录**同构、无 variant: `{guid, kind:"clip", name, tags, blob:<sha256>}`。clip 的 `label`/`description`/`category`/`tags` 权威值在 **clip blob 的 header JSON**(`inputclip/codec.go`),record 只存 Name/Tags 副本(供 GC/referrers);`category` 2026-06-13 加进 header(二进制 event chunk 不动)。
 
 - **blob 身份 = 存盘文件字节的 sha256**(非感知/像素哈希)。自家截图走单一规范编码器 → 同次捕获字节恒等 → 去重生效;导入 bundle blob 逐字拷贝 → 相同文件天然去重。**不做**同像素不同编码的感知去重(YAGNI)。
 - `origin` (`{kind:"user"|"imported"|"subgraph", sourceID}`) 仅溯源/picker 筛选,**非身份字段**。

@@ -4,7 +4,7 @@ last_updated: 2026-05-20
 when_to_read: before writing / editing .vue components or Tailwind classes
 applies_to: [vue, tailwind, nuxtui, ui, frontend, component, modal, button]
 when_to_update: 改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公共组件风格) 时
-last_updated: 2026-06-10
+last_updated: 2026-06-13
 ---
 
 # UI Playbook (NuxtUI 偏好)
@@ -95,6 +95,15 @@ style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (
 ### `:ui="{ base: '...' }"` 是替换不是 merge
 
 调 NuxtUI 组件加 width / 样式 → `class="w-24"`, **不是** `:ui="{ base: 'w-24' }"`. 后者会把 base slot 默认那一长串 (`bg-default text-default ring-default ...`) 清空, 只剩 `w-24`, 背景变裸 HTML 白色. 踩过 Step editor 输入框白底的坑.
+
+### `UInputMenu` 让用户创建新项 → `create-item` + `@create`, 不是 `creatable`
+
+`creatable` 是 NuxtUI v2/headless 旧 prop 名, **v4 改名 `create-item` 且静默忽略旧名** → 写 `creatable` 不报错但创建项压根不出现 (下拉只显 "No matching data", 用户输新分类/标签建不出来)。v4 正确写法:
+
+- `:create-item="'always'"` (输入值非现有精确项就显「创建」; 写 `true` 只在候选**全空**时才显, 部分匹配时反而不给创建, 不够)
+- **必须配 `@create` 处理器** —— 选「创建」只 `emit('create', searchTerm)`, **不自动写 model-value**。单值: `@create="(v) => setX(v)"`; 多值 (`multiple`): `@create="(v) => model = [...model, v]"`。
+
+范例: `SwitchInspector.vue` (`:create-item="'always'"` + `@create`)。2026-06-13 全仓 13 处 `creatable` 全是坏的 (分类/标签建不了新项), 已统一修 (含 ContainerSettings 一处有 create-item 但漏 @create 同样建不出)。
 
 ### 反馈方式: 成功内联在触发点, toast 只留错误/后台事件
 

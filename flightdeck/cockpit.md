@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-12 by 月离 (四案真机验收全过: 编辑器 UX 收口 + 子图库三连改(交互/微修/美化含批量下拉回炉)。spec 全拍 done 归档, verify 全销, variable-system 误报销账。)
-**Active focus**: 无活跃开发案 — 编辑器/子图库 UX 大轮次收官。下一步从候选池挑。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-13 by 月离 (编辑器资源管理大轮归档: 模板/clips 收进 rail 两栏管理(名称/描述/分类/tag+批量+排序)+ 节点模板选择统一进新 modal + 变体吸纳 + 子图库加排序 + 后端模板加 description·category / clip 加 category; 修全仓 creatable→create-item(13 处, NuxtUI v4 旧名失效, 沉淀进 ui.md)。代码全绿待真机。)
+**Active focus**: 无活跃开发案 — 编辑器资源管理大轮代码全绿、待真机(见待验证)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -11,7 +11,7 @@
 
 ## 下一步
 
-无紧迫活, 候选池任挑: 修 2a0ff140 测试容器的预存悬空引用 sg-0d53b1bb(删那个节点即可, 顺手活); WaitTemplate 孤儿边原子性硬化(真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板, validator 全局校验已覆盖大半); 搜索/大复合 modal 收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 18 错; residue 28 处; runtime fixture 缺失红(build.md 在册)。
+候选池任挑: **临时窗口抓取(EnumWindows 枚举 + 选窗截图 + 不依赖容器 WindowTarget)— 上轮明确留的下一块,模板截图/重拍现仍只走容器 WindowTarget**; NodeSearchModal / CommandPalette 收进 BaseModal(大复合已全收, 仅剩这俩); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 18 错; residue 28 处; runtime fixture 缺失红(build.md 在册)。
 
 ## 待复核
 
@@ -19,7 +19,7 @@
 
 ## 待验证
 
-- 无。(编辑器 UX 收口 + 子图库三连改 四案 2026-06-12 真机全过, verify 标记已销。)
+- ⚠未验证: [archive/specs/2026-06-13-editor-rail-resources.md](archive/specs/2026-06-13-editor-rail-resources.md) — 真机 smoke(`task dev`): ① rail 模板/clips 两栏管理(增删改 / 批量改分类标签 / 正逆序 / **输入建新分类标签**);② 主界面只剩本地/在线 tab、在线占位;③ 节点模板字段开新 modal 选取消、详情面板变体重拍/删档/新建截图;④ 子图库排序。过了销此条。
 
 ## Hanging tasks
 
