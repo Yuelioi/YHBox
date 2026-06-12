@@ -7,6 +7,4 @@
 - [editor-footgun-backlog.md](editor-footgun-backlog.md) — idea — 节点编辑器 footgun backlog — ① exec 出口 Data 字段连不上(前提已变, 见正文需重评) ② DetectColor「范围」裸 JSON textarea 跟 HSV 结构化输入不一致
 - [misc-tools-backlog.md](misc-tools-backlog.md) — idea — 杂项小工具 backlog — i18n residue 清理 (悬浮窗工具→转正 floating-launcher; 截图 UI 美化已做; 从 scratch-backlog 抢救保留)
 
-### 进行中·完成（active·done）
-- [2026-06-12-data-layout-flatten-subgraph-globalize.md](2026-06-12-data-layout-flatten-subgraph-globalize.md) — active — 数据层大整理 — 目录平铺(删 assets/library 中间层) + 子图全局化(容器只引用不复制) + 架构耐久性根基
 <!-- /AUTO -->

@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: 数据层大整理 — 目录平铺(删 assets/library 中间层) + 子图全局化(容器只引用不复制) + 架构耐久性根基
 ---
 
