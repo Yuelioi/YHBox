@@ -95,11 +95,14 @@
     </div>
 
     <div v-else class="flex flex-col flex-1 min-h-0">
-      <!-- Toolbar：左 [面包屑][撤销/重做]，中间空，右 [运行状态][试运行/停止][保存][折叠 inspector]。
-           加内容(节点库/子图库)+ 录制 已移到左侧 rail。 -->
+      <!-- Toolbar：左 [面包屑][撤销/重做]，中间空，右 [录制][运行状态][试运行/停止][保存][折叠 inspector]。
+           加内容(节点库/子图库)在左侧 rail。 -->
       <ContainerEditorToolbar
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-standalone="isStandalone"
+        :is-recording="recordStore.isRecording || recordStore.isPaused"
+        :recording-target-name="recordingTargetName"
+        :countdown-sec="countdownSec"
         :exec-store-running="execStore.running"
         :running-node-kind="execStore.currentNodeKind ?? undefined"
         :running-node-label="runningNodeLabel"
@@ -113,6 +116,9 @@
         :editor-path="editorStore.editorPath"
         :sg-label-fn="sgLabel"
         :active-node-count="activeGraph?.nodes?.length ?? null"
+        @record="(mode) => startRecording(mode)"
+        @stop-record="stopRecording"
+        @cancel-countdown="startRecording('precise')"
         @try-run="onTryRun"
         @stop-run="onStopRun"
         @save="onSave"
@@ -131,8 +137,8 @@
       />
 
       <div class="flex flex-1 min-h-0">
-        <!-- 左活动栏 rail (常驻细栏, VS Code 式)。顶部组: 变量/Snippets 开收停靠 drawer,
-             节点库/子图库 点开 5xl modal。底部: 录制 (主操作, 三态)。加节点也可走 Tab / 右键画布。 -->
+        <!-- 左活动栏 rail (常驻细栏, VS Code 式): 变量/Snippets 开收停靠 drawer,
+             节点库/子图库 点开 5xl modal。录制在 toolbar 右区 (主操作要显眼)。加节点也可走 Tab / 右键画布。 -->
         <nav class="shrink-0 w-11 border-r border-default flex flex-col items-center py-2 gap-1 bg-elevated/20">
           <button
             v-for="item in leftRail"
@@ -147,39 +153,6 @@
           >
             <UIcon :name="item.icon" class="size-5" />
           </button>
-
-          <!-- 底部: 录制主操作 (三态)。录制中=红脉冲点停止 / 倒计时=点立即 / 空闲=下拉精准·简易。 -->
-          <div class="mt-auto pt-1 w-full flex flex-col items-center border-t border-default/60">
-            <button
-              v-if="recordStore.isRecording || recordStore.isPaused"
-              type="button"
-              class="size-8 flex items-center justify-center rounded-md text-error bg-error/15 hover:bg-error/25 transition-colors"
-              :title="recordingTargetName
-                ? t('editor.toolbar.recording_target_tip', { name: recordingTargetName }) + ' · ' + t('editor.toolbar.stop_record')
-                : t('editor.toolbar.stop_record')"
-              @click="stopRecording"
-            >
-              <UIcon name="i-tabler-player-stop-filled" class="size-4 animate-pulse" />
-            </button>
-            <button
-              v-else-if="countdownSec > 0"
-              type="button"
-              class="size-8 flex items-center justify-center rounded-md text-warning bg-warning/15 hover:bg-warning/25 text-sm font-semibold transition-colors"
-              :title="t('editor.toolbar.cancel_countdown_tip')"
-              @click="startRecording('precise')"
-            >
-              {{ countdownSec }}
-            </button>
-            <UDropdownMenu v-else :items="recordMenuItems" :content="{ side: 'right', align: 'end' }">
-              <button
-                type="button"
-                class="size-8 flex items-center justify-center rounded-md text-primary hover:bg-primary/10 transition-colors"
-                :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')"
-              >
-                <UIcon name="i-tabler-circle-dot" class="size-5" />
-              </button>
-            </UDropdownMenu>
-          </div>
         </nav>
 
         <!-- 停靠 drawer: 选中的面板滑出 (挤画布, 不盖)。面板各自带标题/搜索, 无需额外 header。 -->
@@ -1061,11 +1034,6 @@ useEditorHotkeys({
 const { startRecording, stopRecording, countdownSec } = useRecording({
   draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave, toast,
 })
-// rail 底部录制图标的空闲态下拉: 精准 / 简易。
-const recordMenuItems = [[
-  { label: t('editor.toolbar.record_precise'), icon: 'i-tabler-circle-dot', onSelect: () => startRecording('precise') },
-  { label: t('editor.toolbar.record_simple'), icon: 'i-tabler-bolt', onSelect: () => startRecording('simple') },
-]]
 
 // 节点剪贴板 (Ctrl+C/V) + Subgraph 1:1 复制独立子图副本
 const { onCopySelection, onPasteSelection } = useNodeClipboard({

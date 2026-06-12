@@ -1,6 +1,6 @@
 <template>
-  <!-- 单行布局：左 [导航 + 面包屑 + 撤销/重做] · 中 [空] · 右 [运行/主操作 · ⋯/设置 · 折叠属性]
-       (加内容 节点库/子图库 + 录制 已移到左侧 rail) -->
+  <!-- 单行布局：左 [导航 + 面包屑 + 撤销/重做] · 中 [空] · 右 [录制 · 运行/主操作 · ⋯/设置 · 折叠属性]
+       (加内容 节点库/子图库 在左侧 rail) -->
   <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
     <!-- ====== 左: 回列表(嵌入态) + 面包屑身份 + 撤销/重做 ====== -->
     <UButton
@@ -19,7 +19,7 @@
       @goto="$emit('goto', $event)"
     />
 
-    <!-- 撤销/重做: 跟在面包屑后 (标题栏左区). 加内容(节点库/子图库)+ 录制已移到左侧 rail。 -->
+    <!-- 撤销/重做: 跟在面包屑后 (标题栏左区)。 -->
     <div class="w-px h-5 bg-default mx-1" />
     <UButton
       size="sm" variant="ghost" color="neutral" icon="i-tabler-arrow-back-up"
@@ -32,7 +32,21 @@
 
     <div class="flex-1" />
 
-    <!-- ====== 右: 运行状态 + 主操作 + ⋯/设置 + 折叠 inspector ====== -->
+    <!-- ====== 右: 录制 + 运行状态 + 主操作 + ⋯/设置 + 折叠 inspector ====== -->
+    <!-- 录制 (三态紧凑单控件, 右区最左/检查左边): 空闲=下拉选精准·简易; 倒计时=点取消; 录制中=红停止(目标进 tooltip)。 -->
+    <UButton v-if="isRecording" size="sm" color="error" variant="solid" icon="i-tabler-square"
+             :title="(recordingTargetName ? t('editor.toolbar.recording_target_tip', { name: recordingTargetName }) + ' · ' : '') + t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })"
+             @click="$emit('stop-record')">{{ t('editor.toolbar.stop_record') }}</UButton>
+    <UButton v-else-if="countdownSec > 0" size="sm" color="warning" variant="solid" icon="i-tabler-x"
+             :title="t('editor.toolbar.cancel_countdown_tip')"
+             @click="$emit('cancel-countdown')">{{ t('editor.toolbar.cancel_countdown', { n: countdownSec }) }}</UButton>
+    <UDropdownMenu v-else :items="recordMenuItems">
+      <UButton size="sm" color="primary" variant="soft" icon="i-tabler-circle-dot"
+               :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')">
+        {{ t('editor.toolbar.record') }}</UButton>
+    </UDropdownMenu>
+    <div class="w-px h-5 bg-default mx-1" />
+
     <div
       v-if="execStoreRunning"
       class="inline-flex items-center gap-2 rounded-md bg-primary/15 border border-primary/40 px-2 py-0.5 text-[11px] text-primary"
@@ -87,6 +101,11 @@ const hotkeys = useHotkeysStore()
 
 const props = defineProps<{
   inspectorCollapsed: boolean
+  // recording 三态: isRecording (后端真的在录) / countdownSec>0 (倒计时中) / 都不是 (空闲)
+  isRecording: boolean
+  /** 录制目标容器名 (录制中进停止按钮 tooltip, 空则不拼) */
+  recordingTargetName?: string
+  countdownSec: number
   execStoreRunning: boolean
   runningNodeKind: string | undefined
   runningNodeLabel: string
@@ -107,6 +126,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:inspectorCollapsed': [v: boolean]
+  // 'record' 带 mode 参数: 'precise' | 'simple'
+  'record': [mode: 'precise' | 'simple']
+  'stop-record': []
+  'cancel-countdown': []
   'try-run': []
   'stop-run': []
   'save': []
@@ -125,6 +148,12 @@ const emit = defineEmits<{
   // 面包屑层级导航 (goto -1 = 回主图根)
   'goto': [idx: number]
 }>()
+
+// 录制下拉 (空闲态): 精准 / 简易。
+const recordMenuItems = [[
+  { label: t('editor.toolbar.record_precise'), icon: 'i-tabler-circle-dot', onSelect: () => emit('record', 'precise') },
+  { label: t('editor.toolbar.record_simple'), icon: 'i-tabler-bolt', onSelect: () => emit('record', 'simple') },
+]]
 
 // ⋯ 更多菜单: 低频操作分组 — 布局 / 吸附 / 连线样式 / 系统 / 帮助.
 const moreMenuItems = computed(() => {
