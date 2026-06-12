@@ -11,10 +11,10 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
       <div v-if="hasInput" class="space-y-1.5">
         <label v-if="inputLabel" class="text-xs text-toned">{{ inputLabel }}</label>
         <UInput
+          ref="inputRef"
           v-model="inputValue"
           :placeholder="inputPlaceholder"
           size="sm"
-          autofocus
           @keyup.enter="onConfirm"
         />
       </div>
@@ -30,6 +30,7 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
@@ -56,6 +57,12 @@ const inputValue = ref(props.inputDefault ?? '')
 watch(() => props.open, (v) => {
   if (v) inputValue.value = props.inputDefault ?? ''
 })
+
+// 打开即聚焦并全选默认值 — 直接打字替换, 回车接受。纯确认框无输入, 用
+// open && hasInput 守门, 不让空抢焦点跑 12 帧重试 + DEV 告警。
+const inputRef = ref<any>(null)
+const openWithInput = computed(() => props.open && hasInput.value)
+useAutoFocusOnOpen(openWithInput, inputRef, { selectAll: true })
 
 const confirmTextResolved = computed(() => props.confirmText ?? t('common.confirm'))
 const cancelTextResolved = computed(() => props.cancelText ?? t('common.cancel'))

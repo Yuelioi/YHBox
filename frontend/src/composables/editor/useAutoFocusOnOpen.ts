@@ -12,6 +12,8 @@ import { nextTick, watch, type Ref } from 'vue'
 
 interface AutoFocusOpts {
   onOpen?: () => void
+  // 抢到焦点后全选内容 (命名框「默认值一字可替」用)。
+  selectAll?: boolean
 }
 
 export function useAutoFocusOnOpen(
@@ -31,7 +33,10 @@ export function useAutoFocusOnOpen(
     const grab = () => {
       const el = inputRef.value?.inputRef
       el?.focus?.()
-      if (el && document.activeElement === el) return // 抢到了
+      if (el && document.activeElement === el) {
+        if (opts.selectAll) el.select()
+        return // 抢到了
+      }
       if (tries++ < 12) {
         requestAnimationFrame(grab)
       } else if (import.meta.env.DEV) {

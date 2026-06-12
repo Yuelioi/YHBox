@@ -79,7 +79,7 @@
               <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
                 <div
                   class="rounded p-3 cursor-pointer"
-                  :class="isSelected(item.id) ? 'bg-elevated/60' : 'bg-elevated/30 hover:bg-elevated/60'"
+                  :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
                   @click="onRowClick(item.id, $event)"
                   @dblclick="onPick(item.id)"
                   @contextmenu="selClick(item.id)"
