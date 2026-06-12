@@ -8,6 +8,7 @@
 - [misc-tools-backlog.md](misc-tools-backlog.md) — idea — 杂项小工具 backlog — i18n residue 清理 (悬浮窗工具→转正 floating-launcher; 截图 UI 美化已做; 从 scratch-backlog 抢救保留)
 
 ### 进行中·完成（active·done）
+- [2026-06-12-library-selection-and-fold-naming.md](2026-06-12-library-selection-and-fold-naming.md) — active — 选中行 primary 高亮(bg-primary/15+ring) + 折叠/裸建子图默认名改「子图 N」序号递增(弃时间戳, 删折叠前缀键) + ConfirmDialog 输入模式打开时全选默认值
 - [2026-06-12-library-modal-interaction.md](2026-06-12-library-modal-interaction.md) — active — 子图库 modal 交互改版 — 单击选中出详情(删悬停)+双击/按钮插入 + Ctrl/Shift 多选 + 批量删除/加标签 + Subgraph 新增 category 字段(分组按分类) + 分类/标签过滤器
 - [2026-06-12-editor-ux-consolidation.md](2026-06-12-editor-ux-consolidation.md) — active — 编辑器 UX 收口 — 删主界面库 tab(能力全收进编辑器子图库面板, 本地/在线两 tab + 全套增删改查) + 删"新窗口打开"模式(只维护主窗口一条路径) + 面包屑节点计数删除 + 主窗口补未保存标记
 <!-- /AUTO -->
