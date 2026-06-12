@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-12 by 月离 (跨容器状态串根治: tplStore.containerId 漏 onActivated→keep-alive 切容器拿错 WindowTarget/孤儿边, 补 onActivated 重指; dirty 守卫收进路由钩子(切容器/返回三态确认, 丢弃 reload 回盘); 拒转清单去重。复发#5 沉淀进 keepalive incident。)
-**Active focus**: **跨容器编辑器状态串根治 + 子图转脚本已落地**。转脚本(右键/属性面板转等价脚本, 预览+复制/插入, 整体拒转)用户真机已过。跨容器修复(tplStore 前台指针 + 未保存切容器三态守卫)待真机复验。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-12 by 月离 (编辑器左栏重排为 VS Code 活动栏式 rail + 停靠 drawer(变量/Snippets 图标点开收回, 变量惯例放左)+ 面包屑去冗余(根可点回主图, 删多余「上一层」箭头), 参考 UE My Blueprint/Figma。前置: 跨容器串根治 + 未保存切容器三态守卫。)
+**Active focus**: **编辑器外壳重排 + 跨容器状态串根治**。左栏改 rail+drawer(参考 UE/Figma, 非 modal 以保拖出画布)、面包屑去冗余; 跨容器修复(tplStore 前台指针 + 未保存切容器三态守卫)。子图转脚本用户真机已过。本批 UI/跨容器改动待真机复验。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -19,7 +19,8 @@
 
 ## 待验证
 
-- ⚠ 跨容器修复真机走一遍(本次新增, 无 spec 单测能覆盖路由/keep-alive): ① A 容器改点东西**不保存**→ 切到 B 容器, 应弹保存/丢弃/取消三态(不再裸切); 选「丢弃」切走再切回 A, A 应是磁盘干净态。② B 容器新建 WaitTemplate 截图, 定位的应是 **B 自己的 WindowTarget**(不再报"没有异环窗口"/不留孤儿边)。③ 转不了的子图拒转清单, 同类节点应「×N」合并一行不再重复堆。
+- ⚠ 编辑器外壳重排真机看一眼(本次新增, 纯布局无单测): 左侧细图标栏两个图标(变量/Snippets)点开对应 drawer 从左滑出、再点收回、互斥; 默认只剩细栏画布全宽; 变量在左、属性仍在右; Snippets 仍能拖到画布; 面包屑进子图后根「容器名」+ 每段可点(根回主图)、只剩最左一个返回箭头; 加节点(Tab/+节点/右键)不受影响。
+- ⚠ 跨容器修复真机走一遍(无 spec 单测能覆盖路由/keep-alive): ① A 容器改点东西**不保存**→ 切到 B 容器, 应弹保存/丢弃/取消三态(不再裸切); 选「丢弃」切走再切回 A, A 应是磁盘干净态。② B 容器新建 WaitTemplate 截图, 定位的应是 **B 自己的 WindowTarget**(不再报"没有异环窗口"/不留孤儿边)。③ 转不了的子图拒转清单, 同类节点应「×N」合并一行不再重复堆。
 - ⚠ [archive/specs/2026-06-11-script-template-dep-extraction.md](archive/specs/2026-06-11-script-template-dep-extraction.md) — 库里删一个被某脚本引用的模板,确认弹「被引用」referrer 警告 + gcBlobs 不回收其 blob(单测已覆盖提取+扫描器接线,差集成/真机这一验)。
 
 ## Hanging tasks
