@@ -35,6 +35,10 @@
           <span>{{ t('library.detail.used_by') }}</span>
           <span>{{ useCount === null ? '…' : t('library.detail.used_by_n', { n: useCount }) }}</span>
         </div>
+        <div v-if="sg.category" class="flex justify-between">
+          <span>{{ t('common.category') }}</span>
+          <span>{{ sg.category }}</span>
+        </div>
         <div v-if="sg.createdAt" class="flex justify-between">
           <span>{{ t('library.detail.created_at') }}</span>
           <span>{{ new Date(sg.createdAt).toLocaleString() }}</span>
@@ -63,6 +67,12 @@
       </section>
 
       <div class="pt-3 border-t border-default flex flex-col gap-2">
+        <UButton size="sm" color="primary" icon="i-tabler-package-import" @click="emit('insert')">
+          {{ t('library.explorer.insert') }}
+        </UButton>
+        <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-pencil" @click="emit('edit')">
+          {{ t('library.explorer.edit_info') }}
+        </UButton>
         <UButton
           size="sm"
           variant="soft"
@@ -95,6 +105,8 @@ const props = defineProps<{ sgID: string | null }>()
 
 const emit = defineEmits<{
   cleared: []
+  insert: []
+  edit: []
 }>()
 
 const libraryStore = useLibraryStore()
