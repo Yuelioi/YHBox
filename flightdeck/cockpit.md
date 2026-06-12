@@ -1,25 +1,27 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-12 by 月离 (编辑器 UX 收口代码全绿: 库 tab 整删+能力收进编辑器子图库 modal(本地/在线 tab + 全套增删改查) + 新窗口模式连根删 + 未保存标记入面包屑 + 顺手清四件死代码。待真机验收。)
-**Active focus**: **编辑器 UX 收口代码+验证全绿, 待真机验收**(清单见 待验证)。plan 已归档([spec](specs/2026-06-12-editor-ux-consolidation.md) 待真机过后拍 done)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-12 by 月离 (子图库 modal 交互改版代码全绿: 单击选中+双击插入 + Ctrl/Shift 多选 + 批量删/加标签 + category 字段+分类/标签过滤。plan 已归档, 待真机。)
+**Active focus**: **两案代码全绿待真机验收**: 编辑器 UX 收口 + 子图库 modal 交互改版(清单见 待验证, 后者交互以新清单为准)。spec 都待真机过后拍 done。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
 - [2026-06-12-editor-ux-consolidation.md](specs/2026-06-12-editor-ux-consolidation.md) — 编辑器 UX 收口 — 删主界面库 tab(能力全收进编辑器子图库面板, 本地/在线两 tab + 全套增删改查) + 删"新窗口打开"模式(只维护主窗口一条路径) + 面包屑节点计数删除 + 主窗口补未保存标记
+- [2026-06-12-library-modal-interaction.md](specs/2026-06-12-library-modal-interaction.md) — 子图库 modal 交互改版 — 单击选中出详情(删悬停)+双击/按钮插入 + Ctrl/Shift 多选 + 批量删除/加标签 + Subgraph 新增 category 字段(分组按分类) + 分类/标签过滤器
 <!-- /AUTO -->
 
 ## 下一步
 
-真机验收编辑器 UX 收口(清单 = 待验证第一条), 过了 spec 拍 done。其余候选(无紧迫): 修 2a0ff140 测试容器的预存悬空引用 sg-0d53b1bb(删那个节点即可, 顺手活); WaitTemplate 孤儿边原子性硬化(真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板, validator 全局校验已覆盖大半); 搜索/大复合 modal 收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 18 错; residue 28 处; runtime fixture 缺失红(build.md 在册)。
+真机验收两案一次过(清单 = 待验证两条; 子图库交互以改版后新清单为准, 旧清单③④的单击插入/悬停详情已被取代), 过了把两个 spec 拍 done; 顺手扫一眼 待复核 的 variable-system(大概率误报, 确认即销)。其余候选(无紧迫): 修 2a0ff140 测试容器的预存悬空引用 sg-0d53b1bb(删那个节点即可, 顺手活); WaitTemplate 孤儿边原子性硬化(真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板, validator 全局校验已覆盖大半); 搜索/大复合 modal 收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 18 错; residue 28 处; runtime fixture 缺失红(build.md 在册)。
 
 ## 待复核
 
-- 无。(vars.\* 删漏 2026-06-12 用户拍板补删, 已销。)
+- ⚠ [docs/variable-system.md](docs/variable-system.md) — 改动路径命中 applies_to(internal/services/container/model.go), 自动拍 stale。实际改动只是 Subgraph 加 category 字段, 没碰变量系统 — 大概率误报, 扫一眼确认即拍回 active。
 
 ## 待验证
 
-- ⚠ [archive/plans/2026-06-12-editor-ux-consolidation.md](archive/plans/2026-06-12-editor-ux-consolidation.md) — 编辑器 UX 收口真机验收: ①侧边栏无「库」, 容器/日程/设置导航正常; ②编辑器子图库 modal 有 本地/在线 两 tab(在线是占位文案); ③本地 tab: 单击仍是插入引用+缺变量自动补(不回归), 右键有 插入引用/复制为新/编辑信息(名/描述/标签)/复制 ID/删除, 删被引用的子图弹「被 N 个容器使用」警告; ④悬停条目右栏出详情(描述/标签/节点数/引用计数); ⑤面包屑无「N 节点」计数, 改图后容器名旁出「未保存」, 保存后消失, 离开编辑器有未保存时仍弹确认; ⑥容器列表与编辑器内无任何「新窗口打开」入口; ⑦录屏/截图/校准/悬浮启动器等工具窗照常能开(回归面)。
+- ⚠ [archive/plans/2026-06-12-library-modal-interaction.md](archive/plans/2026-06-12-library-modal-interaction.md) — 子图库 modal 真机验收: ①单击=选中出详情不插入, 悬停不再变右栏; ②双击插入引用+缺变量自动补不回归; ③详情面板「插入引用/编辑信息」按钮, 编辑能改 名/描述/标签/分类; ④Ctrl/Shift 多选, 选中≥2 右栏变批量面板; ⑤批量删除: 确认框列被引用项名单, 删后列表刷新; ⑥批量加标签: 原标签保留新标签追加; ⑦分组按分类(空=未分类), 分类下拉+标签多选+文本搜索三过滤叠加; ⑧编辑器内子图属性面板能改分类, 与库内互通; ⑨右键菜单全套与在线 tab 占位照旧。
+- ⚠ [archive/plans/2026-06-12-editor-ux-consolidation.md](archive/plans/2026-06-12-editor-ux-consolidation.md) — 编辑器 UX 收口真机验收(③④的单击插入/悬停详情交互已被上条改版取代, 只验 CRUD/警告/tab 仍在): ①侧边栏无「库」, 容器/日程/设置导航正常; ②编辑器子图库 modal 有 本地/在线 两 tab(在线是占位文案); ③右键有 插入引用/复制为新/编辑信息/复制 ID/删除, 删被引用的子图弹「被 N 个容器使用」警告; ⑤面包屑无「N 节点」计数, 改图后容器名旁出「未保存」, 保存后消失, 离开编辑器有未保存时仍弹确认; ⑥容器列表与编辑器内无任何「新窗口打开」入口; ⑦录屏/截图/校准/悬浮启动器等工具窗照常能开(回归面)。
 
 ## Hanging tasks
 
