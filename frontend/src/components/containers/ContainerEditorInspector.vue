@@ -17,6 +17,7 @@
       v-else-if="inSubgraph"
       :subgraph="currentSubgraph"
       :all-tags="allSubgraphTags"
+      :all-categories="allSubgraphCategories"
       @update="$emit('subgraph-update', $event)"
       @to-script="$emit('subgraph-to-script')"
     />
@@ -106,6 +107,7 @@ defineProps<{
   activeGraph: Graph | null
   declaredVars: { name: string; type: VarType }[]
   allSubgraphTags: string[]
+  allSubgraphCategories: string[]
   // 空状态「容器概览」用：热键 + 子图数（节点数/变量数从 activeGraph/declaredVars 取）。
   hotkey: string
   subgraphCount: number

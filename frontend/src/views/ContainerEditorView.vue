@@ -224,6 +224,7 @@
           :active-graph="activeGraph"
           :declared-vars="declaredVars"
           :all-subgraph-tags="allSubgraphTags"
+          :all-subgraph-categories="allSubgraphCategories"
           :hotkey="draft?.hotkey ?? ''"
           :subgraph-count="editorStore.visibleSubgraphs.length"
           @open-help="helpModalOpen = true"
@@ -1257,6 +1258,14 @@ const allSubgraphTags = computed(() => {
     for (const t of sg.tags ?? []) set.add(t)
   }
   return [...set]
+})
+
+const allSubgraphCategories = computed(() => {
+  const set = new Set<string>()
+  for (const sg of editorStore.visibleSubgraphs) {
+    if (sg.category) set.add(sg.category)
+  }
+  return [...set].sort()
 })
 
 function onSubgraphPropsUpdate(patch: Record<string, any>) {

@@ -102,6 +102,18 @@
       </div>
     </section>
 
+    <section class="space-y-2">
+      <label class="text-xs text-toned">{{ t('common.category') }}</label>
+      <UInputMenu
+        :model-value="subgraph.category ?? ''"
+        creatable
+        :items="allCategoriesList"
+        size="sm"
+        :placeholder="t('library.explorer.category_placeholder')"
+        @update:model-value="(v: string) => $emit('update', { category: v ?? '' })"
+      />
+    </section>
+
     <!-- 标签 tags -->
     <section class="space-y-2">
       <label class="text-xs text-toned">tags</label>
@@ -137,15 +149,18 @@ interface SubgraphLike {
   outputPins?: { id: string; name: string }[]
   recordingContext?: RecordingContext
   tags?: string[]
+  category?: string
 }
 
 const props = defineProps<{
   subgraph: SubgraphLike | null
   allTags?: string[]
+  allCategories?: string[]
 }>()
 const emit = defineEmits<{ update: [patch: Record<string, any>]; 'to-script': [] }>()
 
 const allTagsList = computed(() => props.allTags ?? [])
+const allCategoriesList = computed(() => props.allCategories ?? [])
 
 const copied = ref(false)
 let copiedTimer = 0
