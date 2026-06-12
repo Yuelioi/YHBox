@@ -11,7 +11,7 @@
 
 ## 下一步
 
-清真机验证债(见 待验证: 录制新位置扫一眼; 库里删被脚本引用的模板 → 弹 referrer 警告)。外壳重排/跨容器修复/子图转脚本真机均已过, 销。之后无在飞项目, 候选(无紧迫): WaitTemplate「先连边再建节点」失败留孤儿边的原子性硬化(本次根因修了暂不触发, 真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 规则升 checklist); 脚本 SubgraphID 容错(运行时报错附现有子图列表 / 编辑期校验字面 SubgraphID 存在性, 2026-06-12 提出未拍板); 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册); StateCycleSmoke 本机预存红排查(build.md 在册, mock 模板没命中)。
+清最后一条真机验证债(见 待验证: 库里删被脚本引用的模板 → 弹 referrer 警告)。编辑器外壳重排(含录制移位)/跨容器修复/子图转脚本真机均已过, 销。之后无在飞项目, 候选(无紧迫): WaitTemplate「先连边再建节点」失败留孤儿边的原子性硬化(本次根因修了暂不触发, 真机再现再修); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 规则升 checklist); 脚本 SubgraphID 容错(运行时报错附现有子图列表 / 编辑期校验字面 SubgraphID 存在性, 2026-06-12 提出未拍板); 搜索/大复合 modal 是否收进 BaseModal; idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 16 错清债; residue 28 处 HUD/Launcher 硬编码中文(misc-tools-backlog 在册); StateCycleSmoke 本机预存红排查(build.md 在册, mock 模板没命中)。
 
 ## 待复核
 
@@ -19,7 +19,6 @@
 
 ## 待验证
 
-- ⚠ 录制新位置真机扫一眼(2026-06-12 用户拍板移位后未看): toolbar 右区最左(检查左边)「录制」按钮 — 空闲点开下拉精准/简易; 倒计时变「取消(n)」; 录制中变红「停止录制」(目标容器+F12 进 tooltip)。(外壳重排其余项 + 跨容器修复三步 用户 2026-06-12 真机已过, 销。)
 - ⚠ [archive/specs/2026-06-11-script-template-dep-extraction.md](archive/specs/2026-06-11-script-template-dep-extraction.md) — 库里删一个被某脚本引用的模板,确认弹「被引用」referrer 警告 + gcBlobs 不回收其 blob(单测已覆盖提取+扫描器接线,差集成/真机这一验)。
 
 ## Hanging tasks
