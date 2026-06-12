@@ -206,9 +206,6 @@ export default {
       confirm: '丢弃并重载',
       failed: '重载失败',
     },
-    sidebar: {
-      palette_tab: '节点库',
-    },
     canvas: {
       hint: '左键拖空白框选 · 中键拖拽视图 · Ctrl+C/V 复制粘贴 · Delete 删除',
       node_disabled_tooltip: '此节点已禁用 (运行时跳过)',
@@ -221,7 +218,6 @@ export default {
       },
     },
     breadcrumb: {
-      pop: '上一层',
       node_count: '{n} 节点',
       tooltip_main: '主图节点数 (子图算 1)',
       tooltip_subgraph: '当前子图内部节点数',
@@ -229,8 +225,6 @@ export default {
     },
     toolbar: {
       back_to_list: '返回容器列表',
-      palette_expand: '展开左侧栏',
-      palette_collapse: '折叠左侧栏',
       node_explorer: '节点 Explorer (Tab)',
       library_explorer: '子图库 Explorer',
       undo: '撤销 Ctrl+Z',

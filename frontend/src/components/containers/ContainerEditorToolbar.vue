@@ -9,19 +9,12 @@
       :title="t('editor.toolbar.back_to_list')"
       @click="$emit('back-to-list')"
     />
-    <UButton
-      size="xs" variant="ghost" color="neutral"
-      :icon="paletteCollapsed ? 'i-tabler-layout-sidebar-left-expand' : 'i-tabler-layout-sidebar-left-collapse'"
-      :title="paletteCollapsed ? t('editor.toolbar.palette_expand') : t('editor.toolbar.palette_collapse')"
-      @click="$emit('update:paletteCollapsed', !paletteCollapsed)"
-    />
     <ContainerEditorBreadcrumb
       class="ml-1 min-w-0"
       :root-label="rootLabel"
       :editor-path="editorPath"
       :sg-label-fn="sgLabelFn"
       :active-node-count="activeNodeCount"
-      @pop="$emit('pop')"
       @goto="$emit('goto', $event)"
     />
 
@@ -129,7 +122,6 @@ const { t } = useI18n()
 const hotkeys = useHotkeysStore()
 
 const props = defineProps<{
-  paletteCollapsed: boolean
   inspectorCollapsed: boolean
   // recording 三态:  isRecording (后端真的在录) / countdownSec>0 (倒计时中) / 都不是 (空闲)
   isRecording: boolean
@@ -155,7 +147,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:paletteCollapsed': [v: boolean]
   'update:inspectorCollapsed': [v: boolean]
   // 'record' 带 mode 参数: 'precise' | 'simple'
   'record': [mode: 'precise' | 'simple']
@@ -178,8 +169,7 @@ const emit = defineEmits<{
   'set-edge-style': [v: 'default' | 'smoothstep' | 'step']
   'open-new-window': []
   'back-to-list': []
-  // 面包屑层级导航
-  'pop': []
+  // 面包屑层级导航 (goto -1 = 回主图根)
   'goto': [idx: number]
 }>()
 

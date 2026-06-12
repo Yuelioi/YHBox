@@ -95,9 +95,8 @@
     </div>
 
     <div v-else class="flex flex-col flex-1 min-h-0">
-      <!-- Toolbar 独立一行：左 [折叠 palette] [录制] [折叠 inspector]，右 [运行状态] [试运行/停止] [保存] -->
+      <!-- Toolbar 独立一行：左 [面包屑] [录制]，右 [运行状态] [试运行/停止] [保存] [折叠 inspector] -->
       <ContainerEditorToolbar
-        v-model:palette-collapsed="sidebarPrefs.leftSidebarCollapsed"
         v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-standalone="isStandalone"
         :is-recording="recordStore.isRecording || recordStore.isPaused"
@@ -135,55 +134,36 @@
         @open-new-window="onOpenNewWindow"
         @back-to-list="onBackToList"
         @open-help="helpModalOpen = true"
-        @pop="editorStore.popPath()"
         @goto="editorStore.gotoPathIndex($event)"
       />
 
       <div class="flex flex-1 min-h-0">
-        <!-- Left sidebar: 3 collapsible panels -->
+        <!-- 左活动栏 rail (常驻细栏, VS Code 式): 点图标开/收对应 drawer, 互斥同时只开一个。
+             加节点不在这 (走 toolbar +节点 / Tab / 右键画布)。 -->
+        <nav class="shrink-0 w-11 border-r border-default flex flex-col items-center py-2 gap-1 bg-elevated/20">
+          <button
+            v-for="item in leftRail"
+            :key="item.key"
+            type="button"
+            class="size-8 flex items-center justify-center rounded-md transition-colors"
+            :class="sidebarPrefs.leftDrawer === item.key
+              ? 'text-primary bg-primary/10'
+              : 'text-dimmed hover:text-default hover:bg-elevated/60'"
+            :title="item.title"
+            @click="toggleLeftDrawer(item.key)"
+          >
+            <UIcon :name="item.icon" class="size-5" />
+          </button>
+        </nav>
+
+        <!-- 停靠 drawer: 选中的面板滑出 (挤画布, 不盖)。面板各自带标题/搜索, 无需额外 header。 -->
         <aside
-          v-show="!sidebarPrefs.leftSidebarCollapsed"
+          v-if="sidebarPrefs.leftDrawer"
           :style="{ width: leftPane.width.value + 'px' }"
           class="shrink-0 border-r border-default overflow-y-auto flex flex-col"
         >
-          <!-- Sidebar tabs (Palette | Snippets) — segmented toggle 顶部 -->
-          <div class="flex border-b border-default bg-elevated/20">
-            <button
-              type="button"
-              class="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-colors"
-              :class="
-                sidebarPrefs.leftSidebarTab === 'palette'
-                  ? 'text-primary border-b-2 border-primary -mb-px'
-                  : 'text-dimmed hover:text-default'
-              "
-              @click="sidebarPrefs.leftSidebarTab = 'palette'"
-            >
-              <UIcon name="i-tabler-box" class="size-3.5" />
-              {{ t('editor.sidebar.palette_tab') }}
-            </button>
-            <button
-              type="button"
-              class="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium transition-colors"
-              :class="
-                sidebarPrefs.leftSidebarTab === 'snippets'
-                  ? 'text-primary border-b-2 border-primary -mb-px'
-                  : 'text-dimmed hover:text-default'
-              "
-              @click="sidebarPrefs.leftSidebarTab = 'snippets'"
-            >
-              <UIcon name="i-tabler-bookmarks" class="size-3.5" />
-              Snippets
-            </button>
-          </div>
-
-          <SnippetsPanel
-            v-if="sidebarPrefs.leftSidebarTab === 'snippets'"
-            @apply="onApplySnippet"
-            @edit="onEditSnippet"
-          />
-
           <VarsPanel
-            v-show="sidebarPrefs.leftSidebarTab === 'palette'"
+            v-if="sidebarPrefs.leftDrawer === 'vars'"
             :vars="draft?.vars ?? []"
             :usage-count="totalVarUsageCount"
             v-model:expanded="sidebarPrefs.varsExpanded"
@@ -194,9 +174,14 @@
             @reorder-vars="onReorderVars"
             @insert-incvar="onInsertIncVar"
           />
+          <SnippetsPanel
+            v-else-if="sidebarPrefs.leftDrawer === 'snippets'"
+            @apply="onApplySnippet"
+            @edit="onEditSnippet"
+          />
         </aside>
         <SplitHandle
-          v-show="!sidebarPrefs.leftSidebarCollapsed"
+          v-if="sidebarPrefs.leftDrawer"
           :model-value="leftPane.width.value"
           @update:model-value="leftPane.setWidth"
           :min="200"
@@ -705,6 +690,14 @@ function onSubgraphPanelToScript() {
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
+// 左活动栏 rail 项 (变量 / Snippets); 点同图标二次收回。加节点不在此 (toolbar +节点 / Tab / 右键)。
+const leftRail = [
+  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title') },
+  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets' },
+]
+function toggleLeftDrawer(key: 'vars' | 'snippets') {
+  sidebarPrefs.value.leftDrawer = sidebarPrefs.value.leftDrawer === key ? null : key
+}
 const leftPane = useSplitpane('editor.splitpane.left', { default: 280, min: 200, max: 480 })
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
@@ -1020,7 +1013,7 @@ async function onSettingsSave(form: { name: string; hotkey: string; description:
 useEditorHotkeys({
   commandPaletteOpen, nodeSearchOpen, settingsOpen, nodeExplorerOpen,
   dirty, onSave, undo, redo,
-  togglePalette: () => { sidebarPrefs.value.leftSidebarCollapsed = !sidebarPrefs.value.leftSidebarCollapsed },
+  togglePalette: () => toggleLeftDrawer('vars'),
   toggleInspector: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
 })
 

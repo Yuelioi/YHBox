@@ -11,7 +11,7 @@ describe('useSidebarPrefs', () => {
   it('loads defaults when localStorage empty', async () => {
     const { useSidebarPrefs } = await import('./useSidebarPrefs')
     const { prefs } = useSidebarPrefs()
-    expect(prefs.value.leftSidebarCollapsed).toBe(false)
+    expect(prefs.value.leftDrawer).toBe(null)
     expect(prefs.value.varsExpanded).toBe(true)
   })
 

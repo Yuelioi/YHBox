@@ -191,9 +191,6 @@
       confirm: 'Discard and reload',
       failed: 'Reload failed',
     },
-    sidebar: {
-      palette_tab: 'Node Palette',
-    },
     canvas: {
       hint: 'Left drag to box-select · Middle drag to pan · Ctrl+C/V copy/paste · Delete remove',
       node_disabled_tooltip: 'This node is disabled (skipped at runtime)',
@@ -206,7 +203,6 @@
       },
     },
     breadcrumb: {
-      pop: 'Up',
       node_count: '{n} nodes',
       tooltip_main: 'Main graph node count (Subgraph counted as 1)',
       tooltip_subgraph: 'Current subgraph internal node count',
@@ -214,8 +210,6 @@
     },
     toolbar: {
       back_to_list: 'Back to container list',
-      palette_expand: 'Expand left sidebar',
-      palette_collapse: 'Collapse left sidebar',
       node_explorer: 'Node Explorer (Tab)',
       library_explorer: 'Subgraph Library Explorer',
       undo: 'Undo Ctrl+Z',

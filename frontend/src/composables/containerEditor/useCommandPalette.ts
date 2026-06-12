@@ -138,8 +138,8 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
       // ── view ──
       {
         id: 'view.toggle-left-sidebar', label: t('editor.palette.cmd.toggle_left_sidebar'), group: 'view',
-        keywords: ['sidebar', 'panel', '侧栏'],
-        exec: () => { opts.sidebarPrefs.value.leftSidebarCollapsed = !opts.sidebarPrefs.value.leftSidebarCollapsed },
+        keywords: ['sidebar', 'panel', '侧栏', '变量', 'vars'],
+        exec: () => { opts.sidebarPrefs.value.leftDrawer = opts.sidebarPrefs.value.leftDrawer ? null : 'vars' },
       },
       {
         id: 'view.toggle-inspector', label: t('editor.palette.cmd.toggle_inspector'), group: 'view',

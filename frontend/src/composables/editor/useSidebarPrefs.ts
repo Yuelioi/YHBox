@@ -4,10 +4,9 @@ import { ref, watch } from 'vue'
 export const SIDEBAR_PREFS_KEY = 'yotta.editor.sidebar'
 
 export interface SidebarPrefs {
-  leftSidebarCollapsed: boolean
+  /** 左侧 VS Code 活动栏式: 哪个 drawer 停靠打开 (null = 只剩细图标栏, 画布最大). */
+  leftDrawer: 'vars' | 'snippets' | null
   inspectorCollapsed: boolean
-  /** 'palette' = 节点库 (创建模式); 'snippets' = 用户资产 (复用模式). */
-  leftSidebarTab: 'palette' | 'snippets'
   varsExpanded: boolean
   snapEnabled: boolean
   /** 连线渲染样式 (vue-flow edge type): default=贝塞尔曲线 / smoothstep=圆角直角 / step=折线. */
@@ -15,9 +14,8 @@ export interface SidebarPrefs {
 }
 
 const DEFAULTS: SidebarPrefs = {
-  leftSidebarCollapsed: false,
+  leftDrawer: null,
   inspectorCollapsed: false,
-  leftSidebarTab: 'palette',
   varsExpanded: true,
   snapEnabled: true,
   edgeStyle: 'default',
