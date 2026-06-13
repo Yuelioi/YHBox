@@ -273,7 +273,7 @@ func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.Run
 	if !ok {
 		return
 	}
-	line, key := FormatDumpLine(&rn.Spec, node.Label, node.ID, result.ResolvedInputs, result.OutputData, runErr)
+	line, key := FormatDumpLine(&rn.Spec, node.Label, node.ID, result.ResolvedInputs, result.OutputData, result.ExitName, result.Duration, runErr)
 	r.rt.Emit("container:node-dump", map[string]any{
 		"containerId": r.rt.Container.ID,
 		"nodeId":      node.ID,

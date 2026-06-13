@@ -3,6 +3,8 @@ package runtime
 import (
 	"strings"
 	"testing"
+	"time"
+
 	nodepkg "yotta/internal/node"
 )
 
@@ -14,12 +16,21 @@ func TestFormatDumpLine_Basic(t *testing.T) {
 	}
 	in := map[string]any{"key": "hook", "thr": 0.9}
 	out := map[string]any{"hit": true, "x": 820, "y": 440}
-	line, key := FormatDumpLine(spec, "checkHook", "n_a3f", in, out, nil)
+	line, key := FormatDumpLine(spec, "checkHook", "n_a3f", in, out, "hit", 1500*time.Millisecond, nil)
 	if !strings.HasPrefix(line, "CheckTemplate(checkHook, n_a3f) in{") {
 		t.Fatalf("line prefix wrong: %q", line)
 	}
 	if !strings.Contains(line, "in{key=hook, thr=0.9}") || !strings.Contains(line, "out{hit=true, x=820, y=440}") {
 		t.Fatalf("line body wrong: %q", line)
+	}
+	if !strings.Contains(line, "→hit") {
+		t.Fatalf("exit name must render: %q", line)
+	}
+	if !strings.Contains(line, "took=1.5s") {
+		t.Fatalf("elapsed must render: %q", line)
+	}
+	if strings.Contains(key, "took") {
+		t.Fatalf("took 不该进 key (会害合并): %q", key)
 	}
 	if strings.Contains(key, "checkHook") || strings.Contains(key, "n_a3f") {
 		t.Fatalf("key must exclude name/id: %q", key)
@@ -28,7 +39,7 @@ func TestFormatDumpLine_Basic(t *testing.T) {
 
 func TestFormatDumpLine_ErrorAndEmptySegments(t *testing.T) {
 	spec := &nodepkg.Spec{Kind: "K", Inputs: []nodepkg.InputSpec{{Name: "a"}}}
-	line, _ := FormatDumpLine(spec, "", "n1", map[string]any{"a": 1}, nil, fmtErr("boom"))
+	line, _ := FormatDumpLine(spec, "", "n1", map[string]any{"a": 1}, nil, "", 0, fmtErr("boom"))
 	if strings.Contains(line, "out{") {
 		t.Fatalf("empty out must be omitted: %q", line)
 	}

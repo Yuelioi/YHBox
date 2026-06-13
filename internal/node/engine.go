@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
+	"time"
 )
 
 // RunResult 单节点执行结果. framework 用来路由 + 日志 + error 传播.
@@ -18,6 +19,7 @@ type RunResult struct {
 	PanicStack  string // stack trace if panic
 
 	ResolvedInputs map[string]any // 仅 logEnabled 时填: 声明 pin 的本次输入快照, 供 dump 日志
+	Duration       time.Duration  // 节点 Run 实际耗时 (含 WaitMatch 等内部轮询), 供 dump 日志显示 took=
 }
 
 // preparedExec is the result of phases 1-3 (gates passed, ctx built). 内部 struct.
@@ -49,7 +51,9 @@ func runWithRecover(rn *RegisteredNode, p *preparedExec, logEnabled bool, fn fun
 	if logEnabled {
 		result.ResolvedInputs = ExportDeclaredInputs(&rn.Spec, p.in)
 	}
+	start := time.Now()
 	defer func() {
+		result.Duration = time.Since(start) // defer 里设 → 正常/error/panic 各路径都覆盖
 		if r := recover(); r != nil {
 			result.Panic = r
 			result.PanicStack = string(debug.Stack())
