@@ -17,7 +17,7 @@
       :model-value="modelValue == null ? '' : String(modelValue)"
       :items="selectItems"
       size="xs"
-      @update:model-value="(v: any) => emit('update:modelValue', String(v))"
+      @update:model-value="(v: any) => commit(v)"
     />
   </div>
   <!-- list pin — wire-only, 不渲染可编辑 input 防手输垃圾 literal -->
@@ -30,25 +30,26 @@
     type="number"
     :model-value="modelValue ?? 0"
     size="xs"
-    @update:model-value="(v: any) => emit('update:modelValue', Number(v) || 0)"
+    @update:model-value="(v: any) => commit(v)"
   />
   <UCheckbox
     v-else-if="type === 'bool'"
     :model-value="!!modelValue"
-    @update:model-value="(v: boolean) => emit('update:modelValue', v)"
+    @update:model-value="(v: boolean) => commit(v)"
   />
   <UInput
     v-else
     :model-value="modelValue == null ? '' : String(modelValue)"
     size="xs"
     :placeholder="placeholder"
-    @update:model-value="(v: any) => emit('update:modelValue', String(v))"
+    @update:model-value="(v: any) => commit(v)"
   />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { coerceLiteral } from './coerceLiteral'
 import type { PinType } from '../pinSpec'
 
 const { t } = useI18n()
@@ -63,6 +64,11 @@ const props = defineProps<{
   options?: Array<{ value: string; labelKey: string }>
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: any): void }>()
+
+// 写回统一过 coerce: 按 pin 规范类型收口, 不靠各分支自己 String()/Number() (会漏)。
+function commit(v: unknown) {
+  emit('update:modelValue', coerceLiteral(v, props.type))
+}
 
 const selectItems = computed(() =>
   (props.options ?? []).map((o) => ({ value: o.value, label: t(o.labelKey) })),

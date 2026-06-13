@@ -679,6 +679,7 @@ export default {
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即触发 / 全部同帧命中才触发', option: { any: '任一命中', all: '全部命中' } },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。' },
         CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
         CapturePoint: { label: '命中点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
@@ -725,6 +726,7 @@ export default {
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+        SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。' },
         CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
         CapturePoint: { label: '点击点→变量', hint: '填变量名, 把点击点 (ratio) 捕获进该变量' },
       },
@@ -1718,7 +1720,7 @@ export default {
     PIN_TYPE_COERCION_WARNING: 'data pin 隐式类型转换: {from} → {to} (建议加 To* 节点显式)',
     GETVAR_UNKNOWN_VAR: 'GetVar/SetVar/IncVar 引用未声明的变量 {name}',
     GETVAR_TYPE_MISMATCH: 'GetVar 出的 type 跟下游期望不符',
-    LITERAL_TYPE_MISMATCH: 'inline literal 类型跟 pin type 不符 (pin {pin} 期望 {type}, 实际 {got})',
+    LITERAL_TYPE_MISMATCH: 'inline literal 类型跟 pin type 不符 (pin {pin} 期望 {expected}, 实际值 {value})',
     DATA_PIN_DANGLING: 'data-in pin {pin} 未连边也无 literal',
     DATA_GRAPH_CYCLE: '数据流形成环: {cycle}',
     EXPR_PARSE_ERROR: 'Expr 解析失败: {error}',
@@ -1758,6 +1760,8 @@ export default {
     close: '关闭',
     run_button: '通过 — 继续运行',
     fix_missing_window_target: '一键添加 WindowTarget 节点',
+    jump: '跳转',
+    fix: '修复',
   },
   // ContainersView / ContainersTab / TemplatesTab 文案.
   containers: {

@@ -659,6 +659,7 @@
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit fires / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).' },
         CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
         CapturePoint: { label: 'Hit point → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
@@ -705,6 +706,7 @@
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+        SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).' },
         CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
         CapturePoint: { label: 'Click point → variable', hint: 'Enter a variable name to capture the click point (ratio) into it' },
       },
@@ -1698,7 +1700,7 @@
     PIN_TYPE_COERCION_WARNING: 'data pin implicit coercion: {from} → {to} (suggest explicit To* node)',
     GETVAR_UNKNOWN_VAR: 'GetVar/SetVar/IncVar references undeclared variable {name}',
     GETVAR_TYPE_MISMATCH: 'GetVar output type does not match downstream expectation',
-    LITERAL_TYPE_MISMATCH: 'inline literal type does not match pin type (pin {pin} expected {type}, got {got})',
+    LITERAL_TYPE_MISMATCH: 'inline literal type does not match pin type (pin {pin} expected {expected}, got {value})',
     DATA_PIN_DANGLING: 'data-in pin {pin} has no edge and no literal',
     DATA_GRAPH_CYCLE: 'data flow forms a cycle: {cycle}',
     EXPR_PARSE_ERROR: 'Expr parse failed: {error}',
@@ -1738,6 +1740,8 @@
     close: 'Close',
     run_button: 'Pass — continue running',
     fix_missing_window_target: 'Auto-add WindowTarget node',
+    jump: 'Jump',
+    fix: 'Fix',
   },
   containers: {
     tab: {

@@ -3,8 +3,8 @@
 // 不跨容器代保), 带基准 rev 乐观锁; 被拒 (盘上已有更新) → 走 staleSubgraphs 提示重载。
 import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { backend, type Container } from '@/lib/backend'
-import { errorMessage } from '@/lib/invoke'
+import { backend, type Container, type ValidationError } from '@/lib/backend'
+import { errorMessage, normalizeError } from '@/lib/invoke'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 
 export function useEditorSave(opts: {
@@ -12,8 +12,10 @@ export function useEditorSave(opts: {
   draft: Ref<Container | null>
   dirty: Ref<boolean>
   toast: { add: (o: Record<string, unknown>) => unknown }
+  /** 主图保存因校验失败时回调 (带结构化错误) — view 据此弹问题面板 (可跳转/修复), 取代干巴巴 toast。 */
+  onValidationErrors?: (errs: ValidationError[]) => void
 }) {
-  const { containerID, draft, dirty, toast } = opts
+  const { containerID, draft, dirty, toast, onValidationErrors } = opts
   const editorStore = useContainerEditorStore()
   const { t } = useI18n()
 
@@ -73,8 +75,13 @@ export function useEditorSave(opts: {
     try {
       await backend.containers.updateSilent(draft.value.id, JSON.stringify(patch))
     } catch (e) {
-      // 一条 toast 收口: 标题「主图保存失败」+ 本地化原因, 不再叠 invoke 的自动 toast。
-      toast.add({ title: t('editorSave.main_save_failed'), description: errorMessage(e), color: 'error' })
+      // 校验类失败 (结构化 errors) → 交给问题面板, 用户能逐条跳转/一键修复; 非校验类 (网络等) 才 toast。
+      const verrs = normalizeError(e).errors as ValidationError[] | undefined
+      if (verrs && verrs.length > 0 && onValidationErrors) {
+        onValidationErrors(verrs)
+      } else {
+        toast.add({ title: t('editorSave.main_save_failed'), description: errorMessage(e), color: 'error' })
+      }
       return false
     }
 

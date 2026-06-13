@@ -39,11 +39,33 @@
           </div>
           <!-- t('error.<CODE>', params) → backend.message → raw code (fallback 链). -->
           <div class="text-xs text-toned leading-relaxed pl-5">{{ errorText(e) }}</div>
-          <div v-if="e.nodeId" class="text-[10px] text-dimmed pl-5">
-            {{ t('validation.node_label') }} <code class="font-mono">{{ e.nodeId }}</code>
-          </div>
-          <div v-if="e.code === 'MISSING_WINDOW_TARGET'" class="pl-5 pt-1">
+          <!-- 动作行: nodeId + 跳转(定位到出错节点, 含跳进子图) + 修复(能机械改的才显) -->
+          <div
+            v-if="e.nodeId || canFix(e) || e.code === 'MISSING_WINDOW_TARGET'"
+            class="flex flex-wrap items-center gap-2 pl-5 pt-1"
+          >
+            <code v-if="e.nodeId" class="font-mono text-[10px] text-dimmed">{{ e.nodeId }}</code>
             <UButton
+              v-if="e.nodeId"
+              size="xs"
+              variant="soft"
+              color="neutral"
+              icon="i-tabler-focus-2"
+              @click="emit('jump', e)"
+            >
+              {{ t('validation.jump') }}
+            </UButton>
+            <UButton
+              v-if="canFix(e)"
+              size="xs"
+              color="primary"
+              icon="i-tabler-wand"
+              @click="emit('fix', e)"
+            >
+              {{ t('validation.fix') }}
+            </UButton>
+            <UButton
+              v-if="e.code === 'MISSING_WINDOW_TARGET'"
               size="xs"
               color="primary"
               icon="i-tabler-wand"
@@ -75,6 +97,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ValidationError } from '@/lib/backend'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { safeCoerceForFix } from '@/components/containers/inline/coerceLiteral'
 
 const props = defineProps<{
   open: boolean
@@ -85,7 +108,18 @@ const emit = defineEmits<{
   close: []
   run: []
   'fix-missing-window-target': []
+  jump: [e: ValidationError]
+  fix: [e: ValidationError]
 }>()
+
+// canFix: 这条错误能不能「一键修复」。目前只覆盖 LITERAL_TYPE_MISMATCH 中能安全 coerce 的
+// (干净数字串→number / 真假串→bool / 标量→string)。含糊值 (如 "500ms") → 不显修复按钮。
+function canFix(e: ValidationError): boolean {
+  return (
+    e.code === 'LITERAL_TYPE_MISMATCH' &&
+    safeCoerceForFix(e.params?.value, String(e.params?.expected ?? '')) !== undefined
+  )
+}
 
 const { t, te } = useI18n()
 const errorCount = computed(() => props.errors.filter((e) => e.severity === 'error').length)

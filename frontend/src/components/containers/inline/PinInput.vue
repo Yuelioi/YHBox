@@ -5,19 +5,21 @@
   <UCheckbox
     v-if="kind === 'checkbox' || (kind === '' && type === 'bool')"
     :model-value="!!modelValue"
-    @update:model-value="(v: boolean) => emit('update:modelValue', v)"
+    @update:model-value="(v: boolean) => commit(v)"
   />
 
-  <!-- number / slider -->
+  <!-- number / slider / duration — duration 值就是毫秒数 (number), 必须走数字框存 number;
+       漏了它会掉到末尾文本框 → 存成字符串 → 保存被 LITERAL_TYPE_MISMATCH 拦 (Sleep.Duration 即此坑) -->
   <UInputNumber
-    v-else-if="kind === 'number' || kind === 'slider' || (kind === '' && type === 'number')"
+    v-else-if="kind === 'number' || kind === 'slider' || kind === 'duration' || (kind === '' && type === 'number')"
     :model-value="numModel"
     :min="min"
     :max="max"
     :step="step"
+    :format-options="{ useGrouping: false }"
     size="sm"
     class="w-full"
-    @update:model-value="(v: number) => emit('update:modelValue', Number.isFinite(v) ? v : 0)"
+    @update:model-value="(v: number) => commit(v)"
   />
 
   <!-- static dropdown (枚举, options 内联) -->
@@ -27,7 +29,7 @@
     :items="selectItems"
     size="sm"
     class="w-full"
-    @update:model-value="(v: any) => emit('update:modelValue', String(v))"
+    @update:model-value="(v: any) => commit(v)"
   />
 
   <!-- JSON / rect — textarea + parse, 保留 invalid raw text, 仅 valid 时 commit -->
@@ -51,7 +53,7 @@
     :placeholder="placeholder"
     :input-names="inputNames"
     :declared-vars="declaredVars"
-    @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @update:model-value="(v: string) => commit(v)"
   />
 
   <!-- code (Script.Code) — JS 编辑器: 节点函数/糖函数/动态输入/变量补全 + 放大编辑 modal -->
@@ -61,7 +63,7 @@
     :placeholder="placeholder"
     :input-names="inputNames"
     :declared-vars="declaredVars"
-    @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @update:model-value="(v: string) => commit(v)"
     @declare-var="(a) => emit('declare-var', a)"
   />
 
@@ -73,28 +75,28 @@
     size="sm"
     class="w-full font-mono"
     :placeholder="placeholder"
-    @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @update:model-value="(v: string) => commit(v)"
   />
 
   <!-- key-capture: 聚焦后按物理键自动填 vk (KeyPress/KeyHold* 的 VK 字段) -->
   <KeyCapture
     v-else-if="kind === 'key-capture'"
     :model-value="modelValue == null ? '' : String(modelValue)"
-    @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @update:model-value="(v: string) => commit(v)"
   />
 
   <!-- color-preset: 视觉注册中心色块选择器 (CommentBox.Color 等), 存 palette key -->
   <ColorPalettePicker
     v-else-if="kind === 'color-preset'"
     :model-value="modelValue == null ? '' : String(modelValue)"
-    @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @update:model-value="(v: string) => commit(v)"
   />
 
   <!-- icon-preset: 视觉注册中心图标选择器 (CommentBox.Icon 等), 存完整 tabler 名 -->
   <IconPicker
     v-else-if="kind === 'icon-preset'"
     :model-value="modelValue == null ? '' : String(modelValue)"
-    @update:model-value="(v: string) => emit('update:modelValue', v)"
+    @update:model-value="(v: string) => commit(v)"
   />
 
   <!-- list pin — wire-only, 不渲染可编辑 input 防手输垃圾 literal -->
@@ -103,7 +105,7 @@
     class="text-xs text-dimmed italic"
   >{{ t('containers.listPinWireOnly') }}</span>
 
-  <!-- text / password / duration / async-dropdown / 默认 → 文本框
+  <!-- text / password / async-dropdown / 默认 → 文本框
        async-dropdown 的候选源 (templateKeys/clipIDs/subgraphIDs) 多由 bespoke section 处理;
        走到这里的 (e.g. WaitTemplate.Template) 当字符串 key 编辑 (跟旧 literal section 一致)。 -->
   <UInput
@@ -113,7 +115,7 @@
     class="w-full"
     :type="kind === 'password' ? 'password' : 'text'"
     :placeholder="placeholder"
-    @update:model-value="(v: any) => emit('update:modelValue', String(v))"
+    @update:model-value="(v: any) => commit(v)"
   />
 </template>
 
@@ -125,6 +127,7 @@ import ColorPalettePicker from './ColorPalettePicker.vue'
 import IconPicker from './IconPicker.vue'
 import ExprInput from '@/components/expressions/ExprInput.vue'
 import CodeInput from '@/components/expressions/CodeInput.vue'
+import { coerceLiteral } from './coerceLiteral'
 import type { PinType } from '../pinSpec'
 import type { VarType } from '@/lib/variableRef'
 
@@ -153,6 +156,12 @@ const emit = defineEmits<{
 }>()
 
 const kind = computed(() => props.widgetKind ?? '')
+
+// 所有写回都过这里: 按 pin 规范类型 coerce, widget 配漏也不会存错类型 (见 coerceLiteral)。
+// 旧数据里"数字 pin 存了数字字符串"这类历史脏值, 不在这里静默自改, 走「检查」面板显式「修复」。
+function commit(v: unknown) {
+  emit('update:modelValue', coerceLiteral(v, props.type))
+}
 
 const numModel = computed(() => {
   const n = Number(props.modelValue)
@@ -192,13 +201,13 @@ function onJsonInput(text: string) {
   rawText.value = text
   if (text.trim() === '') {
     jsonValid.value = true
-    emit('update:modelValue', null)
+    commit(null)
     return
   }
   try {
     const parsed = JSON.parse(text)
     jsonValid.value = true
-    emit('update:modelValue', parsed)
+    commit(parsed)
   } catch {
     jsonValid.value = false // 保留 rawText, 不 emit — 半截 JSON 不覆盖已存值
   }

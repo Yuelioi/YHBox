@@ -247,6 +247,8 @@
       @close="validationPanelOpen = false"
       @run="onValidationPanelRun"
       @fix-missing-window-target="onFixMissingWindowTarget"
+      @jump="onJumpToErrorNode"
+      @fix="onFixError"
     />
 
     <ContainerSettingsModal
@@ -436,6 +438,7 @@ import {
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
 import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
+import { safeCoerceForFix } from '@/components/containers/inline/coerceLiteral'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
 import { useContextMenuRouter } from '@/composables/containerEditor/useContextMenuRouter'
@@ -918,7 +921,7 @@ function miniNodeColor(node: any): string {
 
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, removeSelectedNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
 
 // Pin-aware snap engine (PS smart-guides) — 抽到 useSnapEngine.
 // 拖拽位置必读 event.node.position, 不读 flowNodes (vmodel shallow sync 下 flowNodes 滞后).
@@ -937,9 +940,20 @@ const { onFoldSelection } = useFolding({
   draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast,
 })
 
+// 校验问题面板状态 (检查按钮 / 保存失败 / 试运行前置校验 共用)。
+const validationPanelOpen = ref(false)
+const validationErrors = ref<ValidationError[]>([])
+
 // 保存 (子图带 rev 乐观锁). 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave, saveFlash, staleSubgraphs, reloadStaleSubgraphs, dismissStaleSubgraphs } =
-  useEditorSave({ containerID, draft, dirty, toast })
+  useEditorSave({
+    containerID, draft, dirty, toast,
+    // 主图保存因校验失败 → 灌进问题面板 (逐条可跳转 / 一键修复), 取代干巴巴 toast。
+    onValidationErrors: (errs) => {
+      validationErrors.value = errs
+      validationPanelOpen.value = true
+    },
+  })
 
 // 乐观锁被拒 → "盘上已有更新, 重载?" — 重载取盘上版本丢本地这些子图的修改; 取消保留本地继续改。
 watch(staleSubgraphs, async (ids) => {
@@ -1049,6 +1063,18 @@ function onSelectionChange(evt: { nodes: any[]; edges: any[] }) {
     selectedID.value = null
   }
 }
+
+// selectedID → vue-flow 内部选中 的强同步 (清空方向)。
+// 属性栏只认 selectedID, 但节点的视觉选中是 vue-flow 自己维护的 node.selected, 两者会漂移:
+// 某条路径清了 selectedID 却没清 vue-flow 选中 → 节点仍高亮但属性栏空。此时再点该节点,
+// 选择集没变 → 不发 selection-change; node-click 又因微小位移被浏览器吞掉 → selectedID 卡住 →
+// 单击不显示属性 (用户被迫"点空白再点")。这里把残留的 vue-flow 选中显式清掉, 让下一次单击
+// 永远是一次全新选择 → 必发 selection-change → 一击即显。
+watch(selectedID, (id) => {
+  if (id !== null) return
+  const sel = getSelectedNodes.value
+  if (sel.length) removeSelectedNodes(sel)
+})
 
 function onNodeDoubleClick(evt: any) {
   const n = evt.node
@@ -1212,8 +1238,6 @@ async function onTryRun() {
 }
 
 // "检查" 按钮: 主动跑 validate, 始终弹 panel (即使全通过也告知用户)
-const validationPanelOpen = ref(false)
-const validationErrors = ref<ValidationError[]>([])
 async function onValidate() {
   if (!draft.value || dirty.value) return
   try {
@@ -1269,6 +1293,57 @@ function onFixMissingWindowTarget() {
     color: 'success',
     icon: 'i-tabler-check',
   })
+}
+
+// locateNode: 按 id 在主图 + 所有子图里找节点, 返回 live 节点对象 (可改) + 所在子图 id (null=主图)。
+// 不用 walkAllGraphs —— 它内部调 useI18n(), 在事件回调 (非 setup/渲染) 里调会抛, 跳转会静默挂掉。
+function locateNode(id: string): { node: GraphNode; sgID: string | null } | null {
+  if (!draft.value) return null
+  const mainHit = draft.value.graph.nodes.find((n) => n.id === id)
+  if (mainHit) return { node: mainHit, sgID: null }
+  for (const sg of editorStore.subgraphList) {
+    const n = sg.graph?.nodes.find((x) => x.id === id)
+    if (n) return { node: n, sgID: sg.id }
+  }
+  return null
+}
+
+// 问题面板「跳转」: 进对应 (子) 图 + 选中 + 居中出错节点 (套 useNodeSearch.onPick 同款导航)。
+async function onJumpToErrorNode(e: ValidationError) {
+  if (!e.nodeId) return
+  const loc = locateNode(e.nodeId)
+  if (!loc) return
+  validationPanelOpen.value = false
+  const curSg = editorStore.editorPath[editorStore.editorPath.length - 1] ?? null
+  if (curSg !== loc.sgID) {
+    editorStore.setPath(loc.sgID ? [loc.sgID] : [])
+    await nextTick()
+  }
+  selectedID.value = e.nodeId
+  const target = activeGraph.value?.nodes.find((n) => n.id === e.nodeId)
+  if (target) {
+    try {
+      centerOnNode(setCenter, target as { x: number; y: number })
+    } catch {}
+  }
+}
+
+// 问题面板「修复」: 仅 LITERAL_TYPE_MISMATCH 且能安全 coerce (干净数字串→number / 真假串→bool 等) 时生效。
+// 改 live literal + 标 dirty/touched, 乐观摘掉该条; 真正确认靠用户再保存/检查。含糊值不在此列 (按钮不显)。
+function onFixError(e: ValidationError) {
+  if (e.code !== 'LITERAL_TYPE_MISMATCH' || !e.nodeId) return
+  const pin = e.params?.pin as string | undefined
+  const expected = e.params?.expected as string | undefined
+  if (!pin || !expected) return
+  const loc = locateNode(e.nodeId)
+  const lit = loc?.node.config?.literal as Record<string, unknown> | undefined
+  if (!loc || !lit) return
+  const fixed = safeCoerceForFix(lit[pin], expected)
+  if (fixed === undefined) return
+  lit[pin] = fixed
+  if (loc.sgID) editorStore.touchSubgraph(containerID, loc.sgID)
+  syncFlowFromDraft()
+  validationErrors.value = validationErrors.value.filter((x) => x !== e)
 }
 
 // currentSubgraph 由 useEditorPath 提供

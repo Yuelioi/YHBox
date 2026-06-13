@@ -74,6 +74,10 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
     handleId: string | null
     handleType?: 'source' | 'target'
   }) {
+    // 每次新拖拽起手先清 flag: 成功连线那次 markConnectSuccess 已清空 connectionStart,
+    // onVfConnectEnd 走早退分支没机会重置 connectMadeThisGesture, 上一手的 true 会残留到这手 —
+    // 不清的话「连完线紧接着拖出口」会被误判成功而吞掉菜单 (有概率拖不出来的真因)。
+    connectMadeThisGesture.value = false
     if (params.nodeId && params.handleId && params.handleType) {
       connectionStart.value = {
         nodeId: params.nodeId,
