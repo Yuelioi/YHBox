@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-13 by 月离 (修: 子图自动布局漏排入口/出口 virtual marker(不在 graph.nodes)→ 合进 ELK + 写回 sg.entry/outputPins, 抽 2 纯函数带测。真机过、全绿。)
-**Active focus**: 无活跃开发案 — 本轮: 子图自动布局现含入口/出口 marker(真机过)。新 incident: [全图操作漏掉子图 virtual marker](incidents/2026-06-13-autolayout-skips-subgraph-virtual-markers.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-13 by 月离 (容器编辑器视口: per-(容器,层级) 缓存 viewport, 切图层级存/取, 首次进入聚焦起始节点(子图入口/主图 Start); 修进子图误标「未保存」(deep watch 把 activeGraph 换引用当成编辑)。真机过、全绿。)
+**Active focus**: 无活跃开发案 — 本轮: 视口缓存+首次聚焦入口、进子图不再误标脏(真机过)。新 incident ×2: [vue-flow 单相机切层级](incidents/2026-06-13-vueflow-single-camera-across-graph-levels.md) · [deep-watch 换引用误触发](incidents/2026-06-13-deep-watch-swapping-computed-fires-on-navigation.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -15,12 +15,11 @@
 
 ## 待复核
 
-- 无。(variable-system 路径命中系误报 — 实改仅 Subgraph.Category 一行, 2026-06-12 验收轮确认, 已拍回 active。)
+- 无。
 
 ## 待验证
 
-- ⚠未验证: [archive/specs/2026-06-13-editor-rail-resources.md](archive/specs/2026-06-13-editor-rail-resources.md) — 真机 smoke(`task dev`): ① rail 模板/clips 两栏管理(增删改 / 批量改分类标签 / 正逆序 / **输入建新分类标签**);② 主界面只剩本地/在线 tab、在线占位;③ 节点模板字段开新 modal 选取消、详情面板变体重拍/删档/新建截图;④ 子图库排序。过了销此条。
-- ⚠未验证: 校验问题面板真机(`task dev`)— 保存失败→自动弹问题面板;点错误行「跳转」定位到出错节点(含跳进子图、选中+居中);LITERAL_TYPE_MISMATCH 干净数字串显「修复」按钮、点了改 number。(SettleMs / dump 日志 took / coerce-at-emit 已随对话真机过, 不在此列。)
+- 无。(editor-rail / 校验问题面板 2026-06-12 真机过, 已销; 详见各 archive spec verified 字段。)
 
 ## Hanging tasks
 
