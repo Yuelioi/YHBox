@@ -110,7 +110,11 @@ style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (
 用户明确不喜欢成功类 toast (顶上弹出干扰视线、和操作点割裂)。**新代码不加成功 toast** —— 按这棵决策树:
 
 1. **操作结果在当前视野立即可见?** (删除→列表项消失 / 自动布局→画布重排 / 折叠/融合/导入→画布变 / 重拍→详情图更新) → **什么都不弹**, 变化本身就是反馈。
-2. **复制到剪贴板** (不可见) → 触发点是**持久按钮** = 按钮内联闪「已复制 ✓」(本地 `copied` ref + ~1500ms 恢复, icon 切 check, 文案 `common.copied`); 触发点是**右键/下拉菜单项** (点完即关, 无处内联) = 保留短 toast (`duration: 1500`)。
+2. **复制到剪贴板** (不可见) → **优先原地反馈, 别 toast**:
+   - 触发点是**持久按钮** = 按钮内联闪「已复制 ✓」(本地 `copied` ref + ~1500ms 恢复, icon 切 check, 文案 `common.copied`)。
+   - 触发点是**下拉菜单项** = `onSelect(e)` 里 `e.preventDefault()` **留住菜单**, 被点项 label/icon 原地切「已复制 ✓」~1500ms (范例 `NodeInspector.vue` 复制下拉)。菜单能留住就别弹 toast。
+   - 仅当触发点**真的留不住**(点完必然关闭、无处可显) 才退而用短 toast (`duration: 1500`)。
+   - 错误**始终** toast (下同)。
 3. **有明确持久触发按钮的操作** (保存) → 按钮内联「已保存 ✓」(参 ContainerEditorToolbar 保存按钮 + useEditorSave.saveFlash, success soft ~1.6s 恢复)。
 4. **后台/跨窗口/跨位置事件, 或系统替你做了非显式动作的告知** (热键触发运行入队、导出/分享到库、录制落盘、自动重连了线、校准值变更) → **保留 toast** (这是 toast 的正当用途)。
 5. **错误/警告** → 一律保留 toast (invoke 自动错误 toast 也保留)。

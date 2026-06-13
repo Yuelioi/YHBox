@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-13 by 月离 (容器编辑器一串修+功能: inline-literal 类型 coerce-at-emit / 保存失败进问题面板(跳转+一键修复) / 拖菜单残留 / 单击不显属性; 检测节点加 SettleMs(命中后稳定延迟+重定位)治转场点空; dump 日志加 took/出口名/out 数据; i18n 占位符契约测试。代码全绿。)
-**Active focus**: 无活跃开发案 — 本轮容器编辑器多处修 + SettleMs/问题面板等功能全绿(SettleMs 已真机过)。新 incident: [template-click 转场点空](incidents/2026-06-13-template-click-fires-on-first-match-too-early.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-13 by 月离 (节点属性面板: header 复制下拉 ID/JSON/脚本调用(带实参)+留住菜单原地闪✓ / 概述+示例收进?icon弹层 / 打印日志 hint 精简; dump 错误码 err[code]=(Throw 自填码可见)。新 incident: 成功反馈一律内联不弹 toast。真机过、全绿。)
+**Active focus**: 无活跃开发案 — 本轮: 节点属性面板复制下拉(ID/JSON/脚本)+?说明弹层、dump 错误码 err[code]=,真机过全绿。新 incident: [成功反馈一律内联不弹 toast](incidents/2026-06-13-success-feedback-inline-not-toast.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
