@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-13 by 月离 (编辑器资源管理大轮归档: 模板/clips 收进 rail 两栏管理(名称/描述/分类/tag+批量+排序)+ 节点模板选择统一进新 modal + 变体吸纳 + 子图库加排序 + 后端模板加 description·category / clip 加 category; 修全仓 creatable→create-item(13 处, NuxtUI v4 旧名失效, 沉淀进 ui.md)。代码全绿待真机。)
-**Active focus**: 无活跃开发案 — 编辑器资源管理大轮代码全绿、待真机(见待验证)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-13 by 月离 (容器编辑器一串修+功能: inline-literal 类型 coerce-at-emit / 保存失败进问题面板(跳转+一键修复) / 拖菜单残留 / 单击不显属性; 检测节点加 SettleMs(命中后稳定延迟+重定位)治转场点空; dump 日志加 took/出口名/out 数据; i18n 占位符契约测试。代码全绿。)
+**Active focus**: 无活跃开发案 — 本轮容器编辑器多处修 + SettleMs/问题面板等功能全绿(SettleMs 已真机过)。新 incident: [template-click 转场点空](incidents/2026-06-13-template-click-fires-on-first-match-too-early.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
@@ -20,6 +20,7 @@
 ## 待验证
 
 - ⚠未验证: [archive/specs/2026-06-13-editor-rail-resources.md](archive/specs/2026-06-13-editor-rail-resources.md) — 真机 smoke(`task dev`): ① rail 模板/clips 两栏管理(增删改 / 批量改分类标签 / 正逆序 / **输入建新分类标签**);② 主界面只剩本地/在线 tab、在线占位;③ 节点模板字段开新 modal 选取消、详情面板变体重拍/删档/新建截图;④ 子图库排序。过了销此条。
+- ⚠未验证: 校验问题面板真机(`task dev`)— 保存失败→自动弹问题面板;点错误行「跳转」定位到出错节点(含跳进子图、选中+居中);LITERAL_TYPE_MISMATCH 干净数字串显「修复」按钮、点了改 number。(SettleMs / dump 日志 took / coerce-at-emit 已随对话真机过, 不在此列。)
 
 ## Hanging tasks
 
