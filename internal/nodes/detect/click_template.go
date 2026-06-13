@@ -1,7 +1,7 @@
 // internal/nodes/detect/click_template.go
 // ClickTemplate — 等模板出现 → 在命中位置鼠标点击. 命中或超时后单出口路由.
 //
-// 250ms 内部轮询 + InputBus.Lock 独占 + 50ms click duration.
+// 100ms 内部轮询 (见 visionWaitPollMs) + 可选 SettleMs 命中后稳定延迟 + 50ms click duration.
 package detect
 
 import (
@@ -24,6 +24,7 @@ const (
 	clkInTimeoutMs = "TimeoutMs"
 	clkInThreshold = "Threshold"
 	clkInButton    = "Button"
+	clkInSettleMs  = "SettleMs"
 	clkOutDone     = "Done"
 	clkOutTimeout  = "Timeout"
 	clkDataPoint   = "Point"
@@ -58,6 +59,8 @@ func (ClickTemplate) Spec() node.Spec {
 							{Value: "right"},
 							{Value: "middle"},
 						}})}},
+			{Name: clkInSettleMs, Type: "Number", Default: json.Number("0"),
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkCapFound, Type: "String", Advanced: true, Semantic: "capture",
 				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: clkCapPoint, Type: "String", Advanced: true, Semantic: "capture",
@@ -82,6 +85,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	mode := in.String(clkInMatchMode)
 	threshold := in.Float64(clkInThreshold)
 	timeout := time.Duration(in.Int(clkInTimeoutMs)) * time.Millisecond
+	settle := time.Duration(in.Int(clkInSettleMs)) * time.Millisecond
 	btn := in.String(clkInButton)
 	if btn == "" {
 		btn = "left"
@@ -93,6 +97,11 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if pt == nil {
 		node.Capture(ctx, in, clkCapFound, false) // timeout 不写 point
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Fire(), nil
+	}
+	// 命中后可选稳定延迟 + 重定位 (SettleMs): 防"刚出现就点、点空了"。settle=0 → 行为同旧。详见 settleAfterMatch。
+	pt, conf, err = settleAfterMatch(ctx, keys, threshold, mode, settle, pt, conf)
+	if err != nil {
+		return nil, err // settle 期间被取消 (graph stop) → 优雅 halt
 	}
 	// 50ms click duration.
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {

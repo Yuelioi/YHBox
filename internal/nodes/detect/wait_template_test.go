@@ -28,6 +28,29 @@ func TestWaitTemplate_Found(t *testing.T) {
 	}
 }
 
+func TestWaitTemplate_SettleMs_RedetectThenFound(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&WaitTemplate{})
+	rn, _ := node.Get("WaitTemplate")
+
+	pt := node.Point{X: 0.4, Y: 0.6}
+	vision := &mockVision{point: &pt, conf: 0.91, hitOnCall: 1}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{wtInTemplates: []string{"fishing.hook_icon"}, wtInTimeoutMs: 100, wtInThreshold: 0.85, wtInSettleMs: 5},
+		nil, withVision(vision), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != wtOutFound {
+		t.Errorf("exit = %q, want Found", r.ExitName)
+	}
+	// SettleMs>0 → 命中后等一下再 re-detect 一次 → WaitMatch 共调 2 次 (初次 + 重定位)。
+	if vision.callCount != 2 {
+		t.Errorf("WaitMatch callCount = %d, want 2 (initial + re-detect)", vision.callCount)
+	}
+}
+
 func TestWaitTemplate_Timeout(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&WaitTemplate{})

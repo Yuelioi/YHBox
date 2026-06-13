@@ -21,6 +21,7 @@ const (
 	wtInMatchMode = "MatchMode"
 	wtInTimeoutMs = "TimeoutMs"
 	wtInThreshold = "Threshold"
+	wtInSettleMs  = "SettleMs"
 	wtOutFound    = "Found"
 	wtOutTimeout  = "Timeout"
 	wtDataPoint   = "Point"
@@ -47,6 +48,8 @@ func (WaitTemplate) Spec() node.Spec {
 			{Name: wtInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: wtInSettleMs, Type: "Number", Default: json.Number("0"),
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: wtCapFound, Type: "String", Advanced: true, Semantic: "capture",
 				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: wtCapPoint, Type: "String", Advanced: true, Semantic: "capture",
@@ -71,11 +74,17 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	mode := in.String(wtInMatchMode)
 	threshold := in.Float64(wtInThreshold)
 	timeout := time.Duration(in.Int(wtInTimeoutMs)) * time.Millisecond
+	settle := time.Duration(in.Int(wtInSettleMs)) * time.Millisecond
 	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "vision wait %s: %v", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
+		// 命中后可选稳定延迟 + 重定位 (SettleMs): 等画面就位再放行, 顺带更新输出/捕获的 Point。详见 settleAfterMatch。
+		pt, conf, err = settleAfterMatch(ctx, keys, threshold, mode, settle, pt, conf)
+		if err != nil {
+			return nil, err // settle 期间被取消 (graph stop) → 优雅 halt
+		}
 		node.Capture(ctx, in, wtCapFound, true)
 		node.Capture(ctx, in, wtCapPoint, *pt)
 		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Fire(), nil

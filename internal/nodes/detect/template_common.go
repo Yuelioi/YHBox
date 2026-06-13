@@ -4,8 +4,30 @@
 package detect
 
 import (
+	"time"
+
 	"yotta/internal/node"
 )
+
+// settleAfterMatch: 命中后可选稳定延迟 (SettleMs)。模板"刚冒出来"那一刻常还在转场/加载/动画,
+// 这会儿点 (ClickTemplate) 或据此动作 (WaitTemplate 输出 Point 给下游) 都可能太早。等 settle 让它
+// 真正就位, 再用新鲜帧重定位一次返回最新坐标 (元素动了也跟得上; 重定位丢了退回原坐标)。
+// settle<=0 → 原样返回 (零开销, 行为同旧)。可取消 (settle 期间 graph stop → 返 ctx.Err())。
+// WaitTemplate / ClickTemplate 共用。
+func settleAfterMatch(ctx node.Ctx, keys []string, threshold float64, mode string, settle time.Duration, pt *node.Point, conf float64) (*node.Point, float64, error) {
+	if settle <= 0 {
+		return pt, conf, nil
+	}
+	select {
+	case <-ctx.Context().Done():
+		return nil, 0, ctx.Context().Err()
+	case <-time.After(settle):
+	}
+	if pt2, conf2, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, 0); err == nil && pt2 != nil {
+		return pt2, conf2, nil
+	}
+	return pt, conf, nil
+}
 
 // templateDeps 把模板 GUID 列表转成 library scanner 用的 template 依赖 (每 GUID 一条).
 func templateDeps(guids []string) []node.Dependency {

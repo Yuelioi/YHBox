@@ -61,6 +61,35 @@ func TestClickTemplate_Done(t *testing.T) {
 	}
 }
 
+func TestClickTemplate_SettleMs_RedetectThenClick(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	pt := node.Point{X: 0.55, Y: 0.4}
+	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
+			clkInTimeoutMs: 200, clkInThreshold: 0.85, clkInSettleMs: 5},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Errorf("exit = %q, want Done", r.ExitName)
+	}
+	// SettleMs>0 → 命中后等一下再 re-detect 一次定位 → WaitMatch 共调 2 次 (初次 + 重定位)。
+	if vision.callCount != 2 {
+		t.Errorf("WaitMatch callCount = %d, want 2 (initial + re-detect)", vision.callCount)
+	}
+	// 仍只点 1 次, 落在 (重定位后的) 命中点。
+	if len(rec.calls) != 1 || rec.calls[0] != "Click:0.550:0.400:left:50" {
+		t.Errorf("calls = %v, want one click at re-detected point", rec.calls)
+	}
+}
+
 func TestClickTemplate_Capture_Done(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ClickTemplate{})
