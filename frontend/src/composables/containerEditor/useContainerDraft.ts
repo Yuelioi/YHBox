@@ -215,9 +215,13 @@ export function useContainerDraft(containerID: string) {
     watch(draft, () => { dirty.value = true }, { deep: true })
     watch(
       () => activeGraph.value,
-      () => {
+      (g, prev) => {
         const path = myPath.value
         if (path.length === 0) return // 主图编辑 → draft watcher 已覆盖
+        // deep watch 触发分两种: ① 当前图深层内容被改 (真编辑 → g === prev, 同一对象被 mutate);
+        // ② activeGraph 指向变了 (进/出子图层级、或子图被 replace → g !== prev)。后者只是导航/换引用,
+        // 不是编辑 —— 不标 dirty (否则"只是进子图什么都没改"也会变未保存)。
+        if (g !== prev) return
         dirty.value = true
         editorStore.touchSubgraph(containerID, path[path.length - 1])
       },
