@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-13 by 月离 (节点属性面板: header 复制下拉 ID/JSON/脚本调用(带实参)+留住菜单原地闪✓ / 概述+示例收进?icon弹层 / 打印日志 hint 精简; dump 错误码 err[code]=(Throw 自填码可见)。新 incident: 成功反馈一律内联不弹 toast。真机过、全绿。)
-**Active focus**: 无活跃开发案 — 本轮: 节点属性面板复制下拉(ID/JSON/脚本)+?说明弹层、dump 错误码 err[code]=,真机过全绿。新 incident: [成功反馈一律内联不弹 toast](incidents/2026-06-13-success-feedback-inline-not-toast.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-13 by 月离 (修: 子图自动布局漏排入口/出口 virtual marker(不在 graph.nodes)→ 合进 ELK + 写回 sg.entry/outputPins, 抽 2 纯函数带测。真机过、全绿。)
+**Active focus**: 无活跃开发案 — 本轮: 子图自动布局现含入口/出口 marker(真机过)。新 incident: [全图操作漏掉子图 virtual marker](incidents/2026-06-13-autolayout-skips-subgraph-virtual-markers.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
