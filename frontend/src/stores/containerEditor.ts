@@ -13,6 +13,9 @@ export type SubgraphSummary = Subgraph
 //     多个 keep-alive 编辑器看同一池是正确语义 (改一处全更新)。
 //   - **视图态仍按容器隔离** (editorPathByContainer / activeContainerID / touchedByContainer):
 //     层级导航、前台指针、"本容器动过哪些子图"绝不跨容器串。
+// 主图在视口缓存里的层级 key (子图层级用 sgID)。
+const MAIN_GRAPH_KEY = '__main__'
+
 export const useContainerEditorStore = defineStore('containerEditor', () => {
   const activeContainerID = ref<string>('')
   // 全局子图池 byID — backend.subgraphs.list() 全量灌入.
@@ -78,6 +81,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   function dropContainer(id: string) {
     delete editorPathByContainer.value[id]
     delete touchedByContainer.value[id]
+    delete viewportByContainer.value[id]
     if (activeContainerID.value === id) activeContainerID.value = ''
   }
 
@@ -123,10 +127,27 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     return count
   }
 
+  // ── 视口缓存 (视图态, 按容器隔离) ──
+  // 每 (容器, 图层级) 记最后一次相机 viewport。主图↔子图本是同一个 vue-flow 相机, 切层级不存/取
+  // 就会"跑飞"(在内容很远的子图 pan 到 19000, 切回主图相机还停在那)。graphID = sgID 或 MAIN_GRAPH_KEY。
+  type Viewport = { x: number; y: number; zoom: number }
+  const viewportByContainer = ref<Record<string, Record<string, Viewport>>>({})
+  function saveViewport(cid: string, graphID: string, vp: Viewport) {
+    if (!cid) return
+    const m = viewportByContainer.value[cid] ?? (viewportByContainer.value[cid] = {})
+    m[graphID] = vp
+  }
+  function getSavedViewport(cid: string, graphID: string): Viewport | undefined {
+    return viewportByContainer.value[cid]?.[graphID]
+  }
+
   // clipboard 暂存 — 跨容器共享是有意的 (容器间 copy/paste; 全局化后引用即语义).
   const clipboard = ref<{ nodes: any[]; edges: any[]; subgraphsDeepCopy: Record<string, any> } | null>(null)
 
   return {
+    MAIN_GRAPH_KEY,
+    saveViewport,
+    getSavedViewport,
     activeContainerID,
     subgraphsById,
     subgraphList,

@@ -921,7 +921,41 @@ function miniNodeColor(node: any): string {
 
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, removeSelectedNodes, screenToFlowCoordinate, setCenter } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, removeSelectedNodes, screenToFlowCoordinate, setCenter, getViewport, setViewport, fitView } = useVueFlow()
+
+// 视口缓存: 切图层级时存当前相机、取目标层级相机 (无缓存→fitView)。否则主图↔子图共享一个
+// vue-flow 相机, 在内容很远的子图 pan 远了切回主图会停在那 (见 incident: subgraph-viewport-not-cached)。
+function graphLevelKey(path: string[]): string {
+  return path.length ? path[path.length - 1] : editorStore.MAIN_GRAPH_KEY
+}
+// 某层级的"起始节点"坐标: 子图 = 入口 marker (sg.entry), 主图 = 唯一的 Start 节点。
+// 首次进入 (无缓存视口) 时聚焦到它 —— 内容很大的图 fitView 会缩得很小, 落在入口更可用。
+function startNodeOf(path: string[]): { x: number; y: number } | null {
+  if (path.length > 0) {
+    const e = editorStore.subgraphById(path[path.length - 1])?.entry
+    return e?.nodeID ? { x: e.x ?? 80, y: e.y ?? 160 } : null
+  }
+  const start = activeGraph.value?.nodes.find((n) => n.kind === 'Start')
+  return start ? { x: start.x, y: start.y } : null
+}
+watch(
+  () => editorStore.editorPathFor(containerID),
+  (newPath, oldPath) => {
+    // 旧层级相机同步存下 (此刻相机还停在旧图 — 节点重渲染不动相机)。
+    if (oldPath) editorStore.saveViewport(containerID, graphLevelKey(oldPath), getViewport())
+    const saved = editorStore.getSavedViewport(containerID, graphLevelKey(newPath))
+    // 等新图节点渲染完再定位 (fitView 依赖节点已 mount)。
+    nextTick(() => {
+      if (saved) {
+        setViewport(saved) // 回到上次离开该层级时的相机
+        return
+      }
+      const start = startNodeOf(newPath) // 首次进入 → 聚焦起始节点 (入口 / Start)
+      if (start) centerOnNode(setCenter, start, { duration: 0, zoom: 1 })
+      else fitView() // 无起始节点兜底
+    })
+  },
+)
 
 // Pin-aware snap engine (PS smart-guides) — 抽到 useSnapEngine.
 // 拖拽位置必读 event.node.position, 不读 flowNodes (vmodel shallow sync 下 flowNodes 滞后).
