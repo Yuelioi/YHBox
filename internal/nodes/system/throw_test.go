@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"yotta/internal/node"
@@ -20,8 +19,8 @@ func TestThrow_ReturnsThrowErrorWithMessage(t *testing.T) {
 	if r.Error == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(r.Error.Error(), "throw: boom") {
-		t.Errorf("error = %q, want substring 'throw: boom'", r.Error.Error())
+	if r.Error.Error() != "boom" {
+		t.Errorf("error = %q, want 'boom' (no 'throw: ' prefix)", r.Error.Error())
 	}
 }
 
@@ -68,8 +67,8 @@ func TestThrow_EmptyMessage(t *testing.T) {
 	if r.Error == nil {
 		t.Fatal("expected error even with empty message")
 	}
-	if !strings.HasPrefix(r.Error.Error(), "throw: ") {
-		t.Errorf("error = %q, want prefix 'throw: '", r.Error.Error())
+	if r.Error.Error() != "" {
+		t.Errorf("empty message → Error() = %q, want \"\"", r.Error.Error())
 	}
 	var te *ThrowError
 	if !errors.As(r.Error, &te) {

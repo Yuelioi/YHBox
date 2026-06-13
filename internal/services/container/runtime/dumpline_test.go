@@ -51,6 +51,20 @@ func TestFormatDumpLine_ErrorAndEmptySegments(t *testing.T) {
 	}
 }
 
+func TestFormatDumpLine_CodedErrorShowsCode(t *testing.T) {
+	spec := &nodepkg.Spec{Kind: "Throw", Inputs: []nodepkg.InputSpec{{Name: "Message"}}}
+	// Coded 错误 (用户自填码覆盖默认) → err[code]=msg。
+	line, _ := FormatDumpLine(spec, "", "n1", nil, nil, "", 0, codedErr("test_code", "测试测试"))
+	if !strings.Contains(line, "err[test_code]=测试测试") {
+		t.Fatalf("coded err must render err[code]=msg: %q", line)
+	}
+	// 裸 error 无码 → 仍是 err=msg。
+	line2, _ := FormatDumpLine(spec, "", "n1", nil, nil, "", 0, fmtErr("boom"))
+	if !strings.Contains(line2, "err=boom") || strings.Contains(line2, "err[") {
+		t.Fatalf("plain err must stay err=msg (no code): %q", line2)
+	}
+}
+
 func TestDumpValue_TruncateAndStable(t *testing.T) {
 	long := strings.Repeat("x", 100)
 	if v := dumpValue(long); len(v) > 70 || !strings.HasSuffix(v, "…") {
@@ -74,3 +88,10 @@ func fmtErr(s string) error { return &simpleErr{s} }
 type simpleErr struct{ s string }
 
 func (e *simpleErr) Error() string { return e.s }
+
+func codedErr(code, msg string) error { return &codedTestErr{code: code, msg: msg} }
+
+type codedTestErr struct{ code, msg string }
+
+func (e *codedTestErr) Error() string           { return e.msg }
+func (e *codedTestErr) ErrCode() nodepkg.ErrCode { return nodepkg.ErrCode(e.code) }

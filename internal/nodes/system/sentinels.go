@@ -14,7 +14,9 @@ type ThrowError struct {
 	Code    string // 用户填; 空 → CodeThrown
 }
 
-func (e *ThrowError) Error() string { return "throw: " + e.Message }
+// Error 只返 message — 错误码经 ErrCode() 单独取 (dump 行渲染 err[code]=msg / Fail 出口 Code 字段),
+// 不再带 "throw: " 前缀 (码已单列, 前缀成重复噪音)。
+func (e *ThrowError) Error() string { return e.Message }
 func (e *ThrowError) Unwrap() error { return errThrow }
 func (e *ThrowError) ErrCode() node.ErrCode {
 	if e.Code == "" {

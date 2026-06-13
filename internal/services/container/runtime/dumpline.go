@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -90,7 +91,7 @@ func outputNames(spec *nodepkg.Spec) []string {
 
 // FormatDumpLine 产出 (line, key):
 //
-//	line = "Kind(name, id) in{…} →exit out{…} [err=…] [took=…]" (显示)
+//	line = "Kind(name, id) in{…} →exit out{…} [err[code]=…] [took=…]" (显示)
 //	key  = in{}/→exit/out{}/err 段 (合并比较, 不含 name/id, 也不含 took — 每次耗时不同, 含了就永不合并)
 //
 // exitName = 本次 fire 的出口名 (WaitTemplate 的 Found/Timeout、ClickTemplate 的 Done/Timeout):
@@ -105,7 +106,14 @@ func FormatDumpLine(spec *nodepkg.Spec, name, id string, in, out map[string]any,
 	}
 	errSeg := ""
 	if runErr != nil {
-		errSeg = "err=" + dumpValue(runErr.Error())
+		// Coded 错误 (Failf / Throw) 带机器码 → err[code]=msg, 一眼分清码和消息;
+		// 裸 fmt.Errorf (配置错) 无码 → err=msg。
+		var coded nodepkg.Coded
+		if errors.As(runErr, &coded) {
+			errSeg = "err[" + string(coded.ErrCode()) + "]=" + dumpValue(runErr.Error())
+		} else {
+			errSeg = "err=" + dumpValue(runErr.Error())
+		}
 	}
 	segs := make([]string, 0, 4)
 	for _, s := range []string{inSeg, exitSeg, outSeg, errSeg} {
