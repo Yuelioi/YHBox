@@ -15,6 +15,55 @@ export function estimateNodeSize(kind: string, cfg: Record<string, any> = {}, pi
   return { width: 220, height: 90 + extra }
 }
 
+// ── 子图 virtual marker (入口/出口) ──────────────────────────────────────────
+// 入口/出口 marker 不在 graph.nodes 里 (存 sg.entry / sg.outputPins, 各带自己的 x/y),
+// 但 edges 按 `<nodeID>.<pin>` 引用它们。自动布局必须把它们当节点一起算 — 否则 marker
+// 不被重排、连 marker 的边还会被 buildElkGraph 的 layoutIds 过滤丢掉 (body 丢约束 → 排乱)。
+// 这里把它们合成 pseudo GraphNode 喂给 buildElkGraph; 布局后用 writeMarkerPositions 写回 metadata。
+export interface MarkerLike {
+  nodeID?: string
+  x?: number
+  y?: number
+}
+
+// 默认坐标跟 syncFlowFromDraft 渲染 marker 时一致 (entry 80,160 / output 420,160)。
+export function subgraphMarkerNodes(
+  entry: MarkerLike | null | undefined,
+  outputPins: MarkerLike[] | undefined,
+): GraphNode[] {
+  const out: GraphNode[] = []
+  if (entry?.nodeID) {
+    out.push({ id: entry.nodeID, kind: 'SubgraphInput', x: entry.x ?? 80, y: entry.y ?? 160, config: {} })
+  }
+  for (const p of outputPins ?? []) {
+    if (!p.nodeID) continue
+    out.push({ id: p.nodeID, kind: 'SubgraphOutput', x: p.x ?? 420, y: p.y ?? 160, config: {} })
+  }
+  return out
+}
+
+// 把布局后的新坐标写回 sg.entry / sg.outputPins (按 nodeID 匹配)。直接 mutate (调用方负责
+// touchSubgraph 标脏 + syncFlowFromDraft 重渲染 — 跟 onNodesChange 的 marker 拖动写回同路径)。
+export function writeMarkerPositions(
+  sg: { entry?: MarkerLike; outputPins?: MarkerLike[] },
+  posById: Record<string, Pos>,
+): boolean {
+  let changed = false
+  if (sg.entry?.nodeID && posById[sg.entry.nodeID]) {
+    sg.entry.x = posById[sg.entry.nodeID].x
+    sg.entry.y = posById[sg.entry.nodeID].y
+    changed = true
+  }
+  for (const p of sg.outputPins ?? []) {
+    if (p.nodeID && posById[p.nodeID]) {
+      p.x = posById[p.nodeID].x
+      p.y = posById[p.nodeID].y
+      changed = true
+    }
+  }
+  return changed
+}
+
 // ── buildElkGraph ──────────────────────────────────────────────────────────
 // exec/data 的 priority 占位键 __priority；useElkLayout 组装时换成真实 ELK key。
 const EXEC_PRIORITY = '100'

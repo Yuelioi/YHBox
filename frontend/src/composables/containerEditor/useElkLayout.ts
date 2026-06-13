@@ -1,9 +1,18 @@
 import { ref, type ComputedRef } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import type { Container, Graph } from '@/lib/backend'
+import type { Container, Graph, GraphNode } from '@/lib/backend'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
+import { useContainerEditorStore } from '@/stores/containerEditor'
 import { createElk, baseLayoutOptions, PRIORITY_KEY, type ElkNode } from './elkConfig'
-import { buildElkGraph, anchorOffset, placeDetached, type Pos, type BBox } from './elkGraph'
+import {
+  buildElkGraph,
+  anchorOffset,
+  placeDetached,
+  subgraphMarkerNodes,
+  writeMarkerPositions,
+  type Pos,
+  type BBox,
+} from './elkGraph'
 
 export function useElkLayout(opts: {
   activeGraph: ComputedRef<Graph | null>
@@ -13,8 +22,20 @@ export function useElkLayout(opts: {
 }) {
   const { activeGraph, applyDraftMutation, toast, t } = opts
   const { findNode, fitView } = useVueFlow()
+  const editorStore = useContainerEditorStore()
   const elk = createElk()
   const isLayouting = ref(false)
+
+  // 当前在子图层级 → 返回该子图 + 入口/出口 virtual marker 的 pseudo 节点 (合进布局);
+  // 主图层级返回 null。marker 不在 activeGraph.nodes 里, 必须单独取 (否则布局漏排 + 丢边)。
+  function currentMarkers(): { sgID: string; nodes: GraphNode[] } | null {
+    const path = editorStore.editorPath
+    if (path.length === 0) return null
+    const sgID = path[path.length - 1]
+    const sg = editorStore.subgraphById(sgID) as { entry?: any; outputPins?: any[] } | undefined
+    if (!sg) return null
+    return { sgID, nodes: subgraphMarkerNodes(sg.entry, sg.outputPins) }
+  }
 
   async function autoLayout(direction: 'LR' | 'TB' = 'LR', o: { fitView?: boolean } = {}) {
     if (isLayouting.value) return
@@ -23,11 +44,18 @@ export function useElkLayout(opts: {
     const dir = direction === 'LR' ? 'RIGHT' : 'DOWN'
     isLayouting.value = true
     try {
+      // 子图层级: 把入口/出口 virtual marker 合进布局节点集 (marker 不在 g.nodes 里,
+      // 但 g.edges 引用它们 — 不合进来 marker 不被重排、连 marker 的边还会被过滤丢掉)。
+      const markerCtx = currentMarkers()
+      const markerNodes = markerCtx?.nodes ?? []
+      const markerIDs = new Set(markerNodes.map((m) => m.id))
+      const allNodes = markerNodes.length ? [...g.nodes, ...markerNodes] : g.nodes
+
       // 旧位置（锚定用）
       const oldP: Record<string, Pos> = {}
-      for (const n of g.nodes) oldP[n.id] = { x: n.x, y: n.y }
+      for (const n of allNodes) oldP[n.id] = { x: n.x, y: n.y }
 
-      const elkGraph = buildElkGraph(g.nodes, g.edges, {
+      const elkGraph = buildElkGraph(allNodes, g.edges, {
         getSpec: (kind) => getSpec(kind) as any,
         getDims: (id, kind) => {
           const d = findNode(id)?.dimensions
@@ -56,7 +84,7 @@ export function useElkLayout(opts: {
 
       // 游离节点安置（基于锚定后的连通簇总包围盒）
       const bbox = bboxOf(res.children ?? [], dx, dy)
-      const detached = g.nodes
+      const detached = allNodes
         .filter((n) => !(n.id in newP))
         .map((n) => {
           const d = findNode(n.id)?.dimensions
@@ -70,8 +98,24 @@ export function useElkLayout(opts: {
         const graph = activeGraph.value
         if (!graph) return
         for (const n of graph.nodes) {
+          if (markerIDs.has(n.id)) continue // marker 不在 graph.nodes, 这里只动真实 body 节点
           if (newP[n.id]) { n.x = newP[n.id].x; n.y = newP[n.id].y }
           else if (detP[n.id]) { n.x = detP[n.id].x; n.y = detP[n.id].y }
+        }
+        // marker 新坐标写回 sg.entry / outputPins (不在 graph.nodes) + 标脏归属本容器。
+        // 跟 onNodesChange 的 marker 拖动写回同路径; syncFlowFromDraft (applyDraftMutation 内) 重渲染。
+        if (markerCtx && markerIDs.size) {
+          const sg = editorStore.subgraphById(markerCtx.sgID) as { entry?: any; outputPins?: any[] } | undefined
+          if (sg) {
+            const markerPos: Record<string, Pos> = {}
+            for (const id of markerIDs) {
+              const p = newP[id] ?? detP[id]
+              if (p) markerPos[id] = p
+            }
+            if (writeMarkerPositions(sg, markerPos)) {
+              editorStore.touchSubgraph(editorStore.activeContainerID, markerCtx.sgID)
+            }
+          }
         }
       })
       if (o.fitView) fitView()

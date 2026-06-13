@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estimateNodeSize, buildElkGraph, anchorOffset, placeDetached, type BuildOpts, type Pos } from './elkGraph'
+import { estimateNodeSize, buildElkGraph, anchorOffset, placeDetached, subgraphMarkerNodes, writeMarkerPositions, type BuildOpts, type Pos } from './elkGraph'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 
 const fakeGetSpec: BuildOpts['getSpec'] = (kind) => ({
@@ -58,6 +58,44 @@ describe('buildElkGraph', () => {
     const sNode = g.children!.find((c) => c.id === 's')!
     // Switch 's' 的 pin: execIn 'in'(1) + execOutFn cases→case.0/case.1(2) = 3
     expect(sNode.height).toBe(estimateNodeSize('Switch', {}, 3).height)
+  })
+})
+
+describe('subgraphMarkerNodes (入口/出口 marker 合成进布局)', () => {
+  it('entry + 多 output → pseudo GraphNode (id=nodeID, 正确 kind, 沿用 marker 自己的 x/y)', () => {
+    const ns = subgraphMarkerNodes(
+      { nodeID: 'in1', x: 10, y: 20 },
+      [{ nodeID: 'o1', x: 300, y: 40 }, { nodeID: 'o2', x: 300, y: 120 }],
+    )
+    expect(ns.map((n) => [n.id, n.kind, n.x, n.y])).toEqual([
+      ['in1', 'SubgraphInput', 10, 20],
+      ['o1', 'SubgraphOutput', 300, 40],
+      ['o2', 'SubgraphOutput', 300, 120],
+    ])
+  })
+  it('缺坐标走默认 (entry 80,160 / output 420,160)', () => {
+    const ns = subgraphMarkerNodes({ nodeID: 'in1' }, [{ nodeID: 'o1' }])
+    expect([ns[0].x, ns[0].y]).toEqual([80, 160])
+    expect([ns[1].x, ns[1].y]).toEqual([420, 160])
+  })
+  it('无 nodeID 的项跳过; entry 缺失只出 output', () => {
+    expect(subgraphMarkerNodes(null, [{ x: 1, y: 2 }])).toEqual([])
+    expect(subgraphMarkerNodes(null, [{ nodeID: 'o1' }]).map((n) => n.id)).toEqual(['o1'])
+  })
+})
+
+describe('writeMarkerPositions (布局后写回 marker metadata)', () => {
+  it('按 nodeID 写回 entry + output 新坐标', () => {
+    const sg = { entry: { nodeID: 'in1', x: 0, y: 0 }, outputPins: [{ nodeID: 'o1', x: 0, y: 0 }] }
+    const changed = writeMarkerPositions(sg, { in1: { x: 11, y: 22 }, o1: { x: 33, y: 44 } })
+    expect(changed).toBe(true)
+    expect([sg.entry.x, sg.entry.y]).toEqual([11, 22])
+    expect([sg.outputPins[0].x, sg.outputPins[0].y]).toEqual([33, 44])
+  })
+  it('posById 里没有的 marker 不动; 全无命中返 false', () => {
+    const sg = { entry: { nodeID: 'in1', x: 5, y: 5 }, outputPins: [] }
+    expect(writeMarkerPositions(sg, { other: { x: 9, y: 9 } })).toBe(false)
+    expect([sg.entry.x, sg.entry.y]).toEqual([5, 5])
   })
 })
 
