@@ -16,14 +16,49 @@
           {{ node.kind }} · {{ node.id }}
         </p>
       </div>
-      <UButton
-        size="xs"
-        variant="ghost"
-        color="error"
-        icon="i-tabler-trash"
-        :title="t('inspector.delete_node_tooltip')"
-        @click="$emit('delete')"
-      />
+      <div class="flex items-center gap-0.5 shrink-0">
+        <!-- 「?」节点说明 — 概述 + 示例收进单击弹层 (仅当该 kind 有 description / example) -->
+        <UPopover v-if="description || example">
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-help-circle"
+            :title="t('inspector.help_tooltip')"
+          />
+          <template #content>
+            <div class="p-3 max-w-xs space-y-3">
+              <p v-if="description" class="text-[12px] text-toned leading-relaxed">{{ description }}</p>
+              <div v-if="example" class="rounded-md bg-elevated/40 border border-default/40 px-2.5 py-2">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <UIcon name="i-tabler-bulb" class="size-3.5 text-amber-400 shrink-0" />
+                  <span class="text-[11px] font-medium text-toned">{{ t('inspector.example_title') }}</span>
+                </div>
+                <p class="text-[12px] text-toned leading-relaxed whitespace-pre-line">{{ example }}</p>
+              </div>
+            </div>
+          </template>
+        </UPopover>
+        <!-- 复制菜单: 节点 ID / JSON / 脚本调用信息。下拉项点完即关、无处内联 →
+             走短 toast (ui.md「反馈方式」决策树第 2 条)。 -->
+        <UDropdownMenu :items="copyMenuItems">
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-copy"
+            :title="t('inspector.copy_menu_tooltip')"
+          />
+        </UDropdownMenu>
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="error"
+          icon="i-tabler-trash"
+          :title="t('inspector.delete_node_tooltip')"
+          @click="$emit('delete')"
+        />
+      </div>
     </header>
 
     <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
@@ -48,40 +83,6 @@
           @update:model-value="(v: boolean) => $emit('log-enabled-update', v)"
         />
       </UFormField>
-    </section>
-
-    <!-- 用法说明 -->
-    <section
-      v-if="description"
-      class="mb-5 rounded-md bg-elevated/30 border border-default/40 px-3 py-2.5"
-    >
-      <div class="flex items-start gap-2">
-        <UIcon name="i-tabler-info-circle" class="size-3.5 text-primary shrink-0 mt-0.5" />
-        <p class="text-[12px] text-toned leading-relaxed">{{ description }}</p>
-      </div>
-    </section>
-
-    <!-- 使用示例 (可折叠, 默认收起; 仅当该节点有 example 翻译时显示) -->
-    <section
-      v-if="example"
-      class="mb-5 rounded-md bg-elevated/30 border border-default/40"
-    >
-      <button
-        type="button"
-        class="flex items-center gap-2 w-full px-3 py-2 text-left"
-        @click="exampleOpen = !exampleOpen"
-      >
-        <UIcon name="i-tabler-bulb" class="size-3.5 text-amber-400 shrink-0" />
-        <span class="text-[12px] font-medium text-toned flex-1">{{ t('inspector.example_title') }}</span>
-        <UIcon
-          :name="exampleOpen ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
-          class="size-3.5 text-dimmed shrink-0"
-        />
-      </button>
-      <p
-        v-if="exampleOpen"
-        class="px-3 pb-2.5 text-[12px] text-toned leading-relaxed whitespace-pre-line"
-      >{{ example }}</p>
     </section>
 
     <!-- 并发警告 -->
@@ -802,6 +803,68 @@ async function onOpenCalibrator() {
 const toastForSync = useToast()
 const { confirm: confirmDialog } = useConfirm()
 
+// 复制节点 ID / 完整 JSON / 脚本调用信息 到剪贴板。
+// 留住下拉 (e.preventDefault) → 被点项原地闪「已复制 ✓」~1500ms, 成功不弹 toast, 仅错误弹
+// (ui.md「反馈方式」: 能原地就原地)。
+const copiedItem = ref<'id' | 'json' | 'script' | null>(null)
+let copiedTimer = 0
+async function copyAndFlash(text: string, which: 'id' | 'json' | 'script', e?: Event) {
+  e?.preventDefault() // 留住菜单, 好原地显「已复制」
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedItem.value = which
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => {
+      copiedItem.value = null
+    }, 1500)
+  } catch (err: any) {
+    toastForSync.add({ title: t('toast.copy_failed'), description: errorMessage(err), color: 'error' })
+  }
+}
+
+// 节点脚本调用形态, 带当前已填实参: Kind({ Pin: value, ... })。
+// object key = canonical PascalCase pin 名 (脚本调节点的 key 必须逐字匹配后端 Spec pin 名);
+// 只列已设 literal 的 data-in pin (连线取值的 pin 无 literal, 跳过)。
+function buildScriptCall(): string {
+  if (!props.node) return ''
+  const kind = props.node.kind
+  const dataIn = PIN_SPECS[kind]?.dataIn ?? {}
+  const parts: string[] = []
+  for (const pin of Object.keys(dataIn)) {
+    const v = getLiteral(pin)
+    if (v === undefined || v === null || v === '') continue
+    parts.push(`${pin}: ${JSON.stringify(v)}`)
+  }
+  return parts.length ? `${kind}({ ${parts.join(', ')} })` : `${kind}()`
+}
+
+// 被点项 label/icon 切「已复制 ✓」(copiedItem 命中), 其余正常。
+const copyMenuItems = computed(() => [
+  [
+    {
+      label: copiedItem.value === 'id' ? t('common.copied') : t('inspector.copy_id'),
+      icon: copiedItem.value === 'id' ? 'i-tabler-check' : 'i-tabler-id',
+      onSelect: (e: Event) => {
+        if (props.node) void copyAndFlash(props.node.id, 'id', e)
+      },
+    },
+    {
+      label: copiedItem.value === 'json' ? t('common.copied') : t('inspector.copy_json'),
+      icon: copiedItem.value === 'json' ? 'i-tabler-check' : 'i-tabler-braces',
+      onSelect: (e: Event) => {
+        if (props.node) void copyAndFlash(JSON.stringify(props.node, null, 2), 'json', e)
+      },
+    },
+    {
+      label: copiedItem.value === 'script' ? t('common.copied') : t('inspector.copy_script'),
+      icon: copiedItem.value === 'script' ? 'i-tabler-check' : 'i-tabler-code',
+      onSelect: (e: Event) => {
+        void copyAndFlash(buildScriptCall(), 'script', e)
+      },
+    },
+  ],
+])
+
 // Subgraph 调用节点：1:1 模型，只显示绑定的子图（不需 USelect 选择）
 const editorStore = useContainerEditorStore()
 
@@ -852,8 +915,7 @@ const description = computed(() => {
   const key = KIND_DESCRIPTION[props.node.kind]
   return key ? t(key) : ''
 })
-// 使用示例 — 仅当该 kind 配了 example 翻译 (te) 才返非空, 驱动折叠区显示.
-const exampleOpen = ref(false)
+// 使用示例 — 仅当该 kind 配了 example 翻译 (te) 才返非空, 驱动 header「?」弹层显示.
 const example = computed(() => {
   if (!props.node) return ''
   const key = KIND_EXAMPLE[props.node.kind]
