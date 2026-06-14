@@ -243,10 +243,9 @@
       validate_tip: 'Validate main graph + all subgraphs',
       validate_dirty_tip:
         'Please save first — validation reads the persisted version',
-      try_run: 'Try run',
+      run_hero: 'Run',
       try_run_tip: 'Enqueue one run',
-      try_run_dirty_tip: 'Please save before try-run',
-      try_run_busy_tip: 'A task is already running — stop first',
+      try_run_dirty_tip: 'Please save before running',
       save: 'Save',
       saved: 'Saved',
       reload: 'Reload',

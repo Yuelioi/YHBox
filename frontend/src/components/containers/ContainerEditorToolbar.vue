@@ -1,6 +1,6 @@
 <template>
-  <!-- 单行布局：左 [导航 + 面包屑 + 撤销/重做] · 中 [空] · 右 [录制 · 运行/主操作 · ⋯/设置 · 折叠属性]
-       (加内容 节点库/子图库 在左侧 rail) -->
+  <!-- 三区分层：左 [返回 · 面包屑 · 概览 · 撤销/重做] · 中 [录制 · 运行 hero] · 右 [校验 · 保存 · 自动布局 · ⋯]
+       (加内容 节点库/资产 在左侧 rail; 折叠 Inspector 在画布右边缘 toggle) -->
   <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
     <!-- ====== 左: 回列表 + 面包屑身份 + 撤销/重做 ====== -->
     <UButton
@@ -40,8 +40,8 @@
 
     <div class="flex-1" />
 
-    <!-- ====== 右: 录制 + 运行状态 + 主操作 + ⋯/设置 + 折叠 inspector ====== -->
-    <!-- 录制 (三态紧凑单控件, 右区最左/检查左边): 空闲=下拉选精准·简易; 倒计时=点取消; 录制中=红停止(目标进 tooltip)。 -->
+    <!-- ====== 中 · 主操作 hero: 录制 · 运行 ====== -->
+    <!-- 录制 (三态紧凑单控件): 空闲=下拉选精准·简易 (neutral, 次操作); 倒计时=点取消; 录制中=红停止(目标进 tooltip)。 -->
     <UButton v-if="isRecording" size="sm" color="error" variant="solid" icon="i-tabler-square"
              :title="(recordingTargetName ? t('editor.toolbar.recording_target_tip', { name: recordingTargetName }) + ' · ' : '') + t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })"
              @click="$emit('stop-record')">{{ t('editor.toolbar.stop_record') }}</UButton>
@@ -49,12 +49,12 @@
              :title="t('editor.toolbar.cancel_countdown_tip')"
              @click="$emit('cancel-countdown')">{{ t('editor.toolbar.cancel_countdown', { n: countdownSec }) }}</UButton>
     <UDropdownMenu v-else :items="recordMenuItems">
-      <UButton size="sm" color="primary" variant="soft" icon="i-tabler-circle-dot"
+      <UButton size="sm" color="neutral" variant="soft" icon="i-tabler-circle-dot"
                :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')">
         {{ t('editor.toolbar.record') }}</UButton>
     </UDropdownMenu>
-    <div class="w-px h-5 bg-default mx-1" />
 
+    <!-- 运行 hero / 运行态状态指示 + 停止。hero = primary solid (自动套 btn-primary-raised 绿渐变)，size md 比周围大一档。 -->
     <div
       v-if="execStoreRunning"
       class="inline-flex items-center gap-2 rounded-md bg-primary/15 border border-primary/40 px-2 py-0.5 text-[11px] text-primary"
@@ -66,31 +66,40 @@
     <UButton v-if="execStoreRunning" size="sm" color="error" variant="solid" icon="i-tabler-square"
              :title="t('editor.toolbar.stop_run_tip', { hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9') })"
              @click="$emit('stop-run')">{{ t('editor.toolbar.stop_run') }}</UButton>
+    <UButton v-else size="md" color="primary" variant="solid" icon="i-tabler-player-play"
+             :disabled="dirty"
+             :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : t('editor.toolbar.try_run_tip')"
+             @click="$emit('try-run')">{{ t('editor.toolbar.run_hero') }}</UButton>
 
+    <div class="flex-1" />
+
+    <!-- ====== 右 · 文档 + 收纳: 校验 · 保存(dirty 黄点) · 自动布局 · ⋯ ====== -->
     <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-checks"
              :disabled="dirty"
              :title="dirty ? t('editor.toolbar.validate_dirty_tip') : t('editor.toolbar.validate_tip')"
              @click="$emit('validate')">{{ t('editor.toolbar.validate') }}</UButton>
-    <UButton size="sm" variant="soft" color="primary" icon="i-tabler-player-play"
-             :disabled="dirty || execStoreRunning"
-             :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : execStoreRunning ? t('editor.toolbar.try_run_busy_tip') : t('editor.toolbar.try_run_tip')"
-             @click="$emit('try-run')">{{ t('editor.toolbar.try_run') }}</UButton>
-    <!-- 保存成功反馈内联在按钮上 (闪「已保存」), 不弹 toast -->
-    <UButton size="sm" :color="saveFlash ? 'success' : 'primary'" :variant="saveFlash ? 'soft' : 'solid'"
-             icon="i-tabler-check" :disabled="!dirty && !saveFlash"
-             @click="dirty && $emit('save')">
-      {{ saveFlash ? t('editor.toolbar.saved') : t('editor.toolbar.save') }}</UButton>
 
-    <div class="w-px h-5 bg-default mx-1" />
+    <!-- 保存 (dirty 黄点 + 成功内联闪「已保存」, 不弹 toast) -->
+    <div class="relative">
+      <UButton size="sm" :color="saveFlash ? 'success' : 'primary'" :variant="saveFlash ? 'soft' : 'solid'"
+               icon="i-tabler-check" :disabled="!dirty && !saveFlash"
+               @click="dirty && $emit('save')">
+        {{ saveFlash ? t('editor.toolbar.saved') : t('editor.toolbar.save') }}</UButton>
+      <span v-if="dirty && !saveFlash"
+            class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning ring-2 ring-default" />
+    </div>
 
-    <!-- ⋯ 更多: 低频 (自动布局 / 吸附 / 连线样式 / 新窗口 / 重载 / 帮助) -->
+    <!-- 自动布局 (升为直接下拉, 出 ⋯) -->
+    <UDropdownMenu :items="layoutMenuItems">
+      <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-layout-grid"
+               :title="t('editor.toolbar.auto_layout')" />
+    </UDropdownMenu>
+
+    <!-- ⋯ 更多: 重载 / 吸附 / 连线样式 / 设置 / 帮助 -->
     <UDropdownMenu :items="moreMenuItems">
       <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-dots"
                :title="t('editor.toolbar.more')" />
     </UDropdownMenu>
-    <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-settings"
-             :title="t('editor.toolbar.open_settings')"
-             @click="$emit('open-settings')" />
   </div>
 </template>
 
@@ -160,7 +169,13 @@ const recordMenuItems = [[
   { label: t('editor.toolbar.record_simple'), icon: 'i-tabler-bolt', onSelect: () => emit('record', 'simple') },
 ]]
 
-// ⋯ 更多菜单: 低频操作分组 — 布局 / 吸附 / 连线样式 / 系统 / 帮助.
+// 自动布局下拉 (右区直接按钮, 出 ⋯): 横向 / 纵向。
+const layoutMenuItems = [[
+  { label: t('editor.toolbar.layout_lr'), icon: 'i-tabler-layout-rows', onSelect: () => emit('auto-layout', 'LR') },
+  { label: t('editor.toolbar.layout_tb'), icon: 'i-tabler-layout-columns', onSelect: () => emit('auto-layout', 'TB') },
+]]
+
+// ⋯ 更多菜单: 低频收纳 — 连线样式 / 吸附 / 重载 + 设置 / 帮助。(自动布局已出, 设置已进)
 const moreMenuItems = computed(() => {
   const cur = props.edgeStyle ?? 'default'
   const edgeItem = (v: 'default' | 'smoothstep' | 'step', labelKey: string, icon: string) => ({
@@ -170,20 +185,9 @@ const moreMenuItems = computed(() => {
     checked: cur === v,
     onUpdateChecked: (c: boolean) => { if (c) emit('set-edge-style', v) },
   })
-  const system = [
-    { label: t('editor.toolbar.reload'), icon: 'i-tabler-refresh', onSelect: () => emit('reload') },
-  ]
 
   return [
     [
-      {
-        label: t('editor.toolbar.auto_layout'),
-        icon: 'i-tabler-layout-grid',
-        children: [
-          { label: t('editor.toolbar.layout_lr'), icon: 'i-tabler-layout-rows', onSelect: () => emit('auto-layout', 'LR') },
-          { label: t('editor.toolbar.layout_tb'), icon: 'i-tabler-layout-columns', onSelect: () => emit('auto-layout', 'TB') },
-        ],
-      },
       {
         label: t('editor.toolbar.edge_style'),
         icon: 'i-tabler-vector-spline',
@@ -201,7 +205,10 @@ const moreMenuItems = computed(() => {
         onUpdateChecked: () => emit('toggle-snap'),
       },
     ],
-    system,
+    [
+      { label: t('editor.toolbar.reload'), icon: 'i-tabler-refresh', onSelect: () => emit('reload') },
+      { label: t('editor.toolbar.open_settings'), icon: 'i-tabler-settings', onSelect: () => emit('open-settings') },
+    ],
     [
       { label: t('editor.help.title'), icon: 'i-tabler-help-circle', onSelect: () => emit('open-help') },
     ],
