@@ -1,6 +1,7 @@
 // elkGraph.ts —— 自动布局纯函数集(可单测，无 vue-flow / 全局 registry 依赖)。
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 import type { ElkNode } from './elkConfig'
+import { SUBGRAPH_ENTRY_DEFAULT, SUBGRAPH_OUTPUT_DEFAULT } from './constants'
 
 export interface Size { width: number; height: number }
 
@@ -26,18 +27,18 @@ export interface MarkerLike {
   y?: number
 }
 
-// 默认坐标跟 syncFlowFromDraft 渲染 marker 时一致 (entry 80,160 / output 420,160)。
+// 默认坐标走 SUBGRAPH_ENTRY_DEFAULT / SUBGRAPH_OUTPUT_DEFAULT (constants.ts), 跟 syncFlowFromDraft 一致。
 export function subgraphMarkerNodes(
   entry: MarkerLike | null | undefined,
   outputPins: MarkerLike[] | undefined,
 ): GraphNode[] {
   const out: GraphNode[] = []
   if (entry?.nodeID) {
-    out.push({ id: entry.nodeID, kind: 'SubgraphInput', x: entry.x ?? 80, y: entry.y ?? 160, config: {} })
+    out.push({ id: entry.nodeID, kind: 'SubgraphInput', x: entry.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: entry.y ?? SUBGRAPH_ENTRY_DEFAULT.y, config: {} })
   }
   for (const p of outputPins ?? []) {
     if (!p.nodeID) continue
-    out.push({ id: p.nodeID, kind: 'SubgraphOutput', x: p.x ?? 420, y: p.y ?? 160, config: {} })
+    out.push({ id: p.nodeID, kind: 'SubgraphOutput', x: p.x ?? SUBGRAPH_OUTPUT_DEFAULT.x, y: p.y ?? SUBGRAPH_OUTPUT_DEFAULT.y, config: {} })
   }
   return out
 }

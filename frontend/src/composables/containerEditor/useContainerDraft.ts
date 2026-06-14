@@ -5,6 +5,7 @@ import { backend, type Container, type Graph, type GraphNode, type GraphEdge } f
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { edgeKind } from '@/components/containers/pinSpec'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
+import { SUBGRAPH_ENTRY_DEFAULT, SUBGRAPH_OUTPUT_DEFAULT } from './constants'
 
 // ---- History constants ----
 const HISTORY_MAX = 50
@@ -112,7 +113,7 @@ export function useContainerDraft(containerID: string) {
           virtualNodes.push({
             id: sg.entry.nodeID,
             type: 'SubgraphInput',
-            position: { x: sg.entry.x ?? 80, y: sg.entry.y ?? 160 },
+            position: { x: sg.entry.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: sg.entry.y ?? SUBGRAPH_ENTRY_DEFAULT.y },
             data: { kind: 'SubgraphInput', config: {}, disabled: false, label: t('editorAux.entry_pin'), _virtual: true, _markerRole: 'entry' },
           })
         }
@@ -121,7 +122,7 @@ export function useContainerDraft(containerID: string) {
           virtualNodes.push({
             id: p.nodeID,
             type: 'SubgraphOutput',
-            position: { x: p.x ?? 420, y: p.y ?? 160 },
+            position: { x: p.x ?? SUBGRAPH_OUTPUT_DEFAULT.x, y: p.y ?? SUBGRAPH_OUTPUT_DEFAULT.y },
             data: { kind: 'SubgraphOutput', config: { DeclID: p.id }, disabled: false, label: p.name ?? t('editorAux.output_pin'), _virtual: true, _markerRole: 'output', _declID: p.id },
           })
         }
