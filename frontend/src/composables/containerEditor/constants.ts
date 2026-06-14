@@ -29,8 +29,8 @@ export function centerOnNode(
   setCenter(node.x + NODE_VISUAL_WIDTH / 2, node.y + NODE_VISUAL_HEIGHT / 2, opts)
 }
 
-/** 子图入口 marker 缺省坐标 (flow-coord). elkGraph 与 useContainerDraft 两处必须一致 — 单一来源. */
+/** 子图入口 marker 缺省坐标 (flow-coord). 单一来源 — 所有取入口默认位的引用方 (elkGraph / useContainerDraft / ContainerEditorView) 都引这里. */
 export const SUBGRAPH_ENTRY_DEFAULT = { x: 80, y: 160 }
 
-/** 子图出口 marker 缺省坐标 (flow-coord). 同上, 两处必须一致. */
+/** 子图出口 marker 缺省坐标 (flow-coord). 单一来源 — 同 entry. */
 export const SUBGRAPH_OUTPUT_DEFAULT = { x: 420, y: 160 }

@@ -434,6 +434,7 @@ import { useGraphMutations } from '@/composables/containerEditor/useGraphMutatio
 import {
   AUTO_CONNECT_THRESHOLD_FLOW_PX,
   centerOnNode,
+  SUBGRAPH_ENTRY_DEFAULT,
 } from '@/composables/containerEditor/constants'
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
@@ -936,7 +937,7 @@ function graphLevelKey(path: string[]): string {
 function startNodeOf(path: string[]): { x: number; y: number } | null {
   if (path.length > 0) {
     const e = editorStore.subgraphById(path[path.length - 1])?.entry
-    return e?.nodeID ? { x: e.x ?? 80, y: e.y ?? 160 } : null
+    return e?.nodeID ? { x: e.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: e.y ?? SUBGRAPH_ENTRY_DEFAULT.y } : null
   }
   const start = activeGraph.value?.nodes.find((n) => n.kind === 'Start')
   return start ? { x: start.x, y: start.y } : null
