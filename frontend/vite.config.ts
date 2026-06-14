@@ -48,6 +48,17 @@ export default defineConfig({
           // 项目警告色一直是 amber 系 (NuxtUI 默认 yellow) — 钉死防漂移
           warning: "amber",
         },
+        // 主按钮 (primary + solid) 唯一显眼渐变; 其它 variant (soft/ghost/outline) 零改动。
+        // .btn-primary-raised 在 style.css, background-image 覆盖默认 bg-primary。
+        button: {
+          compoundVariants: [
+            {
+              color: "primary",
+              variant: "solid",
+              class: { base: "btn-primary-raised" },
+            },
+          ],
+        },
       },
     }),
     VueI18nPlugin({
