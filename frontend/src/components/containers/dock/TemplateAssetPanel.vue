@@ -1,5 +1,5 @@
-<!-- 模板资产停靠面板 (从 TemplateExplorerModal 抽 body). 两栏: 左列表(搜索/分类·标签过滤/分组/多选/分页)
-     + 右 TemplateDetailPanel. pick 模式: 行勾选=指派给节点 (实时回写 config.literal, 无"完成"步).
+<!-- 模板资产停靠面板 — 缩略图网格 (主操作=看图, 高频零点击).
+     pick 模式: 点缩略图=勾选指派给节点 (✓ 角标, 实时回写). 管理模式: 点=选中(批量); ⋯=详情(改名/重拍/变体/删除, 低频按需弹).
      批量改标签/分类/删. 新建截图: tplStore.containerId 定位目标窗口. -->
 <template>
   <div class="flex flex-col h-full min-h-0">
@@ -10,123 +10,131 @@
       </UButton>
     </div>
 
-    <div class="flex-1 min-h-0 overflow-hidden flex gap-3 p-3">
-      <div class="flex-1 min-w-0 flex flex-col gap-3 min-h-0">
-        <div class="flex items-center gap-3 shrink-0">
-          <UInput
-            ref="searchInputRef"
-            v-model="query"
-            :placeholder="t('template.manager.search')"
-            icon="i-tabler-search"
-            size="sm"
-            class="flex-1"
-          />
-          <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
-          <UButton
-            size="xs"
-            variant="ghost"
-            :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-            :title="sortDesc ? t('template.manager.sort_desc') : t('template.manager.sort_asc')"
-            @click="sortDesc = !sortDesc"
-          />
+    <div class="flex-1 min-h-0 overflow-hidden flex flex-col gap-2 p-3">
+      <div class="flex items-center gap-3 shrink-0">
+        <UInput
+          ref="searchInputRef"
+          v-model="query"
+          :placeholder="t('template.manager.search')"
+          icon="i-tabler-search"
+          size="sm"
+          class="flex-1"
+        />
+        <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+        <UButton
+          size="xs"
+          variant="ghost"
+          :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
+          :title="sortDesc ? t('template.manager.sort_desc') : t('template.manager.sort_asc')"
+          @click="sortDesc = !sortDesc"
+        />
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <USelectMenu v-model="categoryFilter" :items="categoryFilterItems" value-key="id" size="xs" class="w-40" />
+        <UInputMenu
+          v-model="tagFilter"
+          multiple
+          :items="allTags"
+          size="xs"
+          :placeholder="t('library.explorer.filter_tags')"
+          class="flex-1"
+        />
+      </div>
+
+      <!-- 缩略图网格 -->
+      <div class="flex-1 min-h-0 overflow-y-auto select-none">
+        <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
+          <span v-if="entries.length === 0">{{ t('template.manager.empty') }}</span>
+          <span v-else>{{ t('template.manager.no_match', { search: query }) }}</span>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-          <USelectMenu v-model="categoryFilter" :items="categoryFilterItems" value-key="id" size="xs" class="w-40" />
-          <UInputMenu
-            v-model="tagFilter"
-            multiple
-            :items="allTags"
-            size="xs"
-            :placeholder="t('library.explorer.filter_tags')"
-            class="flex-1"
-          />
-        </div>
-
-        <div class="flex-1 min-h-0 overflow-y-auto select-none">
-          <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            <span v-if="entries.length === 0">{{ t('template.manager.empty') }}</span>
-            <span v-else>{{ t('template.manager.no_match', { search: query }) }}</span>
-          </div>
-
-          <div v-else class="space-y-2">
-            <template v-for="group in groupedItems" :key="group.category">
-              <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
-                {{ group.category }}
-              </div>
+        <template v-else>
+          <div v-for="group in groupedItems" :key="group.category">
+            <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-1">
+              {{ group.category }}
+            </div>
+            <div class="grid gap-2.5" style="grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));">
               <div
                 v-for="item in group.items"
                 :key="item.guid"
-                class="group rounded p-2.5 cursor-pointer"
-                :class="rowActive(item.guid) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
-                @click="onRowClick(item.guid, $event)"
+                class="group relative rounded-lg overflow-hidden cursor-pointer border transition-colors"
+                :class="cellActive(item.guid) ? 'border-primary ring-1 ring-inset ring-primary/60' : 'border-default hover:border-primary/40'"
+                :title="item.name || item.guid"
+                @click="onCellClick(item.guid, $event)"
+                @dblclick="!pickMode && openDetail(item.guid)"
               >
-                <div class="flex items-center gap-2">
-                  <span
-                    class="shrink-0 transition-opacity"
-                    :class="pickMode || rowActive(item.guid) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-                    @click.stop
-                  >
-                    <UCheckbox
-                      :model-value="rowActive(item.guid)"
-                      size="sm"
-                      @update:model-value="onRowCheckbox(item.guid)"
-                    />
-                  </span>
-                  <UIcon name="i-tabler-photo" class="size-4 text-primary shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium truncate">{{ item.name || item.guid }}</div>
-                    <div class="text-[10px] text-dimmed flex items-center gap-1.5 truncate mt-0.5">
-                      <span>{{ item.variantCount }} {{ t('template.manager.variant_count') }}</span>
-                      <span v-if="item.tags?.length" class="truncate">· {{ item.tags.join(', ') }}</span>
-                    </div>
-                  </div>
+                <div class="aspect-[4/3] bg-sunken flex items-center justify-center">
+                  <TemplateThumb :sha="item.firstBlobSha" />
                 </div>
-              </div>
-            </template>
-          </div>
-        </div>
+                <div class="px-1.5 py-1 text-[11px] truncate" :class="cellActive(item.guid) ? 'text-highlighted' : 'text-toned'">
+                  {{ item.name || item.guid }}
+                </div>
 
-        <!-- 底部双态: pick=已指派计数; 管理无选中=计数+分页; 有选中=批量+分页 -->
-        <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-          <div v-if="pickMode" class="flex items-center gap-2 min-w-0">
-            <span class="text-[11px] text-toned">{{ t('template.picker.selected_count', { n: assigned.length }) }}</span>
+                <!-- pick: 已指派 ✓ 角标 -->
+                <div
+                  v-if="pickMode && isAssigned(item.guid)"
+                  class="absolute top-1 right-1 size-5 rounded-full bg-primary text-inverted flex items-center justify-center shadow"
+                >
+                  <UIcon name="i-tabler-check" class="size-3.5" />
+                </div>
+
+                <!-- 管理: ⋯ 详情 (hover) -->
+                <UButton
+                  v-if="!pickMode"
+                  size="xs"
+                  variant="solid"
+                  color="neutral"
+                  icon="i-tabler-dots"
+                  class="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+                  :title="t('editor.dock.detail')"
+                  @click.stop="openDetail(item.guid)"
+                  @dblclick.stop
+                />
+              </div>
+            </div>
           </div>
-          <div v-else-if="selected.size === 0" class="text-[11px] text-dimmed">
-            {{ t('library.toolbar.total', { n: pageResult.total }) }}
-          </div>
-          <div v-else class="flex items-center gap-1.5 min-w-0">
-            <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
-            <UDropdownMenu :items="batchMenuItems">
-              <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
-                {{ t('library.batch.menu') }}
-              </UButton>
-            </UDropdownMenu>
-            <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-x" :title="t('library.batch.clear')" @click="selClear()" />
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <UPagination
-              v-if="pageResult.totalPages > 1"
-              v-model:page="page"
-              :total="pageResult.total"
-              :items-per-page="pageSize"
-              :sibling-count="1"
-              size="xs"
-            />
-            <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
-          </div>
-        </div>
+        </template>
       </div>
 
-      <TemplateDetailPanel
-        class="h-full"
-        :guid="anchor"
-        :pick-mode="pickMode"
-        :assigned="anchor ? isAssigned(anchor) : false"
-        @toggle-assign="anchor && toggleAssign(anchor)"
-      />
+      <!-- 底部双态: pick=已指派计数; 管理无选中=计数+分页; 有选中=批量+分页 -->
+      <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
+        <div v-if="pickMode" class="text-[11px] text-toned">
+          {{ t('template.picker.selected_count', { n: assigned.length }) }}
+        </div>
+        <div v-else-if="selected.size === 0" class="text-[11px] text-dimmed">
+          {{ t('library.toolbar.total', { n: pageResult.total }) }}
+        </div>
+        <div v-else class="flex items-center gap-1.5 min-w-0">
+          <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
+          <UDropdownMenu :items="batchMenuItems">
+            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
+              {{ t('library.batch.menu') }}
+            </UButton>
+          </UDropdownMenu>
+          <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-x" :title="t('library.batch.clear')" @click="selClear()" />
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <UPagination
+            v-if="pageResult.totalPages > 1"
+            v-model:page="page"
+            :total="pageResult.total"
+            :items-per-page="pageSize"
+            :sibling-count="1"
+            size="xs"
+          />
+          <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- 详情 (按需): 改名/描述/分类/标签/多分辨率变体/重拍/删除 -->
+  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-photo" size="md">
+    <div class="flex justify-center">
+      <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" @toggle-assign="() => {}" />
+    </div>
+  </BaseModal>
 
   <!-- 批量加标签 -->
   <BaseModal v-model:open="batchTagsOpen" :title="t('library.batch.add_tags_title')" icon="i-tabler-tags" size="md">
@@ -160,21 +168,22 @@ import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import BaseModal from '@/components/common/BaseModal.vue'
 import TemplateDetailPanel from '@/components/containers/TemplateDetailPanel.vue'
+import TemplateThumb from './TemplateThumb.vue'
 
 const { t } = useI18n()
 const props = defineProps<{ pickMode?: boolean; modelValue?: string[] }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string[]] }>()
 
-// pick 模式: 行勾选框=指派给节点 (按 modelValue 回显); 管理模式=批量选 (useListSelection).
+// pick 模式: 缩略图勾选=指派给节点 (按 modelValue 回显); 管理模式: 选中=批量.
 const assigned = computed<string[]>(() => props.modelValue ?? [])
 function isAssigned(guid: string) { return assigned.value.includes(guid) }
 function toggleAssign(guid: string) {
   emit('update:modelValue', isAssigned(guid) ? assigned.value.filter((g) => g !== guid) : [...assigned.value, guid])
 }
-function rowActive(guid: string) { return props.pickMode ? isAssigned(guid) : isSelected(guid) }
-function onRowCheckbox(guid: string) {
-  if (props.pickMode) toggleAssign(guid)
-  else selClick(guid, { ctrl: true })
+function cellActive(guid: string) { return props.pickMode ? isAssigned(guid) : isSelected(guid) }
+function onCellClick(guid: string, e: MouseEvent) {
+  if (props.pickMode) { toggleAssign(guid); return }
+  selClick(guid, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
 const tplStore = useTemplatesStore()
@@ -246,9 +255,9 @@ const groupedItems = computed(() => groupByCategory(pageResult.value.pageItems, 
 watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => { page.value = 1 })
 watch(() => pageResult.value.totalPages, (tp) => { if (page.value > tp) page.value = tp })
 
-// 多选 + 详情跟锚点
+// 多选 (批量用)
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.guid)))
-const { selected, anchor, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
 
 // 面板 mount (切到资产·模板 tab) → reload + 重置过滤 + 聚焦搜索.
 onMounted(async () => {
@@ -263,12 +272,15 @@ onMounted(async () => {
   el?.querySelector('input')?.focus()
 })
 
-function onRowClick(id: string, e: MouseEvent) {
-  if (props.pickMode) { selClick(id); return } // pick: 行点击只设详情锚点, 不做批量多选
-  selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
+// ── 详情 (按需弹出) ──
+const detailOpen = ref(false)
+const detailId = ref<string | null>(null)
+function openDetail(guid: string) {
+  detailId.value = guid
+  detailOpen.value = true
 }
 
-// 新建截图 (搬自原 TemplatesTab)
+// 新建截图
 async function onNewTemplate() {
   const id = 'tpl-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
   const waiter = awaitWailsEvent<{ id: string; mode: string; payload: any }>('tools:picker-result', (p) => p?.id === id)
@@ -282,7 +294,7 @@ async function onNewTemplate() {
   }
 }
 
-// ── 批量: 直接发 RPC (不逐次 reload), 最后 reload 一次 ──
+// ── 批量 ──
 const batchMenuItems = computed(() => [
   [
     { label: t('library.batch.add_tags'), icon: 'i-tabler-tags', onSelect: () => { batchTagsOpen.value = true } },

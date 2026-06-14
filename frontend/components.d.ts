@@ -86,6 +86,7 @@ declare module 'vue' {
     TemplateAssetPanel: typeof import('./src/components/containers/dock/TemplateAssetPanel.vue')['default']
     TemplateDetailPanel: typeof import('./src/components/containers/TemplateDetailPanel.vue')['default']
     TemplatePickerField: typeof import('./src/components/containers/TemplatePickerField.vue')['default']
+    TemplateThumb: typeof import('./src/components/containers/dock/TemplateThumb.vue')['default']
     UApp: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/App.vue')['default']
     UBadge: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Badge.vue')['default']
     UButton: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Button.vue')['default']
