@@ -53,7 +53,7 @@
                 class="group rounded p-2.5 cursor-grab active:cursor-grabbing"
                 :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
                 @click="onRowClick(item.id, $event)"
-                @dblclick="onPick(item.id)"
+                @dblclick="openDetail(item.id)"
                 @contextmenu="selClick(item.id)"
                 @dragstart="(e) => startEditorDrag({ type: 'clip', id: item.id }, e)"
               >
@@ -62,6 +62,7 @@
                     class="shrink-0 transition-opacity"
                     :class="isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
                     @click.stop
+                    @dblclick.stop
                     @dragstart.stop.prevent
                   >
                     <UCheckbox

@@ -210,7 +210,7 @@
     dock: {
       assets: 'Assets',
       detail: 'Details',
-      drag_hint: 'Drag to canvas · double-click to insert at center',
+      drag_hint: 'Drag to canvas to insert · click to select · double-click for details',
     },
     toolbar: {
       back_to_list: 'Back to container list',
