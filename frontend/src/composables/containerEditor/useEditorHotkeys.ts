@@ -12,13 +12,16 @@ interface UseEditorHotkeysOpts {
   commandPaletteOpen: Ref<boolean>
   nodeSearchOpen: Ref<boolean>
   settingsOpen: Ref<boolean>
-  nodeExplorerOpen: Ref<boolean>
   dirty: Ref<boolean>
   onSave: () => Promise<unknown>
   undo: () => void
   redo: () => void
   togglePalette: () => void
   toggleInspector: () => void
+  /** 节点库停靠面板当前是否打开 (Tab 决定开/收). */
+  isNodeLibraryOpen: () => boolean
+  /** 切换节点库停靠面板 (开 ↔ 收). */
+  toggleNodeLibrary: () => void
 }
 
 // 7 editor in-app key. 跟 onKeydown 7 if 分支对得上.
@@ -94,14 +97,14 @@ export function useEditorHotkeys(opts: UseEditorHotkeysOpts) {
       return
     }
     if (e.key === 'Tab') {
-      if (opts.nodeExplorerOpen.value) {
+      if (opts.isNodeLibraryOpen()) {
         e.preventDefault()
-        opts.nodeExplorerOpen.value = false
+        opts.toggleNodeLibrary() // 已开 → 收起
         return
       }
       if (isTypingTarget(e)) return
       e.preventDefault()
-      opts.nodeExplorerOpen.value = true
+      opts.toggleNodeLibrary() // 未开 → 展开
     }
   }
 

@@ -1,26 +1,23 @@
-<!-- Houdini-style collapsible tree node browser.
-     入口: toolbar 📐 / Tab 键 (canvas focused). -->
+<!-- 节点库停靠面板 (Houdini 式可折叠树). 入口: rail 节点库图标 / Tab 键 (canvas focused).
+     从 NodeExplorerModal 抽 body — 去 modal 外壳, 停靠区自管高度. -->
 <template>
-  <BaseModal
-    v-model:open="modelOpen"
-    :title="t('nodeExplorer.title')"
-    icon="i-tabler-grid-dots"
-    size="5xl"
-  >
-    <div class="space-y-3">
+  <div class="flex flex-col h-full min-h-0">
+    <!-- 标题栏 (停靠区无外层 header, 面板自带) -->
+    <div class="flex items-center gap-2 border-b border-default px-3 py-2 shrink-0">
+      <UIcon name="i-tabler-grid-dots" class="size-4 text-dimmed" />
+      <span class="text-sm font-medium">{{ t('nodeExplorer.title') }}</span>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
       <!-- Search -->
-      <div class="flex items-center gap-3">
-        <UInput
-          ref="searchInputRef"
-          v-model="query"
-          :placeholder="t('nodeExplorer.search_placeholder')"
-          icon="i-tabler-search"
-          size="sm"
-          class="flex-1"
-          @keydown.escape="onEsc"
-        />
-        <span class="text-[10px] text-dimmed">{{ t('nodeExplorer.esc_tab_close') }}</span>
-      </div>
+      <UInput
+        ref="searchInputRef"
+        v-model="query"
+        :placeholder="t('nodeExplorer.search_placeholder')"
+        icon="i-tabler-search"
+        size="sm"
+        class="w-full"
+      />
 
       <!-- Tree body: per-group collapsible sections -->
       <div>
@@ -28,56 +25,49 @@
           {{ t('nodeExplorer.no_match') }}
         </div>
         <div v-else class="space-y-1">
-            <div v-for="g in filteredGroups" :key="g.group">
-              <button
-                type="button"
-                class="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-elevated/30 rounded text-[12px] font-medium text-default"
-                @click="toggleGroup(g.group)"
+          <div v-for="g in filteredGroups" :key="g.group">
+            <button
+              type="button"
+              class="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-elevated/30 rounded text-[12px] font-medium text-default"
+              @click="toggleGroup(g.group)"
+            >
+              <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3.5" />
+              <span>{{ groupLabelZh(g.group) }}</span>
+              <span class="text-[10px] opacity-70">({{ g.specs.length }})</span>
+            </button>
+            <div v-show="isExpanded(g.group)" class="grid gap-1 pl-5 mt-1" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+              <div
+                v-for="spec in g.specs"
+                :key="spec.kind"
+                class="flex items-center gap-2 px-2 py-1 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] cursor-pointer"
+                :title="spec.description ? t(spec.description) : spec.kind"
+                @click="onSelectKind(spec.kind)"
               >
-                <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3.5" />
-                <span>{{ groupLabelZh(g.group) }}</span>
-                <span class="text-[10px] opacity-70">({{ g.specs.length }})</span>
-              </button>
-              <div v-show="isExpanded(g.group)" class="grid gap-1 pl-5 mt-1" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
-                <div
-                  v-for="spec in g.specs"
-                  :key="spec.kind"
-                  class="flex items-center gap-2 px-2 py-1 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] cursor-pointer"
-                  :title="spec.description ? t(spec.description) : spec.kind"
-                  @click="onSelectKind(spec.kind)"
-                >
-                  <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
-                  <span class="flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
-                </div>
+                <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
+                <span class="flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
               </div>
             </div>
           </div>
+        </div>
       </div>
     </div>
-  </BaseModal>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
-import { useDialogOpen } from '@/composables/editor/useDialogOpen'
-import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
-import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
 
 const EXPANDED_KEY = 'yotta.explorer.expanded'
 
-const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
-  'update:open': [v: boolean]
   'pick-kind': [kind: string]
 }>()
-
-const modelOpen = useDialogOpen(props, emit)
 
 const query = ref('')
 const searchInputRef = ref<any>(null)
@@ -115,13 +105,16 @@ function toggleGroup(group: string) {
 }
 
 function isExpanded(group: string): boolean {
-  if (query.value.trim()) return true  // Auto-expand all when searching
+  if (query.value.trim()) return true // Auto-expand all when searching
   return expandedGroups.value.has(group)
 }
 
-// On open: focus search + clear query
-useAutoFocusOnOpen(modelOpen, searchInputRef, {
-  onOpen: () => { query.value = '' },
+// 面板 mount 时 (rail 切到节点库 → v-if 新挂载) 聚焦搜索框 + 清 query.
+onMounted(async () => {
+  query.value = ''
+  await nextTick()
+  const el = searchInputRef.value?.$el as HTMLElement | undefined
+  el?.querySelector('input')?.focus()
 })
 
 const filteredGroups = computed(() => {
@@ -147,10 +140,5 @@ const filteredGroups = computed(() => {
 
 function onSelectKind(kind: string) {
   emit('pick-kind', kind)
-  modelOpen.value = false
-}
-
-function onEsc() {
-  modelOpen.value = false
 }
 </script>

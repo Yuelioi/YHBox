@@ -22,7 +22,6 @@ interface UseCommandPaletteOpts {
   canRedo: Ref<boolean>
   dirty: Ref<boolean>
   sidebarPrefs: Ref<SidebarPrefs>
-  nodeExplorerOpen: Ref<boolean>
   libraryExplorerOpen: Ref<boolean>
   settingsOpen: Ref<boolean>
   nodeSearchOpen: Ref<boolean>
@@ -152,7 +151,7 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
         id: 'navigate.node-explorer', label: t('editor.palette.cmd.node_explorer'), group: 'navigate',
         icon: 'i-tabler-grid-dots', shortcut: 'Tab',
         keywords: ['explorer', 'node', '节点'],
-        exec: () => { opts.nodeExplorerOpen.value = !opts.nodeExplorerOpen.value },
+        exec: () => { opts.sidebarPrefs.value.leftDrawer = opts.sidebarPrefs.value.leftDrawer === 'nodes' ? null : 'nodes' },
       },
       {
         id: 'navigate.library', label: t('editor.palette.cmd.library'), group: 'navigate',

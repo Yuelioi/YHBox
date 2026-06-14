@@ -100,14 +100,18 @@
           </button>
         </nav>
 
-        <!-- 停靠 drawer: 选中的面板滑出 (挤画布, 不盖)。面板各自带标题/搜索, 无需额外 header。 -->
-        <aside
+        <!-- 停靠区: 选中的面板滑出 (挤画布, 不盖)。面板各自带标题/搜索, 外壳不加 header。
+             窄态(节点库/变量/Snippets) ↔ 宽态(资产网格) 由 dock 自适应宽度。 -->
+        <ContainerEditorDock
           v-if="sidebarPrefs.leftDrawer"
-          :style="{ width: leftPane.width.value + 'px' }"
-          class="shrink-0 border-r border-default overflow-y-auto flex flex-col"
+          :wide="sidebarPrefs.leftDrawer === 'assets'"
         >
+          <NodeLibraryPanel
+            v-if="sidebarPrefs.leftDrawer === 'nodes'"
+            @pick-kind="(k: string) => onPickKind(k, nodeExplorerSpawnPos)"
+          />
           <VarsPanel
-            v-if="sidebarPrefs.leftDrawer === 'vars'"
+            v-else-if="sidebarPrefs.leftDrawer === 'vars'"
             :vars="draft?.vars ?? []"
             :usage-count="totalVarUsageCount"
             v-model:expanded="sidebarPrefs.varsExpanded"
@@ -123,14 +127,8 @@
             @apply="onApplySnippet"
             @edit="onEditSnippet"
           />
-        </aside>
-        <SplitHandle
-          v-if="sidebarPrefs.leftDrawer"
-          :model-value="leftPane.width.value"
-          @update:model-value="leftPane.setWidth"
-          :min="200"
-          :max="480"
-        />
+          <!-- AssetDockPanel 在 Task 6 接入 -->
+        </ContainerEditorDock>
 
         <!-- Canvas -->
         <div
@@ -274,11 +272,6 @@
       :ref-i-ds="deleteConfirm.refIDs"
       @update:open="(v) => { if (!v) deleteConfirm = null }"
       @confirm="onDeleteConfirm"
-    />
-
-    <NodeExplorerModal
-      v-model:open="nodeExplorerOpen"
-      @pick-kind="(k: string) => onPickKind(k, nodeExplorerSpawnPos)"
     />
 
     <ContainerHelpModal v-model:open="helpModalOpen" />
@@ -454,13 +447,15 @@ import CanvasContextBar from '@/components/containers/CanvasContextBar.vue'
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
 import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
+import { useAssetPicker } from '@/composables/editor/useAssetPicker'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
 import SnippetsPanel from '@/components/snippets/SnippetsPanel.vue'
 import SaveSnippetDrawer from '@/components/snippets/SaveSnippetDrawer.vue'
 import VarsPanel from '@/components/containers/sidebar/VarsPanel.vue'
 import ContainerSettingsModal from '@/components/containers/ContainerSettingsModal.vue'
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
-import NodeExplorerModal from '@/components/containers/NodeExplorerModal.vue'
+import ContainerEditorDock from '@/components/containers/dock/ContainerEditorDock.vue'
+import NodeLibraryPanel from '@/components/containers/dock/NodeLibraryPanel.vue'
 import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
 import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
 import TemplateExplorerModal from '@/components/containers/TemplateExplorerModal.vue'
@@ -630,38 +625,39 @@ function onSubgraphPanelToScript() {
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
-// 左活动栏 rail 顶部组: 面板类(变量/Snippets → 停靠 drawer, 点同图标收回) + 大目录类
-// (节点库/子图库 → 5xl modal 启动器, 窄 drawer 装不下)。录制单独渲染在 rail 底部 (见模板)。
+// 左活动栏 rail: 停靠类(节点库/变量/Snippets → 停靠区, 点同图标收回) + 资产类
+// (库/模板/Clip → 暂留 modal, Task 6 收成单个"资产"停靠 tab)。录制在 toolbar 右区。
+type DockPanel = 'nodes' | 'vars' | 'snippets' | 'assets'
 const leftRail = [
-  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title'), kind: 'drawer' as const },
-  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets', kind: 'drawer' as const },
-  { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer'), kind: 'modal' as const },
+  { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer'), kind: 'dock' as const },
+  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title'), kind: 'dock' as const },
+  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets', kind: 'dock' as const },
   { key: 'library' as const, icon: 'i-tabler-books', title: t('editor.toolbar.library_explorer'), kind: 'modal' as const },
   { key: 'templates' as const, icon: 'i-tabler-photo', title: t('template.manager.title'), kind: 'modal' as const },
   { key: 'clips' as const, icon: 'i-tabler-movie', title: t('clip.manager.title'), kind: 'modal' as const },
 ]
-function toggleLeftDrawer(key: 'vars' | 'snippets') {
-  sidebarPrefs.value.leftDrawer = sidebarPrefs.value.leftDrawer === key ? null : key
+const { cancel: cancelAssetPick } = useAssetPicker()
+function toggleDock(key: DockPanel) {
+  const next = sidebarPrefs.value.leftDrawer === key ? null : key
+  // 离开资产 tab → 取消可能挂着的字段 pick 上下文
+  if (sidebarPrefs.value.leftDrawer === 'assets' && next !== 'assets') cancelAssetPick()
+  sidebarPrefs.value.leftDrawer = next
 }
 function onRailClick(item: (typeof leftRail)[number]) {
-  if (item.kind === 'drawer') toggleLeftDrawer(item.key as 'vars' | 'snippets')
-  else if (item.key === 'nodes') onOpenNodeExplorer()
+  if (item.kind === 'dock') toggleDock(item.key)
   else if (item.key === 'library') onOpenLibraryExplorer()
   else if (item.key === 'templates') templatesExplorerOpen.value = true
   else if (item.key === 'clips') clipsExplorerOpen.value = true
 }
 function railActive(item: (typeof leftRail)[number]): boolean {
-  if (item.kind === 'drawer') return sidebarPrefs.value.leftDrawer === item.key
-  if (item.key === 'nodes') return nodeExplorerOpen.value
+  if (item.kind === 'dock') return sidebarPrefs.value.leftDrawer === item.key
   if (item.key === 'library') return libraryExplorerOpen.value
   if (item.key === 'templates') return templatesExplorerOpen.value
   if (item.key === 'clips') return clipsExplorerOpen.value
   return false
 }
-const leftPane = useSplitpane('editor.splitpane.left', { default: 280, min: 200, max: 480 })
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
-const nodeExplorerOpen = ref(false)
 const helpModalOpen = ref(false)
 const libraryExplorerOpen = ref(false)
 const templatesExplorerOpen = ref(false)
@@ -779,11 +775,11 @@ function trackMouse(e: MouseEvent) {
   lastMousePos.value = { x: e.clientX, y: e.clientY }
 }
 
-// Tab 唤起 NodeExplorerModal 时快照鼠标位置 — 等用户在 modal 里点完节点, 鼠标已挪到
-// modal 上, lastMousePos 不再是唤起时的画布位置, 所以在 explorer 打开那刻就定格。
+// 切到节点库停靠面板时快照鼠标位置 — 等用户在面板里点完节点, 鼠标已挪到面板上,
+// lastMousePos 不再是唤起时的画布位置, 所以在面板打开那刻就定格。
 const nodeExplorerSpawnPos = ref({ x: 240, y: 180 })
-watch(nodeExplorerOpen, (open) => {
-  if (open) nodeExplorerSpawnPos.value = { ...lastMousePos.value }
+watch(() => sidebarPrefs.value.leftDrawer, (d) => {
+  if (d === 'nodes') nodeExplorerSpawnPos.value = { ...lastMousePos.value }
 })
 function onSnippetShortcutKeydown(e: KeyboardEvent) {
   // 文本输入聚焦时不触发 (避免破坏 textarea/input)
@@ -847,10 +843,6 @@ const totalVarUsageCount = computed(() => {
     0,
   )
 })
-
-function onOpenNodeExplorer() {
-  nodeExplorerOpen.value = !nodeExplorerOpen.value
-}
 
 function onOpenLibraryExplorer() {
   libraryExplorerOpen.value = true
@@ -1034,10 +1026,12 @@ async function onSettingsSave(form: { name: string; hotkey: string; description:
 // dedup 原 5 处 isTypingTarget. composable 内 onMounted/onUnmounted 自挂 keydown listener.
 // 放 useEditorSave 之后 — onSave 在那里声明.
 useEditorHotkeys({
-  commandPaletteOpen, nodeSearchOpen, settingsOpen, nodeExplorerOpen,
+  commandPaletteOpen, nodeSearchOpen, settingsOpen,
   dirty, onSave, undo, redo,
-  togglePalette: () => toggleLeftDrawer('vars'),
+  togglePalette: () => toggleDock('vars'),
   toggleInspector: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
+  isNodeLibraryOpen: () => sidebarPrefs.value.leftDrawer === 'nodes',
+  toggleNodeLibrary: () => toggleDock('nodes'),
 })
 
 // 录制产物落下后选中它 (属性栏 + 画布视觉). syncFlowFromDraft 后 flow 节点要等一拍才在册.
@@ -1391,7 +1385,7 @@ async function onValidate() {
 // 命令面板 — 所有 action 已声明, 安全调用.
 const { commands } = useCommandPalette({
   canUndo, canRedo, dirty, sidebarPrefs,
-  nodeExplorerOpen, libraryExplorerOpen, settingsOpen, nodeSearchOpen,
+  libraryExplorerOpen, settingsOpen, nodeSearchOpen,
   undo, redo,
   onCopySelection, onPasteSelection, onFoldSelection,
   onAlignSelected, onAutoLayout,
