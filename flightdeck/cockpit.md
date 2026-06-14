@@ -1,17 +1,15 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-14 by 月离 (Spec A **landed/done 归档**: 四屏真机 smoke 过[关于屏收 `max-w-3xl` 居中列+去卡中卡; v3 base 下沉 neutral-950 + 表面改黑底顶光不整面提亮]; v3 表面系统沉进 [ui.md](checklists/ui.md)。下一步 Spec B 容器编辑器 brainstorm)。
-**Active focus**: UI 升级阶段。**Spec A**(设计系统地基 + 主程序门面 4 屏) = **done 已归档**([archive](archive/specs/2026-06-14-ui-uplift-foundation.md); 实现 + 四屏真机 smoke 全过), 设计语言常驻 [ui.md](checklists/ui.md) + `style.css`。**Spec B**(容器编辑器 壳+面板+全部 modal restyle + 布局/UX; vue-flow 画布/节点框/连线/pin 只继承 token 不重设计) = **当前焦点**, 待第二轮 brainstorm + mockup。**默认不 push**。
+**Last updated**: 2026-06-14 by 月离 (Spec A landed/done 归档; **Spec B brainstorm 完成 → 设计定稿** [specs/2026-06-14-ui-uplift-editor.md]: 方向 A 双栏停靠 + Inspector 选中才出, 三节拍定[面板 IA 自适应停靠区 / Toolbar 三区 / Inspector 三态+分组], 待用户过目 → writing-plans)。
+**Active focus**: UI 升级阶段。**Spec A**(地基+门面 4 屏) = done 归档, 设计语言常驻 [ui.md](checklists/ui.md)。**Spec B**(容器编辑器 restyle + 布局/UX 重设计; vue-flow 画布/节点/连线/pin 只继承 token 不重设计) = **当前焦点**, brainstorm 完成、[spec](specs/2026-06-14-ui-uplift-editor.md) 定稿待 review。**默认不 push**。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
-
+- [2026-06-14-ui-uplift-editor.md](specs/2026-06-14-ui-uplift-editor.md) — "UI 升级第二轮 (Spec B): 容器编辑器 restyle + 布局/UX 重设计。方向 = A 双栏停靠 + Inspector 选中才出 (全量重做, 解 4 大痛点: modal 盖画布 / 三层边栏挤画布 / Inspector 扁平 / Toolbar 主次乱)。① 面板 IA: 左侧自适应宽度停靠区收纳 节点库·变量·Snippets·资产浏览器 (窄列表↔宽网格自适应, 始终挤画布不盖画布), 小弹窗 restyle 留 modal; ② Toolbar 三区分层 (导航 / 主操作 hero / 文档+⋯收纳) + 底部问题条; ③ Inspector 三态收起规则 + SectionHeader 分组。复用 Spec A 设计语言 + 共用组件 (含 AlertBox/SectionHeader/ListRow)。边界: vue-flow 画布·节点框·连线·pin·画布右键 只继承 token, 不重设计。"
 <!-- /AUTO -->
 
-## 下一步
-
-**① Spec B 第二轮 brainstorm + mockup**(容器编辑器 restyle + 布局/UX 重设计)。范围: 编辑器壳 + 面板(Toolbar/Breadcrumb/Inspector/左 rail)+ 全部 modal(clip/library/template explorer/子图 props/帮助)的 restyle。**边界(已拍定)**: vue-flow 画布/节点框/连线/pin **只继承 Spec A token, 不做画布级重设计**(避开 incident 高发核心)。复用 Spec A 设计语言 + 7 共用组件(其中 AlertBox·SectionHeader·ListRow 编辑器屏还没消费过), 不重造地基。
+**① 用户过目 Spec B [spec](specs/2026-06-14-ui-uplift-editor.md)** → 通过则 **writing-plans 分 Part 出实现计划**: Part 1 左侧自适应停靠区(节点库/变量/Snippets/资产, 替 modal+抽屉, 结构大头先做先验) · Part 2 Toolbar 三区 + 底部问题条 + Inspector 三态/分组 · Part 3 剩余浮层 modal restyle。brainstorm 可视化稿在 `.superpowers/brainstorm/956-*`(gitignored)。**边界**: vue-flow 画布/节点/连线/pin/画布右键 只继承 token 不重设计。
 
 其余候选池押后: 临时窗口抓取(EnumWindows 选窗截图); NodeSearchModal/CommandPalette 收 BaseModal; 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
 
