@@ -268,6 +268,9 @@
       dist_h: 'Distribute horizontally (≥3)',
       dist_v: 'Distribute vertically',
     },
+    overview: {
+      title: 'Container Overview',
+    },
     inspector: {
       group_basics: 'Basics',
       group_inputs: 'Inputs',
@@ -275,7 +278,6 @@
       outputs_none: 'No outputs',
       empty: {
         title: 'No node selected',
-        overview_title: 'Container',
         stats_nodes: '{n} nodes',
         stats_vars: '{n} vars',
         stats_subgraphs: '{n} subgraphs',
@@ -283,10 +285,8 @@
         hotkey_none: 'unset',
         quick_start: 'Quick start:',
         tab_explorer: 'Open Node Explorer',
-        drag_var: 'Drag variable from left → create GetVar node',
         right_click_canvas: 'Right-click canvas → add-node menu',
         command_palette: 'Command palette',
-        container_settings: 'Container settings',
         open_help: 'Open help',
       },
     },

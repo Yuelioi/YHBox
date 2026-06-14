@@ -18,6 +18,15 @@
       @goto="$emit('goto', $event)"
     />
 
+    <ContainerOverviewPopover
+      class="ml-1"
+      :node-count="nodeCount"
+      :var-count="varCount"
+      :subgraph-count="subgraphCount"
+      :hotkey="overviewHotkey"
+      @open-help="$emit('open-help')"
+    />
+
     <!-- 撤销/重做: 跟在面包屑后 (标题栏左区)。 -->
     <div class="w-px h-5 bg-default mx-1" />
     <UButton
@@ -82,10 +91,6 @@
     <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-settings"
              :title="t('editor.toolbar.open_settings')"
              @click="$emit('open-settings')" />
-    <UButton size="xs" variant="ghost" color="neutral"
-             :icon="inspectorCollapsed ? 'i-tabler-layout-sidebar-right-expand' : 'i-tabler-layout-sidebar-right-collapse'"
-             :title="inspectorCollapsed ? t('editor.toolbar.inspector_expand') : t('editor.toolbar.inspector_collapse')"
-             @click="$emit('update:inspectorCollapsed', !inspectorCollapsed)" />
   </div>
 </template>
 
@@ -94,12 +99,17 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBreadcrumb.vue'
+import ContainerOverviewPopover from '@/components/containers/ContainerOverviewPopover.vue'
 
 const { t } = useI18n()
 const hotkeys = useHotkeysStore()
 
 const props = defineProps<{
-  inspectorCollapsed: boolean
+  // 左区容器概览 popover (节点/变量/子图数 + 热键)。
+  nodeCount: number
+  varCount: number
+  subgraphCount: number
+  overviewHotkey: string
   // recording 三态: isRecording (后端真的在录) / countdownSec>0 (倒计时中) / 都不是 (空闲)
   isRecording: boolean
   /** 录制目标容器名 (录制中进停止按钮 tooltip, 空则不拼) */
@@ -122,7 +132,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:inspectorCollapsed': [v: boolean]
   // 'record' 带 mode 参数: 'precise' | 'simple'
   'record': [mode: 'precise' | 'simple']
   'stop-record': []

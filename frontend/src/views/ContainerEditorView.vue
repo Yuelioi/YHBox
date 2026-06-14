@@ -46,7 +46,6 @@
       <!-- Toolbar：左 [面包屑][撤销/重做]，中间空，右 [录制][运行状态][试运行/停止][保存][折叠 inspector]。
            加内容(节点库/子图库)在左侧 rail。 -->
       <ContainerEditorToolbar
-        v-model:inspector-collapsed="sidebarPrefs.inspectorCollapsed"
         :is-recording="recordStore.isRecording || recordStore.isPaused"
         :recording-target-name="recordingTargetName"
         :countdown-sec="countdownSec"
@@ -62,6 +61,10 @@
         :root-label="draft?.name"
         :editor-path="editorStore.editorPath"
         :sg-label-fn="sgLabel"
+        :node-count="activeGraph?.nodes?.length ?? 0"
+        :var-count="declaredVars.length"
+        :subgraph-count="editorStore.visibleSubgraphs.length"
+        :overview-hotkey="draft?.hotkey ?? ''"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -153,6 +156,8 @@
             @align-selected="onAlignSelected"
             @delete-selected="onDeleteSelectedNodes"
           />
+          <!-- 画布空态: 无节点时居中显「快捷开始」(取代原 Inspector 常占栏)。 -->
+          <CanvasEmptyState v-if="canvasEmpty" />
           <!-- 操作提示 -->
           <div
             class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-dimmed pointer-events-none bg-default/70 px-2 py-1 rounded"
@@ -211,8 +216,20 @@
           </VueFlow>
         </div>
 
+        <!-- Inspector 折叠/展开单一 toggle: 贴画布右边缘 (替原 toolbar ⊟)。
+             collapsed 态(根图空选)无内容可切 → 不显。 -->
+        <button
+          v-if="inspectorMode !== 'collapsed'"
+          type="button"
+          class="shrink-0 w-5 self-stretch flex items-center justify-center border-l border-default text-dimmed hover:text-default hover:bg-elevated/40 transition-colors"
+          :title="showInspector ? t('editor.toolbar.inspector_collapse') : t('editor.toolbar.inspector_expand')"
+          @click="sidebarPrefs.inspectorCollapsed = !sidebarPrefs.inspectorCollapsed"
+        >
+          <UIcon :name="showInspector ? 'i-tabler-chevron-right' : 'i-tabler-chevron-left'" class="size-4" />
+        </button>
+
         <SplitHandle
-          v-show="!sidebarPrefs.inspectorCollapsed"
+          v-show="showInspector"
           reverse
           :model-value="rightPane.width.value"
           @update:model-value="rightPane.setWidth"
@@ -222,7 +239,7 @@
 
         <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
         <ContainerEditorInspector
-          v-show="!sidebarPrefs.inspectorCollapsed"
+          v-show="showInspector"
           :style="{ width: rightPane.width.value + 'px' }"
           :selected-node="selectedNode"
           :in-subgraph="editorStore.editorPath.length > 0"
@@ -231,9 +248,6 @@
           :declared-vars="declaredVars"
           :all-subgraph-tags="allSubgraphTags"
           :all-subgraph-categories="allSubgraphCategories"
-          :hotkey="draft?.hotkey ?? ''"
-          :subgraph-count="editorStore.visibleSubgraphs.length"
-          @open-help="helpModalOpen = true"
           @config-update="onConfigUpdate"
           @declare-var="onDeclareVar"
           @label-update="onLabelUpdate"
@@ -443,9 +457,11 @@ import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
 import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
 import CanvasContextBar from '@/components/containers/CanvasContextBar.vue'
+import CanvasEmptyState from '@/components/containers/CanvasEmptyState.vue'
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
 import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
+import { resolveInspectorMode } from '@/composables/editor/inspectorMode'
 import { useAssetPicker } from '@/composables/editor/useAssetPicker'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
 import SnippetsPanel from '@/components/snippets/SnippetsPanel.vue'
@@ -873,6 +889,20 @@ const selectedNode = computed<GraphNode | null>(() => {
   if (!g) return null
   return g.nodes.find((n) => n.id === selectedID.value) ?? null
 })
+
+// Inspector 三态 (spec B §3): 选中节点→node / 子图内空选→subgraph / 根图空选→collapsed。
+const inspectorMode = computed(() =>
+  resolveInspectorMode({
+    hasSelectedNode: !!selectedNode.value,
+    inSubgraph: editorStore.editorPath.length > 0,
+  }),
+)
+// 显示 = 有内容(非 collapsed 态) 且 用户没手动折叠。
+const showInspector = computed(
+  () => inspectorMode.value !== 'collapsed' && !sidebarPrefs.value.inspectorCollapsed,
+)
+// 画布是否空(驱动画布空态「快捷开始」)。
+const canvasEmpty = computed(() => (activeGraph.value?.nodes?.length ?? 0) === 0)
 
 const declaredVars = computed<{ name: string; type: VarType }[]>(
   () => (draft.value?.vars ?? []).map((v) => ({ name: v.name, type: v.type as VarType })),

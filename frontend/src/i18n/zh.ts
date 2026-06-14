@@ -282,6 +282,9 @@ export default {
       dist_h: '水平等距分布 (≥3)',
       dist_v: '垂直等距分布',
     },
+    overview: {
+      title: '容器概览',
+    },
     inspector: {
       group_basics: '基础',
       group_inputs: '输入',
@@ -289,7 +292,6 @@ export default {
       outputs_none: '无出口',
       empty: {
         title: '未选节点',
-        overview_title: '容器概览',
         stats_nodes: '{n} 节点',
         stats_vars: '{n} 变量',
         stats_subgraphs: '{n} 子图',
@@ -297,10 +299,8 @@ export default {
         hotkey_none: '未设',
         quick_start: '快捷开始:',
         tab_explorer: '打开节点 Explorer',
-        drag_var: '拖左侧变量 → 建 GetVar 节点',
         right_click_canvas: '右键画布 → 添加节点菜单',
         command_palette: '命令面板',
-        container_settings: '容器设置',
         open_help: '打开帮助',
       },
     },
