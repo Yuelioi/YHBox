@@ -22,7 +22,6 @@ interface UseCommandPaletteOpts {
   canRedo: Ref<boolean>
   dirty: Ref<boolean>
   sidebarPrefs: Ref<SidebarPrefs>
-  libraryExplorerOpen: Ref<boolean>
   settingsOpen: Ref<boolean>
   nodeSearchOpen: Ref<boolean>
   // actions
@@ -157,7 +156,7 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
         id: 'navigate.library', label: t('editor.palette.cmd.library'), group: 'navigate',
         icon: 'i-tabler-books',
         keywords: ['library', 'subgraph', '库', '子图'],
-        exec: () => { opts.libraryExplorerOpen.value = true },
+        exec: () => { opts.sidebarPrefs.value.leftDrawer = 'assets'; opts.sidebarPrefs.value.assetTab = 'library' },
       },
       {
         id: 'navigate.settings', label: t('editor.palette.cmd.settings'), group: 'navigate',

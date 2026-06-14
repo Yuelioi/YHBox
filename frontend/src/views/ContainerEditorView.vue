@@ -127,7 +127,15 @@
             @apply="onApplySnippet"
             @edit="onEditSnippet"
           />
-          <!-- AssetDockPanel 在 Task 6 接入 -->
+          <AssetDockPanel
+            v-else-if="sidebarPrefs.leftDrawer === 'assets'"
+            v-model:tab="sidebarPrefs.assetTab"
+            :template-pick-mode="!!assetPickRequest"
+            :template-selected="assetPickRequest?.selected ?? []"
+            @update:template-selected="updateAssetPick"
+            @pick-subgraph="onPickLibrarySubgraph"
+            @pick-clip="onPickLibraryClip"
+          />
         </ContainerEditorDock>
 
         <!-- Canvas -->
@@ -283,15 +291,6 @@
       :unsupported="toScriptState.unsupported"
       @insert="insertConvertedScript"
     />
-
-    <LibraryExplorerModal
-      v-model:open="libraryExplorerOpen"
-      @pick-subgraph="onPickLibrarySubgraph"
-    />
-
-    <TemplateExplorerModal v-model:open="templatesExplorerOpen" />
-
-    <ClipExplorerModal v-model:open="clipsExplorerOpen" @pick-clip="onPickLibraryClip" />
 
     <InlineContextMenu
       :open="inlineMenu.open"
@@ -456,10 +455,8 @@ import ContainerSettingsModal from '@/components/containers/ContainerSettingsMod
 import DeleteVarConfirmModal from '@/components/containers/sidebar/DeleteVarConfirmModal.vue'
 import ContainerEditorDock from '@/components/containers/dock/ContainerEditorDock.vue'
 import NodeLibraryPanel from '@/components/containers/dock/NodeLibraryPanel.vue'
+import AssetDockPanel from '@/components/containers/dock/AssetDockPanel.vue'
 import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
-import LibraryExplorerModal from '@/components/containers/LibraryExplorerModal.vue'
-import TemplateExplorerModal from '@/components/containers/TemplateExplorerModal.vue'
-import ClipExplorerModal from '@/components/containers/ClipExplorerModal.vue'
 import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 import SubgraphScriptPreviewModal from '@/components/containers/SubgraphScriptPreviewModal.vue'
 import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
@@ -625,18 +622,15 @@ function onSubgraphPanelToScript() {
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
-// 左活动栏 rail: 停靠类(节点库/变量/Snippets → 停靠区, 点同图标收回) + 资产类
-// (库/模板/Clip → 暂留 modal, Task 6 收成单个"资产"停靠 tab)。录制在 toolbar 右区。
+// 左活动栏 rail: 4 个停靠面板 (节点库/变量/Snippets/资产), 点同图标收回。录制在 toolbar 右区。
 type DockPanel = 'nodes' | 'vars' | 'snippets' | 'assets'
 const leftRail = [
-  { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer'), kind: 'dock' as const },
-  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title'), kind: 'dock' as const },
-  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets', kind: 'dock' as const },
-  { key: 'library' as const, icon: 'i-tabler-books', title: t('editor.toolbar.library_explorer'), kind: 'modal' as const },
-  { key: 'templates' as const, icon: 'i-tabler-photo', title: t('template.manager.title'), kind: 'modal' as const },
-  { key: 'clips' as const, icon: 'i-tabler-movie', title: t('clip.manager.title'), kind: 'modal' as const },
+  { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer') },
+  { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title') },
+  { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets' },
+  { key: 'assets' as const, icon: 'i-tabler-stack-2', title: t('editor.dock.assets') },
 ]
-const { cancel: cancelAssetPick } = useAssetPicker()
+const { request: assetPickRequest, updateSelection: updateAssetPick, cancel: cancelAssetPick } = useAssetPicker()
 function toggleDock(key: DockPanel) {
   const next = sidebarPrefs.value.leftDrawer === key ? null : key
   // 离开资产 tab → 取消可能挂着的字段 pick 上下文
@@ -644,24 +638,14 @@ function toggleDock(key: DockPanel) {
   sidebarPrefs.value.leftDrawer = next
 }
 function onRailClick(item: (typeof leftRail)[number]) {
-  if (item.kind === 'dock') toggleDock(item.key)
-  else if (item.key === 'library') onOpenLibraryExplorer()
-  else if (item.key === 'templates') templatesExplorerOpen.value = true
-  else if (item.key === 'clips') clipsExplorerOpen.value = true
+  toggleDock(item.key)
 }
 function railActive(item: (typeof leftRail)[number]): boolean {
-  if (item.kind === 'dock') return sidebarPrefs.value.leftDrawer === item.key
-  if (item.key === 'library') return libraryExplorerOpen.value
-  if (item.key === 'templates') return templatesExplorerOpen.value
-  if (item.key === 'clips') return clipsExplorerOpen.value
-  return false
+  return sidebarPrefs.value.leftDrawer === item.key
 }
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
 const helpModalOpen = ref(false)
-const libraryExplorerOpen = ref(false)
-const templatesExplorerOpen = ref(false)
-const clipsExplorerOpen = ref(false)
 
 // ===== 命令面板 =====
 const commandPaletteOpen = ref(false)
@@ -843,10 +827,6 @@ const totalVarUsageCount = computed(() => {
     0,
   )
 })
-
-function onOpenLibraryExplorer() {
-  libraryExplorerOpen.value = true
-}
 
 // onPickKind / onPickLibrarySubgraph / onAddNode 等 — 已抽 useNodeCreation
 // InlineContextMenu (右键画布空白 / pin drag-to-empty → 添加节点) 整块抽 useInlineMenu.
@@ -1385,7 +1365,7 @@ async function onValidate() {
 // 命令面板 — 所有 action 已声明, 安全调用.
 const { commands } = useCommandPalette({
   canUndo, canRedo, dirty, sidebarPrefs,
-  libraryExplorerOpen, settingsOpen, nodeSearchOpen,
+  settingsOpen, nodeSearchOpen,
   undo, redo,
   onCopySelection, onPasteSelection, onFoldSelection,
   onAlignSelected, onAutoLayout,

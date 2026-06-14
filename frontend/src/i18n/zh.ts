@@ -222,6 +222,9 @@ export default {
     breadcrumb: {
       root_fallback: '...',
     },
+    dock: {
+      assets: '资产',
+    },
     toolbar: {
       back_to_list: '返回容器列表',
       node_explorer: '节点 Explorer (Tab)',

@@ -207,6 +207,9 @@
     breadcrumb: {
       root_fallback: '...',
     },
+    dock: {
+      assets: 'Assets',
+    },
     toolbar: {
       back_to_list: 'Back to container list',
       node_explorer: 'Node Explorer (Tab)',
