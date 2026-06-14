@@ -42,6 +42,8 @@
         />
       </div>
 
+      <AssetSelectionBar v-if="!pickMode" :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
+
       <!-- 缩略图网格 -->
       <div class="flex-1 min-h-0 overflow-y-auto select-none">
         <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
@@ -95,23 +97,10 @@
         </template>
       </div>
 
-      <!-- 底部双态: pick=已指派计数; 管理无选中=计数+分页; 有选中=批量+分页 -->
+      <!-- 底部: pick=已指派计数 / 管理=总数 + 分页 (批量操作移到顶部上下文条) -->
       <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <div v-if="pickMode" class="text-[11px] text-toned">
-          {{ t('template.picker.selected_count', { n: assigned.length }) }}
-        </div>
-        <div v-else-if="selected.size === 0" class="text-[11px] text-dimmed">
-          {{ t('library.toolbar.total', { n: pageResult.total }) }}
-        </div>
-        <div v-else class="flex items-center gap-1.5 min-w-0">
-          <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
-          <UDropdownMenu :items="batchMenuItems">
-            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
-              {{ t('library.batch.menu') }}
-            </UButton>
-          </UDropdownMenu>
-          <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-x" :title="t('library.batch.clear')" @click="selClear()" />
-        </div>
+        <span v-if="pickMode" class="text-[11px] text-toned shrink-0">{{ t('template.picker.selected_count', { n: assigned.length }) }}</span>
+        <span v-else class="text-[11px] text-dimmed shrink-0">{{ t('library.toolbar.total', { n: pageResult.total }) }}</span>
         <div class="flex items-center gap-2 shrink-0">
           <UPagination
             v-if="pageResult.totalPages > 1"
@@ -163,6 +152,7 @@ import { useListSelection } from '@/composables/editor/useListSelection'
 import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import BaseModal from '@/components/common/BaseModal.vue'
+import AssetSelectionBar from './AssetSelectionBar.vue'
 import TemplateDetailPanel from '@/components/containers/TemplateDetailPanel.vue'
 import TemplateThumb from './TemplateThumb.vue'
 

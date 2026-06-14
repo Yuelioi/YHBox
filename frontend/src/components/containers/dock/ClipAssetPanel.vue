@@ -34,7 +34,8 @@
         />
       </div>
 
-      <p class="text-[10px] text-dimmed px-1 shrink-0">{{ t('editor.dock.drag_hint') }}</p>
+      <p v-if="selected.size === 0" class="text-[10px] text-dimmed px-1 shrink-0">{{ t('editor.dock.drag_hint') }}</p>
+      <AssetSelectionBar :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
 
       <div class="flex-1 min-h-0 overflow-y-auto select-none">
         <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
@@ -97,20 +98,9 @@
         </div>
       </div>
 
-      <!-- 底部双态 -->
+      <!-- 底部: 仅分页 (批量操作移到顶部上下文条) -->
       <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
-          {{ t('library.toolbar.total', { n: pageResult.total }) }}
-        </div>
-        <div v-else class="flex items-center gap-1.5 min-w-0">
-          <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
-          <UDropdownMenu :items="batchMenuItems">
-            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
-              {{ t('library.batch.menu') }}
-            </UButton>
-          </UDropdownMenu>
-          <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-x" :title="t('library.batch.clear')" @click="selClear()" />
-        </div>
+        <span class="text-[11px] text-dimmed shrink-0">{{ t('library.toolbar.total', { n: pageResult.total }) }}</span>
         <div class="flex items-center gap-2 shrink-0">
           <UPagination
             v-if="pageResult.totalPages > 1"
@@ -161,6 +151,7 @@ import { useListSelection } from '@/composables/editor/useListSelection'
 import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 import BaseModal from '@/components/common/BaseModal.vue'
+import AssetSelectionBar from './AssetSelectionBar.vue'
 import ClipDetailPanel from '@/components/containers/ClipDetailPanel.vue'
 
 const { t } = useI18n()

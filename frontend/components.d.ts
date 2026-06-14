@@ -17,6 +17,7 @@ declare module 'vue' {
     AppStatusBar: typeof import('./src/components/AppStatusBar.vue')['default']
     AppTitleBar: typeof import('./src/components/AppTitleBar.vue')['default']
     AssetDockPanel: typeof import('./src/components/containers/dock/AssetDockPanel.vue')['default']
+    AssetSelectionBar: typeof import('./src/components/containers/dock/AssetSelectionBar.vue')['default']
     BaseModal: typeof import('./src/components/common/BaseModal.vue')['default']
     BotControls: typeof import('./src/components/BotControls.vue')['default']
     CanvasContextBar: typeof import('./src/components/containers/CanvasContextBar.vue')['default']
