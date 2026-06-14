@@ -1,41 +1,35 @@
 <template>
   <div class="px-8 py-6 space-y-6">
     <!-- 主介绍卡 -->
-    <section class="rounded-xl bg-default border border-default p-8">
+    <AppCard>
       <div class="flex flex-col items-center text-center">
-        <div class="size-20 rounded-full bg-elevated flex items-center justify-center mb-5">
-          <UIcon name="i-tabler-info-circle" class="size-9 text-muted" />
-        </div>
+        <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" class="mb-5" />
         <h2 class="text-lg font-semibold text-highlighted mb-2">
           {{ info?.name ?? 'Yotta' }}
-          <span class="text-muted font-normal ml-1">v{{ info?.version ?? '...' }}</span>
+          <span class="text-muted font-normal ml-1 font-mono tabular-nums">v{{ info?.version ?? '...' }}</span>
         </h2>
         <p class="text-sm text-muted leading-relaxed max-w-sm">
           {{ t('about.tagline') }}
         </p>
       </div>
-    </section>
+    </AppCard>
 
     <!-- 核心概念 -->
-    <section class="rounded-xl bg-default border border-default p-5">
+    <AppCard>
       <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.concepts.title') }}</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div
-          v-for="c in concepts"
-          :key="c.key"
-          class="rounded-lg bg-default/50 border border-default/60 p-4"
-        >
+        <AppCard v-for="c in concepts" :key="c.key" padding="panel">
           <div class="flex items-center gap-2 mb-2">
             <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
             <span class="text-sm font-medium text-highlighted">{{ t(`about.concepts.${c.key}.name`) }}</span>
           </div>
           <p class="text-xs text-muted leading-relaxed">{{ t(`about.concepts.${c.key}.desc`) }}</p>
-        </div>
+        </AppCard>
       </div>
-    </section>
+    </AppCard>
 
     <!-- 作者 / 链接 -->
-    <section class="rounded-xl bg-default border border-default p-5">
+    <AppCard>
       <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_author') }}</h3>
       <div class="text-sm space-y-2">
         <div class="flex items-center justify-between gap-4">
@@ -71,41 +65,41 @@
           </button>
         </div>
       </div>
-    </section>
+    </AppCard>
 
     <!-- 技术栈 -->
-    <section class="rounded-xl bg-default border border-default p-5">
+    <AppCard>
       <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_stack') }}</h3>
       <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <div class="flex items-center justify-between">
           <span class="text-muted">Runtime</span>
-          <span class="text-default font-medium">Wails 3</span>
+          <span class="text-default font-medium font-mono">Wails 3</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">Frontend</span>
-          <span class="text-default font-medium">Vue 3 + TS</span>
+          <span class="text-default font-medium font-mono">Vue 3 + TS</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">UI</span>
-          <span class="text-default font-medium">NuxtUI v4</span>
+          <span class="text-default font-medium font-mono">NuxtUI v4</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">Backend</span>
-          <span class="text-default font-medium">Go 1.25</span>
+          <span class="text-default font-medium font-mono">Go 1.25</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">Logger</span>
-          <span class="text-default font-medium">zerolog</span>
+          <span class="text-default font-medium font-mono">zerolog</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-muted">CV / Input</span>
-          <span class="text-default font-medium">pkg/vision + Win32</span>
+          <span class="text-default font-medium font-mono">pkg/vision + Win32</span>
         </div>
       </div>
-    </section>
+    </AppCard>
 
     <!-- 致谢 -->
-    <section class="rounded-xl bg-default border border-default p-5">
+    <AppCard>
       <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_thanks') }}</h3>
       <div class="text-sm space-y-2">
         <div class="flex items-start justify-between gap-4">
@@ -122,7 +116,7 @@
           {{ t('about.icon_credit') }}
         </p>
       </div>
-    </section>
+    </AppCard>
   </div>
 </template>
 
@@ -131,6 +125,8 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Browser } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+import AppCard from '@/components/common/AppCard.vue'
+import IconBadge from '@/components/common/IconBadge.vue'
 
 const { t } = useI18n()
 
