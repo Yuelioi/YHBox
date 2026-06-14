@@ -50,15 +50,14 @@
       </p>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div
+    <div v-else class="grid grid-cols-2 2xl:grid-cols-3 gap-3">
+      <AppCard
         v-for="c in filtered"
         :key="c.id"
-        class="rounded-xl bg-default border p-4 flex flex-col gap-3 transition-colors relative"
-        :class="[
-          'hover:border-accented',
-          batch.isSelected(c.id) ? 'border-primary ring-2 ring-primary/40' : 'border-default',
-        ]"
+        padding="panel"
+        hover
+        class="flex flex-col gap-3 relative"
+        :class="batch.isSelected(c.id) ? '!border-primary ring-2 ring-primary/40' : ''"
         @click="batch.enabled.value ? batch.toggle(c.id) : undefined"
       >
         <UCheckbox
@@ -70,20 +69,28 @@
           @update:model-value="batch.toggle(c.id)"
         />
         <div class="min-w-0">
-          <h3 class="text-sm font-medium text-highlighted truncate">
-            {{ c.name || t('common.untitled') }}
-          </h3>
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-medium text-highlighted truncate">
+              {{ c.name || t('common.untitled') }}
+            </h3>
+            <StatusPill
+              :status="isRunning(c.id) ? 'online' : 'ready'"
+              :label="isRunning(c.id) ? t('containers.status.running') : t('containers.status.idle')"
+              :dot="isRunning(c.id)"
+              class="shrink-0"
+            />
+          </div>
           <p v-if="c.description" class="text-xs text-dimmed truncate mt-0.5">
             {{ c.description }}
           </p>
           <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span class="text-[11px] text-dimmed inline-flex items-center gap-1">
+            <span class="text-[11px] text-dimmed inline-flex items-center gap-1 font-mono tabular-nums">
               <UIcon name="i-tabler-cpu" class="size-3" />
               {{ t('containers.node_count', { n: c.graph.nodes.length }) }}
             </span>
             <span v-if="c.hotkey" class="text-[11px] text-dimmed inline-flex items-center gap-1">
               <UIcon name="i-tabler-keyboard" class="size-3" />
-              <code class="text-toned bg-elevated/60 px-1 rounded">{{ c.hotkey }}</code>
+              <code class="text-toned bg-elevated/60 px-1 rounded font-mono">{{ c.hotkey }}</code>
             </span>
           </div>
         </div>
@@ -118,7 +125,7 @@
             @click="onAskDelete(c)"
           />
         </div>
-      </div>
+      </AppCard>
     </div>
 
     <UModal
@@ -159,6 +166,8 @@ import { useBatchSelect } from '@/composables/useBatchSelect'
 import { useConfirm } from '@/composables/useConfirm'
 import { type Container } from '@/lib/backend'
 import { useRouter } from 'vue-router'
+import AppCard from '@/components/common/AppCard.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
 
 const { t } = useI18n()
 
