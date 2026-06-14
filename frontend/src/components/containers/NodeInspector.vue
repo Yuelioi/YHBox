@@ -522,6 +522,7 @@
           <TemplatePickerField
             v-else-if="fieldFor(lit.name)?.widgetKind === 'template-picker'"
             :model-value="asTemplateList(getLiteral(lit.name))"
+            :pin="lit.name"
             @update:model-value="(v: string[]) => setLiteral(lit.name, v)"
           />
           <PinInput

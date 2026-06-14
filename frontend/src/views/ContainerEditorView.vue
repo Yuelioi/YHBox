@@ -643,6 +643,15 @@ function onRailClick(item: (typeof leftRail)[number]) {
 function railActive(item: (typeof leftRail)[number]): boolean {
   return sidebarPrefs.value.leftDrawer === item.key
 }
+// 节点字段 (TemplatePickerField) 发起选模板 → 自动开停靠区资产·模板 tab (pick 模式).
+watch(assetPickRequest, (req) => {
+  if (req) {
+    sidebarPrefs.value.leftDrawer = 'assets'
+    sidebarPrefs.value.assetTab = 'templates'
+  }
+})
+// 切/取消选中节点 → 丢弃挂着的 pick 上下文 (别把上个节点的指派写到新节点).
+watch(selectedID, () => { if (assetPickRequest.value) cancelAssetPick() })
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
 const helpModalOpen = ref(false)
