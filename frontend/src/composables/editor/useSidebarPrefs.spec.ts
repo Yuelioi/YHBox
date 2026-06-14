@@ -34,4 +34,21 @@ describe('useSidebarPrefs', () => {
     expect(prefs.value.inspectorCollapsed).toBe(true)
     expect(prefs.value.varsExpanded).toBe(true)
   })
+
+  it('assetTab 默认是 templates', async () => {
+    const { useSidebarPrefs } = await import('./useSidebarPrefs')
+    const { prefs } = useSidebarPrefs()
+    expect(prefs.value.assetTab).toBe('templates')
+  })
+
+  it('leftDrawer 可设为 nodes / assets 并持久化', async () => {
+    const { useSidebarPrefs, SIDEBAR_PREFS_KEY } = await import('./useSidebarPrefs')
+    const { prefs } = useSidebarPrefs()
+    prefs.value.leftDrawer = 'assets'
+    prefs.value.assetTab = 'clips'
+    await nextTick()
+    const saved = JSON.parse(localStorage.getItem(SIDEBAR_PREFS_KEY)!)
+    expect(saved.leftDrawer).toBe('assets')
+    expect(saved.assetTab).toBe('clips')
+  })
 })

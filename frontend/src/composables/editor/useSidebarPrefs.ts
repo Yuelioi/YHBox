@@ -4,8 +4,10 @@ import { ref, watch } from 'vue'
 export const SIDEBAR_PREFS_KEY = 'yotta.editor.sidebar'
 
 export interface SidebarPrefs {
-  /** 左侧 VS Code 活动栏式: 哪个 drawer 停靠打开 (null = 只剩细图标栏, 画布最大). */
-  leftDrawer: 'vars' | 'snippets' | null
+  /** 左侧 VS Code 活动栏式: 哪个停靠面板打开 (null = 只剩细图标栏, 画布最大). */
+  leftDrawer: 'vars' | 'snippets' | 'nodes' | 'assets' | null
+  /** 资产停靠面板当前 tab (模板 / 子图库 / Clip). */
+  assetTab: 'templates' | 'library' | 'clips'
   inspectorCollapsed: boolean
   varsExpanded: boolean
   snapEnabled: boolean
@@ -15,6 +17,7 @@ export interface SidebarPrefs {
 
 const DEFAULTS: SidebarPrefs = {
   leftDrawer: null,
+  assetTab: 'templates',
   inspectorCollapsed: false,
   varsExpanded: true,
   snapEnabled: true,
