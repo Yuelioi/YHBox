@@ -1,19 +1,20 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-14 by 月离 (UI 升级 Spec A **Part 1 落地**: 设计系统地基 + 7 共用组件全部实现并验证全绿(test 329/typecheck/build/离屏视觉自检), code review 收敛 1 处 consumer-audit gap; Part 1 plan 归档, 下一步写 Part 2 迁移 plan)。
-**Active focus**: UI 升级阶段 (样式统一 + 工具库 + 样式升级)。**Spec A** = 设计系统地基 + 主程序门面 (外壳/容器列表/计划/关于/LogPanel)，[spec](specs/2026-06-14-ui-uplift-foundation.md) 在做。**Part 1**(地基 token/主按钮渐变/子图坐标常量 + 7 共用组件 AppCard·AlertBox·EmptyState·StatusPill·SectionHeader·IconBadge·ListRow) **已落地并验证全绿**, plan 归 [archive](archive/plans/2026-06-14-ui-uplift-foundation-plan.md)。**Part 2**(逐屏迁移 P1-P4) 待写 plan。**Spec B**(容器编辑器 壳+面板+全部 modal 的 restyle + 布局/UX; vue-flow 画布/节点框/连线/pin 只继承 token 不重设计) = 第二轮 brainstorm+mockup。**默认不 push**。
+**Last updated**: 2026-06-14 by 月离 (UI 升级 Spec A: Part 1 已落地归档(地基 + 7 组件, 全绿); **Part 2 逐屏迁移 plan 已写**(P1 容器列表 / P2 计划 / P3 关于 / P4 主壳轻触, 消费 4 组件), 待选执行模式开工)。
+**Active focus**: UI 升级阶段 (样式统一 + 工具库 + 样式升级)。**Spec A** = 设计系统地基 + 主程序门面 (外壳/容器列表/计划/关于/LogPanel)，[spec](specs/2026-06-14-ui-uplift-foundation.md) 在做。**Part 1**(地基 token/主按钮渐变/子图坐标常量 + 7 共用组件 AppCard·AlertBox·EmptyState·StatusPill·SectionHeader·IconBadge·ListRow) **已落地归档** [archive](archive/plans/2026-06-14-ui-uplift-foundation-plan.md)。**Part 2**(逐屏迁移 P1-P4) [plan 已写](plans/2026-06-14-ui-uplift-migration-plan.md), 待执行(消费 AppCard/StatusPill/EmptyState/IconBadge 4 个; AlertBox/SectionHeader/ListRow 留 Spec B)。**Spec B**(容器编辑器 壳+面板+全部 modal 的 restyle + 布局/UX; vue-flow 画布/节点框/连线/pin 只继承 token 不重设计) = 第二轮 brainstorm+mockup。**默认不 push**。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
 - [2026-06-14-ui-uplift-foundation.md](specs/2026-06-14-ui-uplift-foundation.md) — "UI 升级第一轮：设计系统地基(v3 克制精致 token + 字体角色) + 共用组件(AppCard/AlertBox/EmptyState/StatusPill/SectionHeader/IconBadge/ListRow) + 主程序门面屏 restyle(容器列表/计划/关于/LogPanel/侧栏) + 工具库常量收敛；编辑器画布与重设计在 Spec B"
+- [2026-06-14-ui-uplift-migration-plan.md](plans/2026-06-14-ui-uplift-migration-plan.md) — "Spec A 实现计划 Part 2：逐屏迁移到 Part 1 共用组件 + v3 token —— P1 容器列表(AppCard/StatusPill/EmptyState/mono/固定列 + 删除 modal 收 useConfirm) · P2 计划(EmptyState/StatusPill/mono) · P3 关于(AppCard×5/IconBadge avatar/mono) · P4 主壳轻触(AppSidebar 绿 active tint / LogPanel filter token / AppStatusBar 验不动)。迁移即升级、删旧散写样式; 离屏视觉自检 + 真机过"
 <!-- /AUTO -->
 
 ## 下一步
 
-**写 Part 2 逐屏迁移 plan** (`2026-06-14-ui-uplift-migration-plan.md`, 消费 Part 1 的 7 组件 + token): P1 容器列表(ContainersView/Tab) · P2 计划(ScheduleListPanel) · P3 关于(AboutView) · P4 轻触(LogPanel/AppSidebar/AppStatusBar)。硬约束(spec 已列): 概念分类色/日志流身份色不动; 主壳轻触; 画布留 Spec B。
+**执行 [Part 2 plan](plans/2026-06-14-ui-uplift-migration-plan.md) — Task 1 起**: i18n 新键 → P1 容器列表(卡片 AppCard+StatusPill+mono+固定列 / 空状态 EmptyState / 单删收 useConfirm) → P2 计划(EmptyState+StatusPill+mono) → P3 关于(AppCard×5+IconBadge avatar+mono) → P4 主壳轻触(AppSidebar 绿 active / LogPanel filter) → 离屏视觉自检(真实屏灌 mock 数据)+ 全量门禁 + 真机。执行模式待用户选(Part 1 用的 subagent-driven)。
 
-然后 Spec B(编辑器)第二轮 brainstorm+mockup。其余候选池押后: 临时窗口抓取(EnumWindows 选窗截图); NodeSearchModal/CommandPalette 收 BaseModal; 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
+Part 2 落地后 Spec A 全完 → flip spec done + 归档 spec & 两 plan。然后 Spec B(编辑器)第二轮 brainstorm+mockup。其余候选池押后: 临时窗口抓取(EnumWindows 选窗截图); NodeSearchModal/CommandPalette 收 BaseModal; 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
 
 ## 待复核
 
