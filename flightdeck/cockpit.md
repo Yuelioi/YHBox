@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-14 by 月离 (录制产物/子图节点改进 done、真机过: 精准录制→裸 PlayClip 节点(不包子图)·右键「彻底删除」连删底层子图/clip·子图节点显示子图名+字段「标签」→「名称」·简易录制子图间距 440(>maxWidth 360)不重叠)。
-**Active focus**: 无活跃开发案 — 本轮: 录制产物/子图节点改进案 done 真机过(精准→裸PlayClip、右键彻底删除、子图节点显名/改名、简易间距440)。新 incident: [vue-flow 删除键无视修饰键](incidents/vue-flow-delete-key-code-ignores-modifiers.md)(带修饰键/需确认的删除别跟 vue-flow 抢键盘, 走右键菜单)。教训入 CLAUDE.md 工作风格: 先定根因、一处修干净、别打补丁兜底。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-14 by 月离 (clip 库可插入容器→裸 PlayClip 节点(镜像子图库)、节点插入落点统一进 useInsertPoint:库/picker/录制落当前视口中心、拖放/快捷键/pin拖空白落指针处(原落世界原点附近),真机过)。
+**Active focus**: 无活跃开发案 — 本轮: ① clip 库加「插入引用」→ 裸 PlayClip 节点(镜像子图库 onPick:详情按钮 + 双击行)。② 节点插入落点全部收进 [useInsertPoint](../../e:/projects/tools/YHFish/frontend/src/composables/containerEditor/useInsertPoint.ts):视口中心类 viewportCenterForNode(库/picker/录制/变量+/snippet单击,原散落世界原点)+ 指针位置类 screenPointToFlow(拖放/snippet快捷键/Tab picker/pin拖空白菜单);删掉 view 内重复的 recordingDropPoint 与散落 screenToFlowCoordinate。真机过、全绿一次过、无新 incident。下一步候选: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
