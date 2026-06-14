@@ -1,10 +1,9 @@
 ---
 status: active
-last_updated: 2026-05-20
 when_to_read: before writing / editing .vue components or Tailwind classes
 applies_to: [vue, tailwind, nuxtui, ui, frontend, component, modal, button]
 when_to_update: 改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公共组件风格) 时
-last_updated: 2026-06-13
+last_updated: 2026-06-14
 ---
 
 # UI Playbook (NuxtUI 偏好)
@@ -91,6 +90,11 @@ last_updated: 2026-06-13
 style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (表单不用处处写 w-full), 这条放在 `@layer components` — **组件上直接写 `w-36` / `max-w-*` 就能压过它** (utilities 层更后), 不用包 div。数字步进 / 端口号 / 短数值类输入**不要**放任它撑满 (UInputNumber 拉满一行, ± 按钮分居两端很难用), 给个 `w-28`~`w-40`。
 
 **底层规律 (踩过两次)**: Tailwind v4 工具类全在 `@layer utilities`, 而 style.css 里**不分层的自定义规则永远压过任何工具类 — 跟优先级数值无关, `:where()` 也救不了**。想让工具类能覆盖的全局默认值, 必须写进 `@layer base/components`; 想压过工具类的 (如改 display), 留在层外。
+
+### 自定义 `@utility` 能加 variant 前缀 (v4 实证)
+
+`style.css` 里 `@utility raised-surface { ... }` 这类自定义工具类, **可直接加 `hover:` / `focus:` 等 variant** —— `hover:raised-surface` 真生效 (v4 自动给 `@utility` 生成 variant), 不必为了 hover 态把配方拆成普通 class 再手写 `:hover`。2026-06-14 UI 升级 Part 1 ListRow 实证 (`raised-surface` / `overlay-surface` / `bg-sunken` 同理)。
+> 副记: 想用 DOM 验「某 class 到底生没生成 CSS 规则」, 必须**递归** `CSSLayerBlockRule.cssRules` —— v4 把 utilities 全塞进 `@layer`, 平铺遍历 `document.styleSheets[].cssRules` 查不到 (假阴性)。离屏视觉自检时按此判。
 
 ### `:ui="{ base: '...' }"` 是替换不是 merge
 

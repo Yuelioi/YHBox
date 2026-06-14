@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: "Spec A 实现计划 Part 1：设计系统地基(style.css v3 token/工具 + 主按钮渐变主题 + 子图坐标常量收敛) + 7 个共用组件(AppCard/AlertBox/EmptyState/StatusPill/SectionHeader/IconBadge/ListRow)，有逻辑的抽 helper 单测 + Playwright 视觉验；逐屏迁移在 Part 2"
 last_updated: 2026-06-14
 implements: specs/2026-06-14-ui-uplift-foundation.md
@@ -19,7 +19,7 @@ implements: specs/2026-06-14-ui-uplift-foundation.md
 
 ## Progress
 
-current: Task 1.1 — style.css 加 v3 表面 token 与工具类
+current: done — Part 1 全部 task 落地 (12 commit, 062bdb6..d98e6b5)，验证全绿：vitest 329 passed / typecheck clean / build:dev ok / Playwright 离屏视觉自检过 (v3 表面观感克制、主按钮渐变生效其它扁平、ListRow `hover:raised-surface` 实证生效无需回退)。code review 抓出 1 处 consumer-audit gap (ContainerEditorView startNodeOf 第三处子图入口默认坐标) 已收敛。Part 2 逐屏迁移另起 plan。
 
 ---
 
