@@ -43,7 +43,7 @@
           v-for="opt in (['ALL', 'SYS', 'CTR'] as const)"
           :key="opt"
           class="px-1.5 py-0.5 text-[10px] rounded transition-colors"
-          :class="filter === opt ? 'bg-primary/20 text-primary' : 'text-dimmed hover:text-toned'"
+          :class="filter === opt ? 'bg-primary/15 text-primary' : 'text-dimmed hover:text-toned'"
           @click="filter = opt"
         >{{ opt }}</button>
       </div>

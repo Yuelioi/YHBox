@@ -99,7 +99,7 @@ const editorStore = useContainerEditorStore()
 
 const { collapsed, toggle } = useSidebarCollapsed()
 
-const activeClass = 'bg-elevated/60 text-highlighted font-medium'
+const activeClass = 'bg-primary/10 text-highlighted font-medium'
 const inactiveClass = 'text-muted hover:bg-elevated/40 hover:text-highlighted'
 
 // '容器' tab — 有 lastEditingContainerID 就跳回编辑器路由 (keep-alive cache 命中, draft 不丢).
