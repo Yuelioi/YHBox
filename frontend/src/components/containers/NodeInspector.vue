@@ -552,8 +552,15 @@
       </div>
     </section>
 
-    <!-- 输出捕获 — semantic==='capture' 的输入聚成默认折叠组, 折叠头带「总数 / 已填」徽章。
-         填变量名 → 节点运行时把对应输出值写进该变量。 -->
+    <p
+      v-if="normalLiterals.length === 0 && captureLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
+      class="text-[12px] text-dimmed"
+    >{{ t('inspector.no_config') }}</p>
+
+    <!-- 输出组 — ① 输出捕获 (绑变量: 填变量名 → 运行时把节点输出写进该变量) ② 出口 pin 速览 (只读)。 -->
+    <SectionHeader :title="t('editor.inspector.group_outputs')" icon="i-tabler-logout-2" class="-mx-4 mt-5 mb-3" />
+
+    <!-- 输出捕获 — semantic==='capture' 的槽聚成折叠组 (默认展开), 折叠头带「总数 / 已填」徽章。 -->
     <section v-if="captureLiterals.length > 0" class="mb-5">
       <button
         type="button"
@@ -594,13 +601,7 @@
       </div>
     </section>
 
-    <p
-      v-else-if="normalLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
-      class="text-[12px] text-dimmed"
-    >{{ t('inspector.no_config') }}</p>
-
-    <!-- 输出 — 出口 pin 速览 (只读): exec 出口 + data 出口。无出口 → 占位。 -->
-    <SectionHeader :title="t('editor.inspector.group_outputs')" icon="i-tabler-logout-2" class="-mx-4 mt-5 mb-3" />
+    <!-- 出口 pin 速览 (只读): exec 出口 + data 出口。无出口 → 占位。 -->
     <div v-if="outPins.exec.length || outPins.data.length" class="space-y-1.5">
       <div
         v-for="pn in outPins.exec"
@@ -732,8 +733,8 @@ const captureLiterals = computed(() => dataInLiterals.value.filter((l) => isCapt
 const captureFilledCount = computed(
   () => captureLiterals.value.filter((l) => String(getLiteral(l.name) ?? '').trim() !== '').length,
 )
-// 折叠状态: 默认折叠。
-const captureOpen = ref(false)
+// 折叠状态: 默认展开 (输出捕获=绑变量, 是「输出」组主操作, 要直接可见)。
+const captureOpen = ref(true)
 
 // 节点 scope — 传给 VarNameInput，影响补全行为。
 // Scope pin 字面量 = config.literal.Scope (跟后端 + 真实存盘 shape 对齐)。
