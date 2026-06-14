@@ -130,31 +130,6 @@
       </AppCard>
     </div>
 
-    <UModal
-      :open="!!pendingDelete"
-      :ui="{ content: 'sm:max-w-[440px]' }"
-      @update:open="
-        (v: boolean) => {
-          if (!v) pendingDelete = null
-        }
-      "
-    >
-      <template #content>
-        <div class="p-6 space-y-4 bg-default">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-tabler-alert-triangle" class="size-4 text-warning" />
-            <h3 class="text-sm font-medium">{{ t('containers.delete.title') }}</h3>
-          </div>
-          <p class="text-xs text-muted">
-            {{ t('containers.delete.desc_prefix') }}<span class="text-default">{{ pendingDelete?.name }}</span>{{ t('containers.delete.desc_suffix') }}
-          </p>
-          <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="ghost" color="neutral" @click="pendingDelete = null">{{ t('common.cancel') }}</UButton>
-            <UButton color="error" icon="i-tabler-trash" @click="onConfirmDelete">{{ t('containers.delete.confirm') }}</UButton>
-          </div>
-        </div>
-      </template>
-    </UModal>
   </div>
 </template>
 
@@ -205,8 +180,6 @@ async function onBatchDelete() {
   batch.clear()
   batch.disable()
 }
-const pendingDelete = ref<Container | null>(null)
-
 function isRunning(id: string): boolean {
   return execStore.running && execStore.currentTargetID === id
 }
@@ -277,18 +250,18 @@ function onEdit(c: Container) {
 
 // (旧「导出到库」已删 — 子图全局化后无库包概念; 跨机分享按 spec 留口子, 真需要时做 zip 导出。)
 
-function onAskDelete(c: Container) {
+async function onAskDelete(c: Container) {
   if (store.isRecordingLocked(c.id)) {
     toast.add({ title: t('containers.toast.recording_locked'), color: 'warning' })
     return
   }
-  pendingDelete.value = c
-}
-
-async function onConfirmDelete() {
-  const c = pendingDelete.value
-  if (!c) return
-  pendingDelete.value = null
+  const yes = await confirm({
+    title: t('containers.delete.title'),
+    description: `${t('containers.delete.desc_prefix')}${c.name}${t('containers.delete.desc_suffix')}`,
+    color: 'error',
+    confirmText: t('containers.delete.confirm'),
+  })
+  if (yes !== true) return
   await store.remove(c.id)
 }
 </script>
