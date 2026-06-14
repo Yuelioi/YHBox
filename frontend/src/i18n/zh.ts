@@ -283,6 +283,10 @@ export default {
       dist_v: '垂直等距分布',
     },
     inspector: {
+      group_basics: '基础',
+      group_inputs: '输入',
+      group_outputs: '输出',
+      outputs_none: '无出口',
       empty: {
         title: '未选节点',
         overview_title: '容器概览',

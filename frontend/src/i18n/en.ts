@@ -269,6 +269,10 @@
       dist_v: 'Distribute vertically',
     },
     inspector: {
+      group_basics: 'Basics',
+      group_inputs: 'Inputs',
+      group_outputs: 'Outputs',
+      outputs_none: 'No outputs',
       empty: {
         title: 'No node selected',
         overview_title: 'Container',

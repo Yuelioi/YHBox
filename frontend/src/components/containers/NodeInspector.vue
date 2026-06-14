@@ -61,6 +61,8 @@
       </div>
     </header>
 
+    <SectionHeader :title="t('editor.inspector.group_basics')" icon="i-tabler-adjustments" class="-mx-4 mt-2 mb-4" />
+
     <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
     <section class="mb-4">
       <UFormField :label="t('inspector.label_field_label')" :hint="t('inspector.label_field_hint')">
@@ -84,6 +86,8 @@
         />
       </UFormField>
     </section>
+
+    <SectionHeader :title="t('editor.inspector.group_inputs')" icon="i-tabler-login-2" class="-mx-4 mt-5 mb-4" />
 
     <!-- 并发警告 -->
     <section
@@ -594,6 +598,30 @@
       v-else-if="normalLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
       class="text-[12px] text-dimmed"
     >{{ t('inspector.no_config') }}</p>
+
+    <!-- 输出 — 出口 pin 速览 (只读): exec 出口 + data 出口。无出口 → 占位。 -->
+    <SectionHeader :title="t('editor.inspector.group_outputs')" icon="i-tabler-logout-2" class="-mx-4 mt-5 mb-3" />
+    <div v-if="outPins.exec.length || outPins.data.length" class="space-y-1.5">
+      <div
+        v-for="pn in outPins.exec"
+        :key="'x-' + pn"
+        class="flex items-center gap-2 text-[11px]"
+      >
+        <UIcon name="i-tabler-arrow-right" class="size-3.5 text-dimmed shrink-0" />
+        <span class="text-toned">{{ pn }}</span>
+        <span class="ml-auto text-[10px] text-dimmed font-mono">exec</span>
+      </div>
+      <div
+        v-for="dp in outPins.data"
+        :key="'d-' + dp.name"
+        class="flex items-center gap-2 text-[11px]"
+      >
+        <UIcon name="i-tabler-variable" class="size-3.5 text-dimmed shrink-0" />
+        <span class="text-toned">{{ dp.name }}</span>
+        <span v-if="dp.type" class="ml-auto text-[10px] text-dimmed font-mono">{{ dp.type }}</span>
+      </div>
+    </div>
+    <p v-else class="text-[11px] text-dimmed">{{ t('editor.inspector.outputs_none') }}</p>
   </div>
 </template>
 
@@ -609,8 +637,9 @@ import DynamicInputsEditor from './inspector/DynamicInputsEditor.vue'
 import { getSpec } from './nodeRegistry/registry'
 import ClipTimeline from './ClipTimeline.vue'
 import TemplatePickerField from './TemplatePickerField.vue'
+import SectionHeader from '@/components/common/SectionHeader.vue'
 import { useI18n } from 'vue-i18n'
-import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_EXAMPLE, KIND_VISUAL, PIN_SPECS, edgeKind } from './pinSpec'
+import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_EXAMPLE, KIND_VISUAL, PIN_SPECS, edgeKind, pinsFor } from './pinSpec'
 
 const { t, te } = useI18n()
 
@@ -939,6 +968,18 @@ const fields = computed<Field[]>(() => (props.node ? (NODE_FIELD_SCHEMAS[props.n
 // 也不显 "no_config" 占位 (它们有自己的 UI)。
 const BESPOKE_SECTION_KINDS = new Set(['Subgraph', 'MouseCalibration', 'WindowTarget', 'PlayClip', 'Switch'])
 const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.has(props.node.kind))
+
+// 「输出」组速览: 当前 config 下的出口 pin(exec + data), 只读展示。
+// pinsFor 已含动态出口(Switch.cases / Parallel.n 等), dataOut 类型从 PIN_SPECS 反查。
+const outPins = computed(() => {
+  if (!props.node) return { exec: [] as string[], data: [] as { name: string; type: string }[] }
+  const p = pinsFor(props.node.kind, props.node.config)
+  const dataTypes = PIN_SPECS[props.node.kind]?.dataOut ?? {}
+  return {
+    exec: p.execOut,
+    data: p.dataOut.map((name) => ({ name, type: String(dataTypes[name] ?? '') })),
+  }
+})
 
 // 屏幕拾取 → 回填 config.literal (PascalCase Spec.Input 名 + 正确类型):
 //   - point: XRatio/YRatio (Number pin, ClickAt/Scroll) — 存 number 不存字符串。
