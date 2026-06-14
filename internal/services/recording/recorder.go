@@ -29,7 +29,7 @@ import (
 )
 
 // StopResult Recorder.Stop 输出. Service 层据此分流:
-//   - precise: 用 Events + Meta 建 InputClip 落到 clipSvc, 再 BuildPreciseSubgraph
+//   - precise: 用 Events + Meta 建 InputClip 落到 clipSvc (前端插裸 PlayClip 节点)
 //   - simple : 用 Events + ClientW/H 直接 BuildSimpleSubgraph
 //
 // TempID 用于下游建持久 ID (clip-<tempID> / sg-<tempID>) 让事件流期间前端能预订阅.
@@ -373,7 +373,7 @@ func nowMicros() uint64 {
 var ErrRecorderNotActive = errors.New("recorder not active")
 
 // Stop 停止录制, 返回 raw StopResult. Service 层根据 meta.FilterMode 决定构造路径
-// (precise → 建 InputClip + BuildPreciseSubgraph, simple → BuildSimpleSubgraph).
+// (precise → 建 InputClip 落 clipSvc, simple → BuildSimpleSubgraph).
 // 阻塞等 worker + drain 完全退出, 防 hook leak.
 func (r *Recorder) Stop() (*StopResult, error) {
 	r.mu.Lock()

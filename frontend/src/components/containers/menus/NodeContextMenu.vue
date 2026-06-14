@@ -69,7 +69,7 @@ import { getSpec } from '@/components/containers/nodeRegistry/registry'
 const { t } = useI18n()
 
 export type NodeMenuAction =
-  | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete'
+  | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete' | 'hard-delete'
   | 'toggle-disable' | 'save-as-snippet'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
   | 'to-script'
@@ -104,6 +104,12 @@ const isVarRef = computed(() =>
 
 const isSubgraph = computed(() =>
   ['Subgraph', 'CollapsedNode'].includes(props.node.kind),
+)
+
+// 有底层全局定义、删节点不会连带删的: 具名 Subgraph (子图池) / PlayClip (clip 资产).
+// 这俩才提供「彻底删除」连定义删. CollapsedNode 的后备子图是匿名、删节点后自动 GC, 不用.
+const hasUnderlyingDef = computed(() =>
+  ['Subgraph', 'PlayClip'].includes(props.node.kind),
 )
 
 const hasLiteralPin = computed(() => {
@@ -172,6 +178,15 @@ const specialItems = computed(() => {
       label: t('editor.menu.node.to_script'),
       icon: 'i-tabler-code',
       colorClass: 'text-sky-300',
+    })
+  }
+
+  if (hasUnderlyingDef.value) {
+    items.push({
+      key: 'hard-delete',
+      label: t('editor.menu.node.hard_delete'),
+      icon: 'i-tabler-trash-x',
+      colorClass: 'text-error',
     })
   }
 

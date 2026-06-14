@@ -1,21 +1,21 @@
-// useRecording 录制流程 (v2 Subgraph-only):
+// useRecording 录制流程:
 //   1. 倒计时 → recordStore.start(filterMode, containerID)  (hook 已挂, F12 / HUD / toolbar 都能停)
 //   2. 停录路径:
 //       - toolbar 停: stopRecording() → recordStore.stop() 同步拿 payload
-//       - F12 / HUD 停: 后端 emit 'recording:completed' {subgraphID, containerID, label, filterMode} | {error}
-//   3. 拿到 subgraphID → refreshSubgraphStore() 让 editorStore.subgraphsForCurrentContainer
-//      拿到新 subgraph (activeGraph computed 从这里读, 不读 draft.subgraphs!) →
-//      在 activeGraph 加 Subgraph 引用节点 (config.SubgraphID = subgraphID) →
-//      autoConnect Start → 自动 saveDraft.
+//       - F12 / HUD 停: 后端 emit 'recording:completed' {subgraphID|clipID, containerID, label, filterMode} | {error}
+//   3. onRecordingProduct 按 filterMode 分叉落产物节点:
+//       - simple: refreshSubgraphStore() 让 editorStore.subgraphsForCurrentContainer 拿到新 subgraph
+//         (activeGraph computed 从这里读, 不读 draft.subgraphs!) → 加 Subgraph 调用节点 (config.SubgraphID)。
+//       - precise: 直接加一个裸 PlayClip 节点 (config.ClipID), 无新子图, 不必刷 store。
+//      两路都落在当前视口中心、不自动连线、落下即选中 → 自动 saveDraft (用户自己接线)。
 //
-// 关键陷阱: container.Subgraphs 在 Go 端是 json:"-", backend.containers.get(id) 拿不到 subgraphs.
-// 子图列表走单独 RPC backend.containers.listSubgraphs(cid) → 灌进 editorStore. 录完不 refresh
-// store 的话, 用户点新 Subgraph 节点进入会拿到 null → 画布空白.
+// 关键陷阱 (simple): container.Subgraphs 在 Go 端是 json:"-", backend.containers.get(id) 拿不到 subgraphs.
+// 子图列表走单独 RPC → 灌进 editorStore. 录完不 refresh store 的话, 用户点新 Subgraph 节点进入会拿到 null → 画布空白.
 //
 // 精准 vs 简易差别:
 //   - 录制层: simple 模式 drainLoop 丢 RawDelta/MouseMove (省内存)
-//   - 转换层: simple → KeyPress/ClickAt/Sleep 线性节点链; precise → 单 PlayClip 节点
-//   - 前端看到的都是 Subgraph 引用节点, 操作同构.
+//   - 产物: simple → 多个 KeyPress/ClickAt/Sleep 节点打包成子图; precise → 一个 PlayClip 节点 (回放原始录像)
+//   - 画布: simple 是 Subgraph 调用节点 (可进入), precise 是裸 PlayClip 节点 (所见即所得)。
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
@@ -24,8 +24,6 @@ import { backend, type Container, type Graph } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import { useContainerEditorStore } from '@/stores/containerEditor'
-import { pinsFor } from '@/components/containers/pinSpec'
 import { randID } from './ids'
 
 export interface RecordOpts {
@@ -35,18 +33,22 @@ export interface RecordOpts {
   // refreshSubgraphStore: 必传 — 录完后调一次, 否则 editorStore 没新 subgraph, 双击进入显示空白.
   refreshSubgraphStore: () => Promise<void> | void
   saveDraft: () => Promise<unknown> | unknown
+  // dropPoint: 录制产物节点的落点 (flow 坐标). 取当前视口中心 — 录完节点出现在用户正看的地方.
+  dropPoint: () => { x: number; y: number }
+  // selectNode: 落下后选中该节点 (用户接着自己接线).
+  selectNode: (id: string) => void
   toast: { add: (o: Record<string, unknown>) => unknown }
 }
 
 export interface StartRecordingOpts {
-  // replaceNodeID: NodeInspector 点 "重新录制覆盖" 时传入. 录完不创建新节点,
-  // 而是把该节点 (应为 Subgraph kind) config.SubgraphID 改成新 subgraphID.
-  // 旧 subgraph 在 container.subgraphs 里变成孤儿, 用户可手动清.
+  // replaceNodeID: NodeInspector 点 "重新录制覆盖" 时传入. 录完不创建新节点, 而是改写目标节点的引用
+  // (simple 产物 → 目标应为 Subgraph 节点, 改 config.SubgraphID; precise 产物 → 目标应为 PlayClip,
+  // 改 config.ClipID). kind 不匹配则退化成新建. 旧子图/clip 变孤儿, 用户可手动清.
   replaceNodeID?: string
 }
 
 export function useRecording(opts: RecordOpts) {
-  const { draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft, toast } = opts
+  const { draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft, dropPoint, selectNode, toast } = opts
   const recordStore = useRecordingStore()
   const hotkeysStore = useHotkeysStore()
   const { t } = useI18n()
@@ -131,39 +133,41 @@ export function useRecording(opts: RecordOpts) {
     try {
       const payload = await recordStore.stop()
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-      if (!payload || !payload.subgraphID) {
+      if (!payload || (!payload.subgraphID && !payload.clipID)) {
         toast.add({ title: t('recording.no_steps'), color: 'warning' })
         return
       }
-      await onSubgraphCreated(payload)
+      await onRecordingProduct(payload)
     } catch (e: any) {
       toast.add({ title: t('recording.stop_failed'), description: errorMessage(e), color: 'error' })
     }
   }
 
-  // onSubgraphCreated: 录完产物 = Subgraph (后端已落盘). 刷新 editorStore →
-  // activeGraph 加 Subgraph 引用节点 → autoConnect Start → 自动保存.
+  // onRecordingProduct: 录完产物落地. 按 filterMode 分叉 —
+  //   simple  → 产物是子图 (后端已落盘), 加一个 Subgraph 调用节点;
+  //   precise → 产物是 clip (后端已落盘), 加一个裸 PlayClip 节点 (config.ClipID)。
   //
-  // ⚠ 必须先 refreshSubgraphStore — activeGraph computed 从 editorStore 读子图列表,
-  // 不刷新的话双击进 Subgraph 节点会拿不到, 画布空白 (实测踩过).
-  async function onSubgraphCreated(payload: RecordingStopPayload) {
+  // ⚠ simple 必须先 refreshSubgraphStore — activeGraph computed 从 editorStore 读子图列表,
+  // 不刷新的话双击进 Subgraph 节点会拿不到, 画布空白 (实测踩过). precise 无新子图, 跳过.
+  async function onRecordingProduct(payload: RecordingStopPayload) {
     // 会话结束 (无论哪条停录路径都汇流到这) → 清归属标记.
     ownsRecording.value = false
+    const isPrecise = payload.filterMode === 'precise'
+
     if (!activeGraph.value || !draft.value) {
       toast.add({
         title: t('recording.completed_no_graph'),
-        description: `subgraphID=${payload.subgraphID}`,
+        description: isPrecise ? `clipID=${payload.clipID}` : `subgraphID=${payload.subgraphID}`,
         color: 'primary',
       })
-      // 仍刷一下 editorStore 让其他视图能看到
-      try { await refreshSubgraphStore() } catch { /* ignore */ }
+      // simple 仍刷一下 editorStore 让其他视图能看到新子图.
+      if (!isPrecise) { try { await refreshSubgraphStore() } catch { /* ignore */ } }
       return
     }
 
-    // 绑定守卫: 子图由后端存进 payload.containerID (录制开始时锁定的容器). 若用户在录制期间
-    // 切换/新建到别的容器, draft.value.id 已变 — 此时把 caller 节点加到当前 draft 会引用一个
-    // 不在本容器的子图 → 永久 dangling (MISSING_SUBGRAPH + 输出 pin __missing__). 故拒绝加节点,
-    // 提示用户切到真正存子图的容器. 子图本身已落盘, 不丢.
+    // 绑定守卫: 产物由后端存进 payload.containerID (录制开始时锁定的容器). 若用户在录制期间
+    // 切换/新建到别的容器, draft.value.id 已变 — 此时把节点加到当前 draft 会引用一个不属当前上下文的
+    // 产物. 故拒绝加节点, 提示用户切回. 产物本身已落盘 (子图/clip 都是全局资产), 不丢.
     if (payload.containerID && payload.containerID !== draft.value.id) {
       // 显示用容器名而非 UUID. target 名查容器表 (取不到 fallback 短 ID).
       let targetName = payload.containerID
@@ -179,34 +183,39 @@ export function useRecording(opts: RecordOpts) {
         color: 'warning',
         duration: 8000,
       })
-      try { await refreshSubgraphStore() } catch { /* ignore */ }
+      if (!isPrecise) { try { await refreshSubgraphStore() } catch { /* ignore */ } }
       return
     }
 
-    // 1) 刷新 editorStore 让 editorStore.subgraphsForCurrentContainer 拿到新 subgraph
-    try {
-      await refreshSubgraphStore()
-    } catch (e: any) {
-      toast.add({ title: t('recordComposable.refresh_subgraphs_failed'), description: errorMessage(e), color: 'error' })
-      return
+    // 1) simple 刷新 editorStore 让 subgraphsForCurrentContainer 拿到新 subgraph (双击进入用).
+    //    precise (裸 PlayClip) 无新子图, 跳过.
+    if (!isPrecise) {
+      try {
+        await refreshSubgraphStore()
+      } catch (e: any) {
+        toast.add({ title: t('recordComposable.refresh_subgraphs_failed'), description: errorMessage(e), color: 'error' })
+        return
+      }
     }
 
-    // 2) 处理 replaceNodeID — 替换目标节点的 SubgraphID
+    // 2) 处理 replaceNodeID — 重新录制覆盖目标节点的引用 (simple→SubgraphID, precise→ClipID).
     const replaceID = replaceNodeID.value
     replaceNodeID.value = null
 
     if (replaceID) {
       const target = (activeGraph.value.nodes as any[]).find((n) => n.id === replaceID)
+      const wantKind = isPrecise ? 'PlayClip' : 'Subgraph'
       if (!target) {
         toast.add({ title: t('recordComposable.replace_node_missing'), color: 'warning' })
-      } else if (target.kind !== 'Subgraph') {
+      } else if (target.kind !== wantKind) {
         toast.add({
           title: t('recordComposable.replace_node_wrong_kind', { kind: target.kind }),
           color: 'warning',
         })
       } else {
         if (!target.config) target.config = {}
-        target.config.SubgraphID = payload.subgraphID
+        if (isPrecise) target.config.ClipID = payload.clipID
+        else target.config.SubgraphID = payload.subgraphID
         syncFlowFromDraft()
         await maybeSave()
         toast.add({ title: t('recording.rerecord_overwrite', { name: payload.label }), color: 'success' })
@@ -214,77 +223,26 @@ export function useRecording(opts: RecordOpts) {
       }
     }
 
-    // 3) 新建 Subgraph 引用节点
-    const nodeId = randID('n-sg')
+    // 3) 新建产物节点 — 落在当前视口中心, 不自动连线, 落下即选中 (用户自己接线).
+    const nodeId = randID(isPrecise ? 'n-clip' : 'n-sg')
+    const pt = dropPoint()
     const newNode = {
       id: nodeId,
-      kind: 'Subgraph',
-      x: 300 + Math.random() * 100,
-      y: 300 + Math.random() * 100,
-      config: { SubgraphID: payload.subgraphID },
+      kind: isPrecise ? 'PlayClip' : 'Subgraph',
+      // 节点宽 ~240 / 高 ~90, 落点减半个身位让节点视觉居中, 而非左上角压在中心.
+      x: pt.x - 120,
+      y: pt.y - 45,
+      config: isPrecise ? { ClipID: payload.clipID } : { SubgraphID: payload.subgraphID },
       createdAt: new Date().toISOString(),
     }
     ;(activeGraph.value.nodes as any[]).push(newNode)
-    autoConnectToChainEnd(activeGraph.value, nodeId)
     syncFlowFromDraft()
     await maybeSave()
-    toast.add({ title: t('recording.added_subgraph', { name: payload.label }), color: 'success' })
-  }
-
-  // autoConnectToChainEnd: BFS 从 Start 找链尾节点 (无出边、非 Stop、非新节点).
-  //   - 恰好 1 个链尾 → 连 chainEnd.out → newNode.in
-  //   - 0 个 (环) 或 >1 个 (Parallel 分支) → 不连, 留给用户手动
-  //   - 无 Start (子图) → 跳过
-  function autoConnectToChainEnd(g: Graph, newNodeId: string) {
-    const start = (g.nodes as any[]).find((n) => n.kind === 'Start')
-    if (!start) return
-
-    // BFS: 收集从 Start 可达的所有节点 ID
-    const reachable = new Set<string>([start.id])
-    const queue: string[] = [start.id]
-    while (queue.length > 0) {
-      const cur = queue.shift()!
-      for (const edge of g.edges as any[]) {
-        if (typeof edge.from === 'string' && edge.from.startsWith(cur + '.')) {
-          // edge.from = "<fromNode>.<pin>", extract node ID by stripping last ".xxx"
-          const toNodeId = typeof edge.to === 'string' ? edge.to.replace(/\.[^.]+$/, '') : ''
-          if (toNodeId && !reachable.has(toNodeId)) {
-            reachable.add(toNodeId)
-            queue.push(toNodeId)
-          }
-        }
-      }
-    }
-
-    // 找链尾: 可达且无出边, 且不是 Stop、不是新节点本身
-    const endpoints: string[] = []
-    for (const nodeId of reachable) {
-      if (nodeId === newNodeId) continue
-      const node = (g.nodes as any[]).find((n) => n.id === nodeId)
-      if (!node || node.kind === 'Stop') continue
-      const hasOut = (g.edges as any[]).some(
-        (e: any) => typeof e.from === 'string' && e.from.startsWith(nodeId + '.'),
-      )
-      if (!hasOut) endpoints.push(nodeId)
-    }
-
-    if (endpoints.length === 1) {
-      const tail = (g.nodes as any[]).find((n) => n.id === endpoints[0])
-      ;(g.edges as any[]).push({ from: endpoints[0] + '.' + tailExecOutPin(tail), to: newNodeId + '.In' })
-    }
-    // 0 (环) 或 >1 (Parallel 分支) → 不连
-  }
-
-  // tailExecOutPin: 链尾节点的首个 exec-out pin 名. 子图调用节点 (上一次录制的产物)
-  // 的出口是 callee outputPins decl ID, 不能写死 'Done'.
-  function tailExecOutPin(tail: any): string {
-    if (!tail) return 'Done'
-    if (tail.kind === 'Subgraph' || tail.kind === 'CollapsedNode') {
-      const sgID = tail.config?.SubgraphID
-      const sg = sgID ? useContainerEditorStore().subgraphById(String(sgID)) : undefined
-      return sg?.outputPins?.[0]?.id ?? 'Done'
-    }
-    return pinsFor(tail.kind).execOut[0] ?? 'Done'
+    selectNode(nodeId)
+    toast.add({
+      title: t(isPrecise ? 'recording.added_clip' : 'recording.added_subgraph', { name: payload.label }),
+      color: 'success',
+    })
   }
 
   async function maybeSave() {
@@ -324,13 +282,14 @@ export function useRecording(opts: RecordOpts) {
         toast.add({ title: t('recordComposable.recording_failed'), description: String(errMsg), color: 'error' })
         return
       }
-      const sgID = firstArg?.subgraphID
-      if (!sgID) {
-        toast.add({ title: t('recordComposable.no_subgraph_id'), color: 'warning' })
+      const hasProduct = firstArg?.subgraphID || firstArg?.clipID
+      if (!hasProduct) {
+        toast.add({ title: t('recordComposable.no_product'), color: 'warning' })
         return
       }
-      await onSubgraphCreated({
-        subgraphID: firstArg.subgraphID,
+      await onRecordingProduct({
+        subgraphID: firstArg.subgraphID ?? '',
+        clipID: firstArg.clipID ?? '',
         containerID: firstArg.containerID,
         label: firstArg.label ?? t('recordComposable.default_clip_name'),
         filterMode: firstArg.filterMode ?? '',

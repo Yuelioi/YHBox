@@ -232,25 +232,6 @@ func TestBuildSimpleSubgraph_EmptyEvents(t *testing.T) {
 	}
 }
 
-func TestBuildPreciseSubgraph_SinglePlayClip(t *testing.T) {
-	meta := inputclip.ClipMeta{BaseResolution: [2]int{tw, th}, MouseCounts360: 9000}
-	sg := BuildPreciseSubgraph("clip-xyz", meta, "精准录制")
-	// 只 1 真实节点 PlayClip, entry/output 在 metadata
-	if len(sg.Graph.Nodes) != 1 || sg.Graph.Nodes[0].Kind != "PlayClip" {
-		t.Fatalf("want 1 PlayClip node, got %+v", sg.Graph.Nodes)
-	}
-	pc := sg.Graph.Nodes[0]
-	if cid, _ := pc.Config["ClipID"].(string); cid != "clip-xyz" {
-		t.Errorf("PlayClip.clipID want clip-xyz, got %v", pc.Config["ClipID"])
-	}
-	if sg.RecordingContext == nil || sg.RecordingContext.MouseCounts360 != 9000 {
-		t.Errorf("precise 也带 RecordingContext")
-	}
-	if sg.Entry.NodeID == "" || sg.OutputPins[0].NodeID == "" {
-		t.Errorf("Entry / OutputPins[0].NodeID 必须非空")
-	}
-}
-
 func TestToRatios_ZeroClient(t *testing.T) {
 	xr, yr := toRatios(100, 200, 0, 0)
 	if xr != 0.5 || yr != 0.5 {

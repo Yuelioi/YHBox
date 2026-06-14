@@ -45,6 +45,8 @@ interface UseContextMenuRouterOpts {
   onAutoLayout: (dir: 'LR' | 'TB') => void
   emitSaveSnippetIntent: (node: GraphNode) => void
   onSubgraphToScript: (node: GraphNode) => void
+  // onHardDelete: 彻底删除该节点 + 其底层定义 (子图/clip). 仅 Subgraph/PlayClip 节点菜单显示.
+  onHardDelete: (node: GraphNode) => void
   toast: ToastApi
 }
 
@@ -55,7 +57,7 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
     applyDraftMutation, varMutations,
     onCopySelection, onPasteSelection, onFoldSelection,
     onAlignSelected, onAutoLayout,
-    emitSaveSnippetIntent, onSubgraphToScript,
+    emitSaveSnippetIntent, onSubgraphToScript, onHardDelete,
     toast,
   } = opts
 
@@ -189,6 +191,9 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'delete':
         removeNodes([node.id])
         if (selectedID.value === node.id) selectedID.value = null
+        return
+      case 'hard-delete':
+        onHardDelete(node)
         return
       case 'toggle-disable':
         applyDraftMutation(() => {

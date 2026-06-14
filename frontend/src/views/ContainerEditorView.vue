@@ -921,7 +921,7 @@ function miniNodeColor(node: any): string {
 
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, removeSelectedNodes, screenToFlowCoordinate, setCenter, getViewport, setViewport, fitView } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, removeSelectedNodes, screenToFlowCoordinate, setCenter, getViewport, setViewport, fitView, vueFlowRef, findNode, addSelectedNodes } = useVueFlow()
 
 // 视口缓存: 切图层级时存当前相机、取目标层级相机 (无缓存→fitView)。否则主图↔子图共享一个
 // vue-flow 相机, 在内容很远的子图 pan 远了切回主图会停在那 (见 incident: subgraph-viewport-not-cached)。
@@ -1036,10 +1036,29 @@ useEditorHotkeys({
   toggleInspector: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
 })
 
-// 录制流程 (v2): 拿 subgraphID → refreshSubgraphStore 让 editorStore 知道新子图 →
-// activeGraph 加 Subgraph 引用节点 + autoConnect Start + 自动保存. 双击节点能进编辑.
+// 录制产物落点 = 当前视口中心 (flow 坐标), 由 vue-flow 容器可视中心反算.
+function recordingDropPoint(): { x: number; y: number } {
+  const el = vueFlowRef.value
+  if (!el) return { x: 0, y: 0 }
+  const r = el.getBoundingClientRect()
+  return screenToFlowCoordinate({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+}
+
+// 录制产物落下后选中它 (属性栏 + 画布视觉). syncFlowFromDraft 后 flow 节点要等一拍才在册.
+async function selectRecordedNode(id: string) {
+  selectedID.value = id
+  await nextTick()
+  const n = findNode(id)
+  if (!n) return
+  const cur = getSelectedNodes.value
+  if (cur.length) removeSelectedNodes(cur)
+  addSelectedNodes([n])
+}
+
+// 录制流程: 产物落在当前视口中心、不自动连线、落下即选中 (用户自己接线). 简易产物双击可进编辑.
 const { startRecording, stopRecording, countdownSec } = useRecording({
-  draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave, toast,
+  draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave,
+  dropPoint: recordingDropPoint, selectNode: selectRecordedNode, toast,
 })
 
 // 节点剪贴板 (Ctrl+C/V) — 全局化后粘贴 Subgraph 节点 = 引用同一个全局子图
@@ -1076,6 +1095,7 @@ const {
   onAlignSelected, onAutoLayout,
   emitSaveSnippetIntent,
   onSubgraphToScript: convertSubgraphNodeToScript,
+  onHardDelete: (node: GraphNode) => hardDeleteNodes([node.id]),
   toast,
 })
 
@@ -1244,6 +1264,95 @@ function onDeleteSelectedNodes() {
   if (!ids.length) return
   removeNodes(ids)
   selectedID.value = null
+}
+
+// 彻底删除指定节点 + 其底层定义 (Subgraph→子图, PlayClip→clip), 带确认 + 引用计数.
+// 由右键菜单「彻底删除」触发 (见 onNodeMenuAction 'hard-delete'). 普通删除走 vue-flow 只删引用.
+// 无底层定义的节点退化成普通删除. 子图/clip 是全局共享资产, 删定义前查别处引用, 在确认框里写明.
+async function hardDeleteNodes(ids: string[]) {
+  const g = activeGraph.value
+  if (!draft.value || !g || !ids.length) return
+
+  // 分类: 有底层定义的 (子图/clip) vs 无 (普通节点, 退化成只删引用)
+  const defs: { nodeID: string; kind: 'subgraph' | 'clip'; defID: string }[] = []
+  const plainIDs: string[] = []
+  for (const id of ids) {
+    const node = (g.nodes as GraphNode[]).find((n) => n.id === id)
+    if (!node) continue
+    const sgID = node.kind === 'Subgraph' ? (node.config?.SubgraphID as string | undefined) : undefined
+    const clipID = node.kind === 'PlayClip' ? (node.config?.ClipID as string | undefined) : undefined
+    if (sgID) defs.push({ nodeID: id, kind: 'subgraph', defID: sgID })
+    else if (clipID) defs.push({ nodeID: id, kind: 'clip', defID: clipID })
+    else plainIDs.push(id)
+  }
+
+  // 没有可彻底删的定义 → 退化成普通删除 (跟裸 Delete 一致)
+  if (!defs.length) {
+    if (plainIDs.length) {
+      removeNodes(plainIDs)
+      selectedID.value = null
+    }
+    return
+  }
+
+  // 统计被"本次删除之外"的节点引用数 — 引用扫描会把当前这些节点也算进去, 按 nodeID 排除自身.
+  const deleting = new Set(ids)
+  let externalRefs = 0
+  for (const d of defs) {
+    try {
+      const refs =
+        d.kind === 'subgraph'
+          ? await backend.subgraphs.referrers(d.defID)
+          : await backend.assets.referrers(d.defID)
+      for (const r of refs ?? []) {
+        if (!deleting.has(r.nodeID)) externalRefs++
+      }
+    } catch {
+      /* 查不到引用就当 0, 不阻断删除 */
+    }
+  }
+
+  const yes = await confirm({
+    title: t('editor.hard_delete.title'),
+    description:
+      externalRefs > 0
+        ? t('editor.hard_delete.confirm_referenced', { n: defs.length, refs: externalRefs })
+        : t('editor.hard_delete.confirm', { n: defs.length }),
+    color: 'error',
+    confirmText: t('common.delete'),
+  })
+  if (yes !== true) return
+
+  // 1) 删图上节点 (含无定义的) — 走 removeNodes → onNodesChange + 自动保存
+  removeNodes([...defs.map((d) => d.nodeID), ...plainIDs])
+  selectedID.value = null
+
+  // 2) 删底层定义
+  let failed = 0
+  for (const d of defs) {
+    try {
+      if (d.kind === 'subgraph') {
+        const rev = editorStore.subgraphById(d.defID)?.rev ?? 0
+        await backend.subgraphs.delete_(d.defID, rev)
+      } else {
+        await clipsStore.remove(d.defID)
+      }
+    } catch (e) {
+      failed++
+      console.warn('hard delete definition failed', d, e)
+    }
+  }
+  try {
+    await refreshSubgraphStore()
+  } catch {
+    /* ignore */
+  }
+
+  if (failed > 0) {
+    toast.add({ title: t('editor.hard_delete.failed', { n: failed }), color: 'error' })
+  } else {
+    toast.add({ title: t('editor.hard_delete.done', { n: defs.length }), color: 'success' })
+  }
 }
 
 const selectedCount = computed(() => getSelectedNodes.value.length)

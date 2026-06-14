@@ -37,14 +37,14 @@ type ContainerGetter interface {
 
 // Service wails3 RPC 入口.
 //
-// 前端流程 (v2 Subgraph-only):
+// 前端流程:
 //  1. Start({filterMode, containerID}) → 立即返 tempID; hook 已挂上但用户还没停
 //  2. (用户在 UI / F12 全局热键触发停止)
-//  3. Stop() → 拿 StopResult → 走 transform → 落 *container.Subgraph 到
-//     container.subgraphs/. 返回 Subgraph (前端在 activeGraph 加 Subgraph 引用节点).
+//  3. Stop() → 拿 StopResult → 按模式分流: simple 落 *container.Subgraph 返 SubgraphID
+//     (前端加 Subgraph 调用节点); precise 落 InputClip 返 ClipID (前端加裸 PlayClip 节点).
 //
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
-// StopAsync 完成时 emit 'recording:completed' {subgraphID, containerID, label} | {error}.
+// StopAsync 完成时 emit 'recording:completed' {subgraphID|clipID, containerID, label, filterMode} | {error}.
 type Service struct {
 	rec          *Recorder
 	hkProv       HotkeySettingsProvider
@@ -277,17 +277,20 @@ func (s *Service) Resume() error {
 	return nil
 }
 
-// StopResultPayload 给前端 RPC / event payload 用. Subgraph 完整结构对前端是不透明的
-// (会通过 container.Get 重新拉一次), 这里只回最小定位信息.
+// StopResultPayload 给前端 RPC / event payload 用. 录制产物对前端是不透明的, 这里只回最小定位信息.
+// 按模式二选一: simple → SubgraphID (前端插 Subgraph 调用节点); precise → ClipID (前端插裸 PlayClip 节点).
 type StopResultPayload struct {
 	SubgraphID  string `json:"subgraphID"`
+	ClipID      string `json:"clipID"`
 	ContainerID string `json:"containerID"`
 	Label       string `json:"label"`
 	FilterMode  string `json:"filterMode"`
 }
 
-// Stop 同步停止录制 — 走 transform 输出 Subgraph 落到 container.
-// precise 模式额外把 InputClip 落到 clipSvc.Store (PlayClip 节点要 clipID 解析).
+// Stop 同步停止录制. 按模式分流产物:
+//   - simple : 走 transform 输出线性 Subgraph 落到全局子图池, 返 SubgraphID.
+//   - precise: 把 InputClip 落到 clipSvc.Store, 返 ClipID — 前端直接插一个裸 PlayClip 节点
+//     (不再包子图, 回放校准只读 clip 自带 Meta, 子图壳是多余的).
 //
 // 注意: 用 internal mutex 防 F12 stop callback 跟 UI Stop 重入 (Recorder.Stop 不可重入).
 func (s *Service) Stop() (*StopResultPayload, error) {
@@ -310,10 +313,6 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	// 无论成败回 idle (前端镜像始终收敛).
 	defer s.setState(RecordingState{Phase: PhaseIdle})
 
-	if s.subgraphs == nil {
-		return nil, errors.New("SubgraphSaver 未注入 (main.go 启动期 SetSubgraphSaver?)")
-	}
-
 	res, err := s.rec.Stop()
 	// 不管成败都清停录 + 暂停热键, 避免悬挂 callback 引发误触
 	SetActiveStopHotkey(0, nil)
@@ -328,10 +327,12 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 
 	label := "录制 " + time.Now().Format("15:04")
 
-	var sg container.Subgraph
 	switch res.Meta.FilterMode {
 	case "precise":
-		// 1) 建 InputClip 落到 clipSvc — PlayClip 节点要靠 clipID 解析回放
+		// InputClip 落到 clipSvc — 前端据 ClipID 插一个裸 PlayClip 节点 (不包子图).
+		if s.clipSvc == nil {
+			return nil, errors.New("clipSvc 未注入 (precise 录制要存 InputClip; main.go NewService?)")
+		}
 		clip := &inputclip.InputClip{
 			ID:        "clip-" + res.TempID,
 			Label:     label,
@@ -340,29 +341,33 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 			Events:    res.Events,
 		}
 		clip.UpdateDuration()
-		if s.clipSvc != nil {
-			if err := s.clipSvc.Save(clip); err != nil {
-				return nil, fmt.Errorf("save clip: %w", err)
-			}
+		if err := s.clipSvc.Save(clip); err != nil {
+			return nil, fmt.Errorf("save clip: %w", err)
 		}
-		// 2) 包成单 PlayClip 节点的 Subgraph
-		sg = BuildPreciseSubgraph(clip.ID, res.Meta, label)
+		return &StopResultPayload{
+			ClipID:      clip.ID,
+			ContainerID: containerID,
+			Label:       label,
+			FilterMode:  "precise",
+		}, nil
 	case "simple":
-		sg = BuildSimpleSubgraph(res.Events, res.Meta, res.ClientW, res.ClientH, label)
+		// 多节点序列包成线性 Subgraph 落全局池 — 前端插一个 Subgraph 调用节点.
+		if s.subgraphs == nil {
+			return nil, errors.New("SubgraphSaver 未注入 (main.go 启动期 SetSubgraphSaver?)")
+		}
+		sg := BuildSimpleSubgraph(res.Events, res.Meta, res.ClientW, res.ClientH, label)
+		if err := s.subgraphs.Create(&sg); err != nil {
+			return nil, fmt.Errorf("save subgraph (录制产物入全局池): %w", err)
+		}
+		return &StopResultPayload{
+			SubgraphID:  sg.ID,
+			ContainerID: containerID,
+			Label:       sg.Label,
+			FilterMode:  "simple",
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown filterMode %q (前端 StartArgs.FilterMode 漏传?)", res.Meta.FilterMode)
 	}
-
-	if err := s.subgraphs.Create(&sg); err != nil {
-		return nil, fmt.Errorf("save subgraph (录制产物入全局池): %w", err)
-	}
-
-	return &StopResultPayload{
-		SubgraphID:  sg.ID,
-		ContainerID: containerID,
-		Label:       sg.Label,
-		FilterMode:  res.Meta.FilterMode,
-	}, nil
 }
 
 // StopAsync 异步停录 — 跑后 emit 'recording:completed' payload 或 {error}.
@@ -390,6 +395,7 @@ func (s *Service) StopAsync() {
 		}
 		s.emit("recording:completed", map[string]any{
 			"subgraphID":  payload.SubgraphID,
+			"clipID":      payload.ClipID,
 			"containerID": payload.ContainerID,
 			"label":       payload.Label,
 			"filterMode":  payload.FilterMode,

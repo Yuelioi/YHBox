@@ -1,14 +1,13 @@
-// transform.go: 录制事件流 → container.Subgraph 转换层.
-//
-// 录制全部自动进 Subgraph (带 RecordingContext 记录 counts360 + 分辨率).
+// transform.go: 简易录制事件流 → container.Subgraph 转换层.
 //
 // 简易录制 (filterMode='simple'): KeyDown/KeyUp 配对 → KeyPress, MouseBtnDown/Up
 // 同位置 → ClickAt (用 Down 时坐标), Scroll 1:1, 相邻 Step 间 idle > 阈值 → 插 Sleep.
+// 产物是带 RecordingContext (counts360 + 分辨率) 的线性 Subgraph.
 // 用户线性 ≠ 没并发, 但简易模式刻意只服务 "一次性动作" 的录制 → 不支持并发按键的精确还原,
 // 重复 KeyDown (auto-repeat) 直接丢. 想精确就走 precise.
 //
-// 精准录制 (filterMode='precise'): 不解析事件流, 已落盘的 InputClip 包成单 PlayClip
-// 节点的 Subgraph. 用户拿到的是个调用壳, 改 PlayClip.config.keepRanges 能裁剪片段.
+// 精准录制 (filterMode='precise') 不在此处转换: service 层把已落盘的 InputClip 直接交给
+// 前端插一个裸 PlayClip 节点 (不再包子图). 见 service.go Stop().
 package recording
 
 import (
@@ -25,8 +24,10 @@ import (
 // 比这短的间隔回放时合并掉, 既不影响行为也避免节点爆炸.
 const SleepThresholdUs uint64 = 200_000
 
-// stepNodeXSpacing GraphNode 视觉布局横向间距 (px). 节点高 ~100, Y 全 200 居中即可.
-const stepNodeXSpacing float32 = 200
+// stepNodeXSpacing GraphNode 横向间距 (px). 节点宽有硬上限 maxWidth 360 (ContainerFlowNode 的 CSS cap;
+// ClickAt 实测 ~317), 所以间距只要 > 360 就数学上保证任何节点都不横排重叠 —— 440 给最宽节点也留 80+ 间隙.
+// 这是简易录制子图布局的唯一来源 (前端不再二次重排). Y 全 200 同行.
+const stepNodeXSpacing float32 = 440
 
 // BuildSimpleSubgraph 把 simple 模式录制的事件流转成线性 Subgraph.
 //
@@ -39,17 +40,6 @@ func BuildSimpleSubgraph(events []inputclip.Event, meta inputclip.ClipMeta, clie
 	steps := compactToSteps(events, clientW, clientH)
 	rec := newRecordingContext(meta)
 	return assembleSubgraph(steps, label, rec)
-}
-
-// BuildPreciseSubgraph 精准模式 — 已落盘的 InputClip 包成单 PlayClip 节点的 Subgraph.
-// caller 负责先把 InputClip 落盘到 clipSvc (PlayClip 节点要 clipID 解析).
-func BuildPreciseSubgraph(clipID string, meta inputclip.ClipMeta, label string) container.Subgraph {
-	playClip := stepNode{
-		kind:   "PlayClip",
-		config: map[string]any{"ClipID": clipID},
-	}
-	rec := newRecordingContext(meta)
-	return assembleSubgraph([]stepNode{playClip}, label, rec)
 }
 
 // stepNode 内部临时结构 — 表示一个待转 GraphNode 的 Step.

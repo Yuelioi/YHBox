@@ -58,6 +58,8 @@ function mountComposable(draft: Ref<Container | null>) {
           syncFlowFromDraft: vi.fn(),
           refreshSubgraphStore: vi.fn(async () => {}),
           saveDraft: vi.fn(async () => {}),
+          dropPoint: () => ({ x: 0, y: 0 }),
+          selectNode: vi.fn(),
           toast,
         })
         return () => h('div')

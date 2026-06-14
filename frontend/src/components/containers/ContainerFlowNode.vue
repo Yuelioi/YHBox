@@ -130,6 +130,7 @@ import { useContainerEditorStore } from '@/stores/containerEditor'
 
 const { t, te } = useI18n()
 const execStore = useExecutionStore()
+const editorStore = useContainerEditorStore()
 
 // Pin label i18n lookup. key = node.<kind>.input/output.<pin>.label.
 // 没注册 (e.g. dynamic Subgraph pin / fallback kind) → 返 raw pin name 字面值.
@@ -150,11 +151,22 @@ function kindLabel(k: string): string {
   const key = KIND_LABEL_ZH[k]
   return key ? t(key) : k
 }
-const displayLabel = computed(() =>
-  props.data?.label ? props.data.label : kindLabel(kind.value),
-)
+// Subgraph 调用节点没填自定义 label 时, 主标题显示绑定子图的名字 (而非泛泛的 "调用子图") —
+// 子图的语义就是它的身份. 查不到子图 / 无名则退回类型名.
+const boundSubgraphLabel = computed<string | null>(() => {
+  if (kind.value !== 'Subgraph') return null
+  const sgID = props.data?.config?.SubgraphID
+  if (!sgID) return null
+  return editorStore.subgraphById(String(sgID))?.label || null
+})
+const displayLabel = computed(() => {
+  if (props.data?.label) return props.data.label
+  if (boundSubgraphLabel.value) return boundSubgraphLabel.value
+  return kindLabel(kind.value)
+})
+// 副标题: 主标题显示的是自定义名 / 子图名 (≠ 默认类型名) 时, 用副标题补出类型名.
 const kindSubtitle = computed(() =>
-  props.data?.label ? kindLabel(kind.value) : null,
+  displayLabel.value !== kindLabel(kind.value) ? kindLabel(kind.value) : null,
 )
 const isRunning = computed(() => execStore.running && execStore.currentNodeID === props.id)
 const isDisabled = computed(() => props.data?.disabled === true)
@@ -176,7 +188,6 @@ const v = computed(() => {
 })
 
 const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
-const editorStore = useContainerEditorStore()
 
 // 画布内联 pin literal — view 通过 ContainerCanvasApiKey provide; 测试/孤立渲染时为 null。
 const canvasApi = inject(ContainerCanvasApiKey, null)

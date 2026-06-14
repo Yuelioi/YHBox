@@ -23,7 +23,8 @@ export interface RecordingState {
 }
 
 export interface RecordingStopPayload {
-  subgraphID: string
+  subgraphID: string // simple 模式产物 — 前端插 Subgraph 调用节点
+  clipID: string     // precise 模式产物 — 前端插裸 PlayClip 节点
   containerID: string
   label: string
   filterMode: string
