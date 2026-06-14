@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-13 by 月离 (容器编辑器视口: per-(容器,层级) 缓存 viewport, 切图层级存/取, 首次进入聚焦起始节点(子图入口/主图 Start); 修进子图误标「未保存」(deep watch 把 activeGraph 换引用当成编辑)。真机过、全绿。)
-**Active focus**: 无活跃开发案 — 本轮: 视口缓存+首次聚焦入口、进子图不再误标脏(真机过)。新 incident ×2: [vue-flow 单相机切层级](incidents/2026-06-13-vueflow-single-camera-across-graph-levels.md) · [deep-watch 换引用误触发](incidents/2026-06-13-deep-watch-swapping-computed-fires-on-navigation.md)。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
+**Last updated**: 2026-06-14 by 月离 (录制产物/子图节点改进 done、真机过: 精准录制→裸 PlayClip 节点(不包子图)·右键「彻底删除」连删底层子图/clip·子图节点显示子图名+字段「标签」→「名称」·简易录制子图间距 440(>maxWidth 360)不重叠)。
+**Active focus**: 无活跃开发案 — 本轮: 录制产物/子图节点改进案 done 真机过(精准→裸PlayClip、右键彻底删除、子图节点显名/改名、简易间距440)。新 incident: [vue-flow 删除键无视修饰键](incidents/vue-flow-delete-key-code-ignores-modifiers.md)(带修饰键/需确认的删除别跟 vue-flow 抢键盘, 走右键菜单)。教训入 CLAUDE.md 工作风格: 先定根因、一处修干净、别打补丁兜底。下轮明确留: 临时窗口抓取(EnumWindows 选窗截图)。**本仓内测期: 默认不 push, 用户说推才推**(commits.md 铁律)。
 
 ## 进行中
 
