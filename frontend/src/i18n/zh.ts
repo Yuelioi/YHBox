@@ -1793,6 +1793,11 @@ export default {
     create: '新建容器',
     empty_title: '还没有容器',
     empty_desc: '容器是节点图蓝图, 包含变量、控制流、模板检测和 Action 调用.',
+    empty_cta: '新建第一个容器',
+    status: {
+      running: '运行中',
+      idle: '空闲',
+    },
     untitled: '(未命名)',
     node_count: '{n} 节点',
     run: '运行',

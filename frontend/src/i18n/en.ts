@@ -1772,6 +1772,11 @@
     create: 'New container',
     empty_title: 'No containers yet',
     empty_desc: 'A container is a node-graph blueprint with variables, control flow, template detection, and Action calls.',
+    empty_cta: 'Create your first container',
+    status: {
+      running: 'Running',
+      idle: 'Idle',
+    },
     untitled: '(Untitled)',
     node_count: '{n} nodes',
     run: 'Run',
