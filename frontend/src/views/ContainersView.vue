@@ -6,11 +6,12 @@
 
     <ContainersTab v-if="tab === 'local'" />
     <!-- 在线容器: 占位 (整包容器分享/下载留口, 未实现 — 见 specs/2026-06-13-editor-rail-resources.md ⑥) -->
-    <div v-else class="flex flex-col items-center justify-center text-center py-16">
-      <UIcon name="i-tabler-cloud" class="size-12 text-dimmed mb-3" />
-      <h3 class="text-sm text-toned font-medium">{{ t('containers.online.title') }}</h3>
-      <p class="text-xs text-dimmed mt-2 max-w-xs">{{ t('containers.online.desc') }}</p>
-    </div>
+    <EmptyState
+      v-else
+      icon="i-tabler-cloud"
+      :title="t('containers.online.title')"
+      :description="t('containers.online.desc')"
+    />
   </div>
 </template>
 
@@ -19,6 +20,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ContainersTab from '@/components/tasks/ContainersTab.vue'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const { t } = useI18n()
 

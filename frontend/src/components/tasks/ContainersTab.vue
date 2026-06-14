@@ -39,16 +39,18 @@
       </UButton>
     </div>
 
-    <div
+    <EmptyState
       v-if="filtered.length === 0"
-      class="rounded-xl bg-default/50 border border-default/60 border-dashed py-12 px-6 text-center"
+      icon="i-tabler-schema"
+      :title="t('containers.empty_title')"
+      :description="t('containers.empty_desc')"
     >
-      <UIcon name="i-tabler-schema" class="size-8 text-dimmed mx-auto mb-3" />
-      <p class="text-sm text-muted">{{ t('containers.empty_title') }}</p>
-      <p class="text-xs text-dimmed mt-1">
-        {{ t('containers.empty_desc') }}
-      </p>
-    </div>
+      <template #action>
+        <UButton color="primary" icon="i-tabler-plus" @click="onCreate">
+          {{ t('containers.empty_cta') }}
+        </UButton>
+      </template>
+    </EmptyState>
 
     <div v-else class="grid grid-cols-2 2xl:grid-cols-3 gap-3">
       <AppCard
@@ -168,6 +170,7 @@ import { type Container } from '@/lib/backend'
 import { useRouter } from 'vue-router'
 import AppCard from '@/components/common/AppCard.vue'
 import StatusPill from '@/components/common/StatusPill.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const { t } = useI18n()
 
