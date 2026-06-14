@@ -2,8 +2,8 @@
      当前窗口分辨率感知)吸纳自旧 TemplatePicker. 模板全局资产、无 rev. 变体逻辑需 containerId(tplStore 注入)定位窗口.
      pick 模式额外: 顶部「用于此节点」开关 (emit toggle-assign). -->
 <template>
-  <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
-    <div v-if="!tpl" class="h-full flex flex-col items-center justify-center text-center px-6 py-10">
+  <div class="w-full overflow-y-auto">
+    <div v-if="!tpl" class="flex flex-col items-center justify-center text-center px-6 py-10">
       <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
       <p class="text-sm text-toned">{{ t('template.detail.empty') }}</p>
     </div>
@@ -173,7 +173,7 @@
         </UButton>
       </div>
     </div>
-  </aside>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -227,11 +227,20 @@ const curRes = ref<[number, number] | null>(null)
 const curResExact = ref(false)
 
 const activeVariant = computed(() => detailRecord.value?.variants?.[activeVariantIdx.value])
+// 代表缩略图: 与网格 TemplateThumb 同源同法 (独立 watch on firstBlobSha),
+// 不挂在 guid 那个含 backend.assets.get 的大 watch 上 → 不受变体加载链中断影响, 保证显示.
+const baseThumb = ref<string | null>(null)
+watch(
+  () => tpl.value?.firstBlobSha,
+  async (sha) => {
+    baseThumb.value = sha ? await store.readBlobDataURL(sha) : null
+  },
+  { immediate: true },
+)
 const displayThumb = computed(() => {
   const sha = activeVariant.value?.blob
-  return (sha && variantThumbs.value[sha]) || firstThumb.value
+  return (sha && variantThumbs.value[sha]) || baseThumb.value
 })
-const firstThumb = ref<string | null>(null)
 
 async function loadVariantThumb(sha: string) {
   if (!sha || variantThumbs.value[sha]) return
@@ -271,19 +280,16 @@ function isCurResVariant(v: { resolution: number[] }): boolean {
   return !!curRes.value && v.resolution[0] === curRes.value[0] && v.resolution[1] === curRes.value[1]
 }
 
-// 选中 guid 变化 → 拉完整 record (取 variants) + 首缩略图 + 当前分辨率挑档.
+// 选中 guid 变化 → 拉完整 record (取 variants) + 当前分辨率挑档. (代表缩略图 baseThumb 走独立 watch)
 watch(
   () => props.guid,
   async (guid) => {
     detailRecord.value = null
     variantThumbs.value = {}
     activeVariantIdx.value = 0
-    firstThumb.value = null
     editingName.value = false
     editingDesc.value = false
     if (!guid) return
-    const s = store.map[guid]
-    if (s?.firstBlobSha) firstThumb.value = await store.readBlobDataURL(s.firstBlobSha)
     const rec = await backend.assets.get(guid)
     if (!rec || props.guid !== guid) return
     detailRecord.value = rec

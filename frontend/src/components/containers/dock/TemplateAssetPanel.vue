@@ -60,7 +60,6 @@
                 :key="item.guid"
                 class="group relative rounded-lg overflow-hidden cursor-pointer border transition-colors"
                 :class="cellActive(item.guid) ? 'border-primary ring-1 ring-inset ring-primary/60' : 'border-default hover:border-primary/40'"
-                :title="item.name || item.guid"
                 @click="onCellClick(item.guid, $event)"
                 @dblclick="!pickMode && openDetail(item.guid)"
               >
@@ -79,18 +78,17 @@
                   <UIcon name="i-tabler-check" class="size-3.5" />
                 </div>
 
-                <!-- 管理: ⋯ 详情 (hover) -->
-                <UButton
+                <!-- 管理: ⋯ 详情 (hover); 深色半透明, 缩略图上够对比 (不用 solid 白) -->
+                <button
                   v-if="!pickMode"
-                  size="xs"
-                  variant="solid"
-                  color="neutral"
-                  icon="i-tabler-dots"
-                  class="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
-                  :title="t('editor.dock.detail')"
+                  type="button"
+                  class="absolute top-1 right-1 size-6 rounded-md bg-black/55 text-white opacity-0 group-hover:opacity-100 hover:bg-black/75 flex items-center justify-center transition-colors"
+                  :aria-label="t('editor.dock.detail')"
                   @click.stop="openDetail(item.guid)"
                   @dblclick.stop
-                />
+                >
+                  <UIcon name="i-tabler-dots" class="size-4" />
+                </button>
               </div>
             </div>
           </div>
@@ -131,9 +129,7 @@
 
   <!-- 详情 (按需): 改名/描述/分类/标签/多分辨率变体/重拍/删除 -->
   <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-photo" size="md">
-    <div class="flex justify-center">
-      <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" @toggle-assign="() => {}" />
-    </div>
+    <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" @toggle-assign="() => {}" />
   </BaseModal>
 
   <!-- 批量加标签 -->

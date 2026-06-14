@@ -2,8 +2,8 @@
      clip update 全覆盖 → 字段级 patch 缺省值用当前值补全. 无可视缩略图 (输入事件录制).
      插入引用 = 主 CTA (emit insert → 父插裸 PlayClip 节点); 删除弱化到底部. -->
 <template>
-  <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
-    <div v-if="!clip" class="h-full flex flex-col items-center justify-center text-center px-6 py-10">
+  <div class="w-full overflow-y-auto">
+    <div v-if="!clip" class="flex flex-col items-center justify-center text-center px-6 py-10">
       <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
       <p class="text-sm text-toned">{{ t('clip.detail.empty') }}</p>
     </div>
@@ -123,7 +123,7 @@
         </UButton>
       </div>
     </div>
-  </aside>
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -85,7 +85,7 @@
                     color="neutral"
                     icon="i-tabler-dots"
                     class="opacity-0 group-hover:opacity-100 shrink-0"
-                    :title="t('editor.dock.detail')"
+                    :aria-label="t('editor.dock.detail')"
                     @click.stop="openDetail(item.id)"
                     @dblclick.stop
                   />
@@ -126,10 +126,8 @@
   </div>
 
   <!-- 详情 (按需): 改名/描述/分类/标签/删除 -->
-  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-movie" size="md">
-    <div class="flex justify-center">
-      <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
-    </div>
+  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-movie" size="sm">
+    <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
   </BaseModal>
 
   <!-- 批量加标签 -->

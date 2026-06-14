@@ -117,7 +117,7 @@
                     color="neutral"
                     icon="i-tabler-dots"
                     class="opacity-0 group-hover:opacity-100 shrink-0"
-                    :title="t('editor.dock.detail')"
+                    :aria-label="t('editor.dock.detail')"
                     @click.stop="openDetail(item.id)"
                     @dblclick.stop
                   />
@@ -166,10 +166,8 @@
   </div>
 
   <!-- 详情 (按需): 改名/描述/分类/标签/被引用统计/复制为新/删除 -->
-  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-package" size="md">
-    <div class="flex justify-center">
-      <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
-    </div>
+  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-package" size="sm">
+    <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
   </BaseModal>
 
   <!-- 批量加标签 -->

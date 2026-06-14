@@ -1,10 +1,10 @@
 <!-- 子图库右栏详情 (就地编辑): 名称/描述双击改, 标签/分类行内即改即存;
      插入引用 = 唯一主 CTA; 复制为新/删除弱化到底部一行。 -->
 <template>
-  <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
+  <div class="w-full overflow-y-auto">
     <div
       v-if="!sg"
-      class="h-full flex flex-col items-center justify-center text-center px-6 py-10"
+      class="flex flex-col items-center justify-center text-center px-6 py-10"
     >
       <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
       <p class="text-sm text-toned">{{ t('library.detail.empty') }}</p>
@@ -129,7 +129,7 @@
         </UButton>
       </div>
     </div>
-  </aside>
+  </div>
 </template>
 
 <script setup lang="ts">
