@@ -298,7 +298,7 @@
 
     <TemplateExplorerModal v-model:open="templatesExplorerOpen" />
 
-    <ClipExplorerModal v-model:open="clipsExplorerOpen" />
+    <ClipExplorerModal v-model:open="clipsExplorerOpen" @pick-clip="onPickLibraryClip" />
 
     <InlineContextMenu
       :open="inlineMenu.open"
@@ -444,6 +444,7 @@ import { useCommandPalette } from '@/composables/containerEditor/useCommandPalet
 import { useContextMenuRouter } from '@/composables/containerEditor/useContextMenuRouter'
 import { useSubgraphToScript } from '@/composables/containerEditor/useSubgraphToScript'
 import { useNodeCreation } from '@/composables/containerEditor/useNodeCreation'
+import { useInsertPoint } from '@/composables/containerEditor/useInsertPoint'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -605,7 +606,7 @@ const selectedID = ref<string | null>(null)
 const {
   dropVar, dropNodeSpec, dropSnippet,
   onInsertIncVar, onApplySnippet,
-  onPickKind, onPickLibrarySubgraph,
+  onPickKind, onPickLibrarySubgraph, onPickLibraryClip,
   onAddNode, addNode,
 } = useNodeCreation({
   draft, activeGraph, selectedID,
@@ -793,7 +794,7 @@ function onSnippetShortcutKeydown(e: KeyboardEvent) {
   if (!s) return
   e.preventDefault()
   e.stopPropagation()
-  const pos = screenToFlowCoordinate(lastMousePos.value)
+  const pos = screenPointToFlow(lastMousePos.value)
   applyDraftMutation(() => {
     const g = activeGraph.value
     if (!g) return
@@ -827,7 +828,7 @@ function onCanvasDrop(e: DragEvent) {
   // MIME-based dispatch via useEditorDragDrop (var / node-spec / library-subgraph).
   const payload = readDragPayload(e)
   if (payload) {
-    const pos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
+    const pos = screenPointToFlow({ x: e.clientX, y: e.clientY })
     switch (payload.type) {
       case 'var': return dropVar(payload, pos)
       case 'node-spec': return dropNodeSpec(payload, pos)
@@ -921,7 +922,9 @@ function miniNodeColor(node: any): string {
 
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, removeSelectedNodes, screenToFlowCoordinate, setCenter, getViewport, setViewport, fitView, vueFlowRef, findNode, addSelectedNodes } = useVueFlow()
+const { project, getSelectedNodes, removeNodes, removeSelectedNodes, setCenter, getViewport, setViewport, fitView, findNode, addSelectedNodes } = useVueFlow()
+// 节点插入落点统一来源: 视口中心 (录制/库插入/picker) + 指针位置 (拖放/快捷键)。详见 useInsertPoint。
+const { viewportCenterForNode, screenPointToFlow } = useInsertPoint()
 
 // 视口缓存: 切图层级时存当前相机、取目标层级相机 (无缓存→fitView)。否则主图↔子图共享一个
 // vue-flow 相机, 在内容很远的子图 pan 远了切回主图会停在那 (见 incident: subgraph-viewport-not-cached)。
@@ -1036,14 +1039,6 @@ useEditorHotkeys({
   toggleInspector: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
 })
 
-// 录制产物落点 = 当前视口中心 (flow 坐标), 由 vue-flow 容器可视中心反算.
-function recordingDropPoint(): { x: number; y: number } {
-  const el = vueFlowRef.value
-  if (!el) return { x: 0, y: 0 }
-  const r = el.getBoundingClientRect()
-  return screenToFlowCoordinate({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
-}
-
 // 录制产物落下后选中它 (属性栏 + 画布视觉). syncFlowFromDraft 后 flow 节点要等一拍才在册.
 async function selectRecordedNode(id: string) {
   selectedID.value = id
@@ -1058,7 +1053,7 @@ async function selectRecordedNode(id: string) {
 // 录制流程: 产物落在当前视口中心、不自动连线、落下即选中 (用户自己接线). 简易产物双击可进编辑.
 const { startRecording, stopRecording, countdownSec } = useRecording({
   draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave,
-  dropPoint: recordingDropPoint, selectNode: selectRecordedNode, toast,
+  dropPoint: viewportCenterForNode, selectNode: selectRecordedNode, toast,
 })
 
 // 节点剪贴板 (Ctrl+C/V) — 全局化后粘贴 Subgraph 节点 = 引用同一个全局子图

@@ -1,5 +1,6 @@
 <!-- clip 库右栏详情 (就地编辑): 名称/描述双击改, 分类/标签即改即存. clip 是全局资产、无 rev.
-     clip update 全覆盖 → 字段级 patch 缺省值用当前值补全. 无可视缩略图 (输入事件录制). -->
+     clip update 全覆盖 → 字段级 patch 缺省值用当前值补全. 无可视缩略图 (输入事件录制).
+     插入引用 = 主 CTA (emit insert → 父插裸 PlayClip 节点); 删除弱化到底部. -->
 <template>
   <aside class="w-80 shrink-0 border-l border-default overflow-y-auto bg-default">
     <div v-if="!clip" class="h-full flex flex-col items-center justify-center text-center px-6 py-10">
@@ -36,6 +37,10 @@
           </p>
         </div>
       </header>
+
+      <UButton color="primary" icon="i-tabler-package-import" block @click="emit('insert')">
+        {{ t('library.explorer.insert') }}
+      </UButton>
 
       <!-- 描述 -->
       <section class="space-y-1.5">
@@ -132,6 +137,7 @@ import { errorMessage } from '@/lib/invoke'
 
 const { t } = useI18n()
 const props = defineProps<{ clipId: string | null }>()
+const emit = defineEmits<{ insert: [] }>()
 const store = useClipsStore()
 const { confirm } = useConfirm()
 const toast = useToast()

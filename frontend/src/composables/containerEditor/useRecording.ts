@@ -33,7 +33,8 @@ export interface RecordOpts {
   // refreshSubgraphStore: 必传 — 录完后调一次, 否则 editorStore 没新 subgraph, 双击进入显示空白.
   refreshSubgraphStore: () => Promise<void> | void
   saveDraft: () => Promise<unknown> | unknown
-  // dropPoint: 录制产物节点的落点 (flow 坐标). 取当前视口中心 — 录完节点出现在用户正看的地方.
+  // dropPoint: 录制产物节点的落点 = 节点左上角 (flow 坐标), 已含居中补偿 → 节点视觉落在
+  // 当前视口正中 (录完出现在用户正看的地方). 实参是 useInsertPoint().viewportCenterForNode.
   dropPoint: () => { x: number; y: number }
   // selectNode: 落下后选中该节点 (用户接着自己接线).
   selectNode: (id: string) => void
@@ -223,15 +224,14 @@ export function useRecording(opts: RecordOpts) {
       }
     }
 
-    // 3) 新建产物节点 — 落在当前视口中心, 不自动连线, 落下即选中 (用户自己接线).
+    // 3) 新建产物节点 — 落在当前视口中心 (dropPoint 已含节点居中补偿), 不自动连线, 落下即选中.
     const nodeId = randID(isPrecise ? 'n-clip' : 'n-sg')
     const pt = dropPoint()
     const newNode = {
       id: nodeId,
       kind: isPrecise ? 'PlayClip' : 'Subgraph',
-      // 节点宽 ~240 / 高 ~90, 落点减半个身位让节点视觉居中, 而非左上角压在中心.
-      x: pt.x - 120,
-      y: pt.y - 45,
+      x: pt.x,
+      y: pt.y,
       config: isPrecise ? { ClipID: payload.clipID } : { SubgraphID: payload.subgraphID },
       createdAt: new Date().toISOString(),
     }

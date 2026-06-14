@@ -1,4 +1,5 @@
 <!-- clip 管理 modal (编辑器内入口: 左 rail 🎬). 两栏: 左列表(搜索/分类·标签过滤/分组/多选/分页) + 右 ClipDetailPanel.
+     双击行 / 详情「插入引用」→ 插一个裸 PlayClip 节点 (config.ClipID) 到当前容器 (镜像子图库 onPick).
      批量: 选中后下拉改标签/改分类/删. 排序: 名称/创建/时长 × 正逆序. clip 全局资产; 复刻子图库定式, 复用 libraryFilter/useListSelection.
      录制走 toolbar, 此面板只管已录的. -->
 <template>
@@ -54,6 +55,7 @@
                 class="group rounded p-2.5 cursor-pointer"
                 :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
                 @click="onRowClick(item.id, $event)"
+                @dblclick="onPick(item.id)"
               >
                 <div class="flex items-center gap-2">
                   <span
@@ -110,7 +112,7 @@
         </div>
       </div>
 
-      <ClipDetailPanel class="max-h-[65vh]" :clip-id="anchor" />
+      <ClipDetailPanel class="max-h-[65vh]" :clip-id="anchor" @insert="anchor && onPick(anchor)" />
     </div>
   </BaseModal>
 
@@ -149,8 +151,17 @@ import ClipDetailPanel from '@/components/containers/ClipDetailPanel.vue'
 
 const { t } = useI18n()
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ 'update:open': [v: boolean] }>()
+const emit = defineEmits<{
+  'update:open': [v: boolean]
+  'pick-clip': [clipID: string]
+}>()
 const modelOpen = useDialogOpen(props, emit)
+
+// 选中 clip → 插裸 PlayClip 引用节点到当前容器 (镜像子图库 onPick), 插完关 modal.
+function onPick(clipID: string) {
+  emit('pick-clip', clipID)
+  modelOpen.value = false
+}
 
 const store = useClipsStore()
 const { confirm } = useConfirm()

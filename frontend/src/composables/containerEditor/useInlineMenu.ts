@@ -8,11 +8,11 @@
 //   menu pick → onInlineMenuPick 加节点 + 自动 wire 回 source pin (有则)
 
 import { ref, type Ref } from 'vue'
-import { useVueFlow } from '@vue-flow/core'
 import type { Container, Graph, GraphNode, GraphEdge } from '@/lib/backend'
 import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
 import { newNodeID } from './ids'
+import { useInsertPoint } from './useInsertPoint'
 import type { PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 
 interface InlineMenuState {
@@ -31,7 +31,7 @@ interface UseInlineMenuOpts {
 
 export function useInlineMenu(opts: UseInlineMenuOpts) {
   const { activeGraph, applyDraftMutation, syncFlowFromDraft } = opts
-  const { screenToFlowCoordinate } = useVueFlow()
+  const { screenPointToFlow } = useInsertPoint()
 
   const inlineMenu = ref<InlineMenuState>({
     open: false,
@@ -114,7 +114,7 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
           : dataInTypeFor(node.kind, startCopy.handleId, node.config as Record<string, unknown>)
 
       const isExec = !pinType
-      const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
+      const flowPos = screenPointToFlow({ x: clientX, y: clientY })
 
       inlineMenu.value = {
         open: true,
@@ -138,7 +138,7 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
   }
 
   function openInlineMenuAt(clientX: number, clientY: number) {
-    const flowPos = screenToFlowCoordinate({ x: clientX, y: clientY })
+    const flowPos = screenPointToFlow({ x: clientX, y: clientY })
     inlineMenu.value = {
       open: true,
       position: { x: clientX, y: clientY },

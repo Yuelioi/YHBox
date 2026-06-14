@@ -7,6 +7,7 @@
 //   onApplySnippet — SnippetsPanel 单击 snippet 中心 insert
 //   onPickKind — NodeExplorerModal 选 kind
 //   onPickLibrarySubgraph — LibraryExplorerModal 选 library import
+//   onPickLibraryClip — ClipExplorerModal 选 clip → 插裸 PlayClip 引用节点
 //   onAddNode — programmatic add (录制完成等程序化加点).
 //              特殊: 不走 applyDraftMutation (直接 push + syncFlowFromDraft),
 //              Start 单例 guard, autoCreateSubgraphForNewNode 前置 hook.
@@ -24,6 +25,7 @@ import { KIND_DEFAULTS } from '@/components/containers/pinSpec'
 import { type EditorDragPayload } from '@/composables/editor/useEditorDragDrop'
 import { newNodeID, genNodeID } from './ids'
 import { AUTO_CONNECT_THRESHOLD_FLOW_PX } from './constants'
+import { useInsertPoint } from './useInsertPoint'
 
 type ToastApi = { add: (opts: { title: string; description?: string; color?: string; icon?: string }) => void }
 
@@ -66,6 +68,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     autoCreateSubgraphForNewNode, toast,
   } = opts
   const { screenToFlowCoordinate } = useVueFlow()
+  const { viewportCenterForNode, screenPointToFlow } = useInsertPoint()
   const { t } = useI18n()
 
   // ===== 核心 helper =====
@@ -208,24 +211,20 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     useSnippetsStore().markUsed(payload.snippetID)
   }
 
-  // VarRow "+" 按钮 → viewport 中心 insert IncVar
+  // VarRow "+" 按钮 → 当前视口中心 insert IncVar
   function onInsertIncVar(name: string) {
-    const center = screenToFlowCoordinate({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    })
     addNode({
       kind: 'IncVar',
-      pos: center,
+      pos: viewportCenterForNode(),
       config: { literal: { VarName: name, Scope: 'auto', Delta: 1 } },
     })
   }
 
-  // SnippetsPanel 单击 snippet → 画布中心生成 with config
+  // SnippetsPanel 单击 snippet → 当前视口中心生成 with config
   function onApplySnippet(s: Snippet) {
     addNode({
       kind: s.payload.kind,
-      pos: { x: 240 + Math.random() * 60, y: 180 + Math.random() * 60 },
+      pos: viewportCenterForNode(),
       config: JSON.parse(JSON.stringify(s.payload.config)),
       label: s.name,
     })
@@ -233,11 +232,11 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   }
 
   // NodeExplorerModal 选 kind. screenPos = 唤起 explorer 那刻的鼠标屏幕坐标
-  // (view 在 explorer 打开时快照 lastMousePos); 给了就落在鼠标附近, 没给走老的随机偏移。
+  // (view 在 explorer 打开时快照 lastMousePos); 给了就落在鼠标附近, 没给落当前视口中心。
   function onPickKind(kind: string, screenPos?: { x: number; y: number }) {
     const pos = screenPos
-      ? screenToFlowCoordinate(screenPos)
-      : { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
+      ? screenPointToFlow(screenPos)
+      : viewportCenterForNode()
     addNode({
       kind,
       pos,
@@ -268,7 +267,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       }
       addNode({
         kind: 'Subgraph',
-        pos: { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 },
+        pos: viewportCenterForNode(),
         config: { SubgraphID: libraryID },
       })
     } catch (e: any) {
@@ -279,6 +278,18 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
         color: 'error',
       })
     }
+  }
+
+  // ClipExplorerModal 选 clip — 插入裸 PlayClip 引用节点 (config.ClipID)。
+  // PlayClip 自给自足 (校准从 clip 自身 Meta 读), 不引用容器全局变量 →
+  // 不需要子图那套缺变量补全, 直接 addNode 即可。
+  function onPickLibraryClip(clipID: string) {
+    if (!draft.value) return
+    addNode({
+      kind: 'PlayClip',
+      pos: viewportCenterForNode(),
+      config: { ClipID: clipID },
+    })
   }
 
   // Programmatic add (录制完成等程序化加点).
@@ -332,7 +343,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     // 8 callsite 包装 (面向 view)
     dropVar, dropNodeSpec, dropSnippet,
     onInsertIncVar, onApplySnippet,
-    onPickKind, onPickLibrarySubgraph,
+    onPickKind, onPickLibrarySubgraph, onPickLibraryClip,
     onAddNode,
   }
 }
