@@ -3,7 +3,6 @@ status: done
 summary: "Spec A 实现计划 Part 2：逐屏迁移到 Part 1 共用组件 + v3 token —— P1 容器列表(AppCard/StatusPill/EmptyState/mono/固定列 + 删除 modal 收 useConfirm) · P2 计划(EmptyState/StatusPill/mono) · P3 关于(AppCard×5/IconBadge avatar/mono) · P4 主壳轻触(AppSidebar 绿 active tint / LogPanel filter token / AppStatusBar 验不动)。迁移即升级、删旧散写样式; 离屏视觉自检 + 真机过"
 last_updated: 2026-06-14
 implements: specs/2026-06-14-ui-uplift-foundation.md
-verify: "真机 smoke (task dev 起完整 app, 项目铁律): 容器列表卡片/StatusPill 运行中·空闲/空状态+新建渐变按钮 · 计划空态+启用徽章+列对齐 · 关于五卡/头像 IconBadge/版本号 mono · 侧栏 active 淡绿+LogPanel filter — 四屏像一个商业品, 无错位/白底/丢色。(离屏 Playwright 已验布局/样式, 真机补行为+真实数据)"
 ---
 
 # UI 升级逐屏迁移 Implementation Plan (Spec A · Part 2)

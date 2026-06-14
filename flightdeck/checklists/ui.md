@@ -25,6 +25,14 @@ last_updated: 2026-06-14
 
 **定义位置** (改基调只动这几处): 三个色相钉在 `vite.config.ts` ui.colors (primary=emerald / neutral=zinc / warning=amber) → NuxtUI 生成 `--ui-*` 变量; `bg-sunken` 在 `style.css`; 画布景深色 (背景渐变/网点/minimap mask) 是有意的非 token, 集中在 ContainerEditorView 带注释.
 
+### 表面分层 — 黑底 + 顶光浮起 (v3, 用户定 2026-06-14)
+
+四档表面**全派生自 `--ui-bg`**, 一处 (`style.css`) 改全局变, 禁止散写 zinc 字面值:
+
+1. **base** `bg-default` = `--ui-bg`。暗色基调钉在 `.dark { --ui-bg: var(--ui-color-neutral-950) }` —— 比 NuxtUI 默认 (neutral-900) **深一档**, 锚 v3 稿 `#09090b`; 整套灰阶 (muted/elevated/accented/border-accented) 跟着下沉一档。
+2. **sunken** `bg-sunken` = 再往黑混 (终端日志 / 时间轴轨道)。
+3. **raised** `raised-surface` (卡片 / 面板 / hover 行) + **overlay** `overlay-surface` (菜单 / 模态): **卡体保持纯黑** (`background-color: var(--ui-bg)`), **只在顶部给一道渐隐高光** (`linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%)`) + 1px 白内高光 + 亮一档上边框 + 柔投影来「浮起」。**不整面提亮** (试过 mix 白提整面 → 发灰、描边读不出, 用户改回黑底顶光) —— 跟下面 BaseModal「纯黑平铺」同一条 philosophy。
+
 ### 组件必须用 NuxtUI
 
 有 NuxtUI 对应组件就用它. **禁止**裸 `<button>` / `<input>` / `<div role="dialog">` 自搭样式. 自研复合组件 (ConfirmDialog 等) 也只能由 NuxtUI 原子组合: `UButton` / `UInput` / `UModal` / `UPopover` / `UCheckbox` / `UTooltip` / `UTabs` / `UIcon` / `UTextarea` / `USelect` / `UDropdownMenu`.
