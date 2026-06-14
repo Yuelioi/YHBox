@@ -27,34 +27,46 @@ textarea {
   min-height: 2.5em;
 }
 
+/* ── v3 暗色基调 (唯一权威锚点): 把整套中性色阶比 NuxtUI 默认深一档, 锚到 v3 设计稿。
+   NuxtUI 默认 dark 的 --ui-bg = neutral-900 (zinc-900) 比稿子的 base #09090b (neutral-950) 亮一整档,
+   而所有表面 (NuxtUI 组件底 + 下面的 @utility raised/sunken/overlay 都派生自 --ui-bg) 都浮在它上面,
+   于是整体"不够深邃"。这里一处下沉 → 全场表面跟着深, 无需散改各组件。
+   (不分层规则压过 NuxtUI @layer theme 里的 .dark 定义, 见文件末 width hack 的同款机制。) ── */
+.dark {
+  --ui-bg: var(--ui-color-neutral-950); /* 画布 / 卡片底基准: was neutral-900 → #09090b */
+  --ui-bg-muted: var(--ui-color-neutral-900); /* was neutral-800 */
+  --ui-bg-elevated: var(--ui-color-neutral-900); /* 模态 / popover / 输入框底: was neutral-800 */
+  --ui-bg-accented: var(--ui-color-neutral-800); /* hover / scrollbar thumb: was neutral-700 */
+  --ui-border-accented: var(--ui-color-neutral-800); /* 浮层描边: was neutral-700 */
+}
+
 /* ── 凹陷面: 比主背景 (--ui-bg) 再深一档, 给终端日志区 / 时间轴轨道这类要"挖下去"的面。
    semantic token 到 bg-default 为止, 更深的统一从这里取 — 禁止散写 zinc-950/zinc-900 字面值。 ── */
 @utility bg-sunken {
   background-color: color-mix(in oklab, var(--ui-bg) 45%, black);
 }
 
-/* ── v3 浮层表面: 比 base 略亮 + 顶部高光 + 柔投影, 让卡片/面板「轻浮起」。
-   派生自 --ui-bg, 跟 bg-sunken 同思路, 禁止散写 zinc 字面值。 ── */
+/* ── v3 浮层表面: 主体保持黑 (--ui-bg), 只在顶部给一点高光 + 柔投影, 让卡片/面板「轻浮起」。
+   不整面提亮 (用户定 2026-06-14): 填充黑底, 仅顶部一道渐隐高光 + 1px 白线 + 亮一档上边框。
+   派生自 --ui-bg, 禁止散写 zinc 字面值。 ── */
 @utility raised-surface {
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--ui-bg) 86%, white),
-    color-mix(in oklab, var(--ui-bg) 92%, white)
-  );
+  background-color: var(--ui-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%);
   border: 1px solid var(--ui-border);
-  border-top-color: color-mix(in oklab, var(--ui-border) 55%, white);
+  border-top-color: color-mix(in oklab, var(--ui-border) 50%, white);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-/* ── 浮层 overlay: 菜单 / 模态 / popover, 比 raised 再亮一档 + 更重投影。 ── */
+/* ── 浮层 overlay: 菜单 / 模态 / popover, 同黑底 + 顶部高光, 但顶光略强 + 更重投影来「浮起」。 ── */
 @utility overlay-surface {
-  background-color: color-mix(in oklab, var(--ui-bg) 84%, white);
+  background-color: var(--ui-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 25%);
   border: 1px solid var(--ui-border-accented);
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* ── 主按钮唯一显眼渐变 (v3 渐变纪律: 全场只两处, 此其一)。
