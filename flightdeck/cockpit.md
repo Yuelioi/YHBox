@@ -11,7 +11,9 @@
 
 ## 下一步
 
-候选池任挑: **临时窗口抓取(EnumWindows 枚举 + 选窗截图 + 不依赖容器 WindowTarget)— 上轮明确留的下一块,模板截图/重拍现仍只走容器 WindowTarget**; NodeSearchModal / CommandPalette 收进 BaseModal(大复合已全收, 仅剩这俩); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 18 错; residue 28 处; runtime fixture 缺失红(build.md 在册)。
+**下一周期 (用户定, 2026-06-14): 代码 review —— ① 抽公共工具函数 (现散落多处可收敛, 如刚做的 useInsertPoint 同类整理: 重复逻辑/魔法值/各写各的 helper 收成单一来源) ② UI 样式统一 (各组件样式去重、设计 token / 共用 class 收敛)。先扫面、列清单, 再按 footgun 优先级动手。**
+
+其余候选池任挑: 临时窗口抓取(EnumWindows 枚举 + 选窗截图 + 不依赖容器 WindowTarget — 模板截图/重拍现仍只走容器 WindowTarget); NodeSearchModal / CommandPalette 收进 BaseModal(大复合已全收, 仅剩这俩); 复发#5 promotion 候选(前台容器全局指针 onMounted+onActivated 升 checklist); 脚本 SubgraphID 容错(未拍板); idea 池(cv-perception · editor-footgun · misc-tools); oxlint 预存 18 错; residue 28 处; runtime fixture 缺失红(build.md 在册)。
 
 ## 待复核
 
