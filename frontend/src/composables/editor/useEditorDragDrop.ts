@@ -9,6 +9,7 @@ export type EditorDragPayload =
   | { type: 'var'; ref: VariableRef; modifier: 'none' | 'alt' }
   | { type: 'node-spec'; kind: string }
   | { type: 'library-subgraph'; id: string }
+  | { type: 'clip'; id: string }
   | { type: 'snippet'; snippetID: string }
 
 /**

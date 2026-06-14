@@ -247,7 +247,8 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   // LibraryExplorerModal 选子图 — 全局化后选中即插入引用节点 (无导入复制)。
   // 缺变量检测: 该子图闭包的 requiredGlobals 名字 − 容器已声明 → 自动补 (type any),
   // toast 告知 (老 import 流程的 auto-add 同款体验, 校验层另有 SUBGRAPH_VAR_UNDECLARED 兜底)。
-  async function onPickLibrarySubgraph(libraryID: string) {
+  // pos 给了 (拖到画布) → 落松手处; 没给 (单击/双击/命令面板) → 落视口中心。
+  async function onPickLibrarySubgraph(libraryID: string, pos?: { x: number; y: number }) {
     if (!draft.value) return
     try {
       await refreshSubgraphStore()
@@ -267,7 +268,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
       }
       addNode({
         kind: 'Subgraph',
-        pos: viewportCenterForNode(),
+        pos: pos ?? viewportCenterForNode(),
         config: { SubgraphID: libraryID },
       })
     } catch (e: any) {
@@ -283,11 +284,11 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   // ClipExplorerModal 选 clip — 插入裸 PlayClip 引用节点 (config.ClipID)。
   // PlayClip 自给自足 (校准从 clip 自身 Meta 读), 不引用容器全局变量 →
   // 不需要子图那套缺变量补全, 直接 addNode 即可。
-  function onPickLibraryClip(clipID: string) {
+  function onPickLibraryClip(clipID: string, pos?: { x: number; y: number }) {
     if (!draft.value) return
     addNode({
       kind: 'PlayClip',
-      pos: viewportCenterForNode(),
+      pos: pos ?? viewportCenterForNode(),
       config: { ClipID: clipID },
     })
   }

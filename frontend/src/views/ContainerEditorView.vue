@@ -809,7 +809,7 @@ onBeforeUnmount(() => {
 
 function onCanvasDrop(e: DragEvent) {
   e.preventDefault()
-  // MIME-based dispatch via useEditorDragDrop (var / node-spec / library-subgraph).
+  // MIME-based dispatch via useEditorDragDrop (var / node-spec / snippet / library-subgraph / clip).
   const payload = readDragPayload(e)
   if (payload) {
     const pos = screenPointToFlow({ x: e.clientX, y: e.clientY })
@@ -817,7 +817,8 @@ function onCanvasDrop(e: DragEvent) {
       case 'var': return dropVar(payload, pos)
       case 'node-spec': return dropNodeSpec(payload, pos)
       case 'snippet': return dropSnippet(payload, pos)
-      case 'library-subgraph': return  // not used yet
+      case 'library-subgraph': return void onPickLibrarySubgraph(payload.id, pos)
+      case 'clip': return void onPickLibraryClip(payload.id, pos)
     }
   }
 }

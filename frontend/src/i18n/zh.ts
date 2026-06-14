@@ -224,6 +224,8 @@ export default {
     },
     dock: {
       assets: '资产',
+      detail: '详情',
+      drag_hint: '拖到画布插入 · 双击插到中心',
     },
     toolbar: {
       back_to_list: '返回容器列表',

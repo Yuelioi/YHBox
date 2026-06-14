@@ -1,6 +1,6 @@
-<!-- 子图库资产停靠面板 (从 LibraryExplorerModal 抽 body).
-     本地 tab: 单击选中出详情; 双击/详情按钮插引用; Ctrl/Shift 多选 + 批量删/加标签; 右键单项菜单。
-     在线 tab: 占位 (跨机分享留口)。 -->
+<!-- 子图库资产停靠面板. 主操作 = 放进画布: 行可拖到画布(落松手处) / 双击插到中心.
+     单击=选中(批量); 右键=快捷动作 + 详情(改名/描述/标签等低频 → 按需弹小 modal).
+     在线 tab: 占位。 -->
 <template>
   <div class="flex flex-col h-full min-h-0">
     <!-- 本地/在线 tab -->
@@ -15,156 +15,162 @@
       <p class="text-xs text-dimmed mt-2 max-w-xs">{{ t('library.online.desc') }}</p>
     </div>
 
-    <!-- 本地: 列表 + 右栏 (详情/批量) 双栏 -->
-    <div v-else class="flex-1 min-h-0 overflow-hidden flex gap-3 p-3">
-      <div class="flex-1 min-w-0 flex flex-col gap-3 min-h-0">
-        <div class="flex items-center gap-3 shrink-0">
-          <UInput
-            ref="searchInputRef"
-            v-model="query"
-            :placeholder="t('library.explorer.search')"
-            icon="i-tabler-search"
-            size="sm"
-            class="flex-1"
-          />
-          <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
-          <UButton
-            size="xs"
-            variant="ghost"
-            :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-            :title="sortDesc ? t('library.explorer.sort_desc') : t('library.explorer.sort_asc')"
-            @click="sortDesc = !sortDesc"
-          />
+    <!-- 本地: 列表占满 (详情走右键 → modal) -->
+    <div v-else class="flex-1 min-h-0 overflow-hidden flex flex-col gap-2 p-3">
+      <div class="flex items-center gap-3 shrink-0">
+        <UInput
+          ref="searchInputRef"
+          v-model="query"
+          :placeholder="t('library.explorer.search')"
+          icon="i-tabler-search"
+          size="sm"
+          class="flex-1"
+        />
+        <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+        <UButton
+          size="xs"
+          variant="ghost"
+          :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
+          :title="sortDesc ? t('library.explorer.sort_desc') : t('library.explorer.sort_asc')"
+          @click="sortDesc = !sortDesc"
+        />
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <USelectMenu
+          v-model="categoryFilter"
+          :items="categoryFilterItems"
+          value-key="id"
+          size="xs"
+          class="w-40"
+        />
+        <UInputMenu
+          v-model="tagFilter"
+          multiple
+          :items="allTags"
+          size="xs"
+          :placeholder="t('library.explorer.filter_tags')"
+          class="flex-1"
+        />
+      </div>
+
+      <p class="text-[10px] text-dimmed px-1 shrink-0">{{ t('editor.dock.drag_hint') }}</p>
+
+      <div class="flex-1 min-h-0 overflow-y-auto select-none">
+        <div
+          v-if="filteredItems.length === 0"
+          class="text-center text-xs text-dimmed py-8 italic"
+        >
+          <span v-if="lib.loading">{{ t('library.loading') }}</span>
+          <span v-else-if="lib.subgraphs.length === 0">{{ t('library.explorer.empty') }}</span>
+          <span v-else>{{ t('library.explorer.no_match') }}</span>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-          <USelectMenu
-            v-model="categoryFilter"
-            :items="categoryFilterItems"
-            value-key="id"
-            size="xs"
-            class="w-40"
-          />
-          <UInputMenu
-            v-model="tagFilter"
-            multiple
-            :items="allTags"
-            size="xs"
-            :placeholder="t('library.explorer.filter_tags')"
-            class="flex-1"
-          />
-        </div>
-
-        <div class="flex-1 min-h-0 overflow-y-auto select-none">
-          <div
-            v-if="filteredItems.length === 0"
-            class="text-center text-xs text-dimmed py-8 italic"
-          >
-            <span v-if="lib.loading">{{ t('library.loading') }}</span>
-            <span v-else-if="lib.subgraphs.length === 0"
-              >{{ t('library.explorer.empty') }}</span
-            >
-            <span v-else>{{ t('library.explorer.no_match') }}</span>
-          </div>
-
-          <div v-else class="space-y-2">
-            <template v-for="group in groupedItems" :key="group.category">
-              <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
-                {{ group.category }}
-              </div>
-              <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
-                <div
-                  class="group rounded p-3 cursor-pointer"
-                  :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
-                  @click="onRowClick(item.id, $event)"
-                  @dblclick="onPick(item.id)"
-                  @contextmenu="selClick(item.id)"
-                >
-                  <div class="flex items-start gap-2">
-                    <span
-                      class="mt-0.5 shrink-0 transition-opacity"
-                      :class="isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-                      @click.stop
-                      @dblclick.stop
-                    >
-                      <UCheckbox
-                        :model-value="isSelected(item.id)"
-                        size="sm"
-                        @update:model-value="selClick(item.id, { ctrl: true })"
-                      />
-                    </span>
-                    <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm font-medium">{{ item.label }}</div>
-                      <div
-                        v-if="item.description"
-                        class="text-[11px] text-dimmed mt-0.5 line-clamp-2"
+        <div v-else class="space-y-2">
+          <template v-for="group in groupedItems" :key="group.category">
+            <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
+              {{ group.category }}
+            </div>
+            <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
+              <div
+                draggable="true"
+                class="group rounded p-3 cursor-grab active:cursor-grabbing"
+                :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
+                @click="onRowClick(item.id, $event)"
+                @dblclick="onPick(item.id)"
+                @contextmenu="selClick(item.id)"
+                @dragstart="(e) => startEditorDrag({ type: 'library-subgraph', id: item.id }, e)"
+              >
+                <div class="flex items-start gap-2">
+                  <span
+                    class="mt-0.5 shrink-0 transition-opacity"
+                    :class="isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+                    @click.stop
+                    @dblclick.stop
+                    @dragstart.stop.prevent
+                  >
+                    <UCheckbox
+                      :model-value="isSelected(item.id)"
+                      size="sm"
+                      @update:model-value="selClick(item.id, { ctrl: true })"
+                    />
+                  </span>
+                  <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium">{{ item.label }}</div>
+                    <div v-if="item.description" class="text-[11px] text-dimmed mt-0.5 line-clamp-2">
+                      {{ item.description }}
+                    </div>
+                    <div v-if="item.tags && item.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
+                      <span
+                        v-for="tg in item.tags"
+                        :key="tg"
+                        class="px-1.5 py-0 bg-elevated/60 text-[9px] rounded text-dimmed"
                       >
-                        {{ item.description }}
-                      </div>
-                      <div
-                        v-if="item.tags && item.tags.length > 0"
-                        class="flex flex-wrap gap-1 mt-1"
-                      >
-                        <span
-                          v-for="tg in item.tags"
-                          :key="tg"
-                          class="px-1.5 py-0 bg-elevated/60 text-[9px] rounded text-dimmed"
-                        >
-                          {{ tg }}
-                        </span>
-                      </div>
+                        {{ tg }}
+                      </span>
                     </div>
                   </div>
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-tabler-dots"
+                    class="opacity-0 group-hover:opacity-100 shrink-0"
+                    :title="t('editor.dock.detail')"
+                    @click.stop="openDetail(item.id)"
+                    @dblclick.stop
+                  />
                 </div>
-              </UContextMenu>
-            </template>
-          </div>
-        </div>
-
-        <!-- 底部工具栏 (双态): 无选中 = 计数 + 分页; 有选中 = 批量操作 + 分页 -->
-        <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-          <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
-            {{ t('library.toolbar.total', { n: pageResult.total }) }}
-          </div>
-          <div v-else class="flex items-center gap-1.5 min-w-0">
-            <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
-            <UDropdownMenu :items="batchMenuItems">
-              <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
-                {{ t('library.batch.menu') }}
-              </UButton>
-            </UDropdownMenu>
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-x"
-              :aria-label="t('library.batch.clear')"
-              :title="t('library.batch.clear')"
-              @click="selClear()"
-            />
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <UPagination
-              v-if="pageResult.totalPages > 1"
-              v-model:page="page"
-              :total="pageResult.total"
-              :items-per-page="pageSize"
-              :sibling-count="1"
-              size="xs"
-            />
-            <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
-          </div>
+              </div>
+            </UContextMenu>
+          </template>
         </div>
       </div>
 
-      <LibraryDetailPanel
-        class="h-full"
-        :sgID="anchor"
-        @insert="anchor && onPick(anchor)"
-      />
+      <!-- 底部工具栏 (双态): 无选中 = 计数 + 分页; 有选中 = 批量操作 + 分页 -->
+      <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
+        <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
+          {{ t('library.toolbar.total', { n: pageResult.total }) }}
+        </div>
+        <div v-else class="flex items-center gap-1.5 min-w-0">
+          <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
+          <UDropdownMenu :items="batchMenuItems">
+            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
+              {{ t('library.batch.menu') }}
+            </UButton>
+          </UDropdownMenu>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-x"
+            :aria-label="t('library.batch.clear')"
+            :title="t('library.batch.clear')"
+            @click="selClear()"
+          />
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <UPagination
+            v-if="pageResult.totalPages > 1"
+            v-model:page="page"
+            :total="pageResult.total"
+            :items-per-page="pageSize"
+            :sibling-count="1"
+            size="xs"
+          />
+          <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- 详情 (按需): 改名/描述/分类/标签/被引用统计/复制为新/删除 -->
+  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-package" size="md">
+    <div class="flex justify-center">
+      <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
+    </div>
+  </BaseModal>
 
   <!-- 批量加标签 -->
   <BaseModal v-model:open="batchTagsOpen" :title="t('library.batch.add_tags_title')" icon="i-tabler-tags" size="md">
@@ -209,6 +215,7 @@ import { useLibraryStore } from '@/stores/library'
 import { useConfirm } from '@/composables/useConfirm'
 import { useListSelection } from '@/composables/editor/useListSelection'
 import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
+import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 import BaseModal from '@/components/common/BaseModal.vue'
 import LibraryDetailPanel from '@/components/containers/LibraryDetailPanel.vue'
 import { backend, type Subgraph } from '@/lib/backend'
@@ -247,7 +254,6 @@ async function refreshLibrary() {
 }
 
 // ── 过滤 + 分组 ──
-// categoryFilter 用 'all' / 'none' / 'c:<名>' 前缀编码, 防用户分类名撞保留值。
 const categoryFilter = ref<string>('all')
 const tagFilter = ref<string[]>([])
 
@@ -288,7 +294,6 @@ const filteredItems = computed<Subgraph[]>(() => {
   return sorted
 })
 
-// ── 分页 (过滤后扁平切页, 页内再分组; 每页条数本机记忆) ──
 const page = ref(1)
 const pageSize = useLocalStorage('library.pageSize', 50)
 const pageSizeItems = computed(() => [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })))
@@ -299,11 +304,11 @@ const groupedItems = computed(() => groupByCategory(pageResult.value.pageItems, 
 watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => { page.value = 1 })
 watch(() => pageResult.value.totalPages, (tp) => { if (page.value > tp) page.value = tp })
 
-// ── 选中 (单击/Ctrl/Shift/勾选框; 右键收敛单选); 详情栏跟锚点 = 最后操作行 ──
+// 选中 (单击/Ctrl/Shift/勾选框) — 用于批量操作.
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
-const { selected, anchor, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
 
-// 面板 mount (切到资产·库 tab) → reload + 重置过滤 + 聚焦搜索.
+// 面板 mount → reload + 重置过滤 + 聚焦搜索.
 onMounted(async () => {
   void refreshLibrary()
   query.value = ''
@@ -324,10 +329,23 @@ function onPick(libraryID: string) {
   emit('pick-subgraph', libraryID)
 }
 
+// ── 详情 (按需弹出) ──
+const detailOpen = ref(false)
+const detailId = ref<string | null>(null)
+function openDetail(id: string) {
+  detailId.value = id
+  detailOpen.value = true
+}
+function onDetailInsert() {
+  if (detailId.value) onPick(detailId.value)
+  detailOpen.value = false
+}
+
 function ctxMenuItems(item: Subgraph) {
   return [
     [
       { label: t('library.explorer.insert'), icon: 'i-tabler-package-import', onSelect: () => onPick(item.id) },
+      { label: t('editor.dock.detail'), icon: 'i-tabler-info-circle', onSelect: () => openDetail(item.id) },
       { label: t('library.card.duplicate'), icon: 'i-tabler-copy-plus', onSelect: () => onDuplicate(item) },
     ],
     [
@@ -348,7 +366,7 @@ async function onCopyID(item: Subgraph) {
   }
 }
 
-// 复制为新子图 (fork, ≈Blender Make Local): 想独立改不影响引用方时用。
+// 复制为新子图 (fork): 想独立改不影响引用方时用。
 async function onDuplicate(item: Subgraph) {
   const dup = await lib.duplicateSubgraph(item.id)
   if (dup) {
@@ -375,10 +393,9 @@ async function onDelete(item: Subgraph) {
   if (!ok) {
     toast.add({ title: t('toast.delete_failed'), color: 'error' })
   }
-  // 选中项随 visibleIds 收缩自动剔除, 无需手动清。
 }
 
-// ── 批量删除: 逐项扫引用汇总警告, 确认后逐项删 (各带 rev), 失败聚合一条 toast ──
+// ── 批量删除 ──
 async function onBatchDelete() {
   const ids = [...selected.value]
   const referenced: string[] = []
@@ -406,7 +423,7 @@ async function onBatchDelete() {
   selClear()
 }
 
-// ── 批量加标签: 客户端算并集发全量数组 (RFC7386 数组整体替换) ──
+// ── 批量加标签 ──
 const batchTagsOpen = ref(false)
 const batchTags = ref<string[]>([])
 
@@ -420,10 +437,7 @@ async function onBatchAddTags() {
   let failed = 0
   for (const id of ids) {
     const sg = lib.byId(id)
-    if (!sg) {
-      failed++
-      continue
-    }
+    if (!sg) { failed++; continue }
     const tags = [...new Set([...(sg.tags ?? []), ...add])]
     try {
       await backend.subgraphs.updateSilent(sg.id, JSON.stringify({ tags }), sg.rev)
@@ -439,7 +453,7 @@ async function onBatchAddTags() {
   batchTags.value = []
 }
 
-// 批量动作收进下拉 (Gmail/GitHub 式 "N selected + 菜单"), 工具栏不被三个钮撑爆。
+// 批量动作收进下拉.
 const batchMenuItems = computed(() => [
   [
     { label: t('library.batch.add_tags'), icon: 'i-tabler-tags', onSelect: () => { batchTagsOpen.value = true } },
@@ -450,7 +464,7 @@ const batchMenuItems = computed(() => [
   ],
 ])
 
-// ── 批量改分类: 目标分类整体覆盖各选中项 (空 = 移到未分类) ──
+// ── 批量改分类 ──
 const batchCategoryOpen = ref(false)
 const batchCategory = ref('')
 
@@ -460,10 +474,7 @@ async function onBatchChangeCategory() {
   let failed = 0
   for (const id of ids) {
     const sg = lib.byId(id)
-    if (!sg) {
-      failed++
-      continue
-    }
+    if (!sg) { failed++; continue }
     try {
       await backend.subgraphs.updateSilent(sg.id, JSON.stringify({ category: target }), sg.rev)
     } catch {

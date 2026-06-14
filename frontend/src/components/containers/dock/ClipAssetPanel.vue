@@ -1,65 +1,68 @@
-<!-- clip 资产停靠面板 (从 ClipExplorerModal 抽 body). 两栏: 左列表(搜索/分类·标签过滤/分组/多选/分页)
-     + 右 ClipDetailPanel. 双击行 / 详情「插入引用」→ 插一个裸 PlayClip 节点 (config.ClipID).
-     批量改标签/分类/删. 录制走 toolbar, 此面板只管已录的. -->
+<!-- clip 资产停靠面板. 主操作 = 放进画布: 行可拖到画布(落松手处) / 双击插到中心 (裸 PlayClip).
+     单击=选中(批量); 右键/⋯=插入 + 详情(改名/标签等低频 → 按需弹小 modal) + 删除. -->
 <template>
   <div class="flex flex-col h-full min-h-0">
-    <div class="flex-1 min-h-0 overflow-hidden flex gap-3 p-3">
-      <div class="flex-1 min-w-0 flex flex-col gap-3 min-h-0">
-        <div class="flex items-center gap-3 shrink-0">
-          <UInput
-            ref="searchInputRef"
-            v-model="query"
-            :placeholder="t('clip.manager.search')"
-            icon="i-tabler-search"
-            size="sm"
-            class="flex-1"
-          />
-          <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
-          <UButton
-            size="xs"
-            variant="ghost"
-            :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-            :title="sortDesc ? t('clip.manager.sort_desc') : t('clip.manager.sort_asc')"
-            @click="sortDesc = !sortDesc"
-          />
+    <div class="flex-1 min-h-0 overflow-hidden flex flex-col gap-2 p-3">
+      <div class="flex items-center gap-3 shrink-0">
+        <UInput
+          ref="searchInputRef"
+          v-model="query"
+          :placeholder="t('clip.manager.search')"
+          icon="i-tabler-search"
+          size="sm"
+          class="flex-1"
+        />
+        <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+        <UButton
+          size="xs"
+          variant="ghost"
+          :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
+          :title="sortDesc ? t('clip.manager.sort_desc') : t('clip.manager.sort_asc')"
+          @click="sortDesc = !sortDesc"
+        />
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <USelectMenu v-model="categoryFilter" :items="categoryFilterItems" value-key="id" size="xs" class="w-40" />
+        <UInputMenu
+          v-model="tagFilter"
+          multiple
+          :items="allTags"
+          size="xs"
+          :placeholder="t('library.explorer.filter_tags')"
+          class="flex-1"
+        />
+      </div>
+
+      <p class="text-[10px] text-dimmed px-1 shrink-0">{{ t('editor.dock.drag_hint') }}</p>
+
+      <div class="flex-1 min-h-0 overflow-y-auto select-none">
+        <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
+          <span v-if="entries.length === 0">{{ t('clip.manager.empty') }}</span>
+          <span v-else>{{ t('clip.manager.no_match', { search: query }) }}</span>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-          <USelectMenu v-model="categoryFilter" :items="categoryFilterItems" value-key="id" size="xs" class="w-40" />
-          <UInputMenu
-            v-model="tagFilter"
-            multiple
-            :items="allTags"
-            size="xs"
-            :placeholder="t('library.explorer.filter_tags')"
-            class="flex-1"
-          />
-        </div>
-
-        <div class="flex-1 min-h-0 overflow-y-auto select-none">
-          <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-            <span v-if="entries.length === 0">{{ t('clip.manager.empty') }}</span>
-            <span v-else>{{ t('clip.manager.no_match', { search: query }) }}</span>
-          </div>
-
-          <div v-else class="space-y-2">
-            <template v-for="group in groupedItems" :key="group.category">
-              <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
-                {{ group.category }}
-              </div>
+        <div v-else class="space-y-2">
+          <template v-for="group in groupedItems" :key="group.category">
+            <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
+              {{ group.category }}
+            </div>
+            <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
               <div
-                v-for="item in group.items"
-                :key="item.id"
-                class="group rounded p-2.5 cursor-pointer"
+                draggable="true"
+                class="group rounded p-2.5 cursor-grab active:cursor-grabbing"
                 :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
                 @click="onRowClick(item.id, $event)"
                 @dblclick="onPick(item.id)"
+                @contextmenu="selClick(item.id)"
+                @dragstart="(e) => startEditorDrag({ type: 'clip', id: item.id }, e)"
               >
                 <div class="flex items-center gap-2">
                   <span
                     class="shrink-0 transition-opacity"
                     :class="isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
                     @click.stop
+                    @dragstart.stop.prevent
                   >
                     <UCheckbox
                       :model-value="isSelected(item.id)"
@@ -76,43 +79,58 @@
                       <span v-if="item.tags?.length" class="truncate">· {{ item.tags.join(', ') }}</span>
                     </div>
                   </div>
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-tabler-dots"
+                    class="opacity-0 group-hover:opacity-100 shrink-0"
+                    :title="t('editor.dock.detail')"
+                    @click.stop="openDetail(item.id)"
+                    @dblclick.stop
+                  />
                 </div>
               </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- 底部双态 -->
-        <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-          <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
-            {{ t('library.toolbar.total', { n: pageResult.total }) }}
-          </div>
-          <div v-else class="flex items-center gap-1.5 min-w-0">
-            <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
-            <UDropdownMenu :items="batchMenuItems">
-              <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
-                {{ t('library.batch.menu') }}
-              </UButton>
-            </UDropdownMenu>
-            <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-x" :title="t('library.batch.clear')" @click="selClear()" />
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <UPagination
-              v-if="pageResult.totalPages > 1"
-              v-model:page="page"
-              :total="pageResult.total"
-              :items-per-page="pageSize"
-              :sibling-count="1"
-              size="xs"
-            />
-            <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
-          </div>
+            </UContextMenu>
+          </template>
         </div>
       </div>
 
-      <ClipDetailPanel class="h-full" :clip-id="anchor" @insert="anchor && onPick(anchor)" />
+      <!-- 底部双态 -->
+      <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
+        <div v-if="selected.size === 0" class="text-[11px] text-dimmed">
+          {{ t('library.toolbar.total', { n: pageResult.total }) }}
+        </div>
+        <div v-else class="flex items-center gap-1.5 min-w-0">
+          <span class="text-[11px] text-toned shrink-0">{{ t('library.batch.selected_n', { n: selected.size }) }}</span>
+          <UDropdownMenu :items="batchMenuItems">
+            <UButton size="xs" variant="soft" color="primary" icon="i-tabler-stack-2" trailing-icon="i-tabler-chevron-down">
+              {{ t('library.batch.menu') }}
+            </UButton>
+          </UDropdownMenu>
+          <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-x" :title="t('library.batch.clear')" @click="selClear()" />
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <UPagination
+            v-if="pageResult.totalPages > 1"
+            v-model:page="page"
+            :total="pageResult.total"
+            :items-per-page="pageSize"
+            :sibling-count="1"
+            size="xs"
+          />
+          <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- 详情 (按需): 改名/描述/分类/标签/删除 -->
+  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-movie" size="md">
+    <div class="flex justify-center">
+      <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
+    </div>
+  </BaseModal>
 
   <!-- 批量加标签 -->
   <BaseModal v-model:open="batchTagsOpen" :title="t('library.batch.add_tags_title')" icon="i-tabler-tags" size="md">
@@ -142,6 +160,7 @@ import { backend } from '@/lib/backend'
 import { useClipsStore, type ClipSummary } from '@/stores/clips'
 import { useListSelection } from '@/composables/editor/useListSelection'
 import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
+import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ClipDetailPanel from '@/components/containers/ClipDetailPanel.vue'
 
@@ -150,7 +169,7 @@ const emit = defineEmits<{
   'pick-clip': [clipID: string]
 }>()
 
-// 选中 clip → 插裸 PlayClip 引用节点到当前容器 (镜像子图库 onPick).
+// 选中 clip → 插裸 PlayClip 引用节点.
 function onPick(clipID: string) {
   emit('pick-clip', clipID)
 }
@@ -169,7 +188,6 @@ const sortItems = computed(() => [
   { label: t('clip.manager.view_by_duration'), value: 'duration' },
 ])
 
-// ClipSummary 自带 label/description/category/tags → libraryFilter 直接吃.
 const entries = computed<ClipSummary[]>(() => store.clips)
 
 const allCategories = computed(() => {
@@ -226,9 +244,9 @@ watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => { p
 watch(() => pageResult.value.totalPages, (tp) => { if (page.value > tp) page.value = tp })
 
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
-const { selected, anchor, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
 
-// 面板 mount (切到资产·Clip tab) → refresh + 重置过滤 + 聚焦搜索.
+// 面板 mount → refresh + 重置过滤 + 聚焦搜索.
 onMounted(async () => {
   void store.refresh()
   query.value = ''
@@ -247,6 +265,43 @@ function onRowClick(id: string, e: MouseEvent) {
 
 function byId(id: string): ClipSummary | undefined {
   return store.clips.find((c) => c.id === id)
+}
+
+// ── 详情 (按需弹出) ──
+const detailOpen = ref(false)
+const detailId = ref<string | null>(null)
+function openDetail(id: string) {
+  detailId.value = id
+  detailOpen.value = true
+}
+function onDetailInsert() {
+  if (detailId.value) onPick(detailId.value)
+  detailOpen.value = false
+}
+
+function ctxMenuItems(item: ClipSummary) {
+  return [
+    [
+      { label: t('library.explorer.insert'), icon: 'i-tabler-package-import', onSelect: () => onPick(item.id) },
+      { label: t('editor.dock.detail'), icon: 'i-tabler-info-circle', onSelect: () => openDetail(item.id) },
+    ],
+    [
+      { label: t('library.card.delete'), icon: 'i-tabler-trash', color: 'error' as const, onSelect: () => onDelete(item) },
+    ],
+  ]
+}
+
+// 单项删除: 先扫引用, 被引用则警告, 确认后删.
+async function onDelete(item: ClipSummary) {
+  const refs = await backend.assets.referrers(item.id)
+  const name = item.label || t('clip.manager.untitled')
+  const desc = (refs?.length ?? 0) > 0
+    ? t('clip.manager.batch_delete_confirm_referenced', { n: 1, refs: refs?.length ?? 0 })
+    : t('clip.manager.batch_delete_confirm', { n: 1 })
+  const yes = await confirm({ title: t('clip.manager.batch_delete_title'), description: `${name} — ${desc}`, color: 'error', confirmText: t('common.delete') })
+  if (yes !== true) return
+  await store.remove(item.id)
+  await store.refresh()
 }
 
 // ── 批量 ──
