@@ -1,8 +1,9 @@
 ---
-status: active
-summary: "Spec B 实现计划 Part 1: 左侧停靠区 (Editor Left Dock)。把 4 个近全屏 explorer modal (节点库/模板/库/Clip) + 2 个抽屉 (变量/Snippets) 收进一个左侧停靠区 — 窄列表(~300px)↔宽资产网格(~600px)自适应, 始终挤画布不盖画布。新建 7 文件 (ContainerEditorDock + NodeLibraryPanel + AssetDockPanel + Template/Library/ClipAssetPanel + useAssetPicker), 删 4 modal, 改状态模型(useSidebarPrefs 加 'nodes'/'assets'+assetTab) + rail + Tab 热键 + 命令面板 + TemplatePickerField 字段唤起路由。复用 Spec A 黑底浮起语言。边界: vue-flow 画布/节点/连线/pin 不碰。"
-last_updated: 2026-06-14
+status: done
+summary: "Spec B 实现计划 Part 1: 左侧停靠区 (Editor Left Dock)。把 4 个近全屏 explorer modal (节点库/模板/库/Clip) + 2 个抽屉 (变量/Snippets) 收进一个左侧停靠区 — 窄列表(~300px)↔宽资产网格(~600px)自适应, 始终挤画布不盖画布。新建 8 文件 (ContainerEditorDock + NodeLibraryPanel + AssetDockPanel + Template/Library/ClipAssetPanel + useAssetPicker + spec), 删 4 modal, 改状态模型(useSidebarPrefs 加 'nodes'/'assets'+assetTab) + rail + Tab 热键 + 命令面板 + TemplatePickerField 字段唤起路由。复用 Spec A 黑底浮起语言。边界: vue-flow 画布/节点/连线/pin 不碰。"
+last_updated: 2026-06-15
 implements: specs/2026-06-14-ui-uplift-editor.md
+verify: "真机 smoke (task dev 进编辑器): rail 4 图标开/收、Tab 开收节点库、资产 tab 切换+宽态自适应、节点字段选模板路由到停靠区 pick 模式、双击库项/Clip 插节点; 画布交互 (拖节点/连线/缩放/子图进出/右键/inline pin) 不回归。"
 ---
 
 # 编辑器左侧停靠区 Implementation Plan (Spec B · Part 1)
@@ -19,9 +20,17 @@ implements: specs/2026-06-14-ui-uplift-editor.md
 
 ## Progress
 
-current: not-started
+current: code-complete — 全 9 Task 落地 (commits 6f62a24..16f1b42)。静态全绿: typecheck clean / vitest 335 passed (38 files, +6 新: 2 sidebar + 4 asset-picker) / build:dev ok。Task 8 死状态清扫: incremental 清理已干净, 无残留 (grep nodeExplorerOpen/library·templates·clipsExplorerOpen/leftPane/toggleLeftDrawer 零命中)。**真机 smoke 待用户跑** (见 frontmatter verify) —— 编辑器屏 backend 依赖深, 离屏渲染会黑屏, 无 Playwright MCP, 同 Spec A 留真机。
 
-> 每个 Task 落地后在此追加一行:`T<n> done — <commit>`。全部完成后跑 Task 9 总验证 + 真机 smoke。
+- T1 done — 6f62a24 (useSidebarPrefs +nodes/assets/assetTab, TDD)
+- T2 done — 39db994 (useAssetPicker 通道, TDD 4 例)
+- T3 done — (ContainerEditorDock 外壳, 窄/宽双宽度)
+- T4 done — 1070780 (节点库/变量/Snippets 进 dock, rail dock 化, Tab/spawn-pos/命令面板改连)
+- T5 done — 9fd62f7 (3 资产面板从 modal body 抽)
+- T6 done — 9a55e7f (AssetDockPanel UTabs 宿主, 删 library/clip modal, 命令面板 library→停靠, i18n)
+- T7 done — 16f1b42 (TemplatePickerField 路由停靠区, NodeInspector 传 pin, 删 template modal)
+- T8 done — 无改动 (sweep 已干净)
+- T9 — 静态全绿; 真机 smoke 待用户
 
 ---
 
