@@ -3,7 +3,6 @@ status: done
 summary: "Spec B 实现计划 Part 1: 左侧停靠区 (Editor Left Dock)。把 4 个近全屏 explorer modal (节点库/模板/库/Clip) + 2 个抽屉 (变量/Snippets) 收进一个左侧停靠区 — 窄列表(~300px)↔宽资产网格(~600px)自适应, 始终挤画布不盖画布。新建 8 文件 (ContainerEditorDock + NodeLibraryPanel + AssetDockPanel + Template/Library/ClipAssetPanel + useAssetPicker + spec), 删 4 modal, 改状态模型(useSidebarPrefs 加 'nodes'/'assets'+assetTab) + rail + Tab 热键 + 命令面板 + TemplatePickerField 字段唤起路由。复用 Spec A 黑底浮起语言。边界: vue-flow 画布/节点/连线/pin 不碰。"
 last_updated: 2026-06-15
 implements: specs/2026-06-14-ui-uplift-editor.md
-verify: "真机 smoke (task dev 进编辑器): rail 4 图标开/收、Tab 开收节点库、资产 tab 切换+宽态自适应、节点字段选模板路由到停靠区 pick 模式、双击库项/Clip 插节点; 画布交互 (拖节点/连线/缩放/子图进出/右键/inline pin) 不回归。"
 ---
 
 # 编辑器左侧停靠区 Implementation Plan (Spec B · Part 1)
@@ -20,7 +19,7 @@ verify: "真机 smoke (task dev 进编辑器): rail 4 图标开/收、Tab 开收
 
 ## Progress
 
-current: code-complete — 全 9 Task 落地 (commits 6f62a24..16f1b42)。静态全绿: typecheck clean / vitest 335 passed (38 files, +6 新: 2 sidebar + 4 asset-picker) / build:dev ok。Task 8 死状态清扫: incremental 清理已干净, 无残留 (grep nodeExplorerOpen/library·templates·clipsExplorerOpen/leftPane/toggleLeftDrawer 零命中)。**真机 smoke 待用户跑** (见 frontmatter verify) —— 编辑器屏 backend 依赖深, 离屏渲染会黑屏, 无 Playwright MCP, 同 Spec A 留真机。
+current: **done — 真机 smoke 2026-06-15 用户验过** (verify 标记已清)。全 9 Task 落地 (commits 6f62a24..16f1b42), 静态全绿 (typecheck / vitest 335 / build:dev)。**smoke 后据用户反馈又迭代了一轮资产面板交互** (commits e6081f1..fdb18f4): 节点单击落视口中心 + 拖到画布; 库/Clip 拖入画布 + 详情按需 modal; 模板缩略图网格; 统一 单击选/双击详情/拖拽插; 批量操作移顶部上下文条 (Gmail/GitHub 式) + 底部仅分页; wide min 450。三类资产同一体感。
 
 - T1 done — 6f62a24 (useSidebarPrefs +nodes/assets/assetTab, TDD)
 - T2 done — 39db994 (useAssetPicker 通道, TDD 4 例)
