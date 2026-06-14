@@ -21,15 +21,16 @@ import { useSplitpane } from '@/composables/useSplitpane'
 
 const props = defineProps<{ wide: boolean }>()
 
-// 窄模式 (节点库/变量/Snippets 列表) 与 宽模式 (资产缩略图网格) 各自一套宽度,
+// 窄模式 (节点库/变量/Snippets 列表) 与 宽模式 (资产: 搜索+过滤+批量+分页 双栏) 各自一套宽度,
 // 各自持久化、互不挤压: 资产宽态拖宽不会缩窄列表态, 反之亦然.
+// 宽态 min 660: 实测 < 660 资产面板的"批量操作"按钮 / 标签过滤行会挤到换行 (用户 2026-06-15 验).
 const narrow = useSplitpane('editor.dock.narrow', { default: 300, min: 240, max: 480 })
-const widePane = useSplitpane('editor.dock.wide', { default: 600, min: 420, max: 820 })
+const widePane = useSplitpane('editor.dock.wide', { default: 680, min: 660, max: 900 })
 
 const active = computed(() => (props.wide ? widePane : narrow))
 const width = computed(() => active.value.width.value)
-const min = computed(() => (props.wide ? 420 : 240))
-const max = computed(() => (props.wide ? 820 : 480))
+const min = computed(() => (props.wide ? 660 : 240))
+const max = computed(() => (props.wide ? 900 : 480))
 function setWidth(v: number) {
   active.value.setWidth(v)
 }

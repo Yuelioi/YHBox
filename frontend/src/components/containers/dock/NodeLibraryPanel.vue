@@ -39,9 +39,11 @@
               <div
                 v-for="spec in g.specs"
                 :key="spec.kind"
-                class="flex items-center gap-2 px-2 py-1 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] cursor-pointer"
+                draggable="true"
+                class="flex items-center gap-2 px-2 py-1 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] cursor-grab active:cursor-grabbing"
                 :title="spec.description ? t(spec.description) : spec.kind"
                 @click="onSelectKind(spec.kind)"
+                @dragstart="(e) => startEditorDrag({ type: 'node-spec', kind: spec.kind }, e)"
               >
                 <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
                 <span class="flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
@@ -60,6 +62,7 @@ import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 
 const { t } = useI18n()
 

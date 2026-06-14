@@ -108,7 +108,7 @@
         >
           <NodeLibraryPanel
             v-if="sidebarPrefs.leftDrawer === 'nodes'"
-            @pick-kind="(k: string) => onPickKind(k, nodeExplorerSpawnPos)"
+            @pick-kind="(k: string) => onPickKind(k)"
           />
           <VarsPanel
             v-else-if="sidebarPrefs.leftDrawer === 'vars'"
@@ -768,12 +768,6 @@ function trackMouse(e: MouseEvent) {
   lastMousePos.value = { x: e.clientX, y: e.clientY }
 }
 
-// 切到节点库停靠面板时快照鼠标位置 — 等用户在面板里点完节点, 鼠标已挪到面板上,
-// lastMousePos 不再是唤起时的画布位置, 所以在面板打开那刻就定格。
-const nodeExplorerSpawnPos = ref({ x: 240, y: 180 })
-watch(() => sidebarPrefs.value.leftDrawer, (d) => {
-  if (d === 'nodes') nodeExplorerSpawnPos.value = { ...lastMousePos.value }
-})
 function onSnippetShortcutKeydown(e: KeyboardEvent) {
   // 文本输入聚焦时不触发 (避免破坏 textarea/input)
   const t = e.target as HTMLElement | null
