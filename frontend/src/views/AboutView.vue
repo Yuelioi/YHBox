@@ -1,10 +1,11 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
+  <div class="px-8 py-8">
+    <div class="mx-auto max-w-3xl space-y-5">
     <!-- 主介绍卡 -->
     <AppCard>
-      <div class="flex flex-col items-center text-center">
-        <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" class="mb-5" />
-        <h2 class="text-lg font-semibold text-highlighted mb-2">
+      <div class="flex flex-col items-center text-center py-1">
+        <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" class="mb-4" />
+        <h2 class="text-lg font-semibold text-highlighted mb-1.5">
           {{ info?.name ?? 'Yotta' }}
           <span class="text-muted font-normal ml-1 font-mono tabular-nums">v{{ info?.version ?? '...' }}</span>
         </h2>
@@ -14,17 +15,17 @@
       </div>
     </AppCard>
 
-    <!-- 核心概念 -->
+    <!-- 核心概念 (摊平: 卡内网格, 不再 card-in-card) -->
     <AppCard>
       <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.concepts.title') }}</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <AppCard v-for="c in concepts" :key="c.key" padding="panel">
-          <div class="flex items-center gap-2 mb-2">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
+        <div v-for="c in concepts" :key="c.key">
+          <div class="flex items-center gap-2 mb-1.5">
             <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
             <span class="text-sm font-medium text-highlighted">{{ t(`about.concepts.${c.key}.name`) }}</span>
           </div>
           <p class="text-xs text-muted leading-relaxed">{{ t(`about.concepts.${c.key}.desc`) }}</p>
-        </AppCard>
+        </div>
       </div>
     </AppCard>
 
@@ -117,6 +118,7 @@
         </p>
       </div>
     </AppCard>
+    </div>
   </div>
 </template>
 
