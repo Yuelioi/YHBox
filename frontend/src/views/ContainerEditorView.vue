@@ -259,17 +259,18 @@
         />
       </div>
 
-    </div>
+      <!-- 底部「问题」条: 校验错误列表 (跳转/修复), 停靠编辑器列底、挤画布不盖。 -->
+      <EditorProblemsBar
+        v-model:expanded="problemsExpanded"
+        :errors="validationErrors"
+        :validated="validationRan"
+        @jump="onJumpToErrorNode"
+        @fix="onFixError"
+        @fix-missing-window-target="onFixMissingWindowTarget"
+        @run="onValidationPanelRun"
+      />
 
-    <ValidationErrorPanel
-      :open="validationPanelOpen"
-      :errors="validationErrors"
-      @close="validationPanelOpen = false"
-      @run="onValidationPanelRun"
-      @fix-missing-window-target="onFixMissingWindowTarget"
-      @jump="onJumpToErrorNode"
-      @fix="onFixError"
-    />
+    </div>
 
     <ContainerSettingsModal
       v-if="draft"
@@ -459,7 +460,7 @@ import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolb
 import CanvasContextBar from '@/components/containers/CanvasContextBar.vue'
 import CanvasEmptyState from '@/components/containers/CanvasEmptyState.vue'
 import ContainerEditorInspector from '@/components/containers/ContainerEditorInspector.vue'
-import ValidationErrorPanel from '@/components/containers/ValidationErrorPanel.vue'
+import EditorProblemsBar from '@/components/containers/EditorProblemsBar.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { resolveInspectorMode } from '@/composables/editor/inspectorMode'
 import { useAssetPicker } from '@/composables/editor/useAssetPicker'
@@ -984,8 +985,10 @@ const { onFoldSelection } = useFolding({
   draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast,
 })
 
-// 校验问题面板状态 (检查按钮 / 保存失败 / 试运行前置校验 共用)。
-const validationPanelOpen = ref(false)
+// 校验问题条状态 (检查按钮 / 保存失败 / 试运行前置校验 共用)。
+// problemsExpanded = 底条展开; validationRan = 是否跑过校验 (区分「通过」与「没查」)。
+const problemsExpanded = ref(false)
+const validationRan = ref(false)
 const validationErrors = ref<ValidationError[]>([])
 
 // 保存 (子图带 rev 乐观锁). 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
@@ -995,7 +998,8 @@ const { onSave, saveFlash, staleSubgraphs, reloadStaleSubgraphs, dismissStaleSub
     // 主图保存因校验失败 → 灌进问题面板 (逐条可跳转 / 一键修复), 取代干巴巴 toast。
     onValidationErrors: (errs) => {
       validationErrors.value = errs
-      validationPanelOpen.value = true
+      validationRan.value = true
+      problemsExpanded.value = true
     },
   })
 
@@ -1369,7 +1373,8 @@ async function onTryRun() {
     const realErrs = (errs ?? []).filter((e) => e.severity === 'error')
     if (realErrs.length > 0) {
       validationErrors.value = errs
-      validationPanelOpen.value = true
+      validationRan.value = true
+      problemsExpanded.value = true
       return
     }
   } catch (e) {
@@ -1390,7 +1395,8 @@ async function onValidate() {
   try {
     const errs = (await backend.containers.validate(draft.value.id)) as ValidationError[]
     validationErrors.value = errs ?? []
-    validationPanelOpen.value = true
+    validationRan.value = true
+    problemsExpanded.value = true
   } catch (e) {
     toast.add({ title: t('toast.validate_call_failed'), description: errorMessage(e), color: 'error' })
   }
@@ -1407,7 +1413,7 @@ const { commands } = useCommandPalette({
 })
 
 async function onValidationPanelRun() {
-  validationPanelOpen.value = false
+  problemsExpanded.value = false
   if (!draft.value) return
   await backend.containers.run(draft.value.id)
   toast.add({
@@ -1433,7 +1439,7 @@ function onFixMissingWindowTarget() {
   }
   mainGraph.nodes.push(newNode)
   syncFlowFromDraft()
-  validationPanelOpen.value = false
+  problemsExpanded.value = false
   toast.add({
     title: t('toast.window_target_added_title'),
     description: t('toast.window_target_added_desc'),
@@ -1460,7 +1466,7 @@ async function onJumpToErrorNode(e: ValidationError) {
   if (!e.nodeId) return
   const loc = locateNode(e.nodeId)
   if (!loc) return
-  validationPanelOpen.value = false
+  problemsExpanded.value = false
   const curSg = editorStore.editorPath[editorStore.editorPath.length - 1] ?? null
   if (curSg !== loc.sgID) {
     editorStore.setPath(loc.sgID ? [loc.sgID] : [])

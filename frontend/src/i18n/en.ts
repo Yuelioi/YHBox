@@ -1751,14 +1751,12 @@
     // service.go fallback
     CONTAINER_NOT_FOUND: 'Container {id} not found',
   },
-  // ValidationErrorPanel modal shell strings — separate from error.* codes.
+  // Problems bar strings (EditorProblemsBar) — separate from error.* codes.
   validation: {
-    title_failed: 'Validation failed — {errorCount} errors',
-    title_failed_with_warns: 'Validation failed — {errorCount} errors / {warnCount} warnings',
-    title_passed: 'Validation passed',
     desc_no_issues: 'No validation issues. Container can be run.',
-    node_label: 'Node:',
-    close: 'Close',
+    bar_title: 'Problems',
+    unchecked: 'Not checked',
+    passed_short: 'No issues',
     run_button: 'Pass — continue running',
     fix_missing_window_target: 'Auto-add WindowTarget node',
     jump: 'Jump',

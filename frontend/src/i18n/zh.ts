@@ -17,7 +17,7 @@
 //   dialog.<k>             ConfirmDialog / Modal title/body
 //   toast.<k>              所有 toast.add({title,description})
 //   error.<k>              ValidationError.Code → user message
-//   validation.<k>         ValidationErrorPanel 壳文案
+//   validation.<k>         EditorProblemsBar 问题条文案
 //
 // 用 ts 而不是 yaml: unplugin-vue-i18n 的 yaml 输出格式跟 vue-i18n 9 runtime
 // 不兼容会 throw SyntaxError. ts 给 createI18n 喂 plain object, runtime 自己
@@ -1771,14 +1771,12 @@ export default {
     // service.go 兜底
     CONTAINER_NOT_FOUND: '容器 {id} 不存在',
   },
-  // ValidationErrorPanel 模态壳文案 — 跟 error.* 错误码分开.
+  // 校验问题条文案 (EditorProblemsBar) — 跟 error.* 错误码分开.
   validation: {
-    title_failed: '校验失败 — {errorCount} 错',
-    title_failed_with_warns: '校验失败 — {errorCount} 错 / {warnCount} 警告',
-    title_passed: '校验通过',
     desc_no_issues: '没有发现校验错误。容器可以试运行。',
-    node_label: '节点:',
-    close: '关闭',
+    bar_title: '问题',
+    unchecked: '未检查',
+    passed_short: '无问题',
     run_button: '通过 — 继续运行',
     fix_missing_window_target: '一键添加 WindowTarget 节点',
     jump: '跳转',
