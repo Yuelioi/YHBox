@@ -27,12 +27,6 @@ const (
 	dcbtDataConf     = "Confidence"
 	dcbtDataInnerPx  = "InnerPx"
 	dcbtDataOuterPx  = "OuterPx"
-	dcbtCapInnerX    = "CaptureInnerX"
-	dcbtCapOuterX    = "CaptureOuterX"
-	dcbtCapOuterW    = "CaptureOuterWidth"
-	dcbtCapConf      = "CaptureConfidence"
-	dcbtCapInnerPx   = "CaptureInnerPx"
-	dcbtCapOuterPx   = "CaptureOuterPx"
 )
 
 // dualBarOptionsSchema Options 字段结构化 schema — 所有 parseDualBarOptions 实际读取的键.
@@ -64,18 +58,6 @@ func (DualColorBarTrack) Spec() node.Spec {
 			{Name: dcbtInOptions, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})},
 				Schema: dualBarOptionsSchema},
-			{Name: dcbtCapInnerX, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbtCapOuterX, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbtCapOuterW, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbtCapConf, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbtCapInnerPx, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbtCapOuterPx, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dcbtOutFound, Type: "Exec",
@@ -106,15 +88,8 @@ func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error)
 		return nil, node.Failf(node.CodeCaptureFailed, err, "DualColorBarTrack: %v", err)
 	}
 	if !result.Found || result.InnerX < 0 || result.OuterX < 0 {
-		node.Capture(ctx, in, dcbtCapConf, result.Confidence) // missing 仅带 Conf
 		return ctx.Out(dcbtOutNotFound).Set(dcbtDataConf, result.Confidence).Fire(), nil
 	}
-	node.Capture(ctx, in, dcbtCapInnerX, result.InnerX)
-	node.Capture(ctx, in, dcbtCapOuterX, result.OuterX)
-	node.Capture(ctx, in, dcbtCapOuterW, result.OuterWidth)
-	node.Capture(ctx, in, dcbtCapConf, result.Confidence)
-	node.Capture(ctx, in, dcbtCapInnerPx, result.InnerPx)
-	node.Capture(ctx, in, dcbtCapOuterPx, result.OuterPx)
 	return ctx.Out(dcbtOutFound).
 		Set(dcbtDataInnerX, result.InnerX).
 		Set(dcbtDataOuterX, result.OuterX).

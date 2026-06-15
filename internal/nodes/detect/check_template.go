@@ -26,8 +26,6 @@ const (
 	ctDataPoint   = "Point"
 	ctDataConf    = "Conf"
 	ctDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
-	ctCapFound    = "CaptureFound"
-	ctCapPoint    = "CapturePoint"
 )
 
 // === Spec: declarative metadata ===
@@ -47,10 +45,6 @@ func (CheckTemplate) Spec() node.Spec {
 			{Name: ctInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-			{Name: ctCapFound, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: ctCapPoint, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: ctOutFound, Type: "Exec",
@@ -78,11 +72,8 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "vision match %s: %v", strings.Join(keys, "+"), err)
 	}
 	if pt != nil {
-		node.Capture(ctx, in, ctCapFound, true)
-		node.Capture(ctx, in, ctCapPoint, *pt)
 		return ctx.Out(ctOutFound).Set(ctDataPoint, *pt).Set(ctDataConf, conf).Set(ctDataMatched, true).Fire(), nil
 	}
-	node.Capture(ctx, in, ctCapFound, false) // miss 不写 point
 	return ctx.Out(ctOutNotFound).Set(ctDataConf, conf).Set(ctDataMatched, false).Fire(), nil
 }
 

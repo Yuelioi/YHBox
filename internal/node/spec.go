@@ -46,8 +46,6 @@ type InputSpec struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`               // runtime 类型 tag
 	Semantic string `json:"semantic,omitempty"` // UI 语义提示
-	// CaptureType 仅 Semantic=="capture" 框有效，被捕获值的 VarType（number/string/bool/point/any）。
-	CaptureType string       `json:"captureType,omitempty"`
 	Required    bool         `json:"required,omitempty"`
 	Advanced    bool         `json:"advanced,omitempty"`
 	Default     any          `json:"default,omitempty"` // JSON 序列化用 json.Number

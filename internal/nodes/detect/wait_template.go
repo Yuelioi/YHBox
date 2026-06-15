@@ -27,8 +27,6 @@ const (
 	wtDataPoint   = "Point"
 	wtDataConf    = "Conf"
 	wtDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
-	wtCapFound    = "CaptureFound"
-	wtCapPoint    = "CapturePoint"
 )
 
 func (WaitTemplate) Spec() node.Spec {
@@ -51,10 +49,6 @@ func (WaitTemplate) Spec() node.Spec {
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: wtInSettleMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: wtCapFound, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: wtCapPoint, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: wtOutFound, Type: "Exec",
@@ -88,11 +82,8 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		if err != nil {
 			return nil, err // settle 期间被取消 (graph stop) → 优雅 halt
 		}
-		node.Capture(ctx, in, wtCapFound, true)
-		node.Capture(ctx, in, wtCapPoint, *pt)
 		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Set(wtDataMatched, true).Fire(), nil
 	}
-	node.Capture(ctx, in, wtCapFound, false) // timeout 不写 point
 	return ctx.Out(wtOutTimeout).Set(wtDataConf, conf).Set(wtDataMatched, false).Fire(), nil
 }
 

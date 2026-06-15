@@ -36,10 +36,6 @@ const (
 	dcbDataPrimaryCenter = "PrimaryCenter"
 	dcbDataPrimaryArea   = "PrimaryArea"
 
-	dcbCapPrimaryCenter = "CapturePrimaryCenter"
-	dcbCapPrimaryArea   = "CapturePrimaryArea"
-	dcbCapBlobCount     = "CaptureBlobCount"
-
 	dcbSortAreaDesc   = "area_desc"
 	dcbSortDistScreen = "dist_screen_center"
 	dcbSortDistPoint  = "dist_point"
@@ -78,12 +74,6 @@ func (DetectColorBlobs) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dcbInTimeoutMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: dcbCapPrimaryCenter, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbCapPrimaryArea, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcbCapBlobCount, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dcbOutFound, Type: "Exec",
@@ -170,9 +160,6 @@ func (DetectColorBlobs) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) 
 			}
 			primary := out[0]
 			pc := node.Point{X: primary.CenterX, Y: primary.CenterY}
-			node.Capture(ctx, in, dcbCapPrimaryCenter, pc)
-			node.Capture(ctx, in, dcbCapPrimaryArea, primary.Area)
-			node.Capture(ctx, in, dcbCapBlobCount, lastCount)
 			return ctx.Out(dcbOutFound).
 				Set(dcbDataBlobs, out).
 				Set(dcbDataBlobCount, lastCount).
@@ -181,12 +168,10 @@ func (DetectColorBlobs) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) 
 				Fire(), nil
 		}
 		if timeoutMs <= 0 && firstScan {
-			node.Capture(ctx, in, dcbCapBlobCount, 0)
 			return ctx.Out(dcbOutNotFound).Set(dcbDataBlobCount, 0).Fire(), nil
 		}
 		firstScan = false
 		if !deadline.IsZero() && time.Now().After(deadline) {
-			node.Capture(ctx, in, dcbCapBlobCount, lastCount)
 			return ctx.Out(dcbOutTimeout).Set(dcbDataBlobCount, lastCount).Fire(), nil
 		}
 		select {

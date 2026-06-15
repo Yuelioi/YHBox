@@ -53,7 +53,8 @@ func TestDetectColorHSV_NoOnSingleScan(t *testing.T) {
 	}
 }
 
-func TestDetectColorHSV_Capture_Hit(t *testing.T) {
+// 节点责任 = Set 正确 Data 字段 (framework 路径① 据此写变量)。
+func TestDetectColorHSV_OutputData_Found(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DetectColorHSV{})
 	rn, _ := node.Get("DetectColorHSV")
@@ -62,28 +63,19 @@ func TestDetectColorHSV_Capture_Hit(t *testing.T) {
 	cfg := validHSVCfg()
 	cfg[dchInMinPixelRatio] = 0.1
 	cfg[dchInTimeoutMs] = 1000
-	cfg[dchCapCount] = "n"
-	cfg[dchCapRatio] = "r"
-	vars := newRecVars()
-	res := node.RunNode(context.Background(), rn, nil, cfg, nil, withVisionVars(vision, vars), false)
+	res := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if res.Error != nil {
 		t.Fatal(res.Error)
 	}
 	if res.ExitName != dchOutFound {
-		t.Fatalf("exit = %q, want Yes", res.ExitName)
+		t.Fatalf("exit = %q, want Found", res.ExitName)
 	}
-	if got, ok := vars.Get("n"); !ok || got != 100 {
-		t.Errorf("capture n = %v (ok=%v), want 100", got, ok)
-	} else if _, isInt := got.(int); !isInt {
-		// CaptureType=number: 断言写入值的 Go 类型是 int.
-		t.Errorf("capture n Go type = %T, want int", got)
+	if got := res.OutputData[dchDataCount]; got != 100 {
+		t.Errorf("OutputData PixelCount = %v, want 100", got)
 	}
-	if got, ok := vars.Get("r"); !ok || got != 0.2 {
-		t.Errorf("capture r = %v (ok=%v), want 0.2", got, ok)
-	} else if _, isF64 := got.(float64); !isF64 {
-		// CaptureType=number: 断言写入值的 Go 类型是 float64.
-		t.Errorf("capture r Go type = %T, want float64", got)
+	if got := res.OutputData[dchDataRatio]; got != 0.2 {
+		t.Errorf("OutputData PixelRatio = %v, want 0.2", got)
 	}
 }
 

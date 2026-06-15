@@ -66,23 +66,21 @@ func TestDetectColor_BackendError(t *testing.T) {
 	}
 }
 
-func TestDetectColor_Capture_Hit(t *testing.T) {
+// 节点责任 = Set 正确 Data 字段 (framework 路径① 据此写变量, 见 runtime dispatch 测试)。
+func TestDetectColor_OutputData_Hit(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DetectColor{})
 	rn, _ := node.Get("DetectColor")
 
 	vision := &mockVision{colorCount: 10, colorCX: 0.5, colorCY: 0.6}
-	vars := newRecVars()
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
 			dcInROI:       node.Geometry{Pct: node.Rect{X: 0.4, Y: 0.5, W: 0.2, H: 0.05}},
 			dcInMode:      "hsv",
 			dcInRange:     []any{50.0, 60.0, 26.0, 50.0, 99.0, 100.0},
 			dcInMinPixels: 5,
-			dcCapCount:    "n",
-			dcCapCenter:   "c",
 		},
-		nil, withVisionVars(vision, vars), false)
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -90,49 +88,38 @@ func TestDetectColor_Capture_Hit(t *testing.T) {
 	if r.ExitName != dcOutFound {
 		t.Fatalf("exit = %q, want Found", r.ExitName)
 	}
-	if got, ok := vars.Get("n"); !ok || got != 10 {
-		t.Errorf("capture n = %v (ok=%v), want 10", got, ok)
-	} else if _, isInt := got.(int); !isInt {
-		// CaptureType=number: 断言写入值的 Go 类型是 int.
-		t.Errorf("capture n Go type = %T, want int", got)
+	if got := r.OutputData[dcDataCount]; got != 10 {
+		t.Errorf("OutputData Count = %v, want 10", got)
 	}
-	c, ok := vars.Get("c")
-	if !ok {
-		t.Fatal("capture c not written")
-	}
-	// CaptureType=point: 断言写入值的 Go 类型是 node.Point.
-	if _, ok := c.(node.Point); !ok {
-		t.Errorf("capture c = %T, want node.Point", c)
+	if _, ok := r.OutputData[dcDataCenter].(node.Point); !ok {
+		t.Errorf("OutputData Center = %T, want node.Point", r.OutputData[dcDataCenter])
 	}
 }
 
-func TestDetectColor_Capture_Miss(t *testing.T) {
+func TestDetectColor_OutputData_Miss(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DetectColor{})
 	rn, _ := node.Get("DetectColor")
 
-	// count(1) < minPx(5) → No 出口只带 Count, 不带 Center.
+	// count(1) < minPx(5) → NotFound 出口只带 Count, 不带 Center.
 	vision := &mockVision{colorCount: 1, colorCX: 0.5, colorCY: 0.6}
-	vars := newRecVars()
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
 			dcInMode:      "hsv",
 			dcInRange:     []any{0.0, 360.0, 0.0, 100.0, 0.0, 100.0},
 			dcInMinPixels: 5,
-			dcCapCount:    "n",
-			dcCapCenter:   "c",
 		},
-		nil, withVisionVars(vision, vars), false)
+		nil, withVision(vision), false)
 
 	if r.ExitName != dcOutNotFound {
 		t.Fatalf("exit = %q, want NotFound", r.ExitName)
 	}
-	if got, ok := vars.Get("n"); !ok || got != 1 {
-		t.Errorf("capture n = %v (ok=%v), want 1", got, ok)
+	if got := r.OutputData[dcDataCount]; got != 1 {
+		t.Errorf("OutputData Count = %v, want 1", got)
 	}
-	// Center 这个 exit 没带 → 不写 (验证"某 exit 没带的字段不写").
-	if _, ok := vars.Get("c"); ok {
-		t.Error("capture c written on No exit, want unwritten")
+	// NotFound exit 不带 Center → OutputData 无该字段 (稀疏)。
+	if _, ok := r.OutputData[dcDataCenter]; ok {
+		t.Error("OutputData has Center on NotFound exit, want absent")
 	}
 }
 

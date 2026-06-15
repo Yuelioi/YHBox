@@ -60,7 +60,8 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 	}
 }
 
-func TestDualColorBarTrack_Capture_Found(t *testing.T) {
+// 节点责任 = Set 6 个 Data 字段 (framework 路径① 据此写变量)。
+func TestDualColorBarTrack_OutputData_Found(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&DualColorBarTrack{})
 	rn, _ := node.Get("DualColorBarTrack")
@@ -73,18 +74,9 @@ func TestDualColorBarTrack_Capture_Found(t *testing.T) {
 			InnerPx:    200, OuterPx: 50,
 		},
 	}
-	vars := newRecVars()
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			dcbtInROI:      validGeometryROI(),
-			dcbtCapInnerX:  "ix",
-			dcbtCapOuterX:  "ox",
-			dcbtCapOuterW:  "ow",
-			dcbtCapConf:    "cf",
-			dcbtCapInnerPx: "ipx",
-			dcbtCapOuterPx: "opx",
-		},
-		nil, withVisionVars(vision, vars), false)
+		map[string]any{dcbtInROI: validGeometryROI()},
+		nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -93,30 +85,16 @@ func TestDualColorBarTrack_Capture_Found(t *testing.T) {
 		t.Fatalf("exit = %q, want Found", r.ExitName)
 	}
 	checks := []struct {
-		name string
-		want any
+		field string
+		want  any
 	}{
-		{"ix", 320}, {"ox", 400}, {"ow", 80},
-		{"cf", 0.85}, {"ipx", 200}, {"opx", 50},
+		{dcbtDataInnerX, 320}, {dcbtDataOuterX, 400}, {dcbtDataOuterW, 80},
+		{dcbtDataConf, 0.85}, {dcbtDataInnerPx, 200}, {dcbtDataOuterPx, 50},
 	}
 	for _, c := range checks {
-		got, ok := vars.Get(c.name)
-		if !ok || got != c.want {
-			t.Fatalf("capture %s = %v (ok=%v), want %v", c.name, got, ok, c.want)
+		if got := r.OutputData[c.field]; got != c.want {
+			t.Errorf("OutputData %s = %v, want %v", c.field, got, c.want)
 		}
-	}
-	// CaptureType=number: 断言每个捕获字段的 Go 类型符合声明.
-	// ix/ox/ow/ipx/opx → int; cf → float64.
-	intFields := []string{"ix", "ox", "ow", "ipx", "opx"}
-	for _, name := range intFields {
-		got, _ := vars.Get(name)
-		if _, isInt := got.(int); !isInt {
-			t.Errorf("capture %s Go type = %T, want int", name, got)
-		}
-	}
-	cfGot, _ := vars.Get("cf")
-	if _, isF64 := cfGot.(float64); !isF64 {
-		t.Errorf("capture cf Go type = %T, want float64", cfGot)
 	}
 }
 

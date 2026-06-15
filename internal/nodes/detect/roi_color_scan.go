@@ -29,8 +29,6 @@ const (
 	rcsOutTimeout        = "Timeout"
 	rcsDataClusters      = "Clusters"
 	rcsDataClusterCount  = "ClusterCount"
-	rcsCapCount          = "CaptureClusterCount"
-	rcsCapClusters       = "CaptureClusters"
 )
 
 func (ROIColorScan) Spec() node.Spec {
@@ -62,10 +60,6 @@ func (ROIColorScan) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: rcsCapCount, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: rcsCapClusters, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "any", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: rcsOutFound, Type: "Exec",
@@ -125,19 +119,15 @@ func (ROIColorScan) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		lastCount = len(clusters)
 		if lastCount >= minCount {
-			node.Capture(ctx, in, rcsCapCount, lastCount)
-			node.Capture(ctx, in, rcsCapClusters, clusters)
 			return ctx.Out(rcsOutFound).
 				Set(rcsDataClusters, clusters).
 				Set(rcsDataClusterCount, lastCount).Fire(), nil
 		}
 		if timeoutMs <= 0 && firstScan {
-			node.Capture(ctx, in, rcsCapCount, lastCount) // 未命中 exit 不带 Clusters
 			return ctx.Out(rcsOutNotFound).Set(rcsDataClusterCount, lastCount).Fire(), nil
 		}
 		firstScan = false
 		if !deadline.IsZero() && time.Now().After(deadline) {
-			node.Capture(ctx, in, rcsCapCount, lastCount) // timeout exit 不带 Clusters
 			return ctx.Out(rcsOutTimeout).Set(rcsDataClusterCount, lastCount).Fire(), nil
 		}
 		select {

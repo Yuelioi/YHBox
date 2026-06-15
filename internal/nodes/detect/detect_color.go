@@ -27,8 +27,6 @@ const (
 	dcOutNotFound = "NotFound"
 	dcDataCount   = "Count"
 	dcDataCenter  = "Center"
-	dcCapCount    = "CaptureCount"
-	dcCapCenter   = "CaptureCenter"
 )
 
 // dcRangeSchema 颜色范围 6 槽位 tuple — 底层仍是 [6]int 数组 (parseRange6 不变),
@@ -64,10 +62,6 @@ func (DetectColor) Spec() node.Spec {
 				Schema: dcRangeSchema},
 			{Name: dcInMinPixels, Type: "Number", Default: json.Number("5"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: dcCapCount, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dcCapCenter, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dcOutFound, Type: "Exec",
@@ -100,14 +94,11 @@ func (DetectColor) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "DetectColor: %v", err)
 	}
 	if count >= minPx {
-		node.Capture(ctx, in, dcCapCount, count)
-		node.Capture(ctx, in, dcCapCenter, node.Point{X: cx, Y: cy})
 		return ctx.Out(dcOutFound).
 			Set(dcDataCount, count).
 			Set(dcDataCenter, node.Point{X: cx, Y: cy}).
 			Fire(), nil
 	}
-	node.Capture(ctx, in, dcCapCount, count)
 	return ctx.Out(dcOutNotFound).Set(dcDataCount, count).Fire(), nil
 }
 

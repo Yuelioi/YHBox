@@ -119,34 +119,6 @@ func withVision(v node.VisionService) node.ServiceBundle {
 	return b
 }
 
-// recVars 记录式 VarStore — 跨 detect 包测试文件复用, 验证节点捕获到变量.
-// 只把 SetScoped 写进 m (capture 走 SetScoped); 其余方法满足接口即可.
-// 定义在 mockVision 同文件 (字母序最早) 以免重复定义.
-type recVars struct {
-	m map[string]any
-}
-
-func newRecVars() *recVars { return &recVars{m: map[string]any{}} }
-
-func (r *recVars) Get(name string) (any, bool) { v, ok := r.m[name]; return v, ok }
-func (r *recVars) Set(name string, v any)      { r.m[name] = v }
-func (r *recVars) Inc(string, float64) float64 { return 0 }
-func (r *recVars) GetScoped(name, _ string) (any, bool) {
-	v, ok := r.m[name]
-	return v, ok
-}
-func (r *recVars) SetScoped(name, _ string, v any)           { r.m[name] = v }
-func (r *recVars) IncScoped(string, string, float64) float64 { return 0 }
-func (r *recVars) LastChange(string) int64                   { return 0 }
-
-// withVisionVars 同 withVision 但额外注入记录式 VarStore, 验证捕获.
-func withVisionVars(v node.VisionService, vars node.VarStore) node.ServiceBundle {
-	b := node.StubServices()
-	b.Vision = v
-	b.Vars = vars
-	return b
-}
-
 func TestCheckTemplate_Hit(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&CheckTemplate{})
@@ -186,76 +158,6 @@ func TestCheckTemplate_Miss(t *testing.T) {
 	}
 	if r.OutputData[ctDataMatched] != false {
 		t.Errorf("Matched = %v, want false", r.OutputData[ctDataMatched])
-	}
-}
-
-func TestCheckTemplate_Capture_Hit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
-
-	pt := node.Point{X: 0.5, Y: 0.6}
-	vision := &mockVision{point: &pt, conf: 0.92}
-	vars := newRecVars()
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			ctInTemplates: []string{"fishing.hook_icon"},
-			ctInThreshold: 0.85,
-			ctCapFound:    "f",
-			ctCapPoint:    "p",
-		},
-		nil, withVisionVars(vision, vars), false)
-
-	if r.Error != nil {
-		t.Fatal(r.Error)
-	}
-	if r.ExitName != ctOutFound {
-		t.Fatalf("exit = %q, want Found", r.ExitName)
-	}
-	if got, ok := vars.Get("f"); !ok || got != true {
-		t.Errorf("capture f = %v (ok=%v), want true", got, ok)
-	} else if _, isBool := got.(bool); !isBool {
-		// CaptureType=bool: 断言写入值的 Go 类型是 bool.
-		t.Errorf("capture f Go type = %T, want bool", got)
-	}
-	gp, ok := vars.Get("p")
-	if !ok {
-		t.Fatal("capture p not written")
-	}
-	if gp != pt {
-		t.Errorf("capture p = %v, want %v", gp, pt)
-	}
-	// CaptureType=point: 断言写入值的 Go 类型是 node.Point.
-	if _, isPoint := gp.(node.Point); !isPoint {
-		t.Errorf("capture p Go type = %T, want node.Point", gp)
-	}
-}
-
-func TestCheckTemplate_Capture_Miss(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
-
-	vision := &mockVision{point: nil, conf: 0.3}
-	vars := newRecVars()
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{
-			ctInTemplates: []string{"fishing.hook_icon"},
-			ctInThreshold: 0.85,
-			ctCapFound:    "f",
-			ctCapPoint:    "p",
-		},
-		nil, withVisionVars(vision, vars), false)
-
-	if r.ExitName != ctOutNotFound {
-		t.Fatalf("exit = %q, want NotFound", r.ExitName)
-	}
-	if got, ok := vars.Get("f"); !ok || got != false {
-		t.Errorf("capture f = %v (ok=%v), want false", got, ok)
-	}
-	// miss exit 不带 Point → 不写.
-	if _, ok := vars.Get("p"); ok {
-		t.Error("capture p written on NotFound exit, want unwritten")
 	}
 }
 

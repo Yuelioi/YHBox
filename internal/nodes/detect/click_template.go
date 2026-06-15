@@ -30,8 +30,6 @@ const (
 	clkDataPoint   = "Point"
 	clkDataConf    = "Conf"
 	clkDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
-	clkCapFound    = "CaptureFound"
-	clkCapPoint    = "CapturePoint"
 )
 
 func (ClickTemplate) Spec() node.Spec {
@@ -62,10 +60,6 @@ func (ClickTemplate) Spec() node.Spec {
 						}})}},
 			{Name: clkInSettleMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: clkCapFound, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "bool", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: clkCapPoint, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "point", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: clkOutDone, Type: "Exec",
@@ -98,7 +92,6 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate wait %s: %v", strings.Join(keys, "+"), err)
 	}
 	if pt == nil {
-		node.Capture(ctx, in, clkCapFound, false) // timeout 不写 point
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Set(clkDataMatched, false).Fire(), nil
 	}
 	// 命中后可选稳定延迟 + 重定位 (SettleMs): 防"刚出现就点、点空了"。settle=0 → 行为同旧。详见 settleAfterMatch。
@@ -110,8 +103,6 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}
-	node.Capture(ctx, in, clkCapFound, true)
-	node.Capture(ctx, in, clkCapPoint, *pt)
 	return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Set(clkDataMatched, true).Fire(), nil
 }
 

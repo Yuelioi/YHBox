@@ -93,45 +93,6 @@ func TestClickTemplate_SettleMs_RedetectThenClick(t *testing.T) {
 	}
 }
 
-func TestClickTemplate_Capture_Done(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
-
-	pt := node.Point{X: 0.55, Y: 0.4}
-	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
-	rec := &recordingInput{}
-	vars := newRecVars()
-	b := node.StubServices()
-	b.Vision = vision
-	b.Input = rec
-	b.Vars = vars
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
-			clkInTimeoutMs: 200, clkInThreshold: 0.85, clkCapFound: "f", clkCapPoint: "p"},
-		nil, b, false)
-
-	if r.Error != nil {
-		t.Fatal(r.Error)
-	}
-	if r.ExitName != clkOutDone {
-		t.Fatalf("exit = %q, want Done", r.ExitName)
-	}
-	if got, ok := vars.Get("f"); !ok || got != true {
-		t.Errorf("capture f = %v (ok=%v), want true", got, ok)
-	} else if _, isBool := got.(bool); !isBool {
-		// CaptureType=bool: 断言写入值的 Go 类型是 bool.
-		t.Errorf("capture f Go type = %T, want bool", got)
-	}
-	gp, ok := vars.Get("p")
-	if !ok || gp != pt {
-		t.Fatalf("capture p = %v (ok=%v), want %v", gp, ok, pt)
-	}
-	// CaptureType=point: 断言写入值的 Go 类型是 node.Point.
-	if _, isPoint := gp.(node.Point); !isPoint {
-		t.Errorf("capture p Go type = %T, want node.Point", gp)
-	}
-}
 
 func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 	node.ResetRegistryForTest()

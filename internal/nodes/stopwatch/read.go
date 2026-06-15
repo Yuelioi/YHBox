@@ -16,7 +16,6 @@ const (
 	swReadInKey         = "Key"
 	swReadOutOut        = "Done"
 	swReadDataElapsedMs = "ElapsedMs"
-	swReadCapElapsed    = "CaptureElapsedMs"
 )
 
 func (Read) Spec() node.Spec {
@@ -27,8 +26,6 @@ func (Read) Spec() node.Spec {
 			{Name: swReadInExec, Type: "Exec"},
 			{Name: swReadInKey, Type: "String", Required: true, Default: "default",
 				Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: swReadCapElapsed, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: swReadOutOut, Type: "Exec",
@@ -45,6 +42,5 @@ func (Read) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return nil, errStopwatchEmptyKey
 	}
 	elapsed := ctx.Stopwatches().Read(key)
-	node.Capture(ctx, in, swReadCapElapsed, elapsed)
 	return ctx.Out(swReadOutOut).Set(swReadDataElapsedMs, elapsed).Fire(), nil
 }

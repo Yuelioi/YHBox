@@ -48,49 +48,6 @@ func TestRead_MissingKeyReturnsZero(t *testing.T) {
 	}
 }
 
-// recVars 记录式 VarStore — 验证捕获. 本包独立 stub (不跨包).
-type recVars struct{ m map[string]any }
-
-func newRecVars() *recVars { return &recVars{m: map[string]any{}} }
-
-func (r *recVars) Get(name string) (any, bool)             { v, ok := r.m[name]; return v, ok }
-func (r *recVars) Set(name string, v any)                  { r.m[name] = v }
-func (r *recVars) Inc(string, float64) float64             { return 0 }
-func (r *recVars) GetScoped(name, _ string) (any, bool)    { v, ok := r.m[name]; return v, ok }
-func (r *recVars) SetScoped(name, _ string, v any)         { r.m[name] = v }
-func (r *recVars) IncScoped(string, string, float64) float64 { return 0 }
-func (r *recVars) LastChange(string) int64                 { return 0 }
-
-func TestRead_Capture_ElapsedMs(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Read{})
-	rn, _ := node.Get("StopwatchRead")
-
-	services := node.StubServices()
-	vars := newRecVars()
-	services.Vars = vars
-	services.Stopwatches.Start("default")
-	time.Sleep(10 * time.Millisecond)
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{swReadInKey: "default", swReadCapElapsed: "e"}, nil, services, false)
-	if r.Error != nil {
-		t.Fatal(r.Error)
-	}
-	want, _ := r.OutputData[swReadDataElapsedMs].(int64)
-	got, ok := vars.Get("e")
-	if !ok {
-		t.Fatal("capture e not written")
-	}
-	if got != want {
-		t.Errorf("capture e = %v, want %v (= ElapsedMs out)", got, want)
-	}
-	// CaptureType=number: 断言写入值的 Go 类型是 int64 (stopwatch elapsed).
-	if _, isInt64 := got.(int64); !isInt64 {
-		t.Errorf("capture e Go type = %T, want int64", got)
-	}
-}
-
 func TestRead_StoppedReturnsFrozen(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Read{})

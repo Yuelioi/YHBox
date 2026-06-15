@@ -58,7 +58,8 @@ func TestROIColorScan_NotFoundSingleScan(t *testing.T) {
 	}
 }
 
-func TestROIColorScan_Capture_Found(t *testing.T) {
+// 节点责任 = Set Clusters/ClusterCount Data 字段 (framework 路径① 据此写变量)。
+func TestROIColorScan_OutputData_Found(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ROIColorScan{})
 	rn, _ := node.Get("ROIColorScan")
@@ -71,10 +72,7 @@ func TestROIColorScan_Capture_Found(t *testing.T) {
 	cfg := validScanCfg()
 	cfg[rcsInMinClusterCount] = 2
 	cfg[rcsInTimeoutMs] = 500
-	cfg[rcsCapCount] = "n"
-	cfg[rcsCapClusters] = "cl"
-	vars := newRecVars()
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVisionVars(vision, vars), false)
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -82,23 +80,15 @@ func TestROIColorScan_Capture_Found(t *testing.T) {
 	if r.ExitName != rcsOutFound {
 		t.Fatalf("exit = %q, want Found", r.ExitName)
 	}
-	if got, ok := vars.Get("n"); !ok || got != 2 {
-		t.Errorf("capture n = %v (ok=%v), want 2", got, ok)
-	} else if _, isInt := got.(int); !isInt {
-		// CaptureType=number: 断言写入值的 Go 类型是 int.
-		t.Errorf("capture n Go type = %T, want int", got)
+	if got := r.OutputData[rcsDataClusterCount]; got != 2 {
+		t.Errorf("OutputData ClusterCount = %v, want 2", got)
 	}
-	gc, ok := vars.Get("cl")
-	if !ok {
-		t.Fatal("capture cl not written")
-	}
-	// CaptureType=any: 只断言写入, 不断 Go 类型. 实际是 []node.ClusterEntry.
-	if got, ok := gc.([]node.ClusterEntry); !ok || len(got) != 2 {
-		t.Errorf("capture cl = %T len mismatch, want []node.ClusterEntry len 2", gc)
+	if got, ok := r.OutputData[rcsDataClusters].([]node.ClusterEntry); !ok || len(got) != 2 {
+		t.Errorf("OutputData Clusters = %T len mismatch, want []node.ClusterEntry len 2", r.OutputData[rcsDataClusters])
 	}
 }
 
-func TestROIColorScan_Capture_NotFound(t *testing.T) {
+func TestROIColorScan_OutputData_NotFound(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ROIColorScan{})
 	rn, _ := node.Get("ROIColorScan")
@@ -107,20 +97,17 @@ func TestROIColorScan_Capture_NotFound(t *testing.T) {
 	cfg := validScanCfg()
 	cfg[rcsInMinClusterCount] = 1
 	cfg[rcsInTimeoutMs] = 0
-	cfg[rcsCapCount] = "n"
-	cfg[rcsCapClusters] = "cl"
-	vars := newRecVars()
-	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVisionVars(vision, vars), false)
+	r := node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 
 	if r.ExitName != rcsOutNotFound {
 		t.Fatalf("exit = %q, want NotFound", r.ExitName)
 	}
-	if got, ok := vars.Get("n"); !ok || got != 0 {
-		t.Errorf("capture n = %v (ok=%v), want 0", got, ok)
+	if got := r.OutputData[rcsDataClusterCount]; got != 0 {
+		t.Errorf("OutputData ClusterCount = %v, want 0", got)
 	}
-	// NotFound exit 不带 Clusters → 不写.
-	if _, ok := vars.Get("cl"); ok {
-		t.Error("capture cl written on NotFound exit, want unwritten")
+	// NotFound exit 不带 Clusters → OutputData 无该字段 (稀疏)。
+	if _, ok := r.OutputData[rcsDataClusters]; ok {
+		t.Error("OutputData has Clusters on NotFound exit, want absent")
 	}
 }
 

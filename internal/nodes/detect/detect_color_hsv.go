@@ -40,8 +40,6 @@ const (
 	dchOutTimeout       = "Timeout"
 	dchDataCount        = "PixelCount"
 	dchDataRatio        = "PixelRatio"
-	dchCapCount         = "CapturePixelCount"
-	dchCapRatio         = "CapturePixelRatio"
 
 	// poll 间隔下限.
 	dchPollClampMs   = 10
@@ -68,10 +66,6 @@ func (DetectColorHSV) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dchInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: dchCapCount, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: dchCapRatio, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: dchOutFound, Type: "Exec",
@@ -128,22 +122,16 @@ func (DetectColorHSV) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		lastCount = count
 		lastRatio = ratio
 		if ratio >= minRatio {
-			node.Capture(ctx, in, dchCapCount, count)
-			node.Capture(ctx, in, dchCapRatio, ratio)
 			return ctx.Out(dchOutFound).
 				Set(dchDataCount, count).Set(dchDataRatio, ratio).Fire(), nil
 		}
 		// timeoutMs<=0 且首次未命中 → No (跟 ROIColorScan 同款语义).
 		if timeoutMs <= 0 && firstScan {
-			node.Capture(ctx, in, dchCapCount, count)
-			node.Capture(ctx, in, dchCapRatio, ratio)
 			return ctx.Out(dchOutNotFound).
 				Set(dchDataCount, count).Set(dchDataRatio, ratio).Fire(), nil
 		}
 		firstScan = false
 		if !deadline.IsZero() && time.Now().After(deadline) {
-			node.Capture(ctx, in, dchCapCount, lastCount)
-			node.Capture(ctx, in, dchCapRatio, lastRatio)
 			return ctx.Out(dchOutTimeout).
 				Set(dchDataCount, lastCount).Set(dchDataRatio, lastRatio).Fire(), nil
 		}

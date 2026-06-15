@@ -97,7 +97,8 @@ func TestScreenshot_ROI(t *testing.T) {
 	}
 }
 
-func TestScreenshot_Capture_Path(t *testing.T) {
+// 节点责任 = Set Path Data 字段 (framework 路径① 据此写变量)。
+func TestScreenshot_OutputData_Path(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Screenshot{})
 	rn, _ := node.Get("Screenshot")
@@ -105,12 +106,9 @@ func TestScreenshot_Capture_Path(t *testing.T) {
 	t.Setenv("YOTTA_DATA_DIR", t.TempDir())
 
 	cap := &stubCapture{pngROI: []byte{0x89, 0x50, 0x4e, 0x47}}
-	vars := newRecVars()
-	b := withCapture(cap)
-	b.Vars = vars
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{ssInPathTemplate: "cap-{ts}.png", ssCapPath: "p"},
-		nil, b, false)
+		map[string]any{ssInPathTemplate: "cap-{ts}.png"},
+		nil, withCapture(cap), false)
 
 	if r.Error != nil {
 		t.Fatal(r.Error)
@@ -118,17 +116,9 @@ func TestScreenshot_Capture_Path(t *testing.T) {
 	if r.ExitName != ssOutDone {
 		t.Fatalf("exit = %q, want Done", r.ExitName)
 	}
-	got, ok := vars.Get("p")
-	if !ok {
-		t.Fatal("capture p not written")
-	}
-	// CaptureType=string: 断言写入值的 Go 类型是 string.
-	s, isStr := got.(string)
+	s, isStr := r.OutputData[ssDataPath].(string)
 	if !isStr || s == "" {
-		t.Errorf("capture p = %v (%T), want non-empty string", got, got)
-	}
-	if s != r.OutputData[ssDataPath].(string) {
-		t.Errorf("capture p = %q, want = Path out %q", s, r.OutputData[ssDataPath])
+		t.Errorf("OutputData Path = %v (%T), want non-empty string", r.OutputData[ssDataPath], r.OutputData[ssDataPath])
 	}
 }
 

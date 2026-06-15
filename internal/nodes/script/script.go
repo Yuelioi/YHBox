@@ -19,9 +19,8 @@ const (
 	pinIn           = "In"
 	pinDone         = "Done"
 	pinFail         = "Fail"
-	inCode          = "Code"
-	inCaptureResult = "CaptureResult"
-	outDataResult   = "Result"
+	inCode        = "Code"
+	outDataResult = "Result"
 )
 
 type Script struct{}
@@ -34,8 +33,6 @@ func (Script) Spec() node.Spec {
 			{Name: pinIn, Type: node.TypeExec},
 			{Name: inCode, Type: "String", Default: "", Required: true,
 				Widget: node.WidgetSpec{Kind: "code", Props: node.MarshalProps(node.TextareaProps{Rows: 8})}},
-			{Name: inCaptureResult, Type: "String", Default: "", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: pinDone, Type: node.TypeExec,
@@ -50,7 +47,7 @@ func (Script) Spec() node.Spec {
 
 // scriptEnvSkipKeys — merged inputs 里非动态输入的 key (静态 pin + config 元数据).
 var scriptEnvSkipKeys = map[string]struct{}{
-	inCode: {}, inCaptureResult: {}, "Inputs": {},
+	inCode: {}, "Inputs": {},
 }
 
 // Dependencies 静态抽脚本里引用的资产 GUID — 让依赖扫描器 / 资产 GC / 安全删除看见脚本引用,
@@ -95,7 +92,6 @@ func (Script) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	out := ctx.Out(pinDone)
 	if v != nil && !goja.IsUndefined(v) && !goja.IsNull(v) {
 		result := scriptsvc.NormalizeJS(v.Export())
-		node.Capture(ctx, in, inCaptureResult, result)
 		out = out.Set(outDataResult, result)
 	}
 	return out.Fire(), nil
