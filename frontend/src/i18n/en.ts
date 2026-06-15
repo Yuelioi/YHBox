@@ -547,7 +547,22 @@
     editor_lang_expr: 'Expression',
     dyn_inputs_hint: 'Inputs are data pins for wiring node outputs in; to use a variable, just write $name in the expression/script.',
     literal_section: 'Data inputs (literal)',
-    capture_section: 'Output capture',
+    output: {
+      bind: 'Bind variable',
+      unbind_tooltip: 'Unbind',
+      stale_hint: 'This variable updates only when this exit fires; otherwise it keeps its previous value.',
+      found_hint: 'Whether it matched (true/false) — updated every run.',
+      field: {
+        Count: 'Hit pixel count', Center: 'Hit center',
+        PixelCount: 'Hit pixel count', PixelRatio: 'Hit ratio',
+        Blobs: 'Blobs', BlobCount: 'Blob count', PrimaryCenter: 'Primary center', PrimaryArea: 'Primary area',
+        Clusters: 'Clusters', ClusterCount: 'Cluster count',
+        InnerX: 'Inner position', OuterX: 'Outer position', OuterWidth: 'Outer width', Confidence: 'Confidence', InnerPx: 'Inner pixel width', OuterPx: 'Outer pixel width',
+        Path: 'File path', Point: 'Hit point', Conf: 'Match score', Matched: 'Matched',
+        Index: 'Index', Item: 'Item', Result: 'Result', ElapsedMs: 'Elapsed (ms)', DeltaMs: 'Delta (ms)',
+        Error: 'Error', Code: 'Code',
+      },
+    },
     config_section: 'Config',
     pin_input_json_invalid: 'Invalid JSON — not saved',
     example_title: 'Example',
@@ -624,7 +639,6 @@
       input: {
         Mode: { label: 'Mode', option: { count: 'Count', forever: 'Forever' } },
         Count: { label: 'Count (mode=count)' },
-        CaptureIndex: { label: 'Loop index → variable', hint: 'Enter a variable name to capture the current loop index (0-based) into it each pass' },
       },
       output: {
         Body: { label: 'Body (per iteration)' },
@@ -666,7 +680,6 @@
       example: 'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
       input: {
         Code: { label: 'Code', hint: 'Use return to give back a result. Read variables with $name or GetVar, write with SetVar; sleep(ms) waits.' },
-        CaptureResult: { label: 'Result → variable' },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
     },
@@ -681,8 +694,6 @@
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).' },
-        CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
-        CapturePoint: { label: 'Hit point → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
         Found: {
@@ -703,8 +714,6 @@
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit → Found / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
-        CapturePoint: { label: 'Hit point → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
         Found: {
@@ -728,8 +737,6 @@
         Threshold: { label: 'Threshold' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).' },
-        CaptureFound: { label: 'Found? → variable', hint: 'Enter a variable name to capture whether it hit (1/0) into it' },
-        CapturePoint: { label: 'Click point → variable', hint: 'Enter a variable name to capture the click point (ratio) into it' },
       },
       output: {
         Done: {
@@ -760,8 +767,6 @@
           c3Max: { label: 'Channel 3 max (V/B)' },
         },
         MinPixels: { label: 'Min pixels' },
-        CaptureCount: { label: 'Hit pixel count → variable', hint: 'Enter a variable name to capture the hit pixel count into it' },
-        CaptureCenter: { label: 'Hit center → variable', hint: 'Enter a variable name to capture the hit center (ratio) into it' },
       },
       output: {
         Found: {
@@ -784,8 +789,6 @@
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
-        CapturePixelCount: { label: 'Hit pixel count → variable', hint: 'Enter a variable name to capture the hit pixel count into it' },
-        CapturePixelRatio: { label: 'Hit ratio → variable', hint: 'Enter a variable name to capture the hit pixel ratio into it' },
       },
       output: {
         Found: { label: 'Found' },
@@ -821,9 +824,6 @@
         RefPoint: { label: 'Ref point (normalized)' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms, 0=single)' },
-        CapturePrimaryCenter: { label: 'Primary center → variable' },
-        CapturePrimaryArea: { label: 'Primary area → variable' },
-        CaptureBlobCount: { label: 'Blob count → variable' },
       },
       output: {
         Found: { label: 'Found' },
@@ -850,12 +850,6 @@
           confInnerWeight: { label: 'Inner confidence weight' },
           confOuterWeight: { label: 'Outer confidence weight' },
         },
-        CaptureInnerX: { label: 'Inner position → variable', hint: 'Enter a variable name to capture the inner marker position within the band into it' },
-        CaptureOuterX: { label: 'Outer position → variable', hint: 'Enter a variable name to capture the outer (target band) position into it' },
-        CaptureOuterWidth: { label: 'Outer width → variable', hint: 'Enter a variable name to capture the outer band width into it' },
-        CaptureConfidence: { label: 'Confidence → variable', hint: 'Enter a variable name to capture the detection confidence into it' },
-        CaptureInnerPx: { label: 'Inner pixel width → variable', hint: 'Enter a variable name to capture the inner pixel width into it' },
-        CaptureOuterPx: { label: 'Outer pixel width → variable', hint: 'Enter a variable name to capture the outer pixel width into it' },
       },
       output: {
         Found: { label: 'Found' },
@@ -875,8 +869,6 @@
         MinClusterCount: { label: 'Min cluster count' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
-        CaptureClusterCount: { label: 'Cluster count → variable', hint: 'Enter a variable name to capture the number of clusters found into it' },
-        CaptureClusters: { label: 'Cluster details → variable', hint: 'Enter a variable name to capture per-cluster details into it' },
       },
       output: {
         Found: { label: 'Found' },
@@ -928,7 +920,6 @@
       input: {
         PathTemplate: { label: 'Path template', hint: "Relative path, no '..' / drive letter / leading '/' or '\\\\'. {ts}/{nodeId}/{containerId}/{date} auto-expanded." },
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        CapturePath: { label: 'Screenshot path → variable', hint: 'Enter a variable name to capture the written screenshot absolute path into it' },
       },
       output: {
         Done: {
@@ -1309,7 +1300,7 @@
     // list
     ForEach: {
       label: 'For Each', description: 'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',
-      input: { List: { label: 'List' }, CaptureItem: { label: 'Store item in' }, CaptureIndex: { label: 'Store index in' } },
+      input: { List: { label: 'List' } },
       output: { Body: { label: 'Body' }, Done: { label: 'Done' }, Fail: { label: 'Fail' } },
     },
     Split: {
@@ -1390,7 +1381,6 @@
       example: 'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
       input: {
         Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' },
-        CaptureElapsedMs: { label: 'Elapsed (ms) → variable', hint: 'Enter a variable name to capture the read elapsed milliseconds into it' },
       },
       output: {
         Done: {

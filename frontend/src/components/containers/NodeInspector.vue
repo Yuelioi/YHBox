@@ -988,7 +988,10 @@ function dataTypeOf(field: string): string {
 function outLabel(name: string): string {
   if (!props.node) return name
   const key = `node.${props.node.kind}.output.${name}.label`
-  return te(key) ? t(key) : name
+  if (te(key)) return t(key)
+  // 通用字段名 (Error/Code/Count/Point/Index/... ) 走共享字典, 避免逐 kind 重复 + 不显英文 pin 名。
+  const common = `inspector.output.field.${name}`
+  return te(common) ? t(common) : name
 }
 // 读/写 config.capture[field] (绑定变量名)。空 = 解绑 → 删 key (非置空串, 跟 useVarMutations cascade 同语义)。
 function getCapture(field: string): string {

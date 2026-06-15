@@ -90,14 +90,6 @@
       "Threshold": {
         "label": "阈值",
         "hint": "NCC 阈值"
-      },
-      "CaptureFound": {
-        "label": "是否命中→变量",
-        "hint": "填变量名, 把是否命中 (1/0) 捕获进该变量"
-      },
-      "CapturePoint": {
-        "label": "命中点→变量",
-        "hint": "填变量名, 把命中中心 (ratio) 捕获进该变量"
       }
     },
     "output": {
@@ -186,14 +178,6 @@
       "SettleMs": {
         "label": "命中后延迟 (ms)",
         "hint": "命中后先等这么久再点 —— 给转场/加载动画留时间, 防止\"刚出现就点、点空了\"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。"
-      },
-      "CaptureFound": {
-        "label": "是否命中→变量",
-        "hint": "填变量名, 把是否命中 (1/0) 捕获进该变量"
-      },
-      "CapturePoint": {
-        "label": "点击点→变量",
-        "hint": "填变量名, 把点击点 (ratio) 捕获进该变量"
       }
     },
     "output": {
@@ -304,14 +288,6 @@
       },
       "MinPixels": {
         "label": "最小像素"
-      },
-      "CaptureCount": {
-        "label": "命中像素数→变量",
-        "hint": "填变量名, 把命中像素数捕获进该变量"
-      },
-      "CaptureCenter": {
-        "label": "命中中心点→变量",
-        "hint": "填变量名, 把命中中心 (ratio) 捕获进该变量"
       }
     },
     "output": {
@@ -353,15 +329,6 @@
       },
       "TimeoutMs": {
         "label": "超时 (ms, 0=单次)"
-      },
-      "CapturePrimaryCenter": {
-        "label": "首块中心→变量"
-      },
-      "CapturePrimaryArea": {
-        "label": "首块面积→变量"
-      },
-      "CaptureBlobCount": {
-        "label": "块数→变量"
       }
     },
     "output": {
@@ -398,14 +365,6 @@
       "TimeoutMs": {
         "label": "超时 (ms)",
         "hint": "<=0 单次扫描"
-      },
-      "CapturePixelCount": {
-        "label": "命中像素数→变量",
-        "hint": "填变量名, 把命中像素数捕获进该变量"
-      },
-      "CapturePixelRatio": {
-        "label": "命中比例→变量",
-        "hint": "填变量名, 把命中像素比例捕获进该变量"
       }
     },
     "output": {
@@ -457,30 +416,6 @@
       "Options": {
         "label": "算法参数 (可选)",
         "hint": "{'{'}\"innerMinPx\":2,\"innerMaxPx\":0,\"outerMinPx\":0,\"bandRatioH\":0.30,\"bandRatioInner\":0.85,\"confInnerWeight\":0.42,\"confOuterWeight\":0.58{'}'} (0/空字段走默认; 默认是 钓鱼 UI 实测值)"
-      },
-      "CaptureInnerX": {
-        "label": "内层位置→变量",
-        "hint": "填变量名, 把内层 (滑块) 在区段里的位置捕获进该变量"
-      },
-      "CaptureOuterX": {
-        "label": "外层位置→变量",
-        "hint": "填变量名, 把外层 (目标区段) 位置捕获进该变量"
-      },
-      "CaptureOuterWidth": {
-        "label": "外层宽度→变量",
-        "hint": "填变量名, 把外层区段宽度捕获进该变量"
-      },
-      "CaptureConfidence": {
-        "label": "置信度→变量",
-        "hint": "填变量名, 把识别置信度捕获进该变量"
-      },
-      "CaptureInnerPx": {
-        "label": "内层像素宽→变量",
-        "hint": "填变量名, 把内层像素宽度捕获进该变量"
-      },
-      "CaptureOuterPx": {
-        "label": "外层像素宽→变量",
-        "hint": "填变量名, 把外层像素宽度捕获进该变量"
       }
     },
     "output": {
@@ -583,12 +518,6 @@
     "input": {
       "List": {
         "label": "列表"
-      },
-      "CaptureItem": {
-        "label": "元素存入变量"
-      },
-      "CaptureIndex": {
-        "label": "序号存入变量"
       }
     },
     "output": {
@@ -922,10 +851,6 @@
       },
       "Count": {
         "label": "次数 (mode=count)"
-      },
-      "CaptureIndex": {
-        "label": "循环序号→变量",
-        "hint": "填变量名, 每轮把当前循环序号 (从 0 起) 捕获进该变量"
       }
     },
     "output": {
@@ -1284,14 +1209,6 @@
       "TimeoutMs": {
         "label": "超时 (ms)",
         "hint": "<=0 单次扫描"
-      },
-      "CaptureClusterCount": {
-        "label": "段数→变量",
-        "hint": "填变量名, 把找到的连续段数量捕获进该变量"
-      },
-      "CaptureClusters": {
-        "label": "各段信息→变量",
-        "hint": "填变量名, 把每段的信息捕获进该变量"
       }
     },
     "output": {
@@ -1492,10 +1409,6 @@
       "ROI": {
         "label": "ROI (ratio)",
         "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "CapturePath": {
-        "label": "截图路径→变量",
-        "hint": "填变量名, 把写入的截图绝对路径捕获进该变量"
       }
     },
     "output": {
@@ -1515,9 +1428,6 @@
       "Code": {
         "label": "代码",
         "hint": "脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。"
-      },
-      "CaptureResult": {
-        "label": "结果→变量"
       }
     },
     "output": {
@@ -1686,10 +1596,6 @@
       "Key": {
         "label": "秒表名",
         "hint": "跟之前 StopwatchStart 同一个 key"
-      },
-      "CaptureElapsedMs": {
-        "label": "用时(ms)→变量",
-        "hint": "填变量名, 把读到的 elapsed 毫秒数捕获进该变量"
       }
     },
     "output": {
@@ -2032,14 +1938,6 @@
       "SettleMs": {
         "label": "命中后延迟 (ms)",
         "hint": "命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。"
-      },
-      "CaptureFound": {
-        "label": "是否命中→变量",
-        "hint": "填变量名, 把是否命中 (1/0) 捕获进该变量"
-      },
-      "CapturePoint": {
-        "label": "命中点→变量",
-        "hint": "填变量名, 把命中中心 (ratio) 捕获进该变量"
       }
     },
     "output": {

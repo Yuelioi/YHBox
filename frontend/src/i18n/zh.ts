@@ -563,7 +563,22 @@ export default {
     editor_lang_expr: '表达式',
     dyn_inputs_hint: '输入口是连线用的数据引脚 (接别的节点输出); 想用变量, 直接在表达式/脚本里写 $变量名。',
     literal_section: '数据输入 (literal)',
-    capture_section: '输出捕获',
+    output: {
+      bind: '绑定变量',
+      unbind_tooltip: '解除绑定',
+      stale_hint: '该变量仅在此出口触发时更新, 未触发保留上次值。',
+      found_hint: '是否命中 (true/false) — 每次执行都会更新。',
+      field: {
+        Count: '命中像素数', Center: '命中中心',
+        PixelCount: '命中像素数', PixelRatio: '命中比例',
+        Blobs: '各色块', BlobCount: '色块数', PrimaryCenter: '首块中心', PrimaryArea: '首块面积',
+        Clusters: '各连续段', ClusterCount: '段数',
+        InnerX: '内层位置', OuterX: '外层位置', OuterWidth: '外层宽度', Confidence: '置信度', InnerPx: '内层像素宽', OuterPx: '外层像素宽',
+        Path: '文件路径', Point: '命中点', Conf: '匹配度', Matched: '是否命中',
+        Index: '序号', Item: '当前元素', Result: '结果', ElapsedMs: '已用毫秒', DeltaMs: '间隔毫秒',
+        Error: '错误信息', Code: '错误码',
+      },
+    },
     config_section: '配置',
     pin_input_json_invalid: 'JSON 格式错误 — 未保存',
     example_title: '示例',
@@ -644,7 +659,6 @@ export default {
       input: {
         Mode: { label: '模式', option: { count: '次数', forever: '永远' } },
         Count: { label: '次数 (mode=count)' },
-        CaptureIndex: { label: '循环序号→变量', hint: '填变量名, 每轮把当前循环序号 (从 0 起) 捕获进该变量' },
       },
       output: {
         Body: { label: '循环体 (每轮触发)' },
@@ -686,7 +700,6 @@ export default {
       example: '等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。',
       input: {
         Code: { label: '代码', hint: '脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。' },
-        CaptureResult: { label: '结果→变量' },
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
@@ -701,8 +714,6 @@ export default {
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。' },
-        CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
-        CapturePoint: { label: '命中点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
         Found: {
@@ -723,8 +734,6 @@ export default {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中走 Found / 全部同帧命中才走 Found', option: { any: '任一命中', all: '全部命中' } },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
-        CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
-        CapturePoint: { label: '命中点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
         Found: {
@@ -748,8 +757,6 @@ export default {
         Threshold: { label: '阈值' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。' },
-        CaptureFound: { label: '是否命中→变量', hint: '填变量名, 把是否命中 (1/0) 捕获进该变量' },
-        CapturePoint: { label: '点击点→变量', hint: '填变量名, 把点击点 (ratio) 捕获进该变量' },
       },
       output: {
         Done: {
@@ -780,8 +787,6 @@ export default {
           c3Max: { label: '通道3 上限 (V/B)' },
         },
         MinPixels: { label: '最小像素' },
-        CaptureCount: { label: '命中像素数→变量', hint: '填变量名, 把命中像素数捕获进该变量' },
-        CaptureCenter: { label: '命中中心点→变量', hint: '填变量名, 把命中中心 (ratio) 捕获进该变量' },
       },
       output: {
         Found: {
@@ -804,8 +809,6 @@ export default {
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
-        CapturePixelCount: { label: '命中像素数→变量', hint: '填变量名, 把命中像素数捕获进该变量' },
-        CapturePixelRatio: { label: '命中比例→变量', hint: '填变量名, 把命中像素比例捕获进该变量' },
       },
       output: {
         Found: { label: '命中' },
@@ -841,9 +844,6 @@ export default {
         RefPoint: { label: '参考点（归一化）' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms, 0=单次)' },
-        CapturePrimaryCenter: { label: '首块中心→变量' },
-        CapturePrimaryArea: { label: '首块面积→变量' },
-        CaptureBlobCount: { label: '块数→变量' },
       },
       output: {
         Found: { label: '找到' },
@@ -870,12 +870,6 @@ export default {
           confInnerWeight: { label: '内层置信权重' },
           confOuterWeight: { label: '外层置信权重' },
         },
-        CaptureInnerX: { label: '内层位置→变量', hint: '填变量名, 把内层 (滑块) 在区段里的位置捕获进该变量' },
-        CaptureOuterX: { label: '外层位置→变量', hint: '填变量名, 把外层 (目标区段) 位置捕获进该变量' },
-        CaptureOuterWidth: { label: '外层宽度→变量', hint: '填变量名, 把外层区段宽度捕获进该变量' },
-        CaptureConfidence: { label: '置信度→变量', hint: '填变量名, 把识别置信度捕获进该变量' },
-        CaptureInnerPx: { label: '内层像素宽→变量', hint: '填变量名, 把内层像素宽度捕获进该变量' },
-        CaptureOuterPx: { label: '外层像素宽→变量', hint: '填变量名, 把外层像素宽度捕获进该变量' },
       },
       output: {
         Found: { label: '命中' },
@@ -895,8 +889,6 @@ export default {
         MinClusterCount: { label: '最少段数' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
-        CaptureClusterCount: { label: '段数→变量', hint: '填变量名, 把找到的连续段数量捕获进该变量' },
-        CaptureClusters: { label: '各段信息→变量', hint: '填变量名, 把每段的信息捕获进该变量' },
       },
       output: {
         Found: { label: '命中' },
@@ -948,7 +940,6 @@ export default {
       input: {
         PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
-        CapturePath: { label: '截图路径→变量', hint: '填变量名, 把写入的截图绝对路径捕获进该变量' },
       },
       output: {
         Done: {
@@ -1329,7 +1320,7 @@ export default {
     // list
     ForEach: {
       label: '遍历列表', description: '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',
-      input: { List: { label: '列表' }, CaptureItem: { label: '元素存入变量' }, CaptureIndex: { label: '序号存入变量' } },
+      input: { List: { label: '列表' } },
       output: { Body: { label: '循环体' }, Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     Split: {
@@ -1410,7 +1401,6 @@ export default {
       example: '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
       input: {
         Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' },
-        CaptureElapsedMs: { label: '用时(ms)→变量', hint: '填变量名, 把读到的 elapsed 毫秒数捕获进该变量' },
       },
       output: {
         Done: {
