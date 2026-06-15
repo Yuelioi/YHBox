@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 import type { Container, VarDecl, Graph, GraphNode } from '@/lib/backend'
-import { NODE_FIELD_SCHEMAS } from '@/components/containers/nodeFieldSchemas'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+import { bindableFields } from './bindableFields'
 
 export interface DeleteVarOptions {
   cascade: boolean
@@ -17,21 +17,22 @@ const VAR_NODE_KINDS = new Set(['GetVar', 'SetVar', 'IncVar', 'VarLastChange'])
 // VAR_READ_KINDS 是读引用 kind；VAR_NODE_KINDS 里其余成员视为写。新增变量节点 kind 时须同步这两个 Set。
 const VAR_READ_KINDS = new Set(['GetVar', 'VarLastChange'])
 
-// 某 kind 的捕获框字段名 (semantic==='capture'); 来自 NODE_FIELD_SCHEMAS 派生.
-function captureFieldsOf(kind: string): string[] {
-  return (NODE_FIELD_SCHEMAS[kind] ?? []).filter(f => f.semantic === 'capture').map(f => f.key)
-}
-
-// 读 node.config.literal[field] 的 string 值, 不存在返回 ''.
-function captureLiteralOf(node: GraphNode, field: string): string {
+// 读 node.config.literal[field] 的 string 值 (VAR_NODE_KINDS 的 VarName/Scope pin 字面量), 不存在返 ''.
+function pinLiteralOf(node: GraphNode, field: string): string {
   const lit = node.config?.literal as Record<string, unknown> | undefined
   return typeof lit?.[field] === 'string' ? (lit[field] as string) : ''
+}
+
+// 读 node.config.capture[field] 的绑定变量名 (输出捕获, Spec C), 不存在返 ''.
+function captureVarOf(node: GraphNode, field: string): string {
+  const cap = node.config?.capture as Record<string, unknown> | undefined
+  return typeof cap?.[field] === 'string' ? (cap[field] as string) : ''
 }
 
 // VAR_NODE_KINDS (GetVar/SetVar/IncVar/VarLastChange) 的变量名 = VarName pin 字面量 = config.literal.VarName.
 // (跟后端 PinString(n,"VarName") / 真实存盘 shape 对齐; 历史小写 config.varName 是错的, 后端读不到。)
 function varNodeName(node: GraphNode): string {
-  return captureLiteralOf(node, 'VarName')
+  return pinLiteralOf(node, 'VarName')
 }
 
 /**
@@ -43,7 +44,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
     // scope=auto / global / undefined → resolves to container var (applies rename/delete)
     // scope=local → frame-private, preserved (allowed to shadow container var)
     // Scope pin 字面量 = config.literal.Scope (VarLastChange 无 Scope pin → undefined → auto)。
-    const scope = captureLiteralOf(n, 'Scope') || 'auto'
+    const scope = pinLiteralOf(n, 'Scope') || 'auto'
     return scope !== 'local'
   }
 
@@ -97,13 +98,13 @@ export function useVarMutations(draft: Ref<Container | null>) {
             (node.config!.literal as Record<string, unknown>).VarName = newName
           }
         }
-        // capture fields: rename config.literal[field]
-        const captureFields = captureFieldsOf(node.kind)
-        if (captureFields.length > 0) {
-          const lit = node.config?.literal as Record<string, unknown> | undefined
-          if (lit) {
-            for (const f of captureFields) {
-              if (lit[f] === oldName) lit[f] = newName
+        // 输出捕获绑定: rename config.capture[field]
+        const capFields = bindableFields(node.kind, node.config)
+        if (capFields.length > 0) {
+          const cap = node.config?.capture as Record<string, unknown> | undefined
+          if (cap) {
+            for (const f of capFields) {
+              if (cap[f] === oldName) cap[f] = newName
             }
           }
         }
@@ -122,9 +123,9 @@ export function useVarMutations(draft: Ref<Container | null>) {
             count++
           }
         }
-        // capture fields: count config.literal[field] refs
-        for (const f of captureFieldsOf(node.kind)) {
-          if (captureLiteralOf(node, f) === name) count++
+        // 输出捕获绑定: count config.capture[field] refs
+        for (const f of bindableFields(node.kind, node.config)) {
+          if (captureVarOf(node, f) === name) count++
         }
       }
     })
@@ -141,10 +142,10 @@ export function useVarMutations(draft: Ref<Container | null>) {
         if (VAR_NODE_KINDS.has(node.kind) && varNodeName(node) === name && isContainerScope(node)) {
           matched = true
         }
-        // capture fields
+        // 输出捕获绑定
         if (!matched) {
-          for (const f of captureFieldsOf(node.kind)) {
-            if (captureLiteralOf(node, f) === name) { matched = true; break }
+          for (const f of bindableFields(node.kind, node.config)) {
+            if (captureVarOf(node, f) === name) { matched = true; break }
           }
         }
         if (matched) ids.push(node.id)
@@ -171,14 +172,12 @@ export function useVarMutations(draft: Ref<Container | null>) {
         const toID = e.to.split('.')[0]
         return !removedIDs.has(fromID) && !removedIDs.has(toID)
       })
-      // cascade: clear capture fields on surviving nodes (保留节点, 清空字段)
+      // cascade: 删保留节点上绑了该变量的输出捕获键 (删 key, 非置空串 — config.capture 是 map, 落地精度#2)
       for (const node of g.nodes) {
-        const captureFields = captureFieldsOf(node.kind)
-        if (captureFields.length === 0) continue
-        const lit = node.config?.literal as Record<string, unknown> | undefined
-        if (!lit) continue
-        for (const f of captureFields) {
-          if (lit[f] === name) lit[f] = ''
+        const cap = node.config?.capture as Record<string, unknown> | undefined
+        if (!cap) continue
+        for (const f of bindableFields(node.kind, node.config)) {
+          if (cap[f] === name) delete cap[f]
         }
       }
     })
@@ -194,11 +193,11 @@ export function useVarMutations(draft: Ref<Container | null>) {
           const access: 'read' | 'write' = VAR_READ_KINDS.has(node.kind) ? 'read' : 'write'
           refs.push({ nodeID: node.id, access, kind: node.kind })
         }
-        // capture fields → write
-        for (const f of captureFieldsOf(node.kind)) {
-          if (captureLiteralOf(node, f) === name) {
+        // 输出捕获绑定 → write
+        for (const f of bindableFields(node.kind, node.config)) {
+          if (captureVarOf(node, f) === name) {
             refs.push({ nodeID: node.id, access: 'write', kind: node.kind })
-            break  // 同一节点多个 capture 字段命中同名变量, 只计一条
+            break  // 同一节点多个捕获字段命中同名变量, 只计一条
           }
         }
       }

@@ -1,9 +1,20 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useVarMutations } from './useVarMutations'
 import type { Container } from '@/lib/backend'
-import { NODE_FIELD_SCHEMAS } from '@/components/containers/nodeFieldSchemas'
+import { register, __resetForTests } from '@/components/containers/nodeRegistry/registry'
+import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
+
+// 最小 NodeKindSpec — capture 用例注册假节点 (bindableFields 走 registry).
+function makeSpec(partial: Partial<NodeKindSpec> & { kind: string }): NodeKindSpec {
+  return {
+    group: 'detect', labelZh: '', description: '', example: '',
+    visual: { icon: '', bg: '', border: '' },
+    execIn: ['In'], execOut: [], dataIn: {}, dataOut: {}, fields: [], defaults: {},
+    ...partial,
+  }
+}
 
 function makeDraft(): Container {
   return {
@@ -25,7 +36,12 @@ function makeDraft(): Container {
 
 describe('useVarMutations', () => {
   // walkAllGraphs 全局化后经 containerEditor store 解析引用闭包 — 需要活的 pinia。
-  beforeEach(() => setActivePinia(createPinia()))
+  // CheckTemplate 注册假 spec (dataOut={Found}) → bindableFields('CheckTemplate')=['Found'], 供捕获用例。
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    __resetForTests()
+    register(makeSpec({ kind: 'CheckTemplate', execOut: ['Found', 'NotFound'], dataOut: { Found: 'bool' } }))
+  })
 
   it('renameVar: changes scope=auto/global/undefined nodes only, preserves scope=local', () => {
     const draft = ref<Container>(makeDraft())
@@ -138,22 +154,17 @@ describe('useVarMutations', () => {
     expect((draft.value.graph.nodes[0].config!.literal as Record<string, unknown>).VarName).toBe('x')
   })
 
-  // ── Task 12: 捕获框字段纳入 refs/rename/cascade-clear ──────────────────────
-  afterEach(() => {
-    delete NODE_FIELD_SCHEMAS['CheckTemplate']
-  })
+  // ── 输出捕获 (config.capture) 纳入 refs/rename/cascade-delete (Spec C) ──────────────
+  // CheckTemplate 在 beforeEach 注册 (dataOut={Found}) → bindableFields('CheckTemplate')=['Found']。
 
-  it('capture field: countUsage includes capture field values', () => {
-    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
-      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
-    ]
+  it('capture: countUsage includes config.capture bindings', () => {
     const draft = ref<Container>({
       schemaVersion: 1, id: 'c4', name: 'c4',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
         id: 'g4', version: 1,
         nodes: [
-          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
       },
@@ -163,17 +174,14 @@ describe('useVarMutations', () => {
     expect(m.countUsage('hp')).toBe(1)
   })
 
-  it('capture field: renameVar renames capture field value', () => {
-    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
-      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
-    ]
+  it('capture: renameVar renames config.capture binding value', () => {
     const draft = ref<Container>({
       schemaVersion: 1, id: 'c5', name: 'c5',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
         id: 'g5', version: 1,
         nodes: [
-          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
       },
@@ -181,15 +189,11 @@ describe('useVarMutations', () => {
     } as unknown as Container)
     const m = useVarMutations(draft)
     m.renameVar('hp', 'x')
-    const lit = draft.value.graph.nodes[0].config!.literal as Record<string, string>
-    expect(lit['CaptureFound']).toBe('x')
+    const cap = draft.value.graph.nodes[0].config!.capture as Record<string, string>
+    expect(cap['Found']).toBe('x')
   })
 
-  // ── Task 13: listUsageRefs — read/write 标注 + 捕获框 ────────────────────────
-  it('listUsageRefs: returns read for GetVar and write for capture field', () => {
-    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
-      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
-    ]
+  it('listUsageRefs: read for GetVar, write for config.capture binding', () => {
     const draft = ref<Container>({
       schemaVersion: 1, id: 'c13', name: 'c13',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
@@ -197,7 +201,7 @@ describe('useVarMutations', () => {
         id: 'g13', version: 1,
         nodes: [
           { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'hp', Scope: 'auto' } }, createdAt: '2026-05-19T00:00:00Z' },
-          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
       },
@@ -214,17 +218,14 @@ describe('useVarMutations', () => {
     expect(writeRef?.kind).toBe('CheckTemplate')
   })
 
-  it('capture field: deleteVar(cascade=true) clears capture field, preserves node', () => {
-    NODE_FIELD_SCHEMAS['CheckTemplate'] = [
-      { key: 'CaptureFound', label: '', type: 'text', semantic: 'capture' } as any,
-    ]
+  it('capture: deleteVar(cascade=true) deletes config.capture key, preserves node', () => {
     const draft = ref<Container>({
       schemaVersion: 1, id: 'c6', name: 'c6',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
         id: 'g6', version: 1,
         nodes: [
-          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { literal: { CaptureFound: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
+          { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
         edges: [],
       },
@@ -234,7 +235,7 @@ describe('useVarMutations', () => {
     m.deleteVar('hp', { cascade: true })
     expect(draft.value.graph.nodes).toHaveLength(1)  // 节点保留
     expect(draft.value.graph.nodes[0].id).toBe('ct1')
-    const lit = draft.value.graph.nodes[0].config!.literal as Record<string, string>
-    expect(lit['CaptureFound']).toBe('')  // 字段清空
+    const cap = draft.value.graph.nodes[0].config!.capture as Record<string, string>
+    expect('Found' in cap).toBe(false)  // 键被删 (非置空串, 落地精度#2)
   })
 })
