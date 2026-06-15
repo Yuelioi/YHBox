@@ -495,12 +495,12 @@
 
     <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。
          连线的 pin 不显 (值走 data 边)。有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 这里返空。 -->
-    <section v-if="normalLiterals.length > 0" class="mb-5">
+    <section v-if="dataInLiterals.length > 0" class="mb-5">
       <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
         {{ t('inspector.literal_section') }}
       </h4>
       <div class="space-y-4">
-        <div v-for="lit in normalLiterals" :key="lit.name" class="space-y-1.5">
+        <div v-for="lit in dataInLiterals" :key="lit.name" class="space-y-1.5">
           <label class="block text-xs text-toned">
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
             <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
@@ -553,81 +553,82 @@
     </section>
 
     <p
-      v-if="normalLiterals.length === 0 && captureLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
+      v-if="dataInLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
       class="text-[12px] text-dimmed"
     >{{ t('inspector.no_config') }}</p>
 
-    <!-- 输出组 — ① 输出捕获 (绑变量: 填变量名 → 运行时把节点输出写进该变量) ② 出口 pin 速览 (只读)。 -->
+    <!-- 输出组 — ① 可绑产出 (config.capture: 绑变量名 → 运行时把该出口产出写进变量) ② exec/纯数据出口 (只读)。 -->
     <SectionHeader :title="t('editor.inspector.group_outputs')" icon="i-tabler-logout-2" class="-mx-4 mt-5 mb-3" />
 
-    <!-- 输出捕获 — semantic==='capture' 的槽聚成折叠组 (默认展开), 折叠头带「总数 / 已填」徽章。 -->
-    <section v-if="captureLiterals.length > 0" class="mb-5">
-      <button
-        type="button"
-        class="w-full flex items-center gap-2 mb-3 group"
-        @click="captureOpen = !captureOpen"
-      >
-        <UIcon
-          :name="captureOpen ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'"
-          class="size-3.5 text-dimmed shrink-0"
-        />
-        <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">
-          {{ t('inspector.capture_section') }}
-        </h4>
-        <span
-          class="text-[10px] font-mono px-1.5 py-0.5 rounded"
-          :class="captureFilledCount > 0 ? 'bg-primary/15 text-primary' : 'bg-elevated text-dimmed'"
-        >{{ captureFilledCount }}/{{ captureLiterals.length }}</span>
-      </button>
-      <div v-if="captureOpen" class="space-y-4">
-        <div v-for="lit in captureLiterals" :key="lit.name" class="space-y-1.5">
-          <label class="block text-xs text-toned">
-            {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
-            <span class="text-[10px] text-dimmed font-mono ml-1">({{ fieldFor(lit.name)?.captureType ?? lit.type }})</span>
-          </label>
+    <!-- 可绑产出 (非纯数据节点 exec 出口 Data 字段): 方案 A — 未绑显「+绑定」按钮, 绑了/编辑中显 VarNameInput + 解绑 ✕。 -->
+    <div v-if="bindable.length" class="space-y-3 mb-4">
+      <div v-for="field in bindable" :key="'b-' + field" class="space-y-1">
+        <div class="flex items-center gap-2 text-[11px]">
+          <UIcon name="i-tabler-variable" class="size-3.5 text-primary shrink-0" />
+          <span class="text-toned">{{ outLabel(field) }}</span>
+          <span v-if="dataTypeOf(field)" class="text-[10px] text-dimmed font-mono">({{ dataTypeOf(field) }})</span>
+          <UButton
+            v-if="!getCapture(field) && !editing.has(field)"
+            size="xs"
+            variant="ghost"
+            color="primary"
+            icon="i-tabler-plus"
+            class="ml-auto"
+            @click="editing.add(field)"
+          >{{ t('inspector.output.bind') }}</UButton>
+        </div>
+        <div v-if="getCapture(field) || editing.has(field)" class="flex items-center gap-1.5">
           <VarNameInput
-            :model-value="String(getLiteral(lit.name) ?? '')"
+            class="flex-1"
+            :model-value="getCapture(field)"
             :declared-vars="declaredVars ?? []"
-            :capture-type="fieldFor(lit.name)?.captureType"
+            :capture-type="dataTypeOf(field)"
             scope="auto"
-            @update:model-value="(v: string) => setLiteral(lit.name, v)"
+            @update:model-value="(v: string) => setCapture(field, v)"
             @declare-var="(a) => emit('declare-var', a)"
           />
-          <p
-            v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"
-            class="text-[11px] text-dimmed leading-snug"
-          >{{ t(fieldFor(lit.name)!.hint!) }}</p>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-x"
+            :title="t('inspector.output.unbind_tooltip')"
+            @click="clearCapture(field)"
+          />
         </div>
+        <p class="text-[10px] text-dimmed leading-snug">
+          {{ field === 'Found' ? t('inspector.output.found_hint') : t('inspector.output.stale_hint') }}
+        </p>
       </div>
-    </section>
+    </div>
 
-    <!-- 出口 pin 速览 (只读): exec 出口 + data 出口。无出口 → 占位。 -->
-    <div v-if="outPins.exec.length || outPins.data.length" class="space-y-1.5">
+    <!-- exec 出口 (只读参考) + 纯数据节点 data 输出 (只读, 不可绑 — 存值用 SetVar)。 -->
+    <div v-if="outPins.exec.length || readonlyData.length" class="space-y-1.5">
       <div
         v-for="pn in outPins.exec"
         :key="'x-' + pn"
         class="flex items-center gap-2 text-[11px]"
       >
         <UIcon name="i-tabler-arrow-right" class="size-3.5 text-dimmed shrink-0" />
-        <span class="text-toned">{{ pn }}</span>
+        <span class="text-toned">{{ outLabel(pn) }}</span>
         <span class="ml-auto text-[10px] text-dimmed font-mono">exec</span>
       </div>
       <div
-        v-for="dp in outPins.data"
+        v-for="dp in readonlyData"
         :key="'d-' + dp.name"
         class="flex items-center gap-2 text-[11px]"
       >
         <UIcon name="i-tabler-variable" class="size-3.5 text-dimmed shrink-0" />
-        <span class="text-toned">{{ dp.name }}</span>
+        <span class="text-toned">{{ outLabel(dp.name) }}</span>
         <span v-if="dp.type" class="ml-auto text-[10px] text-dimmed font-mono">{{ dp.type }}</span>
       </div>
     </div>
-    <p v-else class="text-[11px] text-dimmed">{{ t('editor.inspector.outputs_none') }}</p>
+    <p v-if="!bindable.length && !outPins.exec.length && !readonlyData.length" class="text-[11px] text-dimmed">{{ t('editor.inspector.outputs_none') }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, toRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import type { GraphNode } from '@/lib/backend'
@@ -648,6 +649,7 @@ import PinInput from './inline/PinInput.vue'
 import StructuredInput from './inline/StructuredInput.vue'
 import VarNameInput from './inline/VarNameInput.vue'
 import { unconnectedDataInPins } from '@/composables/containerEditor/pinLiterals'
+import { bindableFields } from '@/composables/containerEditor/bindableFields'
 import { type VarType } from '@/lib/variableRef'
 import { NODE_FIELD_SCHEMAS, type Field } from './nodeFieldSchemas'
 import { useSettingsStore } from '@/stores/settings'
@@ -723,18 +725,6 @@ const dynamicInputNames = computed<string[]>(() => {
     .filter((n) => n !== '')
 })
 
-// semantic==='capture' 的输入聚成「输出捕获」折叠组, 其余正常平铺。
-function isCaptureLit(name: string): boolean {
-  return fieldFor(name)?.semantic === 'capture'
-}
-const normalLiterals = computed(() => dataInLiterals.value.filter((l) => !isCaptureLit(l.name)))
-const captureLiterals = computed(() => dataInLiterals.value.filter((l) => isCaptureLit(l.name)))
-// 已填的捕获项数 (literal 非空字符串) — 折叠头徽章用。
-const captureFilledCount = computed(
-  () => captureLiterals.value.filter((l) => String(getLiteral(l.name) ?? '').trim() !== '').length,
-)
-// 折叠状态: 默认展开 (输出捕获=绑变量, 是「输出」组主操作, 要直接可见)。
-const captureOpen = ref(true)
 
 // 节点 scope — 传给 VarNameInput，影响补全行为。
 // Scope pin 字面量 = config.literal.Scope (跟后端 + 真实存盘 shape 对齐)。
@@ -981,6 +971,47 @@ const outPins = computed(() => {
     data: p.dataOut.map((name) => ({ name, type: String(dataTypes[name] ?? '') })),
   }
 })
+
+// ─── 输出组: 可绑产出 (config.capture) + exec/纯数据只读 (Spec C 方案 A) ──────────────
+// 可绑字段 = bindableFields 单一来源 (非纯数据节点 exec 出口的 Data 字段; 纯数据节点返空, 不可绑)。
+const bindable = computed(() =>
+  props.node ? bindableFields(props.node.kind, props.node.config) : [],
+)
+// 正在绑/改的字段 (未绑时点「+绑定」加入 → 展开 VarNameInput)。切节点清空 (避免上个节点的编辑态串台)。
+const editing = ref(new Set<string>())
+watch(() => props.node?.id, () => editing.value.clear())
+// 字段类型 (PIN_SPECS.dataOut) — 传给 VarNameInput 推断新建变量类型 + 行内显示。
+function dataTypeOf(field: string): string {
+  return props.node ? String(PIN_SPECS[props.node.kind]?.dataOut?.[field] ?? '') : ''
+}
+// 出口字段/exec 译名: node.<kind>.output.<name>.label, 缺则原名 (不显原始英文 pin 名)。
+function outLabel(name: string): string {
+  if (!props.node) return name
+  const key = `node.${props.node.kind}.output.${name}.label`
+  return te(key) ? t(key) : name
+}
+// 读/写 config.capture[field] (绑定变量名)。空 = 解绑 → 删 key (非置空串, 跟 useVarMutations cascade 同语义)。
+function getCapture(field: string): string {
+  const cap = props.node?.config?.capture as Record<string, unknown> | undefined
+  return typeof cap?.[field] === 'string' ? (cap[field] as string) : ''
+}
+function setCapture(field: string, varName: string) {
+  if (!props.node) return
+  const cfg = { ...props.node.config }
+  const cap: Record<string, string> = { ...(cfg.capture as Record<string, string> | undefined) }
+  if (varName.trim() === '') delete cap[field]
+  else cap[field] = varName
+  cfg.capture = cap
+  emit('update', cfg)
+}
+function clearCapture(field: string) {
+  setCapture(field, '')
+  editing.value.delete(field)
+}
+// 纯数据节点的 data 输出 (只读, 不可绑): outPins.data 里不在 bindable 的。非纯节点 → 空。
+const readonlyData = computed(() =>
+  outPins.value.data.filter((d) => !bindable.value.includes(d.name)),
+)
 
 // 屏幕拾取 → 回填 config.literal (PascalCase Spec.Input 名 + 正确类型):
 //   - point: XRatio/YRatio (Number pin, ClickAt/Scroll) — 存 number 不存字符串。
