@@ -13,7 +13,6 @@ declare module 'vue' {
   export interface GlobalComponents {
     AlertBox: typeof import('./src/components/common/AlertBox.vue')['default']
     AppCard: typeof import('./src/components/common/AppCard.vue')['default']
-    AppSidebar: typeof import('./src/components/AppSidebar.vue')['default']
     AppStatusBar: typeof import('./src/components/AppStatusBar.vue')['default']
     AppTitleBar: typeof import('./src/components/AppTitleBar.vue')['default']
     AssetDockPanel: typeof import('./src/components/containers/dock/AssetDockPanel.vue')['default']
