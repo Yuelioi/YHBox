@@ -26,6 +26,9 @@ func TestWaitTemplate_Found(t *testing.T) {
 	if r.ExitName != wtOutFound {
 		t.Errorf("exit = %q, want Found", r.ExitName)
 	}
+	if r.OutputData[wtDataMatched] != true {
+		t.Errorf("Matched = %v, want true", r.OutputData[wtDataMatched])
+	}
 }
 
 func TestWaitTemplate_SettleMs_RedetectThenFound(t *testing.T) {
@@ -67,6 +70,9 @@ func TestWaitTemplate_Timeout(t *testing.T) {
 	}
 	if r.ExitName != wtOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
+	}
+	if r.OutputData[wtDataMatched] != false {
+		t.Errorf("Matched = %v, want false", r.OutputData[wtDataMatched])
 	}
 }
 

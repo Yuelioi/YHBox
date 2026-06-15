@@ -25,6 +25,7 @@ const (
 	ctOutNotFound = "NotFound"
 	ctDataPoint   = "Point"
 	ctDataConf    = "Conf"
+	ctDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
 	ctCapFound    = "CaptureFound"
 	ctCapPoint    = "CapturePoint"
 )
@@ -56,10 +57,12 @@ func (CheckTemplate) Spec() node.Spec {
 				Data: []node.DataField{
 					{Name: ctDataPoint, Type: "Point"},
 					{Name: ctDataConf, Type: "Number"},
+					{Name: ctDataMatched, Type: "Bool"},
 				}},
 			{Name: ctOutNotFound, Type: "Exec",
 				Data: []node.DataField{
 					{Name: ctDataConf, Type: "Number", Optional: true},
+					{Name: ctDataMatched, Type: "Bool"},
 				}},
 		},
 	}
@@ -77,10 +80,10 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if pt != nil {
 		node.Capture(ctx, in, ctCapFound, true)
 		node.Capture(ctx, in, ctCapPoint, *pt)
-		return ctx.Out(ctOutFound).Set(ctDataPoint, *pt).Set(ctDataConf, conf).Fire(), nil
+		return ctx.Out(ctOutFound).Set(ctDataPoint, *pt).Set(ctDataConf, conf).Set(ctDataMatched, true).Fire(), nil
 	}
 	node.Capture(ctx, in, ctCapFound, false) // miss 不写 point
-	return ctx.Out(ctOutNotFound).Set(ctDataConf, conf).Fire(), nil
+	return ctx.Out(ctOutNotFound).Set(ctDataConf, conf).Set(ctDataMatched, false).Fire(), nil
 }
 
 // === Validate: 可选 ===

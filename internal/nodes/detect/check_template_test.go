@@ -165,6 +165,9 @@ func TestCheckTemplate_Hit(t *testing.T) {
 	if r.ExitName != ctOutFound {
 		t.Errorf("exit = %q, want Found", r.ExitName)
 	}
+	if r.OutputData[ctDataMatched] != true {
+		t.Errorf("Matched = %v, want true", r.OutputData[ctDataMatched])
+	}
 }
 
 func TestCheckTemplate_Miss(t *testing.T) {
@@ -180,6 +183,9 @@ func TestCheckTemplate_Miss(t *testing.T) {
 
 	if r.ExitName != ctOutNotFound {
 		t.Errorf("exit = %q, want NotFound", r.ExitName)
+	}
+	if r.OutputData[ctDataMatched] != false {
+		t.Errorf("Matched = %v, want false", r.OutputData[ctDataMatched])
 	}
 }
 

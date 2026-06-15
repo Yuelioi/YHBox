@@ -56,6 +56,9 @@ func TestClickTemplate_Done(t *testing.T) {
 	if r.ExitName != clkOutDone {
 		t.Errorf("exit = %q, want Done", r.ExitName)
 	}
+	if r.OutputData[clkDataMatched] != true {
+		t.Errorf("Matched = %v, want true", r.OutputData[clkDataMatched])
+	}
 	if len(rec.calls) != 1 || rec.calls[0] != "Click:0.550:0.400:left:50" {
 		t.Errorf("calls = %v, want [Click:0.550:0.400:left:50]", rec.calls)
 	}
@@ -143,6 +146,9 @@ func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 
 	if r.ExitName != clkOutTimeout {
 		t.Errorf("exit = %q, want Timeout", r.ExitName)
+	}
+	if r.OutputData[clkDataMatched] != false {
+		t.Errorf("Matched = %v, want false", r.OutputData[clkDataMatched])
 	}
 	if len(rec.calls) != 0 {
 		t.Errorf("Timeout 路径不该 click, got %v", rec.calls)

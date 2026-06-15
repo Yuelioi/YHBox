@@ -26,6 +26,7 @@ const (
 	wtOutTimeout  = "Timeout"
 	wtDataPoint   = "Point"
 	wtDataConf    = "Conf"
+	wtDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
 	wtCapFound    = "CaptureFound"
 	wtCapPoint    = "CapturePoint"
 )
@@ -60,10 +61,12 @@ func (WaitTemplate) Spec() node.Spec {
 				Data: []node.DataField{
 					{Name: wtDataPoint, Type: "Point"},
 					{Name: wtDataConf, Type: "Number"},
+					{Name: wtDataMatched, Type: "Bool"},
 				}},
 			{Name: wtOutTimeout, Type: "Exec",
 				Data: []node.DataField{
 					{Name: wtDataConf, Type: "Number", Optional: true},
+					{Name: wtDataMatched, Type: "Bool"},
 				}},
 		},
 	}
@@ -87,10 +90,10 @@ func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		node.Capture(ctx, in, wtCapFound, true)
 		node.Capture(ctx, in, wtCapPoint, *pt)
-		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Fire(), nil
+		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Set(wtDataMatched, true).Fire(), nil
 	}
 	node.Capture(ctx, in, wtCapFound, false) // timeout 不写 point
-	return ctx.Out(wtOutTimeout).Set(wtDataConf, conf).Fire(), nil
+	return ctx.Out(wtOutTimeout).Set(wtDataConf, conf).Set(wtDataMatched, false).Fire(), nil
 }
 
 func (WaitTemplate) Validate(in node.Inputs) []node.ValidationError {

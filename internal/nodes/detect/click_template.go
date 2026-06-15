@@ -29,6 +29,7 @@ const (
 	clkOutTimeout  = "Timeout"
 	clkDataPoint   = "Point"
 	clkDataConf    = "Conf"
+	clkDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
 	clkCapFound    = "CaptureFound"
 	clkCapPoint    = "CapturePoint"
 )
@@ -71,10 +72,12 @@ func (ClickTemplate) Spec() node.Spec {
 				Data: []node.DataField{
 					{Name: clkDataPoint, Type: "Point"},
 					{Name: clkDataConf, Type: "Number"},
+					{Name: clkDataMatched, Type: "Bool"},
 				}},
 			{Name: clkOutTimeout, Type: "Exec",
 				Data: []node.DataField{
 					{Name: clkDataConf, Type: "Number", Optional: true},
+					{Name: clkDataMatched, Type: "Bool"},
 				}},
 		},
 	}
@@ -96,7 +99,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	if pt == nil {
 		node.Capture(ctx, in, clkCapFound, false) // timeout 不写 point
-		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Fire(), nil
+		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Set(clkDataMatched, false).Fire(), nil
 	}
 	// 命中后可选稳定延迟 + 重定位 (SettleMs): 防"刚出现就点、点空了"。settle=0 → 行为同旧。详见 settleAfterMatch。
 	pt, conf, err = settleAfterMatch(ctx, keys, threshold, mode, settle, pt, conf)
@@ -109,7 +112,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	node.Capture(ctx, in, clkCapFound, true)
 	node.Capture(ctx, in, clkCapPoint, *pt)
-	return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Fire(), nil
+	return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Set(clkDataMatched, true).Fire(), nil
 }
 
 func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
