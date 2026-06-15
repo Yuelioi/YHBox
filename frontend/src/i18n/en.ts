@@ -1952,6 +1952,7 @@
     daily_at_label: 'At',
     on_error_label: 'On error',
     timeout_label: 'Timeout',
+    timeout_hint: 'In minutes, 0 = no limit',
     add_container: 'Add container',
     interval_label: 'Every N minutes',
     hotkey_label: 'Hotkey',

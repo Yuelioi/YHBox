@@ -1988,6 +1988,7 @@ export default {
     daily_at_label: '每天',
     on_error_label: '出错时',
     timeout_label: '超时',
+    timeout_hint: '单位分钟, 0 = 不限时',
     add_container: '添加容器',
     interval_label: '每 N 分钟',
     hotkey_label: '热键',
