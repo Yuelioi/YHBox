@@ -100,6 +100,17 @@ Data 字段加 i18n label `node.<kind>.output.<字段>`(如 `node.DetectColor.ou
 6. **Inspector 输出行 tooltip**(ds#4): 每个可绑产出行加一句 tooltip/hint —— "该变量仅在此出口被触发时更新, 未触发保留上次值"(尤其 Center/Count 类未命中留旧值, 别让用户以为是本次结果)。
 7. **Part 1 + Part 2 是一个发布单元**(gpt#11): 后端改 `config.capture`(P1)与前端消费者审计(P2, rename/delete 改读 config.capture)**必须一起到位**才安全 —— 中间态(只 P1)会让删变量/重命名漏改捕获绑定。本项目单机, 不存在"半发布", 但 P1→P2 之间别留过夜半成品。
 
+### Round-3 澄清 (实现前最后确认, 已核源码)
+
+8. **region Body Data 字段无需改 struct**(ds#3): `OutputSpec.Data []DataField` **已存在**(`spec.go:63`, "仅 Type=Exec 出口有" —— Fail 带 Error/Code 就是它)。region 节点把 Index/Item 声明为 `Body` 出口的 `Data` 字段, **复用现有结构, 零 struct 改动**; 前端 `splitOutputs` 已把 exec 出口 Data flatten 进 dataOut → 自动列为可绑。
+9. **`bindableFields(kind, config)` 无循环依赖 + useVarMutations 精确模式即可**(ds#1 / claude#1): ① 它只依赖 config 的**输出形态**(dataOut/Body Data), **从不读 `config.capture`** → 不自引用、无循环(明确排除, 非"尚未遇到")。② useVarMutations 遍历的是 draft 里的节点, **每个节点自带 `config`** → 直接 `bindableFields(node.kind, node.config)` 精确判定, **不需要单独的"保守模式"**(reviewer 担心的"无 config 上下文"在本仓不成立 —— 引用统计就是逐节点遍历)。
+10. **运行期 config 是 run-start 快照**(claude#2): `ctx.CaptureOutput` 读的 config.capture 是**该 run 启动时载入的快照**(框架构造节点 ctx 时注入, run 内不可变); 编辑期 `deleteVar` cascade 改的是 draft/落盘 config → **运行中的 run 不受影响、无 live 分歧**(本仓 run 用持久化快照、不热改运行中容器; 若日后加热编辑, 须守住 ctx 持有 run-start 不可变 config 这条)。
+11. **同名变量被两路同时绑 = 确定性末写胜, 非 race**(claude#3): 用户可能把 Loop.Index(路径②, 每轮 RunRegion 开头写)和循环体内某 fire-time 字段(路径①, body 节点 fire 时写)绑到同一变量 → 同轮内**顺序确定**(②先 ①后, 末写胜), 不是并发竞争。这是 foot-gun 非 bug; 收尾把既有 `useConcurrencyWarning`(同名写警告)**延伸覆盖捕获绑定**即可(低优先)。
+12. **验证补 grep + vet**(ds#2): 后端改完跑 `grep -rn 'node\.Capture(' internal/` = **零**(旧助手彻底删、无残留无死代码)+ `go vet ./...` 干净。
+13. **测试归属**(claude#4): `spec_capture_test.go`(校验 capture 输入 CaptureType)→ **删**(capture 输入没了); 落地精度#3 的"region 字段名一致性断言"是**新增独立测试**(不是改 spec_capture_test.go)。
+
+> **Round-3 结论**: 三份 review(ds/gpt/claude)一致认定架构健壮、剩"最后一公里"精度, 已全部澄清/吸收。gpt 其余条目为已知 trade-off(两路分叉永久 / bindableFields 单点耦合 / map 失静态 schema / 三职责同列表), 非缺陷, 已诚实承认。**可进开发。**
+
 ## 实现分期 (plan 切分建议)
 
 - **Part 1 · 后端**: config.capture + routeResult 自动捕获(路径①) + CaptureOutput helper(路径②, Loop/ForEach) + 不变量核对/补 Data 字段(Found 等) + 删 13 文件捕获框 + 校验 + 后端测试。(结构大头/风险集中, 先做先验。)
