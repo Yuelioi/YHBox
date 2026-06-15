@@ -1,17 +1,17 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-15 by 月离 (Spec B **收官归档** — Part 3 列的 6 弹窗在 Spec A 建 BaseModal 时已迁、无代码改动, 故 Spec B 三部分全完。UI 升级阶段 (Spec A+B) 整体 done)。
-**Active focus**: **UI 升级阶段收官** — **Spec A**(地基+门面 4 屏)+ **Spec B**(编辑器 restyle: 左侧停靠区 + chrome 重组 + 弹窗 BaseModal) 全 done 归档, 设计语言常驻 [ui.md](checklists/ui.md)。**当前无锁定焦点**, 下一步候选池待用户挑。**默认不 push**。
+**Last updated**: 2026-06-15 by 月离 (**Spec C 立项** — 输出自动捕获 + Inspector 输出组统一绑定; brainstorm 拍定、spec 已写, 待用户过目 → 转 plan。UI 升级 Spec A+B 已收官归档)。
+**Active focus**: **Spec C — 输出自动捕获** ([spec](specs/2026-06-15-output-auto-capture.md))。框架 dispatch 自动把出口产出写进绑定变量 (替"逐节点手声明捕获框 + node.Capture()") + 前端「输出」组统一绑定 UI (方案 A: 按钮绑+chip)。所有执行节点产出自动可绑。UI 升级 (Spec A+B) 已 done 归档。**默认不 push**。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
-
+- [2026-06-15-output-auto-capture.md](specs/2026-06-15-output-auto-capture.md) — "输出自动捕获 + Inspector 输出组统一绑定 (Spec C)。取消'逐节点手声明 Semantic:capture 输入框 + Run 里手调 node.Capture()'这套, 改成框架在 dispatch routeResult 把 fire 出口的 OutputData[字段] 自动写进用户绑定的变量。前端 Inspector「输出」组合并掉 Part 2 的'速览'+'捕获'两套, 每个可绑产出一行: 翻译名 + 类型 + 「+绑变量」按钮 (绑后显 → \$var ✕ chip), 写 config.capture{字段:变量名}。所有执行节点的数据产出自动可绑 (含现在漏声明捕获框的 PlayClip.Error/Code)。核心不变量: 被捕获值必须是出口 Data 字段 (从 OutputData 读) —— 模板三件套的 Found 布尔补成显式 Data 字段。删 13 文件 27 个 capture 输入 + node.Capture 助手。迁移条件化 (旧 config.literal[Capture<X>] → config.capture[<X>], 没有就跳过)。边界: 不碰 vue-flow 画布/节点/连线/pin, 绑定全在 Inspector。"
 <!-- /AUTO -->
 
-**无进行中任务** — UI 升级 (Spec A + Spec B) 已全部落地归档。下一步从候选池挑或等用户指派。
+**Spec C 进行中**: brainstorm done、spec 已写并待用户过目 → 过了转 writing-plans。三件设计已拍: ① 框架自动捕获 (dispatch `routeResult` 读 `result.OutputData` 写绑定变量) ② 前端输出组方案 A (按钮绑+chip, 翻译统一) ③ 模板三件套 Found 布尔补成显式 Data 字段 (核心不变量: 被捕获值必须是出口 Data 字段)。迁移条件化。
 
-候选池(待用户挑): 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。(NodeSearchModal/CommandPalette 收 BaseModal 候选已撤 — Spec B §5 拍定维持自有壳、只继承 token。)
+候选池(Spec C 后): 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
 
 ## 待复核
 
