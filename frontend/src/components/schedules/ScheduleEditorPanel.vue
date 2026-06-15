@@ -1,19 +1,27 @@
 <template>
-  <div class="space-y-5 max-w-2xl">
-    <section class="space-y-2">
-      <div class="grid grid-cols-[120px_1fr] items-center gap-2 text-xs">
-        <label class="text-dimmed">{{ t('schedule.name_label') }}</label>
-        <UInput v-model="draft.name" />
-        <label class="text-dimmed">{{ t('schedule.enabled_label') }}</label>
+  <div class="space-y-6 max-w-2xl">
+    <!-- 基础 -->
+    <section class="space-y-3">
+      <SectionHeader :title="t('schedule.basics_section')" icon="i-tabler-adjustments" />
+      <UFormField :label="t('schedule.name_label')">
+        <UInput v-model="draft.name" class="w-full" />
+      </UFormField>
+      <UFormField :label="t('schedule.enabled_label')">
         <USwitch v-model="draft.enabled" />
-      </div>
+      </UFormField>
     </section>
 
-    <section class="space-y-2">
-      <div class="text-xs uppercase tracking-wider text-dimmed">Targets ({{ t('schedule.run_order_hint') }}</div>
-      <div v-for="(t, i) in draft.targets" :key="i" class="flex items-center gap-2 text-xs">
-        <span class="text-dimmed w-4 tabular-nums">{{ i + 1 }}.</span>
-        <USelect v-model="t.id" :items="containerItems" class="flex-1" />
+    <!-- 目标容器 -->
+    <section class="space-y-3">
+      <SectionHeader
+        :title="t('schedule.targets_section')"
+        icon="i-tabler-stack-2"
+        :count="draft.targets.length"
+      />
+      <p class="text-[11px] text-dimmed leading-snug">{{ t('schedule.targets_hint') }}</p>
+      <div v-for="(tg, i) in draft.targets" :key="i" class="flex items-center gap-2">
+        <span class="text-dimmed text-xs w-4 tabular-nums shrink-0">{{ i + 1 }}.</span>
+        <USelect v-model="tg.id" :items="containerItems" class="flex-1" />
         <UButton
           size="xs"
           variant="ghost"
@@ -38,61 +46,66 @@
           @click="draft.targets.splice(i, 1)"
         />
       </div>
-      <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget"
-        >{{ t('schedule.add_container') }}</UButton
-      >
+      <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">{{
+        t('schedule.add_container')
+      }}</UButton>
     </section>
 
-    <section class="space-y-2">
-      <div class="text-xs uppercase tracking-wider text-dimmed">Trigger</div>
-      <USelect v-model="draft.trigger.kind" :items="triggerKinds" class="w-48" />
+    <!-- 触发 -->
+    <section class="space-y-3">
+      <SectionHeader :title="t('schedule.trigger_section')" icon="i-tabler-bolt" />
+      <UFormField :label="t('schedule.trigger_kind_label')">
+        <USelect v-model="draft.trigger.kind" :items="triggerKinds" class="w-48" />
+      </UFormField>
 
-      <div
-        v-if="draft.trigger.kind === 'cron'"
-        class="grid grid-cols-[120px_1fr] gap-2 text-xs items-center"
-      >
-        <label class="text-dimmed">subKind</label>
-        <USelect v-model="draft.trigger.subKind" :items="cronSubKinds" />
-        <template v-if="draft.trigger.subKind === 'daily'">
-          <label class="text-dimmed">at (HH:MM)</label>
-          <UInput v-model="draft.trigger.at" placeholder="05:00" />
-        </template>
-        <template v-else-if="draft.trigger.subKind === 'interval'">
-          <label class="text-dimmed">{{ t('schedule.interval_label') }}</label>
+      <template v-if="draft.trigger.kind === 'cron'">
+        <UFormField :label="t('schedule.cron_subkind_label')">
+          <USelect v-model="draft.trigger.subKind" :items="cronSubKinds" class="w-48" />
+        </UFormField>
+        <UFormField v-if="draft.trigger.subKind === 'daily'" :label="t('schedule.daily_at_label')">
+          <UInput v-model="draft.trigger.at" placeholder="05:00" class="w-32" />
+        </UFormField>
+        <UFormField
+          v-else-if="draft.trigger.subKind === 'interval'"
+          :label="t('schedule.interval_label')"
+        >
           <UInputNumber
             :model-value="draft.trigger.everyMinutes ?? 30"
             :min="1"
+            class="w-32"
             @update:model-value="draft.trigger.everyMinutes = Number($event)"
           />
-        </template>
-      </div>
+        </UFormField>
+      </template>
 
-      <div
-        v-if="draft.trigger.kind === 'hotkey'"
-        class="grid grid-cols-[120px_1fr] gap-2 text-xs items-center"
-      >
-        <label class="text-dimmed">{{ t('schedule.hotkey_label') }}</label>
-        <UInput v-model="draft.trigger.hotkey" placeholder="Ctrl+Shift+2" />
-      </div>
+      <UFormField v-if="draft.trigger.kind === 'hotkey'" :label="t('schedule.hotkey_label')">
+        <UInput v-model="draft.trigger.hotkey" placeholder="Ctrl+Shift+2" class="w-48" />
+      </UFormField>
     </section>
 
-    <section class="space-y-2">
-      <div class="text-xs uppercase tracking-wider text-dimmed">{{ t('schedule.limit_label') }}</div>
-      <div class="grid grid-cols-[120px_1fr] gap-2 text-xs items-center">
-        <label class="text-dimmed">timeout {{ t('schedule.minutes') }}</label>
+    <!-- 限制 -->
+    <section class="space-y-3">
+      <SectionHeader :title="t('schedule.limit_label')" icon="i-tabler-shield-half" />
+      <UFormField :label="t('schedule.timeout_label')" :hint="t('schedule.minutes')">
         <UInputNumber
           :model-value="draft.timeoutMinutes"
           :min="0"
+          class="w-32"
           @update:model-value="draft.timeoutMinutes = Number($event)"
         />
-        <label class="text-dimmed">onError</label>
-        <USelect v-model="draft.onError" :items="onErrorOptions" />
-      </div>
+      </UFormField>
+      <UFormField :label="t('schedule.on_error_label')">
+        <USelect v-model="draft.onError" :items="onErrorOptions" class="w-48" />
+      </UFormField>
     </section>
 
     <div class="flex justify-end gap-2 pt-3 border-t border-default">
-      <UButton variant="ghost" color="neutral" @click="$emit('cancel')">{{ t('common.cancel') }}</UButton>
-      <UButton color="primary" icon="i-tabler-check" @click="$emit('save', draft)">{{ t('common.save') }}</UButton>
+      <UButton variant="ghost" color="neutral" @click="$emit('cancel')">{{
+        t('common.cancel')
+      }}</UButton>
+      <UButton color="primary" icon="i-tabler-check" @click="$emit('save', draft)">{{
+        t('common.save')
+      }}</UButton>
     </div>
   </div>
 </template>
@@ -101,6 +114,7 @@
 import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Container, Schedule } from '@/lib/backend'
+import SectionHeader from '@/components/common/SectionHeader.vue'
 
 const { t } = useI18n()
 
@@ -120,7 +134,7 @@ const containerItems = computed(() =>
 
 const triggerKinds = computed(() => [
   { label: t('schedule.container_unbound'), value: 'manual' },
-  { label: 'Cron', value: 'cron' },
+  { label: t('schedule.trigger.cron'), value: 'cron' },
   { label: t('schedule.trigger.once'), value: 'once' },
   { label: t('schedule.trigger.hotkey'), value: 'hotkey' },
 ])
