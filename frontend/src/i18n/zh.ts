@@ -913,6 +913,7 @@ export default {
       output: {
         Stable: { label: '已稳定' },
         Timeout: { label: '超时' },
+        Value: { label: '差异值' },
       },
     },
     WaitChange: {
@@ -931,6 +932,7 @@ export default {
       output: {
         Changed: { label: '已变化' },
         Timeout: { label: '超时' },
+        Value: { label: '差异值' },
       },
     },
     Screenshot: {

@@ -893,6 +893,7 @@
       output: {
         Stable: { label: 'Stable' },
         Timeout: { label: 'Timeout' },
+        Value: { label: 'Diff value' },
       },
     },
     WaitChange: {
@@ -911,6 +912,7 @@
       output: {
         Changed: { label: 'Changed' },
         Timeout: { label: 'Timeout' },
+        Value: { label: 'Diff value' },
       },
     },
     Screenshot: {

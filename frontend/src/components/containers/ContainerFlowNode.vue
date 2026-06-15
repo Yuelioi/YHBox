@@ -136,7 +136,13 @@ const editorStore = useContainerEditorStore()
 // 没注册 (e.g. dynamic Subgraph pin / fallback kind) → 返 raw pin name 字面值.
 function pinLabel(pinName: string, dir: 'in' | 'out'): string {
   const k = `node.${kind.value}.${dir === 'in' ? 'input' : 'output'}.${pinName}.label`
-  return te(k) ? t(k) : pinName
+  if (te(k)) return t(k)
+  // 输出数据字段译名走共享字典 (跟 Inspector outLabel 同源, 画布也不显英文 pin 名)。
+  if (dir === 'out') {
+    const common = `inspector.output.field.${pinName}`
+    if (te(common)) return t(common)
+  }
+  return pinName
 }
 
 const props = defineProps<{
@@ -345,7 +351,8 @@ function handleStyle(p: PinEntry, i: number): Record<string, string> {
 // preview: stringify 友好化 (object → JSON, 防 [object Object])
 const preview = computed(() => {
   const cfg = props.data?.config ?? {}
-  const skip = new Set(['n', 'literal'])
+  // capture: 输出捕获绑定 (config.capture) 在 Inspector「输出」组展示, 不在节点体当原始 JSON 行渲染。
+  const skip = new Set(['n', 'literal', 'capture'])
   const out: { k: string; v: string }[] = []
   for (const k of Object.keys(cfg)) {
     if (skip.has(k)) continue
