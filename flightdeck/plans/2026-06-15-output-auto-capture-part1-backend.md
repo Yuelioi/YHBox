@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: "Spec C 实现计划 Part 1 (后端自动捕获)。① 模板三件套 Found 补成 Bool Data 字段(两出口都 Set); ② config.capture{字段:变量名} 存储 + 路径① fire-time 自动捕获(ContainerRunner.applyCaptures 钩在 routeResult 成功路径 result.OutputData + 失败路径 {Error,Code}, 用 r.bundle.Vars.SetScoped auto); ③ 路径② ctx.CaptureOutput(field,value)(Ctx 接口 + ctxImpl.captureBindings, newCtx 从 config[capture] 解析)+ Loop/ForEach 改用它 + Index/Item 声明为 Body 出口 Data 字段; ④ 删 13 文件 27 个 Semantic:capture 输入 + 11 fire-time 节点 node.Capture 调用 + node.Capture 助手 + capture_test/spec_capture_test, grep+vet 零残留; ⑤ validator 校验 config.capture var-ref + BindableFields 后端单一来源。"
 last_updated: 2026-06-15
 implements: specs/2026-06-15-output-auto-capture.md
@@ -51,13 +51,16 @@ implements: specs/2026-06-15-output-auto-capture.md
 
 ## Progress
 
-current: **未开始**。Task 顺序 = 1(Found Data 字段, additive)→ 2(路径①+config.capture+applyCaptures)→ 3(路径② ctx.CaptureOutput + Loop/ForEach)→ 4(删旧 capture, 11 fire-time 节点 + 助手)→ 5(validator + BindableFields)。每 Task 后 `go test ./internal/...` 绿 + 可单独 commit。T2 后路径① 存在但 config.capture 空(无绑定)→ 旧 path 仍工作, 无 break; T4 才切走旧 path。
+current: **done**。后端自动捕获全落地, go build/test/vet 绿(仅余 10 个预存「runtime 缺 fish fixture」失败 = apply_direction/watchdog json 缺文件, 实测与 Spec C 前同款、子集、零新增回归)。**无真机 smoke**(Part 1 无前端入口; 留 Part 2)。
 
-- T1 — 未开始
-- T2 — 未开始
-- T3 — 未开始
-- T4 — 未开始
-- T5 — 未开始
+- T1 done — 816d4cb (模板三件套 Matched bool Data 字段, 两出口 Set; 命名 Matched 避与 Found 出口冲突)
+- T2 done — 5107d7f (路径① applyCaptures 钩 routeResult 成功+失败路径; 4 dispatch 测试)
+- T3 done — cf7e2d3 (路径② ctx.CaptureOutput + ctxImpl.captureBindings; Loop/ForEach 改用 + Body Data 字段)
+- T4 done — 33fa43f (删 13 文件 27 capture 输入 + 11 node.Capture + 助手 + CaptureType 字段; 测试改断 OutputData; grep 零)
+- T5 done — (commit 后) (BindableFields 单一来源 + validateCaptureRefs var-ref/字段校验)
+- fix — 89e16c1 (state_FISHING fixture 迁 config.literal[Capture*]→config.capture; 修 T4 引入的 fixture 回归)
+
+**遗留(Part 2 处理)**: ① `internal/catalog/node-i18n.json` 仍有旧 capture 字段 label (stale, 无消费者不破坏测试; Part 2 改前端 i18n 时一并重生成); ② 编辑器输出捕获 UI 暂不可用(旧捕获框随后端 capture 输入删而消失, 新「输出」组绑定 UI 是 Part 2)—— **落地精度#7: P1+P2 是一个发布单元, 别只发 P1**。
 
 ---
 

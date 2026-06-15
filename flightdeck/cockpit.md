@@ -1,16 +1,17 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-15 by 月离 (**Spec C 立项** — 输出自动捕获 + Inspector 输出组统一绑定; brainstorm 拍定、spec 已写, 待用户过目 → 转 plan。UI 升级 Spec A+B 已收官归档)。
-**Active focus**: **Spec C — 输出自动捕获** ([spec](specs/2026-06-15-output-auto-capture.md))。框架 dispatch 自动把出口产出写进绑定变量 (替"逐节点手声明捕获框 + node.Capture()") + 前端「输出」组统一绑定 UI (方案 A: 按钮绑+chip)。所有执行节点产出自动可绑。UI 升级 (Spec A+B) 已 done 归档。**默认不 push**。
+**Last updated**: 2026-06-15 by 月离 (**Spec C Part 1 后端自动捕获 done** — config.capture 存储 + 路径①routeResult 自动捕获 + 路径②ctx.CaptureOutput(Loop/ForEach) + 删 13 文件 capture 输入/助手 + validator + BindableFields。go build/test/vet 绿(余 10 预存 fish fixture 缺文件失败, 非回归)。下一步 Part 2 前端)。
+**Active focus**: **Spec C — 输出自动捕获**([spec](specs/2026-06-15-output-auto-capture.md))。**Part 1 后端 done**([plan](plans/2026-06-15-output-auto-capture-part1-backend.md), commits 816d4cb..89e16c1)。**下一步 Part 2 前端**(Inspector「输出」组方案 A 按钮绑+chip + 翻译 i18n + useVarMutations 消费者审计改读 config.capture)。**落地精度#7: P1+P2 一个发布单元**(中间态编辑器输出捕获 UI 暂不可用)。UI 升级 (Spec A+B) 已归档。**默认不 push**。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
 - [2026-06-15-output-auto-capture.md](specs/2026-06-15-output-auto-capture.md) — "输出自动捕获 + Inspector 输出组统一绑定 (Spec C)。取消'逐节点手声明 Semantic:capture 输入框'这套, 捕获绑定改存 config.capture{字段:变量名}, 前端 Inspector「输出」组统一一行式绑定 (方案 A: 按钮绑+chip, 翻译统一)。**两条写路径** (节点形态决定, 非统一): ① fire-time 自动捕获 — 出口 Data 字段值在 dispatch routeResult 由框架自动写进绑定变量 (~11 个检测/截图/脚本节点, 零节点代码); ② region per-iteration 显式捕获 — Loop/ForEach 的 Index/Item 在 RunRegion 每轮由节点调 helper 读 config.capture 写 (不经 routeResult)。模板三件套 Found 布尔补成显式 Data 字段。**消费者审计** (config.capture 是新 var-ref 站): useVarMutations 5 处 (rename/count/listUsageNodeIDs/deleteVar-cascade/listUsageRefs) + 后端 validator + referrers 全改读 config.capture。迁移条件化 + per-node 映射。边界: 不碰 vue-flow 画布/节点/连线/pin。"
-- [2026-06-15-output-auto-capture-part1-backend.md](plans/2026-06-15-output-auto-capture-part1-backend.md) — "Spec C 实现计划 Part 1 (后端自动捕获)。① 模板三件套 Found 补成 Bool Data 字段(两出口都 Set); ② config.capture{字段:变量名} 存储 + 路径① fire-time 自动捕获(ContainerRunner.applyCaptures 钩在 routeResult 成功路径 result.OutputData + 失败路径 {Error,Code}, 用 r.bundle.Vars.SetScoped auto); ③ 路径② ctx.CaptureOutput(field,value)(Ctx 接口 + ctxImpl.captureBindings, newCtx 从 config[capture] 解析)+ Loop/ForEach 改用它 + Index/Item 声明为 Body 出口 Data 字段; ④ 删 13 文件 27 个 Semantic:capture 输入 + 11 fire-time 节点 node.Capture 调用 + node.Capture 助手 + capture_test/spec_capture_test, grep+vet 零残留; ⑤ validator 校验 config.capture var-ref + BindableFields 后端单一来源。"
 <!-- /AUTO -->
 
-**Spec C 进行中**: brainstorm done、spec 已写 + 吸收 3 份 review 修订(a4b39d9), 待用户过目 → 转 writing-plans。**两条写路径**(reviewer 验出 region 循环捕获不走 OutputData): ① fire-time 自动(出口 Data 字段, routeResult 写, ~11 节点零代码)② region per-iteration 显式(Loop/ForEach 的 Index/Item, RunRegion 每轮 helper 读 config.capture 写)。前端方案 A(按钮绑+chip, 翻译统一)。模板 Found 补 Data 字段。**消费者审计**: config.capture 是新 var-ref 站 → useVarMutations 5 处 + 校验 + referrers 全改读 config.capture(漏改=悬空, 见 [[2026-05-29-storage-convention-consumer-audit-gap]])。迁移条件化 + per-node 映射。
+**Spec C Part 1 后端 done**(commits 816d4cb..89e16c1)。落地: `config.capture{字段:变量名}` 存储; **路径① fire-time**(`ContainerRunner.applyCaptures` 钩 `dispatch_v5.routeResult` 成功路径 `result.OutputData` + 失败路径 `{Error,Code}`, `r.bundle.Vars.SetScoped` auto); **路径② region**(`ctx.CaptureOutput(field,value)` + `ctxImpl.captureBindings`, Loop.Index / ForEach.Item+Index 声明为 Body 出口 Data 字段, RunRegion 每轮调); 模板三件套 `Matched` bool Data 字段(两出口 Set, 命名避与 Found 出口冲突); 删 13 文件 27 capture 输入 + 11 `node.Capture` + 助手 + `InputSpec.CaptureType`; `node.BindableFields`(单一来源)+ `validateCaptureRefs`(var-ref→INVALID_VAR_REF / 字段→INVALID_PIN)。**遗留 Part 2**: `internal/catalog/node-i18n.json` stale capture labels 待重生成; 编辑器输出捕获 UI 暂不可用(P1+P2 一个发布单元)。
+
+**下一步 Part 2(前端)**: Inspector「输出」组方案 A(按钮绑+chip, 翻译统一 `node.<kind>.output.<字段>`); **消费者审计**(落地精度#2): `useVarMutations` 5 处(rename/count/listUsageNodeIDs/deleteVar-cascade/listUsageRefs)改读 `config.capture`(漏改=悬空, [[2026-05-29-storage-convention-consumer-audit-gap]]); 删旧 captureLiterals UI。Part 3: 迁移(条件)+ 真机 smoke。
 
 候选池(Spec C 后): 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
 
