@@ -95,10 +95,12 @@
         "x": 1200,
         "y": 150,
         "config": {
+          "capture": {
+            "InnerX": "_barInnerX",
+            "OuterX": "_barOuterX",
+            "OuterWidth": "_barOuterW"
+          },
           "literal": {
-            "CaptureInnerX": "_barInnerX",
-            "CaptureOuterX": "_barOuterX",
-            "CaptureOuterWidth": "_barOuterW",
             "ROI": {
               "overrides": [
                 {
