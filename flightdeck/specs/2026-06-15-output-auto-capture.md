@@ -32,7 +32,7 @@ last_updated: 2026-06-15
 | **① fire-time 自动** | 出口 Data 字段(检测/模板/截图/脚本/秒表…约 11 节点) | 框架在 `routeResult`: 对 `config.capture` 里绑了且 `字段 ∈ result.OutputData` 的字段 → `SetScoped(var,"auto",OutputData[字段])` | **零** (删 node.Capture 调用) |
 | **② region per-iteration** | Loop(`Index`)/ForEach(`Item`/`Index`)循环迭代值 | 节点在 RunRegion 每轮调 helper `node.CaptureOutput(ctx, "字段", 值)`(读 `config.capture[字段]` 写变量) | 保留每轮一行显式调用 (只 2 节点; 唯节点知道每轮值/时机) |
 
-> 用户层仍**统一**: 两路都绑 `config.capture` + 同一前端「输出」组绑定 UI。差异只在后端写时机, 对用户不可见。`node.Capture` 不全删 —— 重命名/改造成 `CaptureOutput`(读 `config.capture` 而非旧捕获输入 pin), 仅 region 节点保留调用; 11 个 fire-time 节点的调用删掉、框架接管。
+> 用户层仍**统一**: 两路都绑 `config.capture` + 同一前端「输出」组绑定 UI。差异只在后端写时机, 对用户不可见。**诚实措辞(回应 review)**: "零节点代码"**只对 fire-time 类成立**(11 节点删 capture 调用、框架接管); region 类(Loop/ForEach 2 节点)**保留每轮一行显式 `ctx.CaptureOutput` 调用** —— 这是循环形态决定的、不可消除, 不宣称"全节点零代码/绝对统一"。新增节点判断 fire-time vs region 的规则写进 [add-node.md](../checklists/add-node.md)(收尾更新), 防遗漏。
 
 ## ⛔ 核心不变量 (实现第一步逐节点核对, 不是写完再补)
 
@@ -47,7 +47,7 @@ last_updated: 2026-06-15
 
 - **存储**: 节点 `config.capture: map[string]string`(`字段名 → 变量名`), 跟 `config.literal` 平级。空/缺省=无绑定。
 - **路径 ① (routeResult hook)**: 拿到 `result.ExitName`+`result.OutputData` 后, 读 `config.capture`, 对每个 `字段→变量` 且 `字段 ∈ OutputData`(本次 fire 出口实际带该字段, **稀疏**: OutputData 只含节点 `.Set()` 过的字段, 不是全字段补 null)→ `SetScoped(变量,"auto",值)`。**只在成功 route 路径写; error 分支(节点返 err)不 route 也不写**。
-- **路径 ② (region helper)**: `node.CaptureOutput(ctx, field, value)` 读 `config.capture[field]`, 非空则 `SetScoped`。Loop/ForEach RunRegion 每轮调(替原 `node.Capture(ctx,in,"CaptureIndex",i)`)。
+- **路径 ② (region helper)**: **`ctx.CaptureOutput(field, value)` —— ctx 方法, 非自由函数**(回应 ds#1: 变量名怎么传)。框架构造节点 ctx 时把该节点 `config.capture` 注入 ctx(`engine.go RunNode(ctx, rn, dataWire, config, ...)` 签名已带 `config`, 可达; 不破坏节点-框架约定), 方法内读 `config.capture[field]` 非空 → `SetScoped(var,"auto",value)`。节点代码不直接摸全局/原始 config。Loop/ForEach RunRegion 每轮调(替原 `node.Capture(ctx,in,"CaptureIndex",i)`)。
 - **删干净**(二号铁律): 移除 13 文件全部 `Semantic:"capture"` 输入 pin 声明; 删 11 个 fire-time 节点的 `node.Capture()` 调用; `node.Capture`(读输入 pin 版)删, 留/改 `node.CaptureOutput`(读 config.capture 版)。`spec_capture_test.go`(CaptureType 校验框)随框删而调整; `InputSpec.CaptureType` 若无消费者一并删(`grep CaptureType` 核)。
 - **写/注入顺序无依赖**: 自动捕获写变量 与 exec-data 连线注入下游 是**两条独立 channel**(写 VarStore vs 注入下游 input), 顺序不影响正确性。`SetScoped` 本身不失败(只写 map); 变量名合法性在编辑/校验期查, 非运行期 → 无运行期写失败路径。
 
@@ -86,9 +86,19 @@ Data 字段加 i18n label `node.<kind>.output.<字段>`(如 `node.DetectColor.ou
 
 ## 验证
 
-- **后端** `go test ./internal/...`: ① 自动捕获 dispatch 单测(绑定字段 fire 后变量被写 / **未带字段不写、变量留旧值**(reviewer 关注的负面用例)/ error 不写 / 多字段); ② region 单测(Loop 每轮 Index 写入递增 / ForEach Item+Index 逐轮); ③ 13 节点测试改写; ④ 模板 Found 双出口写 true/false。
-- **前端** `pnpm typecheck`/`pnpm test`(useVarMutations 改后 rename/count/delete-cascade/find-refs **对 config.capture** 的单测 — 消费者审计回归)/`pnpm build:dev`; 禁用色扫描零行。
-- **真机 smoke**: 给 ① DetectColor(命中像素数/中心点)② PlayClip(Error/Code, 旧绑不了的)③ Loop(Index)各绑变量 → 跑 → GetVar/日志确认写入正确值; 未命中出口不覆盖旧值; 删一个被捕获绑定的变量 → 确认绑定被清(不悬空); 翻译名一致。
+- **后端** `go test ./internal/...`: ① 自动捕获 dispatch 单测(绑定字段 fire 后变量被写 / **未带字段不写、变量留旧值**(reviewer 关注的负面用例)/ error 不写 / 多字段); ② region 单测(Loop 每轮 Index 写入递增 / ForEach Item+Index 逐轮); ③ region 字段名一致性断言(每 region 节点 Spec 声明字段集 == `CaptureOutput` 调用字段集, 见落地精度#3); ④ 13 节点测试改写; ⑤ 模板 Found 双出口写 true/false; ⑥ **集成测试**(ds#6): 一个 workflow 同时含 Loop(路径②写 Index)+ 下游 DetectColor(路径①写 Count), 跑完验两路都正确写同一 VarStore、互不干扰。
+- **前端** `pnpm typecheck`/`pnpm test`(useVarMutations 改后 rename/count/delete-cascade/find-refs **对 config.capture** 的单测 — 消费者审计回归; **两路都覆盖**: 既测 fire-time 节点(DetectColor)又测 region 节点(Loop.config.capture["Index"]))/`pnpm build:dev`; 禁用色扫描零行。
+- **真机 smoke**: 给 ① DetectColor(命中像素数/中心点, 路径①)② PlayClip(Error/Code, 旧绑不了的, 路径①)③ Loop(Index, 路径②)各绑变量 → 跑 → GetVar/日志确认写入正确值; 未命中出口不覆盖旧值; **删一个被 Loop.Index 绑定的变量**(专验路径② 的 cascade)→ 确认 `config.capture` 键被删(不悬空); 翻译名一致。
+
+## 落地精度 (吸收 round-2 review — 防实现返工)
+
+1. **可绑字段单一来源 (single source of truth)**(gpt / claude#2): 前端 Inspector、后端 validator、useVarMutations 三处对"某 kind 哪些字段可绑"必须走**同一份派生**, 不各维护白名单(否则前端显按钮但后端报 INVALID_PIN / 反之)。派生规则: **fire-time 类 = 非 IsPureData 节点出口的 Data 字段; region 类 = Spec Body 出口声明的 Data 字段**; 合成一个 `bindableFields(kind, config)`(config-aware, 复用 `pinsFor` 同源, 自然覆盖未来 config 驱动的动态输出)。FE/validator/varMutations 全调它。
+2. **删变量级联 = 删 key, 不是设空串**(ds#2): 旧 cascade 把捕获输入框值设 `""`; 新机制 `config.capture` 是 map → `deleteVar` cascade **删掉 `config.capture[field]` 键**(非设空串, 否则留空值条目); `renameVar` 改值; `countUsage`/`listUsageNodeIDs`/`listUsageRefs` 遍历 `config.capture` 的 entries。
+3. **region 字段名 Spec↔代码 一致性断言**(claude#1 / gpt): region 节点 Spec 声明的可绑字段名(`Index`/`Item`)与 RunRegion 里 `ctx.CaptureOutput(field,...)` 传的 `field` 字符串**必须一致**(写错 `index`≠`Index` → 永远查不到)。加测试: 对每个 region 节点断言 `Spec 声明字段集 == CaptureOutput 调用字段集`。
+4. **迁移映射 = 不变量核对的产出, 删代码前先跑**(ds#5 / claude#4): §5 的 per-node 映射表**就是** §核心不变量"13文件27点逐点归类"的直接产物(同一份 `捕获输入名→Data字段名` 对照), 不另起一份。顺序: **先 analyze+migrate(扫 spec+存档建映射并转换 config.literal→config.capture), 后删 capture 输入声明** —— 否则删了 Semantic:capture 定义就拿不到映射依据。
+5. **纯数据不可绑 — 理由订正**(ds#3): 技术理由**成立且已核源码**(GetVar 等是 Evaluator, 经 `evalPureDataCached`/`data_pull` 按需求值, **不经 exec dispatch / 无 `routeResult`**, 故无 fire-time hook); **加产品理由**: 其输出本就是一个值、要存别的变量用 `SetVar` 节点, 再"捕获"冗余易混。两条都写。
+6. **Inspector 输出行 tooltip**(ds#4): 每个可绑产出行加一句 tooltip/hint —— "该变量仅在此出口被触发时更新, 未触发保留上次值"(尤其 Center/Count 类未命中留旧值, 别让用户以为是本次结果)。
+7. **Part 1 + Part 2 是一个发布单元**(gpt#11): 后端改 `config.capture`(P1)与前端消费者审计(P2, rename/delete 改读 config.capture)**必须一起到位**才安全 —— 中间态(只 P1)会让删变量/重命名漏改捕获绑定。本项目单机, 不存在"半发布", 但 P1→P2 之间别留过夜半成品。
 
 ## 实现分期 (plan 切分建议)
 
@@ -114,3 +124,5 @@ Data 字段加 i18n label `node.<kind>.output.<字段>`(如 `node.DetectColor.ou
 - *性能需 benchmark*(ds#7): **降级**。O(绑定数)可忽略, 不需 benchmark(§风险1)。
 - *并发安全未讨论*(ds#8): **澄清非新风险**。同写同上下文, 态势不变, 既有并发警告适用(§风险2)。
 - *VarNameInput 新建时机/作用域/重名未定义*(ds#6): **复用既有**。VarNameInput 现成行为(declare-var→草稿、保存落盘; validateVarName 重名; scope auto), 非新决策(§3 已注)。
+
+**Round-2 处置 (复审修订稿)**: 架构(两条写路径)无新洞, 反馈均落地精度 → 全部吸收进 §落地精度: CaptureOutput=ctx 方法/框架注入 config(ds#1) · 删变量级联=删 key 非空串(ds#2) · 可绑字段单一来源(gpt/claude#2) · region 字段名 Spec↔代码一致性断言(claude#1/gpt) · 迁移映射=不变量核对产出+删码前先迁(ds#5/claude#4) · 集成测试+两路消费者审计覆盖(ds#6/claude#3) · 诚实措辞"零代码仅 fire-time"(gpt#1/#12) · 输出行 tooltip(ds#4)。**唯一部分驳回**: ds#3"纯数据可绑、理由站不住脚" —— 技术理由已核源码成立(Evaluator 不经 routeResult), 但采纳其"加产品理由"建议(落地精度#5)。gpt 其余为已知 trade-off(复杂度↑/统一非绝对), 已诚实承认、非缺陷。
