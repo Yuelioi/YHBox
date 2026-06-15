@@ -541,7 +541,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   align-items: center;
   gap: 4px;
   height: 28px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   user-select: none;
   pointer-events: none;
