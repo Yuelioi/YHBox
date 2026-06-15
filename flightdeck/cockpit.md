@@ -23,7 +23,7 @@
 
 ## 待验证
 
-- ⚠ **Spec C 真机 smoke** (verify) — 跑 `task dev`: ① 给 DetectColor 的「命中像素数/命中中心」、PlayClip 的「错误信息/错误码」、Loop 的「序号」在 Inspector「输出」组各绑个变量 → 运行 → 用 GetVar/日志确认变量被写成正确值; ② 未命中出口不应覆盖旧值; ③ 删一个被绑的变量 → 确认该节点 `config.capture` 对应键被删(不悬空); ④ 输出行显中文名、不显英文 pin 名; ⑤ 已迁移的钓鱼子图 DualColorBarTrack(`_barInnerX/_barOuterW/_barOuterX`)绑定仍生效。**验过即 Spec C 收官**。(Spec B smoke 2026-06-15 用户已验, 标记已清。)
+- ⚠ **Spec C 真机 smoke** (verify) — 跑 `task dev`: ① 给 DetectColor 的「命中像素数/命中中心」、PlayClip 的「错误信息/错误码」、Loop 的「序号」在 Inspector「输出」组各绑个变量 → 运行 → 用 GetVar/日志确认变量被写成正确值; ② 未命中出口不应覆盖旧值; ③ 删一个被绑的变量 → 确认该节点 `config.capture` 对应键被删(不悬空); ④ 输出名全中文 —— **Inspector 输出组 + 画布节点体的数据 pin** 都不显英文 (如 DetectColor 的 命中像素数/命中中心、Fail 的 错误信息/错误码); ⑤ 已迁移的钓鱼子图 DualColorBarTrack(`_barInnerX/_barOuterW/_barOuterX`)绑定仍生效。**验过即 Spec C 收官**。(Spec B smoke 2026-06-15 用户已验, 标记已清。)
 
 ## Hanging tasks
 
