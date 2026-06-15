@@ -1,123 +1,135 @@
 <template>
   <div class="px-8 py-8">
-    <div class="mx-auto max-w-3xl space-y-5">
-    <!-- 主介绍卡 -->
-    <AppCard>
-      <div class="flex flex-col items-center text-center py-1">
-        <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" class="mb-4" />
-        <h2 class="text-lg font-semibold text-highlighted mb-1.5">
-          {{ info?.name ?? 'Yotta' }}
-          <span class="text-muted font-normal ml-1 font-mono tabular-nums">v{{ info?.version ?? '...' }}</span>
-        </h2>
-        <p class="text-sm text-muted leading-relaxed max-w-sm">
-          {{ t('about.tagline') }}
-        </p>
-      </div>
-    </AppCard>
+    <div class="mx-auto max-w-3xl space-y-6">
+      <!-- 主介绍卡 (hero, 居中) -->
+      <section class="rounded-xl bg-default border border-default p-5">
+        <div class="flex flex-col items-center text-center py-1">
+          <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" class="mb-4" />
+          <h2 class="text-lg font-semibold text-highlighted mb-1.5">
+            {{ info?.name ?? 'Yotta' }}
+            <span class="text-muted font-normal ml-1 font-mono tabular-nums">v{{ info?.version ?? '...' }}</span>
+          </h2>
+          <p class="text-sm text-muted leading-relaxed max-w-sm">
+            {{ t('about.tagline') }}
+          </p>
+        </div>
+      </section>
 
-    <!-- 核心概念 (摊平: 卡内网格, 不再 card-in-card) -->
-    <AppCard>
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.concepts.title') }}</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-        <div v-for="c in concepts" :key="c.key">
-          <div class="flex items-center gap-2 mb-1.5">
-            <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
-            <span class="text-sm font-medium text-highlighted">{{ t(`about.concepts.${c.key}.name`) }}</span>
+      <!-- 核心概念 -->
+      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-bulb" class="size-4 text-dimmed" />
+          <h2 class="text-sm font-medium text-highlighted">{{ t('about.concepts.title') }}</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
+          <div v-for="c in concepts" :key="c.key">
+            <div class="flex items-center gap-2 mb-1.5">
+              <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
+              <span class="text-sm font-medium text-highlighted">{{ t(`about.concepts.${c.key}.name`) }}</span>
+            </div>
+            <p class="text-xs text-muted leading-relaxed">{{ t(`about.concepts.${c.key}.desc`) }}</p>
           </div>
-          <p class="text-xs text-muted leading-relaxed">{{ t(`about.concepts.${c.key}.desc`) }}</p>
         </div>
-      </div>
-    </AppCard>
+      </section>
 
-    <!-- 作者 / 链接 -->
-    <AppCard>
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_author') }}</h3>
-      <div class="text-sm space-y-2">
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-muted inline-flex items-center gap-1.5">
-            <UIcon name="i-tabler-user" class="size-3.5" /> {{ t('about.label_author') }}
-          </span>
-          <span class="text-default font-medium">{{ info?.author ?? '—' }}</span>
+      <!-- 作者 / 链接 -->
+      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-user" class="size-4 text-dimmed" />
+          <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_author') }}</h2>
         </div>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-muted inline-flex items-center gap-1.5">
-            <UIcon name="i-tabler-brand-github" class="size-3.5" /> {{ t('about.label_source') }}
-          </span>
-          <button
-            v-if="info?.repo"
-            type="button"
-            class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
-            @click="openExternal(info.repo)"
-          >
-            {{ info.repo.replace('https://', '') }} ↗
-          </button>
+        <div class="text-sm space-y-2">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted inline-flex items-center gap-1.5">
+              <UIcon name="i-tabler-user" class="size-3.5" /> {{ t('about.label_author') }}
+            </span>
+            <span class="text-default font-medium">{{ info?.author ?? '—' }}</span>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted inline-flex items-center gap-1.5">
+              <UIcon name="i-tabler-brand-github" class="size-3.5" /> {{ t('about.label_source') }}
+            </span>
+            <button
+              v-if="info?.repo"
+              type="button"
+              class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
+              @click="openExternal(info.repo)"
+            >
+              {{ info.repo.replace('https://', '') }} ↗
+            </button>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted inline-flex items-center gap-1.5">
+              <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B {{ t('about.label_site') }}
+            </span>
+            <button
+              v-if="info?.bilibili"
+              type="button"
+              class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
+              @click="openExternal(info.bilibili)"
+            >
+              {{ info.bilibili.replace('https://', '') }} ↗
+            </button>
+          </div>
         </div>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-muted inline-flex items-center gap-1.5">
-            <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B {{ t('about.label_site') }}
-          </span>
-          <button
-            v-if="info?.bilibili"
-            type="button"
-            class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
-            @click="openExternal(info.bilibili)"
-          >
-            {{ info.bilibili.replace('https://', '') }} ↗
-          </button>
-        </div>
-      </div>
-    </AppCard>
+      </section>
 
-    <!-- 技术栈 -->
-    <AppCard>
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_stack') }}</h3>
-      <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        <div class="flex items-center justify-between">
-          <span class="text-muted">Runtime</span>
-          <span class="text-default font-medium font-mono">Wails 3</span>
+      <!-- 技术栈 -->
+      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-stack-2" class="size-4 text-dimmed" />
+          <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_stack') }}</h2>
         </div>
-        <div class="flex items-center justify-between">
-          <span class="text-muted">Frontend</span>
-          <span class="text-default font-medium font-mono">Vue 3 + TS</span>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Runtime</span>
+            <span class="text-default font-medium font-mono">Wails 3</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Frontend</span>
+            <span class="text-default font-medium font-mono">Vue 3 + TS</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">UI</span>
+            <span class="text-default font-medium font-mono">NuxtUI v4</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Backend</span>
+            <span class="text-default font-medium font-mono">Go 1.25</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">Logger</span>
+            <span class="text-default font-medium font-mono">zerolog</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">CV / Input</span>
+            <span class="text-default font-medium font-mono">pkg/vision + Win32</span>
+          </div>
         </div>
-        <div class="flex items-center justify-between">
-          <span class="text-muted">UI</span>
-          <span class="text-default font-medium font-mono">NuxtUI v4</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-muted">Backend</span>
-          <span class="text-default font-medium font-mono">Go 1.25</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-muted">Logger</span>
-          <span class="text-default font-medium font-mono">zerolog</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-muted">CV / Input</span>
-          <span class="text-default font-medium font-mono">pkg/vision + Win32</span>
-        </div>
-      </div>
-    </AppCard>
+      </section>
 
-    <!-- 致谢 -->
-    <AppCard>
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-dimmed mb-3">{{ t('about.section_thanks') }}</h3>
-      <div class="text-sm space-y-2">
-        <div class="flex items-start justify-between gap-4">
-          <span class="text-muted">{{ t('about.label_icon') }}</span>
-          <button
-            type="button"
-            class="text-default font-medium hover:text-primary transition-colors cursor-pointer"
-            @click="openExternal('https://www.pixiv.net/artworks/120610310')"
-          >
-            Pixiv #120610310 ↗
-          </button>
+      <!-- 致谢 -->
+      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-heart" class="size-4 text-dimmed" />
+          <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_thanks') }}</h2>
         </div>
-        <p class="text-xs text-dimmed leading-relaxed">
-          {{ t('about.icon_credit') }}
-        </p>
-      </div>
-    </AppCard>
+        <div class="text-sm space-y-2">
+          <div class="flex items-start justify-between gap-4">
+            <span class="text-muted">{{ t('about.label_icon') }}</span>
+            <button
+              type="button"
+              class="text-default font-medium hover:text-primary transition-colors cursor-pointer"
+              @click="openExternal('https://www.pixiv.net/artworks/120610310')"
+            >
+              Pixiv #120610310 ↗
+            </button>
+          </div>
+          <p class="text-xs text-dimmed leading-relaxed">
+            {{ t('about.icon_credit') }}
+          </p>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -127,7 +139,6 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Browser } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
-import AppCard from '@/components/common/AppCard.vue'
 import IconBadge from '@/components/common/IconBadge.vue'
 
 const { t } = useI18n()

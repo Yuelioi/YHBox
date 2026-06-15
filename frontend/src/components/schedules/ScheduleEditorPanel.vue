@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6 max-w-3xl">
+  <div class="space-y-6">
     <!-- 基础 -->
     <section class="rounded-xl bg-default border border-default p-5 space-y-4">
       <div class="flex items-center gap-2">
