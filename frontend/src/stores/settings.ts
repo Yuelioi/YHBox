@@ -9,19 +9,14 @@ export interface MouseProfile {
   counts360: number
 }
 
-// LauncherItem 悬浮窗启动器的一个按钮（跟 Go services.LauncherItem 对齐）。
-// 只存 containerId + icon（完整 tabler 名）；名字/状态/热键运行时拉。
-export interface LauncherItem {
-  containerId: string
-  icon: string
-  label: string // 自定义文字；空 = 用容器名
-}
-
-// LauncherGroup 悬浮窗启动器的一个分组（跟 Go services.LauncherGroup 对齐）。
-export interface LauncherGroup {
+// LauncherBlock 悬浮窗启动器的一个块（积木式编排，跟 Go services.LauncherBlock 对齐）。
+// type: 'container'(容器按钮) | 'label'(文字标题) | 'hsep'(水平分隔符) | 'vsep'(垂直分隔符)。
+export interface LauncherBlock {
   id: string
-  name: string
-  items: LauncherItem[]
+  type: 'container' | 'label' | 'hsep' | 'vsep'
+  containerId?: string // type=container
+  icon?: string // type=container 自定义图标（完整 tabler 名）
+  label?: string // container 自定义名 / label 标题文字
 }
 
 // 跟 Go services.Settings 对齐（v2：fish/cook/piano/battle 等 v1 游戏专属字段已删）
@@ -50,7 +45,7 @@ export interface Settings {
     recordingMouseMode: 'relative' | 'absolute' // 录制鼠标语义；改完需重启
     mouseProfiles: MouseProfile[] // 命名鼠标校准档列表（异环/原神…各一档）
     activeMouseProfile: string // 指向 mouseProfiles 里某个 label；空/失配 → activeMouseCounts360 兜底
-    launcherGroups: LauncherGroup[] // 悬浮窗启动器分组（设置里编排，有序）
+    launcherItems: LauncherBlock[] // 悬浮窗启动器块序列（设置里编排，有序，积木式）
     launcherDisplay: string // 'both'(默认)|'icon'|'text'
     launcherToggleHotkey: string // 呼出/隐藏悬浮窗的全局热键（空=未绑）
   }

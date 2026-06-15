@@ -7,7 +7,7 @@
         <h2 class="text-sm font-medium text-highlighted">悬浮窗启动器</h2>
       </div>
       <p class="text-xs text-dimmed leading-relaxed">
-        把常用容器编进分组，悬浮窗里单击即跑。用「呼出/隐藏」热键（在 快捷键 页绑）或容器页「悬浮启动器」按钮打开。
+        把常用容器编进悬浮窗，单击即跑。用「呼出/隐藏」热键（在 快捷键 页绑）或容器页「悬浮启动器」按钮打开。
       </p>
 
       <div class="border-t border-default/60" />
@@ -15,89 +15,113 @@
       <div class="flex items-center justify-between gap-6">
         <div>
           <div class="text-sm text-default">按钮显示</div>
-          <p class="text-xs text-dimmed mt-0.5">悬浮窗里每个按钮显示图标、文字，或两者都显示。</p>
+          <p class="text-xs text-dimmed mt-0.5">悬浮窗里每个容器按钮显示图标、文字，或两者都显示。</p>
         </div>
         <USelect :model-value="display" :items="displayItems" class="w-32" @update:model-value="(v: string) => setDisplay(v)" />
       </div>
     </section>
 
-    <!-- 分组卡片：每个分组一张 -->
-    <section
-      v-for="g in editGroups"
-      :key="g.id"
-      class="rounded-xl bg-default border border-default p-5 space-y-3"
-    >
+    <!-- 编排：单条有序块列表 -->
+    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
       <div class="flex items-center gap-2">
-        <UInput
-          :model-value="g.name" class="flex-1 min-w-0" placeholder="分组名（如 战斗）"
-          @update:model-value="(v: string | number) => renameGroup(g.id, String(v))"
-        />
-        <UButton size="xs" variant="ghost" color="error" icon="i-tabler-trash" title="删除分组（不影响容器）" @click="deleteGroup(g.id)" />
+        <UIcon name="i-tabler-layout-list" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">编排</h2>
+        <span class="text-xs text-dimmed">({{ editItems.length }})</span>
       </div>
+      <p class="text-xs text-dimmed leading-relaxed">
+        自由摆放：容器按钮、文字标题、水平分隔符（占整行的横线，把后面挤到下一排）、垂直分隔符（同排按钮间的竖线）。拖动重排。
+      </p>
 
-      <div v-if="g.items.length === 0" class="text-xs text-dimmed px-1 py-1">空分组 — 下面添加容器。</div>
-      <VueDraggable v-else v-model="g.items" :animation="150" handle=".drag-h" class="space-y-2" @end="persist">
+      <div
+        v-if="editItems.length === 0"
+        class="text-xs text-dimmed py-6 text-center border border-dashed border-default/60 rounded-lg"
+      >
+        空启动器 — 用下面的按钮添加块。
+      </div>
+      <VueDraggable v-else v-model="editItems" :animation="150" handle=".drag-h" class="space-y-2" @end="persist">
         <div
-          v-for="it in g.items"
-          :key="it.containerId"
+          v-for="b in editItems"
+          :key="b.id"
           class="flex flex-col gap-1 px-3 py-2 rounded-md bg-elevated/30 border border-default/60"
         >
           <div class="flex items-center gap-2">
             <UIcon name="i-tabler-grip-vertical" class="drag-h size-4 text-dimmed cursor-grab shrink-0" />
-            <UPopover :ui="{ content: 'w-[300px] p-2' }">
-              <UButton size="xs" variant="outline" color="neutral" square class="shrink-0" title="选图标">
-                <UIcon :name="it.icon || 'i-tabler-photo-plus'" class="size-4" :class="it.icon ? 'text-toned' : 'text-dimmed'" />
-              </UButton>
-              <template #content>
-                <div class="space-y-2">
-                  <IconPicker :model-value="it.icon" @update:model-value="(v: string) => setIcon(g.id, it.containerId, v)" />
-                  <UButton v-if="it.icon" size="xs" variant="ghost" color="neutral" block @click="setIcon(g.id, it.containerId, '')">
-                    清除图标
-                  </UButton>
-                </div>
-              </template>
-            </UPopover>
-            <UInput
-              :model-value="it.label" size="sm" class="flex-1 min-w-0"
-              :placeholder="containerName(it.containerId)" :title="containerName(it.containerId)"
-              @update:model-value="(v: string | number) => setLabel(g.id, it.containerId, String(v))"
-            />
-            <HotkeyCaptureInput
-              class="w-28 sm:w-32 shrink-0" :model-value="containerHotkey(it.containerId)"
-              @update:model-value="(v: string) => setHotkey(it.containerId, v)"
-            />
-            <UButton size="xs" variant="ghost" color="neutral" icon="i-tabler-minus" title="移出分组" @click="removeItem(g.id, it.containerId)" />
+
+            <!-- 容器按钮块 -->
+            <template v-if="b.type === 'container'">
+              <UPopover :ui="{ content: 'w-[300px] p-2' }">
+                <UButton size="xs" variant="outline" color="neutral" square class="shrink-0" title="选图标">
+                  <UIcon :name="b.icon || 'i-tabler-photo-plus'" class="size-4" :class="b.icon ? 'text-toned' : 'text-dimmed'" />
+                </UButton>
+                <template #content>
+                  <div class="space-y-2">
+                    <IconPicker :model-value="b.icon" @update:model-value="(v: string) => setIcon(b.id, v)" />
+                    <UButton v-if="b.icon" size="xs" variant="ghost" color="neutral" block @click="setIcon(b.id, '')">
+                      清除图标
+                    </UButton>
+                  </div>
+                </template>
+              </UPopover>
+              <UInput
+                :model-value="b.label" size="sm" class="flex-1 min-w-0"
+                :placeholder="containerName(b.containerId)" :title="containerName(b.containerId)"
+                @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
+              />
+              <HotkeyCaptureInput
+                class="w-28 sm:w-32 shrink-0" :model-value="containerHotkey(b.containerId)"
+                @update:model-value="(v: string) => setHotkey(b.containerId!, v)"
+              />
+            </template>
+
+            <!-- 文字标题块 -->
+            <template v-else-if="b.type === 'label'">
+              <UIcon name="i-tabler-heading" class="size-4 text-dimmed shrink-0" />
+              <UInput
+                :model-value="b.label" size="sm" class="flex-1 min-w-0"
+                placeholder="标题文字（如 战斗）"
+                @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
+              />
+            </template>
+
+            <!-- 水平分隔符块 -->
+            <div v-else-if="b.type === 'hsep'" class="flex-1 flex items-center gap-2 text-xs text-dimmed">
+              <span class="flex-1 border-t border-default/60" />
+              <span class="shrink-0 inline-flex items-center gap-1"><UIcon name="i-tabler-separator-horizontal" class="size-4" /> 水平分隔符</span>
+              <span class="flex-1 border-t border-default/60" />
+            </div>
+
+            <!-- 垂直分隔符块 -->
+            <div v-else-if="b.type === 'vsep'" class="flex-1 inline-flex items-center gap-1 text-xs text-dimmed">
+              <UIcon name="i-tabler-separator-vertical" class="size-4" /> 垂直分隔符
+            </div>
+
+            <UButton size="xs" variant="ghost" color="error" icon="i-tabler-trash" title="删除此块" @click="removeBlock(b.id)" />
           </div>
-          <!-- 自定义了显示名时 placeholder 消失，常驻一行原容器名兜底，避免忘了它指向哪个容器 -->
-          <p v-if="it.label" class="pl-7 text-xs text-dimmed truncate">来自容器：{{ containerName(it.containerId) }}</p>
+          <!-- 容器块：自定义了显示名时，常驻一行原容器名兜底 -->
+          <p v-if="b.type === 'container' && b.label" class="pl-7 text-xs text-dimmed truncate">来自容器：{{ containerName(b.containerId) }}</p>
         </div>
       </VueDraggable>
 
-      <USelect
-        v-if="addableFor(g).length"
-        :model-value="undefined" :items="addableFor(g)" size="sm" class="w-full sm:w-56"
-        placeholder="+ 添加容器"
-        @update:model-value="(v: string) => addItem(g.id, v)"
-      />
+      <!-- 添加块 -->
+      <div class="flex flex-wrap items-center gap-2 pt-1">
+        <USelect
+          v-if="containerItems.length"
+          :model-value="undefined" :items="containerItems" size="sm" class="w-44"
+          placeholder="+ 容器"
+          @update:model-value="(v: string) => addContainer(v)"
+        />
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-heading" @click="addLabel">文字标题</UButton>
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-separator-horizontal" @click="addHsep">水平分隔符</UButton>
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-separator-vertical" @click="addVsep">垂直分隔符</UButton>
+      </div>
     </section>
-
-    <div
-      v-if="editGroups.length === 0"
-      class="text-xs text-dimmed py-8 text-center border border-dashed border-default/60 rounded-xl"
-    >
-      还没有分组，点下面「新建分组」开始。
-    </div>
-
-    <UButton variant="soft" color="primary" icon="i-tabler-plus" @click="addGroup">
-      新建分组
-    </UButton>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { backend } from '@/lib/backend'
-import { useSettingsStore, type LauncherGroup } from '@/stores/settings'
+import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
 import { useContainersStore } from '@/stores/containers'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import { VueDraggable } from 'vue-draggable-plus'
@@ -108,15 +132,15 @@ const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const hotkeysStore = useHotkeysStore()
 
-// 本地工作副本（深拷贝），本页是 launcherGroups 唯一编辑者，每次改动立即 persist。
-const editGroups = ref<LauncherGroup[]>([])
-function copyGroups(gs: LauncherGroup[]): LauncherGroup[] {
-  return gs.map((g) => ({ id: g.id, name: g.name, items: g.items.map((it) => ({ ...it })) }))
+// 本地工作副本（浅拷贝每块），本页是 launcherItems 唯一编辑者，每次改动立即 persist。
+const editItems = ref<LauncherBlock[]>([])
+function copyItems(items: LauncherBlock[]): LauncherBlock[] {
+  return items.map((b) => ({ ...b }))
 }
 function syncFromStore() {
-  editGroups.value = copyGroups(settingsStore.data?.ui.launcherGroups ?? [])
+  editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? [])
 }
-watch(() => settingsStore.data?.ui.launcherGroups, syncFromStore, { immediate: true })
+watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: true })
 
 const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both')
 const displayItems = [
@@ -129,60 +153,57 @@ function setDisplay(v: string) {
 }
 
 function persist() {
-  void settingsStore.patch({ ui: { launcherGroups: copyGroups(editGroups.value) } })
+  void settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
 }
 function genId(): string {
-  return 'lg_' + Math.random().toString(36).slice(2, 10)
+  return 'lb_' + Math.random().toString(36).slice(2, 10)
 }
-function group(id: string) {
-  return editGroups.value.find((g) => g.id === id)
+function block(id: string) {
+  return editItems.value.find((b) => b.id === id)
 }
-function addGroup() {
-  editGroups.value.push({ id: genId(), name: `分组 ${editGroups.value.length + 1}`, items: [] })
+function addContainer(cid: string) {
+  if (!cid) return
+  editItems.value.push({ id: genId(), type: 'container', containerId: cid, icon: '', label: '' })
   persist()
 }
-function renameGroup(id: string, name: string) {
-  const g = group(id)
-  if (g) { g.name = name; persist() }
-}
-function deleteGroup(id: string) {
-  editGroups.value = editGroups.value.filter((g) => g.id !== id)
+function addLabel() {
+  editItems.value.push({ id: genId(), type: 'label', label: '' })
   persist()
 }
-function addItem(gid: string, cid: string) {
-  const g = group(gid)
-  if (g && cid && !g.items.some((it) => it.containerId === cid)) {
-    g.items.push({ containerId: cid, icon: '', label: '' })
-    persist()
-  }
+function addHsep() {
+  editItems.value.push({ id: genId(), type: 'hsep' })
+  persist()
 }
-function removeItem(gid: string, cid: string) {
-  const g = group(gid)
-  if (g) { g.items = g.items.filter((it) => it.containerId !== cid); persist() }
+function addVsep() {
+  editItems.value.push({ id: genId(), type: 'vsep' })
+  persist()
 }
-function setIcon(gid: string, cid: string, icon: string) {
-  const it = group(gid)?.items.find((x) => x.containerId === cid)
-  if (it) { it.icon = icon; persist() }
+function removeBlock(id: string) {
+  editItems.value = editItems.value.filter((b) => b.id !== id)
+  persist()
 }
-function setLabel(gid: string, cid: string, label: string) {
-  const it = group(gid)?.items.find((x) => x.containerId === cid)
-  if (it) { it.label = label; persist() }
+function setIcon(id: string, icon: string) {
+  const b = block(id)
+  if (b) { b.icon = icon; persist() }
+}
+function setLabel(id: string, label: string) {
+  const b = block(id)
+  if (b) { b.label = label; persist() }
 }
 async function setHotkey(cid: string, hk: string) {
   await backend.hotkeys.update('container.' + cid, hk)
   await hotkeysStore.reload()
 }
-function containerName(id: string): string {
+function containerName(id: string | undefined): string {
   return containersStore.list.find((c) => c.id === id)?.name ?? '(已删容器)'
 }
-function containerHotkey(id: string): string {
+function containerHotkey(id: string | undefined): string {
   return hotkeysStore.list.find((e) => e.key === 'container.' + id)?.hotkeyStr ?? ''
 }
-// 同组不可重复加；跨组允许。
-function addableFor(g: LauncherGroup): { label: string; value: string }[] {
-  const have = new Set(g.items.map((it) => it.containerId))
-  return containersStore.list.filter((c) => !have.has(c.id)).map((c) => ({ label: c.name, value: c.id }))
-}
+// 块自由编排，同一容器允许出现多次 → 不去重，列全部容器。
+const containerItems = computed(() =>
+  containersStore.list.map((c) => ({ label: c.name, value: c.id })),
+)
 
 onMounted(() => {
   void settingsStore.load()
