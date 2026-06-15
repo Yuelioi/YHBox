@@ -9,7 +9,7 @@
 - [2026-06-15-output-auto-capture.md](specs/2026-06-15-output-auto-capture.md) — "输出自动捕获 + Inspector 输出组统一绑定 (Spec C)。取消'逐节点手声明 Semantic:capture 输入框'这套, 捕获绑定改存 config.capture{字段:变量名}, 前端 Inspector「输出」组统一一行式绑定 (方案 A: 按钮绑+chip, 翻译统一)。**两条写路径** (节点形态决定, 非统一): ① fire-time 自动捕获 — 出口 Data 字段值在 dispatch routeResult 由框架自动写进绑定变量 (~11 个检测/截图/脚本节点, 零节点代码); ② region per-iteration 显式捕获 — Loop/ForEach 的 Index/Item 在 RunRegion 每轮由节点调 helper 读 config.capture 写 (不经 routeResult)。模板三件套 Found 布尔补成显式 Data 字段。**消费者审计** (config.capture 是新 var-ref 站): useVarMutations 5 处 (rename/count/listUsageNodeIDs/deleteVar-cascade/listUsageRefs) + 后端 validator + referrers 全改读 config.capture。迁移条件化 + per-node 映射。边界: 不碰 vue-flow 画布/节点/连线/pin。"
 <!-- /AUTO -->
 
-**Spec C 进行中**: brainstorm done、spec 已写并待用户过目 → 过了转 writing-plans。三件设计已拍: ① 框架自动捕获 (dispatch `routeResult` 读 `result.OutputData` 写绑定变量) ② 前端输出组方案 A (按钮绑+chip, 翻译统一) ③ 模板三件套 Found 布尔补成显式 Data 字段 (核心不变量: 被捕获值必须是出口 Data 字段)。迁移条件化。
+**Spec C 进行中**: brainstorm done、spec 已写 + 吸收 3 份 review 修订(a4b39d9), 待用户过目 → 转 writing-plans。**两条写路径**(reviewer 验出 region 循环捕获不走 OutputData): ① fire-time 自动(出口 Data 字段, routeResult 写, ~11 节点零代码)② region per-iteration 显式(Loop/ForEach 的 Index/Item, RunRegion 每轮 helper 读 config.capture 写)。前端方案 A(按钮绑+chip, 翻译统一)。模板 Found 补 Data 字段。**消费者审计**: config.capture 是新 var-ref 站 → useVarMutations 5 处 + 校验 + referrers 全改读 config.capture(漏改=悬空, 见 [[2026-05-29-storage-convention-consumer-audit-gap]])。迁移条件化 + per-node 映射。
 
 候选池(Spec C 后): 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
 
