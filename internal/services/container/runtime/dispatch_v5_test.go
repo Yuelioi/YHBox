@@ -1268,3 +1268,93 @@ func TestRouteResult_FailRoute_BreakPassthrough(t *testing.T) {
 		t.Errorf("bubbled err %v should be the break sentinel", err)
 	}
 }
+
+// ============================================================================
+// 路径① fire-time 自动捕获 (Spec C: config.capture → 变量, 钩在 routeResult)
+// ============================================================================
+
+// tkCapture — 出口带 Data 字段, mode="miss" 走 Miss(只带 Count), 否则 Out(带 Count+Center).
+const tkCapture = "test_dispatch_capture"
+
+type tdCapture struct{}
+
+func (tdCapture) Spec() node.Spec {
+	return node.Spec{
+		Kind:   tkCapture,
+		Inputs: []node.InputSpec{{Name: "in", Type: "Exec"}, {Name: "mode", Type: "String"}},
+		Outputs: []node.OutputSpec{
+			{Name: "Out", Type: "Exec", Data: []node.DataField{
+				{Name: "Count", Type: "Number"},
+				{Name: "Center", Type: "Point"},
+			}},
+			{Name: "Miss", Type: "Exec", Data: []node.DataField{
+				{Name: "Count", Type: "Number"},
+			}},
+		},
+	}
+}
+func (tdCapture) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	if in.String("mode") == "miss" {
+		return ctx.Out("Miss").Set("Count", 7).Fire(), nil
+	}
+	return ctx.Out("Out").Set("Count", 42).Set("Center", node.Point{X: 0.5, Y: 0.5}).Fire(), nil
+}
+
+func init() { node.Register(&tdCapture{}) }
+
+// 绑定字段 fire 后变量被写.
+func TestRouteResult_AutoCapture_Writes(t *testing.T) {
+	dt := newDispatchTest(t, tkCapture)
+	dt.node.Config = map[string]any{"capture": map[string]any{"Count": "myCount", "Center": "myCenter"}}
+	if _, err := dt.r.execNodeViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if got := dt.rt.Vars()["myCount"]; got != 42 {
+		t.Errorf("myCount = %v, want 42", got)
+	}
+	if got, ok := dt.rt.Vars()["myCenter"].(node.Point); !ok || got.X != 0.5 || got.Y != 0.5 {
+		t.Errorf("myCenter = %v, want Point{0.5,0.5}", dt.rt.Vars()["myCenter"])
+	}
+}
+
+// 出口未带该字段 (稀疏) → 绑定变量留旧值; 带的字段照写.
+func TestRouteResult_AutoCapture_SparseKeepsOld(t *testing.T) {
+	dt := newDispatchTest(t, tkCapture)
+	dt.r.bundle.Vars.SetScoped("myCenter", "auto", "OLD") // 先塞旧值
+	dt.node.Config = map[string]any{"mode": "miss", "capture": map[string]any{"Center": "myCenter", "Count": "myCount"}}
+	if _, err := dt.r.execNodeViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if got := dt.rt.Vars()["myCenter"]; got != "OLD" {
+		t.Errorf("myCenter = %v, want OLD (Miss 出口不带 Center → 留旧值)", got)
+	}
+	if got := dt.rt.Vars()["myCount"]; got != 7 {
+		t.Errorf("myCount = %v, want 7 (Miss 出口带 Count)", got)
+	}
+}
+
+// 无 config.capture → 不写.
+func TestRouteResult_AutoCapture_NoBinding(t *testing.T) {
+	dt := newDispatchTest(t, tkCapture)
+	if _, err := dt.r.execNodeViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if _, ok := dt.rt.Vars()["myCount"]; ok {
+		t.Errorf("myCount 不该被写 (无 config.capture)")
+	}
+}
+
+// 失败路由 (Coded error + Fail 接线) → Fail 出口 Error/Code 也能捕获 (PlayClip 场景).
+func TestRouteResult_AutoCapture_FailPath(t *testing.T) {
+	dt := newFailRouteTest(t, tkFailf, "n1.Fail")
+	dt.node.Config = map[string]any{"capture": map[string]any{"Error": "e", "Code": "c"}}
+	if _, err := dt.r.execNodeViaFramework(context.Background(), dt.node, ExecToken{NodeID: "n1", InPin: "in"}); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if got := dt.rt.Vars()["c"]; got != string(node.CodeCaptureFailed) {
+		t.Errorf("c = %v, want %q", got, node.CodeCaptureFailed)
+	}
+	if got, _ := dt.rt.Vars()["e"].(string); !strings.Contains(got, "capture boom") {
+		t.Errorf("e = %v, want contains 'capture boom'", dt.rt.Vars()["e"])
+	}
+}

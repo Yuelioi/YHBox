@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 
 	nodepkg "yotta/internal/node"
 	"yotta/internal/nodes/control"
@@ -169,6 +170,31 @@ func (r *ContainerRunner) buildExecDataFor(tok ExecToken) map[string]any {
 	return tok.ExecData
 }
 
+// applyCaptures 路径① fire-time 自动捕获 (Spec C)。对 node.config.capture 里绑了变量、
+// 且本次 fire 出口实际带该字段 (field ∈ data, 稀疏: 只含节点 .Set() 过的字段) 的字段,
+// 写进变量 (scope auto, 跟旧 node.Capture 同写目标同语义)。未带字段不写 → 变量留旧值。
+func (r *ContainerRunner) applyCaptures(node *container.GraphNode, data map[string]any) {
+	if len(data) == 0 || r.bundle.Vars == nil {
+		return
+	}
+	capRaw, ok := node.Config["capture"].(map[string]any)
+	if !ok || len(capRaw) == 0 {
+		return
+	}
+	for field, varNameRaw := range capRaw {
+		v, present := data[field]
+		if !present {
+			continue // 本次 fire 出口没带该字段 → 不写, 留旧值
+		}
+		varName, _ := varNameRaw.(string)
+		varName = strings.TrimSpace(varName)
+		if varName == "" {
+			continue
+		}
+		r.bundle.Vars.SetScoped(varName, "auto", v)
+	}
+}
+
 // routeResult turns RunResult into next ExecToken batch + emit lifecycle events.
 //
 // Priority order:
@@ -245,10 +271,12 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 			r.rt.Emit("container:node-error", ev)
 		}
 		if handled {
-			return r.edges.nextWithData(node.ID+".Fail", tok.LoopStack, map[string]any{
+			failData := map[string]any{
 				"Error": result.Error.Error(),
 				"Code":  string(coded.ErrCode()),
-			}), nil
+			}
+			r.applyCaptures(node, failData) // 路径①: Fail 出口 Error/Code → 绑定变量 (如 PlayClip)
+			return r.edges.nextWithData(node.ID+".Fail", tok.LoopStack, failData), nil
 		}
 		return nil, result.Error
 	}
@@ -259,6 +287,7 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	if result.ExitName == "" {
 		return nil, nil
 	}
+	r.applyCaptures(node, result.OutputData) // 路径①: 出口 Data 字段 → 绑定变量
 	tokens := r.edges.nextWithData(node.ID+"."+result.ExitName, tok.LoopStack, result.OutputData)
 	return tokens, nil
 }
