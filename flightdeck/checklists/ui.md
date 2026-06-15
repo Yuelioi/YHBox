@@ -3,7 +3,7 @@ status: active
 when_to_read: before writing / editing .vue components or Tailwind classes
 applies_to: [vue, tailwind, nuxtui, ui, frontend, component, modal, button]
 when_to_update: 改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公共组件风格) 时
-last_updated: 2026-06-14
+last_updated: 2026-06-15
 ---
 
 # UI Playbook (NuxtUI 偏好)
@@ -32,6 +32,15 @@ last_updated: 2026-06-14
 1. **base** `bg-default` = `--ui-bg`。暗色基调钉在 `.dark { --ui-bg: var(--ui-color-neutral-950) }` —— 比 NuxtUI 默认 (neutral-900) **深一档**, 锚 v3 稿 `#09090b`; 整套灰阶 (muted/elevated/accented/border-accented) 跟着下沉一档。
 2. **sunken** `bg-sunken` = 再往黑混 (终端日志 / 时间轴轨道)。
 3. **raised** `raised-surface` (卡片 / 面板 / hover 行) + **overlay** `overlay-surface` (菜单 / 模态): **卡体保持纯黑** (`background-color: var(--ui-bg)`), **只在顶部给一道渐隐高光** (`linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%)`) + 1px 白内高光 + 亮一档上边框 + 柔投影来「浮起」。**不整面提亮** (试过 mix 白提整面 → 发灰、描边读不出, 用户改回黑底顶光) —— 跟下面 BaseModal「纯黑平铺」同一条 philosophy。
+
+### 设置/表单类页面卡片配方 (chrome 页 — 别用 Inspector 的扁平 SectionHeader)
+
+主区的 chrome/设置/表单页 (设置各 tab / 计划编辑 / 关于) 统一用 **bordered card**, **别**用 NodeInspector 那种扁平 `SectionHeader` (那是侧栏窄面板的; 2026-06-15 在计划编辑器上栽过一次, 用户两次返工才纠到位)。配方 (照 `SettingsGeneral.vue`):
+
+- 每组一张卡: `<section class="rounded-xl bg-default border border-default p-5 space-y-4">` (居中页加 `mx-auto max-w-3xl`; 铺满内容区的不加 max-w)
+- 卡头: `<div class="flex items-center gap-2"><UIcon :name class="size-4 text-dimmed" /><h2 class="text-sm font-medium text-highlighted">标题</h2></div>`
+- 行: label 左 / 控件右 (`flex items-center justify-between gap-6`), 短控件给宽度 (`w-32`/`w-48`); 行间 `<div class="border-t border-default/60" />`
+- 关于页 2026-06-15 从 `AppCard` (raised-surface 顶光) 换成这套 border 卡, 跟设置统一。`AppCard` 留给列表项/浮起卡那类场景。
 
 ### 组件必须用 NuxtUI
 
