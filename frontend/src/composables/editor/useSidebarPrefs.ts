@@ -35,8 +35,7 @@ function loadInitial(): SidebarPrefs {
   return merged
 }
 
-// 模块级单例 — 所有 caller 共享一份 prefs + 一个 watch.
-// 跟 useSidebarCollapsed.ts 同款单例模式 (避免 per-call orphan watch + 状态不同步).
+// 模块级单例 — 所有 caller 共享一份 prefs + 一个 watch (避免 per-call orphan watch + 状态不同步).
 const prefs = ref<SidebarPrefs>(loadInitial())
 
 // deep required: callers 直接 mutate 单字段 (prefs.value.varsExpanded = false), 而非整 obj 重赋.

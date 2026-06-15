@@ -18,7 +18,6 @@
              - scrollbar-gutter:stable 保证有无滚动条 main 宽度都一样，
                避免内容跳一下 -->
       <div class="flex flex-1 overflow-hidden">
-        <AppSidebar />
         <main class="flex-1 overflow-auto pr-3" style="scrollbar-gutter: stable">
           <!-- keep-alive 仅 cache ContainerEditorView, 不同 :id 各自 instance (max 3 防内存爆).
                用户切去 settings/help 等再回 → draft/canvas viewport/selection/dirty 保留. -->
@@ -54,7 +53,6 @@
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTitleBar from './components/AppTitleBar.vue'
-import AppSidebar from './components/AppSidebar.vue'
 import LogPanel from './components/LogPanel.vue'
 import AppStatusBar from './components/AppStatusBar.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'

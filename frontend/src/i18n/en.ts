@@ -2,9 +2,6 @@
   sidebar: {
     automation: 'Automation',
     tools: 'Tools',
-    collapse: 'Collapse',
-    collapse_tip: 'Collapse sidebar',
-    expand_tip: 'Expand sidebar',
     actions: 'Actions',
     tasks: 'Tasks',
     containers: 'Containers',

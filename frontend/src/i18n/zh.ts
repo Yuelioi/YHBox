@@ -27,9 +27,6 @@ export default {
   sidebar: {
     automation: 'Automation',
     tools: 'Tools',
-    collapse: '收起',
-    collapse_tip: '收起侧栏',
-    expand_tip: '展开侧栏',
     actions: '动作',
     tasks: '任务',
     containers: '容器',
