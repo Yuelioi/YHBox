@@ -42,8 +42,8 @@
       <span class="text-sm font-medium text-highlighted truncate">{{ currentTitle }}</span>
     </div>
 
-    <!-- RIGHT: utility icons + window controls -->
-    <div class="shrink-0 flex items-stretch" style="--wails-draggable: no-drag">
+    <!-- RIGHT: utility icons + window controls (border-l 跟左侧品牌 border-r 对称, 把工具区跟导航/标题分开) -->
+    <div class="shrink-0 flex items-stretch border-l border-default" style="--wails-draggable: no-drag">
       <!-- 悬浮启动器 / 设置 / 关于：任何路由 1 步可达 -->
       <button
         type="button"
@@ -145,11 +145,18 @@ const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
   settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
   about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
 }
+// 左侧主导航已高亮 容器/计划 → 中间不再重复显同名标题 (避免 "2 个计划")。
+// 设置/关于 是右侧图标 (无左侧文字标签), container-edit 显 "编辑容器" 区别于 "容器" — 这些仍显中间标题。
+const SUPPRESS_CENTER = new Set(['containers', 'schedules'])
 const currentTitle = computed(() => {
+  if (SUPPRESS_CENTER.has(route.name as string)) return ''
   const meta = VIEW_META[route.name as string]
   return meta ? t(meta.titleKey) : ''
 })
-const currentIcon = computed(() => VIEW_META[route.name as string]?.icon ?? '')
+const currentIcon = computed(() => {
+  if (SUPPRESS_CENTER.has(route.name as string)) return ''
+  return VIEW_META[route.name as string]?.icon ?? ''
+})
 
 function openLauncher() {
   void backend.tools.openLauncher()
