@@ -173,6 +173,7 @@ func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 	errs = append(errs, validateGetParamNodes(c, sgs)...)
 	errs = append(errs, validateCollapsedReferences(c, sgs)...)
 	errs = append(errs, validateVarRefs(c, sgs)...)
+	errs = append(errs, validateCaptureRefs(c, sgs)...)
 	errs = append(errs, validateRequiredGlobalsDeclared(c, sgs)...)
 	errs = append(errs, validateDisabledNodes(c, sgs)...)
 	errs = append(errs, validateSentinelScope(c, sgs)...)

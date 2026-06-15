@@ -67,6 +67,30 @@ type DataField struct {
 	Optional bool   `json:"optional,omitempty"`
 }
 
+// BindableFields 某节点 spec 可被「输出捕获」绑定到变量的字段名 (Spec C 单一来源)。
+// = 非纯数据节点 (IsPureData=false) 所有 exec 出口携带的 Data 字段名 (去重)。
+// 纯数据节点 (GetVar/Now/Expr/PureFunc) 无可绑字段 — 其输出是连线源, 非捕获。
+// 前端 Inspector「输出」组 / validator / useVarMutations 共用此派生规则 (派生一致, 不各维护白名单)。
+func BindableFields(spec *Spec) []string {
+	if spec == nil || spec.IsPureData {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, o := range spec.Outputs {
+		if o.Type != TypeExec {
+			continue
+		}
+		for _, f := range o.Data {
+			if !seen[f.Name] {
+				seen[f.Name] = true
+				out = append(out, f.Name)
+			}
+		}
+	}
+	return out
+}
+
 // EnumOption — dropdown 选项.
 //   - 静态 dropdown (Spec 里 DropdownProps.Options): 只填 Value, label 由 FE i18n 持有
 //     (node.<kind>.input.<name>.option.<value>).
