@@ -191,7 +191,7 @@ function onContentClick(e: MouseEvent) {
   padding: 5px 7px;
   font-size: 12px;
   line-height: 1.45;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, 'Microsoft YaHei', 'PingFang SC', monospace;
   color: #e4e4e7;
 }
 

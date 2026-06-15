@@ -579,7 +579,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   min-width: 0;
   font-family:
     'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, SFMono-Regular, Menlo,
-    monospace;
+    'Microsoft YaHei', 'PingFang SC', monospace;
   letter-spacing: 0.3px;
   font-weight: 500;
   font-feature-settings: 'liga' 0, 'calt' 0;
@@ -603,7 +603,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 .preview-row {
   display: flex;
   gap: 6px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, 'Microsoft YaHei', 'PingFang SC', monospace;
 }
 .preview-key {
   color: var(--ui-text-toned);
