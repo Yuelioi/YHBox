@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: "Spec C 实现计划 Part 2 (前端输出组 + 消费者审计)。① FE 单一来源 bindableFields(kind,config)=isPureData?[]:pinsFor().dataOut (与后端 BindableFields parity) + 单测; ② useVarMutations 5 处 (rename/count/listUsageNodeIDs/deleteVar-cascade/listUsageRefs) 从 config.literal[capture框] 改读 config.capture[字段], cascade 删 key 非空串 (落地精度#2), 可绑字段来源从 semantic==='capture' 改 bindableFields; ③ NodeInspector「输出」组方案 A (按钮绑+chip, 写 config.capture) 替掉旧 captureLiterals 折叠组; ④ i18n: 加 node.<kind>.output.<字段>.label (从旧 input.Capture* 迁) + 删旧 capture 输入键 + pnpm gen:node-i18n 重生成; ⑤ 清 FieldSchema.captureType/adapter 透传/semantic==='capture' 残留 + bindings 重生成。收尾: typecheck/test/build:dev/禁用色扫描 + 迁移扫描 + 真机 smoke (P1+P2 一个发布单元, 落地精度#7)。"
 last_updated: 2026-06-15
 implements: specs/2026-06-15-output-auto-capture.md
@@ -45,14 +45,17 @@ implements: specs/2026-06-15-output-auto-capture.md
 
 ## Progress
 
-current: **未开始**。
+current: **done (代码全落地, 待真机 smoke)**。typecheck + 344 测试 + build:dev 全绿; 禁用色零新增; T5 三条 grep 零残留 (captureType 仅 VarNameInput 自有 prop)。bindings 重生成 (InputSpec 去 captureType)。迁移已跑 (真机数据)。
 
-- T1 — bindableFields 单一来源 + 单测
-- T2 — useVarMutations 5 处改读 config.capture + 测试改写
-- T3 — NodeInspector「输出」组方案 A
-- T4 — i18n output labels + 删旧 capture 键 + 重生成
-- T5 — 清 captureType/semantic-capture 残留 + bindings 重生成
-- 收尾 — 全绿 + 迁移扫描 + 真机 smoke
+- T1 done — 8f.. bindableFields 单一来源 (isPureData?[]:pinsFor().dataOut, 与后端 BindableFields parity) + 4 单测
+- T2 done — useVarMutations 5 处改读 config.capture; cascade 删 key 非空串; spec.ts 改写 (注册假 spec)
+- T3 done — NodeInspector「输出」组方案 A (按钮绑+chip, 写 config.capture) 替 captureLiterals 折叠组
+- T4 done — i18n: 共享 `inspector.output.field` 字典 (output 字段名→译名, DRY) + outLabel 共享 fallback + 删全部 input.Capture* 键 (zh+en) + 重生成 node-i18n.json (106 节点, catalog drift 绿)
+- T5 done — 删 FieldSchema.captureType + adapter 透传 + adapter.test.ts 用例; `task common:generate:bindings` 重生成
+- 迁移 done — `tmp/migrate-capture.mjs` (per-node 映射) 跑 19 文件: DualColorBarTrack 3 真绑定 (InnerX/OuterWidth/OuterX→_bar*) 搬进 config.capture, 1 空 CaptureResult 删; 备份 `bin/data.bak-spec-c`; 残留零、_bar* 变量已声明 → validator 清
+- 收尾 — **待真机 smoke** (用户跑 task dev): DetectColor(Count/Center) / PlayClip(Error/Code) / Loop(Index) 绑变量写入 + 未命中留旧值 + 删变量清绑定 + 翻译名; DualColorBarTrack 迁移后绑定仍生效
+
+> **T4 与 spec §4 的偏差 (有意)**: spec 写 `node.<kind>.output.<字段>` 逐 kind label; 实现改用**共享 `inspector.output.field` 字典** (字段名近乎唯一, 译名仍精确) + outLabel fallback —— 同样达成"编辑器显中文、不显英文 pin 名", 但 DRY (一处字典 vs 13 kind × 2 locale 重复)、少维护面。代价: node-i18n.json (MCP catalog) 不带这些字段译名 (仅结构序列化, 非用户面)。exec 出口仍走既有 per-kind `output.<exit>.label`。
 
 ---
 

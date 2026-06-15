@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-15 by 月离 (**Spec C Part 1 后端自动捕获 done** — config.capture 存储 + 路径①routeResult 自动捕获 + 路径②ctx.CaptureOutput(Loop/ForEach) + 删 13 文件 capture 输入/助手 + validator + BindableFields。go build/test/vet 绿(余 10 预存 fish fixture 缺文件失败, 非回归)。下一步 Part 2 前端)。
-**Active focus**: **Spec C — 输出自动捕获**([spec](specs/2026-06-15-output-auto-capture.md))。**Part 1 后端 done**([plan](plans/2026-06-15-output-auto-capture-part1-backend.md), commits 816d4cb..89e16c1)。**下一步 Part 2 前端**(Inspector「输出」组方案 A 按钮绑+chip + 翻译 i18n + useVarMutations 消费者审计改读 config.capture)。**落地精度#7: P1+P2 一个发布单元**(中间态编辑器输出捕获 UI 暂不可用)。UI 升级 (Spec A+B) 已归档。**默认不 push**。
+**Last updated**: 2026-06-15 by 月离 (**Spec C Part 2 前端 done** — Inspector「输出」组方案 A(按钮绑+chip, 写 config.capture)+ useVarMutations 5 处消费者审计改读 config.capture + i18n 共享 output 字典 + 删全部 input.Capture* 键 + 清 captureType 死代码 + bindings 重生成 + 真机数据迁移。typecheck/344 测试/build:dev 全绿。下一步: 真机 smoke)。
+**Active focus**: **Spec C — 输出自动捕获**([spec](specs/2026-06-15-output-auto-capture.md))。**Part 1 后端 + Part 2 前端 done**([P1](plans/2026-06-15-output-auto-capture-part1-backend.md) 816d4cb..89e16c1 · [P2](plans/2026-06-15-output-auto-capture-part2-frontend.md))。**下一步: 真机 smoke**(见 ## 待验证)—— 验过即 Spec C 收官归档。UI 升级 (Spec A+B) 已归档。**默认不 push**。
 
 ## 进行中
 
@@ -11,7 +11,9 @@
 
 **Spec C Part 1 后端 done**(commits 816d4cb..89e16c1)。落地: `config.capture{字段:变量名}` 存储; **路径① fire-time**(`ContainerRunner.applyCaptures` 钩 `dispatch_v5.routeResult` 成功路径 `result.OutputData` + 失败路径 `{Error,Code}`, `r.bundle.Vars.SetScoped` auto); **路径② region**(`ctx.CaptureOutput(field,value)` + `ctxImpl.captureBindings`, Loop.Index / ForEach.Item+Index 声明为 Body 出口 Data 字段, RunRegion 每轮调); 模板三件套 `Matched` bool Data 字段(两出口 Set, 命名避与 Found 出口冲突); 删 13 文件 27 capture 输入 + 11 `node.Capture` + 助手 + `InputSpec.CaptureType`; `node.BindableFields`(单一来源)+ `validateCaptureRefs`(var-ref→INVALID_VAR_REF / 字段→INVALID_PIN)。**遗留 Part 2**: `internal/catalog/node-i18n.json` stale capture labels 待重生成; 编辑器输出捕获 UI 暂不可用(P1+P2 一个发布单元)。
 
-**下一步 Part 2(前端)**: Inspector「输出」组方案 A(按钮绑+chip, 翻译统一 `node.<kind>.output.<字段>`); **消费者审计**(落地精度#2): `useVarMutations` 5 处(rename/count/listUsageNodeIDs/deleteVar-cascade/listUsageRefs)改读 `config.capture`(漏改=悬空, [[2026-05-29-storage-convention-consumer-audit-gap]]); 删旧 captureLiterals UI。Part 3: 迁移(条件)+ 真机 smoke。
+**Part 2 前端 done**(本会话, plan [P2](plans/2026-06-15-output-auto-capture-part2-frontend.md)): FE 单一来源 `bindableFields(kind,config)=isPureData?[]:pinsFor().dataOut`(与后端 `BindableFields` parity)+ 单测; `useVarMutations` 5 处改读 `config.capture`(cascade **删 key** 非空串, 落地精度#2); `NodeInspector`「输出」组方案 A(可绑产出按钮绑+chip 写 config.capture, exec/纯数据只读, stale/found hint)替 captureLiterals 折叠组; i18n 共享 `inspector.output.field` 字典(DRY, 偏差 vs spec§4 见 plan)+ 删全部 `node.<kind>.input.Capture*` 键(zh+en)+ 重生成 node-i18n.json(106 节点); 删 `FieldSchema.captureType`/adapter 透传 + `task common:generate:bindings` 重生成(InputSpec 去 captureType, 仅 VarNameInput 自有 prop 保留)。**迁移 done**: `tmp/migrate-capture.mjs` per-node 映射跑 19 真机文件 → DualColorBarTrack 3 真绑定(InnerX/OuterWidth/OuterX→`_bar*`)搬进 config.capture + 1 空 CaptureResult 删; 备份 `bin/data.bak-spec-c`; 残留零、_bar* 变量已声明 validator 清。
+
+**下一步: 真机 smoke**(P1+P2 一个发布单元, 见 ## 待验证)。验过 → Spec C 收官归档(spec graduate docs/ 视情况)。
 
 候选池(Spec C 后): 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); idea 池(cv-perception · editor-footgun · misc-tools)。
 
@@ -21,7 +23,7 @@
 
 ## 待验证
 
-- 无。(Spec B Part 1 + Part 2 chrome 重组 真机 smoke 2026-06-15 用户均验过, verify 标记已清。)
+- ⚠ **Spec C 真机 smoke** (verify) — 跑 `task dev`: ① 给 DetectColor 的「命中像素数/命中中心」、PlayClip 的「错误信息/错误码」、Loop 的「序号」在 Inspector「输出」组各绑个变量 → 运行 → 用 GetVar/日志确认变量被写成正确值; ② 未命中出口不应覆盖旧值; ③ 删一个被绑的变量 → 确认该节点 `config.capture` 对应键被删(不悬空); ④ 输出行显中文名、不显英文 pin 名; ⑤ 已迁移的钓鱼子图 DualColorBarTrack(`_barInnerX/_barOuterW/_barOuterX`)绑定仍生效。**验过即 Spec C 收官**。(Spec B smoke 2026-06-15 用户已验, 标记已清。)
 
 ## Hanging tasks
 
