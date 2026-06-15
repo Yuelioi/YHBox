@@ -40,7 +40,7 @@ func prepareExec(ctx context.Context, rn *RegisteredNode, dataWire, config, exec
 			return nil, &RunResult{Validation: errs}
 		}
 	}
-	c := newCtx(ctx, services, &rn.Spec)
+	c := newCtx(ctx, services, &rn.Spec, config)
 	return &preparedExec{in: in, ctx: c}, nil
 }
 

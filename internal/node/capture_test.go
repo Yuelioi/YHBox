@@ -27,7 +27,7 @@ func (c *captureRecvVars) LastChange(string) int64                   { return 0 
 func newCaptureCtx(vars VarStore) Ctx {
 	svc := StubServices()
 	svc.Vars = vars
-	return newCtx(context.Background(), svc, nil)
+	return newCtx(context.Background(), svc, nil, nil)
 }
 
 func TestCapture_FilledNameWritesScopedAuto(t *testing.T) {

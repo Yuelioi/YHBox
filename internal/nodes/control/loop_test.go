@@ -70,7 +70,7 @@ func TestLoop_Capture_IndexEachIteration(t *testing.T) {
 	}
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
-		map[string]any{loopInMode: "count", loopInCount: 3, loopCapIndex: "i"},
+		map[string]any{loopInMode: "count", loopInCount: 3, "capture": map[string]any{loopDataIndex: "i"}},
 		nil, services, false, body)
 
 	if r.Error != nil {

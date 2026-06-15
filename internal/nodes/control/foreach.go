@@ -15,13 +15,15 @@ func init() { node.Register(&ForEach{}) }
 type ForEach struct{}
 
 const (
-	feInExec   = "In"
-	feInList   = "List"
-	feCapItem  = "CaptureItem"
-	feCapIndex = "CaptureIndex"
+	feInExec = "In"
+	feInList = "List"
 
 	feOutBody = "Body"
 	feOutDone = "Done"
+
+	// Body 出口 Data 字段 — 每轮迭代的元素 / 序号, 供路径② ctx.CaptureOutput 绑变量 (Spec C)
+	feDataItem  = "Item"
+	feDataIndex = "Index"
 )
 
 func (ForEach) Spec() node.Spec {
@@ -31,13 +33,12 @@ func (ForEach) Spec() node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: feInExec, Type: "Exec"},
 			{Name: feInList, Type: "List"},
-			{Name: feCapItem, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "any", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: feCapIndex, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: feOutBody, Type: "Exec"},
+			{Name: feOutBody, Type: "Exec", Data: []node.DataField{
+				{Name: feDataItem, Type: "Any"},
+				{Name: feDataIndex, Type: "Number"},
+			}},
 			{Name: feOutDone, Type: "Exec"},
 			{Name: "Fail", Type: "Exec", Semantic: "error",
 				Data: []node.DataField{
@@ -54,8 +55,8 @@ func (ForEach) Spec() node.Spec {
 func (ForEach) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string, error)) (node.Outputs, error) {
 	items := in.List(feInList)
 	for i, el := range items {
-		node.Capture(ctx, in, feCapItem, el)
-		node.Capture(ctx, in, feCapIndex, i)
+		ctx.CaptureOutput(feDataItem, el)
+		ctx.CaptureOutput(feDataIndex, i)
 		if _, err := body(ctx); err != nil {
 			if errors.Is(err, errBreakRequested) {
 				return ctx.Out(feOutDone).Fire(), nil

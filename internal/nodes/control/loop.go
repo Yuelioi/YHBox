@@ -25,7 +25,7 @@ const (
 	loopOutBody = "Body"
 	loopOutDone = "Done"
 
-	loopCapIndex = "CaptureIndex"
+	loopDataIndex = "Index" // Body 出口 Data 字段 — 每轮迭代序号, 供路径② ctx.CaptureOutput 绑变量 (Spec C)
 )
 
 func (Loop) Spec() node.Spec {
@@ -45,11 +45,11 @@ func (Loop) Spec() node.Spec {
 			{Name: loopInCount, Type: "Integer", Default: json.Number("10"),
 				Widget:      node.WidgetSpec{Kind: "number"},
 				VisibleWhen: &node.VisibleRule{Field: loopInMode, Equals: "count"}},
-			{Name: loopCapIndex, Type: "String", Advanced: true, Semantic: "capture",
-				CaptureType: "number", Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: loopOutBody, Type: "Exec"},
+			{Name: loopOutBody, Type: "Exec", Data: []node.DataField{
+				{Name: loopDataIndex, Type: "Number"},
+			}},
 			{Name: loopOutDone, Type: "Exec"},
 			{Name: "Fail", Type: "Exec", Semantic: "error",
 				Data: []node.DataField{
@@ -68,7 +68,7 @@ func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string,
 	case "count":
 		count := in.Int(loopInCount)
 		for i := 0; i < count; i++ {
-			node.Capture(ctx, in, loopCapIndex, i)
+			ctx.CaptureOutput(loopDataIndex, i)
 			if _, err := body(ctx); err != nil {
 				if errors.Is(err, errBreakRequested) {
 					return ctx.Out(loopOutDone).Fire(), nil
@@ -82,7 +82,7 @@ func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string,
 		return ctx.Out(loopOutDone).Fire(), nil
 	case "forever":
 		for i := 0; ; i++ {
-			node.Capture(ctx, in, loopCapIndex, i)
+			ctx.CaptureOutput(loopDataIndex, i)
 			if _, err := body(ctx); err != nil {
 				if errors.Is(err, errBreakRequested) {
 					return ctx.Out(loopOutDone).Fire(), nil

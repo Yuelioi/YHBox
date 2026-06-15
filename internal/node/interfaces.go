@@ -90,6 +90,11 @@ type Ctx interface {
 	Now() time.Time
 	Out(exitName string) OutBuilder
 
+	// CaptureOutput 路径② (Spec C): region 节点每轮把迭代产出写进用户绑定变量。
+	// field = 该节点 Body 出口声明的 Data 字段名; 框架查 config.capture[field], 非空则 SetScoped auto。
+	// fire-time 节点不用调它 (框架在 dispatch routeResult 自动捕获出口 Data 字段)。
+	CaptureOutput(field string, value any)
+
 	// Services. 全部 nullable — 节点用之前应当假设非 nil (有 service 的节点都
 	// 在 spec / build 阶段已经 wire 真 backend); 测试时 stub.
 	Vision() VisionService

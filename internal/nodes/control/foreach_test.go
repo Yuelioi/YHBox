@@ -28,7 +28,7 @@ func TestForEach_IteratesAllItems(t *testing.T) {
 
 	r := node.RunNodeAsRegion(context.Background(), rn,
 		map[string]any{feInList: []any{"a", "b", "c"}},
-		map[string]any{feCapItem: "item", feCapIndex: "idx"},
+		map[string]any{"capture": map[string]any{feDataItem: "item", feDataIndex: "idx"}},
 		nil, services, false, body)
 
 	if r.Error != nil {
