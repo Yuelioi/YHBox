@@ -62,34 +62,19 @@ describe('deriveFields schema passthrough', () => {
     expect(fields[0].schema).toBeUndefined()
   })
 
-  it('semantic + advanced 透传 (capture 输入聚成「输出捕获」折叠组)', () => {
-    const capInput = {
-      name: 'CaptureCenter',
+  it('semantic + advanced 透传 (semantic=varname → Inspector 选 VarNameInput)', () => {
+    const vnInput = {
+      name: 'VarName',
       type: 'String',
       advanced: true,
-      semantic: 'capture',
+      semantic: 'varname',
       widget: { kind: 'text', props: {} },
     } as unknown as InputSpec
 
-    const fields = deriveFields('DetectColor', [capInput])
+    const fields = deriveFields('SetVar', [vnInput])
     expect(fields).toHaveLength(1)
     expect(fields[0].advanced).toBe(true)
-    expect(fields[0].semantic).toBe('capture')
-  })
-
-  it('captureType 透传 (capture 框被捕获值的 VarType)', () => {
-    const capInput = {
-      name: 'CaptureFound',
-      type: 'String',
-      semantic: 'capture',
-      captureType: 'bool',
-      widget: { kind: 'text', props: {} },
-    } as unknown as InputSpec
-
-    const fields = deriveFields('CheckTemplate', [capInput])
-    expect(fields).toHaveLength(1)
-    expect(fields[0].captureType).toBe('bool')
-    expect(fields[0].semantic).toBe('capture')
+    expect(fields[0].semantic).toBe('varname')
   })
 
   it('普通输入 semantic/advanced 为 undefined', () => {
