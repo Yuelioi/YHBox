@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -73,13 +74,33 @@ func TestSleep_ZeroDuration_Error(t *testing.T) {
 	}
 }
 
-func TestSleep_RequiredMissing(t *testing.T) {
+func TestSleep_DefaultDuration_1s(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&Sleep{})
 	rn, _ := node.Get("Sleep")
 
-	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
-	if len(r.Validation) == 0 {
-		t.Error("expected REQUIRED_FIELD_MISSING for Duration")
+	// Spec 默认 = 1000ms (1s): 拖出来即可用, 不必手填。
+	var dur *node.InputSpec
+	for i := range rn.Spec.Inputs {
+		if rn.Spec.Inputs[i].Name == sleepInDuration {
+			dur = &rn.Spec.Inputs[i]
+		}
+	}
+	if dur == nil {
+		t.Fatal("Sleep 缺 Duration input")
+	}
+	if dur.Required {
+		t.Error("Duration 有默认值后不该再标 Required (默认总能满足 Has, Required 成死标)")
+	}
+	if fmt.Sprintf("%v", dur.Default) != "1000" {
+		t.Errorf("Duration 默认 = %v, want 1000 (1s)", dur.Default)
+	}
+
+	// 空 config 不再报 REQUIRED_FIELD_MISSING —— 默认值已填充 (用已取消 ctx 立即返回, 不真等 1s)。
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := node.RunNode(ctx, rn, nil, nil, nil, node.StubServices(), false)
+	if len(r.Validation) != 0 {
+		t.Errorf("有默认值后空 config 不该报 required-missing, got %v", r.Validation)
 	}
 }

@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-06-07
+last_updated: 2026-06-17
 when_to_read: 新增 / 改一个节点 kind 前 (backend Spec → 前端渲染 → 面板 → i18n 全链路)
 applies_to: [node, add-node, nodepkg, spec, palette, i18n, registry, frontend, backend]
 when_to_update: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注册 / palette 面板 / 前端渲染映射 / i18n 注入流程) 时
@@ -19,7 +19,8 @@ portable: false
 - [ ] `Spec()`：`Kind`（PascalCase）、`Category`、`Inputs`/`Outputs`。exec-in pin 必须叫 `"In"`；pin 名 PascalCase（守卫测试 `TestSpecConsistency_*`）。Number Default 用 `json.Number("...")`。
 - [ ] **同概念必须复用既有 pin 名** — 加 pin 前先查 [node-spec-style §9 Canonical pin 词汇表](node-spec-style.md)（屏幕区域=`ROI`、超时=`TimeoutMs`、命中分支=`Found`/`NotFound`、捕获=`Capture<字段>` 等）。"同概念异名"（语义层，如区域口叫 `Zone`）lint 测不出，全靠这张表 + review；但**机械分裂**（拼写撞名 / 同角色同名不同类型）已有 guard `TestNoPinNameSplit`，`go test ./internal/catalog/`（下方验证步骤本就含）会卡，也可 `task nodes:pins` 看明细。
 - [ ] **恰好一种 capability**：实现 `Runnable`(Run) / `RegionRunner`(RunRegion) / `Evaluator`(Evaluate) **之一**；或纯展示设 `IsVisualOnly: true`、图标记设 `IsGraphMarker: true`（这两类可零 capability）。注册时 `registry.go` 会校验。
-- [ ] 字段默认值：`InputSpec.Default` —— 前端建节点时会经 `deriveDefaults` 收成 `{ literal: {...} }` 自动填进 `config.literal`。要有默认值就在这写。
+- [ ] 字段默认值：`InputSpec.Default` —— 前端建节点时会经 `deriveDefaults` 收成 `{ literal: {...} }` 自动填进 `config.literal`。要有默认值就在这写。Number/Integer/Duration 用 `json.Number("...")`；**Duration 的数字按毫秒解析**（`in.Duration`：json.Number → ms），所以 1s 写 `json.Number("1000")`。
+- [ ] ⛔ **`Default` 与 `Required` 互斥 —— 加了 `Default` 就别再留 `Required: true`**。`validateRequired` 查的是 `in.Has(name)`，而 inputs 已 merge 进 `rn.Defaults`（`engine.go` `newInputs`）→ 有默认的 pin 永远 `Has`==true → `Required` 成**死标**（永不报 `REQUIRED_FIELD_MISSING`），留着是误导性 cruft。想"拖出来即可用又不许清空"只能靠默认值 + Run 里的运行期校验（如 Sleep `if d<=0`），Required 起不到护栏作用。
 
 ## 1b. ⛔ 产出型节点必须加"输出捕获"框（硬约束，防 $sys 重生）
 

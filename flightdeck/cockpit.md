@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-17 by 月离 (本会话: ClickTemplate 加验证重试 — 新 pin MaxAttempts(默认1=旧行为)/RetryIntervalMs(默认500); 点完查模板消失没、没消失就重点, 点满还在走 Timeout(Matched 区分没出现/没点掉)。治偶发"点了但模板还在"。typecheck/go test/task build 全绿)。
-**Active focus**: 无进行中 spec。**本会话 (2026-06-17)**: ClickTemplate「点完验证+没消失重点」(MaxAttempts/RetryIntervalMs), 知识落 [incident 2026-06-13](incidents/2026-06-13-template-click-fires-on-first-match-too-early.md) 续章(第二种"点了不生效"= 没点中, 跟 SettleMs 正交); **真机待用户验**(见 ## 待验证)。上一增量 Spec C + chrome 重构均已 done/归档/过目(细节见 ## 关键上下文)。下一步候选见 ## 下一步。**默认不 push**。
+**Last updated**: 2026-06-17 by 月离 (本会话两件节点可用性小改: ① ClickTemplate 验证重试 MaxAttempts/RetryIntervalMs; ② Sleep 默认 1s + 去掉无效 Required。顺带记下框架坑「Default 与 Required 互斥」。go test/task build 全绿)。
+**Active focus**: 无进行中 spec。**本会话 (2026-06-17)** 两件节点可用性小改: ① **ClickTemplate 验证重试**(MaxAttempts/RetryIntervalMs, 知识落 [incident 2026-06-13](incidents/2026-06-13-template-click-fires-on-first-match-too-early.md) 续章, **真机待用户验** 见 ## 待验证); ② **Sleep 默认 1s**(`Duration` 加 `json.Number("1000")` + 去掉无效 `Required` — 全节点默认值审计结论: 仅 Sleep 真缺, 其余皆合理; 框架坑「给 Required pin 加 Default → Required 成死标」已记进 [add-node](checklists/add-node.md) §1)。上一增量 Spec C + chrome 见 ## 关键上下文。下一步候选见 ## 下一步。**默认不 push**。
 
 ## 进行中
 

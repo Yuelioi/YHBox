@@ -26,7 +26,7 @@ func (Sleep) Spec() node.Spec {
 		Category: "Control",
 		Inputs: []node.InputSpec{
 			{Name: sleepInExec, Type: "Exec"},
-			{Name: sleepInDuration, Type: "Duration", Required: true,
+			{Name: sleepInDuration, Type: "Duration", Default: json.Number("1000"),
 				Widget: node.WidgetSpec{Kind: "duration"}},
 			{Name: sleepInJitterPct, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
