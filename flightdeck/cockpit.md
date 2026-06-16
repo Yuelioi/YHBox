@@ -21,6 +21,7 @@
 ## 待验证
 
 - ⚠ **ClickTemplate 验证重试 (2026-06-17)** — 真机验: 把会偶尔点空的 ClickTemplate 设 `MaxAttempts=5`、`RetryIntervalMs=500`, 跑一下看点不中时是否自动重点直到模板消失(成功走 Done); 一直点不掉应走 Timeout。单测/build 已绿, 但游戏里实际点击可靠性只能真机验。
+- ⚠ **撤销引擎重写 (2026-06-17)** — 真机验普通 Ctrl+Z/Ctrl+Shift+Z 仍正常: 节点增删/改值/拖动(burst 合并一步退)、undo 后再改截断 redo。引擎 8 测 + 195 测全绿 + typecheck, 但 composable 接线没单测(无 test-utils), 真机过一眼稳。(applyBulkMutation 子图路径等控制台 UI 接上再验。)
 - (Spec C 真机 smoke + 本会话 chrome/UI 改动 2026-06-15 用户过目无异常, 标记已清。)
 
 ## Hanging tasks
