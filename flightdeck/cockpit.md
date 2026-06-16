@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-17 by 月离 ([yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)[graduate]: 编辑器内 JS 批量改节点; 拆 P1 子图纳入撤销 + P2 控制台。**经三方 AI 两轮审核逐条评估、采纳要点已加固**(冻结副本/strict/apply 失败策略/去 location/Integer 拒非整/联动验收… 评审纪要在案; 二轮 gpt 判"接近可实施")。设计收敛, 待写 P1 plan)。
-**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 脚本控制台 (命名空间根 `yt` 对标 blender bpy), 对当前容器主图+子图批量改节点 config。设计已定、spec 已立。**读源码定论**: 编辑器撤销栈 (`useContainerDraft`) 只快照主图 `draft`、子图在 `editorStore` 池里**压根没 undo** → 拆两块: **P1 子图纳入撤销**(核心编辑器, 顺带修既有缺口) → **P2 yt 控制台**(建其上)。**下一步: 写 P1 plan**(见 ## 下一步)。前两个节点小改 (ClickTemplate 重试 / Sleep 默认 1s) 已 land, 真机待验项见 ## 待验证。**默认不 push**。
+**Last updated**: 2026-06-17 by 月离 (yt 脚本控制台 spec[graduate]: 三方两轮审核加固后、读源码再修正范围 —— 子图全局/手动改不走撤销 → 砍掉"修全部子图 undo"大重构, 收成单 plan + 有界批量撤销。已 TDD 落地纯执行器 runConsoleScript(src/lib/ytConsole, vitest 12 测全绿))。
+**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 批量改节点 (命名空间根 `yt`)。**范围已据源码修正**: 子图是全局池(不归容器) + 手动改子图不走撤销 → **不做"全部子图 undo"大重构**, 只做经控制台批量改的**有界一步撤销**(单 plan; 见 spec §撤销机制 + §评审纪要)。**已落地**: 纯执行器 `runConsoleScript`(`frontend/src/lib/ytConsole/executor.ts`, vitest 12 测全绿 —— has/get/set/overlay/归一/报告/冻结/strict 全覆盖)。**下一步**见 ## 下一步。前两个节点小改 (ClickTemplate 重试 / Sleep 默认 1s) 已 land, 真机待验见 ## 待验证。**默认不 push**。
 
 ## 进行中
 
@@ -11,8 +11,8 @@
 
 ## 下一步
 
-- **写 Part 1 plan** ([yt-scripting-console spec](specs/2026-06-17-yt-scripting-console.md) §分解): 子图纳入编辑器撤销栈 —— 扩展 `useContainerDraft` 的 history 快照/undo/redo 携带**本容器子图**状态, undo/redo 时写回 `editorStore`; 守住复发#5(别误触别的容器编辑器 dirty)。**先精读 `editorStore` + `useContainerDraft` 撤销/快照内部再写 plan**(头号铁律: 核心改动不脑补)。然后 P2 控制台 plan。
-- (候选池, P1/P2 之后: 临时窗口抓取 EnumWindows 选窗截图; 复发#5 promotion; idea 池 [cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
+- **yt 控制台剩余实现** (执行器已绿; spec §撤销机制 / §UI): ① **`applyBulkMutation`** —— 扩 `useContainerDraft` 撤销快照携带触及子图 `sgState`(`ContainerSnapshot` 加 `sgState?`, 加法式不动老条目), undo/redo 写回 `editorStore`(改前 augment 当前条目 + 改后推新条目); ② 控制台**模态**(复用 `CodeInput`) + Ctrl+K 命令面板入口(i18n `editor.jsConsole.*`) + `yt.*` 静态补全 + 把执行器 `applied` 经 applyBulkMutation 落地 + 报告渲染。**前端 vitest 跑法见 [build.md](checklists/build.md) §前端单测**(别用 `pnpm -C frontend test`)。
+- (候选池, 本功能之后: 临时窗口抓取 EnumWindows 选窗截图; 复发#5 promotion; idea 池 [cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
 

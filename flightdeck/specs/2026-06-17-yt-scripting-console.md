@@ -24,17 +24,24 @@ last_updated: 2026-06-17
 
 **非目标 (明确不做, 见 §以后)**: 跨容器批量; `yt.ops` 填充 (只预留命名空间); 强制 dry-run 预演; Web Worker 真沙箱; 增删节点/连边 (v1 只改 pin 值)。
 
-## ⚠ 分解 (本 spec = 两块, 有先后)
+## ⚠ 撤销机制 (读源码后修正的关键设计)
 
-读源码发现: 编辑器撤销栈 (`useContainerDraft.ts` 的 `history`/`undo`/`redo`) **只快照主图 `draft: Container`**; 子图存在独立的 `editorStore` 池里, **压根不在撤销栈内** —— 连平时手动改子图都不可撤销。要兑现"批量改 (含子图) 一步 Ctrl+Z 全退", 必须先补这块。故拆:
+读源码定论 (`useContainerDraft.ts` + `stores/containerEditor.ts`):
+1. **子图是全局池, 不归属容器** (`subgraphsById` = 全 app 子图全量, 2026-06-12 全局化); 容器只用 `touchedByContainer` 记"本会话动过哪些子图"。
+2. 撤销栈 `history` **只深拷贝主图 `draft`** (`snapshotDraft` = `JSON.parse(JSON.stringify(draft))`); **手动改子图根本不走 `applyDraftMutation`** (走 `editorStore` 直接 mutate + deep-watch 标脏, 不快照) —— 这就是子图无 undo 的根因。
 
-- **Part 1 — 子图纳入撤销 (核心编辑器, 先做)**: 扩展 `useContainerDraft` 的快照/undo/redo, 让历史条目同时携带**本容器的子图**状态, undo/redo 时一并写回 `editorStore`。**独立有价值** (顺带修好"子图编辑不可撤销"这一既有缺口), 可单独验收。
-  - **快照规模**: 只快照**本容器** (= 本编辑器实例的 `containerID`) 关联的子图 (非全局池), 且优先只快照**动过的** (touched) → 控制 50 条历史 × 子图体积; 深拷贝 vs 结构共享策略 plan 定。**历史条目须连 touched 集一起快照/还原** —— 否则 undo 回旧版本后 dirty/touched 跟内容脱节。
-  - **dirty 隔离 (守复发#5)**: 现有 `touchSubgraph(containerID,…)` / `touchedFor(containerID)` / `clearTouched(containerID)` **已按容器键隔离** (签名带 containerID, 已核实, 不用改它); Part 1 只需保证写回 + 快照都限本实例 `containerID`, watch 仍只盯本实例 activeGraph。
-  - **对 Part 2 的契约**: Part 1 须提供"一次批量改主图+本容器子图、落成**单条**可撤销条目"的能力 (扩 `applyDraftMutation` 或新增 `applyBulkMutation`); 确切签名 = Part 1 plan 定 (动笔前精读 `useContainerDraft`/`editorStore` 内部)。
-- **Part 2 — yt 控制台 (建在 Part 1 之上)**: 下面所有 API/执行/UI。批量 set 的"一次性应用"落进 Part 1 加固后的撤销条目 → 主图+子图改动一步退。
+→ "让**所有手动子图编辑**都可撤销" = 把所有子图 mutation 路径改道走快照 = **大而险的核心重构, 不做** (非本功能所需, 也撤回上一版'顺带修好既有缺口'的误判)。本功能只需 **控制台的批量改 (主图+子图) 一步可撤销**, 故只做**有界的批量撤销机制**:
 
-> 两块各自一个 plan; Part 1 先落地验绿, 再做 Part 2。
+- 新增 **`applyBulkMutation(touchedSgIDs, mutator)`** (控制台「应用 overlay」专用):
+  1. 改前: 把**将被触及的子图** (`touchedSgIDs`) 当前状态 clone 进**当前 (pre-edit) 历史条目** (augment, 让 undo 能回到改前子图状态);
+  2. 应用: draft 主图改 + `editorStore.subgraphById(id).graph` 子图改 + `touchSubgraph(containerID,id)`;
+  3. 改后: push 一条新历史条目, 带**触及子图的新状态** clone。
+- `ContainerSnapshot` 由 `Container` 扩成 `{ draft: Container, sgState?: Record<sgID, Subgraph> }` (**加法式**: 老的纯主图条目无 `sgState`, `undo`/`redo` 对它们行为不变)。`undo`/`redo` 命中带 `sgState` 的条目 → 一并 `editorStore.replaceSubgraph` 还原各子图。
+- **体积可控**: 只 clone 这次批量触及的子图、只在这两条条目里; 不碰全局池其余子图、不给每次主图改都加子图快照。
+- **守复发#5**: 只动本编辑器实例 `containerID` 的 touched 子图; `touchSubgraph`/`touchedFor` 本已按容器键隔离 (核实)。
+
+> **单一 plan**: 上面这套撤销机制是控制台「应用」步的底座, 跟执行器/UI 一起在同一个 plan 里做 + 验 (撤销机制 = 第一批 task, 风险最高先 TDD)。
+> **明确不在范围**: 普通"进子图手动改一个节点 → Ctrl+Z" 仍**不可撤销** (那需上面说的大重构); 本功能只保证**经控制台**的批量改可一步撤销。
 
 ## 架构 & 复用 (已核实的现有机制)
 
@@ -84,7 +91,7 @@ yt.selected.filter(n => n.has('TimeoutMs')).forEach(n => n.set('TimeoutMs', 3000
 
 1. 用 `new Function('yt', '"use strict";\n' + userCode)` 编译运行 (前端原生 JS 全语法, **strict mode** —— 少踩 JS 老坑、让对冻结对象的写直接抛错), 传入注入的 `yt`。执行器契约 (纯函数签名 + `NodeModel` 入参) 见 §测试。
 2. `n.set(...)` **不直接写草稿**, 写进 **pending overlay** —— 一张 `(sgID, nodeId, pin) → value` 的 Map (**同 pin 多次 set = 后写覆盖, 只留最后值**)。`n.get()` 先读 overlay (读到自己刚 set 的), 再 literal, 再默认。被拒的 set (无 pin / 归一失败) **不进 overlay** → 后续 get 读到的是改之前的值。
-3. 脚本跑完**无异常** → 把 overlay **一次性**应用 (全在内存): 先按 `id` 回原图定位每个目标 (运行后被删的 → 跳过+报告), 主图节点写 `draft`、子图节点写 `editorStore.subgraphById(sgID).graph` 对应节点 + `editorStore.touchSubgraph(containerID, sgID)`; 算完整批新状态后包成**一条 Part-1 加固后的撤销条目** (主图 + 本容器子图状态同进一个 snapshot) 提交 → 一步 Ctrl+Z 全退 + 标脏 + 重渲染。脚本**抛异常** → 丢弃整个 overlay, **零变更**。**应用阶段自身抛错** (replaceSubgraph / store 写入异常等) → 视为执行失败, **不提交历史条目**、报错 (不留半应用)。
+3. 脚本跑完**无异常** → 把 overlay **一次性**应用 (全在内存): 先按 `id` 回原图定位每个目标 (运行后被删的 → 跳过+报告), 主图节点写 `draft`、子图节点写 `editorStore.subgraphById(sgID).graph` 对应节点 + `editorStore.touchSubgraph(containerID, sgID)`; 整批经 **`applyBulkMutation`** (见 §撤销机制) 落成**一条**撤销条目 (主图 + 触及子图状态同进一个 snapshot) → 一步 Ctrl+Z 全退 + 标脏 + 重渲染。脚本**抛异常** → 丢弃整个 overlay, **零变更**。**应用阶段自身抛错** (replaceSubgraph / store 写入异常等) → 视为执行失败, **不提交历史条目**、报错 (不留半应用)。
    > **原子的精确含义**: 只对"脚本抛异常"原子 (抛了 = 一个都不改)。**被拒的 set 不是异常** —— 是有意的"跳过 + 报告"。所以正常结局是"**尽力应用 + 列出被拒**"(可部分应用), 不是"全有/全无"。
 4. **不自动存盘**: 同现状 Ctrl+S 才落盘 (现有 `useEditorSave` 两段式保存**已**会把 touched 子图一并写盘 → 第 3 步 `touchSubgraph` 后保存链路**无需改**)。安全网 = 跑完看画布/报告 → 不对 Ctrl+Z 一步退 → 对了 Ctrl+S。
 5. 输出区报告分三块: **已应用** `改了 N 个节点的 M 个 pin` (N=不同节点数, M=overlay 里不同 `(节点,pin)` 对数, 后写覆盖只算一次; **0 改动也明说「0 个节点 / 0 个 pin」**) · **被拒** 清单 (`节点 <id>(<kind>): 无 pin X / 值非法`) · `yt.log` 内容; 抛错另附**异常堆栈**。
@@ -143,16 +150,12 @@ yt.selected.filter(n => n.has('TimeoutMs')).forEach(n => n.set('TimeoutMs', 3000
 
 ## 验收
 
-**Part 1 (子图撤销)**:
-- 进子图手动改一个节点的值 → Ctrl+Z 能退回改之前的状态 (当前实现退不回)。
-- undo/redo 跨主图↔子图改动都正确; 不误触发别的容器编辑器 dirty (守住复发#5)。
-
-**Part 2 (yt 控制台)**:
 - 控制台能开 (命令面板 + 快捷键), 写 JS 跑通示例 (抖动批量设值 / 按原值算)。
-- 批量改**主图+子图**节点 → **一步 Ctrl+Z 全退**, 不存盘直到 Ctrl+S。
-- **联动核心路径** (Part1+Part2): 一次批量改**主图 + 多个子图**节点 → **一次 Ctrl+Z 全退、一次 Ctrl+Shift+Z 全恢复** (单列, 两块联动最关键路径)。
-- set 不存在的 pin 被拒并在报告里; 脚本抛错零变更不崩。
-- 执行器单测全绿; typecheck / i18n:check / `task build` 全绿。
+- **核心路径**: 一次批量改**主图 + 多个子图**节点 → **一次 Ctrl+Z 全退、一次 Ctrl+Shift+Z 全恢复** (`applyBulkMutation` 的核心验收); 不误触发别的容器编辑器 dirty (守住复发#5)。
+- 改动不存盘直到 Ctrl+S (落盘后 touched 子图由现有 `useEditorSave` 一并写)。
+- set 不存在的 pin 被拒并在报告里; 脚本抛错零变更不崩; 0 改动如实报告。
+- 执行器纯函数单测 + `applyBulkMutation` 撤销/重做单测全绿; typecheck / i18n:check / `task build` 全绿。
+- (非目标: 普通手动改子图的 Ctrl+Z 仍不支持 —— 见 §撤销机制。)
 
 ## 评审纪要 (三方 AI 审核, 2026-06-17)
 

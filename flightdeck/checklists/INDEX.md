@@ -5,7 +5,7 @@
 - [2026-06-06-settings-page-style.md](2026-06-06-settings-page-style.md) — active — when_to_read: 写/改任何设置 tab（SettingsView 下的子页：General/Hotkeys/Input/Launcher 等）前；新增设置子页前；想让设置页风格统一时 — applies_to: [frontend, vue, settings, style, consistency, nuxtui, SettingsView]
 - [add-node.md](add-node.md) — active — when_to_read: 新增 / 改一个节点 kind 前 (backend Spec → 前端渲染 → 面板 → i18n 全链路) — applies_to: [node, add-node, nodepkg, spec, palette, i18n, registry, frontend, backend]
 - [add-service.md](add-service.md) — active — when_to_read: 新增一个 wails 后端 service (前端要新 RPC) 前; 改服务注册 / bindings 生成链路时 — applies_to: [service, wails, rpc, bindings, backend, go, main.go, backend-facade]
-- [build.md](build.md) — active — when_to_read: before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 真机 smoke — applies_to: [build, compile, task-dev, task-build, wails, exe, vite, bindings, smoke, test-fixture]
+- [build.md](build.md) — active — when_to_read: before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 跑前端 vitest / 真机 smoke — applies_to: [build, compile, task-dev, task-build, wails, exe, vite, bindings, smoke, test-fixture, vitest, frontend-test]
 - [code-style.md](code-style.md) — active — when_to_read: before writing / editing / deleting source code (.go / .ts / .vue) — including comments / 删疑似死代码或符号前 — applies_to: [code-style, comments, naming, go, typescript, vue, dead-code, delete-symbol, grep]
 - [comments.md](comments.md) — active — when_to_read: before writing or editing any source-code comment — applies_to: [comments, code-style, documentation]
 - [commits.md](commits.md) — active — when_to_read: before writing a commit message / staging files / preparing a PR — applies_to: [commit, git, staging, message, push, pr]

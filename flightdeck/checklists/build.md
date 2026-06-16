@@ -1,9 +1,9 @@
 ---
 status: active
-last_updated: 2026-06-11
-when_to_read: before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 真机 smoke
-applies_to: [build, compile, task-dev, task-build, wails, exe, vite, bindings, smoke, test-fixture]
-when_to_update: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bindings 生成 / 测试套件入口时
+last_updated: 2026-06-17
+when_to_read: before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 跑前端 vitest / 真机 smoke
+applies_to: [build, compile, task-dev, task-build, wails, exe, vite, bindings, smoke, test-fixture, vitest, frontend-test]
+when_to_update: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bindings 生成 / 测试套件入口 / 前端测试跑法时
 ---
 
 # Build Playbook
@@ -29,6 +29,12 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 runtime 套件 fixture 已入仓 (2026-06-12 子图全局化时迁): `internal/services/container/runtime/testdata/fishing-v2/` + `testdata/templates/`, 不再读 bin/data (用户数据已重铸完整 uuid, 按名读必死)。`TestApplyDirection_*` / `TestWatchdog_*` 仍红 = `apply_direction.json` / `watchdog_check.json` 两个 fixture 本机从来没有 — 从有它们的机器补进 testdata/fishing-v2/subgraphs/ 即愈。`TestScanSubgraphDependencies_*` 也是预存失败、非回归 (撞到别当成自己改坏的).
 
 `TestFishingV2Main_StateCycleSmoke` 本机预存红 (2026-06-11 git stash 实证改动前同样 `clicks=0 finalState=IDLE`): mock 模板没命中 → state_IDLE 一直走 NotFound 兜底分支, 疑与本机 fishing-v2 数据迁 GUID 资产后 mock 名解析有关, 待单独排查.
+
+## 前端单测 (vitest)
+
+- 前端**有 vitest 套件** (配置在 `vite.config.ts` 的 `test` 块 —— **不是**单独 `vitest.config.ts`; 测试文件 `src/**/*.{test,spec}.ts`, 已有 useEditorSave / useVarMutations / scriptCompletions / ytConsole 等)。
+- 跑: `cd frontend && ./node_modules/.bin/vitest run [路径]`。**本环境 `pnpm -C frontend test` 会炸 `ENOENT lstat …/frontend/frontend`** (pnpm `-C` + cwd 下项目插件路径解析的坑) —— 直接调 vitest 二进制即好, 别去动 vite.config / 另建 vitest.config (踩过这个误诊坑)。
+- 全量跑里有个**摸网络的预存测试**, 无网环境 (sandbox) 会 `ETIMEDOUT` 中断 —— 按目录跑 (如 `vitest run src/lib`) 避开。
 
 ## 运行 / smoke 留意
 
