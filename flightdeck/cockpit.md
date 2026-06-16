@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-17 by 月离 ([yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)[graduate]: 编辑器内 JS 批量改节点; 拆 P1 子图纳入撤销 + P2 控制台。**经三方 AI 审核逐条评估、采纳要点已加固**(原子语义/overlay/sgID/归一/快照/补全… 评审纪要在案)。设计完成, 待写 P1 plan)。
+**Last updated**: 2026-06-17 by 月离 ([yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)[graduate]: 编辑器内 JS 批量改节点; 拆 P1 子图纳入撤销 + P2 控制台。**经三方 AI 两轮审核逐条评估、采纳要点已加固**(冻结副本/strict/apply 失败策略/去 location/Integer 拒非整/联动验收… 评审纪要在案; 二轮 gpt 判"接近可实施")。设计收敛, 待写 P1 plan)。
 **Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 脚本控制台 (命名空间根 `yt` 对标 blender bpy), 对当前容器主图+子图批量改节点 config。设计已定、spec 已立。**读源码定论**: 编辑器撤销栈 (`useContainerDraft`) 只快照主图 `draft`、子图在 `editorStore` 池里**压根没 undo** → 拆两块: **P1 子图纳入撤销**(核心编辑器, 顺带修既有缺口) → **P2 yt 控制台**(建其上)。**下一步: 写 P1 plan**(见 ## 下一步)。前两个节点小改 (ClickTemplate 重试 / Sleep 默认 1s) 已 land, 真机待验项见 ## 待验证。**默认不 push**。
 
 ## 进行中
