@@ -29,6 +29,9 @@ last_updated: 2026-06-17
 读源码发现: 编辑器撤销栈 (`useContainerDraft.ts` 的 `history`/`undo`/`redo`) **只快照主图 `draft: Container`**; 子图存在独立的 `editorStore` 池里, **压根不在撤销栈内** —— 连平时手动改子图都不可撤销。要兑现"批量改 (含子图) 一步 Ctrl+Z 全退", 必须先补这块。故拆:
 
 - **Part 1 — 子图纳入撤销 (核心编辑器, 先做)**: 扩展 `useContainerDraft` 的快照/undo/redo, 让历史条目同时携带**本容器的子图**状态, undo/redo 时一并写回 `editorStore`。**独立有价值** (顺带修好"子图编辑不可撤销"这一既有缺口), 可单独验收。
+  - **快照规模**: 只快照**本容器关联**的子图 (非全局池), 且优先只快照**动过的** (touched) → 控制 50 条历史 × 子图体积; 深拷贝 vs 结构共享的策略 plan 定。
+  - **dirty 隔离 (守复发#5)**: 写回子图须**按容器隔离**, 不能误标别的打开着的容器编辑器 dirty (沿用现有 `touchSubgraph(containerID, sgID)` + watch 只盯本实例 activeGraph 的模式)。
+  - **对 Part 2 的契约**: Part 1 须提供"一次批量改主图+本容器子图、落成**单条**可撤销条目"的能力 (扩 `applyDraftMutation` 或新增 `applyBulkMutation`); 确切签名 = Part 1 plan 定 (动笔前精读 `useContainerDraft`/`editorStore` 内部)。
 - **Part 2 — yt 控制台 (建在 Part 1 之上)**: 下面所有 API/执行/UI。批量 set 的"一次性应用"落进 Part 1 加固后的撤销条目 → 主图+子图改动一步退。
 
 > 两块各自一个 plan; Part 1 先落地验绿, 再做 Part 2。
@@ -40,7 +43,8 @@ last_updated: 2026-06-17
 | `applyDraftMutation(mutator)` | `composables/containerEditor/useContainerDraft.ts` | 唯一改图入口; 自带 50 步撤销栈 + dirty + 渲染同步。批量改**一次**调它 = 一步撤销。 |
 | `walkAllGraphs(container, subgraphs, visit)` | `composables/containerEditor/graphWalk.ts` | 遍历主图 + 所有子图节点 (含 `location` 上下文)。建 `yt.nodes` 用。 |
 | `PIN_SPECS[kind]` / `KIND_DEFAULTS[kind]` | `components/containers/pinSpec.ts` | 查 kind 有哪些 input pin (`has`) + 默认值 (`get` 回退)。 |
-| `getSelectedNodes` | `useVueFlow()` | 建 `yt.selected`。 |
+| `getSelectedNodes` | `useVueFlow()` | 建 `yt.selected` (开控制台那刻快照)。 |
+| `editorStore.subgraphById` / `touchSubgraph` / `replaceSubgraph` | `stores/containerEditor.ts` | 子图读 / 标脏(按容器隔离) / 替换 —— Part 1 写回 + Part 2 改子图节点用 (已核实存在)。 |
 | `CodeInput.vue` + editorTheme/CodeMirror | `components/expressions/CodeInput.vue` | 控制台代码编辑器 (JS 高亮)。`SubgraphScriptPreviewModal.vue` 是 CodeMirror 弹窗先例。 |
 | `CommandPalette` + `useCommandPalette.ts` | `components/containers/` | 加一条「脚本控制台」入口命令。 |
 | 节点对象形状 | `lib/backend.ts` `GraphNode` | `{ id, kind, label?, x, y, config: { literal: {pin: value} }, ... }` |
@@ -51,15 +55,15 @@ last_updated: 2026-06-17
 
 预注入全局 `yt` (也可 `const { nodes } = yt` 解构, 口味自选):
 
-- **`yt.nodes`** — 当前容器全节点封装数组 (主图 + 所有子图)。每个元素 `NodeHandle`:
-  - `n.id` `n.kind` `n.label` `n.location` — 只读 (`location` = "主图" / "子图: xxx")
-  - `n.has(pin)` — 该 kind 的 spec 是否有此 input pin (查 `PIN_SPECS`, **不是**查有没有填值)
-  - `n.get(pin)` — 当前有效值: literal 填了取填的, 没填取 spec 默认 (`KIND_DEFAULTS`); pin 不存在返 `undefined`
-  - `n.set(pin, value)` — 改值。**spec 没此 pin → 拒绝并记入报告** (防 typo); 按 pin 类型轻度归一 (见 §归一)
-- **`yt.selected`** — 仅当前画布选中的节点 (`yt.nodes` 的子集, 同 `NodeHandle`)
-- **`yt.container`** — `{ id, name, vars }` (v1: name/vars 只读; 写变量留后)
+- **`yt.nodes`** — 当前容器全节点封装数组 (主图 + 所有子图), **在点「运行」那一刻基于当前草稿快照构建** (运行同步、模态期间画布不可编辑 → 运行中视图固定, 无并发漂移)。每个元素 `NodeHandle`:
+  - `n.id` (UUID, 全局唯一) · `n.kind` · `n.label` · **`n.sgID`** (机器字段: `null`=主图 / 否则子图 id —— **脚本判层级用它**) · `n.location` (展示文案 "主图"/"子图: xxx", **只供显示, 别拿来 filter**, 会随重命名变) — 均只读
+  - `n.has(pin)` — 该 kind 的 spec (`PIN_SPECS[kind].dataIn`) 有没有此 input pin (**查 spec, 不是查填没填值**)
+  - `n.get(pin)` — 有效值: 本次运行已 set 过取 set 的, 否则 literal 填了取 literal, 都没有取该 kind spec 默认 (`KIND_DEFAULTS`, = 拖出来预填那个值); 无 literal 又无默认 (如 Required-无默认 pin) → `undefined`
+  - `n.set(pin, value)` — 改值, 写进 pending overlay (见 §执行模型)。**spec 没此 pin / 值归一失败 → 拒绝并记报告** (不写 overlay, 后续 get 读不到这次); 按 pin 类型归一 (见 §归一)
+- **`yt.selected`** — 打开控制台**那一刻**画布选中节点的快照 (按 id 取 `yt.nodes` 子集; 模态打开后画布不可动 → 是快照非实时)
+- **`yt.container`** — `{ id, name }` 只读 (写容器变量等留后, 见 §以后; v1 不暴露 `vars` 半成品)
 - **`yt.log(...args)`** — 打到控制台输出区
-- **`yt.ops`** — **预留命名空间** (v1 为空对象 / 不挂动作; 见 §以后)
+- **`yt.ops` v1 不注入** —— 只在设计层预留这个名给"脚本调 UI 动作"; **不挂空对象**(免得用户看见就调、撞 undefined)。见 §以后
 
 数组方法 (filter/map/forEach/...) 是原生 JS Array, 不另造。
 
@@ -79,42 +83,57 @@ yt.selected.filter(n => n.has('TimeoutMs')).forEach(n => n.set('TimeoutMs', 3000
 ## 执行模型
 
 1. 用 `new Function('yt', userCode)` 编译用户代码 (前端原生 JS, 全语法), 传入注入的 `yt`。
-2. `n.set(...)` **不直接写草稿**, 先收集进一个 pending 变更表 `[{nodeId, sgID, pin, value}]`; `n.get()` 反映同一次运行内已 set 的值 (读自己刚改的)。
-3. 脚本跑完**无异常** → 把 pending 变更**一次性**应用: 主图节点写 `draft`, 子图节点写 `editorStore.subgraphById(sgID).graph` + `touchSubgraph`; 整个应用包成**一条 Part-1 加固后的撤销条目** (主图+子图状态同进一个 snapshot) → 一步 Ctrl+Z 全退 + 标脏 + 重渲染。脚本**抛异常** → 丢弃全部 pending, **零变更** (原子)。
-4. **不自动存盘**: 同现状 Ctrl+S 才落盘。安全网 = 跑完看画布/报告 → 不对 Ctrl+Z 一步退 → 对了 Ctrl+S。
-5. 输出区报告: `改了 N 个节点的 M 个 pin` + `yt.log` 内容 + 被拒清单 (`节点 <id>(<kind>) 没有 pin <X>`) + 异常 (堆栈)。
+2. `n.set(...)` **不直接写草稿**, 写进 **pending overlay** —— 一张 `(sgID, nodeId, pin) → value` 的 Map (**同 pin 多次 set = 后写覆盖, 只留最后值**)。`n.get()` 先读 overlay (读到自己刚 set 的), 再 literal, 再默认。被拒的 set (无 pin / 归一失败) **不进 overlay** → 后续 get 读到的是改之前的值。
+3. 脚本跑完**无异常** → 把 overlay **一次性**应用 (全在内存, 基于第 1 步那份快照 → 节点必在, 无"找不到节点"): 主图节点写 `draft`, 子图节点写 `editorStore.subgraphById(sgID).graph` 对应节点 + `editorStore.touchSubgraph(containerID, sgID)`; 整个应用包成**一条 Part-1 加固后的撤销条目** (主图 + 本容器子图状态同进一个 snapshot) → 一步 Ctrl+Z 全退 + 标脏 + 重渲染。脚本**抛异常** → 丢弃整个 overlay, **零变更**。
+   > **原子的精确含义**: 只对"脚本抛异常"原子 (抛了 = 一个都不改)。**被拒的 set 不是异常** —— 是有意的"跳过 + 报告"。所以正常结局是"**尽力应用 + 列出被拒**"(可部分应用), 不是"全有/全无"。
+4. **不自动存盘**: 同现状 Ctrl+S 才落盘 (现有 `useEditorSave` 两段式保存**已**会把 touched 子图一并写盘 → 第 3 步 `touchSubgraph` 后保存链路**无需改**)。安全网 = 跑完看画布/报告 → 不对 Ctrl+Z 一步退 → 对了 Ctrl+S。
+5. 输出区报告分三块: **已应用** `改了 N 个节点的 M 个 pin` (N=不同节点数, M=overlay 里不同 `(节点,pin)` 对数, 后写覆盖只算一次) · **被拒** 清单 (`节点 <id>(<kind>): 无 pin X / 值非法`) · `yt.log` 内容; 抛错另附**异常堆栈**。
 
 ## set 归一 & 拒绝规则
 
-- `set(pin, v)`: 若 `!has(pin)` → 不写, 记入"被拒"报告。
-- 类型归一 (按 `PIN_SPECS` 该 pin 的类型, 防 `set('TimeoutMs','3000')` 存成字符串):
-  - Number / Integer / Duration → `Number(v)` (NaN 则拒并报告)
-  - Bool → `Boolean(v)`
-  - String → `String(v)`
-  - 其它 (Geometry/JSON/List/...) → 原样写 (v1 不深校验, 落盘时 `ValidateContainer` 兜)
+- `set(pin, v)`: 若 `!has(pin)` → 拒绝并记报告 (不写 overlay)。
+- 类型归一 (按 `PIN_SPECS[kind].dataIn[pin]` 的 `PinType`, 防 `set('TimeoutMs','3000')` 存成字符串):
+  - `number` (含后端 Number/Integer/**Duration** —— 本项目 **Duration 字面值就是毫秒数** (`inputs.go` `in.Duration`: json.Number→ms, **无 "100ms" 单位串**, 故无单位丢失问题)) → `Number(v)`; **非有限值 (NaN / Infinity) → 拒绝并报告**; Integer 再 `Math.trunc` 取整
+  - `bool` → 真布尔 / 数字 `0|1` / 字符串 `"true"|"false"` 才映射, 其它 → 拒绝 (**不用裸 `Boolean(v)`** —— `Boolean("false")` 会错成 `true`)
+  - `string` → `String(v)`
+  - `point` / `list` / `any` (Geometry/JSON/List 等) → 原样写 (v1 不深校验, 落盘时 `ValidateContainer` 兜)
 
 ## 安全 & 错误
 
-- `new Function` 跑在页面上下文, **非真沙箱**: 脚本理论上能碰全局、写死循环会卡 UI 线程 (同步 JS 无法硬超时)。**本地单人工具 + 用户跑自己的脚本** → 可接受, 换实现简单 + 全 JS 能力。真隔离需 Web Worker (API 要改消息传递), v1 不做。
+- **定位 = 本地单人自动化工具** (整个产品就是给用户在自己机器跑自己写的自动化), 非多租户/不可信用户场景 → 安全等级低。
+- `new Function` 跑在页面上下文, **非真沙箱**: 脚本能碰 window/fetch/localStorage、甚至绕过 `yt` 直接改 `editorStore` (绕过撤销/校验)。鉴于上面的定位 → **接受**, 换实现简单 + 全 JS 能力; v1 不做沙箱/网络限制 (真要隔离上 Web Worker、API 改消息传递, 留后)。
+- **无硬超时**: 同步 JS 死循环会卡 UI 线程 (没法对同步代码硬超时)。v1 **约定**用户自保脚本会终止, 并在控制台 UI **标一行提示**: "脚本同步执行, 死循环会卡界面, 请确保能结束"。
 - 语法/运行异常一律 catch → 打到输出区, **不崩编辑器、不改图**。
 
 ## UI / 入口
 
-- 模态弹窗: 上半 `CodeInput`(CodeMirror, JS 模式) + 下半输出区 + 「运行」按钮 (Ctrl+Enter 跑)。
-- 入口: ① Ctrl+K 命令面板加一条「脚本控制台」; ② 快捷键 (建议 Ctrl+Shift+J, 实施时查 `useEditorHotkeys.ts` 避免撞键)。
-- 最近一次脚本可记进 localStorage 方便复用 (轻量, 可选)。
+- 模态弹窗: 上半 `CodeInput`(CodeMirror, JS 高亮) + 下半输出区 + 「运行」按钮 (Ctrl+Enter 跑) + 一行死循环提示 (见 §安全)。
+- 入口: **主入口 = Ctrl+K 命令面板加一条「脚本控制台」** (i18n key `editor.palette.cmd.jsConsole`, 同现有 `editor.palette.cmd.*` 命名空间; 模态内文案另起 key)。专用快捷键可选, 须选**不撞 WebView/浏览器 DevTools** 的组合 (**避开 `Ctrl+Shift+J`/`I`/`C`** —— Chromium 拿它们开 DevTools), 具体 plan 定。
+- **`yt.*` 自动补全**: "可发现"得靠 CodeMirror 补全真认识 `yt.*` —— v1 至少挂一份**静态补全表** (yt 下成员 + NodeHandle 方法名), 否则退化成纯文本框。现有 `scriptCompletions.ts` 可挂, Part 2 plan 落实。
+- (记 localStorage 复用最近脚本 = nice-to-have, **v1 不做**, 留后。)
 
 ## 测试
 
-把**执行器**抽成纯函数: `runConsoleScript(code, nodesModel) → { changes: [...], rejected: [...], logs: [...], error? }` (不碰 Vue/草稿)。单测:
-- filter + set 命中节点 → changes 正确
-- set spec 没有的 pin → 进 rejected, 不进 changes
-- 脚本抛错 → changes 为空 (零变更), error 带信息
-- 类型归一: Number pin set 字符串数字 → 存为 number; set 非数字 → rejected
-- `get` 回退默认值 (literal 没填时取 KIND_DEFAULTS)
-- `get` 读到同次运行内先前的 set
+**执行器抽成纯函数** (不碰 Vue/草稿) —— 签名:
+`runConsoleScript(code: string, model: NodeModel[]) → { applied: Change[], rejected: Reject[], logs: string[], error?: string }`
+`NodeModel = { id, kind, sgID: string|null, label, literal: Record<string,unknown>, specPins: Record<string,PinType> }` (从 `GraphNode` + `PIN_SPECS`/`KIND_DEFAULTS` 组装)。执行器据此造 `NodeHandle` → 跑代码 → 产出 overlay → `applied`/`rejected`。Vue 层只: 造 model → 调执行器 → `applied` 经 Part-1 应用 + 渲染报告。
 
-模态 UI + applyDraftMutation 接线轻量手验 (跑示例脚本 → 画布变 → Ctrl+Z 一步退 → Ctrl+S 落盘)。
+单测 (Part 2 执行器):
+- filter + set 命中 → applied 正确
+- set spec 没有的 pin → rejected, 不进 applied
+- **同 pin 多次 set → 只留最后值, 算 1 个改动**
+- **set 被拒后 get → 读到改前的值 (不是被拒值)**
+- 脚本抛错 → applied 为空 (零变更), error 带信息
+- 归一: number pin set 字符串数字 → number; set NaN/Infinity → rejected; **bool set `"false"` → `false` (不是 true)**
+- get 回退: literal 没填取 KIND_DEFAULTS; 无默认 → undefined
+- get 读到同次运行内先前的 set
+
+单测 (Part 1 子图撤销):
+- 改子图节点 → 历史 snapshot 带上子图状态; undo/redo 正确还原子图
+- 主图改 + 子图改交错 → undo 多步顺序正确
+- undo 回初始 → dirty 标记正确; 不污染别的容器实例 (复发#5)
+
+模态 UI + 应用接线轻量手验 (项目惯例 = 单测 + 真机 smoke; 不上 e2e)。
 
 ## 以后 (非 v1, 预留不堵死)
 
@@ -125,7 +144,7 @@ yt.selected.filter(n => n.has('TimeoutMs')).forEach(n => n.set('TimeoutMs', 3000
 ## 验收
 
 **Part 1 (子图撤销)**:
-- 进子图手动改一个节点的值 → Ctrl+Z 能退回 (今天退不回)。
+- 进子图手动改一个节点的值 → Ctrl+Z 能退回 (当前实现退不回)。
 - undo/redo 跨主图↔子图改动都正确; 不误触发别的容器编辑器 dirty (守住复发#5)。
 
 **Part 2 (yt 控制台)**:
@@ -133,3 +152,30 @@ yt.selected.filter(n => n.has('TimeoutMs')).forEach(n => n.set('TimeoutMs', 3000
 - 批量改**主图+子图**节点 → **一步 Ctrl+Z 全退**, 不存盘直到 Ctrl+S。
 - set 不存在的 pin 被拒并在报告里; 脚本抛错零变更不崩。
 - 执行器单测全绿; typecheck / i18n:check / `task build` 全绿。
+
+## 评审纪要 (三方 AI 审核, 2026-06-17)
+
+原文 `tmp/{ds,gpt,claude}.txt`。AI 不了解项目全貌, 逐条对源码评估后:
+
+**采纳, 已改进本 spec**:
+- 原子性精确化: "原子"只对异常; 被拒 set = 跳过+报告 (尽力应用, 可部分) → §执行模型 加注。
+- pending overlay 数据结构 `(sgID,nodeId,pin)→value` 后写覆盖; get 读序 overlay→literal→默认; 被拒不进 overlay。
+- `n.sgID` 机器字段 (判层级用), `n.location` 降为纯展示 (别 filter)。
+- 归一收紧: number 拒非有限值 (NaN/Infinity)、Integer 取整; bool 不用裸 `Boolean(v)` (`Boolean("false")`=true 的坑)。
+- get 默认值语义 = literal ?? KIND_DEFAULTS, 无默认→undefined, 说清。
+- `yt.selected` / `yt.nodes` = 运行/开窗那刻**快照** (模态期画布不可动, 无并发漂移)。
+- `yt.container` 裁到 `{id,name}` (砍半成品 vars); `yt.ops` v1 **不注入空对象** (免误导)。
+- 快捷键避开 `Ctrl+Shift+J/I/C` (撞 DevTools); 主入口走命令面板 + i18n key `editor.palette.cmd.jsConsole`。
+- 死循环: UI 标提示 + 文档化"无超时, 用户自保终止"。
+- 自动补全: 明确 v1 要挂 `yt.*` 静态补全表 (否则"可发现"落空)。
+- 执行器签名 + `NodeModel` 入参形状定死; 测试补 (同 pin 多 set / 被拒后 get / bool 特例 / Part 1 子图撤销单测)。
+- 报告计数规则 (不同节点 / 不同 (节点,pin) 对); 保存链路确认**无需改** (现 `useEditorSave` 已存 touched 子图); Part 1 快照规模 + dirty 隔离 + 对 Part 2 的契约写进 §分解。
+- 文案: "今天"→"当前实现"。
+
+**驳回 (AI 不懂项目 / 已决策)**:
+- "`last_updated: 2026-06-17` 日期有误" → **就是今天**, 无误。
+- "Duration `Number(v)` 丢单位 (如 100ms)" → 本项目 Duration 字面值就是**毫秒数** (`in.Duration`), 无单位串, 无此问题。
+- "必须加沙箱 / 限制 fetch/window / 必须 e2e" → 本地单人工具, 非沙箱已两次拍板接受 (YAGNI); 项目测试惯例 = 单测 + 真机 smoke, 不引 e2e。
+- "`const {nodes}=yt` 被重新赋值会坏" → 用户自己的 JS, 非框架职责。
+
+**推迟 (YAGNI / 留后)**: localStorage 记最近脚本; `yt.ops` 填充; 容器变量读写; dry-run; Web Worker 沙箱。
