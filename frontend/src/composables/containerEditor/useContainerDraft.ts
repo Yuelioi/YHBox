@@ -1,15 +1,12 @@
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MarkerType } from '@vue-flow/core'
-import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
+import { backend, type Container, type Graph, type GraphNode, type GraphEdge, type Subgraph } from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { edgeKind } from '@/components/containers/pinSpec'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { SUBGRAPH_ENTRY_DEFAULT, SUBGRAPH_OUTPUT_DEFAULT } from './constants'
-
-// ---- History constants ----
-const HISTORY_MAX = 50
-type ContainerSnapshot = Container  // deep-cloned JSON
+import * as hist from './historyEngine'
 
 // FlowNode / FlowEdge: vue-flow 渲染数据形态 (与后端 GraphNode/GraphEdge 区分)
 export interface FlowNode {
@@ -60,19 +57,20 @@ export function useContainerDraft(containerID: string) {
   // 连线样式偏好 (曲线/直角/折线) — 单例 pref, 切换时 watch 重刷 flowEdges.
   const { prefs: sidebarPrefs } = useSidebarPrefs()
 
-  // ---- Undo/redo history (post-mutation snapshots) ----
-  const history = ref<ContainerSnapshot[]>([])
-  // historyIdx points to the current state in history[].
-  // -1 = no snapshots yet (before first load).
-  const historyIdx = ref(-1)
+  // ---- Undo/redo history (纯引擎在 historyEngine.ts) ----
+  const histState = ref<hist.HistoryState>({ entries: [], idx: -1 })
+  const canUndo = computed(() => hist.canUndo(histState.value))
+  const canRedo = computed(() => hist.canRedo(histState.value))
 
-  function snapshotDraft(): ContainerSnapshot | null {
-    if (!draft.value) return null
-    return JSON.parse(JSON.stringify(draft.value)) as ContainerSnapshot
+  // 取指定子图当前状态 (给批量撤销条目带上); 引擎内部再深拷贝, 这里给引用即可。
+  function touchedSubgraphSnapshot(ids: string[]): Record<string, Subgraph> {
+    const out: Record<string, Subgraph> = {}
+    for (const id of ids) {
+      const sg = editorStore.subgraphById(id)
+      if (sg) out[id] = sg as Subgraph
+    }
+    return out
   }
-
-  const canUndo = computed(() => historyIdx.value > 0)
-  const canRedo = computed(() => historyIdx.value < history.value.length - 1)
 
   // 视图态按本容器隔离 (editorPathFor 自己的 containerID 读), 不受前台 activeContainerID
   // 漂移影响; 子图数据走全局池 (全 app 共享资产, 多编辑器看同一份是全局化后的正确语义)。
@@ -193,12 +191,8 @@ export function useContainerDraft(containerID: string) {
       console.warn('subgraphs.list failed', e)
     }
     syncFlowFromDraft()
-    // Push initial snapshot so undo can return to the just-loaded state (idx 0 = clean baseline)
-    const initial = snapshotDraft()
-    if (initial) {
-      history.value = [initial]
-      historyIdx.value = 0
-    }
+    // 撤销基线: 刚加载的状态 = idx 0
+    if (draft.value) histState.value = hist.initHistory(draft.value)
   }
 
   onMounted(async () => {
@@ -305,54 +299,54 @@ export function useContainerDraft(containerID: string) {
     syncFlowFromDraft()
 
     const now = Date.now()
-    const hasHistory = history.value.length > 0 && historyIdx.value >= 0
-    if (hasHistory && now - lastSnapshotAt < COALESCE_MS) {
-      // Within burst window — update the last slot in-place so undo still
-      // restores to the state before the burst started (history[idx-1]).
-      const after = snapshotDraft()
-      if (after && historyIdx.value < history.value.length) {
-        history.value[historyIdx.value] = after
-      }
-      lastSnapshotAt = now
-      return
-    }
-
-    // Fresh snapshot — push to history
-    const after = snapshotDraft()
-    if (after) {
-      // Truncate redo branch if we mutated after an undo
-      if (historyIdx.value < history.value.length - 1) {
-        history.value = history.value.slice(0, historyIdx.value + 1)
-      }
-      history.value.push(after)
-      historyIdx.value = history.value.length - 1
-      // Cap at HISTORY_MAX entries — drop oldest when full
-      if (history.value.length > HISTORY_MAX) {
-        history.value.shift()
-        historyIdx.value--
-      }
+    const entry = hist.makeEntry(draft.value)
+    // burst 窗口内 → 原地替换 top (一步撤销整段 burst); 否则推新条目 (截断 redo + cap)。
+    if (histState.value.idx >= 0 && now - lastSnapshotAt < COALESCE_MS) {
+      histState.value = hist.replaceTop(histState.value, entry)
+    } else {
+      histState.value = hist.pushEntry(histState.value, entry)
     }
     lastSnapshotAt = now
   }
 
-  function undo() {
-    if (!draft.value || historyIdx.value <= 0) return
-    historyIdx.value--
-    const snap = history.value[historyIdx.value]
-    if (!snap) return
-    draft.value = JSON.parse(JSON.stringify(snap)) as Container
+  /**
+   * applyBulkMutation — yt 控制台批量改专用: 主图 + 触及子图一次性改, 落成**一条**可撤销条目。
+   * mutator 改主图 draft (主图节点) + 经 editorStore 改子图节点; touchedSgIDs = 被改子图 id。
+   * undo/redo 时主图 + 这些子图一起还原。详见 specs/2026-06-17-yt-scripting-console.md §撤销机制。
+   */
+  function applyBulkMutation(touchedSgIDs: string[], mutator: (draft: Container) => void): void {
+    if (!draft.value) return
+    // 改前: 把触及子图的改前状态 merge 进当前条目, 让 undo 能回到改前子图。
+    histState.value = hist.augmentTop(histState.value, touchedSubgraphSnapshot(touchedSgIDs))
+    mutator(draft.value)
+    for (const id of touchedSgIDs) editorStore.touchSubgraph(containerID, id)
+    dirty.value = true
+    syncFlowFromDraft()
+    // 改后: 推新条目带改后子图状态。
+    histState.value = hist.pushEntry(histState.value, hist.makeEntry(draft.value, touchedSubgraphSnapshot(touchedSgIDs)))
+    lastSnapshotAt = Date.now()
+  }
+
+  // 把一条历史条目写回: 主图 draft + (若有) 子图回灌 editorStore。
+  function applyRestore(entry: hist.HistoryEntry | null): void {
+    if (!entry || !draft.value) return
+    const { draft: d, subgraphs } = hist.restore(entry)
+    draft.value = d
+    for (const sg of subgraphs) editorStore.replaceSubgraph(sg)
     dirty.value = true
     syncFlowFromDraft()
   }
-
+  function undo() {
+    const { state: ns, entry } = hist.undo(histState.value)
+    if (!entry) return
+    histState.value = ns
+    applyRestore(entry)
+  }
   function redo() {
-    if (!draft.value || historyIdx.value >= history.value.length - 1) return
-    historyIdx.value++
-    const snap = history.value[historyIdx.value]
-    if (!snap) return
-    draft.value = JSON.parse(JSON.stringify(snap)) as Container
-    dirty.value = true
-    syncFlowFromDraft()
+    const { state: ns, entry } = hist.redo(histState.value)
+    if (!entry) return
+    histState.value = ns
+    applyRestore(entry)
   }
 
   return {
@@ -360,6 +354,7 @@ export function useContainerDraft(containerID: string) {
     dirty,
     activeGraph,
     applyDraftMutation,
+    applyBulkMutation,
     undo,
     redo,
     canUndo,
