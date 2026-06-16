@@ -93,6 +93,63 @@ func TestClickTemplate_SettleMs_RedetectThenClick(t *testing.T) {
 	}
 }
 
+func TestClickTemplate_RetryUntilGone_Done(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	pt := node.Point{X: 0.55, Y: 0.4}
+	// missAfterCall=2: call1 初次命中 + call2 点完重查仍在 → 点 2 下; call3 模板已消失 → 走 Done。
+	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1, missAfterCall: 2}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
+			clkInTimeoutMs: 200, clkInThreshold: 0.85, clkInMaxAttempts: 5, clkInRetryIntervalMs: 1},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Errorf("exit = %q, want Done", r.ExitName)
+	}
+	if r.OutputData[clkDataMatched] != true {
+		t.Errorf("Matched = %v, want true", r.OutputData[clkDataMatched])
+	}
+	// 第一下没点掉 → 重试再点一下 → 模板消失。共 2 次 click, 没用满 MaxAttempts。
+	if len(rec.calls) != 2 {
+		t.Errorf("clicks = %d, want 2 (first + one retry, then template gone)", len(rec.calls))
+	}
+}
+
+func TestClickTemplate_RetryExhausted_Timeout(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	pt := node.Point{X: 0.5, Y: 0.5}
+	// missAfterCall=0 (禁用) → 模板一直在 → 点满 MaxAttempts 仍没消失 → Timeout(Matched=true)。
+	vision := &mockVision{point: &pt, conf: 0.9, hitOnCall: 1}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
+			clkInTimeoutMs: 200, clkInThreshold: 0.85, clkInMaxAttempts: 3, clkInRetryIntervalMs: 1},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutTimeout {
+		t.Errorf("exit = %q, want Timeout", r.ExitName)
+	}
+	// 出现了但点不掉 → Matched=true (跟"压根没出现"的 Matched=false 区分)。
+	if r.OutputData[clkDataMatched] != true {
+		t.Errorf("Matched = %v, want true (appeared but never clicked away)", r.OutputData[clkDataMatched])
+	}
+	if len(rec.calls) != 3 {
+		t.Errorf("clicks = %d, want 3 (= MaxAttempts)", len(rec.calls))
+	}
+}
 
 func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 	node.ResetRegistryForTest()

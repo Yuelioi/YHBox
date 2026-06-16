@@ -22,6 +22,8 @@ type mockVision struct {
 	// 否则返 nil. hitOnCall = 0 → 第一次就 hit. hitOnCall < 0 → 永不 hit (timeout 路径).
 	hitOnCall int
 	callCount int
+	// missAfterCall>0: callCount 超过它后 WaitMatch 返 nil (模拟"模板被点掉后消失") —— 测点完验证/重试用; 0=禁用.
+	missAfterCall int
 
 	// DualBarTrack 用
 	barResult node.DualColorBarResult
@@ -62,6 +64,10 @@ func (m *mockVision) WaitMatch(ctx context.Context, keys []string, threshold flo
 	m.callCount++
 	if m.err != nil {
 		return nil, m.conf, m.err
+	}
+	// 模板被点掉后消失: 前 missAfterCall 次照常命中, 之后返 nil。
+	if m.missAfterCall > 0 && m.callCount > m.missAfterCall {
+		return nil, m.conf, nil
 	}
 	if m.hitOnCall >= 0 && m.callCount >= m.hitOnCall && m.point != nil {
 		return m.point, m.conf, nil

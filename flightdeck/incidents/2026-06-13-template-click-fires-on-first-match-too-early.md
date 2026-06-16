@@ -1,9 +1,9 @@
 ---
 name: template-click-fires-on-first-match-too-early
-description: ClickTemplate/WaitTemplate「点了不生效/点空」根因 —— WaitMatch 在模板**首次越过阈值那一刻**就 return, 节点立刻动作(点击/放行), 且**只动作一次不重试**。游戏转场/加载时模板"刚冒出来"还在动画/未就位/未可点 → 这一下太早 → 落空。诊断关键: 在节点前垫个 Sleep 就好(跟动画时长无关, 动画≤200ms 也要等十几秒, 因为模板要等加载完才出现, 出现即被点)。修法: 加 SettleMs(命中后稳定延迟 + 用新鲜帧重定位再动作), 抽 settleAfterMatch 共用。附带订正: 轮询是 100ms(visionWaitPollMs)不是注释里的 250ms; WaitMatch 确实每轮抓新帧(缓存 100ms TTL 每轮过期)—— "没一直检测"是误解, 真因是"认第一次命中就动作"
-when_to_read: 撞 ClickTemplate/WaitTemplate「检测到了/走了 Done 但游戏没反应」「点空」「点了不生效」; 怀疑模板在转场帧上误命中或点早了; 设计任何「检测到模板→立刻点击/动作」类节点前; 想搞清 WaitMatch 轮询/帧缓存/超时的真实机制
-applies_to: [detect, template-match, click-template, wait-template, WaitMatch, settle, SettleMs, vision, frame-cache, visionWaitPollMs, transition-timing, internal/nodes/detect/click_template.go, internal/nodes/detect/wait_template.go, internal/nodes/detect/template_common.go, internal/services/container/runtime/node_services.go]
-last_updated: 2026-06-13
+description: ClickTemplate/WaitTemplate「点了不生效/点空」根因 —— WaitMatch 在模板**首次越过阈值那一刻**就 return, 节点立刻动作(点击/放行), 且**只动作一次不重试**。游戏转场/加载时模板"刚冒出来"还在动画/未就位/未可点 → 这一下太早 → 落空。诊断关键: 在节点前垫个 Sleep 就好(跟动画时长无关, 动画≤200ms 也要等十几秒, 因为模板要等加载完才出现, 出现即被点)。修法: 加 SettleMs(命中后稳定延迟 + 用新鲜帧重定位再动作), 抽 settleAfterMatch 共用。附带订正: 轮询是 100ms(visionWaitPollMs)不是注释里的 250ms; WaitMatch 确实每轮抓新帧(缓存 100ms TTL 每轮过期)—— "没一直检测"是误解, 真因是"认第一次命中就动作"。续(2026-06-17): 另一种「点了不生效」= 点击根本没点中、模板还在(不是点早了) → 给 ClickTemplate 加 MaxAttempts/RetryIntervalMs 验证重试(点完查模板消失没, 没消失重点, 点满还在走 Timeout 且 Matched=true), 跟 SettleMs 正交
+when_to_read: 撞 ClickTemplate/WaitTemplate「检测到了/走了 Done 但游戏没反应」「点空」「点了不生效」; 怀疑模板在转场帧上误命中或点早了; 想让 ClickTemplate 点不中时自动重点(MaxAttempts); 设计任何「检测到模板→立刻点击/动作」类节点前; 想搞清 WaitMatch 轮询/帧缓存/超时的真实机制
+applies_to: [detect, template-match, click-template, wait-template, WaitMatch, settle, SettleMs, MaxAttempts, RetryIntervalMs, verify-retry, vision, frame-cache, visionWaitPollMs, transition-timing, internal/nodes/detect/click_template.go, internal/nodes/detect/wait_template.go, internal/nodes/detect/template_common.go, internal/services/container/runtime/node_services.go]
+last_updated: 2026-06-17
 status: active
 ---
 
@@ -37,3 +37,18 @@ status: active
 
 - 本轮顺手给 dump 日志加了 `took=<耗时>`（节点 Run 实际耗时，`engine.go` 里计时）—— 这类"等了多久才命中"的问题，日志直接 `took=12.3s` 一眼看出，是排这类 bug 的利器。出口名（→Done/→Timeout）= 命中/超时、`err=` = 失败，本就有。
 - SettleMs 是**命中后**等；不能解决"模板根本没出现/出现晚"（那是 TimeoutMs 的事）。两者配合：TimeoutMs 等模板出现，SettleMs 等它出现后稳定。
+
+## 续 (2026-06-17): 第二种「点了不生效」—— 点击没点中 → MaxAttempts 验证重试
+
+用户报 ClickTemplate "还是有概率点不成功"，钉死现象 = **点完那个模板/按钮还在屏幕上**（不是点早了、也不是落点偏/激活问题——那两种模板会消失但游戏没反应）。所以这是跟本案 SettleMs 不同的失败模式：**点击根本没被消费掉**。成功的可观测信号 = **模板消失**。
+
+给 `ClickTemplate` 加 **click-verify-retry**（两个新 pin，默认 = 旧行为）：
+
+- `MaxAttempts`（默认 `1`）：最多点几下（含第一下）。**=1 → 点一次即 Done，不验证（旧行为原样）**；≥2 才开启重试。
+- `RetryIntervalMs`（默认 `500`）：每点一下后等多久再用**新鲜单帧**重查模板在不在（也是两次点击的间隔）。默认 500ms > 帧缓存 100ms TTL，保证重查拿新画面；这个等待还兼"给游戏留反应时间"，太短会在画面没更新时误判没点中。
+
+流程（接在 SettleMs + 第一下点击之后）：等 `RetryIntervalMs` → `matchOnce` 重查 → 模板没了走 `Done`(Matched=true)；还在且没点满则重定位再点；还在且点满 `MaxAttempts` 走 **`Timeout`(Matched=true)**。**复用现有 Timeout 出口、不加新口**：`Matched=false`=压根没出现 / `Matched=true`=出现了但点 N 次没点掉，靠这个 bool 区分。
+
+抽了 `template_common.go::matchOnce`（单帧查）+ `waitOrCancel`（可取消等待）两节点共用；首次点击与重试共用 `clickAt`。WaitTemplate **不加**（它不点击，retry-click 无意义）。已加 3 个单测（点掉走 Done / 点满走 Timeout+Matched=true / 默认不变），typecheck/go test/task build 全绿，真机待用户验。
+
+**两个失败模式 + 两个旋钮别混**：点**早了**（转场帧误命中）→ `SettleMs`（点之前等稳）；点**没中**（模板没消失）→ `MaxAttempts`（点之后验证重点）。正交，可叠加用。

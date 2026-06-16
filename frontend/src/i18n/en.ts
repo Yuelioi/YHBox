@@ -725,7 +725,7 @@
     },
     ClickTemplate: {
       label: 'Click template',
-      description: 'Waits for the image (template) you picked to appear, then clicks its center with the mouse and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots.',
+      description: 'Waits for the image (template) you picked to appear, then clicks its center with the mouse and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots. Optionally set «max click attempts» > 1: after each click it checks whether the template is gone and re-clicks a few times if not — fixes the occasional missed click; if it still has not disappeared after all attempts it also takes Timeout.',
       example: 'Auto-click the «start fishing» button: pick fishing.start_fish, timeout 5s, button Left; when it shows up it gets clicked and takes Done; if it never appears, Timeout handles the error.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed' },
@@ -734,6 +734,8 @@
         Threshold: { label: 'Threshold' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).' },
+        MaxAttempts: { label: 'Max click attempts', hint: 'Most times to click (including the first). When >1, after each click it checks whether the template is gone; if still there it clicks again, until the template disappears or attempts run out — guards against an occasional missed click. Gone = success (Done); still there after all attempts = Timeout. 1 = click once without checking (default).' },
+        RetryIntervalMs: { label: 'Retry interval (ms)', hint: 'How long to wait after each click before re-checking whether the template is gone (also the gap between clicks). Only applies when max click attempts > 1. Gives the game time to react; too short risks a false miss before the screen updates. Default 500.' },
       },
       output: {
         Done: {
@@ -742,7 +744,7 @@
         },
         Timeout: {
           label: 'Timeout',
-          data: { Conf: { hint: 'Highest match score (below threshold)' } },
+          data: { Conf: { hint: 'Match score when giving up' } },
         },
       },
     },

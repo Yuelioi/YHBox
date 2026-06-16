@@ -745,7 +745,7 @@ export default {
     },
     ClickTemplate: {
       label: '点击模板',
-      description: '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它的中心，然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。',
+      description: '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它的中心，然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。',
       example: '自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish; 可选多个' },
@@ -754,6 +754,8 @@ export default {
         Threshold: { label: '阈值' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。' },
+        MaxAttempts: { label: '最多点击次数', hint: '最多点几下 (含第一下)。设 >1 时, 每点一下就检查模板还在不在, 还在就再点, 直到它消失或点够次数 —— 防偶尔点空。模板消失 = 成功走 Done; 点够了还在走 Timeout。1 = 只点一次不检查 (默认)。' },
+        RetryIntervalMs: { label: '重试间隔 (ms)', hint: '每点一下后等多久再检查模板消失没 (也是两次点击的间隔)。只在「最多点击次数」>1 时生效。给游戏留出反应时间, 太短会在画面还没更新时误判没点中。默认 500。' },
       },
       output: {
         Done: {
@@ -762,7 +764,7 @@ export default {
         },
         Timeout: {
           label: '超时',
-          data: { Conf: { hint: '最高匹配度 (低于阈值)' } },
+          data: { Conf: { hint: '放弃时的匹配度' } },
         },
       },
     },
