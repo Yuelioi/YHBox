@@ -1,17 +1,18 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-17 by 月离 (本会话两件节点可用性小改: ① ClickTemplate 验证重试 MaxAttempts/RetryIntervalMs; ② Sleep 默认 1s + 去掉无效 Required。顺带记下框架坑「Default 与 Required 互斥」。go test/task build 全绿)。
-**Active focus**: 无进行中 spec。**本会话 (2026-06-17)** 两件节点可用性小改: ① **ClickTemplate 验证重试**(MaxAttempts/RetryIntervalMs, 知识落 [incident 2026-06-13](incidents/2026-06-13-template-click-fires-on-first-match-too-early.md) 续章, **真机待用户验** 见 ## 待验证); ② **Sleep 默认 1s**(`Duration` 加 `json.Number("1000")` + 去掉无效 `Required` — 全节点默认值审计结论: 仅 Sleep 真缺, 其余皆合理; 框架坑「给 Required pin 加 Default → Required 成死标」已记进 [add-node](checklists/add-node.md) §1)。上一增量 Spec C + chrome 见 ## 关键上下文。下一步候选见 ## 下一步。**默认不 push**。
+**Last updated**: 2026-06-17 by 月离 (立 [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)[graduate]: 编辑器内 JS 批量改节点。读源码定论: 编辑器撤销栈只快照主图、子图没 undo → 拆 P1 子图纳入撤销 + P2 控制台。设计完成, 待写 plan)。
+**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 脚本控制台 (命名空间根 `yt` 对标 blender bpy), 对当前容器主图+子图批量改节点 config。设计已定、spec 已立。**读源码定论**: 编辑器撤销栈 (`useContainerDraft`) 只快照主图 `draft`、子图在 `editorStore` 池里**压根没 undo** → 拆两块: **P1 子图纳入撤销**(核心编辑器, 顺带修既有缺口) → **P2 yt 控制台**(建其上)。**下一步: 写 P1 plan**(见 ## 下一步)。前两个节点小改 (ClickTemplate 重试 / Sleep 默认 1s) 已 land, 真机待验项见 ## 待验证。**默认不 push**。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
-
+- [2026-06-17-yt-scripting-console.md](specs/2026-06-17-yt-scripting-console.md) — 编辑器内 JS 脚本控制台 (命名空间根 yt, 对标 blender bpy): 对当前容器主图+所有子图全节点批量改 config。v1: yt.nodes/selected/container/log + 预留 yt.ops。new Function 执行, set 收集后一次性 applyDraftMutation(一步撤销)+标脏, 抛错零变更, Ctrl+S 落盘。复用 CodeInput(CodeMirror)/walkAllGraphs/PIN_SPECS。
 <!-- /AUTO -->
 
 ## 下一步
 
-- 无进行中 spec。候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); idea 池([cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
+- **写 Part 1 plan** ([yt-scripting-console spec](specs/2026-06-17-yt-scripting-console.md) §分解): 子图纳入编辑器撤销栈 —— 扩展 `useContainerDraft` 的 history 快照/undo/redo 携带**本容器子图**状态, undo/redo 时写回 `editorStore`; 守住复发#5(别误触别的容器编辑器 dirty)。**先精读 `editorStore` + `useContainerDraft` 撤销/快照内部再写 plan**(头号铁律: 核心改动不脑补)。然后 P2 控制台 plan。
+- (候选池, P1/P2 之后: 临时窗口抓取 EnumWindows 选窗截图; 复发#5 promotion; idea 池 [cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
 
