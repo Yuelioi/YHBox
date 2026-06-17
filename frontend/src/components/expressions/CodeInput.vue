@@ -29,6 +29,7 @@
       lang-label="JavaScript"
       commentable
       foldable
+      formattable
       @update:model-value="(v: string) => emit('update:modelValue', v)"
     >
       <template #toolbar-extra>

@@ -34,6 +34,8 @@
           <UButton v-if="reference?.length" icon="i-tabler-book" variant="ghost"
             :color="refDrawerOpen ? 'primary' : 'neutral'" size="xs"
             :title="t('inspector.editor_ref_toggle')" @click="refDrawerOpen = !refDrawerOpen" />
+          <UButton v-if="formattable" icon="i-tabler-wand" variant="ghost" color="neutral" size="xs"
+            :loading="formatting" :title="t('inspector.editor_format')" @click="formatDoc" />
           <UButton icon="i-tabler-indent-increase" variant="ghost" color="neutral" size="xs"
             :title="t('inspector.editor_indent_tidy')" @click="reindentAll" />
           <template v-if="foldable">
@@ -189,6 +191,7 @@ import SnippetManagerModal from './SnippetManagerModal.vue'
 import type { InsertItem } from '@/lib/scriptCompletions'
 import { searchPanelTheme, zhSearchPhrases } from '@/lib/editorTheme'
 import type { CodeSnippetLang } from '@/stores/codeSnippets'
+import type { Plugin } from 'prettier'
 
 const { t, locale } = useI18n()
 
@@ -221,6 +224,8 @@ const props = defineProps<{
   snippetLang?: CodeSnippetLang
   /** 状态栏右侧语言标签 (JavaScript / 表达式)。 */
   langLabel?: string
+  /** 显「格式化」按钮 + Shift+Alt+F (仅 JS — Script/控制台开; Expr 关)。prettier 懒加载。 */
+  formattable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -333,6 +338,9 @@ onMounted(async () => {
       keymap.of(searchKeymap),
       Prec.high(keymap.of([{ key: 'Mod-Enter', run: () => { emit('submit'); return true } }])),
       Prec.high(keymap.of([{ key: 'F1', run: () => { refDrawerOpen.value = !refDrawerOpen.value; persistRefDrawer(refDrawerOpen.value); return true } }])),
+      ...(props.formattable
+        ? [Prec.high(keymap.of([{ key: 'Shift-Alt-f', run: () => { void formatDoc(); return true } }]))]
+        : []),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) {
           doc.value = u.state.doc.toString()
@@ -368,6 +376,36 @@ function reindentAll() {
   indentSelection(view)
   view.dispatch({ selection: { anchor: Math.min(head, view.state.doc.length) } })
   view.focus()
+}
+
+// 格式化 = 懒加载 prettier 标准版 (dynamic import, 不进主包), 整段替换 (进撤销栈一步)。仅 JS 模式 (formattable)。
+const formatting = ref(false)
+async function formatDoc() {
+  if (!view || formatting.value) return
+  const src = view.state.doc.toString()
+  formatting.value = true
+  try {
+    const [{ format }, babel, estree] = await Promise.all([
+      import('prettier/standalone'),
+      import('prettier/plugins/babel'),
+      import('prettier/plugins/estree'),
+    ])
+    const out = await format(src, {
+      parser: 'babel',
+      plugins: [babel, estree] as unknown as Plugin[],
+      semi: false,
+      singleQuote: true,
+    })
+    if (view && out !== src) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: out } })
+    }
+  } catch (e) {
+    // 语法错 → prettier 抛错, 不动文档 (lint 已下划线提示)。
+    console.warn('[CodeEditor] format failed', e)
+  } finally {
+    formatting.value = false
+  }
+  view?.focus()
 }
 
 function jumpToError() {

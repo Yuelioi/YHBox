@@ -541,6 +541,7 @@
     editor_params: 'Parameters',
     editor_status_stats: '{lines} lines · {chars} chars',
     editor_indent_tidy: 'Reindent',
+    editor_format: 'Format (Shift+Alt+F)',
     editor_ref_toggle: 'Reference (F1)',
     editor_fold_all: 'Fold all',
     editor_unfold_all: 'Unfold all',

@@ -19,6 +19,7 @@
           :reference="reference"
           commentable
           foldable
+          formattable
           lang-label="JavaScript"
           @submit="onRun"
         />

@@ -34,6 +34,7 @@
         :foldable="foldable"
         :snippet-lang="snippetLang"
         :lang-label="langLabel"
+        :formattable="formattable"
         @submit="confirm"
       >
         <template #toolbar-extra>
@@ -87,6 +88,8 @@ const props = defineProps<{
   snippetLang?: CodeSnippetLang
   /** 状态栏右侧语言标签。 */
   langLabel?: string
+  /** 显「格式化」按钮 (仅 JS — Script 开, Expr 关)。 */
+  formattable?: boolean
 }>()
 
 const emit = defineEmits<{
