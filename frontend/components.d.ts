@@ -24,6 +24,7 @@ declare module 'vue' {
     ClipAssetPanel: typeof import('./src/components/containers/dock/ClipAssetPanel.vue')['default']
     ClipDetailPanel: typeof import('./src/components/containers/ClipDetailPanel.vue')['default']
     ClipTimeline: typeof import('./src/components/containers/ClipTimeline.vue')['default']
+    CodeEditor: typeof import('./src/components/expressions/CodeEditor.vue')['default']
     CodeInput: typeof import('./src/components/expressions/CodeInput.vue')['default']
     ColorPalettePicker: typeof import('./src/components/containers/inline/ColorPalettePicker.vue')['default']
     ComingSoonCard: typeof import('./src/components/ComingSoonCard.vue')['default']

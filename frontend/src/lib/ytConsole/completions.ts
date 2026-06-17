@@ -5,14 +5,14 @@
 import type { Completion } from "@codemirror/autocomplete";
 import type { HoverDoc } from "@/lib/editorHover";
 
-interface YtEntry {
+export interface YtEntry {
   label: string;
   type: Completion["type"];
   sig: string;
   desc: string;
 }
 
-const ENTRIES: YtEntry[] = [
+export const YT_ENTRIES: YtEntry[] = [
   { label: "yt.nodes", type: "variable", sig: "yt.nodes: NodeHandle[]", desc: "All nodes in the current container (main graph + all subgraphs), frozen read-only array — use .filter / .map / .forEach." },
   { label: "yt.selected", type: "variable", sig: "yt.selected: NodeHandle[]", desc: "Nodes selected on the canvas when the console was opened." },
   { label: "yt.container", type: "variable", sig: "yt.container: { id, name }", desc: "The current container (read-only)." },
@@ -26,7 +26,7 @@ const ENTRIES: YtEntry[] = [
   { label: "n.label", type: "property", sig: "n.label: string", desc: "Node display label." },
 ];
 
-export const YT_COMPLETIONS: Completion[] = ENTRIES.map((e) => ({
+export const YT_COMPLETIONS: Completion[] = YT_ENTRIES.map((e) => ({
   label: e.label,
   type: e.type,
   detail: e.sig,
@@ -35,6 +35,6 @@ export const YT_COMPLETIONS: Completion[] = ENTRIES.map((e) => ({
 
 // hover: 悬停 `nodes` / `set` / `yt.nodes` / `n.set` 都能查到 (词可能含或不含前缀)。
 export function ytHoverDoc(word: string): HoverDoc | null {
-  const e = ENTRIES.find((x) => x.label === word || x.label === "yt." + word || x.label === "n." + word);
+  const e = YT_ENTRIES.find((x) => x.label === word || x.label === "yt." + word || x.label === "n." + word);
   return e ? { sig: e.sig, desc: e.desc } : null;
 }
