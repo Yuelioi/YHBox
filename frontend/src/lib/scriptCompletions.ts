@@ -7,6 +7,7 @@ import {
   type Completion,
   type CompletionContext,
   type CompletionResult,
+  type CompletionSource,
 } from '@codemirror/autocomplete'
 import {
   Decoration,
@@ -240,7 +241,10 @@ function scriptCompletionSource(
 }
 
 export function scriptEditorExtensions(opts: {
-  completions: () => Completion[]
+  /** 扁平补全项 (按词前缀过滤); 传了 completionSource 则忽略本项。 */
+  completions?: () => Completion[]
+  /** 自定义补全源 (上下文感知, 如 yt 控制台的成员补全) — 传了则**取代** completions 的默认源。 */
+  completionSource?: CompletionSource
   /** 容器变量名 — $引用未声明提醒 (lint)。 */
   varNames?: () => string[]
   /** pin 值候选: (kind, pin) → 选项; 用于 `Kind({Pin: ▮})` 值位置补全 (枚举值 / 变量名)。缺省不补。 */
@@ -265,7 +269,7 @@ export function scriptEditorExtensions(opts: {
       colors: { dark: '#404040', activeDark: '#6a6a6a', light: '#404040', activeLight: '#6a6a6a' },
     }),
     autocompletion({
-      override: [scriptCompletionSource(opts.completions, opts.pinValues)],
+      override: [opts.completionSource ?? scriptCompletionSource(opts.completions ?? (() => []), opts.pinValues)],
     }),
     cmPlaceholder(opts.placeholder ?? ''),
     ...baseEditorExtensions(opts),

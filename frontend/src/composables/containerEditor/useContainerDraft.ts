@@ -294,14 +294,21 @@ export function useContainerDraft(containerID: string) {
 
   function applyDraftMutation(mutator: (draft: Container) => void): void {
     if (!draft.value) return
+    // 在子图里编辑时, 当前活动子图 (path 末尾) 也要进历史快照, 否则 undo 只回退主图、子图改动退不回。
+    const sgID = myPath.value.length > 0 ? myPath.value[myPath.value.length - 1] : null
+    const now = Date.now()
+    const coalescing = histState.value.idx >= 0 && now - lastSnapshotAt < COALESCE_MS
+    // 改前 (每段 burst 第一次): 把活动子图"改前"状态 merge 进当前条目, 让 undo 能回到 burst 前的子图。
+    if (sgID && !coalescing) {
+      histState.value = hist.augmentTop(histState.value, touchedSubgraphSnapshot([sgID]))
+    }
     mutator(draft.value)
     dirty.value = true
     syncFlowFromDraft()
-
-    const now = Date.now()
-    const entry = hist.makeEntry(draft.value)
+    // 主图改 → 条目无 sgState (行为同旧); 子图改 → 带活动子图"改后"状态。
+    const entry = hist.makeEntry(draft.value, sgID ? touchedSubgraphSnapshot([sgID]) : undefined)
     // burst 窗口内 → 原地替换 top (一步撤销整段 burst); 否则推新条目 (截断 redo + cap)。
-    if (histState.value.idx >= 0 && now - lastSnapshotAt < COALESCE_MS) {
+    if (coalescing) {
       histState.value = hist.replaceTop(histState.value, entry)
     } else {
       histState.value = hist.pushEntry(histState.value, entry)

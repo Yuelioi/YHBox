@@ -55,7 +55,7 @@ import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Extension } from "@codemirror/state";
 import { scriptEditorExtensions } from "@/lib/scriptCompletions";
-import { YT_COMPLETIONS, ytHoverDoc, YT_ENTRIES } from "@/lib/ytConsole/completions";
+import { ytHoverDoc, YT_ENTRIES, ytCompletionSource } from "@/lib/ytConsole/completions";
 import type { RunResult } from "@/lib/ytConsole/executor";
 import BaseModal from "@/components/common/BaseModal.vue";
 import CodeEditor, { type RefItem } from "@/components/expressions/CodeEditor.vue";
@@ -80,7 +80,7 @@ const reference: RefItem[] = YT_ENTRIES.map((e) => ({
 
 function ytExtensions(): Extension[] {
   return scriptEditorExtensions({
-    completions: () => YT_COMPLETIONS,
+    completionSource: ytCompletionSource,
     hoverDoc: ytHoverDoc,
     lintMessages: {
       syntaxError: (line: number) => t("inspector.editor_syntax_error_line", { line }),

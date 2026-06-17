@@ -26,7 +26,7 @@ last_updated: 2026-06-17
 - **格式化** (新): `<CodeEditor>` 工具栏加「格式化」按钮, 仅 JS 模式 (Script + yt 控制台) 显示; prettier 标准版**懒加载**。
 
 **不做 (明确)**:
-- `yt.nodes.` 嵌套成员补全 — 三个编辑器都没有 (补全源按词前缀匹配, 不解析类型); 单独增强, 不在此。
+- ~~`yt.nodes.` 嵌套成员补全~~ — **已补 (2026-06-17, 用户验收后追加)**: 控制台换上下文感知补全源 `ytCompletionSource`(yt.→成员 / yt.nodes.·selected.→数组方法 / n.→NodeHandle); `scriptEditorExtensions` 加 `completionSource` 口。Script/Expr 仍用扁平源。
 - Script/Expr 的**行内小框** (`CodeInput`/`ExprInput` 非放大态) 不动 — 本次只统一"放大/控制台"这层主体。
 - 表达式格式化 — Expr 单行 DSL, N/A, 不显格式化按钮。
 
