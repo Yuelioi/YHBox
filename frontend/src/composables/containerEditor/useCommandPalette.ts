@@ -24,6 +24,7 @@ interface UseCommandPaletteOpts {
   sidebarPrefs: Ref<SidebarPrefs>
   settingsOpen: Ref<boolean>
   nodeSearchOpen: Ref<boolean>
+  jsConsoleOpen: Ref<boolean>
   // actions
   undo: () => void
   redo: () => void
@@ -163,6 +164,12 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
         icon: 'i-tabler-settings', shortcut: 'Ctrl+,',
         keywords: ['settings', 'config', '设置'],
         exec: () => { opts.settingsOpen.value = true },
+      },
+      {
+        id: 'edit.js-console', label: t('editor.palette.cmd.js_console'), group: 'edit',
+        icon: 'i-tabler-terminal-2',
+        keywords: ['script', 'console', 'js', 'bulk', 'jitter', '脚本', '控制台', '批量'],
+        exec: () => { opts.jsConsoleOpen.value = true },
       },
       {
         id: 'navigate.back', label: t('editor.palette.cmd.back'), group: 'navigate',

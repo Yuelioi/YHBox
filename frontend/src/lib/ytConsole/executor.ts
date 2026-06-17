@@ -49,7 +49,7 @@ function coerce(type: PinType, v: unknown): { ok: true; value: unknown } | { ok:
   switch (type) {
     case 'number': {
       const n = Number(v)
-      if (!Number.isFinite(n)) return { ok: false, reason: `值 ${JSON.stringify(v)} 不是有限数字` }
+      if (!Number.isFinite(n)) return { ok: false, reason: `${JSON.stringify(v)} is not a finite number` }
       return { ok: true, value: n }
     }
     case 'bool': {
@@ -57,16 +57,16 @@ function coerce(type: PinType, v: unknown): { ok: true; value: unknown } | { ok:
       if (v === 0 || v === 1) return { ok: true, value: v === 1 }
       if (v === 'true') return { ok: true, value: true }
       if (v === 'false') return { ok: true, value: false }
-      return { ok: false, reason: `值 ${JSON.stringify(v)} 不能当布尔` }
+      return { ok: false, reason: `${JSON.stringify(v)} is not a boolean` }
     }
     case 'string':
       return { ok: true, value: String(v) }
     default: {
       // point / list / any: 原样写, 但拒非 JSON-可序列化 (函数 / 循环引用等)。
       try {
-        if (JSON.stringify(v) === undefined) return { ok: false, reason: '值不可序列化' }
+        if (JSON.stringify(v) === undefined) return { ok: false, reason: 'not JSON-serializable' }
       } catch {
-        return { ok: false, reason: '值不可序列化 (循环引用?)' }
+        return { ok: false, reason: 'not JSON-serializable (circular?)' }
       }
       return { ok: true, value: v }
     }
@@ -107,7 +107,7 @@ export function runConsoleScript(code: string, ctx: RunContext): RunResult {
       set(pin: string, value: unknown): void {
         const type = m.specPins[pin]
         if (type === undefined) {
-          rejected.push({ nodeId: m.id, kind: m.kind, pin, reason: `节点(${m.kind})没有输入 pin "${pin}"` })
+          rejected.push({ nodeId: m.id, kind: m.kind, pin, reason: `node (${m.kind}) has no input pin "${pin}"` })
           return
         }
         const c = coerce(type, value)

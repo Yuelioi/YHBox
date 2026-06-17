@@ -385,7 +385,16 @@ export default {
         stop: '停止运行',
         add_var: '添加变量',
         find_node: '在画布找节点...',
+        js_console: '打开 JS 脚本控制台',
       },
+    },
+    jsConsole: {
+      title: 'JS 脚本控制台',
+      run: '运行',
+      hint: '对当前容器(含子图)批量改节点。脚本同步执行——死循环会卡界面, 请确保能结束。改动可一步 Ctrl+Z 撤销, Ctrl+S 才存盘。',
+      placeholder: "例: yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
+      applied: '改了 {nodes} 个节点的 {pins} 个 pin',
+      rejected: '{n} 处被拒:',
     },
     search: {
       placeholder: '搜节点 (label / kind / id substring)...',

@@ -371,7 +371,16 @@
         stop: 'Stop run',
         add_var: 'Add variable',
         find_node: 'Find node on canvas...',
+        js_console: 'Open JS console',
       },
+    },
+    jsConsole: {
+      title: 'JS console',
+      run: 'Run',
+      hint: 'Bulk-edit nodes in this container (incl. subgraphs). Scripts run synchronously — an infinite loop will freeze the UI, so make sure it terminates. Changes are one-step Ctrl+Z undoable; Ctrl+S to save.',
+      placeholder: "e.g. yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
+      applied: 'Changed {pins} pin(s) on {nodes} node(s)',
+      rejected: '{n} rejected:',
     },
     search: {
       placeholder: 'Search nodes (label / kind / id substring)...',

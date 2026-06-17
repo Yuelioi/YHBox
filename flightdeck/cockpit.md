@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-17 by 月离 (yt 控制台续: 落地撤销引擎 `historyEngine`(纯, 8 测) + `useContainerDraft.applyBulkMutation`(主图+触及子图落一条可撤销条目, 子图 undo/redo round-trip 验过); 加之前纯执行器, **逻辑核心齐了**。typecheck + 195 测全绿)。
-**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 批量改节点 (命名空间根 `yt`)。范围: 子图全局/手动改不走撤销 → 只做经控制台批量改的**有界一步撤销**(见 spec §撤销机制)。**逻辑核心已落地+测全绿**: ① 纯执行器 `runConsoleScript`(`src/lib/ytConsole`, 12 测); ② 撤销引擎 `historyEngine`(纯, 8 测, 含子图批量改 undo/redo round-trip) + `useContainerDraft.applyBulkMutation`(主图+触及子图一条可撤销条目, 引擎薄封装)。**下一步 = UI 装配 + glue**(见 ## 下一步)。前两个节点小改已 land, 真机待验见 ## 待验证。**默认不 push**。
+**Last updated**: 2026-06-17 by 月离 (yt 控制台 UI+glue 落地 → **功能完整**: 模态 YtConsoleModal(命令面板「JS 脚本控制台」入口 + Ctrl+Enter) + yt.* 补全 + glue useYtConsole(组装 NodeModel→执行器→按 sgID 分组→applyBulkMutation 落地) + 输出报告。typecheck/97 测/i18n parity/task build 全绿。只剩真机 smoke)。
+**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 批量改节点 (命名空间根 `yt`)。**实现完整 + 全自动门绿**: ① 执行器 `runConsoleScript`(12 测); ② 撤销引擎 `historyEngine` + `applyBulkMutation`(8 测, 子图批量改一步撤销); ③ glue `useYtConsole`(4 测) + 模态 `YtConsoleModal`(Ctrl+K 命令面板「JS 脚本控制台」入口 + Ctrl+Enter 跑 + `yt.*` 补全 + 报告)。typecheck / 97 测 / i18n parity / task build 全绿。**只剩真机 smoke**(见 ## 待验证)—— 验过即可 flip spec done + graduate 进 docs/。**默认不 push**。
 
 ## 进行中
 
@@ -11,7 +11,7 @@
 
 ## 下一步
 
-- **yt 控制台 UI + glue** (逻辑核心 执行器+撤销引擎 已绿; spec §UI): 控制台**模态**(复用 `CodeInput`) + Ctrl+K 命令面板入口(i18n `editor.jsConsole.*`) + `yt.*` 静态补全 + **glue**: draft+子图+`PIN_SPECS`/`KIND_DEFAULTS` 组装 `NodeModel[]` → `runConsoleScript` → 按 sgID 分组 `applied` → `applyBulkMutation` 落地(主图写 draft / 子图写 editorStore) → 渲染报告。**前端 vitest 跑法见 [build.md](checklists/build.md) §前端单测**(别用 `pnpm -C frontend test`)。
+- **真机 smoke yt 控制台**(实现 + 全自动门已绿, 见 ## 待验证)。验过 → spec flip `done` + graduate 进 `docs/`(yt API 常驻参考)。
 - (候选池, 本功能之后: 临时窗口抓取 EnumWindows 选窗截图; 复发#5 promotion; idea 池 [cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
@@ -21,7 +21,8 @@
 ## 待验证
 
 - ⚠ **ClickTemplate 验证重试 (2026-06-17)** — 真机验: 把会偶尔点空的 ClickTemplate 设 `MaxAttempts=5`、`RetryIntervalMs=500`, 跑一下看点不中时是否自动重点直到模板消失(成功走 Done); 一直点不掉应走 Timeout。单测/build 已绿, 但游戏里实际点击可靠性只能真机验。
-- ⚠ **撤销引擎重写 (2026-06-17)** — 真机验普通 Ctrl+Z/Ctrl+Shift+Z 仍正常: 节点增删/改值/拖动(burst 合并一步退)、undo 后再改截断 redo。引擎 8 测 + 195 测全绿 + typecheck, 但 composable 接线没单测(无 test-utils), 真机过一眼稳。(applyBulkMutation 子图路径等控制台 UI 接上再验。)
+- ⚠ **撤销引擎重写 (2026-06-17)** — 真机验普通 Ctrl+Z/Ctrl+Shift+Z 仍正常: 节点增删/改值/拖动(burst 合并一步退)、undo 后再改截断 redo。引擎 8 测全绿 + typecheck, 但 composable 接线没单测(无 test-utils), 真机过一眼稳。
+- ⚠ **yt 脚本控制台 (2026-06-17)** — 真机验: 编辑器里 Ctrl+K → 「JS 脚本控制台」开窗, 跑 `yt.nodes.filter(n=>n.has('JitterPct')).forEach(n=>n.set('JitterPct',10))` → 报告"改了 N 个", 画布对应节点值变; **一次 Ctrl+Z 全退**(含子图节点); Ctrl+S 落盘。再试个改子图节点的脚本验子图也退得回。执行器/引擎/glue 共 24 测 + build 全绿, 但模态 UI + 真实 applyBulkMutation 接线只能真机验。验过 → flip spec done + graduate。
 - (Spec C 真机 smoke + 本会话 chrome/UI 改动 2026-06-15 用户过目无异常, 标记已清。)
 
 ## Hanging tasks

@@ -116,5 +116,6 @@ declare module 'vue' {
     VarPointInput: typeof import('./src/components/containers/sidebar/VarPointInput.vue')['default']
     VarRow: typeof import('./src/components/containers/sidebar/VarRow.vue')['default']
     VarsPanel: typeof import('./src/components/containers/sidebar/VarsPanel.vue')['default']
+    YtConsoleModal: typeof import('./src/components/containers/YtConsoleModal.vue')['default']
   }
 }

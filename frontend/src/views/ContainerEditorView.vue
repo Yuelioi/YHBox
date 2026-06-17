@@ -354,6 +354,8 @@
       :commands="commands"
     />
 
+    <YtConsoleModal v-model:open="jsConsoleOpen" :run="ytConsole.run" />
+
     <!-- Promote-to-Variable modal -->
     <PromoteToVarModal
       v-if="promoteCtx"
@@ -449,6 +451,7 @@ import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
 import { safeCoerceForFix } from '@/components/containers/inline/coerceLiteral'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
+import { useYtConsole } from '@/composables/containerEditor/useYtConsole'
 import { useContextMenuRouter } from '@/composables/containerEditor/useContextMenuRouter'
 import { useSubgraphToScript } from '@/composables/containerEditor/useSubgraphToScript'
 import { useNodeCreation } from '@/composables/containerEditor/useNodeCreation'
@@ -481,6 +484,7 @@ import MultiNodeContextMenu from '@/components/containers/menus/MultiNodeContext
 import EdgeContextMenu from '@/components/containers/menus/EdgeContextMenu.vue'
 import PinContextMenu from '@/components/containers/menus/PinContextMenu.vue'
 import CommandPalette from '@/components/containers/CommandPalette.vue'
+import YtConsoleModal from '@/components/containers/YtConsoleModal.vue'
 import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
 import NodeSearchModal from '@/components/containers/NodeSearchModal.vue'
@@ -558,6 +562,7 @@ const {
   syncFlowFromDraft,
   refreshSubgraphStore,
   applyDraftMutation,
+  applyBulkMutation,
   undo,
   redo,
   canUndo,
@@ -1403,9 +1408,19 @@ async function onValidate() {
 }
 
 // 命令面板 — 所有 action 已声明, 安全调用.
+const jsConsoleOpen = ref(false)
+const ytConsole = useYtConsole({
+  draft,
+  applyBulkMutation,
+  selectedIds: () => getSelectedNodes.value.map((n) => n.id),
+  subgraphs: () => editorStore.subgraphList,
+  subgraphById: (id) => editorStore.subgraphById(id),
+  specPinsOf: (k) => PIN_SPECS[k]?.dataIn ?? {},
+  defaultsOf: (k) => KIND_DEFAULTS[k] ?? {},
+})
 const { commands } = useCommandPalette({
   canUndo, canRedo, dirty, sidebarPrefs,
-  settingsOpen, nodeSearchOpen,
+  settingsOpen, nodeSearchOpen, jsConsoleOpen,
   undo, redo,
   onCopySelection, onPasteSelection, onFoldSelection,
   onAlignSelected, onAutoLayout,
