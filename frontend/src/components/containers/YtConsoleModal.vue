@@ -45,7 +45,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { EditorView, keymap } from "@codemirror/view";
 import { scriptEditorExtensions } from "@/lib/scriptCompletions";
-import { YT_COMPLETIONS } from "@/lib/ytConsole/completions";
+import { YT_COMPLETIONS, ytHoverDoc } from "@/lib/ytConsole/completions";
 import type { RunResult } from "@/lib/ytConsole/executor";
 import BaseModal from "@/components/common/BaseModal.vue";
 
@@ -70,6 +70,12 @@ function mountEditor(): void {
     extensions: [
       ...scriptEditorExtensions({
         completions: () => YT_COMPLETIONS,
+        hoverDoc: ytHoverDoc,
+        // JS 语法错下划线 (复用 Script 编辑器同款 i18n key); 不传 varNames → 不跑 $变量 lint。
+        lintMessages: {
+          syntaxError: (line: number) => t("inspector.editor_syntax_error_line", { line }),
+          unknownVar: (name: string) => t("inspector.editor_unknown_var", { name }),
+        },
         placeholder: t("editor.jsConsole.placeholder"),
         minHeight: "12em",
       }),

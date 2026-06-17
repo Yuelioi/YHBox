@@ -1,19 +1,40 @@
-// yt 控制台 CodeMirror 补全表 —— 与 executor.ts 的 yt API 配套 (同目录, 一起 review 防漂移)。
-// 喂给 scriptEditorExtensions({ completions }) 让控制台敲 `yt.` / 在 forEach 回调里有提示。
+// yt 控制台补全 + hover — 喂给 scriptEditorExtensions (跟 Script 节点编辑器同一套引擎)。
+// label 用**带点的成员形式** (yt.nodes / n.set): scriptCompletionSource 按带点词
+// (matchBefore /[\w$.]*/) 过滤 label, 故敲 `yt.` / `n.` 才能浮出成员 (裸 'set' 不会)。
+// detail/desc 用英文 (语言中性, 避免 i18n residue; 中文说明在 spec / 控制台 hint 文案)。
 import type { Completion } from "@codemirror/autocomplete";
+import type { HoverDoc } from "@/lib/editorHover";
 
-// detail/info 用语言中性签名 (非中文), 避免 i18n residue; 中文说明在 spec / 控制台 hint。
-export const YT_COMPLETIONS: Completion[] = [
-  { label: "yt.nodes", type: "variable", detail: "NodeHandle[] (main + subgraphs)" },
-  { label: "yt.selected", type: "variable", detail: "NodeHandle[] (selected)" },
-  { label: "yt.container", type: "variable", detail: "{ id, name }" },
-  { label: "yt.log", type: "function", detail: "log(...args)" },
-  // NodeHandle 方法/属性 (在 forEach(n => ...) 回调里用)
-  { label: "has", type: "method", detail: "has(pin): boolean" },
-  { label: "get", type: "method", detail: "get(pin): value" },
-  { label: "set", type: "method", detail: "set(pin, value)" },
-  { label: "kind", type: "property", detail: "string" },
-  { label: "sgID", type: "property", detail: "string | null" },
-  { label: "id", type: "property", detail: "string" },
-  { label: "label", type: "property", detail: "string" },
+interface YtEntry {
+  label: string;
+  type: Completion["type"];
+  sig: string;
+  desc: string;
+}
+
+const ENTRIES: YtEntry[] = [
+  { label: "yt.nodes", type: "variable", sig: "yt.nodes: NodeHandle[]", desc: "All nodes in the current container (main graph + all subgraphs), frozen read-only array — use .filter / .map / .forEach." },
+  { label: "yt.selected", type: "variable", sig: "yt.selected: NodeHandle[]", desc: "Nodes selected on the canvas when the console was opened." },
+  { label: "yt.container", type: "variable", sig: "yt.container: { id, name }", desc: "The current container (read-only)." },
+  { label: "yt.log", type: "function", sig: "yt.log(...args)", desc: "Print to the output area below." },
+  { label: "n.has", type: "method", sig: "n.has(pin): boolean", desc: "Whether this node's kind has that input pin (checks the spec, not whether a value is set)." },
+  { label: "n.get", type: "method", sig: "n.get(pin): value", desc: "Current effective value: this run's set value, else the literal, else the spec default; undefined if neither." },
+  { label: "n.set", type: "method", sig: "n.set(pin, value)", desc: "Set a pin value. Rejected (and reported) if the pin doesn't exist or the value fails coercion." },
+  { label: "n.kind", type: "property", sig: "n.kind: string", desc: 'Node kind, e.g. "Sleep".' },
+  { label: "n.sgID", type: "property", sig: "n.sgID: string | null", desc: "null = main graph; otherwise the subgraph id." },
+  { label: "n.id", type: "property", sig: "n.id: string", desc: "Node UUID." },
+  { label: "n.label", type: "property", sig: "n.label: string", desc: "Node display label." },
 ];
+
+export const YT_COMPLETIONS: Completion[] = ENTRIES.map((e) => ({
+  label: e.label,
+  type: e.type,
+  detail: e.sig,
+  info: e.desc,
+}));
+
+// hover: 悬停 `nodes` / `set` / `yt.nodes` / `n.set` 都能查到 (词可能含或不含前缀)。
+export function ytHoverDoc(word: string): HoverDoc | null {
+  const e = ENTRIES.find((x) => x.label === word || x.label === "yt." + word || x.label === "n." + word);
+  return e ? { sig: e.sig, desc: e.desc } : null;
+}
