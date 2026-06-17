@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: 把 Script/Expr/yt 控制台三个编辑器统一到共享 <CodeEditor> 主体(从 EditorModal 抽出: CodeMirror 视图+工具栏+参考面板+状态栏+折叠/键位); 差异收成 per-mode 配置(extensions builder / 补全源 / hover·参考文档 / commentable·foldable)。EditorModal 重构成壳+确认+<CodeEditor>(保行为等价); YtConsoleModal 改 BaseModal+<CodeEditor mode=yt>+运行/输出。新增格式化 prettier 懒加载(JS-only, Expr N/A)。
 last_updated: 2026-06-17
 ---
