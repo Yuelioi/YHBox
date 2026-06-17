@@ -9,6 +9,7 @@
     :icon="icon ?? 'i-tabler-code'"
     size="7xl"
     :tall="maximized"
+    :dismissible="false"
     :content-class="maximized ? 'sm:max-w-[96vw]' : undefined"
     @update:open="(v: boolean) => emit('update:open', v)"
   >

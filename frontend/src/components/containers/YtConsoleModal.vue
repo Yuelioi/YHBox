@@ -8,6 +8,7 @@
     icon="i-tabler-terminal-2"
     size="6xl"
     tall
+    :dismissible="false"
     @update:open="(v: boolean) => emit('update:open', v)"
   >
     <div class="flex h-full min-h-0 flex-col gap-3">

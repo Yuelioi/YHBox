@@ -7,7 +7,7 @@ BaseModal 共享 modal 外壳 (纯黑底, 内容平铺 — 复刻 BaseModal 之�
 open 走 v-model, 跟 useDialogOpen() 正交。复杂内部布局由调用方塞 slot。
 -->
 <template>
-  <UModal :open="open" :ui="{ content: contentClasses }" @update:open="(v: boolean) => emit('update:open', v)">
+  <UModal :open="open" :dismissible="dismissible" :ui="{ content: contentClasses }" @update:open="(v: boolean) => emit('update:open', v)">
     <template #content>
       <div class="flex flex-col bg-default" :class="tall ? 'h-[92vh] max-h-[92vh]' : 'max-h-[85vh]'">
         <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-default shrink-0">
@@ -58,8 +58,10 @@ const props = withDefaults(
     tall?: boolean
     /** 追加到 UModal content 的 class (如全屏宽度覆盖)。 */
     contentClass?: string
+    /** false = 不因点外部/Esc 关闭 (只能点 ✕/按钮关) — 代码编辑器 modal 用, 防补全浮层(挂 body, 算"外部")误关 + 防误触丢稿。 */
+    dismissible?: boolean
   }>(),
-  { title: '', iconColor: 'primary', size: 'md', showClose: true },
+  { title: '', iconColor: 'primary', size: 'md', showClose: true, dismissible: true },
 )
 const emit = defineEmits<{ 'update:open': [v: boolean] }>()
 
