@@ -1,18 +1,20 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-17 by 月离 (yt 控制台 UI+glue 落地 → **功能完整**: 模态 YtConsoleModal(命令面板「JS 脚本控制台」入口 + Ctrl+Enter) + yt.* 补全 + glue useYtConsole(组装 NodeModel→执行器→按 sgID 分组→applyBulkMutation 落地) + 输出报告。typecheck/97 测/i18n parity/task build 全绿。只剩真机 smoke)。
-**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 批量改节点 (命名空间根 `yt`)。**实现完整 + 全自动门绿**: ① 执行器 `runConsoleScript`(12 测); ② 撤销引擎 `historyEngine` + `applyBulkMutation`(8 测, 子图批量改一步撤销); ③ glue `useYtConsole`(4 测) + 模态 `YtConsoleModal`(入口: 工具栏 ⋯ 菜单「打开 JS 脚本控制台」+ Ctrl+K 命令面板; Ctrl+Enter 跑 + `yt.*` 补全 + 报告)。typecheck / 97 测 / i18n parity / task build 全绿。**只剩真机 smoke**(见 ## 待验证)—— 验过即可 flip spec done + graduate 进 docs/。**默认不 push**。
+**Last updated**: 2026-06-17 by 月离 (yt 控制台功能完整(实现+全自动门绿, 真机待 smoke); 用户提"三编辑器统一+格式化" → 调研定论 Script/Expr 已共享 EditorModal、控制台是异类 → 立 [unified-code-editor spec](specs/2026-06-17-unified-code-editor.md): 抽 `<CodeEditor>` 共享主体 + 控制台并入 + prettier 懒加载格式化。设计完成待 plan)。
+**Active focus**: **两条活线**: ① **[yt 脚本控制台](specs/2026-06-17-yt-scripting-console.md)**(graduate) 实现完整、全自动门绿(执行器12+撤销引擎8+glue4 测 + typecheck/build), **只剩真机 smoke**(见 ## 待验证); ② **[统一代码编辑器](specs/2026-06-17-unified-code-editor.md)** spec 已立(设计完成, 不 graduate): 抽 `<CodeEditor>` 共享主体(从 `EditorModal`)、控制台并入(拿到一致工具栏/参考/补全/折叠)+ 加格式化(prettier 懒加载, JS-only)。读源码定论: Script/Expr **已共享** EditorModal, 控制台是异类 → 只需把控制台并入。**下一步见 ## 下一步**。**默认不 push**。
 
 ## 进行中
 
 <!-- AUTO:inprogress -->
+- [2026-06-17-unified-code-editor.md](specs/2026-06-17-unified-code-editor.md) — 把 Script/Expr/yt 控制台三个编辑器统一到共享 <CodeEditor> 主体(从 EditorModal 抽出: CodeMirror 视图+工具栏+参考面板+状态栏+折叠/键位); 差异收成 per-mode 配置(extensions builder / 补全源 / hover·参考文档 / commentable·foldable)。EditorModal 重构成壳+确认+<CodeEditor>(保行为等价); YtConsoleModal 改 BaseModal+<CodeEditor mode=yt>+运行/输出。新增格式化 prettier 懒加载(JS-only, Expr N/A)。
 - [2026-06-17-yt-scripting-console.md](specs/2026-06-17-yt-scripting-console.md) — 编辑器内 JS 脚本控制台 (命名空间根 yt, 对标 blender bpy): 对当前容器主图+所有子图全节点批量改 config。v1: yt.nodes/selected/container/log + 预留 yt.ops。new Function 执行, set 收集后一次性 applyDraftMutation(一步撤销)+标脏, 抛错零变更, Ctrl+S 落盘。复用 CodeInput(CodeMirror)/walkAllGraphs/PIN_SPECS。
 <!-- /AUTO -->
 
 ## 下一步
 
-- **真机 smoke yt 控制台**(实现 + 全自动门已绿, 见 ## 待验证)。验过 → spec flip `done` + graduate 进 `docs/`(yt API 常驻参考)。
-- (候选池, 本功能之后: 临时窗口抓取 EnumWindows 选窗截图; 复发#5 promotion; idea 池 [cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
+- **统一代码编辑器: review spec → 写 plan → 实现** ([unified-code-editor](specs/2026-06-17-unified-code-editor.md))。**动手前完整读 `EditorModal.vue`** 再无损抽 `<CodeEditor>`(唯一回归点); 控制台改用它 + 格式化(prettier 懒加载)。
+- **真机 smoke yt 控制台**(见 ## 待验证)。验过 → flip yt 控制台 spec `done` + graduate 进 `docs/`。
+- (候选池, 之后: 临时窗口抓取 EnumWindows 选窗截图; 复发#5 promotion; idea 池 [cv-perception](specs/cv-perception-pool.md) · [editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
 
