@@ -153,6 +153,7 @@ const emit = defineEmits<{
   'auto-layout': [direction: 'LR' | 'TB']
   // 工具栏按钮 emits (实际 modal 在父 ContainerEditorView 里挂):
   'open-settings': []
+  'open-js-console': []
   'open-help': []
   'undo': []
   'redo': []
@@ -207,6 +208,7 @@ const moreMenuItems = computed(() => {
     ],
     [
       { label: t('editor.toolbar.reload'), icon: 'i-tabler-refresh', onSelect: () => emit('reload') },
+      { label: t('editor.palette.cmd.js_console'), icon: 'i-tabler-terminal-2', onSelect: () => emit('open-js-console') },
       { label: t('editor.toolbar.open_settings'), icon: 'i-tabler-settings', onSelect: () => emit('open-settings') },
     ],
     [

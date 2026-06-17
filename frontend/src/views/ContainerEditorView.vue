@@ -75,6 +75,7 @@
         @auto-layout="onAutoLayout"
         @validate="onValidate"
         @open-settings="settingsOpen = true"
+        @open-js-console="jsConsoleOpen = true"
         @undo="undo"
         @redo="redo"
         @toggle-snap="sidebarPrefs.snapEnabled = !sidebarPrefs.snapEnabled"

@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
 **Last updated**: 2026-06-17 by 月离 (yt 控制台 UI+glue 落地 → **功能完整**: 模态 YtConsoleModal(命令面板「JS 脚本控制台」入口 + Ctrl+Enter) + yt.* 补全 + glue useYtConsole(组装 NodeModel→执行器→按 sgID 分组→applyBulkMutation 落地) + 输出报告。typecheck/97 测/i18n parity/task build 全绿。只剩真机 smoke)。
-**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 批量改节点 (命名空间根 `yt`)。**实现完整 + 全自动门绿**: ① 执行器 `runConsoleScript`(12 测); ② 撤销引擎 `historyEngine` + `applyBulkMutation`(8 测, 子图批量改一步撤销); ③ glue `useYtConsole`(4 测) + 模态 `YtConsoleModal`(Ctrl+K 命令面板「JS 脚本控制台」入口 + Ctrl+Enter 跑 + `yt.*` 补全 + 报告)。typecheck / 97 测 / i18n parity / task build 全绿。**只剩真机 smoke**(见 ## 待验证)—— 验过即可 flip spec done + graduate 进 docs/。**默认不 push**。
+**Active focus**: **进行中** = [yt 脚本控制台 spec](specs/2026-06-17-yt-scripting-console.md)(graduate)。编辑器内 JS 批量改节点 (命名空间根 `yt`)。**实现完整 + 全自动门绿**: ① 执行器 `runConsoleScript`(12 测); ② 撤销引擎 `historyEngine` + `applyBulkMutation`(8 测, 子图批量改一步撤销); ③ glue `useYtConsole`(4 测) + 模态 `YtConsoleModal`(入口: 工具栏 ⋯ 菜单「打开 JS 脚本控制台」+ Ctrl+K 命令面板; Ctrl+Enter 跑 + `yt.*` 补全 + 报告)。typecheck / 97 测 / i18n parity / task build 全绿。**只剩真机 smoke**(见 ## 待验证)—— 验过即可 flip spec done + graduate 进 docs/。**默认不 push**。
 
 ## 进行中
 
@@ -22,7 +22,7 @@
 
 - ⚠ **ClickTemplate 验证重试 (2026-06-17)** — 真机验: 把会偶尔点空的 ClickTemplate 设 `MaxAttempts=5`、`RetryIntervalMs=500`, 跑一下看点不中时是否自动重点直到模板消失(成功走 Done); 一直点不掉应走 Timeout。单测/build 已绿, 但游戏里实际点击可靠性只能真机验。
 - ⚠ **撤销引擎重写 (2026-06-17)** — 真机验普通 Ctrl+Z/Ctrl+Shift+Z 仍正常: 节点增删/改值/拖动(burst 合并一步退)、undo 后再改截断 redo。引擎 8 测全绿 + typecheck, 但 composable 接线没单测(无 test-utils), 真机过一眼稳。
-- ⚠ **yt 脚本控制台 (2026-06-17)** — 真机验: 编辑器里 Ctrl+K → 「JS 脚本控制台」开窗, 跑 `yt.nodes.filter(n=>n.has('JitterPct')).forEach(n=>n.set('JitterPct',10))` → 报告"改了 N 个", 画布对应节点值变; **一次 Ctrl+Z 全退**(含子图节点); Ctrl+S 落盘。再试个改子图节点的脚本验子图也退得回。执行器/引擎/glue 共 24 测 + build 全绿, 但模态 UI + 真实 applyBulkMutation 接线只能真机验。验过 → flip spec done + graduate。
+- ⚠ **yt 脚本控制台 (2026-06-17)** — 真机验: 入口 = 工具栏 **⋯ 更多 →「打开 JS 脚本控制台」** (或 Ctrl+K 搜"脚本")。开窗跑 `yt.nodes.filter(n=>n.has('JitterPct')).forEach(n=>n.set('JitterPct',10))` → 报告"改了 N 个", 画布对应节点值变; **一次 Ctrl+Z 全退**(含子图节点); Ctrl+S 落盘。再试个改子图节点的脚本验子图也退得回。执行器/引擎/glue 共 24 测 + build 全绿, 但模态 UI + 真实 applyBulkMutation 接线只能真机验。验过 → flip spec done + graduate。
 - (Spec C 真机 smoke + 本会话 chrome/UI 改动 2026-06-15 用户过目无异常, 标记已清。)
 
 ## Hanging tasks
