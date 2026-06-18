@@ -15,6 +15,8 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"math"
+	"sort"
 	"time"
 
 	"github.com/lxn/win"
@@ -826,6 +828,84 @@ func (a *visionAdapter) FindColorSignature(roi node.Geometry, sig node.ColorSign
 		return false, node.Point{}, nil
 	}
 	return true, node.Point{X: float64(ax) / float64(frameW), Y: float64(ay) / float64(frameH)}, nil
+}
+
+// MatchAll 抓一次帧, 各 guid DetectAll (同帧) → 合并 → 统一跨模板 NMS。spec §节点2。
+func (a *visionAdapter) MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int) ([]node.TemplateMatch, error) {
+	if a.rt.Matcher == nil || len(keys) == 0 {
+		return nil, nil
+	}
+	var frame *image.RGBA
+	frameW := 0
+	if a.rt.Capture != nil {
+		h, err := a.rt.ActiveHWND()
+		if err != nil {
+			return nil, err
+		}
+		f, err := a.rt.CaptureFrameCached(h)
+		if err != nil {
+			return nil, err
+		}
+		frame = f
+		if frame != nil {
+			frameW = frame.Bounds().Dx()
+		}
+	}
+	tol := a.scaleTolerance()
+	var all []node.TemplateMatch
+	for _, guid := range keys {
+		hits, err := a.rt.Matcher.DetectAll(ctx, frame, guid, threshold, nil, tol)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, hits...)
+	}
+	return nmsMatches(all, minDistance, frameW), nil
+}
+
+// nmsMatches 跨模板统一 NMS (归一化空间): conf 降序 (并列 y,x) 保留, 中心距 < radius 抑制低分。
+// minDistance>0 → radius = minDistance/frameW (归一化); <=0 → 各命中 bbox 短边/2。
+func nmsMatches(matches []node.TemplateMatch, minDistance, frameW int) []node.TemplateMatch {
+	if len(matches) <= 1 {
+		return matches
+	}
+	sort.Slice(matches, func(i, j int) bool {
+		if matches[i].Conf != matches[j].Conf {
+			return matches[i].Conf > matches[j].Conf
+		}
+		if matches[i].Point.Y != matches[j].Point.Y {
+			return matches[i].Point.Y < matches[j].Point.Y
+		}
+		return matches[i].Point.X < matches[j].Point.X
+	})
+	radius := func(m node.TemplateMatch) float64 {
+		if minDistance > 0 && frameW > 0 {
+			return float64(minDistance) / float64(frameW)
+		}
+		if m.BBox[2] < m.BBox[3] {
+			return m.BBox[2] / 2
+		}
+		return m.BBox[3] / 2
+	}
+	kept := make([]node.TemplateMatch, 0, len(matches))
+	for _, c := range matches {
+		rc := radius(c)
+		ok := true
+		for _, k := range kept {
+			lim := rc
+			if rk := radius(k); rk < lim {
+				lim = rk
+			}
+			if math.Hypot(c.Point.X-k.Point.X, c.Point.Y-k.Point.Y) < lim {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			kept = append(kept, c)
+		}
+	}
+	return kept
 }
 
 // DecodeQR 抓全帧 → 按 roi 裁子图 → 解码所有 QR → 定位点加 ROI 偏移后归一化到全帧。

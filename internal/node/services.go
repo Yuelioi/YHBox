@@ -68,6 +68,10 @@ func (stubVisionService) DecodeQR(_ Geometry) ([]QRResult, error) {
 	return nil, nil
 }
 
+func (stubVisionService) MatchAll(_ context.Context, _ []string, _ float64, _ int) ([]TemplateMatch, error) {
+	return nil, nil
+}
+
 // StubVisionService — test 用. main.go 注入真 wire_container.go::templateMatcherAdapter.
 func StubVisionService() VisionService { return stubVisionService{} }
 

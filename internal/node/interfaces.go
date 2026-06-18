@@ -172,6 +172,11 @@ type VisionService interface {
 	// 解码失败 (图中无可识别 QR) → 返空 slice + nil error (节点据此走 NotFound 出口)。
 	// spec §节点3。
 	DecodeQR(roi Geometry) ([]QRResult, error)
+
+	// MatchAll 单帧多模板"全部命中": 抓一次帧, 各 key 各自找全 (3×3 极大 + 单模板内 NMS) →
+	// 合并 → 统一跨模板 NMS。minDistance 像素 (<=0 → 各命中按自己模板 bbox 短边/2 自动)。
+	// 结果按 conf 降序。坐标全帧归一化。spec §节点2。
+	MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int) ([]TemplateMatch, error)
 }
 
 // HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100]. 给 DetectColorHSV / ROIColorScan 用.

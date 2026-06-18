@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/expr"
@@ -38,6 +39,10 @@ func (m *mockMatcher) Detect(_ context.Context, _ *image.RGBA, k string, _ float
 		conf = 1.0
 	}
 	return hit, expr.Point{}, [4]float64{}, conf, nil
+}
+
+func (m *mockMatcher) DetectAll(_ context.Context, _ *image.RGBA, _ string, _ float64, _ []float64, _ float64) ([]node.TemplateMatch, error) {
+	return nil, nil
 }
 
 // templateNameForGUID 把模板 GUID 解析回 record.name (testdata/templates 精简快照)。

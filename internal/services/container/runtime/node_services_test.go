@@ -218,6 +218,10 @@ func (m stubMatcher) Detect(_ context.Context, _ *image.RGBA, _ string, _ float6
 	return m.found, m.pt, [4]float64{}, conf, nil
 }
 
+func (m stubMatcher) DetectAll(_ context.Context, _ *image.RGBA, _ string, _ float64, _ []float64, _ float64) ([]node.TemplateMatch, error) {
+	return nil, nil
+}
+
 func TestVisionAdapter_Match_Found(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.Matcher = stubMatcher{found: true, pt: expr.Point{X: 0.42, Y: 0.13}}

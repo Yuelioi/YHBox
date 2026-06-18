@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"yotta/internal/hotkey"
+	"yotta/internal/node"
 	"yotta/internal/services/asset"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -348,6 +349,102 @@ func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *visio
 		}
 	}
 	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, cf, nil
+}
+
+// DetectAll 镜像 Detect (PickVariant → scaleTolerance 门 → ScaleTemplate → ROI), 但调 vision.MatchAll
+// 收该模板**全部**命中。单 ROI 路径; 多槽变体 → 各 region 收全部。坐标全帧归一化。spec §节点2。
+func (m *templateMatcherAdapter) DetectAll(_ context.Context, frame *image.RGBA, guid string, threshold float64, region []float64, scaleTolerance float64) ([]node.TemplateMatch, error) {
+	if frame == nil {
+		return nil, nil
+	}
+	frameW := frame.Bounds().Dx()
+	frameH := frame.Bounds().Dy()
+
+	variant, ok := m.store.PickVariant(guid, frameW, frameH)
+	if !ok {
+		m.emitMissingVariantWarning(guid, frameW, frameH)
+		return nil, nil
+	}
+	scale := longEdgeScale(frameW, frameH, variant.Resolution[0], variant.Resolution[1])
+	k := normScaleTolerance(scaleTolerance)
+	if !withinScaleTolerance(scale, k) {
+		m.emitScaleTooFarWarning(guid, frameW, frameH, variant.Resolution, scale, k)
+		return nil, nil
+	}
+	tpl, err := m.loadDecodedTemplate(variant.Blob)
+	if err != nil {
+		return nil, err
+	}
+	if scale != 1.0 {
+		scaled := vision.ScaleTemplate(tpl, float32(scale))
+		if scaled == nil {
+			return nil, nil
+		}
+		tpl = scaled
+	}
+
+	// 多槽变体: 各 region 各自 MatchAll, 收全部命中 (现有 Detect 取末位单个; DetectAll 收全)。
+	if len(variant.Regions) > 0 && !(len(region) == 4 && (region[2] > 0 || region[3] > 0)) {
+		var out []node.TemplateMatch
+		vw, vh := float64(variant.Resolution[0]), float64(variant.Resolution[1])
+		if vw <= 0 || vh <= 0 {
+			return nil, nil
+		}
+		padX, padY := roiPaddingPx/vw, roiPaddingPx/vh
+		for _, r := range variant.Regions {
+			if r[2] <= r[0] || r[3] <= r[1] {
+				continue
+			}
+			rx := clamp01(float64(r[0])/vw - padX)
+			ry := clamp01(float64(r[1])/vh - padY)
+			rw := clamp01Bound(float64(r[2]-r[0])/vw+padX*2, rx)
+			rh := clamp01Bound(float64(r[3]-r[1])/vh+padY*2, ry)
+			out = append(out, m.matchAllInROI(frame, tpl, guid, rx, ry, rw, rh, threshold, frameW, frameH)...)
+		}
+		return out, nil
+	}
+
+	// 单 ROI 路径 (优先级同 Detect: caller region > variant.BBox+padding > 全屏)。
+	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
+	switch {
+	case len(region) == 4 && (region[2] > 0 || region[3] > 0):
+		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
+	case variant.Resolution[0] > 0 && variant.Resolution[1] > 0 && variant.BBox[2] > variant.BBox[0] && variant.BBox[3] > variant.BBox[1]:
+		vw, vh := float64(variant.Resolution[0]), float64(variant.Resolution[1])
+		bx, by := float64(variant.BBox[0]), float64(variant.BBox[1])
+		bw, bh := float64(variant.BBox[2]-variant.BBox[0]), float64(variant.BBox[3]-variant.BBox[1])
+		padX, padY := roiPaddingPx/vw, roiPaddingPx/vh
+		rx = clamp01(bx/vw - padX)
+		ry = clamp01(by/vh - padY)
+		rw = clamp01Bound(bw/vw+padX*2, rx)
+		rh = clamp01Bound(bh/vh+padY*2, ry)
+	}
+	return m.matchAllInROI(frame, tpl, guid, rx, ry, rw, rh, threshold, frameW, frameH), nil
+}
+
+// matchAllInROI 在比例 ROI (rx,ry,rw,rh) 内对 tpl 跑 MatchAll, 每命中 → 全帧归一化 TemplateMatch。
+func (m *templateMatcherAdapter) matchAllInROI(frame *image.RGBA, tpl *vision.Template, guid string, rx, ry, rw, rh, threshold float64, frameW, frameH int) []node.TemplateMatch {
+	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
+	if roiPxW <= 0 || roiPxH <= 0 {
+		return nil
+	}
+	hits := vision.MatchAll(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel(), float32(threshold), 0)
+	if len(hits) == 0 {
+		return nil
+	}
+	fw, fh := float64(frameW), float64(frameH)
+	out := make([]node.TemplateMatch, 0, len(hits))
+	for _, h := range hits {
+		cx := float64(roiPxX+h.X+tpl.W/2) / fw
+		cy := float64(roiPxY+h.Y+tpl.H/2) / fh
+		out = append(out, node.TemplateMatch{
+			Point:       node.Point{X: cx, Y: cy},
+			Conf:        float64(h.Conf),
+			BBox:        [4]float64{float64(roiPxX+h.X) / fw, float64(roiPxY+h.Y) / fh, float64(tpl.W) / fw, float64(tpl.H) / fh},
+			TemplateKey: guid,
+		})
+	}
+	return out
 }
 
 // ---- Container Runner: ExecutionQueue + Worker → container.Runner ----
