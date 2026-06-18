@@ -12,9 +12,7 @@ import (
 	"image/draw"
 	"image/png"
 	"io"
-	"math"
 	"runtime"
-	"sync"
 )
 
 // RGBAToGray 把 RGBA 灰度化成 [0,1] float32 数组（行主序）。
@@ -84,101 +82,25 @@ func CropROIRGBA(frame *image.RGBA, fx, fy, fw, fh float64) *image.RGBA {
 
 // Match CCOEFF_NORMED naive 实现，行并行。返回 ROI 内左上角坐标 + 置信度。
 // 找不到（搜索空间为空 / 模板单色）返回 (-1, -1, -1)。
+// 与 MatchAll 共享 correlationMap (NCC 全图)；Match = 取全局 argmax。
 func Match(img []float32, iw, ih int, tpl *Template, parallel int) (int, int, float32) {
-	tw, th := tpl.W, tpl.H
-	if iw < tw || ih < th {
+	confMap, sw, sh := correlationMap(img, iw, ih, tpl, parallel)
+	if sw <= 0 || sh <= 0 {
 		return -1, -1, -1
 	}
-
-	var tplSum float64
-	for _, v := range tpl.Gray {
-		tplSum += float64(v)
-	}
-	tplMean := tplSum / float64(tw*th)
-	tplPrime := make([]float32, len(tpl.Gray))
-	var tplSqSum float64
-	for i, v := range tpl.Gray {
-		d := float64(v) - tplMean
-		tplPrime[i] = float32(d)
-		tplSqSum += d * d
-	}
-	if tplSqSum < 1e-12 {
-		return -1, -1, 0
-	}
-	tplNorm := math.Sqrt(tplSqSum)
-
-	stride := iw + 1
-	sumI := make([]float64, stride*(ih+1))
-	sumI2 := make([]float64, stride*(ih+1))
-	for y := 0; y < ih; y++ {
-		for x := 0; x < iw; x++ {
-			v := float64(img[y*iw+x])
-			i := (y+1)*stride + (x + 1)
-			sumI[i] = v + sumI[i-stride] + sumI[i-1] - sumI[i-stride-1]
-			sumI2[i] = v*v + sumI2[i-stride] + sumI2[i-1] - sumI2[i-stride-1]
-		}
-	}
-
-	searchW := iw - tw + 1
-	searchH := ih - th + 1
-	if searchW <= 0 || searchH <= 0 {
-		return -1, -1, -1
-	}
-
-	type rowBest struct {
-		x, y int
-		conf float32
-	}
-	results := make([]rowBest, searchH)
-
-	var wg sync.WaitGroup
-	if parallel < 1 {
-		parallel = 1
-	}
-	sema := make(chan struct{}, parallel)
-	for sy := 0; sy < searchH; sy++ {
-		wg.Add(1)
-		sema <- struct{}{}
-		go func(sy int) {
-			defer wg.Done()
-			defer func() { <-sema }()
-			best := rowBest{-1, -1, -1}
-			for sx := 0; sx < searchW; sx++ {
-				topL := sy*stride + sx
-				topR := sy*stride + sx + tw
-				botL := (sy+th)*stride + sx
-				botR := (sy+th)*stride + sx + tw
-				pSum := sumI[botR] - sumI[topR] - sumI[botL] + sumI[topL]
-				pSum2 := sumI2[botR] - sumI2[topR] - sumI2[botL] + sumI2[topL]
-				patchSqDiff := pSum2 - pSum*pSum/float64(tw*th)
-				if patchSqDiff < 1e-9 {
-					continue
-				}
-				var cross float64
-				for ty := 0; ty < th; ty++ {
-					iRow := (sy + ty) * iw
-					tRow := ty * tw
-					for tx := 0; tx < tw; tx++ {
-						cross += float64(tplPrime[tRow+tx]) * float64(img[iRow+sx+tx])
-					}
-				}
-				conf := float32(cross / (math.Sqrt(patchSqDiff) * tplNorm))
-				if conf > best.conf {
-					best = rowBest{sx, sy, conf}
-				}
+	bestX, bestY := -1, -1
+	best := corrSkip
+	for sy := 0; sy < sh; sy++ {
+		for sx := 0; sx < sw; sx++ {
+			if c := confMap[sy*sw+sx]; c > best {
+				best, bestX, bestY = c, sx, sy
 			}
-			results[sy] = best
-		}(sy)
-	}
-	wg.Wait()
-
-	best := rowBest{-1, -1, -1}
-	for _, r := range results {
-		if r.conf > best.conf {
-			best = r
 		}
 	}
-	return best.x, best.y, best.conf
+	if bestX < 0 || best <= corrSkip {
+		return -1, -1, -1
+	}
+	return bestX, bestY, best
 }
 
 func downsample2x(img []float32, w, h int) ([]float32, int, int) {
