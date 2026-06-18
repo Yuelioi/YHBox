@@ -540,6 +540,35 @@
       }
     }
   },
+  "FindTemplateAll": {
+    "label": "模板全部命中",
+    "description": "在区域内找出指定模板的所有匹配（NMS 去重），返回每个命中的中心/外接框/来源模板，以及命中总数和最佳命中。用于批量定位同类图标/物件。",
+    "input": {
+      "Templates": {
+        "label": "模板"
+      },
+      "ROI": {
+        "label": "搜索区域"
+      },
+      "Threshold": {
+        "label": "匹配阈值"
+      },
+      "MaxResults": {
+        "label": "最多返回数（0=不限）"
+      },
+      "MinDistance": {
+        "label": "去重最小间距（px，0=自动）"
+      }
+    },
+    "output": {
+      "Found": {
+        "label": "找到"
+      },
+      "NotFound": {
+        "label": "未找到"
+      }
+    }
+  },
   "Floor": {
     "label": "向下取整",
     "description": "把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。",

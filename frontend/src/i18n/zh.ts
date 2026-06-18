@@ -880,6 +880,21 @@ export default {
         NotFound: { label: '未找到' },
       },
     },
+    FindTemplateAll: {
+      label: '模板全部命中',
+      description: '在区域内找出指定模板的所有匹配（NMS 去重），返回每个命中的中心/外接框/来源模板，以及命中总数和最佳命中。用于批量定位同类图标/物件。',
+      input: {
+        Templates: { label: '模板' },
+        ROI: { label: '搜索区域' },
+        Threshold: { label: '匹配阈值' },
+        MaxResults: { label: '最多返回数（0=不限）' },
+        MinDistance: { label: '去重最小间距（px，0=自动）' },
+      },
+      output: {
+        Found: { label: '找到' },
+        NotFound: { label: '未找到' },
+      },
+    },
     DualColorBarTrack: {
       label: '双色条追踪',
       description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',

@@ -68,7 +68,7 @@ func (stubVisionService) DecodeQR(_ Geometry) ([]QRResult, error) {
 	return nil, nil
 }
 
-func (stubVisionService) MatchAll(_ context.Context, _ []string, _ float64, _ int) ([]TemplateMatch, error) {
+func (stubVisionService) MatchAll(_ context.Context, _ []string, _ float64, _ int, _ Geometry) ([]TemplateMatch, error) {
 	return nil, nil
 }
 

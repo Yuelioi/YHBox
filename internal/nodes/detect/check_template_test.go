@@ -139,7 +139,7 @@ func (m *mockVision) DecodeQR(_ node.Geometry) ([]node.QRResult, error) {
 	return m.qrResults, m.qrErr
 }
 
-func (m *mockVision) MatchAll(_ context.Context, _ []string, _ float64, _ int) ([]node.TemplateMatch, error) {
+func (m *mockVision) MatchAll(_ context.Context, _ []string, _ float64, _ int, _ node.Geometry) ([]node.TemplateMatch, error) {
 	return m.matchAllResults, m.matchAllErr
 }
 

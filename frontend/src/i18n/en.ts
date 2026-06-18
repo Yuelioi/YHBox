@@ -860,6 +860,21 @@
         NotFound: { label: 'Not found' },
       },
     },
+    FindTemplateAll: {
+      label: 'Find all templates',
+      description: 'Find every match of the given templates within the area (NMS-deduplicated); returns each hit\'s center/bbox/source template, plus the total count and the best hit. For locating many instances of the same icon/object.',
+      input: {
+        Templates: { label: 'Templates' },
+        ROI: { label: 'Search area' },
+        Threshold: { label: 'Match threshold' },
+        MaxResults: { label: 'Max results (0 = unlimited)' },
+        MinDistance: { label: 'Dedup min distance (px, 0 = auto)' },
+      },
+      output: {
+        Found: { label: 'Found' },
+        NotFound: { label: 'Not found' },
+      },
+    },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
       description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',

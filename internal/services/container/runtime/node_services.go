@@ -830,8 +830,8 @@ func (a *visionAdapter) FindColorSignature(roi node.Geometry, sig node.ColorSign
 	return true, node.Point{X: float64(ax) / float64(frameW), Y: float64(ay) / float64(frameH)}, nil
 }
 
-// MatchAll 抓一次帧, 各 guid DetectAll (同帧) → 合并 → 统一跨模板 NMS。spec §节点2。
-func (a *visionAdapter) MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int) ([]node.TemplateMatch, error) {
+// MatchAll 抓一次帧, 在 roi 内各 guid DetectAll (同帧) → 合并 → 统一跨模板 NMS。spec §节点2。
+func (a *visionAdapter) MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int, roi node.Geometry) ([]node.TemplateMatch, error) {
 	if a.rt.Matcher == nil || len(keys) == 0 {
 		return nil, nil
 	}
@@ -851,10 +851,18 @@ func (a *visionAdapter) MatchAll(ctx context.Context, keys []string, threshold f
 			frameW = frame.Bounds().Dx()
 		}
 	}
+	// roi 总作为显式比例搜索区下发: 绕开 variant.BBox 单点定位 (找全部要搜整片)。
+	// 零值 Geometry → ResolveGeometry 返全帧 → region [0,0,1,1]。
+	var region []float64
+	if frame != nil {
+		fw, fh := frame.Bounds().Dx(), frame.Bounds().Dy()
+		rx, ry, rw, rh, _ := ResolveGeometry(roi, fw, fh)
+		region = []float64{float64(rx) / float64(fw), float64(ry) / float64(fh), float64(rw) / float64(fw), float64(rh) / float64(fh)}
+	}
 	tol := a.scaleTolerance()
 	var all []node.TemplateMatch
 	for _, guid := range keys {
-		hits, err := a.rt.Matcher.DetectAll(ctx, frame, guid, threshold, nil, tol)
+		hits, err := a.rt.Matcher.DetectAll(ctx, frame, guid, threshold, region, tol)
 		if err != nil {
 			return nil, err
 		}

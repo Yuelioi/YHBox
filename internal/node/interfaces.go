@@ -173,10 +173,11 @@ type VisionService interface {
 	// spec §节点3。
 	DecodeQR(roi Geometry) ([]QRResult, error)
 
-	// MatchAll 单帧多模板"全部命中": 抓一次帧, 各 key 各自找全 (3×3 极大 + 单模板内 NMS) →
-	// 合并 → 统一跨模板 NMS。minDistance 像素 (<=0 → 各命中按自己模板 bbox 短边/2 自动)。
-	// 结果按 conf 降序。坐标全帧归一化。spec §节点2。
-	MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int) ([]TemplateMatch, error)
+	// MatchAll 单帧多模板"全部命中": 抓一次帧, 在 roi (零值=全帧) 内各 key 各自找全
+	// (3×3 极大 + 单模板内 NMS) → 合并 → 统一跨模板 NMS。minDistance 像素 (<=0 → 各命中按
+	// 自己模板 bbox 短边/2 自动)。结果按 conf 降序。坐标全帧归一化。
+	// 注: roi 总作为显式搜索区下发 (绕开 variant.BBox 单点定位, 因找全部要搜整片)。spec §节点2。
+	MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int, roi Geometry) ([]TemplateMatch, error)
 }
 
 // HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100]. 给 DetectColorHSV / ROIColorScan 用.
