@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: 按键精灵 CV 函数表借鉴的 3 个纯 Go 节点: FindColorSignature 颜色签名 / FindTemplateAll 模板全部命中 / DecodeQR 二维码解码; 零新增原生依赖。
 last_updated: 2026-06-18
 ---
