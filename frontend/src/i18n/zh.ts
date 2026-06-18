@@ -867,7 +867,6 @@ export default {
         ROI: { label: '搜索区域' },
         Signature: { label: '颜色签名', hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]` },
         Tolerance: { label: '默认容差', hint: '每通道灰度绝对差 0-255；单点 tol 缺省时用此值' },
-        CapturePoint: { label: '命中点变量' },
       },
     },
     DualColorBarTrack: {

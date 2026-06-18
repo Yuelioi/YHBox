@@ -71,6 +71,26 @@ summary: CV 感知节点 / OCR / ONNX 灵感池
 
 ---
 
+## 5. 按键精灵 YOLO/CV 函数表 参考 (2026-06-18)
+
+来源: help.anjian.com `expand/yolo/{SetModel,RunModel,ModelConvert}` + `basic/{color,ocr,pic}` + `expand/{opencv,image,ml}`. 通读结论: **大部分印证本池方向**, 我们 `detect/` 里 framediff (`framediff_nodes`)、色块 blob (`detect_color_blobs`)、拟人抖动 (jitter) **已实现**; 按键精灵真正能补的是 YOLO/OCR/多点找色. 拆点:
+
+**(A) 最值得借鉴的是 API 形态, 不是节点**: `SetModel(index,targetSize,param,bin,label[,创建线程,运行线程,{modelType}])` 与 `RunModel(index,sim[,opt])` **分离** —— 加载(贵, 索引化模型句柄 0-9, **不跑不占资源, 停脚本自动销毁**) vs 推理(便宜, 循环里反复调). 启示: `YoloDetect`/`OnnxInfer` **绝不能每帧重载模型** → "加载模型(缓存句柄) vs 推理" 拆开, 跟 §4 的"节点级 capture 缓存"同属 **Container 架构 invariant** (性能 = 设计三问之一). 返回 `{text,x,y,w,h,score}` 数组 + `sim` 置信度阈值参数 + 线程数 config(暴露不锁死) —— 跟本池 §3 YoloDetect 规划的"JSON 类别+bbox+置信度"对得上.
+
+**(B) ncnn 转换 footgun → 实锤"选 ONNX 不选 ncnn"**: 按键精灵 `.pt→.ncnn` 要**手改生成的 `_pnnx.py`**(把 `reshape(1,87,6400)` 改成 `reshape(1,87,-1).transpose(1,2)` 那段), 简化版(modelType=1)还**掉精度**, 标准版(=2)要按 ncnn 官方教程改参数. 我们 §2/§3 已定 ONNX 路线 (`yolo export format=onnx` 一行, 无需手改) —— 这页正是"为什么别走 ncnn"的反例, 强化 ONNX 决策.
+
+**(C) 两个本池没列的新候选**:
+- **多点找色签名** (`FindMultiColor`/`CmpColorEx`): 匹配"主点 + N 个相对偏移点的颜色组合", 比单点色稳、比模板便宜的**中间档**, 找纯色 UI 元素(按钮/图标)很省. 现有 `detect_color`/`hsv`/`blobs`/`roi_color_scan` 无此原语.
+- **二维码 decode** (`Image.QrDecode`): 屏幕 QR→字符串, 纯 Go (gozxing) 自包含便宜. 小众, 放池子.
+
+**(D) 配置泛化 —— 模板匹配返回 all vs best** (`OpenCV.FindImgAll`/`FindImgBest`): 现 `template_common.go:matchOnce` 只返回**单个 best 点**. 加"返回全部命中"模式 = 设计三问"别替用户锁死单一选择". 真有"批量点同类图标"场景再做.
+
+**(E) 预处理原语拆分**: `Image.Binaryzation`/`GetScreenData`/`SetRotation` 各自独立 = 本池 §4 "CV pipeline sub-graph" 思路. 现 blob 内部已二值化但无独立 binarize 节点; 做 OCR pipeline 时补.
+
+**不借鉴**: framediff / 色块 blob / jitter 已有; `Element.*`(无障碍元素树) 是手机 accessibility 模型, Windows 游戏不走 UIA, 不适用.
+
+---
+
 ## YAGNI 提醒
 
 按 [CLAUDE.md 二号铁律], 别开池子就堆 spec. 等第一批通用场景落地需求出来 (e.g. "要做 MMO 日常脚本" / "做卡牌抽卡" / "做音游"), 反推这次该挑哪 1-2 个先做.

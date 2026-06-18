@@ -520,9 +520,6 @@
       "Tolerance": {
         "label": "默认容差",
         "hint": "每通道灰度绝对差 0-255；单点 tol 缺省时用此值"
-      },
-      "CapturePoint": {
-        "label": "命中点变量"
       }
     }
   },

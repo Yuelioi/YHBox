@@ -847,7 +847,6 @@
         ROI: { label: 'Search area' },
         Signature: { label: 'Color signature', hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]` },
         Tolerance: { label: 'Default tolerance', hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol' },
-        CapturePoint: { label: 'Hit point variable' },
       },
     },
     DualColorBarTrack: {

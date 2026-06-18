@@ -21,7 +21,6 @@ const (
 	fcsOutFound    = "Found"
 	fcsOutNotFound = "NotFound"
 	fcsDataPoint   = "Point"
-	fcsCapturePt   = "CapturePoint"
 	fcsMaxPoints   = 64
 )
 
@@ -37,8 +36,6 @@ func (FindColorSignature) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 4})}},
 			{Name: fcsInTolerance, Type: "Number", Default: json.Number("16"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: fcsCapturePt, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: fcsOutFound, Type: "Exec", Data: []node.DataField{{Name: fcsDataPoint, Type: "Point"}}},
@@ -63,7 +60,7 @@ func (FindColorSignature) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error
 		return nil, node.Failf(node.CodeCaptureFailed, err, "FindColorSignature: %v", err)
 	}
 	if found {
-		node.Capture(ctx, in, fcsCapturePt, pt)
+		// 输出捕获由 Spec C 的 config.capture 自动处理 (dispatch_v5.applyCaptures), 节点只 Set Data 字段。
 		return ctx.Out(fcsOutFound).Set(fcsDataPoint, pt).Fire(), nil
 	}
 	return ctx.Out(fcsOutNotFound).Fire(), nil

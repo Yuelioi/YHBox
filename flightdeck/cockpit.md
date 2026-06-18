@@ -6,7 +6,8 @@
 ## 进行中
 
 <!-- AUTO:inprogress -->
-
+- [2026-06-18-cv-borrow-batch.md](specs/2026-06-18-cv-borrow-batch.md) — 按键精灵 CV 函数表借鉴的 3 个纯 Go 节点: FindColorSignature 颜色签名 / FindTemplateAll 模板全部命中 / DecodeQR 二维码解码; 零新增原生依赖。
+- [2026-06-18-cv-borrow-batch.md](plans/2026-06-18-cv-borrow-batch.md) — 实现 cv-borrow-batch spec 的 3 节点: FindColorSignature → DecodeQR → FindTemplateAll, 按风险递增 TDD 落地。
 <!-- /AUTO -->
 
 ## 下一步
