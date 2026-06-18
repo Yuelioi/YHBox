@@ -10,8 +10,8 @@
   <!-- object: 有字段列表 → 递归分组 -->
   <div v-else-if="schema.type === 'object'" class="space-y-3">
     <!-- 文本模式切换按钮 (右上角). 标签由调用方渲染 (NodeInspector 外层 label / 父级 childLabel),
-         这里不再自渲染否则双标签。 -->
-    <div class="flex items-center justify-end">
+         这里不再自渲染否则双标签。 noTextMode (array 项内) 且非 colorRange → 整条工具栏隐藏。 -->
+    <div v-if="!noTextMode || schema.widget === 'colorRange'" class="flex items-center justify-end">
       <div class="flex items-center gap-1">
         <UTooltip
           v-if="textMode && !jsonOk"
@@ -30,6 +30,7 @@
           @click="emit('pick-color', fieldPath)"
         />
         <UButton
+          v-if="!noTextMode"
           size="xs"
           variant="ghost"
           color="neutral"
@@ -87,7 +88,7 @@
 
   <!-- tuple: 定长数组, 逐位置渲染带标签子项 (DetectColor.Range 等). 结构 ⇄ JSON 双模式同 object. -->
   <div v-else-if="schema.type === 'tuple'" class="space-y-3">
-    <div class="flex items-center justify-end">
+    <div v-if="!noTextMode || schema.widget === 'colorRange'" class="flex items-center justify-end">
       <div class="flex items-center gap-1">
         <UTooltip
           v-if="textMode && !jsonOk"
@@ -106,6 +107,7 @@
           @click="emit('pick-color', fieldPath)"
         />
         <UButton
+          v-if="!noTextMode"
           size="xs"
           variant="ghost"
           color="neutral"
@@ -158,6 +160,93 @@
     </div>
   </div>
 
+  <!-- array: 同质变长列表 (颜色签名等). 结构模式逐项渲染 items schema (可加减); JSON 模式整组编辑.
+       项内的 object/tuple 走 noTextMode (不各挂 JSON 开关), 整组 JSON 编辑由本层统一提供. -->
+  <div v-else-if="schema.type === 'array'" class="space-y-2">
+    <div class="flex items-center justify-end">
+      <div class="flex items-center gap-1">
+        <UTooltip
+          v-if="textMode && !jsonOk"
+          :text="t('structured_input.json_error_tooltip')"
+        >
+          <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
+        </UTooltip>
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          :icon="textMode ? 'i-tabler-forms' : 'i-tabler-code'"
+          :disabled="textMode && !jsonOk"
+          :title="textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')"
+          @click="toggleTextMode"
+        />
+      </div>
+    </div>
+
+    <!-- 文本模式: 整个数组当 JSON 编辑 -->
+    <div v-if="textMode" class="space-y-1">
+      <UTextarea
+        :model-value="rawJson"
+        :rows="4"
+        size="sm"
+        class="w-full font-mono text-[11px]"
+        :color="jsonOk ? undefined : 'error'"
+        @update:model-value="onRawJsonInput"
+      />
+      <p v-if="!jsonOk" class="text-[10px] text-error leading-snug">{{ jsonError }}</p>
+      <UButton
+        v-if="!jsonOk"
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        @click="abandonTextMode"
+      >
+        {{ t('structured_input.abandon_changes') }}
+      </UButton>
+    </div>
+
+    <!-- 结构模式: 逐项渲染 + 加减. item 复用 fieldPath (不带下标) → 项内字段 i18n key 稳定. -->
+    <div v-else class="space-y-2">
+      <div
+        v-for="(item, idx) in arrayModel"
+        :key="idx"
+        class="pl-2 border-l border-default/40 space-y-1"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-muted">#{{ idx + 1 }}</span>
+          <UButton
+            data-testid="array-remove-btn"
+            size="xs"
+            variant="ghost"
+            color="error"
+            icon="i-tabler-trash"
+            :title="t('structured_input.remove_item')"
+            @click="removeArrayItem(idx)"
+          />
+        </div>
+        <StructuredInput
+          v-if="schema.items"
+          :schema="schema.items"
+          :model-value="item"
+          :field-path="fieldPath"
+          :kind="kind"
+          :no-text-mode="true"
+          @update:model-value="(v: any) => updateArrayChild(idx, v)"
+        />
+      </div>
+      <UButton
+        data-testid="array-add-btn"
+        size="xs"
+        variant="soft"
+        color="neutral"
+        icon="i-tabler-plus"
+        @click="addArrayItem"
+      >
+        {{ t('structured_input.add_item') }}
+      </UButton>
+    </div>
+  </div>
+
   <!-- scalar: number -->
   <UInputNumber
     v-else-if="schema.type === 'number'"
@@ -207,6 +296,9 @@ const props = defineProps<{
   modelValue: any
   fieldPath: string
   kind: string
+  /** 抑制本节点自身的「结构 ⇄ JSON」切换按钮 (array 项内的 object/tuple 用 —
+   *  整组 JSON 编辑由 array 层统一提供, 项内不再各挂一个开关). */
+  noTextMode?: boolean
 }>()
 const emit = defineEmits<{
   (e: 'update:modelValue', v: any): void
@@ -273,6 +365,49 @@ function updateTupleChild(idx: number, v: any) {
 
 function isEmpty(v: any): boolean {
   return v == null || v === '' || (typeof v === 'object' && Object.keys(v).length === 0)
+}
+
+// ─── array model + add/remove ─────────────────────────────────────────────────
+const arrayModel = computed<any[]>(() =>
+  Array.isArray(props.modelValue) ? props.modelValue : [],
+)
+
+// schemaZero 按 schema 造「空值」(array 新增项初值): object 只填 required 字段 (optional 省略 →
+// 由后端默认/缺省语义决定, 如颜色签名 tol 留空走节点默认容差); tuple 按位置零值; array 空; 标量零值.
+function schemaZero(s?: NodeFieldSchema): any {
+  if (!s) return null
+  switch (s.type) {
+    case 'object': {
+      const o: Record<string, any> = {}
+      for (const f of s.fields ?? []) if (f.required) o[f.key] = schemaZero(f.schema)
+      return o
+    }
+    case 'tuple':
+      return (s.fields ?? []).map((f) => schemaZero(f.schema))
+    case 'array':
+      return []
+    case 'number':
+      return 0
+    case 'string':
+      return ''
+    case 'bool':
+      return false
+    default:
+      return null
+  }
+}
+function updateArrayChild(idx: number, v: any) {
+  const arr = arrayModel.value.slice()
+  arr[idx] = v
+  emitVal(arr)
+}
+function addArrayItem() {
+  emitVal([...arrayModel.value, schemaZero(props.schema.items)])
+}
+function removeArrayItem(idx: number) {
+  const arr = arrayModel.value.slice()
+  arr.splice(idx, 1)
+  emitVal(arr)
 }
 
 // ─── text mode (object + geometry non-leaf toggle) ────────────────────────────
@@ -351,6 +486,16 @@ function validateAgainstSchema(value: unknown, schema: NodeFieldSchema): string 
     for (let i = 0; i < fields.length && i < value.length; i++) {
       const childErr = validateAgainstSchema(value[i], fields[i].schema)
       if (childErr) return `[${i}]: ${childErr}`
+    }
+    return null
+  }
+  if (schema.type === 'array') {
+    if (!Array.isArray(value)) return 'expected array'
+    if (schema.items) {
+      for (let i = 0; i < value.length; i++) {
+        const childErr = validateAgainstSchema(value[i], schema.items)
+        if (childErr) return `[${i}]: ${childErr}`
+      }
     }
     return null
   }

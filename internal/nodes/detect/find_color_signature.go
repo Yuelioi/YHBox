@@ -24,6 +24,18 @@ const (
 	fcsMaxPoints   = 64
 )
 
+// fcsSignatureSchema 颜色签名变长列表 schema — 每点 {dx,dy,r,g,b,tol}, 首点为锚点 (dx=dy=0).
+// 给 FE StructuredInput 渲染逐点结构表单 (可加减) + 整组 JSON 双模式; tol 选填 (留空→用节点默认容差).
+// 业务校验 (非空/≤64 点/锚点 dx=dy=0/tol≥0) 仍在 parseColorSignature + Validate, 不进 schema.
+var fcsSignatureSchema = node.ArraySchema(node.ObjSchema(
+	node.Field("dx", node.NumberSchema(), true),
+	node.Field("dy", node.NumberSchema(), true),
+	node.Field("r", node.NumberSchema(), true),
+	node.Field("g", node.NumberSchema(), true),
+	node.Field("b", node.NumberSchema(), true),
+	node.Field("tol", node.NumberSchema(), false),
+))
+
 func (FindColorSignature) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "FindColorSignature",
@@ -33,7 +45,8 @@ func (FindColorSignature) Spec() node.Spec {
 			{Name: fcsInExec, Type: "Exec"},
 			{Name: fcsInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: fcsInSignature, Type: "JSON",
-				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 4})}},
+				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 4})},
+				Schema: fcsSignatureSchema},
 			{Name: fcsInTolerance, Type: "Number", Default: json.Number("16"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},

@@ -584,6 +584,8 @@
     json_invalid: 'Invalid',
     field_required: 'Required',
     pick_color: 'Pick color',
+    add_item: 'Add item',
+    remove_item: 'Remove item',
   },
   geometry: {
     default_region: 'Default region',
@@ -845,8 +847,22 @@
       description: 'Search an area for an anchor color combined with N offset-point colors; returns the anchor position on match. More stable than single-point color detection, cheaper than template matching. Signature is a JSON array: first item is the anchor (dx=dy=0), remaining items are offset points.',
       input: {
         ROI: { label: 'Search area' },
-        Signature: { label: 'Color signature', hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]` },
+        Signature: {
+          label: 'Color signature',
+          hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]`,
+          dx: { label: 'X offset' },
+          dy: { label: 'Y offset' },
+          r: { label: 'Red R' },
+          g: { label: 'Green G' },
+          b: { label: 'Blue B' },
+          tol: { label: 'Tolerance (blank = default)' },
+        },
         Tolerance: { label: 'Default tolerance', hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol' },
+      },
+      output: {
+        Found: { label: 'Found' },
+        NotFound: { label: 'Not found' },
+        Point: { label: 'Hit point' },
       },
     },
     DecodeQR: {
@@ -858,6 +874,9 @@
       output: {
         Found: { label: 'Found' },
         NotFound: { label: 'Not found' },
+        Text: { label: 'Text' },
+        Count: { label: 'Count' },
+        Points: { label: 'Locator points' },
       },
     },
     FindTemplateAll: {
@@ -873,6 +892,10 @@
       output: {
         Found: { label: 'Found' },
         NotFound: { label: 'Not found' },
+        Matches: { label: 'Matches' },
+        Count: { label: 'Count' },
+        PrimaryPoint: { label: 'Best hit point' },
+        PrimaryConf: { label: 'Best match score' },
       },
     },
     DualColorBarTrack: {

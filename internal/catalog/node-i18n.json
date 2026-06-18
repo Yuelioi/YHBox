@@ -292,6 +292,15 @@
       },
       "NotFound": {
         "label": "未找到"
+      },
+      "Text": {
+        "label": "文本"
+      },
+      "Count": {
+        "label": "检出数"
+      },
+      "Points": {
+        "label": "定位点"
       }
     }
   },
@@ -538,6 +547,17 @@
         "label": "默认容差",
         "hint": "每通道灰度绝对差 0-255；单点 tol 缺省时用此值"
       }
+    },
+    "output": {
+      "Found": {
+        "label": "找到"
+      },
+      "NotFound": {
+        "label": "未找到"
+      },
+      "Point": {
+        "label": "命中点"
+      }
     }
   },
   "FindTemplateAll": {
@@ -566,6 +586,18 @@
       },
       "NotFound": {
         "label": "未找到"
+      },
+      "Matches": {
+        "label": "各命中"
+      },
+      "Count": {
+        "label": "命中数"
+      },
+      "PrimaryPoint": {
+        "label": "最佳命中点"
+      },
+      "PrimaryConf": {
+        "label": "最佳匹配度"
       }
     }
   },

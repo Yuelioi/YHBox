@@ -499,6 +499,124 @@ describe('StructuredInput — widget:colorRange eyedropper button', () => {
   })
 })
 
+describe('StructuredInput — array schema', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // 颜色签名样式的 item: object {dx,dy,r,g,b (必填), tol (选填)}
+  const itemSchema: NodeFieldSchema = {
+    type: 'object',
+    fields: [
+      { key: 'dx', schema: { type: 'number' }, required: true },
+      { key: 'dy', schema: { type: 'number' }, required: true },
+      { key: 'r', schema: { type: 'number' }, required: true },
+      { key: 'g', schema: { type: 'number' }, required: true },
+      { key: 'b', schema: { type: 'number' }, required: true },
+      { key: 'tol', schema: { type: 'number' } },
+    ],
+  }
+  const arraySchema: NodeFieldSchema = { type: 'array', items: itemSchema }
+
+  it('renders one item block per element (6 spinbuttons each) + add button', async () => {
+    const msgs = { structured_input: { add_item: '添加一项', remove_item: '删除此项' } }
+    const { app, el } = mountStructuredInput(
+      arraySchema,
+      [
+        { dx: 0, dy: 0, r: 200, g: 30, b: 30 },
+        { dx: 12, dy: -4, r: 255, g: 255, b: 255 },
+      ],
+      { messages: msgs },
+    )
+    await nextTick()
+    // 2 items × 6 number fields = 12 spinbuttons
+    expect(el.querySelectorAll('[role="spinbutton"]').length).toBe(12)
+    expect(el.querySelector('[data-testid="array-add-btn"]')).not.toBeNull()
+    expect(el.querySelectorAll('[data-testid="array-remove-btn"]').length).toBe(2)
+    expect(el.innerHTML).toContain('添加一项')
+    cleanup(app, el)
+  })
+
+  it('add button appends a zero item (required fields filled, optional tol omitted)', async () => {
+    const { emitted, app, el } = mountStructuredInput(arraySchema, [{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }])
+    await nextTick()
+    ;(el.querySelector('[data-testid="array-add-btn"]') as HTMLElement).click()
+    await nextTick()
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toEqual([
+      { dx: 0, dy: 0, r: 1, g: 2, b: 3 },
+      { dx: 0, dy: 0, r: 0, g: 0, b: 0 }, // tol omitted → 后端走默认容差
+    ])
+    cleanup(app, el)
+  })
+
+  it('remove button drops the item at its index', async () => {
+    const { emitted, app, el } = mountStructuredInput(arraySchema, [
+      { dx: 0, dy: 0, r: 1, g: 1, b: 1 },
+      { dx: 5, dy: 5, r: 2, g: 2, b: 2 },
+    ])
+    await nextTick()
+    const removeBtns = el.querySelectorAll('[data-testid="array-remove-btn"]')
+    ;(removeBtns[0] as HTMLElement).click()
+    await nextTick()
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toEqual([{ dx: 5, dy: 5, r: 2, g: 2, b: 2 }])
+    cleanup(app, el)
+  })
+
+  it('empty/undefined value renders only the add button (no item blocks)', async () => {
+    const { app, el } = mountStructuredInput(arraySchema, undefined)
+    await nextTick()
+    expect(el.querySelector('[data-testid="array-add-btn"]')).not.toBeNull()
+    expect(el.querySelectorAll('[data-testid="array-remove-btn"]').length).toBe(0)
+    cleanup(app, el)
+  })
+
+  it('array items do not render their own JSON toggle (noTextMode); only the array owns one', async () => {
+    const msgs = { structured_input: { switch_to_text: 'TO_JSON' } }
+    const { app, el } = mountStructuredInput(arraySchema, [{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }], { messages: msgs })
+    await nextTick()
+    const toggles = Array.from(el.querySelectorAll('button')).filter(
+      (b) => b.getAttribute('title') === 'TO_JSON',
+    )
+    expect(toggles.length).toBe(1)
+    cleanup(app, el)
+  })
+
+  it('validateAgainstSchema: non-array → error; element type + unknown key checked', () => {
+    function validate(value: unknown, schema: NodeFieldSchema): string | null {
+      if (schema.type === 'array') {
+        if (!Array.isArray(value)) return 'expected array'
+        if (schema.items) {
+          for (let i = 0; i < value.length; i++) {
+            const err = validate(value[i], schema.items)
+            if (err) return `[${i}]: ${err}`
+          }
+        }
+        return null
+      }
+      if (schema.type === 'object') {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) return 'expected object'
+        const obj = value as Record<string, unknown>
+        const declared = new Set((schema.fields ?? []).map((f) => f.key))
+        for (const k of Object.keys(obj)) if (!declared.has(k)) return `unknown key: ${k}`
+        for (const f of schema.fields ?? []) {
+          if (f.required && (!(f.key in obj) || obj[f.key] == null)) return `required field missing: ${f.key}`
+          if (f.key in obj) {
+            const e = validate(obj[f.key], f.schema)
+            if (e) return `${f.key}: ${e}`
+          }
+        }
+        return null
+      }
+      if (schema.type === 'number') return typeof value !== 'number' ? 'expected number' : null
+      return null
+    }
+    expect(validate({}, arraySchema)).toBe('expected array')
+    expect(validate([{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }], arraySchema)).toBeNull()
+    expect(validate([{ dx: 0, dy: 0, r: 1, g: 2, b: 3, x: 9 }], arraySchema)).toBe('[0]: unknown key: x')
+    expect(validate([{ dx: 0, dy: 0, r: 'no', g: 2, b: 3 }], arraySchema)).toBe('[0]: r: expected number')
+  })
+})
+
 describe('StructuredInput — scalar types', () => {
   beforeEach(() => vi.clearAllMocks())
 

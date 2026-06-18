@@ -6,9 +6,10 @@ package node
 // geometry = Type:"object" + Widget:"geometry", 不污染 Type 系统.
 // Spec 1 只承载渲染 + 基础校验 (FieldEntry.Required); 复杂业务校验 (min/max/pattern) 不进 schema.
 type FieldSchema struct {
-	Type    string       `json:"type"`              // object | tuple | number | string | bool | enum
+	Type    string       `json:"type"`              // object | tuple | array | number | string | bool | enum
 	Widget  string       `json:"widget,omitempty"`  // "" 默认控件 | "geometry"
 	Fields  []FieldEntry `json:"fields,omitempty"`  // Type=object (键值 map) / Type=tuple (定长数组, 按位置, Key 仅供 label)
+	Items   *FieldSchema `json:"items,omitempty"`   // Type=array (同质变长列表, 每元素 schema)
 	Options []EnumOption `json:"options,omitempty"` // Type=enum (只填 Value, label 走 i18n)
 }
 
@@ -34,3 +35,8 @@ func StringSchema() *FieldSchema { return &FieldSchema{Type: "string"} }
 func BoolSchema() *FieldSchema   { return &FieldSchema{Type: "bool"} }
 func EnumSchema(opts ...EnumOption) *FieldSchema { return &FieldSchema{Type: "enum", Options: opts} }
 func GeometrySchema() *FieldSchema { return &FieldSchema{Type: "object", Widget: "geometry"} }
+
+// ArraySchema 同质变长列表 — 底层存 JSON 数组, 每元素同一 item schema (可增删).
+// 区别于 TupleSchema (定长按位置) 与 object (键值 map). 前端 StructuredInput 渲染成
+// 可加减的行列表 + 整组 JSON 双模式. 业务校验 (元素约束/数量) 仍走节点 Validate, 不进 schema.
+func ArraySchema(item *FieldSchema) *FieldSchema { return &FieldSchema{Type: "array", Items: item} }

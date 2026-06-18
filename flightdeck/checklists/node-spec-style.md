@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-05-25
+last_updated: 2026-06-18
 when_to_read: before writing / editing 任何 nodepkg.Spec (`internal/nodes/**/*.go`) — 含 Inputs/Outputs/Default
 applies_to: [node-spec, pin-naming, convention, go]
 when_to_update: 改 nodepkg.Spec 的 pin 命名约定 / Inputs·Outputs·Default 结构时
@@ -123,6 +123,7 @@ exec-out 名 (2026-06-08 统一): 单出口 `Done`, 语义出口 PascalCase, 入
 | 命中 / 未命中分支 | `Found` / `NotFound` | Exec | ❌ 别用 `Yes`/`No`/`Missing` |
 | 颜色范围 (tuple, 支持 rgb+hsv) | `Range` | JSON + `dcRangeSchema` | c1Min..c3Max |
 | 颜色范围 (hsv-only obj) | `HSV` | JSON + `hsvObjSchema` | 双色用 `InnerColor`/`OuterColor` |
+| 颜色签名 (变长点列表) | `Signature` | JSON + `fcsSignatureSchema` (`node.ArraySchema`) | array of `{dx,dy,r,g,b,tol}`; 首点=锚点 dx=dy=0; tol 选填(空=用节点 `Tolerance`) |
 | 捕获到变量 | `Capture<DataField>` | String, Advanced, Semantic:"capture" | 一对一映射 OutputSpec.Data 字段名 |
 | 单成功出口 | `Done` | Exec | — |
 | 错误出口 | `Fail` | Exec, Semantic:"error" | 带 Data `Error`/`Code` |
@@ -144,7 +145,7 @@ DataField (exec 出口携带数据) 命名:
 - **时间单位**统一 `(ms)`, 不用 `(毫秒)`。
 - **区域 label**: zh `区域 (ratio)`, en `ROI (ratio)`。
 - **dropdown option 值要翻译** (精确/包含/前缀...), 不留 raw enum (`exact`/`contains`)。例外 (zh/en 一致地保留标识符): `Scope` 的 auto/local/global、`Log.Level` 的 debug/info/warn。
-- 结构化 JSON 输入 (colorRange / ObjSchema) 的子字段 label 嵌在 `input.<Pin>.<fieldKey>.label` (前端 `StructuredInput.vue` 按 `fieldPath.<key>` 取), 别漏。
+- 结构化 JSON 输入 (colorRange / ObjSchema / ArraySchema) 的子字段 label 嵌在 `input.<Pin>.<fieldKey>.label` (前端 `StructuredInput.vue` 按 `fieldPath.<key>` 取), 别漏。**ArraySchema (变长列表) 的元素子字段共用同一 `input.<Pin>.<key>.label` (不带下标), 各项标签一致** —— e.g. `input.Signature.dx.label`。
 - zh/en **键结构必须对称** (parity 测试守; 加节点跑 `pnpm i18n:check`)。
 - 改完必跑 `cd frontend && pnpm gen:node-i18n` 重生 `internal/catalog/node-i18n.json` (catalog drift 测试守)。
 

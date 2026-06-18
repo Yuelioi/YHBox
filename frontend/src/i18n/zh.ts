@@ -600,6 +600,8 @@ export default {
     json_invalid: '有误',
     field_required: '必填',
     pick_color: '屏幕取色',
+    add_item: '添加一项',
+    remove_item: '删除此项',
   },
   geometry: {
     default_region: '默认区域',
@@ -865,8 +867,22 @@ export default {
       description: '在区域内搜索"锚点色+若干偏移点色"的组合，命中返回锚点位置。比单点颜色检测更稳，比模板匹配更快。签名填 JSON 数组，首项为锚点（dx=dy=0），其余项为偏移点。',
       input: {
         ROI: { label: '搜索区域' },
-        Signature: { label: '颜色签名', hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]` },
+        Signature: {
+          label: '颜色签名',
+          hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]`,
+          dx: { label: 'X 偏移' },
+          dy: { label: 'Y 偏移' },
+          r: { label: '红 R' },
+          g: { label: '绿 G' },
+          b: { label: '蓝 B' },
+          tol: { label: '容差 (留空=用默认)' },
+        },
         Tolerance: { label: '默认容差', hint: '每通道灰度绝对差 0-255；单点 tol 缺省时用此值' },
+      },
+      output: {
+        Found: { label: '找到' },
+        NotFound: { label: '未找到' },
+        Point: { label: '命中点' },
       },
     },
     DecodeQR: {
@@ -878,6 +894,9 @@ export default {
       output: {
         Found: { label: '找到' },
         NotFound: { label: '未找到' },
+        Text: { label: '文本' },
+        Count: { label: '检出数' },
+        Points: { label: '定位点' },
       },
     },
     FindTemplateAll: {
@@ -893,6 +912,10 @@ export default {
       output: {
         Found: { label: '找到' },
         NotFound: { label: '未找到' },
+        Matches: { label: '各命中' },
+        Count: { label: '命中数' },
+        PrimaryPoint: { label: '最佳命中点' },
+        PrimaryConf: { label: '最佳匹配度' },
       },
     },
     DualColorBarTrack: {
