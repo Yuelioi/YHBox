@@ -60,6 +60,10 @@ func (stubVisionService) GridSignature(roi Geometry, gridSize int) ([]uint8, err
 	return nil, nil
 }
 
+func (stubVisionService) FindColorSignature(_ Geometry, _ ColorSignature, _ int) (bool, Point, error) {
+	return false, Point{}, nil
+}
+
 // StubVisionService — test 用. main.go 注入真 wire_container.go::templateMatcherAdapter.
 func StubVisionService() VisionService { return stubVisionService{} }
 

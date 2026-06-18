@@ -162,6 +162,10 @@ type VisionService interface {
 	// 一张新帧 (无缓存). Geometry 零值 = 全帧; adapter 内经 ResolveGeometry 解析像素区.
 	// 给帧差节点 (WaitStable/WaitChange) 跨 poll 比对用.
 	GridSignature(roi Geometry, gridSize int) (sig []uint8, err error)
+
+	// FindColorSignature 在 roi (锚点搜索区) 找颜色签名首个完整命中, 偏移点采样整帧。
+	// defaultTol 用于 ColorPoint.Tol==nil 的点。未命中 found=false。spec §节点1。
+	FindColorSignature(roi Geometry, sig ColorSignature, defaultTol int) (found bool, pt Point, err error)
 }
 
 // HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100]. 给 DetectColorHSV / ROIColorScan 用.

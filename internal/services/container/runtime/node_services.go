@@ -794,6 +794,40 @@ func hsvRangeFromNode(h node.HSVRange) hsvRange {
 	}
 }
 
+func (a *visionAdapter) FindColorSignature(roi node.Geometry, sig node.ColorSignature, defaultTol int) (bool, node.Point, error) {
+	if a.rt.Capture == nil {
+		return false, node.Point{}, fmt.Errorf("capture backend not initialised")
+	}
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return false, node.Point{}, err
+	}
+	frame, err := a.rt.CaptureFrameCached(h)
+	if err != nil {
+		return false, node.Point{}, err
+	}
+	if frame == nil {
+		return false, node.Point{}, fmt.Errorf("capture: nil frame")
+	}
+	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
+	// 复用 DetectColorBlobs 相同的 ResolveGeometry → 像素矩形解析法。
+	rx, ry, rw, rh, _ := ResolveGeometry(roi, frameW, frameH)
+	// ColorPoint.Tol *int → 具体 tol (nil 用 defaultTol)。
+	pts := make([]vision.ColorSigPoint, len(sig.Points))
+	for i, p := range sig.Points {
+		tol := defaultTol
+		if p.Tol != nil {
+			tol = *p.Tol
+		}
+		pts[i] = vision.ColorSigPoint{DX: p.DX, DY: p.DY, R: p.R, G: p.G, B: p.B, Tol: tol}
+	}
+	found, ax, ay := vision.FindColorSignature(frame, rx, ry, rw, rh, pts)
+	if !found {
+		return false, node.Point{}, nil
+	}
+	return true, node.Point{X: float64(ax) / float64(frameW), Y: float64(ay) / float64(frameH)}, nil
+}
+
 // NewVisionAdapter wrap *RuntimeContext into node.VisionService.
 func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAdapter{rt: rt} }
 
