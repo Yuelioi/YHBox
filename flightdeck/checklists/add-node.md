@@ -21,6 +21,7 @@ portable: false
 - [ ] **恰好一种 capability**：实现 `Runnable`(Run) / `RegionRunner`(RunRegion) / `Evaluator`(Evaluate) **之一**；或纯展示设 `IsVisualOnly: true`、图标记设 `IsGraphMarker: true`（这两类可零 capability）。注册时 `registry.go` 会校验。
 - [ ] 字段默认值：`InputSpec.Default` —— 前端建节点时会经 `deriveDefaults` 收成 `{ literal: {...} }` 自动填进 `config.literal`。要有默认值就在这写。Number/Integer/Duration 用 `json.Number("...")`；**Duration 的数字按毫秒解析**（`in.Duration`：json.Number → ms），所以 1s 写 `json.Number("1000")`。
 - [ ] ⛔ **`Default` 与 `Required` 互斥 —— 加了 `Default` 就别再留 `Required: true`**。`validateRequired` 查的是 `in.Has(name)`，而 inputs 已 merge 进 `rn.Defaults`（`engine.go` `newInputs`）→ 有默认的 pin 永远 `Has`==true → `Required` 成**死标**（永不报 `REQUIRED_FIELD_MISSING`），留着是误导性 cruft。想"拖出来即可用又不许清空"只能靠默认值 + Run 里的运行期校验（如 Sleep `if d<=0`），Required 起不到护栏作用。
+- [ ] ⚠ **结构化 / 变长输入要配 `Schema`，别留裸 JSON**（颜色签名 Signature 踩过，2026-06-18 补）：输入是对象 / 定长向量 / 同质变长列表 / 颜色范围 / 几何这类**结构化数据**时，给 `InputSpec.Schema` 配 `node.ObjSchema` / `TupleSchema` / `ArraySchema` / `GeometrySchema`（见 [node-spec-style §9](node-spec-style.md)）→ 前端 `StructuredInput` 自动渲染**双段**（逐字段/逐项表单 + 「添加/删除」+ 可切整组 JSON）。**只给 `Type:"JSON" + Widget:json`** 而不配 Schema → Inspector 显示成**裸 JSON 文本框**，用户看不出该填什么结构。子字段 label 走 `input.<Pin>.<fieldKey>.label`（变长列表各项共用、不带下标）。（注：引脚类型徽章显 `any` 是另一回事 —— Geometry/JSON 在 `PinType` union 里都归 `any`，配不配 Schema 都改不了，属既有 cosmetic。）
 
 ## 1b. ⛔ 产出型节点：声明可绑 Data 字段（Spec C `config.capture` 模型）
 
@@ -42,6 +43,7 @@ portable: false
 ## 3. i18n — 文案 + 重新生成 catalog (catalog drift 测试会卡)
 
 - [ ] `frontend/src/i18n/zh.ts` + `en.ts` 加 `node.<Kind>` 块：`label` / `description` / `input.<pin>.label`（dropdown 选项加 `input.<pin>.option.<value>`）。zh/en **对称**（parity 测试）。**文案规范看 [node-spec-style §10](node-spec-style.md)**：zh 人话不夹黑话、en sentence-case、option 要翻译、捕获框 `<字段>→变量`、时间 `(ms)`。
+- [ ] ⚠ **出口 + Data 字段也要译，别只译输入**（本批 3 节点踩过，2026-06-18 补）：`output.<出口或Data字段名>.label` —— 每个 exec 出口（`Found`/`NotFound`/`Timeout`…）**和**每个 `OutputSpec.Data` 字段（`Matches`/`PrimaryPoint`/`Conf`/`Text`…）都要给 label，否则图节点出口引脚 + Inspector「输出」组显**英文裸字段名**。这些 key 经 `gen:node-i18n` 抽进 `node-i18n.json`（覆盖图节点 PIN_SPECS + inspector）。结构化输入的子字段 label 见 §1 结构化输入条 + [node-spec-style §10](node-spec-style.md)。
 - [ ] vue-i18n 文案含 `{` `}` `|` `@` `$` 要转义（见 checklist [[vue-i18n-message-compiler-traps]]）；改完 `pnpm i18n:check` 的 `[compile]` 段会兜。
 - [ ] **跑 `cd frontend && pnpm gen:node-i18n`** 重新生成 `internal/catalog/node-i18n.json`（从 zh.ts 抽取）。漏跑 → `go test ./internal/catalog/` 的 drift 守卫 FAIL。
 

@@ -3,7 +3,7 @@ status: done
 summary: 实现 cv-borrow-batch spec 的 3 节点: FindColorSignature → DecodeQR → FindTemplateAll, 按风险递增 TDD 落地。
 last_updated: 2026-06-18
 implements: specs/2026-06-18-cv-borrow-batch.md
-verify: "真机 smoke — 三节点(颜色签名/二维码解码/模板全部命中)在侧栏/右键/explorer 可加并各跑一遍: 颜色签名屏幕拾色验命中; QR 摆屏读对内容; FindTemplateAll 同图标铺N个验 Count/Matches/Primary。生产 matcher templateMatcherAdapter.DetectAll(无单测)端到端只此一处验。"
+verified: "2026-06-18 用户验收「待验证全算过」—— CV 借鉴批三节点真机 smoke + 颜色签名 Signature 双段输入 + 三节点出口/Data i18n，整批收尾，后续小问题单独开。"
 ---
 
 # CV 低依赖借鉴批 实现计划 (颜色签名 / QR / 模板全部命中)
