@@ -166,6 +166,12 @@ type VisionService interface {
 	// FindColorSignature 在 roi (锚点搜索区) 找颜色签名首个完整命中, 偏移点采样整帧。
 	// defaultTol 用于 ColorPoint.Tol==nil 的点。未命中 found=false。spec §节点1。
 	FindColorSignature(roi Geometry, sig ColorSignature, defaultTol int) (found bool, pt Point, err error)
+
+	// DecodeQR 抓全帧后按 roi Geometry 裁子区, 解码区域内所有 QR 码。
+	// 定位点为全帧归一化坐标 (0..1, 原点=全帧左上角), 按 bbox min-y 再 min-x 升序排列。
+	// 解码失败 (图中无可识别 QR) → 返空 slice + nil error (节点据此走 NotFound 出口)。
+	// spec §节点3。
+	DecodeQR(roi Geometry) ([]QRResult, error)
 }
 
 // HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100]. 给 DetectColorHSV / ROIColorScan 用.

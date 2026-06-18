@@ -828,6 +828,86 @@ func (a *visionAdapter) FindColorSignature(roi node.Geometry, sig node.ColorSign
 	return true, node.Point{X: float64(ax) / float64(frameW), Y: float64(ay) / float64(frameH)}, nil
 }
 
+// DecodeQR 抓全帧 → 按 roi 裁子图 → 解码所有 QR → 定位点加 ROI 偏移后归一化到全帧。
+// 返回按 bbox min-y 再 min-x 升序排列的 QRResult slice。解码失败 → 空 slice + nil error。
+func (a *visionAdapter) DecodeQR(roi node.Geometry) ([]node.QRResult, error) {
+	if a.rt.Capture == nil {
+		return nil, fmt.Errorf("capture backend not initialised")
+	}
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := a.rt.CaptureFrameCached(h)
+	if err != nil {
+		return nil, err
+	}
+	if frame == nil {
+		return nil, fmt.Errorf("capture: nil frame")
+	}
+	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
+	rx, ry, rw, rh, _ := ResolveGeometry(roi, frameW, frameH)
+
+	// 裁子图: 用已有像素版裁图 helper (cropFrameByGeometry 已裁好 image.RGBA 子图).
+	sub := cropFrameByGeometry(frame, roi)
+
+	hits, err := vision.DecodeQRFromImage(sub)
+	if err != nil {
+		return nil, err
+	}
+	if len(hits) == 0 {
+		return nil, nil
+	}
+
+	results := make([]node.QRResult, 0, len(hits))
+	for _, hit := range hits {
+		pts := make([]node.Point, len(hit.Points))
+		for i, p := range hit.Points {
+			// 定位点像素坐标相对子图; 加 ROI 偏移后归一化到全帧.
+			absX := rx + p[0]
+			absY := ry + p[1]
+			pts[i] = node.Point{
+				X: float64(absX) / float64(frameW),
+				Y: float64(absY) / float64(frameH),
+			}
+		}
+		results = append(results, node.QRResult{Text: hit.Text, Points: pts})
+	}
+
+	// 按定位点外接 bbox 左上角 (min-x, min-y) 排序: 先 min-y 升序, 再 min-x 升序.
+	sortQRResults(results)
+	_ = rw
+	_ = rh
+	return results, nil
+}
+
+// sortQRResults 按每个 QRResult 的定位点外接 bbox 左上角 min-y 升序, 相同 min-y 再按 min-x 升序.
+func sortQRResults(results []node.QRResult) {
+	bboxMinXY := func(r node.QRResult) (float64, float64) {
+		minX, minY := 1.0, 1.0
+		for _, p := range r.Points {
+			if p.X < minX {
+				minX = p.X
+			}
+			if p.Y < minY {
+				minY = p.Y
+			}
+		}
+		return minX, minY
+	}
+	for i := 1; i < len(results); i++ {
+		for j := i; j > 0; j-- {
+			xi, yi := bboxMinXY(results[j])
+			xj, yj := bboxMinXY(results[j-1])
+			if yi < yj || (yi == yj && xi < xj) {
+				results[j], results[j-1] = results[j-1], results[j]
+			} else {
+				break
+			}
+		}
+	}
+}
+
 // NewVisionAdapter wrap *RuntimeContext into node.VisionService.
 func NewVisionAdapter(rt *RuntimeContext) node.VisionService { return &visionAdapter{rt: rt} }
 

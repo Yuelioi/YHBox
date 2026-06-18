@@ -127,6 +127,10 @@ func (m *mockVision) FindColorSignature(roi node.Geometry, sig node.ColorSignatu
 	return m.sigFound, m.sigPoint, m.sigErr
 }
 
+func (m *mockVision) DecodeQR(_ node.Geometry) ([]node.QRResult, error) {
+	return nil, nil
+}
+
 // withVision 把 ServiceBundle 的 Vision 字段换成给定 mock, 其余 stub.
 func withVision(v node.VisionService) node.ServiceBundle {
 	b := node.StubServices()

@@ -64,6 +64,10 @@ func (stubVisionService) FindColorSignature(_ Geometry, _ ColorSignature, _ int)
 	return false, Point{}, nil
 }
 
+func (stubVisionService) DecodeQR(_ Geometry) ([]QRResult, error) {
+	return nil, nil
+}
+
 // StubVisionService — test 用. main.go 注入真 wire_container.go::templateMatcherAdapter.
 func StubVisionService() VisionService { return stubVisionService{} }
 
