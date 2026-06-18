@@ -52,6 +52,11 @@ type mockVision struct {
 	gridSigs [][]uint8
 	gridIdx  int
 	gridErr  error
+
+	// FindColorSignature 用
+	sigFound bool
+	sigPoint node.Point
+	sigErr   error
 }
 
 func (m *mockVision) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
@@ -116,6 +121,10 @@ func (m *mockVision) GridSignature(roi node.Geometry, gridSize int) ([]uint8, er
 	}
 	m.gridIdx++
 	return m.gridSigs[i], nil
+}
+
+func (m *mockVision) FindColorSignature(roi node.Geometry, sig node.ColorSignature, defaultTol int) (bool, node.Point, error) {
+	return m.sigFound, m.sigPoint, m.sigErr
 }
 
 // withVision 把 ServiceBundle 的 Vision 字段换成给定 mock, 其余 stub.
