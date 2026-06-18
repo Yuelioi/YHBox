@@ -849,6 +849,17 @@
         Tolerance: { label: 'Default tolerance', hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol' },
       },
     },
+    DecodeQR: {
+      label: 'Decode QR',
+      description: 'Decode QR codes within the area; returns the first code\'s text, the total count, and locator points. No code found or undecodable both route to NotFound.',
+      input: {
+        ROI: { label: 'Area' },
+      },
+      output: {
+        Found: { label: 'Found' },
+        NotFound: { label: 'Not found' },
+      },
+    },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
       description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',

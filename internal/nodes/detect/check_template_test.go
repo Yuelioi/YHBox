@@ -57,6 +57,10 @@ type mockVision struct {
 	sigFound bool
 	sigPoint node.Point
 	sigErr   error
+
+	// DecodeQR 用
+	qrResults []node.QRResult
+	qrErr     error
 }
 
 func (m *mockVision) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
@@ -128,7 +132,7 @@ func (m *mockVision) FindColorSignature(roi node.Geometry, sig node.ColorSignatu
 }
 
 func (m *mockVision) DecodeQR(_ node.Geometry) ([]node.QRResult, error) {
-	return nil, nil
+	return m.qrResults, m.qrErr
 }
 
 // withVision 把 ServiceBundle 的 Vision 字段换成给定 mock, 其余 stub.

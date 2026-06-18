@@ -869,6 +869,17 @@ export default {
         Tolerance: { label: '默认容差', hint: '每通道灰度绝对差 0-255；单点 tol 缺省时用此值' },
       },
     },
+    DecodeQR: {
+      label: '二维码解码',
+      description: '在区域内解码二维码，返回首个二维码的文本内容、检出总数和定位点。没检出或解不出都走未找到。',
+      input: {
+        ROI: { label: '区域' },
+      },
+      output: {
+        Found: { label: '找到' },
+        NotFound: { label: '未找到' },
+      },
+    },
     DualColorBarTrack: {
       label: '双色条追踪',
       description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
