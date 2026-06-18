@@ -404,7 +404,6 @@ const (
 	fcsOutFound    = "Found"
 	fcsOutNotFound = "NotFound"
 	fcsDataPoint   = "Point"
-	fcsCapturePt   = "CapturePoint"
 	fcsMaxPoints   = 64
 )
 
@@ -420,8 +419,6 @@ func (FindColorSignature) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 4})}},
 			{Name: fcsInTolerance, Type: "Number", Default: json.Number("16"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: fcsCapturePt, Type: "String", Advanced: true, Semantic: "capture",
-				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: fcsOutFound, Type: "Exec", Data: []node.DataField{{Name: fcsDataPoint, Type: "Point"}}},
@@ -446,7 +443,7 @@ func (FindColorSignature) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error
 		return nil, node.Failf(node.CodeCaptureFailed, err, "FindColorSignature: %v", err)
 	}
 	if found {
-		node.Capture(ctx, in, fcsCapturePt, pt)
+		// 捕获由 Spec C config.capture 自动处理 (applyCaptures), 节点只 Set Data 字段, 无 node.Capture。
 		return ctx.Out(fcsOutFound).Set(fcsDataPoint, pt).Fire(), nil
 	}
 	return ctx.Out(fcsOutNotFound).Fire(), nil
@@ -537,7 +534,6 @@ FindColorSignature: {
     ROI: { label: '搜索区域' },
     Signature: { label: '颜色签名' },
     Tolerance: { label: '默认容差' },
-    CapturePoint: { label: '命中点→变量' },
   },
 },
 ```
@@ -674,21 +670,18 @@ func DecodeQRImage(sub image.Image) ([]QRHit, error) {
 
 **Files:** Create `internal/nodes/detect/decode_qr.go` + `_test.go`
 
-- [ ] **Step 1: 写失败测试** (stub vision 返 2 个 QR → 验 `Text`=首个 / `Count`=2 / 捕获写值; 空 → NotFound)。
+- [ ] **Step 1: 写失败测试** (stub vision 返 2 个 QR → 验 `Text`=首个 / `Count`=2; 空 → NotFound)。
 
-- [ ] **Step 2: 写实现** (Spec: In/ROI; Found Data `Text`/`Count`/`Points` + `CaptureText`/`CaptureCount`/`CapturePoints`; NotFound Data `Count`):
+- [ ] **Step 2: 写实现** (Spec: In/ROI; Found Data `Text`/`Count`/`Points`; NotFound Data `Count`。**无捕获框** —— 产出靠 Data 字段 + config.capture 自动捕获, 见 spec §贯穿约束):
 
 ```go
-// 关键 Run 骨架:
+// 关键 Run 骨架 (只 Set Data, 不 node.Capture):
 res, err := ctx.Vision().DecodeQR(in.Geometry(dqInROI))
 if err != nil { return nil, node.Failf(node.CodeCaptureFailed, err, "DecodeQR: %v", err) }
 if len(res) == 0 {
 	return ctx.Out(dqOutNotFound).Set(dqDataCount, 0).Fire(), nil
 }
 first := res[0] // adapter 已按左上排序
-node.Capture(ctx, in, dqCaptureText, first.Text)
-node.Capture(ctx, in, dqCaptureCount, len(res))
-node.Capture(ctx, in, dqCapturePoints, first.Points)
 return ctx.Out(dqOutFound).Set(dqDataText, first.Text).Set(dqDataCount, len(res)).Set(dqDataPoints, first.Points).Fire(), nil
 ```
 
@@ -876,10 +869,10 @@ type TemplateMatch struct {
 - [ ] **Step 1: 写失败测试** (stub vision 返 3 命中 → 验 `Count`=3 / `PrimaryPoint`=Matches[0] / `Matches` JSON / 捕获; MaxResults=2 → 列表 2 条但 Count=3; 空 → NotFound Count=0)。
 
 - [ ] **Step 2: 写实现** (Spec: In/Templates(GUID 列表, `templateDeps`)/ROI/Threshold(默认 .85)/MaxResults(0)/MinDistance(0);
-  Found Data `Matches`/`Count`/`PrimaryPoint`/`PrimaryConf` + 3 捕获框; NotFound Data `Count`):
+  Found Data `Matches`/`Count`/`PrimaryPoint`/`PrimaryConf`; NotFound Data `Count`。**无捕获框** —— Data 字段靠 config.capture 自动捕获):
 
 ```go
-// 关键 Run 骨架:
+// 关键 Run 骨架 (只 Set Data, 不 node.Capture):
 th := clamp01(in.Float(ftaInThreshold))         // [0,1]
 maxR := in.Int(ftaInMaxResults); if maxR < 0 { maxR = 0 }
 minD := in.Int(ftaInMinDistance); if minD < 0 { minD = 0 }
@@ -890,9 +883,6 @@ if count == 0 { return ctx.Out(ftaOutNotFound).Set(ftaDataCount, 0).Fire(), nil 
 out := matches
 if maxR > 0 && len(out) > maxR { out = out[:maxR] } // 列表截断; Count 报总数
 primary := matches[0]
-node.Capture(ctx, in, ftaCaptureMatches, out)
-node.Capture(ctx, in, ftaCaptureCount, count)
-node.Capture(ctx, in, ftaCapturePrimary, primary.Point)
 return ctx.Out(ftaOutFound).
 	Set(ftaDataMatches, out).Set(ftaDataCount, count).
 	Set(ftaDataPrimaryPoint, primary.Point).Set(ftaDataPrimaryConf, primary.Conf).Fire(), nil

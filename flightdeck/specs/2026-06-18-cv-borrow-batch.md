@@ -35,9 +35,12 @@ last_updated: 2026-06-18
   本次所有匹配, 不靠 100ms 缓存兜)。
 - **坐标系统一**: 所有输出点/框一律 **全帧归一化 0..1** (对齐 `BlobEntry` + 现有模板 `Point`)。内部用 ROI 相对像素,
   adapter 统一换算。
-- 产出遵守 [node-data-flow](../checklists/2026-06-05-node-data-flow.md) **硬约束**: exec 出口带 `Data`, 每个有意义
-  产出加 `Capture<字段>` 框 (`Advanced:true, Semantic:"capture"`) + `Run()` `node.Capture(...)`。捕获只写该 exit
-  **实际带的**字段 (`NotFound` 只带 `Count` → `Capture<点>` 那轮不写、变量留旧值)。机械步骤照
+- 产出走 **Spec C 的 `config.capture` 模型** (非旧捕获框): 节点**只在 exec 出口声明 `OutputSpec.Data` 字段 + `Run()` 里
+  `.Set(field, 值)`**, **不加 `Capture<字段>` 输入框、不调 `node.Capture`** (这套 `Semantic:"capture"` + `node.Capture`
+  已被 Spec C T4 `33fa43f` 整体删除)。捕获由框架做: 用户在 Inspector 把 Data 字段绑到变量 (`node.config.capture`
+  map[字段]→变量), fire 时 `dispatch_v5.applyCaptures` 自动写 (scope auto); **只写该 exit 实际带的字段** (`NotFound`
+  只带 `Count` → `Point` 那轮框架不写、变量留旧值, 稀疏 data 天然保证)。可绑字段 = `BindableFields` 从 Data 派生,
+  `validator_capture_refs.go` 校验。范式见 `detect_color_blobs.go`。机械步骤照
   [add-node.md](../checklists/add-node.md), pin 命名照 [node-spec-style.md](../checklists/node-spec-style.md)。
 - **错误 / 校验分工** (评审消歧): **结构性非法** (坏 JSON / 锚点 dx,dy≠0 / 点数超限 / 负 tol) → `Validate` **硬报错**;
   **数值越界** (`Threshold`/`Tolerance`/`MaxResults`/`MinDistance`) → `Run` 入口 **clamp 不报错** (同 `DetectColorBlobs`
@@ -79,7 +82,7 @@ last_updated: 2026-06-18
 - **Inputs**: `In`(Exec) · `ROI`(Geometry, **仅锚点搜索范围; 偏移点采样整帧不受此限**, 零值=全帧) ·
   `Signature`(JSON, widget=`json`) · `Tolerance`(Number, 默认 `16`, 单位=每通道灰度绝对差 0–255, [0,255])
 - **Outputs**: `Found`(Exec, Data: `Point` 命中锚点全帧归一化坐标) · `NotFound`(Exec)
-- **捕获框**: `CapturePoint`
+- **可捕获产出**: `Point` (Data 字段自动可绑变量, 走 config.capture; 节点无捕获框)
 
 ### 行为 / 性能 (设计三问②)
 
@@ -113,7 +116,7 @@ FindColorSignature(roi Geometry, sig ColorSignature, defaultTol int) (found bool
 - **Outputs**:
   - `Found`(Exec, Data: `Matches`(JSON `[]TemplateMatch`, 每条含 `point/conf/bbox/templateKey`) · `Count`(Number, NMS 后总数, 见[行为](#行为-1)) · `PrimaryPoint`(Point) · `PrimaryConf`(Number))
   - `NotFound`(Exec, Data: `Count`(Number, =0))
-- **捕获框**: `CaptureMatches` / `CaptureCount` / `CapturePrimary` (捕获 `Matches` 大列表建议设 `MaxResults` 限体积)
+- **可捕获产出**: `Matches`/`Count`/`PrimaryPoint`/`PrimaryConf` (Data 字段自动可绑, config.capture; 绑 `Matches` 大列表建议设 `MaxResults` 限体积)
 
 ### TemplateMatch 类型 (已冻结)
 
@@ -189,7 +192,7 @@ type TemplateMatch struct {
   - `Found`(Exec, Data: `Text`(String, 首个 QR 内容) · `Count`(Number, **成功解码出文本的 QR 数** = `len([]QRResult)`) ·
     `Points`(JSON, 首个 QR 的**解码器定位点**数组, 全帧归一化; **点数/顺序以库为准, 非四角**; goqr 回退时可能为空 —— `Text` 才是稳定契约))
   - `NotFound`(Exec, Data: `Count`(Number, =0))
-- **捕获框**: `CaptureText` / `CaptureCount` / `CapturePoints`
+- **可捕获产出**: `Text`/`Count`/`Points` (Data 字段自动可绑, config.capture; 节点无捕获框)
 
 ### 行为 / 实现
 

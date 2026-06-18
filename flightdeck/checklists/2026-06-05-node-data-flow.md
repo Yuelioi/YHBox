@@ -3,14 +3,14 @@ status: active
 when_to_read: 设计让节点消费/产出数据的节点前; 连线节点间数据前; 撞 INVALID_PIN 'out pin X 不存在' 或数据连不上时
 applies_to: [node-data-flow, data-edge, exec-edge, capture, output-capture, GetVar, Now, VarLastChange, pin-wiring, validator, node-design]
 when_to_update: 改节点数据线/exec 线规则 / pin-wiring / output-capture / validator 对 pin 存在性的判定时
-last_updated: 2026-06-07
+last_updated: 2026-06-18
 ---
 
 # 节点数据流与连线
 
 设计"消费/产出别的节点的数据"的节点、或连线节点间数据**之前**先读这份。脑补"输出口直接连过去"会撞 `INVALID_PIN`，或写出根本连不上的节点。
 
-> 配套：加节点 kind 的全链路机械步骤看 [add-node.md](add-node.md)（含"产出节点必须加捕获框"硬约束）；pin 命名看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[2026-06-04-node-validation-pipeline-bifurcation]]。
+> 配套：加节点 kind 的全链路机械步骤看 [add-node.md](add-node.md)（含产出节点 `config.capture` 模型——节点只声明 Data 字段，无捕获框）；pin 命名看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[2026-06-04-node-validation-pipeline-bifurcation]]。
 >
 > ⚠️ 历史变更（2026-06-07）：旧的全局 `$sys` 快照 + `GetSys` 节点 + `PathSchema` **已整套删除**。产出值改成"节点显式捕获到用户命名变量"，引擎 live 值改成 `Now` / `VarLastChange` 节点。下面是新模型；任何还提 `$sys`/`GetSys` 的记忆都过时了。
 
@@ -38,24 +38,26 @@ exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []Data
 
 **想让 exec 节点的产出被任意下游消费 → 用"输出捕获到变量"（下一节），不要假设 Data 字段能直连。**
 
-## ✅ 标准做法：消费某 exec 节点产出的数据 —— 捕获到变量 + GetVar
+## ✅ 标准做法：消费某 exec 节点产出的数据 —— config.capture 绑变量 + GetVar
 
-产出型节点（视觉/模板/截图/秒表/Loop/Try…）在 Spec 里带一批**可选捕获框**：`Capture<字段>` String 输入（`Advanced:true, Semantic:"capture"`），`Run()` 跑完调 `node.Capture(ctx, in, "Capture<字段>", 值)` 把值写进用户命名变量（`ctx.Vars().SetScoped(name,"auto",值)`）。
+> ⚠️ **2026-06-15 (Spec C T4, `33fa43f`)**：旧的 `Capture<字段>` 输入框 + `node.Capture` 助手 + `Semantic:"capture"` **整套删除**。任何还提"加捕获框 / 调 node.Capture"的记忆都过时了——节点**零捕获代码**。
+
+产出型节点（视觉/模板/截图/秒表/Loop/Try…）**只在 exec 出口声明 `OutputSpec.Data` 字段**，`Run()` 里 `ctx.Out(exit).Set(field,值)…Fire()`。捕获由框架做：用户在 Inspector 把某 Data 字段**绑到一个变量**（存进 `node.config.capture`：`map[字段]→变量`），fire 时 `dispatch_v5.applyCaptures` 自动 `Vars().SetScoped(varName,"auto",值)`。
 
 以"让 `转向目标` 吃 `颜色检测` 的命中中心点"为例：
 
 1. **exec 线**：`颜色检测.命中 → 转向目标.In`
-2. 在 `颜色检测` 节点上，把 **`中心点→变量`（CaptureCenter）填 `c`**。
+2. 在 `颜色检测` 节点的「输出」组里，把 **`中心点` 这个 Data 字段绑到变量 `c`**（写进 config.capture）。
 3. **data 线**：放一个 `GetVar`，`VarName` 填 `c` → `GetVar.Value → 转向目标.目标`。
 
-时序：捕获写发生在产出节点 `Run()`；下游消费节点是后一个 exec step、各自入口抓新快照（`dispatchInRegion` 每个子节点各抓一次），读得到刚写的值。跟节点跑的先后一致。
+时序：捕获写发生在产出节点 fire 时（`applyCaptures`）；下游消费节点是后一个 exec step、各自入口抓新快照（`dispatchInRegion` 每个子节点各抓一次），读得到刚写的值。跟节点跑的先后一致。
 
 **捕获语义要点（设计/排查都按这个）：**
-- 捕获框 **trim 后非空** 才写；空/纯空白 = 没配 = 不写。
-- 只写该 exit **实际带的**字段：如 `DetectColor` 未命中走 `NotFound`（不带 Center）→ `CaptureCenter` 该轮不写、变量留旧值。要区分"未命中"就同时捕获 `found`/`Count` 来 gate。
-- 节点 `Run()` 返 error → 一个都不写（保留旧值）。
-- 多个节点捕获到同名变量会互相覆盖（用户自己命名、显式可见，跟两次 SetVar 同名一样，预期行为）。
+- 只写该 exit **实际带的**字段（`data` 稀疏，只含节点 `.Set()` 过的）：如 `DetectColor` 未命中走 `NotFound`（不带 Center）→ 绑了 Center 的那条该轮不写、变量留旧值。要区分"未命中"就同时绑 `Count` 来 gate。
+- 节点 `Run()` 返 error → 不 fire → 一个都不写（保留旧值）。
+- 多个节点绑同名变量会互相覆盖（用户自己命名、显式可见，跟两次 SetVar 同名一样，预期行为）。
 - 写进变量的是该产出**原本的 typed 值**（point=`node.Point`、clusters=`[]ClusterEntry` any…），GetVar 原样取出。
+- 可绑字段 = `nodepkg.BindableFields(spec)`（exec 出口 Data 字段）；悬空绑定（删字段/删变量后残留）由 `validator_capture_refs.go` 暴露。
 
 ## 引擎 live 值：Now / VarLastChange（取代旧 $sys.now_ms / varLastChange.X）
 
@@ -70,7 +72,7 @@ exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []Data
 
 - **消费方**（要吃别的节点的数据）：开一个普通**数据输入 pin**（如 `Target` Point）。由图作者用 `GetVar` 桥接喂进来——**不要假设能从某个 exec 节点的 Data 字段直连**。
 - **产出方·纯转换** → 做成 `IsPureData` 节点（输出可直连数据线）。
-- **产出方·exec 节点** → 给每个有意义的产出加 `Capture<字段>` 捕获框（`Advanced:true, Semantic:"capture"`）+ `Run()` 里 `node.Capture(...)`。**这是硬约束**：新增产出型节点 / 给节点加 OutputData 时必须同步决定是否可捕获、默认可捕获（防"有产出但用户拿不到"，详见 [add-node.md](add-node.md) 捕获节。捕获字段只能对应 `OutputSpec.Data`，不许另立隐藏字段）。
+- **产出方·exec 节点** → 在 exec 出口声明 `OutputSpec.Data` 字段 + `Run()` `.Set(field,值)`，**就这样**。捕获是框架的事（用户绑 `config.capture`，`applyCaptures` 自动写）——**不加捕获框、不调 node.Capture**（已删，见上方 ⚠ + [add-node.md §1b](add-node.md)）。
 
 ## 数据输入 pin 怎么取值（优先级）
 
@@ -83,13 +85,14 @@ exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []Data
 | 连 `颜色检测.Center → 目标` 报 `out pin center 不存在` | Center 是 exec 出口携带的 Data 字段，不是 data-out pin。改：在颜色检测上勾 `CaptureCenter→c`，下游 `GetVar(c)`。 |
 | 想读"上次模板命中点 / bar 位置 / 循环序号 / 当前时间" | 分别：在检测节点勾对应 Capture 框 + GetVar；Loop 勾 CaptureIndex + GetVar；`Now` 节点。**没有 `$sys`/`GetSys` 了**。 |
 | 数据线连到了 exec 节点的输出 | 只有 `IsPureData` 节点的输出能当数据源；exec 节点产出走"捕获到变量 + GetVar"。 |
-| 给 exec 节点加了 Data 出口，以为别人能连 | 默认不能。要让人消费 → 加 `Capture<字段>` 捕获框（见 add-node.md 硬约束）。 |
+| 给 exec 节点加了 Data 出口，以为别人能连 | 默认不能直连数据线。要让人消费 → 用户在「输出」组把该 Data 字段绑到变量（config.capture）+ GetVar 读。节点侧无需加任何东西。 |
 | **编辑器 footgun**：把 exec 出口的 Data 字段画成了可连输出口 | 画得出、连不上（validator 拒）。认准"纯数据节点输出 / GetVar"才是数据源。（已知 UX bug，见 [editor-footgun-backlog](../specs/editor-footgun-backlog.md)。） |
 
 ## 源码锚点（撞问题先核这些，别脑补）
 
-- 捕获助手：`internal/node/capture.go` `Capture`
-- 各节点捕获框：`grep "Semantic: \"capture\""` `internal/nodes/**`（DetectColor/模板族/HSV/ROI/DualColorBarTrack/StopwatchRead/Screenshot/Loop/Try）
+- 捕获写入：`internal/services/container/runtime/dispatch_v5.go` `applyCaptures`（fire 时按 `node.config.capture` 写变量）
+- 捕获绑定校验 / 可绑字段：`internal/services/container/validator_capture_refs.go` · `nodepkg.BindableFields`
+- 产出节点范式（只声明 Data + Set，无捕获框）：`internal/nodes/detect/detect_color_blobs.go`
 - 引擎 live 节点：`internal/nodes/variable/now.go`、`var_last_change.go`；`VarStore.LastChange`（`interfaces.go`）→ `runtime_context.go VarLastChange`/`varTimestamps`
 - 边类型推导 / data-out 判定：`internal/services/container/validate.go` `dataOutPinTypeForKind` `IsDataOutPin`
 - 数据线只认纯数据源：`internal/services/container/runtime/data_pull.go` `evalDataSource` `pullDataPin`

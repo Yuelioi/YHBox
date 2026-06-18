@@ -1,6 +1,6 @@
 ---
 status: active
-last_updated: 2026-06-17
+last_updated: 2026-06-18
 when_to_read: 新增 / 改一个节点 kind 前 (backend Spec → 前端渲染 → 面板 → i18n 全链路)
 applies_to: [node, add-node, nodepkg, spec, palette, i18n, registry, frontend, backend]
 when_to_update: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注册 / palette 面板 / 前端渲染映射 / i18n 注入流程) 时
@@ -22,21 +22,18 @@ portable: false
 - [ ] 字段默认值：`InputSpec.Default` —— 前端建节点时会经 `deriveDefaults` 收成 `{ literal: {...} }` 自动填进 `config.literal`。要有默认值就在这写。Number/Integer/Duration 用 `json.Number("...")`；**Duration 的数字按毫秒解析**（`in.Duration`：json.Number → ms），所以 1s 写 `json.Number("1000")`。
 - [ ] ⛔ **`Default` 与 `Required` 互斥 —— 加了 `Default` 就别再留 `Required: true`**。`validateRequired` 查的是 `in.Has(name)`，而 inputs 已 merge 进 `rn.Defaults`（`engine.go` `newInputs`）→ 有默认的 pin 永远 `Has`==true → `Required` 成**死标**（永不报 `REQUIRED_FIELD_MISSING`），留着是误导性 cruft。想"拖出来即可用又不许清空"只能靠默认值 + Run 里的运行期校验（如 Sleep `if d<=0`），Required 起不到护栏作用。
 
-## 1b. ⛔ 产出型节点必须加"输出捕获"框（硬约束，防 $sys 重生）
+## 1b. ⛔ 产出型节点：声明可绑 Data 字段（Spec C `config.capture` 模型）
 
-只要节点产出了**别人可能想消费的值**（exec 出口的 Data 字段 / 检测结果 / 计算值），就必须让用户能拿到。`$sys` 的病根是"产出藏在框架硬编码表里、跟节点声明脱钩"——焊死在节点 Spec 上：
+只要节点产出**别人可能想消费的值**，就必须让用户能拿到。**⚠ Spec C T4（`33fa43f`，2026-06-15）已整体删除旧的 `Capture<字段>` 输入框 + `node.Capture` 助手 + `Semantic:"capture"`** —— 捕获现在全由框架做，**节点零捕获代码**。别照老记忆加捕获框（已不存在，会复活删掉的东西 = 踩二号铁律）：
 
-- [ ] **新增产出型节点 / 给节点加 OutputData 时，必须同步决定该字段是否可捕获；默认可捕获。** 不允许"有产出但没有任何消费路径"。
-- [ ] 捕获框 = 可选 String 输入，**只能一一对应 `OutputSpec.Data` 字段**（不许另立隐藏捕获字段）：
-  ```go
-  {Name: "Capture<字段>", Type: "String", Advanced: true, Semantic: "capture",
-      Widget: node.WidgetSpec{Kind: "text"}}
-  ```
-- [ ] `Run()`（RegionRunner 在 `RunRegion`）在成功 `Fire()` 前，对该 exit **实际带的**每个值调 `node.Capture(ctx, in, "Capture<字段>", 值)`（`internal/node/capture.go`：trim 后非空才 `SetScoped(name,"auto",值)`）。error 早返不写；某 exit 没带的字段不写。
-- [ ] 前端会按 `Semantic=="capture"` 把这些框聚成默认折叠的「输出捕获」分组（带数量徽章）——你只管在 Spec 声明 + i18n 给 label，渲染自动。
-- [ ] 纯数据节点（`IsPureData`）不需要捕获框——它的输出本就能直连数据线 / 被 GetVar 读。
+- [ ] **产出 = 在 exec 出口声明 `OutputSpec.Data []DataField`**（如 `Found` 带 `Point`/`Conf`），`Run()` 里 `ctx.Out(exit).Set(field, 值)...Fire()`。**不加** `Semantic:"capture"` 输入框，**不调** `node.Capture`（这俩已不存在）。
+- [ ] 捕获到变量由框架自动：用户在 Inspector 把 Data 字段绑到变量 → 存进 `node.config.capture`（`map[字段]→变量`）→ fire 时 `dispatch_v5.applyCaptures` 自动写（scope `auto`；只写该 exit **实际带的**字段，未带不写、变量留旧值——稀疏 data 天然保证）。
+- [ ] 可绑字段 = `nodepkg.BindableFields(spec)`（从 exec 出口 Data 字段派生）；`internal/services/container/validator_capture_refs.go` 校验绑定（字段须可绑 + 变量须已声明）。
+- [ ] 前端「输出」组按 Data 字段自动渲染绑定 UI——你只管在 Spec 声明 Data + i18n 给 Data 字段 label。
+- [ ] 纯数据节点（`IsPureData`）输出本就能直连数据线 / 被 GetVar 读，与此节无关。
+- 源码锚点：`runtime/dispatch_v5.go applyCaptures` · `validator_capture_refs.go` · `nodepkg.BindableFields`。**范式：`internal/nodes/detect/detect_color_blobs.go`**（只声明 Data + Set，无捕获框）。
 
-> 完整数据流模型（捕获 vs exec-data vs 纯数据直连）看 [2026-06-05-node-data-flow.md](2026-06-05-node-data-flow.md)。
+> 完整数据流模型（config.capture vs exec-data vs 纯数据直连）看 [2026-06-05-node-data-flow.md](2026-06-05-node-data-flow.md)。
 
 ## 2. 后端 — 包要被 blank-import (否则 init 不跑、节点不存在)
 
