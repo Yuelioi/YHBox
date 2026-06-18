@@ -860,6 +860,16 @@ export default {
         Timeout: { label: '超时' },
       },
     },
+    FindColorSignature: {
+      label: '颜色签名',
+      description: '在区域内搜索"锚点色+若干偏移点色"的组合，命中返回锚点位置。比单点颜色检测更稳，比模板匹配更快。签名填 JSON 数组，首项为锚点（dx=dy=0），其余项为偏移点。',
+      input: {
+        ROI: { label: '搜索区域' },
+        Signature: { label: '颜色签名', hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]` },
+        Tolerance: { label: '默认容差', hint: '每通道灰度绝对差 0-255；单点 tol 缺省时用此值' },
+        CapturePoint: { label: '命中点变量' },
+      },
+    },
     DualColorBarTrack: {
       label: '双色条追踪',
       description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',

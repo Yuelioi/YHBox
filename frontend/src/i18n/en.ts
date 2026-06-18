@@ -840,6 +840,16 @@
         Timeout: { label: 'Timeout' },
       },
     },
+    FindColorSignature: {
+      label: 'Color signature',
+      description: 'Search an area for an anchor color combined with N offset-point colors; returns the anchor position on match. More stable than single-point color detection, cheaper than template matching. Signature is a JSON array: first item is the anchor (dx=dy=0), remaining items are offset points.',
+      input: {
+        ROI: { label: 'Search area' },
+        Signature: { label: 'Color signature', hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]` },
+        Tolerance: { label: 'Default tolerance', hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol' },
+        CapturePoint: { label: 'Hit point variable' },
+      },
+    },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
       description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
