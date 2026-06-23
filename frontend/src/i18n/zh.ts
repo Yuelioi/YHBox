@@ -2564,6 +2564,7 @@ export default {
     urlLabel: '服务器地址',
     urlHint: '将下方地址填入 AI 客户端（如 Claude Desktop 或 Cline）的 MCP 配置中。',
     copy: '复制',
+    copied: '已复制',
   },
   settingsAI: {
     title: 'AI 模型',

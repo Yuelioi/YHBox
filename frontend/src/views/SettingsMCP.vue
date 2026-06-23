@@ -10,11 +10,6 @@
 
     <!-- Arm toggle section -->
     <section class="rounded-xl bg-default border border-default p-5 space-y-4">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-shield" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('settingsMCP.armLabel') }}</h2>
-      </div>
-
       <div class="flex items-center justify-between gap-6">
         <div>
           <div class="text-sm text-default">{{ t('settingsMCP.armLabel') }}</div>
@@ -61,7 +56,7 @@
 
       <p v-if="copied" class="text-xs text-success flex items-center gap-1">
         <UIcon name="i-tabler-circle-check" class="size-3.5" />
-        {{ t('settingsMCP.copy') }}
+        {{ t('settingsMCP.copied') }}
       </p>
     </section>
   </div>

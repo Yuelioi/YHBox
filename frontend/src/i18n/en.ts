@@ -2510,6 +2510,7 @@
     urlLabel: 'Server URL',
     urlHint: 'Paste this URL into your AI client MCP config (e.g. Claude Desktop or Cline).',
     copy: 'Copy',
+    copied: 'Copied!',
   },
   settingsAI: {
     title: 'AI Models',
