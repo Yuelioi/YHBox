@@ -135,7 +135,7 @@ list_nodes(看有哪些积木) → find_window(锁窗口) → run_node(Capture �
 | GUI 正在跑容器 | `BUSY` |
 | 超时 | `TIMEOUT` |
 
-`run_node` 跑前先对微容器跑一遍 `ValidateContainer` 兜 `INVALID_PARAMS`(复用现有校验),错误级直接返不执行。
+`run_node` 跑前先对微容器跑一遍 `ValidateContainer` 兜 `INVALID_PARAMS`(复用现有校验),错误级直接返不执行——**但豁免 `MISSING_WINDOW_TARGET`**:微容器是 `{Start→节点}`、无 WindowTarget 节点,任何 `NeedsWindow` 节点都会触发该结构校验错;而窗口是经 hwnd/`SetActiveWindow` **带外**提供的,故这条结构检查对 harness 不适用,须显式跳过(`hasBlockingValidationError` 只拦 `Code != CodeMissingWindowTarget` 的错误级)。其余真参数/类型错仍拦。
 
 ## 11. 实现触点清单(给 plan 用)
 

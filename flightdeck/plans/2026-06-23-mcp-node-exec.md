@@ -712,11 +712,10 @@ func (s *Server) runNode(ctx context.Context, kind string, params map[string]any
 	if err != nil {
 		return errResult("WINDOW_GONE", err.Error()), nil
 	}
-	// 参数校验 (缺必填 / 类型非法).
-	for _, e := range container.ValidateContainer(c, nil) {
-		if e.Severity == container.SeverityError {
-			return errResult("INVALID_PARAMS", "params 校验未过 (详见节点 spec)"), nil
-		}
+	// 参数校验 (缺必填 / 类型非法). 豁免 MISSING_WINDOW_TARGET — 微容器无 WindowTarget
+	// 节点, NeedsWindow 节点必触发它; 但窗口经 hwnd 带外提供, 这条结构校验不适用.
+	if hasBlockingValidationError(c) {
+		return errResult("INVALID_PARAMS", "params 校验未过 (详见节点 spec)"), nil
 	}
 	// 串行化 run_node, 防 AI 并行交错输入.
 	s.runMu.Lock()
