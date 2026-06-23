@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-23 by 月离 (② AI 节点 epic 启动 —— spec(三家两轮 review 处置 + §14 留痕)+ 三阶段 TDD plan 落定;**Phase A 后端核心已落**: ctx.AI() Provider 指纹缓存 + AI 文本节点(Spec/Run/{{}} 模板)+ validateAI,4 feat commits 全单测绿 @ feat/v2-foundation。**默认不 push**)。
-**Active focus**: **② AI 节点**(图里调 LLM)—— Phase A 后端核心(A1-A4)已落且验。**resume 点: A5 删连接引用扫描 → A6 FE+i18n(接通后真机 smoke)→ Phase B 结构化输出 → Phase C vision**。逐任务进度见 [plan](plans/2026-06-23-ai-nodes.md) 勾选项。**默认不 push**。
+**Last updated**: 2026-06-23 by 月离 (② AI 节点 —— **Phase A 整块完成**(A1-A6: ctx.AI() 指纹缓存 + AI 文本节点 Spec/Run/{{}} 模板 + validateAI + 删连接引用扫描 + FE 连接下拉/i18n)**+ B1 DynamicDataFields 框架机制**,7 feat commits 全单测绿 + FE parity/typecheck 绿 @ feat/v2-foundation。文本 AI 节点端到端可真机 smoke。**默认不 push**)。
+**Active focus**: **② AI 节点**(图里调 LLM)—— **Phase A 完成 + B1 已落**。文本节点可用(拖节点、连接下拉选、{{}} 提示词、跑出 Text)。**resume 点: Phase B 结构化输出 B2(OpenAI json_schema native, go doc 核实 Stainless union)→ B3 Anthropic 强制 tool-use → B4 提示词注入 → B5 AI 节点接结构化 → B6 FE 输出声明编辑器 → Phase C vision**。逐任务见 [plan](plans/2026-06-23-ai-nodes.md)。**默认不 push**。
 
 ## 进行中
 
@@ -12,9 +12,10 @@
 
 ## 下一步
 
-- **② AI 节点续做**(Phase A 后端核心 A1-A4 已落验): **A5** 删连接引用扫描(settings 删连接时扫含 `Connection==id` 的 AI 节点)→ **A6** FE 接入 + i18n(`node.AI`/`nodeGroup.ai` + Connection 下拉 + Model combobox)→ 接通后 **Phase A 真机 smoke**(图里拖 AI 节点、选 DeepSeek 连接跑出 Text)→ **Phase B** 结构化类型输出(DynamicDataFields + ChatStructured 三模式)→ **Phase C** vision(node.Image + Capture/SaveImage/LoadImage 删 Screenshot + 多模态 + applyExecDataEdges 扩动态输入)。逐任务步骤见 [plan](plans/2026-06-23-ai-nodes.md)。
+- **② AI 节点续做**(Phase A 完成 + B1 已落): **Phase B 结构化类型输出** —— **B2** `llm.ChatStructured` 接口 + OpenAI `response_format` json_schema native(go doc 核实 `ChatCompletionNewParamsResponseFormatUnion.OfJSONSchema`→`shared.ResponseFormatJSONSchemaParam`,httptest 验线格式)+ `KindUnsupported` → **B3** Anthropic 强制 tool-use native → **B4** 提示词注入模式 + 容错解析 → **B5** AI 节点接结构化(`config.Outputs[]`→schema→ChatStructured→逐字段 Set + Integer coerce + Fail 带 Text)→ **B6** FE 输出声明编辑器(镜像 DynamicInputsEditor)。**Phase C vision**(node.Image + Capture/SaveImage/LoadImage 删 Screenshot + 多模态 + applyExecDataEdges 扩动态输入)。逐任务见 [plan](plans/2026-06-23-ai-nodes.md)。
+- **A6 polish 余项**(不阻塞 smoke,记防忘): 专用 AI/Image 节点分组(现 fallback system 组)· Model combobox(现纯文本手填)· 删连接确认弹窗 FE(后端 `AINodesUsingConnection` 已就绪)。
 - **③ MCP 对外暴露**(②后): 已有 `cmd/yotta-mcp` spike, 缺执行容器/节点工具。
-- 其它候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion; cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
+- 其它候选池: cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 - 其它候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
@@ -23,7 +24,8 @@
 
 ## 待验证
 
-- **AI 配置 ① 余项真机 smoke**(核心 DeepSeek 测连接用户已实测过): Anthropic 原生连接 / 本地 Ollama / UI 删默认清空 / 重启持久化 —— 均有单测背书, 待用户顺手点。源在归档 plan 的 verify 字段(preflight `--verify-pending` 自动提示)。
+- **② AI 节点 Phase A 真机 smoke**(用户将做): 拖 `AI` 节点(System 组)→ 连接下拉选已配 DeepSeek → 模型填 `deepseek-chat` → User 写带 `{{名}}` 的提示词 + 声明同名动态输入 → 跑出 `Text`,绑变量下游 GetVar 读到。`task build` 后真机。单测/typecheck/i18n parity 已绿。
+- **AI 配置 ① 余项真机 smoke**(核心 DeepSeek 测连接用户已实测过): Anthropic 原生连接 / 本地 Ollama / UI 删默认清空 / 重启持久化 —— 均有单测背书, 待用户顺手点。
 
 ## Hanging tasks
 
