@@ -2504,6 +2504,34 @@ export default {
     hotkeys: '快捷键',
     input_calibration: '输入校准',
     launcher: '悬浮窗',
+    ai: 'AI',
+  },
+  settingsAI: {
+    title: 'AI 模型',
+    intro:
+      '配置 AI 连接(模型服务地址 + 密钥),供 AI 节点调用。一个连接可被多个节点复用;具体用哪个模型在节点上选。',
+    protocol: {
+      openai: 'OpenAI 兼容',
+      anthropic: 'Anthropic (Claude)',
+    },
+    connections: {
+      title: '连接',
+      hint: '本地(Ollama / LM Studio 等,通常免密钥)或线上(OpenAI / DeepSeek / Claude 等)。',
+      set_default: '设为默认',
+      label_placeholder: '连接名,如 本地 Ollama',
+      test: '测试',
+      delete: '删除连接',
+      baseurl_placeholder: 'http://localhost:11434/v1(留空用官方默认)',
+      apikey_placeholder: '密钥(本地通常留空)',
+      reveal: '显示 / 隐藏密钥',
+      testmodel_placeholder: '测试用模型(可选)',
+      protocol_hint: '第三方网关多为 OpenAI 兼容;拿不准选 OpenAI 兼容。',
+      ok_models: '连接成功 · 可用模型:',
+      ok_no_models: '连接成功(未获取到模型列表,请手填模型名)。',
+      empty: '还没有连接,点下面添加一个。',
+      add: '添加连接',
+      new_label: '新连接',
+    },
   },
   // 关于页 (AboutView).
   about: {
