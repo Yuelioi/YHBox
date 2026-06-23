@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 summary: 框架数据流改进(UE 式 held output): exec 节点 fire 时自动把出口 Data 字段存进本次运行的输出缓存(nodeID.field→值), 下游数据线可从任意距离直连读取, 免 GetVar、免紧邻约束。pullDataPin 对 exec 出口字段改读缓存; 缓存在 applyCaptures 旁填; 收编单跳 exec-data + 移除 EXEC_DATA_NOT_ADJACENT 警告; capture+GetVar 保留(命名/跨域)。触发自 AI 结构化输出 red/white 多消费的繁琐。
 last_updated: 2026-06-23
 graduate: true
@@ -124,3 +124,17 @@ UE 蓝图: **非纯节点(带 exec)执行后输出被"存住", 任意下游直�
 - **缓存生命周期**: per-run 重置时机(容器 Run 起跑清空), listener 子流程共用 vs 独立 → plan 定。
 - **内存**: 按 `nodeID.field` 累积, 上限 = 图节点产出字段数(小), 非问题。
 - **跟 capture 写顺序**: fire 时既写变量(applyCaptures)又写 execOutputs, 两写独立无序依赖。
+
+## 11. 实测结论 (plan 落地回填, 2026-06-23)
+
+实装见 [plan](../plans/2026-06-23-held-exec-outputs.md)。对着源码核实 + TDD 落地, §10 风险逐条收口:
+
+- ✅ **单跳收编**: 删 `applyExecDataEdges` (2 调用 + 定义) 后, `Fail.Code → data-in` 经缓存端到端通 (`TestExecDataEdge_FailCodeIntoDataPin` 仍绿, 现走缓存)；AI/vision (`internal/services/container` 包 AI capture 系列) 全绿。**额外修补**: `buildDataWireFor` 动态输入分支原缺 `coerceToType` (旧由 applyExecDataEdges 承担), 已补回。
+- ✅ **子图键唯一性**: production node ID = `kind_<6位base36随机>` (`frontend/src/composables/containerEditor/ids.ts`) 容器内全局唯一 → **flat 共享 `map[string]any` 键 `nodeID.field` 无碰撞**, 不做 per-frame 命名空间。端到端 `TestHeldOutput_SubgraphCrossHop` 证切表 (nodesByID/dataEdges swap) 不破缓存。
+- ✅ **缓存生命周期**: `execOutputs` 在 `NewContainerRunner` 初始化 = per-run (实例级)；主图/子图/listener 子流程共用主 runner 一张 (subgraph 切表不切 runner)。
+- ⏸ **per-tick 一致性**: 仍读 live 缓存, 未集成 per-tick snapshot (默认不加, 无场景触发需求)。
+- ✅ **内存 / 写序**: 键数 = 产出字段数 (小)；`applyCaptures` 与 `captureExecOutputs` 两写独立无序。
+- **保留**: `token.ExecData` / `buildExecDataFor` / `RunNode` 的 `execData` 入参未删 —— 那是 `in.X("k")` 原始 key-match 路径, 与数据线桥正交。
+- **附带清理**: 删 `validateExecDataAdjacency` 连带删了因此死掉的 `isExecInPin` / `execInPinsOf` 两个 helper。
+
+全量 `go test ./internal/services/container/...` 仅余预存基线红 (apply_direction/watchdog_check fixture 缺失 + fishing smoke, 见 [build.md](../checklists/build.md))；FE `vue-tsc` 绿、i18n parity 绿 (2109 keys)。
