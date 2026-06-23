@@ -322,7 +322,7 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 			if node, ok := nodeByID[fromID]; ok && fromPin != "" {
 				// 边类型从 (kind, fromPin) 派生: spec.DataOut → data; 否则查 exec-out
 				// (含 Subgraph 动态 exec-out via OutputPins).
-				isDataOut := IsDataOutPin(node.Kind, fromPin)
+				isDataOut := IsDataOutPinNode(node, fromPin)
 				isExecOut := nodeHasExecOutPin(node, fromPin)
 				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
 				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {

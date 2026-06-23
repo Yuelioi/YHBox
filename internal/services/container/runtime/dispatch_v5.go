@@ -105,7 +105,7 @@ func (r *ContainerRunner) applyExecDataEdges(node *container.GraphNode, rn *node
 			return
 		}
 		src := r.nodesByID[srcID]
-		if src == nil || !container.IsExecOutputDataField(src.Kind, srcPin) {
+		if src == nil || !container.IsExecOutputDataFieldNode(src, srcPin) {
 			return
 		}
 		if v, ok := execData[srcPin]; ok {

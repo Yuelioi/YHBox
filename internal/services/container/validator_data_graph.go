@@ -18,10 +18,10 @@ func validateDataGraphAcyclic(c *Container, sgs []Subgraph) []ValidationError {
 		// Build src→[targets] adjacency over data edges only.
 		adj := map[string][]string{}
 		nodes := map[string]bool{}
-		kindByID := map[string]string{}
-		for _, n := range g.Nodes {
-			nodes[n.ID] = true
-			kindByID[n.ID] = n.Kind
+		nodeByID := map[string]*GraphNode{}
+		for i := range g.Nodes {
+			nodes[g.Nodes[i].ID] = true
+			nodeByID[g.Nodes[i].ID] = &g.Nodes[i]
 		}
 		for _, e := range g.Edges {
 			srcID, srcPin := splitRef(e.From)
@@ -29,8 +29,8 @@ func validateDataGraphAcyclic(c *Container, sgs []Subgraph) []ValidationError {
 			if !nodes[srcID] || !nodes[tgtID] {
 				continue // DANGLING_EDGE reported elsewhere
 			}
-			// 派生 data 边: src.kind 在 fromPin 上有 data-out 才算.
-			if !IsDataOutPin(kindByID[srcID], srcPin) {
+			// 派生 data 边: src 在 fromPin 上有 data-out 才算 (config-aware: 含动态输出字段).
+			if !IsDataOutPinNode(nodeByID[srcID], srcPin) {
 				continue
 			}
 			adj[srcID] = append(adj[srcID], tgtID)

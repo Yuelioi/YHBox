@@ -24,21 +24,21 @@ type dataEdgeIndex struct {
 // → data 边; 否则 exec 边. 跟 validator 同源.
 func buildDataEdgeIndex(g container.Graph) *dataEdgeIndex {
 	idx := &dataEdgeIndex{bySrc: map[string]string{}}
-	kindByID := make(map[string]string, len(g.Nodes))
-	for _, n := range g.Nodes {
-		kindByID[n.ID] = n.Kind
+	nodeByID := make(map[string]*container.GraphNode, len(g.Nodes))
+	for i := range g.Nodes {
+		nodeByID[g.Nodes[i].ID] = &g.Nodes[i]
 	}
 	for _, e := range g.Edges {
 		fromID, fromPin, found := strings.Cut(e.From, ".")
 		if !found {
 			continue
 		}
-		kind, ok := kindByID[fromID]
+		n, ok := nodeByID[fromID]
 		if !ok {
 			continue
 		}
-		if !container.IsDataOutPin(kind, fromPin) {
-			continue // not a data-out — exec edge
+		if !container.IsDataOutPinNode(n, fromPin) {
+			continue // not a data-out — exec edge (config-aware: 含动态输出字段)
 		}
 		idx.bySrc[e.To] = e.From
 	}
@@ -76,7 +76,7 @@ func (r *ContainerRunner) pullDataPin(ctx context.Context, nodeID, pinName strin
 		// 失败出口的 Error/Code 等 exec-output data 字段不是 pull 源 —— 值由父 exec 边带下来的
 		// exec-data 提供 (applyExecDataEdges 回填). 这里返 nil 让 caller 走 default, 不进
 		// evalDataSource (那条会因 src 非 pure-data 报错).
-		if n := r.nodesByID[srcID]; n != nil && container.IsExecOutputDataField(n.Kind, srcPin) {
+		if n := r.nodesByID[srcID]; n != nil && container.IsExecOutputDataFieldNode(n, srcPin) {
 			return nil, nil
 		}
 		return r.evalDataSource(ctx, srcID, srcPin)

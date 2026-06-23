@@ -88,3 +88,30 @@ func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
 	}
 	return decls
 }
+
+// ParseDynamicOutputDecls 解析 config.Outputs[] 动态 Data 字段声明 — Spec.DynamicDataFields
+// 节点 (AI) 通用。结构同 Inputs ({Name,Type}); 这些字段挂在 Done 出口, 可绑变量, 也可经
+// exec-data 直连紧邻下游(同 Fail.Code 机制)。nil-safe; 空 Name 跳过。
+func ParseDynamicOutputDecls(n *GraphNode) []ExprInputDecl {
+	if n == nil || n.Config == nil {
+		return nil
+	}
+	raw, ok := n.Config["Outputs"].([]any)
+	if !ok {
+		return nil
+	}
+	var decls []ExprInputDecl
+	for _, it := range raw {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := m["Name"].(string)
+		typ, _ := m["Type"].(string)
+		if name == "" {
+			continue
+		}
+		decls = append(decls, ExprInputDecl{Name: name, Type: typ})
+	}
+	return decls
+}

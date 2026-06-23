@@ -314,6 +314,49 @@ func IsDataOutPin(kind, pin string) bool {
 	return dataOutPinTypeForKind(kind, pin) != ""
 }
 
+// dataOutPinTypeForNode — config-aware 变种: 静态 + DynamicDataFields 节点 config.Outputs[]
+// 动态声明的 Data 字段 (AI 结构化输出)。让 AI.red 这类动态输出字段也算 data-out, 可直连。
+func dataOutPinTypeForNode(n *GraphNode, pinName string) string {
+	if n == nil {
+		return ""
+	}
+	if t := dataOutPinTypeForKind(n.Kind, pinName); t != "" {
+		return t
+	}
+	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+		for _, o := range ParseDynamicOutputDecls(n) {
+			if o.Name == pinName && o.Type != "" {
+				return canonPinType(o.Type)
+			}
+		}
+	}
+	return ""
+}
+
+// IsDataOutPinNode — config-aware IsDataOutPin (含动态输出字段)。
+func IsDataOutPinNode(n *GraphNode, pin string) bool {
+	return dataOutPinTypeForNode(n, pin) != ""
+}
+
+// IsExecOutputDataFieldNode — config-aware IsExecOutputDataField: 静态 + DynamicDataFields
+// 的 config.Outputs[] 字段。值同样沿父 exec 出口边作为 exec-data 下发, applyExecDataEdges 取。
+func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
+	if n == nil {
+		return false
+	}
+	if IsExecOutputDataField(n.Kind, pin) {
+		return true
+	}
+	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+		for _, o := range ParseDynamicOutputDecls(n) {
+			if o.Name == pin {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或引用
 // 闭包内任一子图. WindowTarget 改"按需要求": 只有含窗口类节点 (ClickAt/Detect/Capture/
 // PlayClip...) 才必须有 WindowTarget; 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免.
