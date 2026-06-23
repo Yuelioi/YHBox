@@ -3,16 +3,16 @@ status: active
 last_updated: 2026-05-29
 when_to_read: before writing a commit message / staging files / preparing a PR
 applies_to: [commit, git, staging, message, push, pr]
-portable: true   # §通用 部分项目无关; §项目覆盖 是本仓库专属, 移植时整段替换
+synced: true
 ---
-
 # Commits Playbook
 
 写 commit / 整理提交时**前置**读这份.
 
 依据:
-- Conventional Commits 1.0.0 (<https://www.conventionalcommits.org/>)
-- Chris Beams《How to Write a Git Commit Message》(<https://cbea.ms/git-commit/>)
+
+- Conventional Commits 1.0.0 ([https://www.conventionalcommits.org/](https://www.conventionalcommits.org/))
+- Chris Beams《How to Write a Git Commit Message》([https://cbea.ms/git-commit/](https://cbea.ms/git-commit/))
 
 ---
 
@@ -31,18 +31,18 @@ BREAKING CHANGE: /login 响应去掉 token 字段, 改 accessToken + refreshToke
 
 **type**(必填):
 
-| type | 用于 |
-| --- | --- |
-| `feat` | 新功能 |
-| `fix` | 修 bug |
-| `refactor` | 不改行为的重构 |
-| `perf` | 性能优化 |
-| `docs` | 仅文档 |
-| `test` | 仅测试 |
-| `build` | 构建系统 / 依赖 |
-| `ci` | CI 配置 |
-| `chore` | 杂项 (不进上述任何类) |
-| `revert` | 回滚某 commit |
+| type         | 用于                  |
+| ------------ | --------------------- |
+| `feat`     | 新功能                |
+| `fix`      | 修 bug                |
+| `refactor` | 不改行为的重构        |
+| `perf`     | 性能优化              |
+| `docs`     | 仅文档                |
+| `test`     | 仅测试                |
+| `build`    | 构建系统 / 依赖       |
+| `ci`       | CI 配置               |
+| `chore`    | 杂项 (不进上述任何类) |
+| `revert`   | 回滚某 commit         |
 
 - **scope**(可选): 受影响的模块/包, e.g. `fix(parser):`. 没有明确单一模块就省略.
 - **BREAKING CHANGE**: 破坏性变更在 body 起一段 `BREAKING CHANGE: ...`, 或 type 后加 `!` (`feat!:`).
@@ -70,10 +70,14 @@ BREAKING CHANGE: /login 响应去掉 token 字段, 改 accessToken + refreshToke
 
 不写 `Co-Authored-By: <AI>`, 不写 `🤖 Generated with ...`. 提交前 `git log` 扫一眼历史风格对齐.
 
----
+### 6. 多行 message：认清 shell 再传
 
-## 项目覆盖 (本仓库专属 — 移植到其它项目时整段替换)
+当环境**同时挂 Bash 和 PowerShell 工具**时, 给原生命令(`git commit` 等)传多行串前先认清当前工具是哪个 shell:
 
-1. **直接 commit, 不 push**. 完成一个完整 feature 后**主动 commit**, 边界自己拆 (架构独立→单独 commit; 同 feature 多文件→一起). **绝不 `git push`** —— 只有用户明确说"推"才推. subagent 里可让 implementer commit, 但 reviewer 之后再 commit (撞错好 rollback). 禁 `--no-verify` / `--no-gpg-sign` 等 hook bypass.
-2. **spec / 设计文档统一放 `flightdeck/`** (已 gitignore). **不在 repo 根新建 `docs/`** —— 撤过一次.
-3. **执行任务前先 `git status` 实查一次**. session-start 摘要可能过时. 看到一堆 unstaged 不属于当前任务 → 停下问用户, 不 `git add` 任何"看起来相关"的文件 (踩过坑: 一次 commit 把 5 个 PNG + 一堆 modified 卷了进去).
+- **PowerShell 工具** → here-string `@'...'@`(结束 `'@` 必须顶列零缩进).
+- **Bash 工具** → 真 heredoc(`git commit -F - <<'EOF' … EOF`)或 `-F <file>`; **别用 `@'...'@`** —— bash 没有 here-string, `@` 会当字面量混进 subject(`@ chore: …`).
+- 最稳, 跨 shell 通用: 把信息写进文件, `git commit -F <file>`.
+
+### 7. 暂存前扫 `RM`/`MM`（重命名+内容改动）
+
+`git mv` 重命名文件后再编辑内容，`git status --short` 会显示 `RM`（index 已暂存重命名、工作区内容未暂存）；`R100` = 内容改动**未暂存**（只提交了纯重命名）。**提交前扫一遍 `RM`/`MM` 行，对命中的文件再 `git add <file>` 暂存内容**，直到 `git status --short` 干净（或只剩预期的未跟踪文件）再 commit。
