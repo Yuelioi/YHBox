@@ -273,6 +273,35 @@ func getClientSize(hwnd win.HWND) (int, int) {
 	return int(rect.Right - rect.Left), int(rect.Bottom - rect.Top)
 }
 
+// EnumTopWindows 枚举全部顶层可见窗口, 返完整元数据列表 (MCP list_windows 用).
+// 与 ResolveWindow 同枚举/同跳过语义: 不可见窗口跳过; 进程名 query 失败 (admin/僵尸) 跳过.
+func EnumTopWindows() []WindowHandle {
+	var out []WindowHandle
+	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
+		if !win.IsWindowVisible(hwnd) {
+			return 1 // continue
+		}
+		pid := getWindowPID(hwnd)
+		procName, err := queryProcessName(pid)
+		if err != nil {
+			return 1
+		}
+		cw, ch := getClientSize(hwnd)
+		out = append(out, WindowHandle{
+			HWND:        uintptr(hwnd),
+			Title:       getWindowText(hwnd),
+			Class:       getClassName(hwnd),
+			ProcessName: strings.ToLower(procName),
+			PID:         pid,
+			ClientW:     cw,
+			ClientH:     ch,
+		})
+		return 1 // continue 枚下一个
+	})
+	procEnumWindows.Call(callback, 0)
+	return out
+}
+
 // ClientSize 客户区像素尺寸 (录制等非 capture 路径用, 不依赖 capture 全局后端).
 // GetClientRect 失败或窗口尺寸为 0 时返 error.
 func ClientSize(hwnd win.HWND) (int, int, error) {

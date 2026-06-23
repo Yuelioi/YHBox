@@ -44,6 +44,16 @@ func TestCompileTitle(t *testing.T) {
 	}
 }
 
+func TestEnumTopWindows_ReturnsVisibleWindows(t *testing.T) {
+	got := EnumTopWindows()
+	// 测试进程跑在桌面会话里, 至少应枚到若干窗口 (CI headless 可能为空 → 只断言不 panic + 字段完整性).
+	for _, w := range got {
+		if w.HWND == 0 {
+			t.Fatalf("EnumTopWindows 返回了 HWND==0 的条目: %+v", w)
+		}
+	}
+}
+
 func TestResolveWindow_CtxCancelledReturnsPromptly(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // 立即取消
