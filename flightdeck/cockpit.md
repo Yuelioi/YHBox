@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-18 by 月离 (用户验收「待验证全算过」—— CV 借鉴批整批收尾(三节点 + 颜色签名 Signature 双段结构化输入 + 出口/Data i18n); 教训沉淀 [add-node.md](checklists/add-node.md): 出口/Data 字段 i18n 别漏 · 结构化/变长输入配 Schema 别裸 JSON; 看板已清。**默认不 push**)。
-**Active focus**: **无进行中 spec**。上一批 (CV 低依赖借鉴批: 颜色签名 / 二维码解码 / 模板全部命中 + 颜色签名 Signature 双段输入, 全纯 Go) 已**用户验收收尾**。下一步候选池见 ## 下一步。**默认不 push**。
+**Last updated**: 2026-06-23 by 月离 (AI 功能 epic ① 本地 AI 配置落地 —— llm 包(OpenAI/Anthropic 双官方 SDK + Provider 接口 + 连接池)+ AIService 测连接 RPC + SettingsAI 设置 tab; 8 commits @ feat/v2-foundation; 核心 DeepSeek 测连接真机已过, spec/plan 归档。**默认不 push**)。
+**Active focus**: **AI 功能 epic** —— ① 本地 AI 配置已落(实现 + 核心真机验)。下一步 ② AI 节点(图里调 LLM, 复用 llm.Provider + 加 vision)。**默认不 push**。
 
 ## 进行中
 
@@ -11,7 +11,8 @@
 
 ## 下一步
 
-- 无进行中 spec。候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); **cv-perception 池剩余** (ONNX/YOLO/OCR/blob 等大依赖路线, 本批只挑了低依赖三件, [cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
+- **AI 功能 epic 续做**(① 已落): **② AI 节点**(图里调 LLM —— 节点选 connectionID+model、动态带类型 IO、structured output、**vision 图像输入**、Provider 缓存+失效+池调优); **③ MCP 对外暴露**(已有 `cmd/yotta-mcp` spike, 缺执行容器/节点工具)。②/③ 衔接细节见 [archive spec §9](archive/specs/2026-06-23-local-ai-config.md)。
+- 其它候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
 
@@ -19,7 +20,7 @@
 
 ## 待验证
 
-- 无。(2026-06-18 用户拍板「待验证全算过」: CV 借鉴批三节点真机 smoke · 颜色签名 Signature 双段输入 · 三节点出口/Data i18n · ClickTemplate 验证重试 —— 全部标记已过; 后续真机若冒小问题单独开 task。归档计划 verify 字段已标 verified。)
+- **AI 配置 ① 余项真机 smoke**(核心 DeepSeek 测连接用户已实测过): Anthropic 原生连接 / 本地 Ollama / UI 删默认清空 / 重启持久化 —— 均有单测背书, 待用户顺手点。源在归档 plan 的 verify 字段(preflight `--verify-pending` 自动提示)。
 
 ## Hanging tasks
 
@@ -28,4 +29,5 @@
 ## 关键上下文
 
 - **知识在哪**: 常驻技术知识/系统架构 → [docs/](docs/INDEX.md); 加节点/写代码/UI 的规范与收尾清单 → [checklists/](checklists/INDEX.md)(按 when_to_read 路由); 反复踩的坑 → [incidents/](incidents/INDEX.md); 历史设计/执行记录 → `archive/specs|plans/` 按日期。
+- **AI 功能 epic 进度**: ① 本地 AI 配置已落(`internal/services/llm` Provider+双官方 SDK adapter+连接池; `Settings.AI` 连接; `AIService.TestConnection`; SettingsAI tab)。②/③ 衔接(model 选择、vision、Provider 缓存/失效、删连接节点引用检查)记在 [archive/specs/2026-06-23-local-ai-config.md](archive/specs/2026-06-23-local-ai-config.md) §9。
 - **已知预存失败(非回归, 跑测试/检查时按此判红)**: runtime 缺 fish fixture([build.md](checklists/build.md)); i18n residue **42**(misc-tools-backlog 未翻译 UI: SettingsLauncher/FloatingLauncherView/HudShell/IconPicker + 1 处 console.log; 另 11 处 editorTheme.ts 查找面板中文 = 有意 zh 映射, 别翻); `pnpm lint` 预存 **18** 错(oxlint 1.64 新规则, 已实证全在 HEAD)。
