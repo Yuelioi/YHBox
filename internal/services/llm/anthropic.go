@@ -62,6 +62,7 @@ func (p *anthropicProvider) Chat(ctx context.Context, req ChatRequest) (ChatResp
 }
 
 func (p *anthropicProvider) ChatStructured(ctx context.Context, req ChatRequest, schema JSONSchema, mode string) (ChatResponse, map[string]any, error) {
+	// Anthropic tool-use 总可用, auto 即 native。
 	if mode == ModePrompt {
 		return structuredViaPrompt(ctx, p.Chat, req, schema)
 	}

@@ -63,7 +63,8 @@ func (AI) Spec() node.Spec {
 				{Name: outText, Type: "String", Optional: true},
 			}},
 		},
-		DynamicInputs: true,
+		DynamicInputs:     true,
+		DynamicDataFields: true,
 	}
 }
 
@@ -94,16 +95,40 @@ func (AI) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Content: user})
 
-	resp, err := provider.Chat(ctx.Context(), llm.ChatRequest{
+	req := llm.ChatRequest{
 		Model:       in.String(inModel),
 		Messages:    msgs,
 		Temperature: in.Float64(inTemperature),
 		MaxTokens:   in.Int(inMaxTokens),
-	})
-	if err != nil {
-		return fireFail(ctx, err, ""), nil
 	}
-	return ctx.Out(pinDone).Set(outText, resp.Text).Fire(), nil
+
+	decls := parseOutputDecls(in)
+	if len(decls) == 0 {
+		resp, err := provider.Chat(ctx.Context(), req)
+		if err != nil {
+			return fireFail(ctx, err, ""), nil
+		}
+		return ctx.Out(pinDone).Set(outText, resp.Text).Fire(), nil
+	}
+
+	// 结构化: 声明了输出字段 → 要模型出 JSON, 逐字段 coerce 后 Set。
+	resp, fields, err := provider.ChatStructured(ctx.Context(), req, buildSchema(decls), in.String(inMode))
+	if err != nil {
+		return fireFail(ctx, err, resp.Text), nil // 原文带进 Fail.Text 供下游
+	}
+	out := ctx.Out(pinDone).Set(outText, resp.Text)
+	for _, d := range decls {
+		raw, ok := fields[d.Name]
+		if !ok {
+			continue // 模型没返该字段 → 稀疏不 Set(变量留旧值)
+		}
+		val, cerr := coerceOutput(raw, d.Type)
+		if cerr != nil {
+			return fireFail(ctx, &llm.CodedError{Kind: llm.KindBadRequest, Err: cerr}, resp.Text), nil
+		}
+		out = out.Set(d.Name, val)
+	}
+	return out.Fire(), nil
 }
 
 // fireFail 显式 fire Fail 出口, 带 Error/Code(=llm.ErrKind)/可选原文 Text。

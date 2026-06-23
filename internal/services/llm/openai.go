@@ -11,8 +11,9 @@ import (
 )
 
 type openaiProvider struct {
-	client openai.Client
-	hc     *http.Client
+	client   openai.Client
+	hc       *http.Client
+	official bool // 官方端点(api.openai.com / 空 BaseURL): auto 模式走 native json_schema
 }
 
 func newOpenAIProvider(c ConnectionConfig) Provider {
@@ -24,7 +25,7 @@ func newOpenAIProvider(c ConnectionConfig) Provider {
 	if c.BaseURL != "" {
 		opts = append(opts, option.WithBaseURL(c.BaseURL))
 	}
-	return &openaiProvider{client: openai.NewClient(opts...), hc: hc}
+	return &openaiProvider{client: openai.NewClient(opts...), hc: hc, official: isOfficialEndpoint(c.Protocol, c.BaseURL)}
 }
 
 // CloseIdleConnections 释放该 Provider 连接池的空闲连接。缓存重建旧 Provider 时调,防泄漏。
@@ -52,6 +53,12 @@ func (p *openaiProvider) Chat(ctx context.Context, req ChatRequest) (ChatRespons
 }
 
 func (p *openaiProvider) ChatStructured(ctx context.Context, req ChatRequest, schema JSONSchema, mode string) (ChatResponse, map[string]any, error) {
+	if mode == ModeAuto {
+		mode = ModePrompt
+		if p.official {
+			mode = ModeNative
+		}
+	}
 	if mode == ModePrompt {
 		return structuredViaPrompt(ctx, p.Chat, req, schema)
 	}

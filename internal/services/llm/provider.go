@@ -30,8 +30,9 @@ type ChatResponse struct {
 	Text string
 }
 
-// 结构化输出模式。AI 节点把 "auto" 按端点解析成下面之一再调 ChatStructured。
+// 结构化输出模式。"auto" 由 adapter 按端点解析(它持 BaseURL/协议), 节点不必知端点。
 const (
+	ModeAuto   = "auto"   // adapter 自决: Anthropic→native; OpenAI 官方→native, 兼容→prompt
 	ModeNative = "native" // OpenAI json_schema / Anthropic 强制 tool-use
 	ModePrompt = "prompt" // schema 描述注入 + 容错解析(兼容端点保底)
 )
