@@ -30,6 +30,16 @@ import (
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
 
+// TestSpecConsistency_DynamicFlagsMutuallyExclusive — DynamicOutputs(出口名动态)与
+// DynamicDataFields(Data 字段集由 config 声明)语义正交, 不许同一 kind 并开。
+func TestSpecConsistency_DynamicFlagsMutuallyExclusive(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		if rn.Spec.DynamicOutputs && rn.Spec.DynamicDataFields {
+			t.Errorf("kind %q 同开 DynamicOutputs + DynamicDataFields(互斥)", rn.Spec.Kind)
+		}
+	}
+}
+
 func TestSpecConsistency_DataPinNamingConvention(t *testing.T) {
 	for _, rn := range nodepkg.All() {
 		spec := rn.Spec

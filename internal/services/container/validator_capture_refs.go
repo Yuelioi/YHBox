@@ -32,7 +32,7 @@ func validateCaptureRefs(c *Container, sgs []Subgraph) []ValidationError {
 			// 该 kind 的可绑字段集 (节点未注册 → 跳过字段校验, 仅做 var-ref 校验)。
 			bindable := map[string]bool{}
 			if rn, ok := nodepkg.Get(n.Kind); ok {
-				for _, f := range nodepkg.BindableFields(&rn.Spec) {
+				for _, f := range nodepkg.BindableFieldsForNode(&rn.Spec, n.Config) {
 					bindable[f] = true
 				}
 			}

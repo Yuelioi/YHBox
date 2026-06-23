@@ -40,6 +40,10 @@ type Spec struct {
 	// (Expr / Script). dispatch / validator / FE 按此标志走 ParseDynamicInputDecls
 	// 解析声明列表; Inputs 仍可列固定静态 pin (Expr 的 Expression).
 	DynamicInputs bool `json:"dynamicInputs,omitempty"`
+	// DynamicDataFields — exec 出口携带的 Data 字段集由 config.Outputs[] 声明 (AI 节点结构化输出)。
+	// 区别于 DynamicOutputs (出口名动态); 两者正交、不在同一节点并用 (spec consistency 守卫)。
+	// BindableFieldsForNode 把 config.Outputs[] 各 Name 并入可绑字段。
+	DynamicDataFields bool `json:"dynamicDataFields,omitempty"`
 }
 
 type InputSpec struct {
@@ -89,6 +93,33 @@ func BindableFields(spec *Spec) []string {
 		}
 	}
 	return out
+}
+
+// BindableFieldsForNode = 静态 BindableFields(spec) ∪ (DynamicDataFields 时) config.Outputs[] 各 Name (去重)。
+// 让 config 声明的动态输出 Data 字段也可被捕获绑定; FE 输出组 / capture 校验共用此派生。
+func BindableFieldsForNode(spec *Spec, config map[string]any) []string {
+	fields := BindableFields(spec)
+	if spec == nil || !spec.DynamicDataFields {
+		return fields
+	}
+	seen := map[string]bool{}
+	for _, f := range fields {
+		seen[f] = true
+	}
+	raw, _ := config["Outputs"].([]any)
+	for _, it := range raw {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := m["Name"].(string)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		fields = append(fields, name)
+	}
+	return fields
 }
 
 // EnumOption — dropdown 选项.
