@@ -39,15 +39,20 @@ function buildRows(): OutputRow[] {
 const rows = ref<OutputRow[]>(buildRows())
 
 // rows → config.Outputs 即时同步。空/非法/保留名的行不写进 config(镜像后端跳过)。
+// 删/改字段时, 把"曾声明、现已删"的输出字段的残留捕获绑定一并清掉(防悬空 INVALID_PIN)。
 watch(
   rows,
   () => {
-    emit('update', {
-      ...props.node.config,
-      Outputs: rows.value
-        .filter((r) => NAME_RE.test(r.name) && !RESERVED.has(r.name))
-        .map((r) => ({ Name: r.name, Type: r.type })),
-    })
+    const outputs = rows.value
+      .filter((r) => NAME_RE.test(r.name) && !RESERVED.has(r.name))
+      .map((r) => ({ Name: r.name, Type: r.type }))
+    const newNames = new Set(outputs.map((o) => o.Name))
+    const prevOutputs = (props.node.config?.Outputs as Array<{ Name?: string }> | undefined) ?? []
+    const cap = { ...((props.node.config?.capture as Record<string, unknown> | undefined) ?? {}) }
+    for (const o of prevOutputs) {
+      if (o.Name && !newNames.has(o.Name) && o.Name in cap) delete cap[o.Name]
+    }
+    emit('update', { ...props.node.config, Outputs: outputs, capture: cap })
   },
   { deep: true },
 )

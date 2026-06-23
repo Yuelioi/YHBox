@@ -575,6 +575,7 @@ export default {
     output: {
       bind: '绑定变量',
       unbind_tooltip: '解除绑定',
+      dangling_hint: '字段已不存在(声明被删/改)— 残留绑定, 解绑清除报错',
       stale_hint: '该变量仅在此出口触发时更新, 未触发保留上次值。',
       found_hint: '是否命中 (true/false) — 每次执行都会更新。',
       field: {

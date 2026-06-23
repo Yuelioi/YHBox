@@ -611,6 +611,24 @@
       </div>
     </div>
 
+    <!-- 悬空捕获绑定 (字段已不在可绑集 — 声明被删/改后残留): 标红 + 可解绑, 清除后端 INVALID_PIN。 -->
+    <div v-if="danglingCaptures.length" class="space-y-1.5 mb-4">
+      <div v-for="field in danglingCaptures" :key="'dangling-' + field" class="flex items-center gap-2 text-[11px]">
+        <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-error shrink-0" />
+        <span class="text-error font-mono">{{ field }}</span>
+        <span class="text-[10px] text-dimmed">{{ t('inspector.output.dangling_hint') }}</span>
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="error"
+          icon="i-tabler-x"
+          class="ml-auto"
+          :title="t('inspector.output.unbind_tooltip')"
+          @click="clearCapture(field)"
+        />
+      </div>
+    </div>
+
     <!-- exec 出口 (只读参考) + 纯数据节点 data 输出 (只读, 不可绑 — 存值用 SetVar)。 -->
     <div v-if="outPins.exec.length || readonlyData.length" class="space-y-1.5">
       <div
@@ -992,6 +1010,14 @@ const outPins = computed(() => {
 const bindable = computed(() =>
   props.node ? bindableFields(props.node.kind, props.node.config) : [],
 )
+// 悬空捕获绑定: config.capture 里的字段已不在可绑集(声明被删/改后残留, 如 AI 输出口删了字段)。
+// 显出来让用户解绑, 否则后端 INVALID_PIN「不存在 pin X」无从清。
+const danglingCaptures = computed<string[]>(() => {
+  const cap = props.node?.config?.capture as Record<string, unknown> | undefined
+  if (!cap) return []
+  const ok = new Set(bindable.value)
+  return Object.keys(cap).filter((f) => typeof cap[f] === 'string' && cap[f] !== '' && !ok.has(f))
+})
 // 正在绑/改的字段 (未绑时点「+绑定」加入 → 展开 VarNameInput)。切节点清空 (避免上个节点的编辑态串台)。
 const editing = ref(new Set<string>())
 watch(() => props.node?.id, () => editing.value.clear())

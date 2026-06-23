@@ -559,6 +559,7 @@
     output: {
       bind: 'Bind variable',
       unbind_tooltip: 'Unbind',
+      dangling_hint: 'Field no longer exists (declaration removed/changed) — stale binding; unbind to clear the error',
       stale_hint: 'This variable updates only when this exit fires; otherwise it keeps its previous value.',
       found_hint: 'Whether it matched (true/false) — updated every run.',
       field: {
