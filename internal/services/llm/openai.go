@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -10,18 +11,23 @@ import (
 
 type openaiProvider struct {
 	client openai.Client
+	hc     *http.Client
 }
 
 func newOpenAIProvider(c ConnectionConfig) Provider {
+	hc := tunedHTTPClient()
 	opts := []option.RequestOption{
-		option.WithHTTPClient(tunedHTTPClient()),
+		option.WithHTTPClient(hc),
 		option.WithAPIKey(apiKeyOrPlaceholder(c.APIKey)),
 	}
 	if c.BaseURL != "" {
 		opts = append(opts, option.WithBaseURL(c.BaseURL))
 	}
-	return &openaiProvider{client: openai.NewClient(opts...)}
+	return &openaiProvider{client: openai.NewClient(opts...), hc: hc}
 }
+
+// CloseIdleConnections 释放该 Provider 连接池的空闲连接。缓存重建旧 Provider 时调,防泄漏。
+func (p *openaiProvider) CloseIdleConnections() { p.hc.CloseIdleConnections() }
 
 func (p *openaiProvider) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	params := openai.ChatCompletionNewParams{

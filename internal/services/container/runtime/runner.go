@@ -151,6 +151,12 @@ func (r *ContainerRunner) SetLogger(log zerolog.Logger) {
 	r.bundle.Log = NewLogAdapter(log)
 }
 
+// SetAIProvider 注入 AI 节点用的按连接缓存 Provider 服务(进程级单例, 从 settings 解析)。
+// main.go runFunc 在 NewContainerRunner 后调一次; 不注入则 ctx.AI() 为 nil(无 AI 节点的图不受影响)。
+func (r *ContainerRunner) SetAIProvider(p node.AIProviderService) {
+	r.bundle.AI = p
+}
+
 // Bundle 返当前 ContainerRunner 持有的 ServiceBundle (dispatch 用).
 func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 

@@ -110,6 +110,13 @@ func main() {
 
 	settingsSvc := services.NewSettingsService(app)
 
+	// AI 节点用的按连接缓存 Provider 服务(进程级单例)。getter 每次读 live settings 快照,
+	// 改连接 endpoint/key 后指纹自愈重建。注入进每个 ContainerRunner。
+	aiProviderCache := services.NewAIProviderCache(func() *services.Settings {
+		s := settingsSvc.Get()
+		return &s
+	})
+
 	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
 	dataDir := "data"
 	if exe, err := os.Executable(); err == nil {
@@ -277,6 +284,7 @@ func main() {
 		r := containerruntime.NewContainerRunner(rt)
 		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
 		r.SetLogger(rootLog)
+		r.SetAIProvider(aiProviderCache)
 		return r.Run(ctx)
 	}
 	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {

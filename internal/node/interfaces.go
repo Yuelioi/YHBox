@@ -5,6 +5,8 @@ package node
 import (
 	"context"
 	"time"
+
+	"yotta/internal/services/llm"
 )
 
 // Node — minimal contract. 只描述 "我是什么", 不描述 "我怎么跑".
@@ -107,6 +109,7 @@ type Ctx interface {
 	Stopwatches() StopwatchStore
 	Clip() ClipPlayer
 	Subgraphs() SubgraphCaller
+	AI() AIProviderService
 }
 
 // OutBuilder — fluent builder.
@@ -351,7 +354,14 @@ type ServiceBundle struct {
 	Stopwatches StopwatchStore
 	Clip        ClipPlayer     // PlayClip 用, runtime 端 wire
 	Subgraphs   SubgraphCaller // 脚本调子图用, runtime 端 wire (ContainerRunner 自身)
+	AI          AIProviderService // AI 节点取按连接缓存的 llm.Provider, runtime 端从 settings wire
 	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
+}
+
+// AIProviderService — AI 节点按 connectionID(空 = ai.default)取一个缓存的 llm.Provider。
+// 实现持 settings getter, 取用时按连接指纹自愈; runtime 端注入。
+type AIProviderService interface {
+	Provider(connectionID string) (llm.Provider, error)
 }
 
 type ValidationError struct {

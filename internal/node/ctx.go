@@ -58,6 +58,7 @@ func (c *ctxImpl) Capture() CaptureService      { return c.services.Capture }
 func (c *ctxImpl) Stopwatches() StopwatchStore  { return c.services.Stopwatches }
 func (c *ctxImpl) Clip() ClipPlayer             { return c.services.Clip }
 func (c *ctxImpl) Subgraphs() SubgraphCaller    { return c.services.Subgraphs }
+func (c *ctxImpl) AI() AIProviderService        { return c.services.AI }
 
 func (c *ctxImpl) Out(exitName string) OutBuilder {
 	validateExitName(c.spec, exitName)

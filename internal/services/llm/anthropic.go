@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -13,18 +14,23 @@ const anthropicDefaultMaxTokens = 1024
 
 type anthropicProvider struct {
 	client anthropic.Client
+	hc     *http.Client
 }
 
 func newAnthropicProvider(c ConnectionConfig) Provider {
+	hc := tunedHTTPClient()
 	opts := []option.RequestOption{
-		option.WithHTTPClient(tunedHTTPClient()),
+		option.WithHTTPClient(hc),
 		option.WithAPIKey(apiKeyOrPlaceholder(c.APIKey)),
 	}
 	if c.BaseURL != "" {
 		opts = append(opts, option.WithBaseURL(c.BaseURL))
 	}
-	return &anthropicProvider{client: anthropic.NewClient(opts...)}
+	return &anthropicProvider{client: anthropic.NewClient(opts...), hc: hc}
 }
+
+// CloseIdleConnections 释放该 Provider 连接池的空闲连接。缓存重建旧 Provider 时调,防泄漏。
+func (p *anthropicProvider) CloseIdleConnections() { p.hc.CloseIdleConnections() }
 
 func (p *anthropicProvider) Chat(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	maxTok := int64(req.MaxTokens)
