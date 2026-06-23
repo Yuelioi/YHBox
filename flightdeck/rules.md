@@ -1,29 +1,21 @@
 ---
 version: 3.0
-disabled_folders: ["archive"]    # the one structured toggle: listed folders never suggested / not flagged as orphans
+runtime: uv
+agents_md: off
 ---
 
 ## House rules
 
-<!-- Deck-local flightdeck conventions + behavioral overrides. rules.md is mandatory — do not delete it.
-     Defaults (override below): commit confirm-gated (asks Y/n); preflight/walkaround/emit-agents-md/status
-     self-invoke; LANDING is manual (it archives + commits — opt in to auto); status auto-starts (idea→active)
-     but does NOT auto-archive on done; git & emit inferred from .git / AGENTS.md presence; bundled scripts off.
-     So out of the box nothing archives or commits without you. Tune everything via ### Autonomy overrides below.
-     General project conventions belong in CLAUDE.md/AGENTS.md, not here. -->
-
 ### Project conventions
 
-### Autonomy overrides
-<!-- Omit a line = keep the default. To change a behavior, UNCOMMENT its phrase (one per line). -->
+<!-- Deck-local flightdeck conventions only (e.g. "specs written in Chinese").
+     General project conventions — code style, commit/push policy, 中文交流 — live in
+     ../CLAUDE.md and outrank deck rules (authority: agent instruction file > ### Rules > defaults). -->
 
-<!-- ── make me MORE autonomous (enabled) ── -->
+- specs / 知识文件正文用中文；canonical 字段标签与节标题用英文（cockpit / rules / INDEX 结构）。
 
-landing: self-invoke
-status: auto land
-commit without asking
-run scripts with uv
+### Rules
 
-<!-- ── make me LESS autonomous (disabled) ── -->
+<!-- Behavior rules the AI maintains from natural-language requests (free prose, source + date). -->
 
-<!-- ── environment (auto detect) ── -->
+- landing 自调用、status 标 done 后自动归档（沿用原 autonomy override 行为；you, 2026-06-23）。

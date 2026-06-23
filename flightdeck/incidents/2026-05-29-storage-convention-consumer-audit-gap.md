@@ -1,6 +1,4 @@
 ---
-name: storage-convention-consumer-audit-gap
-description: 改"存储约定/config schema/pin 值读法"前必须 exhaustive grep 全部消费者 (validator/rewriter/listener/scanner/recording 等不在明显路径上的读取点), 否则 scope 翻倍。外部 reviewer 结构上无法 catch 漏掉的消费者 — 只能 vet spec 内部一致性, 不会 grep codebase
 when_to_read: 写"统一存储约定 / 改 config schema / 改 pin 值读写法"类 spec 前; impl 第一步就撞"还有一堆地方在直接读这个 key"; 评估改 config key 的真实影响面
 applies_to: [spec-design, storage-convention, config-schema, consumer-audit, validator, codebase-wide-grep]
 last_updated: 2026-06-10

@@ -1,6 +1,4 @@
 ---
-name: snippet-drawer-debug-discipline
-description: 撞 bug 别假设 + 改 + 看用户验. 加 console.log 把 setup props 打出来 比改 3 轮代码再 reload 快得多. 这次违反 CLAUDE.md 头号铁律 — 在脑补上反复 fix
 when_to_read: 撞 frontend bug 反复 fix 不好 / 想 reload 第 N 次让用户试 / 改了又改还在猜 root cause
 applies_to: [debug-discipline, frontend, vue, methodology]
 last_updated: 2026-05-26

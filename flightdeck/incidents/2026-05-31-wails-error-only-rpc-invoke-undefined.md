@@ -1,6 +1,4 @@
 ---
-name: wails-error-only-rpc-invoke-undefined
-description: wails3 只返 error 的 Go 方法, 经 FE invoke() 包装后成功与失败都返 undefined — 调用方无法判断是否成功。带前置条件 / 后续要 await 事件的 RPC 必须返 (bool, error) 让成功可辨, 否则失败时 await 永久挂起。
 when_to_read: 加一个"开窗 / 跑前置检查"类 wails RPC 且 FE 之后要 awaitWailsEvent 拿结果; 或撞 "RPC 失败了但前端没察觉, await 一直不返回"
 applies_to: [wails, bindings, frontend, rpc, invoke, calibration]
 last_updated: 2026-05-31

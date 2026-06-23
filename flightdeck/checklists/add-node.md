@@ -4,7 +4,6 @@ last_updated: 2026-06-18
 when_to_read: 新增 / 改一个节点 kind 前 (backend Spec → 前端渲染 → 面板 → i18n 全链路)
 applies_to: [node, add-node, nodepkg, spec, palette, i18n, registry, frontend, backend]
 when_to_update: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注册 / palette 面板 / 前端渲染映射 / i18n 注入流程) 时
-portable: false
 ---
 
 # 加一个节点 kind — 全链路 Checklist

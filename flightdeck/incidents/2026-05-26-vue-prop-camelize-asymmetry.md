@@ -1,6 +1,4 @@
 ---
-name: vue-prop-camelize-asymmetry
-description: Vue prop 名禁连续大写 (ID/URL/HTML/API 等缩写) — kebab-case ↔ camelCase 转换不对称会让 template 写的 attr 永远拿不到 prop 值, 静默 undefined
 when_to_read: 写 Vue 组件 prop / template 传 prop 用 :attr-name= / 撞 prop 在子组件永远 undefined 但 parent 明明传了
 applies_to: [frontend, vue, props, naming]
 last_updated: 2026-05-26

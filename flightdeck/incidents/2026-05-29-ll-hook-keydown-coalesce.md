@@ -1,6 +1,4 @@
 ---
-name: ll-hook-keydown-coalesce
-description: Win32 LL keyboard hook 的停录热键 callback 没去抖 → keydown auto-repeat 触发多次 callback → 多个停录 goroutine → 第一条赢的 emit success, 后面输的 emit "recorder not active" 覆盖 toast
 when_to_read: 写 LL keyboard / mouse hook 接全局热键; callback 里跑业务逻辑而不只是消费事件; 停录 / 全局快捷键看到"第一次成功但 toast 是 error"
 applies_to: [recording, llhook, win32, hotkey, race-condition, atomic-coalesce]
 last_updated: 2026-05-29

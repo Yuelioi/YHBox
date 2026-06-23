@@ -1,6 +1,4 @@
 ---
-name: slate-click-up-coords-and-hold-lifecycle
-description: UE Slate 下点击「点不到/点歪」三处根因 + 修法 (1. SendInput 把客户区 ratio 当全屏 ratio→点歪; 2. PostMessageBackend.MouseUp 在 (0,0) 松键→Slate 当控件外松手不触发; 3. 拆分按下缺 ClickButton 的 hover→settle→DOWN 落不到控件). 附三处「现在没事但以后可能咬人」的留尾: ClickAt 拆回 Click 反转了 #4 的可取消拆分 (长按不再可中途取消); MouseDown 的 hover-settle 没隔离验证且会动真光标; hold 类操作图必须保活否则 teardown 的 ReleaseAll 把按住塌成单击
 when_to_read: 改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMessageBackend.Mouse* / sendinput 坐标); UE 里点击点歪或点不到或「按住变单击」; 给 ClickAt 加可取消长按; review MouseDown/MouseUp 落点坐标或 hover 时序; 排查「held 按键莫名被松」类问题
 applies_to: [input, postmessage, sendinput, slate, click, mouse-hold, clickbutton, coordinate-transform, release-all, hold-lifecycle, graph-lifecycle, verification-gap]
 last_updated: 2026-06-08

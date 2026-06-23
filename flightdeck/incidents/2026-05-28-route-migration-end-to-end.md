@@ -1,6 +1,4 @@
 ---
-name: route-migration-end-to-end
-description: 改 vue router 路径 (e.g. /container-editor?id= → /containers/:id/edit) 时, 必须同步追"路径写入方" (sidebar/list/backend window adapter) 和"路径读取方" (view 内部 route.params/query) 两端. 只改 router 配置 = build 绿但运行 404 / 死循环 / 加载中. Plan 时如果只列"改 router", 实施 subagent 不会自动追这条链.
 when_to_read: 改任何 vue route 命名 / 路径模板 / params↔query 形态 / hash router URL / wails frameless 子窗 URL / 写 plan 涉及 router 迁移时
 applies_to: [frontend, router, vue-router, wails, plan-design, subagent-dispatch]
 last_updated: 2026-05-28

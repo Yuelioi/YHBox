@@ -1,6 +1,4 @@
 ---
-name: pin-presence-check-must-mirror-pinvalue
-description: 任何静态检查"某 pin 有没有值"必须镜像 PinValue 的两级回退(config.literal[name] → 顶层 config[name]);只查 config.literal 会对把值存在顶层 config 的真实容器(如 fishing-v2 的 Subgraph.SubgraphID)误报
 when_to_read: 写/改任何读或判定节点 pin 值的容器侧逻辑(validator / 扫描器 / 迁移 / 导出);加"必填缺失/未设值"类静态校验;撞"validator 报某 pin 没值但 runtime 明明能跑"
 applies_to: [container, validator, pin-value, config-literal, node-framework, false-positive]
 last_updated: 2026-06-02

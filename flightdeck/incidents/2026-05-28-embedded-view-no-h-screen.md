@@ -1,6 +1,4 @@
 ---
-name: embedded-view-no-h-screen
-description: 把一个原本独立窗 (own webview) 的 vue view 改嵌入主壳 (main 区) 时, 顶层 `h-screen` 必须改 `h-full overflow-hidden min-h-0`. 否则 view 100vh 超过 main 区实际可用高度 (vh - title - statusbar - logpanel) 触发主壳 main `overflow-auto` 出滚动条, view 内部 minimap / fixed-position 元素也被滚动条 gutter 切.
 when_to_read: 改 view 从 standalone window 改嵌入主 router-view / 看到内嵌 view 出现奇怪纵向滚动条 / fixed bottom-right 元素 (如 MiniMap) 显不全 / 调 flex 父子高度链
 applies_to: [frontend, vue, tailwind, layout, h-screen, flex, vue-flow]
 last_updated: 2026-05-28

@@ -1,6 +1,4 @@
 ---
-name: recording-schema-cascade
-description: 录制流程一连串 schema drift bug (4 层) 的连锁根因 — 节点框架 PascalCase 化迁移没扫到全部 callsite, FE writer / fixture / runtime / validator 各走各 schema, 错误信息只暴露最近一层
 when_to_read: 改节点 Spec 字段名 / pin 名前; 撞 INVALID_PIN / REQUIRED_FIELD_MISSING 撞得莫名其妙; 录制录像跑通但保存/运行炸; 任何 frontend/backend schema mismatch 类问题
 applies_to: [recording, container, validator, node-framework, schema-migration, two-go-rule]
 last_updated: 2026-05-29

@@ -1,6 +1,4 @@
 ---
-name: framework-extension-dispatch-context
-description: when framework behavior varies by dispatch context (e.g. PureData Evaluator sees frozen state, Runnable sees live state), prefer adapter-layer wrap at dispatch entry over Ctx interface widening
 when_to_read: 设计 framework / DI 容器扩展 / 节点 Ctx 加新方法前 / "这种节点该看到不同的 X" 类需求
 applies_to: [framework-design, node-system, ctx-interface, ServiceBundle, dependency-injection]
 when_to_update: 改 Ctx 接口 / ServiceBundle 组成 / DI 容器装配 / 给节点 Ctx 加新方法 / 改 dispatch 入口适配层时

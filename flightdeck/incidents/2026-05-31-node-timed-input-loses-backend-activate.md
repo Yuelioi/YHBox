@@ -1,6 +1,4 @@
 ---
-name: node-timed-input-loses-backend-activate
-description: 把带时长的 backend input (KeyPress=Tap / ClickAt=Click) 拆成节点层 down→ctx-sleep→up 时, 会顺手丢掉 backend 这些函数自带的 per-call FakeActivate + activateDelay → 失焦/后台窗口的「首次」cast 被异环 Slate IMC 丢弃 (IsActive 还 false). 修法: 激活+settle 下沉到 ensureActivated (once per hwnd), 别只盯 down/up 行为对齐就以为等价
 when_to_read: 把 backend 带时长输入操作拆成节点层 down/up / 改 PostMessage 激活逻辑 / 失焦窗口「第一次」按键或点击在游戏里没生效 / review 输入节点 ctx 化改动是否丢了激活时序
 applies_to: [input, postmessage, fakeactivate, slate, node-refactor, ctx-cancellation, verification-gap]
 last_updated: 2026-05-31

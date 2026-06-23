@@ -1,6 +1,4 @@
 ---
-name: wails-dev-fetch-transport-flattens-error
-description: wails dev-mode fetch transport (@wailsio/runtime runtime.js:103) 抛错时 `throw new Error(await response.text())` —— 把整个 {message,cause,kind} 信封塞进 Error.message 字符串, 没拆成 .cause 属性。假设 FE 能读 e.cause.Errors 的方案在 dev 下全崩, toast 糊整坨 JSON。
 when_to_read: 设计"FE 读 wails RPC 抛错的结构化字段 (cause / errors / code)"类方案前; 或撞 toast / 错误显示糊出整坨 wails JSON 信封 (`{"message":...,"cause":...,"kind":"RuntimeError"}`)
 applies_to: [wails, bindings, frontend, rpc, invoke, error-handling, transport, i18n]
 last_updated: 2026-06-02

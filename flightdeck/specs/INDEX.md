@@ -8,5 +8,6 @@
 - [misc-tools-backlog.md](misc-tools-backlog.md) — idea — 杂项小工具 backlog — i18n residue 清理 (悬浮窗工具→转正 floating-launcher; 截图 UI 美化已做; 从 scratch-backlog 抢救保留)
 
 ### Active · Done
+- [2026-06-23-held-exec-outputs.md](2026-06-23-held-exec-outputs.md) — active — 框架数据流改进(UE 式 held output): exec 节点 fire 时自动把出口 Data 字段存进本次运行的输出缓存(nodeID.field→值), 下游数据线可从任意距离直连读取, 免 GetVar、免紧邻约束。pullDataPin 对 exec 出口字段改读缓存; 缓存在 applyCaptures 旁填; 收编单跳 exec-data + 移除 EXEC_DATA_NOT_ADJACENT 警告; capture+GetVar 保留(命名/跨域)。触发自 AI 结构化输出 red/white 多消费的繁琐。
 - [2026-06-23-ai-nodes.md](2026-06-23-ai-nodes.md) — active — AI 功能 epic 第②块: 图里调 LLM。新 AI 节点(选 connection+model、提示词模板 {{Name}} 插值 + 任意个带类型动态输入、任意个带类型结构化输出逐字段可捕获、vision 图像输入);llm 包扩结构化输出(OpenAI json_schema / Anthropic 强制 tool-use / 提示词注入三模式)+ 多模态图像;Provider 按 connectionID 指纹缓存自愈 + 池调优;新框架机制 config.Outputs[] 驱动动态 Data 字段(DynamicDataFields,镜像 DynamicInputs);Image 成一等流动值(node.Image{Format,Data} 编码字节,Capture 可选 PNG/JPEG)+ Screenshot 拆 Capture/SaveImage/LoadImage 三个图像节点。一个 spec 分阶段 plan 落地。
 <!-- /AUTO -->

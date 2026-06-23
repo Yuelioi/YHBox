@@ -1,6 +1,4 @@
 ---
-name: vacuous-defensive-cleanup-test
-description: defensive-clear code (set fields = "" / nil after panic) needs a test that actually populates those fields BEFORE the panic — testing with a panic that fires before assignment is vacuous (passes whether cleanup runs or not)
 when_to_read: 写 panic recover + 清 partial state 的测试 / 加 defer recover() 后想验 cleanup 起效 / review panic hygiene 测试时
 applies_to: [node-framework, engine, test-design, panic-recovery]
 last_updated: 2026-05-26

@@ -1,6 +1,4 @@
 ---
-name: vue-flow-store-vmodel-shallow-sync
-description: vue-flow v-model:nodes 跟内部 store 的同步是 shallow — 只在 store.nodes ref 重赋值或 length 变化时触发 model 更新. 拖动期间 element.position 内部突变不同步 → 在 drag/dragStop handler 里读 v-model 拿到的是 stale 坐标
 when_to_read: 写 vue-flow drag-stop / position-related handler / 改 store.nodes / v-model 同步逻辑 / drag 之后读 flowNodes 拿坐标但发现是老值
 applies_to: [frontend, vue-flow, drag, sync, reactivity]
 last_updated: 2026-05-28
