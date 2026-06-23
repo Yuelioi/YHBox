@@ -13,7 +13,7 @@ Pointers: config → rules.md · conventions → ../CLAUDE.md · artifacts → f
 ## In Progress
 
 <!-- AUTO:inprogress -->
-
+- [2026-06-23-mcp-node-exec.md](specs/2026-06-23-mcp-node-exec.md) — AI 功能 epic 第③块(MCP 对外暴露 / AI 调我们): GUI 内置 Streamable HTTP MCP server, 暴露通用 run_n…
 <!-- /AUTO -->
 
 ## Staged (awaiting land)
