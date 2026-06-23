@@ -17,6 +17,7 @@ const (
 type Message struct {
 	Role    Role
 	Content string
+	Images  []ImageData // 多模态图像(vision); 仅 user message 用, 空则纯文本
 }
 
 type ChatRequest struct {
@@ -36,6 +37,12 @@ const (
 	ModeNative = "native" // OpenAI json_schema / Anthropic 强制 tool-use
 	ModePrompt = "prompt" // schema 描述注入 + 容错解析(兼容端点保底)
 )
+
+// ImageData — 多模态图像(编码字节 + 格式), 由 AI 节点从 node.Image 平移而来。
+type ImageData struct {
+	Format string // "png" | "jpeg"
+	Data   []byte
+}
 
 // SchemaField — 一个结构化输出字段(名 + JSON 类型)。
 type SchemaField struct {

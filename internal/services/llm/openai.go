@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 
@@ -117,10 +118,25 @@ func toOpenAIMessages(msgs []Message) []openai.ChatCompletionMessageParamUnion {
 		case RoleAssistant:
 			out = append(out, openai.AssistantMessage(m.Content))
 		default:
-			out = append(out, openai.UserMessage(m.Content))
+			if len(m.Images) == 0 {
+				out = append(out, openai.UserMessage(m.Content))
+				continue
+			}
+			parts := []openai.ChatCompletionContentPartUnionParam{openai.TextContentPart(m.Content)}
+			for _, img := range m.Images {
+				parts = append(parts, openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+					URL: dataURI(img),
+				}))
+			}
+			out = append(out, openai.UserMessage(parts))
 		}
 	}
 	return out
+}
+
+// dataURI 把图像编成 data:image/<fmt>;base64,<...> 供 OpenAI image_url。
+func dataURI(img ImageData) string {
+	return "data:image/" + img.Format + ";base64," + base64.StdEncoding.EncodeToString(img.Data)
 }
 
 func mapOpenAIErr(err error) error {

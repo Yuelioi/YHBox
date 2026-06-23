@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -131,7 +132,11 @@ func toAnthropicMessages(msgs []Message) []anthropic.MessageParam {
 		case RoleAssistant:
 			out = append(out, anthropic.NewAssistantMessage(anthropic.NewTextBlock(m.Content)))
 		default:
-			out = append(out, anthropic.NewUserMessage(anthropic.NewTextBlock(m.Content)))
+			blocks := []anthropic.ContentBlockParamUnion{anthropic.NewTextBlock(m.Content)}
+			for _, img := range m.Images {
+				blocks = append(blocks, anthropic.NewImageBlockBase64("image/"+img.Format, base64.StdEncoding.EncodeToString(img.Data)))
+			}
+			out = append(out, anthropic.NewUserMessage(blocks...))
 		}
 	}
 	return out
