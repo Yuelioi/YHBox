@@ -3,7 +3,7 @@ status: active
 when_to_read: 设计让节点消费/产出数据的节点前; 连线节点间数据前; 撞 INVALID_PIN 'out pin X 不存在' 或数据连不上时
 applies_to: [node-data-flow, data-edge, exec-edge, capture, output-capture, GetVar, Now, VarLastChange, pin-wiring, validator, node-design]
 when_to_update: 改节点数据线/exec 线规则 / pin-wiring / output-capture / validator 对 pin 存在性的判定时
-last_updated: 2026-06-18
+last_updated: 2026-06-23
 ---
 
 # 节点数据流与连线
@@ -29,14 +29,15 @@ last_updated: 2026-06-18
 
 **只有纯数据节点（`IsPureData: true`）**：`GetVar` / `GetParam` / `Now` / `VarLastChange` / `Expr` + 全部 PureFunc（`Add`/`Eq`/`Select`/`ToNumber`… ）。它们各有一个非-exec 输出（多为 `Value`/`Result`），可被求值、可连数据线。
 
-## ⛔ exec 节点的 Data 字段不是 data-out pin
+## exec 节点的 Data 字段：held output 直连（任意距离）
 
-exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []DataField`（如 `DetectColor.Found` 带 `Count`/`Center`；`CheckTemplate.Found` 带 `Point`/`Conf`）。这些 Data 字段：
+exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []DataField`（如 `DetectColor.Found` 带 `Count`/`Center`；`CheckTemplate.Found` 带 `Point`/`Conf`；`Fail` 带 `Error`/`Code`），以及 `DynamicDataFields` 节点 config 声明的字段（如 AI 结构化输出 `red`/`white`）。这些 Data 字段：
 
-- **不能直接连数据线**（`IsDataOutPin` 只认顶层输出，不认 Data 字段 → validator 报 `INVALID_PIN out pin X 不存在`）。
-- 真正用途两个：① 节点 `Display()` 打日志；② 经 **exec-data wire** 注入下游 exec 节点的**同名数据输入 pin**（顺着同一条 exec 线往下，下游有同名 input 才注入）。
+- **是 data-out pin、可直连数据线**：`IsDataOutPin`/`IsDataOutPinNode`（config-aware）认 exec 出口的 Data 字段 → validator 放行连线。
+- **值经 held output 缓存任意距离直连下游 data-in**：源 fire 时存进 `ContainerRunner.execOutputs`，下游 `pullDataPin` 直读，**免 GetVar、免紧邻约束**。完整机制 → [held-exec-outputs](../docs/held-exec-outputs.md)。
+- 另两个用途：① 节点 `Display()` 打日志；② 经 `RunNode` 的 `execData` 参数走 `in.X("k")` **原始 key-match**（消费 pin 名 == 源字段名时，无需数据线）。
 
-**想让 exec 节点的产出被任意下游消费 → 用"输出捕获到变量"（下一节），不要假设 Data 字段能直连。**
+**想让 exec 节点的产出被任意下游消费 → 直接拉数据线（默认、零样板）；要显式命名变量 / 跨子图作用域才用「输出捕获到变量」（下一节）。**
 
 ## ✅ 标准做法：消费某 exec 节点产出的数据 —— config.capture 绑变量 + GetVar
 
@@ -76,7 +77,7 @@ exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []Data
 
 ## 数据输入 pin 怎么取值（优先级）
 
-`data_pull.go pullDataPin`：① 有数据线 → 递归求值源（仅纯数据源）；② 否则 config `literal[pin]`（画布手填/录制/屏幕拾取）；③ 否则同名 exec-data 注入；④ 否则 nil → 消费节点用自己的默认。
+`data_pull.go pullDataPin`：① 有数据线且源是 exec 出口 Data 字段 → 读 held output 缓存 `execOutputs`（见 [held-exec-outputs](../docs/held-exec-outputs.md)）；② 有数据线且源是纯数据 → 递归求值源；③ 否则 config `literal[pin]`（画布手填/录制/屏幕拾取）；④ 否则 nil → 消费节点用自己的默认（节点 Run 时 `execData` 参数另走 `in.X("k")` 同名 key-match）。
 
 ## 常见错误
 

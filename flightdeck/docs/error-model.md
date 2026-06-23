@@ -3,7 +3,7 @@ status: active
 when_to_read: 给节点加错误处理 / 加新错误码 / 改 dispatch 失败路由 / 加 region 容错 / 撞「节点报错没被 Fail 出口接住」类问题前
 applies_to: [error-model, node-framework, dispatch, Failf, NodeError, Coded, errorcode, Fail-output, Throw, region, validator]
 when_to_update: 改 dispatch 失败路由 / Failf / NodeError / Coded 语义 / 集中错误码表 / Fail 出口约定 / region 容错策略时
-last_updated: 2026-06-11
+last_updated: 2026-06-23
 ---
 
 # 错误模型：节点失败出口 + Coded 路由 + 集中错误码
@@ -70,10 +70,10 @@ dispatch **不猜**错误类型，靠类型机制分：
 
 Fail 出口的 `Error`/`Code` 既沿 **Fail exec 边**作为 exec-data 下发，又被前端暴露成**可拉 data 线的数据出口**（`splitOutputs` 把 exec 出口的 `Data` 字段收进 `dataOut`）。把 `节点.Code` 拉一条 data 线到下游某个 data-in（典型：`Switch.Value` 按错误码分流、`Log.Message` 显示错误串），运行时这样解析：
 
-- **validator**：`dataOutPinTypeForKind` 把「exec 出口下的 `Data` 字段」也算 data-out（`IsDataOutPin` 因此为真）→ INVALID_PIN / 类型校验 / data-graph DAG / sentinel 全部正确级联。配套谓词 `IsExecOutputDataField(kind,pin)` 标出「这是 exec 出口的数据字段」。
-- **runtime**：这类 pin **不走 pure-data pull**（`evalDataSource` 只认 `IsPureData` 源）。`pullDataPin` 撞到 `IsExecOutputDataField` 的源直接返 nil；真正的值由 `ContainerRunner.applyExecDataEdges`（`dispatch_v5.go`，普通 + region 两条 exec 路径都调）从 token 带下来的 **exec-data** 按字段名取，回填进 dataWire。即「值已经沿 Fail exec 边流到下游了，data 线只是把 `Code` 重映射到目标 pin 名（如 `Value`）」。
+- **validator**：`dataOutPinTypeForKind` 把「exec 出口下的 `Data` 字段」也算 data-out（`IsDataOutPin` 因此为真）→ INVALID_PIN / 类型校验 / data-graph DAG / sentinel 全部正确级联。配套谓词 `IsExecOutputDataField(kind,pin)` / `IsExecOutputDataFieldNode` 标出「这是 exec 出口的数据字段」。
+- **runtime**：这类 pin **不走 pure-data pull**（`evalDataSource` 只认 `IsPureData` 源）。值走 **held output 缓存**——`Fail` fire 时 `routeResult` 把 `Error`/`Code` 写进 `ContainerRunner.execOutputs["<nodeID>.<field>"]`；`pullDataPin` 撞到 `IsExecOutputDataField` 的源时直接读该缓存（命中返值、未命中 nil）。下游数据线把 `Code` 重映射到目标 pin 名（如 `Value`），**任意距离直连、免 GetVar、免紧邻约束**。完整机制见 [held-exec-outputs](held-exec-outputs.md)。
 
-> ⚠️ **约束：data 线必须跟 Fail exec 边并行**——源节点 = 触发本节点的 exec 上游。因为 exec-data 只承载「触发本次执行的那条 exec 边」的字段；若把 `Code` 拉给一个不在该失败分支上的节点，exec-data 里没这个 key → 该 pin 取不到值（静默 nil）。validator 暂不强制这条并行性。
+> 旧的「单跳 exec-data + data 线必须跟 Fail exec 边并行」约束（及 `applyExecDataEdges` / `EXEC_DATA_NOT_ADJACENT` 警告）已随 held output 缓存删除——跨跳/远处消费现在合法。
 
 ## Throw（`internal/nodes/system/sentinels.go` + `throw.go`）
 
