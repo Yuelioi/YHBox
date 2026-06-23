@@ -92,24 +92,35 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 // 让"失败出口的 Error/Code 数据线接到下游 data-in (如 Switch.Value)"端到端跑通.
 //
 // 约束: data 边应跟父 exec 边并行 (源 = 触发本节点的 exec 上游); 否则 execData 无该 key → 跳过.
+// applyExecDataEdges 遍历**有效输入列表 = 静态 Spec.Inputs ∪ 动态 config.Inputs[]**, 把源是
+// exec-output data 字段的 data-in pin 从 execData 注入。动态输入也覆盖 → Capture.Image 可经
+// exec-data 直连进 AI 节点的动态 Image 输入(无需绑变量)。数据线注入覆盖 Var 绑定(直连优先)。
 func (r *ContainerRunner) applyExecDataEdges(node *container.GraphNode, rn *nodepkg.RegisteredNode, execData, dw map[string]any) {
 	if len(execData) == 0 {
 		return
+	}
+	inject := func(name, typ string) {
+		srcID, srcPin := r.dataEdges.Source(node.ID, name)
+		if srcID == "" {
+			return
+		}
+		src := r.nodesByID[srcID]
+		if src == nil || !container.IsExecOutputDataField(src.Kind, srcPin) {
+			return
+		}
+		if v, ok := execData[srcPin]; ok {
+			dw[name] = coerceToType(v, typ)
+		}
 	}
 	for _, ip := range rn.Spec.Inputs {
 		if ip.Type == nodepkg.TypeExec {
 			continue
 		}
-		srcID, srcPin := r.dataEdges.Source(node.ID, ip.Name)
-		if srcID == "" {
-			continue
-		}
-		src := r.nodesByID[srcID]
-		if src == nil || !container.IsExecOutputDataField(src.Kind, srcPin) {
-			continue
-		}
-		if v, ok := execData[srcPin]; ok {
-			dw[ip.Name] = coerceToType(v, ip.Type)
+		inject(ip.Name, ip.Type)
+	}
+	if rn.Spec.DynamicInputs {
+		for _, d := range container.ParseDynamicInputDecls(node) {
+			inject(d.Name, d.Type)
 		}
 	}
 }

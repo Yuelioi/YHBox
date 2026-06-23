@@ -78,8 +78,7 @@ func (AI) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		return fireFail(ctx, err, ""), nil
 	}
 
-	dyn := collectDynamicInputs(in)
-	imageNames := map[string]bool{} // C6: Image 类型动态输入名集
+	dyn, images, imageNames := collectInputs(in)
 	system, err := renderPromptTemplate(in.String(inSystem), dyn, imageNames)
 	if err != nil {
 		return nil, node.Failf(node.CodeError, err, "AI system template: %v", err)
@@ -93,7 +92,7 @@ func (AI) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if system != "" {
 		msgs = append(msgs, llm.Message{Role: llm.RoleSystem, Content: system})
 	}
-	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Content: user})
+	msgs = append(msgs, llm.Message{Role: llm.RoleUser, Content: user, Images: images})
 
 	req := llm.ChatRequest{
 		Model:       in.String(inModel),
@@ -143,13 +142,39 @@ func fireFail(ctx node.Ctx, err error, rawText string) node.Outputs {
 	return b.Fire()
 }
 
-func collectDynamicInputs(in node.Inputs) map[string]any {
-	out := map[string]any{}
+// collectInputs 把动态输入分流: node.Image 值 → vision 图像(按 config.Inputs[] 声明序);
+// 其余 → 文本值(供 {{}} 模板插值)。imageNames 让模板把图像占位渲染成 [image]。
+func collectInputs(in node.Inputs) (textVals map[string]any, images []llm.ImageData, imageNames map[string]bool) {
+	textVals = map[string]any{}
+	imageNames = map[string]bool{}
 	for _, k := range in.Keys() {
 		if staticAIKeys[k] {
 			continue
 		}
-		out[k] = in.Raw(k)
+		if _, isImg := in.Raw(k).(node.Image); isImg {
+			continue // 图像不进文本值
+		}
+		textVals[k] = in.Raw(k)
 	}
-	return out
+	for _, name := range declaredInputOrder(in) {
+		if img, ok := in.Raw(name).(node.Image); ok {
+			images = append(images, llm.ImageData{Format: img.Format, Data: img.Data})
+			imageNames[name] = true
+		}
+	}
+	return textVals, images, imageNames
+}
+
+// declaredInputOrder config.Inputs[] 声明的输入名顺序, 用于图像确定性排序。
+func declaredInputOrder(in node.Inputs) []string {
+	raw, _ := in.Raw("Inputs").([]any)
+	var names []string
+	for _, it := range raw {
+		if m, ok := it.(map[string]any); ok {
+			if name, _ := m["Name"].(string); name != "" {
+				names = append(names, name)
+			}
+		}
+	}
+	return names
 }
