@@ -73,10 +73,13 @@ func (d *dataEdgeIndex) Source(nodeID, pinName string) (string, string) {
 func (r *ContainerRunner) pullDataPin(ctx context.Context, nodeID, pinName string) (expr.Value, error) {
 	// 1. Data edge lookup
 	if srcID, srcPin := r.dataEdges.Source(nodeID, pinName); srcID != "" {
-		// 失败出口的 Error/Code 等 exec-output data 字段不是 pull 源 —— 值由父 exec 边带下来的
-		// exec-data 提供 (applyExecDataEdges 回填). 这里返 nil 让 caller 走 default, 不进
-		// evalDataSource (那条会因 src 非 pure-data 报错).
+		// 源是 exec 出口的 Data 字段 (Fail.Code / AI red·white / Capture.Image): 不走 pure-data
+		// 重算, 读 per-run held output 缓存 (源 fire 时 captureExecOutputs 写). 任意距离直连、
+		// 免 GetVar、免紧邻; 未命中 (源还没 fire) → nil, 消费方走默认.
 		if n := r.nodesByID[srcID]; n != nil && container.IsExecOutputDataFieldNode(n, srcPin) {
+			if v, ok := r.execOutputs[srcID+"."+srcPin]; ok {
+				return toExprValue(v), nil
+			}
 			return nil, nil
 		}
 		return r.evalDataSource(ctx, srcID, srcPin)
