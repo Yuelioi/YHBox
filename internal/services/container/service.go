@@ -68,6 +68,12 @@ func (s *Service) List() []Container {
 	return s.store.List()
 }
 
+// AINodesUsingConnection 返回引用某 AI 连接 ID 的 AI 节点(跨全部容器主图)。
+// 前端删 AI 连接前调, 列出受影响节点让用户确认(不静默失效)。
+func (s *Service) AINodesUsingConnection(connectionID string) []AIConnectionRef {
+	return ScanAIConnectionRefs(s.store.List(), connectionID)
+}
+
 // Reload 从磁盘重读单个容器, 替换内存缓存, 返回最新内容。
 // 给前端编辑器「重载」按钮用: MCP / 外部进程改盘后, 主 app 内存不知情, 靠这个重读。
 // 不触发 emitChange —— 重载不是 CRUD, 不需重注册 hotkey/schedule。
