@@ -167,6 +167,16 @@ func (r *ContainerRunner) SetAIProvider(p node.AIProviderService) {
 // Bundle 返当前 ContainerRunner 持有的 ServiceBundle (dispatch 用).
 func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 
+// ExecOutputs 返 held-output 缓存的浅拷贝 (键 "<nodeID>.<field>").
+// MCP run_node 跑完单节点后据此收割节点输出 (见 docs/held-exec-outputs).
+func (r *ContainerRunner) ExecOutputs() map[string]any {
+	out := make(map[string]any, len(r.execOutputs))
+	for k, v := range r.execOutputs {
+		out[k] = v
+	}
+	return out
+}
+
 // snapshotMainCalibCounts 从主图找 MouseCalibration 节点 config.counts360 当启动 snapshot.
 // 没节点 / counts360=0 → 返 0 (runtime 不缩放).
 func snapshotMainCalibCounts(c *container.Container) int {

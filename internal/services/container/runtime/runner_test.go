@@ -331,3 +331,15 @@ func TestRunner_NoStartNode(t *testing.T) {
 		t.Error("expected error for no Start node")
 	}
 }
+
+func TestContainerRunner_ExecOutputs_ReturnsCacheCopy(t *testing.T) {
+	r := &ContainerRunner{execOutputs: map[string]any{"n.Code": "boom"}}
+	got := r.ExecOutputs()
+	if got["n.Code"] != "boom" {
+		t.Fatalf("ExecOutputs 没返回缓存内容: %+v", got)
+	}
+	got["n.Code"] = "mutated" // 改返回值不该影响内部缓存
+	if r.execOutputs["n.Code"] != "boom" {
+		t.Fatalf("ExecOutputs 返回的不是拷贝, 内部缓存被改了")
+	}
+}
