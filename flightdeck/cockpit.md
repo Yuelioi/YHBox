@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-23 by 月离 (② AI 节点 —— **Phase A 整块完成**(A1-A6: ctx.AI() 指纹缓存 + AI 文本节点 Spec/Run/{{}} 模板 + validateAI + 删连接引用扫描 + FE 连接下拉/i18n)**+ B1 DynamicDataFields 框架机制**,7 feat commits 全单测绿 + FE parity/typecheck 绿 @ feat/v2-foundation。文本 AI 节点端到端可真机 smoke。**默认不 push**)。
-**Active focus**: **② AI 节点**(图里调 LLM)—— **Phase A + Phase B 完成**(15 feat commits)。文本 + 结构化带类型输出端到端可用(拖节点、连接下拉、{{}} 提示词、声明输出字段逐个绑变量)。**resume 点: Phase C vision** —— C1 `node.Image` 值类型 → C2 `Capture`(截屏产 Image, png/jpeg)删 Screenshot → C3 `SaveImage` → C4 `LoadImage` → C5 `llm.Message` 多模态(go doc 两 SDK image part)→ C6 AI 收图 + `applyExecDataEdges` 扩动态输入(exec-data 直连)→ C7 FE Image 节点 i18n。逐任务见 [plan](plans/2026-06-23-ai-nodes.md)。**默认不 push**。
+**Last updated**: 2026-06-23 by 月离 (② AI 节点 epic **三阶段 A+B+C 全部实装**, 16 feat commits @ feat/v2-foundation。文本调用 + 结构化带类型输出 + vision 识图端到端;新框架机制 DynamicDataFields + applyExecDataEdges 扩动态输入;node.Image 一等流动值 + Capture/SaveImage/LoadImage(删 Screenshot 切净)。全量 go test 仅剩预存 fish fixture 基线 + 1 flaky 计时测试, 无回归;FE typecheck/i18n parity 绿。**待真机 smoke。默认不 push**)。
+**Active focus**: **② AI 节点 epic — 实装完成, 待真机 smoke**。三阶段全落: A 文本节点+Provider 缓存 · B 结构化类型输出(ChatStructured 双 SDK 三模式 + DynamicDataFields)· C vision(node.Image + Capture/SaveImage/LoadImage + 多模态 + exec-data 直连)。**下一步: 用户真机 smoke(task build 后)→ 通过则 landing 归档 spec/plan + graduate spec→docs → ③ MCP**。**默认不 push**。
 
 ## 进行中
 
@@ -12,11 +12,10 @@
 
 ## 下一步
 
-- **② AI 节点续做**(Phase A 完成 + B1 已落): **Phase B 结构化类型输出** —— **B2** `llm.ChatStructured` 接口 + OpenAI `response_format` json_schema native(go doc 核实 `ChatCompletionNewParamsResponseFormatUnion.OfJSONSchema`→`shared.ResponseFormatJSONSchemaParam`,httptest 验线格式)+ `KindUnsupported` → **B3** Anthropic 强制 tool-use native → **B4** 提示词注入模式 + 容错解析 → **B5** AI 节点接结构化(`config.Outputs[]`→schema→ChatStructured→逐字段 Set + Integer coerce + Fail 带 Text)→ **B6** FE 输出声明编辑器(镜像 DynamicInputsEditor)。**Phase C vision**(node.Image + Capture/SaveImage/LoadImage 删 Screenshot + 多模态 + applyExecDataEdges 扩动态输入)。逐任务见 [plan](plans/2026-06-23-ai-nodes.md)。
-- **A6 polish 余项**(不阻塞 smoke,记防忘): 专用 AI/Image 节点分组(现 fallback system 组)· Model combobox(现纯文本手填)· 删连接确认弹窗 FE(后端 `AINodesUsingConnection` 已就绪)。
+- **② AI 节点 epic 实装完成** —— 下一步**用户真机 smoke**(`task build` 后,见「待验证」)。通过则走 landing: 归档 spec/plan + graduate spec→docs([2026-06-23-ai-nodes](specs/2026-06-23-ai-nodes.md) 带 graduate:true)。
+- **A6/C7 polish 余项**(不阻塞 smoke,记防忘): 专用 AI/Image 节点分组(现 AI→system、Image→detect 组)· Model combobox(现纯文本手填模型名)· 删连接确认弹窗 FE(后端 `container.AINodesUsingConnection` 已就绪)· SaveImage/LoadImage 编辑期路径校验(现仅运行期 guard)。
 - **③ MCP 对外暴露**(②后): 已有 `cmd/yotta-mcp` spike, 缺执行容器/节点工具。
 - 其它候选池: cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
-- 其它候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
 
@@ -24,7 +23,10 @@
 
 ## 待验证
 
-- **② AI 节点 Phase A 真机 smoke**(用户将做): 拖 `AI` 节点(System 组)→ 连接下拉选已配 DeepSeek → 模型填 `deepseek-chat` → User 写带 `{{名}}` 的提示词 + 声明同名动态输入 → 跑出 `Text`,绑变量下游 GetVar 读到。`task build` 后真机。单测/typecheck/i18n parity 已绿。
+- **② AI 节点 epic 全量真机 smoke**(用户将做,`task build` 后;单测/typecheck/i18n parity 全绿):
+  - **文本**: 拖 `AI` 节点(System 组)→ 连接下拉选已配 DeepSeek → 模型填 `deepseek-chat` → User 写带 `{{名}}` 提示词 + 声明同名动态输入 → 跑出 `Text` 绑变量下游可读。
+  - **结构化**: 在 AI 节点「输出口」声明带类型字段(如 `Count` Integer、`Label` String)→ 跑后各字段逐个绑变量、类型正确(非整 → Fail)。
+  - **vision**: `Capture`(detect 组,选 JPEG)→ exec 接 AI.In + 数据线接 Capture.Image 到 AI 的图像输入 → AI 识图出结果;`Capture → SaveImage` 写盘扩展名对;`LoadImage` 读盘喂 AI。
 - **AI 配置 ① 余项真机 smoke**(核心 DeepSeek 测连接用户已实测过): Anthropic 原生连接 / 本地 Ollama / UI 删默认清空 / 重启持久化 —— 均有单测背书, 待用户顺手点。
 
 ## Hanging tasks
