@@ -6,7 +6,7 @@ import (
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 
-	_ "yotta/internal/nodes/detect" // 注册 Screenshot (NeedsWindow=true)
+	_ "yotta/internal/nodes/image" // 注册 Capture (NeedsWindow=true)
 )
 
 // TestSetupRuntime_BuildsBackendsWithoutResolvingWindow 验证 setupRuntime 重写后：
@@ -22,8 +22,8 @@ func TestSetupRuntime_BuildsBackendsWithoutResolvingWindow(t *testing.T) {
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
-				// Screenshot 有 NeedsWindow=true → containerNeedsWindow 返 true
-				{ID: "ss", Kind: "Screenshot"},
+				// Capture 有 NeedsWindow=true → containerNeedsWindow 返 true
+				{ID: "ss", Kind: "Capture"},
 			},
 		},
 	}

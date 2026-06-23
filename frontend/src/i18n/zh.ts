@@ -1026,19 +1026,43 @@ export default {
         Value: { label: '差异值' },
       },
     },
-    Screenshot: {
-      label: '截图',
-      description: '抓一张当前画面存成图片文件，方便事后排查脚本当时看到了啥。可以只截你框的 ROI（屏幕上框的一小块），不框就截整个画面。文件名里能用 {ts}（时间戳）、{date}（日期）等占位符自动区分，存到固定的 screenshots 目录下。',
-      example: '检测失败时留个证据：在出错分支接一个截图，文件名填「fail_{ts}.png」，每次失败都会按时间戳存一张，回头翻图就知道当时画面长啥样。',
+    // image
+    Capture: {
+      label: '截屏',
+      description: '抓当前画面(整屏或你框的区域)产出一张图像值, 接给 AI 节点识图、接保存图像存盘、或接其它要图的节点。格式可选 PNG(无损)或 JPEG(更小, 省 token 与内存)。',
+      example: '让 AI 看屏幕判断界面: 截屏(选 JPEG)→ 数据线接到 AI 节点的图像输入(配合紧邻 exec 边)→ AI 出判断。',
       input: {
-        PathTemplate: { label: '路径模板', hint: "相对路径, 不含 '..' / 盘符 / 开头 '/' '\\\\'. {ts}/{nodeId}/{containerId}/{date} 自动展开." },
-        ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
+        ROI: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
+        Format: { label: '格式', option: { png: 'PNG', jpeg: 'JPEG' } },
+        Quality: { label: 'JPEG 质量', hint: '1-100, 仅 JPEG 生效' },
       },
       output: {
-        Done: {
-          label: '完成',
-          data: { Path: { hint: '写入的绝对路径' } },
-        },
+        Done: { label: '完成', data: { Image: { hint: '产出的图像' } } },
+        Fail: { label: '失败' },
+      },
+    },
+    SaveImage: {
+      label: '保存图像',
+      description: '把一张图像值写到本地的 images 目录下。扩展名按图像实际格式自动定。文件名支持时间戳/日期/uuid 占位自动区分, 避免并发覆盖。',
+      example: '截屏后留底: 截屏 → 保存图像, 文件名用 uuid 占位。',
+      input: {
+        Image: { label: '图像' },
+        PathTemplate: { label: '路径模板', hint: '相对路径, 不含 .. / 盘符 / 开头斜杠' },
+      },
+      output: {
+        Done: { label: '完成', data: { Path: { hint: '写入的绝对路径' } } },
+        Fail: { label: '失败' },
+      },
+    },
+    LoadImage: {
+      label: '加载图像',
+      description: '从本地文件读一张图像(仅 PNG / JPEG, 限 10MB)产出图像值, 接给 AI 节点识图等。路径限数据目录下。',
+      example: '把外部图喂给 AI: 加载图像(填相对路径)→ 接 AI 节点图像输入。',
+      input: {
+        Path: { label: '路径', hint: '数据目录下的相对路径' },
+      },
+      output: {
+        Done: { label: '完成', data: { Image: { hint: '读出的图像' } } },
         Fail: { label: '失败' },
       },
     },

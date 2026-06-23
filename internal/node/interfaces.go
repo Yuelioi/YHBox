@@ -296,7 +296,7 @@ type WindowService interface {
 	SetActive(ctx context.Context, title, class, processName, titleMatch string) error
 }
 
-// CaptureService — Screenshot 节点用. PNG 字节流; wire 连 pkg/capture
+// CaptureService — Capture 节点用. PNG 字节流; wire 连 pkg/capture
 // IBackend.Frame + png.Encode.
 type CaptureService interface {
 	Capture() (pngData []byte, err error)

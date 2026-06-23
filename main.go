@@ -17,7 +17,7 @@ import (
 	"yotta/internal/node"
 	_ "yotta/internal/nodes/ai"        // AI (图里调 LLM)
 	_ "yotta/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
-	_ "yotta/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
+	_ "yotta/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/ColorBarTrack
 	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
 	_ "yotta/internal/nodes/image"     // Capture/SaveImage/LoadImage 图像节点
 	_ "yotta/internal/nodes/input"     // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground

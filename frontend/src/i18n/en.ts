@@ -1006,19 +1006,43 @@
         Value: { label: 'Diff value' },
       },
     },
-    Screenshot: {
-      label: 'Screenshot',
-      description: 'Grabs the current screen and saves it as an image file, handy for checking later what the script actually saw. You can capture just the ROI (a small region you frame) or, if you leave it empty, the whole screen. The filename can use placeholders like {ts} (timestamp) and {date} to keep shots apart, saved under the fixed screenshots folder.',
-      example: 'Leave evidence when detection fails: on the failure branch add a screenshot with filename «fail_{ts}.png»; every failure saves one stamped shot so you can look back and see what the screen looked like.',
+    // image
+    Capture: {
+      label: 'Capture',
+      description: 'Grab the current screen (full or a framed ROI) and produce an image value — wire it to an AI node for vision, to Save image to write it out, or to any node that needs an image. Format can be PNG (lossless) or JPEG (smaller, saves tokens and memory).',
+      example: 'Let AI read the screen: Capture (pick JPEG) → wire the image to the AI node image input (alongside the adjacent exec edge) → AI returns its judgment.',
       input: {
-        PathTemplate: { label: 'Path template', hint: "Relative path, no '..' / drive letter / leading '/' or '\\\\'. {ts}/{nodeId}/{containerId}/{date} auto-expanded." },
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
+        Format: { label: 'Format', option: { png: 'PNG', jpeg: 'JPEG' } },
+        Quality: { label: 'JPEG quality', hint: '1-100, JPEG only' },
       },
       output: {
-        Done: {
-          label: 'Done',
-          data: { Path: { hint: 'Written absolute path' } },
-        },
+        Done: { label: 'Done', data: { Image: { hint: 'Produced image' } } },
+        Fail: { label: 'Failed' },
+      },
+    },
+    SaveImage: {
+      label: 'Save image',
+      description: 'Write an image value to the local images folder. The extension follows the actual image format. Filenames support timestamp/date/uuid placeholders to keep files apart and avoid overwriting under concurrency.',
+      example: 'Keep a copy after capture: Capture → Save image, using a uuid placeholder in the filename.',
+      input: {
+        Image: { label: 'Image' },
+        PathTemplate: { label: 'Path template', hint: 'Relative path, no .. / drive letter / leading slash' },
+      },
+      output: {
+        Done: { label: 'Done', data: { Path: { hint: 'Written absolute path' } } },
+        Fail: { label: 'Failed' },
+      },
+    },
+    LoadImage: {
+      label: 'Load image',
+      description: 'Read an image from a local file (PNG / JPEG only, 10MB cap) and produce an image value, e.g. to feed an AI node for vision. Path is limited to the data folder.',
+      example: 'Feed an external image to AI: Load image (relative path) → wire to the AI node image input.',
+      input: {
+        Path: { label: 'Path', hint: 'Relative path under the data folder' },
+      },
+      output: {
+        Done: { label: 'Done', data: { Image: { hint: 'Loaded image' } } },
         Fail: { label: 'Failed' },
       },
     },

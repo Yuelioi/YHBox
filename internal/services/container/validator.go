@@ -685,8 +685,6 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 			nodeErrs = validateROIColorScan(n)
 		case "DetectColorBlobs":
 			nodeErrs = validateDetectColorBlobs(n)
-		case "Screenshot":
-			nodeErrs = validateScreenshot(n)
 		case "KeyHoldStart", "KeyHoldStop":
 			nodeErrs = validateKeyHold(n)
 		case "MouseHoldStart", "MouseHoldStop":
@@ -839,26 +837,6 @@ func validateDetectColorBlobs(n *GraphNode) []ValidationError {
 			Params: map[string]any{"actual": poll, "minMs": 30}})
 	}
 	return errs
-}
-
-// validateScreenshot checks that pathTemplate is relative and contains no "..".
-func validateScreenshot(n *GraphNode) []ValidationError {
-	tpl := PinString(n, "PathTemplate")
-	if tpl == "" {
-		return nil // no template set: no path safety concern
-	}
-	unsafe := strings.Contains(tpl, "..") ||
-		strings.HasPrefix(tpl, "/") ||
-		strings.HasPrefix(tpl, "\\") ||
-		(len(tpl) >= 3 && tpl[1] == ':') // e.g. C:\...
-	if unsafe {
-		return []ValidationError{{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeUnsafeScreenshotPath,
-		}}
-	}
-	return nil
 }
 
 // validateKeyHold checks that vk is a non-empty string.
