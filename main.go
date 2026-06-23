@@ -4,11 +4,14 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -37,6 +40,7 @@ import (
 	"yotta/internal/services/container"
 	containerruntime "yotta/internal/services/container/runtime"
 	"yotta/internal/services/execution"
+	mcpserver "yotta/internal/services/mcpserver"
 	"yotta/internal/services/schedule"
 	"yotta/internal/services/tools"
 	"yotta/pkg/locale"
@@ -296,6 +300,27 @@ func main() {
 
 	// 给 containerSvc 注入运行入口 — 前端 ▶ 按钮走 Run，■ 走 StopAll
 	containerSvc.SetRunner(&containerRunnerAdapter{queue: execQueue, worker: worker})
+
+	// MCP 对外暴露 server (③): 复用执行标准件, 后台起 Streamable HTTP.
+	mcpSrv := mcpserver.NewServer(mcpserver.Deps{
+		Store:       containerStore,
+		InputBus:    inputBus,
+		Matcher:     templateMatcher,
+		Game:        newGameProviderAdapter(),
+		Clip:        clipSvc,
+		MouseCounts: func() int { return app.Settings().ActiveMouseCounts360() },
+		Armed:       func() bool { return app.Settings().MCP.Armed },
+		Busy:        worker.IsRunning,
+	})
+	mcpCore := server.NewMCPServer("yotta-mcp", "0.1.0")
+	mcpSrv.Register(mcpCore)
+	mcpHTTP := server.NewStreamableHTTPServer(mcpCore)
+	go func() {
+		if err := mcpHTTP.Start("127.0.0.1:8765"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			rootLog.Warn().Err(err).Str("tag", "MCP").Msg("MCP HTTP server 退出")
+		}
+	}()
+	rootLog.Info().Str("tag", "MCP").Msg("MCP server: http://127.0.0.1:8765/mcp")
 
 	// Container hotkey 绑定：扫所有容器，把 container.hotkey 注册到 registry。
 	// CRUD 后重扫一次（containerSvc.SetOnChange 钩子）。触发后入队单 target manual run。
