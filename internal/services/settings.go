@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -27,6 +28,36 @@ type Settings struct {
 	UI      UISettings      `json:"ui"`
 	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture CaptureSettings `json:"capture"` // 截屏后端选择
+	AI      AISettings      `json:"ai"`      // AI 连接配置
+}
+
+// AISettings AI 连接配置。Default 指向某 connection.ID = 新建 AI 节点缺省连接;
+// model 不在连接层, 由 AI 节点 per-调用选。
+type AISettings struct {
+	Connections []AIConnection `json:"connections"`
+	Default     string         `json:"default"`
+}
+
+// AIConnection 一个命名 AI 连接(credential)。可被多个 AI 节点按 ID 复用; Label 仅展示、全连接唯一。
+type AIConnection struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Protocol string `json:"protocol"` // "openai" | "anthropic"
+	BaseURL  string `json:"baseURL"`  // 空 = 该协议官方默认
+	APIKey   string `json:"apiKey"`   // 明文; 本地常空
+}
+
+// DefaultConnection 返回 Default 指向的连接; 空或失配 → nil(显式, 不自动选单档)。
+func (s *Settings) DefaultConnection() *AIConnection {
+	if s.AI.Default == "" {
+		return nil
+	}
+	for i := range s.AI.Connections {
+		if s.AI.Connections[i].ID == s.AI.Default {
+			return &s.AI.Connections[i]
+		}
+	}
+	return nil
 }
 
 // CaptureSettings 选哪个截屏后端。Method 改这个要重启 exe 才生效；DumpDebug 即时生效。
@@ -179,6 +210,19 @@ func LoadSettings(path string) *Settings {
 	if s.UI.RecordingMouseMode != "relative" && s.UI.RecordingMouseMode != "absolute" {
 		s.UI.RecordingMouseMode = "relative"
 	}
+	// 悬空 default 归一化为空, 而非让 Validate 失败把整份设置重置默认。
+	if s.AI.Default != "" {
+		found := false
+		for _, c := range s.AI.Connections {
+			if c.ID == s.AI.Default {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.AI.Default = ""
+		}
+	}
 	if err := s.Validate(); err != nil {
 		return defaultSettings()
 	}
@@ -216,6 +260,43 @@ func (s *Settings) Validate() error {
 	// 窗口尺寸不强制下限（main.go 用 SetMinSize 兜底），但拦住明显无效值
 	if s.UI.Window.Width < 100 || s.UI.Window.Height < 100 {
 		return fmt.Errorf("ui.window 尺寸过小: %dx%d", s.UI.Window.Width, s.UI.Window.Height)
+	}
+	if err := s.AI.validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ai *AISettings) validate() error {
+	seenID := make(map[string]bool, len(ai.Connections))
+	seenLabel := make(map[string]bool, len(ai.Connections))
+	for _, c := range ai.Connections {
+		if c.Protocol != "openai" && c.Protocol != "anthropic" {
+			return fmt.Errorf("ai.connections: protocol 必须是 openai/anthropic, got %q", c.Protocol)
+		}
+		if c.Label == "" {
+			return fmt.Errorf("ai.connections: label 不能为空")
+		}
+		if seenLabel[c.Label] {
+			return fmt.Errorf("ai.connections: label 重复: %q", c.Label)
+		}
+		seenLabel[c.Label] = true
+		if c.ID == "" {
+			return fmt.Errorf("ai.connections: id 不能为空")
+		}
+		if seenID[c.ID] {
+			return fmt.Errorf("ai.connections: id 重复: %q", c.ID)
+		}
+		seenID[c.ID] = true
+		if c.BaseURL != "" {
+			u, err := url.Parse(c.BaseURL)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return fmt.Errorf("ai.connections[%s]: baseURL 必须是 http(s):// 且含 host, got %q", c.Label, c.BaseURL)
+			}
+		}
+	}
+	if ai.Default != "" && !seenID[ai.Default] {
+		return fmt.Errorf("ai.default 指向不存在的连接: %q", ai.Default)
 	}
 	return nil
 }
