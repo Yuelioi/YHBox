@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
-**Last updated**: 2026-06-23 by 月离 (AI 功能 epic ① 本地 AI 配置落地 —— llm 包(OpenAI/Anthropic 双官方 SDK + Provider 接口 + 连接池)+ AIService 测连接 RPC + SettingsAI 设置 tab; 8 commits @ feat/v2-foundation; 核心 DeepSeek 测连接真机已过, spec/plan 归档。**默认不 push**)。
-**Active focus**: **AI 功能 epic** —— ① 本地 AI 配置已落(实现 + 核心真机验)。下一步 ② AI 节点(图里调 LLM, 复用 llm.Provider + 加 vision)。**默认不 push**。
+**Last updated**: 2026-06-23 by 月离 (② AI 节点 epic 启动 —— spec(三家两轮 review 处置 + §14 留痕)+ 三阶段 TDD plan 落定;**Phase A 后端核心已落**: ctx.AI() Provider 指纹缓存 + AI 文本节点(Spec/Run/{{}} 模板)+ validateAI,4 feat commits 全单测绿 @ feat/v2-foundation。**默认不 push**)。
+**Active focus**: **② AI 节点**(图里调 LLM)—— Phase A 后端核心(A1-A4)已落且验。**resume 点: A5 删连接引用扫描 → A6 FE+i18n(接通后真机 smoke)→ Phase B 结构化输出 → Phase C vision**。逐任务进度见 [plan](plans/2026-06-23-ai-nodes.md) 勾选项。**默认不 push**。
 
 ## 进行中
 
@@ -12,7 +12,9 @@
 
 ## 下一步
 
-- **AI 功能 epic 续做**(① 已落): **② AI 节点**(图里调 LLM —— 节点选 connectionID+model、动态带类型 IO、structured output、**vision 图像输入**、Provider 缓存+失效+池调优); **③ MCP 对外暴露**(已有 `cmd/yotta-mcp` spike, 缺执行容器/节点工具)。②/③ 衔接细节见 [archive spec §9](archive/specs/2026-06-23-local-ai-config.md)。
+- **② AI 节点续做**(Phase A 后端核心 A1-A4 已落验): **A5** 删连接引用扫描(settings 删连接时扫含 `Connection==id` 的 AI 节点)→ **A6** FE 接入 + i18n(`node.AI`/`nodeGroup.ai` + Connection 下拉 + Model combobox)→ 接通后 **Phase A 真机 smoke**(图里拖 AI 节点、选 DeepSeek 连接跑出 Text)→ **Phase B** 结构化类型输出(DynamicDataFields + ChatStructured 三模式)→ **Phase C** vision(node.Image + Capture/SaveImage/LoadImage 删 Screenshot + 多模态 + applyExecDataEdges 扩动态输入)。逐任务步骤见 [plan](plans/2026-06-23-ai-nodes.md)。
+- **③ MCP 对外暴露**(②后): 已有 `cmd/yotta-mcp` spike, 缺执行容器/节点工具。
+- 其它候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion; cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 - 其它候选池: 临时窗口抓取(EnumWindows 选窗截图); 复发#5 promotion(前台容器全局指针升 checklist); cv-perception 池剩余 ([cv-perception](specs/cv-perception-pool.md)); idea 池([editor-footgun](specs/editor-footgun-backlog.md) · [misc-tools](specs/misc-tools-backlog.md))。
 
 ## 待复核
