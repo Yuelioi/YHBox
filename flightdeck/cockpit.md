@@ -14,6 +14,7 @@ Pointers: config → rules.md · conventions → ../CLAUDE.md · artifacts → f
 
 <!-- AUTO:inprogress -->
 - [2026-06-23-mcp-node-exec.md](specs/2026-06-23-mcp-node-exec.md) — AI 功能 epic 第③块(MCP 对外暴露 / AI 调我们): GUI 内置 Streamable HTTP MCP server, 暴露通用 run_n…
+- [2026-06-23-mcp-node-exec.md](plans/2026-06-23-mcp-node-exec.md) — ③ MCP 节点执行实现计划: winutil.EnumTopWindows + ContainerRunner.ExecOutputs 访问器 + inter…
 <!-- /AUTO -->
 
 ## Staged (awaiting land)
