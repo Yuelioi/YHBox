@@ -617,6 +617,28 @@
     subgraph_recursion: 'Subgraph call nesting too deep',
   },
   node: {
+    // ai
+    AI: {
+      label: 'Call AI',
+      description: 'Send a prompt to a configured LLM and get the reply. Configure an AI connection in settings first, then pick the connection and model here; interpolate declared inputs into the prompt using double curly braces. For structured output, declare typed fields and bind each to a variable.',
+      example: 'Have the model read a screenshot and classify the screen: pick a local or online model, set the user prompt to ask what screen it is, read the reply from the Model text output.',
+      input: {
+        Connection: { label: 'Connection', useDefault: '(use default)' },
+        Model: { label: 'Model', hint: 'Model name, e.g. deepseek-chat, gpt-4o' },
+        System: { label: 'System prompt' },
+        User: { label: 'User prompt', hint: 'Interpolate declared input names with double curly braces; image inputs render as a placeholder and stay out of text' },
+        Mode: { label: 'Structured mode', option: { auto: 'Auto (by endpoint)', native: 'Native', prompt: 'Prompt injection' } },
+        Temperature: { label: 'Temperature' },
+        MaxTokens: { label: 'Max tokens' },
+      },
+      output: {
+        Done: { label: 'Done' },
+        Fail: { label: 'Failed' },
+        Text: { label: 'Model text' },
+        Error: { label: 'Error' },
+        Code: { label: 'Error code' },
+      },
+    },
     // control
     Start: {
       label: 'Start',

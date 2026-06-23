@@ -637,6 +637,28 @@ export default {
   // Schema: { label, description, input?: { <pin>: { label, hint? } }, output?: { <pin>: { label, data?: { <field>: { hint? } } } } }
   // exec input pin 不出 label (它是连边不显示). DataField 只有 hint (无 label, Name 是稳定标识).
   node: {
+    // ai
+    AI: {
+      label: '调用 AI',
+      description: '把提示词发给配好的大模型拿回回答。先在设置里配好 AI 连接，这里选连接和模型；提示词里用双花括号包住上面声明的输入名来插值。结构化输出可声明任意带类型字段，逐个绑到变量。',
+      example: '让模型读截图判断界面：连本地或在线模型，用户提示词写「这是什么界面」，回答从「模型原文」出口拿；要分类就声明一个带类型输出字段。',
+      input: {
+        Connection: { label: '连接', useDefault: '（用默认连接）' },
+        Model: { label: '模型', hint: '填模型名，如 deepseek-chat、gpt-4o' },
+        System: { label: '系统提示词' },
+        User: { label: '用户提示词', hint: '用双花括号包住声明的输入名插值；图像输入会渲染成占位标记、不进文本' },
+        Mode: { label: '结构化模式', option: { auto: '自动（按端点）', native: '原生', prompt: '提示词注入' } },
+        Temperature: { label: '温度' },
+        MaxTokens: { label: '最大 token' },
+      },
+      output: {
+        Done: { label: '完成' },
+        Fail: { label: '失败' },
+        Text: { label: '模型原文' },
+        Error: { label: '错误信息' },
+        Code: { label: '错误类型' },
+      },
+    },
     // control
     Start: {
       label: '起点',

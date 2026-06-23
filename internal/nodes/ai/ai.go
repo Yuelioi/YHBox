@@ -43,10 +43,13 @@ func (AI) Spec() node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: pinIn, Type: node.TypeExec},
 			{Name: inConnection, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "ai-connection"}},
-			{Name: inModel, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "ai-model"}},
+			{Name: inModel, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: inSystem, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "textarea"}},
 			{Name: inUser, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "textarea"}},
-			{Name: inMode, Type: "String", Default: "auto", Widget: node.WidgetSpec{Kind: "select"}},
+			{Name: inMode, Type: "String", Default: "auto", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "dropdown", Props: node.MarshalProps(node.DropdownProps{
+					Options: []node.EnumOption{{Value: "auto"}, {Value: "native"}, {Value: "prompt"}},
+				})}},
 			{Name: inTemperature, Type: "Number", Default: json.Number("0")},
 			{Name: inMaxTokens, Type: "Integer", Default: json.Number("0")},
 		},

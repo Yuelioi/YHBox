@@ -32,6 +32,16 @@
     @update:model-value="(v: any) => commit(v)"
   />
 
+  <!-- ai-connection: AI 节点连接选择器, 从 settings 读连接列表 (label→id); 空 = 用默认连接 -->
+  <USelect
+    v-else-if="kind === 'ai-connection'"
+    :model-value="modelValue == null ? '' : String(modelValue)"
+    :items="connectionItems"
+    size="sm"
+    class="w-full"
+    @update:model-value="(v: any) => commit(v)"
+  />
+
   <!-- JSON / rect — textarea + parse, 保留 invalid raw text, 仅 valid 时 commit -->
   <div v-else-if="kind === 'json' || kind === 'rect-editor'" class="space-y-1">
     <UTextarea
@@ -128,10 +138,18 @@ import IconPicker from './IconPicker.vue'
 import ExprInput from '@/components/expressions/ExprInput.vue'
 import CodeInput from '@/components/expressions/CodeInput.vue'
 import { coerceLiteral } from './coerceLiteral'
+import { useSettingsStore } from '@/stores/settings'
 import type { PinType } from '../pinSpec'
 import type { VarType } from '@/lib/variableRef'
 
 const { t } = useI18n()
+const settingsStore = useSettingsStore()
+
+// AI 节点连接下拉项: 第一项「用默认」(空值) + settings 里各连接 (label→id)。
+const connectionItems = computed(() => [
+  { value: '', label: t('node.AI.input.Connection.useDefault') },
+  ...(settingsStore.data?.ai?.connections ?? []).map((c) => ({ value: c.id, label: c.label })),
+])
 
 const props = defineProps<{
   /** PinType (number/bool/string/point/any/list) — widgetKind 缺失时的 fallback 渲染依据。 */
