@@ -13,7 +13,7 @@ when_to_update: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / 
 - **frontend 包管理只用 pnpm** (有 pnpm-lock.yaml): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好.
 
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
-- **打包**: `task build` — 内部先 `vite build` 嵌入 dist, 再 `go build -tags production -ldflags="-w -s -H windowsgui" -o bin/YHBox.exe .`
+- **打包**: `task build` — 内部先 `vite build` 嵌入 dist, 再 `go build -tags production -trimpath -ldflags="-w -s -H windowsgui" -o bin/Yotta.exe .`, **最后 `upx --best bin/Yotta.exe` 压缩**(~48M→~13M, 启动多 ~300ms 自解壳; manifest/icon/DPI 资源 UPX 原样保留; `DEV=true` 跳过)。产物名是 **`Yotta.exe`**(= `APP_NAME`, 顶层 Taskfile.yml), 不是 YHBox。需要 `upx` 在 PATH(`scoop install upx`)。
 - **仅语法 check**: `go build ./...` 可用 (不产 exe), 但产 exe 一定走 task.
 
 **永远别裸 `go build -o YHBox.exe`** — 缺 vite build → frontend/dist 旧/空 → 启动空白; 缺 `wails3 generate syso` → 没 icon + 缺 manifest (admin 提权检测不对).
