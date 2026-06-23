@@ -58,6 +58,9 @@ export interface Settings {
     connections: AIConnection[]
     default: string // 指向某 connection.id；新建 AI 节点缺省连接
   }
+  mcp: {
+    armed: boolean // MCP 服务是否启用；Go Armed → TS armed
+  }
 }
 
 export const useSettingsStore = defineStore('settings', () => {

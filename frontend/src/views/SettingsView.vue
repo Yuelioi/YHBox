@@ -23,6 +23,7 @@
       <SettingsInput v-if="activeTab === 'input'" />
       <SettingsLauncher v-if="activeTab === 'launcher'" />
       <SettingsAI v-if="activeTab === 'ai'" />
+      <SettingsMCP v-if="activeTab === 'mcp'" />
     </div>
   </div>
 </template>
@@ -35,10 +36,11 @@ import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
 import SettingsLauncher from './SettingsLauncher.vue'
 import SettingsAI from './SettingsAI.vue'
+import SettingsMCP from './SettingsMCP.vue'
 
 const { t } = useI18n()
 
-type TabKey = 'general' | 'hotkeys' | 'input' | 'launcher' | 'ai'
+type TabKey = 'general' | 'hotkeys' | 'input' | 'launcher' | 'ai' | 'mcp'
 
 const tabs = computed<{ key: TabKey; label: string }[]>(() => [
   { key: 'general', label: t('settingsTab.general') },
@@ -46,6 +48,7 @@ const tabs = computed<{ key: TabKey; label: string }[]>(() => [
   { key: 'input', label: t('settingsTab.input_calibration') },
   { key: 'launcher', label: t('settingsTab.launcher') },
   { key: 'ai', label: t('settingsTab.ai') },
+  { key: 'mcp', label: t('settingsTab.mcp') },
 ])
 const activeTab = ref<TabKey>('general')
 </script>

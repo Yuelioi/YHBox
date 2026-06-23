@@ -2501,6 +2501,15 @@
     input_calibration: 'Input calibration',
     launcher: 'Launcher',
     ai: 'AI',
+    mcp: 'MCP',
+  },
+  settingsMCP: {
+    title: 'MCP Server',
+    armLabel: 'Enable MCP server',
+    armWarning: 'Warning: when armed, AI clients can drive your mouse and keyboard and write scripts into containers. Only connect trusted AI clients.',
+    urlLabel: 'Server URL',
+    urlHint: 'Paste this URL into your AI client MCP config (e.g. Claude Desktop or Cline).',
+    copy: 'Copy',
   },
   settingsAI: {
     title: 'AI Models',

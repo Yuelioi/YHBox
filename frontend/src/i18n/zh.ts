@@ -2555,6 +2555,15 @@ export default {
     input_calibration: '输入校准',
     launcher: '悬浮窗',
     ai: 'AI',
+    mcp: 'MCP',
+  },
+  settingsMCP: {
+    title: 'MCP 服务器',
+    armLabel: '启用 MCP 服务',
+    armWarning: '警告：启用后 AI 客户端可驱动你的鼠标键盘并向容器写入脚本，请确保只连接受信任的 AI 客户端。',
+    urlLabel: '服务器地址',
+    urlHint: '将下方地址填入 AI 客户端（如 Claude Desktop 或 Cline）的 MCP 配置中。',
+    copy: '复制',
   },
   settingsAI: {
     title: 'AI 模型',
