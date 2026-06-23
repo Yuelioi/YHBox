@@ -9,9 +9,9 @@ import (
 	_ "yotta/internal/nodes/variable" // 注册 SetVar (直连消费者)
 )
 
-// 用户场景: AI → log1 → log2 串联, ai.red→log1(紧邻 OK), ai.white→log2(跨跳)。
-// 跨跳的 white→log2 应报 EXEC_DATA_NOT_ADJACENT 警告(编辑期提前暴露, 否则运行才 REQUIRED_FIELD_MISSING)。
-func TestAINode_ExecDataNonAdjacentWarns(t *testing.T) {
+// 用户场景: AI → log1 → log2 串联, ai.red→log1(紧邻), ai.white→log2(跨跳)。
+// held output 缓存任意距离直连后, 跨跳的 white→log2 合法 —— 不再报 EXEC_DATA_NOT_ADJACENT。
+func TestAINode_ExecDataNonAdjacentNoWarn(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 1, ID: "t", Name: "t",
 		Graph: Graph{
@@ -36,14 +36,10 @@ func TestAINode_ExecDataNonAdjacentWarns(t *testing.T) {
 			},
 		},
 	}
-	var warns []ValidationError
 	for _, e := range ValidateContainer(c, nil) {
 		if e.Code == "EXEC_DATA_NOT_ADJACENT" {
-			warns = append(warns, e)
+			t.Fatalf("跨跳 exec-data 已合法化(held output), 不该再报 EXEC_DATA_NOT_ADJACENT, got %+v", e)
 		}
-	}
-	if len(warns) != 1 || warns[0].NodeID != "log2" {
-		t.Fatalf("应只对 log2(white 跨跳)报 1 个 EXEC_DATA_NOT_ADJACENT, got %+v", warns)
 	}
 }
 

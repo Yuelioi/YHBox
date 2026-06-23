@@ -84,32 +84,6 @@ func pinExists(kind, pin string, out bool) bool {
 	return false
 }
 
-// execInPinsOf 返回 kind 的 exec-in pin 集合 (Type="Exec" Inputs).
-// nil = 没有 exec-in (Start / EventTick / SubgraphInput / MouseCalibration / pure-data 节点).
-// 未注册 kind 防御性返 ["in"].
-func execInPinsOf(kind string) []string {
-	rn, ok := nodepkg.Get(kind)
-	if !ok {
-		return []string{"in"}
-	}
-	var out []string
-	for _, ip := range rn.Spec.Inputs {
-		if ip.Type == nodepkg.TypeExec {
-			out = append(out, ip.Name)
-		}
-	}
-	return out
-}
-
-func isExecInPin(kind, pin string) bool {
-	for _, p := range execInPinsOf(kind) {
-		if p == pin {
-			return true
-		}
-	}
-	return false
-}
-
 // execOutPinsForNode 返该节点的合法 exec-out pin set. nodepkg Spec.Outputs Type="Exec" 静态查.
 // Subgraph / CollapsedNode 的动态 (按 callee OutputPins) 由 validateInvalidPins 单独处理.
 func execOutPinsForNode(n *GraphNode) map[string]struct{} {
