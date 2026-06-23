@@ -206,6 +206,15 @@ func (r *ContainerRunner) applyCaptures(node *container.GraphNode, data map[stri
 	}
 }
 
+// captureExecOutputs 路径②(held output): fire 时把本次出口 OutputData 的每个字段写进 per-run
+// 缓存 execOutputs["<nodeID>.<field>"], 供下游数据线任意距离直连读 (pullDataPin). 稀疏: 只写
+// 本次 fire 实际带的字段, 未带的保留上次值 (同 applyCaptures 语义). 与 applyCaptures 并列、互不依赖.
+func (r *ContainerRunner) captureExecOutputs(node *container.GraphNode, data map[string]any) {
+	for field, v := range data {
+		r.execOutputs[node.ID+"."+field] = v
+	}
+}
+
 // routeResult turns RunResult into next ExecToken batch + emit lifecycle events.
 //
 // Priority order:
@@ -286,7 +295,8 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 				"Error": result.Error.Error(),
 				"Code":  string(coded.ErrCode()),
 			}
-			r.applyCaptures(node, failData) // 路径①: Fail 出口 Error/Code → 绑定变量 (如 PlayClip)
+			r.applyCaptures(node, failData)      // 路径①: Fail 出口 Error/Code → 绑定变量 (如 PlayClip)
+			r.captureExecOutputs(node, failData) // 路径②: Fail 出口 → held 缓存
 			return r.edges.nextWithData(node.ID+".Fail", tok.LoopStack, failData), nil
 		}
 		return nil, result.Error
@@ -298,7 +308,8 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	if result.ExitName == "" {
 		return nil, nil
 	}
-	r.applyCaptures(node, result.OutputData) // 路径①: 出口 Data 字段 → 绑定变量
+	r.applyCaptures(node, result.OutputData)      // 路径①: 出口 Data 字段 → 绑定变量
+	r.captureExecOutputs(node, result.OutputData) // 路径②: 出口 Data 字段 → held 缓存
 	tokens := r.edges.nextWithData(node.ID+"."+result.ExitName, tok.LoopStack, result.OutputData)
 	return tokens, nil
 }

@@ -1193,6 +1193,66 @@ func TestExecDataEdge_FailCodeIntoDataPin(t *testing.T) {
 	}
 }
 
+// TestCaptureExecOutputs_WritesPerRunCache — exec 节点 fire 出口时, OutputData 各字段进 execOutputs.
+func TestCaptureExecOutputs_WritesPerRunCache(t *testing.T) {
+	resetTdEcho()
+	c := &container.Container{
+		SchemaVersion: 1, ID: "test-execoutputs-write",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "n1", Kind: tkFailf},
+				{ID: "sink", Kind: tkEcho},
+			},
+			Edges: []container.GraphEdge{
+				{From: "n1.Fail", To: "sink.in"}, // 接线 → Fail 路由 handled → 写 failData 缓存
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	if _, err := r.execNodeViaFramework(context.Background(), r.nodesByID["n1"], ExecToken{NodeID: "n1", InPin: "in"}); err != nil {
+		t.Fatalf("n1 fail-route: %v", err)
+	}
+	if got := r.execOutputs["n1.Code"]; got != "capture_failed" {
+		t.Errorf("execOutputs[n1.Code] = %v, want capture_failed", got)
+	}
+	if _, ok := r.execOutputs["n1.Error"]; !ok {
+		t.Errorf("execOutputs 缺 n1.Error")
+	}
+}
+
+// TestHeldOutput_CrossHopReadsCache — 源 fire 写缓存后, 一个 token 不带 ExecData 的消费者
+// (模拟非紧邻 / 跨跳: applyExecDataEdges 无可注入) 仍经缓存读到 n1.Code → Value.
+func TestHeldOutput_CrossHopReadsCache(t *testing.T) {
+	resetTdEcho()
+	c := &container.Container{
+		SchemaVersion: 1, ID: "test-heldoutput-crosshop",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "n1", Kind: tkFailf},
+				{ID: "sink", Kind: tkEcho},
+			},
+			Edges: []container.GraphEdge{
+				{From: "n1.Fail", To: "sink.in"},    // exec 接线 (n1 Fail 路由 handled)
+				{From: "n1.Code", To: "sink.Value"}, // data 边: n1.Code → sink.Value
+			},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	r := NewContainerRunner(rt)
+	// 1) 跑 n1 → 写 execOutputs[n1.Code].
+	if _, err := r.execNodeViaFramework(context.Background(), r.nodesByID["n1"], ExecToken{NodeID: "n1", InPin: "in"}); err != nil {
+		t.Fatalf("n1: %v", err)
+	}
+	// 2) 跑 sink, token 不带 ExecData → 仅缓存能交付.
+	if _, err := r.execNodeViaFramework(context.Background(), r.nodesByID["sink"], ExecToken{NodeID: "sink", InPin: "in"}); err != nil {
+		t.Fatalf("sink: %v", err)
+	}
+	if got := getTdEchoLast(); got != "capture_failed" {
+		t.Errorf("sink.Value = %v, want capture_failed (held 缓存交付, token 无 execData)", got)
+	}
+}
+
 // 2. Coded error (Failf) + .Fail 没接线 → 冒泡 (nil token, err!=nil), handled=false.
 func TestRouteResult_FailRoute_CodedUnwired(t *testing.T) {
 	dt := newFailRouteTest(t, tkFailf, "") // no edges → Fail unwired

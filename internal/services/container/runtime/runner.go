@@ -99,6 +99,12 @@ type ContainerRunner struct {
 	state       *ExecState
 	stopwatches *stopwatchTable
 
+	// execOutputs per-run held output 缓存: exec 节点 fire 某出口时, 该出口 OutputData 每个字段
+	// 写进 execOutputs["<nodeID>.<field>"]; 下游数据线经 pullDataPin 任意距离直连读 (免 GetVar、
+	// 免紧邻). 键全局唯一 (node ID 含随机后缀), 主图/子图/listener 共用一张. per-run 生命周期 =
+	// runner 实例 (NewContainerRunner 起一张新的, 一次 Run 用完即随实例释放).
+	execOutputs map[string]any
+
 	// bundle 是 node.ServiceBundle (LogService / VarStore / VisionService 等 8 个 adapter),
 	// execNode 走 node.RunNode dispatch 时消费. 默认 Log 是 zerolog.Nop, main.go 启动后
 	// SetLogger 注入真 logger.
@@ -129,6 +135,7 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		edges:       cc.Main.Edges,
 		dataEdges:   cc.Main.DataEdges,
 		stopwatches: newStopwatchTable(),
+		execOutputs: map[string]any{},
 	}
 	r.state = NewExecState(rt.Container.ID, cc.MainCalibCounts)
 	// 默认 LogService 是 zerolog.Nop (沉默). main.go SetLogger 注入真 logger.
