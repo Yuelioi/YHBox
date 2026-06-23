@@ -287,8 +287,8 @@ func dataOutPinTypeForKind(kind, pinName string) string {
 
 // IsExecOutputDataField reports whether (kind, pin) names a Data field nested under
 // an exec output (e.g. RunProgram.Fail 的 Error/Code). 这类 pin 连线/校验上算 data-out
-// (IsDataOutPin 真), 但值不靠 pure-data pull —— 它沿父 exec 出口边作为 exec-data 下发,
-// runtime 从 token 的 exec-data 取 (见 ContainerRunner.applyExecDataEdges).
+// (IsDataOutPin 真), 但值不靠 pure-data pull —— 源 fire 时存进 per-run held output 缓存,
+// runtime 经 pullDataPin 任意距离直连读 (见 ContainerRunner.captureExecOutputs / pullDataPin).
 func IsExecOutputDataField(kind, pin string) bool {
 	rn, ok := nodepkg.Get(kind)
 	if !ok {
@@ -339,7 +339,7 @@ func IsDataOutPinNode(n *GraphNode, pin string) bool {
 }
 
 // IsExecOutputDataFieldNode — config-aware IsExecOutputDataField: 静态 + DynamicDataFields
-// 的 config.Outputs[] 字段。值同样沿父 exec 出口边作为 exec-data 下发, applyExecDataEdges 取。
+// 的 config.Outputs[] 字段。值同样经 per-run held output 缓存 (captureExecOutputs 写 / pullDataPin 读) 直连下游。
 func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
 	if n == nil {
 		return false

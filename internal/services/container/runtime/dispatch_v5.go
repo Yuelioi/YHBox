@@ -36,7 +36,6 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
-	r.applyExecDataEdges(node, rn, execData, dataWire)
 
 	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled)
 	return r.routeResult(node, tok, result)
@@ -80,49 +79,10 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 			if err != nil || v == nil {
 				continue
 			}
-			dw[in.Name] = v
+			dw[in.Name] = coerceToType(v, in.Type) // 删 applyExecDataEdges 后, 动态输入的 coerce 移到此处
 		}
 	}
 	return dw
-}
-
-// applyExecDataEdges 回填"源是 exec-output data 字段 (如 Fail.Code)"的 data-in pin.
-// 这类 pin 的值不走 pure-data pull (buildDataWireFor/pullDataPin 已跳过为 nil), 而是沿父
-// exec 边作为 exec-data 下发到本节点 —— srcPin (字段名, 如 "Code") 即 exec-data 的 key.
-// 让"失败出口的 Error/Code 数据线接到下游 data-in (如 Switch.Value)"端到端跑通.
-//
-// 约束: data 边应跟父 exec 边并行 (源 = 触发本节点的 exec 上游); 否则 execData 无该 key → 跳过.
-// applyExecDataEdges 遍历**有效输入列表 = 静态 Spec.Inputs ∪ 动态 config.Inputs[]**, 把源是
-// exec-output data 字段的 data-in pin 从 execData 注入。动态输入也覆盖 → Capture.Image 可经
-// exec-data 直连进 AI 节点的动态 Image 输入(无需绑变量)。数据线注入覆盖 Var 绑定(直连优先)。
-func (r *ContainerRunner) applyExecDataEdges(node *container.GraphNode, rn *nodepkg.RegisteredNode, execData, dw map[string]any) {
-	if len(execData) == 0 {
-		return
-	}
-	inject := func(name, typ string) {
-		srcID, srcPin := r.dataEdges.Source(node.ID, name)
-		if srcID == "" {
-			return
-		}
-		src := r.nodesByID[srcID]
-		if src == nil || !container.IsExecOutputDataFieldNode(src, srcPin) {
-			return
-		}
-		if v, ok := execData[srcPin]; ok {
-			dw[name] = coerceToType(v, typ)
-		}
-	}
-	for _, ip := range rn.Spec.Inputs {
-		if ip.Type == nodepkg.TypeExec {
-			continue
-		}
-		inject(ip.Name, ip.Type)
-	}
-	if rn.Spec.DynamicInputs {
-		for _, d := range container.ParseDynamicInputDecls(node) {
-			inject(d.Name, d.Type)
-		}
-	}
 }
 
 // resolveDataPinV5 解析单个 data-in pin 值:
@@ -358,7 +318,6 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
-	r.applyExecDataEdges(node, rn, execData, dataWire)
 
 	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled, body)
 	return r.routeResult(node, tok, result)
