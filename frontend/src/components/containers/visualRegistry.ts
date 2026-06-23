@@ -57,6 +57,7 @@ export const GROUP_VISUAL: Record<string, { color: string; icon: string }> = {
   variables: { color: 'cyan', icon: 'i-tabler-variable' },
   purefunc: { color: 'lime', icon: 'i-tabler-math-function' },
   detect: { color: 'violet', icon: 'i-tabler-eye' },
+  image: { color: 'fuchsia', icon: 'i-tabler-photo' },
   input: { color: 'orange', icon: 'i-tabler-device-gamepad' },
   system: { color: 'zinc', icon: 'i-tabler-settings' },
   io: { color: 'sky', icon: 'i-tabler-message-circle' },

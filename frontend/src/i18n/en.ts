@@ -2395,6 +2395,7 @@
     variables: 'Variables',
     purefunc: 'Compute',
     detect: 'Detect',
+    image: 'Image',
     input: 'Input',
     system: 'System',
     io: 'I/O',

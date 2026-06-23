@@ -28,7 +28,7 @@ import { groupVisual, resolvePalette } from '../visualRegistry'
 const GROUP_MAP: Record<string, NodeGroup> = {
   Control: 'control',
   Detect: 'detect',
-  Image: 'detect', // Capture/SaveImage/LoadImage — 暂归 detect 组(专用 Image 分组留作 polish)
+  Image: 'image', // Capture/SaveImage/LoadImage 专用图像分组
   Input: 'input',
   System: 'system',
   Variable: 'variables',

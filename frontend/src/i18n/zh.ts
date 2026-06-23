@@ -2441,6 +2441,7 @@ export default {
     variables: '变量',
     purefunc: '运算',
     detect: '检测',
+    image: '图像',
     input: '输入',
     system: '系统',
     io: '输入输出',

@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 // 名字校验 — 镜像后端动态 pin 名约束 (标识符).
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
-const TYPE_ITEMS = ['number', 'string', 'bool', 'point', 'any']
+const TYPE_ITEMS = ['number', 'string', 'bool', 'point', 'image', 'any']
 
 interface InputRow {
   /** stable UUID — decoupled from the name so edits don't cause key flicker */

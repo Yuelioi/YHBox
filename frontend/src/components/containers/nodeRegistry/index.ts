@@ -87,6 +87,7 @@ export type NodeGroup =
   | 'variables'
   | 'purefunc'
   | 'detect'
+  | 'image'
   | 'input'
   | 'system'
   | 'io'
