@@ -1040,7 +1040,7 @@
       description: 'Read an image from a local file (PNG / JPEG only, 10MB cap) and produce an image value, e.g. to feed an AI node for vision. Path is limited to the data folder.',
       example: 'Feed an external image to AI: Load image (relative path) → wire to the AI node image input.',
       input: {
-        Path: { label: 'Path', hint: 'Relative path under the data folder' },
+        Path: { label: 'Path', hint: 'Local image path — absolute, or relative to the data folder' },
       },
       output: {
         Done: { label: 'Done', data: { Image: { hint: 'Loaded image' } } },

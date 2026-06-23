@@ -43,26 +43,26 @@ func (LoadImage) Spec() node.Spec {
 }
 
 func (LoadImage) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	rel := in.String(liInPath)
-	if rel == "" {
+	p := in.String(liInPath)
+	if p == "" {
 		return nil, node.Failf(node.CodeNotFound, nil, "LoadImage: 路径为空")
 	}
-	// 沙箱: 限 <dataDir> 下(比 SaveImage 宽 —— 可读任意子目录, 因 Load 读用户放进 dataDir
-	// 任意位置的图; Save 专责写 images/)。仍拒绝绝对 / 盘符 / '..'。
-	if err := checkSafePath(rel); err != nil {
-		return nil, node.Failf(node.CodeNotFound, err, "LoadImage: %v", err)
+	// 单机本地工具, 用户自己选路径: 绝对路径直接读任意本地图; 相对路径相对数据目录。
+	// 不设沙箱(只 PNG/JPEG 能解出, 非图文件也读不成)。
+	abs := p
+	if !filepath.IsAbs(p) {
+		abs = filepath.Join(dataRoot(), p)
 	}
-	abs := filepath.Join(dataRoot(), rel)
 	info, err := os.Stat(abs)
 	if err != nil {
-		return nil, node.Failf(node.CodeNotFound, err, "LoadImage: 找不到文件 %s", rel)
+		return nil, node.Failf(node.CodeNotFound, err, "LoadImage: 找不到文件 %s", p)
 	}
 	if info.Size() > maxImageBytes {
 		return nil, node.Failf(node.CodeError, nil, "LoadImage: 文件超过 10MB 上限")
 	}
 	data, err := os.ReadFile(abs)
 	if err != nil {
-		return nil, node.Failf(node.CodeNotFound, err, "LoadImage read %s: %v", rel, err)
+		return nil, node.Failf(node.CodeNotFound, err, "LoadImage read %s: %v", p, err)
 	}
 	format, ok := sniffImageFormat(data)
 	if !ok {

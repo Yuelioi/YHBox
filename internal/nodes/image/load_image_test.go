@@ -66,10 +66,18 @@ func TestLoadImage_NonImage_Fails(t *testing.T) {
 	}
 }
 
-func TestLoadImage_UnsafePath_Fails(t *testing.T) {
-	t.Setenv("YOTTA_DATA_DIR", t.TempDir())
-	if res := runLoadImage(t, "../escape.png"); res.Error == nil {
-		t.Fatal("'..' 路径应失败")
+func TestLoadImage_AbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+	abs := filepath.Join(dir, "pic.png")
+	if err := os.WriteFile(abs, tinyPNG(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := runLoadImage(t, abs) // 绝对路径, 任意本地图
+	if res.Error != nil || res.ExitName != "Done" {
+		t.Fatalf("绝对路径应能加载: exit=%q err=%v", res.ExitName, res.Error)
+	}
+	if res.OutputData["Image"].(node.Image).Format != "png" {
+		t.Error("绝对路径加载的应是 png")
 	}
 }
 

@@ -1060,7 +1060,7 @@ export default {
       description: '从本地文件读一张图像(仅 PNG / JPEG, 限 10MB)产出图像值, 接给 AI 节点识图等。路径限数据目录下。',
       example: '把外部图喂给 AI: 加载图像(填相对路径)→ 接 AI 节点图像输入。',
       input: {
-        Path: { label: '路径', hint: '数据目录下的相对路径' },
+        Path: { label: '路径', hint: '本地图片路径 — 绝对路径(如 C:\\...\\x.png)或数据目录下相对路径' },
       },
       output: {
         Done: { label: '完成', data: { Image: { hint: '读出的图像' } } },
