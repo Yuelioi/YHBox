@@ -677,6 +677,8 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 		var nodeErrs []ValidationError
 
 		switch n.Kind {
+		case "AI":
+			nodeErrs = validateAI(n)
 		case "DetectColorHSV":
 			nodeErrs = validateDetectColorHSV(n)
 		case "ROIColorScan":
