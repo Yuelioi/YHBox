@@ -17,7 +17,10 @@ const (
 	KindTimeout    ErrKind = "timeout"
 	KindNotFound   ErrKind = "notFound"
 	KindBadRequest ErrKind = "badRequest"
-	KindUnknown    ErrKind = "unknown"
+	// KindUnsupported — 端点不支持某能力(如兼容端点显式选 native 结构化输出)。
+	// 文案引导用户切提示词注入模式, 区别于"模型/网络挂了"。
+	KindUnsupported ErrKind = "unsupported"
+	KindUnknown     ErrKind = "unknown"
 )
 
 type CodedError struct {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/shared"
 )
 
 type openaiProvider struct {
@@ -48,6 +49,44 @@ func (p *openaiProvider) Chat(ctx context.Context, req ChatRequest) (ChatRespons
 		return ChatResponse{}, &CodedError{Kind: KindUpstream, Err: errors.New("response had no choices")}
 	}
 	return ChatResponse{Text: resp.Choices[0].Message.Content}, nil
+}
+
+func (p *openaiProvider) ChatStructured(ctx context.Context, req ChatRequest, schema JSONSchema, mode string) (ChatResponse, map[string]any, error) {
+	if mode == ModePrompt {
+		return structuredViaPrompt(ctx, p.Chat, req, schema)
+	}
+	params := openai.ChatCompletionNewParams{
+		Model:    openai.ChatModel(req.Model),
+		Messages: toOpenAIMessages(req.Messages),
+		ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
+				JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{
+					Name:   "result",
+					Strict: openai.Bool(true),
+					Schema: openaiSchemaObject(schema),
+				},
+			},
+		},
+	}
+	if req.MaxTokens > 0 {
+		params.MaxTokens = openai.Int(int64(req.MaxTokens))
+	}
+	if req.Temperature > 0 {
+		params.Temperature = openai.Float(req.Temperature)
+	}
+	resp, err := p.client.Chat.Completions.New(ctx, params)
+	if err != nil {
+		return ChatResponse{}, nil, asUnsupportedIfBadRequest(mapOpenAIErr(err))
+	}
+	if len(resp.Choices) == 0 {
+		return ChatResponse{}, nil, &CodedError{Kind: KindUpstream, Err: errors.New("response had no choices")}
+	}
+	text := resp.Choices[0].Message.Content
+	fields, perr := parseStructuredText(text)
+	if perr != nil {
+		return ChatResponse{Text: text}, nil, &CodedError{Kind: KindBadRequest, Err: perr}
+	}
+	return ChatResponse{Text: text}, fields, nil
 }
 
 func (p *openaiProvider) ListModels(ctx context.Context) ([]string, error) {

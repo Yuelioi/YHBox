@@ -10,9 +10,13 @@ import (
 )
 
 type fakeProvider struct {
-	gotReq llm.ChatRequest
-	resp   llm.ChatResponse
-	err    error
+	gotReq       llm.ChatRequest
+	resp         llm.ChatResponse
+	err          error
+	gotSchema    llm.JSONSchema
+	gotMode      string
+	structFields map[string]any
+	structErr    error
 }
 
 func (f *fakeProvider) Chat(_ context.Context, req llm.ChatRequest) (llm.ChatResponse, error) {
@@ -20,6 +24,12 @@ func (f *fakeProvider) Chat(_ context.Context, req llm.ChatRequest) (llm.ChatRes
 	return f.resp, f.err
 }
 func (f *fakeProvider) ListModels(_ context.Context) ([]string, error) { return nil, nil }
+func (f *fakeProvider) ChatStructured(_ context.Context, req llm.ChatRequest, schema llm.JSONSchema, mode string) (llm.ChatResponse, map[string]any, error) {
+	f.gotReq = req
+	f.gotSchema = schema
+	f.gotMode = mode
+	return f.resp, f.structFields, f.structErr
+}
 
 type fakeAIService struct {
 	provider llm.Provider
