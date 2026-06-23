@@ -1794,6 +1794,7 @@
     MULTIPLE_STARTS: 'Main graph has {count} Start nodes (expected exactly 1)',
     DANGLING_EDGE: 'Edge {from} → {to} references missing node ({missing})',
     INVALID_PIN: 'Node {nodeID} ({kind}) has no {side} pin {pin}',
+    EXEC_DATA_NOT_ADJACENT: 'Data pin {pin} comes from {src}, which is not the immediate exec-predecessor — it will not be delivered at runtime (make {src} the immediate upstream of this node, or bind a variable on {src} + read with GetVar)',
     DUPLICATE_OUTPUT_PIN: 'OutputPin Name {name} duplicated',
     MISSING_TEMPLATE: 'Node {nodeID} references template {template} not found in container templates/',
     MISSING_SUBGRAPH: 'Subgraph node references unknown subgraph {subgraphId}',

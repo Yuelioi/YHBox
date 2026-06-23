@@ -5,8 +5,47 @@ import (
 
 	_ "yotta/internal/nodes/ai"       // 注册 AI
 	_ "yotta/internal/nodes/control"  // 注册 Start
+	_ "yotta/internal/nodes/io"       // 注册 Log
 	_ "yotta/internal/nodes/variable" // 注册 SetVar (直连消费者)
 )
+
+// 用户场景: AI → log1 → log2 串联, ai.red→log1(紧邻 OK), ai.white→log2(跨跳)。
+// 跨跳的 white→log2 应报 EXEC_DATA_NOT_ADJACENT 警告(编辑期提前暴露, 否则运行才 REQUIRED_FIELD_MISSING)。
+func TestAINode_ExecDataNonAdjacentWarns(t *testing.T) {
+	c := &Container{
+		SchemaVersion: 1, ID: "t", Name: "t",
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "ai", Kind: "AI", Config: map[string]any{
+					"literal": map[string]any{"User": "hi"},
+					"Outputs": []any{
+						map[string]any{"Name": "red", "Type": "Number"},
+						map[string]any{"Name": "white", "Type": "Number"},
+					},
+				}},
+				{ID: "log1", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Level": "info"}}},
+				{ID: "log2", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Level": "info"}}},
+			},
+			Edges: []GraphEdge{
+				{From: "start.Done", To: "ai.In"},
+				{From: "ai.Done", To: "log1.In"},
+				{From: "ai.red", To: "log1.Message"},
+				{From: "log1.Done", To: "log2.In"},
+				{From: "ai.white", To: "log2.Message"},
+			},
+		},
+	}
+	var warns []ValidationError
+	for _, e := range ValidateContainer(c, nil) {
+		if e.Code == "EXEC_DATA_NOT_ADJACENT" {
+			warns = append(warns, e)
+		}
+	}
+	if len(warns) != 1 || warns[0].NodeID != "log2" {
+		t.Fatalf("应只对 log2(white 跨跳)报 1 个 EXEC_DATA_NOT_ADJACENT, got %+v", warns)
+	}
+}
 
 // AI 声明的动态输出字段应算 data-out / exec-output data field(config-aware)→ 可直连下游。
 func TestAINode_DynamicOutputIsDataOutPin(t *testing.T) {

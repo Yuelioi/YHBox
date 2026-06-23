@@ -1814,6 +1814,7 @@ export default {
     MULTIPLE_STARTS: '主图有 {count} 个 Start 节点（应恰好 1 个）',
     DANGLING_EDGE: '边 {from} → {to} 引用了不存在的节点 ({missing})',
     INVALID_PIN: '节点 {nodeID} ({kind}) 不存在 {side} pin {pin}',
+    EXEC_DATA_NOT_ADJACENT: '数据线 {pin} 来自非紧邻 exec 上游 {src} — 运行时传不到本节点(把 {src} 改成本节点的紧邻 exec 上游, 或在 {src} 上绑变量 + GetVar 读)',
     DUPLICATE_OUTPUT_PIN: 'OutputPin Name {name} 重复',
     MISSING_TEMPLATE: '节点 {nodeID} 引用的模板 {template} 在容器 templates/ 里找不到',
     MISSING_SUBGRAPH: 'Subgraph 节点引用了不存在的子图 {subgraphId}',

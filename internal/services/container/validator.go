@@ -167,6 +167,7 @@ func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 
 	// 引用检查
 	errs = append(errs, validateInvalidPins(c, sgs)...)
+	errs = append(errs, validateExecDataAdjacency(c, sgs)...)
 	errs = append(errs, validateMissingSubgraph(c, sgs)...)
 	errs = append(errs, validatePlayClip(c, sgs)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
@@ -367,6 +368,57 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 	for _, sg := range sgs {
 		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
 		checkEdges(sg.Graph.Nodes, sg.Graph.Edges, sgPath)
+	}
+	return errs
+}
+
+// validateExecDataAdjacency 警告: 数据线源是某 exec 出口的 Data 字段(静态 Fail.Code / 动态 AI
+// 结构化输出 red/white)时, 值靠 exec-data 沿父 exec 边单跳下发 —— 源须是目标的紧邻 exec 上游,
+// 否则运行时传不到(目标必填输入会 REQUIRED_FIELD_MISSING)。编辑期提前暴露这个跨跳坑。
+func validateExecDataAdjacency(c *Container, sgs []Subgraph) []ValidationError {
+	var errs []ValidationError
+	check := func(nodes []GraphNode, edges []GraphEdge, graphPath []string) {
+		nodeByID := map[string]*GraphNode{}
+		for i := range nodes {
+			nodeByID[nodes[i].ID] = &nodes[i]
+		}
+		// 紧邻 exec 上游: tgtID → {srcID} (存在 exec 边 src.exec-out → tgt.exec-in)。
+		execPred := map[string]map[string]bool{}
+		for _, e := range edges {
+			sID, sPin := splitRef(e.From)
+			tID, tPin := splitRef(e.To)
+			s, t := nodeByID[sID], nodeByID[tID]
+			if s == nil || t == nil {
+				continue
+			}
+			if nodeHasExecOutPin(s, sPin) && isExecInPin(t.Kind, tPin) {
+				if execPred[tID] == nil {
+					execPred[tID] = map[string]bool{}
+				}
+				execPred[tID][sID] = true
+			}
+		}
+		for _, e := range edges {
+			sID, sPin := splitRef(e.From)
+			tID, _ := splitRef(e.To)
+			if nodeByID[sID] == nil || nodeByID[tID] == nil {
+				continue
+			}
+			if !IsExecOutputDataFieldNode(nodeByID[sID], sPin) {
+				continue
+			}
+			if !execPred[tID][sID] {
+				errs = append(errs, ValidationError{
+					Severity: SeverityWarning, Code: "EXEC_DATA_NOT_ADJACENT",
+					GraphPath: graphPath, NodeID: tID,
+					Params:   map[string]any{"src": sID, "pin": sPin},
+				})
+			}
+		}
+	}
+	check(c.Graph.Nodes, c.Graph.Edges, []string{"main"})
+	for _, sg := range sgs {
+		check(sg.Graph.Nodes, sg.Graph.Edges, []string{"subgraph", sg.ID})
 	}
 	return errs
 }
