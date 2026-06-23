@@ -51,6 +51,16 @@ type Color struct {
 	V int `json:"v"`
 }
 
+// Image 图像 pin 值 — 编码字节 + 格式。Capture 产出、SaveImage 写盘、LoadImage 读盘、
+// AI 节点 vision 多模态消费;在图里作为一等流动值(经 exec-data 直连或捕获到变量)。
+//
+// Data is immutable; consumers MUST NOT modify the underlying byte slice —
+// 值在进程内按引用流动、不深拷, 改了会跨节点串数据。
+type Image struct {
+	Format string `json:"format"` // "png" | "jpeg"
+	Data   []byte `json:"data"`
+}
+
 // typeRegistry 加 mutex (跟 globalRegistry 对称). init() 之外的 RegisterType
 // 罕见, 但 AllTypes RPC handler 并发读取需安全.
 var (
@@ -90,7 +100,7 @@ func init() {
 		{Tag: "Rect", GoType: "node.Rect", WidgetKind: "rect-editor", Color: "#a855f7"},
 		{Tag: "Geometry", GoType: "node.Geometry", WidgetKind: "geometry", Color: "#a855f7"},
 		{Tag: "Color", GoType: "node.Color", WidgetKind: "color-picker", Color: "#ef4444"},
-		{Tag: "Image", GoType: "*image.RGBA", WidgetKind: "preview", Color: "#9ca3af"},
+		{Tag: "Image", GoType: "node.Image", WidgetKind: "preview", Color: "#9ca3af"},
 		{Tag: "Duration", GoType: "time.Duration", WidgetKind: "duration", Color: "#3b82f6"},
 		{Tag: "JSON", GoType: "map[string]any", WidgetKind: "json", Color: "#9ca3af"},
 		{Tag: "List", GoType: "[]any", WidgetKind: "list-preview", Color: "#818cf8"},
