@@ -1,7 +1,7 @@
 # Cockpit — YHFish
 
 **Last updated**: 2026-06-23 by 月离 (② AI 节点 —— **Phase A 整块完成**(A1-A6: ctx.AI() 指纹缓存 + AI 文本节点 Spec/Run/{{}} 模板 + validateAI + 删连接引用扫描 + FE 连接下拉/i18n)**+ B1 DynamicDataFields 框架机制**,7 feat commits 全单测绿 + FE parity/typecheck 绿 @ feat/v2-foundation。文本 AI 节点端到端可真机 smoke。**默认不 push**)。
-**Active focus**: **② AI 节点**(图里调 LLM)—— **Phase A 完成 + B1 已落**。文本节点可用(拖节点、连接下拉选、{{}} 提示词、跑出 Text)。**resume 点: Phase B 结构化输出 B2(OpenAI json_schema native, go doc 核实 Stainless union)→ B3 Anthropic 强制 tool-use → B4 提示词注入 → B5 AI 节点接结构化 → B6 FE 输出声明编辑器 → Phase C vision**。逐任务见 [plan](plans/2026-06-23-ai-nodes.md)。**默认不 push**。
+**Active focus**: **② AI 节点**(图里调 LLM)—— **Phase A + Phase B 完成**(15 feat commits)。文本 + 结构化带类型输出端到端可用(拖节点、连接下拉、{{}} 提示词、声明输出字段逐个绑变量)。**resume 点: Phase C vision** —— C1 `node.Image` 值类型 → C2 `Capture`(截屏产 Image, png/jpeg)删 Screenshot → C3 `SaveImage` → C4 `LoadImage` → C5 `llm.Message` 多模态(go doc 两 SDK image part)→ C6 AI 收图 + `applyExecDataEdges` 扩动态输入(exec-data 直连)→ C7 FE Image 节点 i18n。逐任务见 [plan](plans/2026-06-23-ai-nodes.md)。**默认不 push**。
 
 ## 进行中
 
