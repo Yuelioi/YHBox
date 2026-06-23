@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -39,6 +40,22 @@ type ConnectionConfig struct {
 	Protocol string
 	BaseURL  string
 	APIKey   string
+}
+
+// New 按协议建 Provider。每调用新建(含连接池 Transport), 不缓存。
+// 官方端点缺 key 早报错, 免等到真调用才炸。
+func New(c ConnectionConfig) (Provider, error) {
+	if c.APIKey == "" && isOfficialEndpoint(c.Protocol, c.BaseURL) {
+		return nil, ErrAPIKeyRequired
+	}
+	switch c.Protocol {
+	case "openai":
+		return newOpenAIProvider(c), nil
+	case "anthropic":
+		return newAnthropicProvider(c), nil
+	default:
+		return nil, &CodedError{Kind: KindBadRequest, Err: fmt.Errorf("unknown protocol %q", c.Protocol)}
+	}
 }
 
 // isOfficialEndpoint 判断是否打官方付费端点(空 BaseURL = SDK 默认官方域名)。
