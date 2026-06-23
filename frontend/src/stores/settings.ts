@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { backend } from '@/lib/backend'
+import { backend, type AIConnection } from '@/lib/backend'
 
 // MouseProfile 命名鼠标校准档（跟 Go services.MouseProfile 对齐）。
 // counts360 = 原地转 360° 鼠标硬件累积 |dx|；同机不同游戏内灵敏度不同 → 多 profile。
@@ -54,6 +54,10 @@ export interface Settings {
     method: 'auto' | 'gdi' | 'wgc' | 'mock' // 截屏后端；改完需重启 exe 才生效
     dumpDebug: boolean // bot detect 落盘带框 PNG 到 debug/captures/
   }
+  ai: {
+    connections: AIConnection[]
+    default: string // 指向某 connection.id；新建 AI 节点缺省连接
+  }
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -91,7 +95,14 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  return { data, loaded, load, patch, mouseProfiles, activeMouseCounts360 }
+  // patchAIConnections 整替 connections（RFC7386 数组整替）；删档清 default 时一并传 def=''。
+  async function patchAIConnections(connections: AIConnection[], def?: string) {
+    const ai: { connections: AIConnection[]; default?: string } = { connections }
+    if (def !== undefined) ai.default = def
+    await patch({ ai })
+  }
+
+  return { data, loaded, load, patch, patchAIConnections, mouseProfiles, activeMouseCounts360 }
 })
 
 function deepMerge(target: any, source: any) {

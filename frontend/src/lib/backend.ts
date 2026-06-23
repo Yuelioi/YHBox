@@ -14,6 +14,7 @@ import * as RecordingService from '@bindings/yotta/internal/services/recording/s
 import * as ClipService from '@bindings/yotta/internal/services/inputclip/service.js'
 import * as SubgraphService from '@bindings/yotta/internal/services/container/subgraphservice.js'
 import * as CodeSnippetService from '@bindings/yotta/internal/services/codesnippet/service.js'
+import * as AIService from '@bindings/yotta/internal/services/aiservice.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
 
@@ -209,10 +210,31 @@ export interface AssetReferrer {
   nodeKind: string
 }
 
+// AIConnection 跟 Go services.AIConnection 对齐（连接 = credential，model 由 AI 节点选）。
+export interface AIConnection {
+  id: string
+  label: string
+  protocol: 'openai' | 'anthropic'
+  baseURL: string
+  apiKey: string
+}
+
+// AITestResult 跟 Go services.TestResult 对齐。
+export interface AITestResult {
+  ok: boolean
+  models: string[]
+  error: string
+  kind: string
+}
+
 export const backend = {
   settings: {
     get: () => invoke(SettingsService.Get),
     update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),
+  },
+  ai: {
+    testConnection: (connection: AIConnection, testModel: string) =>
+      invoke(AIService.TestConnection, { connection, testModel }) as Promise<AITestResult | undefined>,
   },
   containers: {
     list: () => invoke(ContainerService.List),
