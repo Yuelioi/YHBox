@@ -246,6 +246,23 @@ function parseDynamicInputsCfg(
   return out
 }
 
+// dynamic data out — Spec.DynamicDataFields 节点 (AI) 的 config.Outputs[] 声明.
+// 镜像 backend BindableFieldsForNode: 声明字段并入可绑 Data 字段(逐个绑变量)。
+function parseDynamicOutputsCfg(
+  cfg: Record<string, unknown> | null | undefined,
+): Record<string, PinType> {
+  const outputs = Array.isArray(cfg?.Outputs)
+    ? (cfg!.Outputs as Array<Record<string, unknown>>)
+    : []
+  const out: Record<string, PinType> = {}
+  for (const o of outputs) {
+    const name = typeof o.Name === 'string' ? o.Name : ''
+    const type = typeof o.Type === 'string' ? o.Type : 'any'
+    if (name) out[name] = backendTypeToPinType(type)
+  }
+  return out
+}
+
 // 主转换: backend Spec → NodeKindSpec.
 function adaptSpec(s: Spec): NodeKindSpec {
   const group = GROUP_MAP[s.category] ?? 'system'
@@ -282,6 +299,11 @@ function adaptSpec(s: Spec): NodeKindSpec {
   if (s.dynamicInputs) {
     out.dynamicInputs = true
     out.dataInDynamicFn = parseDynamicInputsCfg
+  }
+  // 标志驱动 (backend Spec.DynamicDataFields): 动态 Data 出口字段由 config.Outputs[] 声明.
+  if (s.dynamicDataFields) {
+    out.dynamicDataFields = true
+    out.dataOutDynamicFn = parseDynamicOutputsCfg
   }
   return out
 }

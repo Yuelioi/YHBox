@@ -513,6 +513,8 @@
     color_pick_huewrap_title: 'Hue crosses the red boundary — downgraded',
     color_pick_huewrap_desc: 'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
     dyn_inputs_title: 'Inputs',
+    dyn_outputs_title: 'Outputs',
+    dyn_outputs_hint: 'Declare typed output fields; the model returns matching JSON. Bind each field to a variable in the Outputs group below. Text is the raw model output and is always present.',
     code_expand: 'Expand editor',
     code_editor_title: 'Edit code',
     expr_editor_title: 'Edit expression',

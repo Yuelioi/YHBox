@@ -493,6 +493,15 @@
       <DynamicInputsEditor :node="node" @update="emit('update', $event)" />
     </section>
 
+    <!-- 动态输出声明 (spec.dynamicDataFields: AI) — 编辑 config.Outputs[],
+         每字段成 Done 出口可绑 Data 字段, 在下方「输出」组绑变量。 -->
+    <section v-if="specHasDynamicDataFields" class="mb-5">
+      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
+        {{ t('inspector.dyn_outputs_title') }}
+      </h4>
+      <DynamicOutputsEditor :node="node" @update="emit('update', $event)" />
+    </section>
+
     <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。
          连线的 pin 不显 (值走 data 边)。有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 这里返空。 -->
     <section v-if="dataInLiterals.length > 0" class="mb-5">
@@ -636,6 +645,7 @@ import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import SwitchInspector from './inspector/SwitchInspector.vue'
 import DynamicInputsEditor from './inspector/DynamicInputsEditor.vue'
+import DynamicOutputsEditor from './inspector/DynamicOutputsEditor.vue'
 import { getSpec } from './nodeRegistry/registry'
 import ClipTimeline from './ClipTimeline.vue'
 import TemplatePickerField from './TemplatePickerField.vue'
@@ -714,6 +724,11 @@ const dataInLiterals = computed(() => {
 // spec.dynamicInputs 标志 (Expr/Script) — 驱动「输入口」声明编辑 section。
 const specHasDynamicInputs = computed(
   () => !!props.node && !!getSpec(props.node.kind)?.dynamicInputs,
+)
+
+// spec.dynamicDataFields 标志 (AI) — 驱动「输出口」声明编辑 section。
+const specHasDynamicDataFields = computed(
+  () => !!props.node && !!getSpec(props.node.kind)?.dynamicDataFields,
 )
 
 // 动态输入名 (config.Inputs[] 声明, 镜像后端 ParseDynamicInputDecls) — 喂 code widget 补全。

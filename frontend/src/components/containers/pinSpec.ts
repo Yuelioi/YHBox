@@ -120,11 +120,12 @@ export function pinsFor(
     return { execIn: ['in'], execOut: ['out'], dataIn: [], dataOut: [] }
   }
   const dynDataIn = s.dataInDynamicFn ? s.dataInDynamicFn(config) : {}
+  const dynDataOut = s.dataOutDynamicFn ? s.dataOutDynamicFn(config) : {}
   return {
     execIn: s.execIn,
     execOut: registryExecOutPinsFor(kind, config),
     dataIn: [...Object.keys(s.dataIn), ...Object.keys(dynDataIn)],
-    dataOut: Object.keys(s.dataOut),
+    dataOut: [...Object.keys(s.dataOut), ...Object.keys(dynDataOut)],
   }
 }
 

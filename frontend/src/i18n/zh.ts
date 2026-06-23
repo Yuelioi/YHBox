@@ -529,6 +529,8 @@ export default {
     color_pick_huewrap_title: '色相跨红色边界，已降级',
     color_pick_huewrap_desc: '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
     dyn_inputs_title: '输入口',
+    dyn_outputs_title: '输出口',
+    dyn_outputs_hint: '声明任意带类型输出字段, 模型按结构出 JSON; 每个字段在下方「输出」组绑到变量。保留名 Text 是模型原文, 不必声明。',
     code_expand: '放大编辑',
     code_editor_title: '编辑代码',
     expr_editor_title: '编辑表达式',
