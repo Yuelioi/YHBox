@@ -15,6 +15,7 @@ import (
 
 	"yotta/internal/hotkey"
 	"yotta/internal/node"
+	_ "yotta/internal/nodes/ai"        // AI (图里调 LLM)
 	_ "yotta/internal/nodes/control"   // Start/Stop/Sleep/Break/Continue/Switch/If
 	_ "yotta/internal/nodes/detect"    // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/Screenshot/ColorBarTrack
 	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
