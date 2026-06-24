@@ -1240,6 +1240,14 @@
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
     },
+    StopApp: {
+      label: 'Stop App',
+      description: 'Forcefully terminate a process by name or PID. Accepts a process name (e.g. notepad.exe) or a numeric PID. Routes to Fail if the process does not exist or cannot be killed.',
+      input: {
+        Target: { label: 'Target Process', hint: 'Process name (e.g. notepad.exe) or numeric PID (e.g. 1234)' },
+      },
+      output: { Done: { label: 'Done' }, Fail: { label: 'Fail' } },
+    },
     // purefunc
     Expr: {
       label: 'Expression',

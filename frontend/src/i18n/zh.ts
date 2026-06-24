@@ -1260,6 +1260,14 @@ export default {
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
+    StopApp: {
+      label: '关闭程序',
+      description: '按进程名或 PID 强制结束进程。填进程名（如 notepad.exe）或纯数字 PID 均可。进程不存在或无权限时走失败出口。',
+      input: {
+        Target: { label: '目标进程', hint: '进程名（如 notepad.exe）或纯数字 PID（如 1234）' },
+      },
+      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
+    },
     // purefunc
     Expr: {
       label: '表达式',

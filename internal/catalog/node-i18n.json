@@ -1834,6 +1834,24 @@
     "label": "终点",
     "description": "让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。"
   },
+  "StopApp": {
+    "label": "关闭程序",
+    "description": "按进程名或 PID 强制结束进程。填进程名（如 notepad.exe）或纯数字 PID 均可。进程不存在或无权限时走失败出口。",
+    "input": {
+      "Target": {
+        "label": "目标进程",
+        "hint": "进程名（如 notepad.exe）或纯数字 PID（如 1234）"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      },
+      "Fail": {
+        "label": "失败"
+      }
+    }
+  },
   "StopwatchRead": {
     "label": "秒表 读取",
     "description": "读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。",
