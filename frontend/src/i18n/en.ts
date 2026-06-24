@@ -1479,8 +1479,8 @@
       description: 'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
       example: 'Use a detected health ratio as X and a fixed 0.9 as Y, then feed the resulting coordinate into a Click node.',
       input: {
-        X: { label: 'X' },
-        Y: { label: 'Y' },
+        X: { label: 'X', hint: 'Percent mode: 0-100 (e.g. 50 = 50%); pixel mode: pixel value' },
+        Y: { label: 'Y', hint: 'Percent mode: 0-100 (e.g. 50 = 50%); pixel mode: pixel value' },
         Unit: { label: 'Unit', hint: 'Percent = adapts to window; Pixels = absolute, fixed', option: { percent: 'Percent (adaptive)', px: 'Pixels (absolute)' } },
       },
       output: { Result: { label: 'Coordinate' } },

@@ -407,9 +407,10 @@ func (MakePoint) Spec() node.Spec {
 }
 
 func (MakePoint) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
-	u := node.UnitRatio
+	x, y := in.Float64("X"), in.Float64("Y")
 	if in.String("Unit") == "px" {
-		u = node.UnitPx
+		return node.Point{X: x, Y: y, Unit: node.UnitPx}, nil
 	}
-	return node.Point{X: in.Float64("X"), Y: in.Float64("Y"), Unit: u}, nil
+	// percent: 输入 0-100 (与 PointWidget 一致) → 0-1 ratio
+	return node.Point{X: x / 100, Y: y / 100}, nil
 }

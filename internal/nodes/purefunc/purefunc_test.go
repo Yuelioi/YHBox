@@ -194,8 +194,9 @@ func TestExpr_Evaluate_ConfigKeysIsolatedFromEnv(t *testing.T) {
 // ===== MakePoint =====
 
 func TestMakePoint_Percent(t *testing.T) {
+	// 输入 0-100 (与 PointWidget 一致); Evaluate 除以 100 得 0-1 ratio
 	v, err := MakePoint{}.Evaluate(nil, node.NewInputsFromConfig(
-		map[string]any{"X": 0.5, "Y": 0.25, "Unit": "percent"}))
+		map[string]any{"X": 50.0, "Y": 25.0, "Unit": "percent"}))
 	if err != nil {
 		t.Fatal(err)
 	}
