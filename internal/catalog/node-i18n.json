@@ -156,10 +156,6 @@
         "label": "模板",
         "hint": "命名空间.名 格式, e.g. fishing.hook_icon; 可选多个"
       },
-      "MatchMode": {
-        "label": "匹配模式",
-        "hint": "多模板时: 任一命中走 Found / 全部同帧命中才走 Found"
-      },
       "Threshold": {
         "label": "阈值",
         "hint": "NCC 阈值"
@@ -228,16 +224,12 @@
   },
   "ClickTemplate": {
     "label": "点击模板",
-    "description": "盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它的中心，然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。",
+    "description": "盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它（默认中心, 可设锚点/偏移），然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。",
     "example": "自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。",
     "input": {
       "Templates": {
         "label": "模板",
         "hint": "命名空间.名 格式, e.g. fishing.start_fish; 可选多个"
-      },
-      "MatchMode": {
-        "label": "匹配模式",
-        "hint": "多模板时: 任一命中即点击 / 全部同帧命中才点击"
       },
       "TimeoutMs": {
         "label": "超时 (ms)"
@@ -245,8 +237,40 @@
       "Threshold": {
         "label": "阈值"
       },
+      "ROI": {
+        "label": "搜索区域",
+        "hint": "找图搜索区 (客户区 ratio, 留空=全屏)"
+      },
+      "Anchor": {
+        "label": "锚点",
+        "hint": "点击落点取命中框的哪个位置 (九宫格), 默认中心"
+      },
+      "OffsetX": {
+        "label": "水平偏移",
+        "hint": "在锚点上水平偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向左。"
+      },
+      "OffsetY": {
+        "label": "垂直偏移",
+        "hint": "在锚点上垂直偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向上。"
+      },
+      "OrderBy": {
+        "label": "多命中排序",
+        "hint": "多命中时按什么排序再取第几个"
+      },
+      "Index": {
+        "label": "取第几个",
+        "hint": "排序后取第几个命中 (从 0 起)"
+      },
       "Button": {
         "label": "按键"
+      },
+      "Keys": {
+        "label": "组合键",
+        "hint": "点击时按住的修饰键, + 分隔, 如 ctrl 或 ctrl+shift。留空=不按。仅 ctrl/shift/alt/win"
+      },
+      "ClickCount": {
+        "label": "点击次数",
+        "hint": "连点几下 (1=单击, 2=双击)"
       },
       "SettleMs": {
         "label": "命中后延迟 (ms)",
@@ -2123,10 +2147,6 @@
       "Templates": {
         "label": "模板",
         "hint": "命名空间.名 格式, e.g. fishing.hook_icon; 可选多个"
-      },
-      "MatchMode": {
-        "label": "匹配模式",
-        "hint": "多模板时: 任一命中即触发 / 全部同帧命中才触发"
       },
       "TimeoutMs": {
         "label": "超时 (ms)"

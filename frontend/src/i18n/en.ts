@@ -724,7 +724,6 @@
       example: 'Fishing, wait for the «hook» icon to pop up: pick fishing.hook_icon, set timeout 5s, wire Found to the reel-in action; if 5s pass with no bite, take Timeout and cast again.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
-        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit fires / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).' },
@@ -746,7 +745,6 @@
       example: 'Decide if you are in the combat screen: pick a combat-only icon, wire Found to the fighting logic and NotFound to the travel logic, and the script branches automatically from one glance at the current frame.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
-        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit → Found / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
       },
       output: {
@@ -762,14 +760,21 @@
     },
     ClickTemplate: {
       label: 'Click template',
-      description: 'Waits for the image (template) you picked to appear, then clicks its center with the mouse and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots. Optionally set «max click attempts» > 1: after each click it checks whether the template is gone and re-clicks a few times if not — fixes the occasional missed click; if it still has not disappeared after all attempts it also takes Timeout.',
+      description: 'Waits for the image (template) you picked to appear, then clicks it (default center, configurable with anchor/offset) and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots. Optionally set «max click attempts» > 1: after each click it checks whether the template is gone and re-clicks a few times if not — fixes the occasional missed click; if it still has not disappeared after all attempts it also takes Timeout.',
       example: 'Auto-click the «start fishing» button: pick fishing.start_fish, timeout 5s, button Left; when it shows up it gets clicked and takes Done; if it never appears, Timeout handles the error.',
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed' },
-        MatchMode: { label: 'Match mode', hint: 'With multiple templates: any hit clicks / all must hit in same frame', option: { any: 'Any', all: 'All' } },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold' },
+        ROI: { label: 'Search region', hint: 'Search area for template matching (client-area ratio; leave empty = full screen)' },
+        Anchor: { label: 'Anchor', hint: 'Which point of the hit bounding box to click (3×3 grid); default center', option: { topLeft: 'Top-left', topCenter: 'Top-center', topRight: 'Top-right', midLeft: 'Mid-left', center: 'Center', midRight: 'Mid-right', botLeft: 'Bottom-left', botCenter: 'Bottom-center', botRight: 'Bottom-right' } },
+        OffsetX: { label: 'Offset X', hint: 'Horizontal offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = left.' },
+        OffsetY: { label: 'Offset Y', hint: 'Vertical offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = up.' },
+        OrderBy: { label: 'Order by', hint: 'When multiple hits are found, sort them by this criterion and pick by index', option: { score: 'Match score', horizontal: 'Left to right', vertical: 'Top to bottom', area: 'Area', random: 'Random' } },
+        Index: { label: 'Index', hint: 'After sorting, pick the Nth hit (0-based)' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+        Keys: { label: 'Modifier keys', hint: 'Keys to hold during the click, separated by +, e.g. ctrl or ctrl+shift. Leave empty for none. Only ctrl/shift/alt/win.' },
+        ClickCount: { label: 'Click count', hint: 'How many times to click (1 = single-click, 2 = double-click)' },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).' },
         MaxAttempts: { label: 'Max click attempts', hint: 'Most times to click (including the first). When >1, after each click it checks whether the template is gone; if still there it clicks again, until the template disappears or attempts run out — guards against an occasional missed click. Gone = success (Done); still there after all attempts = Timeout. 1 = click once without checking (default).' },
         RetryIntervalMs: { label: 'Retry interval (ms)', hint: 'How long to wait after each click before re-checking whether the template is gone (also the gap between clicks). Only applies when max click attempts > 1. Gives the game time to react; too short risks a false miss before the screen updates. Default 500.' },

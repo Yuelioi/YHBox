@@ -744,7 +744,6 @@ export default {
       example: '钓鱼时等「上钩」图标冒出来：模板选 fishing.hook_icon，超时设 5 秒，命中后把 Found 口接收杆动作；5 秒没上钩就走 Timeout 口重新抛竿。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
-        MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即触发 / 全部同帧命中才触发', option: { any: '任一命中', all: '全部命中' } },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。' },
@@ -766,7 +765,6 @@ export default {
       example: '判断现在是不是在战斗界面：模板选战斗特有的图标，Found 口接打怪逻辑，NotFound 口接赶路逻辑，脚本就能看一眼当前画面自动二选一。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
-        MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中走 Found / 全部同帧命中才走 Found', option: { any: '任一命中', all: '全部命中' } },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
       },
       output: {
@@ -782,14 +780,21 @@ export default {
     },
     ClickTemplate: {
       label: '点击模板',
-      description: '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它的中心，然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。',
+      description: '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它（默认中心, 可设锚点/偏移），然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。',
       example: '自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish; 可选多个' },
-        MatchMode: { label: '匹配模式', hint: '多模板时: 任一命中即点击 / 全部同帧命中才点击', option: { any: '任一命中', all: '全部命中' } },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值' },
+        ROI: { label: '搜索区域', hint: '找图搜索区 (客户区 ratio, 留空=全屏)' },
+        Anchor: { label: '锚点', hint: '点击落点取命中框的哪个位置 (九宫格), 默认中心', option: { topLeft: '左上', topCenter: '上中', topRight: '右上', midLeft: '左中', center: '中心', midRight: '右中', botLeft: '左下', botCenter: '下中', botRight: '右下' } },
+        OffsetX: { label: '水平偏移', hint: '在锚点上水平偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向左。' },
+        OffsetY: { label: '垂直偏移', hint: '在锚点上垂直偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向上。' },
+        OrderBy: { label: '多命中排序', hint: '多命中时按什么排序再取第几个', option: { score: '匹配度', horizontal: '从左到右', vertical: '从上到下', area: '面积', random: '随机' } },
+        Index: { label: '取第几个', hint: '排序后取第几个命中 (从 0 起)' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+        Keys: { label: '组合键', hint: '点击时按住的修饰键, + 分隔, 如 ctrl 或 ctrl+shift。留空=不按。仅 ctrl/shift/alt/win' },
+        ClickCount: { label: '点击次数', hint: '连点几下 (1=单击, 2=双击)' },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。' },
         MaxAttempts: { label: '最多点击次数', hint: '最多点几下 (含第一下)。设 >1 时, 每点一下就检查模板还在不在, 还在就再点, 直到它消失或点够次数 —— 防偶尔点空。模板消失 = 成功走 Done; 点够了还在走 Timeout。1 = 只点一次不检查 (默认)。' },
         RetryIntervalMs: { label: '重试间隔 (ms)', hint: '每点一下后等多久再检查模板消失没 (也是两次点击的间隔)。只在「最多点击次数」>1 时生效。给游戏留出反应时间, 太短会在画面还没更新时误判没点中。默认 500。' },
