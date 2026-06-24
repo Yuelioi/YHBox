@@ -174,6 +174,21 @@ func TestEvalDataSourceRejectsUnknownKind(t *testing.T) {
 	}
 }
 
+func TestLiteralPxPoint_PreservesUnitThroughDispatch(t *testing.T) {
+	// px literal: toExprValue must NOT drop unit; coerceToType must yield node.Point{Unit:px}
+	v := toExprValue(map[string]any{"x": 960.0, "y": 540.0, "unit": "px"})
+	p, ok := coerceToType(v, "Point").(nodepkg.Point)
+	if !ok || p.X != 960 || p.Y != 540 || p.Unit != nodepkg.UnitPx {
+		t.Fatalf("px literal lost unit through dispatch: %#v ok=%v", coerceToType(v, "Point"), ok)
+	}
+	// ratio literal (no unit) still collapses to expr.Point and coerces with empty unit
+	v2 := toExprValue(map[string]any{"x": 0.5, "y": 0.5})
+	p2, ok2 := coerceToType(v2, "Point").(nodepkg.Point)
+	if !ok2 || p2.Unit != nodepkg.UnitRatio {
+		t.Fatalf("ratio literal got unexpected unit: %#v ok=%v", coerceToType(v2, "Point"), ok2)
+	}
+}
+
 func TestAsNodePoint_Unit(t *testing.T) {
 	// map 带 unit:"px" → Unit=UnitPx
 	p, ok := asNodePoint(map[string]any{"x": 960.0, "y": 540.0, "unit": "px"})

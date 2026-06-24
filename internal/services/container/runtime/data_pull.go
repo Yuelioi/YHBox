@@ -186,11 +186,12 @@ func toExprValue(v any) expr.Value {
 		// List pin 值 — 原样透传 (之前靠 default 碰巧透传, 显式化防回归).
 		return x
 	case map[string]any:
-		// Point literal: { "x": ..., "y": ... }. 带 w/h 的是 Rect — 留 raw map,
-		// 交给 buildDataWireFor 按声明类型 coerce 成 node.Rect (否则 w/h 会被丢)。
+		// Point literal: { "x": ..., "y": ... }. 带 w/h 的是 Rect，带 unit 的是 px Point —
+		// 两者都留 raw map，交给 coerceToType 按声明类型物化（否则 w/h / unit 会被丢）。
 		_, hasW := x["w"]
 		_, hasH := x["h"]
-		if !hasW && !hasH {
+		unitStr, _ := x["unit"].(string)
+		if !hasW && !hasH && unitStr == "" {
 			if xv, hasX := x["x"]; hasX {
 				if yv, hasY := x["y"]; hasY {
 					return expr.Point{X: asFloat(xv), Y: asFloat(yv)}
