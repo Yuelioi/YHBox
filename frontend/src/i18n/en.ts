@@ -1086,6 +1086,8 @@
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = slide over then click' },
         DurationMs: { label: 'Duration (ms)' },
         JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
+        Keys: { label: 'Modifier keys', hint: 'Keys to hold while clicking, joined with +, e.g. ctrl+shift. Leave empty for a plain click. Supports ctrl / shift / alt / win.' },
+        ClickCount: { label: 'Click count', hint: 'Number of times to click. Default 1. >1 = rapid clicks ~60 ms apart.' },
       },
       output: { Done: { label: 'Done' } },
     },

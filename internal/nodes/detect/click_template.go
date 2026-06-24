@@ -251,7 +251,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 	}
 
-	if err := clickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount); err != nil {
+	if err := node.ClickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount, 50); err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)
 	}
 	if maxAttempts <= 1 {
@@ -273,7 +273,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return ctx.Out(clkOutTimeout).Set(clkDataConf, h2.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
 		hit = h2
-		if err := clickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount); err != nil {
+		if err := node.ClickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount, 50); err != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)
 		}
 		clicks++
@@ -330,7 +330,7 @@ func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
 			Field:   clkInButton,
 		})
 	}
-	if _, ok := parseMods(in.String(clkInKeys)); !ok {
+	if _, ok := node.ParseMods(in.String(clkInKeys)); !ok {
 		errs = append(errs, node.ValidationError{
 			Code:    "INVALID_MODIFIER_KEY",
 			Message: "Keys 含非法修饰键 (仅 ctrl/shift/alt/win)",

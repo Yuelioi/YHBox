@@ -48,15 +48,16 @@ func (r *recInput) matches(want []string) bool {
 }
 
 // ─── TestParseMods ────────────────────────────────────────────────────────────
+// parseMods 已提升为 node.ParseMods (Task 3.2); 这里保留端到端覆盖确认导出 API 可用.
 
 func TestParseMods(t *testing.T) {
-	if mods, ok := parseMods("ctrl+shift"); !ok || len(mods) != 2 || mods[0] != "ctrl" || mods[1] != "shift" {
+	if mods, ok := node.ParseMods("ctrl+shift"); !ok || len(mods) != 2 || mods[0] != "ctrl" || mods[1] != "shift" {
 		t.Fatalf("ctrl+shift → %v ok=%v", mods, ok)
 	}
-	if mods, ok := parseMods(""); !ok || len(mods) != 0 {
+	if mods, ok := node.ParseMods(""); !ok || len(mods) != 0 {
 		t.Fatalf("空 → %v ok=%v", mods, ok)
 	}
-	if _, ok := parseMods("ctrl+foo"); ok {
+	if _, ok := node.ParseMods("ctrl+foo"); ok {
 		t.Fatalf("非法修饰键应 ok=false")
 	}
 }

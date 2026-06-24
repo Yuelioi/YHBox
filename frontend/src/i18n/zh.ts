@@ -1106,6 +1106,8 @@ export default {
         MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移到点; >0=先滑过去再点' },
         DurationMs: { label: '时长 (ms)' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
+        Keys: { label: '组合键', hint: '点击时按住的修饰键, 用 + 连接, 如 ctrl+shift; 留空=普通点击。支持 ctrl / shift / alt / win。' },
+        ClickCount: { label: '连点次数', hint: '连续点击次数, 默认 1; >1 连点, 间隔约 60ms。' },
       },
       output: { Done: { label: '完成' } },
     },

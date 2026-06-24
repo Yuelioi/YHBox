@@ -120,3 +120,133 @@ func TestClickAt_InvalidButton_ValidationError(t *testing.T) {
 		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)
 	}
 }
+
+// ─── Task 3.2: Keys / ClickCount 新增测试 ────────────────────────────────────
+
+// TestClickAt_Keys_ClickCount: ctrl+shift 双击 → KeyDown×2 + Click×2 + KeyUp×2.
+func TestClickAt_Keys_ClickCount(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			caInXRatio:     0.5,
+			caInYRatio:     0.5,
+			caInButton:     "left",
+			caInDurationMs: 50,
+			caInKeys:       "ctrl+shift",
+			caInClickCount: 2,
+		},
+		nil, withInput(rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != caOutDone {
+		t.Fatalf("exit=%q want Done", r.ExitName)
+	}
+	// Expected: MoveTo + KeyDown:ctrl + KeyDown:shift + Click×2 + KeyUp:shift + KeyUp:ctrl
+	want := []string{
+		"MoveTo:0.500:0.500",
+		"KeyDown:ctrl",
+		"KeyDown:shift",
+		"Click:0.500:0.500:left:50",
+		"Click:0.500:0.500:left:50",
+		"KeyUp:shift",
+		"KeyUp:ctrl",
+	}
+	if len(rec.calls) != len(want) {
+		t.Fatalf("calls=%v want %v", rec.calls, want)
+	}
+	for i, s := range want {
+		if rec.calls[i] != s {
+			t.Errorf("calls[%d]=%q want %q", i, rec.calls[i], s)
+		}
+	}
+}
+
+// TestClickAt_DefaultRegression: Keys="" / ClickCount=1 = 原单击行为 (零回归).
+func TestClickAt_DefaultRegression(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{caInXRatio: 0.3, caInYRatio: 0.7, caInDurationMs: 80},
+		nil, withInput(rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	// MoveTo then one plain Click — no KeyDown/KeyUp
+	if len(rec.calls) != 2 ||
+		rec.calls[0] != "MoveTo:0.300:0.700" ||
+		rec.calls[1] != "Click:0.300:0.700:left:80" {
+		t.Errorf("calls=%v want [MoveTo Click]", rec.calls)
+	}
+}
+
+// TestClickAt_DurationMs_Preserved: DurationMs 传给 ClickWithMods (长按不回归).
+func TestClickAt_DurationMs_Preserved(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{caInXRatio: 0.5, caInYRatio: 0.5, caInDurationMs: 300},
+		nil, withInput(rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	// Click must carry durationMs=300
+	if len(rec.calls) != 2 || rec.calls[1] != "Click:0.500:0.500:left:300" {
+		t.Errorf("calls=%v want Click with dur=300", rec.calls)
+	}
+}
+
+// TestClickAt_InvalidModifierKey_ValidationError: Keys="ctrl+bad" → INVALID_MODIFIER_KEY.
+func TestClickAt_InvalidModifierKey_ValidationError(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{caInKeys: "ctrl+bad"},
+		nil, withInput(&recordingInput{}), false)
+
+	found := false
+	for _, e := range r.Validation {
+		if e.Code == "INVALID_MODIFIER_KEY" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("validation=%v want INVALID_MODIFIER_KEY", r.Validation)
+	}
+}
+
+// TestClickAt_InvalidClickCount_ValidationError: ClickCount=0 → INVALID_CLICK_COUNT.
+func TestClickAt_InvalidClickCount_ValidationError(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{caInClickCount: 0},
+		nil, withInput(&recordingInput{}), false)
+
+	found := false
+	for _, e := range r.Validation {
+		if e.Code == "INVALID_CLICK_COUNT" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("validation=%v want INVALID_CLICK_COUNT", r.Validation)
+	}
+}
