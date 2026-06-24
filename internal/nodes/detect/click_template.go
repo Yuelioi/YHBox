@@ -36,6 +36,8 @@ const (
 	clkInRetryIntervalMs = "RetryIntervalMs"
 	clkInOrderBy         = "OrderBy"
 	clkInIndex           = "Index"
+	clkInKeys            = "Keys"
+	clkInClickCount      = "ClickCount"
 	clkOutDone           = "Done"
 	clkOutTimeout        = "Timeout"
 	clkDataPoint         = "Point"
@@ -98,6 +100,10 @@ func (ClickTemplate) Spec() node.Spec {
 							{Value: "random"},
 						}})}},
 			{Name: clkInIndex, Type: "Integer", Default: json.Number("0"), Advanced: true,
+				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: clkInKeys, Type: "String", Default: "", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: clkInClickCount, Type: "Integer", Default: json.Number("1"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
@@ -207,6 +213,11 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if btn == "" {
 		btn = "left"
 	}
+	modKeys := in.String(clkInKeys)
+	clickCount := in.Int(clkInClickCount)
+	if clickCount < 1 {
+		clickCount = 1
+	}
 
 	// 解析偏移单位: |v|>1 = 像素 → 需 ClientSize 换算成 ratio; |v|<=1 直接用 ratio。
 	offX, offY := offXRaw, offYRaw
@@ -240,8 +251,8 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 	}
 
-	if err := clickAt(ctx, keys, clickPt(hit), btn); err != nil {
-		return nil, err
+	if err := clickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount); err != nil {
+		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)
 	}
 	if maxAttempts <= 1 {
 		return ctx.Out(clkOutDone).Set(clkDataPoint, clickPt(hit)).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
@@ -262,19 +273,11 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return ctx.Out(clkOutTimeout).Set(clkDataConf, h2.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
 		hit = h2
-		if err := clickAt(ctx, keys, clickPt(hit), btn); err != nil {
-			return nil, err
+		if err := clickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount); err != nil {
+			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)
 		}
 		clicks++
 	}
-}
-
-// clickAt 在命中点鼠标点击 (50ms duration), 失败包成 CodeCaptureFailed。首次点击 + 重试共用。
-func clickAt(ctx node.Ctx, keys []string, pt node.Point, btn string) error {
-	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
-		return node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), pt.X, pt.Y, err)
-	}
-	return nil
 }
 
 func clamp01(v float64) float64 {
@@ -325,6 +328,20 @@ func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {
 			Code:    "INVALID_MOUSE_BUTTON",
 			Message: fmt.Sprintf("button %q not in left/right/middle", btn),
 			Field:   clkInButton,
+		})
+	}
+	if _, ok := parseMods(in.String(clkInKeys)); !ok {
+		errs = append(errs, node.ValidationError{
+			Code:    "INVALID_MODIFIER_KEY",
+			Message: "Keys 含非法修饰键 (仅 ctrl/shift/alt/win)",
+			Field:   clkInKeys,
+		})
+	}
+	if in.Int(clkInClickCount) < 1 {
+		errs = append(errs, node.ValidationError{
+			Code:    "INVALID_CLICK_COUNT",
+			Message: "ClickCount 必须 >= 1",
+			Field:   clkInClickCount,
 		})
 	}
 	return errs
