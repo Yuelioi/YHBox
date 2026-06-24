@@ -1,17 +1,16 @@
 # Cockpit — YHFish
 
-Focus: **point-px-unit**（Point 加 %/px 单位 + 截图取点 + 5 坐标节点统一 Point pin + MakePoint）代码完成、逐 task + 整支 opus 终审过（终审抓 1 Critical 已修），**待用户真机 smoke**（重点验 px）。并行待 smoke：detect/click 扩展（Phase 1-4，亦全绿待真机）。两条 smoke 全过后回 ③ MCP 对外暴露（mcp-node-exec，未起）。
+Focus: detect/click 能力扩展（Phase 1-4）代码完成、终审过，**待用户真机 smoke**；smoke 后回 ③ MCP 对外暴露（mcp-node-exec，未起）。
+> **point-px-unit ✅ 已发并真机 smoke 过（2026-06-25）** → 归档 `archive/specs|plans/2026-06-25-point-px-unit*` + 知识 [knowledge/frontend/screen-pick-coverage.md](knowledge/frontend/screen-pick-coverage.md)。
 
 ## In flight
 
-- [work/point-px-unit/](work/point-px-unit/) — **代码完成、逐 task review + 整支 opus 终审全过(终审抓 1 个 Critical 已修+复核），待用户真机 smoke**。Point 加 Unit(%/px）；5 坐标节点(ClickAt/Scroll/MouseMoveTo/**MouseHoldStart**/Swipe）统一单个 Point pin；px→ratio 只在 `node.ResolvePoint`(复用 `ctx.Window().ClientSize()`，不改 InputService）一处换算；新增 MakePoint(2 Number+Unit→Point）；PointWidget %/px 开关 + 自持截图取点；删 NodeInspector 旧 point 取点路径。**Critical 修复**:字面 px Point 在 `toExprValue` 塌 expr.Point 丢 unit → 改留 raw map(00b9d59）。**用户复审后补强**:切单位**自动换算**(%↔px,用 mousePos 实时窗口尺寸;窗口没开保留数字+toast）(T12 9dc5b70)；PointWidget+MakePoint **标清 %/px 语义**(%=比例自适应 / px=绝对像素固定不缩放)(T13 c00a9b0)。**关键澄清**:px 存储**不破坏自适应** —— ResolvePoint 运行时按实时窗口解析,10px 在任何窗口=10px(绝对);% 守比例、px 守像素,两种都对,一个 Point+Unit 不拆类型。没窗口时切单位 = **不切 + toast 提示**(no-op,避免怪值;866c28f）。设计 [design.md](work/point-px-unit/design.md) · 计划 [plan.md](work/point-px-unit/plan.md) · 账本 .superpowers/sdd/progress.md。全 smoke 过 → 移 cold store。
 - [work/detect-click-config/](work/detect-click-config/) — **代码完成，待真机 smoke**。Phase 1 Vision 基础层 · Phase 2 ClickTemplate 全家桶 · Phase 3 新节点群（WaitTemplateGone · Swipe · Scroll 横向 · InputText · StopApp · ClickAt 组合键+多击）· **Phase 4（用户增补）**：WaitWindowGone（等窗口关闭，对称 WaitWindow，配 StopApp 确认真关掉）+ Point 类型手填控件（PointWidget x/y 百分比；Swipe 起止点在 Inspector 手填或连检测节点点输出）。逐 task TDD + 每 task review + 整支 opus 终审，build/vet/全 scope 全绿（除已知 runtime RED 基线）。plan-phase1..4 + 进度账本 .superpowers/sdd/progress.md。**真机 smoke 进行中**，已修两个 bug（均 build/vet/test 全绿，**待用户真机重测**）：(1) ⑦ InputText 在 postmessage 后端旧实现走全局 SendInput → 后台目标窗口收不到，改走 PostMessage WM_CHAR targeted → [knowledge/input/postmessage-typetext-uses-wm-char.md](knowledge/input/postmessage-typetext-uses-wm-char.md)；(2) 节点勾 logEnabled 短图经常没日志 —— LogMerger.finalizeLocked 只写文件不 emit，短图在 250ms tick 前跑完则前端面板零日志（文件里有），改 finalize 时 emit final → [knowledge/logging/short-run-flush-loses-dump.md](knowledge/logging/short-run-flush-loses-dump.md)。其余 smoke 项仍待用户验，全过即移 cold store。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — ③ MCP 对外暴露（AI 调我们）：GUI 内置 Streamable HTTP MCP server，暴露 run_node/find_window/写图四件套，design.md + plan.md 就绪。detect-click 完结后的下一主攻（原 focus，本会话未动）。
 
 ## Next
 
-0. **point-px-unit 真机 smoke(用户）** —— 当前活跃线。① ClickAt:% 填 90/90 点右下；切 px 填像素点同处；截图取点(% 与 px 各一次）落点对。② Scroll / MouseMoveTo / MouseHoldStart:%/px/取点 各验。③ Swipe:Begin/End PointWidget 手填(% 与 px）+ 截图取点，拖拽轨迹对。④ MakePoint:连两个 Number(或 Add 输出）→ Point → 喂 ClickAt，% 与 px(Unit 下拉）各验落点。⑤ Point 连线:检测节点 Point 输出 → ClickAt Point 输入点中。**重点验 px**(终审修的 Critical 就在 px 字面路径）。全过 → 移 work/point-px-unit 到 cold store。
-1. **detect-click 真机 smoke（用户）** —— Phase 1-3：① 锚点偏移点中 · ⑤ 多命中点最上/第2 · ⑧ 限 ROI · ② 等图消失 · ③ ctrl+点 · ④ 双击 · ⑥ 拖滑块 · ⑦ 搜索框打字（已修 WM_CHAR，重测：记事本应能打字，vscode 也试）· ⑨ 横向滚 · ⑩ 杀进程；**Phase 4**：WaitWindowGone（开记事本→等其窗口关）· Swipe 在 Inspector 手填 x/y 拖拽 · Swipe 连 ClickTemplate 的点拖拽。全过 → 移 work/detect-click-config 到 cold store。
+1. **detect-click 真机 smoke（用户）** —— 当前活跃线。Phase 1-3：① 锚点偏移点中 · ⑤ 多命中点最上/第2 · ⑧ 限 ROI · ② 等图消失 · ③ ctrl+点 · ④ 双击 · ⑥ 拖滑块 · ⑦ 搜索框打字（已修 WM_CHAR，重测：记事本应能打字，vscode 也试）· ⑨ 横向滚 · ⑩ 杀进程；**Phase 4**：WaitWindowGone（开记事本→等其窗口关）· Swipe 在 Inspector 手填 x/y 拖拽 · Swipe 连 ClickTemplate 的点拖拽。全过 → 移 work/detect-click-config 到 cold store。
 2. 之后：按 [work/mcp-node-exec/plan.md](work/mcp-node-exec/plan.md) 起 MCP 实现（winutil.EnumTopWindows → ContainerRunner.ExecOutputs 访问器 → internal/services/mcpserver 包 → settings arm 开关 → main.go HTTP server 生命周期 → 设置页 MCP tab → 退役 cmd/yotta-mcp）。
 
 ## Open questions
