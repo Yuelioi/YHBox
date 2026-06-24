@@ -85,6 +85,8 @@ function mountPointWidget(modelValue: PointValue | null, fieldPath = 'pt') {
           unit_percent: '百分比',
           unit_px: '像素',
           pick_point: '截图取点',
+          hint_percent: '比例：随窗口大小自适应（换分辨率仍按比例）',
+          hint_px: '绝对像素：固定不随窗口缩放，适合固定位置的 UI',
         },
       },
     },

@@ -15,6 +15,7 @@
         >{{ t('point_widget.unit_px') }}</button>
       </div>
     </div>
+    <p class="text-[10px] text-dimmed leading-snug">{{ isPx ? t('point_widget.hint_px') : t('point_widget.hint_percent') }}</p>
     <div class="grid grid-cols-2 gap-1.5">
       <div class="space-y-0.5">
         <label class="text-[10px] text-dimmed">X {{ unitLabel }}</label>

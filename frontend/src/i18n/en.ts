@@ -596,6 +596,8 @@
     pick_point: 'Pick on screen',
     no_window_title: 'Target window not open',
     no_window_desc: 'Number not converted; open the target window then switch to auto-convert',
+    hint_percent: 'Proportional: adapts to window size (scales with resolution)',
+    hint_px: 'Absolute pixels: fixed, does not scale with the window — for fixed-position UI',
   },
   geometry: {
     default_region: 'Default region',
@@ -1479,7 +1481,7 @@
       input: {
         X: { label: 'X' },
         Y: { label: 'Y' },
-        Unit: { label: 'Unit', option: { percent: 'Percent (0-1)', px: 'Pixels' } },
+        Unit: { label: 'Unit', hint: 'Percent = adapts to window; Pixels = absolute, fixed', option: { percent: 'Percent (adaptive)', px: 'Pixels (absolute)' } },
       },
       output: { Result: { label: 'Coordinate' } },
     },
