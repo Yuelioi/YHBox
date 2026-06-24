@@ -50,30 +50,40 @@ type Point struct {
 - coercion `asNodePoint`(`internal/services/container/runtime/data_pull.go:244`):map 分支读 `t["unit"]` 填 `Point.Unit`(转 PointUnit);`expr.Point` 分支无单位(算出来的比例),Unit 留空;`node.Point` 分支原样(已带 Unit)。
 - §2 ResolvePoint、§7 MakePoint 的 Unit 判断全走 `UnitPx`/`UnitRatio` 常量。
 
-## 2. px→ratio 换算:只在一处(InputService 边界)
+## 2. px→ratio 换算:只在一处(node.ResolvePoint helper,复用 ctx.Window().ClientSize())
 
-`internal/node/interfaces.go` 的 `InputService` 加:
+> **设计修订(规划期读源码发现,优于原 InputService 方案)**:`ctx.Window().ClientSize()`(`WindowService`,`interfaces.go:296`)已在每个节点 Ctx 上、已在各处 stub;`click_template.go:225` 已用它做 px→ratio。故**不动 InputService**(省接口改 + 6 个 stub),改用 node 包一个共享 helper。单一来源不变。
+
+新增 `internal/node` 的 helper(放 `scalar.go` 旁或同文件):
 
 ```go
-// ResolvePoint 把 Point 按其 Unit 归一成 0-1 客户区比例。
-// Unit=="" → 原样返比例(不碰窗口);Unit=="px" → 按当前客户区尺寸 px÷宽高。
-ResolvePoint(p Point) (xRatio, yRatio float64, err error)
+// ResolvePoint 把 Point 按 Unit 归一成 0-1 客户区比例。
+// UnitRatio → 原样(不碰窗口);UnitPx → 取 ClientSize 后 px÷宽高。
+func ResolvePoint(ctx Ctx, p Point) (xRatio, yRatio float64, err error) {
+    if p.Unit != UnitPx {
+        return p.X, p.Y, nil
+    }
+    w, h, err := ctx.Window().ClientSize()
+    if err != nil {
+        return 0, 0, err
+    }
+    if w <= 0 || h <= 0 {
+        return 0, 0, fmt.Errorf("client size %dx%d invalid for px point", w, h)
+    }
+    return p.X / float64(w), p.Y / float64(h), nil
+}
 ```
 
-实现在 `inputAdapter`(`internal/services/container/runtime/node_services.go`,**唯一有 hwnd 的层**):
-- 非 px:直接 `return p.X, p.Y, nil`(不调 ensure/hwnd,无窗口也不报错)。
-- px:`ensure()` → `hwnd()` → 取客户区 (w,h) → `return p.X/float64(w), p.Y/float64(h), nil`;w==0||h==0 报错。
-  - 客户区尺寸:用 win/winutil 的 GetClientRect(hwnd)。实现时先 grep 既有 helper(backend 内部 `pixelCoords = ratio×ClientSize` 已有取尺寸逻辑,优先复用,别重造)。
+- **不复用 `node.ResolveScalar`**:它带 `|v|≤1 ⇒ 当比例` 的魔法启发(用户明确拒绝的那套),对显式 px 的小像素值(如 px=1)会误判成比例。显式单位下直接除,不走启发。
 
-4 个节点的 `Run` **开头**调一次 `ResolvePoint` 拿比例,**err 直接 return**(px 模式下窗口/客户区失败要上报到节点层),之后全保持纯比例:
-- ClickAt:`xr,yr,err := ResolvePoint(pt); if err!=nil {return nil,err}` → `moveCursor(ctx,xr,yr,...)` + `node.ClickWithMods(ctx, node.Point{X:xr,Y:yr}, ...)`。
-- Scroll:`xr,yr,err := ResolvePoint(pt)` → `ctx.Input().Scroll(xr,yr,...)`。
-- MouseMoveTo:`xr,yr,err := ResolvePoint(pt)` → `moveCursor(ctx,xr,yr,...)`。
+4 个节点的 `Run` **开头**调一次 `node.ResolvePoint(ctx, pt)` 拿比例,**err 直接 return**(px 模式下窗口/客户区失败要上报到节点层),之后全保持纯比例:
+- ClickAt:`xr,yr,err := node.ResolvePoint(ctx, pt); if err!=nil {return nil,err}` → `moveCursor(ctx,xr,yr,...)` + `node.ClickWithMods(ctx, node.Point{X:xr,Y:yr}, ...)`。
+- Scroll:`xr,yr,err := node.ResolvePoint(ctx, pt)` → `ctx.Input().Scroll(xr,yr,...)`。
+- MouseMoveTo:`xr,yr,err := node.ResolvePoint(ctx, pt)` → `moveCursor(ctx,xr,yr,...)`。
 - Swipe:Begin/End 各 ResolvePoint(各自查 err) → `ctx.Input().Drag(bxr,byr,exr,eyr,...)`。
 
-**不变**:`moveCursor`(takes ratio)、`ClickWithMods`(takes ratio Point,detect 共用所以不能改)、`Scroll`/`Drag`/`MoveTo`/`CursorRatio` 接口、backend、检测节点。
-
-代价:接口加方法 → 约 6 个 InputService 测试 stub 各补一行 `ResolvePoint`(返 p.X,p.Y,nil):`stubInputService`(node/services.go)、`recInputMods`(node/click_mods_test.go)、`recordingInput`×N(detect/click_template_test.go、input/swipe_test.go、input/key_press_test.go)、`recInput`(detect/click_common_test.go)。纯机械。
+**不变**:`moveCursor`(takes ratio)、`ClickWithMods`(takes ratio Point,detect 共用)、`Scroll`/`Drag`/`MoveTo` 接口、**InputService 接口(不加方法 → 零 stub 改动)**、backend、检测节点。
+- ratio 点(Unit 空)走 early-return 不碰 Window → 现有 ratio 测试零改动;只有新增 px 测试需 stub ClientSize(node 包已有 `stubWindowService`,detect 包已有 `stubWindow{w,h}` 先例)。
 
 ## 3. 控件 PointWidget(`frontend/src/components/containers/inline/PointWidget.vue`)
 
@@ -91,10 +101,10 @@ ResolvePoint(p Point) (xRatio, yRatio float64, err error)
 
 `PointValue` 类型(`nodeRegistry/index.ts`)加 `unit?: 'px'`。
 
-## 4. 截图回传补尺寸(`frontend/src/views/tools/ScreenPickerView.vue`)
+## 4. 截图回传尺寸(`ScreenPickerView.vue` 已就绪,无需改 view)
 
-point payload 现在只回 `{xRatio,yRatio}`;**对称 rect 补 `screenW/screenH`**(客户区像素尺寸;view 内部已有 native 像素 `pointSelNat`)。px 模式换算用。
-`useScreenPick.ts` 的 `PointPayload` 类型同步加 `screenW?/screenH?`(若 PointWidget 自持 picker 则此类型可能不再被 useScreenPick 用,见 §5)。
+**规划期核实**:`ScreenPickerView.vue:765-773` 的 point 分支**已经 emit `screenW/screenH`**(= `natW.value`/`natH.value`,客户区像素)。所以 view 端 0 改动。
+只需:PointWidget 自持 picker 时,接收 payload 里的 `screenW/screenH` 做 px 换算;PointWidget 内部声明的 PointPayload 类型带上 `screenW?/screenH?`。
 
 ## 5. 删旧路径(no-compat 铁律)
 
@@ -123,14 +133,15 @@ ClickAt/Scroll/MouseMoveTo 从 **slider(0-1)+ 可分别连 Number** → **1 个 
 
 ## 测试
 
-- Go:ClickAt/Scroll/MouseMoveTo node 测试改读单个 Point pin;新增 ResolvePoint stub(6 处);`asNodePoint` unit coercion 单测;ResolvePoint(px) 单测(给定 client size 验比例);`MakePoint` Evaluate 单测(X/Y/Unit→Point,含 Unit 映射)。
+- Go:`node.ResolvePoint` 单测(UnitRatio early-return 不碰 Window;UnitPx 经 stub ClientSize 验 px÷宽高;ClientSize err 上报);ClickAt/Scroll/MouseMoveTo node 测试改读单个 Point pin;`asNodePoint` unit coercion 单测;`MakePoint` Evaluate 单测(X/Y/Unit→Point,含 Unit 映射)。**InputService stub 不动**(§2 改后无接口变更)。
 - FE:PointWidget 单位切换 / px 显示不×100 / 取点 %与px 存值 单测;coerceLiteral('point') unit 透传(现有测试已是 identity,补 unit case)。
 - 预存红基线照 build.md 排除(runtime fixture 缺失那几个)。
 
 ## 关键源码索引(实现时直达)
 
 - `internal/node/types.go:7`(Point)、`schema.go`(PointSchema)、`inputs.go:158`(in.Point)。
-- `internal/node/interfaces.go:249-267`(InputService)、`click_mods.go:48,64`(ClickWithMods 纯比例)。
+- `internal/node/interfaces.go:249-267`(InputService,**不改**)、`:296`(WindowService.ClientSize)、`click_mods.go:48,64`(ClickWithMods 纯比例)、`scalar.go:6`(ResolveScalar,**不复用** — 带 |v|≤1 启发)。
+- `internal/nodes/detect/click_template.go:222-229`(已有 px→ratio 经 ctx.Window().ClientSize() 先例)。
 - `internal/nodes/input/`:click_at.go、scroll.go、mouse_move_to.go(moveCursor:67 纯比例)、swipe.go:62(Drag)。
 - `internal/services/container/runtime/node_services.go:286-350`(inputAdapter,有 hwnd)、`data_pull.go:244`(asNodePoint)。
 - `internal/nodes/purefunc/purefunc.go`(specBuilder + init 注册 + Evaluate 模板,MakePoint 加这里)。
