@@ -25,22 +25,30 @@ READ WHEN: 实现/改 Point 坐标节点、px 像素坐标、PointWidget、屏�
 - 检测节点的 Point 是**输出**(比例),不动:detect_color / detect_color_blobs(primaryCenter)/ wait_template / click_template / check_template / find_template_all / find_color_signature。
 - `detect_color_blobs.RefPoint`(Advanced 排序参考点,比例),不动。
 - backend 原语、Drag 接口、检测节点一行不改(见 §3)。
+- **联合类型 / 类型系统安全(YAGNI 延后,不并入)**:现有 `PinTypeCompat`(`validator_pin_types.go`:相等/`any` 放行 + number↔bool↔string 转换警告)+ `*` 通配已够用;Log 的 `Message:*` 真的什么都能收(`fmt.Sprint`),换 `[number,string]` 反是退化。等出现"必须限定 2-3 种类型、接错有静默 bug"的具体节点再单开一条线。
 
 ## 1. 数据模型(Go)
 
-`internal/node/types.go` 的 `Point` 加 Unit:
+`internal/node/types.go` 的 `Point` 加 Unit,用**具名类型 + 常量**(不撒裸 `"px"`/`""` 魔法字面量,Go 侧编译期可检):
 
 ```go
+type PointUnit string
+const (
+    UnitRatio PointUnit = ""   // 百分比/比例 (X/Y 0-1) — 默认
+    UnitPx    PointUnit = "px" // 客户区像素 (X/Y 像素值)
+)
 type Point struct {
-    X    float64 `json:"x"`
-    Y    float64 `json:"y"`
-    Unit string  `json:"unit,omitempty"` // "" = 百分比(X/Y 0-1 比例); "px" = 像素(X/Y 客户区像素值)
+    X    float64   `json:"x"`
+    Y    float64   `json:"y"`
+    Unit PointUnit `json:"unit,omitempty"`
 }
 ```
 
-- 单位是**值的属性,不是类型的属性** → 不拆两个类型,连线 / 检测输出全兼容。
+- 单位是**值的属性,不是类型的属性** → 不拆两个类型,连线 / 检测输出全兼容(CSS `<length-percentage>` 路子)。
+- **`""`=比例默认是有意为之**:检测节点输出的 Point 无单位(就是比例),`omitempty` + 空默认让它们天然=比例、零改动。
 - `PointSchema()`(schema.go)不变(单位在值里,不在 schema)。
-- coercion `asNodePoint`(`internal/services/container/runtime/data_pull.go:244`):map 分支读 `t["unit"]` 填 `Point.Unit`;`expr.Point` 分支无单位(算出来的比例),Unit 留空;`node.Point` 分支原样(已带 Unit)。
+- coercion `asNodePoint`(`internal/services/container/runtime/data_pull.go:244`):map 分支读 `t["unit"]` 填 `Point.Unit`(转 PointUnit);`expr.Point` 分支无单位(算出来的比例),Unit 留空;`node.Point` 分支原样(已带 Unit)。
+- §2 ResolvePoint、§7 MakePoint 的 Unit 判断全走 `UnitPx`/`UnitRatio` 常量。
 
 ## 2. px→ratio 换算:只在一处(InputService 边界)
 
