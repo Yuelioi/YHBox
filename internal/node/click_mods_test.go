@@ -35,6 +35,7 @@ func (r *recInputMods) Scroll(x, y float64, notches int, horizontal bool) error 
 func (r *recInputMods) MouseDown(x, y float64, button string) error                       { return nil }
 func (r *recInputMods) MouseUp(button string) error                                       { return nil }
 func (r *recInputMods) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error { return nil }
+func (r *recInputMods) TypeText(s string) error                                           { return nil }
 
 func (r *recInputMods) matches(want []string) bool {
 	if len(r.seq) != len(want) {

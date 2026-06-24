@@ -861,6 +861,22 @@
       }
     }
   },
+  "InputText": {
+    "label": "输入文字",
+    "description": "向目标窗口注入一段文字，支持中文和所有 Unicode 字符。底层走 Windows SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送，适合在游戏聊天框或搜索框里打字。",
+    "example": "在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。",
+    "input": {
+      "Text": {
+        "label": "文字",
+        "hint": "要输入的文字内容，支持中文及所有 Unicode 字符"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
   "Join": {
     "label": "拼接列表",
     "description": "把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。",

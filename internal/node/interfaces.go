@@ -261,6 +261,9 @@ type InputService interface {
 
 	// Drag 按住 button 从 (x1,y1) 拖到 (x2,y2), durationMs 毫秒. 坐标均为 0-1 客户区比例.
 	Drag(x1, y1, x2, y2 float64, button string, durationMs int) error
+
+	// TypeText 向当前窗口注入一串文字 (unicode, 逐 rune SendInput). 内部 backend 处理窗口激活.
+	TypeText(s string) error
 }
 
 // VarStore — SetVar / GetVar / IncVar 节点用. Scope=auto/local/global 由 framework

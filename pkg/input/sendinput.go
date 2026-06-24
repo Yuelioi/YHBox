@@ -285,6 +285,10 @@ func (b *sendInputBackend) ReleaseAll() error {
 
 func (b *sendInputBackend) Close() error { return nil }
 
+func (b *sendInputBackend) TypeText(hwnd win.HWND, s string) error {
+	return TypeText(hwnd, s)
+}
+
 // clientRatioToScreenRatio 把窗口客户区比例坐标转换成 SendInput 需要的全屏绝对比例坐标.
 // ClickAt / MoveTo 传入的 xRatio/yRatio 是相对窗口客户区的, sendAbsMove 需要的是相对整个屏幕的.
 func clientRatioToScreenRatio(hwnd win.HWND, xRatio, yRatio float64) (float64, float64) {

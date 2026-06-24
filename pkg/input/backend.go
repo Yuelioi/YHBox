@@ -39,6 +39,10 @@ type Backend interface {
 	// 坐标均为 0-1 客户区比例; backend 自己 * ClientSize 拿像素.
 	Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error
 
+	// TypeText 注入文本字符串 (KEYEVENTF_UNICODE, 逐 rune 发 keydown+keyup).
+	// hwnd 仅 SendInput 实现用于 FakeActivate; PostMessage 实现走相同 SendInput path.
+	TypeText(hwnd win.HWND, s string) error
+
 	// MoveTo 瞬时把光标移到客户区比例 (xRatio,yRatio) 并发 hover. 无 sleep —— 分帧由 caller(节点层) 控.
 	MoveTo(hwnd win.HWND, xRatio, yRatio float64) error
 	// CursorRatio 读当前光标在该 hwnd 客户区的比例坐标. 分帧滑动取起点用. client rect 为 0 时返 error.

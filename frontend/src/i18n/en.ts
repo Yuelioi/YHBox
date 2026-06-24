@@ -1179,6 +1179,15 @@
       },
       output: { Done: { label: 'Done' } },
     },
+    InputText: {
+      label: 'Type text',
+      description: 'Injects a string of text into the target window, including Unicode and CJK characters. Uses Windows SendInput KEYEVENTF_UNICODE under the hood — no clipboard involved, characters are sent one by one. Ideal for typing into in-game chat boxes or search fields.',
+      example: 'Send a message in a game chat box: use BringForeground first to make sure the window is focused, then wire InputText with the message you want to type — it will inject each character automatically.',
+      input: {
+        Text: { label: 'Text', hint: 'The text to type, supports all Unicode characters' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     Swipe: {
       label: 'Swipe',
       description: 'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; 0 snaps instantly. Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',

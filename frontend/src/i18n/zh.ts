@@ -1199,6 +1199,15 @@ export default {
       },
       output: { Done: { label: '完成' } },
     },
+    InputText: {
+      label: '输入文字',
+      description: '向目标窗口注入一段文字，支持中文和所有 Unicode 字符。底层走 Windows SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送，适合在游戏聊天框或搜索框里打字。',
+      example: '在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。',
+      input: {
+        Text: { label: '文字', hint: '要输入的文字内容，支持中文及所有 Unicode 字符' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     Swipe: {
       label: '拖拽',
       description: '按住鼠标键，从起点匀速拖到终点再松开。时长填拖完这段距离花多少毫秒，越大越慢越像真人；填 0 瞬间完成。起点和终点都是坐标点 pin，可以从检测节点（如 ClickTemplate、DetectColor）的输出直接连线进来，不连默认 (0, 0)。',

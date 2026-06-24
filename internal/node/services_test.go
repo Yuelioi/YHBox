@@ -26,6 +26,7 @@ func TestStubInputService_AllMethodsNoOp(t *testing.T) {
 		func() error { return in.Scroll(0.5, 0.5, 3, false) },
 		func() error { return in.MouseDown(0.5, 0.5, "left") },
 		func() error { return in.MouseUp("left") },
+		func() error { return in.TypeText("test") },
 	}
 	for i, fn := range checks {
 		if err := fn(); err != nil {

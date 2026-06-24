@@ -252,3 +252,8 @@ func (b *PostMessageBackend) ReleaseAll() error {
 }
 
 func (b *PostMessageBackend) Close() error { return nil }
+
+// TypeText 注入文本字符串。PostMessage 无法直接输入 Unicode，走 pkg-level TypeText (SendInput).
+func (b *PostMessageBackend) TypeText(hwnd win.HWND, s string) error {
+	return TypeText(hwnd, s)
+}

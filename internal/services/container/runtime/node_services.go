@@ -371,6 +371,17 @@ func (a *inputAdapter) MouseUp(button string) error {
 	return a.rt.Input.MouseUp(h, button)
 }
 
+func (a *inputAdapter) TypeText(s string) error {
+	if err := a.ensure(); err != nil {
+		return err
+	}
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.TypeText(h, s)
+}
+
 // NewInputAdapter wrap *RuntimeContext into node.InputService.
 func NewInputAdapter(rt *RuntimeContext) node.InputService { return &inputAdapter{rt: rt} }
 

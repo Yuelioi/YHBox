@@ -120,6 +120,13 @@ func (s *SafeInputBackend) Drag(hwnd win.HWND, x1, y1, x2, y2 float64, button st
 	}
 	return s.inner.Drag(hwnd, x1, y1, x2, y2, button, durationMs)
 }
+func (s *SafeInputBackend) TypeText(hwnd win.HWND, text string) error {
+	if !isValidHwnd(hwnd) {
+		s.warnOnce("TypeText", hwnd)
+		return nil
+	}
+	return s.inner.TypeText(hwnd, text)
+}
 func (s *SafeInputBackend) ReleaseAll() error { return s.inner.ReleaseAll() }
 func (s *SafeInputBackend) Close() error      { return s.inner.Close() }
 

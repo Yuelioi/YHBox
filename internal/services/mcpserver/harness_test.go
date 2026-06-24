@@ -76,6 +76,7 @@ func (f *mockInput) Scroll(win.HWND, float64, float64, int, bool) error { return
 func (f *mockInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
 	return nil
 }
+func (f *mockInput) TypeText(_ win.HWND, _ string) error                { return nil }
 func (f *mockInput) ReleaseAll() error                                  { return nil }
 func (f *mockInput) Close() error                                       { return nil }
 
