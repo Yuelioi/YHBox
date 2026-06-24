@@ -54,12 +54,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '@nuxt/ui/composables'
 import type { PointValue } from '@/components/containers/nodeRegistry/index'
 import { backend } from '@/lib/backend'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { useTemplatesStore } from '@/stores/templates'
 
 const { t } = useI18n()
+const toast = useToast()
 
 const props = defineProps<{
   modelValue: PointValue | null
@@ -90,21 +92,43 @@ function onChange(field: 'x' | 'y', displayVal: number) {
   emit('update:modelValue', next)
 }
 
-// 切单位: 保留框里数字不换算 → 数据层 x/y 随之改
-function setUnit(u: 'percent' | 'px') {
-  const next: PointValue = { ...safeValue.value }
-  const curDisplayX = displayX.value
-  const curDisplayY = displayY.value
-  if (u === 'px') {
+// 切单位: 调 mousePos 换算; 无窗口时保留框里数字并弹提示
+async function setUnit(u: 'percent' | 'px') {
+  const targetPx = u === 'px'
+  if (targetPx === isPx.value) return // already that unit, no-op
+  const cur = safeValue.value
+  const info = await backend.tools.mousePos(tplStore.containerId, '')
+  const hasSize = !!info?.hasGame && info.clientW > 0 && info.clientH > 0
+  const next: PointValue = { x: cur.x, y: cur.y }
+  if (targetPx) {
     next.unit = 'px'
-    next.x = curDisplayX // 框里数字原样进 px
-    next.y = curDisplayY
+    if (hasSize) {
+      next.x = Math.round(cur.x * info.clientW) // ratio(0-1) → px
+      next.y = Math.round(cur.y * info.clientH)
+    } else {
+      next.x = displayX.value // keep box number (= cur.x*100), no conversion
+      next.y = displayY.value
+      notifyNoSize()
+    }
   } else {
-    delete next.unit
-    next.x = round4(curDisplayX / 100) // 框里数字回比例
-    next.y = round4(curDisplayY / 100)
+    if (hasSize) {
+      next.x = round4(cur.x / info.clientW) // px → ratio
+      next.y = round4(cur.y / info.clientH)
+    } else {
+      next.x = round4(displayX.value / 100) // keep box number (= cur.x original px) as % display number
+      next.y = round4(displayY.value / 100)
+      notifyNoSize()
+    }
   }
   emit('update:modelValue', next)
+}
+
+function notifyNoSize() {
+  toast.add({
+    title: t('point_widget.no_window_title'),
+    description: t('point_widget.no_window_desc'),
+    color: 'warning',
+  })
 }
 
 // ─── 截图取点 ────────────────────────────────────────────────────────────────

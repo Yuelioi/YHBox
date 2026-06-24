@@ -17,8 +17,12 @@ vi.mock('@/lib/backend', () => ({
   backend: {
     tools: {
       openScreenPicker: vi.fn(async () => undefined),
+      mousePos: vi.fn(async () => ({ hasGame: true, clientW: 1920, clientH: 1080 })),
     },
   },
+}))
+vi.mock('@nuxt/ui/composables', () => ({
+  useToast: () => ({ add: vi.fn() }),
 }))
 vi.mock('@/composables/useWailsEvent', () => ({
   awaitWailsEvent: vi.fn(),
@@ -30,7 +34,12 @@ import { backend } from '@/lib/backend'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockBackend = backend as unknown as { tools: { openScreenPicker: ReturnType<typeof vi.fn> } }
+const mockBackend = backend as unknown as {
+  tools: {
+    openScreenPicker: ReturnType<typeof vi.fn>
+    mousePos: ReturnType<typeof vi.fn>
+  }
+}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAwaitWailsEvent = awaitWailsEvent as unknown as ReturnType<typeof vi.fn>
 
@@ -255,34 +264,50 @@ describe('PointWidget', () => {
     expect(next.y).toBe(0.5)
   })
 
-  it('切到 px: unit toggle 点击后 emit 正确 (挂载版)', async () => {
+  it('切到 px: mousePos 有值时换算 (1920×1080, x:0.5 → 960)', async () => {
+    mockBackend.tools.mousePos.mockResolvedValue({ hasGame: true, clientW: 1920, clientH: 1080 })
     const { emitted, app, el } = mountPointWidget({ x: 0.5, y: 0.5 })
-    // 找 data-testid="point-unit-toggle" 里的第二个 button (px)
     const pxBtn = el.querySelector('[data-testid="point-unit-toggle"] button:last-child') as HTMLButtonElement
     expect(pxBtn).toBeTruthy()
     pxBtn.click()
-    await nextTick()
+    await flushPromises()
     expect(emitted).toHaveLength(1)
     const out = emitted[0]
     expect(out.unit).toBe('px')
-    expect(out.x).toBe(50) // 框里数字 50 原样进 x
-    expect(out.y).toBe(50)
+    expect(out.x).toBe(960) // Math.round(0.5 * 1920)
+    expect(out.y).toBe(540) // Math.round(0.5 * 1080)
     app.unmount()
     el.remove()
   })
 
-  it('px 模式切回 %: unit toggle 点击后 emit 无 unit, 数字÷100', async () => {
-    const { emitted, app, el } = mountPointWidget({ x: 50, y: 25, unit: 'px' })
-    // 点第一个 button (百分比)
+  it('px 模式切回 %: mousePos 有值时换算 (x:960/1920 → 0.5)', async () => {
+    mockBackend.tools.mousePos.mockResolvedValue({ hasGame: true, clientW: 1920, clientH: 1080 })
+    const { emitted, app, el } = mountPointWidget({ x: 960, y: 540, unit: 'px' })
     const pctBtn = el.querySelector('[data-testid="point-unit-toggle"] button:first-child') as HTMLButtonElement
     expect(pctBtn).toBeTruthy()
     pctBtn.click()
-    await nextTick()
+    await flushPromises()
     expect(emitted).toHaveLength(1)
     const out = emitted[0]
     expect(out.unit).toBeUndefined()
-    expect(out.x).toBe(0.5)
-    expect(out.y).toBe(0.25)
+    expect(out.x).toBe(0.5) // round4(960/1920)
+    expect(out.y).toBe(0.5) // round4(540/1080)
+    app.unmount()
+    el.remove()
+  })
+
+  it('切到 px: mousePos hasGame=false 时保留框里数字 (old behavior), 不换算', async () => {
+    mockBackend.tools.mousePos.mockResolvedValue({ hasGame: false, clientW: 0, clientH: 0 })
+    const { emitted, app, el } = mountPointWidget({ x: 0.5, y: 0.5 })
+    const pxBtn = el.querySelector('[data-testid="point-unit-toggle"] button:last-child') as HTMLButtonElement
+    expect(pxBtn).toBeTruthy()
+    pxBtn.click()
+    await flushPromises()
+    expect(emitted).toHaveLength(1)
+    const out = emitted[0]
+    expect(out.unit).toBe('px')
+    expect(out.x).toBe(50) // displayX.value = round4(0.5*100) = 50, kept as-is
+    expect(out.y).toBe(50)
     app.unmount()
     el.remove()
   })

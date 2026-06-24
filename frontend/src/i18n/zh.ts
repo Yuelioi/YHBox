@@ -610,6 +610,8 @@ export default {
     unit_percent: '百分比',
     unit_px: '像素',
     pick_point: '截图取点',
+    no_window_title: '目标窗口未开',
+    no_window_desc: '数字未换算，按当前单位直接使用；打开目标窗口后再切换可自动换算',
   },
   geometry: {
     default_region: '默认区域',

@@ -594,6 +594,8 @@
     unit_percent: 'Percent',
     unit_px: 'Pixels',
     pick_point: 'Pick on screen',
+    no_window_title: 'Target window not open',
+    no_window_desc: 'Number not converted; open the target window then switch to auto-convert',
   },
   geometry: {
     default_region: 'Default region',
