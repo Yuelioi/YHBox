@@ -1167,11 +1167,10 @@
     },
     Scroll: {
       label: 'Mouse scroll',
-      description: 'Scrolls the mouse wheel once at a spot in the window. The position is given as ratios (0 to 1, where 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
-      example: 'Scroll an inventory list down: aim X and Y at the list area, set Delta to -3, Axis to vertical — it scrolls down three notches. For a horizontal scroll bar: set Axis to horizontal, positive goes right, negative goes left.',
+      description: 'Scrolls the mouse wheel once at a spot in the window. The position is given as a Point (ratio 0–1 or px; 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
+      example: 'Scroll an inventory list down: set Point to the list area, Delta to -3, Axis to vertical — it scrolls down three notches. For a horizontal scroll bar: set Axis to horizontal, positive goes right, negative goes left.',
       input: {
-        XRatio: { label: 'X ratio' },
-        YRatio: { label: 'Y ratio' },
+        Point: { label: 'Position' },
         Delta: { label: 'Delta (notches)', hint: 'Positive scrolls up/right, negative scrolls down/left' },
         JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = scroll amount varies within ±10%' },
         Axis: { label: 'Axis', hint: 'vertical = up/down (default); horizontal = left/right', option: { vertical: 'Vertical', horizontal: 'Horizontal' } },
