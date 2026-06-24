@@ -41,13 +41,23 @@
         />
       </div>
     </div>
+    <UButton
+      size="xs" variant="soft" color="primary" icon="i-tabler-pointer"
+      data-testid="point-pick-btn" :loading="picking"
+      @click="onPickPoint"
+    >
+      {{ t('point_widget.pick_point') }}
+    </UButton>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PointValue } from '@/components/containers/nodeRegistry/index'
+import { backend } from '@/lib/backend'
+import { awaitWailsEvent } from '@/composables/useWailsEvent'
+import { useTemplatesStore } from '@/stores/templates'
 
 const { t } = useI18n()
 
@@ -95,5 +105,46 @@ function setUnit(u: 'percent' | 'px') {
     next.y = round4(curDisplayY / 100)
   }
   emit('update:modelValue', next)
+}
+
+// ─── 截图取点 ────────────────────────────────────────────────────────────────
+type PointPayload = { xRatio: number; yRatio: number; screenW?: number; screenH?: number; cancelled?: boolean }
+
+const tplStore = useTemplatesStore()
+const picking = ref(false)
+
+function genID(): string {
+  return 'pick-pt-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
+}
+
+async function onPickPoint() {
+  if (picking.value) return
+  const id = genID()
+  picking.value = true
+  try {
+    const waiter = awaitWailsEvent<{ id: string; payload: PointPayload }>('tools:picker-result', (p) => p?.id === id)
+    const r = await backend.tools.openScreenPicker('point', id, tplStore.containerId)
+    if (r === undefined) return
+    const res = await waiter
+    const p = res.payload
+    if (!p || p.cancelled) return
+    const next: PointValue = { ...safeValue.value }
+    if (isPx.value && p.screenW && p.screenH) {
+      next.unit = 'px'
+      next.x = Math.round(p.xRatio * p.screenW)
+      next.y = Math.round(p.yRatio * p.screenH)
+    } else {
+      delete next.unit
+      next.x = round4(p.xRatio)
+      next.y = round4(p.yRatio)
+    }
+    emitVal(next)
+  } finally {
+    picking.value = false
+  }
+}
+
+function emitVal(v: PointValue) {
+  emit('update:modelValue', v)
 }
 </script>

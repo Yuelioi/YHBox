@@ -609,6 +609,7 @@ export default {
   point_widget: {
     unit_percent: '百分比',
     unit_px: '像素',
+    pick_point: '截图取点',
   },
   geometry: {
     default_region: '默认区域',

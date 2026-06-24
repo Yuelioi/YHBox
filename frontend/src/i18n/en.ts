@@ -593,6 +593,7 @@
   point_widget: {
     unit_percent: 'Percent',
     unit_px: 'Pixels',
+    pick_point: 'Pick on screen',
   },
   geometry: {
     default_region: 'Default region',
