@@ -1,19 +1,20 @@
 # Cockpit — YHFish
 
-Focus: ③ MCP 对外暴露（AI 调我们）—— spec + plan 已就绪，待按 plan 起实现（已有 `cmd/yotta-mcp` spike）。
+Focus: detect/click 能力扩展 **spec 10 项全落地并验证**（Phase 1/2/3 全绿 + 整支 opus 终审过）—— 仅剩用户真机 smoke；smoke 后回到 ③ MCP 对外暴露（mcp-node-exec，spec+plan 就绪未起）。
 
 ## In flight
 
-- [work/mcp-node-exec/](work/mcp-node-exec/) — AI 功能 epic 第③块（MCP 对外暴露 / AI 调我们）：GUI 内置 Streamable HTTP MCP server，暴露通用 `run_node`（单动作节点探测，复用 held-output 缓存收割输出，含 Capture 图像）+ `find_window` + 写图四件套（后端换 GUI 真实 store），闭合「AI 跑节点实验 → save_container 生成容器」环；全局 arm 安全开关默认关。design.md + plan.md 都在该 folder。
+- [work/detect-click-config/](work/detect-click-config/) — **代码完成，待真机 smoke**。detect/click spec 10 项全落地：Phase 1 Vision 基础层（MatchHit/roi/去 mode）· Phase 2 ClickTemplate 全家桶（锚点偏移/order_by+index/ROI/组合键/多击）· Phase 3 新节点群（本会话）：WaitTemplateGone · Swipe(Begin/End=Point pin，可连检测节点输出) · Scroll 横向(Axis pin + WM_MOUSEHWHEEL) · InputText(SendInput unicode) · StopApp(taskkill) · ClickAt 接组合键+多击。逐 task TDD + 每 task review + 整支 opus 终审，build/vet/全 scope 全绿（除已知 runtime RED 基线）。进度账本：.superpowers/sdd/progress.md。**仅剩真机 smoke（用户做）**，全过即移 cold store。
+- [work/mcp-node-exec/](work/mcp-node-exec/) — ③ MCP 对外暴露（AI 调我们）：GUI 内置 Streamable HTTP MCP server，暴露 run_node/find_window/写图四件套，design.md + plan.md 就绪。detect-click 完结后的下一主攻（原 focus，本会话未动）。
 
 ## Next
 
-按 [work/mcp-node-exec/plan.md](work/mcp-node-exec/plan.md) 起实现：winutil.EnumTopWindows → ContainerRunner.ExecOutputs 访问器 → `internal/services/mcpserver` 包（run_node harness + find_window/list_windows + authoring 工具迁移）→ settings arm 开关 → main.go Streamable HTTP server 生命周期 → 设置页 MCP tab → 退役 cmd/yotta-mcp。TDD，mock window/input/capture fixture。
+1. **detect-click 真机 smoke（用户）** —— spec §收尾清单：① 锚点偏移点中 · ⑤ 多命中点最上/第2 · ⑧ 限 ROI · ② 等图消失 · ③ ctrl+点 · ④ 双击 · ⑥ 拖滑块 · ⑦ 搜索框打字 · ⑨ 横向滚 · ⑩ 杀进程。全过 → 移 work/detect-click-config 到 cold store。
+2. 之后：按 [work/mcp-node-exec/plan.md](work/mcp-node-exec/plan.md) 起 MCP 实现（winutil.EnumTopWindows → ContainerRunner.ExecOutputs 访问器 → internal/services/mcpserver 包 → settings arm 开关 → main.go HTTP server 生命周期 → 设置页 MCP tab → 退役 cmd/yotta-mcp）。
 
 ## Open questions
 
-- **A6/C7 polish 余项**（不阻塞 smoke，记防忘）：专用 AI/Image 节点分组（现 AI→system、Image→detect 组）· Model combobox（现纯文本手填）· 删连接确认弹窗 FE（后端 `container.AINodesUsingConnection` 已就绪）· SaveImage/LoadImage 编辑期路径校验（现仅运行期 guard）。
-- **AI 系统知识**（②已 land）→ [knowledge/nodes/ai-nodes.md](knowledge/nodes/ai-nodes.md) + [knowledge/nodes/held-exec-outputs.md](knowledge/nodes/held-exec-outputs.md)；①/③ 衔接细节在 ① 配置 spec §9（已归档到 cold store `archive/specs/2026-06-23-local-ai-config.md`，不在 deck 内）。
-- **预存失败基线**（跑测试/检查按此判红）：runtime 缺 fish fixture（见 [knowledge/build/build.md](knowledge/build/build.md)）· i18n residue 42 · `pnpm lint` 18 错（oxlint 1.64 新规则，全在 HEAD）。
-- **AI 配置 ① 余项待 smoke**（核心 DeepSeek 测连接用户已实测，均有单测背书）：Anthropic 原生连接 / 本地 Ollama / UI 删默认清空 / 重启持久化 —— 待用户顺手点。同列 ③ 的真机 smoke（见 plan.md 收尾，未武装拒动 / 武装后 Capture·ClickAt·save_container / GUI 跑时 BUSY）。
-- **积压路由**（无阻塞待办）：编辑器 footgun、i18n residue 清理等零散项已挪到 cold store `ideas/`（`editor-footgun-backlog.md` / `misc-tools-backlog.md`）；bindings / 测试 fixture / AlwaysOnTop / 通道 B smoke 见 [knowledge/build/build.md](knowledge/build/build.md)。
+- **detect-click 终审两个已知局限（已落 knowledge，未修、等 demand）**：① Swipe 在 sendinput 后端实际走 PostMessage、读 RawInput 的游戏收不到拖拽 → [knowledge/input/sendinput-drag-uses-postmessage.md](knowledge/input/sendinput-drag-uses-postmessage.md)；② pkg/input 的 SendInput 原语不查注入数、失败上报不到节点层（InputService.error 在 sendinput 后端恒 nil）→ [knowledge/input/sendinput-primitives-ignore-failure.md](knowledge/input/sendinput-primitives-ignore-failure.md)。皆全包/共享原语既有模式、非 Phase 3 回归，整支终审裁定 ship-as-is + 名状在案。
+- **预存失败基线**（跑测试判红按此排除）：runtime 缺 fish fixture（apply_direction.json / watchdog_check.json）→ `TestApplyDirection_*` / `TestWatchdog_*` / `TestFishingV2Main_StateCycleSmoke` 恒红；i18n residue / `pnpm lint` 18，见 [knowledge/build/build.md](knowledge/build/build.md)。
+- **MCP/AI（③）挂账**：A6/C7 polish 余项（AI/Image 节点分组 · Model combobox · 删连接确认弹窗 FE · SaveImage/LoadImage 编辑期路径校验）+ AI 配置 ① 待 smoke 项（Anthropic 原生 / 本地 Ollama / 删默认清空 / 重启持久化），细节在 ① 配置 spec §9（cold store `archive/specs/2026-06-23-local-ai-config.md`）。AI 系统知识 → [knowledge/nodes/ai-nodes.md](knowledge/nodes/ai-nodes.md) + [knowledge/nodes/held-exec-outputs.md](knowledge/nodes/held-exec-outputs.md)。
+- **积压路由**：编辑器 footgun / i18n residue 清理等零散项在 cold store `ideas/`（editor-footgun-backlog.md / misc-tools-backlog.md）。
