@@ -51,6 +51,7 @@ type Point struct {
 - **`""`=比例默认是有意为之**:检测节点输出的 Point 无单位(就是比例),`omitempty` + 空默认让它们天然=比例、零改动。
 - `PointSchema()`(schema.go)不变(单位在值里,不在 schema)。
 - coercion `asNodePoint`(`internal/services/container/runtime/data_pull.go:244`):map 分支读 `t["unit"]` 填 `Point.Unit`(转 PointUnit);`expr.Point` 分支无单位(算出来的比例),Unit 留空;`node.Point` 分支原样(已带 Unit)。
+- ⚠️ **dispatch 全路径(终审补)**:字面 Point 走 `pullDataPin → toExprValue → coerceToType`。`toExprValue` 会把 `{x,y}` map **塌成 `expr.Point`(无 Unit 字段)**,先于 `asNodePoint` 的 map 分支 → 会丢 unit。修法镜像既有 Rect(w/h)留 raw map 的处理:`toExprValue` 对**带非空 `unit`** 的 Point map 留 raw(不塌 expr.Point),让 `asNodePoint` map 分支物化带 Unit;ratio Point(无 unit)仍塌 `expr.Point` 零行为变化。测试必须走 `toExprValue→coerceToType` 真管线,不能只直测 `asNodePoint(map)`。
 - §2 ResolvePoint、§7 MakePoint 的 Unit 判断全走 `UnitPx`/`UnitRatio` 常量。
 
 ## 2. px→ratio 换算:只在一处(node.ResolvePoint helper,复用 ctx.Window().ClientSize())
