@@ -9,14 +9,14 @@ import (
 
 func init() { node.Register(&ClickAt{}) }
 
-// ClickAt 在客户区坐标 (xRatio, yRatio) 点击鼠标按键, 按下时长 durationMs.
+// ClickAt 在客户区坐标 pt 处点击鼠标按键, 按下时长 durationMs.
+// Point 支持 ratio(0-1) 与 px 两种单位; px 由 ResolvePoint 换算为比例.
 // 可选组合键 Keys (e.g. "ctrl+shift") 和连点次数 ClickCount (默认 1).
 type ClickAt struct{}
 
 const (
 	caInExec       = "In"
-	caInXRatio     = "XRatio"
-	caInYRatio     = "YRatio"
+	caInPoint      = "Point"
 	caInButton     = "Button"
 	caInMoveMs     = "MoveMs"
 	caInDurationMs = "DurationMs"
@@ -33,12 +33,8 @@ func (ClickAt) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: caInExec, Type: "Exec"},
-			{Name: caInXRatio, Type: "Number", Default: json.Number("0.5"),
-				Widget: node.WidgetSpec{Kind: "slider",
-					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-			{Name: caInYRatio, Type: "Number", Default: json.Number("0.5"),
-				Widget: node.WidgetSpec{Kind: "slider",
-					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: caInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
+				Schema: node.PointSchema()},
 			{Name: caInButton, Type: "String", Default: "left",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -65,8 +61,11 @@ func (ClickAt) Spec() node.Spec {
 }
 
 func (ClickAt) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	x := in.Float64(caInXRatio)
-	y := in.Float64(caInYRatio)
+	pt := in.Point(caInPoint)
+	x, y, err := node.ResolvePoint(ctx, pt)
+	if err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "ClickAt resolve point: %v", err)
+	}
 	btn := in.String(caInButton)
 	if btn == "" {
 		btn = "left"

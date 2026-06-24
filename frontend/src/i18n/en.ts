@@ -1077,11 +1077,10 @@
     },
     ClickAt: {
       label: 'Click at',
-      description: 'Clicks the mouse once at a spot in the window. The position is given as ratios: X and Y are decimals from 0 to 1, so 0.5, 0.5 is dead center regardless of window size. You can pick left/right/middle button, optionally slide over first, and tune how long the button stays down.',
-      example: 'Click the "Confirm" button in the bottom-right: set X to 0.9 and Y to 0.9 with the left button, and it clicks the bottom-right of the window at runtime.',
+      description: 'Clicks the mouse once at a spot in the window. Set the position with the coordinate control — switch between ratio (0–1) or pixels, or pick a point from a screenshot. You can choose left/right/middle button, slide over first, and adjust how long the button stays down.',
+      example: 'Click the "Confirm" button in the bottom-right: set the coordinate to (0.9, 0.9) in ratio mode with left button, and it clicks the bottom-right of the window at runtime.',
       input: {
-        XRatio: { label: 'X ratio' },
-        YRatio: { label: 'Y ratio' },
+        Point: { label: 'Position' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = slide over then click' },
         DurationMs: { label: 'Duration (ms)' },

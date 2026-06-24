@@ -10,6 +10,18 @@ import (
 	"yotta/internal/node"
 )
 
+// sizeWindow — WindowService stub with fixed client size for px-coordinate tests.
+// Different from recordingWindow (which has ClientSize 0,0); named sizeWindow so
+// Task 4/6 can import or mirror it clearly.
+type sizeWindow struct{ w, h int }
+
+func (s sizeWindow) BringForeground() error { return nil }
+func (s sizeWindow) HWND() uintptr          { return 0 }
+func (s sizeWindow) ClientSize() (int, int, error) {
+	return s.w, s.h, nil
+}
+func (s sizeWindow) SetActive(_ context.Context, _, _, _, _ string) error { return nil }
+
 func TestClickAt_HappyPath(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&ClickAt{})
@@ -17,7 +29,7 @@ func TestClickAt_HappyPath(t *testing.T) {
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{caInXRatio: 0.3, caInYRatio: 0.7, caInButton: "right", caInDurationMs: 80},
+		map[string]any{caInPoint: node.Point{X: 0.3, Y: 0.7}, caInButton: "right", caInDurationMs: 80},
 		nil, withInput(rec), false)
 
 	if r.Error != nil {
@@ -64,7 +76,7 @@ func TestClickAt_CtxCancel_AbortsBeforeClick(t *testing.T) {
 	rec := &recordingInput{}
 	start := time.Now()
 	r := node.RunNode(ctx, rn, nil,
-		map[string]any{caInXRatio: 1.0, caInYRatio: 1.0, caInButton: "left",
+		map[string]any{caInPoint: node.Point{X: 1, Y: 1}, caInButton: "left",
 			caInMoveMs: 2000, caInDurationMs: 50},
 		nil, withInput(rec), false)
 	elapsed := time.Since(start)
@@ -90,7 +102,7 @@ func TestClickAt_MoveMs_SlidesBeforeDown(t *testing.T) {
 	rec := &recordingInput{}
 	// MoveMs=64 → 4 帧 MoveTo (起点 spy(0,0) → 终点 (1,1)), 再 MouseDown/Up
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{caInXRatio: 1.0, caInYRatio: 1.0, caInButton: "left",
+		map[string]any{caInPoint: node.Point{X: 1, Y: 1}, caInButton: "left",
 			caInMoveMs: 64, caInDurationMs: 10},
 		nil, withInput(rec), false)
 	if r.Error != nil {
@@ -132,8 +144,7 @@ func TestClickAt_Keys_ClickCount(t *testing.T) {
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
-			caInXRatio:     0.5,
-			caInYRatio:     0.5,
+			caInPoint:      node.Point{X: 0.5, Y: 0.5},
 			caInButton:     "left",
 			caInDurationMs: 50,
 			caInKeys:       "ctrl+shift",
@@ -175,7 +186,7 @@ func TestClickAt_DefaultRegression(t *testing.T) {
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{caInXRatio: 0.3, caInYRatio: 0.7, caInDurationMs: 80},
+		map[string]any{caInPoint: node.Point{X: 0.3, Y: 0.7}, caInDurationMs: 80},
 		nil, withInput(rec), false)
 
 	if r.Error != nil {
@@ -197,7 +208,7 @@ func TestClickAt_DurationMs_Preserved(t *testing.T) {
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{caInXRatio: 0.5, caInYRatio: 0.5, caInDurationMs: 300},
+		map[string]any{caInPoint: node.Point{X: 0.5, Y: 0.5}, caInDurationMs: 300},
 		nil, withInput(rec), false)
 
 	if r.Error != nil {
@@ -248,5 +259,28 @@ func TestClickAt_InvalidClickCount_ValidationError(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("validation=%v want INVALID_CLICK_COUNT", r.Validation)
+	}
+}
+
+// TestClickAt_PxPoint_ResolvesToRatio: px 坐标经 ResolvePoint 换算为比例.
+func TestClickAt_PxPoint_ResolvesToRatio(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+
+	rec := &recordingInput{}
+	b := node.StubServices()
+	b.Input = rec
+	b.Window = sizeWindow{w: 1920, h: 1080}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{caInPoint: node.Point{X: 960, Y: 540, Unit: node.UnitPx}, caInDurationMs: 50},
+		nil, b, false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	// 960/1920=0.5, 540/1080=0.5
+	if len(rec.calls) != 2 || rec.calls[1] != "Click:0.500:0.500:left:50" {
+		t.Errorf("calls=%v want Click:0.500:0.500", rec.calls)
 	}
 }
