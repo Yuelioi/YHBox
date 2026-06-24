@@ -1186,20 +1186,6 @@ export default {
       },
       output: { Out: { label: '触发' } },
     },
-    Swipe: {
-      label: '拖拽',
-      description: '按住鼠标键，从起点坐标拖到终点坐标，历时 DurationMs 毫秒。坐标用比例填（0 到 1，0.5 是正中间），按完自动松开。常用来拖动物品、拖动滑块、手势操作。',
-      example: '把背包里的物品拖到装备格：起点 X/Y 对准物品，终点 X/Y 对准装备格，时长填 300，运行时就用左键拖过去。',
-      input: {
-        BeginX: { label: '起点 X' },
-        BeginY: { label: '起点 Y' },
-        EndX: { label: '终点 X' },
-        EndY: { label: '终点 Y' },
-        DurationMs: { label: '时长 (ms)', hint: '拖拽总时长; 越大越慢越像真人手势' },
-        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
-      },
-      output: { Done: { label: '完成' } },
-    },
     Scroll: {
       label: '鼠标滚轮',
       description: '在窗口里某个位置滚一下鼠标滚轮。位置用比例填（0 到 1，0.5、0.5 是正中间）。滚动量填几格，正数往上滚、负数往下滚。常用来翻列表、缩放、切武器。',
@@ -1214,13 +1200,11 @@ export default {
     },
     Swipe: {
       label: '拖拽',
-      description: '按住鼠标键，从起点匀速拖到终点再松开。起点和终点都用比例填（0 到 1，0.5、0.5 是正中间）。时长填拖完这段距离花多少毫秒，越大越慢越像真人；填 0 瞬间完成。常用来拖滑块、拖物品、拖选框。',
-      example: '把血量滑块从左边拖到右边：起点 X 填 0.2、Y 填 0.5，终点 X 填 0.8、Y 填 0.5，时长填 400，运行时就会从左边匀速拖到右边再松手。',
+      description: '按住鼠标键，从起点匀速拖到终点再松开。时长填拖完这段距离花多少毫秒，越大越慢越像真人；填 0 瞬间完成。起点和终点都是坐标点 pin，可以从检测节点（如 ClickTemplate、DetectColor）的输出直接连线进来，不连默认 (0, 0)。',
+      example: '把一个物品从格子 A 拖到格子 B：把 ClickTemplate 识别到 A 的坐标连到「起点」，识别到 B 的坐标连到「终点」，时长填 300，运行时就会从 A 拖到 B 再松手。',
       input: {
-        BeginX: { label: '起点 X', hint: '0=最左，1=最右' },
-        BeginY: { label: '起点 Y', hint: '0=最上，1=最下' },
-        EndX: { label: '终点 X', hint: '0=最左，1=最右' },
-        EndY: { label: '终点 Y', hint: '0=最上，1=最下' },
+        Begin: { label: '起点', hint: '拖拽的起始坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来' },
+        End: { label: '终点', hint: '拖拽的结束坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         DurationMs: { label: '时长 (ms)', hint: '拖动总时长毫秒数；0=瞬间完成' },
       },

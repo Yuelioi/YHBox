@@ -1166,20 +1166,6 @@
       },
       output: { Out: { label: 'Tick' } },
     },
-    Swipe: {
-      label: 'Swipe',
-      description: 'Holds a mouse button down, drags from the start coordinate to the end coordinate over DurationMs milliseconds, then releases. Coordinates are ratios (0 to 1, where 0.5 is center). Common for dragging items, sliding controls, or gesture-style interactions.',
-      example: 'Drag an item from the inventory to an equipment slot: set Begin X/Y to the item and End X/Y to the slot, set duration to 300, and the left button drag runs at runtime.',
-      input: {
-        BeginX: { label: 'Begin X' },
-        BeginY: { label: 'Begin Y' },
-        EndX: { label: 'End X' },
-        EndY: { label: 'End Y' },
-        DurationMs: { label: 'Duration (ms)', hint: 'Total drag time; longer = slower, more human-like' },
-        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-      },
-      output: { Done: { label: 'Done' } },
-    },
     Scroll: {
       label: 'Mouse scroll',
       description: 'Scrolls the mouse wheel once at a spot in the window. The position is given as ratios (0 to 1, where 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls up, negative scrolls down. Common for scrolling lists, zooming, or switching weapons.',
@@ -1194,13 +1180,11 @@
     },
     Swipe: {
       label: 'Swipe',
-      description: 'Holds a mouse button and drags from a start point to an end point, then releases. Both points are given as ratios (0 to 1, where 0.5, 0.5 is center). Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; 0 snaps instantly. Useful for dragging sliders, items, or selection boxes.',
-      example: 'Drag a health slider from left to right: set BeginX to 0.2, BeginY to 0.5, EndX to 0.8, EndY to 0.5, and Duration to 400 — it drags smoothly across and releases.',
+      description: 'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; 0 snaps instantly. Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',
+      example: 'Drag a health slider from left to right: wire the start position into Begin, wire the end position into End, set Duration to 400 — it drags smoothly across and releases.',
       input: {
-        BeginX: { label: 'Begin X', hint: '0=left edge, 1=right edge' },
-        BeginY: { label: 'Begin Y', hint: '0=top edge, 1=bottom edge' },
-        EndX: { label: 'End X', hint: '0=left edge, 1=right edge' },
-        EndY: { label: 'End Y', hint: '0=top edge, 1=bottom edge' },
+        Begin: { label: 'Begin', hint: 'Start point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
+        End: { label: 'End', hint: 'End point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         DurationMs: { label: 'Duration (ms)', hint: 'Total drag time in milliseconds; 0=instant' },
       },
