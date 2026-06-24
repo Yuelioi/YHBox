@@ -1212,6 +1212,20 @@ export default {
       },
       output: { Done: { label: '完成' } },
     },
+    Swipe: {
+      label: '拖拽',
+      description: '按住鼠标键，从起点匀速拖到终点再松开。起点和终点都用比例填（0 到 1，0.5、0.5 是正中间）。时长填拖完这段距离花多少毫秒，越大越慢越像真人；填 0 瞬间完成。常用来拖滑块、拖物品、拖选框。',
+      example: '把血量滑块从左边拖到右边：起点 X 填 0.2、Y 填 0.5，终点 X 填 0.8、Y 填 0.5，时长填 400，运行时就会从左边匀速拖到右边再松手。',
+      input: {
+        BeginX: { label: '起点 X', hint: '0=最左，1=最右' },
+        BeginY: { label: '起点 Y', hint: '0=最上，1=最下' },
+        EndX: { label: '终点 X', hint: '0=最左，1=最右' },
+        EndY: { label: '终点 Y', hint: '0=最上，1=最下' },
+        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+        DurationMs: { label: '时长 (ms)', hint: '拖动总时长毫秒数；0=瞬间完成' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     // io
     Log: {
       label: '日志',

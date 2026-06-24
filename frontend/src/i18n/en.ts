@@ -1192,6 +1192,20 @@
       },
       output: { Done: { label: 'Done' } },
     },
+    Swipe: {
+      label: 'Swipe',
+      description: 'Holds a mouse button and drags from a start point to an end point, then releases. Both points are given as ratios (0 to 1, where 0.5, 0.5 is center). Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; 0 snaps instantly. Useful for dragging sliders, items, or selection boxes.',
+      example: 'Drag a health slider from left to right: set BeginX to 0.2, BeginY to 0.5, EndX to 0.8, EndY to 0.5, and Duration to 400 — it drags smoothly across and releases.',
+      input: {
+        BeginX: { label: 'Begin X', hint: '0=left edge, 1=right edge' },
+        BeginY: { label: 'Begin Y', hint: '0=top edge, 1=bottom edge' },
+        EndX: { label: 'End X', hint: '0=left edge, 1=right edge' },
+        EndY: { label: 'End Y', hint: '0=top edge, 1=bottom edge' },
+        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+        DurationMs: { label: 'Duration (ms)', hint: 'Total drag time in milliseconds; 0=instant' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     // io
     Log: {
       label: 'Log',
