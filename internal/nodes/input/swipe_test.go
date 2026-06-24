@@ -101,3 +101,28 @@ func TestSwipe_InvalidButton_ValidationError(t *testing.T) {
 		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)
 	}
 }
+
+func TestSwipe_PxPoints_ResolveToRatio(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&Swipe{})
+	rn, _ := node.Get("Swipe")
+	rec := &recordingInput{}
+	b := node.StubServices()
+	b.Input = rec
+	b.Window = sizeWindow{w: 1000, h: 1000}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			swInBegin:      node.Point{X: 100, Y: 200, Unit: node.UnitPx},
+			swInEnd:        node.Point{X: 800, Y: 900, Unit: node.UnitPx},
+			swInButton:     "left",
+			swInDurationMs: 300,
+		},
+		nil, b, false)
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	// 100/1000=0.1 ... 900/1000=0.9
+	if len(rec.calls) != 1 || rec.calls[0] != "Drag:0.100:0.200:0.800:0.900:left:300" {
+		t.Errorf("calls=%v want Drag:0.100:0.200:0.800:0.900:left:300", rec.calls)
+	}
+}

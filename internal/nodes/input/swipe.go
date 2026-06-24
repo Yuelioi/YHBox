@@ -52,15 +52,24 @@ func (Swipe) Spec() node.Spec {
 }
 
 func (Swipe) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	begin := in.Point(swInBegin)
-	end := in.Point(swInEnd)
+	bx, by, err := node.ResolvePoint(ctx, in.Point(swInBegin))
+	if err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "Swipe resolve begin: %v", err)
+	}
+	ex, ey, err := node.ResolvePoint(ctx, in.Point(swInEnd))
+	if err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "Swipe resolve end: %v", err)
+	}
 	btn := in.String(swInButton)
 	if btn == "" {
 		btn = "left"
 	}
 	dur := in.Int(swInDurationMs)
-	if err := ctx.Input().Drag(begin.X, begin.Y, end.X, end.Y, btn, dur); err != nil {
-		return nil, node.Failf(node.CodeSendFailed, err, "Swipe (%.3f,%.3f)→(%.3f,%.3f) %s: %v", begin.X, begin.Y, end.X, end.Y, btn, err)
+	if dur <= 0 {
+		dur = 200
+	}
+	if err := ctx.Input().Drag(bx, by, ex, ey, btn, dur); err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "Swipe drag: %v", err)
 	}
 	return ctx.Out(swOutDone).Fire(), nil
 }
