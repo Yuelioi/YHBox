@@ -127,7 +127,7 @@
 
     <!-- 屏幕选择工具：根据 kind 显示对应快捷 -->
     <section
-      v-if="canPickPoint || canPickRect"
+      v-if="canPickRect"
       class="mb-4 rounded-md bg-primary/5 border border-primary/30 p-3 space-y-2"
     >
       <div class="flex items-center gap-2">
@@ -135,17 +135,6 @@
         <span class="text-[11px] text-toned">{{ t('inspector.screen_pick_label') }}</span>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <UButton
-          v-if="canPickPoint"
-          size="xs"
-          variant="soft"
-          color="primary"
-          icon="i-tabler-pointer"
-          :loading="picking"
-          @click="onPickPoint"
-        >
-          {{ t('inspector.screen_pick_point') }}
-        </UButton>
         <UButton
           v-if="canPickRect"
           size="xs"
@@ -784,13 +773,6 @@ function setLiteral(pin: string, v: any) {
   cfg.literal = { ...cfg.literal, [pin]: v }
   emit('update', cfg)
 }
-// 批量写多个 config.literal pin (一次 emit) — 屏幕拾取 point 同时写 XRatio+YRatio 用。
-function setLiteralBatch(patch: Record<string, any>) {
-  if (!props.node) return
-  const cfg = { ...props.node.config }
-  cfg.literal = { ...cfg.literal, ...patch }
-  emit('update', cfg)
-}
 // 查 pin 对应的 widget 元数据 (类型/选项), 喂给 PinInput 渲染正确控件。
 // 动态 input (Expr config.Inputs[]) 在 fields 里查不到 → undefined, PinInput 走 pinType fallback。
 function fieldFor(pin: string): Field | undefined {
@@ -1072,9 +1054,8 @@ function colorMetaFor(fieldPath: string): { schemaType: 'tuple' | 'object'; colo
   return { schemaType, colorSpace }
 }
 
-const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onPickColor, onOpenHUD } = useScreenPick({
+const { picking, canPickRect, onPickRect, onPickColor, onOpenHUD } = useScreenPick({
   node: toRef(props, 'node'),
-  applyPoint: (x, y) => setLiteralBatch({ XRatio: round4(x), YRatio: round4(y) }),
   // fieldPath 由 onPickRect(fieldPath) 透传 — DetectColor 固定走 'Region'
   // Region 是 Geometry 类型 ({ pct, overrides }) — 回填必须写 .pct 外壳, 否则
   // GeometryWidget 读不到 .pct 会整体回退成全 0 (不显示框选结果). overrides 原样保留。
@@ -1103,9 +1084,6 @@ const { picking, canPickPoint, canPickRect, onPickPoint, onPickRect, onPickColor
 function onColorPick(fieldPath: string) {
   const { colorSpace } = colorMetaFor(fieldPath)
   void onPickColor(fieldPath, colorSpace)
-}
-function round4(n: number): number {
-  return Math.round(n * 1e4) / 1e4
 }
 function round3(n: number): number {
   return Math.round(n * 1e3) / 1e3
