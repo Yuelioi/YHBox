@@ -89,6 +89,7 @@ func (stubInputService) CursorRatio() (float64, float64, error)                 
 func (stubInputService) Scroll(x, y float64, notches int) error                            { return nil }
 func (stubInputService) MouseDown(x, y float64, button string) error                       { return nil }
 func (stubInputService) MouseUp(button string) error                                       { return nil }
+func (stubInputService) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error { return nil }
 
 // StubInputService — test 用. main.go 注入 pkg/input.Backend 适配.
 func StubInputService() InputService { return stubInputService{} }

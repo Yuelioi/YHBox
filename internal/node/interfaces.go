@@ -258,6 +258,9 @@ type InputService interface {
 
 	MouseDown(xRatio, yRatio float64, button string) error
 	MouseUp(button string) error
+
+	// Drag 按住 button 从 (x1,y1) 拖到 (x2,y2), durationMs 毫秒. 坐标均为 0-1 客户区比例.
+	Drag(x1, y1, x2, y2 float64, button string, durationMs int) error
 }
 
 // VarStore — SetVar / GetVar / IncVar 节点用. Scope=auto/local/global 由 framework

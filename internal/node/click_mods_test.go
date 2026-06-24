@@ -32,8 +32,9 @@ func (r *recInputMods) MouseMoveRel(dx, dy, durationMs int) error   { return nil
 func (r *recInputMods) MoveTo(x, y float64) error                   { return nil }
 func (r *recInputMods) CursorRatio() (float64, float64, error)      { return 0, 0, nil }
 func (r *recInputMods) Scroll(x, y float64, notches int) error      { return nil }
-func (r *recInputMods) MouseDown(x, y float64, button string) error { return nil }
-func (r *recInputMods) MouseUp(button string) error                 { return nil }
+func (r *recInputMods) MouseDown(x, y float64, button string) error                       { return nil }
+func (r *recInputMods) MouseUp(button string) error                                       { return nil }
+func (r *recInputMods) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error { return nil }
 
 func (r *recInputMods) matches(want []string) bool {
 	if len(r.seq) != len(want) {

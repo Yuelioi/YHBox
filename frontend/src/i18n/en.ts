@@ -1166,6 +1166,20 @@
       },
       output: { Out: { label: 'Tick' } },
     },
+    Swipe: {
+      label: 'Swipe',
+      description: 'Holds a mouse button down, drags from the start coordinate to the end coordinate over DurationMs milliseconds, then releases. Coordinates are ratios (0 to 1, where 0.5 is center). Common for dragging items, sliding controls, or gesture-style interactions.',
+      example: 'Drag an item from the inventory to an equipment slot: set Begin X/Y to the item and End X/Y to the slot, set duration to 300, and the left button drag runs at runtime.',
+      input: {
+        BeginX: { label: 'Begin X' },
+        BeginY: { label: 'Begin Y' },
+        EndX: { label: 'End X' },
+        EndY: { label: 'End Y' },
+        DurationMs: { label: 'Duration (ms)', hint: 'Total drag time; longer = slower, more human-like' },
+        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     Scroll: {
       label: 'Mouse scroll',
       description: 'Scrolls the mouse wheel once at a spot in the window. The position is given as ratios (0 to 1, where 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls up, negative scrolls down. Common for scrolling lists, zooming, or switching weapons.',

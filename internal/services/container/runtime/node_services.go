@@ -338,6 +338,17 @@ func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int) error {
 	return a.rt.Input.Scroll(h, xRatio, yRatio, notches)
 }
 
+func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {
+	if err := a.ensure(); err != nil {
+		return err
+	}
+	h, err := a.hwnd()
+	if err != nil {
+		return err
+	}
+	return a.rt.Input.Drag(h, x1, y1, x2, y2, button, durationMs)
+}
+
 func (a *inputAdapter) MouseDown(xRatio, yRatio float64, button string) error {
 	if err := a.ensure(); err != nil {
 		return err

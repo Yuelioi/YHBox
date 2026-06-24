@@ -113,6 +113,13 @@ func (s *SafeInputBackend) Scroll(hwnd win.HWND, xr, yr float64, notches int) er
 	}
 	return s.inner.Scroll(hwnd, xr, yr, notches)
 }
+func (s *SafeInputBackend) Drag(hwnd win.HWND, x1, y1, x2, y2 float64, button string, durationMs int) error {
+	if !isValidHwnd(hwnd) {
+		s.warnOnce("Drag", hwnd)
+		return nil
+	}
+	return s.inner.Drag(hwnd, x1, y1, x2, y2, button, durationMs)
+}
 func (s *SafeInputBackend) ReleaseAll() error { return s.inner.ReleaseAll() }
 func (s *SafeInputBackend) Close() error      { return s.inner.Close() }
 

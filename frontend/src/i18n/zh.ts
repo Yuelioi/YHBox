@@ -1186,6 +1186,20 @@ export default {
       },
       output: { Out: { label: '触发' } },
     },
+    Swipe: {
+      label: '拖拽',
+      description: '按住鼠标键，从起点坐标拖到终点坐标，历时 DurationMs 毫秒。坐标用比例填（0 到 1，0.5 是正中间），按完自动松开。常用来拖动物品、拖动滑块、手势操作。',
+      example: '把背包里的物品拖到装备格：起点 X/Y 对准物品，终点 X/Y 对准装备格，时长填 300，运行时就用左键拖过去。',
+      input: {
+        BeginX: { label: '起点 X' },
+        BeginY: { label: '起点 Y' },
+        EndX: { label: '终点 X' },
+        EndY: { label: '终点 Y' },
+        DurationMs: { label: '时长 (ms)', hint: '拖拽总时长; 越大越慢越像真人手势' },
+        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+      },
+      output: { Done: { label: '完成' } },
+    },
     Scroll: {
       label: '鼠标滚轮',
       description: '在窗口里某个位置滚一下鼠标滚轮。位置用比例填（0 到 1，0.5、0.5 是正中间）。滚动量填几格，正数往上滚、负数往下滚。常用来翻列表、缩放、切武器。',

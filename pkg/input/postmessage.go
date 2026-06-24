@@ -160,6 +160,17 @@ func (b *PostMessageBackend) MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) erro
 	return nil
 }
 
+func (b *PostMessageBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
+	b.ensureActivated(hwnd)
+	x1, y1 := b.pixelCoords(hwnd, x1Ratio, y1Ratio)
+	x2, y2 := b.pixelCoords(hwnd, x2Ratio, y2Ratio)
+	if durationMs <= 0 {
+		durationMs = 200
+	}
+	MouseDrag(hwnd, x1, y1, x2, y2, pickButton(button), time.Duration(durationMs)*time.Millisecond, defaultActivateDelay, defaultCursorSettle)
+	return nil
+}
+
 func (b *PostMessageBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
 	b.ensureActivated(hwnd)
 	x, y := b.pixelCoords(hwnd, xRatio, yRatio)

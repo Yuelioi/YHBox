@@ -198,6 +198,22 @@ func (b *sendInputBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button s
 	return b.MouseUp(hwnd, button)
 }
 
+func (b *sendInputBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
+	var rect win.RECT
+	win.GetClientRect(hwnd, &rect)
+	w := int(rect.Right - rect.Left)
+	h := int(rect.Bottom - rect.Top)
+	x1 := int(x1Ratio * float64(w))
+	y1 := int(y1Ratio * float64(h))
+	x2 := int(x2Ratio * float64(w))
+	y2 := int(y2Ratio * float64(h))
+	if durationMs <= 0 {
+		durationMs = 200
+	}
+	MouseDrag(hwnd, x1, y1, x2, y2, pickButton(button), time.Duration(durationMs)*time.Millisecond, 0, 0)
+	return nil
+}
+
 func (b *sendInputBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
 	sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
 	sendAbsMove(sx, sy)

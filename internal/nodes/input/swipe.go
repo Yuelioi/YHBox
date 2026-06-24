@@ -1,0 +1,96 @@
+// internal/nodes/input/swipe.go
+// Swipe — 从 Begin 坐标拖到 End 坐标 (按住 Button, 历时 DurationMs 毫秒).
+// pins: In, BeginX/BeginY(Number), EndX/EndY(Number), DurationMs(Number,200), Button(下拉 left/right/middle)
+// out: Done。NeedsWindow。
+package input
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"yotta/internal/node"
+)
+
+func init() { node.Register(&Swipe{}) }
+
+// Swipe 按住鼠标从起点拖到终点。
+type Swipe struct{}
+
+const (
+	swInExec       = "In"
+	swInBeginX     = "BeginX"
+	swInBeginY     = "BeginY"
+	swInEndX       = "EndX"
+	swInEndY       = "EndY"
+	swInButton     = "Button"
+	swInDurationMs = "DurationMs"
+	swOutDone      = "Done"
+)
+
+func (Swipe) Spec() node.Spec {
+	return node.Spec{
+		Kind:        "Swipe",
+		Category:    "Input",
+		NeedsWindow: true,
+		Inputs: []node.InputSpec{
+			{Name: swInExec, Type: "Exec"},
+			{Name: swInBeginX, Type: "Number", Default: json.Number("0.5"),
+				Widget: node.WidgetSpec{Kind: "slider",
+					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: swInBeginY, Type: "Number", Default: json.Number("0.5"),
+				Widget: node.WidgetSpec{Kind: "slider",
+					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: swInEndX, Type: "Number", Default: json.Number("0.5"),
+				Widget: node.WidgetSpec{Kind: "slider",
+					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: swInEndY, Type: "Number", Default: json.Number("0.5"),
+				Widget: node.WidgetSpec{Kind: "slider",
+					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: swInButton, Type: "String", Default: "left",
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{
+							{Value: "left"},
+							{Value: "right"},
+							{Value: "middle"},
+						}})}},
+			{Name: swInDurationMs, Type: "Number", Default: json.Number("200"),
+				Widget: node.WidgetSpec{Kind: "number"}},
+		},
+		Outputs: []node.OutputSpec{
+			{Name: swOutDone, Type: "Exec"},
+		},
+	}
+}
+
+func (Swipe) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	x1 := in.Float64(swInBeginX)
+	y1 := in.Float64(swInBeginY)
+	x2 := in.Float64(swInEndX)
+	y2 := in.Float64(swInEndY)
+	btn := in.String(swInButton)
+	if btn == "" {
+		btn = "left"
+	}
+	dur := in.Int(swInDurationMs)
+	if dur <= 0 {
+		dur = 200
+	}
+	if err := ctx.Input().Drag(x1, y1, x2, y2, btn, dur); err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "Swipe (%.3f,%.3f)→(%.3f,%.3f) %s: %v", x1, y1, x2, y2, btn, err)
+	}
+	return ctx.Out(swOutDone).Fire(), nil
+}
+
+func (Swipe) Validate(in node.Inputs) []node.ValidationError {
+	var errs []node.ValidationError
+	btn := in.String(swInButton)
+	if btn != "" && btn != "left" && btn != "right" && btn != "middle" {
+		errs = append(errs, node.ValidationError{
+			Code:    "INVALID_MOUSE_BUTTON",
+			Message: fmt.Sprintf("button %q not in left/right/middle", btn),
+			Field:   swInButton,
+		})
+	}
+	return errs
+}
