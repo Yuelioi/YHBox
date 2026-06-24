@@ -15,6 +15,7 @@ import (
 type mockVision struct {
 	// Match / WaitMatch 用
 	point *node.Point
+	bbox  [4]float64 // WaitMatch / Match 命中时带回的 BBox (零值 = 无)
 	conf  float64
 	err   error
 
@@ -72,7 +73,7 @@ func (m *mockVision) Match(_ context.Context, _ []string, _ float64, _ node.Geom
 		return node.MatchHit{Conf: m.conf}, m.err
 	}
 	if m.point != nil {
-		return node.MatchHit{Found: true, Point: *m.point, Conf: m.conf}, nil
+		return node.MatchHit{Found: true, Point: *m.point, BBox: m.bbox, Conf: m.conf}, nil
 	}
 	return node.MatchHit{Conf: m.conf}, nil
 }
@@ -89,7 +90,7 @@ func (m *mockVision) WaitMatch(ctx context.Context, _ []string, _ float64, _ nod
 		return node.MatchHit{Conf: m.conf}, nil
 	}
 	if m.hitOnCall >= 0 && m.callCount >= m.hitOnCall && m.point != nil {
-		return node.MatchHit{Found: true, Point: *m.point, Conf: m.conf}, nil
+		return node.MatchHit{Found: true, Point: *m.point, BBox: m.bbox, Conf: m.conf}, nil
 	}
 	// timeout 路径: ctx 真等 timeout 模拟服务侧 (节点测试期望 timeout 行为).
 	if timeout > 0 {

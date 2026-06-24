@@ -27,6 +27,9 @@ const (
 	clkInTimeoutMs       = "TimeoutMs"
 	clkInThreshold       = "Threshold"
 	clkInROI             = "ROI"
+	clkInAnchor          = "Anchor"
+	clkInOffsetX         = "OffsetX"
+	clkInOffsetY         = "OffsetY"
 	clkInButton          = "Button"
 	clkInSettleMs        = "SettleMs"
 	clkInMaxAttempts     = "MaxAttempts"
@@ -58,6 +61,18 @@ func (ClickTemplate) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: clkInROI, Type: "Geometry", Schema: node.GeometrySchema()},
+			{Name: clkInAnchor, Type: "String", Default: "center", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{
+							{Value: "topLeft"}, {Value: "topCenter"}, {Value: "topRight"},
+							{Value: "midLeft"}, {Value: "center"}, {Value: "midRight"},
+							{Value: "botLeft"}, {Value: "botCenter"}, {Value: "botRight"},
+						}})}},
+			{Name: clkInOffsetX, Type: "Number", Default: json.Number("0"), Advanced: true,
+				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: clkInOffsetY, Type: "Number", Default: json.Number("0"), Advanced: true,
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkInButton, Type: "String", Default: "left",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -179,6 +194,9 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(clkInTemplates)
 	threshold := in.Float64(clkInThreshold)
 	roi := in.Geometry(clkInROI)
+	anchor := in.String(clkInAnchor)
+	offXRaw := in.Float64(clkInOffsetX)
+	offYRaw := in.Float64(clkInOffsetY)
 	orderBy := in.String(clkInOrderBy)
 	index := in.Int(clkInIndex)
 	timeout := time.Duration(in.Int(clkInTimeoutMs)) * time.Millisecond
@@ -188,6 +206,19 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	btn := in.String(clkInButton)
 	if btn == "" {
 		btn = "left"
+	}
+
+	// 解析偏移单位: |v|>1 = 像素 → 需 ClientSize 换算成 ratio; |v|<=1 直接用 ratio。
+	offX, offY := offXRaw, offYRaw
+	if offXRaw < -1 || offXRaw > 1 || offYRaw < -1 || offYRaw > 1 {
+		if w, h, err := ctx.Window().ClientSize(); err == nil {
+			offX = node.ResolveScalar(offXRaw, w)
+			offY = node.ResolveScalar(offYRaw, h)
+		}
+	}
+	// clickPt 把命中框按锚点+偏移算最终落点 (默认 center/0/0 = BBox 中心 = hit.Point)。
+	clickPt := func(hit node.MatchHit) node.Point {
+		return anchorPoint(hit.BBox, anchor, offX, offY)
 	}
 
 	// 获取: 轮询 locateOnce 到命中或超时 (统一两路径).
@@ -209,11 +240,11 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 	}
 
-	if err := clickAt(ctx, keys, hit.Point, btn); err != nil {
+	if err := clickAt(ctx, keys, clickPt(hit), btn); err != nil {
 		return nil, err
 	}
 	if maxAttempts <= 1 {
-		return ctx.Out(clkOutDone).Set(clkDataPoint, hit.Point).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
+		return ctx.Out(clkOutDone).Set(clkDataPoint, clickPt(hit)).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
 	}
 	clicks := 1
 	for {
@@ -225,13 +256,13 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate recheck %s: %v", strings.Join(keys, "+"), err)
 		}
 		if !h2.Found {
-			return ctx.Out(clkOutDone).Set(clkDataPoint, hit.Point).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
+			return ctx.Out(clkOutDone).Set(clkDataPoint, clickPt(hit)).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
 		if clicks >= maxAttempts {
 			return ctx.Out(clkOutTimeout).Set(clkDataConf, h2.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
 		hit = h2
-		if err := clickAt(ctx, keys, hit.Point, btn); err != nil {
+		if err := clickAt(ctx, keys, clickPt(hit), btn); err != nil {
 			return nil, err
 		}
 		clicks++
@@ -244,6 +275,46 @@ func clickAt(ctx node.Ctx, keys []string, pt node.Point, btn string) error {
 		return node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}
 	return nil
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+// anchorPoint 按九宫格锚点 + ratio 偏移算落点 (归一化, clamp [0,1])。
+// bbox=[x,y(左上),w,h]; offX/offY 已是 ratio (调用方经 ResolveScalar 换算)。
+func anchorPoint(bbox [4]float64, anchor string, offX, offY float64) node.Point {
+	var fx, fy float64
+	switch anchor {
+	case "topLeft":
+		fx, fy = 0, 0
+	case "topCenter":
+		fx, fy = 0.5, 0
+	case "topRight":
+		fx, fy = 1, 0
+	case "midLeft":
+		fx, fy = 0, 0.5
+	case "midRight":
+		fx, fy = 1, 0.5
+	case "botLeft":
+		fx, fy = 0, 1
+	case "botCenter":
+		fx, fy = 0.5, 1
+	case "botRight":
+		fx, fy = 1, 1
+	default: // center
+		fx, fy = 0.5, 0.5
+	}
+	return node.Point{
+		X: clamp01(bbox[0] + bbox[2]*fx + offX),
+		Y: clamp01(bbox[1] + bbox[3]*fy + offY),
+	}
 }
 
 func (ClickTemplate) Validate(in node.Inputs) []node.ValidationError {

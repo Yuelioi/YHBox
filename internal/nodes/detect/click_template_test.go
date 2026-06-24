@@ -73,7 +73,8 @@ func TestClickTemplate_Done(t *testing.T) {
 	rn, _ := node.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
-	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
+	// bbox center = pt: bbox=[pt.X, pt.Y, 0, 0] → anchorPoint center = (pt.X, pt.Y)
+	vision := &mockVision{point: &pt, bbox: [4]float64{0.55, 0.4, 0, 0}, conf: 0.93, hitOnCall: 1}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
@@ -100,7 +101,7 @@ func TestClickTemplate_SettleMs_RedetectThenClick(t *testing.T) {
 	rn, _ := node.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
-	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
+	vision := &mockVision{point: &pt, bbox: [4]float64{0.55, 0.4, 0, 0}, conf: 0.93, hitOnCall: 1}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
@@ -130,7 +131,7 @@ func TestClickTemplate_RetryUntilGone_Done(t *testing.T) {
 
 	pt := node.Point{X: 0.55, Y: 0.4}
 	// missAfterCall=2: call1 初次命中 + call2 点完重查仍在 → 点 2 下; call3 模板已消失 → 走 Done。
-	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1, missAfterCall: 2}
+	vision := &mockVision{point: &pt, bbox: [4]float64{0.55, 0.4, 0, 0}, conf: 0.93, hitOnCall: 1, missAfterCall: 2}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
@@ -159,7 +160,7 @@ func TestClickTemplate_RetryExhausted_Timeout(t *testing.T) {
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	// missAfterCall=0 (禁用) → 模板一直在 → 点满 MaxAttempts 仍没消失 → Timeout(Matched=true)。
-	vision := &mockVision{point: &pt, conf: 0.9, hitOnCall: 1}
+	vision := &mockVision{point: &pt, bbox: [4]float64{0.5, 0.5, 0, 0}, conf: 0.9, hitOnCall: 1}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "left",
@@ -209,7 +210,7 @@ func TestClickTemplate_BackendError(t *testing.T) {
 	rn, _ := node.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
-	vision := &mockVision{point: &pt, conf: 0.9, hitOnCall: 1}
+	vision := &mockVision{point: &pt, bbox: [4]float64{0.5, 0.5, 0, 0}, conf: 0.9, hitOnCall: 1}
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}},
@@ -276,11 +277,11 @@ func TestClickTemplate_OrderBy_Vertical(t *testing.T) {
 	if r.ExitName != clkOutDone {
 		t.Fatalf("exit=%q want Done", r.ExitName)
 	}
-	// 最上面那个 BBox.y=0.1, Point=(0.8,0.1)
+	// 最上面那个 BBox=[0.8,0.1,0.05,0.05] → center = anchorPoint = (0.825, 0.125)
 	if len(rec.calls) != 1 {
 		t.Fatalf("want 1 click, got %v", rec.calls)
 	}
-	want := fmt.Sprintf("Click:%.3f:%.3f:left:50", 0.8, 0.1)
+	want := fmt.Sprintf("Click:%.3f:%.3f:left:50", 0.825, 0.125)
 	if rec.calls[0] != want {
 		t.Errorf("click=%q want %q", rec.calls[0], want)
 	}
@@ -294,7 +295,7 @@ func TestClickTemplate_DefaultScore_Regression(t *testing.T) {
 	rn, _ := node.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
-	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
+	vision := &mockVision{point: &pt, bbox: [4]float64{0.55, 0.4, 0, 0}, conf: 0.93, hitOnCall: 1}
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
@@ -318,5 +319,150 @@ func TestClickTemplate_DefaultScore_Regression(t *testing.T) {
 	// WaitMatch 路径: MatchAll 不应被调用 (matchAllResults=nil, 走 WaitMatch)
 	if len(rec.calls) != 1 || rec.calls[0] != "Click:0.550:0.400:left:50" {
 		t.Errorf("calls=%v want [Click:0.550:0.400:left:50]", rec.calls)
+	}
+}
+
+// ─── Task 2.3: anchorPoint 单元测试 ──────────────────────────────────────────
+
+// approxEq 浮点近似相等 (容差 1e-9).
+func approxEq(a, b float64) bool {
+	d := a - b
+	return d >= -1e-9 && d <= 1e-9
+}
+
+func TestAnchorPoint(t *testing.T) {
+	bb := [4]float64{0.2, 0.4, 0.10, 0.20} // x,y,w,h → 中心 (0.25,0.5)
+	if p := anchorPoint(bb, "center", 0, 0); !approxEq(p.X, 0.25) || !approxEq(p.Y, 0.5) {
+		t.Fatalf("center=%v want (0.25,0.5)", p)
+	}
+	if p := anchorPoint(bb, "topLeft", 0, 0); !approxEq(p.X, 0.2) || !approxEq(p.Y, 0.4) {
+		t.Fatalf("topLeft=%v want (0.2,0.4)", p)
+	}
+	if p := anchorPoint(bb, "botRight", 0, 0); !approxEq(p.X, 0.3) || !approxEq(p.Y, 0.6) {
+		t.Fatalf("botRight=%v want (0.3,0.6)", p)
+	}
+	// 偏移 (已是 ratio): topRight + (0.05,-0.05)
+	if p := anchorPoint(bb, "topRight", 0.05, -0.05); !approxEq(p.X, 0.35) || !approxEq(p.Y, 0.35) {
+		t.Fatalf("topRight+off=%v want (0.35,0.35)", p)
+	}
+	// clamp: 越界裁到 [0,1]
+	if p := anchorPoint(bb, "botRight", 1.0, 0); p.X != 1 {
+		t.Fatalf("clamp X=%v want 1", p.X)
+	}
+}
+
+// withVisionInputAndWindow 同时注入 Vision + Input + Window (Task 2.3 像素偏移测试用)。
+func withVisionInputAndWindow(v node.VisionService, in node.InputService, w node.WindowService) node.ServiceBundle {
+	b := node.StubServices()
+	b.Vision = v
+	b.Input = in
+	b.Window = w
+	return b
+}
+
+// TestClickTemplate_Anchor_TopRight: Anchor=topRight/Offset=0 → 点命中框右上角。
+func TestClickTemplate_Anchor_TopRight(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	// BBox=[0.2,0.4,0.10,0.20] → topRight = (0.2+0.10, 0.4) = (0.30, 0.40)
+	pt := node.Point{X: 0.25, Y: 0.5} // center (被 anchor 覆盖)
+	bb := [4]float64{0.2, 0.4, 0.10, 0.20}
+	vision := &mockVision{point: &pt, bbox: bb, conf: 0.93, hitOnCall: 1}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			clkInTemplates: []string{"tpl.anchor"},
+			clkInTimeoutMs: 200,
+			clkInThreshold: 0.85,
+			clkInAnchor:    "topRight",
+			clkInOffsetX:   0.0,
+			clkInOffsetY:   0.0,
+		},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Fatalf("exit=%q want Done", r.ExitName)
+	}
+	// topRight = bbox[0]+bbox[2] , bbox[1] = (0.30, 0.40)
+	want := fmt.Sprintf("Click:%.3f:%.3f:left:50", 0.30, 0.40)
+	if len(rec.calls) != 1 || rec.calls[0] != want {
+		t.Errorf("click=%q want %q", rec.calls, want)
+	}
+}
+
+// TestClickTemplate_Anchor_Center_Regression: 默认 center/0/0 → 点命中框中心 = hit.Point (零回归)。
+// mock window 不需要 ClientSize (offset=0 不触发像素换算)。
+func TestClickTemplate_Anchor_Center_Regression(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	// BBox=[0.1, 0.3, 0.30, 0.40] → center = (0.1+0.15, 0.3+0.20) = (0.25, 0.50)
+	// hit.Point 也设成中心以证明两者一致
+	pt := node.Point{X: 0.25, Y: 0.50}
+	bb := [4]float64{0.1, 0.3, 0.30, 0.40}
+	vision := &mockVision{point: &pt, bbox: bb, conf: 0.90, hitOnCall: 1}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			clkInTemplates: []string{"tpl.regression"},
+			clkInTimeoutMs: 200,
+			clkInThreshold: 0.85,
+			// Anchor/OffsetX/OffsetY 不传 → 默认 center/0/0
+		},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Fatalf("exit=%q want Done", r.ExitName)
+	}
+	// center of BBox = (0.25, 0.50) == hit.Point → 零回归
+	want := fmt.Sprintf("Click:%.3f:%.3f:left:50", 0.25, 0.50)
+	if len(rec.calls) != 1 || rec.calls[0] != want {
+		t.Errorf("click=%q want %q", rec.calls, want)
+	}
+}
+
+// TestClickTemplate_OffsetPx_UsesClientSize: OffsetX=96(像素) 触发 ClientSize 换算 → 96/1920=0.05。
+func TestClickTemplate_OffsetPx_UsesClientSize(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	// BBox=[0.2,0.4,0.10,0.20] → topLeft=(0.2,0.4); 加 OffsetX=96px→0.05, OffsetY=0
+	// 期望落点: (0.2+0.05, 0.4) = (0.25, 0.40)
+	pt := node.Point{X: 0.25, Y: 0.50}
+	bb := [4]float64{0.2, 0.4, 0.10, 0.20}
+	vision := &mockVision{point: &pt, bbox: bb, conf: 0.92, hitOnCall: 1}
+	rec := &recordingInput{}
+	win := stubWindow{w: 1920, h: 1080}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			clkInTemplates: []string{"tpl.offset"},
+			clkInTimeoutMs: 200,
+			clkInThreshold: 0.85,
+			clkInAnchor:    "topLeft",
+			clkInOffsetX:   96.0, // 像素 > 1
+			clkInOffsetY:   0.0,
+		},
+		nil, withVisionInputAndWindow(vision, rec, win), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Fatalf("exit=%q want Done", r.ExitName)
+	}
+	// topLeft + (96/1920, 0) = (0.2+0.05, 0.4+0) = (0.25, 0.40)
+	want := fmt.Sprintf("Click:%.3f:%.3f:left:50", 0.25, 0.40)
+	if len(rec.calls) != 1 || rec.calls[0] != want {
+		t.Errorf("click=%q want %q", rec.calls, want)
 	}
 }
