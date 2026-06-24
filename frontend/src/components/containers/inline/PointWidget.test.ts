@@ -314,6 +314,22 @@ describe('PointWidget', () => {
     el.remove()
   })
 
+  it('px 模式切回 %: mousePos hasGame=false 时保留框里数字÷100, 不换算', async () => {
+    mockBackend.tools.mousePos.mockResolvedValue({ hasGame: false, clientW: 0, clientH: 0 })
+    const { emitted, app, el } = mountPointWidget({ x: 960, y: 540, unit: 'px' })
+    const pctBtn = el.querySelector('[data-testid="point-unit-toggle"] button:first-child') as HTMLButtonElement
+    expect(pctBtn).toBeTruthy()
+    pctBtn.click()
+    await flushPromises()
+    expect(emitted).toHaveLength(1)
+    const out = emitted[0]
+    expect(out.unit).toBeUndefined() // 切回 % → 无 unit
+    expect(out.x).toBe(round4(960 / 100)) // displayX in px mode = raw 960 → 9.6
+    expect(out.y).toBe(round4(540 / 100)) // displayY in px mode = raw 540 → 5.4
+    app.unmount()
+    el.remove()
+  })
+
   it('px 模式 onChange: 用户输入 960 → 存储 960 (不÷100)', () => {
     // isPx=true → onChange stores displayVal directly
     const displayVal = 960
