@@ -1,15 +1,15 @@
 # Cockpit — YHFish
 
-Focus: detect/click 能力扩展 **spec 10 项全落地并验证**（Phase 1/2/3 全绿 + 整支 opus 终审过）—— 仅剩用户真机 smoke；smoke 后回到 ③ MCP 对外暴露（mcp-node-exec，spec+plan 就绪未起）。
+Focus: detect/click 能力扩展全落地（Phase 1/2/3 = spec 10 项 + Phase 4 = 用户 review 后增补 WaitWindowGone + Point 手填控件）—— build/test 全绿、逐 task review + 整支 opus 终审过；仅剩用户真机 smoke；smoke 后回到 ③ MCP 对外暴露（mcp-node-exec，未起）。
 
 ## In flight
 
-- [work/detect-click-config/](work/detect-click-config/) — **代码完成，待真机 smoke**。detect/click spec 10 项全落地：Phase 1 Vision 基础层（MatchHit/roi/去 mode）· Phase 2 ClickTemplate 全家桶（锚点偏移/order_by+index/ROI/组合键/多击）· Phase 3 新节点群（本会话）：WaitTemplateGone · Swipe(Begin/End=Point pin，可连检测节点输出) · Scroll 横向(Axis pin + WM_MOUSEHWHEEL) · InputText(SendInput unicode) · StopApp(taskkill) · ClickAt 接组合键+多击。逐 task TDD + 每 task review + 整支 opus 终审，build/vet/全 scope 全绿（除已知 runtime RED 基线）。进度账本：.superpowers/sdd/progress.md。**仅剩真机 smoke（用户做）**，全过即移 cold store。
+- [work/detect-click-config/](work/detect-click-config/) — **代码完成，待真机 smoke**。Phase 1 Vision 基础层 · Phase 2 ClickTemplate 全家桶 · Phase 3 新节点群（WaitTemplateGone · Swipe · Scroll 横向 · InputText · StopApp · ClickAt 组合键+多击）· **Phase 4（用户增补）**：WaitWindowGone（等窗口关闭，对称 WaitWindow，配 StopApp 确认真关掉）+ Point 类型手填控件（PointWidget x/y 百分比；Swipe 起止点在 Inspector 手填或连检测节点点输出）。逐 task TDD + 每 task review + 整支 opus 终审，build/vet/全 scope 全绿（除已知 runtime RED 基线）。plan-phase1..4 + 进度账本 .superpowers/sdd/progress.md。**仅剩真机 smoke（用户做）**，全过即移 cold store。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — ③ MCP 对外暴露（AI 调我们）：GUI 内置 Streamable HTTP MCP server，暴露 run_node/find_window/写图四件套，design.md + plan.md 就绪。detect-click 完结后的下一主攻（原 focus，本会话未动）。
 
 ## Next
 
-1. **detect-click 真机 smoke（用户）** —— spec §收尾清单：① 锚点偏移点中 · ⑤ 多命中点最上/第2 · ⑧ 限 ROI · ② 等图消失 · ③ ctrl+点 · ④ 双击 · ⑥ 拖滑块 · ⑦ 搜索框打字 · ⑨ 横向滚 · ⑩ 杀进程。全过 → 移 work/detect-click-config 到 cold store。
+1. **detect-click 真机 smoke（用户）** —— Phase 1-3：① 锚点偏移点中 · ⑤ 多命中点最上/第2 · ⑧ 限 ROI · ② 等图消失 · ③ ctrl+点 · ④ 双击 · ⑥ 拖滑块 · ⑦ 搜索框打字 · ⑨ 横向滚 · ⑩ 杀进程；**Phase 4**：WaitWindowGone（开记事本→等其窗口关）· Swipe 在 Inspector 手填 x/y 拖拽 · Swipe 连 ClickTemplate 的点拖拽。全过 → 移 work/detect-click-config 到 cold store。
 2. 之后：按 [work/mcp-node-exec/plan.md](work/mcp-node-exec/plan.md) 起 MCP 实现（winutil.EnumTopWindows → ContainerRunner.ExecOutputs 访问器 → internal/services/mcpserver 包 → settings arm 开关 → main.go HTTP server 生命周期 → 设置页 MCP tab → 退役 cmd/yotta-mcp）。
 
 ## Open questions
