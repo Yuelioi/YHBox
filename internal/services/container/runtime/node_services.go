@@ -496,98 +496,83 @@ func (a *visionAdapter) scaleTolerance() float64 {
 	return container.ReadWindowTargetScaleTolerance(a.rt.Container)
 }
 
-func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
+func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {
 	if a.rt.Matcher == nil || len(keys) == 0 {
-		return nil, 0, nil
+		return node.MatchHit{}, nil
 	}
-	return a.matchOnce(ctx, keys, threshold, mode)
+	return a.matchOnce(ctx, keys, threshold, roi)
 }
 
-func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold float64, mode string, timeout time.Duration) (*node.Point, float64, error) {
+func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold float64, roi node.Geometry, timeout time.Duration) (node.MatchHit, error) {
 	if a.rt.Matcher == nil || len(keys) == 0 {
-		return nil, 0, nil
+		return node.MatchHit{}, nil
 	}
 	if timeout <= 0 {
-		return a.matchOnce(ctx, keys, threshold, mode) // 单帧 (interface 注: timeout<=0 视为 0).
+		return a.matchOnce(ctx, keys, threshold, roi)
 	}
 	deadline := time.Now().Add(timeout)
-	bestConf := 0.0 // 轮询期间见过的最高匹配度; 超时时返回它供诊断 (「差多少」)
+	bestConf := 0.0
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, 0, err
+			return node.MatchHit{}, err
 		}
-		pt, conf, err := a.matchOnce(ctx, keys, threshold, mode)
+		hit, err := a.matchOnce(ctx, keys, threshold, roi)
 		if err != nil {
-			return nil, 0, err
+			return node.MatchHit{}, err
 		}
-		if conf > bestConf {
-			bestConf = conf
+		if hit.Conf > bestConf {
+			bestConf = hit.Conf
 		}
-		if pt != nil {
-			return pt, conf, nil
+		if hit.Found {
+			return hit, nil
 		}
 		if time.Now().After(deadline) {
-			return nil, bestConf, nil
+			return node.MatchHit{Conf: bestConf}, nil
 		}
 		select {
 		case <-ctx.Done():
-			return nil, 0, ctx.Err()
+			return node.MatchHit{}, ctx.Err()
 		case <-time.After(visionWaitPollMs * time.Millisecond):
 		}
 	}
 }
 
-// matchOnce 单帧多模板判定. mode="all": 全部 key 同帧命中才算命中 (点取首个 key); 否则 "any":
-// 按列表序取首个命中. 命中点经节点 OutputData 显式捕获到用户变量.
-func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
+// matchOnce 单帧多模板 OR (按 keys 序取首个命中)。roi 零值 → nil region (variant.BBox 快速定位);
+// 非零 → 解析成比例搜索区下发。命中带 bbox。
+func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {
 	var frame *image.RGBA
 	if a.rt.Capture != nil {
 		h, err := a.rt.ActiveHWND()
 		if err != nil {
-			return nil, 0, err
+			return node.MatchHit{}, err
 		}
 		f, err := a.rt.CaptureFrameCached(h)
 		if err != nil {
-			return nil, 0, err
+			return node.MatchHit{}, err
 		}
 		frame = f
 	}
-	tol := a.scaleTolerance()
-	if mode == "all" {
-		var firstPt expr.Point
-		minConf := 1.0 // all 命中 = 全部 ≥ 阈值; 报最弱那个 (瓶颈) 的真实匹配度
-		for idx, guid := range keys {
-			found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, frame, guid, threshold, nil, tol)
-			if err != nil {
-				return nil, 0, err
-			}
-			if conf < minConf {
-				minConf = conf
-			}
-			if !found {
-				return nil, conf, nil // 报这个没过的 guid 的真实匹配度
-			}
-			if idx == 0 {
-				firstPt = pt
-			}
-		}
-		return &node.Point{X: firstPt.X, Y: firstPt.Y}, minConf, nil
+	var region []float64
+	if frame != nil && (roi.Pct.W > 0 && roi.Pct.H > 0 || len(roi.Overrides) > 0) {
+		fw, fh := frame.Bounds().Dx(), frame.Bounds().Dy()
+		rx, ry, rw, rh, _ := ResolveGeometry(roi, fw, fh)
+		region = []float64{float64(rx) / float64(fw), float64(ry) / float64(fh), float64(rw) / float64(fw), float64(rh) / float64(fh)}
 	}
-	// any (默认)
-	bestConf := 0.0 // 全 miss 时报见过的最高匹配度 (诊断: 差多少)
+	tol := a.scaleTolerance()
+	bestConf := 0.0
 	for _, guid := range keys {
-		found, pt, _, conf, err := a.rt.Matcher.Detect(ctx, frame, guid, threshold, nil, tol)
+		found, pt, bbox, conf, err := a.rt.Matcher.Detect(ctx, frame, guid, threshold, region, tol)
 		if err != nil {
-			return nil, 0, err
+			return node.MatchHit{}, err
 		}
 		if conf > bestConf {
 			bestConf = conf
 		}
 		if found {
-			return &node.Point{X: pt.X, Y: pt.Y}, conf, nil // 命中: 报真实匹配度 (不再写死 1.0)
+			return node.MatchHit{Found: true, Point: node.Point{X: pt.X, Y: pt.Y}, BBox: bbox, Conf: conf}, nil
 		}
 	}
-	return nil, bestConf, nil
+	return node.MatchHit{Conf: bestConf}, nil
 }
 
 func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {

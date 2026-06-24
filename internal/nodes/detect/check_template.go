@@ -19,7 +19,6 @@ type CheckTemplate struct{}
 const (
 	ctInExec      = "In"
 	ctInTemplates = "Templates"
-	ctInMatchMode = "MatchMode"
 	ctInThreshold = "Threshold"
 	ctOutFound    = "Found"
 	ctOutNotFound = "NotFound"
@@ -38,10 +37,6 @@ func (CheckTemplate) Spec() node.Spec {
 			{Name: ctInExec, Type: "Exec"},
 			{Name: ctInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
-			{Name: ctInMatchMode, Type: "String", Default: "any", Advanced: true,
-				Widget: node.WidgetSpec{Kind: "dropdown",
-					Props: node.MarshalProps(node.DropdownProps{
-						Options: []node.EnumOption{{Value: "any"}, {Value: "all"}}})}},
 			{Name: ctInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
@@ -65,16 +60,15 @@ func (CheckTemplate) Spec() node.Spec {
 // === Run: 执行逻辑. error 返回 + 单 Fire 语义 ===
 func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(ctInTemplates)
-	mode := in.String(ctInMatchMode)
 	threshold := in.Float64(ctInThreshold)
-	pt, conf, err := ctx.Vision().Match(ctx.Context(), keys, threshold, mode)
+	hit, err := ctx.Vision().Match(ctx.Context(), keys, threshold, node.Geometry{})
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "vision match %s: %v", strings.Join(keys, "+"), err)
 	}
-	if pt != nil {
-		return ctx.Out(ctOutFound).Set(ctDataPoint, *pt).Set(ctDataConf, conf).Set(ctDataMatched, true).Fire(), nil
+	if hit.Found {
+		return ctx.Out(ctOutFound).Set(ctDataPoint, hit.Point).Set(ctDataConf, hit.Conf).Set(ctDataMatched, true).Fire(), nil
 	}
-	return ctx.Out(ctOutNotFound).Set(ctDataConf, conf).Set(ctDataMatched, false).Fire(), nil
+	return ctx.Out(ctOutNotFound).Set(ctDataConf, hit.Conf).Set(ctDataMatched, false).Fire(), nil
 }
 
 // === Validate: 可选 ===

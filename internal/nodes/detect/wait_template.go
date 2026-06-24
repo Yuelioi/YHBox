@@ -18,7 +18,6 @@ type WaitTemplate struct{}
 const (
 	wtInExec      = "In"
 	wtInTemplates = "Templates"
-	wtInMatchMode = "MatchMode"
 	wtInTimeoutMs = "TimeoutMs"
 	wtInThreshold = "Threshold"
 	wtInSettleMs  = "SettleMs"
@@ -38,10 +37,6 @@ func (WaitTemplate) Spec() node.Spec {
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
-			{Name: wtInMatchMode, Type: "String", Default: "any", Advanced: true,
-				Widget: node.WidgetSpec{Kind: "dropdown",
-					Props: node.MarshalProps(node.DropdownProps{
-						Options: []node.EnumOption{{Value: "any"}, {Value: "all"}}})}},
 			{Name: wtInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: wtInThreshold, Type: "Number", Default: json.Number("0.85"),
@@ -68,23 +63,21 @@ func (WaitTemplate) Spec() node.Spec {
 
 func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(wtInTemplates)
-	mode := in.String(wtInMatchMode)
 	threshold := in.Float64(wtInThreshold)
 	timeout := time.Duration(in.Int(wtInTimeoutMs)) * time.Millisecond
 	settle := time.Duration(in.Int(wtInSettleMs)) * time.Millisecond
-	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
+	hit, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, node.Geometry{}, timeout)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "vision wait %s: %v", strings.Join(keys, "+"), err)
 	}
-	if pt != nil {
-		// 命中后可选稳定延迟 + 重定位 (SettleMs): 等画面就位再放行, 顺带更新输出/捕获的 Point。详见 settleAfterMatch。
-		pt, conf, err = settleAfterMatch(ctx, keys, threshold, mode, settle, pt, conf)
+	if hit.Found {
+		hit, err = settleAfterMatch(ctx, keys, threshold, settle, hit)
 		if err != nil {
-			return nil, err // settle 期间被取消 (graph stop) → 优雅 halt
+			return nil, err
 		}
-		return ctx.Out(wtOutFound).Set(wtDataPoint, *pt).Set(wtDataConf, conf).Set(wtDataMatched, true).Fire(), nil
+		return ctx.Out(wtOutFound).Set(wtDataPoint, hit.Point).Set(wtDataConf, hit.Conf).Set(wtDataMatched, true).Fire(), nil
 	}
-	return ctx.Out(wtOutTimeout).Set(wtDataConf, conf).Set(wtDataMatched, false).Fire(), nil
+	return ctx.Out(wtOutTimeout).Set(wtDataConf, hit.Conf).Set(wtDataMatched, false).Fire(), nil
 }
 
 func (WaitTemplate) Validate(in node.Inputs) []node.ValidationError {

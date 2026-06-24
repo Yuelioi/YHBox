@@ -21,7 +21,6 @@ type ClickTemplate struct{}
 const (
 	clkInExec            = "In"
 	clkInTemplates       = "Templates"
-	clkInMatchMode       = "MatchMode"
 	clkInTimeoutMs       = "TimeoutMs"
 	clkInThreshold       = "Threshold"
 	clkInButton          = "Button"
@@ -44,10 +43,6 @@ func (ClickTemplate) Spec() node.Spec {
 			{Name: clkInExec, Type: "Exec"},
 			{Name: clkInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
-			{Name: clkInMatchMode, Type: "String", Default: "any", Advanced: true,
-				Widget: node.WidgetSpec{Kind: "dropdown",
-					Props: node.MarshalProps(node.DropdownProps{
-						Options: []node.EnumOption{{Value: "any"}, {Value: "all"}}})}},
 			{Name: clkInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkInThreshold, Type: "Number", Default: json.Number("0.85"),
@@ -86,7 +81,6 @@ func (ClickTemplate) Spec() node.Spec {
 
 func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(clkInTemplates)
-	mode := in.String(clkInMatchMode)
 	threshold := in.Float64(clkInThreshold)
 	timeout := time.Duration(in.Int(clkInTimeoutMs)) * time.Millisecond
 	settle := time.Duration(in.Int(clkInSettleMs)) * time.Millisecond
@@ -96,44 +90,40 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if btn == "" {
 		btn = "left"
 	}
-	pt, conf, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, timeout)
+	hit, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, node.Geometry{}, timeout)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate wait %s: %v", strings.Join(keys, "+"), err)
 	}
-	if pt == nil {
-		return ctx.Out(clkOutTimeout).Set(clkDataConf, conf).Set(clkDataMatched, false).Fire(), nil
+	if !hit.Found {
+		return ctx.Out(clkOutTimeout).Set(clkDataConf, hit.Conf).Set(clkDataMatched, false).Fire(), nil
 	}
-	// 命中后可选稳定延迟 + 重定位 (SettleMs): 防"刚出现就点、点空了"。settle=0 → 行为同旧。详见 settleAfterMatch。
-	pt, conf, err = settleAfterMatch(ctx, keys, threshold, mode, settle, pt, conf)
+	hit, err = settleAfterMatch(ctx, keys, threshold, settle, hit)
 	if err != nil {
-		return nil, err // settle 期间被取消 (graph stop) → 优雅 halt
-	}
-	if err := clickAt(ctx, keys, pt, btn); err != nil {
 		return nil, err
 	}
-	// MaxAttempts<=1 → 旧行为: 点一次即放行, 不验证。
-	if maxAttempts <= 1 {
-		return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Set(clkDataMatched, true).Fire(), nil
+	if err := clickAt(ctx, keys, hit.Point, btn); err != nil {
+		return nil, err
 	}
-	// 点完验证 (MaxAttempts>1): 等 RetryIntervalMs → 模板消失=点成了走 Done; 还在且没点满=重定位再点;
-	// 还在且点满=没点掉走 Timeout (Matched=true, 跟"压根没出现"的 Matched=false 区分)。
+	if maxAttempts <= 1 {
+		return ctx.Out(clkOutDone).Set(clkDataPoint, hit.Point).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
+	}
 	clicks := 1
 	for {
 		if err := waitOrCancel(ctx, retryInterval); err != nil {
-			return nil, err // 间隔期间被取消 (graph stop) → 优雅 halt
+			return nil, err
 		}
-		pt2, conf2, err := matchOnce(ctx, keys, threshold, mode)
+		hit2, err := matchOnce(ctx, keys, threshold)
 		if err != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate recheck %s: %v", strings.Join(keys, "+"), err)
 		}
-		if pt2 == nil {
-			return ctx.Out(clkOutDone).Set(clkDataPoint, *pt).Set(clkDataConf, conf).Set(clkDataMatched, true).Fire(), nil
+		if !hit2.Found {
+			return ctx.Out(clkOutDone).Set(clkDataPoint, hit.Point).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
 		if clicks >= maxAttempts {
-			return ctx.Out(clkOutTimeout).Set(clkDataConf, conf2).Set(clkDataMatched, true).Fire(), nil
+			return ctx.Out(clkOutTimeout).Set(clkDataConf, hit2.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
-		pt, conf = pt2, conf2 // 重定位到最新坐标 (元素还在动也跟得上)
-		if err := clickAt(ctx, keys, pt, btn); err != nil {
+		hit = hit2
+		if err := clickAt(ctx, keys, hit.Point, btn); err != nil {
 			return nil, err
 		}
 		clicks++
@@ -141,7 +131,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 }
 
 // clickAt 在命中点鼠标点击 (50ms duration), 失败包成 CodeCaptureFailed。首次点击 + 重试共用。
-func clickAt(ctx node.Ctx, keys []string, pt *node.Point, btn string) error {
+func clickAt(ctx node.Ctx, keys []string, pt node.Point, btn string) error {
 	if err := ctx.Input().Click(pt.X, pt.Y, btn, 50); err != nil {
 		return node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), pt.X, pt.Y, err)
 	}

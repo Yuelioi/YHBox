@@ -67,33 +67,39 @@ type mockVision struct {
 	matchAllErr     error
 }
 
-func (m *mockVision) Match(ctx context.Context, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
-	return m.point, m.conf, m.err
+func (m *mockVision) Match(_ context.Context, _ []string, _ float64, _ node.Geometry) (node.MatchHit, error) {
+	if m.err != nil {
+		return node.MatchHit{Conf: m.conf}, m.err
+	}
+	if m.point != nil {
+		return node.MatchHit{Found: true, Point: *m.point, Conf: m.conf}, nil
+	}
+	return node.MatchHit{Conf: m.conf}, nil
 }
 
-func (m *mockVision) WaitMatch(ctx context.Context, keys []string, threshold float64, mode string, timeout time.Duration) (*node.Point, float64, error) {
+func (m *mockVision) WaitMatch(ctx context.Context, _ []string, _ float64, _ node.Geometry, timeout time.Duration) (node.MatchHit, error) {
 	// 模拟 framework 真接的语义: 一次性 (timeout<=0 也算一次). 节点的 WaitTemplate
 	// 是直接调 WaitMatch (服务内部轮询), 这里 hitOnCall 控制返不返命中.
 	m.callCount++
 	if m.err != nil {
-		return nil, m.conf, m.err
+		return node.MatchHit{Conf: m.conf}, m.err
 	}
-	// 模板被点掉后消失: 前 missAfterCall 次照常命中, 之后返 nil。
+	// 模板被点掉后消失: 前 missAfterCall 次照常命中, 之后返 miss。
 	if m.missAfterCall > 0 && m.callCount > m.missAfterCall {
-		return nil, m.conf, nil
+		return node.MatchHit{Conf: m.conf}, nil
 	}
 	if m.hitOnCall >= 0 && m.callCount >= m.hitOnCall && m.point != nil {
-		return m.point, m.conf, nil
+		return node.MatchHit{Found: true, Point: *m.point, Conf: m.conf}, nil
 	}
 	// timeout 路径: ctx 真等 timeout 模拟服务侧 (节点测试期望 timeout 行为).
 	if timeout > 0 {
 		select {
 		case <-ctx.Done():
-			return nil, m.conf, nil
+			return node.MatchHit{Conf: m.conf}, nil
 		case <-time.After(timeout):
 		}
 	}
-	return nil, m.conf, nil
+	return node.MatchHit{Conf: m.conf}, nil
 }
 
 func (m *mockVision) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {

@@ -10,3 +10,12 @@ type TemplateMatch struct {
 	BBox        [4]float64 `json:"bbox"`        // [x, y(左上), w, h]; Point = BBox 中心
 	TemplateKey string     `json:"templateKey"` // 命中来自哪个模板 GUID (多模板区分)
 }
+
+// MatchHit 单模板匹配结果 (Match/WaitMatch 返回, 值语义)。
+// Found=false 时 Point/BBox 为零值, Conf = 轮询期间见过的最高匹配度 (诊断"差多少")。
+type MatchHit struct {
+	Found bool       `json:"found"`
+	Point Point      `json:"point"` // 命中中心 (= BBox 中心)
+	BBox  [4]float64 `json:"bbox"`  // [x, y(左上), w, h] 全帧归一化
+	Conf  float64    `json:"conf"`  // CCOEFF_NORMED 匹配度
+}

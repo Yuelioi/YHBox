@@ -23,28 +23,23 @@ func waitOrCancel(ctx node.Ctx, d time.Duration) error {
 	}
 }
 
-// matchOnce 用单帧 (timeout=0) 查模板此刻在不在 —— 命中后重定位 / 点完验证消失没 共用。
-// pt==nil 即本帧没越过阈值 (模板已不在画面)。
-func matchOnce(ctx node.Ctx, keys []string, threshold float64, mode string) (*node.Point, float64, error) {
-	return ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, mode, 0)
+// matchOnce 单帧查模板此刻在不在 (去 mode, roi 用零值 = 默认快速定位)。
+func matchOnce(ctx node.Ctx, keys []string, threshold float64) (node.MatchHit, error) {
+	return ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, node.Geometry{}, 0)
 }
 
-// settleAfterMatch: 命中后可选稳定延迟 (SettleMs)。模板"刚冒出来"那一刻常还在转场/加载/动画,
-// 这会儿点 (ClickTemplate) 或据此动作 (WaitTemplate 输出 Point 给下游) 都可能太早。等 settle 让它
-// 真正就位, 再用新鲜帧重定位一次返回最新坐标 (元素动了也跟得上; 重定位丢了退回原坐标)。
-// settle<=0 → 原样返回 (零开销, 行为同旧)。可取消 (settle 期间 graph stop → 返 ctx.Err())。
-// WaitTemplate / ClickTemplate 共用。
-func settleAfterMatch(ctx node.Ctx, keys []string, threshold float64, mode string, settle time.Duration, pt *node.Point, conf float64) (*node.Point, float64, error) {
+// settleAfterMatch: 命中后可选稳定延迟 (SettleMs) + 新鲜帧重定位一次。settle<=0 原样返回。
+func settleAfterMatch(ctx node.Ctx, keys []string, threshold float64, settle time.Duration, hit node.MatchHit) (node.MatchHit, error) {
 	if settle <= 0 {
-		return pt, conf, nil
+		return hit, nil
 	}
 	if err := waitOrCancel(ctx, settle); err != nil {
-		return nil, 0, err
+		return node.MatchHit{}, err
 	}
-	if pt2, conf2, err := matchOnce(ctx, keys, threshold, mode); err == nil && pt2 != nil {
-		return pt2, conf2, nil
+	if hit2, err := matchOnce(ctx, keys, threshold); err == nil && hit2.Found {
+		return hit2, nil
 	}
-	return pt, conf, nil
+	return hit, nil
 }
 
 // templateDeps 把模板 GUID 列表转成 library scanner 用的 template 依赖 (每 GUID 一条).

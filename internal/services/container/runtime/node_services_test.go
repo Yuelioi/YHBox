@@ -226,15 +226,15 @@ func TestVisionAdapter_Match_Found(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.Matcher = stubMatcher{found: true, pt: expr.Point{X: 0.42, Y: 0.13}}
 	a := &visionAdapter{rt: rt}
-	pt, _, err := a.Match(context.Background(), []string{"foo"}, 0.8, "any")
+	hit, err := a.Match(context.Background(), []string{"foo"}, 0.8, node.Geometry{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pt == nil {
-		t.Fatal("pt = nil, want non-nil after Match found")
+	if !hit.Found {
+		t.Fatal("hit.Found = false, want true after Match found")
 	}
-	if pt.X != 0.42 || pt.Y != 0.13 {
-		t.Errorf("pt = %v, want {0.42, 0.13}", pt)
+	if hit.Point.X != 0.42 || hit.Point.Y != 0.13 {
+		t.Errorf("hit.Point = %v, want {0.42, 0.13}", hit.Point)
 	}
 }
 
@@ -242,15 +242,88 @@ func TestVisionAdapter_WaitMatch_TimeoutReportsBestConf(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.Matcher = stubMatcher{found: false, conf: 0.62} // 没过阈值, 但真实匹配度 0.62
 	a := &visionAdapter{rt: rt}
-	pt, conf, err := a.WaitMatch(context.Background(), []string{"foo"}, 0.85, "any", 60*time.Millisecond)
+	hit, err := a.WaitMatch(context.Background(), []string{"foo"}, 0.85, node.Geometry{}, 60*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pt != nil {
-		t.Errorf("pt = %v, want nil on timeout", pt)
+	if hit.Found {
+		t.Errorf("hit.Found = true, want false on timeout")
 	}
-	if conf < 0.61 || conf > 0.63 {
-		t.Errorf("timeout conf = %.3f, want ~0.62 (best seen during poll)", conf)
+	if hit.Conf < 0.61 || hit.Conf > 0.63 {
+		t.Errorf("timeout conf = %.3f, want ~0.62 (best seen during poll)", hit.Conf)
+	}
+}
+
+// mapMatcher 按 guid 返不同的 found/bbox/conf, 用于多模板 OR 和 bbox 测试.
+type mapMatcher struct {
+	results map[string]struct {
+		found bool
+		pt    expr.Point
+		bbox  [4]float64
+		conf  float64
+	}
+}
+
+func (m mapMatcher) Detect(_ context.Context, _ *image.RGBA, guid string, _ float64, _ []float64, _ float64) (bool, expr.Point, [4]float64, float64, error) {
+	if r, ok := m.results[guid]; ok {
+		return r.found, r.pt, r.bbox, r.conf, nil
+	}
+	return false, expr.Point{}, [4]float64{}, 0, nil
+}
+
+func (m mapMatcher) DetectAll(_ context.Context, _ *image.RGBA, _ string, _ float64, _ []float64, _ float64) ([]node.TemplateMatch, error) {
+	return nil, nil
+}
+
+func TestVisionAdapter_Match_ReturnsBBox(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	wantBBox := [4]float64{0.1, 0.2, 0.3, 0.4}
+	rt.Matcher = mapMatcher{results: map[string]struct {
+		found bool
+		pt    expr.Point
+		bbox  [4]float64
+		conf  float64
+	}{
+		"tmpl-a": {found: true, pt: expr.Point{X: 0.25, Y: 0.4}, bbox: wantBBox, conf: 0.9},
+	}}
+	a := &visionAdapter{rt: rt}
+	hit, err := a.Match(context.Background(), []string{"tmpl-a"}, 0.8, node.Geometry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hit.Found {
+		t.Fatal("hit.Found = false, want true")
+	}
+	if hit.BBox != wantBBox {
+		t.Errorf("hit.BBox = %v, want %v", hit.BBox, wantBBox)
+	}
+	if hit.Point.X != 0.25 || hit.Point.Y != 0.4 {
+		t.Errorf("hit.Point = %v, want {0.25, 0.4}", hit.Point)
+	}
+}
+
+func TestVisionAdapter_Match_MultiTemplate_OR(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.Matcher = mapMatcher{results: map[string]struct {
+		found bool
+		pt    expr.Point
+		bbox  [4]float64
+		conf  float64
+	}{
+		"tmpl-a": {found: false, conf: 0.5},
+		"tmpl-b": {found: true, pt: expr.Point{X: 0.6, Y: 0.7}, bbox: [4]float64{0.5, 0.6, 0.2, 0.2}, conf: 0.95},
+	}}
+	a := &visionAdapter{rt: rt}
+	// keys=[a,b]; a miss, b hit → OR 语义: hit.Found==true
+	hit, err := a.Match(context.Background(), []string{"tmpl-a", "tmpl-b"}, 0.8, node.Geometry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hit.Found {
+		t.Fatal("hit.Found = false, want true (OR: b hit)")
+	}
+	if hit.Conf != 0.95 {
+		t.Errorf("hit.Conf = %.3f, want 0.95 (from tmpl-b)", hit.Conf)
 	}
 }
 

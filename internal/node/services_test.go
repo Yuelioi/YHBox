@@ -162,13 +162,13 @@ func TestStubVisionService_AlwaysMiss(t *testing.T) {
 	if v == nil {
 		t.Fatal("StubVisionService() returned nil")
 	}
-	pt, conf, err := v.Match(context.Background(), []string{"any"}, 0.5, "any")
-	if pt != nil || conf != 0 || err != nil {
-		t.Errorf("Match = (%v,%v,%v), want (nil,0,nil)", pt, conf, err)
+	hit, err := v.Match(context.Background(), []string{"any"}, 0.5, Geometry{})
+	if hit.Found || hit.Conf != 0 || err != nil {
+		t.Errorf("Match = (%v,%v), want (Found=false,0,nil)", hit, err)
 	}
-	pt2, _, err2 := v.WaitMatch(context.Background(), []string{"any"}, 0.5, "any", 10*time.Millisecond)
-	if pt2 != nil || err2 != nil {
-		t.Errorf("WaitMatch = (%v,%v), want (nil,nil)", pt2, err2)
+	hit2, err2 := v.WaitMatch(context.Background(), []string{"any"}, 0.5, Geometry{}, 10*time.Millisecond)
+	if hit2.Found || err2 != nil {
+		t.Errorf("WaitMatch = (%v,%v), want (Found=false,nil)", hit2, err2)
 	}
 	br, err3 := v.DualBarTrack(Geometry{Pct: Rect{W: 0.5, H: 0.5}}, HSVRange{}, HSVRange{}, DualBarOptions{})
 	if err3 != nil || br.Found {
