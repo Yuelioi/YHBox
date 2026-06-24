@@ -44,6 +44,7 @@ const (
 	siMouseMiddleDown uint32 = 0x0020
 	siMouseMiddleUp   uint32 = 0x0040
 	siMouseWheel      uint32 = 0x0800
+	siMouseHWheel     uint32 = 0x1000
 	siMouseAbsolute   uint32 = 0x8000
 
 	siKeyKeyUp    uint32 = 0x0002
@@ -109,6 +110,11 @@ func sendAbsMove(xRatio, yRatio float64) {
 
 func sendWheel(notches int) {
 	in := sendInputBlock{Type: 0, Mi: mouseInput{MouseData: uint32(int32(notches) * 120), Flags: siMouseWheel}}
+	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+}
+
+func sendHWheel(notches int) {
+	in := sendInputBlock{Type: 0, Mi: mouseInput{MouseData: uint32(int32(notches) * 120), Flags: siMouseHWheel}}
 	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
 }
 
@@ -227,11 +233,7 @@ func (b *sendInputBackend) MouseMoveRel(_ win.HWND, dx, dy, _ int) error {
 
 func (b *sendInputBackend) Scroll(_ win.HWND, _, _ float64, notches int, horizontal bool) error {
 	if horizontal {
-		// SendInput 没有独立的横向滚轮 flag; 退回 PostMessage WM_MOUSEHWHEEL.
-		// hwnd 是全局注入后端, 不持窗口 handle — 横向滚走包级 MouseScrollH(hwnd=0).
-		// 实际业务里 sendinput backend 主要用于 FPS camera; 横向滚需求极少.
-		// 需要精准目标窗口横向滚的场景应切 postmessage backend.
-		MouseScrollH(0, notches, 0)
+		sendHWheel(notches)
 	} else {
 		sendWheel(notches)
 	}
