@@ -47,6 +47,22 @@ func TestPostMessageBackend_StateTracking(t *testing.T) {
 	}
 }
 
+// TypeText 走 PostMessage WM_CHAR (PostText) —— targeted hwnd, 不依赖前台焦点.
+// 死 hwnd 下 postMessage 静默失败 (同既有 KeyDown 测试模式); 这里验逐 rune 拆 UTF-16
+// (含 BMP 外 surrogate pair) 不 panic + 返回 nil. 实际「后台窗口能收到字符」靠真机 smoke.
+func TestPostMessageBackend_TypeText_NoPanic(t *testing.T) {
+	b := newPostMessageBackend()
+	fakeHwnd := win.HWND(0xDEADBEEF) // 假 hwnd, postMessage 静默失败
+	// ASCII + CJK (BMP 内) + emoji (BMP 外, surrogate pair)
+	if err := b.TypeText(fakeHwnd, "abc你好😀"); err != nil {
+		t.Errorf("TypeText returned err: %v", err)
+	}
+	// 空串也不能炸
+	if err := b.TypeText(fakeHwnd, ""); err != nil {
+		t.Errorf("TypeText(empty) returned err: %v", err)
+	}
+}
+
 func TestNewBackend_PostMessage(t *testing.T) {
 	b, err := NewBackend("postmessage")
 	if err != nil {

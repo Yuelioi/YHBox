@@ -253,7 +253,11 @@ func (b *PostMessageBackend) ReleaseAll() error {
 
 func (b *PostMessageBackend) Close() error { return nil }
 
-// TypeText 注入文本字符串。PostMessage 无法直接输入 Unicode，走 pkg-level TypeText (SendInput).
+// TypeText 注入文本字符串。走 PostMessage WM_CHAR (PostText) 投递到目标 hwnd —— targeted、
+// 后台可用、不抢前台, 与本 backend 的 KeyDown/Click 同语义。先 ensureActivated 翻 IsActive
+// 兜 UE/Slate 类窗口在失焦时丢消息 (同其他操作)。
+// (不走全局 SendInput 的 pkg-level TypeText: 那条注入到真实前台焦点窗口, 后台目标窗口收不到。)
 func (b *PostMessageBackend) TypeText(hwnd win.HWND, s string) error {
-	return TypeText(hwnd, s)
+	b.ensureActivated(hwnd)
+	return PostText(hwnd, s)
 }

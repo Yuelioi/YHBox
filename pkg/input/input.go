@@ -19,6 +19,7 @@ import (
 const (
 	WM_KEYDOWN     = 0x0100
 	WM_KEYUP       = 0x0101
+	WM_CHAR        = 0x0102
 	WM_ACTIVATE    = 0x0006
 	WA_ACTIVE      = 1
 	WM_MOUSEMOVE   = 0x0200
