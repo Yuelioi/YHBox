@@ -12,14 +12,17 @@ READ WHEN: 实现/改 Point 坐标节点、px 像素坐标、PointWidget、屏�
 
 ## 范围
 
-带坐标的**输入**节点共 4 个,全部统一到 `Point` 类型:
+带坐标的**输入**节点共 5 个,全部统一到 `Point` 类型:
 
 | 节点 | 现状 | 改成 |
 |---|---|---|
 | ClickAt | `XRatio`/`YRatio` 两个 slider Number pin | 1 个 `Point` pin(Schema=PointSchema) |
 | Scroll | 同上 | 1 个 `Point` pin |
 | MouseMoveTo | 同上 | 1 个 `Point` pin |
+| MouseHoldStart | 同上(`MouseDown(x,y,btn)`) | 1 个 `Point` pin(执行期补漏:设计普查漏读 mouse_hold.go) |
 | Swipe | 已是 Point(Begin/End) | 结构不动,自动获得单位+取点 |
+
+> **MouseHoldStop 不受影响**(只松开按键、无坐标)。
 
 **不在范围**:
 - 检测节点的 Point 是**输出**(比例),不动:detect_color / detect_color_blobs(primaryCenter)/ wait_template / click_template / check_template / find_template_all / find_color_signature。

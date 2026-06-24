@@ -544,6 +544,104 @@ git commit -m "refactor(input): MouseMoveTo XRatio/YRatio → 单个 Point pin +
 
 ---
 
+### Task 5b: MouseHoldStart → 单个 Point pin + resolve + i18n(执行期补漏)
+
+**Files:**
+- Modify: `internal/nodes/input/mouse_hold.go`(MouseHoldStart Spec + Run;MouseHoldStop 不动)
+- Test: `internal/nodes/input/mouse_hold_test.go`(无则建)
+- Modify: `frontend/src/i18n/zh.ts`(MouseHoldStart.input)、`en.ts`
+
+**Interfaces:** 与 Task 3-5 同款。MouseHoldStart 用 `Point` pin(`mhStartInPoint = "Point"`),替代 `mhStartInXRatio`/`mhStartInYRatio`。`MouseDown` 接口不变。
+
+- [ ] **Step 1: 写/改测试**(`mouse_hold_test.go`)。MouseHoldStop 测试(若有)不动。
+
+```go
+func TestMouseHoldStart_HappyPath(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&MouseHoldStart{})
+	rn, _ := node.Get("MouseHoldStart")
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{mhStartInPoint: node.Point{X: 0.4, Y: 0.6}, mhStartInButton: "left"},
+		nil, withInput(rec), false)
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	// recordingInput.MouseDown 记录格式 "MouseDown:%.3f:%.3f:%s"
+	if len(rec.calls) != 1 || rec.calls[0] != "MouseDown:0.400:0.600:left" {
+		t.Errorf("calls=%v want MouseDown:0.400:0.600:left", rec.calls)
+	}
+}
+
+func TestMouseHoldStart_PxPoint_ResolvesToRatio(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&MouseHoldStart{})
+	rn, _ := node.Get("MouseHoldStart")
+	rec := &recordingInput{}
+	b := node.StubServices()
+	b.Input = rec
+	b.Window = sizeWindow{w: 1000, h: 1000}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{mhStartInPoint: node.Point{X: 300, Y: 700, Unit: node.UnitPx}, mhStartInButton: "right"},
+		nil, b, false)
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if len(rec.calls) != 1 || rec.calls[0] != "MouseDown:0.300:0.700:right" {
+		t.Errorf("calls=%v want MouseDown:0.300:0.700:right", rec.calls)
+	}
+}
+
+func TestMouseHoldStart_InvalidButton_ValidationError(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&MouseHoldStart{})
+	rn, _ := node.Get("MouseHoldStart")
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{mhStartInButton: "side1"},
+		nil, withInput(&recordingInput{}), false)
+	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_MOUSE_BUTTON" {
+		t.Errorf("validation=%v want INVALID_MOUSE_BUTTON", r.Validation)
+	}
+}
+```
+
+> `sizeWindow` 已在 click_at_test.go 定义(同 package input,直接用)。`recordingInput.MouseDown` 记录格式见 key_press_test.go(`"MouseDown:%.3f:%.3f:%s"`)。
+
+- [ ] **Step 2: 跑测试确认失败** — `go test ./internal/nodes/input/ -run TestMouseHoldStart`,期望编译失败(`mhStartInPoint` 未定义)。
+
+- [ ] **Step 3: 改 MouseHoldStart spec + Run**(`mouse_hold.go`)
+
+常量删 `mhStartInXRatio`/`mhStartInYRatio`,加 `mhStartInPoint = "Point"`。Spec 两 slider → 一 Point pin:
+
+```go
+{Name: mhStartInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
+	Schema: node.PointSchema()},
+```
+
+Run 把 `x := in.Float64(mhStartInXRatio)` / `y := ...YRatio` 两行换成:
+
+```go
+x, y, err := node.ResolvePoint(ctx, in.Point(mhStartInPoint))
+if err != nil {
+	return nil, node.Failf(node.CodeSendFailed, err, "MouseHoldStart resolve point: %v", err)
+}
+```
+
+button 校验 + `ctx.Input().MouseDown(x, y, btn)` 不变。Validate 不变。MouseHoldStop 整段不动。
+
+- [ ] **Step 4: 跑测试确认通过** — `go test ./internal/nodes/input/ -run TestMouseHold`(Start + Stop 都绿)。
+
+- [ ] **Step 5: i18n + gen + catalog** — `zh.ts`/`en.ts` `MouseHoldStart` 块:删 XRatio/YRatio,加 `Point: { label: '坐标' }`,description 同步(MouseHoldStop 不动)。`cd frontend && pnpm gen:node-i18n && cd .. && go test ./internal/catalog/...` → PASS。
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add internal/nodes/input/mouse_hold.go internal/nodes/input/mouse_hold_test.go frontend/src/i18n/zh.ts frontend/src/i18n/en.ts frontend/src/catalog* internal/catalog/*
+git commit -m "refactor(input): MouseHoldStart XRatio/YRatio → 单个 Point pin + px resolve"
+```
+
+---
+
 ### Task 6: Swipe → resolve Begin/End(+ px 测试)
 
 **Files:**
