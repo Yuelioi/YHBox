@@ -34,6 +34,7 @@ func (r *recInput) CursorRatio() (float64, float64, error)              { return
 func (r *recInput) Scroll(x, y float64, notches int) error              { return nil }
 func (r *recInput) MouseDown(x, y float64, button string) error         { return nil }
 func (r *recInput) MouseUp(button string) error                         { return nil }
+func (r *recInput) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error { return nil }
 
 func (r *recInput) matches(want []string) bool {
 	if len(r.seq) != len(want) {

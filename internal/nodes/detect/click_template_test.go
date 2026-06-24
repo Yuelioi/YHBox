@@ -59,6 +59,9 @@ func (r *recordingInput) CursorRatio() (float64, float64, error)                
 func (r *recordingInput) Scroll(xRatio, yRatio float64, notches int) error      { return r.err }
 func (r *recordingInput) MouseDown(xRatio, yRatio float64, button string) error { return r.err }
 func (r *recordingInput) MouseUp(button string) error                           { return r.err }
+func (r *recordingInput) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {
+	return r.err
+}
 
 func withVisionAndInput(v node.VisionService, in node.InputService) node.ServiceBundle {
 	b := node.StubServices()

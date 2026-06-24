@@ -73,6 +73,9 @@ func (f *mockInput) MouseMoveRel(win.HWND, int, int, int) error         { return
 func (f *mockInput) MoveTo(win.HWND, float64, float64) error            { return nil }
 func (f *mockInput) CursorRatio(win.HWND) (float64, float64, error)    { return 0, 0, nil }
 func (f *mockInput) Scroll(win.HWND, float64, float64, int) error       { return nil }
+func (f *mockInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
+	return nil
+}
 func (f *mockInput) ReleaseAll() error                                  { return nil }
 func (f *mockInput) Close() error                                       { return nil }
 
