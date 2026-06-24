@@ -1,0 +1,117 @@
+# Point 坐标 %/px 单位 + 截图取点(4 坐标节点统一到 Point 类型)
+
+SUMMARY: 给 node.Point 加 Unit(%/px),px→ratio 只在 InputService.ResolvePoint 一处换算;ClickAt/Scroll/MouseMoveTo 由 XRatio/YRatio slider 统一成单个 Point pin,Swipe 沿用;PointWidget 自带单位开关+截图取点。
+READ WHEN: 实现/改 Point 坐标节点、px 像素坐标、PointWidget、屏幕取点(point picker)、ResolvePoint 时。
+
+---
+
+## 目标 / 诉求(用户)
+
+1. Point 类型支持**像素**语义(不只百分比),用**显式单位**(不靠值大小魔法)。
+2. 所有带坐标、能截图取点的节点都尽量支持,方便用户。
+
+## 范围
+
+带坐标的**输入**节点共 4 个,全部统一到 `Point` 类型:
+
+| 节点 | 现状 | 改成 |
+|---|---|---|
+| ClickAt | `XRatio`/`YRatio` 两个 slider Number pin | 1 个 `Point` pin(Schema=PointSchema) |
+| Scroll | 同上 | 1 个 `Point` pin |
+| MouseMoveTo | 同上 | 1 个 `Point` pin |
+| Swipe | 已是 Point(Begin/End) | 结构不动,自动获得单位+取点 |
+
+**不在范围**:
+- 检测节点的 Point 是**输出**(比例),不动:detect_color / detect_color_blobs(primaryCenter)/ wait_template / click_template / check_template / find_template_all / find_color_signature。
+- `detect_color_blobs.RefPoint`(Advanced 排序参考点,比例),不动。
+- backend 原语、Drag 接口、检测节点一行不改(见 §3)。
+
+## 1. 数据模型(Go)
+
+`internal/node/types.go` 的 `Point` 加 Unit:
+
+```go
+type Point struct {
+    X    float64 `json:"x"`
+    Y    float64 `json:"y"`
+    Unit string  `json:"unit,omitempty"` // "" = 百分比(X/Y 0-1 比例); "px" = 像素(X/Y 客户区像素值)
+}
+```
+
+- 单位是**值的属性,不是类型的属性** → 不拆两个类型,连线 / 检测输出全兼容。
+- `PointSchema()`(schema.go)不变(单位在值里,不在 schema)。
+- coercion `asNodePoint`(`internal/services/container/runtime/data_pull.go:244`):map 分支读 `t["unit"]` 填 `Point.Unit`;`expr.Point` 分支无单位(算出来的比例),Unit 留空;`node.Point` 分支原样(已带 Unit)。
+
+## 2. px→ratio 换算:只在一处(InputService 边界)
+
+`internal/node/interfaces.go` 的 `InputService` 加:
+
+```go
+// ResolvePoint 把 Point 按其 Unit 归一成 0-1 客户区比例。
+// Unit=="" → 原样返比例(不碰窗口);Unit=="px" → 按当前客户区尺寸 px÷宽高。
+ResolvePoint(p Point) (xRatio, yRatio float64, err error)
+```
+
+实现在 `inputAdapter`(`internal/services/container/runtime/node_services.go`,**唯一有 hwnd 的层**):
+- 非 px:直接 `return p.X, p.Y, nil`(不调 ensure/hwnd,无窗口也不报错)。
+- px:`ensure()` → `hwnd()` → 取客户区 (w,h) → `return p.X/float64(w), p.Y/float64(h), nil`;w==0||h==0 报错。
+  - 客户区尺寸:用 win/winutil 的 GetClientRect(hwnd)。实现时先 grep 既有 helper(backend 内部 `pixelCoords = ratio×ClientSize` 已有取尺寸逻辑,优先复用,别重造)。
+
+4 个节点的 `Run` **开头**调一次 `ResolvePoint` 拿比例,**err 直接 return**(px 模式下窗口/客户区失败要上报到节点层),之后全保持纯比例:
+- ClickAt:`xr,yr,err := ResolvePoint(pt); if err!=nil {return nil,err}` → `moveCursor(ctx,xr,yr,...)` + `node.ClickWithMods(ctx, node.Point{X:xr,Y:yr}, ...)`。
+- Scroll:`xr,yr,err := ResolvePoint(pt)` → `ctx.Input().Scroll(xr,yr,...)`。
+- MouseMoveTo:`xr,yr,err := ResolvePoint(pt)` → `moveCursor(ctx,xr,yr,...)`。
+- Swipe:Begin/End 各 ResolvePoint(各自查 err) → `ctx.Input().Drag(bxr,byr,exr,eyr,...)`。
+
+**不变**:`moveCursor`(takes ratio)、`ClickWithMods`(takes ratio Point,detect 共用所以不能改)、`Scroll`/`Drag`/`MoveTo`/`CursorRatio` 接口、backend、检测节点。
+
+代价:接口加方法 → 约 6 个 InputService 测试 stub 各补一行 `ResolvePoint`(返 p.X,p.Y,nil):`stubInputService`(node/services.go)、`recInputMods`(node/click_mods_test.go)、`recordingInput`×N(detect/click_template_test.go、input/swipe_test.go、input/key_press_test.go)、`recInput`(detect/click_common_test.go)。纯机械。
+
+## 3. 控件 PointWidget(`frontend/src/components/containers/inline/PointWidget.vue`)
+
+当前纯 X%/Y% 两个数字框。加:
+
+- **%/px 单位开关**(整点一个单位,非 X/Y 各自)。
+- **切单位保留框里数字、不换算**(前端拿不到游戏窗口实时尺寸):
+  - `%`(unit 空):框显示 x×100(min0 max100 step0.1),存 ÷100;
+  - `px`(unit="px"):框显示原始像素值(min0,无 max,step1),存原值。
+- **截图取点按钮**(控件自带,镜像 GeometryWidget 自持 picker):直接 `backend.tools.openScreenPicker('point', id, tplStore.containerId)` → `awaitWailsEvent('tools:picker-result', p=>p.id===id)`:
+  - `%`:存 `{x:xRatio, y:yRatio}`(unit 空);
+  - `px`:存 `{x:xRatio×screenW, y:yRatio×screenH, unit:'px'}`。
+
+→ 任何 Point pin(ClickAt/Scroll/MouseMoveTo/Swipe.Begin/End)经 StructuredInput(`schema.widget==='point'`)渲染,**自动获得**单位+取点,不靠节点名白名单。
+
+`PointValue` 类型(`nodeRegistry/index.ts`)加 `unit?: 'px'`。
+
+## 4. 截图回传补尺寸(`frontend/src/views/tools/ScreenPickerView.vue`)
+
+point payload 现在只回 `{xRatio,yRatio}`;**对称 rect 补 `screenW/screenH`**(客户区像素尺寸;view 内部已有 native 像素 `pointSelNat`)。px 模式换算用。
+`useScreenPick.ts` 的 `PointPayload` 类型同步加 `screenW?/screenH?`(若 PointWidget 自持 picker 则此类型可能不再被 useScreenPick 用,见 §5)。
+
+## 5. 删旧路径(no-compat 铁律)
+
+取点搬进 PointWidget 后,NodeInspector 顶部的 point 取点路径失效,删:
+- `useScreenPick.ts`:删 `canPickPoint`/`onPickPoint`/`applyPoint`(rect/color 路径 `canPickRect`/`onPickRect`/`onPickColor` 不动)。
+- `NodeInspector.vue`:删顶部"屏幕拾取→选点"按钮(line ~138-148)、`v-if="canPickPoint || canPickRect"` 收成 `canPickRect`、useScreenPick 调用里删 `applyPoint`(line ~1077)。
+
+## 6. i18n / catalog
+
+ClickAt/Scroll/MouseMoveTo 的 input pin 由 `XRatio`/`YRatio` → 单个 `Point` → label key 变;PointWidget 新增单位开关 / 取点按钮文案。改 catalog:先补 zh.ts/en.ts → `cd frontend && pnpm gen:node-i18n` → `go test ./internal/catalog/...`(见 build.md)。
+
+## 7. 取舍(用户已知会)
+
+ClickAt/Scroll/MouseMoveTo 从 **slider(0-1)+ 可分别连 Number** → **1 个 Point pin(PointWidget 两个框)**:失去 slider 手感、失去 X/Y 分别连线。是"统一到 Point"的固有结果(用户选了"大"范围)。换来:px 语义 + 截图取点 + 可直接连检测节点的 Point 输出。
+
+## 测试
+
+- Go:ClickAt/Scroll/MouseMoveTo node 测试改读单个 Point pin;新增 ResolvePoint stub(6 处);`asNodePoint` unit coercion 单测;ResolvePoint(px) 单测(给定 client size 验比例)。
+- FE:PointWidget 单位切换 / px 显示不×100 / 取点 %与px 存值 单测;coerceLiteral('point') unit 透传(现有测试已是 identity,补 unit case)。
+- 预存红基线照 build.md 排除(runtime fixture 缺失那几个)。
+
+## 关键源码索引(实现时直达)
+
+- `internal/node/types.go:7`(Point)、`schema.go`(PointSchema)、`inputs.go:158`(in.Point)。
+- `internal/node/interfaces.go:249-267`(InputService)、`click_mods.go:48,64`(ClickWithMods 纯比例)。
+- `internal/nodes/input/`:click_at.go、scroll.go、mouse_move_to.go(moveCursor:67 纯比例)、swipe.go:62(Drag)。
+- `internal/services/container/runtime/node_services.go:286-350`(inputAdapter,有 hwnd)、`data_pull.go:244`(asNodePoint)。
+- FE:`inline/PointWidget.vue`、`inline/GeometryWidget.vue`(自持 picker 参考)、`inline/StructuredInput.vue:11`(widget==='point'路由)、`composables/containerEditor/useScreenPick.ts`、`views/tools/ScreenPickerView.vue`、`components/containers/NodeInspector.vue:138/1077`、`nodeRegistry/index.ts`(PointValue/PinType)、`nodeRegistry/adapter.ts:98`(Point→point)。
