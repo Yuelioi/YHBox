@@ -595,7 +595,7 @@
     unit_px: 'Pixels',
     pick_point: 'Pick on screen',
     no_window_title: 'Target window not open',
-    no_window_desc: 'Number not converted; open the target window then switch to auto-convert',
+    no_window_desc: "Target window not open — can't convert units; open it then switch",
     hint_percent: 'Proportional: adapts to window size (scales with resolution)',
     hint_px: 'Absolute pixels: fixed, does not scale with the window — for fixed-position UI',
   },

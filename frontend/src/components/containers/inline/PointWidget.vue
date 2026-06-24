@@ -93,33 +93,25 @@ function onChange(field: 'x' | 'y', displayVal: number) {
   emit('update:modelValue', next)
 }
 
-// 切单位: 调 mousePos 换算; 无窗口时保留框里数字并弹提示
+// 切单位: 调 mousePos 换算; 无窗口时不切单位、不改值，只提示
 async function setUnit(u: 'percent' | 'px') {
   const targetPx = u === 'px'
   if (targetPx === isPx.value) return // already that unit, no-op
-  const cur = safeValue.value
   const info = await backend.tools.mousePos(tplStore.containerId, '')
   const hasSize = !!info?.hasGame && info.clientW > 0 && info.clientH > 0
+  if (!hasSize) {
+    notifyNoSize()
+    return
+  }
+  const cur = safeValue.value
   const next: PointValue = { x: cur.x, y: cur.y }
   if (targetPx) {
     next.unit = 'px'
-    if (hasSize) {
-      next.x = Math.round(cur.x * info.clientW) // ratio(0-1) → px
-      next.y = Math.round(cur.y * info.clientH)
-    } else {
-      next.x = displayX.value // keep box number (= cur.x*100), no conversion
-      next.y = displayY.value
-      notifyNoSize()
-    }
+    next.x = Math.round(cur.x * info.clientW) // ratio(0-1) → px
+    next.y = Math.round(cur.y * info.clientH)
   } else {
-    if (hasSize) {
-      next.x = round4(cur.x / info.clientW) // px → ratio
-      next.y = round4(cur.y / info.clientH)
-    } else {
-      next.x = round4(displayX.value / 100) // keep box number (= cur.x original px) as % display number
-      next.y = round4(displayY.value / 100)
-      notifyNoSize()
-    }
+    next.x = round4(cur.x / info.clientW) // px → ratio
+    next.y = round4(cur.y / info.clientH)
   }
   emit('update:modelValue', next)
 }

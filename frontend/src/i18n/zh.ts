@@ -611,7 +611,7 @@ export default {
     unit_px: '像素',
     pick_point: '截图取点',
     no_window_title: '目标窗口未开',
-    no_window_desc: '数字未换算，按当前单位直接使用；打开目标窗口后再切换可自动换算',
+    no_window_desc: '目标窗口未开，无法换算单位；打开目标窗口后再切换',
     hint_percent: '比例：随窗口大小自适应（换分辨率仍按比例）',
     hint_px: '绝对像素：固定不随窗口缩放，适合固定位置的 UI',
   },

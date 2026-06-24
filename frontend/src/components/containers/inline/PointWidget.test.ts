@@ -298,34 +298,26 @@ describe('PointWidget', () => {
     el.remove()
   })
 
-  it('切到 px: mousePos hasGame=false 时保留框里数字 (old behavior), 不换算', async () => {
+  it('切到 px: mousePos hasGame=false 时不切单位、不 emit (no-op)', async () => {
     mockBackend.tools.mousePos.mockResolvedValue({ hasGame: false, clientW: 0, clientH: 0 })
     const { emitted, app, el } = mountPointWidget({ x: 0.5, y: 0.5 })
     const pxBtn = el.querySelector('[data-testid="point-unit-toggle"] button:last-child') as HTMLButtonElement
     expect(pxBtn).toBeTruthy()
     pxBtn.click()
     await flushPromises()
-    expect(emitted).toHaveLength(1)
-    const out = emitted[0]
-    expect(out.unit).toBe('px')
-    expect(out.x).toBe(50) // displayX.value = round4(0.5*100) = 50, kept as-is
-    expect(out.y).toBe(50)
+    expect(emitted).toHaveLength(0)
     app.unmount()
     el.remove()
   })
 
-  it('px 模式切回 %: mousePos hasGame=false 时保留框里数字÷100, 不换算', async () => {
+  it('px 模式切回 %: mousePos hasGame=false 时不切单位、不 emit (no-op)', async () => {
     mockBackend.tools.mousePos.mockResolvedValue({ hasGame: false, clientW: 0, clientH: 0 })
     const { emitted, app, el } = mountPointWidget({ x: 960, y: 540, unit: 'px' })
     const pctBtn = el.querySelector('[data-testid="point-unit-toggle"] button:first-child') as HTMLButtonElement
     expect(pctBtn).toBeTruthy()
     pctBtn.click()
     await flushPromises()
-    expect(emitted).toHaveLength(1)
-    const out = emitted[0]
-    expect(out.unit).toBeUndefined() // 切回 % → 无 unit
-    expect(out.x).toBe(round4(960 / 100)) // displayX in px mode = raw 960 → 9.6
-    expect(out.y).toBe(round4(540 / 100)) // displayY in px mode = raw 540 → 5.4
+    expect(emitted).toHaveLength(0)
     app.unmount()
     el.remove()
   })
