@@ -1,7 +1,6 @@
 package input
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"yotta/internal/node"
@@ -12,13 +11,12 @@ func init() {
 	node.Register(&MouseHoldStop{})
 }
 
-// MouseHoldStart 在 (xRatio, yRatio) 客户区坐标按下鼠标 (不松开). 配对 MouseHoldStop.
+// MouseHoldStart 在坐标位置按下鼠标 (不松开). 配对 MouseHoldStop.
 type MouseHoldStart struct{}
 
 const (
 	mhStartInExec   = "In"
-	mhStartInXRatio = "XRatio"
-	mhStartInYRatio = "YRatio"
+	mhStartInPoint  = "Point"
 	mhStartInButton = "Button"
 	mhStartOutOut   = "Done"
 )
@@ -30,12 +28,8 @@ func (MouseHoldStart) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: mhStartInExec, Type: "Exec"},
-			{Name: mhStartInXRatio, Type: "Number", Default: json.Number("0.5"),
-				Widget: node.WidgetSpec{Kind: "slider",
-					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-			{Name: mhStartInYRatio, Type: "Number", Default: json.Number("0.5"),
-				Widget: node.WidgetSpec{Kind: "slider",
-					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: mhStartInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
+				Schema: node.PointSchema()},
 			{Name: mhStartInButton, Type: "String", Default: "left",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -60,8 +54,10 @@ func (MouseHoldStart) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if btn != "left" && btn != "right" && btn != "middle" {
 		return nil, fmt.Errorf("MouseHoldStart: invalid button %q", btn)
 	}
-	x := in.Float64(mhStartInXRatio)
-	y := in.Float64(mhStartInYRatio)
+	x, y, err := node.ResolvePoint(ctx, in.Point(mhStartInPoint))
+	if err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "MouseHoldStart resolve point: %v", err)
+	}
 	if err := ctx.Input().MouseDown(x, y, btn); err != nil {
 		return nil, node.Failf(node.CodeSendFailed, err, "MouseHoldStart (%.3f,%.3f) %s: %v", x, y, btn, err)
 	}

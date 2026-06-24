@@ -11,20 +11,47 @@ func TestMouseHoldStart_HappyPath(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&MouseHoldStart{})
 	rn, _ := node.Get("MouseHoldStart")
-
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{mhStartInXRatio: 0.25, mhStartInYRatio: 0.75, mhStartInButton: "right"},
+		map[string]any{mhStartInPoint: node.Point{X: 0.4, Y: 0.6}, mhStartInButton: "left"},
 		nil, withInput(rec), false)
-
 	if r.Error != nil {
 		t.Fatal(r.Error)
 	}
-	if r.ExitName != mhStartOutOut {
-		t.Errorf("exit = %q, want Out", r.ExitName)
+	// recordingInput.MouseDown 记录格式 "MouseDown:%.3f:%.3f:%s"
+	if len(rec.calls) != 1 || rec.calls[0] != "MouseDown:0.400:0.600:left" {
+		t.Errorf("calls=%v want MouseDown:0.400:0.600:left", rec.calls)
 	}
-	if len(rec.calls) != 1 || rec.calls[0] != "MouseDown:0.250:0.750:right" {
-		t.Errorf("calls = %v, want [MouseDown:0.250:0.750:right]", rec.calls)
+}
+
+func TestMouseHoldStart_PxPoint_ResolvesToRatio(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&MouseHoldStart{})
+	rn, _ := node.Get("MouseHoldStart")
+	rec := &recordingInput{}
+	b := node.StubServices()
+	b.Input = rec
+	b.Window = sizeWindow{w: 1000, h: 1000}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{mhStartInPoint: node.Point{X: 300, Y: 700, Unit: node.UnitPx}, mhStartInButton: "right"},
+		nil, b, false)
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if len(rec.calls) != 1 || rec.calls[0] != "MouseDown:0.300:0.700:right" {
+		t.Errorf("calls=%v want MouseDown:0.300:0.700:right", rec.calls)
+	}
+}
+
+func TestMouseHoldStart_InvalidButton_ValidationError(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&MouseHoldStart{})
+	rn, _ := node.Get("MouseHoldStart")
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{mhStartInButton: "side1"},
+		nil, withInput(&recordingInput{}), false)
+	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_MOUSE_BUTTON" {
+		t.Errorf("validation=%v want INVALID_MOUSE_BUTTON", r.Validation)
 	}
 }
 
@@ -46,20 +73,6 @@ func TestMouseHoldStop_HappyPath(t *testing.T) {
 	}
 	if len(rec.calls) != 1 || rec.calls[0] != "MouseUp:middle" {
 		t.Errorf("calls = %v, want [MouseUp:middle]", rec.calls)
-	}
-}
-
-func TestMouseHoldStart_InvalidButton_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStart{})
-	rn, _ := node.Get("MouseHoldStart")
-
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{mhStartInButton: "x1"},
-		nil, withInput(&recordingInput{}), false)
-
-	if len(r.Validation) != 1 || r.Validation[0].Code != "INVALID_MOUSE_BUTTON" {
-		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)
 	}
 }
 
@@ -88,7 +101,7 @@ func TestMouseHold_StartStopPair(t *testing.T) {
 
 	rnStart, _ := node.Get("MouseHoldStart")
 	r1 := node.RunNode(context.Background(), rnStart, nil,
-		map[string]any{mhStartInXRatio: 0.5, mhStartInYRatio: 0.5, mhStartInButton: "left"},
+		map[string]any{mhStartInPoint: node.Point{X: 0.5, Y: 0.5}, mhStartInButton: "left"},
 		nil, bundle, false)
 	if r1.Error != nil {
 		t.Fatal(r1.Error)

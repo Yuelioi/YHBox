@@ -1115,11 +1115,10 @@
     },
     MouseHoldStart: {
       label: 'Hold mouse down',
-      description: 'Presses a mouse button down at a spot in the window and keeps holding it. The position is given as ratios (0 to 1, where 0.5, 0.5 is center). It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
+      description: 'Presses a mouse button down at a spot in the window and keeps holding it. The position can be a ratio (0–1) or pixel coordinate. It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
       example: 'Drag an item: place "Hold mouse down" with the left button at the start point, add "Mouse move to" sliding to the end point, then "Release mouse" to let go of the left button — that completes one drag.',
       input: {
-        XRatio: { label: 'X ratio' },
-        YRatio: { label: 'Y ratio' },
+        Point: { label: 'Position' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
       },
       output: { Done: { label: 'Pressed' } },
