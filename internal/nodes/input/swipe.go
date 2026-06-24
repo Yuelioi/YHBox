@@ -59,9 +59,6 @@ func (Swipe) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		btn = "left"
 	}
 	dur := in.Int(swInDurationMs)
-	if dur <= 0 {
-		dur = 200
-	}
 	if err := ctx.Input().Drag(begin.X, begin.Y, end.X, end.Y, btn, dur); err != nil {
 		return nil, node.Failf(node.CodeSendFailed, err, "Swipe (%.3f,%.3f)→(%.3f,%.3f) %s: %v", begin.X, begin.Y, end.X, end.Y, btn, err)
 	}

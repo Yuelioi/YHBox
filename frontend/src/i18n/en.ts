@@ -1190,13 +1190,13 @@
     },
     Swipe: {
       label: 'Swipe',
-      description: 'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; 0 snaps instantly. Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',
+      description: 'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; empty or 0 uses the 200 ms default (a too-fast drag is missed by many UIs, hence the floor). Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',
       example: 'Drag a health slider from left to right: wire the start position into Begin, wire the end position into End, set Duration to 400 — it drags smoothly across and releases.',
       input: {
         Begin: { label: 'Begin', hint: 'Start point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
         End: { label: 'End', hint: 'End point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        DurationMs: { label: 'Duration (ms)', hint: 'Total drag time in milliseconds; 0=instant' },
+        DurationMs: { label: 'Duration (ms)', hint: 'Total drag time in milliseconds; default 200, higher is slower (empty or 0 uses the default)' },
       },
       output: { Done: { label: 'Done' } },
     },
