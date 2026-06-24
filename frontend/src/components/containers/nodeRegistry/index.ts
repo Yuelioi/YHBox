@@ -40,10 +40,11 @@ export interface NodeFieldSchema {
   options?: { value: unknown }[]
 }
 
-/** 坐标点存储值 (ratio 0-1; 0.5,0.5 = 窗口中心). */
+/** 坐标点存储值 (x/y; unit 空=比例 0-1, 'px'=像素). */
 export interface PointValue {
   x: number
   y: number
+  unit?: 'px'
 }
 
 /** 几何输入存储值 (pct ratio 0-1 + 可选每分辨率像素覆盖). */

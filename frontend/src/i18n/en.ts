@@ -590,6 +590,10 @@
     add_item: 'Add item',
     remove_item: 'Remove item',
   },
+  point_widget: {
+    unit_percent: 'Percent',
+    unit_px: 'Pixels',
+  },
   geometry: {
     default_region: 'Default region',
     full_frame: '(full frame)',

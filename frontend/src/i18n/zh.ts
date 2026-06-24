@@ -606,6 +606,10 @@ export default {
     add_item: '添加一项',
     remove_item: '删除此项',
   },
+  point_widget: {
+    unit_percent: '百分比',
+    unit_px: '像素',
+  },
   geometry: {
     default_region: '默认区域',
     full_frame: '(全帧)',
