@@ -9,14 +9,14 @@ import (
 
 func init() { node.Register(&MouseMoveTo{}) }
 
-// MouseMoveTo 把光标 (可见地) 滑到客户区比例坐标 (XRatio,YRatio), 不点击.
+// MouseMoveTo 把光标 (可见地) 滑到客户区坐标 (Point), 不点击.
+// Point 支持 ratio(0-1) 与 px 两种单位; px 由 ResolvePoint 换算为比例.
 // MoveMs=0 → 瞬移; >0 → 在 MoveMs 内从当前光标位置直线分帧滑过去 (~60fps), 可被 ctx 取消.
 type MouseMoveTo struct{}
 
 const (
 	mmtInExec      = "In"
-	mmtInXRatio    = "XRatio"
-	mmtInYRatio    = "YRatio"
+	mmtInPoint     = "Point"
 	mmtInMoveMs    = "MoveMs"
 	mmtInJitterPct = "JitterPct"
 	mmtOutDone     = "Done"
@@ -29,12 +29,8 @@ func (MouseMoveTo) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: mmtInExec, Type: "Exec"},
-			{Name: mmtInXRatio, Type: "Number", Default: json.Number("0.5"),
-				Widget: node.WidgetSpec{Kind: "slider",
-					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-			{Name: mmtInYRatio, Type: "Number", Default: json.Number("0.5"),
-				Widget: node.WidgetSpec{Kind: "slider",
-					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: mmtInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
+				Schema: node.PointSchema()},
 			{Name: mmtInMoveMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: mmtInJitterPct, Type: "Number", Default: json.Number("0"),
@@ -47,8 +43,10 @@ func (MouseMoveTo) Spec() node.Spec {
 }
 
 func (MouseMoveTo) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	x := in.Float64(mmtInXRatio)
-	y := in.Float64(mmtInYRatio)
+	x, y, err := node.ResolvePoint(ctx, in.Point(mmtInPoint))
+	if err != nil {
+		return nil, node.Failf(node.CodeSendFailed, err, "MouseMoveTo resolve point: %v", err)
+	}
 	moveMs := node.JitterInt(in.Int(mmtInMoveMs), in.Int(mmtInJitterPct)) // ±% 抖滑行时长 (pct=0 → 原值)
 	if err := moveCursor(ctx, x, y, moveMs); err != nil {
 		return nil, err

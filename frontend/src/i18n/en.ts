@@ -1144,11 +1144,10 @@
     },
     MouseMoveTo: {
       label: 'Mouse Move To',
-      description: 'Moves the cursor to a fixed spot in the window without clicking. The position is given as ratios (0 to 1, where 0.5, 0.5 is center), independent of window size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
-      example: 'Move to the center before clicking: use "Mouse move to" with X and Y both 0.5, set Move time to 300 for a smooth slide, then follow with "Click at".',
+      description: 'Moves the cursor to a fixed spot in the window without clicking. The position can be given as ratios (0 to 1, where 0.5, 0.5 is center) or pixels (px), independent of window size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
+      example: 'Move to the center before clicking: use "Mouse move to" with the Point set to (0.5, 0.5), set Move time to 300 for a smooth slide, then follow with "Click at".',
       input: {
-        XRatio: { label: 'X ratio' },
-        YRatio: { label: 'Y ratio' },
+        Point: { label: 'Position' },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = visible slide' },
         JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = glide duration (MoveMs) varies within ±10%' },
       },
