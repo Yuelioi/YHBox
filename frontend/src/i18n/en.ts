@@ -1678,6 +1678,18 @@
       },
       output: { Found: { label: 'Found' }, Timeout: { label: 'Timeout' } },
     },
+    WaitWindowGone: {
+      label: 'Wait window closed',
+      description: 'Poll until a window disappears, matched by title / class / process name. If it disappears within the timeout, takes the Gone exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Stop app to confirm the window has actually closed.',
+      input: {
+        Title: { label: 'Window title' },
+        Class: { label: 'Window class' },
+        ProcessName: { label: 'Process name' },
+        TitleMatch: { label: 'Title match', option: { exact: 'Exact', regex: 'Regex' } },
+        TimeoutMs: { label: 'Timeout (ms)', hint: 'Poll-wait this long for the window to disappear; takes Timeout if it never closes.' },
+      },
+      output: { Gone: { label: 'Gone' }, Timeout: { label: 'Timeout' } },
+    },
     SubgraphInput: { label: 'Subgraph input', description: 'The entry point inside a subgraph — when the subgraph is called, execution starts here, and any params passed in are read here. Position is movable, but it cannot be deleted or copied.' },
     SubgraphOutput: { label: 'Subgraph output', description: 'The exit point inside a subgraph — reaching it ends the subgraph and returns to the caller to continue. One per output pin. Position is movable, but it cannot be deleted or copied.' },
     // variable

@@ -1698,6 +1698,18 @@ export default {
       },
       output: { Found: { label: '出现' }, Timeout: { label: '超时' } },
     },
+    WaitWindowGone: {
+      label: '等待窗口关闭',
+      description: '按标题/类名/进程名等某窗口从系统消失再放行——在超时内消失走「消失」，到点还没消失走「超时」（不报错，方便兜底）。常接在「关闭程序」后确认窗口真的关掉了。',
+      input: {
+        Title: { label: '窗口标题' },
+        Class: { label: '窗口类名' },
+        ProcessName: { label: '进程名' },
+        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
+        TimeoutMs: { label: '超时 (ms)', hint: '在这段时间内轮询等待窗口消失，到点还没消失走「超时」。' },
+      },
+      output: { Gone: { label: '消失' }, Timeout: { label: '超时' } },
+    },
     SubgraphInput: { label: '子图入口', description: '子图内部的入口连接点——外面调用子图时从这里开始往下跑，传进来的参数也从这里取。位置能挪，但不能删、不能复制。' },
     SubgraphOutput: { label: '子图出口', description: '子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。' },
     // variable

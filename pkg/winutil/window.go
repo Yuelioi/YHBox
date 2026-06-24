@@ -130,13 +130,58 @@ func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
 // (真错)。
 var ErrWindowNotFound = errors.New("窗口未找到")
 
+// ErrWindowStillPresent — WaitWindowGone 在 timeout 内窗口仍存在时返回。
+// 调用方用 errors.Is 区分「超时仍在」(兜底分支) 与「空 match / regex 非法 / ctx 取消」(真错)。
+var ErrWindowStillPresent = errors.New("窗口仍存在")
+
+// windowMatchOnce 枚举一遍顶层可见窗口, 有任一匹配 spec/titleRe 的窗口则返 true.
+// targetProc 是 strings.ToLower(spec.ProcessName), 调用方预先处理好传入.
+// 注意: syscall.NewCallback 分配的内存进程生命周期不回收 — 每次调用永久 leak 一个 callback slot.
+// 调用频率与 ResolveWindow / WaitWindowGone 的 poll interval 一致 (500ms), 可接受.
+func windowMatchOnce(spec MatchSpec, titleRe *regexp.Regexp, targetProc string) bool {
+	var found bool
+	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
+		if !win.IsWindowVisible(hwnd) {
+			return 1
+		}
+		title := getWindowText(hwnd)
+		class := getClassName(hwnd)
+		pid := getWindowPID(hwnd)
+		procName, procErr := queryProcessName(pid)
+		if procErr != nil {
+			return 1
+		}
+		procName = strings.ToLower(procName)
+
+		if spec.Title != "" {
+			if titleRe != nil {
+				if !titleRe.MatchString(title) {
+					return 1
+				}
+			} else if title != spec.Title {
+				return 1
+			}
+		}
+		if spec.Class != "" && class != spec.Class {
+			return 1
+		}
+		if targetProc != "" && procName != targetProc {
+			return 1
+		}
+
+		found = true
+		return 0 // stop enumeration
+	})
+	procEnumWindows.Call(callback, 0)
+	return found
+}
+
 // ResolveWindow 按 spec 匹配条件枚 top-level visible window, 第一个匹配返 WindowHandle.
 // EnumWindows 按 Z-order (前台最上为先) 顺序回调, MSDN 有写. fallback: GetTopWindow + GetWindow(GW_HWNDNEXT).
 // OpenProcess 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限. 单进程 query 失败 → 视该进程不匹配 + 继续.
 //
-// callback 只构造一次, 在 retry loop 外. syscall.NewCallback 分配的内存进程生命周期不回收,
-// 每次构造都是永久 leak. 闭包持 spec/titleRe/targetProc (read-only) + 指 result/found 的 ptr,
-// 每轮 retry 前 reset result/found.
+// 每轮 poll 调 windowMatchOnce, 再构造完整 WindowHandle (需要 title/class/procName/size 等字段).
+// 两步枚举: 先快速判断有无匹配 → 再单独查完整元数据. 调用量低 (500ms interval), 开销可接受.
 func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
 	if IsEmptyMatch(spec) {
 		return WindowHandle{}, errors.New("WindowTarget match spec is empty or matches anything")
@@ -147,24 +192,24 @@ func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.D
 	}
 
 	targetProc := strings.ToLower(spec.ProcessName)
+
+	// 构造完整 WindowHandle 的 callback — 只在找到匹配时才用, 不每轮都构造.
+	// syscall.NewCallback 永久 leak, 这里只构造一次.
 	var result WindowHandle
 	var found bool
-
-	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
+	fullCallback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
 		if !win.IsWindowVisible(hwnd) {
-			return 1 // continue
+			return 1
 		}
 		title := getWindowText(hwnd)
 		class := getClassName(hwnd)
 		pid := getWindowPID(hwnd)
 		procName, procErr := queryProcessName(pid)
 		if procErr != nil {
-			// 单进程出错 (admin 权限 / 僵尸进程等) — 视为不匹配, 继续枚下一个
 			return 1
 		}
 		procName = strings.ToLower(procName)
 
-		// match title
 		if spec.Title != "" {
 			if titleRe != nil {
 				if !titleRe.MatchString(title) {
@@ -174,11 +219,9 @@ func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.D
 				return 1
 			}
 		}
-		// match class (exact, case-sensitive)
 		if spec.Class != "" && class != spec.Class {
 			return 1
 		}
-		// match processName (case-insensitive, lowercase 对比)
 		if targetProc != "" && procName != targetProc {
 			return 1
 		}
@@ -194,19 +237,17 @@ func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.D
 			ClientH:     ch,
 		}
 		found = true
-		return 0 // stop enumeration
+		return 0
 	})
 
 	deadline := time.Now().Add(timeout)
 	for {
-		// ctx 取消优先检查 — 已取消直接返, 不做无效 EnumWindows
 		if err := ctx.Err(); err != nil {
 			return WindowHandle{}, err
 		}
-		// reset before each attempt — 上轮 partial match 残留要清掉
 		result = WindowHandle{}
 		found = false
-		procEnumWindows.Call(callback, 0)
+		procEnumWindows.Call(fullCallback, 0)
 		if found {
 			return result, nil
 		}
@@ -217,6 +258,40 @@ func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.D
 		select {
 		case <-ctx.Done():
 			return WindowHandle{}, ctx.Err()
+		case <-time.After(interval):
+		}
+	}
+}
+
+// WaitWindowGone 轮询等待匹配窗口从系统消失. 窗口已不存在(或一开始就不存在) → return nil;
+// timeout 内仍存在 → return ErrWindowStillPresent; ctx 取消 → ctx.Err().
+// 空 spec → error (同 ResolveWindow 守卫); titleMatch=regex 且 regex 非法 → error.
+func WaitWindowGone(ctx context.Context, spec MatchSpec, timeout, interval time.Duration) error {
+	if IsEmptyMatch(spec) {
+		return errors.New("WaitWindowGone match spec is empty or matches anything")
+	}
+	titleRe, err := CompileTitle(spec)
+	if err != nil {
+		return fmt.Errorf("title regex invalid: %w", err)
+	}
+
+	targetProc := strings.ToLower(spec.ProcessName)
+
+	deadline := time.Now().Add(timeout)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !windowMatchOnce(spec, titleRe, targetProc) {
+			return nil // 窗口已消失
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%w (title=%q class=%q process=%q)",
+				ErrWindowStillPresent, spec.Title, spec.Class, spec.ProcessName)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-time.After(interval):
 		}
 	}
