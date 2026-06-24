@@ -759,6 +759,23 @@ export default {
         },
       },
     },
+    WaitTemplateGone: {
+      label: '等待模板消失',
+      description: '盯着屏幕反复确认你指定的图片（模板）消失没有，消失了就走 Gone 口；一直在到超时就走 Timeout 口，并带出最后一帧的匹配度。适合等某个遮罩/加载界面/弹框消失再继续。',
+      example: '等待登录加载条消失再点下一步：模板选加载条图片，超时 10 秒，Gone 口接继续步骤；10 秒还没消失走 Timeout 口做异常处理。',
+      input: {
+        Templates: { label: '模板', hint: '命名空间.名 格式, e.g. ns.loading_bar; 可选多个（任一命中即视为"还在"）' },
+        TimeoutMs: { label: '超时 (ms)', hint: '0 = 只看当前帧一次，不在走 Gone，在走 Timeout' },
+        Threshold: { label: '阈值', hint: 'NCC 阈值' },
+      },
+      output: {
+        Gone: { label: '已消失' },
+        Timeout: {
+          label: '超时',
+          data: { Conf: { hint: '超时时最后一帧的匹配度' } },
+        },
+      },
+    },
     CheckTemplate: {
       label: '检查模板',
       description: '只看当前这一帧画面，找你指定的图片（模板）在不在。在就走 Found 口并给出位置，不在就走 NotFound 口。它不等待、只看一眼，适合做「现在屏幕上有没有这个东西」的即时判断分流。',

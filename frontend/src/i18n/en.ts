@@ -739,6 +739,23 @@
         },
       },
     },
+    WaitTemplateGone: {
+      label: 'Wait template gone',
+      description: 'Watches the screen and keeps checking that the image (template) you picked has disappeared. Once it is gone, take the Gone exit; if it is still there when the timeout runs out, take Timeout with the last match score. Use it to wait for a loading screen, overlay, or dialog to close before continuing.',
+      example: 'Wait for the login progress bar to vanish before clicking next: pick the loading-bar template, set timeout 10s, wire Gone to the continue step; if it has not gone after 10s, Timeout handles the error.',
+      input: {
+        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. ns.loading_bar; multiple allowed (any hit = still present)' },
+        TimeoutMs: { label: 'Timeout (ms)', hint: '0 = check current frame once only — gone takes Gone, still present takes Timeout' },
+        Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+      },
+      output: {
+        Gone: { label: 'Gone' },
+        Timeout: {
+          label: 'Timeout',
+          data: { Conf: { hint: 'Match score on the last frame before timeout' } },
+        },
+      },
+    },
     CheckTemplate: {
       label: 'Check template',
       description: 'Looks at the current frame only and checks whether the image (template) you picked is on screen. If it is, take Found with its location; if not, take NotFound. It does not wait — just one glance — so it is great for an instant «is this on screen right now?» branch.',
