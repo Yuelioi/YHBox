@@ -198,24 +198,22 @@ const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
 // 画布内联 pin literal — view 通过 ContainerCanvasApiKey provide; 测试/孤立渲染时为 null。
 const canvasApi = inject(ContainerCanvasApiKey, null)
 
-// 未连线 + scalar 的 data-in pin 名集合 → 这些 pin 行渲染内联 input。
-// geometry(widget==='geometry') / point(widget==='point'): 走各自结构化内联 widget。
-// 裸 point pin (无 point schema): 文本兜底会 String(obj)→"[object Object]", 排除。
-// 排除 code(widgetKind==='code'): 多行脚本塞画布内联小框没法编, 走 Inspector 的 CodeInput/modal。
+// 未连线 data-in pin 中, 画布内联只渲染 scalar (PinLiteral 只认 number/bool/text/dropdown)。
+// 结构化值 point/geometry: 画布 PinLiteral 文本兜底会 String(obj)→"[object Object]" → 排除,
+// 改在 Inspector 走 StructuredInput → PointWidget / GeometryWidget 手填 (x/y 等数字框)。
+// code (多行脚本) 同理排除, 走 Inspector 的 CodeInput/modal。
 const inlineLiteralPins = computed<Set<string>>(() => {
   const edges = canvasApi?.edges.value ?? []
   const dataIn = PIN_SPECS[kind.value]?.dataIn ?? {}
   const ps = unconnectedDataInPins(kind.value, dataIn, props.data?.config ?? null, edges, props.id)
   return new Set(
     ps
-      .filter((p) => {
-        // code (多行脚本) 走 Inspector modal — 画布无法内联编辑.
-        if (fieldFor(p.name)?.widgetKind === 'code') return false
-        // geometry → 走 GeometryWidget; point 有 point schema → 走 PointWidget.
-        // 两者都走结构化内联; 只有「裸 point pin (无 point schema)」才排除.
-        if (p.type === 'point' && fieldFor(p.name)?.schema?.widget !== 'point') return false
-        return true
-      })
+      .filter(
+        (p) =>
+          p.type !== 'point' &&
+          fieldFor(p.name)?.schema?.widget !== 'geometry' &&
+          fieldFor(p.name)?.widgetKind !== 'code',
+      )
       .map((p) => p.name),
   )
 })
