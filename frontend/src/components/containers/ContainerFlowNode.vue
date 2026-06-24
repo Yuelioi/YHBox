@@ -199,8 +199,8 @@ const pins = computed(() => pinsFor(kind.value, props.data?.config ?? null))
 const canvasApi = inject(ContainerCanvasApiKey, null)
 
 // 未连线 + scalar 的 data-in pin 名集合 → 这些 pin 行渲染内联 input。
-// 排除 point 和 geometry(widget==='geometry'): 这俩是复杂结构, PinLiteral 文本兜底会
-// String(obj) 成 "[object Object]"; 它们走 Inspector 的专用 widget (GeometryWidget 等) 编辑。
+// geometry(widget==='geometry') / point(widget==='point'): 走各自结构化内联 widget。
+// 裸 point pin (无 point schema): 文本兜底会 String(obj)→"[object Object]", 排除。
 // 排除 code(widgetKind==='code'): 多行脚本塞画布内联小框没法编, 走 Inspector 的 CodeInput/modal。
 const inlineLiteralPins = computed<Set<string>>(() => {
   const edges = canvasApi?.edges.value ?? []
@@ -208,12 +208,14 @@ const inlineLiteralPins = computed<Set<string>>(() => {
   const ps = unconnectedDataInPins(kind.value, dataIn, props.data?.config ?? null, edges, props.id)
   return new Set(
     ps
-      .filter(
-        (p) =>
-          p.type !== 'point' &&
-          fieldFor(p.name)?.schema?.widget !== 'geometry' &&
-          fieldFor(p.name)?.widgetKind !== 'code',
-      )
+      .filter((p) => {
+        // code (多行脚本) 走 Inspector modal — 画布无法内联编辑.
+        if (fieldFor(p.name)?.widgetKind === 'code') return false
+        // geometry → 走 GeometryWidget; point 有 point schema → 走 PointWidget.
+        // 两者都走结构化内联; 只有「裸 point pin (无 point schema)」才排除.
+        if (p.type === 'point' && fieldFor(p.name)?.schema?.widget !== 'point') return false
+        return true
+      })
       .map((p) => p.name),
   )
 })

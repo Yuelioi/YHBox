@@ -32,8 +32,8 @@ func (Swipe) Spec() node.Spec {
 		NeedsWindow: true,
 		Inputs: []node.InputSpec{
 			{Name: swInExec, Type: "Exec"},
-			{Name: swInBegin, Type: "Point"},
-			{Name: swInEnd, Type: "Point"},
+			{Name: swInBegin, Type: "Point", Schema: node.PointSchema()},
+			{Name: swInEnd, Type: "Point", Schema: node.PointSchema()},
 			{Name: swInButton, Type: "String", Default: "left",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{

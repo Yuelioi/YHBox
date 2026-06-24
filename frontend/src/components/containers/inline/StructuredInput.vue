@@ -7,6 +7,14 @@
     @update:model-value="emitVal"
   />
 
+  <!-- point widget — 两个 x/y 百分比框 -->
+  <PointWidget
+    v-else-if="schema.widget === 'point'"
+    :model-value="modelValue"
+    :field-path="fieldPath"
+    @update:model-value="emitVal"
+  />
+
   <!-- object: 有字段列表 → 递归分组 -->
   <div v-else-if="schema.type === 'object'" class="space-y-3">
     <!-- 文本模式切换按钮 (右上角). 标签由调用方渲染 (NodeInspector 外层 label / 父级 childLabel),
@@ -288,6 +296,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { NodeFieldSchema } from '@/components/containers/nodeRegistry/index'
 import GeometryWidget from './GeometryWidget.vue'
+import PointWidget from './PointWidget.vue'
 
 const { t, te } = useI18n()
 

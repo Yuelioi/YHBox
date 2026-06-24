@@ -35,6 +35,7 @@ func StringSchema() *FieldSchema { return &FieldSchema{Type: "string"} }
 func BoolSchema() *FieldSchema   { return &FieldSchema{Type: "bool"} }
 func EnumSchema(opts ...EnumOption) *FieldSchema { return &FieldSchema{Type: "enum", Options: opts} }
 func GeometrySchema() *FieldSchema { return &FieldSchema{Type: "object", Widget: "geometry"} }
+func PointSchema() *FieldSchema   { return &FieldSchema{Type: "object", Widget: "point"} }
 
 // ArraySchema 同质变长列表 — 底层存 JSON 数组, 每元素同一 item schema (可增删).
 // 区别于 TupleSchema (定长按位置) 与 object (键值 map). 前端 StructuredInput 渲染成
