@@ -10,6 +10,36 @@ import (
 	"yotta/internal/node"
 )
 
+// ─── Task 2.2: pickMatch 单元测试 ────────────────────────────────────────────
+
+func TestPickMatch(t *testing.T) {
+	ms := []node.TemplateMatch{
+		{Point: node.Point{X: 0.8, Y: 0.1}, Conf: 0.90, BBox: [4]float64{0.8, 0.1, 0.05, 0.05}}, // 右上, 小
+		{Point: node.Point{X: 0.2, Y: 0.9}, Conf: 0.99, BBox: [4]float64{0.2, 0.9, 0.20, 0.20}}, // 左下, 大, 最高分
+		{Point: node.Point{X: 0.5, Y: 0.5}, Conf: 0.85, BBox: [4]float64{0.5, 0.5, 0.10, 0.10}}, // 中
+	}
+	// horizontal: 按 BBox.x 升序 → [0.2,0.5,0.8]; index0 = x=0.2
+	if hit, ok := pickMatch(ms, "horizontal", 0); !ok || hit.BBox[0] != 0.2 {
+		t.Fatalf("horizontal idx0 → x=%v ok=%v", hit.BBox[0], ok)
+	}
+	// vertical: 按 BBox.y 升序 → [0.1,0.5,0.9]; index0 = y=0.1
+	if hit, ok := pickMatch(ms, "vertical", 0); !ok || hit.BBox[1] != 0.1 {
+		t.Fatalf("vertical idx0 → y=%v", hit.BBox[1])
+	}
+	// area: 面积降序 → 0.04(0.2),0.01(0.5),0.0025(0.8); index0 = 大块 x=0.2
+	if hit, ok := pickMatch(ms, "area", 0); !ok || hit.BBox[0] != 0.2 {
+		t.Fatalf("area idx0 → x=%v", hit.BBox[0])
+	}
+	// score(默认): 已按 conf 降序传入 → index0 = 传入首项 x=0.8
+	if hit, ok := pickMatch(ms, "score", 0); !ok || hit.BBox[0] != 0.8 {
+		t.Fatalf("score idx0 → x=%v", hit.BBox[0])
+	}
+	// index 越界 → ok=false
+	if _, ok := pickMatch(ms, "score", 5); ok {
+		t.Fatalf("index 越界应 ok=false")
+	}
+}
+
 // recordingInput 实现 InputService — ClickTemplate 测试用. detect 包内仅 ClickTemplate
 // 需要 InputService, 跟 input 包的同名 helper 同款但本地一份避免跨包依赖.
 type recordingInput struct {
@@ -210,5 +240,83 @@ func TestClickTemplate_InvalidButton_ValidationError(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("validation = %v, want INVALID_MOUSE_BUTTON", r.Validation)
+	}
+}
+
+// ─── Task 2.2: order_by 端到端 + 默认零回归 ─────────────────────────────────
+
+// TestClickTemplate_OrderBy_Vertical: OrderBy=vertical, Index=0 → 点最上面那个 (BBox.y 最小)。
+// 传三个命中, vertical 排序后最上是 y=0.1 的那个 (Point.X=0.8, Point.Y=0.1)。
+func TestClickTemplate_OrderBy_Vertical(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	// MatchAll 返回三个命中 (conf 降序, 与 MatchAll 约定一致)
+	matches := []node.TemplateMatch{
+		{Point: node.Point{X: 0.2, Y: 0.9}, Conf: 0.99, BBox: [4]float64{0.2, 0.9, 0.10, 0.10}},
+		{Point: node.Point{X: 0.8, Y: 0.1}, Conf: 0.90, BBox: [4]float64{0.8, 0.1, 0.05, 0.05}},
+		{Point: node.Point{X: 0.5, Y: 0.5}, Conf: 0.85, BBox: [4]float64{0.5, 0.5, 0.08, 0.08}},
+	}
+	vision := &mockVision{matchAllResults: matches}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			clkInTemplates: []string{"tpl.x"},
+			clkInTimeoutMs: 200,
+			clkInThreshold: 0.80,
+			clkInOrderBy:   "vertical",
+			clkInIndex:     0,
+		},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Fatalf("exit=%q want Done", r.ExitName)
+	}
+	// 最上面那个 BBox.y=0.1, Point=(0.8,0.1)
+	if len(rec.calls) != 1 {
+		t.Fatalf("want 1 click, got %v", rec.calls)
+	}
+	want := fmt.Sprintf("Click:%.3f:%.3f:left:50", 0.8, 0.1)
+	if rec.calls[0] != want {
+		t.Errorf("click=%q want %q", rec.calls[0], want)
+	}
+}
+
+// TestClickTemplate_DefaultScore_Regression: 默认 OrderBy=score/Index=0 走 WaitMatch 路径,
+// 行为与 Phase 1 完全一致 (钉死零回归)。
+func TestClickTemplate_DefaultScore_Regression(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickTemplate{})
+	rn, _ := node.Get("ClickTemplate")
+
+	pt := node.Point{X: 0.55, Y: 0.4}
+	vision := &mockVision{point: &pt, conf: 0.93, hitOnCall: 1}
+	rec := &recordingInput{}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			clkInTemplates: []string{"fishing.start_fish"},
+			clkInButton:    "left",
+			clkInTimeoutMs: 200,
+			clkInThreshold: 0.85,
+			// OrderBy/Index 不传 → 用默认值 score/0 → 走 WaitMatch 路径
+		},
+		nil, withVisionAndInput(vision, rec), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != clkOutDone {
+		t.Errorf("exit=%q want Done", r.ExitName)
+	}
+	if r.OutputData[clkDataMatched] != true {
+		t.Errorf("Matched=%v want true", r.OutputData[clkDataMatched])
+	}
+	// WaitMatch 路径: MatchAll 不应被调用 (matchAllResults=nil, 走 WaitMatch)
+	if len(rec.calls) != 1 || rec.calls[0] != "Click:0.550:0.400:left:50" {
+		t.Errorf("calls=%v want [Click:0.550:0.400:left:50]", rec.calls)
 	}
 }

@@ -1,13 +1,16 @@
 // internal/nodes/detect/click_template.go
 // ClickTemplate — 等模板出现 → 在命中位置鼠标点击. 命中或超时后单出口路由.
 //
-// 100ms 内部轮询 (见 visionWaitPollMs) + 可选 SettleMs 命中后稳定延迟 + 50ms click duration.
+// 100ms 内部轮询 (visionPollInterval) + 可选 SettleMs 命中后稳定延迟 + 50ms click duration.
 // 可选 MaxAttempts>1: 点完验证模板消失没, 没消失就重点 (每下间隔 RetryIntervalMs), 点满还在走 Timeout(Matched=true).
+// ROI: 限定搜索区; OrderBy/Index: 多命中排序选第 N 个 (默认 score/0 = 最高分, 等价旧行为).
 package detect
 
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,16 +26,22 @@ const (
 	clkInTemplates       = "Templates"
 	clkInTimeoutMs       = "TimeoutMs"
 	clkInThreshold       = "Threshold"
+	clkInROI             = "ROI"
 	clkInButton          = "Button"
 	clkInSettleMs        = "SettleMs"
 	clkInMaxAttempts     = "MaxAttempts"
 	clkInRetryIntervalMs = "RetryIntervalMs"
+	clkInOrderBy         = "OrderBy"
+	clkInIndex           = "Index"
 	clkOutDone           = "Done"
 	clkOutTimeout        = "Timeout"
 	clkDataPoint         = "Point"
 	clkDataConf          = "Conf"
 	clkDataMatched       = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
 )
+
+// visionPollInterval: locateOnce 轮询间隔 (acquire 内部用).
+const visionPollInterval = 100 * time.Millisecond
 
 func (ClickTemplate) Spec() node.Spec {
 	return node.Spec{
@@ -48,6 +57,7 @@ func (ClickTemplate) Spec() node.Spec {
 			{Name: clkInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: clkInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: clkInButton, Type: "String", Default: "left",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -61,6 +71,18 @@ func (ClickTemplate) Spec() node.Spec {
 			{Name: clkInMaxAttempts, Type: "Number", Default: json.Number("1"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkInRetryIntervalMs, Type: "Number", Default: json.Number("500"),
+				Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: clkInOrderBy, Type: "String", Default: "score", Advanced: true,
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{
+							{Value: "score"},
+							{Value: "horizontal"},
+							{Value: "vertical"},
+							{Value: "area"},
+							{Value: "random"},
+						}})}},
+			{Name: clkInIndex, Type: "Integer", Default: json.Number("0"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
@@ -79,9 +101,86 @@ func (ClickTemplate) Spec() node.Spec {
 	}
 }
 
+// pickMatch 多命中按 orderBy 排序后取 index。score 不重排 (MatchAll 已 conf 降序)。
+func pickMatch(matches []node.TemplateMatch, orderBy string, index int) (node.TemplateMatch, bool) {
+	if index < 0 || index >= len(matches) {
+		return node.TemplateMatch{}, false
+	}
+	sorted := make([]node.TemplateMatch, len(matches))
+	copy(sorted, matches)
+	switch orderBy {
+	case "horizontal":
+		sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].BBox[0] < sorted[j].BBox[0] })
+	case "vertical":
+		sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].BBox[1] < sorted[j].BBox[1] })
+	case "area":
+		sort.SliceStable(sorted, func(i, j int) bool {
+			return sorted[i].BBox[2]*sorted[i].BBox[3] > sorted[j].BBox[2]*sorted[j].BBox[3]
+		})
+	case "random":
+		rand.Shuffle(len(sorted), func(i, j int) { sorted[i], sorted[j] = sorted[j], sorted[i] })
+	default: // score: 保持 MatchAll 的 conf 降序
+	}
+	return sorted[index], true
+}
+
+// locateOnce 单帧定位选中命中。默认 (score/0) 走单帧 WaitMatch (保留 variant.BBox 快速定位);
+// 非默认走 MatchAll + pickMatch。Found=false 表本帧没选到。
+func locateOnce(ctx node.Ctx, keys []string, threshold float64, roi node.Geometry, orderBy string, index int) (node.MatchHit, error) {
+	if (orderBy == "" || orderBy == "score") && index == 0 {
+		return ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, roi, 0)
+	}
+	matches, err := ctx.Vision().MatchAll(ctx.Context(), keys, threshold, 0, roi)
+	if err != nil {
+		return node.MatchHit{}, err
+	}
+	tm, ok := pickMatch(matches, orderBy, index)
+	if !ok {
+		return node.MatchHit{}, nil
+	}
+	return node.MatchHit{Found: true, Point: tm.Point, BBox: tm.BBox, Conf: tm.Conf}, nil
+}
+
+// acquire 轮询 locateOnce 直到命中或 timeout。timeout<=0 单帧。记录见过的最高 conf 供 Timeout 诊断。
+func acquire(ctx node.Ctx, keys []string, threshold float64, roi node.Geometry, orderBy string, index int, timeout time.Duration) (node.MatchHit, error) {
+	hit, err := locateOnce(ctx, keys, threshold, roi, orderBy, index)
+	if err != nil {
+		return node.MatchHit{}, err
+	}
+	if hit.Found || timeout <= 0 {
+		return hit, nil
+	}
+	deadline := ctx.Now().Add(timeout)
+	bestConf := hit.Conf
+	for {
+		if err := ctx.Context().Err(); err != nil {
+			return node.MatchHit{}, err
+		}
+		if err := waitOrCancel(ctx, visionPollInterval); err != nil {
+			return node.MatchHit{}, err
+		}
+		hit, err = locateOnce(ctx, keys, threshold, roi, orderBy, index)
+		if err != nil {
+			return node.MatchHit{}, err
+		}
+		if hit.Conf > bestConf {
+			bestConf = hit.Conf
+		}
+		if hit.Found {
+			return hit, nil
+		}
+		if ctx.Now().After(deadline) {
+			return node.MatchHit{Conf: bestConf}, nil
+		}
+	}
+}
+
 func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(clkInTemplates)
 	threshold := in.Float64(clkInThreshold)
+	roi := in.Geometry(clkInROI)
+	orderBy := in.String(clkInOrderBy)
+	index := in.Int(clkInIndex)
 	timeout := time.Duration(in.Int(clkInTimeoutMs)) * time.Millisecond
 	settle := time.Duration(in.Int(clkInSettleMs)) * time.Millisecond
 	maxAttempts := in.Int(clkInMaxAttempts)
@@ -90,17 +189,26 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if btn == "" {
 		btn = "left"
 	}
-	hit, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, node.Geometry{}, timeout)
+
+	// 获取: 轮询 locateOnce 到命中或超时 (统一两路径).
+	hit, err := acquire(ctx, keys, threshold, roi, orderBy, index, timeout)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate wait %s: %v", strings.Join(keys, "+"), err)
 	}
 	if !hit.Found {
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, hit.Conf).Set(clkDataMatched, false).Fire(), nil
 	}
-	hit, err = settleAfterMatch(ctx, keys, threshold, settle, hit)
-	if err != nil {
-		return nil, err
+
+	// settle: 等稳 + 重定位一次。
+	if settle > 0 {
+		if err := waitOrCancel(ctx, settle); err != nil {
+			return nil, err
+		}
+		if h2, err := locateOnce(ctx, keys, threshold, roi, orderBy, index); err == nil && h2.Found {
+			hit = h2
+		}
 	}
+
 	if err := clickAt(ctx, keys, hit.Point, btn); err != nil {
 		return nil, err
 	}
@@ -112,17 +220,17 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		if err := waitOrCancel(ctx, retryInterval); err != nil {
 			return nil, err
 		}
-		hit2, err := matchOnce(ctx, keys, threshold)
+		h2, err := locateOnce(ctx, keys, threshold, roi, orderBy, index)
 		if err != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate recheck %s: %v", strings.Join(keys, "+"), err)
 		}
-		if !hit2.Found {
+		if !h2.Found {
 			return ctx.Out(clkOutDone).Set(clkDataPoint, hit.Point).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
 		if clicks >= maxAttempts {
-			return ctx.Out(clkOutTimeout).Set(clkDataConf, hit2.Conf).Set(clkDataMatched, true).Fire(), nil
+			return ctx.Out(clkOutTimeout).Set(clkDataConf, h2.Conf).Set(clkDataMatched, true).Fire(), nil
 		}
-		hit = hit2
+		hit = h2
 		if err := clickAt(ctx, keys, hit.Point, btn); err != nil {
 			return nil, err
 		}
