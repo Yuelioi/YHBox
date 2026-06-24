@@ -1,6 +1,6 @@
 # Point 坐标 %/px 单位 + 截图取点(4 坐标节点统一到 Point 类型)
 
-SUMMARY: 给 node.Point 加 Unit(%/px),px→ratio 只在 InputService.ResolvePoint 一处换算;ClickAt/Scroll/MouseMoveTo 由 XRatio/YRatio slider 统一成单个 Point pin,Swipe 沿用;PointWidget 自带单位开关+截图取点。
+SUMMARY: 给 node.Point 加 Unit(%/px),px→ratio 只在 InputService.ResolvePoint 一处换算;ClickAt/Scroll/MouseMoveTo 由 XRatio/YRatio slider 统一成单个 Point pin,Swipe 沿用;PointWidget 自带单位开关+截图取点;新增 PureFunc 节点 MakePoint(2 Number+Unit→Point)恢复 X/Y 分别连线。
 READ WHEN: 实现/改 Point 坐标节点、px 像素坐标、PointWidget、屏幕取点(point picker)、ResolvePoint 时。
 
 ---
@@ -96,15 +96,26 @@ point payload 现在只回 `{xRatio,yRatio}`;**对称 rect 补 `screenW/screenH`
 
 ## 6. i18n / catalog
 
-ClickAt/Scroll/MouseMoveTo 的 input pin 由 `XRatio`/`YRatio` → 单个 `Point` → label key 变;PointWidget 新增单位开关 / 取点按钮文案。改 catalog:先补 zh.ts/en.ts → `cd frontend && pnpm gen:node-i18n` → `go test ./internal/catalog/...`(见 build.md)。
+ClickAt/Scroll/MouseMoveTo 的 input pin 由 `XRatio`/`YRatio` → 单个 `Point` → label key 变;PointWidget 新增单位开关 / 取点按钮文案;**新增 MakePoint 节点**的 label/description/input(X/Y/Unit + 选项)文案。改 catalog:先补 zh.ts/en.ts → `cd frontend && pnpm gen:node-i18n` → `go test ./internal/catalog/...`(见 build.md)。
 
-## 7. 取舍(用户已知会)
+## 7. 构造节点 MakePoint(把"失去 X/Y 分别连线"抹平)
 
-ClickAt/Scroll/MouseMoveTo 从 **slider(0-1)+ 可分别连 Number** → **1 个 Point pin(PointWidget 两个框)**:失去 slider 手感、失去 X/Y 分别连线。是"统一到 Point"的固有结果(用户选了"大"范围)。换来:px 语义 + 截图取点 + 可直接连检测节点的 Point 输出。
+新增 PureFunc 节点 `MakePoint`:两个 Number(+ 一个 Unit 选项)→ 一个 Point 输出。谁要动态算坐标(连 Div/Add/检测输出等)就用它拼 Point 再喂坐标节点,不用把单位/连线复杂度塞进每个坐标节点。符合通用框架 building block 路子 + YAGNI 例外(价值高、量极小)。
+
+- 位置:`internal/nodes/purefunc/`(IsPureData,套现有 `specBuilder`)。
+- 输入:`X`(Number,默认 0)、`Y`(Number,默认 0)、`Unit`(dropdown:百分比 / 像素,默认百分比)。
+- 输出:`Result`(Point)。
+- `Evaluate`:`node.Point{X: in.Float64("X"), Y: in.Float64("Y"), Unit: <Unit 映射>}`;Unit 选项映射到 Point.Unit(百分比→空串、像素→`"px"`),dropdown 值编码细节实现时定(避免空串 option key)。
+- 语义:X/Y 按 Point 内部表示**逐字透传**(百分比模式 = 0-1 比例原值,不×100;像素模式 = 像素值)。PointWidget 字面编辑里的 ×100 只是显示便利,不影响数据层。
+- 反向 Split(Point→X/Y)用户没要 → YAGNI,不加。
+
+## 8. 取舍(已被 §7 抹平)
+
+ClickAt/Scroll/MouseMoveTo 从 **slider(0-1)+ 可分别连 Number** → **1 个 Point pin(PointWidget 两个框)**:失去 slider 手感;X/Y 分别连线由 §7 的 `MakePoint` 恢复(两个 Number → Point)。换来:px 语义 + 截图取点 + 可直接连检测节点的 Point 输出。
 
 ## 测试
 
-- Go:ClickAt/Scroll/MouseMoveTo node 测试改读单个 Point pin;新增 ResolvePoint stub(6 处);`asNodePoint` unit coercion 单测;ResolvePoint(px) 单测(给定 client size 验比例)。
+- Go:ClickAt/Scroll/MouseMoveTo node 测试改读单个 Point pin;新增 ResolvePoint stub(6 处);`asNodePoint` unit coercion 单测;ResolvePoint(px) 单测(给定 client size 验比例);`MakePoint` Evaluate 单测(X/Y/Unit→Point,含 Unit 映射)。
 - FE:PointWidget 单位切换 / px 显示不×100 / 取点 %与px 存值 单测;coerceLiteral('point') unit 透传(现有测试已是 identity,补 unit case)。
 - 预存红基线照 build.md 排除(runtime fixture 缺失那几个)。
 
@@ -114,4 +125,5 @@ ClickAt/Scroll/MouseMoveTo 从 **slider(0-1)+ 可分别连 Number** → **1 个 
 - `internal/node/interfaces.go:249-267`(InputService)、`click_mods.go:48,64`(ClickWithMods 纯比例)。
 - `internal/nodes/input/`:click_at.go、scroll.go、mouse_move_to.go(moveCursor:67 纯比例)、swipe.go:62(Drag)。
 - `internal/services/container/runtime/node_services.go:286-350`(inputAdapter,有 hwnd)、`data_pull.go:244`(asNodePoint)。
+- `internal/nodes/purefunc/purefunc.go`(specBuilder + init 注册 + Evaluate 模板,MakePoint 加这里)。
 - FE:`inline/PointWidget.vue`、`inline/GeometryWidget.vue`(自持 picker 参考)、`inline/StructuredInput.vue:11`(widget==='point'路由)、`composables/containerEditor/useScreenPick.ts`、`views/tools/ScreenPickerView.vue`、`components/containers/NodeInspector.vue:138/1077`、`nodeRegistry/index.ts`(PointValue/PinType)、`nodeRegistry/adapter.ts:98`(Point→point)。
