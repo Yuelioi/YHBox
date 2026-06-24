@@ -3,7 +3,6 @@ package platform
 import (
 	"fmt"
 	"os/exec"
-	"unicode"
 )
 
 // taskkillArgs 根据 target 判断是 PID(纯数字)还是进程名，返回 taskkill 参数列表。
@@ -21,7 +20,7 @@ func isPID(s string) bool {
 		return false
 	}
 	for _, r := range s {
-		if !unicode.IsDigit(r) {
+		if r < '0' || r > '9' {
 			return false
 		}
 	}
