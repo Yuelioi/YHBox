@@ -79,6 +79,41 @@ func TestLogMerger_IdleTimeoutDoesNotSplitActive(t *testing.T) {
 	t.Fatalf("active segment (gaps<idle) must stay one ×5, got %#v", *files)
 }
 
+// 复现「短图经常没日志」: 容器在 250ms tick 前跑完, dirty 段只有 FlushContainer 收尾.
+// FlushContainer 必须把未刷段 emit 到前端 (final=true), 否则 GUI 面板一条都收不到.
+func TestLogMerger_FlushEmitsUnflushedSegments(t *testing.T) {
+	var mu sync.Mutex
+	var emitted []map[string]any
+	m := NewLogMerger(
+		func(name string, data any) {
+			if name != "container:node-dump-batch" {
+				return
+			}
+			d, _ := data.(map[string]any)
+			es, _ := d["entries"].([]map[string]any)
+			mu.Lock()
+			emitted = append(emitted, es...)
+			mu.Unlock()
+		},
+		func(line string) {},
+	)
+	defer m.Close()
+	// 模拟短图: 两节点各 dump 一次, 不等 tick 立刻 Flush.
+	m.Add("c", "n_a", "A", "A(n_a) out{v=1}", "out{v=1}", false)
+	m.Add("c", "n_b", "B", "B(n_b) out{v=2}", "out{v=2}", false)
+	m.FlushContainer("c")
+	mu.Lock()
+	defer mu.Unlock()
+	if len(emitted) != 2 {
+		t.Fatalf("FlushContainer 必须 emit 2 个未刷段到前端, got %d: %#v", len(emitted), emitted)
+	}
+	for _, e := range emitted {
+		if e["final"] != true {
+			t.Errorf("flush emit 应 final=true (定版), got %#v", e)
+		}
+	}
+}
+
 func TestLogMerger_ErrorLineNotCoalesced(t *testing.T) {
 	m, files, mu := newTestMerger()
 	defer m.Close()

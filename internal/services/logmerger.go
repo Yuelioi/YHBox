@@ -70,8 +70,14 @@ func (m *LogMerger) Add(containerID, nodeID, nodeKind, line, lineKey string, isE
 	m.segs[k] = &dumpSegment{nodeID: nodeID, nodeKind: nodeKind, line: line, lineKey: lineKey, count: 1, lastUpdate: m.now(), dirty: true}
 }
 
+// finalizeLocked 收尾一个段: 写文件 + emit final 定版 + 删除.
+// emit final 是关键 —— 段的前端 emit 只在 tick(dirty) 或这里发生; 走 finalize 而非
+// tick 的收尾 (FlushContainer 容器结束 / Add 换 lineKey 收尾旧段) 必须在此 emit,
+// 否则短图 (250ms tick 前跑完) 的 dirty 段只写文件、前端面板一条都收不到.
+// 前端按 (nodeId,lineKey,!frozen) 幂等更新: 已 emit 过的段再 emit final 只是定版、不重复行.
 func (m *LogMerger) finalizeLocked(k string, s *dumpSegment) {
 	m.writeFile(renderCount(s.line, s.count))
+	m.emitOneLocked(s.nodeID, s.nodeKind, s.lineKey, s.line, s.count, true)
 	delete(m.segs, k)
 }
 
@@ -113,8 +119,7 @@ func (m *LogMerger) tick() {
 	entries := make([]map[string]any, 0, len(m.segs))
 	for k, s := range m.segs {
 		if now.Sub(s.lastUpdate) >= m.idleTimeout {
-			entries = append(entries, segEntry(s, true))
-			m.finalizeLocked(k, s)
+			m.finalizeLocked(k, s) // 内部 emit final, 不再 append 进 batch (免重复)
 			continue
 		}
 		if s.dirty {
