@@ -558,3 +558,19 @@ func MouseScroll(hwnd win.HWND, notches int, activateDelay time.Duration) {
 	lp := uintptr(uint32(uint16(cx))) | uintptr(uint32(uint16(cy)))<<16
 	postMessage(hwnd, WM_MOUSEWHEEL, wp, lp)
 }
+
+// MouseScrollH 在当前光标位置横向滚 notches 格滚轮（正=右，负=左）。
+// 走 WM_MOUSEHWHEEL（0x020E）—— 与 WM_MOUSEWHEEL 完全相同的 wParam/lParam 封装，
+// 只有消息号不同。
+func MouseScrollH(hwnd win.HWND, notches int, activateDelay time.Duration) {
+	const WM_MOUSEHWHEEL = 0x020E
+	FakeActivate(hwnd)
+	if activateDelay > 0 {
+		time.Sleep(activateDelay)
+	}
+	cx, cy := getCursorPos()
+	delta := int16(notches * WheelDelta)
+	wp := uintptr(uint32(uint16(delta))) << 16
+	lp := uintptr(uint32(uint16(cx))) | uintptr(uint32(uint16(cy)))<<16
+	postMessage(hwnd, WM_MOUSEHWHEEL, wp, lp)
+}

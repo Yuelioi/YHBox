@@ -327,7 +327,7 @@ func (a *inputAdapter) CursorRatio() (float64, float64, error) {
 	return a.rt.Input.CursorRatio(h)
 }
 
-func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int) error {
+func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bool) error {
 	if err := a.ensure(); err != nil {
 		return err
 	}
@@ -335,7 +335,7 @@ func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int) error {
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.Scroll(h, xRatio, yRatio, notches)
+	return a.rt.Input.Scroll(h, xRatio, yRatio, notches, horizontal)
 }
 
 func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {

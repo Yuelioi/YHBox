@@ -33,8 +33,8 @@ func (r *recordingInput) MouseMoveRel(dx, dy, durationMs int) error {
 	r.calls = append(r.calls, fmt.Sprintf("MouseMoveRel:%d:%d:%d", dx, dy, durationMs))
 	return r.err
 }
-func (r *recordingInput) Scroll(xRatio, yRatio float64, notches int) error {
-	r.calls = append(r.calls, fmt.Sprintf("Scroll:%.3f:%.3f:%d", xRatio, yRatio, notches))
+func (r *recordingInput) Scroll(xRatio, yRatio float64, notches int, horizontal bool) error {
+	r.calls = append(r.calls, fmt.Sprintf("Scroll:%.3f:%.3f:%d:%v", xRatio, yRatio, notches, horizontal))
 	return r.err
 }
 func (r *recordingInput) MouseDown(xRatio, yRatio float64, button string) error {

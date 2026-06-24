@@ -191,12 +191,15 @@ func (b *PostMessageBackend) CursorRatio(hwnd win.HWND) (float64, float64, error
 	return float64(cx) / w, float64(cy) / h, nil
 }
 
-func (b *PostMessageBackend) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int) error {
+func (b *PostMessageBackend) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error {
 	b.ensureActivated(hwnd)
 	_ = xRatio
 	_ = yRatio
-	// 现有 MouseScroll 不接 xy
-	MouseScroll(hwnd, notches, defaultActivateDelay)
+	if horizontal {
+		MouseScrollH(hwnd, notches, defaultActivateDelay)
+	} else {
+		MouseScroll(hwnd, notches, defaultActivateDelay)
+	}
 	return nil
 }
 

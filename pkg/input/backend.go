@@ -33,7 +33,7 @@ type Backend interface {
 	MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error
 	MouseUp(hwnd win.HWND, button string) error
 	MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) error
-	Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int) error
+	Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error
 
 	// Drag 按住 button 从 (x1Ratio,y1Ratio) 拖到 (x2Ratio,y2Ratio), 历时 durationMs 毫秒.
 	// 坐标均为 0-1 客户区比例; backend 自己 * ClientSize 拿像素.

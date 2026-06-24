@@ -86,7 +86,7 @@ func (stubInputService) Click(x, y float64, button string, durationMs int) error
 func (stubInputService) MouseMoveRel(dx, dy, durationMs int) error                         { return nil }
 func (stubInputService) MoveTo(x, y float64) error                                         { return nil }
 func (stubInputService) CursorRatio() (float64, float64, error)                            { return 0, 0, nil }
-func (stubInputService) Scroll(x, y float64, notches int) error                            { return nil }
+func (stubInputService) Scroll(x, y float64, notches int, horizontal bool) error           { return nil }
 func (stubInputService) MouseDown(x, y float64, button string) error                       { return nil }
 func (stubInputService) MouseUp(button string) error                                       { return nil }
 func (stubInputService) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error { return nil }

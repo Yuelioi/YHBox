@@ -254,7 +254,7 @@ type InputService interface {
 	MouseMoveRel(dx, dy, durationMs int) error
 	MoveTo(xRatio, yRatio float64) error
 	CursorRatio() (xRatio, yRatio float64, err error)
-	Scroll(xRatio, yRatio float64, notches int) error
+	Scroll(xRatio, yRatio float64, notches int, horizontal bool) error
 
 	MouseDown(xRatio, yRatio float64, button string) error
 	MouseUp(button string) error

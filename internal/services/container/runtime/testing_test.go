@@ -110,6 +110,6 @@ func (f *fakeInputBackend) Drag(win.HWND, float64, float64, float64, float64, st
 }
 func (f *fakeInputBackend) MoveTo(win.HWND, float64, float64) error        { return nil }
 func (f *fakeInputBackend) CursorRatio(win.HWND) (float64, float64, error) { return 0, 0, nil }
-func (f *fakeInputBackend) Scroll(win.HWND, float64, float64, int) error   { return nil }
+func (f *fakeInputBackend) Scroll(win.HWND, float64, float64, int, bool) error { return nil }
 func (f *fakeInputBackend) ReleaseAll() error                              { return nil }
 func (f *fakeInputBackend) Close() error                                   { return nil }

@@ -23,7 +23,7 @@ func TestStubInputService_AllMethodsNoOp(t *testing.T) {
 		func() error { return in.KeyUp("A") },
 		func() error { return in.Click(0.5, 0.5, "left", 50) },
 		func() error { return in.MouseMoveRel(10, 20, 100) },
-		func() error { return in.Scroll(0.5, 0.5, 3) },
+		func() error { return in.Scroll(0.5, 0.5, 3, false) },
 		func() error { return in.MouseDown(0.5, 0.5, "left") },
 		func() error { return in.MouseUp("left") },
 	}
