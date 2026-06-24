@@ -249,7 +249,8 @@ func asNodePoint(v any) (nodepkg.Point, bool) {
 		return nodepkg.Point{X: t.X, Y: t.Y}, true
 	case map[string]any:
 		if _, ok := t["x"]; ok {
-			return nodepkg.Point{X: asFloat(t["x"]), Y: asFloat(t["y"])}, true
+			u, _ := t["unit"].(string)
+			return nodepkg.Point{X: asFloat(t["x"]), Y: asFloat(t["y"]), Unit: nodepkg.PointUnit(u)}, true
 		}
 	case []any:
 		if len(t) >= 2 {

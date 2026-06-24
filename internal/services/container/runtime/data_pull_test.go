@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	nodepkg "yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/expr"
 )
@@ -170,5 +171,23 @@ func TestEvalDataSourceRejectsUnknownKind(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown kind") {
 		t.Errorf("wrong error msg: %v", err)
+	}
+}
+
+func TestAsNodePoint_Unit(t *testing.T) {
+	// map 带 unit:"px" → Unit=UnitPx
+	p, ok := asNodePoint(map[string]any{"x": 960.0, "y": 540.0, "unit": "px"})
+	if !ok || p.X != 960 || p.Y != 540 || p.Unit != nodepkg.UnitPx {
+		t.Fatalf("got %+v ok=%v, want {960 540 px}", p, ok)
+	}
+	// map 无 unit → Unit 空 (比例默认)
+	p2, _ := asNodePoint(map[string]any{"x": 0.5, "y": 0.5})
+	if p2.Unit != nodepkg.UnitRatio {
+		t.Fatalf("got unit %q, want empty", p2.Unit)
+	}
+	// 已是 node.Point 原样透传 unit
+	p3, _ := asNodePoint(nodepkg.Point{X: 1, Y: 2, Unit: nodepkg.UnitPx})
+	if p3.Unit != nodepkg.UnitPx {
+		t.Fatalf("passthrough lost unit: %+v", p3)
 	}
 }

@@ -3,10 +3,19 @@ package node
 
 import "sync"
 
-// Point 域类型 — ratio 坐标 (0.0-1.0).
+// PointUnit — Point 坐标单位. "" = 比例(0-1), "px" = 客户区像素.
+type PointUnit string
+
+const (
+	UnitRatio PointUnit = ""   // 百分比/比例 (X/Y 0-1) — 默认
+	UnitPx    PointUnit = "px" // 客户区像素 (X/Y 像素值)
+)
+
+// Point 域类型 — 坐标 + 单位.
 type Point struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
+	X    float64   `json:"x"`
+	Y    float64   `json:"y"`
+	Unit PointUnit `json:"unit,omitempty"`
 }
 
 // Rect 域类型 — ratio 矩形.
