@@ -190,3 +190,36 @@ func TestExpr_Evaluate_ConfigKeysIsolatedFromEnv(t *testing.T) {
 		t.Errorf("env leak regression: OutType config key leaked into expr env (got %q, want NOT %q)", got, "autox")
 	}
 }
+
+// ===== MakePoint =====
+
+func TestMakePoint_Percent(t *testing.T) {
+	v, err := MakePoint{}.Evaluate(nil, node.NewInputsFromConfig(
+		map[string]any{"X": 0.5, "Y": 0.25, "Unit": "percent"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, ok := v.(node.Point)
+	if !ok || p.X != 0.5 || p.Y != 0.25 || p.Unit != node.UnitRatio {
+		t.Fatalf("got %+v ok=%v want {0.5 0.25 ratio}", v, ok)
+	}
+}
+
+func TestMakePoint_Px(t *testing.T) {
+	v, _ := MakePoint{}.Evaluate(nil, node.NewInputsFromConfig(
+		map[string]any{"X": 960.0, "Y": 540.0, "Unit": "px"}))
+	p := v.(node.Point)
+	if p.X != 960 || p.Y != 540 || p.Unit != node.UnitPx {
+		t.Fatalf("got %+v want {960 540 px}", p)
+	}
+}
+
+func TestMakePoint_Spec(t *testing.T) {
+	s := MakePoint{}.Spec()
+	if s.Kind != "MakePoint" || !s.IsPureData {
+		t.Fatalf("spec wrong: %+v", s)
+	}
+	if len(s.Outputs) != 1 || s.Outputs[0].Type != "Point" {
+		t.Fatalf("want single Point output, got %+v", s.Outputs)
+	}
+}

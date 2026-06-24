@@ -1485,6 +1485,17 @@ export default {
       input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
       output: { Result: { label: '结果' } },
     },
+    MakePoint: {
+      label: '组装坐标',
+      description: '把两个数字(X、Y)拼成一个「坐标」值,接到点击/滑动等需要坐标的节点上。可选单位:百分比(0-1,跟窗口大小无关)或像素。需要用算出来的数字当坐标时用它。',
+      example: '把检测到的血量比例当 X、固定 0.9 当 Y,组装成坐标喂给点击节点。',
+      input: {
+        X: { label: 'X' },
+        Y: { label: 'Y' },
+        Unit: { label: '单位', option: { percent: '百分比', px: '像素' } },
+      },
+      output: { Result: { label: '坐标' } },
+    },
     // list
     ForEach: {
       label: '遍历列表', description: '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',

@@ -1465,6 +1465,17 @@
       input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
       output: { Result: { label: 'Result' } },
     },
+    MakePoint: {
+      label: 'Make Point',
+      description: 'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
+      example: 'Use a detected health ratio as X and a fixed 0.9 as Y, then feed the resulting coordinate into a Click node.',
+      input: {
+        X: { label: 'X' },
+        Y: { label: 'Y' },
+        Unit: { label: 'Unit', option: { percent: 'Percent (0-1)', px: 'Pixels' } },
+      },
+      output: { Result: { label: 'Coordinate' } },
+    },
     // list
     ForEach: {
       label: 'For Each', description: 'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',

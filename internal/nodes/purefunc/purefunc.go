@@ -120,6 +120,8 @@ func init() {
 		// 字符串函数 (10)
 		&Replace{}, &Substring{}, &Trim{}, &ToUpper{}, &ToLower{},
 		&IndexOf{}, &StartsWith{}, &EndsWith{}, &RegexMatch{}, &RegexExtract{},
+		// 构造 (1)
+		&MakePoint{},
 	} {
 		node.Register(n)
 	}
@@ -378,4 +380,36 @@ func (Select) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 		return in.Raw("A"), nil
 	}
 	return in.Raw("B"), nil
+}
+
+// ===== 构造 (1) =====
+
+type MakePoint struct{}
+
+func (MakePoint) Spec() node.Spec {
+	return node.Spec{
+		Kind:     "MakePoint",
+		Category: "PureFunc",
+		Inputs: []node.InputSpec{
+			{Name: "X", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: "Y", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: "Unit", Type: "String", Default: "percent",
+				Widget: node.WidgetSpec{Kind: "dropdown",
+					Props: node.MarshalProps(node.DropdownProps{
+						Options: []node.EnumOption{
+							{Value: "percent"},
+							{Value: "px"},
+						}})}},
+		},
+		Outputs:    []node.OutputSpec{{Name: "Result", Type: "Point"}},
+		IsPureData: true,
+	}
+}
+
+func (MakePoint) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	u := node.UnitRatio
+	if in.String("Unit") == "px" {
+		u = node.UnitPx
+	}
+	return node.Point{X: in.Float64("X"), Y: in.Float64("Y"), Unit: u}, nil
 }
