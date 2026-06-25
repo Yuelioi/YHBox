@@ -27,6 +27,9 @@ type Spec struct {
 	// 容器 (Sleep/Log/Cron/Expr...) 免 WindowTarget. 新节点用了上述 ctx 服务务必置真
 	// (漏置 → 该节点在无窗口容器里 SafeBackend 静默 no-op).
 	NeedsWindow bool `json:"needsWindow,omitempty"`
+	// NeedsForeground — 节点向目标窗口注入输入(SendInput 后端需前台焦点)。派发期 Window 覆盖
+	// 时, 若后端是 sendinput 且本标志为真, 框架补拉一次前台。输入类节点(Click/KeyPress...)置真。
+	NeedsForeground bool `json:"needsForeground,omitempty"`
 	// IsGraphMarker — graph 结构标记节点 (SubgraphInput / SubgraphOutput).
 	// runtime 在 dispatch_v5 / runRegionBody 里 special-route 跳过 Run.
 	// 跟 IsVisualOnly 对称 (一个渲染标, 一个结构标), 跟 IsPureData 区分.
@@ -56,6 +59,12 @@ type InputSpec struct {
 	Widget      WidgetSpec   `json:"widget,omitempty"`
 	VisibleWhen *VisibleRule `json:"visibleWhen,omitempty"`
 	Schema      *FieldSchema `json:"schema,omitempty"` // 结构化输入的数据 schema; 非 nil → FE StructuredInput
+}
+
+// WindowInputSpec — NeedsWindow 节点统一 spread 的可选窗口输入。连了→派发期作用在该窗口;
+// 不连→当前活动窗口。框架在 execNodeViaFramework 解释此 pin(节点 Run 无需读它)。
+func WindowInputSpec() InputSpec {
+	return InputSpec{Name: "Window", Type: "Window"}
 }
 
 type OutputSpec struct {
