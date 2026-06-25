@@ -446,12 +446,23 @@ func TestWindowAdapter_SetActive_PropagatesResolveError(t *testing.T) {
 	}
 }
 
-func TestWindowAdapter_Snapshot(t *testing.T) {
+func TestWindowAdapter_Snapshot_ReReadsLiveSize(t *testing.T) {
+	orig := clientSizeFn
+	defer func() { clientSizeFn = orig }()
+	clientSizeFn = func(win.HWND) (int, int, error) { return 1920, 1080, nil }
+
 	rt := &RuntimeContext{}
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 7, Title: "X", ClientW: 100, ClientH: 50})
 	a := NewWindowAdapter(rt)
 	w, err := a.Snapshot()
-	if err != nil || w.HWND != 7 || w.ClientW != 100 {
-		t.Fatalf("Snapshot 错: %+v %v", w, err)
+	if err != nil || w.HWND != 7 || w.Title != "X" || w.ClientW != 1920 || w.ClientH != 1080 {
+		t.Fatalf("Snapshot 应重读 live 尺寸 1920x1080 (Title 仍快照): %+v %v", w, err)
+	}
+}
+
+func TestWindowAdapter_Snapshot_NoActiveWindow(t *testing.T) {
+	rt := &RuntimeContext{}
+	if _, err := NewWindowAdapter(rt).Snapshot(); err != ErrNoActiveWindow {
+		t.Fatalf("无活动窗口应返 ErrNoActiveWindow, got %v", err)
 	}
 }

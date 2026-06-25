@@ -48,8 +48,9 @@ func (Script) Spec() node.Spec {
 }
 
 // scriptEnvSkipKeys — merged inputs 里非动态输入的 key (静态 pin + config 元数据).
+// "Window" 是静态 dispatch-override pin, 不应注入为 JS 全局变量。
 var scriptEnvSkipKeys = map[string]struct{}{
-	inCode: {}, "Inputs": {},
+	inCode: {}, "Inputs": {}, "Window": {},
 }
 
 // Dependencies 静态抽脚本里引用的资产 GUID — 让依赖扫描器 / 资产 GC / 安全删除看见脚本引用,

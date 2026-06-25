@@ -3,6 +3,7 @@ package window
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -87,26 +88,64 @@ func (r *recordingWindowService) Snapshot() (node.Window, error) {
 	return r.snap, nil
 }
 
-func TestWindowState_Maximize_FiresDoneWithFreshWindow(t *testing.T) {
-	rec := &recordingWindowService{snap: node.Window{HWND: 9, ClientW: 1920, ClientH: 1080}}
-	node.ResetRegistryForTest()
-	node.Register(&WindowState{})
-	rn, _ := node.Get("WindowState")
-	svc := node.StubServices()
-	svc.Window = rec
+func TestWindowState_AllStates(t *testing.T) {
+	cases := []struct {
+		state   string
+		check   func(*recordingWindowService) bool
+		label   string
+	}{
+		{"maximize", func(r *recordingWindowService) bool { return r.maximized }, "r.maximized"},
+		{"minimize", func(r *recordingWindowService) bool { return r.minimized }, "r.minimized"},
+		{"restore", func(r *recordingWindowService) bool { return r.restored }, "r.restored"},
+		{"borderlessFullscreen", func(r *recordingWindowService) bool { return r.borderless }, "r.borderless"},
+		{"restoreBorders", func(r *recordingWindowService) bool { return r.restoredBorders }, "r.restoredBorders"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.state, func(t *testing.T) {
+			rec := &recordingWindowService{snap: node.Window{HWND: 9, ClientW: 1920, ClientH: 1080}}
+			node.ResetRegistryForTest()
+			node.Register(&WindowState{})
+			rn, _ := node.Get("WindowState")
+			svc := node.StubServices()
+			svc.Window = rec
 
-	r := node.RunNode(context.Background(), rn, nil,
-		map[string]any{wsInState: "maximize"}, nil, svc, false)
-	if r.Error != nil {
-		t.Fatal(r.Error)
+			r := node.RunNode(context.Background(), rn, nil,
+				map[string]any{wsInState: tc.state}, nil, svc, false)
+			if r.Error != nil {
+				t.Fatalf("state=%q: r.Error=%v", tc.state, r.Error)
+			}
+			if !tc.check(rec) {
+				t.Fatalf("state=%q: %s 未被调用", tc.state, tc.label)
+			}
+			if r.ExitName != wsDone {
+				t.Fatalf("state=%q: ExitName=%q, want %q", tc.state, r.ExitName, wsDone)
+			}
+			w, ok := r.OutputData["Window"].(node.Window)
+			if !ok || w.HWND != 9 {
+				t.Fatalf("state=%q: Done.Window 错: %+v", tc.state, r.OutputData["Window"])
+			}
+		})
 	}
-	if !rec.maximized {
-		t.Fatal("应调 Maximize")
-	}
-	w, ok := r.OutputData["Window"].(node.Window)
-	if !ok || w.ClientW != 1920 {
-		t.Fatalf("Done.Window 应是操作后重读: %+v", r.OutputData["Window"])
-	}
+
+	// unknown state → r.Error 携带 CodeError
+	t.Run("unknown", func(t *testing.T) {
+		rec := &recordingWindowService{snap: node.Window{HWND: 9}}
+		node.ResetRegistryForTest()
+		node.Register(&WindowState{})
+		rn, _ := node.Get("WindowState")
+		svc := node.StubServices()
+		svc.Window = rec
+
+		r := node.RunNode(context.Background(), rn, nil,
+			map[string]any{wsInState: "bogus"}, nil, svc, false)
+		if r.Error == nil {
+			t.Fatal("unknown State 应返 error")
+		}
+		var coded node.Coded
+		if !errors.As(r.Error, &coded) || coded.ErrCode() != node.CodeError {
+			t.Fatalf("error 应为 CodeError, got %v", r.Error)
+		}
+	})
 }
 
 func TestMoveResizeWindow_FiresDoneWithFreshWindow(t *testing.T) {

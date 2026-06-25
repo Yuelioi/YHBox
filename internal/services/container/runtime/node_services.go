@@ -421,6 +421,9 @@ func (a *windowAdapter) ClientSize() (int, int, error) {
 // resolveWindowFn 测试可替换; 默认真 Win32 解析.
 var resolveWindowFn = winutil.ResolveWindow
 
+// clientSizeFn 测试可替换; 默认 live Win32 GetClientRect.
+var clientSizeFn = func(h win.HWND) (int, int, error) { return winutil.ClientSize(h) }
+
 func (a *windowAdapter) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
 	spec := winutil.MatchSpec{Title: title, Class: class, ProcessName: processName, TitleMatch: titleMatch}
 	wh, err := resolveWindowFn(ctx, spec, 3*time.Second, 500*time.Millisecond)
@@ -446,10 +449,16 @@ func (a *windowAdapter) Snapshot() (node.Window, error) {
 	if wh.HWND == 0 {
 		return node.Window{}, ErrNoActiveWindow
 	}
-	return node.Window{
+	w := node.Window{
 		HWND: wh.HWND, Title: wh.Title, Class: wh.Class,
 		Process: wh.ProcessName, PID: wh.PID, ClientW: wh.ClientW, ClientH: wh.ClientH,
-	}, nil
+	}
+	// 操作后按 live HWND 重读客户区尺寸 — maximize/move/resize 改了, Done.Window 必须反映新值;
+	// 读失败 (窗口已关等) 退化保留解析时缓存值, 不让已成功的操作因事后读取失败而报错。
+	if cw, ch, err := clientSizeFn(win.HWND(wh.HWND)); err == nil {
+		w.ClientW, w.ClientH = cw, ch
+	}
+	return w, nil
 }
 
 func (a *windowAdapter) Maximize() error {
