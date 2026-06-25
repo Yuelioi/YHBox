@@ -578,7 +578,7 @@ func validateWindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	}
 
 	if len(all) == 0 {
-		if containerNeedsWindow(c, sgs) {
+		if hasUnwiredNeedsWindowNode(c, sgs) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
 				Code:      CodeMissingWindowTarget,

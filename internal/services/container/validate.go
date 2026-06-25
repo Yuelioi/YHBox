@@ -331,25 +331,37 @@ func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
 	return false
 }
 
-// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或引用
-// 闭包内任一子图. WindowTarget 改"按需要求": 只有含窗口类节点 (ClickAt/Detect/Capture/
-// PlayClip...) 才必须有 WindowTarget; 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免.
-// 注意范围是引用闭包 (不是全局池) — 没被本容器引用的子图含窗口节点与本容器无关.
-func containerNeedsWindow(c *Container, sgs []Subgraph) bool {
-	if graphHasWindowNode(c.Graph.Nodes) {
+// hasUnwiredNeedsWindowNode — 是否存在「Window 输入未连」的 NeedsWindow 节点(主图或子图)。
+// 连了 Window 的节点派发期自带覆盖窗口, 不需要 WindowTarget; 没连的会回落活动窗口, 故仍要求 WindowTarget。
+func hasUnwiredNeedsWindowNode(c *Container, sgs []Subgraph) bool {
+	if graphHasUnwiredWindowNode(c.Graph) {
 		return true
 	}
 	for i := range sgs {
-		if graphHasWindowNode(sgs[i].Graph.Nodes) {
+		if graphHasUnwiredWindowNode(sgs[i].Graph) {
 			return true
 		}
 	}
 	return false
 }
 
-func graphHasWindowNode(nodes []GraphNode) bool {
-	for i := range nodes {
-		if rn, ok := nodepkg.Get(nodes[i].Kind); ok && rn.Spec.NeedsWindow {
+func graphHasUnwiredWindowNode(g Graph) bool {
+	for i := range g.Nodes {
+		rn, ok := nodepkg.Get(g.Nodes[i].Kind)
+		if !ok || !rn.Spec.NeedsWindow {
+			continue
+		}
+		if !windowPinWired(g, g.Nodes[i].ID) {
+			return true
+		}
+	}
+	return false
+}
+
+func windowPinWired(g Graph, nodeID string) bool {
+	target := nodeID + ".Window"
+	for _, e := range g.Edges {
+		if e.To == target {
 			return true
 		}
 	}
