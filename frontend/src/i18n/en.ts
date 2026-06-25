@@ -723,6 +723,7 @@
       example: 'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
       input: {
         Code: { label: 'Code', hint: 'Use return to give back a result. Read variables with $name or GetVar, write with SetVar; sleep(ms) waits.' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
     },
@@ -736,6 +737,7 @@
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: {
@@ -756,6 +758,7 @@
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. ns.loading_bar; multiple allowed (any hit = still present)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '0 = check current frame once only — gone takes Gone, still present takes Timeout' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        Window: { label: 'Window' },
       },
       output: {
         Gone: { label: 'Gone' },
@@ -772,6 +775,7 @@
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: {
@@ -804,6 +808,7 @@
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).' },
         MaxAttempts: { label: 'Max click attempts', hint: 'Most times to click (including the first). When >1, after each click it checks whether the template is gone; if still there it clicks again, until the template disappears or attempts run out — guards against an occasional missed click. Gone = success (Done); still there after all attempts = Timeout. 1 = click once without checking (default).' },
         RetryIntervalMs: { label: 'Retry interval (ms)', hint: 'How long to wait after each click before re-checking whether the template is gone (also the gap between clicks). Only applies when max click attempts > 1. Gives the game time to react; too short risks a false miss before the screen updates. Default 500.' },
+        Window: { label: 'Window' },
       },
       output: {
         Done: {
@@ -834,6 +839,7 @@
           c3Max: { label: 'Channel 3 max (V/B)' },
         },
         MinPixels: { label: 'Min pixels' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: {
@@ -856,6 +862,7 @@
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -891,6 +898,7 @@
         RefPoint: { label: 'Ref point (normalized)' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms, 0=single)' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -914,6 +922,7 @@
           tol: { label: 'Tolerance (blank = default)' },
         },
         Tolerance: { label: 'Default tolerance', hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -926,6 +935,7 @@
       description: 'Decode QR codes within the area; returns the first code\'s text, the total count, and locator points. No code found or undecodable both route to NotFound.',
       input: {
         ROI: { label: 'Area' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -944,6 +954,7 @@
         Threshold: { label: 'Match threshold' },
         MaxResults: { label: 'Max results (0 = unlimited)' },
         MinDistance: { label: 'Dedup min distance (px, 0 = auto)' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -973,6 +984,7 @@
           confInnerWeight: { label: 'Inner confidence weight' },
           confOuterWeight: { label: 'Outer confidence weight' },
         },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -992,6 +1004,7 @@
         MinClusterCount: { label: 'Min cluster count' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
+        Window: { label: 'Window' },
       },
       output: {
         Found: { label: 'Found' },
@@ -1012,6 +1025,7 @@
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
         StableThreshold: { label: 'Stable threshold (0-1)', hint: 'diff <= this = unchanged' },
         StableFrames: { label: 'Consecutive stable frames' },
+        Window: { label: 'Window' },
       },
       output: {
         Stable: { label: 'Stable' },
@@ -1031,6 +1045,7 @@
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
         ChangeThreshold: { label: 'Change threshold (0-1)', hint: 'diff >= this = changed' },
+        Window: { label: 'Window' },
       },
       output: {
         Changed: { label: 'Changed' },
@@ -1047,6 +1062,7 @@
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         Format: { label: 'Format', option: { png: 'PNG', jpeg: 'JPEG' } },
         Quality: { label: 'JPEG quality', hint: '1-100, JPEG only' },
+        Window: { label: 'Window' },
       },
       output: {
         Done: { label: 'Done', data: { Image: { hint: 'Produced image' } } },
@@ -1082,6 +1098,7 @@
     BringWindowForeground: {
       label: 'Bring window to foreground',
       description: 'Brings the target window to the front and gives it focus so your later key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going, it will not get stuck.',
+      input: { Window: { label: 'Window' } },
       output: { Done: { label: 'Done' } },
     },
     ClickAt: {
@@ -1096,6 +1113,7 @@
         JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
         Keys: { label: 'Modifier keys', hint: 'Keys to hold while clicking, joined with +, e.g. ctrl+shift. Leave empty for a plain click. Supports ctrl / shift / alt / win.' },
         ClickCount: { label: 'Click count', hint: 'Number of times to click. Default 1. >1 = rapid clicks ~60 ms apart.' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1103,13 +1121,13 @@
       label: 'Hold key down',
       description: 'Presses a key down and keeps holding it. It only does the "press"; you pair it with a "Release key" node to let go. Anything can run between the two nodes (waits, detection, movement), so you control exactly how long the key stays held.',
       example: 'Make a character keep walking forward: place "Hold key down" on W, then a "Wait" of 3 seconds, then "Release key" on W — the character moves forward for 3 seconds. Both nodes must use the same W.',
-      input: { VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / shift)' } },
+      input: { VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / shift)' }, Window: { label: 'Window' } },
       output: { Done: { label: 'Pressed' } },
     },
     KeyHoldStop: {
       label: 'Release key',
       description: 'Releases the key that an earlier "Hold key down" pressed. Both nodes must use the same key — they work as a pair.',
-      input: { VK: { label: 'Key', hint: 'Virtual key name — same as the prior KeyHoldStart' } },
+      input: { VK: { label: 'Key', hint: 'Virtual key name — same as the prior KeyHoldStart' }, Window: { label: 'Window' } },
       output: { Done: { label: 'Released' } },
     },
     KeyPress: {
@@ -1119,6 +1137,7 @@
         VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: 'Duration (ms)' },
         JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1129,13 +1148,14 @@
       input: {
         Point: { label: 'Position' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Pressed' } },
     },
     MouseHoldStop: {
       label: 'Release mouse',
       description: 'Releases the mouse button that an earlier "Hold mouse down" pressed. Pick the same button on both nodes — they work as a pair.',
-      input: { Button: { label: 'Button', hint: 'Same button as the prior MouseHoldStart', option: { left: 'Left', right: 'Right', middle: 'Middle' } } },
+      input: { Button: { label: 'Button', hint: 'Same button as the prior MouseHoldStart', option: { left: 'Left', right: 'Right', middle: 'Middle' } }, Window: { label: 'Window' } },
       output: { Done: { label: 'Released' } },
     },
     MouseMoveRel: {
@@ -1147,6 +1167,7 @@
         Dy: { label: 'Δy (px)' },
         DurationMs: { label: 'Duration (ms)' },
         JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = move distance (Dx/Dy) varies within ±10%' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1158,6 +1179,7 @@
         Point: { label: 'Position' },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = visible slide' },
         JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = glide duration (MoveMs) varies within ±10%' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1181,6 +1203,7 @@
         Delta: { label: 'Delta (notches)', hint: 'Positive scrolls up/right, negative scrolls down/left' },
         JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = scroll amount varies within ±10%' },
         Axis: { label: 'Axis', hint: 'vertical = up/down (default); horizontal = left/right', option: { vertical: 'Vertical', horizontal: 'Horizontal' } },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1190,6 +1213,7 @@
       example: 'Send a message in a game chat box: use BringForeground first to make sure the window is focused, then wire InputText with the message you want to type — it will inject each character automatically.',
       input: {
         Text: { label: 'Text', hint: 'The text to type, supports all Unicode characters' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1202,6 +1226,7 @@
         End: { label: 'End', hint: 'End point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         DurationMs: { label: 'Duration (ms)', hint: 'Total drag time in milliseconds; default 200, higher is slower (empty or 0 uses the default)' },
+        Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1220,7 +1245,7 @@
       label: 'Play clip',
       description: 'Replays a mouse-and-keyboard sequence you recorded earlier, exactly as recorded — handy for reproducing a fixed combo or form-filling routine. It takes over the mouse and keyboard during playback and only moves on once done; stopping the script mid-clip interrupts it and releases any held keys.',
       example: 'You have a fixed combo in a game: record it once, then point this node at that clip, and the script replays the whole combo whenever it reaches here.',
-      input: { ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' } },
+      input: { ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' }, Window: { label: 'Window' } },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
       inspector: {
         clip_unset_placeholder: '(unset)',
@@ -1664,7 +1689,7 @@
         ProcessName: { label: 'Process name' },
         TitleMatch: { label: 'Title match mode', option: { exact: 'Exact', contains: 'Contains', prefix: 'Prefix', suffix: 'Suffix', regex: 'Regex' } },
       },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
+      output: { Done: { label: 'Done', data: { Window: { hint: 'The window switched to' } } }, Fail: { label: 'Failed' } },
       subgraph_hint: 'Switching windows inside a subgraph affects the caller; the window is not restored automatically on return.',
       inspector: {
         capture_waiting: 'Waiting for {hk} (click again to cancel)',
@@ -1693,6 +1718,51 @@
         TimeoutMs: { label: 'Timeout (ms)', hint: 'Poll-wait this long for the window to appear; takes Timeout if it never shows.' },
       },
       output: { Found: { label: 'Found' }, Timeout: { label: 'Timeout' } },
+    },
+    GetWindow: {
+      label: 'Get Window',
+      description: 'Resolve a window by title/class/process into a window object without changing the active window.',
+      example: 'Resolve a child window into a variable, then wire its Window input on later nodes to act on different windows.',
+      input: {
+        Title: { label: 'Window Title' },
+        Class: { label: 'Window Class' },
+        ProcessName: { label: 'Process Name' },
+        TitleMatch: { label: 'Title Match', option: { exact: 'Exact', contains: 'Contains', prefix: 'Prefix', suffix: 'Suffix', regex: 'Regex' } },
+      },
+      output: {
+        Done: { label: 'Done', data: { Window: { hint: 'The resolved window object' } } },
+        Fail: { label: 'Fail' },
+      },
+    },
+    WindowState: {
+      label: 'Window State',
+      description: 'Maximize / minimize / restore / borderless-fullscreen / exit-borderless on the target window.',
+      example: 'Switch the game window to borderless fullscreen.',
+      input: {
+        State: { label: 'State', option: { maximize: 'Maximize', minimize: 'Minimize', restore: 'Restore', borderlessFullscreen: 'Borderless Fullscreen', restoreBorders: 'Exit Borderless' } },
+        Window: { label: 'Window' },
+      },
+      output: { Done: { label: 'Done', data: { Window: { hint: 'The window re-read after the operation' } } } },
+    },
+    MoveResizeWindow: {
+      label: 'Move/Resize Window',
+      description: 'Move the target window to (X, Y) and set it to Width×Height pixels.',
+      example: 'Move the window to the top-left and set it to 1280×720.',
+      input: {
+        X: { label: 'X' },
+        Y: { label: 'Y' },
+        Width: { label: 'Width' },
+        Height: { label: 'Height' },
+        Window: { label: 'Window' },
+      },
+      output: { Done: { label: 'Done', data: { Window: { hint: 'The window re-read after the operation' } } } },
+    },
+    CloseWindow: {
+      label: 'Close Window',
+      description: 'Send a close request to the target window (pair with "Wait Window Gone" to confirm it closed).',
+      example: 'Close the Notepad window then wait for it to disappear.',
+      input: { Window: { label: 'Window' } },
+      output: { Done: { label: 'Done' } },
     },
     WaitWindowGone: {
       label: 'Wait window closed',

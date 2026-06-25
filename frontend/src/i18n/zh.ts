@@ -743,6 +743,7 @@ export default {
       example: '等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。',
       input: {
         Code: { label: '代码', hint: '脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
@@ -756,6 +757,7 @@ export default {
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: {
@@ -776,6 +778,7 @@ export default {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. ns.loading_bar; 可选多个（任一命中即视为"还在"）' },
         TimeoutMs: { label: '超时 (ms)', hint: '0 = 只看当前帧一次，不在走 Gone，在走 Timeout' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        Window: { label: '窗口' },
       },
       output: {
         Gone: { label: '已消失' },
@@ -792,6 +795,7 @@ export default {
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: {
@@ -824,6 +828,7 @@ export default {
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。' },
         MaxAttempts: { label: '最多点击次数', hint: '最多点几下 (含第一下)。设 >1 时, 每点一下就检查模板还在不在, 还在就再点, 直到它消失或点够次数 —— 防偶尔点空。模板消失 = 成功走 Done; 点够了还在走 Timeout。1 = 只点一次不检查 (默认)。' },
         RetryIntervalMs: { label: '重试间隔 (ms)', hint: '每点一下后等多久再检查模板消失没 (也是两次点击的间隔)。只在「最多点击次数」>1 时生效。给游戏留出反应时间, 太短会在画面还没更新时误判没点中。默认 500。' },
+        Window: { label: '窗口' },
       },
       output: {
         Done: {
@@ -854,6 +859,7 @@ export default {
           c3Max: { label: '通道3 上限 (V/B)' },
         },
         MinPixels: { label: '最小像素' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: {
@@ -876,6 +882,7 @@ export default {
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '命中' },
@@ -911,6 +918,7 @@ export default {
         RefPoint: { label: '参考点（归一化）' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms, 0=单次)' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '找到' },
@@ -934,6 +942,7 @@ export default {
           tol: { label: '容差 (留空=用默认)' },
         },
         Tolerance: { label: '默认容差', hint: '每通道灰度绝对差 0-255；单点 tol 缺省时用此值' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '找到' },
@@ -946,6 +955,7 @@ export default {
       description: '在区域内解码二维码，返回首个二维码的文本内容、检出总数和定位点。没检出或解不出都走未找到。',
       input: {
         ROI: { label: '区域' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '找到' },
@@ -964,6 +974,7 @@ export default {
         Threshold: { label: '匹配阈值' },
         MaxResults: { label: '最多返回数（0=不限）' },
         MinDistance: { label: '去重最小间距（px，0=自动）' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '找到' },
@@ -993,6 +1004,7 @@ export default {
           confInnerWeight: { label: '内层置信权重' },
           confOuterWeight: { label: '外层置信权重' },
         },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '命中' },
@@ -1012,6 +1024,7 @@ export default {
         MinClusterCount: { label: '最少段数' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
+        Window: { label: '窗口' },
       },
       output: {
         Found: { label: '命中' },
@@ -1032,6 +1045,7 @@ export default {
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 = 无限轮询' },
         StableThreshold: { label: '稳定阈 (0-1)', hint: '差 <= 此视作没变' },
         StableFrames: { label: '连续稳定帧数' },
+        Window: { label: '窗口' },
       },
       output: {
         Stable: { label: '已稳定' },
@@ -1051,6 +1065,7 @@ export default {
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 = 无限轮询' },
         ChangeThreshold: { label: '变化阈 (0-1)', hint: '差 >= 此视作变了' },
+        Window: { label: '窗口' },
       },
       output: {
         Changed: { label: '已变化' },
@@ -1067,6 +1082,7 @@ export default {
         ROI: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         Format: { label: '格式', option: { png: 'PNG', jpeg: 'JPEG' } },
         Quality: { label: 'JPEG 质量', hint: '1-100, 仅 JPEG 生效' },
+        Window: { label: '窗口' },
       },
       output: {
         Done: { label: '完成', data: { Image: { hint: '产出的图像' } } },
@@ -1102,6 +1118,7 @@ export default {
     BringWindowForeground: {
       label: '窗口置前台',
       description: '把目标窗口提到最前面、给它焦点，让后面的键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。',
+      input: { Window: { label: '窗口' } },
       output: { Done: { label: '完成' } },
     },
     ClickAt: {
@@ -1116,6 +1133,7 @@ export default {
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
         Keys: { label: '组合键', hint: '点击时按住的修饰键, 用 + 连接, 如 ctrl+shift; 留空=普通点击。支持 ctrl / shift / alt / win。' },
         ClickCount: { label: '连点次数', hint: '连续点击次数, 默认 1; >1 连点, 间隔约 60ms。' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1123,13 +1141,13 @@ export default {
       label: '按住按键',
       description: '把一个键按下去就不松手，一直保持按住状态。它只负责「按下」，要配一个「松开按键」节点来放开；两个节点中间可以插任意流程（等待、检测、移动等），按住多久全由你安排。',
       example: '想让角色一直往前走：先放「按住按键」按住 W，接一个「等待」3 秒，再放「松开按键」放开 W——角色就会持续前进 3 秒。两个节点的按键要填同一个 W。',
-      input: { VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' } },
+      input: { VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' }, Window: { label: '窗口' } },
       output: { Done: { label: '已按下' } },
     },
     KeyHoldStop: {
       label: '松开按键',
       description: '把之前「按住按键」按下去的那个键松开。两个节点要填同一个键，配成一对用。',
-      input: { VK: { label: '按键', hint: '虚拟键名 — 跟上一个「按住按键」节点同一个' } },
+      input: { VK: { label: '按键', hint: '虚拟键名 — 跟上一个「按住按键」节点同一个' }, Window: { label: '窗口' } },
       output: { Done: { label: '已松开' } },
     },
     KeyPress: {
@@ -1139,6 +1157,7 @@ export default {
         VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: '时长 (ms)' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1149,13 +1168,14 @@ export default {
       input: {
         Point: { label: '坐标' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '已按下' } },
     },
     MouseHoldStop: {
       label: '松开鼠标',
       description: '把之前「按住鼠标」按下去的那个鼠标键松开。两个节点选同一个键，配成一对用。',
-      input: { Button: { label: '按键', hint: '跟上一个「按住鼠标」节点同一个', option: { left: '左键', right: '右键', middle: '中键' } } },
+      input: { Button: { label: '按键', hint: '跟上一个「按住鼠标」节点同一个', option: { left: '左键', right: '右键', middle: '中键' } }, Window: { label: '窗口' } },
       output: { Done: { label: '已松开' } },
     },
     MouseMoveRel: {
@@ -1167,6 +1187,7 @@ export default {
         Dy: { label: 'Δy (px)' },
         DurationMs: { label: '时长 (ms)' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 移动距离 (Dx/Dy) 在 ±10% 内近正态波动' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1178,6 +1199,7 @@ export default {
         Point: { label: '坐标' },
         MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移; >0=在此时长内可见地滑过去' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滑行时长 (MoveMs) 在 ±10% 内近正态波动' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1201,6 +1223,7 @@ export default {
         Delta: { label: '滚动量 (notches)', hint: '正值向上/向右滚, 负值向下/向左滚' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滚动量在 ±10% 内近正态波动' },
         Axis: { label: '方向', hint: '竖向=上下滚（默认）；横向=左右滚', option: { vertical: '竖向', horizontal: '横向' } },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1210,6 +1233,7 @@ export default {
       example: '在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。',
       input: {
         Text: { label: '文字', hint: '要输入的文字内容，支持中文及所有 Unicode 字符' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1222,6 +1246,7 @@ export default {
         End: { label: '终点', hint: '拖拽的结束坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         DurationMs: { label: '时长 (ms)', hint: '拖动总时长毫秒数；默认 200，越大越慢越像真人（留空或 0 走默认）' },
+        Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1240,7 +1265,7 @@ export default {
       label: '回放录像',
       description: '把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。',
       example: '游戏里有套固定连招：先录一段，再用本节点选中这段录像，脚本跑到这里就会自动把连招完整打一遍。',
-      input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' } },
+      input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' }, Window: { label: '窗口' } },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
       inspector: {
         clip_unset_placeholder: '(未设)',
@@ -1684,7 +1709,7 @@ export default {
         ProcessName: { label: '进程名' },
         TitleMatch: { label: '标题匹配方式', option: { exact: '精确', contains: '包含', prefix: '前缀', suffix: '后缀', regex: '正则' } },
       },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
+      output: { Done: { label: '完成', data: { Window: { hint: '切到的活动窗口' } } }, Fail: { label: '失败' } },
       subgraph_hint: '子图内切窗口会影响调用方, 返回不自动还原',
       inspector: {
         capture_waiting: '等待 {hk} 按键 (再点取消)',
@@ -1713,6 +1738,51 @@ export default {
         TimeoutMs: { label: '超时 (ms)', hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。' },
       },
       output: { Found: { label: '出现' }, Timeout: { label: '超时' } },
+    },
+    GetWindow: {
+      label: '获取窗口',
+      description: '按标题/类名/进程名解析一个窗口为窗口对象,不改变当前活动窗口。',
+      example: '解析子窗口绑成变量,后续节点连它的「窗口」输入分别操作不同窗口。',
+      input: {
+        Title: { label: '窗口标题' },
+        Class: { label: '窗口类名' },
+        ProcessName: { label: '进程名' },
+        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', contains: '包含', prefix: '前缀', suffix: '后缀', regex: '正则' } },
+      },
+      output: {
+        Done: { label: '完成', data: { Window: { hint: '解析到的窗口对象' } } },
+        Fail: { label: '失败' },
+      },
+    },
+    WindowState: {
+      label: '窗口状态',
+      description: '最大化/最小化/还原/无边框全屏/退出无边框,作用于目标窗口。',
+      example: '把游戏窗口切到无边框全屏。',
+      input: {
+        State: { label: '状态', option: { maximize: '最大化', minimize: '最小化', restore: '还原', borderlessFullscreen: '无边框全屏', restoreBorders: '退出无边框' } },
+        Window: { label: '窗口' },
+      },
+      output: { Done: { label: '完成', data: { Window: { hint: '操作后重读的窗口' } } } },
+    },
+    MoveResizeWindow: {
+      label: '移动/缩放窗口',
+      description: '把目标窗口移到 (X, Y) 并设为 Width×Height 像素。',
+      example: '把窗口移到屏幕左上角并设成 1280×720。',
+      input: {
+        X: { label: 'X 坐标' },
+        Y: { label: 'Y 坐标' },
+        Width: { label: '宽' },
+        Height: { label: '高' },
+        Window: { label: '窗口' },
+      },
+      output: { Done: { label: '完成', data: { Window: { hint: '操作后重读的窗口' } } } },
+    },
+    CloseWindow: {
+      label: '关闭窗口',
+      description: '向目标窗口发送关闭请求(可接「等待窗口关闭」确认真的关掉)。',
+      example: '关闭记事本窗口后等它消失。',
+      input: { Window: { label: '窗口' } },
+      output: { Done: { label: '完成' } },
     },
     WaitWindowGone: {
       label: '等待窗口关闭',
