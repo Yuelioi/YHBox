@@ -41,7 +41,8 @@ func (Script) Spec() node.Spec {
 			{Name: pinFail, Type: node.TypeExec, Semantic: "error",
 				Data: []node.DataField{{Name: "Error", Type: "String"}, {Name: "Code", Type: "String"}}},
 		},
-		NeedsWindow:   true, // 脚本可能调输入/视觉节点 — 保守要求 WindowTarget (用户拍板 2026-06-10)
+		NeedsWindow:      true,  // 脚本可能调输入/视觉节点 — 保守要求 WindowTarget (用户拍板 2026-06-10)
+		NeedsForeground:  true,  // 脚本内调绑定节点可触发 SendInput — 需在派发时将 Window 提到前台
 		DynamicInputs: true,
 	}
 }
