@@ -23,6 +23,7 @@ import (
 	_ "yotta/internal/nodes/stopwatch"  // StopwatchStart / Stop / Read
 	_ "yotta/internal/nodes/system"     // Subgraph / SubgraphInput / SubgraphOutput / Throw / WindowTarget / MouseCalibration / CommentBox / CollapsedNode
 	_ "yotta/internal/nodes/variable"   // SetVar / IncVar / GetVar / GetParam
+	_ "yotta/internal/nodes/window"     // GetWindow + 窗口控制节点
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 )
