@@ -162,6 +162,13 @@ func (i *inputsImpl) Point(name string) Point {
 	return Point{}
 }
 
+func (i *inputsImpl) Window(name string) (Window, bool) {
+	if v, ok := i.merged[name].(Window); ok {
+		return v, true
+	}
+	return Window{}, false
+}
+
 func (i *inputsImpl) Rect(name string) Rect {
 	if v, ok := i.merged[name].(Rect); ok {
 		return v

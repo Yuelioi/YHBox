@@ -70,6 +70,18 @@ type Image struct {
 	Data   []byte `json:"data"`
 }
 
+// Window 域类型 — 窗口对象。HWND 是 live 句柄；其余元数据是解析时快照(可能过期，别当实时)。
+// 运行期瞬时值(同 Image)，不序列化进 workflow JSON。
+type Window struct {
+	HWND    uintptr `json:"hwnd"`
+	Title   string  `json:"title"`
+	Class   string  `json:"class"`
+	Process string  `json:"process"`
+	PID     uint32  `json:"pid"`
+	ClientW int     `json:"clientW"`
+	ClientH int     `json:"clientH"`
+}
+
 // typeRegistry 加 mutex (跟 globalRegistry 对称). init() 之外的 RegisterType
 // 罕见, 但 AllTypes RPC handler 并发读取需安全.
 var (
@@ -114,6 +126,7 @@ func init() {
 		{Tag: "JSON", GoType: "map[string]any", WidgetKind: "json", Color: "#9ca3af"},
 		{Tag: "List", GoType: "[]any", WidgetKind: "list-preview", Color: "#818cf8"},
 		{Tag: "Exec", GoType: "(framework)", WidgetKind: "exec-pin", Color: "#ffffff"},
+		{Tag: "Window", GoType: "node.Window", WidgetKind: "preview", Color: "#22d3ee"},
 	} {
 		typeRegistry[ts.Tag] = ts
 	}

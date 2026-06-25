@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+func TestWindowTypeRegistered(t *testing.T) {
+	found := false
+	for _, ts := range AllTypes() {
+		if ts.Tag == "Window" {
+			found = true
+			if ts.Color != "#22d3ee" || ts.WidgetKind != "preview" {
+				t.Fatalf("Window TypeSpec 错: %+v", ts)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("Window 类型未注册")
+	}
+}
+
+func TestInputsWindow(t *testing.T) {
+	w := Window{HWND: 123, Title: "记事本"}
+	in := newInputs(map[string]any{"W": w}, nil, nil, nil)
+	got, ok := in.Window("W")
+	if !ok || got.HWND != 123 {
+		t.Fatalf("Window 取值失败: %v %v", got, ok)
+	}
+	if _, ok := in.Window("missing"); ok {
+		t.Fatal("缺失 pin 应返 false")
+	}
+}
+
 func TestGeometry_JSONRoundTrip(t *testing.T) {
 	g := Geometry{
 		Pct: Rect{X: 0.125, Y: 0.8, W: 0.75, H: 0.06},
