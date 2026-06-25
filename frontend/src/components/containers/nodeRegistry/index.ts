@@ -104,6 +104,7 @@ export type NodeGroup =
   | 'event'
   | 'random'
   | 'list'
+  | 'window'
 
 /**
  * Single-source-of-truth descriptor for a node kind.

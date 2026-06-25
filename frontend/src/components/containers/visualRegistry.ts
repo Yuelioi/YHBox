@@ -67,6 +67,7 @@ export const GROUP_VISUAL: Record<string, { color: string; icon: string }> = {
   event: { color: 'rose', icon: 'i-tabler-player-play' },
   random: { color: 'teal', icon: 'i-tabler-dice' },
   list: { color: 'indigo', icon: 'i-tabler-list' },
+  window: { color: 'emerald', icon: 'i-tabler-app-window' },
 }
 
 export function groupVisual(group: string | undefined): { color: string; icon: string } {

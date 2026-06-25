@@ -25,7 +25,7 @@ const (
 func (WindowTarget) Spec() node.Spec {
 	return node.Spec{
 		Kind:     "WindowTarget",
-		Category: "System",
+		Category: "Window",
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTitle, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},

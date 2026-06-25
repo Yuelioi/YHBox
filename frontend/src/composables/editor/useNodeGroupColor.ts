@@ -26,6 +26,7 @@ export const ALL_NODE_GROUPS: NodeGroup[] = [
   'event',
   'random',
   'list',
+  'window',
 ]
 
 /** Tailwind text color class for a group label/chevron. 从视觉注册中心派生 (单一真源). */
@@ -62,6 +63,7 @@ const GROUP_I18N_KEY: Record<string, string> = {
   event: 'nodeGroup.event',
   random: 'nodeGroup.random',
   list: 'nodeGroup.list',
+  window: 'nodeGroup.window',
   misc: 'nodeGroup.other',
 }
 

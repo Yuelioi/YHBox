@@ -2533,6 +2533,7 @@ export default {
     event: '事件',
     random: '随机',
     list: '列表',
+    window: '窗口',
     other: '其它',
   },
   // KeyCapture / 通用 hotkey 输入.

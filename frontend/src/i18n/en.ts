@@ -2487,6 +2487,7 @@
     event: 'Event',
     random: 'Random',
     list: 'List',
+    window: 'Window',
     other: 'Other',
   },
   hotkeyInput: {

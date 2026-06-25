@@ -40,6 +40,7 @@ const GROUP_MAP: Record<string, NodeGroup> = {
   Event: 'event',
   Random: 'random',
   List: 'list',
+  Window: 'window',
 }
 
 // 按 group 取 visual (icon + tailwind color) — 从视觉注册中心 (visualRegistry) 派生,
