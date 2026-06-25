@@ -131,3 +131,26 @@ func TestRegister_IsVisualOnly_AllowsZero_OK(t *testing.T) {
 	}()
 	Register(visualNode{})
 }
+
+// ============================================================================
+// C1b: Register invariant — NeedsWindow ⟹ has Window input.
+// ============================================================================
+
+type badNeedsWindowNode struct{}
+
+func (badNeedsWindowNode) Spec() Spec {
+	return Spec{Kind: "BadNeedsWindow", NeedsWindow: true,
+		Inputs: []InputSpec{{Name: "In", Type: "Exec"}}}
+}
+func (badNeedsWindowNode) Run(_ Ctx, _ Inputs) (Outputs, error) { return nil, nil }
+
+func TestRegister_NeedsWindowRequiresWindowInput(t *testing.T) {
+	ResetRegistryForTest()
+	defer ResetRegistryForTest()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("NeedsWindow 无 Window 输入应 panic")
+		}
+	}()
+	Register(&badNeedsWindowNode{})
+}

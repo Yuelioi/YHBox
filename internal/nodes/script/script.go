@@ -33,6 +33,7 @@ func (Script) Spec() node.Spec {
 			{Name: pinIn, Type: node.TypeExec},
 			{Name: inCode, Type: "String", Default: "", Required: true,
 				Widget: node.WidgetSpec{Kind: "code", Props: node.MarshalProps(node.TextareaProps{Rows: 8})}},
+			node.WindowInputSpec(),
 		},
 		Outputs: []node.OutputSpec{
 			{Name: pinDone, Type: node.TypeExec,

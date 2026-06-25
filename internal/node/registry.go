@@ -93,6 +93,18 @@ func Register(impl Node) {
 	if spec.IsPureData && rn.Evaluate == nil {
 		panic(fmt.Sprintf("node %q: IsPureData=true but missing Evaluator", spec.Kind))
 	}
+	if spec.NeedsWindow {
+		hasWin := false
+		for _, ip := range spec.Inputs {
+			if ip.Name == "Window" && ip.Type == "Window" {
+				hasWin = true
+				break
+			}
+		}
+		if !hasWin {
+			panic(fmt.Sprintf("node %q: NeedsWindow=true but missing Window input — spread node.WindowInputSpec() into Inputs", spec.Kind))
+		}
+	}
 
 	globalRegistry[spec.Kind] = rn
 }
