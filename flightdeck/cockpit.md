@@ -7,11 +7,13 @@ Focus: detect/click 能力扩展（Phase 1-4）代码完成、终审过，**待�
 
 - [work/detect-click-config/](work/detect-click-config/) — **代码完成，待真机 smoke**。Phase 1 Vision 基础层 · Phase 2 ClickTemplate 全家桶 · Phase 3 新节点群（WaitTemplateGone · Swipe · Scroll 横向 · InputText · StopApp · ClickAt 组合键+多击）· **Phase 4（用户增补）**：WaitWindowGone（等窗口关闭，对称 WaitWindow，配 StopApp 确认真关掉）+ Point 类型手填控件（PointWidget x/y 百分比；Swipe 起止点在 Inspector 手填或连检测节点点输出）。逐 task TDD + 每 task review + 整支 opus 终审，build/vet/全 scope 全绿（除已知 runtime RED 基线）。plan-phase1..4 + 进度账本 .superpowers/sdd/progress.md。**真机 smoke 进行中**，已修两个 bug（均 build/vet/test 全绿，**待用户真机重测**）：(1) ⑦ InputText 在 postmessage 后端旧实现走全局 SendInput → 后台目标窗口收不到，改走 PostMessage WM_CHAR targeted → [knowledge/input/postmessage-typetext-uses-wm-char.md](knowledge/input/postmessage-typetext-uses-wm-char.md)；(2) 节点勾 logEnabled 短图经常没日志 —— LogMerger.finalizeLocked 只写文件不 emit，短图在 250ms tick 前跑完则前端面板零日志（文件里有），改 finalize 时 emit final → [knowledge/logging/short-run-flush-loses-dump.md](knowledge/logging/short-run-flush-loses-dump.md)。其余 smoke 项仍待用户验，全过即移 cold store。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — ③ MCP 对外暴露（AI 调我们）：GUI 内置 Streamable HTTP MCP server，暴露 run_node/find_window/写图四件套，design.md + plan.md 就绪。detect-click 完结后的下一主攻（原 focus，本会话未动）。
+- [work/window-control/](work/window-control/) — **窗口能力扩展，brainstorm 完、design.md 已落、待用户过目**。定案：① 加 `Window` 一等类型（仿 Image，只读 preview，存变量/连线）；② `WindowTarget` Done 多带 `Window` 数据字段（可绑变量复用）；③ 给所有 NeedsWindow 节点统一注入一个**可选** `Window` 输入（不连=当前活动窗口现状行为，连了=派发期临时覆盖活动窗口、作用域限本节点）；④ 新增窗口控制节点 WindowState（最大化/最小化/还原/无边框全屏/退无边框）+ MoveResizeWindow + CloseWindow；⑤ 收一个 "Window" palette 类别。多窗口（app 子窗口）靠存窗口变量再 GetVar 拉出来，默认用法零改动。下一步：用户过目 design → 转 writing-plans。
 
 ## Next
 
 1. **detect-click 真机 smoke（用户）** —— 当前活跃线。Phase 1-3：① 锚点偏移点中 · ⑤ 多命中点最上/第2 · ⑧ 限 ROI · ② 等图消失 · ③ ctrl+点 · ④ 双击 · ⑥ 拖滑块 · ⑦ 搜索框打字（已修 WM_CHAR，重测：记事本应能打字，vscode 也试）· ⑨ 横向滚 · ⑩ 杀进程；**Phase 4**：WaitWindowGone（开记事本→等其窗口关）· Swipe 在 Inspector 手填 x/y 拖拽 · Swipe 连 ClickTemplate 的点拖拽。全过 → 移 work/detect-click-config 到 cold store。
-2. 之后：按 [work/mcp-node-exec/plan.md](work/mcp-node-exec/plan.md) 起 MCP 实现（winutil.EnumTopWindows → ContainerRunner.ExecOutputs 访问器 → internal/services/mcpserver 包 → settings arm 开关 → main.go HTTP server 生命周期 → 设置页 MCP tab → 退役 cmd/yotta-mcp）。
+2. **window-control（并行新线）**：用户过目 [work/window-control/design.md](work/window-control/design.md) → 改无异议则转 writing-plans 出实现计划 → 落地（Window 类型 + WindowTarget 产出 + 派发期可选窗口覆盖 + 三个控制节点 + Window 类别）。
+3. 之后：按 [work/mcp-node-exec/plan.md](work/mcp-node-exec/plan.md) 起 MCP 实现（winutil.EnumTopWindows → ContainerRunner.ExecOutputs 访问器 → internal/services/mcpserver 包 → settings arm 开关 → main.go HTTP server 生命周期 → 设置页 MCP tab → 退役 cmd/yotta-mcp）。
 
 ## Open questions
 
