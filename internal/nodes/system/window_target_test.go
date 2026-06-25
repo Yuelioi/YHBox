@@ -34,6 +34,7 @@ type stubWindowService struct {
 	err         error
 	calledTitle string
 	called      bool
+	snap        node.Window
 }
 
 func (s *stubWindowService) BringForeground() error { return nil }
@@ -53,7 +54,7 @@ func (s *stubWindowService) BorderlessFullscreen() error  { return nil }
 func (s *stubWindowService) RestoreBorders() error        { return nil }
 func (s *stubWindowService) MoveResize(_, _, _, _ int) error { return nil }
 func (s *stubWindowService) Close() error                 { return nil }
-func (s *stubWindowService) Snapshot() (node.Window, error) { return node.Window{}, nil }
+func (s *stubWindowService) Snapshot() (node.Window, error) { return s.snap, nil }
 
 func TestWindowTarget_Run_CallsSetActive(t *testing.T) {
 	node.ResetRegistryForTest()
@@ -98,5 +99,29 @@ func TestWindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
 		nil, svc, false)
 	if r.Error == nil {
 		t.Fatal("SetActive 报错时 Run 应返回 error")
+	}
+}
+
+func TestWindowTarget_EmitsWindowOnDone(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&WindowTarget{})
+	rn, _ := node.Get("WindowTarget")
+
+	stub := &stubWindowService{snap: node.Window{HWND: 99, Title: "记事本"}}
+	svc := node.StubServices()
+	svc.Window = stub
+
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{wtInTitle: "记事本", wtInTitleMatch: "exact"},
+		nil, svc, false)
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != wtOutDone {
+		t.Fatalf("exit = %q, want %q", r.ExitName, wtOutDone)
+	}
+	w, ok := r.OutputData["Window"].(node.Window)
+	if !ok || w.HWND != 99 || w.Title != "记事本" {
+		t.Fatalf("Done.Window 错: %+v (ok=%v)", w, ok)
 	}
 }

@@ -43,7 +43,7 @@ func (WindowTarget) Spec() node.Spec {
 						}})}},
 		},
 		Outputs: []node.OutputSpec{
-			{Name: wtOutDone, Type: "Exec"},
+			{Name: wtOutDone, Type: "Exec", Data: []node.DataField{{Name: "Window", Type: "Window"}}},
 			{Name: "Fail", Type: "Exec", Semantic: "error",
 				Data: []node.DataField{
 					{Name: "Error", Type: "String"},
@@ -61,5 +61,9 @@ func (WindowTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		return nil, err
 	}
-	return ctx.Out(wtOutDone).Fire(), nil
+	w, err := ctx.Window().Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.Out(wtOutDone).Set("Window", w).Fire(), nil
 }
