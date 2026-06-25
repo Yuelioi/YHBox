@@ -14,6 +14,7 @@ const (
 	CodeCaptureFailed  ErrCode = "capture_failed"  // 截屏/视觉计算失败
 	CodeWriteFailed    ErrCode = "write_failed"    // 文件写盘/路径失败
 	CodeNotFound       ErrCode = "not_found"       // 找不到窗/目标
+	CodeWindowInvalid  ErrCode = "window_invalid"  // Window 输入指向的句柄已失效
 	CodeTimeout        ErrCode = "timeout"         // 超时
 	CodePlaybackFailed ErrCode = "playback_failed" // 回放失败
 	CodeSendFailed     ErrCode = "send_failed"     // 输入发送失败
@@ -28,7 +29,7 @@ const (
 // ErrorCodes 合法码全集 (推荐集, 非强约束: 用户 Throw 自填码 / 插件返非注册码仍合法).
 var ErrorCodes = map[ErrCode]struct{}{
 	CodeError: {}, CodeLaunchFailed: {}, CodeCaptureFailed: {}, CodeWriteFailed: {},
-	CodeNotFound: {}, CodeTimeout: {}, CodePlaybackFailed: {}, CodeSendFailed: {}, CodeThrown: {},
+	CodeNotFound: {}, CodeWindowInvalid: {}, CodeTimeout: {}, CodePlaybackFailed: {}, CodeSendFailed: {}, CodeThrown: {},
 	CodeSubgraphNoExit: {}, CodeSubgraphRecursion: {},
 }
 

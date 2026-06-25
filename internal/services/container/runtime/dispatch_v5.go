@@ -16,11 +16,16 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	nodepkg "yotta/internal/node"
 	"yotta/internal/nodes/control"
 	"yotta/internal/services/container"
+	"yotta/pkg/winutil"
 )
+
+// isWindowFn 测试可替换; 默认真 Win32 IsWindow。
+var isWindowFn = winutil.IsWindow
 
 // execNodeViaFramework dispatch 单节点 via framework. 返下游 token 或 error.
 // 不处理 RegionRunner — 那些走 r.execNodeAsRegionViaFramework.
@@ -36,6 +41,25 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	dataWire := r.buildDataWireFor(ctx, node, rn)
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
+
+	// 可选 Window 输入: 连了则派发期把活动窗口覆盖成它(作用域限本节点)。
+	if raw, ok := dataWire["Window"]; ok {
+		w, ok := raw.(nodepkg.Window)
+		if !ok || !isWindowFn(w.HWND) {
+			return nil, nodepkg.Failf(nodepkg.CodeWindowInvalid, nil,
+				"%s: Window 输入无效或句柄已失效", node.Kind)
+		}
+		wh := winutil.WindowHandle{HWND: w.HWND, Title: w.Title, Class: w.Class,
+			ProcessName: w.Process, PID: w.PID, ClientW: w.ClientW, ClientH: w.ClientH}
+		r.rt.PushWindowOverride(wh)
+		defer r.rt.PopWindowOverride()
+		// sendinput 后端 + 需前台的输入节点: 补拉一次前台(不在前台 SendInput 打错窗)。
+		if r.rt.Container != nil && r.rt.Container.InputBackend == "sendinput" &&
+			rn.Spec.NeedsForeground && r.rt.Game != nil {
+			r.rt.Game.BringToForeground(w.HWND)
+			time.Sleep(150 * time.Millisecond)
+		}
+	}
 
 	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled)
 	return r.routeResult(node, tok, result)
