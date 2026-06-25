@@ -60,6 +60,10 @@ type RuntimeContext struct {
 	frameMu    sync.Mutex
 	frameCache map[uintptr]frameCacheEntry
 
+	// borderless 进入前布局快照, RestoreBorders 取出还原; 按 hwnd 分条。
+	borderlessMu    sync.Mutex
+	borderlessSaved map[uintptr]winutil.SavedWindow
+
 	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
 	ClipResolver   ClipResolver
 	InputBackend   backends.IInputBackend
@@ -185,6 +189,25 @@ func (rt *RuntimeContext) SetActiveWindow(wh winutil.WindowHandle) {
 	rt.window = wh
 	rt.windowMu.Unlock()
 	rt.invalidateFrameCacheFor(wh.HWND)
+}
+
+func (rt *RuntimeContext) saveBorderless(hwnd uintptr, s winutil.SavedWindow) {
+	rt.borderlessMu.Lock()
+	defer rt.borderlessMu.Unlock()
+	if rt.borderlessSaved == nil {
+		rt.borderlessSaved = map[uintptr]winutil.SavedWindow{}
+	}
+	rt.borderlessSaved[hwnd] = s
+}
+
+func (rt *RuntimeContext) takeBorderless(hwnd uintptr) (winutil.SavedWindow, bool) {
+	rt.borderlessMu.Lock()
+	defer rt.borderlessMu.Unlock()
+	s, ok := rt.borderlessSaved[hwnd]
+	if ok {
+		delete(rt.borderlessSaved, hwnd)
+	}
+	return s, ok
 }
 
 // frameCacheEntry 单条帧缓存项.

@@ -181,6 +181,14 @@ func (stubWindowService) BringForeground() error                                
 func (stubWindowService) HWND() uintptr                                                                   { return 0 }
 func (stubWindowService) ClientSize() (int, int, error)                                                   { return 0, 0, nil }
 func (stubWindowService) SetActive(_ context.Context, _, _, _, _ string) error                            { return nil }
+func (stubWindowService) Maximize() error                                                                  { return nil }
+func (stubWindowService) Minimize() error                                                                  { return nil }
+func (stubWindowService) Restore() error                                                                   { return nil }
+func (stubWindowService) BorderlessFullscreen() error                                                      { return nil }
+func (stubWindowService) RestoreBorders() error                                                            { return nil }
+func (stubWindowService) MoveResize(_, _, _, _ int) error                                                  { return nil }
+func (stubWindowService) Close() error                                                                     { return nil }
+func (stubWindowService) Snapshot() (Window, error)                                                        { return Window{}, nil }
 
 // StubWindowService — 测试用 no-op.
 func StubWindowService() WindowService { return stubWindowService{} }

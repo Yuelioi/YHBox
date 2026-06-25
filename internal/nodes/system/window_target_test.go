@@ -46,6 +46,14 @@ func (s *stubWindowService) SetActive(_ context.Context, title, _, _, _ string) 
 	s.calledTitle = title
 	return s.err
 }
+func (s *stubWindowService) Maximize() error              { return nil }
+func (s *stubWindowService) Minimize() error              { return nil }
+func (s *stubWindowService) Restore() error               { return nil }
+func (s *stubWindowService) BorderlessFullscreen() error  { return nil }
+func (s *stubWindowService) RestoreBorders() error        { return nil }
+func (s *stubWindowService) MoveResize(_, _, _, _ int) error { return nil }
+func (s *stubWindowService) Close() error                 { return nil }
+func (s *stubWindowService) Snapshot() (node.Window, error) { return node.Window{}, nil }
 
 func TestWindowTarget_Run_CallsSetActive(t *testing.T) {
 	node.ResetRegistryForTest()

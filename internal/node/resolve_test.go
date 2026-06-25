@@ -16,6 +16,14 @@ func (s sizeWin) BringForeground() error { return nil }
 func (s sizeWin) HWND() uintptr          { return 0 }
 func (s sizeWin) ClientSize() (int, int, error) { return s.w, s.h, s.err }
 func (s sizeWin) SetActive(context.Context, string, string, string, string) error { return nil }
+func (s sizeWin) Maximize() error              { return nil }
+func (s sizeWin) Minimize() error              { return nil }
+func (s sizeWin) Restore() error               { return nil }
+func (s sizeWin) BorderlessFullscreen() error  { return nil }
+func (s sizeWin) RestoreBorders() error        { return nil }
+func (s sizeWin) MoveResize(_, _, _, _ int) error { return nil }
+func (s sizeWin) Close() error                 { return nil }
+func (s sizeWin) Snapshot() (Window, error)    { return Window{}, nil }
 
 func resolveCtx(w WindowService) Ctx {
 	svc := StubServices()

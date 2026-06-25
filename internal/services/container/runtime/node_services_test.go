@@ -445,3 +445,13 @@ func TestWindowAdapter_SetActive_PropagatesResolveError(t *testing.T) {
 		t.Fatal("want error propagated, got nil")
 	}
 }
+
+func TestWindowAdapter_Snapshot(t *testing.T) {
+	rt := &RuntimeContext{}
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 7, Title: "X", ClientW: 100, ClientH: 50})
+	a := NewWindowAdapter(rt)
+	w, err := a.Snapshot()
+	if err != nil || w.HWND != 7 || w.ClientW != 100 {
+		t.Fatalf("Snapshot 错: %+v %v", w, err)
+	}
+}

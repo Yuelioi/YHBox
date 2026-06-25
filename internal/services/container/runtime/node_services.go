@@ -441,6 +441,85 @@ func (a *windowAdapter) SetActive(ctx context.Context, title, class, processName
 	return nil
 }
 
+func (a *windowAdapter) Snapshot() (node.Window, error) {
+	wh := a.rt.WindowHandle()
+	if wh.HWND == 0 {
+		return node.Window{}, ErrNoActiveWindow
+	}
+	return node.Window{
+		HWND: wh.HWND, Title: wh.Title, Class: wh.Class,
+		Process: wh.ProcessName, PID: wh.PID, ClientW: wh.ClientW, ClientH: wh.ClientH,
+	}, nil
+}
+
+func (a *windowAdapter) Maximize() error {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	return winutil.Maximize(h)
+}
+
+func (a *windowAdapter) Minimize() error {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	return winutil.Minimize(h)
+}
+
+func (a *windowAdapter) Restore() error {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	return winutil.Restore(h)
+}
+
+func (a *windowAdapter) MoveResize(x, y, w, h int) error {
+	hwnd, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	return winutil.MoveResize(hwnd, x, y, w, h)
+}
+
+func (a *windowAdapter) Close() error {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	return winutil.CloseWindow(h)
+}
+
+func (a *windowAdapter) BorderlessFullscreen() error {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	saved, err := winutil.EnterBorderless(h)
+	if err != nil {
+		return err
+	}
+	a.rt.saveBorderless(h, saved)
+	return nil
+}
+
+func (a *windowAdapter) RestoreBorders() error {
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return err
+	}
+	saved, ok := a.rt.takeBorderless(h)
+	if ok && winutil.WindowPID(h) != saved.PID {
+		ok = false
+	}
+	if !ok {
+		saved = winutil.SavedWindow{}
+	}
+	return winutil.ExitBorderless(h, saved)
+}
+
 // NewWindowAdapter wrap *RuntimeContext into node.WindowService.
 func NewWindowAdapter(rt *RuntimeContext) node.WindowService { return &windowAdapter{rt: rt} }
 

@@ -17,6 +17,14 @@ func (s stubWindow) ClientSize() (int, int, error) { return s.w, s.h, nil }
 func (s stubWindow) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
 	return nil
 }
+func (s stubWindow) Maximize() error              { return nil }
+func (s stubWindow) Minimize() error              { return nil }
+func (s stubWindow) Restore() error               { return nil }
+func (s stubWindow) BorderlessFullscreen() error  { return nil }
+func (s stubWindow) RestoreBorders() error        { return nil }
+func (s stubWindow) MoveResize(_, _, _, _ int) error { return nil }
+func (s stubWindow) Close() error                 { return nil }
+func (s stubWindow) Snapshot() (node.Window, error) { return node.Window{}, nil }
 
 func withVisionAndWindow(v node.VisionService, w node.WindowService) node.ServiceBundle {
 	b := node.StubServices()

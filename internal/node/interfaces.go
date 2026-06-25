@@ -298,6 +298,15 @@ type WindowService interface {
 	// SetActive 运行时解析 title/class/processName 匹配的窗口, 设为当前活动窗口 (粘性).
 	// 解析失败 (超时/取消) 返 error. ctx 用于取消等待.
 	SetActive(ctx context.Context, title, class, processName, titleMatch string) error
+	Maximize() error
+	Minimize() error
+	Restore() error
+	BorderlessFullscreen() error
+	RestoreBorders() error
+	MoveResize(x, y, w, h int) error
+	Close() error
+	// Snapshot 返回当前活动窗口(含覆盖)的元数据快照, 给 Done.Window / WindowTarget 用。
+	Snapshot() (Window, error)
 }
 
 // CaptureService — Capture 节点用. PNG 字节流; wire 连 pkg/capture
