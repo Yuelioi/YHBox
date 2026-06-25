@@ -56,14 +56,7 @@ tasks:
         platforms: [windows]
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
-      # 生产构建后 UPX 压缩 exe（NRV/--best）：~48M→~13M，启动多 ~300ms 自解壳，
-      # manifest/icon/DPI 资源 UPX 原样保留，运行期 EnsureAdmin 提权不受影响。
-      # DEV=true 跳过（迭代别压）；sign task deps build，顺序在此之后，无冲突。
-      - cmd: '{{if ne .DEV "true"}}upx --best "{{.BIN_DIR}}/{{.APP_NAME}}.exe"{{else}}true{{end}}'
-        platforms: [windows]
-        preconditions:
-          - sh: upx --version > /dev/null 2>&1
-            msg: "upx 不在 PATH。装一下：scoop install upx（或 https://upx.github.io）"
+
     env:
       GOOS: windows
       CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
