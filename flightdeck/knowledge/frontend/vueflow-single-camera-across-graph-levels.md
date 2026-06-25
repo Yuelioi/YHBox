@@ -29,7 +29,7 @@ per-(容器, 图层级) 缓存 viewport (`viewportByContainer`, 视图态按容�
 **首次进入(无缓存)→ 聚焦起始节点**(子图=入口 marker `sg.entry` / 主图=唯一 `Start` 节点, `centerOnNode` zoom 1),
 找不到才 `fitView` 兜底 (内容很大的图 fitView 会缩成一小团, 落在入口更可用)。层级 key = sgID 或 `MAIN_GRAPH_KEY`。
 
-同属"子图是 virtual / 全图操作要单独处理"族, 见 [[2026-06-13-autolayout-skips-subgraph-virtual-markers]]。
+同属"子图是 virtual / 全图操作要单独处理"族, 见 [[autolayout-skips-subgraph-virtual-markers]]。
 
 ## Cases
 - 2026-06-13 首次: 切子图后切回主图相机跑飞。修: per-层级 viewport 缓存 + 首次进入聚焦入口。

@@ -20,4 +20,4 @@ READ WHEN: 读/写 Geometry 类型 pin 的值 (前端回填 / 后端校验); 撞
 - 后端读/校验 Geometry literal：读 `.pct.*`，且记住是 ratio（别套像素阈值）；全帧是合法值不是错误。
 - 用 `Type: "Geometry"` 的节点（DetectColor/DetectColorHSV/ROIColorScan/WaitStable/WaitChange/Screenshot/DualColorBarTrack）改 ROI 相关逻辑前，先认清是 ratio 不是像素。
 
-相关: [[2026-06-02-pin-presence-check-must-mirror-pinvalue]]、[[2026-06-04-node-validation-pipeline-bifurcation]]。
+相关: [[pin-presence-check-must-mirror-pinvalue]]、[[node-validation-pipeline-bifurcation]]。

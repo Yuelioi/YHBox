@@ -8,7 +8,7 @@ RECHECK WHEN: 改节点数据线/exec 线规则 / pin-wiring / output-capture / 
 
 设计"消费/产出别的节点的数据"的节点、或连线节点间数据**之前**先读这份。脑补"输出口直接连过去"会撞 `INVALID_PIN`，或写出根本连不上的节点。
 
-> 配套：加节点 kind 的全链路机械步骤看 [add-node.md](add-node.md)（含产出节点 `config.capture` 模型——节点只声明 Data 字段，无捕获框）；pin 命名看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[2026-06-04-node-validation-pipeline-bifurcation]]。
+> 配套：加节点 kind 的全链路机械步骤看 [add-node.md](add-node.md)（含产出节点 `config.capture` 模型——节点只声明 Data 字段，无捕获框）；pin 命名看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[node-validation-pipeline-bifurcation]]。
 >
 > ⚠️ 历史变更（2026-06-07）：旧的全局 `$sys` 快照 + `GetSys` 节点 + `PathSchema` **已整套删除**。产出值改成"节点显式捕获到用户命名变量"，引擎 live 值改成 `Now` / `VarLastChange` 节点。下面是新模型；任何还提 `$sys`/`GetSys` 的记忆都过时了。
 

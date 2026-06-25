@@ -8,7 +8,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 新增节点是**跨 Go + 前端多处**的事，漏一处就"代码在、能渲染、但用户加不进去 / 没翻译 / 没默认值"。按这份走，别凭记忆。
 
-> 配套：pin 命名规范看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[2026-06-04-node-validation-pipeline-bifurcation]]；Geometry pin 值形状看 [[2026-06-04-geometry-pin-value-pct-shape]]。
+> 配套：pin 命名规范看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[node-validation-pipeline-bifurcation]]；Geometry pin 值形状看 [[geometry-pin-value-pct-shape]]。
 
 ## 1. 后端 — 节点实现 (`internal/nodes/<category>/<name>.go`)
 
@@ -67,7 +67,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 ## 7. 校验（按需）
 
-- [ ] **编辑期校验**（NodeInspector 红错）写在 `internal/services/container/validator.go` 的 `checkGraphPerKind` kind switch → `validateXxx(n)`。**不是**节点的 `Validate()` 方法（那只在 engine runtime 跑）。详见 incident [[2026-06-04-node-validation-pipeline-bifurcation]]。
+- [ ] **编辑期校验**（NodeInspector 红错）写在 `internal/services/container/validator.go` 的 `checkGraphPerKind` kind switch → `validateXxx(n)`。**不是**节点的 `Validate()` 方法（那只在 engine runtime 跑）。详见 incident [[node-validation-pipeline-bifurcation]]。
 
 ## 8. 验证（全绿才算完）
 

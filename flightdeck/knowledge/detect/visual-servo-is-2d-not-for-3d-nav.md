@@ -11,7 +11,7 @@ READ WHEN: 想用 颜色检测/找图 + 按屏幕偏移转视角 做 3D 场景�
 
 ## 背景
 
-为 3D 第三人称游戏(异环)做"收物资→撤离"自动化,设计了 `TurnToTarget` 节点(吃屏幕目标点 Point,按 `dx=(X-0.5)×Gain` 转一步 yaw,Aligned/Turning 双出口,见 [[../landed/plans/2026-06-05-turn-to-target-node]] / 已并入代码),配 `DetectColor`(出 `lastColor.center`)+ `GetSys` 桥接喂目标点,放 `Loop` 里收敛。真机试了多轮,**调不出来**。
+为 3D 第三人称游戏(异环)做"收物资→撤离"自动化,设计了 `TurnToTarget` 节点(吃屏幕目标点 Point,按 `dx=(X-0.5)×Gain` 转一步 yaw,Aligned/Turning 双出口,见 [[../archive/plans/2026-06-05-turn-to-target-node]] / 已并入代码),配 `DetectColor`(出 `lastColor.center`)+ `GetSys` 桥接喂目标点,放 `Loop` 里收敛。真机试了多轮,**调不出来**。
 
 ## 为什么 3D 里必然崩(逐条)
 
@@ -29,10 +29,10 @@ READ WHEN: 想用 颜色检测/找图 + 按屏幕偏移转视角 做 3D 场景�
 
 - **3D 场景里要稳的"面向目标/走位",需要游戏态(目标世界坐标 / 小地图),屏幕找色给不了** → 超出本框架范围,别硬做。
 - **框架的甜区是"检测 + 按键"**:撬锁提示→按 F、识别回城点/物资高亮→记个变量通知主流程。3D 移动顶多靠**固定关卡的盲走(按住 W X 秒 + 转固定角度)**,且脆(刷怪/位移误差就乱)。
-- `TurnToTarget` 当个**2D/UI 场景**的"把某屏幕点转到中心"还行(那才是它的本分);**当 3D 导航/锁人不行**。它的 spec/plan 里"DetectColor.Center 直连 Target"的用法示例还是错的(数据流要走 `GetSys`,见 [[move-delete-update-referrers]] 同级的 [[2026-06-05-node-data-flow]] checklist)。
+- `TurnToTarget` 当个**2D/UI 场景**的"把某屏幕点转到中心"还行(那才是它的本分);**当 3D 导航/锁人不行**。它的 spec/plan 里"DetectColor.Center 直连 Target"的用法示例还是错的(数据流要走 `GetSys`,见 [[move-delete-update-referrers]] 同级的 [[node-data-flow]] checklist)。
 - 评估"让框架在 3D 游戏里导航/锁定"类需求时,先回到这条:**不是调参问题,是方法和 3D 现实对不上**。
 
 ## 关联
 
-- 数据流(exec 出口 Data 不能直连、要 GetSys 读 $sys)看 checklist [[2026-06-05-node-data-flow]]。
+- 数据流(exec 出口 Data 不能直连、要 GetSys 读 $sys)看 checklist [[node-data-flow]]。
 - 节点 spec/plan: [[../archive/plans/2026-06-05-turn-to-target-node]]、archive/specs/2026-06-05-aim-yaw-visual-servo(landing 2026-06-05 已连同 plan 一起归档 — 代码已并入但方法判废)。

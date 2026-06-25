@@ -25,14 +25,14 @@ READ WHEN: 写任何"需要子图完整内容(graph/entry/outputPins)"的前端�
 
 前端拿子图**完整内容(含 graph/entry/outputPins)**只有一处:`editorStore.subgraphsFor(cid)`(= `subgraphsByContainer[cid]`,元素是 `SubgraphSummary`,尽管叫 Summary 但**含完整 graph** —— 见 containerEditor.ts:11 注释"v2 修复 Bug:activeGraph computed 需要完整 graph")。
 
-- 用 `editorStore.subgraphsFor(opts.draft.value.id)`(按容器精确,不受 active 漂移),**不要**用 `subgraphsForCurrentContainer`(跟 active 指针走,多编辑器 keep-alive 下会漂 —— 见 [[2026-06-09-keepalive-singleton-subgraph-store-stale]])。
+- 用 `editorStore.subgraphsFor(opts.draft.value.id)`(按容器精确,不受 active 漂移),**不要**用 `subgraphsForCurrentContainer`(跟 active 指针走,多编辑器 keep-alive 下会漂 —— 见 [[keepalive-singleton-subgraph-store-stale]])。
 - 该 slot 含**匿名后备子图**(CollapsedNode 的 isAnonymous 子图),嵌套 callee 查找需要它,所以取全量、别先 `visibleSubgraphs` 过滤。
 - `currentSubgraph`(useEditorPath)本身就是从该 slot 取的完整子图对象,面板/当前层级入口直接用它,别再绕一圈去 find。
 
 ## 为什么单测没拦住(verification gap)
 
-转换器纯函数 `subgraphToScript.ts` 单测 18 例全绿,但它们**直接构造 sg 喂纯函数**,绕过了 composable 这层"从哪取子图"的接线。bug 全在接线层(`useSubgraphToScript` / view 入口),纯函数测试天然测不到。spec 验收第 3 条"真机走一遍"正是拦这个的 —— 真机债没清就漏了网。**教训:数据源接线 ≠ 纯逻辑,只有真机/组件级测试能验;纯函数全绿不等于功能能跑。**(同类 verification-gap 见 [[2026-05-31-node-timed-input-loses-backend-activate]]、[[2026-06-08-slate-click-up-coords-and-hold-lifecycle]]。)
+转换器纯函数 `subgraphToScript.ts` 单测 18 例全绿,但它们**直接构造 sg 喂纯函数**,绕过了 composable 这层"从哪取子图"的接线。bug 全在接线层(`useSubgraphToScript` / view 入口),纯函数测试天然测不到。spec 验收第 3 条"真机走一遍"正是拦这个的 —— 真机债没清就漏了网。**教训:数据源接线 ≠ 纯逻辑,只有真机/组件级测试能验;纯函数全绿不等于功能能跑。**(同类 verification-gap 见 [[node-timed-input-loses-backend-activate]]、[[slate-click-up-coords-and-hold-lifecycle]]。)
 
 ## 怎么避免(下次)
 
-写任何要子图完整内容的前端功能,第一反应就该是 `editorStore.subgraphsFor(cid)`,看到 `draft.value.subgraphs` 立刻警觉它是空的。根因同源于「子图数据在前端有多个表征、各管一摊」这个老问题(磁盘 / 后端缓存 / editorStore / draft),延伸阅读 [[2026-06-09-import-bypasses-container-store-cache]]。
+写任何要子图完整内容的前端功能,第一反应就该是 `editorStore.subgraphsFor(cid)`,看到 `draft.value.subgraphs` 立刻警觉它是空的。根因同源于「子图数据在前端有多个表征、各管一摊」这个老问题(磁盘 / 后端缓存 / editorStore / draft),延伸阅读 [[import-bypasses-container-store-cache]]。

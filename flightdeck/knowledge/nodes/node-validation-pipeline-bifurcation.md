@@ -24,4 +24,4 @@ READ WHEN: 写"给节点加校验 / 加 Validate"类 spec 或代码前; 撞"我�
 - 加之前先 grep `validator.go` 里有没有同 kind 的 `validateXxx` 已经在校验同一字段——别重复。
 - 写 spec 现状段时，"某节点有没有 Validate"要**两条都查**，不能只看节点结构体有没有 `Validate` 方法。
 
-相关: [[2026-06-04-geometry-pin-value-pct-shape]]（同次 smoke 挖出的另一个 pin 形状坑）。
+相关: [[geometry-pin-value-pct-shape]]（同次 smoke 挖出的另一个 pin 形状坑）。

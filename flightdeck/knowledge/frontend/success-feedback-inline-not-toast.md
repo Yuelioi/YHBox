@@ -21,7 +21,7 @@ toast —— 顶部弹出干扰视线、和操作点割裂。成功反馈本该�
 
 改 `.vue` 前**没读** [checklists/ui.md](../checklists/ui.md)(它的 `when_to_read` 就是「写/改 .vue 前」)。
 ui.md「反馈方式」决策树早有定论, 漏读 → 凭直觉造方案。本质是头号铁律「有源码/有约定必读」在前端
-约定上的同款踩法 —— 跟 [[2026-05-26-snippet-drawer-debug-discipline]] 一类纪律问题。
+约定上的同款踩法 —— 跟 [[snippet-drawer-debug-discipline]] 一类纪律问题。
 
 ## 修法
 

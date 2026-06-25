@@ -20,7 +20,7 @@ READ WHEN: 写任何遍历子图 graph.nodes 的全图操作(自动布局/导出
 
 子图入口/出口是 **virtual marker** —— 存在 `subgraph.entry`(`SubgraphMarker`) 和
 `subgraph.outputPins[]`(`SubgraphOutputDecl`), 各自带 `nodeID/x/y`, **刻意不进 `graph.nodes`**
-(防用户误删/改 kind; 见 [[2026-06-04-subgraph-marker-pin-convention]])。边按 `<nodeID>.<pin>` 引用它们。
+(防用户误删/改 kind; 见 [[subgraph-marker-pin-convention]])。边按 `<nodeID>.<pin>` 引用它们。
 
 任何"全图操作"若只遍历 `graph.nodes` 就会漏掉这俩。本例 `autoLayout` 读 `activeGraph.nodes`
 (只 body) → 两层连锁: ① marker 不进 ELK, x/y 不重排; ② `buildElkGraph` 的 `elkEdges` 过滤
@@ -28,7 +28,7 @@ READ WHEN: 写任何遍历子图 graph.nodes 的全图操作(自动布局/导出
 
 **通用教训**: 子图的"完整图"= `graph.nodes` + entry + outputPins。导出 / 转脚本 / 遍历 / 分析 /
 布局 等任何全图操作都得把 marker 并进来, 别假设 `graph.nodes` 是全部。读 draft 子图内容的
-姊妹坑见 [[2026-06-12-draft-subgraphs-phantom-field]]。
+姊妹坑见 [[draft-subgraphs-phantom-field]]。
 
 ## 修法
 
