@@ -23,6 +23,27 @@ func TestRuntimeContext_SetActiveWindow_StickyAndGuard(t *testing.T) {
 	}
 }
 
+func TestRuntimeContext_WindowOverrideStack(t *testing.T) {
+	rt := &RuntimeContext{}
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
+	rt.PushWindowOverride(winutil.WindowHandle{HWND: 2})
+	if h, _ := rt.ActiveHWND(); h != 2 {
+		t.Fatal("栈顶应为 2")
+	}
+	rt.PushWindowOverride(winutil.WindowHandle{HWND: 3})
+	if h, _ := rt.ActiveHWND(); h != 3 {
+		t.Fatal("嵌套栈顶应为 3")
+	}
+	rt.PopWindowOverride()
+	if h, _ := rt.ActiveHWND(); h != 2 {
+		t.Fatal("pop 后应回 2")
+	}
+	rt.PopWindowOverride()
+	if h, _ := rt.ActiveHWND(); h != 1 {
+		t.Fatal("清空后回粘性 1")
+	}
+}
+
 func TestFrameCache_PerHWND(t *testing.T) {
 	rt := &RuntimeContext{}
 	rt.initFrameCache()

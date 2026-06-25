@@ -54,6 +54,8 @@ type RuntimeContext struct {
 	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
 	windowMu sync.RWMutex
 	window   winutil.WindowHandle // HWND==0 = 未解析
+	// windowOverride 派发期 per-node 覆盖栈; 栈顶为当前有效窗口, 空则用粘性 window。windowMu 守护。
+	windowOverride []winutil.WindowHandle
 
 	// 帧缓存: 同一 iter 内模板/DetectColor 多次抓帧复用 (100ms TTL, 按 hwnd 分条).
 	// DualBar/HSV/ROIScan/Grid 不走此缓存 (QTE 高频轮询要新帧).
@@ -166,10 +168,13 @@ func (rt *RuntimeContext) SetParam(name string, val expr.Value) {
 // ErrNoActiveWindow 窗口类节点在任何 WindowTarget 点之前执行时返回. 走标准节点错误路.
 var ErrNoActiveWindow = errors.New("NO_ACTIVE_WINDOW — 当前无活动窗口, 先放并执行一个 WindowTarget 节点")
 
-// WindowHandle 并发安全读取当前粘性活动窗口.
+// WindowHandle 并发安全读取当前有效窗口(覆盖栈非空返栈顶, 否则返粘性 window).
 func (rt *RuntimeContext) WindowHandle() winutil.WindowHandle {
 	rt.windowMu.RLock()
 	defer rt.windowMu.RUnlock()
+	if n := len(rt.windowOverride); n > 0 {
+		return rt.windowOverride[n-1]
+	}
 	return rt.window
 }
 
@@ -177,10 +182,28 @@ func (rt *RuntimeContext) WindowHandle() winutil.WindowHandle {
 func (rt *RuntimeContext) ActiveHWND() (uintptr, error) {
 	rt.windowMu.RLock()
 	defer rt.windowMu.RUnlock()
-	if rt.window.HWND == 0 {
+	wh := rt.window
+	if n := len(rt.windowOverride); n > 0 {
+		wh = rt.windowOverride[n-1]
+	}
+	if wh.HWND == 0 {
 		return 0, ErrNoActiveWindow
 	}
-	return rt.window.HWND, nil
+	return wh.HWND, nil
+}
+
+func (rt *RuntimeContext) PushWindowOverride(wh winutil.WindowHandle) {
+	rt.windowMu.Lock()
+	defer rt.windowMu.Unlock()
+	rt.windowOverride = append(rt.windowOverride, wh)
+}
+
+func (rt *RuntimeContext) PopWindowOverride() {
+	rt.windowMu.Lock()
+	defer rt.windowMu.Unlock()
+	if n := len(rt.windowOverride); n > 0 {
+		rt.windowOverride = rt.windowOverride[:n-1]
+	}
 }
 
 // SetActiveWindow 整体替换活动窗口 (粘性) + 清该 hwnd 帧缓存 + prune 过期.
