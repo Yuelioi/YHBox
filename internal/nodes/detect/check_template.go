@@ -33,14 +33,14 @@ func (CheckTemplate) Spec() node.Spec {
 		Kind:        "CheckTemplate",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: ctInExec, Type: "Exec"},
 			{Name: ctInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
 			{Name: ctInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: ctOutFound, Type: "Exec",
 				Data: []node.DataField{

@@ -52,7 +52,7 @@ func (DetectColorHSV) Spec() node.Spec {
 		Kind:        "DetectColorHSV",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: dchInExec, Type: "Exec"},
 			{Name: dchInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: dchInHSV, Type: "JSON",
@@ -66,7 +66,7 @@ func (DetectColorHSV) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dchInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: dchOutFound, Type: "Exec",
 				Data: []node.DataField{

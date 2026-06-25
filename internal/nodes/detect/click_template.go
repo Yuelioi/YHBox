@@ -52,8 +52,9 @@ func (ClickTemplate) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "ClickTemplate",
 		Category:    "Detect",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: clkInExec, Type: "Exec"},
 			{Name: clkInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
@@ -105,7 +106,7 @@ func (ClickTemplate) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: clkInClickCount, Type: "Integer", Default: json.Number("1"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: clkOutDone, Type: "Exec",
 				Data: []node.DataField{

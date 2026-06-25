@@ -46,7 +46,7 @@ func (DetectColor) Spec() node.Spec {
 		Kind:        "DetectColor",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: dcInExec, Type: "Exec"},
 			{Name: dcInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: dcInMode, Type: "String", Default: "hsv",
@@ -62,7 +62,7 @@ func (DetectColor) Spec() node.Spec {
 				Schema: dcRangeSchema},
 			{Name: dcInMinPixels, Type: "Number", Default: json.Number("5"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: dcOutFound, Type: "Exec",
 				Data: []node.DataField{

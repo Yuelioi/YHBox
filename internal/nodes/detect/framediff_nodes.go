@@ -99,6 +99,7 @@ func (WaitStable) Spec() node.Spec {
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			node.InputSpec{Name: wsStableFrames, Type: "Number", Default: json.Number("3"),
 				Widget: node.WidgetSpec{Kind: "number"}},
+			node.WindowInputSpec(),
 		),
 		Outputs: []node.OutputSpec{valueExit(wsOutStable), valueExit(wsOutTimeout)},
 	}
@@ -113,6 +114,7 @@ func (WaitChange) Spec() node.Spec {
 			node.InputSpec{Name: wcChangeThreshold, Type: "Number", Default: json.Number("0.05"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			node.WindowInputSpec(),
 		),
 		Outputs: []node.OutputSpec{valueExit(wcOutChanged), valueExit(wcOutTimeout)},
 	}

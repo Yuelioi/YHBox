@@ -29,8 +29,9 @@ func (Swipe) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Swipe",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: swInExec, Type: "Exec"},
 			{Name: swInBegin, Type: "Point", Schema: node.PointSchema()},
 			{Name: swInEnd, Type: "Point", Schema: node.PointSchema()},
@@ -44,7 +45,7 @@ func (Swipe) Spec() node.Spec {
 						}})}},
 			{Name: swInDurationMs, Type: "Number", Default: json.Number("200"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: swOutDone, Type: "Exec"},
 		},

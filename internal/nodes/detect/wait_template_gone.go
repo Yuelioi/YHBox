@@ -29,7 +29,7 @@ func (WaitTemplateGone) Spec() node.Spec {
 		Kind:        "WaitTemplateGone",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: wtgInExec, Type: "Exec"},
 			{Name: wtgInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
@@ -38,7 +38,7 @@ func (WaitTemplateGone) Spec() node.Spec {
 			{Name: wtgInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: wtgOutGone, Type: "Exec"},
 			{Name: wtgOutTimeout, Type: "Exec",

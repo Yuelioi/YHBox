@@ -30,8 +30,9 @@ func (ClickAt) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "ClickAt",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: caInExec, Type: "Exec"},
 			{Name: caInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
 				Schema: node.PointSchema()},
@@ -53,7 +54,7 @@ func (ClickAt) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: caInClickCount, Type: "Integer", Default: json.Number("1"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: caOutDone, Type: "Exec"},
 		},

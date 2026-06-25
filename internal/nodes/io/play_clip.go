@@ -21,13 +21,14 @@ func (PlayClip) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "PlayClip",
 		Category:    "IO",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: pcInExec, Type: "Exec"},
 			{Name: pcInClipID, Type: "String", Required: true, Semantic: "ClipID",
 				Widget: node.WidgetSpec{Kind: "async-dropdown",
 					Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: "clipIDs"})}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: pcOutDone, Type: "Exec"},
 			{Name: "Fail", Type: "Exec", Semantic: "error",

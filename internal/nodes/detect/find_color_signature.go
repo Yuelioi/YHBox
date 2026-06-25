@@ -41,7 +41,7 @@ func (FindColorSignature) Spec() node.Spec {
 		Kind:        "FindColorSignature",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: fcsInExec, Type: "Exec"},
 			{Name: fcsInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: fcsInSignature, Type: "JSON",
@@ -49,7 +49,7 @@ func (FindColorSignature) Spec() node.Spec {
 				Schema: fcsSignatureSchema},
 			{Name: fcsInTolerance, Type: "Number", Default: json.Number("16"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: fcsOutFound, Type: "Exec", Data: []node.DataField{{Name: fcsDataPoint, Type: "Point"}}},
 			{Name: fcsOutNotFound, Type: "Exec"},

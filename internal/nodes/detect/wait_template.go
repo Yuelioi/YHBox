@@ -33,7 +33,7 @@ func (WaitTemplate) Spec() node.Spec {
 		Kind:        "WaitTemplate",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
@@ -44,7 +44,7 @@ func (WaitTemplate) Spec() node.Spec {
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
 			{Name: wtInSettleMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: wtOutFound, Type: "Exec",
 				Data: []node.DataField{

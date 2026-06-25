@@ -46,7 +46,7 @@ func (DetectColorBlobs) Spec() node.Spec {
 		Kind:        "DetectColorBlobs",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: dcbInExec, Type: "Exec"},
 			{Name: dcbInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: dcbInMode, Type: "String", Default: "hsv",
@@ -74,7 +74,7 @@ func (DetectColorBlobs) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: dcbInTimeoutMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: dcbOutFound, Type: "Exec",
 				Data: []node.DataField{

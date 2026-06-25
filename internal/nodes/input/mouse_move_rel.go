@@ -25,8 +25,9 @@ func (MouseMoveRel) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MouseMoveRel",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: mmrInExec, Type: "Exec"},
 			{Name: mmrInDx, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
@@ -36,7 +37,7 @@ func (MouseMoveRel) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: mmrInJitterPct, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: mmrOutDone, Type: "Exec"},
 		},

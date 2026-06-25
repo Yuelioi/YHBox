@@ -20,10 +20,11 @@ func (BringWindowForeground) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "BringWindowForeground",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: bgfInExec, Type: "Exec"},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: bgfOutDone, Type: "Exec"},
 		},

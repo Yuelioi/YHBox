@@ -25,8 +25,9 @@ func (Scroll) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "Scroll",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: scInExec, Type: "Exec"},
 			{Name: scInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
 				Schema: node.PointSchema()},
@@ -42,7 +43,7 @@ func (Scroll) Spec() node.Spec {
 							{Value: "horizontal"},
 						},
 					})}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: scOutDone, Type: "Exec"},
 		},

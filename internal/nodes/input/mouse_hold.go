@@ -23,10 +23,11 @@ const (
 
 func (MouseHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseHoldStart",
-		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Kind:            "MouseHoldStart",
+		Category:        "Input",
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: mhStartInExec, Type: "Exec"},
 			{Name: mhStartInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
 				Schema: node.PointSchema()},
@@ -38,7 +39,7 @@ func (MouseHoldStart) Spec() node.Spec {
 							{Value: "right"},
 							{Value: "middle"},
 						}})}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: mhStartOutOut, Type: "Exec"},
 		},
@@ -79,10 +80,11 @@ const (
 
 func (MouseHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseHoldStop",
-		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Kind:            "MouseHoldStop",
+		Category:        "Input",
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: mhStopInExec, Type: "Exec"},
 			{Name: mhStopInButton, Type: "String", Default: "left",
 				Widget: node.WidgetSpec{Kind: "dropdown",
@@ -92,7 +94,7 @@ func (MouseHoldStop) Spec() node.Spec {
 							{Value: "right"},
 							{Value: "middle"},
 						}})}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: mhStopOutOut, Type: "Exec"},
 		},

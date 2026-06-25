@@ -32,7 +32,7 @@ func (FindTemplateAll) Spec() node.Spec {
 		Kind:        "FindTemplateAll",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: ftaInExec, Type: "Exec"},
 			{Name: ftaInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,
 				Widget: node.WidgetSpec{Kind: "template-picker"}},
@@ -44,7 +44,7 @@ func (FindTemplateAll) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: ftaInMinDistance, Type: "Number", Default: json.Number("0"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: ftaOutFound, Type: "Exec",
 				Data: []node.DataField{

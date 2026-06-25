@@ -31,7 +31,7 @@ func (Capture) Spec() node.Spec {
 		Kind:        "Capture",
 		Category:    "Image",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: capIn, Type: node.TypeExec},
 			{Name: capInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: capInFormat, Type: "String", Default: "png",
@@ -39,7 +39,7 @@ func (Capture) Spec() node.Spec {
 					Options: []node.EnumOption{{Value: "png"}, {Value: "jpeg"}},
 				})}},
 			{Name: capInQuality, Type: "Integer", Default: json.Number("85"), Advanced: true},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: capDone, Type: node.TypeExec, Data: []node.DataField{
 				{Name: capOutImage, Type: "Image"},

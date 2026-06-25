@@ -28,8 +28,9 @@ func (KeyPress) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "KeyPress",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: kpInExec, Type: "Exec"},
 			{Name: kpInVK, Type: "String", Required: true, Default: "W",
 				Widget: node.WidgetSpec{Kind: "key-capture"}},
@@ -37,7 +38,7 @@ func (KeyPress) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: kpInJitterPct, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: kpOutDone, Type: "Exec"},
 		},

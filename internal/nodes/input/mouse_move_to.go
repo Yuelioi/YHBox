@@ -26,8 +26,9 @@ func (MouseMoveTo) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "MouseMoveTo",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: mmtInExec, Type: "Exec"},
 			{Name: mmtInPoint, Type: "Point", Default: node.Point{X: 0.5, Y: 0.5},
 				Schema: node.PointSchema()},
@@ -35,7 +36,7 @@ func (MouseMoveTo) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: mmtInJitterPct, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: mmtOutDone, Type: "Exec"},
 		},

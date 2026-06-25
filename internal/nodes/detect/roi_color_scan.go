@@ -36,7 +36,7 @@ func (ROIColorScan) Spec() node.Spec {
 		Kind:        "ROIColorScan",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: rcsInExec, Type: "Exec"},
 			{Name: rcsInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 			{Name: rcsInHSV, Type: "JSON",
@@ -60,7 +60,7 @@ func (ROIColorScan) Spec() node.Spec {
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: rcsInTimeoutMs, Type: "Number", Default: json.Number("5000"),
 				Widget: node.WidgetSpec{Kind: "number"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: rcsOutFound, Type: "Exec",
 				Data: []node.DataField{

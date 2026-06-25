@@ -21,12 +21,13 @@ func (InputText) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "InputText",
 		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: itInExec, Type: "Exec"},
 			{Name: itInText, Type: "String", Required: true,
 				Widget: node.WidgetSpec{Kind: "text"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: itOutDone, Type: "Exec"},
 		},

@@ -45,7 +45,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 		Kind:        "DualColorBarTrack",
 		Category:    "Detect",
 		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Inputs: append([]node.InputSpec{
 			{Name: dcbtInExec, Type: "Exec"},
 			{Name: dcbtInROI, Type: "Geometry", Required: true,
 				Schema: node.GeometrySchema()},
@@ -58,7 +58,7 @@ func (DualColorBarTrack) Spec() node.Spec {
 			{Name: dcbtInOptions, Type: "JSON",
 				Widget: node.WidgetSpec{Kind: "json", Props: node.MarshalProps(node.JSONProps{Rows: 2})},
 				Schema: dualBarOptionsSchema},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: dcbtOutFound, Type: "Exec",
 				Data: []node.DataField{

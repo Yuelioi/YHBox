@@ -27,14 +27,15 @@ const (
 
 func (KeyHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyHoldStart",
-		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Kind:            "KeyHoldStart",
+		Category:        "Input",
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: khStartInExec, Type: "Exec"},
 			{Name: khStartInVK, Type: "String", Required: true, Default: "A",
 				Widget: node.WidgetSpec{Kind: "key-capture"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: khStartOutOut, Type: "Exec"},
 		},
@@ -64,14 +65,15 @@ const (
 
 func (KeyHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyHoldStop",
-		Category:    "Input",
-		NeedsWindow: true,
-		Inputs: []node.InputSpec{
+		Kind:            "KeyHoldStop",
+		Category:        "Input",
+		NeedsWindow:     true,
+		NeedsForeground: true,
+		Inputs: append([]node.InputSpec{
 			{Name: khStopInExec, Type: "Exec"},
 			{Name: khStopInVK, Type: "String", Required: true, Default: "A",
 				Widget: node.WidgetSpec{Kind: "key-capture"}},
-		},
+		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: khStopOutOut, Type: "Exec"},
 		},
