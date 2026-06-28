@@ -6,13 +6,14 @@
 
 ## Next
 
-下一步进入 Phase 3 前应先写新 plan。建议 Phase 3 做 runtime-owned trace recorder + 单条窄路径 feature flag，把一个动作节点通过 Win32Controller 路由并记录 node/container 上下文。不接 Android/Browser。
+按 `plans/phase3-runtime-trace.md` 执行 Phase 3：让 RuntimeContext 拥有 trace recorder，并提供安全读取/清理入口。不改节点路由，不接 UI。
 
 ## Read now
 
 - design.md
 - plan.md
 - plans/phase2-trace.md
+- plans/phase3-runtime-trace.md
 
 ## Read if
 
@@ -33,8 +34,8 @@ Done:
 - Phase 2 代码：`internal/automation/trace`、Win32Controller 可选 controller-call trace hook。
 
 Current:
-- Phase 2 完成，等待 Phase 3 plan。
+- 准备执行 Phase 3 runtime trace ownership。
 
 ## Open questions
 
-- Phase 2 只记录 controller-call trace；runtime node trace、文件落盘和 UI 查看器都未完成。
+- Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
