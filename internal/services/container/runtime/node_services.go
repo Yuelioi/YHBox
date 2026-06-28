@@ -359,14 +359,18 @@ func (a *inputAdapter) CursorRatio() (float64, float64, error) {
 }
 
 func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bool) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.Scroll(h, xRatio, yRatio, notches, horizontal)
+	return ctrl.Scroll(context.Background(), controller.ScrollRequest{
+		Point:      target.NewNormalizedPoint(xRatio, yRatio),
+		Notches:    notches,
+		Horizontal: horizontal,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {

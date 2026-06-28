@@ -377,18 +377,23 @@ func (f fakeCapture) ClientSize(_ win.HWND) (int, int, error) {
 func (f fakeCapture) Close() error { return nil }
 
 type recordingRuntimeInput struct {
-	clickHWND     []uintptr
-	clickX        []float64
-	clickY        []float64
-	clickButton   []string
-	clickDuration []int
-	keyDownHWND   []uintptr
-	keyDownKeys   []string
-	keyUpHWND     []uintptr
-	keyUpKeys     []string
-	moveHWND      []uintptr
-	moveX         []float64
-	moveY         []float64
+	clickHWND        []uintptr
+	clickX           []float64
+	clickY           []float64
+	clickButton      []string
+	clickDuration    []int
+	keyDownHWND      []uintptr
+	keyDownKeys      []string
+	keyUpHWND        []uintptr
+	keyUpKeys        []string
+	moveHWND         []uintptr
+	moveX            []float64
+	moveY            []float64
+	scrollHWND       []uintptr
+	scrollX          []float64
+	scrollY          []float64
+	scrollNotches    []int
+	scrollHorizontal []bool
 }
 
 func (r *recordingRuntimeInput) Name() string { return "sendinput" }
@@ -420,7 +425,12 @@ func (r *recordingRuntimeInput) MouseUp(win.HWND, string) error { return nil }
 func (r *recordingRuntimeInput) MouseMoveRel(win.HWND, int, int, int) error {
 	return nil
 }
-func (r *recordingRuntimeInput) Scroll(win.HWND, float64, float64, int, bool) error {
+func (r *recordingRuntimeInput) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error {
+	r.scrollHWND = append(r.scrollHWND, uintptr(hwnd))
+	r.scrollX = append(r.scrollX, xRatio)
+	r.scrollY = append(r.scrollY, yRatio)
+	r.scrollNotches = append(r.scrollNotches, notches)
+	r.scrollHorizontal = append(r.scrollHorizontal, horizontal)
 	return nil
 }
 func (r *recordingRuntimeInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
@@ -479,6 +489,31 @@ func TestInputAdapter_MoveToRoutesThroughControllerTrace(t *testing.T) {
 		t.Fatalf("trace len = %d, want 1", len(records))
 	}
 	if records[0].Action != "move" || records[0].Target.ID != "win32:66" || records[0].Backend != "sendinput" {
+		t.Fatalf("trace record = %#v", records[0])
+	}
+	if len(records[0].CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(records[0].CoordinateSteps))
+	}
+}
+
+func TestInputAdapter_ScrollRoutesThroughControllerTrace(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 55, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+
+	err := NewInputAdapter(rt).Scroll(0.2, 0.8, -3, true)
+	if err != nil {
+		t.Fatalf("Scroll error = %v", err)
+	}
+	if len(input.scrollHWND) != 1 || input.scrollHWND[0] != 55 || input.scrollX[0] != 0.2 || input.scrollY[0] != 0.8 || input.scrollNotches[0] != -3 || !input.scrollHorizontal[0] {
+		t.Fatalf("backend Scroll = hwnds %#v x %#v y %#v notches %#v horizontal %#v", input.scrollHWND, input.scrollX, input.scrollY, input.scrollNotches, input.scrollHorizontal)
+	}
+	records := rt.TraceRecords()
+	if len(records) != 1 {
+		t.Fatalf("trace len = %d, want 1", len(records))
+	}
+	if records[0].Action != "scroll" || records[0].Target.ID != "win32:55" || records[0].Backend != "sendinput" {
 		t.Fatalf("trace record = %#v", records[0])
 	}
 	if len(records[0].CoordinateSteps) != 1 {
