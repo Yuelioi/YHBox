@@ -6,7 +6,7 @@
 
 ## Next
 
-先写 Phase 6 plan，再继续迁移下一个窄范围动作。推荐下一步：`MoveTo` + coordinate-step tracing，或者 `Scroll` controller routing。不要无计划迁移 drag/text/screenshot/UI。
+Execute `plans/phase6-move-controller.md`: route `InputService.MoveTo` through `Win32Controller` and record a minimal coordinate step. Keep drag, scroll, text, screenshot, and UI out of this phase.
 
 ## Read now
 
@@ -16,6 +16,7 @@
 - plans/phase3-runtime-trace.md
 - plans/phase4-keyboard-controller.md
 - plans/phase5-click-controller.md
+- plans/phase6-move-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -42,7 +43,7 @@ Done:
 - Phase 5 代码：`InputService.Click` 经 `Win32Controller` 执行，并写入 runtime trace。
 
 Current:
-- 等待 Phase 6 plan：优先考虑 `MoveTo` + coordinate-step tracing 或 `Scroll` controller routing。
+- 执行 Phase 6 move controller routing：迁移 `InputService.MoveTo` 并记录 coordinate step。
 
 ## Open questions
 
