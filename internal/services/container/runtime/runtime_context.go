@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lxn/win"
+	automationtrace "yotta/internal/automation/trace"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/expr"
@@ -49,6 +50,9 @@ type RuntimeContext struct {
 	Emit      func(name string, data any)
 
 	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
+
+	traceMu       sync.Mutex
+	traceRecorder *automationtrace.MemoryRecorder
 
 	// 粘性活动窗口寄存器. 运行时由 WindowTarget.Run 经 SetActiveWindow 改写;
 	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
@@ -99,6 +103,7 @@ func NewRuntimeContext(
 		ClipResolver:   clipResolver,
 		MouseCounts360: mouseCounts360,
 		ClipPolicy:     clipruntime.DefaultPlaybackPolicy(),
+		traceRecorder:  automationtrace.NewMemoryRecorder(),
 		vars:           make(map[string]expr.Value),
 		params:         make(map[string]expr.Value),
 		varTimestamps:  make(map[string]int64),
@@ -110,6 +115,27 @@ func NewRuntimeContext(
 
 // GameProvider 返回注入的 GameProvider（可能为 nil，1.22 前占位）。
 func (rt *RuntimeContext) GameProvider() GameProvider { return rt.Game }
+
+func (rt *RuntimeContext) ensureTraceRecorder() *automationtrace.MemoryRecorder {
+	rt.traceMu.Lock()
+	defer rt.traceMu.Unlock()
+	if rt.traceRecorder == nil {
+		rt.traceRecorder = automationtrace.NewMemoryRecorder()
+	}
+	return rt.traceRecorder
+}
+
+func (rt *RuntimeContext) TraceRecorder() automationtrace.Recorder {
+	return rt.ensureTraceRecorder()
+}
+
+func (rt *RuntimeContext) TraceRecords() []automationtrace.ActionRecord {
+	return rt.ensureTraceRecorder().Records()
+}
+
+func (rt *RuntimeContext) ClearTrace() {
+	rt.ensureTraceRecorder().Clear()
+}
 
 func (rt *RuntimeContext) initVars() {
 	for _, v := range rt.Container.Vars {
