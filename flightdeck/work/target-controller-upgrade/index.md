@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Execute `plans/phase9-type-text-controller.md`: route runtime `TypeText` through `Win32Controller.Text` and verify `InputText` trace/source metadata. Keep IME/browser/Android text policy and drag/down/up out of this phase.
+Plan Phase 10: route MouseDown, MouseUp, and Drag through `Win32Controller` with explicit trace actions. Recommended approach is to add primitive down/up first, then express Drag as a controller-level composed action or a single backend delegate with coordinate steps.
 
 ## Read now
 
@@ -26,6 +26,7 @@ Execute `plans/phase9-type-text-controller.md`: route runtime `TypeText` through
 - ../../knowledge/architecture/target-controller-phase6-notes.md
 - ../../knowledge/architecture/target-controller-phase7-notes.md
 - ../../knowledge/architecture/target-controller-phase8-notes.md
+- ../../knowledge/architecture/target-controller-phase9-notes.md
 
 ## Read if
 
@@ -50,12 +51,13 @@ Done:
 - Phase 6 代码：`InputService.MoveTo` 经 `Win32Controller` 执行，并记录最小 coordinate step。
 - Phase 7 代码：`InputService.Scroll` 经 `Win32Controller` 执行，并记录最小 coordinate step。
 - Phase 8 代码：controller action trace 增加 `ActionSource`，framework dispatch 的输入动作带 container/node/kind/in-pin 来源。
+- Phase 9 代码：`InputService.TypeText` 经 `Win32Controller.Text` 执行，并写入带 source 的 `text` trace。
 
 Current:
-- 执行 Phase 9：`InputService.TypeText` controller routing and trace coverage.
+- 规划 Phase 10：MouseDown / MouseUp / Drag controller routing.
 
 ## Open questions
 
 - Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
-- Remaining input methods not routed through `Win32Controller`: Drag, MouseDown, MouseUp, TypeText.
+- Remaining input methods not routed through `Win32Controller`: Drag, MouseDown, MouseUp.
