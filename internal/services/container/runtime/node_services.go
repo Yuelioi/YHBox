@@ -22,6 +22,7 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
+	"yotta/internal/automation/controller"
 	"yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/expr"
@@ -261,26 +262,49 @@ func (a *inputAdapter) ensure() error {
 	return nil
 }
 
-func (a *inputAdapter) KeyDown(vk string) error {
+func (a *inputAdapter) controller() (*controller.Win32Controller, error) {
 	if err := a.ensure(); err != nil {
-		return err
+		return nil, err
 	}
-	h, err := a.hwnd()
+	wh := a.rt.WindowHandle()
+	if wh.HWND == 0 {
+		return nil, ErrNoActiveWindow
+	}
+	backend := ""
+	if a.rt.Input != nil {
+		backend = a.rt.Input.Name()
+	}
+	return controller.NewWin32Controller(windowHandleToTarget(wh), controller.Win32Deps{
+		Input:   runtimeWin32Input{backend: a.rt.Input},
+		Trace:   a.rt.TraceRecorder(),
+		Backend: backend,
+	})
+}
+
+func (a *inputAdapter) KeyDown(vk string) error {
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.KeyDown(h, vk)
+	return ctrl.KeyDown(context.Background(), controller.KeyRequest{
+		Key: vk,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) KeyUp(vk string) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.KeyUp(h, vk)
+	return ctrl.KeyUp(context.Background(), controller.KeyRequest{
+		Key: vk,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs int) error {

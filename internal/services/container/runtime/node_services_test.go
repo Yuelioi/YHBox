@@ -14,6 +14,7 @@ import (
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
 	"yotta/internal/services/expr"
+	pkginput "yotta/pkg/input"
 	"yotta/pkg/winutil"
 )
 
@@ -374,6 +375,97 @@ func (f fakeCapture) ClientSize(_ win.HWND) (int, int, error) {
 	return f.img.Bounds().Dx(), f.img.Bounds().Dy(), nil
 }
 func (f fakeCapture) Close() error { return nil }
+
+type recordingRuntimeInput struct {
+	keyDownHWND []uintptr
+	keyDownKeys []string
+	keyUpHWND   []uintptr
+	keyUpKeys   []string
+}
+
+func (r *recordingRuntimeInput) Name() string { return "sendinput" }
+func (r *recordingRuntimeInput) Capabilities() pkginput.Capabilities {
+	return pkginput.Capabilities{}
+}
+func (r *recordingRuntimeInput) Click(win.HWND, float64, float64, string, int) error {
+	return nil
+}
+func (r *recordingRuntimeInput) KeyDown(hwnd win.HWND, key string) error {
+	r.keyDownHWND = append(r.keyDownHWND, uintptr(hwnd))
+	r.keyDownKeys = append(r.keyDownKeys, key)
+	return nil
+}
+func (r *recordingRuntimeInput) KeyUp(hwnd win.HWND, key string) error {
+	r.keyUpHWND = append(r.keyUpHWND, uintptr(hwnd))
+	r.keyUpKeys = append(r.keyUpKeys, key)
+	return nil
+}
+func (r *recordingRuntimeInput) MouseDown(win.HWND, float64, float64, string) error {
+	return nil
+}
+func (r *recordingRuntimeInput) MouseUp(win.HWND, string) error { return nil }
+func (r *recordingRuntimeInput) MouseMoveRel(win.HWND, int, int, int) error {
+	return nil
+}
+func (r *recordingRuntimeInput) Scroll(win.HWND, float64, float64, int, bool) error {
+	return nil
+}
+func (r *recordingRuntimeInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
+	return nil
+}
+func (r *recordingRuntimeInput) TypeText(win.HWND, string) error { return nil }
+func (r *recordingRuntimeInput) MoveTo(win.HWND, float64, float64) error {
+	return nil
+}
+func (r *recordingRuntimeInput) CursorRatio(win.HWND) (float64, float64, error) {
+	return 0, 0, nil
+}
+func (r *recordingRuntimeInput) ReleaseAll() error { return nil }
+func (r *recordingRuntimeInput) Close() error      { return nil }
+
+func TestInputAdapter_KeyDownRoutesThroughControllerTrace(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 77, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+
+	err := NewInputAdapter(rt).KeyDown("ctrl")
+	if err != nil {
+		t.Fatalf("KeyDown error = %v", err)
+	}
+	if len(input.keyDownHWND) != 1 || input.keyDownHWND[0] != 77 || input.keyDownKeys[0] != "ctrl" {
+		t.Fatalf("backend KeyDown = hwnds %#v keys %#v, want hwnd 77 key ctrl", input.keyDownHWND, input.keyDownKeys)
+	}
+	records := rt.TraceRecords()
+	if len(records) != 1 {
+		t.Fatalf("trace len = %d, want 1", len(records))
+	}
+	if records[0].Action != "key-down" || records[0].Target.ID != "win32:77" || records[0].Backend != "sendinput" {
+		t.Fatalf("trace record = %#v", records[0])
+	}
+}
+
+func TestInputAdapter_KeyUpRoutesThroughControllerTrace(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 88, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+
+	err := NewInputAdapter(rt).KeyUp("n")
+	if err != nil {
+		t.Fatalf("KeyUp error = %v", err)
+	}
+	if len(input.keyUpHWND) != 1 || input.keyUpHWND[0] != 88 || input.keyUpKeys[0] != "n" {
+		t.Fatalf("backend KeyUp = hwnds %#v keys %#v, want hwnd 88 key n", input.keyUpHWND, input.keyUpKeys)
+	}
+	records := rt.TraceRecords()
+	if len(records) != 1 {
+		t.Fatalf("trace len = %d, want 1", len(records))
+	}
+	if records[0].Action != "key-up" || records[0].Target.ID != "win32:88" || records[0].Backend != "sendinput" {
+		t.Fatalf("trace record = %#v", records[0])
+	}
+}
 
 func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 	// 4x4 帧: 左上 2x2 红, 其余黑.
