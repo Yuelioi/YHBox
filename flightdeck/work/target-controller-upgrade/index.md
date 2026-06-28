@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan next controller slice: screenshot/capture routing or trace viewer/persistence. Runtime input methods are now controller-routed; the next meaningful robustness gain is making screenshots/capture target-aware or exposing trace records in tooling/UI.
+Execute `plans/phase12-capture-controller.md`: route runtime Capture service through `Win32Controller.Screenshot` with trace/source metadata while preserving existing ROI crop and PNG encode behavior.
 
 ## Read now
 
@@ -22,6 +22,7 @@ Plan next controller slice: screenshot/capture routing or trace viewer/persisten
 - plans/phase9-type-text-controller.md
 - plans/phase10-mouse-hold-drag-controller.md
 - plans/phase11-relative-move-controller.md
+- plans/phase12-capture-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -60,7 +61,7 @@ Done:
 - Phase 11 代码：`InputService.MouseMoveRel` 经 `Win32Controller.MoveRelative` 执行，并写入带 source 的 `move-relative` trace。
 
 Current:
-- 输入动作 controller routing 已完成。下一阶段建议在 screenshot/capture target routing 或 trace viewer/persistence 中二选一。
+- 执行 Phase 12：Capture service screenshot controller routing.
 
 ## Open questions
 
