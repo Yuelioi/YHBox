@@ -23,6 +23,8 @@ import { __resetForTests, register } from './registry'
 import type { FieldSchema, NodeFieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
 import type { Spec, InputSpec, OutputSpec } from '@bindings/yotta/internal/node'
 import { groupVisual, resolvePalette } from '../visualRegistry'
+import { rebuildPinSpecMaps } from '@/components/containers/pinSpec'
+import { rebuildNodeFieldSchemas } from '@/components/containers/nodeFieldSchemas'
 
 // Backend Category → FE NodeGroup. backend 用 TitleCase, FE 历史 lowercase + 'variables'.
 const GROUP_MAP: Record<string, NodeGroup> = {
@@ -330,11 +332,7 @@ export async function populateRegistryFromBackend(): Promise<void> {
   }
   // Expr 函数元数据 (补全/未知函数检查) — RPC 单源, 喂给 exprFunctions 模块级表.
   setExprFunctions(store.exprFunctions)
-  // 异步 import 避免循环: pinSpec/nodeFieldSchemas → registry, registry 不应反 import.
-  const { rebuildPinSpecMaps } = await import('@/components/containers/pinSpec')
-  const { rebuildNodeFieldSchemas } = await import(
-    '@/components/containers/nodeFieldSchemas'
-  )
+  // pinSpec/nodeFieldSchemas derive module-level maps from the populated registry.
   rebuildPinSpecMaps()
   rebuildNodeFieldSchemas()
 }

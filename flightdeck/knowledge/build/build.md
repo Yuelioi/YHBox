@@ -28,6 +28,11 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。
 
+`cd frontend && pnpm build` 当前应绿。2026-06-29 已消掉 `pinSpec.ts` 的 ineffective dynamic import warning;剩余非阻塞 warning 是:
+
+- `PLUGIN_TIMINGS`: nuxt/ui 与 wails typed-events 插件耗时占比提示。
+- `Some chunks are larger than 500 kB`: 主要 chunk 仍偏大,属于后续 code-splitting / bundle budget 议题,不是当前构建失败基线。
+
 ## 前端单测 (vitest)
 
 - 前端**有 vitest 套件** (配置在 `vite.config.ts` 的 `test` 块 —— **不是**单独 `vitest.config.ts`; 测试文件 `src/**/*.{test,spec}.ts`, 已有 useEditorSave / useVarMutations / scriptCompletions / ytConsole 等)。
