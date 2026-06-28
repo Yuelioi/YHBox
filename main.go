@@ -35,6 +35,7 @@ import (
 	_ "yotta/internal/nodes/window"     // GetWindow + WindowState/MoveResizeWindow/CloseWindow 窗口节点
 	"yotta/internal/runclassify"
 	"yotta/internal/services"
+	"yotta/internal/services/androidadb"
 	"yotta/internal/services/asset"
 	"yotta/internal/services/calibration"
 	"yotta/internal/services/codesnippet"
@@ -184,6 +185,7 @@ func main() {
 	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate) 的 Templates 字段 (GUID)
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
 	nodeSvc := node.NewService()
+	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
 
 	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.
 	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.

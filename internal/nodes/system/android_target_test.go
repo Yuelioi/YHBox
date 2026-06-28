@@ -16,6 +16,11 @@ func TestAndroidTarget_SpecHasExecInAndTargetPins(t *testing.T) {
 	in := map[string]string{}
 	for _, p := range s.Inputs {
 		in[p.Name] = p.Type
+		if p.Name == atInSerial {
+			if p.Widget.Kind != "async-dropdown" {
+				t.Fatalf("Serial widget = %q, want async-dropdown", p.Widget.Kind)
+			}
+		}
 	}
 	for name, typ := range map[string]string{
 		atInExec:   node.TypeExec,
