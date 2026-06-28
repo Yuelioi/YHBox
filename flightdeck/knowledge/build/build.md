@@ -22,17 +22,17 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
 
-## 测试留意（预存非回归失败）
+## 测试基线
 
-runtime 套件 fixture 已入仓 (2026-06-12 子图全局化时迁): `internal/services/container/runtime/testdata/fishing-v2/` + `testdata/templates/`, 不再读 bin/data (用户数据已重铸完整 uuid, 按名读必死)。`TestApplyDirection_*` / `TestWatchdog_*` 仍红 = `apply_direction.json` / `watchdog_check.json` 两个 fixture 本机从来没有 — 从有它们的机器补进 testdata/fishing-v2/subgraphs/ 即愈。`TestScanSubgraphDependencies_*` 也是预存失败、非回归 (撞到别当成自己改坏的).
+当前基线 (2026-06-29) 是 **Go 全量测试应绿**: `go test ./...`。过去记录过的 runtime fixture / fishing-v2 / dependency scanner 预存红已经不再成立;如果这些测试再红,先按回归处理,不要套旧豁免。
 
-`TestFishingV2Main_StateCycleSmoke` 本机预存红 (2026-06-11 git stash 实证改动前同样 `clicks=0 finalState=IDLE`): mock 模板没命中 → state_IDLE 一直走 NotFound 兜底分支, 疑与本机 fishing-v2 数据迁 GUID 资产后 mock 名解析有关, 待单独排查.
+前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。
 
 ## 前端单测 (vitest)
 
 - 前端**有 vitest 套件** (配置在 `vite.config.ts` 的 `test` 块 —— **不是**单独 `vitest.config.ts`; 测试文件 `src/**/*.{test,spec}.ts`, 已有 useEditorSave / useVarMutations / scriptCompletions / ytConsole 等)。
-- 跑: `cd frontend && ./node_modules/.bin/vitest run [路径]`。**本环境 `pnpm -C frontend test` 会炸 `ENOENT lstat …/frontend/frontend`** (pnpm `-C` + cwd 下项目插件路径解析的坑) —— 直接调 vitest 二进制即好, 别去动 vite.config / 另建 vitest.config (踩过这个误诊坑)。
-- 全量跑里有个**摸网络的预存测试**, 无网环境 (sandbox) 会 `ETIMEDOUT` 中断 —— 按目录跑 (如 `vitest run src/lib`) 避开。
+- 跑: `cd frontend && pnpm test` 或根目录 `pnpm -C frontend test`。两者当前都应绿。
+- 单文件 / 单目录可用: `cd frontend && ./node_modules/.bin/vitest run <路径>`。
 
 ## 运行 / smoke 留意
 
