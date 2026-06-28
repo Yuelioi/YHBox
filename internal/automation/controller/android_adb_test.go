@@ -101,6 +101,54 @@ func TestAndroidADBControllerDragUsesSwipe(t *testing.T) {
 	}
 }
 
+func TestAndroidADBControllerPointConversionBoundaries(t *testing.T) {
+	ctrl, err := NewAndroidADBController(androidTarget(), AndroidADBDeps{Runner: &fakeADBRunner{}})
+	if err != nil {
+		t.Fatalf("NewAndroidADBController() error = %v", err)
+	}
+	x, y, err := ctrl.pointToDevice(target.NewNormalizedPoint(1, 1))
+	if err != nil {
+		t.Fatalf("pointToDevice(normalized edge) error = %v", err)
+	}
+	if x != 1079 || y != 1919 {
+		t.Fatalf("pointToDevice(normalized edge) = (%d,%d), want (1079,1919)", x, y)
+	}
+	x, y, err = ctrl.pointToDevice(target.Point{X: 12.4, Y: 56.6, Space: target.SpaceAndroidDevice})
+	if err != nil {
+		t.Fatalf("pointToDevice(device) error = %v", err)
+	}
+	if x != 12 || y != 57 {
+		t.Fatalf("pointToDevice(device) = (%d,%d), want (12,57)", x, y)
+	}
+}
+
+func TestAndroidADBControllerRejectsUnsupportedPointSpaceBeforeADBCall(t *testing.T) {
+	runner := &fakeADBRunner{}
+	ctrl, err := NewAndroidADBController(androidTarget(), AndroidADBDeps{Runner: runner})
+	if err != nil {
+		t.Fatalf("NewAndroidADBController() error = %v", err)
+	}
+	err = ctrl.Click(context.Background(), ClickRequest{Point: target.Point{X: 10, Y: 10, Space: target.SpaceBrowserView}})
+	if err == nil {
+		t.Fatalf("Click() error = nil, want unsupported space error")
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("adb calls = %#v, want none", runner.calls)
+	}
+}
+
+func TestAndroidADBControllerRequiresResolutionForNormalizedPoint(t *testing.T) {
+	tg := androidTarget()
+	tg.Resolution = target.Size{}
+	ctrl, err := NewAndroidADBController(tg, AndroidADBDeps{Runner: &fakeADBRunner{}})
+	if err != nil {
+		t.Fatalf("NewAndroidADBController() error = %v", err)
+	}
+	if _, _, err := ctrl.pointToDevice(target.NewNormalizedPoint(0.5, 0.5)); err == nil {
+		t.Fatalf("pointToDevice() error = nil, want missing resolution error")
+	}
+}
+
 func TestAndroidADBControllerTextEscapesADBInput(t *testing.T) {
 	runner := &fakeADBRunner{}
 	ctrl, err := NewAndroidADBController(androidTarget(), AndroidADBDeps{Runner: runner})

@@ -106,6 +106,54 @@ func TestBrowserCDPControllerDragDispatchesMouseSequence(t *testing.T) {
 	}
 }
 
+func TestBrowserCDPControllerPointConversionBoundaries(t *testing.T) {
+	ctrl, err := NewBrowserCDPController(browserTarget(), BrowserCDPDeps{Client: &fakeCDPClient{}})
+	if err != nil {
+		t.Fatalf("NewBrowserCDPController() error = %v", err)
+	}
+	x, y, err := ctrl.pointToViewport(target.NewNormalizedPoint(1, 1))
+	if err != nil {
+		t.Fatalf("pointToViewport(normalized edge) error = %v", err)
+	}
+	if x != 1279 || y != 719 {
+		t.Fatalf("pointToViewport(normalized edge) = (%d,%d), want (1279,719)", x, y)
+	}
+	x, y, err = ctrl.pointToViewport(target.Point{X: 12.4, Y: 56.6, Space: target.SpaceBrowserView})
+	if err != nil {
+		t.Fatalf("pointToViewport(browser view) error = %v", err)
+	}
+	if x != 12 || y != 57 {
+		t.Fatalf("pointToViewport(browser view) = (%d,%d), want (12,57)", x, y)
+	}
+}
+
+func TestBrowserCDPControllerRejectsUnsupportedPointSpaceBeforeCDPCall(t *testing.T) {
+	client := &fakeCDPClient{}
+	ctrl, err := NewBrowserCDPController(browserTarget(), BrowserCDPDeps{Client: client})
+	if err != nil {
+		t.Fatalf("NewBrowserCDPController() error = %v", err)
+	}
+	err = ctrl.Click(context.Background(), ClickRequest{Point: target.Point{X: 10, Y: 10, Space: target.SpaceAndroidDevice}})
+	if err == nil {
+		t.Fatalf("Click() error = nil, want unsupported space error")
+	}
+	if len(client.calls) != 0 {
+		t.Fatalf("cdp calls = %#v, want none", client.calls)
+	}
+}
+
+func TestBrowserCDPControllerRequiresResolutionForNormalizedPoint(t *testing.T) {
+	tg := browserTarget()
+	tg.Resolution = target.Size{}
+	ctrl, err := NewBrowserCDPController(tg, BrowserCDPDeps{Client: &fakeCDPClient{}})
+	if err != nil {
+		t.Fatalf("NewBrowserCDPController() error = %v", err)
+	}
+	if _, _, err := ctrl.pointToViewport(target.NewNormalizedPoint(0.5, 0.5)); err == nil {
+		t.Fatalf("pointToViewport() error = nil, want missing resolution error")
+	}
+}
+
 func TestBrowserCDPControllerKeyChordDispatchesDownAndReverseUp(t *testing.T) {
 	client := &fakeCDPClient{}
 	ctrl, err := NewBrowserCDPController(browserTarget(), BrowserCDPDeps{Client: client})
