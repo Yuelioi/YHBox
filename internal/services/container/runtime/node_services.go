@@ -250,9 +250,30 @@ func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
 // hwnd 每次方法调用经 rt.ActiveHWND() live 读, setupRuntime 后才有值.
 // ============================================================================
 
+func requireControllerCapability(ctrl controller.Controller, cap controller.Capability) error {
+	if ctrl == nil {
+		return fmt.Errorf("active controller is nil")
+	}
+	if ctrl.Capabilities(context.Background()).Has(cap) {
+		return nil
+	}
+	tg := ctrl.Target()
+	return fmt.Errorf("active controller %T for target kind %s does not support capability %s", ctrl, tg.Kind, cap)
+}
+
 type inputAdapter struct {
 	rt          *RuntimeContext
 	traceSource automationtrace.ActionSource
+}
+
+type runtimePointerController interface {
+	controller.Controller
+	controller.PointerInput
+}
+
+type runtimeKeyboardController interface {
+	controller.Controller
+	controller.KeyboardInput
 }
 
 func (a *inputAdapter) hwnd() (win.HWND, error) {
@@ -271,24 +292,24 @@ func (a *inputAdapter) inputController() (controller.Controller, error) {
 	return a.rt.controllerForActiveTarget(a.traceSource, controllerNeed{Input: true})
 }
 
-func (a *inputAdapter) pointerController() (controller.PointerInput, error) {
+func (a *inputAdapter) pointerController() (runtimePointerController, error) {
 	ctrl, err := a.inputController()
 	if err != nil {
 		return nil, err
 	}
-	pointer, ok := ctrl.(controller.PointerInput)
+	pointer, ok := ctrl.(runtimePointerController)
 	if !ok {
 		return nil, fmt.Errorf("active controller %T does not support pointer input", ctrl)
 	}
 	return pointer, nil
 }
 
-func (a *inputAdapter) keyboardController() (controller.KeyboardInput, error) {
+func (a *inputAdapter) keyboardController() (runtimeKeyboardController, error) {
 	ctrl, err := a.inputController()
 	if err != nil {
 		return nil, err
 	}
-	keyboard, ok := ctrl.(controller.KeyboardInput)
+	keyboard, ok := ctrl.(runtimeKeyboardController)
 	if !ok {
 		return nil, fmt.Errorf("active controller %T does not support keyboard input", ctrl)
 	}
@@ -298,6 +319,9 @@ func (a *inputAdapter) keyboardController() (controller.KeyboardInput, error) {
 func (a *inputAdapter) KeyDown(vk string) error {
 	ctrl, err := a.keyboardController()
 	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityKeyState); err != nil {
 		return err
 	}
 	return ctrl.KeyDown(context.Background(), controller.KeyRequest{
@@ -313,6 +337,9 @@ func (a *inputAdapter) KeyUp(vk string) error {
 	if err != nil {
 		return err
 	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityKeyState); err != nil {
+		return err
+	}
 	return ctrl.KeyUp(context.Background(), controller.KeyRequest{
 		Key: vk,
 		Policy: controller.ActionPolicy{
@@ -324,6 +351,9 @@ func (a *inputAdapter) KeyUp(vk string) error {
 func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs int) error {
 	ctrl, err := a.pointerController()
 	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityClick); err != nil {
 		return err
 	}
 	return ctrl.Click(context.Background(), controller.ClickRequest{
@@ -341,6 +371,9 @@ func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
 	if err != nil {
 		return err
 	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityMoveRelative); err != nil {
+		return err
+	}
 	return ctrl.MoveRelative(context.Background(), controller.RelativeMoveRequest{
 		Dx:         dx,
 		Dy:         dy,
@@ -354,6 +387,9 @@ func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
 func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {
 	ctrl, err := a.pointerController()
 	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityMove); err != nil {
 		return err
 	}
 	return ctrl.Move(context.Background(), controller.MoveRequest{
@@ -380,6 +416,9 @@ func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bo
 	if err != nil {
 		return err
 	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityScroll); err != nil {
+		return err
+	}
 	return ctrl.Scroll(context.Background(), controller.ScrollRequest{
 		Point:      target.NewNormalizedPoint(xRatio, yRatio),
 		Notches:    notches,
@@ -393,6 +432,9 @@ func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bo
 func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {
 	ctrl, err := a.pointerController()
 	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityDrag); err != nil {
 		return err
 	}
 	return ctrl.Drag(context.Background(), controller.DragRequest{
@@ -411,6 +453,9 @@ func (a *inputAdapter) MouseDown(xRatio, yRatio float64, button string) error {
 	if err != nil {
 		return err
 	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityMouseButton); err != nil {
+		return err
+	}
 	return ctrl.MouseDown(context.Background(), controller.MouseButtonRequest{
 		Point:  target.NewNormalizedPoint(xRatio, yRatio),
 		Button: button,
@@ -425,6 +470,9 @@ func (a *inputAdapter) MouseUp(button string) error {
 	if err != nil {
 		return err
 	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityMouseButton); err != nil {
+		return err
+	}
 	return ctrl.MouseUp(context.Background(), controller.MouseButtonRequest{
 		Button: button,
 		Policy: controller.ActionPolicy{
@@ -436,6 +484,9 @@ func (a *inputAdapter) MouseUp(button string) error {
 func (a *inputAdapter) TypeText(s string) error {
 	ctrl, err := a.keyboardController()
 	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityText); err != nil {
 		return err
 	}
 	return ctrl.Text(context.Background(), controller.TextRequest{
@@ -636,6 +687,9 @@ func (a *captureAdapter) controller() (controller.Screenshotter, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityScreenshot); err != nil {
+		return nil, err
+	}
 	screenshotter, ok := ctrl.(controller.Screenshotter)
 	if !ok {
 		return nil, fmt.Errorf("active controller %T does not support screenshots", ctrl)
@@ -724,6 +778,9 @@ func (a *visionAdapter) captureFrame(ctx context.Context, cached bool, required 
 		screenshotter, ok := ctrl.(controller.Screenshotter)
 		if !ok {
 			return nil, fmt.Errorf("active controller %T does not support screenshots", ctrl)
+		}
+		if err := requireControllerCapability(ctrl, controller.CapabilityScreenshot); err != nil {
+			return nil, err
 		}
 		frame, err := screenshotter.Screenshot(ctx, controller.ScreenshotRequest{Space: target.SpaceCaptureFrame})
 		if err != nil {

@@ -14,7 +14,7 @@ func TestProfileWin32(t *testing.T) {
 	if profile.Backend != BackendWin32 {
 		t.Fatalf("backend = %q, want %q", profile.Backend, BackendWin32)
 	}
-	if !profile.Capabilities.Click || !profile.Capabilities.KeyState || profile.Capabilities.StartApp {
+	if !profile.Capabilities.Click || !profile.Capabilities.KeyState || !profile.Capabilities.MouseButton || !profile.Capabilities.Drag || !profile.Capabilities.MoveRelative || profile.Capabilities.StartApp {
 		t.Fatalf("unexpected win32 capabilities: %#v", profile.Capabilities)
 	}
 	if !hasTargetKind(profile, target.KindWin32Window) {
@@ -33,10 +33,10 @@ func TestProfileAndroidADB(t *testing.T) {
 	if profile.Backend != BackendAndroidADB {
 		t.Fatalf("backend = %q, want %q", profile.Backend, BackendAndroidADB)
 	}
-	if !profile.Capabilities.Screenshot || !profile.Capabilities.Click || !profile.Capabilities.StartApp {
+	if !profile.Capabilities.Screenshot || !profile.Capabilities.Click || !profile.Capabilities.Drag || !profile.Capabilities.StartApp {
 		t.Fatalf("unexpected android capabilities: %#v", profile.Capabilities)
 	}
-	if profile.Capabilities.KeyState {
+	if profile.Capabilities.KeyState || profile.Capabilities.MouseButton || profile.Capabilities.MoveRelative {
 		t.Fatalf("android adb should not claim key-state capability: %#v", profile.Capabilities)
 	}
 	if !hasCoordinateSpace(profile, target.SpaceAndroidDevice) {
@@ -53,7 +53,7 @@ func TestProfileBrowserCDP(t *testing.T) {
 	if profile.Backend != BackendBrowserCDP {
 		t.Fatalf("backend = %q, want %q", profile.Backend, BackendBrowserCDP)
 	}
-	if !profile.Capabilities.KeyChord || !profile.Capabilities.Text || profile.Capabilities.StartApp {
+	if !profile.Capabilities.KeyChord || !profile.Capabilities.Text || !profile.Capabilities.MouseButton || !profile.Capabilities.Drag || profile.Capabilities.MoveRelative || profile.Capabilities.StartApp {
 		t.Fatalf("unexpected browser capabilities: %#v", profile.Capabilities)
 	}
 	if !hasCoordinateSpace(profile, target.SpaceBrowserView) {

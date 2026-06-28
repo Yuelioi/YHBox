@@ -59,13 +59,16 @@ func (c *Win32Controller) Target() target.Target {
 
 func (c *Win32Controller) Capabilities(context.Context) CapabilitySet {
 	return CapabilitySet{
-		Screenshot: true,
-		Click:      true,
-		Move:       true,
-		Scroll:     true,
-		KeyChord:   true,
-		KeyState:   true,
-		Text:       true,
+		Screenshot:   true,
+		Click:        true,
+		Move:         true,
+		Scroll:       true,
+		MouseButton:  true,
+		Drag:         true,
+		MoveRelative: true,
+		KeyChord:     true,
+		KeyState:     true,
+		Text:         true,
 	}
 }
 

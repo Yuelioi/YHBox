@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"strings"
 	"testing"
 	"time"
 
@@ -625,6 +626,27 @@ func TestInputAdapter_ClickRoutesThroughInjectedControllerFactory(t *testing.T) 
 	}
 	if got := fakeCtrl.clicks[0].Point; got.X != 0.25 || got.Y != 0.75 || got.Space != target.SpaceNormalized {
 		t.Fatalf("click point = %#v", got)
+	}
+}
+
+func TestInputAdapter_RejectsUnsupportedAndroidCapabilitiesBeforeCallingController(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveTarget(target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	})
+	rt.ControllerFactory = DefaultControllerFactory{}
+
+	err := NewInputAdapter(rt).MouseMoveRel(10, -5, 100)
+	if err == nil || !strings.Contains(err.Error(), string(controller.CapabilityMoveRelative)) {
+		t.Fatalf("MouseMoveRel error = %v", err)
+	}
+
+	err = NewInputAdapter(rt).MouseDown(0.5, 0.5, "left")
+	if err == nil || !strings.Contains(err.Error(), string(controller.CapabilityMouseButton)) {
+		t.Fatalf("MouseDown error = %v", err)
 	}
 }
 
