@@ -46,19 +46,20 @@ func (c *ctxImpl) CaptureOutput(field string, value any) {
 	c.services.Vars.SetScoped(name, "auto", value)
 }
 
-func (c *ctxImpl) Context() context.Context     { return c.ctx }
-func (c *ctxImpl) Now() time.Time               { return time.Now() }
-func (c *ctxImpl) Vision() VisionService        { return c.services.Vision }
-func (c *ctxImpl) Log() LogService              { return c.services.Log }
-func (c *ctxImpl) Input() InputService          { return c.services.Input }
-func (c *ctxImpl) Vars() VarStore               { return c.services.Vars }
-func (c *ctxImpl) Params() ParamStore           { return c.services.Params }
-func (c *ctxImpl) Window() WindowService        { return c.services.Window }
-func (c *ctxImpl) Capture() CaptureService      { return c.services.Capture }
-func (c *ctxImpl) Stopwatches() StopwatchStore  { return c.services.Stopwatches }
-func (c *ctxImpl) Clip() ClipPlayer             { return c.services.Clip }
-func (c *ctxImpl) Subgraphs() SubgraphCaller    { return c.services.Subgraphs }
-func (c *ctxImpl) AI() AIProviderService        { return c.services.AI }
+func (c *ctxImpl) Context() context.Context    { return c.ctx }
+func (c *ctxImpl) Now() time.Time              { return time.Now() }
+func (c *ctxImpl) Vision() VisionService       { return c.services.Vision }
+func (c *ctxImpl) Log() LogService             { return c.services.Log }
+func (c *ctxImpl) Input() InputService         { return c.services.Input }
+func (c *ctxImpl) Vars() VarStore              { return c.services.Vars }
+func (c *ctxImpl) Params() ParamStore          { return c.services.Params }
+func (c *ctxImpl) Window() WindowService       { return c.services.Window }
+func (c *ctxImpl) Target() TargetService       { return c.services.Target }
+func (c *ctxImpl) Capture() CaptureService     { return c.services.Capture }
+func (c *ctxImpl) Stopwatches() StopwatchStore { return c.services.Stopwatches }
+func (c *ctxImpl) Clip() ClipPlayer            { return c.services.Clip }
+func (c *ctxImpl) Subgraphs() SubgraphCaller   { return c.services.Subgraphs }
+func (c *ctxImpl) AI() AIProviderService       { return c.services.AI }
 
 func (c *ctxImpl) Out(exitName string) OutBuilder {
 	validateExitName(c.spec, exitName)

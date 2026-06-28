@@ -1,8 +1,8 @@
 // internal/node/services_test.go
 // stub-service sanity tests. 验:
-//   1. Stub constructor 不返 nil interface (不会让 ctx.X() return nil 触发 panic at call site).
-//   2. 每个 stub 方法跑通不 panic, 返 zero/no-op.
-//   3. VarStore / StopwatchStore 的 set/get 双向行为正确.
+//  1. Stub constructor 不返 nil interface (不会让 ctx.X() return nil 触发 panic at call site).
+//  2. 每个 stub 方法跑通不 panic, 返 zero/no-op.
+//  3. VarStore / StopwatchStore 的 set/get 双向行为正确.
 package node
 
 import (
@@ -208,6 +208,9 @@ func TestStubServices_AllFieldsNonNil(t *testing.T) {
 	}
 	if b.Window == nil {
 		t.Error("StubServices().Window is nil")
+	}
+	if b.Target == nil {
+		t.Error("StubServices().Target is nil")
 	}
 	if b.Capture == nil {
 		t.Error("StubServices().Capture is nil")

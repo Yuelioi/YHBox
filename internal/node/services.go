@@ -10,6 +10,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"yotta/internal/automation/target"
 )
 
 // ---- LogService ----
@@ -80,17 +82,17 @@ func StubVisionService() VisionService { return stubVisionService{} }
 // stubInputService 测试用 no-op. 所有方法吞输入返 nil error.
 type stubInputService struct{}
 
-func (stubInputService) KeyDown(vk string) error                                           { return nil }
-func (stubInputService) KeyUp(vk string) error                                             { return nil }
-func (stubInputService) Click(x, y float64, button string, durationMs int) error           { return nil }
-func (stubInputService) MouseMoveRel(dx, dy, durationMs int) error                         { return nil }
-func (stubInputService) MoveTo(x, y float64) error                                         { return nil }
-func (stubInputService) CursorRatio() (float64, float64, error)                            { return 0, 0, nil }
-func (stubInputService) Scroll(x, y float64, notches int, horizontal bool) error           { return nil }
-func (stubInputService) MouseDown(x, y float64, button string) error                       { return nil }
-func (stubInputService) MouseUp(button string) error                                       { return nil }
+func (stubInputService) KeyDown(vk string) error                                          { return nil }
+func (stubInputService) KeyUp(vk string) error                                            { return nil }
+func (stubInputService) Click(x, y float64, button string, durationMs int) error          { return nil }
+func (stubInputService) MouseMoveRel(dx, dy, durationMs int) error                        { return nil }
+func (stubInputService) MoveTo(x, y float64) error                                        { return nil }
+func (stubInputService) CursorRatio() (float64, float64, error)                           { return 0, 0, nil }
+func (stubInputService) Scroll(x, y float64, notches int, horizontal bool) error          { return nil }
+func (stubInputService) MouseDown(x, y float64, button string) error                      { return nil }
+func (stubInputService) MouseUp(button string) error                                      { return nil }
 func (stubInputService) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error { return nil }
-func (stubInputService) TypeText(s string) error                                           { return nil }
+func (stubInputService) TypeText(s string) error                                          { return nil }
 
 // StubInputService — test 用. main.go 注入 pkg/input.Backend 适配.
 func StubInputService() InputService { return stubInputService{} }
@@ -177,28 +179,57 @@ func NewStubParamStore() ParamStore { return stubParamStore{} }
 
 type stubWindowService struct{}
 
-func (stubWindowService) BringForeground() error                                                          { return nil }
-func (stubWindowService) HWND() uintptr                                                                   { return 0 }
-func (stubWindowService) ClientSize() (int, int, error)                                                   { return 0, 0, nil }
-func (stubWindowService) SetActive(_ context.Context, _, _, _, _ string) error                            { return nil }
-func (stubWindowService) Maximize() error                                                                  { return nil }
-func (stubWindowService) Minimize() error                                                                  { return nil }
-func (stubWindowService) Restore() error                                                                   { return nil }
-func (stubWindowService) BorderlessFullscreen() error                                                      { return nil }
-func (stubWindowService) RestoreBorders() error                                                            { return nil }
-func (stubWindowService) MoveResize(_, _, _, _ int) error                                                  { return nil }
-func (stubWindowService) Close() error                                                                     { return nil }
-func (stubWindowService) Snapshot() (Window, error)                                                        { return Window{}, nil }
+func (stubWindowService) BringForeground() error                               { return nil }
+func (stubWindowService) HWND() uintptr                                        { return 0 }
+func (stubWindowService) ClientSize() (int, int, error)                        { return 0, 0, nil }
+func (stubWindowService) SetActive(_ context.Context, _, _, _, _ string) error { return nil }
+func (stubWindowService) Maximize() error                                      { return nil }
+func (stubWindowService) Minimize() error                                      { return nil }
+func (stubWindowService) Restore() error                                       { return nil }
+func (stubWindowService) BorderlessFullscreen() error                          { return nil }
+func (stubWindowService) RestoreBorders() error                                { return nil }
+func (stubWindowService) MoveResize(_, _, _, _ int) error                      { return nil }
+func (stubWindowService) Close() error                                         { return nil }
+func (stubWindowService) Snapshot() (Window, error)                            { return Window{}, nil }
 
 // StubWindowService — 测试用 no-op.
 func StubWindowService() WindowService { return stubWindowService{} }
+
+// ---- TargetService ----
+
+type stubTargetService struct {
+	mu     sync.RWMutex
+	target target.Target
+}
+
+func (s *stubTargetService) SetActive(tg target.Target) error {
+	if err := tg.Validate(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.target = tg
+	return nil
+}
+
+func (s *stubTargetService) Active() (target.Target, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.target.ID == "" {
+		return target.Target{}, false
+	}
+	return s.target, true
+}
+
+// NewStubTargetService — 测试用 in-memory active target service.
+func NewStubTargetService() TargetService { return &stubTargetService{} }
 
 // ---- CaptureService ----
 
 type stubCaptureService struct{}
 
-func (stubCaptureService) Capture() ([]byte, error)                    { return nil, nil }
-func (stubCaptureService) CaptureROI(roi Geometry) ([]byte, error)     { return nil, nil }
+func (stubCaptureService) Capture() ([]byte, error)                { return nil, nil }
+func (stubCaptureService) CaptureROI(roi Geometry) ([]byte, error) { return nil, nil }
 
 // StubCaptureService — 测试用. 返 nil bytes, 节点应当能处理 (skip write) 或自己报错.
 func StubCaptureService() CaptureService { return stubCaptureService{} }
@@ -254,7 +285,9 @@ func (s *stubStopwatchStore) Read(key string) int64 {
 }
 
 // NewStubStopwatchStore — 测试用 in-memory store.
-func NewStubStopwatchStore() StopwatchStore { return &stubStopwatchStore{m: map[string]*stubStopwatchEntry{}} }
+func NewStubStopwatchStore() StopwatchStore {
+	return &stubStopwatchStore{m: map[string]*stubStopwatchEntry{}}
+}
 
 // ---- ServiceBundle helpers ----
 
@@ -271,6 +304,7 @@ func StubServices() ServiceBundle {
 		Vars:        NewStubVarStore(),
 		Params:      NewStubParamStore(),
 		Window:      StubWindowService(),
+		Target:      NewStubTargetService(),
 		Capture:     StubCaptureService(),
 		Stopwatches: NewStubStopwatchStore(),
 		Snapshot:    nil,

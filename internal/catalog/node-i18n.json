@@ -2544,5 +2544,35 @@
         "label": "失败"
       }
     }
+  },
+  "AndroidTarget": {
+    "label": "安卓目标",
+    "description": "指定脚本接下来操作哪台 Android ADB 设备。放在点击、输入、截图节点之前，后续动作会按设备分辨率把比例坐标换算成 Android 屏幕坐标。",
+    "example": "脚本要操作模拟器：开头放一个「安卓目标」，Serial 填 emulator-5554，宽高填模拟器实际分辨率，后面的点击和截图就会走 ADB。",
+    "input": {
+      "Serial": {
+        "label": "ADB 序列号"
+      },
+      "Name": {
+        "label": "显示名称"
+      },
+      "Width": {
+        "label": "屏幕宽度"
+      },
+      "Height": {
+        "label": "屏幕高度"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      },
+      "TargetID": {
+        "label": "目标 ID"
+      },
+      "Kind": {
+        "label": "目标类型"
+      }
+    }
   }
 }

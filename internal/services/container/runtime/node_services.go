@@ -601,6 +601,27 @@ func (a *windowAdapter) RestoreBorders() error {
 func NewWindowAdapter(rt *RuntimeContext) node.WindowService { return &windowAdapter{rt: rt} }
 
 // ============================================================================
+// TargetAdapter — RuntimeContext active target → node.TargetService
+// ============================================================================
+
+type targetAdapter struct{ rt *RuntimeContext }
+
+func (a *targetAdapter) SetActive(tg target.Target) error {
+	if err := tg.Validate(); err != nil {
+		return err
+	}
+	a.rt.SetActiveTarget(tg)
+	return nil
+}
+
+func (a *targetAdapter) Active() (target.Target, bool) {
+	return a.rt.ActiveTarget()
+}
+
+// NewTargetAdapter wrap *RuntimeContext into node.TargetService.
+func NewTargetAdapter(rt *RuntimeContext) node.TargetService { return &targetAdapter{rt: rt} }
+
+// ============================================================================
 // CaptureAdapter — pkgcapture.IBackend → node.CaptureService
 // 抓帧 + png.Encode 返字节流 (跟 screenshot.go 一致).
 // ============================================================================
@@ -1207,6 +1228,7 @@ func NewServiceBundleFor(
 		Vars:        NewVarStoreAdapter(rt, stateGetter),
 		Params:      NewParamStoreAdapter(stateGetter),
 		Window:      NewWindowAdapter(rt),
+		Target:      NewTargetAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),
 		Stopwatches: NewStopwatchAdapter(stopwatches),
 		Clip:        newClipPlayerAdapter(rt),

@@ -613,6 +613,31 @@ func TestInputAdapter_ClickRoutesThroughInjectedControllerFactory(t *testing.T) 
 	}
 }
 
+func TestTargetAdapter_SetActiveValidatesAndUpdatesRuntime(t *testing.T) {
+	rt := &RuntimeContext{}
+	svc := NewTargetAdapter(rt)
+	tg := target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	}
+	if err := svc.SetActive(tg); err != nil {
+		t.Fatalf("SetActive() error = %v", err)
+	}
+	got, ok := rt.ActiveTarget()
+	if !ok {
+		t.Fatal("runtime active target missing")
+	}
+	if got.ID != tg.ID || got.Kind != tg.Kind || got.Ref.ADBSerial != tg.Ref.ADBSerial {
+		t.Fatalf("runtime active target = %#v, want %#v", got, tg)
+	}
+
+	if err := svc.SetActive(target.Target{Kind: target.KindAndroidADB}); err == nil {
+		t.Fatal("SetActive() expected validation error")
+	}
+}
+
 func TestInputAdapter_MoveToRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 66, Title: "After Effects", ClientW: 1920, ClientH: 1080})

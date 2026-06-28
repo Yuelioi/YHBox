@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"yotta/internal/automation/target"
 	"yotta/internal/services/llm"
 )
 
@@ -55,12 +56,12 @@ type Evaluator interface {
 }
 
 // Inputs — 节点 Run 收的输入. 取值优先级:
-//   1. data-wire (纯数据 pin 上游) [最高]
-//   2. Inspector config
-//   3. exec-data wire (上游 exec 出口 Data 字段同名注入)
-//   4. InputSpec.Default
-//   5. Required + 缺 → framework 返 ValidationError (NOT panic)
-//   6. Optional + 缺 → 零值, Has() = false
+//  1. data-wire (纯数据 pin 上游) [最高]
+//  2. Inspector config
+//  3. exec-data wire (上游 exec 出口 Data 字段同名注入)
+//  4. InputSpec.Default
+//  5. Required + 缺 → framework 返 ValidationError (NOT panic)
+//  6. Optional + 缺 → 零值, Has() = false
 type Inputs interface {
 	String(name string) string
 	Float64(name string) float64
@@ -106,6 +107,7 @@ type Ctx interface {
 	Vars() VarStore
 	Params() ParamStore
 	Window() WindowService
+	Target() TargetService
 	Capture() CaptureService
 	Stopwatches() StopwatchStore
 	Clip() ClipPlayer
@@ -309,6 +311,13 @@ type WindowService interface {
 	Snapshot() (Window, error)
 }
 
+// TargetService — 切换/读取运行时活动自动化目标. WindowTarget 仍走 WindowService;
+// Android/Browser 等非窗口目标走这里, 后续输入/截图由 runtime controller factory 解析.
+type TargetService interface {
+	SetActive(target.Target) error
+	Active() (target.Target, bool)
+}
+
 // CaptureService — Capture 节点用. PNG 字节流; wire 连 pkg/capture
 // IBackend.Frame + png.Encode.
 type CaptureService interface {
@@ -363,11 +372,12 @@ type ServiceBundle struct {
 	Vars        VarStore
 	Params      ParamStore // frame.LocalParams getter, GetParam 用
 	Window      WindowService
+	Target      TargetService
 	Capture     CaptureService
 	Stopwatches StopwatchStore
-	Clip        ClipPlayer     // PlayClip 用, runtime 端 wire
-	Subgraphs   SubgraphCaller // 脚本调子图用, runtime 端 wire (ContainerRunner 自身)
-	AI          AIProviderService // AI 节点取按连接缓存的 llm.Provider, runtime 端从 settings wire
+	Clip        ClipPlayer                         // PlayClip 用, runtime 端 wire
+	Subgraphs   SubgraphCaller                     // 脚本调子图用, runtime 端 wire (ContainerRunner 自身)
+	AI          AIProviderService                  // AI 节点取按连接缓存的 llm.Provider, runtime 端从 settings wire
 	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
 }
 
