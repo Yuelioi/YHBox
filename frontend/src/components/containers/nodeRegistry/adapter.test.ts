@@ -101,4 +101,18 @@ describe('deriveFields schema passthrough', () => {
     expect(fields[0].type).toBe('key-capture')
     expect(fields[0].widgetKind).toBe('key-capture')
   })
+
+  it('async-dropdown 透传 asyncSource, 让 PinInput 懒加载候选项', () => {
+    const serialInput = {
+      name: 'Serial',
+      type: 'String',
+      widget: { kind: 'async-dropdown', props: { asyncSource: 'androidADBDevices' } },
+    } as unknown as InputSpec
+
+    const fields = deriveFields('AndroidTarget', [serialInput])
+    expect(fields).toHaveLength(1)
+    expect(fields[0].type).toBe('select')
+    expect(fields[0].widgetKind).toBe('async-dropdown')
+    expect(fields[0].asyncSource).toBe('androidADBDevices')
+  })
 })

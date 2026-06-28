@@ -174,6 +174,7 @@ export function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
     if (typeof props.min === 'number') f.min = props.min
     if (typeof props.max === 'number') f.max = props.max
     if (typeof props.step === 'number') f.step = props.step
+    if (typeof props.asyncSource === 'string') f.asyncSource = props.asyncSource
     if (f.type === 'select' && Array.isArray(props.options)) {
       f.options = (props.options as Array<{ value: unknown }>).map((o) => ({
         value: String(o.value),

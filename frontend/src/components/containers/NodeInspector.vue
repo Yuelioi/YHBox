@@ -533,10 +533,14 @@
             :type="(lit.type as any)"
             :widget-kind="fieldFor(lit.name)?.widgetKind"
             :options="fieldFor(lit.name)?.options"
+            :async-source="fieldFor(lit.name)?.asyncSource"
             :placeholder="fieldFor(lit.name)?.placeholder"
             :min="fieldFor(lit.name)?.min"
             :max="fieldFor(lit.name)?.max"
             :step="fieldFor(lit.name)?.step"
+            :node-id="node?.id ?? ''"
+            :spec-kind="node?.kind ?? ''"
+            :current-inputs="currentLiteralInputs"
             :input-names="dynamicInputNames"
             :declared-vars="declaredVars"
             :model-value="getLiteral(lit.name)"
@@ -759,6 +763,11 @@ const nodeScope = computed(
       | 'local'
       | undefined) ?? 'auto',
 )
+const currentLiteralInputs = computed<Record<string, unknown>>(() => {
+  const cfg = props.node?.config as Record<string, unknown> | undefined
+  const lit = cfg?.literal as Record<string, unknown> | undefined
+  return { ...(cfg ?? {}), ...(lit ?? {}) }
+})
 
 // 读 pin 字面量: config.literal[pin] 优先, 顶层 config[pin] fallback —
 // 镜像后端 PinValue / newInputs 优先级。让尚未跑迁移脚本的旧数据 (值在顶层 config) 也能正确显示。

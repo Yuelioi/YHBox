@@ -32,6 +32,23 @@
     @update:model-value="(v: any) => commit(v)"
   />
 
+  <!-- async dropdown (运行时数据源, e.g. ADB devices): 候选懒加载, 同时允许手输兜底。 -->
+  <div v-else-if="kind === 'async-dropdown'" class="space-y-1">
+    <UInputMenu
+      :model-value="modelValue == null ? '' : String(modelValue)"
+      :items="asyncSelectItems"
+      :create-item="'always'"
+      value-key="value"
+      size="sm"
+      class="w-full"
+      :loading="asyncLoading"
+      :placeholder="placeholder"
+      @update:model-value="onAsyncValue"
+      @create="(v: string) => commit(v)"
+    />
+    <p v-if="asyncError" class="text-[10px] text-error">{{ asyncError }}</p>
+  </div>
+
   <!-- ai-connection: AI 节点连接选择器, 从 settings 读连接列表 (label→id); 空 = 用默认连接 -->
   <USelect
     v-else-if="kind === 'ai-connection'"
@@ -115,9 +132,7 @@
     class="text-xs text-dimmed italic"
   >{{ t('containers.listPinWireOnly') }}</span>
 
-  <!-- text / password / async-dropdown / 默认 → 文本框
-       async-dropdown 的候选源 (templateKeys/clipIDs/subgraphIDs) 多由 bespoke section 处理;
-       走到这里的 (e.g. WaitTemplate.Template) 当字符串 key 编辑 (跟旧 literal section 一致)。 -->
+  <!-- text / password / 默认 → 文本框 -->
   <UInput
     v-else
     :model-value="modelValue == null ? '' : String(modelValue)"
@@ -139,11 +154,14 @@ import ExprInput from '@/components/expressions/ExprInput.vue'
 import CodeInput from '@/components/expressions/CodeInput.vue'
 import { coerceLiteral } from './coerceLiteral'
 import { useSettingsStore } from '@/stores/settings'
+import { NodeService } from '@bindings/yotta/internal/node'
 import type { PinType } from '../pinSpec'
 import type { VarType } from '@/lib/variableRef'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+
+type AsyncOption = { value: unknown; label?: string }
 
 // AI 节点连接下拉项: 第一项「用默认」(空值) + settings 里各连接 (label→id)。
 const connectionItems = computed(() => [
@@ -163,6 +181,14 @@ const props = defineProps<{
   min?: number
   max?: number
   step?: number
+  /** async-dropdown 数据源名, 对应 backend NodeService.RegisterAsyncSource。 */
+  asyncSource?: string
+  /** 当前节点 instance ID, 传给 async source 做上下文过滤。 */
+  nodeId?: string
+  /** 当前节点 kind, 传给 async source 做上下文过滤。 */
+  specKind?: string
+  /** 当前节点 literal/config 输入快照, 传给 async source。 */
+  currentInputs?: Record<string, unknown>
   /** 动态输入名 (config.Inputs[] 声明) — 仅 code widget 用, 进脚本补全。 */
   inputNames?: string[]
   /** 容器变量 (名+类型) — 仅 code widget 用: varname pin 值位补全 + 参考面板 + 新建变量。 */
@@ -188,6 +214,68 @@ const numModel = computed(() => {
 
 const selectItems = computed(() =>
   (props.options ?? []).map((o) => ({ value: o.value, label: t(o.labelKey) })),
+)
+
+const asyncOptions = ref<AsyncOption[]>([])
+const asyncLoading = ref(false)
+const asyncError = ref('')
+let asyncLoadSeq = 0
+
+const asyncSelectItems = computed(() =>
+  asyncOptions.value.map((o) => ({
+    value: String(o.value ?? ''),
+    label: o.label || String(o.value ?? ''),
+  })),
+)
+
+async function loadAsyncOptions() {
+  if (kind.value !== 'async-dropdown' || !props.asyncSource) {
+    asyncOptions.value = []
+    asyncLoading.value = false
+    asyncError.value = ''
+    return
+  }
+  const seq = ++asyncLoadSeq
+  asyncLoading.value = true
+  asyncError.value = ''
+  try {
+    const options = await NodeService.AsyncOptions(
+      props.nodeId ?? '',
+      props.specKind ?? '',
+      props.asyncSource,
+      props.currentInputs ?? {},
+    )
+    if (seq !== asyncLoadSeq) return
+    asyncOptions.value = (options ?? []) as AsyncOption[]
+  } catch (err) {
+    if (seq !== asyncLoadSeq) return
+    asyncOptions.value = []
+    asyncError.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    if (seq === asyncLoadSeq) asyncLoading.value = false
+  }
+}
+
+function onAsyncValue(v: unknown) {
+  if (v && typeof v === 'object' && 'value' in v) {
+    commit((v as { value: unknown }).value)
+    return
+  }
+  commit(v)
+}
+
+watch(
+  () => [
+    kind.value,
+    props.asyncSource,
+    props.nodeId,
+    props.specKind,
+    JSON.stringify(props.currentInputs ?? {}),
+  ],
+  () => {
+    void loadAsyncOptions()
+  },
+  { immediate: true },
 )
 
 // JSON editor: 维护 rawText / jsonValid。仅 valid 时 emit 解析值; invalid 保留原文不回退、不写回。
