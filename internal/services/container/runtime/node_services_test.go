@@ -386,6 +386,9 @@ type recordingRuntimeInput struct {
 	keyDownKeys   []string
 	keyUpHWND     []uintptr
 	keyUpKeys     []string
+	moveHWND      []uintptr
+	moveX         []float64
+	moveY         []float64
 }
 
 func (r *recordingRuntimeInput) Name() string { return "sendinput" }
@@ -424,7 +427,10 @@ func (r *recordingRuntimeInput) Drag(win.HWND, float64, float64, float64, float6
 	return nil
 }
 func (r *recordingRuntimeInput) TypeText(win.HWND, string) error { return nil }
-func (r *recordingRuntimeInput) MoveTo(win.HWND, float64, float64) error {
+func (r *recordingRuntimeInput) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
+	r.moveHWND = append(r.moveHWND, uintptr(hwnd))
+	r.moveX = append(r.moveX, xRatio)
+	r.moveY = append(r.moveY, yRatio)
 	return nil
 }
 func (r *recordingRuntimeInput) CursorRatio(win.HWND) (float64, float64, error) {
@@ -452,6 +458,31 @@ func TestInputAdapter_ClickRoutesThroughControllerTrace(t *testing.T) {
 	}
 	if records[0].Action != "click" || records[0].Target.ID != "win32:99" || records[0].Backend != "sendinput" {
 		t.Fatalf("trace record = %#v", records[0])
+	}
+}
+
+func TestInputAdapter_MoveToRoutesThroughControllerTrace(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 66, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+
+	err := NewInputAdapter(rt).MoveTo(0.4, 0.6)
+	if err != nil {
+		t.Fatalf("MoveTo error = %v", err)
+	}
+	if len(input.moveHWND) != 1 || input.moveHWND[0] != 66 || input.moveX[0] != 0.4 || input.moveY[0] != 0.6 {
+		t.Fatalf("backend MoveTo = hwnds %#v x %#v y %#v", input.moveHWND, input.moveX, input.moveY)
+	}
+	records := rt.TraceRecords()
+	if len(records) != 1 {
+		t.Fatalf("trace len = %d, want 1", len(records))
+	}
+	if records[0].Action != "move" || records[0].Target.ID != "win32:66" || records[0].Backend != "sendinput" {
+		t.Fatalf("trace record = %#v", records[0])
+	}
+	if len(records[0].CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(records[0].CoordinateSteps))
 	}
 }
 

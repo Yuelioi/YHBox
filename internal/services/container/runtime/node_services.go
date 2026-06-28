@@ -335,14 +335,16 @@ func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
 }
 
 func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.MoveTo(h, xRatio, yRatio)
+	return ctrl.Move(context.Background(), controller.MoveRequest{
+		Point: target.NewNormalizedPoint(xRatio, yRatio),
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) CursorRatio() (float64, float64, error) {
