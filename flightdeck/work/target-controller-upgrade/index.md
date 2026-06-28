@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan Phase 9: continue migrating remaining input operations into `Win32Controller`. Recommended next slice is `TypeText` plus a trace record, because text input differs across Win32/browser/Android and should become explicit before drag composition work.
+Execute `plans/phase9-type-text-controller.md`: route runtime `TypeText` through `Win32Controller.Text` and verify `InputText` trace/source metadata. Keep IME/browser/Android text policy and drag/down/up out of this phase.
 
 ## Read now
 
@@ -19,6 +19,7 @@ Plan Phase 9: continue migrating remaining input operations into `Win32Controlle
 - plans/phase6-move-controller.md
 - plans/phase7-scroll-controller.md
 - plans/phase8-trace-source.md
+- plans/phase9-type-text-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -51,7 +52,7 @@ Done:
 - Phase 8 代码：controller action trace 增加 `ActionSource`，framework dispatch 的输入动作带 container/node/kind/in-pin 来源。
 
 Current:
-- 规划 Phase 9：继续迁移剩余输入动作，优先建议 `TypeText`。
+- 执行 Phase 9：`InputService.TypeText` controller routing and trace coverage.
 
 ## Open questions
 
