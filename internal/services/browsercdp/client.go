@@ -95,6 +95,12 @@ type clientEntry struct {
 	client *WebSocketClient
 }
 
+type managedClient struct {
+	provider *ClientProvider
+	key      string
+	client   *WebSocketClient
+}
+
 func NewClientProvider(svc *Service) *ClientProvider {
 	return &ClientProvider{Service: svc}
 }
@@ -117,7 +123,7 @@ func (p *ClientProvider) ClientForTarget(tg target.Target) (controller.CDPClient
 		p.clients = map[string]*clientEntry{}
 	}
 	if e := p.clients[key]; e != nil && e.wsURL == wsURL && e.client != nil {
-		return e.client, nil
+		return &managedClient{provider: p, key: key, client: e.client}, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -129,7 +135,7 @@ func (p *ClientProvider) ClientForTarget(tg target.Target) (controller.CDPClient
 		_ = old.client.Close()
 	}
 	p.clients[key] = &clientEntry{wsURL: wsURL, client: client}
-	return client, nil
+	return &managedClient{provider: p, key: key, client: client}, nil
 }
 
 func (p *ClientProvider) webSocketURL(tg target.Target) (string, error) {
@@ -167,4 +173,29 @@ func metadataString(metadata map[string]any, key string) string {
 		return strings.TrimSpace(v)
 	}
 	return ""
+}
+
+func (c *managedClient) Call(ctx context.Context, method string, params map[string]any) (map[string]any, error) {
+	if c == nil || c.client == nil {
+		return nil, fmt.Errorf("managed cdp client is nil")
+	}
+	res, err := c.client.Call(ctx, method, params)
+	if err != nil && c.provider != nil {
+		c.provider.invalidate(c.key, c.client)
+	}
+	return res, err
+}
+
+func (p *ClientProvider) invalidate(key string, client *WebSocketClient) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.clients == nil {
+		return
+	}
+	entry := p.clients[key]
+	if entry == nil || entry.client != client {
+		return
+	}
+	delete(p.clients, key)
+	_ = client.Close()
 }

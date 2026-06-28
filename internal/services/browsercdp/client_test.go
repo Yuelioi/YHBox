@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/coder/websocket"
@@ -96,5 +97,61 @@ func TestClientProviderDiscoversWebSocketURL(t *testing.T) {
 	}
 	if res["ok"] != true {
 		t.Fatalf("result = %#v", res)
+	}
+}
+
+func TestClientProviderInvalidatesStaleClientOnCallError(t *testing.T) {
+	var accepts atomic.Int32
+	wsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := accepts.Add(1)
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+		if err != nil {
+			t.Errorf("accept: %v", err)
+			return
+		}
+		defer conn.CloseNow()
+		if n == 1 {
+			return
+		}
+		var req struct {
+			ID int64 `json:"id"`
+		}
+		if err := wsjson.Read(context.Background(), conn, &req); err != nil {
+			t.Errorf("read: %v", err)
+			return
+		}
+		_ = wsjson.Write(context.Background(), conn, map[string]any{"id": req.ID, "result": map[string]any{"ok": true}})
+	}))
+	defer wsSrv.Close()
+	wsURL := "ws" + wsSrv.URL[len("http"):]
+	tg := target.Target{
+		ID:       "browser:page-1",
+		Kind:     target.KindBrowserCDP,
+		Ref:      target.TargetRef{BrowserID: "page-1"},
+		Metadata: map[string]any{"webSocketDebuggerUrl": wsURL},
+	}
+	provider := NewClientProvider(nil)
+
+	client1, err := provider.ClientForTarget(tg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client1.Call(context.Background(), "Runtime.evaluate", nil); err == nil {
+		t.Fatal("expected first call to fail on closed websocket")
+	}
+
+	client2, err := provider.ClientForTarget(tg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := client2.Call(context.Background(), "Runtime.evaluate", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res["ok"] != true {
+		t.Fatalf("result = %#v", res)
+	}
+	if accepts.Load() < 2 {
+		t.Fatalf("accepts = %d, want at least 2", accepts.Load())
 	}
 }
