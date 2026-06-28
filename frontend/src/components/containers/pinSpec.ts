@@ -117,7 +117,7 @@ export function pinsFor(
         dataOut: Object.keys(marker.dataOut),
       }
     }
-    return { execIn: ['in'], execOut: ['out'], dataIn: [], dataOut: [] }
+    return { execIn: [], execOut: [], dataIn: [], dataOut: [] }
   }
   const dynDataIn = s.dataInDynamicFn ? s.dataInDynamicFn(config) : {}
   const dynDataOut = s.dataOutDynamicFn ? s.dataOutDynamicFn(config) : {}
