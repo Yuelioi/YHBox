@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Execute `plans/phase11-relative-move-controller.md`: route `MouseMoveRel` through `Win32Controller.MoveRelative` as a raw delta action with trace/source metadata.
+Plan next controller slice: screenshot/capture routing or trace viewer/persistence. Runtime input methods are now controller-routed; the next meaningful robustness gain is making screenshots/capture target-aware or exposing trace records in tooling/UI.
 
 ## Read now
 
@@ -30,6 +30,7 @@ Execute `plans/phase11-relative-move-controller.md`: route `MouseMoveRel` throug
 - ../../knowledge/architecture/target-controller-phase8-notes.md
 - ../../knowledge/architecture/target-controller-phase9-notes.md
 - ../../knowledge/architecture/target-controller-phase10-notes.md
+- ../../knowledge/architecture/target-controller-phase11-notes.md
 
 ## Read if
 
@@ -56,12 +57,13 @@ Done:
 - Phase 8 代码：controller action trace 增加 `ActionSource`，framework dispatch 的输入动作带 container/node/kind/in-pin 来源。
 - Phase 9 代码：`InputService.TypeText` 经 `Win32Controller.Text` 执行，并写入带 source 的 `text` trace。
 - Phase 10 代码：`InputService.MouseDown/MouseUp/Drag` 经 `Win32Controller` 执行，并写入带 source 的 mouse/drag trace。
+- Phase 11 代码：`InputService.MouseMoveRel` 经 `Win32Controller.MoveRelative` 执行，并写入带 source 的 `move-relative` trace。
 
 Current:
-- 执行 Phase 11：`MouseMoveRel` controller routing.
+- 输入动作 controller routing 已完成。下一阶段建议在 screenshot/capture target routing 或 trace viewer/persistence 中二选一。
 
 ## Open questions
 
 - Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
-- Remaining input methods not routed through `Win32Controller`: MouseMoveRel.
+- Runtime `InputService` 输入动作已全部经 `Win32Controller` 路由；截图/capture 尚未迁移到 controller。
