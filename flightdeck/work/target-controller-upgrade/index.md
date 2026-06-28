@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Execute `plans/phase10-mouse-hold-drag-controller.md`: route MouseDown, MouseUp, and Drag through `Win32Controller` with explicit trace actions and source metadata.
+Plan Phase 11: decide whether `MouseMoveRel` should become a controller action. It is currently the only remaining runtime `InputService` method that still bypasses `Win32Controller`; relative camera/game movement may need a separate raw-input/controller policy instead of normal pointer coordinate semantics.
 
 ## Read now
 
@@ -28,6 +28,7 @@ Execute `plans/phase10-mouse-hold-drag-controller.md`: route MouseDown, MouseUp,
 - ../../knowledge/architecture/target-controller-phase7-notes.md
 - ../../knowledge/architecture/target-controller-phase8-notes.md
 - ../../knowledge/architecture/target-controller-phase9-notes.md
+- ../../knowledge/architecture/target-controller-phase10-notes.md
 
 ## Read if
 
@@ -53,12 +54,13 @@ Done:
 - Phase 7 代码：`InputService.Scroll` 经 `Win32Controller` 执行，并记录最小 coordinate step。
 - Phase 8 代码：controller action trace 增加 `ActionSource`，framework dispatch 的输入动作带 container/node/kind/in-pin 来源。
 - Phase 9 代码：`InputService.TypeText` 经 `Win32Controller.Text` 执行，并写入带 source 的 `text` trace。
+- Phase 10 代码：`InputService.MouseDown/MouseUp/Drag` 经 `Win32Controller` 执行，并写入带 source 的 mouse/drag trace。
 
 Current:
-- 执行 Phase 10：MouseDown / MouseUp / Drag controller routing.
+- 规划 Phase 11：评估并迁移或隔离 `MouseMoveRel`。
 
 ## Open questions
 
 - Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
-- Remaining input methods not routed through `Win32Controller`: Drag, MouseDown, MouseUp.
+- Remaining input methods not routed through `Win32Controller`: MouseMoveRel.
