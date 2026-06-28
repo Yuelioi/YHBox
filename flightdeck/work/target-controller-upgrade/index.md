@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan Phase 10: route MouseDown, MouseUp, and Drag through `Win32Controller` with explicit trace actions. Recommended approach is to add primitive down/up first, then express Drag as a controller-level composed action or a single backend delegate with coordinate steps.
+Execute `plans/phase10-mouse-hold-drag-controller.md`: route MouseDown, MouseUp, and Drag through `Win32Controller` with explicit trace actions and source metadata.
 
 ## Read now
 
@@ -20,6 +20,7 @@ Plan Phase 10: route MouseDown, MouseUp, and Drag through `Win32Controller` with
 - plans/phase7-scroll-controller.md
 - plans/phase8-trace-source.md
 - plans/phase9-type-text-controller.md
+- plans/phase10-mouse-hold-drag-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -54,7 +55,7 @@ Done:
 - Phase 9 代码：`InputService.TypeText` 经 `Win32Controller.Text` 执行，并写入带 source 的 `text` trace。
 
 Current:
-- 规划 Phase 10：MouseDown / MouseUp / Drag controller routing.
+- 执行 Phase 10：MouseDown / MouseUp / Drag controller routing.
 
 ## Open questions
 
