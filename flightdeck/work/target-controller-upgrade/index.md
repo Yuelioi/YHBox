@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan next slice: build the frontend/debug consumer for `container:action-trace`, or add trace persistence if UI state is not yet ready.
+Execute `plans/phase14-frontend-action-trace-log.md`: consume `container:action-trace` in the frontend log store and keep a structured trace cache for future UI.
 
 ## Read now
 
@@ -24,6 +24,7 @@ Plan next slice: build the frontend/debug consumer for `container:action-trace`,
 - plans/phase11-relative-move-controller.md
 - plans/phase12-capture-controller.md
 - plans/phase13-action-trace-events.md
+- plans/phase14-frontend-action-trace-log.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -66,7 +67,7 @@ Done:
 - Phase 13 代码：controller action trace 通过 `container:action-trace` runtime event 导出，同时保留 memory trace。
 
 Current:
-- 下一刀：trace UI/debug consumer 或 trace persistence。
+- 执行 Phase 14：frontend action trace log consumer.
 
 ## Open questions
 
