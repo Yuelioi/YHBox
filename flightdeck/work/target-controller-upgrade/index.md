@@ -2,7 +2,7 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1-50 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default 等 guard 已落地。
+破坏性大升级 topic。调研、总体设计、Phase 1-51 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default 等 guard 已落地。
 
 ## Next
 
@@ -61,6 +61,7 @@ Plan next slice: continue robustness hardening around target/runtime contract co
 - plans/phase48-string-default-spec-guard.md
 - plans/phase49-inline-handle-validation.md
 - plans/phase50-bool-default-spec-guard.md
+- plans/phase51-point-rect-default-spec-guard.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -109,6 +110,7 @@ Plan next slice: continue robustness hardening around target/runtime contract co
 - ../../knowledge/architecture/target-controller-phase48-notes.md
 - ../../knowledge/architecture/target-controller-phase49-notes.md
 - ../../knowledge/architecture/target-controller-phase50-notes.md
+- ../../knowledge/architecture/target-controller-phase51-notes.md
 
 ## Read if
 
@@ -175,9 +177,10 @@ Done:
 - Phase 48 代码：String default 非 nil 时必须为 string 的 spec guard。
 - Phase 49 代码：inline drag validation 缺 source/target handle 时 fail closed。
 - Phase 50 代码：Bool default 非 nil 时必须为 bool 的 spec guard，并修正 node spec 知识里的过期 String nil 禁忌。
+- Phase 51 代码：Point/Rect default 非 nil 时必须为 node.Point/node.Rect 的 spec guard，并修正 node spec 知识里的过期 map/struct 说法。
 
 Current:
-- 下一刀：继续健壮性硬化，优先 build warning 记录/收敛、Point/Rect default spec guard、controller/coordinate 边界契约。
+- 下一刀：继续健壮性硬化，优先 build warning 记录/收敛、JSON/schema default guard、controller/coordinate 边界契约。
 
 ## Open questions
 

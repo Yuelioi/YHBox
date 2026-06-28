@@ -19,6 +19,7 @@ import (
 //  4. Exec out pin 名统一 PascalCase; Switch 的 "default" 是唯一小写例外.
 //  5. String InputSpec.Default 若设置, 必须是 string; nil 表示无默认/必填.
 //  6. Bool InputSpec.Default 若设置, 必须是 bool; nil 表示无默认/必填.
+//  7. Point/Rect InputSpec.Default 若设置, 必须是 node.Point/node.Rect.
 //
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
@@ -152,6 +153,30 @@ func TestSpecConsistency_BoolDefaultsAreBoolWhenSet(t *testing.T) {
 			}
 			if _, ok := in.Default.(bool); !ok {
 				t.Errorf("kind=%s pin=%s Type=Bool Default 类型 %T, 应是 bool", spec.Kind, in.Name, in.Default)
+			}
+		}
+	}
+}
+
+func TestSpecConsistency_GeometryDefaultsUseNodeTypesWhenSet(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		if _, skip := kindMigrationPending[spec.Kind]; skip {
+			continue
+		}
+		for _, in := range spec.Inputs {
+			if in.Default == nil {
+				continue
+			}
+			switch in.Type {
+			case "Point":
+				if _, ok := in.Default.(nodepkg.Point); !ok {
+					t.Errorf("kind=%s pin=%s Type=Point Default 类型 %T, 应是 node.Point", spec.Kind, in.Name, in.Default)
+				}
+			case "Rect":
+				if _, ok := in.Default.(nodepkg.Rect); !ok {
+					t.Errorf("kind=%s pin=%s Type=Rect Default 类型 %T, 应是 node.Rect", spec.Kind, in.Name, in.Default)
+				}
 			}
 		}
 	}
