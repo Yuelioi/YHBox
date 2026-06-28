@@ -696,9 +696,9 @@ func newCaptureAdapterWithSource(rt *RuntimeContext, source automationtrace.Acti
 }
 
 // ============================================================================
-// VisionAdapter — rt.Matcher + rt.Capture → node.VisionService
-// Match/WaitMatch 走 Matcher; DetectColor 走 rt.Capture + CaptureFrameCached (100ms 缓存);
-// DetectColorHSV / ROIColorScan / DualBarTrack 自抓帧 + 复用包内 helper (countHSVInROI / scanClusters / vision.AnalyzeDualColorBar).
+// VisionAdapter — rt.Matcher + active target frame source → node.VisionService.
+// Win32 keeps the existing HWND frame cache. Non-Win32 targets capture through
+// the active controller so Android/CDP do not depend on HWND.
 // ============================================================================
 
 // visionWaitPollMs WaitMatch 默认轮询间隔 (ms).
@@ -712,6 +712,43 @@ func (a *visionAdapter) scaleTolerance() float64 {
 		return container.DefaultScaleTolerance
 	}
 	return container.ReadWindowTargetScaleTolerance(a.rt.Container)
+}
+
+func (a *visionAdapter) captureFrame(ctx context.Context, cached bool, required bool) (*image.RGBA, error) {
+	tg, ok := a.rt.ActiveTarget()
+	if ok && tg.Kind != target.KindWin32Window {
+		ctrl, err := a.rt.controllerForActiveTarget(automationtrace.ActionSource{}, controllerNeed{Capture: true})
+		if err != nil {
+			return nil, err
+		}
+		screenshotter, ok := ctrl.(controller.Screenshotter)
+		if !ok {
+			return nil, fmt.Errorf("active controller %T does not support screenshots", ctrl)
+		}
+		frame, err := screenshotter.Screenshot(ctx, controller.ScreenshotRequest{Space: target.SpaceCaptureFrame})
+		if err != nil {
+			return nil, err
+		}
+		if frame.Image == nil && required {
+			return nil, fmt.Errorf("capture: nil frame")
+		}
+		return frame.Image, nil
+	}
+
+	if a.rt.Capture == nil {
+		if required {
+			return nil, fmt.Errorf("capture backend not initialised")
+		}
+		return nil, nil
+	}
+	h, err := a.rt.ActiveHWND()
+	if err != nil {
+		return nil, err
+	}
+	if cached {
+		return a.rt.CaptureFrameCached(h)
+	}
+	return a.rt.Capture.Frame(win.HWND(h))
 }
 
 func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {
@@ -758,17 +795,9 @@ func (a *visionAdapter) WaitMatch(ctx context.Context, keys []string, threshold 
 // matchOnce 单帧多模板 OR (按 keys 序取首个命中)。roi 零值 → nil region (variant.BBox 快速定位);
 // 非零 → 解析成比例搜索区下发。命中带 bbox。
 func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {
-	var frame *image.RGBA
-	if a.rt.Capture != nil {
-		h, err := a.rt.ActiveHWND()
-		if err != nil {
-			return node.MatchHit{}, err
-		}
-		f, err := a.rt.CaptureFrameCached(h)
-		if err != nil {
-			return node.MatchHit{}, err
-		}
-		frame = f
+	frame, err := a.captureFrame(ctx, true, false)
+	if err != nil {
+		return node.MatchHit{}, err
 	}
 	var region []float64
 	if frame != nil && (roi.Pct.W > 0 && roi.Pct.H > 0 || len(roi.Overrides) > 0) {
@@ -794,14 +823,7 @@ func (a *visionAdapter) matchOnce(ctx context.Context, keys []string, threshold 
 }
 
 func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRange, opts node.DualBarOptions) (node.DualColorBarResult, error) {
-	if a.rt.Capture == nil {
-		return node.DualColorBarResult{}, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
-	if err != nil {
-		return node.DualColorBarResult{Found: false}, nil
-	}
-	frame, err := a.rt.Capture.Frame(win.HWND(h))
+	frame, err := a.captureFrame(context.Background(), false, true)
 	if err != nil || frame == nil {
 		// 抓帧失败 (常见: HWND 失效 / 截图后台权限丢失) → 视 Missing 不冒泡 error.
 		return node.DualColorBarResult{Found: false}, nil
@@ -835,19 +857,12 @@ func (a *visionAdapter) DualBarTrack(roi node.Geometry, inner, outer node.HSVRan
 }
 
 func (a *visionAdapter) DetectColor(roi node.Geometry, mode string, rng [6]int) (int, float64, float64, error) {
-	if a.rt.Capture == nil {
-		return 0, 0, 0, nil
-	}
-	hwnd, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), true, false)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	frame, err := a.rt.CaptureFrameCached(hwnd)
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("capture: %w", err)
-	}
 	if frame == nil {
-		return 0, 0, 0, fmt.Errorf("capture: nil frame")
+		return 0, 0, 0, nil
 	}
 	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
 	// ResolveGeometry 给全帧上的像素 rect (override 优先 > pct×帧 > 全帧), 已 clamp.
@@ -863,19 +878,9 @@ func (a *visionAdapter) DetectColor(roi node.Geometry, mode string, rng [6]int) 
 }
 
 func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (int, float64, error) {
-	if a.rt.Capture == nil {
-		return 0, 0, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), false, true)
 	if err != nil {
 		return 0, 0, err
-	}
-	frame, err := a.rt.Capture.Frame(win.HWND(h))
-	if err != nil {
-		return 0, 0, err
-	}
-	if frame == nil {
-		return 0, 0, fmt.Errorf("capture: nil frame")
 	}
 	sub := cropFrameByGeometry(frame, roi)
 	count, ratio := countHSVInROI(sub, hsvRangeFromNode(hsv))
@@ -883,19 +888,9 @@ func (a *visionAdapter) DetectColorHSV(roi node.Geometry, hsv node.HSVRange) (in
 }
 
 func (a *visionAdapter) DetectColorBlobs(roi node.Geometry, mode string, rng [6]int, minArea int) ([]node.BlobEntry, error) {
-	if a.rt.Capture == nil {
-		return nil, fmt.Errorf("capture backend not initialised")
-	}
-	hwnd, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), false, true) // 直接抓新帧，绕开 100ms 缓存（轮询需要）
 	if err != nil {
 		return nil, err
-	}
-	frame, err := a.rt.Capture.Frame(win.HWND(hwnd)) // 直接抓新帧，绕开 100ms 缓存（轮询需要）
-	if err != nil {
-		return nil, err
-	}
-	if frame == nil {
-		return nil, fmt.Errorf("capture: nil frame")
 	}
 	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
 	x0, y0, w, h, _ := ResolveGeometry(roi, frameW, frameH)
@@ -920,19 +915,9 @@ func (a *visionAdapter) DetectColorBlobs(roi node.Geometry, mode string, rng [6]
 }
 
 func (a *visionAdapter) ROIColorScan(roi node.Geometry, hsv node.HSVRange, axis string, minPx, maxPx int) ([]node.ClusterEntry, error) {
-	if a.rt.Capture == nil {
-		return nil, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), false, true)
 	if err != nil {
 		return nil, err
-	}
-	frame, err := a.rt.Capture.Frame(win.HWND(h))
-	if err != nil {
-		return nil, err
-	}
-	if frame == nil {
-		return nil, fmt.Errorf("capture: nil frame")
 	}
 	sub := cropFrameByGeometry(frame, roi)
 	// maxPx<=0: 按子帧实际尺寸算默认上限 (axis x → 宽/3, y → 高/3), 与节点解耦.
@@ -972,19 +957,9 @@ func cropFrameByGeometry(frame *image.RGBA, roi node.Geometry) *image.RGBA {
 // GridSignature 抓全帧后按 roi Geometry 裁子区 → box-average 降采样成
 // gridSize×gridSize RGB 签名. Geometry 零值 = 全帧; 每调一次新抓一帧 (无缓存).
 func (a *visionAdapter) GridSignature(roi node.Geometry, gridSize int) ([]uint8, error) {
-	if a.rt.Capture == nil {
-		return nil, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), false, true)
 	if err != nil {
 		return nil, err
-	}
-	frame, err := a.rt.Capture.Frame(win.HWND(h))
-	if err != nil {
-		return nil, err
-	}
-	if frame == nil {
-		return nil, fmt.Errorf("capture: nil frame")
 	}
 	sub := cropFrameByGeometry(frame, roi)
 	return vision.Downsample(sub, gridSize), nil
@@ -1000,19 +975,9 @@ func hsvRangeFromNode(h node.HSVRange) hsvRange {
 }
 
 func (a *visionAdapter) FindColorSignature(roi node.Geometry, sig node.ColorSignature, defaultTol int) (bool, node.Point, error) {
-	if a.rt.Capture == nil {
-		return false, node.Point{}, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), true, true)
 	if err != nil {
 		return false, node.Point{}, err
-	}
-	frame, err := a.rt.CaptureFrameCached(h)
-	if err != nil {
-		return false, node.Point{}, err
-	}
-	if frame == nil {
-		return false, node.Point{}, fmt.Errorf("capture: nil frame")
 	}
 	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
 	// 复用 DetectColorBlobs 相同的 ResolveGeometry → 像素矩形解析法。
@@ -1038,21 +1003,13 @@ func (a *visionAdapter) MatchAll(ctx context.Context, keys []string, threshold f
 	if a.rt.Matcher == nil || len(keys) == 0 {
 		return nil, nil
 	}
-	var frame *image.RGBA
+	frame, err := a.captureFrame(ctx, true, false)
+	if err != nil {
+		return nil, err
+	}
 	frameW := 0
-	if a.rt.Capture != nil {
-		h, err := a.rt.ActiveHWND()
-		if err != nil {
-			return nil, err
-		}
-		f, err := a.rt.CaptureFrameCached(h)
-		if err != nil {
-			return nil, err
-		}
-		frame = f
-		if frame != nil {
-			frameW = frame.Bounds().Dx()
-		}
+	if frame != nil {
+		frameW = frame.Bounds().Dx()
 	}
 	// roi 总作为显式比例搜索区下发: 绕开 variant.BBox 单点定位 (找全部要搜整片)。
 	// 零值 Geometry → ResolveGeometry 返全帧 → region [0,0,1,1]。
@@ -1122,19 +1079,9 @@ func nmsMatches(matches []node.TemplateMatch, minDistance, frameW int) []node.Te
 // DecodeQR 抓全帧 → 按 roi 裁子图 → 解码所有 QR → 定位点加 ROI 偏移后归一化到全帧。
 // 返回按 bbox min-y 再 min-x 升序排列的 QRResult slice。解码失败 → 空 slice + nil error。
 func (a *visionAdapter) DecodeQR(roi node.Geometry) ([]node.QRResult, error) {
-	if a.rt.Capture == nil {
-		return nil, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
+	frame, err := a.captureFrame(context.Background(), true, true)
 	if err != nil {
 		return nil, err
-	}
-	frame, err := a.rt.CaptureFrameCached(h)
-	if err != nil {
-		return nil, err
-	}
-	if frame == nil {
-		return nil, fmt.Errorf("capture: nil frame")
 	}
 	frameW, frameH := frame.Bounds().Dx(), frame.Bounds().Dy()
 	rx, ry, rw, rh, _ := ResolveGeometry(roi, frameW, frameH)

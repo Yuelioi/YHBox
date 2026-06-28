@@ -507,14 +507,17 @@ func (f *fakeRuntimeControllerFactory) NewController(tg target.Target, trace aut
 }
 
 type fakeRuntimeController struct {
-	target target.Target
-	clicks []controller.ClickRequest
+	target             target.Target
+	clicks             []controller.ClickRequest
+	screenshot         *image.RGBA
+	screenshotRequests []controller.ScreenshotRequest
+	screenshotErr      error
 }
 
 func (f *fakeRuntimeController) Target() target.Target { return f.target }
 
 func (f *fakeRuntimeController) Capabilities(context.Context) controller.CapabilitySet {
-	return controller.CapabilitySet{Click: true}
+	return controller.CapabilitySet{Click: true, Screenshot: f.screenshot != nil}
 }
 
 func (f *fakeRuntimeController) HealthCheck(context.Context) controller.HealthReport {
@@ -524,6 +527,18 @@ func (f *fakeRuntimeController) HealthCheck(context.Context) controller.HealthRe
 func (f *fakeRuntimeController) Click(_ context.Context, req controller.ClickRequest) error {
 	f.clicks = append(f.clicks, req)
 	return nil
+}
+
+func (f *fakeRuntimeController) Screenshot(_ context.Context, req controller.ScreenshotRequest) (controller.Frame, error) {
+	f.screenshotRequests = append(f.screenshotRequests, req)
+	if f.screenshotErr != nil {
+		return controller.Frame{}, f.screenshotErr
+	}
+	return controller.Frame{
+		Image: f.screenshot,
+		Space: target.SpaceCaptureFrame,
+		Size:  target.Size{W: f.screenshot.Bounds().Dx(), H: f.screenshot.Bounds().Dy()},
+	}, nil
 }
 
 func (f *fakeRuntimeController) Move(context.Context, controller.MoveRequest) error { return nil }
@@ -635,6 +650,37 @@ func TestTargetAdapter_SetActiveValidatesAndUpdatesRuntime(t *testing.T) {
 
 	if err := svc.SetActive(target.Target{Kind: target.KindAndroidADB}); err == nil {
 		t.Fatal("SetActive() expected validation error")
+	}
+}
+
+func TestVisionAdapter_DetectColorUsesAndroidActiveTargetScreenshot(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	tg := target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 2, H: 1},
+	}
+	rt.SetActiveTarget(tg)
+	img := image.NewRGBA(image.Rect(0, 0, 2, 1))
+	img.Pix[0], img.Pix[1], img.Pix[2], img.Pix[3] = 255, 0, 0, 255
+	img.Pix[4], img.Pix[5], img.Pix[6], img.Pix[7] = 0, 0, 0, 255
+	fakeCtrl := &fakeRuntimeController{target: tg, screenshot: img}
+	factory := &fakeRuntimeControllerFactory{ctrl: fakeCtrl}
+	rt.ControllerFactory = factory
+
+	count, cx, cy, err := NewVisionAdapter(rt).DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
+	if err != nil {
+		t.Fatalf("DetectColor error = %v", err)
+	}
+	if count != 1 || cx != 0 || cy != 0 {
+		t.Fatalf("DetectColor = count %d center (%v,%v), want one red pixel at origin", count, cx, cy)
+	}
+	if factory.target.ID != tg.ID {
+		t.Fatalf("factory target = %#v, want %#v", factory.target, tg)
+	}
+	if len(fakeCtrl.screenshotRequests) != 1 {
+		t.Fatalf("screenshot requests = %#v, want 1 request", fakeCtrl.screenshotRequests)
 	}
 }
 
