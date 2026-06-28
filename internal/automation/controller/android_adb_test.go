@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -78,6 +79,29 @@ func TestAndroidADBControllerClickUsesTapAndTrace(t *testing.T) {
 	step := records[0].CoordinateSteps[0]
 	if step.From != target.SpaceNormalized || step.To != target.SpaceAndroidDevice {
 		t.Fatalf("step spaces = %s -> %s", step.From, step.To)
+	}
+}
+
+func TestAndroidADBControllerTracesBackendErrors(t *testing.T) {
+	runner := &fakeADBRunner{err: errors.New("adb failed")}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewAndroidADBController(androidTarget(), AndroidADBDeps{Runner: runner, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewAndroidADBController() error = %v", err)
+	}
+	err = ctrl.Click(context.Background(), ClickRequest{Point: target.NewNormalizedPoint(0.5, 0.25)})
+	if err == nil {
+		t.Fatalf("Click() error = nil, want backend error")
+	}
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1: %#v", len(records), records)
+	}
+	if records[0].Status != automationtrace.StatusError || records[0].Error != "adb failed" {
+		t.Fatalf("trace error record = %#v", records[0])
+	}
+	if len(records[0].CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(records[0].CoordinateSteps))
 	}
 }
 

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -78,6 +79,29 @@ func TestBrowserCDPControllerClickDispatchesMouseAndTrace(t *testing.T) {
 	}
 	if len(records[0].CoordinateSteps) != 1 || records[0].CoordinateSteps[0].To != target.SpaceBrowserView {
 		t.Fatalf("coordinate steps = %#v", records[0].CoordinateSteps)
+	}
+}
+
+func TestBrowserCDPControllerTracesBackendErrors(t *testing.T) {
+	client := &fakeCDPClient{err: errors.New("cdp failed")}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewBrowserCDPController(browserTarget(), BrowserCDPDeps{Client: client, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewBrowserCDPController() error = %v", err)
+	}
+	err = ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.5, 0.25)})
+	if err == nil {
+		t.Fatalf("Move() error = nil, want backend error")
+	}
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1: %#v", len(records), records)
+	}
+	if records[0].Status != automationtrace.StatusError || records[0].Error != "cdp failed" {
+		t.Fatalf("trace error record = %#v", records[0])
+	}
+	if len(records[0].CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(records[0].CoordinateSteps))
 	}
 }
 
