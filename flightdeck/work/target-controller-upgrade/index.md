@@ -2,18 +2,17 @@
 
 ## State
 
-破坏性大升级 topic。先完成调研与总体设计，尚未进入代码实现。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-按 `plan.md` 执行 Phase 1：新增 `internal/automation/target` 与 `internal/automation/controller`，用现有 Win32 input/capture/window 能力包一层兼容 adapter，不改容器 JSON，不重写全部节点。
-
-推荐执行方式：Subagent-Driven，逐 task 实现、逐 task review。
+按 `plans/phase2-trace.md` 执行 Phase 2：增加 controller-call trace 数据结构与内存 recorder，让 Win32Controller 可选记录动作调用。不接 UI，不改节点 runtime。
 
 ## Read now
 
 - design.md
 - plan.md
+- plans/phase2-trace.md
 
 ## Read if
 
@@ -30,11 +29,11 @@ Done:
 - 总体设计 spec。
 - Phase 1 implementation plan。
 - cockpit 中加入恢复入口。
+- Phase 1 代码：`internal/automation/target`、`internal/automation/controller`、runtime WindowHandle -> Target bridge。
 
 Current:
-- 未实现代码。
+- 准备执行 Phase 2 trace foundation。
 
 ## Open questions
 
-- 当前工作区已有 AE 修复、i18n 清理、runtime test skip 等未提交改动；开工前需要决定是一起保留、拆提交，还是先清理工作区。
-- Phase 1 计划中的接口名可在执行前按源码现实微调，但不得扩大范围到 Android、Browser 或 Trace UI。
+- Phase 2 只记录 controller-call trace；runtime node trace、文件落盘和 UI 查看器都留到后续 phase。
