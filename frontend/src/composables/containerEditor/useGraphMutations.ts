@@ -105,8 +105,9 @@ export function useGraphMutations(opts: {
   function onConnect(c: Connection) {
     const g = activeGraph.value
     if (!g) return
-    const srcPin = c.sourceHandle ?? 'out'
-    const tgtPin = c.targetHandle ?? 'in'
+    const srcPin = c.sourceHandle
+    const tgtPin = c.targetHandle
+    if (!c.source || !c.target || !srcPin || !tgtPin) return
     // 防火墙: 哨兵 pin (子图未解析的渲染兜底 __missing__ / 无出口 __empty__) 绝不连成持久化边。
     // 否则 FE 子图 store 一旦滞后, 连出的边带 __missing__ → 主图保存被后端拒 → 反复出现的"子图未找到"存盘失败。
     if (isSentinelPin(srcPin) || isSentinelPin(tgtPin)) return

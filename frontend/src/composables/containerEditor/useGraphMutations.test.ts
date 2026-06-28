@@ -44,4 +44,11 @@ describe('useGraphMutations.onConnect 哨兵防火墙', () => {
     m.onConnect({ source: 'a', sourceHandle: 'Done', target: 'b', targetHandle: '__empty__' } as any)
     expect(graph.edges).toEqual([])
   })
+
+  it('缺失 handle 时不猜小写 in/out', () => {
+    const { m, graph } = setup([node('a', 'Start'), node('b', 'Log')])
+    m.onConnect({ source: 'a', sourceHandle: null, target: 'b', targetHandle: 'In' } as any)
+    m.onConnect({ source: 'a', sourceHandle: 'Done', target: 'b', targetHandle: null } as any)
+    expect(graph.edges).toEqual([])
+  })
 })

@@ -152,4 +152,4 @@ DataField (exec 出口携带数据) 命名:
 
 - **exec pin 名前端别硬编码小写** `'in'`/`'out'`: 后端是 `In`/`Done` (PascalCase)。FE 从 backend Spec 派生 pin 名时**原样保留大小写**, 别 lowercase。
 - **Expr 节点 config 形状** (实证 `internal/services/container/configtypes.go ParseExprConfig`): 表达式存 **`config.literal.Expression`** (pin literal); 动态输入声明存 **`config.Inputs[]`** 的 `{Name, Type}` (PascalCase)。FE 读写必须用这个形状 — ❌ 别用 `config.expr` / `config.inputs` / `.name` / `.type` (2026-06-08 修过 `pinLiterals.ts` / `useExprFusion.ts` 的此类小写 desync)。
-- **⏳ 待修 (记档防忘)**: `useFlowInteraction.ts` 的 `isSingleInOut` 判 `execOut[0]==='out'` (小写) 永不匹配 → "拖节点到线上自动断接"功能一直是死的; line 111-112 还用 `${id}.in`/`.out` 拼边。修法: 改判 count (`execIn.length===1 && execOut.length===1`) + 用真实 pin 名拼边。**启用=改行为, 需单独验证, 别顺手开**。同类小写 fallback (`useGraphMutations ?? 'out'`、`useInlineMenu ?? 'out'`、`pinSpec.ts:120`) 仅兜未知 kind, 低优先。
+- **前端连接持久化入口不能猜 pin 名**: `useGraphMutations.onConnect` 遇到缺失 source/target handle 必须拒绝, 不得 fallback 成小写 `out`/`in`。`useFlowInteraction.ts` 旧待办已过期(文件已不存在);后续若恢复"拖节点到线上自动断接", 必须按真实 `pinsFor(kind)` 的 `In`/`Done` 等 pin 名重连, 并加单测。
