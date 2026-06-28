@@ -24,6 +24,34 @@ interface NodeDumpEntry {
   final: boolean
 }
 
+export interface ActionTraceEntry {
+  containerId?: string
+  action: string
+  source?: {
+    containerId?: string
+    nodeId?: string
+    nodeKind?: string
+    inPin?: string
+    ContainerID?: string
+    NodeID?: string
+    NodeKind?: string
+    InPin?: string
+  }
+  target?: {
+    id?: string
+    ID?: string
+  }
+  backend?: string
+  request?: unknown
+  result?: unknown
+  status?: string
+  error?: string
+  coordinateSteps?: unknown[]
+  startedAt?: string
+  endedAt?: string
+  durationMs?: number
+}
+
 function pushBounded(lines: LogLine[], line: LogLine) {
   lines.push(line)
   if (lines.length > RING_CAP) {
@@ -35,8 +63,38 @@ function nowIso() {
   return new Date().toISOString()
 }
 
+function pushBoundedTrace(traces: ActionTraceEntry[], trace: ActionTraceEntry) {
+  traces.push(trace)
+  if (traces.length > RING_CAP) {
+    traces.splice(0, traces.length - RING_CAP)
+  }
+}
+
+function traceSource(trace: ActionTraceEntry) {
+  const source = trace.source ?? {}
+  const nodeKind = source.nodeKind ?? source.NodeKind ?? '?'
+  const nodeId = source.nodeId ?? source.NodeID ?? '?'
+  const inPin = source.inPin ?? source.InPin ?? ''
+  return `${nodeKind}(${nodeId})${inPin ? '.' + inPin : ''}`
+}
+
+function traceTarget(trace: ActionTraceEntry) {
+  return trace.target?.id ?? trace.target?.ID ?? ''
+}
+
+function formatActionTrace(trace: ActionTraceEntry) {
+  const status = trace.status || 'unknown'
+  const duration = Number.isFinite(trace.durationMs) ? ` ${trace.durationMs}ms` : ''
+  const target = traceTarget(trace)
+  const targetPart = target ? ` @ ${target}` : ''
+  const backend = trace.backend ? ` via ${trace.backend}` : ''
+  const error = trace.error ? `: ${trace.error}` : ''
+  return `${traceSource(trace)} -> ${trace.action} ${status}${duration}${targetPart}${backend}${error}`
+}
+
 export const useLogStore = defineStore('log', () => {
   const lines = ref<LogLine[]>([])
+  const actionTraces = ref<ActionTraceEntry[]>([])
   const lastSeq = ref(0)
   const dropDetected = ref(false)
 
@@ -102,20 +160,33 @@ export const useLogStore = defineStore('log', () => {
     }
   }
 
+  function appendActionTrace(trace: ActionTraceEntry) {
+    pushBoundedTrace(actionTraces.value, trace)
+    pushBounded(lines.value, {
+      time: nowIso(),
+      level: 'action',
+      message: formatActionTrace(trace),
+      source: 'CTR',
+    })
+  }
+
   function clear() {
     lines.value = []
+    actionTraces.value = []
     lastSeq.value = 0
     dropDetected.value = false
   }
 
   return {
     lines,
+    actionTraces,
     lastSeq,
     dropDetected,
     appendSystem,
     appendContainerLog,
     appendNodeEnter,
     appendNodeDump,
+    appendActionTrace,
     clear,
   }
 })

@@ -51,4 +51,10 @@ export function wireEvents() {
       })))
     }
   })
+  Events.On('container:action-trace', (e: any) => {
+    const payload = e?.data?.[0] ?? e?.data ?? e
+    if (payload && typeof payload === 'object') {
+      useLogStore().appendActionTrace(payload)
+    }
+  })
 }

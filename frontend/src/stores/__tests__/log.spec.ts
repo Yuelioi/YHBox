@@ -44,7 +44,38 @@ describe('useLogStore', () => {
   it('clear empties all', () => {
     const s = useLogStore()
     s.appendContainerLog({ level: 'info', message: 'x' })
+    s.appendActionTrace({
+      containerId: 'c1',
+      action: 'click',
+      source: { nodeId: 'n1', nodeKind: 'ClickAt', inPin: 'In' },
+      target: { id: 'win32:42' },
+      backend: 'sendinput',
+      status: 'success',
+      durationMs: 12,
+    })
     s.clear()
     expect(s.lines).toHaveLength(0)
+    expect(s.actionTraces).toHaveLength(0)
+  })
+
+  it('appendActionTrace keeps structured cache and adds compact log line', () => {
+    const s = useLogStore()
+    s.appendActionTrace({
+      containerId: 'c1',
+      action: 'click',
+      source: { nodeId: 'n1', nodeKind: 'ClickAt', inPin: 'In' },
+      target: { id: 'win32:42' },
+      backend: 'sendinput',
+      status: 'success',
+      durationMs: 12,
+    })
+    expect(s.actionTraces).toHaveLength(1)
+    expect(s.actionTraces[0].action).toBe('click')
+    expect(s.lines).toHaveLength(1)
+    expect(s.lines[0].level).toBe('action')
+    expect(s.lines[0].source).toBe('CTR')
+    expect(s.lines[0].message).toContain('ClickAt(n1)')
+    expect(s.lines[0].message).toContain('click')
+    expect(s.lines[0].message).toContain('12ms')
   })
 })
