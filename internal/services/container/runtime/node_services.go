@@ -411,14 +411,16 @@ func (a *inputAdapter) MouseUp(button string) error {
 }
 
 func (a *inputAdapter) TypeText(s string) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.TypeText(h, s)
+	return ctrl.Text(context.Background(), controller.TextRequest{
+		Text: s,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 // NewInputAdapter wrap *RuntimeContext into node.InputService.

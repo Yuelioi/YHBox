@@ -394,6 +394,8 @@ type recordingRuntimeInput struct {
 	scrollY          []float64
 	scrollNotches    []int
 	scrollHorizontal []bool
+	textHWND         []uintptr
+	textValues       []string
 }
 
 func (r *recordingRuntimeInput) Name() string { return "sendinput" }
@@ -436,7 +438,11 @@ func (r *recordingRuntimeInput) Scroll(hwnd win.HWND, xRatio, yRatio float64, no
 func (r *recordingRuntimeInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
 	return nil
 }
-func (r *recordingRuntimeInput) TypeText(win.HWND, string) error { return nil }
+func (r *recordingRuntimeInput) TypeText(hwnd win.HWND, text string) error {
+	r.textHWND = append(r.textHWND, uintptr(hwnd))
+	r.textValues = append(r.textValues, text)
+	return nil
+}
 func (r *recordingRuntimeInput) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
 	r.moveHWND = append(r.moveHWND, uintptr(hwnd))
 	r.moveX = append(r.moveX, xRatio)
