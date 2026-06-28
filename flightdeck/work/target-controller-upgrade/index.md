@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1-61 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容。
+破坏性大升级 topic。调研、总体设计、Phase 1-62 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard。
 
 ## Next
 
-Plan next slice: finish Phase61 full verification, then continue `NeedsTarget(kind=win32-window, capabilities=...)` contract hardening and remaining node spec consistency guards.
+Plan next slice: continue `NeedsTarget(kind=win32-window, capabilities=...)` contract hardening and remaining node spec consistency guards.
 
 ## Read now
 
@@ -72,6 +72,7 @@ Plan next slice: finish Phase61 full verification, then continue `NeedsTarget(ki
 - plans/phase59-win32-window-target-terminology.md
 - plans/phase60-target-palette-group.md
 - plans/phase61-destructive-win32-window-target-rename.md
+- plans/phase62-target-window-contract-guards.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -131,6 +132,7 @@ Plan next slice: finish Phase61 full verification, then continue `NeedsTarget(ki
 - ../../knowledge/architecture/target-controller-phase59-notes.md
 - ../../knowledge/architecture/target-controller-phase60-notes.md
 - ../../knowledge/architecture/target-controller-phase61-notes.md
+- ../../knowledge/architecture/target-controller-phase62-notes.md
 
 ## Read if
 
@@ -209,9 +211,10 @@ Done:
 - Phase 59 代码/文档：落 Window vs Target 边界计划与知识；前端 i18n 把 `Win32WindowTarget` 用户可见名收窄为 Windows 窗口目标，通用输入/坐标文案改为当前自动化目标；后端注释明确 `NeedsWindow` / `BringWindowForeground` 是 Win32 HWND 语义，不代表 Android/Browser target。
 - Phase 60 代码/文档：新增 `Target` palette 分组，`Win32WindowTarget` / `AndroidTarget` / `BrowserTarget` 从 `Window` category 迁入 `Target`；前端增加 target group 映射/视觉/i18n；Go guard 防止 target selection 节点回漂到 Window 分组。
 - Phase 61 代码/文档：破坏性移除旧 `WindowTarget` contract，Go/TS/Vue/i18n/catalog/MCP/recording/tools/testdata 统一 `Win32WindowTarget`；旧 alias/loader 兼容决策作废。
+- Phase 62 代码/文档：新增全集注册节点 guard，固化 Target category、Window category、NeedsWindow/NeedsForeground、Android/Browser 非 HWND pin 边界。
 
 Current:
-- 当前刀：完成 Phase61 全量验证并提交；下一刀直接推进 `NeedsTarget(kind=win32-window, capabilities=...)`，不做旧 `WindowTarget` alias。
+- 下一刀：推进 `NeedsTarget(kind=win32-window, capabilities=...)`，不做旧 `WindowTarget` alias。
 
 ## Open questions
 

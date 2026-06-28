@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+
+	"yotta/internal/node"
 )
 
 const nodeImportPrefix = "yotta/internal/nodes/"
@@ -106,4 +108,80 @@ func missingStrings(want, got []string) []string {
 		}
 	}
 	return missing
+}
+
+func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
+	targetSelection := map[string]struct{}{
+		"Win32WindowTarget": {},
+		"AndroidTarget":     {},
+		"BrowserTarget":     {},
+	}
+	windowOperations := map[string]struct{}{
+		"WaitWindow":            {},
+		"WaitWindowGone":        {},
+		"BringWindowForeground": {},
+		"GetWindow":             {},
+		"WindowState":           {},
+		"MoveResizeWindow":      {},
+		"CloseWindow":           {},
+	}
+	nonWin32Targets := map[string]struct{}{
+		"AndroidTarget": {},
+		"BrowserTarget": {},
+	}
+
+	for _, rn := range node.All() {
+		spec := rn.Spec
+
+		if spec.NeedsForeground && !spec.NeedsWindow {
+			t.Errorf("%s has NeedsForeground without NeedsWindow; foreground is a Win32 window contract", spec.Kind)
+		}
+
+		if _, ok := targetSelection[spec.Kind]; ok {
+			if spec.Category != "Target" {
+				t.Errorf("%s category = %q, want Target", spec.Kind, spec.Category)
+			}
+			if spec.NeedsWindow || spec.NeedsForeground {
+				t.Errorf("%s is a target selection node and must not require existing Win32 window services", spec.Kind)
+			}
+		}
+
+		if spec.Category == "Target" {
+			if _, ok := targetSelection[spec.Kind]; !ok {
+				t.Errorf("%s is in Target category but is not an approved target selection node", spec.Kind)
+			}
+		}
+
+		if spec.Category == "Window" {
+			if _, ok := windowOperations[spec.Kind]; !ok {
+				t.Errorf("%s is in Window category but is not an approved Win32 HWND operation node", spec.Kind)
+			}
+		}
+
+		if _, ok := nonWin32Targets[spec.Kind]; ok {
+			if hasInput(spec.Inputs, "Window", "Window") || hasOutputData(spec.Outputs, "Window", "Window") {
+				t.Errorf("%s must not expose Window pins; Android/Browser targets are not Win32 HWNDs", spec.Kind)
+			}
+		}
+	}
+}
+
+func hasInput(inputs []node.InputSpec, name, typ string) bool {
+	for _, in := range inputs {
+		if in.Name == name && in.Type == typ {
+			return true
+		}
+	}
+	return false
+}
+
+func hasOutputData(outputs []node.OutputSpec, name, typ string) bool {
+	for _, out := range outputs {
+		for _, data := range out.Data {
+			if data.Name == name && data.Type == typ {
+				return true
+			}
+		}
+	}
+	return false
 }
