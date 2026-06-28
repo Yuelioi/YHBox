@@ -48,7 +48,7 @@ type Node struct {
 }
 
 // Build 读全注册表, 返按 category→kind 稳定排序的目录。
-// 调用方负责匿名 import 全 internal/nodes/* 触发注册。
+// 调用方负责匿名 import internal/nodes/all 触发完整内置节点注册。
 func Build() []Node {
 	regs := node.All()
 	out := make([]Node, 0, len(regs))

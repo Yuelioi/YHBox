@@ -18,21 +18,7 @@ import (
 
 	"yotta/internal/hotkey"
 	"yotta/internal/node"
-	_ "yotta/internal/nodes/ai"         // AI (图里调 LLM)
-	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
-	_ "yotta/internal/nodes/control"    // Start/Stop/Sleep/Break/Continue/Switch/If
-	_ "yotta/internal/nodes/detect"     // CheckTemplate/WaitTemplate/ClickTemplate/DetectColor/DetectColorHSV/ROIColorScan/ColorBarTrack
-	_ "yotta/internal/nodes/event"      // EventTick (listener-driven 定时触发)
-	_ "yotta/internal/nodes/image"      // Capture/SaveImage/LoadImage 图像节点
-	_ "yotta/internal/nodes/input"      // KeyPress/ClickAt/MouseMoveRel/Scroll/KeyHold*/MouseHold*/BringWindowForeground
-	_ "yotta/internal/nodes/io"         // Log/Toast/PlayClip
-	_ "yotta/internal/nodes/purefunc"   // Add/Sub/.../Select + Expr (22+1, pure-data stubs)
-	_ "yotta/internal/nodes/random"     // RandomInt/RandomFloat/RandomBool
-	_ "yotta/internal/nodes/script"     // Script (内嵌 JS, goja)
-	_ "yotta/internal/nodes/stopwatch"  // StopwatchStart/Stop/Read
-	_ "yotta/internal/nodes/system"     // Subgraph/SubgraphIn/Out/CollapsedNode/Throw/WindowTarget/MouseCalibration/CommentBox
-	_ "yotta/internal/nodes/variable"   // SetVar/IncVar/GetVar/GetParam
-	_ "yotta/internal/nodes/window"     // GetWindow + WindowState/MoveResizeWindow/CloseWindow 窗口节点
+	_ "yotta/internal/nodes/all"
 	"yotta/internal/runclassify"
 	"yotta/internal/services"
 	"yotta/internal/services/androidadb"
