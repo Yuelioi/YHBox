@@ -67,4 +67,24 @@ describe('useInlineMenu pin 拖到空白', () => {
     dragPinToEmpty(m)
     expect(m.inlineMenu.value.open).toBe(true)
   })
+
+  it('VueFlow 连接缺 sourceHandle/targetHandle 时不放行', () => {
+    const m = setup()
+    expect(
+      m.isValidVueFlowConnection({
+        source: 'a',
+        target: 'b',
+        sourceHandle: null,
+        targetHandle: 'In',
+      }),
+    ).toBe(false)
+    expect(
+      m.isValidVueFlowConnection({
+        source: 'a',
+        target: 'b',
+        sourceHandle: 'Done',
+        targetHandle: undefined,
+      }),
+    ).toBe(false)
+  })
 })

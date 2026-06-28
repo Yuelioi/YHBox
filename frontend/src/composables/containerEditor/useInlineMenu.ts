@@ -54,7 +54,7 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
     sourceHandle?: string | null
     targetHandle?: string | null
   }): boolean {
-    if (!conn.sourceHandle || !conn.targetHandle) return true
+    if (!conn.sourceHandle || !conn.targetHandle) return false
     const srcNode = activeGraph.value?.nodes?.find((n) => n.id === conn.source)
     const tgtNode = activeGraph.value?.nodes?.find((n) => n.id === conn.target)
     if (!srcNode || !tgtNode) return true

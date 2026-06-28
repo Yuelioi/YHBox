@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle、Phase 29 async option metadata apply、Phase 30 stale CDP client invalidation、Phase 31 catalog i18n pin coverage guard、Phase 32 async source coverage、Phase 33 widget props validation、Phase 34 granular controller capabilities、Phase 35 fast runtime state tests、Phase 36 frontend test network isolation、Phase 37 async dropdown contract tests 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1-49 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default 等 guard 已落地。
 
 ## Next
 
-Plan next slice: continue target/runtime contract coverage around active target transitions, controller factory errors, and screenshot/click coordinate assumptions.
+Plan next slice: continue robustness hardening around target/runtime contract coverage, build warning triage, and remaining node spec consistency guards.
 
 ## Read now
 
@@ -48,6 +48,18 @@ Plan next slice: continue target/runtime contract coverage around active target 
 - plans/phase35-fast-runtime-state-tests.md
 - plans/phase36-frontend-test-network-isolation.md
 - plans/phase37-async-dropdown-contract-tests.md
+- plans/phase38-target-no-fallback-contracts.md
+- plans/phase39-node-i18n-contracts.md
+- plans/phase40-central-node-registration.md
+- plans/phase41-app-node-registration.md
+- plans/phase42-node-registration-guard.md
+- plans/phase43-build-knowledge-baseline.md
+- plans/phase44-frontend-i18n-ref-guard.md
+- plans/phase45-frontend-edge-handle-guard.md
+- plans/phase46-unknown-node-pin-guard.md
+- plans/phase47-exec-out-spec-guard.md
+- plans/phase48-string-default-spec-guard.md
+- plans/phase49-inline-handle-validation.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -83,6 +95,18 @@ Plan next slice: continue target/runtime contract coverage around active target 
 - ../../knowledge/architecture/target-controller-phase35-notes.md
 - ../../knowledge/architecture/target-controller-phase36-notes.md
 - ../../knowledge/architecture/target-controller-phase37-notes.md
+- ../../knowledge/architecture/target-controller-phase38-notes.md
+- ../../knowledge/architecture/target-controller-phase39-notes.md
+- ../../knowledge/architecture/target-controller-phase40-notes.md
+- ../../knowledge/architecture/target-controller-phase41-notes.md
+- ../../knowledge/architecture/target-controller-phase42-notes.md
+- ../../knowledge/architecture/target-controller-phase43-notes.md
+- ../../knowledge/architecture/target-controller-phase44-notes.md
+- ../../knowledge/architecture/target-controller-phase45-notes.md
+- ../../knowledge/architecture/target-controller-phase46-notes.md
+- ../../knowledge/architecture/target-controller-phase47-notes.md
+- ../../knowledge/architecture/target-controller-phase48-notes.md
+- ../../knowledge/architecture/target-controller-phase49-notes.md
 
 ## Read if
 
@@ -136,9 +160,21 @@ Done:
 - Phase 35 代码：runtime fishing-v2 状态机测试加载后对 timing literals 做 test-only cap，完整 runtime 包从约 125 秒降到约 4.4 秒。
 - Phase 36 代码：Vitest 测试环境隔离 Wails runtime 注入和外部 fetch，`pnpm test` 输出不再被 `/wails/custom.js` / 网络超时噪声污染。
 - Phase 37 代码：补 async-dropdown 行为契约测试；PinInput 加载上下文、选项值归一、meta 匹配、Inspector applyMeta sibling literal 写回都有覆盖。
+- Phase 38 代码：active target 无旧 HWND fallback 契约测试，避免显式目标丢失后误回退到过期窗口。
+- Phase 39 代码：节点/参数/dropdown option i18n guard，防止 catalog UI 翻译覆盖继续漂移。
+- Phase 40 代码：新增 `internal/nodes/all` 中心注册入口。
+- Phase 41 代码：app startup 和 runtime dispatch tests 共用中心节点注册入口。
+- Phase 42 代码：中心注册漂移 guard，防止新增节点目录忘记导入注册。
+- Phase 43 文档：刷新 build 验证基线，旧预存红记录作废。
+- Phase 44 代码：前端 i18n check 增加静态 `t()` / `te()` key 引用 guard。
+- Phase 45 代码：前端持久化连边拒绝缺 source/target handle 的连接。
+- Phase 46 代码：未知 kind 不再渲染 fake `in/out` pins。
+- Phase 47 代码：exec-out pin 命名 guard，标准出口保持 PascalCase。
+- Phase 48 代码：String default 非 nil 时必须为 string 的 spec guard。
+- Phase 49 代码：inline drag validation 缺 source/target handle 时 fail closed。
 
 Current:
-- 下一刀：继续 target/runtime 契约覆盖，优先 active target transitions、controller factory errors、screenshot/click coordinate assumptions。
+- 下一刀：继续健壮性硬化，优先 build warning 记录/收敛、Bool/default spec guard、controller/coordinate 边界契约。
 
 ## Open questions
 
