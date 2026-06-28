@@ -18,6 +18,18 @@ func (a runtimeWin32Input) Click(hwnd uintptr, xRatio, yRatio float64, button st
 	return a.backend.Click(win.HWND(hwnd), xRatio, yRatio, button, durMs)
 }
 
+func (a runtimeWin32Input) MouseDown(hwnd uintptr, xRatio, yRatio float64, button string) error {
+	return a.backend.MouseDown(win.HWND(hwnd), xRatio, yRatio, button)
+}
+
+func (a runtimeWin32Input) MouseUp(hwnd uintptr, button string) error {
+	return a.backend.MouseUp(win.HWND(hwnd), button)
+}
+
+func (a runtimeWin32Input) Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
+	return a.backend.Drag(win.HWND(hwnd), x1Ratio, y1Ratio, x2Ratio, y2Ratio, button, durationMs)
+}
+
 func (a runtimeWin32Input) KeyDown(hwnd uintptr, key string) error {
 	return a.backend.KeyDown(win.HWND(hwnd), key)
 }

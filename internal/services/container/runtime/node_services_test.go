@@ -394,6 +394,19 @@ type recordingRuntimeInput struct {
 	scrollY          []float64
 	scrollNotches    []int
 	scrollHorizontal []bool
+	mouseDownHWND    []uintptr
+	mouseDownX       []float64
+	mouseDownY       []float64
+	mouseDownButton  []string
+	mouseUpHWND      []uintptr
+	mouseUpButton    []string
+	dragHWND         []uintptr
+	dragX1           []float64
+	dragY1           []float64
+	dragX2           []float64
+	dragY2           []float64
+	dragButton       []string
+	dragDurationMs   []int
 	textHWND         []uintptr
 	textValues       []string
 }
@@ -420,10 +433,18 @@ func (r *recordingRuntimeInput) KeyUp(hwnd win.HWND, key string) error {
 	r.keyUpKeys = append(r.keyUpKeys, key)
 	return nil
 }
-func (r *recordingRuntimeInput) MouseDown(win.HWND, float64, float64, string) error {
+func (r *recordingRuntimeInput) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
+	r.mouseDownHWND = append(r.mouseDownHWND, uintptr(hwnd))
+	r.mouseDownX = append(r.mouseDownX, xRatio)
+	r.mouseDownY = append(r.mouseDownY, yRatio)
+	r.mouseDownButton = append(r.mouseDownButton, button)
 	return nil
 }
-func (r *recordingRuntimeInput) MouseUp(win.HWND, string) error { return nil }
+func (r *recordingRuntimeInput) MouseUp(hwnd win.HWND, button string) error {
+	r.mouseUpHWND = append(r.mouseUpHWND, uintptr(hwnd))
+	r.mouseUpButton = append(r.mouseUpButton, button)
+	return nil
+}
 func (r *recordingRuntimeInput) MouseMoveRel(win.HWND, int, int, int) error {
 	return nil
 }
@@ -435,7 +456,14 @@ func (r *recordingRuntimeInput) Scroll(hwnd win.HWND, xRatio, yRatio float64, no
 	r.scrollHorizontal = append(r.scrollHorizontal, horizontal)
 	return nil
 }
-func (r *recordingRuntimeInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
+func (r *recordingRuntimeInput) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
+	r.dragHWND = append(r.dragHWND, uintptr(hwnd))
+	r.dragX1 = append(r.dragX1, x1Ratio)
+	r.dragY1 = append(r.dragY1, y1Ratio)
+	r.dragX2 = append(r.dragX2, x2Ratio)
+	r.dragY2 = append(r.dragY2, y2Ratio)
+	r.dragButton = append(r.dragButton, button)
+	r.dragDurationMs = append(r.dragDurationMs, durationMs)
 	return nil
 }
 func (r *recordingRuntimeInput) TypeText(hwnd win.HWND, text string) error {

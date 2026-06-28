@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	automationtrace "yotta/internal/automation/trace"
+	"yotta/internal/node"
 	_ "yotta/internal/nodes/input"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -94,6 +95,109 @@ func TestExecNodeViaFramework_InputTextTraceIncludesNodeSource(t *testing.T) {
 	if record.Source.ContainerID != "trace-text-container" ||
 		record.Source.NodeID != "text-1" ||
 		record.Source.NodeKind != "InputText" ||
+		record.Source.InPin != "In" {
+		t.Fatalf("record source = %#v", record.Source)
+	}
+}
+
+func TestExecNodeViaFramework_MouseHoldStartTraceIncludesNodeSource(t *testing.T) {
+	rt, input, runner := newTraceSourceRuntime(t, "trace-mouse-down-container", container.GraphNode{
+		ID:   "down-1",
+		Kind: "MouseHoldStart",
+		Config: map[string]any{
+			"Point":  node.Point{X: 0.3, Y: 0.7},
+			"Button": "right",
+		},
+	})
+
+	if _, err := runner.execNodeViaFramework(context.Background(), runner.nodesByID["down-1"], ExecToken{NodeID: "down-1", InPin: "In"}); err != nil {
+		t.Fatalf("execNodeViaFramework error = %v", err)
+	}
+
+	if len(input.mouseDownHWND) != 1 || input.mouseDownHWND[0] != 84 || input.mouseDownX[0] != 0.3 || input.mouseDownY[0] != 0.7 || input.mouseDownButton[0] != "right" {
+		t.Fatalf("backend MouseDown = hwnds %#v x %#v y %#v buttons %#v", input.mouseDownHWND, input.mouseDownX, input.mouseDownY, input.mouseDownButton)
+	}
+	assertSingleTraceSource(t, rt.TraceRecords(), "mouse-down", "trace-mouse-down-container", "down-1", "MouseHoldStart")
+}
+
+func TestExecNodeViaFramework_MouseHoldStopTraceIncludesNodeSource(t *testing.T) {
+	rt, input, runner := newTraceSourceRuntime(t, "trace-mouse-up-container", container.GraphNode{
+		ID:   "up-1",
+		Kind: "MouseHoldStop",
+		Config: map[string]any{
+			"Button": "middle",
+		},
+	})
+
+	if _, err := runner.execNodeViaFramework(context.Background(), runner.nodesByID["up-1"], ExecToken{NodeID: "up-1", InPin: "In"}); err != nil {
+		t.Fatalf("execNodeViaFramework error = %v", err)
+	}
+
+	if len(input.mouseUpHWND) != 1 || input.mouseUpHWND[0] != 84 || input.mouseUpButton[0] != "middle" {
+		t.Fatalf("backend MouseUp = hwnds %#v buttons %#v", input.mouseUpHWND, input.mouseUpButton)
+	}
+	assertSingleTraceSource(t, rt.TraceRecords(), "mouse-up", "trace-mouse-up-container", "up-1", "MouseHoldStop")
+}
+
+func TestExecNodeViaFramework_SwipeTraceIncludesNodeSource(t *testing.T) {
+	rt, input, runner := newTraceSourceRuntime(t, "trace-drag-container", container.GraphNode{
+		ID:   "swipe-1",
+		Kind: "Swipe",
+		Config: map[string]any{
+			"Begin":      node.Point{X: 0.1, Y: 0.2},
+			"End":        node.Point{X: 0.8, Y: 0.9},
+			"Button":     "left",
+			"DurationMs": 300,
+		},
+	})
+
+	if _, err := runner.execNodeViaFramework(context.Background(), runner.nodesByID["swipe-1"], ExecToken{NodeID: "swipe-1", InPin: "In"}); err != nil {
+		t.Fatalf("execNodeViaFramework error = %v", err)
+	}
+
+	if len(input.dragHWND) != 1 || input.dragHWND[0] != 84 ||
+		input.dragX1[0] != 0.1 || input.dragY1[0] != 0.2 ||
+		input.dragX2[0] != 0.8 || input.dragY2[0] != 0.9 ||
+		input.dragButton[0] != "left" || input.dragDurationMs[0] != 300 {
+		t.Fatalf("backend Drag = hwnds %#v from (%#v,%#v) to (%#v,%#v) buttons %#v durations %#v",
+			input.dragHWND, input.dragX1, input.dragY1, input.dragX2, input.dragY2, input.dragButton, input.dragDurationMs)
+	}
+	records := rt.TraceRecords()
+	assertSingleTraceSource(t, records, "drag", "trace-drag-container", "swipe-1", "Swipe")
+	if len(records[0].CoordinateSteps) != 2 {
+		t.Fatalf("coordinate steps len = %d, want 2", len(records[0].CoordinateSteps))
+	}
+}
+
+func newTraceSourceRuntime(t *testing.T, containerID string, graphNode container.GraphNode) (*RuntimeContext, *recordingRuntimeInput, *ContainerRunner) {
+	t.Helper()
+	c := &container.Container{
+		SchemaVersion: 1,
+		ID:            containerID,
+		Name:          containerID,
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{graphNode},
+		},
+	}
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 84, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+	return rt, input, NewContainerRunner(rt)
+}
+
+func assertSingleTraceSource(t *testing.T, records []automationtrace.ActionRecord, action, containerID, nodeID, nodeKind string) {
+	t.Helper()
+	if len(records) != 1 {
+		t.Fatalf("trace len = %d, want 1", len(records))
+	}
+	record := records[0]
+	if record.Action != action || record.Status != automationtrace.StatusSuccess {
+		t.Fatalf("trace action/status = %s/%s", record.Action, record.Status)
+	}
+	if record.Source.ContainerID != containerID ||
+		record.Source.NodeID != nodeID ||
+		record.Source.NodeKind != nodeKind ||
 		record.Source.InPin != "In" {
 		t.Fatalf("record source = %#v", record.Source)
 	}

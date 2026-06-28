@@ -378,36 +378,46 @@ func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bo
 }
 
 func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.Drag(h, x1, y1, x2, y2, button, durationMs)
+	return ctrl.Drag(context.Background(), controller.DragRequest{
+		From:       target.NewNormalizedPoint(x1, y1),
+		To:         target.NewNormalizedPoint(x2, y2),
+		Button:     button,
+		DurationMs: durationMs,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) MouseDown(xRatio, yRatio float64, button string) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.MouseDown(h, xRatio, yRatio, button)
+	return ctrl.MouseDown(context.Background(), controller.MouseButtonRequest{
+		Point:  target.NewNormalizedPoint(xRatio, yRatio),
+		Button: button,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) MouseUp(button string) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.MouseUp(h, button)
+	return ctrl.MouseUp(context.Background(), controller.MouseButtonRequest{
+		Button: button,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) TypeText(s string) error {

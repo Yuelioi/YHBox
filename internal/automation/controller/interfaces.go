@@ -21,6 +21,9 @@ type PointerInput interface {
 	Click(context.Context, ClickRequest) error
 	Move(context.Context, MoveRequest) error
 	Scroll(context.Context, ScrollRequest) error
+	MouseDown(context.Context, MouseButtonRequest) error
+	MouseUp(context.Context, MouseButtonRequest) error
+	Drag(context.Context, DragRequest) error
 }
 
 type KeyboardInput interface {
@@ -67,6 +70,20 @@ type ScrollRequest struct {
 	Point      target.Point
 	Notches    int
 	Horizontal bool
+	Policy     ActionPolicy
+}
+
+type MouseButtonRequest struct {
+	Point  target.Point
+	Button string
+	Policy ActionPolicy
+}
+
+type DragRequest struct {
+	From       target.Point
+	To         target.Point
+	Button     string
+	DurationMs int
 	Policy     ActionPolicy
 }
 

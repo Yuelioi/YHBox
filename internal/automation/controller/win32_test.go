@@ -58,6 +58,19 @@ type fakeWin32Input struct {
 	scrollY          float64
 	scrollNotches    int
 	scrollHorizontal bool
+	mouseDownHWND    uintptr
+	mouseDownX       float64
+	mouseDownY       float64
+	mouseDownButton  string
+	mouseUpHWND      uintptr
+	mouseUpButton    string
+	dragHWND         uintptr
+	dragX1           float64
+	dragY1           float64
+	dragX2           float64
+	dragY2           float64
+	dragButton       string
+	dragDurationMs   int
 	text             string
 	err              error
 }
@@ -97,6 +110,31 @@ func (f *fakeWin32Input) Scroll(hwnd uintptr, xRatio, yRatio float64, notches in
 	f.scrollY = yRatio
 	f.scrollNotches = notches
 	f.scrollHorizontal = horizontal
+	return nil
+}
+
+func (f *fakeWin32Input) MouseDown(hwnd uintptr, xRatio, yRatio float64, button string) error {
+	f.mouseDownHWND = hwnd
+	f.mouseDownX = xRatio
+	f.mouseDownY = yRatio
+	f.mouseDownButton = button
+	return nil
+}
+
+func (f *fakeWin32Input) MouseUp(hwnd uintptr, button string) error {
+	f.mouseUpHWND = hwnd
+	f.mouseUpButton = button
+	return nil
+}
+
+func (f *fakeWin32Input) Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
+	f.dragHWND = hwnd
+	f.dragX1 = x1Ratio
+	f.dragY1 = y1Ratio
+	f.dragX2 = x2Ratio
+	f.dragY2 = y2Ratio
+	f.dragButton = button
+	f.dragDurationMs = durationMs
 	return nil
 }
 
@@ -213,6 +251,92 @@ func TestWin32ControllerScrollRecordsCoordinateStep(t *testing.T) {
 	step := got.CoordinateSteps[0]
 	if step.From != target.SpaceNormalized || step.To != target.SpaceWindowClient {
 		t.Fatalf("coordinate step spaces = %s -> %s", step.From, step.To)
+	}
+}
+
+func TestWin32ControllerMouseDownRecordsCoordinateStep(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.MouseDown(context.Background(), MouseButtonRequest{
+		Point:  target.NewNormalizedPoint(0.3, 0.7),
+		Button: "right",
+	}); err != nil {
+		t.Fatalf("MouseDown() error = %v", err)
+	}
+	if in.mouseDownHWND != 42 || in.mouseDownX != 0.3 || in.mouseDownY != 0.7 || in.mouseDownButton != "right" {
+		t.Fatalf("delegate mouseDown = hwnd %d (%f,%f) %s", in.mouseDownHWND, in.mouseDownX, in.mouseDownY, in.mouseDownButton)
+	}
+	records := rec.Records()
+	if len(records) != 1 || records[0].Action != "mouse-down" {
+		t.Fatalf("trace records = %#v", records)
+	}
+	if len(records[0].CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(records[0].CoordinateSteps))
+	}
+}
+
+func TestWin32ControllerMouseUpRecordsTrace(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.MouseUp(context.Background(), MouseButtonRequest{Button: "middle"}); err != nil {
+		t.Fatalf("MouseUp() error = %v", err)
+	}
+	if in.mouseUpHWND != 42 || in.mouseUpButton != "middle" {
+		t.Fatalf("delegate mouseUp = hwnd %d %s", in.mouseUpHWND, in.mouseUpButton)
+	}
+	records := rec.Records()
+	if len(records) != 1 || records[0].Action != "mouse-up" {
+		t.Fatalf("trace records = %#v", records)
+	}
+	if len(records[0].CoordinateSteps) != 0 {
+		t.Fatalf("coordinate steps len = %d, want 0", len(records[0].CoordinateSteps))
+	}
+}
+
+func TestWin32ControllerDragRecordsBeginEndCoordinateSteps(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.Drag(context.Background(), DragRequest{
+		From:       target.NewNormalizedPoint(0.1, 0.2),
+		To:         target.NewNormalizedPoint(0.8, 0.9),
+		Button:     "left",
+		DurationMs: 300,
+	}); err != nil {
+		t.Fatalf("Drag() error = %v", err)
+	}
+	if in.dragHWND != 42 || in.dragX1 != 0.1 || in.dragY1 != 0.2 || in.dragX2 != 0.8 || in.dragY2 != 0.9 || in.dragButton != "left" || in.dragDurationMs != 300 {
+		t.Fatalf("delegate drag = hwnd %d (%f,%f)->(%f,%f) %s %d", in.dragHWND, in.dragX1, in.dragY1, in.dragX2, in.dragY2, in.dragButton, in.dragDurationMs)
+	}
+	records := rec.Records()
+	if len(records) != 1 || records[0].Action != "drag" {
+		t.Fatalf("trace records = %#v", records)
+	}
+	if len(records[0].CoordinateSteps) != 2 {
+		t.Fatalf("coordinate steps len = %d, want 2", len(records[0].CoordinateSteps))
 	}
 }
 

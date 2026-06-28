@@ -11,6 +11,9 @@ import (
 
 type Win32Input interface {
 	Click(hwnd uintptr, xRatio, yRatio float64, button string, durMs int) error
+	MouseDown(hwnd uintptr, xRatio, yRatio float64, button string) error
+	MouseUp(hwnd uintptr, button string) error
+	Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error
 	KeyDown(hwnd uintptr, key string) error
 	KeyUp(hwnd uintptr, key string) error
 	TypeText(hwnd uintptr, text string) error
@@ -95,16 +98,67 @@ func (c *Win32Controller) Click(ctx context.Context, req ClickRequest) error {
 	})
 }
 
+func (c *Win32Controller) MouseDown(ctx context.Context, req MouseButtonRequest) error {
+	steps := []automationtrace.CoordinateStep{pointStep(req.Point)}
+	return c.recordActionWithSteps("mouse-down", req, steps, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if c.deps.Input == nil {
+			return fmt.Errorf("win32 input dependency is nil")
+		}
+		if err := validateNormalizedPoint("mouse-down", req.Point); err != nil {
+			return err
+		}
+		button := req.Button
+		if button == "" {
+			button = "left"
+		}
+		return c.deps.Input.MouseDown(c.hwnd(), req.Point.X, req.Point.Y, button)
+	})
+}
+
+func (c *Win32Controller) MouseUp(ctx context.Context, req MouseButtonRequest) error {
+	return c.recordAction("mouse-up", req, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if c.deps.Input == nil {
+			return fmt.Errorf("win32 input dependency is nil")
+		}
+		button := req.Button
+		if button == "" {
+			button = "left"
+		}
+		return c.deps.Input.MouseUp(c.hwnd(), button)
+	})
+}
+
+func (c *Win32Controller) Drag(ctx context.Context, req DragRequest) error {
+	steps := []automationtrace.CoordinateStep{pointStep(req.From), pointStep(req.To)}
+	return c.recordActionWithSteps("drag", req, steps, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if c.deps.Input == nil {
+			return fmt.Errorf("win32 input dependency is nil")
+		}
+		if err := validateNormalizedPoint("drag from", req.From); err != nil {
+			return err
+		}
+		if err := validateNormalizedPoint("drag to", req.To); err != nil {
+			return err
+		}
+		button := req.Button
+		if button == "" {
+			button = "left"
+		}
+		return c.deps.Input.Drag(c.hwnd(), req.From.X, req.From.Y, req.To.X, req.To.Y, button, req.DurationMs)
+	})
+}
+
 func (c *Win32Controller) Move(ctx context.Context, req MoveRequest) error {
-	steps := []automationtrace.CoordinateStep{{
-		From:   req.Point.Space,
-		To:     target.SpaceWindowClient,
-		Input:  req.Point,
-		Output: req.Point,
-	}}
-	if steps[0].From == "" {
-		steps[0].From = target.SpaceNormalized
-	}
+	steps := []automationtrace.CoordinateStep{pointStep(req.Point)}
 	return c.recordActionWithSteps("move", req, steps, func() error {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -112,23 +166,15 @@ func (c *Win32Controller) Move(ctx context.Context, req MoveRequest) error {
 		if c.deps.Input == nil {
 			return fmt.Errorf("win32 input dependency is nil")
 		}
-		if req.Point.Space != "" && req.Point.Space != target.SpaceNormalized {
-			return fmt.Errorf("win32 phase1 move supports only normalized points, got %s", req.Point.Space)
+		if err := validateNormalizedPoint("move", req.Point); err != nil {
+			return err
 		}
 		return c.deps.Input.MoveTo(c.hwnd(), req.Point.X, req.Point.Y)
 	})
 }
 
 func (c *Win32Controller) Scroll(ctx context.Context, req ScrollRequest) error {
-	steps := []automationtrace.CoordinateStep{{
-		From:   req.Point.Space,
-		To:     target.SpaceWindowClient,
-		Input:  req.Point,
-		Output: req.Point,
-	}}
-	if steps[0].From == "" {
-		steps[0].From = target.SpaceNormalized
-	}
+	steps := []automationtrace.CoordinateStep{pointStep(req.Point)}
 	return c.recordActionWithSteps("scroll", req, steps, func() error {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -136,11 +182,31 @@ func (c *Win32Controller) Scroll(ctx context.Context, req ScrollRequest) error {
 		if c.deps.Input == nil {
 			return fmt.Errorf("win32 input dependency is nil")
 		}
-		if req.Point.Space != "" && req.Point.Space != target.SpaceNormalized {
-			return fmt.Errorf("win32 phase1 scroll supports only normalized points, got %s", req.Point.Space)
+		if err := validateNormalizedPoint("scroll", req.Point); err != nil {
+			return err
 		}
 		return c.deps.Input.Scroll(c.hwnd(), req.Point.X, req.Point.Y, req.Notches, req.Horizontal)
 	})
+}
+
+func pointStep(point target.Point) automationtrace.CoordinateStep {
+	step := automationtrace.CoordinateStep{
+		From:   point.Space,
+		To:     target.SpaceWindowClient,
+		Input:  point,
+		Output: point,
+	}
+	if step.From == "" {
+		step.From = target.SpaceNormalized
+	}
+	return step
+}
+
+func validateNormalizedPoint(action string, point target.Point) error {
+	if point.Space != "" && point.Space != target.SpaceNormalized {
+		return fmt.Errorf("win32 phase1 %s supports only normalized points, got %s", action, point.Space)
+	}
+	return nil
 }
 
 func (c *Win32Controller) KeyChord(ctx context.Context, req KeyChordRequest) error {
