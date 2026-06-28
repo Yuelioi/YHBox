@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan next frontend slice: polish log panel action-trace rendering and/or build a compact trace drawer using `useLogStore().actionTraces`.
+Execute `plans/phase15-action-log-polish.md`: make `action` trace log rows visually distinct in the existing LogPanel.
 
 ## Read now
 
@@ -25,6 +25,7 @@ Plan next frontend slice: polish log panel action-trace rendering and/or build a
 - plans/phase12-capture-controller.md
 - plans/phase13-action-trace-events.md
 - plans/phase14-frontend-action-trace-log.md
+- plans/phase15-action-log-polish.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -69,7 +70,7 @@ Done:
 - Phase 14 代码：前端订阅 `container:action-trace`，写入 log store 的结构化 `actionTraces` 和 `action` 日志行。
 
 Current:
-- 下一刀：action trace 日志展示 polish 或专用 trace drawer。
+- 执行 Phase 15：action trace log rendering polish.
 
 ## Open questions
 
