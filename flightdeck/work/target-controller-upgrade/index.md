@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle、Phase 29 async option metadata apply、Phase 30 stale CDP client invalidation、Phase 31 catalog i18n pin coverage guard 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle、Phase 29 async option metadata apply、Phase 30 stale CDP client invalidation、Phase 31 catalog i18n pin coverage guard、Phase 32 async source coverage 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: continue broader node/runtime quality hardening, especially widget props, async source registration, and target/controller capability compatibility.
+Plan next slice: continue broader node/runtime quality hardening, especially widget prop shape validation and target/controller capability compatibility.
 
 ## Read now
 
@@ -42,6 +42,7 @@ Plan next slice: continue broader node/runtime quality hardening, especially wid
 - plans/phase29-async-option-metadata.md
 - plans/phase30-cdp-stale-client.md
 - plans/phase31-catalog-i18n-coverage.md
+- plans/phase32-async-source-coverage.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -71,6 +72,7 @@ Plan next slice: continue broader node/runtime quality hardening, especially wid
 - ../../knowledge/architecture/target-controller-phase29-notes.md
 - ../../knowledge/architecture/target-controller-phase30-notes.md
 - ../../knowledge/architecture/target-controller-phase31-notes.md
+- ../../knowledge/architecture/target-controller-phase32-notes.md
 
 ## Read if
 
@@ -118,9 +120,10 @@ Done:
 - Phase 29 代码：`EnumOption.Meta` + `AsyncDropdownProps.ApplyMeta` 打通 async option metadata 回填 sibling inputs；AndroidTarget 可自动回填 Name/Width/Height，BrowserTarget 可回填 Name/WebSocketURL。
 - Phase 30 代码：CDP cached client 在 Call error 后失效并 best-effort close；下一次 controller 构造会重新 dial，不做非幂等命令重放。
 - Phase 31 代码：catalog 增加全节点 input/output pin label 覆盖测试；标准 exec 输入 `In` 走公共翻译兜底，避免节点画布裸露结构名。
+- Phase 32 代码：补齐 `clipIDs` / `subgraphIDs` async source 注册，新增全节点 async-dropdown source 覆盖测试，防止下拉运行时报 unknown source。
 
 Current:
-- 下一刀：继续节点/runtime 质量硬化，优先 widget props、async source 注册和 target/controller capability 兼容性。
+- 下一刀：继续节点/runtime 质量硬化，优先 widget prop shape validation 和 target/controller capability 兼容性。
 
 ## Open questions
 

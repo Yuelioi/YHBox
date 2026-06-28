@@ -44,6 +44,7 @@ import (
 	containerruntime "yotta/internal/services/container/runtime"
 	"yotta/internal/services/execution"
 	mcpserver "yotta/internal/services/mcpserver"
+	"yotta/internal/services/nodeoptions"
 	"yotta/internal/services/schedule"
 	"yotta/internal/services/tools"
 	"yotta/pkg/locale"
@@ -238,6 +239,7 @@ func main() {
 	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
 	assetSvc.SetReferrerScanner(scanAssetReferrers(containerStore, sgStore))
 	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
+	nodeoptions.RegisterAssetAsyncSources(nodeSvc, assetSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {

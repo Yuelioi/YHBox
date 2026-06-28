@@ -35,6 +35,16 @@ func (s *NodeService) RegisterAsyncSource(name string, handler AsyncOptionsHandl
 	s.asyncSources[name] = handler
 }
 
+// RegisteredAsyncSources returns the registered async source names in stable order.
+func (s *NodeService) RegisteredAsyncSources() []string {
+	names := make([]string, 0, len(s.asyncSources))
+	for name := range s.asyncSources {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
 // GetAllNodeSpecs FE 启动拉一次, 缓存. RPC binding 自动生成 TS 类型.
 func (s *NodeService) GetAllNodeSpecs() []Spec {
 	all := All()
