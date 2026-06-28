@@ -14,6 +14,7 @@ type Win32Input interface {
 	MouseDown(hwnd uintptr, xRatio, yRatio float64, button string) error
 	MouseUp(hwnd uintptr, button string) error
 	Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error
+	MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error
 	KeyDown(hwnd uintptr, key string) error
 	KeyUp(hwnd uintptr, key string) error
 	TypeText(hwnd uintptr, text string) error
@@ -154,6 +155,18 @@ func (c *Win32Controller) Drag(ctx context.Context, req DragRequest) error {
 			button = "left"
 		}
 		return c.deps.Input.Drag(c.hwnd(), req.From.X, req.From.Y, req.To.X, req.To.Y, button, req.DurationMs)
+	})
+}
+
+func (c *Win32Controller) MoveRelative(ctx context.Context, req RelativeMoveRequest) error {
+	return c.recordAction("move-relative", req, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if c.deps.Input == nil {
+			return fmt.Errorf("win32 input dependency is nil")
+		}
+		return c.deps.Input.MouseMoveRel(c.hwnd(), req.Dx, req.Dy, req.DurationMs)
 	})
 }
 

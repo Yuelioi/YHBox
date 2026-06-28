@@ -169,6 +169,31 @@ func TestExecNodeViaFramework_SwipeTraceIncludesNodeSource(t *testing.T) {
 	}
 }
 
+func TestExecNodeViaFramework_MouseMoveRelTraceIncludesNodeSource(t *testing.T) {
+	rt, input, runner := newTraceSourceRuntime(t, "trace-move-relative-container", container.GraphNode{
+		ID:   "move-rel-1",
+		Kind: "MouseMoveRel",
+		Config: map[string]any{
+			"Dx":         10,
+			"Dy":         -20,
+			"DurationMs": 150,
+		},
+	})
+
+	if _, err := runner.execNodeViaFramework(context.Background(), runner.nodesByID["move-rel-1"], ExecToken{NodeID: "move-rel-1", InPin: "In"}); err != nil {
+		t.Fatalf("execNodeViaFramework error = %v", err)
+	}
+
+	if len(input.moveRelHWND) != 1 || input.moveRelHWND[0] != 84 || input.moveRelDx[0] != 10 || input.moveRelDy[0] != -20 || input.moveRelDuration[0] != 150 {
+		t.Fatalf("backend MouseMoveRel = hwnds %#v dx %#v dy %#v durations %#v", input.moveRelHWND, input.moveRelDx, input.moveRelDy, input.moveRelDuration)
+	}
+	records := rt.TraceRecords()
+	assertSingleTraceSource(t, records, "move-relative", "trace-move-relative-container", "move-rel-1", "MouseMoveRel")
+	if len(records[0].CoordinateSteps) != 0 {
+		t.Fatalf("coordinate steps len = %d, want 0", len(records[0].CoordinateSteps))
+	}
+}
+
 func newTraceSourceRuntime(t *testing.T, containerID string, graphNode container.GraphNode) (*RuntimeContext, *recordingRuntimeInput, *ContainerRunner) {
 	t.Helper()
 	c := &container.Container{

@@ -71,6 +71,10 @@ type fakeWin32Input struct {
 	dragY2           float64
 	dragButton       string
 	dragDurationMs   int
+	moveRelHWND      uintptr
+	moveRelDx        int
+	moveRelDy        int
+	moveRelDuration  int
 	text             string
 	err              error
 }
@@ -135,6 +139,14 @@ func (f *fakeWin32Input) Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio f
 	f.dragY2 = y2Ratio
 	f.dragButton = button
 	f.dragDurationMs = durationMs
+	return nil
+}
+
+func (f *fakeWin32Input) MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error {
+	f.moveRelHWND = hwnd
+	f.moveRelDx = dx
+	f.moveRelDy = dy
+	f.moveRelDuration = durationMs
 	return nil
 }
 
@@ -337,6 +349,32 @@ func TestWin32ControllerDragRecordsBeginEndCoordinateSteps(t *testing.T) {
 	}
 	if len(records[0].CoordinateSteps) != 2 {
 		t.Fatalf("coordinate steps len = %d, want 2", len(records[0].CoordinateSteps))
+	}
+}
+
+func TestWin32ControllerMoveRelativeRecordsTrace(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.MoveRelative(context.Background(), RelativeMoveRequest{Dx: 10, Dy: -20, DurationMs: 150}); err != nil {
+		t.Fatalf("MoveRelative() error = %v", err)
+	}
+	if in.moveRelHWND != 42 || in.moveRelDx != 10 || in.moveRelDy != -20 || in.moveRelDuration != 150 {
+		t.Fatalf("delegate move relative = hwnd %d dx %d dy %d duration %d", in.moveRelHWND, in.moveRelDx, in.moveRelDy, in.moveRelDuration)
+	}
+	records := rec.Records()
+	if len(records) != 1 || records[0].Action != "move-relative" {
+		t.Fatalf("trace records = %#v", records)
+	}
+	if len(records[0].CoordinateSteps) != 0 {
+		t.Fatalf("coordinate steps len = %d, want 0", len(records[0].CoordinateSteps))
 	}
 }
 

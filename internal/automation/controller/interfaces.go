@@ -24,6 +24,7 @@ type PointerInput interface {
 	MouseDown(context.Context, MouseButtonRequest) error
 	MouseUp(context.Context, MouseButtonRequest) error
 	Drag(context.Context, DragRequest) error
+	MoveRelative(context.Context, RelativeMoveRequest) error
 }
 
 type KeyboardInput interface {
@@ -83,6 +84,13 @@ type DragRequest struct {
 	From       target.Point
 	To         target.Point
 	Button     string
+	DurationMs int
+	Policy     ActionPolicy
+}
+
+type RelativeMoveRequest struct {
+	Dx         int
+	Dy         int
 	DurationMs int
 	Policy     ActionPolicy
 }

@@ -30,6 +30,10 @@ func (a runtimeWin32Input) Drag(hwnd uintptr, x1Ratio, y1Ratio, x2Ratio, y2Ratio
 	return a.backend.Drag(win.HWND(hwnd), x1Ratio, y1Ratio, x2Ratio, y2Ratio, button, durationMs)
 }
 
+func (a runtimeWin32Input) MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error {
+	return a.backend.MouseMoveRel(win.HWND(hwnd), dx, dy, durationMs)
+}
+
 func (a runtimeWin32Input) KeyDown(hwnd uintptr, key string) error {
 	return a.backend.KeyDown(win.HWND(hwnd), key)
 }

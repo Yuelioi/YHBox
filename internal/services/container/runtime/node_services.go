@@ -328,14 +328,18 @@ func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs i
 }
 
 func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.MouseMoveRel(h, dx, dy, durationMs)
+	return ctrl.MoveRelative(context.Background(), controller.RelativeMoveRequest{
+		Dx:         dx,
+		Dy:         dy,
+		DurationMs: durationMs,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {

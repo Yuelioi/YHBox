@@ -407,6 +407,10 @@ type recordingRuntimeInput struct {
 	dragY2           []float64
 	dragButton       []string
 	dragDurationMs   []int
+	moveRelHWND      []uintptr
+	moveRelDx        []int
+	moveRelDy        []int
+	moveRelDuration  []int
 	textHWND         []uintptr
 	textValues       []string
 }
@@ -445,7 +449,11 @@ func (r *recordingRuntimeInput) MouseUp(hwnd win.HWND, button string) error {
 	r.mouseUpButton = append(r.mouseUpButton, button)
 	return nil
 }
-func (r *recordingRuntimeInput) MouseMoveRel(win.HWND, int, int, int) error {
+func (r *recordingRuntimeInput) MouseMoveRel(hwnd win.HWND, dx, dy, durationMs int) error {
+	r.moveRelHWND = append(r.moveRelHWND, uintptr(hwnd))
+	r.moveRelDx = append(r.moveRelDx, dx)
+	r.moveRelDy = append(r.moveRelDy, dy)
+	r.moveRelDuration = append(r.moveRelDuration, durationMs)
 	return nil
 }
 func (r *recordingRuntimeInput) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error {
