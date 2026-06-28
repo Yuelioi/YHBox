@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Execute `plans/phase6-move-controller.md`: route `InputService.MoveTo` through `Win32Controller` and record a minimal coordinate step. Keep drag, scroll, text, screenshot, and UI out of this phase.
+先写 Phase 7 plan，再继续迁移下一个窄范围动作。推荐下一步：`Scroll` controller routing 或 node id / pin id trace metadata。不要无计划迁移 drag/text/screenshot/UI。
 
 ## Read now
 
@@ -20,6 +20,7 @@ Execute `plans/phase6-move-controller.md`: route `InputService.MoveTo` through `
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
+- ../../knowledge/architecture/target-controller-phase6-notes.md
 
 ## Read if
 
@@ -41,12 +42,14 @@ Done:
 - Phase 3 代码：`RuntimeContext` 拥有 per-run trace recorder，并提供 `TraceRecorder` / `TraceRecords` / `ClearTrace`。
 - Phase 4 代码：`InputService.KeyDown/KeyUp` 经 `Win32Controller` 执行，并写入 runtime trace。
 - Phase 5 代码：`InputService.Click` 经 `Win32Controller` 执行，并写入 runtime trace。
+- Phase 6 代码：`InputService.MoveTo` 经 `Win32Controller` 执行，并记录最小 coordinate step。
 
 Current:
-- 执行 Phase 6 move controller routing：迁移 `InputService.MoveTo` 并记录 coordinate step。
+- 等待 Phase 7 plan：优先考虑 `Scroll` controller routing 或 node id / pin id trace metadata。
 
 ## Open questions
 
 - Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
 - Phase 4 只迁移 KeyDown/KeyUp；`KeyPress` 会产生 `key-down` + `key-up` 两条 trace，但没有 node id / pin id metadata。
 - Phase 5 只迁移 Click；`ClickAt` 的 MoveTo 阶段仍未进入 controller trace。
+- Phase 6 迁移 MoveTo 后，`ClickAt` 可产生 move + click trace，但仍不记录 node id / pin id。
