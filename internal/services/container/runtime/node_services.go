@@ -271,19 +271,34 @@ func (a *inputAdapter) controller() (*controller.Win32Controller, error) {
 	if err := a.ensure(); err != nil {
 		return nil, err
 	}
-	wh := a.rt.WindowHandle()
-	if wh.HWND == 0 {
-		return nil, ErrNoActiveWindow
+	tg, err := a.activeWin32Target()
+	if err != nil {
+		return nil, err
 	}
 	backend := ""
 	if a.rt.Input != nil {
 		backend = a.rt.Input.Name()
 	}
-	return controller.NewWin32Controller(windowHandleToTarget(wh), controller.Win32Deps{
+	return controller.NewWin32Controller(tg, controller.Win32Deps{
 		Input:   runtimeWin32Input{backend: a.rt.Input},
 		Trace:   traceRecorderWithSource(a.rt.TraceRecorder(), a.traceSource),
 		Backend: backend,
 	})
+}
+
+func (a *inputAdapter) activeWin32Target() (target.Target, error) {
+	tg, ok := a.rt.ActiveTarget()
+	if !ok {
+		wh := a.rt.WindowHandle()
+		if wh.HWND == 0 {
+			return target.Target{}, ErrNoActiveWindow
+		}
+		tg = windowHandleToTarget(wh)
+	}
+	if tg.Kind != target.KindWin32Window {
+		return target.Target{}, fmt.Errorf("input adapter supports only %s active targets, got %s", target.KindWin32Window, tg.Kind)
+	}
+	return tg, nil
 }
 
 func (a *inputAdapter) KeyDown(vk string) error {
@@ -605,19 +620,34 @@ func (a *captureAdapter) controller() (*controller.Win32Controller, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	wh := a.rt.WindowHandle()
-	if wh.HWND == 0 {
-		return nil, ErrNoActiveWindow
+	tg, err := a.activeWin32Target()
+	if err != nil {
+		return nil, err
 	}
 	backend := ""
 	if a.rt.Capture != nil {
 		backend = a.rt.Capture.Name()
 	}
-	return controller.NewWin32Controller(windowHandleToTarget(wh), controller.Win32Deps{
+	return controller.NewWin32Controller(tg, controller.Win32Deps{
 		Capture: runtimeWin32Capture{backend: a.rt.Capture},
 		Trace:   traceRecorderWithSource(a.rt.TraceRecorder(), a.traceSource),
 		Backend: backend,
 	})
+}
+
+func (a *captureAdapter) activeWin32Target() (target.Target, error) {
+	tg, ok := a.rt.ActiveTarget()
+	if !ok {
+		wh := a.rt.WindowHandle()
+		if wh.HWND == 0 {
+			return target.Target{}, ErrNoActiveWindow
+		}
+		tg = windowHandleToTarget(wh)
+	}
+	if tg.Kind != target.KindWin32Window {
+		return target.Target{}, fmt.Errorf("capture adapter supports only %s active targets, got %s", target.KindWin32Window, tg.Kind)
+	}
+	return tg, nil
 }
 
 func (a *captureAdapter) Capture() ([]byte, error) {

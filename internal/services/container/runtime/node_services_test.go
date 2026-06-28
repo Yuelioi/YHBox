@@ -10,6 +10,7 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
+	"yotta/internal/automation/target"
 	"yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -510,6 +511,25 @@ func TestInputAdapter_ClickRoutesThroughControllerTrace(t *testing.T) {
 	}
 	if records[0].Action != "click" || records[0].Target.ID != "win32:99" || records[0].Backend != "sendinput" {
 		t.Fatalf("trace record = %#v", records[0])
+	}
+}
+
+func TestInputAdapter_RejectsNonWin32ActiveTarget(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveTarget(target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	})
+	rt.Input = &recordingRuntimeInput{}
+
+	err := NewInputAdapter(rt).Click(0.25, 0.75, "left", 0)
+	if err == nil {
+		t.Fatal("expected non-win32 active target error")
+	}
+	if got := err.Error(); got != "input adapter supports only win32-window active targets, got android-adb" {
+		t.Fatalf("error = %q", got)
 	}
 }
 

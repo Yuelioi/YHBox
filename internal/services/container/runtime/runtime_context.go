@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lxn/win"
+	"yotta/internal/automation/target"
 	automationtrace "yotta/internal/automation/trace"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -58,6 +59,7 @@ type RuntimeContext struct {
 	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
 	windowMu sync.RWMutex
 	window   winutil.WindowHandle // HWND==0 = 未解析
+	target   target.Target
 	// windowOverride 派发期 per-node 覆盖栈; 栈顶为当前有效窗口, 空则用粘性 window。windowMu 守护。
 	windowOverride []winutil.WindowHandle
 
@@ -212,6 +214,15 @@ func (rt *RuntimeContext) WindowHandle() winutil.WindowHandle {
 	return rt.window
 }
 
+func (rt *RuntimeContext) ActiveTarget() (target.Target, bool) {
+	rt.windowMu.RLock()
+	defer rt.windowMu.RUnlock()
+	if rt.target.ID == "" {
+		return target.Target{}, false
+	}
+	return rt.target, true
+}
+
 // ActiveHWND 并发安全读取 HWND. HWND==0 时返回 ErrNoActiveWindow.
 func (rt *RuntimeContext) ActiveHWND() (uintptr, error) {
 	rt.windowMu.RLock()
@@ -224,6 +235,12 @@ func (rt *RuntimeContext) ActiveHWND() (uintptr, error) {
 		return 0, ErrNoActiveWindow
 	}
 	return wh.HWND, nil
+}
+
+func (rt *RuntimeContext) SetActiveTarget(tg target.Target) {
+	rt.windowMu.Lock()
+	defer rt.windowMu.Unlock()
+	rt.target = tg
 }
 
 func (rt *RuntimeContext) PushWindowOverride(wh winutil.WindowHandle) {
@@ -244,6 +261,7 @@ func (rt *RuntimeContext) PopWindowOverride() {
 func (rt *RuntimeContext) SetActiveWindow(wh winutil.WindowHandle) {
 	rt.windowMu.Lock()
 	rt.window = wh
+	rt.target = windowHandleToTarget(wh)
 	rt.windowMu.Unlock()
 	rt.invalidateFrameCacheFor(wh.HWND)
 }
