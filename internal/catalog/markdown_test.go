@@ -4,16 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "yotta/internal/nodes/control"
-	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/input"
-	_ "yotta/internal/nodes/io"
-	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
-	_ "yotta/internal/nodes/random" // RandomInt/RandomFloat/RandomBool
-	_ "yotta/internal/nodes/stopwatch"
-	_ "yotta/internal/nodes/system"
-	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/all"
 )
 
 func TestMarkdown_RendersKnownNode(t *testing.T) {

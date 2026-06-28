@@ -14,18 +14,7 @@ import (
 
 	"yotta/internal/services/container"
 
-	// Anonymous imports — 触发 nodepkg 节点注册, 让 validator nodepkg union 在 validate path 生效.
-	_ "yotta/internal/nodes/control"
-	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/event"     // EventTick (listener-driven 定时触发)
-	_ "yotta/internal/nodes/input"
-	_ "yotta/internal/nodes/io"
-	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
-	_ "yotta/internal/nodes/random" // RandomInt/RandomFloat/RandomBool
-	_ "yotta/internal/nodes/stopwatch"
-	_ "yotta/internal/nodes/system"
-	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/all"
 )
 
 const fishingV2Dir = "bin/data/containers/fishing-v2"

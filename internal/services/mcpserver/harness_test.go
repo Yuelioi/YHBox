@@ -14,19 +14,7 @@ import (
 	pkginput "yotta/pkg/input"
 	"yotta/pkg/winutil"
 
-	// 注册节点
-	_ "yotta/internal/nodes/collection"
-	_ "yotta/internal/nodes/control"
-	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/event"
-	_ "yotta/internal/nodes/image"
-	_ "yotta/internal/nodes/input"
-	_ "yotta/internal/nodes/io"
-	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/random"
-	_ "yotta/internal/nodes/stopwatch"
-	_ "yotta/internal/nodes/system"
-	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/all"
 )
 
 // ---------------------------------------------------------------------------
@@ -71,14 +59,14 @@ func (f *mockInput) MouseDown(win.HWND, float64, float64, string) error { return
 func (f *mockInput) MouseUp(win.HWND, string) error                     { return nil }
 func (f *mockInput) MouseMoveRel(win.HWND, int, int, int) error         { return nil }
 func (f *mockInput) MoveTo(win.HWND, float64, float64) error            { return nil }
-func (f *mockInput) CursorRatio(win.HWND) (float64, float64, error)    { return 0, 0, nil }
+func (f *mockInput) CursorRatio(win.HWND) (float64, float64, error)     { return 0, 0, nil }
 func (f *mockInput) Scroll(win.HWND, float64, float64, int, bool) error { return nil }
 func (f *mockInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
 	return nil
 }
-func (f *mockInput) TypeText(_ win.HWND, _ string) error                { return nil }
-func (f *mockInput) ReleaseAll() error                                  { return nil }
-func (f *mockInput) Close() error                                       { return nil }
+func (f *mockInput) TypeText(_ win.HWND, _ string) error { return nil }
+func (f *mockInput) ReleaseAll() error                   { return nil }
+func (f *mockInput) Close() error                        { return nil }
 
 // ---------------------------------------------------------------------------
 // Helper: build a RuntimeContext with mock backends injected

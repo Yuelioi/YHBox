@@ -20,19 +20,7 @@ import (
 	"yotta/internal/catalog"
 	"yotta/internal/services/container"
 
-	// Anonymous imports — 触发 init() 节点注册.
-	_ "yotta/internal/nodes/control"
-	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/event" // EventTick (listener-driven 定时触发)
-	_ "yotta/internal/nodes/input"
-	_ "yotta/internal/nodes/io"
-	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
-	_ "yotta/internal/nodes/random" // RandomInt/RandomFloat/RandomBool
-	_ "yotta/internal/nodes/script" // Script (内嵌 JS, goja)
-	_ "yotta/internal/nodes/stopwatch"
-	_ "yotta/internal/nodes/system"
-	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/all"
 )
 
 func main() {

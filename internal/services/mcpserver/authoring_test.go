@@ -6,19 +6,7 @@ import (
 
 	"yotta/internal/services/container"
 
-	// Anonymous imports — trigger init() node registration so all nodes are
-	// available in the registry when catalog/graph tools are called.
-	_ "yotta/internal/nodes/collection"
-	_ "yotta/internal/nodes/control"
-	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/event"
-	_ "yotta/internal/nodes/input"
-	_ "yotta/internal/nodes/io"
-	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/random"
-	_ "yotta/internal/nodes/stopwatch"
-	_ "yotta/internal/nodes/system"
-	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/all"
 )
 
 func TestSchemaExamples_AllValid(t *testing.T) {
