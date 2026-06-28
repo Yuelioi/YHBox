@@ -78,6 +78,8 @@ type RuntimeContext struct {
 	MouseCounts360 int
 	ClipPolicy     clipruntime.PlaybackPolicy
 
+	ControllerFactory RuntimeControllerFactory
+
 	mu     sync.Mutex
 	vars   map[string]expr.Value
 	params map[string]expr.Value

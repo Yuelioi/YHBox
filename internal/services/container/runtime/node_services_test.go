@@ -10,7 +10,9 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
+	"yotta/internal/automation/controller"
 	"yotta/internal/automation/target"
+	automationtrace "yotta/internal/automation/trace"
 	"yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -492,6 +494,56 @@ func (r *recordingRuntimeInput) CursorRatio(win.HWND) (float64, float64, error) 
 func (r *recordingRuntimeInput) ReleaseAll() error { return nil }
 func (r *recordingRuntimeInput) Close() error      { return nil }
 
+type fakeRuntimeControllerFactory struct {
+	ctrl   controller.Controller
+	target target.Target
+	trace  automationtrace.Recorder
+}
+
+func (f *fakeRuntimeControllerFactory) NewController(tg target.Target, trace automationtrace.Recorder) (controller.Controller, error) {
+	f.target = tg
+	f.trace = trace
+	return f.ctrl, nil
+}
+
+type fakeRuntimeController struct {
+	target target.Target
+	clicks []controller.ClickRequest
+}
+
+func (f *fakeRuntimeController) Target() target.Target { return f.target }
+
+func (f *fakeRuntimeController) Capabilities(context.Context) controller.CapabilitySet {
+	return controller.CapabilitySet{Click: true}
+}
+
+func (f *fakeRuntimeController) HealthCheck(context.Context) controller.HealthReport {
+	return controller.HealthReport{OK: true}
+}
+
+func (f *fakeRuntimeController) Click(_ context.Context, req controller.ClickRequest) error {
+	f.clicks = append(f.clicks, req)
+	return nil
+}
+
+func (f *fakeRuntimeController) Move(context.Context, controller.MoveRequest) error { return nil }
+
+func (f *fakeRuntimeController) Scroll(context.Context, controller.ScrollRequest) error { return nil }
+
+func (f *fakeRuntimeController) MouseDown(context.Context, controller.MouseButtonRequest) error {
+	return nil
+}
+
+func (f *fakeRuntimeController) MouseUp(context.Context, controller.MouseButtonRequest) error {
+	return nil
+}
+
+func (f *fakeRuntimeController) Drag(context.Context, controller.DragRequest) error { return nil }
+
+func (f *fakeRuntimeController) MoveRelative(context.Context, controller.RelativeMoveRequest) error {
+	return nil
+}
+
 func TestInputAdapter_ClickRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
@@ -528,8 +580,36 @@ func TestInputAdapter_RejectsNonWin32ActiveTarget(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected non-win32 active target error")
 	}
-	if got := err.Error(); got != "input adapter supports only win32-window active targets, got android-adb" {
+	if got := err.Error(); got != "no controller factory for active target kind android-adb" {
 		t.Fatalf("error = %q", got)
+	}
+}
+
+func TestInputAdapter_ClickRoutesThroughInjectedControllerFactory(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	tg := target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	}
+	rt.SetActiveTarget(tg)
+	fakeCtrl := &fakeRuntimeController{target: tg}
+	factory := &fakeRuntimeControllerFactory{ctrl: fakeCtrl}
+	rt.ControllerFactory = factory
+
+	err := NewInputAdapter(rt).Click(0.25, 0.75, "left", 0)
+	if err != nil {
+		t.Fatalf("Click error = %v", err)
+	}
+	if factory.target.ID != tg.ID {
+		t.Fatalf("factory target = %#v, want %#v", factory.target, tg)
+	}
+	if len(fakeCtrl.clicks) != 1 {
+		t.Fatalf("fake controller clicks = %#v", fakeCtrl.clicks)
+	}
+	if got := fakeCtrl.clicks[0].Point; got.X != 0.25 || got.Y != 0.75 || got.Space != target.SpaceNormalized {
+		t.Fatalf("click point = %#v", got)
 	}
 }
 

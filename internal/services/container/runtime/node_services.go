@@ -267,42 +267,36 @@ func (a *inputAdapter) ensure() error {
 	return nil
 }
 
-func (a *inputAdapter) controller() (*controller.Win32Controller, error) {
-	if err := a.ensure(); err != nil {
-		return nil, err
-	}
-	tg, err := a.activeWin32Target()
+func (a *inputAdapter) inputController() (controller.Controller, error) {
+	return a.rt.controllerForActiveTarget(a.traceSource, controllerNeed{Input: true})
+}
+
+func (a *inputAdapter) pointerController() (controller.PointerInput, error) {
+	ctrl, err := a.inputController()
 	if err != nil {
 		return nil, err
 	}
-	backend := ""
-	if a.rt.Input != nil {
-		backend = a.rt.Input.Name()
+	pointer, ok := ctrl.(controller.PointerInput)
+	if !ok {
+		return nil, fmt.Errorf("active controller %T does not support pointer input", ctrl)
 	}
-	return controller.NewWin32Controller(tg, controller.Win32Deps{
-		Input:   runtimeWin32Input{backend: a.rt.Input},
-		Trace:   traceRecorderWithSource(a.rt.TraceRecorder(), a.traceSource),
-		Backend: backend,
-	})
+	return pointer, nil
 }
 
-func (a *inputAdapter) activeWin32Target() (target.Target, error) {
-	tg, ok := a.rt.ActiveTarget()
+func (a *inputAdapter) keyboardController() (controller.KeyboardInput, error) {
+	ctrl, err := a.inputController()
+	if err != nil {
+		return nil, err
+	}
+	keyboard, ok := ctrl.(controller.KeyboardInput)
 	if !ok {
-		wh := a.rt.WindowHandle()
-		if wh.HWND == 0 {
-			return target.Target{}, ErrNoActiveWindow
-		}
-		tg = windowHandleToTarget(wh)
+		return nil, fmt.Errorf("active controller %T does not support keyboard input", ctrl)
 	}
-	if tg.Kind != target.KindWin32Window {
-		return target.Target{}, fmt.Errorf("input adapter supports only %s active targets, got %s", target.KindWin32Window, tg.Kind)
-	}
-	return tg, nil
+	return keyboard, nil
 }
 
 func (a *inputAdapter) KeyDown(vk string) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.keyboardController()
 	if err != nil {
 		return err
 	}
@@ -315,7 +309,7 @@ func (a *inputAdapter) KeyDown(vk string) error {
 }
 
 func (a *inputAdapter) KeyUp(vk string) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.keyboardController()
 	if err != nil {
 		return err
 	}
@@ -328,7 +322,7 @@ func (a *inputAdapter) KeyUp(vk string) error {
 }
 
 func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs int) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -343,7 +337,7 @@ func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs i
 }
 
 func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -358,7 +352,7 @@ func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
 }
 
 func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -382,7 +376,7 @@ func (a *inputAdapter) CursorRatio() (float64, float64, error) {
 }
 
 func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bool) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -397,7 +391,7 @@ func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bo
 }
 
 func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs int) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -413,7 +407,7 @@ func (a *inputAdapter) Drag(x1, y1, x2, y2 float64, button string, durationMs in
 }
 
 func (a *inputAdapter) MouseDown(xRatio, yRatio float64, button string) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -427,7 +421,7 @@ func (a *inputAdapter) MouseDown(xRatio, yRatio float64, button string) error {
 }
 
 func (a *inputAdapter) MouseUp(button string) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.pointerController()
 	if err != nil {
 		return err
 	}
@@ -440,7 +434,7 @@ func (a *inputAdapter) MouseUp(button string) error {
 }
 
 func (a *inputAdapter) TypeText(s string) error {
-	ctrl, err := a.controller()
+	ctrl, err := a.keyboardController()
 	if err != nil {
 		return err
 	}
@@ -616,38 +610,16 @@ type captureAdapter struct {
 	traceSource automationtrace.ActionSource
 }
 
-func (a *captureAdapter) controller() (*controller.Win32Controller, error) {
-	if a.rt.Capture == nil {
-		return nil, fmt.Errorf("capture backend not initialised")
-	}
-	tg, err := a.activeWin32Target()
+func (a *captureAdapter) controller() (controller.Screenshotter, error) {
+	ctrl, err := a.rt.controllerForActiveTarget(a.traceSource, controllerNeed{Capture: true})
 	if err != nil {
 		return nil, err
 	}
-	backend := ""
-	if a.rt.Capture != nil {
-		backend = a.rt.Capture.Name()
-	}
-	return controller.NewWin32Controller(tg, controller.Win32Deps{
-		Capture: runtimeWin32Capture{backend: a.rt.Capture},
-		Trace:   traceRecorderWithSource(a.rt.TraceRecorder(), a.traceSource),
-		Backend: backend,
-	})
-}
-
-func (a *captureAdapter) activeWin32Target() (target.Target, error) {
-	tg, ok := a.rt.ActiveTarget()
+	screenshotter, ok := ctrl.(controller.Screenshotter)
 	if !ok {
-		wh := a.rt.WindowHandle()
-		if wh.HWND == 0 {
-			return target.Target{}, ErrNoActiveWindow
-		}
-		tg = windowHandleToTarget(wh)
+		return nil, fmt.Errorf("active controller %T does not support screenshots", ctrl)
 	}
-	if tg.Kind != target.KindWin32Window {
-		return target.Target{}, fmt.Errorf("capture adapter supports only %s active targets, got %s", target.KindWin32Window, tg.Kind)
-	}
-	return tg, nil
+	return screenshotter, nil
 }
 
 func (a *captureAdapter) Capture() ([]byte, error) {
