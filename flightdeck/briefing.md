@@ -7,5 +7,5 @@
 ## Subscriptions
 
 <!-- one ~/.flightdeck-relative path per line; folded into the routing tree alongside local knowledge/ -->
-knowledge/comments.md
-knowledge/commits.md
+knowledge/coding/comments.md
+knowledge/git/commits.md
