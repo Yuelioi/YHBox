@@ -377,17 +377,27 @@ func (f fakeCapture) ClientSize(_ win.HWND) (int, int, error) {
 func (f fakeCapture) Close() error { return nil }
 
 type recordingRuntimeInput struct {
-	keyDownHWND []uintptr
-	keyDownKeys []string
-	keyUpHWND   []uintptr
-	keyUpKeys   []string
+	clickHWND     []uintptr
+	clickX        []float64
+	clickY        []float64
+	clickButton   []string
+	clickDuration []int
+	keyDownHWND   []uintptr
+	keyDownKeys   []string
+	keyUpHWND     []uintptr
+	keyUpKeys     []string
 }
 
 func (r *recordingRuntimeInput) Name() string { return "sendinput" }
 func (r *recordingRuntimeInput) Capabilities() pkginput.Capabilities {
 	return pkginput.Capabilities{}
 }
-func (r *recordingRuntimeInput) Click(win.HWND, float64, float64, string, int) error {
+func (r *recordingRuntimeInput) Click(hwnd win.HWND, xRatio, yRatio float64, button string, durMs int) error {
+	r.clickHWND = append(r.clickHWND, uintptr(hwnd))
+	r.clickX = append(r.clickX, xRatio)
+	r.clickY = append(r.clickY, yRatio)
+	r.clickButton = append(r.clickButton, button)
+	r.clickDuration = append(r.clickDuration, durMs)
 	return nil
 }
 func (r *recordingRuntimeInput) KeyDown(hwnd win.HWND, key string) error {
@@ -422,6 +432,28 @@ func (r *recordingRuntimeInput) CursorRatio(win.HWND) (float64, float64, error) 
 }
 func (r *recordingRuntimeInput) ReleaseAll() error { return nil }
 func (r *recordingRuntimeInput) Close() error      { return nil }
+
+func TestInputAdapter_ClickRoutesThroughControllerTrace(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+
+	err := NewInputAdapter(rt).Click(0.25, 0.75, "right", 80)
+	if err != nil {
+		t.Fatalf("Click error = %v", err)
+	}
+	if len(input.clickHWND) != 1 || input.clickHWND[0] != 99 || input.clickX[0] != 0.25 || input.clickY[0] != 0.75 || input.clickButton[0] != "right" || input.clickDuration[0] != 80 {
+		t.Fatalf("backend Click = hwnds %#v x %#v y %#v buttons %#v durations %#v", input.clickHWND, input.clickX, input.clickY, input.clickButton, input.clickDuration)
+	}
+	records := rt.TraceRecords()
+	if len(records) != 1 {
+		t.Fatalf("trace len = %d, want 1", len(records))
+	}
+	if records[0].Action != "click" || records[0].Target.ID != "win32:99" || records[0].Backend != "sendinput" {
+		t.Fatalf("trace record = %#v", records[0])
+	}
+}
 
 func TestInputAdapter_KeyDownRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)

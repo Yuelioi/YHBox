@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"yotta/internal/automation/controller"
+	"yotta/internal/automation/target"
 	"yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/expr"
@@ -308,14 +309,18 @@ func (a *inputAdapter) KeyUp(vk string) error {
 }
 
 func (a *inputAdapter) Click(xRatio, yRatio float64, button string, durationMs int) error {
-	if err := a.ensure(); err != nil {
-		return err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.controller()
 	if err != nil {
 		return err
 	}
-	return a.rt.Input.Click(h, xRatio, yRatio, button, durationMs)
+	return ctrl.Click(context.Background(), controller.ClickRequest{
+		Point:      target.NewNormalizedPoint(xRatio, yRatio),
+		Button:     button,
+		DurationMs: durationMs,
+		Policy: controller.ActionPolicy{
+			ForegroundRequired: true,
+		},
+	})
 }
 
 func (a *inputAdapter) MouseMoveRel(dx, dy, durationMs int) error {
