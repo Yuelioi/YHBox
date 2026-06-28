@@ -41,7 +41,7 @@ RECHECK WHEN: 改 yt.* API 形态 / 执行(overlay·归一)或撤销机制 / 补
 
 ## 补全 (`completions.ts` `ytCompletionSource`)
 
-上下文感知 (按光标前文本分流): `yt.`→顶层成员 / `yt.nodes.`·`yt.selected.`→数组方法 / 其它 `X.`→NodeHandle 成员。纯判定 `ytCompletionKind` 有单测。控制台编辑器复用共享 `<CodeEditor>` (见 [unified-code-editor 设计, archive/specs](../archive/specs/2026-06-17-unified-code-editor.md)), 经 `scriptEditorExtensions` 的 `completionSource` 口注入。
+上下文感知 (按光标前文本分流): `yt.`→顶层成员 / `yt.nodes.`·`yt.selected.`→数组方法 / 其它 `X.`→NodeHandle 成员。纯判定 `ytCompletionKind` 有单测。控制台编辑器复用共享 `<CodeEditor>`, 经 `scriptEditorExtensions` 的 `completionSource` 口注入。历史设计材料在 cold archive `2026-06-17-unified-code-editor`;本知识不依赖它。
 
 ## 边界 / 非目标
 

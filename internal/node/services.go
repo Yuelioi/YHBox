@@ -262,7 +262,7 @@ func NewStubStopwatchStore() StopwatchStore { return &stubStopwatchStore{m: map[
 // main.go 不用这个, 直接 new ServiceBundle 塞真 backend.
 //
 // Snapshot 默认 nil — EvaluatePureData 检查 nil 跳过 wrap, 现有 PureData Evaluator
-// 测试 (Expr 等) 走 stub Vars/Sys, 不需要 snapshot 行为.
+// 测试 (Expr 等) 走 stub Vars, 不需要 snapshot 行为.
 func StubServices() ServiceBundle {
 	return ServiceBundle{
 		Vision:      StubVisionService(),

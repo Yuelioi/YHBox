@@ -6,7 +6,7 @@ RECHECK WHEN: 改节点注册流程 / capability 分类 / dispatch 派发逻辑 
 
 ---
 
-YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [../checklists/add-node.md](../checklists/add-node.md)；pin 命名/Default 约定见 [../checklists/node-spec-style.md](../checklists/node-spec-style.md)。
+YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [add-node.md](add-node.md)；pin 命名/Default 约定见 [node-spec-style.md](node-spec-style.md)。
 
 源码：`internal/node/`（框架核心）+ `internal/nodes/<category>/`（69 个节点实现）。
 
@@ -61,11 +61,11 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 
 子图调用（Subgraph / CollapsedNode 节点，或脚本 `Subgraph()` 函数）统一走 runtime 共享核心 `runSubgraphCall`（`runtime/subgraph_call.go`）：push frame + seed params + 切 dispatch 表到 callee + 从 entry 播种跑到出口 marker。**出口 key 单一来源 = callee OutputPins 的 decl ID**（父图边 / 前端 handle / runtime fire 三层一致；decl rename 只改 Name 不动 ID，父图无感）。出口裁决：到达 marker → 该 decl；跑干没到 marker → 单出口视同唯一出口，多出口 → `subgraph_no_exit` Coded 错误（可被 Fail 接）。嵌套深度上限 32（`subgraph_recursion`，防脚本动态递归）。脚本侧拿到的是 decl **Name**（人读名），图层路由用 decl **ID**。
 
-### Evaluator 看到的是 tick-frozen 快照
+### Evaluator 看到的是 tick-frozen Vars 快照
 
-PureData 节点 Evaluate 内看到的 `Vars`/`Sys` 是**当前 tick 冻结的快照**，不是 live state（`engine.go::EvaluatePureData` 入口 `services.Snapshot` wrap）。这保证同一 tick 内多个 data 节点读到一致的状态。为什么用 wrap 而不是给 Ctx 加方法，见 [framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)。
+PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**，不是 live state（`engine.go::EvaluatePureData` 入口 `services.Snapshot` wrap）。这保证同一 tick 内多个 data 节点读到一致的全局变量状态。为什么用 wrap 而不是给 Ctx 加方法，见 [framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)。
 
-> ⚠️ `interfaces.go:44-48` 有句**陈旧注释**说 GetVar/GetParam 不实现 Evaluator、dispatch 走 fallback —— 已过时。实测（grep）这俩 + 全部 PureFunc 都实现了 Evaluator + `IsPureData`。以源码为准。（注：**没有 GetSys 节点** —— `GetSys` 是 `ctx.Sys()` 服务的读方法，read-only 系统信息，不是一个可放画布的节点。）
+> ⚠️ `interfaces.go:44-48` 有句**陈旧注释**说 GetVar/GetParam 不实现 Evaluator、dispatch 走 fallback —— 已过时。实测（grep）这俩 + 全部 PureFunc 都实现了 Evaluator + `IsPureData`。以源码为准。**没有 GetSys 节点，也没有 `ctx.Sys()` 服务**；旧 `$sys` live 值已由 `Now` / `VarLastChange` 等显式节点取代。
 
 ### 选哪条路线（决策树）
 
@@ -89,14 +89,14 @@ PureData 节点 Evaluate 内看到的 `Vars`/`Sys` 是**当前 tick 冻结的快
 
 ## 5. 校验双管线（最容易踩的坑）
 
-节点校验有**两条独立管线**，写错地方会"加了校验但编辑期不报 / 重复报"（incident [../incidents/2026-06-04-node-validation-pipeline-bifurcation.md](../incidents/2026-06-04-node-validation-pipeline-bifurcation.md)）：
+节点校验有**两条独立管线**，写错地方会"加了校验但编辑期不报 / 重复报"（见 [node-validation-pipeline-bifurcation.md](node-validation-pipeline-bifurcation.md)）：
 
 | 管线 | 在哪 | 何时跑 | 写什么 |
 |---|---|---|---|
 | **编辑期** | `internal/services/container/validator.go` 的 `checkGraphPerKind` → `validateXxx(n)` | NodeInspector 实时（编辑器红错） | 图级/容器级 per-kind 静态校验（断边、缺 WindowTarget、必填 pin 缺失 `MISSING_REQUIRED_PIN`、未知 literal pin、RegexMatch/RegexExtract 的 `INVALID_REGEX_PATTERN` 等） |
 | **运行期** | 框架 `prepareExec`：`validateRequired`（`REQUIRED_FIELD_MISSING`）+ 节点的 `Validate()`（Validator 接口） | engine 真跑该节点时 | 节点自身输入合法性（HSV min>max 之类） |
 
-**编辑期校验写在 `checkGraphPerKind`，不是节点的 `Validate()` 方法**（后者只在 runtime 跑，编辑器看不到）。静态必填校验为什么要镜像 `PinValue` 的两级回退（literal + 顶层 config），见 incident [../incidents/2026-06-02-pin-presence-check-must-mirror-pinvalue.md](../incidents/2026-06-02-pin-presence-check-must-mirror-pinvalue.md)。
+**编辑期校验写在 `checkGraphPerKind`，不是节点的 `Validate()` 方法**（后者只在 runtime 跑，编辑器看不到）。静态必填校验为什么要镜像 `PinValue` 的两级回退（literal + 顶层 config），见 [pin-presence-check-must-mirror-pinvalue.md](pin-presence-check-must-mirror-pinvalue.md)。
 
 ## 6. 错误分类（RunResult）
 
@@ -117,8 +117,8 @@ services 内任何字段都可能 nil；节点拿到 nil service 调方法 → p
 
 ## 8. 相关
 
-- 加节点全链路 checklist：[../checklists/add-node.md](../checklists/add-node.md)
-- pin 命名 / Default / exec exit 约定：[../checklists/node-spec-style.md](../checklists/node-spec-style.md)
-- 节点间数据怎么连（pin wiring / GetSys / exec 出口 Data）：[../checklists/2026-06-05-node-data-flow.md](../checklists/2026-06-05-node-data-flow.md)
+- 加节点全链路 checklist：[add-node.md](add-node.md)
+- pin 命名 / Default / exec exit 约定：[node-spec-style.md](node-spec-style.md)
+- 节点间数据怎么连（pin wiring / held output / exec 出口 Data）：[node-data-flow.md](node-data-flow.md)
 - 类型表 / Ctx 服务 / pin 值解析 / 节点目录：[node-system-reference.md](node-system-reference.md)
 - framework 扩展（行为随 dispatch context 变时该怎么扩）：[framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)

@@ -39,7 +39,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 ## 3. i18n — 文案 + 重新生成 catalog (catalog drift 测试会卡)
 
-- [ ] `frontend/src/i18n/zh.ts` + `en.ts` 加 `node.<Kind>` 块：`label` / `description` / `input.<pin>.label`（dropdown 选项加 `input.<pin>.option.<value>`）。zh/en **对称**（parity 测试）。**文案规范看 [node-spec-style §10](node-spec-style.md)**：zh 人话不夹黑话、en sentence-case、option 要翻译、捕获框 `<字段>→变量`、时间 `(ms)`。
+- [ ] `frontend/src/i18n/zh.ts` + `en.ts` 加 `node.<Kind>` 块：`label` / `description` / `input.<pin>.label`（dropdown 选项加 `input.<pin>.option.<value>`）。zh/en **对称**（parity 测试）。**文案规范看 [node-spec-style §10](node-spec-style.md)**：zh 人话不夹黑话、en sentence-case、option 要翻译、输出捕获 `<字段>→变量`、时间 `(ms)`。
 - [ ] ⚠ **出口 + Data 字段也要译，别只译输入**（本批 3 节点踩过，2026-06-18 补）：`output.<出口或Data字段名>.label` —— 每个 exec 出口（`Found`/`NotFound`/`Timeout`…）**和**每个 `OutputSpec.Data` 字段（`Matches`/`PrimaryPoint`/`Conf`/`Text`…）都要给 label，否则图节点出口引脚 + Inspector「输出」组显**英文裸字段名**。这些 key 经 `gen:node-i18n` 抽进 `node-i18n.json`（覆盖图节点 PIN_SPECS + inspector）。结构化输入的子字段 label 见 §1 结构化输入条 + [node-spec-style §10](node-spec-style.md)。
 - [ ] vue-i18n 文案含 `{` `}` `|` `@` `$` 要转义（见 checklist [[vue-i18n-message-compiler-traps]]）；改完 `pnpm i18n:check` 的 `[compile]` 段会兜。
 - [ ] **跑 `cd frontend && pnpm gen:node-i18n`** 重新生成 `internal/catalog/node-i18n.json`（从 zh.ts 抽取）。漏跑 → `go test ./internal/catalog/` 的 drift 守卫 FAIL。

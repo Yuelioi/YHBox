@@ -6,8 +6,7 @@ RECHECK WHEN: 改 dispatch 失败路由 / Failf / NodeError / Coded 语义 / 集
 
 ---
 
-> 取代了旧的「异常冒泡 + Try 包子图」模型（Try 节点已删）。设计/落地过程见 archive 的
-> `2026-06-07-error-model-per-node-fail-output` spec+plan。
+> 取代了旧的「异常冒泡 + Try 包子图」模型（Try 节点已删）。本页是当前规则的自包含说明；冷档溯源包：`2026-06-07-error-model-per-node-fail-output`。
 
 ## 一句话
 

@@ -77,4 +77,4 @@ Plan 把 Task 6 写成"加 OpenInWindow RPC + 工具栏按钮 + 改 ContainerEdi
 
 5 个 fix commit (de7daa6, 6d1ddda, 9af2d10, b839926, 9b5c601) 全是 ship 后 review-uncovered. 全可在 plan 设计阶段防住, 如果 Task 6 spec 列了"端到端 trace 表".
 
-教训: plan / spec 任何涉及 router 路径变更, 写下"6 端 trace 清单" 当 acceptance criteria, 而不是 "改 router 就完事". 撞过一次后必须把这个清单做成 [plan 模板的一部分](../checklists/) (待第 2 次再撞时 promote 成 playbook).
+教训: plan / spec 任何涉及 router 路径变更, 写下"6 端 trace 清单" 当 acceptance criteria, 而不是 "改 router 就完事". 若同类问题再撞一次,把这份清单提升成更通用的 plan 模板规则。

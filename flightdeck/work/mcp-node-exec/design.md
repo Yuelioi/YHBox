@@ -4,7 +4,7 @@
 
 | | 子系统 | 方向 | 状态 |
 |---|---|---|---|
-| ① | 本地 AI 配置 | 我们调 AI | done(`archive/specs/2026-06-23-local-ai-config.md`) |
+| ① | 本地 AI 配置 | 我们调 AI | done(cold archive `2026-06-23-local-ai-config`) |
 | ② | AI 节点(图里调 LLM) | 我们用 AI | done(`docs/ai-nodes.md`) |
 | ③ | **MCP 对外暴露** | **AI 调我们** | ← 本 spec |
 
@@ -155,7 +155,7 @@ list_nodes(看有哪些积木) → find_window(锁窗口) → run_node(Capture �
 - **save_container**:落 GUI store 后能被 `Store.Get` 读回(整合后 store 换绑验证)。
 - **catalog 闸**:`NeedsWindow`/`IsPureData` 过滤的放行/拒绝集符合预期。
 - HTTP server 装配:能起、能列工具、优雅关停(plan 按实测库 API 定断言)。
-- 预存失败基线照 `flightdeck/checklists/build.md`。
+- 预存失败基线照 `flightdeck/knowledge/build/build.md`。
 
 ## 13. 风险 / plan 待验
 

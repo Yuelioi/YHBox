@@ -29,7 +29,7 @@ READ WHEN: 写"统一存储约定 / 改 config schema / 改 pin 值读写法"类
 
 ## 关联
 
-- spec: [specs/2026-05-29-input-editing-unification-design.md](../archive/specs/2026-05-29-input-editing-unification-design.md) (§3.10 记录 reopen + §8 实况)
+- 历史材料: cold archive `2026-05-29-input-editing-unification` (§3.10 记录 reopen + §8 实况)
 - 同源既有 bug (本次顺带暴露, 未修): Switch FE/BE schema 漂移 / screen-pick case-drift / MouseCalibration 旧小写 counts360。
 
 ## [Case 2] 2026-06-10 — eval cache 漏第二个 EvaluatePureData 调用点 (random-nodes C1)

@@ -11,11 +11,11 @@ RECHECK WHEN: 改绑定调用/返回/错误约定、糖函数集合、ScriptBind
 ## 节点形态 (`internal/nodes/script/script.go`)
 
 - Kind `Script`, Category `Control`, **Runnable**。
-- 输入: `In` (Exec) / `Code` (String, widget `code`) / `CaptureResult` (捕获框, 脚本返回值→变量)。
+- 输入: `In` (Exec) / `Code` (String, widget `code`) / `Window` (可选窗口覆盖输入)。
 - 输出: `Done` (Data 字段 `Result` `*` = 脚本 `return` 的值) / `Fail` (error 语义, Error+Code)。
-- `NeedsWindow: true` — 含 Script 的容器必须配 WindowTarget (保守设计: 脚本可能调输入/视觉节点, 宁可编辑期报也不跑一半炸)。
+- `NeedsWindow: true`, `NeedsForeground: true` — 含 Script 的容器必须有窗口上下文；sendinput 后端派发前会按可选 Window 输入补前台。
 - `DynamicInputs: true` — 动态输入 pin, 见下。
-- 返回值消费: 同 exec 节点惯例, `CaptureResult` 填变量名 + GetVar 读; Result 也作为 Done 出口 exec-data 下发。
+- 返回值消费: `Result` 是 Done 出口 Data 字段，可用 held-output 数据线直连下游；需要命名复用时在 Inspector 输出组把 `Result` 绑到变量，再用 GetVar 读。
 
 ## 脚本怎么写 (用户面约定)
 
@@ -80,7 +80,7 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 
 ## 子图一键转脚本 (2026-06-12)
 
-编辑器里子图可转成等价脚本 (Subgraph/CollapsedNode 节点右键「转为脚本」/ 子图编辑属性面板按钮 → 预览 modal → 复制或插入为 Script 节点)。转换器是前端纯函数 `frontend/src/lib/subgraphToScript.ts` (Spec 驱动, 映射规则与拒转清单见 archive/specs/2026-06-12-subgraph-to-script.md); 不支持结构 (Loop/汇合/成环/Fail 接线等) 整体拒转列原因。新节点注册后自动可转, 零维护。
+编辑器里子图可转成等价脚本 (Subgraph/CollapsedNode 节点右键「转为脚本」/ 子图编辑属性面板按钮 → 预览 modal → 复制或插入为 Script 节点)。转换器是前端纯函数 `frontend/src/lib/subgraphToScript.ts`。不支持结构 (Loop/汇合/成环/Fail 接线等) 整体拒转列原因。新节点注册后自动可转, 零维护。历史设计材料在 cold archive `2026-06-12-subgraph-to-script`;本知识不依赖它。
 
 ## 加新节点时脚本侧要做什么
 

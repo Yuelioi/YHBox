@@ -15,7 +15,7 @@ RECHECK WHEN: 改 nodepkg.Spec 的 pin 命名约定 / Inputs·Outputs·Default �
 | **User-facing data pin** (Inspector 可见 / JSON 序列化的 config key)                                | **PascalCase**           | `Template`, `VarName`, `Scope`, `Duration`, `Threshold`                                        |
 | **Framework exec in pin** (单 in 入口)                                                              | 常量 `In` = `"In"`         | `{Name: pinIn, Type: TypeExec}`                                                                        |
 | **Framework exec out pin** (单 done 出口)                                                           | 常量 `Done` = `"Done"`     | `{Name: pinDone, Type: TypeExec}` (显示文案走 i18n `output.Done.label`, 后端无 `DisplayName` 字段) |
-| **多 exec out 出口** (语义专选: Loop body/done, Try out/catch, If True/False, Switch CaseN/Default) | **PascalCase, 语义命名** | `Body`/`Done`, `Out`/`Catch`, `True`/`False`, `Case1`..`Case16`/`Default`              |
+| **多 exec out 出口** (语义专选: Loop Body/Done, If True/False, CheckTemplate Found/NotFound, Switch CaseN/default) | **PascalCase, 语义命名** | `Body`/`Done`, `True`/`False`, `Found`/`NotFound`, `Case1`..`Case16`/`default`              |
 | **数据 out pin** (purefunc.result, GetVar.value 等)                                                 | **PascalCase**           | `Result`, `Value`, `Point`, `Confidence`                                                         |
 
 **⚠ 修正 (2026-06-08, 实证 `frontend/.../pinSpec.ts:84`)**: exec-out **一律 PascalCase**, 入口/fire-only 节点也不例外 — Start 用 `"Done"`, EventTick 用 `"Out"`, 子图入口 marker `SubgraphInput` 用 `"Done"`. **绝不要用小写 `"out"`**: 前端 `pinSpec.ts` 明写"用 'out' 会让边渲染错位 + 运行时不播种" (runtime 从 `entryID+".Done"` 播种, 主图从 `start.Done` 播种). 旧版本这里写的"fire-only 用小写 out"是**错的, 已废** — 照它写会炸渲染 + 不播种.
@@ -42,7 +42,7 @@ Spec.InputSpec.Default 序列化进 JSON 走 `encoding/json`, 反序列化拿 `a
 | 节点形态                                                                                  | exec out pin name                    | 例子                                                                                                                                               |
 | ----------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 单 done 出口 (KeyPress / Sleep / SetVar / IncVar / Log / WindowTarget / MouseCalibration) | `Done`                             | `{Name: "Done", Type: TypeExec}`                                                                                                                 |
-| 多语义出口 (If/Try/Loop/CheckTemplate)                                                    | 语义专名 PascalCase                  | `True`/`False`, `Out`/`Catch`, `Body`/`Done`, `Found`/`NotFound`                                                                   |
+| 多语义出口 (If/Loop/CheckTemplate/Fail-capable 节点)                                      | 语义专名 PascalCase                  | `True`/`False`, `Body`/`Done`, `Found`/`NotFound`, `Fail`                                                                   |
 | 入口 / Fire-only (Start / EventTick / SubgraphInput — 无 exec in, 出口即"trigger")       | **PascalCase** (不是小写 out!) | `Start.Done`, `EventTick.Out`, `SubgraphInput.Done`                                                                                          |
 | Switch 兜底出口 (例外)                                                                    | 小写 `default`                     | validator 把 `"default"` 当保留兜底关键字 (`validate.go` / `validator.go`), 跟用户 case 值同命名空间 — **有意保留, 别迁 `Default`** |
 
@@ -123,7 +123,7 @@ exec-out 名 (2026-06-08 统一): 单出口 `Done`, 语义出口 PascalCase, 入
 | 颜色范围 (tuple, 支持 rgb+hsv) | `Range` | JSON + `dcRangeSchema` | c1Min..c3Max |
 | 颜色范围 (hsv-only obj) | `HSV` | JSON + `hsvObjSchema` | 双色用 `InnerColor`/`OuterColor` |
 | 颜色签名 (变长点列表) | `Signature` | JSON + `fcsSignatureSchema` (`node.ArraySchema`) | array of `{dx,dy,r,g,b,tol}`; 首点=锚点 dx=dy=0; tol 选填(空=用节点 `Tolerance`) |
-| 捕获到变量 | `Capture<DataField>` | String, Advanced, Semantic:"capture" | 一对一映射 OutputSpec.Data 字段名 |
+| 捕获到变量 | `config.capture[DataField]` | Inspector 输出组配置, 非 Spec pin | 一对一映射 OutputSpec.Data 字段名；节点只声明 Data 字段 |
 | 单成功出口 | `Done` | Exec | — |
 | 错误出口 | `Fail` | Exec, Semantic:"error" | 带 Data `Error`/`Code` |
 
@@ -140,7 +140,7 @@ DataField (exec 出口携带数据) 命名:
 
 - **zh 一律人话中文**, label/hint **不准夹内部黑话**: ❌ `runner`/`callee`/`SubgraphInput`/`framework`/`stringify`/`wildcard`/`dynamic Inputs[]`/`isAnonymous`. 合法保留缩写: HSV / RGB / ROI / ms / ID / URL / px / DPI。
 - **en label 用 sentence case** (`Color blob locate`), 不用 Title Case (`Color Blob Locate`)。
-- **捕获框 label 风格**统一 `<字段>→变量` / `<field> → variable`。
+- **输出捕获 label 风格**统一 `<字段>→变量` / `<field> → variable`。
 - **时间单位**统一 `(ms)`, 不用 `(毫秒)`。
 - **区域 label**: zh `区域 (ratio)`, en `ROI (ratio)`。
 - **dropdown option 值要翻译** (精确/包含/前缀...), 不留 raw enum (`exact`/`contains`)。例外 (zh/en 一致地保留标识符): `Scope` 的 auto/local/global、`Log.Level` 的 debug/info/warn。

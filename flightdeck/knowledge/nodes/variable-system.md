@@ -1,14 +1,14 @@
 # 变量系统 (Variable System)
 
-SUMMARY: 容器级命名值存储全貌 —— VarDecl 类型、scope（local/global/auto）、VarStore 读写、快照、变量节点、config 存储与校验
-READ WHEN: 加变量类型 / 加变量节点 (GetVar/SetVar/IncVar/VarLastChange/捕获框) / 改变量引用存储或读写法 / 撞 'config 有 varName 但 widget 空 / runtime missing VarName' 类 bug 前
-RECHECK WHEN: 加变量类型 / 加或改变量节点 (GetVar/SetVar/IncVar/VarLastChange/捕获框) / 改变量引用存储或读写法 / 改 scope 规则时
+SUMMARY: 容器级命名值存储全貌 —— VarDecl 类型、scope（local/global/auto）、VarStore 读写、快照、变量节点、config.capture 存储与校验
+READ WHEN: 加变量类型 / 加变量节点 (GetVar/SetVar/IncVar/VarLastChange/输出捕获) / 改变量引用存储或读写法 / 撞 'config 有 varName 但 widget 空 / runtime missing VarName' 类 bug 前
+RECHECK WHEN: 加变量类型 / 加或改变量节点 (GetVar/SetVar/IncVar/VarLastChange/输出捕获) / 改变量引用存储或读写法 / 改 scope 规则时
 
 ---
 
 ## 一句话
 
-变量 = **容器级的命名值存储**。用户在容器上声明若干变量（`VarDecl`），运行时由 `VarStore` 服务读写；节点（GetVar/SetVar/IncVar/VarLastChange/捕获框）、表达式（`$hp`）、脚本（`$hp` / GetVar·SetVar 节点函数）三条路都走同一个 `VarStore`。源码：声明结构 `internal/services/container/model.go`、运行时存储+读写 `internal/services/container/runtime/`、变量节点 `internal/nodes/variable/`。
+变量 = **容器级的命名值存储**。用户在容器上声明若干变量（`VarDecl`），运行时由 `VarStore` 服务读写；节点（GetVar/SetVar/IncVar/VarLastChange/输出捕获）、表达式（`$hp`）、脚本（`$hp` / GetVar·SetVar 节点函数）三条路都走同一个 `VarStore`。源码：声明结构 `internal/services/container/model.go`、运行时存储+读写 `internal/services/container/runtime/`、变量节点 `internal/nodes/variable/`。
 
 配套：表达式里怎么用 `$` → [expression-system.md](expression-system.md)；脚本里怎么用 → [script-system.md](script-system.md)；变量节点的 pin 全表跑 `task nodes`。
 
@@ -88,13 +88,15 @@ PureData 节点（GetVar 等 Evaluator）在 `EvaluatePureData` 入口被 wrap �
 
 实现都在 `internal/nodes/variable/`，逻辑就是"读 pin → 调对应 `ctx.Vars()` 方法"。GetVar 读不到不报错、返 nil。
 
-### 捕获框 (Capture) —— 产出型节点把出口值写进变量
+### 输出捕获 (config.capture) —— 产出型节点把出口值写进变量
 
-很多节点（Screenshot / Script / 模板匹配类）有个"捕获框"输入：填个变量名，节点把自己的产出值写进那个变量。
+很多节点（Capture / Script / 模板匹配类）的 exec 出口带 `OutputSpec.Data` 字段。用户可在 Inspector 的「输出」组把某个 Data 字段绑定到变量；节点 fire 时框架把本次出口实际带的字段写进该变量。
 
-- 声明：`InputSpec{Semantic:"capture", CaptureType:"number|string|bool|point|any"}`。
-- 执行：`node.Capture(ctx, in, captureField, value)`（`internal/node/capture.go`）—— 取捕获框里的变量名，空白则 no-op；非空则 `ctx.Vars().SetScoped(name,"auto",value)`（**scope 固定 auto**）。
-- `CaptureType` 白名单 **不含 `list`**（`spec_capture_test.go`）—— 当前没有产 list 的捕获场景，YAGNI。
+- 声明：节点只在 exec 出口声明 `OutputSpec.Data []DataField`；不再给每个字段加 `Capture<DataField>` 输入 pin。
+- 存储：绑定关系写进节点 `config.capture`，形状是 `map[字段名]变量名`。
+- 执行：`dispatch_v5.applyCaptures` 在 fire 时读取 `config.capture`，只写该出口实际 `.Set()` 过的字段；空变量名 no-op，非空则 `Vars().SetScoped(name,"auto",value)`（**scope 固定 auto**）。
+- 校验：`validator_capture_refs.go` + `nodepkg.BindableFieldsForNode` 校验字段和变量引用；动态输出节点会把 `config.Outputs[]` 并入可绑字段。
+- 直连：如果只是把产出喂给紧随或后续节点，优先用 held-output 数据线直连；需要命名复用 / 跨作用域时再捕获到变量。
 
 ## 5. 变量引用怎么存（config）+ 校验
 
@@ -120,7 +122,7 @@ GetVar/SetVar/IncVar 的 `VarName` / `Scope` 存在节点 config 里：
 
 ## 7. List 变量类型 — 消费点审计（2026-06-10 落地）
 
-加 `list` 类型时审计过"哪些地方消费变量类型"，当前都已覆盖（设计档 archive/specs/2026-06-10-list-var-type.md）：
+加 `list` 类型时审计过"哪些地方消费变量类型"，当前都已覆盖（历史材料在 cold archive `2026-06-10-list-var-type`）：
 
 | 消费点 | 位置 | List 处理 |
 |---|---|---|
@@ -137,4 +139,4 @@ GetVar/SetVar/IncVar 的 `VarName` / `Scope` 存在节点 config 里：
 | 拖拽自动连线 | `useNodeCreation.ts` | list 变量拖近 List pin 自动连 |
 | 提升/新建变量 modal | `PromoteToVarModal` / `NewVarModal` | list option + 零值 `[]` |
 
-**故意不支持**：捕获框 `CaptureType` 不含 list（无产 list 的源）；`IncVar` 对 list 变量运行时当 0（类型不匹配，GIGO）。
+**故意不支持**：`IncVar` 对 list 变量运行时当 0（类型不匹配，GIGO）。输出捕获没有旧 `CaptureType` 白名单，字段类型来自 `OutputSpec.Data` / 动态输出声明。

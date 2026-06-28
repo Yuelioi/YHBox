@@ -1,8 +1,6 @@
 // yt 脚本控制台 —— 纯执行器 (不碰 Vue / Pinia / 草稿)。
 // Vue 层把节点组装成 NodeModel[] 喂进来, 跑用户 JS, 产出"待应用变更 / 被拒 / 日志"。
 // 应用(写草稿+子图+撤销) 与 UI 都在 Vue 层, 不在这里 —— 故本文件可纯单测。
-//
-// 设计依据: flightdeck/specs/2026-06-17-yt-scripting-console.md (§yt API / §执行模型 / §归一)。
 
 // 前端 pin 类型 (来自 nodeRegistry, 后端 Number/Integer/Duration 都塌成 'number')。
 export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list'

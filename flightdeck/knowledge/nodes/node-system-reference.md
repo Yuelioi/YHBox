@@ -28,7 +28,7 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 | `List` | `[]any` | list-preview | 异构列表；只读占位（不可在 Inspector 手输，必须由连线提供） |
 | `Exec` | (framework) | exec-pin | 控制流连线，非数据 |
 
-**域类型形状**（`types.go`）：`Point{X,Y}` / `Rect{X,Y,W,H}`（都是 ratio float）；`Geometry{Pct Rect, Overrides []GeoOverride}` —— 运行时解析：匹配当前帧分辨率的 override 优先，否则 `pct×帧尺寸`，`pct.W==0||H==0` 且无匹配 = 全帧。Geometry pin 值的存储形状坑见 incident [../incidents/2026-06-04-geometry-pin-value-pct-shape.md](../incidents/2026-06-04-geometry-pin-value-pct-shape.md)。
+**域类型形状**（`types.go`）：`Point{X,Y}` / `Rect{X,Y,W,H}`（都是 ratio float）；`Geometry{Pct Rect, Overrides []GeoOverride}` —— 运行时解析：匹配当前帧分辨率的 override 优先，否则 `pct×帧尺寸`，`pct.W==0||H==0` 且无匹配 = 全帧。Geometry pin 值的存储形状坑见 [geometry-pin-value-pct-shape.md](geometry-pin-value-pct-shape.md)。
 
 自定义类型用 `node.RegisterType(TypeSpec{...})`。
 
@@ -62,7 +62,6 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 | `Vision()` | VisionService | 模板匹配 Match/WaitMatch、颜色 DetectColor/HSV、双色条 DualBarTrack、ROIColorScan、帧签名 GridSignature |
 | `Input()` | InputService | KeyDown/Up、Click、MouseMoveRel/MoveTo、Scroll、MouseDown/Up（xRatio/yRatio 是 0-1 客户区比例） |
 | `Vars()` | VarStore | SetVar/GetVar/IncVar；scope = auto/local/global |
-| `Sys()` | SysStore | GetSys（read-only，path 形如 `lastTemplate.found`，schema 见 `services/container/sys/schema.go`） |
 | `Params()` | ParamStore | GetParam（读当前 frame 的 subgraph 入参，read-only） |
 | `Window()` | WindowService | BringForeground / HWND / ClientSize / SetActive |
 | `Capture()` | CaptureService | Screenshot（Capture / CaptureROI，返 PNG 字节） |
@@ -91,7 +90,7 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 > - `go run ./cmd/node-catalog export` —— 同数据的 JSON。
 > - MCP `list_nodes` —— 同数据，给 LLM 直接调。
 >
-> 另一个视图——**按 pin 名合并**（命名对齐用，不是逐节点）：`task nodes:pins`（= `go run ./cmd/node-catalog pins`）—— 全节点 pin 名归并 + 用量 + 「命名分裂告警」（揪 `Roi` vs `ROI` 这种）。加新节点选 pin 名时查它，配 [node-spec-style §9 Canonical 词汇表](../checklists/node-spec-style.md)。
+> 另一个视图——**按 pin 名合并**（命名对齐用，不是逐节点）：`task nodes:pins`（= `go run ./cmd/node-catalog pins`）—— 全节点 pin 名归并 + 用量 + 「命名分裂告警」（揪 `Roi` vs `ROI` 这种）。加新节点选 pin 名时查它，配 [node-spec-style §9 Canonical 词汇表](node-spec-style.md)。
 >
 > 数据源 `node.All()` → `catalog.BuildWithI18n()`（结构来自 `catalog.Build()`，i18n 经 `node-i18n.json`，`cd frontend && pnpm gen:node-i18n` 生成、catalog drift 测试守护）。出口携带的 Data 字段（如 `DetectColor.Found` 的 `Center(Point)`）在 `Spec.Outputs[].Data` 声明、由 catalog 序列化导出。
 

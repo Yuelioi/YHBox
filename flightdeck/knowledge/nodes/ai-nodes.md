@@ -6,7 +6,7 @@ RECHECK WHEN: 加结构化输出模式/类型 / 改 ChatStructured 协议映射 
 
 ---
 
-"AI 功能" epic 的第②块：让图作者拖一个 AI 节点、选连接+模型、给提示词与任意个带类型输入、拿任意个带类型输出、识图。基础设施①（本地 AI 配置 / `llm.Provider` 双协议 / 连接池）见 `archive/specs/2026-06-23-local-ai-config.md`；③ MCP 对外暴露另起。
+"AI 功能" epic 的第②块：让图作者拖一个 AI 节点、选连接+模型、给提示词与任意个带类型输入、拿任意个带类型输出、识图。基础设施①已落地：本地 AI 配置、`llm.Provider` 双协议与连接池；③ MCP 对外暴露另起。历史设计材料在 cold archive `2026-06-23-local-ai-config`;本知识不依赖它。
 
 ## AI 节点（Kind `AI`，Category `AI`，`NeedsWindow:false`）
 

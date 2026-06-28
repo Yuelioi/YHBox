@@ -7,7 +7,7 @@ READ WHEN: 设计"FE 读 wails RPC 抛错的结构化字段 (cause / errors / co
 
 ## 症状
 
-错误 i18n 体系（[spec](../archive/specs/2026-06-02-error-i18n-catalog.md)）落地后手动 smoke 第一下就崩: 保存一个缺 WindowTarget 的容器, toast **糊出整坨原始 JSON** 而非本地化文案:
+错误 i18n 体系落地后手动 smoke 第一下就崩: 保存一个缺 WindowTarget 的容器, toast **糊出整坨原始 JSON** 而非本地化文案。历史材料在 cold archive `2026-06-02-error-i18n-catalog`;本 trap 不依赖它。
 
 ```
 操作失败

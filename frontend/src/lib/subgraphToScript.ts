@@ -1,4 +1,4 @@
-// 子图 → 等价脚本 纯函数转换器 (spec: flightdeck/specs/2026-06-12-subgraph-to-script.md)。
+// 子图 → 等价脚本纯函数转换器。
 // Spec 驱动零 kind 特判, 结构性特例仅: 出入口 marker / Subgraph·CollapsedNode(→Subgraph()
 // 调用, 出口 decl ID→Name) / GetParam(→params.get)。任何不支持结构整体拒转 — 攒全清单
 // 返回, 不出半对的代码。

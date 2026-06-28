@@ -14,7 +14,7 @@
 - **不写兼容 shim**：项目未发布，无外部用户；删 `cmd/yotta-mcp` 直接切干净，不留 deprecated。
 - **Git**：提交直推当前分支 `feat/v2-foundation`（无 PR），**永不 push 远端**；不跳 hook。每个 task 末尾 commit。
 - **判红只信工具退出码**（`go build ./...` / `go test`），不信 IDE 面板；CRLF 警告是 benign 非错误。
-- **验证命令以 `flightdeck/checklists/build.md` 为准**（go build / go test / vue-tsc / i18n check）。
+- **验证命令以 `flightdeck/knowledge/build/build.md` 为准**（go build / go test / vue-tsc / i18n check）。
 - **预存失败基线**照 build.md（runtime 缺 fish fixture、i18n residue 42、pnpm lint 18 错）——这些**不是**本计划引入的红。
 - **MCP server 包名 `mcpserver`**（dir `internal/services/mcpserver`），避免与 mcp-go 的 `mcp` 包名冲突。
 - **可跑节点闸 = `Spec.NeedsWindow==true` 且非 `IsPureData`**（数据驱动，不写死 kind 名单）。
@@ -928,7 +928,7 @@ git commit -m "feat(mcp): main.go 装配并启动 Streamable HTTP MCP server (�
 
 - [ ] **Step 2: SettingsMCP.vue（照 settings-page-style 范式）**
 
-> 照 `flightdeck/checklists/2026-06-06-settings-page-style.md` + 现有 `SettingsAI.vue`/`SettingsGeneral.vue` 范式写。内容最小：
+> 照 `flightdeck/knowledge/frontend/settings-page-style.md` + 现有 `SettingsAI.vue`/`SettingsGeneral.vue` 范式写。内容最小：
 > - 一个 **arm 开关**（toggle），`@change` → `backend.settings.update({mcp:{armed:<v>}})`（不 v-model 双绑只读 store）。
 > - 武装时显眼**红/橙警示**文案：「AI 可驱动你的鼠标键盘与写入容器」。
 > - 一行**只读 URL 展示** `http://127.0.0.1:8765/mcp` + 「把它配进 AI 客户端（Claude Desktop / Cline）」说明，带复制按钮。

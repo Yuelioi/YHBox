@@ -24,4 +24,4 @@ READ WHEN: 想给 frameless 独立窗 (录制/校准/截图/鼠标检测/悬浮�
 
 - **现状 (Win10)**: 保持方角。frameless 工具窗方角本就正常/专业。
 - **未来 (若上 Win11)**: 可加一句 `DwmSetWindowAttribute(hwnd, 33 /*DWMWA_WINDOW_CORNER_PREFERENCE*/, &2 /*DWMWCP_ROUND*/)` 的 w32 syscall (约 10 行) → Win11 原生圆角 + 保留系统阴影 + 不用透明 + 不穿透;Win10 静默 no-op。**只在确认用户上 Win11 后做**,否则零可见收益。
-- 想让这些窗"好看点"别卡在圆角:走 [standalone-window-style](../checklists/standalone-window-style.md) 的标题栏质感/内描边/状态面板配色统一。
+- 想让这些窗"好看点"别卡在圆角:走 [standalone-window-style.md](standalone-window-style.md) 的标题栏质感/内描边/状态面板配色统一。

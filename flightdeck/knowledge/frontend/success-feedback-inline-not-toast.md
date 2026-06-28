@@ -9,7 +9,7 @@ READ WHEN: 加复制/保存/导入等成功反馈 / 想 toast.add 一条成功�
 ## Signature
 - symptom: 给复制/保存等成功操作加了 `toast.add({ color: 'success' })` 顶部弹出成功提示
 - error_type: —  (UI 约定违反, 非异常)
-- where: frontend `.vue` 触发点 (本次 NodeInspector.vue 复制按钮); 规则正源 `checklists/ui.md`「反馈方式」
+- where: frontend `.vue` 触发点 (本次 NodeInspector.vue 复制按钮); 规则正源 [ui.md](ui.md)「反馈方式」
 - trigger: 写/改 `.vue` 前没读 ui.md, 凭直觉给成功操作配了 toast
 
 ## 症状/复现
@@ -19,7 +19,7 @@ toast —— 顶部弹出干扰视线、和操作点割裂。成功反馈本该�
 
 ## 根因
 
-改 `.vue` 前**没读** [checklists/ui.md](../checklists/ui.md)(它的 `when_to_read` 就是「写/改 .vue 前」)。
+改 `.vue` 前**没读** [ui.md](ui.md)(它的 `READ WHEN` 就是「写/改 .vue 前」)。
 ui.md「反馈方式」决策树早有定论, 漏读 → 凭直觉造方案。本质是头号铁律「有源码/有约定必读」在前端
 约定上的同款踩法 —— 跟 [[snippet-drawer-debug-discipline]] 一类纪律问题。
 

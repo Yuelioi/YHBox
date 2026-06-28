@@ -1,6 +1,5 @@
 // internal/nodes/script/script.go
 // Script — 内嵌 JS 脚本节点 (goja). 节点即函数: 全部 ScriptBindable 节点是脚本全局函数.
-// 设计: flightdeck/specs/2026-06-10-script-node.md.
 package script
 
 import (

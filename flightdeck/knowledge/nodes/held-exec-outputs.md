@@ -36,4 +36,4 @@ exec 节点出口携带的 **Data 字段**（`Fail.Code`/`Fail.Error`、AI 结�
 
 ## 历史（破坏性切净）
 
-本机制收编了旧的**单跳 exec-data 数据线桥** `applyExecDataEdges`（只能紧邻下游，跨跳运行时 `REQUIRED_FIELD_MISSING`）——缓存是其超集，故 `applyExecDataEdges` 连同编辑期 `EXEC_DATA_NOT_ADJACENT` 警告（`validateExecDataAdjacency`）一并删除，约束消失。实现+实测记录见 `archive/plans/2026-06-23-held-exec-outputs.md`；设计史在 git log（本 doc 由该 spec graduate 而来）。
+本机制收编了旧的**单跳 exec-data 数据线桥** `applyExecDataEdges`（只能紧邻下游，跨跳运行时 `REQUIRED_FIELD_MISSING`）——缓存是其超集，故 `applyExecDataEdges` 连同编辑期 `EXEC_DATA_NOT_ADJACENT` 警告（`validateExecDataAdjacency`）一并删除，约束消失。历史实现记录在 cold archive `2026-06-23-held-exec-outputs`;当前规则以本知识和源码为准。
