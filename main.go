@@ -37,6 +37,7 @@ import (
 	"yotta/internal/services"
 	"yotta/internal/services/androidadb"
 	"yotta/internal/services/asset"
+	"yotta/internal/services/browsercdp"
 	"yotta/internal/services/calibration"
 	"yotta/internal/services/codesnippet"
 	"yotta/internal/services/container"
@@ -186,6 +187,9 @@ func main() {
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
 	nodeSvc := node.NewService()
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
+	browserCDPSvc := browsercdp.NewService("")
+	browsercdp.RegisterNodeAsyncSource(nodeSvc, browserCDPSvc)
+	browserCDPProvider := browsercdp.NewClientProvider(browserCDPSvc)
 
 	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.
 	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.
@@ -288,7 +292,7 @@ func main() {
 			newGameProviderAdapter(), emitForRuntime,
 			clipSvc, app.Settings().ActiveMouseCounts360(),
 		)
-		rt.ControllerFactory = containerruntime.DefaultControllerFactory{}
+		rt.ControllerFactory = containerruntime.DefaultControllerFactory{BrowserCDP: browserCDPProvider}
 		// 起跑时从全局池解析引用闭包 → 快照进 rt (跑中不回查 store, 编辑不影响在跑实例).
 		rt.Subgraphs = subgraphClosureFor(&c, sgStore)
 		r := containerruntime.NewContainerRunner(rt)
