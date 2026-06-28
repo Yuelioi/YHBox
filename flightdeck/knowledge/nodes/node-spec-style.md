@@ -72,10 +72,11 @@ const (
 
 `internal/node/spec_consistency_test.go::TestSpecConsistency_PinNamingConvention` 解析所有 `Get`/`All()` 注册 spec, 验:
 
-1. 所有 data pin Name (`Type != "Exec"`) 首字母大写. (exec-out 名 lint **不查**大小写 — 靠人工保持 PascalCase, 见上.)
+1. 所有 data pin Name (`Type != "Exec"`) 首字母大写.
 2. 所有 Exec **in** pin Name == `"In"`. fire-only 节点无 exec in, 自然不触发 (无 lowercase-out 白名单).
-3. 所有 Number/Integer/Duration Default 是 `json.Number` 类型.
-4. 所有 String Default 非 `nil`.
+3. 所有 Exec **out** pin Name 首字母大写;唯一小写例外是 Switch 兜底出口 `"default"`.
+4. 所有 Number/Integer/Duration Default 是 `json.Number` 类型.
+5. 所有 String Default 非 `nil`.
 
 任何节点违反 → test fail 给出 (Kind, pin) 定位. 添加新节点 = 必跑这测试.
 

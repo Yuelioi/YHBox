@@ -16,6 +16,7 @@ import (
 //  1. 所有 data pin (Type != "Exec") Name 首字母大写 (节点级 whitelist 例外).
 //  2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
 //  3. Exec in pin 名统一 "In" (fire-only 节点 — Start/EventTick/SubgraphInput — 没 exec in, 不约束).
+//  4. Exec out pin 名统一 PascalCase; Switch 的 "default" 是唯一小写例外.
 //
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
@@ -66,6 +67,23 @@ func TestSpecConsistency_ExecInPinNamedIn(t *testing.T) {
 			}
 			if in.Name != "In" {
 				t.Errorf("Exec InputSpec.Name = %q, want \"In\" (kind=%s)", in.Name, spec.Kind)
+			}
+		}
+	}
+}
+
+func TestSpecConsistency_ExecOutPinNamingConvention(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		for _, out := range spec.Outputs {
+			if out.Type != nodepkg.TypeExec {
+				continue
+			}
+			if out.Name == "default" {
+				continue
+			}
+			if !startsWithUppercase(out.Name) {
+				t.Errorf("Exec OutputSpec.Name = %q, want PascalCase or reserved \"default\" (kind=%s)", out.Name, spec.Kind)
 			}
 		}
 	}
