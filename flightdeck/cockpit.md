@@ -17,6 +17,7 @@ Focus: **window-control 代码完成 + 逐任务 review + opus 整支终审过(�
 
 ## Open questions
 
+- **破坏性大升级决策基线(2026-06-29)**: 先不全量换 Rust,Go 保持主运行时,Rust 只下沉 Win32/native controller hot path;先引入 `Target/Controller/CoordinateSpace/Trace` 再谈 Android 和输入后端矩阵。topic 入口见 [work/target-controller-upgrade/](work/target-controller-upgrade/);调研与路线见 [knowledge/architecture/automation-framework-survey.md](knowledge/architecture/automation-framework-survey.md) + [knowledge/architecture/target-controller-upgrade-guide.md](knowledge/architecture/target-controller-upgrade-guide.md)。
 - **window-control 终审 Minor 池**(opus 判多数 acceptable debt,留收尾酌情):B1 gwlStyleIdx 机制注释、A1 测试无 break、C3 `r.rt.Container!=nil` 冗余守卫、C4 bring_foreground NeedsForeground 冗余无害、D2 GetWindow en `Fail` vs `Failed`、A2 GetWindow 无 NotFound 测试 等;详见 `.superpowers/sdd/progress.md` Minor 池。皆非阻塞。
 - **detect-click 终审两个已知局限**(已落 knowledge,等 demand):① Swipe 在 sendinput 后端走 PostMessage、读 RawInput 的游戏收不到拖拽;② pkg/input SendInput 原语不查注入数、失败上报不到节点层。
 - **预存失败基线**(跑测试判红按此排除):runtime 缺 fish fixture(apply_direction.json/watchdog_check.json)→ `TestApplyDirection_*`/`TestWatchdog_*`/`TestFishingV2Main_StateCycleSmoke`/`TestStateSHOPSELL_*`/`TestScanSubgraphDependencies_*` 恒红;前端 i18n:check 因 SettingsLauncher.vue/FloatingLauncherView.vue 42 处硬编码中文(residue)恒 exit 1。均非回归,判过看 parity OK + compile OK + residue 数不增。见 [knowledge/build/build.md](knowledge/build/build.md)。
