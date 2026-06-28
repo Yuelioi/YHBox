@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: add app/runtime wiring for ADB/CDP controller factories, then target-selection/discovery nodes for Android/Browser.
+Plan next slice: add Android ADB target-selection/discovery node/service, then CDP discovery/client lifecycle.
 
 ## Read now
 
@@ -33,6 +33,7 @@ Plan next slice: add app/runtime wiring for ADB/CDP controller factories, then t
 - plans/phase20-browser-cdp-controller.md
 - plans/phase21-runtime-active-target.md
 - plans/phase22-runtime-controller-factory.md
+- plans/phase23-app-controller-factory-wiring.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -53,6 +54,7 @@ Plan next slice: add app/runtime wiring for ADB/CDP controller factories, then t
 - ../../knowledge/architecture/target-controller-phase20-notes.md
 - ../../knowledge/architecture/target-controller-phase21-notes.md
 - ../../knowledge/architecture/target-controller-phase22-notes.md
+- ../../knowledge/architecture/target-controller-phase23-notes.md
 
 ## Read if
 
@@ -91,9 +93,10 @@ Done:
 - Phase 20 代码：增加可测试的 `BrowserCDPController`，覆盖截图、鼠标、滚轮、键盘、文本 CDP 调用，并写入 action trace。
 - Phase 21 代码：`RuntimeContext` 增加 active `target.Target`，`SetActiveWindow` 同步 Win32 target，input/capture adapters 通过 active target 构造 controller。
 - Phase 22 代码：runtime 增加可注入 controller factory，input/capture adapters 通过 active target 解析 `PointerInput` / `KeyboardInput` / `Screenshotter`。
+- Phase 23 代码：GUI run 和 MCP run 注入 `DefaultControllerFactory`；Android ADB target 可默认构造 controller，Browser CDP 明确等待 client wiring。
 
 Current:
-- 下一刀：app/runtime wiring for ADB/CDP controller factories，然后做 Android/Browser target-selection/discovery 节点。
+- 下一刀：Android ADB target-selection/discovery 节点/服务，然后做 CDP discovery/client lifecycle。
 
 ## Open questions
 
@@ -101,4 +104,4 @@ Current:
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
 - Capture node 已经进入 controller trace；Vision adapter/cached frame 仍直接走 runtime capture backend。
 - `container:action-trace` 已可订阅、前端查看、脱敏写文件；尚未实现历史文件浏览 UI、批处理策略、raw payload opt-in。
-- Backend profiles、Android ADB controller skeleton、Browser CDP controller skeleton、runtime active target、runtime controller factory 已落代码；尚未把 real ADB/CDP factory 接入 app wiring，也尚未做 CDP/ADB discovery。
+- Backend profiles、Android ADB controller skeleton、Browser CDP controller skeleton、runtime active target、runtime controller factory、default factory wiring 已落代码；尚未做 Android/Browser target-selection/discovery，也尚未做 CDP client lifecycle。
