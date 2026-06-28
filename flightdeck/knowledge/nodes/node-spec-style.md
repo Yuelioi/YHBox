@@ -29,7 +29,7 @@ Spec.InputSpec.Default 序列化进 JSON 走 `encoding/json`, 反序列化拿 `a
 | InputSpec.Type                                | Default 用                                                       | 不许用                                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `"Number"` / `"Integer"` / `"Duration"` | `json.Number("0")` (精度安全)                                  | 裸 `float64(0)` / `int(0)`                                                                 |
-| `"Bool"`                                    | `false`                                                        | 字符串 `"false"`                                                                             |
+| `"Bool"`                                    | `false` 或不设 Default                                        | 字符串 `"false"`                                                                             |
 | `"String"`                                  | `""` 或不设 Default                                            | 非 string 类型                                                                                 |
 | `"Point"`                                   | `map[string]any{"x": json.Number("0"), "y": json.Number("0")}` | 裸 struct                                                                                      |
 | `"Rect"`                                    | 同 Point 风格                                                    | 裸 struct                                                                                      |
@@ -77,6 +77,7 @@ const (
 3. 所有 Exec **out** pin Name 首字母大写;唯一小写例外是 Switch 兜底出口 `"default"`.
 4. 所有 Number/Integer/Duration Default 是 `json.Number` 类型.
 5. 所有 String Default 若设置则必须是 string; `nil` 表示无默认/必填, 允许存在.
+6. 所有 Bool Default 若设置则必须是 bool; `nil` 表示无默认/必填, 允许存在.
 
 任何节点违反 → test fail 给出 (Kind, pin) 定位. 添加新节点 = 必跑这测试.
 
@@ -85,7 +86,8 @@ const (
 ❌ `{Name: "varName", Type: "String", ...}` (lowercase 用户 pin)
 ❌ `{Name: "in", Type: TypeExec, ...}` (lowercase 框架 pin, 必须 `pinIn`)
 ❌ `Default: 0.0` (Number 必须 `json.Number("0")`)
-❌ `Default: nil` (String 必须 `""`)
+❌ `Default: "false"` (Bool 必须用 `false`)
+❌ `Default: 0` (Bool 必须用 `false`/`true`; 数字默认只用于 Number/Integer/Duration 且必须 `json.Number`)
 ❌ exec exit `"complete"`/`"yes"`/`"no"` (用 `Done`/`Found`/`NotFound` 等语义专名)
 
 ## 8. 迁移现状1
