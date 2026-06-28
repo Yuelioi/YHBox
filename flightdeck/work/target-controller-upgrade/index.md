@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Execute `plans/phase14-frontend-action-trace-log.md`: consume `container:action-trace` in the frontend log store and keep a structured trace cache for future UI.
+Plan next frontend slice: polish log panel action-trace rendering and/or build a compact trace drawer using `useLogStore().actionTraces`.
 
 ## Read now
 
@@ -36,6 +36,7 @@ Execute `plans/phase14-frontend-action-trace-log.md`: consume `container:action-
 - ../../knowledge/architecture/target-controller-phase11-notes.md
 - ../../knowledge/architecture/target-controller-phase12-notes.md
 - ../../knowledge/architecture/target-controller-phase13-notes.md
+- ../../knowledge/architecture/target-controller-phase14-notes.md
 
 ## Read if
 
@@ -65,9 +66,10 @@ Done:
 - Phase 11 代码：`InputService.MouseMoveRel` 经 `Win32Controller.MoveRelative` 执行，并写入带 source 的 `move-relative` trace。
 - Phase 12 代码：`CaptureService.Capture/CaptureROI` 经 `Win32Controller.Screenshot` 抓全帧，并写入带 source 的 `screenshot` trace。
 - Phase 13 代码：controller action trace 通过 `container:action-trace` runtime event 导出，同时保留 memory trace。
+- Phase 14 代码：前端订阅 `container:action-trace`，写入 log store 的结构化 `actionTraces` 和 `action` 日志行。
 
 Current:
-- 执行 Phase 14：frontend action trace log consumer.
+- 下一刀：action trace 日志展示 polish 或专用 trace drawer。
 
 ## Open questions
 
@@ -76,3 +78,4 @@ Current:
 - Runtime `InputService` 输入动作已全部经 `Win32Controller` 路由；截图/capture 尚未迁移到 controller。
 - Capture node 已经进入 controller trace；Vision adapter/cached frame 仍直接走 runtime capture backend。
 - `container:action-trace` 已可订阅；尚未实现前端查看器、持久化、批处理/脱敏策略。
+- 前端已有结构化 trace cache；LogPanel 尚未给 action 行专门视觉处理。
