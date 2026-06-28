@@ -6,7 +6,7 @@
 
 ## Next
 
-先写 Phase 8 plan，再继续迁移下一个窄范围动作。推荐下一步：node id / pin id trace metadata，或 TypeText controller routing。不要无计划迁移 drag/screenshot/UI。
+Execute `plans/phase8-trace-source.md`: attach container/node/input-pin source metadata to controller action trace records using per-node ServiceBundle copies. Keep UI, persistence, drag, and screenshot out of this phase.
 
 ## Read now
 
@@ -18,6 +18,7 @@
 - plans/phase5-click-controller.md
 - plans/phase6-move-controller.md
 - plans/phase7-scroll-controller.md
+- plans/phase8-trace-source.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -48,7 +49,7 @@ Done:
 - Phase 7 代码：`InputService.Scroll` 经 `Win32Controller` 执行，并记录最小 coordinate step。
 
 Current:
-- 等待 Phase 8 plan：优先考虑 node id / pin id trace metadata 或 TypeText controller routing。
+- 执行 Phase 8 trace source metadata：为 controller action trace 增加 container/node/in-pin source。
 
 ## Open questions
 
