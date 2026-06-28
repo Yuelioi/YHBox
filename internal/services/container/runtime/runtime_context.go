@@ -126,7 +126,15 @@ func (rt *RuntimeContext) ensureTraceRecorder() *automationtrace.MemoryRecorder 
 }
 
 func (rt *RuntimeContext) TraceRecorder() automationtrace.Recorder {
-	return rt.ensureTraceRecorder()
+	containerID := ""
+	if rt.Container != nil {
+		containerID = rt.Container.ID
+	}
+	return emittingTraceRecorder{
+		base:        rt.ensureTraceRecorder(),
+		containerID: containerID,
+		emit:        rt.Emit,
+	}
 }
 
 func (rt *RuntimeContext) TraceRecords() []automationtrace.ActionRecord {

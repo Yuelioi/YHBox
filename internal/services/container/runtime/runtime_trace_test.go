@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"testing"
+	"time"
 
 	"yotta/internal/automation/target"
 	automationtrace "yotta/internal/automation/trace"
@@ -10,18 +11,31 @@ import (
 )
 
 func newTraceRuntime() *RuntimeContext {
-	return NewRuntimeContext(&container.Container{}, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	return NewRuntimeContext(&container.Container{ID: "trace-container"}, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 }
 
 func traceTestRecord(action string) automationtrace.ActionRecord {
+	started := time.UnixMilli(1000)
+	ended := time.UnixMilli(1250)
 	return automationtrace.ActionRecord{
 		Action: action,
+		Source: automationtrace.ActionSource{
+			ContainerID: "trace-container",
+			NodeID:      "node-1",
+			NodeKind:    "ClickAt",
+			InPin:       "In",
+		},
 		Target: target.Target{
 			ID:   "win32:100",
 			Kind: target.KindWin32Window,
 			Ref:  target.TargetRef{HWND: 100},
 		},
-		Status: automationtrace.StatusSuccess,
+		Backend:   "sendinput",
+		Request:   map[string]any{"x": 0.25},
+		Result:    map[string]any{"ok": true},
+		Status:    automationtrace.StatusSuccess,
+		StartedAt: started,
+		EndedAt:   ended,
 	}
 }
 
@@ -76,5 +90,39 @@ func TestRuntimeContextClearTrace(t *testing.T) {
 	}
 	if records := rt2.TraceRecords(); len(records) != 1 {
 		t.Fatalf("rt2 len(records) after rt1 clear = %d, want 1", len(records))
+	}
+}
+
+func TestRuntimeContextTraceRecorderEmitsActionTraceEvent(t *testing.T) {
+	rt := newTraceRuntime()
+	var gotName string
+	var gotData any
+	rt.Emit = func(name string, data any) {
+		gotName = name
+		gotData = data
+	}
+
+	rt.TraceRecorder().Record(traceTestRecord("click"))
+
+	if gotName != "container:action-trace" {
+		t.Fatalf("event name = %q, want container:action-trace", gotName)
+	}
+	payload, ok := gotData.(map[string]any)
+	if !ok {
+		t.Fatalf("payload type = %T, want map[string]any", gotData)
+	}
+	if payload["containerId"] != "trace-container" ||
+		payload["action"] != "click" ||
+		payload["backend"] != "sendinput" ||
+		payload["status"] != automationtrace.StatusSuccess ||
+		payload["durationMs"] != int64(250) {
+		t.Fatalf("payload = %#v", payload)
+	}
+	source, ok := payload["source"].(automationtrace.ActionSource)
+	if !ok || source.NodeID != "node-1" || source.NodeKind != "ClickAt" || source.InPin != "In" {
+		t.Fatalf("source payload = %#v", payload["source"])
+	}
+	if records := rt.TraceRecords(); len(records) != 1 || records[0].Action != "click" {
+		t.Fatalf("memory trace records = %#v", records)
 	}
 }
