@@ -2,10 +2,13 @@ package runtime
 
 import (
 	"context"
+	"image"
+	"image/color"
 	"testing"
 
 	automationtrace "yotta/internal/automation/trace"
 	"yotta/internal/node"
+	_ "yotta/internal/nodes/image"
 	_ "yotta/internal/nodes/input"
 	"yotta/internal/services/container"
 	"yotta/internal/services/execution"
@@ -191,6 +194,27 @@ func TestExecNodeViaFramework_MouseMoveRelTraceIncludesNodeSource(t *testing.T) 
 	assertSingleTraceSource(t, records, "move-relative", "trace-move-relative-container", "move-rel-1", "MouseMoveRel")
 	if len(records[0].CoordinateSteps) != 0 {
 		t.Fatalf("coordinate steps len = %d, want 0", len(records[0].CoordinateSteps))
+	}
+}
+
+func TestExecNodeViaFramework_CaptureTraceIncludesNodeSource(t *testing.T) {
+	rt, _, runner := newTraceSourceRuntime(t, "trace-capture-container", container.GraphNode{
+		ID:     "capture-1",
+		Kind:   "Capture",
+		Config: map[string]any{},
+	})
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	img.SetRGBA(0, 0, color.RGBA{R: 255, A: 255})
+	rt.Capture = fakeCapture{img: img}
+
+	if _, err := runner.execNodeViaFramework(context.Background(), runner.nodesByID["capture-1"], ExecToken{NodeID: "capture-1", InPin: "In"}); err != nil {
+		t.Fatalf("execNodeViaFramework error = %v", err)
+	}
+
+	records := rt.TraceRecords()
+	assertSingleTraceSource(t, records, "screenshot", "trace-capture-container", "capture-1", "Capture")
+	if records[0].Target.ID != "win32:84" {
+		t.Fatalf("trace target id = %q, want win32:84", records[0].Target.ID)
 	}
 }
 

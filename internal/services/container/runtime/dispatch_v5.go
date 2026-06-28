@@ -79,6 +79,12 @@ func (r *ContainerRunner) bundleForNode(graphNode *container.GraphNode, tok Exec
 		NodeKind:    graphNode.Kind,
 		InPin:       tok.InPin,
 	})
+	bundle.Capture = newCaptureAdapterWithSource(r.rt, automationtrace.ActionSource{
+		ContainerID: containerID,
+		NodeID:      graphNode.ID,
+		NodeKind:    graphNode.Kind,
+		InPin:       tok.InPin,
+	})
 	return bundle
 }
 

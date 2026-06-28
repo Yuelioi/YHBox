@@ -596,17 +596,32 @@ func NewWindowAdapter(rt *RuntimeContext) node.WindowService { return &windowAda
 // 抓帧 + png.Encode 返字节流 (跟 screenshot.go 一致).
 // ============================================================================
 
-type captureAdapter struct{ rt *RuntimeContext }
+type captureAdapter struct {
+	rt          *RuntimeContext
+	traceSource automationtrace.ActionSource
+}
 
-func (a *captureAdapter) Capture() ([]byte, error) {
+func (a *captureAdapter) controller() (*controller.Win32Controller, error) {
 	if a.rt.Capture == nil {
 		return nil, fmt.Errorf("capture backend not initialised")
 	}
-	h, err := a.rt.ActiveHWND()
-	if err != nil {
-		return nil, err
+	wh := a.rt.WindowHandle()
+	if wh.HWND == 0 {
+		return nil, ErrNoActiveWindow
 	}
-	frame, err := a.rt.Capture.Frame(win.HWND(h))
+	backend := ""
+	if a.rt.Capture != nil {
+		backend = a.rt.Capture.Name()
+	}
+	return controller.NewWin32Controller(windowHandleToTarget(wh), controller.Win32Deps{
+		Capture: runtimeWin32Capture{backend: a.rt.Capture},
+		Trace:   traceRecorderWithSource(a.rt.TraceRecorder(), a.traceSource),
+		Backend: backend,
+	})
+}
+
+func (a *captureAdapter) Capture() ([]byte, error) {
+	frame, err := a.captureFrame()
 	if err != nil {
 		return nil, err
 	}
@@ -621,14 +636,7 @@ func (a *captureAdapter) Capture() ([]byte, error) {
 }
 
 func (a *captureAdapter) CaptureROI(roi node.Geometry) ([]byte, error) {
-	if a.rt.Capture == nil {
-		return nil, fmt.Errorf("capture backend not initialised")
-	}
-	h, err := a.rt.ActiveHWND()
-	if err != nil {
-		return nil, err
-	}
-	frame, err := a.rt.Capture.Frame(win.HWND(h))
+	frame, err := a.captureFrame()
 	if err != nil {
 		return nil, err
 	}
@@ -643,8 +651,26 @@ func (a *captureAdapter) CaptureROI(roi node.Geometry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (a *captureAdapter) captureFrame() (*image.RGBA, error) {
+	ctrl, err := a.controller()
+	if err != nil {
+		return nil, err
+	}
+	frame, err := ctrl.Screenshot(context.Background(), controller.ScreenshotRequest{
+		Space: target.SpaceWindowClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return frame.Image, nil
+}
+
 // NewCaptureAdapter wrap *RuntimeContext into node.CaptureService.
 func NewCaptureAdapter(rt *RuntimeContext) node.CaptureService { return &captureAdapter{rt: rt} }
+
+func newCaptureAdapterWithSource(rt *RuntimeContext, source automationtrace.ActionSource) node.CaptureService {
+	return &captureAdapter{rt: rt, traceSource: source}
+}
 
 // ============================================================================
 // VisionAdapter — rt.Matcher + rt.Capture → node.VisionService

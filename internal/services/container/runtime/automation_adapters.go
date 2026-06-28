@@ -5,13 +5,36 @@ import (
 
 	"github.com/lxn/win"
 
+	"yotta/internal/automation/controller"
 	"yotta/internal/automation/target"
+	pkgcapture "yotta/pkg/capture"
 	pkginput "yotta/pkg/input"
 	"yotta/pkg/winutil"
 )
 
 type runtimeWin32Input struct {
 	backend pkginput.Backend
+}
+
+type runtimeWin32Capture struct {
+	backend pkgcapture.IBackend
+}
+
+func (a runtimeWin32Capture) Frame(hwnd uintptr) (controller.Frame, error) {
+	img, err := a.backend.Frame(win.HWND(hwnd))
+	if err != nil {
+		return controller.Frame{}, err
+	}
+	size := target.Size{}
+	if img != nil {
+		bounds := img.Bounds()
+		size = target.Size{W: bounds.Dx(), H: bounds.Dy()}
+	}
+	return controller.Frame{
+		Image: img,
+		Space: target.SpaceWindowClient,
+		Size:  size,
+	}, nil
 }
 
 func (a runtimeWin32Input) Click(hwnd uintptr, xRatio, yRatio float64, button string, durMs int) error {
