@@ -2,7 +2,7 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1-66 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard；Phase 63 新增 `NeedsTarget`，输入/截图/视觉节点不再伪装成 Win32 窗口节点；Phase 64 新增 `TargetCapabilities`，Android/Browser/Win32 支持矩阵开始进入静态校验；Phase 65-66 开始补 config-dependent capability。
+破坏性大升级 topic。调研、总体设计、Phase 1-67 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard；Phase 63 新增 `NeedsTarget`，输入/截图/视觉节点不再伪装成 Win32 窗口节点；Phase 64 新增 `TargetCapabilities`，Android/Browser/Win32 支持矩阵开始进入静态校验；Phase 65-66 开始补 config-dependent capability；Phase 67 增加 capability 词表漂移 guard。
 
 ## Next
 
@@ -77,6 +77,7 @@ Plan next slice: continue capability matrix hardening for target-specific app/br
 - plans/phase64-target-capabilities.md
 - plans/phase65-config-dependent-target-capabilities.md
 - plans/phase66-button-semantics.md
+- plans/phase67-capability-vocabulary-guard.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -141,6 +142,7 @@ Plan next slice: continue capability matrix hardening for target-specific app/br
 - ../../knowledge/architecture/target-controller-phase64-notes.md
 - ../../knowledge/architecture/target-controller-phase65-notes.md
 - ../../knowledge/architecture/target-controller-phase66-notes.md
+- ../../knowledge/architecture/target-controller-phase67-notes.md
 
 ## Read if
 
@@ -224,6 +226,7 @@ Done:
 - Phase 64 代码/文档：`NeedsTarget` 节点新增 `TargetCapabilities`；catalog/Markdown 暴露能力；validator 按最近上游 target selection 对照 controller profile，提前拦截 Android `MouseMoveRel` / `KeyPress` 等不支持动作。
 - Phase 65 代码/文档：validator 增加 config-derived target capability；`ClickAt` / `ClickTemplate` 在 `Keys` 非空时额外要求 `key-state`，Android ADB 普通点击继续放行、修饰键点击提前报错。
 - Phase 66 代码/文档：`ClickAt` / `ClickTemplate` 在 `Button=right|middle` 时额外要求 `mouse-button`，Android ADB tap 不再静默伪装右键/中键。
+- Phase 67 代码/文档：新增 node spec consistency guard，所有 `TargetCapabilities` 字符串必须被 `controller.CapabilitySet` 识别，防止节点/控制器词表漂移。
 
 Current:
 - 下一刀：继续收敛 capability matrix，优先处理目标特有 app/browser 动作和 path-sensitive target selection。

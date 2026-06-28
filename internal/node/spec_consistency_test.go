@@ -5,6 +5,7 @@ import (
 	"testing"
 	"unicode"
 
+	"yotta/internal/automation/controller"
 	nodepkg "yotta/internal/node"
 
 	_ "yotta/internal/nodes/all"
@@ -32,6 +33,30 @@ func TestSpecConsistency_DynamicFlagsMutuallyExclusive(t *testing.T) {
 	for _, rn := range nodepkg.All() {
 		if rn.Spec.DynamicOutputs && rn.Spec.DynamicDataFields {
 			t.Errorf("kind %q 同开 DynamicOutputs + DynamicDataFields(互斥)", rn.Spec.Kind)
+		}
+	}
+}
+
+func TestSpecConsistency_TargetCapabilitiesKnownByController(t *testing.T) {
+	allControllerCaps := controller.CapabilitySet{
+		Screenshot:   true,
+		Click:        true,
+		Move:         true,
+		Scroll:       true,
+		MouseButton:  true,
+		Drag:         true,
+		MoveRelative: true,
+		KeyChord:     true,
+		KeyState:     true,
+		Text:         true,
+		StartApp:     true,
+		StopApp:      true,
+	}
+	for _, rn := range nodepkg.All() {
+		for _, cap := range rn.Spec.TargetCapabilities {
+			if !allControllerCaps.Has(controller.Capability(cap)) {
+				t.Errorf("kind=%s target capability %q is not recognized by controller.CapabilitySet", rn.Spec.Kind, cap)
+			}
 		}
 	}
 }
