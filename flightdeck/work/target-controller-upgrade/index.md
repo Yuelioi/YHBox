@@ -2,7 +2,7 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1-53 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning 等 guard 已落地。
+破坏性大升级 topic。调研、总体设计、Phase 1-54 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema 等 guard 已落地。
 
 ## Next
 
@@ -64,6 +64,7 @@ Plan next slice: continue robustness hardening around target/runtime contract co
 - plans/phase51-point-rect-default-spec-guard.md
 - plans/phase52-frontend-build-warning-triage.md
 - plans/phase53-json-default-spec-guard.md
+- plans/phase54-field-schema-shape-guard.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -115,6 +116,7 @@ Plan next slice: continue robustness hardening around target/runtime contract co
 - ../../knowledge/architecture/target-controller-phase51-notes.md
 - ../../knowledge/architecture/target-controller-phase52-notes.md
 - ../../knowledge/architecture/target-controller-phase53-notes.md
+- ../../knowledge/architecture/target-controller-phase54-notes.md
 
 ## Read if
 
@@ -184,9 +186,10 @@ Done:
 - Phase 51 代码：Point/Rect default 非 nil 时必须为 node.Point/node.Rect 的 spec guard，并修正 node spec 知识里的过期 map/struct 说法。
 - Phase 52 代码/文档：消掉前端 build 的 ineffective dynamic import warning，并记录剩余 chunk/plugin warning 为非阻塞基线。
 - Phase 53 代码：JSON default 非 nil 时必须为 map[string]any 的 spec guard。
+- Phase 54 代码：InputSpec.Schema 递归结构 well-formed guard。
 
 Current:
-- 下一刀：继续健壮性硬化，优先 schema/widget 契约补强、controller/coordinate 边界契约、bundle budget 后续拆分。
+- 下一刀：继续健壮性硬化，优先 controller/coordinate 边界契约、bundle budget 后续拆分、剩余 widget/schema 语义契约。
 
 ## Open questions
 

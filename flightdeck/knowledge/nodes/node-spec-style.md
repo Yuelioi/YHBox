@@ -80,6 +80,7 @@ const (
 6. 所有 Bool Default 若设置则必须是 bool; `nil` 表示无默认/必填, 允许存在.
 7. 所有 Point/Rect Default 若设置则必须是 `node.Point` / `node.Rect`; `nil` 表示无默认/必填, 允许存在.
 8. 所有 JSON Default 若设置则必须是 `map[string]any`; JSON 输入需要空对象时显式设 `{}`.
+9. 所有 `InputSpec.Schema` 递归结构必须 well-formed: schema type 白名单、array 有 items、field 有 key/schema、enum 有 value。
 
 任何节点违反 → test fail 给出 (Kind, pin) 定位. 添加新节点 = 必跑这测试.
 

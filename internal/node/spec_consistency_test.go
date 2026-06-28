@@ -21,6 +21,7 @@ import (
 //  6. Bool InputSpec.Default 若设置, 必须是 bool; nil 表示无默认/必填.
 //  7. Point/Rect InputSpec.Default 若设置, 必须是 node.Point/node.Rect.
 //  8. JSON InputSpec.Default 若设置, 必须是 map[string]any.
+//  9. FieldSchema 递归结构必须 well-formed.
 //
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
@@ -203,6 +204,18 @@ func TestSpecConsistency_JSONDefaultsAreObjectWhenSet(t *testing.T) {
 	}
 }
 
+func TestSpecConsistency_FieldSchemasAreWellFormed(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		for _, in := range spec.Inputs {
+			if in.Schema == nil {
+				continue
+			}
+			validateFieldSchema(t, spec.Kind, in.Name, in.Schema)
+		}
+	}
+}
+
 func TestSpecConsistency_WidgetPropsShape(t *testing.T) {
 	validKinds := map[string]bool{
 		"":                true,
@@ -312,6 +325,44 @@ func validateAsyncDropdownProps(t *testing.T, kind, pin string, props map[string
 				t.Errorf("kind=%s pin=%s applyMeta target %q is exec input", kind, pin, target)
 			}
 		}
+	}
+}
+
+func validateFieldSchema(t *testing.T, kind, path string, schema *nodepkg.FieldSchema) {
+	t.Helper()
+	switch schema.Type {
+	case "object", "tuple":
+		for i, field := range schema.Fields {
+			if field.Key == "" {
+				t.Errorf("kind=%s schema=%s field[%d] missing key", kind, path, i)
+			}
+			if field.Schema == nil {
+				t.Errorf("kind=%s schema=%s.%s missing nested schema", kind, path, field.Key)
+				continue
+			}
+			validateFieldSchema(t, kind, path+"."+field.Key, field.Schema)
+		}
+	case "array":
+		if schema.Items == nil {
+			t.Errorf("kind=%s schema=%s array missing items schema", kind, path)
+			return
+		}
+		validateFieldSchema(t, kind, path+"[]", schema.Items)
+	case "enum":
+		if len(schema.Options) == 0 {
+			t.Errorf("kind=%s schema=%s enum missing options", kind, path)
+		}
+		for i, opt := range schema.Options {
+			if opt.Value == nil {
+				t.Errorf("kind=%s schema=%s enum option[%d] missing value", kind, path, i)
+			}
+		}
+	case "number", "string", "bool":
+		if schema.Items != nil || len(schema.Fields) > 0 || len(schema.Options) > 0 {
+			t.Errorf("kind=%s schema=%s scalar type %q has nested fields/items/options", kind, path, schema.Type)
+		}
+	default:
+		t.Errorf("kind=%s schema=%s unknown FieldSchema.Type %q", kind, path, schema.Type)
 	}
 }
 
