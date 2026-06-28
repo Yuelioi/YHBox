@@ -8,24 +8,29 @@ import (
 	nodepkg "yotta/internal/node"
 
 	// 触发所有节点 init().
+	_ "yotta/internal/nodes/ai"
+	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/event"
+	_ "yotta/internal/nodes/image"
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
 	_ "yotta/internal/nodes/random" // RandomInt/RandomFloat/RandomBool
+	_ "yotta/internal/nodes/script"
 	_ "yotta/internal/nodes/stopwatch"
 	_ "yotta/internal/nodes/system"
 	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/window"
 )
 
 // lint — 守护 node-spec 风格约定. 任何节点新加 / 改 Spec 违反这些规则 → fail.
 //
 // 覆盖:
-//   1. 所有 data pin (Type != "Exec") Name 首字母大写 (节点级 whitelist 例外).
-//   2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
-//   3. Exec in pin 名统一 "In" (fire-only 节点 — Start/EventTick/SubgraphInput — 没 exec in, 不约束).
+//  1. 所有 data pin (Type != "Exec") Name 首字母大写 (节点级 whitelist 例外).
+//  2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
+//  3. Exec in pin 名统一 "In" (fire-only 节点 — Start/EventTick/SubgraphInput — 没 exec in, 不约束).
 //
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
@@ -104,6 +109,136 @@ func TestSpecConsistency_NumberDefaultsAreJSONNumber(t *testing.T) {
 					spec.Kind, in.Name, in.Type, in.Default)
 			}
 		}
+	}
+}
+
+func TestSpecConsistency_WidgetPropsShape(t *testing.T) {
+	validKinds := map[string]bool{
+		"":                true,
+		"ai-connection":   true,
+		"async-dropdown":  true,
+		"checkbox":        true,
+		"code":            true,
+		"color-preset":    true,
+		"dropdown":        true,
+		"duration":        true,
+		"expr":            true,
+		"icon-preset":     true,
+		"json":            true,
+		"key-capture":     true,
+		"number":          true,
+		"password":        true,
+		"rect-editor":     true,
+		"slider":          true,
+		"template-picker": true,
+		"text":            true,
+		"textarea":        true,
+	}
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		inputNames := map[string]nodepkg.InputSpec{}
+		for _, in := range spec.Inputs {
+			inputNames[in.Name] = in
+		}
+		for _, in := range spec.Inputs {
+			w := in.Widget
+			if !validKinds[w.Kind] {
+				t.Errorf("kind=%s pin=%s unknown widget kind %q", spec.Kind, in.Name, w.Kind)
+				continue
+			}
+			switch w.Kind {
+			case "dropdown":
+				validateDropdownProps(t, spec.Kind, in.Name, w.Props)
+			case "slider":
+				validateSliderProps(t, spec.Kind, in.Name, w.Props)
+			case "async-dropdown":
+				validateAsyncDropdownProps(t, spec.Kind, in.Name, w.Props, inputNames)
+			}
+		}
+	}
+}
+
+func validateDropdownProps(t *testing.T, kind, pin string, props map[string]any) {
+	t.Helper()
+	options, ok := props["options"].([]any)
+	if !ok || len(options) == 0 {
+		t.Errorf("kind=%s pin=%s dropdown requires non-empty options, got %#v", kind, pin, props["options"])
+		return
+	}
+	for i, raw := range options {
+		opt, ok := raw.(map[string]any)
+		if !ok {
+			t.Errorf("kind=%s pin=%s dropdown option[%d] type %T, want object", kind, pin, i, raw)
+			continue
+		}
+		if _, ok := opt["value"]; !ok {
+			t.Errorf("kind=%s pin=%s dropdown option[%d] missing value", kind, pin, i)
+		}
+	}
+}
+
+func validateSliderProps(t *testing.T, kind, pin string, props map[string]any) {
+	t.Helper()
+	min, minOK := numberProp(props, "min")
+	max, maxOK := numberProp(props, "max")
+	step, stepOK := numberProp(props, "step")
+	if !minOK || !maxOK || !stepOK {
+		t.Errorf("kind=%s pin=%s slider requires numeric min/max/step, got %#v", kind, pin, props)
+		return
+	}
+	if min >= max {
+		t.Errorf("kind=%s pin=%s slider min >= max (%v >= %v)", kind, pin, min, max)
+	}
+	if step <= 0 {
+		t.Errorf("kind=%s pin=%s slider step must be > 0, got %v", kind, pin, step)
+	}
+}
+
+func validateAsyncDropdownProps(t *testing.T, kind, pin string, props map[string]any, inputs map[string]nodepkg.InputSpec) {
+	t.Helper()
+	source, ok := props["asyncSource"].(string)
+	if !ok || source == "" {
+		t.Errorf("kind=%s pin=%s async-dropdown requires asyncSource, got %#v", kind, pin, props["asyncSource"])
+	}
+	if raw, ok := props["applyMeta"]; ok {
+		applyMeta, ok := raw.(map[string]any)
+		if !ok {
+			t.Errorf("kind=%s pin=%s applyMeta type %T, want object", kind, pin, raw)
+			return
+		}
+		for metaKey, rawTarget := range applyMeta {
+			target, ok := rawTarget.(string)
+			if metaKey == "" || !ok || target == "" {
+				t.Errorf("kind=%s pin=%s invalid applyMeta entry %q=%#v", kind, pin, metaKey, rawTarget)
+				continue
+			}
+			targetInput, exists := inputs[target]
+			if !exists {
+				t.Errorf("kind=%s pin=%s applyMeta target %q does not exist", kind, pin, target)
+				continue
+			}
+			if targetInput.Type == nodepkg.TypeExec {
+				t.Errorf("kind=%s pin=%s applyMeta target %q is exec input", kind, pin, target)
+			}
+		}
+	}
+}
+
+func numberProp(props map[string]any, key string) (float64, bool) {
+	switch v := props[key].(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return f, err == nil
+	default:
+		return 0, false
 	}
 }
 
