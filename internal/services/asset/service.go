@@ -11,7 +11,7 @@ import (
 
 // CaptureAdapter 截取指定容器目标窗口当前帧 PNG bytes. main.go 注入 (截帧仍需窗口上下文).
 type CaptureAdapter interface {
-	Capture(containerID string) ([]byte, error)
+	Capture(containerID, nodeID string) ([]byte, error)
 	// Resolution 返目标窗口客户区分辨率 [宽,高]; 窗口没开/容器无 WindowTarget → error.
 	// 走 GetClientRect, 不截帧 — 与截图帧尺寸 (recRes) 同源, 故可拿来精确匹配变体档.
 	Resolution(containerID string) ([2]int, error)
@@ -222,11 +222,11 @@ func (s *Service) ReadBlobDataURL(sha string) (string, error) {
 }
 
 // Capture 截取指定容器目标窗口当前帧 (制作模板时取底图). 保留 containerID — 截帧需窗口上下文.
-func (s *Service) Capture(containerID string) (string, error) {
+func (s *Service) Capture(containerID, nodeID string) (string, error) {
 	if s.capture == nil {
 		return "", fmt.Errorf("capture adapter 未注入")
 	}
-	pngData, err := s.capture.Capture(containerID)
+	pngData, err := s.capture.Capture(containerID, nodeID)
 	if err != nil {
 		return "", err
 	}

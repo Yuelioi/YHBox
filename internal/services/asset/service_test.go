@@ -16,8 +16,21 @@ type stubCaptureAdapter struct {
 	err error
 }
 
-func (s stubCaptureAdapter) Capture(string) ([]byte, error)         { return nil, nil }
+func (s stubCaptureAdapter) Capture(string, string) ([]byte, error) { return nil, nil }
 func (s stubCaptureAdapter) Resolution(string) ([2]int, error)      { return s.res, s.err }
+
+type recordingCaptureAdapter struct {
+	containerID string
+	nodeID      string
+}
+
+func (r *recordingCaptureAdapter) Capture(containerID, nodeID string) ([]byte, error) {
+	r.containerID = containerID
+	r.nodeID = nodeID
+	return []byte("png"), nil
+}
+
+func (r *recordingCaptureAdapter) Resolution(string) ([2]int, error) { return [2]int{}, nil }
 
 func pngDataURL(t *testing.T, w, h int) string {
 	t.Helper()
@@ -110,6 +123,23 @@ func TestService_ReadBlobDataURL(t *testing.T) {
 	}
 	if !bytes.HasPrefix([]byte(url), []byte("data:image/png;base64,")) {
 		t.Errorf("bad data url prefix: %.40s", url)
+	}
+}
+
+func TestService_CapturePassesNodeID(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	capture := &recordingCaptureAdapter{}
+	svc := NewService(s, capture)
+
+	dataURL, err := svc.Capture("container-1", "clickat_e1lpv6")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dataURL != "data:image/png;base64,cG5n" {
+		t.Fatalf("Capture dataURL = %q, want png data URL", dataURL)
+	}
+	if capture.containerID != "container-1" || capture.nodeID != "clickat_e1lpv6" {
+		t.Fatalf("Capture args = (%q, %q), want (container-1, clickat_e1lpv6)", capture.containerID, capture.nodeID)
 	}
 }
 

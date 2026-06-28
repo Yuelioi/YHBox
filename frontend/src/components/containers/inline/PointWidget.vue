@@ -67,6 +67,7 @@ const toast = useToast()
 const props = defineProps<{
   modelValue: PointValue | null
   fieldPath: string
+  nodeId?: string
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: PointValue): void }>()
 
@@ -97,7 +98,7 @@ function onChange(field: 'x' | 'y', displayVal: number) {
 async function setUnit(u: 'percent' | 'px') {
   const targetPx = u === 'px'
   if (targetPx === isPx.value) return // already that unit, no-op
-  const info = await backend.tools.mousePos(tplStore.containerId, '')
+  const info = await backend.tools.mousePos(tplStore.containerId, props.nodeId ?? '')
   const hasSize = !!info?.hasGame && info.clientW > 0 && info.clientH > 0
   if (!hasSize) {
     notifyNoSize()
@@ -140,7 +141,7 @@ async function onPickPoint() {
   picking.value = true
   try {
     const waiter = awaitWailsEvent<{ id: string; payload: PointPayload }>('tools:picker-result', (p) => p?.id === id)
-    const r = await backend.tools.openScreenPicker('point', id, tplStore.containerId)
+    const r = await backend.tools.openScreenPicker('point', id, tplStore.containerId, props.nodeId ?? '')
     if (r === undefined) return
     const res = await waiter
     const p = res.payload

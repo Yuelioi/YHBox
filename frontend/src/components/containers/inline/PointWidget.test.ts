@@ -56,7 +56,7 @@ function makeStub(name: string) {
   })
 }
 
-function mountPointWidget(modelValue: PointValue | null, fieldPath = 'pt') {
+function mountPointWidget(modelValue: PointValue | null, fieldPath = 'pt', nodeId = '') {
   const emitted: PointValue[] = []
   const valueRef = ref<PointValue | null>(modelValue)
 
@@ -66,6 +66,7 @@ function mountPointWidget(modelValue: PointValue | null, fieldPath = 'pt') {
         h(PointWidget, {
           modelValue: valueRef.value,
           fieldPath,
+          nodeId,
           'onUpdate:modelValue': (v: PointValue) => {
             emitted.push(v)
             valueRef.value = v
@@ -383,6 +384,21 @@ describe('PointWidget', () => {
     await clickPickButton(wrapper)
     const e = lastEmit(wrapper)
     expect(e).toEqual({ x: 0.3, y: 0.7 })
+    wrapper.app.unmount()
+    wrapper.el.remove()
+  })
+
+  it('截图取点传当前节点 ID 给 ScreenPicker', async () => {
+    mockPicker({ xRatio: 0.3, yRatio: 0.7, screenW: 1920, screenH: 1080 })
+    const wrapper = mountPointWidget({ x: 0, y: 0 }, 'Point', 'clickat_e1lpv6')
+    await clickPickButton(wrapper)
+
+    expect(mockBackend.tools.openScreenPicker).toHaveBeenCalledWith(
+      'point',
+      expect.any(String),
+      expect.any(String),
+      'clickat_e1lpv6',
+    )
     wrapper.app.unmount()
     wrapper.el.remove()
   })

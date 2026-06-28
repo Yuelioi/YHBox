@@ -318,7 +318,7 @@ export const backend = {
     updateMeta: (guid: string, name: string, description: string, category: string, tags: string[]) =>
       invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
     // Capture 截当前容器目标窗口帧 (保留 containerID — 截帧需窗口上下文).
-    capture: (containerID: string) => invoke(AssetService.Capture, containerID),
+    capture: (containerID: string, nodeID = '') => invoke(AssetService.Capture, containerID, nodeID),
     // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
     readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
     gcBlobs: () => invoke(AssetService.GCBlobs),

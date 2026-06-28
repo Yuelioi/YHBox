@@ -4,6 +4,7 @@
     v-if="schema.widget === 'geometry'"
     :model-value="modelValue"
     :field-path="fieldPath"
+    :node-id="nodeId"
     @update:model-value="emitVal"
   />
 
@@ -12,6 +13,7 @@
     v-else-if="schema.widget === 'point'"
     :model-value="modelValue"
     :field-path="fieldPath"
+    :node-id="nodeId"
     @update:model-value="emitVal"
   />
 
@@ -88,6 +90,7 @@
           :model-value="modelValue?.[field.key]"
           :field-path="fieldPath + '.' + field.key"
           :kind="kind"
+          :node-id="nodeId"
           @update:model-value="(v: any) => updateChild(field.key, v)"
         />
       </div>
@@ -162,6 +165,7 @@
           :model-value="Array.isArray(modelValue) ? modelValue[idx] : undefined"
           :field-path="fieldPath + '.' + field.key"
           :kind="kind"
+          :node-id="nodeId"
           @update:model-value="(v: any) => updateTupleChild(idx, v)"
         />
       </div>
@@ -238,6 +242,7 @@
           :model-value="item"
           :field-path="fieldPath"
           :kind="kind"
+          :node-id="nodeId"
           :no-text-mode="true"
           @update:model-value="(v: any) => updateArrayChild(idx, v)"
         />
@@ -305,6 +310,7 @@ const props = defineProps<{
   modelValue: any
   fieldPath: string
   kind: string
+  nodeId?: string
   /** 抑制本节点自身的「结构 ⇄ JSON」切换按钮 (array 项内的 object/tuple 用 —
    *  整组 JSON 编辑由 array 层统一提供, 项内不再各挂一个开关). */
   noTextMode?: boolean

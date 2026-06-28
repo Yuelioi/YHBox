@@ -341,6 +341,7 @@ const colorSpace = computed(() => String(route.query.colorSpace ?? 'hsv') as 'hs
 const extracting = ref(false)
 const requestID = computed(() => String(route.query.id ?? ''))
 const containerID = computed(() => String(route.query.containerID ?? ''))
+const nodeID = computed(() => String(route.query.nodeID ?? ''))
 // template_recapture: 重拍目标资产 GUID (存成同 GUID 的新分辨率档).
 const recaptureGUID = computed(() => String(route.query.guid ?? ''))
 
@@ -479,7 +480,7 @@ async function capture() {
   cursorNat.value = null
   cursorColor.value = null
   try {
-    const r = await backend.assets.capture(containerID.value)
+    const r = await backend.assets.capture(containerID.value, nodeID.value)
     if (r) dataURL.value = r as string
   } finally {
     capturing.value = false

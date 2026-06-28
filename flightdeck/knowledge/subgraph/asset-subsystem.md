@@ -60,7 +60,7 @@ GUID/sha 寻址天然幂等 → **冲突/strategy 概念整个删掉了**。
 
 ## RPC 面 (`asset.Service`, 全局无 containerID)
 
-`list` / `get(guid)` / `saveTemplateCapture(dataURL,name,tags,recRes,region)→guid` / `addTemplateVariant(guid,...)→guid` / `removeVariant(guid,w,h)→guid` / `updateMeta(guid,name,tags)` / `delete(guid)→referrers` / `referrers(guid)` / `capture(containerID)` / `currentResolution(containerID)→[w,h]` / `pickVariant(guid,w,h)→{index,exact}` / `readBlobDataURL(sha)` / `gcBlobs()`。
+`list` / `get(guid)` / `saveTemplateCapture(dataURL,name,tags,recRes,region)→guid` / `addTemplateVariant(guid,...)→guid` / `removeVariant(guid,w,h)→guid` / `updateMeta(guid,name,tags)` / `delete(guid)→referrers` / `referrers(guid)` / `capture(containerID,nodeID?)` / `currentResolution(containerID)→[w,h]` / `pickVariant(guid,w,h)→{index,exact}` / `readBlobDataURL(sha)` / `gcBlobs()`。
 
 `capture`/`currentResolution` 要目标窗口开着(走 `ResolveWindow`);FE 静默封装(窗口没开返 undefined 不弹 toast,浏览常态)。
 

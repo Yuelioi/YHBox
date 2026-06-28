@@ -20,8 +20,8 @@ type templateCaptureAdapter struct {
 }
 
 // Capture 解析 containerID 目标窗口抓一帧, 返 PNG bytes. width/height 调用方从 PNG header 自己读.
-func (t *templateCaptureAdapter) Capture(containerID string) ([]byte, error) {
-	wh, err := t.containers.ResolveWindow(containerID)
+func (t *templateCaptureAdapter) Capture(containerID, nodeID string) ([]byte, error) {
+	wh, err := t.containers.ResolveWindowForNode(containerID, nodeID)
 	if err != nil {
 		return nil, fmt.Errorf("解析目标窗口: %w", err)
 	}

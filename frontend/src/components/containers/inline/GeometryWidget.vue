@@ -267,6 +267,7 @@ interface PickerResult {
 const props = defineProps<{
   modelValue: GeometryValue | null
   fieldPath: string
+  nodeId?: string
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: GeometryValue): void }>()
 
@@ -334,7 +335,7 @@ async function openRectPicker(): Promise<RectPayload | null> {
   picking.value = true
   try {
     const waiter = awaitWailsEvent<PickerResult>('tools:picker-result', (p) => p?.id === id)
-    const r = await backend.tools.openScreenPicker('rect', id, tplStore.containerId)
+    const r = await backend.tools.openScreenPicker('rect', id, tplStore.containerId, props.nodeId ?? '')
     if (r === undefined) return null
     const result = await waiter
     if (result.payload?.cancelled) return null

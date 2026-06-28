@@ -517,6 +517,7 @@
             :model-value="getLiteral(lit.name)"
             :field-path="lit.name"
             :kind="node!.kind"
+            :node-id="node?.id ?? ''"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
             @pick-color="onColorPick"
           />
