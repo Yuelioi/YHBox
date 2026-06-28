@@ -6,7 +6,7 @@
 
 ## Next
 
-先写 Phase 5 plan，再继续迁移下一个窄范围动作。推荐二选一：click/coordinate routing（更贴近截图取点问题，但坐标风险更高）或 text/chord support（更贴近 AE 快捷键与输入稳定性）。不要无计划迁移 mouse/click/text/screenshot。
+Execute `plans/phase5-click-controller.md`: route only `InputService.Click` through `Win32Controller` and runtime trace. Keep MoveTo, drag, scroll, text, screenshot out of this phase.
 
 ## Read now
 
@@ -15,6 +15,7 @@
 - plans/phase2-trace.md
 - plans/phase3-runtime-trace.md
 - plans/phase4-keyboard-controller.md
+- plans/phase5-click-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 
@@ -39,7 +40,7 @@ Done:
 - Phase 4 代码：`InputService.KeyDown/KeyUp` 经 `Win32Controller` 执行，并写入 runtime trace。
 
 Current:
-- 等待 Phase 5 plan：选择 click/coordinate routing 或 text/chord support 继续迁移。
+- 执行 Phase 5 click controller routing：只迁移 `InputService.Click`。
 
 ## Open questions
 
