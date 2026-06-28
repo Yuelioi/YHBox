@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: build a compact trace drawer/timeline backed by `useLogStore().actionTraces`, or add backend persistence if run-history debugging is the higher priority.
+Plan next slice: add backend trace persistence / redaction policy, or start browser/Android controller backend design.
 
 ## Read now
 
@@ -26,6 +26,7 @@ Plan next slice: build a compact trace drawer/timeline backed by `useLogStore().
 - plans/phase13-action-trace-events.md
 - plans/phase14-frontend-action-trace-log.md
 - plans/phase15-action-log-polish.md
+- plans/phase16-action-trace-drawer.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -39,6 +40,7 @@ Plan next slice: build a compact trace drawer/timeline backed by `useLogStore().
 - ../../knowledge/architecture/target-controller-phase13-notes.md
 - ../../knowledge/architecture/target-controller-phase14-notes.md
 - ../../knowledge/architecture/target-controller-phase15-notes.md
+- ../../knowledge/architecture/target-controller-phase16-notes.md
 
 ## Read if
 
@@ -70,15 +72,14 @@ Done:
 - Phase 13 代码：controller action trace 通过 `container:action-trace` runtime event 导出，同时保留 memory trace。
 - Phase 14 代码：前端订阅 `container:action-trace`，写入 log store 的结构化 `actionTraces` 和 `action` 日志行。
 - Phase 15 代码：LogPanel 为 `action` 日志级别添加专门颜色。
+- Phase 16 代码：LogPanel 增加动作 Trace 查看器，按结构化 `actionTraces` 展示 action/status/source/target/backend/duration/payload。
 
 Current:
-- 下一刀：compact trace drawer/timeline 或 trace persistence。
+- 下一刀：trace persistence / redaction policy，或浏览器/Android controller backend 设计。
 
 ## Open questions
 
 - Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
-- Runtime `InputService` 输入动作已全部经 `Win32Controller` 路由；截图/capture 尚未迁移到 controller。
 - Capture node 已经进入 controller trace；Vision adapter/cached frame 仍直接走 runtime capture backend。
-- `container:action-trace` 已可订阅；尚未实现前端查看器、持久化、批处理/脱敏策略。
-- 前端已有结构化 trace cache；LogPanel 已可直接显示 action trace 行。
+- `container:action-trace` 已可订阅并可在前端查看；尚未实现持久化、批处理/脱敏策略。
