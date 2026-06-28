@@ -27,6 +27,13 @@ func TestBrowserTarget_SpecHasAsyncBrowserID(t *testing.T) {
 	if props["asyncSource"] != browsercdp.AsyncSourceTargets {
 		t.Fatalf("BrowserID asyncSource = %#v", props["asyncSource"])
 	}
+	applyMeta, ok := props["applyMeta"].(map[string]any)
+	if !ok {
+		t.Fatalf("BrowserID applyMeta = %#v", props["applyMeta"])
+	}
+	if applyMeta["name"] != btInName || applyMeta["webSocketDebuggerUrl"] != btInWebSocketURL {
+		t.Fatalf("BrowserID applyMeta = %#v", applyMeta)
+	}
 }
 
 func TestBrowserTarget_RunSetsActiveTarget(t *testing.T) {

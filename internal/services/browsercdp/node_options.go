@@ -25,6 +25,7 @@ func RegisterNodeAsyncSource(nodeSvc *node.NodeService, svc *Service) {
 			opts = append(opts, node.EnumOption{
 				Value: t.ID,
 				Label: formatTargetLabel(t),
+				Meta:  targetMeta(t),
 			})
 		}
 		return opts, nil
@@ -53,4 +54,17 @@ func formatTargetLabel(t TargetInfo) string {
 		return fmt.Sprintf("%s (%s)", title, t.URL)
 	}
 	return title
+}
+
+func targetMeta(t TargetInfo) map[string]any {
+	meta := map[string]any{
+		"webSocketDebuggerUrl": t.WebSocketDebuggerURL,
+	}
+	if t.Title != "" {
+		meta["name"] = t.Title
+	}
+	if t.URL != "" {
+		meta["url"] = t.URL
+	}
+	return meta
 }

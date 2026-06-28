@@ -50,9 +50,9 @@ type Spec struct {
 }
 
 type InputSpec struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`               // runtime 类型 tag
-	Semantic string `json:"semantic,omitempty"` // UI 语义提示
+	Name        string       `json:"name"`
+	Type        string       `json:"type"`               // runtime 类型 tag
+	Semantic    string       `json:"semantic,omitempty"` // UI 语义提示
 	Required    bool         `json:"required,omitempty"`
 	Advanced    bool         `json:"advanced,omitempty"`
 	Default     any          `json:"default,omitempty"` // JSON 序列化用 json.Number
@@ -137,8 +137,9 @@ func BindableFieldsForNode(spec *Spec, config map[string]any) []string {
 //   - async source (RegisterAsyncSource 运行时返回, e.g. 模板键 / clip / subgraph):
 //     Label 是动态数据 (非 UI 文案, 不可 i18n), 必须填.
 type EnumOption struct {
-	Value any    `json:"value"`           // json.Number for 精度
-	Label string `json:"label,omitempty"` // 仅 async 源填; 静态 dropdown 留空走 i18n
+	Value any            `json:"value"`           // json.Number for 精度
+	Label string         `json:"label,omitempty"` // 仅 async 源填; 静态 dropdown 留空走 i18n
+	Meta  map[string]any `json:"meta,omitempty"`  // 仅 async 源填; 供 inspector 应用到 sibling inputs
 }
 
 type VisibleRule struct {

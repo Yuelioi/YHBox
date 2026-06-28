@@ -34,7 +34,10 @@ func (BrowserTarget) Spec() node.Spec {
 			{Name: btInExec, Type: node.TypeExec},
 			{Name: btInEndpoint, Type: "String", Default: browsercdp.DefaultEndpoint, Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: btInBrowserID, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "async-dropdown",
-				Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: browsercdp.AsyncSourceTargets})}},
+				Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: browsercdp.AsyncSourceTargets, ApplyMeta: map[string]string{
+					"name":                 btInName,
+					"webSocketDebuggerUrl": btInWebSocketURL,
+				}})}},
 			{Name: btInName, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: btInWebSocketURL, Type: "String", Default: "", Advanced: true, Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: btInWidth, Type: "Number", Default: json.Number("1280"), Widget: node.WidgetSpec{Kind: "number"}},

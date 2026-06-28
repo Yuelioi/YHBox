@@ -28,6 +28,9 @@ func TestRegisterNodeAsyncSourceAndroidDevices(t *testing.T) {
 	if opts[0].Value != "emulator-5554" || opts[0].Label != "Pixel 8 (emulator-5554, 1080x2400)" {
 		t.Fatalf("option = %#v", opts[0])
 	}
+	if opts[0].Meta["name"] != "Pixel 8" || opts[0].Meta["width"] != 1080 || opts[0].Meta["height"] != 2400 {
+		t.Fatalf("option meta = %#v", opts[0].Meta)
+	}
 }
 
 func TestFormatDeviceLabelWithoutResolution(t *testing.T) {

@@ -20,6 +20,13 @@ func TestAndroidTarget_SpecHasExecInAndTargetPins(t *testing.T) {
 			if p.Widget.Kind != "async-dropdown" {
 				t.Fatalf("Serial widget = %q, want async-dropdown", p.Widget.Kind)
 			}
+			applyMeta, ok := p.Widget.Props["applyMeta"].(map[string]any)
+			if !ok {
+				t.Fatalf("Serial applyMeta = %#v", p.Widget.Props["applyMeta"])
+			}
+			if applyMeta["width"] != atInWidth || applyMeta["height"] != atInHeight || applyMeta["name"] != atInName {
+				t.Fatalf("Serial applyMeta = %#v", applyMeta)
+			}
 		}
 	}
 	for name, typ := range map[string]string{

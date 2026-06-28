@@ -545,6 +545,7 @@
             :declared-vars="declaredVars"
             :model-value="getLiteral(lit.name)"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
+            @async-option-selected="(payload) => onAsyncOptionSelected(lit.name, payload)"
             @declare-var="(a) => emit('declare-var', a)"
           />
           <p
@@ -782,6 +783,20 @@ function setLiteral(pin: string, v: any) {
   const cfg = { ...props.node.config }
   cfg.literal = { ...cfg.literal, [pin]: v }
   emit('update', cfg)
+}
+function onAsyncOptionSelected(pin: string, payload: { value: unknown; meta: Record<string, unknown> }) {
+  if (!props.node) return
+  const applyMeta = fieldFor(pin)?.applyMeta
+  if (!applyMeta) return
+  const literal = { ...((props.node.config?.literal as Record<string, unknown> | undefined) ?? {}) }
+  literal[pin] = payload.value
+  for (const [metaKey, targetPin] of Object.entries(applyMeta)) {
+    if (!(metaKey in payload.meta)) continue
+    const value = payload.meta[metaKey]
+    if (value === undefined || value === null || value === '') continue
+    literal[targetPin] = value
+  }
+  emit('update', { ...props.node.config, literal })
 }
 // 查 pin 对应的 widget 元数据 (类型/选项), 喂给 PinInput 渲染正确控件。
 // 动态 input (Expr config.Inputs[]) 在 fields 里查不到 → undefined, PinInput 走 pinType fallback。

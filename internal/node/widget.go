@@ -23,8 +23,9 @@ type DropdownProps struct {
 }
 
 type AsyncDropdownProps struct {
-	AsyncSource string         `json:"asyncSource"`
-	AsyncParams map[string]any `json:"asyncParams,omitempty"`
+	AsyncSource string            `json:"asyncSource"`
+	AsyncParams map[string]any    `json:"asyncParams,omitempty"`
+	ApplyMeta   map[string]string `json:"applyMeta,omitempty"`
 }
 
 type JSONProps struct {

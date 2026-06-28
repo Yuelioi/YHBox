@@ -161,7 +161,7 @@ import type { VarType } from '@/lib/variableRef'
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 
-type AsyncOption = { value: unknown; label?: string }
+type AsyncOption = { value: unknown; label?: string; meta?: Record<string, unknown> }
 
 // AI 节点连接下拉项: 第一项「用默认」(空值) + settings 里各连接 (label→id)。
 const connectionItems = computed(() => [
@@ -197,6 +197,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', v: any): void
   (e: 'declare-var', a: { name: string; type: VarType; default: unknown }): void
+  (e: 'async-option-selected', payload: { value: unknown; meta: Record<string, unknown> }): void
 }>()
 
 const kind = computed(() => props.widgetKind ?? '')
@@ -257,11 +258,15 @@ async function loadAsyncOptions() {
 }
 
 function onAsyncValue(v: unknown) {
+  let value = v
   if (v && typeof v === 'object' && 'value' in v) {
-    commit((v as { value: unknown }).value)
-    return
+    value = (v as { value: unknown }).value
   }
-  commit(v)
+  commit(value)
+  const selected = asyncOptions.value.find((o) => String(o.value ?? '') === String(value ?? ''))
+  if (selected?.meta && Object.keys(selected.meta).length > 0) {
+    emit('async-option-selected', { value, meta: selected.meta })
+  }
 }
 
 watch(

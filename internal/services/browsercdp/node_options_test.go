@@ -26,4 +26,7 @@ func TestRegisterNodeAsyncSourceListsBrowserTargets(t *testing.T) {
 	if opts[0].Value != "page-1" || opts[0].Label == "" {
 		t.Fatalf("option = %#v", opts[0])
 	}
+	if opts[0].Meta["name"] != "Home" || opts[0].Meta["webSocketDebuggerUrl"] != "ws://example/ws" || opts[0].Meta["url"] != "https://example.test/" {
+		t.Fatalf("option meta = %#v", opts[0].Meta)
+	}
 }

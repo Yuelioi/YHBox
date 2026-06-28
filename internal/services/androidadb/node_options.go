@@ -27,6 +27,7 @@ func RegisterNodeAsyncSource(nodeSvc *node.NodeService, svc *Service) {
 			opts = append(opts, node.EnumOption{
 				Value: d.Serial,
 				Label: formatDeviceLabel(d),
+				Meta:  deviceMeta(d),
 			})
 		}
 		return opts, nil
@@ -45,4 +46,20 @@ func formatDeviceLabel(d Device) string {
 		return fmt.Sprintf("%s (%s, %dx%d)", name, d.Serial, d.Resolution.W, d.Resolution.H)
 	}
 	return fmt.Sprintf("%s (%s)", name, d.Serial)
+}
+
+func deviceMeta(d Device) map[string]any {
+	meta := map[string]any{}
+	name := strings.ReplaceAll(d.Model, "_", " ")
+	if name == "" {
+		name = d.Product
+	}
+	if name != "" {
+		meta["name"] = name
+	}
+	if d.Resolution.W > 0 && d.Resolution.H > 0 {
+		meta["width"] = d.Resolution.W
+		meta["height"] = d.Resolution.H
+	}
+	return meta
 }

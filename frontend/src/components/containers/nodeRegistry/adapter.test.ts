@@ -106,7 +106,10 @@ describe('deriveFields schema passthrough', () => {
     const serialInput = {
       name: 'Serial',
       type: 'String',
-      widget: { kind: 'async-dropdown', props: { asyncSource: 'androidADBDevices' } },
+      widget: {
+        kind: 'async-dropdown',
+        props: { asyncSource: 'androidADBDevices', applyMeta: { width: 'Width', height: 'Height' } },
+      },
     } as unknown as InputSpec
 
     const fields = deriveFields('AndroidTarget', [serialInput])
@@ -114,5 +117,6 @@ describe('deriveFields schema passthrough', () => {
     expect(fields[0].type).toBe('select')
     expect(fields[0].widgetKind).toBe('async-dropdown')
     expect(fields[0].asyncSource).toBe('androidADBDevices')
+    expect(fields[0].applyMeta).toEqual({ width: 'Width', height: 'Height' })
   })
 })

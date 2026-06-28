@@ -32,7 +32,11 @@ func (AndroidTarget) Spec() node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: atInExec, Type: node.TypeExec},
 			{Name: atInSerial, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "async-dropdown",
-				Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: androidADBDevicesSource})}},
+				Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: androidADBDevicesSource, ApplyMeta: map[string]string{
+					"name":   atInName,
+					"width":  atInWidth,
+					"height": atInHeight,
+				}})}},
 			{Name: atInName, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
 			{Name: atInWidth, Type: "Number", Default: json.Number("1080"), Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: atInHeight, Type: "Number", Default: json.Number("1920"), Widget: node.WidgetSpec{Kind: "number"}},

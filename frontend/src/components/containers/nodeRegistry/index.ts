@@ -74,6 +74,8 @@ export interface FieldSchema {
   options?: Array<{ value: string; labelKey: string }>
   /** async-dropdown 数据源名. PinInput 调 NodeService.AsyncOptions 懒加载, 仍允许手输兜底。 */
   asyncSource?: string
+  /** async option meta 应用映射: option.meta[key] → config.literal[targetPin]. */
+  applyMeta?: Record<string, string>
   placeholder?: string
   /** number/slider 的 min/max/step (后端 SliderProps). 透到 UInputNumber, 否则小数步进 (如阈值 0.01) 失效, 只能整数. */
   min?: number
