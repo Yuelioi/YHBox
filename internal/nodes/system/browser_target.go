@@ -29,7 +29,7 @@ const (
 func (BrowserTarget) Spec() node.Spec {
 	return node.Spec{
 		Kind:     "BrowserTarget",
-		Category: "Window",
+		Category: "Target",
 		Inputs: []node.InputSpec{
 			{Name: btInExec, Type: node.TypeExec},
 			{Name: btInEndpoint, Type: "String", Default: browsercdp.DefaultEndpoint, Widget: node.WidgetSpec{Kind: "text"}},

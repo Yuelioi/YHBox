@@ -1,7 +1,7 @@
 // Snippets store — 用户资产系统. 替代旧 Favorites/Recents.
 //
 // Snippet 是"带配置的可复用节点模板", 不是"收藏节点 kind". 跟 UE Blueprint 的 Preset
-// 或 Figma 的 Component 类似. 举例: 用户在画布配好"目标窗口节点" 含 title=异环 + class=UnrealWindow,
+// 或 Figma 的 Component 类似. 举例: 用户在画布配好"Windows 窗口目标节点" 含 title=异环 + class=UnrealWindow,
 // 保存为 snippet, 下次新容器直接拖出来 = 无需再点选窗口.
 //
 // 字段设计:

@@ -32,6 +32,7 @@ const GROUP_MAP: Record<string, NodeGroup> = {
   Detect: 'detect',
   Image: 'image', // Capture/SaveImage/LoadImage 专用图像分组
   Input: 'input',
+  Target: 'target',
   System: 'system',
   Variable: 'variables',
   PureFunc: 'purefunc',

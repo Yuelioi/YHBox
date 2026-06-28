@@ -59,6 +59,7 @@ export const GROUP_VISUAL: Record<string, { color: string; icon: string }> = {
   detect: { color: 'violet', icon: 'i-tabler-eye' },
   image: { color: 'fuchsia', icon: 'i-tabler-photo' },
   input: { color: 'orange', icon: 'i-tabler-device-gamepad' },
+  target: { color: 'rose', icon: 'i-tabler-crosshair' },
   system: { color: 'zinc', icon: 'i-tabler-settings' },
   io: { color: 'sky', icon: 'i-tabler-message-circle' },
   stopwatch: { color: 'amber', icon: 'i-tabler-clock' },

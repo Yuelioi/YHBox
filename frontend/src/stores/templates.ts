@@ -5,7 +5,7 @@ import { ref } from 'vue'
 import { backend, type AssetSummary } from '@/lib/backend'
 
 export const useTemplatesStore = defineStore('templates', () => {
-  // containerId: 仍由 ContainerEditorView 调 setContainer 注入, 供 capture / ScreenPicker 定位目标窗口.
+  // containerId: 仍由 ContainerEditorView 调 setContainer 注入, 供 capture / ScreenPicker 定位当前截图目标.
   // asset 列表本身是全局的, 与 containerId 无关.
   const containerId = ref<string>('')
 
@@ -69,7 +69,7 @@ export const useTemplatesStore = defineStore('templates', () => {
     return typeof r === 'string' ? r : null
   }
 
-  // capture: 截当前容器目标窗口帧, 返 data URL (用于 TemplateCapture/ScreenPicker 底图).
+  // capture: 截当前容器 Windows 窗口帧, 返 data URL (用于 TemplateCapture/ScreenPicker 底图).
   async function capture(): Promise<string | null> {
     if (!containerId.value) return null
     const r = await backend.assets.capture(containerId.value)

@@ -2644,6 +2644,7 @@ export default {
     detect: '检测',
     image: '图像',
     input: '输入',
+    target: '目标',
     system: '系统',
     io: '输入输出',
     stopwatch: '计时器',

@@ -2598,6 +2598,7 @@
     detect: 'Detect',
     image: 'Image',
     input: 'Input',
+    target: 'Target',
     system: 'System',
     io: 'I/O',
     stopwatch: 'Timer',

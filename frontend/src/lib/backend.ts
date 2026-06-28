@@ -317,12 +317,12 @@ export const backend = {
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
     updateMeta: (guid: string, name: string, description: string, category: string, tags: string[]) =>
       invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
-    // Capture 截当前容器目标窗口帧 (保留 containerID — 截帧需窗口上下文).
+    // Capture 截当前容器的 Windows 窗口帧 (保留 containerID — 现阶段资产截帧仍需 Win32 窗口上下文).
     capture: (containerID: string, nodeID = '') => invoke(AssetService.Capture, containerID, nodeID),
     // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
     readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
     gcBlobs: () => invoke(AssetService.GCBlobs),
-    // CurrentResolution 当前容器目标窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
+    // CurrentResolution 当前容器 Windows 窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
     // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.
     currentResolution: async (containerID: string): Promise<[number, number] | undefined> => {
       try {

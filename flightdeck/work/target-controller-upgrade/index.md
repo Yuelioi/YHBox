@@ -70,6 +70,7 @@ Plan next slice: continue robustness hardening around target/runtime contract co
 - plans/phase57-browser-controller-nil-client-tests.md
 - plans/phase58-runtime-controller-factory-error-tests.md
 - plans/phase59-window-target-terminology.md
+- plans/phase60-target-palette-group.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -127,6 +128,7 @@ Plan next slice: continue robustness hardening around target/runtime contract co
 - ../../knowledge/architecture/target-controller-phase57-notes.md
 - ../../knowledge/architecture/target-controller-phase58-notes.md
 - ../../knowledge/architecture/target-controller-phase59-notes.md
+- ../../knowledge/architecture/target-controller-phase60-notes.md
 
 ## Read if
 
@@ -203,6 +205,7 @@ Done:
 - Phase 57 代码：Browser CDP controller nil-client health/action trace error 覆盖。
 - Phase 58 代码：runtime active-target controller factory error 传播测试，覆盖 input 和 vision 路径不回退旧 HWND backend。
 - Phase 59 代码/文档：落 Window vs Target 边界计划与知识；前端 i18n 把 `WindowTarget` 用户可见名收窄为 Windows 窗口目标，通用输入/坐标文案改为当前自动化目标；后端注释明确 `NeedsWindow` / `BringWindowForeground` 是 Win32 HWND 语义，不代表 Android/Browser target。
+- Phase 60 代码/文档：新增 `Target` palette 分组，`WindowTarget` / `AndroidTarget` / `BrowserTarget` 从 `Window` category 迁入 `Target`；前端增加 target group 映射/视觉/i18n；Go guard 防止 target selection 节点回漂到 Window 分组。
 
 Current:
 - 下一刀：继续 Window/Target 迁移，优先做 `Win32WindowTarget` alias/migration 与 `NeedsTarget(capability)` 兼容设计；同时继续全量验证与剩余 widget/schema 语义契约。

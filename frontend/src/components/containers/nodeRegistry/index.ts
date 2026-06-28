@@ -100,6 +100,7 @@ export type NodeGroup =
   | 'detect'
   | 'image'
   | 'input'
+  | 'target'
   | 'system'
   | 'io'
   | 'stopwatch'
