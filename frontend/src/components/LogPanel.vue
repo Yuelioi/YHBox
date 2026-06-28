@@ -186,6 +186,7 @@ function levelClass(level: string) {
     case 'node': return 'text-violet-300'
     case 'dump': return 'text-emerald-300'
     case 'log': return 'text-emerald-400'
+    case 'action': return 'text-sky-300'
     default: return 'text-info'
   }
 }
