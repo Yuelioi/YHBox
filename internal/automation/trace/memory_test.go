@@ -50,3 +50,24 @@ func TestMemoryRecorderClear(t *testing.T) {
 		t.Fatalf("records len after clear = %d, want 0", got)
 	}
 }
+
+func TestActionRecordStoresSourceMetadata(t *testing.T) {
+	rec := NewMemoryRecorder()
+	rec.Record(ActionRecord{
+		Action: "click",
+		Source: ActionSource{
+			ContainerID: "container-1",
+			NodeID:      "click-1",
+			NodeKind:    "ClickAt",
+			InPin:       "In",
+		},
+	})
+
+	records := rec.Records()
+	if records[0].Source.ContainerID != "container-1" ||
+		records[0].Source.NodeID != "click-1" ||
+		records[0].Source.NodeKind != "ClickAt" ||
+		records[0].Source.InPin != "In" {
+		t.Fatalf("source = %#v", records[0].Source)
+	}
+}
