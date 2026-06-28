@@ -4,18 +4,18 @@
     <section class="rounded-xl bg-default border border-default p-5 space-y-4">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-layout-grid-add" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">悬浮窗启动器</h2>
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settingsLauncher.title') }}</h2>
       </div>
       <p class="text-xs text-dimmed leading-relaxed">
-        把常用容器编进悬浮窗，单击即跑。用「呼出/隐藏」热键（在 快捷键 页绑）或容器页「悬浮启动器」按钮打开。
+        {{ t('settingsLauncher.intro') }}
       </p>
 
       <div class="border-t border-default/60" />
 
       <div class="flex items-center justify-between gap-6">
         <div>
-          <div class="text-sm text-default">按钮显示</div>
-          <p class="text-xs text-dimmed mt-0.5">悬浮窗里每个容器按钮显示图标、文字，或两者都显示。</p>
+          <div class="text-sm text-default">{{ t('settingsLauncher.display_label') }}</div>
+          <p class="text-xs text-dimmed mt-0.5">{{ t('settingsLauncher.display_hint') }}</p>
         </div>
         <USelect :model-value="display" :items="displayItems" class="w-32" @update:model-value="(v: string) => setDisplay(v)" />
       </div>
@@ -25,18 +25,18 @@
     <section class="rounded-xl bg-default border border-default p-5 space-y-3">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-layout-list" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">编排</h2>
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settingsLauncher.layout_title') }}</h2>
         <span class="text-xs text-dimmed">({{ editItems.length }})</span>
       </div>
       <p class="text-xs text-dimmed leading-relaxed">
-        自由摆放：容器按钮、文字标题、水平分隔符（占整行的横线，把后面挤到下一排）、垂直分隔符（同排按钮间的竖线）。拖动重排。
+        {{ t('settingsLauncher.layout_hint') }}
       </p>
 
       <div
         v-if="editItems.length === 0"
         class="text-xs text-dimmed py-6 text-center border border-dashed border-default/60 rounded-lg"
       >
-        空启动器 — 用下面的按钮添加块。
+        {{ t('settingsLauncher.empty') }}
       </div>
       <VueDraggable v-else v-model="editItems" :animation="150" handle=".drag-h" class="space-y-2" @end="persist">
         <div
@@ -50,14 +50,14 @@
             <!-- 容器按钮块 -->
             <template v-if="b.type === 'container'">
               <UPopover :ui="{ content: 'w-[300px] p-2' }">
-                <UButton size="xs" variant="outline" color="neutral" square class="shrink-0" title="选图标">
+                <UButton size="xs" variant="outline" color="neutral" square class="shrink-0" :title="t('settingsLauncher.pick_icon')">
                   <UIcon :name="b.icon || 'i-tabler-photo-plus'" class="size-4" :class="b.icon ? 'text-toned' : 'text-dimmed'" />
                 </UButton>
                 <template #content>
                   <div class="space-y-2">
                     <IconPicker :model-value="b.icon" @update:model-value="(v: string) => setIcon(b.id, v)" />
                     <UButton v-if="b.icon" size="xs" variant="ghost" color="neutral" block @click="setIcon(b.id, '')">
-                      清除图标
+                      {{ t('settingsLauncher.clear_icon') }}
                     </UButton>
                   </div>
                 </template>
@@ -78,7 +78,7 @@
               <UIcon name="i-tabler-heading" class="size-4 text-dimmed shrink-0" />
               <UInput
                 :model-value="b.label" size="sm" class="flex-1 min-w-0"
-                placeholder="标题文字（如 战斗）"
+                :placeholder="t('settingsLauncher.label_placeholder')"
                 @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
               />
             </template>
@@ -86,19 +86,19 @@
             <!-- 水平分隔符块 -->
             <div v-else-if="b.type === 'hsep'" class="flex-1 flex items-center gap-2 text-xs text-dimmed">
               <span class="flex-1 border-t border-default/60" />
-              <span class="shrink-0 inline-flex items-center gap-1"><UIcon name="i-tabler-separator-horizontal" class="size-4" /> 水平分隔符</span>
+              <span class="shrink-0 inline-flex items-center gap-1"><UIcon name="i-tabler-separator-horizontal" class="size-4" /> {{ t('settingsLauncher.hsep') }}</span>
               <span class="flex-1 border-t border-default/60" />
             </div>
 
             <!-- 垂直分隔符块 -->
             <div v-else-if="b.type === 'vsep'" class="flex-1 inline-flex items-center gap-1 text-xs text-dimmed">
-              <UIcon name="i-tabler-separator-vertical" class="size-4" /> 垂直分隔符
+              <UIcon name="i-tabler-separator-vertical" class="size-4" /> {{ t('settingsLauncher.vsep') }}
             </div>
 
-            <UButton size="xs" variant="ghost" color="error" icon="i-tabler-trash" title="删除此块" @click="removeBlock(b.id)" />
+            <UButton size="xs" variant="ghost" color="error" icon="i-tabler-trash" :title="t('settingsLauncher.delete_block')" @click="removeBlock(b.id)" />
           </div>
           <!-- 容器块：自定义了显示名时，常驻一行原容器名兜底 -->
-          <p v-if="b.type === 'container' && b.label" class="pl-7 text-xs text-dimmed truncate">来自容器：{{ containerName(b.containerId) }}</p>
+          <p v-if="b.type === 'container' && b.label" class="pl-7 text-xs text-dimmed truncate">{{ t('settingsLauncher.from_container', { name: containerName(b.containerId) }) }}</p>
         </div>
       </VueDraggable>
 
@@ -107,12 +107,12 @@
         <USelect
           v-if="containerItems.length"
           :model-value="undefined" :items="containerItems" size="sm" class="w-44"
-          placeholder="+ 容器"
+          :placeholder="t('settingsLauncher.add_container')"
           @update:model-value="(v: string) => addContainer(v)"
         />
-        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-heading" @click="addLabel">文字标题</UButton>
-        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-separator-horizontal" @click="addHsep">水平分隔符</UButton>
-        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-separator-vertical" @click="addVsep">垂直分隔符</UButton>
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-heading" @click="addLabel">{{ t('settingsLauncher.label_block') }}</UButton>
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-separator-horizontal" @click="addHsep">{{ t('settingsLauncher.hsep') }}</UButton>
+        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-separator-vertical" @click="addVsep">{{ t('settingsLauncher.vsep') }}</UButton>
       </div>
     </section>
   </div>
@@ -120,6 +120,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
 import { useContainersStore } from '@/stores/containers'
@@ -131,6 +132,7 @@ import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const hotkeysStore = useHotkeysStore()
+const { t } = useI18n()
 
 // 本地工作副本（浅拷贝每块），本页是 launcherItems 唯一编辑者，每次改动立即 persist。
 const editItems = ref<LauncherBlock[]>([])
@@ -143,11 +145,11 @@ function syncFromStore() {
 watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: true })
 
 const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both')
-const displayItems = [
-  { label: '图标 + 文字', value: 'both' },
-  { label: '仅图标', value: 'icon' },
-  { label: '仅文字', value: 'text' },
-]
+const displayItems = computed(() => [
+  { label: t('settingsLauncher.display_both'), value: 'both' },
+  { label: t('settingsLauncher.display_icon'), value: 'icon' },
+  { label: t('settingsLauncher.display_text'), value: 'text' },
+])
 function setDisplay(v: string) {
   void settingsStore.patch({ ui: { launcherDisplay: v } })
 }
@@ -195,7 +197,7 @@ async function setHotkey(cid: string, hk: string) {
   await hotkeysStore.reload()
 }
 function containerName(id: string | undefined): string {
-  return containersStore.list.find((c) => c.id === id)?.name ?? '(已删容器)'
+  return containersStore.list.find((c) => c.id === id)?.name ?? t('settingsLauncher.deleted_container')
 }
 function containerHotkey(id: string | undefined): string {
   return hotkeysStore.list.find((e) => e.key === 'container.' + id)?.hotkeyStr ?? ''

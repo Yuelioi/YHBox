@@ -1,12 +1,12 @@
 <template>
   <!-- 哑工具条：渲染块序列 (容器按钮 / 文字标题 / 水平·垂直分隔符) + 单击跑 + 图钉置顶 + 隐藏。
        自适应高度 + 右下角拖拽改尺寸。编排在 设置→悬浮窗。 -->
-  <HudShell dense icon="i-tabler-rocket" title="启动器" close-title="隐藏（可热键再呼出）" @close="onHide">
+  <HudShell dense icon="i-tabler-rocket" :title="t('floatingLauncher.title')" :close-title="t('floatingLauncher.hide')" @close="onHide">
     <template #actions>
       <UButton
         size="xs" variant="ghost" :color="pinned ? 'primary' : 'neutral'"
         :icon="pinned ? 'i-tabler-pin-filled' : 'i-tabler-pin'"
-        :title="pinned ? '已置顶 · 点击取消' : '点击置顶'"
+        :title="pinned ? t('floatingLauncher.unpin') : t('floatingLauncher.pin')"
         @click="togglePin"
       />
     </template>
@@ -16,7 +16,7 @@
         v-if="blocks.length === 0"
         class="h-full flex items-center justify-center text-center text-[11px] text-dimmed px-3 py-4"
       >
-        还没配置 — 到 主程序 设置 → 悬浮窗 里添加
+        {{ t('floatingLauncher.empty') }}
       </div>
       <div v-else class="flex flex-wrap items-stretch gap-1">
         <template v-for="b in blocks" :key="b.id">
@@ -58,7 +58,7 @@
     <div
       class="absolute bottom-0 right-0 size-3.5 cursor-nwse-resize text-dimmed/70 hover:text-toned"
       style="--wails-draggable: no-drag"
-      title="拖拽改大小"
+      :title="t('floatingLauncher.resize')"
       @pointerdown="onGripDown"
     >
       <svg viewBox="0 0 10 10" class="size-full"><path d="M9 1v8H1" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/><path d="M9 5v4H5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
@@ -78,6 +79,7 @@ import HudShell from '@/components/tools/HudShell.vue'
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const execStore = useExecutionStore()
+const { t } = useI18n()
 
 const contentRef = ref<HTMLElement | null>(null)
 

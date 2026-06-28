@@ -41,7 +41,7 @@ export function useAutoFocusOnOpen(
         requestAnimationFrame(grab)
       } else if (import.meta.env.DEV) {
         // 12 帧还没抢到 → 打出真相, 别再靠猜
-        console.warn('[autofocus] 搜索框没拿到焦点; 当前焦点=', document.activeElement, '; input ref=', el)
+        console.warn('[autofocus] search input did not receive focus; active=', document.activeElement, '; input ref=', el)
       }
     }
     grab()

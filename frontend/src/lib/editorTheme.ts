@@ -36,6 +36,7 @@ import {
 import { highlightSelectionMatches, selectNextOccurrence } from '@codemirror/search'
 import { lintGutter } from '@codemirror/lint'
 import { tags } from '@lezer/highlight'
+import { i18n } from '@/i18n'
 
 export const EDITOR_FONT =
   `'JetBrains Mono Variable', ui-monospace, Consolas, 'Courier New', monospace`
@@ -286,17 +287,17 @@ export const searchPanelTheme: Extension = EditorView.theme({
 
 // CodeMirror 查找/替换面板的中文文案 (phrases key 是固定英文原文)。
 export const zhSearchPhrases: Extension = EditorState.phrases.of({
-  'Find': '查找',
-  'Replace': '替换',
-  'next': '下一个',
-  'previous': '上一个',
-  'all': '全部',
-  'match case': '区分大小写',
-  'by word': '全词匹配',
-  'regexp': '正则',
-  'replace': '替换',
-  'replace all': '全部替换',
-  'close': '关闭',
+  'Find': i18n.global.t('editorSearch.find'),
+  'Replace': i18n.global.t('editorSearch.replace'),
+  'next': i18n.global.t('editorSearch.next'),
+  'previous': i18n.global.t('editorSearch.previous'),
+  'all': i18n.global.t('editorSearch.all'),
+  'match case': i18n.global.t('editorSearch.match_case'),
+  'by word': i18n.global.t('editorSearch.by_word'),
+  'regexp': i18n.global.t('editorSearch.regexp'),
+  'replace': i18n.global.t('editorSearch.replace'),
+  'replace all': i18n.global.t('editorSearch.replace_all'),
+  'close': i18n.global.t('editorSearch.close'),
 })
 
 // ── 共享基础扩展: 主题 + 编辑手感, 语言无关 (语言/补全/lint 由各语言工厂叠加) ──

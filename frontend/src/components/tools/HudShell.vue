@@ -28,6 +28,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -38,9 +41,10 @@ const props = withDefaults(
     noClose?: boolean
     closeTitle?: string
   }>(),
-  { accent: 'primary', closeTitle: '关闭' },
+  { accent: 'primary' },
 )
 const emit = defineEmits<{ (e: 'close'): void }>()
+const closeTitle = computed(() => props.closeTitle ?? t('hudShell.close'))
 
 const accentClass = computed(
   () =>

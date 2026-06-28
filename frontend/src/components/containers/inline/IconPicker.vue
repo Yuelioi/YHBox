@@ -3,7 +3,7 @@
        modelValue = 完整 tabler 名 (i-tabler-xxx)。 -->
   <div class="space-y-2 w-full">
     <UInput
-      v-model="query" size="xs" class="w-full" placeholder="搜索图标…" icon="i-tabler-search"
+      v-model="query" size="xs" class="w-full" :placeholder="t('iconPicker.search_placeholder')" icon="i-tabler-search"
       :loading="searching"
     />
     <div class="flex flex-wrap gap-1.5 max-h-48 overflow-auto">
@@ -19,21 +19,23 @@
         <UIcon :name="ic" class="size-4" />
       </button>
       <div v-if="query.trim() && shown.length === 0 && !searching" class="text-[11px] text-dimmed py-2 px-1">
-        无匹配图标
+        {{ t('iconPicker.no_match') }}
       </div>
     </div>
-    <p v-if="query.trim()" class="text-[10px] text-dimmed">搜全套 tabler · 最多显 120 个</p>
+    <p v-if="query.trim()" class="text-[10px] text-dimmed">{{ t('iconPicker.search_hint') }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ICONS } from '../visualRegistry'
 
 defineProps<{
   modelValue: string | undefined | null
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
+const { t } = useI18n()
 
 const curated = ICONS.map((e) => e.icon)
 const query = ref('')
