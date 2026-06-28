@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: use backend profiles in validation/UI, or start Browser CDP / Android ADB controller transport.
+Plan next slice: add Browser CDP controller skeleton, or start runtime target routing for non-Win32 controllers.
 
 ## Read now
 
@@ -29,6 +29,7 @@ Plan next slice: use backend profiles in validation/UI, or start Browser CDP / A
 - plans/phase16-action-trace-drawer.md
 - plans/phase17-action-trace-file-persistence.md
 - plans/phase18-controller-backend-profiles.md
+- plans/phase19-android-adb-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -45,6 +46,7 @@ Plan next slice: use backend profiles in validation/UI, or start Browser CDP / A
 - ../../knowledge/architecture/target-controller-phase16-notes.md
 - ../../knowledge/architecture/target-controller-phase17-notes.md
 - ../../knowledge/architecture/target-controller-phase18-notes.md
+- ../../knowledge/architecture/target-controller-phase19-notes.md
 
 ## Read if
 
@@ -79,9 +81,10 @@ Done:
 - Phase 16 代码：LogPanel 增加动作 Trace 查看器，按结构化 `actionTraces` 展示 action/status/source/target/backend/duration/payload。
 - Phase 17 代码：`container:action-trace` 通过现有 `LogSink` 写入脱敏 JSONL 文件行，不落 raw request/result/句柄。
 - Phase 18 代码：`internal/automation/controller` 增加 Win32/Android ADB/Browser CDP/mock/replay 后端能力 profiles。
+- Phase 19 代码：增加可测试的 `AndroidADBController`，覆盖 screencap/tap/swipe/text/start/stop，并写入 action trace。
 
 Current:
-- 下一刀：让 validator/UI 复用 backend profiles，或开始 Browser CDP / Android ADB controller transport。
+- 下一刀：Browser CDP controller skeleton，或非 Win32 controller 的 runtime target routing。
 
 ## Open questions
 
@@ -89,4 +92,4 @@ Current:
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
 - Capture node 已经进入 controller trace；Vision adapter/cached frame 仍直接走 runtime capture backend。
 - `container:action-trace` 已可订阅、前端查看、脱敏写文件；尚未实现历史文件浏览 UI、批处理策略、raw payload opt-in。
-- Backend profiles 已落代码；尚未接入 validator/UI，也尚未实现 Browser CDP / Android ADB controller。
+- Backend profiles 已落代码；Android ADB controller skeleton 已落代码但尚未接 runtime，Browser CDP controller 尚未实现。
