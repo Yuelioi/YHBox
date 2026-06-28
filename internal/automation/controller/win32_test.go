@@ -45,16 +45,21 @@ func TestWin32ControllerRejectsNonWin32Target(t *testing.T) {
 }
 
 type fakeWin32Input struct {
-	clickHWND uintptr
-	clickX    float64
-	clickY    float64
-	keyDown   []string
-	keyUp     []string
-	moveHWND  uintptr
-	moveX     float64
-	moveY     float64
-	text      string
-	err       error
+	clickHWND        uintptr
+	clickX           float64
+	clickY           float64
+	keyDown          []string
+	keyUp            []string
+	moveHWND         uintptr
+	moveX            float64
+	moveY            float64
+	scrollHWND       uintptr
+	scrollX          float64
+	scrollY          float64
+	scrollNotches    int
+	scrollHorizontal bool
+	text             string
+	err              error
 }
 
 func (f *fakeWin32Input) Click(hwnd uintptr, xRatio, yRatio float64, button string, durMs int) error {
@@ -87,6 +92,11 @@ func (f *fakeWin32Input) MoveTo(hwnd uintptr, xRatio, yRatio float64) error {
 }
 
 func (f *fakeWin32Input) Scroll(hwnd uintptr, xRatio, yRatio float64, notches int, horizontal bool) error {
+	f.scrollHWND = hwnd
+	f.scrollX = xRatio
+	f.scrollY = yRatio
+	f.scrollNotches = notches
+	f.scrollHorizontal = horizontal
 	return nil
 }
 
@@ -158,6 +168,44 @@ func TestWin32ControllerMoveRecordsCoordinateStep(t *testing.T) {
 	got := records[0]
 	if got.Action != "move" {
 		t.Fatalf("trace action = %q, want move", got.Action)
+	}
+	if len(got.CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(got.CoordinateSteps))
+	}
+	step := got.CoordinateSteps[0]
+	if step.From != target.SpaceNormalized || step.To != target.SpaceWindowClient {
+		t.Fatalf("coordinate step spaces = %s -> %s", step.From, step.To)
+	}
+}
+
+func TestWin32ControllerScrollRecordsCoordinateStep(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.Scroll(context.Background(), ScrollRequest{
+		Point:      target.NewNormalizedPoint(0.2, 0.8),
+		Notches:    -3,
+		Horizontal: true,
+	}); err != nil {
+		t.Fatalf("Scroll() error = %v", err)
+	}
+	if in.scrollHWND != 42 || in.scrollX != 0.2 || in.scrollY != 0.8 || in.scrollNotches != -3 || !in.scrollHorizontal {
+		t.Fatalf("delegate scroll = hwnd %d (%f,%f) notches %d horizontal %v", in.scrollHWND, in.scrollX, in.scrollY, in.scrollNotches, in.scrollHorizontal)
+	}
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1", len(records))
+	}
+	got := records[0]
+	if got.Action != "scroll" {
+		t.Fatalf("trace action = %q, want scroll", got.Action)
 	}
 	if len(got.CoordinateSteps) != 1 {
 		t.Fatalf("coordinate steps len = %d, want 1", len(got.CoordinateSteps))

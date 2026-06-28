@@ -120,7 +120,16 @@ func (c *Win32Controller) Move(ctx context.Context, req MoveRequest) error {
 }
 
 func (c *Win32Controller) Scroll(ctx context.Context, req ScrollRequest) error {
-	return c.recordAction("scroll", req, func() error {
+	steps := []automationtrace.CoordinateStep{{
+		From:   req.Point.Space,
+		To:     target.SpaceWindowClient,
+		Input:  req.Point,
+		Output: req.Point,
+	}}
+	if steps[0].From == "" {
+		steps[0].From = target.SpaceNormalized
+	}
+	return c.recordActionWithSteps("scroll", req, steps, func() error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
