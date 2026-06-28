@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	automationtrace "yotta/internal/automation/trace"
 	nodepkg "yotta/internal/node"
 	"yotta/internal/nodes/control"
 	"yotta/internal/services/container"
@@ -61,8 +62,24 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 		}
 	}
 
-	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled)
+	bundle := r.bundleForNode(node, tok)
+	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, bundle, node.LogEnabled)
 	return r.routeResult(node, tok, result)
+}
+
+func (r *ContainerRunner) bundleForNode(graphNode *container.GraphNode, tok ExecToken) nodepkg.ServiceBundle {
+	bundle := r.bundle
+	containerID := ""
+	if r.rt != nil && r.rt.Container != nil {
+		containerID = r.rt.Container.ID
+	}
+	bundle.Input = newInputAdapterWithSource(r.rt, automationtrace.ActionSource{
+		ContainerID: containerID,
+		NodeID:      graphNode.ID,
+		NodeKind:    graphNode.Kind,
+		InPin:       tok.InPin,
+	})
+	return bundle
 }
 
 // buildDataWireFor pulls all non-Exec data-in pins from node Spec.
@@ -343,7 +360,8 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	config := r.buildConfigFor(node)
 	execData := r.buildExecDataFor(tok)
 
-	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, r.bundle, node.LogEnabled, body)
+	bundle := r.bundleForNode(node, tok)
+	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, bundle, node.LogEnabled, body)
 	return r.routeResult(node, tok, result)
 }
 

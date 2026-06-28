@@ -24,6 +24,7 @@ import (
 
 	"yotta/internal/automation/controller"
 	"yotta/internal/automation/target"
+	automationtrace "yotta/internal/automation/trace"
 	"yotta/internal/node"
 	"yotta/internal/services/container"
 	"yotta/internal/services/expr"
@@ -249,7 +250,10 @@ func (a *clipPlayerAdapter) Play(ctx context.Context, clipID string) error {
 // hwnd 每次方法调用经 rt.ActiveHWND() live 读, setupRuntime 后才有值.
 // ============================================================================
 
-type inputAdapter struct{ rt *RuntimeContext }
+type inputAdapter struct {
+	rt          *RuntimeContext
+	traceSource automationtrace.ActionSource
+}
 
 func (a *inputAdapter) hwnd() (win.HWND, error) {
 	h, err := a.rt.ActiveHWND()
@@ -277,7 +281,7 @@ func (a *inputAdapter) controller() (*controller.Win32Controller, error) {
 	}
 	return controller.NewWin32Controller(windowHandleToTarget(wh), controller.Win32Deps{
 		Input:   runtimeWin32Input{backend: a.rt.Input},
-		Trace:   a.rt.TraceRecorder(),
+		Trace:   traceRecorderWithSource(a.rt.TraceRecorder(), a.traceSource),
 		Backend: backend,
 	})
 }
@@ -419,6 +423,10 @@ func (a *inputAdapter) TypeText(s string) error {
 
 // NewInputAdapter wrap *RuntimeContext into node.InputService.
 func NewInputAdapter(rt *RuntimeContext) node.InputService { return &inputAdapter{rt: rt} }
+
+func newInputAdapterWithSource(rt *RuntimeContext, source automationtrace.ActionSource) node.InputService {
+	return &inputAdapter{rt: rt, traceSource: source}
+}
 
 // ============================================================================
 // WindowAdapter — 当前活动窗口（经 rt.WindowHandle()/SetActiveWindow() 访问）+ rt.Game → node.WindowService
