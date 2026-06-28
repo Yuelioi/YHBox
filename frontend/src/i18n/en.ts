@@ -1844,6 +1844,17 @@
     write_file_tooltip_on: 'Writing to {dir}/yotta-*.log',
     write_file_tooltip_off: 'Not writing to file',
     empty: 'No logs.',
+    action_trace: {
+      open: 'Action trace',
+      title: 'Action trace',
+      count: '{n} entries',
+      empty: 'No action traces',
+      backend: 'backend',
+      duration: 'duration',
+      coords: 'coords',
+      error: 'error',
+      payload: 'payload',
+    },
     popover: {
       show_time: 'Show time',
       show_tag: 'Show tag',

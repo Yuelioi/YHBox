@@ -49,6 +49,15 @@
       </div>
 
       <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
+      <UButton
+        v-if="!collapsed"
+        size="xs" variant="ghost" color="neutral"
+        icon="i-tabler-route"
+        :title="t('log.action_trace.open')"
+        :ui="{ base: 'h-5 px-1' }"
+        @click.stop="actionTraceOpen = true"
+      />
+
       <UPopover v-if="!collapsed" mode="click" :ui="{ content: 'p-2 w-48' }">
         <UButton
           size="xs" variant="ghost" color="neutral"
@@ -123,12 +132,15 @@
         <span class="text-default break-all">{{ l.message }}<span v-if="(l.count ?? 1) > 1" class="text-dimmed"> ×{{ l.count }}</span></span>
       </div>
     </div>
+
+    <ActionTraceDrawer v-model:open="actionTraceOpen" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ActionTraceDrawer from '@/components/ActionTraceDrawer.vue'
 import { useLogStore } from '@/stores/log'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -138,6 +150,7 @@ const settingsStore = useSettingsStore()
 
 const filter = ref<'ALL' | 'SYS' | 'CTR'>('ALL')
 const bodyRef = ref<HTMLDivElement | null>(null)
+const actionTraceOpen = ref(false)
 
 const collapsed = computed({
   get: () => !(settingsStore.data?.ui.logger.panelOpen ?? true),

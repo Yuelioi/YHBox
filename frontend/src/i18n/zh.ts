@@ -1864,6 +1864,17 @@ export default {
     write_file_tooltip_on: '写入 {dir}/yotta-*.log',
     write_file_tooltip_off: '未写入文件',
     empty: '无日志.',
+    action_trace: {
+      open: '动作 Trace',
+      title: '动作 Trace',
+      count: '{n} 条',
+      empty: '暂无动作 Trace',
+      backend: '后端',
+      duration: '耗时',
+      coords: '坐标',
+      error: '错误',
+      payload: 'payload',
+    },
     popover: {
       show_time: '显示时间',
       show_tag: '显示标签',
