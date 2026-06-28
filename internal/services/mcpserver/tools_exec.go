@@ -44,6 +44,7 @@ func (s *Server) runNode(ctx context.Context, kind string, params map[string]any
 		func(string, any) {}, // no-op emit: 收割走 execOutputs, 不靠事件
 		s.deps.Clip, s.deps.MouseCounts(),
 	)
+	rt.ControllerFactory = runtime.DefaultControllerFactory{}
 	rt.SetActiveWindow(wh)
 	return runMicroContainer(ctx, rt, c, nodeID)
 }
