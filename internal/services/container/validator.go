@@ -550,7 +550,8 @@ func edgeNodeID(ref string) string {
 }
 
 // validateWin32WindowTarget: 收集主图 + 子图所有 Win32WindowTarget, 逐个校验 MatchSpec.
-// 若容器需要窗口 (containerNeedsWindow) 但一个都没有, 报 MISSING_WIN32_WINDOW_TARGET.
+// 若容器需要 Win32 窗口但一个都没有, 报 MISSING_WIN32_WINDOW_TARGET.
+// 若容器只有 target-aware 节点且没有任何 target selection, 也报同码: Windows 是默认自动修复目标。
 // 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
 func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	if len(c.Graph.Nodes) == 0 {
@@ -564,7 +565,11 @@ func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 		graphPath []string
 	}
 	var all []wt
+	hasAnyTarget := false
 	for i := range c.Graph.Nodes {
+		if isTargetSelectionKind(c.Graph.Nodes[i].Kind) {
+			hasAnyTarget = true
+		}
 		if c.Graph.Nodes[i].Kind == "Win32WindowTarget" {
 			all = append(all, wt{node: &c.Graph.Nodes[i], graphPath: []string{"main"}})
 		}
@@ -572,6 +577,9 @@ func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	for si := range sgs {
 		sg := &sgs[si]
 		for ni := range sg.Graph.Nodes {
+			if isTargetSelectionKind(sg.Graph.Nodes[ni].Kind) {
+				hasAnyTarget = true
+			}
 			if sg.Graph.Nodes[ni].Kind == "Win32WindowTarget" {
 				all = append(all, wt{node: &sg.Graph.Nodes[ni], graphPath: []string{"subgraph:" + sg.ID}})
 			}
@@ -579,7 +587,7 @@ func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	}
 
 	if len(all) == 0 {
-		if hasUnwiredNeedsWindowNode(c, sgs) {
+		if hasUnwiredNeedsWindowNode(c, sgs) || (!hasAnyTarget && hasUnwiredNeedsTargetNode(c, sgs)) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
 				Code:      CodeMissingWin32WindowTarget,
@@ -612,6 +620,15 @@ func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 		}
 	}
 	return errs
+}
+
+func isTargetSelectionKind(kind string) bool {
+	switch kind {
+	case "Win32WindowTarget", "AndroidTarget", "BrowserTarget":
+		return true
+	default:
+		return false
+	}
 }
 
 // matchSpec local 副本 — 避免 validator 包 import pkg/winutil 引入循环依赖.

@@ -21,14 +21,14 @@ func (s sizeWindow) ClientSize() (int, int, error) {
 	return s.w, s.h, nil
 }
 func (s sizeWindow) SetActive(_ context.Context, _, _, _, _ string) error { return nil }
-func (s sizeWindow) Maximize() error              { return nil }
-func (s sizeWindow) Minimize() error              { return nil }
-func (s sizeWindow) Restore() error               { return nil }
-func (s sizeWindow) BorderlessFullscreen() error  { return nil }
-func (s sizeWindow) RestoreBorders() error        { return nil }
-func (s sizeWindow) MoveResize(_, _, _, _ int) error { return nil }
-func (s sizeWindow) Close() error                 { return nil }
-func (s sizeWindow) Snapshot() (node.Window, error) { return node.Window{}, nil }
+func (s sizeWindow) Maximize() error                                      { return nil }
+func (s sizeWindow) Minimize() error                                      { return nil }
+func (s sizeWindow) Restore() error                                       { return nil }
+func (s sizeWindow) BorderlessFullscreen() error                          { return nil }
+func (s sizeWindow) RestoreBorders() error                                { return nil }
+func (s sizeWindow) MoveResize(_, _, _, _ int) error                      { return nil }
+func (s sizeWindow) Close() error                                         { return nil }
+func (s sizeWindow) Snapshot() (node.Window, error)                       { return node.Window{}, nil }
 
 func TestClickAt_HappyPath(t *testing.T) {
 	node.ResetRegistryForTest()

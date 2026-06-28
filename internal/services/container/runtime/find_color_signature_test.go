@@ -76,7 +76,7 @@ func TestFindColorSignature_NotFoundViaRealAdapter(t *testing.T) {
 }
 
 // TestFindColorSignature_NodeRegistered: 节点已注册到全局 registry,
-// Category=Detect, NeedsWindow=true。
+// Category=Detect, NeedsTarget=true。
 func TestFindColorSignature_NodeRegistered(t *testing.T) {
 	rn, ok := node.Get("FindColorSignature")
 	if !ok {
@@ -85,7 +85,10 @@ func TestFindColorSignature_NodeRegistered(t *testing.T) {
 	if rn.Spec.Category != "Detect" {
 		t.Errorf("Category=%q, want Detect", rn.Spec.Category)
 	}
-	if !rn.Spec.NeedsWindow {
-		t.Error("NeedsWindow should be true")
+	if !rn.Spec.NeedsTarget {
+		t.Error("NeedsTarget should be true")
+	}
+	if rn.Spec.NeedsWindow {
+		t.Error("NeedsWindow should be false")
 	}
 }

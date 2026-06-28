@@ -90,4 +90,3 @@ func TestWaitTemplate_Error(t *testing.T) {
 		t.Error("expected error propagation")
 	}
 }
-

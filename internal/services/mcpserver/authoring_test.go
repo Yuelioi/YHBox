@@ -14,7 +14,7 @@ func TestSchemaExamples_AllValid(t *testing.T) {
 	if len(exs) < 2 {
 		t.Fatalf("need >=2 examples, got %d", len(exs))
 	}
-	sawNeedsWindow := false
+	sawWin32TargetExample := false
 	for i, raw := range exs {
 		var c container.Container
 		if err := json.Unmarshal(raw, &c); err != nil {
@@ -28,11 +28,11 @@ func TestSchemaExamples_AllValid(t *testing.T) {
 		}
 		for _, n := range c.Graph.Nodes {
 			if n.Kind == "Win32WindowTarget" {
-				sawNeedsWindow = true
+				sawWin32TargetExample = true
 			}
 		}
 	}
-	if !sawNeedsWindow {
-		t.Fatal("examples must cover a needsWindow scenario (Win32WindowTarget present)")
+	if !sawWin32TargetExample {
+		t.Fatal("examples must cover a Win32 target scenario (Win32WindowTarget present)")
 	}
 }

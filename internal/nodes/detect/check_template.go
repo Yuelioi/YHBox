@@ -32,7 +32,7 @@ func (CheckTemplate) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "CheckTemplate",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append([]node.InputSpec{
 			{Name: ctInExec, Type: "Exec"},
 			{Name: ctInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,

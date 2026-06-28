@@ -25,7 +25,7 @@ func (MouseHoldStart) Spec() node.Spec {
 	return node.Spec{
 		Kind:            "MouseHoldStart",
 		Category:        "Input",
-		NeedsWindow:     true,
+		NeedsTarget:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: mhStartInExec, Type: "Exec"},
@@ -82,7 +82,7 @@ func (MouseHoldStop) Spec() node.Spec {
 	return node.Spec{
 		Kind:            "MouseHoldStop",
 		Category:        "Input",
-		NeedsWindow:     true,
+		NeedsTarget:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: mhStopInExec, Type: "Exec"},

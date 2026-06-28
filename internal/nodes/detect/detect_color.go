@@ -45,7 +45,7 @@ func (DetectColor) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "DetectColor",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append([]node.InputSpec{
 			{Name: dcInExec, Type: "Exec"},
 			{Name: dcInROI, Type: "Geometry", Schema: node.GeometrySchema()},

@@ -26,9 +26,9 @@ const (
 
 func (KeyPress) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyPress",
-		Category:    "Input",
-		NeedsWindow:     true,
+		Kind:            "KeyPress",
+		Category:        "Input",
+		NeedsTarget:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: kpInExec, Type: "Exec"},

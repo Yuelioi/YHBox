@@ -31,7 +31,7 @@ func (FindTemplateAll) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "FindTemplateAll",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append([]node.InputSpec{
 			{Name: ftaInExec, Type: "Exec"},
 			{Name: ftaInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,

@@ -23,9 +23,9 @@ const (
 
 func (MouseMoveRel) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseMoveRel",
-		Category:    "Input",
-		NeedsWindow:     true,
+		Kind:            "MouseMoveRel",
+		Category:        "Input",
+		NeedsTarget:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: mmrInExec, Type: "Exec"},

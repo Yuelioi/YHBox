@@ -37,6 +37,7 @@ type Pin struct {
 type Node struct {
 	Kind        string `json:"kind"`
 	Category    string `json:"category"`
+	NeedsTarget bool   `json:"needsTarget,omitempty"`
 	NeedsWindow bool   `json:"needsWindow,omitempty"`
 	IsPureData  bool   `json:"isPureData,omitempty"`
 	Inputs      []Pin  `json:"inputs"`
@@ -54,7 +55,7 @@ func Build() []Node {
 	out := make([]Node, 0, len(regs))
 	for _, rn := range regs {
 		s := rn.Spec
-		cn := Node{Kind: s.Kind, Category: s.Category, NeedsWindow: s.NeedsWindow, IsPureData: s.IsPureData}
+		cn := Node{Kind: s.Kind, Category: s.Category, NeedsTarget: s.NeedsTarget, NeedsWindow: s.NeedsWindow, IsPureData: s.IsPureData}
 		for _, in := range s.Inputs {
 			cn.Inputs = append(cn.Inputs, Pin{
 				Name: in.Name, Type: in.Type, Exec: in.Type == node.TypeExec,

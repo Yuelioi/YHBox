@@ -3,7 +3,8 @@ package container
 import (
 	"testing"
 
-	_ "yotta/internal/nodes/input"  // ClickAt (NeedsWindow)
+	_ "yotta/internal/nodes/input"  // ClickAt (NeedsTarget)
+	_ "yotta/internal/nodes/system" // AndroidTarget / Win32WindowTarget
 	_ "yotta/internal/nodes/window" // GetWindow (产出 Window, 接 ClickAt.Window)
 )
 
@@ -33,5 +34,24 @@ func TestValidate_UnwiredNeedsWindow_ReportsMissingWin32WindowTarget(t *testing.
 	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeMissingWin32WindowTarget) {
 		t.Errorf("ClickAt 没连 Window, 无 Win32WindowTarget 应报缺: %+v", errs)
+	}
+}
+
+// AndroidTarget 已显式选择非 Win32 自动化目标；target-aware 输入节点不应再要求 Win32WindowTarget。
+func TestValidate_AndroidTargetWithInput_NoMissingWin32WindowTarget(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "ca", Kind: "ClickAt"},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "ca.In"},
+	)
+	errs := ValidateContainer(c, nil)
+	if hasCode(errs, CodeMissingWin32WindowTarget) {
+		t.Errorf("AndroidTarget + ClickAt 不应要求 Win32WindowTarget: %+v", errs)
 	}
 }

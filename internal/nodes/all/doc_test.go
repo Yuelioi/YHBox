@@ -133,15 +133,15 @@ func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
 	for _, rn := range node.All() {
 		spec := rn.Spec
 
-		if spec.NeedsForeground && !spec.NeedsWindow {
-			t.Errorf("%s has NeedsForeground without NeedsWindow; foreground is a Win32 window contract", spec.Kind)
+		if spec.NeedsForeground && !spec.NeedsWindow && !spec.NeedsTarget {
+			t.Errorf("%s has NeedsForeground without NeedsWindow/NeedsTarget; foreground is a Win32 sendinput hint on target-aware actions", spec.Kind)
 		}
 
 		if _, ok := targetSelection[spec.Kind]; ok {
 			if spec.Category != "Target" {
 				t.Errorf("%s category = %q, want Target", spec.Kind, spec.Category)
 			}
-			if spec.NeedsWindow || spec.NeedsForeground {
+			if spec.NeedsWindow || spec.NeedsTarget || spec.NeedsForeground {
 				t.Errorf("%s is a target selection node and must not require existing Win32 window services", spec.Kind)
 			}
 		}

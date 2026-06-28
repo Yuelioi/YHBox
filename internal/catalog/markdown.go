@@ -47,6 +47,9 @@ func writeNode(b *strings.Builder, n Node) {
 
 func nodeMarks(n Node) string {
 	var m []string
+	if n.NeedsTarget {
+		m = append(m, "NeedsTarget")
+	}
 	if n.NeedsWindow {
 		m = append(m, "NeedsWindow")
 	}

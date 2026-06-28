@@ -32,7 +32,7 @@ func (WaitTemplate) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "WaitTemplate",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append([]node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,

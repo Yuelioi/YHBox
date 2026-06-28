@@ -39,7 +39,7 @@ func NewServer(deps Deps) *Server { return &Server{deps: deps} }
 // Register 把全部工具挂到 MCPServer (authoring 复用迁入的纯函数; execution 新增).
 func (s *Server) Register(m *server.MCPServer) {
 	// --- authoring (只读/写图, 不受 arm 闸; save_container 受 arm 闸) ---
-	m.AddTool(mcp.NewTool("list_nodes", mcp.WithDescription("List all Yotta node kinds with pins/types/required/defaults/category/capability flags. The building blocks; run_node executes one of these against a window.")),
+	m.AddTool(mcp.NewTool("list_nodes", mcp.WithDescription("List all Yotta node kinds with pins/types/required/defaults/category/capability flags. The building blocks; run_node executes one target/window action against a supplied window.")),
 		func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return mcp.NewToolResultText(string(listNodesJSON())), nil
 		})
@@ -102,7 +102,7 @@ func (s *Server) Register(m *server.MCPServer) {
 		})
 
 	// --- run_node (受 arm + busy 闸) ---
-	m.AddTool(mcp.NewTool("run_node", mcp.WithDescription("Execute ONE action node (kind from list_nodes, NeedsWindow only) against a window once. params = {pinName: literal}. Returns {ok,firedOutput,data,error}; image outputs returned as an image block. Requires MCP armed. Use this to probe (Capture to see, DetectColor for coords, ClickAt to test), then bake findings into save_container."),
+	m.AddTool(mcp.NewTool("run_node", mcp.WithDescription("Execute ONE action node (kind from list_nodes, NeedsTarget or NeedsWindow) against a supplied Win32 window once. params = {pinName: literal}. Returns {ok,firedOutput,data,error}; image outputs returned as an image block. Requires MCP armed. Use this to probe (Capture to see, DetectColor for coords, ClickAt to test), then bake findings into save_container."),
 		mcp.WithString("kind", mcp.Required(), mcp.Description("Node kind, e.g. ClickAt / Capture / DetectColor.")),
 		mcp.WithString("window", mcp.Required(), mcp.Description("Target window hwnd (decimal uintptr from find_window/list_windows).")),
 		mcp.WithObject("params", mcp.Description("Input pin literals {pinName: value}."))),

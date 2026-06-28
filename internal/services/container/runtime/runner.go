@@ -338,18 +338,19 @@ func configStringList(node *container.GraphNode, key string) []string {
 }
 
 // ----------------------------------------------------------------------------
-// runtime bootstrap: setupRuntime / teardownRuntime / Win32WindowTarget 解析.
+// runtime bootstrap: setupRuntime / teardownRuntime / Win32 backend bootstrap.
 // ----------------------------------------------------------------------------
 
-// setupRuntime 按容器级配置建 input/capture backend → populate rt.
+// setupRuntime 按容器级配置建 Win32 input/capture backend → populate rt.
 // 不在启动期解析窗口 — 窗口由 Win32WindowTarget.Run 运行时解析 (SetActive).
+// Android/Browser-only target graph 不需要 Win32 backend, controller factory 会按 active target 构造。
 // 幂等: 测试预设过 (fixture 注入 window + input) 就跳过.
 func (r *ContainerRunner) setupRuntime() error {
 	// 测试预设过 (fixture 注入 window + input) 就跳过.
 	if r.rt.WindowHandle().HWND != 0 && r.rt.Input != nil {
 		return nil
 	}
-	if !containerNeedsWindow(r.rt.Container, r.rt.Subgraphs) {
+	if !containerNeedsWin32Backends(r.rt.Container, r.rt.Subgraphs) {
 		return nil
 	}
 
@@ -404,10 +405,10 @@ func (r *ContainerRunner) teardownRuntime() {
 	}
 }
 
-// containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或解析
-// 闭包内任一子图. 跟 validator.containerNeedsWindow 同判定: 决定 runtime 是否解析
-// Win32WindowTarget. 纯窗口无关容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
-func containerNeedsWindow(c *container.Container, sgs []container.Subgraph) bool {
+// containerNeedsWin32Backends 判断本容器是否需要初始化 Win32 input/capture backend。
+// Direct NeedsWindow 节点一定需要。NeedsTarget 节点只有在图使用 Win32WindowTarget 或没有显式
+// target selection 时才按 Windows 默认路径初始化；Android/Browser-only 图不初始化 Win32 backend。
+func containerNeedsWin32Backends(c *container.Container, sgs []container.Subgraph) bool {
 	if graphHasWindowNode(c.Graph.Nodes) {
 		return true
 	}
@@ -416,7 +417,10 @@ func containerNeedsWindow(c *container.Container, sgs []container.Subgraph) bool
 			return true
 		}
 	}
-	return false
+	if !containerHasTargetNode(c, sgs) {
+		return containerHasTargetAwareNode(c, sgs)
+	}
+	return containerHasTargetKind(c, sgs, "Win32WindowTarget")
 }
 
 func graphHasWindowNode(nodes []container.GraphNode) bool {
@@ -426,6 +430,78 @@ func graphHasWindowNode(nodes []container.GraphNode) bool {
 		}
 	}
 	return false
+}
+
+func containerHasTargetAwareNode(c *container.Container, sgs []container.Subgraph) bool {
+	if graphHasTargetAwareNode(c.Graph.Nodes) {
+		return true
+	}
+	for i := range sgs {
+		if graphHasTargetAwareNode(sgs[i].Graph.Nodes) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasTargetAwareNode(nodes []container.GraphNode) bool {
+	for i := range nodes {
+		if rn, ok := node.Get(nodes[i].Kind); ok && rn.Spec.NeedsTarget {
+			return true
+		}
+	}
+	return false
+}
+
+func containerHasTargetNode(c *container.Container, sgs []container.Subgraph) bool {
+	if graphHasTargetNode(c.Graph.Nodes) {
+		return true
+	}
+	for i := range sgs {
+		if graphHasTargetNode(sgs[i].Graph.Nodes) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasTargetNode(nodes []container.GraphNode) bool {
+	for i := range nodes {
+		if isTargetNodeKind(nodes[i].Kind) {
+			return true
+		}
+	}
+	return false
+}
+
+func containerHasTargetKind(c *container.Container, sgs []container.Subgraph, kind string) bool {
+	if graphHasTargetKind(c.Graph.Nodes, kind) {
+		return true
+	}
+	for i := range sgs {
+		if graphHasTargetKind(sgs[i].Graph.Nodes, kind) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasTargetKind(nodes []container.GraphNode, kind string) bool {
+	for i := range nodes {
+		if nodes[i].Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func isTargetNodeKind(kind string) bool {
+	switch kind {
+	case "Win32WindowTarget", "AndroidTarget", "BrowserTarget":
+		return true
+	default:
+		return false
+	}
 }
 
 // isListenerDriven — kind 是否走后台 listener goroutine (无 exec-in, 不进主 dispatch)。

@@ -162,8 +162,11 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		if n.Kind != "KeyPress" {
 			continue
 		}
-		if !n.NeedsWindow {
-			t.Error("KeyPress should be needsWindow")
+		if !n.NeedsTarget {
+			t.Error("KeyPress should be needsTarget")
+		}
+		if n.NeedsWindow {
+			t.Error("KeyPress should not be needsWindow; it routes through active target")
 		}
 		var vk *Pin
 		for i := range n.Inputs {

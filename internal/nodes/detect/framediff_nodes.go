@@ -92,7 +92,7 @@ func (WaitStable) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "WaitStable",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append(commonInputs(),
 			node.InputSpec{Name: wsStableThreshold, Type: "Number", Default: json.Number("0.02"),
 				Widget: node.WidgetSpec{Kind: "slider",
@@ -109,7 +109,7 @@ func (WaitChange) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "WaitChange",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append(commonInputs(),
 			node.InputSpec{Name: wcChangeThreshold, Type: "Number", Default: json.Number("0.05"),
 				Widget: node.WidgetSpec{Kind: "slider",

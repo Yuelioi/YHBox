@@ -1,7 +1,7 @@
 // internal/nodes/input/swipe.go
 // Swipe — 从 Begin 拖到 End (按住 Button, 历时 DurationMs 毫秒).
 // pins: In, Begin(Point), End(Point), DurationMs(Number,200), Button(下拉 left/right/middle)
-// out: Done。NeedsWindow。Begin/End 为 Point pin，可从检测节点(ClickTemplate/DetectColor 等)输出直连。
+// out: Done。NeedsTarget。Begin/End 为 Point pin，可从检测节点(ClickTemplate/DetectColor 等)输出直连。
 package input
 
 import (
@@ -27,9 +27,9 @@ const (
 
 func (Swipe) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Swipe",
-		Category:    "Input",
-		NeedsWindow:     true,
+		Kind:            "Swipe",
+		Category:        "Input",
+		NeedsTarget:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: swInExec, Type: "Exec"},

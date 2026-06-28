@@ -51,7 +51,7 @@ func (DetectColorHSV) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "DetectColorHSV",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append([]node.InputSpec{
 			{Name: dchInExec, Type: "Exec"},
 			{Name: dchInROI, Type: "Geometry", Schema: node.GeometrySchema()},

@@ -358,6 +358,34 @@ func graphHasUnwiredWindowNode(g Graph) bool {
 	return false
 }
 
+// hasUnwiredNeedsTargetNode — 是否存在「需要自动化目标」且未显式连 Window override 的节点。
+// 连了 Window 的 target-aware 节点可用 Win32 Window data edge 作为本节点覆盖目标;
+// 未连时必须依赖图中的 target selection node 或 Windows 默认 Win32WindowTarget。
+func hasUnwiredNeedsTargetNode(c *Container, sgs []Subgraph) bool {
+	if graphHasUnwiredTargetNode(c.Graph) {
+		return true
+	}
+	for i := range sgs {
+		if graphHasUnwiredTargetNode(sgs[i].Graph) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasUnwiredTargetNode(g Graph) bool {
+	for i := range g.Nodes {
+		rn, ok := nodepkg.Get(g.Nodes[i].Kind)
+		if !ok || !rn.Spec.NeedsTarget {
+			continue
+		}
+		if !windowPinWired(g, g.Nodes[i].ID) {
+			return true
+		}
+	}
+	return false
+}
+
 func windowPinWired(g Graph, nodeID string) bool {
 	target := nodeID + ".Window"
 	for _, e := range g.Edges {

@@ -23,14 +23,14 @@ func (r *recordingWindow) ClientSize() (int, int, error) { return 0, 0, nil }
 func (r *recordingWindow) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
 	return nil
 }
-func (r *recordingWindow) Maximize() error              { return nil }
-func (r *recordingWindow) Minimize() error              { return nil }
-func (r *recordingWindow) Restore() error               { return nil }
-func (r *recordingWindow) BorderlessFullscreen() error  { return nil }
-func (r *recordingWindow) RestoreBorders() error        { return nil }
+func (r *recordingWindow) Maximize() error                 { return nil }
+func (r *recordingWindow) Minimize() error                 { return nil }
+func (r *recordingWindow) Restore() error                  { return nil }
+func (r *recordingWindow) BorderlessFullscreen() error     { return nil }
+func (r *recordingWindow) RestoreBorders() error           { return nil }
 func (r *recordingWindow) MoveResize(_, _, _, _ int) error { return nil }
-func (r *recordingWindow) Close() error                 { return nil }
-func (r *recordingWindow) Snapshot() (node.Window, error) { return node.Window{}, nil }
+func (r *recordingWindow) Close() error                    { return nil }
+func (r *recordingWindow) Snapshot() (node.Window, error)  { return node.Window{}, nil }
 
 func withWindow(w node.WindowService) node.ServiceBundle {
 	b := node.StubServices()

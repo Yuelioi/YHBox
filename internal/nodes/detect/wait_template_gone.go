@@ -28,7 +28,7 @@ func (WaitTemplateGone) Spec() node.Spec {
 	return node.Spec{
 		Kind:        "WaitTemplateGone",
 		Category:    "Detect",
-		NeedsWindow: true,
+		NeedsTarget: true,
 		Inputs: append([]node.InputSpec{
 			{Name: wtgInExec, Type: "Exec"},
 			{Name: wtgInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,

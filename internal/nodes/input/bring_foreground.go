@@ -18,8 +18,8 @@ const (
 
 func (BringWindowForeground) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "BringWindowForeground",
-		Category:    "Window",
+		Kind:            "BringWindowForeground",
+		Category:        "Window",
 		NeedsWindow:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
