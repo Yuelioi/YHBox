@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan next slice: make action traces useful outside tests. Recommended next step is a runtime trace export/event surface so UI/debug tooling can inspect controller actions without reaching into `RuntimeContext` internals.
+Execute `plans/phase13-action-trace-events.md`: emit controller action traces as `container:action-trace` runtime events while preserving in-memory trace records.
 
 ## Read now
 
@@ -23,6 +23,7 @@ Plan next slice: make action traces useful outside tests. Recommended next step 
 - plans/phase10-mouse-hold-drag-controller.md
 - plans/phase11-relative-move-controller.md
 - plans/phase12-capture-controller.md
+- plans/phase13-action-trace-events.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -63,7 +64,7 @@ Done:
 - Phase 12 代码：`CaptureService.Capture/CaptureROI` 经 `Win32Controller.Screenshot` 抓全帧，并写入带 source 的 `screenshot` trace。
 
 Current:
-- 规划下一刀：trace export/event surface，让 controller action trace 对 UI/debug 工具可见。
+- 执行 Phase 13：controller action trace event surface.
 
 ## Open questions
 
