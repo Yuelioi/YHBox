@@ -601,6 +601,27 @@ func TestInputAdapter_RejectsNonWin32ActiveTarget(t *testing.T) {
 	}
 }
 
+func TestInputAdapter_ActiveTargetDoesNotFallbackToPreviousWindow(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+	rt.SetActiveTarget(target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	})
+
+	err := NewInputAdapter(rt).Click(0.25, 0.75, "left", 0)
+	if err == nil || !strings.Contains(err.Error(), "no controller factory for active target kind android-adb") {
+		t.Fatalf("Click error = %v", err)
+	}
+	if len(input.clickHWND) != 0 {
+		t.Fatalf("Click used previous HWND backend: %#v", input.clickHWND)
+	}
+}
+
 func TestInputAdapter_ClickRoutesThroughInjectedControllerFactory(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	tg := target.Target{
@@ -675,6 +696,23 @@ func TestTargetAdapter_SetActiveValidatesAndUpdatesRuntime(t *testing.T) {
 	}
 }
 
+func TestCaptureAdapter_ActiveTargetDoesNotFallbackToPreviousWindow(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	rt.Capture = &mockCaptureBackend{FrameROIResult: image.NewRGBA(image.Rect(0, 0, 2, 1))}
+	rt.SetActiveTarget(target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	})
+
+	_, err := NewCaptureAdapter(rt).Capture()
+	if err == nil || !strings.Contains(err.Error(), "no controller factory for active target kind android-adb") {
+		t.Fatalf("Capture error = %v", err)
+	}
+}
+
 func TestVisionAdapter_DetectColorUsesAndroidActiveTargetScreenshot(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	tg := target.Target{
@@ -703,6 +741,25 @@ func TestVisionAdapter_DetectColorUsesAndroidActiveTargetScreenshot(t *testing.T
 	}
 	if len(fakeCtrl.screenshotRequests) != 1 {
 		t.Fatalf("screenshot requests = %#v, want 1 request", fakeCtrl.screenshotRequests)
+	}
+}
+
+func TestVisionAdapter_ActiveTargetDoesNotFallbackToPreviousWindowCapture(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	img := image.NewRGBA(image.Rect(0, 0, 2, 1))
+	img.Pix[0], img.Pix[1], img.Pix[2], img.Pix[3] = 255, 0, 0, 255
+	rt.Capture = &mockCaptureBackend{FrameROIResult: img}
+	rt.SetActiveTarget(target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	})
+
+	_, _, _, err := NewVisionAdapter(rt).DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
+	if err == nil || !strings.Contains(err.Error(), "no controller factory for active target kind android-adb") {
+		t.Fatalf("DetectColor error = %v", err)
 	}
 }
 
