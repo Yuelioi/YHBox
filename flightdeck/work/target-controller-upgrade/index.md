@@ -6,7 +6,7 @@
 
 ## Next
 
-先写 `plans/phase4-*.md`，再迁移第一个窄范围 Win32 节点动作通过 `Win32Controller`。Phase 4 前不要直接改节点路由；仍不接 Android、browser/CDP、UI 或持久化。
+Execute `plans/phase4-keyboard-controller.md`: route only `InputService.KeyDown/KeyUp` through `Win32Controller` and runtime trace. Do not migrate mouse/click/text/screenshot until a later plan.
 
 ## Read now
 
@@ -14,6 +14,7 @@
 - plan.md
 - plans/phase2-trace.md
 - plans/phase3-runtime-trace.md
+- plans/phase4-keyboard-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 
 ## Read if
@@ -36,7 +37,7 @@ Done:
 - Phase 3 代码：`RuntimeContext` 拥有 per-run trace recorder，并提供 `TraceRecorder` / `TraceRecords` / `ClearTrace`。
 
 Current:
-- 等待 Phase 4 plan：选择一个窄范围 Win32 节点动作接入 `Win32Controller` 与 runtime trace。
+- 执行 Phase 4 keyboard controller routing：先迁移 `InputService.KeyDown/KeyUp`。
 
 ## Open questions
 
