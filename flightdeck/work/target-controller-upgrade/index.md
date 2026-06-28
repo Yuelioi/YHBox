@@ -6,7 +6,7 @@
 
 ## Next
 
-先写 Phase 7 plan，再继续迁移下一个窄范围动作。推荐下一步：`Scroll` controller routing 或 node id / pin id trace metadata。不要无计划迁移 drag/text/screenshot/UI。
+Execute `plans/phase7-scroll-controller.md`: route `InputService.Scroll` through `Win32Controller` and record a minimal coordinate step. Keep drag, text, screenshot, UI, and node metadata out of this phase.
 
 ## Read now
 
@@ -17,6 +17,7 @@
 - plans/phase4-keyboard-controller.md
 - plans/phase5-click-controller.md
 - plans/phase6-move-controller.md
+- plans/phase7-scroll-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -45,7 +46,7 @@ Done:
 - Phase 6 代码：`InputService.MoveTo` 经 `Win32Controller` 执行，并记录最小 coordinate step。
 
 Current:
-- 等待 Phase 7 plan：优先考虑 `Scroll` controller routing 或 node id / pin id trace metadata。
+- 执行 Phase 7 scroll controller routing：迁移 `InputService.Scroll` 并记录 coordinate step。
 
 ## Open questions
 
