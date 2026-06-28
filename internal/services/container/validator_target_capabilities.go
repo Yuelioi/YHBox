@@ -73,7 +73,7 @@ func validateSubgraphCallTargetCapabilities(g Graph, graphPath []string, inherit
 	nodeByID := graphNodeByID(g)
 	for i := range g.Nodes {
 		n := &g.Nodes[i]
-		if n.Kind != "Subgraph" {
+		if !isSubgraphCallKind(n.Kind) {
 			continue
 		}
 		targetKind, ok := nearestUpstreamTargetKind(g, nodeByID, n.ID)
@@ -99,6 +99,10 @@ func validateSubgraphCallTargetCapabilities(g Graph, graphPath []string, inherit
 		errs = append(errs, validateSubgraphCallTargetCapabilities(sg.Graph, sgPath, targetKind, sgs, seen)...)
 	}
 	return errs
+}
+
+func isSubgraphCallKind(kind string) bool {
+	return kind == "Subgraph" || kind == "CollapsedNode"
 }
 
 func subgraphsByID(sgs []Subgraph) map[string]*Subgraph {

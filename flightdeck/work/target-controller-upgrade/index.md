@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1-68 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard；Phase 63 新增 `NeedsTarget`，输入/截图/视觉节点不再伪装成 Win32 窗口节点；Phase 64 新增 `TargetCapabilities`，Android/Browser/Win32 支持矩阵开始进入静态校验；Phase 65-66 开始补 config-dependent capability；Phase 67 增加 capability 词表漂移 guard；Phase 68 把父图 target selection 继承进 Subgraph capability 校验。
+破坏性大升级 topic。调研、总体设计、Phase 1-69 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard；Phase 63 新增 `NeedsTarget`，输入/截图/视觉节点不再伪装成 Win32 窗口节点；Phase 64 新增 `TargetCapabilities`，Android/Browser/Win32 支持矩阵开始进入静态校验；Phase 65-66 开始补 config-dependent capability；Phase 67 增加 capability 词表漂移 guard；Phase 68-69 把父图 target selection 继承进 Subgraph/CollapsedNode capability 校验。
 
 ## Next
 
-Plan next slice: continue capability matrix hardening for CollapsedNode/script subgraph calls or target-specific app/browser actions.
+Plan next slice: continue capability matrix hardening for script subgraph calls or target-specific app/browser actions.
 
 ## Read now
 
@@ -79,6 +79,7 @@ Plan next slice: continue capability matrix hardening for CollapsedNode/script s
 - plans/phase66-button-semantics.md
 - plans/phase67-capability-vocabulary-guard.md
 - plans/phase68-subgraph-target-capability-inheritance.md
+- plans/phase69-collapsed-node-target-capability-inheritance.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -145,6 +146,7 @@ Plan next slice: continue capability matrix hardening for CollapsedNode/script s
 - ../../knowledge/architecture/target-controller-phase66-notes.md
 - ../../knowledge/architecture/target-controller-phase67-notes.md
 - ../../knowledge/architecture/target-controller-phase68-notes.md
+- ../../knowledge/architecture/target-controller-phase69-notes.md
 
 ## Read if
 
@@ -230,9 +232,10 @@ Done:
 - Phase 66 代码/文档：`ClickAt` / `ClickTemplate` 在 `Button=right|middle` 时额外要求 `mouse-button`，Android ADB tap 不再静默伪装右键/中键。
 - Phase 67 代码/文档：新增 node spec consistency guard，所有 `TargetCapabilities` 字符串必须被 `controller.CapabilitySet` 识别，防止节点/控制器词表漂移。
 - Phase 68 代码/文档：`Subgraph` 调用会把调用点最近上游 target selection 继承进子图 capability 校验；子图内本地 target selection 可覆盖继承目标。
+- Phase 69 代码/文档：`CollapsedNode` 也纳入子图调用 target capability 继承，折叠/未折叠图的静态校验行为保持一致。
 
 Current:
-- 下一刀：继续收敛 capability matrix，优先处理 CollapsedNode/script 子图调用继承或目标特有 app/browser 动作。
+- 下一刀：继续收敛 capability matrix，优先处理 script 子图调用继承或目标特有 app/browser 动作。
 
 ## Open questions
 

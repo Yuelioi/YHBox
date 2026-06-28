@@ -248,3 +248,33 @@ func TestValidate_SubgraphLocalWin32TargetOverridesInheritedAndroidTarget(t *tes
 		t.Fatalf("子图本地 Win32WindowTarget 应覆盖父图 Android target: %+v", errs)
 	}
 }
+
+func TestValidate_CollapsedNodeInheritsAndroidTargetCapabilities(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "collapsed", Kind: "CollapsedNode", Config: map[string]any{
+			"literal": map[string]any{"SubgraphID": "sg-collapsed-move"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "collapsed.In"},
+	)
+	sgs := []Subgraph{{
+		ID:          "sg-collapsed-move",
+		Label:       "collapsed move",
+		IsAnonymous: true,
+		Graph: Graph{
+			Nodes: []GraphNode{{ID: "move", Kind: "MouseMoveRel"}},
+		},
+		OutputPins: []SubgraphOutputDecl{{ID: "done", Name: "Done"}},
+	}}
+
+	errs := ValidateContainer(c, sgs)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget -> CollapsedNode(MouseMoveRel) 应继承 Android target 并报 move-relative 不支持: %+v", errs)
+	}
+}
