@@ -1,12 +1,13 @@
 // node frontend/src/i18n/check.cjs  或  npm run i18n:check
 //
-// 四件事:
+// 五件事:
 //   1. zh.ts / en.ts 键集合对齐 — 缺则报 missing
 //   2. [compile] 每条 message 真过一遍 vue-i18n message compiler — 抓
 //      `||` / 裸 `{` `}` `@` 这类没 escape 的特殊字符 (parity 只对 key 不 compile,
 //      跑起来才炸整个组件; 见 incident vue-i18n-message-compiler-traps)
 //   3. scan frontend/src/**/*.{vue,ts} 残留中文字面值 (排除 .i18n-ignore + i18n/ 自身)
-//   4. 任一项失败 → exit 1
+//   4. scan static t('key') / te('key') references and fail on missing keys
+//   5. 任一项失败 → exit 1
 //
 // 用 jiti 加载 ESM/TS module (zh.ts/en.ts 是 `export default {...}`).
 
@@ -33,9 +34,14 @@ function flatten(obj, prefix = '') {
   return out
 }
 
+function loadMessages(file) {
+  const mod = jiti(path.join(ROOT_I18N, file))
+  return mod && typeof mod === 'object' && mod.default ? mod.default : mod
+}
+
 function checkKeyParity() {
-  const zh = flatten(jiti(path.join(ROOT_I18N, 'zh.ts')))
-  const en = flatten(jiti(path.join(ROOT_I18N, 'en.ts')))
+  const zh = flatten(loadMessages('zh.ts'))
+  const en = flatten(loadMessages('en.ts'))
   const zhKeys = new Set(Object.keys(zh))
   const enKeys = new Set(Object.keys(en))
   const missingInEn = [...zhKeys].filter((k) => !enKeys.has(k))
@@ -74,7 +80,7 @@ function checkMessageCompile() {
 
   const fails = []
   for (const [loc, file] of [['zh', 'zh.ts'], ['en', 'en.ts']]) {
-    const msgs = jiti(path.join(ROOT_I18N, file))
+    const msgs = loadMessages(file)
     const flat = flatten(msgs)
     const i18n = createI18n({
       legacy: false, locale: loc, fallbackLocale: false,
@@ -169,7 +175,55 @@ function checkResidueLiterals() {
   return false
 }
 
+function sourceFilesForChecks() {
+  const ignores = loadIgnore()
+  const i18nDir = path.normalize(ROOT_I18N) + path.sep
+  return walkSrc(ROOT_SRC, [])
+    .filter((f) => !f.startsWith(i18nDir))
+    .filter((f) => {
+      const rel = path.relative(ROOT_FE, f).replace(/\\/g, '/')
+      return !ignores.some((re) => re.test(rel))
+    })
+}
+
+function checkStaticKeyReferences() {
+  const zh = flatten(loadMessages('zh.ts'))
+  const en = flatten(loadMessages('en.ts'))
+  const zhKeys = new Set(Object.keys(zh))
+  const enKeys = new Set(Object.keys(en))
+  const hits = []
+  const callRe = /(?<![\w$])(?:t|te)\(\s*(['"])([a-zA-Z0-9_.-]+)\1/g
+
+  for (const f of sourceFilesForChecks()) {
+    const rel = path.relative(ROOT_FE, f).replace(/\\/g, '/')
+    const text = fs.readFileSync(f, 'utf8')
+    const lineStarts = [0]
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) === 10) lineStarts.push(i + 1)
+    }
+    for (const match of text.matchAll(callRe)) {
+      const key = match[2]
+      if (zhKeys.has(key) && enKeys.has(key)) continue
+      const line = lineStarts.findLastIndex((start) => start <= match.index) + 1
+      const missing = [
+        zhKeys.has(key) ? null : 'zh',
+        enKeys.has(key) ? null : 'en',
+      ].filter(Boolean).join('/')
+      hits.push({ file: rel, line, key, missing })
+    }
+  }
+
+  if (hits.length === 0) {
+    console.log('[refs] OK static i18n key references resolve')
+    return true
+  }
+  console.error(`[refs] FAIL ${hits.length} static i18n references missing keys:`)
+  hits.forEach((h) => console.error(`  ${h.file}:${h.line} ${h.key} missing ${h.missing}`))
+  return false
+}
+
 const parityOK = checkKeyParity()
 const compileOK = checkMessageCompile()
 const residueOK = checkResidueLiterals()
-process.exit(parityOK && compileOK && residueOK ? 0 : 1)
+const refsOK = checkStaticKeyReferences()
+process.exit(parityOK && compileOK && residueOK && refsOK ? 0 : 1)
