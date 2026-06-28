@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan Phase 11: decide whether `MouseMoveRel` should become a controller action. It is currently the only remaining runtime `InputService` method that still bypasses `Win32Controller`; relative camera/game movement may need a separate raw-input/controller policy instead of normal pointer coordinate semantics.
+Execute `plans/phase11-relative-move-controller.md`: route `MouseMoveRel` through `Win32Controller.MoveRelative` as a raw delta action with trace/source metadata.
 
 ## Read now
 
@@ -21,6 +21,7 @@ Plan Phase 11: decide whether `MouseMoveRel` should become a controller action. 
 - plans/phase8-trace-source.md
 - plans/phase9-type-text-controller.md
 - plans/phase10-mouse-hold-drag-controller.md
+- plans/phase11-relative-move-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -57,7 +58,7 @@ Done:
 - Phase 10 代码：`InputService.MouseDown/MouseUp/Drag` 经 `Win32Controller` 执行，并写入带 source 的 mouse/drag trace。
 
 Current:
-- 规划 Phase 11：评估并迁移或隔离 `MouseMoveRel`。
+- 执行 Phase 11：`MouseMoveRel` controller routing.
 
 ## Open questions
 
