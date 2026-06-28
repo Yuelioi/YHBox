@@ -157,11 +157,14 @@ import { useSettingsStore } from '@/stores/settings'
 import { NodeService } from '@bindings/yotta/internal/node'
 import type { PinType } from '../pinSpec'
 import type { VarType } from '@/lib/variableRef'
+import {
+  asyncOptionPayloadForValue,
+  normalizeAsyncDropdownValue,
+  type AsyncOption,
+} from './asyncDropdown'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
-
-type AsyncOption = { value: unknown; label?: string; meta?: Record<string, unknown> }
 
 // AI 节点连接下拉项: 第一项「用默认」(空值) + settings 里各连接 (label→id)。
 const connectionItems = computed(() => [
@@ -258,15 +261,10 @@ async function loadAsyncOptions() {
 }
 
 function onAsyncValue(v: unknown) {
-  let value = v
-  if (v && typeof v === 'object' && 'value' in v) {
-    value = (v as { value: unknown }).value
-  }
+  const value = normalizeAsyncDropdownValue(v)
   commit(value)
-  const selected = asyncOptions.value.find((o) => String(o.value ?? '') === String(value ?? ''))
-  if (selected?.meta && Object.keys(selected.meta).length > 0) {
-    emit('async-option-selected', { value, meta: selected.meta })
-  }
+  const payload = asyncOptionPayloadForValue(asyncOptions.value, value)
+  if (payload) emit('async-option-selected', payload)
 }
 
 watch(

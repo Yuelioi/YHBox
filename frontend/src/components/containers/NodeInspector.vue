@@ -685,6 +685,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
 import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
+import { applyAsyncOptionMeta, type AsyncOptionPayload } from './asyncOptionMeta'
 
 const props = defineProps<{
   node: GraphNode | null
@@ -784,19 +785,13 @@ function setLiteral(pin: string, v: any) {
   cfg.literal = { ...cfg.literal, [pin]: v }
   emit('update', cfg)
 }
-function onAsyncOptionSelected(pin: string, payload: { value: unknown; meta: Record<string, unknown> }) {
+function onAsyncOptionSelected(pin: string, payload: AsyncOptionPayload) {
   if (!props.node) return
   const applyMeta = fieldFor(pin)?.applyMeta
-  if (!applyMeta) return
   const literal = { ...((props.node.config?.literal as Record<string, unknown> | undefined) ?? {}) }
-  literal[pin] = payload.value
-  for (const [metaKey, targetPin] of Object.entries(applyMeta)) {
-    if (!(metaKey in payload.meta)) continue
-    const value = payload.meta[metaKey]
-    if (value === undefined || value === null || value === '') continue
-    literal[targetPin] = value
-  }
-  emit('update', { ...props.node.config, literal })
+  const nextLiteral = applyAsyncOptionMeta(literal, pin, payload, applyMeta)
+  if (!nextLiteral) return
+  emit('update', { ...props.node.config, literal: nextLiteral })
 }
 // 查 pin 对应的 widget 元数据 (类型/选项), 喂给 PinInput 渲染正确控件。
 // 动态 input (Expr config.Inputs[]) 在 fields 里查不到 → undefined, PinInput 走 pinType fallback。
