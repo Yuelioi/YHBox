@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-按 `plans/phase3-runtime-trace.md` 执行 Phase 3：让 RuntimeContext 拥有 trace recorder，并提供安全读取/清理入口。不改节点路由，不接 UI。
+先写 `plans/phase4-*.md`，再迁移第一个窄范围 Win32 节点动作通过 `Win32Controller`。Phase 4 前不要直接改节点路由；仍不接 Android、browser/CDP、UI 或持久化。
 
 ## Read now
 
@@ -14,6 +14,7 @@
 - plan.md
 - plans/phase2-trace.md
 - plans/phase3-runtime-trace.md
+- ../../knowledge/architecture/target-controller-phase3-notes.md
 
 ## Read if
 
@@ -32,9 +33,10 @@ Done:
 - cockpit 中加入恢复入口。
 - Phase 1 代码：`internal/automation/target`、`internal/automation/controller`、runtime WindowHandle -> Target bridge。
 - Phase 2 代码：`internal/automation/trace`、Win32Controller 可选 controller-call trace hook。
+- Phase 3 代码：`RuntimeContext` 拥有 per-run trace recorder，并提供 `TraceRecorder` / `TraceRecords` / `ClearTrace`。
 
 Current:
-- 准备执行 Phase 3 runtime trace ownership。
+- 等待 Phase 4 plan：选择一个窄范围 Win32 节点动作接入 `Win32Controller` 与 runtime trace。
 
 ## Open questions
 
