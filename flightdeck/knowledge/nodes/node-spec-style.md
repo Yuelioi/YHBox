@@ -79,6 +79,7 @@ const (
 5. 所有 String Default 若设置则必须是 string; `nil` 表示无默认/必填, 允许存在.
 6. 所有 Bool Default 若设置则必须是 bool; `nil` 表示无默认/必填, 允许存在.
 7. 所有 Point/Rect Default 若设置则必须是 `node.Point` / `node.Rect`; `nil` 表示无默认/必填, 允许存在.
+8. 所有 JSON Default 若设置则必须是 `map[string]any`; JSON 输入需要空对象时显式设 `{}`.
 
 任何节点违反 → test fail 给出 (Kind, pin) 定位. 添加新节点 = 必跑这测试.
 
@@ -90,6 +91,7 @@ const (
 ❌ `Default: "false"` (Bool 必须用 `false`)
 ❌ `Default: 0` (Bool 必须用 `false`/`true`; 数字默认只用于 Number/Integer/Duration 且必须 `json.Number`)
 ❌ `Default: map[string]any{"x": 0.5, "y": 0.5}` (Point 默认值必须用 `node.Point{X: 0.5, Y: 0.5}`)
+❌ `Default: "[]"` (JSON 默认值必须是 `map[string]any{}`)
 ❌ exec exit `"complete"`/`"yes"`/`"no"` (用 `Done`/`Found`/`NotFound` 等语义专名)
 
 ## 8. 迁移现状1
