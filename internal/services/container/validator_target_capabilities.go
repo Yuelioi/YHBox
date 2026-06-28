@@ -70,6 +70,10 @@ func targetCapabilitiesForNode(n *GraphNode, base []nodepkg.TargetCapability) []
 		if strings.TrimSpace(PinString(n, "Keys")) != "" {
 			caps = appendTargetCapability(caps, nodepkg.TargetCapabilityKeyState)
 		}
+		switch PinString(n, "Button") {
+		case "right", "middle":
+			caps = appendTargetCapability(caps, nodepkg.TargetCapabilityMouseButton)
+		}
 	}
 	return caps
 }

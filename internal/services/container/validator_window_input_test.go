@@ -142,3 +142,45 @@ func TestValidate_AndroidTargetWithClickTemplateModifierKeys_ReportsUnsupportedT
 		t.Fatalf("AndroidTarget + ClickTemplate.Keys 应报 key-state 不支持: %+v", errs)
 	}
 }
+
+func TestValidate_AndroidTargetWithClickAtRightButton_ReportsUnsupportedTargetCapability(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "click", Kind: "ClickAt", Config: map[string]any{
+			"literal": map[string]any{"Button": "right"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "click.In"},
+	)
+
+	errs := ValidateContainer(c, nil)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget + ClickAt.Button=right 应报 mouse-button 不支持: %+v", errs)
+	}
+}
+
+func TestValidate_AndroidTargetWithClickTemplateMiddleButton_ReportsUnsupportedTargetCapability(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "clickTemplate", Kind: "ClickTemplate", Config: map[string]any{
+			"literal": map[string]any{"Templates": []any{"template-1"}, "Button": "middle"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "clickTemplate.In"},
+	)
+
+	errs := ValidateContainer(c, nil)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget + ClickTemplate.Button=middle 应报 mouse-button 不支持: %+v", errs)
+	}
+}
