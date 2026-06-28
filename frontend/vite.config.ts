@@ -6,11 +6,15 @@ import wails from "@wailsio/runtime/plugins/vite";
 import VueI18nPlugin from "@intlify/unplugin-vue-i18n/vite";
 import { fileURLToPath, URL } from "node:url";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const isTest = mode === "test" || process.env.VITEST === "true";
+
+  return {
   test: {
     environment: "happy-dom",
     globals: true,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    setupFiles: ["src/test/setup.ts"],
   },
   // 终端错误别被 vite 启动 banner 清屏冲掉——dev 跟 wails 串行起，
   // 看不到 vite 报错就以为是 wails 卡住。
@@ -73,12 +77,18 @@ export default defineConfig({
       // 模式喂 createI18n, 必须保留 compiler.
       runtimeOnly: false,
     }),
-    wails("./bindings"),
+    ...(!isTest ? [wails("./bindings")] : []),
   ],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@bindings": fileURLToPath(new URL("./bindings", import.meta.url)),
+      ...(isTest
+        ? {
+            "@wailsio/runtime": fileURLToPath(new URL("./src/test/wailsRuntimeStub.ts", import.meta.url)),
+          }
+        : {}),
     },
   },
+  };
 });
