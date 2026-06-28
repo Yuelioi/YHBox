@@ -168,6 +168,9 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		if n.NeedsWindow {
 			t.Error("KeyPress should not be needsWindow; it routes through active target")
 		}
+		if !hasCatalogCapability(n.TargetCapabilities, "key-state") {
+			t.Fatalf("KeyPress should publish key-state target capability, got %+v", n.TargetCapabilities)
+		}
 		var vk *Pin
 		for i := range n.Inputs {
 			if n.Inputs[i].Name == "VK" {
@@ -180,6 +183,15 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		return
 	}
 	t.Fatal("KeyPress not found in catalog")
+}
+
+func hasCatalogCapability(caps []string, want string) bool {
+	for _, cap := range caps {
+		if cap == want {
+			return true
+		}
+	}
+	return false
 }
 
 // TestNoPinNameSplit — 守卫: 全节点 pin 名不准出现命名分裂 (形近撞名 / 同名不同具体类型)。

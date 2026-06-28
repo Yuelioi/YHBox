@@ -50,9 +50,13 @@ const visionPollInterval = 100 * time.Millisecond
 
 func (ClickTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "ClickTemplate",
-		Category:        "Detect",
-		NeedsTarget:     true,
+		Kind:        "ClickTemplate",
+		Category:    "Detect",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+			node.TargetCapabilityClick,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: clkInExec, Type: "Exec"},

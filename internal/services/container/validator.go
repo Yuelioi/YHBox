@@ -49,6 +49,7 @@ const (
 	CodeMissingWin32WindowTarget           = "MISSING_WIN32_WINDOW_TARGET"
 	CodeInvalidWin32WindowTargetRegex      = "INVALID_WIN32_WINDOW_TARGET_REGEX"
 	CodeInvalidWin32WindowTargetEmptyMatch = "INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH"
+	CodeUnsupportedTargetCapability        = "UNSUPPORTED_TARGET_CAPABILITY"
 	// CodeNoActiveWindow は runtime 用 (ErrNoActiveWindow); validator 不主动发,
 	// 此常量供错码集合 / 前端 i18n 对齐.
 	CodeNoActiveWindow = "NO_ACTIVE_WINDOW"
@@ -161,6 +162,7 @@ func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 	// 结构检查
 	errs = append(errs, validateMainGraph(c)...)
 	errs = append(errs, validateWin32WindowTarget(c, sgs)...)
+	errs = append(errs, validateTargetCapabilities(c, sgs)...)
 	errs = append(errs, validateMouseCalibration(c, sgs)...)
 	for i := range sgs {
 		errs = append(errs, validateSubgraph(c, &sgs[i])...)

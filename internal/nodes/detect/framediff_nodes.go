@@ -93,6 +93,9 @@ func (WaitStable) Spec() node.Spec {
 		Kind:        "WaitStable",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append(commonInputs(),
 			node.InputSpec{Name: wsStableThreshold, Type: "Number", Default: json.Number("0.02"),
 				Widget: node.WidgetSpec{Kind: "slider",
@@ -110,6 +113,9 @@ func (WaitChange) Spec() node.Spec {
 		Kind:        "WaitChange",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append(commonInputs(),
 			node.InputSpec{Name: wcChangeThreshold, Type: "Number", Default: json.Number("0.05"),
 				Widget: node.WidgetSpec{Kind: "slider",

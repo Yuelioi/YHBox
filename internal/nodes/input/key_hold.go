@@ -27,9 +27,12 @@ const (
 
 func (KeyHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "KeyHoldStart",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "KeyHoldStart",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityKeyState,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: khStartInExec, Type: "Exec"},
@@ -65,9 +68,12 @@ const (
 
 func (KeyHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "KeyHoldStop",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "KeyHoldStop",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityKeyState,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: khStopInExec, Type: "Exec"},

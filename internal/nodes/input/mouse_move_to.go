@@ -24,9 +24,12 @@ const (
 
 func (MouseMoveTo) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "MouseMoveTo",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "MouseMoveTo",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityMove,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: mmtInExec, Type: "Exec"},

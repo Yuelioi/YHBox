@@ -28,9 +28,13 @@ const (
 
 func (ClickAt) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "ClickAt",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "ClickAt",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityMove,
+			node.TargetCapabilityClick,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: caInExec, Type: "Exec"},

@@ -46,6 +46,9 @@ func (DetectColorBlobs) Spec() node.Spec {
 		Kind:        "DetectColorBlobs",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: dcbInExec, Type: "Exec"},
 			{Name: dcbInROI, Type: "Geometry", Schema: node.GeometrySchema()},

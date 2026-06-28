@@ -54,4 +54,48 @@ func TestValidate_AndroidTargetWithInput_NoMissingWin32WindowTarget(t *testing.T
 	if hasCode(errs, CodeMissingWin32WindowTarget) {
 		t.Errorf("AndroidTarget + ClickAt 不应要求 Win32WindowTarget: %+v", errs)
 	}
+	if hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Errorf("AndroidTarget + ClickAt 的基础点击能力应可用: %+v", errs)
+	}
+}
+
+func TestValidate_AndroidTargetWithMouseMoveRel_ReportsUnsupportedTargetCapability(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "move", Kind: "MouseMoveRel"},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "move.In"},
+	)
+
+	errs := ValidateContainer(c, nil)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget + MouseMoveRel 应报 target capability 不支持: %+v", errs)
+	}
+	if hasCode(errs, CodeMissingWin32WindowTarget) {
+		t.Fatalf("AndroidTarget 已显式选目标, 不应同时要求 Win32WindowTarget: %+v", errs)
+	}
+}
+
+func TestValidate_AndroidTargetWithKeyPress_ReportsUnsupportedTargetCapability(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "key", Kind: "KeyPress"},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "key.In"},
+	)
+
+	errs := ValidateContainer(c, nil)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget + KeyPress 应报 key-state 不支持: %+v", errs)
+	}
 }

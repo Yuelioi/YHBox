@@ -6,6 +6,20 @@ package node
 // 跟 InputSpec.Type / OutputSpec.Type 字段值对齐.
 const TypeExec = "Exec"
 
+type TargetCapability string
+
+const (
+	TargetCapabilityScreenshot   TargetCapability = "screenshot"
+	TargetCapabilityClick        TargetCapability = "click"
+	TargetCapabilityMove         TargetCapability = "move"
+	TargetCapabilityScroll       TargetCapability = "scroll"
+	TargetCapabilityMouseButton  TargetCapability = "mouse-button"
+	TargetCapabilityDrag         TargetCapability = "drag"
+	TargetCapabilityMoveRelative TargetCapability = "move-relative"
+	TargetCapabilityKeyState     TargetCapability = "key-state"
+	TargetCapabilityText         TargetCapability = "text"
+)
+
 // Spec 节点 metadata. 节点作者实现 Spec() 方法返这个.
 // 展示文本 (节点名 / 描述 / pin label / hint / enum option label) 全由 FE i18n 单源持有
 // (frontend/src/i18n/zh.ts node.<kind>.*), backend 只出结构 (kind / pin name / type / widget / enum value).
@@ -27,6 +41,10 @@ type Spec struct {
 	// 不代表必须有 Win32 HWND。没有任何 target selection node 时, validator 仍按
 	// Windows 默认体验提示补 Win32WindowTarget。
 	NeedsTarget bool `json:"needsTarget,omitempty"`
+	// TargetCapabilities — NeedsTarget 节点对 active target controller 的具体能力要求.
+	// 名称与 automation/controller.Capability 字符串保持一致, validator 用 controller
+	// profiles 做静态匹配, runtime adapter 仍保留执行期兜底。
+	TargetCapabilities []TargetCapability `json:"targetCapabilities,omitempty"`
 	// NeedsWindow — legacy Win32 HWND requirement: 节点 Run 依赖 Windows 窗口
 	// (调 ctx.Input/Capture/Vision/Window/Clip 等 Win32-backed 服务).
 	// validator/runner 据此判定直接 Win32 窗口操作是否需要 Win32WindowTarget;

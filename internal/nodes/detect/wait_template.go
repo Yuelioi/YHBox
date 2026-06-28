@@ -33,6 +33,9 @@ func (WaitTemplate) Spec() node.Spec {
 		Kind:        "WaitTemplate",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,

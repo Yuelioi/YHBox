@@ -1995,6 +1995,7 @@ export default {
     CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
     MISSING_WIN32_WINDOW_TARGET: 'Main graph missing a Windows window target node',
+    UNSUPPORTED_TARGET_CAPABILITY: '{kind} requires target capability {capability}, but target {targetKind} does not support it',
     UNKNOWN_ERROR: 'An unknown error occurred',
     WAILS_NOT_READY: 'The app is not ready yet, please retry',
     CONTAINER_ID_REQUIRED: 'Container ID is required',

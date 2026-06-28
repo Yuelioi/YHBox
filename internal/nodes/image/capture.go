@@ -31,6 +31,9 @@ func (Capture) Spec() node.Spec {
 		Kind:        "Capture",
 		Category:    "Image",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: capIn, Type: node.TypeExec},
 			{Name: capInROI, Type: "Geometry", Schema: node.GeometrySchema()},

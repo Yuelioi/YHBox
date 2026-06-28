@@ -36,6 +36,9 @@ func (ROIColorScan) Spec() node.Spec {
 		Kind:        "ROIColorScan",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: rcsInExec, Type: "Exec"},
 			{Name: rcsInROI, Type: "Geometry", Schema: node.GeometrySchema()},

@@ -23,9 +23,12 @@ const (
 
 func (Scroll) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "Scroll",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "Scroll",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScroll,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: scInExec, Type: "Exec"},

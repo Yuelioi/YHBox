@@ -136,6 +136,9 @@ func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
 		if spec.NeedsForeground && !spec.NeedsWindow && !spec.NeedsTarget {
 			t.Errorf("%s has NeedsForeground without NeedsWindow/NeedsTarget; foreground is a Win32 sendinput hint on target-aware actions", spec.Kind)
 		}
+		if spec.NeedsTarget && len(spec.TargetCapabilities) == 0 {
+			t.Errorf("%s has NeedsTarget without TargetCapabilities", spec.Kind)
+		}
 
 		if _, ok := targetSelection[spec.Kind]; ok {
 			if spec.Category != "Target" {

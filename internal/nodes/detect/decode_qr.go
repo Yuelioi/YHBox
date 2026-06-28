@@ -25,6 +25,9 @@ func (DecodeQR) Spec() node.Spec {
 		Kind:        "DecodeQR",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: dqInExec, Type: "Exec"},
 			{Name: dqInROI, Type: "Geometry", Schema: node.GeometrySchema()},

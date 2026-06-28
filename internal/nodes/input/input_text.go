@@ -19,9 +19,12 @@ const (
 
 func (InputText) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "InputText",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "InputText",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityText,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: itInExec, Type: "Exec"},

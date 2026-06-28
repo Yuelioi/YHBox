@@ -2015,6 +2015,7 @@ export default {
     CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
     MISSING_WIN32_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
+    UNSUPPORTED_TARGET_CAPABILITY: '{kind} 需要目标能力 {capability}，但当前目标 {targetKind} 不支持',
     UNKNOWN_ERROR: '发生未知错误',
     WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
     CONTAINER_ID_REQUIRED: '缺容器 ID',

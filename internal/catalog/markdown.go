@@ -50,6 +50,9 @@ func nodeMarks(n Node) string {
 	if n.NeedsTarget {
 		m = append(m, "NeedsTarget")
 	}
+	if len(n.TargetCapabilities) > 0 {
+		m = append(m, "Caps:"+strings.Join(n.TargetCapabilities, ","))
+	}
 	if n.NeedsWindow {
 		m = append(m, "NeedsWindow")
 	}

@@ -41,6 +41,9 @@ func (FindColorSignature) Spec() node.Spec {
 		Kind:        "FindColorSignature",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: fcsInExec, Type: "Exec"},
 			{Name: fcsInROI, Type: "Geometry", Schema: node.GeometrySchema()},

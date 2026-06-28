@@ -33,6 +33,9 @@ func (CheckTemplate) Spec() node.Spec {
 		Kind:        "CheckTemplate",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: ctInExec, Type: "Exec"},
 			{Name: ctInTemplates, Type: "String", Semantic: "TemplateGUID", Required: true,

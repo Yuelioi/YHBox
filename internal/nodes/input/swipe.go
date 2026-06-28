@@ -27,9 +27,12 @@ const (
 
 func (Swipe) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "Swipe",
-		Category:        "Input",
-		NeedsTarget:     true,
+		Kind:        "Swipe",
+		Category:    "Input",
+		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityDrag,
+		},
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{
 			{Name: swInExec, Type: "Exec"},

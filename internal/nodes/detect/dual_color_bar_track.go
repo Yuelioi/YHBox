@@ -45,6 +45,9 @@ func (DualColorBarTrack) Spec() node.Spec {
 		Kind:        "DualColorBarTrack",
 		Category:    "Detect",
 		NeedsTarget: true,
+		TargetCapabilities: []node.TargetCapability{
+			node.TargetCapabilityScreenshot,
+		},
 		Inputs: append([]node.InputSpec{
 			{Name: dcbtInExec, Type: "Exec"},
 			{Name: dcbtInROI, Type: "Geometry", Required: true,
