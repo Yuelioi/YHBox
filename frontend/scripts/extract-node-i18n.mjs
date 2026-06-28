@@ -27,6 +27,13 @@ function pinMap(obj, withHint) {
     const e = {}
     if (typeof v.label === 'string') e.label = v.label
     if (withHint && typeof v.hint === 'string') e.hint = v.hint
+    if (withHint && v.option && typeof v.option === 'object' && !Array.isArray(v.option)) {
+      const option = {}
+      for (const [key, label] of Object.entries(v.option)) {
+        if (typeof label === 'string') option[key] = label
+      }
+      if (Object.keys(option).length) e.option = option
+    }
     if (Object.keys(e).length) out[pin] = e
   }
   return Object.keys(out).length ? out : undefined
@@ -39,7 +46,7 @@ for (const [kind, v] of Object.entries(node)) {
   if (typeof v.label === 'string') e.label = v.label
   if (typeof v.description === 'string') e.description = v.description
   if (typeof v.example === 'string') e.example = v.example
-  const ins = pinMap(v.input, true)   // input pin: label + hint
+  const ins = pinMap(v.input, true)   // input pin: label + hint + dropdown option labels
   const outs = pinMap(v.output, false) // output pin: label only
   if (ins) e.input = ins
   if (outs) e.output = outs

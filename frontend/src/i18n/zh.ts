@@ -1298,6 +1298,32 @@ export default {
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
+    AndroidTarget: {
+      label: '安卓目标',
+      description: '把后续点击、截图和视觉识别切到一个 ADB 设备或模拟器。序列号可从下拉列表选择, 名称和分辨率会自动填入, 也可以手动覆盖。',
+      example: '先用安卓目标选择 emulator-5554, 再接点击或截图节点, 后续动作就作用在该模拟器画面上。',
+      input: {
+        Serial: { label: '设备序列号', hint: 'ADB serial, 如 emulator-5554' },
+        Name: { label: '显示名称', hint: '可选。留空时使用设备序列号' },
+        Width: { label: '宽度', hint: '设备截图宽度, 用于坐标换算' },
+        Height: { label: '高度', hint: '设备截图高度, 用于坐标换算' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    BrowserTarget: {
+      label: '浏览器目标',
+      description: '把后续点击、截图和视觉识别切到一个 Chrome/CDP 页面。先让浏览器开启远程调试端口, 再选择页面; 页面 ID、标题和 WebSocket 地址可自动填入。',
+      example: '启动 Chrome --remote-debugging-port=9222, 用浏览器目标选择一个页面, 后续点击节点就按页面视口坐标执行。',
+      input: {
+        Endpoint: { label: '调试端点', hint: 'Chrome DevTools endpoint, 默认 http://127.0.0.1:9222' },
+        BrowserID: { label: '页面 ID', hint: '从远程调试页面列表选择' },
+        Name: { label: '显示名称', hint: '可选。留空时使用页面 ID' },
+        WebSocketURL: { label: 'WebSocket 地址', hint: '高级。通常由页面选择自动填入' },
+        Width: { label: '视口宽度', hint: '页面视口宽度, 用于坐标换算' },
+        Height: { label: '视口高度', hint: '页面视口高度, 用于坐标换算' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     // purefunc
     Expr: {
       label: '表达式',

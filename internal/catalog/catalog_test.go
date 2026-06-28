@@ -1,22 +1,29 @@
 package catalog
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
+	nodepkg "yotta/internal/node"
+
+	_ "yotta/internal/nodes/ai"
 	_ "yotta/internal/nodes/control"
 	_ "yotta/internal/nodes/detect"
 	_ "yotta/internal/nodes/event" // EventTick — 曾漏 import 致 drift 守卫对其失明
 
+	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
+	_ "yotta/internal/nodes/image"
 	_ "yotta/internal/nodes/input"
 	_ "yotta/internal/nodes/io"
 	_ "yotta/internal/nodes/purefunc"
-	_ "yotta/internal/nodes/collection" // Split/Join/List* 列表节点
 	_ "yotta/internal/nodes/random" // RandomInt/RandomFloat/RandomBool
 	_ "yotta/internal/nodes/script" // Script (内嵌 JS, goja)
 	_ "yotta/internal/nodes/stopwatch"
 	_ "yotta/internal/nodes/system"
 	_ "yotta/internal/nodes/variable"
+	_ "yotta/internal/nodes/window"
 )
 
 func TestBuild_HasNodesAndSorted(t *testing.T) {
@@ -84,6 +91,50 @@ func TestBuildWithI18n_AllDeclaredPinsLabeled(t *testing.T) {
 	if len(missing) > 0 {
 		t.Errorf("缺 pin label 的节点翻译 (更新 zh.ts 后需跑 `pnpm gen:node-i18n`):\n  %s", strings.Join(missing, "\n  "))
 	}
+}
+
+// drift guard: every static dropdown option visible in the frontend must have an i18n label.
+func TestBuildWithI18n_AllDropdownOptionsLabeled(t *testing.T) {
+	var i18n map[string]nodeI18n
+	if err := json.Unmarshal(nodeI18nJSON, &i18n); err != nil {
+		t.Fatal(err)
+	}
+	var missing []string
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		text := i18n[spec.Kind]
+		for _, in := range spec.Inputs {
+			if in.Widget.Kind != "dropdown" {
+				continue
+			}
+			for _, value := range dropdownOptionValues(in.Widget.Props) {
+				if text.Input == nil || text.Input[in.Name].Option[value] == "" {
+					missing = append(missing, spec.Kind+".input."+in.Name+".option."+value)
+				}
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("缺 dropdown option 翻译 (更新 zh.ts 后需跑 `pnpm gen:node-i18n`):\n  %s", strings.Join(missing, "\n  "))
+	}
+}
+
+func dropdownOptionValues(props map[string]any) []string {
+	rawOptions, ok := props["options"].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(rawOptions))
+	for _, raw := range rawOptions {
+		opt, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if value, ok := opt["value"]; ok {
+			out = append(out, fmt.Sprint(value))
+		}
+	}
+	return out
 }
 
 // Part A 守卫: exec 出口携带的 Data 字段被序列化进 catalog (此前丢失, 调研要 grep 源码才知道)。

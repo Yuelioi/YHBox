@@ -85,8 +85,9 @@ func Build() []Node {
 var nodeI18nJSON []byte
 
 type pinI18n struct {
-	Label string `json:"label"`
-	Hint  string `json:"hint"`
+	Label  string            `json:"label"`
+	Hint   string            `json:"hint"`
+	Option map[string]string `json:"option"`
 }
 
 type nodeI18n struct {

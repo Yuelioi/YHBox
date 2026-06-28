@@ -19,7 +19,12 @@
         "hint": "用双花括号包住声明的输入名插值；图像输入会渲染成占位标记、不进文本"
       },
       "Mode": {
-        "label": "结构化模式"
+        "label": "结构化模式",
+        "option": {
+          "auto": "自动（按端点）",
+          "native": "原生",
+          "prompt": "提示词注入"
+        }
       },
       "Temperature": {
         "label": "温度"
@@ -94,6 +99,34 @@
       }
     }
   },
+  "AndroidTarget": {
+    "label": "安卓目标",
+    "description": "把后续点击、截图和视觉识别切到一个 ADB 设备或模拟器。序列号可从下拉列表选择, 名称和分辨率会自动填入, 也可以手动覆盖。",
+    "example": "先用安卓目标选择 emulator-5554, 再接点击或截图节点, 后续动作就作用在该模拟器画面上。",
+    "input": {
+      "Serial": {
+        "label": "设备序列号",
+        "hint": "ADB serial, 如 emulator-5554"
+      },
+      "Name": {
+        "label": "显示名称",
+        "hint": "可选。留空时使用设备序列号"
+      },
+      "Width": {
+        "label": "宽度",
+        "hint": "设备截图宽度, 用于坐标换算"
+      },
+      "Height": {
+        "label": "高度",
+        "hint": "设备截图高度, 用于坐标换算"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
   "Break": {
     "label": "跳出循环",
     "description": "提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。"
@@ -112,6 +145,42 @@
       }
     }
   },
+  "BrowserTarget": {
+    "label": "浏览器目标",
+    "description": "把后续点击、截图和视觉识别切到一个 Chrome/CDP 页面。先让浏览器开启远程调试端口, 再选择页面; 页面 ID、标题和 WebSocket 地址可自动填入。",
+    "example": "启动 Chrome --remote-debugging-port=9222, 用浏览器目标选择一个页面, 后续点击节点就按页面视口坐标执行。",
+    "input": {
+      "Endpoint": {
+        "label": "调试端点",
+        "hint": "Chrome DevTools endpoint, 默认 http://127.0.0.1:9222"
+      },
+      "BrowserID": {
+        "label": "页面 ID",
+        "hint": "从远程调试页面列表选择"
+      },
+      "Name": {
+        "label": "显示名称",
+        "hint": "可选。留空时使用页面 ID"
+      },
+      "WebSocketURL": {
+        "label": "WebSocket 地址",
+        "hint": "高级。通常由页面选择自动填入"
+      },
+      "Width": {
+        "label": "视口宽度",
+        "hint": "页面视口宽度, 用于坐标换算"
+      },
+      "Height": {
+        "label": "视口高度",
+        "hint": "页面视口高度, 用于坐标换算"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
   "Capture": {
     "label": "截屏",
     "description": "抓当前画面(整屏或你框的区域)产出一张图像值, 接给 AI 节点识图、接保存图像存盘、或接其它要图的节点。格式可选 PNG(无损)或 JPEG(更小, 省 token 与内存)。",
@@ -122,7 +191,11 @@
         "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       },
       "Format": {
-        "label": "格式"
+        "label": "格式",
+        "option": {
+          "png": "PNG",
+          "jpeg": "JPEG"
+        }
       },
       "Quality": {
         "label": "JPEG 质量",
@@ -210,7 +283,12 @@
         "label": "坐标"
       },
       "Button": {
-        "label": "按键"
+        "label": "按键",
+        "option": {
+          "left": "左键",
+          "right": "右键",
+          "middle": "中键"
+        }
       },
       "MoveMs": {
         "label": "滑动时长 (ms)",
@@ -262,7 +340,18 @@
       },
       "Anchor": {
         "label": "锚点",
-        "hint": "点击落点取命中框的哪个位置 (九宫格), 默认中心"
+        "hint": "点击落点取命中框的哪个位置 (九宫格), 默认中心",
+        "option": {
+          "topLeft": "左上",
+          "topCenter": "上中",
+          "topRight": "右上",
+          "midLeft": "左中",
+          "center": "中心",
+          "midRight": "右中",
+          "botLeft": "左下",
+          "botCenter": "下中",
+          "botRight": "右下"
+        }
       },
       "OffsetX": {
         "label": "水平偏移",
@@ -274,14 +363,26 @@
       },
       "OrderBy": {
         "label": "多命中排序",
-        "hint": "多命中时按什么排序再取第几个"
+        "hint": "多命中时按什么排序再取第几个",
+        "option": {
+          "score": "匹配度",
+          "horizontal": "从左到右",
+          "vertical": "从上到下",
+          "area": "面积",
+          "random": "随机"
+        }
       },
       "Index": {
         "label": "取第几个",
         "hint": "排序后取第几个命中 (从 0 起)"
       },
       "Button": {
-        "label": "按键"
+        "label": "按键",
+        "option": {
+          "left": "左键",
+          "right": "右键",
+          "middle": "中键"
+        }
       },
       "Keys": {
         "label": "组合键",
@@ -451,7 +552,11 @@
         "hint": "客户区 ratio 矩形, 全 0 = 全屏"
       },
       "Mode": {
-        "label": "模式"
+        "label": "模式",
+        "option": {
+          "hsv": "HSV",
+          "rgb": "RGB"
+        }
       },
       "Range": {
         "label": "范围",
@@ -481,7 +586,11 @@
         "label": "区域 (ratio)"
       },
       "Mode": {
-        "label": "模式"
+        "label": "模式",
+        "option": {
+          "hsv": "HSV",
+          "rgb": "RGB"
+        }
       },
       "Range": {
         "label": "范围"
@@ -493,7 +602,12 @@
         "label": "最多返回块数（0=不限）"
       },
       "Sort": {
-        "label": "排序方式"
+        "label": "排序方式",
+        "option": {
+          "area_desc": "面积降序",
+          "dist_screen_center": "距屏幕中心近优先",
+          "dist_point": "距参考点近优先"
+        }
       },
       "RefPoint": {
         "label": "参考点（归一化）"
@@ -656,7 +770,12 @@
         "label": "并发上限"
       },
       "RetriggerPolicy": {
-        "label": "重触发策略"
+        "label": "重触发策略",
+        "option": {
+          "drop": "跳过",
+          "queue": "排队",
+          "restart": "打断重来"
+        }
       }
     },
     "output": {
@@ -812,7 +931,12 @@
         "label": "变量名"
       },
       "Scope": {
-        "label": "作用域"
+        "label": "作用域",
+        "option": {
+          "auto": "auto",
+          "local": "local",
+          "global": "global"
+        }
       }
     },
     "output": {
@@ -836,7 +960,14 @@
         "label": "进程名"
       },
       "TitleMatch": {
-        "label": "标题匹配方式"
+        "label": "标题匹配方式",
+        "option": {
+          "exact": "精确",
+          "contains": "包含",
+          "prefix": "前缀",
+          "suffix": "后缀",
+          "regex": "正则"
+        }
       }
     },
     "output": {
@@ -909,7 +1040,12 @@
         "label": "变量名"
       },
       "Scope": {
-        "label": "作用域"
+        "label": "作用域",
+        "option": {
+          "auto": "auto",
+          "local": "local",
+          "global": "global"
+        }
       },
       "Delta": {
         "label": "增量"
@@ -1164,7 +1300,12 @@
         "hint": "任意类型 — 字符串 / 数字 / Point / Rect 等, 自动转成文本"
       },
       "Level": {
-        "label": "级别"
+        "label": "级别",
+        "option": {
+          "debug": "Debug",
+          "info": "Info",
+          "warn": "Warn"
+        }
       }
     },
     "output": {
@@ -1179,7 +1320,11 @@
     "example": "想刷 50 次副本：模式选「次数」、次数填 50，把进副本到领奖的步骤接到循环体上，它就会自动重复 50 遍；要是检测到背包满了，循环体里接个「跳出循环」就能提前收工。",
     "input": {
       "Mode": {
-        "label": "模式"
+        "label": "模式",
+        "option": {
+          "count": "次数",
+          "forever": "永远"
+        }
       },
       "Count": {
         "label": "次数 (mode=count)"
@@ -1246,7 +1391,11 @@
       },
       "Unit": {
         "label": "单位",
-        "hint": "百分比=随窗口自适应；像素=绝对固定不缩放"
+        "hint": "百分比=随窗口自适应；像素=绝对固定不缩放",
+        "option": {
+          "percent": "百分比（自适应）",
+          "px": "像素（绝对）"
+        }
       }
     },
     "output": {
@@ -1330,7 +1479,12 @@
         "label": "坐标"
       },
       "Button": {
-        "label": "按键"
+        "label": "按键",
+        "option": {
+          "left": "左键",
+          "right": "右键",
+          "middle": "中键"
+        }
       },
       "Window": {
         "label": "窗口"
@@ -1348,7 +1502,12 @@
     "input": {
       "Button": {
         "label": "按键",
-        "hint": "跟上一个「按住鼠标」节点同一个"
+        "hint": "跟上一个「按住鼠标」节点同一个",
+        "option": {
+          "left": "左键",
+          "right": "右键",
+          "middle": "中键"
+        }
       },
       "Window": {
         "label": "窗口"
@@ -1583,7 +1742,11 @@
         "hint": "{'{'}\"hMin\":0,\"hMax\":360,\"sMin\":0,\"sMax\":100,\"vMin\":0,\"vMax\":100{'}'}"
       },
       "Axis": {
-        "label": "扫描轴"
+        "label": "扫描轴",
+        "option": {
+          "x": "水平 (x)",
+          "y": "垂直 (y)"
+        }
       },
       "MinClusterPx": {
         "label": "最小段长 (px)"
@@ -1658,7 +1821,11 @@
       },
       "Distribution": {
         "label": "分布",
-        "hint": "均匀=区间内等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）"
+        "hint": "均匀=区间内等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）",
+        "option": {
+          "uniform": "均匀",
+          "centered": "聚中"
+        }
       }
     },
     "output": {
@@ -1679,7 +1846,11 @@
       },
       "Distribution": {
         "label": "分布",
-        "hint": "均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）"
+        "hint": "均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）",
+        "option": {
+          "uniform": "均匀",
+          "centered": "聚中"
+        }
       }
     },
     "output": {
@@ -1780,7 +1951,13 @@
         "hint": "可选。程序启动的工作目录，留空用默认。"
       },
       "WindowState": {
-        "label": "窗口状态"
+        "label": "窗口状态",
+        "option": {
+          "normal": "正常",
+          "minimized": "最小化",
+          "maximized": "最大化",
+          "hidden": "隐藏"
+        }
       }
     },
     "output": {
@@ -1854,7 +2031,11 @@
       },
       "Axis": {
         "label": "方向",
-        "hint": "竖向=上下滚（默认）；横向=左右滚"
+        "hint": "竖向=上下滚（默认）；横向=左右滚",
+        "option": {
+          "vertical": "竖向",
+          "horizontal": "横向"
+        }
       },
       "Window": {
         "label": "窗口"
@@ -1896,7 +2077,12 @@
         "label": "变量名"
       },
       "Scope": {
-        "label": "作用域"
+        "label": "作用域",
+        "option": {
+          "auto": "auto",
+          "local": "local",
+          "global": "global"
+        }
       },
       "Value": {
         "label": "值",
@@ -2135,7 +2321,12 @@
         "hint": "拖拽的结束坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来"
       },
       "Button": {
-        "label": "按键"
+        "label": "按键",
+        "option": {
+          "left": "左键",
+          "right": "右键",
+          "middle": "中键"
+        }
       },
       "DurationMs": {
         "label": "时长 (ms)",
@@ -2293,7 +2484,11 @@
         "hint": "边长 clamp [4,128]"
       },
       "Metric": {
-        "label": "差分度量"
+        "label": "差分度量",
+        "option": {
+          "changed_ratio": "变化格占比",
+          "mean_diff": "平均差"
+        }
       },
       "CellDelta": {
         "label": "格变化阈 (0-255)",
@@ -2340,7 +2535,11 @@
         "hint": "边长 clamp [4,128]; 越大越细越慢"
       },
       "Metric": {
-        "label": "差分度量"
+        "label": "差分度量",
+        "option": {
+          "changed_ratio": "变化格占比",
+          "mean_diff": "平均差"
+        }
       },
       "CellDelta": {
         "label": "格变化阈 (0-255)",
@@ -2454,7 +2653,11 @@
         "label": "进程名"
       },
       "TitleMatch": {
-        "label": "标题匹配方式"
+        "label": "标题匹配方式",
+        "option": {
+          "exact": "精确",
+          "regex": "正则"
+        }
       },
       "TimeoutMs": {
         "label": "超时 (ms)",
@@ -2484,7 +2687,11 @@
         "label": "进程名"
       },
       "TitleMatch": {
-        "label": "标题匹配方式"
+        "label": "标题匹配方式",
+        "option": {
+          "exact": "精确",
+          "regex": "正则"
+        }
       },
       "TimeoutMs": {
         "label": "超时 (ms)",
@@ -2506,7 +2713,14 @@
     "example": "把游戏窗口切到无边框全屏。",
     "input": {
       "State": {
-        "label": "状态"
+        "label": "状态",
+        "option": {
+          "maximize": "最大化",
+          "minimize": "最小化",
+          "restore": "还原",
+          "borderlessFullscreen": "无边框全屏",
+          "restoreBorders": "退出无边框"
+        }
       },
       "Window": {
         "label": "窗口"
@@ -2533,7 +2747,14 @@
         "label": "进程名"
       },
       "TitleMatch": {
-        "label": "标题匹配方式"
+        "label": "标题匹配方式",
+        "option": {
+          "exact": "精确",
+          "contains": "包含",
+          "prefix": "前缀",
+          "suffix": "后缀",
+          "regex": "正则"
+        }
       }
     },
     "output": {
@@ -2542,72 +2763,6 @@
       },
       "Fail": {
         "label": "失败"
-      }
-    }
-  },
-  "AndroidTarget": {
-    "label": "安卓目标",
-    "description": "指定脚本接下来操作哪台 Android ADB 设备。放在点击、输入、截图节点之前，后续动作会按设备分辨率把比例坐标换算成 Android 屏幕坐标。",
-    "example": "脚本要操作模拟器：开头放一个「安卓目标」，Serial 填 emulator-5554，宽高填模拟器实际分辨率，后面的点击和截图就会走 ADB。",
-    "input": {
-      "Serial": {
-        "label": "ADB 序列号"
-      },
-      "Name": {
-        "label": "显示名称"
-      },
-      "Width": {
-        "label": "屏幕宽度"
-      },
-      "Height": {
-        "label": "屏幕高度"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "TargetID": {
-        "label": "目标 ID"
-      },
-      "Kind": {
-        "label": "目标类型"
-      }
-    }
-  },
-  "BrowserTarget": {
-    "label": "浏览器目标",
-    "description": "指定脚本接下来操作哪个浏览器标签页。浏览器需要先用 remote debugging port 启动，后续点击、输入、截图和识图会走 Chrome DevTools Protocol。",
-    "example": "脚本要操作一个 Chrome 标签页：先用 --remote-debugging-port=9222 启动浏览器，开头放一个「浏览器目标」，选择标签页，后面的点击和截图就会走 CDP。",
-    "input": {
-      "Endpoint": {
-        "label": "调试端点"
-      },
-      "BrowserID": {
-        "label": "标签页"
-      },
-      "Name": {
-        "label": "显示名称"
-      },
-      "WebSocketURL": {
-        "label": "WebSocket URL"
-      },
-      "Width": {
-        "label": "视口宽度"
-      },
-      "Height": {
-        "label": "视口高度"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "TargetID": {
-        "label": "目标 ID"
-      },
-      "Kind": {
-        "label": "目标类型"
       }
     }
   }

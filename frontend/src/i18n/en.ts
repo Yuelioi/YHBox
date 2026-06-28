@@ -1278,6 +1278,32 @@
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Fail' } },
     },
+    AndroidTarget: {
+      label: 'Android Target',
+      description: 'Switch subsequent clicks, screenshots, and vision operations to an ADB device or emulator. Pick a serial from the dropdown; name and resolution are filled automatically and can still be overridden.',
+      example: 'Select emulator-5554 with Android Target, then wire a click or screenshot node; later actions operate on that emulator screen.',
+      input: {
+        Serial: { label: 'Device serial', hint: 'ADB serial, e.g. emulator-5554' },
+        Name: { label: 'Display name', hint: 'Optional. Empty uses the device serial' },
+        Width: { label: 'Width', hint: 'Screenshot width used for coordinate mapping' },
+        Height: { label: 'Height', hint: 'Screenshot height used for coordinate mapping' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
+    BrowserTarget: {
+      label: 'Browser Target',
+      description: 'Switch subsequent clicks, screenshots, and vision operations to a Chrome/CDP page. Start the browser with a remote debugging port, then pick a page; page ID, title, and WebSocket URL can be filled automatically.',
+      example: 'Start Chrome with --remote-debugging-port=9222, select a page with Browser Target, then click nodes run in page viewport coordinates.',
+      input: {
+        Endpoint: { label: 'Debug endpoint', hint: 'Chrome DevTools endpoint, default http://127.0.0.1:9222' },
+        BrowserID: { label: 'Page ID', hint: 'Select from the remote debugging page list' },
+        Name: { label: 'Display name', hint: 'Optional. Empty uses the page ID' },
+        WebSocketURL: { label: 'WebSocket URL', hint: 'Advanced. Usually filled by page selection' },
+        Width: { label: 'Viewport width', hint: 'Page viewport width used for coordinate mapping' },
+        Height: { label: 'Viewport height', hint: 'Page viewport height used for coordinate mapping' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     // purefunc
     Expr: {
       label: 'Expression',
