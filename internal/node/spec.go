@@ -22,13 +22,17 @@ type Spec struct {
 	// 仅在 IsPureData=true 节点上有意义 — 记忆化发生在 pure-data 拉取路径; exec 节点不读此字段.
 	IsNonDeterministic bool `json:"isNonDeterministic,omitempty"`
 	IsVisualOnly       bool `json:"isVisualOnly,omitempty"`
-	// NeedsWindow — 节点 Run 依赖目标窗口 hwnd (调 ctx.Input/Capture/Vision/Window/Clip).
-	// validator/runner 据此判定: 图里有 NeedsWindow 节点才要求 WindowTarget; 纯窗口无关
-	// 容器 (Sleep/Log/Cron/Expr...) 免 WindowTarget. 新节点用了上述 ctx 服务务必置真
+	// NeedsWindow — legacy Win32 HWND requirement: 节点 Run 依赖 Windows 窗口
+	// (调 ctx.Input/Capture/Vision/Window/Clip 等 Win32-backed 服务).
+	// validator/runner 据此判定: 图里有 NeedsWindow 节点才要求 WindowTarget;
+	// 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免 WindowTarget. Android/Browser
+	// 等非 HWND 自动化对象应走 TargetService / controller capabilities, 不要把
+	// NeedsWindow 当通用 Target requirement. 新节点用了上述 Win32 服务务必置真
 	// (漏置 → 该节点在无窗口容器里 SafeBackend 静默 no-op).
 	NeedsWindow bool `json:"needsWindow,omitempty"`
-	// NeedsForeground — 节点向目标窗口注入输入(SendInput 后端需前台焦点)。派发期 Window 覆盖
-	// 时, 若后端是 sendinput 且本标志为真, 框架补拉一次前台。输入类节点(Click/KeyPress...)置真。
+	// NeedsForeground — 节点向 Windows 窗口注入输入(SendInput 后端需前台焦点)。
+	// 派发期 Window 覆盖时, 若后端是 sendinput 且本标志为真, 框架补拉一次前台。
+	// 输入类节点(Click/KeyPress...)置真。Browser/Android 不应复用此 Win32 前台语义。
 	NeedsForeground bool `json:"needsForeground,omitempty"`
 	// IsGraphMarker — graph 结构标记节点 (SubgraphInput / SubgraphOutput).
 	// runtime 在 dispatch_v5 / runRegionBody 里 special-route 跳过 Run.

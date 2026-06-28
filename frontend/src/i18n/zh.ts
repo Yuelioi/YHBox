@@ -160,8 +160,8 @@ export default {
     runqueue_added: '已加入运行队列',
     validate_failed: '校验失败',
     validate_call_failed: '校验调用失败',
-    window_target_added_title: '已添加 WindowTarget 节点',
-    window_target_added_desc: '请打开节点 Inspector 配置目标窗口 (或点"捕获前台窗口")',
+    window_target_added_title: '已添加 Windows 窗口目标节点',
+    window_target_added_desc: '请打开节点 Inspector 配置 Windows 窗口匹配条件 (或点"捕获前台窗口")',
     expr_fuse_failed: 'Expr 合并失败 (前置条件不满足)',
     subgraph_recording_reset_warn: '重置录制元数据需要重新录制此子图（v1 仅提示）',
     // 通用 toast (跨文件复用)
@@ -320,12 +320,12 @@ export default {
       errorcodes_hint: '节点失败时「失败」出口带出的 Code，可用 Switch 按码分流。',
       errorcode_desc: {
         launch_failed: 'RunProgram 起不来程序 —— 路径写错 / 程序不存在 / 无权限.',
-        capture_failed: '截屏或颜色检测 / 模板匹配等视觉操作失败 —— 常见目标窗被最小化或已关闭.',
+        capture_failed: '截屏或颜色检测 / 模板匹配等视觉操作失败 —— 常见自动化目标不可用、被最小化或已关闭.',
         write_failed: 'Screenshot 等写文件失败 —— 路径非法 / 目录不可写 / 磁盘满.',
-        not_found: 'WindowTarget 等按条件找不到窗口 / 目标.',
+        not_found: '窗口/目标节点按条件找不到对应对象.',
         timeout: '等待类操作在限定时间内没等到结果.',
         playback_failed: 'PlayClip 回放录制片段失败.',
-        send_failed: '点击 / 按键等输入注入目标窗口失败.',
+        send_failed: '点击 / 按键等输入注入当前自动化目标失败.',
         thrown: 'Throw 节点没填 Code 时的默认码.',
         error: '兜底 / 未分类的失败.',
       },
@@ -335,10 +335,10 @@ export default {
         control: { label: '控制流', desc: 'Start / Sleep / Loop / If / Stop / Break / Continue' },
         variable: { label: '变量', desc: 'SetVar / IncVar — 容器作用域 + 子图局部作用域 (runtime 自动隔离)' },
         image: { label: '图像', desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — 模板匹配与颜色检测' },
-        input: { label: '输入', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到目标窗口' },
+        input: { label: '输入', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到当前自动化目标' },
         event: { label: '事件', desc: 'EventTick — 定时后台触发器, 每隔 N ms spawn 子图执行 (不挡主流程)' },
         subgraph: { label: '子图', desc: 'Subgraph 调用 / SubgraphInput 入口 / SubgraphOutput 出口' },
-        system: { label: '系统', desc: 'WindowTarget — 选定目标窗口 (title / class / processName 任意组合匹配)' },
+        system: { label: '系统', desc: 'WindowTarget — 选定 Windows 窗口目标 (title / class / processName 任意组合匹配)' },
         config: { label: '配置', desc: 'MouseCalibration — 标定本机 360° HID counts, 给 MouseMoveRel 缩放用' },
         debug: { label: '调试', desc: 'Log / Toast' },
       },
@@ -610,10 +610,10 @@ export default {
     unit_percent: '百分比',
     unit_px: '像素',
     pick_point: '截图取点',
-    no_window_title: '目标窗口未开',
-    no_window_desc: '目标窗口未开，无法换算单位；打开目标窗口后再切换',
-    hint_percent: '比例：随窗口大小自适应（换分辨率仍按比例）',
-    hint_px: '绝对像素：固定不随窗口缩放，适合固定位置的 UI',
+    no_window_title: '目标未就绪',
+    no_window_desc: '当前目标未就绪，无法换算单位；打开或切换目标后再试',
+    hint_percent: '比例：随目标画面大小自适应（换分辨率仍按比例）',
+    hint_px: '绝对像素：固定不随目标画面缩放，适合固定位置的 UI',
   },
   geometry: {
     default_region: '默认区域',
@@ -1117,14 +1117,14 @@ export default {
     // input
     BringWindowForeground: {
       label: '窗口置前台',
-      description: '把目标窗口提到最前面、给它焦点，让后面的键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。',
+      description: '把当前 Windows 窗口提到最前面、给它焦点，让后面的 Windows 键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。Android/浏览器目标不走这个节点。',
       input: { Window: { label: '窗口' } },
       output: { Done: { label: '完成' } },
     },
     ClickAt: {
       label: '点击坐标',
-      description: '在窗口里点一下鼠标。位置用坐标控件填，可切百分比（0-1 比例）或像素，也可截图取点。可选左/右/中键，能先滑过去再点，按下时长也能调。',
-      example: '点屏幕右下角的「确认」按钮：坐标填 (0.9, 0.9) 比例模式，按键选左键，运行时就会在窗口右下角点一下。',
+      description: '在当前目标画面里点一下鼠标。位置用坐标控件填，可切百分比（0-1 比例）或像素，也可截图取点。可选左/右/中键，能先滑过去再点，按下时长也能调。',
+      example: '点目标画面右下角的「确认」按钮：坐标填 (0.9, 0.9) 比例模式，按键选左键，运行时就会在目标右下角点一下。',
       input: {
         Point: { label: '坐标' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
@@ -1163,7 +1163,7 @@ export default {
     },
     MouseHoldStart: {
       label: '按住鼠标',
-      description: '在窗口里某个位置把鼠标键按下去就不松手。位置可以填比例（0~1）或像素坐标。它只负责「按下」，要配一个「松开鼠标」节点放开；中间可以插任意流程，常用来拖拽或长按。',
+      description: '在当前目标画面里某个位置把鼠标键按下去就不松手。位置可以填比例（0~1）或像素坐标。它只负责「按下」，要配一个「松开鼠标」节点放开；中间可以插任意流程，常用来拖拽或长按。',
       example: '拖动物品：在起点放「按住鼠标」按下左键，接「鼠标移动到」滑到终点，再放「松开鼠标」放开左键——就完成一次拖拽。',
       input: {
         Point: { label: '坐标' },
@@ -1180,7 +1180,7 @@ export default {
     },
     MouseMoveRel: {
       label: '鼠标相对移动',
-      description: '从鼠标现在所在的位置，往某个方向挪一段距离（按像素算），不是挪到固定坐标。Δx 正数往右、负数往左，Δy 正数往下、负数往上。常用来转视角、微调准星。要直接移到窗口某个固定点用「鼠标移动到」。',
+      description: '从鼠标现在所在的位置，往某个方向挪一段距离（按像素算），不是挪到固定坐标。Δx 正数往右、负数往左，Δy 正数往下、负数往上。常用来转视角、微调准星。要直接移到目标画面某个固定点用「鼠标移动到」。',
       example: '游戏里向右转视角：Δx 填 200、Δy 填 0，运行时鼠标就从当前位置往右挪 200 像素，画面跟着右转。',
       input: {
         Dx: { label: 'Δx (px)' },
@@ -1193,7 +1193,7 @@ export default {
     },
     MouseMoveTo: {
       label: '鼠标移动到',
-      description: '把鼠标移到窗口里某个固定位置，只移动不点击。坐标支持比例（0 到 1，0.5、0.5 是正中间）或像素（px），跟窗口大小无关。滑动时长填 0 是瞬间跳过去，填大于 0 会在这段时间里看得见地滑过去（更像真人）。要往某方向挪一段而不是去固定点，用「鼠标相对移动」。',
+      description: '把鼠标移到当前目标画面某个固定位置，只移动不点击。坐标支持比例（0 到 1，0.5、0.5 是正中间）或像素（px），跟目标画面大小无关。滑动时长填 0 是瞬间跳过去，填大于 0 会在这段时间里看得见地滑过去（更像真人）。要往某方向挪一段而不是去固定点，用「鼠标相对移动」。',
       example: '先把鼠标移到中间再点击：用「鼠标移动到」坐标填 (0.5, 0.5)，滑动时长填 300 让它平滑滑过去，后面再接「点击坐标」。',
       input: {
         Point: { label: '坐标' },
@@ -1229,7 +1229,7 @@ export default {
     },
     InputText: {
       label: '输入文字',
-      description: '向目标窗口注入一段文字，支持中文和所有 Unicode 字符。底层走 Windows SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送，适合在游戏聊天框或搜索框里打字。',
+      description: '向当前自动化目标注入一段文字。Windows 窗口底层走 SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送；浏览器/Android 目标后续由各自 controller 决定具体后端。',
       example: '在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。',
       input: {
         Text: { label: '文字', hint: '要输入的文字内容，支持中文及所有 Unicode 字符' },
@@ -1726,9 +1726,9 @@ export default {
       },
     },
     WindowTarget: {
-      label: '目标窗口',
-      description: '指定脚本接下来操作哪个窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个窗口就放多个，分别切到不同窗口。',
-      example: '脚本要操作游戏窗口：开头放一个「目标窗口」，标题填游戏名，后面的点击、按键就都打到这个窗口上。',
+      label: 'Windows 窗口目标',
+      description: '指定脚本接下来操作哪个 Windows 窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个 Windows 窗口就放多个，分别切到不同窗口。Android/浏览器请用对应 Target 节点。',
+      example: '脚本要操作游戏窗口：开头放一个「Windows 窗口目标」，标题填游戏名，后面的 Windows 点击、按键就都打到这个窗口上。',
       input: {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
@@ -1739,7 +1739,7 @@ export default {
       subgraph_hint: '子图内切窗口会影响调用方, 返回不自动还原',
       inspector: {
         capture_waiting: '等待 {hk} 按键 (再点取消)',
-        capture_start: '捕获目标窗口 (按 {hk})',
+        capture_start: '捕获 Windows 窗口 (按 {hk})',
         capture_hint_a: '点开后切到游戏窗口, 按 {hk} 即可捕获 title/class/processName.',
         capture_hint_b: '该键跟其它软件冲突? 去「设置 → 快捷键 → 系统 → 窗口捕获」改键.',
         match_section: '窗口匹配 (match)',
@@ -1754,8 +1754,8 @@ export default {
     },
     WaitWindow: {
       label: '等待窗口',
-      description: '轮询等待某个窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「目标窗口」锁定（这时窗口已存在会立刻命中）。',
-      example: '「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「目标窗口」+ 后续操作，超时就发提示或重试。',
+      description: '轮询等待某个 Windows 窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「Windows 窗口目标」锁定（这时窗口已存在会立刻命中）。',
+      example: '「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「Windows 窗口目标」+ 后续操作，超时就发提示或重试。',
       input: {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
@@ -1782,7 +1782,7 @@ export default {
     },
     WindowState: {
       label: '窗口状态',
-      description: '最大化/最小化/还原/无边框全屏/退出无边框,作用于目标窗口。',
+      description: '最大化/最小化/还原/无边框全屏/退出无边框,作用于 Windows 窗口。',
       example: '把游戏窗口切到无边框全屏。',
       input: {
         State: { label: '状态', option: { maximize: '最大化', minimize: '最小化', restore: '还原', borderlessFullscreen: '无边框全屏', restoreBorders: '退出无边框' } },
@@ -1792,7 +1792,7 @@ export default {
     },
     MoveResizeWindow: {
       label: '移动/缩放窗口',
-      description: '把目标窗口移到 (X, Y) 并设为 Width×Height 像素。',
+      description: '把 Windows 窗口移到 (X, Y) 并设为 Width×Height 像素。',
       example: '把窗口移到屏幕左上角并设成 1280×720。',
       input: {
         X: { label: 'X 坐标' },
@@ -1805,7 +1805,7 @@ export default {
     },
     CloseWindow: {
       label: '关闭窗口',
-      description: '向目标窗口发送关闭请求(可接「等待窗口关闭」确认真的关掉)。',
+      description: '向 Windows 窗口发送关闭请求(可接「等待窗口关闭」确认真的关掉)。',
       example: '关闭记事本窗口后等它消失。',
       input: { Window: { label: '窗口' } },
       output: { Done: { label: '完成' } },
@@ -2014,13 +2014,13 @@ export default {
     EMPTY_SUBGRAPH_OUTPUT: '子图没有任何 SubgraphOutput 节点',
     CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
-    MISSING_WINDOW_TARGET: '主图缺 WindowTarget 节点',
+    MISSING_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
     UNKNOWN_ERROR: '发生未知错误',
     WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
     CONTAINER_ID_REQUIRED: '缺容器 ID',
-    RECORDING_NO_WINDOW_TARGET: '容器缺 WindowTarget 节点（录制需要目标窗口）',
-    INVALID_WINDOW_TARGET_REGEX: 'WindowTarget 正则不合法: {error}',
-    INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match 不能为空',
+    RECORDING_NO_WINDOW_TARGET: '容器缺 Windows 窗口目标节点（录制需要 Windows 窗口）',
+    INVALID_WINDOW_TARGET_REGEX: 'Windows 窗口目标正则不合法: {error}',
+    INVALID_WINDOW_TARGET_EMPTY_MATCH: 'Windows 窗口目标 match 不能为空',
     INVALID_HSV_RANGE: 'HSV 范围不合法',
     INVALID_SCAN_AXIS: 'scanAxis 必须是 x 或 y, 得到 {got}',
     INVALID_CLUSTER_RANGE: 'cluster 范围不合法 (min={min} > max={max})',
@@ -2076,7 +2076,7 @@ export default {
     unchecked: '未检查',
     passed_short: '无问题',
     run_button: '通过 — 继续运行',
-    fix_missing_window_target: '一键添加 WindowTarget 节点',
+    fix_missing_window_target: '一键添加 Windows 窗口目标节点',
     jump: '跳转',
     fix: '修复',
   },
@@ -2139,7 +2139,7 @@ export default {
     input_backend_label: '输入模式',
     input_backend_postmessage: 'PostMessage — 后台直发, 不抢焦点 (默认)',
     input_backend_sendinput: 'SendInput — 前台全局注入 (解析窗口时自动拉前台)',
-    input_backend_hint: 'PostMessage 按窗口句柄直发、后台也能跑; SendInput 走系统全局注入需前台焦点 → 运行到 WindowTarget 解析窗口时自动把它拉到前台.',
+    input_backend_hint: 'PostMessage 按 Windows 窗口句柄直发、后台也能跑; SendInput 走系统全局注入需前台焦点 → 运行到 Windows 窗口目标解析窗口时自动把它拉到前台.',
     capture_backend_label: '截图后端',
     scale_tolerance_label: '模板缩放容差 (跨分辨率)',
     variables_section: '变量',

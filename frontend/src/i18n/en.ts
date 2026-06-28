@@ -144,9 +144,9 @@
     runqueue_added: 'Added to run queue',
     validate_failed: 'Validation failed',
     validate_call_failed: 'Validation call failed',
-    window_target_added_title: 'WindowTarget node added',
+    window_target_added_title: 'Windows window target node added',
     window_target_added_desc:
-      'Open the node Inspector to configure target window (or click "Capture foreground window")',
+      'Open the node Inspector to configure the Windows window match (or click "Capture foreground window")',
     expr_fuse_failed: 'Expr merge failed (preconditions unmet)',
     subgraph_recording_reset_warn:
       'Resetting recording metadata requires re-recording this subgraph (v1 hint only)',
@@ -306,12 +306,12 @@
       errorcodes_hint: 'Codes a node emits from its Fail output — branch on them with Switch.',
       errorcode_desc: {
         launch_failed: 'RunProgram could not start the program — wrong path / missing / no permission.',
-        capture_failed: 'Screenshot, color detection or template matching failed — often the target window is minimized or closed.',
+        capture_failed: 'Screenshot, color detection or template matching failed — often the automation target is unavailable, minimized, or closed.',
         write_failed: 'Screenshot etc. failed to write a file — illegal path / dir not writable / disk full.',
-        not_found: 'WindowTarget etc. could not find the window / target.',
+        not_found: 'A window/target node could not find its matching object.',
         timeout: 'A wait operation did not get a result within the time limit.',
         playback_failed: 'PlayClip failed to replay a recorded clip.',
-        send_failed: 'Click / key input failed to reach the target window.',
+        send_failed: 'Click / key input failed to reach the current automation target.',
         thrown: 'Default code when a Throw node has no Code set.',
         error: 'Fallback / unclassified failure.',
       },
@@ -321,10 +321,10 @@
         control: { label: 'Control', desc: 'Start / Sleep / Loop / If / Stop / Break / Continue' },
         variable: { label: 'Variables', desc: 'SetVar / IncVar — container scope + subgraph-local scope (auto-isolated at runtime)' },
         image: { label: 'Image', desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — template matching & color detection' },
-        input: { label: 'Input', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — inject input into the target window' },
+        input: { label: 'Input', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — inject input into the current automation target' },
         event: { label: 'Event', desc: 'EventTick — periodic background trigger, spawns a subgraph every N ms (non-blocking)' },
         subgraph: { label: 'Subgraph', desc: 'Subgraph call / SubgraphInput entry / SubgraphOutput exit' },
-        system: { label: 'System', desc: 'WindowTarget — pick the target window (match any of title / class / processName)' },
+        system: { label: 'System', desc: 'WindowTarget — pick a Windows window target (match any of title / class / processName)' },
         config: { label: 'Config', desc: 'MouseCalibration — calibrate this machine 360° HID counts for MouseMoveRel scaling' },
         debug: { label: 'Debug', desc: 'Log / Toast' },
       },
@@ -594,10 +594,10 @@
     unit_percent: 'Percent',
     unit_px: 'Pixels',
     pick_point: 'Pick on screen',
-    no_window_title: 'Target window not open',
-    no_window_desc: "Target window not open — can't convert units; open it then switch",
-    hint_percent: 'Proportional: adapts to window size (scales with resolution)',
-    hint_px: 'Absolute pixels: fixed, does not scale with the window — for fixed-position UI',
+    no_window_title: 'Target not ready',
+    no_window_desc: "Current target is not ready — can't convert units; open or switch target then retry",
+    hint_percent: 'Proportional: adapts to target frame size (scales with resolution)',
+    hint_px: 'Absolute pixels: fixed, does not scale with the target frame — for fixed-position UI',
   },
   geometry: {
     default_region: 'Default region',
@@ -1097,14 +1097,14 @@
     // input
     BringWindowForeground: {
       label: 'Bring window to foreground',
-      description: 'Brings the target window to the front and gives it focus so your later key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going, it will not get stuck.',
+      description: 'Brings the current Windows window to the front and gives it focus so later Windows key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going. Android and browser targets do not use this node.',
       input: { Window: { label: 'Window' } },
       output: { Done: { label: 'Done' } },
     },
     ClickAt: {
       label: 'Click at',
-      description: 'Clicks the mouse once at a spot in the window. Set the position with the coordinate control — switch between ratio (0–1) or pixels, or pick a point from a screenshot. You can choose left/right/middle button, slide over first, and adjust how long the button stays down.',
-      example: 'Click the "Confirm" button in the bottom-right: set the coordinate to (0.9, 0.9) in ratio mode with left button, and it clicks the bottom-right of the window at runtime.',
+      description: 'Clicks the mouse once at a spot in the current target frame. Set the position with the coordinate control — switch between ratio (0–1) or pixels, or pick a point from a screenshot. You can choose left/right/middle button, slide over first, and adjust how long the button stays down.',
+      example: 'Click the "Confirm" button in the bottom-right: set the coordinate to (0.9, 0.9) in ratio mode with left button, and it clicks the bottom-right of the target at runtime.',
       input: {
         Point: { label: 'Position' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
@@ -1143,7 +1143,7 @@
     },
     MouseHoldStart: {
       label: 'Hold mouse down',
-      description: 'Presses a mouse button down at a spot in the window and keeps holding it. The position can be a ratio (0–1) or pixel coordinate. It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
+      description: 'Presses a mouse button down at a spot in the current target frame and keeps holding it. The position can be a ratio (0–1) or pixel coordinate. It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
       example: 'Drag an item: place "Hold mouse down" with the left button at the start point, add "Mouse move to" sliding to the end point, then "Release mouse" to let go of the left button — that completes one drag.',
       input: {
         Point: { label: 'Position' },
@@ -1160,7 +1160,7 @@
     },
     MouseMoveRel: {
       label: 'Mouse move relative',
-      description: 'Moves the cursor a certain distance in some direction from where it currently is (measured in pixels) — not to a fixed coordinate. Δx positive is right, negative is left; Δy positive is down, negative is up. Common for turning the camera or nudging the crosshair. To move straight to a fixed spot in the window, use "Mouse move to".',
+      description: 'Moves the cursor a certain distance in some direction from where it currently is (measured in pixels) — not to a fixed coordinate. Δx positive is right, negative is left; Δy positive is down, negative is up. Common for turning the camera or nudging the crosshair. To move straight to a fixed spot in the target frame, use "Mouse move to".',
       example: 'Turn the camera right in a game: set Δx to 200 and Δy to 0, and the cursor nudges 200 pixels right from its current spot, panning the view right.',
       input: {
         Dx: { label: 'Δx (px)' },
@@ -1173,7 +1173,7 @@
     },
     MouseMoveTo: {
       label: 'Mouse Move To',
-      description: 'Moves the cursor to a fixed spot in the window without clicking. The position can be given as ratios (0 to 1, where 0.5, 0.5 is center) or pixels (px), independent of window size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
+      description: 'Moves the cursor to a fixed spot in the current target frame without clicking. The position can be given as ratios (0 to 1, where 0.5, 0.5 is center) or pixels (px), independent of target frame size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
       example: 'Move to the center before clicking: use "Mouse move to" with the Point set to (0.5, 0.5), set Move time to 300 for a smooth slide, then follow with "Click at".',
       input: {
         Point: { label: 'Position' },
@@ -1196,7 +1196,7 @@
     },
     Scroll: {
       label: 'Mouse scroll',
-      description: 'Scrolls the mouse wheel once at a spot in the window. The position is given as a Point (ratio 0–1 or px; 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
+      description: 'Scrolls the mouse wheel once at a spot in the current target frame. The position is given as a Point (ratio 0–1 or px; 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
       example: 'Scroll an inventory list down: set Point to the list area, Delta to -3, Axis to vertical — it scrolls down three notches. For a horizontal scroll bar: set Axis to horizontal, positive goes right, negative goes left.',
       input: {
         Point: { label: 'Position' },
@@ -1209,7 +1209,7 @@
     },
     InputText: {
       label: 'Type text',
-      description: 'Injects a string of text into the target window, including Unicode and CJK characters. Uses Windows SendInput KEYEVENTF_UNICODE under the hood — no clipboard involved, characters are sent one by one. Ideal for typing into in-game chat boxes or search fields.',
+      description: 'Injects text into the current automation target. For Windows windows this uses SendInput KEYEVENTF_UNICODE without the clipboard; browser and Android targets are handled by their own controllers.',
       example: 'Send a message in a game chat box: use BringForeground first to make sure the window is focused, then wire InputText with the message you want to type — it will inject each character automatically.',
       input: {
         Text: { label: 'Text', hint: 'The text to type, supports all Unicode characters' },
@@ -1706,9 +1706,9 @@
       },
     },
     WindowTarget: {
-      label: 'Target window',
-      description: 'Picks which window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple windows, each switching to a different one.',
-      example: 'Your script needs to operate the game window: put a Target window at the start with the game name as the title, and all later clicks and key presses go to that window.',
+      label: 'Windows window target',
+      description: 'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget or BrowserTarget for those target types.',
+      example: 'Your script needs to operate the game window: put a Windows window target at the start with the game name as the title, and later Windows clicks and key presses go to that window.',
       input: {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
@@ -1719,7 +1719,7 @@
       subgraph_hint: 'Switching windows inside a subgraph affects the caller; the window is not restored automatically on return.',
       inspector: {
         capture_waiting: 'Waiting for {hk} (click again to cancel)',
-        capture_start: 'Capture target window (press {hk})',
+        capture_start: 'Capture Windows window (press {hk})',
         capture_hint_a: 'Click, then switch to the game window and press {hk} to capture title/class/processName.',
         capture_hint_b: 'Key clashes with other software? Change it under Settings → Hotkeys → System → Window capture.',
         match_section: 'Window match (match)',
@@ -1734,8 +1734,8 @@
     },
     WaitWindow: {
       label: 'Wait for window',
-      description: 'Poll until a window appears, matched by title / class / process name. If it appears within the timeout, takes the Found exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Run program to wait for the program window to load. Note: this node only detects whether the window exists; it does not switch to it. To operate on it, follow Found with a Window target to lock it (it resolves instantly since the window now exists).',
-      example: 'After Run program launches a game, add Wait for window with the game title and a 20s timeout; on Found add Window target + actions, on Timeout show a message or retry.',
+      description: 'Poll until a Windows window appears, matched by title / class / process name. If it appears within the timeout, takes the Found exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Run program to wait for the program window to load. Note: this node only detects whether the window exists; it does not switch to it. To operate on it, follow Found with a Windows window target to lock it (it resolves instantly since the window now exists).',
+      example: 'After Run program launches a game, add Wait for window with the game title and a 20s timeout; on Found add Windows window target + actions, on Timeout show a message or retry.',
       input: {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
@@ -1762,7 +1762,7 @@
     },
     WindowState: {
       label: 'Window State',
-      description: 'Maximize / minimize / restore / borderless-fullscreen / exit-borderless on the target window.',
+      description: 'Maximize / minimize / restore / borderless-fullscreen / exit-borderless on a Windows window.',
       example: 'Switch the game window to borderless fullscreen.',
       input: {
         State: { label: 'State', option: { maximize: 'Maximize', minimize: 'Minimize', restore: 'Restore', borderlessFullscreen: 'Borderless Fullscreen', restoreBorders: 'Exit Borderless' } },
@@ -1772,7 +1772,7 @@
     },
     MoveResizeWindow: {
       label: 'Move/Resize Window',
-      description: 'Move the target window to (X, Y) and set it to Width×Height pixels.',
+      description: 'Move the Windows window to (X, Y) and set it to Width×Height pixels.',
       example: 'Move the window to the top-left and set it to 1280×720.',
       input: {
         X: { label: 'X' },
@@ -1785,7 +1785,7 @@
     },
     CloseWindow: {
       label: 'Close Window',
-      description: 'Send a close request to the target window (pair with "Wait Window Gone" to confirm it closed).',
+      description: 'Send a close request to the Windows window (pair with "Wait Window Gone" to confirm it closed).',
       example: 'Close the Notepad window then wait for it to disappear.',
       input: { Window: { label: 'Window' } },
       output: { Done: { label: 'Done' } },
@@ -1994,13 +1994,13 @@
     EMPTY_SUBGRAPH_OUTPUT: 'Subgraph has no SubgraphOutput node',
     CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
-    MISSING_WINDOW_TARGET: 'Main graph missing WindowTarget node',
+    MISSING_WINDOW_TARGET: 'Main graph missing a Windows window target node',
     UNKNOWN_ERROR: 'An unknown error occurred',
     WAILS_NOT_READY: 'The app is not ready yet, please retry',
     CONTAINER_ID_REQUIRED: 'Container ID is required',
-    RECORDING_NO_WINDOW_TARGET: 'Container has no WindowTarget node (recording needs a target window)',
-    INVALID_WINDOW_TARGET_REGEX: 'WindowTarget regex invalid: {error}',
-    INVALID_WINDOW_TARGET_EMPTY_MATCH: 'WindowTarget match cannot be empty',
+    RECORDING_NO_WINDOW_TARGET: 'Container has no Windows window target node (recording needs a Windows window)',
+    INVALID_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
+    INVALID_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
     INVALID_HSV_RANGE: 'HSV range is invalid',
     INVALID_SCAN_AXIS: 'scanAxis must be x or y, got {got}',
     INVALID_CLUSTER_RANGE: 'cluster range invalid (min={min} > max={max})',
@@ -2056,7 +2056,7 @@
     unchecked: 'Not checked',
     passed_short: 'No issues',
     run_button: 'Pass — continue running',
-    fix_missing_window_target: 'Auto-add WindowTarget node',
+    fix_missing_window_target: 'Auto-add Windows window target node',
     jump: 'Jump',
     fix: 'Fix',
   },
@@ -2117,7 +2117,7 @@
     input_backend_label: 'Input mode',
     input_backend_postmessage: 'PostMessage — background, no focus steal (default)',
     input_backend_sendinput: 'SendInput — global foreground injection (auto-activates window)',
-    input_backend_hint: 'PostMessage targets the window by handle and runs in the background; SendInput uses OS-level global injection and needs focus, so the window is auto-brought to foreground when a WindowTarget resolves.',
+    input_backend_hint: 'PostMessage targets a Windows window by handle and runs in the background; SendInput uses OS-level global injection and needs focus, so the window is auto-brought to foreground when a Windows window target resolves.',
     capture_backend_label: 'Capture backend',
     scale_tolerance_label: 'Template scale tolerance (cross-resolution)',
     variables_section: 'Variables',
