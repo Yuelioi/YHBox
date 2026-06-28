@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Execute `plans/phase5-click-controller.md`: route only `InputService.Click` through `Win32Controller` and runtime trace. Keep MoveTo, drag, scroll, text, screenshot out of this phase.
+先写 Phase 6 plan，再继续迁移下一个窄范围动作。推荐下一步：`MoveTo` + coordinate-step tracing，或者 `Scroll` controller routing。不要无计划迁移 drag/text/screenshot/UI。
 
 ## Read now
 
@@ -18,6 +18,7 @@ Execute `plans/phase5-click-controller.md`: route only `InputService.Click` thro
 - plans/phase5-click-controller.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
+- ../../knowledge/architecture/target-controller-phase5-notes.md
 
 ## Read if
 
@@ -38,11 +39,13 @@ Done:
 - Phase 2 代码：`internal/automation/trace`、Win32Controller 可选 controller-call trace hook。
 - Phase 3 代码：`RuntimeContext` 拥有 per-run trace recorder，并提供 `TraceRecorder` / `TraceRecords` / `ClearTrace`。
 - Phase 4 代码：`InputService.KeyDown/KeyUp` 经 `Win32Controller` 执行，并写入 runtime trace。
+- Phase 5 代码：`InputService.Click` 经 `Win32Controller` 执行，并写入 runtime trace。
 
 Current:
-- 执行 Phase 5 click controller routing：只迁移 `InputService.Click`。
+- 等待 Phase 6 plan：优先考虑 `MoveTo` + coordinate-step tracing 或 `Scroll` controller routing。
 
 ## Open questions
 
 - Phase 3 不改变节点路由；真正把节点动作通过 Win32Controller 执行要另写 Phase 4 plan。
 - Phase 4 只迁移 KeyDown/KeyUp；`KeyPress` 会产生 `key-down` + `key-up` 两条 trace，但没有 node id / pin id metadata。
+- Phase 5 只迁移 Click；`ClickAt` 的 MoveTo 阶段仍未进入 controller trace。
