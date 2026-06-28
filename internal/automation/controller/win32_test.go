@@ -50,6 +50,9 @@ type fakeWin32Input struct {
 	clickY    float64
 	keyDown   []string
 	keyUp     []string
+	moveHWND  uintptr
+	moveX     float64
+	moveY     float64
 	text      string
 	err       error
 }
@@ -76,7 +79,12 @@ func (f *fakeWin32Input) TypeText(hwnd uintptr, text string) error {
 	return nil
 }
 
-func (f *fakeWin32Input) MoveTo(hwnd uintptr, xRatio, yRatio float64) error { return nil }
+func (f *fakeWin32Input) MoveTo(hwnd uintptr, xRatio, yRatio float64) error {
+	f.moveHWND = hwnd
+	f.moveX = xRatio
+	f.moveY = yRatio
+	return nil
+}
 
 func (f *fakeWin32Input) Scroll(hwnd uintptr, xRatio, yRatio float64, notches int, horizontal bool) error {
 	return nil
@@ -123,6 +131,40 @@ func TestWin32ControllerKeyChordDelegatesDownReverseUp(t *testing.T) {
 	}
 	if got := in.keyUp; len(got) != 2 || got[0] != "n" || got[1] != "ctrl" {
 		t.Fatalf("keyUp = %#v", got)
+	}
+}
+
+func TestWin32ControllerMoveRecordsCoordinateStep(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.25, 0.75)}); err != nil {
+		t.Fatalf("Move() error = %v", err)
+	}
+	if in.moveHWND != 42 || in.moveX != 0.25 || in.moveY != 0.75 {
+		t.Fatalf("delegate move = hwnd %d (%f,%f)", in.moveHWND, in.moveX, in.moveY)
+	}
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1", len(records))
+	}
+	got := records[0]
+	if got.Action != "move" {
+		t.Fatalf("trace action = %q, want move", got.Action)
+	}
+	if len(got.CoordinateSteps) != 1 {
+		t.Fatalf("coordinate steps len = %d, want 1", len(got.CoordinateSteps))
+	}
+	step := got.CoordinateSteps[0]
+	if step.From != target.SpaceNormalized || step.To != target.SpaceWindowClient {
+		t.Fatalf("coordinate step spaces = %s -> %s", step.From, step.To)
 	}
 }
 

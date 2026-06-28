@@ -96,7 +96,16 @@ func (c *Win32Controller) Click(ctx context.Context, req ClickRequest) error {
 }
 
 func (c *Win32Controller) Move(ctx context.Context, req MoveRequest) error {
-	return c.recordAction("move", req, func() error {
+	steps := []automationtrace.CoordinateStep{{
+		From:   req.Point.Space,
+		To:     target.SpaceWindowClient,
+		Input:  req.Point,
+		Output: req.Point,
+	}}
+	if steps[0].From == "" {
+		steps[0].From = target.SpaceNormalized
+	}
+	return c.recordActionWithSteps("move", req, steps, func() error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -207,6 +216,10 @@ func (c *Win32Controller) backend() string {
 }
 
 func (c *Win32Controller) recordAction(action string, request any, run func() error) error {
+	return c.recordActionWithSteps(action, request, nil, run)
+}
+
+func (c *Win32Controller) recordActionWithSteps(action string, request any, steps []automationtrace.CoordinateStep, run func() error) error {
 	started := time.Now()
 	err := run()
 	if c.deps.Trace != nil {
@@ -217,14 +230,15 @@ func (c *Win32Controller) recordAction(action string, request any, run func() er
 			errMsg = err.Error()
 		}
 		c.deps.Trace.Record(automationtrace.ActionRecord{
-			Action:    action,
-			Target:    c.target,
-			Backend:   c.backend(),
-			Request:   request,
-			Status:    status,
-			Error:     errMsg,
-			StartedAt: started,
-			EndedAt:   time.Now(),
+			Action:          action,
+			Target:          c.target,
+			Backend:         c.backend(),
+			Request:         request,
+			Status:          status,
+			Error:           errMsg,
+			CoordinateSteps: steps,
+			StartedAt:       started,
+			EndedAt:         time.Now(),
 		})
 	}
 	return err
