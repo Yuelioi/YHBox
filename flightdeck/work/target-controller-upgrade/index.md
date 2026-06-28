@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: add Android ADB target-selection/discovery node/service, then CDP discovery/client lifecycle.
+Plan next slice: make vision/frame acquisition target-aware so AndroidTarget can drive template/color/QR nodes, then add Android ADB discovery and CDP discovery/client lifecycle.
 
 ## Read now
 
@@ -34,6 +34,7 @@ Plan next slice: add Android ADB target-selection/discovery node/service, then C
 - plans/phase21-runtime-active-target.md
 - plans/phase22-runtime-controller-factory.md
 - plans/phase23-app-controller-factory-wiring.md
+- plans/phase24-android-target-node.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -55,6 +56,7 @@ Plan next slice: add Android ADB target-selection/discovery node/service, then C
 - ../../knowledge/architecture/target-controller-phase21-notes.md
 - ../../knowledge/architecture/target-controller-phase22-notes.md
 - ../../knowledge/architecture/target-controller-phase23-notes.md
+- ../../knowledge/architecture/target-controller-phase24-notes.md
 
 ## Read if
 
@@ -94,9 +96,10 @@ Done:
 - Phase 21 代码：`RuntimeContext` 增加 active `target.Target`，`SetActiveWindow` 同步 Win32 target，input/capture adapters 通过 active target 构造 controller。
 - Phase 22 代码：runtime 增加可注入 controller factory，input/capture adapters 通过 active target 解析 `PointerInput` / `KeyboardInput` / `Screenshotter`。
 - Phase 23 代码：GUI run 和 MCP run 注入 `DefaultControllerFactory`；Android ADB target 可默认构造 controller，Browser CDP 明确等待 client wiring。
+- Phase 24 代码：节点层增加 `TargetService`，runtime 注入 target adapter，新增 `AndroidTarget` 节点和 catalog 翻译，可在图中显式切换到 ADB 设备目标。
 
 Current:
-- 下一刀：Android ADB target-selection/discovery 节点/服务，然后做 CDP discovery/client lifecycle。
+- 下一刀：target-aware vision/frame acquisition，使 AndroidTarget 后的模板/颜色/QR 节点不再依赖 Win32 HWND；之后做 Android ADB discovery 和 CDP discovery/client lifecycle。
 
 ## Open questions
 
@@ -104,4 +107,4 @@ Current:
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
 - Capture node 已经进入 controller trace；Vision adapter/cached frame 仍直接走 runtime capture backend。
 - `container:action-trace` 已可订阅、前端查看、脱敏写文件；尚未实现历史文件浏览 UI、批处理策略、raw payload opt-in。
-- Backend profiles、Android ADB controller skeleton、Browser CDP controller skeleton、runtime active target、runtime controller factory、default factory wiring 已落代码；尚未做 Android/Browser target-selection/discovery，也尚未做 CDP client lifecycle。
+- Backend profiles、Android ADB controller skeleton、Browser CDP controller skeleton、runtime active target、runtime controller factory、default factory wiring、AndroidTarget 显式目标选择已落代码；vision adapter/cached frame 仍未完全 target-aware，尚未做 Android/Browser discovery，也尚未做 CDP client lifecycle。
