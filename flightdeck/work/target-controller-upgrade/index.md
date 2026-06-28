@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle、Phase 29 async option metadata apply、Phase 30 stale CDP client invalidation、Phase 31 catalog i18n pin coverage guard、Phase 32 async source coverage、Phase 33 widget props validation、Phase 34 granular controller capabilities 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle、Phase 29 async option metadata apply、Phase 30 stale CDP client invalidation、Phase 31 catalog i18n pin coverage guard、Phase 32 async source coverage、Phase 33 widget props validation、Phase 34 granular controller capabilities、Phase 35 fast runtime state tests 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: continue broader runtime quality hardening, especially reducing slow runtime test wall time or splitting slow state-machine tests.
+Plan next slice: continue broader runtime/frontend contract hardening now that runtime tests are fast enough to run frequently.
 
 ## Read now
 
@@ -45,6 +45,7 @@ Plan next slice: continue broader runtime quality hardening, especially reducing
 - plans/phase32-async-source-coverage.md
 - plans/phase33-widget-props-validation.md
 - plans/phase34-granular-controller-capabilities.md
+- plans/phase35-fast-runtime-state-tests.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -77,6 +78,7 @@ Plan next slice: continue broader runtime quality hardening, especially reducing
 - ../../knowledge/architecture/target-controller-phase32-notes.md
 - ../../knowledge/architecture/target-controller-phase33-notes.md
 - ../../knowledge/architecture/target-controller-phase34-notes.md
+- ../../knowledge/architecture/target-controller-phase35-notes.md
 
 ## Read if
 
@@ -127,9 +129,10 @@ Done:
 - Phase 32 代码：补齐 `clipIDs` / `subgraphIDs` async source 注册，新增全节点 async-dropdown source 覆盖测试，防止下拉运行时报 unknown source。
 - Phase 33 代码：节点 spec consistency 增加 widget kind/props shape 测试，覆盖 dropdown/slider/async-dropdown/applyMeta 契约。
 - Phase 34 代码：controller capability 增加 mouse-button/drag/move-relative 粒度，runtime adapter 调用前检查能力；Android 目标对 MouseHold/MouseMoveRel 统一报不支持。
+- Phase 35 代码：runtime fishing-v2 状态机测试加载后对 timing literals 做 test-only cap，完整 runtime 包从约 125 秒降到约 4.4 秒。
 
 Current:
-- 下一刀：继续 runtime 质量硬化，优先缩短或拆分慢 runtime 测试。
+- 下一刀：继续 runtime/frontend 契约硬化，优先补能防止节点、目标、Inspector 三方漂移的测试。
 
 ## Open questions
 

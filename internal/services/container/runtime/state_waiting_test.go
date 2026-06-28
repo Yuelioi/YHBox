@@ -27,6 +27,7 @@ func loadStateWAITING(t *testing.T) container.Subgraph {
 	if err := json.Unmarshal(data, &sg); err != nil {
 		t.Fatalf("unmarshal state_WAITING.json: %v", err)
 	}
+	speedUpStateFixtureTimingForTest(&sg)
 	return sg
 }
 
@@ -43,6 +44,7 @@ func loadFishingV2Helper(t *testing.T, name string) container.Subgraph {
 	if err := json.Unmarshal(data, &sg); err != nil {
 		t.Fatalf("unmarshal %s: %v", name, err)
 	}
+	speedUpStateFixtureTimingForTest(&sg)
 	return sg
 }
 

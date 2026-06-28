@@ -26,6 +26,7 @@ func loadStateRESULT(t *testing.T) container.Subgraph {
 	if err := json.Unmarshal(data, &sg); err != nil {
 		t.Fatalf("unmarshal state_RESULT.json: %v", err)
 	}
+	speedUpStateFixtureTimingForTest(&sg)
 	return sg
 }
 

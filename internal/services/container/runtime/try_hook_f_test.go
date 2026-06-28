@@ -27,6 +27,7 @@ func loadTryHookF(t *testing.T) container.Subgraph {
 	if err := json.Unmarshal(data, &sg); err != nil {
 		t.Fatalf("unmarshal try_hook_F.json: %v", err)
 	}
+	speedUpStateFixtureTimingForTest(&sg)
 	return sg
 }
 

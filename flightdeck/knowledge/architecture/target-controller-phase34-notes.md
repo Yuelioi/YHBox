@@ -21,8 +21,8 @@
 
 ## Note
 
-The full `internal/services/container/runtime` package passed but still takes about 126 seconds in this workspace.
+Superseded by Phase 35: the full `internal/services/container/runtime` package now passes in about 4.4 seconds in this workspace.
 
 ## Next Risk
 
-Target capability compatibility is now explicit for current input actions. The next useful pass is to reduce runtime test wall time or split slow state-machine tests so quality gates stay practical.
+Target capability compatibility is now explicit for current input actions. The next useful pass is broader runtime and frontend contract hardening.

@@ -27,6 +27,7 @@ func loadStateFISHING(t *testing.T) container.Subgraph {
 	if err := json.Unmarshal(data, &sg); err != nil {
 		t.Fatalf("unmarshal state_FISHING.json: %v", err)
 	}
+	speedUpStateFixtureTimingForTest(&sg)
 	return sg
 }
 
