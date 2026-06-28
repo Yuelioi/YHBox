@@ -1,6 +1,9 @@
 package input
 
-import "testing"
+import (
+	"testing"
+	"unsafe"
+)
 
 func TestNewBackend_SendInput(t *testing.T) {
 	b, err := NewBackend("sendinput")
@@ -32,5 +35,13 @@ func TestSendInputBackend_ReleaseAll_ClearsState(t *testing.T) {
 	}
 	if len(b.heldBtns) != 0 {
 		t.Errorf("heldBtns not cleared: %v", b.heldBtns)
+	}
+}
+
+func TestSendInputKeyboardBlockSizeMatchesWin32Input(t *testing.T) {
+	got := unsafe.Sizeof(sendInputKeyBlock{})
+	want := unsafe.Sizeof(sendInputBlock{})
+	if got != want {
+		t.Fatalf("sendInputKeyBlock size = %d, want %d", got, want)
 	}
 }

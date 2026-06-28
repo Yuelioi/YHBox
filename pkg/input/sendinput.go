@@ -3,6 +3,7 @@ package input
 import (
 	"fmt"
 	"sync"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -60,7 +61,6 @@ type keybdInput struct {
 	DwFlags     uint32
 	Time        uint32
 	DwExtraInfo uintptr
-	_           [8]byte
 }
 
 type sendInputKeyBlock struct {
@@ -70,7 +70,7 @@ type sendInputKeyBlock struct {
 	_    [8]byte
 }
 
-func sendKeyEvent(vk uint32, keyUp bool) {
+func sendKeyEvent(vk uint32, keyUp bool) error {
 	r, _, _ := procMapVirtualKeyW.Call(uintptr(vk), mapVKToVSC)
 	scan := uint32(r) & 0xFFFF
 	flags := siKeyScanCode
@@ -78,7 +78,14 @@ func sendKeyEvent(vk uint32, keyUp bool) {
 		flags |= siKeyKeyUp
 	}
 	in := sendInputKeyBlock{Type: siInputKeyboard, Ki: keybdInput{WVk: uint16(vk), WScan: uint16(scan), DwFlags: flags}}
-	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	sent, _, errno := procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	if sent != 1 {
+		if errno != syscall.Errno(0) {
+			return fmt.Errorf("SendInput keyboard vk=0x%X keyUp=%v failed: %w", vk, keyUp, errno)
+		}
+		return fmt.Errorf("SendInput keyboard vk=0x%X keyUp=%v sent %d events, want 1", vk, keyUp, sent)
+	}
+	return nil
 }
 
 func sendMouseBtnEvent(flags uint32) {
@@ -159,8 +166,7 @@ func (b *sendInputBackend) KeyDown(_ win.HWND, vk string) error {
 	b.mu.Lock()
 	b.heldKeys[code] = struct{}{}
 	b.mu.Unlock()
-	sendKeyEvent(code, false)
-	return nil
+	return sendKeyEvent(code, false)
 }
 
 func (b *sendInputBackend) KeyUp(_ win.HWND, vk string) error {
@@ -171,8 +177,7 @@ func (b *sendInputBackend) KeyUp(_ win.HWND, vk string) error {
 	b.mu.Lock()
 	delete(b.heldKeys, code)
 	b.mu.Unlock()
-	sendKeyEvent(code, true)
-	return nil
+	return sendKeyEvent(code, true)
 }
 
 func (b *sendInputBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
@@ -275,7 +280,7 @@ func (b *sendInputBackend) ReleaseAll() error {
 	b.heldBtns = map[uint32]struct{}{}
 	b.mu.Unlock()
 	for _, k := range keys {
-		sendKeyEvent(k, true)
+		_ = sendKeyEvent(k, true)
 	}
 	for _, btn := range btns {
 		sendMouseBtnEvent(siButtonFlags(btn, true))
