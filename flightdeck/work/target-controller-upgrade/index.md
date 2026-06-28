@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: add Android ADB discovery so connected devices/resolution can be listed and selected, then CDP discovery/client lifecycle.
+Plan next slice: implement frontend generic async-dropdown so Android ADB devices can be selected in the inspector, then CDP discovery/client lifecycle.
 
 ## Read now
 
@@ -36,6 +36,7 @@ Plan next slice: add Android ADB discovery so connected devices/resolution can b
 - plans/phase23-app-controller-factory-wiring.md
 - plans/phase24-android-target-node.md
 - plans/phase25-target-aware-vision-frame.md
+- plans/phase26-android-adb-discovery.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -59,6 +60,7 @@ Plan next slice: add Android ADB discovery so connected devices/resolution can b
 - ../../knowledge/architecture/target-controller-phase23-notes.md
 - ../../knowledge/architecture/target-controller-phase24-notes.md
 - ../../knowledge/architecture/target-controller-phase25-notes.md
+- ../../knowledge/architecture/target-controller-phase26-notes.md
 
 ## Read if
 
@@ -100,9 +102,10 @@ Done:
 - Phase 23 代码：GUI run 和 MCP run 注入 `DefaultControllerFactory`；Android ADB target 可默认构造 controller，Browser CDP 明确等待 client wiring。
 - Phase 24 代码：节点层增加 `TargetService`，runtime 注入 target adapter，新增 `AndroidTarget` 节点和 catalog 翻译，可在图中显式切换到 ADB 设备目标。
 - Phase 25 代码：vision adapter 抓帧入口 target-aware；Win32 保留 HWND frame cache，Android/CDP 等非 Win32 目标通过 active controller screenshot 供模板/颜色/QR 等视觉路径使用。
+- Phase 26 代码：新增 Android ADB discovery service，注册 `androidADBDevices` NodeService async source，并将 `AndroidTarget.Serial` 指向该 async source。
 
 Current:
-- 下一刀：Android ADB discovery，使连接设备和分辨率可枚举/可选；之后做 CDP discovery/client lifecycle。
+- 下一刀：前端通用 async-dropdown 渲染，使 Android ADB 设备可在 inspector 中选择；之后做 CDP discovery/client lifecycle。
 
 ## Open questions
 
@@ -110,4 +113,4 @@ Current:
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
 - Capture node 已经进入 controller trace；Vision adapter 已 target-aware，但非 Win32 目标尚未做 frame cache。
 - `container:action-trace` 已可订阅、前端查看、脱敏写文件；尚未实现历史文件浏览 UI、批处理策略、raw payload opt-in。
-- Backend profiles、Android ADB controller skeleton、Browser CDP controller skeleton、runtime active target、runtime controller factory、default factory wiring、AndroidTarget 显式目标选择、target-aware vision frame source 已落代码；尚未做 Android/Browser discovery，也尚未做 CDP client lifecycle。
+- Backend profiles、Android ADB controller skeleton、Browser CDP controller skeleton、runtime active target、runtime controller factory、default factory wiring、AndroidTarget 显式目标选择、target-aware vision frame source、Android ADB discovery async source 已落代码；前端 async-dropdown 仍未真正调用该 source，尚未做 Browser discovery/CDP client lifecycle。
