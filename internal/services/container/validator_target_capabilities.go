@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"strings"
 
 	"yotta/internal/automation/controller"
 	"yotta/internal/automation/target"
@@ -24,7 +25,11 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string) []ValidationEr
 	for i := range g.Nodes {
 		n := &g.Nodes[i]
 		rn, ok := nodepkg.Get(n.Kind)
-		if !ok || len(rn.Spec.TargetCapabilities) == 0 {
+		if !ok {
+			continue
+		}
+		requiredCaps := targetCapabilitiesForNode(n, rn.Spec.TargetCapabilities)
+		if len(requiredCaps) == 0 {
 			continue
 		}
 		if windowPinWired(g, n.ID) {
@@ -38,7 +43,7 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string) []ValidationEr
 		if !ok {
 			continue
 		}
-		for _, cap := range rn.Spec.TargetCapabilities {
+		for _, cap := range requiredCaps {
 			if profile.Capabilities.Has(controller.Capability(cap)) {
 				continue
 			}
@@ -56,6 +61,26 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string) []ValidationEr
 		}
 	}
 	return errs
+}
+
+func targetCapabilitiesForNode(n *GraphNode, base []nodepkg.TargetCapability) []nodepkg.TargetCapability {
+	caps := append([]nodepkg.TargetCapability(nil), base...)
+	switch n.Kind {
+	case "ClickAt", "ClickTemplate":
+		if strings.TrimSpace(PinString(n, "Keys")) != "" {
+			caps = appendTargetCapability(caps, nodepkg.TargetCapabilityKeyState)
+		}
+	}
+	return caps
+}
+
+func appendTargetCapability(caps []nodepkg.TargetCapability, cap nodepkg.TargetCapability) []nodepkg.TargetCapability {
+	for _, existing := range caps {
+		if existing == cap {
+			return caps
+		}
+	}
+	return append(caps, cap)
 }
 
 func graphNodeByID(g Graph) map[string]*GraphNode {

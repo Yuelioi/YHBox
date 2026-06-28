@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1-64 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard；Phase 63 新增 `NeedsTarget`，输入/截图/视觉节点不再伪装成 Win32 窗口节点；Phase 64 新增 `TargetCapabilities`，Android/Browser/Win32 支持矩阵开始进入静态校验。
+破坏性大升级 topic。调研、总体设计、Phase 1-65 已完成/推进中。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。近阶段重点已从抽象迁移转为契约硬化：runtime fast tests、前端测试隔离、async dropdown/active target/i18n/注册/构建基线/图连接/spec default/build warning/schema/coordinate boundary/trace error/factory error 等 guard 已落地。Phase 59-60 收敛 Window/Target 语义边界与 palette 分组；Phase 61 破坏性移除旧 `WindowTarget` contract，统一使用 `Win32WindowTarget`，不做 alias/旧容器兼容；Phase 62 把 Target/Window 分层写成全集节点 guard；Phase 63 新增 `NeedsTarget`，输入/截图/视觉节点不再伪装成 Win32 窗口节点；Phase 64 新增 `TargetCapabilities`，Android/Browser/Win32 支持矩阵开始进入静态校验；Phase 65 开始补 config-dependent capability。
 
 ## Next
 
-Plan next slice: add config-dependent capability checks where needed, especially modifier-key clicks and browser/page-specific actions.
+Plan next slice: continue capability matrix hardening, especially button semantics and target-specific app/browser actions.
 
 ## Read now
 
@@ -75,6 +75,7 @@ Plan next slice: add config-dependent capability checks where needed, especially
 - plans/phase62-target-window-contract-guards.md
 - plans/phase63-needs-target-contract.md
 - plans/phase64-target-capabilities.md
+- plans/phase65-config-dependent-target-capabilities.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -137,6 +138,7 @@ Plan next slice: add config-dependent capability checks where needed, especially
 - ../../knowledge/architecture/target-controller-phase62-notes.md
 - ../../knowledge/architecture/target-controller-phase63-notes.md
 - ../../knowledge/architecture/target-controller-phase64-notes.md
+- ../../knowledge/architecture/target-controller-phase65-notes.md
 
 ## Read if
 
@@ -218,9 +220,10 @@ Done:
 - Phase 62 代码/文档：新增全集注册节点 guard，固化 Target category、Window category、NeedsWindow/NeedsForeground、Android/Browser 非 HWND pin 边界。
 - Phase 63 代码/文档：新增 `NeedsTarget`；输入/检测/截图节点从 `NeedsWindow` 迁出；Android/Browser target 图不再触发 Win32WindowTarget 缺失和 Win32 backend 初始化；MCP run_node 支持 NeedsTarget 动作。
 - Phase 64 代码/文档：`NeedsTarget` 节点新增 `TargetCapabilities`；catalog/Markdown 暴露能力；validator 按最近上游 target selection 对照 controller profile，提前拦截 Android `MouseMoveRel` / `KeyPress` 等不支持动作。
+- Phase 65 代码/文档：validator 增加 config-derived target capability；`ClickAt` / `ClickTemplate` 在 `Keys` 非空时额外要求 `key-state`，Android ADB 普通点击继续放行、修饰键点击提前报错。
 
 Current:
-- 下一刀：补 config-dependent capability 校验，例如 ClickAt/ClickTemplate 配置了修饰键时需要 `key-state`。
+- 下一刀：继续收敛 capability matrix，优先处理 button semantics 和目标特有动作节点。
 
 ## Open questions
 

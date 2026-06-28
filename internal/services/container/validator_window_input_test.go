@@ -3,6 +3,7 @@ package container
 import (
 	"testing"
 
+	_ "yotta/internal/nodes/detect" // ClickTemplate (NeedsTarget + config-derived key-state)
 	_ "yotta/internal/nodes/input"  // ClickAt (NeedsTarget)
 	_ "yotta/internal/nodes/system" // AndroidTarget / Win32WindowTarget
 	_ "yotta/internal/nodes/window" // GetWindow (产出 Window, 接 ClickAt.Window)
@@ -97,5 +98,47 @@ func TestValidate_AndroidTargetWithKeyPress_ReportsUnsupportedTargetCapability(t
 	errs := ValidateContainer(c, nil)
 	if !hasCode(errs, CodeUnsupportedTargetCapability) {
 		t.Fatalf("AndroidTarget + KeyPress 应报 key-state 不支持: %+v", errs)
+	}
+}
+
+func TestValidate_AndroidTargetWithClickAtModifierKeys_ReportsUnsupportedTargetCapability(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "click", Kind: "ClickAt", Config: map[string]any{
+			"literal": map[string]any{"Keys": "ctrl"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "click.In"},
+	)
+
+	errs := ValidateContainer(c, nil)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget + ClickAt.Keys 应报 key-state 不支持: %+v", errs)
+	}
+}
+
+func TestValidate_AndroidTargetWithClickTemplateModifierKeys_ReportsUnsupportedTargetCapability(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "clickTemplate", Kind: "ClickTemplate", Config: map[string]any{
+			"literal": map[string]any{"Templates": []any{"template-1"}, "Keys": "ctrl"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "clickTemplate.In"},
+	)
+
+	errs := ValidateContainer(c, nil)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget + ClickTemplate.Keys 应报 key-state 不支持: %+v", errs)
 	}
 }
