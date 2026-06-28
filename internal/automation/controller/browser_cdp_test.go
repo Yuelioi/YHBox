@@ -45,6 +45,17 @@ func TestBrowserCDPControllerTargetAndCapabilities(t *testing.T) {
 	}
 }
 
+func TestBrowserCDPControllerHealthCheckReportsNilClient(t *testing.T) {
+	ctrl, err := NewBrowserCDPController(browserTarget(), BrowserCDPDeps{})
+	if err != nil {
+		t.Fatalf("NewBrowserCDPController() error = %v", err)
+	}
+	report := ctrl.HealthCheck(context.Background())
+	if report.OK || report.Message != "cdp client is nil" {
+		t.Fatalf("HealthCheck() = %#v, want nil-client failure", report)
+	}
+}
+
 func TestBrowserCDPControllerRejectsNonBrowserTarget(t *testing.T) {
 	_, err := NewBrowserCDPController(target.Target{
 		ID:   "android:emulator",
@@ -53,6 +64,25 @@ func TestBrowserCDPControllerRejectsNonBrowserTarget(t *testing.T) {
 	}, BrowserCDPDeps{})
 	if err == nil {
 		t.Fatalf("expected error for non-browser target")
+	}
+}
+
+func TestBrowserCDPControllerNilClientActionRecordsTraceError(t *testing.T) {
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewBrowserCDPController(browserTarget(), BrowserCDPDeps{Trace: rec})
+	if err != nil {
+		t.Fatalf("NewBrowserCDPController() error = %v", err)
+	}
+	err = ctrl.Move(context.Background(), MoveRequest{Point: target.NewNormalizedPoint(0.5, 0.25)})
+	if err == nil {
+		t.Fatalf("Move() error = nil, want nil-client error")
+	}
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1: %#v", len(records), records)
+	}
+	if records[0].Status != automationtrace.StatusError || records[0].Error != "cdp client is nil" {
+		t.Fatalf("trace error record = %#v", records[0])
 	}
 }
 
