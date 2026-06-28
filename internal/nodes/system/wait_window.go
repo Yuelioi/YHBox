@@ -14,7 +14,7 @@ func init() { node.Register(&WaitWindow{}) }
 
 // WaitWindow 按 Title/Class/ProcessName 轮询等待窗口出现, 出现走 Found, 超时走 Timeout
 // (不报错, 供分支兜底)。本节点只探测窗口是否存在, 不改当前活动窗口 —— 要操作该窗口,
-// Found 后接 WindowTarget 锁定 (此时窗口已存在, 会瞬时解析)。
+// Found 后接 Win32WindowTarget 锁定 (此时窗口已存在, 会瞬时解析)。
 type WaitWindow struct{}
 
 const (

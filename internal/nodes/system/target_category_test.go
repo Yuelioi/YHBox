@@ -7,7 +7,7 @@ func TestTargetSelectionNodesUseTargetCategory(t *testing.T) {
 		name string
 		got  string
 	}{
-		{name: "WindowTarget", got: (WindowTarget{}).Spec().Category},
+		{name: "Win32WindowTarget", got: (Win32WindowTarget{}).Spec().Category},
 		{name: "AndroidTarget", got: (AndroidTarget{}).Spec().Category},
 		{name: "BrowserTarget", got: (BrowserTarget{}).Spec().Category},
 	}

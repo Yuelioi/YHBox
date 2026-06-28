@@ -2707,32 +2707,7 @@
       }
     }
   },
-  "WindowState": {
-    "label": "窗口状态",
-    "description": "最大化/最小化/还原/无边框全屏/退出无边框,作用于 Windows 窗口。",
-    "example": "把游戏窗口切到无边框全屏。",
-    "input": {
-      "State": {
-        "label": "状态",
-        "option": {
-          "maximize": "最大化",
-          "minimize": "最小化",
-          "restore": "还原",
-          "borderlessFullscreen": "无边框全屏",
-          "restoreBorders": "退出无边框"
-        }
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      }
-    }
-  },
-  "WindowTarget": {
+  "Win32WindowTarget": {
     "label": "Windows 窗口目标",
     "description": "指定脚本接下来操作哪个 Windows 窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个 Windows 窗口就放多个，分别切到不同窗口。Android/浏览器请用对应 Target 节点。",
     "example": "脚本要操作游戏窗口：开头放一个「Windows 窗口目标」，标题填游戏名，后面的 Windows 点击、按键就都打到这个窗口上。",
@@ -2763,6 +2738,31 @@
       },
       "Fail": {
         "label": "失败"
+      }
+    }
+  },
+  "WindowState": {
+    "label": "窗口状态",
+    "description": "最大化/最小化/还原/无边框全屏/退出无边框,作用于 Windows 窗口。",
+    "example": "把游戏窗口切到无边框全屏。",
+    "input": {
+      "State": {
+        "label": "状态",
+        "option": {
+          "maximize": "最大化",
+          "minimize": "最小化",
+          "restore": "还原",
+          "borderlessFullscreen": "无边框全屏",
+          "restoreBorders": "退出无边框"
+        }
+      },
+      "Window": {
+        "label": "窗口"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
       }
     }
   }

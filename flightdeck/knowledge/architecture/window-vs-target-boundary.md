@@ -1,7 +1,7 @@
 # Window vs Target Boundary
 
 SUMMARY: 明确 Window 只表示 Win32 HWND 窗口，Target 表示跨 Windows/Android/Browser 的自动化对象
-READ WHEN: 改 WindowTarget / AndroidTarget / BrowserTarget / NeedsWindow / TargetService / 窗口控制节点 / 输入和截图路由时
+READ WHEN: 改 Win32WindowTarget / AndroidTarget / BrowserTarget / NeedsWindow / TargetService / 窗口控制节点 / 输入和截图路由时
 RECHECK WHEN: 新增目标类型、重命名节点 kind、改 validator 缺目标提示、改截图取点或前台策略时
 
 ---
@@ -13,24 +13,23 @@ RECHECK WHEN: 新增目标类型、重命名节点 kind、改 validator 缺目�
 - `WindowService`、`WindowHandle`、`WindowInputSpec`、`NeedsWindow` 表示 Win32 HWND 窗口能力。
 - `TargetService`、`target.Target`、controller factory 表示自动化目标能力。
 - `AndroidTarget` 和 `BrowserTarget` 是 target selection node，不是 window node。
-- `WindowTarget` 暂时保留为兼容 kind，但用户可见名称应写成 Windows 窗口目标。
+- `Win32WindowTarget` 是当前唯一的 Windows HWND target selection kind。
+- 旧 `WindowTarget` kind 不再支持；项目未上线，不做 alias、不做旧容器 loader 兜底。
 
-## Why keep `WindowTarget` for now
+## Destructive naming rule
 
-旧容器 JSON、validator、MCP authoring examples、录制服务、编辑期工具和很多测试都已经依赖 kind 字符串 `WindowTarget`。直接改名会让历史容器和外部调用同时断裂。
+Phase 61 已执行破坏性重命名收敛，当前策略：
 
-当前策略：
-
-1. 先修 UI/文案：把通用“目标窗口”拆成“自动化目标”或“Windows 窗口”。
-2. 保留 serialized kind：`WindowTarget` 继续可读可跑。
-3. 后续加 alias：新增 display-facing `Win32WindowTarget` / `WindowsWindowTarget` 时，loader 把旧 `WindowTarget` 迁到同一内部语义。
-4. 再迁移 contract：`NeedsWindow` 逐步变成 `NeedsTarget(kind=win32-window, capabilities=...)`，但兼容旧字段。
+1. 运行时、validator、MCP schema、录制服务、前端事件/API 都只使用 `Win32WindowTarget`。
+2. 用户可见名称写成“Windows 窗口目标 / Windows window target”，避免裸露 Win32 作为普通用户概念。
+3. 错误码、事件名和工具方法包含 `WIN32_WINDOW_TARGET` / `win32windowtarget` / `Win32WindowTarget`，不保留旧 `WINDOW_TARGET` / `windowtarget` / `WindowTarget` contract。
+4. 后续迁移 `NeedsWindow` 时直接引入 `NeedsTarget(kind=win32-window, capabilities=...)`，不为旧 `WindowTarget` 留兼容层。
 
 ## Win32-only nodes
 
 这些节点只应作用于 Windows HWND：
 
-- `WindowTarget`
+- `Win32WindowTarget`
 - `GetWindow`
 - `WaitWindow`
 - `WaitWindowGone`
@@ -53,5 +52,5 @@ Browser tab 的“置前”以后应是 browser/page activation。Android 的“
 
 - Generic automation object: `目标` / `自动化目标` / `Target`
 - Win32 HWND object: `Windows 窗口` / `Win32 window`
-- Legacy node display: `Windows 窗口目标` / `Windows window target`
-- Serialized compatibility kind: keep `WindowTarget` until alias migration is complete.
+- Serialized kind: `Win32WindowTarget`
+- Removed legacy kind: `WindowTarget`

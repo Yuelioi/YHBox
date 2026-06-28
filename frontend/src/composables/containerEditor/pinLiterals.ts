@@ -15,14 +15,14 @@ export interface LiteralPin {
 // 有专属 Inspector section 的节点 — 其 input 全由 bespoke section 编辑, 不渲染通用 PinInput
 // section, 也不出画布内联。与"值存哪 (config.literal)"正交 (input-editing-unification §3.6):
 // 渲染抑制 = 节点身份, 存储 = 判别规则。
-//   - WindowTarget / MouseCalibration: 声明式 singleton, 专属捕获/校准 UI。
+//   - Win32WindowTarget / MouseCalibration: 声明式 singleton, 专属捕获/校准 UI。
 //   - Subgraph: 1:1 绑定 section 编辑 SubgraphID/Params。
 //   - PlayClip: clip 绑定 section 编辑 ClipID + keepRanges。
 //   - Switch: SwitchInspector 编辑 value/cases (注: Switch FE/BE schema 另有既有漂移,
 //     非本 spec 范围 — 不在这里叠第三套编辑面)。
 // (CommentBox 是 IsVisualOnly + 独立组件, 天然不经此路径, 无需列入。)
 const BESPOKE_EDITOR_KINDS = new Set([
-  'WindowTarget',
+  'Win32WindowTarget',
   'MouseCalibration',
   'Subgraph',
   'PlayClip',

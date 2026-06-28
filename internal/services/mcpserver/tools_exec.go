@@ -30,8 +30,8 @@ func (s *Server) runNode(ctx context.Context, kind string, params map[string]any
 	if err != nil {
 		return errResult("WINDOW_GONE", err.Error()), nil
 	}
-	// 参数校验 (缺必填 / 类型非法). MISSING_WINDOW_TARGET 豁免: 窗口经由 hwnd/SetActiveWindow
-	// 带外注入, 微容器里没有 WindowTarget 节点是合法的, 不能因此拦住执行.
+	// 参数校验 (缺必填 / 类型非法). MISSING_WIN32_WINDOW_TARGET 豁免: 窗口经由 hwnd/SetActiveWindow
+	// 带外注入, 微容器里没有 Win32WindowTarget 节点是合法的, 不能因此拦住执行.
 	if hasBlockingValidationError(c) {
 		return errResult("INVALID_PARAMS", "params 校验未过 (详见节点 spec)"), nil
 	}
@@ -50,11 +50,11 @@ func (s *Server) runNode(ctx context.Context, kind string, params map[string]any
 }
 
 // hasBlockingValidationError reports whether the micro-container has an error-severity
-// validation issue OTHER than MISSING_WINDOW_TARGET. The window is supplied out-of-band
-// via hwnd (SetActiveWindow), so the missing-WindowTarget structural check does not apply.
+// validation issue OTHER than MISSING_WIN32_WINDOW_TARGET. The window is supplied out-of-band
+// via hwnd (SetActiveWindow), so the missing-Win32WindowTarget structural check does not apply.
 func hasBlockingValidationError(c *container.Container) bool {
 	for _, e := range container.ValidateContainer(c, nil) {
-		if e.Severity == container.SeverityError && e.Code != container.CodeMissingWindowTarget {
+		if e.Severity == container.SeverityError && e.Code != container.CodeMissingWin32WindowTarget {
 			return true
 		}
 	}

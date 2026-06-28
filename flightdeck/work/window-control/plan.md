@@ -241,7 +241,7 @@ const (
 	selInTitleMatch = "TitleMatch"
 )
 
-// windowSelectorInputs — GetWindow / WindowTarget 共用的窗口匹配输入(防漂移)。
+// windowSelectorInputs — GetWindow / Win32WindowTarget 共用的窗口匹配输入(防漂移)。
 func windowSelectorInputs() []node.InputSpec {
 	return []node.InputSpec{
 		{Name: selInTitle, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
@@ -305,7 +305,7 @@ func (GetWindow) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 ```go
 // Package window 提供窗口类别节点: GetWindow(解析→Window 对象) + WindowState/MoveResizeWindow/CloseWindow(窗口控制)。
 //
-// 注: Category=="Window" 的节点不止本包 —— WindowTarget/WaitWindow/WaitWindowGone 在 internal/nodes/system/,
+// 注: Category=="Window" 的节点不止本包 —— Win32WindowTarget/WaitWindow/WaitWindowGone 在 internal/nodes/system/,
 // BringWindowForeground 在 internal/nodes/input/(只是 Category 标 "Window")。找全部窗口节点按 Category 而非包。
 package window
 ```
@@ -330,19 +330,19 @@ git commit -m "feat(window): add GetWindow node + shared window selector"
 
 ---
 
-### Task A3: `WindowTarget` 产出 Window + 用共享 selector
+### Task A3: `Win32WindowTarget` 产出 Window + 用共享 selector
 
 **Files:**
 - Modify: `internal/nodes/system/window_target.go`
 - Test: `internal/nodes/system/window_target_test.go`
 
 **Interfaces:**
-- Consumes: `window.windowSelectorInputs`? —— **不可**(system 不能 import window, 会环)。改: WindowTarget 自己保留现有 selector 输入, **共享口径靠 winutil.MatchSpec**(本就共用)。Done 出口加 Data `Window`。
+- Consumes: `window.windowSelectorInputs`? —— **不可**(system 不能 import window, 会环)。改: Win32WindowTarget 自己保留现有 selector 输入, **共享口径靠 winutil.MatchSpec**(本就共用)。Done 出口加 Data `Window`。
 
 - [ ] **Step 1: 写失败测试**(在 `window_target_test.go` 追加)
 
 ```go
-func TestWindowTarget_EmitsWindowOnDone(t *testing.T) {
+func TestWin32WindowTarget_EmitsWindowOnDone(t *testing.T) {
 	orig := resolveWindowFn // window_target 所在包的注入点(见现有测试)
 	defer func() { resolveWindowFn = orig }()
 	// ... 复用现有 fixture 让 SetActive 成功, 断言 Done.Window.HWND 非 0、Title 对。
@@ -352,7 +352,7 @@ func TestWindowTarget_EmitsWindowOnDone(t *testing.T) {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `go test ./internal/nodes/system/ -run TestWindowTarget_EmitsWindowOnDone -v`
+Run: `go test ./internal/nodes/system/ -run TestWin32WindowTarget_EmitsWindowOnDone -v`
 Expected: FAIL(Done 无 Window 字段)。
 
 - [ ] **Step 3: 实现**(`window_target.go`)
@@ -377,7 +377,7 @@ Run 成功分支改:
 ```
 (`ctx.Window().Snapshot()` 返 `node.Window` —— Task B2 加该方法; 本任务依赖 B2 先做, 或先在 stub 返零值让测试用 fixture。**实施顺序: 先 B2 再 A3**, 故把 A3 移到 Phase B 之后执行; 计划编号保留 A3, 执行序见末尾「执行顺序」。)
 
-- [ ] **Step 4 / 5**: 测试通过 → 提交 `feat(window): WindowTarget emits Window on Done`。
+- [ ] **Step 4 / 5**: 测试通过 → 提交 `feat(window): Win32WindowTarget emits Window on Done`。
 
 ---
 
@@ -580,7 +580,7 @@ Expected: PASS + build 绿。
   RestoreBorders() error
   MoveResize(x, y, w, h int) error
   Close() error
-  Snapshot() (Window, error) // 当前活动窗口(含覆盖)的元数据快照, 给 Done.Window / WindowTarget 用
+  Snapshot() (Window, error) // 当前活动窗口(含覆盖)的元数据快照, 给 Done.Window / Win32WindowTarget 用
   ```
 
 - [ ] **Step 1: 写失败测试**(node_services_test.go)
@@ -1033,7 +1033,7 @@ func (rt *RuntimeContext) ActiveHWND() (uintptr, error) {
 **Interfaces:**
 - Consumes: `dataWire["Window"]`(node.Window), `rn.Spec.NeedsForeground`, `r.rt.Container.InputBackend`, `r.rt.Game.BringToForeground`, `winutil.IsWindow`, `rt.PushWindowOverride/PopWindowOverride`。
 
-- [ ] **Step 1: 写失败测试**(fixture 注两窗口, 仿 `windowtarget_dispatch_test.go`)
+- [ ] **Step 1: 写失败测试**(fixture 注两窗口, 仿 `win32windowtarget_dispatch_test.go`)
 
 ```go
 // 关键断言:
@@ -1041,7 +1041,7 @@ func (rt *RuntimeContext) ActiveHWND() (uintptr, error) {
 // ② 跑完 rt.ActiveHWND() 回粘性 A;
 // ③ Window{HWND:0 或 IsWindow=false} → execNodeViaFramework 返 CodeWindowInvalid 错。
 ```
-(用一个假的 NeedsWindow 节点记录它 Run 时 `ctx` 看到的 hwnd; 或断言覆盖栈在 Run 前后变化。具体构造照 `windowtarget_dispatch_test.go` 的 runner fixture。)
+(用一个假的 NeedsWindow 节点记录它 Run 时 `ctx` 看到的 hwnd; 或断言覆盖栈在 Run 前后变化。具体构造照 `win32windowtarget_dispatch_test.go` 的 runner fixture。)
 
 - [ ] **Step 2: 运行确认失败** → FAIL。
 
@@ -1129,24 +1129,24 @@ Expected: PASS(注意 catalog drift —— 加了 Window 输入会改 catalog �
 
 ### Task C5: NeedsWindow 校验放宽(图级)
 
-**Files:** Modify `internal/services/container/runtime/runner.go`(`containerNeedsWindow` 调用方) + `internal/services/container/validator.go`(缺 WindowTarget 校验)。
+**Files:** Modify `internal/services/container/runtime/runner.go`(`containerNeedsWindow` 调用方) + `internal/services/container/validator.go`(缺 Win32WindowTarget 校验)。
 
-**Interfaces:** 判定: 仅当存在「无 Window 输入连线」的 NeedsWindow 节点 **且** 全图无 WindowTarget 时才要求/报缺。
+**Interfaces:** 判定: 仅当存在「无 Window 输入连线」的 NeedsWindow 节点 **且** 全图无 Win32WindowTarget 时才要求/报缺。
 
 - [ ] **Step 1: 写失败测试**(validator_test 追加)
 
 ```go
-// 图: GetWindow→绑变量→GetVar→Screenshot(Window 连线), 无 WindowTarget → 不应报「缺 WindowTarget」。
-// 图: ClickAt(Window 未连)无 WindowTarget → 应报缺。
+// 图: GetWindow→绑变量→GetVar→Screenshot(Window 连线), 无 Win32WindowTarget → 不应报「缺 Win32WindowTarget」。
+// 图: ClickAt(Window 未连)无 Win32WindowTarget → 应报缺。
 ```
 
 - [ ] **Step 2: 运行确认失败** → 现状两图都报缺(校验未放宽)→ 第一图 FAIL。
 
-- [ ] **Step 3: 实现**: 在「缺 WindowTarget」判定里, 跳过「该 NeedsWindow 节点的 `Window` 输入 pin 在图里有入边」的节点。判定「有入边」用图的 data edges(`Window` pin 作为 target)。仅当**剩余**(无 Window 入边的)NeedsWindow 节点非空且全图无 WindowTarget → 报缺。
+- [ ] **Step 3: 实现**: 在「缺 Win32WindowTarget」判定里, 跳过「该 NeedsWindow 节点的 `Window` 输入 pin 在图里有入边」的节点。判定「有入边」用图的 data edges(`Window` pin 作为 target)。仅当**剩余**(无 Window 入边的)NeedsWindow 节点非空且全图无 Win32WindowTarget → 报缺。
 
 - [ ] **Step 4: 运行确认通过** → 两图分别 不报 / 报。`go test ./internal/services/container/... -count=1` 绿。
 
-- [ ] **Step 5: 提交** `feat(validator): relax WindowTarget requirement when Window input wired`
+- [ ] **Step 5: 提交** `feat(validator): relax Win32WindowTarget requirement when Window input wired`
 
 ---
 
@@ -1178,7 +1178,7 @@ Expected: PASS(注意 catalog drift —— 加了 Window 输入会改 catalog �
 - [ ] **Step 1**: Run `go build ./... && go test ./internal/nodes/... ./internal/node/... ./internal/catalog/... ./internal/services/container/... -count=1`。Expected: 绿(除 build.md 预存失败基线)。
 - [ ] **Step 2**: Run `cd frontend && pnpm typecheck && pnpm i18n:check`。
 - [ ] **Step 3**: Run `task build`(按 `flightdeck/knowledge/build/build.md`)。
-- [ ] **Step 4**: 真机 smoke(人工, 记录结果): ① 侧边面板/右键菜单/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow; ② 单窗口图(WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口; ③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar)分别作用对窗口; ④ 无边框全屏→MoveResize→退无边框 回到全屏前布局; ⑤ CloseWindow 后接 WaitWindowGone 确认关闭; ⑥ sendinput 后端下, ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
+- [ ] **Step 4**: 真机 smoke(人工, 记录结果): ① 侧边面板/右键菜单/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow; ② 单窗口图(Win32WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口; ③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar)分别作用对窗口; ④ 无边框全屏→MoveResize→退无边框 回到全屏前布局; ⑤ CloseWindow 后接 WaitWindowGone 确认关闭; ⑥ sendinput 后端下, ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
 - [ ] **Step 5**: smoke 全过 → 把 `flightdeck/work/window-control/` 移出 work(归档到 `~/.flightdeck/projects/<slug>/archive/`), cockpit 收尾。
 
 ---

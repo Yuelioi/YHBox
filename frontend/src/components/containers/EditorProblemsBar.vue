@@ -17,15 +17,15 @@
           <span v-if="e.graphPath.length > 0" class="text-[10px] text-dimmed truncate">{{ e.graphPath.join(' › ') }}</span>
         </div>
         <div class="text-xs text-toned leading-relaxed pl-5">{{ errorText(e) }}</div>
-        <div v-if="e.nodeId || canFix(e) || e.code === 'MISSING_WINDOW_TARGET'"
+        <div v-if="e.nodeId || canFix(e) || e.code === 'MISSING_WIN32_WINDOW_TARGET'"
              class="flex flex-wrap items-center gap-2 pl-5 pt-1">
           <code v-if="e.nodeId" class="font-mono text-[10px] text-dimmed">{{ e.nodeId }}</code>
           <UButton v-if="e.nodeId" size="xs" variant="soft" color="neutral" icon="i-tabler-focus-2"
                    @click="emit('jump', e)">{{ t('validation.jump') }}</UButton>
           <UButton v-if="canFix(e)" size="xs" color="primary" icon="i-tabler-wand"
                    @click="emit('fix', e)">{{ t('validation.fix') }}</UButton>
-          <UButton v-if="e.code === 'MISSING_WINDOW_TARGET'" size="xs" color="primary" icon="i-tabler-wand"
-                   @click="emit('fix-missing-window-target')">{{ t('validation.fix_missing_window_target') }}</UButton>
+          <UButton v-if="e.code === 'MISSING_WIN32_WINDOW_TARGET'" size="xs" color="primary" icon="i-tabler-wand"
+                   @click="emit('fix-missing-win32-window-target')">{{ t('validation.fix_missing_win32_window_target') }}</UButton>
         </div>
       </div>
     </div>
@@ -76,7 +76,7 @@ const emit = defineEmits<{
   'update:expanded': [v: boolean]
   jump: [e: ValidationError]
   fix: [e: ValidationError]
-  'fix-missing-window-target': []
+  'fix-missing-win32-window-target': []
   run: []
 }>()
 

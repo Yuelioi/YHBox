@@ -18,7 +18,7 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 		SchemaVersion: 1, ID: "id-1", Name: "test",
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "n1", Kind: "Start"},
-			{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
 		}},
 	}
 	if err := s.Save(c); err != nil {
@@ -47,7 +47,7 @@ func TestContainerStore_Delete(t *testing.T) {
 	s, _ := NewStore(dir)
 	_ = s.Save(&Container{SchemaVersion: 1, ID: "x", Name: "y", Graph: Graph{Nodes: []GraphNode{
 		{ID: "n1", Kind: "Start"},
-		{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}},
+		{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
 	}}})
 	if err := s.Delete("x"); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -80,7 +80,7 @@ func TestContainerStore_Reload(t *testing.T) {
 		SchemaVersion: 1, ID: "r1", Name: "old",
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "n1", Kind: "Start"},
-			{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
 		}},
 	}
 	if err := s.Save(c); err != nil {
@@ -125,7 +125,7 @@ func TestContainerStore_Reload_DeletedDir(t *testing.T) {
 		SchemaVersion: 1, ID: "d1", Name: "x",
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "n1", Kind: "Start"},
-			{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
 		}},
 	}); err != nil {
 		t.Fatalf("Save: %v", err)

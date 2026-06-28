@@ -10,13 +10,13 @@ import (
 	"yotta/pkg/winutil"
 )
 
-// TestWindowTarget_RunIsCalledInDispatch: 验证 Start→WindowTarget→Stop 执行时,
-// WindowTarget.Run 真的被调——即 resolveWindowFn 被触发, rt.SetActiveWindow 改为 stub 值.
+// TestWin32WindowTarget_RunIsCalledInDispatch: 验证 Start→Win32WindowTarget→Stop 执行时,
+// Win32WindowTarget.Run 真的被调——即 resolveWindowFn 被触发, rt.SetActiveWindow 改为 stub 值.
 //
 // 关键: setupRuntime 因 rt.HWND!=0 && rt.Input!=nil 跳过 (stubRuntimeWindowAndInput).
-// WindowTarget 在 execNode 路径中正常执行, 通过 windowAdapter.SetActive → resolveWindowFn
+// Win32WindowTarget 在 execNode 路径中正常执行, 通过 windowAdapter.SetActive → resolveWindowFn
 // 把 rt 的 WindowHandle 更新为 stub 返回的 HWND=999.
-func TestWindowTarget_RunIsCalledInDispatch(t *testing.T) {
+func TestWin32WindowTarget_RunIsCalledInDispatch(t *testing.T) {
 	// stub resolveWindowFn: 返 HWND=999
 	orig := resolveWindowFn
 	defer func() { resolveWindowFn = orig }()
@@ -31,7 +31,7 @@ func TestWindowTarget_RunIsCalledInDispatch(t *testing.T) {
 		Graph: container.Graph{
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget", Config: map[string]any{
+				{ID: "wt", Kind: "Win32WindowTarget", Config: map[string]any{
 					"Title":      "GameWindow",
 					"TitleMatch": "exact",
 				}},
@@ -50,8 +50,8 @@ func TestWindowTarget_RunIsCalledInDispatch(t *testing.T) {
 	if err := r.Run(context.Background()); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	// WindowTarget.Run 被执行后 rt 的活动窗口 HWND 应被更新为 stub 的 999
+	// Win32WindowTarget.Run 被执行后 rt 的活动窗口 HWND 应被更新为 stub 的 999
 	if got := rt.WindowHandle().HWND; got != 999 {
-		t.Errorf("WindowTarget.Run 未被执行: HWND = %d, want 999", got)
+		t.Errorf("Win32WindowTarget.Run 未被执行: HWND = %d, want 999", got)
 	}
 }

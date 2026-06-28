@@ -76,7 +76,7 @@
       },
       {
         "id": "winTarget",
-        "kind": "WindowTarget",
+        "kind": "Win32WindowTarget",
         "x": -511.19458,
         "y": -335.00333,
         "config": {

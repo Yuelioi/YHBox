@@ -29,13 +29,13 @@ describe('normalizeError', () => {
   it('dev-fetch transport: 信封塞进 Error.message (validation)', () => {
     const e = new Error(
       JSON.stringify({
-        message: 'MISSING_WINDOW_TARGET map[]',
-        cause: { Errors: [{ severity: 'error', code: 'MISSING_WINDOW_TARGET', graphPath: ['main'] }] },
+        message: 'MISSING_WIN32_WINDOW_TARGET map[]',
+        cause: { Errors: [{ severity: 'error', code: 'MISSING_WIN32_WINDOW_TARGET', graphPath: ['main'] }] },
         kind: 'RuntimeError',
       }),
     )
     expect(normalizeError(e)).toEqual({
-      errors: [{ severity: 'error', code: 'MISSING_WINDOW_TARGET', graphPath: ['main'] }],
+      errors: [{ severity: 'error', code: 'MISSING_WIN32_WINDOW_TARGET', graphPath: ['main'] }],
     })
   })
   it('dev-fetch transport: 信封塞进 Error.message (apperr code)', () => {
@@ -52,7 +52,7 @@ describe('normalizeError', () => {
 
 describe('errorMessage', () => {
   it('validation 首条本地化 + 还有 N 个', () => {
-    const e = { cause: { Errors: [{ code: 'NO_START' }, { code: 'MISSING_WINDOW_TARGET' }] } }
+    const e = { cause: { Errors: [{ code: 'NO_START' }, { code: 'MISSING_WIN32_WINDOW_TARGET' }] } }
     const msg = errorMessage(e)
     expect(msg).toContain('Start')
     expect(msg).toMatch(/1/)
@@ -71,14 +71,14 @@ describe('errorMessage', () => {
   it('dev-fetch transport 信封 → 本地化, 不糊 JSON', () => {
     const e = new Error(
       JSON.stringify({
-        message: 'MISSING_WINDOW_TARGET map[]',
-        cause: { Errors: [{ code: 'MISSING_WINDOW_TARGET' }] },
+        message: 'MISSING_WIN32_WINDOW_TARGET map[]',
+        cause: { Errors: [{ code: 'MISSING_WIN32_WINDOW_TARGET' }] },
         kind: 'RuntimeError',
       }),
     )
     const msg = errorMessage(e)
     expect(msg).not.toContain('{') // 不再糊裸 JSON
     expect(msg).not.toContain('map[]')
-    expect(msg).toContain('WindowTarget') // zh '主图缺 WindowTarget 节点' / en 'Main graph missing WindowTarget node'
+    expect(msg).toContain('Windows 窗口目标') // zh user-facing label, not raw kind
   })
 })

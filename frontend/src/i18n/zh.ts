@@ -1,4 +1,4 @@
-﻿// 中文文案. 单源 of truth (en.ts 是平行翻译).
+// 中文文案. 单源 of truth (en.ts 是平行翻译).
 // 键命名约定 (扁平 namespace, 数据驱动 chrome):
 //   sidebar.<k>            侧栏 label
 //   controls.<k>           BotControls 按钮 / 状态
@@ -160,8 +160,8 @@ export default {
     runqueue_added: '已加入运行队列',
     validate_failed: '校验失败',
     validate_call_failed: '校验调用失败',
-    window_target_added_title: '已添加 Windows 窗口目标节点',
-    window_target_added_desc: '请打开节点 Inspector 配置 Windows 窗口匹配条件 (或点"捕获前台窗口")',
+    win32_window_target_added_title: '已添加 Windows 窗口目标节点',
+    win32_window_target_added_desc: '请打开节点 Inspector 配置 Windows 窗口匹配条件 (或点"捕获前台窗口")',
     expr_fuse_failed: 'Expr 合并失败 (前置条件不满足)',
     subgraph_recording_reset_warn: '重置录制元数据需要重新录制此子图（v1 仅提示）',
     // 通用 toast (跨文件复用)
@@ -338,7 +338,7 @@ export default {
         input: { label: '输入', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到当前自动化目标' },
         event: { label: '事件', desc: 'EventTick — 定时后台触发器, 每隔 N ms spawn 子图执行 (不挡主流程)' },
         subgraph: { label: '子图', desc: 'Subgraph 调用 / SubgraphInput 入口 / SubgraphOutput 出口' },
-        system: { label: '系统', desc: 'WindowTarget — 选定 Windows 窗口目标 (title / class / processName 任意组合匹配)' },
+        system: { label: '系统', desc: 'Subgraph / Throw / MouseCalibration — 系统辅助、图结构与本机标定节点' },
         config: { label: '配置', desc: 'MouseCalibration — 标定本机 360° HID counts, 给 MouseMoveRel 缩放用' },
         debug: { label: '调试', desc: 'Log / Toast' },
       },
@@ -501,7 +501,7 @@ export default {
     },
   },
   // Inspector chrome — kind-agnostic 字段 (header / label / 警告 / 屏幕拾取 / 配置 fallback 等).
-  // Kind 专属 sections (Subgraph/MouseCalibration/WindowTarget/PlayClip) 走 node.<Kind>.inspector.*.
+  // Kind 专属 sections (Subgraph/MouseCalibration/Win32WindowTarget/PlayClip) 走 node.<Kind>.inspector.*.
   inspector: {
     no_selection: '未选中节点',
     delete_node_tooltip: '删除节点',
@@ -1725,7 +1725,7 @@ export default {
         Code: { label: '错误码 (可选)' },
       },
     },
-    WindowTarget: {
+    Win32WindowTarget: {
       label: 'Windows 窗口目标',
       description: '指定脚本接下来操作哪个 Windows 窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个 Windows 窗口就放多个，分别切到不同窗口。Android/浏览器请用对应 Target 节点。',
       example: '脚本要操作游戏窗口：开头放一个「Windows 窗口目标」，标题填游戏名，后面的 Windows 点击、按键就都打到这个窗口上。',
@@ -2014,13 +2014,13 @@ export default {
     EMPTY_SUBGRAPH_OUTPUT: '子图没有任何 SubgraphOutput 节点',
     CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
-    MISSING_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
+    MISSING_WIN32_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
     UNKNOWN_ERROR: '发生未知错误',
     WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
     CONTAINER_ID_REQUIRED: '缺容器 ID',
-    RECORDING_NO_WINDOW_TARGET: '容器缺 Windows 窗口目标节点（录制需要 Windows 窗口）',
-    INVALID_WINDOW_TARGET_REGEX: 'Windows 窗口目标正则不合法: {error}',
-    INVALID_WINDOW_TARGET_EMPTY_MATCH: 'Windows 窗口目标 match 不能为空',
+    RECORDING_NO_WIN32_WINDOW_TARGET: '容器缺 Windows 窗口目标节点（录制需要 Windows 窗口）',
+    INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows 窗口目标正则不合法: {error}',
+    INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows 窗口目标 match 不能为空',
     INVALID_HSV_RANGE: 'HSV 范围不合法',
     INVALID_SCAN_AXIS: 'scanAxis 必须是 x 或 y, 得到 {got}',
     INVALID_CLUSTER_RANGE: 'cluster 范围不合法 (min={min} > max={max})',
@@ -2076,7 +2076,7 @@ export default {
     unchecked: '未检查',
     passed_short: '无问题',
     run_button: '通过 — 继续运行',
-    fix_missing_window_target: '一键添加 Windows 窗口目标节点',
+    fix_missing_win32_window_target: '一键添加 Windows 窗口目标节点',
     jump: '跳转',
     fix: '修复',
   },

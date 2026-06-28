@@ -2,7 +2,7 @@
 
 ## Goal
 
-Allow a graph to switch the runtime active target to an Android ADB device without abusing `WindowTarget`.
+Allow a graph to switch the runtime active target to an Android ADB device without abusing `Win32WindowTarget`.
 
 ## Scope
 

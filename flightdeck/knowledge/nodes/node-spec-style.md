@@ -41,7 +41,7 @@ Spec.InputSpec.Default 序列化进 JSON 走 `encoding/json`, 反序列化拿 `a
 
 | 节点形态                                                                                  | exec out pin name                    | 例子                                                                                                                                               |
 | ----------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 单 done 出口 (KeyPress / Sleep / SetVar / IncVar / Log / WindowTarget / MouseCalibration) | `Done`                             | `{Name: "Done", Type: TypeExec}`                                                                                                                 |
+| 单 done 出口 (KeyPress / Sleep / SetVar / IncVar / Log / Win32WindowTarget / MouseCalibration) | `Done`                             | `{Name: "Done", Type: TypeExec}`                                                                                                                 |
 | 多语义出口 (If/Loop/CheckTemplate/Fail-capable 节点)                                      | 语义专名 PascalCase                  | `True`/`False`, `Body`/`Done`, `Found`/`NotFound`, `Fail`                                                                   |
 | 入口 / Fire-only (Start / EventTick / SubgraphInput — 无 exec in, 出口即"trigger")       | **PascalCase** (不是小写 out!) | `Start.Done`, `EventTick.Out`, `SubgraphInput.Done`                                                                                          |
 | Switch 兜底出口 (例外)                                                                    | 小写 `default`                     | validator 把 `"default"` 当保留兜底关键字 (`validate.go` / `validator.go`), 跟用户 case 值同命名空间 — **有意保留, 别迁 `Default`** |
@@ -102,7 +102,7 @@ const (
 | detect, input, system, io, stopwatch, variable, purefunc, control | PascalCase       | 已 OK (2026-06-08 复核: data pin / exec-in 全合规) |
 | event, mock, mockerror                                            | PascalCase / mix | event OK; mock 视 fishing-v2 不引用                |
 
-exec-out 名 (2026-06-08 统一): 单出口 `Done`, 语义出口 PascalCase, 入口/fire-only 也 `Done`/`Out` (非小写 out). 例外: Switch 兜底 `default` (保留关键字). 历史脏名 `Fire` 已清 (WindowTarget/MouseCalibration → `Done`); `Yes`/`No`/`Missing` 命中分支已统一 `Found`/`NotFound` (DetectColor/DetectColorHSV/DualColorBarTrack); 区域输入 `Region`/`Roi` 已统一 `ROI`.
+exec-out 名 (2026-06-08 统一): 单出口 `Done`, 语义出口 PascalCase, 入口/fire-only 也 `Done`/`Out` (非小写 out). 例外: Switch 兜底 `default` (保留关键字). 历史脏名 `Fire` 已清 (Win32WindowTarget/MouseCalibration → `Done`); `Yes`/`No`/`Missing` 命中分支已统一 `Found`/`NotFound` (DetectColor/DetectColorHSV/DualColorBarTrack); 区域输入 `Region`/`Roi` 已统一 `ROI`.
 
 迁完跑 `go test ./internal/node/... -run TestSpecConsistency -count=1` 确认.
 

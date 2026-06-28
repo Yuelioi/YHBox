@@ -27,12 +27,12 @@ func TestSchemaExamples_AllValid(t *testing.T) {
 			}
 		}
 		for _, n := range c.Graph.Nodes {
-			if n.Kind == "WindowTarget" {
+			if n.Kind == "Win32WindowTarget" {
 				sawNeedsWindow = true
 			}
 		}
 	}
 	if !sawNeedsWindow {
-		t.Fatal("examples must cover a needsWindow scenario (WindowTarget present)")
+		t.Fatal("examples must cover a needsWindow scenario (Win32WindowTarget present)")
 	}
 }

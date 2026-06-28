@@ -42,7 +42,7 @@ func (NoopMatcher) DetectAll(ctx context.Context, frame *image.RGBA, guid string
 }
 
 // GameProvider 提供跨进程窗口置前能力。main.go 启动时注入适配器。
-// hwnd 解析已落在当前活动窗口（经 rt.WindowHandle()/SetActiveWindow() 访问，WindowTarget 节点运行时填入）, GameProvider 只剩 BringToForeground。
+// hwnd 解析已落在当前活动窗口（经 rt.WindowHandle()/SetActiveWindow() 访问，Win32WindowTarget 节点运行时填入）, GameProvider 只剩 BringToForeground。
 type GameProvider interface {
 	// BringToForeground 尝试把 hwnd 置前。返 true 表示 OS 接受调用；
 	// 注意：成功 ≠ 一定到前台（OS 可能延迟切换），但 false 一定是失败。

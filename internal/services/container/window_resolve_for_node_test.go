@@ -2,15 +2,15 @@ package container
 
 import "testing"
 
-func TestWindowTargetForNode(t *testing.T) {
+func TestWin32WindowTargetForNode(t *testing.T) {
 	// 构造 Start → WT_A(Title=A) → n1(ClickAt) → WT_B(Title=B) → n2(ClickAt)
 	// 用 exec 边 "<id>.<outpin>"→"<id>.In" 串联.
 	c := &Container{Graph: Graph{
 		Nodes: []GraphNode{
 			{ID: "start", Kind: "Start"},
-			{ID: "wta", Kind: "WindowTarget", Config: map[string]any{"Title": "A"}},
+			{ID: "wta", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "A"}},
 			{ID: "n1", Kind: "ClickAt"},
-			{ID: "wtb", Kind: "WindowTarget", Config: map[string]any{"Title": "B"}},
+			{ID: "wtb", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "B"}},
 			{ID: "n2", Kind: "ClickAt"},
 		},
 		Edges: []GraphEdge{
@@ -20,13 +20,13 @@ func TestWindowTargetForNode(t *testing.T) {
 			{From: "wtb.Done", To: "n2.In"},
 		},
 	}}
-	if wt := windowTargetForNode(c, "n2"); wt == nil || PinString(wt, "Title") != "B" {
+	if wt := win32WindowTargetForNode(c, "n2"); wt == nil || PinString(wt, "Title") != "B" {
 		t.Fatalf("n2 应回溯到 WT_B, got %v", wt)
 	}
-	if wt := windowTargetForNode(c, "n1"); wt == nil || PinString(wt, "Title") != "A" {
+	if wt := win32WindowTargetForNode(c, "n1"); wt == nil || PinString(wt, "Title") != "A" {
 		t.Fatalf("n1 应回溯到 WT_A, got %v", wt)
 	}
-	if wt := windowTargetForNode(c, ""); wt == nil || PinString(wt, "Title") != "A" {
+	if wt := win32WindowTargetForNode(c, ""); wt == nil || PinString(wt, "Title") != "A" {
 		t.Fatalf("空 nodeID 应回落主窗口 WT_A, got %v", wt)
 	}
 }

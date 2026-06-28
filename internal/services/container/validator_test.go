@@ -1,4 +1,4 @@
-﻿package container
+package container
 
 import (
 	"testing"
@@ -60,8 +60,8 @@ func TestValidator_ExecOutputDataField_WiredAsData(t *testing.T) {
 	)
 	c.Graph.Edges = []GraphEdge{
 		{From: "start.Done", To: "rp.In"},
-		{From: "rp.Fail", To: "sw.In"},     // exec 边: 失败分支
-		{From: "rp.Code", To: "sw.Value"},  // data 边: Code (Fail 出口的数据字段) → Switch 分流值
+		{From: "rp.Fail", To: "sw.In"},    // exec 边: 失败分支
+		{From: "rp.Code", To: "sw.Value"}, // data 边: Code (Fail 出口的数据字段) → Switch 分流值
 	}
 	errs := ValidateContainer(c, nil)
 	if hasCode(errs, CodeInvalidPin) {
@@ -268,33 +268,33 @@ func TestValidator_HappyPath(t *testing.T) {
 	}
 }
 
-func TestValidateWindowTarget_Missing(t *testing.T) {
-	// 含窗口类节点 (ClickAt, NeedsWindow) 但无 WindowTarget → 触发 MISSING (validate-on-use).
+func TestValidateWin32WindowTarget_Missing(t *testing.T) {
+	// 含窗口类节点 (ClickAt, NeedsWindow) 但无 Win32WindowTarget → 触发 MISSING (validate-on-use).
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "s", Kind: "Start"},
 		{ID: "c", Kind: "ClickAt"},
 	}}}
-	errs := validateWindowTarget(c, nil)
-	if !hasCode(errs, CodeMissingWindowTarget) {
-		t.Errorf("want MISSING_WINDOW_TARGET, got %+v", errs)
+	errs := validateWin32WindowTarget(c, nil)
+	if !hasCode(errs, CodeMissingWin32WindowTarget) {
+		t.Errorf("want MISSING_WIN32_WINDOW_TARGET, got %+v", errs)
 	}
 }
 
-func TestValidateWindowTarget_WindowlessSkipped(t *testing.T) {
-	// 纯窗口无关容器 (Start 无 NeedsWindow) 无 WindowTarget → 不报 MISSING (validate-on-use).
+func TestValidateWin32WindowTarget_WindowlessSkipped(t *testing.T) {
+	// 纯窗口无关容器 (Start 无 NeedsWindow) 无 Win32WindowTarget → 不报 MISSING (validate-on-use).
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "s", Kind: "Start"},
 		{ID: "lg", Kind: "Log"},
 		{ID: "sl", Kind: "Sleep"},
 	}}}
-	errs := validateWindowTarget(c, nil)
-	if hasCode(errs, CodeMissingWindowTarget) {
-		t.Errorf("窗口无关容器不该报 MISSING_WINDOW_TARGET, got %+v", errs)
+	errs := validateWin32WindowTarget(c, nil)
+	if hasCode(errs, CodeMissingWin32WindowTarget) {
+		t.Errorf("窗口无关容器不该报 MISSING_WIN32_WINDOW_TARGET, got %+v", errs)
 	}
 }
 
-func TestValidateWindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
-	// 主图窗口无关, 但子图含 ClickAt → 仍要求 WindowTarget (子图跟主图共用 hwnd).
+func TestValidateWin32WindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
+	// 主图窗口无关, 但子图含 ClickAt → 仍要求 Win32WindowTarget (子图跟主图共用 hwnd).
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "s", Kind: "Start"},
@@ -306,80 +306,80 @@ func TestValidateWindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
 			{ID: "c", Kind: "ClickAt"},
 		}}},
 	}
-	errs := validateWindowTarget(c, sgs)
-	if !hasCode(errs, CodeMissingWindowTarget) {
-		t.Errorf("子图含窗口节点应要求 WindowTarget, got %+v", errs)
+	errs := validateWin32WindowTarget(c, sgs)
+	if !hasCode(errs, CodeMissingWin32WindowTarget) {
+		t.Errorf("子图含窗口节点应要求 Win32WindowTarget, got %+v", errs)
 	}
 }
 
-func TestValidateWindowTarget_EmptyGraphSkipped(t *testing.T) {
+func TestValidateWin32WindowTarget_EmptyGraphSkipped(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{}}}
-	errs := validateWindowTarget(c, nil)
+	errs := validateWin32WindowTarget(c, nil)
 	if len(errs) != 0 {
-		t.Errorf("empty graph should skip WindowTarget check, got %+v", errs)
+		t.Errorf("empty graph should skip Win32WindowTarget check, got %+v", errs)
 	}
 }
 
-func TestValidate_MultipleWindowTargetsAllowed(t *testing.T) {
-	// 主图两个合法 WindowTarget (各有 Title) → 不再报 DUPLICATE_WINDOW_TARGET
+func TestValidate_MultipleWin32WindowTargetsAllowed(t *testing.T) {
+	// 主图两个合法 Win32WindowTarget (各有 Title) → 不再报 DUPLICATE_WIN32_WINDOW_TARGET
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
-		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+		{ID: "w1", Kind: "Win32WindowTarget", Config: map[string]any{
 			"Title": "异环",
 		}},
-		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
+		{ID: "w2", Kind: "Win32WindowTarget", Config: map[string]any{
 			"Title": "原神",
 		}},
 	}}}
-	errs := validateWindowTarget(c, nil)
-	if hasCode(errs, "DUPLICATE_WINDOW_TARGET") {
-		t.Errorf("多个 WindowTarget 不应再报 DUPLICATE_WINDOW_TARGET, got %+v", errs)
+	errs := validateWin32WindowTarget(c, nil)
+	if hasCode(errs, "DUPLICATE_WIN32_WINDOW_TARGET") {
+		t.Errorf("多个 Win32WindowTarget 不应再报 DUPLICATE_WIN32_WINDOW_TARGET, got %+v", errs)
 	}
 	if len(errs) != 0 {
-		t.Errorf("两个合法 WindowTarget 应无错误, got %+v", errs)
+		t.Errorf("两个合法 Win32WindowTarget 应无错误, got %+v", errs)
 	}
 }
 
-func TestValidate_SubgraphWindowTargetAllowed(t *testing.T) {
-	// 子图含 WindowTarget → 不再报 WINDOW_TARGET_IN_SUBGRAPH
+func TestValidate_SubgraphWin32WindowTargetAllowed(t *testing.T) {
+	// 子图含 Win32WindowTarget → 不再报 WIN32_WINDOW_TARGET_IN_SUBGRAPH
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+			{ID: "w1", Kind: "Win32WindowTarget", Config: map[string]any{
 				"Title": "异环",
 			}},
 		}},
 	}
 	sgs := []Subgraph{
 		{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
-			{ID: "w2", Kind: "WindowTarget", Config: map[string]any{
+			{ID: "w2", Kind: "Win32WindowTarget", Config: map[string]any{
 				"Title": "原神",
 			}},
 		}}},
 	}
-	errs := validateWindowTarget(c, sgs)
-	if hasCode(errs, "WINDOW_TARGET_IN_SUBGRAPH") {
-		t.Errorf("子图 WindowTarget 不应再报 WINDOW_TARGET_IN_SUBGRAPH, got %+v", errs)
+	errs := validateWin32WindowTarget(c, sgs)
+	if hasCode(errs, "WIN32_WINDOW_TARGET_IN_SUBGRAPH") {
+		t.Errorf("子图 Win32WindowTarget 不应再报 WIN32_WINDOW_TARGET_IN_SUBGRAPH, got %+v", errs)
 	}
 	if len(errs) != 0 {
-		t.Errorf("子图合法 WindowTarget 应无错误, got %+v", errs)
+		t.Errorf("子图合法 Win32WindowTarget 应无错误, got %+v", errs)
 	}
 }
 
-func TestValidate_EachWindowTargetMatchValidated(t *testing.T) {
-	// 两个 WindowTarget: 第一个合法, 第二个 Title/Class/ProcessName 全空 → 报 CodeInvalidWindowTargetEmptyMatch
+func TestValidate_EachWin32WindowTargetMatchValidated(t *testing.T) {
+	// 两个 Win32WindowTarget: 第一个合法, 第二个 Title/Class/ProcessName 全空 → 报 CodeInvalidWin32WindowTargetEmptyMatch
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
-		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+		{ID: "w1", Kind: "Win32WindowTarget", Config: map[string]any{
 			"Title": "异环",
 		}},
-		{ID: "w2", Kind: "WindowTarget", Config: map[string]any{}},
+		{ID: "w2", Kind: "Win32WindowTarget", Config: map[string]any{}},
 	}}}
-	errs := validateWindowTarget(c, nil)
-	if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
-		t.Errorf("第二个空匹配 WindowTarget 应报 INVALID_WINDOW_TARGET_EMPTY_MATCH, got %+v", errs)
+	errs := validateWin32WindowTarget(c, nil)
+	if !hasCode(errs, CodeInvalidWin32WindowTargetEmptyMatch) {
+		t.Errorf("第二个空匹配 Win32WindowTarget 应报 INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH, got %+v", errs)
 	}
 	// 只有 w2 报错, w1 不报
 	count := 0
 	for _, e := range errs {
-		if e.Code == CodeInvalidWindowTargetEmptyMatch {
+		if e.Code == CodeInvalidWin32WindowTargetEmptyMatch {
 			count++
 			if e.NodeID != "w2" {
 				t.Errorf("期望错误指向 w2, 实际 NodeID=%s", e.NodeID)
@@ -391,19 +391,19 @@ func TestValidate_EachWindowTargetMatchValidated(t *testing.T) {
 	}
 }
 
-func TestValidateWindowTarget_InvalidRegex(t *testing.T) {
+func TestValidateWin32WindowTarget_InvalidRegex(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
-		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+		{ID: "w1", Kind: "Win32WindowTarget", Config: map[string]any{
 			"Title": "[invalid", "TitleMatch": "regex",
 		}},
 	}}}
-	errs := validateWindowTarget(c, nil)
-	if !hasCode(errs, CodeInvalidWindowTargetRegex) {
+	errs := validateWin32WindowTarget(c, nil)
+	if !hasCode(errs, CodeInvalidWin32WindowTargetRegex) {
 		t.Errorf("want INVALID_REGEX, got %+v", errs)
 	}
 }
 
-func TestValidateWindowTarget_EmptyMatch(t *testing.T) {
+func TestValidateWin32WindowTarget_EmptyMatch(t *testing.T) {
 	cases := []struct {
 		name   string
 		config map[string]any
@@ -415,25 +415,25 @@ func TestValidateWindowTarget_EmptyMatch(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &Container{Graph: Graph{Nodes: []GraphNode{
-				{ID: "w1", Kind: "WindowTarget", Config: tc.config},
+				{ID: "w1", Kind: "Win32WindowTarget", Config: tc.config},
 			}}}
-			errs := validateWindowTarget(c, nil)
-			if !hasCode(errs, CodeInvalidWindowTargetEmptyMatch) {
+			errs := validateWin32WindowTarget(c, nil)
+			if !hasCode(errs, CodeInvalidWin32WindowTargetEmptyMatch) {
 				t.Errorf("%s: want EMPTY_MATCH, got %+v", tc.name, errs)
 			}
 		})
 	}
 }
 
-func TestValidateWindowTarget_Valid(t *testing.T) {
+func TestValidateWin32WindowTarget_Valid(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
-		{ID: "w1", Kind: "WindowTarget", Config: map[string]any{
+		{ID: "w1", Kind: "Win32WindowTarget", Config: map[string]any{
 			"Title": "异环", "Class": "Unreal",
 		}},
 	}}}
-	errs := validateWindowTarget(c, nil)
+	errs := validateWin32WindowTarget(c, nil)
 	if len(errs) != 0 {
-		t.Errorf("valid WindowTarget should have no errors, got %+v", errs)
+		t.Errorf("valid Win32WindowTarget should have no errors, got %+v", errs)
 	}
 }
 
@@ -447,14 +447,14 @@ func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 			ID: "g", Version: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget", Config: map[string]any{
+				{ID: "wt", Kind: "Win32WindowTarget", Config: map[string]any{
 					"Title": "异环",
 				}},
 				{ID: "gv", Kind: "GetVar", Config: map[string]any{"VarName": "x", "Scope": "local"}},
 				{ID: "log", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Message": "", "Level": "info"}}},
 			},
 			Edges: []GraphEdge{
-				{From: "start.Done", To: "log.In"},     // exec edge
+				{From: "start.Done", To: "log.In"},    // exec edge
 				{From: "gv.Value", To: "log.Message"}, // data edge — no Kind field, must still validate
 			},
 		},

@@ -374,9 +374,9 @@ import "yotta/internal/node"
 
 // isRunnable: run_node 只接「对窗口做一件事」的动作节点。闸 = NeedsWindow 且非纯数据。
 // 数据驱动 (读 Spec 能力位), 不写死 kind 名单 —— 节点增删自动跟随。
-// WindowTarget 例外: 它职责被 find_window 取代, 显式排除。
+// Win32WindowTarget 例外: 它职责被 find_window 取代, 显式排除。
 func isRunnable(spec node.Spec) bool {
-	if spec.Kind == "WindowTarget" {
+	if spec.Kind == "Win32WindowTarget" {
 		return false
 	}
 	return spec.NeedsWindow && !spec.IsPureData
@@ -705,7 +705,7 @@ func (s *Server) runNode(ctx context.Context, kind string, params map[string]any
 	if err != nil {
 		return errResult("WINDOW_GONE", err.Error()), nil
 	}
-	// 参数校验 (缺必填 / 类型非法). 豁免 MISSING_WINDOW_TARGET — 微容器无 WindowTarget
+	// 参数校验 (缺必填 / 类型非法). 豁免 MISSING_WIN32_WINDOW_TARGET — 微容器无 Win32WindowTarget
 	// 节点, NeedsWindow 节点必触发它; 但窗口经 hwnd 带外提供, 这条结构校验不适用.
 	if hasBlockingValidationError(c) {
 		return errResult("INVALID_PARAMS", "params 校验未过 (详见节点 spec)"), nil

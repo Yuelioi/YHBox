@@ -56,7 +56,7 @@ dispatch **不猜**错误类型，靠类型机制分：
 
 `OutputSpec{Name:"Fail", Type:"Exec", Semantic:"error", Data:[{Error,String},{Code,String}]}`。
 
-- **curated 4 个**（值得就地处理的独立失败）：RunProgram(`launch_failed`)、Screenshot(`write_failed`/`capture_failed`)、WindowTarget(`not_found`)、PlayClip(`playback_failed`)。
+- **curated 4 个**（值得就地处理的独立失败）：RunProgram(`launch_failed`)、Screenshot(`write_failed`/`capture_failed`)、Win32WindowTarget(`not_found`)、PlayClip(`playback_failed`)。
 - **region 3 个**：Subgraph、Loop、CollapsedNode（透传内部 Code）。
 
 **其余 ~15 个运行时可失败节点不拿引脚**（DetectColor/模板/输入类等）——失败多是「目标窗没了」同根因，靠整块 region 兜；但**仍改 `Failf` 带码**，冒到 region Fail 出口时 Code 有意义。

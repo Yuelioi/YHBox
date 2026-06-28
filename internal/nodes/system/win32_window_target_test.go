@@ -8,14 +8,14 @@ import (
 	"yotta/internal/node"
 )
 
-func TestWindowTarget_SpecHasExecInNoBackendPins(t *testing.T) {
-	s := WindowTarget{}.Spec()
+func TestWin32WindowTarget_SpecHasExecInNoBackendPins(t *testing.T) {
+	s := Win32WindowTarget{}.Spec()
 	in := map[string]string{}
 	for _, p := range s.Inputs {
 		in[p.Name] = p.Type
 	}
 	if in["In"] != "Exec" {
-		t.Fatal("WindowTarget 应有 exec-in 'In'")
+		t.Fatal("Win32WindowTarget 应有 exec-in 'In'")
 	}
 	for _, gone := range []string{"InputBackend", "CaptureBackend", "ScaleTolerance"} {
 		if _, ok := in[gone]; ok {
@@ -47,19 +47,19 @@ func (s *stubWindowService) SetActive(_ context.Context, title, _, _, _ string) 
 	s.calledTitle = title
 	return s.err
 }
-func (s *stubWindowService) Maximize() error              { return nil }
-func (s *stubWindowService) Minimize() error              { return nil }
-func (s *stubWindowService) Restore() error               { return nil }
-func (s *stubWindowService) BorderlessFullscreen() error  { return nil }
-func (s *stubWindowService) RestoreBorders() error        { return nil }
+func (s *stubWindowService) Maximize() error                 { return nil }
+func (s *stubWindowService) Minimize() error                 { return nil }
+func (s *stubWindowService) Restore() error                  { return nil }
+func (s *stubWindowService) BorderlessFullscreen() error     { return nil }
+func (s *stubWindowService) RestoreBorders() error           { return nil }
 func (s *stubWindowService) MoveResize(_, _, _, _ int) error { return nil }
-func (s *stubWindowService) Close() error                 { return nil }
-func (s *stubWindowService) Snapshot() (node.Window, error) { return s.snap, nil }
+func (s *stubWindowService) Close() error                    { return nil }
+func (s *stubWindowService) Snapshot() (node.Window, error)  { return s.snap, nil }
 
-func TestWindowTarget_Run_CallsSetActive(t *testing.T) {
+func TestWin32WindowTarget_Run_CallsSetActive(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&WindowTarget{})
-	rn, _ := node.Get("WindowTarget")
+	node.Register(&Win32WindowTarget{})
+	rn, _ := node.Get("Win32WindowTarget")
 
 	stub := &stubWindowService{}
 	svc := node.StubServices()
@@ -85,10 +85,10 @@ func TestWindowTarget_Run_CallsSetActive(t *testing.T) {
 	}
 }
 
-func TestWindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
+func TestWin32WindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&WindowTarget{})
-	rn, _ := node.Get("WindowTarget")
+	node.Register(&Win32WindowTarget{})
+	rn, _ := node.Get("Win32WindowTarget")
 
 	stub := &stubWindowService{err: errors.New("窗口未找到")}
 	svc := node.StubServices()
@@ -102,10 +102,10 @@ func TestWindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
 	}
 }
 
-func TestWindowTarget_EmitsWindowOnDone(t *testing.T) {
+func TestWin32WindowTarget_EmitsWindowOnDone(t *testing.T) {
 	node.ResetRegistryForTest()
-	node.Register(&WindowTarget{})
-	rn, _ := node.Get("WindowTarget")
+	node.Register(&Win32WindowTarget{})
+	rn, _ := node.Get("Win32WindowTarget")
 
 	stub := &stubWindowService{snap: node.Window{HWND: 99, Title: "记事本"}}
 	svc := node.StubServices()

@@ -15,7 +15,7 @@
 
 `AndroidTarget` does not discover devices. It is an explicit target-selection node. Discovery/UI can be layered later without changing the runtime target contract.
 
-`WindowTarget` continues to own Win32 resolution and foreground behavior. Non-window targets should not be added to `WindowService`; use `TargetService`.
+`Win32WindowTarget` continues to own Win32 resolution and foreground behavior. Non-window targets should not be added to `WindowService`; use `TargetService`.
 
 ## Verification
 

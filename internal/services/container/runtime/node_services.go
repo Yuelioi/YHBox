@@ -547,7 +547,7 @@ func (a *windowAdapter) SetActive(ctx context.Context, title, class, processName
 	spec := winutil.MatchSpec{Title: title, Class: class, ProcessName: processName, TitleMatch: titleMatch}
 	wh, err := resolveWindowFn(ctx, spec, 3*time.Second, 500*time.Millisecond)
 	if err != nil {
-		return fmt.Errorf("WindowTarget resolve: %w", err)
+		return fmt.Errorf("Win32WindowTarget resolve: %w", err)
 	}
 	a.rt.SetActiveWindow(wh) // 整体替换 + 清该 hwnd 帧缓存
 
@@ -765,7 +765,7 @@ func (a *visionAdapter) scaleTolerance() float64 {
 	if a.rt.Container == nil {
 		return container.DefaultScaleTolerance
 	}
-	return container.ReadWindowTargetScaleTolerance(a.rt.Container)
+	return container.ReadWin32WindowTargetScaleTolerance(a.rt.Container)
 }
 
 func (a *visionAdapter) captureFrame(ctx context.Context, cached bool, required bool) (*image.RGBA, error) {

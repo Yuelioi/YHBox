@@ -1,7 +1,7 @@
 # Target / Controller Phase 21 Notes
 
 SUMMARY: Phase 21 adds active automation target state to runtime
-READ WHEN: Routing runtime services to non-Win32 controllers or changing WindowTarget behavior
+READ WHEN: Routing runtime services to non-Win32 controllers or changing Win32WindowTarget behavior
 RECHECK WHEN: `RuntimeContext.SetActiveWindow`, `SetActiveTarget`, input/capture adapters, or target selection nodes change
 
 ---

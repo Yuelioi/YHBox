@@ -1,4 +1,4 @@
-// WindowTarget — 运行时解析 title/class/processName 切换当前活动窗口; 普通 exec 节点,
+// Win32WindowTarget — 运行时解析 title/class/processName 切换当前活动窗口; 普通 exec 节点,
 // 可放多个切换不同窗口. 有 exec-in "In" 和 exec-out "Done".
 package system
 
@@ -9,9 +9,9 @@ import (
 	"yotta/pkg/winutil"
 )
 
-func init() { node.Register(&WindowTarget{}) }
+func init() { node.Register(&Win32WindowTarget{}) }
 
-type WindowTarget struct{}
+type Win32WindowTarget struct{}
 
 const (
 	wtInExec        = "In"
@@ -22,9 +22,9 @@ const (
 	wtOutDone       = "Done"
 )
 
-func (WindowTarget) Spec() node.Spec {
+func (Win32WindowTarget) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "WindowTarget",
+		Kind:     "Win32WindowTarget",
 		Category: "Target",
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
@@ -53,11 +53,11 @@ func (WindowTarget) Spec() node.Spec {
 	}
 }
 
-func (WindowTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+func (Win32WindowTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err := ctx.Window().SetActive(ctx.Context(),
 		in.String(wtInTitle), in.String(wtInClass), in.String(wtInProcessName), in.String(wtInTitleMatch)); err != nil {
 		if errors.Is(err, winutil.ErrWindowNotFound) {
-			return nil, node.Failf(node.CodeNotFound, err, "WindowTarget: %v", err)
+			return nil, node.Failf(node.CodeNotFound, err, "Win32WindowTarget: %v", err)
 		}
 		return nil, err
 	}

@@ -32,12 +32,12 @@ type cachedWindow struct {
 type Service struct {
 	resolver WindowResolver
 
-	mu            sync.Mutex
-	winCache      map[string]cachedWindow // containerID → 解析结果 (2s TTL)
-	app           *application.App        // 后注入（wailsApp 创建后才有）
-	hud           *application.WebviewWindow
-	recordingHUD  *application.WebviewWindow
-	calibratorHUD *application.WebviewWindow
+	mu              sync.Mutex
+	winCache        map[string]cachedWindow // containerID → 解析结果 (2s TTL)
+	app             *application.App        // 后注入（wailsApp 创建后才有）
+	hud             *application.WebviewWindow
+	recordingHUD    *application.WebviewWindow
+	calibratorHUD   *application.WebviewWindow
 	launcher        *application.WebviewWindow
 	launcherVisible bool // 只反映本 feature 的 Show/Hide，不强保证跟 OS 同步
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
@@ -46,7 +46,7 @@ type Service struct {
 	// pickerWindows: requestID → window，方便复用（同 id 重开聚焦旧窗口）
 	pickerWindows map[string]*application.WebviewWindow
 	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
-	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWindowTargetCapture 回退 F9。
+	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWin32WindowTargetCapture 回退 F9。
 	captureHotkey func() (mods, vk uint32)
 }
 
@@ -59,7 +59,7 @@ func NewService(resolver WindowResolver) *Service {
 }
 
 // gameWindowFor 按 containerID + nodeID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
-// nodeID 为空时回落容器主 WindowTarget。
+// nodeID 为空时回落容器主 Win32WindowTarget。
 func (s *Service) gameWindowFor(containerID, nodeID string) (winutil.WindowHandle, bool) {
 	cacheKey := containerID + "|" + nodeID
 	s.mu.Lock()
@@ -110,7 +110,7 @@ func (s *Service) wailsApp() *application.App {
 }
 
 // MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
-// nodeID 指定当前编辑节点（按最近上游 WindowTarget 解析窗口）；无节点上下文传 ""。
+// nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 解析窗口）；无节点上下文传 ""。
 func (s *Service) MousePos(containerID, nodeID string) MousePosInfo {
 	sx, sy, ok := readCursor()
 	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
@@ -386,7 +386,7 @@ func (s *Service) CloseRecordingHUD() {
 // OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save" | "template_recapture" | "color"。
 // requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
 // 带上 id 给调用方匹配。containerID 仅 template_save / template_recapture 模式需要（空字符串则保存失败）。
-// nodeID 指定当前编辑节点（按最近上游 WindowTarget 截图）；无节点上下文传 ""。
+// nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 截图）；无节点上下文传 ""。
 // colorSpace 仅 color 模式需要（"hsv" | "rgb"），其他模式传 ""。
 // guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
 func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSpace, guid string) error {
@@ -445,21 +445,21 @@ func (s *Service) ClosePicker(requestID string) error {
 	return nil
 }
 
-// --- WindowTarget capture (F9 global hotkey, async via event) ---
+// --- Win32WindowTarget capture (F9 global hotkey, async via event) ---
 
-// StartWindowTargetCapture 注册「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
+// StartWin32WindowTargetCapture 注册「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
 // 用户按下后:
 //  1. 查前台窗口 metadata
-//  2. emit "windowtarget:captured" event {title, class, processName, clientW, clientH}
+//  2. emit "win32windowtarget:captured" event {title, class, processName, clientW, clientH}
 //  3. 自动反注册热键
 //
 // 键来源 = SetCaptureHotkeyGetter 注入的 registry 绑定值 (mods+vk); 未注入回退 F9。
-// 同时只能一个 capture session. 用户多次开启需要先 CancelWindowTargetCapture.
+// 同时只能一个 capture session. 用户多次开启需要先 CancelWin32WindowTargetCapture.
 // 返 captureID 给前端用来 cancel.
 //
 // 流程: 前端 NodeInspector 点 "捕获" → 调本 RPC → 用户 Alt-Tab 到游戏 → 按该键
 // → 前端收 event 填表. 取代旧 CaptureForegroundWindow (用户在游戏前台时无法点按钮).
-func (s *Service) StartWindowTargetCapture() (string, error) {
+func (s *Service) StartWin32WindowTargetCapture() (string, error) {
 	var mods, vk uint32
 	s.mu.Lock()
 	getter := s.captureHotkey
@@ -474,14 +474,14 @@ func (s *Service) StartWindowTargetCapture() (string, error) {
 	if app == nil {
 		return "", apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	return startWindowTargetCapture(mods, vk, func(name string, data any) {
+	return startWin32WindowTargetCapture(mods, vk, func(name string, data any) {
 		app.Event.Emit(name, data)
 	})
 }
 
-// CancelWindowTargetCapture 主动 cancel 一个等待中的 capture session.
+// CancelWin32WindowTargetCapture 主动 cancel 一个等待中的 capture session.
 // captureID 必须匹配 — 不匹配 / 无活跃 session 都返 nil (idempotent).
 // 前端组件 unmount / 用户再点按钮取消都调本 RPC.
-func (s *Service) CancelWindowTargetCapture(captureID string) error {
-	return cancelWindowTargetCapture(captureID)
+func (s *Service) CancelWin32WindowTargetCapture(captureID string) error {
+	return cancelWin32WindowTargetCapture(captureID)
 }

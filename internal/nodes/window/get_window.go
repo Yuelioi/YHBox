@@ -20,7 +20,7 @@ const (
 	selInTitleMatch = "TitleMatch"
 )
 
-// windowSelectorInputs — 窗口匹配输入。与 system.WindowTarget 的选择器口径一致(防漂移);
+// windowSelectorInputs — 窗口匹配输入。与 system.Win32WindowTarget 的选择器口径一致(防漂移);
 // 后续同包控制节点不需要选择器(它们靠活动窗口/Window 输入), 故此 helper 暂仅 GetWindow 用。
 func windowSelectorInputs() []node.InputSpec {
 	return []node.InputSpec{

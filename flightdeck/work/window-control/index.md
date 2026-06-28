@@ -9,7 +9,7 @@
 用户真机 smoke：
 - `task build` 出 exe。
 - 验证 Window 组入口：侧栏、右键、explorer 三处能找到 GetWindow / WindowState / MoveResizeWindow / CloseWindow。
-- 单窗口图：WindowTarget -> WindowState 最大化，不连 Window 输入时仍作用当前活动窗口。
+- 单窗口图：Win32WindowTarget -> WindowState 最大化，不连 Window 输入时仍作用当前活动窗口。
 - 多窗口图：GetWindow 主/子各绑变量，两个 WindowState 各连 GetVar 的 Window 输出，分别作用对应窗口。
 - 无边框全屏 -> MoveResize -> 退无边框，回到全屏前布局。
 - CloseWindow 接 WaitWindowGone，确认关闭。
@@ -28,7 +28,7 @@
 ## Progress
 
 Done:
-- Window 一等数据类型、GetWindow、WindowTarget 产出 Window。
+- Window 一等数据类型、GetWindow、Win32WindowTarget 产出 Window。
 - WindowState / MoveResizeWindow / CloseWindow。
 - NeedsWindow 节点可选 Window 输入与派发期 per-node 覆盖。
 - Window palette 分组与中英 i18n。

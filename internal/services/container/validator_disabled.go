@@ -3,7 +3,7 @@ package container
 // validateDisabledNodes checks rules for nodes marked disabled=true:
 //  1. Container-level terminals (Start/MouseCalibration/EventTick) disabled → error
 //     (invalid: no entry / calibration lost / listener 永不启动)
-//     WindowTarget 是普通可执行节点, 允许禁用.
+//     Win32WindowTarget 是普通可执行节点, 允许禁用.
 //  2. Loop/Switch/Race/Parallel disabled → warn (passthrough behavior is opinionated;
 //     user might want to delete instead)
 func validateDisabledNodes(c *Container, sgs []Subgraph) []ValidationError {

@@ -107,7 +107,7 @@ func (s *Service) Create(name string) (Container, error) {
 			Version: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: startID, Kind: "Start", X: 100, Y: 120, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
-				{ID: winTargetID, Kind: "WindowTarget", X: 100, Y: 260, Config: map[string]any{
+				{ID: winTargetID, Kind: "Win32WindowTarget", X: 100, Y: 260, Config: map[string]any{
 					"Title": name,
 				}, CreatedAt: time.Now().UTC()},
 				{ID: stopID, Kind: "Stop", X: 500, Y: 260, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
@@ -243,29 +243,29 @@ func (s *Service) SyncLocalMouseCalibration(newCounts int) (SyncMouseCalibration
 	return res, err
 }
 
-// ResolveWindow 按 containerID 的 WindowTarget 节点解析目标窗口. 制作工具(截模板/取色/HUD)用.
-// 容器不存在 / 无 WindowTarget / 窗口没开 → error.
+// ResolveWindow 按 containerID 的 Win32WindowTarget 节点解析目标窗口. 制作工具(截模板/取色/HUD)用.
+// 容器不存在 / 无 Win32WindowTarget / 窗口没开 → error.
 func (s *Service) ResolveWindow(containerID string) (winutil.WindowHandle, error) {
 	c, ok := s.store.Get(containerID)
 	if !ok {
 		return winutil.WindowHandle{}, fmt.Errorf("container %q not found", containerID)
 	}
-	return ResolveWindowTarget(context.Background(), &c, 3*time.Second, 500*time.Millisecond)
+	return ResolveWin32WindowTarget(context.Background(), &c, 3*time.Second, 500*time.Millisecond)
 }
 
-// ResolveWindowForNode 按节点最近上游 WindowTarget 解析目标窗口.
-// nodeID 为空 → 回落主 WindowTarget（同 ResolveWindow）.
-// 容器不存在 / 无 WindowTarget / 窗口没开 → error.
+// ResolveWindowForNode 按节点最近上游 Win32WindowTarget 解析目标窗口.
+// nodeID 为空 → 回落主 Win32WindowTarget（同 ResolveWindow）.
+// 容器不存在 / 无 Win32WindowTarget / 窗口没开 → error.
 func (s *Service) ResolveWindowForNode(containerID, nodeID string) (winutil.WindowHandle, error) {
 	c, ok := s.store.Get(containerID)
 	if !ok {
 		return winutil.WindowHandle{}, fmt.Errorf("container %q not found", containerID)
 	}
-	wt := windowTargetForNode(&c, nodeID)
+	wt := win32WindowTargetForNode(&c, nodeID)
 	if wt == nil {
-		return winutil.WindowHandle{}, ErrNoWindowTarget
+		return winutil.WindowHandle{}, ErrNoWin32WindowTarget
 	}
-	return winutil.ResolveWindow(context.Background(), ReadWindowTargetMatchSpec(wt), 3*time.Second, 500*time.Millisecond)
+	return winutil.ResolveWindow(context.Background(), ReadWin32WindowTargetMatchSpec(wt), 3*time.Second, 500*time.Millisecond)
 }
 
 // CaptureBackendFor 返容器配置的截图后端名 (auto/gdi/wgc/mock). 容器不存在 → "auto".
@@ -274,5 +274,5 @@ func (s *Service) CaptureBackendFor(containerID string) string {
 	if !ok {
 		return "auto"
 	}
-	return ReadWindowTargetCaptureBackend(&c)
+	return ReadWin32WindowTargetCaptureBackend(&c)
 }

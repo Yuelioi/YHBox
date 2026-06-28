@@ -4,7 +4,7 @@
 
 **Goal:** 把用户可见的“窗口”和“目标”语义拆清楚：Win32 窗口能力继续叫 Window，Android/Browser 等自动化对象统一叫 Target。
 
-**Architecture:** 保留现有序列化 kind `WindowTarget` 作为兼容入口，不直接破坏旧容器、MCP 示例和 validator。先改 UI/i18n/docs，把 `WindowTarget` 显示为 Windows 窗口目标；后续再加 `Win32WindowTarget` alias/migration 和 `NeedsTarget(capability)`。
+**Architecture:** 保留现有序列化 kind `Win32WindowTarget` 作为兼容入口，不直接破坏旧容器、MCP 示例和 validator。先改 UI/i18n/docs，把 `Win32WindowTarget` 显示为 Windows 窗口目标；后续再加 `Win32Win32WindowTarget` alias/migration 和 `NeedsTarget(capability)`。
 
 **Tech Stack:** Go node spec/runtime, Vue frontend i18n, Flightdeck knowledge.
 
@@ -15,13 +15,13 @@
 - `WindowService` / `WindowHandle` / `WindowInputSpec` 表示 **Win32 HWND 窗口**。
 - `TargetService` / `target.Target` 表示 **自动化目标**，包括 `win32-window`、`android-adb`、`browser-cdp`。
 - `BringWindowForeground`、`WindowState`、`MoveResizeWindow`、`CloseWindow`、`GetWindow` 是 Windows 窗口能力，不应对 Android/Browser 复用同一含义。
-- `WindowTarget` 当前继续作为旧容器兼容 kind；UI 展示应叫“Windows 窗口目标 / Windows window target”。
+- `Win32WindowTarget` 当前继续作为旧容器兼容 kind；UI 展示应叫“Windows 窗口目标 / Windows window target”。
 - 通用文案里的“目标窗口”要改为“当前目标 / 自动化目标”；只有 Win32 能力文案才写“Windows 窗口”。
 
 ## Files
 
 - Modify: `frontend/src/i18n/zh.ts`
-  - 把用户可见 `WindowTarget` label/description、输入类描述、错误提示改为 Win32-specific。
+  - 把用户可见 `Win32WindowTarget` label/description、输入类描述、错误提示改为 Win32-specific。
 - Modify: `frontend/src/i18n/en.ts`
   - 英文保持 parity。
 - Modify: `internal/node/spec.go`
@@ -40,7 +40,7 @@
 Edit `frontend/src/i18n/zh.ts`:
 
 ```ts
-WindowTarget: {
+Win32WindowTarget: {
   label: 'Windows 窗口目标',
   description: '指定接下来操作哪个 Windows 窗口...',
 }
@@ -53,7 +53,7 @@ Also update:
 - `BringWindowForeground`
 - `ClickAt` / `InputText`
 - window control node descriptions
-- validation/error messages that mention recording or missing WindowTarget
+- validation/error messages that mention recording or missing Win32WindowTarget
 - container input backend hint
 
 - [x] **Step 2: Update English i18n copy**
@@ -100,13 +100,13 @@ Create `flightdeck/knowledge/architecture/window-vs-target-boundary.md` with:
 - summary and read/recheck routing headers
 - the compatibility decision
 - forbidden future drift
-- migration path from `WindowTarget` to `Win32WindowTarget` alias
+- migration path from `Win32WindowTarget` to `Win32Win32WindowTarget` alias
 
 - [x] **Step 2: Update topic index**
 
 Update `flightdeck/work/target-controller-upgrade/index.md`:
 
-- add `plans/phase59-window-target-terminology.md` to Read now
+- add `plans/phase59-win32-window-target-terminology.md` to Read now
 - add the new knowledge note to Read if
 - add a Phase 59 progress bullet
 
@@ -136,7 +136,7 @@ Expected: only the intentional phase59 files plus any pre-existing external chan
 
 Phase 60 should add a compatibility alias without breaking old JSON:
 
-- new display-facing kind alias `Win32WindowTarget`
-- migration loader maps old `WindowTarget` to canonical internal target kind
-- validator reports Win32 target requirements as `NeedsTarget(kind=win32-window)` while still accepting old `WindowTarget`
-- UI can later hide raw `WindowTarget` from new palettes if the alias is stable
+- new display-facing kind alias `Win32Win32WindowTarget`
+- migration loader maps old `Win32WindowTarget` to canonical internal target kind
+- validator reports Win32 target requirements as `NeedsTarget(kind=win32-window)` while still accepting old `Win32WindowTarget`
+- UI can later hide raw `Win32WindowTarget` from new palettes if the alias is stable

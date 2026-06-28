@@ -20,10 +20,10 @@ type captureSession struct {
 	hotkeyMods uint32
 	hotkeyVK   uint32
 	threadID   uint32        // 给 PostThreadMessage 用; worker 启动后写一次, 之后只读
-	done     chan struct{} // worker 退出信号
-	cancel   chan struct{} // 主动 cancel 信号 (worker 收到后退出, 不 emit)
-	emit     func(name string, data any)
-	fired    atomic.Bool // 防重 emit (双触发 / cancel+触发竞态)
+	done       chan struct{} // worker 退出信号
+	cancel     chan struct{} // 主动 cancel 信号 (worker 收到后退出, 不 emit)
+	emit       func(name string, data any)
+	fired      atomic.Bool // 防重 emit (双触发 / cancel+触发竞态)
 }
 
 // activeCapture 全局当前活跃 capture session. nil = 无.
@@ -32,11 +32,11 @@ var (
 	captureMu     sync.Mutex
 )
 
-// startWindowTargetCapture 注册 hotkey + 起 goroutine 等待按键.
+// startWin32WindowTargetCapture 注册 hotkey + 起 goroutine 等待按键.
 // 返 captureID 给前端 cancel 用. hotkeyMods/hotkeyVK 是 Win32 MOD_*/VK_* 码 (例 vk 0x78 = F9).
-// emit 在 hotkey 触发时调 (name="windowtarget:captured", data=map).
+// emit 在 hotkey 触发时调 (name="win32windowtarget:captured", data=map).
 // 同时只能一个 session — 之前的没清就报错.
-func startWindowTargetCapture(hotkeyMods, hotkeyVK uint32, emit func(name string, data any)) (string, error) {
+func startWin32WindowTargetCapture(hotkeyMods, hotkeyVK uint32, emit func(name string, data any)) (string, error) {
 	captureMu.Lock()
 	if activeCapture != nil {
 		captureMu.Unlock()
@@ -67,9 +67,9 @@ func startWindowTargetCapture(hotkeyMods, hotkeyVK uint32, emit func(name string
 	return sess.id, nil
 }
 
-// cancelWindowTargetCapture 主动 cancel. id 必须匹配当前 active session.
+// cancelWin32WindowTargetCapture 主动 cancel. id 必须匹配当前 active session.
 // idempotent: id 不匹配或没 active 都返 nil.
-func cancelWindowTargetCapture(id string) error {
+func cancelWin32WindowTargetCapture(id string) error {
 	captureMu.Lock()
 	sess := activeCapture
 	captureMu.Unlock()
@@ -155,19 +155,19 @@ func (s *captureSession) handleHotkey() {
 	hwnd := winutil.ForegroundWindow()
 	if hwnd == 0 {
 		if s.emit != nil {
-			s.emit("windowtarget:captured", map[string]any{"error": "无前台窗口"})
+			s.emit("win32windowtarget:captured", map[string]any{"error": "无前台窗口"})
 		}
 		return
 	}
 	wh, err := winutil.WindowMetadata(hwnd)
 	if err != nil {
 		if s.emit != nil {
-			s.emit("windowtarget:captured", map[string]any{"error": err.Error()})
+			s.emit("win32windowtarget:captured", map[string]any{"error": err.Error()})
 		}
 		return
 	}
 	if s.emit != nil {
-		s.emit("windowtarget:captured", map[string]any{
+		s.emit("win32windowtarget:captured", map[string]any{
 			"title":       wh.Title,
 			"class":       wh.Class,
 			"processName": wh.ProcessName,

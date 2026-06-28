@@ -215,7 +215,7 @@ Rust 作为 Controller plugin，不作为全项目重写目标。
 
 ### Phase 3：Target Resolver
 
-把当前 WindowTarget 扩展成 Target Resolver：
+把当前 Win32WindowTarget 扩展成 Target Resolver：
 
 - 当前活动 target。
 - per-node target override。

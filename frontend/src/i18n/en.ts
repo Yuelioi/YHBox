@@ -1,4 +1,4 @@
-﻿export default {
+export default {
   sidebar: {
     automation: 'Automation',
     tools: 'Tools',
@@ -144,8 +144,8 @@
     runqueue_added: 'Added to run queue',
     validate_failed: 'Validation failed',
     validate_call_failed: 'Validation call failed',
-    window_target_added_title: 'Windows window target node added',
-    window_target_added_desc:
+    win32_window_target_added_title: 'Windows window target node added',
+    win32_window_target_added_desc:
       'Open the node Inspector to configure the Windows window match (or click "Capture foreground window")',
     expr_fuse_failed: 'Expr merge failed (preconditions unmet)',
     subgraph_recording_reset_warn:
@@ -324,7 +324,7 @@
         input: { label: 'Input', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — inject input into the current automation target' },
         event: { label: 'Event', desc: 'EventTick — periodic background trigger, spawns a subgraph every N ms (non-blocking)' },
         subgraph: { label: 'Subgraph', desc: 'Subgraph call / SubgraphInput entry / SubgraphOutput exit' },
-        system: { label: 'System', desc: 'WindowTarget — pick a Windows window target (match any of title / class / processName)' },
+        system: { label: 'System', desc: 'Subgraph / Throw / MouseCalibration — system helpers, graph structure, and local calibration nodes' },
         config: { label: 'Config', desc: 'MouseCalibration — calibrate this machine 360° HID counts for MouseMoveRel scaling' },
         debug: { label: 'Debug', desc: 'Log / Toast' },
       },
@@ -1705,7 +1705,7 @@
         Code: { label: 'Error code (optional)' },
       },
     },
-    WindowTarget: {
+    Win32WindowTarget: {
       label: 'Windows window target',
       description: 'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget or BrowserTarget for those target types.',
       example: 'Your script needs to operate the game window: put a Windows window target at the start with the game name as the title, and later Windows clicks and key presses go to that window.',
@@ -1994,13 +1994,13 @@
     EMPTY_SUBGRAPH_OUTPUT: 'Subgraph has no SubgraphOutput node',
     CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
-    MISSING_WINDOW_TARGET: 'Main graph missing a Windows window target node',
+    MISSING_WIN32_WINDOW_TARGET: 'Main graph missing a Windows window target node',
     UNKNOWN_ERROR: 'An unknown error occurred',
     WAILS_NOT_READY: 'The app is not ready yet, please retry',
     CONTAINER_ID_REQUIRED: 'Container ID is required',
-    RECORDING_NO_WINDOW_TARGET: 'Container has no Windows window target node (recording needs a Windows window)',
-    INVALID_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
-    INVALID_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
+    RECORDING_NO_WIN32_WINDOW_TARGET: 'Container has no Windows window target node (recording needs a Windows window)',
+    INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
+    INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
     INVALID_HSV_RANGE: 'HSV range is invalid',
     INVALID_SCAN_AXIS: 'scanAxis must be x or y, got {got}',
     INVALID_CLUSTER_RANGE: 'cluster range invalid (min={min} > max={max})',
@@ -2056,7 +2056,7 @@
     unchecked: 'Not checked',
     passed_short: 'No issues',
     run_button: 'Pass — continue running',
-    fix_missing_window_target: 'Auto-add Windows window target node',
+    fix_missing_win32_window_target: 'Auto-add Windows window target node',
     jump: 'Jump',
     fix: 'Fix',
   },

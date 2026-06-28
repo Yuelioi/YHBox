@@ -1,7 +1,7 @@
 // Package winutil 提供 Windows 顶层窗口枚举 / 匹配 / 元数据查询.
 // 跨权限读 admin 进程 exe 名用 PROCESS_QUERY_LIMITED_INFORMATION (Vista+).
 //
-// 核心 API: WindowHandle / MatchSpec / ResolveWindow — WindowTarget 节点用,
+// 核心 API: WindowHandle / MatchSpec / ResolveWindow — Win32WindowTarget 节点用,
 // 支持任意 title/class/processName 匹配 + 元数据完整返回. 另有 BringToFront
 // (置前台) 给 recording 用.
 package winutil
@@ -79,7 +79,7 @@ func BringToFront(hwnd win.HWND) bool {
 }
 
 // ---------------------------------------------------------------------------
-// WindowTarget API — runtime/recording/tools 共用.
+// Win32WindowTarget API — runtime/recording/tools 共用.
 // ---------------------------------------------------------------------------
 
 // WindowHandle 解析后窗口的完整元数据. runtime 整 run 持有, 不只 hwnd.
@@ -93,7 +93,7 @@ type WindowHandle struct {
 	ClientH     int // GetClientRect.bottom - top
 }
 
-// MatchSpec WindowTarget.config.match 反序列化后形态.
+// MatchSpec Win32WindowTarget.config.match 反序列化后形态.
 type MatchSpec struct {
 	Title       string
 	Class       string
@@ -181,7 +181,7 @@ func windowMatchOnce(spec MatchSpec, titleRe *regexp.Regexp, targetProc string) 
 // OpenProcess 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限. 单进程 query 失败 → 视该进程不匹配 + 继续.
 func ResolveWindow(ctx context.Context, spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
 	if IsEmptyMatch(spec) {
-		return WindowHandle{}, errors.New("WindowTarget match spec is empty or matches anything")
+		return WindowHandle{}, errors.New("Win32WindowTarget match spec is empty or matches anything")
 	}
 	titleRe, err := CompileTitle(spec)
 	if err != nil {
@@ -390,7 +390,7 @@ func ClientSize(hwnd win.HWND) (int, int, error) {
 }
 
 // ---------------------------------------------------------------------------
-// WindowTarget capture hotkey helpers (tools.CaptureForegroundWindow).
+// Win32WindowTarget capture hotkey helpers (tools.CaptureForegroundWindow).
 // 用户先把目标窗口切到前台, 然后我们查它的 hwnd + metadata 一次性返给前端填表.
 // ---------------------------------------------------------------------------
 

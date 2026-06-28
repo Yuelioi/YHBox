@@ -37,7 +37,7 @@ const frameCacheTTL = 100 * time.Millisecond
 //   - emit 注入：Log/Toast 节点把消息推到前端
 //
 // Input / Window / Capture 由 ContainerRunner.setupRuntime 在 Run 启动期间解析
-// WindowTarget 节点后 populate. Game 字段供 BringWindowForeground 节点用.
+// Win32WindowTarget 节点后 populate. Game 字段供 BringWindowForeground 节点用.
 type RuntimeContext struct {
 	Container *container.Container
 	// Subgraphs 起跑时从全局池解析出的引用闭包快照 (2026-06-12 全局化 — 容器不再拥有子图).
@@ -55,7 +55,7 @@ type RuntimeContext struct {
 	traceMu       sync.Mutex
 	traceRecorder *automationtrace.MemoryRecorder
 
-	// 粘性活动窗口寄存器. 运行时由 WindowTarget.Run 经 SetActiveWindow 改写;
+	// 粘性活动窗口寄存器. 运行时由 Win32WindowTarget.Run 经 SetActiveWindow 改写;
 	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
 	windowMu sync.RWMutex
 	window   winutil.WindowHandle // HWND==0 = 未解析
@@ -203,8 +203,8 @@ func (rt *RuntimeContext) SetParam(name string, val expr.Value) {
 // Variables / params are accessed via dedicated pure-data nodes (GetVar / GetParam)
 // that read from per-exec-tick snapshots (see snapshot.go + getvar.go).
 
-// ErrNoActiveWindow 窗口类节点在任何 WindowTarget 点之前执行时返回. 走标准节点错误路.
-var ErrNoActiveWindow = errors.New("NO_ACTIVE_WINDOW — 当前无活动窗口, 先放并执行一个 WindowTarget 节点")
+// ErrNoActiveWindow 窗口类节点在任何 Win32WindowTarget 点之前执行时返回. 走标准节点错误路.
+var ErrNoActiveWindow = errors.New("NO_ACTIVE_WINDOW — 当前无活动窗口, 先放并执行一个 Win32WindowTarget 节点")
 
 // WindowHandle 并发安全读取当前有效窗口(覆盖栈非空返栈顶, 否则返粘性 window).
 func (rt *RuntimeContext) WindowHandle() winutil.WindowHandle {

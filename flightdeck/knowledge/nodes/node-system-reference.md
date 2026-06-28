@@ -105,7 +105,7 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 | **PureFunc** (42) | Abs, Add, And, Ceil, Clamp, Concat, Contains, Div, EndsWith, Eq, Expr, Floor, Gt, GtEq, IndexOf, Length, Lt, LtEq, Max, Min, Mod, Mul, Neg, Not, NotEq, Or, Pow, RegexExtract, RegexMatch, Replace, Round, Select, Sqrt, StartsWith, Sub, Substring, ToBool, ToLower, ToNumber, ToString, ToUpper, Trim — **全 PureData (Evaluator)** |
 | **Random** (4) | RandomBool, RandomChoice, RandomFloat, RandomInt — 全 PureData+NonDeterministic |
 | **Stopwatch** (3) | StopwatchRead, StopwatchStart, StopwatchStop |
-| **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, WaitWindow, WindowTarget |
+| **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, WaitWindow, Win32WindowTarget |
 | **Variable** (6) | GetParam(PureData), GetVar(PureData), IncVar, Now(PureData), SetVar, VarLastChange(PureData) |
 
 能力小结：**PureData 57 个**（PureFunc 42 + List 7 + Random 4 + Variable 的 GetParam/GetVar/Now/VarLastChange）；**RegionRunner 4 个**（Loop, ForEach, Subgraph, CollapsedNode）；**NeedsWindow 22 个**（Detect 11 + Input 10 + PlayClip）；其余 Runnable。

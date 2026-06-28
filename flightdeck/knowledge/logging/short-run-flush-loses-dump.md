@@ -6,7 +6,7 @@ RECHECK WHEN: LogMerger flush/tick/finalize 逻辑改 / logMergerFlushInterval �
 
 ---
 
-**Date**: 2026-06-25 (detect-click 真机 smoke 期间发现: 节点全勾 logEnabled, 运行经常没日志; container da4755f5 短图 WindowTarget→BringForeground→InputText→Stop)
+**Date**: 2026-06-25 (detect-click 真机 smoke 期间发现: 节点全勾 logEnabled, 运行经常没日志; container da4755f5 短图 Win32WindowTarget→BringForeground→InputText→Stop)
 
 ## 根因
 节点级「启用日志」(`logEnabled`) 执行时 `emitDump` 发 `container:node-dump` → app.go 喂 `LogMerger.Add` 合并 → 合并后发 `container:node-dump-batch` 给前端面板 + 写文件。

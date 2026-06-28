@@ -21,7 +21,7 @@ func setupStoreWithContainer(t *testing.T) (*Store, string) {
 			ID: "gm", Version: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()},
-				{ID: "w", Kind: "WindowTarget", Config: map[string]any{"Title": "异环"}, CreatedAt: time.Now().UTC()},
+				{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}, CreatedAt: time.Now().UTC()},
 			},
 		},
 	}

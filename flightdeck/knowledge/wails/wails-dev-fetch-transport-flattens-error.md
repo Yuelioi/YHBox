@@ -7,14 +7,14 @@ READ WHEN: 设计"FE 读 wails RPC 抛错的结构化字段 (cause / errors / co
 
 ## 症状
 
-错误 i18n 体系落地后手动 smoke 第一下就崩: 保存一个缺 WindowTarget 的容器, toast **糊出整坨原始 JSON** 而非本地化文案。历史材料在 cold archive `2026-06-02-error-i18n-catalog`;本 trap 不依赖它。
+错误 i18n 体系落地后手动 smoke 第一下就崩: 保存一个缺 Win32WindowTarget 的容器, toast **糊出整坨原始 JSON** 而非本地化文案。历史材料在 cold archive `2026-06-02-error-i18n-catalog`;本 trap 不依赖它。
 
 ```
 操作失败
-{"message":"MISSING_WINDOW_TARGET map[]","cause":{"Errors":[{"severity":"error","code":"MISSING_WINDOW_TARGET","graphPath":["main"]}]},"kind":"RuntimeError"}
+{"message":"MISSING_WIN32_WINDOW_TARGET map[]","cause":{"Errors":[{"severity":"error","code":"MISSING_WIN32_WINDOW_TARGET","graphPath":["main"]}]},"kind":"RuntimeError"}
 ```
 
-`errorMessage(e)` 应返「主图缺 WindowTarget 节点」, 实际返了整坨 JSON 字符串。
+`errorMessage(e)` 应返「主图缺 Win32WindowTarget 节点」, 实际返了整坨 JSON 字符串。
 
 ## 根因
 

@@ -14,7 +14,7 @@ import (
 
 // templateCaptureAdapter 实现 asset.CaptureAdapter interface.
 // 用户在 UI 截"模板"时, 按 containerID 解析目标窗口抓一帧 → PNG bytes.
-// 容器不存在 / 无 WindowTarget / 窗口没开则 error.
+// 容器不存在 / 无 Win32WindowTarget / 窗口没开则 error.
 type templateCaptureAdapter struct {
 	containers *container.Service
 }
@@ -49,7 +49,7 @@ func (t *templateCaptureAdapter) Capture(containerID, nodeID string) ([]byte, er
 
 // Resolution 解析 containerID 目标窗口客户区分辨率 [宽,高], 不截帧 (走 GetClientRect).
 // 与 Capture 的帧尺寸同源 (gdiFrame/wgcFrame 都用 GetClientRect 定尺寸), 故可拿来精确匹配变体档.
-// 容器不存在 / 无 WindowTarget / 窗口没开 / 客户区为 0 → error.
+// 容器不存在 / 无 Win32WindowTarget / 窗口没开 / 客户区为 0 → error.
 func (t *templateCaptureAdapter) Resolution(containerID string) ([2]int, error) {
 	wh, err := t.containers.ResolveWindow(containerID)
 	if err != nil {

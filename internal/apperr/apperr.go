@@ -23,5 +23,5 @@ func New(code string, params map[string]any) *Error {
 const (
 	CodeWailsNotReady           = "WAILS_NOT_READY"
 	CodeContainerIDRequired     = "CONTAINER_ID_REQUIRED"
-	CodeRecordingNoWindowTarget = "RECORDING_NO_WINDOW_TARGET"
+	CodeRecordingNoWin32WindowTarget = "RECORDING_NO_WIN32_WINDOW_TARGET"
 )

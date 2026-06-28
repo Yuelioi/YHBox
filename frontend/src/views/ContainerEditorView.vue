@@ -267,7 +267,7 @@
         :validated="validationRan"
         @jump="onJumpToErrorNode"
         @fix="onFixError"
-        @fix-missing-window-target="onFixMissingWindowTarget"
+        @fix-missing-win32-window-target="onFixMissingWin32WindowTarget"
         @run="onValidationPanelRun"
       />
 
@@ -587,7 +587,7 @@ const recordingTargetName = computed(() => {
 //  - onBeforeRouteLeave: 离开编辑器路由 (返回列表 / settings 等)
 //  - onBeforeRouteUpdate: 切到另一个容器 (/containers/A/edit → /B/edit, 同路由改 param,
 //    leave 不触发只触发 update) —— 不挂这个, 切容器就绕过 dirty/录制守卫, 把未保存改动留在
-//    keep-alive 缓存实例里, 跨容器状态串 (孤儿边 / 拿错 WindowTarget)。
+//    keep-alive 缓存实例里, 跨容器状态串 (孤儿边 / 拿错 Win32WindowTarget)。
 async function guardLeaveEditor(): Promise<boolean> {
   // A3: 录制本容器进行中 → 确认. 留下 → 录完正常 autoConnect; 确认离开 → 放行.
   if ((recordStore.isRecording || recordStore.isPaused) && recordStore.activeTargetContainerID === containerID) {
@@ -1251,7 +1251,7 @@ watch(() => editorBus.pendingExprFusion, (req) => {
 })
 // tplStore.containerId 是全局单指针, capture()/openScreenPicker 靠它定位本容器目标窗口。
 // keep-alive 缓存多个容器编辑器时, 切到已缓存容器只走 onActivated(onMounted 不再触发),
-// 漏掉这里指针就停在上一个容器 → WaitTemplate 截图/校验拿错容器的 WindowTarget(「没有异环窗口」)。
+// 漏掉这里指针就停在上一个容器 → WaitTemplate 截图/校验拿错容器的 Win32WindowTarget(「没有异环窗口」)。
 // 故 mount + 每次激活都重指, 跟 editorStore.markActive 同构(见 incident keepalive-singleton-subgraph-store-stale)。
 onMounted(() => {
   tplStore.setContainer(containerID)
@@ -1439,15 +1439,15 @@ async function onValidationPanelRun() {
   })
 }
 
-// 一键修复 MISSING_WINDOW_TARGET: 往主图 push 一个空 WindowTarget 节点 (用户后续在
+// 一键修复 MISSING_WIN32_WINDOW_TARGET: 往主图 push 一个空 Win32WindowTarget 节点 (用户后续在
 // NodeInspector 里填 match/runtime 或点 "捕获前台窗口"). 必须落主图, 不是 activeGraph.
-function onFixMissingWindowTarget() {
+function onFixMissingWin32WindowTarget() {
   if (!draft.value) return
   const mainGraph = draft.value.graph
-  const defaults = KIND_DEFAULTS.WindowTarget ?? {}
+  const defaults = KIND_DEFAULTS.Win32WindowTarget ?? {}
   const newNode: GraphNode = {
-    id: newNodeID('WindowTarget'),
-    kind: 'WindowTarget',
+    id: newNodeID('Win32WindowTarget'),
+    kind: 'Win32WindowTarget',
     x: 40,
     y: 40,
     config: JSON.parse(JSON.stringify(defaults)),
@@ -1457,8 +1457,8 @@ function onFixMissingWindowTarget() {
   syncFlowFromDraft()
   problemsExpanded.value = false
   toast.add({
-    title: t('toast.window_target_added_title'),
-    description: t('toast.window_target_added_desc'),
+    title: t('toast.win32_window_target_added_title'),
+    description: t('toast.win32_window_target_added_desc'),
     color: 'success',
     icon: 'i-tabler-check',
   })

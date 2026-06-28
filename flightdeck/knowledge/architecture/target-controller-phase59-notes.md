@@ -1,5 +1,7 @@
 # Target Controller Upgrade — Phase 59 Notes
 
+> Superseded by Phase 61: 项目未上线，已执行破坏性命名更新。旧 `WindowTarget` 不再支持，后续不得按本页早期“alias/兼容”建议执行。
+
 ## Completed
 
 - Added the phase59 implementation plan for Window/Target terminology cleanup.
@@ -7,12 +9,12 @@
 - Updated frontend i18n so user-facing copy distinguishes:
   - generic automation target / target frame
   - Windows HWND window
-  - legacy-compatible `WindowTarget` displayed as Windows window target
+  - legacy-compatible `Win32WindowTarget` displayed as Windows window target
 - Updated Go comments so future node authors do not treat `NeedsWindow` or `BringWindowForeground` as generic Android/Browser target concepts.
 
 ## Boundary
 
-`WindowTarget` remains the serialized compatibility kind. This phase deliberately did not rename old container JSON, validator internals, MCP examples, or Go function names.
+`Win32WindowTarget` remains the serialized compatibility kind. This phase deliberately did not rename old container JSON, validator internals, MCP examples, or Go function names.
 
 Win32-only concepts:
 
@@ -36,9 +38,4 @@ Generic target concepts:
 
 ## Next Risk
 
-The next migration should not start with a hard rename. Add a compatibility alias first:
-
-- new display-facing `Win32WindowTarget` or `WindowsWindowTarget`
-- loader/validator maps old `WindowTarget` to the same internal Win32 target meaning
-- `NeedsWindow` begins migrating toward `NeedsTarget(kind=win32-window, capabilities=...)`
-- frontend palette can later prefer the alias while still rendering old containers
+This section is obsolete after Phase 61. Do not add a compatibility alias for old `WindowTarget`; keep moving toward `NeedsTarget(kind=win32-window, capabilities=...)`.

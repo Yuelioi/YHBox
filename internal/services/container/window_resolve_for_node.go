@@ -2,13 +2,13 @@ package container
 
 import "strings"
 
-// windowTargetForNode 求编辑期工具该用的窗口 = 该节点最近上游 WindowTarget.
-// 规则: 沿 exec 边从 nodeID 反向 BFS, 第一层遇到的 WindowTarget; 唯一 → 用它;
-// 0/多个 或 nodeID 空 → 回落主窗口 (Graph.Nodes 数组序第一个 WindowTarget).
+// win32WindowTargetForNode 求编辑期工具该用的窗口 = 该节点最近上游 Win32WindowTarget.
+// 规则: 沿 exec 边从 nodeID 反向 BFS, 第一层遇到的 Win32WindowTarget; 唯一 → 用它;
+// 0/多个 或 nodeID 空 → 回落主窗口 (Graph.Nodes 数组序第一个 Win32WindowTarget).
 // 已知限制: 被编辑节点在子图里时, 反向 BFS 只遍历主图 c.Graph, 子图节点会回落主窗口
 // (编辑期工具截图限制, 非目标范围).
-func windowTargetForNode(c *Container, nodeID string) *GraphNode {
-	mainWT := firstMainWindowTarget(c)
+func win32WindowTargetForNode(c *Container, nodeID string) *GraphNode {
+	mainWT := firstMainWin32WindowTarget(c)
 	if nodeID == "" {
 		return mainWT
 	}
@@ -32,9 +32,9 @@ func windowTargetForNode(c *Container, nodeID string) *GraphNode {
 			}
 			seen[id] = true
 			n := byID[id]
-			if n != nil && n.Kind == "WindowTarget" {
+			if n != nil && n.Kind == "Win32WindowTarget" {
 				found[id] = n
-				continue // 不越过 WindowTarget 继续往上
+				continue // 不越过 Win32WindowTarget 继续往上
 			}
 			next = append(next, rev[id]...)
 		}
@@ -51,9 +51,9 @@ func windowTargetForNode(c *Container, nodeID string) *GraphNode {
 	return mainWT
 }
 
-func firstMainWindowTarget(c *Container) *GraphNode {
+func firstMainWin32WindowTarget(c *Container) *GraphNode {
 	for i := range c.Graph.Nodes {
-		if c.Graph.Nodes[i].Kind == "WindowTarget" {
+		if c.Graph.Nodes[i].Kind == "Win32WindowTarget" {
 			return &c.Graph.Nodes[i]
 		}
 	}

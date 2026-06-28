@@ -11,7 +11,7 @@ func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
 			ID: "g", Version: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget"},
+				{ID: "wt", Kind: "Win32WindowTarget"},
 				{ID: "sl", Kind: "Sleep", Config: map[string]any{
 					"literal": map[string]any{"Duration": "abc"}, // should be number/duration
 				}},
@@ -39,7 +39,7 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 			ID: "g", Version: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget"},
+				{ID: "wt", Kind: "Win32WindowTarget"},
 				{ID: "sw", Kind: "Switch", Config: map[string]any{
 					"cases":   []any{"a"},
 					"literal": map[string]any{"Value": true}, // should be string
@@ -69,7 +69,7 @@ func TestLiteralTypeMatch_TemplateKeyList(t *testing.T) {
 			ID: "g", Version: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget"},
+				{ID: "wt", Kind: "Win32WindowTarget"},
 				{ID: "w", Kind: "WaitTemplate", Config: map[string]any{
 					"literal": map[string]any{"Templates": []any{"ns.icon"}},
 				}},
@@ -94,7 +94,7 @@ func TestLiteralTypeMismatch_TemplateKeyNonString(t *testing.T) {
 			ID: "g", Version: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget"},
+				{ID: "wt", Kind: "Win32WindowTarget"},
 				{ID: "w", Kind: "WaitTemplate", Config: map[string]any{
 					"literal": map[string]any{"Templates": []any{1.1}},
 				}},
@@ -123,7 +123,7 @@ func TestLiteralTypeMatch_CorrectTypes(t *testing.T) {
 			ID: "g", Version: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "WindowTarget"},
+				{ID: "wt", Kind: "Win32WindowTarget"},
 				{ID: "sl", Kind: "Sleep", Config: map[string]any{
 					"literal": map[string]any{"Duration": float64(500)},
 				}},

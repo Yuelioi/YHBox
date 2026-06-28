@@ -243,7 +243,7 @@ func main() {
 	inputBus := execution.NewInputBus()
 
 	// 真模板匹配 + 真颜色检测
-	// input backend 由 ContainerRunner.setupRuntime 从 WindowTarget 节点解析, 不走 main.go 全局注入.
+	// input backend 由 ContainerRunner.setupRuntime 从 Win32WindowTarget 节点解析, 不走 main.go 全局注入.
 	// 资产全局 (asset.Store): matcher 按 guid 匹配, scaleTolerance 由 VisionAdapter (有容器上下文) 传入.
 	//
 	// container:warning emit 同时 zerolog.Warn — 让 warning 进
@@ -488,7 +488,7 @@ func main() {
 	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接入全局子图池 (sgStore.Create)
 	recordingSvc.SetSubgraphSaver(sgStore)
-	// Start 时按 containerID 拉 container, 取 WindowTarget 节点解析 hwnd
+	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
 	recordingSvc.SetContainerGetter(containerStore)
 
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)

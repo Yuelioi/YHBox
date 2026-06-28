@@ -387,7 +387,7 @@ export const backend = {
     // Pause/Resume 切除间隔: 暂停期不录, 时间戳扣除该段 → 回放无空档. HUD 按钮 / 暂停热键触发.
     pause: () => invoke(RecordingService.Pause),
     resume: () => invoke(RecordingService.Resume),
-    // ValidateTarget 录制前预检: 找不到 WindowTarget 窗口返 error (倒计时前调, 不用等录完才报错);
+    // ValidateTarget 录制前预检: 找不到 Win32WindowTarget 窗口返 error (倒计时前调, 不用等录完才报错);
     // 成功则把游戏窗口拉到前台. 失败抛出供前端 toast + 中止倒计时.
     validateTarget: (containerID: string) => invoke(RecordingService.ValidateTarget, containerID),
     // GetState 返回后端权威录制状态 {phase, containerID, filterMode, tempID, startedAtMs}.
@@ -424,13 +424,13 @@ export const backend = {
     extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
       invoke(ToolsService.ExtractColorRange, samples, colorSpace),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
-    // WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
-    // 走 'windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
+    // Win32WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
+    // 走 'win32windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
     // — 用户在游戏前台时根本点不到 Yotta 按钮.
     // 捕获键来源 = 后端读热键中心 tools.window-capture 绑定 (可在「快捷键」页 rebind)，不再 FE 传死。
-    startWindowTargetCapture: () => invoke(ToolsService.StartWindowTargetCapture),
-    cancelWindowTargetCapture: (id: string) =>
-      invoke(ToolsService.CancelWindowTargetCapture, id),
+    startWin32WindowTargetCapture: () => invoke(ToolsService.StartWin32WindowTargetCapture),
+    cancelWin32WindowTargetCapture: (id: string) =>
+      invoke(ToolsService.CancelWin32WindowTargetCapture, id),
     openLauncher: () => invoke(ToolsService.OpenLauncher),
     toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
     hideLauncher: () => invoke(ToolsService.HideLauncher),

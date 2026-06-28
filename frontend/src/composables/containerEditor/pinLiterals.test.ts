@@ -71,7 +71,7 @@ describe('unconnectedDataInPins', () => {
   it('有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 不暴露通用 literal pin', () => {
     // 这些节点 input 由各自专属 Inspector section / 画布也不出内联框。与存储位置正交。
     const wtDataIn: Record<string, PinType> = { Title: 'string', Class: 'string' }
-    expect(unconnectedDataInPins('WindowTarget', wtDataIn, null, [], 'n1')).toEqual([])
+    expect(unconnectedDataInPins('Win32WindowTarget', wtDataIn, null, [], 'n1')).toEqual([])
     expect(unconnectedDataInPins('MouseCalibration', { Counts360: 'number' }, null, [], 'n2')).toEqual([])
     expect(unconnectedDataInPins('Subgraph', { SubgraphID: 'string' }, null, [], 'n3')).toEqual([])
     expect(unconnectedDataInPins('PlayClip', { ClipID: 'string' }, null, [], 'n4')).toEqual([])

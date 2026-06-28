@@ -11,7 +11,7 @@ Focus: **window-control 代码完成 + 逐任务 review + opus 整支终审过(�
 
 ## Next
 
-1. **window-control 真机 smoke(用户)** —— 先 `task build` 出 exe,再验(plan D3 Step4):① 侧栏/右键/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow;② 单窗口图(WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口;③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar 的 Window 输出)分别作用对应窗口;④ 无边框全屏→MoveResize→退无边框 回到全屏前布局;⑤ CloseWindow 接 WaitWindowGone 确认关闭;⑥ sendinput 后端下 ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
+1. **window-control 真机 smoke(用户)** —— 先 `task build` 出 exe,再验(plan D3 Step4):① 侧栏/右键/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow;② 单窗口图(Win32WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口;③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar 的 Window 输出)分别作用对应窗口;④ 无边框全屏→MoveResize→退无边框 回到全屏前布局;⑤ CloseWindow 接 WaitWindowGone 确认关闭;⑥ sendinput 后端下 ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
 2. **detect-click 真机 smoke(用户)** —— Phase 1-4 各项(尤其重测 ⑦ 记事本/vscode 打字、短图日志、WaitWindowGone、Swipe 手填/连点)。
 3. 两支 smoke 全过 → 归档 work/(移 cold store + design/plan 按日期归档),回 ③ 从 [work/mcp-node-exec/](work/mcp-node-exec/) 恢复,再按其 index 指向的 plan 起 MCP 实现。
 

@@ -24,8 +24,8 @@ type Spec struct {
 	IsVisualOnly       bool `json:"isVisualOnly,omitempty"`
 	// NeedsWindow — legacy Win32 HWND requirement: 节点 Run 依赖 Windows 窗口
 	// (调 ctx.Input/Capture/Vision/Window/Clip 等 Win32-backed 服务).
-	// validator/runner 据此判定: 图里有 NeedsWindow 节点才要求 WindowTarget;
-	// 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免 WindowTarget. Android/Browser
+	// validator/runner 据此判定: 图里有 NeedsWindow 节点才要求 Win32WindowTarget;
+	// 纯窗口无关容器 (Sleep/Log/Cron/Expr...) 免 Win32WindowTarget. Android/Browser
 	// 等非 HWND 自动化对象应走 TargetService / controller capabilities, 不要把
 	// NeedsWindow 当通用 Target requirement. 新节点用了上述 Win32 服务务必置真
 	// (漏置 → 该节点在无窗口容器里 SafeBackend 静默 no-op).

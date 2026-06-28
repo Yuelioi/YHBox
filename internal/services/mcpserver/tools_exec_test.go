@@ -33,8 +33,8 @@ func TestRunNode_UnrunnableKind_Rejects(t *testing.T) {
 	}
 }
 
-// TestHasBlockingValidationError_ClickAt 验证 MISSING_WINDOW_TARGET 豁免逻辑:
-// ClickAt 微容器校验会产生 MISSING_WINDOW_TARGET (因没有 WindowTarget 节点),
+// TestHasBlockingValidationError_ClickAt 验证 MISSING_WIN32_WINDOW_TARGET 豁免逻辑:
+// ClickAt 微容器校验会产生 MISSING_WIN32_WINDOW_TARGET (因没有 Win32WindowTarget 节点),
 // 但 hasBlockingValidationError 应返回 false — 这是此次 critical bug 的回归防护。
 func TestHasBlockingValidationError_ClickAt(t *testing.T) {
 	c, _, err := buildMicroContainer("ClickAt", map[string]any{"X": 1, "Y": 1})
@@ -42,22 +42,22 @@ func TestHasBlockingValidationError_ClickAt(t *testing.T) {
 		t.Fatalf("buildMicroContainer failed: %v", err)
 	}
 
-	// 前提验证: validator 确实会对此微容器报 MISSING_WINDOW_TARGET (error severity).
+	// 前提验证: validator 确实会对此微容器报 MISSING_WIN32_WINDOW_TARGET (error severity).
 	// 这证明了 bug 的存在前提 — 没有豁免时 runNode 会被误拦。
 	errs := container.ValidateContainer(c, nil)
 	foundMWT := false
 	for _, e := range errs {
-		if e.Code == container.CodeMissingWindowTarget && e.Severity == container.SeverityError {
+		if e.Code == container.CodeMissingWin32WindowTarget && e.Severity == container.SeverityError {
 			foundMWT = true
 			break
 		}
 	}
 	if !foundMWT {
-		t.Fatal("前提失效: ClickAt 微容器未触发 MISSING_WINDOW_TARGET error — 测试需更新")
+		t.Fatal("前提失效: ClickAt 微容器未触发 MISSING_WIN32_WINDOW_TARGET error — 测试需更新")
 	}
 
-	// 核心断言: hasBlockingValidationError 必须豁免 MISSING_WINDOW_TARGET, 返回 false.
+	// 核心断言: hasBlockingValidationError 必须豁免 MISSING_WIN32_WINDOW_TARGET, 返回 false.
 	if hasBlockingValidationError(c) {
-		t.Fatal("hasBlockingValidationError 应豁免 MISSING_WINDOW_TARGET 返 false, 但返了 true (critical bug 未修)")
+		t.Fatal("hasBlockingValidationError 应豁免 MISSING_WIN32_WINDOW_TARGET 返 false, 但返了 true (critical bug 未修)")
 	}
 }

@@ -307,11 +307,11 @@ type WindowService interface {
 	RestoreBorders() error
 	MoveResize(x, y, w, h int) error
 	Close() error
-	// Snapshot 返回当前活动窗口(含覆盖)的元数据快照, 给 Done.Window / WindowTarget 用。
+	// Snapshot 返回当前活动窗口(含覆盖)的元数据快照, 给 Done.Window / Win32WindowTarget 用。
 	Snapshot() (Window, error)
 }
 
-// TargetService — 切换/读取运行时活动自动化目标. WindowTarget 仍走 WindowService;
+// TargetService — 切换/读取运行时活动自动化目标. Win32WindowTarget 仍走 WindowService;
 // Android/Browser 等非窗口目标走这里, 后续输入/截图由 runtime controller factory 解析.
 type TargetService interface {
 	SetActive(target.Target) error

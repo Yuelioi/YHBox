@@ -5,18 +5,18 @@ import (
 	"testing"
 )
 
-func TestResolveWindowTarget_NoNode(t *testing.T) {
+func TestResolveWin32WindowTarget_NoNode(t *testing.T) {
 	c := &Container{}
-	_, err := ResolveWindowTarget(context.Background(), c, 0, 0)
-	if err != ErrNoWindowTarget {
-		t.Fatalf("expected ErrNoWindowTarget, got %v", err)
+	_, err := ResolveWin32WindowTarget(context.Background(), c, 0, 0)
+	if err != ErrNoWin32WindowTarget {
+		t.Fatalf("expected ErrNoWin32WindowTarget, got %v", err)
 	}
 }
 
-func TestReadWindowTargetMatchSpec(t *testing.T) {
+func TestReadWin32WindowTargetMatchSpec(t *testing.T) {
 	n := &GraphNode{
 		ID:   "wt1",
-		Kind: "WindowTarget",
+		Kind: "Win32WindowTarget",
 		Config: map[string]any{
 			"literal": map[string]any{
 				"Title":       "MyGame",
@@ -26,7 +26,7 @@ func TestReadWindowTargetMatchSpec(t *testing.T) {
 			},
 		},
 	}
-	spec := ReadWindowTargetMatchSpec(n)
+	spec := ReadWin32WindowTargetMatchSpec(n)
 	if spec.Title != "MyGame" {
 		t.Errorf("Title: want %q, got %q", "MyGame", spec.Title)
 	}
@@ -41,22 +41,22 @@ func TestReadWindowTargetMatchSpec(t *testing.T) {
 	}
 }
 
-func TestReadWindowTargetMatchSpec_NilConfig(t *testing.T) {
-	n := &GraphNode{Kind: "WindowTarget"}
-	spec := ReadWindowTargetMatchSpec(n)
+func TestReadWin32WindowTargetMatchSpec_NilConfig(t *testing.T) {
+	n := &GraphNode{Kind: "Win32WindowTarget"}
+	spec := ReadWin32WindowTargetMatchSpec(n)
 	if spec.Title != "" || spec.Class != "" || spec.ProcessName != "" || spec.TitleMatch != "" {
 		t.Errorf("expected empty MatchSpec for nil Config, got %+v", spec)
 	}
 }
 
-func TestReadWindowTargetMatchSpec_NilNode(t *testing.T) {
-	spec := ReadWindowTargetMatchSpec(nil)
+func TestReadWin32WindowTargetMatchSpec_NilNode(t *testing.T) {
+	spec := ReadWin32WindowTargetMatchSpec(nil)
 	if spec.Title != "" || spec.Class != "" || spec.ProcessName != "" || spec.TitleMatch != "" {
 		t.Errorf("expected empty MatchSpec for nil node, got %+v", spec)
 	}
 }
 
-func TestReadWindowTargetScaleTolerance(t *testing.T) {
+func TestReadWin32WindowTargetScaleTolerance(t *testing.T) {
 	cases := []struct {
 		name string
 		c    *Container
@@ -69,7 +69,7 @@ func TestReadWindowTargetScaleTolerance(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ReadWindowTargetScaleTolerance(c.c); got != c.want {
+			if got := ReadWin32WindowTargetScaleTolerance(c.c); got != c.want {
 				t.Errorf("got %v, want %v", got, c.want)
 			}
 		})

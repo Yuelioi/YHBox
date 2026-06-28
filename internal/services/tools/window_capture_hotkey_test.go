@@ -4,21 +4,21 @@ import (
 	"testing"
 )
 
-// TestCancelWindowTargetCapture_NoActive 没 active session 时 cancel 返 nil.
+// TestCancelWin32WindowTargetCapture_NoActive 没 active session 时 cancel 返 nil.
 // (避免前端 stale captureID 调 cancel 报错)
-func TestCancelWindowTargetCapture_NoActive(t *testing.T) {
+func TestCancelWin32WindowTargetCapture_NoActive(t *testing.T) {
 	captureMu.Lock()
 	activeCapture = nil
 	captureMu.Unlock()
 
-	if err := cancelWindowTargetCapture("any-id"); err != nil {
+	if err := cancelWin32WindowTargetCapture("any-id"); err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 }
 
-// TestCancelWindowTargetCapture_WrongID id 不匹配 idempotent 返 nil.
+// TestCancelWin32WindowTargetCapture_WrongID id 不匹配 idempotent 返 nil.
 // (前端 captureID 跟 backend 不一致时 cancel 不要 fail)
-func TestCancelWindowTargetCapture_WrongID(t *testing.T) {
+func TestCancelWin32WindowTargetCapture_WrongID(t *testing.T) {
 	captureMu.Lock()
 	activeCapture = &captureSession{
 		id:     "real-id",
@@ -32,7 +32,7 @@ func TestCancelWindowTargetCapture_WrongID(t *testing.T) {
 		captureMu.Unlock()
 	}()
 
-	if err := cancelWindowTargetCapture("wrong-id"); err != nil {
+	if err := cancelWin32WindowTargetCapture("wrong-id"); err != nil {
 		t.Fatalf("expected nil error for wrong id, got %v", err)
 	}
 	// active session 应保留 (cancel 无效)

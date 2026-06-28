@@ -302,11 +302,11 @@
       </div>
     </section>
 
-    <!-- WindowTarget: 运行时切换目标游戏窗口 -->
-    <section v-else-if="node.kind === 'WindowTarget'" class="mb-5 space-y-4">
+    <!-- Win32WindowTarget: 运行时切换目标游戏窗口 -->
+    <section v-else-if="node.kind === 'Win32WindowTarget'" class="mb-5 space-y-4">
       <!-- 子图内提示 -->
       <p v-if="editorStore.editorPath.length > 0" class="text-xs text-warning">
-        {{ t('node.WindowTarget.subgraph_hint') }}
+        {{ t('node.Win32WindowTarget.subgraph_hint') }}
       </p>
 
       <!-- 捕获按钮 (F9 全局热键流程) -->
@@ -318,27 +318,27 @@
           block
           @click="toggleWindowCapture"
         >
-          {{ capturing ? t('node.WindowTarget.inspector.capture_waiting', { hk: captureHk }) : t('node.WindowTarget.inspector.capture_start', { hk: captureHk }) }}
+          {{ capturing ? t('node.Win32WindowTarget.inspector.capture_waiting', { hk: captureHk }) : t('node.Win32WindowTarget.inspector.capture_start', { hk: captureHk }) }}
         </UButton>
         <p class="text-xs text-dimmed mt-1">
-          {{ t('node.WindowTarget.inspector.capture_hint_a', { hk: captureHk }) }}
-          {{ t('node.WindowTarget.inspector.capture_hint_b') }}
+          {{ t('node.Win32WindowTarget.inspector.capture_hint_a', { hk: captureHk }) }}
+          {{ t('node.Win32WindowTarget.inspector.capture_hint_b') }}
         </p>
       </div>
 
       <!-- match section -->
       <div class="border border-default rounded-lg p-3 space-y-2">
-        <h4 class="text-sm font-semibold">{{ t('node.WindowTarget.inspector.match_section') }}</h4>
-        <UFormField :label="t('node.WindowTarget.inspector.title_label')">
-          <UInput v-model="wtConfig.Title" :placeholder="t('node.WindowTarget.inspector.title_placeholder')" />
+        <h4 class="text-sm font-semibold">{{ t('node.Win32WindowTarget.inspector.match_section') }}</h4>
+        <UFormField :label="t('node.Win32WindowTarget.inspector.title_label')">
+          <UInput v-model="wtConfig.Title" :placeholder="t('node.Win32WindowTarget.inspector.title_placeholder')" />
         </UFormField>
-        <UFormField :label="t('node.WindowTarget.inspector.class_label')">
+        <UFormField :label="t('node.Win32WindowTarget.inspector.class_label')">
           <UInput v-model="wtConfig.Class" placeholder="UnrealWindow" />
         </UFormField>
-        <UFormField :label="t('node.WindowTarget.inspector.process_label')">
+        <UFormField :label="t('node.Win32WindowTarget.inspector.process_label')">
           <UInput v-model="wtConfig.ProcessName" placeholder="game.exe" />
         </UFormField>
-        <UFormField :label="t('node.WindowTarget.inspector.title_match_label')">
+        <UFormField :label="t('node.Win32WindowTarget.inspector.title_match_label')">
           <USelect
             v-model="wtConfig.TitleMatch"
             class="w-full"
@@ -992,7 +992,7 @@ const fields = computed<Field[]>(() => (props.node ? (NODE_FIELD_SCHEMAS[props.n
 
 // 有专属 Inspector section 的 kind — 这些不显通用「数据输入」section (BESPOKE_EDITOR_KINDS 同源),
 // 也不显 "no_config" 占位 (它们有自己的 UI)。
-const BESPOKE_SECTION_KINDS = new Set(['Subgraph', 'MouseCalibration', 'WindowTarget', 'PlayClip', 'Switch'])
+const BESPOKE_SECTION_KINDS = new Set(['Subgraph', 'MouseCalibration', 'Win32WindowTarget', 'PlayClip', 'Switch'])
 const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.has(props.node.kind))
 
 // 「输出」组速览: 当前 config 下的出口 pin(exec + data), 只读展示。
@@ -1200,13 +1200,13 @@ function formatDate(iso: string): string {
   }
 }
 
-// ─── WindowTarget section ──────────────────────────────────────────────────
-// 双向绑定 — config 顶层 PascalCase 字段, 对齐 internal/nodes/system/window_target.go Spec.Inputs.
+// ─── Win32WindowTarget section ──────────────────────────────────────────────────
+// 双向绑定 — config 顶层 PascalCase 字段, 对齐 internal/nodes/system/win32_window_target.go Spec.Inputs.
 // 直接 mutate props.node.config 让父图 deep watch 标 dirty (跟 PlayClip keepRanges 一样).
 // 绑 config.literal (pin 字面量正源). seed: 优先沿用已有 literal, 否则从顶层 config 旧值迁入,
 // 再否则用默认。v-model 写 literal.* → 跟 runtime PinString 同源。顶层旧 key 由迁移脚本清理。
 const wtConfig = computed(() => {
-  if (props.node?.kind !== 'WindowTarget') return null as any
+  if (props.node?.kind !== 'Win32WindowTarget') return null as any
   if (!props.node.config) (props.node as any).config = {}
   const cfg = props.node.config as any
   if (!cfg.literal) cfg.literal = {}
@@ -1222,8 +1222,8 @@ const wtConfig = computed(() => {
 })
 
 const titleMatchOptions = computed(() => [
-  { value: 'exact', label: t('node.WindowTarget.inspector.title_match_exact') },
-  { value: 'regex', label: t('node.WindowTarget.inspector.title_match_regex') },
+  { value: 'exact', label: t('node.Win32WindowTarget.inspector.title_match_exact') },
+  { value: 'regex', label: t('node.Win32WindowTarget.inspector.title_match_regex') },
 ])
 
 const capturing = ref(false)
@@ -1233,12 +1233,12 @@ const hotkeysStore = useHotkeysStore()
 const captureHk = computed(() => hotkeysStore.keyFor('tools.window-capture', 'F9'))
 
 // 点按钮: 开 capture session → backend 注册 F9 全局热键; 或 cancel 已开的 session.
-// 跟旧同步流程不同 — 这里立刻返回 captureID, 真正捕获在 'windowtarget:captured' event.
+// 跟旧同步流程不同 — 这里立刻返回 captureID, 真正捕获在 'win32windowtarget:captured' event.
 async function toggleWindowCapture() {
   if (capturing.value) {
     if (captureID.value) {
       try {
-        await backend.tools.cancelWindowTargetCapture(captureID.value)
+        await backend.tools.cancelWin32WindowTargetCapture(captureID.value)
       } catch {
         // cancel idempotent — 忽略所有错
       }
@@ -1248,11 +1248,11 @@ async function toggleWindowCapture() {
     return
   }
   try {
-    const id = (await backend.tools.startWindowTargetCapture()) as string
+    const id = (await backend.tools.startWin32WindowTargetCapture()) as string
     captureID.value = id
     capturing.value = true
   } catch (e: any) {
-    console.error('startWindowTargetCapture failed', e)
+    console.error('startWin32WindowTargetCapture failed', e)
     capturing.value = false
     captureID.value = ''
   }
@@ -1261,14 +1261,14 @@ async function toggleWindowCapture() {
 // 监听 backend emit — 收到后填表 + 清 session 状态
 let unsubWindowCapture: (() => void) | null = null
 onMounted(() => {
-  unsubWindowCapture = Events.On('windowtarget:captured', (ev: any) => {
+  unsubWindowCapture = Events.On('win32windowtarget:captured', (ev: any) => {
     const raw = ev?.data ?? ev
     const data = Array.isArray(raw) ? raw[0] : raw
     if (!data) return
     capturing.value = false
     captureID.value = ''
     if (data.error) {
-      console.warn('windowtarget:captured error', data.error)
+      console.warn('win32windowtarget:captured error', data.error)
       return
     }
     if (wtConfig.value) {
@@ -1287,7 +1287,7 @@ onUnmounted(() => {
   // 组件 unmount = 用户切别的节点 / 关 inspector — 当前 session 不该悬挂
   // (否则 hotkey 一直占着, F9 触发后 event 没 listener 静默丢失)
   if (captureID.value) {
-    backend.tools.cancelWindowTargetCapture(captureID.value).catch(() => {})
+    backend.tools.cancelWin32WindowTargetCapture(captureID.value).catch(() => {})
   }
 })
 </script>

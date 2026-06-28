@@ -198,7 +198,7 @@ func snapshotMainCalibCounts(c *container.Container) int {
 //   - 有 listener: 等外层 ctx 取消/超时 → defer cancelChild → listenerWG.Wait → 返回
 //     (后台 listener 要活到容器被外部停掉, 不能因主流程跑完就被秒杀)。
 func (r *ContainerRunner) Run(ctx context.Context) error {
-	// resolve WindowTarget → 活动窗口/Input/Capture (per-run state).
+	// resolve Win32WindowTarget → 活动窗口/Input/Capture (per-run state).
 	// 必须最先做 — 后续 startNode/listener 都假设 rt.window(经 accessor)/Input/Capture 已 populate.
 	if err := r.setupRuntime(); err != nil {
 		return err
@@ -338,11 +338,11 @@ func configStringList(node *container.GraphNode, key string) []string {
 }
 
 // ----------------------------------------------------------------------------
-// runtime bootstrap: setupRuntime / teardownRuntime / WindowTarget 解析.
+// runtime bootstrap: setupRuntime / teardownRuntime / Win32WindowTarget 解析.
 // ----------------------------------------------------------------------------
 
 // setupRuntime 按容器级配置建 input/capture backend → populate rt.
-// 不在启动期解析窗口 — 窗口由 WindowTarget.Run 运行时解析 (SetActive).
+// 不在启动期解析窗口 — 窗口由 Win32WindowTarget.Run 运行时解析 (SetActive).
 // 幂等: 测试预设过 (fixture 注入 window + input) 就跳过.
 func (r *ContainerRunner) setupRuntime() error {
 	// 测试预设过 (fixture 注入 window + input) 就跳过.
@@ -353,7 +353,7 @@ func (r *ContainerRunner) setupRuntime() error {
 		return nil
 	}
 
-	// 后端按容器级配置建 (hwnd 按调用传参, 无窗口也能先建). 窗口由 WindowTarget.Run 运行时解析.
+	// 后端按容器级配置建 (hwnd 按调用传参, 无窗口也能先建). 窗口由 Win32WindowTarget.Run 运行时解析.
 	inputName := r.rt.Container.InputBackend
 	if inputName == "" {
 		inputName = "postmessage"
@@ -406,7 +406,7 @@ func (r *ContainerRunner) teardownRuntime() {
 
 // containerNeedsWindow 容器是否含任一需要目标窗口的节点 (Spec.NeedsWindow) — 主图或解析
 // 闭包内任一子图. 跟 validator.containerNeedsWindow 同判定: 决定 runtime 是否解析
-// WindowTarget. 纯窗口无关容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
+// Win32WindowTarget. 纯窗口无关容器跳过解析, 窗口类节点 (ClickAt/Detect/Capture/PlayClip...) 才要求.
 func containerNeedsWindow(c *container.Container, sgs []container.Subgraph) bool {
 	if graphHasWindowNode(c.Graph.Nodes) {
 		return true

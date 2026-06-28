@@ -4,7 +4,7 @@
 // 每轮要 alt-tab 5-10 分钟。改成 mock backend 后：
 //   1. 真游戏跑一次，开启 settings.capture.debug.dump 录一段 PNG 序列到
 //      `bin/captures/<bot>/<date>/`
-//   2. 把该容器 WindowTarget 节点的 CaptureBackend 设成 "mock" (per-container,
+//   2. 把该容器 Win32WindowTarget 节点的 CaptureBackend 设成 "mock" (per-container,
 //      settings.capture.method 现在只作新建容器的默认值, 不再全局生效),
 //      可选设环境变量 YOTTA_MOCK_DIR 指向那个目录
 //   3. 启动 bot，detect 拿到的就是录制好的帧，调参立即可见

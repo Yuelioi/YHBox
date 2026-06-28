@@ -11,7 +11,7 @@ READ WHEN: 改子图折叠 (useFolding) / virtual marker (SubgraphInput·Output)
 
 subgraph 的 entry/output 是 **virtual marker** (`SubgraphInput`/`SubgraphOutput`, 不在 `graph.nodes`、不在 backend registry)。它们的 exec pin 名必须**三层一致**, 否则各层各崩:
 
-1. **存的 edge pin** — `useFolding.ts` 原硬编码小写 `in`/`out`。实际全仓走 **PascalCase exec 约定**: Subgraph 调用节点 exec-in = `In` (`subgraph.go` sgInExec); 入口 marker exec-out = `Done` (runtime `dispatch_v5.go` 从 `entryID+".Done"` 播种); 出口 marker exec-in = `In`; **边界节点用各自真实 pin** (WindowTarget 是 `In`/`Done`, 不是 in/out)。错了 → validator 报 `INVALID_PIN`、主图存不下 (markers 本身是 virtual 不被 validator 查, 报错的是父调用节点 + 边界真实节点)。
+1. **存的 edge pin** — `useFolding.ts` 原硬编码小写 `in`/`out`。实际全仓走 **PascalCase exec 约定**: Subgraph 调用节点 exec-in = `In` (`subgraph.go` sgInExec); 入口 marker exec-out = `Done` (runtime `dispatch_v5.go` 从 `entryID+".Done"` 播种); 出口 marker exec-in = `In`; **边界节点用各自真实 pin** (Win32WindowTarget 是 `In`/`Done`, 不是 in/out)。错了 → validator 报 `INVALID_PIN`、主图存不下 (markers 本身是 virtual 不被 validator 查, 报错的是父调用节点 + 边界真实节点)。
 2. **渲染 handle** — `ContainerFlowNode` 用 `pinsFor(kind)`, 它查 **registry (`getSpec`)**, marker 未注册 → 落 `{execIn:['in'],execOut:['out']}` **fallback**。`PIN_SPECS` 那张表手填了 marker 的 pin 但 `pinsFor` **根本不读它** → handle 画成 in/out, 跟 `Done`/`In` 的边对不上, vue-flow 把线甩到节点底部。
 3. **runtime 播种** — `r.edges.next(entryID+".Done")` 逐字读边、无 pin 改写器 (rewriter 只改 nodeID 不改 pin)。所以存的边字面必须是 `.Done`。
 

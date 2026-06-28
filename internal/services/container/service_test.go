@@ -92,7 +92,7 @@ func TestContainerStore_Save_InvalidID(t *testing.T) {
 	}
 }
 
-func TestCreate_SeedsBackendFieldsAndWiresWindowTarget(t *testing.T) {
+func TestCreate_SeedsBackendFieldsAndWiresWin32WindowTarget(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
 	svc := NewService(s)
@@ -108,12 +108,12 @@ func TestCreate_SeedsBackendFieldsAndWiresWindowTarget(t *testing.T) {
 
 	var wtID string
 	for _, n := range c.Graph.Nodes {
-		if n.Kind == "WindowTarget" {
+		if n.Kind == "Win32WindowTarget" {
 			wtID = n.ID
 		}
 	}
 	if wtID == "" {
-		t.Fatal("未找到 WindowTarget 节点")
+		t.Fatal("未找到 Win32WindowTarget 节点")
 	}
 
 	hasStartToWT, hasWTToStop := false, false
@@ -126,6 +126,6 @@ func TestCreate_SeedsBackendFieldsAndWiresWindowTarget(t *testing.T) {
 		}
 	}
 	if !hasStartToWT || !hasWTToStop {
-		t.Fatalf("WindowTarget 未接进 Start→WindowTarget→Stop: edges=%+v", c.Graph.Edges)
+		t.Fatalf("Win32WindowTarget 未接进 Start→Win32WindowTarget→Stop: edges=%+v", c.Graph.Edges)
 	}
 }

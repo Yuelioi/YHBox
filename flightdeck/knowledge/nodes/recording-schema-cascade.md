@@ -20,7 +20,7 @@ READ WHEN: 改节点 Spec 字段名 / pin 名前; 撞 INVALID_PIN / REQUIRED_FIE
 
 ## 撞了什么 (按发现顺序)
 
-### Layer 1: WindowTarget 节点 config nested vs flat
+### Layer 1: Win32WindowTarget 节点 config nested vs flat
 
 - BE P2.1 把 `config.match.{title,class,processName,titleMatch}` + `config.runtime.{inputBackend,captureBackend}` 扁平化, runtime 跟 validator 都读顶层 PascalCase `Title/Class/ProcessName/TitleMatch/InputBackend/CaptureBackend`.
 - **但 FE NodeInspector + F9 capture handler 还在 nested 老结构写**.

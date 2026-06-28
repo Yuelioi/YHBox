@@ -4,7 +4,7 @@
 
 **Goal:** 把目标选择节点从 `Window` palette 分组拆到 `Target` 分组，避免 Android/Browser 被误认为 Windows 窗口函数。
 
-**Architecture:** 不改节点 kind、不改旧容器 JSON、不改 runtime 路由，只改 node spec category 和前端 category 映射。Win32 窗口控制节点继续留 `Window`；`WindowTarget` 作为 Win32 target selection node 进入 `Target`。
+**Architecture:** 不改节点 kind、不改旧容器 JSON、不改 runtime 路由，只改 node spec category 和前端 category 映射。Win32 窗口控制节点继续留 `Window`；`Win32WindowTarget` 作为 Win32 target selection node 进入 `Target`。
 
 **Tech Stack:** Go node specs, Vue node registry adapter, frontend i18n, Flightdeck knowledge.
 
@@ -32,7 +32,7 @@
 Change these specs:
 
 ```go
-WindowTarget.Spec().Category = "Target"
+Win32WindowTarget.Spec().Category = "Target"
 AndroidTarget.Spec().Category = "Target"
 BrowserTarget.Spec().Category = "Target"
 ```

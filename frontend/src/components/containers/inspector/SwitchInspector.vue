@@ -90,7 +90,7 @@ async function removeCase(i: number) {
       cancelText: t('common.cancel'),
     })
     if (yes !== true) return
-    // Remove affected edges by mutating the prop array in place (same pattern as WindowTarget / PlayClip)
+    // Remove affected edges by mutating the prop array in place (same pattern as Win32WindowTarget / PlayClip)
     for (const edge of affected) {
       const idx = props.edges.indexOf(edge)
       if (idx >= 0) props.edges.splice(idx, 1)

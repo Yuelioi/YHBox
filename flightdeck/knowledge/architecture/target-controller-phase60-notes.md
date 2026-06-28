@@ -1,9 +1,11 @@
 # Target Controller Upgrade — Phase 60 Notes
 
+> Superseded by Phase 61: target palette split still stands, but the later naming migration became destructive. Do not keep old `WindowTarget` readable/runnable.
+
 ## Completed
 
 - Moved target selection nodes from backend category `Window` to `Target`:
-  - `WindowTarget`
+  - `Win32WindowTarget`
   - `AndroidTarget`
   - `BrowserTarget`
 - Added frontend `target` group support:
@@ -37,4 +39,4 @@ This phase only changes palette/category metadata. It does not rename serialized
 
 ## Next Risk
 
-The next naming migration can add a `Win32WindowTarget` alias, but it should keep `WindowTarget` readable and runnable until a loader migration and old-container test exist.
+This section is obsolete after Phase 61. Continue with contract hardening around `Win32WindowTarget` and `NeedsTarget`; do not add old-kind compatibility.

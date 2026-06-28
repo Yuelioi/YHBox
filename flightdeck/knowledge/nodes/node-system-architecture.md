@@ -31,7 +31,7 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 
 | 标志 | 作用 |
 |---|---|
-| `NeedsWindow` | 节点 Run 依赖目标窗口 hwnd（调了 `ctx.Input/Capture/Vision/Window/Clip`）。**图里有 NeedsWindow 节点才要求 `WindowTarget`**；纯窗口无关容器（Sleep/Log/Expr…）免。**漏置 → 该节点在无窗口容器里被 SafeBackend 静默 no-op**，必须老实置真 |
+| `NeedsWindow` | 节点 Run 依赖目标窗口 hwnd（调了 `ctx.Input/Capture/Vision/Window/Clip`）。**图里有 NeedsWindow 节点才要求 `Win32WindowTarget`**；纯窗口无关容器（Sleep/Log/Expr…）免。**漏置 → 该节点在无窗口容器里被 SafeBackend 静默 no-op**，必须老实置真 |
 | `IsPureData` | 纯数据节点（无副作用、求一个值）。**必须实现 Evaluator**（Register 强制） |
 | `IsVisualOnly` | 纯渲染节点（如 CommentBox）。允许零 capability |
 | `IsGraphMarker` | 图结构标记节点。允许零 capability（框架为 SubgraphInput/Output 预留；**当前没有后端节点用它**，子图入口/出口标记是前端 virtual 的） |
@@ -93,7 +93,7 @@ PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**�
 
 | 管线 | 在哪 | 何时跑 | 写什么 |
 |---|---|---|---|
-| **编辑期** | `internal/services/container/validator.go` 的 `checkGraphPerKind` → `validateXxx(n)` | NodeInspector 实时（编辑器红错） | 图级/容器级 per-kind 静态校验（断边、缺 WindowTarget、必填 pin 缺失 `MISSING_REQUIRED_PIN`、未知 literal pin、RegexMatch/RegexExtract 的 `INVALID_REGEX_PATTERN` 等） |
+| **编辑期** | `internal/services/container/validator.go` 的 `checkGraphPerKind` → `validateXxx(n)` | NodeInspector 实时（编辑器红错） | 图级/容器级 per-kind 静态校验（断边、缺 Win32WindowTarget、必填 pin 缺失 `MISSING_REQUIRED_PIN`、未知 literal pin、RegexMatch/RegexExtract 的 `INVALID_REGEX_PATTERN` 等） |
 | **运行期** | 框架 `prepareExec`：`validateRequired`（`REQUIRED_FIELD_MISSING`）+ 节点的 `Validate()`（Validator 接口） | engine 真跑该节点时 | 节点自身输入合法性（HSV min>max 之类） |
 
 **编辑期校验写在 `checkGraphPerKind`，不是节点的 `Validate()` 方法**（后者只在 runtime 跑，编辑器看不到）。静态必填校验为什么要镜像 `PinValue` 的两级回退（literal + 顶层 config），见 [pin-presence-check-must-mirror-pinvalue.md](pin-presence-check-must-mirror-pinvalue.md)。

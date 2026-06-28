@@ -332,7 +332,7 @@ func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
 }
 
 // hasUnwiredNeedsWindowNode — 是否存在「Window 输入未连」的 NeedsWindow 节点(主图或子图)。
-// 连了 Window 的节点派发期自带覆盖窗口, 不需要 WindowTarget; 没连的会回落活动窗口, 故仍要求 WindowTarget。
+// 连了 Window 的节点派发期自带覆盖窗口, 不需要 Win32WindowTarget; 没连的会回落活动窗口, 故仍要求 Win32WindowTarget。
 func hasUnwiredNeedsWindowNode(c *Container, sgs []Subgraph) bool {
 	if graphHasUnwiredWindowNode(c.Graph) {
 		return true

@@ -91,7 +91,7 @@ list_nodes(看有哪些积木) → find_window(锁窗口) → run_node(Capture �
 
 - **放行**:`NeedsWindow==true` 的节点(input 类 ClickAt/KeyPress/MouseMove/Scroll、detect 类 DetectColor、image 类 Capture、window 类等)——它们就是「对窗口做一件事」的原子动作。
 - **拒绝**:结构/控制节点(Start/Stop/Loop/Switch/Subgraph/EventTick listener)、`IsPureData==true` 纯数据节点(GetVar/Now/Add… 要数据线喂、脱离图无意义)。传进来 → 返 `UNRUNNABLE_KIND` 错误,附一句指引。
-- 闸的判定**数据驱动**(读 catalog 字段),不写死 kind 名单——节点增删自动跟随。具体放行集 plan 落地时按 category 收敛(可能需要一个小白/黑名单兜边界,如 WindowTarget 本身不该 run_node——它的职责被 `find_window` 取代)。
+- 闸的判定**数据驱动**(读 catalog 字段),不写死 kind 名单——节点增删自动跟随。具体放行集 plan 落地时按 category 收敛(可能需要一个小白/黑名单兜边界,如 Win32WindowTarget 本身不该 run_node——它的职责被 `find_window` 取代)。
 
 ## 7. 窗口工具
 
@@ -128,7 +128,7 @@ list_nodes(看有哪些积木) → find_window(锁窗口) → run_node(Capture �
 | GUI 正在跑容器 | `BUSY` |
 | 超时 | `TIMEOUT` |
 
-`run_node` 跑前先对微容器跑一遍 `ValidateContainer` 兜 `INVALID_PARAMS`(复用现有校验),错误级直接返不执行——**但豁免 `MISSING_WINDOW_TARGET`**:微容器是 `{Start→节点}`、无 WindowTarget 节点,任何 `NeedsWindow` 节点都会触发该结构校验错;而窗口是经 hwnd/`SetActiveWindow` **带外**提供的,故这条结构检查对 harness 不适用,须显式跳过(`hasBlockingValidationError` 只拦 `Code != CodeMissingWindowTarget` 的错误级)。其余真参数/类型错仍拦。
+`run_node` 跑前先对微容器跑一遍 `ValidateContainer` 兜 `INVALID_PARAMS`(复用现有校验),错误级直接返不执行——**但豁免 `MISSING_WIN32_WINDOW_TARGET`**:微容器是 `{Start→节点}`、无 Win32WindowTarget 节点,任何 `NeedsWindow` 节点都会触发该结构校验错;而窗口是经 hwnd/`SetActiveWindow` **带外**提供的,故这条结构检查对 harness 不适用,须显式跳过(`hasBlockingValidationError` 只拦 `Code != CodeMissingWin32WindowTarget` 的错误级)。其余真参数/类型错仍拦。
 
 ## 11. 实现触点清单(给 plan 用)
 

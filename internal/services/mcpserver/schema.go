@@ -10,7 +10,7 @@ func schemaText() string {
 - 节点: {id, kind, x, y, config:{literal:{<pinName>:<value>}}}
 - pin 值唯一合法写法 = config.literal[<pinName>]。
 - edge: {from:"<nodeId>.<PinName>", to:"<nodeId>.<PinName>"}
-- 用了 needsWindow 节点 (如 KeyPress/ClickAt) 的图, 必须含一个 WindowTarget 节点 (不连线, config.literal.Title 填窗口标题)。
+- 用了 needsWindow 节点 (如 KeyPress/ClickAt) 的图, 必须含一个 Win32WindowTarget 节点 (不连线, config.literal.Title 填窗口标题)。
 - Duration 类型 = 毫秒数字 (500 = 500ms)。
 - id 由服务端生成, 入参里的 id 会被忽略。
 - 节点种类与每个 pin 详见 list_nodes。`
@@ -18,7 +18,7 @@ func schemaText() string {
 
 // schemaExamples returns ≥2 validated example container JSONs.
 // Example 0: minimal Start→Stop (no window nodes).
-// Example 1: needsWindow (KeyPress) + WindowTarget + Loop + Sleep with required Duration.
+// Example 1: needsWindow (KeyPress) + Win32WindowTarget + Loop + Sleep with required Duration.
 // Both MUST pass ValidateContainer — guarded by TestSchemaExamples_AllValid.
 func schemaExamples() [][]byte {
 	minimal := []byte(`{
@@ -45,7 +45,7 @@ func schemaExamples() [][]byte {
     "version": 1,
     "nodes": [
       { "id": "s",  "kind": "Start",        "x": 100, "y": 100 },
-      { "id": "w",  "kind": "WindowTarget",  "x": 100, "y": 260,
+      { "id": "w",  "kind": "Win32WindowTarget",  "x": 100, "y": 260,
         "config": { "literal": { "Title": "记事本" } } },
       { "id": "l",  "kind": "Loop",          "x": 320, "y": 100,
         "config": { "literal": { "Mode": "count", "Count": 10 } } },

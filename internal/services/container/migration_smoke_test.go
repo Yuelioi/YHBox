@@ -20,7 +20,7 @@ func TestLegacyEdgeKindIgnored(t *testing.T) {
 			"version": 1,
 			"nodes": [
 				{"id": "start", "kind": "Start", "x": 0, "y": 0},
-				{"id": "wt", "kind": "WindowTarget", "x": 100, "y": 0},
+				{"id": "wt", "kind": "Win32WindowTarget", "x": 100, "y": 0},
 				{"id": "log", "kind": "Log", "x": 200, "y": 0, "config": {"literal": {"Message": "hi", "Level": "info"}}}
 			],
 			"edges": [
@@ -70,7 +70,7 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 			"version": 1,
 			"nodes": [
 				{"id": "start", "kind": "Start", "x": 0, "y": 0},
-				{"id": "wt", "kind": "WindowTarget", "x": 100, "y": 0},
+				{"id": "wt", "kind": "Win32WindowTarget", "x": 100, "y": 0},
 				{"id": "gv", "kind": "GetVar", "x": 150, "y": 100, "config": {"VarName": "x", "Scope": "local"}},
 				{"id": "log", "kind": "Log", "x": 300, "y": 0, "config": {"literal": {"Message": "", "Level": "info"}}}
 			],

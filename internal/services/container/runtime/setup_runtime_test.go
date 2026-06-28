@@ -42,7 +42,7 @@ func TestSetupRuntime_BuildsBackendsWithoutResolvingWindow(t *testing.T) {
 	if rt.Capture == nil {
 		t.Error("rt.Capture 应已建立, 实际 nil")
 	}
-	// 窗口由 WindowTarget.Run 运行时解析，不在 setupRuntime 里解析
+	// 窗口由 Win32WindowTarget.Run 运行时解析，不在 setupRuntime 里解析
 	if hwnd := rt.WindowHandle().HWND; hwnd != 0 {
 		t.Errorf("setupRuntime 不应解析窗口, 但 HWND = %d", hwnd)
 	}

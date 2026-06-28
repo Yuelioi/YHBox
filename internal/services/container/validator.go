@@ -1,14 +1,16 @@
-﻿// validator.go 容器/子图 graph 校验器 (Validate 阶段入口).
+// validator.go 容器/子图 graph 校验器 (Validate 阶段入口).
 //
 // 三阶段协作:
-//   Validate  — 这里, 纯检查不 mutate. 入口 ValidateContainer / (c).Validate().
-//                内部分 3 sub-phase (Structural/Reference/Type-Semantic), 见 ValidateContainer.
-//   Normalize — validate.go::Container.Normalize, self-heal 默认 + 子图 normalizeSubgraph 一次跑完.
-//   Compile   — runtime/compile.go::CompileContainer, 编译 main+全部 subgraphs 的 edge/node 索引.
+//
+//	Validate  — 这里, 纯检查不 mutate. 入口 ValidateContainer / (c).Validate().
+//	             内部分 3 sub-phase (Structural/Reference/Type-Semantic), 见 ValidateContainer.
+//	Normalize — validate.go::Container.Normalize, self-heal 默认 + 子图 normalizeSubgraph 一次跑完.
+//	Compile   — runtime/compile.go::CompileContainer, 编译 main+全部 subgraphs 的 edge/node 索引.
 //
 // 调用顺序:
-//   Save 流程: Normalize → Validate → 写盘.
-//   Run 流程:  (Store.Get 已 normalize/validate) → CompileContainer → NewContainerRunner → Run.
+//
+//	Save 流程: Normalize → Validate → 写盘.
+//	Run 流程:  (Store.Get 已 normalize/validate) → CompileContainer → NewContainerRunner → Run.
 package container
 
 import (
@@ -44,9 +46,9 @@ const (
 )
 
 const (
-	CodeMissingWindowTarget           = "MISSING_WINDOW_TARGET"
-	CodeInvalidWindowTargetRegex      = "INVALID_WINDOW_TARGET_REGEX"
-	CodeInvalidWindowTargetEmptyMatch = "INVALID_WINDOW_TARGET_EMPTY_MATCH"
+	CodeMissingWin32WindowTarget           = "MISSING_WIN32_WINDOW_TARGET"
+	CodeInvalidWin32WindowTargetRegex      = "INVALID_WIN32_WINDOW_TARGET_REGEX"
+	CodeInvalidWin32WindowTargetEmptyMatch = "INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH"
 	// CodeNoActiveWindow は runtime 用 (ErrNoActiveWindow); validator 不主动发,
 	// 此常量供错码集合 / 前端 i18n 对齐.
 	CodeNoActiveWindow = "NO_ACTIVE_WINDOW"
@@ -137,13 +139,13 @@ type ValidationError struct {
 // E5: 3-phase ORDERING (documentation-driven, no short-circuit). Validators
 // are grouped + commented by dependency layer so readers can map errors back
 // to their concern. We do NOT short-circuit between phases — partial test
-// fixtures (no WindowTarget, partial graph) would otherwise lose downstream
+// fixtures (no Win32WindowTarget, partial graph) would otherwise lose downstream
 // coverage. The benefit is purely readability/maintenance, not perf:
 //
 //  1. Structural   — Start uniqueness, dangling edges, subgraph cycles,
-//                    MouseCalibration/WindowTarget rules.
+//     MouseCalibration/Win32WindowTarget rules.
 //  2. Reference    — pin existence, missing subgraphs/templates, GetParam
-//                    param validity, CollapsedNode integrity.
+//     param validity, CollapsedNode integrity.
 //  3. Type/Semantic— pin types, literal types, Expr parse, data-graph DAG.
 //
 // Future hard-mode (short-circuit on fatal) can be opted-in via a flag without
@@ -158,7 +160,7 @@ func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 
 	// 结构检查
 	errs = append(errs, validateMainGraph(c)...)
-	errs = append(errs, validateWindowTarget(c, sgs)...)
+	errs = append(errs, validateWin32WindowTarget(c, sgs)...)
 	errs = append(errs, validateMouseCalibration(c, sgs)...)
 	for i := range sgs {
 		errs = append(errs, validateSubgraph(c, &sgs[i])...)
@@ -339,7 +341,7 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 					errs = append(errs, ValidationError{
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: fromID,
-						Params:  map[string]any{"nodeID": fromID, "kind": node.Kind, "pin": fromPin, "side": "out"},
+						Params: map[string]any{"nodeID": fromID, "kind": node.Kind, "pin": fromPin, "side": "out"},
 					})
 				}
 			}
@@ -356,7 +358,7 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 					errs = append(errs, ValidationError{
 						Severity: SeverityError, Code: CodeInvalidPin,
 						GraphPath: graphPath, NodeID: toID,
-						Params:  map[string]any{"nodeID": toID, "kind": toNode.Kind, "pin": toPin, "side": "in"},
+						Params: map[string]any{"nodeID": toID, "kind": toNode.Kind, "pin": toPin, "side": "in"},
 					})
 				}
 			}
@@ -370,7 +372,6 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 	}
 	return errs
 }
-
 
 // validateMissingSubgraph 扫 Subgraph 调用节点，确认 config.subgraphId 能在解析闭包里找到
 // (闭包从全局池解析而来 — 不在 sgs 里 = 池里不存在或引用悬空)。
@@ -397,7 +398,7 @@ func validateMissingSubgraph(c *Container, sgs []Subgraph) []ValidationError {
 				errs = append(errs, ValidationError{
 					Severity: SeverityError, Code: CodeMissingSubgraph,
 					GraphPath: graphPath, NodeID: n.ID,
-					Params:  map[string]any{"subgraphId": id},
+					Params: map[string]any{"subgraphId": id},
 				})
 			}
 		}
@@ -548,30 +549,30 @@ func edgeNodeID(ref string) string {
 	return ""
 }
 
-// validateWindowTarget: 收集主图 + 子图所有 WindowTarget, 逐个校验 MatchSpec.
-// 若容器需要窗口 (containerNeedsWindow) 但一个都没有, 报 MISSING_WINDOW_TARGET.
+// validateWin32WindowTarget: 收集主图 + 子图所有 Win32WindowTarget, 逐个校验 MatchSpec.
+// 若容器需要窗口 (containerNeedsWindow) 但一个都没有, 报 MISSING_WIN32_WINDOW_TARGET.
 // 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
-func validateWindowTarget(c *Container, sgs []Subgraph) []ValidationError {
+func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	if len(c.Graph.Nodes) == 0 {
 		return nil
 	}
 	var errs []ValidationError
 
-	// 收集所有 WindowTarget (主图 + 子图), 逐个校验 MatchSpec.
+	// 收集所有 Win32WindowTarget (主图 + 子图), 逐个校验 MatchSpec.
 	type wt struct {
 		node      *GraphNode
 		graphPath []string
 	}
 	var all []wt
 	for i := range c.Graph.Nodes {
-		if c.Graph.Nodes[i].Kind == "WindowTarget" {
+		if c.Graph.Nodes[i].Kind == "Win32WindowTarget" {
 			all = append(all, wt{node: &c.Graph.Nodes[i], graphPath: []string{"main"}})
 		}
 	}
 	for si := range sgs {
 		sg := &sgs[si]
 		for ni := range sg.Graph.Nodes {
-			if sg.Graph.Nodes[ni].Kind == "WindowTarget" {
+			if sg.Graph.Nodes[ni].Kind == "Win32WindowTarget" {
 				all = append(all, wt{node: &sg.Graph.Nodes[ni], graphPath: []string{"subgraph:" + sg.ID}})
 			}
 		}
@@ -581,7 +582,7 @@ func validateWindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 		if hasUnwiredNeedsWindowNode(c, sgs) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
-				Code:      CodeMissingWindowTarget,
+				Code:      CodeMissingWin32WindowTarget,
 				GraphPath: []string{"main"},
 			})
 		}
@@ -589,22 +590,22 @@ func validateWindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	}
 
 	for _, w := range all {
-		spec := readWindowTargetMatchSpec(w.node)
+		spec := readWin32WindowTargetMatchSpec(w.node)
 		if spec.TitleMatch == "regex" && spec.Title != "" {
 			if _, err := regexp.Compile(spec.Title); err != nil {
 				errs = append(errs, ValidationError{
 					Severity:  SeverityError,
-					Code:      CodeInvalidWindowTargetRegex,
+					Code:      CodeInvalidWin32WindowTargetRegex,
 					GraphPath: w.graphPath,
 					NodeID:    w.node.ID,
 					Params:    map[string]any{"error": err.Error()},
 				})
 			}
 		}
-		if windowTargetIsEmptyMatch(spec) {
+		if win32WindowTargetIsEmptyMatch(spec) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
-				Code:      CodeInvalidWindowTargetEmptyMatch,
+				Code:      CodeInvalidWin32WindowTargetEmptyMatch,
 				GraphPath: w.graphPath,
 				NodeID:    w.node.ID,
 			})
@@ -614,15 +615,15 @@ func validateWindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 }
 
 // matchSpec local 副本 — 避免 validator 包 import pkg/winutil 引入循环依赖.
-type windowTargetMatchSpec struct {
+type win32WindowTargetMatchSpec struct {
 	Title, Class, ProcessName, TitleMatch string
 }
 
-func readWindowTargetMatchSpec(n *GraphNode) windowTargetMatchSpec {
+func readWin32WindowTargetMatchSpec(n *GraphNode) win32WindowTargetMatchSpec {
 	if n.Config == nil {
-		return windowTargetMatchSpec{}
+		return win32WindowTargetMatchSpec{}
 	}
-	return windowTargetMatchSpec{
+	return win32WindowTargetMatchSpec{
 		Title:       PinString(n, "Title"),
 		Class:       PinString(n, "Class"),
 		ProcessName: PinString(n, "ProcessName"),
@@ -630,7 +631,7 @@ func readWindowTargetMatchSpec(n *GraphNode) windowTargetMatchSpec {
 	}
 }
 
-func windowTargetIsEmptyMatch(spec windowTargetMatchSpec) bool {
+func win32WindowTargetIsEmptyMatch(spec win32WindowTargetMatchSpec) bool {
 	hasAny := spec.Title != "" || spec.Class != "" || spec.ProcessName != ""
 	if !hasAny {
 		return true
@@ -843,7 +844,6 @@ func validateDetectColorBlobs(n *GraphNode) []ValidationError {
 // validateKeyHold checks that vk is a non-empty string.
 // Runtime calls pkginput.VK(name); we do not pre-validate the name here
 // (let runtime fail loudly for unknown VK names).
-//
 func validateKeyHold(n *GraphNode) []ValidationError {
 	vk := PinString(n, "VK")
 	if vk == "" {
@@ -892,35 +892,35 @@ func validateSwitchConfig(n *GraphNode) []ValidationError {
 		if cs == "" {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Params:  map[string]any{"index": i, "reason": "empty"},
+				Params: map[string]any{"index": i, "reason": "empty"},
 			})
 			continue
 		}
 		if strings.Contains(cs, ".") {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Params:  map[string]any{"index": i, "case": cs, "reason": "contains_dot"},
+				Params: map[string]any{"index": i, "case": cs, "reason": "contains_dot"},
 			})
 			continue
 		}
 		if cs == "default" {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Params:  map[string]any{"index": i, "case": cs, "reason": "reserved_default"},
+				Params: map[string]any{"index": i, "case": cs, "reason": "reserved_default"},
 			})
 			continue
 		}
 		if trimmed := strings.TrimSpace(cs); trimmed != cs {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Params:  map[string]any{"index": i, "case": cs, "reason": "whitespace"},
+				Params: map[string]any{"index": i, "case": cs, "reason": "whitespace"},
 			})
 			continue
 		}
 		if seen[cs] {
 			errs = append(errs, ValidationError{
 				NodeID: n.ID, Code: CodeInvalidSwitchCases,
-				Params:  map[string]any{"index": i, "case": cs, "reason": "duplicate"},
+				Params: map[string]any{"index": i, "case": cs, "reason": "duplicate"},
 			})
 			continue
 		}
@@ -947,7 +947,7 @@ func validateCronConfig(n *GraphNode) []ValidationError {
 			Code:     CodeInvalidCronExpr,
 			NodeID:   n.ID,
 			// E4 i18n 迁移前中文 fallback (跟现有 ~30 个 validator 同款). 切 i18n 后前端 t() 覆盖.
-			Params:  map[string]any{"expr": s, "parseErr": err.Error()},
+			Params: map[string]any{"expr": s, "parseErr": err.Error()},
 		})
 	}
 	return errs
@@ -986,4 +986,3 @@ func validateStopwatch(n *GraphNode) []ValidationError {
 }
 
 // ---------------------------------------------------------------------------
-

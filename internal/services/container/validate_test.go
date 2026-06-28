@@ -45,8 +45,8 @@ func TestNodeHasExecOutPin(t *testing.T) {
 
 // A.6: Validate() 返 *ValidationFailure 聚合多个 error, caller errors.As 取结构化列表.
 func TestValidateReturnsValidationFailure(t *testing.T) {
-	// Container with multiple errors: no Start node + missing WindowTarget.
-	// 用 ClickAt (NeedsWindow) — validate-on-use 下它才触发 MISSING_WINDOW_TARGET (Sleep 不会).
+	// Container with multiple errors: no Start node + missing Win32WindowTarget.
+	// 用 ClickAt (NeedsWindow) — validate-on-use 下它才触发 MISSING_WIN32_WINDOW_TARGET (Sleep 不会).
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
@@ -63,7 +63,7 @@ func TestValidateReturnsValidationFailure(t *testing.T) {
 		t.Fatalf("expected *ValidationFailure, got %T", err)
 	}
 	if len(vf.Errors) < 2 {
-		t.Errorf("expected ≥2 errors (NO_START + MISSING_WINDOW_TARGET), got %d: %+v", len(vf.Errors), vf.Errors)
+		t.Errorf("expected ≥2 errors (NO_START + MISSING_WIN32_WINDOW_TARGET), got %d: %+v", len(vf.Errors), vf.Errors)
 	}
 	// Sanity: every entry is SeverityError
 	for _, e := range vf.Errors {

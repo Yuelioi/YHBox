@@ -29,7 +29,7 @@ type SubgraphSaver interface {
 	Create(sg *container.Subgraph) error
 }
 
-// ContainerGetter 窄接口 — recording 拿 container 解析 WindowTarget hwnd 用.
+// ContainerGetter 窄接口 — recording 拿 container 解析 Win32WindowTarget hwnd 用.
 // container.Store 已实现 Get(id) (Container, bool).
 type ContainerGetter interface {
 	Get(id string) (container.Container, bool)
@@ -81,8 +81,8 @@ type RecordingState struct {
 	FilterMode  string `json:"filterMode"`  // precise | simple
 	TempID      string `json:"tempID"`
 	StartedAtMs int64  `json:"startedAtMs"`
-	PausedMs    int64  `json:"pausedMs"`    // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
-	PausedAtMs  int64  `json:"pausedAtMs"`  // 本次暂停起点 wall time (>0 即处于暂停, HUD 冻结计时); recording 态为 0
+	PausedMs    int64  `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
+	PausedAtMs  int64  `json:"pausedAtMs"` // 本次暂停起点 wall time (>0 即处于暂停, HUD 冻结计时); recording 态为 0
 }
 
 // GetState 返回当前权威状态快照. RPC — 前端任何时候可查 (reconcile 对账用).
@@ -116,10 +116,10 @@ func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
 // SetSubgraphSaver main.go 启动期注入. nil = Stop 时报错 (录制没出口).
 func (s *Service) SetSubgraphSaver(c SubgraphSaver) { s.subgraphs = c }
 
-// SetContainerGetter main.go 启动期注入. nil = Start 时报错 (没法解 WindowTarget hwnd).
+// SetContainerGetter main.go 启动期注入. nil = Start 时报错 (没法解 Win32WindowTarget hwnd).
 func (s *Service) SetContainerGetter(c ContainerGetter) { s.containerGet = c }
 
-// ValidateTarget 录制前预检 — 解析容器 WindowTarget 找窗口 (找不到返 error), 并把窗口拉到前台.
+// ValidateTarget 录制前预检 — 解析容器 Win32WindowTarget 找窗口 (找不到返 error), 并把窗口拉到前台.
 // 前端在 3s 倒计时**之前**调: 没设/找不到窗口立刻报错 (不用等录完), 成功则游戏已置前台省去用户 Alt-Tab.
 // 纯预检 — 不装 hook 不起 recorder. Start 内仍保留同样校验作 race 兜底 (倒计时期间窗口可能消失).
 func (s *Service) ValidateTarget(containerID string) error {
@@ -133,9 +133,9 @@ func (s *Service) ValidateTarget(containerID string) error {
 	if !ok {
 		return fmt.Errorf("container %q not found", containerID)
 	}
-	wtNode := findWindowTargetNode(&cont)
+	wtNode := findWin32WindowTargetNode(&cont)
 	if wtNode == nil {
-		return apperr.New(apperr.CodeRecordingNoWindowTarget, nil)
+		return apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
 	wh, err := winutil.ResolveWindow(context.Background(), spec, 3*time.Second, 500*time.Millisecond)
@@ -176,9 +176,9 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("container %q not found", args.ContainerID)
 	}
-	wtNode := findWindowTargetNode(&cont)
+	wtNode := findWin32WindowTargetNode(&cont)
 	if wtNode == nil {
-		return "", apperr.New(apperr.CodeRecordingNoWindowTarget, nil)
+		return "", apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
 	wh, err := winutil.ResolveWindow(context.Background(), spec, 3*time.Second, 500*time.Millisecond)
@@ -403,18 +403,18 @@ func (s *Service) StopAsync() {
 	}()
 }
 
-// findWindowTargetNode 在 container.Graph.Nodes 里找第一个 Kind=="WindowTarget" 的节点.
-// container 强制有且只有一个 WindowTarget 节点, 这里假设也是 1.
-func findWindowTargetNode(c *container.Container) *container.GraphNode {
+// findWin32WindowTargetNode 在 container.Graph.Nodes 里找第一个 Kind=="Win32WindowTarget" 的节点.
+// container 强制有且只有一个 Win32WindowTarget 节点, 这里假设也是 1.
+func findWin32WindowTargetNode(c *container.Container) *container.GraphNode {
 	for i := range c.Graph.Nodes {
-		if c.Graph.Nodes[i].Kind == "WindowTarget" {
+		if c.Graph.Nodes[i].Kind == "Win32WindowTarget" {
 			return &c.Graph.Nodes[i]
 		}
 	}
 	return nil
 }
 
-// readMatchSpecFromConfig 从 WindowTarget 节点 config 顶级字段解出 winutil.MatchSpec.
+// readMatchSpecFromConfig 从 Win32WindowTarget 节点 config 顶级字段解出 winutil.MatchSpec.
 // 字段是扁平的, 跟 Spec.Inputs 对齐.
 // config 缺字段或类型不对 → 留空字段 (winutil.ResolveWindow 会报 IsEmptyMatch).
 func readMatchSpecFromConfig(n *container.GraphNode) winutil.MatchSpec {
