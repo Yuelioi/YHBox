@@ -66,6 +66,26 @@ func TestBuildWithI18n_AllKindsLabeled(t *testing.T) {
 	}
 }
 
+// drift guard: every declared input/output pin must have a user-facing label in node-i18n.json.
+func TestBuildWithI18n_AllDeclaredPinsLabeled(t *testing.T) {
+	var missing []string
+	for _, n := range BuildWithI18n() {
+		for _, p := range n.Inputs {
+			if p.Label == "" {
+				missing = append(missing, n.Kind+".input."+p.Name)
+			}
+		}
+		for _, p := range n.Outputs {
+			if p.Label == "" {
+				missing = append(missing, n.Kind+".output."+p.Name)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("缺 pin label 的节点翻译 (更新 zh.ts 后需跑 `pnpm gen:node-i18n`):\n  %s", strings.Join(missing, "\n  "))
+	}
+}
+
 // Part A 守卫: exec 出口携带的 Data 字段被序列化进 catalog (此前丢失, 调研要 grep 源码才知道)。
 func TestBuild_OutputDataSerialized(t *testing.T) {
 	cat := Build()

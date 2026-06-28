@@ -142,6 +142,7 @@ function pinLabel(pinName: string, dir: 'in' | 'out'): string {
     const common = `inspector.output.field.${pinName}`
     if (te(common)) return t(common)
   }
+  if (dir === 'in' && pinName === 'In') return t('common.exec_in_pin')
   return pinName
 }
 

@@ -119,6 +119,9 @@ func BuildWithI18n() []Node {
 				n.Inputs[j].Label = p.Label
 				n.Inputs[j].Hint = p.Hint
 			}
+			if n.Inputs[j].Label == "" && n.Inputs[j].Exec {
+				n.Inputs[j].Label = "执行"
+			}
 		}
 		for j := range n.Outputs {
 			if p, ok := t.Output[n.Outputs[j].Name]; ok {

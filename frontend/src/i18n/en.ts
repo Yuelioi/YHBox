@@ -1887,6 +1887,7 @@
     untitled: '(Untitled)',
     yes: 'Yes',
     no: 'No',
+    exec_in_pin: 'Run',
     fail_pin: 'Fail',
   },
   hotkeys: {

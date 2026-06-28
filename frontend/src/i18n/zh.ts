@@ -1907,6 +1907,7 @@ export default {
     untitled: '(未命名)',
     yes: '是',
     no: '否',
+    exec_in_pin: '执行',
     fail_pin: '失败',
   },
   hotkeys: {
