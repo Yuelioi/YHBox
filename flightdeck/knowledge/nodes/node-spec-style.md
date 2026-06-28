@@ -30,7 +30,7 @@ Spec.InputSpec.Default 序列化进 JSON 走 `encoding/json`, 反序列化拿 `a
 | --------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `"Number"` / `"Integer"` / `"Duration"` | `json.Number("0")` (精度安全)                                  | 裸 `float64(0)` / `int(0)`                                                                 |
 | `"Bool"`                                    | `false`                                                        | 字符串 `"false"`                                                                             |
-| `"String"`                                  | `""`                                                           | 不许 `nil` (可选 pin 不设 `Required` 即可 — `InputSpec` **无** `Optional` 字段) |
+| `"String"`                                  | `""` 或不设 Default                                            | 非 string 类型                                                                                 |
 | `"Point"`                                   | `map[string]any{"x": json.Number("0"), "y": json.Number("0")}` | 裸 struct                                                                                      |
 | `"Rect"`                                    | 同 Point 风格                                                    | 裸 struct                                                                                      |
 | `"JSON"`                                    | `map[string]any{}`                                             | `nil` (会被反序列化跳过)                                                                     |
@@ -76,7 +76,7 @@ const (
 2. 所有 Exec **in** pin Name == `"In"`. fire-only 节点无 exec in, 自然不触发 (无 lowercase-out 白名单).
 3. 所有 Exec **out** pin Name 首字母大写;唯一小写例外是 Switch 兜底出口 `"default"`.
 4. 所有 Number/Integer/Duration Default 是 `json.Number` 类型.
-5. 所有 String Default 非 `nil`.
+5. 所有 String Default 若设置则必须是 string; `nil` 表示无默认/必填, 允许存在.
 
 任何节点违反 → test fail 给出 (Kind, pin) 定位. 添加新节点 = 必跑这测试.
 

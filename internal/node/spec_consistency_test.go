@@ -17,6 +17,7 @@ import (
 //  2. Number/Integer/Duration InputSpec.Default 是 json.Number (节点级 whitelist 例外).
 //  3. Exec in pin 名统一 "In" (fire-only 节点 — Start/EventTick/SubgraphInput — 没 exec in, 不约束).
 //  4. Exec out pin 名统一 PascalCase; Switch 的 "default" 是唯一小写例外.
+//  5. String InputSpec.Default 若设置, 必须是 string; nil 表示无默认/必填.
 //
 // kindMigrationPending — 豁免上述约定的节点 kind whitelist (当前空).
 var kindMigrationPending = map[string]struct{}{}
@@ -110,6 +111,26 @@ func TestSpecConsistency_NumberDefaultsAreJSONNumber(t *testing.T) {
 			if _, ok := in.Default.(json.Number); !ok {
 				t.Errorf("kind=%s pin=%s Type=%s Default 类型 %T, 应是 json.Number (精度安全)",
 					spec.Kind, in.Name, in.Type, in.Default)
+			}
+		}
+	}
+}
+
+func TestSpecConsistency_StringDefaultsAreStringWhenSet(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		if _, skip := kindMigrationPending[spec.Kind]; skip {
+			continue
+		}
+		for _, in := range spec.Inputs {
+			if in.Type != "String" {
+				continue
+			}
+			if in.Default == nil {
+				continue
+			}
+			if _, ok := in.Default.(string); !ok {
+				t.Errorf("kind=%s pin=%s Type=String Default 类型 %T, 应是 string", spec.Kind, in.Name, in.Default)
 			}
 		}
 	}
