@@ -13,10 +13,11 @@ func TestShouldMirrorToRootLog(t *testing.T) {
 		{"container:node-error", true},
 		{"container:log", true},
 		{"container:node-enter", false},
-		{"container:node-dump", false},        // 每节点执行一发 → 不能镜像 (用户撞到的刷屏)
-		{"container:node-dump-batch", false},  // merger 已把它发前端; 文件另有 AppendDumpLine
-		{"container:node-dump-flush", false},  // run 停止内部信号
-		{"log:lines", false},                  // 非 container: 前缀
+		{"container:node-dump", false},       // 每节点执行一发 → 不能镜像 (用户撞到的刷屏)
+		{"container:node-dump-batch", false}, // merger 已把它发前端; 文件另有 AppendDumpLine
+		{"container:node-dump-flush", false}, // run 停止内部信号
+		{"container:action-trace", false},    // 专用脱敏文件行; generic mirror 会泄漏 raw payload
+		{"log:lines", false},                 // 非 container: 前缀
 		{"hotkey:changed", false},
 		{"", false},
 	}

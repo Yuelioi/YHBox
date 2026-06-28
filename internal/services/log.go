@@ -28,9 +28,9 @@ type LogSink struct {
 	timer   *time.Timer
 	seq     atomic.Uint64
 	emit    func(LogLinesEvent) // flush 时调；外部装配（app.Emit）
-	file    *os.File           // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
-	fileDay string             // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
-	fileDir string             // logs 目录路径
+	file    *os.File            // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
+	fileDay string              // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
+	fileDir string              // logs 目录路径
 }
 
 // NewLogSink 创建一个 sink。emit 可为 nil（测试用），nil 时仅维护 ring。
@@ -202,6 +202,96 @@ func (s *LogSink) AppendDumpLine(line string) {
 	b, _ := json.Marshal(obj)
 	_, _ = s.file.Write(b)
 	_, _ = s.file.WriteString("\n")
+}
+
+// AppendActionTrace writes a redacted action trace JSON line to the file log only.
+// Raw request/result payloads and OS handles are intentionally not persisted.
+func (s *LogSink) AppendActionTrace(data any) {
+	line := sanitizeActionTrace(data)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.fileDir == "" {
+		return
+	}
+	s.openTodayFileLocked()
+	if s.file == nil {
+		return
+	}
+	b, _ := json.Marshal(line)
+	_, _ = s.file.Write(b)
+	_, _ = s.file.WriteString("\n")
+}
+
+func sanitizeActionTrace(data any) map[string]any {
+	raw := map[string]any{}
+	if b, err := json.Marshal(data); err == nil {
+		_ = json.Unmarshal(b, &raw)
+	}
+	out := map[string]any{
+		"level": "info",
+		"event": "action-trace",
+		"time":  time.Now().Format(time.RFC3339Nano),
+	}
+	copyStringField(out, raw, "containerId")
+	copyStringField(out, raw, "action")
+	copyStringField(out, raw, "backend")
+	copyStringField(out, raw, "status")
+	copyStringField(out, raw, "error")
+	copyStringField(out, raw, "startedAt")
+	copyStringField(out, raw, "endedAt")
+	copyAnyField(out, raw, "durationMs")
+	out["source"] = sanitizeActionTraceSource(raw["source"])
+	out["target"] = sanitizeActionTraceTarget(raw["target"])
+	out["coordinateStepCount"] = lenAnySlice(raw["coordinateSteps"])
+	return out
+}
+
+func sanitizeActionTraceSource(raw any) map[string]string {
+	m, _ := raw.(map[string]any)
+	return map[string]string{
+		"containerId": firstString(m, "containerId", "ContainerID"),
+		"nodeId":      firstString(m, "nodeId", "NodeID"),
+		"nodeKind":    firstString(m, "nodeKind", "NodeKind"),
+		"inPin":       firstString(m, "inPin", "InPin"),
+	}
+}
+
+func sanitizeActionTraceTarget(raw any) map[string]string {
+	m, _ := raw.(map[string]any)
+	return map[string]string{
+		"id":   firstString(m, "id", "ID"),
+		"kind": firstString(m, "kind", "Kind"),
+	}
+}
+
+func copyStringField(out, raw map[string]any, key string) {
+	if v, ok := raw[key].(string); ok && v != "" {
+		out[key] = v
+	}
+}
+
+func copyAnyField(out, raw map[string]any, key string) {
+	if v, ok := raw[key]; ok {
+		out[key] = v
+	}
+}
+
+func firstString(m map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if v, ok := m[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func lenAnySlice(v any) int {
+	switch xs := v.(type) {
+	case []any:
+		return len(xs)
+	default:
+		return 0
+	}
 }
 
 // Close 关闭日志文件 (shutdown 时调).

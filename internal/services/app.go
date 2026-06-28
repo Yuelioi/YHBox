@@ -27,9 +27,9 @@ type App struct {
 	// container:node-enter-batch (payload = []{nodeId, nodeKind} 顺序). 前端取 last 1 个
 	// 作为 currentNode 覆盖, batch 内不丢任何 event (落 zerolog file 仍按个写不变, 这条是
 	// 给 GUI 高亮的, 不影响 post-mortem). IPC 频率 数百/sec → 5/sec.
-	nodeEnterMu      sync.Mutex
-	nodeEnterBuf     []nodeEnterEntry
-	nodeEnterTimer   *time.Timer
+	nodeEnterMu    sync.Mutex
+	nodeEnterBuf   []nodeEnterEntry
+	nodeEnterTimer *time.Timer
 }
 
 type nodeEnterEntry struct {
@@ -100,11 +100,15 @@ func (a *App) Emit(name string, data any) {
 			a.logMerger.FlushContainer(str(m["containerId"]))
 		}
 		return
+	case "container:action-trace":
+		if a.logSink != nil {
+			a.logSink.AppendActionTrace(data)
+		}
 	}
 	a.wailsApp.Event.Emit(name, data)
 }
 
-func str(v any) string { s, _ := v.(string); return s }
+func str(v any) string  { s, _ := v.(string); return s }
 func boolOf(v any) bool { b, _ := v.(bool); return b }
 
 // shouldMirrorToRootLog 决定一个事件名是否镜像到 rootLog (→ file + log:lines SYS 行) 做 post-mortem.
@@ -116,7 +120,7 @@ func shouldMirrorToRootLog(name string) bool {
 		return false
 	}
 	switch name {
-	case "container:node-enter", "container:node-dump", "container:node-dump-batch", "container:node-dump-flush":
+	case "container:node-enter", "container:node-dump", "container:node-dump-batch", "container:node-dump-flush", "container:action-trace":
 		return false
 	}
 	return true
@@ -220,4 +224,3 @@ func (a *App) Shutdown() {
 		a.logSink.Flush()
 	}
 }
-

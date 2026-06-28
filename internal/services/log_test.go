@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,58 @@ func TestLogSink_AppendDumpLine_FileOnly(t *testing.T) {
 	}
 	if emitted != 0 {
 		t.Fatalf("AppendDumpLine must not emit log:lines, emitted=%d", emitted)
+	}
+	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
+}
+
+func TestLogSink_AppendActionTrace_FileOnlyRedacted(t *testing.T) {
+	dir := t.TempDir()
+	emitted := 0
+	s := NewLogSink(func(LogLinesEvent) { emitted++ })
+	s.SetFileWriter(dir)
+	s.AppendActionTrace(map[string]any{
+		"containerId": "container-1",
+		"action":      "click",
+		"source": map[string]any{
+			"NodeID":   "click-1",
+			"NodeKind": "ClickAt",
+			"InPin":    "In",
+		},
+		"target": map[string]any{
+			"ID":   "win32:100",
+			"Kind": "win32-window",
+			"Ref":  map[string]any{"HWND": 100},
+		},
+		"backend":         "win32",
+		"status":          "success",
+		"request":         map[string]any{"secret": "raw request"},
+		"result":          map[string]any{"secret": "raw result"},
+		"coordinateSteps": []any{map[string]any{"Input": "raw coords"}},
+		"durationMs":      12,
+	})
+
+	files, _ := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
+	if len(files) != 1 {
+		t.Fatalf("expected 1 log file, got %d", len(files))
+	}
+	data, _ := os.ReadFile(files[0])
+	raw := string(data)
+	if strings.Contains(raw, "raw request") || strings.Contains(raw, "raw result") || strings.Contains(raw, "HWND") {
+		t.Fatalf("action trace log leaked raw payload: %s", raw)
+	}
+	var line map[string]any
+	if err := json.Unmarshal(data[:len(data)-1], &line); err != nil {
+		t.Fatalf("invalid action trace JSON line: %v\n%s", err, data)
+	}
+	if line["event"] != "action-trace" || line["action"] != "click" || line["coordinateStepCount"] != float64(1) {
+		t.Fatalf("unexpected action trace line: %#v", line)
+	}
+	target, _ := line["target"].(map[string]any)
+	if target["id"] != "win32:100" || target["kind"] != "win32-window" {
+		t.Fatalf("target not sanitized as expected: %#v", target)
+	}
+	if emitted != 0 {
+		t.Fatalf("AppendActionTrace must not emit log:lines, emitted=%d", emitted)
 	}
 	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
 }
