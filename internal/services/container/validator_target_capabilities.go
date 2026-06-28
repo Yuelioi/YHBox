@@ -11,15 +11,16 @@ import (
 
 func validateTargetCapabilities(c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
-	errs = append(errs, validateGraphTargetCapabilities(c.Graph, []string{"main"})...)
+	errs = append(errs, validateGraphTargetCapabilities(c.Graph, []string{"main"}, "")...)
 	for i := range sgs {
 		sg := &sgs[i]
-		errs = append(errs, validateGraphTargetCapabilities(sg.Graph, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)})...)
+		errs = append(errs, validateGraphTargetCapabilities(sg.Graph, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}, "")...)
 	}
+	errs = append(errs, validateSubgraphCallTargetCapabilities(c.Graph, []string{"main"}, "", subgraphsByID(sgs), map[string]bool{})...)
 	return errs
 }
 
-func validateGraphTargetCapabilities(g Graph, graphPath []string) []ValidationError {
+func validateGraphTargetCapabilities(g Graph, graphPath []string, inheritedTargetKind string) []ValidationError {
 	var errs []ValidationError
 	nodeByID := graphNodeByID(g)
 	for i := range g.Nodes {
@@ -36,6 +37,10 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string) []ValidationEr
 			continue
 		}
 		targetKind, ok := nearestUpstreamTargetKind(g, nodeByID, n.ID)
+		if !ok {
+			targetKind = inheritedTargetKind
+			ok = targetKind != ""
+		}
 		if !ok {
 			continue
 		}
@@ -61,6 +66,47 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string) []ValidationEr
 		}
 	}
 	return errs
+}
+
+func validateSubgraphCallTargetCapabilities(g Graph, graphPath []string, inheritedTargetKind string, sgs map[string]*Subgraph, seen map[string]bool) []ValidationError {
+	var errs []ValidationError
+	nodeByID := graphNodeByID(g)
+	for i := range g.Nodes {
+		n := &g.Nodes[i]
+		if n.Kind != "Subgraph" {
+			continue
+		}
+		targetKind, ok := nearestUpstreamTargetKind(g, nodeByID, n.ID)
+		if !ok {
+			targetKind = inheritedTargetKind
+			ok = targetKind != ""
+		}
+		if !ok {
+			continue
+		}
+		sgID := PinString(n, "SubgraphID")
+		sg := sgs[sgID]
+		if sg == nil {
+			continue
+		}
+		key := sg.ID + "|" + targetKind
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		sgPath := append(append([]string(nil), graphPath...), fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID))
+		errs = append(errs, validateGraphTargetCapabilities(sg.Graph, sgPath, targetKind)...)
+		errs = append(errs, validateSubgraphCallTargetCapabilities(sg.Graph, sgPath, targetKind, sgs, seen)...)
+	}
+	return errs
+}
+
+func subgraphsByID(sgs []Subgraph) map[string]*Subgraph {
+	out := make(map[string]*Subgraph, len(sgs))
+	for i := range sgs {
+		out[sgs[i].ID] = &sgs[i]
+	}
+	return out
 }
 
 func targetCapabilitiesForNode(n *GraphNode, base []nodepkg.TargetCapability) []nodepkg.TargetCapability {

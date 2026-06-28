@@ -184,3 +184,67 @@ func TestValidate_AndroidTargetWithClickTemplateMiddleButton_ReportsUnsupportedT
 		t.Fatalf("AndroidTarget + ClickTemplate.Button=middle 应报 mouse-button 不支持: %+v", errs)
 	}
 }
+
+func TestValidate_SubgraphInheritsAndroidTargetCapabilities(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{
+			"literal": map[string]any{"SubgraphID": "sg-move"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "call.In"},
+	)
+	sgs := []Subgraph{{
+		ID:    "sg-move",
+		Label: "move",
+		Graph: Graph{
+			Nodes: []GraphNode{{ID: "move", Kind: "MouseMoveRel"}},
+		},
+		OutputPins: []SubgraphOutputDecl{{ID: "done", Name: "Done"}},
+	}}
+
+	errs := ValidateContainer(c, sgs)
+	if !hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("AndroidTarget -> Subgraph(MouseMoveRel) 应继承 Android target 并报 move-relative 不支持: %+v", errs)
+	}
+}
+
+func TestValidate_SubgraphLocalWin32TargetOverridesInheritedAndroidTarget(t *testing.T) {
+	c := minContainer()
+	c.Graph.Nodes = append(c.Graph.Nodes,
+		GraphNode{ID: "at", Kind: "AndroidTarget", Config: map[string]any{
+			"literal": map[string]any{"Serial": "emulator-5554", "Width": 1080, "Height": 1920},
+		}},
+		GraphNode{ID: "call", Kind: "Subgraph", Config: map[string]any{
+			"literal": map[string]any{"SubgraphID": "sg-win32-move"},
+		}},
+	)
+	c.Graph.Edges = append(c.Graph.Edges,
+		GraphEdge{From: "start.Done", To: "at.In"},
+		GraphEdge{From: "at.Done", To: "call.In"},
+	)
+	sgs := []Subgraph{{
+		ID:    "sg-win32-move",
+		Label: "win32 move",
+		Graph: Graph{
+			Nodes: []GraphNode{
+				{ID: "wt", Kind: "Win32WindowTarget", Config: map[string]any{
+					"literal": map[string]any{"Title": "After Effects", "TitleMatch": "contains"},
+				}},
+				{ID: "move", Kind: "MouseMoveRel"},
+			},
+			Edges: []GraphEdge{{From: "wt.Done", To: "move.In"}},
+		},
+		OutputPins: []SubgraphOutputDecl{{ID: "done", Name: "Done"}},
+	}}
+
+	errs := ValidateContainer(c, sgs)
+	if hasCode(errs, CodeUnsupportedTargetCapability) {
+		t.Fatalf("子图本地 Win32WindowTarget 应覆盖父图 Android target: %+v", errs)
+	}
+}
