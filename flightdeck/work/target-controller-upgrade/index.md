@@ -2,11 +2,11 @@
 
 ## State
 
-破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
+破坏性大升级 topic。调研、总体设计、Phase 1 抽象层、Phase 2 controller-call trace foundation、Phase 3 runtime trace ownership、Phase 4 keyboard controller routing、Phase 5 click controller routing、Phase 6 move controller routing、Phase 7 scroll controller routing、Phase 8 trace source metadata、Phase 9 text controller routing、Phase 10 mouse hold/drag controller routing、Phase 11 relative move controller routing、Phase 12 capture controller routing、Phase 13 action trace events、Phase 14 frontend trace log consumer、Phase 15 action log polish、Phase 16 action trace drawer、Phase 17 redacted trace persistence、Phase 18 backend capability profiles、Phase 19 Android ADB controller、Phase 20 Browser CDP controller、Phase 21 runtime active target、Phase 22 runtime controller factory、Phase 23 default controller factory wiring、Phase 24 AndroidTarget node/TargetService、Phase 25 target-aware vision frame source、Phase 26 Android ADB discovery source、Phase 27 frontend async-dropdown、Phase 28 Browser CDP discovery/client lifecycle、Phase 29 async option metadata apply 已完成并提交。核心决策：Go 保持主运行时，Rust 只作为 Win32/native controller hot path；先引入 `Target / Controller / CoordinateSpace / Trace`，再迁移节点、Android、浏览器和输入后端矩阵。
 
 ## Next
 
-Plan next slice: improve target metadata UX and stale-client robustness, or move to broader node migration/quality hardening depending on release priority.
+Plan next slice: improve stale CDP client robustness, then move back to broader node migration/quality hardening depending on release priority.
 
 ## Read now
 
@@ -39,6 +39,7 @@ Plan next slice: improve target metadata UX and stale-client robustness, or move
 - plans/phase26-android-adb-discovery.md
 - plans/phase27-frontend-async-dropdown.md
 - plans/phase28-browser-cdp-discovery-lifecycle.md
+- plans/phase29-async-option-metadata.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -65,6 +66,7 @@ Plan next slice: improve target metadata UX and stale-client robustness, or move
 - ../../knowledge/architecture/target-controller-phase26-notes.md
 - ../../knowledge/architecture/target-controller-phase27-notes.md
 - ../../knowledge/architecture/target-controller-phase28-notes.md
+- ../../knowledge/architecture/target-controller-phase29-notes.md
 
 ## Read if
 
@@ -109,9 +111,10 @@ Done:
 - Phase 26 代码：新增 Android ADB discovery service，注册 `androidADBDevices` NodeService async source，并将 `AndroidTarget.Serial` 指向该 async source。
 - Phase 27 代码：前端通用 `async-dropdown` 已渲染并调用 `NodeService.AsyncOptions`，Inspector 传入节点上下文，保留手动 serial 输入兜底；`AndroidTarget.Serial` 可消费 `androidADBDevices`。
 - Phase 28 代码：新增 `BrowserTarget` 节点、`browserCDPTargets` async source、CDP websocket client/provider，并将 GUI runtime default factory 接到 live Browser CDP client。
+- Phase 29 代码：`EnumOption.Meta` + `AsyncDropdownProps.ApplyMeta` 打通 async option metadata 回填 sibling inputs；AndroidTarget 可自动回填 Name/Width/Height，BrowserTarget 可回填 Name/WebSocketURL。
 
 Current:
-- 下一刀：target metadata UX / stale CDP client robustness，或回到更大范围节点迁移与质量硬化。
+- 下一刀：stale CDP client robustness，然后回到更大范围节点迁移与质量硬化。
 
 ## Open questions
 
@@ -119,4 +122,4 @@ Current:
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
 - Capture node 已经进入 controller trace；Vision adapter 已 target-aware，但非 Win32 目标尚未做 frame cache。
 - `container:action-trace` 已可订阅、前端查看、脱敏写文件；尚未实现历史文件浏览 UI、批处理策略、raw payload opt-in。
-- Backend profiles、Android ADB controller、Browser CDP controller、runtime active target、runtime controller factory、default factory wiring、AndroidTarget/BrowserTarget 显式目标选择、target-aware vision frame source、Android ADB discovery async source、Browser CDP discovery/client provider、frontend async-dropdown 已落代码；尚未做 richer async option metadata、自动启动浏览器、stale CDP client 重连策略。
+- Backend profiles、Android ADB controller、Browser CDP controller、runtime active target、runtime controller factory、default factory wiring、AndroidTarget/BrowserTarget 显式目标选择、target-aware vision frame source、Android ADB discovery async source、Browser CDP discovery/client provider、frontend async-dropdown、async option metadata apply 已落代码；尚未做自动启动浏览器、stale CDP client 重连策略。
