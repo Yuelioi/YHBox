@@ -2,9 +2,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"yotta/internal/automation/target"
+	automationtrace "yotta/internal/automation/trace"
 )
 
 func TestWin32ControllerTargetAndCapabilities(t *testing.T) {
@@ -49,6 +51,7 @@ type fakeWin32Input struct {
 	keyDown   []string
 	keyUp     []string
 	text      string
+	err       error
 }
 
 func (f *fakeWin32Input) Click(hwnd uintptr, xRatio, yRatio float64, button string, durMs int) error {
@@ -60,7 +63,7 @@ func (f *fakeWin32Input) Click(hwnd uintptr, xRatio, yRatio float64, button stri
 
 func (f *fakeWin32Input) KeyDown(hwnd uintptr, key string) error {
 	f.keyDown = append(f.keyDown, key)
-	return nil
+	return f.err
 }
 
 func (f *fakeWin32Input) KeyUp(hwnd uintptr, key string) error {
@@ -120,5 +123,62 @@ func TestWin32ControllerKeyChordDelegatesDownReverseUp(t *testing.T) {
 	}
 	if got := in.keyUp; len(got) != 2 || got[0] != "n" || got[1] != "ctrl" {
 		t.Fatalf("keyUp = %#v", got)
+	}
+}
+
+func TestWin32ControllerClickRecordsTrace(t *testing.T) {
+	in := &fakeWin32Input{}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.Click(context.Background(), ClickRequest{Point: target.NewNormalizedPoint(0.1, 0.2)}); err != nil {
+		t.Fatalf("Click() error = %v", err)
+	}
+
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1", len(records))
+	}
+	got := records[0]
+	if got.Action != "click" || got.Target.ID != "win32:42" || got.Backend != "win32" {
+		t.Fatalf("unexpected trace record: %#v", got)
+	}
+	if got.Status != automationtrace.StatusSuccess || got.Error != "" {
+		t.Fatalf("trace status/error = %q/%q", got.Status, got.Error)
+	}
+}
+
+func TestWin32ControllerKeyChordRecordsErrorTrace(t *testing.T) {
+	wantErr := errors.New("keyboard denied")
+	in := &fakeWin32Input{err: wantErr}
+	rec := automationtrace.NewMemoryRecorder()
+	ctrl, err := NewWin32Controller(target.Target{
+		ID:   "win32:42",
+		Kind: target.KindWin32Window,
+		Ref:  target.TargetRef{HWND: 42},
+	}, Win32Deps{Input: in, Trace: rec, Backend: "sendinput"})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if err := ctrl.KeyChord(context.Background(), KeyChordRequest{Keys: []string{"ctrl", "n"}}); !errors.Is(err, wantErr) {
+		t.Fatalf("KeyChord() error = %v, want %v", err, wantErr)
+	}
+
+	records := rec.Records()
+	if len(records) != 1 {
+		t.Fatalf("trace records len = %d, want 1", len(records))
+	}
+	got := records[0]
+	if got.Action != "key-chord" || got.Backend != "sendinput" {
+		t.Fatalf("unexpected trace record: %#v", got)
+	}
+	if got.Status != automationtrace.StatusError || got.Error != wantErr.Error() {
+		t.Fatalf("trace status/error = %q/%q", got.Status, got.Error)
 	}
 }
