@@ -497,6 +497,7 @@ func (r *recordingRuntimeInput) Close() error      { return nil }
 
 type fakeRuntimeControllerFactory struct {
 	ctrl   controller.Controller
+	err    error
 	target target.Target
 	trace  automationtrace.Recorder
 }
@@ -504,6 +505,9 @@ type fakeRuntimeControllerFactory struct {
 func (f *fakeRuntimeControllerFactory) NewController(tg target.Target, trace automationtrace.Recorder) (controller.Controller, error) {
 	f.target = tg
 	f.trace = trace
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.ctrl, nil
 }
 
@@ -650,6 +654,32 @@ func TestInputAdapter_ClickRoutesThroughInjectedControllerFactory(t *testing.T) 
 	}
 }
 
+func TestInputAdapter_PropagatesControllerFactoryError(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	input := &recordingRuntimeInput{}
+	rt.Input = input
+	tg := target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	}
+	rt.SetActiveTarget(tg)
+	factory := &fakeRuntimeControllerFactory{err: errors.New("factory failed")}
+	rt.ControllerFactory = factory
+
+	err := NewInputAdapter(rt).Click(0.25, 0.75, "left", 0)
+	if err == nil || err.Error() != "factory failed" {
+		t.Fatalf("Click error = %v, want factory failed", err)
+	}
+	if factory.target.ID != tg.ID {
+		t.Fatalf("factory target = %#v, want %#v", factory.target, tg)
+	}
+	if len(input.clickHWND) != 0 {
+		t.Fatalf("Click used previous HWND backend: %#v", input.clickHWND)
+	}
+}
+
 func TestInputAdapter_RejectsUnsupportedAndroidCapabilitiesBeforeCallingController(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveTarget(target.Target{
@@ -760,6 +790,29 @@ func TestVisionAdapter_ActiveTargetDoesNotFallbackToPreviousWindowCapture(t *tes
 	_, _, _, err := NewVisionAdapter(rt).DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
 	if err == nil || !strings.Contains(err.Error(), "no controller factory for active target kind android-adb") {
 		t.Fatalf("DetectColor error = %v", err)
+	}
+}
+
+func TestVisionAdapter_PropagatesControllerFactoryError(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
+	rt.Capture = &mockCaptureBackend{FrameROIResult: image.NewRGBA(image.Rect(0, 0, 2, 1))}
+	tg := target.Target{
+		ID:         "android:emulator-5554",
+		Kind:       target.KindAndroidADB,
+		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
+		Resolution: target.Size{W: 1080, H: 1920},
+	}
+	rt.SetActiveTarget(tg)
+	factory := &fakeRuntimeControllerFactory{err: errors.New("factory failed")}
+	rt.ControllerFactory = factory
+
+	_, _, _, err := NewVisionAdapter(rt).DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
+	if err == nil || err.Error() != "factory failed" {
+		t.Fatalf("DetectColor error = %v, want factory failed", err)
+	}
+	if factory.target.ID != tg.ID {
+		t.Fatalf("factory target = %#v, want %#v", factory.target, tg)
 	}
 }
 
