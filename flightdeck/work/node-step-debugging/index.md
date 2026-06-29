@@ -2,11 +2,11 @@
 
 ## State
 
-Implemented. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, and node highlights.
+Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, and editor state resync.
 
 ## Next
 
-Use the editor to smoke-test real workflows:
+Human review smoke-test:
 - Toolbar Debug starts from the graph entry.
 - Right-click a node and choose Debug from here.
 - Use Step / Continue / Pause / Stop and verify node highlights match execution.
@@ -43,6 +43,7 @@ Done:
 - Added compact debug panel previews for last output data and variable snapshots.
 - Added compact debug panel preview for queued debug tokens.
 - Added debug manager test for stopping a long-running step and restarting without a leaked session.
+- Added editor mount/activation debug state resync through `DebugState`.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
@@ -58,3 +59,4 @@ Verified:
 - `pnpm exec node src/i18n/check.cjs`
 - `wails3 generate bindings ./...`
 - `pnpm exec vite build --mode production`
+- `wails3 build`

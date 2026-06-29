@@ -621,6 +621,13 @@ async function onDebugStop() {
   applyDebugCommandState(state)
 }
 
+async function resyncDebugState() {
+  const sid = execStore.debugSessionID
+  if (!sid) return
+  const state = await backend.containers.debugState(sid)
+  applyDebugCommandState(state)
+}
+
 // 工具栏「重载」: 从磁盘重读当前容器 (MCP / 外部改盘后同步)。
 // 脏 (有未保存改动) → 先确认; 干净 → 直接重载。重载强制回主图根 (见 useContainerDraft.reload)。
 async function onReload() {
@@ -1355,6 +1362,7 @@ watch(() => editorBus.pendingExprFusion, (req) => {
 // 故 mount + 每次激活都重指, 跟 editorStore.markActive 同构(见 incident keepalive-singleton-subgraph-store-stale)。
 onMounted(() => {
   tplStore.setContainer(containerID)
+  void resyncDebugState()
   // clip:changed 全局订阅 (listen 幂等) + 首刷. clips 是全局资产、单例 store — 订阅一次即可,
   // 不在 onUnmounted 退订: keep-alive 缓存多个编辑器时, 某个 unmount 退订会害到其他缓存编辑器的刷新。
   clipsStore.listen()
@@ -1362,6 +1370,7 @@ onMounted(() => {
 })
 onActivated(() => {
   tplStore.setContainer(containerID)
+  void resyncDebugState()
 })
 
 function onDeleteSelected() {
