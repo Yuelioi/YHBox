@@ -1290,6 +1290,24 @@ export default {
       },
       output: { Done: { label: 'Done' } },
     },
+    AndroidStartApp: {
+      label: 'Android Start App',
+      description: 'Start an app on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
+      example: 'Select the MuMu emulator with Android Target, then choose com.RoamingStar.BlueArchive in Android Start App to launch the game.',
+      input: {
+        Package: { label: 'App', hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
+    AndroidStopApp: {
+      label: 'Android Stop App',
+      description: 'Stop an app process on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
+      example: 'At the end of a flow, choose com.RoamingStar.BlueArchive and stop the game process through ADB.',
+      input: {
+        Package: { label: 'App', hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive' },
+      },
+      output: { Done: { label: 'Done' } },
+    },
     // purefunc
     Expr: {
       label: 'Expression',

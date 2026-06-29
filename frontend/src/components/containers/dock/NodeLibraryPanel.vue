@@ -8,8 +8,7 @@
       <span class="text-sm font-medium">{{ t('nodeExplorer.title') }}</span>
     </div>
 
-    <div class="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
-      <!-- Search -->
+    <div data-testid="node-library-search" class="shrink-0 border-b border-default bg-default px-3 py-3">
       <UInput
         ref="searchInputRef"
         v-model="query"
@@ -18,7 +17,9 @@
         size="sm"
         class="w-full"
       />
+    </div>
 
+    <div data-testid="node-library-scroll" class="flex-1 min-h-0 overflow-y-auto px-3 py-3">
       <!-- Tree body: per-group collapsible sections -->
       <div>
         <div v-if="filteredGroups.length === 0" class="text-center text-xs text-dimmed py-8 italic">

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"yotta/internal/adbexec"
@@ -44,6 +45,12 @@ type Device struct {
 	Resolution target.Size
 }
 
+type App struct {
+	Package    string
+	Label      string
+	Foreground bool
+}
+
 type Service struct {
 	Runner Runner
 }
@@ -72,6 +79,71 @@ func (s *Service) ListDevices(ctx context.Context) ([]Device, error) {
 		devices[i].Resolution = s.currentResolution(ctx, devices[i].Serial)
 	}
 	return devices, nil
+}
+
+func (s *Service) ListApps(ctx context.Context, serial string) ([]App, error) {
+	serial = strings.TrimSpace(serial)
+	if serial == "" {
+		devices, err := s.ListDevices(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range devices {
+			if d.State == "device" {
+				serial = d.Serial
+				break
+			}
+		}
+	}
+	if serial == "" {
+		return nil, nil
+	}
+	currentOut, _ := s.runner().Run(ctx, serial, "shell", "dumpsys", "window")
+	foregroundPackage := ParseCurrentFocusPackage(string(currentOut))
+
+	thirdPartyOut, err := s.runner().Run(ctx, serial, "shell", "pm", "list", "packages", "-3")
+	if err != nil {
+		return nil, err
+	}
+	thirdParty := ParsePackageListOutput(string(thirdPartyOut))
+
+	launcherOut, err := s.runner().Run(ctx, serial, "shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+	apps := ParseLauncherAppsOutput(string(launcherOut))
+	if err != nil || len(apps) == 0 {
+		apps = appsFromPackages(thirdParty)
+	}
+	filtered := make([]App, 0, len(apps))
+	for _, app := range apps {
+		if _, ok := thirdParty[app.Package]; !ok && app.Package != foregroundPackage {
+			continue
+		}
+		if app.Package == foregroundPackage {
+			app.Foreground = true
+		}
+		if app.Label == "" {
+			app.Label = app.Package
+		}
+		filtered = append(filtered, app)
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		if filtered[i].Foreground != filtered[j].Foreground {
+			return filtered[i].Foreground
+		}
+		if filtered[i].Label != filtered[j].Label {
+			return filtered[i].Label < filtered[j].Label
+		}
+		return filtered[i].Package < filtered[j].Package
+	})
+	return filtered, nil
+}
+
+func appsFromPackages(packages map[string]struct{}) []App {
+	apps := make([]App, 0, len(packages))
+	for pkg := range packages {
+		apps = append(apps, App{Package: pkg, Label: pkg})
+	}
+	sort.Slice(apps, func(i, j int) bool { return apps[i].Package < apps[j].Package })
+	return apps
 }
 
 func (s *Service) currentResolution(ctx context.Context, serial string) target.Size {
@@ -160,6 +232,7 @@ func ParseDevicesOutput(out string) []Device {
 
 var wmSizePattern = regexp.MustCompile(`(\d+)x(\d+)`)
 var surfaceOrientationPattern = regexp.MustCompile(`SurfaceOrientation:\s*(\d+)`)
+var currentFocusPackagePattern = regexp.MustCompile(`\s([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)/`)
 
 func ParseWMSizeOutput(out string) (target.Size, bool) {
 	var physical target.Size
@@ -207,4 +280,69 @@ func ParseSurfaceOrientation(out string) (int, bool) {
 		return 0, false
 	}
 	return orientation, true
+}
+
+func ParseCurrentFocusPackage(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.Contains(line, "mCurrentFocus") && !strings.Contains(line, "mFocusedApp") {
+			continue
+		}
+		if m := currentFocusPackagePattern.FindStringSubmatch(line); len(m) == 2 {
+			return m[1]
+		}
+	}
+	return ""
+}
+
+func ParsePackageListOutput(out string) map[string]struct{} {
+	packages := map[string]struct{}{}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		pkg, ok := strings.CutPrefix(line, "package:")
+		if !ok {
+			continue
+		}
+		pkg = strings.TrimSpace(pkg)
+		if pkg != "" {
+			packages[pkg] = struct{}{}
+		}
+	}
+	return packages
+}
+
+func ParseLauncherAppsOutput(out string) []App {
+	byPackage := map[string]App{}
+	currentPackage := ""
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Activity #") {
+			currentPackage = ""
+			continue
+		}
+		if pkg, ok := strings.CutPrefix(line, "packageName="); ok {
+			currentPackage = strings.TrimSpace(pkg)
+			if currentPackage != "" {
+				app := byPackage[currentPackage]
+				app.Package = currentPackage
+				byPackage[currentPackage] = app
+			}
+			continue
+		}
+		if label, ok := strings.CutPrefix(line, "nonLocalizedLabel="); ok && currentPackage != "" {
+			label = strings.TrimSpace(label)
+			if label == "" || label == "null" {
+				continue
+			}
+			app := byPackage[currentPackage]
+			app.Package = currentPackage
+			app.Label = label
+			byPackage[currentPackage] = app
+		}
+	}
+	apps := make([]App, 0, len(byPackage))
+	for _, app := range byPackage {
+		apps = append(apps, app)
+	}
+	sort.Slice(apps, func(i, j int) bool { return apps[i].Package < apps[j].Package })
+	return apps
 }

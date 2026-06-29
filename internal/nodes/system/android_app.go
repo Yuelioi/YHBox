@@ -16,6 +16,8 @@ const (
 	androidAppInExec    = "In"
 	androidAppInPackage = "Package"
 	androidAppOutDone   = "Done"
+
+	androidADBAppsSource = "androidADBApps"
 )
 
 type AndroidStartApp struct{}
@@ -74,7 +76,8 @@ func androidAppSpec(kind string, capability node.TargetCapability) node.Spec {
 		TargetCapabilities: []node.TargetCapability{capability},
 		Inputs: []node.InputSpec{
 			{Name: androidAppInExec, Type: node.TypeExec},
-			{Name: androidAppInPackage, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: androidAppInPackage, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "async-dropdown",
+				Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: androidADBAppsSource})}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: androidAppOutDone, Type: node.TypeExec},

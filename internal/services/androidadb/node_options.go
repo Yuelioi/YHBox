@@ -9,7 +9,10 @@ import (
 	"yotta/internal/node"
 )
 
-const AsyncSourceDevices = "androidADBDevices"
+const (
+	AsyncSourceDevices = "androidADBDevices"
+	AsyncSourceApps    = "androidADBApps"
+)
 
 func RegisterNodeAsyncSource(nodeSvc *node.NodeService, svc *Service) {
 	nodeSvc.RegisterAsyncSource(AsyncSourceDevices, func(_, _ string, _ map[string]any) ([]node.EnumOption, error) {
@@ -28,6 +31,24 @@ func RegisterNodeAsyncSource(nodeSvc *node.NodeService, svc *Service) {
 				Value: d.Serial,
 				Label: formatDeviceLabel(d),
 				Meta:  deviceMeta(d),
+			})
+		}
+		return opts, nil
+	})
+
+	nodeSvc.RegisterAsyncSource(AsyncSourceApps, func(_, _ string, params map[string]any) ([]node.EnumOption, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		apps, err := svc.ListApps(ctx, stringParam(params, "Serial"))
+		if err != nil {
+			return nil, err
+		}
+		opts := make([]node.EnumOption, 0, len(apps))
+		for _, app := range apps {
+			opts = append(opts, node.EnumOption{
+				Value: app.Package,
+				Label: formatAppLabel(app),
+				Meta:  appMeta(app),
 			})
 		}
 		return opts, nil
@@ -62,4 +83,37 @@ func deviceMeta(d Device) map[string]any {
 		meta["height"] = d.Resolution.H
 	}
 	return meta
+}
+
+func formatAppLabel(app App) string {
+	label := strings.TrimSpace(app.Label)
+	if label == "" {
+		label = app.Package
+	}
+	if label != app.Package {
+		label = fmt.Sprintf("%s (%s)", label, app.Package)
+	}
+	if app.Foreground {
+		return "当前前台: " + label
+	}
+	return label
+}
+
+func appMeta(app App) map[string]any {
+	meta := map[string]any{"package": app.Package}
+	if app.Label != "" {
+		meta["label"] = app.Label
+	}
+	if app.Foreground {
+		meta["foreground"] = true
+	}
+	return meta
+}
+
+func stringParam(params map[string]any, key string) string {
+	if params == nil {
+		return ""
+	}
+	value, _ := params[key].(string)
+	return strings.TrimSpace(value)
 }

@@ -31,6 +31,19 @@ func TestAndroidStartAppSpecRequiresTargetCapability(t *testing.T) {
 	if len(spec.TargetCapabilities) != 1 || spec.TargetCapabilities[0] != node.TargetCapabilityStartApp {
 		t.Fatalf("TargetCapabilities = %#v", spec.TargetCapabilities)
 	}
+	var packageInput node.InputSpec
+	for _, in := range spec.Inputs {
+		if in.Name == androidAppInPackage {
+			packageInput = in
+			break
+		}
+	}
+	if packageInput.Widget.Kind != "async-dropdown" {
+		t.Fatalf("Package widget kind = %q, want async-dropdown", packageInput.Widget.Kind)
+	}
+	if packageInput.Widget.Props["asyncSource"] != androidADBAppsSource {
+		t.Fatalf("Package async source = %q, want %q", packageInput.Widget.Props["asyncSource"], androidADBAppsSource)
+	}
 }
 
 func TestAndroidStartAppRun(t *testing.T) {

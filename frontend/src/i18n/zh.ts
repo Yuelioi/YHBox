@@ -1310,6 +1310,24 @@ export default {
       },
       output: { Done: { label: '完成' } },
     },
+    AndroidStartApp: {
+      label: '安卓启动应用',
+      description: '在当前安卓目标设备上启动一个应用。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
+      example: '先用安卓目标选中 MuMu 模拟器, 再用安卓启动应用选择 com.RoamingStar.BlueArchive 启动游戏。',
+      input: {
+        Package: { label: '应用', hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive' },
+      },
+      output: { Done: { label: '完成' } },
+    },
+    AndroidStopApp: {
+      label: '安卓停止应用',
+      description: '在当前安卓目标设备上停止一个应用进程。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
+      example: '流程结束时选择 com.RoamingStar.BlueArchive, 通过 ADB 停止游戏进程。',
+      input: {
+        Package: { label: '应用', hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive' },
+      },
+      output: { Done: { label: '完成' } },
+    },
     // purefunc
     Expr: {
       label: '表达式',

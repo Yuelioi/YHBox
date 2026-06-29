@@ -184,3 +184,28 @@ func TestServiceListDevicesAutoConnectsCommonEmulatorPortWhenNoOnlineDevice(t *t
 		t.Fatalf("calls = %#v, want prefix %#v", runner.calls, wantPrefix)
 	}
 }
+
+func TestServiceListAppsFallsBackToThirdPartyPackagesWhenLauncherQueryFails(t *testing.T) {
+	runner := &fakeRunner{
+		outs: map[string][]byte{
+			"127.0.0.1:16384|shell dumpsys window":      []byte("mCurrentFocus=Window{f111 u0 com.example.game/.MainActivity}\n"),
+			"127.0.0.1:16384|shell pm list packages -3": []byte("package:com.example.game\npackage:com.example.tool\n"),
+		},
+		errs: map[string]error{
+			"127.0.0.1:16384|shell cmd package query-activities -a android.intent.action.MAIN -c android.intent.category.LAUNCHER": errors.New("query failed"),
+		},
+	}
+	apps, err := NewService(runner).ListApps(context.Background(), "127.0.0.1:16384")
+	if err != nil {
+		t.Fatalf("ListApps error = %v", err)
+	}
+	if len(apps) != 2 {
+		t.Fatalf("apps = %#v, want 2", apps)
+	}
+	if apps[0].Package != "com.example.game" || !apps[0].Foreground {
+		t.Fatalf("first app = %#v, want foreground game", apps[0])
+	}
+	if apps[1].Package != "com.example.tool" {
+		t.Fatalf("second app = %#v", apps[1])
+	}
+}
