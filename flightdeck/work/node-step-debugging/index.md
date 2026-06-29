@@ -2,7 +2,7 @@
 
 ## State
 
-Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, and terminal debug panel cleanup.
+Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, Wails event field normalization, and terminal debug panel cleanup.
 
 ## Next
 
@@ -45,12 +45,15 @@ Done:
 - Added debug manager test for stopping a long-running step and restarting without a leaked session.
 - Added editor mount/activation debug state resync through `DebugState`.
 - Added debug panel close control to stop active sessions or clear retained finished/failed results.
+- Fixed Wails `debug:state` event field normalization so async Step completion restores the toolbar to paused/next-step state.
+- Added regression coverage for stepping from `AndroidTarget` to the following Android app node.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
 - `go test ./internal/services/container/runtime -run TestDebug -count=1`
 - `go test ./internal/services/container -run TestServiceDebug -count=1`
 - `go test . -run TestDebugManager -count=1`
+- `go test . -run TestDebugManagerStepAndroidTargetPausesAtNextNode -count=1`
 - `go test ./...`
 - `pnpm exec vitest run src/stores/execution.debug.test.ts`
 - `pnpm exec vitest run src/composables/editor/debugPanel.spec.ts`

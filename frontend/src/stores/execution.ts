@@ -74,6 +74,32 @@ function eventPayload(e: any): any {
   return e?.data ?? e
 }
 
+function pickField<T = unknown>(source: any, camel: string, go: string): T | undefined {
+  return source?.[camel] ?? source?.[go]
+}
+
+function normalizeDebugQueue(value: unknown): DebugTokenSummary[] {
+  if (!Array.isArray(value)) return []
+  return value.map((token: any) => ({
+    nodeId: String(pickField(token, 'nodeId', 'NodeID') ?? ''),
+    nodeKind: String(pickField(token, 'nodeKind', 'NodeKind') ?? ''),
+    inPin: String(pickField(token, 'inPin', 'InPin') ?? ''),
+    graphPath: pickField<string[]>(token, 'graphPath', 'GraphPath'),
+    loopDepth: Number(pickField(token, 'loopDepth', 'LoopDepth') ?? 0),
+    execDataKeys: pickField<string[]>(token, 'execDataKeys', 'ExecDataKeys'),
+  }))
+}
+
+function normalizeDebugWarnings(value: unknown): DebugWarning[] {
+  if (!Array.isArray(value)) return []
+  return value.map((warning: any) => ({
+    code: String(pickField(warning, 'code', 'Code') ?? ''),
+    message: String(pickField(warning, 'message', 'Message') ?? ''),
+    nodeId: pickField<string>(warning, 'nodeId', 'NodeID'),
+    params: pickField<Record<string, unknown>>(warning, 'params', 'Params'),
+  }))
+}
+
 export const useExecutionStore = defineStore('execution', () => {
   const running = ref(false)
   const runId = ref(0)
@@ -143,28 +169,28 @@ export const useExecutionStore = defineStore('execution', () => {
 
   function applyDebugState(state: DebugSessionState | any) {
     if (!state) return
-    const status = String(state.status ?? '') as DebugStatus
+    const status = String(pickField(state, 'status', 'Status') ?? '') as DebugStatus
     const terminal = ['finished', 'failed', 'stopped'].includes(status)
 
-    debugSessionID.value = String(state.sessionId ?? '')
-    debugContainerID.value = String(state.containerId ?? '')
+    debugSessionID.value = String(pickField(state, 'sessionId', 'SessionID') ?? '')
+    debugContainerID.value = String(pickField(state, 'containerId', 'ContainerID') ?? '')
     debugStatus.value = status
-    debugMode.value = (state.mode ?? '') as 'entry' | 'from_node' | ''
-    debugStartNodeID.value = String(state.startNodeId ?? '')
-    debugQueue.value = Array.isArray(state.queue) ? state.queue : []
-    debugWarnings.value = Array.isArray(state.warnings) ? state.warnings : []
-    debugError.value = state.error ?? null
+    debugMode.value = (pickField(state, 'mode', 'Mode') ?? '') as 'entry' | 'from_node' | ''
+    debugStartNodeID.value = String(pickField(state, 'startNodeId', 'StartNodeID') ?? '')
+    debugQueue.value = normalizeDebugQueue(pickField(state, 'queue', 'Queue'))
+    debugWarnings.value = normalizeDebugWarnings(pickField(state, 'warnings', 'Warnings'))
+    debugError.value = pickField<DebugRunError | null>(state, 'error', 'Error') ?? null
 
-    debugLastNodeID.value = String(state.lastNodeId ?? debugLastNodeID.value ?? '')
-    debugLastNodeKind.value = String(state.lastNodeKind ?? debugLastNodeKind.value ?? '')
-    debugLastExit.value = String(state.lastExit ?? debugLastExit.value ?? '')
-    debugLastOutput.value = copyRecord(state.lastOutput)
-    debugVars.value = copyRecord(state.vars)
+    debugLastNodeID.value = String(pickField(state, 'lastNodeId', 'LastNodeID') ?? debugLastNodeID.value ?? '')
+    debugLastNodeKind.value = String(pickField(state, 'lastNodeKind', 'LastNodeKind') ?? debugLastNodeKind.value ?? '')
+    debugLastExit.value = String(pickField(state, 'lastExit', 'LastExit') ?? debugLastExit.value ?? '')
+    debugLastOutput.value = copyRecord(pickField(state, 'lastOutput', 'LastOutput'))
+    debugVars.value = copyRecord(pickField(state, 'vars', 'Vars'))
 
-    const currentID = String(state.currentNodeId ?? '')
-    const currentKind = String(state.currentNodeKind ?? '')
-    const runningID = String(state.runningNodeId ?? '')
-    const runningKind = String(state.runningNodeKind ?? '')
+    const currentID = String(pickField(state, 'currentNodeId', 'CurrentNodeID') ?? '')
+    const currentKind = String(pickField(state, 'currentNodeKind', 'CurrentNodeKind') ?? '')
+    const runningID = String(pickField(state, 'runningNodeId', 'RunningNodeID') ?? '')
+    const runningKind = String(pickField(state, 'runningNodeKind', 'RunningNodeKind') ?? '')
 
     if (status === 'failed') {
       debugFailedNodeID.value = currentID || runningID || debugLastNodeID.value

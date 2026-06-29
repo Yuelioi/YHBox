@@ -103,6 +103,65 @@ func TestDebugManagerStepEmitsPausedState(t *testing.T) {
 	t.Fatalf("timed out waiting for paused debug state; emitted=%+v", states)
 }
 
+func TestDebugManagerStepAndroidTargetPausesAtNextNode(t *testing.T) {
+	c := &container.Container{
+		ID:   "c1",
+		Name: "c1",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "android-target", Kind: "AndroidTarget", Config: map[string]any{
+					"literal": map[string]any{
+						"Serial": "127.0.0.1:16384",
+						"Name":   "SDY AN00",
+						"Width":  1280.0,
+						"Height": 720.0,
+					},
+				}},
+				{ID: "start-app", Kind: "AndroidStartApp", Config: map[string]any{
+					"literal": map[string]any{"Package": "com.example.app"},
+				}},
+			},
+			Edges: []container.GraphEdge{
+				{From: "start.Done", To: "android-target.In"},
+				{From: "android-target.Done", To: "start-app.In"},
+			},
+		},
+	}
+	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })
+
+	state, err := mgr.DebugStart("c1", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatalf("DebugStart: %v", err)
+	}
+	if state.Status != container.DebugStatusPaused || state.CurrentNodeID != "android-target" {
+		t.Fatalf("start state = %+v, want paused at android target", state)
+	}
+	step, err := mgr.DebugStep(state.SessionID)
+	if err != nil {
+		t.Fatalf("DebugStep: %v", err)
+	}
+	if step.Status != container.DebugStatusStepping {
+		t.Fatalf("step state = %+v, want stepping", step)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		got, err := mgr.DebugState(state.SessionID)
+		if err != nil {
+			t.Fatalf("DebugState: %v", err)
+		}
+		if got.Status == container.DebugStatusPaused {
+			if got.LastNodeID != "android-target" || got.LastExit != "Done" || got.CurrentNodeID != "start-app" {
+				t.Fatalf("paused state = %+v, want android-target Done then start-app", got)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting for AndroidTarget step to return to paused")
+}
+
 func TestDebugManagerSecondStartReturnsBusy(t *testing.T) {
 	c := &container.Container{
 		ID:   "c1",

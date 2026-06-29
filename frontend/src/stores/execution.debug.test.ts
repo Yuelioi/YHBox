@@ -31,6 +31,30 @@ describe('execution store debug state', () => {
     expect(s.debugNextNodeID).toBe('click1')
   })
 
+  it('normalizes Go-shaped debug:state events emitted by Wails', async () => {
+    const s = useExecutionStore()
+    await Events.Emit('debug:state', {
+      SessionID: 'dbg1',
+      ContainerID: 'c1',
+      Status: 'paused',
+      Mode: 'entry',
+      CurrentNodeID: 'androidtarget',
+      CurrentNodeKind: 'AndroidTarget',
+      LastNodeID: 'androidtarget',
+      LastNodeKind: 'AndroidTarget',
+      LastExit: 'Done',
+      Queue: [{ NodeID: 'androidstartapp', NodeKind: 'AndroidStartApp', InPin: 'In' }],
+    })
+
+    expect(s.debugActive).toBe(true)
+    expect(s.debugStatus).toBe('paused')
+    expect(s.debugCurrentNodeID).toBe('androidtarget')
+    expect(s.debugLastNodeID).toBe('androidtarget')
+    expect(s.debugLastExit).toBe('Done')
+    expect(s.debugNextNodeID).toBe('androidstartapp')
+    expect(s.debugCanStep).toBe(true)
+  })
+
   it('accepts node-enter events while a debug session is running', async () => {
     const s = useExecutionStore()
     await Events.Emit('debug:state', {
