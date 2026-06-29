@@ -213,6 +213,7 @@ export default {
       last: 'Last',
       output: 'Output',
       vars: 'Vars',
+      queue: 'Queue',
       side_effect_warning: 'Debug runs real automation actions. Side effects that already happened are not automatically rolled back.',
       unknown_error: 'Debug failed',
       status: {

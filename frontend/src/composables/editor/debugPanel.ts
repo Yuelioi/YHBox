@@ -16,6 +16,7 @@ export interface DebugPanelSummary {
   lastExit: string
   lastOutputPreview: string
   varsPreview: string
+  queuePreview: string
   queue: DebugTokenSummary[]
   queueCount: number
   warnings: DebugWarning[]
@@ -69,11 +70,24 @@ export function summarizeDebugSession(state: Partial<DebugSessionState> | null |
     lastExit: String(state?.lastExit ?? ''),
     lastOutputPreview: previewRecord(state?.lastOutput),
     varsPreview: previewRecord(state?.vars),
+    queuePreview: previewQueue(queue),
     queue,
     queueCount: queue.length,
     warnings,
     error,
   }
+}
+
+export function previewQueue(queue: DebugTokenSummary[], limit = 3): string {
+  if (!Array.isArray(queue) || queue.length === 0) return ''
+  const shown = queue.slice(0, limit).map((token) => {
+    const kind = token.nodeKind || '?'
+    const id = truncate(token.nodeId || '?', 18)
+    const pin = token.inPin || 'In'
+    return `${kind}:${id}.${pin}`
+  })
+  const rest = queue.length - shown.length
+  return rest > 0 ? `${shown.join(' -> ')} +${rest}` : shown.join(' -> ')
 }
 
 export function previewRecord(value: unknown, limit = 3): string {

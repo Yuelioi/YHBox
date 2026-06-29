@@ -63,4 +63,19 @@ describe('debugPanel summary', () => {
     expect(s.lastOutputPreview).toBe('a="ready", b=false, obj={"ok":true} +1')
     expect(s.varsPreview).toBe('hp=100, name="player"')
   })
+
+  it('summarizes queued debug tokens compactly', () => {
+    const s = summarizeDebugSession({
+      sessionId: 's1',
+      status: 'paused',
+      queue: [
+        { nodeId: 'click-primary-button', nodeKind: 'ClickAt', inPin: 'In' },
+        { nodeId: 'wait', nodeKind: 'Sleep', inPin: 'In' },
+        { nodeId: 'log', nodeKind: 'Log', inPin: 'In' },
+        { nodeId: 'stop', nodeKind: 'Stop', inPin: 'In' },
+      ],
+    })
+
+    expect(s.queuePreview).toBe('ClickAt:click-primary-but....In -> Sleep:wait.In -> Log:log.In +1')
+  })
 })

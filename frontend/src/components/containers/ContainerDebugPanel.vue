@@ -40,6 +40,11 @@
       <span class="debug-val">{{ summary.varsPreview }}</span>
     </div>
 
+    <div v-if="summary.queuePreview" class="debug-row">
+      <span class="debug-key">{{ t('editor.debug_panel.queue') }}</span>
+      <span class="debug-val">{{ summary.queuePreview }}</span>
+    </div>
+
     <div class="debug-note warning">
       <UIcon name="i-tabler-alert-triangle" class="size-3.5 shrink-0" />
       <span>{{ t('editor.debug_panel.side_effect_warning') }}</span>

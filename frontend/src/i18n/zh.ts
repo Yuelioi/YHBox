@@ -228,6 +228,7 @@ export default {
       last: '上一步',
       output: '输出',
       vars: '变量',
+      queue: '队列',
       side_effect_warning: '调试会真实执行自动化动作，已产生的副作用不会自动回滚。',
       unknown_error: '调试失败',
       status: {
