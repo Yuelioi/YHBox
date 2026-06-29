@@ -103,6 +103,65 @@ func TestDebugManagerStepEmitsPausedState(t *testing.T) {
 	t.Fatalf("timed out waiting for paused debug state; emitted=%+v", states)
 }
 
+func TestDebugManagerSecondStartReturnsBusy(t *testing.T) {
+	c := &container.Container{
+		ID:   "c1",
+		Name: "c1",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "stop", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{{From: "start.Done", To: "stop.In"}},
+		},
+	}
+	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })
+
+	state, err := mgr.DebugStart("c1", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatalf("DebugStart: %v", err)
+	}
+	if _, err := mgr.DebugStart("c1", container.DebugStartOptions{}); err == nil || err.Error() != "debug_session_busy" {
+		t.Fatalf("second DebugStart error = %v, want debug_session_busy", err)
+	}
+	if _, err := mgr.DebugStop(state.SessionID); err != nil {
+		t.Fatalf("DebugStop: %v", err)
+	}
+}
+
+func TestDebugManagerStepWhileSteppingReturnsBusy(t *testing.T) {
+	c := &container.Container{
+		ID:   "c1",
+		Name: "c1",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "sleep", Kind: "Sleep"},
+				{ID: "stop", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "start.Done", To: "sleep.In"},
+				{From: "sleep.Done", To: "stop.In"},
+			},
+		},
+	}
+	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })
+
+	state, err := mgr.DebugStart("c1", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatalf("DebugStart: %v", err)
+	}
+	if _, err := mgr.DebugStep(state.SessionID); err != nil {
+		t.Fatalf("DebugStep: %v", err)
+	}
+	if _, err := mgr.DebugStep(state.SessionID); err == nil || err.Error() != "debug_session_busy" {
+		t.Fatalf("second DebugStep error = %v, want debug_session_busy", err)
+	}
+	if _, err := mgr.DebugStop(state.SessionID); err != nil {
+		t.Fatalf("DebugStop: %v", err)
+	}
+}
+
 func TestDebugManagerStopReleasesSession(t *testing.T) {
 	c := &container.Container{ID: "c1", Name: "c1", Graph: container.Graph{Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}}}}
 	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })

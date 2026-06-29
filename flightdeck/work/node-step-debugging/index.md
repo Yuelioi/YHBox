@@ -39,6 +39,7 @@ Done:
 - Added Debug from here confirmation copy and hid the action for nodes without exec inputs.
 - Added visible side-effect warnings near debug controls and in the debug status panel.
 - Added frontend stale-session recovery: failed debug RPC responses clear local debug UI state, and failed starts no longer show success.
+- Added debug manager tests for second-start and duplicate-step busy rejection.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
