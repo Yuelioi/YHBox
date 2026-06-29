@@ -78,4 +78,14 @@ describe('debugPanel summary', () => {
 
     expect(s.queuePreview).toBe('ClickAt:click-primary-but....In -> Sleep:wait.In -> Log:log.In +1')
   })
+
+  it('hides after a stopped debug session is cleared', () => {
+    const s = summarizeDebugSession({
+      sessionId: 's1',
+      status: 'stopped',
+    })
+
+    expect(s.visible).toBe(false)
+    expect(s.active).toBe(false)
+  })
 })

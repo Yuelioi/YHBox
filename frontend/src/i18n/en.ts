@@ -205,6 +205,7 @@ export default {
     },
     debug_panel: {
       title: 'Node debug',
+      close_tip: 'Stop debug and close panel',
       queue_count: 'Queue {n}',
       focus_none: 'Current',
       focus_next: 'Next',

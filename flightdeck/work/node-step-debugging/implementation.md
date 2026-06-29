@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go runtime/services, Wails 3 bindings, Vue 3/Pinia frontend, Vitest, Go test.
 
-**Status:** Implemented. Runtime stepping, service/RPC layer, debug manager, frontend controls, right-click Debug from here, debug event store, and node highlights are in place.
+**Status:** Ready for human review. Runtime stepping, service/RPC layer, debug manager, frontend controls, right-click Debug from here, debug event store, node highlights, debug panel details, terminal-session close, and editor state resync are in place.
 
 **Verified:**
 - `go test ./internal/services/container/runtime -run TestDebug -count=1`
@@ -22,6 +22,7 @@
 - `pnpm exec node src/i18n/check.cjs`
 - `wails3 generate bindings ./...`
 - `pnpm exec vite build --mode production`
+- `wails3 build`
 
 ---
 

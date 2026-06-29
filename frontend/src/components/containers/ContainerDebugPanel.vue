@@ -11,6 +11,15 @@
       <span v-if="summary.queueCount > 0" class="ml-auto text-[10px] text-dimmed">
         {{ t('editor.debug_panel.queue_count', { n: summary.queueCount }) }}
       </span>
+      <span v-else class="ml-auto" />
+      <UButton
+        size="xs"
+        color="neutral"
+        variant="ghost"
+        icon="i-tabler-x"
+        :title="t('editor.debug_panel.close_tip')"
+        @click="$emit('stop')"
+      />
     </div>
 
     <div v-if="summary.focusNodeID" class="debug-row">
@@ -71,6 +80,7 @@ import { KIND_LABEL_ZH } from '@/components/containers/pinSpec'
 
 const { t, te } = useI18n()
 const execStore = useExecutionStore()
+defineEmits<{ stop: [] }>()
 
 const state = computed<Partial<DebugSessionState>>(() => ({
   sessionId: execStore.debugSessionID,

@@ -166,7 +166,7 @@ If the app process restarts, all sessions are lost. The frontend should clear lo
 Normal runs and debug runs must share one process-wide execution lease:
 
 - A normal worker target run acquires the lease for the duration of that target run.
-- A debug session acquires the lease in `DebugStart` and releases it only on `finished`, `failed` after `DebugStop`, or `stopped`.
+- A debug session acquires the lease in `DebugStart` and releases runtime resources on `finished`, `failed`, or `stopped`. Terminal `finished` / `failed` session state may be retained in memory for inspection until the user closes the debug panel or starts a new debug session.
 - Normal Run is rejected while a debug session owns the lease.
 - DebugStart is rejected while the normal worker is running.
 
@@ -182,7 +182,8 @@ Allowed commands by state:
 - `stepping`: accepts `DebugStop`; another `DebugStep` or `DebugContinue` returns `debug_session_busy`.
 - `running`: accepts `DebugPause` and `DebugStop`; `DebugStep` returns `debug_session_busy`.
 - `pause_requested`: accepts `DebugStop`; another `DebugPause` is idempotent.
-- `finished`, `failed`, `stopped`: accepts `DebugState`; start a new session to run again.
+- `finished`, `failed`: accepts `DebugState` for inspection and `DebugStop` / panel close to clear the retained session; starting a new session also clears the retained terminal session first.
+- `stopped`: accepts `DebugState` only while a stop is still tearing down; after teardown the retained session is cleared and later commands return `debug_session_not_found`.
 
 `DebugStep` and `DebugContinue` should start execution asynchronously and return the updated state immediately (`stepping` or `running`). Completion is delivered by events and can also be read with `DebugState`. This prevents long `Sleep`, wait, or automation nodes from leaving the UI waiting on a single RPC promise.
 
@@ -305,6 +306,7 @@ The debug panel can live in the inspector or bottom panel. It shows:
 - Variable snapshot.
 - Queue preview from `DebugTokenSummary`.
 - Warnings and runtime failure details.
+- A close control that stops active debug execution or clears retained terminal results.
 
 Copy should avoid pretending this is harmless. Use wording such as `Debug run executes real actions`.
 

@@ -2,7 +2,7 @@
 
 ## State
 
-Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, and editor state resync.
+Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, and terminal debug panel cleanup.
 
 ## Next
 
@@ -44,6 +44,7 @@ Done:
 - Added compact debug panel preview for queued debug tokens.
 - Added debug manager test for stopping a long-running step and restarting without a leaked session.
 - Added editor mount/activation debug state resync through `DebugState`.
+- Added debug panel close control to stop active sessions or clear retained finished/failed results.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.

@@ -170,7 +170,7 @@
           />
           <!-- 画布空态: 无节点时居中显「快捷开始」(取代原 Inspector 常占栏)。 -->
           <CanvasEmptyState v-if="canvasEmpty" />
-          <ContainerDebugPanel />
+          <ContainerDebugPanel @stop="onDebugStop" />
           <!-- 操作提示 -->
           <div
             class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-dimmed pointer-events-none bg-default/70 px-2 py-1 rounded"

@@ -220,6 +220,7 @@ export default {
     },
     debug_panel: {
       title: '节点调试',
+      close_tip: '停止调试并关闭面板',
       queue_count: '队列 {n}',
       focus_none: '当前',
       focus_next: '下一步',
