@@ -50,6 +50,13 @@ func TestNodeService_GetAllNodeSpecs_PopulatesSupportedTargets(t *testing.T) {
 		},
 	})
 	Register(serviceSpecNode{
+		spec: Spec{
+			Kind:            "WindowsPlatformLike",
+			Category:        "IO",
+			PlatformTargets: []string{SupportedTargetWin32Window},
+		},
+	})
+	Register(serviceSpecNode{
 		spec: Spec{Kind: "PureLike", Category: "Control"},
 	})
 
@@ -62,6 +69,10 @@ func TestNodeService_GetAllNodeSpecs_PopulatesSupportedTargets(t *testing.T) {
 	assertTargets(t, byKind["ClickLike"].SupportedTargets, []string{"win32-window", "android-adb"})
 	assertTargets(t, byKind["KeyStateLike"].SupportedTargets, []string{"win32-window"})
 	assertTargets(t, byKind["WindowLike"].SupportedTargets, []string{"win32-window"})
+	assertTargets(t, byKind["WindowsPlatformLike"].SupportedTargets, []string{"win32-window"})
+	if byKind["WindowsPlatformLike"].NeedsWindow {
+		t.Fatal("PlatformTargets must not imply NeedsWindow")
+	}
 	assertTargets(t, byKind["PureLike"].SupportedTargets, nil)
 }
 

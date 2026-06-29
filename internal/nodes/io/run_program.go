@@ -24,8 +24,9 @@ const (
 
 func (RunProgram) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "RunProgram",
-		Category: "IO",
+		Kind:            "RunProgram",
+		Category:        "IO",
+		PlatformTargets: []string{node.SupportedTargetWin32Window},
 		Inputs: []node.InputSpec{
 			{Name: rpInExec, Type: node.TypeExec},
 			{Name: rpInTarget, Type: "String", Required: true, Default: "",

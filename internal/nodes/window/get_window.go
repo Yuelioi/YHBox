@@ -61,9 +61,10 @@ const (
 
 func (GetWindow) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "GetWindow",
-		Category: "Window",
-		Inputs:   append([]node.InputSpec{{Name: gwInExec, Type: "Exec"}}, windowSelectorInputs()...),
+		Kind:            "GetWindow",
+		Category:        "Window",
+		PlatformTargets: []string{node.SupportedTargetWin32Window},
+		Inputs:          append([]node.InputSpec{{Name: gwInExec, Type: "Exec"}}, windowSelectorInputs()...),
 		Outputs: []node.OutputSpec{
 			{Name: gwDone, Type: "Exec", Data: []node.DataField{{Name: "Window", Type: "Window"}}},
 			{Name: gwFail, Type: "Exec", Semantic: "error", Data: []node.DataField{

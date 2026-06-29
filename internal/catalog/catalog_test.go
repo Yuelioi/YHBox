@@ -199,6 +199,23 @@ func TestBuild_SupportedTargetsDerived(t *testing.T) {
 	assertCatalogTargets(t, byKind["Sleep"].SupportedTargets, nil)
 }
 
+func TestBuild_WindowsPlatformNodesAreLabeledWithoutWindowRequirement(t *testing.T) {
+	byKind := map[string]Node{}
+	for _, n := range Build() {
+		byKind[n.Kind] = n
+	}
+	for _, kind := range []string{"RunProgram", "StopApp", "GetWindow", "WaitWindow", "WaitWindowGone"} {
+		n, ok := byKind[kind]
+		if !ok {
+			t.Fatalf("%s not found in catalog", kind)
+		}
+		assertCatalogTargets(t, n.SupportedTargets, []string{"win32-window"})
+		if n.NeedsWindow {
+			t.Fatalf("%s must not require an active Win32WindowTarget just to show its platform badge", kind)
+		}
+	}
+}
+
 func assertCatalogTargets(t *testing.T, got, want []string) {
 	t.Helper()
 	if len(got) != len(want) {

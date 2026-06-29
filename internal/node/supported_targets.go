@@ -10,6 +10,11 @@ var publicTargetKinds = []string{
 	target.KindAndroidADB,
 }
 
+const (
+	SupportedTargetWin32Window = target.KindWin32Window
+	SupportedTargetAndroidADB  = target.KindAndroidADB
+)
+
 var targetSelectionNodeKinds = map[string]string{
 	"Win32WindowTarget": target.KindWin32Window,
 	"AndroidTarget":     target.KindAndroidADB,
@@ -25,6 +30,9 @@ func PopulateSupportedTargets(spec Spec) Spec {
 }
 
 func SupportedTargetsForSpec(spec Spec) []string {
+	if len(spec.PlatformTargets) > 0 {
+		return append([]string(nil), spec.PlatformTargets...)
+	}
 	if kind, ok := targetSelectionNodeKinds[spec.Kind]; ok {
 		return []string{kind}
 	}

@@ -21,8 +21,9 @@ const (
 
 func (StopApp) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "StopApp",
-		Category: "IO",
+		Kind:            "StopApp",
+		Category:        "IO",
+		PlatformTargets: []string{node.SupportedTargetWin32Window},
 		Inputs: []node.InputSpec{
 			{Name: saInExec, Type: node.TypeExec},
 			{Name: saInTarget, Type: "String", Required: true,

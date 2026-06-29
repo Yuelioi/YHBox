@@ -33,8 +33,9 @@ const wwPollInterval = 500 * time.Millisecond
 
 func (WaitWindow) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "WaitWindow",
-		Category: "Window",
+		Kind:            "WaitWindow",
+		Category:        "Window",
+		PlatformTargets: []string{node.SupportedTargetWin32Window},
 		Inputs: []node.InputSpec{
 			{Name: wwInExec, Type: node.TypeExec},
 			{Name: wwInTitle, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},

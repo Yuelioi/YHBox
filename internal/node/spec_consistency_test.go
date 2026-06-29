@@ -62,12 +62,21 @@ func TestSpecConsistency_TargetCapabilitiesKnownByController(t *testing.T) {
 }
 
 func TestSpecConsistency_SupportedTargetsAreDerived(t *testing.T) {
+	publicTargets := map[string]bool{
+		nodepkg.SupportedTargetWin32Window: true,
+		nodepkg.SupportedTargetAndroidADB:  true,
+	}
 	for _, rn := range nodepkg.All() {
 		if len(rn.Spec.SupportedTargets) > 0 {
 			t.Errorf("kind=%s sets SupportedTargets directly; use NeedsTarget/NeedsWindow/TargetCapabilities and let exporters derive it", rn.Spec.Kind)
 		}
+		for _, target := range rn.Spec.PlatformTargets {
+			if !publicTargets[target] {
+				t.Errorf("kind=%s PlatformTargets contains unknown public target %q", rn.Spec.Kind, target)
+			}
+		}
 		derived := nodepkg.SupportedTargetsForSpec(rn.Spec)
-		if rn.Spec.NeedsTarget || rn.Spec.NeedsWindow || rn.Spec.Category == "Target" {
+		if rn.Spec.NeedsTarget || rn.Spec.NeedsWindow || rn.Spec.Category == "Target" || len(rn.Spec.PlatformTargets) > 0 {
 			if len(derived) == 0 {
 				t.Errorf("kind=%s has target/window semantics but no derived supported targets", rn.Spec.Kind)
 			}

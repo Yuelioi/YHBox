@@ -48,9 +48,13 @@ type Spec struct {
 	// profiles 做静态匹配, runtime adapter 仍保留执行期兜底。
 	TargetCapabilities []TargetCapability `json:"targetCapabilities,omitempty"`
 	// SupportedTargets — 节点可用的用户可见自动化目标类型, 由 NeedsWindow /
-	// NeedsTarget / TargetCapabilities 派生后暴露给前端展示平台 badge。
+	// NeedsTarget / TargetCapabilities / PlatformTargets 派生后暴露给前端展示平台 badge。
 	// 节点实现不要手写此字段; NodeService/Catalog 在导出前填充。
 	SupportedTargets []string `json:"supportedTargets,omitempty"`
+	// PlatformTargets — 仅用于展示/目录的目标平台标识。给 Windows-only 但不依赖
+	// 当前活动窗口的节点使用, 例如 RunProgram / WaitWindow / GetWindow。
+	// 不参与 validator/runtime 依赖判断; 需要当前窗口时仍应使用 NeedsWindow。
+	PlatformTargets []string `json:"platformTargets,omitempty"`
 	// NeedsWindow — legacy Win32 HWND requirement: 节点 Run 依赖 Windows 窗口
 	// (调 ctx.Input/Capture/Vision/Window/Clip 等 Win32-backed 服务).
 	// validator/runner 据此判定直接 Win32 窗口操作是否需要 Win32WindowTarget;

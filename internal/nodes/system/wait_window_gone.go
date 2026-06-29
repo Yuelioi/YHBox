@@ -39,8 +39,9 @@ var waitWindowGone = func(ctx context.Context, spec winutil.MatchSpec, timeout, 
 
 func (WaitWindowGone) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "WaitWindowGone",
-		Category: "Window",
+		Kind:            "WaitWindowGone",
+		Category:        "Window",
+		PlatformTargets: []string{node.SupportedTargetWin32Window},
 		Inputs: []node.InputSpec{
 			{Name: wwgInExec, Type: node.TypeExec},
 			{Name: wwgInTitle, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
