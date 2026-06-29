@@ -36,11 +36,13 @@ Done:
 - 17 个实现任务、逐任务 review、整支终审。
 - Critical Snapshot live 重读和 Important Script Window pin 泄漏已修。
 - 真机 smoke 发现并修复：新增多个 `Win32WindowTarget` 时默认 `config.literal` 共享引用，导致两个目标窗口配置同步变化。根因与守卫见 `knowledge/frontend/node-default-config-shared-reference.md`。
+- 影响面审计：静态 grep 后，普通 graph node 新增入口只剩 `useInlineMenu` 与 `useNodeCreation` 读取 defaults，均已深拷贝；`onFixMissingWin32WindowTarget` 原本深拷贝。理论上旧 bug 可影响任何带默认 literal 的节点同会话连续新增，但修复后不再局限或遗留在其他普通新增入口。落盘扫描 `bin/data/containers/**/container.json` 只发现 1 个可疑业务相关重复：当前容器两个 `Win32WindowTarget` literal 一样；另一个 `fishing-v2` 两个 SetVar 都写 `state=IDLE`，看起来是合理业务重复。
 
 Verified:
 - go build / vet / test scope 通过，除 cockpit 记录的预存 RED 基线。
 - frontend vue-tsc 与 i18n parity 通过。
 - 2026-06-29: `pnpm -C frontend exec vitest run src/composables/containerEditor/useInlineMenu.test.ts src/composables/containerEditor/useNodeCreation.test.ts` 通过；`pnpm -C frontend test` 通过；`pnpm -C frontend typecheck` 通过。
+- 2026-06-29 impact audit: `git grep` defaults 创建入口；PowerShell 扫描 `bin/data/containers/**/container.json` 同 kind 同 literal 重复。
 
 Remaining:
 - 用户真机 smoke：先重测两个 Windows 目标窗口独立绑定，再继续原 smoke 清单。
