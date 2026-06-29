@@ -572,12 +572,21 @@ async function startDebug(startNodeID = '', startNodeLabel = '') {
     draft.value.id,
     startNodeID ? { startNodeId: startNodeID } : {},
   )
-  if (state) execStore.applyDebugState(state)
+  if (!state) return
+  execStore.applyDebugState(state)
   toast.add({
     title: startNodeID ? t('toast.debug_from_node_started') : t('toast.debug_started'),
     color: 'primary',
     icon: 'i-tabler-bug',
   })
+}
+
+function applyDebugCommandState(state: Awaited<ReturnType<typeof backend.containers.debugStep>>) {
+  if (state) {
+    execStore.applyDebugState(state)
+  } else {
+    execStore.clearDebugState()
+  }
 }
 
 async function onDebugStart() {
@@ -588,28 +597,28 @@ async function onDebugStep() {
   const sid = execStore.debugSessionID
   if (!sid) return
   const state = await backend.containers.debugStep(sid)
-  if (state) execStore.applyDebugState(state)
+  applyDebugCommandState(state)
 }
 
 async function onDebugContinue() {
   const sid = execStore.debugSessionID
   if (!sid) return
   const state = await backend.containers.debugContinue(sid)
-  if (state) execStore.applyDebugState(state)
+  applyDebugCommandState(state)
 }
 
 async function onDebugPause() {
   const sid = execStore.debugSessionID
   if (!sid) return
   const state = await backend.containers.debugPause(sid)
-  if (state) execStore.applyDebugState(state)
+  applyDebugCommandState(state)
 }
 
 async function onDebugStop() {
   const sid = execStore.debugSessionID
   if (!sid) return
   const state = await backend.containers.debugStop(sid)
-  if (state) execStore.applyDebugState(state)
+  applyDebugCommandState(state)
 }
 
 // 工具栏「重载」: 从磁盘重读当前容器 (MCP / 外部改盘后同步)。

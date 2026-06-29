@@ -63,4 +63,31 @@ describe('execution store debug state', () => {
     expect(s.debugFailedNodeID).toBe('bad1')
     expect(s.debugError?.message).toBe('boom')
   })
+
+  it('clears stale debug UI state when the backend session is gone', () => {
+    const s = useExecutionStore()
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'paused',
+      mode: 'from_node',
+      startNodeId: 'click1',
+      currentNodeId: 'click1',
+      currentNodeKind: 'ClickAt',
+      lastNodeId: 'target1',
+      lastNodeKind: 'Win32WindowTarget',
+      lastExit: 'Done',
+      queue: [{ nodeId: 'click1', nodeKind: 'ClickAt', inPin: 'In' }],
+      warnings: [{ code: 'debug_skips_upstream_context', message: 'skipped' }],
+    })
+
+    s.clearDebugState()
+
+    expect(s.debugActive).toBe(false)
+    expect(s.debugSessionID).toBe('')
+    expect(s.debugCurrentNodeID).toBe('')
+    expect(s.debugLastNodeID).toBe('')
+    expect(s.debugQueue).toEqual([])
+    expect(s.debugWarnings).toEqual([])
+  })
 })

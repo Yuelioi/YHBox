@@ -116,6 +116,25 @@ export const useExecutionStore = defineStore('execution', () => {
   const debugNextNodeID = computed(() => debugQueue.value[0]?.nodeId ?? '')
   const debugNextNodeKind = computed(() => debugQueue.value[0]?.nodeKind ?? '')
 
+  function clearDebugState() {
+    debugSessionID.value = ''
+    debugContainerID.value = ''
+    debugStatus.value = ''
+    debugMode.value = ''
+    debugStartNodeID.value = ''
+    debugCurrentNodeID.value = ''
+    debugCurrentNodeKind.value = ''
+    debugRunningNodeID.value = ''
+    debugRunningNodeKind.value = ''
+    debugLastNodeID.value = ''
+    debugLastNodeKind.value = ''
+    debugLastExit.value = ''
+    debugFailedNodeID.value = ''
+    debugQueue.value = []
+    debugWarnings.value = []
+    debugError.value = null
+  }
+
   function applyDebugState(state: DebugSessionState | any) {
     if (!state) return
     const status = String(state.status ?? '') as DebugStatus
@@ -265,5 +284,6 @@ export const useExecutionStore = defineStore('execution', () => {
     debugNextNodeID,
     debugNextNodeKind,
     applyDebugState,
+    clearDebugState,
   }
 })

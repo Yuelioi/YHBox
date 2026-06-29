@@ -38,6 +38,7 @@ Done:
 - Added an in-canvas debug status panel for current/next node, last exit, queue count, warnings, and errors.
 - Added Debug from here confirmation copy and hid the action for nodes without exec inputs.
 - Added visible side-effect warnings near debug controls and in the debug status panel.
+- Added frontend stale-session recovery: failed debug RPC responses clear local debug UI state, and failed starts no longer show success.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
@@ -45,6 +46,7 @@ Verified:
 - `go test ./internal/services/container -run TestServiceDebug -count=1`
 - `go test . -run TestDebugManager -count=1`
 - `go test ./...`
+- `pnpm exec vitest run src/stores/execution.debug.test.ts`
 - `pnpm exec vitest run`
 - `pnpm exec vitest run src/components/containers/menus/NodeContextMenu.spec.ts`
 - `pnpm exec vue-tsc --noEmit`
