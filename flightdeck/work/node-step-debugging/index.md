@@ -42,6 +42,7 @@ Done:
 - Added debug manager tests for second-start and duplicate-step busy rejection.
 - Added compact debug panel previews for last output data and variable snapshots.
 - Added compact debug panel preview for queued debug tokens.
+- Added debug manager test for stopping a long-running step and restarting without a leaked session.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.

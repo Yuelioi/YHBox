@@ -162,6 +162,60 @@ func TestDebugManagerStepWhileSteppingReturnsBusy(t *testing.T) {
 	}
 }
 
+func TestDebugManagerStopDuringLongStepReleasesSession(t *testing.T) {
+	c := &container.Container{
+		ID:   "c1",
+		Name: "c1",
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "sleep", Kind: "Sleep"},
+				{ID: "stop", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "start.Done", To: "sleep.In"},
+				{From: "sleep.Done", To: "stop.In"},
+			},
+		},
+	}
+	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })
+
+	state, err := mgr.DebugStart("c1", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatalf("DebugStart: %v", err)
+	}
+	step, err := mgr.DebugStep(state.SessionID)
+	if err != nil {
+		t.Fatalf("DebugStep: %v", err)
+	}
+	if step.Status != container.DebugStatusStepping {
+		t.Fatalf("step state = %+v, want stepping", step)
+	}
+	stopped, err := mgr.DebugStop(state.SessionID)
+	if err != nil {
+		t.Fatalf("DebugStop: %v", err)
+	}
+	if stopped.Status != container.DebugStatusStopped {
+		t.Fatalf("stop state = %+v, want stopped", stopped)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if !mgr.IsActive() {
+			next, err := mgr.DebugStart("c1", container.DebugStartOptions{})
+			if err != nil {
+				t.Fatalf("DebugStart after long-step stop: %v", err)
+			}
+			if _, err := mgr.DebugStop(next.SessionID); err != nil {
+				t.Fatalf("cleanup DebugStop: %v", err)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("debug manager remained active after stopping long step")
+}
+
 func TestDebugManagerStopReleasesSession(t *testing.T) {
 	c := &container.Container{ID: "c1", Name: "c1", Graph: container.Graph{Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}}}}
 	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })
