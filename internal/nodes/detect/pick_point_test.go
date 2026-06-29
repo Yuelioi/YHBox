@@ -88,3 +88,53 @@ func TestPickBlobPoint_FromJSONMaps(t *testing.T) {
 	got := evalDetectNode(t, &PickBlobPoint{}, map[string]any{pbpInBlobs: blobs})
 	assertPoint(t, got, node.Point{X: 0.4, Y: 0.5})
 }
+
+func assertGeometry(t *testing.T, got any, want node.Geometry) {
+	t.Helper()
+	g, ok := got.(node.Geometry)
+	if !ok {
+		t.Fatalf("got %T(%v), want node.Geometry", got, got)
+	}
+	if !approxEq(g.Pct.X, want.Pct.X) || !approxEq(g.Pct.Y, want.Pct.Y) ||
+		!approxEq(g.Pct.W, want.Pct.W) || !approxEq(g.Pct.H, want.Pct.H) {
+		t.Fatalf("geometry = %+v, want %+v", g, want)
+	}
+}
+
+func TestPickMatchROI_FromTemplateMatchSliceWithPadding(t *testing.T) {
+	matches := []node.TemplateMatch{
+		{BBox: [4]float64{0.2, 0.3, 0.2, 0.1}},
+	}
+	got := evalDetectNode(t, &PickMatchROI{}, map[string]any{
+		pmrInMatches: matches,
+		pmrInPadding: 0.05,
+	})
+	assertGeometry(t, got, node.Geometry{Pct: node.Rect{X: 0.15, Y: 0.25, W: 0.3, H: 0.2}})
+}
+
+func TestPickMatchROI_FromJSONMapsClampsToScreen(t *testing.T) {
+	matches := []any{
+		map[string]any{"bbox": []any{0.9, 0.92, 0.2, 0.2}},
+	}
+	got := evalDetectNode(t, &PickMatchROI{}, map[string]any{
+		pmrInMatches: matches,
+		pmrInPadding: 0.05,
+	})
+	assertGeometry(t, got, node.Geometry{Pct: node.Rect{X: 0.85, Y: 0.87, W: 0.15, H: 0.13}})
+}
+
+func TestPickBlobROI_FromBlobSlice(t *testing.T) {
+	blobs := []node.BlobEntry{
+		{X: 0.1, Y: 0.2, W: 0.2, H: 0.3},
+	}
+	got := evalDetectNode(t, &PickBlobROI{}, map[string]any{pbrInBlobs: blobs})
+	assertGeometry(t, got, node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.2, W: 0.2, H: 0.3}})
+}
+
+func TestPickBlobROI_OutOfRangeReturnsZeroGeometry(t *testing.T) {
+	got := evalDetectNode(t, &PickBlobROI{}, map[string]any{
+		pbrInBlobs: []node.BlobEntry{{X: 0.1, Y: 0.2, W: 0.2, H: 0.3}},
+		pbrInIndex: 4,
+	})
+	assertGeometry(t, got, node.Geometry{})
+}

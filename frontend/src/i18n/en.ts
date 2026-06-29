@@ -1047,6 +1047,28 @@ export default {
       },
       output: { Result: { label: 'Result' } },
     },
+    PickMatchROI: {
+      label: 'Pick template ROI',
+      description: 'Takes the Nth item from a FindTemplateAll Matches list and converts its bounding box into an ROI for later detection nodes.',
+      example: 'Find several card icons, then feed the first hit ROI into DetectColorBlobs to keep color detection local to that card.',
+      input: {
+        Matches: { label: 'Matches', hint: 'Wire from FindTemplateAll.Matches' },
+        Index: { label: 'Index', hint: '0-based; out of range returns an empty ROI' },
+        Padding: { label: 'Padding', hint: 'Ratio padding; 0.02 expands each side by 2% of the screen' },
+      },
+      output: { Result: { label: 'ROI' } },
+    },
+    PickBlobROI: {
+      label: 'Pick blob ROI',
+      description: 'Takes the Nth item from a DetectColorBlobs Blobs list and converts its bounding box into an ROI for later detection nodes.',
+      example: 'Find a health bar by color, expand its region slightly, then feed that ROI into WaitStable or template detection for a local check.',
+      input: {
+        Blobs: { label: 'Blobs', hint: 'Wire from DetectColorBlobs.Blobs' },
+        Index: { label: 'Index', hint: '0-based; out of range returns an empty ROI' },
+        Padding: { label: 'Padding', hint: 'Ratio padding; 0.02 expands each side by 2% of the screen' },
+      },
+      output: { Result: { label: 'ROI' } },
+    },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
       description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',

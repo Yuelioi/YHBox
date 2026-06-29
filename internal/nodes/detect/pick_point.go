@@ -10,6 +10,8 @@ import (
 func init() {
 	node.Register(&PickMatchPoint{})
 	node.Register(&PickBlobPoint{})
+	node.Register(&PickMatchROI{})
+	node.Register(&PickBlobROI{})
 }
 
 const (
@@ -24,6 +26,14 @@ const (
 	pbpInAnchor  = "Anchor"
 	pbpInOffsetX = "OffsetX"
 	pbpInOffsetY = "OffsetY"
+
+	pmrInMatches = "Matches"
+	pmrInIndex   = "Index"
+	pmrInPadding = "Padding"
+
+	pbrInBlobs   = "Blobs"
+	pbrInIndex   = "Index"
+	pbrInPadding = "Padding"
 )
 
 type PickMatchPoint struct{}
@@ -76,6 +86,54 @@ func (PickBlobPoint) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 		return node.Point{}, nil
 	}
 	return anchoredPoint(pt, bbox, in.String(pbpInAnchor), in.Float64(pbpInOffsetX), in.Float64(pbpInOffsetY)), nil
+}
+
+type PickMatchROI struct{}
+
+func (PickMatchROI) Spec() node.Spec {
+	return node.Spec{
+		Kind:       "PickMatchROI",
+		Category:   "Detect",
+		IsPureData: true,
+		Inputs: []node.InputSpec{
+			{Name: pmrInMatches, Type: "JSON"},
+			{Name: pmrInIndex, Type: "Integer", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: pmrInPadding, Type: "Number", Default: json.Number("0"), Advanced: true, Widget: node.WidgetSpec{Kind: "number"}},
+		},
+		Outputs: []node.OutputSpec{{Name: "Result", Type: "Geometry"}},
+	}
+}
+
+func (PickMatchROI) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	_, bbox, ok := pickMatchPoint(in.Raw(pmrInMatches), in.Int(pmrInIndex))
+	if !ok {
+		return node.Geometry{}, nil
+	}
+	return geometryFromBBox(bbox, in.Float64(pmrInPadding)), nil
+}
+
+type PickBlobROI struct{}
+
+func (PickBlobROI) Spec() node.Spec {
+	return node.Spec{
+		Kind:       "PickBlobROI",
+		Category:   "Detect",
+		IsPureData: true,
+		Inputs: []node.InputSpec{
+			{Name: pbrInBlobs, Type: "JSON"},
+			{Name: pbrInIndex, Type: "Integer", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: pbrInPadding, Type: "Number", Default: json.Number("0"), Advanced: true, Widget: node.WidgetSpec{Kind: "number"}},
+		},
+		Outputs: []node.OutputSpec{{Name: "Result", Type: "Geometry"}},
+	}
+}
+
+func (PickBlobROI) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	_, bbox, ok := pickBlob(in.Raw(pbrInBlobs), in.Int(pbrInIndex))
+	if !ok {
+		return node.Geometry{}, nil
+	}
+	return geometryFromBBox(bbox, in.Float64(pbrInPadding)), nil
 }
 
 func anchorInput(name string) node.InputSpec {
@@ -161,6 +219,23 @@ func anchoredPoint(center node.Point, bbox [4]float64, anchor string, offX, offY
 		return anchorPoint(bbox, anchor, offX, offY)
 	}
 	return node.Point{X: clamp01(center.X + offX), Y: clamp01(center.Y + offY)}
+}
+
+func geometryFromBBox(bbox [4]float64, padding float64) node.Geometry {
+	if bbox[2] <= 0 || bbox[3] <= 0 {
+		return node.Geometry{}
+	}
+	if padding < 0 {
+		padding = 0
+	}
+	x1 := clamp01(bbox[0] - padding)
+	y1 := clamp01(bbox[1] - padding)
+	x2 := clamp01(bbox[0] + bbox[2] + padding)
+	y2 := clamp01(bbox[1] + bbox[3] + padding)
+	if x2 <= x1 || y2 <= y1 {
+		return node.Geometry{}
+	}
+	return node.Geometry{Pct: node.Rect{X: x1, Y: y1, W: x2 - x1, H: y2 - y1}}
 }
 
 func first(m map[string]any, keys ...string) any {

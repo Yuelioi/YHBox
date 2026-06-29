@@ -1761,6 +1761,30 @@
       }
     }
   },
+  "PickBlobROI": {
+    "label": "取色块命中区域",
+    "description": "从「颜色块定位」输出的 Blobs 列表里取第 N 个色块的外接框，转换成后续识别节点可用的 ROI 区域。",
+    "example": "先按颜色找到角色血条，再把血条区域外扩一点，接到 WaitStable 或模板检测做局部判断。",
+    "input": {
+      "Blobs": {
+        "label": "色块列表",
+        "hint": "接 DetectColorBlobs 的 Blobs 输出"
+      },
+      "Index": {
+        "label": "取第几个",
+        "hint": "从 0 开始，越界返回空区域"
+      },
+      "Padding": {
+        "label": "外扩",
+        "hint": "ratio 外扩量，0.02 表示四周各扩 2% 屏幕尺寸"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "区域"
+      }
+    }
+  },
   "PickMatchPoint": {
     "label": "取模板命中点",
     "description": "从「模板全部命中」输出的 Matches 列表里取第 N 个命中，按锚点和偏移转换成一个坐标点。它不截图、不识别，只负责把命中列表变成可接 ClickAt / Swipe 的 Point。",
@@ -1801,6 +1825,30 @@
     "output": {
       "Result": {
         "label": "结果"
+      }
+    }
+  },
+  "PickMatchROI": {
+    "label": "取模板命中区域",
+    "description": "从「模板全部命中」输出的 Matches 列表里取第 N 个命中的外接框，转换成后续识别节点可用的 ROI 区域。",
+    "example": "先找到多个卡片图标，再把第一个命中的区域接到 DetectColorBlobs，只在这张卡片附近继续检测颜色。",
+    "input": {
+      "Matches": {
+        "label": "命中列表",
+        "hint": "接 FindTemplateAll 的 Matches 输出"
+      },
+      "Index": {
+        "label": "取第几个",
+        "hint": "从 0 开始，越界返回空区域"
+      },
+      "Padding": {
+        "label": "外扩",
+        "hint": "ratio 外扩量，0.02 表示四周各扩 2% 屏幕尺寸"
+      }
+    },
+    "output": {
+      "Result": {
+        "label": "区域"
       }
     }
   },

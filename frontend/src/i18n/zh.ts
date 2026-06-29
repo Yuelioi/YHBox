@@ -1067,6 +1067,28 @@ export default {
       },
       output: { Result: { label: '结果' } },
     },
+    PickMatchROI: {
+      label: '取模板命中区域',
+      description: '从「模板全部命中」输出的 Matches 列表里取第 N 个命中的外接框，转换成后续识别节点可用的 ROI 区域。',
+      example: '先找到多个卡片图标，再把第一个命中的区域接到 DetectColorBlobs，只在这张卡片附近继续检测颜色。',
+      input: {
+        Matches: { label: '命中列表', hint: '接 FindTemplateAll 的 Matches 输出' },
+        Index: { label: '取第几个', hint: '从 0 开始，越界返回空区域' },
+        Padding: { label: '外扩', hint: 'ratio 外扩量，0.02 表示四周各扩 2% 屏幕尺寸' },
+      },
+      output: { Result: { label: '区域' } },
+    },
+    PickBlobROI: {
+      label: '取色块命中区域',
+      description: '从「颜色块定位」输出的 Blobs 列表里取第 N 个色块的外接框，转换成后续识别节点可用的 ROI 区域。',
+      example: '先按颜色找到角色血条，再把血条区域外扩一点，接到 WaitStable 或模板检测做局部判断。',
+      input: {
+        Blobs: { label: '色块列表', hint: '接 DetectColorBlobs 的 Blobs 输出' },
+        Index: { label: '取第几个', hint: '从 0 开始，越界返回空区域' },
+        Padding: { label: '外扩', hint: 'ratio 外扩量，0.02 表示四周各扩 2% 屏幕尺寸' },
+      },
+      output: { Result: { label: '区域' } },
+    },
     DualColorBarTrack: {
       label: '双色条追踪',
       description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
