@@ -11,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"yotta/internal/apperr"
+	"yotta/internal/automation/target"
 	"yotta/pkg/winutil"
 )
 
@@ -18,6 +19,7 @@ import (
 // 本包不 import container 包以保持解耦。
 type WindowResolver interface {
 	ResolveWindowForNode(containerID, nodeID string) (winutil.WindowHandle, error)
+	ResolveEditorTargetKindForNode(containerID, nodeID string) (string, error)
 	CaptureBackendFor(containerID string) string
 }
 
@@ -45,17 +47,23 @@ type Service struct {
 	onCalibratorClose func()
 	// pickerWindows: requestID → window，方便复用（同 id 重开聚焦旧窗口）
 	pickerWindows map[string]*application.WebviewWindow
+	targetTools   targetToolRouter
 	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
 	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWin32WindowTargetCapture 回退 F9。
 	captureHotkey func() (mods, vk uint32)
 }
 
 func NewService(resolver WindowResolver) *Service {
-	return &Service{
+	s := &Service{
 		resolver:      resolver,
 		winCache:      map[string]cachedWindow{},
 		pickerWindows: map[string]*application.WebviewWindow{},
 	}
+	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
+		target.KindWin32Window: win32TargetToolAdapter{service: s},
+		target.KindAndroidADB:  androidTargetToolAdapter{},
+	})
+	return s
 }
 
 // gameWindowFor 按 containerID + nodeID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
@@ -390,43 +398,30 @@ func (s *Service) CloseRecordingHUD() {
 // colorSpace 仅 color 模式需要（"hsv" | "rgb"），其他模式传 ""。
 // guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
 func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSpace, guid string) error {
-	app := s.wailsApp()
-	if app == nil {
-		return apperr.New(apperr.CodeWailsNotReady, nil)
-	}
 	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "template_recapture" && mode != "color" {
 		return fmt.Errorf("unsupported mode %q", mode)
 	}
 	if requestID == "" {
 		return fmt.Errorf("requestID 不能为空")
 	}
-	s.mu.Lock()
-	if existing, ok := s.pickerWindows[requestID]; ok {
-		s.mu.Unlock()
-		existing.Focus()
-		return nil
+	targetKind := target.KindWin32Window
+	if s.resolver != nil {
+		resolved, err := s.resolver.ResolveEditorTargetKindForNode(containerID, nodeID)
+		if err != nil {
+			return err
+		}
+		if resolved != "" {
+			targetKind = resolved
+		}
 	}
-	s.mu.Unlock()
-
-	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(mode) + "&id=" + url.QueryEscape(requestID) + "&containerID=" + url.QueryEscape(containerID) + "&nodeID=" + url.QueryEscape(nodeID) + "&colorSpace=" + url.QueryEscape(colorSpace) + "&guid=" + url.QueryEscape(guid)
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "选择屏幕位置",
-		Width:     1280,
-		Height:    800,
-		MinWidth:  720,
-		MinHeight: 480,
-		URL:       hashURL,
-		Frameless: true,
+	return s.targetTools.OpenPicker(targetKind, PickerRequest{
+		Mode:        mode,
+		RequestID:   requestID,
+		ContainerID: containerID,
+		NodeID:      nodeID,
+		ColorSpace:  colorSpace,
+		GUID:        guid,
 	})
-	s.mu.Lock()
-	s.pickerWindows[requestID] = w
-	s.mu.Unlock()
-	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		s.mu.Lock()
-		delete(s.pickerWindows, requestID)
-		s.mu.Unlock()
-	})
-	return nil
 }
 
 // ClosePicker 由 picker 完成后或取消时调，前端拿不到 self window handle，

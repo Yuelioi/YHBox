@@ -5,6 +5,7 @@ import (
 
 	"github.com/lxn/win"
 
+	"yotta/internal/automation/target"
 	"yotta/pkg/capture"
 	"yotta/pkg/vision"
 )
@@ -23,10 +24,24 @@ type PixelInfo struct {
 	Hex     string `json:"hex"`
 }
 
-// PixelAt 截当前帧，读光标位置的像素颜色。前端"取色"按钮按一次调一次。
+func (s *Service) PixelAt(containerID, nodeID string) (PixelInfo, error) {
+	targetKind := target.KindWin32Window
+	if s.resolver != nil {
+		resolved, err := s.resolver.ResolveEditorTargetKindForNode(containerID, nodeID)
+		if err != nil {
+			return PixelInfo{}, err
+		}
+		if resolved != "" {
+			targetKind = resolved
+		}
+	}
+	return s.targetTools.PixelAt(targetKind, PixelSampleRequest{ContainerID: containerID, NodeID: nodeID})
+}
+
+// win32PixelAt 截当前帧，读光标位置的像素颜色。前端"取色"按钮按一次调一次。
 // 太频繁会拖性能（每次都 capture）。
 // nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 解析窗口）；无节点上下文传 ""。
-func (s *Service) PixelAt(containerID, nodeID string) (PixelInfo, error) {
+func (s *Service) win32PixelAt(containerID, nodeID string) (PixelInfo, error) {
 	sx, sy, ok := readCursor()
 	if !ok {
 		return PixelInfo{}, fmt.Errorf("GetCursorPos failed")

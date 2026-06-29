@@ -46,7 +46,15 @@
                 @dragstart="(e) => startEditorDrag({ type: 'node-spec', kind: spec.kind }, e)"
               >
                 <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
-                <span class="flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
+                <span class="min-w-0 flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
+                <span
+                  v-for="badge in platformBadgesForTargets(spec.supportedTargets)"
+                  :key="badge.key"
+                  class="shrink-0 rounded border px-1 py-0.5 text-[9px] leading-none"
+                  :class="badge.class"
+                >
+                  {{ t(badge.labelKey) }}
+                </span>
               </div>
             </div>
           </div>
@@ -61,6 +69,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
+import { platformBadgesForTargets } from '@/components/containers/nodeRegistry/platformTargets'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 

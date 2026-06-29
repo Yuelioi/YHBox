@@ -1,6 +1,10 @@
 package container
 
-import "strings"
+import (
+	"strings"
+
+	"yotta/internal/automation/target"
+)
 
 // win32WindowTargetForNode 求编辑期工具该用的窗口 = 该节点最近上游 Win32WindowTarget.
 // 规则: 沿 exec 边从 nodeID 反向 BFS, 第一层遇到的 Win32WindowTarget; 唯一 → 用它;
@@ -58,6 +62,36 @@ func firstMainWin32WindowTarget(c *Container) *GraphNode {
 		}
 	}
 	return nil
+}
+
+func editorTargetKindForNode(c *Container, nodeID string) (string, bool) {
+	if c == nil {
+		return target.KindWin32Window, true
+	}
+	nodeByID := graphNodeByID(c.Graph)
+	if nodeID != "" {
+		if n := nodeByID[nodeID]; n != nil {
+			if kind, ok := targetKindForSelectionNode(n.Kind); ok {
+				return kind, true
+			}
+		}
+		if kind, ok := nearestUpstreamTargetKind(c.Graph, nodeByID, nodeID); ok {
+			return kind, true
+		}
+	}
+	if kind, ok := firstTargetKind(c.Graph); ok {
+		return kind, true
+	}
+	return target.KindWin32Window, true
+}
+
+func firstTargetKind(g Graph) (string, bool) {
+	for i := range g.Nodes {
+		if kind, ok := targetKindForSelectionNode(g.Nodes[i].Kind); ok {
+			return kind, true
+		}
+	}
+	return "", false
 }
 
 func splitPinNode(pin string) string {

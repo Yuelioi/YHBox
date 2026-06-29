@@ -2187,6 +2187,10 @@ export default {
     search_placeholder: '搜节点 (substring)...',
     esc_tab_close: 'Esc / Tab 关',
     no_match: '没匹配的节点',
+    platform_windows: 'Win',
+    platform_android: 'Android',
+    platform_windows_only: '仅 Win',
+    platform_android_only: '仅 Android',
   },
   // ContextMenuRouter
   contextMenu: {

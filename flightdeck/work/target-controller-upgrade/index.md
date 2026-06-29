@@ -81,6 +81,7 @@ Plan next slice: target-aware editor tooling. Phase 71 research captured the gap
 - plans/phase68-subgraph-target-capability-inheritance.md
 - plans/phase69-collapsed-node-target-capability-inheritance.md
 - plans/phase71-target-preview-adapters-research.md
+- plans/phase72-supported-targets-and-tool-adapters.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -236,9 +237,10 @@ Done:
 - Phase 69 代码/文档：`CollapsedNode` 也纳入子图调用 target capability 继承，折叠/未折叠图的静态校验行为保持一致。
 - Phase 70 代码/文档：删除用户可见 `BrowserTarget` 节点与 `browserCDPTargets` async source；节点目录、validator、runtime target selection、MCP schema、前端/i18n/catalog 不再暴露浏览器 CDP 页面目标。底层 Browser CDP controller/client 暂留内部代码，不作为产品入口。
 - Phase 71 调研：对照 ok-script / 既有 MAA 调研 / YHFish 当前 runtime 与 editor tooling，确认下一步不是重写 controller，而是补 `TargetToolService` / target preview picker adapter；当前 `OpenScreenPicker`、`PixelAt`、模板采样仍是 Win32/HWND 心智，容器里的 `postmessage/sendinput` 与 `gdi/wgc` 应标为 Windows-only。
+- Phase 72 代码/文档：新增派生 `supportedTargets` 元数据并贯通 NodeService/catalog/frontend registry/节点库 badge；`OpenScreenPicker` 与 `PixelAt` 进入 target-aware tools adapter 路由。Win32 adapter 包住旧行为，Android adapter 先以明确 not-implemented 边界占位，下一刀接 ADB screenshot preview。
 
 Current:
-- 下一刀：先做 target-aware editor tooling 的最小切片：Windows-only 后端配置文案/分组，再抽 `TargetToolService` 包住现有 Win32 picker；不要恢复 `BrowserTarget`，不要在没有 picker/preview 适配前上 minitouch/maatouch/MuMu IPC。
+- 下一刀：实现 Android target preview picker：通过 ADB/controller 截图生成应用内预览，支持点/范围/模板/取色的坐标转换；不要恢复 `BrowserTarget`，不要在没有 picker/preview 适配前上 minitouch/maatouch/MuMu IPC。
 
 ## Open questions
 

@@ -171,6 +171,7 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		if !hasCatalogCapability(n.TargetCapabilities, "key-state") {
 			t.Fatalf("KeyPress should publish key-state target capability, got %+v", n.TargetCapabilities)
 		}
+		assertCatalogTargets(t, n.SupportedTargets, []string{"win32-window"})
 		var vk *Pin
 		for i := range n.Inputs {
 			if n.Inputs[i].Name == "VK" {
@@ -183,6 +184,31 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		return
 	}
 	t.Fatal("KeyPress not found in catalog")
+}
+
+func TestBuild_SupportedTargetsDerived(t *testing.T) {
+	byKind := map[string]Node{}
+	for _, n := range Build() {
+		byKind[n.Kind] = n
+	}
+	assertCatalogTargets(t, byKind["ClickAt"].SupportedTargets, []string{"win32-window", "android-adb"})
+	assertCatalogTargets(t, byKind["DetectColor"].SupportedTargets, []string{"win32-window", "android-adb"})
+	assertCatalogTargets(t, byKind["MouseMoveRel"].SupportedTargets, []string{"win32-window"})
+	assertCatalogTargets(t, byKind["AndroidTarget"].SupportedTargets, []string{"android-adb"})
+	assertCatalogTargets(t, byKind["Win32WindowTarget"].SupportedTargets, []string{"win32-window"})
+	assertCatalogTargets(t, byKind["Sleep"].SupportedTargets, nil)
+}
+
+func assertCatalogTargets(t *testing.T, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("supportedTargets = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("supportedTargets = %v, want %v", got, want)
+		}
+	}
 }
 
 func hasCatalogCapability(caps []string, want string) bool {

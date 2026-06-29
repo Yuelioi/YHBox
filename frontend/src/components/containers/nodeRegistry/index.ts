@@ -6,6 +6,8 @@
 
 export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list'
 
+export type SupportedTargetKind = 'win32-window' | 'android-adb'
+
 /** Typed data pin 颜色表. vue-flow Handle background 用. */
 export const TYPE_COLOR: Record<PinType, string> = {
   number: '#60a5fa', // blue
@@ -155,6 +157,9 @@ export interface NodeKindSpec {
 
   /** Config schema for Inspector form (replaces nodeFieldSchemas.ts NODE_FIELD_SCHEMAS[kind]). */
   fields: FieldSchema[]
+
+  /** User-visible automation target kinds this node can run against. Empty/undefined means the node has no target semantics. */
+  supportedTargets?: SupportedTargetKind[]
 
   /** Defaults filled into node.config on creation */
   defaults: Record<string, any>

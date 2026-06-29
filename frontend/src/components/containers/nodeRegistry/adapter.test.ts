@@ -1,6 +1,6 @@
 // adapter.test.ts — 验证 deriveFields schema 透传行为 (D1 结构化输入基建).
 import { describe, it, expect } from 'vitest'
-import { deriveFields } from './adapter'
+import { adaptSpec, deriveFields } from './adapter'
 import type { InputSpec } from '@bindings/yotta/internal/node'
 
 describe('deriveFields schema passthrough', () => {
@@ -118,5 +118,18 @@ describe('deriveFields schema passthrough', () => {
     expect(fields[0].widgetKind).toBe('async-dropdown')
     expect(fields[0].asyncSource).toBe('androidADBDevices')
     expect(fields[0].applyMeta).toEqual({ width: 'Width', height: 'Height' })
+  })
+
+  it('adaptSpec 透传 supportedTargets 到 NodeKindSpec', () => {
+    const spec = {
+      kind: 'ClickAt',
+      category: 'Input',
+      inputs: [],
+      outputs: [],
+      supportedTargets: ['win32-window', 'android-adb'],
+    } as any
+
+    const adapted = adaptSpec(spec)
+    expect(adapted.supportedTargets).toEqual(['win32-window', 'android-adb'])
   })
 })

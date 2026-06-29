@@ -268,6 +268,18 @@ func (s *Service) ResolveWindowForNode(containerID, nodeID string) (winutil.Wind
 	return winutil.ResolveWindow(context.Background(), ReadWin32WindowTargetMatchSpec(wt), 3*time.Second, 500*time.Millisecond)
 }
 
+// ResolveEditorTargetKindForNode resolves the user-visible target kind editor
+// tooling should use for screenshots, point picking, rectangle picking, and
+// color sampling. No explicit target keeps the historical Windows default.
+func (s *Service) ResolveEditorTargetKindForNode(containerID, nodeID string) (string, error) {
+	c, ok := s.store.Get(containerID)
+	if !ok {
+		return "", fmt.Errorf("container %q not found", containerID)
+	}
+	kind, _ := editorTargetKindForNode(&c, nodeID)
+	return kind, nil
+}
+
 // CaptureBackendFor 返容器配置的截图后端名 (auto/gdi/wgc/mock). 容器不存在 → "auto".
 func (s *Service) CaptureBackendFor(containerID string) string {
 	c, ok := s.store.Get(containerID)

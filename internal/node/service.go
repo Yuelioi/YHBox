@@ -50,7 +50,7 @@ func (s *NodeService) GetAllNodeSpecs() []Spec {
 	all := All()
 	out := make([]Spec, 0, len(all))
 	for _, rn := range all {
-		out = append(out, rn.Spec)
+		out = append(out, PopulateSupportedTargets(rn.Spec))
 	}
 	return out
 }

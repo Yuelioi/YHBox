@@ -276,7 +276,7 @@ function parseDynamicOutputsCfg(
 }
 
 // 主转换: backend Spec → NodeKindSpec.
-function adaptSpec(s: Spec): NodeKindSpec {
+export function adaptSpec(s: Spec): NodeKindSpec {
   const group = GROUP_MAP[s.category] ?? 'system'
   const visual = visualForGroup(group)
   const { execIn, dataIn } = splitInputs(s.inputs ?? [])
@@ -297,6 +297,7 @@ function adaptSpec(s: Spec): NodeKindSpec {
     dataIn,
     dataOut,
     fields: deriveFields(s.kind, s.inputs ?? []),
+    supportedTargets: ((s as any).supportedTargets ?? []) as NodeKindSpec['supportedTargets'],
     defaults: deriveDefaults(s.inputs ?? []),
     isPureData: s.isPureData,
     isVisualOnly: s.isVisualOnly,

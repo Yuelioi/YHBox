@@ -2162,6 +2162,10 @@ export default {
     search_placeholder: 'Search nodes (substring)...',
     esc_tab_close: 'Esc / Tab close',
     no_match: 'No matching nodes',
+    platform_windows: 'Win',
+    platform_android: 'Android',
+    platform_windows_only: 'Win only',
+    platform_android_only: 'Android only',
   },
   contextMenu: {
     no_literal_pin: 'This node has no literal pin to extract',
