@@ -2,6 +2,7 @@ package purefunc
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"yotta/internal/node"
@@ -222,5 +223,84 @@ func TestMakePoint_Spec(t *testing.T) {
 	}
 	if len(s.Outputs) != 1 || s.Outputs[0].Type != "Point" {
 		t.Fatalf("want single Point output, got %+v", s.Outputs)
+	}
+}
+
+func TestOffsetPoint_ClampsRatioPoint(t *testing.T) {
+	v, err := OffsetPoint{}.Evaluate(nil, node.NewInputsFromConfig(
+		map[string]any{
+			"Point":   node.Point{X: 0.9, Y: 0.1},
+			"OffsetX": 0.2,
+			"OffsetY": -0.3,
+		}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := v.(node.Point)
+	if p.X != 1 || p.Y != 0 || p.Unit != node.UnitRatio {
+		t.Fatalf("got %+v want clamped {1 0 ratio}", p)
+	}
+}
+
+func TestOffsetPoint_PreservesPixelUnit(t *testing.T) {
+	v, _ := OffsetPoint{}.Evaluate(nil, node.NewInputsFromConfig(
+		map[string]any{
+			"Point":   node.Point{X: 100, Y: 200, Unit: node.UnitPx},
+			"OffsetX": 10,
+			"OffsetY": -20,
+		}))
+	p := v.(node.Point)
+	if p.X != 110 || p.Y != 180 || p.Unit != node.UnitPx {
+		t.Fatalf("got %+v want {110 180 px}", p)
+	}
+}
+
+func TestPointDistance(t *testing.T) {
+	v, err := PointDistance{}.Evaluate(nil, node.NewInputsFromConfig(
+		map[string]any{
+			"Begin": node.Point{X: 0.1, Y: 0.2},
+			"End":   node.Point{X: 0.4, Y: 0.6},
+		}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := v.(float64); math.Abs(got-0.5) > 1e-9 {
+		t.Fatalf("distance = %v, want 0.5", got)
+	}
+}
+
+func TestROIAroundPoint_ClampsToScreen(t *testing.T) {
+	v, err := ROIAroundPoint{}.Evaluate(nil, node.NewInputsFromConfig(
+		map[string]any{
+			"Center": node.Point{X: 0.9, Y: 0.1},
+			"Width":  40.0,
+			"Height": 50.0,
+		}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := v.(node.Geometry)
+	want := node.Rect{X: 0.6, Y: 0, W: 0.4, H: 0.5}
+	if g.Pct != want {
+		t.Fatalf("roi = %+v, want %+v", g.Pct, want)
+	}
+}
+
+func TestPointUtilitySpecs(t *testing.T) {
+	for _, tc := range []struct {
+		n       node.Node
+		outType string
+	}{
+		{&OffsetPoint{}, "Point"},
+		{&PointDistance{}, "Number"},
+		{&ROIAroundPoint{}, "Geometry"},
+	} {
+		s := tc.n.Spec()
+		if !s.IsPureData || s.Category != "PureFunc" {
+			t.Fatalf("%s spec wrong: %+v", s.Kind, s)
+		}
+		if len(s.Outputs) != 1 || s.Outputs[0].Name != "Result" || s.Outputs[0].Type != tc.outType {
+			t.Fatalf("%s output = %+v, want Result(%s)", s.Kind, s.Outputs, tc.outType)
+		}
 	}
 }

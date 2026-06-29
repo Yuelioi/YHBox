@@ -1622,6 +1622,34 @@ export default {
       },
       output: { Result: { label: 'Coordinate' } },
     },
+    OffsetPoint: {
+      label: 'Offset Point',
+      description: 'Add horizontal and vertical offsets to a coordinate. Ratio points are clamped inside the screen; pixel points keep their pixel unit.',
+      example: 'Take a template center point, then offset slightly down and right before clicking a steadier spot inside the button.',
+      input: {
+        Point: { label: 'Point' },
+        OffsetX: { label: 'Offset X', hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets' },
+        OffsetY: { label: 'Offset Y', hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets' },
+      },
+      output: { Result: { label: 'Point' } },
+    },
+    PointDistance: {
+      label: 'Point Distance',
+      description: 'Calculate the straight-line distance between two coordinates. Useful for checking whether a detection is close enough to a target point.',
+      input: { Begin: { label: 'Begin' }, End: { label: 'End' } },
+      output: { Result: { label: 'Distance' } },
+    },
+    ROIAroundPoint: {
+      label: 'ROI Around Point',
+      description: 'Create an ROI for screenshot or detection around a center point. Width and height are percentages and the result is clamped inside the screen.',
+      example: 'After detecting a character position, search only the surrounding 20% area for buttons or colors.',
+      input: {
+        Center: { label: 'Center', hint: 'Ratio coordinates give the clearest result' },
+        Width: { label: 'Width', hint: 'Percent; 20 means 20% of screen width' },
+        Height: { label: 'Height', hint: 'Percent; 20 means 20% of screen height' },
+      },
+      output: { Result: { label: 'ROI' } },
+    },
     // list
     ForEach: {
       label: 'For Each', description: 'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',

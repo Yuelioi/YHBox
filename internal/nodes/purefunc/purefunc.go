@@ -1,8 +1,8 @@
-// Package purefunc 41 个纯函数节点 (Add/.../Select + 数学 Abs/.../Sqrt + 字符串 Replace/.../RegexExtract) + Expr.
+// Package purefunc 44 个纯函数节点 (Add/.../Select + 数学 Abs/.../Sqrt + 字符串 Replace/.../RegexExtract + 坐标/几何) + Expr.
 // 全是 IsPureData=true, 全部实现 node.Evaluator (EvaluatePureData 入口).
 // Expr 节点定义在 expr.go (dynamic inputs 用 Inputs.Keys() 遍历).
 //
-// 设计取舍: 31 节点用同一 spec shape (1 data-out "result"), 用 specBuilder 复用构造代码.
+// 设计取舍: 多数节点用同一 spec shape (1 data-out "result"), 用 specBuilder 复用构造代码.
 // 每节点仍独立 Go type — 符合 "1 type 1 node" 原则, builder 只复用 Spec 字段填充不引入抽象层.
 package purefunc
 
@@ -101,6 +101,16 @@ func asBool(v any) bool {
 	return true
 }
 
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
 func init() {
 	for _, n := range []node.Node{
 		// 算术 (6)
@@ -120,8 +130,8 @@ func init() {
 		// 字符串函数 (10)
 		&Replace{}, &Substring{}, &Trim{}, &ToUpper{}, &ToLower{},
 		&IndexOf{}, &StartsWith{}, &EndsWith{}, &RegexMatch{}, &RegexExtract{},
-		// 构造 (1)
-		&MakePoint{},
+		// 坐标/几何 (4)
+		&MakePoint{}, &OffsetPoint{}, &PointDistance{}, &ROIAroundPoint{},
 	} {
 		node.Register(n)
 	}
@@ -317,6 +327,7 @@ func (Length) Spec() node.Spec {
 		{Name: "S", Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
 	}, "Number")
 }
+
 // Evaluate — rune 计数 (CJK 一个字算 1, 非字节). 与 Substring/IndexOf 的位置语义统一,
 // 见 specs/2026-06-10-string-nodes.md "byte vs rune 判断".
 func (Length) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
@@ -382,7 +393,7 @@ func (Select) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	return in.Raw("B"), nil
 }
 
-// ===== 构造 (1) =====
+// ===== 坐标/几何 (4) =====
 
 type MakePoint struct{}
 
@@ -413,4 +424,71 @@ func (MakePoint) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 	}
 	// percent: 输入 0-100 (与 PointWidget 一致) → 0-1 ratio
 	return node.Point{X: x / 100, Y: y / 100}, nil
+}
+
+type OffsetPoint struct{}
+
+func (OffsetPoint) Spec() node.Spec {
+	return specBuilder("OffsetPoint", []node.InputSpec{
+		{Name: "Point", Type: "Point", Schema: node.PointSchema()},
+		{Name: "OffsetX", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+		{Name: "OffsetY", Type: "Number", Default: json.Number("0"), Widget: node.WidgetSpec{Kind: "number"}},
+	}, "Point")
+}
+
+func (OffsetPoint) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	p := in.Point("Point")
+	p.X += in.Float64("OffsetX")
+	p.Y += in.Float64("OffsetY")
+	if p.Unit != node.UnitPx {
+		p.X = clamp01(p.X)
+		p.Y = clamp01(p.Y)
+	}
+	return p, nil
+}
+
+type PointDistance struct{}
+
+func (PointDistance) Spec() node.Spec {
+	return specBuilder("PointDistance", []node.InputSpec{
+		{Name: "Begin", Type: "Point", Schema: node.PointSchema()},
+		{Name: "End", Type: "Point", Schema: node.PointSchema()},
+	}, "Number")
+}
+
+func (PointDistance) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	begin := in.Point("Begin")
+	end := in.Point("End")
+	return math.Hypot(end.X-begin.X, end.Y-begin.Y), nil
+}
+
+type ROIAroundPoint struct{}
+
+func (ROIAroundPoint) Spec() node.Spec {
+	return specBuilder("ROIAroundPoint", []node.InputSpec{
+		{Name: "Center", Type: "Point", Schema: node.PointSchema()},
+		{Name: "Width", Type: "Number", Default: json.Number("20"), Widget: node.WidgetSpec{Kind: "number"}},
+		{Name: "Height", Type: "Number", Default: json.Number("20"), Widget: node.WidgetSpec{Kind: "number"}},
+	}, "Geometry")
+}
+
+func (ROIAroundPoint) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
+	center := in.Point("Center")
+	w := clamp01(in.Float64("Width") / 100)
+	h := clamp01(in.Float64("Height") / 100)
+	x := clamp01(center.X) - w/2
+	y := clamp01(center.Y) - h/2
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+	if x+w > 1 {
+		x = 1 - w
+	}
+	if y+h > 1 {
+		y = 1 - h
+	}
+	return node.Geometry{Pct: node.Rect{X: x, Y: y, W: w, H: h}}, nil
 }

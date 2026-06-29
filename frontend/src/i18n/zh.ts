@@ -1642,6 +1642,34 @@ export default {
       },
       output: { Result: { label: '坐标' } },
     },
+    OffsetPoint: {
+      label: '偏移坐标',
+      description: '在一个坐标上加水平/垂直偏移。百分比坐标会限制在屏幕内；像素坐标保持像素单位不缩放。',
+      example: '先取模板中心点，再向右下偏移一点，点击按钮内部更稳的位置。',
+      input: {
+        Point: { label: '坐标' },
+        OffsetX: { label: '水平偏移', hint: '百分比坐标填 0-1 的偏移量；像素坐标填像素偏移' },
+        OffsetY: { label: '垂直偏移', hint: '百分比坐标填 0-1 的偏移量；像素坐标填像素偏移' },
+      },
+      output: { Result: { label: '坐标' } },
+    },
+    PointDistance: {
+      label: '两点距离',
+      description: '计算两个坐标之间的直线距离。常用于判断检测结果是否离目标点足够近。',
+      input: { Begin: { label: '起点' }, End: { label: '终点' } },
+      output: { Result: { label: '距离' } },
+    },
+    ROIAroundPoint: {
+      label: '点周围区域',
+      description: '以一个坐标为中心生成截图/识别用的 ROI 区域，宽高按百分比填写，并自动限制在屏幕内。',
+      example: '识别到角色位置后，只在角色周围 20% 区域里继续找按钮或颜色。',
+      input: {
+        Center: { label: '中心点', hint: '使用百分比坐标效果最明确' },
+        Width: { label: '宽度', hint: '百分比，20 表示屏幕宽度的 20%' },
+        Height: { label: '高度', hint: '百分比，20 表示屏幕高度的 20%' },
+      },
+      output: { Result: { label: '区域' } },
+    },
     // list
     ForEach: {
       label: '遍历列表', description: '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',
