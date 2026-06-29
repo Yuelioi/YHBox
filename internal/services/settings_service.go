@@ -48,5 +48,17 @@ func (s *SettingsService) Update(patchJSON string) error {
 				Msg("自启注册表更新失败（settings 仍已保存）")
 		}
 	}
+
+	// Logger 字段变更 → LogSink 重接 (无侵入 — LogSink 通过 app 取)
+	if sink := s.app.GetLogSink(); sink != nil {
+		ls := cur.UI.Logger
+		dir := ls.FileDir
+		if !ls.WriteFile {
+			dir = ""
+		}
+		sink.SetFileWriter(dir)
+	}
+	// 通知所有 webview（尤其独立悬浮窗这种自带 store 的窗口）设置已变 → 各自 reload。
+	s.app.Emit("settings:changed", map[string]any{})
 	return nil
 }

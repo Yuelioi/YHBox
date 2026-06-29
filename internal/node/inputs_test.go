@@ -1,0 +1,121 @@
+// internal/node/inputs_test.go
+package node
+
+import (
+	"encoding/json"
+	"reflect"
+	"testing"
+)
+
+func TestInputs_PriorityOrder(t *testing.T) {
+	in := newInputs(
+		map[string]any{"X": "from-wire"},
+		map[string]any{"X": "from-config", "Y": "from-config"},
+		map[string]any{"X": "from-exec", "Y": "from-exec", "Z": "from-exec"},
+		map[string]any{"X": "default", "Y": "default", "Z": "default", "W": "default"},
+	)
+	if in.String("X") != "from-wire" {
+		t.Errorf("X = %q, want from-wire", in.String("X"))
+	}
+	if in.String("Y") != "from-config" {
+		t.Errorf("Y = %q, want from-config", in.String("Y"))
+	}
+	if in.String("Z") != "from-exec" {
+		t.Errorf("Z = %q, want from-exec", in.String("Z"))
+	}
+	if in.String("W") != "default" {
+		t.Errorf("W = %q, want default", in.String("W"))
+	}
+}
+
+func TestInputs_Has(t *testing.T) {
+	in := newInputs(nil, map[string]any{"X": 1}, nil, nil)
+	if !in.Has("X") {
+		t.Error("Has(X) should be true")
+	}
+	if in.Has("Y") {
+		t.Error("Has(Y) should be false")
+	}
+}
+
+func TestInputs_TypeCast(t *testing.T) {
+	in := newInputs(nil, nil, nil, map[string]any{"i": 42, "f": 3.14})
+	if in.Float64("i") != 42.0 {
+		t.Error("int→float cast failed")
+	}
+	if in.Int("f") != 3 {
+		t.Error("float→int cast failed")
+	}
+}
+
+func TestInputs_Geometry(t *testing.T) {
+	want := Geometry{Pct: Rect{X: 0.1, Y: 0.2, W: 0.5, H: 0.5}}
+	in := newInputs(nil, map[string]any{"ROI": want}, nil, nil)
+	got := in.Geometry("ROI")
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Geometry(ROI) = %+v, want %+v", got, want)
+	}
+	// 缺失 → 零值
+	if z := in.Geometry("missing"); !reflect.DeepEqual(z, Geometry{}) {
+		t.Fatalf("missing Geometry should be zero, got %+v", z)
+	}
+}
+
+func TestInputs_JsonNumberCoercion(t *testing.T) {
+	// InputSpec.Default 用 json.Number 保精度 (DS r2 #9a). Float64/Int 必须能解.
+	in := newInputs(nil, nil, nil, map[string]any{
+		"th":  json.Number("0.85"),
+		"cnt": json.Number("42"),
+	})
+	if in.Float64("th") != 0.85 {
+		t.Errorf("Float64(json.Number 0.85) = %v, want 0.85", in.Float64("th"))
+	}
+	if in.Int("cnt") != 42 {
+		t.Errorf("Int(json.Number 42) = %d, want 42", in.Int("cnt"))
+	}
+	// String fallback (e.g. config value 来自 JSON deserialize 是 string)
+	in2 := newInputs(nil, map[string]any{"x": "3.14"}, nil, nil)
+	if in2.Float64("x") != 3.14 {
+		t.Errorf("Float64(string '3.14') = %v, want 3.14", in2.Float64("x"))
+	}
+}
+
+func TestInputs_List(t *testing.T) {
+	cases := []struct {
+		name string
+		val  any
+		want []any
+	}{
+		{"any_slice", []any{1.0, "a"}, []any{1.0, "a"}},
+		{"string_slice", []string{"a", "b"}, []any{"a", "b"}},
+		{"nil", nil, nil},
+		{"bare_string_not_list", "a,b", nil}, // 与 StringList 区别: 不把裸 string 当一元列表
+		{"number_not_list", 3.14, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := NewInputsFromConfig(map[string]any{"literal": map[string]any{"X": tc.val}})
+			got := in.List("X")
+			if len(got) != len(tc.want) {
+				t.Fatalf("len = %d, want %d (%v)", len(got), len(tc.want), got)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("[%d] = %v, want %v", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestListTypeRegistered(t *testing.T) {
+	for _, ts := range AllTypes() {
+		if ts.Tag == "List" {
+			if ts.GoType != "[]any" || ts.Color != "#818cf8" || ts.WidgetKind != "list-preview" {
+				t.Fatalf("List TypeSpec wrong: %+v", ts)
+			}
+			return
+		}
+	}
+	t.Fatal("List type not registered")
+}

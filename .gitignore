@@ -5,6 +5,9 @@ debug/
 .vscode/
 .idea/
 
+# brainstorming visual-companion mockups (transient)
+.superpowers/
+
 # OS
 Thumbs.db
 .DS_Store
@@ -17,9 +20,7 @@ logs/
 # 但 wails3 build 需要 wails.exe.manifest 作为 syso 输入；它是 XML 不是 binary，
 # 必须 checkin（CI 上 git clone 时拿不到就炸 `wails3 generate syso`）。
 !build/windows/wails.exe.manifest
-
-
-settings.json
+!build/windows/platform-tools/adb.exe
 
 # wails3 build output
 bin/
@@ -40,3 +41,18 @@ frontend/.oxlintcache
 
 # Rust
 native/capture_wgc/target
+
+# AI Tools
+CLAUDE.md
+.claude/
+
+# Agent workspace
+flightdeck/references
+flightdeck/tmp
+flightdeck/archive
+
+# User Data
+settings.json
+
+
+tmp

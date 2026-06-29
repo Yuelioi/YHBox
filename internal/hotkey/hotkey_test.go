@@ -140,7 +140,7 @@ func TestHotkeyManager_RegisterFailureKeepsExistingLoop(t *testing.T) {
 		t.Fatalf("rollback 后 bindings 应只剩 id1=%d，got %+v", id1, bindings)
 	}
 
-	// 核心断言：loop 仍在跑（这是 fix 的核心 —— 之前是 false）
+	// 核心断言：rollback 后 loop 仍在跑
 	m.mu.Lock()
 	running := m.running
 	m.mu.Unlock()

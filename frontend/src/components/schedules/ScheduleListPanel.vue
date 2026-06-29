@@ -1,23 +1,19 @@
 <template>
   <div class="space-y-3">
-    <div
+    <EmptyState
       v-if="list.length === 0"
-      class="rounded-xl bg-default/50 border border-default/60 border-dashed py-12 px-6 text-center"
-    >
-      <UIcon name="i-tabler-clock" class="size-8 text-dimmed mx-auto mb-3" />
-      <p class="text-sm text-muted">还没有计划</p>
-      <p class="text-xs text-dimmed mt-1">
-        计划绑定 cron / 热键 / 启动后一次，触发后顺序跑指定容器。
-      </p>
-    </div>
+      icon="i-tabler-clock"
+      :title="t('schedule.empty')"
+      :description="t('schedule.empty_desc')"
+    />
     <table v-else class="w-full text-sm">
       <thead class="text-xs text-dimmed uppercase tracking-wider border-b border-default">
         <tr>
-          <th class="text-left p-2">名称</th>
-          <th class="text-left p-2">触发</th>
-          <th class="text-left p-2">容器数</th>
-          <th class="text-left p-2">上次触发</th>
-          <th class="text-left p-2">启用</th>
+          <th class="text-left p-2">{{ t('schedule.table.name') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.trigger') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.count') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.last') }}</th>
+          <th class="text-left p-2">{{ t('schedule.table.enabled') }}</th>
           <th class="p-2"></th>
         </tr>
       </thead>
@@ -25,21 +21,16 @@
         <tr v-for="s in list" :key="s.id" class="border-b border-default/40 hover:bg-elevated/40">
           <td class="p-2 text-default">{{ s.name }}</td>
           <td class="p-2 text-dimmed">{{ triggerLabel(s) }}</td>
-          <td class="p-2 text-dimmed">{{ s.targets.length }}</td>
-          <td class="p-2 text-dimmed">
+          <td class="p-2 text-dimmed font-mono tabular-nums">{{ s.targets.length }}</td>
+          <td class="p-2 text-dimmed font-mono tabular-nums">
             {{ s.lastFiredAt?.slice(0, 16).replace('T', ' ') ?? '—' }}
           </td>
           <td class="p-2">
-            <span
-              class="text-[10px] px-1.5 py-0.5 rounded"
-              :class="
-                s.enabled
-                  ? 'bg-primary/10 text-primary border border-primary/20'
-                  : 'bg-elevated text-dimmed'
-              "
-            >
-              {{ s.enabled ? '启用' : '停用' }}
-            </span>
+            <StatusPill
+              :status="s.enabled ? 'online' : 'ready'"
+              :label="s.enabled ? t('schedule.enable') : t('schedule.disable')"
+              :dot="s.enabled"
+            />
           </td>
           <td class="p-2 text-right">
             <UButton
@@ -64,25 +55,30 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { Schedule } from '@/lib/backend'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
+
+const { t } = useI18n()
 
 defineProps<{ list: Schedule[] }>()
 defineEmits<{ edit: [s: Schedule]; delete: [s: Schedule] }>()
 
 function triggerLabel(s: Schedule): string {
-  const t = s.trigger
-  switch (t.kind) {
+  const tg = s.trigger
+  switch (tg.kind) {
     case 'cron':
-      if (t.subKind === 'daily') return `每日 ${t.at ?? '--:--'}`
-      if (t.subKind === 'interval') return `每 ${t.everyMinutes}m`
+      if (tg.subKind === 'daily') return t('schedule.display.daily', { at: tg.at ?? '--:--' })
+      if (tg.subKind === 'interval') return t('schedule.display.interval', { mins: tg.everyMinutes })
       return 'cron'
     case 'hotkey':
-      return `热键 ${t.hotkey ?? ''}`
+      return t('schedule.display.hotkey', { key: tg.hotkey ?? '' })
     case 'once':
-      return '启动后一次'
+      return t('schedule.trigger.once')
     case 'manual':
-      return '仅手动'
+      return t('schedule.trigger.manual')
   }
-  return t.kind
+  return tg.kind
 }
 </script>

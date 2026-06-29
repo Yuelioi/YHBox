@@ -1,348 +1,288 @@
 <template>
-  <div class="p-6 space-y-6 max-w-2xl">
-    <header>
-      <h2 class="text-base font-medium text-highlighted">输入校准</h2>
-      <p class="text-xs text-dimmed mt-1">
-        鼠标硬件 DPI 影响"相对位移"类录制（camera/视角转动）的跨电脑回放。 校准后录制时会把基准写入
-        Action 元数据，回放时按当前电脑基准按比例缩放。
-      </p>
-    </header>
+  <div class="px-8 py-6 space-y-6">
+    <!-- 总说明 -->
+    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-mouse" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.title') }}</h2>
+      </div>
+      <p class="text-xs text-dimmed">{{ t('settings.input.intro') }}</p>
+      <div
+        class="rounded-md bg-elevated/30 border border-default/60 px-3 py-2 text-xs text-muted leading-relaxed"
+      >
+        <UIcon
+          name="i-tabler-info-circle"
+          class="size-3.5 inline-block align-middle mr-1 text-warning/80"
+        />
+        <span class="text-toned">{{ t('settings.input.intro_box.what_label') }}</span
+        >: {{ t('settings.input.intro_box.what_desc') }}
+        <ul class="list-disc pl-5 mt-1 space-y-0.5">
+          <li>{{ t('settings.input.intro_box.item_default_source') }}</li>
+          <li>{{ t('settings.input.intro_box.item_sync_action') }}</li>
+        </ul>
+        <span class="mt-1 block">
+          {{ t('settings.input.intro_box.footnote_prefix') }}<span class="text-warning">{{
+            t('settings.input.intro_box.footnote_negation')
+          }}</span
+          >{{ t('settings.input.intro_box.footnote_rest') }}
+        </span>
+      </div>
+    </section>
 
-    <section class="rounded-md border border-default bg-elevated/40 p-4 space-y-4">
-      <div class="flex items-center justify-between gap-4">
+    <!-- 录制配置 -->
+    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-player-record" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.record.title') }}</h2>
+      </div>
+      <p class="text-xs text-dimmed">{{ t('settings.input.record.hint') }}</p>
+
+      <div class="border-t border-default/60" />
+
+      <!-- 鼠标语义 -->
+      <div class="flex items-center justify-between gap-6">
         <div class="min-w-0">
-          <h3 class="text-sm font-medium text-highlighted">本机 360° HID counts</h3>
-          <p class="text-[11px] text-dimmed mt-0.5">原地转身 360° 鼠标硬件上报的累积 |dx|</p>
+          <div class="text-sm text-default">{{ t('settings.input.record.mouse_mode_label') }}</div>
+          <p class="text-xs text-dimmed mt-0.5">{{ t('settings.input.record.mouse_mode_hint') }}</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <UInputNumber
-            v-model="manualCounts"
-            :min="0"
-            :max="999999"
-            :step="100"
-            class="w-32"
-            @blur="onCommitManual"
+        <USelect
+          :model-value="settings?.ui.recordingMouseMode ?? 'relative'"
+          :items="mouseModeItems"
+          class="w-56"
+          @update:model-value="(v: string) => patchRecord({ recordingMouseMode: v })"
+        />
+      </div>
+    </section>
+
+    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-target" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.counts.title') }}</h2>
+      </div>
+      <p class="text-xs text-dimmed">{{ t('settings.input.counts.hint') }}</p>
+
+      <!-- profile 列表：每行 = 默认单选 + 名字 + counts + 校准 + 删除 -->
+      <div v-if="profiles.length" class="space-y-2">
+        <div class="flex items-center gap-2 text-xs uppercase tracking-wider text-dimmed px-3">
+          <span class="w-8 text-center">{{ t('settings.input.counts.col_active') }}</span>
+          <span class="flex-1">{{ t('settings.input.counts.col_label') }}</span>
+          <span class="w-28">{{ t('settings.input.counts.col_counts') }}</span>
+          <span class="w-[88px]" />
+        </div>
+        <div
+          v-for="(p, i) in profiles"
+          :key="i"
+          class="flex items-center gap-2 rounded-md border px-3 py-2"
+          :class="p.label === activeLabel ? 'border-primary/50 bg-primary/5' : 'border-default/60 bg-elevated/30'"
+        >
+          <div class="w-8 flex justify-center">
+            <URadio
+              :model-value="activeLabel"
+              :value="p.label"
+              :disabled="!p.label"
+              @update:model-value="() => setActive(p.label)"
+            />
+          </div>
+          <UInput
+            :model-value="p.label"
+            size="sm"
+            class="flex-1 min-w-0"
+            :placeholder="t('settings.input.counts.label_placeholder')"
+            @update:model-value="(v: string) => updateLabel(i, v)"
           />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-check"
-            title="保存手填值"
-            @click="onCommitManual"
-          />
+          <div class="w-28 shrink-0">
+            <UInputNumber
+              :model-value="p.counts360"
+              :min="0"
+              :max="999999"
+              :step="100"
+              size="sm"
+              class="w-full"
+              @update:model-value="(v: number) => updateCounts(i, v)"
+            />
+          </div>
+          <div class="w-[88px] flex gap-1 justify-end">
+            <UButton
+              size="xs"
+              variant="soft"
+              color="primary"
+              icon="i-tabler-target"
+              :title="t('settings.input.counts.recalibrate')"
+              @click="openCalibratorFor(i)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-tabler-trash"
+              :title="t('settings.input.counts.delete_profile')"
+              @click="removeProfile(i)"
+            />
+          </div>
         </div>
       </div>
+      <p v-else class="text-xs text-dimmed italic">{{ t('settings.input.counts.empty') }}</p>
 
       <div class="flex items-center gap-2 flex-wrap">
-        <UButton size="sm" color="primary" icon="i-tabler-target" @click="openCalibrator">
-          {{ (settings?.ui.mouseCounts360 ?? 0) > 0 ? '重新校准' : '开始校准' }}
+        <UButton size="sm" color="primary" variant="soft" icon="i-tabler-plus" @click="addProfile">
+          {{ t('settings.input.counts.add_profile') }}
         </UButton>
         <UButton
+          v-if="activeCounts > 0"
           size="sm"
           variant="soft"
-          color="neutral"
-          icon="i-tabler-pointer"
-          @click="openMouseHUD"
+          color="primary"
+          icon="i-tabler-refresh"
+          @click="onSyncAll"
         >
-          打开鼠标 HUD
+          {{ t('settings.input.counts.sync_all') }}
         </UButton>
-        <span class="ml-auto text-[11px] text-dimmed">
-          也可以从其他电脑分享脚本附带的 counts，直接手填
+        <span class="ml-auto text-xs text-dimmed">
+          {{ t('settings.input.counts.share_hint') }}
         </span>
       </div>
     </section>
 
     <!-- 说明 -->
-    <section
-      class="rounded-md border border-default/60 bg-default/50 p-4 text-xs text-dimmed space-y-2"
-    >
-      <h4 class="text-xs uppercase tracking-wider text-toned">怎么用</h4>
-      <ol class="list-decimal pl-5 space-y-1">
-        <li>点「开始校准」打开对话框</li>
-        <li>切到游戏，对准固定参照物，准备好</li>
-        <li>
-          按 <code class="bg-elevated/60 px-1 rounded text-toned">F8</code> 开始 3
-          秒倒计时（不用回到本程序！）
-        </li>
-        <li>倒计时结束后开始累计 → 原地匀速转一整圈 360°</li>
-        <li>转完再按一次 <code class="bg-elevated/60 px-1 rounded text-toned">F8</code> 停止</li>
-        <li>切回程序点「保存」即可</li>
+    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-list-numbers" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.howto.title') }}</h2>
+      </div>
+      <ol class="list-decimal pl-5 space-y-1 text-xs text-dimmed">
+        <li>{{ t('settings.input.howto.step_open') }}</li>
+        <li>{{ t('settings.input.howto.step_focus') }}</li>
+        <li>{{ t('settings.input.howto.step_start', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>
+        <li>{{ t('settings.input.howto.step_spin') }}</li>
+        <li>{{ t('settings.input.howto.step_stop', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>
+        <li>{{ t('settings.input.howto.step_save') }}</li>
       </ol>
     </section>
-
-    <!-- 校准 Modal -->
-    <UModal :open="open" @update:open="onUpdateOpen" :ui="{ content: 'sm:max-w-[560px]' }">
-      <template #content>
-        <div class="bg-default flex flex-col">
-          <header class="flex items-center gap-2 px-5 py-3 border-b border-default">
-            <UIcon name="i-tabler-target" class="size-4 text-primary" />
-            <h3 class="text-sm font-medium text-highlighted">鼠标 DPI 校准</h3>
-            <span class="ml-auto" />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-x"
-              @click="onCancel"
-            />
-          </header>
-
-          <div class="p-5 space-y-4">
-            <!-- 状态分支 -->
-            <div
-              v-if="stage === 'waiting'"
-              class="rounded-md border border-dashed border-default/60 bg-elevated/40 p-5 text-center space-y-3"
-            >
-              <UIcon name="i-tabler-keyboard" class="size-8 text-primary mx-auto" />
-              <p class="text-sm text-highlighted">
-                切到游戏，按
-                <code class="bg-elevated/60 px-1.5 py-0.5 rounded text-toned">F8</code> 开始
-              </p>
-              <p class="text-[11px] text-dimmed">
-                按下后 3 秒倒计时，期间最后调整姿态；倒计时结束自动开始累计
-              </p>
-            </div>
-
-            <div
-              v-else-if="stage === 'countingDown'"
-              class="rounded-md border border-amber-500/40 bg-amber-500/10 p-5 text-center space-y-2"
-            >
-              <div class="text-6xl font-mono tabular-nums text-amber-400">{{ countdown }}</div>
-              <p class="text-sm text-amber-300">即将开始累计，请就位</p>
-              <p class="text-[10px] text-dimmed">提前按 F8 = 立即开始</p>
-            </div>
-
-            <div
-              v-else-if="stage === 'accumulating'"
-              class="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-5 text-center space-y-2"
-            >
-              <div class="flex items-center justify-center gap-2 text-emerald-300">
-                <span class="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span class="text-sm">累计中 · 原地转 360°</span>
-              </div>
-              <div class="text-4xl font-mono tabular-nums text-emerald-300">{{ liveAbsDx }}</div>
-              <p class="text-[10px] text-dimmed font-mono">|dy| {{ liveAbsDy }}（垂直，仅参考）</p>
-              <p class="text-[11px] text-emerald-300/80 pt-2">
-                转完按 <code class="bg-emerald-500/20 px-1.5 py-0.5 rounded">F8</code> 停止
-              </p>
-            </div>
-
-            <div
-              v-else-if="stage === 'done'"
-              class="rounded-md border border-primary/40 bg-primary/10 p-5 text-center space-y-2"
-            >
-              <UIcon name="i-tabler-circle-check" class="size-8 text-primary mx-auto" />
-              <p class="text-sm text-highlighted">已记录</p>
-              <div class="text-4xl font-mono tabular-nums text-primary">{{ liveAbsDx }}</div>
-              <p class="text-[11px] text-dimmed">点下方「保存」写入本机基准；或按 F8 重测</p>
-            </div>
-
-            <p v-if="hotkeyWarn" class="text-[11px] text-warning">
-              <UIcon name="i-tabler-alert-triangle" class="size-3 inline" />
-              {{ hotkeyWarn }}
-            </p>
-          </div>
-
-          <footer class="px-5 py-3 border-t border-default flex items-center gap-2">
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-refresh"
-              :disabled="stage === 'waiting' || stage === 'countingDown'"
-              @click="resetSession"
-              >重测</UButton
-            >
-            <span class="ml-auto" />
-            <UButton variant="ghost" color="neutral" @click="onCancel">取消</UButton>
-            <UButton
-              color="primary"
-              icon="i-tabler-device-floppy"
-              :disabled="stage !== 'done' || liveAbsDx === 0"
-              @click="onSave"
-            >
-              保存（{{ liveAbsDx }}）
-            </UButton>
-          </footer>
-        </div>
-      </template>
-    </UModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
-import { Events } from '@wailsio/runtime'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
-import { useSettingsStore } from '@/stores/settings'
+import { useSettingsStore, type MouseProfile } from '@/stores/settings'
+import { useHotkeysStore } from '@/stores/hotkeys'
+import { useToast } from '@nuxt/ui/composables'
+import { useConfirm } from '@/composables/useConfirm'
+import { awaitWailsEvent } from '@/composables/useWailsEvent'
+
+const { t } = useI18n()
+const { confirm } = useConfirm()
+const hotkeys = useHotkeysStore()
 
 const settingsStore = useSettingsStore()
 const settings = computed(() => settingsStore.data)
+const toast = useToast()
 
-const manualCounts = ref<number>(0)
-watch(
-  () => settings.value?.ui.mouseCounts360,
-  (v) => {
-    manualCounts.value = v ?? 0
-  },
-  { immediate: true },
-)
+const mouseModeItems = computed(() => [
+  { label: t('settings.input.record.mouse_mode.relative'), value: 'relative' },
+  { label: t('settings.input.record.mouse_mode.absolute'), value: 'absolute' },
+])
 
-async function onCommitManual() {
-  const v = Number(manualCounts.value)
-  if (!Number.isFinite(v) || v < 0) return
-  const cur = settings.value?.ui.mouseCounts360 ?? 0
-  if (v === cur) return
-  await settingsStore.patch({ ui: { mouseCounts360: Math.floor(v) } })
+// ─── 鼠标校准 profile 列表 ───────────────────────────────────────────────
+const profiles = computed<MouseProfile[]>(() => settingsStore.mouseProfiles)
+const activeLabel = computed(() => settings.value?.ui.activeMouseProfile ?? '')
+const activeCounts = computed(() => settingsStore.activeMouseCounts360)
+
+// profiles 是数组, RFC7386 整体替换 — 每次改都提交全新列表 (+ 可选改 active label)。
+async function patchProfiles(list: MouseProfile[], active?: string) {
+  const ui: Record<string, any> = { mouseProfiles: list }
+  if (active !== undefined) ui.activeMouseProfile = active
+  await settingsStore.patch({ ui })
 }
 
-async function openMouseHUD() {
-  await backend.tools.openMouseHUD()
-}
-
-type Stage = 'waiting' | 'countingDown' | 'accumulating' | 'done'
-
-const open = ref(false)
-const stage = ref<Stage>('waiting')
-const countdown = ref(3)
-const hotkeyWarn = ref('')
-
-const status = ref<{ active: boolean; absDx: number; absDy: number }>({
-  active: false,
-  absDx: 0,
-  absDy: 0,
-})
-const liveAbsDx = computed(() => status.value.absDx)
-const liveAbsDy = computed(() => status.value.absDy)
-
-let pollTimer: ReturnType<typeof setInterval> | null = null
-let countdownTimer: ReturnType<typeof setInterval> | null = null
-let unsubToggle: (() => void) | null = null
-
-async function openCalibrator() {
-  hotkeyWarn.value = ''
-  resetSession()
-  open.value = true
-  // 订阅 F8 全局热键事件
-  if (!unsubToggle) {
-    const off = (await Events.On('calibration:toggle', onToggleHotkey)) as unknown as () => void
-    unsubToggle = typeof off === 'function' ? off : null
+function uniqueLabel(base: string): string {
+  const taken = new Set(profiles.value.map((p) => p.label))
+  if (!taken.has(base)) return base
+  for (let i = 2; ; i++) {
+    const cand = `${base} ${i}`
+    if (!taken.has(cand)) return cand
   }
 }
 
-function resetSession() {
-  stage.value = 'waiting'
-  countdown.value = 3
-  status.value = { active: false, absDx: 0, absDy: 0 }
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
-  }
-  // 已开着的 calibration 后端要先停
-  void backend.calibration.stop()
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
+async function addProfile() {
+  const label = uniqueLabel(t('settings.input.counts.new_profile_label'))
+  const list = [...profiles.value, { label, counts360: 0 }]
+  // 列表本来空 → 新档自动设为 active。
+  await patchProfiles(list, profiles.value.length === 0 ? label : undefined)
 }
 
-function onToggleHotkey() {
-  if (!open.value) return
-  switch (stage.value) {
-    case 'waiting':
-      beginCountdown()
-      break
-    case 'countingDown':
-      // 提前按 F8 = 立即结束倒计时进入累计
-      finishCountdown()
-      break
-    case 'accumulating':
-      stopAccumulating()
-      break
-    case 'done':
-      // 重测
-      resetSession()
-      // 立刻再进倒计时（用户连按 F8 → 重新开始一轮）
-      beginCountdown()
-      break
-  }
+async function removeProfile(i: number) {
+  const removed = profiles.value[i]
+  const list = profiles.value.filter((_, idx) => idx !== i)
+  // 删的是当前 active → active 落到剩下第一个 (没了就清空)。
+  const active = removed.label === activeLabel.value ? (list[0]?.label ?? '') : undefined
+  await patchProfiles(list, active)
 }
 
-function beginCountdown() {
-  stage.value = 'countingDown'
-  countdown.value = 3
-  countdownTimer = setInterval(() => {
-    countdown.value -= 1
-    if (countdown.value <= 0) finishCountdown()
-  }, 1000)
+async function setActive(label: string) {
+  if (!label) return
+  await patchProfiles(profiles.value, label)
 }
 
-async function finishCountdown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
-  }
-  stage.value = 'accumulating'
-  const ok = await backend.calibration.start()
-  if (ok === undefined) {
-    hotkeyWarn.value = '校准服务启动失败（端口被占？）'
-    stage.value = 'waiting'
+async function updateLabel(i: number, v: string) {
+  const old = profiles.value[i]
+  if (!old || v === old.label) return
+  const list = profiles.value.map((p, idx) => (idx === i ? { ...p, label: v } : p))
+  // 改的是 active 那行 → active 引用跟着改名。
+  const active = old.label === activeLabel.value ? v : undefined
+  await patchProfiles(list, active)
+}
+
+async function updateCounts(i: number, v: number) {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return
+  const list = profiles.value.map((p, idx) => (idx === i ? { ...p, counts360: Math.floor(n) } : p))
+  await patchProfiles(list)
+}
+
+async function patchRecord(patch: Record<string, any>) {
+  if (!settings.value) return
+  await settingsStore.patch({ ui: patch })
+}
+
+async function onSyncAll() {
+  const cur = activeCounts.value
+  if (cur <= 0) {
+    toast.add({ title: t('settings.input.toast.counts_not_set'), color: 'warning' })
     return
   }
-  pollTimer = setInterval(pollStatus, 80)
-}
-
-async function pollStatus() {
-  const s = await backend.calibration.status()
-  if (s) status.value = s as any
-}
-
-async function stopAccumulating() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-  const s = await backend.calibration.stop()
-  if (s) status.value = s as any
-  stage.value = 'done'
-}
-
-async function teardown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
-  }
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-  await backend.calibration.stop()
-  if (unsubToggle) {
-    unsubToggle()
-    unsubToggle = null
+  const yes = await confirm({
+    title: t('settings.input.confirm.sync_title'),
+    description: t('settings.input.confirm.sync_desc', { cur }),
+    confirmText: t('settings.input.confirm.sync_confirm'),
+    color: 'primary',
+  })
+  if (yes !== true) return
+  const r = (await backend.containers.syncLocalMouseCalibration(cur)) as any
+  if (r) {
+    toast.add({
+      title: t('settings.input.toast.synced_title', { n: r.updated?.length ?? 0 }),
+      description: r.skipped?.length
+        ? t('settings.input.toast.synced_skipped', { n: r.skipped.length })
+        : undefined,
+      color: 'success',
+    })
   }
 }
 
-async function onCancel() {
-  await teardown()
-  open.value = false
-}
-
-async function onSave() {
-  await teardown()
-  const counts = liveAbsDx.value
-  if (counts > 0) {
-    await settingsStore.patch({ ui: { mouseCounts360: counts } })
+// 校准：开独立置顶校准 HUD 窗 (用户自己切到目标游戏按 F8), 等它 emit 结果写回这一档。
+async function openCalibratorFor(i: number) {
+  if (i < 0 || i >= profiles.value.length) return
+  const id = 'calib-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
+  const ok = await backend.tools.openCalibratorHUD(id)
+  if (!ok) return // 开窗失败 (invoke 已 toast)
+  const r = await awaitWailsEvent<{ id: string; counts?: number; cancelled?: boolean }>(
+    'calibration:result',
+    (p) => p?.id === id,
+  )
+  if (!r.cancelled && typeof r.counts === 'number' && r.counts > 0) {
+    await updateCounts(i, r.counts)
   }
-  open.value = false
 }
-
-function onUpdateOpen(v: boolean) {
-  if (!v) onCancel()
-}
-
-onUnmounted(() => {
-  void teardown()
-})
 </script>

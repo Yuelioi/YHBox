@@ -1,307 +1,56 @@
 package container
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
-	"yhbox/internal/services/expr"
+	"github.com/google/uuid"
+
+	nodepkg "yotta/internal/node"
 )
-
-// KnownNodeKinds 节点 kind 白名单。
-var KnownNodeKinds = map[string]bool{
-	"Start": true, "Sleep": true, "Loop": true, "If": true,
-	"Parallel": true, "Race": true, "Stop": true, "Break": true, "Continue": true,
-	"SetVar": true, "IncVar": true,
-	"WaitTemplate": true, "CheckTemplate": true, "ClickTemplate": true,
-	"DetectColor": true,
-	"InvokeAction": true,
-	"ClickAt": true, "KeyPress": true, "MouseMoveRel": true, "Scroll": true,
-	"OnEvent": true,
-	"Log": true, "Toast": true,
-}
-
-// yieldKinds Loop body 至少含一个，避免 forever loop CPU 100%。
-// DetectColor 走截屏 + 像素扫，单次 ~3-10ms，算 yield。
-var yieldKinds = map[string]bool{
-	"Sleep": true, "WaitTemplate": true, "CheckTemplate": true,
-	"ClickTemplate": true, "DetectColor": true, "InvokeAction": true, "OnEvent": true,
-}
-
-// execInPins kind → 该 kind 接受的 exec-in pin 名集合。
-// 默认 = {"in"}；OnEvent / Start 没 exec-in。
-var execInPins = map[string][]string{
-	"Start":   nil,
-	"OnEvent": nil,
-	"Loop":    {"in", "loopback"}, // body 末尾接回 loopback 是单独 pin
-}
-
-// execOutPins kind → exec-out pin 名集合。默认 = {"out"}。
-var execOutPins = map[string][]string{
-	"Start":         {"out"},
-	"Sleep":         {"out"},
-	"Loop":          {"body", "complete"},
-	"If":            {"then", "else"},
-	"Parallel":      {"complete"}, // branch0..N-1 动态生成
-	"Race":          {"complete"}, // branch0..N-1 动态生成
-	"Stop":          nil,
-	"Break":         nil,
-	"Continue":      nil,
-	"SetVar":        {"out"},
-	"IncVar":        {"out"},
-	"WaitTemplate":  {"found", "timeout"},
-	"CheckTemplate": {"yes", "no"},
-	"ClickTemplate": {"done", "timeout"},
-	"DetectColor":   {"yes", "no"},
-	"InvokeAction":  {"out"},
-	"ClickAt":       {"out"},
-	"KeyPress":      {"out"},
-	"MouseMoveRel":  {"out"},
-	"Scroll":        {"out"},
-	"OnEvent":       {"out"},
-	"Log":           {"out"},
-	"Toast":         {"out"},
-}
-
-// dataOutPins kind → data-out pin 名 → pin 类型（v1 只 "point"）。
-var dataOutPins = map[string]map[string]string{
-	"WaitTemplate":  {"point": "point"},
-	"CheckTemplate": {"point": "point"},
-	"ClickTemplate": {"point": "point"},
-	"Loop":          {"iter": "number"},
-	"Race":          {"winnerIdx": "number"},
-}
-
-// dataInPins kind → data-in pin 名 → pin 类型。
-// InvokeAction 的 params.* 动态由 Action.params 决定，这里仅处理静态 pin。
-var dataInPins = map[string]map[string]string{
-	"ClickAt": {"pos": "point"},
-}
-
-// exprConfigKeys kind → config 键名集合（值应为表达式，Validate 时 expr.Parse 测过）。
-var exprConfigKeys = map[string][]string{
-	"Sleep":         {"durationMs"},
-	"Loop":          {"count", "condition"},
-	"If":            {"condition"},
-	"Parallel":      {"n"},
-	"Race":          {"n"},
-	"SetVar":        {"value"},
-	"IncVar":        {"delta"},
-	"WaitTemplate":  {"timeoutMs", "threshold"},
-	"CheckTemplate": {"threshold"},
-	"ClickTemplate": {"timeoutMs", "threshold"},
-	"DetectColor":   {"minPixels"},
-	"ClickAt":       {"xRatio", "yRatio", "durationMs"},
-	"KeyPress":      {"durationMs"},
-	"MouseMoveRel":  {"dx", "dy", "durationMs"},
-	"Scroll":        {"xRatio", "yRatio", "delta"},
-	"OnEvent":       {"pollIntervalMs", "maxConcurrent", "cooldownMs"},
-	"Log":           {"message"},
-	"Toast":         {"title", "message"},
-}
 
 var varNameRE = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 var edgeFormatRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.]+$`)
 
-// Validate 校验 Container 完整性。Save / Load 都调一次。
+// ValidationFailure aggregates all error-severity entries from a single Validate call.
+// Implements the error interface — callers can errors.As(&vf) to recover the full list
+// for UI display (e.g. ValidationErrorPanel emits one row per Errors[i]).
 //
-// 规则：Start 唯一 / 边 pin 存在 / exec-in 入边唯一 / Break&Continue 必须在 Loop 后裔 /
-// data edge 类型匹配 / Loop body 必须含 yield 节点 / Var 名合法+类型合法 / 表达式可 parse +
-// 变量引用必须声明 / SetVar&IncVar 的 varName 必须声明。
-func (c *Container) Validate() error {
-	if strings.TrimSpace(c.Name) == "" {
-		return errors.New("container name 不能为空")
-	}
-	if c.SchemaVersion != CurrentSchemaVersion {
-		return fmt.Errorf("schemaVersion %d 不支持（当前 %d）", c.SchemaVersion, CurrentSchemaVersion)
-	}
+// Warnings are NOT included here — call ValidateContainer directly to access them.
+type ValidationFailure struct {
+	Errors []ValidationError
+}
 
-	// rule 7：var name 唯一 + regex + type 合法
-	seenVar := map[string]bool{}
-	for _, v := range c.Vars {
-		if !varNameRE.MatchString(v.Name) {
-			return fmt.Errorf("var name %q 不合法（必须匹配 [a-zA-Z_][a-zA-Z0-9_]*）", v.Name)
-		}
-		if seenVar[v.Name] {
-			return fmt.Errorf("duplicate var name: %q", v.Name)
-		}
-		seenVar[v.Name] = true
-		switch v.Type {
-		case "number", "bool", "string", "point":
-		default:
-			return fmt.Errorf("var %q type %q 不支持（必须 number|bool|string|point）", v.Name, v.Type)
-		}
+// Error: B5 ship 后 Code+Params 模型 — i18n 走 FE t(), 后端 log 显示 Code+Params 字面.
+// 不漂亮但够 debug; UI 全走 ValidationErrorPanel 不读 Error().
+func (f *ValidationFailure) Error() string {
+	if len(f.Errors) == 0 {
+		return "container: validation passed" // unreachable from Validate(); defensive only
 	}
+	if len(f.Errors) == 1 {
+		e := f.Errors[0]
+		return fmt.Sprintf("%s %v", e.Code, e.Params)
+	}
+	return fmt.Sprintf("%s %v (and %d more)", f.Errors[0].Code, f.Errors[0].Params, len(f.Errors)-1)
+}
 
-	// node id 唯一 + kind 在白名单
-	seenNode := map[string]bool{}
-	nodesByID := map[string]*GraphNode{}
-	startCount := 0
-	for i := range c.Graph.Nodes {
-		n := &c.Graph.Nodes[i]
-		if n.ID == "" {
-			return errors.New("node id 不能为空")
-		}
-		if seenNode[n.ID] {
-			return fmt.Errorf("duplicate node id: %q", n.ID)
-		}
-		seenNode[n.ID] = true
-		if !KnownNodeKinds[n.Kind] {
-			return fmt.Errorf("unknown node kind: %q（节点 %s）", n.Kind, n.ID)
-		}
-		nodesByID[n.ID] = n
-		if n.Kind == "Start" {
-			startCount++
+// Validate 校验 Container 完整性. sgs = 引用闭包解析出的子图集 (见 ValidateContainer)。
+// 任何 SeverityError → 返 *ValidationFailure 含完整错误列表;
+// 只有 warning → 返 nil (warning 通过 ValidateContainer 直接获取).
+// Save / Load 都调一次; 前端 "检查" 按钮 / 试运行前主动跑走 Service.ValidateContainerByID.
+func (c *Container) Validate(sgs []Subgraph) error {
+	errs := ValidateContainer(c, sgs)
+	var fatal []ValidationError
+	for _, e := range errs {
+		if e.Severity == SeverityError {
+			fatal = append(fatal, e)
 		}
 	}
-
-	// rule 1：必须有且仅有 1 个 Start 节点（允许空图——首次创建容器为空）
-	if len(c.Graph.Nodes) > 0 && startCount != 1 {
-		return fmt.Errorf("Start 节点必须恰好 1 个，当前 %d 个", startCount)
+	if len(fatal) == 0 {
+		return nil
 	}
-
-	// rule 2 + edge 格式校验
-	for i, e := range c.Graph.Edges {
-		if !edgeFormatRE.MatchString(e.From) {
-			return fmt.Errorf("edge[%d] from %q 格式必须 <nodeId>.<pinName>", i, e.From)
-		}
-		if !edgeFormatRE.MatchString(e.To) {
-			return fmt.Errorf("edge[%d] to %q 格式必须 <nodeId>.<pinName>", i, e.To)
-		}
-		fromNode, fromPin := splitRef(e.From)
-		toNode, toPin := splitRef(e.To)
-		if nodesByID[fromNode] == nil {
-			return fmt.Errorf("edge[%d] from references unknown node %q", i, fromNode)
-		}
-		if nodesByID[toNode] == nil {
-			return fmt.Errorf("edge[%d] to references unknown node %q", i, toNode)
-		}
-		// rule 2：pin 必须存在
-		if !pinExists(nodesByID[fromNode].Kind, fromPin, true /* out */) {
-			return fmt.Errorf("edge[%d] from %q: node kind %q 无输出 pin %q",
-				i, e.From, nodesByID[fromNode].Kind, fromPin)
-		}
-		if !pinExists(nodesByID[toNode].Kind, toPin, false /* in */) {
-			return fmt.Errorf("edge[%d] to %q: node kind %q 无输入 pin %q",
-				i, e.To, nodesByID[toNode].Kind, toPin)
-		}
-	}
-
-	// rule 3：同一 exec-in pin 最多 1 个入边（除 Loop.body 外允许扇入也不允许；
-	// spec 说"除 Loop.body 之外"——但 Loop.body 是 out pin，从 Loop 出去；
-	// 实际可能多入的是 loopback：from(各分支末尾).out → to(loop.loopback)）。
-	// 这里实现：execInPin 入边唯一；data-in pin 不强制（多 setter 写同 var 是用户责任）。
-	inEdgeCount := map[string]int{} // "<nodeId>.<pin>" → count
-	for _, e := range c.Graph.Edges {
-		toNode, toPin := splitRef(e.To)
-		n := nodesByID[toNode]
-		if n == nil {
-			continue
-		}
-		if isExecInPin(n.Kind, toPin) && !(n.Kind == "Loop" && toPin == "loopback") {
-			inEdgeCount[e.To]++
-		}
-	}
-	for ref, count := range inEdgeCount {
-		if count > 1 {
-			return fmt.Errorf("exec-in pin %q 有 %d 条入边（最多 1 条）", ref, count)
-		}
-	}
-
-	// rule 5：data edge 类型匹配（v1 仅 point）
-	for i, e := range c.Graph.Edges {
-		fromNode, fromPin := splitRef(e.From)
-		toNode, toPin := splitRef(e.To)
-		fromKind := nodesByID[fromNode].Kind
-		toKind := nodesByID[toNode].Kind
-		fromIsData, fromT := dataOutType(fromKind, fromPin)
-		toIsData, toT := dataInType(toKind, toPin)
-		if fromIsData != toIsData {
-			return fmt.Errorf("edge[%d] data/exec 类型混接：%s.%s → %s.%s", i, fromNode, fromPin, toNode, toPin)
-		}
-		if fromIsData && fromT != toT {
-			return fmt.Errorf("edge[%d] data type mismatch：%s.%s (%s) → %s.%s (%s)",
-				i, fromNode, fromPin, fromT, toNode, toPin, toT)
-		}
-	}
-
-	// rule 4：Break/Continue 节点必须在 Loop 后裔子图中
-	for _, n := range c.Graph.Nodes {
-		if n.Kind != "Break" && n.Kind != "Continue" {
-			continue
-		}
-		if !isInsideLoop(n.ID, c.Graph, nodesByID) {
-			return fmt.Errorf("%s 节点 %s 不在任何 Loop 后裔子图中", n.Kind, n.ID)
-		}
-	}
-
-	// rule 6：Loop body 必须含至少一个 yield 节点
-	for _, n := range c.Graph.Nodes {
-		if n.Kind != "Loop" {
-			continue
-		}
-		if !loopBodyHasYield(n.ID, c.Graph, nodesByID) {
-			return fmt.Errorf("Loop %s 的 body 必须含 yield 节点（Sleep/WaitTemplate/CheckTemplate/ClickTemplate/InvokeAction/OnEvent）", n.ID)
-		}
-	}
-
-	// rule 8a：表达式 parse + 8b：$vars.X 必须在 c.Vars 已声明
-	declaredVars := map[string]bool{}
-	for _, v := range c.Vars {
-		declaredVars[v.Name] = true
-	}
-	for _, n := range c.Graph.Nodes {
-		keys := exprConfigKeys[n.Kind]
-		for _, k := range keys {
-			raw, ok := n.Config[k]
-			if !ok {
-				continue
-			}
-			s, ok := raw.(string)
-			if !ok || s == "" {
-				continue
-			}
-			ast, err := expr.Parse(s)
-			if err != nil {
-				return fmt.Errorf("node %s.%s 表达式 parse 失败: %w", n.ID, k, err)
-			}
-			for _, p := range expr.VarRefs(ast) {
-				if !strings.HasPrefix(p, "$vars.") {
-					// $params / $sys 由 runtime env 校验，这里不挡。
-					continue
-				}
-				name := strings.TrimPrefix(p, "$vars.")
-				// 只取首段；$vars.point.x 用首段 "point" 比对声明。
-				if dot := strings.Index(name, "."); dot >= 0 {
-					name = name[:dot]
-				}
-				if name == "" || !declaredVars[name] {
-					return fmt.Errorf("node %s.%s 引用未声明的变量 %q（请先在 Vars 里声明）", n.ID, k, p)
-				}
-			}
-		}
-	}
-
-	// SetVar / IncVar 的 varName 字段必须指向已声明变量
-	for _, n := range c.Graph.Nodes {
-		if n.Kind != "SetVar" && n.Kind != "IncVar" {
-			continue
-		}
-		raw, ok := n.Config["varName"]
-		if !ok {
-			return fmt.Errorf("%s 节点 %s 缺少 varName 字段", n.Kind, n.ID)
-		}
-		name, ok := raw.(string)
-		if !ok || strings.TrimSpace(name) == "" {
-			return fmt.Errorf("%s 节点 %s varName 必须是非空字符串", n.Kind, n.ID)
-		}
-		if !declaredVars[name] {
-			return fmt.Errorf("%s 节点 %s 引用未声明的变量 %q", n.Kind, n.ID, name)
-		}
-	}
-
-	return nil
+	return &ValidationFailure{Errors: fatal}
 }
 
 func splitRef(ref string) (nodeID, pin string) {
@@ -313,173 +62,336 @@ func splitRef(ref string) (nodeID, pin string) {
 }
 
 // pinExists 检查 (kind, pin) 是否合法。out=true 查 out pins / data-out；out=false 查 in pins / data-in。
-// 对 Parallel/Race 的 branch0..N-1 动态 pin 允许任意 "branchN"。
-// InvokeAction 的 params.<X> 动态 data-in 允许任意 "params.X"。
+// data-in 走 static-only 路径 — Expr 等动态 data-in 节点需 cfg, caller 用 dataInPinTypeForNode.
 func pinExists(kind, pin string, out bool) bool {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return false
+	}
 	if out {
-		// exec-out
-		for _, p := range execOutPins[kind] {
-			if p == pin {
-				return true
-			}
-		}
-		// dynamic branchN for Parallel / Race
-		if (kind == "Parallel" || kind == "Race") && strings.HasPrefix(pin, "branch") {
-			return true
-		}
-		// data-out
-		if m := dataOutPins[kind]; m != nil {
-			if _, ok := m[pin]; ok {
+		for _, op := range rn.Spec.Outputs {
+			if op.Name == pin {
 				return true
 			}
 		}
 		return false
 	}
-	// in：常规 exec-in
-	for _, p := range execInPinsOf(kind) {
-		if p == pin {
+	for _, ip := range rn.Spec.Inputs {
+		if ip.Name == pin {
 			return true
 		}
-	}
-	// data-in
-	if m := dataInPins[kind]; m != nil {
-		if _, ok := m[pin]; ok {
-			return true
-		}
-	}
-	// InvokeAction params.<X>
-	if kind == "InvokeAction" && strings.HasPrefix(pin, "params.") {
-		return true
 	}
 	return false
 }
 
-func execInPinsOf(kind string) []string {
-	if pins, ok := execInPins[kind]; ok {
+// execOutPinsForNode 返该节点的合法 exec-out pin set. nodepkg Spec.Outputs Type="Exec" 静态查.
+// Subgraph / CollapsedNode 的动态 (按 callee OutputPins) 由 validateInvalidPins 单独处理.
+func execOutPinsForNode(n *GraphNode) map[string]struct{} {
+	pins := map[string]struct{}{}
+	if n == nil {
 		return pins
 	}
-	return []string{"in"} // default
-}
-
-func isExecInPin(kind, pin string) bool {
-	for _, p := range execInPinsOf(kind) {
-		if p == pin {
-			return true
-		}
-	}
-	return false
-}
-
-// dataOutType 返该 pin 是否为 data-out + 类型。
-func dataOutType(kind, pin string) (bool, string) {
-	if m := dataOutPins[kind]; m != nil {
-		if t, ok := m[pin]; ok {
-			return true, t
-		}
-	}
-	return false, ""
-}
-
-// dataInType 同上 in 方向。InvokeAction params.* 默认 "any"（不参与 type check）。
-func dataInType(kind, pin string) (bool, string) {
-	if m := dataInPins[kind]; m != nil {
-		if t, ok := m[pin]; ok {
-			return true, t
-		}
-	}
-	if kind == "InvokeAction" && strings.HasPrefix(pin, "params.") {
-		return true, "any"
-	}
-	return false, ""
-}
-
-// isInsideLoop 沿 exec edge 反向 BFS，看能否到达任何 Loop 节点的 body out。
-func isInsideLoop(nodeID string, g Graph, nodesByID map[string]*GraphNode) bool {
-	// 建反向索引：to.nodeId → []fromRefs
-	revIn := map[string][]string{}
-	for _, e := range g.Edges {
-		toN, _ := splitRef(e.To)
-		revIn[toN] = append(revIn[toN], e.From)
-	}
-	visited := map[string]bool{nodeID: true}
-	queue := []string{nodeID}
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
-		for _, fromRef := range revIn[cur] {
-			fromN, fromPin := splitRef(fromRef)
-			n := nodesByID[fromN]
-			if n != nil && n.Kind == "Loop" && fromPin == "body" {
-				return true
-			}
-			if !visited[fromN] {
-				visited[fromN] = true
-				queue = append(queue, fromN)
+	// Switch: 出口动态 = config.cases 里每个 case 值 + 'default' (named-by-value).
+	// 镜像 nodeRegistry/adapter.ts DYNAMIC_EXEC_OUT.Switch + switch.go Run.
+	if n.Kind == "Switch" {
+		cfg, _ := ParseSwitchConfig(n)
+		for _, c := range cfg.Cases {
+			if c != "" {
+				pins[c] = struct{}{}
 			}
 		}
+		pins["default"] = struct{}{}
+		return pins
 	}
-	return false
+	rn, ok := nodepkg.Get(n.Kind)
+	if !ok {
+		return pins
+	}
+	for _, op := range rn.Spec.Outputs {
+		if op.Type == nodepkg.TypeExec {
+			pins[op.Name] = struct{}{}
+		}
+	}
+	return pins
 }
 
-// loopBodyHasYield 从 loop.body 向下 BFS 检测 yield kind。遇到 loop 自身（loopback）则停。
-func loopBodyHasYield(loopID string, g Graph, nodesByID map[string]*GraphNode) bool {
-	// outIdx：fromNodeID → []toRefs（含 pin），过滤只走 exec edges。
-	type edgeInfo struct {
-		toNode, fromPin string
-	}
-	outIdx := map[string][]edgeInfo{}
-	for _, e := range g.Edges {
-		fromN, fromPin := splitRef(e.From)
-		toN, _ := splitRef(e.To)
-		outIdx[fromN] = append(outIdx[fromN], edgeInfo{toNode: toN, fromPin: fromPin})
-	}
-	// seed：loop.body → 下游节点
-	visited := map[string]bool{}
-	var queue []string
-	for _, e := range outIdx[loopID] {
-		if e.fromPin == "body" {
-			queue = append(queue, e.toNode)
-			visited[e.toNode] = true
-		}
-	}
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
-		n := nodesByID[cur]
-		if n == nil {
-			continue
-		}
-		if yieldKinds[n.Kind] {
-			return true
-		}
-		if cur == loopID {
-			// 走到 loop 自己（loopback），不再深入
-			continue
-		}
-		for _, e := range outIdx[cur] {
-			if !visited[e.toNode] {
-				visited[e.toNode] = true
-				queue = append(queue, e.toNode)
-			}
-		}
-	}
-	return false
+// nodeHasExecOutPin O(1) 校验 pin 存在性. 替代旧 pinExists(kind, pin, true) 路径.
+func nodeHasExecOutPin(n *GraphNode, pin string) bool {
+	_, ok := execOutPinsForNode(n)[pin]
+	return ok
 }
 
-// Normalize 补默认值。
+// canonPinType 把 nodepkg Spec 的 Type tag (PascalCase, e.g. "Number") 转 validator/data-graph
+// 的 lowercase 风格 ("number"). Exec pin 返 "" (Exec 不算 data type, 调用方靠 != "" 判断).
+//
+// 新框架补充类型 (Integer / Duration / JSON / Color / Rect / Time) 映射回 validator 已有的 5 类
+// (number/string/bool/point/any), 让 literal 校验 + data-graph 类型比较仍走单一坐标系.
+// Integer / Duration JSON 值都是数字 (Integer=ms; Duration ms 整数); JSON/Color/Rect/Time 暂归 any.
+func canonPinType(t string) string {
+	switch t {
+	case "Number", "Integer", "Duration":
+		return "number"
+	case "String":
+		return "string"
+	case "Bool":
+		return "bool"
+	case "Point":
+		return "point"
+	case "*", "JSON", "Color", "Rect", "Time":
+		return "any"
+	case "List":
+		return "list"
+	case "Exec":
+		return ""
+	}
+	return strings.ToLower(t)
+}
+
+// Normalize self-heal — 填默认值 (SchemaVersion/Graph.ID/Graph.Version) + 子图补缺
+// SubgraphOutput. self-heal 的唯一入口.
 func (c *Container) Normalize() {
 	if c.SchemaVersion == 0 {
 		c.SchemaVersion = CurrentSchemaVersion
 	}
 	c.Hotkey = strings.TrimSpace(c.Hotkey)
-	c.RunMode = strings.TrimSpace(c.RunMode)
-	if c.RunMode != "foreground" && c.RunMode != "background" {
-		c.RunMode = "background"
-	}
 	if c.Graph.Nodes == nil {
 		c.Graph.Nodes = []GraphNode{}
 	}
 	if c.Graph.Edges == nil {
 		c.Graph.Edges = []GraphEdge{}
 	}
+	// v2 兜底：写盘前自动填 Graph.ID + Graph.Version
+	if c.Graph.ID == "" {
+		c.Graph.ID = uuid.NewString()
+	}
+	if c.Graph.Version == 0 {
+		c.Graph.Version = GraphSchemaVersion
+	}
+	// 子图已全局化 — self-heal 与 RequiredGlobals 派生在全局 SubgraphStore 的保存路径跑,
+	// 不再挂在容器 Normalize 上.
+}
+
+// --- Registry-backed helpers (nodepkg-only) ---
+
+// knownKind kind 是否在 nodepkg 注册.
+func knownKind(kind string) bool {
+	_, ok := nodepkg.Get(kind)
+	return ok
+}
+
+// dataInPinTypeForKind 返该 data-in pin 的 canonical lowercase type (number/string/bool/point/any).
+// "" = 不是已注册的 data-in pin (e.g. Exec pin / kind 未注册 / pin 不存在).
+// Static-only — Expr's dynamic inputs need cfg, use dataInPinTypeForNode.
+func dataInPinTypeForKind(kind, pinName string) string {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return ""
+	}
+	for _, ip := range rn.Spec.Inputs {
+		if ip.Name != pinName {
+			continue
+		}
+		if ip.Type == nodepkg.TypeExec {
+			return ""
+		}
+		return canonPinType(ip.Type)
+	}
+	return ""
+}
+
+// dataInPinSemanticForKind 返该 data-in pin 的 Semantic ("TemplateKey" 等), 无则 "".
+// literal 校验用它识别 list 型 pin (e.g. TemplateKey = 字符串列表).
+func dataInPinSemanticForKind(kind, pinName string) string {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return ""
+	}
+	for _, ip := range rn.Spec.Inputs {
+		if ip.Name == pinName {
+			return ip.Semantic
+		}
+	}
+	return ""
+}
+
+// dataInPinTypeForNode cfg-aware 变种 — DynamicInputs 节点 config.Inputs[] 动态声明的
+// pin 走 ParseDynamicInputDecls 查.
+func dataInPinTypeForNode(n *GraphNode, pinName string) string {
+	if n == nil {
+		return ""
+	}
+	if t := dataInPinTypeForKind(n.Kind, pinName); t != "" {
+		return t
+	}
+	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicInputs {
+		for _, in := range ParseDynamicInputDecls(n) {
+			if in.Name == pinName && in.Type != "" {
+				return strings.ToLower(in.Type)
+			}
+		}
+	}
+	return ""
+}
+
+// dataOutPinTypeForKind 同上 outputs.
+// 动态类型节点 (GetVar / Expr / GetParam) Spec 里登记 "any" / "*",
+// 真实类型由 caller 按 config 解析 — validateDataPinTypes 已做.
+func dataOutPinTypeForKind(kind, pinName string) string {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return ""
+	}
+	for _, op := range rn.Spec.Outputs {
+		if op.Type == nodepkg.TypeExec {
+			// exec 出口本身是 exec-out (非 data); 但它的 Data 字段 (Fail 出口的 Error/Code)
+			// 算 data-out —— 可被 data 边消费, 值由 exec-data 沿该 exec 边带下来 (runtime bridge 取).
+			for _, f := range op.Data {
+				if f.Name == pinName {
+					return canonPinType(f.Type)
+				}
+			}
+			continue
+		}
+		if op.Name == pinName {
+			return canonPinType(op.Type)
+		}
+	}
+	return ""
+}
+
+// IsExecOutputDataField reports whether (kind, pin) names a Data field nested under
+// an exec output (e.g. RunProgram.Fail 的 Error/Code). 这类 pin 连线/校验上算 data-out
+// (IsDataOutPin 真), 但值不靠 pure-data pull —— 源 fire 时存进 per-run held output 缓存,
+// runtime 经 pullDataPin 任意距离直连读 (见 ContainerRunner.captureExecOutputs / pullDataPin).
+func IsExecOutputDataField(kind, pin string) bool {
+	rn, ok := nodepkg.Get(kind)
+	if !ok {
+		return false
+	}
+	for _, op := range rn.Spec.Outputs {
+		if op.Type != nodepkg.TypeExec {
+			continue
+		}
+		for _, f := range op.Data {
+			if f.Name == pin {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// IsDataOutPin reports whether (kind, pin) is a registered data-out pin.
+// Centralizes the "is this a data edge?" predicate — validator + runtime
+// must agree on this rule to keep edge-type derivation consistent.
+func IsDataOutPin(kind, pin string) bool {
+	return dataOutPinTypeForKind(kind, pin) != ""
+}
+
+// dataOutPinTypeForNode — config-aware 变种: 静态 + DynamicDataFields 节点 config.Outputs[]
+// 动态声明的 Data 字段 (AI 结构化输出)。让 AI.red 这类动态输出字段也算 data-out, 可直连。
+func dataOutPinTypeForNode(n *GraphNode, pinName string) string {
+	if n == nil {
+		return ""
+	}
+	if t := dataOutPinTypeForKind(n.Kind, pinName); t != "" {
+		return t
+	}
+	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+		for _, o := range ParseDynamicOutputDecls(n) {
+			if o.Name == pinName && o.Type != "" {
+				return canonPinType(o.Type)
+			}
+		}
+	}
+	return ""
+}
+
+// IsDataOutPinNode — config-aware IsDataOutPin (含动态输出字段)。
+func IsDataOutPinNode(n *GraphNode, pin string) bool {
+	return dataOutPinTypeForNode(n, pin) != ""
+}
+
+// IsExecOutputDataFieldNode — config-aware IsExecOutputDataField: 静态 + DynamicDataFields
+// 的 config.Outputs[] 字段。值同样经 per-run held output 缓存 (captureExecOutputs 写 / pullDataPin 读) 直连下游。
+func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
+	if n == nil {
+		return false
+	}
+	if IsExecOutputDataField(n.Kind, pin) {
+		return true
+	}
+	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+		for _, o := range ParseDynamicOutputDecls(n) {
+			if o.Name == pin {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasUnwiredNeedsWindowNode — 是否存在「Window 输入未连」的 NeedsWindow 节点(主图或子图)。
+// 连了 Window 的节点派发期自带覆盖窗口, 不需要 Win32WindowTarget; 没连的会回落活动窗口, 故仍要求 Win32WindowTarget。
+func hasUnwiredNeedsWindowNode(c *Container, sgs []Subgraph) bool {
+	if graphHasUnwiredWindowNode(c.Graph) {
+		return true
+	}
+	for i := range sgs {
+		if graphHasUnwiredWindowNode(sgs[i].Graph) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasUnwiredWindowNode(g Graph) bool {
+	for i := range g.Nodes {
+		rn, ok := nodepkg.Get(g.Nodes[i].Kind)
+		if !ok || !rn.Spec.NeedsWindow {
+			continue
+		}
+		if !windowPinWired(g, g.Nodes[i].ID) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasUnwiredNeedsTargetNode — 是否存在「需要自动化目标」且未显式连 Window override 的节点。
+// 连了 Window 的 target-aware 节点可用 Win32 Window data edge 作为本节点覆盖目标;
+// 未连时必须依赖图中的 target selection node 或 Windows 默认 Win32WindowTarget。
+func hasUnwiredNeedsTargetNode(c *Container, sgs []Subgraph) bool {
+	if graphHasUnwiredTargetNode(c.Graph) {
+		return true
+	}
+	for i := range sgs {
+		if graphHasUnwiredTargetNode(sgs[i].Graph) {
+			return true
+		}
+	}
+	return false
+}
+
+func graphHasUnwiredTargetNode(g Graph) bool {
+	for i := range g.Nodes {
+		rn, ok := nodepkg.Get(g.Nodes[i].Kind)
+		if !ok || !rn.Spec.NeedsTarget {
+			continue
+		}
+		if !windowPinWired(g, g.Nodes[i].ID) {
+			return true
+		}
+	}
+	return false
+}
+
+func windowPinWired(g Graph, nodeID string) bool {
+	target := nodeID + ".Window"
+	for _, e := range g.Edges {
+		if e.To == target {
+			return true
+		}
+	}
+	return false
 }

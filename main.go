@@ -1,4 +1,4 @@
-// cmd/yhbox 异环工具箱主入口。双击 exe 启动 wails3 应用。
+// Yotta 主入口。双击 exe 启动 wails3 应用。
 package main
 
 import (
@@ -6,46 +6,43 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yhbox/internal/services"
-	"yhbox/internal/services/actions"
-	"yhbox/internal/services/actions/recording"
-	actionsruntime "yhbox/internal/services/actions/runtime"
-	"yhbox/internal/services/calibration"
-	"yhbox/internal/services/tools"
-	"yhbox/internal/services/container"
-	containerruntime "yhbox/internal/services/container/runtime"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/schedule"
-	"yhbox/internal/bots"
-	"yhbox/internal/hotkey"
-	"yhbox/internal/services/template"
-	"yhbox/pkg/actiontransform"
-	"yhbox/pkg/botcore"
-	"yhbox/pkg/capture"
-	"yhbox/pkg/locale"
-	"yhbox/pkg/platform"
-	"yhbox/pkg/screenshot"
-	"yhbox/pkg/winutil"
-	"yhbox/tools/battle"
-	"yhbox/tools/cook"
-	"yhbox/tools/fish"
-	"yhbox/tools/rhythm"
+	"yotta/internal/hotkey"
+	"yotta/internal/node"
+	_ "yotta/internal/nodes/all"
+	"yotta/internal/runclassify"
+	"yotta/internal/services"
+	"yotta/internal/services/androidadb"
+	"yotta/internal/services/asset"
+	"yotta/internal/services/browsercdp"
+	"yotta/internal/services/calibration"
+	"yotta/internal/services/codesnippet"
+	"yotta/internal/services/container"
+	containerruntime "yotta/internal/services/container/runtime"
+	"yotta/internal/services/execution"
+	mcpserver "yotta/internal/services/mcpserver"
+	"yotta/internal/services/nodeoptions"
+	"yotta/internal/services/schedule"
+	"yotta/internal/services/tools"
+	"yotta/pkg/locale"
+	"yotta/pkg/platform"
+	"yotta/pkg/screenshot"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 // 用跟 exe icon 同一份 build/windows/icon.ico —— 多 size 容器，Windows 自动挑 16/32px 进托盘。
-// 老 cmd/yhbox/winres/*.png 是旧资源生成器留下的，已废弃。
+// 老 cmd/yotta/winres/*.png 是旧资源生成器留下的，已废弃。
 //
 //go:embed build/windows/icon.ico
 var trayIcon []byte
@@ -55,44 +52,32 @@ var version = "1.1.0"
 func main() {
 	platform.EnsureAdmin()
 
-	// 日志栈：zerolog → LogSink → wails3 Event.Emit
+	// 日志栈：zerolog → LogSink → wails3 Event.Emit + 顺便 append 到 logs/yotta-YYYYMMDD.log
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
+	// 启动期先按 default 接通 (settings 未加载, 用 "logs" 兜底)
+	logSink.SetFileWriter("logs")
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
+
+	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
+	// → 新 layout（containers/<id>/{container.json,subgraphs/,templates/} + library/）。
+	// 检测信号：bin/data/actions/ 存在 或 bin/data/templates/_index.json 存在（旧全局模板库）。
+	// 命中即 rename 整个 bin/data 到 bin/data.legacy-2026-05-16/。Best-effort，失败仅日志。
+	backupLegacyDataIfNeeded(rootLog)
+
+	ensureV2DataLayout(rootLog)
 
 	// App 协调器（不暴露 JS）
 	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
 
-	// 截屏后端选择：auto 根据 OS build 自动选；其它按 settings 指定。
-	// WGC / Mock 初始化失败时回退 GDI + warn，确保用户至少能跑。
-	method := app.Settings().Capture.Method
-	if method == "auto" {
-		auto := capture.AutoBackend()
-		method = auto.String()
-		rootLog.Info().Str("tag", "SYSTEM").Uint32("build", capture.WindowsBuild()).Msgf("截屏 auto: 选中 %s", method)
-	}
-	switch method {
-	case "wgc":
-		if err := capture.SetBackend(capture.BackendWGC); err != nil {
-			rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("WGC 截屏初始化失败，回退到 GDI")
-			_ = capture.SetBackend(capture.BackendGDI)
-		} else {
-			rootLog.Info().Str("tag", "SYSTEM").Msg("截屏后端: WGC (Windows Graphics Capture)")
+	// app 加载完 settings 后按 settings.UI.Logger.WriteFile + FileDir 重新接通
+	{
+		ls := app.Settings().UI.Logger
+		dir := ls.FileDir
+		if !ls.WriteFile {
+			dir = ""
 		}
-	case "mock":
-		if err := capture.SetBackend(capture.BackendMock); err != nil {
-			rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("Mock 截屏初始化失败，回退到 GDI（mock-frames/ 目录里放 PNG 再切回 mock）")
-			_ = capture.SetBackend(capture.BackendGDI)
-		} else {
-			rootLog.Info().Str("tag", "SYSTEM").Msg("截屏后端: Mock (离线回放，不读游戏窗口)")
-		}
-	default:
-		_ = capture.SetBackend(capture.BackendGDI)
-		rootLog.Info().Str("tag", "SYSTEM").Msg("截屏后端: GDI (PrintWindow)")
+		logSink.SetFileWriter(dir)
 	}
-	// WGC 的 SetIsBorderRequired 等非致命 API 失败会写到 LastInitWarning，
-	// 这里读出来给用户看（黄框关不掉、cursor 抓帧关不掉等场景）。
-	// 注意：这个变量在第一次 openWGCSession 时才填，所以延迟到首次 detect 之后才有值。
-	// 想立即检查得在 SetBackend 时跑一次试探 session —— 暂时不做，等用户反馈再扩。
 
 	// Screenshot writer: 给 bot 异步落盘带标注 PNG 用，调试调参时打开 Capture.DumpDebug
 	// settings 在 debug/captures/<bot>/<date>/ 累积。默认关，写盘走独立 goroutine。
@@ -110,174 +95,136 @@ func main() {
 		rootLog.Warn().Str("tag", "SYSTEM").Msgf("settings.locale=%q 无效，回退 zh", loc)
 		loc = locale.Zh
 	}
-	if err := rhythm.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("rhythm: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("rhythm: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("rhythm: locale %s 配置加载成功", loc)
-	}
-	if err := fish.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("fish: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("fish: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("fish: locale %s 配置加载成功", loc)
-	}
-	if err := cook.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("cook: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("cook: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("cook: locale %s 配置加载成功", loc)
-	}
-	if err := battle.LoadConfig(loc); err != nil {
-		if errors.Is(err, botcore.ErrLocaleNotImplemented) {
-			rootLog.Info().Err(err).Str("tag", "SYSTEM").Msgf("battle: locale %s 未实装，bot 不可用", loc)
-		} else {
-			rootLog.Error().Err(err).Str("tag", "SYSTEM").Msgf("battle: locale %s 配置加载失败", loc)
-		}
-	} else {
-		rootLog.Info().Str("tag", "SYSTEM").Msgf("battle: locale %s 配置加载成功", loc)
-	}
+	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	// 长跑型 bot service：从 registry 拿元数据，统一构造
-	botMetas := services.RegisteredBots()
-	botSvcs := make([]services.BotService, 0, len(botMetas))
-	// cap = bot 数 + 11 个固定 services（battle/settings/game/action/hotkey/template/
-	// container/schedule/calibration/tools/+1 spare）
-	wailsServices := make([]application.Service, 0, len(botMetas)+11)
-	for _, b := range botMetas {
-		svc, ws := b.Construct(app)
-		botSvcs = append(botSvcs, svc)
-		wailsServices = append(wailsServices, ws)
-	}
-	app.RegisterBotServices(botSvcs)
+	wailsServices := make([]application.Service, 0, 14)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
-	// 跟线程绑定），全 app 必须共享同一个实例 —— battle / action / recorder 都注册到这里。
+	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
 	// 两个 manager 就两个 hotkey 线程互相覆盖反注册，热键全丢。
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
-	// 非 bot service（hotkey-driven 的 battle + 共享的 settings/game）
-	battleSvc := bots.NewBattleService(app, sharedHotkeys)
 	settingsSvc := services.NewSettingsService(app)
-	gameSvc := services.NewGameService(app)
-	app.RegisterBattleService(battleSvc)
+
+	// AI 节点用的按连接缓存 Provider 服务(进程级单例)。getter 每次读 live settings 快照,
+	// 改连接 endpoint/key 后指纹自愈重建。注入进每个 ContainerRunner。
+	aiProviderCache := services.NewAIProviderCache(func() *services.Settings {
+		s := settingsSvc.Get()
+		return &s
+	})
 
 	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
 	dataDir := "data"
 	if exe, err := os.Executable(); err == nil {
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
 	}
-
-	// 启动期 v1 数据检测：含已废字段（hotkey/loopMode/...）的 action.json → wipe 整 dir。
-	// 早期阶段无兼容性，用户已被告知重置。
-	actionsRoot := filepath.Join(dataDir, "actions")
-	if wiped, err := actions.WipeV1Data(actionsRoot); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "STARTUP").Msg("WipeV1Data 失败")
-	} else if wiped {
-		rootLog.Warn().Str("tag", "STARTUP").Msg("检测到 v1 actions 数据，已 wipe；请在 Container 编辑器内重新录制")
-	}
-	actionStore := actions.NewStore(actionsRoot)
-
-	// actionSvc 用占位 nil 提前构造引用 —— 真正构造放到 runner emit 回调能拿到 actionSvc 后。
-	// Runner emit 回调里要调 actionSvc.OnRunnerEvent 释放 lease；用闭包 + 后赋值的模式。
-	var actionSvc *actions.Service
-	runner := actionsruntime.NewRunner(
-		&actionsruntime.Win32Driver{
-			ActivateDelay:     30 * time.Millisecond,
-			CursorSettleDelay: 20 * time.Millisecond,
-		},
-		func(ev actionsruntime.EventActionState) {
-			// 1) 推到前端
-			app.Emit("action:state", ev)
-			// 2) 通知 service 释放 lease
-			if actionSvc != nil {
-				actionSvc.OnRunnerEvent(ev.ActionID, ev.Status)
-			}
-		},
-	)
-	actionSvc = actions.NewService(
-		actionStore,
-		&actionRunnerAdapter{r: runner},
-		&actionBotGateAdapter{app: app},
-		&actionGameProviderAdapter{app: app},
-	)
-	runner.SetLocalMouseCounts360Getter(func() int {
-		return app.SnapshotSettings().UI.MouseCounts360
-	})
-
-	// Recorder：构造 + emit 回调推前端 (action:recorder-event)。
-	// 录制 toggle 热键固定 Ctrl+Shift+R（v1 不可改；以后从 settings 读再说）。
-	recorder := recording.NewRecorder(func(ev actiontransform.Event) {
-		app.Emit("action:recorder-event", ev)
-	})
-	recorder.SetMouseCounts360Getter(func() int {
-		return app.SnapshotSettings().UI.MouseCounts360
-	})
-	const (
-		toggleMods = recording.MOD_CONTROL | recording.MOD_SHIFT
-		toggleVK   = uint32('R')
-	)
-	actionSvc.SetRecorder(&actionRecorderAdapter{r: recorder}, toggleMods, toggleVK)
-	actionSvc.SetEmit(func(name string, data any) { app.Emit(name, data) })
+	// Screenshot 节点写盘根目录 = dataDir (绝对). 不设的话节点回落到相对 "bin/data"，
+	// 在 exeDir 已是 bin/ 时会拼成 bin/bin/data/... 还跟模板里的 screenshots/ 段重复。
+	_ = os.Setenv("YOTTA_DATA_DIR", dataDir)
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
-	// 系统热键 (recorder-toggle / stop-action) + per-action 热键全部走这条路。
+	// 系统热键 (execution-stop) + container 热键全部走这条路。
 	// 用户可在 Settings → 快捷键 tab 改任意一条，hot reload 立即生效。
 	hotkeyRegistry := hotkey.NewHotkeyRegistry(sharedHotkeys)
 	hotkeyRegistry.SetCallbacks(
-		// onActionHotkeyChange：Action 不再绑热键（容器架构下 hotkey 在 container 层）；
-		// Container 接管后改为写回 container.Hotkey。registry 允许 nil。
+		// onActionHotkeyChange：v2 不再有 per-action hotkey，允许 nil。
 		nil,
 		// onSystemHotkeyChange：写回 settings.UI.ActionStopHotkey
-		// system.recorder-toggle 当前不持久化（hardcode "Ctrl+Shift+R"，重启复位）
 		func(key, newStr string) error {
-			if key == "system.stop-action" {
-				cur := app.SnapshotSettings()
+			cur := app.SnapshotSettings()
+			switch key {
+			case "system.execution-stop":
 				cur.UI.ActionStopHotkey = newStr
-				app.SwapSettings(cur)
-				return app.SaveSettings()
+			case "recording.stop":
+				cur.UI.RecordingStopHotkey = newStr
+			case "recording.pause":
+				cur.UI.RecordingPauseHotkey = newStr
+			case "system.calibrate-toggle":
+				cur.UI.CalibrateHotkey = newStr
+			case "system.launcher-toggle":
+				cur.UI.LauncherToggleHotkey = newStr
+			case "tools.window-capture":
+				cur.UI.WindowCaptureHotkey = newStr
+			default:
+				return nil
 			}
-			return nil
+			app.SwapSettings(cur)
+			return app.SaveSettings()
 		},
 		// emit 回调：广播给所有 webview
 		func() { app.Emit("hotkey:changed", map[string]any{}) },
 	)
 
-	// 注册系统热键：录制 toggle
-	if err := hotkeyRegistry.Register("system.recorder-toggle", hotkey.HotkeySourceSystem,
-		"录制 toggle", "Ctrl+Shift+R", "",
-		func() { app.Emit("action:recorder-toggle", map[string]any{}) }); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("注册录制 toggle 热键失败")
-	}
-
-	// 全局强停热键（默认 Ctrl+Shift+F9）下面跟 system.execution-stop 一起注册。
-	// 单一 hotkey 同时停 action 直接 run + execQueue + worker——避免双注册（Win32
-	// RegisterHotKey 重复 mod+vk 会拒绝第二次，老版本两条都用 F9 导致第二条静默失败）。
-
 	// 暴露 HotkeyService RPC 给前端
 	hotkeySvc := hotkey.NewHotkeyService(hotkeyRegistry)
+	// 「重置默认」用的内置热键出厂默认 (跟 services.defaultSettings 一致, 也是下方各 Register 的 fallback)。
+	// 容器热键是用户数据, 不在内 — 容器侧另给「一键清空」。
+	hotkeySvc.SetSystemDefaults(map[string]string{
+		"system.execution-stop":   "Ctrl+Shift+F9",
+		"system.calibrate-toggle": "F8",
+		"system.launcher-toggle":  "",
+		"tools.window-capture":    "F9",
+		"recording.stop":          "F12",
+		"recording.pause":         "F11",
+	})
 
-	// 模板库 / Container / Schedule 数据层
-	templateStore, err := template.NewStore(filepath.Join(dataDir, "assets", "templates"))
+	// Container / Schedule 数据层
+
+	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate) 的 Templates 字段 (GUID)
+	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
+	nodeSvc := node.NewService()
+	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
+	browserCDPSvc := browsercdp.NewService("")
+	browserCDPProvider := browsercdp.NewClientProvider(browserCDPSvc)
+
+	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.
+	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.
+	assetStore, err := asset.NewStore(dataDir)
 	if err != nil {
-		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("template store init")
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("asset store init")
 	}
-	templateSvc := template.NewService(templateStore, &templateCaptureAdapter{app: app})
+
+	// 全局子图池 (2026-06-12 全局化: 容器只引用不复制): <dataDir>/subgraphs/.
+	sgStore, err := container.NewSubgraphStore(filepath.Join(dataDir, "subgraphs"))
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("subgraph store init")
+	}
+	sgSvc := container.NewSubgraphService(sgStore)
 
 	containerStore, err := container.NewStore(filepath.Join(dataDir, "containers"))
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("container store init")
 	}
+	// 校验用引用闭包解析 (单一咽喉, 见 wire_subgraph.go).
+	containerStore.SetSubgraphResolver(func(c *container.Container) []container.Subgraph {
+		return subgraphClosureFor(c, sgStore)
+	})
 	containerSvc := container.NewService(containerStore)
+	sgSvc.SetReferrerScanner(scanSubgraphReferrers(containerStore, sgStore))
+
+	// 匿名子图 GC (mark-sweep, 幂等): 启动时 + 容器删除完成后. 锁序 Container → Subgraph.
+	gcAnonymousSubgraphs := func() {
+		removed, gcErr := sgStore.GCAnonymous(collectReferencedSubgraphIDs(containerStore, sgStore))
+		if gcErr != nil {
+			rootLog.Warn().Err(gcErr).Str("tag", "SUBGRAPH-GC").Msg("匿名子图 GC 失败")
+		} else if len(removed) > 0 {
+			rootLog.Info().Strs("removed", removed).Str("tag", "SUBGRAPH-GC").Msg("匿名子图回收")
+		}
+	}
+	gcAnonymousSubgraphs()
+	containerSvc.SetPostDelete(gcAnonymousSubgraphs)
+	// validator 存在性检查: 节点引用的模板/clip GUID 必须存在于全局 asset 库.
+	containerSvc.SetAssetExistence(
+		assetExistence(assetStore, asset.KindTemplate),
+		assetExistence(assetStore, asset.KindClip),
+	)
+
+	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
+	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
+	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
+	assetSvc.SetReferrerScanner(scanAssetReferrers(containerStore, sgStore))
+	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
+	nodeoptions.RegisterAssetAsyncSources(nodeSvc, assetSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {
@@ -285,52 +232,117 @@ func main() {
 	}
 	scheduleSvc := schedule.NewService(scheduleStore)
 
+	// 编辑器用户代码片段 (Script/Expr 放大编辑「片段」菜单): <dataDir>/snippets.json 整存整取.
+	codeSnippetSvc := codesnippet.NewService(filepath.Join(dataDir, "snippets.json"))
+
 	// ---- 运行时层：ExecutionQueue + Worker + ScheduleDaemon ----
 	//
 	// 键鼠独占：单 worker，串行消费 queue；hotkey/schedule/UI 触发都进同一 queue。
 	execQueue := execution.NewExecutionQueue()
 	inputBus := execution.NewInputBus()
 
-	// 真模板匹配 + 真 Action 调用 + 真输入驱动 + 真颜色检测
-	templateMatcher := &templateMatcherAdapter{app: app, tplStore: templateStore}
-	actionInvoker := &actionInvokerAdapter{app: app, store: actionStore, bus: inputBus}
-	containerInputDrv := newContainerInputDriver(app)
-	containerColor := &containerColorAdapter{app: app}
+	// 真模板匹配 + 真颜色检测
+	// input backend 由 ContainerRunner.setupRuntime 从 Win32WindowTarget 节点解析, 不走 main.go 全局注入.
+	// 资产全局 (asset.Store): matcher 按 guid 匹配, scaleTolerance 由 VisionAdapter (有容器上下文) 传入.
+	//
+	// container:warning emit 同时 zerolog.Warn — 让 warning 进
+	// logs/yotta-*.log (LogSink) 给 post-mortem 用.
+	templateMatcher := newTemplateMatcherAdapter(assetStore, func(name string, payload map[string]any) {
+		app.Emit(name, payload)
+		if name == "container:warning" {
+			rootLog.Warn().Interface("payload", payload).Msg("container warning")
+		}
+	})
+	// 用户在编辑器里存/删/重拍资产后, 让 matcher 丢弃解码缓存 (否则重拍换 blob 后旧图还在匹配).
+	assetSvc.SetOnChange(templateMatcher.Invalidate)
+	// InputClip: 全局 clip Service (asset clip kind). 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
+	clipSvc := newClipService(assetStore)
 
 	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
-	emitForRuntime := func(name string, data any) { app.Emit(name, data) }
+	// container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
+	emitForRuntime := func(name string, data any) {
+		app.Emit(name, data)
+		if name == "container:warning" {
+			rootLog.Warn().Interface("payload", data).Msg("container warning")
+		}
+	}
+	newRunnerForContainer := func(containerID string) (*containerruntime.ContainerRunner, error) {
+		c, ok := containerStore.Get(containerID)
+		if !ok {
+			return nil, fmt.Errorf("container %q not found", containerID)
+		}
+		rt := containerruntime.NewRuntimeContext(
+			&c, inputBus, templateMatcher,
+			newGameProviderAdapter(), emitForRuntime,
+			clipSvc, app.Settings().ActiveMouseCounts360(),
+		)
+		rt.ControllerFactory = containerruntime.DefaultControllerFactory{BrowserCDP: browserCDPProvider}
+		// 起跑时从全局池解析引用闭包 → 快照进 rt (跑中不回查 store, 编辑不影响在跑实例).
+		rt.Subgraphs = subgraphClosureFor(&c, sgStore)
+		r := containerruntime.NewContainerRunner(rt)
+		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
+		r.SetLogger(rootLog)
+		r.SetAIProvider(aiProviderCache)
+		return r, nil
+	}
 	runFunc := func(ctx context.Context, target execution.TargetRef) error {
 		if target.Kind != "container" {
 			return fmt.Errorf("unsupported target kind %q", target.Kind)
 		}
-		c, ok := containerStore.Get(target.ID)
-		if !ok {
-			return fmt.Errorf("container %q not found", target.ID)
+		r, err := newRunnerForContainer(target.ID)
+		if err != nil {
+			return err
 		}
-		// 前台模式：跑之前把游戏窗口拉到前台（必须前台运行的脚本/视觉确认场景）
-		if c.RunMode == "foreground" {
-			if targets := winutil.FindGame(); len(targets) > 0 {
-				winutil.BringToFront(targets[0].HWND)
-				time.Sleep(150 * time.Millisecond) // 让窗口完成 restore + 焦点切换
-			}
-		}
-		rt := containerruntime.NewRuntimeContext(&c, inputBus, templateMatcher, actionInvoker, containerInputDrv, containerColor, emitForRuntime)
-		r := containerruntime.NewContainerRunner(rt)
 		return r.Run(ctx)
 	}
 	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {
 		app.Emit("execution:state", s)
-	})
+	}, runclassify.RunError)
 	worker.Start()
 
 	// 给 containerSvc 注入运行入口 — 前端 ▶ 按钮走 Run，■ 走 StopAll
-	containerSvc.SetRunner(&containerRunnerAdapter{queue: execQueue, worker: worker})
+	debugManager := newContainerDebugManager(newRunnerForContainer, func(name string, data any) {
+		app.Emit(name, data)
+	}, worker.IsRunning)
+	containerSvc.SetRunner(&containerRunnerAdapter{queue: execQueue, worker: worker, debug: debugManager})
+
+	// MCP 对外暴露 server (③): 复用执行标准件, 后台起 Streamable HTTP.
+	mcpSrv := mcpserver.NewServer(mcpserver.Deps{
+		Store:       containerStore,
+		InputBus:    inputBus,
+		Matcher:     templateMatcher,
+		Game:        newGameProviderAdapter(),
+		Clip:        clipSvc,
+		MouseCounts: func() int { return app.Settings().ActiveMouseCounts360() },
+		Armed:       func() bool { return app.Settings().MCP.Armed },
+		Busy:        worker.IsRunning,
+	})
+	mcpCore := server.NewMCPServer("yotta-mcp", "0.1.0")
+	mcpSrv.Register(mcpCore)
+	mcpHTTP := server.NewStreamableHTTPServer(mcpCore)
+	go func() {
+		if err := mcpHTTP.Start("127.0.0.1:8765"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			rootLog.Warn().Err(err).Str("tag", "MCP").Msg("MCP HTTP server 退出")
+		}
+	}()
+	rootLog.Info().Str("tag", "MCP").Msg("MCP server: http://127.0.0.1:8765/mcp")
 
 	// Container hotkey 绑定：扫所有容器，把 container.hotkey 注册到 registry。
 	// CRUD 后重扫一次（containerSvc.SetOnChange 钩子）。触发后入队单 target manual run。
 	containerHotkeys := newContainerHotkeyBinder(containerStore, hotkeyRegistry, execQueue)
 	containerHotkeys.Refresh()
 	containerSvc.SetOnChange(containerHotkeys.Refresh)
+
+	// 容器热键在「快捷键」中心页 rebind → 回写 container.json (直接 store.Save, 不走 service.Update
+	// 以免 emitChange→Refresh→registry 再抢锁死锁; registry entry 已由 Update 更新, 两边一致)。
+	hotkeyRegistry.SetContainerHotkeyChange(func(containerID, newStr string) error {
+		c, ok := containerStore.Get(containerID)
+		if !ok {
+			return nil
+		}
+		c.Hotkey = newStr
+		return containerStore.Save(&c)
+	})
 
 	// ScheduleDaemon：注册 enabled schedules 到 cron/hotkey/once，触发后入 queue
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
@@ -340,59 +352,139 @@ func main() {
 	// Schedule CRUD 后重注册 cron / hotkey trigger
 	scheduleSvc.SetOnChange(scheduleDaemon.Reload)
 
-	// 全局强停热键：同时停 action runner（直接调 RunOnce 的回放）、清 execution
-	// queue、cancel 当前 container worker run。设置面板里 UI.ActionStopHotkey 改
-	// 这一条；空 → 默认 F9。
+	// 全局强停热键：清 execution queue + cancel 当前 container worker run。
+	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
 	stopAllHk := strings.TrimSpace(app.Settings().UI.ActionStopHotkey)
 	if stopAllHk == "" {
 		stopAllHk = "Ctrl+Shift+F9"
 	}
 	if err := hotkeyRegistry.Register("system.execution-stop", hotkey.HotkeySourceSystem,
-		"强停所有运行", stopAllHk, "",
+		"hotkeys.label.system.execution_stop", nil, stopAllHk, "",
 		func() {
-			// action 直跑（不走 queue 的）—— actionSvc.StopRunning 是 noop-safe
-			go func() { _ = actionSvc.StopRunning() }()
 			execQueue.CancelAll()
 			worker.CancelCurrent()
 		}); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", stopAllHk).Msg("注册全局强停热键失败")
 	}
 
-	calibrationSvc := calibration.NewService()
+	// 校准 F8 走自治 LL hook (calibrationSvc 持有), 不走 OS RegisterHotKey (游戏 reserve).
+	// emit 把 'calibration:toggle' 广播给前端推进状态机; vkGetter 读热键中心当前 F8 绑定。
+	calibrationSvc := calibration.NewService(
+		func(name string, data any) { app.Emit(name, data) },
+		func() uint32 {
+			e, ok := hotkeyRegistry.Get("system.calibrate-toggle")
+			if !ok || e.HotkeyStr == "" {
+				return calibration.VKF8
+			}
+			_, vk, err := hotkey.ParseHotkey(e.HotkeyStr)
+			if err != nil || vk == 0 {
+				return calibration.VKF8
+			}
+			return vk
+		},
+	)
+
+	// clipSvc 提前构造 (runFunc 注入 PlayClip 用 ClipResolver). 全局 clip 库走 wails RPC 给前端.
+
+	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
+	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
-	toolsSvc := tools.NewService(&toolsGameAdapter{app: app})
+	toolsSvc := tools.NewService(containerSvc)
+	// 校准 HUD 窗关闭兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都覆盖, 不依赖前端正常关)。
+	toolsSvc.SetCalibratorCloseHandler(func() {
+		calibrationSvc.StopHotkeyWatch()
+		_, _ = calibrationSvc.Stop()
+	})
+	// 窗口捕获键走热键中心: 捕获时读 tools.window-capture 当前绑定 (mods+vk)，回退 F9。
+	toolsSvc.SetCaptureHotkeyGetter(func() (uint32, uint32) {
+		e, ok := hotkeyRegistry.Get("tools.window-capture")
+		if !ok || e.HotkeyStr == "" {
+			return 0, 0x78 // VK_F9
+		}
+		mods, vk, err := hotkey.ParseHotkey(e.HotkeyStr)
+		if err != nil || vk == 0 {
+			return 0, 0x78
+		}
+		return mods, vk
+	})
 
-	// DPI 校准 toggle 热键：默认 F8。前端订阅 'calibration:toggle' event 推进状态机。
-	// 注册无副作用——只有 SettingsInput 打开校准对话框时才有效。
-	if err := hotkeyRegistry.Register("system.calibrate-toggle", hotkey.HotkeySourceSystem,
-		"DPI 校准 启动/停止", "F8", "",
-		func() {
-			app.Emit("calibration:toggle", nil)
-		}); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("注册 DPI 校准热键失败")
+	// 悬浮窗启动器 呼出/隐藏 热键：默认未绑（空），从 settings.UI 读，rebind 经 onSystemHotkeyChange 写回。
+	// os-global 机制（跟 execution-stop 一致）。按键 → toggle 启动器悬浮窗显隐。
+	launcherToggleHk := strings.TrimSpace(app.Settings().UI.LauncherToggleHotkey)
+	if err := hotkeyRegistry.Register("system.launcher-toggle", hotkey.HotkeySourceSystem,
+		"hotkeys.label.system.launcher_toggle", nil, launcherToggleHk, "",
+		func() { _ = toolsSvc.ToggleLauncher() }); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", launcherToggleHk).Msg("注册启动器 toggle 热键失败")
+	}
+
+	// DPI 校准 toggle 热键：默认 F8，从 settings.UI 读（rebind 经 onSystemHotkeyChange 写回）。
+	// LL-hook 机制 (值持有条目, 不占 OS RegisterHotKey — 游戏会 reserve, 切游戏后失效)。
+	// 真正装钩由 calibrationSvc 在校准窗开关时做 (StartHotkeyWatch 读上面的 vkGetter);
+	// 命中 emit 'calibration:toggle' 推进前端状态机。热键中心仍可见 + rebind + 冲突检测。
+	calibHk := strings.TrimSpace(app.Settings().UI.CalibrateHotkey)
+	if calibHk == "" {
+		calibHk = "F8"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("system.calibrate-toggle", hotkey.HotkeySourceSystem,
+		"hotkeys.label.system.calibrate_toggle", calibHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", calibHk).Msg("注册 DPI 校准热键失败")
+	}
+
+	// 录制热键 (LL-hook 全局拦截, 不占 OS RegisterHotKey — 游戏会 reserve)。
+	// 默认从 settings.UI 读; registry 是编辑权威, rebind 经 onSystemHotkeyChange 写回 settings.UI。
+	recStopHk := strings.TrimSpace(app.Settings().UI.RecordingStopHotkey)
+	if recStopHk == "" {
+		recStopHk = "F12"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("recording.stop", hotkey.HotkeySourceRecording,
+		"hotkeys.label.recording.stop", recStopHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recStopHk).Msg("注册停录热键失败")
+	}
+	recPauseHk := strings.TrimSpace(app.Settings().UI.RecordingPauseHotkey)
+	if recPauseHk == "" {
+		recPauseHk = "F11"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("recording.pause", hotkey.HotkeySourceRecording,
+		"hotkeys.label.recording.pause", recPauseHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recPauseHk).Msg("注册暂停录制热键失败")
+	}
+
+	// 窗口捕获键 (NodeInspector「捕获目标窗口」按下它抓前台游戏窗口)。
+	// 值持有者条目 (mechanism=ll-hook, 不持久占 OS) — 进热键中心可见 + 可 rebind + 冲突检测；
+	// 真正注册由 toolsSvc 捕获时临时做 (读下方 SetCaptureHotkeyGetter)。默认 F9。
+	winCapHk := strings.TrimSpace(app.Settings().UI.WindowCaptureHotkey)
+	if winCapHk == "" {
+		winCapHk = "F9"
+	}
+	if err := hotkeyRegistry.RegisterLLHook("tools.window-capture", hotkey.HotkeySourceSystem,
+		"hotkeys.label.system.window_capture", winCapHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", winCapHk).Msg("注册窗口捕获热键失败")
 	}
 
 	wailsServices = append(wailsServices,
-		application.NewService(battleSvc),
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
-		application.NewService(gameSvc),
-		application.NewService(actionSvc),
 		application.NewService(hotkeySvc),
-		application.NewService(templateSvc),
+		application.NewService(assetSvc),
 		application.NewService(containerSvc),
+		application.NewService(sgSvc),
 		application.NewService(scheduleSvc),
 		application.NewService(calibrationSvc),
+		application.NewService(recordingSvc),
 		application.NewService(toolsSvc),
+		application.NewService(clipSvc),
+		application.NewService(nodeSvc),
+		application.NewService(codeSnippetSvc),
+		application.NewService(services.NewAIService()),
 	)
-	_ = scheduleDaemon // 防 import 未用 + 留扩展位
+	_ = scheduleDaemon // 防 import 未用
 
 	// wails3 application
 	wailsApp := application.New(application.Options{
-		Name:        "YHBox",
-		Description: "异环工具箱",
+		Name:        "Yotta",
+		Description: "节点编排，自动执行",
 		Services:    wailsServices,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -400,8 +492,17 @@ func main() {
 	})
 	app.AttachWailsApp(wailsApp)
 
-	// 注入编辑器独立窗口的开窗器（wails3 多窗口 API）
-	actionSvc.SetWindowOpener(newActionWindowAdapter(wailsApp))
+	sgSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
+	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	// 录制完产物是 *container.Subgraph, 直接入全局子图池 (sgStore.Create)
+	recordingSvc.SetSubgraphSaver(sgStore)
+	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
+	recordingSvc.SetContainerGetter(containerStore)
+
+	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
+	clipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+
 	// tools 服务也是 wailsApp 创建后才能用（要开新窗口）
 	toolsSvc.SetApp(wailsApp)
 
@@ -411,29 +512,19 @@ func main() {
 	})
 
 	// 注册事件 payload 类型（让 bindings 生成器产 TS 类型）
-	// 长跑 bot 的 state 事件由 registry 派生
-	for _, b := range botMetas {
-		application.RegisterEvent[services.BotStateEvent](services.EventStateName(b.Kind))
-	}
-	// Bot-specific + 共享事件
-	application.RegisterEvent[services.FishStatsEvent](services.EventFishStats)
-	application.RegisterEvent[services.PianoProgressEvent](services.EventPianoProgress)
-	application.RegisterEvent[services.BattleStateEvent](services.EventBattleState)
-	application.RegisterEvent[services.GameStatusEvent](services.EventGameStatus)
 	application.RegisterEvent[services.LogLinesEvent](services.EventLogLines)
-	application.RegisterEvent[actionsruntime.EventActionState]("action:state")
 
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window
 	mainWin := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "YHBox " + version,
+		Title:            "Yotta " + version,
 		Width:            winCfg.Width,
 		Height:           winCfg.Height,
 		MinWidth:         900,
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(9, 9, 11), // zinc-950
 		Frameless:        true,
-		URL:              "/",
+		URL:              "/#/containers",
 	})
 
 	// 用户拖完才落盘（WindowDidResize 拖动期间会狂刷，没必要每帧写 IO）。
@@ -454,7 +545,7 @@ func main() {
 	// （桌面右下角），还会让部分内容溢出屏幕。我们要的是"回到上次位置"，
 	// 所以手动 OnClick → Show().Focus()（操作系统会把它还原到 Hide() 前的位置）。
 	tray := wailsApp.SystemTray.New()
-	tray.SetIcon(trayIcon).SetTooltip("YHBox " + version)
+	tray.SetIcon(trayIcon).SetTooltip("Yotta " + version)
 	tray.OnClick(func() {
 		if mainWin.IsVisible() && !mainWin.IsMinimised() {
 			mainWin.Hide()
@@ -465,7 +556,7 @@ func main() {
 	trayMenu := application.NewMenu()
 	trayMenu.Add("显示窗口").OnClick(func(*application.Context) { mainWin.Show().Focus() })
 	trayMenu.AddSeparator()
-	trayMenu.Add("退出 YHBox").OnClick(func(*application.Context) { wailsApp.Quit() })
+	trayMenu.Add("退出 Yotta").OnClick(func(*application.Context) { wailsApp.Quit() })
 	tray.SetMenu(trayMenu)
 
 	// 关闭按钮（X）行为：MinimizeToTray=true 时 cancel 事件 + 隐藏到托盘；
@@ -484,14 +575,11 @@ func main() {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("启动期自启注册表同步失败")
 	}
 
-	// 启动后异步触发一次游戏检测（emit game:status 给前端 hydrate）
-	go gameSvc.Detect()
-
-	// BattleService 启动后自动恢复上次的热键启用状态
-	go battleSvc.AutoStartFromSettings()
-
 	// 应用 logger 写一条启动日志，证明日志桥路打通
-	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("YHBox started")
+	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("Yotta started")
+
+	// 节点 registry 锁死: init() 注册完毕, RPC handler 之后只读.
+	node.Freeze()
 
 	// 阻塞直到关窗口
 	if err := wailsApp.Run(); err != nil {
@@ -499,6 +587,65 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 退出钩子（app.Shutdown 内部统一停所有 bot service）
+	// 退出钩子: flush log sink
 	app.Shutdown()
+}
+
+// backupLegacyDataIfNeeded 检测旧 v1 数据布局，命中则整体 rename 备份。
+// 调用点：main() 启动早期，settings/services 初始化之前。
+func backupLegacyDataIfNeeded(log zerolog.Logger) {
+	exeDir, err := os.Executable()
+	if err != nil {
+		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 legacy 数据备份")
+		return
+	}
+	dataRoot := filepath.Join(filepath.Dir(exeDir), "data")
+	actionsDir := filepath.Join(dataRoot, "actions")
+	tplIndex := filepath.Join(dataRoot, "templates", "_index.json")
+
+	needBackup := false
+	if st, err := os.Stat(actionsDir); err == nil && st.IsDir() {
+		needBackup = true
+	}
+	if _, err := os.Stat(tplIndex); err == nil {
+		needBackup = true
+	}
+	if !needBackup {
+		return
+	}
+
+	backupDir := filepath.Join(filepath.Dir(exeDir), "data.legacy-2026-05-16")
+	if _, err := os.Stat(backupDir); err == nil {
+		// 已经备份过一次就不要二次覆盖
+		log.Info().Str("tag", "MIGRATE").Str("path", backupDir).Msg("legacy 备份目录已存在，跳过")
+		return
+	}
+	if err := os.Rename(dataRoot, backupDir); err != nil {
+		log.Error().Err(err).Str("tag", "MIGRATE").Msg("rename data → data.legacy-2026-05-16 失败")
+		return
+	}
+	log.Info().Str("tag", "MIGRATE").Str("backup", backupDir).Msg("v1 数据已备份；从空 layout 重新起步")
+}
+
+// ensureV2DataLayout 保证平铺数据 layout 的顶层目录存在 (类型即目录, 2026-06-12 大整理)。
+func ensureV2DataLayout(log zerolog.Logger) {
+	exeDir, err := os.Executable()
+	if err != nil {
+		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 layout 创建")
+		return
+	}
+	base := filepath.Join(filepath.Dir(exeDir), "data")
+	dirs := []string{
+		filepath.Join(base, "containers"),
+		filepath.Join(base, "subgraphs"),
+		filepath.Join(base, "templates"),
+		filepath.Join(base, "clips"),
+		filepath.Join(base, "blobs"),
+		filepath.Join(base, "schedules"),
+	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			log.Error().Err(err).Str("tag", "MIGRATE").Str("dir", d).Msg("mkdir 失败")
+		}
+	}
 }

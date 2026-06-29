@@ -5,19 +5,19 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "YHBox"
+    !define INFO_PROJECTNAME "Yotta"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "YHBox"
+    !define INFO_COMPANYNAME "Yotta"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "YHBox"
+    !define INFO_PRODUCTNAME "Yotta"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "1.1.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "(c) 2026 YHBox"
+    !define INFO_COPYRIGHT "(c) 2026 Yotta"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"

@@ -2,69 +2,49 @@ package runtime
 
 import (
 	"context"
+	"image"
 
-	"yhbox/internal/services/expr"
+	"yotta/internal/node"
+	"yotta/internal/services/expr"
+	"yotta/internal/services/inputclip"
 )
 
+// ClipResolver PlayClip 节点用: clipID → InputClip. main.go 注入 inputclip.Service 适配.
+type ClipResolver interface {
+	Resolve(clipID string) (*inputclip.InputClip, bool)
+}
+
 // TemplateMatcher Wait/Check/ClickTemplate 节点用。注入实现见 main.go 适配器。
-// v1 仅 template_appeared 检测。
+// 资产全局 (asset.Store): 节点按 guid 引用, 不再 per-container 隔离.
+// ctx 用于 timeout/cancel, frame 由 caller 抓好传入.
 type TemplateMatcher interface {
-	// Detect 单次检测。region [r,r,r,r]（0..1 比例），nil → 全屏。
-	// 返 found + 命中位置（屏幕比例坐标）+ 命中 region。
-	Detect(ctx context.Context, templateKey string, threshold float64, region []float64) (found bool, point expr.Point, regionOut [4]float64, err error)
+	// Detect 单次检测. frame 由 caller 抓好传入 (nil → 无帧, 返 false).
+	// guid 定位全局资产记录; region [r,r,r,r]（0..1 比例），nil → 全屏.
+	// scaleTolerance 由 caller (有容器上下文) 传入 — 跨分辨率缩放兜底的容差 [1/k, k]; <=0 走默认.
+	// 返 found + 命中位置（屏幕比例坐标）+ 命中 region + 实际匹配度 conf.
+	// conf 即便 found=false 也返真实最高匹配度 (供超时/miss 诊断: 看「差多少」). 无帧/无 variant → 0.
+	Detect(ctx context.Context, frame *image.RGBA, guid string, threshold float64, region []float64, scaleTolerance float64) (found bool, point expr.Point, regionOut [4]float64, conf float64, err error)
+
+	// DetectAll 单帧返回某模板的所有命中 (3×3 局部极大 + 单模板内 NMS)。
+	// 坐标全帧归一化 0..1; 每命中带 BBox + TemplateKey(=guid)。语义参数同 Detect。spec §节点2。
+	DetectAll(ctx context.Context, frame *image.RGBA, guid string, threshold float64, region []float64, scaleTolerance float64) ([]node.TemplateMatch, error)
 }
 
-// ActionInvoker InvokeAction 节点用。
-type ActionInvoker interface {
-	Invoke(ctx context.Context, actionID string, params map[string]expr.Value) error
-}
-
-// ColorDetector DetectColor 节点用：在 ROI 内统计落在颜色范围内的像素。
-// 实现解析当前游戏窗口截屏 + 抠 ROI + 遍历像素 + HSV/RGB 判定。
-//
-//	region: 客户区比例 [x, y, w, h]，全 0 = 全屏。
-//	mode:   "hsv" | "rgb"。
-//	rng:    6 元 — hsv: [hMin,hMax,sMin,sMax,vMin,vMax]；rgb: [rMin,rMax,gMin,gMax,bMin,bMax]
-//
-// 返：命中像素数 / 命中中心客户区比例坐标 (cx, cy)。无命中时 cx/cy = 0。
-type ColorDetector interface {
-	Detect(ctx context.Context, region [4]float64, mode string, rng [6]int) (count int, cx, cy float64, err error)
-}
-
-// NoopColorDetector：测试 + 启动前没注入实现时的默认。
-type NoopColorDetector struct{}
-
-func (NoopColorDetector) Detect(context.Context, [4]float64, string, [6]int) (int, float64, float64, error) {
-	return 0, 0, 0, nil
-}
-
-// InputDriver 容器级输入原语：ClickAt / KeyPress / MouseMoveRel / Scroll。
-// 实现解析当前游戏 hwnd + 调 pkg/input；测试用 NoopInputDriver 占位。
-//
-// 坐标用 0..1 比例；driver 自己换算到客户区像素（每次 capture.ClientSize）。
-type InputDriver interface {
-	Click(ctx context.Context, xRatio, yRatio float64, button string, durationMs int) error
-	KeyPress(ctx context.Context, vk string, durationMs int) error
-	MouseMoveRel(ctx context.Context, dx, dy int, durationMs int) error
-	Scroll(ctx context.Context, xRatio, yRatio float64, delta int) error
-}
-
-// NoopMatcher / NoopInvoker / NoopInputDriver：测试 + 启动前没注入实现时的默认。
+// NoopMatcher：测试 + 启动前没注入实现时的默认。
 type NoopMatcher struct{}
 
-func (NoopMatcher) Detect(ctx context.Context, k string, th float64, region []float64) (bool, expr.Point, [4]float64, error) {
-	return false, expr.Point{}, [4]float64{}, nil
+func (NoopMatcher) Detect(ctx context.Context, frame *image.RGBA, guid string, th float64, region []float64, scaleTolerance float64) (bool, expr.Point, [4]float64, float64, error) {
+	return false, expr.Point{}, [4]float64{}, 0, nil
 }
 
-type NoopInvoker struct{}
-
-func (NoopInvoker) Invoke(ctx context.Context, id string, params map[string]expr.Value) error {
-	return nil
+func (NoopMatcher) DetectAll(ctx context.Context, frame *image.RGBA, guid string, th float64, region []float64, scaleTolerance float64) ([]node.TemplateMatch, error) {
+	return nil, nil
 }
 
-type NoopInputDriver struct{}
-
-func (NoopInputDriver) Click(context.Context, float64, float64, string, int) error { return nil }
-func (NoopInputDriver) KeyPress(context.Context, string, int) error                { return nil }
-func (NoopInputDriver) MouseMoveRel(context.Context, int, int, int) error          { return nil }
-func (NoopInputDriver) Scroll(context.Context, float64, float64, int) error        { return nil }
+// GameProvider 提供跨进程窗口置前能力。main.go 启动时注入适配器。
+// hwnd 解析已落在当前活动窗口（经 rt.WindowHandle()/SetActiveWindow() 访问，Win32WindowTarget 节点运行时填入）, GameProvider 只剩 BringToForeground。
+type GameProvider interface {
+	// BringToForeground 尝试把 hwnd 置前。返 true 表示 OS 接受调用；
+	// 注意：成功 ≠ 一定到前台（OS 可能延迟切换），但 false 一定是失败。
+	BringToForeground(hwnd uintptr) bool
+}

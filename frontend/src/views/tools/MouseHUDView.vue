@@ -79,7 +79,7 @@
           <p v-else-if="pixel && !pixel.ok" class="text-[10px] text-warning">光标不在游戏窗口内</p>
         </div>
       </div>
-      <div v-else class="text-amber-300/80 text-[11px] pt-1">
+      <div v-else class="text-warning/80 text-[11px] pt-1">
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline" />
         未检测到游戏窗口（只显示屏幕坐标）
       </div>
@@ -89,8 +89,12 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+
+const route = useRoute()
+const containerID = String(route.query.containerID ?? '')
 
 interface MousePos {
   screenX: number
@@ -119,7 +123,7 @@ const pos = ref<MousePos>({
 let timer: ReturnType<typeof setInterval> | null = null
 
 async function poll() {
-  const r = await backend.tools.mousePos()
+  const r = await backend.tools.mousePos(containerID)
   if (r) pos.value = r as any
 }
 
@@ -142,7 +146,7 @@ interface PixelInfo {
 }
 const pixel = ref<PixelInfo | null>(null)
 async function pickPixel() {
-  const r = await backend.tools.pixelAt()
+  const r = await backend.tools.pixelAt(containerID)
   if (r) pixel.value = r as any
 }
 function copyHex() {

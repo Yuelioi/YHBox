@@ -1,6 +1,8 @@
 package container
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestContainerService_CreateAndList(t *testing.T) {
 	dir := t.TempDir()
@@ -87,5 +89,43 @@ func TestContainerStore_Save_InvalidID(t *testing.T) {
 		if err := s.Save(c); err == nil {
 			t.Errorf("id %q should be rejected", id)
 		}
+	}
+}
+
+func TestCreate_SeedsBackendFieldsAndWiresWin32WindowTarget(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(dir)
+	svc := NewService(s)
+
+	c, err := svc.Create("t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.InputBackend != "postmessage" || c.CaptureBackend != "auto" || c.ScaleTolerance < 1.0 {
+		t.Fatalf("默认字段未 seed: InputBackend=%q CaptureBackend=%q ScaleTolerance=%v",
+			c.InputBackend, c.CaptureBackend, c.ScaleTolerance)
+	}
+
+	var wtID string
+	for _, n := range c.Graph.Nodes {
+		if n.Kind == "Win32WindowTarget" {
+			wtID = n.ID
+		}
+	}
+	if wtID == "" {
+		t.Fatal("未找到 Win32WindowTarget 节点")
+	}
+
+	hasStartToWT, hasWTToStop := false, false
+	for _, e := range c.Graph.Edges {
+		if e.To == wtID+".In" {
+			hasStartToWT = true
+		}
+		if e.From == wtID+".Done" {
+			hasWTToStop = true
+		}
+	}
+	if !hasStartToWT || !hasWTToStop {
+		t.Fatalf("Win32WindowTarget 未接进 Start→Win32WindowTarget→Stop: edges=%+v", c.Graph.Edges)
 	}
 }

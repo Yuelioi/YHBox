@@ -10,13 +10,15 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"yhbox/internal/services/execution"
+	"yotta/internal/services/execution"
 )
 
 // HotkeyRegistrar 由 main.go 注入 services.HotkeyRegistry 适配。
 // schedule 包不能 import services（cycle）。
+//
+// label: i18n key string. labelParams: 给 vue-i18n named interpolation (nil 表示无动态).
 type HotkeyRegistrar interface {
-	Register(key, source, label, hotkeyStr, readonlyReason string, onFire func()) error
+	Register(key, source, label string, labelParams map[string]string, hotkeyStr, readonlyReason string, onFire func()) error
 	Unregister(key string) error
 }
 
@@ -116,7 +118,9 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 			return errors.New("hotkey registrar not injected")
 		}
 		key := "schedule." + s.ID
-		if err := d.hotkeys.Register(key, "schedule", "计划 "+s.Name, s.Trigger.Hotkey, "",
+		if err := d.hotkeys.Register(key, "schedule",
+			"hotkeys.label.schedule", map[string]string{"name": s.Name},
+			s.Trigger.Hotkey, "",
 			func() { d.fire(s.ID, execution.SourceHotkey) }); err != nil {
 			return fmt.Errorf("hotkey register: %w", err)
 		}

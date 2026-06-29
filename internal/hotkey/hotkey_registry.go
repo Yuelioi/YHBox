@@ -28,6 +28,8 @@ const (
 	HotkeySourceAction    HotkeySource = "action"
 	HotkeySourceContainer HotkeySource = "container"
 	HotkeySourceSchedule  HotkeySource = "schedule"
+	HotkeySourceEditor    HotkeySource = "editor"
+	HotkeySourceRecording HotkeySource = "recording"
 )
 
 // HotkeyStatus runtime 状态。
@@ -39,16 +41,37 @@ const (
 	HotkeyStatusFailed  HotkeyStatus = "failed"  // OS 注册失败
 )
 
+// HotkeyMechanism 标记 entry 用哪种底层机制绑定热键。决定 updateLocked/Resume
+// 是否调 OS RegisterHotKey, 也给 FE 文案 (全局 vs 仅应用内)。
+type HotkeyMechanism string
+
+const (
+	// HotkeyMechanismOSGlobal: Win32 RegisterHotKey 全局热键 (system/container/schedule)。
+	HotkeyMechanismOSGlobal HotkeyMechanism = "os-global"
+	// HotkeyMechanismEditorInApp: webview only, 不占 OS (editor in-app key)。
+	HotkeyMechanismEditorInApp HotkeyMechanism = "editor-inapp"
+	// HotkeyMechanismLLHook: 全局 LL-hook 拦截 (录制热键), 不走 OS RegisterHotKey —
+	// 游戏 reserve OS 热键, 必须底层 hook 拦截。registry 只存值 + 做可见性/冲突/rebind,
+	// 消费方 (wire_recording adapter) 录制 Start 时读 HotkeyStr。
+	HotkeyMechanismLLHook HotkeyMechanism = "ll-hook"
+)
+
 // HotkeyEntry 给前端 RPC 序列化用。Key 是稳定标识。
 // 注：Normalized 不暴露 — 前端不该依赖 canonicalization 规则。
+//
+// Label 语义: i18n key string (FE t() 渲染), 不是字面值. 动态部分 (容器名/计划名)
+// 走 LabelParams 插值, FE 调 t(label, labelParams) 输出最终文案. 未找到 key 时
+// vue-i18n fallback 直接返 raw key 字符串 (诊断用).
 type HotkeyEntry struct {
-	Key            string       `json:"key"`
-	Source         HotkeySource `json:"source"`
-	Label          string       `json:"label"`
-	HotkeyStr      string       `json:"hotkeyStr"`
-	Status         HotkeyStatus `json:"status"`
-	LastError      string       `json:"lastError"`
-	ReadonlyReason string       `json:"readonlyReason"`
+	Key            string            `json:"key"`
+	Source         HotkeySource      `json:"source"`
+	Label          string            `json:"label"`
+	LabelParams    map[string]string `json:"labelParams,omitempty"`
+	HotkeyStr      string            `json:"hotkeyStr"`
+	Status         HotkeyStatus      `json:"status"`
+	LastError      string            `json:"lastError"`
+	ReadonlyReason string            `json:"readonlyReason"`
+	Mechanism      HotkeyMechanism   `json:"mechanism"`
 }
 
 // registryEntry registry 内部状态。normalized 字段不暴露。
@@ -67,9 +90,10 @@ type HotkeyRegistry struct {
 	paused  bool // Pause 暂停所有 OS hotkey 时为 true
 
 	// 持久化回调（构造后由 SetCallbacks 注入）
-	onActionHotkeyChange func(actionID, newStr string) error
-	onSystemHotkeyChange func(key, newStr string) error
-	emitChanged          func()
+	onActionHotkeyChange    func(actionID, newStr string) error
+	onSystemHotkeyChange    func(key, newStr string) error
+	onContainerHotkeyChange func(containerID, newStr string) error
+	emitChanged             func()
 }
 
 // NewHotkeyRegistry 构造。
@@ -93,13 +117,24 @@ func (r *HotkeyRegistry) SetCallbacks(
 	r.emitChanged = emit
 }
 
+// SetContainerHotkeyChange 注入容器热键持久化回调 (main.go 在 containerStore 就绪后调)。
+// 跟 onSystemHotkeyChange 平行 — 容器源热键 rebind 时回写 container.json。
+func (r *HotkeyRegistry) SetContainerHotkeyChange(fn func(containerID, newStr string) error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onContainerHotkeyChange = fn
+}
+
 // Register 注册新 entry。
 //   - duplicate key → ErrDuplicateKey
 //   - hotkeyStr != "" 时，invalid/reserved/conflict 前置错误 → 删除 entry 返 err
 //   - OS 注册失败：entry.Status=failed，LastError 填，return nil（startup-friendly）
 //
 // startup 期的语义：用户从 config 加载一堆 hotkeys，某个被别的进程占用不该让整个 startup 挂掉。
-func (r *HotkeyRegistry) Register(key string, source HotkeySource, label, hotkeyStr, readonlyReason string, onFire func()) error {
+//
+// label: i18n key string (FE t() 渲染), 见 HotkeyEntry doc.
+// labelParams: 给 label 的 vue-i18n named interpolation 用 (nil 表示无动态部分).
+func (r *HotkeyRegistry) Register(key string, source HotkeySource, label string, labelParams map[string]string, hotkeyStr, readonlyReason string, onFire func()) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, exists := r.entries[key]; exists {
@@ -110,9 +145,11 @@ func (r *HotkeyRegistry) Register(key string, source HotkeySource, label, hotkey
 			Key:            key,
 			Source:         source,
 			Label:          label,
+			LabelParams:    labelParams,
 			HotkeyStr:      "",
 			Status:         HotkeyStatusUnbound,
 			ReadonlyReason: readonlyReason,
+			Mechanism:      HotkeyMechanismOSGlobal,
 		},
 		onFire: onFire,
 	}
@@ -200,9 +237,14 @@ func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 			if r.onActionHotkeyChange != nil {
 				_ = r.onActionHotkeyChange(actionID, entry.spec.HotkeyStr)
 			}
-		case HotkeySourceSystem:
+		case HotkeySourceSystem, HotkeySourceRecording:
 			if r.onSystemHotkeyChange != nil {
 				_ = r.onSystemHotkeyChange(key, entry.spec.HotkeyStr)
+			}
+		case HotkeySourceContainer:
+			containerID := strings.TrimPrefix(key, "container.")
+			if r.onContainerHotkeyChange != nil {
+				_ = r.onContainerHotkeyChange(containerID, entry.spec.HotkeyStr)
 			}
 		}
 	}
@@ -266,25 +308,29 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 			return &HotkeyConflictError{Key: key, ConflictKey: k, Label: other.spec.Label}
 		}
 	}
-	// OS 注册：先 unregister 旧的，再 register 新的
-	if entry.bindingID != 0 {
-		_ = r.manager.Unregister(entry.bindingID)
-		entry.bindingID = 0
+	// OS 注册仅 os-global 机制走 — ll-hook (录制) / editor-inapp 不占 OS,
+	// 由各自消费方处理 (LL-hook 拦截 / webview keydown)。
+	if entry.spec.Mechanism == HotkeyMechanismOSGlobal {
+		// 先 unregister 旧的，再 register 新的
+		if entry.bindingID != 0 {
+			_ = r.manager.Unregister(entry.bindingID)
+			entry.bindingID = 0
+		}
+		newID, err := r.manager.Register(HotkeySpec{
+			Mods: mods | winMOD_NOREPEAT,
+			VK:   vk,
+			Name: newHotkeyStr,
+		}, OwnerAction, entry.onFire)
+		if err != nil {
+			// OS 失败：entry 写入新值（用户意图），Status=failed，**不**调持久化
+			entry.spec.HotkeyStr = newHotkeyStr
+			entry.normalized = normalized
+			entry.spec.Status = HotkeyStatusFailed
+			entry.spec.LastError = err.Error()
+			return nil // registry-level success
+		}
+		entry.bindingID = newID
 	}
-	newID, err := r.manager.Register(HotkeySpec{
-		Mods: mods | winMOD_NOREPEAT,
-		VK:   vk,
-		Name: newHotkeyStr,
-	}, OwnerAction, entry.onFire)
-	if err != nil {
-		// OS 失败：entry 写入新值（用户意图），Status=failed，**不**调持久化
-		entry.spec.HotkeyStr = newHotkeyStr
-		entry.normalized = normalized
-		entry.spec.Status = HotkeyStatusFailed
-		entry.spec.LastError = err.Error()
-		return nil // registry-level success
-	}
-	entry.bindingID = newID
 	entry.spec.HotkeyStr = newHotkeyStr
 	entry.normalized = normalized
 	entry.spec.Status = HotkeyStatusActive
@@ -348,6 +394,11 @@ func (r *HotkeyRegistry) Resume() error {
 	r.paused = false
 	var hasFailures bool
 	for _, e := range r.entries {
+		// 只 os-global 机制原本占 OS binding, 才需要 resume 重注册。
+		// ll-hook (录制) / editor-inapp 不占 OS, bindingID 恒 0, 跳过 — 否则会被误 OS 抢键。
+		if e.spec.Mechanism != HotkeyMechanismOSGlobal {
+			continue
+		}
 		if e.spec.Status != HotkeyStatusActive || e.spec.HotkeyStr == "" {
 			continue
 		}
@@ -373,6 +424,110 @@ func (r *HotkeyRegistry) Resume() error {
 	}
 	// 只在有失败时 emit changed — 正常路径前端无感
 	if hasFailures && r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// RegisterEditor 注册 editor in-app key (webview only, 不占 OS).
+//
+// 跟 Register 区别:
+//   - source 固定 HotkeySourceEditor, Mechanism=editor-inapp (跳 r.manager.Register)
+//   - 不接 onFire — editor key 派发由 FE keydown 处理, registry 只挂可见性 + 冲突检查
+//   - conflict / parse / reserved 失败时不 delete entry: 保留 + Status=failed + LastError 填.
+//     FE 表里能看见 (SettingsHotkeys.vue lastError 渲染). Register 路径 delete + return err
+//     不适合 editor 自动注册场景 (用户视角 "Ctrl+K 撞了" 没线索).
+func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.entries[key]; exists {
+		return ErrDuplicateKey
+	}
+	entry := &registryEntry{
+		spec: HotkeyEntry{
+			Key:            key,
+			Source:         HotkeySourceEditor,
+			Label:          label,
+			HotkeyStr:      hotkeyStr,
+			Status:         HotkeyStatusActive,
+			ReadonlyReason: readonlyReason,
+			Mechanism:      HotkeyMechanismEditorInApp,
+		},
+	}
+	failWith := func(reason string) {
+		entry.spec.Status = HotkeyStatusFailed
+		entry.spec.LastError = reason
+		r.entries[key] = entry
+		if r.emitChanged != nil {
+			r.emitChanged()
+		}
+	}
+	if _, _, err := parseHotkey(hotkeyStr); err != nil {
+		failWith(err.Error())
+		return nil
+	}
+	normalized, err := NormalizeHotkey(hotkeyStr)
+	if err != nil {
+		failWith(err.Error())
+		return nil
+	}
+	if reserved, reason := IsReservedHotkey(hotkeyStr); reserved {
+		failWith("reserved: " + reason)
+		return nil
+	}
+	for k, other := range r.entries {
+		if other.normalized == normalized {
+			failWith(fmt.Sprintf("跟 %q 冲突", k))
+			return nil
+		}
+	}
+	entry.normalized = normalized
+	r.entries[key] = entry
+	if r.emitChanged != nil {
+		r.emitChanged()
+	}
+	return nil
+}
+
+// RegisterLLHook 注册 LL-hook 全局拦截热键 (录制 stop/pause)。
+//
+// 跟 Register 区别:
+//   - Mechanism = ll-hook: updateLocked 不调 r.manager.Register (不占 OS)。
+//     游戏 reserve OS 热键, 录制必须底层 hook 拦截; registry 只存值 + 可见性 + 冲突 + rebind。
+//   - 无 onFire: LL-hook 派发不走 registry callback, 而是 wire_recording adapter
+//     在录制 Start 时读 entry.HotkeyStr 解析成 VK 喂给 hook。
+//   - 可 rebind (readonlyReason="" 时): Update 走 updateLocked, 机制 guard 跳 OS。
+//
+// startup-friendly: parse/reserved/conflict 前置错误 → 删 entry 返 err (同 Register)。
+func (r *HotkeyRegistry) RegisterLLHook(key string, source HotkeySource, label, hotkeyStr, readonlyReason string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.entries[key]; exists {
+		return ErrDuplicateKey
+	}
+	entry := &registryEntry{
+		spec: HotkeyEntry{
+			Key:            key,
+			Source:         source,
+			Label:          label,
+			HotkeyStr:      "",
+			Status:         HotkeyStatusUnbound,
+			ReadonlyReason: readonlyReason,
+			Mechanism:      HotkeyMechanismLLHook,
+		},
+	}
+	r.entries[key] = entry
+	if hotkeyStr != "" {
+		err := r.updateLocked(key, hotkeyStr)
+		var invErr *HotkeyInvalidError
+		var resErr *HotkeyReservedError
+		var conErr *HotkeyConflictError
+		if errors.As(err, &invErr) || errors.As(err, &resErr) || errors.As(err, &conErr) {
+			delete(r.entries, key)
+			return err
+		}
+	}
+	if r.emitChanged != nil {
 		r.emitChanged()
 	}
 	return nil

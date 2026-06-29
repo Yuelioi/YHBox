@@ -63,6 +63,41 @@ func AsBool(v Value) bool {
 	return true
 }
 
+// AsString 软转 string。
+// - string: passthrough
+// - nil: ""
+// - bool: "true" / "false"
+// - 整型 (int / int32 / int64): 无小数 "42"
+// - float64: 无小数则 "5" (不带 .0), 否则 strconv.FormatFloat 'g'
+// - 其它: fmt.Sprintf("%v", v) 兜底
+func AsString(v Value) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return x
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	case int:
+		return strconv.Itoa(x)
+	case int32:
+		return strconv.FormatInt(int64(x), 10)
+	case int64:
+		return strconv.FormatInt(x, 10)
+	case float64:
+		if x == float64(int64(x)) {
+			return strconv.FormatInt(int64(x), 10)
+		}
+		return strconv.FormatFloat(x, 'g', -1, 64)
+	default:
+		return fmt.Sprintf("%v", x)
+	}
+}
+
 // FormatValue 给 Log / Toast 节点用的字符串化。
 func FormatValue(v Value) string {
 	switch x := v.(type) {

@@ -1,17 +1,15 @@
 package services
 
 import (
-	"errors"
-	"fmt"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // App 是顶层协调器（不暴露给 JS，不进 application.Options.Services）。
-// 持有所有 service 共享的 mutex / Settings / LogSink / Game 缓存。
+// 持有所有 service 共享的 mutex / Settings / LogSink。
 // service 通过反向引用 *App 拿这些共享资源。
 type App struct {
 	wailsApp *application.App
@@ -20,19 +18,29 @@ type App struct {
 	settings     *Settings
 	settingsMu   sync.RWMutex
 
-	botMu    sync.Mutex
-	botOwner string
+	logSink   *LogSink
+	rootLog   zerolog.Logger // app/service 层 logger
+	logMerger *LogMerger     // 把 raw container:node-dump 合并成 batch + 写 file
 
-	game    atomic.Pointer[GameStatusEvent]
-	logSink *LogSink
-	rootLog zerolog.Logger // 不挂 bot 的 logger；用于 app/service 层事件
-
-	// 长跑型 bot service 走 registry（fish/cook/piano/rhythm）。
-	// botServices 在 RegisterBotServices 期间被填满；Shutdown 时统一调用 StopSync。
-	botServices []BotService
-	// battle 是 hotkey-driven 形态不同，单独引用。
-	battleService BattleHotkeyService
+	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 wails Event
+	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 200ms 累积一次, emit
+	// container:node-enter-batch (payload = []{nodeId, nodeKind} 顺序). 前端取 last 1 个
+	// 作为 currentNode 覆盖, batch 内不丢任何 event (落 zerolog file 仍按个写不变, 这条是
+	// 给 GUI 高亮的, 不影响 post-mortem). IPC 频率 数百/sec → 5/sec.
+	nodeEnterMu    sync.Mutex
+	nodeEnterBuf   []nodeEnterEntry
+	nodeEnterTimer *time.Timer
 }
+
+type nodeEnterEntry struct {
+	NodeID   string `json:"nodeId"`
+	NodeKind string `json:"nodeKind"`
+	Count    int    `json:"count"` // 连续重复进同 node 折叠 (console.log × N 风格)
+}
+
+// nodeEnterBatchInterval: 1s 一批刷前端. 节点高亮 GUI 不需要更高频率 (1Hz 人眼能看清),
+// 5Hz/200ms 时 IPC + frontend reactivity 占大量 CPU. v1 没节点高亮所以 baseline 低很多.
+const nodeEnterBatchInterval = 1000 * time.Millisecond
 
 // NewApp 构造。settingsPath="" 走全局 default（settings.go 里 exe 同目录的 settings.json）。
 // LoadSettings 失败也返回（fallback default）。
@@ -49,14 +57,107 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 }
 
 // AttachWailsApp main.go 创建完 application.App 后调，让 App 能 Emit。
-func (a *App) AttachWailsApp(w *application.App) { a.wailsApp = w }
+// 此处 wailsApp + logSink 均已就绪，顺便构造 logMerger（合并 raw node-dump → batch + 写 file）。
+func (a *App) AttachWailsApp(w *application.App) {
+	a.wailsApp = w
+	a.logMerger = NewLogMerger(
+		func(name string, data any) {
+			if a.wailsApp != nil {
+				a.wailsApp.Event.Emit(name, data)
+			}
+		},
+		func(line string) { a.logSink.AppendDumpLine(line) },
+	)
+}
 
 // Emit 包装 wailsApp.Event.Emit。a.wailsApp == nil 时（启动前）静默丢弃。
+// container:* 事件镜像到 zerolog 方便 post-mortem; 但 container:node-enter 频率太高
+// (state_FISHING 30ms tick × 多节点 ≈ 数百/sec) 不镜像 file IO. node-enter 也不直接发 IPC,
+// 走 buf + 200ms 定时 flush 成 container:node-enter-batch (payload = list), 前端取 last 1 个
+// 作为 currentNode. IPC 数百/sec → 5/sec, 不丢 event.
 func (a *App) Emit(name string, data any) {
+	if shouldMirrorToRootLog(name) {
+		a.rootLog.Info().Str("event", name).Interface("data", data).Msg("runtime event")
+	}
 	if a.wailsApp == nil {
 		return
 	}
+	switch name {
+	case "container:node-enter":
+		a.bufferNodeEnter(data)
+		return
+	case "container:node-dump":
+		// raw per-execution dump — 喂 merger 合并, 不直接转发前端 (merger 发 batch).
+		m, _ := data.(map[string]any)
+		if m != nil && a.logMerger != nil {
+			a.logMerger.Add(str(m["containerId"]), str(m["nodeId"]), str(m["nodeKind"]), str(m["line"]), str(m["lineKey"]), boolOf(m["isError"]))
+		}
+		return
+	case "container:node-dump-flush":
+		// run 停止信号 — 让 merger 收尾该容器未刷的段, 不转发前端.
+		m, _ := data.(map[string]any)
+		if m != nil && a.logMerger != nil {
+			a.logMerger.FlushContainer(str(m["containerId"]))
+		}
+		return
+	case "container:action-trace":
+		if a.logSink != nil {
+			a.logSink.AppendActionTrace(data)
+		}
+	}
 	a.wailsApp.Event.Emit(name, data)
+}
+
+func str(v any) string  { s, _ := v.(string); return s }
+func boolOf(v any) bool { b, _ := v.(bool); return b }
+
+// shouldMirrorToRootLog 决定一个事件名是否镜像到 rootLog (→ file + log:lines SYS 行) 做 post-mortem.
+// 只镜像 container:* 事件, 但排除高频/内部 plumbing — 这些每次节点执行就来一发, 镜像 = 面板刷屏 + 重复:
+//   - container:node-enter        (数百/sec, 已有 batch 路径)
+//   - container:node-dump 家族    (每节点执行一次; file 走 LogMerger.AppendDumpLine, 面板走 node-dump-batch)
+func shouldMirrorToRootLog(name string) bool {
+	if len(name) < 10 || name[:10] != "container:" {
+		return false
+	}
+	switch name {
+	case "container:node-enter", "container:node-dump", "container:node-dump-batch", "container:node-dump-flush", "container:action-trace":
+		return false
+	}
+	return true
+}
+
+// bufferNodeEnter 把 node-enter event 累积进 buf, 启动定时 flush.
+// 连续同 nodeId 折叠 (Loop body 反复进同节点是常态, e.g. state_FISHING.barTrack 30Hz).
+func (a *App) bufferNodeEnter(data any) {
+	m, _ := data.(map[string]any)
+	if m == nil {
+		return
+	}
+	id, _ := m["nodeId"].(string)
+	kind, _ := m["nodeKind"].(string)
+	a.nodeEnterMu.Lock()
+	if n := len(a.nodeEnterBuf); n > 0 && a.nodeEnterBuf[n-1].NodeID == id {
+		a.nodeEnterBuf[n-1].Count++
+	} else {
+		a.nodeEnterBuf = append(a.nodeEnterBuf, nodeEnterEntry{NodeID: id, NodeKind: kind, Count: 1})
+	}
+	if a.nodeEnterTimer == nil {
+		a.nodeEnterTimer = time.AfterFunc(nodeEnterBatchInterval, a.flushNodeEnter)
+	}
+	a.nodeEnterMu.Unlock()
+}
+
+// flushNodeEnter 由定时器触发, 发出累积的 batch.
+func (a *App) flushNodeEnter() {
+	a.nodeEnterMu.Lock()
+	batch := a.nodeEnterBuf
+	a.nodeEnterBuf = nil
+	a.nodeEnterTimer = nil
+	a.nodeEnterMu.Unlock()
+	if len(batch) == 0 || a.wailsApp == nil {
+		return
+	}
+	a.wailsApp.Event.Emit("container:node-enter-batch", map[string]any{"entries": batch})
 }
 
 // Settings 返回当前 settings 的指针快照。读多写少，加 RLock 即可。
@@ -81,7 +182,7 @@ func (a *App) SwapSettings(s *Settings) {
 	a.settingsMu.Unlock()
 }
 
-// UpdateSettings 持锁应用 mutator 修改 live settings；给 internal/bots 等跨包用户
+// UpdateSettings 持锁应用 mutator 修改 live settings；给跨包用户
 // 避免直接 poke 私有 settingsMu。注意 mutator 不能再调任何持锁 App 方法（自死锁）。
 func (a *App) UpdateSettings(mutator func(*Settings)) {
 	a.settingsMu.Lock()
@@ -111,95 +212,15 @@ func (a *App) SaveSettings() error {
 	return SaveSettings(a.settingsPath, s)
 }
 
-// BotLease 是 RAII-style 互斥句柄。
-// service.Start() 拿到 lease，defer lease.Release()。Release 幂等，panic 也不会泄漏 owner。
-type BotLease struct {
-	app      *App
-	who      string
-	released atomic.Bool
-}
-
-// NewBotLease 构造（给 internal/bots 测试 + 极个别非 AcquireBot 路径用）。
-// 生产路径走 App.AcquireBot 拿 lease，这里只是 escape hatch。
-func NewBotLease(app *App, who string) *BotLease {
-	return &BotLease{app: app, who: who}
-}
-
-// IsReleased 给测试断言用；幂等查 release 状态。
-func (l *BotLease) IsReleased() bool { return l.released.Load() }
-
-// Release 幂等释放。多次调用、panic 路径都安全。
-func (l *BotLease) Release() {
-	if l.released.Swap(true) {
-		return
-	}
-	l.app.botMu.Lock()
-	if l.app.botOwner == l.who {
-		l.app.botOwner = ""
-	}
-	l.app.botMu.Unlock()
-}
-
-// AcquireBot 取得 bot 互斥。已被占用返回 error，error 文本必含 owner 名（前端 toast 直接展示）。
-func (a *App) AcquireBot(who string) (*BotLease, error) {
-	a.botMu.Lock()
-	defer a.botMu.Unlock()
-	if a.botOwner != "" {
-		return nil, fmt.Errorf("bot %q is already running, stop it first", a.botOwner)
-	}
-	a.botOwner = who
-	return &BotLease{app: a, who: who}, nil
-}
-
-// BotOwner 返回当前持有者名（"" 表示空闲）。给设置面板 / 调试用。
-func (a *App) BotOwner() string {
-	a.botMu.Lock()
-	defer a.botMu.Unlock()
-	return a.botOwner
-}
-
-// SetGame 缓存最新的游戏窗口检测结果。GameService.Detect 调。
-func (a *App) SetGame(g GameStatusEvent) { a.game.Store(&g) }
-
-// Game 返回最新缓存的游戏窗口状态（nil 表示从未检测过）。
-func (a *App) Game() *GameStatusEvent { return a.game.Load() }
-
-// LogSink 暴露给 bot service 构造 zerolog MultiWriter 时用。
+// LogSink 暴露给跨包构造 zerolog MultiWriter 时用。
 func (a *App) GetLogSink() *LogSink { return a.logSink }
 
 // RootLogger 暴露给 service 使用 app 级别 logger（默认仅写 LogSink）。
 func (a *App) RootLogger() zerolog.Logger { return a.rootLog }
 
-// RegisterBotServices 把长跑型 bot service 切片存进 App，方便 Shutdown 统一停。
-// main.go 通过 RegisteredBots() 构造完所有 service 后调一次。
-func (a *App) RegisterBotServices(svcs []BotService) {
-	a.botServices = svcs
-}
-
-// BattleHotkeyService Shutdown 时需要反注册热键的 hotkey-driven service。
-// 实现在 internal/bots（BattleService），用接口避免 services → bots 反向 import。
-type BattleHotkeyService interface {
-	ShutdownUnregister()
-}
-
-// RegisterBattleService 单独把 battle service 引用存进来（hotkey-driven 形态特殊）。
-func (a *App) RegisterBattleService(s BattleHotkeyService) {
-	a.battleService = s
-}
-
 // Shutdown 集中退出钩子。挂在 wails3 window close 钩子上。
-// 顺序敏感：先停长跑 bot（释放游戏窗口输入）→ 反注册 battle 热键 → flush 日志。
 func (a *App) Shutdown() {
-	for _, svc := range a.botServices {
-		svc.StopSync()
-	}
-	if a.battleService != nil {
-		a.battleService.ShutdownUnregister()
-	}
 	if a.logSink != nil {
 		a.logSink.Flush()
 	}
 }
-
-// ErrBotBusy 哨兵 error（service 层可断言）
-var ErrBotBusy = errors.New("bot busy")

@@ -1,6 +1,6 @@
 <template>
-  <UApp>
-    <!-- Standalone 子窗口（独立编辑器等）：跳过整个主壳，直接渲染 router-view -->
+  <UApp :toaster="{ position: 'top-center', duration: 2500 }">
+    <!-- Standalone 工具窗（HUD / ScreenPicker 等 meta.standalone 路由）：跳过整个主壳，直接渲染 router-view -->
     <div v-if="isStandalone" class="h-screen overflow-hidden bg-default">
       <router-view />
     </div>
@@ -18,39 +18,34 @@
              - scrollbar-gutter:stable 保证有无滚动条 main 宽度都一样，
                避免内容跳一下 -->
       <div class="flex flex-1 overflow-hidden">
-        <AppSidebar />
         <main class="flex-1 overflow-auto pr-3" style="scrollbar-gutter: stable">
-          <router-view />
+          <!-- keep-alive 仅 cache ContainerEditorView, 不同 :id 各自 instance (max 3 防内存爆).
+               用户切去 settings/help 等再回 → draft/canvas viewport/selection/dirty 保留. -->
+          <router-view v-slot="{ Component, route: r }">
+            <keep-alive include="ContainerEditorView" :max="3">
+              <component :is="Component" :key="r.params.id || r.path" />
+            </keep-alive>
+          </router-view>
         </main>
       </div>
 
-      <!-- Log panel: slide transition, only on bot routes -->
-      <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        leave-active-class="transition-all duration-200 ease-in"
-        enter-from-class="!h-0 opacity-0"
-        enter-to-class="opacity-100"
-        leave-from-class="opacity-100"
-        leave-to-class="!h-0 opacity-0"
-      >
-        <div
-          v-if="showLog"
-          class="shrink-0 overflow-hidden transition-[height] duration-200 ease-out"
-          :style="{ height: logStore.lines.length === 0 ? '100px' : '220px' }"
-        >
-          <LogPanel />
-        </div>
-      </Transition>
+      <!-- Log panel: 全局始终渲染, 折叠/展开由 LogPanel 内部读 settings.UI.Logger.PanelOpen 自管 -->
+      <LogPanel />
 
       <!-- Global status bar -->
       <AppStatusBar />
 
-      <!-- 全局浮窗：action 在跑时右下角显示，任何 tab 都可见 + 一键停 -->
-      <ActionRunningPill />
-    </div>
+      </div>
 
-    <!-- 全局 RecorderDialog：录制/倒计时任何路由都可见（包括 standalone 子窗） -->
-    <RecorderDialog v-if="actionsStore.recording || actionsStore.countdown !== null" />
+
+    <!-- 全局 ConfirmDialog：useConfirm() Promise API 触发 -->
+    <ConfirmDialog
+      v-if="confirmState.opts"
+      :open="confirmState.open"
+      v-bind="confirmState.opts"
+      @update:open="onConfirmDialogUpdateOpen"
+      @resolve="resolveActive"
+    />
   </UApp>
 </template>
 
@@ -58,29 +53,27 @@
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTitleBar from './components/AppTitleBar.vue'
-import AppSidebar from './components/AppSidebar.vue'
 import LogPanel from './components/LogPanel.vue'
 import AppStatusBar from './components/AppStatusBar.vue'
-import ActionRunningPill from './components/actions/ActionRunningPill.vue'
-import RecorderDialog from './components/actions/RecorderDialog.vue'
+import ConfirmDialog from './components/common/ConfirmDialog.vue'
+import { useConfirm } from './composables/useConfirm'
 import { useSettingsStore } from './stores/settings'
-import { useLogStore } from './stores/log'
-import { useActionsStore } from './stores/actions'
-import { isBotRoute } from './router'
 import { setLocale, type Locale } from './i18n'
 
 const route = useRoute()
 const settingsStore = useSettingsStore()
-const logStore = useLogStore()
-const actionsStore = useActionsStore()
 
-// route.meta.standalone === true → 子窗口模式（不包主壳）
+// 全局 ConfirmDialog 单例 state
+const { state: confirmState, resolveActive } = useConfirm()
+function onConfirmDialogUpdateOpen(v: boolean) {
+  if (!v && confirmState.opts) {
+    // 关闭 = 取消（boolean: false / input: ''）
+    resolveActive(confirmState.opts.inputDefault !== undefined ? '' : false)
+  }
+}
+
+// 独立工具窗模式（不包主壳）: MouseHUD / ScreenPicker / RecordingHUD 等 meta.standalone 路由
 const isStandalone = computed(() => !!route.meta.standalone)
-
-const showLog = computed(() => {
-  if (!isBotRoute(route.name)) return false
-  return settingsStore.data?.ui.logger.show ?? true
-})
 
 watch(
   () => settingsStore.data?.locale,

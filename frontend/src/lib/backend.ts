@@ -2,104 +2,168 @@
 // 不直接 import bindings 或 @wailsio/runtime。理由：wails3 alpha API 漂移时只改这一个文件。
 
 import { Events } from '@wailsio/runtime'
-import * as FishService from '@bindings/yhbox/internal/bots/fishservice.js'
-import * as CookService from '@bindings/yhbox/internal/bots/cookservice.js'
-import * as PianoService from '@bindings/yhbox/internal/bots/pianoservice.js'
-import * as BattleService from '@bindings/yhbox/internal/bots/battleservice.js'
-import * as RhythmService from '@bindings/yhbox/internal/bots/rhythmservice.js'
-import * as SettingsService from '@bindings/yhbox/internal/services/settingsservice.js'
-import * as GameService from '@bindings/yhbox/internal/services/gameservice.js'
-import * as ActionsService from '@bindings/yhbox/internal/services/actions/service.js'
-import * as HotkeyService from '@bindings/yhbox/internal/hotkey/hotkeyservice.js'
-import * as ContainerService from '@bindings/yhbox/internal/services/container/service.js'
-import * as ScheduleService from '@bindings/yhbox/internal/services/schedule/service.js'
-import * as TemplateService from '@bindings/yhbox/internal/services/template/service.js'
-import * as CalibrationService from '@bindings/yhbox/internal/services/calibration/service.js'
-import * as ToolsService from '@bindings/yhbox/internal/services/tools/service.js'
-import * as AppInfoService from '@bindings/yhbox/internal/services/appinfoservice.js'
+import * as SettingsService from '@bindings/yotta/internal/services/settingsservice.js'
+import * as HotkeyService from '@bindings/yotta/internal/hotkey/hotkeyservice.js'
+import * as ContainerService from '@bindings/yotta/internal/services/container/service.js'
+import * as ScheduleService from '@bindings/yotta/internal/services/schedule/service.js'
+import * as AssetService from '@bindings/yotta/internal/services/asset/service.js'
+import * as CalibrationService from '@bindings/yotta/internal/services/calibration/service.js'
+import * as ToolsService from '@bindings/yotta/internal/services/tools/service.js'
+import * as AppInfoService from '@bindings/yotta/internal/services/appinfoservice.js'
+import * as RecordingService from '@bindings/yotta/internal/services/recording/service.js'
+import * as ClipService from '@bindings/yotta/internal/services/inputclip/service.js'
+import * as SubgraphService from '@bindings/yotta/internal/services/container/subgraphservice.js'
+import * as CodeSnippetService from '@bindings/yotta/internal/services/codesnippet/service.js'
+import * as AIService from '@bindings/yotta/internal/services/aiservice.js'
 import { invoke } from './invoke'
 import * as E from '@/constants/events'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
 // 这里手写一份用于 store 引用更稳，避免 bindings 路径变化）
-export interface BotStateEvent {
-  state: 'idle' | 'running' | 'paused'
-}
-export interface FishStatsEvent {
-  commonCount: number
-  purpleCount: number
-  goldenCount: number
-  startedAt: string
-}
-export interface PianoProgressEvent {
-  curMs: number
-  totalMs: number
-}
-export interface BattleStateEvent {
-  enabled: boolean
-  mods: string
-}
-export interface GameStatusEvent {
-  ok: boolean
-  hwnd: number
-  title: string
-  w: number
-  h: number
-}
 export interface LogLinesEvent {
   seq: number
   lines: string[]
 }
-export interface ActionStateEvent {
-  seq: number
-  timestamp: string
-  actionId: string
-  runId: number
-  status: 'running' | 'step' | 'idle' | 'error'
-  error?: string
-  // status='step' 时填
-  stepIndex?: number
-  stepTotal?: number
-  stepId?: string
-  loopIter?: number
-}
-export interface RecorderStateEvent {
-  status: 'started' | 'stopped' | 'error'
-  tempActionId?: string
-  action?: any
-  error?: string
-}
-
 // HotkeyEntry 跟 Go services.HotkeyEntry 对齐。Normalized 字段后端故意不导出 — 前端不依赖
 // canonicalization 规则。冲突 / reserved / 验证错误通过 error message 前缀 [conflict] /
 // [reserved] / [invalid] 区分。
+//
+// label 是 i18n key string (FE 走 t(entry.label, entry.labelParams)). labelParams
+// 装 vue-i18n named interpolation (容器名 / 计划名等动态), backend Register 时填.
 export interface HotkeyEntry {
   key: string
-  source: 'system' | 'action'
+  source: 'system' | 'action' | 'container' | 'schedule' | 'editor' | 'recording'
   label: string
+  labelParams?: Record<string, string>
   hotkeyStr: string
   status: 'active' | 'unbound' | 'failed'
   lastError: string
   readonlyReason: string
+  mechanism?: 'os-global' | 'editor-inapp' | 'll-hook'
 }
 
-// ---- 新数据层类型（spec 2026-05-15 容器架构）----
+// ---- 容器架构数据层类型 ----
 
 export interface VarDecl {
   name: string
-  type: 'number' | 'bool' | 'string' | 'point'
+  type: 'number' | 'bool' | 'string' | 'point' | 'list' | 'any'
   default?: any
 }
 export interface GraphNode {
   id: string
   kind: string
+  label?: string       // 用户可编辑的显示名 (UE/Houdini 标准, optional, 不影响逻辑)
   x: number
   y: number
   config?: Record<string, any>
+  disabled?: boolean   // runtime 跳过该节点 — 走 kind-aware passthrough
+  logEnabled?: boolean // 勾选 → 执行时吐通用 dump 日志到面板/文件
+  createdAt?: string
 }
 export interface GraphEdge {
   from: string
   to: string
+  // edge kind 由 (fromNode.kind, fromPin) 经 nodeRegistry.edgeKindOf 派生, 不存字段.
+}
+
+// Graph v2: 加 id + version
+export interface Graph {
+  id: string
+  version: number
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+// SubgraphOutputDecl — 父图边引用稳定 ID, UI 显示 Name (允许 rename name 不破坏 edge).
+// B2: nodeID/x/y 是子图内 virtual 出口节点 metadata, 编辑器渲染为虚拟节点.
+export interface SubgraphOutputDecl {
+  id: string
+  name: string
+  nodeID?: string
+  x?: number
+  y?: number
+}
+
+// SubgraphMarker — B2 Subgraph 入口 virtual 节点位置 + ID. Edges 引用 NodeID.
+export interface SubgraphMarker {
+  nodeID: string
+  x?: number
+  y?: number
+}
+
+// ValidationError 后端 validator 结构化错误 (validator.go ValidationError 镜像).
+// B5: Message 字段已删, FE 全走 t(`error.<code>`, params).
+export interface ValidationError {
+  severity: 'error' | 'warning'
+  code: string
+  graphPath: string[]
+  nodeId?: string
+  params?: Record<string, unknown>
+}
+
+export interface DebugStartOptions {
+  startNodeId?: string
+  graphPath?: string[]
+}
+
+export interface DebugSessionState {
+  sessionId: string
+  containerId: string
+  status: string
+  mode: string
+  startNodeId?: string
+  currentNodeId?: string
+  currentNodeKind?: string
+  runningNodeId?: string
+  runningNodeKind?: string
+  lastNodeId?: string
+  lastNodeKind?: string
+  lastExit?: string
+  lastOutput?: Record<string, unknown>
+  vars?: Record<string, unknown>
+  queue?: Array<{
+    nodeId: string
+    nodeKind: string
+    inPin: string
+    graphPath?: string[]
+    loopDepth?: number
+    execDataKeys?: string[]
+  }>
+  error?: { message?: string; code?: string; params?: Record<string, unknown>; errors?: ValidationError[] } | null
+  warnings?: Array<{ code: string; message: string; nodeId?: string; params?: Record<string, unknown> }>
+}
+
+export interface RecordingContext {
+  mouseCounts360: number
+  resolution: [number, number]
+  recordedAt: string
+}
+
+// Subgraph — 全局子图池里的可执行函数 (2026-06-12 全局化: 容器只引用不复制)
+export interface Subgraph {
+  id: string
+  rev: number // 单调版本号 — 保存/删除乐观锁基准 (仅单实例并发控制)
+  label: string
+  description?: string
+  graph: Graph
+  entry: SubgraphMarker // B2: 子图入口 virtual marker
+  outputPins: SubgraphOutputDecl[]
+  tags?: string[]
+  category?: string
+  // 引用的容器级 var 名字 (保存时后端派生; Type/Default 由消费方按目标容器即时现算)
+  requiredGlobals?: string[]
+  recordingContext?: RecordingContext
+  isAnonymous?: boolean // CollapsedNode 后备体 — 不进库浏览/候选列表
+  createdAt: string
+}
+
+// SubgraphReferrer 子图引用位置 — 删除前警告 + 库页"被 N 个容器使用"(按 containerID 去重).
+// 引用方在池子图内时 containerID 为空 (子图可被多容器使用, 无单一归属).
+export interface SubgraphReferrer {
+  containerID: string
+  subgraphID?: string
+  nodeID: string
+  nodeKind: string
 }
 
 export interface Container {
@@ -107,12 +171,16 @@ export interface Container {
   id: string
   name: string
   description?: string
-  category?: string
   tags?: string[]
   hotkey?: string
-  runMode?: 'foreground' | 'background'
+  inputBackend?: string
+  captureBackend?: string
+  scaleTolerance?: number
   vars?: VarDecl[]
-  graph: { nodes: GraphNode[]; edges: GraphEdge[] }
+  graph: Graph
+  // 子图已全局化 — 容器无 subgraphs 字段, 全池走 backend.subgraphs.list()
+  status?: string
+  incompatibleReason?: string
   createdAt: string
   updatedAt: string
 }
@@ -138,89 +206,123 @@ export interface Schedule {
   updatedAt: string
 }
 
-export interface TemplateMeta {
+// AssetSummary 全局资产列表项 — 对应后端 asset.AssetSummary.
+// 键 = guid (稳定 UUID), 不再是 namespace.name key.
+export interface AssetSummary {
+  guid: string
+  kind: string         // "template" | "clip"
   name: string
   description?: string
-  recordedResolution: [number, number]
-  sha256: string
-  width: number
-  height: number
-  region: [number, number, number, number]
+  category?: string
+  tags?: string[]
+  variantCount: number
+  firstBlobSha?: string // 首变体 blob sha (FE 用 ReadBlobDataURL 拉缩略图)
+  createdAt?: string
+}
+
+// AssetRecord 全局资产完整记录 — 对应后端 asset.AssetRecord.
+export interface AssetRecord {
+  guid: string
+  kind: string
+  name: string
+  description?: string
+  category?: string
+  tags?: string[]
+  origin: { kind: string; sourceID?: string }
+  variants?: Array<{ resolution: number[]; bbox: number[]; blob: string }>
+  blob?: string
   createdAt: string
 }
 
+// Referrer 引用位置 — Delete 返回, FE 据此弹"被 N 处引用"确认.
+export interface AssetReferrer {
+  containerID: string
+  subgraphID?: string
+  nodeID: string
+  nodeKind: string
+}
+
+// AIConnection 跟 Go services.AIConnection 对齐（连接 = credential，model 由 AI 节点选）。
+export interface AIConnection {
+  id: string
+  label: string
+  protocol: 'openai' | 'anthropic'
+  baseURL: string
+  apiKey: string
+}
+
+// AITestResult 跟 Go services.TestResult 对齐。
+export interface AITestResult {
+  ok: boolean
+  models: string[]
+  error: string
+  kind: string
+}
+
 export const backend = {
-  fish: {
-    start: () => invoke(FishService.Start),
-    pause: () => invoke(FishService.Pause),
-    resume: () => invoke(FishService.Resume),
-    stop: () => invoke(FishService.Stop),
-    setAutoSell: (v: boolean) => invoke(FishService.SetAutoSell, v),
-    setCaptureGolden: (v: boolean) => invoke(FishService.SetCaptureGolden, v),
-    getStats: () => invoke(FishService.GetStats),
-  },
-  cook: {
-    start: () => invoke(CookService.Start),
-    pause: () => invoke(CookService.Pause),
-    resume: () => invoke(CookService.Resume),
-    stop: () => invoke(CookService.Stop),
-    setIntervalMs: (ms: number) => invoke(CookService.SetIntervalMs, ms),
-  },
-  piano: {
-    start: () => invoke(PianoService.Start),
-    pause: () => invoke(PianoService.Pause),
-    resume: () => invoke(PianoService.Resume),
-    stop: () => invoke(PianoService.Stop),
-    seek: (ms: number) => invoke(PianoService.SeekMs, ms),
-    setMode: (m: number) => invoke(PianoService.SetMode, m),
-    setTrackPick: (p: number) => invoke(PianoService.SetTrackPick, p),
-    setAutoTranspose: (v: boolean) => invoke(PianoService.SetAutoTranspose, v),
-    setMelodyOnly: (v: boolean) => invoke(PianoService.SetMelodyOnly, v),
-    setOctaveOffset: (v: number) => invoke(PianoService.SetOctaveOffset, v),
-    getLibrary: () => invoke(PianoService.GetLibrary),
-    loadBuiltin: (asset: string) => invoke(PianoService.LoadBuiltin, asset),
-    loadFile: (path: string) => invoke(PianoService.LoadFile, path),
-  },
-  battle: {
-    enable: () => invoke(BattleService.Enable),
-    disable: () => invoke(BattleService.Disable),
-    setMods: (label: string) => invoke(BattleService.SetMods, label),
-  },
-  rhythm: {
-    start: () => invoke(RhythmService.Start),
-    pause: () => invoke(RhythmService.Pause),
-    resume: () => invoke(RhythmService.Resume),
-    stop: () => invoke(RhythmService.Stop),
-    // setDebugFlags 暂不暴露 — 后端 RPC 仍存在，但前端没 UI 触发；要用直接走开发者控制台
-  },
   settings: {
     get: () => invoke(SettingsService.Get),
     update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),
   },
-  game: {
-    detect: () => invoke(GameService.Detect),
-  },
-  actions: {
-    list: () => invoke(ActionsService.List),
-    create: (name: string) => invoke(ActionsService.Create, name),
-    update: (id: string, patchJSON: string) => invoke(ActionsService.Update, id, patchJSON),
-    delete_: (id: string) => invoke(ActionsService.Delete, id),
-    runOnce: (id: string) => invoke(ActionsService.RunOnce, id),
-    stopRunning: () => invoke(ActionsService.StopRunning),
-    openEditorWindow: (id: string) => invoke(ActionsService.OpenEditorWindow, id),
-    startRecording: () => invoke(ActionsService.StartRecording),
-    stopRecording: () => invoke(ActionsService.StopRecording),
-    cancelRecording: () => invoke(ActionsService.CancelRecording),
-    isRecording: () => invoke(ActionsService.IsRecording),
+  ai: {
+    testConnection: (connection: AIConnection, testModel: string) =>
+      invoke(AIService.TestConnection, { connection, testModel }) as Promise<AITestResult | undefined>,
   },
   containers: {
     list: () => invoke(ContainerService.List),
     get: (id: string) => invoke(ContainerService.Get, id),
+    // 从磁盘重读单个容器 (MCP / 外部改盘后, 编辑器「重载」按钮用)。返回最新容器, 同时刷新后端 byID 缓存。
+    reload: (id: string) => invoke(ContainerService.Reload, id),
     create: (name: string) => invoke(ContainerService.Create, name),
     update: (id: string, patchJSON: string) => invoke(ContainerService.Update, id, patchJSON),
+    // 裸版本: 不走 invoke 自动 toast, 抛错给调用方自己 catch 定制错误提示
+    // (useEditorSave 合并进「主图保存失败」单条, 不叠两条 toast)。
+    updateSilent: (id: string, patchJSON: string) => ContainerService.Update(id, patchJSON),
     delete_: (id: string) => invoke(ContainerService.Delete, id),
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
+    debugStart: (id: string, options: DebugStartOptions = {}) =>
+      invoke(ContainerService.DebugStart, id, options as any) as Promise<DebugSessionState | undefined>,
+    debugStep: (sessionID: string) =>
+      invoke(ContainerService.DebugStep, sessionID) as Promise<DebugSessionState | undefined>,
+    debugContinue: (sessionID: string) =>
+      invoke(ContainerService.DebugContinue, sessionID) as Promise<DebugSessionState | undefined>,
+    debugPause: (sessionID: string) =>
+      invoke(ContainerService.DebugPause, sessionID) as Promise<DebugSessionState | undefined>,
+    debugStop: (sessionID: string) =>
+      invoke(ContainerService.DebugStop, sessionID) as Promise<DebugSessionState | undefined>,
+    debugState: (sessionID: string) =>
+      invoke(ContainerService.DebugState, sessionID) as Promise<DebugSessionState | undefined>,
+    syncLocalMouseCalibration: (newCounts: number) =>
+      invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
+    deleteMany: (ids: string[]) => invoke(ContainerService.DeleteMany, ids),
+    // 「清空容器热键」: 去掉所有容器的热键绑定 (容器/蓝图保留)。返回清掉数量。
+    clearAllHotkeys: () => invoke(ContainerService.ClearAllHotkeys) as Promise<number | undefined>,
+    validate: (id: string) =>
+      invoke(ContainerService.ValidateContainerByID, id) as Promise<ValidationError[]>,
+  },
+  // 全局子图池 (2026-06-12 全局化): 无 containerID; 保存/删除带基准 rev 乐观锁.
+  subgraphs: {
+    list: () => invoke(SubgraphService.List) as Promise<Subgraph[] | undefined>,
+    get: (id: string) => invoke(SubgraphService.Get, id) as Promise<Subgraph | undefined>,
+    create: (label: string) => invoke(SubgraphService.Create, label) as Promise<Subgraph | undefined>,
+    update: (id: string, patchJSON: string, baseRev: number) =>
+      invoke(SubgraphService.Update, id, patchJSON, baseRev),
+    // 裸版本: 不走 invoke 自动 toast, useEditorSave 子图循环汇总失败 + 乐观锁拒绝走重载对话框。
+    updateSilent: (id: string, patchJSON: string, baseRev: number) =>
+      SubgraphService.Update(id, patchJSON, baseRev),
+    delete_: (id: string, baseRev: number) => invoke(SubgraphService.Delete, id, baseRev),
+    // 复制为新子图 (fork, ≈Blender Make Local): 新 ID / rev=1 / 一律具名.
+    duplicate: (id: string) => invoke(SubgraphService.Duplicate, id) as Promise<Subgraph | undefined>,
+    // 删除前警告 + 库页引用计数 ("被 N 个容器使用" = referrers 按 containerID 去重).
+    referrers: (id: string) =>
+      invoke(SubgraphService.Referrers, id) as Promise<SubgraphReferrer[] | undefined>,
+  },
+  // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
+  codeSnippets: {
+    list: () => invoke(CodeSnippetService.List),
+    saveAll: (list: { id: string; lang: string; prefix: string; name: string; description?: string; body: string }[]) =>
+      invoke(CodeSnippetService.SaveAll, list as any),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),
@@ -232,22 +334,64 @@ export const backend = {
     update: (id: string, patchJSON: string) => invoke(ScheduleService.Update, id, patchJSON),
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
-  templates: {
-    list: () => invoke(TemplateService.List),
-    get: (key: string) => invoke(TemplateService.Get, key),
-    save: (
-      key: string,
+  assets: {
+    // List 全局资产列表 (template + clip), 无 containerID.
+    list: () => invoke(AssetService.List),
+    // SaveTemplateCapture 截图存为新模板资产, 返 GUID. tags 截图时可选设标签.
+    saveTemplateCapture: (
       dataURL: string,
       name: string,
-      description: string,
-      recordedResolution: [number, number],
+      tags: string[],
+      recRes: [number, number],
       region: [number, number, number, number],
-    ) => invoke(TemplateService.Save, key, dataURL, name, description, recordedResolution, region),
-    delete_: (key: string) => invoke(TemplateService.Delete, key),
-    capture: () => invoke(TemplateService.CaptureScreenshot),
-    readPngDataURL: (key: string) => invoke(TemplateService.ReadPngDataURL, key),
-    updateMeta: (key: string, name: string, description: string) =>
-      invoke(TemplateService.UpdateMeta, key, name, description),
+    ) => invoke(AssetService.SaveTemplateCapture, dataURL, name, tags, recRes, region),
+    // AddTemplateVariant 给已有资产加/换分辨率变体.
+    addTemplateVariant: (
+      guid: string,
+      dataURL: string,
+      recRes: [number, number],
+      region: [number, number, number, number],
+    ) => invoke(AssetService.AddTemplateVariant, guid, dataURL, recRes, region),
+    // Get 单条资产完整记录 (含 variants[] — 详情页看分辨率档/元信息).
+    get: (guid: string) => invoke(AssetService.Get, guid) as Promise<AssetRecord | undefined>,
+    delete_: (guid: string) => invoke(AssetService.Delete, guid),
+    // Referrers 只扫不删 — 删除前拿引用列表, FE 据此弹"被 N 处引用"确认.
+    referrers: (guid: string) =>
+      invoke(AssetService.Referrers, guid) as Promise<AssetReferrer[] | undefined>,
+    // UpdateMeta 改显示名 + 标签 (记录级元数据).
+    updateMeta: (guid: string, name: string, description: string, category: string, tags: string[]) =>
+      invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
+    // Capture 截当前容器的 Windows 窗口帧 (保留 containerID — 现阶段资产截帧仍需 Win32 窗口上下文).
+    capture: (containerID: string, nodeID = '') => invoke(AssetService.Capture, containerID, nodeID),
+    // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
+    readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
+    gcBlobs: () => invoke(AssetService.GCBlobs),
+    // CurrentResolution 当前容器 Windows 窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
+    // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.
+    currentResolution: async (containerID: string): Promise<[number, number] | undefined> => {
+      try {
+        const r = await AssetService.CurrentResolution(containerID)
+        return Array.isArray(r) && r.length === 2 ? [r[0], r[1]] : undefined
+      } catch {
+        return undefined
+      }
+    },
+    // PickVariant 给定分辨率, 返运行时真会用的那档在 variants[] 里的下标 + 是否精确命中. 自动调用, 失败静默.
+    pickVariant: async (
+      guid: string,
+      w: number,
+      h: number,
+    ): Promise<{ index: number; exact: boolean } | undefined> => {
+      try {
+        const r = await AssetService.PickVariant(guid, w, h)
+        return { index: r.index, exact: r.exact }
+      } catch {
+        return undefined
+      }
+    },
+    // RemoveVariant 删指定分辨率的单个变体档. 返目标 GUID (成功) / undefined (失败已 toast).
+    removeVariant: (guid: string, w: number, h: number) =>
+      invoke(AssetService.RemoveVariant, guid, w, h),
   },
   hotkeys: {
     list: () => invoke(HotkeyService.List),
@@ -256,47 +400,91 @@ export const backend = {
     // 否则 Win32 RegisterHotKey 在 OS 层拦截已注册组合，webview 收不到 keystroke。
     pause: () => invoke(HotkeyService.Pause),
     resume: () => invoke(HotkeyService.Resume),
+    // useEditorHotkeys onActivated 时调 — 注册 webview in-app key 进 registry
+    // (只挂可见性 + 冲突检查, 不占 OS RegisterHotKey).
+    registerEditor: (key: string, label: string, hotkeyStr: string, readonlyReason: string) =>
+      invoke(HotkeyService.RegisterEditor, key, label, hotkeyStr, readonlyReason),
+    // useEditorHotkeys onDeactivated 时调 — 从 registry 摘 editor key.
+    unregister: (key: string) => invoke(HotkeyService.Unregister, key),
+    // 「重置默认」: 把内置热键 (强停/校准/录制停止/录制暂停) 恢复出厂默认。容器热键不动。
+    resetSystemDefaults: () => invoke(HotkeyService.ResetSystemDefaults),
   },
   calibration: {
     start: () => invoke(CalibrationService.Start),
     stop: () => invoke(CalibrationService.Stop),
     status: () => invoke(CalibrationService.Status),
+    startHotkeyWatch: () => invoke(CalibrationService.StartHotkeyWatch),
+    stopHotkeyWatch: () => invoke(CalibrationService.StopHotkeyWatch),
   },
   appInfo: {
     info: () => invoke(AppInfoService.Info),
   },
+  recording: {
+    // Start 收 {filterMode, containerID}. containerID 必传 — 录完 Subgraph 落到该容器
+    // subgraphs/. 返临时 recording ID (前端订阅事件流过滤用).
+    start: (args: { filterMode: 'precise' | 'simple'; containerID: string }) =>
+      invoke(RecordingService.Start, args as any),
+    // Stop 返 {subgraphID, containerID, label, filterMode} — 录完产物 = 一个 Subgraph,
+    // 前端拿 subgraphID 在 activeGraph 加 Subgraph 引用节点.
+    stop: () => invoke(RecordingService.Stop),
+    stopAsync: () => invoke(RecordingService.StopAsync),
+    // Pause/Resume 切除间隔: 暂停期不录, 时间戳扣除该段 → 回放无空档. HUD 按钮 / 暂停热键触发.
+    pause: () => invoke(RecordingService.Pause),
+    resume: () => invoke(RecordingService.Resume),
+    // ValidateTarget 录制前预检: 找不到 Win32WindowTarget 窗口返 error (倒计时前调, 不用等录完才报错);
+    // 成功则把游戏窗口拉到前台. 失败抛出供前端 toast + 中止倒计时.
+    validateTarget: (containerID: string) => invoke(RecordingService.ValidateTarget, containerID),
+    // GetState 返回后端权威录制状态 {phase, containerID, filterMode, tempID, startedAtMs}.
+    // 前端 recordStore reconcile 对账用 — 取代旧的 isRecording (bool 不够, desync 无法自愈).
+    getState: () => invoke(RecordingService.GetState),
+  },
+  // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
+  // 暴露 list/get/save/update/delete + Resolve (runtime 用, 前端基本不直接调).
+  clipsContainer: {
+    list: () => invoke(ClipService.List),
+    get: (id: string) => invoke(ClipService.Get, id),
+    save: (clip: unknown) => invoke(ClipService.Save, clip as any),
+    update: (id: string, label: string, description: string, category: string, tags: string[]) =>
+      invoke(ClipService.Update, id, label, description, category, tags),
+    delete_: (id: string) => invoke(ClipService.Delete, id),
+    resolve: (id: string) => invoke(ClipService.Resolve, id),
+  },
   tools: {
-    mousePos: () => invoke(ToolsService.MousePos),
-    pixelAt: () => invoke(ToolsService.PixelAt),
-    openMouseHUD: () => invoke(ToolsService.OpenMouseHUD),
-    openScreenPicker: (mode: 'point' | 'rect' | 'template_save', id: string) =>
-      invoke(ToolsService.OpenScreenPicker, mode, id),
+    mousePos: (containerID: string, nodeID = '') => invoke(ToolsService.MousePos, containerID, nodeID),
+    pixelAt: (containerID: string, nodeID = '') => invoke(ToolsService.PixelAt, containerID, nodeID),
+    openMouseHUD: (containerID: string) => invoke(ToolsService.OpenMouseHUD, containerID),
+    openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
+    closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
+    openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
+    closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
+    openScreenPicker: (
+      mode: 'point' | 'rect' | 'template_save' | 'template_recapture' | 'color',
+      id: string,
+      containerID = '',
+      nodeID = '',
+      colorSpace = '',
+      guid = '',
+    ) => invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID, colorSpace, guid),
+    extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
+      invoke(ToolsService.ExtractColorRange, samples, colorSpace),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
+    // Win32WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
+    // 走 'win32windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
+    // — 用户在游戏前台时根本点不到 Yotta 按钮.
+    // 捕获键来源 = 后端读热键中心 tools.window-capture 绑定 (可在「快捷键」页 rebind)，不再 FE 传死。
+    startWin32WindowTargetCapture: () => invoke(ToolsService.StartWin32WindowTargetCapture),
+    cancelWin32WindowTargetCapture: (id: string) =>
+      invoke(ToolsService.CancelWin32WindowTargetCapture, id),
+    openLauncher: () => invoke(ToolsService.OpenLauncher),
+    toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
+    hideLauncher: () => invoke(ToolsService.HideLauncher),
+    setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),
+    setLauncherSize: (width: number, height: number) => invoke(ToolsService.SetLauncherSize, width, height),
   },
   events: {
-    // 长跑 bot 的 state 事件：通用订阅（替代之前 4 个 onFishState/onCookState/...）
-    onBotState: (kind: string, cb: (e: BotStateEvent) => void) =>
-      Events.On(`${kind}:state`, (e: any) => cb(e.data)),
-    // Bot-specific 事件（形态各异，单独保留）
-    onFishStats: (cb: (e: FishStatsEvent) => void) =>
-      Events.On(E.EVENT_FISH_STATS, (e: any) => cb(e.data)),
-    onPianoProgress: (cb: (e: PianoProgressEvent) => void) =>
-      Events.On(E.EVENT_PIANO_PROGRESS, (e: any) => cb(e.data)),
-    onBattleState: (cb: (e: BattleStateEvent) => void) =>
-      Events.On(E.EVENT_BATTLE_STATE, (e: any) => cb(e.data)),
     // 共享事件
-    onGameStatus: (cb: (e: GameStatusEvent) => void) =>
-      Events.On(E.EVENT_GAME_STATUS, (e: any) => cb(e.data)),
     onLogLines: (cb: (e: LogLinesEvent) => void) =>
       Events.On(E.EVENT_LOG_LINES, (e: any) => cb(e.data)),
-    // actions 事件：state（run 状态推送）/ recorder-state（录制状态推送）/ recorder-event（录制期单次 raw 事件，给 dialog 计数）/ recorder-toggle（Ctrl+Shift+R 全局热键触发，前端走跟 UI 按钮同一路径）/ changed（任何 mutation 后广播，触发各窗口 reload list）
-    onActionState: (cb: (e: ActionStateEvent) => void) =>
-      Events.On('action:state', (e: any) => cb(e.data)),
-    onRecorderState: (cb: (e: RecorderStateEvent) => void) =>
-      Events.On('action:recorder-state', (e: any) => cb(e.data)),
-    onRecorderEvent: (cb: () => void) => Events.On('action:recorder-event', () => cb()),
-    onRecorderToggle: (cb: () => void) => Events.On('action:recorder-toggle', () => cb()),
-    onActionChanged: (cb: () => void) => Events.On('action:changed', () => cb()),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),
   },
 }

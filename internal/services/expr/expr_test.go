@@ -38,6 +38,40 @@ func TestLiterals(t *testing.T) {
 	}
 }
 
+// $名字 变量引用 (2026-06-11 恢复): MapEnv 的 $-键通道现成。
+func TestVarRef(t *testing.T) {
+	env := MapEnv{"$hp": 37.0, "$max": 50.0, "$名字": "鱼"}
+	if got := eval(t, "$hp / $max * 100", env); got != 74.0 {
+		t.Errorf("$hp/$max*100 → %v want 74", got)
+	}
+	if got := eval(t, `$名字 + "!"`, env); got != "鱼!" {
+		t.Errorf("unicode var → %v", got)
+	}
+	// 未知变量 → env miss → null (编辑期 validator 报 EXPR_UNKNOWN_VAR)
+	if got := eval(t, "$ghost", env); got != nil {
+		t.Errorf("$ghost → %v want nil", got)
+	}
+	// bare 与 $ 命名空间不撞: 同名 input 与变量互不干扰
+	env2 := struct{ MapEnv }{MapEnv{"hp": 1.0, "$hp": 2.0}}
+	if got := eval(t, "hp + $hp", env2); got != 3.0 {
+		t.Errorf("namespace split → %v want 3", got)
+	}
+	// v3 点路径不回归: $vars.hp 在 '.' 处报错
+	if _, err := Parse("$vars.hp"); err == nil {
+		t.Error("$vars.hp should be a parse error")
+	}
+	// $ 后非标识符 → 报错
+	if _, err := Parse("$ + 1"); err == nil {
+		t.Error("bare $ should be a lex error")
+	}
+	// VarRefs 收集
+	n, _ := Parse("$a + b + $c")
+	refs := VarRefs(n)
+	if len(refs) != 2 || refs[0] != "a" || refs[1] != "c" {
+		t.Errorf("VarRefs → %v", refs)
+	}
+}
+
 func TestArith(t *testing.T) {
 	env := MapEnv{}
 	cases := map[string]float64{
@@ -120,23 +154,8 @@ func TestTernary(t *testing.T) {
 	}
 }
 
-func TestVars(t *testing.T) {
-	env := MapEnv{
-		"$vars.foo":              42.0,
-		"$params.pos":            Point{X: 100, Y: 200},
-		"$sys.lastTemplate.point.x": 50.0,
-	}
-	if got := eval(t, "$vars.foo + 1", env); got != 43.0 {
-		t.Errorf("vars add: %v", got)
-	}
-	if got := eval(t, "$sys.lastTemplate.point.x * 2", env); got != 100.0 {
-		t.Errorf("sys path: %v", got)
-	}
-	v := eval(t, "$params.pos", env)
-	if p, ok := v.(Point); !ok || p.X != 100 || p.Y != 200 {
-		t.Errorf("point passthrough: %v", v)
-	}
-}
+// v4: TestVars (v3 $vars/$sys/$params resolution) removed — no $-namespace in v4.
+// Bare-identifier + InputEnv coverage lives in input_env_test.go.
 
 func TestFunctions(t *testing.T) {
 	env := MapEnv{}
@@ -181,5 +200,69 @@ func TestErrorPositionInfo(t *testing.T) {
 	_, err := Parse("1 + ")
 	if err == nil || !strings.Contains(err.Error(), "col") {
 		t.Errorf("expected col in error, got %v", err)
+	}
+}
+
+// evalErr parses and evaluates src, returning the error (nil if none).
+// Used for arg-count / type error assertions.
+func evalErr(t *testing.T, src string, env Env) (Value, error) {
+	t.Helper()
+	n, perr := Parse(src)
+	if perr != nil {
+		return nil, perr
+	}
+	return Eval(n, env)
+}
+
+func TestEvalCall_MathFunctions(t *testing.T) {
+	env := MapEnv{}
+
+	// floor / ceil / sqrt — 1 arg
+	if got, _ := AsNumber(eval(t, "floor(3.7)", env)); got != 3 {
+		t.Errorf("floor(3.7) = %v, want 3", got)
+	}
+	if got, _ := AsNumber(eval(t, "ceil(3.2)", env)); got != 4 {
+		t.Errorf("ceil(3.2) = %v, want 4", got)
+	}
+	if got, _ := AsNumber(eval(t, "sqrt(9)", env)); got != 3 {
+		t.Errorf("sqrt(9) = %v, want 3", got)
+	}
+
+	// round — 1 or 2 args (aligned with Round node)
+	if got, _ := AsNumber(eval(t, "round(2.5)", env)); got != 3 {
+		t.Errorf("round(2.5) = %v, want 3", got)
+	}
+	if got, _ := AsNumber(eval(t, "round(3.14159, 2)", env)); math.Abs(got-3.14) > 1e-9 {
+		t.Errorf("round(3.14159, 2) = %v, want 3.14", got)
+	}
+	if got, _ := AsNumber(eval(t, "round(12345, -2)", env)); got != 12300 {
+		t.Errorf("round(12345, -2) = %v, want 12300", got)
+	}
+
+	// pow — 2 args
+	if got, _ := AsNumber(eval(t, "pow(10, 2)", env)); math.Abs(got-100) > 1e-9 {
+		t.Errorf("pow(10,2) = %v, want 100", got)
+	}
+
+	// clamp — 3 args, lo>hi swap
+	if got, _ := AsNumber(eval(t, "clamp(15, 0, 10)", env)); got != 10 {
+		t.Errorf("clamp(15,0,10) = %v, want 10", got)
+	}
+	if got, _ := AsNumber(eval(t, "clamp(5, 10, 0)", env)); got != 5 {
+		t.Errorf("clamp(5,10,0) = %v, want 5 (swap)", got)
+	}
+
+	// special value: sqrt negative → NaN
+	if got, _ := AsNumber(eval(t, "sqrt(-1)", env)); !math.IsNaN(got) {
+		t.Errorf("sqrt(-1) = %v, want NaN", got)
+	}
+}
+
+func TestEvalCall_MathFunctions_ArgErrors(t *testing.T) {
+	env := MapEnv{}
+	for _, expr := range []string{"floor()", "ceil(1, 2)", "sqrt()", "round()", "round(1, 2, 3)", "pow(1)", "clamp(1, 2)"} {
+		if _, err := evalErr(t, expr, env); err == nil {
+			t.Errorf("%s: want arg-count error, got nil", expr)
+		}
 	}
 }

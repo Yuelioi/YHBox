@@ -9,6 +9,12 @@ export interface LogLine {
   bot?: string
   tag?: string
   message: string
+  source: 'SYS' | 'CTR'
+  // node dump 专用 (按节点 upsert + ×N)
+  nodeId?: string
+  lineKey?: string
+  count?: number
+  frozen?: boolean
 }
 
 export function parseLine(raw: string): LogLine {
@@ -20,9 +26,10 @@ export function parseLine(raw: string): LogLine {
       bot: o.bot,
       tag: o.tag,
       message: o.message ?? raw,
+      source: 'SYS',
     }
   } catch {
-    return { time: '', level: 'error', message: raw }
+    return { time: '', level: 'error', message: raw, source: 'SYS' }
   }
 }
 
@@ -63,9 +70,9 @@ const LEVEL_COLORS: Record<string, string> = {
   trace: 'text-dimmed',
   debug: 'text-muted',
   info: 'text-highlighted',
-  warn: 'text-amber-300',
-  error: 'text-rose-300',
-  fatal: 'text-rose-200 font-semibold',
+  warn: 'text-warning',
+  error: 'text-error',
+  fatal: 'text-error font-semibold',
 }
 
 export function levelClass(level: string): string {

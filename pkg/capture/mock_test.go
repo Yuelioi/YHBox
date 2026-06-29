@@ -48,7 +48,7 @@ func TestMockLoadsAndCycles(t *testing.T) {
 	writeTestPNG(t, dir, "01.png", 100, 50, color.RGBA{255, 0, 0, 255}) // 红
 	writeTestPNG(t, dir, "02.png", 100, 50, color.RGBA{0, 255, 0, 255}) // 绿
 
-	t.Setenv("YHBOX_MOCK_DIR", dir)
+	t.Setenv("YOTTA_MOCK_DIR", dir)
 	resetMockState()
 
 	if err := initMock(); err != nil {
@@ -82,41 +82,10 @@ func TestMockLoadsAndCycles(t *testing.T) {
 
 func TestMockEmptyDirFails(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("YHBOX_MOCK_DIR", dir)
+	t.Setenv("YOTTA_MOCK_DIR", dir)
 	resetMockState()
 	if err := initMock(); err == nil {
 		t.Fatal("空目录应该返错")
 	}
 }
 
-func TestMockCapturer(t *testing.T) {
-	dir := t.TempDir()
-	writeTestPNG(t, dir, "01.png", 100, 50, color.RGBA{255, 0, 0, 255})
-	t.Setenv("YHBOX_MOCK_DIR", dir)
-	resetMockState()
-
-	rois := []image.Rectangle{
-		image.Rect(10, 10, 30, 30), // 20×20
-	}
-	c, err := newMockCapturer(0, rois)
-	if err != nil {
-		t.Fatalf("newMockCapturer: %v", err)
-	}
-	defer c.Close()
-	imgs, err := c.Frame()
-	if err != nil {
-		t.Fatalf("Frame: %v", err)
-	}
-	if len(imgs) != 1 {
-		t.Fatalf("expect 1 ROI image, got %d", len(imgs))
-	}
-	if imgs[0].Bounds().Dx() != 20 || imgs[0].Bounds().Dy() != 20 {
-		t.Errorf("ROI size wrong: %v", imgs[0].Bounds())
-	}
-	// ROI 内全红 — imgs[0].Rect 是 ROI 全局坐标 (10,10,30,30)，At(0,0) 不在范围
-	// 内会返 zero（capture.Capturer 的现有约定，caller 用 .Pix 直接访问）。
-	pix := imgs[0].Pix
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("ROI[0,0] 应红 (R=255 G=0 B=0), got R=%d G=%d B=%d", pix[0], pix[1], pix[2])
-	}
-}

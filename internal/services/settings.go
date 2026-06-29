@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"yhbox/pkg/locale"
+	"yotta/pkg/locale"
 )
 
 // settingsFileName / settingsFilePath 跟 walk 时代保持兼容：exe 同目录的 settings.json。
@@ -24,12 +25,46 @@ var settingsFilePath = func() string {
 
 // Settings 是持久化层 schema。
 type Settings struct {
-	Fish    FishSettings    `json:"fish"`
-	Cook    CookSettings    `json:"cook"`
-	Piano   PianoSettings   `json:"piano"`
 	UI      UISettings      `json:"ui"`
 	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture CaptureSettings `json:"capture"` // 截屏后端选择
+	AI      AISettings      `json:"ai"`      // AI 连接配置
+	MCP     MCPSettings     `json:"mcp"`     // MCP 对外暴露开关
+}
+
+// MCPSettings 控制对外 MCP server 的「武装」状态。Armed=false (默认) 时
+// 会改变世界的工具 (run_node/save_container) 拒绝执行, 只读工具不受闸。
+type MCPSettings struct {
+	Armed bool `json:"armed"`
+}
+
+// AISettings AI 连接配置。Default 指向某 connection.ID = 新建 AI 节点缺省连接;
+// model 不在连接层, 由 AI 节点 per-调用选。
+type AISettings struct {
+	Connections []AIConnection `json:"connections"`
+	Default     string         `json:"default"`
+}
+
+// AIConnection 一个命名 AI 连接(credential)。可被多个 AI 节点按 ID 复用; Label 仅展示、全连接唯一。
+type AIConnection struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Protocol string `json:"protocol"` // "openai" | "anthropic"
+	BaseURL  string `json:"baseURL"`  // 空 = 该协议官方默认
+	APIKey   string `json:"apiKey"`   // 明文; 本地常空
+}
+
+// DefaultConnection 返回 Default 指向的连接; 空或失配 → nil(显式, 不自动选单档)。
+func (s *Settings) DefaultConnection() *AIConnection {
+	if s.AI.Default == "" {
+		return nil
+	}
+	for i := range s.AI.Connections {
+		if s.AI.Connections[i].ID == s.AI.Default {
+			return &s.AI.Connections[i]
+		}
+	}
+	return nil
 }
 
 // CaptureSettings 选哪个截屏后端。Method 改这个要重启 exe 才生效；DumpDebug 即时生效。
@@ -39,43 +74,85 @@ type Settings struct {
 //   - "wgc": Windows Graphics Capture（Win10 1903+），后台抓帧稳定，
 //     依赖 bin/capture_wgc.dll；Win10 上有黄框关不掉
 //   - "mock": 从磁盘 PNG 序列回放（调试用），需把帧放进 bin/mock-frames/
-//     或设置环境变量 YHBOX_MOCK_DIR 指向目录
+//     或设置环境变量 YOTTA_MOCK_DIR 指向目录
 type CaptureSettings struct {
 	Method    string `json:"method"`    // "auto" | "gdi" | "wgc" | "mock"
 	DumpDebug bool   `json:"dumpDebug"` // bot detect 关键路径 dump 带框 PNG 到 bin/captures/，调试用
 }
 
-type FishSettings struct {
-	AutoSell      bool `json:"autoSell"`
-	CaptureGolden bool `json:"captureGolden"` // 钓上金色鱼时把结算画面截图保存到 captures/
-}
-
-type CookSettings struct {
-	IntervalMs int `json:"intervalMs"`
-}
-
-type PianoSettings struct {
-	Mode          int    `json:"mode"`          // 0=36键 1=21键
-	TrackPick     int    `json:"trackPick"`     // -1=智能 -2=全部 >=0=具体 track index
-	AutoTranspose bool   `json:"autoTranspose"` // 自动整曲八度对齐
-	OctaveOffset  int    `json:"octaveOffset"`  // -2..+2，叠加在自动偏移上
-	MelodyOnly    bool   `json:"melodyOnly"`    // 同时音只留最高
-	LastMidiPath  string `json:"lastMidiPath"`
-}
-
 type UISettings struct {
 	Logger         LoggerSettings `json:"logger"`
-	Battle         BattleSettings `json:"battle"`
 	Window         WindowSettings `json:"window"`
 	Autostart      bool           `json:"autostart"`      // 开机自启（HKCU Run 注册表）
 	MinimizeToTray bool           `json:"minimizeToTray"` // 关闭按钮 → 隐藏到托盘
 	// ActionStopHotkey 全局打断动作热键（默认 "Ctrl+Shift+F9"）。
 	// 改动需重启生效（main.go 启动期注册一次，不监听 settings 变化）。
 	ActionStopHotkey string `json:"actionStopHotkey"`
-	// MouseCounts360 鼠标转身 360° 累积的 HID counts（用户在游戏里实测得到）。
-	// 跨电脑共享脚本时用：录制时存源机基准，回放时 dx *= localCounts / sourceCounts。
-	// 0 = 未校准（回放不做缩放）。
-	MouseCounts360 int `json:"mouseCounts360"`
+	// CalibrateHotkey DPI 校准启动/停止 toggle 热键（默认 "F8"）。
+	// 「快捷键」页 rebind 经 onSystemHotkeyChange 写回, 启动期 main.go 读这字段注册。
+	CalibrateHotkey string `json:"calibrateHotkey"`
+	// WindowCaptureHotkey 窗口捕获键（默认 "F9"）—— NodeInspector「捕获目标窗口」按下它抓前台游戏窗口。
+	// registry 值持有者条目 (tools.window-capture)，「快捷键」页可 rebind；捕获时临时 OS 注册它。
+	WindowCaptureHotkey string `json:"windowCaptureHotkey"`
+	// RecordingStopHotkey 录制停止热键 (LL hook 拦截, 不透传游戏). 默认 "F12".
+	// 改动需重启生效 (Service 注入 adapter 启动期读一次).
+	RecordingStopHotkey string `json:"recordingStopHotkey"`
+	// RecordingPauseHotkey 录制暂停/继续切换热键 (LL hook 拦截, 不透传游戏也不进 clip). 默认 "F11".
+	// 录制中按 → 暂停; 暂停中按 → 走 3s 倒计时后继续. 走热键避免点 HUD 按钮的点击被录进 clip.
+	RecordingPauseHotkey string `json:"recordingPauseHotkey"`
+	// RecordingMouseMode 录制时鼠标语义. "relative" (FPS 相机 RawDelta, 默认) / "absolute" (UI 点击 MouseMove screen px).
+	// 决定 recorder drainLoop 是否窗口过滤. 改动需重启生效.
+	RecordingMouseMode string `json:"recordingMouseMode"`
+	// MouseProfiles 命名鼠标校准 profile 列表。同一台机器玩不同游戏 (异环 vs 原神) 内灵敏度不同 →
+	// 360° counts 不同, 装不进单个全局值。每个 profile 存一个 {Label, Counts360}。
+	// 跨电脑共享脚本时, counts360 是 (本机 × 游戏内灵敏度) 的函数, 本就 per-machine, 不跨机同步。
+	MouseProfiles []MouseProfile `json:"mouseProfiles"`
+	// ActiveMouseProfile 指向 MouseProfiles 里某个 Label, 标记"当前默认"。
+	// 录制兜底 getter (无 MouseCalibration 节点时) + 新建节点默认值 + "同步所有容器" 用它。
+	// 空 / 指向不存在的 label → ActiveMouseCounts360() 兜底 (见该方法)。
+	ActiveMouseProfile string `json:"activeMouseProfile"`
+	// LauncherItems 悬浮窗启动器的块序列（用户在设置里编排，有序，积木式）。空 = 空启动器。
+	LauncherItems []LauncherBlock `json:"launcherItems"`
+	// LauncherDisplay 按钮显示：""/"both"=图标+文字 | "icon"=仅图标 | "text"=仅文字。
+	LauncherDisplay string `json:"launcherDisplay"`
+	// LauncherToggleHotkey 呼出/隐藏悬浮窗的全局热键（空 = 未绑）。
+	LauncherToggleHotkey string `json:"launcherToggleHotkey"`
+}
+
+// MouseProfile 一个命名校准档。Counts360 = 原地转身 360° 鼠标硬件累积的 |dx| (用户在游戏里实测)。
+type MouseProfile struct {
+	Label     string `json:"label"`
+	Counts360 int    `json:"counts360"`
+}
+
+// LauncherBlock 悬浮窗启动器的一个块（积木式编排）。Type 决定形态：
+//   - "container": 一个容器按钮（ContainerID + 可选 Icon/Label）
+//   - "label":     文字标题（Label = 标题文字），占整行
+//   - "hsep":      水平分隔符（占整行的横线，把后面的块挤到下一排）
+//   - "vsep":      垂直分隔符（同排按钮之间的竖线）
+// 只存编排数据；容器名/状态/热键运行时拉。
+type LauncherBlock struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	ContainerID string `json:"containerId,omitempty"` // type=container
+	Icon        string `json:"icon,omitempty"`        // type=container 自定义图标（完整 tabler 名）
+	Label       string `json:"label,omitempty"`       // container 自定义名 / label 标题文字
+}
+
+// ActiveMouseCounts360 返回当前生效 profile 的 counts360。
+//   - ActiveMouseProfile 命中某个 profile.Label → 返该值
+//   - 没命中但恰好只有一个 profile → 返那个 (单 profile 场景免设 active 的便利, 非兼容垫片)
+//   - 否则 (空列表 / 多 profile 没选 active 没命中) → 0 (= 未校准, 回放不缩放)
+func (s *Settings) ActiveMouseCounts360() int {
+	for _, p := range s.UI.MouseProfiles {
+		if p.Label == s.UI.ActiveMouseProfile {
+			return p.Counts360
+		}
+	}
+	if len(s.UI.MouseProfiles) == 1 {
+		return s.UI.MouseProfiles[0].Counts360
+	}
+	return 0
 }
 
 // WindowSettings 记录用户调到的窗口尺寸。main.go 启动时读取，
@@ -87,30 +164,31 @@ type WindowSettings struct {
 }
 
 type LoggerSettings struct {
-	Show       bool `json:"show"`
-	AutoScroll bool `json:"autoScroll"`
-	ShowTime   bool `json:"showTime"`
-	ShowTag    bool `json:"showTag"`
-	WrapText   bool `json:"wrapText"`
-	WriteFile  bool `json:"writeFile"`
-}
-
-type BattleSettings struct {
-	HotkeyEnabled bool   `json:"hotkeyEnabled"`
-	HotkeyMods    string `json:"hotkeyMods"`
+	PanelOpen     bool   `json:"panelOpen"`  // 面板折叠态 (false=折叠)
+	AutoScroll    bool   `json:"autoScroll"`
+	ShowTime      bool   `json:"showTime"`
+	ShowTag       bool   `json:"showTag"`
+	WrapText      bool   `json:"wrapText"`
+	WriteFile     bool   `json:"writeFile"`
+	ShowNodeEnter bool   `json:"showNodeEnter"` // 面板显示节点切换 trace (默认 false 隐藏)
+	FileDir       string `json:"fileDir"`       // 写文件目录, 空 = 默认 "logs"
 }
 
 // defaultSettings 返回内置默认值。
 func defaultSettings() *Settings {
 	return &Settings{
-		Fish:  FishSettings{AutoSell: true, CaptureGolden: false},
-		Cook:  CookSettings{IntervalMs: 1500},
-		Piano: PianoSettings{Mode: 0, TrackPick: -1, AutoTranspose: true, OctaveOffset: 0},
 		UI: UISettings{
-			Logger:           LoggerSettings{Show: true, AutoScroll: true, ShowTime: true, ShowTag: true, WrapText: false, WriteFile: true},
-			Battle:           BattleSettings{HotkeyEnabled: false, HotkeyMods: "Ctrl+Shift"},
-			Window:           WindowSettings{Width: 1100, Height: 720},
-			ActionStopHotkey: "Ctrl+Shift+F9",
+			Logger: LoggerSettings{
+				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
+				WrapText: false, WriteFile: true, FileDir: "logs",
+			},
+			Window:              WindowSettings{Width: 1100, Height: 720},
+			ActionStopHotkey:     "Ctrl+Shift+F9",
+			CalibrateHotkey:      "F8",
+			WindowCaptureHotkey:  "F9",
+			RecordingStopHotkey:  "F12",
+			RecordingPauseHotkey: "F11",
+			RecordingMouseMode:   "relative",
 		},
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
@@ -119,43 +197,43 @@ func defaultSettings() *Settings {
 	}
 }
 
-// LoadSettings 从 path 读 JSON。文件不存在或损坏都用默认值（不报错）。
-// Validate 失败也用默认值。
+// LoadSettings 从 path 读 JSON。文件不存在/损坏/Validate 失败都用默认值（不报错）。
+// 直接 unmarshal 进 defaultSettings() 基底：缺失字段天然保留默认，无需逐字段空值回落。
 func LoadSettings(path string) *Settings {
-	s := defaultSettings()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return s
+		return defaultSettings()
 	}
-	loaded := &Settings{}
-	if err := json.Unmarshal(data, loaded); err != nil {
-		return s
+	s := defaultSettings()
+	if err := json.Unmarshal(data, s); err != nil {
+		return defaultSettings() // 损坏 → 全新默认（s 已被部分改写，不能返回）
 	}
-	// 归一：空 HotkeyMods 落到 default
-	if loaded.UI.Battle.HotkeyMods == "" {
-		loaded.UI.Battle.HotkeyMods = "Ctrl+Shift"
+	// Window 显式 0/负值会覆盖默认 → 兜底（非空值垫片，保留）
+	if s.UI.Window.Width <= 0 || s.UI.Window.Height <= 0 {
+		s.UI.Window.Width = 1100
+		s.UI.Window.Height = 720
 	}
-	// 归一：空 Locale 落到 default "zh"（旧 settings.json 没这字段）
-	if loaded.Locale == "" {
-		loaded.Locale = "zh"
+	// RecordingMouseMode 枚举校验：非 relative/absolute → relative（非空值垫片，保留）
+	if s.UI.RecordingMouseMode != "relative" && s.UI.RecordingMouseMode != "absolute" {
+		s.UI.RecordingMouseMode = "relative"
 	}
-	// 归一：空 Capture.Method 落到 default "auto"（旧 settings.json 没这字段）
-	if loaded.Capture.Method == "" {
-		loaded.Capture.Method = "auto"
+	// 悬空 default 归一化为空, 而非让 Validate 失败把整份设置重置默认。
+	if s.AI.Default != "" {
+		found := false
+		for _, c := range s.AI.Connections {
+			if c.ID == s.AI.Default {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.AI.Default = ""
+		}
 	}
-	// 归一：旧 settings 没 window 字段或被改成 0，回落到默认尺寸
-	if loaded.UI.Window.Width <= 0 || loaded.UI.Window.Height <= 0 {
-		loaded.UI.Window.Width = 1100
-		loaded.UI.Window.Height = 720
+	if err := s.Validate(); err != nil {
+		return defaultSettings()
 	}
-	// 归一：旧 settings 没 actionStopHotkey 字段，回落默认 F9
-	if loaded.UI.ActionStopHotkey == "" {
-		loaded.UI.ActionStopHotkey = "Ctrl+Shift+F9"
-	}
-	if err := loaded.Validate(); err != nil {
-		return s
-	}
-	return loaded
+	return s
 }
 
 // SaveSettings 把 s 全量序列化写到 path（覆盖）。
@@ -177,21 +255,6 @@ func (s *Settings) Clone() *Settings {
 
 // Validate 字段范围检查。malformed patch 应用后失败 → SettingsService.Update 拒绝 swap。
 func (s *Settings) Validate() error {
-	if s.Cook.IntervalMs < 100 || s.Cook.IntervalMs > 10000 {
-		return fmt.Errorf("cook.intervalMs out of range [100, 10000]: got %d", s.Cook.IntervalMs)
-	}
-	if s.Piano.Mode != 0 && s.Piano.Mode != 1 {
-		return fmt.Errorf("piano.mode must be 0 or 1: got %d", s.Piano.Mode)
-	}
-	if s.Piano.TrackPick < -2 {
-		return fmt.Errorf("piano.trackPick must be >= -2: got %d", s.Piano.TrackPick)
-	}
-	if s.Piano.OctaveOffset < -2 || s.Piano.OctaveOffset > 2 {
-		return fmt.Errorf("piano.octaveOffset out of range [-2, 2]: got %d", s.Piano.OctaveOffset)
-	}
-	if !validHotkeyMods(s.UI.Battle.HotkeyMods) {
-		return fmt.Errorf("ui.battle.hotkeyMods invalid: %q", s.UI.Battle.HotkeyMods)
-	}
 	if !locale.Valid(s.Locale) {
 		return fmt.Errorf("locale 不在支持列表内: got %q", s.Locale)
 	}
@@ -205,18 +268,44 @@ func (s *Settings) Validate() error {
 	if s.UI.Window.Width < 100 || s.UI.Window.Height < 100 {
 		return fmt.Errorf("ui.window 尺寸过小: %dx%d", s.UI.Window.Width, s.UI.Window.Height)
 	}
+	if err := s.AI.validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
-// ValidHotkeyMods 公开版本给 internal/bots 复用。
-func ValidHotkeyMods(label string) bool { return validHotkeyMods(label) }
-
-func validHotkeyMods(label string) bool {
-	switch label {
-	case "Ctrl", "Ctrl+Shift", "Ctrl+Alt", "Shift+Alt", "Ctrl+Shift+Alt":
-		return true
+func (ai *AISettings) validate() error {
+	seenID := make(map[string]bool, len(ai.Connections))
+	seenLabel := make(map[string]bool, len(ai.Connections))
+	for _, c := range ai.Connections {
+		if c.Protocol != "openai" && c.Protocol != "anthropic" {
+			return fmt.Errorf("ai.connections: protocol 必须是 openai/anthropic, got %q", c.Protocol)
+		}
+		if c.Label == "" {
+			return fmt.Errorf("ai.connections: label 不能为空")
+		}
+		if seenLabel[c.Label] {
+			return fmt.Errorf("ai.connections: label 重复: %q", c.Label)
+		}
+		seenLabel[c.Label] = true
+		if c.ID == "" {
+			return fmt.Errorf("ai.connections: id 不能为空")
+		}
+		if seenID[c.ID] {
+			return fmt.Errorf("ai.connections: id 重复: %q", c.ID)
+		}
+		seenID[c.ID] = true
+		if c.BaseURL != "" {
+			u, err := url.Parse(c.BaseURL)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return fmt.Errorf("ai.connections[%s]: baseURL 必须是 http(s):// 且含 host, got %q", c.Label, c.BaseURL)
+			}
+		}
 	}
-	return false
+	if ai.Default != "" && !seenID[ai.Default] {
+		return fmt.Errorf("ai.default 指向不存在的连接: %q", ai.Default)
+	}
+	return nil
 }
 
 // ApplyMergePatch 把 RFC7386 patch 应用到 s 上。语义：

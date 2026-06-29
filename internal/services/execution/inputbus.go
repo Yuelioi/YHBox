@@ -12,7 +12,7 @@ import "sync"
 // Lock() → 单次操作 → Unlock()。Sleep / WaitTemplate / SetVar 不走 bus。
 //
 // 单实例 process-wide：v1 single-worker 模型下永远只一个 ContainerRunner 在跑，
-// 但 OnEvent 子图 + ActionRunner per-step 输入会跟主图交错；bus 保证任意时刻
+// 但 EventTick 子图 + ActionRunner per-step 输入会跟主图交错；bus 保证任意时刻
 // 至多 1 个 input call 在飞。
 type InputBus struct {
 	mu sync.Mutex

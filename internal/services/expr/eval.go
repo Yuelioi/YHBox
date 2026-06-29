@@ -3,7 +3,6 @@ package expr
 import (
 	"fmt"
 	"math"
-	"time"
 )
 
 // Eval 求值。env 提供 $vars/$params/$sys 解析。
@@ -20,7 +19,15 @@ func Eval(n *Node, env Env) (Value, error) {
 		return n.Bool, nil
 	case nNull:
 		return nil, nil
-	case nVar:
+	case nVarRef:
+		// $名字 变量引用 — 走 Env 的 $ 前缀通道 (InputEnv 对 $ 名天然 miss, 两命名空间不撞).
+		v, err := env.Get("$" + n.VarPath)
+		if err != nil {
+			return nil, fmt.Errorf("expr: env.Get($%s): %w", n.VarPath, err)
+		}
+		return v, nil
+	case nIdent:
+		// bare identifier (no $ prefix). Env.Get receives the plain name.
 		v, err := env.Get(n.VarPath)
 		if err != nil {
 			return nil, fmt.Errorf("expr: env.Get(%q): %w", n.VarPath, err)
@@ -200,6 +207,16 @@ func evalCompare(n *Node, env Env) (Value, error) {
 }
 
 func evalCall(n *Node, env Env) (Value, error) {
+	b, ok := builtins[n.FuncName]
+	if !ok {
+		return nil, fmt.Errorf("expr: unknown function %q at col %d", n.FuncName, n.Pos)
+	}
+	if len(n.Args) < b.MinArgs || len(n.Args) > b.MaxArgs {
+		if b.MinArgs == b.MaxArgs {
+			return nil, fmt.Errorf("expr: %s() expects %d args at col %d", n.FuncName, b.MinArgs, n.Pos)
+		}
+		return nil, fmt.Errorf("expr: %s() expects %d to %d args at col %d", n.FuncName, b.MinArgs, b.MaxArgs, n.Pos)
+	}
 	args := make([]Value, len(n.Args))
 	for i, a := range n.Args {
 		v, err := Eval(a, env)
@@ -208,41 +225,5 @@ func evalCall(n *Node, env Env) (Value, error) {
 		}
 		args[i] = v
 	}
-	switch n.FuncName {
-	case "abs":
-		if len(args) != 1 {
-			return nil, fmt.Errorf("expr: abs() expects 1 arg at col %d", n.Pos)
-		}
-		x, ok := AsNumber(args[0])
-		if !ok {
-			return nil, fmt.Errorf("expr: abs() needs number at col %d", n.Pos)
-		}
-		return math.Abs(x), nil
-	case "min":
-		if len(args) != 2 {
-			return nil, fmt.Errorf("expr: min() expects 2 args at col %d", n.Pos)
-		}
-		a, aok := AsNumber(args[0])
-		b, bok := AsNumber(args[1])
-		if !aok || !bok {
-			return nil, fmt.Errorf("expr: min() needs numbers at col %d", n.Pos)
-		}
-		return math.Min(a, b), nil
-	case "max":
-		if len(args) != 2 {
-			return nil, fmt.Errorf("expr: max() expects 2 args at col %d", n.Pos)
-		}
-		a, aok := AsNumber(args[0])
-		b, bok := AsNumber(args[1])
-		if !aok || !bok {
-			return nil, fmt.Errorf("expr: max() needs numbers at col %d", n.Pos)
-		}
-		return math.Max(a, b), nil
-	case "now":
-		if len(args) != 0 {
-			return nil, fmt.Errorf("expr: now() expects 0 args at col %d", n.Pos)
-		}
-		return float64(time.Now().UnixMilli()), nil
-	}
-	return nil, fmt.Errorf("expr: unknown function %q at col %d", n.FuncName, n.Pos)
+	return b.impl(args, n.Pos)
 }

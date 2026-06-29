@@ -5,11 +5,11 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "YHBox"
-  productName: "YHBox"
-  productIdentifier: "com.yhbox.app"
-  description: "异环工具箱 — 钓鱼 / 店长 / 弹琴 / 战斗"
-  copyright: "(c) 2026 YHBox"
+  companyName: "Yotta"
+  productName: "Yotta"
+  productIdentifier: "com.yotta.app"
+  description: "节点编排，自动执行"
+  copyright: "(c) 2026 Yotta"
   comments: "Wails 3 + Vue 3 + NuxtUI v4"
   version: "2.0.0"
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)

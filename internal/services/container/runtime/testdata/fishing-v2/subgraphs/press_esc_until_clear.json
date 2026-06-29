@@ -1,0 +1,211 @@
+{
+  "id": "press_esc_until_clear",
+  "label": "press_esc_until_clear",
+  "description": "1:1 复刻 tools/fish/states_fight.go:209-232 pressEscUntilClear — 最多 5 次 ESC, 每次后 ~2s deadline (14*150ms) 内 poll det.Result, 一旦 result 模板消失即退出 (相当于源码 return). 用 `_pressEscCleared` 全局 flag 区分 Break(成功) vs inner 自然 exhaust(deadline) → 调用方 container 必须声明该 var.",
+  "graph": {
+    "id": "press_esc_until_clear_graph",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "setClearedFalse",
+        "kind": "SetVar",
+        "x": 200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": false,
+            "VarName": "_pressEscCleared"
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "loopOuter",
+        "kind": "Loop",
+        "x": 400,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Count": 5,
+            "Mode": "count"
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "escTap",
+        "kind": "KeyPress",
+        "x": 600,
+        "y": 0,
+        "config": {
+          "literal": {
+            "DurationMs": 150,
+            "VK": "esc"
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "loopInner",
+        "kind": "Loop",
+        "x": 800,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Count": 14,
+            "Mode": "count"
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "sleepPoll",
+        "kind": "Sleep",
+        "x": 1000,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Duration": 150
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "checkResult",
+        "kind": "CheckTemplate",
+        "x": 1200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "3680b3d2-d31d-461c-b697-0d9c3e6a87ed"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "setClearedTrue",
+        "kind": "SetVar",
+        "x": 1400,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": true,
+            "VarName": "_pressEscCleared"
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "breakInner",
+        "kind": "Break",
+        "x": 1600,
+        "y": -100,
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "getCleared",
+        "kind": "GetVar",
+        "x": 1400,
+        "y": 100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "VarName": "_pressEscCleared"
+          }
+        },
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "ifCleared",
+        "kind": "If",
+        "x": 1600,
+        "y": 100,
+        "createdAt": "2026-05-19T00:00:00Z"
+      },
+      {
+        "id": "breakOuter",
+        "kind": "Break",
+        "x": 1800,
+        "y": 100,
+        "createdAt": "2026-05-19T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "sgin.Done",
+        "to": "setClearedFalse.In"
+      },
+      {
+        "from": "setClearedFalse.Done",
+        "to": "loopOuter.In"
+      },
+      {
+        "from": "loopOuter.Body",
+        "to": "escTap.In"
+      },
+      {
+        "from": "escTap.Done",
+        "to": "loopInner.In"
+      },
+      {
+        "from": "loopInner.Body",
+        "to": "sleepPoll.In"
+      },
+      {
+        "from": "sleepPoll.Done",
+        "to": "checkResult.In"
+      },
+      {
+        "from": "checkResult.NotFound",
+        "to": "setClearedTrue.In"
+      },
+      {
+        "from": "setClearedTrue.Done",
+        "to": "breakInner.In"
+      },
+      {
+        "from": "loopInner.Done",
+        "to": "ifCleared.In"
+      },
+      {
+        "from": "getCleared.Value",
+        "to": "ifCleared.Condition"
+      },
+      {
+        "from": "ifCleared.True",
+        "to": "breakOuter.In"
+      },
+      {
+        "from": "loopOuter.Done",
+        "to": "sgout.In"
+      }
+    ]
+  },
+  "entry": {
+    "nodeID": "sgin"
+  },
+  "outputPins": [
+    {
+      "id": "done",
+      "name": "done",
+      "nodeID": "sgout",
+      "x": 2000
+    }
+  ],
+  "tags": [
+    "fishing-v2",
+    "helper",
+    "state-machine"
+  ],
+  "requiredGlobals": [
+    "_pressEscCleared"
+  ],
+  "createdAt": "2026-05-19T00:00:00Z",
+  "schemaVersion": 1,
+  "rev": 1
+}

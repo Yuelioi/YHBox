@@ -21,22 +21,34 @@
       <SettingsGeneral v-if="activeTab === 'general'" />
       <SettingsHotkeys v-if="activeTab === 'hotkeys'" />
       <SettingsInput v-if="activeTab === 'input'" />
+      <SettingsLauncher v-if="activeTab === 'launcher'" />
+      <SettingsAI v-if="activeTab === 'ai'" />
+      <SettingsMCP v-if="activeTab === 'mcp'" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsGeneral from './SettingsGeneral.vue'
 import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
+import SettingsLauncher from './SettingsLauncher.vue'
+import SettingsAI from './SettingsAI.vue'
+import SettingsMCP from './SettingsMCP.vue'
 
-type TabKey = 'general' | 'hotkeys' | 'input'
+const { t } = useI18n()
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'general', label: '通用' },
-  { key: 'hotkeys', label: '快捷键' },
-  { key: 'input', label: '输入校准' },
-]
+type TabKey = 'general' | 'hotkeys' | 'input' | 'launcher' | 'ai' | 'mcp'
+
+const tabs = computed<{ key: TabKey; label: string }[]>(() => [
+  { key: 'general', label: t('settingsTab.general') },
+  { key: 'hotkeys', label: t('settingsTab.hotkeys') },
+  { key: 'input', label: t('settingsTab.input_calibration') },
+  { key: 'launcher', label: t('settingsTab.launcher') },
+  { key: 'ai', label: t('settingsTab.ai') },
+  { key: 'mcp', label: t('settingsTab.mcp') },
+])
 const activeTab = ref<TabKey>('general')
 </script>

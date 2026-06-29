@@ -5,7 +5,7 @@ includes:
   windows: ./build/windows/Taskfile.yml
 
 vars:
-  APP_NAME: "YHBox"
+  APP_NAME: "Yotta"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
@@ -29,6 +29,21 @@ tasks:
     summary: Runs the application in development mode
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  dll:
+    summary: 单独打包 Rust WGC capture DLL → bin/capture_wgc.dll (改 .rs 后跑)
+    cmds:
+      - task: "windows:build:capture-dll"
+
+  nodes:
+    summary: 导出节点速查表(Markdown)；要 JSON 用 `go run ./cmd/node-catalog export`
+    cmds:
+      - go run ./cmd/node-catalog export --md
+
+  nodes:pins:
+    summary: 一键提取全节点 pin 名(按名合并 + 命名分裂告警, Markdown)；存文件 `task nodes:pins > pins.md`
+    cmds:
+      - go run ./cmd/node-catalog pins
 
   version:sync:
     summary: 把 pkg/version.Version 同步到 build/config.yml / windows/info.json / frontend/package.json

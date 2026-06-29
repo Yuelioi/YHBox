@@ -1,6 +1,7 @@
 package container
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +16,10 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 
 	c := &Container{
 		SchemaVersion: 1, ID: "id-1", Name: "test",
-		Graph: Graph{Nodes: []GraphNode{{ID: "n1", Kind: "Start"}}},
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "n1", Kind: "Start"},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
+		}},
 	}
 	if err := s.Save(c); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -41,7 +45,10 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 func TestContainerStore_Delete(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
-	_ = s.Save(&Container{SchemaVersion: 1, ID: "x", Name: "y", Graph: Graph{Nodes: []GraphNode{{ID: "n1", Kind: "Start"}}}})
+	_ = s.Save(&Container{SchemaVersion: 1, ID: "x", Name: "y", Graph: Graph{Nodes: []GraphNode{
+		{ID: "n1", Kind: "Start"},
+		{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
+	}}})
 	if err := s.Delete("x"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
@@ -56,8 +63,81 @@ func TestContainerStore_Delete(t *testing.T) {
 func TestContainerStore_Save_InvalidRejected(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
-	c := &Container{SchemaVersion: 1, ID: "x"} // 缺 name
+	// 非空图缺 Start 节点，应被 v2 validator 拒绝
+	c := &Container{
+		SchemaVersion: 1, ID: "x", Name: "bad",
+		Graph: Graph{Nodes: []GraphNode{{ID: "n1", Kind: "Sleep"}}},
+	}
 	if err := s.Save(c); err == nil {
 		t.Error("expected validate error")
+	}
+}
+
+func TestContainerStore_Reload(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(dir)
+	c := &Container{
+		SchemaVersion: 1, ID: "r1", Name: "old",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "n1", Kind: "Start"},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
+		}},
+	}
+	if err := s.Save(c); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	// 模拟外部进程 (MCP / 手改) 直接改磁盘上的 container.json
+	onDisk := filepath.Join(dir, "r1", "container.json")
+	b, _ := os.ReadFile(onDisk)
+	var dc Container
+	if err := json.Unmarshal(b, &dc); err != nil {
+		t.Fatal(err)
+	}
+	dc.Name = "new-from-disk"
+	nb, _ := json.Marshal(&dc)
+	if err := os.WriteFile(onDisk, nb, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 改盘后内存缓存仍是旧值
+	if g, _ := s.Get("r1"); g.Name != "old" {
+		t.Errorf("改盘后内存应仍是旧值, got %q", g.Name)
+	}
+
+	// Reload 后拿到新值, 且 byID 已更新
+	got, err := s.Reload("r1")
+	if err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if got.Name != "new-from-disk" {
+		t.Errorf("Reload 返回名字 = %q, want new-from-disk", got.Name)
+	}
+	if g, _ := s.Get("r1"); g.Name != "new-from-disk" {
+		t.Errorf("byID 未更新: %q", g.Name)
+	}
+}
+
+func TestContainerStore_Reload_DeletedDir(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(dir)
+	if err := s.Save(&Container{
+		SchemaVersion: 1, ID: "d1", Name: "x",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "n1", Kind: "Start"},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
+		}},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	// 外部删掉整个容器目录
+	if err := os.RemoveAll(filepath.Join(dir, "d1")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Reload("d1"); err == nil {
+		t.Error("目录已删, Reload 应返 not-found error")
+	}
+	if _, ok := s.Get("d1"); ok {
+		t.Error("Reload 应把已删容器从 byID 移除")
 	}
 }

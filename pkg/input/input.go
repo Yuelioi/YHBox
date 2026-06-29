@@ -1,7 +1,7 @@
 // Package input 后台键盘 / 鼠标控制。
 //
 // 关键 trick：
-//   - 异环 IMC 在窗口内部 IsActive=false 时丢弃 PostMessage 键盘消息。
+//   - 部分 UE/Slate 游戏（如异环）在窗口内部 IsActive=false 时丢弃 PostMessage 键盘消息。
 //     必须先 SendMessage(WM_ACTIVATE, WA_ACTIVE) 翻 IsActive=true，再 PostMessage。
 //   - Slate UI 按钮必须先 SetCursorPos 移真实光标，再 PostMessage DOWN/UP。
 package input
@@ -19,6 +19,7 @@ import (
 const (
 	WM_KEYDOWN     = 0x0100
 	WM_KEYUP       = 0x0101
+	WM_CHAR        = 0x0102
 	WM_ACTIVATE    = 0x0006
 	WA_ACTIVE      = 1
 	WM_MOUSEMOVE   = 0x0200
@@ -52,6 +53,7 @@ var (
 	procGetCursorPos      = user32.NewProc("GetCursorPos")
 	procSetCursorPos      = user32.NewProc("SetCursorPos")
 	procClientToScreen    = user32.NewProc("ClientToScreen")
+	procScreenToClient    = user32.NewProc("ScreenToClient")
 	procGetClientRect     = user32.NewProc("GetClientRect")
 	procMapVirtualKeyW    = user32.NewProc("MapVirtualKeyW")
 	procSendInput         = user32.NewProc("SendInput")
@@ -67,15 +69,14 @@ type rect struct {
 
 const swRestore = 9
 
-// BringToForeground 把窗口拽到前台 + 最小化时还原。
-// 用于 action 启动前激活游戏。不抢焦点比 SetForeground 单调干净。
-func BringToForeground(hwnd win.HWND) {
-	// 如果最小化，先还原
+// BringToForeground 把窗口拽到前台 + 最小化时还原。返 true 表示 SetForegroundWindow OS 调用成功（r != 0）。
+func BringToForeground(hwnd win.HWND) bool {
 	r, _, _ := procIsIconic.Call(uintptr(hwnd))
 	if r != 0 {
 		procShowWindow.Call(uintptr(hwnd), swRestore)
 	}
-	procSetForegroundWnd.Call(uintptr(hwnd))
+	r2, _, _ := procSetForegroundWnd.Call(uintptr(hwnd))
+	return r2 != 0
 }
 
 // SendInput INPUT 结构（amd64：type 4 + pad 4 + MOUSEINPUT 24 + tail pad = 40 bytes）。
@@ -145,6 +146,22 @@ func clientToScreen(hwnd win.HWND, x, y int32) (int32, int32) {
 	return p.X, p.Y
 }
 
+// screenToClient 屏幕坐标 → 客户区坐标 (clientToScreen 的逆).
+func screenToClient(hwnd win.HWND, x, y int32) (int32, int32) {
+	p := point{X: x, Y: y}
+	procScreenToClient.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&p)))
+	return p.X, p.Y
+}
+
+// MoveToClient 把光标移到客户区坐标 + 发一帧 WM_MOUSEMOVE (hover), 无 activate / 无 sleep.
+// 分帧滑动的「单帧」原语 —— 帧间隔与 ctx 取消由节点层控制 (见 internal/nodes/input.moveCursor),
+// 本函数只负责「移一帧」, 自己绝不 sleep (避免重蹈裸 time.Sleep 停不下的覆辙).
+func MoveToClient(hwnd win.HWND, clientX, clientY int) {
+	sx, sy := clientToScreen(hwnd, int32(clientX), int32(clientY))
+	setCursorPos(sx, sy)
+	postMessage(hwnd, WM_MOUSEMOVE, 0, makeLParam(int32(clientX), int32(clientY)))
+}
+
 // FakeActivate 把窗口内部 IsActive 翻成 true，不抢前台焦点。
 // SendMessage 同步返回不代表 Slate 真处理完——它通常下一 UE tick 才翻 IsActive。
 // 瞬时 PostMessage 之前需要 sleep ~30ms 让 Slate 真生效。
@@ -212,26 +229,6 @@ func keyLParam(vk uint32, keyUp bool) uintptr {
 	return lp
 }
 
-// Tap 瞬时按键（抛竿 F、收线 F、Esc 等）。
-//   - activateDelay: FakeActivate 后等 Slate 翻 IsActive 的时间
-//   - hold:          DOWN 到 UP 的间隔
-func Tap(hwnd win.HWND, key string, hold, activateDelay time.Duration) bool {
-	vk := VK(key)
-	if vk == 0 {
-		return false
-	}
-	FakeActivate(hwnd)
-	if activateDelay > 0 {
-		time.Sleep(activateDelay)
-	}
-	postMessage(hwnd, WM_KEYDOWN, uintptr(vk), keyLParam(vk, false))
-	if hold > 0 {
-		time.Sleep(hold)
-	}
-	postMessage(hwnd, WM_KEYUP, uintptr(vk), keyLParam(vk, true))
-	return true
-}
-
 // KeyDown 按下键不松（溜鱼长按 A/D）。
 func KeyDown(hwnd win.HWND, key string) bool {
 	vk := VK(key)
@@ -250,12 +247,6 @@ func KeyUp(hwnd win.HWND, key string) bool {
 	}
 	postMessage(hwnd, WM_KEYUP, uintptr(vk), keyLParam(vk, true))
 	return true
-}
-
-// ReleaseAll 释放溜鱼用到的 A/D 键。
-func ReleaseAll(hwnd win.HWND) {
-	KeyUp(hwnd, "a")
-	KeyUp(hwnd, "d")
 }
 
 // makeLParam 把客户区坐标编码进 LPARAM：低 16 位 = x，高 16 位 = y
@@ -372,7 +363,7 @@ func ClickButtonNoRestore(hwnd win.HWND, clientX, clientY int, button MouseButto
 // MouseMove 把光标移到指定客户区坐标 + 给游戏发 WM_MOUSEMOVE。
 // 不还原光标位置（跟 Click 不同 —— 用户明确要光标停在那）。
 //   - 游戏读 cursor 位置（旧 UI/Slate 等）：生效
-//   - 游戏读 Raw Input（FPS camera 等）：**不生效**，需要 v2 SendInput driver
+//   - 游戏读 Raw Input（FPS camera 等）：**不生效**，改用 SendInputMouseRel（本包已实现）
 func MouseMove(hwnd win.HWND, clientX, clientY int, activateDelay, cursorSettle time.Duration) {
 	FakeActivate(hwnd)
 	if activateDelay > 0 {
@@ -505,6 +496,53 @@ func MouseMoveRel(hwnd win.HWND, totalDx, totalDy int, duration, activateDelay t
 	}
 }
 
+// SendInputMouseRel 暴露 sendInputMouseRel 给 inputclip backends 用 (相机转向唯一路径).
+// 不调 FakeActivate / setCursorPos — caller (ClipPlayer) 已按帧调度.
+func SendInputMouseRel(dx, dy int32) {
+	sendInputMouseRel(dx, dy)
+}
+
+// PostKeyDownVK 直接按 vk uint32 PostMessage 键盘按下到 hwnd (clip 回放用).
+// keyLParam 自带 scancode (UE InputComponent 必需). 不调 FakeActivate (ClipPlayer 控时序).
+func PostKeyDownVK(hwnd win.HWND, vk uint32) {
+	postMessage(hwnd, WM_KEYDOWN, uintptr(vk), keyLParam(vk, false))
+}
+
+// PostKeyUpVK 同上, 松开.
+func PostKeyUpVK(hwnd win.HWND, vk uint32) {
+	postMessage(hwnd, WM_KEYUP, uintptr(vk), keyLParam(vk, true))
+}
+
+// MouseBtnDown 鼠标按键按下 (PostMessage 路径, 不松开). clip 回放 down/up 分离用.
+// clientX/Y 客户区像素; button 见 MouseButton enum. 不 FakeActivate (caller 节奏控制).
+func MouseBtnDown(hwnd win.HWND, clientX, clientY int, button MouseButton) {
+	var downMsg uint32
+	var mk uintptr
+	switch button {
+	case MouseMiddle:
+		downMsg, mk = WM_MBUTTONDOWN, MK_MBUTTON
+	case MouseRight:
+		downMsg, mk = WM_RBUTTONDOWN, MK_RBUTTON
+	default:
+		downMsg, mk = WM_LBUTTONDOWN, MK_LBUTTON
+	}
+	postMessage(hwnd, downMsg, mk, makeLParam(int32(clientX), int32(clientY)))
+}
+
+// MouseBtnUp 鼠标按键松开.
+func MouseBtnUp(hwnd win.HWND, clientX, clientY int, button MouseButton) {
+	var upMsg uint32
+	switch button {
+	case MouseMiddle:
+		upMsg = WM_MBUTTONUP
+	case MouseRight:
+		upMsg = WM_RBUTTONUP
+	default:
+		upMsg = WM_LBUTTONUP
+	}
+	postMessage(hwnd, upMsg, 0, makeLParam(int32(clientX), int32(clientY)))
+}
+
 // MouseScroll 在当前光标位置滚 notches 格滚轮（正=上推 = 通常向上滚页面）。
 // 一格 = 120 wheel-delta 单位。
 // 走 WM_MOUSEWHEEL —— wheel 事件需要光标坐标走 screen 坐标，按 Win32 约定。
@@ -520,4 +558,20 @@ func MouseScroll(hwnd win.HWND, notches int, activateDelay time.Duration) {
 	wp := uintptr(uint32(uint16(delta))) << 16
 	lp := uintptr(uint32(uint16(cx))) | uintptr(uint32(uint16(cy)))<<16
 	postMessage(hwnd, WM_MOUSEWHEEL, wp, lp)
+}
+
+// MouseScrollH 在当前光标位置横向滚 notches 格滚轮（正=右，负=左）。
+// 走 WM_MOUSEHWHEEL（0x020E）—— 与 WM_MOUSEWHEEL 完全相同的 wParam/lParam 封装，
+// 只有消息号不同。
+func MouseScrollH(hwnd win.HWND, notches int, activateDelay time.Duration) {
+	const WM_MOUSEHWHEEL = 0x020E
+	FakeActivate(hwnd)
+	if activateDelay > 0 {
+		time.Sleep(activateDelay)
+	}
+	cx, cy := getCursorPos()
+	delta := int16(notches * WheelDelta)
+	wp := uintptr(uint32(uint16(delta))) << 16
+	lp := uintptr(uint32(uint16(cx))) | uintptr(uint32(uint16(cy)))<<16
+	postMessage(hwnd, WM_MOUSEHWHEEL, wp, lp)
 }

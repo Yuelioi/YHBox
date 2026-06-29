@@ -43,6 +43,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   title: string
@@ -50,7 +53,7 @@ const props = defineProps<{
   icon: string
   cardTitle: string
   cardBody: string
-  /** "敬请期待" | "Current" — Phase 4 about uses Current */
+  /** "敬请期待" (pending) | "Current" */
   badge?: 'pending' | 'current'
   /** Disabled action button label (only shown for bot views) */
   actionLabel?: string
@@ -58,5 +61,5 @@ const props = defineProps<{
 }>()
 
 const badgeColor = computed(() => (props.badge === 'current' ? 'success' : 'warning'))
-const badgeLabel = computed(() => (props.badge === 'current' ? 'Current' : '敬请期待'))
+const badgeLabel = computed(() => (props.badge === 'current' ? 'Current' : t('common.coming_soon')))
 </script>

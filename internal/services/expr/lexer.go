@@ -13,7 +13,8 @@ const (
 	tkNumber
 	tkString
 	tkIdent  // bareword (true / false / null / function names)
-	tkVarPath // $vars.X / $params.Y / $sys.Z（完整 dotted path）
+	// $名字 变量引用 (2026-06-11 恢复, 单标识符形态 — 不是 v3 的 $vars.X 点路径).
+	tkVarRef
 	tkLParen
 	tkRParen
 	tkComma
@@ -144,7 +145,16 @@ func (l *lexer) next() (token, error) {
 	case '"':
 		return l.readString(start)
 	case '$':
-		return l.readVarPath(start)
+		// $名字 = 变量引用 (auto scope)。注意不是 v3 的 $vars.X 点路径 — '.' 不属于
+		// 标识符, "$vars.hp" 会在 '.' 处报 unexpected character, 不会静默。
+		if next, ok := l.peekRune(); !ok || !isIdentStart(next) {
+			return token{}, fmt.Errorf("expr: '$' must be followed by a variable name at col %d", start)
+		}
+		identStart := l.pos
+		for l.pos < len(l.src) && isIdentPart(l.src[l.pos]) {
+			l.pos++
+		}
+		return token{kind: tkVarRef, val: string(l.src[identStart:l.pos]), pos: start}, nil
 	}
 
 	if unicode.IsDigit(r) || (r == '.' && l.pos < len(l.src) && unicode.IsDigit(l.src[l.pos])) {
@@ -206,23 +216,6 @@ func (l *lexer) readString(start int) (token, error) {
 		b = append(b, r)
 	}
 	return token{}, fmt.Errorf("expr: unterminated string starting at col %d", start)
-}
-
-func (l *lexer) readVarPath(start int) (token, error) {
-	// $vars.X / $params.Y / $sys.Z.W.V
-	for l.pos < len(l.src) {
-		r := l.src[l.pos]
-		if isIdentPart(r) || r == '.' {
-			l.pos++
-			continue
-		}
-		break
-	}
-	path := string(l.src[start:l.pos])
-	if path == "$" {
-		return token{}, fmt.Errorf("expr: bare $ at col %d (要 $vars./$params./$sys.)", start)
-	}
-	return token{kind: tkVarPath, val: path, pos: start}, nil
 }
 
 func (l *lexer) readIdent(start int) (token, error) {

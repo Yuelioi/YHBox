@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import ui from "@nuxt/ui/vite";
@@ -5,7 +6,16 @@ import wails from "@wailsio/runtime/plugins/vite";
 import VueI18nPlugin from "@intlify/unplugin-vue-i18n/vite";
 import { fileURLToPath, URL } from "node:url";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const isTest = mode === "test" || process.env.VITEST === "true";
+
+  return {
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    setupFiles: ["src/test/setup.ts"],
+  },
   // 终端错误别被 vite 启动 banner 清屏冲掉——dev 跟 wails 串行起，
   // 看不到 vite 报错就以为是 wails 卡住。
   clearScreen: false,
@@ -39,6 +49,19 @@ export default defineConfig({
         colors: {
           primary: "emerald",
           neutral: "zinc",
+          // 项目警告色一直是 amber 系 (NuxtUI 默认 yellow) — 钉死防漂移
+          warning: "amber",
+        },
+        // 主按钮 (primary + solid) 唯一显眼渐变; 其它 variant (soft/ghost/outline) 零改动。
+        // .btn-primary-raised 在 style.css, background-image 覆盖默认 bg-primary。
+        button: {
+          compoundVariants: [
+            {
+              color: "primary",
+              variant: "solid",
+              class: { base: "btn-primary-raised" },
+            },
+          ],
         },
       },
     }),
@@ -48,13 +71,24 @@ export default defineConfig({
       // 不开这个的话默认 jit 模式会在浏览器 runtime 调 message compiler，
       // 某些 unicode 字符（如全角括号）会让它 throw SyntaxError 让整个 view 挂掉。
       jitCompilation: false,
+      // 必须显式 false: 插件默认 runtimeOnly=true 会把 `vue-i18n` alias 到 runtime-only
+      // bundle (无 message compiler), 导致 `t('x', { n: 5 })` 这类带 placeholder 的
+      // 翻译字符串无人 compile, 字面渲染 `{n}` 出来. zh.ts 全用 plain string + ts
+      // 模式喂 createI18n, 必须保留 compiler.
+      runtimeOnly: false,
     }),
-    wails("./bindings"),
+    ...(!isTest ? [wails("./bindings")] : []),
   ],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@bindings": fileURLToPath(new URL("./bindings", import.meta.url)),
+      ...(isTest
+        ? {
+            "@wailsio/runtime": fileURLToPath(new URL("./src/test/wailsRuntimeStub.ts", import.meta.url)),
+          }
+        : {}),
     },
   },
+  };
 });

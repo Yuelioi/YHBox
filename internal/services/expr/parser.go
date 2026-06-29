@@ -36,7 +36,9 @@ const (
 	nString
 	nBool
 	nNull
-	nVar
+	// $名字 变量引用 — eval 走 env.Get("$"+name) ($ 前缀通道, 跟 nIdent 的 bare 命名空间不撞).
+	nVarRef
+	nIdent // bare identifier (e.g. `i`, `state`) — looked up via Env.Get(name) with no $ prefix
 	nNeg     // unary -
 	nNot     // unary !
 	nAdd
@@ -76,10 +78,28 @@ func Parse(src string) (*Node, error) {
 
 // Pratt parser ----------
 
+// MaxExprDepth caps recursive parse depth to prevent stack overflow on
+// pathological input like 1000 nested parens. Real expressions never approach
+// this; the cap exists as a security boundary (Expr config is user-editable).
+const MaxExprDepth = 256
+
 type parser struct {
-	toks []token
-	i    int
+	toks  []token
+	i     int
+	depth int // tracks recursion depth across parseExpr/parsePrefix
 }
+
+// enter increments parse depth and returns an error if MaxExprDepth exceeded.
+// Pair with defer p.exit() at the top of any recursive parser method.
+func (p *parser) enter() error {
+	p.depth++
+	if p.depth > MaxExprDepth {
+		return fmt.Errorf("expr: max nesting depth %d exceeded (pathological input?)", MaxExprDepth)
+	}
+	return nil
+}
+
+func (p *parser) exit() { p.depth-- }
 
 func (p *parser) peek() token { return p.toks[p.i] }
 func (p *parser) advance() token {
@@ -102,6 +122,10 @@ const (
 )
 
 func (p *parser) parseExpr(minPrec int) (*Node, error) {
+	if err := p.enter(); err != nil {
+		return nil, err
+	}
+	defer p.exit()
 	left, err := p.parsePrefix()
 	if err != nil {
 		return nil, err
@@ -175,6 +199,10 @@ func infixInfo(k tokKind) (int, nodeKind, bool) {
 }
 
 func (p *parser) parsePrefix() (*Node, error) {
+	if err := p.enter(); err != nil {
+		return nil, err
+	}
+	defer p.exit()
 	t := p.peek()
 	switch t.kind {
 	case tkNumber:
@@ -183,9 +211,9 @@ func (p *parser) parsePrefix() (*Node, error) {
 	case tkString:
 		p.advance()
 		return &Node{Kind: nString, Str: t.val, Pos: t.pos}, nil
-	case tkVarPath:
+	case tkVarRef:
 		p.advance()
-		return &Node{Kind: nVar, VarPath: t.val, Pos: t.pos}, nil
+		return &Node{Kind: nVarRef, VarPath: t.val, Pos: t.pos}, nil
 	case tkIdent:
 		p.advance()
 		switch t.val {
@@ -196,9 +224,9 @@ func (p *parser) parsePrefix() (*Node, error) {
 		case "null":
 			return &Node{Kind: nNull, Null: true, Pos: t.pos}, nil
 		}
-		// 函数调用：必须跟 '('
+		// v4: 没跟 '(' → bare identifier (Env.Get(name) 查 InputEnv inputs map).
 		if p.peek().kind != tkLParen {
-			return nil, fmt.Errorf("expr: unknown identifier %q at col %d (要函数调用？跟 '(')", t.val, t.pos)
+			return &Node{Kind: nIdent, VarPath: t.val, Pos: t.pos}, nil
 		}
 		p.advance()
 		var args []*Node

@@ -1,108 +1,33 @@
 // wire_container.go 适配器：容器节点运行时跟 services / pkg 类型对接。
 //
-// container/runtime 包定义了 Matcher / Color / InputDriver / Runner 等接口；
-// 这里把具体实现（pkg/vision + pkg/capture + pkg/input + actionsruntime.Win32Driver）
-// 绑到接口上。
+// container/runtime 包定义了 Matcher / Runner 等接口；这里把具体实现
+// (pkg/vision) 绑到接口上.
+// v3 Phase B 删除 InputDriver 适配 — input backend 由 runtime.setupRuntime 直接构造.
 package main
 
 import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/lxn/win"
+	"golang.org/x/sync/singleflight"
 
-	"yhbox/internal/hotkey"
-	"yhbox/internal/services"
-	actionsruntime "yhbox/internal/services/actions/runtime"
-	"yhbox/internal/services/container"
-	"yhbox/internal/services/execution"
-	"yhbox/internal/services/expr"
-	"yhbox/internal/services/template"
-	"yhbox/pkg/capture"
-	"yhbox/pkg/input"
-	"yhbox/pkg/vision"
+	"yotta/internal/hotkey"
+	"yotta/internal/node"
+	"yotta/internal/services/asset"
+	"yotta/internal/services/container"
+	"yotta/internal/services/execution"
+	"yotta/internal/services/expr"
+	"yotta/pkg/vision"
 )
 
-// ---- TemplateMatcher: 接 pkg/vision + template store + capture ----
-//
-// 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用：
-//   - 从 template store 读 png bytes（key = 模板路径）
-//   - 抓当前游戏窗口一帧
-//   - 用 pkg/vision.Match 在 ROI / 全屏内做 CCOEFF_NORMED 匹配
-//   - 返 found + 命中比例坐标 + 实际 region
-//
-// 命中坐标转换：vision.Match 返 ROI 内左上角像素 → 转客户区比例。
-
-type templateMatcherAdapter struct {
-	app       *services.App
-	tplStore  *template.Store
-	loadCache sync.Map // key string → *vision.Template
-}
-
-func (m *templateMatcherAdapter) loadTemplate(key string) (*vision.Template, error) {
-	if cached, ok := m.loadCache.Load(key); ok {
-		return cached.(*vision.Template), nil
-	}
-	data, err := m.tplStore.ReadPng(key)
-	if err != nil {
-		return nil, fmt.Errorf("read template %q: %w", key, err)
-	}
-	tpl, err := vision.LoadPNG(bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("decode template %q: %w", key, err)
-	}
-	m.loadCache.Store(key, tpl)
-	return tpl, nil
-}
-
-func (m *templateMatcherAdapter) Detect(_ context.Context, key string, threshold float64, region []float64) (bool, expr.Point, [4]float64, error) {
-	g := m.app.Game()
-	if g == nil || !g.OK {
-		return false, expr.Point{}, [4]float64{}, nil
-	}
-	tpl, err := m.loadTemplate(key)
-	if err != nil {
-		return false, expr.Point{}, [4]float64{}, err
-	}
-	frame, err := capture.Frame(win.HWND(g.HWND))
-	if err != nil {
-		return false, expr.Point{}, [4]float64{}, fmt.Errorf("capture.Frame: %w", err)
-	}
-
-	// region 优先级：caller 传的 > template meta 的 Region > 全屏（兜底）。
-	// 全屏匹配开销巨大（1080p 上 400×40 模板要 3-5s/match），用 ROI 后 ~10ms。
-	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
-	if len(region) == 4 && (region[2] > 0 || region[3] > 0) {
-		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
-	} else if meta, ok := m.tplStore.Get(key); ok && (meta.Region[2] > 0 || meta.Region[3] > 0) {
-		// 模板录制 bbox → meta.Region，作为搜索 ROI；扩 30% 边距防 UI 漂移
-		mx, my, mw, mh := float64(meta.Region[0]), float64(meta.Region[1]), float64(meta.Region[2]), float64(meta.Region[3])
-		padX, padY := mw*0.3, mh*0.3
-		rx = clamp01(mx - padX)
-		ry = clamp01(my - padY)
-		rw = clamp01Bound(mw+padX*2, rx)
-		rh = clamp01Bound(mh+padY*2, ry)
-	}
-
-	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
-	if roiPxW <= 0 || roiPxH <= 0 {
-		return false, expr.Point{}, [4]float64{}, nil
-	}
-	x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
-	if x < 0 || conf < float32(threshold) {
-		return false, expr.Point{}, [4]float64{}, nil
-	}
-	frameW := frame.Bounds().Dx()
-	frameH := frame.Bounds().Dy()
-	cx := float64(roiPxX+x+tpl.W/2) / float64(frameW)
-	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
-	out := [4]float64{rx, ry, rw, rh}
-	return true, expr.Point{X: cx, Y: cy}, out, nil
-}
+// roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余.
+// 角色/UI 轻微抖动 icon 偏出 BBox 时, padding 给 NCC search 余量.
+const roiPaddingPx = 30.0
 
 func clamp01(v float64) float64 {
 	if v < 0 {
@@ -125,172 +50,401 @@ func clamp01Bound(w, x float64) float64 {
 	return w
 }
 
-// ---- ColorDetector: capture.Frame + HSV/RGB 像素扫描 ----
+// ---- TemplateMatcher: 接 pkg/vision + 全局 asset store ----
 //
-// DetectColor 节点用。抠 ROI（客户区比例 → 像素）→ 遍历像素 → 返命中数 +
-// 命中中心客户区比例坐标。HSV 用 pkg/vision.RGBToHSV（H 0-360, S/V 0-255）。
+// 容器节点 WaitTemplate / CheckTemplate / ClickTemplate 用:
+//   - asset.Store.PickVariant(guid, frameW, frameH) 选精确分辨率 variant
+//   - 由 caller (matchOnce) 传入一帧 (帧缓存在 RuntimeContext, 100ms TTL) + 该容器的 scaleTolerance
+//   - 用 pkg/vision.Match 在 caller 指定 ROI 内做 CCOEFF_NORMED 匹配
+//   - 返 found + 命中比例坐标 + 实际 region
+//
+// 资产全局 (非 per-container): matcher 持单个 *asset.Store. 解码缓存按 blob sha 键 —
+// 内容寻址让同像素跨容器/跨资产复用同一份解码 *vision.Template.
+//
+// 命中坐标转换: vision.Match 返 ROI 内左上角像素 → 转客户区比例.
+// 无匹配 variant 时 emit "container:warning" (30s 节流), Detect 返 false.
 
-type containerColorAdapter struct {
-	app *services.App
+type templateMatcherAdapter struct {
+	store     *asset.Store
+	loadCache sync.Map // blob sha → *vision.Template (未缩放)
+	loadSF    singleflight.Group
+
+	// emit: 投递前端事件 (e.g. App.Emit). 测试可传 nil 跳过.
+	emit func(eventName string, payload map[string]any)
+
+	// throttle: key = eventKey → lastEmitUnixMs.
+	// 防止 missing variant 等高频警告刷屏 (30s 窗口内同 key 只 emit 一次).
+	throttleMu sync.Mutex
+	throttle   map[string]int64
 }
 
-func (c *containerColorAdapter) Detect(_ context.Context, region [4]float64, mode string, rng [6]int) (int, float64, float64, error) {
-	g := c.app.Game()
-	if g == nil || !g.OK {
-		return 0, 0, 0, fmt.Errorf("游戏窗口未就绪")
+func newTemplateMatcherAdapter(store *asset.Store, emit func(string, map[string]any)) *templateMatcherAdapter {
+	return &templateMatcherAdapter{
+		store:    store,
+		emit:     emit,
+		throttle: map[string]int64{},
 	}
-	hwnd := win.HWND(g.HWND)
-	frame, err := capture.Frame(hwnd)
-	if err != nil {
-		return 0, 0, 0, fmt.Errorf("capture.Frame: %w", err)
-	}
+}
 
+// defaultScaleTolerance: caller 传 0 (未配) 时的兜底, 与 container.DefaultScaleTolerance 一致.
+const defaultScaleTolerance = 2.0
+
+// normScaleTolerance 归一化容器缩放容差: <=0 (未配/测试) 回落默认 2.0; (0,1) 异常回落 1.0 仅精确.
+func normScaleTolerance(k float64) float64 {
+	if k <= 0 {
+		return defaultScaleTolerance
+	}
+	if k < 1.0 {
+		return 1.0
+	}
+	return k
+}
+
+// longEdgeScale 把 variant 模板缩到 frame 分辨率的比例 (长边比). variant 或 frame 为零尺寸时返 0.
+func longEdgeScale(frameW, frameH, varW, varH int) float64 {
+	fl := frameW
+	if frameH > fl {
+		fl = frameH
+	}
+	vl := varW
+	if varH > vl {
+		vl = varH
+	}
+	if vl <= 0 || fl <= 0 {
+		return 0
+	}
+	return float64(fl) / float64(vl)
+}
+
+// withinScaleTolerance 判断缩放比是否落在 [1/k, k]. k<1 归一到 1 (仅精确). scale<=0 一律 false.
+func withinScaleTolerance(scale, k float64) bool {
+	if scale <= 0 {
+		return false
+	}
+	if k < 1.0 {
+		k = 1.0
+	}
+	return scale >= 1.0/k && scale <= k
+}
+
+// emitThrottled 同 eventKey 在 window 内只 emit 一次.
+func (m *templateMatcherAdapter) emitThrottled(eventKey string, window time.Duration, payload map[string]any) {
+	if m.emit == nil {
+		return
+	}
+	now := time.Now().UnixMilli()
+	m.throttleMu.Lock()
+	last := m.throttle[eventKey]
+	if now-last < window.Milliseconds() {
+		m.throttleMu.Unlock()
+		return
+	}
+	m.throttle[eventKey] = now
+	m.throttleMu.Unlock()
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	m.emit("container:warning", payload)
+}
+
+// emitMissingVariantWarning Detect 在 PickVariant 失败时调用. 30s 节流避免循环刷屏.
+func (m *templateMatcherAdapter) emitMissingVariantWarning(guid string, frameW, frameH int) {
+	eventKey := fmt.Sprintf("missing-variant:%s:%dx%d", guid, frameW, frameH)
+	m.emitThrottled(eventKey, 30*time.Second, map[string]any{
+		"code":      "MISSING_TEMPLATE_VARIANT",
+		"severity":  "warning",
+		"message":   fmt.Sprintf("asset %q has no variant matching frame %dx%d", guid, frameW, frameH),
+		"guid":      guid,
+		"frameSize": []int{frameW, frameH},
+	})
+}
+
+// emitScaleTooFarWarning Detect 找到最近 variant 但缩放比超出容器 ScaleTolerance 时调用.
+// 跟「无 variant」分开, 方便真机 smoke 时从日志看清是「没录这分辨率」还是「容差挡了」.
+func (m *templateMatcherAdapter) emitScaleTooFarWarning(guid string, frameW, frameH int, variantRes [2]int, scale, tolerance float64) {
+	eventKey := fmt.Sprintf("scale-too-far:%s:%dx%d", guid, frameW, frameH)
+	m.emitThrottled(eventKey, 30*time.Second, map[string]any{
+		"code":        "VARIANT_OUT_OF_SCALE_TOLERANCE",
+		"severity":    "warning",
+		"message":     fmt.Sprintf("asset %q nearest variant %dx%d 对帧 %dx%d 缩放比 %.2f 超出容差 [1/%.1f, %.1f], 判 miss", guid, variantRes[0], variantRes[1], frameW, frameH, scale, tolerance, tolerance),
+		"guid":        guid,
+		"frameSize":   []int{frameW, frameH},
+		"variantSize": []int{variantRes[0], variantRes[1]},
+		"scale":       scale,
+		"tolerance":   tolerance,
+	})
+}
+
+// Invalidate 丢弃所有已解码模板缓存, 让下次 Detect 重读 blob. 资产全局, 不再按容器分.
+// 用户在同一 session 内新存/改/删资产后, asset.Service 经 SetOnChange 调这里 ——
+// 否则 matcher 一直拿旧解码缓存 (新存的同 sha 不存在, 走重读没问题; 但重拍换 blob 后
+// 旧 sha 条目残留无害, 全清最省心).
+func (m *templateMatcherAdapter) Invalidate() {
+	m.loadCache.Range(func(k, _ any) bool {
+		m.loadCache.Delete(k)
+		return true
+	})
+}
+
+// loadDecodedTemplate 按 blob sha 解码 PNG 成 *vision.Template, 缓存复用.
+// 缓存键 = blob sha (内容寻址, 跨容器/跨资产同像素复用), singleflight 防雪崩.
+// 缓存在 PickVariant 之后 (变体已选定) → 不存在跨分辨率误命中; blob 不可变 → 条目永不 stale.
+func (m *templateMatcherAdapter) loadDecodedTemplate(blobSha string) (*vision.Template, error) {
+	if cached, ok := m.loadCache.Load(blobSha); ok {
+		return cached.(*vision.Template), nil
+	}
+	v, err, _ := m.loadSF.Do(blobSha, func() (interface{}, error) {
+		pngData, err := m.store.Blobs().Read(blobSha)
+		if err != nil {
+			return nil, fmt.Errorf("read blob %s: %w", blobSha, err)
+		}
+		tpl, err := vision.LoadPNG(bytes.NewReader(pngData))
+		if err != nil {
+			return nil, fmt.Errorf("decode blob %s: %w", blobSha, err)
+		}
+		m.loadCache.Store(blobSha, tpl)
+		return tpl, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*vision.Template), nil
+}
+
+// Detect 单次模板检测. guid 定位全局资产; scaleTolerance 由 caller (VisionAdapter, 有容器上下文) 传入.
+func (m *templateMatcherAdapter) Detect(_ context.Context, frame *image.RGBA, guid string, threshold float64, region []float64, scaleTolerance float64) (bool, expr.Point, [4]float64, float64, error) {
+	if frame == nil {
+		return false, expr.Point{}, [4]float64{}, 0, nil
+	}
 	frameW := frame.Bounds().Dx()
 	frameH := frame.Bounds().Dy()
-	rx, ry, rw, rh := region[0], region[1], region[2], region[3]
-	if rw == 0 || rh == 0 {
-		rx, ry, rw, rh = 0, 0, 1, 1
+
+	variant, ok := m.store.PickVariant(guid, frameW, frameH)
+	if !ok {
+		m.emitMissingVariantWarning(guid, frameW, frameH)
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
-	x0 := int(rx * float64(frameW))
-	y0 := int(ry * float64(frameH))
-	x1 := x0 + int(rw*float64(frameW))
-	y1 := y0 + int(rh*float64(frameH))
-	if x0 < 0 {
-		x0 = 0
+	// 跨分辨率缩放兜底: PickVariant 可能返回非精确分辨率的最近档. 按长边比算缩放比,
+	// 超出容器 ScaleTolerance ([1/k, k]) 则判太远不缩放, 仍 miss (emit 警告).
+	scale := longEdgeScale(frameW, frameH, variant.Resolution[0], variant.Resolution[1])
+	k := normScaleTolerance(scaleTolerance)
+	if !withinScaleTolerance(scale, k) {
+		m.emitScaleTooFarWarning(guid, frameW, frameH, variant.Resolution, scale, k)
+		return false, expr.Point{}, [4]float64{}, 0, nil
 	}
-	if y0 < 0 {
-		y0 = 0
+	tpl, err := m.loadDecodedTemplate(variant.Blob)
+	if err != nil {
+		return false, expr.Point{}, [4]float64{}, 0, err
 	}
-	if x1 > frameW {
-		x1 = frameW
-	}
-	if y1 > frameH {
-		y1 = frameH
-	}
-	if x1 <= x0 || y1 <= y0 {
-		return 0, 0, 0, nil
+	// 精确命中 scale==1.0 不缩 (零开销); 否则按长边比缩到 frame 分辨率再 NCC.
+	if scale != 1.0 {
+		scaled := vision.ScaleTemplate(tpl, float32(scale))
+		if scaled == nil {
+			return false, expr.Point{}, [4]float64{}, 0, nil // 缩后 <8px, 当 miss.
+		}
+		tpl = scaled
 	}
 
-	useHSV := mode != "rgb"
-	count := 0
-	sumX, sumY := 0, 0
-	stride := frame.Stride
+	// 多槽分支 (e.g. 商店 bait_product 3×2 grid): variant.Regions 非空 → 各 region 各跑 NCC,
+	// 收 conf>=threshold 的 hit, 按 reading order (y 升, 同 y 按 x 升) 取末位 (右下).
+	// 取右下而非左上: 多槽 UI 常把已选中/默认项放左上, 末位拿未选中项更稳.
+	// caller 显式 region 优先于多槽 (常用于强制单点测试).
+	// 传 variant.Resolution (原始录制分辨率) 是有意的: regions 的 pixel bbox 在原分辨率坐标系,
+	// 转 ratio 后分辨率无关; tpl 已按长边比缩到 frame 尺度, 与裁自真实 frame 的 ROI 同尺度.
+	if len(variant.Regions) > 0 && !(len(region) == 4 && (region[2] > 0 || region[3] > 0)) {
+		return m.detectMultiRegion(frame, tpl, variant.Regions, variant.Resolution, threshold)
+	}
 
-	for y := y0; y < y1; y++ {
-		off := y * stride
-		for x := x0; x < x1; x++ {
-			i := off + x*4
-			r, gC, b := frame.Pix[i], frame.Pix[i+1], frame.Pix[i+2]
-			hit := false
-			if useHSV {
-				hh, ss, vv := vision.RGBToHSV(r, gC, b)
-				hit = hh >= rng[0] && hh <= rng[1] && ss >= rng[2] && ss <= rng[3] && vv >= rng[4] && vv <= rng[5]
-			} else {
-				hit = int(r) >= rng[0] && int(r) <= rng[1] && int(gC) >= rng[2] && int(gC) <= rng[3] && int(b) >= rng[4] && int(b) <= rng[5]
-			}
-			if hit {
-				count++
-				sumX += x
-				sumY += y
-			}
+	// ROI 优先级:
+	//   1. caller 传 region (node config 显式 ROI) — 用 caller
+	//   2. variant.BBox 非零 — pixel bbox / variant.Resolution 转 ratio + 30px padding
+	//   3. 全屏 (1×1) — 1080p 大模板 3-5s/match, 兜底
+	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
+	switch {
+	case len(region) == 4 && (region[2] > 0 || region[3] > 0):
+		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
+	case variant.Resolution[0] > 0 && variant.Resolution[1] > 0 && variant.BBox[2] > variant.BBox[0] && variant.BBox[3] > variant.BBox[1]:
+		vw, vh := float64(variant.Resolution[0]), float64(variant.Resolution[1])
+		bx, by := float64(variant.BBox[0]), float64(variant.BBox[1])
+		bw, bh := float64(variant.BBox[2]-variant.BBox[0]), float64(variant.BBox[3]-variant.BBox[1])
+		padX := roiPaddingPx / vw
+		padY := roiPaddingPx / vh
+		rx = clamp01(bx/vw - padX)
+		ry = clamp01(by/vh - padY)
+		rw = clamp01Bound(bw/vw+padX*2, rx)
+		rh = clamp01Bound(bh/vh+padY*2, ry)
+	}
+
+	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
+	if roiPxW <= 0 || roiPxH <= 0 {
+		return false, expr.Point{}, [4]float64{}, 0, nil
+	}
+	x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
+	if x < 0 || conf < float32(threshold) {
+		return false, expr.Point{}, [4]float64{}, float64(conf), nil // 报真实匹配度供超时/miss 诊断
+	}
+	cx := float64(roiPxX+x+tpl.W/2) / float64(frameW)
+	cy := float64(roiPxY+y+tpl.H/2) / float64(frameH)
+	out := [4]float64{rx, ry, rw, rh}
+	return true, expr.Point{X: cx, Y: cy}, out, float64(conf), nil
+}
+
+// detectMultiRegion 多槽 ROI 各跑 NCC, 收 conf>=threshold hit, 按 reading-order 末位返回.
+// 处理多槽位 UI (e.g. 货架 3×2 grid).
+// regions 每条 pixel bbox 在 variantRes 坐标系下, 自动加 30px padding (跟 single-BBox 路径一致).
+func (m *templateMatcherAdapter) detectMultiRegion(frame *image.RGBA, tpl *vision.Template, regions [][4]int, variantRes [2]int, threshold float64) (bool, expr.Point, [4]float64, float64, error) {
+	if variantRes[0] <= 0 || variantRes[1] <= 0 {
+		return false, expr.Point{}, [4]float64{}, 0, nil
+	}
+	type hit struct {
+		cx, cy         float64
+		rx, ry, rw, rh float64
+	}
+	var hits []hit
+	bestConf := float32(-1) // 各槽见过的最高匹配度 (供 miss 诊断)
+	frameW := frame.Bounds().Dx()
+	frameH := frame.Bounds().Dy()
+	vw, vh := float64(variantRes[0]), float64(variantRes[1])
+	padX := roiPaddingPx / vw
+	padY := roiPaddingPx / vh
+	for _, r := range regions {
+		if r[2] <= r[0] || r[3] <= r[1] {
+			continue
+		}
+		bx, by := float64(r[0]), float64(r[1])
+		bw, bh := float64(r[2]-r[0]), float64(r[3]-r[1])
+		rx := clamp01(bx/vw - padX)
+		ry := clamp01(by/vh - padY)
+		rw := clamp01Bound(bw/vw+padX*2, rx)
+		rh := clamp01Bound(bh/vh+padY*2, ry)
+		roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
+		if roiPxW <= 0 || roiPxH <= 0 {
+			continue
+		}
+		x, y, conf := vision.Match(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel())
+		if conf > bestConf {
+			bestConf = conf
+		}
+		if x < 0 || conf < float32(threshold) {
+			continue
+		}
+		hits = append(hits, hit{
+			cx: float64(roiPxX+x+tpl.W/2) / float64(frameW),
+			cy: float64(roiPxY+y+tpl.H/2) / float64(frameH),
+			rx: rx, ry: ry, rw: rw, rh: rh,
+		})
+	}
+	cf := float64(bestConf)
+	if cf < 0 {
+		cf = 0
+	}
+	if len(hits) == 0 {
+		return false, expr.Point{}, [4]float64{}, cf, nil
+	}
+	// reading-order 末位: ry 升序, ry 同时 rx 升序, 取最后一个 (右下).
+	last := hits[0]
+	for _, h := range hits[1:] {
+		if h.ry > last.ry || (h.ry == last.ry && h.rx > last.rx) {
+			last = h
 		}
 	}
-	if count == 0 {
-		return 0, 0, 0, nil
-	}
-	cxPx := float64(sumX) / float64(count)
-	cyPx := float64(sumY) / float64(count)
-	return count, cxPx / float64(frameW), cyPx / float64(frameH), nil
+	return true, expr.Point{X: last.cx, Y: last.cy}, [4]float64{last.rx, last.ry, last.rw, last.rh}, cf, nil
 }
 
-// ---- InputDriver: Container 输入原语 → Win32Driver via pkg/input ----
-//
-// ClickAt / KeyPress / MouseMoveRel / Scroll / ClickTemplate.click 阶段调这里。
-// 每次操作内查一次游戏窗口 hwnd + 客户区尺寸；hwnd 缺失则 error。
-// 复用 actionsruntime.Win32Driver 避免实现重复。
-
-type containerInputDriver struct {
-	app    *services.App
-	driver *actionsruntime.Win32Driver
-}
-
-func newContainerInputDriver(app *services.App) *containerInputDriver {
-	return &containerInputDriver{
-		app: app,
-		driver: &actionsruntime.Win32Driver{
-			ActivateDelay:     30 * time.Millisecond,
-			CursorSettleDelay: 20 * time.Millisecond,
-		},
+// DetectAll 镜像 Detect (PickVariant → scaleTolerance 门 → ScaleTemplate → ROI), 但调 vision.MatchAll
+// 收该模板**全部**命中。单 ROI 路径; 多槽变体 → 各 region 收全部。坐标全帧归一化。spec §节点2。
+func (m *templateMatcherAdapter) DetectAll(_ context.Context, frame *image.RGBA, guid string, threshold float64, region []float64, scaleTolerance float64) ([]node.TemplateMatch, error) {
+	if frame == nil {
+		return nil, nil
 	}
-}
+	frameW := frame.Bounds().Dx()
+	frameH := frame.Bounds().Dy()
 
-func (d *containerInputDriver) hwndOrErr() (win.HWND, int, int, error) {
-	g := d.app.Game()
-	if g == nil || !g.OK {
-		return 0, 0, 0, fmt.Errorf("游戏窗口未就绪")
+	variant, ok := m.store.PickVariant(guid, frameW, frameH)
+	if !ok {
+		m.emitMissingVariantWarning(guid, frameW, frameH)
+		return nil, nil
 	}
-	hwnd := win.HWND(g.HWND)
-	w, h, err := capture.ClientSize(hwnd)
+	scale := longEdgeScale(frameW, frameH, variant.Resolution[0], variant.Resolution[1])
+	k := normScaleTolerance(scaleTolerance)
+	if !withinScaleTolerance(scale, k) {
+		m.emitScaleTooFarWarning(guid, frameW, frameH, variant.Resolution, scale, k)
+		return nil, nil
+	}
+	tpl, err := m.loadDecodedTemplate(variant.Blob)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("capture.ClientSize: %w", err)
+		return nil, err
 	}
-	return hwnd, w, h, nil
-}
-
-func (d *containerInputDriver) Click(_ context.Context, xR, yR float64, button string, durMs int) error {
-	hwnd, w, h, err := d.hwndOrErr()
-	if err != nil {
-		return err
-	}
-	x := int(xR * float64(w))
-	y := int(yR * float64(h))
-	return d.driver.Click(hwnd, x, y, mouseButtonFromString(button), durMs)
-}
-
-func (d *containerInputDriver) KeyPress(ctx context.Context, vk string, durMs int) error {
-	hwnd, _, _, err := d.hwndOrErr()
-	if err != nil {
-		return err
-	}
-	if err := d.driver.KeyDown(hwnd, vk); err != nil {
-		return err
-	}
-	// defer KeyUp 保证任意分支退出（含 panic）都释放按键。
-	defer func() { _ = d.driver.KeyUp(hwnd, vk) }()
-	if durMs > 0 {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(durMs) * time.Millisecond):
+	if scale != 1.0 {
+		scaled := vision.ScaleTemplate(tpl, float32(scale))
+		if scaled == nil {
+			return nil, nil
 		}
+		tpl = scaled
 	}
-	return nil
+
+	// 多槽变体: 各 region 各自 MatchAll, 收全部命中 (现有 Detect 取末位单个; DetectAll 收全)。
+	if len(variant.Regions) > 0 && !(len(region) == 4 && (region[2] > 0 || region[3] > 0)) {
+		var out []node.TemplateMatch
+		vw, vh := float64(variant.Resolution[0]), float64(variant.Resolution[1])
+		if vw <= 0 || vh <= 0 {
+			return nil, nil
+		}
+		padX, padY := roiPaddingPx/vw, roiPaddingPx/vh
+		for _, r := range variant.Regions {
+			if r[2] <= r[0] || r[3] <= r[1] {
+				continue
+			}
+			rx := clamp01(float64(r[0])/vw - padX)
+			ry := clamp01(float64(r[1])/vh - padY)
+			rw := clamp01Bound(float64(r[2]-r[0])/vw+padX*2, rx)
+			rh := clamp01Bound(float64(r[3]-r[1])/vh+padY*2, ry)
+			out = append(out, m.matchAllInROI(frame, tpl, guid, rx, ry, rw, rh, threshold, frameW, frameH)...)
+		}
+		return out, nil
+	}
+
+	// 单 ROI 路径 (优先级同 Detect: caller region > variant.BBox+padding > 全屏)。
+	rx, ry, rw, rh := 0.0, 0.0, 1.0, 1.0
+	switch {
+	case len(region) == 4 && (region[2] > 0 || region[3] > 0):
+		rx, ry, rw, rh = region[0], region[1], region[2], region[3]
+	case variant.Resolution[0] > 0 && variant.Resolution[1] > 0 && variant.BBox[2] > variant.BBox[0] && variant.BBox[3] > variant.BBox[1]:
+		vw, vh := float64(variant.Resolution[0]), float64(variant.Resolution[1])
+		bx, by := float64(variant.BBox[0]), float64(variant.BBox[1])
+		bw, bh := float64(variant.BBox[2]-variant.BBox[0]), float64(variant.BBox[3]-variant.BBox[1])
+		padX, padY := roiPaddingPx/vw, roiPaddingPx/vh
+		rx = clamp01(bx/vw - padX)
+		ry = clamp01(by/vh - padY)
+		rw = clamp01Bound(bw/vw+padX*2, rx)
+		rh = clamp01Bound(bh/vh+padY*2, ry)
+	}
+	return m.matchAllInROI(frame, tpl, guid, rx, ry, rw, rh, threshold, frameW, frameH), nil
 }
 
-func (d *containerInputDriver) MouseMoveRel(_ context.Context, dx, dy, durMs int) error {
-	hwnd, _, _, err := d.hwndOrErr()
-	if err != nil {
-		return err
+// matchAllInROI 在比例 ROI (rx,ry,rw,rh) 内对 tpl 跑 MatchAll, 每命中 → 全帧归一化 TemplateMatch。
+func (m *templateMatcherAdapter) matchAllInROI(frame *image.RGBA, tpl *vision.Template, guid string, rx, ry, rw, rh, threshold float64, frameW, frameH int) []node.TemplateMatch {
+	roiGray, roiPxX, roiPxY, roiPxW, roiPxH := vision.CropROI(frame, rx, ry, rw, rh)
+	if roiPxW <= 0 || roiPxH <= 0 {
+		return nil
 	}
-	return d.driver.MouseMoveRel(hwnd, dx, dy, durMs)
-}
-
-func (d *containerInputDriver) Scroll(_ context.Context, _, _ float64, delta int) error {
-	hwnd, _, _, err := d.hwndOrErr()
-	if err != nil {
-		return err
+	hits := vision.MatchAll(roiGray, roiPxW, roiPxH, tpl, vision.DefaultParallel(), float32(threshold), 0)
+	if len(hits) == 0 {
+		return nil
 	}
-	return d.driver.Scroll(hwnd, delta)
-}
-
-func mouseButtonFromString(s string) input.MouseButton {
-	switch s {
-	case "middle":
-		return input.MouseMiddle
-	case "right":
-		return input.MouseRight
+	fw, fh := float64(frameW), float64(frameH)
+	out := make([]node.TemplateMatch, 0, len(hits))
+	for _, h := range hits {
+		cx := float64(roiPxX+h.X+tpl.W/2) / fw
+		cy := float64(roiPxY+h.Y+tpl.H/2) / fh
+		out = append(out, node.TemplateMatch{
+			Point:       node.Point{X: cx, Y: cy},
+			Conf:        float64(h.Conf),
+			BBox:        [4]float64{float64(roiPxX+h.X) / fw, float64(roiPxY+h.Y) / fh, float64(tpl.W) / fw, float64(tpl.H) / fh},
+			TemplateKey: guid,
+		})
 	}
-	return input.MouseLeft
+	return out
 }
 
 // ---- Container Runner: ExecutionQueue + Worker → container.Runner ----
@@ -300,9 +454,13 @@ func mouseButtonFromString(s string) input.MouseButton {
 type containerRunnerAdapter struct {
 	queue  *execution.ExecutionQueue
 	worker *execution.Worker
+	debug  *containerDebugManager
 }
 
 func (a *containerRunnerAdapter) RunOnce(id string) error {
+	if a.debug != nil && a.debug.IsActive() {
+		return fmt.Errorf("debug_session_busy")
+	}
 	_, ok := a.queue.Enqueue(execution.QueuedRun{
 		Targets: []execution.TargetRef{{Kind: "container", ID: id}},
 		OnError: execution.OnErrorStop,
@@ -317,7 +475,52 @@ func (a *containerRunnerAdapter) RunOnce(id string) error {
 func (a *containerRunnerAdapter) StopAll() error {
 	a.queue.CancelAll()
 	a.worker.CancelCurrent()
+	if a.debug != nil && a.debug.IsActive() {
+		_, _ = a.debug.DebugStop(a.debug.sessionID())
+	}
 	return nil
+}
+
+func (a *containerRunnerAdapter) DebugStart(id string, options container.DebugStartOptions) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugStart(id, options)
+}
+
+func (a *containerRunnerAdapter) DebugStep(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugStep(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugContinue(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugContinue(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugPause(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugPause(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugStop(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugStop(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugState(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugState(sessionID)
 }
 
 // ---- Container hotkey binder ----
@@ -352,7 +555,9 @@ func (b *containerHotkeyBinder) Refresh() {
 		}
 		key := "container." + c.ID
 		cid := c.ID
-		err := b.registry.Register(key, hotkey.HotkeySourceContainer, "容器 "+c.Name, hk, "",
+		err := b.registry.Register(key, hotkey.HotkeySourceContainer,
+			"hotkeys.label.container", map[string]string{"name": c.Name},
+			hk, "",
 			func() {
 				_, _ = b.queue.Enqueue(execution.QueuedRun{
 					Targets: []execution.TargetRef{{Kind: "container", ID: cid}},

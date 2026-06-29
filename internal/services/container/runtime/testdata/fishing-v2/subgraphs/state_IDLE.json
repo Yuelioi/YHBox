@@ -1,0 +1,412 @@
+{
+  "id": "state_IDLE",
+  "label": "state_IDLE",
+  "description": "复刻 tools/fish/states_fishing.go:14-98 handleIdle. 钓鱼主循环入口 state. 3 主路径优先级: (1) start_fish 命中 → state=SETUP; (2) hook_icon 命中 → KeyPress(f) + Sleep(baitProbeDelayMs=300) + 检 need_bait/warehouse_full/start_fish (cast 后兜底) → BUYBAIT/SHOPSELL/SETUP; 都没 → Sleep(castRemainingDelayMs=1700) + SetVar(waitingStart, now_ms) + SetVar(hookStreak, 0) + state=WAITING; (3) result 命中 → press_esc_until_clear, state 留 IDLE. 都没匹配 → 留 IDLE 下次重扫. 简化: 跳过 fish bot 的 stats / debug log / AutoSell pause 分支 (warehouse_full 直接强制 SHOPSELL).",
+  "graph": {
+    "id": "state_IDLE_graph",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "checkStartFish",
+        "kind": "CheckTemplate",
+        "x": 200,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateSetup",
+        "kind": "SetVar",
+        "x": 400,
+        "y": -200,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "SETUP",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "checkHookIcon",
+        "kind": "CheckTemplate",
+        "x": 600,
+        "y": 0,
+        "config": {
+          "literal": {
+            "Templates": [
+              "4209330f-c35f-4562-bf03-cd4a57c78274"
+            ],
+            "Threshold": 0.85
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "tapF",
+        "kind": "KeyPress",
+        "x": 800,
+        "y": -100,
+        "config": {
+          "literal": {
+            "DurationMs": 150,
+            "VK": "f"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "sleepBaitProbe",
+        "kind": "Sleep",
+        "x": 1000,
+        "y": -100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getParamBaitProbe",
+        "kind": "GetParam",
+        "x": 1000,
+        "y": 100,
+        "config": {
+          "literal": {
+            "ParamName": "baitProbeDelayMs"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "checkNeedBait",
+        "kind": "CheckTemplate",
+        "x": 1200,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Templates": [
+              "9105d7e7-75bf-40e2-b910-1704fc8aada4"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateBuyBait",
+        "kind": "SetVar",
+        "x": 1400,
+        "y": -300,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "BUYBAIT",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "checkWarehouseFull",
+        "kind": "CheckTemplate",
+        "x": 1600,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Templates": [
+              "b118226e-bf00-49ff-80d9-3b13b4a51586"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateShopSell",
+        "kind": "SetVar",
+        "x": 1800,
+        "y": -300,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "SHOPSELL",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "checkStartFishAgain",
+        "kind": "CheckTemplate",
+        "x": 2000,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Templates": [
+              "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateSetup2",
+        "kind": "SetVar",
+        "x": 2200,
+        "y": -300,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "SETUP",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "sleepRemaining",
+        "kind": "Sleep",
+        "x": 2400,
+        "y": -100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getParamRemaining",
+        "kind": "GetParam",
+        "x": 2400,
+        "y": 100,
+        "config": {
+          "literal": {
+            "ParamName": "castRemainingDelayMs"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setHookStreak",
+        "kind": "SetVar",
+        "x": 2600,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": 0,
+            "VarName": "hookStreak"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getNow",
+        "kind": "Now",
+        "x": 2600,
+        "y": 100,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setWaitingStart",
+        "kind": "SetVar",
+        "x": 2800,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "VarName": "waitingStart"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "setStateWaiting",
+        "kind": "SetVar",
+        "x": 3000,
+        "y": -100,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "WAITING",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "checkResult",
+        "kind": "CheckTemplate",
+        "x": 800,
+        "y": 200,
+        "config": {
+          "literal": {
+            "Templates": [
+              "3680b3d2-d31d-461c-b697-0d9c3e6a87ed"
+            ],
+            "Threshold": 0.75
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "pressEscCall",
+        "kind": "Subgraph",
+        "x": 1000,
+        "y": 200,
+        "config": {
+          "SubgraphID": "press_esc_until_clear"
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "sgin.Done",
+        "to": "checkStartFish.In"
+      },
+      {
+        "from": "checkStartFish.Found",
+        "to": "setStateSetup.In"
+      },
+      {
+        "from": "setStateSetup.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkStartFish.NotFound",
+        "to": "checkHookIcon.In"
+      },
+      {
+        "from": "checkHookIcon.Found",
+        "to": "tapF.In"
+      },
+      {
+        "from": "tapF.Done",
+        "to": "sleepBaitProbe.In"
+      },
+      {
+        "from": "getParamBaitProbe.Value",
+        "to": "sleepBaitProbe.Duration"
+      },
+      {
+        "from": "sleepBaitProbe.Done",
+        "to": "checkNeedBait.In"
+      },
+      {
+        "from": "checkNeedBait.Found",
+        "to": "setStateBuyBait.In"
+      },
+      {
+        "from": "setStateBuyBait.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkNeedBait.NotFound",
+        "to": "checkWarehouseFull.In"
+      },
+      {
+        "from": "checkWarehouseFull.Found",
+        "to": "setStateShopSell.In"
+      },
+      {
+        "from": "setStateShopSell.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkWarehouseFull.NotFound",
+        "to": "checkStartFishAgain.In"
+      },
+      {
+        "from": "checkStartFishAgain.Found",
+        "to": "setStateSetup2.In"
+      },
+      {
+        "from": "setStateSetup2.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkStartFishAgain.NotFound",
+        "to": "sleepRemaining.In"
+      },
+      {
+        "from": "getParamRemaining.Value",
+        "to": "sleepRemaining.Duration"
+      },
+      {
+        "from": "sleepRemaining.Done",
+        "to": "setHookStreak.In"
+      },
+      {
+        "from": "setHookStreak.Done",
+        "to": "setWaitingStart.In"
+      },
+      {
+        "from": "getNow.Value",
+        "to": "setWaitingStart.Value"
+      },
+      {
+        "from": "setWaitingStart.Done",
+        "to": "setStateWaiting.In"
+      },
+      {
+        "from": "setStateWaiting.Done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkHookIcon.NotFound",
+        "to": "checkResult.In"
+      },
+      {
+        "from": "checkResult.Found",
+        "to": "pressEscCall.In"
+      },
+      {
+        "from": "pressEscCall.done",
+        "to": "sgout.In"
+      },
+      {
+        "from": "checkResult.NotFound",
+        "to": "sgout.In"
+      }
+    ]
+  },
+  "entry": {
+    "nodeID": "sgin"
+  },
+  "outputPins": [
+    {
+      "id": "done",
+      "name": "done",
+      "nodeID": "sgout",
+      "x": 3200
+    }
+  ],
+  "inputParams": [
+    {
+      "name": "baitProbeDelayMs",
+      "type": "number",
+      "default": 300
+    },
+    {
+      "name": "castRemainingDelayMs",
+      "type": "number",
+      "default": 1700
+    }
+  ],
+  "tags": [
+    "fishing-v2",
+    "state-machine",
+    "idle"
+  ],
+  "requiredGlobals": [
+    "state",
+    "hookStreak",
+    "waitingStart"
+  ],
+  "createdAt": "2026-05-20T00:00:00Z",
+  "schemaVersion": 1,
+  "rev": 1
+}

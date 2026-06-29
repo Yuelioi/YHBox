@@ -1,0 +1,437 @@
+{
+  "schemaVersion": 1,
+  "id": "fishing-v2",
+  "name": "fishing-v2",
+  "description": "Fishing v2 主容器 (minimum smoke). 复刻 tools/fish 状态机, 当前 ship: state_IDLE + state_SETUP dispatch. 其它 state (WAITING/FISHING/RESULT/RECOVERING/SHOPSELL/BUYBAIT/CHANGEBAIT) 走 default → 强制回 IDLE (post-smoke 实施). watchdog branch (Parallel + Cron) 待 B1 currentTick race fix 后加.",
+  "inputBackend": "postmessage",
+  "captureBackend": "auto",
+  "scaleTolerance": 2,
+  "vars": [
+    {
+      "name": "state",
+      "type": "string",
+      "default": "IDLE"
+    },
+    {
+      "name": "controlDir",
+      "type": "number",
+      "default": 0
+    },
+    {
+      "name": "_hookFFound",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "name": "_inspectPhaseResult",
+      "type": "string",
+      "default": "unknown"
+    },
+    {
+      "name": "waitingStart",
+      "type": "number",
+      "default": 0
+    },
+    {
+      "name": "hookStreak",
+      "type": "number",
+      "default": 0
+    },
+    {
+      "name": "_pressEscCleared",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "name": "fishingStart",
+      "type": "number",
+      "default": 0
+    },
+    {
+      "name": "emptyCastStreak",
+      "type": "number",
+      "default": 0
+    },
+    {
+      "name": "resultEnteredAt",
+      "type": "number",
+      "default": 0
+    },
+    {
+      "name": "recoveryEscDone",
+      "type": "bool",
+      "default": false
+    }
+  ],
+  "graph": {
+    "id": "fishing-v2-main",
+    "version": 1,
+    "nodes": [
+      {
+        "id": "start",
+        "kind": "Start",
+        "x": -831.1946,
+        "y": -188.00333,
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "winTarget",
+        "kind": "Win32WindowTarget",
+        "x": -511.19458,
+        "y": -335.00333,
+        "config": {
+          "_capturedAtResolution": [
+            1920,
+            1080
+          ],
+          "literal": {
+            "Class": "UnrealWindow",
+            "ProcessName": "htgame.exe",
+            "Title": "异环  ",
+            "TitleMatch": "exact"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "initState",
+        "kind": "SetVar",
+        "x": -191.19458,
+        "y": -357.00333,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "IDLE",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "loopMain",
+        "kind": "Loop",
+        "x": 234.80542,
+        "y": -378.50333,
+        "config": {
+          "literal": {
+            "Count": 0,
+            "Mode": "forever"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "getState",
+        "kind": "GetVar",
+        "x": 248.80542,
+        "y": -532.50336,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "swState",
+        "kind": "Switch",
+        "x": 674.8054,
+        "y": -576.50336,
+        "config": {
+          "cases": [
+            "IDLE",
+            "SETUP",
+            "WAITING",
+            "FISHING",
+            "RESULT",
+            "RECOVERING",
+            "SHOPSELL",
+            "BUYBAIT",
+            "CHANGEBAIT"
+          ]
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "callIDLE",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": -694.54877,
+        "config": {
+          "SubgraphID": "state_IDLE"
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "callSETUP",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": -452.54877,
+        "config": {
+          "SubgraphID": "state_SETUP"
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "callWAITING",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": -210.54878,
+        "config": {
+          "SubgraphID": "state_WAITING"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "callFISHING",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": 31.45122,
+        "config": {
+          "SubgraphID": "state_FISHING"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "callRESULT",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": 273.45123,
+        "config": {
+          "SubgraphID": "state_RESULT"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "callRECOVERING",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": 515.45123,
+        "config": {
+          "SubgraphID": "state_RECOVERING"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "callSHOPSELL",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": 757.45123,
+        "config": {
+          "SubgraphID": "state_SHOPSELL"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "callBUYBAIT",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": 999.45123,
+        "config": {
+          "SubgraphID": "state_BUYBAIT"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "callCHANGEBAIT",
+        "kind": "Subgraph",
+        "x": 1109.8054,
+        "y": 1241.4512,
+        "config": {
+          "SubgraphID": "state_CHANGEBAIT"
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "resetToIDLE",
+        "kind": "SetVar",
+        "x": 1056.8054,
+        "y": 1483.4512,
+        "config": {
+          "literal": {
+            "Scope": "global",
+            "Value": "IDLE",
+            "VarName": "state"
+          }
+        },
+        "createdAt": "2026-05-20T00:00:00Z"
+      },
+      {
+        "id": "sleepFishing",
+        "kind": "Sleep",
+        "x": 1482.8054,
+        "y": 25.95122,
+        "config": {
+          "literal": {
+            "Duration": 150
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepWaiting",
+        "kind": "Sleep",
+        "x": 1482.8054,
+        "y": -216.04878,
+        "config": {
+          "literal": {
+            "Duration": 250
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepIdle",
+        "kind": "Sleep",
+        "x": 1482.8054,
+        "y": 267.95123,
+        "config": {
+          "literal": {
+            "Duration": 200
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepRecovering",
+        "kind": "Sleep",
+        "x": 1482.8054,
+        "y": 509.95123,
+        "config": {
+          "literal": {
+            "Duration": 500
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "sleepShop",
+        "kind": "Sleep",
+        "x": 1482.8054,
+        "y": 993.95123,
+        "config": {
+          "literal": {
+            "Duration": 300
+          }
+        },
+        "createdAt": "2026-05-21T00:00:00Z"
+      },
+      {
+        "id": "stop",
+        "kind": "Stop",
+        "x": 674.8054,
+        "y": -168.50333,
+        "createdAt": "2026-05-20T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "from": "initState.Done",
+        "to": "loopMain.In"
+      },
+      {
+        "from": "loopMain.Body",
+        "to": "swState.In"
+      },
+      {
+        "from": "getState.Value",
+        "to": "swState.Value"
+      },
+      {
+        "from": "swState.IDLE",
+        "to": "callIDLE.In"
+      },
+      {
+        "from": "callIDLE.done",
+        "to": "sleepIdle.In"
+      },
+      {
+        "from": "swState.SETUP",
+        "to": "callSETUP.In"
+      },
+      {
+        "from": "callSETUP.done",
+        "to": "sleepIdle.In"
+      },
+      {
+        "from": "swState.WAITING",
+        "to": "callWAITING.In"
+      },
+      {
+        "from": "callWAITING.done",
+        "to": "sleepWaiting.In"
+      },
+      {
+        "from": "swState.FISHING",
+        "to": "callFISHING.In"
+      },
+      {
+        "from": "callFISHING.done",
+        "to": "sleepFishing.In"
+      },
+      {
+        "from": "swState.RESULT",
+        "to": "callRESULT.In"
+      },
+      {
+        "from": "callRESULT.done",
+        "to": "sleepIdle.In"
+      },
+      {
+        "from": "swState.RECOVERING",
+        "to": "callRECOVERING.In"
+      },
+      {
+        "from": "callRECOVERING.done",
+        "to": "sleepRecovering.In"
+      },
+      {
+        "from": "swState.SHOPSELL",
+        "to": "callSHOPSELL.In"
+      },
+      {
+        "from": "callSHOPSELL.done",
+        "to": "sleepShop.In"
+      },
+      {
+        "from": "swState.BUYBAIT",
+        "to": "callBUYBAIT.In"
+      },
+      {
+        "from": "callBUYBAIT.done",
+        "to": "sleepShop.In"
+      },
+      {
+        "from": "swState.CHANGEBAIT",
+        "to": "callCHANGEBAIT.In"
+      },
+      {
+        "from": "callCHANGEBAIT.done",
+        "to": "sleepShop.In"
+      },
+      {
+        "from": "swState.default",
+        "to": "resetToIDLE.In"
+      },
+      {
+        "from": "resetToIDLE.Done",
+        "to": "sleepIdle.In"
+      },
+      {
+        "from": "loopMain.Done",
+        "to": "stop.In"
+      },
+      {
+        "from": "start.Done",
+        "to": "winTarget.In"
+      },
+      {
+        "from": "winTarget.Done",
+        "to": "initState.In"
+      }
+    ]
+  },
+  "createdAt": "2026-05-20T23:56:19Z",
+  "updatedAt": "2026-06-05T13:30:02.873668Z"
+}

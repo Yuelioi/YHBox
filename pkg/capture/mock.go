@@ -4,10 +4,12 @@
 // 每轮要 alt-tab 5-10 分钟。改成 mock backend 后：
 //   1. 真游戏跑一次，开启 settings.capture.debug.dump 录一段 PNG 序列到
 //      `bin/captures/<bot>/<date>/`
-//   2. settings.capture.method = "mock"，可选设环境变量 YHBOX_MOCK_DIR 指向那个目录
+//   2. 把该容器 Win32WindowTarget 节点的 CaptureBackend 设成 "mock" (per-container,
+//      settings.capture.method 现在只作新建容器的默认值, 不再全局生效),
+//      可选设环境变量 YOTTA_MOCK_DIR 指向那个目录
 //   3. 启动 bot，detect 拿到的就是录制好的帧，调参立即可见
 //
-// 跟 hwnd 无关——mockCapturer 忽略 hwnd 参数，只看磁盘 PNG。包级 Frame 也一样。
+// 跟 hwnd 无关——mock 忽略 hwnd 参数，只看磁盘 PNG。mockBackend.Frame 也一样。
 
 package capture
 
@@ -30,16 +32,16 @@ var (
 	mockOnce      sync.Once
 	mockLoadErr   error
 	mockFrames    []*image.RGBA // 整张 frame，按文件名排序
-	mockCursorPkg atomic.Int64  // 包级 Frame/FrameROI 用的游标，跟 mockCapturer 互不干扰
+	mockCursorPkg atomic.Int64  // 包级 Frame/FrameROI 用的游标
 )
 
 // MockDir 是 mock backend 读 PNG 的目录。优先级：
-//  1. 环境变量 YHBOX_MOCK_DIR
+//  1. 环境变量 YOTTA_MOCK_DIR
 //  2. exe 同目录 mock-frames/
 //
 // 没找到目录或目录空 → SetBackend(BackendMock) 失败，main.go 回退 GDI。
 func mockDir() string {
-	if env := os.Getenv("YHBOX_MOCK_DIR"); env != "" {
+	if env := os.Getenv("YOTTA_MOCK_DIR"); env != "" {
 		return env
 	}
 	exe, err := os.Executable()
@@ -156,74 +158,6 @@ func cloneRGBA(src *image.RGBA) *image.RGBA {
 	dst := image.NewRGBA(src.Bounds())
 	copy(dst.Pix, src.Pix)
 	return dst
-}
-
-// mockCapturer 高频多 ROI 模式。跟 mockFrame 共享 mockFrames 但自己拿 cursor，
-// 这样多个 capturer 实例（rhythm + fish 同时回放）各跑各的不互相影响。
-type mockCapturer struct {
-	mu     sync.Mutex
-	rois   []image.Rectangle
-	imgs   []*image.RGBA
-	cursor int
-	closed bool
-}
-
-func newMockCapturer(_ win.HWND, rois []image.Rectangle) (Capturer, error) {
-	if err := initMock(); err != nil {
-		return nil, err
-	}
-	if len(rois) == 0 {
-		return nil, fmt.Errorf("rois 不能为空")
-	}
-	// ROI 校验用第一帧的尺寸（假设所有帧同尺寸；混分辨率 mock 不支持）
-	first := mockFrames[0]
-	w, h := first.Bounds().Dx(), first.Bounds().Dy()
-	for i, r := range rois {
-		if r.Min.X < 0 || r.Min.Y < 0 || r.Max.X > w || r.Max.Y > h ||
-			r.Dx() <= 0 || r.Dy() <= 0 {
-			return nil, fmt.Errorf("rois[%d]=%v 越出 mock 帧 %dx%d", i, r, w, h)
-		}
-	}
-	c := &mockCapturer{
-		rois: append([]image.Rectangle{}, rois...),
-		imgs: make([]*image.RGBA, len(rois)),
-	}
-	for i, r := range rois {
-		c.imgs[i] = &image.RGBA{
-			Pix:    make([]byte, r.Dx()*r.Dy()*4),
-			Stride: r.Dx() * 4,
-			Rect:   r,
-		}
-	}
-	return c, nil
-}
-
-func (c *mockCapturer) Frame() ([]*image.RGBA, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.closed {
-		return nil, fmt.Errorf("capturer closed")
-	}
-	src := mockFrames[c.cursor%len(mockFrames)]
-	c.cursor++
-	for i, roi := range c.rois {
-		img := c.imgs[i]
-		roiW := roi.Dx()
-		roiH := roi.Dy()
-		for y := 0; y < roiH; y++ {
-			srcRow := src.Pix[(roi.Min.Y+y)*src.Stride+roi.Min.X*4:]
-			dstRow := img.Pix[y*img.Stride:]
-			copy(dstRow, srcRow[:roiW*4])
-		}
-	}
-	return c.imgs, nil
-}
-
-func (c *mockCapturer) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.closed = true
-	return nil
 }
 
 // mockClientSize 给 ClientSize 调用用：返回第一帧的尺寸（mock 假设所有帧同分辨率）。

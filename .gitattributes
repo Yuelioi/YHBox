@@ -1,0 +1,19 @@
+# 全仓行尾统一为 LF (含 Windows 工作树), 消除 core.autocrlf 造成的 CRLF↔LF 抖动。
+# 与 frontend/.editorconfig 的 end_of_line=lf 对齐; gofmt、node 生成物 (node-i18n.json 等) 均输出 LF。
+* text=auto eol=lf
+
+# 二进制 — 不做行尾/文本转换, 不当文本 diff
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.icns  binary
+*.exe   binary
+*.dll   binary
+*.syso  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary

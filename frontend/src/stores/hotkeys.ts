@@ -19,5 +19,11 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
     return true
   }
 
-  return { list, reload, update }
+  // keyFor 按 registry key 取当前绑定的热键串 (响应式, 跟 list 走). 未找到/未绑定回退 fallback.
+  // 用于把"按 F12 停止"这类硬编显示换成实时绑定值 (rebind 后自动更新)。
+  function keyFor(registryKey: string, fallback: string): string {
+    return list.value.find((e) => e.key === registryKey)?.hotkeyStr || fallback
+  }
+
+  return { list, reload, update, keyFor }
 })
