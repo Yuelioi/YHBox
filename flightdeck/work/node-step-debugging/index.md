@@ -40,6 +40,7 @@ Done:
 - Added visible side-effect warnings near debug controls and in the debug status panel.
 - Added frontend stale-session recovery: failed debug RPC responses clear local debug UI state, and failed starts no longer show success.
 - Added debug manager tests for second-start and duplicate-step busy rejection.
+- Added compact debug panel previews for last output data and variable snapshots.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
@@ -48,6 +49,7 @@ Verified:
 - `go test . -run TestDebugManager -count=1`
 - `go test ./...`
 - `pnpm exec vitest run src/stores/execution.debug.test.ts`
+- `pnpm exec vitest run src/composables/editor/debugPanel.spec.ts`
 - `pnpm exec vitest run`
 - `pnpm exec vitest run src/components/containers/menus/NodeContextMenu.spec.ts`
 - `pnpm exec vue-tsc --noEmit`

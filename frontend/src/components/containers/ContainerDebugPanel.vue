@@ -30,6 +30,16 @@
       </span>
     </div>
 
+    <div v-if="summary.lastOutputPreview" class="debug-row">
+      <span class="debug-key">{{ t('editor.debug_panel.output') }}</span>
+      <span class="debug-val">{{ summary.lastOutputPreview }}</span>
+    </div>
+
+    <div v-if="summary.varsPreview" class="debug-row">
+      <span class="debug-key">{{ t('editor.debug_panel.vars') }}</span>
+      <span class="debug-val">{{ summary.varsPreview }}</span>
+    </div>
+
     <div class="debug-note warning">
       <UIcon name="i-tabler-alert-triangle" class="size-3.5 shrink-0" />
       <span>{{ t('editor.debug_panel.side_effect_warning') }}</span>
@@ -69,6 +79,8 @@ const state = computed<Partial<DebugSessionState>>(() => ({
   lastNodeId: execStore.debugLastNodeID,
   lastNodeKind: execStore.debugLastNodeKind,
   lastExit: execStore.debugLastExit,
+  lastOutput: execStore.debugLastOutput,
+  vars: execStore.debugVars,
   queue: execStore.debugQueue,
   warnings: execStore.debugWarnings,
   error: execStore.debugError,

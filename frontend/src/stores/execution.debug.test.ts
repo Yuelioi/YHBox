@@ -64,6 +64,24 @@ describe('execution store debug state', () => {
     expect(s.debugError?.message).toBe('boom')
   })
 
+  it('stores variable snapshots and last output from debug states', () => {
+    const s = useExecutionStore()
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'paused',
+      mode: 'entry',
+      lastNodeId: 'expr1',
+      lastNodeKind: 'Expr',
+      lastExit: 'Done',
+      lastOutput: { Value: 12, Text: 'ok' },
+      vars: { hp: 100, state: 'ready' },
+    })
+
+    expect(s.debugLastOutput).toEqual({ Value: 12, Text: 'ok' })
+    expect(s.debugVars).toEqual({ hp: 100, state: 'ready' })
+  })
+
   it('clears stale debug UI state when the backend session is gone', () => {
     const s = useExecutionStore()
     s.applyDebugState({
@@ -79,6 +97,8 @@ describe('execution store debug state', () => {
       lastExit: 'Done',
       queue: [{ nodeId: 'click1', nodeKind: 'ClickAt', inPin: 'In' }],
       warnings: [{ code: 'debug_skips_upstream_context', message: 'skipped' }],
+      lastOutput: { Done: true },
+      vars: { hp: 100 },
     })
 
     s.clearDebugState()
@@ -89,5 +109,7 @@ describe('execution store debug state', () => {
     expect(s.debugLastNodeID).toBe('')
     expect(s.debugQueue).toEqual([])
     expect(s.debugWarnings).toEqual([])
+    expect(s.debugLastOutput).toEqual({})
+    expect(s.debugVars).toEqual({})
   })
 })

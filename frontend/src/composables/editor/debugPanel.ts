@@ -14,6 +14,8 @@ export interface DebugPanelSummary {
   lastNodeID: string
   lastNodeKind: string
   lastExit: string
+  lastOutputPreview: string
+  varsPreview: string
   queue: DebugTokenSummary[]
   queueCount: number
   warnings: DebugWarning[]
@@ -65,11 +67,38 @@ export function summarizeDebugSession(state: Partial<DebugSessionState> | null |
     lastNodeID,
     lastNodeKind,
     lastExit: String(state?.lastExit ?? ''),
+    lastOutputPreview: previewRecord(state?.lastOutput),
+    varsPreview: previewRecord(state?.vars),
     queue,
     queueCount: queue.length,
     warnings,
     error,
   }
+}
+
+export function previewRecord(value: unknown, limit = 3): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+  if (entries.length === 0) return ''
+  const shown = entries.slice(0, limit).map(([k, v]) => `${k}=${formatDebugValue(v)}`)
+  const rest = entries.length - shown.length
+  return rest > 0 ? `${shown.join(', ')} +${rest}` : shown.join(', ')
+}
+
+function formatDebugValue(value: unknown): string {
+  if (typeof value === 'string') return JSON.stringify(truncate(value, 32))
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value == null) return 'null'
+  try {
+    return truncate(JSON.stringify(value), 32)
+  } catch {
+    return String(value)
+  }
+}
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}...` : value
 }
 
 function toneForStatus(status: string): DebugPanelTone {

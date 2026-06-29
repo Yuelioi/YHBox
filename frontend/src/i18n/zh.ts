@@ -226,6 +226,8 @@ export default {
       focus_running: '执行中',
       focus_failed: '失败',
       last: '上一步',
+      output: '输出',
+      vars: '变量',
       side_effect_warning: '调试会真实执行自动化动作，已产生的副作用不会自动回滚。',
       unknown_error: '调试失败',
       status: {

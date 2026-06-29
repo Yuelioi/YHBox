@@ -62,6 +62,8 @@ export interface DebugSessionState {
   lastNodeId?: string
   lastNodeKind?: string
   lastExit?: string
+  lastOutput?: Record<string, unknown>
+  vars?: Record<string, unknown>
   queue?: DebugTokenSummary[]
   error?: DebugRunError | null
   warnings?: DebugWarning[]
@@ -98,6 +100,8 @@ export const useExecutionStore = defineStore('execution', () => {
   const debugLastNodeID = ref('')
   const debugLastNodeKind = ref('')
   const debugLastExit = ref('')
+  const debugLastOutput = ref<Record<string, unknown>>({})
+  const debugVars = ref<Record<string, unknown>>({})
   const debugFailedNodeID = ref('')
   const debugQueue = ref<DebugTokenSummary[]>([])
   const debugWarnings = ref<DebugWarning[]>([])
@@ -129,6 +133,8 @@ export const useExecutionStore = defineStore('execution', () => {
     debugLastNodeID.value = ''
     debugLastNodeKind.value = ''
     debugLastExit.value = ''
+    debugLastOutput.value = {}
+    debugVars.value = {}
     debugFailedNodeID.value = ''
     debugQueue.value = []
     debugWarnings.value = []
@@ -152,6 +158,8 @@ export const useExecutionStore = defineStore('execution', () => {
     debugLastNodeID.value = String(state.lastNodeId ?? debugLastNodeID.value ?? '')
     debugLastNodeKind.value = String(state.lastNodeKind ?? debugLastNodeKind.value ?? '')
     debugLastExit.value = String(state.lastExit ?? debugLastExit.value ?? '')
+    debugLastOutput.value = copyRecord(state.lastOutput)
+    debugVars.value = copyRecord(state.vars)
 
     const currentID = String(state.currentNodeId ?? '')
     const currentKind = String(state.currentNodeKind ?? '')
@@ -271,6 +279,8 @@ export const useExecutionStore = defineStore('execution', () => {
     debugLastNodeID,
     debugLastNodeKind,
     debugLastExit,
+    debugLastOutput,
+    debugVars,
     debugFailedNodeID,
     debugQueue,
     debugWarnings,
@@ -287,3 +297,8 @@ export const useExecutionStore = defineStore('execution', () => {
     clearDebugState,
   }
 })
+
+function copyRecord(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+  return { ...(v as Record<string, unknown>) }
+}

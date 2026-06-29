@@ -49,4 +49,18 @@ describe('debugPanel summary', () => {
     expect(s.focusNodeID).toBe('bad')
     expect(s.error?.message).toBe('boom')
   })
+
+  it('summarizes output and variable snapshots compactly', () => {
+    const s = summarizeDebugSession({
+      sessionId: 's1',
+      status: 'paused',
+      lastNodeId: 'expr',
+      lastNodeKind: 'Expr',
+      lastOutput: { z: 3, a: 'ready', obj: { ok: true }, b: false },
+      vars: { hp: 100, name: 'player' },
+    })
+
+    expect(s.lastOutputPreview).toBe('a="ready", b=false, obj={"ok":true} +1')
+    expect(s.varsPreview).toBe('hp=100, name="player"')
+  })
 })
