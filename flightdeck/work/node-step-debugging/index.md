@@ -52,6 +52,7 @@ Done:
 - Fixed out-of-order debug command snapshots so a late `stepping` RPC response cannot overwrite a newer paused completion event.
 - Moved validate/save into the centered run/debug workflow group and removed the standalone warning icon beside Debug.
 - Skipped disabled nodes at debug queue boundaries so Step pauses on the next enabled node instead of a disabled passthrough node.
+- Reworked the editor toolbar into IDE-style zones: navigation on the left, save/validate/run/debug workflow in the center, recording/layout/more tools on the right.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
@@ -63,6 +64,7 @@ Verified:
 - `go test . -run "TestDebugManagerStepSkipsDisabledDownstreamNode" -count=1`
 - `go test ./...`
 - `pnpm exec vitest run src/stores/execution.debug.test.ts`
+- `pnpm exec vitest run src/components/containers/ContainerEditorToolbar.spec.ts`
 - `pnpm exec vitest run src/composables/editor/debugPanel.spec.ts`
 - `pnpm exec vitest run`
 - `pnpm exec vitest run src/components/containers/menus/NodeContextMenu.spec.ts`
