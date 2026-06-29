@@ -182,8 +182,24 @@ export const useExecutionStore = defineStore('execution', () => {
     if (!state) return
     const status = String(pickField(state, 'status', 'Status') ?? '') as DebugStatus
     const terminal = ['finished', 'failed', 'stopped'].includes(status)
+    const nextSessionID = String(pickField(state, 'sessionId', 'SessionID') ?? '')
+    const currentID = String(pickField(state, 'currentNodeId', 'CurrentNodeID') ?? '')
+    const currentKind = String(pickField(state, 'currentNodeKind', 'CurrentNodeKind') ?? '')
+    const runningID = String(pickField(state, 'runningNodeId', 'RunningNodeID') ?? '')
+    const runningKind = String(pickField(state, 'runningNodeKind', 'RunningNodeKind') ?? '')
+    const incomingLastNodeID = String(pickField(state, 'lastNodeId', 'LastNodeID') ?? '')
 
-    debugSessionID.value = String(pickField(state, 'sessionId', 'SessionID') ?? '')
+    if (status === 'stepping' || status === 'running' || status === 'pause_requested') {
+      const busyNodeID = runningID || currentID
+      const sameSession = nextSessionID && nextSessionID === debugSessionID.value
+      const alreadyCompletedBusyNode = busyNodeID && debugLastNodeID.value && busyNodeID === debugLastNodeID.value
+      const noNewCompletion = !incomingLastNodeID || incomingLastNodeID === debugLastNodeID.value
+      if (sameSession && debugStatus.value === 'paused' && alreadyCompletedBusyNode && noNewCompletion) {
+        return
+      }
+    }
+
+    debugSessionID.value = nextSessionID
     debugContainerID.value = String(pickField(state, 'containerId', 'ContainerID') ?? '')
     debugStatus.value = status
     debugMode.value = (pickField(state, 'mode', 'Mode') ?? '') as 'entry' | 'from_node' | ''
@@ -197,11 +213,6 @@ export const useExecutionStore = defineStore('execution', () => {
     debugLastExit.value = String(pickField(state, 'lastExit', 'LastExit') ?? debugLastExit.value ?? '')
     debugLastOutput.value = copyRecord(pickField(state, 'lastOutput', 'LastOutput'))
     debugVars.value = copyRecord(pickField(state, 'vars', 'Vars'))
-
-    const currentID = String(pickField(state, 'currentNodeId', 'CurrentNodeID') ?? '')
-    const currentKind = String(pickField(state, 'currentNodeKind', 'CurrentNodeKind') ?? '')
-    const runningID = String(pickField(state, 'runningNodeId', 'RunningNodeID') ?? '')
-    const runningKind = String(pickField(state, 'runningNodeKind', 'RunningNodeKind') ?? '')
 
     if (status === 'failed') {
       debugFailedNodeID.value = currentID || runningID || debugLastNodeID.value

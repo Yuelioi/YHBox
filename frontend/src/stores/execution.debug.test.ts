@@ -88,6 +88,70 @@ describe('execution store debug state', () => {
     expect(s.debugCanStep).toBe(true)
   })
 
+  it('ignores stale busy command snapshots after a step completion event', () => {
+    const s = useExecutionStore()
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'paused',
+      mode: 'entry',
+      currentNodeId: 'androidstartapp',
+      currentNodeKind: 'AndroidStartApp',
+      lastNodeId: 'androidtarget',
+      lastNodeKind: 'AndroidTarget',
+      lastExit: 'Done',
+      queue: [{ nodeId: 'androidstartapp', nodeKind: 'AndroidStartApp', inPin: 'In' }],
+    })
+
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'stepping',
+      mode: 'entry',
+      runningNodeId: 'androidtarget',
+      runningNodeKind: 'AndroidTarget',
+    })
+
+    expect(s.debugStatus).toBe('paused')
+    expect(s.debugRunningNodeID).toBe('')
+    expect(s.debugCurrentNodeID).toBe('androidstartapp')
+    expect(s.debugLastNodeID).toBe('androidtarget')
+    expect(s.debugCanStep).toBe(true)
+  })
+
+  it('accepts busy snapshots for the next queued node', () => {
+    const s = useExecutionStore()
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'paused',
+      mode: 'entry',
+      currentNodeId: 'androidstartapp',
+      currentNodeKind: 'AndroidStartApp',
+      lastNodeId: 'androidtarget',
+      lastNodeKind: 'AndroidTarget',
+      lastExit: 'Done',
+      queue: [{ nodeId: 'androidstartapp', nodeKind: 'AndroidStartApp', inPin: 'In' }],
+    })
+
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'stepping',
+      mode: 'entry',
+      runningNodeId: 'androidstartapp',
+      runningNodeKind: 'AndroidStartApp',
+      lastNodeId: 'androidtarget',
+      lastNodeKind: 'AndroidTarget',
+      lastExit: 'Done',
+    })
+
+    expect(s.debugStatus).toBe('stepping')
+    expect(s.debugRunningNodeID).toBe('androidstartapp')
+    expect(s.debugCurrentNodeID).toBe('')
+    expect(s.debugLastNodeID).toBe('androidtarget')
+  })
+
   it('accepts node-enter events while a debug session is running', async () => {
     const s = useExecutionStore()
     await Events.Emit('debug:state', {

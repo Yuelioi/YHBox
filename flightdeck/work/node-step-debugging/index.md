@@ -49,6 +49,8 @@ Done:
 - Added regression coverage for stepping from `AndroidTarget` to the following Android app node.
 - Fixed Wails event payload unwrapping for nested `data`/array event shapes so real debug completion events are applied after a step.
 - Removed success toasts for normal run enqueue and debug session start; visible UI state is the feedback.
+- Fixed out-of-order debug command snapshots so a late `stepping` RPC response cannot overwrite a newer paused completion event.
+- Moved validate/save into the centered run/debug workflow group and removed the standalone warning icon beside Debug.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.

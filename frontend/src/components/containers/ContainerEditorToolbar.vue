@@ -1,5 +1,5 @@
 <template>
-  <!-- 三区分层：左 [返回 · 面包屑 · 概览 · 撤销/重做] · 中 [录制 · 运行 hero] · 右 [校验 · 保存 · 自动布局 · ⋯]
+  <!-- 三区分层：左 [返回 · 面包屑 · 概览 · 撤销/重做] · 中 [录制 · 检测/保存 · 调试/运行] · 右 [自动布局 · ⋯]
        (加内容 节点库/资产 在左侧 rail; 折叠 Inspector 在画布右边缘 toggle) -->
   <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
     <!-- ====== 左: 回列表 + 面包屑身份 + 撤销/重做 ====== -->
@@ -40,7 +40,7 @@
 
     <div class="flex-1" />
 
-    <!-- ====== 中 · 主操作 hero: 录制 · 运行 ====== -->
+    <!-- ====== 中 · 主工作流: 录制 · 检测/保存 · 调试/运行 ====== -->
     <!-- 录制 (三态紧凑单控件): 空闲=下拉选精准·简易 (neutral, 次操作); 倒计时=点取消; 录制中=红停止(目标进 tooltip)。 -->
     <UButton v-if="isRecording" size="sm" color="error" variant="solid" icon="i-tabler-square"
              :title="(recordingTargetName ? t('editor.toolbar.recording_target_tip', { name: recordingTargetName }) + ' · ' : '') + t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })"
@@ -53,6 +53,25 @@
                :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')">
         {{ t('editor.toolbar.record') }}</UButton>
     </UDropdownMenu>
+
+    <div class="w-px h-5 bg-default mx-1" />
+
+    <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-checks"
+             :disabled="dirty"
+             :title="dirty ? t('editor.toolbar.validate_dirty_tip') : t('editor.toolbar.validate_tip')"
+             @click="$emit('validate')">{{ t('editor.toolbar.validate') }}</UButton>
+
+    <!-- 保存 (dirty 黄点 + 成功内联闪「已保存」, 不弹 toast) -->
+    <div class="relative">
+      <UButton size="sm" :color="saveFlash ? 'success' : 'primary'" :variant="saveFlash ? 'soft' : 'solid'"
+               icon="i-tabler-check" :disabled="!dirty && !saveFlash"
+               @click="dirty && $emit('save')">
+        {{ saveFlash ? t('editor.toolbar.saved') : t('editor.toolbar.save') }}</UButton>
+      <span v-if="dirty && !saveFlash"
+            class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning ring-2 ring-default" />
+    </div>
+
+    <div class="w-px h-5 bg-default mx-1" />
 
     <!-- 运行 hero / 运行态状态指示 + 停止。hero = primary solid (自动套 btn-primary-raised 绿渐变)，size md 比周围大一档。 -->
     <div
@@ -85,14 +104,10 @@
     </template>
     <template v-else>
       <UButton size="sm" color="neutral" variant="soft" icon="i-tabler-bug"
+               class="toolbar-debug-risk"
                :disabled="dirty"
                :title="dirty ? t('editor.toolbar.debug_dirty_tip') : t('editor.toolbar.debug_tip')"
                @click="$emit('debug-start')">{{ t('editor.toolbar.debug') }}</UButton>
-      <UIcon
-        name="i-tabler-alert-triangle"
-        class="size-4 text-warning/80"
-        :title="t('editor.toolbar.debug_side_effect_tip')"
-      />
       <UButton size="md" color="primary" variant="solid" icon="i-tabler-player-play"
              :disabled="dirty"
              :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : t('editor.toolbar.try_run_tip')"
@@ -101,22 +116,7 @@
 
     <div class="flex-1" />
 
-    <!-- ====== 右 · 文档 + 收纳: 校验 · 保存(dirty 黄点) · 自动布局 · ⋯ ====== -->
-    <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-checks"
-             :disabled="dirty"
-             :title="dirty ? t('editor.toolbar.validate_dirty_tip') : t('editor.toolbar.validate_tip')"
-             @click="$emit('validate')">{{ t('editor.toolbar.validate') }}</UButton>
-
-    <!-- 保存 (dirty 黄点 + 成功内联闪「已保存」, 不弹 toast) -->
-    <div class="relative">
-      <UButton size="sm" :color="saveFlash ? 'success' : 'primary'" :variant="saveFlash ? 'soft' : 'solid'"
-               icon="i-tabler-check" :disabled="!dirty && !saveFlash"
-               @click="dirty && $emit('save')">
-        {{ saveFlash ? t('editor.toolbar.saved') : t('editor.toolbar.save') }}</UButton>
-      <span v-if="dirty && !saveFlash"
-            class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning ring-2 ring-default" />
-    </div>
-
+    <!-- ====== 右 · 低频工具: 自动布局 · ⋯ ====== -->
     <!-- 自动布局 (升为直接下拉, 出 ⋯) -->
     <UDropdownMenu :items="layoutMenuItems">
       <UButton size="sm" variant="ghost" color="neutral" icon="i-tabler-layout-grid"
@@ -261,3 +261,10 @@ const moreMenuItems = computed(() => {
   ]
 })
 </script>
+
+<style scoped>
+.toolbar-debug-risk :deep(svg),
+.toolbar-debug-risk :deep(.iconify) {
+  color: var(--ui-warning);
+}
+</style>
