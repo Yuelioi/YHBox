@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.51.1
+	github.com/coder/websocket v1.8.14
 	github.com/dop251/goja v0.0.0-20260607120635-348e6bea910d
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/google/uuid v1.6.0
@@ -28,7 +29,6 @@ require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
-	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
