@@ -23,7 +23,9 @@ type ResolveOptions struct {
 }
 
 func CommandContext(ctx context.Context, args ...string) *exec.Cmd {
-	return exec.CommandContext(ctx, ExecutablePath(), args...)
+	cmd := exec.CommandContext(ctx, ExecutablePath(), args...)
+	hideCommandWindow(cmd)
+	return cmd
 }
 
 func ExecutablePath() string {

@@ -55,6 +55,7 @@ func (c *ctxImpl) Vars() VarStore              { return c.services.Vars }
 func (c *ctxImpl) Params() ParamStore          { return c.services.Params }
 func (c *ctxImpl) Window() WindowService       { return c.services.Window }
 func (c *ctxImpl) Target() TargetService       { return c.services.Target }
+func (c *ctxImpl) App() AppLifecycleService    { return c.services.App }
 func (c *ctxImpl) Capture() CaptureService     { return c.services.Capture }
 func (c *ctxImpl) Stopwatches() StopwatchStore { return c.services.Stopwatches }
 func (c *ctxImpl) Clip() ClipPlayer            { return c.services.Clip }

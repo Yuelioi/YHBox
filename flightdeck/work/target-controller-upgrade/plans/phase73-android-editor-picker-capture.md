@@ -43,6 +43,11 @@ Useful design takeaways:
 - Hardened Android normalized input:
   - `AndroidADBController` corrects saved target resolution by current `SurfaceOrientation` before converting normalized points.
   - This keeps existing containers with stale portrait `Width/Height` from tapping the wrong place when the emulator is landscape.
+- Added Android app lifecycle workflow support:
+  - `AndroidStartApp` / `AndroidStopApp` expose package-based launch/force-stop against the current Android target.
+  - MuMu top-bar app tabs are treated as emulator UI, not target identity; workflows switch app state through ADB package launch instead.
+- Hid ADB child process windows on Windows:
+  - `adbexec.CommandContext` applies `SysProcAttr.HideWindow` so repeated ADB calls do not flash a console window.
 
 ## Verification
 
@@ -53,6 +58,8 @@ Targeted tests added/updated:
 - `internal/services/androidadb/discovery_test.go`
 - `internal/adbexec/executable_test.go`
 - `internal/automation/controller/android_adb_test.go`
+- `internal/nodes/system/android_app_test.go`
+- `internal/adbexec/command_windows_test.go`
 
 Targeted commands passed:
 - `go test ./internal/services/container -run 'TestEditorTarget(Kind|ForNode)'`

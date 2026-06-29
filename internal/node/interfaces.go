@@ -108,6 +108,7 @@ type Ctx interface {
 	Params() ParamStore
 	Window() WindowService
 	Target() TargetService
+	App() AppLifecycleService
 	Capture() CaptureService
 	Stopwatches() StopwatchStore
 	Clip() ClipPlayer
@@ -318,6 +319,13 @@ type TargetService interface {
 	Active() (target.Target, bool)
 }
 
+// AppLifecycleService — 目标内应用生命周期操作。Android ADB 走 package
+// launch/force-stop；不支持该能力的 target 在 runtime adapter 中报错。
+type AppLifecycleService interface {
+	StartApp(packageName string) error
+	StopApp(packageName string) error
+}
+
 // CaptureService — Capture 节点用. PNG 字节流; wire 连 pkg/capture
 // IBackend.Frame + png.Encode.
 type CaptureService interface {
@@ -373,6 +381,7 @@ type ServiceBundle struct {
 	Params      ParamStore // frame.LocalParams getter, GetParam 用
 	Window      WindowService
 	Target      TargetService
+	App         AppLifecycleService
 	Capture     CaptureService
 	Stopwatches StopwatchStore
 	Clip        ClipPlayer                         // PlayClip 用, runtime 端 wire

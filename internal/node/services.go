@@ -224,6 +224,16 @@ func (s *stubTargetService) Active() (target.Target, bool) {
 // NewStubTargetService — 测试用 in-memory active target service.
 func NewStubTargetService() TargetService { return &stubTargetService{} }
 
+// ---- AppLifecycleService ----
+
+type stubAppLifecycleService struct{}
+
+func (stubAppLifecycleService) StartApp(string) error { return nil }
+func (stubAppLifecycleService) StopApp(string) error  { return nil }
+
+// StubAppLifecycleService — test 用 no-op.
+func StubAppLifecycleService() AppLifecycleService { return stubAppLifecycleService{} }
+
 // ---- CaptureService ----
 
 type stubCaptureService struct{}
@@ -305,6 +315,7 @@ func StubServices() ServiceBundle {
 		Params:      NewStubParamStore(),
 		Window:      StubWindowService(),
 		Target:      NewStubTargetService(),
+		App:         StubAppLifecycleService(),
 		Capture:     StubCaptureService(),
 		Stopwatches: NewStubStopwatchStore(),
 		Snapshot:    nil,

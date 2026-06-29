@@ -673,6 +673,56 @@ func (a *targetAdapter) Active() (target.Target, bool) {
 func NewTargetAdapter(rt *RuntimeContext) node.TargetService { return &targetAdapter{rt: rt} }
 
 // ============================================================================
+// AppLifecycleAdapter — active target app lifecycle controls.
+// ============================================================================
+
+type appLifecycleController interface {
+	controller.Controller
+	controller.AppLifecycle
+}
+
+type appLifecycleAdapter struct{ rt *RuntimeContext }
+
+func (a *appLifecycleAdapter) appController() (appLifecycleController, error) {
+	ctrl, err := a.rt.controllerForActiveTarget(automationtrace.ActionSource{}, controllerNeed{})
+	if err != nil {
+		return nil, err
+	}
+	app, ok := ctrl.(appLifecycleController)
+	if !ok {
+		return nil, fmt.Errorf("active controller %T does not support app lifecycle", ctrl)
+	}
+	return app, nil
+}
+
+func (a *appLifecycleAdapter) StartApp(packageName string) error {
+	ctrl, err := a.appController()
+	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityStartApp); err != nil {
+		return err
+	}
+	return ctrl.StartApp(context.Background(), controller.StartAppRequest{Intent: packageName})
+}
+
+func (a *appLifecycleAdapter) StopApp(packageName string) error {
+	ctrl, err := a.appController()
+	if err != nil {
+		return err
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityStopApp); err != nil {
+		return err
+	}
+	return ctrl.StopApp(context.Background(), controller.StopAppRequest{Intent: packageName})
+}
+
+// NewAppLifecycleAdapter wrap *RuntimeContext into node.AppLifecycleService.
+func NewAppLifecycleAdapter(rt *RuntimeContext) node.AppLifecycleService {
+	return &appLifecycleAdapter{rt: rt}
+}
+
+// ============================================================================
 // CaptureAdapter — pkgcapture.IBackend → node.CaptureService
 // 抓帧 + png.Encode 返字节流 (跟 screenshot.go 一致).
 // ============================================================================
@@ -1233,6 +1283,7 @@ func NewServiceBundleFor(
 		Params:      NewParamStoreAdapter(stateGetter),
 		Window:      NewWindowAdapter(rt),
 		Target:      NewTargetAdapter(rt),
+		App:         NewAppLifecycleAdapter(rt),
 		Capture:     NewCaptureAdapter(rt),
 		Stopwatches: NewStopwatchAdapter(stopwatches),
 		Clip:        newClipPlayerAdapter(rt),

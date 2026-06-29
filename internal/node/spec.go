@@ -18,6 +18,8 @@ const (
 	TargetCapabilityMoveRelative TargetCapability = "move-relative"
 	TargetCapabilityKeyState     TargetCapability = "key-state"
 	TargetCapabilityText         TargetCapability = "text"
+	TargetCapabilityStartApp     TargetCapability = "start-app"
+	TargetCapabilityStopApp      TargetCapability = "stop-app"
 )
 
 // Spec 节点 metadata. 节点作者实现 Spec() 方法返这个.

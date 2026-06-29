@@ -127,6 +127,38 @@
       }
     }
   },
+  "AndroidStartApp": {
+    "label": "安卓启动应用",
+    "description": "在当前安卓目标里按包名启动应用，并把该应用拉到前台。适合 MuMu 顶栏有多个应用 tab 时，在流程开头稳定切回目标游戏。",
+    "example": "安卓目标选择模拟器后，接本节点，包名填 com.nexon.bluearchive，后续截图和点击就对着游戏当前画面执行。",
+    "input": {
+      "Package": {
+        "label": "包名",
+        "hint": "Android package name，如 com.nexon.bluearchive"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
+  "AndroidStopApp": {
+    "label": "安卓停止应用",
+    "description": "在当前安卓目标里按包名强制停止应用。适合流程结束时关闭游戏，或重新启动前先清掉旧进程。",
+    "example": "包名填 com.nexon.bluearchive，执行后通过 ADB force-stop 停止该游戏。",
+    "input": {
+      "Package": {
+        "label": "包名",
+        "hint": "Android package name，如 com.nexon.bluearchive"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
   "Break": {
     "label": "跳出循环",
     "description": "提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。"
