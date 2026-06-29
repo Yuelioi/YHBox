@@ -2,17 +2,19 @@
 
 ## State
 
-Design approved at concept level by user. External design feedback has been evaluated and incorporated into `design.md`. No implementation has started.
+Implemented. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, and node highlights.
 
 ## Next
 
-User review gate:
-- Review the updated `design.md`, especially V1 token-step semantics and atomic region-node behavior.
-- If approved, create an implementation plan before touching runtime/frontend code.
+Use the editor to smoke-test real workflows:
+- Toolbar Debug starts from the graph entry.
+- Right-click a node and choose Debug from here.
+- Use Step / Continue / Pause / Stop and verify node highlights match execution.
 
 ## Read now
 
 - `design.md` — V1 node step debugging scope, runtime semantics, UX, validation, and test plan.
+- `implementation.md` — implementation file map, task breakdown, and verification commands.
 
 ## Read if
 
@@ -29,6 +31,19 @@ Done:
 - Added concrete backend, frontend, and integration test sequences.
 - Deferred breakpoints, selected-fragment runs, explicit subgraph step into/over, and mock external inputs to later phases.
 - Explicitly rejected `EventTick` listener debugging in V1.
+- Implemented runtime lifecycle and one-token stepping primitives.
+- Added process-local debug sessions with execution exclusivity against normal runs.
+- Added service/RPC DTOs and regenerated Wails bindings.
+- Added Pinia debug state, toolbar controls, right-click node action, and canvas highlights for next/running/last/failed nodes.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
+- `go test ./internal/services/container/runtime -run TestDebug -count=1`
+- `go test ./internal/services/container -run TestServiceDebug -count=1`
+- `go test . -run TestDebugManager -count=1`
+- `go test ./...`
+- `pnpm exec vitest run`
+- `pnpm exec vue-tsc --noEmit`
+- `pnpm exec node src/i18n/check.cjs`
+- `wails3 generate bindings ./...`
+- `pnpm exec vite build --mode production`

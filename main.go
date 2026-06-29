@@ -266,13 +266,10 @@ func main() {
 			rootLog.Warn().Interface("payload", data).Msg("container warning")
 		}
 	}
-	runFunc := func(ctx context.Context, target execution.TargetRef) error {
-		if target.Kind != "container" {
-			return fmt.Errorf("unsupported target kind %q", target.Kind)
-		}
-		c, ok := containerStore.Get(target.ID)
+	newRunnerForContainer := func(containerID string) (*containerruntime.ContainerRunner, error) {
+		c, ok := containerStore.Get(containerID)
 		if !ok {
-			return fmt.Errorf("container %q not found", target.ID)
+			return nil, fmt.Errorf("container %q not found", containerID)
 		}
 		rt := containerruntime.NewRuntimeContext(
 			&c, inputBus, templateMatcher,
@@ -286,6 +283,16 @@ func main() {
 		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
 		r.SetLogger(rootLog)
 		r.SetAIProvider(aiProviderCache)
+		return r, nil
+	}
+	runFunc := func(ctx context.Context, target execution.TargetRef) error {
+		if target.Kind != "container" {
+			return fmt.Errorf("unsupported target kind %q", target.Kind)
+		}
+		r, err := newRunnerForContainer(target.ID)
+		if err != nil {
+			return err
+		}
 		return r.Run(ctx)
 	}
 	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {
@@ -294,7 +301,10 @@ func main() {
 	worker.Start()
 
 	// 给 containerSvc 注入运行入口 — 前端 ▶ 按钮走 Run，■ 走 StopAll
-	containerSvc.SetRunner(&containerRunnerAdapter{queue: execQueue, worker: worker})
+	debugManager := newContainerDebugManager(newRunnerForContainer, func(name string, data any) {
+		app.Emit(name, data)
+	}, worker.IsRunning)
+	containerSvc.SetRunner(&containerRunnerAdapter{queue: execQueue, worker: worker, debug: debugManager})
 
 	// MCP 对外暴露 server (③): 复用执行标准件, 后台起 Streamable HTTP.
 	mcpSrv := mcpserver.NewServer(mcpserver.Deps{

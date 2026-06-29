@@ -112,6 +112,23 @@ type ContainerRunner struct {
 	// per-tick snapshot 不是 instance 字段, 而是 ctx (tickCtxKey) — dispatchInRegion 入口
 	// withTickSnapshot 写, bundle.Snapshot 闭包从 ctx 读, per-goroutine 独立.
 	bundle node.ServiceBundle
+
+	queue          []ExecToken
+	runtimeStarted bool
+
+	debugCaptureNodeID string
+	debugLastResult    DebugStepResult
+}
+
+// DebugStepResult summarizes one outer runtime token dispatch.
+type DebugStepResult struct {
+	NodeID     string
+	NodeKind   string
+	InPin      string
+	Exit       string
+	Output     map[string]any
+	Downstream []ExecToken
+	Finished   bool
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
@@ -191,6 +208,167 @@ func snapshotMainCalibCounts(c *container.Container) int {
 	return 0
 }
 
+// StartRuntime initializes runtime backends for either normal run or debug.
+func (r *ContainerRunner) StartRuntime(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if r.runtimeStarted {
+		return nil
+	}
+	if err := r.setupRuntime(); err != nil {
+		return err
+	}
+	r.runtimeStarted = true
+	return nil
+}
+
+// StopRuntime releases runtime resources initialized by StartRuntime.
+func (r *ContainerRunner) StopRuntime() {
+	if !r.runtimeStarted {
+		return
+	}
+	r.teardownRuntime()
+	r.runtimeStarted = false
+	if r.rt.Emit != nil {
+		r.rt.Emit("container:node-dump-flush", map[string]any{"containerId": r.rt.Container.ID})
+	}
+}
+
+// SeedFromEntry queues tokens produced by Start.Done.
+func (r *ContainerRunner) SeedFromEntry() error {
+	startNode := r.findStart()
+	if startNode == nil {
+		return errors.New("container: no Start node")
+	}
+	r.queue = append(r.queue[:0], r.edges.next(startNode.ID+".Done", nil)...)
+	return nil
+}
+
+// SeedFromNode queues the selected node's first exec input.
+func (r *ContainerRunner) SeedFromNode(nodeID string) error {
+	n, ok := r.nodesByID[nodeID]
+	if !ok {
+		return fmt.Errorf("debug_invalid_start_node: node %q not found", nodeID)
+	}
+	rn, ok := node.Get(n.Kind)
+	if !ok {
+		return fmt.Errorf("debug_invalid_start_node: kind %q not registered", n.Kind)
+	}
+	for _, in := range rn.Spec.Inputs {
+		if in.Type == "Exec" {
+			r.queue = append(r.queue[:0], ExecToken{NodeID: n.ID, InPin: in.Name})
+			return nil
+		}
+	}
+	return fmt.Errorf("debug_start_node_not_executable: node %q has no exec input", nodeID)
+}
+
+// QueueSnapshot returns a shallow copy of the queued outer runtime tokens.
+func (r *ContainerRunner) QueueSnapshot() []ExecToken {
+	out := make([]ExecToken, len(r.queue))
+	copy(out, r.queue)
+	for i := range out {
+		out[i].LoopStack = copyLoops(out[i].LoopStack)
+	}
+	return out
+}
+
+// VarSnapshot returns a shallow copy of runtime variables.
+func (r *ContainerRunner) VarSnapshot() map[string]any {
+	vars := r.rt.Vars()
+	out := make(map[string]any, len(vars))
+	for k, v := range vars {
+		out[k] = v
+	}
+	return out
+}
+
+func (r *ContainerRunner) NodeKind(nodeID string) string {
+	if n, ok := r.nodesByID[nodeID]; ok && n != nil {
+		return n.Kind
+	}
+	return ""
+}
+
+// StepOnce executes exactly one queued outer runtime token.
+func (r *ContainerRunner) StepOnce(ctx context.Context) (DebugStepResult, error) {
+	if err := ctx.Err(); err != nil {
+		return DebugStepResult{Finished: len(r.queue) == 0}, err
+	}
+	if len(r.queue) == 0 {
+		return DebugStepResult{Finished: true}, nil
+	}
+	tok := r.queue[0]
+	r.queue = r.queue[1:]
+
+	n, ok := r.nodesByID[tok.NodeID]
+	if !ok {
+		return DebugStepResult{NodeID: tok.NodeID, InPin: tok.InPin, Finished: len(r.queue) == 0},
+			fmt.Errorf("container: token references unknown node %q", tok.NodeID)
+	}
+
+	if r.rt.Emit != nil {
+		r.rt.Emit("container:node-enter", map[string]any{
+			"containerId": r.rt.Container.ID,
+			"nodeId":      n.ID,
+			"nodeKind":    n.Kind,
+		})
+	}
+
+	r.debugCaptureNodeID = tok.NodeID
+	r.debugLastResult = DebugStepResult{NodeID: n.ID, NodeKind: n.Kind, InPin: tok.InPin}
+	out, err := r.execNode(ctx, n, tok)
+	res := r.debugLastResult
+	r.debugCaptureNodeID = ""
+	r.debugLastResult = DebugStepResult{}
+
+	if err != nil {
+		if errors.Is(err, errStopRun) {
+			res.Finished = true
+			return res, nil
+		}
+		if _, wrapped := r.checkSentinelLeak(n, err); wrapped != err {
+			return res, wrapped
+		}
+		return res, err
+	}
+	r.queue = append(r.queue, out...)
+	res.Downstream = copyTokens(out)
+	res.Finished = len(r.queue) == 0
+	return res, nil
+}
+
+func copyTokens(src []ExecToken) []ExecToken {
+	out := make([]ExecToken, len(src))
+	copy(out, src)
+	for i := range out {
+		out[i].LoopStack = copyLoops(out[i].LoopStack)
+	}
+	return out
+}
+
+func (r *ContainerRunner) recordDebugRoute(node *container.GraphNode, exit string, output map[string]any) {
+	if r.debugCaptureNodeID == "" || r.debugCaptureNodeID != node.ID {
+		return
+	}
+	r.debugLastResult.NodeID = node.ID
+	r.debugLastResult.NodeKind = node.Kind
+	r.debugLastResult.Exit = exit
+	r.debugLastResult.Output = copyAnyMap(output)
+}
+
+func copyAnyMap(src map[string]any) map[string]any {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]any, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
+}
+
 // Run 启动 token dispatch：找 Start → 入队 → 主循环。
 // 同时为每个 listener-driven 节点 (EventTick) 起后台 listener goroutine。
 // 返回时机:
@@ -198,24 +376,10 @@ func snapshotMainCalibCounts(c *container.Container) int {
 //   - 有 listener: 等外层 ctx 取消/超时 → defer cancelChild → listenerWG.Wait → 返回
 //     (后台 listener 要活到容器被外部停掉, 不能因主流程跑完就被秒杀)。
 func (r *ContainerRunner) Run(ctx context.Context) error {
-	// resolve Win32WindowTarget → 活动窗口/Input/Capture (per-run state).
-	// 必须最先做 — 后续 startNode/listener 都假设 rt.window(经 accessor)/Input/Capture 已 populate.
-	if err := r.setupRuntime(); err != nil {
+	if err := r.StartRuntime(ctx); err != nil {
 		return err
 	}
-	defer r.teardownRuntime() // LIFO 内部顺序保证 ReleaseAll → Input.Close → Capture.Close
-
-	// run 停止时通知 merger 收尾该容器未刷的 dump 段.
-	defer func() {
-		if r.rt.Emit != nil {
-			r.rt.Emit("container:node-dump-flush", map[string]any{"containerId": r.rt.Container.ID})
-		}
-	}()
-
-	startNode := r.findStart()
-	if startNode == nil {
-		return errors.New("container: no Start node")
-	}
+	defer r.StopRuntime() // LIFO 内部顺序保证 ReleaseAll → Input.Close → Capture.Close
 
 	// 子 ctx：监听 goroutine 生命周期由 childCtx 控制。
 	// cancelChild 在 Run 退出时调用（defer）确保 ctx 资源回收。
@@ -246,12 +410,13 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 		}()
 	}
 
-	queue := []ExecToken{}
 	// Start 输出 → 入第一批 token
-	queue = append(queue, r.edges.next(startNode.ID+".Done", nil)...)
+	if err := r.SeedFromEntry(); err != nil {
+		return err
+	}
 
 	dispatchCount := 0
-	for len(queue) > 0 {
+	for len(r.queue) > 0 {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -266,40 +431,9 @@ func (r *ContainerRunner) Run(ctx context.Context) error {
 			}
 			runtime.Gosched()
 		}
-		tok := queue[0]
-		queue = queue[1:]
-
-		node, ok := r.nodesByID[tok.NodeID]
-		if !ok {
-			return fmt.Errorf("container: token references unknown node %q", tok.NodeID)
-		}
-
-		// 节点级事件：让前端高亮"当前正在跑哪个节点"。
-		if r.rt.Emit != nil {
-			r.rt.Emit("container:node-enter", map[string]any{
-				"containerId": r.rt.Container.ID,
-				"nodeId":      node.ID,
-				"nodeKind":    node.Kind,
-			})
-		}
-
-		// per-exec-tick snapshot 由 dispatchInRegion 入口统一抓 (单一抓点), 这里不再抓.
-		// passthroughDisabled / IsVisualOnly / IsPureData reject 路径都不需要 snapshot
-		// (consumer GetVar.Evaluate 经 framework snapshot wrap 在 data pull 阶段读).
-		out, err := r.execNode(ctx, node, tok)
-		if err != nil {
-			if errors.Is(err, errStopRun) {
-				return nil
-			}
-			// Break/Continue sentinel 漏到顶层 dispatch — Loop 没截获,
-			// validator 应已报 *_OUTSIDE_LOOP 但跑到此说明 graph 跑了未校验路径或 runtime path bug.
-			// emit container:node-validation 让前端高亮.
-			if _, wrapped := r.checkSentinelLeak(node, err); wrapped != err {
-				return wrapped
-			}
+		if _, err := r.StepOnce(ctx); err != nil {
 			return err
 		}
-		queue = append(queue, out...)
 	}
 	// 主 dispatch 结束：若容器含 listener-driven 节点, 它们仍在后台跑直到 ctx 取消。
 	// 等外部 ctx 超时/取消后再返回, 让 listener 完成当前触发周期再退。

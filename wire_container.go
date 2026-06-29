@@ -454,9 +454,13 @@ func (m *templateMatcherAdapter) matchAllInROI(frame *image.RGBA, tpl *vision.Te
 type containerRunnerAdapter struct {
 	queue  *execution.ExecutionQueue
 	worker *execution.Worker
+	debug  *containerDebugManager
 }
 
 func (a *containerRunnerAdapter) RunOnce(id string) error {
+	if a.debug != nil && a.debug.IsActive() {
+		return fmt.Errorf("debug_session_busy")
+	}
 	_, ok := a.queue.Enqueue(execution.QueuedRun{
 		Targets: []execution.TargetRef{{Kind: "container", ID: id}},
 		OnError: execution.OnErrorStop,
@@ -471,7 +475,52 @@ func (a *containerRunnerAdapter) RunOnce(id string) error {
 func (a *containerRunnerAdapter) StopAll() error {
 	a.queue.CancelAll()
 	a.worker.CancelCurrent()
+	if a.debug != nil && a.debug.IsActive() {
+		_, _ = a.debug.DebugStop(a.debug.sessionID())
+	}
 	return nil
+}
+
+func (a *containerRunnerAdapter) DebugStart(id string, options container.DebugStartOptions) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugStart(id, options)
+}
+
+func (a *containerRunnerAdapter) DebugStep(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugStep(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugContinue(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugContinue(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugPause(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugPause(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugStop(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugStop(sessionID)
+}
+
+func (a *containerRunnerAdapter) DebugState(sessionID string) (container.DebugSessionState, error) {
+	if a.debug == nil {
+		return container.DebugSessionState{}, errDebugUnavailable()
+	}
+	return a.debug.DebugState(sessionID)
 }
 
 // ---- Container hotkey binder ----

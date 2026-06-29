@@ -6,6 +6,9 @@
       v.border,
       selected ? 'is-selected' : '',
       isRunning ? 'is-running' : '',
+      isDebugNext ? 'is-debug-next' : '',
+      isDebugLast ? 'is-debug-last' : '',
+      isDebugFailed ? 'is-debug-failed' : '',
       isDisabled ? 'is-disabled' : '',
     ]"
     :style="{ minWidth: '240px', maxWidth: '360px' }"
@@ -175,7 +178,22 @@ const displayLabel = computed(() => {
 const kindSubtitle = computed(() =>
   displayLabel.value !== kindLabel(kind.value) ? kindLabel(kind.value) : null,
 )
-const isRunning = computed(() => execStore.running && execStore.currentNodeID === props.id)
+const isRunning = computed(() =>
+  (execStore.running && execStore.currentNodeID === props.id) ||
+  (execStore.debugActive && execStore.debugRunningNodeID === props.id),
+)
+const isDebugNext = computed(() =>
+  execStore.debugActive &&
+  !isRunning.value &&
+  execStore.debugNextNodeID === props.id,
+)
+const isDebugLast = computed(() =>
+  !!execStore.debugLastNodeID &&
+  execStore.debugLastNodeID === props.id &&
+  !isRunning.value &&
+  !isDebugNext.value,
+)
+const isDebugFailed = computed(() => execStore.debugFailedNodeID === props.id)
 const isDisabled = computed(() => props.data?.disabled === true)
 
 // 节点 visual: header 浓一档 (-500/35), accent bar 用纯 -500.
@@ -443,6 +461,24 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 }
 .container-node.is-running {
   animation: pulse-running 1.6s ease-in-out infinite;
+}
+.container-node.is-debug-next {
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--ui-warning) 85%, transparent),
+    0 0 24px color-mix(in oklab, var(--ui-warning) 42%, transparent),
+    0 8px 22px -8px rgba(0, 0, 0, 0.55);
+}
+.container-node.is-debug-last {
+  box-shadow:
+    0 0 0 1.5px color-mix(in oklab, var(--ui-success) 70%, transparent),
+    0 0 18px color-mix(in oklab, var(--ui-success) 30%, transparent),
+    0 8px 22px -8px rgba(0, 0, 0, 0.55);
+}
+.container-node.is-debug-failed {
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--ui-error) 90%, transparent),
+    0 0 30px color-mix(in oklab, var(--ui-error) 55%, transparent),
+    0 8px 22px -8px rgba(0, 0, 0, 0.55);
 }
 .container-node.is-running::after {
   /* 扫描线效果 — 顶部主色流光横扫 */

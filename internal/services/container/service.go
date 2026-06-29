@@ -18,6 +18,12 @@ import (
 type Runner interface {
 	RunOnce(id string) error
 	StopAll() error
+	DebugStart(id string, options DebugStartOptions) (DebugSessionState, error)
+	DebugStep(sessionID string) (DebugSessionState, error)
+	DebugContinue(sessionID string) (DebugSessionState, error)
+	DebugPause(sessionID string) (DebugSessionState, error)
+	DebugStop(sessionID string) (DebugSessionState, error)
+	DebugState(sessionID string) (DebugSessionState, error)
 }
 
 // ChangeListener 容器 CRUD 后回调，给 hotkey registry / schedule daemon 重新注册用。
@@ -211,6 +217,51 @@ func (s *Service) StopAll() error {
 		return fmt.Errorf("runner not injected")
 	}
 	return s.runner.StopAll()
+}
+
+func (s *Service) DebugStart(id string, options DebugStartOptions) (DebugSessionState, error) {
+	if _, ok := s.store.Get(id); !ok {
+		return DebugSessionState{}, fmt.Errorf("container %q not found", id)
+	}
+	if s.runner == nil {
+		return DebugSessionState{}, fmt.Errorf("runner not injected")
+	}
+	return s.runner.DebugStart(id, options)
+}
+
+func (s *Service) DebugStep(sessionID string) (DebugSessionState, error) {
+	if s.runner == nil {
+		return DebugSessionState{}, fmt.Errorf("runner not injected")
+	}
+	return s.runner.DebugStep(sessionID)
+}
+
+func (s *Service) DebugContinue(sessionID string) (DebugSessionState, error) {
+	if s.runner == nil {
+		return DebugSessionState{}, fmt.Errorf("runner not injected")
+	}
+	return s.runner.DebugContinue(sessionID)
+}
+
+func (s *Service) DebugPause(sessionID string) (DebugSessionState, error) {
+	if s.runner == nil {
+		return DebugSessionState{}, fmt.Errorf("runner not injected")
+	}
+	return s.runner.DebugPause(sessionID)
+}
+
+func (s *Service) DebugStop(sessionID string) (DebugSessionState, error) {
+	if s.runner == nil {
+		return DebugSessionState{}, fmt.Errorf("runner not injected")
+	}
+	return s.runner.DebugStop(sessionID)
+}
+
+func (s *Service) DebugState(sessionID string) (DebugSessionState, error) {
+	if s.runner == nil {
+		return DebugSessionState{}, fmt.Errorf("runner not injected")
+	}
+	return s.runner.DebugState(sessionID)
 }
 
 // (子图 RPC 已全局化 — 见 service_subgraph.go 的 SubgraphService, 不再按容器路由。)

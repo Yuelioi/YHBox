@@ -52,6 +52,12 @@
         :exec-store-running="execStore.running"
         :running-node-kind="execStore.currentNodeKind ?? undefined"
         :running-node-label="runningNodeLabel"
+        :debug-active="execStore.debugActive"
+        :debug-can-step="execStore.debugCanStep"
+        :debug-can-continue="execStore.debugCanContinue"
+        :debug-can-pause="execStore.debugCanPause"
+        :debug-running-node-kind="execStore.debugRunningNodeKind || execStore.debugNextNodeKind || undefined"
+        :debug-running-node-label="debugNodeLabel"
         :dirty="dirty"
         :save-flash="saveFlash"
         :can-undo="canUndo"
@@ -70,6 +76,11 @@
         @cancel-countdown="startRecording('precise')"
         @try-run="onTryRun"
         @stop-run="onStopRun"
+        @debug-start="onDebugStart"
+        @debug-step="onDebugStep"
+        @debug-continue="onDebugContinue"
+        @debug-pause="onDebugPause"
+        @debug-stop="onDebugStop"
         @save="onSave"
         @reload="onReload"
         @auto-layout="onAutoLayout"
@@ -518,8 +529,69 @@ const runningNodeLabel = computed(() => {
   return key ? t(key) : k
 })
 
+const debugNodeLabel = computed(() => {
+  const k = execStore.debugRunningNodeKind || execStore.debugNextNodeKind || execStore.debugCurrentNodeKind
+  if (!k) return ''
+  const key = KIND_LABEL_ZH[k]
+  return key ? t(key) : k
+})
+
 async function onStopRun() {
   await containersStore.stopAll()
+}
+
+async function startDebug(startNodeID = '') {
+  if (!draft.value) return
+  if (dirty.value) {
+    toast.add({ title: t('toast.debug_save_first'), color: 'warning', icon: 'i-tabler-device-floppy' })
+    return
+  }
+  if (execStore.running) {
+    toast.add({ title: t('toast.debug_run_busy'), color: 'warning', icon: 'i-tabler-player-play' })
+    return
+  }
+  const state = await backend.containers.debugStart(
+    draft.value.id,
+    startNodeID ? { startNodeId: startNodeID } : {},
+  )
+  if (state) execStore.applyDebugState(state)
+  toast.add({
+    title: startNodeID ? t('toast.debug_from_node_started') : t('toast.debug_started'),
+    color: 'primary',
+    icon: 'i-tabler-bug',
+  })
+}
+
+async function onDebugStart() {
+  await startDebug()
+}
+
+async function onDebugStep() {
+  const sid = execStore.debugSessionID
+  if (!sid) return
+  const state = await backend.containers.debugStep(sid)
+  if (state) execStore.applyDebugState(state)
+}
+
+async function onDebugContinue() {
+  const sid = execStore.debugSessionID
+  if (!sid) return
+  const state = await backend.containers.debugContinue(sid)
+  if (state) execStore.applyDebugState(state)
+}
+
+async function onDebugPause() {
+  const sid = execStore.debugSessionID
+  if (!sid) return
+  const state = await backend.containers.debugPause(sid)
+  if (state) execStore.applyDebugState(state)
+}
+
+async function onDebugStop() {
+  const sid = execStore.debugSessionID
+  if (!sid) return
+  const state = await backend.containers.debugStop(sid)
+  if (state) execStore.applyDebugState(state)
 }
 
 // 工具栏「重载」: 从磁盘重读当前容器 (MCP / 外部改盘后同步)。
@@ -1110,6 +1182,7 @@ const {
   emitSaveSnippetIntent,
   onSubgraphToScript: convertSubgraphNodeToScript,
   onHardDelete: (node: GraphNode) => hardDeleteNodes([node.id]),
+  onDebugFromNode: (node: GraphNode) => { void startDebug(node.id) },
   toast,
 })
 

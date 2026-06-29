@@ -304,6 +304,7 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 			}
 			r.applyCaptures(node, failData)      // 路径①: Fail 出口 Error/Code → 绑定变量 (如 PlayClip)
 			r.captureExecOutputs(node, failData) // 路径②: Fail 出口 → held 缓存
+			r.recordDebugRoute(node, "Fail", failData)
 			return r.edges.nextWithData(node.ID+".Fail", tok.LoopStack, failData), nil
 		}
 		return nil, result.Error
@@ -313,10 +314,12 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 	r.emitDump(node, result, nil)
 
 	if result.ExitName == "" {
+		r.recordDebugRoute(node, "", result.OutputData)
 		return nil, nil
 	}
 	r.applyCaptures(node, result.OutputData)      // 路径①: 出口 Data 字段 → 绑定变量
 	r.captureExecOutputs(node, result.OutputData) // 路径②: 出口 Data 字段 → held 缓存
+	r.recordDebugRoute(node, result.ExitName, result.OutputData)
 	tokens := r.edges.nextWithData(node.ID+"."+result.ExitName, tok.LoopStack, result.OutputData)
 	return tokens, nil
 }

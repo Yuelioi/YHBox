@@ -72,7 +72,7 @@ export type NodeMenuAction =
   | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete' | 'hard-delete'
   | 'toggle-disable' | 'save-as-snippet'
   | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
-  | 'to-script'
+  | 'to-script' | 'debug-from-here'
 
 const props = defineProps<{
   open: boolean
@@ -131,6 +131,12 @@ const commonItems = computed(() => [
 
 const specialItems = computed(() => {
   const items: Array<{ key: NodeMenuAction; label: string; icon: string; colorClass?: string }> = [
+    {
+      key: 'debug-from-here',
+      label: t('editor.menu.node.debug_from_here'),
+      icon: 'i-tabler-bug',
+      colorClass: 'text-primary',
+    },
     {
       key: 'toggle-disable',
       label: isDisabled.value ? t('editor.menu.node.enable') : t('editor.menu.node.disable'),

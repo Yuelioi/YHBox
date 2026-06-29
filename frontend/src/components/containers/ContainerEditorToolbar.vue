@@ -56,20 +56,43 @@
 
     <!-- 运行 hero / 运行态状态指示 + 停止。hero = primary solid (自动套 btn-primary-raised 绿渐变)，size md 比周围大一档。 -->
     <div
-      v-if="execStoreRunning"
+      v-if="execStoreRunning || debugActive"
       class="inline-flex items-center gap-2 rounded-md bg-primary/15 border border-primary/40 px-2 py-0.5 text-[11px] text-primary"
     >
       <span class="size-1.5 rounded-full bg-primary animate-pulse" />
-      <span>{{ t('editor.toolbar.running') }}</span>
-      <span v-if="runningNodeKind" class="text-primary/80">· {{ runningNodeLabel }}</span>
+      <span>{{ debugActive ? t('editor.toolbar.debugging') : t('editor.toolbar.running') }}</span>
+      <span v-if="activeNodeLabel" class="text-primary/80">· {{ activeNodeLabel }}</span>
     </div>
     <UButton v-if="execStoreRunning" size="sm" color="error" variant="solid" icon="i-tabler-square"
              :title="t('editor.toolbar.stop_run_tip', { hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9') })"
              @click="$emit('stop-run')">{{ t('editor.toolbar.stop_run') }}</UButton>
-    <UButton v-else size="md" color="primary" variant="solid" icon="i-tabler-player-play"
+    <template v-else-if="debugActive">
+      <UButton size="sm" color="primary" variant="solid" icon="i-tabler-player-track-next"
+               :disabled="!debugCanStep"
+               :title="t('editor.toolbar.debug_step_tip')"
+               @click="$emit('debug-step')">{{ t('editor.toolbar.debug_step') }}</UButton>
+      <UButton size="sm" color="primary" variant="soft" icon="i-tabler-player-play"
+               :disabled="!debugCanContinue"
+               :title="t('editor.toolbar.debug_continue_tip')"
+               @click="$emit('debug-continue')">{{ t('editor.toolbar.debug_continue') }}</UButton>
+      <UButton size="sm" color="warning" variant="soft" icon="i-tabler-player-pause"
+               :disabled="!debugCanPause"
+               :title="t('editor.toolbar.debug_pause_tip')"
+               @click="$emit('debug-pause')">{{ t('editor.toolbar.debug_pause') }}</UButton>
+      <UButton size="sm" color="error" variant="solid" icon="i-tabler-square"
+               :title="t('editor.toolbar.debug_stop_tip')"
+               @click="$emit('debug-stop')">{{ t('editor.toolbar.stop_run') }}</UButton>
+    </template>
+    <template v-else>
+      <UButton size="sm" color="neutral" variant="soft" icon="i-tabler-bug"
+               :disabled="dirty"
+               :title="dirty ? t('editor.toolbar.debug_dirty_tip') : t('editor.toolbar.debug_tip')"
+               @click="$emit('debug-start')">{{ t('editor.toolbar.debug') }}</UButton>
+      <UButton size="md" color="primary" variant="solid" icon="i-tabler-player-play"
              :disabled="dirty"
              :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : t('editor.toolbar.try_run_tip')"
              @click="$emit('try-run')">{{ t('editor.toolbar.run_hero') }}</UButton>
+    </template>
 
     <div class="flex-1" />
 
@@ -127,6 +150,12 @@ const props = defineProps<{
   execStoreRunning: boolean
   runningNodeKind: string | undefined
   runningNodeLabel: string
+  debugActive?: boolean
+  debugCanStep?: boolean
+  debugCanContinue?: boolean
+  debugCanPause?: boolean
+  debugRunningNodeKind?: string | undefined
+  debugRunningNodeLabel?: string
   dirty: boolean
   /** 保存成功后的短暂窗口 — 保存按钮闪「已保存」(成功反馈内联, 不弹 toast)。 */
   saveFlash?: boolean
@@ -147,6 +176,11 @@ const emit = defineEmits<{
   'cancel-countdown': []
   'try-run': []
   'stop-run': []
+  'debug-start': []
+  'debug-step': []
+  'debug-continue': []
+  'debug-pause': []
+  'debug-stop': []
   'save': []
   'reload': []
   'validate': []
@@ -163,6 +197,11 @@ const emit = defineEmits<{
   // 面包屑层级导航 (goto -1 = 回主图根)
   'goto': [idx: number]
 }>()
+
+const activeNodeLabel = computed(() => {
+  if (props.debugActive) return props.debugRunningNodeLabel || props.debugRunningNodeKind || ''
+  return props.runningNodeLabel || props.runningNodeKind || ''
+})
 
 // 录制下拉 (空闲态): 精准 / 简易。
 const recordMenuItems = [[

@@ -101,6 +101,38 @@ export interface ValidationError {
   params?: Record<string, unknown>
 }
 
+export interface DebugStartOptions {
+  startNodeId?: string
+  graphPath?: string[]
+}
+
+export interface DebugSessionState {
+  sessionId: string
+  containerId: string
+  status: string
+  mode: string
+  startNodeId?: string
+  currentNodeId?: string
+  currentNodeKind?: string
+  runningNodeId?: string
+  runningNodeKind?: string
+  lastNodeId?: string
+  lastNodeKind?: string
+  lastExit?: string
+  lastOutput?: Record<string, unknown>
+  vars?: Record<string, unknown>
+  queue?: Array<{
+    nodeId: string
+    nodeKind: string
+    inPin: string
+    graphPath?: string[]
+    loopDepth?: number
+    execDataKeys?: string[]
+  }>
+  error?: { message?: string; code?: string; params?: Record<string, unknown>; errors?: ValidationError[] } | null
+  warnings?: Array<{ code: string; message: string; nodeId?: string; params?: Record<string, unknown> }>
+}
+
 export interface RecordingContext {
   mouseCounts360: number
   resolution: [number, number]
@@ -249,6 +281,18 @@ export const backend = {
     delete_: (id: string) => invoke(ContainerService.Delete, id),
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
+    debugStart: (id: string, options: DebugStartOptions = {}) =>
+      invoke(ContainerService.DebugStart, id, options as any) as Promise<DebugSessionState | undefined>,
+    debugStep: (sessionID: string) =>
+      invoke(ContainerService.DebugStep, sessionID) as Promise<DebugSessionState | undefined>,
+    debugContinue: (sessionID: string) =>
+      invoke(ContainerService.DebugContinue, sessionID) as Promise<DebugSessionState | undefined>,
+    debugPause: (sessionID: string) =>
+      invoke(ContainerService.DebugPause, sessionID) as Promise<DebugSessionState | undefined>,
+    debugStop: (sessionID: string) =>
+      invoke(ContainerService.DebugStop, sessionID) as Promise<DebugSessionState | undefined>,
+    debugState: (sessionID: string) =>
+      invoke(ContainerService.DebugState, sessionID) as Promise<DebugSessionState | undefined>,
     syncLocalMouseCalibration: (newCounts: number) =>
       invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
     deleteMany: (ids: string[]) => invoke(ContainerService.DeleteMany, ids),
