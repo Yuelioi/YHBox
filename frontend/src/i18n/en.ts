@@ -187,6 +187,11 @@ export default {
       confirm: 'Discard and reload',
       failed: 'Reload failed',
     },
+    debug: {
+      confirm_from_here_title: 'Debug from this node?',
+      confirm_from_here_desc: 'Execution will start at "{node}". Upstream nodes will not run first; if this node depends on variables or state produced upstream, results may differ from the full flow.',
+      confirm_from_here_action: 'Start debug',
+    },
     canvas: {
       hint: 'Left drag to box-select · Middle drag to pan · Ctrl+C/V copy/paste · Delete remove',
       node_disabled_tooltip: 'This node is disabled (skipped at runtime)',

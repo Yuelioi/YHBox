@@ -202,6 +202,11 @@ export default {
       confirm: '丢弃并重载',
       failed: '重载失败',
     },
+    debug: {
+      confirm_from_here_title: '从此节点开始调试？',
+      confirm_from_here_desc: '将从「{node}」开始执行。上游节点不会先运行；如果它依赖上游写入的变量或状态，结果可能和完整流程不同。',
+      confirm_from_here_action: '开始调试',
+    },
     canvas: {
       hint: '左键拖空白框选 · 中键拖拽视图 · Ctrl+C/V 复制粘贴 · Delete 删除',
       node_disabled_tooltip: '此节点已禁用 (运行时跳过)',

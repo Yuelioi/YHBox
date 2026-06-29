@@ -538,11 +538,17 @@ const debugNodeLabel = computed(() => {
   return key ? t(key) : k
 })
 
+function displayNodeLabel(node: GraphNode): string {
+  if (node.label) return node.label
+  const key = KIND_LABEL_ZH[node.kind]
+  return key ? t(key) : node.kind
+}
+
 async function onStopRun() {
   await containersStore.stopAll()
 }
 
-async function startDebug(startNodeID = '') {
+async function startDebug(startNodeID = '', startNodeLabel = '') {
   if (!draft.value) return
   if (dirty.value) {
     toast.add({ title: t('toast.debug_save_first'), color: 'warning', icon: 'i-tabler-device-floppy' })
@@ -551,6 +557,16 @@ async function startDebug(startNodeID = '') {
   if (execStore.running) {
     toast.add({ title: t('toast.debug_run_busy'), color: 'warning', icon: 'i-tabler-player-play' })
     return
+  }
+  if (startNodeID) {
+    const ok = await confirm({
+      title: t('editor.debug.confirm_from_here_title'),
+      description: t('editor.debug.confirm_from_here_desc', { node: startNodeLabel || startNodeID }),
+      color: 'warning',
+      confirmText: t('editor.debug.confirm_from_here_action'),
+      cancelText: t('common.cancel'),
+    })
+    if (ok !== true) return
   }
   const state = await backend.containers.debugStart(
     draft.value.id,
@@ -1184,7 +1200,7 @@ const {
   emitSaveSnippetIntent,
   onSubgraphToScript: convertSubgraphNodeToScript,
   onHardDelete: (node: GraphNode) => hardDeleteNodes([node.id]),
-  onDebugFromNode: (node: GraphNode) => { void startDebug(node.id) },
+  onDebugFromNode: (node: GraphNode) => { void startDebug(node.id, displayNodeLabel(node)) },
   toast,
 })
 

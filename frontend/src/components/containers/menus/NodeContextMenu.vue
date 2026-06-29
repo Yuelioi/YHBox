@@ -65,6 +65,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { GraphNode } from '@/lib/backend'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
+import { pinsFor } from '@/components/containers/pinSpec'
 
 const { t } = useI18n()
 
@@ -120,6 +121,10 @@ const hasLiteralPin = computed(() => {
 })
 
 const isDisabled = computed(() => (props.node as GraphNode & { disabled?: boolean }).disabled === true)
+const canDebugFromHere = computed(() => pinsFor(
+  props.node.kind,
+  props.node.config as Record<string, unknown> | undefined,
+).execIn.length > 0)
 
 const commonItems = computed(() => [
   { key: 'copy' as const, label: t('editor.menu.node.copy'), icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
@@ -130,13 +135,18 @@ const commonItems = computed(() => [
 ])
 
 const specialItems = computed(() => {
-  const items: Array<{ key: NodeMenuAction; label: string; icon: string; colorClass?: string }> = [
-    {
+  const items: Array<{ key: NodeMenuAction; label: string; icon: string; colorClass?: string }> = []
+
+  if (canDebugFromHere.value) {
+    items.push({
       key: 'debug-from-here',
       label: t('editor.menu.node.debug_from_here'),
       icon: 'i-tabler-bug',
       colorClass: 'text-primary',
-    },
+    })
+  }
+
+  items.push(
     {
       key: 'toggle-disable',
       label: isDisabled.value ? t('editor.menu.node.enable') : t('editor.menu.node.disable'),
@@ -149,7 +159,7 @@ const specialItems = computed(() => {
       icon: 'i-tabler-bookmark-plus',
       colorClass: 'text-yellow-300',
     },
-  ]
+  )
 
   if (isVarRef.value) {
     const varName = (props.node.config as Record<string, unknown> | undefined)?.varName as
