@@ -2,7 +2,7 @@
 
 ## State
 
-Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, Wails event field normalization, and terminal debug panel cleanup.
+Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, Wails event payload normalization, quiet run/debug success feedback, and terminal debug panel cleanup.
 
 ## Next
 
@@ -47,6 +47,8 @@ Done:
 - Added debug panel close control to stop active sessions or clear retained finished/failed results.
 - Fixed Wails `debug:state` event field normalization so async Step completion restores the toolbar to paused/next-step state.
 - Added regression coverage for stepping from `AndroidTarget` to the following Android app node.
+- Fixed Wails event payload unwrapping for nested `data`/array event shapes so real debug completion events are applied after a step.
+- Removed success toasts for normal run enqueue and debug session start; visible UI state is the feedback.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.

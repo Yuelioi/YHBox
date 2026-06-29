@@ -55,6 +55,39 @@ describe('execution store debug state', () => {
     expect(s.debugCanStep).toBe(true)
   })
 
+  it('unwraps Wails event data arrays for debug states', async () => {
+    const s = useExecutionStore()
+    s.applyDebugState({
+      sessionId: 'dbg1',
+      containerId: 'c1',
+      status: 'stepping',
+      mode: 'entry',
+      runningNodeId: 'androidtarget',
+      runningNodeKind: 'AndroidTarget',
+    })
+
+    await Events.Emit('debug:state', {
+      data: [{
+        SessionID: 'dbg1',
+        ContainerID: 'c1',
+        Status: 'paused',
+        Mode: 'entry',
+        CurrentNodeID: 'androidstartapp',
+        CurrentNodeKind: 'AndroidStartApp',
+        LastNodeID: 'androidtarget',
+        LastNodeKind: 'AndroidTarget',
+        LastExit: 'Done',
+        Queue: [{ NodeID: 'androidstartapp', NodeKind: 'AndroidStartApp', InPin: 'In' }],
+      }],
+    })
+
+    expect(s.debugStatus).toBe('paused')
+    expect(s.debugRunningNodeID).toBe('')
+    expect(s.debugCurrentNodeID).toBe('androidstartapp')
+    expect(s.debugLastNodeID).toBe('androidtarget')
+    expect(s.debugCanStep).toBe(true)
+  })
+
   it('accepts node-enter events while a debug session is running', async () => {
     const s = useExecutionStore()
     await Events.Emit('debug:state', {

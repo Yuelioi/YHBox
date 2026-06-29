@@ -186,11 +186,6 @@ function isRunning(id: string): boolean {
 
 async function onRun(c: Container) {
   await store.run(c.id)
-  toast.add({
-    title: t('containers.toast.queue_added', { name: c.name }),
-    color: 'success',
-    icon: 'i-tabler-player-play',
-  })
 }
 
 async function onStop() {

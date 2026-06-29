@@ -141,9 +141,6 @@ export default {
     lang_en_warn_desc:
       "Some scenarios' visual templates haven't been captured in English yet; related features may show as unavailable. UI strings switched.",
     subgraph_not_set: 'Subgraph not specified on this node',
-    runqueue_added: 'Added to run queue',
-    debug_started: 'Debug session started',
-    debug_from_node_started: 'Debug session started from this node',
     debug_save_first: 'Please save before debugging',
     debug_run_busy: 'A run is already active; cannot debug at the same time',
     validate_failed: 'Validation failed',
@@ -2154,7 +2151,6 @@ export default {
       confirm: 'Delete',
     },
     toast: {
-      queue_added: 'Added to run queue: {name}',
       stop_signal: 'Stop signal sent',
       deleted_count: 'Deleted {n}',
       batch_partial_fail: 'Batch delete partially failed (see logs)',

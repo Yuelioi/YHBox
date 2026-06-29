@@ -574,11 +574,6 @@ async function startDebug(startNodeID = '', startNodeLabel = '') {
   )
   if (!state) return
   execStore.applyDebugState(state)
-  toast.add({
-    title: startNodeID ? t('toast.debug_from_node_started') : t('toast.debug_started'),
-    color: 'primary',
-    icon: 'i-tabler-bug',
-  })
 }
 
 function applyDebugCommandState(state: Awaited<ReturnType<typeof backend.containers.debugStep>>) {
@@ -1497,11 +1492,6 @@ async function onTryRun() {
     return
   }
   await backend.containers.run(draft.value.id)
-  toast.add({
-    title: t('toast.runqueue_added'),
-    color: 'primary',
-    icon: 'i-tabler-player-play',
-  })
 }
 
 // "检查" 按钮: 主动跑 validate, 始终弹 panel (即使全通过也告知用户)
@@ -1541,11 +1531,6 @@ async function onValidationPanelRun() {
   problemsExpanded.value = false
   if (!draft.value) return
   await backend.containers.run(draft.value.id)
-  toast.add({
-    title: t('toast.runqueue_added'),
-    color: 'primary',
-    icon: 'i-tabler-player-play',
-  })
 }
 
 // 一键修复 MISSING_WIN32_WINDOW_TARGET: 往主图 push 一个空 Win32WindowTarget 节点 (用户后续在

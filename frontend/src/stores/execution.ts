@@ -70,8 +70,19 @@ export interface DebugSessionState {
 }
 
 function eventPayload(e: any): any {
-  if (Array.isArray(e?.data)) return e.data[0]
-  return e?.data ?? e
+  let data = e
+  for (let i = 0; i < 4; i += 1) {
+    if (Array.isArray(data)) {
+      data = data[0]
+      continue
+    }
+    if (data && typeof data === 'object' && 'data' in data) {
+      data = data.data
+      continue
+    }
+    break
+  }
+  return data
 }
 
 function pickField<T = unknown>(source: any, camel: string, go: string): T | undefined {

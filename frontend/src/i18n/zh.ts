@@ -157,9 +157,6 @@ export default {
     lang_en_warn_desc:
       '部分场景的视觉模板尚未采集英文版本, 相关功能可能显示为不可用. UI 字符串已切换.',
     subgraph_not_set: '该节点未指定子图',
-    runqueue_added: '已加入运行队列',
-    debug_started: '已进入调试模式',
-    debug_from_node_started: '已从此节点进入调试模式',
     debug_save_first: '请先保存再调试',
     debug_run_busy: '当前正在运行，不能同时调试',
     validate_failed: '校验失败',
@@ -2175,7 +2172,6 @@ export default {
       confirm: '删除',
     },
     toast: {
-      queue_added: '已加入运行队列: {name}',
       stop_signal: '已发出停止信号',
       deleted_count: '已删除 {n} 个',
       batch_partial_fail: '批量删除部分失败 (详情见日志)',
