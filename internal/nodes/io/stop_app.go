@@ -7,7 +7,7 @@ import (
 
 func init() { node.Register(&StopApp{}) }
 
-// StopApp 按进程名或 PID 强制结束进程。进程名（如 notepad.exe）或纯数字 PID 均可。
+// StopApp 按进程名、exe 路径或 PID 强制结束进程。
 type StopApp struct{}
 
 // killProcess 可注入，测试时替换为 mock。

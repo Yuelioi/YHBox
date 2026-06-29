@@ -1272,9 +1272,9 @@ export default {
     },
     StopApp: {
       label: 'Stop App',
-      description: 'Forcefully terminate a process by name or PID. Accepts a process name (e.g. notepad.exe) or a numeric PID. Routes to Fail if the process does not exist or cannot be killed.',
+      description: 'Forcefully terminate a process by name, full exe path, or PID. Full paths are matched by file name. Routes to Fail if the process does not exist or cannot be killed.',
       input: {
-        Target: { label: 'Target Process', hint: 'Process name (e.g. notepad.exe) or numeric PID (e.g. 1234)' },
+        Target: { label: 'Target Process', hint: 'Process name (notepad.exe), full exe path, or numeric PID (1234)' },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Fail' } },
     },

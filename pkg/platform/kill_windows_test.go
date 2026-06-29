@@ -43,3 +43,13 @@ func TestTaskkillArgs_Name(t *testing.T) {
 		t.Errorf("taskkillArgs(\"chrome.exe\") = %v, must not contain /PID", args)
 	}
 }
+
+func TestTaskkillArgs_ExePathUsesImageName(t *testing.T) {
+	args := taskkillArgs(`E:\adobe\Adobe After Effects 2022\Support Files\AfterFX.exe`)
+	if len(args) != 3 {
+		t.Fatalf("taskkillArgs(path) = %v, want 3 args", args)
+	}
+	if args[0] != "/F" || args[1] != "/IM" || args[2] != "AfterFX.exe" {
+		t.Fatalf("taskkillArgs(path) = %v, want [/F /IM AfterFX.exe]", args)
+	}
+}
