@@ -803,6 +803,8 @@ export default {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        ROI: { label: '搜索区域', hint: '只在这个区域内等待模板出现；留空=全屏' },
+        PollIntervalMs: { label: '轮询间隔 (ms)', hint: '每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。' },
         SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。' },
         Window: { label: '窗口' },
       },
@@ -815,6 +817,7 @@ export default {
           label: '超时',
           data: { Conf: { hint: '最高匹配度 (低于阈值)' } },
         },
+        Fail: { label: '失败' },
       },
     },
     WaitTemplateGone: {
@@ -825,6 +828,8 @@ export default {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. ns.loading_bar; 可选多个（任一命中即视为"还在"）' },
         TimeoutMs: { label: '超时 (ms)', hint: '0 = 只看当前帧一次，不在走 Gone，在走 Timeout' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        ROI: { label: '搜索区域', hint: '只在这个区域内确认模板是否还在；留空=全屏' },
+        PollIntervalMs: { label: '轮询间隔 (ms)', hint: '每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。' },
         Window: { label: '窗口' },
       },
       output: {
@@ -833,6 +838,7 @@ export default {
           label: '超时',
           data: { Conf: { hint: '超时时最后一帧的匹配度' } },
         },
+        Fail: { label: '失败' },
       },
     },
     CheckTemplate: {
@@ -842,6 +848,7 @@ export default {
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
+        ROI: { label: '搜索区域', hint: '只在这个区域内找模板；留空=全屏' },
         Window: { label: '窗口' },
       },
       output: {
@@ -853,6 +860,7 @@ export default {
           label: '未命中',
           data: { Conf: { hint: '最高匹配度 (低于阈值)' } },
         },
+        Fail: { label: '失败' },
       },
     },
     ClickTemplate: {
@@ -886,6 +894,7 @@ export default {
           label: '超时',
           data: { Conf: { hint: '放弃时的匹配度' } },
         },
+        Fail: { label: '失败' },
       },
     },
     DetectColor: {

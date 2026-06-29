@@ -783,6 +783,8 @@ export default {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        ROI: { label: 'Search region', hint: 'Only wait for the template inside this region; leave empty = full screen' },
+        PollIntervalMs: { label: 'Poll interval (ms)', hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.' },
         SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).' },
         Window: { label: 'Window' },
       },
@@ -795,6 +797,7 @@ export default {
           label: 'Timeout',
           data: { Conf: { hint: 'Highest match score (below threshold)' } },
         },
+        Fail: { label: 'Fail' },
       },
     },
     WaitTemplateGone: {
@@ -805,6 +808,8 @@ export default {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. ns.loading_bar; multiple allowed (any hit = still present)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '0 = check current frame once only — gone takes Gone, still present takes Timeout' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        ROI: { label: 'Search region', hint: 'Only check whether the template is still present inside this region; leave empty = full screen' },
+        PollIntervalMs: { label: 'Poll interval (ms)', hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.' },
         Window: { label: 'Window' },
       },
       output: {
@@ -813,6 +818,7 @@ export default {
           label: 'Timeout',
           data: { Conf: { hint: 'Match score on the last frame before timeout' } },
         },
+        Fail: { label: 'Fail' },
       },
     },
     CheckTemplate: {
@@ -822,6 +828,7 @@ export default {
       input: {
         Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
+        ROI: { label: 'Search region', hint: 'Only search for the template inside this region; leave empty = full screen' },
         Window: { label: 'Window' },
       },
       output: {
@@ -833,6 +840,7 @@ export default {
           label: 'Not found',
           data: { Conf: { hint: 'Highest match score (below threshold)' } },
         },
+        Fail: { label: 'Fail' },
       },
     },
     ClickTemplate: {
@@ -866,6 +874,7 @@ export default {
           label: 'Timeout',
           data: { Conf: { hint: 'Match score when giving up' } },
         },
+        Fail: { label: 'Fail' },
       },
     },
     DetectColor: {

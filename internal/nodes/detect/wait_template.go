@@ -16,16 +16,18 @@ func init() { node.Register(&WaitTemplate{}) }
 type WaitTemplate struct{}
 
 const (
-	wtInExec      = "In"
-	wtInTemplates = "Templates"
-	wtInTimeoutMs = "TimeoutMs"
-	wtInThreshold = "Threshold"
-	wtInSettleMs  = "SettleMs"
-	wtOutFound    = "Found"
-	wtOutTimeout  = "Timeout"
-	wtDataPoint   = "Point"
-	wtDataConf    = "Conf"
-	wtDataMatched = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
+	wtInExec           = "In"
+	wtInTemplates      = "Templates"
+	wtInTimeoutMs      = "TimeoutMs"
+	wtInThreshold      = "Threshold"
+	wtInROI            = "ROI"
+	wtInPollIntervalMs = "PollIntervalMs"
+	wtInSettleMs       = "SettleMs"
+	wtOutFound         = "Found"
+	wtOutTimeout       = "Timeout"
+	wtDataPoint        = "Point"
+	wtDataConf         = "Conf"
+	wtDataMatched      = "Matched" // 命中与否 (bool) Data 字段 — 两出口都带, 供自动捕获 (Spec C)
 )
 
 func (WaitTemplate) Spec() node.Spec {
@@ -45,6 +47,9 @@ func (WaitTemplate) Spec() node.Spec {
 			{Name: wtInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: wtInROI, Type: "Geometry", Schema: node.GeometrySchema()},
+			{Name: wtInPollIntervalMs, Type: "Number", Default: json.Number("100"), Advanced: true,
+				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: wtInSettleMs, Type: "Number", Default: json.Number("0"),
 				Widget: node.WidgetSpec{Kind: "number"}},
 		}, node.WindowInputSpec()),
@@ -60,6 +65,7 @@ func (WaitTemplate) Spec() node.Spec {
 					{Name: wtDataConf, Type: "Number", Optional: true},
 					{Name: wtDataMatched, Type: "Bool"},
 				}},
+			templateFailOutputSpec(),
 		},
 	}
 }
@@ -67,14 +73,16 @@ func (WaitTemplate) Spec() node.Spec {
 func (WaitTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(wtInTemplates)
 	threshold := in.Float64(wtInThreshold)
+	roi := in.Geometry(wtInROI)
 	timeout := time.Duration(in.Int(wtInTimeoutMs)) * time.Millisecond
+	poll := normalizePollInterval(time.Duration(in.Int(wtInPollIntervalMs)) * time.Millisecond)
 	settle := time.Duration(in.Int(wtInSettleMs)) * time.Millisecond
-	hit, err := ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, node.Geometry{}, timeout)
+	hit, err := waitForTemplate(ctx, keys, threshold, roi, timeout, poll)
 	if err != nil {
-		return nil, node.Failf(node.CodeCaptureFailed, err, "vision wait %s: %v", strings.Join(keys, "+"), err)
+		return fireTemplateFail(ctx, node.Failf(node.CodeCaptureFailed, err, "vision wait %s: %v", strings.Join(keys, "+"), err)), nil
 	}
 	if hit.Found {
-		hit, err = settleAfterMatch(ctx, keys, threshold, settle, hit)
+		hit, err = settleAfterMatch(ctx, keys, threshold, roi, settle, hit)
 		if err != nil {
 			return nil, err
 		}
@@ -90,4 +98,34 @@ func (WaitTemplate) Validate(in node.Inputs) []node.ValidationError {
 
 func (WaitTemplate) Dependencies(in node.Inputs) []node.Dependency {
 	return templateDeps(in.StringList(wtInTemplates))
+}
+
+func waitForTemplate(ctx node.Ctx, keys []string, threshold float64, roi node.Geometry, timeout, poll time.Duration) (node.MatchHit, error) {
+	hit, err := matchOnce(ctx, keys, threshold, roi)
+	if err != nil {
+		return node.MatchHit{}, err
+	}
+	if hit.Found || timeout <= 0 {
+		return hit, nil
+	}
+	deadline := ctx.Now().Add(timeout)
+	bestConf := hit.Conf
+	for {
+		if err := waitOrCancel(ctx, poll); err != nil {
+			return node.MatchHit{}, err
+		}
+		hit, err = matchOnce(ctx, keys, threshold, roi)
+		if err != nil {
+			return node.MatchHit{}, err
+		}
+		if hit.Conf > bestConf {
+			bestConf = hit.Conf
+		}
+		if hit.Found {
+			return hit, nil
+		}
+		if !ctx.Now().Before(deadline) {
+			return node.MatchHit{Conf: bestConf}, nil
+		}
+	}
 }

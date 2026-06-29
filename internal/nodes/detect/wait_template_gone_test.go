@@ -97,7 +97,45 @@ func TestWaitTemplateGone_Error(t *testing.T) {
 		map[string]any{wtgInTemplates: []string{"ns.icon"}},
 		nil, withVision(vision), false)
 
-	if r.Error == nil {
-		t.Error("expected error propagation")
+	if r.Error != nil {
+		t.Fatalf("unexpected runtime error: %v", r.Error)
+	}
+	if r.ExitName != tmplOutFail {
+		t.Fatalf("exit = %q, want Fail", r.ExitName)
+	}
+	if r.OutputData[tmplDataCode] != string(node.CodeCaptureFailed) {
+		t.Errorf("Code = %v, want %s", r.OutputData[tmplDataCode], node.CodeCaptureFailed)
+	}
+}
+
+func TestWaitTemplateGone_PassesROIAndUsesPollInterval(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&WaitTemplateGone{})
+	rn, _ := node.Get("WaitTemplateGone")
+
+	pt := node.Point{X: 0.5, Y: 0.5}
+	roi := node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.1, W: 0.6, H: 0.6}}
+	vision := &mockVision{point: &pt, conf: 0.9, hitOnCall: 1, missAfterCall: 1}
+	r := node.RunNode(context.Background(), rn, nil,
+		map[string]any{
+			wtgInTemplates:      []string{"ns.icon"},
+			wtgInTimeoutMs:      50,
+			wtgInThreshold:      0.85,
+			wtgInROI:            roi,
+			wtgInPollIntervalMs: 1,
+		},
+		nil, withVision(vision), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if r.ExitName != wtgOutGone {
+		t.Fatalf("exit=%s want Gone", r.ExitName)
+	}
+	if vision.callCount != 2 {
+		t.Fatalf("WaitMatch callCount = %d, want 2", vision.callCount)
+	}
+	if vision.lastWaitMatchROI.Pct != roi.Pct {
+		t.Fatalf("roi = %+v, want %+v", vision.lastWaitMatchROI.Pct, roi.Pct)
 	}
 }

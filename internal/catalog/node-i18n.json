@@ -99,6 +99,38 @@
       }
     }
   },
+  "AndroidStartApp": {
+    "label": "安卓启动应用",
+    "description": "在当前安卓目标设备上启动一个应用。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。",
+    "example": "先用安卓目标选中 MuMu 模拟器, 再用安卓启动应用选择 com.RoamingStar.BlueArchive 启动游戏。",
+    "input": {
+      "Package": {
+        "label": "应用",
+        "hint": "从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
+  "AndroidStopApp": {
+    "label": "安卓停止应用",
+    "description": "在当前安卓目标设备上停止一个应用进程。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。",
+    "example": "流程结束时选择 com.RoamingStar.BlueArchive, 通过 ADB 停止游戏进程。",
+    "input": {
+      "Package": {
+        "label": "应用",
+        "hint": "从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive"
+      }
+    },
+    "output": {
+      "Done": {
+        "label": "完成"
+      }
+    }
+  },
   "AndroidTarget": {
     "label": "安卓目标",
     "description": "把后续点击、截图和视觉识别切到一个 ADB 设备或模拟器。序列号可从下拉列表选择, 名称和分辨率会自动填入, 也可以手动覆盖。",
@@ -119,38 +151,6 @@
       "Height": {
         "label": "高度",
         "hint": "设备截图高度, 用于坐标换算"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      }
-    }
-  },
-  "AndroidStartApp": {
-    "label": "安卓启动应用",
-    "description": "在当前安卓目标里按包名启动应用，并把该应用拉到前台。适合 MuMu 顶栏有多个应用 tab 时，在流程开头稳定切回目标游戏。",
-    "example": "安卓目标选择模拟器后，接本节点，包名填 com.nexon.bluearchive，后续截图和点击就对着游戏当前画面执行。",
-    "input": {
-      "Package": {
-        "label": "包名",
-        "hint": "Android package name，如 com.nexon.bluearchive"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      }
-    }
-  },
-  "AndroidStopApp": {
-    "label": "安卓停止应用",
-    "description": "在当前安卓目标里按包名强制停止应用。适合流程结束时关闭游戏，或重新启动前先清掉旧进程。",
-    "example": "包名填 com.nexon.bluearchive，执行后通过 ADB force-stop 停止该游戏。",
-    "input": {
-      "Package": {
-        "label": "包名",
-        "hint": "Android package name，如 com.nexon.bluearchive"
       }
     },
     "output": {
@@ -237,6 +237,10 @@
         "label": "阈值",
         "hint": "NCC 阈值"
       },
+      "ROI": {
+        "label": "搜索区域",
+        "hint": "只在这个区域内找模板；留空=全屏"
+      },
       "Window": {
         "label": "窗口"
       }
@@ -247,6 +251,9 @@
       },
       "NotFound": {
         "label": "未命中"
+      },
+      "Fail": {
+        "label": "失败"
       }
     }
   },
@@ -410,6 +417,9 @@
       },
       "Timeout": {
         "label": "超时"
+      },
+      "Fail": {
+        "label": "失败"
       }
     }
   },
@@ -2173,11 +2183,11 @@
   },
   "StopApp": {
     "label": "关闭程序",
-    "description": "按进程名或 PID 强制结束进程。填进程名（如 notepad.exe）或纯数字 PID 均可。进程不存在或无权限时走失败出口。",
+    "description": "按进程名、完整 exe 路径或 PID 强制结束进程。完整路径会按文件名结束同名进程。进程不存在或无权限时走失败出口。",
     "input": {
       "Target": {
         "label": "目标进程",
-        "hint": "进程名（如 notepad.exe）或纯数字 PID（如 1234）"
+        "hint": "进程名（notepad.exe）、完整 exe 路径，或纯数字 PID（1234）"
       }
     },
     "output": {
@@ -2587,6 +2597,14 @@
         "label": "阈值",
         "hint": "NCC 阈值"
       },
+      "ROI": {
+        "label": "搜索区域",
+        "hint": "只在这个区域内等待模板出现；留空=全屏"
+      },
+      "PollIntervalMs": {
+        "label": "轮询间隔 (ms)",
+        "hint": "每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。"
+      },
       "SettleMs": {
         "label": "命中后延迟 (ms)",
         "hint": "命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。"
@@ -2601,6 +2619,9 @@
       },
       "Timeout": {
         "label": "超时"
+      },
+      "Fail": {
+        "label": "失败"
       }
     }
   },
@@ -2621,6 +2642,14 @@
         "label": "阈值",
         "hint": "NCC 阈值"
       },
+      "ROI": {
+        "label": "搜索区域",
+        "hint": "只在这个区域内确认模板是否还在；留空=全屏"
+      },
+      "PollIntervalMs": {
+        "label": "轮询间隔 (ms)",
+        "hint": "每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。"
+      },
       "Window": {
         "label": "窗口"
       }
@@ -2631,6 +2660,9 @@
       },
       "Timeout": {
         "label": "超时"
+      },
+      "Fail": {
+        "label": "失败"
       }
     }
   },

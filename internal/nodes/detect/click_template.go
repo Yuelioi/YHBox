@@ -88,11 +88,11 @@ func (ClickTemplate) Spec() node.Spec {
 							{Value: "right"},
 							{Value: "middle"},
 						}})}},
-			{Name: clkInSettleMs, Type: "Number", Default: json.Number("0"),
+			{Name: clkInSettleMs, Type: "Number", Default: json.Number("0"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: clkInMaxAttempts, Type: "Number", Default: json.Number("1"),
+			{Name: clkInMaxAttempts, Type: "Number", Default: json.Number("1"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: clkInRetryIntervalMs, Type: "Number", Default: json.Number("500"),
+			{Name: clkInRetryIntervalMs, Type: "Number", Default: json.Number("500"), Advanced: true,
 				Widget: node.WidgetSpec{Kind: "number"}},
 			{Name: clkInOrderBy, Type: "String", Default: "score", Advanced: true,
 				Widget: node.WidgetSpec{Kind: "dropdown",
@@ -123,6 +123,7 @@ func (ClickTemplate) Spec() node.Spec {
 					{Name: clkDataConf, Type: "Number", Optional: true},
 					{Name: clkDataMatched, Type: "Bool"},
 				}},
+			templateFailOutputSpec(),
 		},
 	}
 }
@@ -240,7 +241,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	// 获取: 轮询 locateOnce 到命中或超时 (统一两路径).
 	hit, err := acquire(ctx, keys, threshold, roi, orderBy, index, timeout)
 	if err != nil {
-		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate wait %s: %v", strings.Join(keys, "+"), err)
+		return fireTemplateFail(ctx, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate wait %s: %v", strings.Join(keys, "+"), err)), nil
 	}
 	if !hit.Found {
 		return ctx.Out(clkOutTimeout).Set(clkDataConf, hit.Conf).Set(clkDataMatched, false).Fire(), nil
@@ -257,7 +258,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 
 	if err := node.ClickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount, 50); err != nil {
-		return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)
+		return fireTemplateFail(ctx, node.Failf(node.CodeSendFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)), nil
 	}
 	if maxAttempts <= 1 {
 		return ctx.Out(clkOutDone).Set(clkDataPoint, clickPt(hit)).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
@@ -269,7 +270,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		h2, err := locateOnce(ctx, keys, threshold, roi, orderBy, index)
 		if err != nil {
-			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate recheck %s: %v", strings.Join(keys, "+"), err)
+			return fireTemplateFail(ctx, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate recheck %s: %v", strings.Join(keys, "+"), err)), nil
 		}
 		if !h2.Found {
 			return ctx.Out(clkOutDone).Set(clkDataPoint, clickPt(hit)).Set(clkDataConf, hit.Conf).Set(clkDataMatched, true).Fire(), nil
@@ -279,7 +280,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		}
 		hit = h2
 		if err := node.ClickWithMods(ctx, clickPt(hit), btn, modKeys, clickCount, 50); err != nil {
-			return nil, node.Failf(node.CodeCaptureFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)
+			return fireTemplateFail(ctx, node.Failf(node.CodeSendFailed, err, "ClickTemplate click %s @ (%.3f,%.3f): %v", strings.Join(keys, "+"), clickPt(hit).X, clickPt(hit).Y, err)), nil
 		}
 		clicks++
 	}

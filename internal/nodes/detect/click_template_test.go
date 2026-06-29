@@ -222,8 +222,14 @@ func TestClickTemplate_BackendError(t *testing.T) {
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}},
 		nil, withVisionAndInput(vision, rec), false)
 
-	if r.Error == nil {
-		t.Error("expected Click backend error propagation")
+	if r.Error != nil {
+		t.Fatalf("unexpected runtime error: %v", r.Error)
+	}
+	if r.ExitName != tmplOutFail {
+		t.Fatalf("exit = %q, want Fail", r.ExitName)
+	}
+	if r.OutputData[tmplDataCode] != string(node.CodeSendFailed) {
+		t.Errorf("Code = %v, want %s", r.OutputData[tmplDataCode], node.CodeSendFailed)
 	}
 }
 

@@ -61,6 +61,50 @@ func TestSpecConsistency_TargetCapabilitiesKnownByController(t *testing.T) {
 	}
 }
 
+func TestSpecConsistency_NoDuplicatePinsWithinNode(t *testing.T) {
+	for _, rn := range nodepkg.All() {
+		spec := rn.Spec
+		inputTypes := map[string]string{}
+		for _, in := range spec.Inputs {
+			if prev, ok := inputTypes[in.Name]; ok {
+				if prev == in.Type {
+					t.Errorf("kind=%s duplicate input pin %q type=%s", spec.Kind, in.Name, in.Type)
+				} else {
+					t.Errorf("kind=%s input pin %q declared with multiple types: %s / %s", spec.Kind, in.Name, prev, in.Type)
+				}
+				continue
+			}
+			inputTypes[in.Name] = in.Type
+		}
+
+		outputTypes := map[string]string{}
+		for _, out := range spec.Outputs {
+			if prev, ok := outputTypes[out.Name]; ok {
+				if prev == out.Type {
+					t.Errorf("kind=%s duplicate output pin %q type=%s", spec.Kind, out.Name, out.Type)
+				} else {
+					t.Errorf("kind=%s output pin %q declared with multiple types: %s / %s", spec.Kind, out.Name, prev, out.Type)
+				}
+				continue
+			}
+			outputTypes[out.Name] = out.Type
+
+			dataTypes := map[string]string{}
+			for _, data := range out.Data {
+				if prev, ok := dataTypes[data.Name]; ok {
+					if prev == data.Type {
+						t.Errorf("kind=%s output=%s duplicate data field %q type=%s", spec.Kind, out.Name, data.Name, data.Type)
+					} else {
+						t.Errorf("kind=%s output=%s data field %q declared with multiple types: %s / %s", spec.Kind, out.Name, data.Name, prev, data.Type)
+					}
+					continue
+				}
+				dataTypes[data.Name] = data.Type
+			}
+		}
+	}
+}
+
 func TestSpecConsistency_SupportedTargetsAreDerived(t *testing.T) {
 	publicTargets := map[string]bool{
 		nodepkg.SupportedTargetWin32Window: true,

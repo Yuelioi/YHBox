@@ -66,9 +66,14 @@ type mockVision struct {
 	// MatchAll 用
 	matchAllResults []node.TemplateMatch
 	matchAllErr     error
+
+	lastMatchROI     node.Geometry
+	lastWaitMatchROI node.Geometry
+	lastWaitTimeout  time.Duration
 }
 
-func (m *mockVision) Match(_ context.Context, _ []string, _ float64, _ node.Geometry) (node.MatchHit, error) {
+func (m *mockVision) Match(_ context.Context, _ []string, _ float64, roi node.Geometry) (node.MatchHit, error) {
+	m.lastMatchROI = roi
 	if m.err != nil {
 		return node.MatchHit{Conf: m.conf}, m.err
 	}
@@ -78,7 +83,9 @@ func (m *mockVision) Match(_ context.Context, _ []string, _ float64, _ node.Geom
 	return node.MatchHit{Conf: m.conf}, nil
 }
 
-func (m *mockVision) WaitMatch(ctx context.Context, _ []string, _ float64, _ node.Geometry, timeout time.Duration) (node.MatchHit, error) {
+func (m *mockVision) WaitMatch(ctx context.Context, _ []string, _ float64, roi node.Geometry, timeout time.Duration) (node.MatchHit, error) {
+	m.lastWaitMatchROI = roi
+	m.lastWaitTimeout = timeout
 	// 模拟 framework 真接的语义: 一次性 (timeout<=0 也算一次). 节点的 WaitTemplate
 	// 是直接调 WaitMatch (服务内部轮询), 这里 hitOnCall 控制返不返命中.
 	m.callCount++
@@ -210,8 +217,38 @@ func TestCheckTemplate_Error(t *testing.T) {
 		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}},
 		nil, withVision(vision), false)
 
-	if r.Error == nil {
-		t.Error("expected error propagation")
+	if r.Error != nil {
+		t.Fatalf("unexpected runtime error: %v", r.Error)
+	}
+	if r.ExitName != tmplOutFail {
+		t.Fatalf("exit = %q, want Fail", r.ExitName)
+	}
+	if r.OutputData[tmplDataCode] != string(node.CodeCaptureFailed) {
+		t.Errorf("Code = %v, want %s", r.OutputData[tmplDataCode], node.CodeCaptureFailed)
+	}
+	if r.OutputData[tmplDataError] == "" {
+		t.Error("Error should be populated")
+	}
+}
+
+func TestCheckTemplate_PassesROIToVision(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&CheckTemplate{})
+	rn, _ := node.Get("CheckTemplate")
+
+	roi := node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.2, W: 0.3, H: 0.4}}
+	pt := node.Point{X: 0.5, Y: 0.5}
+	vision := &mockVision{point: &pt, conf: 0.92}
+	r := node.RunNode(context.Background(), rn,
+		nil,
+		map[string]any{ctInTemplates: []string{"fishing.hook_icon"}, ctInROI: roi},
+		nil, withVision(vision), false)
+
+	if r.Error != nil {
+		t.Fatal(r.Error)
+	}
+	if vision.lastMatchROI.Pct != roi.Pct {
+		t.Fatalf("roi = %+v, want %+v", vision.lastMatchROI.Pct, roi.Pct)
 	}
 }
 

@@ -20,6 +20,7 @@ const (
 	ctInExec      = "In"
 	ctInTemplates = "Templates"
 	ctInThreshold = "Threshold"
+	ctInROI       = "ROI"
 	ctOutFound    = "Found"
 	ctOutNotFound = "NotFound"
 	ctDataPoint   = "Point"
@@ -43,6 +44,7 @@ func (CheckTemplate) Spec() node.Spec {
 			{Name: ctInThreshold, Type: "Number", Default: json.Number("0.85"),
 				Widget: node.WidgetSpec{Kind: "slider",
 					Props: node.MarshalProps(node.SliderProps{Min: 0, Max: 1, Step: 0.01})}},
+			{Name: ctInROI, Type: "Geometry", Schema: node.GeometrySchema()},
 		}, node.WindowInputSpec()),
 		Outputs: []node.OutputSpec{
 			{Name: ctOutFound, Type: "Exec",
@@ -56,6 +58,7 @@ func (CheckTemplate) Spec() node.Spec {
 					{Name: ctDataConf, Type: "Number", Optional: true},
 					{Name: ctDataMatched, Type: "Bool"},
 				}},
+			templateFailOutputSpec(),
 		},
 	}
 }
@@ -64,9 +67,10 @@ func (CheckTemplate) Spec() node.Spec {
 func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(ctInTemplates)
 	threshold := in.Float64(ctInThreshold)
-	hit, err := ctx.Vision().Match(ctx.Context(), keys, threshold, node.Geometry{})
+	roi := in.Geometry(ctInROI)
+	hit, err := ctx.Vision().Match(ctx.Context(), keys, threshold, roi)
 	if err != nil {
-		return nil, node.Failf(node.CodeCaptureFailed, err, "vision match %s: %v", strings.Join(keys, "+"), err)
+		return fireTemplateFail(ctx, node.Failf(node.CodeCaptureFailed, err, "vision match %s: %v", strings.Join(keys, "+"), err)), nil
 	}
 	if hit.Found {
 		return ctx.Out(ctOutFound).Set(ctDataPoint, hit.Point).Set(ctDataConf, hit.Conf).Set(ctDataMatched, true).Fire(), nil
