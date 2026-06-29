@@ -1,17 +1,17 @@
 # Cockpit — YHFish
 
-Focus: **window-control 代码完成 + 逐任务 review + opus 整支终审过(终审抓的 Critical 已修复核)**,与 detect-click 一起**待用户真机 smoke**;两者 smoke 过即归档,然后回 ③ MCP 对外暴露(mcp-node-exec,未起)。
+Focus: **window-control 代码完成 + 逐任务 review + opus 整支终审过(终审抓的 Critical 已修复核)**,真机 smoke 新抓到的“双 Win32WindowTarget 配置同步”前端创建节点 bug 已修,待用户重测;与 detect-click 一起**待用户真机 smoke**;两者 smoke 过即归档,然后回 ③ MCP 对外暴露(mcp-node-exec,未起)。
 > point-px-unit ✅ 已发并真机 smoke 过(2026-06-25)→ 已归档。
 
 ## In flight
 
-- [work/window-control/](work/window-control/) — **代码全完成,待真机 smoke**。给框架加一等 `Window` 数据类型 + GetWindow 产出节点 + WindowState/MoveResizeWindow/CloseWindow 控制节点 + 所有 NeedsWindow 节点可选 Window 输入(不连=当前活动窗口,连了=派发期 per-node 覆盖栈) + "Window" palette 类别 + 中英 i18n。17 任务全 subagent-driven 实现 + 逐任务 review + **opus 整支终审**。全绿门过(go build/vet/test 全 scope 绿除预存 RED 基线;前端 vue-tsc + i18n parity)。**终审抓 1 Critical(Snapshot 返缓存未按 design live 重读 ClientW/H,被节点 stub 假造掩盖的跨任务缝)+ 1 Important(Window pin 泄进 Script JS 全局)→ 已修(commit 28a86ca)+ re-review 干净**。进度账本 + 终审记录 `.superpowers/sdd/progress.md`;教训落 [knowledge/nodes/contract-verification-traps.md](knowledge/nodes/contract-verification-traps.md)。**待用户真机 smoke(清单见 ## Next),全过 → 移 work/window-control 到 cold store + design/plan 归档。**
+- [work/window-control/](work/window-control/) — **代码全完成,待真机 smoke 重测**。给框架加一等 `Window` 数据类型 + GetWindow 产出节点 + WindowState/MoveResizeWindow/CloseWindow 控制节点 + 所有 NeedsWindow 节点可选 Window 输入(不连=当前活动窗口,连了=派发期 per-node 覆盖栈) + "Window" palette 类别 + 中英 i18n。17 任务全 subagent-driven 实现 + 逐任务 review + **opus 整支终审**。全绿门过(go build/vet/test 全 scope 绿除预存 RED 基线;前端 vue-tsc + i18n parity)。**终审抓 1 Critical(Snapshot 返缓存未按 design live 重读 ClientW/H,被节点 stub 假造掩盖的跨任务缝)+ 1 Important(Window pin 泄进 Script JS 全局)→ 已修(commit 28a86ca)+ re-review 干净**。真机 smoke 又抓 1 frontend bug: 连续新增两个 `Win32WindowTarget` 时 defaults 浅拷贝共享 `config.literal`,改一个会同步另一个;已修 `useInlineMenu`/`useNodeCreation` 深拷贝并补 Vitest,知识落 [knowledge/frontend/node-default-config-shared-reference.md](knowledge/frontend/node-default-config-shared-reference.md)。**待用户重测双目标窗口独立绑定 + 原 smoke 清单,全过 → 移 work/window-control 到 cold store + design/plan 归档。**
 - [work/detect-click-config/](work/detect-click-config/) — **代码完成,待真机 smoke**(本会话未动)。Phase 1-4 全家桶(Vision/ClickTemplate/新节点群/WaitWindowGone/Point 手填)。两已修 bug 待重测:⑦ InputText 改 WM_CHAR targeted;短图日志 LogMerger finalize 时 emit。全过 → 移 cold store。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — ③ MCP 对外暴露(AI 调我们):GUI 内置 Streamable HTTP MCP server,design.md + plan.md 就绪。detect-click + window-control 完结后的下一主攻。
 
 ## Next
 
-1. **window-control 真机 smoke(用户)** —— 先 `task build` 出 exe,再验(plan D3 Step4):① 侧栏/右键/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow;② 单窗口图(Win32WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口;③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar 的 Window 输出)分别作用对应窗口;④ 无边框全屏→MoveResize→退无边框 回到全屏前布局;⑤ CloseWindow 接 WaitWindowGone 确认关闭;⑥ sendinput 后端下 ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
+1. **window-control 真机 smoke(用户)** —— 先 `task build` 出 exe,优先重测:连续新增两个 Windows 目标窗口,第一个绑 AE 主窗口,第二个绑合成设置,修改/捕获任一节点不应同步另一个;再验(plan D3 Step4):① 侧栏/右键/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow;② 单窗口图(Win32WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口;③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar 的 Window 输出)分别作用对应窗口;④ 无边框全屏→MoveResize→退无边框 回到全屏前布局;⑤ CloseWindow 接 WaitWindowGone 确认关闭;⑥ sendinput 后端下 ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
 2. **detect-click 真机 smoke(用户)** —— Phase 1-4 各项(尤其重测 ⑦ 记事本/vscode 打字、短图日志、WaitWindowGone、Swipe 手填/连点)。
 3. 两支 smoke 全过 → 归档 work/(移 cold store + design/plan 按日期归档),回 ③ 从 [work/mcp-node-exec/](work/mcp-node-exec/) 恢复,再按其 index 指向的 plan 起 MCP 实现。
 

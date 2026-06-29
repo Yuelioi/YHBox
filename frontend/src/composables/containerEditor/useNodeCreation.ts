@@ -29,6 +29,10 @@ import { useInsertPoint } from './useInsertPoint'
 
 type ToastApi = { add: (opts: { title: string; description?: string; color?: string; icon?: string }) => void }
 
+function cloneDefaultConfig(config: Record<string, unknown> | undefined): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(config ?? {}))
+}
+
 interface PinAtPosition {
   nodeID: string
   pinName: string
@@ -191,7 +195,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     addNode({
       kind: payload.kind,
       pos,
-      config: getSpec(payload.kind)?.defaults ?? {},
+      config: cloneDefaultConfig(getSpec(payload.kind)?.defaults),
     })
   }
 
@@ -240,7 +244,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     addNode({
       kind,
       pos,
-      config: { ...getSpec(kind)?.defaults },
+      config: cloneDefaultConfig(getSpec(kind)?.defaults),
     })
   }
 
@@ -315,7 +319,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     const n = buildNode({
       kind,
       pos: { x: atX ?? 200 + Math.random() * 200, y: atY ?? 100 + Math.random() * 200 },
-      config: { ...KIND_DEFAULTS[kind] },
+      config: cloneDefaultConfig(KIND_DEFAULTS[kind]),
       id: kind === 'Start' ? 'start' : genNodeID(),
     })
     // onAddNode 老代码: 用 builtNode 时不 set createdAt — buildNode 强 set,

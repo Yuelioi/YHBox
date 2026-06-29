@@ -2,12 +2,13 @@
 
 ## State
 
-代码实现、逐任务 review、opus 整支终审都已完成。终审抓到的 Critical/Important 已修复并 re-review 干净；当前只等用户真机 smoke。smoke 全过后归档本 topic。
+代码实现、逐任务 review、opus 整支终审都已完成。终审抓到的 Critical/Important 已修复并 re-review 干净；用户真机 smoke 暴露 1 个前端创建节点回归：连续新增两个 `Win32WindowTarget` 时浅拷贝 defaults 导致嵌套 `config.literal` 共享，改一个目标窗口会同步到另一个。已修复 `useInlineMenu` / `useNodeCreation` 默认 config 深拷贝并加前端回归测试。当前待用户重测该项及剩余 smoke。smoke 全过后归档本 topic。
 
 ## Next
 
 用户真机 smoke：
 - `task build` 出 exe。
+- 重测连续创建两个 Windows 目标窗口：第一个绑定 AE 主窗口，第二个绑定合成设置；修改/捕获其中一个不应同步改另一个。
 - 验证 Window 组入口：侧栏、右键、explorer 三处能找到 GetWindow / WindowState / MoveResizeWindow / CloseWindow。
 - 单窗口图：Win32WindowTarget -> WindowState 最大化，不连 Window 输入时仍作用当前活动窗口。
 - 多窗口图：GetWindow 主/子各绑变量，两个 WindowState 各连 GetVar 的 Window 输出，分别作用对应窗口。
@@ -34,13 +35,15 @@ Done:
 - Window palette 分组与中英 i18n。
 - 17 个实现任务、逐任务 review、整支终审。
 - Critical Snapshot live 重读和 Important Script Window pin 泄漏已修。
+- 真机 smoke 发现并修复：新增多个 `Win32WindowTarget` 时默认 `config.literal` 共享引用，导致两个目标窗口配置同步变化。根因与守卫见 `knowledge/frontend/node-default-config-shared-reference.md`。
 
 Verified:
 - go build / vet / test scope 通过，除 cockpit 记录的预存 RED 基线。
 - frontend vue-tsc 与 i18n parity 通过。
+- 2026-06-29: `pnpm -C frontend exec vitest run src/composables/containerEditor/useInlineMenu.test.ts src/composables/containerEditor/useNodeCreation.test.ts` 通过；`pnpm -C frontend test` 通过；`pnpm -C frontend typecheck` 通过。
 
 Remaining:
-- 用户真机 smoke。
+- 用户真机 smoke：先重测两个 Windows 目标窗口独立绑定，再继续原 smoke 清单。
 
 ## Open questions
 

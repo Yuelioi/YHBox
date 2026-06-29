@@ -15,6 +15,10 @@ import { newNodeID } from './ids'
 import { useInsertPoint } from './useInsertPoint'
 import type { PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 
+function cloneDefaultConfig(config: Record<string, unknown> | undefined): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(config ?? {}))
+}
+
 interface InlineMenuState {
   open: boolean
   position: { x: number; y: number }  // viewport (screen) coords
@@ -169,7 +173,7 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
         kind,
         x: ctx.flowPos.x,
         y: ctx.flowPos.y,
-        config: { ...getSpec(kind)?.defaults },
+        config: cloneDefaultConfig(getSpec(kind)?.defaults),
         createdAt: new Date().toISOString(),
       } as GraphNode
       g.nodes.push(node)
