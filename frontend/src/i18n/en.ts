@@ -1097,7 +1097,7 @@ export default {
     // input
     BringWindowForeground: {
       label: 'Bring window to foreground',
-      description: 'Brings the current Windows window to the front and gives it focus so later Windows key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going. Android and browser targets do not use this node.',
+      description: 'Brings the current Windows window to the front and gives it focus so later Windows key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going. Android targets do not use this node.',
       input: { Window: { label: 'Window' } },
       output: { Done: { label: 'Done' } },
     },
@@ -1287,20 +1287,6 @@ export default {
         Name: { label: 'Display name', hint: 'Optional. Empty uses the device serial' },
         Width: { label: 'Width', hint: 'Screenshot width used for coordinate mapping' },
         Height: { label: 'Height', hint: 'Screenshot height used for coordinate mapping' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    BrowserTarget: {
-      label: 'Browser Target',
-      description: 'Switch subsequent clicks, screenshots, and vision operations to a Chrome/CDP page. Start the browser with a remote debugging port, then pick a page; page ID, title, and WebSocket URL can be filled automatically.',
-      example: 'Start Chrome with --remote-debugging-port=9222, select a page with Browser Target, then click nodes run in page viewport coordinates.',
-      input: {
-        Endpoint: { label: 'Debug endpoint', hint: 'Chrome DevTools endpoint, default http://127.0.0.1:9222' },
-        BrowserID: { label: 'Page ID', hint: 'Select from the remote debugging page list' },
-        Name: { label: 'Display name', hint: 'Optional. Empty uses the page ID' },
-        WebSocketURL: { label: 'WebSocket URL', hint: 'Advanced. Usually filled by page selection' },
-        Width: { label: 'Viewport width', hint: 'Page viewport width used for coordinate mapping' },
-        Height: { label: 'Viewport height', hint: 'Page viewport height used for coordinate mapping' },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1707,7 +1693,7 @@ export default {
     },
     Win32WindowTarget: {
       label: 'Windows window target',
-      description: 'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget or BrowserTarget for those target types.',
+      description: 'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget for Android devices.',
       example: 'Your script needs to operate the game window: put a Windows window target at the start with the game name as the title, and later Windows clicks and key presses go to that window.',
       input: {
         Title: { label: 'Window title' },

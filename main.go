@@ -175,7 +175,6 @@ func main() {
 	nodeSvc := node.NewService()
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
 	browserCDPSvc := browsercdp.NewService("")
-	browsercdp.RegisterNodeAsyncSource(nodeSvc, browserCDPSvc)
 	browserCDPProvider := browsercdp.NewClientProvider(browserCDPSvc)
 
 	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.

@@ -10,7 +10,7 @@ func schemaText() string {
 - 节点: {id, kind, x, y, config:{literal:{<pinName>:<value>}}}
 - pin 值唯一合法写法 = config.literal[<pinName>]。
 - edge: {from:"<nodeId>.<PinName>", to:"<nodeId>.<PinName>"}
-- 用了 needsTarget 节点 (如 KeyPress/ClickAt/Capture/DetectColor) 的图, 必须先含一个 target selection 节点: Win32WindowTarget / AndroidTarget / BrowserTarget。
+- 用了 needsTarget 节点 (如 KeyPress/ClickAt/Capture/DetectColor) 的图, 必须先含一个 target selection 节点: Win32WindowTarget / AndroidTarget。
 - 用了 direct needsWindow 窗口操作节点 (如 BringWindowForeground/WindowState/MoveResizeWindow/CloseWindow) 的图, 必须含 Win32WindowTarget 或给节点连 Window 输入。
 - Duration 类型 = 毫秒数字 (500 = 500ms)。
 - id 由服务端生成, 入参里的 id 会被忽略。

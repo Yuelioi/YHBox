@@ -233,9 +233,10 @@ Done:
 - Phase 67 代码/文档：新增 node spec consistency guard，所有 `TargetCapabilities` 字符串必须被 `controller.CapabilitySet` 识别，防止节点/控制器词表漂移。
 - Phase 68 代码/文档：`Subgraph` 调用会把调用点最近上游 target selection 继承进子图 capability 校验；子图内本地 target selection 可覆盖继承目标。
 - Phase 69 代码/文档：`CollapsedNode` 也纳入子图调用 target capability 继承，折叠/未折叠图的静态校验行为保持一致。
+- Phase 70 代码/文档：删除用户可见 `BrowserTarget` 节点与 `browserCDPTargets` async source；节点目录、validator、runtime target selection、MCP schema、前端/i18n/catalog 不再暴露浏览器 CDP 页面目标。底层 Browser CDP controller/client 暂留内部代码，不作为产品入口。
 
 Current:
-- 下一刀：继续收敛 capability matrix，优先处理 script 子图调用继承或目标特有 app/browser 动作。
+- 下一刀：继续收敛 capability matrix，优先处理 script 子图调用继承或 Android 目标特有 app 动作；不要恢复 `BrowserTarget`，除非先设计真正用户向的浏览器自动化节点体系。
 
 ## Open questions
 
@@ -243,4 +244,4 @@ Current:
 - Phase 8 source metadata 覆盖 framework dispatch 的 input action；直接 `NewInputAdapter(rt)` 调用仍保持空 source。
 - Capture node 已经进入 controller trace；Vision adapter 已 target-aware，但非 Win32 目标尚未做 frame cache。
 - `container:action-trace` 已可订阅、前端查看、脱敏写文件；尚未实现历史文件浏览 UI、批处理策略、raw payload opt-in。
-- Backend profiles、Android ADB controller、Browser CDP controller、runtime active target、runtime controller factory、default factory wiring、AndroidTarget/BrowserTarget 显式目标选择、target-aware vision frame source、Android ADB discovery async source、Browser CDP discovery/client provider、frontend async-dropdown、async option metadata apply、stale CDP client invalidation 已落代码；尚未做自动启动浏览器。
+- Backend profiles、Android ADB controller、Browser CDP controller、runtime active target、runtime controller factory、default factory wiring、AndroidTarget 显式目标选择、target-aware vision frame source、Android ADB discovery async source、Browser CDP discovery/client provider、frontend async-dropdown、async option metadata apply、stale CDP client invalidation 已落代码；`BrowserTarget` 已因产品入口不成立删除。

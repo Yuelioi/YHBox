@@ -7,7 +7,7 @@ import "yotta/internal/node"
 // 数据驱动 (读 Spec 能力位), 不写死 kind 名单 —— 节点增删自动跟随。
 // target selection nodes 例外: 它们职责由 find_window/window 参数或显式容器图承担, 显式排除。
 func isRunnable(spec node.Spec) bool {
-	if spec.Kind == "Win32WindowTarget" || spec.Kind == "AndroidTarget" || spec.Kind == "BrowserTarget" {
+	if spec.Kind == "Win32WindowTarget" || spec.Kind == "AndroidTarget" {
 		return false
 	}
 	return (spec.NeedsTarget || spec.NeedsWindow) && !spec.IsPureData

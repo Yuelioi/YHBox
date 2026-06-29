@@ -497,7 +497,7 @@ func graphHasTargetKind(nodes []container.GraphNode, kind string) bool {
 
 func isTargetNodeKind(kind string) bool {
 	switch kind {
-	case "Win32WindowTarget", "AndroidTarget", "BrowserTarget":
+	case "Win32WindowTarget", "AndroidTarget":
 		return true
 	default:
 		return false

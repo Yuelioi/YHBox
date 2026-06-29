@@ -114,7 +114,9 @@ func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
 	targetSelection := map[string]struct{}{
 		"Win32WindowTarget": {},
 		"AndroidTarget":     {},
-		"BrowserTarget":     {},
+	}
+	disallowedTargets := map[string]struct{}{
+		"BrowserTarget": {},
 	}
 	windowOperations := map[string]struct{}{
 		"WaitWindow":            {},
@@ -127,11 +129,13 @@ func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
 	}
 	nonWin32Targets := map[string]struct{}{
 		"AndroidTarget": {},
-		"BrowserTarget": {},
 	}
 
 	for _, rn := range node.All() {
 		spec := rn.Spec
+		if _, ok := disallowedTargets[spec.Kind]; ok {
+			t.Errorf("%s must not be registered as a built-in node", spec.Kind)
+		}
 
 		if spec.NeedsForeground && !spec.NeedsWindow && !spec.NeedsTarget {
 			t.Errorf("%s has NeedsForeground without NeedsWindow/NeedsTarget; foreground is a Win32 sendinput hint on target-aware actions", spec.Kind)
@@ -163,7 +167,7 @@ func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
 
 		if _, ok := nonWin32Targets[spec.Kind]; ok {
 			if hasInput(spec.Inputs, "Window", "Window") || hasOutputData(spec.Outputs, "Window", "Window") {
-				t.Errorf("%s must not expose Window pins; Android/Browser targets are not Win32 HWNDs", spec.Kind)
+				t.Errorf("%s must not expose Window pins; Android targets are not Win32 HWNDs", spec.Kind)
 			}
 		}
 	}

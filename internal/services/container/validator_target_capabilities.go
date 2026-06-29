@@ -211,8 +211,6 @@ func targetKindForSelectionNode(kind string) (string, bool) {
 		return target.KindWin32Window, true
 	case "AndroidTarget":
 		return target.KindAndroidADB, true
-	case "BrowserTarget":
-		return target.KindBrowserCDP, true
 	default:
 		return "", false
 	}

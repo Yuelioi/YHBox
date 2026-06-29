@@ -626,7 +626,7 @@ func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 
 func isTargetSelectionKind(kind string) bool {
 	switch kind {
-	case "Win32WindowTarget", "AndroidTarget", "BrowserTarget":
+	case "Win32WindowTarget", "AndroidTarget":
 		return true
 	default:
 		return false

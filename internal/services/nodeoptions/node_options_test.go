@@ -9,7 +9,6 @@ import (
 	_ "yotta/internal/nodes/all"
 	"yotta/internal/services/androidadb"
 	"yotta/internal/services/asset"
-	"yotta/internal/services/browsercdp"
 	"yotta/internal/services/container"
 )
 
@@ -91,7 +90,6 @@ func TestAllDeclaredAsyncSourcesRegisteredByComposition(t *testing.T) {
 	nodeSvc := node.NewService()
 	RegisterAssetAsyncSources(nodeSvc, asset.NewService(assetStore, nil), container.NewSubgraphService(sgStore))
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
-	browsercdp.RegisterNodeAsyncSource(nodeSvc, browsercdp.NewService(""))
 
 	registered := map[string]bool{}
 	for _, name := range nodeSvc.RegisteredAsyncSources() {

@@ -1,7 +1,7 @@
 # Window vs Target Boundary
 
-SUMMARY: 明确 Window 只表示 Win32 HWND 窗口，Target 表示跨 Windows/Android/Browser 的自动化对象
-READ WHEN: 改 Win32WindowTarget / AndroidTarget / BrowserTarget / NeedsTarget / NeedsWindow / TargetService / 窗口控制节点 / 输入和截图路由时
+SUMMARY: 明确 Window 只表示 Win32 HWND 窗口，Target 表示跨 Windows/Android 的用户可见自动化对象；Browser CDP 仅剩内部后端代码
+READ WHEN: 改 Win32WindowTarget / AndroidTarget / Browser CDP controller / NeedsTarget / NeedsWindow / TargetService / 窗口控制节点 / 输入和截图路由时
 RECHECK WHEN: 新增目标类型、重命名节点 kind、改 validator 缺目标提示、改截图取点或前台策略时
 
 ---
@@ -12,7 +12,8 @@ RECHECK WHEN: 新增目标类型、重命名节点 kind、改 validator 缺目�
 
 - `WindowService`、`WindowHandle`、`WindowInputSpec`、`NeedsWindow` 表示 Win32 HWND 窗口能力。
 - `TargetService`、`target.Target`、controller factory、`NeedsTarget` 表示自动化目标能力。
-- `AndroidTarget` 和 `BrowserTarget` 是 target selection node，不是 window node。
+- `AndroidTarget` 是 target selection node，不是 window node。
+- `BrowserTarget` 用户节点已删除；Browser CDP controller/client 暂留内部代码，不作为普通节点入口。
 - `Win32WindowTarget` 是当前唯一的 Windows HWND target selection kind。
 - 旧 `WindowTarget` kind 不再支持；项目未上线，不做 alias、不做旧容器 loader 兜底。
 
@@ -42,12 +43,12 @@ Browser tab 的“置前”以后应是 browser/page activation。Android 的“
 
 ## Forbidden drift
 
-- 不要把 Android/Browser target 加进 `WindowService`。
+- 不要把 Android target 或内部 Browser CDP target 加进 `WindowService`。
 - 不要让“目标窗口”继续作为通用 UI 词。
 - 不要在新节点里用 `NeedsWindow` 表示“需要任意自动化目标”。
 - 输入、截图、视觉这类 target-aware 节点应声明 `NeedsTarget`，不是 `NeedsWindow`。
 - `NeedsTarget` 节点必须声明 `TargetCapabilities`；不要只靠布尔标记表达跨平台能力。
-- 不要让 Browser target 伪装成 Chrome 主窗口优先点击；CDP/selector 是主路径。
+- 不要恢复旧 `BrowserTarget` 普通节点；真要做浏览器自动化，先设计 `打开网页/等待元素/填表单/点击文本/提取文本` 这类用户向节点，底层再选 Playwright/CDP。
 - 不要让 Android target 伪装成模拟器窗口优先点击；ADB/minitouch/MAA-touch 风格 controller 是主路径。
 
 ## Naming rule
