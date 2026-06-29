@@ -242,7 +242,7 @@ func (r *ContainerRunner) SeedFromEntry() error {
 		return errors.New("container: no Start node")
 	}
 	r.queue = append(r.queue[:0], r.edges.next(startNode.ID+".Done", nil)...)
-	return nil
+	return r.skipDisabledQueueHeads()
 }
 
 // SeedFromNode queues the selected node's first exec input.
@@ -258,10 +258,31 @@ func (r *ContainerRunner) SeedFromNode(nodeID string) error {
 	for _, in := range rn.Spec.Inputs {
 		if in.Type == "Exec" {
 			r.queue = append(r.queue[:0], ExecToken{NodeID: n.ID, InPin: in.Name})
-			return nil
+			return r.skipDisabledQueueHeads()
 		}
 	}
 	return fmt.Errorf("debug_start_node_not_executable: node %q has no exec input", nodeID)
+}
+
+func (r *ContainerRunner) skipDisabledQueueHeads() error {
+	const maxDisabledHops = 10000
+	for hops := 0; len(r.queue) > 0; hops++ {
+		if hops >= maxDisabledHops {
+			return fmt.Errorf("debug_disabled_passthrough_cycle: exceeded %d disabled hops", maxDisabledHops)
+		}
+		tok := r.queue[0]
+		n, ok := r.nodesByID[tok.NodeID]
+		if !ok || n == nil || !n.Disabled {
+			return nil
+		}
+		r.queue = r.queue[1:]
+		out, err := r.passthroughDisabled(n, tok)
+		if err != nil {
+			return err
+		}
+		r.queue = append(r.queue, out...)
+	}
+	return nil
 }
 
 // QueueSnapshot returns a shallow copy of the queued outer runtime tokens.
@@ -294,6 +315,9 @@ func (r *ContainerRunner) NodeKind(nodeID string) string {
 // StepOnce executes exactly one queued outer runtime token.
 func (r *ContainerRunner) StepOnce(ctx context.Context) (DebugStepResult, error) {
 	if err := ctx.Err(); err != nil {
+		return DebugStepResult{Finished: len(r.queue) == 0}, err
+	}
+	if err := r.skipDisabledQueueHeads(); err != nil {
 		return DebugStepResult{Finished: len(r.queue) == 0}, err
 	}
 	if len(r.queue) == 0 {
@@ -334,6 +358,9 @@ func (r *ContainerRunner) StepOnce(ctx context.Context) (DebugStepResult, error)
 		return res, err
 	}
 	r.queue = append(r.queue, out...)
+	if err := r.skipDisabledQueueHeads(); err != nil {
+		return res, err
+	}
 	res.Downstream = copyTokens(out)
 	res.Finished = len(r.queue) == 0
 	return res, nil

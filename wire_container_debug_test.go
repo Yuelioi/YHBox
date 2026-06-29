@@ -103,6 +103,61 @@ func TestDebugManagerStepEmitsPausedState(t *testing.T) {
 	t.Fatalf("timed out waiting for paused debug state; emitted=%+v", states)
 }
 
+func TestDebugManagerStepSkipsDisabledDownstreamNode(t *testing.T) {
+	c := &container.Container{
+		ID:   "c1",
+		Name: "c1",
+		Vars: []container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
+		Graph: container.Graph{
+			Nodes: []container.GraphNode{
+				{ID: "start", Kind: "Start"},
+				{ID: "set", Kind: "SetVar", Config: map[string]any{
+					"VarName": "x",
+					"Scope":   "global",
+					"literal": map[string]any{"Value": 7.0},
+				}},
+				{ID: "disabled", Kind: "Sleep", Disabled: true, Config: map[string]any{
+					"literal": map[string]any{"Duration": 9999.0},
+				}},
+				{ID: "stop", Kind: "Stop"},
+			},
+			Edges: []container.GraphEdge{
+				{From: "start.Done", To: "set.In"},
+				{From: "set.Done", To: "disabled.In"},
+				{From: "disabled.Done", To: "stop.In"},
+			},
+		},
+	}
+	mgr := newContainerDebugManager(newWireDebugTestRunner(c), nil, func() bool { return false })
+
+	state, err := mgr.DebugStart("c1", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatalf("DebugStart: %v", err)
+	}
+	if state.Status != container.DebugStatusPaused || state.CurrentNodeID != "set" {
+		t.Fatalf("start state = %+v, want paused at set", state)
+	}
+	if _, err := mgr.DebugStep(state.SessionID); err != nil {
+		t.Fatalf("DebugStep: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		got, err := mgr.DebugState(state.SessionID)
+		if err != nil {
+			t.Fatalf("DebugState: %v", err)
+		}
+		if got.Status == container.DebugStatusPaused && got.LastNodeID == "set" {
+			if got.CurrentNodeID != "stop" || len(got.Queue) != 1 || got.Queue[0].NodeID == "disabled" {
+				t.Fatalf("paused state = %+v, want disabled skipped to stop", got)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting for disabled downstream node to be skipped")
+}
+
 func TestDebugManagerStepAndroidTargetPausesAtNextNode(t *testing.T) {
 	c := &container.Container{
 		ID:   "c1",

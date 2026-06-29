@@ -66,6 +66,81 @@ func TestDebugStepOnceFromEntryExecutesOneToken(t *testing.T) {
 	}
 }
 
+func TestDebugSeedFromEntrySkipsDisabledHead(t *testing.T) {
+	c := newTestContainer(
+		[]container.GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "disabled", Kind: "Sleep", Disabled: true, Config: map[string]any{
+				"literal": map[string]any{"Duration": 9999.0},
+			}},
+			{ID: "log", Kind: "Log", Config: map[string]any{
+				"literal": map[string]any{"Message": "done", "Level": "info"},
+			}},
+		},
+		[]container.GraphEdge{
+			{From: "start.Done", To: "disabled.In"},
+			{From: "disabled.Done", To: "log.In"},
+		},
+		nil,
+	)
+	r := newDebugStepRunner(t, c, nil)
+
+	if err := r.SeedFromEntry(); err != nil {
+		t.Fatalf("SeedFromEntry: %v", err)
+	}
+	q := r.QueueSnapshot()
+	if len(q) != 1 || q[0].NodeID != "log" || q[0].InPin != "In" {
+		t.Fatalf("queue = %+v, want disabled skipped to log.In", q)
+	}
+}
+
+func TestDebugStepOnceSkipsDisabledDownstreamNode(t *testing.T) {
+	c := newTestContainer(
+		[]container.GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "set", Kind: "SetVar", Config: map[string]any{
+				"VarName": "x",
+				"Scope":   "global",
+				"literal": map[string]any{"Value": 42.0},
+			}},
+			{ID: "disabled", Kind: "Sleep", Disabled: true, Config: map[string]any{
+				"literal": map[string]any{"Duration": 9999.0},
+			}},
+			{ID: "log", Kind: "Log", Config: map[string]any{
+				"literal": map[string]any{"Message": "done", "Level": "info"},
+			}},
+		},
+		[]container.GraphEdge{
+			{From: "start.Done", To: "set.In"},
+			{From: "set.Done", To: "disabled.In"},
+			{From: "disabled.Done", To: "log.In"},
+		},
+		[]container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
+	)
+	r := newDebugStepRunner(t, c, nil)
+	ctx := context.Background()
+
+	if err := r.StartRuntime(ctx); err != nil {
+		t.Fatalf("StartRuntime: %v", err)
+	}
+	defer r.StopRuntime()
+	if err := r.SeedFromEntry(); err != nil {
+		t.Fatalf("SeedFromEntry: %v", err)
+	}
+
+	res, err := r.StepOnce(ctx)
+	if err != nil {
+		t.Fatalf("StepOnce: %v", err)
+	}
+	if res.NodeID != "set" || res.Exit != "Done" {
+		t.Fatalf("step result = %+v, want set Done", res)
+	}
+	q := r.QueueSnapshot()
+	if len(q) != 1 || q[0].NodeID != "log" || q[0].InPin != "In" {
+		t.Fatalf("queue = %+v, want disabled skipped to log.In", q)
+	}
+}
+
 func TestDebugSeedFromNodeQueuesSelectedNode(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{

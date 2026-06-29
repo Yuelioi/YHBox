@@ -51,6 +51,7 @@ Done:
 - Removed success toasts for normal run enqueue and debug session start; visible UI state is the feedback.
 - Fixed out-of-order debug command snapshots so a late `stepping` RPC response cannot overwrite a newer paused completion event.
 - Moved validate/save into the centered run/debug workflow group and removed the standalone warning icon beside Debug.
+- Skipped disabled nodes at debug queue boundaries so Step pauses on the next enabled node instead of a disabled passthrough node.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
@@ -58,6 +59,8 @@ Verified:
 - `go test ./internal/services/container -run TestServiceDebug -count=1`
 - `go test . -run TestDebugManager -count=1`
 - `go test . -run TestDebugManagerStepAndroidTargetPausesAtNextNode -count=1`
+- `go test ./internal/services/container/runtime -run "TestDebug(SeedFromEntrySkipsDisabledHead|StepOnceSkipsDisabledDownstreamNode)" -count=1`
+- `go test . -run "TestDebugManagerStepSkipsDisabledDownstreamNode" -count=1`
 - `go test ./...`
 - `pnpm exec vitest run src/stores/execution.debug.test.ts`
 - `pnpm exec vitest run src/composables/editor/debugPanel.spec.ts`
