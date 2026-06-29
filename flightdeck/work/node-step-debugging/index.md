@@ -2,14 +2,14 @@
 
 ## State
 
-Ready for human review. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, Wails event payload normalization, quiet run/debug success feedback, and terminal debug panel cleanup.
+Landed locally on `main` in merge commit `3fed15a merge: land flightdeck debug workflow`. V1 node step debugging is wired through runtime, service/RPC, Wails bindings, editor controls, right-click Debug from here, debug state events, node highlights, editor state resync, Wails event payload normalization, quiet run/debug success feedback, disabled-node step skipping, and the IDE-style editor toolbar cleanup.
 
 ## Next
 
-Human review smoke-test:
-- Toolbar Debug starts from the graph entry.
-- Right-click a node and choose Debug from here.
-- Use Step / Continue / Pause / Stop and verify node highlights match execution.
+Post-landing:
+- Optional final human review on built app.
+- Push `main` after review if release direction is accepted.
+- Resume MCP work from `flightdeck/work/mcp-node-exec/`.
 
 ## Read now
 
@@ -73,3 +73,4 @@ Verified:
 - `wails3 generate bindings ./...`
 - `pnpm exec vite build --mode production`
 - `wails3 build`
+- Post-merge landing verification on `main`: `go test ./...`, `pnpm exec vitest run`, `pnpm exec vue-tsc --noEmit`, `pnpm exec node src/i18n/check.cjs`, `pnpm exec vite build --mode production`.

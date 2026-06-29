@@ -1,25 +1,34 @@
 # Cockpit — YHFish
 
-Focus: **window-control 代码完成 + 逐任务 review + opus 整支终审过(终审抓的 Critical 已修复核)**,真机 smoke 新抓到的“双 Win32WindowTarget 配置同步”与“StopApp 完整 exe 路径失败”均已修,待用户重测;与 detect-click 一起**待用户真机 smoke**;两者 smoke 过即归档,然后回 ③ MCP 对外暴露(mcp-node-exec,未起)。
-> point-px-unit ✅ 已发并真机 smoke 过(2026-06-25)→ 已归档。
+Focus: **节点逐步调试 + target/controller/Android 工具体系大周期已 landing 到本地 `main`**。当前 `main` 顶部为 merge commit `3fed15a merge: land flightdeck debug workflow`，验证已过；本地还未 push。下一步优先做人工复核/发布决策，然后回到 ③ MCP 对外暴露。
 
 ## In flight
 
-- [work/window-control/](work/window-control/) — **代码全完成,待真机 smoke 重测**。给框架加一等 `Window` 数据类型 + GetWindow 产出节点 + WindowState/MoveResizeWindow/CloseWindow 控制节点 + 所有 NeedsWindow 节点可选 Window 输入(不连=当前活动窗口,连了=派发期 per-node 覆盖栈) + "Window" palette 类别 + 中英 i18n。17 任务全 subagent-driven 实现 + 逐任务 review + **opus 整支终审**。全绿门过(go build/vet/test 全 scope 绿除预存 RED 基线;前端 vue-tsc + i18n parity)。**终审抓 1 Critical(Snapshot 返缓存未按 design live 重读 ClientW/H,被节点 stub 假造掩盖的跨任务缝)+ 1 Important(Window pin 泄进 Script JS 全局)→ 已修(commit 28a86ca)+ re-review 干净**。真机 smoke 又抓 2 个问题:① 连续新增两个 `Win32WindowTarget` 时 defaults 浅拷贝共享 `config.literal`,改一个会同步另一个,已修 `useInlineMenu`/`useNodeCreation` 深拷贝并补 Vitest,知识落 [knowledge/frontend/node-default-config-shared-reference.md](knowledge/frontend/node-default-config-shared-reference.md);② `StopApp` 填完整 exe 路径时 `taskkill /IM` 报无效查询,已修为 basename 规范化,知识落 [knowledge/io/stopapp-taskkill-target-shape.md](knowledge/io/stopapp-taskkill-target-shape.md)。**待用户重测双目标窗口独立绑定 + StopApp 完整路径结束 AE + 原 smoke 清单,全过 → 移 work/window-control 到 cold store + design/plan 归档。**
-- [work/detect-click-config/](work/detect-click-config/) — **代码完成,待真机 smoke**(本会话未动)。Phase 1-4 全家桶(Vision/ClickTemplate/新节点群/WaitWindowGone/Point 手填)。两已修 bug 待重测:⑦ InputText 改 WM_CHAR targeted;短图日志 LogMerger finalize 时 emit。全过 → 移 cold store。
-- [work/mcp-node-exec/](work/mcp-node-exec/) — ③ MCP 对外暴露(AI 调我们):GUI 内置 Streamable HTTP MCP server,design.md + plan.md 就绪。detect-click + window-control 完结后的下一主攻。
+- [work/node-step-debugging/](work/node-step-debugging/) — **已 landed，待最终人工复核/推送**。V1 节点调试已贯通 runtime、service/RPC、Wails bindings、编辑器 toolbar、右键 Debug from here、Step/Continue/Pause/Stop、画布高亮、状态面板、状态重同步和 Wails event payload 兼容。近期修复：AndroidTarget step 后能进入下一节点；禁用节点不会卡住 Step；去掉运行/调试成功 toast；toolbar 改成 IDE 风格左/中/右分区，保存/检测/调试/运行集中在中间。
+- [work/target-controller-upgrade/](work/target-controller-upgrade/) — **Phase 1-73 已 landed，进入人工复核/后续小切片阶段**。Go 保持主运行时，Rust 只下沉 Win32/native hot path；Target/Controller/CoordinateSpace/Trace、Win32/Android controller、target-aware vision、ADB discovery、Android picker 截图、AndroidStartApp/AndroidStopApp、内置 ADB、支持目标 badge、能力校验和大量 guard 已落地。`BrowserTarget` 用户入口已删除，不要恢复为普通节点。当前遗留边界：`PixelAt` 仍是 Win32 MouseHUD 语义，Android 坐标取点需要新 API 再做。
+- [work/window-control/](work/window-control/) — **代码和关键 smoke 问题已并入主线，作为历史 topic 保留**。双 `Win32WindowTarget` 默认配置共享、StopApp 完整 exe 路径失败都已修复；后续只作为回归参考。
+- [work/detect-click-config/](work/detect-click-config/) — **代码完成，作为历史/回归 topic 保留**。Vision/ClickTemplate/WaitWindowGone/Point 手填、新节点群、InputText WM_CHAR targeted、短图日志 finalize emit 已完成；后续按需求抽样 smoke。
+- [work/mcp-node-exec/](work/mcp-node-exec/) — **下一主攻候选，尚未开工**。GUI 内置 Streamable HTTP MCP server，目标是让外部 AI 可以 list_nodes / find_window / run_node / save_container，闭合“AI 跑节点探测 -> 生成容器”的循环。
 
 ## Next
 
-1. **window-control 真机 smoke(用户)** —— 先 `task build` 出 exe,优先重测:连续新增两个 Windows 目标窗口,第一个绑 AE 主窗口,第二个绑合成设置,修改/捕获任一节点不应同步另一个;AE 完整流程末尾 StopApp Target 填完整 exe 路径也能结束 AfterFX.exe;再验(plan D3 Step4):① 侧栏/右键/explorer 三处能找到 Window 组的 GetWindow/WindowState/MoveResizeWindow/CloseWindow;② 单窗口图(Win32WindowTarget→WindowState 最大化)不连 Window 输入照常作用当前窗口;③ 多窗口图(GetWindow 主/子各绑变量 → 两个 WindowState 各连 GetVar 的 Window 输出)分别作用对应窗口;④ 无边框全屏→MoveResize→退无边框 回到全屏前布局;⑤ CloseWindow 接 WaitWindowGone 确认关闭;⑥ sendinput 后端下 ClickAt 连子窗口 Window 输入能打到子窗口(覆盖期补前台生效)。
-2. **detect-click 真机 smoke(用户)** —— Phase 1-4 各项(尤其重测 ⑦ 记事本/vscode 打字、短图日志、WaitWindowGone、Swipe 手填/连点)。
-3. 两支 smoke 全过 → 归档 work/(移 cold store + design/plan 按日期归档),回 ③ 从 [work/mcp-node-exec/](work/mcp-node-exec/) 恢复,再按其 index 指向的 plan 起 MCP 实现。
+1. **发布/推送决策** —— 当前 `main` 本地 ahead 远端，若人工复核无问题，再 `git push origin main`。
+2. **人工复核建议** —— 用已测容器抽样跑：`AndroidTarget -> AndroidStartApp`、Android 截图取点/范围、调试 Step/Continue/Pause/Stop、禁用节点跳过、toolbar 保存/检测/运行/调试布局。
+3. **进入 MCP topic** —— 人工复核通过后，从 [work/mcp-node-exec/](work/mcp-node-exec/) 的 `design.md` / `plan.md` 恢复，按 task 切片实现。
 
 ## Open questions
 
-- **破坏性大升级决策基线(2026-06-29)**: 先不全量换 Rust,Go 保持主运行时,Rust 只下沉 Win32/native controller hot path;先引入 `Target/Controller/CoordinateSpace/Trace` 再谈 Android 和输入后端矩阵。target/controller topic 已推进到 Phase 70: Android ADB 目标节点、ADB discovery、target-aware vision、前端 async-dropdown、Browser CDP discovery/client provider、async option metadata apply、stale CDP client invalidation、runtime 快测、前端 Vitest 隔离、async dropdown 契约、active target 不回退旧 HWND 契约、节点/参数/dropdown option i18n guard、全量节点注册入口 `internal/nodes/all`、app/runtime 全量路径共用中心注册、节点注册漂移 guard、build 知识基线刷新、前端静态 i18n key 引用 guard、前端连边缺 handle 拒绝持久化、未知 kind 不渲染 fake pin、exec-out PascalCase spec guard、String default 类型 guard、Bool default 类型 guard、Point/Rect default 类型 guard、JSON default 类型 guard、FieldSchema shape guard、controller coordinate boundary tests、controller trace error tests、browser nil-client health tests、runtime factory error tests、frontend build warning triage、inline 连接缺 handle fail-closed 都已落地;用户可见 `BrowserTarget` 因产品入口不成立已删除,不要恢复为普通节点。topic 入口见 [work/target-controller-upgrade/](work/target-controller-upgrade/);调研与路线见 [knowledge/architecture/automation-framework-survey.md](knowledge/architecture/automation-framework-survey.md) + [knowledge/architecture/target-controller-upgrade-guide.md](knowledge/architecture/target-controller-upgrade-guide.md)。
-- **window-control 终审 Minor 池**(opus 判多数 acceptable debt,留收尾酌情):B1 gwlStyleIdx 机制注释、A1 测试无 break、C3 `r.rt.Container!=nil` 冗余守卫、C4 bring_foreground NeedsForeground 冗余无害、D2 GetWindow en `Fail` vs `Failed`、A2 GetWindow 无 NotFound 测试 等;详见 `.superpowers/sdd/progress.md` Minor 池。皆非阻塞。
-- **detect-click 终审两个已知局限**(已落 knowledge,等 demand):① Swipe 在 sendinput 后端走 PostMessage、读 RawInput 的游戏收不到拖拽;② pkg/input SendInput 原语不查注入数、失败上报不到节点层。
-- **当前验证基线**(2026-06-29 已刷新):`go test ./...`、`cd frontend && pnpm i18n:check`、`pnpm -C frontend test`、`cd frontend && pnpm test` 都应绿。旧 runtime fixture / i18n residue 预存红记录已过期;新红先按回归处理。见 [knowledge/build/build.md](knowledge/build/build.md)。
-- **MCP/AI(③)挂账**:A6/C7 polish 余项 + AI 配置待 smoke 项,细节在 cold archive `2026-06-23-local-ai-config`。AI 系统知识 → [knowledge/nodes/ai-nodes.md](knowledge/nodes/ai-nodes.md) + [knowledge/nodes/held-exec-outputs.md](knowledge/nodes/held-exec-outputs.md)。
-- **积压路由**:编辑器 footgun / i18n residue 清理等零散项在 cold store `ideas/`。
+- `PixelAt` 是否要升级为显式坐标输入/target-aware API，取代当前 Win32 鼠标 HUD 心智。
+- Android 输入是否需要继续研究 minitouch/maatouch/MuMu IPC；当前先不做，ADB 通用路径已能覆盖主要用户流程。
+- 前端生产构建仍有既有大 chunk / plugin timing warning，当前为非阻塞基线。
+- `BrowserTarget` 已按产品判断删除；底层 Browser CDP controller/client 可作为内部能力保留，但不要作为面向普通用户的节点恢复。
+
+## Verification Baseline
+
+最新 landing 后验证已过：
+
+- `go test ./...`
+- `cd frontend && pnpm exec vitest run`
+- `cd frontend && pnpm exec vue-tsc --noEmit`
+- `cd frontend && pnpm exec node src/i18n/check.cjs`
+- `cd frontend && pnpm exec vite build --mode production`
