@@ -3,11 +3,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image/png"
+	"time"
 
 	"github.com/lxn/win"
 
+	"yotta/internal/automation/controller"
+	"yotta/internal/automation/target"
 	"yotta/internal/services/container"
 	"yotta/pkg/capture"
 )
@@ -17,10 +21,18 @@ import (
 // 容器不存在 / 无 Win32WindowTarget / 窗口没开则 error.
 type templateCaptureAdapter struct {
 	containers *container.Service
+	adbRunner  controller.ADBRunner
 }
 
 // Capture 解析 containerID 目标窗口抓一帧, 返 PNG bytes. width/height 调用方从 PNG header 自己读.
 func (t *templateCaptureAdapter) Capture(containerID, nodeID string) ([]byte, error) {
+	tg, err := t.containers.ResolveEditorTargetForNode(containerID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if tg.Kind == target.KindAndroidADB {
+		return t.captureAndroid(tg)
+	}
 	wh, err := t.containers.ResolveWindowForNode(containerID, nodeID)
 	if err != nil {
 		return nil, fmt.Errorf("解析目标窗口: %w", err)
@@ -51,6 +63,16 @@ func (t *templateCaptureAdapter) Capture(containerID, nodeID string) ([]byte, er
 // 与 Capture 的帧尺寸同源 (gdiFrame/wgcFrame 都用 GetClientRect 定尺寸), 故可拿来精确匹配变体档.
 // 容器不存在 / 无 Win32WindowTarget / 窗口没开 / 客户区为 0 → error.
 func (t *templateCaptureAdapter) Resolution(containerID string) ([2]int, error) {
+	tg, err := t.containers.ResolveEditorTargetForNode(containerID, "")
+	if err != nil {
+		return [2]int{}, err
+	}
+	if tg.Kind == target.KindAndroidADB {
+		if tg.Resolution.W <= 0 || tg.Resolution.H <= 0 {
+			return [2]int{}, fmt.Errorf("Android 目标分辨率无效: %dx%d", tg.Resolution.W, tg.Resolution.H)
+		}
+		return [2]int{tg.Resolution.W, tg.Resolution.H}, nil
+	}
 	wh, err := t.containers.ResolveWindow(containerID)
 	if err != nil {
 		return [2]int{}, fmt.Errorf("解析目标窗口: %w", err)
@@ -59,4 +81,25 @@ func (t *templateCaptureAdapter) Resolution(containerID string) ([2]int, error) 
 		return [2]int{}, fmt.Errorf("目标窗口客户区为 %d×%d (可能最小化或不可见)", wh.ClientW, wh.ClientH)
 	}
 	return [2]int{wh.ClientW, wh.ClientH}, nil
+}
+
+func (t *templateCaptureAdapter) captureAndroid(tg target.Target) ([]byte, error) {
+	ctrl, err := controller.NewAndroidADBController(tg, controller.AndroidADBDeps{Runner: t.adbRunner})
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	frame, err := ctrl.Screenshot(ctx, controller.ScreenshotRequest{Space: target.SpaceAndroidDevice})
+	if err != nil {
+		return nil, fmt.Errorf("Android 截图: %w", err)
+	}
+	if frame.Image == nil {
+		return nil, fmt.Errorf("Android 截图为空")
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, frame.Image); err != nil {
+		return nil, fmt.Errorf("png.Encode: %w", err)
+	}
+	return buf.Bytes(), nil
 }

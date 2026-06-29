@@ -28,6 +28,10 @@ func (r fakeTargetKindResolver) ResolveEditorTargetKindForNode(string, string) (
 	return r.targetKind, r.err
 }
 
+func (r fakeTargetKindResolver) ResolveEditorTargetForNode(string, string) (target.Target, error) {
+	return target.Target{Kind: r.targetKind}, r.err
+}
+
 func (r fakeTargetKindResolver) CaptureBackendFor(string) string { return "auto" }
 
 func (a *recordingPickerAdapter) OpenPicker(req PickerRequest) error {
@@ -68,14 +72,20 @@ func TestTargetToolRouter_UnknownTargetKindFails(t *testing.T) {
 	}
 }
 
-func TestAndroidTargetToolAdapter_NotImplementedBoundary(t *testing.T) {
-	err := androidTargetToolAdapter{}.OpenPicker(PickerRequest{Mode: "rect", RequestID: "r1"})
-	if !errors.Is(err, ErrAndroidTargetPickerNotImplemented) {
-		t.Fatalf("err = %v, want ErrAndroidTargetPickerNotImplemented", err)
-	}
-	_, err = androidTargetToolAdapter{}.PixelAt(PixelSampleRequest{ContainerID: "c1"})
+func TestAndroidTargetToolAdapter_PixelAtNotImplementedBoundary(t *testing.T) {
+	_, err := androidTargetToolAdapter{}.PixelAt(PixelSampleRequest{ContainerID: "c1"})
 	if !errors.Is(err, ErrAndroidTargetPixelNotImplemented) {
 		t.Fatalf("err = %v, want ErrAndroidTargetPixelNotImplemented", err)
+	}
+}
+
+func TestAndroidTargetToolAdapter_OpenPickerUsesSharedPickerWindow(t *testing.T) {
+	err := androidTargetToolAdapter{service: NewService(nil)}.OpenPicker(PickerRequest{Mode: "rect", RequestID: "r1"})
+	if errors.Is(err, ErrAndroidTargetPickerNotImplemented) {
+		t.Fatalf("OpenPicker returned android not implemented boundary")
+	}
+	if err == nil {
+		t.Fatalf("OpenPicker without Wails app should report not ready")
 	}
 }
 

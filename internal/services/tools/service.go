@@ -19,6 +19,7 @@ import (
 // 本包不 import container 包以保持解耦。
 type WindowResolver interface {
 	ResolveWindowForNode(containerID, nodeID string) (winutil.WindowHandle, error)
+	ResolveEditorTargetForNode(containerID, nodeID string) (target.Target, error)
 	ResolveEditorTargetKindForNode(containerID, nodeID string) (string, error)
 	CaptureBackendFor(containerID string) string
 }
@@ -61,7 +62,7 @@ func NewService(resolver WindowResolver) *Service {
 	}
 	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindWin32Window: win32TargetToolAdapter{service: s},
-		target.KindAndroidADB:  androidTargetToolAdapter{},
+		target.KindAndroidADB:  androidTargetToolAdapter{service: s},
 	})
 	return s
 }

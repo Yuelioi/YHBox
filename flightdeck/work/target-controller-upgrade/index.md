@@ -6,7 +6,7 @@
 
 ## Next
 
-Plan next slice: target-aware editor tooling. Phase 71 research captured the gap: runtime targets are mostly abstracted, but screen picker, pixel sampling, template capture, and container backend settings still present Win32-only assumptions. First implementation slice should make Windows backend settings visibly Windows-only, then introduce a target preview/picker adapter with Win32 and Android ADB implementations.
+Plan next slice: finish Android editor tooling UX and manual MuMu verification. Phase 73 routes picker screenshot capture through Android ADB, so point/rect/template/color picker modes can reuse the existing picker UI for Android-backed nodes. Android ADB discovery now tries common emulator ports when no online device is listed, and Windows builds now carry a bundled `platform-tools/adb.exe` fallback before PATH. Remaining work is MuMu smoke testing and deciding whether `PixelAt` needs a new coordinate-bearing API instead of the current Win32 cursor semantics.
 
 ## Read now
 
@@ -82,6 +82,7 @@ Plan next slice: target-aware editor tooling. Phase 71 research captured the gap
 - plans/phase69-collapsed-node-target-capability-inheritance.md
 - plans/phase71-target-preview-adapters-research.md
 - plans/phase72-supported-targets-and-tool-adapters.md
+- plans/phase73-android-editor-picker-capture.md
 - ../../knowledge/architecture/target-controller-phase3-notes.md
 - ../../knowledge/architecture/target-controller-phase4-notes.md
 - ../../knowledge/architecture/target-controller-phase5-notes.md
@@ -238,9 +239,10 @@ Done:
 - Phase 70 代码/文档：删除用户可见 `BrowserTarget` 节点与 `browserCDPTargets` async source；节点目录、validator、runtime target selection、MCP schema、前端/i18n/catalog 不再暴露浏览器 CDP 页面目标。底层 Browser CDP controller/client 暂留内部代码，不作为产品入口。
 - Phase 71 调研：对照 ok-script / 既有 MAA 调研 / YHFish 当前 runtime 与 editor tooling，确认下一步不是重写 controller，而是补 `TargetToolService` / target preview picker adapter；当前 `OpenScreenPicker`、`PixelAt`、模板采样仍是 Win32/HWND 心智，容器里的 `postmessage/sendinput` 与 `gdi/wgc` 应标为 Windows-only。
 - Phase 72 代码/文档：新增派生 `supportedTargets` 元数据并贯通 NodeService/catalog/frontend registry/节点库 badge；`OpenScreenPicker` 与 `PixelAt` 进入 target-aware tools adapter 路由。Win32 adapter 包住旧行为，Android adapter 先以明确 not-implemented 边界占位，下一刀接 ADB screenshot preview。
+- Phase 73 代码/文档：调研 `blue_archive_auto_script` 模拟器/ADB 支持并记录 findings；新增完整编辑期 target resolver，`templateCaptureAdapter` 对 AndroidTarget 走 `AndroidADBController.Screenshot` 生成 picker 底图，Android picker 复用现有 `ScreenPickerView` 支持点/范围/模板/取色截图来源。Android discovery 在无在线设备时尝试常见模拟器 ADB 端口。Windows 构建内置 adbutils 提供的 ADB 34.0.5 三件套并统一 `adbexec` 解析路径，优先环境变量/随程序 `platform-tools`，最后回退 PATH。`PixelAt` 仍因 MouseHUD 缺坐标输入保留 Android unsupported 边界。
 
 Current:
-- 下一刀：实现 Android target preview picker：通过 ADB/controller 截图生成应用内预览，支持点/范围/模板/取色的坐标转换；不要恢复 `BrowserTarget`，不要在没有 picker/preview 适配前上 minitouch/maatouch/MuMu IPC。
+- 下一刀：用本机 MuMu 做 AndroidTarget picker 手动验证，补设备发现/连接 UX 需要的最小改动；不要恢复 `BrowserTarget`，不要在 generic ADB picker 稳定前上 minitouch/maatouch/MuMu IPC。
 
 ## Open questions
 

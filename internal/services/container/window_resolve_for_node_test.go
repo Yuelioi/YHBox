@@ -70,3 +70,32 @@ func TestEditorTargetKindForNode_DefaultsToWin32WhenNoTarget(t *testing.T) {
 		t.Fatalf("target = %q,%v want %q,true", got, ok, target.KindWin32Window)
 	}
 }
+
+func TestEditorTargetForNode_AndroidTargetConfig(t *testing.T) {
+	c := &Container{Graph: Graph{
+		Nodes: []GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "at", Kind: "AndroidTarget", Config: map[string]any{"literal": map[string]any{
+				"Serial": "127.0.0.1:7555",
+				"Name":   "MuMu",
+				"Width":  1280,
+				"Height": 720,
+			}}},
+			{ID: "click", Kind: "ClickAt"},
+		},
+		Edges: []GraphEdge{
+			{From: "start.Done", To: "at.In"},
+			{From: "at.Done", To: "click.In"},
+		},
+	}}
+	got, ok := editorTargetForNode(c, "click")
+	if !ok {
+		t.Fatal("expected editor target")
+	}
+	if got.Kind != target.KindAndroidADB || got.Ref.ADBSerial != "127.0.0.1:7555" {
+		t.Fatalf("target = %+v", got)
+	}
+	if got.DisplayName != "MuMu" || got.Resolution.W != 1280 || got.Resolution.H != 720 {
+		t.Fatalf("target metadata = %+v", got)
+	}
+}

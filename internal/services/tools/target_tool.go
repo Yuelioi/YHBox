@@ -64,24 +64,29 @@ type win32TargetToolAdapter struct {
 }
 
 func (a win32TargetToolAdapter) OpenPicker(req PickerRequest) error {
-	return a.service.openWin32ScreenPicker(req)
+	return a.service.openScreenPickerWindow(req)
 }
 
 func (a win32TargetToolAdapter) PixelAt(req PixelSampleRequest) (PixelInfo, error) {
 	return a.service.win32PixelAt(req.ContainerID, req.NodeID)
 }
 
-type androidTargetToolAdapter struct{}
+type androidTargetToolAdapter struct {
+	service *Service
+}
 
-func (androidTargetToolAdapter) OpenPicker(PickerRequest) error {
-	return ErrAndroidTargetPickerNotImplemented
+func (a androidTargetToolAdapter) OpenPicker(req PickerRequest) error {
+	if a.service == nil {
+		return fmt.Errorf("android target picker service is not available")
+	}
+	return a.service.openScreenPickerWindow(req)
 }
 
 func (androidTargetToolAdapter) PixelAt(PixelSampleRequest) (PixelInfo, error) {
 	return PixelInfo{}, ErrAndroidTargetPixelNotImplemented
 }
 
-func (s *Service) openWin32ScreenPicker(req PickerRequest) error {
+func (s *Service) openScreenPickerWindow(req PickerRequest) error {
 	app := s.wailsApp()
 	if app == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)

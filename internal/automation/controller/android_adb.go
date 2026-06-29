@@ -8,10 +8,10 @@ import (
 	"image/draw"
 	"image/png"
 	"math"
-	"os/exec"
 	"strings"
 	"time"
 
+	"yotta/internal/adbexec"
 	"yotta/internal/automation/target"
 	automationtrace "yotta/internal/automation/trace"
 )
@@ -34,7 +34,7 @@ func (execADBRunner) Run(ctx context.Context, serial string, args ...string) ([]
 		argv = append(argv, "-s", serial)
 	}
 	argv = append(argv, args...)
-	return exec.CommandContext(ctx, "adb", argv...).Output()
+	return adbexec.CommandContext(ctx, argv...).Output()
 }
 
 type AndroidADBDeps struct {

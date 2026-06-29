@@ -3,10 +3,10 @@ package androidadb
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 
+	"yotta/internal/adbexec"
 	"yotta/internal/automation/target"
 )
 
@@ -28,7 +28,7 @@ func (execRunner) Run(ctx context.Context, serial string, args ...string) ([]byt
 		argv = append(argv, "-s", serial)
 	}
 	argv = append(argv, args...)
-	out, err := exec.CommandContext(ctx, "adb", argv...).CombinedOutput()
+	out, err := adbexec.CommandContext(ctx, argv...).CombinedOutput()
 	if err != nil && len(out) > 0 {
 		return out, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -58,6 +58,13 @@ func (s *Service) ListDevices(ctx context.Context) ([]Device, error) {
 		return nil, err
 	}
 	devices := ParseDevicesOutput(string(out))
+	if !hasOnlineDevice(devices) {
+		s.tryConnectCommonEmulators(ctx)
+		if out, err = s.runner().Run(ctx, "", "devices", "-l"); err != nil {
+			return nil, err
+		}
+		devices = ParseDevicesOutput(string(out))
+	}
 	for i := range devices {
 		if devices[i].State != "device" {
 			continue
@@ -71,6 +78,32 @@ func (s *Service) ListDevices(ctx context.Context) ([]Device, error) {
 		}
 	}
 	return devices, nil
+}
+
+func hasOnlineDevice(devices []Device) bool {
+	for _, d := range devices {
+		if d.State == "device" {
+			return true
+		}
+	}
+	return false
+}
+
+var commonEmulatorADBAddresses = []string{
+	"127.0.0.1:16384", // MuMu 12
+	"127.0.0.1:7555",  // MuMu classic / common Android emulator
+	"127.0.0.1:5555",  // LDPlayer / common emulator default
+	"127.0.0.1:62001", // Nox
+	"127.0.0.1:21503", // MEmu
+}
+
+func (s *Service) tryConnectCommonEmulators(ctx context.Context) {
+	for _, address := range commonEmulatorADBAddresses {
+		if ctx.Err() != nil {
+			return
+		}
+		_, _ = s.runner().Run(ctx, "", "connect", address)
+	}
 }
 
 func (s *Service) runner() Runner {

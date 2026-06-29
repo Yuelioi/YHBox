@@ -24,6 +24,28 @@ func (f *fakeRunner) Run(_ context.Context, serial string, args ...string) ([]by
 	return f.outs[key], f.errs[key]
 }
 
+type queuedRunner struct {
+	calls []adbCall
+	outs  map[string][][]byte
+	errs  map[string][]error
+}
+
+func (f *queuedRunner) Run(_ context.Context, serial string, args ...string) ([]byte, error) {
+	f.calls = append(f.calls, adbCall{serial: serial, args: append([]string(nil), args...)})
+	key := serial + "|" + stringsJoin(args)
+	var out []byte
+	if q := f.outs[key]; len(q) > 0 {
+		out = q[0]
+		f.outs[key] = q[1:]
+	}
+	var err error
+	if q := f.errs[key]; len(q) > 0 {
+		err = q[0]
+		f.errs[key] = q[1:]
+	}
+	return out, err
+}
+
 func stringsJoin(args []string) string {
 	out := ""
 	for i, arg := range args {
@@ -109,5 +131,32 @@ func TestServiceListDevicesKeepsDeviceWhenResolutionFails(t *testing.T) {
 	}
 	if len(devices) != 1 || devices[0].Resolution.W != 0 {
 		t.Fatalf("devices = %#v", devices)
+	}
+}
+
+func TestServiceListDevicesAutoConnectsCommonEmulatorPortWhenNoOnlineDevice(t *testing.T) {
+	runner := &queuedRunner{
+		outs: map[string][][]byte{
+			"|devices -l": {
+				[]byte("List of devices attached\n"),
+				[]byte("List of devices attached\n127.0.0.1:16384 device model:SDY_AN00 product:Sandy device:Sandy\n"),
+			},
+			"127.0.0.1:16384|shell wm size": {[]byte("Physical size: 1280x720\n")},
+		},
+		errs: map[string][]error{},
+	}
+	devices, err := NewService(runner).ListDevices(context.Background())
+	if err != nil {
+		t.Fatalf("ListDevices error = %v", err)
+	}
+	if len(devices) != 1 || devices[0].Serial != "127.0.0.1:16384" || devices[0].Resolution.W != 1280 {
+		t.Fatalf("devices = %#v", devices)
+	}
+	wantPrefix := []adbCall{
+		{serial: "", args: []string{"devices", "-l"}},
+		{serial: "", args: []string{"connect", "127.0.0.1:16384"}},
+	}
+	if len(runner.calls) < len(wantPrefix) || !reflect.DeepEqual(runner.calls[:len(wantPrefix)], wantPrefix) {
+		t.Fatalf("calls = %#v, want prefix %#v", runner.calls, wantPrefix)
 	}
 }

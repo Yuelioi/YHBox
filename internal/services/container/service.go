@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"yotta/internal/automation/target"
 	"yotta/pkg/winutil"
 )
 
@@ -272,12 +273,22 @@ func (s *Service) ResolveWindowForNode(containerID, nodeID string) (winutil.Wind
 // tooling should use for screenshots, point picking, rectangle picking, and
 // color sampling. No explicit target keeps the historical Windows default.
 func (s *Service) ResolveEditorTargetKindForNode(containerID, nodeID string) (string, error) {
+	tg, err := s.ResolveEditorTargetForNode(containerID, nodeID)
+	if err != nil {
+		return "", err
+	}
+	return tg.Kind, nil
+}
+
+// ResolveEditorTargetForNode resolves the full editor target for node-scoped
+// tools. Win32 targets still require ResolveWindowForNode for a live HWND.
+func (s *Service) ResolveEditorTargetForNode(containerID, nodeID string) (target.Target, error) {
 	c, ok := s.store.Get(containerID)
 	if !ok {
-		return "", fmt.Errorf("container %q not found", containerID)
+		return target.Target{}, fmt.Errorf("container %q not found", containerID)
 	}
-	kind, _ := editorTargetKindForNode(&c, nodeID)
-	return kind, nil
+	tg, _ := editorTargetForNode(&c, nodeID)
+	return tg, nil
 }
 
 // CaptureBackendFor 返容器配置的截图后端名 (auto/gdi/wgc/mock). 容器不存在 → "auto".

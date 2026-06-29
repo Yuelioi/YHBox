@@ -46,6 +46,7 @@ tasks:
           DEV:
             ref: .DEV
       - task: common:generate:icons
+      - task: build:adb
       - task: build:capture-dll
     cmds:
       - task: generate:syso
@@ -81,12 +82,25 @@ tasks:
       - sh: cargo --version > /dev/null 2>&1 || cargo.exe --version > /dev/null 2>&1
         msg: "cargo (Rust) not found in PATH. Install Rust toolchain: https://rustup.rs/"
 
+  build:adb:
+    summary: Copies the bundled Windows ADB runtime into bin/platform-tools.
+    sources:
+      - "{{.ROOT_DIR}}/build/windows/platform-tools/**/*"
+    generates:
+      - "{{.ROOT_DIR}}/{{.BIN_DIR}}/platform-tools/adb.exe"
+    cmds:
+      - cmd: powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.ROOT_DIR}}\\{{.BIN_DIR}}\\platform-tools' | Out-Null; Copy-Item -Path '{{.ROOT_DIR}}\\build\\windows\\platform-tools\\*' -Destination '{{.ROOT_DIR}}\\{{.BIN_DIR}}\\platform-tools' -Recurse -Force"
+        platforms: [windows]
+      - cmd: mkdir -p "{{.ROOT_DIR}}/{{.BIN_DIR}}/platform-tools" && cp -R "{{.ROOT_DIR}}/build/windows/platform-tools/." "{{.ROOT_DIR}}/{{.BIN_DIR}}/platform-tools/"
+        platforms: [linux, darwin]
+
   build:docker:
     summary: Cross-compiles for Windows using Docker with Zig (for CGO builds on non-Windows)
     internal: true
     deps:
       - task: common:build:frontend
       - task: common:generate:icons
+      - task: build:adb
     preconditions:
       - sh: docker info > /dev/null 2>&1
         msg: "Docker is required for CGO cross-compilation. Please install Docker."

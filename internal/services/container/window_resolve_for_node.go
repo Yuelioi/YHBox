@@ -1,6 +1,7 @@
 package container
 
 import (
+	"fmt"
 	"strings"
 
 	"yotta/internal/automation/target"
@@ -65,33 +66,121 @@ func firstMainWin32WindowTarget(c *Container) *GraphNode {
 }
 
 func editorTargetKindForNode(c *Container, nodeID string) (string, bool) {
+	tg, ok := editorTargetForNode(c, nodeID)
+	if !ok {
+		return "", false
+	}
+	return tg.Kind, true
+}
+
+func editorTargetForNode(c *Container, nodeID string) (target.Target, bool) {
 	if c == nil {
-		return target.KindWin32Window, true
+		return target.Target{Kind: target.KindWin32Window}, true
 	}
 	nodeByID := graphNodeByID(c.Graph)
 	if nodeID != "" {
 		if n := nodeByID[nodeID]; n != nil {
-			if kind, ok := targetKindForSelectionNode(n.Kind); ok {
-				return kind, true
+			if tg, ok := targetFromSelectionNode(n); ok {
+				return tg, true
 			}
 		}
-		if kind, ok := nearestUpstreamTargetKind(c.Graph, nodeByID, nodeID); ok {
-			return kind, true
+		if n, ok := nearestUpstreamTargetNode(c.Graph, nodeByID, nodeID); ok {
+			return targetFromSelectionNode(n)
 		}
 	}
-	if kind, ok := firstTargetKind(c.Graph); ok {
-		return kind, true
+	if n, ok := firstTargetNode(c.Graph); ok {
+		return targetFromSelectionNode(n)
 	}
-	return target.KindWin32Window, true
+	return target.Target{Kind: target.KindWin32Window}, true
 }
 
 func firstTargetKind(g Graph) (string, bool) {
+	n, ok := firstTargetNode(g)
+	if !ok {
+		return "", false
+	}
+	tg, ok := targetFromSelectionNode(n)
+	return tg.Kind, ok
+}
+
+func firstTargetNode(g Graph) (*GraphNode, bool) {
 	for i := range g.Nodes {
-		if kind, ok := targetKindForSelectionNode(g.Nodes[i].Kind); ok {
-			return kind, true
+		if _, ok := targetKindForSelectionNode(g.Nodes[i].Kind); ok {
+			return &g.Nodes[i], true
 		}
 	}
-	return "", false
+	return nil, false
+}
+
+func nearestUpstreamTargetNode(g Graph, nodeByID map[string]*GraphNode, nodeID string) (*GraphNode, bool) {
+	visited := map[string]bool{nodeID: true}
+	frontier := []string{nodeID}
+	for len(frontier) > 0 {
+		found := map[string]*GraphNode{}
+		var next []string
+		for _, current := range frontier {
+			for _, e := range g.Edges {
+				toID, toPin := splitRef(e.To)
+				if toID != current {
+					continue
+				}
+				toNode := nodeByID[toID]
+				if !nodeHasExecInPin(toNode, toPin) {
+					continue
+				}
+				fromID, fromPin := splitRef(e.From)
+				fromNode := nodeByID[fromID]
+				if fromNode == nil || !nodeHasExecOutPin(fromNode, fromPin) {
+					continue
+				}
+				if _, ok := targetKindForSelectionNode(fromNode.Kind); ok {
+					found[fromID] = fromNode
+					continue
+				}
+				if !visited[fromID] {
+					visited[fromID] = true
+					next = append(next, fromID)
+				}
+			}
+		}
+		if len(found) == 1 {
+			for _, n := range found {
+				return n, true
+			}
+		}
+		if len(found) > 1 {
+			return nil, false
+		}
+		frontier = next
+	}
+	return nil, false
+}
+
+func targetFromSelectionNode(n *GraphNode) (target.Target, bool) {
+	if n == nil {
+		return target.Target{}, false
+	}
+	switch n.Kind {
+	case "Win32WindowTarget":
+		return target.Target{ID: "win32:" + n.ID, Kind: target.KindWin32Window}, true
+	case "AndroidTarget":
+		serial := strings.TrimSpace(PinString(n, "Serial"))
+		name := strings.TrimSpace(PinString(n, "Name"))
+		if name == "" {
+			name = serial
+		}
+		w, _ := PinInt(n, "Width")
+		h, _ := PinInt(n, "Height")
+		return target.Target{
+			ID:          fmt.Sprintf("android:%s", serial),
+			Kind:        target.KindAndroidADB,
+			DisplayName: name,
+			Ref:         target.TargetRef{ADBSerial: serial},
+			Resolution:  target.Size{W: w, H: h},
+		}, true
+	default:
+		return target.Target{}, false
+	}
 }
 
 func splitPinNode(pin string) string {
