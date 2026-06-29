@@ -16,6 +16,7 @@
 - `go test . -run TestDebugManager -count=1`
 - `go test ./...`
 - `pnpm exec vitest run src/stores/execution.debug.test.ts`
+- `pnpm exec vitest run src/components/containers/menus/NodeContextMenu.spec.ts`
 - `pnpm exec vitest run`
 - `pnpm exec vue-tsc --noEmit`
 - `pnpm exec node src/i18n/check.cjs`

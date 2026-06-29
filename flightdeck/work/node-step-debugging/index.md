@@ -36,6 +36,7 @@ Done:
 - Added service/RPC DTOs and regenerated Wails bindings.
 - Added Pinia debug state, toolbar controls, right-click node action, and canvas highlights for next/running/last/failed nodes.
 - Added an in-canvas debug status panel for current/next node, last exit, queue count, warnings, and errors.
+- Added Debug from here confirmation copy and hid the action for nodes without exec inputs.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
@@ -44,6 +45,7 @@ Verified:
 - `go test . -run TestDebugManager -count=1`
 - `go test ./...`
 - `pnpm exec vitest run`
+- `pnpm exec vitest run src/components/containers/menus/NodeContextMenu.spec.ts`
 - `pnpm exec vue-tsc --noEmit`
 - `pnpm exec node src/i18n/check.cjs`
 - `wails3 generate bindings ./...`
