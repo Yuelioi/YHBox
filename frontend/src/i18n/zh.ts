@@ -1041,6 +1041,32 @@ export default {
         PrimaryConf: { label: '最佳匹配度' },
       },
     },
+    PickMatchPoint: {
+      label: '取模板命中点',
+      description: '从「模板全部命中」输出的 Matches 列表里取第 N 个命中，按锚点和偏移转换成一个坐标点。它不截图、不识别，只负责把命中列表变成可接 ClickAt / Swipe 的 Point。',
+      example: 'FindTemplateAll 找到一排相同按钮后，Index 填 1 取第二个命中，Result 接到 ClickAt 的坐标，就能点击第二个按钮。',
+      input: {
+        Matches: { label: '命中列表', hint: '接 FindTemplateAll 的 Matches 输出' },
+        Index: { label: '取第几个', hint: '从 0 开始，越界返回 (0,0)' },
+        Anchor: { label: '锚点', hint: '取命中框的哪个位置，默认中心', option: { topLeft: '左上', topCenter: '上中', topRight: '右上', midLeft: '左中', center: '中心', midRight: '右中', botLeft: '左下', botCenter: '下中', botRight: '右下' } },
+        OffsetX: { label: '水平偏移', hint: '在锚点上增加的 ratio 偏移，负值向左' },
+        OffsetY: { label: '垂直偏移', hint: '在锚点上增加的 ratio 偏移，负值向上' },
+      },
+      output: { Result: { label: '结果' } },
+    },
+    PickBlobPoint: {
+      label: '取色块命中点',
+      description: '从「颜色块定位」输出的 Blobs 列表里取第 N 个色块，按锚点和偏移转换成一个坐标点。它适合把排序后的色块结果直接接到点击、拖拽或距离判断。',
+      example: 'DetectColorBlobs 按面积排序找到多个发光物体后，Index 填 0 取最大的色块中心，Result 接 ClickAt 自动点击它。',
+      input: {
+        Blobs: { label: '色块列表', hint: '接 DetectColorBlobs 的 Blobs 输出' },
+        Index: { label: '取第几个', hint: '从 0 开始，越界返回 (0,0)' },
+        Anchor: { label: '锚点', hint: '取色块外接框的哪个位置，默认中心', option: { topLeft: '左上', topCenter: '上中', topRight: '右上', midLeft: '左中', center: '中心', midRight: '右中', botLeft: '左下', botCenter: '下中', botRight: '右下' } },
+        OffsetX: { label: '水平偏移', hint: '在锚点上增加的 ratio 偏移，负值向左' },
+        OffsetY: { label: '垂直偏移', hint: '在锚点上增加的 ratio 偏移，负值向上' },
+      },
+      output: { Result: { label: '结果' } },
+    },
     DualColorBarTrack: {
       label: '双色条追踪',
       description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',

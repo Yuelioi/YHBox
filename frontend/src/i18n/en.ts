@@ -1021,6 +1021,32 @@ export default {
         PrimaryConf: { label: 'Best match score' },
       },
     },
+    PickMatchPoint: {
+      label: 'Pick template point',
+      description: 'Takes the Nth item from a FindTemplateAll Matches list and turns it into a Point using an anchor and optional offset. It does not capture or detect; it only converts a hit list into a Point that can feed ClickAt or Swipe.',
+      example: 'After FindTemplateAll finds a row of identical buttons, set Index to 1 to pick the second hit, then wire Result into ClickAt to click that button.',
+      input: {
+        Matches: { label: 'Matches', hint: 'Wire from FindTemplateAll.Matches' },
+        Index: { label: 'Index', hint: '0-based; out of range returns (0,0)' },
+        Anchor: { label: 'Anchor', hint: 'Which point of the hit box to use; default center', option: { topLeft: 'Top-left', topCenter: 'Top-center', topRight: 'Top-right', midLeft: 'Mid-left', center: 'Center', midRight: 'Mid-right', botLeft: 'Bottom-left', botCenter: 'Bottom-center', botRight: 'Bottom-right' } },
+        OffsetX: { label: 'Offset X', hint: 'Ratio offset added to the anchor; negative moves left' },
+        OffsetY: { label: 'Offset Y', hint: 'Ratio offset added to the anchor; negative moves up' },
+      },
+      output: { Result: { label: 'Result' } },
+    },
+    PickBlobPoint: {
+      label: 'Pick blob point',
+      description: 'Takes the Nth item from a DetectColorBlobs Blobs list and turns it into a Point using an anchor and optional offset. Useful for feeding sorted blob results directly into clicks, drags, or distance checks.',
+      example: 'After DetectColorBlobs sorts glowing objects by area, set Index to 0 to pick the largest blob center and wire Result into ClickAt.',
+      input: {
+        Blobs: { label: 'Blobs', hint: 'Wire from DetectColorBlobs.Blobs' },
+        Index: { label: 'Index', hint: '0-based; out of range returns (0,0)' },
+        Anchor: { label: 'Anchor', hint: 'Which point of the blob bounding box to use; default center', option: { topLeft: 'Top-left', topCenter: 'Top-center', topRight: 'Top-right', midLeft: 'Mid-left', center: 'Center', midRight: 'Mid-right', botLeft: 'Bottom-left', botCenter: 'Bottom-center', botRight: 'Bottom-right' } },
+        OffsetX: { label: 'Offset X', hint: 'Ratio offset added to the anchor; negative moves left' },
+        OffsetY: { label: 'Offset Y', hint: 'Ratio offset added to the anchor; negative moves up' },
+      },
+      output: { Result: { label: 'Result' } },
+    },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
       description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
