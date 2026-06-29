@@ -32,6 +32,7 @@ declare module 'vue' {
     CommandPalette: typeof import('./src/components/containers/CommandPalette.vue')['default']
     CommentBoxNode: typeof import('./src/components/containers/CommentBoxNode.vue')['default']
     ConfirmDialog: typeof import('./src/components/common/ConfirmDialog.vue')['default']
+    ContainerDebugPanel: typeof import('./src/components/containers/ContainerDebugPanel.vue')['default']
     ContainerEditorBreadcrumb: typeof import('./src/components/containers/ContainerEditorBreadcrumb.vue')['default']
     ContainerEditorDock: typeof import('./src/components/containers/dock/ContainerEditorDock.vue')['default']
     ContainerEditorInspector: typeof import('./src/components/containers/ContainerEditorInspector.vue')['default']

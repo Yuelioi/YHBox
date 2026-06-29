@@ -35,6 +35,7 @@ Done:
 - Added process-local debug sessions with execution exclusivity against normal runs.
 - Added service/RPC DTOs and regenerated Wails bindings.
 - Added Pinia debug state, toolbar controls, right-click node action, and canvas highlights for next/running/last/failed nodes.
+- Added an in-canvas debug status panel for current/next node, last exit, queue count, warnings, and errors.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.
