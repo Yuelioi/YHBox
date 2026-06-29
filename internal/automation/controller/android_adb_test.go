@@ -21,13 +21,30 @@ type adbCall struct {
 
 type fakeADBRunner struct {
 	calls []adbCall
+	outs  map[string][]byte
 	out   []byte
 	err   error
 }
 
 func (f *fakeADBRunner) Run(_ context.Context, serial string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, adbCall{serial: serial, args: append([]string(nil), args...)})
+	if f.outs != nil {
+		if out, ok := f.outs[adbCallKey(serial, args...)]; ok {
+			return out, f.err
+		}
+	}
 	return f.out, f.err
+}
+
+func adbCallKey(serial string, args ...string) string {
+	out := serial + "|"
+	for i, arg := range args {
+		if i > 0 {
+			out += " "
+		}
+		out += arg
+	}
+	return out
 }
 
 func TestAndroidADBControllerTargetAndCapabilities(t *testing.T) {
@@ -66,7 +83,7 @@ func TestAndroidADBControllerClickUsesTapAndTrace(t *testing.T) {
 		t.Fatalf("Click() error = %v", err)
 	}
 	wantArgs := []string{"shell", "input", "tap", "540", "480"}
-	if len(runner.calls) != 1 || runner.calls[0].serial != "emulator-5554" || !reflect.DeepEqual(runner.calls[0].args, wantArgs) {
+	if len(runner.calls) != 2 || runner.calls[1].serial != "emulator-5554" || !reflect.DeepEqual(runner.calls[1].args, wantArgs) {
 		t.Fatalf("adb calls = %#v, want args %#v", runner.calls, wantArgs)
 	}
 	records := rec.Records()
@@ -79,6 +96,25 @@ func TestAndroidADBControllerClickUsesTapAndTrace(t *testing.T) {
 	step := records[0].CoordinateSteps[0]
 	if step.From != target.SpaceNormalized || step.To != target.SpaceAndroidDevice {
 		t.Fatalf("step spaces = %s -> %s", step.From, step.To)
+	}
+}
+
+func TestAndroidADBControllerClickUsesCurrentLandscapeOrientation(t *testing.T) {
+	tg := androidTarget()
+	tg.Resolution = target.Size{W: 720, H: 1280}
+	runner := &fakeADBRunner{outs: map[string][]byte{
+		adbCallKey("emulator-5554", "shell", "dumpsys", "input"): []byte("SurfaceOrientation: 1\n"),
+	}}
+	ctrl, err := NewAndroidADBController(tg, AndroidADBDeps{Runner: runner})
+	if err != nil {
+		t.Fatalf("NewAndroidADBController() error = %v", err)
+	}
+	if err := ctrl.Click(context.Background(), ClickRequest{Point: target.NewNormalizedPoint(0.7651, 0.2106)}); err != nil {
+		t.Fatalf("Click() error = %v", err)
+	}
+	wantArgs := []string{"shell", "input", "tap", "979", "152"}
+	if len(runner.calls) != 2 || !reflect.DeepEqual(runner.calls[1].args, wantArgs) {
+		t.Fatalf("adb calls = %#v, want tap args %#v", runner.calls, wantArgs)
 	}
 }
 
@@ -120,7 +156,7 @@ func TestAndroidADBControllerDragUsesSwipe(t *testing.T) {
 		t.Fatalf("Drag() error = %v", err)
 	}
 	wantArgs := []string{"shell", "input", "swipe", "108", "384", "864", "1728", "450"}
-	if len(runner.calls) != 1 || !reflect.DeepEqual(runner.calls[0].args, wantArgs) {
+	if len(runner.calls) != 2 || !reflect.DeepEqual(runner.calls[1].args, wantArgs) {
 		t.Fatalf("adb calls = %#v, want args %#v", runner.calls, wantArgs)
 	}
 }

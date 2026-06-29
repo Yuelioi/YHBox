@@ -69,15 +69,28 @@ func (s *Service) ListDevices(ctx context.Context) ([]Device, error) {
 		if devices[i].State != "device" {
 			continue
 		}
-		sizeOut, err := s.runner().Run(ctx, devices[i].Serial, "shell", "wm", "size")
-		if err != nil {
-			continue
-		}
-		if size, ok := ParseWMSizeOutput(string(sizeOut)); ok {
-			devices[i].Resolution = size
-		}
+		devices[i].Resolution = s.currentResolution(ctx, devices[i].Serial)
 	}
 	return devices, nil
+}
+
+func (s *Service) currentResolution(ctx context.Context, serial string) target.Size {
+	sizeOut, err := s.runner().Run(ctx, serial, "shell", "wm", "size")
+	if err != nil {
+		return target.Size{}
+	}
+	size, ok := ParseWMSizeOutput(string(sizeOut))
+	if !ok {
+		return target.Size{}
+	}
+	orientationOut, err := s.runner().Run(ctx, serial, "shell", "dumpsys", "input")
+	if err != nil {
+		return size
+	}
+	if orientation, ok := ParseSurfaceOrientation(string(orientationOut)); ok && orientation%2 != 0 {
+		size.W, size.H = size.H, size.W
+	}
+	return size
 }
 
 func hasOnlineDevice(devices []Device) bool {
@@ -146,6 +159,7 @@ func ParseDevicesOutput(out string) []Device {
 }
 
 var wmSizePattern = regexp.MustCompile(`(\d+)x(\d+)`)
+var surfaceOrientationPattern = regexp.MustCompile(`SurfaceOrientation:\s*(\d+)`)
 
 func ParseWMSizeOutput(out string) (target.Size, bool) {
 	var physical target.Size
@@ -181,4 +195,16 @@ func parseSizeLine(line string) (target.Size, bool) {
 		return target.Size{}, false
 	}
 	return target.Size{W: w, H: h}, true
+}
+
+func ParseSurfaceOrientation(out string) (int, bool) {
+	m := surfaceOrientationPattern.FindStringSubmatch(out)
+	if len(m) != 2 {
+		return 0, false
+	}
+	var orientation int
+	if _, err := fmt.Sscanf(m[1], "%d", &orientation); err != nil {
+		return 0, false
+	}
+	return orientation, true
 }

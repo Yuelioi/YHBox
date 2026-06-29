@@ -35,10 +35,14 @@ Useful design takeaways:
 - Improved Android ADB discovery:
   - If `adb devices -l` has no online `device`, `androidadb.Service` tries a small set of common emulator ADB addresses before listing again.
   - Initial common addresses cover MuMu 12, MuMu/common emulator, LDPlayer/common default, Nox, and MEmu.
+  - Device option resolution is corrected by `SurfaceOrientation`; MuMu can report `wm size` as `720x1280` while screenshots and input coordinates are currently `1280x720`.
 - Added bundled Windows ADB runtime support:
   - `internal/adbexec` resolves `YOTTA_ADB_PATH` / `YHFISH_ADB_PATH`, then bundled `platform-tools`, then PATH `adb`.
   - Android controller and Android discovery share the same executable resolver.
   - Windows build copies `build/windows/platform-tools` into `bin/platform-tools`; NSIS installs it beside the app.
+- Hardened Android normalized input:
+  - `AndroidADBController` corrects saved target resolution by current `SurfaceOrientation` before converting normalized points.
+  - This keeps existing containers with stale portrait `Width/Height` from tapping the wrong place when the emulator is landscape.
 
 ## Verification
 
@@ -48,6 +52,7 @@ Targeted tests added/updated:
 - `wire_templates_test.go`
 - `internal/services/androidadb/discovery_test.go`
 - `internal/adbexec/executable_test.go`
+- `internal/automation/controller/android_adb_test.go`
 
 Targeted commands passed:
 - `go test ./internal/services/container -run 'TestEditorTarget(Kind|ForNode)'`
@@ -59,6 +64,7 @@ Targeted commands passed:
 - `go test ./...`
 - `pnpm -C frontend typecheck`
 - `pnpm -C frontend test`
+- Manual MuMu check: `adb shell input tap 979 152` from point `0.7651,0.2106` on `1280x720` launched the game splash screen.
 
 ## Remaining
 

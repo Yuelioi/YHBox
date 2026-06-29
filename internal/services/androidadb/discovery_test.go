@@ -110,9 +110,33 @@ func TestServiceListDevicesQueriesResolutionForOnlineDevices(t *testing.T) {
 	wantCalls := []adbCall{
 		{serial: "", args: []string{"devices", "-l"}},
 		{serial: "emulator-5554", args: []string{"shell", "wm", "size"}},
+		{serial: "emulator-5554", args: []string{"shell", "dumpsys", "input"}},
 	}
 	if !reflect.DeepEqual(runner.calls, wantCalls) {
 		t.Fatalf("calls = %#v, want %#v", runner.calls, wantCalls)
+	}
+}
+
+func TestServiceListDevicesSwapsResolutionForLandscapeOrientation(t *testing.T) {
+	runner := &fakeRunner{
+		outs: map[string][]byte{
+			"|devices -l":                   []byte("List of devices attached\n127.0.0.1:16384 device model:SDY_AN00\n"),
+			"127.0.0.1:16384|shell wm size": []byte("Physical size: 720x1280\n"),
+			"127.0.0.1:16384|shell dumpsys input": []byte(`
+SurfaceOrientation: 1
+`),
+		},
+		errs: map[string]error{},
+	}
+	devices, err := NewService(runner).ListDevices(context.Background())
+	if err != nil {
+		t.Fatalf("ListDevices error = %v", err)
+	}
+	if len(devices) != 1 {
+		t.Fatalf("devices = %#v, want 1", devices)
+	}
+	if devices[0].Resolution.W != 1280 || devices[0].Resolution.H != 720 {
+		t.Fatalf("resolution = %#v, want 1280x720", devices[0].Resolution)
 	}
 }
 

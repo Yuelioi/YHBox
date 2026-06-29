@@ -8,6 +8,7 @@ import (
 	"image/draw"
 	"image/png"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,6 +28,8 @@ func (f ADBRunnerFunc) Run(ctx context.Context, serial string, args ...string) (
 }
 
 type execADBRunner struct{}
+
+var androidSurfaceOrientationPattern = regexp.MustCompile(`SurfaceOrientation:\s*(\d+)`)
 
 func (execADBRunner) Run(ctx context.Context, serial string, args ...string) ([]byte, error) {
 	argv := []string{}
@@ -144,16 +147,17 @@ func (c *AndroidADBController) MouseUp(context.Context, MouseButtonRequest) erro
 }
 
 func (c *AndroidADBController) Drag(ctx context.Context, req DragRequest) error {
-	steps, err := c.coordinateSteps(req.From, req.To)
+	size := c.inputResolutionForPoints(ctx, req.From, req.To)
+	steps, err := c.coordinateStepsWithSize(size, req.From, req.To)
 	if err != nil {
 		return err
 	}
 	return c.recordActionWithSteps("drag", req, steps, func() (any, error) {
-		x1, y1, err := c.pointToDevice(req.From)
+		x1, y1, err := c.pointToDeviceWithSize(req.From, size)
 		if err != nil {
 			return nil, err
 		}
-		x2, y2, err := c.pointToDevice(req.To)
+		x2, y2, err := c.pointToDeviceWithSize(req.To, size)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +226,8 @@ func (c *AndroidADBController) backend() string {
 }
 
 func (c *AndroidADBController) recordInputAction(ctx context.Context, action string, request any, points []target.Point, run func(x, y int) error) error {
-	steps, err := c.coordinateSteps(points...)
+	size := c.inputResolutionForPoints(ctx, points...)
+	steps, err := c.coordinateStepsWithSize(size, points...)
 	if err != nil {
 		return err
 	}
@@ -230,7 +235,7 @@ func (c *AndroidADBController) recordInputAction(ctx context.Context, action str
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		x, y, err := c.pointToDevice(points[0])
+		x, y, err := c.pointToDeviceWithSize(points[0], size)
 		if err != nil {
 			return nil, err
 		}
@@ -269,9 +274,13 @@ func (c *AndroidADBController) recordActionWithSteps(action string, request any,
 }
 
 func (c *AndroidADBController) coordinateSteps(points ...target.Point) ([]automationtrace.CoordinateStep, error) {
+	return c.coordinateStepsWithSize(c.target.Resolution, points...)
+}
+
+func (c *AndroidADBController) coordinateStepsWithSize(size target.Size, points ...target.Point) ([]automationtrace.CoordinateStep, error) {
 	steps := make([]automationtrace.CoordinateStep, 0, len(points))
 	for _, point := range points {
-		x, y, err := c.pointToDevice(point)
+		x, y, err := c.pointToDeviceWithSize(point, size)
 		if err != nil {
 			return nil, err
 		}
@@ -290,22 +299,67 @@ func (c *AndroidADBController) coordinateSteps(points ...target.Point) ([]automa
 }
 
 func (c *AndroidADBController) pointToDevice(point target.Point) (int, int, error) {
+	return c.pointToDeviceWithSize(point, c.target.Resolution)
+}
+
+func (c *AndroidADBController) pointToDeviceWithSize(point target.Point, size target.Size) (int, int, error) {
 	switch point.Space {
 	case "", target.SpaceNormalized:
 		if point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > 1 {
 			return 0, 0, fmt.Errorf("normalized point out of range: (%f,%f)", point.X, point.Y)
 		}
-		if c.target.Resolution.W <= 0 || c.target.Resolution.H <= 0 {
+		if size.W <= 0 || size.H <= 0 {
 			return 0, 0, fmt.Errorf("android adb target resolution is required for normalized coordinates")
 		}
-		x := int(math.Round(point.X * float64(c.target.Resolution.W)))
-		y := int(math.Round(point.Y * float64(c.target.Resolution.H)))
-		return clampInt(x, 0, c.target.Resolution.W-1), clampInt(y, 0, c.target.Resolution.H-1), nil
+		x := int(math.Round(point.X * float64(size.W)))
+		y := int(math.Round(point.Y * float64(size.H)))
+		return clampInt(x, 0, size.W-1), clampInt(y, 0, size.H-1), nil
 	case target.SpaceAndroidDevice:
 		return int(math.Round(point.X)), int(math.Round(point.Y)), nil
 	default:
 		return 0, 0, fmt.Errorf("android adb point space %q is not supported", point.Space)
 	}
+}
+
+func (c *AndroidADBController) inputResolutionForPoints(ctx context.Context, points ...target.Point) target.Size {
+	for _, point := range points {
+		if point.Space == "" || point.Space == target.SpaceNormalized {
+			return c.currentInputResolution(ctx)
+		}
+	}
+	return c.target.Resolution
+}
+
+func (c *AndroidADBController) currentInputResolution(ctx context.Context) target.Size {
+	size := c.target.Resolution
+	if size.W <= 0 || size.H <= 0 {
+		return size
+	}
+	out, err := c.runner().Run(ctx, c.serial(), "shell", "dumpsys", "input")
+	if err != nil {
+		return size
+	}
+	orientation, ok := parseAndroidSurfaceOrientation(string(out))
+	if !ok {
+		return size
+	}
+	landscape := orientation%2 != 0
+	if landscape && size.W < size.H || !landscape && size.W > size.H {
+		size.W, size.H = size.H, size.W
+	}
+	return size
+}
+
+func parseAndroidSurfaceOrientation(out string) (int, bool) {
+	m := androidSurfaceOrientationPattern.FindStringSubmatch(out)
+	if len(m) != 2 {
+		return 0, false
+	}
+	var orientation int
+	if _, err := fmt.Sscanf(m[1], "%d", &orientation); err != nil {
+		return 0, false
+	}
+	return orientation, true
 }
 
 func escapeADBInputText(text string) string {
