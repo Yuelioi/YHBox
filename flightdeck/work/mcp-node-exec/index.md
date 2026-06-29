@@ -2,33 +2,50 @@
 
 ## State
 
-③ MCP 对外暴露 topic，design.md 与 plan.md 已就绪但尚未开工。目标是在 GUI 进程内置 Streamable HTTP MCP server，让外部 AI 可以 list_nodes / find_window / run_node / save_container，闭合“AI 跑节点探测 -> 生成容器”的循环。
+Implemented on local `main` as part of the landed debug/target cycle. The GUI process now starts a local Streamable HTTP MCP server at `http://127.0.0.1:8765/mcp`, with authoring tools, window lookup, `run_node`, `save_container`, armed write/execution gating, busy gating, and the Settings MCP tab.
 
 ## Next
 
-等 window-control 与 detect-click-config 真机 smoke 并归档后，按 plan.md 从 Task 1 开始实现。执行计划要求逐 task 做，并在每个 task 末尾提交。
+Human smoke:
+- Open Settings -> MCP and confirm the URL is visible.
+- Confirm the switch says it allows execution and writes, not that it starts the server.
+- Connect an MCP client to `http://127.0.0.1:8765/mcp`.
+- Verify `list_nodes`, `list_windows`, and `find_window` work before arming.
+- Verify `run_node` and `save_container` return `NOT_ARMED` before arming.
+- Arm MCP, then use `find_window` on a simple target window and run a low-risk node such as `Capture` or `ClickAt`.
+- While a normal container run is active, verify `run_node` returns `BUSY`.
 
 ## Read now
 
-- design.md
-- plan.md
+- `design.md` — product goal and tool surface.
+- `plan.md` — historical implementation plan. Treat checkboxes as stale; use code/tests as source of truth.
+- `../../knowledge/build/build.md` — verification baseline.
 
 ## Read if
 
-- knowledge/build/build.md — 开始 build / test / smoke 前。
-- knowledge/wails/add-service.md — 如果实现需要新增或调整前端可调 Go service。
-- knowledge/nodes/node-system-architecture.md — 如果需要确认节点注册、capability 或 dispatch 机制。
-- knowledge/nodes/held-exec-outputs.md — 如果实现 run_node 输出收割。
-- knowledge/nodes/ai-nodes.md — 如果需要对齐已完成的 AI 节点系统语义。
+- `../../knowledge/wails/add-service.md` — if adding frontend-visible Go services.
+- `../../knowledge/nodes/node-system-architecture.md` — if changing node registration or dispatch.
+- `../../knowledge/nodes/held-exec-outputs.md` — if changing `run_node` output harvesting.
+- `../../knowledge/nodes/ai-nodes.md` — if aligning MCP behavior with AI node semantics.
 
 ## Progress
 
 Done:
-- 需求定位、design、implementation plan。
+- Migrated authoring/schema/validate/save logic into `internal/services/mcpserver`.
+- Removed legacy `cmd/yotta-mcp`.
+- Added `list_nodes`, `get_graph_schema`, `validate_container`, `save_container`, `list_windows`, `find_window`, and `run_node`.
+- Added `EnumTopWindows`, `ContainerRunner.ExecOutputs`, `Worker.IsRunning`, and `Settings.MCP.Armed`.
+- Added micro-container harness for one-node execution and held-output/image harvesting.
+- Wired the MCP server in `main.go` on `127.0.0.1:8765`.
+- Added Settings MCP tab with armed gating and server URL display.
 
-Current:
-- 未实现，排在 window-control 与 detect-click-config smoke / 归档之后。
+Verified:
+- `go test ./internal/services/mcpserver -v`
+- `go test ./pkg/winutil ./internal/services/execution ./internal/services/mcpserver`
+- Landing verification also covered `go test ./...`, frontend vitest, vue-tsc, i18n check, and production build.
 
 ## Open questions
 
-- 计划内写着提交分支 `feat/v2-foundation`，但当前 repo 分支是 `migrate/flightdeck-new-form`；开工前需要以当前分支现实为准重新确认。
+- Whether the MCP server should gain a full disable switch in addition to the current armed execution/write gate.
+- Whether the fixed port `8765` needs a conflict UI or configurable port.
+- Whether MCP should expose Android target discovery/run paths later, or stay Win32-window oriented for V1.

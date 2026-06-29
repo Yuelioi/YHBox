@@ -2867,10 +2867,10 @@ export default {
   },
   settingsMCP: {
     title: 'MCP 服务器',
-    armLabel: '启用 MCP 服务',
-    armWarning: '警告：启用后 AI 客户端可驱动你的鼠标键盘并向容器写入脚本，请确保只连接受信任的 AI 客户端。',
+    armLabel: '允许执行和写入',
+    armWarning: '警告：允许后 AI 客户端可驱动鼠标键盘、运行节点并写入容器，请确保只连接受信任的 AI 客户端。',
     urlLabel: '服务器地址',
-    urlHint: '将下方地址填入 AI 客户端（如 Claude Desktop 或 Cline）的 MCP 配置中。',
+    urlHint: '本地服务默认常驻。未允许执行和写入时，AI 客户端只能使用只读工具。',
     copy: '复制',
     copied: '已复制',
   },

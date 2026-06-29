@@ -2813,10 +2813,10 @@ export default {
   },
   settingsMCP: {
     title: 'MCP Server',
-    armLabel: 'Enable MCP server',
-    armWarning: 'Warning: when armed, AI clients can drive your mouse and keyboard and write scripts into containers. Only connect trusted AI clients.',
+    armLabel: 'Allow execution and writes',
+    armWarning: 'Warning: when allowed, AI clients can drive your mouse and keyboard, run nodes, and write containers. Only connect trusted AI clients.',
     urlLabel: 'Server URL',
-    urlHint: 'Paste this URL into your AI client MCP config (e.g. Claude Desktop or Cline).',
+    urlHint: 'The local server is always available. Until execution and writes are allowed, AI clients can only use read-only tools.',
     copy: 'Copy',
     copied: 'Copied!',
   },
