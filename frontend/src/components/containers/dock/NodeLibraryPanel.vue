@@ -49,7 +49,7 @@
                 <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
                 <span class="min-w-0 flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
                 <span
-                  v-for="badge in platformBadgesForTargets(spec.supportedTargets)"
+                  v-for="badge in platformBadgesForTargets(spec.supportedTargets, { isPureData: spec.isPureData })"
                   :key="badge.key"
                   class="shrink-0 rounded border px-1 py-0.5 text-[9px] leading-none"
                   :class="badge.class"

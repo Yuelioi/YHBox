@@ -2340,6 +2340,7 @@ export default {
     platform_android: 'Android',
     platform_windows_only: '仅 Win',
     platform_android_only: '仅 Android',
+    platform_common: '通用',
   },
   // ContextMenuRouter
   contextMenu: {

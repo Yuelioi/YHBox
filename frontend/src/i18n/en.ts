@@ -2315,6 +2315,7 @@ export default {
     platform_android: 'Android',
     platform_windows_only: 'Win only',
     platform_android_only: 'Android only',
+    platform_common: 'Common',
   },
   contextMenu: {
     no_literal_pin: 'This node has no literal pin to extract',

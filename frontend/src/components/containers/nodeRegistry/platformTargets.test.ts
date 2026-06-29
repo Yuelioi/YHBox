@@ -7,6 +7,12 @@ describe('platformBadgesForTargets', () => {
     expect(platformBadgesForTargets([])).toEqual([])
   })
 
+  it('labels pure data nodes as common runtime', () => {
+    expect(platformBadgesForTargets([], { isPureData: true })).toEqual([
+      { key: 'common', labelKey: 'nodeExplorer.platform_common', class: 'border-zinc-500/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300' },
+    ])
+  })
+
   it('labels Windows-only nodes', () => {
     expect(platformBadgesForTargets(['win32-window'])).toEqual([
       { key: 'windows', labelKey: 'nodeExplorer.platform_windows_only', class: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300' },
