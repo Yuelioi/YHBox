@@ -30,6 +30,11 @@
       </span>
     </div>
 
+    <div class="debug-note warning">
+      <UIcon name="i-tabler-alert-triangle" class="size-3.5 shrink-0" />
+      <span>{{ t('editor.debug_panel.side_effect_warning') }}</span>
+    </div>
+
     <div v-if="summary.warnings.length > 0" class="debug-note warning">
       <UIcon name="i-tabler-alert-triangle" class="size-3.5 shrink-0" />
       <span>{{ warningText(summary.warnings[0]) }}</span>

@@ -37,6 +37,7 @@ Done:
 - Added Pinia debug state, toolbar controls, right-click node action, and canvas highlights for next/running/last/failed nodes.
 - Added an in-canvas debug status panel for current/next node, last exit, queue count, warnings, and errors.
 - Added Debug from here confirmation copy and hid the action for nodes without exec inputs.
+- Added visible side-effect warnings near debug controls and in the debug status panel.
 
 Verified:
 - Design self-review completed for terminology, scope, API, validation, edge cases, and test coverage.

@@ -226,6 +226,7 @@ export default {
       focus_running: '执行中',
       focus_failed: '失败',
       last: '上一步',
+      side_effect_warning: '调试会真实执行自动化动作，已产生的副作用不会自动回滚。',
       unknown_error: '调试失败',
       status: {
         idle: '空闲',
@@ -286,6 +287,7 @@ export default {
       stop_run_tip: '停止当前运行 + 清队列 (同 {hk})',
       debug: '调试',
       debug_tip: '从起点进入调试模式',
+      debug_side_effect_tip: '调试是真实执行：点击、输入、启动程序、写文件等动作不会自动回滚。',
       debug_dirty_tip: '请先保存再调试',
       debug_step: '下一步',
       debug_step_tip: '执行一个节点',

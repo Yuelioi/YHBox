@@ -88,6 +88,11 @@
                :disabled="dirty"
                :title="dirty ? t('editor.toolbar.debug_dirty_tip') : t('editor.toolbar.debug_tip')"
                @click="$emit('debug-start')">{{ t('editor.toolbar.debug') }}</UButton>
+      <UIcon
+        name="i-tabler-alert-triangle"
+        class="size-4 text-warning/80"
+        :title="t('editor.toolbar.debug_side_effect_tip')"
+      />
       <UButton size="md" color="primary" variant="solid" icon="i-tabler-player-play"
              :disabled="dirty"
              :title="dirty ? t('editor.toolbar.try_run_dirty_tip') : t('editor.toolbar.try_run_tip')"

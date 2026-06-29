@@ -211,6 +211,7 @@ export default {
       focus_running: 'Running',
       focus_failed: 'Failed',
       last: 'Last',
+      side_effect_warning: 'Debug runs real automation actions. Side effects that already happened are not automatically rolled back.',
       unknown_error: 'Debug failed',
       status: {
         idle: 'Idle',
@@ -271,6 +272,7 @@ export default {
       stop_run_tip: 'Stop current run + clear queue ({hk})',
       debug: 'Debug',
       debug_tip: 'Start a debug session from the entry',
+      debug_side_effect_tip: 'Debug is real execution: clicks, typing, launching programs, file writes, and similar actions are not automatically rolled back.',
       debug_dirty_tip: 'Please save before debugging',
       debug_step: 'Step',
       debug_step_tip: 'Execute one node',
