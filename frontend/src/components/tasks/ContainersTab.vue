@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="flex min-h-[calc(100vh-8rem)] flex-col gap-4">
     <header class="flex flex-col gap-3 xl:flex-row xl:items-center">
       <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <UInput
@@ -299,7 +299,7 @@
 
     <footer
       v-if="store.list.length > 0"
-      class="flex flex-col gap-3 border-t border-default/60 pt-3 sm:flex-row sm:items-center sm:justify-between"
+      class="sticky bottom-0 z-10 mt-auto flex flex-col gap-3 border-t border-default/60 bg-default/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
     >
       <span class="text-xs text-dimmed">{{ pageTotalLabel }}</span>
       <div class="flex items-center gap-2">
@@ -321,6 +321,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
+import { useLocalStorage } from '@vueuse/core'
 import { useContainersStore } from '@/stores/containers'
 import { useExecutionStore } from '@/stores/execution'
 import { useBatchSelect } from '@/composables/useBatchSelect'
@@ -344,11 +345,11 @@ const store = useContainersStore()
 const execStore = useExecutionStore()
 const toast = useToast()
 const search = ref('')
-const sortKey = ref<ContainerSortKey>('updatedAt')
-const sortDesc = ref(true)
-const viewMode = ref<'cards' | 'list'>('cards')
+const sortKey = useLocalStorage<ContainerSortKey>('containers.sortKey', 'updatedAt')
+const sortDesc = useLocalStorage('containers.sortDesc', true)
+const viewMode = useLocalStorage<'cards' | 'list'>('containers.viewMode', 'cards')
 const page = ref(1)
-const pageSize = ref(24)
+const pageSize = useLocalStorage('containers.pageSize', 24)
 
 // 批量删除（E.5）
 const batch = useBatchSelect()
