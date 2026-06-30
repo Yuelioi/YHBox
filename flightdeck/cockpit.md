@@ -7,13 +7,13 @@ Focus: **节点逐步调试、Target/Controller/Android、Window control 已通�
 - [work/detect-click-config/](work/detect-click-config/) — **代码完成，待确认是否也归档**。Vision/ClickTemplate/WaitWindowGone/Point 手填、新节点群、InputText WM_CHAR targeted、短图日志 finalize emit 已完成；近期补丁已落地：模板/颜色检测失败输出统一、`CheckTemplate/WaitTemplate/WaitTemplateGone` 支持 ROI，新增 `PickMatchPoint/PickBlobPoint`、`OffsetPoint/PointDistance/ROIAroundPoint`、`PickMatchROI/PickBlobROI` 等纯数据后处理节点。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — **已实现，待人工 smoke**。GUI 内置 Streamable HTTP MCP server 已接入 `http://127.0.0.1:8765/mcp`，包含 list_nodes / list_windows / find_window / run_node / save_container、arm 写入/执行闸、busy 闸和设置页 MCP tab。未 arm 时只读工具可用，run_node/save_container 拒绝。
 - [work/container-package-schema/](work/container-package-schema/) — **阶段 1-6 已完成，待阶段 7 收尾/人工检查**。已新增 package/installation/lock 模型类型，把 `Graph.version` 破坏式改为 `Graph.schemaVersion`，新增闭包拆分与 `yotta-lock.json` 构建，把 Store 切到四件套目录，让前端列表消费 category/version/author 等 package-backed 字段，让 MCP `save_container` 返回四件套 package 目录，并新增 `.yotta-container.zip` 导出：含子图、template、clip 闭包，排除 `installation.json`，导出前校验 lock 未过期，前端容器列表已有导出入口。
-- [work/fishing-v2-rebuild/](work/fishing-v2-rebuild/) — **设计已写，待用户审阅后实施**。按当前节点系统和 package 四件套重建 `bin/data/containers/fishing-v2/` 自动钓鱼容器；旧 `container.json` 只作业务流程参考；默认没钱买鱼饵自动卖鱼，用户可用 `autoSellWhenNoCurrency=false` 改成直接结束。
+- [work/fishing-v2-rebuild/](work/fishing-v2-rebuild/) — **本地数据已重建，待游戏内 smoke**。`bin/data/containers/fishing-v2/` 已改为 package 四件套，旧容器备份到 `bin/data/_backups/fishing-v2-container.json`，其它测试容器已清理；`state_BUYBAIT` 已补 `no_currency` 分支，默认没钱买鱼饵自动卖鱼，用户可用 `autoSellWhenNoCurrency=false` 改成直接结束。
 
 ## Next
 
 1. **MCP smoke** —— 设置页确认 URL 和“允许执行和写入”开关；MCP 客户端连 `http://127.0.0.1:8765/mcp`，先测只读工具，再测未 arm 拒绝，最后 arm 后跑 Capture/ClickAt 等低风险节点。
 2. **detect-click-config 归档决策** —— 如果视觉/坐标后处理节点已人工确认通过，把该 topic 也移出 `work/`。
-3. **fishing-v2 重建** —— 用户审阅 `work/fishing-v2-rebuild/design.md` 后，写实施计划并执行容器数据重建。
+3. **fishing-v2 smoke** —— 启动应用确认容器列表只有“自动钓鱼”，打开编辑器检查状态机，再进游戏测正常钓鱼、没饵买饵、没钱卖鱼、关闭自动卖鱼直接结束。
 4. **容器 package schema 收尾** —— 按阶段 7 做人工检查：新建容器四件套、列表字段/筛选/持久化、导出包不泄露本机绑定、lock hash 随内容变化。
 5. **发布/推送决策** —— 若剩余 smoke 无问题，再 `git push origin main`。
 
