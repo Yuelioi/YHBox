@@ -30,8 +30,8 @@ func subgraphClosureFor(c *container.Container, sgStore *container.SubgraphStore
 	if err != nil {
 		return nil
 	}
-	out := make([]container.Subgraph, 0, len(res.SubgraphIDs))
-	for _, id := range res.SubgraphIDs {
+	out := make([]container.Subgraph, 0, len(res.Subgraphs))
+	for _, id := range res.Subgraphs {
 		if sg, ok := sgStore.Get(id); ok {
 			out = append(out, sg)
 		}
@@ -100,5 +100,5 @@ func nodeSubgraphDeps(n *container.GraphNode) []string {
 	if err != nil {
 		return nil
 	}
-	return res.SubgraphIDs
+	return res.Subgraphs
 }

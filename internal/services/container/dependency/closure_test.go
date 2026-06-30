@@ -1,0 +1,39 @@
+package dependency
+
+import (
+	"reflect"
+	"testing"
+
+	_ "yotta/internal/nodes/detect"
+	_ "yotta/internal/nodes/io"
+	_ "yotta/internal/nodes/system"
+)
+
+func TestClosureSplitsAssetsByKind(t *testing.T) {
+	root := []NodeInfo{
+		{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-root"}}}},
+		{Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "clip-root"}}},
+		{Kind: "Subgraph", Config: map[string]any{"literal": map[string]any{"SubgraphID": "sg-a"}}},
+	}
+	subgraphs := map[string][]NodeInfo{
+		"sg-a": {
+			{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-sub"}}}},
+		},
+	}
+
+	got, err := Closure(root, func(id string) ([]NodeInfo, error) {
+		return subgraphs[id], nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Subgraphs, []string{"sg-a"}) {
+		t.Fatalf("subgraphs: got %v", got.Subgraphs)
+	}
+	if !reflect.DeepEqual(got.Templates, []string{"tpl-root", "tpl-sub"}) {
+		t.Fatalf("templates: got %v", got.Templates)
+	}
+	if !reflect.DeepEqual(got.Clips, []string{"clip-root"}) {
+		t.Fatalf("clips: got %v", got.Clips)
+	}
+}

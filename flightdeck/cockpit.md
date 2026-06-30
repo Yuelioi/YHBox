@@ -6,13 +6,13 @@ Focus: **节点逐步调试、Target/Controller/Android、Window control 已通�
 
 - [work/detect-click-config/](work/detect-click-config/) — **代码完成，待确认是否也归档**。Vision/ClickTemplate/WaitWindowGone/Point 手填、新节点群、InputText WM_CHAR targeted、短图日志 finalize emit 已完成；近期补丁已落地：模板/颜色检测失败输出统一、`CheckTemplate/WaitTemplate/WaitTemplateGone` 支持 ROI，新增 `PickMatchPoint/PickBlobPoint`、`OffsetPoint/PointDistance/ROIAroundPoint`、`PickMatchROI/PickBlobROI` 等纯数据后处理节点。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — **已实现，待人工 smoke**。GUI 内置 Streamable HTTP MCP server 已接入 `http://127.0.0.1:8765/mcp`，包含 list_nodes / list_windows / find_window / run_node / save_container、arm 写入/执行闸、busy 闸和设置页 MCP tab。未 arm 时只读工具可用，run_node/save_container 拒绝。
-- [work/container-package-schema/](work/container-package-schema/) — **阶段 1 已完成，下一步阶段 2 lock/闭包**。已新增 package/installation/lock 模型类型，并把 `Graph.version` 破坏式改为 `Graph.schemaVersion`；后续继续切 `yotta-lock.json` 生成和多文件 Store。
+- [work/container-package-schema/](work/container-package-schema/) — **阶段 1-2 基础已完成，下一步阶段 3 Store**。已新增 package/installation/lock 模型类型，把 `Graph.version` 破坏式改为 `Graph.schemaVersion`，并新增闭包拆分与 `yotta-lock.json` 构建；后续切多文件 Store。
 
 ## Next
 
 1. **MCP smoke** —— 设置页确认 URL 和“允许执行和写入”开关；MCP 客户端连 `http://127.0.0.1:8765/mcp`，先测只读工具，再测未 arm 拒绝，最后 arm 后跑 Capture/ClickAt 等低风险节点。
 2. **detect-click-config 归档决策** —— 如果视觉/坐标后处理节点已人工确认通过，把该 topic 也移出 `work/`。
-3. **容器 package schema 阶段 2** —— 按 [work/container-package-schema/plan.md](work/container-package-schema/plan.md) 继续落依赖闭包和 `yotta-lock.json` 生成。
+3. **容器 package schema 阶段 3** —— 按 [work/container-package-schema/plan.md](work/container-package-schema/plan.md) 把 Store 从单 `container.json` 切到 package/graph/installation/lock 四件套。
 4. **发布/推送决策** —— 若剩余 smoke 无问题，再 `git push origin main`。
 
 ## Open questions

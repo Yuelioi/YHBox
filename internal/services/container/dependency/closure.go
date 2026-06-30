@@ -12,8 +12,9 @@ package dependency
 
 // ClosureResult 正向闭包结果. 结构体而非裸集合 — 未来加维度 (vars/blob...) 不改签名.
 type ClosureResult struct {
-	SubgraphIDs []string // 传递闭包内全部子图 ID (BFS 序, 去重)
-	AssetGUIDs  []string // template + clip GUID 统一 (去重)
+	Subgraphs []string // 传递闭包内全部子图 ID (BFS 序, 去重)
+	Templates []string // template asset GUID / key (去重)
+	Clips     []string // clip asset GUID / key (去重)
 }
 
 // Closure 从一组根节点出发解析正向依赖闭包.
@@ -27,9 +28,11 @@ func Closure(rootNodes []NodeInfo, getNodes func(sgID string) ([]NodeInfo, error
 	for _, d := range deps {
 		switch d.Kind {
 		case KindSubgraph:
-			out.SubgraphIDs = append(out.SubgraphIDs, d.Key)
-		case KindTemplate, KindClip:
-			out.AssetGUIDs = append(out.AssetGUIDs, d.Key)
+			out.Subgraphs = append(out.Subgraphs, d.Key)
+		case KindTemplate:
+			out.Templates = append(out.Templates, d.Key)
+		case KindClip:
+			out.Clips = append(out.Clips, d.Key)
 		}
 	}
 	return out, nil
