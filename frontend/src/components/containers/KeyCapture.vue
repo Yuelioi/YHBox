@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { keyEventToVK } from './keyCapture'
 
 const { t } = useI18n()
 
@@ -36,38 +37,6 @@ const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
 
 const capturing = ref(false)
 
-// 把 Web KeyboardEvent.key / code 映射到我们 vk 字符串。
-// vk 在 backend / pkg/input 里需匹配 vkName 表（字母 / 数字 / Fn / 特殊键 / Ctrl·Shift·Alt），
-// 单键，不带组合。组合键 (Ctrl+R 这类) 走 KeyHoldStart(Ctrl) → KeyPress(R) → KeyHoldStop(Ctrl)
-// 的节点编排 —— 那个 Ctrl 也是这里录的单键。录制是用户手动进入的, 按啥录啥, 修饰键照收。
-function keyToVK(e: KeyboardEvent): string {
-  // 字母直接大写
-  if (/^[a-zA-Z]$/.test(e.key)) return e.key.toUpperCase()
-  // 数字
-  if (/^[0-9]$/.test(e.key)) return e.key
-  // 特殊键 + 修饰键 (映射到 pkg/input vkMap 认的名字)
-  const map: Record<string, string> = {
-    ' ': 'Space',
-    Enter: 'Enter',
-    Tab: 'Tab',
-    Escape: 'Esc',
-    Backspace: 'Back',
-    Delete: 'Del',
-    ArrowUp: 'Up',
-    ArrowDown: 'Down',
-    ArrowLeft: 'Left',
-    ArrowRight: 'Right',
-    Control: 'Ctrl',
-    Shift: 'Shift',
-    Alt: 'Alt',
-  }
-  if (map[e.key]) return map[e.key]
-  // F1..F12
-  if (/^F([1-9]|1[0-2])$/.test(e.key)) return e.key
-  // fallback: 直接用 key
-  return e.key
-}
-
 function onKeyDown(e: KeyboardEvent) {
   if (!capturing.value) return
   // Meta (Win 键) backend vkMap 不认 → 录进去 runtime 报 INVALID_VK, 忽略掉。
@@ -75,7 +44,7 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'Meta') return
   e.preventDefault()
   e.stopPropagation()
-  emit('update:modelValue', keyToVK(e))
+  emit('update:modelValue', keyEventToVK(e))
   stopCapture()
 }
 

@@ -433,12 +433,30 @@ function insertItem(it: InsertItem) {
   view.focus()
 }
 
+function insertText(insert: string, caretBack = 0) {
+  if (!view) return
+  const { from, to } = view.state.selection.main
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + insert.length - caretBack },
+  })
+  view.focus()
+}
+
+function currentDoc(): string {
+  return view?.state.doc.toString() ?? doc.value
+}
+
+function currentCursor(): number {
+  return view?.state.selection.main.head ?? 0
+}
+
 onBeforeUnmount(() => {
   view?.destroy()
   view = null
 })
 
-defineExpose({ insert: insertItem })
+defineExpose({ insert: insertItem, insertText, currentDoc, currentCursor })
 </script>
 
 <style scoped>

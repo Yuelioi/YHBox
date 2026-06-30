@@ -65,6 +65,34 @@ func (fakeRunnable) Run(node.Ctx, node.Inputs) (node.Outputs, error) {
 	return nil, nil
 }
 
+type fakePointRunnable struct{}
+
+func (fakePointRunnable) Spec() node.Spec {
+	return node.Spec{
+		Kind:     "FakePointRun",
+		Category: "Input",
+		Inputs: []node.InputSpec{
+			{Name: "Point", Type: "Point", Required: true},
+		},
+		Outputs: []node.OutputSpec{
+			{Name: "Done", Type: "Exec", Data: []node.DataField{
+				{Name: "X", Type: "Number"},
+				{Name: "Y", Type: "Number"},
+				{Name: "Unit", Type: "String"},
+			}},
+		},
+	}
+}
+
+func (fakePointRunnable) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
+	pt := in.Point("Point")
+	return ctx.Out("Done").
+		Set("X", pt.X).
+		Set("Y", pt.Y).
+		Set("Unit", string(pt.Unit)).
+		Fire(), nil
+}
+
 // fakeEvaluator — 纯数据节点.
 type fakeEvaluator struct{}
 
@@ -150,5 +178,24 @@ func TestInstall_InjectsExitConstants(t *testing.T) {
 	}
 	if got := v.String(); got != "Done|NotFound|default" {
 		t.Fatalf("Exit constants = %q", got)
+	}
+}
+
+func TestBindNode_CoercesObjectPinsBySpecType(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(fakePointRunnable{})
+
+	vm := goja.New()
+	Install(vm, installTestCtx{services: node.StubServices()})
+
+	v, err := vm.RunString(`(function(){
+		const r = FakePointRun({Point: {x: 12, y: 34, unit: "px"}})
+		return r.exit + "|" + r.X + "|" + r.Y + "|" + r.Unit
+	})()`)
+	if err != nil {
+		t.Fatalf("FakePointRun script call: %v", err)
+	}
+	if got := v.String(); got != "Done|12|34|px" {
+		t.Fatalf("script point coercion = %q, want Done|12|34|px", got)
 	}
 }

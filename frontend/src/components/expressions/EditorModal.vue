@@ -112,6 +112,11 @@ function confirm() {
   emit('update:open', false)
 }
 
-// CodeInput 经 ref 调 insert (新建变量后插 $引用) — 转给 <CodeEditor>。
-defineExpose({ insert: (it: InsertItem) => bodyRef.value?.insert(it) })
+// CodeInput 经 ref 调 insert (新建变量/模板截图后插入) — 转给 <CodeEditor>。
+defineExpose({
+  insert: (it: InsertItem) => bodyRef.value?.insert(it),
+  insertText: (text: string, caretBack = 0) => bodyRef.value?.insertText(text, caretBack),
+  currentDoc: () => bodyRef.value?.currentDoc() ?? draftDoc.value,
+  currentCursor: () => bodyRef.value?.currentCursor() ?? draftDoc.value.length,
+})
 </script>

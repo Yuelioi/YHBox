@@ -162,7 +162,8 @@ export default {
     validate_failed: '校验失败',
     validate_call_failed: '校验调用失败',
     win32_window_target_added_title: '已添加 Windows 窗口目标节点',
-    win32_window_target_added_desc: '请打开节点 Inspector 配置 Windows 窗口匹配条件 (或点"捕获前台窗口")',
+    win32_window_target_added_desc:
+      '请打开节点 Inspector 配置 Windows 窗口匹配条件 (或点"捕获前台窗口")',
     expr_fuse_failed: 'Expr 合并失败 (前置条件不满足)',
     subgraph_recording_reset_warn: '重置录制元数据需要重新录制此子图（v1 仅提示）',
     // 通用 toast (跨文件复用)
@@ -201,7 +202,8 @@ export default {
     },
     debug: {
       confirm_from_here_title: '从此节点开始调试？',
-      confirm_from_here_desc: '将从「{node}」开始执行。上游节点不会先运行；如果它依赖上游写入的变量或状态，结果可能和完整流程不同。',
+      confirm_from_here_desc:
+        '将从「{node}」开始执行。上游节点不会先运行；如果它依赖上游写入的变量或状态，结果可能和完整流程不同。',
       confirm_from_here_action: '开始调试',
     },
     canvas: {
@@ -246,7 +248,8 @@ export default {
     hard_delete: {
       title: '彻底删除',
       confirm: '将彻底删除 {n} 个底层定义（子图 / clip），库里一并移除。确定？',
-      confirm_referenced: '将彻底删除 {n} 个底层定义；其中还被其它 {refs} 处引用，删后那些引用会变「未找到」。确定？',
+      confirm_referenced:
+        '将彻底删除 {n} 个底层定义；其中还被其它 {refs} 处引用，删后那些引用会变「未找到」。确定？',
       done: '已彻底删除 {n} 个定义',
       failed: '{n} 个定义删除失败',
     },
@@ -366,7 +369,8 @@ export default {
       errorcodes_hint: '节点失败时「失败」出口带出的 Code，可用 Switch 按码分流。',
       errorcode_desc: {
         launch_failed: 'RunProgram 起不来程序 —— 路径写错 / 程序不存在 / 无权限.',
-        capture_failed: '截屏或颜色检测 / 模板匹配等视觉操作失败 —— 常见自动化目标不可用、被最小化或已关闭.',
+        capture_failed:
+          '截屏或颜色检测 / 模板匹配等视觉操作失败 —— 常见自动化目标不可用、被最小化或已关闭.',
         write_failed: 'Screenshot 等写文件失败 —— 路径非法 / 目录不可写 / 磁盘满.',
         not_found: '窗口/目标节点按条件找不到对应对象.',
         timeout: '等待类操作在限定时间内没等到结果.',
@@ -379,13 +383,34 @@ export default {
       nodes_hint: '节点按类别速查。具体节点按 Tab 打开节点 Explorer 浏览 / 搜索。',
       node_group: {
         control: { label: '控制流', desc: 'Start / Sleep / Loop / If / Stop / Break / Continue' },
-        variable: { label: '变量', desc: 'SetVar / IncVar — 容器作用域 + 子图局部作用域 (runtime 自动隔离)' },
-        image: { label: '图像', desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — 模板匹配与颜色检测' },
-        input: { label: '输入', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到当前自动化目标' },
-        event: { label: '事件', desc: 'EventTick — 定时后台触发器, 每隔 N ms spawn 子图执行 (不挡主流程)' },
-        subgraph: { label: '子图', desc: 'Subgraph 调用 / SubgraphInput 入口 / SubgraphOutput 出口' },
-        system: { label: '系统', desc: 'Subgraph / Throw / MouseCalibration — 系统辅助、图结构与本机标定节点' },
-        config: { label: '配置', desc: 'MouseCalibration — 标定本机 360° HID counts, 给 MouseMoveRel 缩放用' },
+        variable: {
+          label: '变量',
+          desc: 'SetVar / IncVar — 容器作用域 + 子图局部作用域 (runtime 自动隔离)',
+        },
+        image: {
+          label: '图像',
+          desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — 模板匹配与颜色检测',
+        },
+        input: {
+          label: '输入',
+          desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到当前自动化目标',
+        },
+        event: {
+          label: '事件',
+          desc: 'EventTick — 定时后台触发器, 每隔 N ms spawn 子图执行 (不挡主流程)',
+        },
+        subgraph: {
+          label: '子图',
+          desc: 'Subgraph 调用 / SubgraphInput 入口 / SubgraphOutput 出口',
+        },
+        system: {
+          label: '系统',
+          desc: 'Subgraph / Throw / MouseCalibration — 系统辅助、图结构与本机标定节点',
+        },
+        config: {
+          label: '配置',
+          desc: 'MouseCalibration — 标定本机 360° HID counts, 给 MouseMoveRel 缩放用',
+        },
         debug: { label: '调试', desc: 'Log / Toast' },
       },
     },
@@ -438,7 +463,8 @@ export default {
       title: 'JS 脚本控制台',
       run: '运行',
       hint: '对当前容器(含子图)批量改节点。脚本同步执行——死循环会卡界面, 请确保能结束。改动可一步 Ctrl+Z 撤销, Ctrl+S 才存盘。',
-      placeholder: "例: yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
+      placeholder:
+        "例: yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
       applied: '改了 {nodes} 个节点的 {pins} 个 pin',
       rejected: '{n} 处被拒:',
     },
@@ -574,10 +600,12 @@ export default {
     screen_pick_action_drag: '拖矩形',
     screen_pick_action_click: '点一下',
     color_pick_huewrap_title: '色相跨红色边界，已降级',
-    color_pick_huewrap_desc: '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
+    color_pick_huewrap_desc:
+      '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
     dyn_inputs_title: '输入口',
     dyn_outputs_title: '输出口',
-    dyn_outputs_hint: '声明任意带类型输出字段, 模型按结构出 JSON; 每个字段在下方「输出」组绑到变量。保留名 Text 是模型原文, 不必声明。',
+    dyn_outputs_hint:
+      '声明任意带类型输出字段, 模型按结构出 JSON; 每个字段在下方「输出」组绑到变量。保留名 Text 是模型原文, 不必声明。',
     code_expand: '放大编辑',
     code_editor_title: '编辑代码',
     expr_editor_title: '编辑表达式',
@@ -602,7 +630,28 @@ export default {
     snippet_manager_body: '片段内容 — 编辑器里打「触发词」从补全选中后, 整段替换上屏',
     snippet_manager_empty: '还没有片段 — 在编辑器里选中代码再点工具栏「片段」, 或这里直接新建',
     editor_new_var: '新建变量',
+    editor_capture_template: '截图模板',
+    editor_capture_template_tip: '截当前目标窗口保存为模板，并把模板 GUID 插入当前光标位置',
+    editor_capture_point: '取点',
+    editor_capture_point_tip: '在当前目标窗口截图取点，并把 Point 对象插入当前光标位置',
+    editor_capture_rect: '框选区域',
+    editor_capture_rect_tip: '在当前目标窗口框选区域，并把 Geometry 对象插入当前光标位置',
+    editor_capture_color: '取色',
+    editor_capture_color_tip: '在当前目标窗口取色，并按当前颜色 pin 插入 Range 或 HSV 对象',
+    editor_capture_key: '录入按键',
+    editor_capture_key_tip: '捕获下一次按键，并把 VK 字符串插入当前光标位置',
+    editor_capture_key_waiting: '按键中',
+    editor_capture_key_cancel_tip: '取消按键捕获',
     editor_insert: '插入',
+    editor_insert_tip: '插入候选值、截图资源或采样结果',
+    editor_insert_candidate: '插入候选值',
+    editor_async_candidates_title: '插入候选值',
+    editor_async_candidates_hint: '选择一个候选值插入当前光标位置。',
+    editor_async_candidates_context: '{kind}.{pin} 的候选值',
+    editor_async_loading: '正在加载候选值…',
+    editor_async_empty: '没有可用候选值',
+    editor_async_no_context: '当前光标不在支持动态候选的参数值位置',
+    editor_async_load_failed: '加载候选值失败',
     editor_params: '参数',
     editor_status_stats: '{lines} 行 · {chars} 字符',
     editor_indent_tidy: '整理缩进',
@@ -617,7 +666,8 @@ export default {
     editor_syntax_error_line: '第 {line} 行附近语法有误 (以保存时校验为准)',
     editor_unknown_var: `{'$'}{name} 未声明 — 运行时会报错; 先在变量面板声明或改用 GetVar 节点函数`,
     editor_lang_expr: '表达式',
-    dyn_inputs_hint: '输入口是连线用的数据引脚 (接别的节点输出); 想用变量, 直接在表达式/脚本里写 $变量名。',
+    dyn_inputs_hint:
+      '输入口是连线用的数据引脚 (接别的节点输出); 想用变量, 直接在表达式/脚本里写 $变量名。',
     literal_section: '数据输入 (literal)',
     output: {
       bind: '绑定变量',
@@ -626,14 +676,33 @@ export default {
       stale_hint: '该变量仅在此出口触发时更新, 未触发保留上次值。',
       found_hint: '是否命中 (true/false) — 每次执行都会更新。',
       field: {
-        Count: '命中像素数', Center: '命中中心',
-        PixelCount: '命中像素数', PixelRatio: '命中比例',
-        Blobs: '各色块', BlobCount: '色块数', PrimaryCenter: '首块中心', PrimaryArea: '首块面积',
-        Clusters: '各连续段', ClusterCount: '段数',
-        InnerX: '内层位置', OuterX: '外层位置', OuterWidth: '外层宽度', Confidence: '置信度', InnerPx: '内层像素宽', OuterPx: '外层像素宽',
-        Path: '文件路径', Point: '命中点', Conf: '匹配度', Matched: '是否命中',
-        Index: '序号', Item: '当前元素', Result: '结果', ElapsedMs: '已用毫秒', DeltaMs: '间隔毫秒',
-        Error: '错误信息', Code: '错误码',
+        Count: '命中像素数',
+        Center: '命中中心',
+        PixelCount: '命中像素数',
+        PixelRatio: '命中比例',
+        Blobs: '各色块',
+        BlobCount: '色块数',
+        PrimaryCenter: '首块中心',
+        PrimaryArea: '首块面积',
+        Clusters: '各连续段',
+        ClusterCount: '段数',
+        InnerX: '内层位置',
+        OuterX: '外层位置',
+        OuterWidth: '外层宽度',
+        Confidence: '置信度',
+        InnerPx: '内层像素宽',
+        OuterPx: '外层像素宽',
+        Path: '文件路径',
+        Point: '命中点',
+        Conf: '匹配度',
+        Matched: '是否命中',
+        Index: '序号',
+        Item: '当前元素',
+        Result: '结果',
+        ElapsedMs: '已用毫秒',
+        DeltaMs: '间隔毫秒',
+        Error: '错误信息',
+        Code: '错误码',
       },
     },
     config_section: '配置',
@@ -699,14 +768,22 @@ export default {
     // ai
     AI: {
       label: '调用 AI',
-      description: '把提示词发给配好的大模型拿回回答。先在设置里配好 AI 连接，这里选连接和模型；提示词里用双花括号包住上面声明的输入名来插值。结构化输出可声明任意带类型字段，逐个绑到变量。',
-      example: '让模型读截图判断界面：连本地或在线模型，用户提示词写「这是什么界面」，回答从「模型原文」出口拿；要分类就声明一个带类型输出字段。',
+      description:
+        '把提示词发给配好的大模型拿回回答。先在设置里配好 AI 连接，这里选连接和模型；提示词里用双花括号包住上面声明的输入名来插值。结构化输出可声明任意带类型字段，逐个绑到变量。',
+      example:
+        '让模型读截图判断界面：连本地或在线模型，用户提示词写「这是什么界面」，回答从「模型原文」出口拿；要分类就声明一个带类型输出字段。',
       input: {
         Connection: { label: '连接', useDefault: '（用默认连接）' },
         Model: { label: '模型', hint: '填模型名，如 deepseek-chat、gpt-4o' },
         System: { label: '系统提示词' },
-        User: { label: '用户提示词', hint: '用双花括号包住声明的输入名插值；图像输入会渲染成占位标记、不进文本' },
-        Mode: { label: '结构化模式', option: { auto: '自动（按端点）', native: '原生', prompt: '提示词注入' } },
+        User: {
+          label: '用户提示词',
+          hint: '用双花括号包住声明的输入名插值；图像输入会渲染成占位标记、不进文本',
+        },
+        Mode: {
+          label: '结构化模式',
+          option: { auto: '自动（按端点）', native: '原生', prompt: '提示词注入' },
+        },
         Temperature: { label: '温度' },
         MaxTokens: { label: '最大 token' },
       },
@@ -724,11 +801,16 @@ export default {
       description: '脚本的起跑线。运行时从这里开始往下跑，整张图只能有一个起点。',
       output: { Done: { label: '开始' } },
     },
-    Stop: { label: '终点', description: '让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。' },
+    Stop: {
+      label: '终点',
+      description: '让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。',
+    },
     Sleep: {
       label: '等待',
-      description: '停在这里等一段时间再往下走，常用来给画面留出加载、动画的缓冲。可以加「抖动」，让每次等的时长在设定值上下随机浮动，模拟人手不那么机械。脚本中途停止时会立刻打断，不会傻等满。',
-      example: '点完按钮等弹窗出来：把时长设成 1 秒、抖动 ±20%，每次就会随机等 0.8 到 1.2 秒左右，看起来更像真人操作。',
+      description:
+        '停在这里等一段时间再往下走，常用来给画面留出加载、动画的缓冲。可以加「抖动」，让每次等的时长在设定值上下随机浮动，模拟人手不那么机械。脚本中途停止时会立刻打断，不会傻等满。',
+      example:
+        '点完按钮等弹窗出来：把时长设成 1 秒、抖动 ±20%，每次就会随机等 0.8 到 1.2 秒左右，看起来更像真人操作。',
       input: {
         Duration: { label: '时长' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 等待时长在 ±10% 内近正态波动' },
@@ -737,15 +819,19 @@ export default {
     },
     If: {
       label: '条件分支',
-      description: '按一个「是 / 否」的条件岔成两条路：条件成立走 True 口，不成立走 False 口。用来让脚本根据当时情况做不同的事。',
-      example: '检测到「开始战斗」图标在屏幕上 → 条件接进来，True 口接攻击动作，False 口接继续走路，脚本就会看情况自动二选一。',
+      description:
+        '按一个「是 / 否」的条件岔成两条路：条件成立走 True 口，不成立走 False 口。用来让脚本根据当时情况做不同的事。',
+      example:
+        '检测到「开始战斗」图标在屏幕上 → 条件接进来，True 口接攻击动作，False 口接继续走路，脚本就会看情况自动二选一。',
       input: { Condition: { label: '条件' } },
       output: { True: { label: 'True' }, False: { label: 'False' } },
     },
     Loop: {
       label: '循环',
-      description: '把循环体里的步骤反复跑很多遍。可以选「次数」模式跑固定遍数，或「永远」模式一直跑到你手动停。循环体里用「跳出循环」可以提前结束，用「跳过本轮」可以略过剩下的步骤直接进下一遍。',
-      example: '想刷 50 次副本：模式选「次数」、次数填 50，把进副本到领奖的步骤接到循环体上，它就会自动重复 50 遍；要是检测到背包满了，循环体里接个「跳出循环」就能提前收工。',
+      description:
+        '把循环体里的步骤反复跑很多遍。可以选「次数」模式跑固定遍数，或「永远」模式一直跑到你手动停。循环体里用「跳出循环」可以提前结束，用「跳过本轮」可以略过剩下的步骤直接进下一遍。',
+      example:
+        '想刷 50 次副本：模式选「次数」、次数填 50，把进副本到领奖的步骤接到循环体上，它就会自动重复 50 遍；要是检测到背包满了，循环体里接个「跳出循环」就能提前收工。',
       input: {
         Mode: { label: '模式', option: { count: '次数', forever: '永远' } },
         Count: { label: '次数 (mode=count)' },
@@ -758,8 +844,10 @@ export default {
     },
     Switch: {
       label: '分支 (多 Case)',
-      description: '按一个输入值在多条路里挑一条走。你自己列好若干个值（每个值就是一个出口），运行时拿输入值跟它们逐一比对，对上哪个就走那个出口；一个都对不上就走 Default 兜底。比一堆「条件分支」串起来更清爽。',
-      example: '根据角色当前状态分流：输入值接「状态」，列出 IDLE、FIGHT、DEAD 三个 case，分别接发呆、打怪、复活的动作；状态是别的值时走 Default。',
+      description:
+        '按一个输入值在多条路里挑一条走。你自己列好若干个值（每个值就是一个出口），运行时拿输入值跟它们逐一比对，对上哪个就走那个出口；一个都对不上就走 Default 兜底。比一堆「条件分支」串起来更清爽。',
+      example:
+        '根据角色当前状态分流：输入值接「状态」，列出 IDLE、FIGHT、DEAD 三个 case，分别接发呆、打怪、复活的动作；状态是别的值时走 Default。',
       input: {
         Value: { label: '输入值' },
       },
@@ -782,14 +870,26 @@ export default {
         delete_confirm_desc: '该 case 的出口边 ({count} 条) 将断开，需手动重连。',
       },
     },
-    Break: { label: '跳出循环', description: '提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。' },
-    Continue: { label: '跳过本轮', description: '略过循环体里剩下的步骤，直接开始下一遍。必须放在循环体里用。' },
+    Break: {
+      label: '跳出循环',
+      description:
+        '提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。',
+    },
+    Continue: {
+      label: '跳过本轮',
+      description: '略过循环体里剩下的步骤，直接开始下一遍。必须放在循环体里用。',
+    },
     Script: {
       label: '脚本',
-      description: '用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用其他节点（写节点名当函数，如 ClickAt、WaitTemplate）。适合连线画起来太绕的复杂流程。',
-      example: '等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。',
+      description:
+        '用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用其他节点（写节点名当函数，如 ClickAt、WaitTemplate）。适合连线画起来太绕的复杂流程。',
+      example:
+        '等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。',
       input: {
-        Code: { label: '代码', hint: '脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。' },
+        Code: {
+          label: '代码',
+          hint: '脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。',
+        },
         Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
@@ -797,15 +897,23 @@ export default {
     // detect
     WaitTemplate: {
       label: '等待模板',
-      description: '盯着屏幕反复找你指定的图片（模板），在超时时间内一出现就走 Found 口并给出它的位置；到点还没出现就走 Timeout 口。适合等某个图标/按钮加载出来再往下做。',
-      example: '钓鱼时等「上钩」图标冒出来：模板选 fishing.hook_icon，超时设 5 秒，命中后把 Found 口接收杆动作；5 秒没上钩就走 Timeout 口重新抛竿。',
+      description:
+        '盯着屏幕反复找你指定的图片（模板），在超时时间内一出现就走 Found 口并给出它的位置；到点还没出现就走 Timeout 口。适合等某个图标/按钮加载出来再往下做。',
+      example:
+        '钓鱼时等「上钩」图标冒出来：模板选 fishing.hook_icon，超时设 5 秒，命中后把 Found 口接收杆动作；5 秒没上钩就走 Timeout 口重新抛竿。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
         ROI: { label: '搜索区域', hint: '只在这个区域内等待模板出现；留空=全屏' },
-        PollIntervalMs: { label: '轮询间隔 (ms)', hint: '每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。' },
-        SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。' },
+        PollIntervalMs: {
+          label: '轮询间隔 (ms)',
+          hint: '每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。',
+        },
+        SettleMs: {
+          label: '命中后延迟 (ms)',
+          hint: '命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。',
+        },
         Window: { label: '窗口' },
       },
       output: {
@@ -822,14 +930,22 @@ export default {
     },
     WaitTemplateGone: {
       label: '等待模板消失',
-      description: '盯着屏幕反复确认你指定的图片（模板）消失没有，消失了就走 Gone 口；一直在到超时就走 Timeout 口，并带出最后一帧的匹配度。适合等某个遮罩/加载界面/弹框消失再继续。',
-      example: '等待登录加载条消失再点下一步：模板选加载条图片，超时 10 秒，Gone 口接继续步骤；10 秒还没消失走 Timeout 口做异常处理。',
+      description:
+        '盯着屏幕反复确认你指定的图片（模板）消失没有，消失了就走 Gone 口；一直在到超时就走 Timeout 口，并带出最后一帧的匹配度。适合等某个遮罩/加载界面/弹框消失再继续。',
+      example:
+        '等待登录加载条消失再点下一步：模板选加载条图片，超时 10 秒，Gone 口接继续步骤；10 秒还没消失走 Timeout 口做异常处理。',
       input: {
-        Templates: { label: '模板', hint: '命名空间.名 格式, e.g. ns.loading_bar; 可选多个（任一命中即视为"还在"）' },
+        Templates: {
+          label: '模板',
+          hint: '命名空间.名 格式, e.g. ns.loading_bar; 可选多个（任一命中即视为"还在"）',
+        },
         TimeoutMs: { label: '超时 (ms)', hint: '0 = 只看当前帧一次，不在走 Gone，在走 Timeout' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
         ROI: { label: '搜索区域', hint: '只在这个区域内确认模板是否还在；留空=全屏' },
-        PollIntervalMs: { label: '轮询间隔 (ms)', hint: '每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。' },
+        PollIntervalMs: {
+          label: '轮询间隔 (ms)',
+          hint: '每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。',
+        },
         Window: { label: '窗口' },
       },
       output: {
@@ -843,8 +959,10 @@ export default {
     },
     CheckTemplate: {
       label: '检查模板',
-      description: '只看当前这一帧画面，找你指定的图片（模板）在不在。在就走 Found 口并给出位置，不在就走 NotFound 口。它不等待、只看一眼，适合做「现在屏幕上有没有这个东西」的即时判断分流。',
-      example: '判断现在是不是在战斗界面：模板选战斗特有的图标，Found 口接打怪逻辑，NotFound 口接赶路逻辑，脚本就能看一眼当前画面自动二选一。',
+      description:
+        '只看当前这一帧画面，找你指定的图片（模板）在不在。在就走 Found 口并给出位置，不在就走 NotFound 口。它不等待、只看一眼，适合做「现在屏幕上有没有这个东西」的即时判断分流。',
+      example:
+        '判断现在是不是在战斗界面：模板选战斗特有的图标，Found 口接打怪逻辑，NotFound 口接赶路逻辑，脚本就能看一眼当前画面自动二选一。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.hook_icon; 可选多个' },
         Threshold: { label: '阈值', hint: 'NCC 阈值' },
@@ -865,24 +983,68 @@ export default {
     },
     ClickTemplate: {
       label: '点击模板',
-      description: '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它（默认中心, 可设锚点/偏移），然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。',
-      example: '自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。',
+      description:
+        '盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它（默认中心, 可设锚点/偏移），然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。',
+      example:
+        '自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。',
       input: {
         Templates: { label: '模板', hint: '命名空间.名 格式, e.g. fishing.start_fish; 可选多个' },
         TimeoutMs: { label: '超时 (ms)' },
         Threshold: { label: '阈值' },
         ROI: { label: '搜索区域', hint: '找图搜索区 (客户区 ratio, 留空=全屏)' },
-        Anchor: { label: '锚点', hint: '点击落点取命中框的哪个位置 (九宫格), 默认中心', option: { topLeft: '左上', topCenter: '上中', topRight: '右上', midLeft: '左中', center: '中心', midRight: '右中', botLeft: '左下', botCenter: '下中', botRight: '右下' } },
-        OffsetX: { label: '水平偏移', hint: '在锚点上水平偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向左。' },
-        OffsetY: { label: '垂直偏移', hint: '在锚点上垂直偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向上。' },
-        OrderBy: { label: '多命中排序', hint: '多命中时按什么排序再取第几个', option: { score: '匹配度', horizontal: '从左到右', vertical: '从上到下', area: '面积', random: '随机' } },
+        Anchor: {
+          label: '锚点',
+          hint: '点击落点取命中框的哪个位置 (九宫格), 默认中心',
+          option: {
+            topLeft: '左上',
+            topCenter: '上中',
+            topRight: '右上',
+            midLeft: '左中',
+            center: '中心',
+            midRight: '右中',
+            botLeft: '左下',
+            botCenter: '下中',
+            botRight: '右下',
+          },
+        },
+        OffsetX: {
+          label: '水平偏移',
+          hint: '在锚点上水平偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向左。',
+        },
+        OffsetY: {
+          label: '垂直偏移',
+          hint: '在锚点上垂直偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向上。',
+        },
+        OrderBy: {
+          label: '多命中排序',
+          hint: '多命中时按什么排序再取第几个',
+          option: {
+            score: '匹配度',
+            horizontal: '从左到右',
+            vertical: '从上到下',
+            area: '面积',
+            random: '随机',
+          },
+        },
         Index: { label: '取第几个', hint: '排序后取第几个命中 (从 0 起)' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
-        Keys: { label: '组合键', hint: '点击时按住的修饰键, + 分隔, 如 ctrl 或 ctrl+shift。留空=不按。仅 ctrl/shift/alt/win' },
+        Keys: {
+          label: '组合键',
+          hint: '点击时按住的修饰键, + 分隔, 如 ctrl 或 ctrl+shift。留空=不按。仅 ctrl/shift/alt/win',
+        },
         ClickCount: { label: '点击次数', hint: '连点几下 (1=单击, 2=双击)' },
-        SettleMs: { label: '命中后延迟 (ms)', hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。' },
-        MaxAttempts: { label: '最多点击次数', hint: '最多点几下 (含第一下)。设 >1 时, 每点一下就检查模板还在不在, 还在就再点, 直到它消失或点够次数 —— 防偶尔点空。模板消失 = 成功走 Done; 点够了还在走 Timeout。1 = 只点一次不检查 (默认)。' },
-        RetryIntervalMs: { label: '重试间隔 (ms)', hint: '每点一下后等多久再检查模板消失没 (也是两次点击的间隔)。只在「最多点击次数」>1 时生效。给游戏留出反应时间, 太短会在画面还没更新时误判没点中。默认 500。' },
+        SettleMs: {
+          label: '命中后延迟 (ms)',
+          hint: '命中后先等这么久再点 —— 给转场/加载动画留时间, 防止"刚出现就点、点空了"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。',
+        },
+        MaxAttempts: {
+          label: '最多点击次数',
+          hint: '最多点几下 (含第一下)。设 >1 时, 每点一下就检查模板还在不在, 还在就再点, 直到它消失或点够次数 —— 防偶尔点空。模板消失 = 成功走 Done; 点够了还在走 Timeout。1 = 只点一次不检查 (默认)。',
+        },
+        RetryIntervalMs: {
+          label: '重试间隔 (ms)',
+          hint: '每点一下后等多久再检查模板消失没 (也是两次点击的间隔)。只在「最多点击次数」>1 时生效。给游戏留出反应时间, 太短会在画面还没更新时误判没点中。默认 500。',
+        },
         Window: { label: '窗口' },
       },
       output: {
@@ -899,8 +1061,10 @@ export default {
     },
     DetectColor: {
       label: '颜色检测',
-      description: '在你框的那块区域里数一数有多少像素落在指定颜色范围内，够多（达到最小像素数）就走 Found 口并给出命中区域的中心点，不够就走 NotFound 口。看一眼就出结果，不会反复等。颜色范围可用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）或 RGB（红绿蓝）两种方式填。',
-      example: '判断血条是不是红的（血量够）：在血条位置框一块区域，模式选 HSV、填红色的范围，命中够多就走 Found 接正常逻辑，太少走 NotFound 接吃药/撤退。',
+      description:
+        '在你框的那块区域里数一数有多少像素落在指定颜色范围内，够多（达到最小像素数）就走 Found 口并给出命中区域的中心点，不够就走 NotFound 口。看一眼就出结果，不会反复等。颜色范围可用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）或 RGB（红绿蓝）两种方式填。',
+      example:
+        '判断血条是不是红的（血量够）：在血条位置框一块区域，模式选 HSV、填红色的范围，命中够多就走 Found 接正常逻辑，太少走 NotFound 接吃药/撤退。',
       input: {
         ROI: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
@@ -930,11 +1094,16 @@ export default {
     },
     DetectColorHSV: {
       label: '颜色检测 (HSV)',
-      description: '在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Found 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 NotFound 口。',
-      example: '等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Found 接放技能；一直没亮走 Timeout。',
+      description:
+        '在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Found 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 NotFound 口。',
+      example:
+        '等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Found 接放技能；一直没亮走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
-        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
+        HSV: {
+          label: 'HSV 范围',
+          hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}`,
+        },
         MinPixelRatio: { label: '最小命中比例' },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 单次扫描' },
@@ -948,7 +1117,8 @@ export default {
     },
     DetectColorBlobs: {
       label: '颜色块定位',
-      description: '在区域内找出指定颜色的所有连通块，返回每块的中心/外接框/面积（归一化）。用于发光物资、血条、颜色标记目标的定位。',
+      description:
+        '在区域内找出指定颜色的所有连通块，返回每块的中心/外接框/面积（归一化）。用于发光物资、血条、颜色标记目标的定位。',
       input: {
         ROI: { label: '区域 (ratio)' },
         Mode: { label: '模式', option: { hsv: 'HSV', rgb: 'RGB' } },
@@ -984,7 +1154,8 @@ export default {
     },
     FindColorSignature: {
       label: '颜色签名',
-      description: '在区域内搜索"锚点色+若干偏移点色"的组合，命中返回锚点位置。比单点颜色检测更稳，比模板匹配更快。签名填 JSON 数组，首项为锚点（dx=dy=0），其余项为偏移点。',
+      description:
+        '在区域内搜索"锚点色+若干偏移点色"的组合，命中返回锚点位置。比单点颜色检测更稳，比模板匹配更快。签名填 JSON 数组，首项为锚点（dx=dy=0），其余项为偏移点。',
       input: {
         ROI: { label: '搜索区域' },
         Signature: {
@@ -1008,7 +1179,8 @@ export default {
     },
     DecodeQR: {
       label: '二维码解码',
-      description: '在区域内解码二维码，返回首个二维码的文本内容、检出总数和定位点。没检出或解不出都走未找到。',
+      description:
+        '在区域内解码二维码，返回首个二维码的文本内容、检出总数和定位点。没检出或解不出都走未找到。',
       input: {
         ROI: { label: '区域' },
         Window: { label: '窗口' },
@@ -1023,7 +1195,8 @@ export default {
     },
     FindTemplateAll: {
       label: '模板全部命中',
-      description: '在区域内找出指定模板的所有匹配（NMS 去重），返回每个命中的中心/外接框/来源模板，以及命中总数和最佳命中。用于批量定位同类图标/物件。',
+      description:
+        '在区域内找出指定模板的所有匹配（NMS 去重），返回每个命中的中心/外接框/来源模板，以及命中总数和最佳命中。用于批量定位同类图标/物件。',
       input: {
         Templates: { label: '模板' },
         ROI: { label: '搜索区域' },
@@ -1043,12 +1216,28 @@ export default {
     },
     PickMatchPoint: {
       label: '取模板命中点',
-      description: '从「模板全部命中」输出的 Matches 列表里取第 N 个命中，按锚点和偏移转换成一个坐标点。它不截图、不识别，只负责把命中列表变成可接 ClickAt / Swipe 的 Point。',
-      example: 'FindTemplateAll 找到一排相同按钮后，Index 填 1 取第二个命中，Result 接到 ClickAt 的坐标，就能点击第二个按钮。',
+      description:
+        '从「模板全部命中」输出的 Matches 列表里取第 N 个命中，按锚点和偏移转换成一个坐标点。它不截图、不识别，只负责把命中列表变成可接 ClickAt / Swipe 的 Point。',
+      example:
+        'FindTemplateAll 找到一排相同按钮后，Index 填 1 取第二个命中，Result 接到 ClickAt 的坐标，就能点击第二个按钮。',
       input: {
         Matches: { label: '命中列表', hint: '接 FindTemplateAll 的 Matches 输出' },
         Index: { label: '取第几个', hint: '从 0 开始，越界返回 (0,0)' },
-        Anchor: { label: '锚点', hint: '取命中框的哪个位置，默认中心', option: { topLeft: '左上', topCenter: '上中', topRight: '右上', midLeft: '左中', center: '中心', midRight: '右中', botLeft: '左下', botCenter: '下中', botRight: '右下' } },
+        Anchor: {
+          label: '锚点',
+          hint: '取命中框的哪个位置，默认中心',
+          option: {
+            topLeft: '左上',
+            topCenter: '上中',
+            topRight: '右上',
+            midLeft: '左中',
+            center: '中心',
+            midRight: '右中',
+            botLeft: '左下',
+            botCenter: '下中',
+            botRight: '右下',
+          },
+        },
         OffsetX: { label: '水平偏移', hint: '在锚点上增加的 ratio 偏移，负值向左' },
         OffsetY: { label: '垂直偏移', hint: '在锚点上增加的 ratio 偏移，负值向上' },
       },
@@ -1056,12 +1245,28 @@ export default {
     },
     PickBlobPoint: {
       label: '取色块命中点',
-      description: '从「颜色块定位」输出的 Blobs 列表里取第 N 个色块，按锚点和偏移转换成一个坐标点。它适合把排序后的色块结果直接接到点击、拖拽或距离判断。',
-      example: 'DetectColorBlobs 按面积排序找到多个发光物体后，Index 填 0 取最大的色块中心，Result 接 ClickAt 自动点击它。',
+      description:
+        '从「颜色块定位」输出的 Blobs 列表里取第 N 个色块，按锚点和偏移转换成一个坐标点。它适合把排序后的色块结果直接接到点击、拖拽或距离判断。',
+      example:
+        'DetectColorBlobs 按面积排序找到多个发光物体后，Index 填 0 取最大的色块中心，Result 接 ClickAt 自动点击它。',
       input: {
         Blobs: { label: '色块列表', hint: '接 DetectColorBlobs 的 Blobs 输出' },
         Index: { label: '取第几个', hint: '从 0 开始，越界返回 (0,0)' },
-        Anchor: { label: '锚点', hint: '取色块外接框的哪个位置，默认中心', option: { topLeft: '左上', topCenter: '上中', topRight: '右上', midLeft: '左中', center: '中心', midRight: '右中', botLeft: '左下', botCenter: '下中', botRight: '右下' } },
+        Anchor: {
+          label: '锚点',
+          hint: '取色块外接框的哪个位置，默认中心',
+          option: {
+            topLeft: '左上',
+            topCenter: '上中',
+            topRight: '右上',
+            midLeft: '左中',
+            center: '中心',
+            midRight: '右中',
+            botLeft: '左下',
+            botCenter: '下中',
+            botRight: '右下',
+          },
+        },
         OffsetX: { label: '水平偏移', hint: '在锚点上增加的 ratio 偏移，负值向左' },
         OffsetY: { label: '垂直偏移', hint: '在锚点上增加的 ratio 偏移，负值向上' },
       },
@@ -1069,8 +1274,10 @@ export default {
     },
     PickMatchROI: {
       label: '取模板命中区域',
-      description: '从「模板全部命中」输出的 Matches 列表里取第 N 个命中的外接框，转换成后续识别节点可用的 ROI 区域。',
-      example: '先找到多个卡片图标，再把第一个命中的区域接到 DetectColorBlobs，只在这张卡片附近继续检测颜色。',
+      description:
+        '从「模板全部命中」输出的 Matches 列表里取第 N 个命中的外接框，转换成后续识别节点可用的 ROI 区域。',
+      example:
+        '先找到多个卡片图标，再把第一个命中的区域接到 DetectColorBlobs，只在这张卡片附近继续检测颜色。',
       input: {
         Matches: { label: '命中列表', hint: '接 FindTemplateAll 的 Matches 输出' },
         Index: { label: '取第几个', hint: '从 0 开始，越界返回空区域' },
@@ -1080,7 +1287,8 @@ export default {
     },
     PickBlobROI: {
       label: '取色块命中区域',
-      description: '从「颜色块定位」输出的 Blobs 列表里取第 N 个色块的外接框，转换成后续识别节点可用的 ROI 区域。',
+      description:
+        '从「颜色块定位」输出的 Blobs 列表里取第 N 个色块的外接框，转换成后续识别节点可用的 ROI 区域。',
       example: '先按颜色找到角色血条，再把血条区域外扩一点，接到 WaitStable 或模板检测做局部判断。',
       input: {
         Blobs: { label: '色块列表', hint: '接 DetectColorBlobs 的 Blobs 输出' },
@@ -1091,12 +1299,20 @@ export default {
     },
     DualColorBarTrack: {
       label: '双色条追踪',
-      description: '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
-      example: '钓鱼溜鱼条：在溜鱼条上框 ROI，内层填光标黄、外层填目标青，Found 口拿到光标和目标位置后，判断光标偏左就按左、偏右就按右，把光标拽回目标区段里。',
+      description:
+        '专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。',
+      example:
+        '钓鱼溜鱼条：在溜鱼条上框 ROI，内层填光标黄、外层填目标青，Found 口拿到光标和目标位置后，判断光标偏左就按左、偏右就按右，把光标拽回目标区段里。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形' },
-        InnerColor: { label: '内层 HSV (默认 钓鱼光标 黄)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
-        OuterColor: { label: '外层 HSV (默认 钓鱼目标 青)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
+        InnerColor: {
+          label: '内层 HSV (默认 钓鱼光标 黄)',
+          hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}`,
+        },
+        OuterColor: {
+          label: '外层 HSV (默认 钓鱼目标 青)',
+          hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}`,
+        },
         Options: {
           label: '算法参数 (可选)',
           hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/空字段走默认; 默认是 钓鱼 UI 实测值)`,
@@ -1117,11 +1333,16 @@ export default {
     },
     ROIColorScan: {
       label: 'ROI 颜色连续段扫描',
-      description: '在你框的 ROI（屏幕上框的一小块）里，沿水平或垂直方向找指定颜色的「连续段」——一串连在一起、长度在你设的范围内的同色像素算一段。找到的段数够（达到最少段数）就走 Found 口，并把每段的信息带出去；不够就一直按间隔重试，超时走 Timeout。颜色用 HSV（按色相/鲜艳度/明暗）填。把超时设成 0 或负数就只扫一遍，不够直接走 NotFound。',
-      example: '数背包里有几格亮着的物品：在背包行框 ROI，扫描轴选水平，填物品高亮的 HSV、最少段数填 1，扫到亮格就走 Found 接后续处理，一直没有走 Timeout。',
+      description:
+        '在你框的 ROI（屏幕上框的一小块）里，沿水平或垂直方向找指定颜色的「连续段」——一串连在一起、长度在你设的范围内的同色像素算一段。找到的段数够（达到最少段数）就走 Found 口，并把每段的信息带出去；不够就一直按间隔重试，超时走 Timeout。颜色用 HSV（按色相/鲜艳度/明暗）填。把超时设成 0 或负数就只扫一遍，不够直接走 NotFound。',
+      example:
+        '数背包里有几格亮着的物品：在背包行框 ROI，扫描轴选水平，填物品高亮的 HSV、最少段数填 1，扫到亮格就走 Found 接后续处理，一直没有走 Timeout。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
-        HSV: { label: 'HSV 范围', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
+        HSV: {
+          label: 'HSV 范围',
+          hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}`,
+        },
         Axis: { label: '扫描轴', option: { x: '水平 (x)', y: '垂直 (y)' } },
         MinClusterPx: { label: '最小段长 (px)' },
         MaxClusterPx: { label: '最大段长 (px)', hint: '<=0 默认 ROI 大小 / 3' },
@@ -1138,13 +1359,18 @@ export default {
     },
     WaitStable: {
       label: '等待画面稳定',
-      description: '盯着你框的 ROI（屏幕上框的一小块），反复跟上一帧比，连续好几帧几乎没变化就认为「画面稳了」走 Stable 口；超时还在动走 Timeout。专门用来等动画播完、加载转圈停下、列表刷完再往下做，避免在画面还在动时就误判。',
-      example: '等加载界面转圈结束：在加载区域框 ROI，连续稳定帧数填 3，画面不动了走 Stable 接下一步；卡着一直转走 Timeout 处理。',
+      description:
+        '盯着你框的 ROI（屏幕上框的一小块），反复跟上一帧比，连续好几帧几乎没变化就认为「画面稳了」走 Stable 口；超时还在动走 Timeout。专门用来等动画播完、加载转圈停下、列表刷完再往下做，避免在画面还在动时就误判。',
+      example:
+        '等加载界面转圈结束：在加载区域框 ROI，连续稳定帧数填 3，画面不动了走 Stable 接下一步；卡着一直转走 Timeout 处理。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]; 越大越细越慢' },
         Metric: { label: '差分度量', option: { changed_ratio: '变化格占比', mean_diff: '平均差' } },
-        CellDelta: { label: '格变化阈 (0-255)', hint: '仅 changed_ratio: 格均值通道差 > 此视作变了' },
+        CellDelta: {
+          label: '格变化阈 (0-255)',
+          hint: '仅 changed_ratio: 格均值通道差 > 此视作变了',
+        },
         PollIntervalMs: { label: '轮询间隔 (ms)' },
         TimeoutMs: { label: '超时 (ms)', hint: '<=0 = 无限轮询' },
         StableThreshold: { label: '稳定阈 (0-1)', hint: '差 <= 此视作没变' },
@@ -1159,8 +1385,10 @@ export default {
     },
     WaitChange: {
       label: '等待画面变化',
-      description: '先把你框的 ROI（屏幕上框的一小块）此刻的样子记下来当基准，然后反复跟它比，一旦变化够大就认为「画面变了」走 Changed 口；超时一直没变走 Timeout。专门用来等弹窗冒出来、加载完成、画面切换这类「等它动一下」的时机。',
-      example: '点确认后等结果弹窗出现：在弹窗会出现的位置框 ROI，画面一变就走 Changed 接读弹窗内容；半天没动静走 Timeout 当作没反应处理。',
+      description:
+        '先把你框的 ROI（屏幕上框的一小块）此刻的样子记下来当基准，然后反复跟它比，一旦变化够大就认为「画面变了」走 Changed 口；超时一直没变走 Timeout。专门用来等弹窗冒出来、加载完成、画面切换这类「等它动一下」的时机。',
+      example:
+        '点确认后等结果弹窗出现：在弹窗会出现的位置框 ROI，画面一变就走 Changed 接读弹窗内容；半天没动静走 Timeout 当作没反应处理。',
       input: {
         ROI: { label: 'ROI (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         GridSize: { label: '降采样网格', hint: '边长 clamp [4,128]' },
@@ -1180,8 +1408,10 @@ export default {
     // image
     Capture: {
       label: '截屏',
-      description: '抓当前画面(整屏或你框的区域)产出一张图像值, 接给 AI 节点识图、接保存图像存盘、或接其它要图的节点。格式可选 PNG(无损)或 JPEG(更小, 省 token 与内存)。',
-      example: '让 AI 看屏幕判断界面: 截屏(选 JPEG)→ 数据线接到 AI 节点的图像输入(配合紧邻 exec 边)→ AI 出判断。',
+      description:
+        '抓当前画面(整屏或你框的区域)产出一张图像值, 接给 AI 节点识图、接保存图像存盘、或接其它要图的节点。格式可选 PNG(无损)或 JPEG(更小, 省 token 与内存)。',
+      example:
+        '让 AI 看屏幕判断界面: 截屏(选 JPEG)→ 数据线接到 AI 节点的图像输入(配合紧邻 exec 边)→ AI 出判断。',
       input: {
         ROI: { label: '区域 (ratio)', hint: '客户区 ratio 矩形, 全 0 = 全屏' },
         Format: { label: '格式', option: { png: 'PNG', jpeg: 'JPEG' } },
@@ -1195,7 +1425,8 @@ export default {
     },
     SaveImage: {
       label: '保存图像',
-      description: '把一张图像值写到本地的 images 目录下。扩展名按图像实际格式自动定。文件名支持时间戳/日期/uuid 占位自动区分, 避免并发覆盖。',
+      description:
+        '把一张图像值写到本地的 images 目录下。扩展名按图像实际格式自动定。文件名支持时间戳/日期/uuid 占位自动区分, 避免并发覆盖。',
       example: '截屏后留底: 截屏 → 保存图像, 文件名用 uuid 占位。',
       input: {
         Image: { label: '图像' },
@@ -1208,10 +1439,14 @@ export default {
     },
     LoadImage: {
       label: '加载图像',
-      description: '从本地文件读一张图像(仅 PNG / JPEG, 限 10MB)产出图像值, 接给 AI 节点识图等。路径限数据目录下。',
+      description:
+        '从本地文件读一张图像(仅 PNG / JPEG, 限 10MB)产出图像值, 接给 AI 节点识图等。路径限数据目录下。',
       example: '把外部图喂给 AI: 加载图像(填相对路径)→ 接 AI 节点图像输入。',
       input: {
-        Path: { label: '路径', hint: '本地图片路径 — 绝对路径(如 C:\\...\\x.png)或数据目录下相对路径' },
+        Path: {
+          label: '路径',
+          hint: '本地图片路径 — 绝对路径(如 C:\\...\\x.png)或数据目录下相对路径',
+        },
       },
       output: {
         Done: { label: '完成', data: { Image: { hint: '读出的图像' } } },
@@ -1221,21 +1456,27 @@ export default {
     // input
     BringWindowForeground: {
       label: '窗口置前台',
-      description: '把当前 Windows 窗口提到最前面、给它焦点，让后面的 Windows 键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。Android 目标不走这个节点。',
+      description:
+        '把当前 Windows 窗口提到最前面、给它焦点，让后面的 Windows 键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。Android 目标不走这个节点。',
       input: { Window: { label: '窗口' } },
       output: { Done: { label: '完成' } },
     },
     ClickAt: {
       label: '点击坐标',
-      description: '在当前目标画面里点一下鼠标。位置用坐标控件填，可切百分比（0-1 比例）或像素，也可截图取点。可选左/右/中键，能先滑过去再点，按下时长也能调。',
-      example: '点目标画面右下角的「确认」按钮：坐标填 (0.9, 0.9) 比例模式，按键选左键，运行时就会在目标右下角点一下。',
+      description:
+        '在当前目标画面里点一下鼠标。位置用坐标控件填，可切百分比（0-1 比例）或像素，也可截图取点。可选左/右/中键，能先滑过去再点，按下时长也能调。',
+      example:
+        '点目标画面右下角的「确认」按钮：坐标填 (0.9, 0.9) 比例模式，按键选左键，运行时就会在目标右下角点一下。',
       input: {
         Point: { label: '坐标' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
         MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移到点; >0=先滑过去再点' },
         DurationMs: { label: '时长 (ms)' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
-        Keys: { label: '组合键', hint: '点击时按住的修饰键, 用 + 连接, 如 ctrl+shift; 留空=普通点击。支持 ctrl / shift / alt / win。' },
+        Keys: {
+          label: '组合键',
+          hint: '点击时按住的修饰键, 用 + 连接, 如 ctrl+shift; 留空=普通点击。支持 ctrl / shift / alt / win。',
+        },
         ClickCount: { label: '连点次数', hint: '连续点击次数, 默认 1; >1 连点, 间隔约 60ms。' },
         Window: { label: '窗口' },
       },
@@ -1243,20 +1484,29 @@ export default {
     },
     KeyHoldStart: {
       label: '按住按键',
-      description: '把一个键按下去就不松手，一直保持按住状态。它只负责「按下」，要配一个「松开按键」节点来放开；两个节点中间可以插任意流程（等待、检测、移动等），按住多久全由你安排。',
-      example: '想让角色一直往前走：先放「按住按键」按住 W，接一个「等待」3 秒，再放「松开按键」放开 W——角色就会持续前进 3 秒。两个节点的按键要填同一个 W。',
-      input: { VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' }, Window: { label: '窗口' } },
+      description:
+        '把一个键按下去就不松手，一直保持按住状态。它只负责「按下」，要配一个「松开按键」节点来放开；两个节点中间可以插任意流程（等待、检测、移动等），按住多久全由你安排。',
+      example:
+        '想让角色一直往前走：先放「按住按键」按住 W，接一个「等待」3 秒，再放「松开按键」放开 W——角色就会持续前进 3 秒。两个节点的按键要填同一个 W。',
+      input: {
+        VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' },
+        Window: { label: '窗口' },
+      },
       output: { Done: { label: '已按下' } },
     },
     KeyHoldStop: {
       label: '松开按键',
       description: '把之前「按住按键」按下去的那个键松开。两个节点要填同一个键，配成一对用。',
-      input: { VK: { label: '按键', hint: '虚拟键名 — 跟上一个「按住按键」节点同一个' }, Window: { label: '窗口' } },
+      input: {
+        VK: { label: '按键', hint: '虚拟键名 — 跟上一个「按住按键」节点同一个' },
+        Window: { label: '窗口' },
+      },
       output: { Done: { label: '已松开' } },
     },
     KeyPress: {
       label: '按键',
-      description: '按一下某个键（按下马上松开），就像手指敲一次键盘。时长是按下到松开之间停多久，留默认就行。要长按不松手用「按住按键」。',
+      description:
+        '按一下某个键（按下马上松开），就像手指敲一次键盘。时长是按下到松开之间停多久，留默认就行。要长按不松手用「按住按键」。',
       input: {
         VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: '时长 (ms)' },
@@ -1267,8 +1517,10 @@ export default {
     },
     MouseHoldStart: {
       label: '按住鼠标',
-      description: '在当前目标画面里某个位置把鼠标键按下去就不松手。位置可以填比例（0~1）或像素坐标。它只负责「按下」，要配一个「松开鼠标」节点放开；中间可以插任意流程，常用来拖拽或长按。',
-      example: '拖动物品：在起点放「按住鼠标」按下左键，接「鼠标移动到」滑到终点，再放「松开鼠标」放开左键——就完成一次拖拽。',
+      description:
+        '在当前目标画面里某个位置把鼠标键按下去就不松手。位置可以填比例（0~1）或像素坐标。它只负责「按下」，要配一个「松开鼠标」节点放开；中间可以插任意流程，常用来拖拽或长按。',
+      example:
+        '拖动物品：在起点放「按住鼠标」按下左键，接「鼠标移动到」滑到终点，再放「松开鼠标」放开左键——就完成一次拖拽。',
       input: {
         Point: { label: '坐标' },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
@@ -1279,62 +1531,92 @@ export default {
     MouseHoldStop: {
       label: '松开鼠标',
       description: '把之前「按住鼠标」按下去的那个鼠标键松开。两个节点选同一个键，配成一对用。',
-      input: { Button: { label: '按键', hint: '跟上一个「按住鼠标」节点同一个', option: { left: '左键', right: '右键', middle: '中键' } }, Window: { label: '窗口' } },
+      input: {
+        Button: {
+          label: '按键',
+          hint: '跟上一个「按住鼠标」节点同一个',
+          option: { left: '左键', right: '右键', middle: '中键' },
+        },
+        Window: { label: '窗口' },
+      },
       output: { Done: { label: '已松开' } },
     },
     MouseMoveRel: {
       label: '鼠标相对移动',
-      description: '从鼠标现在所在的位置，往某个方向挪一段距离（按像素算），不是挪到固定坐标。Δx 正数往右、负数往左，Δy 正数往下、负数往上。常用来转视角、微调准星。要直接移到目标画面某个固定点用「鼠标移动到」。',
-      example: '游戏里向右转视角：Δx 填 200、Δy 填 0，运行时鼠标就从当前位置往右挪 200 像素，画面跟着右转。',
+      description:
+        '从鼠标现在所在的位置，往某个方向挪一段距离（按像素算），不是挪到固定坐标。Δx 正数往右、负数往左，Δy 正数往下、负数往上。常用来转视角、微调准星。要直接移到目标画面某个固定点用「鼠标移动到」。',
+      example:
+        '游戏里向右转视角：Δx 填 200、Δy 填 0，运行时鼠标就从当前位置往右挪 200 像素，画面跟着右转。',
       input: {
         Dx: { label: 'Δx (px)' },
         Dy: { label: 'Δy (px)' },
         DurationMs: { label: '时长 (ms)' },
-        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 移动距离 (Dx/Dy) 在 ±10% 内近正态波动' },
+        JitterPct: {
+          label: '抖动 ±%',
+          hint: '0=关; 如 10 = 移动距离 (Dx/Dy) 在 ±10% 内近正态波动',
+        },
         Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
     MouseMoveTo: {
       label: '鼠标移动到',
-      description: '把鼠标移到当前目标画面某个固定位置，只移动不点击。坐标支持比例（0 到 1，0.5、0.5 是正中间）或像素（px），跟目标画面大小无关。滑动时长填 0 是瞬间跳过去，填大于 0 会在这段时间里看得见地滑过去（更像真人）。要往某方向挪一段而不是去固定点，用「鼠标相对移动」。',
-      example: '先把鼠标移到中间再点击：用「鼠标移动到」坐标填 (0.5, 0.5)，滑动时长填 300 让它平滑滑过去，后面再接「点击坐标」。',
+      description:
+        '把鼠标移到当前目标画面某个固定位置，只移动不点击。坐标支持比例（0 到 1，0.5、0.5 是正中间）或像素（px），跟目标画面大小无关。滑动时长填 0 是瞬间跳过去，填大于 0 会在这段时间里看得见地滑过去（更像真人）。要往某方向挪一段而不是去固定点，用「鼠标相对移动」。',
+      example:
+        '先把鼠标移到中间再点击：用「鼠标移动到」坐标填 (0.5, 0.5)，滑动时长填 300 让它平滑滑过去，后面再接「点击坐标」。',
       input: {
         Point: { label: '坐标' },
         MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移; >0=在此时长内可见地滑过去' },
-        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滑行时长 (MoveMs) 在 ±10% 内近正态波动' },
+        JitterPct: {
+          label: '抖动 ±%',
+          hint: '0=关; 如 10 = 滑行时长 (MoveMs) 在 ±10% 内近正态波动',
+        },
         Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
     EventTick: {
       label: '定时触发',
-      description: '在后台每隔一段时间自动触发一次，跟主流程并行跑、互不打扰。从它的「触发」口往后接的那串节点，会被定时反复执行。常用来定时盯着屏幕某处、发现情况就改个全局变量通知主流程。',
-      example: '每秒检查一次血条是不是空了：间隔填 1000，触发口接「检测画面 → 如果血量低 → 设置全局变量 needHeal」，主流程读这个变量决定要不要嗑药。',
+      description:
+        '在后台每隔一段时间自动触发一次，跟主流程并行跑、互不打扰。从它的「触发」口往后接的那串节点，会被定时反复执行。常用来定时盯着屏幕某处、发现情况就改个全局变量通知主流程。',
+      example:
+        '每秒检查一次血条是不是空了：间隔填 1000，触发口接「检测画面 → 如果血量低 → 设置全局变量 needHeal」，主流程读这个变量决定要不要嗑药。',
       input: {
         IntervalMs: { label: '间隔 (ms)' },
         MaxConcurrent: { label: '并发上限' },
-        RetriggerPolicy: { label: '重触发策略', option: { drop: '跳过', queue: '排队', restart: '打断重来' } },
+        RetriggerPolicy: {
+          label: '重触发策略',
+          option: { drop: '跳过', queue: '排队', restart: '打断重来' },
+        },
       },
       output: { Out: { label: '触发' } },
     },
     Scroll: {
       label: '鼠标滚轮',
-      description: '在窗口里某个位置滚一下鼠标滚轮。位置用坐标填（比例 0~1 或像素 px，0.5、0.5 是正中间）。滚动量填几格，正数往前滚、负数往后滚。方向选"竖向"是上下翻页，选"横向"是左右平移。常用来翻列表、缩放、切武器。',
-      example: '把背包列表往下翻：坐标对准列表区域，滚动量填 -3，方向选"竖向"，运行时就在那里往下滚三格。横向滚条：方向选"横向"，正数向右、负数向左。',
+      description:
+        '在窗口里某个位置滚一下鼠标滚轮。位置用坐标填（比例 0~1 或像素 px，0.5、0.5 是正中间）。滚动量填几格，正数往前滚、负数往后滚。方向选"竖向"是上下翻页，选"横向"是左右平移。常用来翻列表、缩放、切武器。',
+      example:
+        '把背包列表往下翻：坐标对准列表区域，滚动量填 -3，方向选"竖向"，运行时就在那里往下滚三格。横向滚条：方向选"横向"，正数向右、负数向左。',
       input: {
         Point: { label: '坐标' },
         Delta: { label: '滚动量 (notches)', hint: '正值向上/向右滚, 负值向下/向左滚' },
         JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滚动量在 ±10% 内近正态波动' },
-        Axis: { label: '方向', hint: '竖向=上下滚（默认）；横向=左右滚', option: { vertical: '竖向', horizontal: '横向' } },
+        Axis: {
+          label: '方向',
+          hint: '竖向=上下滚（默认）；横向=左右滚',
+          option: { vertical: '竖向', horizontal: '横向' },
+        },
         Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
     },
     InputText: {
       label: '输入文字',
-      description: '向当前自动化目标注入一段文字。Windows 窗口底层走 SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送；浏览器/Android 目标后续由各自 controller 决定具体后端。',
-      example: '在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。',
+      description:
+        '向当前自动化目标注入一段文字。Windows 窗口底层走 SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送；浏览器/Android 目标后续由各自 controller 决定具体后端。',
+      example:
+        '在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。',
       input: {
         Text: { label: '文字', hint: '要输入的文字内容，支持中文及所有 Unicode 字符' },
         Window: { label: '窗口' },
@@ -1343,13 +1625,24 @@ export default {
     },
     Swipe: {
       label: '拖拽',
-      description: '按住鼠标键，从起点匀速拖到终点再松开。时长填拖完这段距离花多少毫秒，越大越慢越像真人；留空或填 0 走默认 200ms（拖太快很多界面认不出，故设下限）。起点和终点都是坐标点 pin，可以从检测节点（如 ClickTemplate、DetectColor）的输出直接连线进来，不连默认 (0, 0)。',
-      example: '把一个物品从格子 A 拖到格子 B：把 ClickTemplate 识别到 A 的坐标连到「起点」，识别到 B 的坐标连到「终点」，时长填 300，运行时就会从 A 拖到 B 再松手。',
+      description:
+        '按住鼠标键，从起点匀速拖到终点再松开。时长填拖完这段距离花多少毫秒，越大越慢越像真人；留空或填 0 走默认 200ms（拖太快很多界面认不出，故设下限）。起点和终点都是坐标点 pin，可以从检测节点（如 ClickTemplate、DetectColor）的输出直接连线进来，不连默认 (0, 0)。',
+      example:
+        '把一个物品从格子 A 拖到格子 B：把 ClickTemplate 识别到 A 的坐标连到「起点」，识别到 B 的坐标连到「终点」，时长填 300，运行时就会从 A 拖到 B 再松手。',
       input: {
-        Begin: { label: '起点', hint: '拖拽的起始坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来' },
-        End: { label: '终点', hint: '拖拽的结束坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来' },
+        Begin: {
+          label: '起点',
+          hint: '拖拽的起始坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来',
+        },
+        End: {
+          label: '终点',
+          hint: '拖拽的结束坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来',
+        },
         Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
-        DurationMs: { label: '时长 (ms)', hint: '拖动总时长毫秒数；默认 200，越大越慢越像真人（留空或 0 走默认）' },
+        DurationMs: {
+          label: '时长 (ms)',
+          hint: '拖动总时长毫秒数；默认 200，越大越慢越像真人（留空或 0 走默认）',
+        },
         Window: { label: '窗口' },
       },
       output: { Done: { label: '完成' } },
@@ -1357,26 +1650,37 @@ export default {
     // io
     Log: {
       label: '日志',
-      description: '把一条消息打到运行日志里，方便你调试时看脚本跑到哪一步、当时的值是多少。消息口什么都能接——文字、数字、坐标、区域都行，会自动转成文本。',
-      example: '调试循环时想确认跑了几次：把 Log 接进循环体，消息填「第几次」，运行日志里就会一次次打印出来。',
+      description:
+        '把一条消息打到运行日志里，方便你调试时看脚本跑到哪一步、当时的值是多少。消息口什么都能接——文字、数字、坐标、区域都行，会自动转成文本。',
+      example:
+        '调试循环时想确认跑了几次：把 Log 接进循环体，消息填「第几次」，运行日志里就会一次次打印出来。',
       input: {
-        Message: { label: '消息', hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, 自动转成文本' },
+        Message: {
+          label: '消息',
+          hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, 自动转成文本',
+        },
         Level: { label: '级别', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
       },
       output: { Done: { label: '完成' } },
     },
     PlayClip: {
       label: '回放录像',
-      description: '把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。',
-      example: '游戏里有套固定连招：先录一段，再用本节点选中这段录像，脚本跑到这里就会自动把连招完整打一遍。',
-      input: { ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' }, Window: { label: '窗口' } },
+      description:
+        '把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。',
+      example:
+        '游戏里有套固定连招：先录一段，再用本节点选中这段录像，脚本跑到这里就会自动把连招完整打一遍。',
+      input: {
+        ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' },
+        Window: { label: '窗口' },
+      },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
       inspector: {
         clip_unset_placeholder: '(未设)',
         clip_missing: 'clip {id} 不在 clips 库. 重新录制覆盖.',
         record_precise: '重新录制 (精准)',
         record_simple: '重录 (简易)',
-        bind_hint: '一个 PlayClip 节点绑死一个 clip — 想换内容请重新录制覆盖, 不要切换 clip 引用 (避免删 clip 后这里指向不存在的 ID).',
+        bind_hint:
+          '一个 PlayClip 节点绑死一个 clip — 想换内容请重新录制覆盖, 不要切换 clip 引用 (避免删 clip 后这里指向不存在的 ID).',
         keep_ranges_label: '裁剪段 (keepRanges)',
         keep_ranges_hint: '不指定 = 整段播放. 加多段后只播这些段, 跨段的停顿会自动压缩.',
         full_playback: '无, 整段播放',
@@ -1384,28 +1688,42 @@ export default {
     },
     RunProgram: {
       label: '运行程序',
-      description: '用系统默认方式打开一个目标：可执行文件直接运行、网址用默认浏览器打开、文档/文件夹用关联程序打开。启动后立刻往下走，不等程序退出。',
-      example: '想在脚本开头自动开游戏：目标填游戏 exe 完整路径；或目标填一个网址，跑到这里就用默认浏览器打开它。',
+      description:
+        '用系统默认方式打开一个目标：可执行文件直接运行、网址用默认浏览器打开、文档/文件夹用关联程序打开。启动后立刻往下走，不等程序退出。',
+      example:
+        '想在脚本开头自动开游戏：目标填游戏 exe 完整路径；或目标填一个网址，跑到这里就用默认浏览器打开它。',
       input: {
-        Target: { label: '目标', hint: '程序路径 / 网址 / 文件 / 文件夹。如 C:\\Game\\game.exe 或 https://example.com' },
+        Target: {
+          label: '目标',
+          hint: '程序路径 / 网址 / 文件 / 文件夹。如 C:\\Game\\game.exe 或 https://example.com',
+        },
         Args: { label: '启动参数', hint: '可选。传给程序的命令行参数。' },
         WorkingDir: { label: '工作目录', hint: '可选。程序启动的工作目录，留空用默认。' },
-        WindowState: { label: '窗口状态', option: { normal: '正常', minimized: '最小化', maximized: '最大化', hidden: '隐藏' } },
+        WindowState: {
+          label: '窗口状态',
+          option: { normal: '正常', minimized: '最小化', maximized: '最大化', hidden: '隐藏' },
+        },
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     StopApp: {
       label: '关闭程序',
-      description: '按进程名、完整 exe 路径或 PID 强制结束进程。完整路径会按文件名结束同名进程。进程不存在或无权限时走失败出口。',
+      description:
+        '按进程名、完整 exe 路径或 PID 强制结束进程。完整路径会按文件名结束同名进程。进程不存在或无权限时走失败出口。',
       input: {
-        Target: { label: '目标进程', hint: '进程名（notepad.exe）、完整 exe 路径，或纯数字 PID（1234）' },
+        Target: {
+          label: '目标进程',
+          hint: '进程名（notepad.exe）、完整 exe 路径，或纯数字 PID（1234）',
+        },
       },
       output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     AndroidTarget: {
       label: '安卓目标',
-      description: '把后续点击、截图和视觉识别切到一个 ADB 设备或模拟器。序列号可从下拉列表选择, 名称和分辨率会自动填入, 也可以手动覆盖。',
-      example: '先用安卓目标选择 emulator-5554, 再接点击或截图节点, 后续动作就作用在该模拟器画面上。',
+      description:
+        '把后续点击、截图和视觉识别切到一个 ADB 设备或模拟器。序列号可从下拉列表选择, 名称和分辨率会自动填入, 也可以手动覆盖。',
+      example:
+        '先用安卓目标选择 emulator-5554, 再接点击或截图节点, 后续动作就作用在该模拟器画面上。',
       input: {
         Serial: { label: '设备序列号', hint: 'ADB serial, 如 emulator-5554' },
         Name: { label: '显示名称', hint: '可选。留空时使用设备序列号' },
@@ -1416,19 +1734,28 @@ export default {
     },
     AndroidStartApp: {
       label: '安卓启动应用',
-      description: '在当前安卓目标设备上启动一个应用。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
-      example: '先用安卓目标选中 MuMu 模拟器, 再用安卓启动应用选择 com.RoamingStar.BlueArchive 启动游戏。',
+      description:
+        '在当前安卓目标设备上启动一个应用。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
+      example:
+        '先用安卓目标选中 MuMu 模拟器, 再用安卓启动应用选择 com.RoamingStar.BlueArchive 启动游戏。',
       input: {
-        Package: { label: '应用', hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive' },
+        Package: {
+          label: '应用',
+          hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive',
+        },
       },
       output: { Done: { label: '完成' } },
     },
     AndroidStopApp: {
       label: '安卓停止应用',
-      description: '在当前安卓目标设备上停止一个应用进程。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
+      description:
+        '在当前安卓目标设备上停止一个应用进程。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
       example: '流程结束时选择 com.RoamingStar.BlueArchive, 通过 ADB 停止游戏进程。',
       input: {
-        Package: { label: '应用', hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive' },
+        Package: {
+          label: '应用',
+          hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive',
+        },
       },
       output: { Done: { label: '完成' } },
     },
@@ -1436,119 +1763,154 @@ export default {
     Expr: {
       label: '表达式',
       description: `写一行算式自由组合运算，得到结果。支持加减乘除取余 (+ - * / %)、比较 (< <= > >= == !=)、与或非 (&& {'||'} !)、三元 (条件 ? 甲 : 乙)，内置函数 abs、min、max、now、floor、ceil、round（可带位数）、clamp、pow、sqrt，字符串用双引号包起来、用 + 拼接。想引用外部值，先给节点加输入口、再在算式里用同名变量（如 hp、count）。`,
-      example: '先加两个输入口 hp 和 max，算式写 hp / max * 100 算出血量百分比；或写 hp < max * 0.3 ? "快补血" : "安全" 按血量给出不同提示。变量名就是你加的输入口的名字。',
-      input: { Expression: { label: '表达式', hint: '类 Go 表达式。给节点加的输入口名字可在表达式里引用。' } },
+      example:
+        '先加两个输入口 hp 和 max，算式写 hp / max * 100 算出血量百分比；或写 hp < max * 0.3 ? "快补血" : "安全" 按血量给出不同提示。变量名就是你加的输入口的名字。',
+      input: {
+        Expression: {
+          label: '表达式',
+          hint: '类 Go 表达式。给节点加的输入口名字可在表达式里引用。',
+        },
+      },
       output: { Result: { label: '结果' } },
     },
     Add: {
-      label: '加', description: '把两个数字相加，给出和。',
+      label: '加',
+      description: '把两个数字相加，给出和。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Sub: {
-      label: '减', description: '用 A 减去 B，给出差。',
+      label: '减',
+      description: '用 A 减去 B，给出差。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Mul: {
-      label: '乘', description: '把两个数字相乘，给出积。',
+      label: '乘',
+      description: '把两个数字相乘，给出积。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Div: {
-      label: '除', description: '用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。',
+      label: '除',
+      description: '用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Mod: {
-      label: '取模', description: '求 A 除以 B 的余数，支持小数。',
+      label: '取模',
+      description: '求 A 除以 B 的余数，支持小数。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Neg: {
-      label: '取负', description: '把数字变号：正数变负、负数变正。',
+      label: '取负',
+      description: '把数字变号：正数变负、负数变正。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     Lt: {
-      label: '小于', description: '判断 A 是不是 < B，给出真/假。',
+      label: '小于',
+      description: '判断 A 是不是 < B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     LtEq: {
-      label: '小于等于', description: '判断 A 是不是 ≤ B，给出真/假。',
+      label: '小于等于',
+      description: '判断 A 是不是 ≤ B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Gt: {
-      label: '大于', description: '判断 A 是不是 > B，给出真/假。',
+      label: '大于',
+      description: '判断 A 是不是 > B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     GtEq: {
-      label: '大于等于', description: '判断 A 是不是 ≥ B，给出真/假。',
+      label: '大于等于',
+      description: '判断 A 是不是 ≥ B，给出真/假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Eq: {
-      label: '等于', description: '判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。',
+      label: '等于',
+      description:
+        '判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     NotEq: {
-      label: '不等于', description: '判断两个值是否不相等，给出真/假。比法跟「等于」一样：类型一样直接比，类型不一样都转成文字再比。',
+      label: '不等于',
+      description:
+        '判断两个值是否不相等，给出真/假。比法跟「等于」一样：类型一样直接比，类型不一样都转成文字再比。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     And: {
-      label: '逻辑与', description: '两个条件都为真时才给出真，否则给假。没接线的输入默认当真，不会干扰结果。',
+      label: '逻辑与',
+      description: '两个条件都为真时才给出真，否则给假。没接线的输入默认当真，不会干扰结果。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Or: {
-      label: '逻辑或', description: '两个条件只要有一个为真就给出真，都为假才给假。',
+      label: '逻辑或',
+      description: '两个条件只要有一个为真就给出真，都为假才给假。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Not: {
-      label: '逻辑非', description: '把真假反过来：真变假、假变真。',
+      label: '逻辑非',
+      description: '把真假反过来：真变假、假变真。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     Concat: {
-      label: '拼接', description: '把两个值首尾接成一段文字。不是文字的（数字、真假等）会自动转成文字再接。',
+      label: '拼接',
+      description: '把两个值首尾接成一段文字。不是文字的（数字、真假等）会自动转成文字再接。',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: '结果' } },
     },
     Contains: {
-      label: '包含', description: '判断源串里是否出现过子串这一段文字，给出真/假。区分大小写；非文字的输入会先转成文字再找。',
-      example: '识别到的文字接进源串、子串填「胜利」，出现「胜利」就给真，可接到条件节点决定下一步。注意区分大小写：源串是「Win」、子串填「win」会判为不包含。',
+      label: '包含',
+      description:
+        '判断源串里是否出现过子串这一段文字，给出真/假。区分大小写；非文字的输入会先转成文字再找。',
+      example:
+        '识别到的文字接进源串、子串填「胜利」，出现「胜利」就给真，可接到条件节点决定下一步。注意区分大小写：源串是「Win」、子串填「win」会判为不包含。',
       input: { Haystack: { label: '源串' }, Needle: { label: '子串' } },
       output: { Result: { label: '结果' } },
     },
     Length: {
-      label: '字符串长度', description: '数一段文字有多长，给出字符数。中文一个字算 1 个，与「截取文本」「查找位置」的位置口径一致。',
+      label: '字符串长度',
+      description:
+        '数一段文字有多长，给出字符数。中文一个字算 1 个，与「截取文本」「查找位置」的位置口径一致。',
       input: { S: { label: '字符串' } },
       output: { Result: { label: '结果' } },
     },
     ToString: {
-      label: '转字符串', description: '把任意值转成文字。数字、真假、坐标等都能转，空值转成「null」。',
+      label: '转字符串',
+      description: '把任意值转成文字。数字、真假、坐标等都能转，空值转成「null」。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     ToNumber: {
-      label: '转数字', description: '把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。',
+      label: '转数字',
+      description: '把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     ToBool: {
-      label: '转布尔', description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
+      label: '转布尔',
+      description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
       input: { X: { label: 'X' } },
       output: { Result: { label: '结果' } },
     },
     Select: {
-      label: '三元选择', description: '看条件真假，从 A、B 两个值里挑一个输出：条件为真给 A，为假给 B。A、B 什么类型都行。',
-      example: '条件接「血量是否充足」，A 填正常攻击的目标、B 填撤退点，条件成立就输出进攻目标、不成立就输出撤退点，再把结果接到后续动作。',
+      label: '三元选择',
+      description:
+        '看条件真假，从 A、B 两个值里挑一个输出：条件为真给 A，为假给 B。A、B 什么类型都行。',
+      example:
+        '条件接「血量是否充足」，A 填正常攻击的目标、B 填撤退点，条件成立就输出进攻目标、不成立就输出撤退点，再把结果接到后续动作。',
       input: {
         Cond: { label: '条件' },
         A: { label: 'A (Cond=true)' },
@@ -1558,115 +1920,152 @@ export default {
     },
     // math
     Abs: {
-      label: '绝对值', description: '取 X 的绝对值（负变正）。',
+      label: '绝对值',
+      description: '取 X 的绝对值（负变正）。',
       input: { X: { label: '数值' } },
       output: { Result: { label: '结果' } },
     },
     Min: {
-      label: '取较小', description: '两个数里取较小的那个。',
+      label: '取较小',
+      description: '两个数里取较小的那个。',
       input: { A: { label: '甲' }, B: { label: '乙' } },
       output: { Result: { label: '结果' } },
     },
     Max: {
-      label: '取较大', description: '两个数里取较大的那个。',
+      label: '取较大',
+      description: '两个数里取较大的那个。',
       input: { A: { label: '甲' }, B: { label: '乙' } },
       output: { Result: { label: '结果' } },
     },
     Floor: {
-      label: '向下取整', description: '把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。',
+      label: '向下取整',
+      description: '把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。',
       input: { X: { label: '数值' } },
       output: { Result: { label: '结果' } },
     },
     Ceil: {
-      label: '向上取整', description: '把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。',
+      label: '向上取整',
+      description: '把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。',
       input: { X: { label: '数值' } },
       output: { Result: { label: '结果' } },
     },
     Round: {
-      label: '四舍五入', description: '把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。',
+      label: '四舍五入',
+      description:
+        '把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。',
       input: { X: { label: '数值' }, Digits: { label: '位数' } },
       output: { Result: { label: '结果' } },
     },
     Clamp: {
-      label: '限制范围', description: '把 X 限制在 Min~Max 里：小于 Min 出 Min，大于 Max 出 Max，否则原样出。Min 比 Max 大时自动交换。',
+      label: '限制范围',
+      description:
+        '把 X 限制在 Min~Max 里：小于 Min 出 Min，大于 Max 出 Max，否则原样出。Min 比 Max 大时自动交换。',
       input: { X: { label: '数值' }, Min: { label: '下限' }, Max: { label: '上限' } },
       output: { Result: { label: '结果' } },
     },
     Pow: {
-      label: '乘方', description: '算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。',
+      label: '乘方',
+      description:
+        '算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。',
       input: { Base: { label: '底数' }, Exp: { label: '指数' } },
       output: { Result: { label: '结果' } },
     },
     Sqrt: {
-      label: '开平方', description: '算 X 的平方根。X 是负数时得 NaN（需要时先接"绝对值"节点）。',
+      label: '开平方',
+      description: '算 X 的平方根。X 是负数时得 NaN（需要时先接"绝对值"节点）。',
       input: { X: { label: '数值' } },
       output: { Result: { label: '结果' } },
     },
     // string
     Replace: {
-      label: '替换文本', description: '把文本里的 Old 换成 New。「全部替换」开着换所有，关掉只换第一处。Old 留空时原样返回。',
-      input: { Text: { label: '文本' }, Old: { label: '找什么' }, New: { label: '换成什么' }, All: { label: '全部替换' } },
+      label: '替换文本',
+      description:
+        '把文本里的 Old 换成 New。「全部替换」开着换所有，关掉只换第一处。Old 留空时原样返回。',
+      input: {
+        Text: { label: '文本' },
+        Old: { label: '找什么' },
+        New: { label: '换成什么' },
+        All: { label: '全部替换' },
+      },
       output: { Result: { label: '结果' } },
     },
     Substring: {
-      label: '截取文本', description: '从第 Start 个字符开始截 Length 个字符（中文一个字算 1 个）。Length 填 -1（默认）截到末尾，0 得空串。Start 超出范围得空串。',
+      label: '截取文本',
+      description:
+        '从第 Start 个字符开始截 Length 个字符（中文一个字算 1 个）。Length 填 -1（默认）截到末尾，0 得空串。Start 超出范围得空串。',
       input: { Text: { label: '文本' }, Start: { label: '起点' }, Length: { label: '长度' } },
       output: { Result: { label: '结果' } },
     },
     Trim: {
-      label: '去首尾空白', description: '去掉文本开头和结尾的空格、换行、制表符。',
+      label: '去首尾空白',
+      description: '去掉文本开头和结尾的空格、换行、制表符。',
       input: { Text: { label: '文本' } },
       output: { Result: { label: '结果' } },
     },
     ToUpper: {
-      label: '转大写', description: '把英文字母全部转成大写。',
+      label: '转大写',
+      description: '把英文字母全部转成大写。',
       input: { Text: { label: '文本' } },
       output: { Result: { label: '结果' } },
     },
     ToLower: {
-      label: '转小写', description: '把英文字母全部转成小写。',
+      label: '转小写',
+      description: '把英文字母全部转成小写。',
       input: { Text: { label: '文本' } },
       output: { Result: { label: '结果' } },
     },
     IndexOf: {
-      label: '查找位置', description: 'Sub 在文本里第一次出现的位置（从 0 数，中文一个字算 1 个）。找不到得 -1。只想判断"包含吗"请用「包含」节点。',
+      label: '查找位置',
+      description:
+        'Sub 在文本里第一次出现的位置（从 0 数，中文一个字算 1 个）。找不到得 -1。只想判断"包含吗"请用「包含」节点。',
       input: { Text: { label: '文本' }, Sub: { label: '找什么' } },
       output: { Result: { label: '位置' } },
     },
     StartsWith: {
-      label: '开头是', description: '判断文本是否以 Prefix 开头。Prefix 留空恒为真。',
+      label: '开头是',
+      description: '判断文本是否以 Prefix 开头。Prefix 留空恒为真。',
       input: { Text: { label: '文本' }, Prefix: { label: '开头' } },
       output: { Result: { label: '结果' } },
     },
     EndsWith: {
-      label: '结尾是', description: '判断文本是否以 Suffix 结尾。Suffix 留空恒为真。',
+      label: '结尾是',
+      description: '判断文本是否以 Suffix 结尾。Suffix 留空恒为真。',
       input: { Text: { label: '文本' }, Suffix: { label: '结尾' } },
       output: { Result: { label: '结果' } },
     },
     RegexMatch: {
-      label: '正则匹配', description: `判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {'$'}。表达式写错时结果恒为否，并记一条警告日志。`,
+      label: '正则匹配',
+      description: `判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {'$'}。表达式写错时结果恒为否，并记一条警告日志。`,
       input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
       output: { Result: { label: '结果' } },
     },
     RegexExtract: {
-      label: '正则提取', description: '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。',
+      label: '正则提取',
+      description:
+        '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。',
       input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
       output: { Result: { label: '结果' } },
     },
     MakePoint: {
       label: '组装坐标',
-      description: '把两个数字(X、Y)拼成一个「坐标」值,接到点击/滑动等需要坐标的节点上。可选单位:百分比(0-1,跟窗口大小无关)或像素。需要用算出来的数字当坐标时用它。',
+      description:
+        '把两个数字(X、Y)拼成一个「坐标」值,接到点击/滑动等需要坐标的节点上。可选单位:百分比(0-1,跟窗口大小无关)或像素。需要用算出来的数字当坐标时用它。',
       example: '把检测到的血量比例当 X、固定 0.9 当 Y,组装成坐标喂给点击节点。',
       input: {
         X: { label: 'X', hint: '百分比模式填 0-100（如 50=50%）；像素模式填像素值' },
         Y: { label: 'Y', hint: '百分比模式填 0-100（如 50=50%）；像素模式填像素值' },
-        Unit: { label: '单位', hint: '百分比=随窗口自适应；像素=绝对固定不缩放', option: { percent: '百分比（自适应）', px: '像素（绝对）' } },
+        Unit: {
+          label: '单位',
+          hint: '百分比=随窗口自适应；像素=绝对固定不缩放',
+          option: { percent: '百分比（自适应）', px: '像素（绝对）' },
+        },
       },
       output: { Result: { label: '坐标' } },
     },
     OffsetPoint: {
       label: '偏移坐标',
-      description: '在一个坐标上加水平/垂直偏移。百分比坐标会限制在屏幕内；像素坐标保持像素单位不缩放。',
+      description:
+        '在一个坐标上加水平/垂直偏移。百分比坐标会限制在屏幕内；像素坐标保持像素单位不缩放。',
       example: '先取模板中心点，再向右下偏移一点，点击按钮内部更稳的位置。',
       input: {
         Point: { label: '坐标' },
@@ -1683,7 +2082,8 @@ export default {
     },
     ROIAroundPoint: {
       label: '点周围区域',
-      description: '以一个坐标为中心生成截图/识别用的 ROI 区域，宽高按百分比填写，并自动限制在屏幕内。',
+      description:
+        '以一个坐标为中心生成截图/识别用的 ROI 区域，宽高按百分比填写，并自动限制在屏幕内。',
       example: '识别到角色位置后，只在角色周围 20% 区域里继续找按钮或颜色。',
       input: {
         Center: { label: '中心点', hint: '使用百分比坐标效果最明确' },
@@ -1694,86 +2094,120 @@ export default {
     },
     // list
     ForEach: {
-      label: '遍历列表', description: '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',
+      label: '遍历列表',
+      description:
+        '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',
       input: { List: { label: '列表' } },
       output: { Body: { label: '循环体' }, Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     Split: {
-      label: '拆分文本', description: '把文本按分隔符拆成列表。文本留空得空列表；分隔符留空则一个字一个字拆（中文安全）。',
+      label: '拆分文本',
+      description:
+        '把文本按分隔符拆成列表。文本留空得空列表；分隔符留空则一个字一个字拆（中文安全）。',
       input: { Text: { label: '文本' }, Separator: { label: '分隔符' } },
       output: { Result: { label: '列表' } },
     },
     Join: {
-      label: '拼接列表', description: '把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。',
+      label: '拼接列表',
+      description: '把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。',
       input: { List: { label: '列表' }, Separator: { label: '分隔符' } },
       output: { Result: { label: '结果' } },
     },
     ListLength: {
-      label: '列表长度', description: '数列表里有几个元素。不是列表算 0 个。',
+      label: '列表长度',
+      description: '数列表里有几个元素。不是列表算 0 个。',
       input: { List: { label: '列表' } },
       output: { Result: { label: '个数' } },
     },
     ListGet: {
-      label: '取列表元素', description: '取第 Index 个元素（从 0 数）。序号超出范围得 null——元素本身也可能是 null，要区分先用「列表长度」查。',
+      label: '取列表元素',
+      description:
+        '取第 Index 个元素（从 0 数）。序号超出范围得 null——元素本身也可能是 null，要区分先用「列表长度」查。',
       input: { List: { label: '列表' }, Index: { label: '序号' } },
       output: { Result: { label: '元素' } },
     },
     ListContains: {
-      label: '列表包含', description: '判断列表里有没有等于 Value 的元素。比较规则与「等于」节点相同：类型相同直接比，类型不同转文字比。',
+      label: '列表包含',
+      description:
+        '判断列表里有没有等于 Value 的元素。比较规则与「等于」节点相同：类型相同直接比，类型不同转文字比。',
       input: { List: { label: '列表' }, Value: { label: '找什么' } },
       output: { Result: { label: '结果' } },
     },
     ListAppend: {
-      label: '追加元素', description: '在列表末尾加一个元素，得到一个新列表（原列表不变；要累积请配合「写变量」存回去，变量类型选 any）。',
+      label: '追加元素',
+      description:
+        '在列表末尾加一个元素，得到一个新列表（原列表不变；要累积请配合「写变量」存回去，变量类型选 any）。',
       input: { List: { label: '列表' }, Item: { label: '元素' } },
       output: { Result: { label: '新列表' } },
     },
     ListSlice: {
-      label: '截取列表', description: '从第 Start 个元素开始取 Count 个，得到新列表。Count 填 -1（默认）取到末尾，0 得空列表。起点超出范围得空列表。',
+      label: '截取列表',
+      description:
+        '从第 Start 个元素开始取 Count 个，得到新列表。Count 填 -1（默认）取到末尾，0 得空列表。起点超出范围得空列表。',
       input: { List: { label: '列表' }, Start: { label: '起点' }, Count: { label: '个数' } },
       output: { Result: { label: '新列表' } },
     },
     // random
     RandomInt: {
-      label: '随机整数', description: '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
+      label: '随机整数',
+      description:
+        '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
       input: {
         Min: { label: '最小值' },
         Max: { label: '最大值' },
-        Distribution: { label: '分布', hint: '均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）', option: { uniform: '均匀', centered: '聚中' } },
+        Distribution: {
+          label: '分布',
+          hint: '均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）',
+          option: { uniform: '均匀', centered: '聚中' },
+        },
       },
       output: { Result: { label: '结果' } },
     },
     RandomFloat: {
-      label: '随机小数', description: '在 Min~Max 之间随机取一个小数（含 Min、不含 Max）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
+      label: '随机小数',
+      description:
+        '在 Min~Max 之间随机取一个小数（含 Min、不含 Max）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
       input: {
         Min: { label: '最小值' },
         Max: { label: '最大值' },
-        Distribution: { label: '分布', hint: '均匀=区间内等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）', option: { uniform: '均匀', centered: '聚中' } },
+        Distribution: {
+          label: '分布',
+          hint: '均匀=区间内等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）',
+          option: { uniform: '均匀', centered: '聚中' },
+        },
       },
       output: { Result: { label: '结果' } },
     },
     RandomBool: {
-      label: '随机真假', description: '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
+      label: '随机真假',
+      description:
+        '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
       input: { Prob: { label: '为真概率' } },
       output: { Result: { label: '结果' } },
     },
     RandomChoice: {
-      label: '随机取一个', description: '从列表里随机挑一个元素。同一次求值里多处引用拿到同一个。列表为空得 null（元素本身也可能是 null，要区分先用「列表长度」查）。',
+      label: '随机取一个',
+      description:
+        '从列表里随机挑一个元素。同一次求值里多处引用拿到同一个。列表为空得 null（元素本身也可能是 null，要区分先用「列表长度」查）。',
       input: { List: { label: '列表' } },
       output: { Result: { label: '元素' } },
     },
     // stopwatch
     StopwatchStart: {
       label: '秒表 启动',
-      description: '按下一个秒表开始计时，用来测某段流程花了多久。每个秒表用一个 key（名字）区分，可以同时跑好几个互不干扰。如果这个 key 已经在跑，会从头重新计时。',
-      example: '想测「找图 + 点击」这段花多长：先接 StopwatchStart（key 填 click），跑完那段再接 StopwatchRead（key 同样填 click），就能拿到这段的毫秒数。',
+      description:
+        '按下一个秒表开始计时，用来测某段流程花了多久。每个秒表用一个 key（名字）区分，可以同时跑好几个互不干扰。如果这个 key 已经在跑，会从头重新计时。',
+      example:
+        '想测「找图 + 点击」这段花多长：先接 StopwatchStart（key 填 click），跑完那段再接 StopwatchRead（key 同样填 click），就能拿到这段的毫秒数。',
       input: { Key: { label: '秒表名', hint: '秒表 key (命名空间独立于 $vars.*)' } },
       output: { Done: { label: '完成' } },
     },
     StopwatchRead: {
       label: '秒表 读取',
-      description: '读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。',
-      example: '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
+      description:
+        '读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。',
+      example:
+        '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
       input: {
         Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' },
       },
@@ -1786,14 +2220,16 @@ export default {
     },
     StopwatchStop: {
       label: '秒表 停止',
-      description: '让某个秒表停下来，之后再读它拿到的就是停的那一刻的总用时，不会再往上涨。这个 key 没启动过的话什么都不做。',
+      description:
+        '让某个秒表停下来，之后再读它拿到的就是停的那一刻的总用时，不会再往上涨。这个 key 没启动过的话什么都不做。',
       input: { Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' } },
       output: { Done: { label: '完成' } },
     },
     // system
     CollapsedNode: {
       label: '折叠子图',
-      description: '把画布上选中的一组节点折叠成一个小方块，让流程图看着清爽。双击进去能编辑里面的节点，运行时跟展开时一模一样，跑完走「完成」往下接。',
+      description:
+        '把画布上选中的一组节点折叠成一个小方块，让流程图看着清爽。双击进去能编辑里面的节点，运行时跟展开时一模一样，跑完走「完成」往下接。',
       input: {
         SubgraphID: { label: '子图 ID', hint: '目标匿名子图标识符' },
         Label: { label: '标签' },
@@ -1802,7 +2238,8 @@ export default {
     },
     CommentBox: {
       label: '注释框',
-      description: '画布上的一张便签，写标题加正文（支持 markdown）给脚本做说明。纯展示，不参与运行、不连线。双击就能编辑，颜色、图标、宽度都能调。',
+      description:
+        '画布上的一张便签，写标题加正文（支持 markdown）给脚本做说明。纯展示，不参与运行、不连线。双击就能编辑，颜色、图标、宽度都能调。',
       input: {
         Title: { label: '标题' },
         Content: { label: '正文 (markdown)' },
@@ -1813,14 +2250,21 @@ export default {
     },
     MouseCalibration: {
       label: '鼠标校准',
-      description: '告诉脚本「你这台机器鼠标转一整圈要走多少」，相对移动鼠标（MouseMoveRel）就靠这个值把角度换算成实际移动量。只放在主图、一个容器一个，本身不做动作，直接往下接。',
-      input: { Counts360: { label: '每圈 counts', hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.' } },
+      description:
+        '告诉脚本「你这台机器鼠标转一整圈要走多少」，相对移动鼠标（MouseMoveRel）就靠这个值把角度换算成实际移动量。只放在主图、一个容器一个，本身不做动作，直接往下接。',
+      input: {
+        Counts360: {
+          label: '每圈 counts',
+          hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.',
+        },
+      },
       output: { Done: { label: '完成' } },
       inspector: {
         counts_label: '本机 360° HID counts',
         calibrated: '✅ 已校准',
         not_calibrated: '❌ 未校准',
-        counts_hint: '转 360° 你的鼠标硬件累积上报多少 |dx|；跟硬件 DPI、OS 灵敏度、游戏内灵敏度都有关。',
+        counts_hint:
+          '转 360° 你的鼠标硬件累积上报多少 |dx|；跟硬件 DPI、OS 灵敏度、游戏内灵敏度都有关。',
         counts_warn: '⚠ 这个值必须是你本机+游戏实测的，不是从别人容器导入的值。',
         start_calibrate: '▶ 开始校准',
         load_from_settings_one: '⬇ 从设置加载（{label}: {n}）',
@@ -1830,8 +2274,10 @@ export default {
     },
     Subgraph: {
       label: '调用子图',
-      description: '把一组节点打包成子图，在这里整段调用一次，跑完走「完成」往下接。同一段流程要在多处复用、或想拆分大流程时用它，还能通过「参数」把数据传进子图。',
-      example: '登录流程要在好几个脚本里反复用：做成子图，每个脚本放一个「调用子图」指过去就行，以后改登录只改子图一处。',
+      description:
+        '把一组节点打包成子图，在这里整段调用一次，跑完走「完成」往下接。同一段流程要在多处复用、或想拆分大流程时用它，还能通过「参数」把数据传进子图。',
+      example:
+        '登录流程要在好几个脚本里反复用：做成子图，每个脚本放一个「调用子图」指过去就行，以后改登录只改子图一处。',
       input: {
         SubgraphID: { label: '子图 ID' },
         Params: { label: '参数', hint: '调用参数 — 传给被调子图的入口' },
@@ -1849,13 +2295,16 @@ export default {
         subgraph_tags_placeholder: '添加标签...',
         enter_subgraph: '进入子图编辑节点内容',
         footer_meta_hint: '子图元信息（名称/描述/tags）可在此处编辑，无需进入子图。',
-        footer_delete_hint: '普通删除只移除此引用，子图定义保留在库；右键节点选「彻底删除」可连子图定义一起删（会先确认）。',
+        footer_delete_hint:
+          '普通删除只移除此引用，子图定义保留在库；右键节点选「彻底删除」可连子图定义一起删（会先确认）。',
       },
     },
     Throw: {
       label: '抛错',
-      description: '主动报一个错并立刻中断当前流程，错误内容就是你填的「消息」。如果外层有 Loop / 子图等区域的「失败」出口接了线，错会被接住走「失败」分支；没人接就直接让整个脚本报错停下。还能填「错误码」让下游 Switch 按码分流。',
-      example: '检查到血量为 0 说明角色已死，往下没法继续：接一个「抛错」消息填「角色死亡」，让外层区域的「失败」出口接住去做复活处理。',
+      description:
+        '主动报一个错并立刻中断当前流程，错误内容就是你填的「消息」。如果外层有 Loop / 子图等区域的「失败」出口接了线，错会被接住走「失败」分支；没人接就直接让整个脚本报错停下。还能填「错误码」让下游 Switch 按码分流。',
+      example:
+        '检查到血量为 0 说明角色已死，往下没法继续：接一个「抛错」消息填「角色死亡」，让外层区域的「失败」出口接住去做复活处理。',
       input: {
         Message: { label: '消息' },
         Code: { label: '错误码 (可选)' },
@@ -1863,15 +2312,29 @@ export default {
     },
     Win32WindowTarget: {
       label: 'Windows 窗口目标',
-      description: '指定脚本接下来操作哪个 Windows 窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个 Windows 窗口就放多个，分别切到不同窗口。Android 请用对应 Target 节点。',
-      example: '脚本要操作游戏窗口：开头放一个「Windows 窗口目标」，标题填游戏名，后面的 Windows 点击、按键就都打到这个窗口上。',
+      description:
+        '指定脚本接下来操作哪个 Windows 窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个 Windows 窗口就放多个，分别切到不同窗口。Android 请用对应 Target 节点。',
+      example:
+        '脚本要操作游戏窗口：开头放一个「Windows 窗口目标」，标题填游戏名，后面的 Windows 点击、按键就都打到这个窗口上。',
       input: {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
-        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', contains: '包含', prefix: '前缀', suffix: '后缀', regex: '正则' } },
+        TitleMatch: {
+          label: '标题匹配方式',
+          option: {
+            exact: '精确',
+            contains: '包含',
+            prefix: '前缀',
+            suffix: '后缀',
+            regex: '正则',
+          },
+        },
       },
-      output: { Done: { label: '完成', data: { Window: { hint: '切到的活动窗口' } } }, Fail: { label: '失败' } },
+      output: {
+        Done: { label: '完成', data: { Window: { hint: '切到的活动窗口' } } },
+        Fail: { label: '失败' },
+      },
       subgraph_hint: '子图内切窗口会影响调用方, 返回不自动还原',
       inspector: {
         capture_waiting: '等待 {hk} 按键 (再点取消)',
@@ -1890,14 +2353,19 @@ export default {
     },
     WaitWindow: {
       label: '等待窗口',
-      description: '轮询等待某个 Windows 窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「Windows 窗口目标」锁定（这时窗口已存在会立刻命中）。',
-      example: '「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「Windows 窗口目标」+ 后续操作，超时就发提示或重试。',
+      description:
+        '轮询等待某个 Windows 窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「Windows 窗口目标」锁定（这时窗口已存在会立刻命中）。',
+      example:
+        '「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「Windows 窗口目标」+ 后续操作，超时就发提示或重试。',
       input: {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
         TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
-        TimeoutMs: { label: '超时 (ms)', hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。' },
+        TimeoutMs: {
+          label: '超时 (ms)',
+          hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。',
+        },
       },
       output: { Found: { label: '出现' }, Timeout: { label: '超时' } },
     },
@@ -1909,7 +2377,16 @@ export default {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
-        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', contains: '包含', prefix: '前缀', suffix: '后缀', regex: '正则' } },
+        TitleMatch: {
+          label: '标题匹配方式',
+          option: {
+            exact: '精确',
+            contains: '包含',
+            prefix: '前缀',
+            suffix: '后缀',
+            regex: '正则',
+          },
+        },
       },
       output: {
         Done: { label: '完成', data: { Window: { hint: '解析到的窗口对象' } } },
@@ -1921,7 +2398,16 @@ export default {
       description: '最大化/最小化/还原/无边框全屏/退出无边框,作用于 Windows 窗口。',
       example: '把游戏窗口切到无边框全屏。',
       input: {
-        State: { label: '状态', option: { maximize: '最大化', minimize: '最小化', restore: '还原', borderlessFullscreen: '无边框全屏', restoreBorders: '退出无边框' } },
+        State: {
+          label: '状态',
+          option: {
+            maximize: '最大化',
+            minimize: '最小化',
+            restore: '还原',
+            borderlessFullscreen: '无边框全屏',
+            restoreBorders: '退出无边框',
+          },
+        },
         Window: { label: '窗口' },
       },
       output: { Done: { label: '完成', data: { Window: { hint: '操作后重读的窗口' } } } },
@@ -1948,22 +2434,35 @@ export default {
     },
     WaitWindowGone: {
       label: '等待窗口关闭',
-      description: '按标题/类名/进程名等某窗口从系统消失再放行——在超时内消失走「消失」，到点还没消失走「超时」（不报错，方便兜底）。常接在「关闭程序」后确认窗口真的关掉了。',
+      description:
+        '按标题/类名/进程名等某窗口从系统消失再放行——在超时内消失走「消失」，到点还没消失走「超时」（不报错，方便兜底）。常接在「关闭程序」后确认窗口真的关掉了。',
       input: {
         Title: { label: '窗口标题' },
         Class: { label: '窗口类名' },
         ProcessName: { label: '进程名' },
         TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
-        TimeoutMs: { label: '超时 (ms)', hint: '在这段时间内轮询等待窗口消失，到点还没消失走「超时」。' },
+        TimeoutMs: {
+          label: '超时 (ms)',
+          hint: '在这段时间内轮询等待窗口消失，到点还没消失走「超时」。',
+        },
       },
       output: { Gone: { label: '消失' }, Timeout: { label: '超时' } },
     },
-    SubgraphInput: { label: '子图入口', description: '子图内部的入口连接点——外面调用子图时从这里开始往下跑，传进来的参数也从这里取。位置能挪，但不能删、不能复制。' },
-    SubgraphOutput: { label: '子图出口', description: '子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。' },
+    SubgraphInput: {
+      label: '子图入口',
+      description:
+        '子图内部的入口连接点——外面调用子图时从这里开始往下跑，传进来的参数也从这里取。位置能挪，但不能删、不能复制。',
+    },
+    SubgraphOutput: {
+      label: '子图出口',
+      description:
+        '子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。',
+    },
     // variable
     GetVar: {
       label: '读变量',
-      description: '取出一个你之前存过的变量的值，接到需要它的地方用。作用域 scope 决定去哪找：local 只找当前子图里的，global 找全局共享的，auto 先找当前子图、找不到再去全局。',
+      description:
+        '取出一个你之前存过的变量的值，接到需要它的地方用。作用域 scope 决定去哪找：local 只找当前子图里的，global 找全局共享的，auto 先找当前子图、找不到再去全局。',
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1972,8 +2471,10 @@ export default {
     },
     SetVar: {
       label: '写变量',
-      description: '存一个变量，值随便填——文字、数字什么都行，之后用「读变量」取出来。作用域 scope 决定存到哪：local 存进当前子图（出了子图就没了），global 存到全局（哪都能读到），auto 当前子图已有同名就改它、否则存全局。',
-      example: '记录一个状态标记：SetVar（变量名 done、值 true），后面用 GetVar 读出来判断要不要跳过某步。',
+      description:
+        '存一个变量，值随便填——文字、数字什么都行，之后用「读变量」取出来。作用域 scope 决定存到哪：local 存进当前子图（出了子图就没了），global 存到全局（哪都能读到），auto 当前子图已有同名就改它、否则存全局。',
+      example:
+        '记录一个状态标记：SetVar（变量名 done、值 true），后面用 GetVar 读出来判断要不要跳过某步。',
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1983,8 +2484,10 @@ export default {
     },
     IncVar: {
       label: '变量自增',
-      description: '给一个变量加上增量（默认加 1，填负数就是减），常用来当计数器。变量原来没值就当 0 起算。作用域 scope 跟读/写变量一样：local / global / auto。',
-      example: '统计循环跑了几次：循环体里接 IncVar（变量名 count），每跑一圈就 +1，结束后用 GetVar 读 count 看总次数。',
+      description:
+        '给一个变量加上增量（默认加 1，填负数就是减），常用来当计数器。变量原来没值就当 0 起算。作用域 scope 跟读/写变量一样：local / global / auto。',
+      example:
+        '统计循环跑了几次：循环体里接 IncVar（变量名 count），每跑一圈就 +1，结束后用 GetVar 读 count 看总次数。',
       input: {
         VarName: { label: '变量名' },
         Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1994,20 +2497,25 @@ export default {
     },
     GetParam: {
       label: '读子图参数',
-      description: '读出调用这个子图时外面传进来的参数值，按参数名取。只能在子图内部用，相当于子图的「入参」。',
+      description:
+        '读出调用这个子图时外面传进来的参数值，按参数名取。只能在子图内部用，相当于子图的「入参」。',
       input: { ParamName: { label: '参数名' } },
       output: { Value: { label: '值' } },
     },
     Now: {
       label: '当前时间',
-      description: '返回当前时间的毫秒数（unix 毫秒，每次读都是实时的最新值）。常配「变量上次变化时间」算「某状态已经多久没动了」：当前时间 − 变量上次变化时间。',
-      example: '看血量多久没变（卡住了）：用「当前时间」减去「变量上次变化时间」（变量名填 hp），差值超过 5000 毫秒就当作卡住，触发重连。',
+      description:
+        '返回当前时间的毫秒数（unix 毫秒，每次读都是实时的最新值）。常配「变量上次变化时间」算「某状态已经多久没动了」：当前时间 − 变量上次变化时间。',
+      example:
+        '看血量多久没变（卡住了）：用「当前时间」减去「变量上次变化时间」（变量名填 hp），差值超过 5000 毫秒就当作卡住，触发重连。',
       output: { Value: { label: '当前时间(ms)' } },
     },
     VarLastChange: {
       label: '变量上次变化时间',
-      description: '返回某个变量上一次被写入/自增的时间（unix 毫秒），从没被改过返回 0。配「当前时间」算「这个值有多久没变了」，常用来做卡死检测/看门狗。',
-      example: '检测某状态卡死：变量名填 state，用「当前时间」减去本节点的结果，差值很大说明 state 很久没更新了，可触发恢复流程。',
+      description:
+        '返回某个变量上一次被写入/自增的时间（unix 毫秒），从没被改过返回 0。配「当前时间」算「这个值有多久没变了」，常用来做卡死检测/看门狗。',
+      example:
+        '检测某状态卡死：变量名填 state，用「当前时间」减去本节点的结果，差值很大说明 state 很久没更新了，可触发恢复流程。',
       input: { VarName: { label: '变量名', hint: '要查询上次变化时间的变量名' } },
       output: { Value: { label: '上次变化时间(ms)' } },
     },
@@ -2151,7 +2659,8 @@ export default {
     CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
     MISSING_WIN32_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
-    UNSUPPORTED_TARGET_CAPABILITY: '{kind} 需要目标能力 {capability}，但当前目标 {targetKind} 不支持',
+    UNSUPPORTED_TARGET_CAPABILITY:
+      '{kind} 需要目标能力 {capability}，但当前目标 {targetKind} 不支持',
     UNKNOWN_ERROR: '发生未知错误',
     WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
     CONTAINER_ID_REQUIRED: '缺容器 ID',
@@ -2176,7 +2685,8 @@ export default {
     PIN_TYPE_COERCION_WARNING: 'data pin 隐式类型转换: {from} → {to} (建议加 To* 节点显式)',
     GETVAR_UNKNOWN_VAR: 'GetVar/SetVar/IncVar 引用未声明的变量 {name}',
     GETVAR_TYPE_MISMATCH: 'GetVar 出的 type 跟下游期望不符',
-    LITERAL_TYPE_MISMATCH: 'inline literal 类型跟 pin type 不符 (pin {pin} 期望 {expected}, 实际值 {value})',
+    LITERAL_TYPE_MISMATCH:
+      'inline literal 类型跟 pin type 不符 (pin {pin} 期望 {expected}, 实际值 {value})',
     DATA_PIN_DANGLING: 'data-in pin {pin} 未连边也无 literal',
     DATA_GRAPH_CYCLE: '数据流形成环: {cycle}',
     EXPR_PARSE_ERROR: 'Expr 解析失败: {error}',
@@ -2190,12 +2700,15 @@ export default {
     EXPR_UNKNOWN_VAR: '表达式引用了未声明的变量 {name} — 检查拼写或先在变量面板声明',
     GETPARAM_UNKNOWN_PARAM: 'GetParam 引用未声明入参 {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
-    COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
+    COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL:
+      'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
     // B11/B3+ 加的 code
     INVALID_VAR_REF: '节点引用未声明的容器变量 {varName} (scope={scope})',
     // 禁用节点
-    WARN_DISABLED_BRANCH_NODE: '分支/异步节点 {nodeID} (kind={kind}) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁',
-    INVALID_DISABLED_TERMINAL: '容器级节点 {nodeID} (kind={kind}) 不允许禁用 (Start/MouseCalibration/EventTick)',
+    WARN_DISABLED_BRANCH_NODE:
+      '分支/异步节点 {nodeID} (kind={kind}) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁',
+    INVALID_DISABLED_TERMINAL:
+      '容器级节点 {nodeID} (kind={kind}) 不允许禁用 (Start/MouseCalibration/EventTick)',
     // sentinel scope
     BREAK_OUTSIDE_LOOP: 'Break 节点必须在 Loop body 下游 (同图内 exec 可达)',
     CONTINUE_OUTSIDE_LOOP: 'Continue 节点必须在 Loop body 下游 (同图内 exec 可达)',
@@ -2313,7 +2826,8 @@ export default {
     input_backend_label: '输入模式',
     input_backend_postmessage: 'PostMessage — 后台直发, 不抢焦点 (默认)',
     input_backend_sendinput: 'SendInput — 前台全局注入 (解析窗口时自动拉前台)',
-    input_backend_hint: 'PostMessage 按 Windows 窗口句柄直发、后台也能跑; SendInput 走系统全局注入需前台焦点 → 运行到 Windows 窗口目标解析窗口时自动把它拉到前台.',
+    input_backend_hint:
+      'PostMessage 按 Windows 窗口句柄直发、后台也能跑; SendInput 走系统全局注入需前台焦点 → 运行到 Windows 窗口目标解析窗口时自动把它拉到前台.',
     capture_backend_label: '截图后端',
     scale_tolerance_label: '模板缩放容差 (跨分辨率)',
     variables_section: '变量',
@@ -2393,7 +2907,8 @@ export default {
     main_save_failed: '主图保存失败',
     subgraph_save_failed: '{n} 个子图保存失败',
     stale_title: '盘上已有更新',
-    stale_desc: '有 {n} 个子图在别的窗口被保存过。重载会丢弃你本地对这些子图的修改; 保留本地则下次保存仍会提示。',
+    stale_desc:
+      '有 {n} 个子图在别的窗口被保存过。重载会丢弃你本地对这些子图的修改; 保留本地则下次保存仍会提示。',
     stale_reload: '重载盘上版本',
     stale_keep: '保留本地修改',
   },
@@ -2441,7 +2956,8 @@ export default {
     recording_failed: '录制失败',
     no_product: '录制结束但未拿到产物',
     default_clip_name: '录制片段',
-    container_mismatch: '录制子图已存入容器「{target}」，但当前打开的是「{current}」。请切到「{target}」查看录制结果。',
+    container_mismatch:
+      '录制子图已存入容器「{target}」，但当前打开的是「{current}」。请切到「{target}」查看录制结果。',
     leave_title: '录制进行中',
     leave_during_recording: '离开后录制结果无法自动接入当前视图, 需手动去目标容器查看。确定离开?',
     leave_confirm: '仍然离开',
@@ -2547,7 +3063,8 @@ export default {
       delete: '删除',
       delete_confirm_title: '删除子图',
       delete_confirm_desc: '确认删除 "{name}"? 此操作不可恢复.',
-      delete_confirm_referenced: '"{name}" 正被 {n} 个容器使用, 删除后这些容器会报"子图缺失"。确认删除? 此操作不可恢复.',
+      delete_confirm_referenced:
+        '"{name}" 正被 {n} 个容器使用, 删除后这些容器会报"子图缺失"。确认删除? 此操作不可恢复.',
     },
     toolbar: {
       total: '共 {n} 个',
@@ -2565,7 +3082,8 @@ export default {
       change_category_apply: '应用',
       delete_confirm_title: '批量删除子图',
       delete_confirm_desc: '确认删除选中的 {n} 个子图? 此操作不可恢复.',
-      delete_confirm_referenced: '选中的 {n} 个子图中有 {m} 个正被容器使用: {names}。删除后这些容器会报「子图缺失」。确认删除? 此操作不可恢复.',
+      delete_confirm_referenced:
+        '选中的 {n} 个子图中有 {m} 个正被容器使用: {names}。删除后这些容器会报「子图缺失」。确认删除? 此操作不可恢复.',
       add_tags_title: '批量加标签',
       add_tags_placeholder: '选择或输入要追加的标签…',
       add_tags_apply: '添加',
@@ -2783,7 +3301,8 @@ export default {
       paren_mismatch: '括号不匹配',
       string_unclosed: '字符串未闭合: 缺少 "',
       paren_missing: '括号不匹配: 缺 {count} 个 {char}',
-      bare_word: '看起来是裸词; 字符串字面量请加双引号 "{var}", 要用变量/参数请改用 GetVar / GetParam 节点接到输入 pin.',
+      bare_word:
+        '看起来是裸词; 字符串字面量请加双引号 "{var}", 要用变量/参数请改用 GetVar / GetParam 节点接到输入 pin.',
       op_end: '表达式以运算符结尾, 缺右侧操作数',
       unknown_fn: '未知函数 {name}',
     },
@@ -2805,7 +3324,8 @@ export default {
   // Script 脚本编辑器糖函数说明 (参考面板展开详情)。key 用 _ 替代 "." (vue-i18n 层级分隔)。
   script: {
     fn: {
-      Subgraph: '调用本容器里的一个子图, 跑完才返回。除 SubgraphID 外的字段会作为入参传给子图; 返回的 exit 是子图实际走到的出口名 (如 "done" / "failed")。',
+      Subgraph:
+        '调用本容器里的一个子图, 跑完才返回。除 SubgraphID 外的字段会作为入参传给子图; 返回的 exit 是子图实际走到的出口名 (如 "done" / "failed")。',
       params_get: '读子图入参 (只在子图里运行时有值)。',
       sleep: '等待指定毫秒。停止运行时立即中断, 不会卡住。',
       log_info: '输出一条日志到运行日志, 多个参数用空格拼接。',
@@ -2957,14 +3477,16 @@ export default {
   },
   settingsLauncher: {
     title: '悬浮窗启动器',
-    intro: '把常用容器编进悬浮窗，单击即跑。用「呼出/隐藏」热键（在 快捷键 页绑）或容器页「悬浮启动器」按钮打开。',
+    intro:
+      '把常用容器编进悬浮窗，单击即跑。用「呼出/隐藏」热键（在 快捷键 页绑）或容器页「悬浮启动器」按钮打开。',
     display_label: '按钮显示',
     display_hint: '悬浮窗里每个容器按钮显示图标、文字，或两者都显示。',
     display_both: '图标 + 文字',
     display_icon: '仅图标',
     display_text: '仅文字',
     layout_title: '编排',
-    layout_hint: '自由摆放：容器按钮、文字标题、水平分隔符（占整行的横线，把后面挤到下一排）、垂直分隔符（同排按钮间的竖线）。拖动重排。',
+    layout_hint:
+      '自由摆放：容器按钮、文字标题、水平分隔符（占整行的横线，把后面挤到下一排）、垂直分隔符（同排按钮间的竖线）。拖动重排。',
     empty: '空启动器 — 用下面的按钮添加块。',
     pick_icon: '选图标',
     clear_icon: '清除图标',
@@ -2992,7 +3514,8 @@ export default {
   settingsMCP: {
     title: 'MCP 服务器',
     armLabel: '允许执行和写入',
-    armWarning: '警告：允许后 AI 客户端可驱动鼠标键盘、运行节点并写入容器，请确保只连接受信任的 AI 客户端。',
+    armWarning:
+      '警告：允许后 AI 客户端可驱动鼠标键盘、运行节点并写入容器，请确保只连接受信任的 AI 客户端。',
     urlLabel: '服务器地址',
     urlHint: '本地服务默认常驻。未允许执行和写入时，AI 客户端只能使用只读工具。',
     copy: '复制',
@@ -3054,6 +3577,7 @@ export default {
     section_stack: '技术栈',
     section_thanks: '致谢',
     label_icon: '软件图标',
-    icon_credit: '图标来源于 Pixiv 公开作品, 版权归原作者所有. 本工具仅作个人使用, 如作者要求请联系替换.',
+    icon_credit:
+      '图标来源于 Pixiv 公开作品, 版权归原作者所有. 本工具仅作个人使用, 如作者要求请联系替换.',
   },
 }

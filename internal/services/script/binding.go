@@ -100,7 +100,7 @@ func bindNode(vm *goja.Runtime, c node.Ctx, rn *node.RegisteredNode, bundle node
 	kind := rn.Spec.Kind
 	if rn.Evaluate != nil {
 		vm.Set(kind, func(call goja.FunctionCall) goja.Value {
-			args := exportArg(vm, kind, call)
+			args := node.CoerceInputMap(&rn.Spec, exportArg(vm, kind, call))
 			v, err := node.EvaluatePureData(c.Context(), rn, args, nil, bundle)
 			if err != nil {
 				throwErr(vm, kind, node.CodeError, err.Error())
@@ -110,7 +110,7 @@ func bindNode(vm *goja.Runtime, c node.Ctx, rn *node.RegisteredNode, bundle node
 		return
 	}
 	vm.Set(kind, func(call goja.FunctionCall) goja.Value {
-		args := exportArg(vm, kind, call)
+		args := node.CoerceInputMap(&rn.Spec, exportArg(vm, kind, call))
 		res := node.RunNode(c.Context(), rn, args, nil, nil, bundle, false)
 		if res.Panic != nil {
 			panic(res.Panic) // 框架不变量破坏 — 不许被脚本 catch, 上抛给宿主 runWithRecover

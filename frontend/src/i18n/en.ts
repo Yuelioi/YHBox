@@ -45,10 +45,8 @@ export default {
       hint_auto:
         'Auto: WGC on Win11/Server 2022 (no yellow border, stable in bg), GDI elsewhere. Default for new installs.',
       hint_gdi: 'GDI (PrintWindow) — broadest compatibility.',
-      hint_wgc:
-        'WGC (Windows Graphics Capture) — stable bg capture but yellow border on Win10.',
-      hint_mock:
-        'Mock: replay PNG sequence from bin/mock-frames/. Debug only, no game needed.',
+      hint_wgc: 'WGC (Windows Graphics Capture) — stable bg capture but yellow border on Win10.',
+      hint_mock: 'Mock: replay PNG sequence from bin/mock-frames/. Debug only, no game needed.',
       restart_hint: 'Restart exe to apply.',
       method: {
         auto: 'Auto (OS-based)',
@@ -100,23 +98,21 @@ export default {
         col_label: 'Name',
         col_counts: 'counts360',
         label_placeholder: 'e.g. Genshin / Valorant',
-        empty: 'No calibration profiles yet. Click "Add profile" below, then "Calibrate" to measure the value.',
+        empty:
+          'No calibration profiles yet. Click "Add profile" below, then "Calibrate" to measure the value.',
         add_profile: 'Add profile',
         new_profile_label: 'New profile',
         delete_profile: 'Delete this profile',
         recalibrate: 'Calibrate this profile',
         sync_all: 'Sync default profile to all containers',
-        share_hint:
-          'You can also hand-enter counts shared from another machine\'s script',
+        share_hint: "You can also hand-enter counts shared from another machine's script",
       },
       howto: {
         title: 'How to use',
         step_open: 'Click "Start calibration" to open the dialog',
         step_focus: 'Switch to game, aim at a fixed reference, get ready',
-        step_start:
-          'Press {hk} to start a 3-second countdown (no need to come back to this app!)',
-        step_spin:
-          'After countdown, accumulation starts → turn 360° in place at steady speed',
+        step_start: 'Press {hk} to start a 3-second countdown (no need to come back to this app!)',
+        step_spin: 'After countdown, accumulation starts → turn 360° in place at steady speed',
         step_stop: 'Press {hk} again to stop',
         step_save: 'Switch back to the app and click Save',
       },
@@ -128,7 +124,7 @@ export default {
       confirm: {
         sync_title: 'Sync to all containers?',
         sync_desc:
-          'Current local counts360 = {cur}.\nSyncing overwrites the value in every local container\'s main-graph MouseCalibration node.',
+          "Current local counts360 = {cur}.\nSyncing overwrites the value in every local container's main-graph MouseCalibration node.",
         sync_confirm: 'Sync',
         sync_cancel: 'Do not sync',
       },
@@ -186,7 +182,8 @@ export default {
     },
     debug: {
       confirm_from_here_title: 'Debug from this node?',
-      confirm_from_here_desc: 'Execution will start at "{node}". Upstream nodes will not run first; if this node depends on variables or state produced upstream, results may differ from the full flow.',
+      confirm_from_here_desc:
+        'Execution will start at "{node}". Upstream nodes will not run first; if this node depends on variables or state produced upstream, results may differ from the full flow.',
       confirm_from_here_action: 'Start debug',
     },
     canvas: {
@@ -212,7 +209,8 @@ export default {
       output: 'Output',
       vars: 'Vars',
       queue: 'Queue',
-      side_effect_warning: 'Debug runs real automation actions. Side effects that already happened are not automatically rolled back.',
+      side_effect_warning:
+        'Debug runs real automation actions. Side effects that already happened are not automatically rolled back.',
       unknown_error: 'Debug failed',
       status: {
         idle: 'Idle',
@@ -225,13 +223,16 @@ export default {
         stopped: 'Stopped',
       },
       warning: {
-        debug_skips_upstream_context: 'Debug from this node skips upstream nodes and may use existing variables or target state.',
+        debug_skips_upstream_context:
+          'Debug from this node skips upstream nodes and may use existing variables or target state.',
       },
     },
     hard_delete: {
       title: 'Delete for good',
-      confirm: 'Permanently delete {n} underlying definition(s) (subgraph / clip), removing them from the library. Continue?',
-      confirm_referenced: 'Permanently delete {n} underlying definition(s); {refs} other reference(s) still use them and will become "not found". Continue?',
+      confirm:
+        'Permanently delete {n} underlying definition(s) (subgraph / clip), removing them from the library. Continue?',
+      confirm_referenced:
+        'Permanently delete {n} underlying definition(s); {refs} other reference(s) still use them and will become "not found". Continue?',
       done: 'Permanently deleted {n} definition(s)',
       failed: 'Failed to delete {n} definition(s)',
     },
@@ -273,7 +274,8 @@ export default {
       stop_run_tip: 'Stop current run + clear queue ({hk})',
       debug: 'Debug',
       debug_tip: 'Start a debug session from the entry',
-      debug_side_effect_tip: 'Debug is real execution: clicks, typing, launching programs, file writes, and similar actions are not automatically rolled back.',
+      debug_side_effect_tip:
+        'Debug is real execution: clicks, typing, launching programs, file writes, and similar actions are not automatically rolled back.',
       debug_dirty_tip: 'Please save before debugging',
       debug_step: 'Step',
       debug_step_tip: 'Execute one node',
@@ -284,8 +286,7 @@ export default {
       debug_stop_tip: 'Stop debug session',
       validate: 'Validate',
       validate_tip: 'Validate main graph + all subgraphs',
-      validate_dirty_tip:
-        'Please save first — validation reads the persisted version',
+      validate_dirty_tip: 'Please save first — validation reads the persisted version',
       run_hero: 'Run',
       try_run_tip: 'Enqueue one run',
       try_run_dirty_tip: 'Please save before running',
@@ -341,19 +342,25 @@ export default {
         nodes: 'Nodes',
       },
       gs: {
-        intro: 'Yotta is a general-purpose game automation scripting framework. Workflow: create a container → wire a node graph → trigger it.',
+        intro:
+          'Yotta is a general-purpose game automation scripting framework. Workflow: create a container → wire a node graph → trigger it.',
         step1: 'Click "Containers" in the sidebar → create one',
-        step2: 'Drag nodes / wire / configure in the editor (palette on the left, inspector on the right)',
+        step2:
+          'Drag nodes / wire / configure in the editor (palette on the left, inspector on the right)',
         step3: 'Click "Test run" to run once, or bind a hotkey / schedule under "Schedules"',
-        step4: 'Reusable fragments → fold into a subgraph → publish to the library, share across containers',
+        step4:
+          'Reusable fragments → fold into a subgraph → publish to the library, share across containers',
         uac_title: 'Run as administrator',
         uac: 'Injecting input into games requires running Yotta.exe as administrator (right-click → Run as administrator), otherwise clicks / keys will not register.',
       },
       errorcodes_hint: 'Codes a node emits from its Fail output — branch on them with Switch.',
       errorcode_desc: {
-        launch_failed: 'RunProgram could not start the program — wrong path / missing / no permission.',
-        capture_failed: 'Screenshot, color detection or template matching failed — often the automation target is unavailable, minimized, or closed.',
-        write_failed: 'Screenshot etc. failed to write a file — illegal path / dir not writable / disk full.',
+        launch_failed:
+          'RunProgram could not start the program — wrong path / missing / no permission.',
+        capture_failed:
+          'Screenshot, color detection or template matching failed — often the automation target is unavailable, minimized, or closed.',
+        write_failed:
+          'Screenshot etc. failed to write a file — illegal path / dir not writable / disk full.',
         not_found: 'A window/target node could not find its matching object.',
         timeout: 'A wait operation did not get a result within the time limit.',
         playback_failed: 'PlayClip failed to replay a recorded clip.',
@@ -362,16 +369,38 @@ export default {
         error: 'Fallback / unclassified failure.',
       },
       shortcuts_hint: 'Built-in container-editor shortcuts (see Settings → Hotkeys for conflicts).',
-      nodes_hint: 'Nodes by category. Press Tab to open the Node Explorer to browse / search specific nodes.',
+      nodes_hint:
+        'Nodes by category. Press Tab to open the Node Explorer to browse / search specific nodes.',
       node_group: {
         control: { label: 'Control', desc: 'Start / Sleep / Loop / If / Stop / Break / Continue' },
-        variable: { label: 'Variables', desc: 'SetVar / IncVar — container scope + subgraph-local scope (auto-isolated at runtime)' },
-        image: { label: 'Image', desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — template matching & color detection' },
-        input: { label: 'Input', desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — inject input into the current automation target' },
-        event: { label: 'Event', desc: 'EventTick — periodic background trigger, spawns a subgraph every N ms (non-blocking)' },
-        subgraph: { label: 'Subgraph', desc: 'Subgraph call / SubgraphInput entry / SubgraphOutput exit' },
-        system: { label: 'System', desc: 'Subgraph / Throw / MouseCalibration — system helpers, graph structure, and local calibration nodes' },
-        config: { label: 'Config', desc: 'MouseCalibration — calibrate this machine 360° HID counts for MouseMoveRel scaling' },
+        variable: {
+          label: 'Variables',
+          desc: 'SetVar / IncVar — container scope + subgraph-local scope (auto-isolated at runtime)',
+        },
+        image: {
+          label: 'Image',
+          desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — template matching & color detection',
+        },
+        input: {
+          label: 'Input',
+          desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — inject input into the current automation target',
+        },
+        event: {
+          label: 'Event',
+          desc: 'EventTick — periodic background trigger, spawns a subgraph every N ms (non-blocking)',
+        },
+        subgraph: {
+          label: 'Subgraph',
+          desc: 'Subgraph call / SubgraphInput entry / SubgraphOutput exit',
+        },
+        system: {
+          label: 'System',
+          desc: 'Subgraph / Throw / MouseCalibration — system helpers, graph structure, and local calibration nodes',
+        },
+        config: {
+          label: 'Config',
+          desc: 'MouseCalibration — calibrate this machine 360° HID counts for MouseMoveRel scaling',
+        },
         debug: { label: 'Debug', desc: 'Log / Toast' },
       },
     },
@@ -424,7 +453,8 @@ export default {
       title: 'JS console',
       run: 'Run',
       hint: 'Bulk-edit nodes in this container (incl. subgraphs). Scripts run synchronously — an infinite loop will freeze the UI, so make sure it terminates. Changes are one-step Ctrl+Z undoable; Ctrl+S to save.',
-      placeholder: "e.g. yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
+      placeholder:
+        "e.g. yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
       applied: 'Changed {pins} pin(s) on {nodes} node(s)',
       rejected: '{n} rejected:',
     },
@@ -548,20 +578,24 @@ export default {
     log_enabled_hint: 'Send debug info to the log panel & log file',
     concurrency_warn_title: 'Concurrent branches writing the same variable',
     expr_chain_title: 'Expr chain detected',
-    expr_chain_desc: 'After fusion, the current node\'s expression inlines into the downstream Expr (as a parenthesized sub-expression); the current node is removed.',
+    expr_chain_desc:
+      "After fusion, the current node's expression inlines into the downstream Expr (as a parenthesized sub-expression); the current node is removed.",
     expr_chain_fuse: 'Fuse into downstream Expr',
     screen_pick_label: 'Screen pick',
     screen_pick_point: 'Pick point',
     screen_pick_rect: 'Pick ROI',
     screen_pick_hud: 'Mouse HUD',
-    screen_pick_hint: 'Opens a window that captures the current game screen — {action} auto-fills the field.',
+    screen_pick_hint:
+      'Opens a window that captures the current game screen — {action} auto-fills the field.',
     screen_pick_action_drag: 'drag a rectangle to',
     screen_pick_action_click: 'one click to',
     color_pick_huewrap_title: 'Hue crosses the red boundary — downgraded',
-    color_pick_huewrap_desc: 'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
+    color_pick_huewrap_desc:
+      'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
     dyn_inputs_title: 'Inputs',
     dyn_outputs_title: 'Outputs',
-    dyn_outputs_hint: 'Declare typed output fields; the model returns matching JSON. Bind each field to a variable in the Outputs group below. Text is the raw model output and is always present.',
+    dyn_outputs_hint:
+      'Declare typed output fields; the model returns matching JSON. Bind each field to a variable in the Outputs group below. Text is the raw model output and is always present.',
     code_expand: 'Expand editor',
     code_editor_title: 'Edit code',
     expr_editor_title: 'Edit expression',
@@ -576,17 +610,46 @@ export default {
     editor_comment: 'Toggle comment (Ctrl+/)',
     editor_search: 'Find and replace (Ctrl+F)',
     editor_snippets: 'Snippets',
-    editor_snippets_tip: 'Manage snippets — click with a selection to save it; type a prefix in the editor to insert via completion',
+    editor_snippets_tip:
+      'Manage snippets — click with a selection to save it; type a prefix in the editor to insert via completion',
     snippet_manager_title: 'Snippets',
     snippet_manager_new: 'New snippet',
     snippet_manager_prefix: 'Prefix',
-    snippet_manager_prefix_invalid: 'Prefix must look like an identifier: letters/digits/underscore, not starting with a digit',
+    snippet_manager_prefix_invalid:
+      'Prefix must look like an identifier: letters/digits/underscore, not starting with a digit',
     snippet_manager_name: 'Name',
     snippet_manager_description: 'Description (optional, shown in completion info)',
     snippet_manager_body: 'Snippet body — replaces the typed prefix when picked from completion',
-    snippet_manager_empty: 'No snippets yet — select code and click the snippets button, or create one here',
+    snippet_manager_empty:
+      'No snippets yet — select code and click the snippets button, or create one here',
     editor_new_var: 'New variable',
+    editor_capture_template: 'Capture template',
+    editor_capture_template_tip:
+      'Capture the current target window as a template and insert its GUID at the cursor',
+    editor_capture_point: 'Pick point',
+    editor_capture_point_tip:
+      'Pick a point from the current target window and insert a Point object at the cursor',
+    editor_capture_rect: 'Pick region',
+    editor_capture_rect_tip:
+      'Select a region in the current target window and insert a Geometry object at the cursor',
+    editor_capture_color: 'Pick color',
+    editor_capture_color_tip:
+      'Pick a color from the current target window and insert a Range or HSV object for the current color pin',
+    editor_capture_key: 'Capture key',
+    editor_capture_key_tip: 'Capture the next key press and insert its VK string at the cursor',
+    editor_capture_key_waiting: 'Press key',
+    editor_capture_key_cancel_tip: 'Cancel key capture',
     editor_insert: 'Insert',
+    editor_insert_tip: 'Insert candidate values, captured assets, or picked samples',
+    editor_insert_candidate: 'Insert candidate',
+    editor_async_candidates_title: 'Insert candidate',
+    editor_async_candidates_hint: 'Choose a candidate value to insert at the cursor.',
+    editor_async_candidates_context: 'Candidates for {kind}.{pin}',
+    editor_async_loading: 'Loading candidates…',
+    editor_async_empty: 'No candidates available',
+    editor_async_no_context:
+      'The cursor is not on a parameter value that supports dynamic candidates',
+    editor_async_load_failed: 'Failed to load candidates',
     editor_params: 'Parameters',
     editor_status_stats: '{lines} lines · {chars} chars',
     editor_indent_tidy: 'Reindent',
@@ -598,26 +661,49 @@ export default {
     editor_restore: 'Restore size',
     editor_status_ok: 'No syntax errors',
     editor_goto_error: 'Click to jump to the error',
-    editor_syntax_error_line: 'Possible syntax issue near line {line} (save-time validation is authoritative)',
+    editor_syntax_error_line:
+      'Possible syntax issue near line {line} (save-time validation is authoritative)',
     editor_unknown_var: `{'$'}{name} is not declared — fails at runtime; declare it first or use the GetVar node function`,
     editor_lang_expr: 'Expression',
-    dyn_inputs_hint: 'Inputs are data pins for wiring node outputs in; to use a variable, just write $name in the expression/script.',
+    dyn_inputs_hint:
+      'Inputs are data pins for wiring node outputs in; to use a variable, just write $name in the expression/script.',
     literal_section: 'Data inputs (literal)',
     output: {
       bind: 'Bind variable',
       unbind_tooltip: 'Unbind',
-      dangling_hint: 'Field no longer exists (declaration removed/changed) — stale binding; unbind to clear the error',
-      stale_hint: 'This variable updates only when this exit fires; otherwise it keeps its previous value.',
+      dangling_hint:
+        'Field no longer exists (declaration removed/changed) — stale binding; unbind to clear the error',
+      stale_hint:
+        'This variable updates only when this exit fires; otherwise it keeps its previous value.',
       found_hint: 'Whether it matched (true/false) — updated every run.',
       field: {
-        Count: 'Hit pixel count', Center: 'Hit center',
-        PixelCount: 'Hit pixel count', PixelRatio: 'Hit ratio',
-        Blobs: 'Blobs', BlobCount: 'Blob count', PrimaryCenter: 'Primary center', PrimaryArea: 'Primary area',
-        Clusters: 'Clusters', ClusterCount: 'Cluster count',
-        InnerX: 'Inner position', OuterX: 'Outer position', OuterWidth: 'Outer width', Confidence: 'Confidence', InnerPx: 'Inner pixel width', OuterPx: 'Outer pixel width',
-        Path: 'File path', Point: 'Hit point', Conf: 'Match score', Matched: 'Matched',
-        Index: 'Index', Item: 'Item', Result: 'Result', ElapsedMs: 'Elapsed (ms)', DeltaMs: 'Delta (ms)',
-        Error: 'Error', Code: 'Code',
+        Count: 'Hit pixel count',
+        Center: 'Hit center',
+        PixelCount: 'Hit pixel count',
+        PixelRatio: 'Hit ratio',
+        Blobs: 'Blobs',
+        BlobCount: 'Blob count',
+        PrimaryCenter: 'Primary center',
+        PrimaryArea: 'Primary area',
+        Clusters: 'Clusters',
+        ClusterCount: 'Cluster count',
+        InnerX: 'Inner position',
+        OuterX: 'Outer position',
+        OuterWidth: 'Outer width',
+        Confidence: 'Confidence',
+        InnerPx: 'Inner pixel width',
+        OuterPx: 'Outer pixel width',
+        Path: 'File path',
+        Point: 'Hit point',
+        Conf: 'Match score',
+        Matched: 'Matched',
+        Index: 'Index',
+        Item: 'Item',
+        Result: 'Result',
+        ElapsedMs: 'Elapsed (ms)',
+        DeltaMs: 'Delta (ms)',
+        Error: 'Error',
+        Code: 'Code',
       },
     },
     config_section: 'Config',
@@ -642,7 +728,8 @@ export default {
     unit_px: 'Pixels',
     pick_point: 'Pick on screen',
     no_window_title: 'Target not ready',
-    no_window_desc: "Current target is not ready — can't convert units; open or switch target then retry",
+    no_window_desc:
+      "Current target is not ready — can't convert units; open or switch target then retry",
     hint_percent: 'Proportional: adapts to target frame size (scales with resolution)',
     hint_px: 'Absolute pixels: fixed, does not scale with the target frame — for fixed-position UI',
   },
@@ -654,7 +741,8 @@ export default {
     pick_screen_rect: 'Pick region',
     advanced_overrides: 'Advanced: resolution overrides',
     pick_override_rect: 'Pick region (px)',
-    pick_res_mismatch: 'Picked while window was {w}×{h}, differs from this resolution slot; coords mapped by slot resolution',
+    pick_res_mismatch:
+      'Picked while window was {w}×{h}, differs from this resolution slot; coords mapped by slot resolution',
     add_override_title: 'Add resolution override',
     dup_resolution: 'Override for this resolution already exists',
     add: 'Add',
@@ -679,14 +767,22 @@ export default {
     // ai
     AI: {
       label: 'Call AI',
-      description: 'Send a prompt to a configured LLM and get the reply. Configure an AI connection in settings first, then pick the connection and model here; interpolate declared inputs into the prompt using double curly braces. For structured output, declare typed fields and bind each to a variable.',
-      example: 'Have the model read a screenshot and classify the screen: pick a local or online model, set the user prompt to ask what screen it is, read the reply from the Model text output.',
+      description:
+        'Send a prompt to a configured LLM and get the reply. Configure an AI connection in settings first, then pick the connection and model here; interpolate declared inputs into the prompt using double curly braces. For structured output, declare typed fields and bind each to a variable.',
+      example:
+        'Have the model read a screenshot and classify the screen: pick a local or online model, set the user prompt to ask what screen it is, read the reply from the Model text output.',
       input: {
         Connection: { label: 'Connection', useDefault: '(use default)' },
         Model: { label: 'Model', hint: 'Model name, e.g. deepseek-chat, gpt-4o' },
         System: { label: 'System prompt' },
-        User: { label: 'User prompt', hint: 'Interpolate declared input names with double curly braces; image inputs render as a placeholder and stay out of text' },
-        Mode: { label: 'Structured mode', option: { auto: 'Auto (by endpoint)', native: 'Native', prompt: 'Prompt injection' } },
+        User: {
+          label: 'User prompt',
+          hint: 'Interpolate declared input names with double curly braces; image inputs render as a placeholder and stay out of text',
+        },
+        Mode: {
+          label: 'Structured mode',
+          option: { auto: 'Auto (by endpoint)', native: 'Native', prompt: 'Prompt injection' },
+        },
         Temperature: { label: 'Temperature' },
         MaxTokens: { label: 'Max tokens' },
       },
@@ -701,31 +797,45 @@ export default {
     // control
     Start: {
       label: 'Start',
-      description: 'The starting line of your script. Execution begins here and flows downward. A graph has exactly one Start.',
+      description:
+        'The starting line of your script. Execution begins here and flows downward. A graph has exactly one Start.',
       output: { Done: { label: 'Start' } },
     },
-    Stop: { label: 'Stop', description: 'Cleanly halts the whole script right away — not treated as an error. Once it reaches here, no further steps run.' },
+    Stop: {
+      label: 'Stop',
+      description:
+        'Cleanly halts the whole script right away — not treated as an error. Once it reaches here, no further steps run.',
+    },
     Sleep: {
       label: 'Sleep',
-      description: 'Pauses here for a set amount of time before moving on — handy for letting screens, animations, or loads settle. Add jitter to make each wait vary randomly around the set value, so it feels less robotic. Stopping the script interrupts the wait immediately instead of waiting it out.',
-      example: 'After clicking a button, wait for a dialog: set duration to 1 second with ±20% jitter, and each wait lands somewhere around 0.8–1.2 seconds, looking more human.',
+      description:
+        'Pauses here for a set amount of time before moving on — handy for letting screens, animations, or loads settle. Add jitter to make each wait vary randomly around the set value, so it feels less robotic. Stopping the script interrupts the wait immediately instead of waiting it out.',
+      example:
+        'After clicking a button, wait for a dialog: set duration to 1 second with ±20% jitter, and each wait lands somewhere around 0.8–1.2 seconds, looking more human.',
       input: {
         Duration: { label: 'Duration' },
-        JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = duration varies within ±10% (near-normal)' },
+        JitterPct: {
+          label: 'Jitter ±%',
+          hint: '0 = off; e.g. 10 = duration varies within ±10% (near-normal)',
+        },
       },
       output: { Done: { label: 'Done' } },
     },
     If: {
       label: 'If',
-      description: 'Splits into two paths based on a yes/no condition: when true it takes the True exit, when false the False exit. Lets the script do different things depending on the situation.',
-      example: 'Detected the "start battle" icon on screen → wire it into the condition, connect attack to the True exit and keep-walking to the False exit, and the script picks one automatically.',
+      description:
+        'Splits into two paths based on a yes/no condition: when true it takes the True exit, when false the False exit. Lets the script do different things depending on the situation.',
+      example:
+        'Detected the "start battle" icon on screen → wire it into the condition, connect attack to the True exit and keep-walking to the False exit, and the script picks one automatically.',
       input: { Condition: { label: 'Condition' } },
       output: { True: { label: 'True' }, False: { label: 'False' } },
     },
     Loop: {
       label: 'Loop',
-      description: 'Runs the steps in its body over and over. Pick Count mode for a fixed number of passes, or Forever to keep going until you stop it manually. Inside the body, Break ends the loop early and Continue skips the rest of the current pass to start the next one.',
-      example: 'To farm a dungeon 50 times: set mode to Count and count to 50, wire the enter-to-reward steps into the body, and it repeats 50 times; drop a Break in the body to bail out early when the bag is full.',
+      description:
+        'Runs the steps in its body over and over. Pick Count mode for a fixed number of passes, or Forever to keep going until you stop it manually. Inside the body, Break ends the loop early and Continue skips the rest of the current pass to start the next one.',
+      example:
+        'To farm a dungeon 50 times: set mode to Count and count to 50, wire the enter-to-reward steps into the body, and it repeats 50 times; drop a Break in the body to bail out early when the bag is full.',
       input: {
         Mode: { label: 'Mode', option: { count: 'Count', forever: 'Forever' } },
         Count: { label: 'Count (mode=count)' },
@@ -738,8 +848,10 @@ export default {
     },
     Switch: {
       label: 'Switch (multi-case)',
-      description: 'Picks one of many paths based on an input value. You list out the values you care about (each value is an exit), and at run time the input is compared against them — it takes the matching exit, or falls back to Default if none match. Cleaner than chaining a pile of If nodes.',
-      example: 'Route by the character state: feed "state" into the value, list cases IDLE, FIGHT, DEAD wired to idle, fight, and revive actions; any other value takes Default.',
+      description:
+        'Picks one of many paths based on an input value. You list out the values you care about (each value is an exit), and at run time the input is compared against them — it takes the matching exit, or falls back to Default if none match. Cleaner than chaining a pile of If nodes.',
+      example:
+        'Route by the character state: feed "state" into the value, list cases IDLE, FIGHT, DEAD wired to idle, fight, and revive actions; any other value takes Default.',
       input: {
         Value: { label: 'Value' },
       },
@@ -748,28 +860,45 @@ export default {
       },
       inspector: {
         value_label: 'Value expression',
-        value_hint: 'At runtime this expression is matched against each case (first-match-wins); unmatched falls through to default.',
+        value_hint:
+          'At runtime this expression is matched against each case (first-match-wins); unmatched falls through to default.',
         cases_label: 'Cases',
         cases_count: '{n} item(s)',
-        dangling_warn: '{n} edge(s) reference a deleted/renamed case pin — reconnect or disconnect manually.',
+        dangling_warn:
+          '{n} edge(s) reference a deleted/renamed case pin — reconnect or disconnect manually.',
         empty: 'No cases yet — click the button below to add',
         case_placeholder: 'case string (e.g. IDLE)',
         delete_case_title: 'Delete this case',
         add_case: 'Add case',
-        footer_pre: 'The case name IS the output pin name. Renaming requires reconnecting existing edges.',
+        footer_pre:
+          'The case name IS the output pin name. Renaming requires reconnecting existing edges.',
         footer_post: 'exit is always present.',
         delete_confirm_title: 'Delete case "{name}"?',
-        delete_confirm_desc: 'This case has {count} outgoing edge(s) — they will disconnect and need manual reconnect.',
+        delete_confirm_desc:
+          'This case has {count} outgoing edge(s) — they will disconnect and need manual reconnect.',
       },
     },
-    Break: { label: 'Break', description: 'Ends the loop it sits in early and jumps to whatever comes after the loop. Must be used inside a loop body — using it outside a loop raises an error.' },
-    Continue: { label: 'Continue', description: 'Skips the rest of the current loop pass and jumps straight to the next one. Must be used inside a loop body.' },
+    Break: {
+      label: 'Break',
+      description:
+        'Ends the loop it sits in early and jumps to whatever comes after the loop. Must be used inside a loop body — using it outside a loop raises an error.',
+    },
+    Continue: {
+      label: 'Continue',
+      description:
+        'Skips the rest of the current loop pass and jumps straight to the next one. Must be used inside a loop body.',
+    },
     Script: {
       label: 'Script',
-      description: 'Write a piece of logic in JavaScript: loops, conditions and variables all work, and you can call other nodes directly by writing the node name as a function (e.g. ClickAt, WaitTemplate). Great for complex flows that would be too tangled to wire up.',
-      example: 'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
+      description:
+        'Write a piece of logic in JavaScript: loops, conditions and variables all work, and you can call other nodes directly by writing the node name as a function (e.g. ClickAt, WaitTemplate). Great for complex flows that would be too tangled to wire up.',
+      example:
+        'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
       input: {
-        Code: { label: 'Code', hint: 'Use return to give back a result. Read variables with $name or GetVar, write with SetVar; sleep(ms) waits.' },
+        Code: {
+          label: 'Code',
+          hint: 'Use return to give back a result. Read variables with $name or GetVar, write with SetVar; sleep(ms) waits.',
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
@@ -777,15 +906,29 @@ export default {
     // detect
     WaitTemplate: {
       label: 'Wait template',
-      description: 'Watches the screen and keeps looking for the image (template) you picked. The moment it appears, take the Found exit with its location; if the timeout runs out first, take Timeout. Use it to wait for an icon/button to load before continuing.',
-      example: 'Fishing, wait for the «hook» icon to pop up: pick fishing.hook_icon, set timeout 5s, wire Found to the reel-in action; if 5s pass with no bite, take Timeout and cast again.',
+      description:
+        'Watches the screen and keeps looking for the image (template) you picked. The moment it appears, take the Found exit with its location; if the timeout runs out first, take Timeout. Use it to wait for an icon/button to load before continuing.',
+      example:
+        'Fishing, wait for the «hook» icon to pop up: pick fishing.hook_icon, set timeout 5s, wire Found to the reel-in action; if 5s pass with no bite, take Timeout and cast again.',
       input: {
-        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
+        Templates: {
+          label: 'Templates',
+          hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed',
+        },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        ROI: { label: 'Search region', hint: 'Only wait for the template inside this region; leave empty = full screen' },
-        PollIntervalMs: { label: 'Poll interval (ms)', hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.' },
-        SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).' },
+        ROI: {
+          label: 'Search region',
+          hint: 'Only wait for the template inside this region; leave empty = full screen',
+        },
+        PollIntervalMs: {
+          label: 'Poll interval (ms)',
+          hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.',
+        },
+        SettleMs: {
+          label: 'Settle delay (ms)',
+          hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).',
+        },
         Window: { label: 'Window' },
       },
       output: {
@@ -802,14 +945,28 @@ export default {
     },
     WaitTemplateGone: {
       label: 'Wait template gone',
-      description: 'Watches the screen and keeps checking that the image (template) you picked has disappeared. Once it is gone, take the Gone exit; if it is still there when the timeout runs out, take Timeout with the last match score. Use it to wait for a loading screen, overlay, or dialog to close before continuing.',
-      example: 'Wait for the login progress bar to vanish before clicking next: pick the loading-bar template, set timeout 10s, wire Gone to the continue step; if it has not gone after 10s, Timeout handles the error.',
+      description:
+        'Watches the screen and keeps checking that the image (template) you picked has disappeared. Once it is gone, take the Gone exit; if it is still there when the timeout runs out, take Timeout with the last match score. Use it to wait for a loading screen, overlay, or dialog to close before continuing.',
+      example:
+        'Wait for the login progress bar to vanish before clicking next: pick the loading-bar template, set timeout 10s, wire Gone to the continue step; if it has not gone after 10s, Timeout handles the error.',
       input: {
-        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. ns.loading_bar; multiple allowed (any hit = still present)' },
-        TimeoutMs: { label: 'Timeout (ms)', hint: '0 = check current frame once only — gone takes Gone, still present takes Timeout' },
+        Templates: {
+          label: 'Templates',
+          hint: 'namespace.name format, e.g. ns.loading_bar; multiple allowed (any hit = still present)',
+        },
+        TimeoutMs: {
+          label: 'Timeout (ms)',
+          hint: '0 = check current frame once only — gone takes Gone, still present takes Timeout',
+        },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        ROI: { label: 'Search region', hint: 'Only check whether the template is still present inside this region; leave empty = full screen' },
-        PollIntervalMs: { label: 'Poll interval (ms)', hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.' },
+        ROI: {
+          label: 'Search region',
+          hint: 'Only check whether the template is still present inside this region; leave empty = full screen',
+        },
+        PollIntervalMs: {
+          label: 'Poll interval (ms)',
+          hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.',
+        },
         Window: { label: 'Window' },
       },
       output: {
@@ -823,12 +980,20 @@ export default {
     },
     CheckTemplate: {
       label: 'Check template',
-      description: 'Looks at the current frame only and checks whether the image (template) you picked is on screen. If it is, take Found with its location; if not, take NotFound. It does not wait — just one glance — so it is great for an instant «is this on screen right now?» branch.',
-      example: 'Decide if you are in the combat screen: pick a combat-only icon, wire Found to the fighting logic and NotFound to the travel logic, and the script branches automatically from one glance at the current frame.',
+      description:
+        'Looks at the current frame only and checks whether the image (template) you picked is on screen. If it is, take Found with its location; if not, take NotFound. It does not wait — just one glance — so it is great for an instant «is this on screen right now?» branch.',
+      example:
+        'Decide if you are in the combat screen: pick a combat-only icon, wire Found to the fighting logic and NotFound to the travel logic, and the script branches automatically from one glance at the current frame.',
       input: {
-        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed' },
+        Templates: {
+          label: 'Templates',
+          hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed',
+        },
         Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        ROI: { label: 'Search region', hint: 'Only search for the template inside this region; leave empty = full screen' },
+        ROI: {
+          label: 'Search region',
+          hint: 'Only search for the template inside this region; leave empty = full screen',
+        },
         Window: { label: 'Window' },
       },
       output: {
@@ -845,24 +1010,77 @@ export default {
     },
     ClickTemplate: {
       label: 'Click template',
-      description: 'Waits for the image (template) you picked to appear, then clicks it (default center, configurable with anchor/offset) and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots. Optionally set «max click attempts» > 1: after each click it checks whether the template is gone and re-clicks a few times if not — fixes the occasional missed click; if it still has not disappeared after all attempts it also takes Timeout.',
-      example: 'Auto-click the «start fishing» button: pick fishing.start_fish, timeout 5s, button Left; when it shows up it gets clicked and takes Done; if it never appears, Timeout handles the error.',
+      description:
+        'Waits for the image (template) you picked to appear, then clicks it (default center, configurable with anchor/offset) and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots. Optionally set «max click attempts» > 1: after each click it checks whether the template is gone and re-clicks a few times if not — fixes the occasional missed click; if it still has not disappeared after all attempts it also takes Timeout.',
+      example:
+        'Auto-click the «start fishing» button: pick fishing.start_fish, timeout 5s, button Left; when it shows up it gets clicked and takes Done; if it never appears, Timeout handles the error.',
       input: {
-        Templates: { label: 'Templates', hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed' },
+        Templates: {
+          label: 'Templates',
+          hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed',
+        },
         TimeoutMs: { label: 'Timeout (ms)' },
         Threshold: { label: 'Threshold' },
-        ROI: { label: 'Search region', hint: 'Search area for template matching (client-area ratio; leave empty = full screen)' },
-        Anchor: { label: 'Anchor', hint: 'Which point of the hit bounding box to click (3×3 grid); default center', option: { topLeft: 'Top-left', topCenter: 'Top-center', topRight: 'Top-right', midLeft: 'Mid-left', center: 'Center', midRight: 'Mid-right', botLeft: 'Bottom-left', botCenter: 'Bottom-center', botRight: 'Bottom-right' } },
-        OffsetX: { label: 'Offset X', hint: 'Horizontal offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = left.' },
-        OffsetY: { label: 'Offset Y', hint: 'Vertical offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = up.' },
-        OrderBy: { label: 'Order by', hint: 'When multiple hits are found, sort them by this criterion and pick by index', option: { score: 'Match score', horizontal: 'Left to right', vertical: 'Top to bottom', area: 'Area', random: 'Random' } },
+        ROI: {
+          label: 'Search region',
+          hint: 'Search area for template matching (client-area ratio; leave empty = full screen)',
+        },
+        Anchor: {
+          label: 'Anchor',
+          hint: 'Which point of the hit bounding box to click (3×3 grid); default center',
+          option: {
+            topLeft: 'Top-left',
+            topCenter: 'Top-center',
+            topRight: 'Top-right',
+            midLeft: 'Mid-left',
+            center: 'Center',
+            midRight: 'Mid-right',
+            botLeft: 'Bottom-left',
+            botCenter: 'Bottom-center',
+            botRight: 'Bottom-right',
+          },
+        },
+        OffsetX: {
+          label: 'Offset X',
+          hint: 'Horizontal offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = left.',
+        },
+        OffsetY: {
+          label: 'Offset Y',
+          hint: 'Vertical offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = up.',
+        },
+        OrderBy: {
+          label: 'Order by',
+          hint: 'When multiple hits are found, sort them by this criterion and pick by index',
+          option: {
+            score: 'Match score',
+            horizontal: 'Left to right',
+            vertical: 'Top to bottom',
+            area: 'Area',
+            random: 'Random',
+          },
+        },
         Index: { label: 'Index', hint: 'After sorting, pick the Nth hit (0-based)' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        Keys: { label: 'Modifier keys', hint: 'Keys to hold during the click, separated by +, e.g. ctrl or ctrl+shift. Leave empty for none. Only ctrl/shift/alt/win.' },
-        ClickCount: { label: 'Click count', hint: 'How many times to click (1 = single-click, 2 = double-click)' },
-        SettleMs: { label: 'Settle delay (ms)', hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).' },
-        MaxAttempts: { label: 'Max click attempts', hint: 'Most times to click (including the first). When >1, after each click it checks whether the template is gone; if still there it clicks again, until the template disappears or attempts run out — guards against an occasional missed click. Gone = success (Done); still there after all attempts = Timeout. 1 = click once without checking (default).' },
-        RetryIntervalMs: { label: 'Retry interval (ms)', hint: 'How long to wait after each click before re-checking whether the template is gone (also the gap between clicks). Only applies when max click attempts > 1. Gives the game time to react; too short risks a false miss before the screen updates. Default 500.' },
+        Keys: {
+          label: 'Modifier keys',
+          hint: 'Keys to hold during the click, separated by +, e.g. ctrl or ctrl+shift. Leave empty for none. Only ctrl/shift/alt/win.',
+        },
+        ClickCount: {
+          label: 'Click count',
+          hint: 'How many times to click (1 = single-click, 2 = double-click)',
+        },
+        SettleMs: {
+          label: 'Settle delay (ms)',
+          hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).',
+        },
+        MaxAttempts: {
+          label: 'Max click attempts',
+          hint: 'Most times to click (including the first). When >1, after each click it checks whether the template is gone; if still there it clicks again, until the template disappears or attempts run out — guards against an occasional missed click. Gone = success (Done); still there after all attempts = Timeout. 1 = click once without checking (default).',
+        },
+        RetryIntervalMs: {
+          label: 'Retry interval (ms)',
+          hint: 'How long to wait after each click before re-checking whether the template is gone (also the gap between clicks). Only applies when max click attempts > 1. Gives the game time to react; too short risks a false miss before the screen updates. Default 500.',
+        },
         Window: { label: 'Window' },
       },
       output: {
@@ -879,8 +1097,10 @@ export default {
     },
     DetectColor: {
       label: 'Detect color',
-      description: 'Counts how many pixels in the region you framed fall inside a color range. If there are enough (at least min pixels) it takes Found and gives the center of the matched area; otherwise NotFound. It is a single glance, no waiting. The color range can be described in HSV (hue / saturation / brightness — more robust to lighting changes) or RGB.',
-      example: 'Check if the health bar is red (HP is fine): frame the bar, set mode HSV with a red range; enough matched pixels takes Found for normal flow, too few takes NotFound for heal/retreat.',
+      description:
+        'Counts how many pixels in the region you framed fall inside a color range. If there are enough (at least min pixels) it takes Found and gives the center of the matched area; otherwise NotFound. It is a single glance, no waiting. The color range can be described in HSV (hue / saturation / brightness — more robust to lighting changes) or RGB.',
+      example:
+        'Check if the health bar is red (HP is fine): frame the bar, set mode HSV with a red range; enough matched pixels takes Found for normal flow, too few takes NotFound for heal/retreat.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
@@ -910,11 +1130,16 @@ export default {
     },
     DetectColorHSV: {
       label: 'Detect color (HSV)',
-      description: 'Repeatedly measures what share of the ROI (a small region you frame on screen) matches a given color, and takes Found once it reaches your target ratio; if the timeout runs out first, takes Timeout. Unlike «Detect color», it keeps polling at your interval, and the color is given only in HSV (hue / saturation / brightness — robust to lighting). Set timeout to 0 or below for a single glance that takes NotFound when short.',
-      example: 'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Found to cast, never bright takes Timeout.',
+      description:
+        'Repeatedly measures what share of the ROI (a small region you frame on screen) matches a given color, and takes Found once it reaches your target ratio; if the timeout runs out first, takes Timeout. Unlike «Detect color», it keeps polling at your interval, and the color is given only in HSV (hue / saturation / brightness — robust to lighting). Set timeout to 0 or below for a single glance that takes NotFound when short.',
+      example:
+        'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Found to cast, never bright takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
+        HSV: {
+          label: 'HSV range',
+          hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}`,
+        },
         MinPixelRatio: { label: 'Min hit ratio' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
@@ -928,7 +1153,8 @@ export default {
     },
     DetectColorBlobs: {
       label: 'Color blob locate',
-      description: 'Find all connected regions of a target color in an area; returns each blob center/bbox/area (normalized). For glow loot, health bars, color-marked targets.',
+      description:
+        'Find all connected regions of a target color in an area; returns each blob center/bbox/area (normalized). For glow loot, health bars, color-marked targets.',
       input: {
         ROI: { label: 'ROI (ratio)' },
         Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
@@ -964,7 +1190,8 @@ export default {
     },
     FindColorSignature: {
       label: 'Color signature',
-      description: 'Search an area for an anchor color combined with N offset-point colors; returns the anchor position on match. More stable than single-point color detection, cheaper than template matching. Signature is a JSON array: first item is the anchor (dx=dy=0), remaining items are offset points.',
+      description:
+        'Search an area for an anchor color combined with N offset-point colors; returns the anchor position on match. More stable than single-point color detection, cheaper than template matching. Signature is a JSON array: first item is the anchor (dx=dy=0), remaining items are offset points.',
       input: {
         ROI: { label: 'Search area' },
         Signature: {
@@ -977,7 +1204,10 @@ export default {
           b: { label: 'Blue B' },
           tol: { label: 'Tolerance (blank = default)' },
         },
-        Tolerance: { label: 'Default tolerance', hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol' },
+        Tolerance: {
+          label: 'Default tolerance',
+          hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol',
+        },
         Window: { label: 'Window' },
       },
       output: {
@@ -988,7 +1218,8 @@ export default {
     },
     DecodeQR: {
       label: 'Decode QR',
-      description: 'Decode QR codes within the area; returns the first code\'s text, the total count, and locator points. No code found or undecodable both route to NotFound.',
+      description:
+        "Decode QR codes within the area; returns the first code's text, the total count, and locator points. No code found or undecodable both route to NotFound.",
       input: {
         ROI: { label: 'Area' },
         Window: { label: 'Window' },
@@ -1003,7 +1234,8 @@ export default {
     },
     FindTemplateAll: {
       label: 'Find all templates',
-      description: 'Find every match of the given templates within the area (NMS-deduplicated); returns each hit\'s center/bbox/source template, plus the total count and the best hit. For locating many instances of the same icon/object.',
+      description:
+        "Find every match of the given templates within the area (NMS-deduplicated); returns each hit's center/bbox/source template, plus the total count and the best hit. For locating many instances of the same icon/object.",
       input: {
         Templates: { label: 'Templates' },
         ROI: { label: 'Search area' },
@@ -1023,60 +1255,116 @@ export default {
     },
     PickMatchPoint: {
       label: 'Pick template point',
-      description: 'Takes the Nth item from a FindTemplateAll Matches list and turns it into a Point using an anchor and optional offset. It does not capture or detect; it only converts a hit list into a Point that can feed ClickAt or Swipe.',
-      example: 'After FindTemplateAll finds a row of identical buttons, set Index to 1 to pick the second hit, then wire Result into ClickAt to click that button.',
+      description:
+        'Takes the Nth item from a FindTemplateAll Matches list and turns it into a Point using an anchor and optional offset. It does not capture or detect; it only converts a hit list into a Point that can feed ClickAt or Swipe.',
+      example:
+        'After FindTemplateAll finds a row of identical buttons, set Index to 1 to pick the second hit, then wire Result into ClickAt to click that button.',
       input: {
         Matches: { label: 'Matches', hint: 'Wire from FindTemplateAll.Matches' },
         Index: { label: 'Index', hint: '0-based; out of range returns (0,0)' },
-        Anchor: { label: 'Anchor', hint: 'Which point of the hit box to use; default center', option: { topLeft: 'Top-left', topCenter: 'Top-center', topRight: 'Top-right', midLeft: 'Mid-left', center: 'Center', midRight: 'Mid-right', botLeft: 'Bottom-left', botCenter: 'Bottom-center', botRight: 'Bottom-right' } },
-        OffsetX: { label: 'Offset X', hint: 'Ratio offset added to the anchor; negative moves left' },
+        Anchor: {
+          label: 'Anchor',
+          hint: 'Which point of the hit box to use; default center',
+          option: {
+            topLeft: 'Top-left',
+            topCenter: 'Top-center',
+            topRight: 'Top-right',
+            midLeft: 'Mid-left',
+            center: 'Center',
+            midRight: 'Mid-right',
+            botLeft: 'Bottom-left',
+            botCenter: 'Bottom-center',
+            botRight: 'Bottom-right',
+          },
+        },
+        OffsetX: {
+          label: 'Offset X',
+          hint: 'Ratio offset added to the anchor; negative moves left',
+        },
         OffsetY: { label: 'Offset Y', hint: 'Ratio offset added to the anchor; negative moves up' },
       },
       output: { Result: { label: 'Result' } },
     },
     PickBlobPoint: {
       label: 'Pick blob point',
-      description: 'Takes the Nth item from a DetectColorBlobs Blobs list and turns it into a Point using an anchor and optional offset. Useful for feeding sorted blob results directly into clicks, drags, or distance checks.',
-      example: 'After DetectColorBlobs sorts glowing objects by area, set Index to 0 to pick the largest blob center and wire Result into ClickAt.',
+      description:
+        'Takes the Nth item from a DetectColorBlobs Blobs list and turns it into a Point using an anchor and optional offset. Useful for feeding sorted blob results directly into clicks, drags, or distance checks.',
+      example:
+        'After DetectColorBlobs sorts glowing objects by area, set Index to 0 to pick the largest blob center and wire Result into ClickAt.',
       input: {
         Blobs: { label: 'Blobs', hint: 'Wire from DetectColorBlobs.Blobs' },
         Index: { label: 'Index', hint: '0-based; out of range returns (0,0)' },
-        Anchor: { label: 'Anchor', hint: 'Which point of the blob bounding box to use; default center', option: { topLeft: 'Top-left', topCenter: 'Top-center', topRight: 'Top-right', midLeft: 'Mid-left', center: 'Center', midRight: 'Mid-right', botLeft: 'Bottom-left', botCenter: 'Bottom-center', botRight: 'Bottom-right' } },
-        OffsetX: { label: 'Offset X', hint: 'Ratio offset added to the anchor; negative moves left' },
+        Anchor: {
+          label: 'Anchor',
+          hint: 'Which point of the blob bounding box to use; default center',
+          option: {
+            topLeft: 'Top-left',
+            topCenter: 'Top-center',
+            topRight: 'Top-right',
+            midLeft: 'Mid-left',
+            center: 'Center',
+            midRight: 'Mid-right',
+            botLeft: 'Bottom-left',
+            botCenter: 'Bottom-center',
+            botRight: 'Bottom-right',
+          },
+        },
+        OffsetX: {
+          label: 'Offset X',
+          hint: 'Ratio offset added to the anchor; negative moves left',
+        },
         OffsetY: { label: 'Offset Y', hint: 'Ratio offset added to the anchor; negative moves up' },
       },
       output: { Result: { label: 'Result' } },
     },
     PickMatchROI: {
       label: 'Pick template ROI',
-      description: 'Takes the Nth item from a FindTemplateAll Matches list and converts its bounding box into an ROI for later detection nodes.',
-      example: 'Find several card icons, then feed the first hit ROI into DetectColorBlobs to keep color detection local to that card.',
+      description:
+        'Takes the Nth item from a FindTemplateAll Matches list and converts its bounding box into an ROI for later detection nodes.',
+      example:
+        'Find several card icons, then feed the first hit ROI into DetectColorBlobs to keep color detection local to that card.',
       input: {
         Matches: { label: 'Matches', hint: 'Wire from FindTemplateAll.Matches' },
         Index: { label: 'Index', hint: '0-based; out of range returns an empty ROI' },
-        Padding: { label: 'Padding', hint: 'Ratio padding; 0.02 expands each side by 2% of the screen' },
+        Padding: {
+          label: 'Padding',
+          hint: 'Ratio padding; 0.02 expands each side by 2% of the screen',
+        },
       },
       output: { Result: { label: 'ROI' } },
     },
     PickBlobROI: {
       label: 'Pick blob ROI',
-      description: 'Takes the Nth item from a DetectColorBlobs Blobs list and converts its bounding box into an ROI for later detection nodes.',
-      example: 'Find a health bar by color, expand its region slightly, then feed that ROI into WaitStable or template detection for a local check.',
+      description:
+        'Takes the Nth item from a DetectColorBlobs Blobs list and converts its bounding box into an ROI for later detection nodes.',
+      example:
+        'Find a health bar by color, expand its region slightly, then feed that ROI into WaitStable or template detection for a local check.',
       input: {
         Blobs: { label: 'Blobs', hint: 'Wire from DetectColorBlobs.Blobs' },
         Index: { label: 'Index', hint: '0-based; out of range returns an empty ROI' },
-        Padding: { label: 'Padding', hint: 'Ratio padding; 0.02 expands each side by 2% of the screen' },
+        Padding: {
+          label: 'Padding',
+          hint: 'Ratio padding; 0.02 expands each side by 2% of the screen',
+        },
       },
       output: { Result: { label: 'ROI' } },
     },
     DualColorBarTrack: {
       label: 'Dual-color bar track',
-      description: 'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
-      example: 'Fishing reel bar: frame the ROI over the bar, set inner to the cursor yellow and outer to the target cyan; from Found read the cursor and target positions, then press left if the cursor is too far left or right if too far right to pull it back into the target band.',
+      description:
+        'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
+      example:
+        'Fishing reel bar: frame the ROI over the bar, set inner to the cursor yellow and outer to the target cyan; from Found read the cursor and target positions, then press left if the cursor is too far left or right if too far right to pull it back into the target band.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
-        InnerColor: { label: 'Inner HSV (default fishing-cursor yellow)', hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}` },
-        OuterColor: { label: 'Outer HSV (default fishing-target cyan)', hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}` },
+        InnerColor: {
+          label: 'Inner HSV (default fishing-cursor yellow)',
+          hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}`,
+        },
+        OuterColor: {
+          label: 'Outer HSV (default fishing-target cyan)',
+          hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}`,
+        },
         Options: {
           label: 'Algorithm params (optional)',
           hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)`,
@@ -1097,11 +1385,16 @@ export default {
     },
     ROIColorScan: {
       label: 'ROI color cluster scan',
-      description: 'Inside the ROI (a small region you frame), scans horizontally or vertically for contiguous runs of a given color — a string of same-colored pixels whose length is within the range you set counts as one run. If it finds enough runs (at least your min count) it takes Found and passes out each run; otherwise it keeps retrying at your interval and takes Timeout when time runs out. Color is given in HSV (hue / saturation / brightness). Set timeout to 0 or below to scan once and take NotFound when short.',
-      example: 'Count how many inventory slots are lit: frame the ROI over the inventory row, axis Horizontal, give the highlight HSV and min count 1; lit slots found takes Found for follow-up, none found takes Timeout.',
+      description:
+        'Inside the ROI (a small region you frame), scans horizontally or vertically for contiguous runs of a given color — a string of same-colored pixels whose length is within the range you set counts as one run. If it finds enough runs (at least your min count) it takes Found and passes out each run; otherwise it keeps retrying at your interval and takes Timeout when time runs out. Color is given in HSV (hue / saturation / brightness). Set timeout to 0 or below to scan once and take NotFound when short.',
+      example:
+        'Count how many inventory slots are lit: frame the ROI over the inventory row, axis Horizontal, give the highlight HSV and min count 1; lit slots found takes Found for follow-up, none found takes Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        HSV: { label: 'HSV range', hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}` },
+        HSV: {
+          label: 'HSV range',
+          hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}`,
+        },
         Axis: { label: 'Scan axis', option: { x: 'Horizontal (x)', y: 'Vertical (y)' } },
         MinClusterPx: { label: 'Min cluster length (px)' },
         MaxClusterPx: { label: 'Max cluster length (px)', hint: '<=0 = default ROI size / 3' },
@@ -1118,13 +1411,24 @@ export default {
     },
     WaitStable: {
       label: 'Wait for stable frame',
-      description: 'Watches the ROI (a small region you frame) and keeps comparing it to the previous frame; once several frames in a row barely change, it calls the screen «settled» and takes Stable; if it is still moving when the timeout runs out, takes Timeout. Made for waiting until an animation finishes, a loading spinner stops, or a list finishes refreshing, so you do not act while things are still moving.',
-      example: 'Wait for a loading screen to finish spinning: frame the ROI over the loading area, set consecutive stable frames to 3; once it stops moving take Stable for the next step, if it keeps spinning take Timeout.',
+      description:
+        'Watches the ROI (a small region you frame) and keeps comparing it to the previous frame; once several frames in a row barely change, it calls the screen «settled» and takes Stable; if it is still moving when the timeout runs out, takes Timeout. Made for waiting until an animation finishes, a loading spinner stops, or a list finishes refreshing, so you do not act while things are still moving.',
+      example:
+        'Wait for a loading screen to finish spinning: frame the ROI over the loading area, set consecutive stable frames to 3; once it stops moving take Stable for the next step, if it keeps spinning take Timeout.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]; larger = finer but slower' },
-        Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
-        CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only: cell mean channel diff > this = changed' },
+        GridSize: {
+          label: 'Downsample grid',
+          hint: 'Side length, clamp [4,128]; larger = finer but slower',
+        },
+        Metric: {
+          label: 'Diff metric',
+          option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' },
+        },
+        CellDelta: {
+          label: 'Cell change threshold (0-255)',
+          hint: 'changed_ratio only: cell mean channel diff > this = changed',
+        },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
         StableThreshold: { label: 'Stable threshold (0-1)', hint: 'diff <= this = unchanged' },
@@ -1139,12 +1443,17 @@ export default {
     },
     WaitChange: {
       label: 'Wait for frame change',
-      description: 'First remembers how the ROI (a small region you frame) looks right now as a baseline, then keeps comparing against it; the moment it changes enough, calls the screen «changed» and takes Changed; if nothing changes before the timeout, takes Timeout. Made for waiting on a popup to appear, a load to finish, or a screen to switch — the «wait for something to happen» case.',
-      example: 'After clicking confirm, wait for the result popup: frame the ROI where the popup appears; the moment it changes take Changed to read the popup; if nothing happens for a while take Timeout as no-response.',
+      description:
+        'First remembers how the ROI (a small region you frame) looks right now as a baseline, then keeps comparing against it; the moment it changes enough, calls the screen «changed» and takes Changed; if nothing changes before the timeout, takes Timeout. Made for waiting on a popup to appear, a load to finish, or a screen to switch — the «wait for something to happen» case.',
+      example:
+        'After clicking confirm, wait for the result popup: frame the ROI where the popup appears; the moment it changes take Changed to read the popup; if nothing happens for a while take Timeout as no-response.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]' },
-        Metric: { label: 'Diff metric', option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' } },
+        Metric: {
+          label: 'Diff metric',
+          option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' },
+        },
         CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only' },
         PollIntervalMs: { label: 'Poll interval (ms)' },
         TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
@@ -1160,8 +1469,10 @@ export default {
     // image
     Capture: {
       label: 'Capture',
-      description: 'Grab the current screen (full or a framed ROI) and produce an image value — wire it to an AI node for vision, to Save image to write it out, or to any node that needs an image. Format can be PNG (lossless) or JPEG (smaller, saves tokens and memory).',
-      example: 'Let AI read the screen: Capture (pick JPEG) → wire the image to the AI node image input (alongside the adjacent exec edge) → AI returns its judgment.',
+      description:
+        'Grab the current screen (full or a framed ROI) and produce an image value — wire it to an AI node for vision, to Save image to write it out, or to any node that needs an image. Format can be PNG (lossless) or JPEG (smaller, saves tokens and memory).',
+      example:
+        'Let AI read the screen: Capture (pick JPEG) → wire the image to the AI node image input (alongside the adjacent exec edge) → AI returns its judgment.',
       input: {
         ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
         Format: { label: 'Format', option: { png: 'PNG', jpeg: 'JPEG' } },
@@ -1175,11 +1486,16 @@ export default {
     },
     SaveImage: {
       label: 'Save image',
-      description: 'Write an image value to the local images folder. The extension follows the actual image format. Filenames support timestamp/date/uuid placeholders to keep files apart and avoid overwriting under concurrency.',
-      example: 'Keep a copy after capture: Capture → Save image, using a uuid placeholder in the filename.',
+      description:
+        'Write an image value to the local images folder. The extension follows the actual image format. Filenames support timestamp/date/uuid placeholders to keep files apart and avoid overwriting under concurrency.',
+      example:
+        'Keep a copy after capture: Capture → Save image, using a uuid placeholder in the filename.',
       input: {
         Image: { label: 'Image' },
-        PathTemplate: { label: 'Path template', hint: 'Relative path, no .. / drive letter / leading slash' },
+        PathTemplate: {
+          label: 'Path template',
+          hint: 'Relative path, no .. / drive letter / leading slash',
+        },
       },
       output: {
         Done: { label: 'Done', data: { Path: { hint: 'Written absolute path' } } },
@@ -1188,10 +1504,15 @@ export default {
     },
     LoadImage: {
       label: 'Load image',
-      description: 'Read an image from a local file (PNG / JPEG only, 10MB cap) and produce an image value, e.g. to feed an AI node for vision. Path is limited to the data folder.',
-      example: 'Feed an external image to AI: Load image (relative path) → wire to the AI node image input.',
+      description:
+        'Read an image from a local file (PNG / JPEG only, 10MB cap) and produce an image value, e.g. to feed an AI node for vision. Path is limited to the data folder.',
+      example:
+        'Feed an external image to AI: Load image (relative path) → wire to the AI node image input.',
       input: {
-        Path: { label: 'Path', hint: 'Local image path — absolute, or relative to the data folder' },
+        Path: {
+          label: 'Path',
+          hint: 'Local image path — absolute, or relative to the data folder',
+        },
       },
       output: {
         Done: { label: 'Done', data: { Image: { hint: 'Loaded image' } } },
@@ -1201,54 +1522,81 @@ export default {
     // input
     BringWindowForeground: {
       label: 'Bring window to foreground',
-      description: 'Brings the current Windows window to the front and gives it focus so later Windows key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going. Android targets do not use this node.',
+      description:
+        'Brings the current Windows window to the front and gives it focus so later Windows key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going. Android targets do not use this node.',
       input: { Window: { label: 'Window' } },
       output: { Done: { label: 'Done' } },
     },
     ClickAt: {
       label: 'Click at',
-      description: 'Clicks the mouse once at a spot in the current target frame. Set the position with the coordinate control — switch between ratio (0–1) or pixels, or pick a point from a screenshot. You can choose left/right/middle button, slide over first, and adjust how long the button stays down.',
-      example: 'Click the "Confirm" button in the bottom-right: set the coordinate to (0.9, 0.9) in ratio mode with left button, and it clicks the bottom-right of the target at runtime.',
+      description:
+        'Clicks the mouse once at a spot in the current target frame. Set the position with the coordinate control — switch between ratio (0–1) or pixels, or pick a point from a screenshot. You can choose left/right/middle button, slide over first, and adjust how long the button stays down.',
+      example:
+        'Click the "Confirm" button in the bottom-right: set the coordinate to (0.9, 0.9) in ratio mode with left button, and it clicks the bottom-right of the target at runtime.',
       input: {
         Point: { label: 'Position' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = slide over then click' },
         DurationMs: { label: 'Duration (ms)' },
-        JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
-        Keys: { label: 'Modifier keys', hint: 'Keys to hold while clicking, joined with +, e.g. ctrl+shift. Leave empty for a plain click. Supports ctrl / shift / alt / win.' },
-        ClickCount: { label: 'Click count', hint: 'Number of times to click. Default 1. >1 = rapid clicks ~60 ms apart.' },
+        JitterPct: {
+          label: 'Jitter ±%',
+          hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)',
+        },
+        Keys: {
+          label: 'Modifier keys',
+          hint: 'Keys to hold while clicking, joined with +, e.g. ctrl+shift. Leave empty for a plain click. Supports ctrl / shift / alt / win.',
+        },
+        ClickCount: {
+          label: 'Click count',
+          hint: 'Number of times to click. Default 1. >1 = rapid clicks ~60 ms apart.',
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
     KeyHoldStart: {
       label: 'Hold key down',
-      description: 'Presses a key down and keeps holding it. It only does the "press"; you pair it with a "Release key" node to let go. Anything can run between the two nodes (waits, detection, movement), so you control exactly how long the key stays held.',
-      example: 'Make a character keep walking forward: place "Hold key down" on W, then a "Wait" of 3 seconds, then "Release key" on W — the character moves forward for 3 seconds. Both nodes must use the same W.',
-      input: { VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / shift)' }, Window: { label: 'Window' } },
+      description:
+        'Presses a key down and keeps holding it. It only does the "press"; you pair it with a "Release key" node to let go. Anything can run between the two nodes (waits, detection, movement), so you control exactly how long the key stays held.',
+      example:
+        'Make a character keep walking forward: place "Hold key down" on W, then a "Wait" of 3 seconds, then "Release key" on W — the character moves forward for 3 seconds. Both nodes must use the same W.',
+      input: {
+        VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / shift)' },
+        Window: { label: 'Window' },
+      },
       output: { Done: { label: 'Pressed' } },
     },
     KeyHoldStop: {
       label: 'Release key',
-      description: 'Releases the key that an earlier "Hold key down" pressed. Both nodes must use the same key — they work as a pair.',
-      input: { VK: { label: 'Key', hint: 'Virtual key name — same as the prior KeyHoldStart' }, Window: { label: 'Window' } },
+      description:
+        'Releases the key that an earlier "Hold key down" pressed. Both nodes must use the same key — they work as a pair.',
+      input: {
+        VK: { label: 'Key', hint: 'Virtual key name — same as the prior KeyHoldStart' },
+        Window: { label: 'Window' },
+      },
       output: { Done: { label: 'Released' } },
     },
     KeyPress: {
       label: 'Key press',
-      description: 'Taps a key once (press then release), like a single keystroke. Duration is how long it stays down between press and release — the default is fine. To hold a key without letting go, use "Hold key down".',
+      description:
+        'Taps a key once (press then release), like a single keystroke. Duration is how long it stays down between press and release — the default is fine. To hold a key without letting go, use "Hold key down".',
       input: {
         VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / F9 / space / esc)' },
         DurationMs: { label: 'Duration (ms)' },
-        JitterPct: { label: 'Jitter ±%', hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)' },
+        JitterPct: {
+          label: 'Jitter ±%',
+          hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)',
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
     MouseHoldStart: {
       label: 'Hold mouse down',
-      description: 'Presses a mouse button down at a spot in the current target frame and keeps holding it. The position can be a ratio (0–1) or pixel coordinate. It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
-      example: 'Drag an item: place "Hold mouse down" with the left button at the start point, add "Mouse move to" sliding to the end point, then "Release mouse" to let go of the left button — that completes one drag.',
+      description:
+        'Presses a mouse button down at a spot in the current target frame and keeps holding it. The position can be a ratio (0–1) or pixel coordinate. It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
+      example:
+        'Drag an item: place "Hold mouse down" with the left button at the start point, add "Mouse move to" sliding to the end point, then "Release mouse" to let go of the left button — that completes one drag.',
       input: {
         Point: { label: 'Position' },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
@@ -1258,63 +1606,100 @@ export default {
     },
     MouseHoldStop: {
       label: 'Release mouse',
-      description: 'Releases the mouse button that an earlier "Hold mouse down" pressed. Pick the same button on both nodes — they work as a pair.',
-      input: { Button: { label: 'Button', hint: 'Same button as the prior MouseHoldStart', option: { left: 'Left', right: 'Right', middle: 'Middle' } }, Window: { label: 'Window' } },
+      description:
+        'Releases the mouse button that an earlier "Hold mouse down" pressed. Pick the same button on both nodes — they work as a pair.',
+      input: {
+        Button: {
+          label: 'Button',
+          hint: 'Same button as the prior MouseHoldStart',
+          option: { left: 'Left', right: 'Right', middle: 'Middle' },
+        },
+        Window: { label: 'Window' },
+      },
       output: { Done: { label: 'Released' } },
     },
     MouseMoveRel: {
       label: 'Mouse move relative',
-      description: 'Moves the cursor a certain distance in some direction from where it currently is (measured in pixels) — not to a fixed coordinate. Δx positive is right, negative is left; Δy positive is down, negative is up. Common for turning the camera or nudging the crosshair. To move straight to a fixed spot in the target frame, use "Mouse move to".',
-      example: 'Turn the camera right in a game: set Δx to 200 and Δy to 0, and the cursor nudges 200 pixels right from its current spot, panning the view right.',
+      description:
+        'Moves the cursor a certain distance in some direction from where it currently is (measured in pixels) — not to a fixed coordinate. Δx positive is right, negative is left; Δy positive is down, negative is up. Common for turning the camera or nudging the crosshair. To move straight to a fixed spot in the target frame, use "Mouse move to".',
+      example:
+        'Turn the camera right in a game: set Δx to 200 and Δy to 0, and the cursor nudges 200 pixels right from its current spot, panning the view right.',
       input: {
         Dx: { label: 'Δx (px)' },
         Dy: { label: 'Δy (px)' },
         DurationMs: { label: 'Duration (ms)' },
-        JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = move distance (Dx/Dy) varies within ±10%' },
+        JitterPct: {
+          label: 'Jitter ±%',
+          hint: '0=off; e.g. 10 = move distance (Dx/Dy) varies within ±10%',
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
     MouseMoveTo: {
       label: 'Mouse Move To',
-      description: 'Moves the cursor to a fixed spot in the current target frame without clicking. The position can be given as ratios (0 to 1, where 0.5, 0.5 is center) or pixels (px), independent of target frame size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
-      example: 'Move to the center before clicking: use "Mouse move to" with the Point set to (0.5, 0.5), set Move time to 300 for a smooth slide, then follow with "Click at".',
+      description:
+        'Moves the cursor to a fixed spot in the current target frame without clicking. The position can be given as ratios (0 to 1, where 0.5, 0.5 is center) or pixels (px), independent of target frame size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
+      example:
+        'Move to the center before clicking: use "Mouse move to" with the Point set to (0.5, 0.5), set Move time to 300 for a smooth slide, then follow with "Click at".',
       input: {
         Point: { label: 'Position' },
         MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = visible slide' },
-        JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = glide duration (MoveMs) varies within ±10%' },
+        JitterPct: {
+          label: 'Jitter ±%',
+          hint: '0=off; e.g. 10 = glide duration (MoveMs) varies within ±10%',
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
     EventTick: {
       label: 'Event Tick',
-      description: 'Fires automatically every so often in the background, running alongside your main flow without interrupting it. The chain of nodes hanging off its "Tick" output runs over and over on that timer. Commonly used to keep watching a part of the screen and set a global variable to signal the main flow when something happens.',
-      example: 'Check once a second whether the health bar is empty: set the interval to 1000 and wire the Tick output to "Detect screen → if health is low → set global variable needHeal". The main flow reads that variable to decide whether to use a potion.',
+      description:
+        'Fires automatically every so often in the background, running alongside your main flow without interrupting it. The chain of nodes hanging off its "Tick" output runs over and over on that timer. Commonly used to keep watching a part of the screen and set a global variable to signal the main flow when something happens.',
+      example:
+        'Check once a second whether the health bar is empty: set the interval to 1000 and wire the Tick output to "Detect screen → if health is low → set global variable needHeal". The main flow reads that variable to decide whether to use a potion.',
       input: {
         IntervalMs: { label: 'Interval (ms)' },
         MaxConcurrent: { label: 'Max concurrent' },
-        RetriggerPolicy: { label: 'Retrigger policy', option: { drop: 'Drop', queue: 'Queue', restart: 'Restart' } },
+        RetriggerPolicy: {
+          label: 'Retrigger policy',
+          option: { drop: 'Drop', queue: 'Queue', restart: 'Restart' },
+        },
       },
       output: { Out: { label: 'Tick' } },
     },
     Scroll: {
       label: 'Mouse scroll',
-      description: 'Scrolls the mouse wheel once at a spot in the current target frame. The position is given as a Point (ratio 0–1 or px; 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
-      example: 'Scroll an inventory list down: set Point to the list area, Delta to -3, Axis to vertical — it scrolls down three notches. For a horizontal scroll bar: set Axis to horizontal, positive goes right, negative goes left.',
+      description:
+        'Scrolls the mouse wheel once at a spot in the current target frame. The position is given as a Point (ratio 0–1 or px; 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
+      example:
+        'Scroll an inventory list down: set Point to the list area, Delta to -3, Axis to vertical — it scrolls down three notches. For a horizontal scroll bar: set Axis to horizontal, positive goes right, negative goes left.',
       input: {
         Point: { label: 'Position' },
-        Delta: { label: 'Delta (notches)', hint: 'Positive scrolls up/right, negative scrolls down/left' },
-        JitterPct: { label: 'Jitter ±%', hint: '0=off; e.g. 10 = scroll amount varies within ±10%' },
-        Axis: { label: 'Axis', hint: 'vertical = up/down (default); horizontal = left/right', option: { vertical: 'Vertical', horizontal: 'Horizontal' } },
+        Delta: {
+          label: 'Delta (notches)',
+          hint: 'Positive scrolls up/right, negative scrolls down/left',
+        },
+        JitterPct: {
+          label: 'Jitter ±%',
+          hint: '0=off; e.g. 10 = scroll amount varies within ±10%',
+        },
+        Axis: {
+          label: 'Axis',
+          hint: 'vertical = up/down (default); horizontal = left/right',
+          option: { vertical: 'Vertical', horizontal: 'Horizontal' },
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
     },
     InputText: {
       label: 'Type text',
-      description: 'Injects text into the current automation target. For Windows windows this uses SendInput KEYEVENTF_UNICODE without the clipboard; browser and Android targets are handled by their own controllers.',
-      example: 'Send a message in a game chat box: use BringForeground first to make sure the window is focused, then wire InputText with the message you want to type — it will inject each character automatically.',
+      description:
+        'Injects text into the current automation target. For Windows windows this uses SendInput KEYEVENTF_UNICODE without the clipboard; browser and Android targets are handled by their own controllers.',
+      example:
+        'Send a message in a game chat box: use BringForeground first to make sure the window is focused, then wire InputText with the message you want to type — it will inject each character automatically.',
       input: {
         Text: { label: 'Text', hint: 'The text to type, supports all Unicode characters' },
         Window: { label: 'Window' },
@@ -1323,13 +1708,24 @@ export default {
     },
     Swipe: {
       label: 'Swipe',
-      description: 'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; empty or 0 uses the 200 ms default (a too-fast drag is missed by many UIs, hence the floor). Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',
-      example: 'Drag a health slider from left to right: wire the start position into Begin, wire the end position into End, set Duration to 400 — it drags smoothly across and releases.',
+      description:
+        'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; empty or 0 uses the 200 ms default (a too-fast drag is missed by many UIs, hence the floor). Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',
+      example:
+        'Drag a health slider from left to right: wire the start position into Begin, wire the end position into End, set Duration to 400 — it drags smoothly across and releases.',
       input: {
-        Begin: { label: 'Begin', hint: 'Start point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
-        End: { label: 'End', hint: 'End point of the drag; wire from a detection node\'s point output (e.g. ClickTemplate / DetectColor)' },
+        Begin: {
+          label: 'Begin',
+          hint: "Start point of the drag; wire from a detection node's point output (e.g. ClickTemplate / DetectColor)",
+        },
+        End: {
+          label: 'End',
+          hint: "End point of the drag; wire from a detection node's point output (e.g. ClickTemplate / DetectColor)",
+        },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        DurationMs: { label: 'Duration (ms)', hint: 'Total drag time in milliseconds; default 200, higher is slower (empty or 0 uses the default)' },
+        DurationMs: {
+          label: 'Duration (ms)',
+          hint: 'Total drag time in milliseconds; default 200, higher is slower (empty or 0 uses the default)',
+        },
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' } },
@@ -1337,55 +1733,92 @@ export default {
     // io
     Log: {
       label: 'Log',
-      description: 'Prints a message to the run log so you can see which step the script reached and what the values were while debugging. The message input takes anything — text, numbers, points, regions — and turns it into text automatically.',
-      example: 'Debugging a loop and want to confirm how many times it ran: wire Log into the loop body with the iteration count as the message, and it prints each pass to the run log.',
+      description:
+        'Prints a message to the run log so you can see which step the script reached and what the values were while debugging. The message input takes anything — text, numbers, points, regions — and turns it into text automatically.',
+      example:
+        'Debugging a loop and want to confirm how many times it ran: wire Log into the loop body with the iteration count as the message, and it prints each pass to the run log.',
       input: {
-        Message: { label: 'Message', hint: 'Any type — string / number / Point / Rect etc., framework auto-stringifies' },
+        Message: {
+          label: 'Message',
+          hint: 'Any type — string / number / Point / Rect etc., framework auto-stringifies',
+        },
         Level: { label: 'Level', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
       },
       output: { Done: { label: 'Done' } },
     },
     PlayClip: {
       label: 'Play clip',
-      description: 'Replays a mouse-and-keyboard sequence you recorded earlier, exactly as recorded — handy for reproducing a fixed combo or form-filling routine. It takes over the mouse and keyboard during playback and only moves on once done; stopping the script mid-clip interrupts it and releases any held keys.',
-      example: 'You have a fixed combo in a game: record it once, then point this node at that clip, and the script replays the whole combo whenever it reaches here.',
-      input: { ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' }, Window: { label: 'Window' } },
+      description:
+        'Replays a mouse-and-keyboard sequence you recorded earlier, exactly as recorded — handy for reproducing a fixed combo or form-filling routine. It takes over the mouse and keyboard during playback and only moves on once done; stopping the script mid-clip interrupts it and releases any held keys.',
+      example:
+        'You have a fixed combo in a game: record it once, then point this node at that clip, and the script replays the whole combo whenever it reaches here.',
+      input: {
+        ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' },
+        Window: { label: 'Window' },
+      },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
       inspector: {
         clip_unset_placeholder: '(unset)',
         clip_missing: 'clip {id} not found in the clip library. Re-record to overwrite.',
         record_precise: 'Re-record (precise)',
         record_simple: 'Re-record (simple)',
-        bind_hint: 'A PlayClip node is bound 1:1 to a clip — to change content, re-record to overwrite. Do not switch the clip reference (avoids dangling IDs after a clip is deleted).',
+        bind_hint:
+          'A PlayClip node is bound 1:1 to a clip — to change content, re-record to overwrite. Do not switch the clip reference (avoids dangling IDs after a clip is deleted).',
         keep_ranges_label: 'Keep ranges (keepRanges)',
-        keep_ranges_hint: 'Empty = play full clip. With ranges, only those segments play; gaps between segments are auto-compressed.',
+        keep_ranges_hint:
+          'Empty = play full clip. With ranges, only those segments play; gaps between segments are auto-compressed.',
         full_playback: 'None — play full clip',
       },
     },
     RunProgram: {
       label: 'Run program',
-      description: 'Open a target the system default way: run an executable, open a URL in the default browser, or open a document/folder with its associated app. Continues immediately without waiting for the program to exit.',
-      example: 'To auto-launch a game at the start of a script, set Target to the full path of the game exe; or set Target to a URL to open it in the default browser when the script reaches here.',
+      description:
+        'Open a target the system default way: run an executable, open a URL in the default browser, or open a document/folder with its associated app. Continues immediately without waiting for the program to exit.',
+      example:
+        'To auto-launch a game at the start of a script, set Target to the full path of the game exe; or set Target to a URL to open it in the default browser when the script reaches here.',
       input: {
-        Target: { label: 'Target', hint: 'Program path / URL / file / folder, e.g. C:\\Game\\game.exe or https://example.com' },
-        Args: { label: 'Arguments', hint: 'Optional. Command-line arguments passed to the program.' },
-        WorkingDir: { label: 'Working dir', hint: 'Optional. Working directory the program starts in; empty = default.' },
-        WindowState: { label: 'Window state', option: { normal: 'Normal', minimized: 'Minimized', maximized: 'Maximized', hidden: 'Hidden' } },
+        Target: {
+          label: 'Target',
+          hint: 'Program path / URL / file / folder, e.g. C:\\Game\\game.exe or https://example.com',
+        },
+        Args: {
+          label: 'Arguments',
+          hint: 'Optional. Command-line arguments passed to the program.',
+        },
+        WorkingDir: {
+          label: 'Working dir',
+          hint: 'Optional. Working directory the program starts in; empty = default.',
+        },
+        WindowState: {
+          label: 'Window state',
+          option: {
+            normal: 'Normal',
+            minimized: 'Minimized',
+            maximized: 'Maximized',
+            hidden: 'Hidden',
+          },
+        },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
     },
     StopApp: {
       label: 'Stop App',
-      description: 'Forcefully terminate a process by name, full exe path, or PID. Full paths are matched by file name. Routes to Fail if the process does not exist or cannot be killed.',
+      description:
+        'Forcefully terminate a process by name, full exe path, or PID. Full paths are matched by file name. Routes to Fail if the process does not exist or cannot be killed.',
       input: {
-        Target: { label: 'Target Process', hint: 'Process name (notepad.exe), full exe path, or numeric PID (1234)' },
+        Target: {
+          label: 'Target Process',
+          hint: 'Process name (notepad.exe), full exe path, or numeric PID (1234)',
+        },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Fail' } },
     },
     AndroidTarget: {
       label: 'Android Target',
-      description: 'Switch subsequent clicks, screenshots, and vision operations to an ADB device or emulator. Pick a serial from the dropdown; name and resolution are filled automatically and can still be overridden.',
-      example: 'Select emulator-5554 with Android Target, then wire a click or screenshot node; later actions operate on that emulator screen.',
+      description:
+        'Switch subsequent clicks, screenshots, and vision operations to an ADB device or emulator. Pick a serial from the dropdown; name and resolution are filled automatically and can still be overridden.',
+      example:
+        'Select emulator-5554 with Android Target, then wire a click or screenshot node; later actions operate on that emulator screen.',
       input: {
         Serial: { label: 'Device serial', hint: 'ADB serial, e.g. emulator-5554' },
         Name: { label: 'Display name', hint: 'Optional. Empty uses the device serial' },
@@ -1396,19 +1829,29 @@ export default {
     },
     AndroidStartApp: {
       label: 'Android Start App',
-      description: 'Start an app on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
-      example: 'Select the MuMu emulator with Android Target, then choose com.RoamingStar.BlueArchive in Android Start App to launch the game.',
+      description:
+        'Start an app on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
+      example:
+        'Select the MuMu emulator with Android Target, then choose com.RoamingStar.BlueArchive in Android Start App to launch the game.',
       input: {
-        Package: { label: 'App', hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive' },
+        Package: {
+          label: 'App',
+          hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive',
+        },
       },
       output: { Done: { label: 'Done' } },
     },
     AndroidStopApp: {
       label: 'Android Stop App',
-      description: 'Stop an app process on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
-      example: 'At the end of a flow, choose com.RoamingStar.BlueArchive and stop the game process through ADB.',
+      description:
+        'Stop an app process on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
+      example:
+        'At the end of a flow, choose com.RoamingStar.BlueArchive and stop the game process through ADB.',
       input: {
-        Package: { label: 'App', hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive' },
+        Package: {
+          label: 'App',
+          hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive',
+        },
       },
       output: { Done: { label: 'Done' } },
     },
@@ -1416,119 +1859,161 @@ export default {
     Expr: {
       label: 'Expression',
       description: `Write a one-line formula to freely combine operations and get a result. Supports arithmetic (+ - * / %), comparisons (< <= > >= == !=), logic (&& {'||'} !), the ternary (cond ? a : b), the built-in functions abs, min, max, now, floor, ceil, round (optionally with digits), clamp, pow, sqrt, and string literals in double quotes joined with +. To reference an outside value, add an input pin to this node, then use the matching name as a variable in the formula (e.g. hp, count).`,
-      example: 'Add two input pins hp and max, then write hp / max * 100 to get the health percentage; or hp < max * 0.3 ? "heal up" : "safe" to give different hints based on health. Variable names are exactly the names of the input pins you added.',
-      input: { Expression: { label: 'Expression', hint: 'Go-like expression. Dynamic Inputs[] declared input names can be referenced.' } },
+      example:
+        'Add two input pins hp and max, then write hp / max * 100 to get the health percentage; or hp < max * 0.3 ? "heal up" : "safe" to give different hints based on health. Variable names are exactly the names of the input pins you added.',
+      input: {
+        Expression: {
+          label: 'Expression',
+          hint: 'Go-like expression. Dynamic Inputs[] declared input names can be referenced.',
+        },
+      },
       output: { Result: { label: 'Result' } },
     },
     Add: {
-      label: 'Add', description: 'Adds two numbers and gives the sum.',
+      label: 'Add',
+      description: 'Adds two numbers and gives the sum.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Sub: {
-      label: 'Subtract', description: 'Subtracts B from A and gives the difference.',
+      label: 'Subtract',
+      description: 'Subtracts B from A and gives the difference.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Mul: {
-      label: 'Multiply', description: 'Multiplies two numbers and gives the product.',
+      label: 'Multiply',
+      description: 'Multiplies two numbers and gives the product.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Div: {
-      label: 'Divide', description: 'Divides A by B and gives the quotient. When the divisor is 0 the result is NaN (not a number).',
+      label: 'Divide',
+      description:
+        'Divides A by B and gives the quotient. When the divisor is 0 the result is NaN (not a number).',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Mod: {
-      label: 'Modulo', description: 'Gives the remainder of A divided by B; works with decimals too.',
+      label: 'Modulo',
+      description: 'Gives the remainder of A divided by B; works with decimals too.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Neg: {
-      label: 'Negate', description: 'Flips the sign of a number: positive becomes negative and vice versa.',
+      label: 'Negate',
+      description: 'Flips the sign of a number: positive becomes negative and vice versa.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Lt: {
-      label: 'Less than', description: 'Tells whether A < B, giving true/false.',
+      label: 'Less than',
+      description: 'Tells whether A < B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     LtEq: {
-      label: 'Less or equal', description: 'Tells whether A ≤ B, giving true/false.',
+      label: 'Less or equal',
+      description: 'Tells whether A ≤ B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Gt: {
-      label: 'Greater than', description: 'Tells whether A > B, giving true/false.',
+      label: 'Greater than',
+      description: 'Tells whether A > B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     GtEq: {
-      label: 'Greater or equal', description: 'Tells whether A ≥ B, giving true/false.',
+      label: 'Greater or equal',
+      description: 'Tells whether A ≥ B, giving true/false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Eq: {
-      label: 'Equals', description: 'Tells whether two values are equal, giving true/false. Accepts any type; same types compare directly, while different types are both turned into text first (so the number 1 and the text "1" count as equal).',
+      label: 'Equals',
+      description:
+        'Tells whether two values are equal, giving true/false. Accepts any type; same types compare directly, while different types are both turned into text first (so the number 1 and the text "1" count as equal).',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     NotEq: {
-      label: 'Not equals', description: 'Tells whether two values are not equal, giving true/false. Compares the same way as Equals: same types directly, different types both turned into text first.',
+      label: 'Not equals',
+      description:
+        'Tells whether two values are not equal, giving true/false. Compares the same way as Equals: same types directly, different types both turned into text first.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     And: {
-      label: 'Logical AND', description: 'Gives true only when both conditions are true, otherwise false. An unconnected input defaults to true so it does not affect the result.',
+      label: 'Logical AND',
+      description:
+        'Gives true only when both conditions are true, otherwise false. An unconnected input defaults to true so it does not affect the result.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Or: {
-      label: 'Logical OR', description: 'Gives true when at least one condition is true, and false only when both are false.',
+      label: 'Logical OR',
+      description:
+        'Gives true when at least one condition is true, and false only when both are false.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Not: {
-      label: 'Logical NOT', description: 'Flips true/false: true becomes false and false becomes true.',
+      label: 'Logical NOT',
+      description: 'Flips true/false: true becomes false and false becomes true.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Concat: {
-      label: 'Concatenate', description: 'Joins two values end to end into one piece of text. Non-text values (numbers, true/false, etc.) are turned into text first.',
+      label: 'Concatenate',
+      description:
+        'Joins two values end to end into one piece of text. Non-text values (numbers, true/false, etc.) are turned into text first.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Contains: {
-      label: 'Contains', description: 'Tells whether the needle text appears somewhere inside the haystack, giving true/false. Case-sensitive; non-text inputs are turned into text first.',
-      example: 'Feed recognized text into Haystack and put "Victory" in Needle; if "Victory" shows up it gives true, which you can wire into a condition node to decide the next step. Note it is case-sensitive: a haystack of "Win" with needle "win" counts as not contained.',
+      label: 'Contains',
+      description:
+        'Tells whether the needle text appears somewhere inside the haystack, giving true/false. Case-sensitive; non-text inputs are turned into text first.',
+      example:
+        'Feed recognized text into Haystack and put "Victory" in Needle; if "Victory" shows up it gives true, which you can wire into a condition node to decide the next step. Note it is case-sensitive: a haystack of "Win" with needle "win" counts as not contained.',
       input: { Haystack: { label: 'Haystack' }, Needle: { label: 'Needle' } },
       output: { Result: { label: 'Result' } },
     },
     Length: {
-      label: 'String length', description: 'Counts how long a piece of text is and gives the character count. A CJK character counts as 1, matching the position semantics of Substring and Index Of.',
+      label: 'String length',
+      description:
+        'Counts how long a piece of text is and gives the character count. A CJK character counts as 1, matching the position semantics of Substring and Index Of.',
       input: { S: { label: 'String' } },
       output: { Result: { label: 'Result' } },
     },
     ToString: {
-      label: 'To string', description: 'Turns any value into text. Numbers, true/false, points and more all convert; an empty value becomes "null".',
+      label: 'To string',
+      description:
+        'Turns any value into text. Numbers, true/false, points and more all convert; an empty value becomes "null".',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     ToNumber: {
-      label: 'To number', description: 'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
+      label: 'To number',
+      description:
+        'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     ToBool: {
-      label: 'To bool', description: 'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
+      label: 'To bool',
+      description:
+        'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Select: {
-      label: 'Select (ternary)', description: 'Looks at the condition and picks one of two values to output: A when the condition is true, B when it is false. A and B can be any type.',
-      example: 'Wire the condition to "is health sufficient", set A to the attack target and B to the retreat point; when true it outputs the attack target, when false the retreat point, then feed the result into the following action.',
+      label: 'Select (ternary)',
+      description:
+        'Looks at the condition and picks one of two values to output: A when the condition is true, B when it is false. A and B can be any type.',
+      example:
+        'Wire the condition to "is health sufficient", set A to the attack target and B to the retreat point; when true it outputs the attack target, when false the retreat point, then feed the result into the following action.',
       input: {
         Cond: { label: 'Condition' },
         A: { label: 'A (Cond=true)' },
@@ -1538,133 +2023,181 @@ export default {
     },
     // math
     Abs: {
-      label: 'Abs', description: 'Absolute value of X (negatives become positive).',
+      label: 'Abs',
+      description: 'Absolute value of X (negatives become positive).',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Min: {
-      label: 'Min', description: 'The smaller of two numbers.',
+      label: 'Min',
+      description: 'The smaller of two numbers.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Max: {
-      label: 'Max', description: 'The larger of two numbers.',
+      label: 'Max',
+      description: 'The larger of two numbers.',
       input: { A: { label: 'A' }, B: { label: 'B' } },
       output: { Result: { label: 'Result' } },
     },
     Floor: {
-      label: 'Floor', description: 'Round X down: 3.7 gives 3, -3.2 gives -4.',
+      label: 'Floor',
+      description: 'Round X down: 3.7 gives 3, -3.2 gives -4.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Ceil: {
-      label: 'Ceil', description: 'Round X up: 3.2 gives 4, -3.7 gives -3.',
+      label: 'Ceil',
+      description: 'Round X up: 3.2 gives 4, -3.7 gives -3.',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     Round: {
-      label: 'Round', description: 'Round X. Digits=0 rounds to integer; 2 keeps two decimals; -2 rounds to hundreds (12345 gives 12300). Digits is capped at +/-15 (beyond float precision).',
+      label: 'Round',
+      description:
+        'Round X. Digits=0 rounds to integer; 2 keeps two decimals; -2 rounds to hundreds (12345 gives 12300). Digits is capped at +/-15 (beyond float precision).',
       input: { X: { label: 'X' }, Digits: { label: 'Digits' } },
       output: { Result: { label: 'Result' } },
     },
     Clamp: {
-      label: 'Clamp', description: 'Limit X to the Min~Max range: below Min gives Min, above Max gives Max, otherwise X. Min/Max swap automatically if reversed.',
+      label: 'Clamp',
+      description:
+        'Limit X to the Min~Max range: below Min gives Min, above Max gives Max, otherwise X. Min/Max swap automatically if reversed.',
       input: { X: { label: 'X' }, Min: { label: 'Min' }, Max: { label: 'Max' } },
       output: { Result: { label: 'Result' } },
     },
     Pow: {
-      label: 'Pow', description: 'Base raised to Exp. Math conventions apply: negative base with fractional exponent gives NaN, 0 to a negative power gives Infinity, 0^0 gives 1.',
+      label: 'Pow',
+      description:
+        'Base raised to Exp. Math conventions apply: negative base with fractional exponent gives NaN, 0 to a negative power gives Infinity, 0^0 gives 1.',
       input: { Base: { label: 'Base' }, Exp: { label: 'Exp' } },
       output: { Result: { label: 'Result' } },
     },
     Sqrt: {
-      label: 'Sqrt', description: 'Square root of X. Negative X gives NaN (wire an Abs node first if needed).',
+      label: 'Sqrt',
+      description: 'Square root of X. Negative X gives NaN (wire an Abs node first if needed).',
       input: { X: { label: 'X' } },
       output: { Result: { label: 'Result' } },
     },
     // string
     Replace: {
-      label: 'Replace', description: 'Replace Old with New in the text. With "Replace all" on it replaces every occurrence, off only the first. Empty Old returns the text unchanged.',
-      input: { Text: { label: 'Text' }, Old: { label: 'Find' }, New: { label: 'Replace with' }, All: { label: 'Replace all' } },
+      label: 'Replace',
+      description:
+        'Replace Old with New in the text. With "Replace all" on it replaces every occurrence, off only the first. Empty Old returns the text unchanged.',
+      input: {
+        Text: { label: 'Text' },
+        Old: { label: 'Find' },
+        New: { label: 'Replace with' },
+        All: { label: 'Replace all' },
+      },
       output: { Result: { label: 'Result' } },
     },
     Substring: {
-      label: 'Substring', description: 'Take Length characters starting at Start (a CJK character counts as 1). Length -1 (default) takes to the end, 0 gives an empty string. Out-of-range Start gives an empty string.',
+      label: 'Substring',
+      description:
+        'Take Length characters starting at Start (a CJK character counts as 1). Length -1 (default) takes to the end, 0 gives an empty string. Out-of-range Start gives an empty string.',
       input: { Text: { label: 'Text' }, Start: { label: 'Start' }, Length: { label: 'Length' } },
       output: { Result: { label: 'Result' } },
     },
     Trim: {
-      label: 'Trim', description: 'Remove spaces, newlines and tabs from both ends of the text.',
+      label: 'Trim',
+      description: 'Remove spaces, newlines and tabs from both ends of the text.',
       input: { Text: { label: 'Text' } },
       output: { Result: { label: 'Result' } },
     },
     ToUpper: {
-      label: 'To Upper', description: 'Convert letters to uppercase.',
+      label: 'To Upper',
+      description: 'Convert letters to uppercase.',
       input: { Text: { label: 'Text' } },
       output: { Result: { label: 'Result' } },
     },
     ToLower: {
-      label: 'To Lower', description: 'Convert letters to lowercase.',
+      label: 'To Lower',
+      description: 'Convert letters to lowercase.',
       input: { Text: { label: 'Text' } },
       output: { Result: { label: 'Result' } },
     },
     IndexOf: {
-      label: 'Index Of', description: 'Position of the first occurrence of Sub in the text (counting from 0, a CJK character counts as 1). -1 when not found. To just test "contains", use the Contains node.',
+      label: 'Index Of',
+      description:
+        'Position of the first occurrence of Sub in the text (counting from 0, a CJK character counts as 1). -1 when not found. To just test "contains", use the Contains node.',
       input: { Text: { label: 'Text' }, Sub: { label: 'Find' } },
       output: { Result: { label: 'Position' } },
     },
     StartsWith: {
-      label: 'Starts With', description: 'Whether the text starts with Prefix. Empty Prefix is always true.',
+      label: 'Starts With',
+      description: 'Whether the text starts with Prefix. Empty Prefix is always true.',
       input: { Text: { label: 'Text' }, Prefix: { label: 'Prefix' } },
       output: { Result: { label: 'Result' } },
     },
     EndsWith: {
-      label: 'Ends With', description: 'Whether the text ends with Suffix. Empty Suffix is always true.',
+      label: 'Ends With',
+      description: 'Whether the text ends with Suffix. Empty Suffix is always true.',
       input: { Text: { label: 'Text' }, Suffix: { label: 'Suffix' } },
       output: { Result: { label: 'Result' } },
     },
     RegexMatch: {
-      label: 'Regex Match', description: `Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern always gives false and logs a warning.`,
+      label: 'Regex Match',
+      description: `Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern always gives false and logs a warning.`,
       input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
       output: { Result: { label: 'Result' } },
     },
     RegexExtract: {
-      label: 'Regex Extract', description: 'Extract the first match of the regular expression; with capture groups, group 1 is taken. No match or an invalid pattern gives an empty string (invalid patterns also log a warning).',
+      label: 'Regex Extract',
+      description:
+        'Extract the first match of the regular expression; with capture groups, group 1 is taken. No match or an invalid pattern gives an empty string (invalid patterns also log a warning).',
       input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
       output: { Result: { label: 'Result' } },
     },
     MakePoint: {
       label: 'Make Point',
-      description: 'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
-      example: 'Use a detected health ratio as X and a fixed 0.9 as Y, then feed the resulting coordinate into a Click node.',
+      description:
+        'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
+      example:
+        'Use a detected health ratio as X and a fixed 0.9 as Y, then feed the resulting coordinate into a Click node.',
       input: {
         X: { label: 'X', hint: 'Percent mode: 0-100 (e.g. 50 = 50%); pixel mode: pixel value' },
         Y: { label: 'Y', hint: 'Percent mode: 0-100 (e.g. 50 = 50%); pixel mode: pixel value' },
-        Unit: { label: 'Unit', hint: 'Percent = adapts to window; Pixels = absolute, fixed', option: { percent: 'Percent (adaptive)', px: 'Pixels (absolute)' } },
+        Unit: {
+          label: 'Unit',
+          hint: 'Percent = adapts to window; Pixels = absolute, fixed',
+          option: { percent: 'Percent (adaptive)', px: 'Pixels (absolute)' },
+        },
       },
       output: { Result: { label: 'Coordinate' } },
     },
     OffsetPoint: {
       label: 'Offset Point',
-      description: 'Add horizontal and vertical offsets to a coordinate. Ratio points are clamped inside the screen; pixel points keep their pixel unit.',
-      example: 'Take a template center point, then offset slightly down and right before clicking a steadier spot inside the button.',
+      description:
+        'Add horizontal and vertical offsets to a coordinate. Ratio points are clamped inside the screen; pixel points keep their pixel unit.',
+      example:
+        'Take a template center point, then offset slightly down and right before clicking a steadier spot inside the button.',
       input: {
         Point: { label: 'Point' },
-        OffsetX: { label: 'Offset X', hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets' },
-        OffsetY: { label: 'Offset Y', hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets' },
+        OffsetX: {
+          label: 'Offset X',
+          hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets',
+        },
+        OffsetY: {
+          label: 'Offset Y',
+          hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets',
+        },
       },
       output: { Result: { label: 'Point' } },
     },
     PointDistance: {
       label: 'Point Distance',
-      description: 'Calculate the straight-line distance between two coordinates. Useful for checking whether a detection is close enough to a target point.',
+      description:
+        'Calculate the straight-line distance between two coordinates. Useful for checking whether a detection is close enough to a target point.',
       input: { Begin: { label: 'Begin' }, End: { label: 'End' } },
       output: { Result: { label: 'Distance' } },
     },
     ROIAroundPoint: {
       label: 'ROI Around Point',
-      description: 'Create an ROI for screenshot or detection around a center point. Width and height are percentages and the result is clamped inside the screen.',
-      example: 'After detecting a character position, search only the surrounding 20% area for buttons or colors.',
+      description:
+        'Create an ROI for screenshot or detection around a center point. Width and height are percentages and the result is clamped inside the screen.',
+      example:
+        'After detecting a character position, search only the surrounding 20% area for buttons or colors.',
       input: {
         Center: { label: 'Center', hint: 'Ratio coordinates give the clearest result' },
         Width: { label: 'Width', hint: 'Percent; 20 means 20% of screen width' },
@@ -1674,86 +2207,121 @@ export default {
     },
     // list
     ForEach: {
-      label: 'For Each', description: 'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',
+      label: 'For Each',
+      description:
+        'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',
       input: { List: { label: 'List' } },
       output: { Body: { label: 'Body' }, Done: { label: 'Done' }, Fail: { label: 'Fail' } },
     },
     Split: {
-      label: 'Split', description: 'Split text into a list by a separator. Empty text gives an empty list; an empty separator splits into individual characters (CJK-safe).',
+      label: 'Split',
+      description:
+        'Split text into a list by a separator. Empty text gives an empty list; an empty separator splits into individual characters (CJK-safe).',
       input: { Text: { label: 'Text' }, Separator: { label: 'Separator' } },
       output: { Result: { label: 'List' } },
     },
     Join: {
-      label: 'Join', description: 'Join list items into one piece of text with a separator. Non-text items are converted automatically.',
+      label: 'Join',
+      description:
+        'Join list items into one piece of text with a separator. Non-text items are converted automatically.',
       input: { List: { label: 'List' }, Separator: { label: 'Separator' } },
       output: { Result: { label: 'Result' } },
     },
     ListLength: {
-      label: 'List Length', description: 'Count the items in a list. A non-list counts as 0.',
+      label: 'List Length',
+      description: 'Count the items in a list. A non-list counts as 0.',
       input: { List: { label: 'List' } },
       output: { Result: { label: 'Count' } },
     },
     ListGet: {
-      label: 'List Get', description: 'Take the item at Index (counting from 0). Out-of-range gives null — an item can itself be null, so check List Length first to tell them apart.',
+      label: 'List Get',
+      description:
+        'Take the item at Index (counting from 0). Out-of-range gives null — an item can itself be null, so check List Length first to tell them apart.',
       input: { List: { label: 'List' }, Index: { label: 'Index' } },
       output: { Result: { label: 'Item' } },
     },
     ListContains: {
-      label: 'List Contains', description: 'Whether the list has an item equal to Value. Same rules as the Equals node: same types compare directly, different types compare as text.',
+      label: 'List Contains',
+      description:
+        'Whether the list has an item equal to Value. Same rules as the Equals node: same types compare directly, different types compare as text.',
       input: { List: { label: 'List' }, Value: { label: 'Find' } },
       output: { Result: { label: 'Result' } },
     },
     ListAppend: {
-      label: 'List Append', description: 'Add one item to the end, producing a NEW list (the original is unchanged; to accumulate, store it back with Set Variable using type "any").',
+      label: 'List Append',
+      description:
+        'Add one item to the end, producing a NEW list (the original is unchanged; to accumulate, store it back with Set Variable using type "any").',
       input: { List: { label: 'List' }, Item: { label: 'Item' } },
       output: { Result: { label: 'New list' } },
     },
     ListSlice: {
-      label: 'List Slice', description: 'Take Count items starting at Start, as a new list. Count -1 (default) takes to the end, 0 gives an empty list. Out-of-range Start gives an empty list.',
+      label: 'List Slice',
+      description:
+        'Take Count items starting at Start, as a new list. Count -1 (default) takes to the end, 0 gives an empty list. Out-of-range Start gives an empty list.',
       input: { List: { label: 'List' }, Start: { label: 'Start' }, Count: { label: 'Count' } },
       output: { Result: { label: 'New list' } },
     },
     // random
     RandomInt: {
-      label: 'Random Int', description: 'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',
+      label: 'Random Int',
+      description:
+        'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',
       input: {
         Min: { label: 'Min' },
         Max: { label: 'Max' },
-        Distribution: { label: 'Distribution', hint: 'uniform = each integer equally likely; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)', option: { uniform: 'Uniform', centered: 'Centered' } },
+        Distribution: {
+          label: 'Distribution',
+          hint: 'uniform = each integer equally likely; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)',
+          option: { uniform: 'Uniform', centered: 'Centered' },
+        },
       },
       output: { Result: { label: 'Result' } },
     },
     RandomFloat: {
-      label: 'Random Float', description: 'Random float in [Min, Max) (Min included, Max excluded). Multiple references within one evaluation get the same value; different nodes get different values.',
+      label: 'Random Float',
+      description:
+        'Random float in [Min, Max) (Min included, Max excluded). Multiple references within one evaluation get the same value; different nodes get different values.',
       input: {
         Min: { label: 'Min' },
         Max: { label: 'Max' },
-        Distribution: { label: 'Distribution', hint: 'uniform = equal probability across the range; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)', option: { uniform: 'Uniform', centered: 'Centered' } },
+        Distribution: {
+          label: 'Distribution',
+          hint: 'uniform = equal probability across the range; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)',
+          option: { uniform: 'Uniform', centered: 'Centered' },
+        },
       },
       output: { Result: { label: 'Result' } },
     },
     RandomBool: {
-      label: 'Random Bool', description: 'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true. Multiple references within one evaluation get the same value; different nodes get different values.',
+      label: 'Random Bool',
+      description:
+        'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true. Multiple references within one evaluation get the same value; different nodes get different values.',
       input: { Prob: { label: 'True probability' } },
       output: { Result: { label: 'Result' } },
     },
     RandomChoice: {
-      label: 'Random Choice', description: 'Pick one random item from the list. Multiple references within one evaluation get the same pick. An empty list gives null (an item can itself be null — check List Length to tell them apart).',
+      label: 'Random Choice',
+      description:
+        'Pick one random item from the list. Multiple references within one evaluation get the same pick. An empty list gives null (an item can itself be null — check List Length to tell them apart).',
       input: { List: { label: 'List' } },
       output: { Result: { label: 'Item' } },
     },
     // stopwatch
     StopwatchStart: {
       label: 'Stopwatch start',
-      description: 'Starts a stopwatch so you can time how long part of your flow takes. Each stopwatch is identified by a key (name), so you can run several at once without them interfering. If that key is already running, it restarts from zero.',
-      example: 'To time a "find image + click" section: connect StopwatchStart (key = click), run that section, then connect StopwatchRead (key = click) afterward to get the elapsed milliseconds.',
+      description:
+        'Starts a stopwatch so you can time how long part of your flow takes. Each stopwatch is identified by a key (name), so you can run several at once without them interfering. If that key is already running, it restarts from zero.',
+      example:
+        'To time a "find image + click" section: connect StopwatchStart (key = click), run that section, then connect StopwatchRead (key = click) afterward to get the elapsed milliseconds.',
       input: { Key: { label: 'Key', hint: 'Stopwatch key (namespace independent of $vars.*)' } },
       output: { Done: { label: 'Done' } },
     },
     StopwatchRead: {
       label: 'Stopwatch read',
-      description: 'Reads how many milliseconds a stopwatch has counted. If it is still running, you get "start until now"; if it was stopped, you get "start until the stop"; an unstarted key returns 0.',
-      example: 'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
+      description:
+        'Reads how many milliseconds a stopwatch has counted. If it is still running, you get "start until now"; if it was stopped, you get "start until the stop"; an unstarted key returns 0.',
+      example:
+        'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
       input: {
         Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' },
       },
@@ -1766,14 +2334,16 @@ export default {
     },
     StopwatchStop: {
       label: 'Stopwatch stop',
-      description: 'Stops a stopwatch so that reading it later gives the total time at the moment it stopped, instead of continuing to climb. Does nothing if that key was never started.',
+      description:
+        'Stops a stopwatch so that reading it later gives the total time at the moment it stopped, instead of continuing to climb. Does nothing if that key was never started.',
       input: { Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' } },
       output: { Done: { label: 'Done' } },
     },
     // system
     CollapsedNode: {
       label: 'Collapsed subgraph',
-      description: 'Folds a group of selected nodes into one small box to keep the flow tidy. Double-click to edit the nodes inside; it runs exactly the same as when expanded, then continues via Done.',
+      description:
+        'Folds a group of selected nodes into one small box to keep the flow tidy. Double-click to edit the nodes inside; it runs exactly the same as when expanded, then continues via Done.',
       input: {
         SubgraphID: { label: 'Subgraph ID', hint: 'Target isAnonymous Subgraph identifier' },
         Label: { label: 'Label' },
@@ -1782,7 +2352,8 @@ export default {
     },
     CommentBox: {
       label: 'Comment box',
-      description: 'A sticky note on the canvas: a title plus body text (markdown supported) to document your script. Display only — it never runs and never connects. Double-click to edit; color, icon, and width are adjustable.',
+      description:
+        'A sticky note on the canvas: a title plus body text (markdown supported) to document your script. Display only — it never runs and never connects. Double-click to edit; color, icon, and width are adjustable.',
       input: {
         Title: { label: 'Title' },
         Content: { label: 'Body (markdown)' },
@@ -1793,15 +2364,23 @@ export default {
     },
     MouseCalibration: {
       label: 'Mouse calibration',
-      description: 'Tells the script how far your mouse travels per full 360° turn on this machine; relative mouse moves (MouseMoveRel) use this value to convert angles into actual movement. Put one in the main graph (one per container); it does no action itself and just passes through.',
-      input: { Counts360: { label: 'Counts per 360°', hint: 'Counts produced per full 360° mouse rotation. MouseMoveRel uses this to scale dx/dy.' } },
+      description:
+        'Tells the script how far your mouse travels per full 360° turn on this machine; relative mouse moves (MouseMoveRel) use this value to convert angles into actual movement. Put one in the main graph (one per container); it does no action itself and just passes through.',
+      input: {
+        Counts360: {
+          label: 'Counts per 360°',
+          hint: 'Counts produced per full 360° mouse rotation. MouseMoveRel uses this to scale dx/dy.',
+        },
+      },
       output: { Done: { label: 'Done' } },
       inspector: {
         counts_label: 'Local 360° HID counts',
         calibrated: '✅ Calibrated',
         not_calibrated: '❌ Not calibrated',
-        counts_hint: 'How many |dx| counts your mouse reports per 360° physical rotation — depends on hardware DPI, OS sensitivity, and in-game sensitivity.',
-        counts_warn: '⚠ This value MUST be measured on your machine + this game; do not copy it from someone else\'s container.',
+        counts_hint:
+          'How many |dx| counts your mouse reports per 360° physical rotation — depends on hardware DPI, OS sensitivity, and in-game sensitivity.',
+        counts_warn:
+          "⚠ This value MUST be measured on your machine + this game; do not copy it from someone else's container.",
         start_calibrate: '▶ Start calibration',
         load_from_settings_one: '⬇ Load from settings ({label}: {n})',
         load_from_settings_pick: '⬇ Pick a calibration profile from settings…',
@@ -1810,11 +2389,16 @@ export default {
     },
     Subgraph: {
       label: 'Call subgraph',
-      description: 'Packages a group of nodes into a subgraph and runs the whole thing once here, then continues via Done. Use it to reuse the same flow in several places or to split a big flow into pieces; you can also pass data in through Params.',
-      example: 'Your login flow is reused across several scripts: turn it into a subgraph, drop one Call subgraph in each script pointing to it, and future login changes only touch the subgraph.',
+      description:
+        'Packages a group of nodes into a subgraph and runs the whole thing once here, then continues via Done. Use it to reuse the same flow in several places or to split a big flow into pieces; you can also pass data in through Params.',
+      example:
+        'Your login flow is reused across several scripts: turn it into a subgraph, drop one Call subgraph in each script pointing to it, and future login changes only touch the subgraph.',
       input: {
         SubgraphID: { label: 'Subgraph ID' },
-        Params: { label: 'Params', hint: 'Call params — passed through to the runner, which injects them into the callee SubgraphInput.' },
+        Params: {
+          label: 'Params',
+          hint: 'Call params — passed through to the runner, which injects them into the callee SubgraphInput.',
+        },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
       fallback_missing: '(subgraph not found)',
@@ -1828,14 +2412,18 @@ export default {
         subgraph_tags_field: 'tags',
         subgraph_tags_placeholder: 'Add tag...',
         enter_subgraph: 'Enter subgraph to edit nodes',
-        footer_meta_hint: 'Subgraph metadata (name/description/tags) is editable here — no need to enter the subgraph.',
-        footer_delete_hint: 'Plain delete removes this reference only; the subgraph stays in the library. Right-click the node and choose "Delete for good" to also delete the subgraph definition (with confirmation).',
+        footer_meta_hint:
+          'Subgraph metadata (name/description/tags) is editable here — no need to enter the subgraph.',
+        footer_delete_hint:
+          'Plain delete removes this reference only; the subgraph stays in the library. Right-click the node and choose "Delete for good" to also delete the subgraph definition (with confirmation).',
       },
     },
     Throw: {
       label: 'Throw',
-      description: 'Deliberately raises an error and stops the current flow right away; the error text is whatever you put in Message. If an enclosing region (Loop / subgraph, etc.) has its Fail exit wired, the error is caught and routed down the Fail branch; otherwise the whole script errors out and stops. You can also set an error Code so a downstream Switch can branch on it.',
-      example: 'You detect HP is 0, meaning the character is dead and there is no point continuing: add a Throw with Message «character dead» so the enclosing region Fail exit catches it and runs a revive routine.',
+      description:
+        'Deliberately raises an error and stops the current flow right away; the error text is whatever you put in Message. If an enclosing region (Loop / subgraph, etc.) has its Fail exit wired, the error is caught and routed down the Fail branch; otherwise the whole script errors out and stops. You can also set an error Code so a downstream Switch can branch on it.',
+      example:
+        'You detect HP is 0, meaning the character is dead and there is no point continuing: add a Throw with Message «character dead» so the enclosing region Fail exit catches it and runs a revive routine.',
       input: {
         Message: { label: 'Message' },
         Code: { label: 'Error code (optional)' },
@@ -1843,21 +2431,38 @@ export default {
     },
     Win32WindowTarget: {
       label: 'Windows window target',
-      description: 'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget for Android devices.',
-      example: 'Your script needs to operate the game window: put a Windows window target at the start with the game name as the title, and later Windows clicks and key presses go to that window.',
+      description:
+        'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget for Android devices.',
+      example:
+        'Your script needs to operate the game window: put a Windows window target at the start with the game name as the title, and later Windows clicks and key presses go to that window.',
       input: {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
         ProcessName: { label: 'Process name' },
-        TitleMatch: { label: 'Title match mode', option: { exact: 'Exact', contains: 'Contains', prefix: 'Prefix', suffix: 'Suffix', regex: 'Regex' } },
+        TitleMatch: {
+          label: 'Title match mode',
+          option: {
+            exact: 'Exact',
+            contains: 'Contains',
+            prefix: 'Prefix',
+            suffix: 'Suffix',
+            regex: 'Regex',
+          },
+        },
       },
-      output: { Done: { label: 'Done', data: { Window: { hint: 'The window switched to' } } }, Fail: { label: 'Failed' } },
-      subgraph_hint: 'Switching windows inside a subgraph affects the caller; the window is not restored automatically on return.',
+      output: {
+        Done: { label: 'Done', data: { Window: { hint: 'The window switched to' } } },
+        Fail: { label: 'Failed' },
+      },
+      subgraph_hint:
+        'Switching windows inside a subgraph affects the caller; the window is not restored automatically on return.',
       inspector: {
         capture_waiting: 'Waiting for {hk} (click again to cancel)',
         capture_start: 'Capture Windows window (press {hk})',
-        capture_hint_a: 'Click, then switch to the game window and press {hk} to capture title/class/processName.',
-        capture_hint_b: 'Key clashes with other software? Change it under Settings → Hotkeys → System → Window capture.',
+        capture_hint_a:
+          'Click, then switch to the game window and press {hk} to capture title/class/processName.',
+        capture_hint_b:
+          'Key clashes with other software? Change it under Settings → Hotkeys → System → Window capture.',
         match_section: 'Window match (match)',
         title_label: 'Title (title)',
         title_placeholder: 'Where Winds Meet',
@@ -1870,26 +2475,42 @@ export default {
     },
     WaitWindow: {
       label: 'Wait for window',
-      description: 'Poll until a Windows window appears, matched by title / class / process name. If it appears within the timeout, takes the Found exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Run program to wait for the program window to load. Note: this node only detects whether the window exists; it does not switch to it. To operate on it, follow Found with a Windows window target to lock it (it resolves instantly since the window now exists).',
-      example: 'After Run program launches a game, add Wait for window with the game title and a 20s timeout; on Found add Windows window target + actions, on Timeout show a message or retry.',
+      description:
+        'Poll until a Windows window appears, matched by title / class / process name. If it appears within the timeout, takes the Found exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Run program to wait for the program window to load. Note: this node only detects whether the window exists; it does not switch to it. To operate on it, follow Found with a Windows window target to lock it (it resolves instantly since the window now exists).',
+      example:
+        'After Run program launches a game, add Wait for window with the game title and a 20s timeout; on Found add Windows window target + actions, on Timeout show a message or retry.',
       input: {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
         ProcessName: { label: 'Process name' },
         TitleMatch: { label: 'Title match', option: { exact: 'Exact', regex: 'Regex' } },
-        TimeoutMs: { label: 'Timeout (ms)', hint: 'Poll-wait this long for the window to appear; takes Timeout if it never shows.' },
+        TimeoutMs: {
+          label: 'Timeout (ms)',
+          hint: 'Poll-wait this long for the window to appear; takes Timeout if it never shows.',
+        },
       },
       output: { Found: { label: 'Found' }, Timeout: { label: 'Timeout' } },
     },
     GetWindow: {
       label: 'Get Window',
-      description: 'Resolve a window by title/class/process into a window object without changing the active window.',
-      example: 'Resolve a child window into a variable, then wire its Window input on later nodes to act on different windows.',
+      description:
+        'Resolve a window by title/class/process into a window object without changing the active window.',
+      example:
+        'Resolve a child window into a variable, then wire its Window input on later nodes to act on different windows.',
       input: {
         Title: { label: 'Window Title' },
         Class: { label: 'Window Class' },
         ProcessName: { label: 'Process Name' },
-        TitleMatch: { label: 'Title Match', option: { exact: 'Exact', contains: 'Contains', prefix: 'Prefix', suffix: 'Suffix', regex: 'Regex' } },
+        TitleMatch: {
+          label: 'Title Match',
+          option: {
+            exact: 'Exact',
+            contains: 'Contains',
+            prefix: 'Prefix',
+            suffix: 'Suffix',
+            regex: 'Regex',
+          },
+        },
       },
       output: {
         Done: { label: 'Done', data: { Window: { hint: 'The resolved window object' } } },
@@ -1898,13 +2519,28 @@ export default {
     },
     WindowState: {
       label: 'Window State',
-      description: 'Maximize / minimize / restore / borderless-fullscreen / exit-borderless on a Windows window.',
+      description:
+        'Maximize / minimize / restore / borderless-fullscreen / exit-borderless on a Windows window.',
       example: 'Switch the game window to borderless fullscreen.',
       input: {
-        State: { label: 'State', option: { maximize: 'Maximize', minimize: 'Minimize', restore: 'Restore', borderlessFullscreen: 'Borderless Fullscreen', restoreBorders: 'Exit Borderless' } },
+        State: {
+          label: 'State',
+          option: {
+            maximize: 'Maximize',
+            minimize: 'Minimize',
+            restore: 'Restore',
+            borderlessFullscreen: 'Borderless Fullscreen',
+            restoreBorders: 'Exit Borderless',
+          },
+        },
         Window: { label: 'Window' },
       },
-      output: { Done: { label: 'Done', data: { Window: { hint: 'The window re-read after the operation' } } } },
+      output: {
+        Done: {
+          label: 'Done',
+          data: { Window: { hint: 'The window re-read after the operation' } },
+        },
+      },
     },
     MoveResizeWindow: {
       label: 'Move/Resize Window',
@@ -1917,33 +2553,52 @@ export default {
         Height: { label: 'Height' },
         Window: { label: 'Window' },
       },
-      output: { Done: { label: 'Done', data: { Window: { hint: 'The window re-read after the operation' } } } },
+      output: {
+        Done: {
+          label: 'Done',
+          data: { Window: { hint: 'The window re-read after the operation' } },
+        },
+      },
     },
     CloseWindow: {
       label: 'Close Window',
-      description: 'Send a close request to the Windows window (pair with "Wait Window Gone" to confirm it closed).',
+      description:
+        'Send a close request to the Windows window (pair with "Wait Window Gone" to confirm it closed).',
       example: 'Close the Notepad window then wait for it to disappear.',
       input: { Window: { label: 'Window' } },
       output: { Done: { label: 'Done' } },
     },
     WaitWindowGone: {
       label: 'Wait window closed',
-      description: 'Poll until a window disappears, matched by title / class / process name. If it disappears within the timeout, takes the Gone exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Stop app to confirm the window has actually closed.',
+      description:
+        'Poll until a window disappears, matched by title / class / process name. If it disappears within the timeout, takes the Gone exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Stop app to confirm the window has actually closed.',
       input: {
         Title: { label: 'Window title' },
         Class: { label: 'Window class' },
         ProcessName: { label: 'Process name' },
         TitleMatch: { label: 'Title match', option: { exact: 'Exact', regex: 'Regex' } },
-        TimeoutMs: { label: 'Timeout (ms)', hint: 'Poll-wait this long for the window to disappear; takes Timeout if it never closes.' },
+        TimeoutMs: {
+          label: 'Timeout (ms)',
+          hint: 'Poll-wait this long for the window to disappear; takes Timeout if it never closes.',
+        },
       },
       output: { Gone: { label: 'Gone' }, Timeout: { label: 'Timeout' } },
     },
-    SubgraphInput: { label: 'Subgraph input', description: 'The entry point inside a subgraph — when the subgraph is called, execution starts here, and any params passed in are read here. Position is movable, but it cannot be deleted or copied.' },
-    SubgraphOutput: { label: 'Subgraph output', description: 'The exit point inside a subgraph — reaching it ends the subgraph and returns to the caller to continue. One per output pin. Position is movable, but it cannot be deleted or copied.' },
+    SubgraphInput: {
+      label: 'Subgraph input',
+      description:
+        'The entry point inside a subgraph — when the subgraph is called, execution starts here, and any params passed in are read here. Position is movable, but it cannot be deleted or copied.',
+    },
+    SubgraphOutput: {
+      label: 'Subgraph output',
+      description:
+        'The exit point inside a subgraph — reaching it ends the subgraph and returns to the caller to continue. One per output pin. Position is movable, but it cannot be deleted or copied.',
+    },
     // variable
     GetVar: {
       label: 'Get variable',
-      description: 'Reads back the value of a variable you stored earlier, to feed wherever you need it. The scope decides where to look: local checks only the current subgraph, global checks the shared global store, and auto checks the current subgraph first then falls back to global.',
+      description:
+        'Reads back the value of a variable you stored earlier, to feed wherever you need it. The scope decides where to look: local checks only the current subgraph, global checks the shared global store, and auto checks the current subgraph first then falls back to global.',
       input: {
         VarName: { label: 'Variable name' },
         Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1952,8 +2607,10 @@ export default {
     },
     SetVar: {
       label: 'Set variable',
-      description: 'Stores a variable with any value you like — text, number, anything — to read back later with Get variable. The scope decides where it goes: local stores it in the current subgraph (gone once you leave it), global stores it everywhere, and auto updates an existing same-name var in the current subgraph or otherwise stores it globally.',
-      example: 'Record a status flag: SetVar (name = done, value = true), then later read it back with GetVar to decide whether to skip a step.',
+      description:
+        'Stores a variable with any value you like — text, number, anything — to read back later with Get variable. The scope decides where it goes: local stores it in the current subgraph (gone once you leave it), global stores it everywhere, and auto updates an existing same-name var in the current subgraph or otherwise stores it globally.',
+      example:
+        'Record a status flag: SetVar (name = done, value = true), then later read it back with GetVar to decide whether to skip a step.',
       input: {
         VarName: { label: 'Variable name' },
         Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1963,8 +2620,10 @@ export default {
     },
     IncVar: {
       label: 'Increment variable',
-      description: 'Adds a delta to a variable (default +1; use a negative number to subtract) — handy as a counter. If the variable has no value yet, it starts from 0. The scope works the same as Get/Set variable: local / global / auto.',
-      example: 'Count loop iterations: put IncVar (name = count) inside the loop body so it adds 1 each pass, then read count with GetVar afterward for the total.',
+      description:
+        'Adds a delta to a variable (default +1; use a negative number to subtract) — handy as a counter. If the variable has no value yet, it starts from 0. The scope works the same as Get/Set variable: local / global / auto.',
+      example:
+        'Count loop iterations: put IncVar (name = count) inside the loop body so it adds 1 each pass, then read count with GetVar afterward for the total.',
       input: {
         VarName: { label: 'Variable name' },
         Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
@@ -1974,21 +2633,31 @@ export default {
     },
     GetParam: {
       label: 'Get subgraph param',
-      description: 'Reads the value of a parameter passed in when this subgraph was called, by parameter name. Only usable inside a subgraph — it is the subgraph\'s "input".',
+      description:
+        'Reads the value of a parameter passed in when this subgraph was called, by parameter name. Only usable inside a subgraph — it is the subgraph\'s "input".',
       input: { ParamName: { label: 'Param name' } },
       output: { Value: { label: 'Value' } },
     },
     Now: {
       label: 'Now',
-      description: 'Returns the current time in milliseconds (unix ms, re-read live each time). Often paired with "Variable last-change time" to compute "how long a state has stayed unchanged": Now − VarLastChange.',
-      example: 'Check how long HP has stayed unchanged (stuck): subtract "Variable last-change time" (name = hp) from Now; if the gap exceeds 5000 ms treat it as stuck and trigger a reconnect.',
+      description:
+        'Returns the current time in milliseconds (unix ms, re-read live each time). Often paired with "Variable last-change time" to compute "how long a state has stayed unchanged": Now − VarLastChange.',
+      example:
+        'Check how long HP has stayed unchanged (stuck): subtract "Variable last-change time" (name = hp) from Now; if the gap exceeds 5000 ms treat it as stuck and trigger a reconnect.',
       output: { Value: { label: 'Now (ms)' } },
     },
     VarLastChange: {
       label: 'Variable last-change time',
-      description: 'Returns the time a variable was last written/incremented (unix ms), or 0 if it was never changed. Paired with Now to compute "how long this value has stayed unchanged" — handy for stuck detection / watchdogs.',
-      example: 'Detect a stuck state: name = state, subtract this node\'s result from Now; a large gap means state has not updated for a long time and can trigger recovery.',
-      input: { VarName: { label: 'Variable name', hint: 'Name of the variable whose last-change time to query' } },
+      description:
+        'Returns the time a variable was last written/incremented (unix ms), or 0 if it was never changed. Paired with Now to compute "how long this value has stayed unchanged" — handy for stuck detection / watchdogs.',
+      example:
+        "Detect a stuck state: name = state, subtract this node's result from Now; a large gap means state has not updated for a long time and can trigger recovery.",
+      input: {
+        VarName: {
+          label: 'Variable name',
+          hint: 'Name of the variable whose last-change time to query',
+        },
+      },
       output: { Value: { label: 'Last-change time (ms)' } },
     },
   },
@@ -2078,10 +2747,12 @@ export default {
     },
     confirm: {
       reset_title: 'Reset built-in hotkeys?',
-      reset_desc: 'Strong-stop / calibrate / recording stop / recording pause will return to factory defaults. Container hotkeys are unaffected.',
+      reset_desc:
+        'Strong-stop / calibrate / recording stop / recording pause will return to factory defaults. Container hotkeys are unaffected.',
       reset_ok: 'Reset',
       clear_title: 'Clear all container hotkeys?',
-      clear_desc: 'Every container hotkey binding will be removed (containers and blueprints are kept). This cannot be undone.',
+      clear_desc:
+        'Every container hotkey binding will be removed (containers and blueprints are kept). This cannot be undone.',
       clear_ok: 'Clear',
     },
     label: {
@@ -2121,21 +2792,25 @@ export default {
     DANGLING_EDGE: 'Edge {from} → {to} references missing node ({missing})',
     INVALID_PIN: 'Node {nodeID} ({kind}) has no {side} pin {pin}',
     DUPLICATE_OUTPUT_PIN: 'OutputPin Name {name} duplicated',
-    MISSING_TEMPLATE: 'Node {nodeID} references template {template} not found in container templates/',
+    MISSING_TEMPLATE:
+      'Node {nodeID} references template {template} not found in container templates/',
     MISSING_SUBGRAPH: 'Subgraph node references unknown subgraph {subgraphId}',
     MISSING_MOUSE_CALIBRATION: 'Uses MouseMoveRel but container has no MouseCalibration node',
-    DUPLICATE_MOUSE_CALIBRATION: 'Main graph has {count} MouseCalibration nodes (expected at most 1)',
+    DUPLICATE_MOUSE_CALIBRATION:
+      'Main graph has {count} MouseCalibration nodes (expected at most 1)',
     MOUSE_CALIBRATION_NOT_SET: 'MouseCalibration.counts360 is not set',
     MOUSE_CALIBRATION_IN_SUBGRAPH: 'MouseCalibration node must be in main graph',
     EMPTY_SUBGRAPH_OUTPUT: 'Subgraph has no SubgraphOutput node',
     CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
     MISSING_WIN32_WINDOW_TARGET: 'Main graph missing a Windows window target node',
-    UNSUPPORTED_TARGET_CAPABILITY: '{kind} requires target capability {capability}, but target {targetKind} does not support it',
+    UNSUPPORTED_TARGET_CAPABILITY:
+      '{kind} requires target capability {capability}, but target {targetKind} does not support it',
     UNKNOWN_ERROR: 'An unknown error occurred',
     WAILS_NOT_READY: 'The app is not ready yet, please retry',
     CONTAINER_ID_REQUIRED: 'Container ID is required',
-    RECORDING_NO_WIN32_WINDOW_TARGET: 'Container has no Windows window target node (recording needs a Windows window)',
+    RECORDING_NO_WIN32_WINDOW_TARGET:
+      'Container has no Windows window target node (recording needs a Windows window)',
     INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
     INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
     INVALID_HSV_RANGE: 'HSV range is invalid',
@@ -2153,32 +2828,41 @@ export default {
     INVALID_REGEX_PATTERN: 'Regular expression invalid: {pattern} ({parseErr})',
     // v4 new
     PIN_TYPE_MISMATCH: 'data pin type incompatible: {from} → {to} (edge: {edge})',
-    PIN_TYPE_COERCION_WARNING: 'data pin implicit coercion: {from} → {to} (suggest explicit To* node)',
+    PIN_TYPE_COERCION_WARNING:
+      'data pin implicit coercion: {from} → {to} (suggest explicit To* node)',
     GETVAR_UNKNOWN_VAR: 'GetVar/SetVar/IncVar references undeclared variable {name}',
     GETVAR_TYPE_MISMATCH: 'GetVar output type does not match downstream expectation',
-    LITERAL_TYPE_MISMATCH: 'inline literal type does not match pin type (pin {pin} expected {expected}, got {value})',
+    LITERAL_TYPE_MISMATCH:
+      'inline literal type does not match pin type (pin {pin} expected {expected}, got {value})',
     DATA_PIN_DANGLING: 'data-in pin {pin} has no edge and no literal',
     DATA_GRAPH_CYCLE: 'data flow forms a cycle: {cycle}',
     EXPR_PARSE_ERROR: 'Expr parse failed: {error}',
     EXPR_UNKNOWN_INPUT: 'Expr references undeclared input {name}',
     EXPR_TYPE_MISMATCH: 'Expr outType differs from inferred (expected {expected}, got {actual})',
     EXPR_DUPLICATE_INPUT: 'Expr inputs has duplicate name: {name}',
-    EXPR_UNKNOWN_FUNCTION: 'Unknown function {name} — check spelling; see the input autocomplete for available functions',
+    EXPR_UNKNOWN_FUNCTION:
+      'Unknown function {name} — check spelling; see the input autocomplete for available functions',
     EXPR_FN_ARITY: 'Function {name} expects {want} args, got {got}',
     SCRIPT_PARSE_ERROR: 'Script syntax error: {error}',
     SCRIPT_DUPLICATE_INPUT: 'Duplicate script input {name}',
-    EXPR_UNKNOWN_VAR: 'Expression references undeclared variable {name} — check spelling or declare it in the vars panel',
+    EXPR_UNKNOWN_VAR:
+      'Expression references undeclared variable {name} — check spelling or declare it in the vars panel',
     GETPARAM_UNKNOWN_PARAM: 'GetParam references undeclared input param {name}',
     COLLAPSED_PIN_BROKEN: 'CollapsedNode external pin has no matching marker in backing Subgraph',
-    COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL: 'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
+    COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL:
+      'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
     // B11/B3+ added codes
     INVALID_VAR_REF: 'Node references undeclared container variable {varName} (scope={scope})',
     // disabled nodes
-    WARN_DISABLED_BRANCH_NODE: 'Branch/async node {nodeID} (kind={kind}) disabled passthrough exit pin — non-deterministic, prefer delete over disable',
-    INVALID_DISABLED_TERMINAL: 'Container-level node {nodeID} (kind={kind}) cannot be disabled (Start/MouseCalibration/EventTick)',
+    WARN_DISABLED_BRANCH_NODE:
+      'Branch/async node {nodeID} (kind={kind}) disabled passthrough exit pin — non-deterministic, prefer delete over disable',
+    INVALID_DISABLED_TERMINAL:
+      'Container-level node {nodeID} (kind={kind}) cannot be disabled (Start/MouseCalibration/EventTick)',
     // sentinel scope
-    BREAK_OUTSIDE_LOOP: 'Break node must be downstream of a Loop body (exec-reachable in same graph)',
-    CONTINUE_OUTSIDE_LOOP: 'Continue node must be downstream of a Loop body (exec-reachable in same graph)',
+    BREAK_OUTSIDE_LOOP:
+      'Break node must be downstream of a Loop body (exec-reachable in same graph)',
+    CONTINUE_OUTSIDE_LOOP:
+      'Continue node must be downstream of a Loop body (exec-reachable in same graph)',
     // template/clip key validation
     INVALID_TEMPLATE_KEY: 'Template key {key} invalid: {error}',
     TEMPLATE_NOT_FOUND: 'Template {key} not found in container',
@@ -2243,7 +2927,8 @@ export default {
     delete_count: 'Delete ({n})',
     create: 'New container',
     empty_title: 'No containers yet',
-    empty_desc: 'A container is a node-graph blueprint with variables, control flow, template detection, and Action calls.',
+    empty_desc:
+      'A container is a node-graph blueprint with variables, control flow, template detection, and Action calls.',
     empty_cta: 'Create your first container',
     no_match_title: 'No matching containers',
     no_match_desc: 'The current search or tag filters have no results.',
@@ -2291,7 +2976,8 @@ export default {
     input_backend_label: 'Input mode',
     input_backend_postmessage: 'PostMessage — background, no focus steal (default)',
     input_backend_sendinput: 'SendInput — global foreground injection (auto-activates window)',
-    input_backend_hint: 'PostMessage targets a Windows window by handle and runs in the background; SendInput uses OS-level global injection and needs focus, so the window is auto-brought to foreground when a Windows window target resolves.',
+    input_backend_hint:
+      'PostMessage targets a Windows window by handle and runs in the background; SendInput uses OS-level global injection and needs focus, so the window is auto-brought to foreground when a Windows window target resolves.',
     capture_backend_label: 'Capture backend',
     scale_tolerance_label: 'Template scale tolerance (cross-resolution)',
     variables_section: 'Variables',
@@ -2366,7 +3052,8 @@ export default {
     main_save_failed: 'Main graph save failed',
     subgraph_save_failed: '{n} subgraph(s) failed to save',
     stale_title: 'Newer version on disk',
-    stale_desc: '{n} subgraph(s) were saved from another window. Reload discards your local edits to them; keep local and the next save will prompt again.',
+    stale_desc:
+      '{n} subgraph(s) were saved from another window. Reload discards your local edits to them; keep local and the next save will prompt again.',
     stale_reload: 'Reload from disk',
     stale_keep: 'Keep local edits',
   },
@@ -2379,7 +3066,8 @@ export default {
     create_failed: 'Create subgraph failed',
     multi_entry_unsupported: 'Multiple external entries not supported (v1)',
     auto_reconnected: 'External edges auto-reconnected to subgraph call node',
-    manual_check_needed: 'Note: external edges between parent and subgraph not auto-reconnected, please check manually',
+    manual_check_needed:
+      'Note: external edges between parent and subgraph not auto-reconnected, please check manually',
   },
   graphLayout: {
     horizontal: 'Horizontal',
@@ -2409,9 +3097,11 @@ export default {
     recording_failed: 'Recording failed',
     no_product: 'Recording stopped but no product received',
     default_clip_name: 'Recording clip',
-    container_mismatch: 'Recorded subgraph was saved to container "{target}", but "{current}" is currently open. Switch to "{target}" to see the recording.',
+    container_mismatch:
+      'Recorded subgraph was saved to container "{target}", but "{current}" is currently open. Switch to "{target}" to see the recording.',
     leave_title: 'Recording in progress',
-    leave_during_recording: 'If you leave, the result cannot auto-wire into the current view — you must go to the target container manually. Leave anyway?',
+    leave_during_recording:
+      'If you leave, the result cannot auto-wire into the current view — you must go to the target container manually. Leave anyway?',
     leave_confirm: 'Leave anyway',
   },
   subgraphLifecycle: {
@@ -2447,7 +3137,8 @@ export default {
     limit_label: 'Limit',
     minutes: 'minutes',
     empty: 'No schedules yet',
-    empty_desc: 'Schedules bind cron / hotkey / once-at-startup, then run the listed containers sequentially.',
+    empty_desc:
+      'Schedules bind cron / hotkey / once-at-startup, then run the listed containers sequentially.',
     table: {
       name: 'Name',
       trigger: 'Trigger',
@@ -2510,7 +3201,8 @@ export default {
       delete: 'Delete',
       delete_confirm_title: 'Delete subgraph',
       delete_confirm_desc: 'Delete "{name}"? This cannot be undone.',
-      delete_confirm_referenced: '"{name}" is used by {n} container(s); deleting will break them with "subgraph missing". Delete anyway? This cannot be undone.',
+      delete_confirm_referenced:
+        '"{name}" is used by {n} container(s); deleting will break them with "subgraph missing". Delete anyway? This cannot be undone.',
     },
     toolbar: {
       total: '{n} total',
@@ -2528,7 +3220,8 @@ export default {
       change_category_apply: 'Apply',
       delete_confirm_title: 'Delete subgraphs',
       delete_confirm_desc: 'Delete the {n} selected subgraphs? This cannot be undone.',
-      delete_confirm_referenced: '{m} of the {n} selected subgraphs are used by containers: {names}. Deleting will break them with "subgraph missing". Delete anyway? This cannot be undone.',
+      delete_confirm_referenced:
+        '{m} of the {n} selected subgraphs are used by containers: {names}. Deleting will break them with "subgraph missing". Delete anyway? This cannot be undone.',
       add_tags_title: 'Add tags to selection',
       add_tags_placeholder: 'Pick or type tags to append…',
       add_tags_apply: 'Add',
@@ -2559,7 +3252,8 @@ export default {
       preview: 'Template preview',
       clear_selection: 'Clear selection',
       retake: 'Retake',
-      drag_hint: 'Drag a rectangle on the image to frame the target. No selection = save full screen.',
+      drag_hint:
+        'Drag a rectangle on the image to frame the target. No selection = save full screen.',
       key_label: 'Key (required)',
       key_example: 'fishing.hook_icon',
       name_label: 'Display name (required)',
@@ -2572,7 +3266,8 @@ export default {
       save_cropped: 'Save template (cropped)',
       save_full: 'Save template (full)',
       no_game_window: 'Game window not detected',
-      invalid_key_format: 'Must be like fishing.hook_icon (letters/digits/underscore + at least 1 dot)',
+      invalid_key_format:
+        'Must be like fishing.hook_icon (letters/digits/underscore + at least 1 dot)',
     },
     manager: {
       title: 'Template manager',
@@ -2635,7 +3330,8 @@ export default {
       add_variant: 'Add {res}',
       current_badge: 'current',
       del_variant_title: 'Delete variant {res}?',
-      del_variant_desc: 'Only this variant is removed; other resolutions stay, and nodes using this asset match with the remaining ones.',
+      del_variant_desc:
+        'Only this variant is removed; other resolutions stay, and nodes using this asset match with the remaining ones.',
     },
   },
   recording: {
@@ -2652,7 +3348,8 @@ export default {
     title: 'Mouse DPI calibration',
     switch_game_hint: 'Switch to game, press',
     start_label: 'Start',
-    countdown_desc: '3-second countdown after press; final pose adjustment during countdown; auto-accumulate when done',
+    countdown_desc:
+      '3-second countdown after press; final pose adjustment during countdown; auto-accumulate when done',
     ready_status: 'About to start accumulating, get ready',
     f8_shortcut: 'Press {hk} early = start now',
     recording_status: 'Accumulating · spin 360° in place',
@@ -2705,7 +3402,8 @@ export default {
     input: {
       create: 'New global variable "{name}" ({type})',
       declare_now: 'Declare as variable',
-      type_mismatch: 'Type mismatch: capturing {cap} into a {dst} variable (still written, converted at runtime)',
+      type_mismatch:
+        'Type mismatch: capturing {cap} into a {dst} variable (still written, converted at runtime)',
     },
     refs: {
       title: 'References of variable {name}',
@@ -2741,7 +3439,8 @@ export default {
       paren_mismatch: 'Parenthesis mismatch',
       string_unclosed: 'Unclosed string: missing "',
       paren_missing: 'Parenthesis mismatch: missing {count} {char}',
-      bare_word: 'Looks like a bare word; for string literals wrap "{var}" in double quotes; for variables/params use a GetVar / GetParam node wired into an input pin.',
+      bare_word:
+        'Looks like a bare word; for string literals wrap "{var}" in double quotes; for variables/params use a GetVar / GetParam node wired into an input pin.',
       op_end: 'Expression ends with operator, right operand missing',
       unknown_fn: 'Unknown function {name}',
     },
@@ -2762,7 +3461,8 @@ export default {
   },
   script: {
     fn: {
-      Subgraph: 'Call a subgraph of this container and wait until it finishes. Fields other than SubgraphID are passed as input params; the returned exit is the output the subgraph actually reached (e.g. "done" / "failed").',
+      Subgraph:
+        'Call a subgraph of this container and wait until it finishes. Fields other than SubgraphID are passed as input params; the returned exit is the output the subgraph actually reached (e.g. "done" / "failed").',
       params_get: 'Read a subgraph parameter (only meaningful inside a subgraph).',
       sleep: 'Wait for the given milliseconds. Interrupts immediately when the run stops.',
       log_info: 'Write a log line to the run log; multiple arguments are joined with spaces.',
@@ -2903,14 +3603,16 @@ export default {
   },
   settingsLauncher: {
     title: 'Floating launcher',
-    intro: 'Put frequently used containers into a small launcher window and run them with one click. Open it with the show/hide hotkey or from a container page.',
+    intro:
+      'Put frequently used containers into a small launcher window and run them with one click. Open it with the show/hide hotkey or from a container page.',
     display_label: 'Button display',
     display_hint: 'Each launcher button can show an icon, text, or both.',
     display_both: 'Icon + text',
     display_icon: 'Icon only',
     display_text: 'Text only',
     layout_title: 'Layout',
-    layout_hint: 'Arrange container buttons, text headings, horizontal separators, and vertical separators freely. Drag to reorder.',
+    layout_hint:
+      'Arrange container buttons, text headings, horizontal separators, and vertical separators freely. Drag to reorder.',
     empty: 'Empty launcher — add blocks below.',
     pick_icon: 'Pick icon',
     clear_icon: 'Clear icon',
@@ -2938,9 +3640,11 @@ export default {
   settingsMCP: {
     title: 'MCP Server',
     armLabel: 'Allow execution and writes',
-    armWarning: 'Warning: when allowed, AI clients can drive your mouse and keyboard, run nodes, and write containers. Only connect trusted AI clients.',
+    armWarning:
+      'Warning: when allowed, AI clients can drive your mouse and keyboard, run nodes, and write containers. Only connect trusted AI clients.',
     urlLabel: 'Server URL',
-    urlHint: 'The local server is always available. Until execution and writes are allowed, AI clients can only use read-only tools.',
+    urlHint:
+      'The local server is always available. Until execution and writes are allowed, AI clients can only use read-only tools.',
     copy: 'Copy',
     copied: 'Copied!',
   },
@@ -2999,6 +3703,7 @@ export default {
     section_stack: 'Tech stack',
     section_thanks: 'Acknowledgements',
     label_icon: 'App icon',
-    icon_credit: 'Icon sourced from public works on Pixiv; copyright belongs to the original author. For personal use only; please contact for replacement if requested.',
+    icon_credit:
+      'Icon sourced from public works on Pixiv; copyright belongs to the original author. For personal use only; please contact for replacement if requested.',
   },
 }
