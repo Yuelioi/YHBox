@@ -39,8 +39,8 @@ func TestTemplateCaptureAdapter_CaptureAndroidTargetUsesADBScreenshot(t *testing
 		InputBackend:   "postmessage",
 		CaptureBackend: "auto",
 		Graph: container.Graph{
-			ID:      "g1",
-			Version: container.GraphSchemaVersion,
+			ID:            "g1",
+			SchemaVersion: container.GraphSchemaVersion,
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "at", Kind: "AndroidTarget", Config: map[string]any{"literal": map[string]any{

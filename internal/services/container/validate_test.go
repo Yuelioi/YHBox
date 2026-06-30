@@ -50,7 +50,7 @@ func TestValidateReturnsValidationFailure(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
-			ID: "g", Version: 1,
+			ID: "g", SchemaVersion: 1,
 			Nodes: []GraphNode{{ID: "n1", Kind: "ClickAt", Config: map[string]any{}}},
 		},
 	}
@@ -75,7 +75,7 @@ func TestValidateReturnsValidationFailure(t *testing.T) {
 
 func TestValidatePassesWhenNoErrors(t *testing.T) {
 	// Empty container should pass (existing convention — no nodes = no errors).
-	c := &Container{SchemaVersion: 4, Graph: Graph{ID: "g", Version: 1}}
+	c := &Container{SchemaVersion: 4, Graph: Graph{ID: "g", SchemaVersion: 1}}
 	if err := c.Validate(nil); err != nil {
 		t.Errorf("empty container should validate, got: %v", err)
 	}

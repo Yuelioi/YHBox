@@ -17,7 +17,7 @@ func TestLegacyEdgeKindIgnored(t *testing.T) {
 		"label": "test",
 		"graph": {
 			"id": "g1",
-			"version": 1,
+			"schemaVersion": 1,
 			"nodes": [
 				{"id": "start", "kind": "Start", "x": 0, "y": 0},
 				{"id": "wt", "kind": "Win32WindowTarget", "x": 100, "y": 0},
@@ -67,7 +67,7 @@ func TestLegacyDataEdgeValidatesCleanly(t *testing.T) {
 		"vars": [{"name": "x", "type": "any"}],
 		"graph": {
 			"id": "g1",
-			"version": 1,
+			"schemaVersion": 1,
 			"nodes": [
 				{"id": "start", "kind": "Start", "x": 0, "y": 0},
 				{"id": "wt", "kind": "Win32WindowTarget", "x": 100, "y": 0},

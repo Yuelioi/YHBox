@@ -25,7 +25,7 @@ func TestSubgraphStore_CreateAndGet_RoundTrip(t *testing.T) {
 		ID:    "sg-A",
 		Label: "A",
 		Graph: Graph{
-			ID: "g-sgA", Version: GraphSchemaVersion,
+			ID: "g-sgA", SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				// 老格式 marker 节点 — persist 路径 normalize 应提取到 metadata 并 strip.
 				{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},

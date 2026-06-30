@@ -1,4 +1,4 @@
-﻿package container
+package container
 
 import (
 	"testing"
@@ -7,8 +7,8 @@ import (
 
 func newTestGraph() Graph {
 	return Graph{
-		ID:      "g1",
-		Version: GraphSchemaVersion,
+		ID:            "g1",
+		SchemaVersion: GraphSchemaVersion,
 		Nodes: []GraphNode{
 			{ID: "start", Kind: "Start", CreatedAt: time.Now().UTC()},
 			{ID: "wait", Kind: "WaitTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}, "Threshold": "0.85"}}, CreatedAt: time.Now().UTC()},

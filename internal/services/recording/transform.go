@@ -210,10 +210,10 @@ func assembleSubgraph(steps []stepNode, label string, rec *container.RecordingCo
 		ID:    container.NewSubgraphID(),
 		Label: label,
 		Graph: container.Graph{
-			ID:      uuid.NewString(),
-			Version: container.GraphSchemaVersion,
-			Nodes:   nodes,
-			Edges:   edges,
+			ID:            uuid.NewString(),
+			SchemaVersion: container.GraphSchemaVersion,
+			Nodes:         nodes,
+			Edges:         edges,
 		},
 		Entry: container.SubgraphMarker{
 			NodeID: inID,

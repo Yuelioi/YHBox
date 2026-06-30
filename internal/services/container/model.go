@@ -4,13 +4,29 @@ package container
 
 import "time"
 
-// CurrentSchemaVersion 整个 Container 文件的 schema 版本号（与 Graph.Version 区分；前者控容器外壳布局，
-// 后者控 graph 内部 schema）。
+// CurrentSchemaVersion 整个 Container 聚合视图的 schema 版本号（与 Graph.SchemaVersion 区分；
+// 前者控容器外壳布局，后者控 graph 内部 schema）。
 const CurrentSchemaVersion = 1
 
 // GraphSchemaVersion 每个 Graph 内部 schema 的版本号。
 // 所有 graph 共用同一个值；schema 演进必须递增；启动 load 时不匹配标 Status: Incompatible（不 panic）。
 const GraphSchemaVersion = 1
+
+const (
+	PackageSchemaVersion      = 2
+	InstallationSchemaVersion = 1
+	LockSchemaVersion         = 1
+
+	PackageKindContainer = "yotta.container"
+
+	PublicationDraft     = "draft"
+	PublicationPublished = "published"
+	PublicationArchived  = "archived"
+
+	VisibilityPrivate  = "private"
+	VisibilityUnlisted = "unlisted"
+	VisibilityPublic   = "public"
+)
 
 const (
 	StatusIncompatible = "incompatible"
@@ -29,15 +45,15 @@ type VarDecl struct {
 // GraphNode 节点。Config 形态由 kind 决定，本包视作不透明。
 // CreatedAt 在 v2 新增：debugger / analytics 用。
 type GraphNode struct {
-	ID        string         `json:"id"`
-	Kind      string         `json:"kind"`
-	Label     string         `json:"label,omitempty"`     // 用户可编辑显示名 (optional, 不影响逻辑)
-	X         float32        `json:"x"`
-	Y         float32        `json:"y"`
-	Config    map[string]any `json:"config,omitempty"`
-	Disabled    bool           `json:"disabled,omitempty"`    // runtime 跳过该节点 (kind-aware passthrough)
-	LogEnabled  bool           `json:"logEnabled,omitempty"`  // 勾选 → 执行时吐通用 dump 日志
-	CreatedAt   time.Time      `json:"createdAt"`
+	ID         string         `json:"id"`
+	Kind       string         `json:"kind"`
+	Label      string         `json:"label,omitempty"` // 用户可编辑显示名 (optional, 不影响逻辑)
+	X          float32        `json:"x"`
+	Y          float32        `json:"y"`
+	Config     map[string]any `json:"config,omitempty"`
+	Disabled   bool           `json:"disabled,omitempty"`   // runtime 跳过该节点 (kind-aware passthrough)
+	LogEnabled bool           `json:"logEnabled,omitempty"` // 勾选 → 执行时吐通用 dump 日志
+	CreatedAt  time.Time      `json:"createdAt"`
 }
 
 // GraphEdge 边。From/To 格式："<nodeId>.<pinName>"。
@@ -51,12 +67,172 @@ type GraphEdge struct {
 	To   string `json:"to"`
 }
 
-// Graph 节点图。有 ID (UUID) + Version (= GraphSchemaVersion).
+// Graph 节点图。有 ID (UUID) + SchemaVersion (= GraphSchemaVersion).
 type Graph struct {
-	ID      string      `json:"id"`      // UUID；graph 自己有 identity
-	Version int         `json:"version"` // = GraphSchemaVersion 写入时
-	Nodes   []GraphNode `json:"nodes"`
-	Edges   []GraphEdge `json:"edges"`
+	ID            string      `json:"id"`            // UUID；graph 自己有 identity
+	SchemaVersion int         `json:"schemaVersion"` // = GraphSchemaVersion 写入时
+	Nodes         []GraphNode `json:"nodes"`
+	Edges         []GraphEdge `json:"edges"`
+}
+
+// PackagePerson 描述作者或贡献者。
+type PackagePerson struct {
+	Name  string `json:"name"`
+	Email string `json:"email,omitempty"`
+	URL   string `json:"url,omitempty"`
+}
+
+// PackagePublisher 是当前 registry owner, 不等同作者。
+type PackagePublisher struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
+// PackageLink 覆盖 repository / bugs / docs / changelog 这类在线链接。
+type PackageLink struct {
+	Type  string `json:"type,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+// Publication 描述包本体的发布状态; 投稿审核态属于 registry submission 资源。
+type Publication struct {
+	State       string `json:"state"`
+	Visibility  string `json:"visibility"`
+	RegistryURL string `json:"registryUrl,omitempty"`
+	UpdateURL   string `json:"updateUrl,omitempty"`
+	DownloadURL string `json:"downloadUrl,omitempty"`
+	PublishedAt string `json:"publishedAt,omitempty"`
+	ContentHash string `json:"contentHash,omitempty"`
+	Signature   string `json:"signature,omitempty"`
+}
+
+// SourceRef 记录 import / fork / registry 安装等来源。
+type SourceRef struct {
+	Type        string `json:"type"`
+	PackageID   string `json:"packageId,omitempty"`
+	PackageName string `json:"packageName,omitempty"`
+	Version     string `json:"version,omitempty"`
+	RegistryURL string `json:"registryUrl,omitempty"`
+	ContentHash string `json:"contentHash,omitempty"`
+}
+
+type TargetSlot struct {
+	Kind        string `json:"kind"`
+	DisplayName string `json:"displayName,omitempty"`
+}
+
+type AISlot struct {
+	DisplayName  string   `json:"displayName,omitempty"`
+	ProviderHint string   `json:"providerHint,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	ModelHint    string   `json:"modelHint,omitempty"`
+}
+
+// PackageYotta 放 Yotta 专属 manifest 字段, 避免污染 npm-like 顶层字段。
+type PackageYotta struct {
+	PackageID   string                `json:"packageId"`
+	EntryGraph  string                `json:"entryGraph"`
+	Publication Publication           `json:"publication"`
+	Sources     []SourceRef           `json:"sources"`
+	Vars        []VarDecl             `json:"vars,omitempty"`
+	Targets     map[string]TargetSlot `json:"targets,omitempty"`
+	AI          map[string]AISlot     `json:"ai,omitempty"`
+}
+
+// PackageManifest 是 package.json 的 Yotta 容器 manifest。它只描述可移植包信息,
+// 不包含本机时间、热键、窗口匹配、ADB serial 或 AI connection id。
+type PackageManifest struct {
+	SchemaVersion int              `json:"schemaVersion"`
+	Kind          string           `json:"kind"`
+	Name          string           `json:"name"`
+	DisplayName   string           `json:"displayName"`
+	Version       string           `json:"version"`
+	Description   string           `json:"description,omitempty"`
+	Summary       string           `json:"summary,omitempty"`
+	Keywords      []string         `json:"keywords,omitempty"`
+	Category      string           `json:"category,omitempty"`
+	License       string           `json:"license,omitempty"`
+	Author        PackagePerson    `json:"author"`
+	Contributors  []PackagePerson  `json:"contributors,omitempty"`
+	Publisher     PackagePublisher `json:"publisher"`
+	Homepage      string           `json:"homepage,omitempty"`
+	Repository    PackageLink      `json:"repository,omitempty"`
+	Bugs          PackageLink      `json:"bugs,omitempty"`
+	Docs          PackageLink      `json:"docs,omitempty"`
+	Changelog     PackageLink      `json:"changelog,omitempty"`
+	Yotta         PackageYotta     `json:"yotta"`
+}
+
+type InstallationDisplay struct {
+	Favorite bool   `json:"favorite"`
+	Hidden   bool   `json:"hidden"`
+	Alias    string `json:"alias,omitempty"`
+}
+
+// RuntimeOverrides 使用 nil 表示继承 package/runtime 默认值; JSON 中会写成 null。
+type RuntimeOverrides struct {
+	Hotkey         *string  `json:"hotkey"`
+	InputBackend   *string  `json:"inputBackend"`
+	CaptureBackend *string  `json:"captureBackend"`
+	ScaleTolerance *float64 `json:"scaleTolerance"`
+}
+
+type TargetBinding struct {
+	Kind  string         `json:"kind"`
+	Match map[string]any `json:"match,omitempty"`
+}
+
+type AIBinding struct {
+	ConnectionID string `json:"connectionId"`
+}
+
+type InstallationUpdates struct {
+	AutoCheck        bool   `json:"autoCheck"`
+	Pinned           bool   `json:"pinned"`
+	LastCheckedAt    string `json:"lastCheckedAt,omitempty"`
+	AvailableVersion string `json:"availableVersion,omitempty"`
+}
+
+// Installation 是 installation.json 的本机安装态。
+type Installation struct {
+	SchemaVersion    int                      `json:"schemaVersion"`
+	InstanceID       string                   `json:"instanceId"`
+	PackageID        string                   `json:"packageId"`
+	PackageName      string                   `json:"packageName"`
+	InstalledVersion string                   `json:"installedVersion"`
+	Display          InstallationDisplay      `json:"display"`
+	RuntimeOverrides RuntimeOverrides         `json:"runtimeOverrides"`
+	TargetBindings   map[string]TargetBinding `json:"targetBindings,omitempty"`
+	AIBindings       map[string]AIBinding     `json:"aiBindings,omitempty"`
+	Updates          InstallationUpdates      `json:"updates"`
+	InstalledAt      string                   `json:"installedAt,omitempty"`
+	LastRunAt        string                   `json:"lastRunAt,omitempty"`
+	UpdatedAt        string                   `json:"updatedAt,omitempty"`
+}
+
+type LockDependencies struct {
+	Templates   []string `json:"templates,omitempty"`
+	Clips       []string `json:"clips,omitempty"`
+	Subgraphs   []string `json:"subgraphs,omitempty"`
+	Assets      []string `json:"assets,omitempty"`
+	AISlots     []string `json:"aiSlots,omitempty"`
+	TargetSlots []string `json:"targetSlots,omitempty"`
+}
+
+// YottaLock 是 yotta-lock.json 的生成态摘要。
+type YottaLock struct {
+	SchemaVersion int              `json:"schemaVersion"`
+	PackageID     string           `json:"packageId"`
+	PackageName   string           `json:"packageName,omitempty"`
+	Version       string           `json:"version,omitempty"`
+	ManifestHash  string           `json:"manifestHash"`
+	GraphHash     string           `json:"graphHash"`
+	ClosureHash   string           `json:"closureHash"`
+	GeneratedAt   string           `json:"generatedAt,omitempty"`
+	Dependencies  LockDependencies `json:"dependencies"`
+	Permissions   []string         `json:"permissions,omitempty"`
+	Capabilities  []string         `json:"capabilities,omitempty"`
 }
 
 // Container 蓝图编排实体。
@@ -71,11 +247,11 @@ type Container struct {
 	// 容器级窗口后端配置 (原在 Win32WindowTarget 节点, v2 挪容器级 — 整容器一套后端).
 	// InputBackend "sendinput" 走 OS 全局注入 (需前台焦点 → Win32WindowTarget 解析时自动拉前台);
 	// "postmessage" (默认) 按 hwnd 直发, 后台不抢焦点. 激活与否由此字段决定 (原 RunMode 已并入).
-	InputBackend   string  `json:"inputBackend,omitempty"`
-	CaptureBackend string  `json:"captureBackend,omitempty"`
-	ScaleTolerance float64 `json:"scaleTolerance,omitempty"`
-	Vars  []VarDecl `json:"vars,omitempty"`
-	Graph Graph     `json:"graph"`
+	InputBackend   string    `json:"inputBackend,omitempty"`
+	CaptureBackend string    `json:"captureBackend,omitempty"`
+	ScaleTolerance float64   `json:"scaleTolerance,omitempty"`
+	Vars           []VarDecl `json:"vars,omitempty"`
+	Graph          Graph     `json:"graph"`
 	// 子图不再是容器字段 (2026-06-12 全局化): 全局池 data/subgraphs/, 容器图节点按
 	// SubgraphID 引用; 校验/运行时按依赖闭包从池解析快照传入.
 	// Status 运行时标记（不持久化）。值："" 正常 / "incompatible" graceful load fail
@@ -132,15 +308,15 @@ const SubgraphSchemaVersion = 1
 // Subgraph 全局子图池里的可执行函数 (2026-06-12 全局化: 容器只引用不拥有)。
 // 持久化路径：data/subgraphs/<id>.json
 type Subgraph struct {
-	SchemaVersion    int                  `json:"schemaVersion"`              // 写盘统一盖 SubgraphSchemaVersion
-	ID               string               `json:"id"`                         // sg-<完整uuid>, 铸出后终身不变
-	Rev              int64                `json:"rev"`                        // 单调版本号: 每次保存 +1; 乐观锁比对用 (仅单实例并发控制, 不参与跨机真相判定)
+	SchemaVersion    int                  `json:"schemaVersion"` // 写盘统一盖 SubgraphSchemaVersion
+	ID               string               `json:"id"`            // sg-<完整uuid>, 铸出后终身不变
+	Rev              int64                `json:"rev"`           // 单调版本号: 每次保存 +1; 乐观锁比对用 (仅单实例并发控制, 不参与跨机真相判定)
 	Label            string               `json:"label"`
 	Description      string               `json:"description,omitempty"`
-	Graph            Graph                `json:"graph"`                      // 内部节点 + 边 (不含 SubgraphInput/Output)
-	Entry            SubgraphMarker       `json:"entry"`                      // 子图入口 virtual marker
-	OutputPins       []SubgraphOutputDecl `json:"outputPins"`                 // 出口声明 + virtual marker
-	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"`      // 子图入参声明 (data-in pin schema on call sites)
+	Graph            Graph                `json:"graph"`                 // 内部节点 + 边 (不含 SubgraphInput/Output)
+	Entry            SubgraphMarker       `json:"entry"`                 // 子图入口 virtual marker
+	OutputPins       []SubgraphOutputDecl `json:"outputPins"`            // 出口声明 + virtual marker
+	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"` // 子图入参声明 (data-in pin schema on call sites)
 	Tags             []string             `json:"tags,omitempty"`
 	Category         string               `json:"category,omitempty"`         // 库分组键 (空 = 未分类)
 	RequiredGlobals  []string             `json:"requiredGlobals,omitempty"`  // 引用的容器级 var 名字 (保存时派生; 只存名字 — Type/Default 由消费方按目标容器即时现算)

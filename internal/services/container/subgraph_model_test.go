@@ -27,9 +27,9 @@ func TestSubgraphSerialization(t *testing.T) {
 		Label:       "录制 14:32",
 		Description: "",
 		Graph: Graph{
-			ID:      "g-sg-abc",
-			Version: GraphSchemaVersion,
-			Nodes:   []GraphNode{{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()}},
+			ID:            "g-sg-abc",
+			SchemaVersion: GraphSchemaVersion,
+			Nodes:         []GraphNode{{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()}},
 		},
 		OutputPins: []SubgraphOutputDecl{
 			{ID: "decl-1", Name: "done"},
@@ -58,7 +58,7 @@ func TestSubgraphWithRecordingContext(t *testing.T) {
 	sg := Subgraph{
 		ID:         "sg-rec",
 		Label:      "rec",
-		Graph:      Graph{ID: "g", Version: GraphSchemaVersion},
+		Graph:      Graph{ID: "g", SchemaVersion: GraphSchemaVersion},
 		OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		RecordingContext: &RecordingContext{
 			MouseCounts360: 4120,

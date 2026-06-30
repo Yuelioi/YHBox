@@ -11,8 +11,8 @@ func minContainer() *Container {
 		ID:            "c1",
 		Name:          "test",
 		Graph: Graph{
-			ID:      "g-main",
-			Version: GraphSchemaVersion,
+			ID:            "g-main",
+			SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start", CreatedAt: time.Now().UTC()},
 			},
@@ -191,8 +191,8 @@ func TestValidator_CyclicSelfRecursive(t *testing.T) {
 			ID:    "sg-A",
 			Label: "A",
 			Graph: Graph{
-				ID:      "g-A",
-				Version: GraphSchemaVersion,
+				ID:            "g-A",
+				SchemaVersion: GraphSchemaVersion,
 				Nodes: []GraphNode{
 					{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
 					{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-A"}, CreatedAt: time.Now().UTC()},
@@ -214,9 +214,9 @@ func TestValidator_CyclicIndirect(t *testing.T) {
 			ID:    "sg-A",
 			Label: "A",
 			Graph: Graph{
-				ID:      "gA",
-				Version: GraphSchemaVersion,
-				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-B"}, CreatedAt: time.Now().UTC()}},
+				ID:            "gA",
+				SchemaVersion: GraphSchemaVersion,
+				Nodes:         []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-B"}, CreatedAt: time.Now().UTC()}},
 			},
 			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		},
@@ -224,9 +224,9 @@ func TestValidator_CyclicIndirect(t *testing.T) {
 			ID:    "sg-B",
 			Label: "B",
 			Graph: Graph{
-				ID:      "gB",
-				Version: GraphSchemaVersion,
-				Nodes:   []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-A"}, CreatedAt: time.Now().UTC()}},
+				ID:            "gB",
+				SchemaVersion: GraphSchemaVersion,
+				Nodes:         []GraphNode{{ID: "call", Kind: "Subgraph", Config: map[string]any{"SubgraphID": "sg-A"}, CreatedAt: time.Now().UTC()}},
 			},
 			OutputPins: []SubgraphOutputDecl{{ID: "d", Name: "done"}},
 		},
@@ -444,7 +444,7 @@ func TestValidate_DataEdgeNoLongerRaisesInvalidPin(t *testing.T) {
 	c := &Container{
 		SchemaVersion: CurrentSchemaVersion,
 		Graph: Graph{
-			ID: "g", Version: GraphSchemaVersion,
+			ID: "g", SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: "wt", Kind: "Win32WindowTarget", Config: map[string]any{

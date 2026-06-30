@@ -147,7 +147,7 @@ func canonPinType(t string) string {
 	return strings.ToLower(t)
 }
 
-// Normalize self-heal — 填默认值 (SchemaVersion/Graph.ID/Graph.Version) + 子图补缺
+// Normalize self-heal — 填默认值 (SchemaVersion/Graph.ID/Graph.SchemaVersion) + 子图补缺
 // SubgraphOutput. self-heal 的唯一入口.
 func (c *Container) Normalize() {
 	if c.SchemaVersion == 0 {
@@ -160,12 +160,12 @@ func (c *Container) Normalize() {
 	if c.Graph.Edges == nil {
 		c.Graph.Edges = []GraphEdge{}
 	}
-	// v2 兜底：写盘前自动填 Graph.ID + Graph.Version
+	// v2 兜底：写盘前自动填 Graph.ID + Graph.SchemaVersion
 	if c.Graph.ID == "" {
 		c.Graph.ID = uuid.NewString()
 	}
-	if c.Graph.Version == 0 {
-		c.Graph.Version = GraphSchemaVersion
+	if c.Graph.SchemaVersion == 0 {
+		c.Graph.SchemaVersion = GraphSchemaVersion
 	}
 	// 子图已全局化 — self-heal 与 RequiredGlobals 派生在全局 SubgraphStore 的保存路径跑,
 	// 不再挂在容器 Normalize 上.

@@ -110,8 +110,8 @@ func (s *Service) Create(name string) (Container, error) {
 		CaptureBackend: "auto",
 		ScaleTolerance: DefaultScaleTolerance,
 		Graph: Graph{
-			ID:      uuid.NewString(),
-			Version: GraphSchemaVersion,
+			ID:            uuid.NewString(),
+			SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: startID, Kind: "Start", X: 100, Y: 120, Config: map[string]any{}, CreatedAt: time.Now().UTC()},
 				{ID: winTargetID, Kind: "Win32WindowTarget", X: 100, Y: 260, Config: map[string]any{

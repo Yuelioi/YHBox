@@ -107,15 +107,15 @@ func (s *Store) loadOne(id string) (Container, error) {
 			IncompatibleReason: fmt.Sprintf("JSON 解析失败：%v", err),
 		}, nil
 	}
-	// Graph.Version 检查
+	// Graph.SchemaVersion 检查
 	// > GraphSchemaVersion → 未来版本（真 incompatible）
 	// == 0 → 旧数据（v1 / Create 早期 bug 漏写），auto-upgrade 不阻塞使用
 	switch {
-	case c.Graph.Version > GraphSchemaVersion:
+	case c.Graph.SchemaVersion > GraphSchemaVersion:
 		c.Status = StatusIncompatible
-		c.IncompatibleReason = fmt.Sprintf("graph version=%d 不支持（当前 %d）", c.Graph.Version, GraphSchemaVersion)
-	case c.Graph.Version == 0:
-		c.Graph.Version = GraphSchemaVersion
+		c.IncompatibleReason = fmt.Sprintf("graph version=%d 不支持（当前 %d）", c.Graph.SchemaVersion, GraphSchemaVersion)
+	case c.Graph.SchemaVersion == 0:
+		c.Graph.SchemaVersion = GraphSchemaVersion
 		if c.Graph.ID == "" {
 			c.Graph.ID = "g-" + id
 		}

@@ -69,8 +69,8 @@ func (s *SubgraphService) Create(label string) (Subgraph, error) {
 	sg := Subgraph{
 		Label: label,
 		Graph: Graph{
-			ID:      uuid.NewString(),
-			Version: GraphSchemaVersion,
+			ID:            uuid.NewString(),
+			SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "in", Kind: "SubgraphInput", X: 80, Y: 160, CreatedAt: now},
 				{ID: "out", Kind: "SubgraphOutput", X: 420, Y: 160,

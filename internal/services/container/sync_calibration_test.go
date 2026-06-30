@@ -18,7 +18,7 @@ func setupStoreWithContainer(t *testing.T) (*Store, string) {
 		ID:            cid,
 		Name:          "c1",
 		Graph: Graph{
-			ID: "gm", Version: GraphSchemaVersion,
+			ID: "gm", SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start", CreatedAt: time.Now().UTC()},
 				{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}, CreatedAt: time.Now().UTC()},
@@ -58,7 +58,7 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 		ID:    "sg-1",
 		Label: "录制",
 		Graph: Graph{
-			ID: "g-sg1", Version: GraphSchemaVersion,
+			ID: "g-sg1", SchemaVersion: GraphSchemaVersion,
 			Nodes: []GraphNode{
 				{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
 				{ID: "out", Kind: "SubgraphOutput", CreatedAt: time.Now().UTC()},

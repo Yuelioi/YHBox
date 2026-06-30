@@ -6,7 +6,7 @@ func reqContainer(nodes []GraphNode, edges []GraphEdge) *Container {
 	return &Container{
 		SchemaVersion: CurrentSchemaVersion,
 		ID:            "req-test",
-		Graph:         Graph{Version: GraphSchemaVersion, Nodes: nodes, Edges: edges},
+		Graph:         Graph{SchemaVersion: GraphSchemaVersion, Nodes: nodes, Edges: edges},
 	}
 }
 

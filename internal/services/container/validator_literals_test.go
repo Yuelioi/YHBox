@@ -8,7 +8,7 @@ func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
-			ID: "g", Version: 1,
+			ID: "g", SchemaVersion: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "Win32WindowTarget"},
@@ -36,7 +36,7 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
-			ID: "g", Version: 1,
+			ID: "g", SchemaVersion: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "Win32WindowTarget"},
@@ -66,7 +66,7 @@ func TestLiteralTypeMatch_TemplateKeyList(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
-			ID: "g", Version: 1,
+			ID: "g", SchemaVersion: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "Win32WindowTarget"},
@@ -91,7 +91,7 @@ func TestLiteralTypeMismatch_TemplateKeyNonString(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
-			ID: "g", Version: 1,
+			ID: "g", SchemaVersion: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "Win32WindowTarget"},
@@ -120,7 +120,7 @@ func TestLiteralTypeMatch_CorrectTypes(t *testing.T) {
 	c := &Container{
 		SchemaVersion: 4,
 		Graph: Graph{
-			ID: "g", Version: 1,
+			ID: "g", SchemaVersion: 1,
 			Nodes: []GraphNode{
 				{ID: "s", Kind: "Start"},
 				{ID: "wt", Kind: "Win32WindowTarget"},

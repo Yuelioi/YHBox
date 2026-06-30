@@ -43,7 +43,7 @@ func buildMicroContainer(kind string, params map[string]any) (*container.Contain
 		SchemaVersion: container.CurrentSchemaVersion,
 		Name:          "mcp-run-node",
 		Graph: container.Graph{
-			Version: container.GraphSchemaVersion,
+			SchemaVersion: container.GraphSchemaVersion,
 			Nodes: []container.GraphNode{
 				{ID: "start", Kind: "Start"},
 				{ID: microNodeID, Kind: kind, Config: map[string]any{"literal": params}},
