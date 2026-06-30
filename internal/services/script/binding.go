@@ -26,9 +26,10 @@ func BundleFromCtx(c node.Ctx) node.ServiceBundle {
 	}
 }
 
-// Install 注入全部可绑节点函数 + Subgraph() 子图调用 + 高频糖 (params/sleep/log).
+// Install 注入标准出口常量 + 全部可绑节点函数 + Subgraph() 子图调用 + 高频糖 (params/sleep/log).
 func Install(vm *goja.Runtime, c node.Ctx) {
 	bundle := BundleFromCtx(c)
+	installExitConstants(vm)
 	for _, rn := range node.All() {
 		if node.ScriptBindable(rn) {
 			bindNode(vm, c, rn, bundle)
@@ -37,6 +38,28 @@ func Install(vm *goja.Runtime, c node.Ctx) {
 	installSubgraphCall(vm, c)
 	installSugar(vm, c)
 	installVarGetters(vm, c)
+}
+
+func installExitConstants(vm *goja.Runtime) {
+	exit := vm.NewObject()
+	for key, value := range map[string]string{
+		"Body":     "Body",
+		"Changed":  "Changed",
+		"Default":  "default",
+		"Done":     "Done",
+		"Fail":     "Fail",
+		"False":    "False",
+		"Found":    "Found",
+		"Gone":     "Gone",
+		"NotFound": "NotFound",
+		"Out":      "Out",
+		"Stable":   "Stable",
+		"Timeout":  "Timeout",
+		"True":     "True",
+	} {
+		_ = exit.Set(key, value)
+	}
+	_ = vm.Set("Exit", exit)
 }
 
 // installSubgraphCall 注入 Subgraph({SubgraphID, ...入参}) — 同步跑容器内子图,

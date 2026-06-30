@@ -56,11 +56,13 @@ describe('SUGAR_COMPLETIONS', () => {
   it('糖函数全集齐且都是 function 类型', () => {
     const labels = SUGAR_COMPLETIONS.map((c) => c.label)
     expect(labels).toEqual(
-      expect.arrayContaining(['params.get', 'sleep', 'log.info']),
+      expect.arrayContaining(['params.get', 'sleep', 'log.info', 'Exit.Found']),
     )
     // 变量读写不走糖 (用 $hp / GetVar/SetVar 节点函数), vars.* 已删。
     expect(labels).not.toContain('vars.get')
-    expect(SUGAR_COMPLETIONS.every((c) => c.type === 'function')).toBe(true)
+    expect(SUGAR_COMPLETIONS.every((c) => c.type === 'function' || c.type === 'constant')).toBe(
+      true,
+    )
   })
 })
 

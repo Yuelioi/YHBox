@@ -41,6 +41,7 @@ function applyWithCaret(insert: string, caretBack: number) {
 // 可插入项的原始数据 — 补全下拉 (toCompletion) 和放大编辑 modal 的参考面板共用一份单源。
 export interface InsertItem {
   label: string
+  type?: Completion['type']
   /** 签名 (如 params.get(name) / ClickAt({XRatio, YRatio})) */
   detail?: string
   /** 人话说明 (节点中文名 / 函数 i18n desc) */
@@ -54,7 +55,7 @@ export interface InsertItem {
 function toCompletion(it: InsertItem): Completion {
   return {
     label: it.label,
-    type: 'function',
+    type: it.type ?? 'function',
     detail: it.desc ? `${it.detail} · ${it.desc}` : it.detail,
     apply: it.snippet ? snippet(it.snippet) : applyWithCaret(it.insert, it.caretBack),
   }
@@ -76,6 +77,49 @@ export const SUGAR_ITEMS: InsertItem[] = [
   { label: 'log.info', detail: 'log.info(...args)', insert: 'log.info()', caretBack: 1 },
   { label: 'log.warn', detail: 'log.warn(...args)', insert: 'log.warn()', caretBack: 1 },
   { label: 'log.debug', detail: 'log.debug(...args)', insert: 'log.debug()', caretBack: 1 },
+  { label: 'Exit.Done', type: 'constant', detail: '"Done"', insert: 'Exit.Done', caretBack: 0 },
+  { label: 'Exit.Fail', type: 'constant', detail: '"Fail"', insert: 'Exit.Fail', caretBack: 0 },
+  { label: 'Exit.Found', type: 'constant', detail: '"Found"', insert: 'Exit.Found', caretBack: 0 },
+  {
+    label: 'Exit.NotFound',
+    type: 'constant',
+    detail: '"NotFound"',
+    insert: 'Exit.NotFound',
+    caretBack: 0,
+  },
+  {
+    label: 'Exit.Timeout',
+    type: 'constant',
+    detail: '"Timeout"',
+    insert: 'Exit.Timeout',
+    caretBack: 0,
+  },
+  { label: 'Exit.True', type: 'constant', detail: '"True"', insert: 'Exit.True', caretBack: 0 },
+  { label: 'Exit.False', type: 'constant', detail: '"False"', insert: 'Exit.False', caretBack: 0 },
+  {
+    label: 'Exit.Default',
+    type: 'constant',
+    detail: '"default"',
+    insert: 'Exit.Default',
+    caretBack: 0,
+  },
+  { label: 'Exit.Body', type: 'constant', detail: '"Body"', insert: 'Exit.Body', caretBack: 0 },
+  {
+    label: 'Exit.Changed',
+    type: 'constant',
+    detail: '"Changed"',
+    insert: 'Exit.Changed',
+    caretBack: 0,
+  },
+  { label: 'Exit.Gone', type: 'constant', detail: '"Gone"', insert: 'Exit.Gone', caretBack: 0 },
+  { label: 'Exit.Out', type: 'constant', detail: '"Out"', insert: 'Exit.Out', caretBack: 0 },
+  {
+    label: 'Exit.Stable',
+    type: 'constant',
+    detail: '"Stable"',
+    insert: 'Exit.Stable',
+    caretBack: 0,
+  },
 ]
 
 export const SUGAR_COMPLETIONS: Completion[] = SUGAR_ITEMS.map(toCompletion)

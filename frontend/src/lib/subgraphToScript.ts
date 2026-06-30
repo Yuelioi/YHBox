@@ -33,6 +33,22 @@ const SUBGRAPH_KINDS = new Set(['Subgraph', 'CollapsedNode'])
 const STRUCTURAL_KINDS = new Set(['Loop', 'Break', 'Continue'])
 const R = (k: string) => `subgraphScript.reason.${k}`
 
+const STANDARD_EXIT_CONSTANTS = new Map<string, string>([
+  ['Body', 'Body'],
+  ['Changed', 'Changed'],
+  ['default', 'Default'],
+  ['Done', 'Done'],
+  ['Fail', 'Fail'],
+  ['False', 'False'],
+  ['Found', 'Found'],
+  ['Gone', 'Gone'],
+  ['NotFound', 'NotFound'],
+  ['Out', 'Out'],
+  ['Stable', 'Stable'],
+  ['Timeout', 'Timeout'],
+  ['True', 'True'],
+])
+
 interface Edge {
   fromNode: string
   fromPin: string
@@ -167,6 +183,11 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
   const resultVar = new Map<string, string>() // exec 节点 → const 名
 
   const renderValue = (v: unknown): string => JSON.stringify(v)
+  const exitExpr = (name: string, opts?: { subgraph?: boolean }): string => {
+    if (opts?.subgraph) return renderValue(name)
+    const constant = STANDARD_EXIT_CONSTANTS.get(name)
+    return constant ? `Exit.${constant}` : renderValue(name)
+  }
 
   // 纯函数节点求值表达式 (递归解析它自己的 data 入边)。
   const pureExpr = (n: GraphNode, ancestors: Set<string>, indent: string): string => {
@@ -335,7 +356,7 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
       const rv = resultVar.get(n.id)!
       connected.forEach((x, i) => {
         const head = i === 0 ? `${indent}if` : `${indent}} else if`
-        lines.push(`${head} (${rv}.exit === ${renderValue(x.name)}) {`)
+        lines.push(`${head} (${rv}.exit === ${exitExpr(x.name, { subgraph: isSub })}) {`)
         emitChain(wiredPins!.get(x.pin)![0], `${indent}  `, new Set(nextAncestors), opts)
       })
       if (connected.length > 0) lines.push(`${indent}}`)

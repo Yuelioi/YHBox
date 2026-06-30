@@ -96,7 +96,9 @@ const SPECS: Record<string, NodeKindSpec> = {
 
 // Loop 是 RegionRunner, 不可绑定; 其余(除 marker)都可。
 const BINDABLE = new Set(
-  Object.keys(SPECS).filter((k) => !['Loop', 'Subgraph', 'CollapsedNode', 'ManualOnly'].includes(k)),
+  Object.keys(SPECS).filter(
+    (k) => !['Loop', 'Subgraph', 'CollapsedNode', 'ManualOnly'].includes(k),
+  ),
 )
 
 function makeSg(p: {
@@ -195,7 +197,7 @@ describe('subgraphToScript: 分支与数据', () => {
     expect(codeOf(r)).toBe(
       [
         'const r1 = CheckTemplate({ Template: "g-1" })',
-        'if (r1.exit === "Found") {',
+        'if (r1.exit === Exit.Found) {',
         '  ClickAt({ XRatio: 0.5 })',
         '  return "done"',
         '}',
@@ -222,9 +224,9 @@ describe('subgraphToScript: 分支与数据', () => {
     expect(codeOf(r)).toBe(
       [
         'const r1 = CheckTemplate({ Template: "g-1" })',
-        'if (r1.exit === "Found") {',
+        'if (r1.exit === Exit.Found) {',
         '  return "ok"',
-        '} else if (r1.exit === "NotFound") {',
+        '} else if (r1.exit === Exit.NotFound) {',
         '  return "miss"',
         '}',
       ].join('\n'),
@@ -254,7 +256,7 @@ describe('subgraphToScript: 分支与数据', () => {
     expect(codeOf(r)).toBe(
       [
         'const r1 = CheckTemplate({ Template: "g-1" })',
-        'if (r1.exit === "Found") {',
+        'if (r1.exit === Exit.Found) {',
         '  ClickAt({ Point: r1.Point })',
         '  Sleep({ Duration: Now({}) })',
         '  return "done"',
@@ -266,10 +268,7 @@ describe('subgraphToScript: 分支与数据', () => {
   it('GetParam → params.get(名)', () => {
     const r = subgraphToScript(
       makeSg({
-        nodes: [
-          node('n1', 'Sleep'),
-          node('p1', 'GetParam', { literal: { ParamName: 'ms' } }),
-        ],
+        nodes: [node('n1', 'Sleep'), node('p1', 'GetParam', { literal: { ParamName: 'ms' } })],
         edges: [
           { from: 'in.Done', to: 'n1.In' },
           { from: 'p1.Value', to: 'n1.Duration' },
@@ -328,7 +327,9 @@ describe('subgraphToScript: 分支与数据', () => {
     ]
     const r = subgraphToScript(
       makeSg({
-        nodes: [node('c1', 'CollapsedNode', { SubgraphID: 'sg-2', literal: { Label: 'Collapsed' } })],
+        nodes: [
+          node('c1', 'CollapsedNode', { SubgraphID: 'sg-2', literal: { Label: 'Collapsed' } }),
+        ],
         edges: [
           { from: 'in.Done', to: 'c1.In' },
           { from: 'c1.decl-x', to: 'out.In' },
@@ -403,10 +404,10 @@ describe('subgraphToScript: 拒转', () => {
     expect(codeOf(r)).toBe(
       [
         'const r1 = CheckTemplate({ Template: "g" })',
-        'if (r1.exit === "Found") {',
+        'if (r1.exit === Exit.Found) {',
         '  Sleep({ Duration: 1 })',
         '  return "done"',
-        '} else if (r1.exit === "NotFound") {',
+        '} else if (r1.exit === Exit.NotFound) {',
         '  Sleep({ Duration: 1 })',
         '  return "done"',
         '}',
@@ -459,7 +460,10 @@ describe('subgraphToScript: 拒转', () => {
     callee.id = 'sg-2'
     const r = subgraphToScript(
       makeSg({
-        nodes: [node('c1', 'Subgraph', { SubgraphID: 'sg-2' }), node('n2', 'Sleep', { literal: { Duration: 1 } })],
+        nodes: [
+          node('c1', 'Subgraph', { SubgraphID: 'sg-2' }),
+          node('n2', 'Sleep', { literal: { Duration: 1 } }),
+        ],
         edges: [
           { from: 'in.Done', to: 'c1.In' },
           { from: 'c1.Fail', to: 'n2.In' },
@@ -605,9 +609,9 @@ describe('subgraphToScript: Loop 与控制转移', () => {
       [
         'for (let i1 = 0; i1 < 3; i1++) {',
         '  const r2 = CheckTemplate({ Template: "g-1" })',
-        '  if (r2.exit === "Found") {',
+        '  if (r2.exit === Exit.Found) {',
         '    break',
-        '  } else if (r2.exit === "NotFound") {',
+        '  } else if (r2.exit === Exit.NotFound) {',
         '    continue',
         '  }',
         '}',
