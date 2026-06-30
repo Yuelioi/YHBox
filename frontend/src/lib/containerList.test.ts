@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Container } from '@/lib/backend'
-import { buildContainerPage, filterContainers, formatContainerDate, sortContainers } from '@/lib/containerList'
+import { buildContainerPage, containerTagsByCount, filterContainers, formatContainerDate, sortContainers } from '@/lib/containerList'
 
 function c(partial: Partial<Container>): Container {
   return {
@@ -25,6 +25,22 @@ describe('filterContainers', () => {
 
     expect(filterContainers(items, { query: 'lake', tags: ['daily'] }).map((x) => x.id)).toEqual(['a'])
     expect(filterContainers(items, { query: 'raid', tags: ['fish'] }).map((x) => x.id)).toEqual([])
+  })
+})
+
+describe('containerTagsByCount', () => {
+  it('returns tags ordered by usage count then name', () => {
+    const items = [
+      c({ id: 'a', tags: ['daily', 'fish'] }),
+      c({ id: 'b', tags: ['daily', 'raid'] }),
+      c({ id: 'c', tags: ['fish'] }),
+    ]
+
+    expect(containerTagsByCount(items)).toEqual([
+      { tag: 'daily', count: 2 },
+      { tag: 'fish', count: 2 },
+      { tag: 'raid', count: 1 },
+    ])
   })
 })
 

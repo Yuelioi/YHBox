@@ -2207,6 +2207,7 @@ export default {
       desc: 'Community-shared containers will appear here — one-click clone to local.',
     },
     search_placeholder: 'Search containers...',
+    filter_tags: 'Filter tags...',
     sort: {
       label: 'Sort field',
       name: 'By name',

@@ -20,8 +20,27 @@ export interface ContainerPageResult extends PageResult<Container> {
   end: number
 }
 
+export interface ContainerTagCount {
+  tag: string
+  count: number
+}
+
 export function containerNodeCount(c: Container): number {
   return c.graph?.nodes?.length ?? 0
+}
+
+export function containerTagsByCount(items: Container[]): ContainerTagCount[] {
+  const counts: Record<string, number> = {}
+  for (const c of items) {
+    for (const tag of c.tags ?? []) {
+      const key = tag.trim()
+      if (!key) continue
+      counts[key] = (counts[key] ?? 0) + 1
+    }
+  }
+  return Object.entries(counts)
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
 }
 
 export function filterContainers(items: Container[], options: ContainerFilterOptions): Container[] {

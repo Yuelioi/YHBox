@@ -15,6 +15,14 @@
           class="w-40"
           :aria-label="t('containers.sort.label')"
         />
+        <UInputMenu
+          v-model="selectedTags"
+          multiple
+          :items="allTagItems"
+          size="sm"
+          class="min-w-44 flex-1 xl:flex-none"
+          :placeholder="t('containers.filter_tags')"
+        />
         <UButton
           size="sm"
           variant="soft"
@@ -334,6 +342,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import {
   buildContainerPage,
   containerNodeCount,
+  containerTagsByCount,
   formatContainerDate,
   type ContainerSortKey,
 } from '@/lib/containerList'
@@ -409,12 +418,9 @@ onMounted(() => {
 const selectedTags = ref<string[]>([])
 
 const tagsByCount = computed(() => {
-  const counts: Record<string, number> = {}
-  for (const c of store.list ?? []) {
-    for (const t of (c as any).tags ?? []) counts[t] = (counts[t] ?? 0) + 1
-  }
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([tag, count]) => ({ tag, count }))
+  return containerTagsByCount(store.list ?? [])
 })
+const allTagItems = computed(() => tagsByCount.value.map(({ tag }) => tag))
 
 function toggleTag(tag: string) {
   if (selectedTags.value.includes(tag)) {
