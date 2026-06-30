@@ -1,18 +1,18 @@
 # Cockpit — YHFish
 
-Focus: **节点逐步调试、Target/Controller/Android、Window control 已通过并归档；旧 `knowledge/architecture` 已清理，剩余知识库已复审；正在设计容器 package schema**。本地 `main` 仍待发布/推送决策。
+Focus: **节点逐步调试、Target/Controller/Android、Window control 已通过并归档；旧 `knowledge/architecture` 已清理，剩余知识库已复审；正在执行容器 package schema 重设计**。本地 `main` 仍待发布/推送决策。
 
 ## In flight
 
 - [work/detect-click-config/](work/detect-click-config/) — **代码完成，待确认是否也归档**。Vision/ClickTemplate/WaitWindowGone/Point 手填、新节点群、InputText WM_CHAR targeted、短图日志 finalize emit 已完成；近期补丁已落地：模板/颜色检测失败输出统一、`CheckTemplate/WaitTemplate/WaitTemplateGone` 支持 ROI，新增 `PickMatchPoint/PickBlobPoint`、`OffsetPoint/PointDistance/ROIAroundPoint`、`PickMatchROI/PickBlobROI` 等纯数据后处理节点。
 - [work/mcp-node-exec/](work/mcp-node-exec/) — **已实现，待人工 smoke**。GUI 内置 Streamable HTTP MCP server 已接入 `http://127.0.0.1:8765/mcp`，包含 list_nodes / list_windows / find_window / run_node / save_container、arm 写入/执行闸、busy 闸和设置页 MCP tab。未 arm 时只读工具可用，run_node/save_container 拒绝。
-- [work/container-package-schema/](work/container-package-schema/) — **设计已写，待实现计划**。破坏式重设计容器存储为 `package.json` + `graph.json` + `installation.json` + `yotta-lock.json`，支持本地直接投稿、在线安装/更新、target/AI 本机绑定、依赖闭包和权限 lock。
+- [work/container-package-schema/](work/container-package-schema/) — **设计和实现计划已写，准备按阶段执行**。破坏式重设计容器存储为 `package.json` + `graph.json` + `installation.json` + `yotta-lock.json`，支持本地直接投稿、在线安装/更新、target/AI 本机绑定、依赖闭包和权限 lock。
 
 ## Next
 
 1. **MCP smoke** —— 设置页确认 URL 和“允许执行和写入”开关；MCP 客户端连 `http://127.0.0.1:8765/mcp`，先测只读工具，再测未 arm 拒绝，最后 arm 后跑 Capture/ClickAt 等低风险节点。
 2. **detect-click-config 归档决策** —— 如果视觉/坐标后处理节点已人工确认通过，把该 topic 也移出 `work/`。
-3. **容器 package schema 实现计划** —— 基于 [work/container-package-schema/design.md](work/container-package-schema/design.md) 拆 Store/model/RPC/前端/MCP/导出导入阶段计划。
+3. **容器 package schema 阶段 1** —— 按 [work/container-package-schema/plan.md](work/container-package-schema/plan.md) 先落后端模型和 JSON 形状，再推进 lock/store/service。
 4. **发布/推送决策** —— 若剩余 smoke 无问题，再 `git push origin main`。
 
 ## Open questions

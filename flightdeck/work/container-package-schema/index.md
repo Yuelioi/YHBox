@@ -8,11 +8,12 @@ READ WHEN: 改容器持久化、容器列表字段、在线容器、投稿/导�
 
 - 已完成底层节点调研。
 - 已定设计方向: `package.json` + `graph.json` + `installation.json` + `yotta-lock.json`。
-- 待写实现计划。
+- 已写实现计划, 准备按阶段执行。
 
 ## 文件
 
 - [design.md](design.md) — 容器包 schema 设计。
+- [plan.md](plan.md) — 破坏式落地执行计划。
 
 ## 相关知识
 
