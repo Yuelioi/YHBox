@@ -1,7 +1,6 @@
 package container
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -25,7 +24,7 @@ func validateID(id string) error {
 	return nil
 }
 
-// Store 文件系统存储：data/containers/<id>/container.json。
+// Store 文件系统存储：data/containers/<id>/{package.json,graph.json,installation.json,yotta-lock.json}。
 type Store struct {
 	mu   sync.RWMutex
 	root string
@@ -80,13 +79,13 @@ func (s *Store) load() error {
 	return nil
 }
 
-// loadOne 读单个容器目录 (<root>/<id>/container.json; 子图已全局化, 不在容器目录)。
+// loadOne 读单个容器目录 (<root>/<id>/package.json + graph.json + installation.json; 子图已全局化, 不在容器目录)。
 // 不加锁 —— caller (load 构造期 / Reload 持写锁) 负责并发安全。
-//   - 目录或 container.json 不存在 → 返 os.ErrNotExist (caller 区分: load skip / Reload 删 byID)。
+//   - 目录或 package.json 不存在 → 返 os.ErrNotExist (caller 区分: load skip / Reload 删 byID)。
 //   - 读失败 / JSON 解析失败 → 返 StatusIncompatible 占位 Container + nil error (不阻断, 与原 load 容错一致)。
 func (s *Store) loadOne(id string) (Container, error) {
-	path := filepath.Join(s.root, id, "container.json")
-	b, err := os.ReadFile(path)
+	dir := filepath.Join(s.root, id)
+	manifest, err := readJSONFile[PackageManifest](filepath.Join(dir, packageFile))
 	if errors.Is(err, os.ErrNotExist) {
 		return Container{}, err
 	}
@@ -95,21 +94,31 @@ func (s *Store) loadOne(id string) (Container, error) {
 			ID:                 id,
 			Name:               id,
 			Status:             StatusIncompatible,
-			IncompatibleReason: fmt.Sprintf("读取失败：%v", err),
+			IncompatibleReason: fmt.Sprintf("读取 package.json 失败：%v", err),
 		}, nil
 	}
-	var c Container
-	if err := json.Unmarshal(b, &c); err != nil {
+	graph, err := readJSONFile[Graph](filepath.Join(dir, graphFile))
+	if err != nil {
 		return Container{
 			ID:                 id,
-			Name:               id,
+			Name:               manifest.DisplayName,
 			Status:             StatusIncompatible,
-			IncompatibleReason: fmt.Sprintf("JSON 解析失败：%v", err),
+			IncompatibleReason: fmt.Sprintf("读取 graph.json 失败：%v", err),
 		}, nil
 	}
+	installation, err := readJSONFile[Installation](filepath.Join(dir, installationFile))
+	if err != nil {
+		return Container{
+			ID:                 id,
+			Name:               manifest.DisplayName,
+			Status:             StatusIncompatible,
+			IncompatibleReason: fmt.Sprintf("读取 installation.json 失败：%v", err),
+		}, nil
+	}
+	c := aggregateContainer(manifest, graph, installation)
 	// Graph.SchemaVersion 检查
 	// > GraphSchemaVersion → 未来版本（真 incompatible）
-	// == 0 → 旧数据（v1 / Create 早期 bug 漏写），auto-upgrade 不阻塞使用
+	// == 0 → 开发期临时数据漏写，auto-upgrade 不阻塞使用
 	switch {
 	case c.Graph.SchemaVersion > GraphSchemaVersion:
 		c.Status = StatusIncompatible
@@ -124,7 +133,7 @@ func (s *Store) loadOne(id string) (Container, error) {
 	return c, nil
 }
 
-// Reload 从磁盘重读单个容器 (container.json), 替换内存缓存。
+// Reload 从磁盘重读单个容器, 替换内存缓存。
 // 配合 MCP / 外部进程改盘后, 编辑器「重载」按钮调用 (走 Service.Reload RPC)。
 // 容器目录已不存在 → 从 byID 删除并返 not-found error。
 func (s *Store) Reload(id string) (Container, error) {
@@ -170,16 +179,23 @@ func (s *Store) Save(c *Container) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(local, "", "  ")
+	manifest := containerToPackageManifest(local)
+	installation := containerToInstallation(local, manifest)
+	lock, err := buildContainerLock(manifest, local.Graph, s.subgraphsFor(&local), now.Format(time.RFC3339))
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, "container.json.tmp")
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
+	for name, value := range map[string]any{
+		packageFile:      manifest,
+		graphFile:        local.Graph,
+		installationFile: installation,
+		lockFile:         lock,
+	} {
+		if err := writeJSONAtomic(filepath.Join(dir, name), value); err != nil {
+			return err
+		}
 	}
-	if err := os.Rename(tmp, filepath.Join(dir, "container.json")); err != nil {
-		_ = os.Remove(tmp) // 清理孤立 tmp
+	if err := os.Remove(filepath.Join(dir, "container.json")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	s.byID[local.ID] = local

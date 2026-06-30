@@ -10,7 +10,8 @@ READ WHEN: 改容器持久化、容器列表字段、在线容器、投稿/导�
 - 已定设计方向: `package.json` + `graph.json` + `installation.json` + `yotta-lock.json`。
 - 已完成阶段 1: 后端模型类型和 `Graph.schemaVersion` JSON 形状。
 - 已完成阶段 2 基础: 依赖闭包拆为 templates/clips/subgraphs, 并新增 `yotta-lock.json` 构建函数。
-- 下一步阶段 3: Store 改为 `package.json` + `graph.json` + `installation.json` + `yotta-lock.json` 多文件目录。
+- 已完成阶段 3: Store 已改为 `package.json` + `graph.json` + `installation.json` + `yotta-lock.json` 多文件目录。
+- 下一步阶段 4: Service/RPC 字段归属和前端类型/列表字段对齐。
 
 ## 文件
 

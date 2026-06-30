@@ -1,0 +1,193 @@
+package container
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"yotta/internal/services/container/dependency"
+)
+
+const (
+	packageFile      = "package.json"
+	graphFile        = "graph.json"
+	installationFile = "installation.json"
+	lockFile         = "yotta-lock.json"
+)
+
+func readJSONFile[T any](path string) (T, error) {
+	var out T
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return out, err
+	}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func writeJSONAtomic(path string, v any) error {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func containerToPackageManifest(c Container) PackageManifest {
+	return PackageManifest{
+		SchemaVersion: PackageSchemaVersion,
+		Kind:          PackageKindContainer,
+		Name:          localPackageName(c.ID),
+		DisplayName:   c.Name,
+		Version:       "0.1.0",
+		Description:   c.Description,
+		Keywords:      append([]string(nil), c.Tags...),
+		Author:        PackagePerson{},
+		Publisher:     PackagePublisher{ID: "local", Name: "Local"},
+		Yotta: PackageYotta{
+			PackageID:  "pkg_" + c.ID,
+			EntryGraph: graphFile,
+			Publication: Publication{
+				State:      PublicationDraft,
+				Visibility: VisibilityPrivate,
+			},
+			Sources: []SourceRef{},
+			Vars:    append([]VarDecl(nil), c.Vars...),
+		},
+	}
+}
+
+func localPackageName(id string) string {
+	name := strings.ToLower(strings.ReplaceAll(id, "_", "-"))
+	return "@local/" + name
+}
+
+func containerToInstallation(c Container, manifest PackageManifest) Installation {
+	return Installation{
+		SchemaVersion:    InstallationSchemaVersion,
+		InstanceID:       c.ID,
+		PackageID:        manifest.Yotta.PackageID,
+		PackageName:      manifest.Name,
+		InstalledVersion: manifest.Version,
+		Display:          InstallationDisplay{},
+		RuntimeOverrides: RuntimeOverrides{
+			Hotkey:         stringPtrIfSet(c.Hotkey),
+			InputBackend:   stringPtrIfSet(c.InputBackend),
+			CaptureBackend: stringPtrIfSet(c.CaptureBackend),
+			ScaleTolerance: floatPtrIfPositive(c.ScaleTolerance),
+		},
+		TargetBindings: map[string]TargetBinding{},
+		AIBindings:     map[string]AIBinding{},
+		Updates:        InstallationUpdates{AutoCheck: true},
+		InstalledAt:    timeString(c.CreatedAt),
+		UpdatedAt:      timeString(c.UpdatedAt),
+	}
+}
+
+func aggregateContainer(manifest PackageManifest, graph Graph, installation Installation) Container {
+	name := manifest.DisplayName
+	if name == "" {
+		name = manifest.Name
+	}
+	c := Container{
+		SchemaVersion:  CurrentSchemaVersion,
+		ID:             installation.InstanceID,
+		Name:           name,
+		Description:    manifest.Description,
+		Tags:           append([]string(nil), manifest.Keywords...),
+		Vars:           append([]VarDecl(nil), manifest.Yotta.Vars...),
+		Graph:          graph,
+		Hotkey:         stringValue(installation.RuntimeOverrides.Hotkey),
+		InputBackend:   stringValue(installation.RuntimeOverrides.InputBackend),
+		CaptureBackend: stringValue(installation.RuntimeOverrides.CaptureBackend),
+		ScaleTolerance: floatValue(installation.RuntimeOverrides.ScaleTolerance),
+		CreatedAt:      parseTime(installation.InstalledAt),
+		UpdatedAt:      parseTime(installation.UpdatedAt),
+	}
+	if c.ID == "" {
+		c.ID = strings.TrimPrefix(manifest.Yotta.PackageID, "pkg_")
+	}
+	return c
+}
+
+func buildContainerLock(manifest PackageManifest, graph Graph, subgraphs []Subgraph, generatedAt string) (YottaLock, error) {
+	byID := make(map[string]Subgraph, len(subgraphs))
+	for _, sg := range subgraphs {
+		byID[sg.ID] = sg
+	}
+	closure, err := dependency.Closure(depNodeInfos(graph.Nodes), func(sgID string) ([]dependency.NodeInfo, error) {
+		sg, ok := byID[sgID]
+		if !ok {
+			return nil, nil
+		}
+		return depNodeInfos(sg.Graph.Nodes), nil
+	})
+	if err != nil {
+		return YottaLock{}, err
+	}
+	return BuildYottaLock(manifest, graph, closure, generatedAt)
+}
+
+func depNodeInfos(nodes []GraphNode) []dependency.NodeInfo {
+	out := make([]dependency.NodeInfo, 0, len(nodes))
+	for i := range nodes {
+		out = append(out, dependency.NodeInfo{Kind: nodes[i].Kind, Config: nodes[i].Config})
+	}
+	return out
+}
+
+func stringPtrIfSet(v string) *string {
+	if strings.TrimSpace(v) == "" {
+		return nil
+	}
+	return &v
+}
+
+func floatPtrIfPositive(v float64) *float64 {
+	if v <= 0 {
+		return nil
+	}
+	return &v
+}
+
+func stringValue(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+func floatValue(v *float64) float64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+func timeString(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+func parseTime(v string) time.Time {
+	t, _ := time.Parse(time.RFC3339, v)
+	return t
+}
+
+func packagePath(dir string) string {
+	return filepath.Join(dir, packageFile)
+}

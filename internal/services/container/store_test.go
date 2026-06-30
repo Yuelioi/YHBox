@@ -24,8 +24,13 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 	if err := s.Save(c); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "id-1", "container.json")); err != nil {
-		t.Errorf("file not on disk: %v", err)
+	for _, name := range []string{"package.json", "graph.json", "installation.json", "yotta-lock.json"} {
+		if _, err := os.Stat(filepath.Join(dir, "id-1", name)); err != nil {
+			t.Errorf("%s not on disk: %v", name, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "id-1", "container.json")); !os.IsNotExist(err) {
+		t.Errorf("legacy container.json should not be written, stat err=%v", err)
 	}
 
 	s2, _ := NewStore(dir)
@@ -87,15 +92,15 @@ func TestContainerStore_Reload(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	// 模拟外部进程 (MCP / 手改) 直接改磁盘上的 container.json
-	onDisk := filepath.Join(dir, "r1", "container.json")
+	// 模拟外部进程 (MCP / 手改) 直接改磁盘上的 package.json
+	onDisk := filepath.Join(dir, "r1", "package.json")
 	b, _ := os.ReadFile(onDisk)
-	var dc Container
-	if err := json.Unmarshal(b, &dc); err != nil {
+	var manifest PackageManifest
+	if err := json.Unmarshal(b, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	dc.Name = "new-from-disk"
-	nb, _ := json.Marshal(&dc)
+	manifest.DisplayName = "new-from-disk"
+	nb, _ := json.Marshal(&manifest)
 	if err := os.WriteFile(onDisk, nb, 0o644); err != nil {
 		t.Fatal(err)
 	}
