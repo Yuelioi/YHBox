@@ -1,6 +1,7 @@
 package container
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -103,6 +104,42 @@ func TestContainerStore_SaveSplitsPortableGraphAndInstallationBindings(t *testin
 	binding := installation.TargetBindings["game"]
 	if binding.Kind != "win32-window" || binding.Match["title"] != "Blue Archive" || binding.Match["processName"] != "game.exe" {
 		t.Fatalf("installation target binding missing local match: %+v", binding)
+	}
+}
+
+func TestContainerStore_ExportPackageZipExcludesInstallation(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(dir)
+	if err := s.Save(&Container{
+		SchemaVersion: 1, ID: "zip-1", Name: "zip",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "target", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "Game"}},
+		}},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	out := filepath.Join(t.TempDir(), "zip-1.yotta-container.zip")
+	if err := s.ExportPackageZip("zip-1", out); err != nil {
+		t.Fatalf("ExportPackageZip: %v", err)
+	}
+	zr, err := zip.OpenReader(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zr.Close()
+	names := map[string]bool{}
+	for _, f := range zr.File {
+		names[f.Name] = true
+	}
+	for _, want := range []string{"package.json", "graph.json", "yotta-lock.json"} {
+		if !names[want] {
+			t.Fatalf("zip missing %s; names=%v", want, names)
+		}
+	}
+	if names["installation.json"] {
+		t.Fatalf("zip must not include installation.json")
 	}
 }
 

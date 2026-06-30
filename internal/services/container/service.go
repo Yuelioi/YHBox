@@ -182,6 +182,11 @@ func (s *Service) Delete(id string) error {
 	return nil
 }
 
+// ExportPackage writes a portable .yotta-container.zip bundle for one container.
+func (s *Service) ExportPackage(id, destPath string) error {
+	return s.store.ExportPackageZip(id, destPath)
+}
+
 // ValidateContainerByID 给前端用: 拿持久化版本跑校验, 返结构化 ValidationError 列表
 // (不抛 error). 前端 "检查" 按钮 + 试运行前主动跑都走这条. 区分于 Validate() 包装函数:
 // 那个返 *ValidationFailure 聚合所有 error 但 caller 需 errors.As 解包; 这个直接返列表 +
