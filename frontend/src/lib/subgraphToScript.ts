@@ -165,7 +165,6 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
   const lines: string[] = []
   let varSeq = 0
   const resultVar = new Map<string, string>() // exec 节点 → const 名
-  const pureVar = new Map<string, string>() // 多消费方纯函数 → 提升的 const 名
 
   const renderValue = (v: unknown): string => JSON.stringify(v)
 
@@ -201,16 +200,7 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
     }
     const spec = ctx.specFor(srcNode.kind)
     if (spec?.isPureData) {
-      const hoisted = pureVar.get(srcNode.id)
-      if (hoisted) return hoisted
-      const expr = pureExpr(srcNode, ancestors, indent)
-      if ((dataConsumers.get(srcNode.id) ?? 0) > 1) {
-        const v = `v${++varSeq}`
-        lines.push(`${indent}const ${v} = ${expr}`)
-        pureVar.set(srcNode.id, v)
-        return v
-      }
-      return expr
+      return pureExpr(srcNode, ancestors, indent)
     }
     const rv = resultVar.get(srcNode.id)
     if (!rv || !ancestors.has(srcNode.id)) {

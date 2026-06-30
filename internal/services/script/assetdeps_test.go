@@ -87,6 +87,16 @@ func TestAssetDeps_SubgraphCall_UUIDForm(t *testing.T) {
 	}
 }
 
+func TestAssetDeps_SubgraphCall_SgUUIDNotTemplate(t *testing.T) {
+	got := depKeys(`Subgraph({SubgraphID: "sg-2ba73f97-2820-4090-958a-c07dd3f8f48c"})`)
+	if got["sg-2ba73f97-2820-4090-958a-c07dd3f8f48c"] != "subgraph" {
+		t.Errorf("want subgraph dep for sg uuid, got %v", got)
+	}
+	if got["2ba73f97-2820-4090-958a-c07dd3f8f48c"] == "template" {
+		t.Errorf("sg uuid inner value must not be counted as template: %v", got)
+	}
+}
+
 func TestAssetDeps_MultipleInOrder(t *testing.T) {
 	code := `"3680b3d2-d31d-461c-b697-0d9c3e6a87ed" "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"`
 	deps := AssetDeps(code)

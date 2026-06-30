@@ -80,7 +80,7 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 
 ## 子图一键转脚本 (2026-06-12)
 
-编辑器里子图可转成等价脚本 (Subgraph/CollapsedNode 节点右键「转为脚本」/ 子图编辑属性面板按钮 → 预览 modal → 复制或插入为 Script 节点)。转换器是前端纯函数 `frontend/src/lib/subgraphToScript.ts`。不支持结构 (Loop/汇合/成环/Fail 接线等) 整体拒转列原因。新节点注册后自动可转, 零维护。历史设计材料在 cold archive `2026-06-12-subgraph-to-script`;本知识不依赖它。
+编辑器里子图可转成等价脚本 (Subgraph/CollapsedNode 节点右键「转为脚本」/ 子图编辑属性面板按钮 → 预览 modal → 复制或插入为 Script 节点)。转换器是前端纯函数 `frontend/src/lib/subgraphToScript.ts`。当前支持 `Expr` 内联、`Loop count/forever` → JS `for/while`、`Break/Continue`、以及 exec 分支汇合尾部复制；纯数据节点按引用点内联, 避免跨 JS block 生成失效 `const`。仍拒转成环、Fail/error 出口接线、disabled 节点、同一 exec 出口 fan-out、多输出纯数据节点、跨分支 data 引用等无法安全等价的结构。新节点注册后只要 ScriptBindable 且 spec 完整, 转换器通常自动可转。历史设计材料在 cold archive `2026-06-12-subgraph-to-script`;本知识不依赖它。
 
 ## 加新节点时脚本侧要做什么
 

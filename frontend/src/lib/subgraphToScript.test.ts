@@ -615,4 +615,35 @@ describe('subgraphToScript: Loop 与控制转移', () => {
       ].join('\n'),
     )
   })
+
+  it('pure data reused inside and after Loop stays in valid JS scope', () => {
+    const r = subgraphToScript(
+      makeSg({
+        nodes: [
+          node('loop1', 'Loop', { literal: { Mode: 'count', Count: 3 } }),
+          node('sleepBody', 'Sleep'),
+          node('sleepAfter', 'Sleep'),
+          node('now1', 'Now'),
+        ],
+        edges: [
+          { from: 'in.Done', to: 'loop1.In' },
+          { from: 'loop1.Body', to: 'sleepBody.In' },
+          { from: 'now1.Ms', to: 'sleepBody.Duration' },
+          { from: 'loop1.Done', to: 'sleepAfter.In' },
+          { from: 'now1.Ms', to: 'sleepAfter.Duration' },
+          { from: 'sleepAfter.Done', to: 'out.In' },
+        ],
+      }),
+      ctx(),
+    )
+    expect(codeOf(r)).toBe(
+      [
+        'for (let i1 = 0; i1 < 3; i1++) {',
+        '  Sleep({ Duration: Now({}) })',
+        '}',
+        'Sleep({ Duration: Now({}) })',
+        'return "done"',
+      ].join('\n'),
+    )
+  })
 })

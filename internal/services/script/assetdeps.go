@@ -41,12 +41,16 @@ func AssetDeps(code string) []node.Dependency {
 		seen[k] = true
 		deps = append(deps, node.Dependency{Kind: kind, Key: key})
 	}
-	for _, m := range blobGUIDRe.FindAllStringSubmatch(code, -1) {
+	for _, m := range blobGUIDRe.FindAllStringSubmatchIndex(code, -1) {
+		if m[0] >= 3 && code[m[0]-3:m[0]] == "sg-" {
+			continue
+		}
 		kind := "template"
-		if m[1] != "" {
+		key := code[m[0]:m[1]]
+		if m[2] != -1 {
 			kind = "clip"
 		}
-		add(kind, m[0])
+		add(kind, key)
 	}
 	for _, m := range subgraphCallRe.FindAllStringSubmatch(code, -1) {
 		add("subgraph", m[1])
