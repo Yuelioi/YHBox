@@ -7,7 +7,7 @@ READ WHEN: 改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMe
 
 **Date**: 2026-06-08（用户报 ClickAt 在 UE 里点歪/点不到 → 一路查到 MouseHold「按住变单击」）
 
-相关前案: [[node-timed-input-loses-backend-activate]]（#4 把 timed-input 拆成节点层 down/up 的那次；本次 ClickAt 把它**拆回** Click，方向相反，见留尾 1）。
+相关前案: [node-timed-input-loses-backend-activate.md](node-timed-input-loses-backend-activate.md)（#4 把 timed-input 拆成节点层 down/up 的那次；本次 ClickAt 把它**拆回** Click，方向相反，见留尾 1）。
 
 ## 根因 + 修法（commit `9e7d6ac` / `0dda3a3`，均验证通过）
 
@@ -20,7 +20,7 @@ READ WHEN: 改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMe
 ## 现在没事、以后可能咬人的三处留尾
 
 ### 留尾 1: ClickAt 拆回 Click，反转了 #4 的可取消拆分
-[[node-timed-input-loses-backend-activate]] 里 #4 特意把 ClickAt 拆成 down→`select{ctx.Done/After}`→up，为的是**长按 DurationMs 能中途强停**。本次为了 Slate 落点把它**改回** `Click`，而 `Click` 内部是 down→裸`time.Sleep(hold)`→up，**hold 期间不可取消**。
+[node-timed-input-loses-backend-activate.md](node-timed-input-loses-backend-activate.md) 里 #4 特意把 ClickAt 拆成 down→`select{ctx.Done/After}`→up，为的是**长按 DurationMs 能中途强停**。本次为了 Slate 落点把它**改回** `Click`，而 `Click` 内部是 down→裸`time.Sleep(hold)`→up，**hold 期间不可取消**。
 - 快速点击（几十 ms）: 无影响。
 - 故意长按（DurationMs 设几秒）: 停容器时会等 hold 走完才松键，重蹈 #4 想治的「长按停不下」。
 - 谁要「可取消长按」: 用 `MouseHoldStart` + Wait + `MouseHoldStop`，别给 ClickAt 加长 hold。

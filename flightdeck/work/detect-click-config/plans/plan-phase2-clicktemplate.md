@@ -15,7 +15,7 @@
 - **单位约定(OffsetX/Y)**:`|v|≤1`=客户区比例(`1`=100%)、`|v|>1`=像素(经 `ctx.Window().ClientSize()` 换算);负值保留符号。唯一权威实现 = `node.ResolveScalar`。
 - **TDD**:每个行为变更先写测试再实现。
 - 构建:`go build ./...` + `go test ./internal/node/... ./internal/nodes/detect/...`;改 pin 后 `cd frontend && pnpm gen:node-i18n` 再 `go test ./internal/catalog/...`。
-- **预存失败基线**(判红排除):见 `flightdeck/knowledge/build/build.md`。
+- **验证基线**:见 `flightdeck/knowledge/build/build.md`; 当前 Go/前端测试应绿, 不再套旧预存红豁免。
 - **本机 Write 故障**:Write 写文件可能尾部混入 `</content>` 标签,写完检查清掉;改 Go 优先用 Edit。
 
 ---

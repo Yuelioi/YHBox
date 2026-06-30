@@ -49,7 +49,7 @@ camelize(hyphenate('editingId')) === 'editingId' // true ✓
 
 ## Case 1 — 2026-05-26 SaveSnippetDrawer 编辑 prefill 永远空
 
-[[snippet-drawer-debug-discipline]] 多次 fix 都没 work, 最终 console.log 看到 setup props 只含 `{open, sourceKind, sourceConfig}` — 缺 `editingID`. 因为我 prop 定义 `editingID`, template 写 `:editing-id="..."`, camelize → `editingId` (单 d) 跟 `editingID` 不匹配, prop undefined → `getById(undefined)` → `s = undefined` → prefill skip → form 全空.
+[snippet-drawer-debug-discipline.md](snippet-drawer-debug-discipline.md) 多次 fix 都没 work, 最终 console.log 看到 setup props 只含 `{open, sourceKind, sourceConfig}` — 缺 `editingID`. 因为我 prop 定义 `editingID`, template 写 `:editing-id="..."`, camelize → `editingId` (单 d) 跟 `editingID` 不匹配, prop undefined → `getById(undefined)` → `s = undefined` → prefill skip → form 全空.
 
 Fix `d49a8e5`: 全 rename `editingID` → `editingId` (replace_all 2 个文件). template `:editing-id` camelize 后正好匹配, prop 拿到值, prefill 正常.
 
@@ -58,4 +58,4 @@ Fix `d49a8e5`: 全 rename `editingID` → `editingId` (replace_all 2 个文件).
 - 拆成 7 个独立 ref (无效, 同上)
 - 加 v-if + :key 强 remount (无效, 同上)
 
-每次都白改 build + 让用户验. 真正 root cause 是 prop 名. 教训见 [[snippet-drawer-debug-discipline]].
+每次都白改 build + 让用户验. 真正 root cause 是 prop 名. 教训见 [snippet-drawer-debug-discipline.md](snippet-drawer-debug-discipline.md).

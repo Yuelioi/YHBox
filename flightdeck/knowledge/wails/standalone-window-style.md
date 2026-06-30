@@ -53,4 +53,4 @@ HUD 各状态 (校准: 等待/倒计时/录制/完成；录制: 倒计时/录制
 
 ## 视觉自检
 
-改完别只 typecheck 就交 —— 照 [headless-ui-verify](headless-ui-verify.md) 用 vite + Playwright 离屏渲染**亲眼看**，或让用户真机 smoke。"我觉得对"屡次翻车。
+改完别只 typecheck 就交 —— 照 [headless-ui-verify](../frontend/headless-ui-verify.md) 用 vite + Playwright 离屏渲染**亲眼看**，或让用户真机 smoke。"我觉得对"屡次翻车。

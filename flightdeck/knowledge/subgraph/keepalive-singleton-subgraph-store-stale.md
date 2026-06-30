@@ -25,7 +25,7 @@ A 容器折叠/建一个**只属于 A** 的子图 (sg-X) → 切到 B 容器编�
 
 于是: 开 A (单例=A 子图) → 切 B (B 挂载, 单例被覆盖成 B 子图) → 切回 A (缓存命中, onMounted 不跑, 单例仍是 B 子图)。`ContainerFlowNode.vue` 直接读单例 `subgraphsForCurrentContainer.find(s => s.id === SubgraphID)`, A 独有的 sg-X 不在 B 列表里 → "(子图未找到)"。
 
-同族: 跟 [[import-bypasses-container-store-cache]] **同症状 "(子图未找到)" 但不同根因** —— 那条是后端 import 绕过容器 Store 内存缓存; 这条是前端全局单例被 keep-alive 兄弟实例覆盖。排查 "(子图未找到)" 先分清是哪一个。
+同族: 跟 [import-bypasses-container-store-cache.md](import-bypasses-container-store-cache.md) **同症状 "(子图未找到)" 但不同根因** —— 那条是后端 import 绕过容器 Store 内存缓存; 这条是前端全局单例被 keep-alive 兄弟实例覆盖。排查 "(子图未找到)" 先分清是哪一个。
 
 ## 修法
 

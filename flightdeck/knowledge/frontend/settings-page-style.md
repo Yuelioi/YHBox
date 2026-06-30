@@ -8,7 +8,7 @@ RECHECK WHEN: 改 SettingsView 设置子页的布局/风格基线 / 设置页公
 
 
 **基准 = `SettingsGeneral.vue`（通用 tab）。** 所有设置子页照它来，别各写各的。下面每条都从 General 提炼，直接照抄。
-组件级通用规范（Tailwind / Nuxt UI 用法）见 [[ui]]；独立工具 HUD 窗是另一套外壳，见 [[standalone-window-style]]，别混。
+组件级通用规范（Tailwind / Nuxt UI 用法）见 [ui.md](ui.md)；独立工具 HUD 窗是另一套外壳，见 [standalone-window-style.md](../wails/standalone-window-style.md)，别混。
 
 ## 骨架（照抄）
 
@@ -66,7 +66,7 @@ RECHECK WHEN: 改 SettingsView 设置子页的布局/风格基线 / 设置页公
 - [ ] 全页搜不到 `text-[10px]` / `text-[11px]` / `text-base`（标题除外无）；次要文字都是 `text-xs`。
 - [ ] 列表项底是 `bg-elevated/30 border-default/60`，不是 `bg-default/40`。
 - [ ] 跟 General tab 并排切一眼：卡片底色、圆角、标题、间距对得上，不突兀。
-- [ ] 视觉拿不准 → 用 [[headless-ui-verify]] 离屏渲染，把新页和 General 截图对比。
+- [ ] 视觉拿不准 → 用 [headless-ui-verify.md](headless-ui-verify.md) 离屏渲染，把新页和 General 截图对比。
 
 ## 已对齐（2026-06-06）
 

@@ -17,7 +17,7 @@
 
 ## Read now
 
-- knowledge/build/build.md — build / smoke 前置约定与预存失败基线。
+- knowledge/build/build.md — build / smoke 前置约定与当前验证基线。
 
 ## Read if
 

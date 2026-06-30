@@ -56,4 +56,4 @@ const browser = await puppeteer.launch({
 - 后端 RPC (SetSize / 跑容器 / Events) 在纯 vite **看不到效果** —— 只验**布局/样式/组件渲染**。功能行为 (置顶、自适应尺寸、事件刷新) 留**真机 smoke**。
 - 控制台会刷一堆 RPC 失败 error，正常，忽略。
 
-配套：独立窗口样式规范见 [standalone-window-style](standalone-window-style.md)。
+配套：独立窗口样式规范见 [standalone-window-style.md](../wails/standalone-window-style.md)。

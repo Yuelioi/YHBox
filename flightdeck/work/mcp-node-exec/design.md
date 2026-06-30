@@ -155,7 +155,7 @@ list_nodes(看有哪些积木) → find_window(锁窗口) → run_node(Capture �
 - **save_container**:落 GUI store 后能被 `Store.Get` 读回(整合后 store 换绑验证)。
 - **catalog 闸**:`NeedsWindow`/`IsPureData` 过滤的放行/拒绝集符合预期。
 - HTTP server 装配:能起、能列工具、优雅关停(plan 按实测库 API 定断言)。
-- 预存失败基线照 `flightdeck/knowledge/build/build.md`。
+- 验证基线照 `flightdeck/knowledge/build/build.md`；当前 Go/前端测试应绿，旧预存红记录已过期。
 
 ## 13. 风险 / plan 待验
 

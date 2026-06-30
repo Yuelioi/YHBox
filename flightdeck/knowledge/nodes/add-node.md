@@ -8,7 +8,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 新增节点是**跨 Go + 前端多处**的事，漏一处就"代码在、能渲染、但用户加不进去 / 没翻译 / 没默认值"。按这份走，别凭记忆。
 
-> 配套：pin 命名规范看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 incident [[node-validation-pipeline-bifurcation]]；Geometry pin 值形状看 [[geometry-pin-value-pct-shape]]。
+> 配套：pin 命名规范看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 [node-validation-pipeline-bifurcation.md](node-validation-pipeline-bifurcation.md)；Geometry pin 值形状看 [geometry-pin-value-pct-shape.md](geometry-pin-value-pct-shape.md)。
 
 ## 1. 后端 — 节点实现 (`internal/nodes/<category>/<name>.go`)
 
@@ -31,7 +31,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 - [ ] 纯数据节点（`IsPureData`）输出本就能直连数据线 / 被 GetVar 读，与此节无关。
 - 源码锚点：`runtime/dispatch_v5.go applyCaptures` · `validator_capture_refs.go` · `nodepkg.BindableFields`。**范式：`internal/nodes/detect/detect_color_blobs.go`**（只声明 Data + Set，无捕获框）。
 
-> 完整数据流模型（config.capture vs exec-data vs 纯数据直连）看 [2026-06-05-node-data-flow.md](2026-06-05-node-data-flow.md)。
+> 完整数据流模型（config.capture vs exec-data vs 纯数据直连）看 [node-data-flow.md](node-data-flow.md)。
 
 ## 2. 后端 — 包要被 blank-import (否则 init 不跑、节点不存在)
 
@@ -41,7 +41,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 - [ ] `frontend/src/i18n/zh.ts` + `en.ts` 加 `node.<Kind>` 块：`label` / `description` / `input.<pin>.label`（dropdown 选项加 `input.<pin>.option.<value>`）。zh/en **对称**（parity 测试）。**文案规范看 [node-spec-style §10](node-spec-style.md)**：zh 人话不夹黑话、en sentence-case、option 要翻译、输出捕获 `<字段>→变量`、时间 `(ms)`。
 - [ ] ⚠ **出口 + Data 字段也要译，别只译输入**（本批 3 节点踩过，2026-06-18 补）：`output.<出口或Data字段名>.label` —— 每个 exec 出口（`Found`/`NotFound`/`Timeout`…）**和**每个 `OutputSpec.Data` 字段（`Matches`/`PrimaryPoint`/`Conf`/`Text`…）都要给 label，否则图节点出口引脚 + Inspector「输出」组显**英文裸字段名**。这些 key 经 `gen:node-i18n` 抽进 `node-i18n.json`（覆盖图节点 PIN_SPECS + inspector）。结构化输入的子字段 label 见 §1 结构化输入条 + [node-spec-style §10](node-spec-style.md)。
-- [ ] vue-i18n 文案含 `{` `}` `|` `@` `$` 要转义（见 checklist [[vue-i18n-message-compiler-traps]]）；改完 `pnpm i18n:check` 的 `[compile]` 段会兜。
+- [ ] vue-i18n 文案含 `{` `}` `|` `@` `$` 要转义（见 [vue-i18n-message-compiler-traps.md](../frontend/vue-i18n-message-compiler-traps.md)）；改完 `pnpm i18n:check` 的 `[compile]` 段会兜。
 - [ ] **跑 `cd frontend && pnpm gen:node-i18n`** 重新生成 `internal/catalog/node-i18n.json`（从 zh.ts 抽取）。漏跑 → `go test ./internal/catalog/` 的 drift 守卫 FAIL。
 
 ## 4. 前端 — 渲染
@@ -67,7 +67,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 ## 7. 校验（按需）
 
-- [ ] **编辑期校验**（NodeInspector 红错）写在 `internal/services/container/validator.go` 的 `checkGraphPerKind` kind switch → `validateXxx(n)`。**不是**节点的 `Validate()` 方法（那只在 engine runtime 跑）。详见 incident [[node-validation-pipeline-bifurcation]]。
+- [ ] **编辑期校验**（NodeInspector 红错）写在 `internal/services/container/validator.go` 的 `checkGraphPerKind` kind switch → `validateXxx(n)`。**不是**节点的 `Validate()` 方法（那只在 engine runtime 跑）。详见 [node-validation-pipeline-bifurcation.md](node-validation-pipeline-bifurcation.md)。
 
 ## 8. 验证（全绿才算完）
 

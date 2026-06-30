@@ -56,7 +56,7 @@ RECHECK WHEN: 改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公�
 - 风格 = **纯黑平铺**: `bg-default` + header(border-b) + body 内容平铺(px-5 py-4) + footer(border-t)。层次靠**内容自身元素** (列表/卡片用 `bg-elevated` 自抬升), 外壳不套浅色面板/不上描边 (试过包裹面板/emerald 边, 用户定回纯黑)。
 - 开关跟 `useDialogOpen()` 正交。`ConfirmDialog` (useConfirm Promise API) 也基于它。
 - **例外不套 BaseModal**: 搜索面板 (CommandPalette / NodeSearch 结构特殊)、大复合 (TemplatePicker 资产浏览 / TemplateManager 预览)。
-- **frameless 独立工具窗 (HUD) 不用这个** → 走 [standalone-window-style](standalone-window-style.md)。
+- **frameless 独立工具窗 (HUD) 不用这个** → 走 [standalone-window-style.md](../wails/standalone-window-style.md)。
 
 ### 永远 dark mode — 四件套一个不能少
 

@@ -38,4 +38,4 @@ if (!response.ok) { throw new Error(await response.text()); }
 
 - **头号铁律实证**: 用任何 framework API 的返回/错误 marshal 形态, 必须读实现 (这里是 `@wailsio/runtime` 的 transport 源码), 别假设"wails 会给我结构化 `cause`"。多 reviewer approve 也救不了对着幻觉的 marshal 形态造方案。
 - **"实施前置 gate / probe" 不能 defer 到 smoke**: spec/plan 明写了 Task 2「加临时 probe RPC 真跑、肉眼确认 `e.cause.code` 真实字段形态, 再写 normalizeError」, 但实际把它 defer 到手动 smoke 才验 → 基于未验证假设写了 normalizeError + 16 站点, smoke 第一下崩。验证步骤是 blocker 就当 blocker 跑, 别挪到最后。
-- 同族坑: [[wails-error-only-rpc-invoke-undefined]] —— 都是 wails RPC 错误/返回形态被 invoke() 抹平后 FE 误判。
+- 同族坑: [wails-error-only-rpc-invoke-undefined.md](wails-error-only-rpc-invoke-undefined.md) —— 都是 wails RPC 错误/返回形态被 invoke() 抹平后 FE 误判。

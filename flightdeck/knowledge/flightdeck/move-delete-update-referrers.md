@@ -8,8 +8,8 @@ READ WHEN: 移动/删除/重命名文件或归档 spec·plan 前; 改完后验�
 **现象**: 2026-06-02 Yotta rebrand 删整个旧技术文档目录 + 把 5 个 done spec/plan 归档, 两个动作各留断链, 直到 walkaround Audit 7 才兜住:
 
 - `README.md` 仍指向已删除的技术文档目录 → 目标目录已删
-- 某 incident 仍 `[spec](<旧 specs 路径>)` → spec 已移入 cold archive package
-- 某 spec 仍 `[已立 spec](2026-06-01-retire-global-game.md)` → 目标已移入 cold archive package
+- 某 incident 仍以 markdown 链接指向旧 specs 路径 → spec 已移入 cold archive package
+- 某 spec 仍以 markdown 链接指向 `2026-06-01-retire-global-game.md` → 目标已移入 cold archive package
 
 **根因**: 移/删文件只动了**文件本身**, 没动**指向它的引用者**。markdown 链接 / import / 文档交叉引用是单向的 —— 移动源文件不会自动修引用端, 引用端就成了死链。
 

@@ -12,7 +12,7 @@ vue-flow 1.48.2 用 `v-model:nodes="flowNodes"` 时, **store→model 同步 watc
 
 **所以**: 在 `@node-drag-stop` handler 里要拿 dragged 节点的 live 坐标, **只能用 `event.node.position`** (这是 vue-flow store 的 GraphNode), **不能** `flowNodes.value.find(...).position` — 后者还是拖动前坐标.
 
-Why: 读 [vue-flow-core.mjs:5807-5839](../../frontend/node_modules/.pnpm/@vue-flow+core@1.48.2_vue@3.5.34_typescript@6.0.3_/node_modules/@vue-flow/core/dist/vue-flow-core.mjs) 的 `watchNodesValue`. 双向 `watchPausable` 用 `[store.nodes, () => store.nodes.value.length]` 当 source — Vue 3 默认 shallow, 内部 element mutation 不触发. 反方向 `[models.nodes, ...]` 同样 shallow.
+Why: 读 `@vue-flow/core/dist/vue-flow-core.mjs` 的 `watchNodesValue`. 双向 `watchPausable` 用 `[store.nodes, () => store.nodes.value.length]` 当 source — Vue 3 默认 shallow, 内部 element mutation 不触发. 反方向 `[models.nodes, ...]` 同样 shallow.
 
 How to apply: 写 vue-flow drag / connect / 任何"拖动后想读节点坐标"的 handler:
 - ✅ `event.node.position` (drag handler) / `useVueFlow().findNode(id)?.position` (其他 handler)

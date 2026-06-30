@@ -11,7 +11,7 @@
 - **不要兼容**:不留 shim。
 - **TDD**:节点逻辑用 mock/可注入 seam 验出口;纯 WinAPI 投递层(窗口枚举)无 harness → 节点级 mock + 真机 smoke(诚实标注)。前端用 vitest(`cd frontend && ./node_modules/.bin/vitest run <路径>`,别用 `pnpm -C frontend test` 会炸 ENOENT)。
 - **构建/验证**:`go build ./...` + `go test ./internal/...`;改 catalog → `cd frontend && pnpm gen:node-i18n` + 先补 zh.ts/en.ts 源 + `go test ./internal/catalog/...`;前端 `cd frontend && pnpm vue-tsc --noEmit`(类型)+ vitest。
-- **预存失败基线**:runtime 缺 fish fixture(`TestApplyDirection_*`/`TestWatchdog_*`/`TestFishingV2Main_StateCycleSmoke`)恒红,判红排除;见 `flightdeck/knowledge/build/build.md`。
+- **验证基线**:见 `flightdeck/knowledge/build/build.md`; 当前 Go/前端测试应绿, 旧 runtime fixture 红记录已过期。
 - **本机 Write 故障**:写文件尾可能混入 `</content>`,写完检查;改既有文件优先 Edit;诊断面板编辑期 stale,以 `go build`/`go test` 退出码为准。
 - **坐标系**:Point/Rect/Geometry 全是 ratio 0-1(`node.Point` = `{X,Y float64}` ratio)。GeometryWidget 给用户显示 **0-100 百分比**(内部 ×100 显示 / ÷100 存),PointWidget 对齐这个 UX。
 

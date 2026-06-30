@@ -42,4 +42,4 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 ## 运行 / smoke 留意
 
 - **校准 / HUD 是 AlwaysOnTop**: 独占全屏游戏可能盖不住 (Windows 层限制) → 用窗口化 / 无边框全屏.
-- **通道 B（worker 事件校验失败本地化）没真机端到端 smoke**: 要造得手改磁盘 `bin/data/containers/<id>/container.json` 删 Win32WindowTarget 再走热键; 走事件通道 `d.Error` 是对象、不受 [[wails-dev-fetch-transport-flattens-error]] 影响, 有 Go 单测背书, 按需补.
+- **通道 B（worker 事件校验失败本地化）没真机端到端 smoke**: 要造得手改磁盘 `bin/data/containers/<id>/container.json` 删 Win32WindowTarget 再走热键; 走事件通道 `d.Error` 是对象、不受 [wails-dev-fetch-transport-flattens-error.md](../wails/wails-dev-fetch-transport-flattens-error.md) 影响, 有 Go 单测背书, 按需补.

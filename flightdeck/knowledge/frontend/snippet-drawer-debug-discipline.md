@@ -51,7 +51,7 @@ CLAUDE.md 头号铁律: "撞 bug 先验自己脑补". 这次违反.
 
 用户终于受不了 ("我感觉你这部分应该写的有问题"), 我才加 console.log. 用户 1 次贴出 setup props (只含 `open/sourceKind/sourceConfig`, 缺 `editingID` 完全).
 
-立刻定位 = Vue prop 大小写 [[vue-prop-camelize-asymmetry]] (`editingID` 定义, `:editing-id` 转 `editingId` 不匹配, prop undefined). 5 秒诊断, 1 行 replace_all 修.
+立刻定位 = Vue prop 大小写 [vue-prop-camelize-asymmetry.md](vue-prop-camelize-asymmetry.md) (`editingID` 定义, `:editing-id` 转 `editingId` 不匹配, prop undefined). 5 秒诊断, 1 行 replace_all 修.
 
 **如果第 1 轮 fail 后就 log**: 节省 2 轮 fix + 用户 2 次操作 + 我 2 次 build. **如果用户报 bug 第一时间就 log**: 节省全部 3 轮.
 

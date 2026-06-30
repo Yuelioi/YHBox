@@ -14,7 +14,7 @@
 - **新节点/新 pin 默认 = 旧行为零回归**:Scroll 默认 `Axis=vertical` = 旧竖直滚;ClickAt 默认 `Keys=""/ClickCount=1` = 旧单击。
 - **TDD**:节点逻辑用 mock InputService 验调用序列;后端原语(TypeText 编码 / hscroll 消息)按 pkg/input 既有单测风格(如有)补,无现成 harness 的纯 WinAPI 投递层可只做节点级 mock 验证 + 真机 smoke(诚实标注)。
 - 构建:`go build ./...` + `go test ./internal/...`;新节点改 catalog → `cd frontend && pnpm gen:node-i18n` + **在 `frontend/src/i18n/zh.ts` 和 `en.ts` 补新节点的 label/description/pin 文案**(Phase 2 教训:光跑 gen 不够,要先补源),再 `go test ./internal/catalog/...`。
-- **预存失败基线**:见 `flightdeck/knowledge/build/build.md`,判红排除。
+- **验证基线**:见 `flightdeck/knowledge/build/build.md`; 当前 Go/前端测试应绿, 不再套旧预存红豁免。
 - **本机 Write 故障**:写文件尾部可能混入 `</content>`,写完检查清掉;改既有文件优先 Edit;诊断面板编辑期 stale,以 `go build`/`go test` 退出码为准。
 
 ---

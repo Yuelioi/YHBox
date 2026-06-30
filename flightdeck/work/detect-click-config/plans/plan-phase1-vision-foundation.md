@@ -14,7 +14,7 @@
 - **新增 pin 默认 = 旧行为(零回归)**;唯一有意行为变更 = MatchMode 删除(原 `all` 用法改多节点)。
 - **TDD**:每个行为变更先写/改测试再实现。
 - **构建只信工具链**:`go build ./...` 仅语法 check;产 exe 走 `task build`(见 `flightdeck/knowledge/build/build.md`)。本计划只需 `go build ./...` + `go test`。
-- **预存失败基线**(判红时排除,非本次回归):runtime 缺 `apply_direction.json`/`watchdog_check.json` fixture、`TestFishingV2Main_StateCycleSmoke`、i18n residue —— 见 `knowledge/build/build.md`。
+- **验证基线**:见 `knowledge/build/build.md`; 当前 Go/前端测试应绿, 旧 runtime fixture / i18n residue 红记录已过期。
 - **前端包管理只用 pnpm**;node-i18n 经 `cd frontend && pnpm gen:node-i18n` 生成,catalog drift 测试守护。
 
 ---
@@ -314,7 +314,7 @@ func TestVisionAdapter_Match_MultiTemplate_OR(t *testing.T) {
 - [ ] **Step 11:跑测试**
 
 Run: `go test ./internal/node/... ./internal/services/container/runtime/... ./internal/nodes/detect/...`
-Expected: PASS(预存失败基线除外,见 Global Constraints)。
+Expected: PASS。
 
 - [ ] **Step 12:重生成 node-i18n + catalog drift**
 

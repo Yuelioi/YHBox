@@ -11,8 +11,8 @@ READ WHEN: 写/改任何读或判定节点 pin 值的容器侧逻辑(validator /
 
 **怎么做**:
 - 判定"pin 有没有值来源"时,有值 = **连入 data 边 ∨ `config.literal` 有该 key ∨ 顶层 `config` 有该 key ∨ Spec 有非 nil Default**。四者任一即满足。
-- 别假设"画布只写 config.literal":约定上 literal 是正源(见 [[storage-convention-consumer-audit-gap]]),但**历史/真实容器**(fishing-v2)把值存在顶层 config,且 runtime 接受。校验是跑在所有现存容器上的共享设施,必须容两种。
+- 别假设"画布只写 config.literal":约定上 literal 是正源(见 [storage-convention-consumer-audit-gap.md](storage-convention-consumer-audit-gap.md)),但**历史/真实容器**(fishing-v2)把值存在顶层 config,且 runtime 接受。校验是跑在所有现存容器上的共享设施,必须容两种。
 - 验证别只跑单测:**拿真实容器跑**(`go run ./cmd/validate-fishing-v2`),误报一眼现形。本坑就是 single-test 绿、真实容器红。
 - 反过来,只针对 `config.literal` 子 map 的检查(如 `UNKNOWN_LITERAL_PIN` 查未知 literal key)是有意只看一级 —— 那是检查 literal 内容本身,不是判定"有没有值",别混。
 
-**相关**: [[storage-convention-consumer-audit-gap]](改 pin 值读写约定前 exhaustive grep 全消费者);本质同源 —— 动 pin 值的读法前,先找全"正源到底怎么读"。
+**相关**: [storage-convention-consumer-audit-gap.md](storage-convention-consumer-audit-gap.md)(改 pin 值读写约定前 exhaustive grep 全消费者);本质同源 —— 动 pin 值的读法前,先找全"正源到底怎么读"。

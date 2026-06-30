@@ -15,7 +15,7 @@ RECHECK WHEN: TypeText 实现改动 / 默认后端从 postmessage 换走 / WM_CH
 
 对照实证 (用户真机): **同一个 vscode 窗口**, `KeyPress` (按键) 能打字、`InputText` 不能。差异就在 KeyPress 走 `PostMessageBackend.KeyDown` → `postMessage(hwnd, WM_KEYDOWN)` (**targeted hwnd, 后台可用**), InputText 走全局 SendInput。
 
-这是 [[sendinput-drag-uses-postmessage]] 的**镜像同类**: 那条是「选 sendinput 后端但 Drag 错走 PostMessage」, 这条是「选 postmessage 后端但 TypeText 错走全局 SendInput」—— 共因都是某个文本/拖拽操作没跟随所选后端的语义。backend.go 接口注释当年还把这个 bug 写成了设计 ("PostMessage 实现走相同 SendInput path")。
+这是 [sendinput-drag-uses-postmessage.md](sendinput-drag-uses-postmessage.md) 的**镜像同类**: 那条是「选 sendinput 后端但 Drag 错走 PostMessage」, 这条是「选 postmessage 后端但 TypeText 错走全局 SendInput」—— 共因都是某个文本/拖拽操作没跟随所选后端的语义。backend.go 接口注释当年还把这个 bug 写成了设计 ("PostMessage 实现走相同 SendInput path")。
 
 ## 修复 (已做)
 PostMessage **能**直接发 unicode: 用 `WM_CHAR (0x0102)`, wParam = UTF-16 code unit, lParam=0, targeted 投递到 hwnd。新增 `pkg/input.PostText` (逐 rune 拆 UTF-16 → 每 code unit 一条 WM_CHAR, BMP 外字符拆 surrogate pair)。`PostMessageBackend.TypeText` 改为 `ensureActivated(hwnd)` + `PostText(hwnd, s)`, 与本后端 KeyDown/Click 同语义。`sendInputBackend.TypeText` **保持**走全局 `TypeText` (它本就要前台, 语义正确)。

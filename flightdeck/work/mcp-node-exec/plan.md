@@ -15,7 +15,7 @@
 - **Git**：提交直推当前分支 `feat/v2-foundation`（无 PR），**永不 push 远端**；不跳 hook。每个 task 末尾 commit。
 - **判红只信工具退出码**（`go build ./...` / `go test`），不信 IDE 面板；CRLF 警告是 benign 非错误。
 - **验证命令以 `flightdeck/knowledge/build/build.md` 为准**（go build / go test / vue-tsc / i18n check）。
-- **预存失败基线**照 build.md（runtime 缺 fish fixture、i18n residue 42、pnpm lint 18 错）——这些**不是**本计划引入的红。
+- **验证基线**照 `flightdeck/knowledge/build/build.md`：当前 `go test ./...`、前端 test/typecheck/i18n 都应绿；旧 runtime fixture / i18n residue / lint 红记录已过期，不再作为豁免。
 - **MCP server 包名 `mcpserver`**（dir `internal/services/mcpserver`），避免与 mcp-go 的 `mcp` 包名冲突。
 - **可跑节点闸 = `Spec.NeedsWindow==true` 且非 `IsPureData`**（数据驱动，不写死 kind 名单）。
 - **bindings 是 gitignore 产物**，前端类型真机须重启后端重生成。
@@ -945,7 +945,7 @@ git commit -m "feat(mcp): main.go 装配并启动 Streamable HTTP MCP server (�
 - [ ] **Step 5: 校验**
 
 Run: `cd frontend && ./node_modules/.bin/vue-tsc --noEmit && node src/i18n/check.cjs`
-Expected: vue-tsc 绿（除预存基线）；i18n check 不新增 residue（保持基线 42）。
+Expected: vue-tsc 绿；i18n check parity / compile / residue 全 OK。
 
 - [ ] **Step 6: 提交**
 
@@ -991,8 +991,8 @@ git commit -m "chore(mcp): 退役 cmd/yotta-mcp 独立进程 (逻辑已迁入 in
 ## 收尾验证（全部 task 后）
 
 - [ ] **全量构建 + 测试**：`go build ./... && go test ./internal/services/mcpserver/ ./internal/services/container/... ./pkg/winutil/ ./internal/services/execution/`
-      —— 绿（runtime 缺 fish fixture 等预存基线除外，照 build.md 判）。
-- [ ] **前端**：`cd frontend && ./node_modules/.bin/vue-tsc --noEmit && node src/i18n/check.cjs`（除基线外绿）。
+      —— 绿，照 build.md 当前基线判。
+- [ ] **前端**：`cd frontend && ./node_modules/.bin/vue-tsc --noEmit && node src/i18n/check.cjs`（应绿）。
 - [ ] **真机 smoke（人工，按 build.md 起应用，须重启后端重生成 bindings）**：
   1. 设置页出现 MCP tab，arm 开关默认关。
   2. AI 客户端连 `http://127.0.0.1:8765/mcp`，`list_nodes`/`list_windows`/`find_window` 不武装也能调。

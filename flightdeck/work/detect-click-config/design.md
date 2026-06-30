@@ -170,7 +170,7 @@ Pin:`In` · `Target`(String,必填 —— 进程名如 `game.exe`,纯数字按 P
 - **Scroll 横向**:mock input 记录轴向;默认竖直(回归)。
 - **StopApp**:helper 按名/PID 组 taskkill 命令(可注入 exec 验参数);失败走 Fail。
 - **catalog drift**:目录 i18n/结构测试随新 pin/新节点更新(`pnpm gen:node-i18n`)。
-- 预存失败基线见 `knowledge/build/build.md`,判红时排除。
+- 验证基线见 `knowledge/build/build.md`; 当前 Go/前端测试应绿, 不再套旧预存红豁免。
 
 ## 13. 验证 / 收尾
 

@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-Focus: **节点逐步调试、Target/Controller/Android、Window control 已通过并归档；旧 `knowledge/architecture` 已清理**。当前 `main` 顶部为 `cac3d8c fix(node-explorer): label pure data nodes as common`；本地仍待发布/推送决策。`work/` 只保留视觉/坐标后处理回归包和 MCP smoke 包。
+Focus: **节点逐步调试、Target/Controller/Android、Window control 已通过并归档；旧 `knowledge/architecture` 已清理，剩余知识库已复审**。本地 `main` 仍待发布/推送决策。`work/` 只保留视觉/坐标后处理回归包和 MCP smoke 包。
 
 ## In flight
 
@@ -21,11 +21,14 @@ Focus: **节点逐步调试、Target/Controller/Android、Window control 已通�
 - MCP 目前固定监听 `127.0.0.1:8765` 且只用 arm 闸控制危险操作；是否再加“完全关闭服务”和端口配置，等 smoke 后决定。
 - `BrowserTarget` 已按产品判断删除；底层 Browser CDP controller/client 可作为内部能力保留，但不要作为面向普通用户的节点恢复。
 
-## Archived this turn
+## Knowledge audit
 
-- `node-step-debugging`
-- `target-controller-upgrade`
-- `window-control`
+2026-06-30 复审后，项目本地 `flightdeck/knowledge/` 保留 60 个文件：
+
+- 删除重复知识 `frontend/success-feedback-inline-not-toast.md`，成功反馈规则由 `frontend/ui.md` 承载。
+- 修正过期事实：节点目录现值改为命令查询口径，NeedsTarget/NeedsWindow 口径对齐当前 Target/Android 边界，SendInput failure note 收窄到仍未检查注入数的路径。
+- 修正旧验证基线：Go/前端测试当前应绿，不再套 runtime fixture / i18n residue / lint 旧红豁免。
+- 标准 markdown 断链和 wiki-style 交叉引用已清理。
 
 ## Verification Baseline
 

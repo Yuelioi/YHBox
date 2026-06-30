@@ -8,7 +8,7 @@ RECHECK WHEN: 改节点注册流程 / capability 分类 / dispatch 派发逻辑 
 
 YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [add-node.md](add-node.md)；pin 命名/Default 约定见 [node-spec-style.md](node-spec-style.md)。
 
-源码：`internal/node/`（框架核心）+ `internal/nodes/<category>/`（69 个节点实现）。
+源码：`internal/node/`（框架核心）+ `internal/nodes/<category>/`（节点实现；数量用 `go run ./cmd/node-catalog export` 查当前值）。
 
 ## 1. 心智模型
 
@@ -31,8 +31,8 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 
 | 标志 | 作用 |
 |---|---|
-| `NeedsTarget` | 节点 Run 依赖当前自动化目标能力（`ctx.Input/Capture/Vision` 等 target-aware 服务）。Win32/Android/Browser 均可由 target selection 节点满足；没有任何 target selection 时按 Windows 默认报 `MISSING_WIN32_WINDOW_TARGET`，方便一键补 `Win32WindowTarget` |
-| `NeedsWindow` | 节点 Run 直接依赖 Win32 HWND / `WindowService`（窗口置前、状态、移动、关闭、Win32 clip/script 保守路径）。它不是通用自动化目标标志；Android/Browser 节点不得用它 |
+| `NeedsTarget` | 节点 Run 依赖当前自动化目标能力（`ctx.Input/Capture/Vision` 等 target-aware 服务）。当前用户可选 target selection 是 Win32WindowTarget / AndroidTarget；底层 Browser CDP controller 可作为内部能力保留，但不要恢复为普通用户节点。没有任何 target selection 时按 Windows 默认报 `MISSING_WIN32_WINDOW_TARGET`，方便一键补 `Win32WindowTarget` |
+| `NeedsWindow` | 节点 Run 直接依赖 Win32 HWND / `WindowService`（窗口置前、状态、移动、关闭、Win32 clip/script 保守路径）。它不是通用自动化目标标志；Android target 不得用它 |
 | `IsPureData` | 纯数据节点（无副作用、求一个值）。**必须实现 Evaluator**（Register 强制） |
 | `IsVisualOnly` | 纯渲染节点（如 CommentBox）。允许零 capability |
 | `IsGraphMarker` | 图结构标记节点。允许零 capability（框架为 SubgraphInput/Output 预留；**当前没有后端节点用它**，子图入口/出口标记是前端 virtual 的） |

@@ -1,14 +1,14 @@
 # 节点系统参考
 
-SUMMARY: 节点系统速查表 —— pin 类型、pin 值取值优先级、Ctx 服务目录、节点 kind 全目录、jitter
-READ WHEN: 查 pin 类型有哪些 / 查节点 Run 里能拿哪些 ctx 服务 / 不确定 pin 值取值优先级 / 想要节点 kind 全目录 / 用拟人化 jitter
+SUMMARY: 节点系统速查表 —— pin 类型、pin 值取值优先级、Ctx 服务目录、节点目录查询命令、jitter
+READ WHEN: 查 pin 类型有哪些 / 查节点 Run 里能拿哪些 ctx 服务 / 不确定 pin 值取值优先级 / 想要节点 kind 当前目录 / 用拟人化 jitter
 RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / 新增或删除节点 kind / 改 jitter 模型时
 
 ---
 
 配套 [node-system-architecture.md](node-system-architecture.md) 的速查表。源码：`internal/node/`。
 
-## 1. Pin 类型（13 内置）
+## 1. Pin 类型（14 内置）
 
 `types.go init()` 注册，前端启动时经 `GetAllTypes` RPC 拉颜色/widget 映射：
 
@@ -26,6 +26,7 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 | `Duration` | `time.Duration` | duration | 值是毫秒数字 |
 | `JSON` | `map[string]any` | json | |
 | `List` | `[]any` | list-preview | 异构列表；只读占位（不可在 Inspector 手输，必须由连线提供） |
+| `Window` | `node.Window` | preview | Win32 HWND 窗口对象，运行期瞬时值，不序列化进 workflow JSON |
 | `Exec` | (framework) | exec-pin | 控制流连线，非数据 |
 
 **域类型形状**（`types.go`）：`Point{X,Y}` / `Rect{X,Y,W,H}`（都是 ratio float）；`Geometry{Pct Rect, Overrides []GeoOverride}` —— 运行时解析：匹配当前帧分辨率的 override 优先，否则 `pct×帧尺寸`，`pct.W==0||H==0` 且无匹配 = 全帧。Geometry pin 值的存储形状坑见 [geometry-pin-value-pct-shape.md](geometry-pin-value-pct-shape.md)。
@@ -64,12 +65,21 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 | `Vars()` | VarStore | SetVar/GetVar/IncVar；scope = auto/local/global |
 | `Params()` | ParamStore | GetParam（读当前 frame 的 subgraph 入参，read-only） |
 | `Window()` | WindowService | BringForeground / HWND / ClientSize / SetActive |
+| `Target()` | TargetService | Android 等非窗口目标选择；Win32WindowTarget 仍走 WindowService |
+| `App()` | AppLifecycleService | AndroidStartApp / AndroidStopApp 等目标内应用生命周期 |
 | `Capture()` | CaptureService | Screenshot（Capture / CaptureROI，返 PNG 字节） |
 | `Stopwatches()` | StopwatchStore | StopwatchStart/Stop/Read（per-key，跟 vars 独立命名空间） |
 | `Clip()` | ClipPlayer | PlayClip（阻塞回放录制，ctx 取消即中断释放按键） |
+| `Subgraphs()` | SubgraphCaller | Script 绑定层同步调用当前容器子图 |
+| `AI()` | AIProviderService | AI 节点按 connectionID 获取 provider |
 | `Log()` | LogService | Debug/Info/Warn（接 zerolog） |
 
-> 用 `ctx.Vision/Input/Capture/Window/Clip` 的节点 = `NeedsWindow: true`，否则无窗口容器里被静默 no-op。
+依赖标记不要按服务名旧经验乱填：
+
+- `ctx.Input()` / `ctx.Capture()` / `ctx.Vision()`：通常是 target-aware 服务，节点应使用 `NeedsTarget: true` 并声明 `TargetCapabilities`。
+- `ctx.Window()` / Win32 HWND 语义：使用 `NeedsWindow: true`。
+- `ctx.App()`：使用 `NeedsTarget: true` 并声明 app lifecycle capability。
+- `ctx.Clip()`：当前是 Windows 输入回放语义，按具体节点的 Window/Foreground contract 判断。
 
 ## 4. 输出 — OutBuilder
 
@@ -83,9 +93,9 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 
 `jitter.go`：`JitterInt(base, pct)` / `JitterDuration(d, pct)` —— 对值施加 **±pct% 近正态**抖动（取 5 个 uniform 样本求均值 → 中心极限，值聚在中点、极端罕见，比纯 uniform 拟人）。`pct<=0` → 原值不变。时间/移动类节点的 `JitterPct` 输入走这个。
 
-## 6. 节点目录（103 kinds / 11 category）
+## 6. 节点目录查询
 
-> **AI / 调研节点必读**：要某节点的**全 pin / 全出口 + 出口携带数据 (Data)** 明细，**跑命令拿当前值，别翻源码、别信本页下面这张表的数字**（它只存结构层、会过时）。三个口子同一数据源、都带大白话 + 出口 Data：
+> **AI / 调研节点必读**：要某节点的**全 pin / 全出口 + 出口携带数据 (Data)** 明细，**跑命令拿当前值，别翻源码、别信旧静态表**。三个口子同一数据源、都带大白话 + 出口 Data：
 > - `task nodes`（= `go run ./cmd/node-catalog export --md`）—— 人读 Markdown 速查表，扫一眼回答"哪些出口吐 Point/坐标"。
 > - `go run ./cmd/node-catalog export` —— 同数据的 JSON。
 > - MCP `list_nodes` —— 同数据，给 LLM 直接调。
@@ -94,22 +104,15 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 >
 > 数据源 `node.All()` → `catalog.BuildWithI18n()`（结构来自 `catalog.Build()`，i18n 经 `node-i18n.json`，`cd frontend && pnpm gen:node-i18n` 生成、catalog drift 测试守护）。出口携带的 Data 字段（如 `DetectColor.Found` 的 `Center(Point)`）在 `Spec.Outputs[].Data` 声明、由 catalog 序列化导出。
 
-| Category | kinds |
-|---|---|
-| **Control** (8) | Break, Continue, If, Loop, Sleep, Start, Stop, Switch |
-| **Detect** (11) | CheckTemplate, ClickTemplate, DetectColor, DetectColorBlobs, DetectColorHSV, DualColorBarTrack, ROIColorScan, Screenshot, WaitChange, WaitStable, WaitTemplate — **全 NeedsWindow** |
-| **Event** (1) | EventTick |
-| **Input** (10) | BringWindowForeground, ClickAt, KeyHoldStart, KeyHoldStop, KeyPress, MouseHoldStart, MouseHoldStop, MouseMoveRel, MouseMoveTo, Scroll — **全 NeedsWindow** |
-| **IO** (3) | Log, PlayClip(NeedsWindow), RunProgram |
-| **List** (8) | ForEach(Region), Join, ListAppend, ListContains, ListGet, ListLength, ListSlice, Split — ForEach 为 exec RegionRunner, 其余全 PureData |
-| **PureFunc** (42) | Abs, Add, And, Ceil, Clamp, Concat, Contains, Div, EndsWith, Eq, Expr, Floor, Gt, GtEq, IndexOf, Length, Lt, LtEq, Max, Min, Mod, Mul, Neg, Not, NotEq, Or, Pow, RegexExtract, RegexMatch, Replace, Round, Select, Sqrt, StartsWith, Sub, Substring, ToBool, ToLower, ToNumber, ToString, ToUpper, Trim — **全 PureData (Evaluator)** |
-| **Random** (4) | RandomBool, RandomChoice, RandomFloat, RandomInt — 全 PureData+NonDeterministic |
-| **Stopwatch** (3) | StopwatchRead, StopwatchStart, StopwatchStop |
-| **System** (7) | CollapsedNode, CommentBox(VisualOnly), MouseCalibration, Subgraph(Region), Throw, WaitWindow, Win32WindowTarget |
-| **Variable** (6) | GetParam(PureData), GetVar(PureData), IncVar, Now(PureData), SetVar, VarLastChange(PureData) |
+2026-06-30 核验的粗计数，仅作 sanity check，不作为开发依据：
 
-能力小结：**PureData 57 个**（PureFunc 42 + List 7 + Random 4 + Variable 的 GetParam/GetVar/Now/VarLastChange）；**RegionRunner 4 个**（Loop, ForEach, Subgraph, CollapsedNode）；**NeedsWindow 22 个**（Detect 11 + Input 10 + PlayClip）；其余 Runnable。
+- total kinds: 130
+- categories: AI 1, Control 9, Detect 18, Event 1, Image 3, Input 11, IO 6, List 8, PureFunc 46, Random 4, Stopwatch 3, System 5, Target 2, Variable 6, Window 7
+- PureData: 65
+- NeedsTarget: 28
+- NeedsWindow: 6
+- Target selection nodes: AndroidTarget, Win32WindowTarget
 
-> 计数是 2026-06-10 实测（加节点路线图四阶段落地后, `node-catalog export` 全量核）。加/删节点后数字会变 —— 要现值跑命令，别信这表过时数字。
+加/删节点后数字会变。要现值跑命令，别信旧表。
 
 **DetectColorBlobs**（2026-06-08 加）：颜色连通域定位 —— 给 Range(hsv/rgb 6 槽) + ROI → flood-fill(8-邻域) 找所有色块 → Found 出口带 `Blobs`(JSON: 每块归一化 centerX/centerY/x/y/w/h + area 像素数) + `BlobCount`(MinArea 过滤后总数, 不受 MaxBlobs) + `PrimaryCenter`/`PrimaryArea`(按 Sort 排序首项, **非必然最大**)。Sort: area_desc / dist_screen_center((0.5,0.5)) / dist_point(RefPoint 归一化, 未设默认(0,0))。TimeoutMs=0 单次扫描。坐标全帧归一化、质心=像素均值(非 bbox 中心)。**不做** 形态学合并(碎裂目标 v1 不保证)、精确血量%(走 DualColorBarTrack)、3D 导航。
