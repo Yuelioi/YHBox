@@ -14,7 +14,7 @@ function node(id: string, kind: string): GraphNode {
 
 function setup(nodes: GraphNode[]) {
   setActivePinia(createPinia())
-  const graph: Graph = { id: 'g', version: 1, nodes, edges: [] } as Graph
+  const graph: Graph = { id: 'g', schemaVersion: 1, nodes, edges: [] } as Graph
   const activeGraph = computed<Graph | null>(() => graph)
   const flowEdges = ref<FlowEdge[]>([])
   const m = useGraphMutations({

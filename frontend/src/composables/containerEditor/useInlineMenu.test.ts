@@ -21,7 +21,7 @@ function node(id: string, kind: string): GraphNode {
 }
 
 function setup() {
-  const graph: Graph = { id: 'g', version: 1, nodes: [node('a', 'Log')], edges: [] } as Graph
+  const graph: Graph = { id: 'g', schemaVersion: 1, nodes: [node('a', 'Log')], edges: [] } as Graph
   const activeGraph = computed<Graph | null>(() => graph)
   const m = useInlineMenu({
     activeGraph,

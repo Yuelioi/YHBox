@@ -179,15 +179,20 @@ func (s *Store) Save(c *Container) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
+	portableGraph, targetBindings, aiBindings := splitPortableGraphBindings(local.Graph)
 	manifest := containerToPackageManifest(local)
+	manifest.Yotta.Targets = targetSlotsFromGraph(portableGraph)
+	manifest.Yotta.AI = aiSlotsFromGraph(portableGraph)
 	installation := containerToInstallation(local, manifest)
-	lock, err := buildContainerLock(manifest, local.Graph, s.subgraphsFor(&local), now.Format(time.RFC3339))
+	installation.TargetBindings = targetBindings
+	installation.AIBindings = aiBindings
+	lock, err := buildContainerLock(manifest, portableGraph, s.subgraphsFor(&local), now.Format(time.RFC3339))
 	if err != nil {
 		return err
 	}
 	for name, value := range map[string]any{
 		packageFile:      manifest,
-		graphFile:        local.Graph,
+		graphFile:        portableGraph,
 		installationFile: installation,
 		lockFile:         lock,
 	} {
@@ -198,7 +203,7 @@ func (s *Store) Save(c *Container) error {
 	if err := os.Remove(filepath.Join(dir, "container.json")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	s.byID[local.ID] = local
+	s.byID[local.ID] = aggregateContainer(manifest, portableGraph, installation)
 	return nil
 }
 

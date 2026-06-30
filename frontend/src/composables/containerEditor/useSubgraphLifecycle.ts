@@ -89,7 +89,7 @@ export function useSubgraphLifecycle(opts: {
       id: genNodeID(),
       name: p.name,
     }))
-    return { graph: { id: genNodeID(), version: 1, nodes, edges }, outputPins }
+    return { graph: { id: genNodeID(), schemaVersion: 1, nodes, edges }, outputPins }
   }
 
   return {

@@ -67,7 +67,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       name: '',
       graph: {
         id: 'g',
-        version: 1,
+        schemaVersion: 1,
         nodes: [makeNode('start', 'Start'), makeNode('n1', 'Sleep'), makeNode('n2', 'KeyPress')],
         edges: [],
       },
@@ -90,7 +90,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       name: '',
       graph: {
         id: 'g',
-        version: 1,
+        schemaVersion: 1,
         nodes: [makeNode('n1', 'Sleep'), makeNode('n2', 'KeyPress'), makeNode('n3', 'Log')],
         edges: [
           { from: 'n1.out', to: 'n2.in' }, // 内部, 应复制
@@ -114,7 +114,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       name: '',
       graph: {
         id: 'g',
-        version: 1,
+        schemaVersion: 1,
         nodes: [makeNode('call', 'Subgraph', { SubgraphID: 'sg-x' })],
         edges: [],
       },
@@ -125,7 +125,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       {
         id: 'sg-x',
         label: 'sub-x',
-        graph: { id: 'gx', version: 1, nodes: [makeNode('inner', 'Sleep')], edges: [] },
+        graph: { id: 'gx', schemaVersion: 1, nodes: [makeNode('inner', 'Sleep')], edges: [] },
       },
     ]
     const { cb } = setup({ draft, selected: [{ id: 'call' }], sgs })
@@ -139,7 +139,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       schemaVersion: 1,
       id: 'c1',
       name: '',
-      graph: { id: 'g', version: 1, nodes: [makeNode('n1', 'Sleep')], edges: [] },
+      graph: { id: 'g', schemaVersion: 1, nodes: [makeNode('n1', 'Sleep')], edges: [] },
       createdAt: '',
       updatedAt: '',
     }
@@ -154,7 +154,7 @@ describe('useNodeClipboard.onCopySelection', () => {
       schemaVersion: 1,
       id: 'c1',
       name: '',
-      graph: { id: 'g', version: 1, nodes: [makeNode('start', 'Start')], edges: [] },
+      graph: { id: 'g', schemaVersion: 1, nodes: [makeNode('start', 'Start')], edges: [] },
       createdAt: '',
       updatedAt: '',
     }

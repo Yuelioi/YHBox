@@ -11,7 +11,8 @@ READ WHEN: 改容器持久化、容器列表字段、在线容器、投稿/导�
 - 已完成阶段 1: 后端模型类型和 `Graph.schemaVersion` JSON 形状。
 - 已完成阶段 2 基础: 依赖闭包拆为 templates/clips/subgraphs, 并新增 `yotta-lock.json` 构建函数。
 - 已完成阶段 3: Store 已改为 `package.json` + `graph.json` + `installation.json` + `yotta-lock.json` 多文件目录。
-- 下一步阶段 4: Service/RPC 字段归属和前端类型/列表字段对齐。
+- 已完成阶段 4/5: Service/Store 聚合 DTO 暴露 package 字段, target/AI 本机绑定从 portable graph 拆到 installation, 前端列表支持分类筛选并对齐 `Graph.schemaVersion`。
+- 下一步阶段 6: MCP 写入和投稿/导出包入口对齐四件套布局。
 
 ## 文件
 

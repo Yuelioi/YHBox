@@ -235,15 +235,20 @@ type YottaLock struct {
 	Capabilities  []string         `json:"capabilities,omitempty"`
 }
 
-// Container 蓝图编排实体。
-// v2：删 Category 字段（破坏式）；保留 Tags（多 tag）。
+// Container 蓝图编排实体。它是 package + installation + graph 聚合后的 RPC/运行时视图。
 type Container struct {
-	SchemaVersion int      `json:"schemaVersion"`
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description,omitempty"`
-	Tags          []string `json:"tags,omitempty"`
-	Hotkey        string   `json:"hotkey,omitempty"`
+	SchemaVersion int           `json:"schemaVersion"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Description   string        `json:"description,omitempty"`
+	Tags          []string      `json:"tags,omitempty"`
+	PackageID     string        `json:"packageId,omitempty"`
+	PackageName   string        `json:"packageName,omitempty"`
+	Version       string        `json:"version,omitempty"`
+	Category      string        `json:"category,omitempty"`
+	Keywords      []string      `json:"keywords,omitempty"`
+	Author        PackagePerson `json:"author,omitempty"`
+	Hotkey        string        `json:"hotkey,omitempty"`
 	// 容器级窗口后端配置 (原在 Win32WindowTarget 节点, v2 挪容器级 — 整容器一套后端).
 	// InputBackend "sendinput" 走 OS 全局注入 (需前台焦点 → Win32WindowTarget 解析时自动拉前台);
 	// "postmessage" (默认) 按 hwnd 直发, 后台不抢焦点. 激活与否由此字段决定 (原 RunMode 已并入).

@@ -12,7 +12,7 @@ function sg(id: string, nodes: any[] = []) {
     label: id,
     outputPins: [],
     entry: { nodeID: '' },
-    graph: { id: 'g-' + id, version: 1, nodes, edges: [] },
+    graph: { id: 'g-' + id, schemaVersion: 1, nodes, edges: [] },
     createdAt: '',
   }
 }

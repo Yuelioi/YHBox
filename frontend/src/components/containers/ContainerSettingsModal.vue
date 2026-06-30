@@ -19,6 +19,10 @@
         <UInputMenu v-model="form.tags" multiple :items="allTags" :create-item="'always'" size="sm" @create="(v: string) => (form.tags = [...(form.tags ?? []), v])" />
       </UFormField>
 
+      <UFormField :label="t('common.category')">
+        <UInputMenu v-model="form.category" :items="allCategories" :create-item="'always'" size="sm" :placeholder="t('containers.category_placeholder')" @create="(v: string) => (form.category = v)" />
+      </UFormField>
+
       <UFormField :label="t('containers.input_backend_label')">
         <USelect v-model="form.inputBackend" :items="INPUT_BACKEND_OPTIONS" size="sm" />
         <template #help>
@@ -56,6 +60,7 @@ interface FormState {
   hotkey: string
   description: string
   tags: string[]
+  category: string
   inputBackend: string
   captureBackend: string
   scaleTolerance: number
@@ -65,6 +70,7 @@ const props = defineProps<{
   open: boolean
   initial: FormState
   allTags: string[]
+  allCategories: string[]
 }>()
 
 const emit = defineEmits<{

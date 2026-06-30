@@ -106,7 +106,7 @@ export function useFolding(opts: {
     await backend.subgraphs.update(sgRaw.id, JSON.stringify({
       graph: {
         id: sgRaw.graph.id,
-        version: sgRaw.graph.version,
+        schemaVersion: sgRaw.graph.schemaVersion,
         nodes: [...sgRaw.graph.nodes, ...movedNodes],
         edges: innerEdges,
       },

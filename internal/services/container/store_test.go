@@ -16,6 +16,10 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 
 	c := &Container{
 		SchemaVersion: 1, ID: "id-1", Name: "test",
+		Version:  "1.2.3",
+		Category: "daily",
+		Keywords: []string{"daily", "fish"},
+		Author:   PackagePerson{Name: "yl"},
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "n1", Kind: "Start"},
 			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "异环"}},
@@ -44,6 +48,61 @@ func TestContainerStore_SaveLoadList(t *testing.T) {
 	}
 	if got.Name != "test" {
 		t.Errorf("name lost")
+	}
+	if got.Version != "1.2.3" || got.Category != "daily" || got.Author.Name != "yl" {
+		t.Errorf("package fields lost: version=%q category=%q author=%+v", got.Version, got.Category, got.Author)
+	}
+	if len(got.Keywords) != 2 || got.Keywords[0] != "daily" || len(got.Tags) != 2 {
+		t.Errorf("keywords/tags lost: keywords=%v tags=%v", got.Keywords, got.Tags)
+	}
+	if title := PinString(&got.Graph.Nodes[1], "Title"); title != "异环" {
+		t.Errorf("aggregated graph should rehydrate window title, got %q", title)
+	}
+}
+
+func TestContainerStore_SaveSplitsPortableGraphAndInstallationBindings(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(dir)
+
+	c := &Container{
+		SchemaVersion: 1, ID: "split-1", Name: "split",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "w", Kind: "Win32WindowTarget", Config: map[string]any{
+				"Title": "Blue Archive", "Class": "QtWindow", "ProcessName": "game.exe", "TitleMatch": "contains",
+			}},
+		}},
+	}
+	if err := s.Save(c); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	graph, err := readJSONFile[Graph](filepath.Join(dir, "split-1", "graph.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := PinString(&graph.Nodes[1], "Target"); got != "game" {
+		t.Fatalf("portable graph should keep logical target slot, got %q config=%v", got, graph.Nodes[1].Config)
+	}
+	if title := PinString(&graph.Nodes[1], "Title"); title != "" {
+		t.Fatalf("portable graph must not keep local window title, got %q", title)
+	}
+
+	manifest, err := readJSONFile[PackageManifest](filepath.Join(dir, "split-1", "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Yotta.Targets["game"].Kind != "win32-window" {
+		t.Fatalf("package target slot missing: %+v", manifest.Yotta.Targets)
+	}
+
+	installation, err := readJSONFile[Installation](filepath.Join(dir, "split-1", "installation.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := installation.TargetBindings["game"]
+	if binding.Kind != "win32-window" || binding.Match["title"] != "Blue Archive" || binding.Match["processName"] != "game.exe" {
+		t.Fatalf("installation target binding missing local match: %+v", binding)
 	}
 }
 

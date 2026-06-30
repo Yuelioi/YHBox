@@ -21,7 +21,7 @@ function makeDraft(): Container {
     schemaVersion: 1, id: 'c1', name: 'c1',
     vars: [{ name: 'x', type: 'number', default: 1 }],
     graph: {
-      id: 'g1', version: 1,
+      id: 'g1', schemaVersion: 1,
       nodes: [
         { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'x', Scope: 'auto' } }, createdAt: '2026-05-19T00:00:00Z' },
         { id: 'gv2', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'x', Scope: 'local' } }, createdAt: '2026-05-19T00:00:00Z' },
@@ -124,7 +124,7 @@ describe('useVarMutations', () => {
       schemaVersion: 1, id: 'c2', name: 'c2',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
-        id: 'g2', version: 1,
+        id: 'g2', schemaVersion: 1,
         nodes: [
           { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { literal: { VarName: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
@@ -141,7 +141,7 @@ describe('useVarMutations', () => {
       schemaVersion: 1, id: 'c3', name: 'c3',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
-        id: 'g3', version: 1,
+        id: 'g3', schemaVersion: 1,
         nodes: [
           { id: 'vlc1', kind: 'VarLastChange', x: 0, y: 0, config: { literal: { VarName: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
@@ -162,7 +162,7 @@ describe('useVarMutations', () => {
       schemaVersion: 1, id: 'c4', name: 'c4',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
-        id: 'g4', version: 1,
+        id: 'g4', schemaVersion: 1,
         nodes: [
           { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
@@ -179,7 +179,7 @@ describe('useVarMutations', () => {
       schemaVersion: 1, id: 'c5', name: 'c5',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
-        id: 'g5', version: 1,
+        id: 'g5', schemaVersion: 1,
         nodes: [
           { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],
@@ -198,7 +198,7 @@ describe('useVarMutations', () => {
       schemaVersion: 1, id: 'c13', name: 'c13',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
-        id: 'g13', version: 1,
+        id: 'g13', schemaVersion: 1,
         nodes: [
           { id: 'gv1', kind: 'GetVar', x: 0, y: 0, config: { literal: { VarName: 'hp', Scope: 'auto' } }, createdAt: '2026-05-19T00:00:00Z' },
           { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
@@ -223,7 +223,7 @@ describe('useVarMutations', () => {
       schemaVersion: 1, id: 'c6', name: 'c6',
       vars: [{ name: 'hp', type: 'number', default: 0 }],
       graph: {
-        id: 'g6', version: 1,
+        id: 'g6', schemaVersion: 1,
         nodes: [
           { id: 'ct1', kind: 'CheckTemplate', x: 0, y: 0, config: { capture: { Found: 'hp' } }, createdAt: '2026-05-19T00:00:00Z' },
         ],

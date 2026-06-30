@@ -5,6 +5,7 @@ export type ContainerSortKey = 'name' | 'createdAt' | 'updatedAt' | 'nodes'
 
 export interface ContainerFilterOptions {
   query: string
+  category: string | null
   tags: string[]
 }
 
@@ -43,13 +44,32 @@ export function containerTagsByCount(items: Container[]): ContainerTagCount[] {
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
 }
 
+export function containerCategories(items: Container[]): string[] {
+  const set = new Set<string>()
+  for (const c of items) {
+    const key = (c.category ?? '').trim()
+    if (key) set.add(key)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b))
+}
+
 export function filterContainers(items: Container[], options: ContainerFilterOptions): Container[] {
   const q = options.query.trim().toLowerCase()
   return items.filter((c) => {
     const tags = c.tags ?? []
+    if (options.category !== null && (c.category ?? '') !== options.category) return false
     if (options.tags.length > 0 && !options.tags.every((tag) => tags.includes(tag))) return false
     if (!q) return true
-    const hay = `${c.name ?? ''} ${c.description ?? ''} ${tags.join(' ')}`.toLowerCase()
+    const author = typeof c.author === 'string' ? c.author : c.author?.name ?? ''
+    const hay = [
+      c.name ?? '',
+      c.description ?? '',
+      c.category ?? '',
+      c.version ?? '',
+      author,
+      ...(c.keywords ?? []),
+      ...tags,
+    ].join(' ').toLowerCase()
     return hay.includes(q)
   })
 }

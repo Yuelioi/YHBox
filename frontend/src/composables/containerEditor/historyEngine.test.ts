@@ -6,7 +6,7 @@ import type { Container, Subgraph } from "@/lib/backend";
 function draft(jit: number): Container {
   return {
     schemaVersion: 1, id: "c1", name: "c1", vars: [],
-    graph: { id: "g1", version: 1, nodes: [{ id: "n", kind: "Sleep", x: 0, y: 0, config: { literal: { JitterPct: jit } } }], edges: [] },
+    graph: { id: "g1", schemaVersion: 1, nodes: [{ id: "n", kind: "Sleep", x: 0, y: 0, config: { literal: { JitterPct: jit } } }], edges: [] },
     tags: [], createdAt: "", updatedAt: "",
   } as unknown as Container;
 }
@@ -16,7 +16,7 @@ function jitOf(c: Container): unknown {
 function sg(id: string, jit: number): Subgraph {
   return {
     id, rev: 1, label: id, isAnonymous: false, entry: { nodeID: "" }, outputPins: [],
-    graph: { id: "sg-" + id, version: 1, nodes: [{ id: "sn", kind: "Sleep", x: 0, y: 0, config: { literal: { JitterPct: jit } } }], edges: [] },
+    graph: { id: "sg-" + id, schemaVersion: 1, nodes: [{ id: "sn", kind: "Sleep", x: 0, y: 0, config: { literal: { JitterPct: jit } } }], edges: [] },
     createdAt: "",
   } as unknown as Subgraph;
 }

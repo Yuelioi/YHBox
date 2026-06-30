@@ -102,7 +102,7 @@ function makeSg(p: {
     id: 'sg-test',
     rev: 1,
     label: 'T',
-    graph: { id: 'g1', version: 1, nodes: p.nodes, edges: p.edges },
+    graph: { id: 'g1', schemaVersion: 1, nodes: p.nodes, edges: p.edges },
     entry: { nodeID: 'in' },
     outputPins: p.outputPins ?? [{ id: 'decl-done', name: 'done', nodeID: 'out' }],
     createdAt: '',

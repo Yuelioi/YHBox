@@ -7,14 +7,14 @@ import type { PinType } from "@/lib/ytConsole/executor";
 function mainDraft(): Container {
   return {
     schemaVersion: 1, id: "c1", name: "C", vars: [],
-    graph: { id: "g", version: 1, nodes: [{ id: "a", kind: "Sleep", x: 0, y: 0, config: { literal: { JitterPct: 0 } } }], edges: [] },
+    graph: { id: "g", schemaVersion: 1, nodes: [{ id: "a", kind: "Sleep", x: 0, y: 0, config: { literal: { JitterPct: 0 } } }], edges: [] },
     tags: [], createdAt: "", updatedAt: "",
   } as unknown as Container;
 }
 function subA(): Subgraph {
   return {
     id: "sub-A", rev: 1, label: "A", isAnonymous: false, entry: { nodeID: "" }, outputPins: [],
-    graph: { id: "sgA", version: 1, nodes: [{ id: "s1", kind: "Sleep", x: 0, y: 0, config: { literal: {} } }], edges: [] },
+    graph: { id: "sgA", schemaVersion: 1, nodes: [{ id: "s1", kind: "Sleep", x: 0, y: 0, config: { literal: {} } }], edges: [] },
     createdAt: "",
   } as unknown as Subgraph;
 }

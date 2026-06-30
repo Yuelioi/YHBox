@@ -293,11 +293,13 @@
         hotkey: draft.hotkey ?? '',
         description: draft.description ?? '',
         tags: draft.tags ?? [],
+        category: draft.category ?? '',
         inputBackend: draft.inputBackend || 'postmessage',
         captureBackend: draft.captureBackend || 'auto',
         scaleTolerance: draft.scaleTolerance ?? 2.0,
       }"
       :all-tags="allSubgraphTags"
+      :all-categories="allContainerCategories"
       @save="onSettingsSave"
     />
 
@@ -1132,7 +1134,7 @@ watch(staleSubgraphs, async (ids) => {
 // 容器热键靠后端 containers.update → emitChange → binder.Refresh 注册到热键中心;
 // 只 mutate draft 不落盘 → 热键永远进不了注册中心 (「快捷键」页无容器分组)。
 // 只 patch 元数据字段, 不带 graph/vars → Update 的 Unmarshal 只覆盖这几个键, 蓝图 draft 不受影响。
-async function onSettingsSave(form: { name: string; hotkey: string; description: string; tags: string[]; inputBackend: string; captureBackend: string; scaleTolerance: number }) {
+async function onSettingsSave(form: { name: string; hotkey: string; description: string; tags: string[]; category: string; inputBackend: string; captureBackend: string; scaleTolerance: number }) {
   applyDraftMutation((d) => Object.assign(d, form))
   if (!draft.value) return
   await backend.containers.update(draft.value.id, JSON.stringify({
@@ -1140,6 +1142,7 @@ async function onSettingsSave(form: { name: string; hotkey: string; description:
     hotkey: form.hotkey,
     description: form.description,
     tags: form.tags,
+    category: form.category,
     inputBackend: form.inputBackend,
     captureBackend: form.captureBackend,
     scaleTolerance: form.scaleTolerance,
@@ -1623,6 +1626,14 @@ const allSubgraphCategories = computed(() => {
   const set = new Set<string>()
   for (const sg of editorStore.visibleSubgraphs) {
     if (sg.category) set.add(sg.category)
+  }
+  return [...set].sort()
+})
+
+const allContainerCategories = computed(() => {
+  const set = new Set<string>()
+  for (const c of containersStore.list) {
+    if (c.category) set.add(c.category)
   }
   return [...set].sort()
 })

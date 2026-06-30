@@ -66,10 +66,10 @@ export interface GraphEdge {
   // edge kind 由 (fromNode.kind, fromPin) 经 nodeRegistry.edgeKindOf 派生, 不存字段.
 }
 
-// Graph v2: 加 id + version
+// Graph: id + schemaVersion
 export interface Graph {
   id: string
-  version: number
+  schemaVersion: number
   nodes: GraphNode[]
   edges: GraphEdge[]
 }
@@ -172,6 +172,12 @@ export interface Container {
   name: string
   description?: string
   tags?: string[]
+  packageId?: string
+  packageName?: string
+  version?: string
+  category?: string
+  keywords?: string[]
+  author?: { name?: string; email?: string; url?: string } | string
   hotkey?: string
   inputBackend?: string
   captureBackend?: string

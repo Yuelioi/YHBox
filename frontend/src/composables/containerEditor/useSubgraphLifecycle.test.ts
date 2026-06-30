@@ -26,7 +26,7 @@ function makeContainer(mainNodes: GraphNode[]): Container {
     schemaVersion: 1,
     id: 'c1',
     name: 'test',
-    graph: { id: 'g-main', version: 1, nodes: mainNodes, edges: [] },
+    graph: { id: 'g-main', schemaVersion: 1, nodes: mainNodes, edges: [] },
     createdAt: '',
     updatedAt: '',
   }
@@ -79,7 +79,7 @@ describe('useSubgraphLifecycle.countSubgraphReferencesIncludeMain', () => {
         id: 'sg-a',
         graph: {
           id: 'g-a',
-          version: 1,
+          schemaVersion: 1,
           nodes: [makeNode('a1', 'Subgraph', { SubgraphID: 'sg-b' })],
           edges: [],
         },
@@ -88,7 +88,7 @@ describe('useSubgraphLifecycle.countSubgraphReferencesIncludeMain', () => {
         id: 'sg-b',
         graph: {
           id: 'g-b',
-          version: 1,
+          schemaVersion: 1,
           nodes: [
             makeNode('b1', 'Subgraph', { SubgraphID: 'sg-c' }),
             makeNode('b2', 'Subgraph', { SubgraphID: 'sg-c' }),
@@ -121,7 +121,7 @@ describe('useSubgraphLifecycle.findNodeAcrossGraphs', () => {
     const sgs = [
       {
         id: 'sg-a',
-        graph: { id: 'g-a', version: 1, nodes: [makeNode('inner', 'KeyPress')], edges: [] },
+        graph: { id: 'g-a', schemaVersion: 1, nodes: [makeNode('inner', 'KeyPress')], edges: [] },
       },
     ]
     const { lifecycle } = setup(draft, sgs)
@@ -141,7 +141,7 @@ describe('useSubgraphLifecycle.deepCloneSubgraphForCopy', () => {
       label: 'orig',
       graph: {
         id: 'g-orig',
-        version: 1,
+        schemaVersion: 1,
         nodes: [makeNode('n1', 'Sleep'), makeNode('n2', 'KeyPress')],
         edges: [{ from: 'n1.out', to: 'n2.in' }],
       },
@@ -177,7 +177,7 @@ describe('useSubgraphLifecycle.deepCloneSubgraphForCopy', () => {
     const clone = lifecycle.deepCloneSubgraphForCopy({
       id: '',
       label: '',
-      graph: { id: '', version: 1, nodes: [], edges: [] },
+      graph: { id: '', schemaVersion: 1, nodes: [], edges: [] },
       outputPins: [],
       createdAt: '',
     } as any)
@@ -200,7 +200,7 @@ describe('useSubgraphLifecycle 集成: cascade 引用计数语义', () => {
       makeNode('b', 'Subgraph', { SubgraphID: 'sg-shared' }),
     ])
     const { lifecycle } = setup(draft, [
-      { id: 'sg-shared', graph: { id: 'g', version: 1, nodes: [], edges: [] } },
+      { id: 'sg-shared', graph: { id: 'g', schemaVersion: 1, nodes: [], edges: [] } },
     ])
     // 引用 2 个; 即便 ID 被"删"也得保留
     expect(lifecycle.countSubgraphReferencesIncludeMain('sg-shared')).toBe(2)

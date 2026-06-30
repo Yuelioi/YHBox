@@ -2228,6 +2228,9 @@ export default {
       desc: '这里将展示由社区分享的整包容器, 可一键克隆到本机.',
     },
     search_placeholder: '搜索容器...',
+    filter_category: '筛选分类',
+    filter_category_all: '全部分类',
+    category_placeholder: '选择或输入分类',
     filter_tags: '筛选标签...',
     sort: {
       label: '排序字段',

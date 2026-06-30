@@ -18,7 +18,7 @@ const h = vi.hoisted(() => {
     calls,
     updateSilent: vi.fn(async () => { calls.push('main') }),
     sgUpdateSilent: vi.fn(async (sgID: string) => { calls.push('sg:' + sgID) }),
-    sgGet: vi.fn(async (sgID: string) => ({ id: sgID, rev: 2, label: sgID, outputPins: [], entry: { nodeID: '' }, graph: { id: 'g', version: 1, nodes: [], edges: [] }, createdAt: '' })),
+    sgGet: vi.fn(async (sgID: string) => ({ id: sgID, rev: 2, label: sgID, outputPins: [], entry: { nodeID: '' }, graph: { id: 'g', schemaVersion: 1, nodes: [], edges: [] }, createdAt: '' })),
     sgDelete: vi.fn(async (sgID: string) => { calls.push('del:' + sgID) }),
   }
 })
@@ -51,7 +51,7 @@ function sg(id: string, refSubID?: string) {
     entry: { nodeID: '' },
     graph: {
       id: 'g-' + id,
-      version: 1,
+      schemaVersion: 1,
       nodes: refSubID ? [{ id: 'n', kind: 'Subgraph', x: 0, y: 0, config: { SubgraphID: refSubID } }] : [],
       edges: [],
     },
@@ -71,7 +71,7 @@ function setup(sgs: ReturnType<typeof sg>[], mainSubRefs: string[] = [], touched
     name: 't',
     graph: {
       id: 'g-main',
-      version: 1,
+      schemaVersion: 1,
       nodes: mainSubRefs.map((s, i) => ({ id: 'm' + i, kind: 'Subgraph', x: 0, y: 0, config: { SubgraphID: s } })),
       edges: [],
     },

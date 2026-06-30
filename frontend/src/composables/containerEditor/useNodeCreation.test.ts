@@ -45,7 +45,7 @@ function registerWindowTargetSpec() {
 }
 
 function setup() {
-  const graph: Graph = { id: 'g', version: 1, nodes: [], edges: [] } as Graph
+  const graph: Graph = { id: 'g', schemaVersion: 1, nodes: [], edges: [] } as Graph
   const draft = ref<Container>({ id: 'c', name: 'c', graph } as Container)
   const activeGraph = computed<Graph | null>(() => graph)
   const selectedID = ref<string | null>(null)

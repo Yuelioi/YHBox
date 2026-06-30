@@ -42,7 +42,7 @@ function makeDraft(): Container {
   return {
     id: 'cMine',
     name: '我的容器',
-    graph: { id: 'g', version: 1, nodes: [{ id: 'start', kind: 'Start', x: 0, y: 0, config: {} }], edges: [] },
+    graph: { id: 'g', schemaVersion: 1, nodes: [{ id: 'start', kind: 'Start', x: 0, y: 0, config: {} }], edges: [] },
   } as unknown as Container
 }
 

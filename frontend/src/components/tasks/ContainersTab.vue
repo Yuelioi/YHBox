@@ -23,6 +23,13 @@
           class="min-w-44 flex-1 xl:flex-none"
           :placeholder="t('containers.filter_tags')"
         />
+        <USelect
+          v-model="categoryFilter"
+          :items="categoryItems"
+          size="sm"
+          class="w-40"
+          :aria-label="t('containers.filter_category')"
+        />
         <UButton
           size="sm"
           variant="soft"
@@ -341,6 +348,7 @@ import StatusPill from '@/components/common/StatusPill.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import {
   buildContainerPage,
+  containerCategories,
   containerNodeCount,
   containerTagsByCount,
   formatContainerDate,
@@ -416,11 +424,16 @@ onMounted(() => {
 })
 
 const selectedTags = ref<string[]>([])
+const categoryFilter = ref<string>('all')
 
 const tagsByCount = computed(() => {
   return containerTagsByCount(store.list ?? [])
 })
 const allTagItems = computed(() => tagsByCount.value.map(({ tag }) => tag))
+const categoryItems = computed(() => [
+  { label: t('containers.filter_category_all'), value: 'all' },
+  ...containerCategories(store.list ?? []).map((category) => ({ label: category, value: `cat:${category}` })),
+])
 
 function toggleTag(tag: string) {
   if (selectedTags.value.includes(tag)) {
@@ -432,6 +445,7 @@ function toggleTag(tag: string) {
 
 const pageResult = computed(() => buildContainerPage(store.list, {
   query: search.value,
+  category: categoryFilter.value === 'all' ? null : categoryFilter.value.slice(4),
   tags: selectedTags.value,
   sortKey: sortKey.value,
   sortDesc: sortDesc.value,
@@ -448,11 +462,12 @@ const pageTotalLabel = computed(() => {
   })
 })
 
-watch([search, selectedTags, sortKey, sortDesc, viewMode, pageSize], () => { page.value = 1 })
+watch([search, categoryFilter, selectedTags, sortKey, sortDesc, viewMode, pageSize], () => { page.value = 1 })
 watch(() => pageResult.value.page, (p) => { if (page.value !== p) page.value = p })
 
 function resetFilters() {
   search.value = ''
+  categoryFilter.value = 'all'
   selectedTags.value = []
 }
 
