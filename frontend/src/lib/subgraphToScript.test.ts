@@ -69,10 +69,14 @@ const SPECS: Record<string, NodeKindSpec> = {
     kind: 'Expr',
     isPureData: true,
     dynamicInputs: true,
-    dataIn: { Expr: 'string' },
-    dataOut: { Value: 'any' },
+    dataIn: { Expression: 'string' },
+    dataOut: { Result: 'any' },
   }),
   Loop: makeSpec({ kind: 'Loop', execOut: ['Body', 'Done'] }),
+  Break: makeSpec({ kind: 'Break', execOut: [] }),
+  Continue: makeSpec({ kind: 'Continue', execOut: [] }),
+  ManualOnly: makeSpec({ kind: 'ManualOnly' }),
+  DynamicOnly: makeSpec({ kind: 'DynamicOnly', dynamicInputs: true }),
   Subgraph: makeSpec({
     kind: 'Subgraph',
     execOut: [],
@@ -91,7 +95,9 @@ const SPECS: Record<string, NodeKindSpec> = {
 }
 
 // Loop 是 RegionRunner, 不可绑定; 其余(除 marker)都可。
-const BINDABLE = new Set(Object.keys(SPECS).filter((k) => !['Loop', 'Subgraph', 'CollapsedNode'].includes(k)))
+const BINDABLE = new Set(
+  Object.keys(SPECS).filter((k) => !['Loop', 'Subgraph', 'CollapsedNode', 'ManualOnly'].includes(k)),
+)
 
 function makeSg(p: {
   nodes: GraphNode[]
@@ -275,6 +281,29 @@ describe('subgraphToScript: 分支与数据', () => {
     expect(codeOf(r)).toBe(['Sleep({ Duration: params.get("ms") })', 'return "done"'].join('\n'))
   })
 
+  it('Expr pure data node → inline JS expression with wired dynamic inputs', () => {
+    const r = subgraphToScript(
+      makeSg({
+        nodes: [
+          node('n1', 'Sleep'),
+          node('expr1', 'Expr', {
+            literal: { Expression: 'base + 1' },
+            Inputs: [{ Name: 'base', Type: 'number' }],
+          }),
+          node('now1', 'Now'),
+        ],
+        edges: [
+          { from: 'in.Done', to: 'n1.In' },
+          { from: 'expr1.Result', to: 'n1.Duration' },
+          { from: 'now1.Ms', to: 'expr1.base' },
+          { from: 'n1.Done', to: 'out.In' },
+        ],
+      }),
+      ctx(),
+    )
+    expect(codeOf(r)).toBe(['Sleep({ Duration: (Now({}) + 1) })', 'return "done"'].join('\n'))
+  })
+
   it('capture pin 是普通字面量, 透传进参数对象', () => {
     const r = subgraphToScript(
       makeSg({
@@ -338,13 +367,13 @@ describe('subgraphToScript: 分支与数据', () => {
 // ---- 拒转 ----
 
 describe('subgraphToScript: 拒转', () => {
-  it('非 bindable 节点(Loop) → unsupported, 且攒全所有不支持项', () => {
+  it('非 bindable 节点与非 Expr 动态输入节点 → unsupported, 且攒全所有不支持项', () => {
     const r = subgraphToScript(
       makeSg({
-        nodes: [node('l1', 'Loop'), node('e1', 'Expr', { literal: { Expr: '1+1' } })],
+        nodes: [node('m1', 'ManualOnly'), node('d1', 'DynamicOnly')],
         edges: [
-          { from: 'in.Done', to: 'l1.In' },
-          { from: 'l1.Done', to: 'out.In' },
+          { from: 'in.Done', to: 'm1.In' },
+          { from: 'm1.Done', to: 'out.In' },
         ],
       }),
       ctx(),
@@ -490,5 +519,89 @@ describe('subgraphToScript: 拒转', () => {
       ctx(),
     )
     expect(reasonsOf(r)).toContain('subgraphScript.reason.callee_missing')
+  })
+})
+
+describe('subgraphToScript: Loop 与控制转移', () => {
+  it('Loop count → for loop, Body becomes block and Done continues after the loop', () => {
+    const r = subgraphToScript(
+      makeSg({
+        nodes: [
+          node('loop1', 'Loop', { literal: { Mode: 'count', Count: 3 } }),
+          node('sleepBody', 'Sleep', { literal: { Duration: 100 } }),
+          node('sleepAfter', 'Sleep', { literal: { Duration: 200 } }),
+        ],
+        edges: [
+          { from: 'in.Done', to: 'loop1.In' },
+          { from: 'loop1.Body', to: 'sleepBody.In' },
+          { from: 'loop1.Done', to: 'sleepAfter.In' },
+          { from: 'sleepAfter.Done', to: 'out.In' },
+        ],
+      }),
+      ctx(),
+    )
+    expect(codeOf(r)).toBe(
+      [
+        'for (let i1 = 0; i1 < 3; i1++) {',
+        '  Sleep({ Duration: 100 })',
+        '}',
+        'Sleep({ Duration: 200 })',
+        'return "done"',
+      ].join('\n'),
+    )
+  })
+
+  it('Loop forever → while true', () => {
+    const r = subgraphToScript(
+      makeSg({
+        nodes: [
+          node('loop1', 'Loop', { literal: { Mode: 'forever' } }),
+          node('sleepBody', 'Sleep', { literal: { Duration: 100 } }),
+        ],
+        edges: [
+          { from: 'in.Done', to: 'loop1.In' },
+          { from: 'loop1.Body', to: 'sleepBody.In' },
+          { from: 'loop1.Done', to: 'out.In' },
+        ],
+      }),
+      ctx(),
+    )
+    expect(codeOf(r)).toBe(
+      ['while (true) {', '  Sleep({ Duration: 100 })', '}', 'return "done"'].join('\n'),
+    )
+  })
+
+  it('Break and Continue nodes become JS control statements', () => {
+    const r = subgraphToScript(
+      makeSg({
+        nodes: [
+          node('loop1', 'Loop', { literal: { Mode: 'count', Count: 3 } }),
+          node('check1', 'CheckTemplate', { literal: { Template: 'g-1' } }),
+          node('break1', 'Break'),
+          node('continue1', 'Continue'),
+        ],
+        edges: [
+          { from: 'in.Done', to: 'loop1.In' },
+          { from: 'loop1.Body', to: 'check1.In' },
+          { from: 'check1.Found', to: 'break1.In' },
+          { from: 'check1.NotFound', to: 'continue1.In' },
+          { from: 'loop1.Done', to: 'out.In' },
+        ],
+      }),
+      ctx(),
+    )
+    expect(codeOf(r)).toBe(
+      [
+        'for (let i1 = 0; i1 < 3; i1++) {',
+        '  const r2 = CheckTemplate({ Template: "g-1" })',
+        '  if (r2.exit === "Found") {',
+        '    break',
+        '  } else if (r2.exit === "NotFound") {',
+        '    continue',
+        '  }',
+        '}',
+        'return "done"',
+      ].join('\n'),
+    )
   })
 })

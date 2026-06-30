@@ -30,6 +30,7 @@ export interface ConvertCtx {
 export type ConvertResult = { ok: true; code: string } | { ok: false; unsupported: UnsupportedItem[] }
 
 const SUBGRAPH_KINDS = new Set(['Subgraph', 'CollapsedNode'])
+const STRUCTURAL_KINDS = new Set(['Loop', 'Break', 'Continue'])
 const R = (k: string) => `subgraphScript.reason.${k}`
 
 interface Edge {
@@ -48,6 +49,19 @@ function subgraphIDOf(n: GraphNode): string {
   const cfg = n.config ?? {}
   const lit = (cfg.literal ?? {}) as Record<string, unknown>
   return String(cfg.SubgraphID ?? lit.SubgraphID ?? '')
+}
+
+function literalOf(n: GraphNode): Record<string, unknown> {
+  return ((n.config ?? {}).literal ?? {}) as Record<string, unknown>
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function replaceIdentifier(src: string, name: string, value: string): string {
+  const re = new RegExp(`(^|[^A-Za-z0-9_$])(${escapeRegExp(name)})(?=[^A-Za-z0-9_$]|$)`, 'g')
+  return src.replace(re, (_m, prefix) => `${prefix}${value}`)
 }
 
 export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResult {
@@ -112,11 +126,13 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
     if (n.disabled) bad(n, 'disabled')
     if (SUBGRAPH_KINDS.has(n.kind)) {
       if (!ctx.subgraphsById.get(subgraphIDOf(n))) bad(n, 'callee_missing')
+    } else if (STRUCTURAL_KINDS.has(n.kind)) {
+      // Script has native loops and control transfer; these are rendered as JS syntax.
     } else if (!spec || !ctx.bindable.has(n.kind)) {
       if (!spec?.isVisualOnly) bad(n, 'not_bindable')
       continue
     }
-    if (spec?.dynamicInputs) bad(n, 'dynamic_inputs')
+    if (spec?.dynamicInputs && n.kind !== 'Expr') bad(n, 'dynamic_inputs')
     if (spec?.isPureData && (dataConsumers.get(n.id) ?? 0) > 0 && Object.keys(spec.dataOut).length > 1)
       bad(n, 'multi_out_pure')
     // Fail(error 语义)出口接线 → 图里是错误路由, 脚本里是异常, v1 不自动生成 try/catch。
@@ -158,9 +174,25 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
 
   // 纯函数节点求值表达式 (递归解析它自己的 data 入边)。
   const pureExpr = (n: GraphNode, ancestors: Set<string>, indent: string): string => {
-    const lit = (n.config?.literal ?? {}) as Record<string, unknown>
+    const lit = literalOf(n)
     if (n.kind === 'GetParam') return `params.get(${renderValue(String(lit.ParamName ?? ''))})`
+    if (n.kind === 'Expr') return exprSource(n, ancestors, indent)
     return `${n.kind}({${argEntries(n, ancestors, indent)}})`
+  }
+
+  const exprSource = (n: GraphNode, ancestors: Set<string>, indent: string): string => {
+    const lit = literalOf(n)
+    let src = String(lit.Expression ?? lit.Expr ?? n.config?.Expression ?? n.config?.Expr ?? '')
+    const inputs = (n.config?.Inputs ?? []) as Array<{ Name?: unknown }>
+    const wired = dataInByNode.get(n.id)
+    for (const d of inputs) {
+      const name = String(d.Name ?? '')
+      if (!name) continue
+      const w = wired?.get(name)
+      if (!w) continue
+      src = replaceIdentifier(src, name, dataRef(n, w, ancestors, indent))
+    }
+    return `(${src})`
   }
 
   // data 入 pin → 表达式 (来源: 纯函数内联/提升 const、exec 祖先的 rN.字段)。
@@ -235,16 +267,48 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
   }
 
   // 从某节点起沿 exec 链生成语句; 多出口 → if/else if 递归。
-  const emitChain = (startID: string | undefined, indent: string, ancestors: Set<string>): void => {
+  const emitChain = (
+    startID: string | undefined,
+    indent: string,
+    ancestors: Set<string>,
+    opts: { marker: 'return' | 'stop' } = { marker: 'return' },
+  ): void => {
     let curID = startID
     while (curID) {
       const exitName = exitNameByMarker.get(curID)
       if (exitName !== undefined) {
-        lines.push(`${indent}return ${renderValue(exitName)}`)
+        if (opts.marker === 'return') lines.push(`${indent}return ${renderValue(exitName)}`)
         return
       }
       const n = nodeById.get(curID)
       if (!n) return
+      if (n.kind === 'Break') {
+        lines.push(`${indent}break`)
+        return
+      }
+      if (n.kind === 'Continue') {
+        lines.push(`${indent}continue`)
+        return
+      }
+      if (n.kind === 'Loop') {
+        const lit = literalOf(n)
+        const mode = String(lit.Mode ?? n.config?.Mode ?? 'count')
+        const count = lit.Count ?? n.config?.Count ?? 10
+        if (mode === 'forever') {
+          lines.push(`${indent}while (true) {`)
+        } else {
+          const idx = `i${++varSeq}`
+          lines.push(`${indent}for (let ${idx} = 0; ${idx} < ${renderValue(count)}; ${idx}++) {`)
+        }
+        const bodyTarget = execOutByNode.get(n.id)?.get('Body')?.[0]
+        const nextAncestors = new Set(ancestors)
+        nextAncestors.add(n.id)
+        emitChain(bodyTarget, `${indent}  `, nextAncestors, { marker: 'stop' })
+        lines.push(`${indent}}`)
+        curID = execOutByNode.get(n.id)?.get('Done')?.[0]
+        ancestors.add(n.id)
+        continue
+      }
       const isSub = SUBGRAPH_KINDS.has(n.kind)
       const spec = ctx.specFor(n.kind)
       const callee = isSub ? ctx.subgraphsById.get(subgraphIDOf(n)) : undefined
@@ -285,7 +349,7 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
       connected.forEach((x, i) => {
         const head = i === 0 ? `${indent}if` : `${indent}} else if`
         lines.push(`${head} (${rv}.exit === ${renderValue(x.name)}) {`)
-        emitChain(wiredPins!.get(x.pin)![0], `${indent}  `, new Set(nextAncestors))
+        emitChain(wiredPins!.get(x.pin)![0], `${indent}  `, new Set(nextAncestors), opts)
       })
       if (connected.length > 0) lines.push(`${indent}}`)
       return
