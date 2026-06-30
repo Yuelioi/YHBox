@@ -384,7 +384,7 @@ describe('subgraphToScript: 拒转', () => {
     expect(reasons.length).toBe(2)
   })
 
-  it('exec 汇合(两分支进同一节点) → unsupported', () => {
+  it('exec 汇合(两分支进同一节点) → duplicated tail in each JS branch', () => {
     const r = subgraphToScript(
       makeSg({
         nodes: [
@@ -400,7 +400,18 @@ describe('subgraphToScript: 拒转', () => {
       }),
       ctx(),
     )
-    expect(reasonsOf(r)).toContain('subgraphScript.reason.merge')
+    expect(codeOf(r)).toBe(
+      [
+        'const r1 = CheckTemplate({ Template: "g" })',
+        'if (r1.exit === "Found") {',
+        '  Sleep({ Duration: 1 })',
+        '  return "done"',
+        '} else if (r1.exit === "NotFound") {',
+        '  Sleep({ Duration: 1 })',
+        '  return "done"',
+        '}',
+      ].join('\n'),
+    )
   })
 
   it('exec 成环 → unsupported', () => {

@@ -102,14 +102,12 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
 
   // exec 出边按 (节点, 出口 pin) 索引; data 入边按 (节点, 入 pin) 索引。
   const execOutByNode = new Map<string, Map<string, string[]>>()
-  const execInCount = new Map<string, number>()
   for (const e of execEdges) {
     let pins = execOutByNode.get(e.fromNode)
     if (!pins) execOutByNode.set(e.fromNode, (pins = new Map()))
     const targets = pins.get(e.fromPin) ?? []
     targets.push(e.toNode)
     pins.set(e.fromPin, targets)
-    execInCount.set(e.toNode, (execInCount.get(e.toNode) ?? 0) + 1)
   }
   const dataInByNode = new Map<string, Map<string, { src: string; pin: string }>>()
   const dataConsumers = new Map<string, number>() // 源节点 → 被引用次数
@@ -144,7 +142,6 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
         if (targets.length > 1) bad(n, 'fan_out')
       }
     }
-    if ((execInCount.get(n.id) ?? 0) > 1) bad(n, 'merge')
   }
   // exec 成环: 从 entry 沿 exec 边 DFS, 灰节点重入 = 环。
   {
