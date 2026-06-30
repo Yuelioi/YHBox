@@ -93,6 +93,32 @@ export function scriptPinValueContext(doc: string, pos: number): { kind: string;
   return { kind: doc.slice(callee.from, callee.to), pin: doc.slice(key.from, key.to) }
 }
 
+// ── Script: 光标落在 `r.exit === ▮` / `r.exit !== ▮` 右侧时, 反查 `r` 来自哪种节点调用。
+//    v1 只做常见局部写法: `const/let/var r = NodeKind(...)`; 最近一次声明优先。
+export function scriptExitCompareContext(
+  doc: string,
+  pos: number,
+): { varName: string; kind: string; from: number } | null {
+  const before = doc.slice(0, pos)
+  const m = /([A-Za-z_$][\w$]*)\.exit\s*(?:={2,3}|!==?)\s*([A-Za-z_$][\w$.]*)?$/.exec(before)
+  if (!m) return null
+  const varName = m[1]
+  const partial = m[2] ?? ''
+  const compareAt = before.lastIndexOf(`${varName}.exit`)
+  if (compareAt < 0) return null
+  const decls = before.slice(0, compareAt)
+  const re = new RegExp(`\\b(?:const|let|var)\\s+${escapeRegExp(varName)}\\s*=\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, 'g')
+  let kind = ''
+  let d: RegExpExecArray | null
+  while ((d = re.exec(decls))) kind = d[1]
+  if (!kind) return null
+  return { varName, kind, from: pos - partial.length }
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // ── signature help 扩展: showTooltip StateField, 文档/选区变更时重算 ──
 
 export function signatureHelp(opts: {

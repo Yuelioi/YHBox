@@ -26,7 +26,12 @@ import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import type { Spec } from '@bindings/yotta/internal/node'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
 import { fnHoverTooltip, type HoverDoc } from '@/lib/editorHover'
-import { scriptPinValueContext, scriptSigContext, signatureHelp } from '@/lib/editorSignature'
+import {
+  scriptExitCompareContext,
+  scriptPinValueContext,
+  scriptSigContext,
+  signatureHelp,
+} from '@/lib/editorSignature'
 
 // apply 上屏后光标落进末尾括号/引号内 (caretBack = 从串尾回退几格)。
 function applyWithCaret(insert: string, caretBack: number) {
@@ -123,6 +128,45 @@ export const SUGAR_ITEMS: InsertItem[] = [
 ]
 
 export const SUGAR_COMPLETIONS: Completion[] = SUGAR_ITEMS.map(toCompletion)
+
+const EXIT_CONSTANT_BY_NAME = new Map<string, string>([
+  ['Body', 'Body'],
+  ['Changed', 'Changed'],
+  ['default', 'Default'],
+  ['Done', 'Done'],
+  ['Fail', 'Fail'],
+  ['False', 'False'],
+  ['Found', 'Found'],
+  ['Gone', 'Gone'],
+  ['NotFound', 'NotFound'],
+  ['Out', 'Out'],
+  ['Stable', 'Stable'],
+  ['Timeout', 'Timeout'],
+  ['True', 'True'],
+])
+
+export function scriptExitItemsForKind(kind: string, specs: Map<string, Spec>): InsertItem[] {
+  const outputs = (specs.get(kind)?.outputs ?? []).filter((o) => o.type === 'Exec')
+  return outputs.map((o) => {
+    const constant = EXIT_CONSTANT_BY_NAME.get(o.name)
+    if (constant) {
+      return {
+        label: `Exit.${constant}`,
+        type: 'constant',
+        detail: JSON.stringify(o.name),
+        insert: `Exit.${constant}`,
+        caretBack: 0,
+      }
+    }
+    return {
+      label: JSON.stringify(o.name),
+      type: 'constant',
+      detail: `${kind}.${o.name}`,
+      insert: JSON.stringify(o.name),
+      caretBack: 0,
+    }
+  })
+}
 
 // labelOf: kind → i18n 人话名 (node.<Kind>.label); 纯函数保持可单测。
 export function nodeFnItems(
@@ -252,8 +296,22 @@ function buildDollarDecorations(view: EditorView): DecorationSet {
 function scriptCompletionSource(
   getOptions: () => Completion[],
   pinValues?: (kind: string, pin: string) => { value: string; label?: string; type?: 'enum' | 'variable' }[],
+  exitValues?: (kind: string) => InsertItem[],
 ) {
   return (ctx: CompletionContext): CompletionResult | null => {
+    if (exitValues) {
+      const ec = scriptExitCompareContext(ctx.state.doc.toString(), ctx.pos)
+      if (ec) {
+        const options = exitValues(ec.kind).map(toCompletion)
+        if (options.length) {
+          return {
+            from: ec.from,
+            validFor: /^[\w$.]*$/,
+            options,
+          }
+        }
+      }
+    }
     if (pinValues) {
       const pv = scriptPinValueContext(ctx.state.doc.toString(), ctx.pos)
       if (pv) {
@@ -293,6 +351,8 @@ export function scriptEditorExtensions(opts: {
   varNames?: () => string[]
   /** pin 值候选: (kind, pin) → 选项; 用于 `Kind({Pin: ▮})` 值位置补全 (枚举值 / 变量名)。缺省不补。 */
   pinValues?: (kind: string, pin: string) => { value: string; label?: string; type?: 'enum' | 'variable' }[]
+  /** exit 比较候选: 光标位于 `r.exit === ▮` 时, 根据 `r = Kind(...)` 反查 kind 后提供出口。 */
+  exitValues?: (kind: string) => InsertItem[]
   /** 悬停函数名的文档数据 (节点/糖函数), 缺省不出 hover。 */
   hoverDoc?: (word: string) => HoverDoc | null
   /** 函数签名查找 (节点/糖函数), 缺省不出 signature help。 */
@@ -313,7 +373,10 @@ export function scriptEditorExtensions(opts: {
       colors: { dark: '#404040', activeDark: '#6a6a6a', light: '#404040', activeLight: '#6a6a6a' },
     }),
     autocompletion({
-      override: [opts.completionSource ?? scriptCompletionSource(opts.completions ?? (() => []), opts.pinValues)],
+      override: [
+        opts.completionSource ??
+          scriptCompletionSource(opts.completions ?? (() => []), opts.pinValues, opts.exitValues),
+      ],
     }),
     cmPlaceholder(opts.placeholder ?? ''),
     ...baseEditorExtensions(opts),

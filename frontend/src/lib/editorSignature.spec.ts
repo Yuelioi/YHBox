@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { exprSigContext, scriptPinValueContext, scriptSigContext } from './editorSignature'
+import {
+  exprSigContext,
+  scriptExitCompareContext,
+  scriptPinValueContext,
+  scriptSigContext,
+} from './editorSignature'
 
 describe('exprSigContext', () => {
   it('inside first arg', () => {
@@ -57,5 +62,41 @@ describe('scriptPinValueContext', () => {
   })
   it('null when object literal is not a call argument', () => {
     expect(scriptPinValueContext('let x = { a: 1 }', 13)).toBeNull()
+  })
+})
+
+describe('scriptExitCompareContext', () => {
+  it('infers node kind from result variable declaration', () => {
+    const doc = 'const r = CheckTemplate({Templates: "x"})\nif (r.exit === )'
+    const pos = doc.lastIndexOf(')')
+    expect(scriptExitCompareContext(doc, pos)).toEqual({
+      varName: 'r',
+      kind: 'CheckTemplate',
+      from: pos,
+    })
+  })
+
+  it('returns replacement start when an Exit token is partially typed', () => {
+    const doc = 'const r = CheckTemplate({})\nif (r.exit === Exit.F)'
+    const pos = doc.lastIndexOf(')')
+    expect(scriptExitCompareContext(doc, pos)).toEqual({
+      varName: 'r',
+      kind: 'CheckTemplate',
+      from: doc.indexOf('Exit.F'),
+    })
+  })
+
+  it('uses the nearest prior declaration for a reused variable name', () => {
+    const doc = [
+      'let r = CheckTemplate({})',
+      'r = null',
+      'const r2 = ClickTemplate({})',
+      'if (r2.exit === )',
+    ].join('\n')
+    expect(scriptExitCompareContext(doc, doc.lastIndexOf(')'))?.kind).toBe('ClickTemplate')
+  })
+
+  it('returns null when the result variable was not declared from a call', () => {
+    expect(scriptExitCompareContext('if (r.exit === )', 'if (r.exit === )'.length)).toBeNull()
   })
 })

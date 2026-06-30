@@ -66,6 +66,7 @@ import {
   nodeFnItems,
   scriptDollarRefs,
   scriptEditorExtensions,
+  scriptExitItemsForKind,
   scriptSyntaxErrors,
   SUGAR_COMPLETIONS,
   SUGAR_ITEMS,
@@ -292,6 +293,7 @@ function buildExtensions(opts: { modal?: boolean; onChange?: (doc: string) => vo
     completions: () => completionOptions.value,
     varNames: () => varNames.value,
     pinValues,
+    exitValues: (kind: string) => scriptExitItemsForKind(kind, registry.specs),
     hoverDoc,
     signatureLookup: (name: string) => {
       const d = hoverDoc(name)

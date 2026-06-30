@@ -4,13 +4,18 @@ import { describe, it, expect } from 'vitest'
 import type { Spec } from '@bindings/yotta/internal/node'
 import {
   nodeFnCompletions,
+  scriptExitItemsForKind,
   scriptDollarRefs,
   scriptSyntaxErrors,
   SUGAR_COMPLETIONS,
 } from './scriptCompletions'
 
-function fakeSpec(kind: string, inputs: { name: string; type: string }[]): Spec {
-  return { kind, inputs } as unknown as Spec
+function fakeSpec(
+  kind: string,
+  inputs: { name: string; type: string }[],
+  outputs: { name: string; type: string }[] = [],
+): Spec {
+  return { kind, inputs, outputs } as unknown as Spec
 }
 
 describe('nodeFnCompletions', () => {
@@ -63,6 +68,38 @@ describe('SUGAR_COMPLETIONS', () => {
     expect(SUGAR_COMPLETIONS.every((c) => c.type === 'function' || c.type === 'constant')).toBe(
       true,
     )
+  })
+})
+
+describe('scriptExitItemsForKind', () => {
+  it('uses node Spec exec outputs and maps standard exits to Exit constants', () => {
+    const specs = new Map<string, Spec>([
+      [
+        'CheckTemplate',
+        fakeSpec(
+          'CheckTemplate',
+          [],
+          [
+            { name: 'Found', type: 'Exec' },
+            { name: 'NotFound', type: 'Exec' },
+            { name: 'Point', type: 'Point' },
+          ],
+        ),
+      ],
+    ])
+
+    expect(scriptExitItemsForKind('CheckTemplate', specs).map((i) => i.insert)).toEqual([
+      'Exit.Found',
+      'Exit.NotFound',
+    ])
+  })
+
+  it('falls back to string literals for non-standard exit names', () => {
+    const specs = new Map<string, Spec>([
+      ['CustomNode', fakeSpec('CustomNode', [], [{ name: 'Skipped', type: 'Exec' }])],
+    ])
+
+    expect(scriptExitItemsForKind('CustomNode', specs).map((i) => i.insert)).toEqual(['"Skipped"'])
   })
 })
 
