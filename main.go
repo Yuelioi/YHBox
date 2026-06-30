@@ -59,7 +59,7 @@ func main() {
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
-	// → 新 layout（containers/<id>/{container.json,subgraphs/,templates/} + library/）。
+	// → 新 layout（containers/<id>/{package.json,graph.json,installation.json,yotta-lock.json} + library/）。
 	// 检测信号：bin/data/actions/ 存在 或 bin/data/templates/_index.json 存在（旧全局模板库）。
 	// 命中即 rename 整个 bin/data 到 bin/data.legacy-2026-05-16/。Best-effort，失败仅日志。
 	backupLegacyDataIfNeeded(rootLog)
@@ -333,7 +333,7 @@ func main() {
 	containerHotkeys.Refresh()
 	containerSvc.SetOnChange(containerHotkeys.Refresh)
 
-	// 容器热键在「快捷键」中心页 rebind → 回写 container.json (直接 store.Save, 不走 service.Update
+	// 容器热键在「快捷键」中心页 rebind → 回写容器四件套 (直接 store.Save, 不走 service.Update
 	// 以免 emitChange→Refresh→registry 再抢锁死锁; registry entry 已由 Update 更新, 两边一致)。
 	hotkeyRegistry.SetContainerHotkeyChange(func(containerID, newStr string) error {
 		c, ok := containerStore.Get(containerID)

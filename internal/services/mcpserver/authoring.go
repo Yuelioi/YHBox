@@ -61,7 +61,7 @@ func saveContainer(st *container.Store, raw []byte) (SaveResult, []byte) {
 		}}, "", "  ")
 		return SaveResult{}, b
 	}
-	return SaveResult{ID: c.ID, Path: c.ID + "/container.json", Warnings: warnings}, nil
+	return SaveResult{ID: c.ID, Path: c.ID + "/", Warnings: warnings}, nil
 }
 
 // validateContainerJSON: 解析 → Normalize → ValidateContainer → 返 []ValidationError JSON
