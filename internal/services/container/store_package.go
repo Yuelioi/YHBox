@@ -138,17 +138,7 @@ func aggregateContainer(manifest PackageManifest, graph Graph, installation Inst
 }
 
 func buildContainerLock(manifest PackageManifest, graph Graph, subgraphs []Subgraph, generatedAt string) (YottaLock, error) {
-	byID := make(map[string]Subgraph, len(subgraphs))
-	for _, sg := range subgraphs {
-		byID[sg.ID] = sg
-	}
-	closure, err := dependency.Closure(depNodeInfos(graph.Nodes), func(sgID string) ([]dependency.NodeInfo, error) {
-		sg, ok := byID[sgID]
-		if !ok {
-			return nil, nil
-		}
-		return depNodeInfos(sg.Graph.Nodes), nil
-	})
+	closure, err := dependencyClosure(graph, subgraphs)
 	if err != nil {
 		return YottaLock{}, err
 	}

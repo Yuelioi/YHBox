@@ -6,6 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"yotta/internal/services/asset"
+
+	_ "yotta/internal/nodes/all"
 )
 
 func TestContainerStore_SaveLoadList(t *testing.T) {
@@ -140,6 +144,108 @@ func TestContainerStore_ExportPackageZipExcludesInstallation(t *testing.T) {
 	}
 	if names["installation.json"] {
 		t.Fatalf("zip must not include installation.json")
+	}
+}
+
+func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(filepath.Join(dir, "containers"))
+	assetStore, _ := asset.NewStore(filepath.Join(dir, "assets"))
+	s.SetAssetStore(assetStore)
+
+	templateBlob, err := assetStore.Blobs().Put([]byte("template-png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assetStore.PutRecord(asset.AssetRecord{
+		GUID:   "tpl-1",
+		Kind:   asset.KindTemplate,
+		Name:   "Template",
+		Origin: asset.Origin{Kind: "user"},
+		Variants: []asset.Variant{{
+			Resolution: [2]int{1280, 720},
+			BBox:       [4]int{1, 2, 3, 4},
+			Blob:       templateBlob,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	clipBlob, err := assetStore.Blobs().Put([]byte("clip-bytes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := assetStore.PutRecord(asset.AssetRecord{
+		GUID:   "clip-1",
+		Kind:   asset.KindClip,
+		Name:   "Clip",
+		Origin: asset.Origin{Kind: "user"},
+		Blob:   clipBlob,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Save(&Container{
+		SchemaVersion: 1, ID: "zip-assets", Name: "zip assets",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "target", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "Game"}},
+			{ID: "check", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-1"}}}},
+			{ID: "clip", Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "clip-1"}}},
+		}},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	out := filepath.Join(t.TempDir(), "zip-assets.yotta-container.zip")
+	if err := s.ExportPackageZip("zip-assets", out); err != nil {
+		t.Fatalf("ExportPackageZip: %v", err)
+	}
+	zr, err := zip.OpenReader(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zr.Close()
+	names := map[string]bool{}
+	for _, f := range zr.File {
+		names[f.Name] = true
+	}
+	for _, want := range []string{
+		"assets/records/tpl-1.json",
+		"assets/blobs/" + templateBlob,
+		"clips/clip-1.json",
+		"clips/blobs/" + clipBlob,
+	} {
+		if !names[want] {
+			t.Fatalf("zip missing %s; names=%v", want, names)
+		}
+	}
+}
+
+func TestContainerStore_ExportPackageZipRejectsStaleLock(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStore(dir)
+	if err := s.Save(&Container{
+		SchemaVersion: 1, ID: "stale-lock", Name: "stale",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "target", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "Game"}},
+		}},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	manifestPath := filepath.Join(dir, "stale-lock", "package.json")
+	manifest, err := readJSONFile[PackageManifest](manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.Version = "9.9.9"
+	if err := writeJSONAtomic(manifestPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(t.TempDir(), "stale-lock.yotta-container.zip")
+	if err := s.ExportPackageZip("stale-lock", out); err == nil {
+		t.Fatal("ExportPackageZip should reject stale yotta-lock.json")
 	}
 }
 

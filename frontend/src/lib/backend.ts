@@ -1,7 +1,7 @@
 // 所有 wails3 对接走这一层 —— stores / views / events.ts 都通过 backend.xxx.yyy(...) 调用，
 // 不直接 import bindings 或 @wailsio/runtime。理由：wails3 alpha API 漂移时只改这一个文件。
 
-import { Events } from '@wailsio/runtime'
+import { Dialogs, Events } from '@wailsio/runtime'
 import * as SettingsService from '@bindings/yotta/internal/services/settingsservice.js'
 import * as HotkeyService from '@bindings/yotta/internal/hotkey/hotkeyservice.js'
 import * as ContainerService from '@bindings/yotta/internal/services/container/service.js'
@@ -285,6 +285,16 @@ export const backend = {
     // (useEditorSave 合并进「主图保存失败」单条, 不叠两条 toast)。
     updateSilent: (id: string, patchJSON: string) => ContainerService.Update(id, patchJSON),
     delete_: (id: string) => invoke(ContainerService.Delete, id),
+    pickExportPath: (filename: string, title: string, buttonText: string) =>
+      Dialogs.SaveFile({
+        Filename: filename,
+        Title: title,
+        ButtonText: buttonText,
+        CanCreateDirectories: true,
+        Filters: [{ DisplayName: 'Yotta Container', Pattern: '*.yotta-container.zip' }],
+      }),
+    exportPackage: (id: string, destPath: string) =>
+      invoke(ContainerService.ExportPackage, id, destPath) as Promise<boolean | undefined>,
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
     debugStart: (id: string, options: DebugStartOptions = {}) =>

@@ -199,6 +199,7 @@ func main() {
 	containerStore.SetSubgraphResolver(func(c *container.Container) []container.Subgraph {
 		return subgraphClosureFor(c, sgStore)
 	})
+	containerStore.SetAssetStore(assetStore)
 	containerSvc := container.NewService(containerStore)
 	sgSvc.SetReferrerScanner(scanSubgraphReferrers(containerStore, sgStore))
 

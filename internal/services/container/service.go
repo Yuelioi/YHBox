@@ -183,8 +183,12 @@ func (s *Service) Delete(id string) error {
 }
 
 // ExportPackage writes a portable .yotta-container.zip bundle for one container.
-func (s *Service) ExportPackage(id, destPath string) error {
-	return s.store.ExportPackageZip(id, destPath)
+// 返回 bool 是给前端区分成功与 invoke() 吞错后的 undefined。
+func (s *Service) ExportPackage(id, destPath string) (bool, error) {
+	if err := s.store.ExportPackageZip(id, destPath); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // ValidateContainerByID 给前端用: 拿持久化版本跑校验, 返结构化 ValidationError 列表

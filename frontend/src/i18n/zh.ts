@@ -2278,6 +2278,9 @@ export default {
     run: '运行',
     stop: '停止',
     edit: '编辑',
+    export: '导出',
+    export_dialog_title: '导出容器包',
+    export_dialog_button: '导出',
     delete: {
       title: '删除容器?',
       desc_prefix: '将删除',
@@ -2296,6 +2299,7 @@ export default {
       batch_partial_fail: '批量删除部分失败 (详情见日志)',
       recording_locked: '录制进行中, 无法删除目标容器',
       open_window_fail: '打开新窗口失败',
+      export_success: '容器包已导出',
     },
     create_default_name: '容器 {n}',
     // ContainerSettingsModal 表单字段

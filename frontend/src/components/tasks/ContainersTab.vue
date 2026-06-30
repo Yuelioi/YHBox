@@ -201,6 +201,15 @@
           <UButton
             size="xs"
             variant="ghost"
+            color="neutral"
+            icon="i-tabler-package-export"
+            :aria-label="t('containers.export')"
+            :title="t('containers.export')"
+            @click.stop="onExport(c)"
+          />
+          <UButton
+            size="xs"
+            variant="ghost"
             color="error"
             icon="i-tabler-trash"
             :aria-label="t('containers.delete.title')"
@@ -302,6 +311,15 @@
             <UButton
               size="xs"
               variant="ghost"
+              color="neutral"
+              icon="i-tabler-package-export"
+              :aria-label="t('containers.export')"
+              :title="t('containers.export')"
+              @click.stop="onExport(c)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
               color="error"
               icon="i-tabler-trash"
               :aria-label="t('containers.delete.title')"
@@ -341,7 +359,7 @@ import { useContainersStore } from '@/stores/containers'
 import { useExecutionStore } from '@/stores/execution'
 import { useBatchSelect } from '@/composables/useBatchSelect'
 import { useConfirm } from '@/composables/useConfirm'
-import { type Container } from '@/lib/backend'
+import { backend, type Container } from '@/lib/backend'
 import { useRouter } from 'vue-router'
 import AppCard from '@/components/common/AppCard.vue'
 import StatusPill from '@/components/common/StatusPill.vue'
@@ -483,7 +501,36 @@ function onEdit(c: Container) {
   router.push(`/containers/${c.id}/edit`)
 }
 
-// (旧「导出到库」已删 — 子图全局化后无库包概念; 跨机分享按 spec 留口子, 真需要时做 zip 导出。)
+function exportFilename(c: Container): string {
+  const base = (c.name || c.packageName || c.id || 'container')
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `${base || c.id || 'container'}.yotta-container.zip`
+}
+
+function withContainerZipExtension(path: string): string {
+  return path.toLowerCase().endsWith('.yotta-container.zip') ? path : `${path}.yotta-container.zip`
+}
+
+async function onExport(c: Container) {
+  const picked = await backend.containers.pickExportPath(
+    exportFilename(c),
+    t('containers.export_dialog_title'),
+    t('containers.export_dialog_button'),
+  )
+  if (!picked) return
+  const destPath = withContainerZipExtension(picked)
+  const ok = await store.exportPackage(c.id, destPath)
+  if (!ok) return
+  toast.add({
+    title: t('containers.toast.export_success'),
+    description: destPath,
+    color: 'success',
+    icon: 'i-tabler-package-export',
+  })
+}
 
 async function onAskDelete(c: Container) {
   if (store.isRecordingLocked(c.id)) {

@@ -75,3 +75,9 @@ export const Window = {
 export const Browser = {
   async OpenURL(_url: string) {},
 }
+
+export const Dialogs = {
+  async SaveFile(_options: unknown) {
+    return ''
+  },
+}

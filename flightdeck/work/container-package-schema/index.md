@@ -13,8 +13,9 @@ READ WHEN: 改容器持久化、容器列表字段、在线容器、投稿/导�
 - 已完成阶段 3: Store 已改为 `package.json` + `graph.json` + `installation.json` + `yotta-lock.json` 多文件目录。
 - 已完成阶段 4/5: Service/Store 聚合 DTO 暴露 package 字段, target/AI 本机绑定从 portable graph 拆到 installation, 前端列表支持分类筛选并对齐 `Graph.schemaVersion`。
 - 已完成阶段 6 部分: MCP `save_container` 已返回 package 目录并写入四件套。
-- 已完成导出核心: Store/Service 可导出 `.yotta-container.zip`, 包含 `package.json`, `graph.json`, `yotta-lock.json`, 排除 `installation.json`, 并可写入子图闭包。
-- 下一步: 接前端导出入口、资产文件闭包和投稿前 lock 校验。
+- 已完成阶段 6: MCP `save_container` 写新布局; Store/Service 可导出 `.yotta-container.zip`, 包含 `package.json`, `graph.json`, `yotta-lock.json`, 子图闭包、template 资产闭包和 clip 闭包, 排除 `installation.json`; 导出前强制校验 `yotta-lock.json` 未过期。
+- 已完成前端导出入口: 容器卡片/列表行可选择保存路径并导出 `.yotta-container.zip`。
+- 下一步: 阶段 7 全量收尾和人工检查。
 
 ## 文件
 

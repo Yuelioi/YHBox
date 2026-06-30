@@ -56,6 +56,11 @@ export const useContainersStore = defineStore('containers', () => {
     return r === undefined
   }
 
+  async function exportPackage(id: string, destPath: string): Promise<boolean> {
+    const r = await backend.containers.exportPackage(id, destPath)
+    return r === true
+  }
+
   async function run(id: string) {
     await backend.containers.run(id)
   }
@@ -65,7 +70,7 @@ export const useContainersStore = defineStore('containers', () => {
   }
 
   return {
-    list, reload, create, update, remove, deleteMany, run, stopAll,
+    list, reload, create, update, remove, deleteMany, exportPackage, run, stopAll,
     isRecordingLocked,
   }
 })

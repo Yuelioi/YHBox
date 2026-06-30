@@ -2257,6 +2257,9 @@ export default {
     run: 'Run',
     stop: 'Stop',
     edit: 'Edit',
+    export: 'Export',
+    export_dialog_title: 'Export container package',
+    export_dialog_button: 'Export',
     delete: {
       title: 'Delete container?',
       desc_prefix: 'Will delete',
@@ -2275,6 +2278,7 @@ export default {
       batch_partial_fail: 'Batch delete partially failed (see logs)',
       recording_locked: 'Recording in progress, cannot delete the target container',
       open_window_fail: 'Open window failed',
+      export_success: 'Container package exported',
     },
     create_default_name: 'Container {n}',
     basic_info: 'Basic info',
