@@ -38,7 +38,7 @@ data/containers/<id>/container.json
 
 - 图继续拥有节点和边。
 - 节点继续拥有自己的 config。
-- manifest 只描述包身份、展示、发布、默认绑定槽位和运行默认值。
+- manifest 只描述包身份、展示、发布、绑定槽位和变量 API。
 - lock 文件由扫描器总结依赖、权限和能力。
 
 ## 核心原则
@@ -53,7 +53,7 @@ data/containers/<id>/container.json
 - 本地新建 = `publication.state = "draft"` 的 package。
 - 投稿 = 同一个 package 补齐发布字段后打包上传。
 - 在线安装 = 同一个 package 下载到本机, 额外生成 installation。
-- fork = 新 package 身份 + provenance 指向来源。
+- fork = 新 package 身份 + `sources[]` 指向来源。
 
 节点图仍是节点图。不要把节点塞进 `package.json`。
 
@@ -71,8 +71,8 @@ data/containers/<instanceId>/
 
 职责:
 
-- `package.json`: 包 manifest。描述这个容器包是什么、谁写的、版本、文档、发布、默认 target/AI 槽位。
-- `graph.json`: 主容器节点图。只放 `id`, `version`, `nodes`, `edges`。
+- `package.json`: 包 manifest。描述这个容器包是什么、谁写的、版本、文档、发布、target/AI 槽位。
+- `graph.json`: 主容器节点图。只放 `id`, `schemaVersion`, `nodes`, `edges`。
 - `installation.json`: 本机安装态。不投稿、不签名、不被普通更新覆盖。
 - `yotta-lock.json`: 生成文件。记录依赖闭包、权限、能力、hash, 用于投稿/更新校验。
 
@@ -109,7 +109,7 @@ bundle 不能包含:
 
 ## package.json
 
-`package.json` 使用 npm 风格顶层字段, Yotta 专属字段放 `yotta`。
+`package.json` 使用 npm 风格顶层字段, Yotta 专属字段放 `yotta`。这里的 `package.json` 是 Yotta 容器 manifest, 只借用 npm 常见字段命名, 不参与 npm 依赖解析、`scripts` 执行或 Node.js 包加载。
 
 ```json
 {
@@ -149,7 +149,7 @@ bundle 不能包含:
     "url": ""
   },
   "yotta": {
-    "uid": "pkg_01jz_daily_fishing",
+    "packageId": "pkg_01jz_daily_fishing",
     "entryGraph": "graph.json",
     "publication": {
       "state": "draft",
@@ -161,41 +161,29 @@ bundle 不能包含:
       "contentHash": "",
       "signature": ""
     },
-    "provenance": {
-      "origin": "local",
-      "upstreamName": "",
-      "upstreamVersion": "",
-      "forkedFrom": "",
-      "importedAt": ""
-    },
-    "runtimeDefaults": {
-      "inputBackend": "postmessage",
-      "captureBackend": "auto",
-      "scaleTolerance": 1
-    },
-    "vars": [],
+    "sources": [],
+    "vars": [
+      {
+        "name": "state",
+        "type": "string",
+        "default": "IDLE"
+      }
+    ],
     "targets": {
       "game": {
         "kind": "win32-window",
-        "displayName": "游戏窗口",
-        "defaultMatch": {
-          "title": "",
-          "class": "",
-          "processName": "",
-          "titleMatch": "contains"
-        }
+        "displayName": "游戏窗口"
       }
     },
     "ai": {
       "main": {
         "displayName": "默认 AI",
         "providerHint": "openai-compatible",
+        "capabilities": ["vision", "json"],
         "modelHint": ""
       }
     }
-  },
-  "createdAt": "",
-  "updatedAt": ""
+  }
 }
 ```
 
@@ -206,18 +194,18 @@ bundle 不能包含:
 - `version`: semver, 更新比较用。
 - `category`: 单一主分类。
 - `keywords`: 多标签/搜索词。
-- `publisher`: 发布账号或组织。
+- `publisher`: 当前 registry owner, 不是作者。fork 后 publisher 可以变化, author / contributors 保留原作者信息。
 - `author` / `contributors`: 实际作者。
 - `homepage` / `repository` / `bugs` / `docs` / `changelog`: 在线详情页直接展示的链接。
-- `yotta.uid`: Yotta registry 里的稳定包身份, 不能等同本机 `instanceId`。
-- `yotta.vars`: 容器级变量声明。变量是 package API/data 声明, 跟包一起走。
+- `yotta.packageId`: Yotta registry 里的稳定包身份, 不能等同本机 `instanceId`, 也不能依赖可改名的 package `name`。
+- `yotta.vars`: 容器级变量声明。结构沿用当前 `VarDecl`: `{name,type,default}`。`type` 固定为 `number | bool | string | point | list | any`。
+- `yotta.sources`: 来源列表, 用来表达 registry 安装、fork、import/转换等来源。空数组表示本地原创 draft。
+- `modelHint`: 可选建议模型, 不能作为硬依赖。硬要求写入 `capabilities`, 例如 `vision`, `json`, `reasoning`。
 
-`publication.state` 固定枚举:
+`publication.state` 固定枚举。审核流里的 submitted / rejected 属于 registry submission 资源, 不写进 package 本体:
 
 - `draft`
-- `submitted`
 - `published`
-- `rejected`
 - `archived`
 
 `publication.visibility` 固定枚举:
@@ -226,21 +214,32 @@ bundle 不能包含:
 - `unlisted`
 - `public`
 
-`provenance.origin` 固定枚举:
+`yotta.sources[]` 条目结构:
 
-- `local`
+```json
+{
+  "type": "registry",
+  "packageId": "pkg_source",
+  "name": "@source/package",
+  "version": "1.2.3"
+}
+```
+
+`type` 固定枚举:
+
 - `registry`
 - `import`
 - `fork`
+- `converted`
 
 ## graph.json
 
-主图保持接近当前 `Graph`:
+主图保持接近当前 `Graph`, 但 `version` 改名为 `schemaVersion`。包生命周期由 `package.json.version` 表达, 图文件只表达图结构 schema 版本。
 
 ```json
 {
   "id": "graph_uuid",
-  "version": 1,
+  "schemaVersion": 1,
   "nodes": [
     {
       "id": "start",
@@ -297,6 +296,7 @@ bundle 不能包含:
 {
   "schemaVersion": 1,
   "instanceId": "local_uuid",
+  "packageId": "pkg_01jz_daily_fishing",
   "packageName": "@yhfish/daily-fishing",
   "installedVersion": "0.1.0",
   "display": {
@@ -306,9 +306,9 @@ bundle 不能包含:
   },
   "runtimeOverrides": {
     "hotkey": "Ctrl+Shift+1",
-    "inputBackend": "",
-    "captureBackend": "",
-    "scaleTolerance": 0
+    "inputBackend": null,
+    "captureBackend": null,
+    "scaleTolerance": null
   },
   "targetBindings": {
     "game": {
@@ -340,9 +340,19 @@ bundle 不能包含:
 
 普通 package 更新默认保留整个 `installation.json`。
 
+`packageId` 是安装态和包的稳定关联键。`packageName` 只是诊断和展示缓存, package rename 不应让 installation 失效。
+
+`runtimeOverrides` 使用 `null` 或缺字段表示继承默认值, 不用空字符串或 `0` 表示“未覆盖”。这样 `scaleTolerance: 0` 不会和继承语义混淆。
+
 如果新版本新增 target 或 AI 槽位, 本机安装进入 `needs binding` 状态, 直到用户补齐绑定。
 
 如果新版本删除槽位, 本机 stale binding 可以保留为无害冗余, 后续 walkaround/维护动作再清理。
+
+`needs binding` 不需要持久化成单独状态字段, 由 package slots 与 installation bindings 实时派生。派生规则:
+
+- 任一 `yotta.targets` 槽位没有 `targetBindings` 且没有可用默认值 -> `needs binding`。
+- 任一 `yotta.ai` 槽位没有 `aiBindings` -> `needs binding`。
+- 槽位完整 -> `ready`。
 
 ## yotta-lock.json
 
@@ -351,9 +361,12 @@ lock 是生成文件, 不手写。
 ```json
 {
   "schemaVersion": 1,
+  "packageId": "pkg_01jz_daily_fishing",
   "packageName": "@yhfish/daily-fishing",
   "version": "0.1.0",
+  "manifestHash": "sha256-...",
   "graphHash": "sha256-...",
+  "closureHash": "sha256-...",
   "nodeKinds": ["Start", "Win32WindowTarget", "CheckTemplate", "ClickTemplate", "Subgraph", "AI"],
   "targetKinds": ["win32-window"],
   "capabilities": ["screenshot", "click", "key-state"],
@@ -368,18 +381,19 @@ lock 是生成文件, 不手写。
     "subgraphs": [],
     "templates": [],
     "clips": [],
-    "ai": []
+    "aiSlots": []
   }
 }
 ```
 
-生成时机:
+强制生成时机:
 
-- 保存前校验
 - 导出前
 - 投稿前
 - 发布前
 - 更新包安装前
+
+普通编辑保存可以不写 lock, 只做内存校验或标记 lock stale。导出/投稿/发布/安装更新前必须重新生成 lock, 然后再用下载或本地现有 lock 做一致性对比。
 
 如果 lock 和当前 `package.json` / `graph.json` / 依赖闭包不一致, 投稿和发布必须拒绝。
 
@@ -392,6 +406,8 @@ lock 是生成文件, 不手写。
 - `CheckTemplate` / `ClickTemplate` / `WaitTemplate` / `WaitTemplateGone` / `FindTemplateAll` 抽 template GUID。
 - `PlayClip` 抽 clip ID。
 - `Script` 继续静态扫描字面 template / clip / subgraph 引用。
+
+Script 依赖只保证静态字面量可被闭包捕获。动态拼接出的 template / clip / subgraph 引用不进入发布闭包; 投稿校验应对这类动态模式给 warning 或拒绝, 不能假装已完整打包。
 
 需要扩展:
 
@@ -422,13 +438,7 @@ manifest:
 "targets": {
   "game": {
     "kind": "win32-window",
-    "displayName": "游戏窗口",
-    "defaultMatch": {
-      "title": "",
-      "class": "",
-      "processName": "",
-      "titleMatch": "contains"
-    }
+    "displayName": "游戏窗口"
   }
 }
 ```
@@ -451,6 +461,8 @@ installation:
 
 这样既能投稿, 又不会把本机窗口标题、ADB serial 等环境事实写死到包主体。
 
+Manifest 中的 target 只声明逻辑槽位和目标类型。窗口标题、进程名、ADB serial 等环境事实默认属于 installation。包作者如果要给安装向导提供建议值, 后续应放到单独的 `hints` 字段, 不能作为运行时默认绑定。
+
 ## AI 绑定
 
 AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样发布。
@@ -462,6 +474,7 @@ AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样
   "main": {
     "displayName": "默认 AI",
     "providerHint": "openai-compatible",
+    "capabilities": ["vision", "json"],
     "modelHint": "gpt-4.1-mini"
   }
 }
@@ -485,6 +498,7 @@ AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样
 运行校验:
 
 - AI slot 未绑定本机 connection: 显示需要绑定, 不静默失败。
+- `modelHint` 仅用于推荐, 不用于硬校验。模型能力要求以 `capabilities` 为准。
 
 ## 权限模型
 
@@ -527,7 +541,7 @@ AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样
    - 子图存在且在 bundle 或本地池可解析
    - template record 和 blob 存在
    - clip record 和 blob 存在
-   - lock 与当前闭包一致
+   - lock 的 `manifestHash` / `graphHash` / `closureHash` 与当前内容一致
 
 5. Publish
    - bundle 不含 `installation.json`
@@ -543,7 +557,7 @@ AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样
 - `package.json`
 - `graph.json`
 - bundled subgraphs / assets / clips, 按导入策略合并
-- `yotta-lock.json`
+- 重新生成后的 `yotta-lock.json`
 
 包更新保留:
 
@@ -558,7 +572,7 @@ AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样
 
 本地容器列表从聚合视图读取:
 
-- package: `displayName`, `description`, `category`, `keywords`, `version`, `author`, `publisher`, `updatedAt`
+- package: `displayName`, `description`, `category`, `keywords`, `version`, `author`, `publisher`
 - graph: node count, target kinds, AI usage, validation status
 - installation: hotkey, favorite, alias, hidden, update availability, last run time
 
@@ -596,11 +610,11 @@ AI 节点现在的 `Connection` 指向本机 settings 里的连接, 不能原样
 - Script 字面依赖仍能被扫到。
 - AI 未声明 slot 会报错。
 - Target 未声明 slot 会报错。
-- graph / 依赖 / package version 变化会导致 lock hash 变化。
+- manifest / graph / 依赖闭包变化会导致对应 lock hash 变化。
 
 前端:
 
-- 容器列表从 package 读 category、keywords、version、author、updated time。
+- 容器列表从 package 读 category、keywords、version、author；时间类信息从 installation 或 registry 列表响应读取。
 - hotkey 和 favorite 从 installation 读。
 - 本机缺 binding 有明确状态。
 - 在线容器卡片能只靠 package metadata 渲染。
@@ -619,5 +633,5 @@ pnpm --dir frontend build:dev
 
 - package name 使用 npm-like scoped name 规则: 小写、可选 scope、scope 后允许一个 slash、不允许空格。
 - bundle 扩展名使用 `.yotta-container.zip`。
-- `vars` 放在 `package.json` 的 `yotta.vars`。
+- `vars` 放在 `package.json` 的 `yotta.vars`, 结构沿用 `{name,type,default}`。
 - 具名子图运行时仍进入全局池; 发布 bundle 携带副本, 导入时按稳定 ID 写入全局池。
