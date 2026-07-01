@@ -362,8 +362,7 @@ func main() {
 	if err := hotkeyRegistry.Register("system.execution-stop", hotkey.HotkeySourceSystem,
 		"hotkeys.label.system.execution_stop", nil, stopAllHk, "",
 		func() {
-			execQueue.CancelAll()
-			worker.CancelCurrent()
+			stopAllForHotkey(containerSvc.StopAll, rootLog)
 		}); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", stopAllHk).Msg("注册全局强停热键失败")
 	}
@@ -590,6 +589,12 @@ func main() {
 
 	// 退出钩子: flush log sink
 	app.Shutdown()
+}
+
+func stopAllForHotkey(stopAll func() error, log zerolog.Logger) {
+	if err := stopAll(); err != nil {
+		log.Warn().Err(err).Str("tag", "SYSTEM").Msg("全局强停失败")
+	}
 }
 
 // backupLegacyDataIfNeeded 检测旧 v1 数据布局，命中则整体 rename 备份。

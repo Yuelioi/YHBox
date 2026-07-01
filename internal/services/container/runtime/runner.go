@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"yotta/internal/node"
+	"yotta/internal/nodes/control"
 	"yotta/internal/services/container"
 	"yotta/internal/services/inputclip/backends"
 	pkgcapture "yotta/pkg/capture"
@@ -342,12 +343,27 @@ func (r *ContainerRunner) StepOnce(ctx context.Context) (DebugStepResult, error)
 
 	r.debugCaptureNodeID = tok.NodeID
 	r.debugLastResult = DebugStepResult{NodeID: n.ID, NodeKind: n.Kind, InPin: tok.InPin}
+	if n.Kind == "Loop" && !n.Disabled {
+		res, err := r.debugEnterLoop(n, tok)
+		r.debugCaptureNodeID = ""
+		r.debugLastResult = DebugStepResult{}
+		return res, err
+	}
 	out, err := r.execNode(ctx, n, tok)
 	res := r.debugLastResult
 	r.debugCaptureNodeID = ""
 	r.debugLastResult = DebugStepResult{}
 
 	if err != nil {
+		if len(tok.LoopStack) > 0 && (control.IsBreakRequested(err) || control.IsContinueRequested(err)) {
+			if control.IsBreakRequested(err) {
+				err = r.debugBreakLoop(tok.LoopStack)
+			} else {
+				err = r.debugContinueLoop(tok.LoopStack)
+			}
+			res.Finished = len(r.queue) == 0
+			return res, err
+		}
 		if errors.Is(err, errStopRun) {
 			res.Finished = true
 			return res, nil
@@ -361,9 +377,204 @@ func (r *ContainerRunner) StepOnce(ctx context.Context) (DebugStepResult, error)
 	if err := r.skipDisabledQueueHeads(); err != nil {
 		return res, err
 	}
+	if err := r.debugAdvanceCompletedLoops(tok.LoopStack); err != nil {
+		return res, err
+	}
 	res.Downstream = copyTokens(out)
 	res.Finished = len(r.queue) == 0
 	return res, nil
+}
+
+func (r *ContainerRunner) debugEnterLoop(node *container.GraphNode, tok ExecToken) (DebugStepResult, error) {
+	mode := container.PinString(node, "Mode")
+	if mode == "" {
+		mode = "count"
+	}
+	if mode != "count" && mode != "forever" {
+		return DebugStepResult{NodeID: node.ID, NodeKind: node.Kind, InPin: tok.InPin, Finished: len(r.queue) == 0},
+			fmt.Errorf("Loop: unknown mode %q", mode)
+	}
+	if mode == "count" {
+		count, ok := container.PinInt(node, "Count")
+		if !ok {
+			count = 10
+		}
+		if count <= 0 {
+			out := r.edges.next(node.ID+".Done", tok.LoopStack)
+			r.queue = append(out, r.queue...)
+			if err := r.skipDisabledQueueHeads(); err != nil {
+				return DebugStepResult{}, err
+			}
+			return DebugStepResult{
+				NodeID:     node.ID,
+				NodeKind:   node.Kind,
+				InPin:      tok.InPin,
+				Exit:       "Done",
+				Downstream: copyTokens(out),
+				Finished:   len(r.queue) == 0,
+			}, nil
+		}
+	}
+	res, frameStack, err := r.debugStartLoopIteration(node, tok.LoopStack, 0, tok.InPin)
+	if err != nil {
+		return res, err
+	}
+	if err := r.debugAdvanceCompletedLoops(frameStack); err != nil {
+		return res, err
+	}
+	res.Finished = len(r.queue) == 0
+	return res, nil
+}
+
+func (r *ContainerRunner) debugStartLoopIteration(node *container.GraphNode, parent []*LoopFrame, iter int64, inPin string) (DebugStepResult, []*LoopFrame, error) {
+	frame := &LoopFrame{LoopNodeID: node.ID, Iter: iter}
+	stack := append(copyLoops(parent), frame)
+	data := map[string]any{"Index": float64(iter)}
+	r.applyCaptures(node, data)
+	r.captureExecOutputs(node, data)
+	seeds := r.edges.nextWithData(node.ID+".Body", parent, data)
+	for i := range seeds {
+		seeds[i].LoopStack = copyLoops(stack)
+	}
+	r.queue = append(seeds, r.queue...)
+	if len(seeds) == 0 && container.PinString(node, "Mode") == "forever" {
+		return DebugStepResult{}, stack, fmt.Errorf("debug_loop_empty_forever_body: loop %q has no Body downstream", node.ID)
+	}
+	if err := r.skipDisabledQueueHeads(); err != nil {
+		return DebugStepResult{}, stack, err
+	}
+	return DebugStepResult{
+		NodeID:     node.ID,
+		NodeKind:   node.Kind,
+		InPin:      inPin,
+		Exit:       "Body",
+		Output:     copyAnyMap(data),
+		Downstream: copyTokens(seeds),
+		Finished:   len(r.queue) == 0,
+	}, stack, nil
+}
+
+func (r *ContainerRunner) debugAdvanceCompletedLoops(stack []*LoopFrame) error {
+	for len(stack) > 0 {
+		if r.queueHasLoopPrefix(stack) {
+			return nil
+		}
+		frame := stack[len(stack)-1]
+		parent := stack[:len(stack)-1]
+		node := r.nodesByID[frame.LoopNodeID]
+		if node == nil {
+			return fmt.Errorf("debug_loop_frame_missing_node: %s", frame.LoopNodeID)
+		}
+		nextIter := frame.Iter + 1
+		if r.debugLoopHasIteration(node, nextIter) {
+			_, nextStack, err := r.debugStartLoopIteration(node, parent, nextIter, "In")
+			if err != nil {
+				return err
+			}
+			stack = nextStack
+			continue
+		}
+		done := r.edges.next(node.ID+".Done", parent)
+		r.queue = append(done, r.queue...)
+		if err := r.skipDisabledQueueHeads(); err != nil {
+			return err
+		}
+		stack = parent
+	}
+	return nil
+}
+
+func (r *ContainerRunner) debugBreakLoop(stack []*LoopFrame) error {
+	frame := stack[len(stack)-1]
+	parent := stack[:len(stack)-1]
+	r.removeQueuedLoopPrefix(stack)
+	node := r.nodesByID[frame.LoopNodeID]
+	if node == nil {
+		return fmt.Errorf("debug_loop_frame_missing_node: %s", frame.LoopNodeID)
+	}
+	done := r.edges.next(node.ID+".Done", parent)
+	r.queue = append(done, r.queue...)
+	if err := r.skipDisabledQueueHeads(); err != nil {
+		return err
+	}
+	return r.debugAdvanceCompletedLoops(parent)
+}
+
+func (r *ContainerRunner) debugContinueLoop(stack []*LoopFrame) error {
+	frame := stack[len(stack)-1]
+	parent := stack[:len(stack)-1]
+	r.removeQueuedLoopPrefix(stack)
+	node := r.nodesByID[frame.LoopNodeID]
+	if node == nil {
+		return fmt.Errorf("debug_loop_frame_missing_node: %s", frame.LoopNodeID)
+	}
+	nextIter := frame.Iter + 1
+	if r.debugLoopHasIteration(node, nextIter) {
+		_, nextStack, err := r.debugStartLoopIteration(node, parent, nextIter, "In")
+		if err != nil {
+			return err
+		}
+		return r.debugAdvanceCompletedLoops(nextStack)
+	}
+	done := r.edges.next(node.ID+".Done", parent)
+	r.queue = append(done, r.queue...)
+	if err := r.skipDisabledQueueHeads(); err != nil {
+		return err
+	}
+	return r.debugAdvanceCompletedLoops(parent)
+}
+
+func (r *ContainerRunner) debugLoopHasIteration(node *container.GraphNode, iter int64) bool {
+	mode := container.PinString(node, "Mode")
+	if mode == "" {
+		mode = "count"
+	}
+	if mode == "forever" {
+		return true
+	}
+	count, ok := container.PinInt(node, "Count")
+	if !ok {
+		count = 10
+	}
+	return iter < int64(count)
+}
+
+func (r *ContainerRunner) queueHasLoopPrefix(prefix []*LoopFrame) bool {
+	for _, tok := range r.queue {
+		if loopStackHasPrefix(tok.LoopStack, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *ContainerRunner) removeQueuedLoopPrefix(prefix []*LoopFrame) {
+	out := r.queue[:0]
+	for _, tok := range r.queue {
+		if loopStackHasPrefix(tok.LoopStack, prefix) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	r.queue = out
+}
+
+func loopStackHasPrefix(stack, prefix []*LoopFrame) bool {
+	if len(prefix) == 0 {
+		return true
+	}
+	if len(stack) < len(prefix) {
+		return false
+	}
+	for i := range prefix {
+		if stack[i] == nil || prefix[i] == nil {
+			return false
+		}
+		if stack[i].LoopNodeID != prefix[i].LoopNodeID || stack[i].Iter != prefix[i].Iter {
+			return false
+		}
+	}
+	return true
 }
 
 func copyTokens(src []ExecToken) []ExecToken {

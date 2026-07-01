@@ -141,6 +141,94 @@ func TestDebugStepOnceSkipsDisabledDownstreamNode(t *testing.T) {
 	}
 }
 
+func TestDebugStepOnceSkipsDisabledLoopWithCanonicalDonePin(t *testing.T) {
+	c := newTestContainer(
+		[]container.GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "loop", Kind: "Loop", Disabled: true, Config: map[string]any{
+				"literal": map[string]any{"Mode": "count", "Count": 3.0},
+			}},
+			{ID: "after", Kind: "Log", Config: map[string]any{
+				"literal": map[string]any{"Message": "done", "Level": "info"},
+			}},
+		},
+		[]container.GraphEdge{
+			{From: "start.Done", To: "loop.In"},
+			{From: "loop.Done", To: "after.In"},
+		},
+		nil,
+	)
+	r := newDebugStepRunner(t, c, nil)
+
+	if err := r.SeedFromEntry(); err != nil {
+		t.Fatalf("SeedFromEntry: %v", err)
+	}
+	q := r.QueueSnapshot()
+	if len(q) != 1 || q[0].NodeID != "after" || q[0].InPin != "In" {
+		t.Fatalf("queue = %+v, want disabled loop skipped through Done to after.In", q)
+	}
+}
+
+func TestDebugStepOnceEntersLoopBodyOneNodeAtATime(t *testing.T) {
+	c := newTestContainer(
+		[]container.GraphNode{
+			{ID: "start", Kind: "Start"},
+			{ID: "loop", Kind: "Loop", Config: map[string]any{
+				"literal": map[string]any{"Mode": "count", "Count": 2.0},
+			}},
+			{ID: "set", Kind: "SetVar", Config: map[string]any{
+				"VarName": "x",
+				"Scope":   "global",
+				"literal": map[string]any{"Value": 1.0},
+			}},
+			{ID: "after", Kind: "Stop"},
+		},
+		[]container.GraphEdge{
+			{From: "start.Done", To: "loop.In"},
+			{From: "loop.Body", To: "set.In"},
+			{From: "loop.Done", To: "after.In"},
+		},
+		[]container.VarDecl{{Name: "x", Type: "number", Default: 0.0}},
+	)
+	r := newDebugStepRunner(t, c, nil)
+	ctx := context.Background()
+
+	if err := r.StartRuntime(ctx); err != nil {
+		t.Fatalf("StartRuntime: %v", err)
+	}
+	defer r.StopRuntime()
+	if err := r.SeedFromEntry(); err != nil {
+		t.Fatalf("SeedFromEntry: %v", err)
+	}
+
+	res, err := r.StepOnce(ctx)
+	if err != nil {
+		t.Fatalf("StepOnce loop: %v", err)
+	}
+	if res.NodeID != "loop" || res.Exit != "Body" {
+		t.Fatalf("loop step result = %+v, want loop Body", res)
+	}
+	if got := r.rt.Vars()["x"]; got != 0.0 {
+		t.Fatalf("x after entering loop = %v, want 0 before body node runs", got)
+	}
+	q := r.QueueSnapshot()
+	if len(q) != 1 || q[0].NodeID != "set" || len(q[0].LoopStack) != 1 || q[0].LoopStack[0].Iter != 0 {
+		t.Fatalf("queue after loop step = %+v, want set inside loop", q)
+	}
+
+	res, err = r.StepOnce(ctx)
+	if err != nil {
+		t.Fatalf("StepOnce first body: %v", err)
+	}
+	if res.NodeID != "set" || res.Exit != "Done" {
+		t.Fatalf("first body result = %+v, want set Done", res)
+	}
+	q = r.QueueSnapshot()
+	if len(q) != 1 || q[0].NodeID != "set" || len(q[0].LoopStack) != 1 || q[0].LoopStack[0].Iter != 1 {
+		t.Fatalf("queue after first body = %+v, want second loop iteration set", q)
+	}
+}
+
 func TestDebugSeedFromNodeQueuesSelectedNode(t *testing.T) {
 	c := newTestContainer(
 		[]container.GraphNode{

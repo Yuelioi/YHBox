@@ -1,6 +1,6 @@
 # Cockpit — YHFish
 
-Focus: **节点逐步调试、Target/Controller/Android、Window control 已通过并归档；旧 `knowledge/architecture` 已清理，剩余知识库已复审；正在执行容器 package schema 重设计**。本地 `main` 仍待发布/推送决策。
+Focus: **节点逐步调试本轮已修复禁用 Loop / Loop 单步 / 全局强停问题，待真实编辑器 smoke；Target/Controller/Android、Window control 已通过并归档；旧 `knowledge/architecture` 已清理，剩余知识库已复审；正在执行容器 package schema 重设计**。本地 `main` 仍待发布/推送决策。
 
 ## In flight
 
@@ -9,9 +9,11 @@ Focus: **节点逐步调试、Target/Controller/Android、Window control 已通�
 - [work/container-package-schema/](work/container-package-schema/) — **阶段 1-6 已完成，待阶段 7 收尾/人工检查**。已新增 package/installation/lock 模型类型，把 `Graph.version` 破坏式改为 `Graph.schemaVersion`，新增闭包拆分与 `yotta-lock.json` 构建，把 Store 切到四件套目录，让前端列表消费 category/version/author 等 package-backed 字段，让 MCP `save_container` 返回四件套 package 目录，并新增 `.yotta-container.zip` 导出：含子图、template、clip 闭包，排除 `installation.json`，导出前校验 lock 未过期，前端容器列表已有导出入口。
 - [work/fishing-v2-rebuild/](work/fishing-v2-rebuild/) — **本地数据已重建并压成单主脚本，待游戏内 smoke**。`bin/data/containers/fishing-v2/` 已改为 package 四件套，旧容器备份到 `bin/data/_backups/fishing-v2-container.json`，其它测试容器已清理；`state_BUYBAIT` 已补 `no_currency` 分支，默认没钱买鱼饵自动卖鱼，用户可用 `autoSellWhenNoCurrency=false` 改成直接结束；顶层 graph 现为 Start → Win32WindowTarget → 单主 Script → Stop，原始子图备份到 `bin/data/_backups/fishing-v2-subgraphs-before-script-mode/`，压平前 graph 备份到 `bin/data/_backups/fishing-v2-graph-before-single-script.json`；主脚本已改用 `Exit.*` 标准出口常量并清理旧 `done/failed` 子图返回对象。
 - [work/script-converter-upgrade/](work/script-converter-upgrade/) — **已实现，待游戏/编辑器 smoke**。子图转脚本已支持 `Expr` 内联表达式、`Loop count/forever` 转 JS `for/while`、`Break/Continue` 转 JS 控制语句、条件分支汇合转尾部复制；20/20 本地子图可转，已修复纯数据跨 block 缓存作用域问题和 `sg-uuid` 依赖扫描误判；Script runtime 现新增 `Exit.*` 标准出口常量，转换器对标准节点出口生成常量，Subgraph 用户出口仍保留字符串。
+- [work/debug-step-fixes/](work/debug-step-fixes/) — **已修复，待真实编辑器/游戏 smoke**。禁用 Loop 现按真实 `Done` 出口 passthrough；调试 `StepOnce` 遇到 Loop 会进入 body 并逐节点暂停，带 `LoopFrame` 推进下一轮和处理 Break/Continue；Ctrl+Shift+F9 全局强停改走统一 StopAll，覆盖 debug session。`go test ./...` 已过，前端 execution debug store 测试已过。
 
 ## Next
 
+0. **debug-step smoke** —— 在编辑器里测普通节点、禁用节点、Win32WindowTarget/窗口依赖节点、Loop count/forever，确认单步会停在下一节点；调试运行中用 Ctrl+Shift+F9 确认 session 停止且可重新 Start。
 1. **MCP smoke** —— 设置页确认 URL 和“允许执行和写入”开关；MCP 客户端连 `http://127.0.0.1:8765/mcp`，先测只读工具，再测未 arm 拒绝，最后 arm 后跑 Capture/ClickAt 等低风险节点。
 2. **detect-click-config 归档决策** —— 如果视觉/坐标后处理节点已人工确认通过，把该 topic 也移出 `work/`。
 3. **fishing-v2 smoke** —— 启动应用确认容器列表只有“自动钓鱼”，打开编辑器检查顶层单主 Script，再进游戏测正常钓鱼、没饵买饵、没钱卖鱼、关闭自动卖鱼直接结束。
