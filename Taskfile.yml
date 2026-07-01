@@ -66,6 +66,17 @@ tasks:
         sed -i -E "s/\"file_version\": \"[^\"]+\"/\"file_version\": \"$VER\"/" build/windows/info.json
         sed -i -E "s/\"ProductVersion\": \"[^\"]+\"/\"ProductVersion\": \"$VER\"/" build/windows/info.json
         sed -i -E "s/(\"version\":[[:space:]]*)\"[^\"]+\"/\1\"$VER\"/" frontend/package.json
+        sed -i -E "s/(!define INFO_PRODUCTVERSION \")([^\"]+)(\")/\1$VER\3/" build/windows/nsis/wails_tools.nsh
         sed -i -E "s/(name=\"com\\.yhbox\\.app\" version=)\"[^\"]+\"/\1\"$VER\"/" build/windows/wails.exe.manifest
         echo "done. 检查 diff:"
-        git diff --stat build/config.yml build/windows/info.json frontend/package.json build/windows/wails.exe.manifest
+        git diff --stat build/config.yml build/windows/info.json frontend/package.json build/windows/nsis/wails_tools.nsh build/windows/wails.exe.manifest
+
+  version:bump:
+    summary: 更新版本文件、提交并创建 vX.Y.Z tag
+    desc: |
+      用法: task version:bump VERSION=2.0.1
+      脚本会要求工作区干净，更新所有版本文件，提交 chore(release)，再创建 tag。
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bump-version.ps1 -Version {{.VERSION}}
+    requires:
+      vars: [VERSION]

@@ -36,6 +36,7 @@ import (
 	"yotta/pkg/locale"
 	"yotta/pkg/platform"
 	"yotta/pkg/screenshot"
+	"yotta/pkg/version"
 )
 
 //go:embed all:frontend/dist
@@ -46,8 +47,6 @@ var assets embed.FS
 //
 //go:embed build/windows/icon.ico
 var trayIcon []byte
-
-var version = "1.1.0"
 
 func main() {
 	platform.EnsureAdmin()
@@ -517,7 +516,7 @@ func main() {
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window
 	mainWin := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Yotta " + version,
+		Title:            "Yotta " + version.Version,
 		Width:            winCfg.Width,
 		Height:           winCfg.Height,
 		MinWidth:         900,
@@ -545,7 +544,7 @@ func main() {
 	// （桌面右下角），还会让部分内容溢出屏幕。我们要的是"回到上次位置"，
 	// 所以手动 OnClick → Show().Focus()（操作系统会把它还原到 Hide() 前的位置）。
 	tray := wailsApp.SystemTray.New()
-	tray.SetIcon(trayIcon).SetTooltip("Yotta " + version)
+	tray.SetIcon(trayIcon).SetTooltip("Yotta " + version.Version)
 	tray.OnClick(func() {
 		if mainWin.IsVisible() && !mainWin.IsMinimised() {
 			mainWin.Hide()
@@ -576,7 +575,7 @@ func main() {
 	}
 
 	// 应用 logger 写一条启动日志，证明日志桥路打通
-	rootLog.Info().Str("tag", "SYSTEM").Str("version", version).Msg("Yotta started")
+	rootLog.Info().Str("tag", "SYSTEM").Str("version", version.Version).Msg("Yotta started")
 
 	// 节点 registry 锁死: init() 注册完毕, RPC handler 之后只读.
 	node.Freeze()

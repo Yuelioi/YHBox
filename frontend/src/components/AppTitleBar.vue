@@ -15,6 +15,12 @@
           <UIcon name="i-tabler-device-gamepad-2" class="size-4 text-primary" />
         </div>
         <span class="text-sm font-semibold tracking-tight text-highlighted">Yotta</span>
+        <span
+          v-if="versionLabel"
+          class="font-mono text-[11px] tabular-nums text-dimmed"
+        >
+          {{ versionLabel }}
+        </span>
       </div>
 
       <nav class="flex items-stretch" style="--wails-draggable: no-drag">
@@ -100,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useWindowControls } from '@/composables/useWindowControls'
@@ -111,6 +117,8 @@ const { t } = useI18n()
 const route = useRoute()
 const editorStore = useContainerEditorStore()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
+const appVersion = ref('')
+const versionLabel = computed(() => appVersion.value ? `v${appVersion.value}` : '')
 
 // '容器' 主导航 — 有 lastEditingContainerID 就跳回编辑器路由 (keep-alive cache 命中, draft 不丢),
 // 否则跳列表 (从侧栏迁来的逻辑)。
@@ -161,5 +169,10 @@ const currentIcon = computed(() => {
 function openLauncher() {
   void backend.tools.openLauncher()
 }
+
+onMounted(async () => {
+  const info = await backend.appInfo.info()
+  appVersion.value = String(info?.version ?? '')
+})
 // 窗口控件 (isMaximised + onMinimise / onToggleMaximise / onClose) 全由 useWindowControls 提供
 </script>
