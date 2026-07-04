@@ -287,8 +287,6 @@ const jsonValid = ref(true)
 function syncRaw(v: any) {
   if (v == null) {
     rawText.value = ''
-  } else if (typeof v === 'string') {
-    rawText.value = v
   } else {
     try {
       rawText.value = JSON.stringify(v, null, 2)

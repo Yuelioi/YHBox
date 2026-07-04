@@ -1663,6 +1663,88 @@ export default {
       },
       output: { Done: { label: '完成' } },
     },
+    ReadTextFile: {
+      label: '读取文本文件',
+      description:
+        '从本地文件读取文本内容，常用于读取 cookie、网址列表、临时状态或外部插件写出的数据。相对路径会从数据目录读取，绝对路径按原路径读取。',
+      input: {
+        Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
+        Encoding: {
+          label: '编码',
+          option: { auto: '自动', 'utf-8': 'UTF-8', gbk: 'GBK' },
+        },
+        MaxBytes: { label: '最大字节数', hint: '0 或留空使用默认 1MB 上限' },
+      },
+      output: {
+        Done: {
+          label: '完成',
+          data: {
+            Text: { hint: '读取到的文本' },
+            Size: { hint: '文件字节数' },
+            ModTimeMs: { hint: '文件修改时间戳 (ms)' },
+          },
+        },
+        Fail: { label: '失败' },
+      },
+    },
+    ReadJsonFile: {
+      label: '读取 JSON 文件',
+      description:
+        '从本地文件读取并解析 JSON，结果可以直接接给 JsonPath 或 Fetch 的 headers/body 等输入。JSON 可以是对象、数组、字符串、数字、真假或 null。',
+      input: {
+        Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
+        Encoding: {
+          label: '编码',
+          option: { auto: '自动', 'utf-8': 'UTF-8', gbk: 'GBK' },
+        },
+        MaxBytes: { label: '最大字节数', hint: '0 或留空使用默认 1MB 上限' },
+      },
+      output: {
+        Done: {
+          label: '完成',
+          data: {
+            JSON: { hint: '解析后的 JSON 值' },
+            Text: { hint: '原始文本' },
+            Size: { hint: '文件字节数' },
+            ModTimeMs: { hint: '文件修改时间戳 (ms)' },
+          },
+        },
+        Fail: { label: '失败' },
+      },
+    },
+    Fetch: {
+      label: '网络请求',
+      description:
+        '向 HTTP/HTTPS 地址发送请求。URL、headers、cookie 和 body 都可以来自上游节点，适合读取网页、调用接口或流程结束后发通知。',
+      input: {
+        Method: {
+          label: '方法',
+          option: { GET: 'GET', POST: 'POST', PUT: 'PUT', PATCH: 'PATCH', DELETE: 'DELETE', HEAD: 'HEAD' },
+        },
+        URL: { label: '网址', hint: '仅支持 http:// 或 https:// 绝对地址' },
+        Headers: { label: '请求头', hint: 'JSON 对象，例如 Authorization = Bearer ...' },
+        Cookies: { label: 'Cookie', hint: '原始 Cookie 字符串；若 Headers 已有 Cookie 则不覆盖' },
+        Body: { label: '请求体' },
+        BodyMode: { label: '请求体模式', option: { none: '无', text: '文本', json: 'JSON' } },
+        TimeoutMs: { label: '超时 (ms)' },
+        FollowRedirects: { label: '跟随重定向' },
+        FailOnStatus: { label: '4xx/5xx 走失败' },
+        MaxBytes: { label: '最大响应字节数', hint: '0 或留空使用默认 1MB 上限' },
+      },
+      output: {
+        Done: {
+          label: '完成',
+          data: {
+            StatusCode: { hint: 'HTTP 状态码' },
+            Body: { hint: '响应正文文本' },
+            JSON: { hint: 'JSON 响应解析结果；非 JSON 时为空' },
+            Headers: { hint: '响应头 JSON 对象' },
+            DurationMs: { hint: '请求耗时 (ms)' },
+          },
+        },
+        Fail: { label: '失败' },
+      },
+    },
     PlayClip: {
       label: '回放录像',
       description:
@@ -1903,6 +1985,29 @@ export default {
       label: '转布尔',
       description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
       input: { X: { label: 'X' } },
+      output: { Result: { label: '结果' } },
+    },
+    ParseJSON: {
+      label: '解析 JSON',
+      description:
+        '把一段 JSON 文本解析成结构化值，可以接给 JsonPath、Fetch 请求体或其它 JSON 输入。',
+      input: { Text: { label: '文本', hint: '合法 JSON 文本' } },
+      output: { Result: { label: '结果' } },
+    },
+    ToJSON: {
+      label: '转 JSON 文本',
+      description: '把任意值序列化成 JSON 文本，方便写日志、传给接口或保存到文件。',
+      input: { Value: { label: '值' } },
+      output: { Result: { label: '结果' } },
+    },
+    JsonPath: {
+      label: '取 JSON 路径',
+      description:
+        '从 JSON 值里取字段或数组项。支持 $、.字段、[序号] 和 [*]，例如 $.items[0].url 或 $.items[*].url。',
+      input: {
+        JSON: { label: 'JSON' },
+        Path: { label: '路径', hint: '如 $.user.name、$.items[0]、$.items[*].url' },
+      },
       output: { Result: { label: '结果' } },
     },
     Select: {

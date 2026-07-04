@@ -21,6 +21,24 @@ func TestWindowTypeRegistered(t *testing.T) {
 	}
 }
 
+func TestJSONTypeRegisteredAsAny(t *testing.T) {
+	found := false
+	for _, ts := range AllTypes() {
+		if ts.Tag == "JSON" {
+			found = true
+			if ts.GoType != "any" {
+				t.Fatalf("JSON GoType = %q, want any", ts.GoType)
+			}
+			if ts.WidgetKind != "json" {
+				t.Fatalf("JSON WidgetKind = %q, want json", ts.WidgetKind)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("JSON 类型未注册")
+	}
+}
+
 func TestInputsWindow(t *testing.T) {
 	w := Window{HWND: 123, Title: "记事本"}
 	in := newInputs(map[string]any{"W": w}, nil, nil, nil)
@@ -30,6 +48,29 @@ func TestInputsWindow(t *testing.T) {
 	}
 	if _, ok := in.Window("missing"); ok {
 		t.Fatal("缺失 pin 应返 false")
+	}
+}
+
+func TestInputsJSONValue(t *testing.T) {
+	arr := []any{"a", float64(1)}
+	obj := map[string]any{"ok": true}
+	in := newInputs(map[string]any{
+		"Arr":    arr,
+		"Obj":    obj,
+		"Scalar": "x",
+	}, nil, nil, nil)
+
+	if got := in.JSONValue("Arr"); len(got.([]any)) != 2 {
+		t.Fatalf("JSONValue array = %#v, want original array", got)
+	}
+	if got := in.JSON("Obj"); got["ok"] != true {
+		t.Fatalf("JSON object helper = %#v, want map", got)
+	}
+	if got := in.JSON("Arr"); got != nil {
+		t.Fatalf("JSON object helper for array = %#v, want nil", got)
+	}
+	if got := in.JSONValue("Scalar"); got != "x" {
+		t.Fatalf("JSONValue scalar = %#v, want x", got)
 	}
 }
 

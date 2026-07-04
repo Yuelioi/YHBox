@@ -76,6 +76,9 @@ type Inputs interface {
 	Geometry(name string) Geometry
 	Color(name string) Color
 	Duration(name string) time.Duration
+	// JSONValue 读任意合法 JSON 值: object / array / scalar / nil.
+	JSONValue(name string) any
+	// JSON 兼容旧 object-only helper; 非 object 返回 nil.
 	JSON(name string) map[string]any
 	Raw(name string) any
 	Has(name string) bool

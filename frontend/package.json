@@ -57,6 +57,7 @@
     "@types/markdown-it": "^14.1.2",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/eslint-config-typescript": "^14.7.0",
+    "esbuild": "^0.27.7",
     "eslint": "^10.4.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "^1.64.0",

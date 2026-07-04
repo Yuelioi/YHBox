@@ -123,6 +123,8 @@ func init() {
 		&Concat{}, &Contains{}, &Length{},
 		// 转换 (3)
 		&ToString{}, &ToNumber{}, &ToBool{},
+		// JSON (3)
+		&ParseJSON{}, &ToJSON{}, &JsonPath{},
 		// 三元 (1)
 		&Select{},
 		// 数学 (9)

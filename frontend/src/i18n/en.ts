@@ -1746,6 +1746,88 @@ export default {
       },
       output: { Done: { label: 'Done' } },
     },
+    ReadTextFile: {
+      label: 'Read text file',
+      description:
+        'Reads text from a local file. Useful for cookies, URL lists, temporary state, or data written by external plugins. Relative paths resolve from the data directory; absolute paths are read as-is.',
+      input: {
+        Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
+        Encoding: {
+          label: 'Encoding',
+          option: { auto: 'Auto', 'utf-8': 'UTF-8', gbk: 'GBK' },
+        },
+        MaxBytes: { label: 'Max bytes', hint: '0 or empty uses the default 1MB limit' },
+      },
+      output: {
+        Done: {
+          label: 'Done',
+          data: {
+            Text: { hint: 'Read text' },
+            Size: { hint: 'File size in bytes' },
+            ModTimeMs: { hint: 'File modified timestamp (ms)' },
+          },
+        },
+        Fail: { label: 'Failed' },
+      },
+    },
+    ReadJsonFile: {
+      label: 'Read JSON file',
+      description:
+        'Reads and parses JSON from a local file. The result can be wired into JsonPath or Fetch inputs such as headers/body. JSON may be an object, array, string, number, boolean, or null.',
+      input: {
+        Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
+        Encoding: {
+          label: 'Encoding',
+          option: { auto: 'Auto', 'utf-8': 'UTF-8', gbk: 'GBK' },
+        },
+        MaxBytes: { label: 'Max bytes', hint: '0 or empty uses the default 1MB limit' },
+      },
+      output: {
+        Done: {
+          label: 'Done',
+          data: {
+            JSON: { hint: 'Parsed JSON value' },
+            Text: { hint: 'Original text' },
+            Size: { hint: 'File size in bytes' },
+            ModTimeMs: { hint: 'File modified timestamp (ms)' },
+          },
+        },
+        Fail: { label: 'Failed' },
+      },
+    },
+    Fetch: {
+      label: 'Fetch',
+      description:
+        'Sends an HTTP/HTTPS request. URL, headers, cookies, and body can all come from upstream nodes, so it works for scraping pages, calling APIs, or sending notifications after a workflow finishes.',
+      input: {
+        Method: {
+          label: 'Method',
+          option: { GET: 'GET', POST: 'POST', PUT: 'PUT', PATCH: 'PATCH', DELETE: 'DELETE', HEAD: 'HEAD' },
+        },
+        URL: { label: 'URL', hint: 'Only absolute http:// or https:// URLs are supported' },
+        Headers: { label: 'Headers', hint: 'JSON object, for example Authorization = Bearer ...' },
+        Cookies: { label: 'Cookie', hint: 'Raw Cookie header string; ignored if Headers already contains Cookie' },
+        Body: { label: 'Body' },
+        BodyMode: { label: 'Body mode', option: { none: 'None', text: 'Text', json: 'JSON' } },
+        TimeoutMs: { label: 'Timeout (ms)' },
+        FollowRedirects: { label: 'Follow redirects' },
+        FailOnStatus: { label: 'Fail on 4xx/5xx' },
+        MaxBytes: { label: 'Max response bytes', hint: '0 or empty uses the default 1MB limit' },
+      },
+      output: {
+        Done: {
+          label: 'Done',
+          data: {
+            StatusCode: { hint: 'HTTP status code' },
+            Body: { hint: 'Response body text' },
+            JSON: { hint: 'Parsed JSON response; empty for non-JSON responses' },
+            Headers: { hint: 'Response headers as a JSON object' },
+            DurationMs: { hint: 'Request duration (ms)' },
+          },
+        },
+        Fail: { label: 'Failed' },
+      },
+    },
     PlayClip: {
       label: 'Play clip',
       description:
@@ -2006,6 +2088,29 @@ export default {
       description:
         'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
       input: { X: { label: 'X' } },
+      output: { Result: { label: 'Result' } },
+    },
+    ParseJSON: {
+      label: 'Parse JSON',
+      description:
+        'Parses JSON text into a structured value that can feed JsonPath, Fetch request bodies, or other JSON inputs.',
+      input: { Text: { label: 'Text', hint: 'Valid JSON text' } },
+      output: { Result: { label: 'Result' } },
+    },
+    ToJSON: {
+      label: 'To JSON text',
+      description: 'Serializes any value to JSON text for logging, API calls, or file output.',
+      input: { Value: { label: 'Value' } },
+      output: { Result: { label: 'Result' } },
+    },
+    JsonPath: {
+      label: 'JSON path',
+      description:
+        'Extracts fields or array items from a JSON value. Supports $, .field, [index], and [*], for example $.items[0].url or $.items[*].url.',
+      input: {
+        JSON: { label: 'JSON' },
+        Path: { label: 'Path', hint: 'For example $.user.name, $.items[0], $.items[*].url' },
+      },
       output: { Result: { label: 'Result' } },
     },
     Select: {

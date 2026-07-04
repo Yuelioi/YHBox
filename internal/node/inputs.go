@@ -223,6 +223,8 @@ func (i *inputsImpl) JSON(name string) map[string]any {
 	return nil
 }
 
+func (i *inputsImpl) JSONValue(name string) any { return i.merged[name] }
+
 func (i *inputsImpl) Raw(name string) any { return i.merged[name] }
 
 func (i *inputsImpl) Keys() []string {

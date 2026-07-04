@@ -123,7 +123,7 @@ func init() {
 		{Tag: "Color", GoType: "node.Color", WidgetKind: "color-picker", Color: "#ef4444"},
 		{Tag: "Image", GoType: "node.Image", WidgetKind: "preview", Color: "#9ca3af"},
 		{Tag: "Duration", GoType: "time.Duration", WidgetKind: "duration", Color: "#3b82f6"},
-		{Tag: "JSON", GoType: "map[string]any", WidgetKind: "json", Color: "#9ca3af"},
+		{Tag: "JSON", GoType: "any", WidgetKind: "json", Color: "#9ca3af"},
 		{Tag: "List", GoType: "[]any", WidgetKind: "list-preview", Color: "#818cf8"},
 		{Tag: "Exec", GoType: "(framework)", WidgetKind: "exec-pin", Color: "#ffffff"},
 		{Tag: "Window", GoType: "node.Window", WidgetKind: "preview", Color: "#22d3ee"},
