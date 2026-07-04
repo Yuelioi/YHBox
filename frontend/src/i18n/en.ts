@@ -3053,9 +3053,15 @@ export default {
       range: 'Showing {start}-{end} / {total}',
       per_page: '{n} / page',
     },
+    columns: {
+      label: 'Columns',
+      reset: 'Reset columns',
+    },
     list: {
       name: 'Name',
       status: 'Status',
+      category: 'Category',
+      tags: 'Tags',
       nodes: 'Nodes',
       created_at: 'Created',
       updated_at: 'Updated',
@@ -3065,6 +3071,9 @@ export default {
     select: 'Select',
     exit_select: 'Exit select',
     delete_count: 'Delete ({n})',
+    actions: {
+      more: 'More actions',
+    },
     create: 'New container',
     empty_title: 'No containers yet',
     empty_desc:
@@ -3097,6 +3106,13 @@ export default {
       desc: 'Delete {n} containers? This cannot be undone.',
       confirm: 'Delete',
     },
+    batch_actions: {
+      menu: 'Batch actions',
+      selected: '{n} selected',
+      select_page: 'Select current page',
+      clear: 'Clear selection',
+      delete: 'Delete selected',
+    },
     toast: {
       stop_signal: 'Stop signal sent',
       deleted_count: 'Deleted {n}',
@@ -3106,6 +3122,10 @@ export default {
       export_success: 'Container package exported',
     },
     create_default_name: 'Container {n}',
+    create_dialog: {
+      title: 'New container',
+      confirm: 'Create and edit',
+    },
     basic_info: 'Basic info',
     name_placeholder: 'Give the container a name',
     hotkey_label: 'Trigger hotkey',

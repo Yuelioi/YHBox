@@ -1,137 +1,129 @@
 <template>
-  <div class="flex min-h-[calc(100vh-8rem)] flex-col gap-4">
-    <header class="flex flex-col gap-3 xl:flex-row xl:items-center">
-      <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+  <div data-testid="containers-shell" class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+    <header class="flex shrink-0 flex-col gap-2">
+      <div data-testid="containers-toolbar" class="flex min-w-0 items-center justify-between gap-3">
         <UInput
           v-model="search"
           icon="i-tabler-search"
           :placeholder="t('containers.search_placeholder')"
-          class="min-w-60 flex-1"
-        />
-        <USelect
-          v-model="sortKey"
-          :items="sortItems"
           size="sm"
-          class="w-40"
-          :aria-label="t('containers.sort.label')"
+          class="w-52 lg:w-64"
         />
+
+        <div class="flex shrink-0 items-center justify-end gap-2">
+          <div class="inline-flex shrink-0 rounded-md border border-default bg-muted/20 p-0.5">
+            <UButton
+              size="sm"
+              color="neutral"
+              :variant="viewMode === 'cards' ? 'soft' : 'ghost'"
+              icon="i-tabler-layout-grid"
+              :aria-label="t('containers.view.cards')"
+              :title="t('containers.view.cards')"
+              @click="viewMode = 'cards'"
+            />
+            <UButton
+              size="sm"
+              color="neutral"
+              :variant="viewMode === 'list' ? 'soft' : 'ghost'"
+              icon="i-tabler-list"
+              :aria-label="t('containers.view.list')"
+              :title="t('containers.view.list')"
+              @click="viewMode = 'list'"
+            />
+          </div>
+          <UButton color="primary" icon="i-tabler-plus" :aria-label="t('containers.create')" @click="onCreate">
+            <span class="hidden sm:inline">{{ t('containers.create') }}</span>
+          </UButton>
+        </div>
+      </div>
+
+      <div
+        data-testid="containers-filterbar"
+        class="flex shrink-0 flex-wrap items-center gap-2"
+      >
         <UInputMenu
           v-model="selectedTags"
           multiple
           :items="allTagItems"
-          size="sm"
-          class="min-w-44 flex-1 xl:flex-none"
+          icon="i-tabler-tags"
+          size="xs"
+          class="w-56"
           :placeholder="t('containers.filter_tags')"
         />
         <USelect
           v-model="categoryFilter"
           :items="categoryItems"
-          size="sm"
-          class="w-40"
+          icon="i-tabler-category"
+          size="xs"
+          class="w-40 shrink-0"
           :aria-label="t('containers.filter_category')"
         />
+        <USelect
+          v-model="sortKey"
+          :items="sortItems"
+          icon="i-tabler-arrows-sort"
+          size="xs"
+          class="w-40 shrink-0"
+          :aria-label="t('containers.sort.label')"
+        />
         <UButton
-          size="sm"
+          size="xs"
           variant="soft"
           color="neutral"
+          class="shrink-0"
           :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
           :aria-label="sortDirectionLabel"
           :title="sortDirectionLabel"
           @click="sortDesc = !sortDesc"
         />
-        <div class="inline-flex rounded-md border border-default bg-muted/20 p-0.5">
+        <UDropdownMenu v-if="viewMode === 'list'" :items="columnMenuItems">
           <UButton
-            size="sm"
+            data-testid="containers-column-selector"
+            size="xs"
+            variant="soft"
             color="neutral"
-            :variant="viewMode === 'cards' ? 'soft' : 'ghost'"
-            icon="i-tabler-layout-grid"
-            :aria-label="t('containers.view.cards')"
-            @click="viewMode = 'cards'"
-          >
-            {{ t('containers.view.cards') }}
-          </UButton>
-          <UButton
-            size="sm"
-            color="neutral"
-            :variant="viewMode === 'list' ? 'soft' : 'ghost'"
-            icon="i-tabler-list"
-            :aria-label="t('containers.view.list')"
-            @click="viewMode = 'list'"
-          >
-            {{ t('containers.view.list') }}
-          </UButton>
-        </div>
-      </div>
-      <div class="flex shrink-0 items-center gap-2">
-        <UButton
-          size="sm"
-          :variant="batch.enabled.value ? 'solid' : 'soft'"
-          color="neutral"
-          icon="i-tabler-checks"
-          @click="batch.toggleMode()"
-        >
-          {{ batch.enabled.value ? t('containers.exit_select') : t('containers.select') }}
-        </UButton>
-        <UButton
-          v-if="batch.enabled.value && batch.count.value > 0"
-          size="sm"
-          color="error"
-          icon="i-tabler-trash"
-          @click="onBatchDelete"
-        >
-          {{ t('containers.delete_count', { n: batch.count.value }) }}
-        </UButton>
-        <UButton color="primary" icon="i-tabler-plus" @click="onCreate">{{ t('containers.create') }}</UButton>
+            class="shrink-0"
+            icon="i-tabler-columns-3"
+            trailing-icon="i-tabler-chevron-down"
+            :aria-label="t('containers.columns.label')"
+            :title="t('containers.columns.label')"
+          />
+        </UDropdownMenu>
       </div>
     </header>
 
-    <!-- Tag chip 筛选（按使用计数倒序，横向滚动） -->
-    <div v-if="tagsByCount.length > 0" class="overflow-x-auto whitespace-nowrap py-1 flex gap-1.5">
-      <UButton
-        v-for="t in tagsByCount"
-        :key="t.tag"
-        size="xs"
-        :variant="selectedTags.includes(t.tag) ? 'solid' : 'soft'"
-        :color="selectedTags.includes(t.tag) ? 'primary' : 'neutral'"
-        class="shrink-0"
-        @click="toggleTag(t.tag)"
+    <main data-testid="containers-content" class="min-h-0 flex-1 overflow-y-auto pr-1">
+      <EmptyState
+        v-if="store.list.length === 0"
+        icon="i-tabler-schema"
+        :title="t('containers.empty_title')"
+        :description="t('containers.empty_desc')"
       >
-        {{ t.tag }}
-        <span class="ml-1 text-[9px] opacity-60">{{ t.count }}</span>
-      </UButton>
-    </div>
+        <template #action>
+          <UButton color="primary" icon="i-tabler-plus" @click="onCreate">
+            {{ t('containers.empty_cta') }}
+          </UButton>
+        </template>
+      </EmptyState>
 
-    <EmptyState
-      v-if="store.list.length === 0"
-      icon="i-tabler-schema"
-      :title="t('containers.empty_title')"
-      :description="t('containers.empty_desc')"
-    >
-      <template #action>
-        <UButton color="primary" icon="i-tabler-plus" @click="onCreate">
-          {{ t('containers.empty_cta') }}
-        </UButton>
-      </template>
-    </EmptyState>
+      <EmptyState
+        v-else-if="pageResult.total === 0"
+        icon="i-tabler-filter-off"
+        :title="t('containers.no_match_title')"
+        :description="t('containers.no_match_desc')"
+      >
+        <template #action>
+          <UButton color="neutral" variant="soft" icon="i-tabler-refresh" @click="resetFilters">
+            {{ t('containers.reset_filters') }}
+          </UButton>
+        </template>
+      </EmptyState>
 
-    <EmptyState
-      v-else-if="pageResult.total === 0"
-      icon="i-tabler-filter-off"
-      :title="t('containers.no_match_title')"
-      :description="t('containers.no_match_desc')"
-    >
-      <template #action>
-        <UButton color="neutral" variant="soft" icon="i-tabler-refresh" @click="resetFilters">
-          {{ t('containers.reset_filters') }}
-        </UButton>
-      </template>
-    </EmptyState>
-
-    <div
-      v-else-if="viewMode === 'cards'"
-      class="grid gap-3"
-      style="grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));"
-    >
+      <div
+        v-else-if="viewMode === 'cards'"
+        class="grid gap-3 pb-1"
+        style="grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));"
+      >
       <AppCard
         v-for="c in visibleContainers"
         :key="c.id"
@@ -139,17 +131,18 @@
         hover
         class="flex flex-col gap-3 relative"
         :class="batch.isSelected(c.id) ? '!border-primary ring-2 ring-primary/40' : ''"
-        @click="batch.enabled.value ? batch.toggle(c.id) : undefined"
+        @click="batch.toggle(c.id)"
+        @dblclick="onEdit(c)"
       >
         <UCheckbox
-          v-if="batch.enabled.value"
+          :data-testid="`container-checkbox-${c.id}`"
           :model-value="batch.isSelected(c.id)"
           size="sm"
           class="absolute top-2 left-2"
           @click.stop
           @update:model-value="batch.toggle(c.id)"
         />
-        <div class="min-w-0">
+        <div class="min-w-0 pl-6">
           <div class="flex items-center justify-between gap-2">
             <h3 class="text-sm font-medium text-highlighted truncate">
               {{ c.name || t('common.untitled') }}
@@ -164,6 +157,22 @@
           <p v-if="c.description" class="text-xs text-dimmed truncate mt-0.5">
             {{ c.description }}
           </p>
+          <div class="mt-1.5 flex items-center gap-1.5 overflow-hidden">
+            <span
+              v-if="c.category"
+              class="inline-flex shrink-0 items-center gap-1 rounded bg-elevated/70 px-1.5 py-0.5 text-[10px] text-toned"
+            >
+              <UIcon name="i-tabler-category" class="size-3" />
+              {{ c.category }}
+            </span>
+            <span
+              v-for="tag in (c.tags ?? []).slice(0, 3)"
+              :key="tag"
+              class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
+            >
+              {{ tag }}
+            </span>
+          </div>
           <div class="flex items-center gap-2 mt-1.5 flex-wrap">
             <span class="text-[11px] text-dimmed inline-flex items-center gap-1 font-mono tabular-nums">
               <UIcon name="i-tabler-cpu" class="size-3" />
@@ -217,73 +226,79 @@
           />
         </div>
       </AppCard>
-    </div>
+      </div>
 
-    <div v-else class="overflow-x-auto rounded-lg border border-default/60">
-      <div class="min-w-[980px]">
+      <div v-else class="overflow-x-auto rounded-lg border border-default/60">
+      <div data-testid="containers-list-table" class="w-full">
         <div
-          class="grid items-center gap-3 border-b border-default/60 bg-muted/30 px-3 py-2 text-[11px] font-medium uppercase text-dimmed"
-          style="grid-template-columns: 40px minmax(220px, 1fr) 110px 90px 150px 150px 120px 150px;"
+          data-testid="containers-list-header"
+          class="sticky top-0 z-10 grid items-center gap-3 border-b border-default/60 bg-default/95 px-3 py-2 text-[11px] font-medium uppercase text-dimmed backdrop-blur"
+          :style="{ gridTemplateColumns: listGridTemplate }"
         >
           <span />
           <span>{{ t('containers.list.name') }}</span>
-          <span>{{ t('containers.list.status') }}</span>
-          <span>{{ t('containers.list.nodes') }}</span>
-          <span>{{ t('containers.list.created_at') }}</span>
-          <span>{{ t('containers.list.updated_at') }}</span>
-          <span>{{ t('containers.list.hotkey') }}</span>
+          <span v-for="column in activeListColumns" :key="column.key" :class="column.align === 'right' ? 'text-right' : ''">
+            {{ column.label }}
+          </span>
           <span class="text-right">{{ t('containers.list.actions') }}</span>
         </div>
         <div
           v-for="c in visibleContainers"
           :key="c.id"
+          :data-testid="`container-row-${c.id}`"
           class="grid items-center gap-3 border-b border-default/40 px-3 py-2 last:border-b-0"
           :class="[
-            batch.enabled.value ? 'cursor-pointer hover:bg-elevated/40' : 'hover:bg-elevated/20',
+            'cursor-pointer hover:bg-elevated/40',
             batch.isSelected(c.id) ? 'bg-primary/10 ring-1 ring-inset ring-primary/40' : '',
           ]"
-          style="grid-template-columns: 40px minmax(220px, 1fr) 110px 90px 150px 150px 120px 150px;"
-          @click="batch.enabled.value ? batch.toggle(c.id) : undefined"
+          :style="{ gridTemplateColumns: listGridTemplate }"
+          @click="batch.toggle(c.id)"
+          @dblclick="onEdit(c)"
         >
           <div class="flex items-center justify-center">
             <UCheckbox
-              v-if="batch.enabled.value"
+              :data-testid="`container-checkbox-${c.id}`"
               :model-value="batch.isSelected(c.id)"
               size="sm"
               @click.stop
               @update:model-value="batch.toggle(c.id)"
             />
-            <UIcon v-else name="i-tabler-schema" class="size-4 text-dimmed" />
           </div>
           <div class="min-w-0">
             <div class="truncate text-sm font-medium text-highlighted">{{ c.name || t('common.untitled') }}</div>
             <div v-if="c.description" class="mt-0.5 truncate text-xs text-dimmed">{{ c.description }}</div>
-            <div v-if="c.tags && c.tags.length > 0" class="mt-1 flex min-w-0 flex-wrap gap-1">
-              <span
-                v-for="tag in c.tags.slice(0, 3)"
-                :key="tag"
-                class="rounded bg-elevated/60 px-1.5 py-0.5 text-[10px] text-dimmed"
-              >
-                {{ tag }}
-              </span>
-            </div>
           </div>
           <StatusPill
+            v-if="isColumnVisible('status')"
             :status="isRunning(c.id) ? 'online' : 'ready'"
             :label="isRunning(c.id) ? t('containers.status.running') : t('containers.status.idle')"
             :dot="isRunning(c.id)"
             class="w-fit"
           />
-          <span class="font-mono text-xs tabular-nums text-toned">{{ containerNodeCount(c) }}</span>
-          <span class="font-mono text-xs text-dimmed">{{ formatContainerDate(c.createdAt) }}</span>
-          <span class="font-mono text-xs text-dimmed">{{ formatContainerDate(c.updatedAt) }}</span>
-          <span class="truncate text-xs text-dimmed">
+          <span v-if="isColumnVisible('category')" class="truncate text-xs text-toned">
+            {{ c.category || '-' }}
+          </span>
+          <div v-if="isColumnVisible('tags')" class="flex min-w-0 flex-wrap gap-1">
+            <span
+              v-for="tag in (c.tags ?? []).slice(0, 4)"
+              :key="tag"
+              class="rounded bg-elevated/60 px-1.5 py-0.5 text-[10px] text-dimmed"
+            >
+              {{ tag }}
+            </span>
+            <span v-if="!c.tags || c.tags.length === 0" class="text-xs text-dimmed">-</span>
+          </div>
+          <span v-if="isColumnVisible('nodes')" class="font-mono text-xs tabular-nums text-toned">{{ containerNodeCount(c) }}</span>
+          <span v-if="isColumnVisible('createdAt')" class="font-mono text-xs text-dimmed">{{ formatContainerDate(c.createdAt) }}</span>
+          <span v-if="isColumnVisible('updatedAt')" class="font-mono text-xs text-dimmed">{{ formatContainerDate(c.updatedAt) }}</span>
+          <span v-if="isColumnVisible('hotkey')" class="truncate text-xs text-dimmed">
             <code v-if="c.hotkey" class="rounded bg-elevated/60 px-1 font-mono text-toned">{{ c.hotkey }}</code>
             <span v-else>-</span>
           </span>
           <div class="flex items-center justify-end gap-1">
             <UButton
               v-if="!isRunning(c.id)"
+              :data-testid="`container-row-run-${c.id}`"
               size="xs"
               color="primary"
               variant="soft"
@@ -293,6 +308,7 @@
             />
             <UButton
               v-else
+              :data-testid="`container-row-run-${c.id}`"
               size="xs"
               color="error"
               variant="soft"
@@ -300,41 +316,48 @@
               :aria-label="t('containers.stop')"
               @click.stop="onStop()"
             />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-edit"
-              :aria-label="t('containers.edit')"
-              @click.stop="onEdit(c)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-package-export"
-              :aria-label="t('containers.export')"
-              :title="t('containers.export')"
-              @click.stop="onExport(c)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="error"
-              icon="i-tabler-trash"
-              :aria-label="t('containers.delete.title')"
-              @click.stop="onAskDelete(c)"
-            />
+            <UDropdownMenu :items="rowMenuItems(c)">
+              <UButton
+                :data-testid="`container-row-more-${c.id}`"
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-tabler-dots"
+                :aria-label="t('containers.actions.more')"
+                @click.stop
+              />
+            </UDropdownMenu>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+    </main>
 
     <footer
       v-if="store.list.length > 0"
-      class="sticky bottom-0 z-10 mt-auto flex flex-col gap-3 border-t border-default/60 bg-default/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+      data-testid="containers-pagination"
+      class="shrink-0 flex flex-col gap-3 border-t border-default/60 bg-default/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
     >
-      <span class="text-xs text-dimmed">{{ pageTotalLabel }}</span>
+      <div class="flex flex-wrap items-center gap-2">
+        <UDropdownMenu :items="batchMenuItems">
+          <UButton
+            data-testid="containers-batch-actions"
+            size="xs"
+            variant="soft"
+            color="neutral"
+            icon="i-tabler-stack-2"
+            trailing-icon="i-tabler-chevron-down"
+            :disabled="visibleContainers.length === 0"
+          >
+            {{ t('containers.batch_actions.menu') }}
+          </UButton>
+        </UDropdownMenu>
+        <span v-if="batch.count.value > 0" class="text-xs text-toned">
+          {{ t('containers.batch_actions.selected', { n: batch.count.value }) }}
+        </span>
+        <span class="text-xs text-dimmed">{{ pageTotalLabel }}</span>
+      </div>
       <div class="flex items-center gap-2">
         <UPagination
           v-if="pageResult.totalPages > 1"
@@ -348,6 +371,57 @@
       </div>
     </footer>
   </div>
+
+  <BaseModal
+    v-model:open="createDialogOpen"
+    :title="t('containers.create_dialog.title')"
+    icon="i-tabler-plus"
+    size="md"
+  >
+    <div class="space-y-3">
+      <UFormField :label="t('common.name')" required>
+        <UInput
+          v-model="createDraft.name"
+          size="sm"
+          :placeholder="t('containers.name_placeholder')"
+          @keyup.enter="onConfirmCreate"
+        />
+      </UFormField>
+      <UFormField :label="t('common.description')">
+        <UTextarea
+          v-model="createDraft.description"
+          :rows="3"
+          size="sm"
+          :placeholder="t('containers.description_placeholder')"
+        />
+      </UFormField>
+      <UFormField :label="t('common.category')">
+        <UInputMenu
+          v-model="createDraft.category"
+          :items="allCategories"
+          create-item
+          size="sm"
+          :placeholder="t('containers.category_placeholder')"
+          @create="onCreateDraftCategory"
+        />
+      </UFormField>
+    </div>
+
+    <template #footer>
+      <UButton size="sm" variant="ghost" color="neutral" @click="createDialogOpen = false">
+        {{ t('common.cancel') }}
+      </UButton>
+      <UButton
+        size="sm"
+        color="primary"
+        icon="i-tabler-check"
+        :disabled="createName.length === 0"
+        @click="onConfirmCreate"
+      >
+        {{ t('containers.create_dialog.confirm') }}
+      </UButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -364,6 +438,8 @@ import { useRouter } from 'vue-router'
 import AppCard from '@/components/common/AppCard.vue'
 import StatusPill from '@/components/common/StatusPill.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import { addCreatedCategory, uniqueCategoryOptions } from '@/components/containers/categoryOptions'
 import {
   buildContainerPage,
   containerCategories,
@@ -385,6 +461,21 @@ const sortDesc = useLocalStorage('containers.sortDesc', true)
 const viewMode = useLocalStorage<'cards' | 'list'>('containers.viewMode', 'cards')
 const page = ref(1)
 const pageSize = useLocalStorage('containers.pageSize', 24)
+const createDialogOpen = ref(false)
+const createDraft = ref({
+  name: '',
+  description: '',
+  category: '',
+})
+type ListColumnKey = 'status' | 'category' | 'tags' | 'nodes' | 'createdAt' | 'updatedAt' | 'hotkey'
+type ListColumn = {
+  key: ListColumnKey
+  label: string
+  width: string
+  align?: 'right'
+}
+const defaultListColumns: ListColumnKey[] = ['status', 'category', 'tags', 'nodes', 'hotkey']
+const listColumns = useLocalStorage<ListColumnKey[]>('containers.listColumns', defaultListColumns)
 
 // 批量删除（E.5）
 const batch = useBatchSelect()
@@ -398,6 +489,88 @@ const sortItems = computed(() => [
 ])
 const sortDirectionLabel = computed(() => sortDesc.value ? t('containers.sort.desc') : t('containers.sort.asc'))
 const pageSizeItems = computed(() => [12, 24, 48, 96].map((n) => ({ label: t('containers.pagination.per_page', { n }), value: n })))
+const createName = computed(() => createDraft.value.name.trim())
+const visibleContainerIDs = computed(() => visibleContainers.value.map((c) => c.id))
+const batchMenuItems = computed(() => [
+  [
+    {
+      label: t('containers.batch_actions.select_page'),
+      icon: 'i-tabler-checklist',
+      disabled: visibleContainerIDs.value.length === 0,
+      onSelect: () => batch.selectAll(visibleContainerIDs.value),
+    },
+    {
+      label: t('containers.batch_actions.clear'),
+      icon: 'i-tabler-x',
+      disabled: batch.count.value === 0,
+      onSelect: () => batch.clear(),
+    },
+  ],
+  [
+    {
+      label: t('containers.batch_actions.delete'),
+      icon: 'i-tabler-trash',
+      color: 'error' as const,
+      disabled: batch.count.value === 0,
+      onSelect: () => { void onBatchDelete() },
+    },
+  ],
+])
+const listColumnOptions = computed<ListColumn[]>(() => [
+  { key: 'status', label: t('containers.list.status'), width: '96px' },
+  { key: 'category', label: t('containers.list.category'), width: '120px' },
+  { key: 'tags', label: t('containers.list.tags'), width: 'minmax(140px, 0.8fr)' },
+  { key: 'nodes', label: t('containers.list.nodes'), width: '72px' },
+  { key: 'createdAt', label: t('containers.list.created_at'), width: '132px' },
+  { key: 'updatedAt', label: t('containers.list.updated_at'), width: '132px' },
+  { key: 'hotkey', label: t('containers.list.hotkey'), width: '110px' },
+])
+const visibleColumnSet = computed(() => new Set(listColumns.value))
+const activeListColumns = computed(() => {
+  return listColumnOptions.value.filter((column) => visibleColumnSet.value.has(column.key))
+})
+const listGridTemplate = computed(() => {
+  return ['40px', 'minmax(240px, 1.4fr)', ...activeListColumns.value.map((column) => column.width), '84px'].join(' ')
+})
+const columnMenuItems = computed(() => [
+  listColumnOptions.value.map((column) => ({
+    label: column.label,
+    type: 'checkbox' as const,
+    checked: visibleColumnSet.value.has(column.key),
+    onUpdateChecked: (checked: boolean) => setColumnVisible(column.key, checked),
+  })),
+  [
+    {
+      label: t('containers.columns.reset'),
+      icon: 'i-tabler-restore',
+      onSelect: () => { listColumns.value = [...defaultListColumns] },
+    },
+  ],
+])
+const rowMenuItems = (c: Container) => [
+  [
+    { label: t('containers.edit'), icon: 'i-tabler-edit', onSelect: () => onEdit(c) },
+    { label: t('containers.export'), icon: 'i-tabler-package-export', onSelect: () => { void onExport(c) } },
+  ],
+  [
+    { label: t('containers.delete.title'), icon: 'i-tabler-trash', color: 'error' as const, onSelect: () => { void onAskDelete(c) } },
+  ],
+]
+
+function isColumnVisible(key: ListColumnKey): boolean {
+  return visibleColumnSet.value.has(key)
+}
+
+function setColumnVisible(key: ListColumnKey, checked: boolean) {
+  const current = new Set(listColumns.value)
+  if (checked) {
+    current.add(key)
+  } else {
+    current.delete(key)
+  }
+  const orderedKeys = listColumnOptions.value.map((column) => column.key)
+  listColumns.value = orderedKeys.filter((columnKey) => current.has(columnKey))
+}
 
 async function onBatchDelete() {
   const ids = [...batch.selected.value]
@@ -418,7 +591,6 @@ async function onBatchDelete() {
     toast.add({ title: t('containers.toast.batch_partial_fail'), color: 'warning' })
   }
   batch.clear()
-  batch.disable()
 }
 function isRunning(id: string): boolean {
   return execStore.running && execStore.currentTargetID === id
@@ -443,22 +615,25 @@ onMounted(() => {
 
 const selectedTags = ref<string[]>([])
 const categoryFilter = ref<string>('all')
+const createdCategories = ref<string[]>([])
 
 const tagsByCount = computed(() => {
   return containerTagsByCount(store.list ?? [])
 })
 const allTagItems = computed(() => tagsByCount.value.map(({ tag }) => tag))
+const allCategories = computed(() => {
+  return uniqueCategoryOptions(containerCategories(store.list ?? []), createdCategories.value, [createDraft.value.category])
+})
 const categoryItems = computed(() => [
   { label: t('containers.filter_category_all'), value: 'all' },
-  ...containerCategories(store.list ?? []).map((category) => ({ label: category, value: `cat:${category}` })),
+  ...allCategories.value.map((category) => ({ label: category, value: `cat:${category}` })),
 ])
 
-function toggleTag(tag: string) {
-  if (selectedTags.value.includes(tag)) {
-    selectedTags.value = selectedTags.value.filter((t) => t !== tag)
-  } else {
-    selectedTags.value = [...selectedTags.value, tag]
-  }
+function onCreateDraftCategory(item: string) {
+  const result = addCreatedCategory(createdCategories.value, item)
+  if (!result.value) return
+  createdCategories.value = result.categories
+  createDraft.value.category = result.value
 }
 
 const pageResult = computed(() => buildContainerPage(store.list, {
@@ -489,12 +664,30 @@ function resetFilters() {
   selectedTags.value = []
 }
 
-async function onCreate() {
-  const name = t('containers.create_default_name', { n: store.list.length + 1 })
-  const c = await store.create(name)
-  if (c) {
-    onEdit(c)
+function onCreate() {
+  createDraft.value = {
+    name: t('containers.create_default_name', { n: store.list.length + 1 }),
+    description: '',
+    category: '',
   }
+  createDialogOpen.value = true
+}
+
+async function onConfirmCreate() {
+  const name = createName.value
+  if (!name) return
+  const c = await store.create(name)
+  if (!c) return
+  const patch: Partial<Container> = {}
+  const description = createDraft.value.description.trim()
+  const category = createDraft.value.category.trim()
+  if (description) patch.description = description
+  if (category) patch.category = category
+  if (Object.keys(patch).length > 0) {
+    await store.update(c.id, patch)
+  }
+  createDialogOpen.value = false
+  onEdit(c)
 }
 
 function onEdit(c: Container) {

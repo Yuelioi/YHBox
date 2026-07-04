@@ -20,7 +20,7 @@
       </UFormField>
 
       <UFormField :label="t('common.category')">
-        <UInputMenu v-model="form.category" :items="allCategories" :create-item="'always'" size="sm" :placeholder="t('containers.category_placeholder')" @create="(v: string) => (form.category = v)" />
+        <UInputMenu v-model="form.category" :items="categoryItems" create-item size="sm" :placeholder="t('containers.category_placeholder')" @create="onCreateCategory" />
       </UFormField>
 
       <UFormField :label="t('containers.input_backend_label')">
@@ -52,6 +52,7 @@ import { useI18n } from 'vue-i18n'
 import { useDialogOpen } from '@/composables/editor/useDialogOpen'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { addCreatedCategory, uniqueCategoryOptions } from '@/components/containers/categoryOptions'
 
 const { t } = useI18n()
 
@@ -82,6 +83,10 @@ const modelOpen = useDialogOpen(props, emit)
 
 const form = ref<FormState>({ ...props.initial })
 watch(() => props.initial, v => { form.value = { ...v } }, { deep: true })
+const createdCategories = ref<string[]>([])
+const categoryItems = computed(() => {
+  return uniqueCategoryOptions(props.allCategories, createdCategories.value, [form.value.category])
+})
 
 const INPUT_BACKEND_OPTIONS = computed(() => [
   { value: 'postmessage', label: t('containers.input_backend_postmessage') },
@@ -98,5 +103,12 @@ const CAPTURE_BACKEND_OPTIONS = [
 function onConfirm() {
   emit('save', { ...form.value })
   modelOpen.value = false
+}
+
+function onCreateCategory(item: string) {
+  const result = addCreatedCategory(createdCategories.value, item)
+  if (!result.value) return
+  createdCategories.value = result.categories
+  form.value.category = result.value
 }
 </script>

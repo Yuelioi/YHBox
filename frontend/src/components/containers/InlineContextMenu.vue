@@ -19,7 +19,7 @@
   >
     <!-- Context header -->
     <div class="text-[11px] text-dimmed mb-2 px-1 flex items-center gap-1.5">
-      <template v-if="pinContext">
+      <template v-if="pinContext && !pinContext.isExec && pinContext.pinType">
         <UIcon name="i-tabler-plus" class="size-3.5" />
         <i18n-t keypath="editor.menu.inline.accept_type" tag="span">
           <template #type><strong class="text-primary">{{ pinContext.pinType }}</strong></template>
@@ -88,18 +88,13 @@ import { ref, computed, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
-import { isCompatibleType, type VarType } from '@/lib/variableRef'
 import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
+import { filterInlineNodeCandidates, type InlineNodeCandidateContext } from './inlineNodeCandidates'
 
 const { t } = useI18n()
 
-export interface PinContext {
-  pinType: VarType
-  /** 'output' = user dragged from an output pin → find nodes that accept this type as data-in
-   *  'input'  = user dragged from an input pin  → find nodes that produce this type as data-out */
-  side: 'input' | 'output'
-}
+export type PinContext = InlineNodeCandidateContext
 
 const props = defineProps<{
   open: boolean
@@ -133,24 +128,7 @@ const positionStyle = computed(() => ({
 
 /** All specs eligible for insertion (excludes visual-only and palette-excluded kinds) */
 const allEligible = computed<NodeKindSpec[]>(() => {
-  let specs = allSpecs().filter((s) => !s.excludeFromPalette)
-
-  if (!props.pinContext) return specs
-
-  const t = props.pinContext.pinType
-  const side = props.pinContext.side
-
-  return specs.filter((s) => {
-    if (side === 'output') {
-      // User dragged from output pin → need a node that accepts this type as data-in
-      if (!s.dataIn || Object.keys(s.dataIn).length === 0) return false
-      return Object.values(s.dataIn).some((pt) => isCompatibleType(t, pt as VarType))
-    } else {
-      // side === 'input' — user dragged from input pin → need a node that produces this type as data-out
-      if (!s.dataOut || Object.keys(s.dataOut).length === 0) return false
-      return Object.values(s.dataOut).some((pt) => isCompatibleType(pt as VarType, t))
-    }
-  })
+  return filterInlineNodeCandidates(allSpecs(), props.pinContext)
 })
 
 const filtered = computed<NodeKindSpec[]>(() => {

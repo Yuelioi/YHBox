@@ -122,6 +122,7 @@ style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (
 
 - `:create-item="'always'"` (输入值非现有精确项就显「创建」; 写 `true` 只在候选**全空**时才显, 部分匹配时反而不给创建, 不够)
 - **必须配 `@create` 处理器** —— 选「创建」只 `emit('create', searchTerm)`, **不自动写 model-value**。单值: `@create="(v) => setX(v)"`; 多值 (`multiple`): `@create="(v) => model = [...model, v]"`。
+- **单值 menu 还要让新值进入 `items`**。`@create` 只给原始文本, Nuxt UI 不会替你把新项 push 进候选列表；如果 `v-model` 设成一个不在 `items` 里的值, 后续可能显示/选择状态不稳定。做法: 维护 `createdX` 本地数组, `items = unique(existing, createdX, [model])`, `@create` 里先 trim/dedupe/push, 再把 model 设成该值。容器分类用 `categoryOptions.ts` 的 `addCreatedCategory()` / `uniqueCategoryOptions()` 锁这个规则。
 
 范例: `SwitchInspector.vue` (`:create-item="'always'"` + `@create`)。2026-06-13 全仓 13 处 `creatable` 全是坏的 (分类/标签建不了新项), 已统一修 (含 ContainerSettings 一处有 create-item 但漏 @create 同样建不出)。
 

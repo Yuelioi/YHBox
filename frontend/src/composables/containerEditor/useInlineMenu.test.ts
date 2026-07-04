@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { computed } from 'vue'
 import type { Graph, GraphNode } from '@/lib/backend'
 import { __resetForTests, register } from '@/components/containers/nodeRegistry/registry'
+import type { NodeKindSpec, PinType } from '@/components/containers/nodeRegistry'
 
 vi.mock('@vue-flow/core', () => ({
   useVueFlow: () => ({
@@ -20,8 +21,28 @@ function node(id: string, kind: string): GraphNode {
   return { id, kind, x: 0, y: 0, config: {} } as GraphNode
 }
 
-function setup() {
-  const graph: Graph = { id: 'g', schemaVersion: 1, nodes: [node('a', 'Log')], edges: [] } as Graph
+function spec(partial: Partial<NodeKindSpec> & Pick<NodeKindSpec, 'kind'>): NodeKindSpec {
+  return {
+    kind: partial.kind,
+    group: partial.group ?? 'io',
+    labelZh: '',
+    description: '',
+    example: '',
+    visual: { icon: '', bg: '', border: '' },
+    execIn: partial.execIn ?? [],
+    execOut: partial.execOut ?? [],
+    dataIn: partial.dataIn ?? {},
+    dataOut: partial.dataOut ?? {},
+    fields: [],
+    defaults: partial.defaults ?? {},
+    isPureData: partial.isPureData,
+    isVisualOnly: partial.isVisualOnly,
+    excludeFromPalette: partial.excludeFromPalette,
+  }
+}
+
+function setup(kind = 'Log') {
+  const graph: Graph = { id: 'g', schemaVersion: 1, nodes: [node('a', kind)], edges: [] } as Graph
   const activeGraph = computed<Graph | null>(() => graph)
   const m = useInlineMenu({
     activeGraph,
@@ -57,6 +78,12 @@ describe('useInlineMenu pin 拖到空白', () => {
     const { m } = setup()
     dragPinToEmpty(m)
     expect(m.inlineMenu.value.open).toBe(true)
+  })
+
+  it('拖 exec pin 到空白 → 带 exec 上下文给菜单过滤候选节点', () => {
+    const { m } = setup()
+    dragPinToEmpty(m)
+    expect(m.inlineMenu.value.pinContext).toEqual({ side: 'output', isExec: true })
   })
 
   it('成功连线 → 不开菜单', () => {
@@ -120,5 +147,47 @@ describe('useInlineMenu pin 拖到空白', () => {
 
     expect((targets[1].config as any).literal.Title).toBe('')
     expect((targets[0].config as any).literal).not.toBe((targets[1].config as any).literal)
+  })
+
+  it.each([
+    ['number'],
+    ['point'],
+    ['file'],
+  ] satisfies Array<[PinType]>)('data output pin pick auto-wires first compatible %s input', (pinType) => {
+    register(spec({ kind: 'SourceNode', dataOut: { Value: pinType } }))
+    register(spec({ kind: 'ConsumerNode', execIn: ['In'], dataIn: { Incompatible: 'bool', Value: pinType } }))
+    const { m, graph } = setup('SourceNode')
+
+    m.onVfConnectStart({ nodeId: 'a', handleId: 'Value', handleType: 'source' })
+    m.onVfConnectEnd({ clientX: 100, clientY: 100 } as MouseEvent)
+    vi.runAllTimers()
+    m.onInlineMenuPick('ConsumerNode')
+
+    expect(graph.edges).toHaveLength(1)
+    expect(graph.edges[0]).toMatchObject({
+      from: 'a.Value',
+      to: expect.stringMatching(/\.Value$/),
+    })
+  })
+
+  it.each([
+    ['number'],
+    ['point'],
+    ['file'],
+  ] satisfies Array<[PinType]>)('data input pin pick auto-wires first compatible %s output', (pinType) => {
+    register(spec({ kind: 'SinkNode', dataIn: { Value: pinType } }))
+    register(spec({ kind: 'ProducerNode', execIn: ['In'], execOut: ['Done'], dataOut: { Incompatible: 'bool', Value: pinType } }))
+    const { m, graph } = setup('SinkNode')
+
+    m.onVfConnectStart({ nodeId: 'a', handleId: 'Value', handleType: 'target' })
+    m.onVfConnectEnd({ clientX: 100, clientY: 100 } as MouseEvent)
+    vi.runAllTimers()
+    m.onInlineMenuPick('ProducerNode')
+
+    expect(graph.edges).toHaveLength(1)
+    expect(graph.edges[0]).toMatchObject({
+      from: expect.stringMatching(/\.Value$/),
+      to: 'a.Value',
+    })
   })
 })

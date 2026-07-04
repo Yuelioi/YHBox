@@ -50,10 +50,14 @@ export const useContainersStore = defineStore('containers', () => {
 
   async function deleteMany(ids: string[]): Promise<boolean> {
     if (ids.some((id) => isRecordingLocked(id))) return false
-    const r = await backend.containers.deleteMany(ids)
-    // r 在批删失败时是 error string；undefined 即成功
-    await reload()
-    return r === undefined
+    try {
+      await backend.containers.deleteMany(ids)
+      await reload()
+      return true
+    } catch {
+      await reload()
+      return false
+    }
   }
 
   async function exportPackage(id: string, destPath: string): Promise<boolean> {

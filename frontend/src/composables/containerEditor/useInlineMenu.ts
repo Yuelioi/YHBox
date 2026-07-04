@@ -10,13 +10,43 @@
 import { ref, type Ref } from 'vue'
 import type { Container, Graph, GraphNode, GraphEdge } from '@/lib/backend'
 import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
-import { isCompatibleType, type VarType } from '@/lib/variableRef'
+import { pinTypeCompat, type PinType } from '@/components/containers/nodeRegistry'
 import { newNodeID } from './ids'
 import { useInsertPoint } from './useInsertPoint'
 import type { PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
 
 function cloneDefaultConfig(config: Record<string, unknown> | undefined): Record<string, unknown> {
   return JSON.parse(JSON.stringify(config ?? {}))
+}
+
+function compatibleDataInEntriesPreferExact(
+  pins: Record<string, PinType>,
+  sourceType: PinType,
+): Array<[string, PinType]> {
+  const compatible = Object.entries(pins).filter(([, candidate]) =>
+    pinTypeCompat(sourceType, candidate).allow,
+  )
+  return compatible.sort(([, a], [, b]) => {
+    const aExact = a === sourceType
+    const bExact = b === sourceType
+    if (aExact === bExact) return 0
+    return aExact ? -1 : 1
+  })
+}
+
+function compatibleDataOutEntriesPreferExact(
+  pins: Record<string, PinType>,
+  targetType: PinType,
+): Array<[string, PinType]> {
+  const compatible = Object.entries(pins).filter(([, candidate]) =>
+    pinTypeCompat(candidate, targetType).allow,
+  )
+  return compatible.sort(([, a], [, b]) => {
+    const aExact = a === targetType
+    const bExact = b === targetType
+    if (aExact === bExact) return 0
+    return aExact ? -1 : 1
+  })
 }
 
 interface InlineMenuState {
@@ -69,7 +99,7 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
     // 非 data pin (exec 或 unknown kind) → 放行
     if (!srcOutType || !tgtInType) return true
 
-    return isCompatibleType(srcOutType as VarType, tgtInType as VarType)
+    return pinTypeCompat(srcOutType, tgtInType).allow
   }
 
   function onVfConnectStart(params: {
@@ -124,11 +154,14 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
         open: true,
         position: { x: clientX, y: clientY },
         flowPos,
-        // Exec pin 不过滤类型, header "添加节点"; data pin 按 type 过滤, header "⊕ 接受 <type>"
+        // Exec pin 也带上下文给菜单过滤候选；标题仍按普通“添加节点”渲染。
         pinContext: isExec
-          ? undefined
+          ? {
+              side: startCopy.handleType === 'source' ? 'output' : 'input',
+              isExec: true,
+            }
           : {
-              pinType: pinType as VarType,
+              pinType: pinType as PinType,
               side: startCopy.handleType === 'source' ? 'output' : 'input',
             },
         sourcePin: {
@@ -203,9 +236,9 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
           } else if (ctx.pinContext) {
             if (ctx.pinContext.side === 'output') {
               // 拖 output pin → source.pin → newNode 第一个 compatible dataIn
-              const candidates = Object.entries(spec.dataIn ?? {}).filter(([, t]) =>
-                isCompatibleType(ctx.pinContext!.pinType, t as VarType),
-              )
+              const candidates = ctx.pinContext.pinType
+                ? compatibleDataInEntriesPreferExact(spec.dataIn ?? {}, ctx.pinContext.pinType)
+                : []
               if (candidates.length > 0) {
                 ;(g.edges as GraphEdge[]).push({
                   from: `${ctx.sourcePin.nodeID}.${ctx.sourcePin.pinName}`,
@@ -214,9 +247,9 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
               }
             } else {
               // 拖 input pin → newNode 第一个 compatible dataOut → source.pin
-              const candidates = Object.entries(spec.dataOut ?? {}).filter(([, t]) =>
-                isCompatibleType(t as VarType, ctx.pinContext!.pinType),
-              )
+              const candidates = ctx.pinContext.pinType
+                ? compatibleDataOutEntriesPreferExact(spec.dataOut ?? {}, ctx.pinContext.pinType)
+                : []
               if (candidates.length > 0) {
                 ;(g.edges as GraphEdge[]).push({
                   from: `${newID}.${candidates[0][0]}`,

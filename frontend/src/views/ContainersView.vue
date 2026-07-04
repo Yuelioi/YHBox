@@ -1,6 +1,6 @@
 <template>
-  <div class="px-8 py-6 space-y-5">
-    <header class="flex items-center justify-center">
+  <div class="flex h-full min-h-0 flex-col gap-3 overflow-hidden px-8 py-4">
+    <header class="flex shrink-0 items-center justify-center">
       <UTabs v-model="tab" :items="tabs" class="w-[360px]" />
     </header>
 

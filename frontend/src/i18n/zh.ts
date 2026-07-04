@@ -2903,9 +2903,15 @@ export default {
       range: '显示 {start}-{end} / {total}',
       per_page: '每页 {n}',
     },
+    columns: {
+      label: '栏目',
+      reset: '恢复默认栏目',
+    },
     list: {
       name: '名称',
       status: '状态',
+      category: '分类',
+      tags: '标签',
       nodes: '节点',
       created_at: '创建日期',
       updated_at: '修改日期',
@@ -2915,6 +2921,9 @@ export default {
     select: '选择',
     exit_select: '退出选择',
     delete_count: '删除 ({n})',
+    actions: {
+      more: '更多操作',
+    },
     create: '新建容器',
     empty_title: '还没有容器',
     empty_desc: '容器是节点图蓝图, 包含变量、控制流、模板检测和 Action 调用.',
@@ -2946,6 +2955,13 @@ export default {
       desc: '确认删除 {n} 个容器? 此操作不可恢复.',
       confirm: '删除',
     },
+    batch_actions: {
+      menu: '批量操作',
+      selected: '已选 {n}',
+      select_page: '选择当前页',
+      clear: '清空选择',
+      delete: '删除所选',
+    },
     toast: {
       stop_signal: '已发出停止信号',
       deleted_count: '已删除 {n} 个',
@@ -2955,6 +2971,10 @@ export default {
       export_success: '容器包已导出',
     },
     create_default_name: '容器 {n}',
+    create_dialog: {
+      title: '新建容器',
+      confirm: '创建并编辑',
+    },
     // ContainerSettingsModal 表单字段
     basic_info: '基本信息',
     name_placeholder: '给容器起个名字',
