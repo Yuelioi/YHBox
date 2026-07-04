@@ -1498,7 +1498,13 @@ export default {
         },
       },
       output: {
-        Done: { label: 'Done', data: { Path: { hint: 'Written absolute path' } } },
+        Done: {
+          label: 'Done',
+          data: {
+            Path: { hint: 'Written absolute path' },
+            File: { hint: 'Written file object, ready for file readers or File info' },
+          },
+        },
         Fail: { label: 'Failed' },
       },
     },
@@ -1752,6 +1758,7 @@ export default {
         'Reads text from a local file. Useful for cookies, URL lists, temporary state, or data written by external plugins. Relative paths resolve from the data directory; absolute paths are read as-is.',
       input: {
         Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
+        File: { label: 'File', hint: 'Upstream file object; takes priority over Path when set' },
         Encoding: {
           label: 'Encoding',
           option: { auto: 'Auto', 'utf-8': 'UTF-8', gbk: 'GBK' },
@@ -1763,6 +1770,7 @@ export default {
           label: 'Done',
           data: {
             Text: { hint: 'Read text' },
+            File: { hint: 'Read file object' },
             Size: { hint: 'File size in bytes' },
             ModTimeMs: { hint: 'File modified timestamp (ms)' },
           },
@@ -1776,6 +1784,7 @@ export default {
         'Reads and parses JSON from a local file. The result can be wired into JsonPath or Fetch inputs such as headers/body. JSON may be an object, array, string, number, boolean, or null.',
       input: {
         Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
+        File: { label: 'File', hint: 'Upstream file object; takes priority over Path when set' },
         Encoding: {
           label: 'Encoding',
           option: { auto: 'Auto', 'utf-8': 'UTF-8', gbk: 'GBK' },
@@ -1788,8 +1797,34 @@ export default {
           data: {
             JSON: { hint: 'Parsed JSON value' },
             Text: { hint: 'Original text' },
+            File: { hint: 'Read file object' },
             Size: { hint: 'File size in bytes' },
             ModTimeMs: { hint: 'File modified timestamp (ms)' },
+          },
+        },
+        Fail: { label: 'Failed' },
+      },
+    },
+    FileInfo: {
+      label: 'File info',
+      description:
+        'Reads metadata for a local file or folder, outputting a File object plus path, name, extension, MIME, size, and modified time. Useful for turning saved screenshots, plugin-written files, or path strings into a reusable file value.',
+      input: {
+        Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
+        File: { label: 'File', hint: 'Upstream file object; takes priority over Path when set' },
+      },
+      output: {
+        Done: {
+          label: 'Done',
+          data: {
+            File: { hint: 'File object' },
+            Path: { hint: 'Absolute path' },
+            Name: { hint: 'File name' },
+            Ext: { hint: 'Extension' },
+            MIME: { hint: 'MIME type' },
+            Size: { hint: 'File size in bytes' },
+            ModTimeMs: { hint: 'File modified timestamp (ms)' },
+            IsDir: { hint: 'Whether the path is a directory' },
           },
         },
         Fail: { label: 'Failed' },

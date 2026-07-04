@@ -1433,7 +1433,13 @@ export default {
         PathTemplate: { label: '路径模板', hint: '相对路径, 不含 .. / 盘符 / 开头斜杠' },
       },
       output: {
-        Done: { label: '完成', data: { Path: { hint: '写入的绝对路径' } } },
+        Done: {
+          label: '完成',
+          data: {
+            Path: { hint: '写入的绝对路径' },
+            File: { hint: '写入后的文件对象，可接给读取或文件信息节点' },
+          },
+        },
         Fail: { label: '失败' },
       },
     },
@@ -1669,6 +1675,7 @@ export default {
         '从本地文件读取文本内容，常用于读取 cookie、网址列表、临时状态或外部插件写出的数据。相对路径会从数据目录读取，绝对路径按原路径读取。',
       input: {
         Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
+        File: { label: '文件', hint: '上游传入的文件对象；有值时优先于路径' },
         Encoding: {
           label: '编码',
           option: { auto: '自动', 'utf-8': 'UTF-8', gbk: 'GBK' },
@@ -1680,6 +1687,7 @@ export default {
           label: '完成',
           data: {
             Text: { hint: '读取到的文本' },
+            File: { hint: '读取到的文件对象' },
             Size: { hint: '文件字节数' },
             ModTimeMs: { hint: '文件修改时间戳 (ms)' },
           },
@@ -1693,6 +1701,7 @@ export default {
         '从本地文件读取并解析 JSON，结果可以直接接给 JsonPath 或 Fetch 的 headers/body 等输入。JSON 可以是对象、数组、字符串、数字、真假或 null。',
       input: {
         Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
+        File: { label: '文件', hint: '上游传入的文件对象；有值时优先于路径' },
         Encoding: {
           label: '编码',
           option: { auto: '自动', 'utf-8': 'UTF-8', gbk: 'GBK' },
@@ -1705,8 +1714,34 @@ export default {
           data: {
             JSON: { hint: '解析后的 JSON 值' },
             Text: { hint: '原始文本' },
+            File: { hint: '读取到的文件对象' },
             Size: { hint: '文件字节数' },
             ModTimeMs: { hint: '文件修改时间戳 (ms)' },
+          },
+        },
+        Fail: { label: '失败' },
+      },
+    },
+    FileInfo: {
+      label: '文件信息',
+      description:
+        '读取本地文件或目录的元数据，输出 File 对象以及路径、文件名、扩展名、MIME、大小和修改时间。适合把截图保存、插件写出的文件、或路径字符串整理成可继续传递的文件值。',
+      input: {
+        Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
+        File: { label: '文件', hint: '上游传入的文件对象；有值时优先于路径' },
+      },
+      output: {
+        Done: {
+          label: '完成',
+          data: {
+            File: { hint: '文件对象' },
+            Path: { hint: '绝对路径' },
+            Name: { hint: '文件名' },
+            Ext: { hint: '扩展名' },
+            MIME: { hint: 'MIME 类型' },
+            Size: { hint: '文件字节数' },
+            ModTimeMs: { hint: '文件修改时间戳 (ms)' },
+            IsDir: { hint: '是否目录' },
           },
         },
         Fail: { label: '失败' },

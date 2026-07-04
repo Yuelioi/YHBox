@@ -4,7 +4,7 @@
 // Adding a kind = 1 register({...}) call in specs/<group>.ts. Nothing else.
 // pinSpec.ts / nodeFieldSchemas.ts / NodeExplorerModal.vue all derive views over this.
 
-export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list'
+export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list' | 'file'
 
 export type SupportedTargetKind = 'win32-window' | 'android-adb'
 
@@ -16,6 +16,7 @@ export const TYPE_COLOR: Record<PinType, string> = {
   point: '#34d399', // green
   any: '#9ca3af', // gray
   list: '#818cf8', // indigo
+  file: '#38bdf8', // sky
 }
 
 /**

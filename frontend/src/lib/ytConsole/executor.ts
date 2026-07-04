@@ -3,7 +3,7 @@
 // 应用(写草稿+子图+撤销) 与 UI 都在 Vue 层, 不在这里 —— 故本文件可纯单测。
 
 // 前端 pin 类型 (来自 nodeRegistry, 后端 Number/Integer/Duration 都塌成 'number')。
-export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list'
+export type PinType = 'number' | 'bool' | 'string' | 'point' | 'any' | 'list' | 'file'
 
 export interface NodeModel {
   id: string
@@ -60,7 +60,7 @@ function coerce(type: PinType, v: unknown): { ok: true; value: unknown } | { ok:
     case 'string':
       return { ok: true, value: String(v) }
     default: {
-      // point / list / any: 原样写, 但拒非 JSON-可序列化 (函数 / 循环引用等)。
+      // point / list / file / any: 原样写, 但拒非 JSON-可序列化 (函数 / 循环引用等)。
       try {
         if (JSON.stringify(v) === undefined) return { ok: false, reason: 'not JSON-serializable' }
       } catch {

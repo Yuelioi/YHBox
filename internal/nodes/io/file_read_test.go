@@ -84,6 +84,26 @@ func TestReadTextFile_RelativePathUsesDataDir(t *testing.T) {
 	}
 }
 
+func TestReadTextFile_FileInput(t *testing.T) {
+	path := writeTempFile(t, t.TempDir(), "from-file.txt", []byte("from file value"))
+	file, err := node.FileFromPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res := runReadTextFile(t, map[string]any{"File": file})
+	if res.Error != nil || res.ExitName != "Done" {
+		t.Fatalf("File input should read: exit=%q err=%v", res.ExitName, res.Error)
+	}
+	if got := res.OutputData["Text"]; got != "from file value" {
+		t.Fatalf("Text = %#v, want file content", got)
+	}
+	outFile, ok := res.OutputData["File"].(node.File)
+	if !ok || outFile.Path != file.Path {
+		t.Fatalf("File output = %#v, want %q", res.OutputData["File"], file.Path)
+	}
+}
+
 func TestReadTextFile_MissingFileFails(t *testing.T) {
 	res := runReadTextFile(t, map[string]any{"Path": filepath.Join(t.TempDir(), "missing.txt")})
 	if res.Error == nil {
@@ -104,6 +124,22 @@ func TestReadJsonFile_ArrayValue(t *testing.T) {
 	}
 	if got := res.OutputData["Text"]; got == "" {
 		t.Fatal("Text should keep original JSON text")
+	}
+}
+
+func TestReadJsonFile_OutputsFile(t *testing.T) {
+	path := writeTempFile(t, t.TempDir(), "items.json", []byte(`{"ok":true}`))
+
+	res := runReadJsonFile(t, map[string]any{"Path": path})
+	if res.Error != nil || res.ExitName != "Done" {
+		t.Fatalf("exit=%q err=%v", res.ExitName, res.Error)
+	}
+	file, ok := res.OutputData["File"].(node.File)
+	if !ok {
+		t.Fatalf("File output = %#v, want node.File", res.OutputData["File"])
+	}
+	if file.Name != "items.json" || file.Ext != ".json" || file.Size <= 0 {
+		t.Fatalf("File metadata = %+v", file)
 	}
 }
 

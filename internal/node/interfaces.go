@@ -70,6 +70,7 @@ type Inputs interface {
 	StringList(name string) []string
 	// List 读 List 型 pin ([]any). 非列表/nil → nil. 不把裸 string 当一元列表 (与 StringList 区别).
 	List(name string) []any
+	File(name string) (File, bool)
 	Point(name string) Point
 	Window(name string) (Window, bool)
 	Rect(name string) Rect

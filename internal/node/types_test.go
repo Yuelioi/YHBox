@@ -39,6 +39,24 @@ func TestJSONTypeRegisteredAsAny(t *testing.T) {
 	}
 }
 
+func TestFileTypeRegistered(t *testing.T) {
+	found := false
+	for _, ts := range AllTypes() {
+		if ts.Tag == "File" {
+			found = true
+			if ts.GoType != "node.File" {
+				t.Fatalf("File GoType = %q, want node.File", ts.GoType)
+			}
+			if ts.WidgetKind != "file" {
+				t.Fatalf("File WidgetKind = %q, want file", ts.WidgetKind)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("File 类型未注册")
+	}
+}
+
 func TestInputsWindow(t *testing.T) {
 	w := Window{HWND: 123, Title: "记事本"}
 	in := newInputs(map[string]any{"W": w}, nil, nil, nil)
@@ -48,6 +66,18 @@ func TestInputsWindow(t *testing.T) {
 	}
 	if _, ok := in.Window("missing"); ok {
 		t.Fatal("缺失 pin 应返 false")
+	}
+}
+
+func TestInputsFile(t *testing.T) {
+	f := File{Path: `C:\tmp\a.txt`, Name: "a.txt", Ext: ".txt", MIME: "text/plain", Size: 3, ModTimeMs: 123}
+	in := newInputs(map[string]any{"F": f}, nil, nil, nil)
+	got, ok := in.File("F")
+	if !ok || got.Path != f.Path || got.Size != 3 {
+		t.Fatalf("File 取值失败: got=%+v ok=%v", got, ok)
+	}
+	if _, ok := in.File("missing"); ok {
+		t.Fatal("缺失 File pin 应返 false")
 	}
 }
 

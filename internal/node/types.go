@@ -82,6 +82,17 @@ type Window struct {
 	ClientH int     `json:"clientH"`
 }
 
+// File 本地文件值。Path 是运行期绝对路径或用户提供路径；其余字段是读取/写入时的快照元数据。
+type File struct {
+	Path      string `json:"path"`
+	Name      string `json:"name"`
+	Ext       string `json:"ext,omitempty"`
+	MIME      string `json:"mime,omitempty"`
+	Size      int64  `json:"size"`
+	ModTimeMs int64  `json:"modTimeMs"`
+	IsDir     bool   `json:"isDir,omitempty"`
+}
+
 // typeRegistry 加 mutex (跟 globalRegistry 对称). init() 之外的 RegisterType
 // 罕见, 但 AllTypes RPC handler 并发读取需安全.
 var (
@@ -125,6 +136,7 @@ func init() {
 		{Tag: "Duration", GoType: "time.Duration", WidgetKind: "duration", Color: "#3b82f6"},
 		{Tag: "JSON", GoType: "any", WidgetKind: "json", Color: "#9ca3af"},
 		{Tag: "List", GoType: "[]any", WidgetKind: "list-preview", Color: "#818cf8"},
+		{Tag: "File", GoType: "node.File", WidgetKind: "file", Color: "#38bdf8"},
 		{Tag: "Exec", GoType: "(framework)", WidgetKind: "exec-pin", Color: "#ffffff"},
 		{Tag: "Window", GoType: "node.Window", WidgetKind: "preview", Color: "#22d3ee"},
 	} {

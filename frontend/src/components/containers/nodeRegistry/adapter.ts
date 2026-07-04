@@ -103,6 +103,8 @@ function backendTypeToPinType(t: string): PinType {
       return 'point'
     case 'list':
       return 'list'
+    case 'file':
+      return 'file'
     default:
       return 'any'
   }

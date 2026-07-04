@@ -18,6 +18,10 @@ func TestPinTypeCompat(t *testing.T) {
 		{"bool", "number", true, true}, // implicit 0/1
 		{"bool", "string", true, true}, // implicit "true"/"false"
 		{"bool", "point", false, false},
+		{"file", "file", true, false},
+		{"file", "string", false, false},
+		{"file", "any", true, false},
+		{"any", "file", true, false},
 	}
 	for _, c := range cases {
 		allow, warn := PinTypeCompat(c.from, c.to)

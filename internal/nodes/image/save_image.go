@@ -16,6 +16,7 @@ const (
 	siInImage = "Image"
 	siInPath  = "PathTemplate"
 	siOutPath = "Path"
+	siOutFile = "File"
 )
 
 type SaveImage struct{}
@@ -32,6 +33,7 @@ func (SaveImage) Spec() node.Spec {
 		Outputs: []node.OutputSpec{
 			{Name: siDone, Type: node.TypeExec, Data: []node.DataField{
 				{Name: siOutPath, Type: "String"},
+				{Name: siOutFile, Type: "File"},
 			}},
 			{Name: siFail, Type: node.TypeExec, Semantic: "error", Data: []node.DataField{
 				{Name: "Error", Type: "String"},
@@ -65,5 +67,9 @@ func (SaveImage) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err := os.WriteFile(abs, img.Data, 0o644); err != nil {
 		return nil, node.Failf(node.CodeWriteFailed, err, "SaveImage write %s: %v", abs, err)
 	}
-	return ctx.Out(siDone).Set(siOutPath, abs).Fire(), nil
+	file, err := node.FileFromPath(abs)
+	if err != nil {
+		return nil, node.Failf(node.CodeWriteFailed, err, "SaveImage stat %s: %v", abs, err)
+	}
+	return ctx.Out(siDone).Set(siOutPath, abs).Set(siOutFile, file).Fire(), nil
 }

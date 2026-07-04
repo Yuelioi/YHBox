@@ -109,6 +109,13 @@ func (i *inputsImpl) List(name string) []any {
 	return nil
 }
 
+func (i *inputsImpl) File(name string) (File, bool) {
+	if v, ok := i.merged[name].(File); ok {
+		return v, true
+	}
+	return File{}, false
+}
+
 func (i *inputsImpl) Float64(name string) float64 {
 	switch v := i.merged[name].(type) {
 	case float64:

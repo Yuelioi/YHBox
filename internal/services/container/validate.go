@@ -141,6 +141,8 @@ func canonPinType(t string) string {
 		return "any"
 	case "List":
 		return "list"
+	case "File":
+		return "file"
 	case "Exec":
 		return ""
 	}

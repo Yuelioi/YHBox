@@ -21,12 +21,14 @@ func init() {
 
 const (
 	fileReadInPath     = "Path"
+	fileReadInFile     = "File"
 	fileReadInEncoding = "Encoding"
 	fileReadInMaxBytes = "MaxBytes"
 	fileReadOutDone    = "Done"
 	fileReadOutFail    = "Fail"
 	fileReadOutText    = "Text"
 	fileReadOutJSON    = "JSON"
+	fileReadOutFile    = "File"
 	fileReadOutSize    = "Size"
 	fileReadOutModTime = "ModTimeMs"
 
@@ -39,6 +41,7 @@ type ReadJsonFile struct{}
 func (ReadTextFile) Spec() node.Spec {
 	return fileReadSpec("ReadTextFile", []node.DataField{
 		{Name: fileReadOutText, Type: "String"},
+		{Name: fileReadOutFile, Type: "File"},
 		{Name: fileReadOutSize, Type: "Integer"},
 		{Name: fileReadOutModTime, Type: "Integer"},
 	})
@@ -48,6 +51,7 @@ func (ReadJsonFile) Spec() node.Spec {
 	return fileReadSpec("ReadJsonFile", []node.DataField{
 		{Name: fileReadOutJSON, Type: "JSON"},
 		{Name: fileReadOutText, Type: "String"},
+		{Name: fileReadOutFile, Type: "File"},
 		{Name: fileReadOutSize, Type: "Integer"},
 		{Name: fileReadOutModTime, Type: "Integer"},
 	})
@@ -60,6 +64,7 @@ func fileReadSpec(kind string, doneData []node.DataField) node.Spec {
 		Inputs: []node.InputSpec{
 			{Name: "In", Type: node.TypeExec},
 			{Name: fileReadInPath, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
+			{Name: fileReadInFile, Type: "File", Advanced: true, Widget: node.WidgetSpec{Kind: "file"}},
 			{Name: fileReadInEncoding, Type: "String", Default: "auto",
 				Widget: node.WidgetSpec{Kind: "dropdown",
 					Props: node.MarshalProps(node.DropdownProps{
@@ -87,6 +92,7 @@ func (ReadTextFile) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	return ctx.Out(fileReadOutDone).
 		Set(fileReadOutText, text).
+		Set(fileReadOutFile, info.file).
 		Set(fileReadOutSize, int(info.size)).
 		Set(fileReadOutModTime, info.modTimeMs).
 		Fire(), nil
@@ -110,18 +116,20 @@ func (ReadJsonFile) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	return ctx.Out(fileReadOutDone).
 		Set(fileReadOutJSON, value).
 		Set(fileReadOutText, text).
+		Set(fileReadOutFile, info.file).
 		Set(fileReadOutSize, int(info.size)).
 		Set(fileReadOutModTime, info.modTimeMs).
 		Fire(), nil
 }
 
 type readFileInfo struct {
+	file      node.File
 	size      int64
 	modTimeMs int64
 }
 
 func readTextFileInput(in node.Inputs) (string, readFileInfo, error) {
-	path := strings.TrimSpace(in.String(fileReadInPath))
+	path := readInputPath(in)
 	if path == "" {
 		return "", readFileInfo{}, node.Failf(node.CodeNotFound, nil, "ReadFile: 路径为空")
 	}
@@ -148,7 +156,18 @@ func readTextFileInput(in node.Inputs) (string, readFileInfo, error) {
 	if err != nil {
 		return "", readFileInfo{}, node.Failf(node.CodeError, err, "ReadFile: 解码失败: %v", err)
 	}
-	return text, readFileInfo{size: stat.Size(), modTimeMs: stat.ModTime().UnixMilli()}, nil
+	file, err := node.FileFromPath(abs)
+	if err != nil {
+		return "", readFileInfo{}, node.Failf(node.CodeError, err, "ReadFile stat %s: %v", path, err)
+	}
+	return text, readFileInfo{file: file, size: stat.Size(), modTimeMs: stat.ModTime().UnixMilli()}, nil
+}
+
+func readInputPath(in node.Inputs) string {
+	if file, ok := in.File(fileReadInFile); ok && strings.TrimSpace(file.Path) != "" {
+		return strings.TrimSpace(file.Path)
+	}
+	return strings.TrimSpace(in.String(fileReadInPath))
 }
 
 func resolveIOPath(path string) string {

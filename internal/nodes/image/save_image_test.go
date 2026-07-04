@@ -40,6 +40,29 @@ func TestSaveImage_WritesWithFormatExt(t *testing.T) {
 	}
 }
 
+func TestSaveImage_OutputsFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("YOTTA_DATA_DIR", dir)
+
+	res := runSaveImage(t, node.Image{Format: "png", Data: []byte("pngbytes")}, "shot.png")
+	if res.Error != nil || res.ExitName != "Done" {
+		t.Fatalf("exit=%q err=%v", res.ExitName, res.Error)
+	}
+	file, ok := res.OutputData["File"].(node.File)
+	if !ok {
+		t.Fatalf("File output = %#v, want node.File", res.OutputData["File"])
+	}
+	if file.Path == "" || file.Name != "shot.png" || file.Ext != ".png" || file.Size != int64(len("pngbytes")) {
+		t.Fatalf("File metadata = %+v", file)
+	}
+	if file.MIME != "image/png" {
+		t.Fatalf("File MIME = %q, want image/png", file.MIME)
+	}
+	if file.ModTimeMs <= 0 {
+		t.Fatalf("File ModTimeMs = %d, want > 0", file.ModTimeMs)
+	}
+}
+
 func TestSaveImage_NoImage_Fails(t *testing.T) {
 	node.ResetRegistryForTest()
 	node.Register(&SaveImage{})
