@@ -10,6 +10,8 @@ RECHECK WHEN: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bi
 
 - **frontend 包管理只用 pnpm** (有 pnpm-lock.yaml): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好.
 
+- **Wails library 与 CLI 必须同版**: 当前 pin 是 `v3.0.0-alpha2.117`。安装用 `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`；`./scripts/verify-wails-version.ps1` 核对 source pins，`-CheckInstalled` 还会验证 PATH 中实际 CLI。根 `task build/package/dev` 已自动执行实际 CLI 检查。
+
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
 - **打包**: `task build` — 内部先 `vite build` 嵌入 dist, 再 `go build -tags production -trimpath -ldflags="-w -s -H windowsgui" -o bin/Yotta.exe .`, **最后 `upx --best bin/Yotta.exe` 压缩**(~48M→~13M, 启动多 ~300ms 自解壳; manifest/icon/DPI 资源 UPX 原样保留; `DEV=true` 跳过)。产物名是 **`Yotta.exe`**(= `APP_NAME`, 顶层 Taskfile.yml), 不是 YHBox。需要 `upx` 在 PATH(`scoop install upx`)。
 - **仅语法 check**: `go build ./...` 可用 (不产 exe), 但产 exe 一定走 task.
@@ -22,7 +24,7 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
 
-本机 Wails CLI alpha2.112 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下仍会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。
+Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。alpha2.117 的正式生成命令已验证为 123 methods / 10 条已知装配 warning。
 
 ## 测试基线
 
@@ -34,12 +36,13 @@ Go 后端质量门禁同时包括：
 go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
 go vet ./...
 staticcheck ./...
-go test -race ./internal/services ./internal/services/container ./internal/services/container/runtime ./internal/services/execution ./internal/services/schedule ./internal/services/inputclip/runtime ./internal/hotkey ./pkg/winutil ./pkg/capture
+go test -race ./internal/services ./internal/services/tools ./internal/services/container ./internal/services/container/runtime ./internal/services/execution ./internal/services/schedule ./internal/services/inputclip/runtime ./internal/hotkey ./pkg/winutil ./pkg/capture
 task version:verify
+./scripts/verify-wails-version.ps1 -CheckInstalled
 ```
 
-对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS 当前先跑 platform-neutral core；完整 `go build ./...` 要在平台 seam 闭合后升级为门禁。
-`pkg/platform`、input/capture/winutil、nodes/input/io、container/runtime 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；input/capture 的非 Windows dependency graph 与 runtime core 不得重新出现 `lxn/win`。
+对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS portable core 已包含 services/tools；完整 GUI 不能用 `CGO_ENABLED=0` 验收。官方 Linux GUI 环境需要 gcc + GTK4 + WebKitGTK 6.0（或临时 `gtk3` tag），macOS 需要 Xcode command line tools，后续应为 GUI 建独立宿主 build job。
+`pkg/platform`、input/capture/winutil、nodes/input/io、container/runtime 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；backend dependency graph 不得重新出现 Win32 或 Wails presentation import。
 
 前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。
 

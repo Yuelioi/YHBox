@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：隔离 root GUI/main 宿主入口，并统一 Wails CLI/library 版本与 Linux CGO/WebKit 构建基线；保持 portable-core 三平台门禁。
+继续批次 D：为 root GUI/main 增加带原生依赖的 Linux/macOS build job 与宿主 smoke 基线；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- backend services（含 tools）已无 Wails import，Linux/macOS portable core 可独立编译；当前剩余阻塞仅在 root GUI/main 宿主入口，其 Wails alpha.91 `application` Linux 实现要求 CGO/WebKit 构建环境。
+- backend services（含 tools）已无 Wails import，root wiring 也无项目内直接 Win32 import；当前剩余工作是按宿主 OS 验收 Wails alpha2.117 GUI（Linux 需 CGO/GTK4/WebKitGTK 6.0，macOS 需 Xcode 工具链），而不是继续追求 `CGO_ENABLED=0` 的 GUI 编译。
 
 Done:
 
+- 批次 D（第十一批）：Wails library/release CLI/README pin 统一到 `v3.0.0-alpha2.117` 并加入一致性脚本；root template capture/game provider 移除直接 `lxn/win`；更新 GUI 宿主构建基线与失效的透明窗 knowledge。
 - 批次 D（第十批）：App event transport 与 tools semantic window presenter 从 Wails 抽离；GUI options/policy 留在 executable adapter；统一 attempt/generation-aware window slot 消除并发 open/close 竞态；services/tools 进入 portable-core CI。
 - 批次 D（第九批）：recording event/stop contract 与 Win32 recorder/hook/raw-input adapter 分离；service 使用 canonical target contract；非 Windows recorder 返回 typed unsupported；Linux/macOS 进入 portable-core CI。
 - 批次 D（第八批）：tools 的 mouse/pixel/window-capture native 实现进入 `_windows.go`，非 Windows adapter 使用 typed unsupported；WindowResolver 改用 canonical target contract；tools 平台守卫已建立。
@@ -85,6 +86,8 @@ Verified:
 - D 第十批双轴 review：修复窗口并发创建、Close 后排队 Open 重开、同批失败结果分裂、cleanup 重入死锁、打开中取消清理与旧代际 closing callback 清理新窗口的竞态；App presentation 生命周期改为 new/attached/closed 单向状态，emitter 与 LogMerger 原子发布；LogMerger shutdown 幂等 drain 并等待 worker；presentation port 使用具名 semantic window request，具体标题、路由、尺寸与材质策略归 executable adapter；最终 Standards/Spec 均无剩余 finding。
 - D 第十批 binding/frontend 验证：Wails bindings 生成后 RPC 方法从 124 收窄为 123，已知 warning 仍为 10；`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过。
 - D 第十批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...` 与 services/tools/architecture race 通过；tools 并发回归连续 100 次通过；Linux/Darwin 的 services/tools 交叉编译及 Wails-free dependency graph 检查通过。
+- D 第十一批后，alpha2.117 同版 CLI 成功生成 123 methods / 10 条已知 warning；全仓 Go test/vet/staticcheck、app/Wails pin 校验、`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过；root 非 Windows `CGO=0` 失败已只剩 Wails GUI 宿主依赖。
+- D 第十一批双轴 review：source verifier 改为检查每个受管文件的全部 pin，Task/release 强制核对 PATH 中实际 CLI；删除重复 foreground 实现并增加 root direct-Win32 import 守卫；最终 Standards/Spec 均无剩余 finding。
 
 ## Open questions
 
@@ -92,5 +95,5 @@ Verified:
 - 外部扩展目标是只接受 in-tree contribution，还是允许 out-of-tree Go module / plugin？
 - 首批正式支持的平台矩阵是什么：Windows + Linux，还是 Windows + Linux + macOS？Android/Browser 是 target adapter，不等同于宿主 OS 支持。
 - Container package 的崩溃一致性目标采用 generation directory，还是较轻的 lock-last commit + load-time validation？
-- Wails dependency 固定为 alpha.91，而本机 CLI 是 alpha2.112；进入跨平台 GUI 构建前需要统一 CLI/library 版本并确认 Linux CGO/WebKit 构建基线。
+- Linux/macOS GUI CI 采用原生 runner 直接构建，还是使用 Wails 提供的 Docker/Zig workflow；GTK4 为正式基线，是否同时保留 `gtk3` 兼容产物？
 - Wails bindings 虽生成成功，但仍对 function type 和暴露给绑定的 non-empty interface 参数报告 10 条 JSON 编码警告；后续应收窄可绑定 service surface，避免把仅供 Go 内部装配的方法暴露给前端生成器。

@@ -45,6 +45,7 @@ Windows 桌面工具，给《异环 / Neverness to Everness》提供后台自动
 需要 Go 1.25+、Node 22+、Rust（编 WGC 截屏 DLL）、wails3 CLI 和 [Task](https://taskfile.dev)。
 
 ```powershell
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
 task build       # 一键编 frontend + Rust DLL + Go exe，产物在 bin/
 task dev         # 开发模式（vite HMR + wails3 dev）
 ```

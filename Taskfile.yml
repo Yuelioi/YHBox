@@ -12,11 +12,13 @@ vars:
 tasks:
   build:
     summary: Builds the application
+    deps: [wails:verify]
     cmds:
       - task: "windows:build"
 
   package:
     summary: Packages a production build of the application
+    deps: [wails:verify]
     cmds:
       - task: "windows:package"
 
@@ -27,6 +29,7 @@ tasks:
 
   dev:
     summary: Runs the application in development mode
+    deps: [wails:verify]
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
 
@@ -49,6 +52,11 @@ tasks:
     summary: 验证所有版本元数据与 pkg/version.Version 一致
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-version.ps1
+
+  wails:verify:
+    summary: 验证 Wails library、source pin 与 PATH 中 CLI 版本一致
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-wails-version.ps1 -CheckInstalled
 
   version:bump:
     summary: 更新版本文件、提交并创建 vX.Y.Z tag

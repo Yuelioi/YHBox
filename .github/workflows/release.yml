@@ -43,7 +43,11 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install wails3 CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.91
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+
+      - name: Verify Wails toolchain pin
+        shell: pwsh
+        run: ./scripts/verify-wails-version.ps1 -CheckInstalled
 
       - name: Verify release version
         shell: pwsh
