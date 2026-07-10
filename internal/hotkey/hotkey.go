@@ -2,16 +2,9 @@ package hotkey
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"runtime"
 	"sort"
 	"sync"
-	"syscall"
-	"time"
-	"unsafe"
-
-	"github.com/lxn/win"
 )
 
 // 全局热键封装。Win32 RegisterHotKey 注册到当前线程的消息队列（hWnd=NULL），
@@ -48,23 +41,10 @@ const (
 )
 
 const (
-	winWM_HOTKEY = 0x0312
-	winPM_REMOVE = 0x0001
-
 	winMOD_ALT      = MOD_ALT
 	winMOD_CONTROL  = MOD_CONTROL
 	winMOD_SHIFT    = MOD_SHIFT
 	winMOD_NOREPEAT = MOD_NOREPEAT
-
-	// ERROR_HOTKEY_ALREADY_REGISTERED — 别的应用占了同样的组合
-	errHotkeyAlreadyRegistered = 1409
-)
-
-var (
-	user32               = syscall.NewLazyDLL("user32.dll")
-	procRegisterHotKey   = user32.NewProc("RegisterHotKey")
-	procUnregisterHotKey = user32.NewProc("UnregisterHotKey")
-	procPeekMessageW     = user32.NewProc("PeekMessageW")
 )
 
 // HotkeySpec 一条要注册的热键。
@@ -101,6 +81,8 @@ type binding struct {
 	onFire func()
 }
 
+type hotkeyLoop func(context.Context, []HotkeySpec, func(int), chan<- error, chan<- struct{})
+
 // HotkeyManager 一组热键的生命周期。线程安全。
 // done channel：每次启动 loop 时新建，Stop/重建必须等线程跑完 UnregisterHotKey 才返回，
 // 否则旧线程的反注册和新线程的注册会竞态，新热键可能被旧线程的延迟 UnregisterHotKey 反掉
@@ -110,6 +92,7 @@ type HotkeyManager struct {
 	cancel  context.CancelFunc
 	done    chan struct{}
 	running bool
+	runLoop hotkeyLoop
 
 	// 动态 binding 状态
 	bindings map[int]*binding
@@ -120,6 +103,7 @@ func NewHotkeyManager() *HotkeyManager {
 	return &HotkeyManager{
 		bindings: make(map[int]*binding),
 		nextID:   1000, // 给老 Start 路径（用 spec.ID=1..6）留空间，避免撞 id
+		runLoop:  runHotkeyLoop,
 	}
 }
 
@@ -335,7 +319,7 @@ func (m *HotkeyManager) startLoopLocked() error {
 	ready := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go runHotkeyLoop(ctx, specs, dispatcher, ready, done)
+	go m.runLoop(ctx, specs, dispatcher, ready, done)
 	if err := <-ready; err != nil {
 		cancel()
 		<-done
@@ -345,61 +329,4 @@ func (m *HotkeyManager) startLoopLocked() error {
 	m.done = done
 	m.running = true
 	return nil
-}
-
-// runHotkeyLoop 跑在锁定的 OS 线程：RegisterHotKey → PeekMessage 轮询 → 反注册。
-// ready 通道：成功一次（nil）→ caller 解锁；失败一次（err）→ caller 收错。
-// done 通道：函数退出前必 close —— 给 rebuild/Stop 阻塞等线程退出用。
-func runHotkeyLoop(ctx context.Context, specs []HotkeySpec, handler func(int), ready chan<- error, done chan<- struct{}) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	defer close(done)
-
-	// 单一退出点：defer 反注册 registered，append 跟反注册逻辑用同一份。
-	// 不在失败路径手动回滚 —— defer 反注册全 registered 即可。
-	registered := make([]int, 0, len(specs))
-	defer func() {
-		for _, id := range registered {
-			procUnregisterHotKey.Call(0, uintptr(id))
-		}
-	}()
-
-	for _, s := range specs {
-		r, _, callErr := procRegisterHotKey.Call(
-			0, uintptr(s.ID), uintptr(s.Mods), uintptr(s.VK))
-		if r == 0 {
-			var errno syscall.Errno
-			if errors.As(callErr, &errno) && errno == errHotkeyAlreadyRegistered {
-				ready <- fmt.Errorf("热键 %s 已被其它应用占用", s.Name)
-			} else {
-				ready <- fmt.Errorf("注册热键 %s 失败: %v", s.Name, callErr)
-			}
-			return
-		}
-		registered = append(registered, s.ID)
-	}
-	ready <- nil
-
-	// PeekMessage 轮询。20ms 间隔够热键响应，CPU 占用可忽略。
-	// 不用 GetMessage：GetMessage 阻塞，要靠 PostThreadMessage 唤醒退出更绕；
-	// PeekMessage 配 ctx 轮询更直观。
-	var msg win.MSG
-	tick := time.NewTicker(20 * time.Millisecond)
-	defer tick.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-		}
-		// PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)
-		r, _, _ := procPeekMessageW.Call(
-			uintptr(unsafe.Pointer(&msg)), 0, 0, 0, winPM_REMOVE)
-		if r == 0 {
-			continue
-		}
-		if msg.Message == winWM_HOTKEY && handler != nil {
-			handler(int(msg.WParam))
-		}
-	}
 }

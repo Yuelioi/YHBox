@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：隔离 hotkey/calibration/recording/tools，随后处理 Wails GUI 壳的平台入口；保持 portable-core 三平台门禁。
+继续批次 D：隔离 calibration/recording/tools，随后处理 Wails GUI 壳的平台入口；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- Linux 非 main package 的项目内失败只剩 hotkey、calibration、recording、tools；另有 Wails GUI dependency 在 `CGO_ENABLED=0` 下失败。
+- Linux 非 main package 的项目内失败只剩 calibration、recording、tools；另有 Wails GUI dependency 在 `CGO_ENABLED=0` 下失败。
 
 Done:
 
+- 批次 D（第六批）：hotkey manager 与 Win32 RegisterHotKey 消息循环分离；非 Windows 返回统一 typed unsupported；registry 单测改用内存 loop，Linux/macOS 进入 portable-core CI。
 - 批次 D（第五批）：RuntimeContext 移除 legacy input/capture backend 字段；Win32 provider 独占后端创建、适配与释放；vision/cursor 全部经 controller capability；新增 controller factory 注入 seam、动态 capability 与 runtime legacy-import 守卫。
 - 批次 D（第四批）：target contract 接管 WindowHandle/WindowMatchSpec；runtime core 移除直接 `lxn/win`/winutil import；winutil 拆分 Windows/non-Windows adapter；container/runtime tests 可为 Linux/Darwin 编译，失败图从 14 收敛到 5。
 - 批次 D（第三批）：提取跨平台 VK 解析；非 Windows `KillProcess` 使用 typed unsupported；`internal/nodes/input` 与 `internal/nodes/io` 在 Linux/Darwin 编译通过并进入 CI 原生测试矩阵。
@@ -66,6 +67,7 @@ Verified:
 - D 第四批双轴 review：Standards 3 项、Spec 2 项均已修复——恢复导出契约注释、borderless state 编译期类型、target 构造归属、BringToFront typed unsupported，并补齐 gofmt 与回归测试。
 - D 第五批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；CI portable-core 的 21 个 package（含 container/runtime 与 mcpserver）均为 Linux/Darwin 成功编译测试二进制；runtime core 守卫同时禁止重新 import legacy input/capture 与 Win32 packages。
 - D 第五批双轴 review：修复旧符号注释、provider 单复数命名、Win32 profile/controller capability 漂移与缺 target 错误语义；测试 adapter 的少量重复保留在 `_test.go`，避免把 legacy backend import 重新带回平台中立生产代码；factory 注入 seam 保留给 embedder，并明确资源仍由调用方持有。
+- D 第六批后，Windows hotkey test/race 通过，Linux/Darwin hotkey tests 成功交叉编译；架构守卫禁止 hotkey 非 Windows文件重新引入 Win32 packages。
 
 ## Open questions
 

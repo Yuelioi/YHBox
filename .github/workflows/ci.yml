@@ -108,6 +108,7 @@ jobs:
           ./internal/apperr
           ./internal/automation/target
           ./internal/automation/trace
+          ./internal/hotkey
           ./internal/nodes/input
           ./internal/nodes/io
           ./internal/runclassify

@@ -7,7 +7,7 @@ import (
 )
 
 func TestRegistry_RegisterBasicEntry(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	err := r.Register("test.foo", HotkeySourceSystem, "测试 foo", nil, "", "", func() {})
@@ -24,7 +24,7 @@ func TestRegistry_RegisterBasicEntry(t *testing.T) {
 }
 
 func TestRegistry_RegisterRejectsDuplicateKey(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("dup", HotkeySourceSystem, "first", nil, "", "", func() {})
 	err := r.Register("dup", HotkeySourceSystem, "second", nil, "", "", func() {})
@@ -34,7 +34,7 @@ func TestRegistry_RegisterRejectsDuplicateKey(t *testing.T) {
 }
 
 func TestRegistry_ListReturnsAll(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("a", HotkeySourceSystem, "A", nil, "", "", func() {})
 	_ = r.Register("b", HotkeySourceAction, "B", nil, "", "", func() {})
@@ -45,7 +45,7 @@ func TestRegistry_ListReturnsAll(t *testing.T) {
 }
 
 func TestRegistry_DebugDumpFormat(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("x", HotkeySourceSystem, "测试 X", nil, "", "", func() {})
 	dump := r.DebugDump()
@@ -55,7 +55,7 @@ func TestRegistry_DebugDumpFormat(t *testing.T) {
 }
 
 func TestRegistry_UpdateRejectsReserved(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("x", HotkeySourceAction, "X", nil, "", "", func() {})
 	err := r.Update("x", "Ctrl+C")
@@ -66,7 +66,7 @@ func TestRegistry_UpdateRejectsReserved(t *testing.T) {
 }
 
 func TestRegistry_UpdateRejectsConflict(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	// 用 F1 这种不冲突真 OS 注册的（mock manager 太复杂，跑真 OS register）
 	// 实际上 HotkeyManager.Register 会真注册 OS hotkey，单测可能影响系统。
@@ -85,7 +85,7 @@ func TestRegistry_UpdateRejectsConflict(t *testing.T) {
 }
 
 func TestRegistry_UpdateSelfNoConflict(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F2", "", func() {})
 	// 改自己当前值 noop
@@ -96,7 +96,7 @@ func TestRegistry_UpdateSelfNoConflict(t *testing.T) {
 }
 
 func TestRegistry_UpdateNormalizationDetectsConflict(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F3", "", func() {})
 	_ = r.Register("b", HotkeySourceAction, "B", nil, "", "", func() {})
@@ -110,7 +110,7 @@ func TestRegistry_UpdateNormalizationDetectsConflict(t *testing.T) {
 }
 
 func TestRegistry_ClearViaEmptyString(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F4", "", func() {})
 	if err := r.Update("a", ""); err != nil {
@@ -126,7 +126,7 @@ func TestRegistry_ClearViaEmptyString(t *testing.T) {
 }
 
 func TestRegistry_UnregisterRemovesEntry(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F5", "", func() {})
 	if err := r.Unregister("a"); err != nil {
@@ -138,7 +138,7 @@ func TestRegistry_UnregisterRemovesEntry(t *testing.T) {
 }
 
 func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	var gotID, gotStr string
 	r.SetCallbacks(
@@ -156,7 +156,7 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 }
 
 func TestUpdateContainerPersistsViaCallback(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 	var gotID, gotStr string
 	r.SetContainerHotkeyChange(func(containerID, newStr string) error {
@@ -174,7 +174,7 @@ func TestUpdateContainerPersistsViaCallback(t *testing.T) {
 }
 
 func TestRegistry_RegisterEditorBasic(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	err := r.RegisterEditor("editor.foo", "hotkeys.label.editor.foo", "Ctrl+Shift+Alt+F7", "hotkeys.readonly.editorBuiltin")
@@ -201,7 +201,7 @@ func TestRegistry_RegisterEditorBasic(t *testing.T) {
 }
 
 func TestRegistry_RegisterEditorSkipsOSBinding(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	if err := r.RegisterEditor("editor.bar", "hotkeys.label.editor.bar", "Ctrl+Shift+Alt+F8", "hotkeys.readonly.editorBuiltin"); err != nil {
@@ -217,7 +217,7 @@ func TestRegistry_RegisterEditorSkipsOSBinding(t *testing.T) {
 }
 
 func TestRegistry_RegisterEditorConflictKeepsEntryAsFailed(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	_ = r.Register("system.taken", HotkeySourceSystem, "占用", nil, "Ctrl+Shift+Alt+F9", "", func() {})
@@ -240,7 +240,7 @@ func TestRegistry_RegisterEditorConflictKeepsEntryAsFailed(t *testing.T) {
 }
 
 func TestRegisterLLHook(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F12", "")
@@ -270,7 +270,7 @@ func TestRegisterLLHook(t *testing.T) {
 }
 
 func TestRegisterLLHook_Rebind(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	if err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F12", ""); err != nil {
@@ -296,7 +296,7 @@ func TestRegisterLLHook_Rebind(t *testing.T) {
 }
 
 func TestRegisterLLHook_ConflictAcrossSource(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	_ = r.Register("system.execution-stop", HotkeySourceSystem, "停止", nil, "F9", "", func() {})
@@ -312,7 +312,7 @@ func TestRegisterLLHook_ConflictAcrossSource(t *testing.T) {
 }
 
 func TestResumeSkipsLLHook(t *testing.T) {
-	mgr := NewHotkeyManager()
+	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
 
 	if err := r.RegisterLLHook("recording.stop", HotkeySourceRecording, "hotkeys.label.recording.stop", "F12", ""); err != nil {

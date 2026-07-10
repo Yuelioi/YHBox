@@ -213,9 +213,9 @@ func (r *HotkeyRegistry) DebugDump() string {
 // Update hot reload：清空 / 改 mods+vk。
 //
 // 流程：
-//   1) Invalid/Reserved/Conflict 三种前置错误返 typed error，**不持久化**
-//   2) OS Register 失败：entry.Status=failed, LastError 填, 返 nil (不持久化)
-//   3) 成功：entry.Status=active/unbound, 调持久化 callback, emit
+//  1. Invalid/Reserved/Conflict 三种前置错误返 typed error，**不持久化**
+//  2. OS Register 失败：entry.Status=failed, LastError 填, 返 nil (不持久化)
+//  3. 成功：entry.Status=active/unbound, 调持久化 callback, emit
 func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

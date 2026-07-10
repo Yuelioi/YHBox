@@ -38,11 +38,14 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 	assertNoBannedImports(t, repoRoot, neutralRoots, banned, nil)
 }
 
-func TestRuntimeCoreDoesNotImportWin32Packages(t *testing.T) {
+func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
 	assertNoBannedImports(
 		t,
 		repositoryRoot(t),
-		[]string{"internal/services/container/runtime"},
+		[]string{
+			"internal/hotkey",
+			"internal/services/container/runtime",
+		},
 		[]string{
 			"github.com/lxn/win",
 			"golang.org/x/sys/windows",
