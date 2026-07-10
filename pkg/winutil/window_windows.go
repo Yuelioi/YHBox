@@ -18,7 +18,6 @@ import (
 	"unsafe"
 
 	"github.com/lxn/win"
-
 )
 
 var (
@@ -53,9 +52,9 @@ const (
 // BringToFront 把目标窗口拉到前台并恢复（如最小化）。Windows 限制：当前进程
 // 不持有 fg 锁时直接 SetForegroundWindow 会被忽略，这里用 AttachThreadInput 借
 // 当前前台线程的输入队列把限制绕过。失败返 false 不抛错——非关键路径。
-func BringToFront(hwnd win.HWND) bool {
+func BringToFront(hwnd uintptr) error {
 	if hwnd == 0 {
-		return false
+		return errors.New("hwnd 0")
 	}
 	// 最小化的话先 restore
 	iconic, _, _ := procIsIconic.Call(uintptr(hwnd))
@@ -76,7 +75,10 @@ func BringToFront(hwnd win.HWND) bool {
 		}
 	}()
 	ret, _, _ := procSetForegroundWindow.Call(uintptr(hwnd))
-	return ret != 0
+	if ret == 0 {
+		return errors.New("SetForegroundWindow rejected the request")
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

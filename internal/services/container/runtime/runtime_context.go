@@ -68,7 +68,7 @@ type RuntimeContext struct {
 
 	// borderless 进入前布局快照, RestoreBorders 取出还原; 按 hwnd 分条。
 	borderlessMu    sync.Mutex
-	borderlessSaved map[uintptr]any
+	borderlessSaved map[uintptr]nativeBorderlessState
 
 	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
 	ClipResolver   ClipResolver
@@ -261,21 +261,21 @@ func (rt *RuntimeContext) PopWindowOverride() {
 func (rt *RuntimeContext) SetActiveWindow(wh target.WindowHandle) {
 	rt.windowMu.Lock()
 	rt.window = wh
-	rt.target = windowHandleToTarget(wh)
+	rt.target = target.NewWin32WindowTarget(wh)
 	rt.windowMu.Unlock()
 	rt.invalidateFrameCacheFor(wh.HWND)
 }
 
-func (rt *RuntimeContext) saveBorderless(hwnd uintptr, state any) {
+func (rt *RuntimeContext) saveBorderless(hwnd uintptr, state nativeBorderlessState) {
 	rt.borderlessMu.Lock()
 	defer rt.borderlessMu.Unlock()
 	if rt.borderlessSaved == nil {
-		rt.borderlessSaved = map[uintptr]any{}
+		rt.borderlessSaved = map[uintptr]nativeBorderlessState{}
 	}
 	rt.borderlessSaved[hwnd] = state
 }
 
-func (rt *RuntimeContext) takeBorderless(hwnd uintptr) (any, bool) {
+func (rt *RuntimeContext) takeBorderless(hwnd uintptr) (nativeBorderlessState, bool) {
 	rt.borderlessMu.Lock()
 	defer rt.borderlessMu.Unlock()
 	s, ok := rt.borderlessSaved[hwnd]

@@ -9,7 +9,7 @@ import (
 	"github.com/yottaapp/yotta/pkg/platform"
 )
 
-func BringToFront(uintptr) bool { return false }
+func BringToFront(uintptr) error { return platform.NewUnsupportedError("bring native window to front") }
 
 func ResolveWindow(context.Context, MatchSpec, time.Duration, time.Duration) (WindowHandle, error) {
 	return WindowHandle{}, platform.NewUnsupportedError("native window resolution")

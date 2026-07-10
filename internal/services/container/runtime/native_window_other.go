@@ -10,6 +10,8 @@ import (
 	"github.com/yottaapp/yotta/pkg/platform"
 )
 
+type nativeBorderlessState struct{}
+
 var (
 	isWindowFn      = func(uintptr) bool { return false }
 	resolveWindowFn = func(context.Context, target.WindowMatchSpec, time.Duration, time.Duration) (target.WindowHandle, error) {
@@ -31,9 +33,9 @@ func moveResizeNativeWindow(uintptr, int, int, int, int) error {
 	return platform.NewUnsupportedError("move or resize native window")
 }
 func closeNativeWindow(uintptr) error { return platform.NewUnsupportedError("close native window") }
-func enterNativeBorderless(uintptr) (any, error) {
-	return nil, platform.NewUnsupportedError("borderless native window")
+func enterNativeBorderless(uintptr) (nativeBorderlessState, error) {
+	return nativeBorderlessState{}, platform.NewUnsupportedError("borderless native window")
 }
-func exitNativeBorderless(uintptr, any) error {
+func exitNativeBorderless(uintptr, nativeBorderlessState) error {
 	return platform.NewUnsupportedError("restore native window borders")
 }

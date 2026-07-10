@@ -24,7 +24,7 @@ func (rt *RuntimeContext) controllerForActiveTarget(source automationtrace.Actio
 		if wh.HWND == 0 {
 			return nil, ErrNoActiveWindow
 		}
-		tg = windowHandleToTarget(wh)
+		tg = target.NewWin32WindowTarget(wh)
 	}
 	rec := traceRecorderWithSource(rt.TraceRecorder(), source)
 	if tg.Kind == target.KindWin32Window {

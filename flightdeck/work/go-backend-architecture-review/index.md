@@ -62,6 +62,7 @@ Verified:
 - D 第二批双轴 review：Standards 无 finding；Spec 指出的 Windows mock invalid-HWND 语义回退与 `_windows.go` 命名未闭合均已修复，并补 Windows 回归测试及全仓旧路径检查。
 - D 第三批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；Linux/Darwin 的 nodes/input、nodes/io、pkg/input、pkg/platform 编译通过。
 - D 第四批后，Windows winutil/container/runtime 定向测试通过；Linux/Darwin 的 winutil/container/runtime 测试可交叉编译；架构守卫禁止 runtime core 重新直接 import Win32/winutil。
+- D 第四批双轴 review：Standards 3 项、Spec 2 项均已修复——恢复导出契约注释、borderless state 编译期类型、target 构造归属、BringToFront typed unsupported，并补齐 gofmt 与回归测试。
 
 ## Open questions
 

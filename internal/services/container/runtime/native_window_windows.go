@@ -4,12 +4,13 @@ package runtime
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
+
+type nativeBorderlessState = winutil.SavedWindow
 
 var (
 	isWindowFn      = winutil.IsWindow
@@ -27,21 +28,13 @@ func moveResizeNativeWindow(hwnd uintptr, x, y, w, h int) error {
 }
 func closeNativeWindow(hwnd uintptr) error { return winutil.CloseWindow(hwnd) }
 
-func enterNativeBorderless(hwnd uintptr) (any, error) {
+func enterNativeBorderless(hwnd uintptr) (nativeBorderlessState, error) {
 	return winutil.EnterBorderless(hwnd)
 }
 
-func exitNativeBorderless(hwnd uintptr, state any) error {
-	saved := winutil.SavedWindow{}
-	if state != nil {
-		var ok bool
-		saved, ok = state.(winutil.SavedWindow)
-		if !ok {
-			return fmt.Errorf("invalid borderless window state %T", state)
-		}
-		if winutil.WindowPID(hwnd) != saved.PID {
-			saved = winutil.SavedWindow{}
-		}
+func exitNativeBorderless(hwnd uintptr, saved nativeBorderlessState) error {
+	if winutil.WindowPID(hwnd) != saved.PID {
+		saved = winutil.SavedWindow{}
 	}
 	return winutil.ExitBorderless(hwnd, saved)
 }

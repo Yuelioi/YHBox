@@ -143,7 +143,7 @@ func (s *Service) ValidateTarget(containerID string) error {
 		return fmt.Errorf("窗口未找到: %w", err)
 	}
 	// 找到 → 拉到前台 (best-effort; 独占全屏 OS 可能拒绝, 不算失败).
-	winutil.BringToFront(win.HWND(wh.HWND))
+	_ = winutil.BringToFront(wh.HWND)
 	return nil
 }
 

@@ -22,3 +22,9 @@ func TestWindowControlReportsUnsupportedPlatform(t *testing.T) {
 		t.Fatalf("error = %v, want platform.ErrUnsupported", err)
 	}
 }
+
+func TestBringToFrontReportsUnsupportedPlatform(t *testing.T) {
+	if err := BringToFront(1); !errors.Is(err, platform.ErrUnsupported) {
+		t.Fatalf("error = %v, want platform.ErrUnsupported", err)
+	}
+}

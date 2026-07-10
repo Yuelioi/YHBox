@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"fmt"
-
 	"github.com/yottaapp/yotta/internal/automation/controller"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
@@ -72,19 +70,4 @@ func (a runtimeWin32Input) MoveTo(hwnd uintptr, xRatio, yRatio float64) error {
 
 func (a runtimeWin32Input) Scroll(hwnd uintptr, xRatio, yRatio float64, notches int, horizontal bool) error {
 	return a.backend.Scroll(pkginput.Handle(hwnd), xRatio, yRatio, notches, horizontal)
-}
-
-func windowHandleToTarget(wh target.WindowHandle) target.Target {
-	return target.Target{
-		ID:          fmt.Sprintf("win32:%d", wh.HWND),
-		Kind:        target.KindWin32Window,
-		DisplayName: wh.Title,
-		Ref:         target.TargetRef{HWND: wh.HWND},
-		Resolution:  target.Size{W: wh.ClientW, H: wh.ClientH},
-		Metadata: map[string]any{
-			"class":   wh.Class,
-			"process": wh.ProcessName,
-			"pid":     wh.PID,
-		},
-	}
 }

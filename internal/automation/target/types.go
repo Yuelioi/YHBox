@@ -68,11 +68,28 @@ type WindowHandle struct {
 	ClientH     int
 }
 
+// WindowMatchSpec selects a native window by title, class, and process name.
+// TitleMatch accepts "exact" or "regex".
 type WindowMatchSpec struct {
 	Title       string
 	Class       string
 	ProcessName string
 	TitleMatch  string
+}
+
+func NewWin32WindowTarget(window WindowHandle) Target {
+	return Target{
+		ID:          fmt.Sprintf("win32:%d", window.HWND),
+		Kind:        KindWin32Window,
+		DisplayName: window.Title,
+		Ref:         TargetRef{HWND: window.HWND},
+		Resolution:  Size{W: window.ClientW, H: window.ClientH},
+		Metadata: map[string]any{
+			"class":   window.Class,
+			"process": window.ProcessName,
+			"pid":     window.PID,
+		},
+	}
 }
 
 type Target struct {

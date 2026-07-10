@@ -8,14 +8,20 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
+// WindowHandle is retained as an adapter-facing alias of the target contract.
 type WindowHandle = target.WindowHandle
+
+// MatchSpec is retained as an adapter-facing alias of the target contract.
 type MatchSpec = target.WindowMatchSpec
 
 var (
-	ErrWindowNotFound     = errors.New("窗口未找到")
+	// ErrWindowNotFound lets callers classify an exhausted resolve timeout with errors.Is.
+	ErrWindowNotFound = errors.New("窗口未找到")
+	// ErrWindowStillPresent lets callers classify an exhausted wait timeout with errors.Is.
 	ErrWindowStillPresent = errors.New("窗口仍存在")
 )
 
+// IsEmptyMatch rejects selectors that are blank or effectively match every title.
 func IsEmptyMatch(spec MatchSpec) bool {
 	hasAny := spec.Title != "" || spec.Class != "" || spec.ProcessName != ""
 	if !hasAny {
@@ -28,6 +34,7 @@ func IsEmptyMatch(spec MatchSpec) bool {
 	return false
 }
 
+// CompileTitle compiles regex title selectors and is a no-op for exact matching.
 func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
 	if spec.TitleMatch != "regex" || spec.Title == "" {
 		return nil, nil
