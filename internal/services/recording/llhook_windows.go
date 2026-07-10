@@ -222,8 +222,8 @@ func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
 	return next
 }
 
-// SetActiveStopHotkey recorder.Start 时调一次, Stop 时调一次清零.
-func SetActiveStopHotkey(vk uint32, callback func()) {
+// setActiveStopHotkey recorder.Start 时调一次, Stop 时调一次清零.
+func setActiveStopHotkey(vk uint32, callback func()) {
 	atomic.StoreUint32(&activeStopHotkeyVK, vk)
 	if callback == nil {
 		activeStopCallback.Store(nil)
@@ -232,9 +232,9 @@ func SetActiveStopHotkey(vk uint32, callback func()) {
 	}
 }
 
-// SetActivePauseHotkey 暂停/继续切换热键. Start 时设, Stop 时清 (vk=0,nil).
+// setActivePauseHotkey 暂停/继续切换热键. Start 时设, Stop 时清 (vk=0,nil).
 // 复位 pauseKeyHeld 防上个 session 残留的"按住"态串到新 session.
-func SetActivePauseHotkey(vk uint32, callback func()) {
+func setActivePauseHotkey(vk uint32, callback func()) {
 	atomic.StoreUint32(&activePauseHotkeyVK, vk)
 	pauseKeyHeld.Store(false)
 	if callback == nil {

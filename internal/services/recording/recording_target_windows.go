@@ -15,6 +15,9 @@ func resolveRecordingWindow(spec target.WindowMatchSpec) (target.WindowHandle, e
 	if err != nil {
 		return target.WindowHandle{}, err
 	}
-	_ = winutil.BringToFront(window.HWND)
 	return window, nil
+}
+
+func bringRecordingWindowToFront(hwnd uintptr) error {
+	return winutil.BringToFront(hwnd)
 }

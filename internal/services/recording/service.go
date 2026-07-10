@@ -135,10 +135,11 @@ func (s *Service) ValidateTarget(containerID string) error {
 		return apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
-	_, err := resolveRecordingWindow(spec)
+	window, err := resolveRecordingWindow(spec)
 	if err != nil {
 		return fmt.Errorf("窗口未找到: %w", err)
 	}
+	_ = bringRecordingWindowToFront(window.HWND)
 	return nil
 }
 
@@ -213,7 +214,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		TempID:      id,
 		StartedAtMs: time.Now().UnixMilli(),
 	})
-	SetActiveStopHotkey(stopVK, func() {
+	setActiveStopHotkey(stopVK, func() {
 		s.StopAsync()
 	})
 	// 暂停/继续切换热键 (可选). 录制中按 → 暂停; 暂停中按 → emit resume-hotkey 让 HUD 走 3s 倒计时再继续.
@@ -222,7 +223,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		pauseVK = s.hkProv.GetPauseHotkeyVK()
 	}
 	if pauseVK != 0 {
-		SetActivePauseHotkey(pauseVK, func() {
+		setActivePauseHotkey(pauseVK, func() {
 			switch s.phase() {
 			case PhaseRecording:
 				_ = s.Pause()
@@ -309,8 +310,8 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 
 	res, err := s.rec.Stop()
 	// 不管成败都清停录 + 暂停热键, 避免悬挂 callback 引发误触
-	SetActiveStopHotkey(0, nil)
-	SetActivePauseHotkey(0, nil)
+	setActiveStopHotkey(0, nil)
+	setActivePauseHotkey(0, nil)
 	if err != nil {
 		// recorder 自己已不活跃 (理论上 phase 守卫挡住, 防御性): 当 no-op, 不抛伪错误.
 		if errors.Is(err, ErrRecorderNotActive) {

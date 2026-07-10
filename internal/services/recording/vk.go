@@ -1,8 +1,7 @@
-// vk.go：Win32 VK_* 常量 + modifier flag + VK → action.Step.Vk 字符串映射。
-//
-// 字符串名跟 actions/hotkey.go parseHotkeyString 接受的格式对齐。
-// 不支持的 VK 返空串，drain loop 直接跳过。
 package recording
+
+// This file defines the Win32 virtual-key and modifier mapping accepted by the
+// action hotkey parser. Unsupported keys map to an empty string and are skipped.
 
 import "fmt"
 

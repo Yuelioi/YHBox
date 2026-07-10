@@ -78,6 +78,8 @@ Verified:
 - D 第八批双轴 review：MousePos 改为 typed error contract 并让 HUD 显式呈现轮询/取色错误；capture 在检查 Wails app 前先判平台 capability；target tool router 统一传 canonical `target.Target`，删除 kind 字符串双权威与含混命名。
 - D 第八批 binding/frontend 验证：Wails 正式生成后 MousePos 仍为 `CancellablePromise<MousePosInfo>`，`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过；另记录 CLI `-dry` 默认 clean 会清空 gitignored bindings 的陷阱。
 - D 第九批后，Windows recording tests 通过，Linux/Darwin recording tests 成功交叉编译；架构守卫与 portable-core CI 已覆盖 recording，项目内非 main package 的 Win32 编译失败归零。
+- D 第九批双轴 review：恢复 HookEvent/StopResult 的时间、判别字段、坐标与持久 ID 契约；保持 Start 无前台激活副作用、ValidateTarget 独占前台预检；清理重复 package doc，并以共享 lifecycle interface 在编译期约束各平台 Recorder surface。
+- D 第九批复核后，全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、recording race 与 Linux/Darwin 交叉编译均通过；recording statement coverage 为 34.1%。
 
 ## Open questions
 

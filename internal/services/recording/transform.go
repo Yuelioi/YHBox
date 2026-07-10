@@ -1,14 +1,10 @@
-// transform.go: 简易录制事件流 → container.Subgraph 转换层.
-//
-// 简易录制 (filterMode='simple'): KeyDown/KeyUp 配对 → KeyPress, MouseBtnDown/Up
-// 同位置 → ClickAt (用 Down 时坐标), Scroll 1:1, 相邻 Step 间 idle > 阈值 → 插 Sleep.
-// 产物是带 RecordingContext (counts360 + 分辨率) 的线性 Subgraph.
-// 用户线性 ≠ 没并发, 但简易模式刻意只服务 "一次性动作" 的录制 → 不支持并发按键的精确还原,
-// 重复 KeyDown (auto-repeat) 直接丢. 想精确就走 precise.
-//
-// 精准录制 (filterMode='precise') 不在此处转换: service 层把已落盘的 InputClip 直接交给
-// 前端插一个裸 PlayClip 节点 (不再包子图). 见 service.go Stop().
 package recording
+
+// This file converts simple recording streams into container subgraphs.
+// Simple mode pairs key and mouse transitions into one-shot actions, preserves
+// scrolling, and inserts sleeps for idle gaps. It deliberately drops keyboard
+// auto-repeat and cannot exactly reproduce concurrent input; precise mode keeps
+// the InputClip event stream instead.
 
 import (
 	"fmt"

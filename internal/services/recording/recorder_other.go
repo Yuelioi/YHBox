@@ -3,35 +3,21 @@
 package recording
 
 import (
-	"sync"
-
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/pkg/platform"
 )
 
 // Recorder preserves the recording lifecycle interface on unsupported hosts.
-type Recorder struct {
-	mu                   sync.Mutex
-	active               bool
-	mouseCounts360Getter func() int
-}
+type Recorder struct{}
 
 // NewRecorder creates an inactive recorder adapter.
 func NewRecorder() *Recorder { return &Recorder{} }
 
-// SetMouseCounts360Getter stores the metadata provider for interface parity.
-func (r *Recorder) SetMouseCounts360Getter(getter func() int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.mouseCounts360Getter = getter
-}
+// SetMouseCounts360Getter is a no-op because this host cannot start recording.
+func (*Recorder) SetMouseCounts360Getter(func() int) {}
 
 // Active reports whether this adapter has an active recording.
-func (r *Recorder) Active() bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.active
-}
+func (*Recorder) Active() bool { return false }
 
 // Pause is an idempotent no-op without an active native recording.
 func (*Recorder) Pause() {}
@@ -50,6 +36,6 @@ func (*Recorder) Stop() (*StopResult, error) { return nil, ErrRecorderNotActive 
 // Cancel is an idempotent no-op without an active native recording.
 func (*Recorder) Cancel() {}
 
-func SetActiveStopHotkey(uint32, func()) {}
+func setActiveStopHotkey(uint32, func()) {}
 
-func SetActivePauseHotkey(uint32, func()) {}
+func setActivePauseHotkey(uint32, func()) {}

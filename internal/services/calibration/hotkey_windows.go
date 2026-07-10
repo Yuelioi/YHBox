@@ -1,14 +1,9 @@
-// hotkey_windows.go — 自治的单键全局热键 (Win32 LL keyboard hook).
-//
-// 为什么不走 hotkeyRegistry 的 OS RegisterHotKey: 游戏 reserve F8 这类系统热键, 切到
-// 游戏后 RegisterHotKey 收不到 (录制 F12 早因此弃用, 改 LL hook). 本 primitive 照搬
-// recording/llhook_windows.go 已验证的 LL-hook 模式, 但完全独立 — 单 VK / 实例, 不做 registry /
-// manager, 不并入录制 hook (最小 blast radius, 录制现路径不碰).
-//
-// 用法: NewHotkeyHook(vk, cb).Start() 装钩; Stop() 卸钩. 校准 session 开/关各调一次.
-// callback 在按下被命中那一刻**异步** (go cb()) 触发; autorepeat (按住高频重发 keydown)
-// 只在 down 跳变时 fire 一次. 命中键 down/up 都拦截 (return 1) 不透传游戏.
 package calibration
+
+// RegisterHotKey cannot reliably observe keys reserved by a foreground game,
+// so calibration owns an isolated single-key low-level hook. A session starts
+// and stops the hook once; callbacks run asynchronously, auto-repeat fires only
+// on the up-to-down transition, and matching key-down/key-up events are blocked.
 
 import (
 	"errors"
