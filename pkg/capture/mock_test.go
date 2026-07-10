@@ -104,11 +104,11 @@ func TestNewIBackendMockIsPortable(t *testing.T) {
 	if warning != "" {
 		t.Fatalf("warning = %q, want empty", warning)
 	}
-	width, height, err := backend.ClientSize(1)
+	frame, err := backend.Frame(0)
 	if err != nil {
-		t.Fatalf("ClientSize: %v", err)
+		t.Fatalf("Frame: %v", err)
 	}
-	if width != 32 || height != 24 {
-		t.Fatalf("size = %dx%d, want 32x24", width, height)
+	if width, height := frame.Bounds().Dx(), frame.Bounds().Dy(); width != 32 || height != 24 {
+		t.Fatalf("frame size = %dx%d, want 32x24", width, height)
 	}
 }

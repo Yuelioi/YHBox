@@ -183,7 +183,7 @@ func (s *SafeCaptureBackend) ClientSize(hwnd win.HWND) (int, int, error) {
 func (s *SafeCaptureBackend) Close() error { return s.inner.Close() }
 
 // isValidHwnd 等价 win.IsWindow, 但 lxn/win 没 export. 自己 syscall.
-// 同 pkg/capture/capture.go 的 isWindow helper 模式, 但 runtime 包独立避免循环 import.
+// 同 pkg/capture/capture_windows.go 的 isWindow helper 模式, 但 runtime 包独立避免循环 import.
 var (
 	safeUser32       = syscall.NewLazyDLL("user32.dll")
 	procIsWindowSafe = safeUser32.NewProc("IsWindow")

@@ -40,6 +40,9 @@ func (b *mockBackend) ClientSize(hwnd Handle) (int, int, error) {
 		// mock 没真窗口时返固定假尺寸 (跟 mock 文件预设对齐, 1920x1080 是默认录制基准)
 		return 1920, 1080, nil
 	}
+	if err := validateMockHandle(hwnd); err != nil {
+		return 0, 0, err
+	}
 	return mockClientSize(hwnd)
 }
 

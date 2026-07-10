@@ -35,7 +35,7 @@ Current:
 
 Done:
 
-- 批次 D（第二批）：新增统一 typed unsupported platform error；拆分 `pkg/input`/`pkg/capture` 公共 contract、Windows adapter 与非 Windows factory；mock capture 保持跨平台；Linux/Darwin dependency graph 无 `lxn/win`，CI 已加入三包原生测试。
+- 批次 D（第二批）：新增统一 typed unsupported platform error；拆分 `pkg/input`/`pkg/capture` 公共 contract、`_windows.go` adapter 与非 Windows factory；mock capture 保持跨平台；Linux/Darwin dependency graph 无 `lxn/win`，CI 已加入三包原生测试。
 - 批次 D（首批）：autostart/admin/console/shell 平台文件隔离；`pkg/platform` 三平台编译；新增 platform-neutral import 守卫测试。
 - 批次 B：新增 Windows quality/race 与 Linux/macOS portable-core CI；新增只读版本一致性脚本；release 改为校验 tag，不再临时修改源码，并补齐 Node/pnpm runner 环境。
 - 批次 C：module path 切换到 `github.com/yottaapp/yotta`；全量同步 Go import、前端 binding、CI、README 与知识链接；重新生成 Wails bindings，Go/前端验证全绿。
@@ -57,6 +57,7 @@ Verified:
 - module/path/platform 首批改动后，`go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、`go test -coverprofile=coverage.out ./...`、关键 package race、`task version:verify` 与 `git diff --check` 均通过；coverage profile 已清理且 `/coverage.out` 已加入 `.gitignore`。
 - `pnpm -C frontend typecheck` 与 67 个测试文件、527 个 Vitest 通过。
 - D 第二批后，Windows `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、受影响包 race/coverage 均通过；Linux/Darwin 的 input/capture/platform tests 可交叉编译且 dependency graph 无 Windows 包。
+- D 第二批双轴 review：Standards 无 finding；Spec 指出的 Windows mock invalid-HWND 语义回退与 `_windows.go` 命名未闭合均已修复，并补 Windows 回归测试及全仓旧路径检查。
 
 ## Open questions
 

@@ -64,3 +64,11 @@ func TestGDIBackend_ClientSize_InvalidHwnd(t *testing.T) {
 		t.Error("invalid hwnd ClientSize should err")
 	}
 }
+
+func TestMockBackend_ClientSize_InvalidHwnd(t *testing.T) {
+	backend := &mockBackend{}
+	_, _, err := backend.ClientSize(win.HWND(0xDEADBEEF))
+	if err == nil {
+		t.Fatal("invalid hwnd ClientSize should return an error on Windows")
+	}
+}

@@ -21,7 +21,7 @@ READ WHEN: 把 backend 带时长输入操作拆成节点层 down/up / 改 PostMe
 
 丢了两样：**(a) per-call FakeActivate**（`ensureActivated` 只首次 hwnd 翻一次），**(b) FakeActivate 后的 30ms `activateDelay`**。
 
-后果（按 `pkg/input/input.go` 头注释的原理）：`FakeActivate` 是 `SendMessage(WM_ACTIVATE)`，同步返回**不代表** Slate 已翻 `IsActive=true`——它通常下一 UE tick 才翻。紧接着 post 的**首个** WM_KEYDOWN 在 `IsActive` 仍 false 时被异环 IMC **静默丢弃** → 失焦/后台窗口的第一次 cast 不生效。强停 smoke 测的是「按住能不能断」，测不到「首击丢不丢」。
+后果（按 `pkg/input/input_windows.go` 头注释的原理）：`FakeActivate` 是 `SendMessage(WM_ACTIVATE)`，同步返回**不代表** Slate 已翻 `IsActive=true`——它通常下一 UE tick 才翻。紧接着 post 的**首个** WM_KEYDOWN 在 `IsActive` 仍 false 时被异环 IMC **静默丢弃** → 失焦/后台窗口的第一次 cast 不生效。强停 smoke 测的是「按住能不能断」，测不到「首击丢不丢」。
 
 **修法**：激活+settle 下沉到 backend 的 `ensureActivated`——首次激活后补 `time.Sleep(defaultActivateDelay)`（commit `32791d7`）。仅 per-hwnd 一次，所以分帧 `MoveTo`(60fps) 不会每帧 +30ms 卡死。
 **遗留 edge**：跑中被外部 refocus → OS 给游戏发 WA_INACTIVE → `IsActive` 翻 false，`ensureActivated`(once) 不会 re-activate → 后续输入又开始丢。当前靠 `BringForeground` 节点兜；要根治得 per-call 激活（但 per-call settle 会卡死分帧 MoveTo，需分场景）。
