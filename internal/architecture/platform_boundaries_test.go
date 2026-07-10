@@ -4,6 +4,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -73,6 +74,24 @@ func TestBackendServicesDoNotImportWails(t *testing.T) {
 	)
 }
 
+func TestRootWiringDoesNotImportWin32Packages(t *testing.T) {
+	repoRoot := repositoryRoot(t)
+	entries, err := os.ReadDir(repoRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_windows.go") {
+			continue
+		}
+		assertFileHasNoBannedImports(t, repoRoot, filepath.Join(repoRoot, name), []string{
+			"github.com/lxn/win",
+			"golang.org/x/sys/windows",
+		})
+	}
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	_, currentFile, _, ok := runtime.Caller(0)
@@ -96,26 +115,33 @@ func assertNoBannedImports(t *testing.T, repoRoot string, roots, banned []string
 			if skip != nil && skip(path) {
 				return nil
 			}
-			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
-			if err != nil {
-				return err
-			}
-			for _, spec := range file.Imports {
-				importPath, err := strconv.Unquote(spec.Path.Value)
-				if err != nil {
-					return err
-				}
-				for _, prefix := range banned {
-					if importPath == prefix || strings.HasPrefix(importPath, prefix+"/") {
-						rel, _ := filepath.Rel(repoRoot, path)
-						t.Errorf("platform-neutral file %s imports %s", filepath.ToSlash(rel), importPath)
-					}
-				}
-			}
+			assertFileHasNoBannedImports(t, repoRoot, path, banned)
 			return nil
 		})
 		if err != nil {
 			t.Fatalf("scan %s: %v", relativeRoot, err)
+		}
+	}
+}
+
+func assertFileHasNoBannedImports(t *testing.T, repoRoot, path string, banned []string) {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+	if err != nil {
+		t.Errorf("parse %s: %v", path, err)
+		return
+	}
+	for _, spec := range file.Imports {
+		importPath, err := strconv.Unquote(spec.Path.Value)
+		if err != nil {
+			t.Errorf("parse import in %s: %v", path, err)
+			continue
+		}
+		for _, prefix := range banned {
+			if importPath == prefix || strings.HasPrefix(importPath, prefix+"/") {
+				rel, _ := filepath.Rel(repoRoot, path)
+				t.Errorf("platform-neutral file %s imports %s", filepath.ToSlash(rel), importPath)
+			}
 		}
 	}
 }

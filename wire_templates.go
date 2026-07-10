@@ -8,8 +8,6 @@ import (
 	"image/png"
 	"time"
 
-	"github.com/lxn/win"
-
 	"github.com/yottaapp/yotta/internal/automation/controller"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/services/container"
@@ -43,7 +41,7 @@ func (t *templateCaptureAdapter) Capture(containerID, nodeID string) ([]byte, er
 	}
 	_ = warning // 制作工具单帧, fallback warning 不冒泡
 	defer backend.Close()
-	img, err := backend.Frame(win.HWND(wh.HWND))
+	img, err := backend.Frame(capture.Handle(wh.HWND))
 	if err != nil {
 		return nil, fmt.Errorf("capture: %w", err)
 	}

@@ -47,36 +47,21 @@ const (
 )
 
 var (
-	user32               = syscall.NewLazyDLL("user32.dll")
-	procPostMessageW     = user32.NewProc("PostMessageW")
-	procSendMessageW     = user32.NewProc("SendMessageW")
-	procGetCursorPos     = user32.NewProc("GetCursorPos")
-	procSetCursorPos     = user32.NewProc("SetCursorPos")
-	procClientToScreen   = user32.NewProc("ClientToScreen")
-	procScreenToClient   = user32.NewProc("ScreenToClient")
-	procGetClientRect    = user32.NewProc("GetClientRect")
-	procMapVirtualKeyW   = user32.NewProc("MapVirtualKeyW")
-	procSendInput        = user32.NewProc("SendInput")
-	procSetForegroundWnd = user32.NewProc("SetForegroundWindow")
-	procShowWindow       = user32.NewProc("ShowWindow")
-	procIsIconic         = user32.NewProc("IsIconic")
+	user32             = syscall.NewLazyDLL("user32.dll")
+	procPostMessageW   = user32.NewProc("PostMessageW")
+	procSendMessageW   = user32.NewProc("SendMessageW")
+	procGetCursorPos   = user32.NewProc("GetCursorPos")
+	procSetCursorPos   = user32.NewProc("SetCursorPos")
+	procClientToScreen = user32.NewProc("ClientToScreen")
+	procScreenToClient = user32.NewProc("ScreenToClient")
+	procGetClientRect  = user32.NewProc("GetClientRect")
+	procMapVirtualKeyW = user32.NewProc("MapVirtualKeyW")
+	procSendInput      = user32.NewProc("SendInput")
 )
 
 // rect 对应 Win32 RECT。
 type rect struct {
 	Left, Top, Right, Bottom int32
-}
-
-const swRestore = 9
-
-// BringToForeground 把窗口拽到前台 + 最小化时还原。返 true 表示 SetForegroundWindow OS 调用成功（r != 0）。
-func BringToForeground(hwnd win.HWND) bool {
-	r, _, _ := procIsIconic.Call(uintptr(hwnd))
-	if r != 0 {
-		procShowWindow.Call(uintptr(hwnd), swRestore)
-	}
-	r2, _, _ := procSetForegroundWnd.Call(uintptr(hwnd))
-	return r2 != 0
 }
 
 // SendInput INPUT 结构（amd64：type 4 + pad 4 + MOUSEINPUT 24 + tail pad = 40 bytes）。
