@@ -63,6 +63,16 @@ func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
 	)
 }
 
+func TestBackendServicesDoNotImportWails(t *testing.T) {
+	assertNoBannedImports(
+		t,
+		repositoryRoot(t),
+		[]string{"internal/services"},
+		[]string{"github.com/wailsapp/wails"},
+		nil,
+	)
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	_, currentFile, _, ok := runtime.Caller(0)

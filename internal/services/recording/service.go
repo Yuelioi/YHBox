@@ -107,7 +107,7 @@ func (s *Service) setState(st RecordingState) {
 	}
 }
 
-// SetEmit main.go 启动期注入. wails3 application.Event.Emit 包一层.
+// SetEmit main.go 启动期注入 presentation event transport.
 func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
 
 // SetSubgraphSaver main.go 启动期注入. nil = Stop 时报错 (录制没出口).

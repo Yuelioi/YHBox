@@ -25,6 +25,9 @@ type LogMerger struct {
 	writeFile   func(line string)
 	ticker      *time.Ticker
 	stop        chan struct{}
+	done        chan struct{}
+	closeOnce   sync.Once
+	closed      bool
 	idleTimeout time.Duration
 	now         func() time.Time
 }
@@ -35,6 +38,7 @@ func NewLogMerger(emit func(string, any), writeFile func(string)) *LogMerger {
 		emit:        emit,
 		writeFile:   writeFile,
 		stop:        make(chan struct{}),
+		done:        make(chan struct{}),
 		idleTimeout: logMergerIdleTimeout,
 		now:         time.Now,
 	}
@@ -48,6 +52,9 @@ func segKey(containerID, nodeID string) string { return containerID + "\x00" + n
 func (m *LogMerger) Add(containerID, nodeID, nodeKind, line, lineKey string, isError bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.closed {
+		return
+	}
 	k := segKey(containerID, nodeID)
 	cur := m.segs[k]
 	if isError {
@@ -91,6 +98,9 @@ func renderCount(line string, count int) string {
 func (m *LogMerger) FlushContainer(containerID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.closed {
+		return
+	}
 	prefix := containerID + "\x00"
 	for k, s := range m.segs {
 		if len(k) >= len(prefix) && k[:len(prefix)] == prefix {
@@ -99,9 +109,25 @@ func (m *LogMerger) FlushContainer(containerID string) {
 	}
 }
 
-func (m *LogMerger) Close() { close(m.stop); m.ticker.Stop() }
+// Close stops the background loop, finalizes every pending segment, and waits
+// until no merger goroutine can write again. It is safe to call repeatedly.
+func (m *LogMerger) Close() {
+	m.closeOnce.Do(func() {
+		m.ticker.Stop()
+		close(m.stop)
+		<-m.done
+
+		m.mu.Lock()
+		for key, segment := range m.segs {
+			m.finalizeLocked(key, segment)
+		}
+		m.closed = true
+		m.mu.Unlock()
+	})
+}
 
 func (m *LogMerger) loop() {
+	defer close(m.done)
 	for {
 		select {
 		case <-m.stop:

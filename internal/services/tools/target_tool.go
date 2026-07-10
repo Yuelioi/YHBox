@@ -3,10 +3,6 @@ package tools
 import (
 	"errors"
 	"fmt"
-	"net/url"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -88,35 +84,43 @@ func (androidTargetToolAdapter) PixelAt(PixelSampleRequest) (PixelInfo, error) {
 }
 
 func (s *Service) openScreenPickerWindow(req PickerRequest) error {
-	app := s.wailsApp()
-	if app == nil {
+	presenter := s.windowPresenter()
+	if presenter == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	s.mu.Lock()
-	if existing, ok := s.pickerWindows[req.RequestID]; ok {
-		s.mu.Unlock()
-		existing.Focus()
-		return nil
+	slot := s.pickerWindows[req.RequestID]
+	if slot == nil {
+		slot = &windowSlot{}
+		s.pickerWindows[req.RequestID] = slot
 	}
 	s.mu.Unlock()
 
-	hashURL := "/#/tools/screen-picker?mode=" + url.QueryEscape(req.Mode) + "&id=" + url.QueryEscape(req.RequestID) + "&containerID=" + url.QueryEscape(req.ContainerID) + "&nodeID=" + url.QueryEscape(req.NodeID) + "&colorSpace=" + url.QueryEscape(req.ColorSpace) + "&guid=" + url.QueryEscape(req.GUID)
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "选择屏幕位置",
-		Width:     1280,
-		Height:    800,
-		MinWidth:  720,
-		MinHeight: 480,
-		URL:       hashURL,
-		Frameless: true,
-	})
-	s.mu.Lock()
-	s.pickerWindows[req.RequestID] = w
-	s.mu.Unlock()
-	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+	w, opened, err := s.openWindow(presenter, slot, WindowRequest{
+		Kind:        WindowScreenPicker,
+		Mode:        req.Mode,
+		RequestID:   req.RequestID,
+		ContainerID: req.ContainerID,
+		NodeID:      req.NodeID,
+		ColorSpace:  req.ColorSpace,
+		GUID:        req.GUID,
+	}, func() {
 		s.mu.Lock()
-		delete(s.pickerWindows, req.RequestID)
+		if s.pickerWindows[req.RequestID] == slot {
+			delete(s.pickerWindows, req.RequestID)
+		}
 		s.mu.Unlock()
 	})
+	if err != nil {
+		s.mu.Lock()
+		if s.pickerWindows[req.RequestID] == slot && slot.window == nil && slot.opening == nil {
+			delete(s.pickerWindows, req.RequestID)
+		}
+		s.mu.Unlock()
+		return err
+	}
+	if !opened && w != nil {
+		w.Focus()
+	}
 	return nil
 }

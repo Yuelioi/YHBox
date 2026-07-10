@@ -2,12 +2,8 @@ package tools
 
 import (
 	"fmt"
-	"net/url"
 	"sync"
 	"time"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -28,34 +24,35 @@ type cachedWindow struct {
 	at time.Time
 }
 
-// Service wails3 RPC 入口。
+// Service is the tools RPC entry point.
 type Service struct {
-	resolver WindowResolver
+	resolver  WindowResolver
+	presenter Presenter
 
 	mu              sync.Mutex
 	winCache        map[string]cachedWindow // containerID → 解析结果 (2s TTL)
-	app             *application.App        // 后注入（wailsApp 创建后才有）
-	hud             *application.WebviewWindow
-	recordingHUD    *application.WebviewWindow
-	calibratorHUD   *application.WebviewWindow
-	launcher        *application.WebviewWindow
+	hud             windowSlot
+	recordingHUD    windowSlot
+	calibratorHUD   windowSlot
+	launcher        windowSlot
 	launcherVisible bool // 只反映本 feature 的 Show/Hide，不强保证跟 OS 同步
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
 	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
 	onCalibratorClose func()
-	// pickerWindows: requestID → window，方便复用（同 id 重开聚焦旧窗口）
-	pickerWindows map[string]*application.WebviewWindow
+	// pickerWindows: requestID → lifecycle slot，方便复用（同 id 重开聚焦旧窗口）
+	pickerWindows map[string]*windowSlot
 	targetTools   targetToolRouter
 	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
 	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWin32WindowTargetCapture 回退 F9。
 	captureHotkey func() (mods, vk uint32)
 }
 
-func NewService(resolver WindowResolver) *Service {
+func NewService(resolver WindowResolver, presenter Presenter) *Service {
 	s := &Service{
 		resolver:      resolver,
+		presenter:     presenter,
 		winCache:      map[string]cachedWindow{},
-		pickerWindows: map[string]*application.WebviewWindow{},
+		pickerWindows: map[string]*windowSlot{},
 	}
 	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindWin32Window: win32TargetToolAdapter{service: s},
@@ -94,13 +91,6 @@ func (s *Service) gameWindowFor(containerID, nodeID string) (target.WindowHandle
 	return wh, true
 }
 
-// SetApp main.go wailsApp 创建后注入。
-func (s *Service) SetApp(app *application.App) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.app = app
-}
-
 // SetCaptureHotkeyGetter main.go 注入「窗口捕获」键读取器（从 hotkey registry 读
 // tools.window-capture 当前绑定）。让捕获键统一走热键中心、可 rebind，不再硬编 F9。
 func (s *Service) SetCaptureHotkeyGetter(fn func() (mods, vk uint32)) {
@@ -109,10 +99,11 @@ func (s *Service) SetCaptureHotkeyGetter(fn func() (mods, vk uint32)) {
 	s.captureHotkey = fn
 }
 
-func (s *Service) wailsApp() *application.App {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.app
+func (s *Service) windowPresenter() Presenter {
+	if s.presenter == nil || !s.presenter.Ready() {
+		return nil
+	}
+	return s.presenter
 }
 
 // MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
@@ -149,37 +140,20 @@ func (s *Service) MousePos(containerID, nodeID string) (MousePosInfo, error) {
 
 // OpenMouseHUD 打开鼠标位置 HUD 小窗口 (按 containerID 解析目标窗口)。已开则 focus。
 func (s *Service) OpenMouseHUD(containerID string) error {
-	app := s.wailsApp()
-	if app == nil {
+	presenter := s.windowPresenter()
+	if presenter == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	s.mu.Lock()
-	if s.hud != nil {
-		s.mu.Unlock()
-		s.hud.Focus()
-		return nil
+	w, opened, err := s.openWindow(presenter, &s.hud, WindowRequest{
+		Kind:        WindowMouseHUD,
+		ContainerID: containerID,
+	}, nil)
+	if err != nil {
+		return err
 	}
-	s.mu.Unlock()
-	hashURL := "/#/tools/mouse-hud?containerID=" + url.QueryEscape(containerID)
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "鼠标位置",
-		Width:            320,
-		Height:           240,
-		MinWidth:         260,
-		MinHeight:        180,
-		URL:              hashURL,
-		Frameless:        true,
-		AlwaysOnTop:      true,
-		BackgroundColour: application.NewRGB(18, 18, 18),
-	})
-	s.mu.Lock()
-	s.hud = w
-	s.mu.Unlock()
-	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		s.mu.Lock()
-		s.hud = nil
-		s.mu.Unlock()
-	})
+	if !opened && w != nil {
+		w.Focus()
+	}
 	return nil
 }
 
@@ -187,84 +161,50 @@ func (s *Service) OpenMouseHUD(containerID string) error {
 // 内容: 标题栏(X) / 大号 REC 计时 + 模式 / 暂停·继续·停止按钮 + 热键 hint. 解决 "录制时切回 Yotta 不方便" 痛点.
 // 已开则 focus. 用户关闭窗口 / 录制结束都触发自动关.
 func (s *Service) OpenRecordingHUD() error {
-	app := s.wailsApp()
-	if app == nil {
+	presenter := s.windowPresenter()
+	if presenter == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	s.mu.Lock()
-	if s.recordingHUD != nil {
-		s.mu.Unlock()
-		s.recordingHUD.Focus()
-		return nil
+	w, opened, err := s.openWindow(presenter, &s.recordingHUD, WindowRequest{Kind: WindowRecordingHUD}, nil)
+	if err != nil {
+		return err
 	}
-	s.mu.Unlock()
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "录制控制",
-		Width:            360,
-		Height:           200,
-		URL:              "/#/tools/recording-hud",
-		Frameless:        true,
-		AlwaysOnTop:      true,
-		DisableResize:    true,
-		BackgroundColour: application.NewRGB(18, 18, 18),
-	})
-	s.mu.Lock()
-	s.recordingHUD = w
-	s.mu.Unlock()
-	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		s.mu.Lock()
-		s.recordingHUD = nil
-		s.mu.Unlock()
-	})
+	if !opened && w != nil {
+		w.Focus()
+	}
 	return nil
 }
 
 // OpenLauncher 打开（或显示+聚焦）悬浮窗启动器。frameless + AlwaysOnTop，仿 OpenRecordingHUD。
 // 入口按钮调；关闭按钮走 HideLauncher（隐藏不销毁）。
 func (s *Service) OpenLauncher() error {
-	app := s.wailsApp()
-	if app == nil {
+	presenter := s.windowPresenter()
+	if presenter == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	s.mu.Lock()
-	if s.launcher != nil {
-		w := s.launcher
-		s.launcherVisible = true
-		s.mu.Unlock()
-		w.Show()
-		w.Focus()
-		return nil
-	}
-	s.mu.Unlock()
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "启动器",
-		Width:            240,
-		Height:           300,
-		MinWidth:         140,
-		MinHeight:        56,
-		URL:              "/#/tools/launcher",
-		Frameless:        true,
-		AlwaysOnTop:      true,
-		BackgroundColour: application.NewRGB(18, 18, 18),
-	})
-	s.mu.Lock()
-	s.launcher = w
-	s.launcherVisible = true
-	s.mu.Unlock()
-	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+	w, opened, err := s.openWindow(presenter, &s.launcher, WindowRequest{Kind: WindowLauncher}, func() {
 		s.mu.Lock()
-		s.launcher = nil
 		s.launcherVisible = false
 		s.mu.Unlock()
 	})
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.launcherVisible = true
+	s.mu.Unlock()
+	if !opened && w != nil {
+		w.Show()
+		w.Focus()
+	}
 	return nil
 }
 
 // ToggleLauncher 呼出/隐藏（toggle 全局热键调）。可见 → 隐；否则 → 开/显示。
 func (s *Service) ToggleLauncher() error {
 	s.mu.Lock()
-	visible := s.launcherVisible && s.launcher != nil
-	w := s.launcher
+	visible := s.launcherVisible && s.launcher.window != nil
+	w := s.launcher.window
 	s.mu.Unlock()
 	if visible {
 		s.mu.Lock()
@@ -279,7 +219,7 @@ func (s *Service) ToggleLauncher() error {
 // HideLauncher 标题栏 × 按钮调（FE）：隐藏不销毁，状态保留。
 func (s *Service) HideLauncher() error {
 	s.mu.Lock()
-	w := s.launcher
+	w := s.launcher.window
 	s.launcherVisible = false
 	s.mu.Unlock()
 	if w != nil {
@@ -290,9 +230,7 @@ func (s *Service) HideLauncher() error {
 
 // SetLauncherAlwaysOnTop 图钉切换：运行时改启动器窗口置顶（默认开窗即置顶）。
 func (s *Service) SetLauncherAlwaysOnTop(on bool) error {
-	s.mu.Lock()
-	w := s.launcher
-	s.mu.Unlock()
+	w := s.currentWindow(&s.launcher)
 	if w != nil {
 		w.SetAlwaysOnTop(on)
 	}
@@ -301,9 +239,7 @@ func (s *Service) SetLauncherAlwaysOnTop(on bool) error {
 
 // SetLauncherSize 程序化设启动器窗口尺寸（前端按内容自适应高度 / 右下角手柄拖拽时调用）。
 func (s *Service) SetLauncherSize(width, height int) error {
-	s.mu.Lock()
-	w := s.launcher
-	s.mu.Unlock()
+	w := s.currentWindow(&s.launcher)
 	if w != nil && width > 0 && height > 0 {
 		w.SetSize(width, height)
 	}
@@ -326,53 +262,44 @@ func (s *Service) SetCalibratorCloseHandler(fn func()) {
 // 返 (opened, error) 而非纯 error: wails3 纯 error 方法经 FE invoke 后成功/失败都返 undefined,
 // 调用方无法区分 (见 incident wails-error-only-rpc-invoke-undefined)。
 func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
-	app := s.wailsApp()
-	if app == nil {
+	presenter := s.windowPresenter()
+	if presenter == nil {
 		return false, apperr.New(apperr.CodeWailsNotReady, nil)
 	}
-	s.mu.Lock()
-	if s.calibratorHUD != nil {
-		w := s.calibratorHUD
-		s.mu.Unlock()
-		w.Focus()
-		return true, nil
-	}
-	s.mu.Unlock()
-
-	hashURL := "/#/tools/calibration-hud?id=" + url.QueryEscape(requestID)
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "鼠标校准",
-		Width:            360,
-		Height:           220,
-		URL:              hashURL,
-		Frameless:        true,
-		AlwaysOnTop:      true,
-		DisableResize:    true,
-		BackgroundColour: application.NewRGB(18, 18, 18),
-	})
-	s.mu.Lock()
-	s.calibratorHUD = w
-	s.mu.Unlock()
-	w.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+	w, opened, err := s.openWindow(presenter, &s.calibratorHUD, WindowRequest{
+		Kind:      WindowCalibratorHUD,
+		RequestID: requestID,
+	}, func() {
 		s.mu.Lock()
-		s.calibratorHUD = nil
 		cb := s.onCalibratorClose
 		s.mu.Unlock()
 		if cb != nil {
-			cb() // 兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都走这)
+			cb()
 		}
 	})
+	if err != nil {
+		return false, err
+	}
+	if !opened && w != nil {
+		w.Focus()
+	}
+	if !opened && w == nil {
+		return false, nil
+	}
 	return true, nil
 }
 
 // CloseCalibratorHUD 前端校准完成/取消时调, 让后端关窗 (前端拿不到 self handle)。幂等。
 func (s *Service) CloseCalibratorHUD() error {
-	s.mu.Lock()
-	w := s.calibratorHUD
-	s.calibratorHUD = nil
-	s.mu.Unlock()
+	w := s.invalidateWindow(&s.calibratorHUD)
 	if w != nil {
 		w.Close()
+		s.mu.Lock()
+		cb := s.onCalibratorClose
+		s.mu.Unlock()
+		if cb != nil {
+			cb()
+		}
 	}
 	return nil
 }
@@ -380,10 +307,7 @@ func (s *Service) CloseCalibratorHUD() error {
 // CloseRecordingHUD 录制 service 停录时调, 主动关 HUD.
 // 已关或没开时 idempotent.
 func (s *Service) CloseRecordingHUD() {
-	s.mu.Lock()
-	w := s.recordingHUD
-	s.recordingHUD = nil
-	s.mu.Unlock()
+	w := s.invalidateWindow(&s.recordingHUD)
 	if w != nil {
 		w.Close()
 	}
@@ -426,15 +350,17 @@ func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSp
 // 让后端清理。
 func (s *Service) ClosePicker(requestID string) error {
 	s.mu.Lock()
-	w, ok := s.pickerWindows[requestID]
+	slot, ok := s.pickerWindows[requestID]
 	if ok {
 		delete(s.pickerWindows, requestID)
 	}
 	s.mu.Unlock()
-	if !ok || w == nil {
+	if !ok || slot == nil {
 		return nil
 	}
-	w.Close()
+	if w := s.invalidateWindow(slot); w != nil {
+		w.Close()
+	}
 	return nil
 }
 
@@ -466,12 +392,12 @@ func (s *Service) StartWin32WindowTargetCapture() (string, error) {
 	if vk == 0 {
 		mods, vk = 0, 0x78 // VK_F9 回退
 	}
-	app := s.wailsApp()
-	if app == nil {
+	presenter := s.windowPresenter()
+	if presenter == nil {
 		return "", apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	return startWin32WindowTargetCapture(mods, vk, func(name string, data any) {
-		app.Event.Emit(name, data)
+		presenter.Emit(name, data)
 	})
 }
 

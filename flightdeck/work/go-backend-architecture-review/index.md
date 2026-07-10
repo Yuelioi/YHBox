@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：把 tools/Wails presentation 从 backend module 拆出并处理 GUI 壳的平台入口；保持 portable-core 三平台门禁。
+继续批次 D：隔离 root GUI/main 宿主入口，并统一 Wails CLI/library 版本与 Linux CGO/WebKit 构建基线；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- Linux 非 main package 的项目内 Win32 失败已清零；当前剩余阻塞是 tools/GUI 壳依赖的 Wails alpha.91 `application` Linux 实现自身在 `CGO_ENABLED=0` 下编译失败。
+- backend services（含 tools）已无 Wails import，Linux/macOS portable core 可独立编译；当前剩余阻塞仅在 root GUI/main 宿主入口，其 Wails alpha.91 `application` Linux 实现要求 CGO/WebKit 构建环境。
 
 Done:
 
+- 批次 D（第十批）：App event transport 与 tools semantic window presenter 从 Wails 抽离；GUI options/policy 留在 executable adapter；统一 attempt/generation-aware window slot 消除并发 open/close 竞态；services/tools 进入 portable-core CI。
 - 批次 D（第九批）：recording event/stop contract 与 Win32 recorder/hook/raw-input adapter 分离；service 使用 canonical target contract；非 Windows recorder 返回 typed unsupported；Linux/macOS 进入 portable-core CI。
 - 批次 D（第八批）：tools 的 mouse/pixel/window-capture native 实现进入 `_windows.go`，非 Windows adapter 使用 typed unsupported；WindowResolver 改用 canonical target contract；tools 平台守卫已建立。
 - 批次 D（第七批）：calibration state 与 Win32 raw-input/hotkey adapter 分离；非 Windows service 返回统一 typed unsupported；Linux/macOS 进入 portable-core CI。
@@ -80,6 +81,10 @@ Verified:
 - D 第九批后，Windows recording tests 通过，Linux/Darwin recording tests 成功交叉编译；架构守卫与 portable-core CI 已覆盖 recording，项目内非 main package 的 Win32 编译失败归零。
 - D 第九批双轴 review：恢复 HookEvent/StopResult 的时间、判别字段、坐标与持久 ID 契约；保持 Start 无前台激活副作用、ValidateTarget 独占前台预检；清理重复 package doc，并以共享 lifecycle interface 在编译期约束各平台 Recorder surface。
 - D 第九批复核后，全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、recording race 与 Linux/Darwin 交叉编译均通过；recording statement coverage 为 34.1%。
+- D 第十批后，`internal/services` 与 `internal/services/tools` 在 Linux/Darwin、`CGO_ENABLED=0` 下成功编译，tools dependency graph 不再包含 Wails；架构守卫禁止整个 `internal/services` 重新 import Wails。
+- D 第十批双轴 review：修复窗口并发创建、Close 后排队 Open 重开、同批失败结果分裂、cleanup 重入死锁、打开中取消清理与旧代际 closing callback 清理新窗口的竞态；App presentation 生命周期改为 new/attached/closed 单向状态，emitter 与 LogMerger 原子发布；LogMerger shutdown 幂等 drain 并等待 worker；presentation port 使用具名 semantic window request，具体标题、路由、尺寸与材质策略归 executable adapter；最终 Standards/Spec 均无剩余 finding。
+- D 第十批 binding/frontend 验证：Wails bindings 生成后 RPC 方法从 124 收窄为 123，已知 warning 仍为 10；`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过。
+- D 第十批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...` 与 services/tools/architecture race 通过；tools 并发回归连续 100 次通过；Linux/Darwin 的 services/tools 交叉编译及 Wails-free dependency graph 检查通过。
 
 ## Open questions
 

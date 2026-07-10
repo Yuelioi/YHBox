@@ -1,5 +1,5 @@
 // Package services 是 wails3 service 层 + 共享基础设施。
-// 所有 service 通过 wails3 binding 暴露 RPC 给前端；事件用 application.Event.Emit 单向推送。
+// RPC service 通过 presentation binding 暴露给前端；事件经注入的 emitter 单向推送。
 package services
 
 // 事件名常量 —— 跟 frontend/src/constants/events.ts 一一对应。

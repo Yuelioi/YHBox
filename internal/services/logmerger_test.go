@@ -131,3 +131,16 @@ func TestLogMerger_ErrorLineNotCoalesced(t *testing.T) {
 		t.Fatalf("error lines must not coalesce, got %d", n)
 	}
 }
+
+func TestLogMerger_CloseDrainsPendingSegmentsAndIsIdempotent(t *testing.T) {
+	m, files, mu := newTestMerger()
+	m.Add("c", "n_a", "A", "A(n_a) out{v=1}", "out{v=1}", false)
+	m.Close()
+	m.Close()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(*files) != 1 || (*files)[0] != "A(n_a) out{v=1}" {
+		t.Fatalf("drained files = %#v", *files)
+	}
+}

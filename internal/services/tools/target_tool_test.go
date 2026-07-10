@@ -75,7 +75,7 @@ func TestAndroidTargetToolAdapter_PixelAtNotImplementedBoundary(t *testing.T) {
 }
 
 func TestAndroidTargetToolAdapter_OpenPickerUsesSharedPickerWindow(t *testing.T) {
-	err := androidTargetToolAdapter{service: NewService(nil)}.OpenPicker(PickerRequest{Mode: "rect", RequestID: "r1"})
+	err := androidTargetToolAdapter{service: NewService(nil, nil)}.OpenPicker(PickerRequest{Mode: "rect", RequestID: "r1"})
 	if errors.Is(err, ErrAndroidTargetPickerNotImplemented) {
 		t.Fatalf("OpenPicker returned android not implemented boundary")
 	}
@@ -86,7 +86,7 @@ func TestAndroidTargetToolAdapter_OpenPickerUsesSharedPickerWindow(t *testing.T)
 
 func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 	androidAdapter := &recordingPickerAdapter{}
-	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}})
+	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}}, nil)
 	svc.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindAndroidADB: androidAdapter,
 	})
@@ -106,7 +106,7 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 
 func TestServicePixelAt_ResolvesTargetKindAndRoutes(t *testing.T) {
 	androidAdapter := &recordingPickerAdapter{pixel: PixelInfo{OK: true, ClientX: 12}}
-	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}})
+	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}}, nil)
 	svc.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindAndroidADB: androidAdapter,
 	})

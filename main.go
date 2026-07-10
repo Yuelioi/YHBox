@@ -388,8 +388,9 @@ func main() {
 	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
-	// wailsApp 还没建，先建 Service 注册到 service 列表，下面 wailsApp 后再 SetApp 注入。
-	toolsSvc := tools.NewService(containerSvc)
+	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
+	toolsPresenter := &wailsToolsPresenter{}
+	toolsSvc := tools.NewService(containerSvc, toolsPresenter)
 	// 校准 HUD 窗关闭兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都覆盖, 不依赖前端正常关)。
 	toolsSvc.SetCalibratorCloseHandler(func() {
 		calibrationSvc.StopHotkeyWatch()
@@ -488,7 +489,9 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 	})
-	app.AttachWailsApp(wailsApp)
+	if err := app.AttachEmitter(func(name string, data any) { wailsApp.Event.Emit(name, data) }); err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("attach presentation emitter")
+	}
 
 	sgSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
@@ -501,8 +504,8 @@ func main() {
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
 	clipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
 
-	// tools 服务也是 wailsApp 创建后才能用（要开新窗口）
-	toolsSvc.SetApp(wailsApp)
+	// tools secondary windows/event delivery become ready with the GUI runtime.
+	toolsPresenter.Attach(wailsApp)
 
 	// 装配 LogSink emit（这样 logSink Write 触发 flush 时会推 log:lines 给前端）
 	logSink.SetEmit(func(e services.LogLinesEvent) {

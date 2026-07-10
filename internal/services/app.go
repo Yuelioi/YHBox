@@ -1,18 +1,20 @@
 package services
 
 import (
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// App 是顶层协调器（不暴露给 JS，不进 application.Options.Services）。
+// App 是顶层协调器（不暴露给 JS，不注册为 RPC service）。
 // 持有所有 service 共享的 mutex / Settings / LogSink。
 // service 通过反向引用 *App 拿这些共享资源。
 type App struct {
-	wailsApp *application.App
+	emitterMu        sync.RWMutex
+	emitter          func(name string, data any)
+	presentationLife presentationLifecycle
 
 	settingsPath string // exe 同目录的 settings.json；NewApp 决定，SaveSettings 用
 	settings     *Settings
@@ -22,15 +24,23 @@ type App struct {
 	rootLog   zerolog.Logger // app/service 层 logger
 	logMerger *LogMerger     // 把 raw container:node-dump 合并成 batch + 写 file
 
-	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 wails Event
-	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 200ms 累积一次, emit
+	// node-enter batch: state_FISHING 30ms tick × 多节点 ≈ 数百/sec, 每次走 presentation Event
+	// IPC + 前端 reactivity tick CPU 占大头. 改 batch: 1s 累积一次, emit
 	// container:node-enter-batch (payload = []{nodeId, nodeKind} 顺序). 前端取 last 1 个
 	// 作为 currentNode 覆盖, batch 内不丢任何 event (落 zerolog file 仍按个写不变, 这条是
-	// 给 GUI 高亮的, 不影响 post-mortem). IPC 频率 数百/sec → 5/sec.
+	// 给 GUI 高亮的, 不影响 post-mortem). IPC 频率 数百/sec → 1/sec.
 	nodeEnterMu    sync.Mutex
 	nodeEnterBuf   []nodeEnterEntry
 	nodeEnterTimer *time.Timer
 }
+
+type presentationLifecycle uint8
+
+const (
+	presentationNew presentationLifecycle = iota
+	presentationAttached
+	presentationClosed
+)
 
 type nodeEnterEntry struct {
 	NodeID   string `json:"nodeId"`
@@ -56,30 +66,51 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 	}
 }
 
-// AttachWailsApp main.go 创建完 application.App 后调，让 App 能 Emit。
-// 此处 wailsApp + logSink 均已就绪，顺便构造 logMerger（合并 raw node-dump → batch + 写 file）。
-func (a *App) AttachWailsApp(w *application.App) {
-	a.wailsApp = w
-	a.logMerger = NewLogMerger(
-		func(name string, data any) {
-			if a.wailsApp != nil {
-				a.wailsApp.Event.Emit(name, data)
+// AttachEmitter atomically connects the presentation event transport and the
+// node-dump merger. The transport is a single-assignment application resource.
+func (a *App) AttachEmitter(emit func(name string, data any)) error {
+	if emit == nil {
+		return errors.New("event emitter is nil")
+	}
+	merger := NewLogMerger(
+		emit,
+		func(line string) {
+			if a.logSink != nil {
+				a.logSink.AppendDumpLine(line)
 			}
 		},
-		func(line string) { a.logSink.AppendDumpLine(line) },
 	)
+	a.emitterMu.Lock()
+	if a.presentationLife != presentationNew {
+		a.emitterMu.Unlock()
+		merger.Close()
+		return errors.New("presentation transport is already attached or closed")
+	}
+	a.emitter = emit
+	a.logMerger = merger
+	a.presentationLife = presentationAttached
+	a.emitterMu.Unlock()
+	return nil
 }
 
-// Emit 包装 wailsApp.Event.Emit。a.wailsApp == nil 时（启动前）静默丢弃。
+func (a *App) presentationSnapshot() (func(string, any), *LogMerger) {
+	a.emitterMu.RLock()
+	defer a.emitterMu.RUnlock()
+	return a.emitter, a.logMerger
+}
+
+// Emit sends an application event through the attached presentation transport.
+// Before attachment events are dropped, matching the GUI startup contract.
 // container:* 事件镜像到 zerolog 方便 post-mortem; 但 container:node-enter 频率太高
 // (state_FISHING 30ms tick × 多节点 ≈ 数百/sec) 不镜像 file IO. node-enter 也不直接发 IPC,
-// 走 buf + 200ms 定时 flush 成 container:node-enter-batch (payload = list), 前端取 last 1 个
-// 作为 currentNode. IPC 数百/sec → 5/sec, 不丢 event.
+// 走 buf + 1s 定时 flush 成 container:node-enter-batch (payload = list), 前端取 last 1 个
+// 作为 currentNode. IPC 数百/sec → 1/sec, 不丢 event.
 func (a *App) Emit(name string, data any) {
 	if shouldMirrorToRootLog(name) {
 		a.rootLog.Info().Str("event", name).Interface("data", data).Msg("runtime event")
 	}
-	if a.wailsApp == nil {
+	emit, merger := a.presentationSnapshot()
+	if emit == nil {
 		return
 	}
 	switch name {
@@ -89,15 +120,15 @@ func (a *App) Emit(name string, data any) {
 	case "container:node-dump":
 		// raw per-execution dump — 喂 merger 合并, 不直接转发前端 (merger 发 batch).
 		m, _ := data.(map[string]any)
-		if m != nil && a.logMerger != nil {
-			a.logMerger.Add(str(m["containerId"]), str(m["nodeId"]), str(m["nodeKind"]), str(m["line"]), str(m["lineKey"]), boolOf(m["isError"]))
+		if m != nil && merger != nil {
+			merger.Add(str(m["containerId"]), str(m["nodeId"]), str(m["nodeKind"]), str(m["line"]), str(m["lineKey"]), boolOf(m["isError"]))
 		}
 		return
 	case "container:node-dump-flush":
 		// run 停止信号 — 让 merger 收尾该容器未刷的段, 不转发前端.
 		m, _ := data.(map[string]any)
-		if m != nil && a.logMerger != nil {
-			a.logMerger.FlushContainer(str(m["containerId"]))
+		if m != nil && merger != nil {
+			merger.FlushContainer(str(m["containerId"]))
 		}
 		return
 	case "container:action-trace":
@@ -105,7 +136,7 @@ func (a *App) Emit(name string, data any) {
 			a.logSink.AppendActionTrace(data)
 		}
 	}
-	a.wailsApp.Event.Emit(name, data)
+	emit(name, data)
 }
 
 func str(v any) string  { s, _ := v.(string); return s }
@@ -154,10 +185,11 @@ func (a *App) flushNodeEnter() {
 	a.nodeEnterBuf = nil
 	a.nodeEnterTimer = nil
 	a.nodeEnterMu.Unlock()
-	if len(batch) == 0 || a.wailsApp == nil {
+	emit, _ := a.presentationSnapshot()
+	if len(batch) == 0 || emit == nil {
 		return
 	}
-	a.wailsApp.Event.Emit("container:node-enter-batch", map[string]any{"entries": batch})
+	emit("container:node-enter-batch", map[string]any{"entries": batch})
 }
 
 // Settings 返回当前 settings 的指针快照。读多写少，加 RLock 即可。
@@ -220,6 +252,19 @@ func (a *App) RootLogger() zerolog.Logger { return a.rootLog }
 
 // Shutdown 集中退出钩子。挂在 wails3 window close 钩子上。
 func (a *App) Shutdown() {
+	a.emitterMu.Lock()
+	if a.presentationLife == presentationClosed {
+		a.emitterMu.Unlock()
+		return
+	}
+	a.presentationLife = presentationClosed
+	merger := a.logMerger
+	a.logMerger = nil
+	a.emitter = nil
+	a.emitterMu.Unlock()
+	if merger != nil {
+		merger.Close()
+	}
 	if a.logSink != nil {
 		a.logSink.Flush()
 	}

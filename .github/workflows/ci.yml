@@ -79,6 +79,7 @@ jobs:
           ./internal/services/container/runtime
           ./internal/services/execution
           ./internal/services/schedule
+          ./internal/services/tools
           ./internal/services/inputclip/runtime
           ./internal/hotkey
           ./pkg/winutil
@@ -112,6 +113,7 @@ jobs:
           ./internal/nodes/input
           ./internal/nodes/io
           ./internal/runclassify
+          ./internal/services
           ./internal/services/calibration
           ./internal/services/container
           ./internal/services/container/runtime
@@ -121,6 +123,7 @@ jobs:
           ./internal/services/mcpserver
           ./internal/services/nodeoptions
           ./internal/services/recording
+          ./internal/services/tools
           ./pkg/capture
           ./pkg/imageutil
           ./pkg/input

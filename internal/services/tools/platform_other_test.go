@@ -10,7 +10,7 @@ import (
 )
 
 func TestNativeToolsReportUnsupportedPlatform(t *testing.T) {
-	service := NewService(nil)
+	service := NewService(nil, nil)
 	if _, err := service.MousePos("", ""); !errors.Is(err, platform.ErrUnsupported) {
 		t.Fatalf("MousePos() error = %v, want platform.ErrUnsupported", err)
 	}
