@@ -2,14 +2,11 @@
 
 package services
 
-import (
-	"fmt"
-	"runtime"
-)
+import "github.com/yottaapp/yotta/pkg/platform"
 
 func ApplyAutostart(enabled bool) error {
 	if !enabled {
 		return nil
 	}
-	return fmt.Errorf("autostart is not supported on %s", runtime.GOOS)
+	return platform.NewUnsupportedError("autostart")
 }

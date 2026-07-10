@@ -22,8 +22,6 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
-
-	"github.com/lxn/win"
 )
 
 // 包级状态。Init 时一次性加载 mock 目录里所有 PNG 进 frames。Frame() 调用 advance
@@ -112,7 +110,7 @@ func readPNGAsRGBA(path string) (*image.RGBA, error) {
 }
 
 // mockFrame 取当前 cursor 指向的 frame 返回 deep copy（避免 caller 写 mutates 缓存）。
-func mockFrame(_ win.HWND) (*image.RGBA, error) {
+func mockFrame(_ Handle) (*image.RGBA, error) {
 	if err := initMock(); err != nil {
 		return nil, err
 	}
@@ -122,7 +120,7 @@ func mockFrame(_ win.HWND) (*image.RGBA, error) {
 }
 
 // mockFrameROI 取当前 frame 的指定区域返回 deep copy。
-func mockFrameROI(_ win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error) {
+func mockFrameROI(_ Handle, roiX, roiY, roiW, roiH int) (*image.RGBA, error) {
 	if err := initMock(); err != nil {
 		return nil, err
 	}
@@ -161,7 +159,7 @@ func cloneRGBA(src *image.RGBA) *image.RGBA {
 }
 
 // mockClientSize 给 ClientSize 调用用：返回第一帧的尺寸（mock 假设所有帧同分辨率）。
-func mockClientSize(_ win.HWND) (int, int, error) {
+func mockClientSize(_ Handle) (int, int, error) {
 	if err := initMock(); err != nil {
 		return 0, 0, err
 	}

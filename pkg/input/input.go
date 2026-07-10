@@ -1,3 +1,5 @@
+//go:build windows
+
 // Package input 后台键盘 / 鼠标控制。
 //
 // 关键 trick：
@@ -47,19 +49,19 @@ const (
 )
 
 var (
-	user32                = syscall.NewLazyDLL("user32.dll")
-	procPostMessageW      = user32.NewProc("PostMessageW")
-	procSendMessageW      = user32.NewProc("SendMessageW")
-	procGetCursorPos      = user32.NewProc("GetCursorPos")
-	procSetCursorPos      = user32.NewProc("SetCursorPos")
-	procClientToScreen    = user32.NewProc("ClientToScreen")
-	procScreenToClient    = user32.NewProc("ScreenToClient")
-	procGetClientRect     = user32.NewProc("GetClientRect")
-	procMapVirtualKeyW    = user32.NewProc("MapVirtualKeyW")
-	procSendInput         = user32.NewProc("SendInput")
-	procSetForegroundWnd  = user32.NewProc("SetForegroundWindow")
-	procShowWindow        = user32.NewProc("ShowWindow")
-	procIsIconic          = user32.NewProc("IsIconic")
+	user32               = syscall.NewLazyDLL("user32.dll")
+	procPostMessageW     = user32.NewProc("PostMessageW")
+	procSendMessageW     = user32.NewProc("SendMessageW")
+	procGetCursorPos     = user32.NewProc("GetCursorPos")
+	procSetCursorPos     = user32.NewProc("SetCursorPos")
+	procClientToScreen   = user32.NewProc("ClientToScreen")
+	procScreenToClient   = user32.NewProc("ScreenToClient")
+	procGetClientRect    = user32.NewProc("GetClientRect")
+	procMapVirtualKeyW   = user32.NewProc("MapVirtualKeyW")
+	procSendInput        = user32.NewProc("SendInput")
+	procSetForegroundWnd = user32.NewProc("SetForegroundWindow")
+	procShowWindow       = user32.NewProc("ShowWindow")
+	procIsIconic         = user32.NewProc("IsIconic")
 )
 
 // rect 对应 Win32 RECT。
@@ -272,7 +274,7 @@ func makeLParam(x, y int32) uintptr {
 //   - activateDelay: FakeActivate 后等 Slate 翻 IsActive 的时间
 //   - cursorSettle:  WM_MOUSEMOVE 入队后等 Slate 在它的 tick 处理 hover（≥ 16ms@60fps）
 //   - hold:          DOWN 到 UP 之间按住的时长（>0 给录制的长按蓄力技能用；
-//                    cook bot UI 按钮传 0 退化为紧贴 DOWN/UP）
+//     cook bot UI 按钮传 0 退化为紧贴 DOWN/UP）
 func Click(hwnd win.HWND, clientX, clientY int, hold, activateDelay, cursorSettle time.Duration) {
 	ClickButton(hwnd, clientX, clientY, MouseLeft, hold, activateDelay, cursorSettle)
 }

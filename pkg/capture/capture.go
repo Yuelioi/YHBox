@@ -1,3 +1,5 @@
+//go:build windows
+
 // GDI backend: 用 PrintWindow(PW_RENDERFULLCONTENT) 抓客户区帧。
 // gdi/wgc IBackend.ClientSize 走 winClientSize (纯 GetClientRect, 不经全局分发).
 package capture

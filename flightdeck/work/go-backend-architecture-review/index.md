@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；canonical repository/module identity 已最终确认为 `github.com/yottaapp/yotta`。批次 D 已建立平台依赖守卫，并完成 `pkg/platform` 的首批 Windows/非 Windows 隔离。
+升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；canonical repository/module identity 已最终确认为 `github.com/yottaapp/yotta`。批次 D 已建立平台依赖守卫，并完成 platform、input、capture 的宿主 OS seam。
 
 ## Next
 
-继续批次 D：先把 `pkg/input`、`pkg/capture` 的平台中立 contract 与 Windows 实现分离，再移除 container/runtime 对 `lxn/win`、旧 input/capture 与 winutil 的直接依赖。
+继续批次 D：移除 container/runtime 对 `lxn/win`、旧 input/capture bootstrap 与 winutil 的直接理解，让 Win32 能力只从 controller adapter 进入 runtime。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- 完整 Linux/Darwin build 的剩余链集中在 hotkey、input、capture、winutil、container/runtime、recording/tools 与 Wails GUI 壳。
+- 完整 Linux/Darwin build 的剩余链集中在 hotkey、winutil、container/runtime、recording/tools 与 Wails GUI 壳；input/capture package 自身已可跨平台编译测试。
 
 Done:
 
+- 批次 D（第二批）：新增统一 typed unsupported platform error；拆分 `pkg/input`/`pkg/capture` 公共 contract、Windows adapter 与非 Windows factory；mock capture 保持跨平台；Linux/Darwin dependency graph 无 `lxn/win`，CI 已加入三包原生测试。
 - 批次 D（首批）：autostart/admin/console/shell 平台文件隔离；`pkg/platform` 三平台编译；新增 platform-neutral import 守卫测试。
 - 批次 B：新增 Windows quality/race 与 Linux/macOS portable-core CI；新增只读版本一致性脚本；release 改为校验 tag，不再临时修改源码，并补齐 Node/pnpm runner 环境。
 - 批次 C：module path 切换到 `github.com/yottaapp/yotta`；全量同步 Go import、前端 binding、CI、README 与知识链接；重新生成 Wails bindings，Go/前端验证全绿。
@@ -55,6 +56,7 @@ Verified:
 - `go list -m` 返回 `github.com/yottaapp/yotta`；旧 owner 引用为 0；Wails bindings 只生成在新 module 目录。
 - module/path/platform 首批改动后，`go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、`go test -coverprofile=coverage.out ./...`、关键 package race、`task version:verify` 与 `git diff --check` 均通过；coverage profile 已清理且 `/coverage.out` 已加入 `.gitignore`。
 - `pnpm -C frontend typecheck` 与 67 个测试文件、527 个 Vitest 通过。
+- D 第二批后，Windows `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、受影响包 race/coverage 均通过；Linux/Darwin 的 input/capture/platform tests 可交叉编译且 dependency graph 无 Windows 包。
 
 ## Open questions
 

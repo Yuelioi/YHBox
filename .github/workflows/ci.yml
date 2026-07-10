@@ -111,7 +111,10 @@ jobs:
           ./internal/services/execution
           ./internal/services/expr
           ./internal/services/llm
+          ./pkg/capture
           ./pkg/imageutil
+          ./pkg/input
           ./pkg/locale
+          ./pkg/platform
           ./pkg/runctl
           ./pkg/vision

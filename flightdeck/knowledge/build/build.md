@@ -37,6 +37,7 @@ task version:verify
 ```
 
 对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS 当前先跑 platform-neutral core；完整 `go build ./...` 要在平台 seam 闭合后升级为门禁。
+`pkg/platform`、`pkg/input`、`pkg/capture` 已进入 Linux/macOS 原生测试矩阵；后两者的非 Windows dependency graph 不得重新出现 `lxn/win`。
 
 前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。
 

@@ -35,9 +35,11 @@ func writeTestPNG(t *testing.T, dir, name string, w, h int, c color.RGBA) {
 func resetMockState() {
 	mockFrames = nil
 	mockLoadErr = nil
+	mockInitErr = nil
 	mockCursorPkg.Store(0)
 	// 重置 sync.Once: 没法直接 reset Once，用替换 Once 实例的办法
 	mockOnce = newOnce()
+	mockInitOnce = newOnce()
 }
 
 // newOnce 是测试 helper 帮 reset sync.Once。
@@ -89,3 +91,24 @@ func TestMockEmptyDirFails(t *testing.T) {
 	}
 }
 
+func TestNewIBackendMockIsPortable(t *testing.T) {
+	dir := t.TempDir()
+	writeTestPNG(t, dir, "frame.png", 32, 24, color.RGBA{1, 2, 3, 255})
+	t.Setenv("YOTTA_MOCK_DIR", dir)
+	resetMockState()
+
+	backend, warning, err := NewIBackend("mock")
+	if err != nil {
+		t.Fatalf("NewIBackend(mock): %v", err)
+	}
+	if warning != "" {
+		t.Fatalf("warning = %q, want empty", warning)
+	}
+	width, height, err := backend.ClientSize(1)
+	if err != nil {
+		t.Fatalf("ClientSize: %v", err)
+	}
+	if width != 32 || height != 24 {
+		t.Fatalf("size = %dx%d, want 32x24", width, height)
+	}
+}
