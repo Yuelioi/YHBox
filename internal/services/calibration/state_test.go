@@ -3,12 +3,11 @@ package calibration
 import "testing"
 
 func TestResetClearsCalibrationSnapshot(t *testing.T) {
-	absDx.Store(12)
-	absDy.Store(34)
-	live.Store(true)
+	currentState.addRelative(12, 34)
+	currentState.setActive(true)
 	t.Cleanup(func() {
 		Reset()
-		live.Store(false)
+		currentState.setActive(false)
 	})
 
 	Reset()

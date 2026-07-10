@@ -1,12 +1,3 @@
-// Package calibration 鼠标 DPI 校准服务。
-//
-// 用途：跨设备共享脚本时，camera 类录制（MouseMoveRel）依赖鼠标硬件 DPI。
-// 让用户在游戏内原地转身 360°，本服务累积 Raw Input HID counts 得到「转 360°
-// 需要多少 dx」基准。录制时把基准存进 action 元数据，回放时按目标设备基准做
-// 比例缩放。
-//
-// 跟 recording 包独立：自己的 message-only 窗口 + 自己的 raw input registration。
-// Start/Stop 应该串行调（同一时刻只一个校准窗口）。
 package calibration
 
 import (
@@ -139,10 +130,10 @@ func Start() error {
 			close(done)
 			return
 		}
-		live.Store(true)
+		currentState.setActive(true)
 		ready <- nil
 		pumpMessages(hwnd)
-		live.Store(false)
+		currentState.setActive(false)
 		procDestroyWindow.Call(uintptr(hwnd))
 		close(done)
 	}()
@@ -190,10 +181,10 @@ func wndProc(hwnd, m, wParam, lParam uintptr) uintptr {
 				rm := (*rawmouse)(unsafe.Pointer(&buf[headerSize]))
 				if (rm.UsFlags & 1) == mouseMoveRelative {
 					if rm.LLastX != 0 {
-						absDx.Add(int64(absInt32(rm.LLastX)))
+						currentState.addRelative(int64(absInt32(rm.LLastX)), 0)
 					}
 					if rm.LLastY != 0 {
-						absDy.Add(int64(absInt32(rm.LLastY)))
+						currentState.addRelative(0, int64(absInt32(rm.LLastY)))
 					}
 				}
 			}

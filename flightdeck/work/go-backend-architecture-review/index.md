@@ -71,6 +71,7 @@ Verified:
 - D 第六批后，Windows hotkey test/race 通过，Linux/Darwin hotkey tests 成功交叉编译；架构守卫禁止 hotkey 非 Windows文件重新引入 Win32 packages。
 - D 第六批双轴 review：清理与内存 loop 相反的旧测试注释；另修复 rebuild 持锁等待 loop 时、同步 dispatcher 再取同一 mutex 可能形成的退出死锁，并增加 in-flight dispatch 回归测试。
 - D 第七批后，Windows calibration test/race 通过，Linux/Darwin calibration tests 成功交叉编译；架构守卫禁止 calibration 非 Windows 文件重新引入 Win32 packages。
+- D 第七批双轴 review：将 OS-thread helper 收入 `_windows.go`；统一跨平台 package doc；移除文件名实现旁白；把裸 atomics 收进单一 calibration state store，native adapter 只通过状态行为更新快照。
 
 ## Open questions
 
