@@ -56,9 +56,9 @@ func runStateSHOPSELL(t *testing.T, hits map[string]bool) (*spyInputBackend, *Ru
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{}
+	installTestWin32Capture(rt, &mockCaptureBackend{})
 	rt.SetVar("state", "SHOPSELL")
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)

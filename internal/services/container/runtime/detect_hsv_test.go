@@ -25,7 +25,7 @@ func TestDetectColorHSVTimeoutOnNoMatch(t *testing.T) {
 	}
 
 	rt, r := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 
 	node := &container.GraphNode{
 		ID:   "hsv2",

@@ -4,7 +4,7 @@
 // 给 ContainerRunner.execNode 通过 node.RunNode dispatch 真节点用.
 //
 // adapter: log / vars / param / stopwatch / input / window / capture / vision / clip.
-// 全部 hold *RuntimeContext (live 经 rt.ActiveHWND()/WindowHandle() 读当前活动窗口及 Input/Capture, setupRuntime 后才 populate).
+// 全部 hold *RuntimeContext，通过活动 target 的 controller live 读取输入与截图能力。
 package runtime
 
 import (
@@ -28,8 +28,6 @@ import (
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/expr"
 	clipruntime "github.com/yottaapp/yotta/internal/services/inputclip/runtime"
-	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
-	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/vision"
 )
 
@@ -276,18 +274,6 @@ type runtimeKeyboardController interface {
 	controller.KeyboardInput
 }
 
-func (a *inputAdapter) hwnd() (pkginput.Handle, error) {
-	h, err := a.rt.ActiveHWND()
-	return pkginput.Handle(h), err
-}
-
-func (a *inputAdapter) ensure() error {
-	if a.rt.Input == nil {
-		return fmt.Errorf("input backend not initialised (setupRuntime not run)")
-	}
-	return nil
-}
-
 func (a *inputAdapter) inputController() (controller.Controller, error) {
 	return a.rt.controllerForActiveTarget(a.traceSource, controllerNeed{Input: true})
 }
@@ -401,14 +387,25 @@ func (a *inputAdapter) MoveTo(xRatio, yRatio float64) error {
 }
 
 func (a *inputAdapter) CursorRatio() (float64, float64, error) {
-	if err := a.ensure(); err != nil {
-		return 0, 0, err
-	}
-	h, err := a.hwnd()
+	ctrl, err := a.inputController()
 	if err != nil {
 		return 0, 0, err
 	}
-	return a.rt.Input.CursorRatio(h)
+	if err := requireControllerCapability(ctrl, controller.CapabilityPointerPosition); err != nil {
+		return 0, 0, err
+	}
+	locator, ok := ctrl.(controller.PointerLocator)
+	if !ok {
+		return 0, 0, fmt.Errorf("active controller %T does not support pointer position", ctrl)
+	}
+	point, err := locator.PointerPosition(context.Background())
+	if err != nil {
+		return 0, 0, err
+	}
+	if point.Space != target.SpaceNormalized {
+		return 0, 0, fmt.Errorf("active controller %T returned pointer position in %s, want %s", ctrl, point.Space, target.SpaceNormalized)
+	}
+	return point.X, point.Y, nil
 }
 
 func (a *inputAdapter) Scroll(xRatio, yRatio float64, notches int, horizontal bool) error {
@@ -807,43 +804,45 @@ func (a *visionAdapter) scaleTolerance() float64 {
 }
 
 func (a *visionAdapter) captureFrame(ctx context.Context, cached bool, required bool) (*image.RGBA, error) {
-	tg, ok := a.rt.ActiveTarget()
-	if ok && tg.Kind != target.KindWin32Window {
-		ctrl, err := a.rt.controllerForActiveTarget(automationtrace.ActionSource{}, controllerNeed{Capture: true})
-		if err != nil {
-			return nil, err
-		}
-		screenshotter, ok := ctrl.(controller.Screenshotter)
-		if !ok {
-			return nil, fmt.Errorf("active controller %T does not support screenshots", ctrl)
-		}
-		if err := requireControllerCapability(ctrl, controller.CapabilityScreenshot); err != nil {
-			return nil, err
-		}
+	if _, ok := a.rt.ActiveTarget(); !ok && a.rt.WindowHandle().HWND == 0 && !required {
+		return nil, nil
+	}
+	ctrl, err := a.rt.controllerForActiveTarget(automationtrace.ActionSource{}, controllerNeed{Capture: true})
+	if err != nil {
+		return nil, err
+	}
+	screenshotter, ok := ctrl.(controller.Screenshotter)
+	if !ok {
+		return nil, fmt.Errorf("active controller %T does not support screenshots", ctrl)
+	}
+	if err := requireControllerCapability(ctrl, controller.CapabilityScreenshot); err != nil {
+		return nil, err
+	}
+	capture := func() (*image.RGBA, error) {
 		frame, err := screenshotter.Screenshot(ctx, controller.ScreenshotRequest{Space: target.SpaceCaptureFrame})
 		if err != nil {
 			return nil, err
 		}
-		if frame.Image == nil && required {
-			return nil, fmt.Errorf("capture: nil frame")
-		}
 		return frame.Image, nil
 	}
 
-	if a.rt.Capture == nil {
-		if required {
-			return nil, fmt.Errorf("capture backend not initialised")
+	var imageFrame *image.RGBA
+	if cached && ctrl.Target().Kind == target.KindWin32Window {
+		h, hwndErr := a.rt.ActiveHWND()
+		if hwndErr != nil {
+			return nil, hwndErr
 		}
-		return nil, nil
+		imageFrame, err = a.rt.captureFrameCached(h, capture)
+	} else {
+		imageFrame, err = capture()
 	}
-	h, err := a.rt.ActiveHWND()
 	if err != nil {
 		return nil, err
 	}
-	if cached {
-		return a.rt.CaptureFrameCached(h)
+	if imageFrame == nil && required {
+		return nil, fmt.Errorf("capture: nil frame")
 	}
-	return a.rt.Capture.Frame(pkgcapture.Handle(h))
+	return imageFrame, nil
 }
 
 func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {

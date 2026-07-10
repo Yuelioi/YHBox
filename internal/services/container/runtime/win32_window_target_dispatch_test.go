@@ -13,7 +13,7 @@ import (
 // TestWin32WindowTarget_RunIsCalledInDispatch: 验证 Start→Win32WindowTarget→Stop 执行时,
 // Win32WindowTarget.Run 真的被调——即 resolveWindowFn 被触发, rt.SetActiveWindow 改为 stub 值.
 //
-// 关键: setupRuntime 因 rt.HWND!=0 && rt.Input!=nil 跳过 (stubRuntimeWindowAndInput).
+// 关键: setupRuntime 因测试 controller provider 已注入而跳过 (stubRuntimeWindowAndInput).
 // Win32WindowTarget 在 execNode 路径中正常执行, 通过 windowAdapter.SetActive → resolveWindowFn
 // 把 rt 的 WindowHandle 更新为 stub 返回的 HWND=999.
 func TestWin32WindowTarget_RunIsCalledInDispatch(t *testing.T) {

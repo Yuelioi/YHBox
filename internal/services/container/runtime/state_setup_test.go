@@ -59,7 +59,7 @@ func runStateSETUP(t *testing.T, hits map[string]bool, postClickDelayMs float64)
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

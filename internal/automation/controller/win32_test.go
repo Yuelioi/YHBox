@@ -17,7 +17,7 @@ func TestWin32ControllerTargetAndCapabilities(t *testing.T) {
 		Ref:         target.TargetRef{HWND: 42},
 		Resolution:  target.Size{W: 1280, H: 720},
 	}
-	ctrl, err := NewWin32Controller(tg, Win32Deps{})
+	ctrl, err := NewWin32Controller(tg, Win32Deps{Input: &fakeWin32Input{}, Capture: fakeWin32Capture{}})
 	if err != nil {
 		t.Fatalf("NewWin32Controller() error = %v", err)
 	}
@@ -25,11 +25,21 @@ func TestWin32ControllerTargetAndCapabilities(t *testing.T) {
 		t.Fatalf("target id = %q, want %q", got.ID, tg.ID)
 	}
 	caps := ctrl.Capabilities(context.Background())
-	if !caps.Screenshot || !caps.Click || !caps.KeyState || !caps.Text {
+	if !caps.Screenshot || !caps.Click || !caps.PointerPosition || !caps.KeyState || !caps.Text {
 		t.Fatalf("unexpected caps: %#v", caps)
 	}
 	if caps.StartApp || caps.StopApp {
 		t.Fatalf("win32 phase1 should not expose app lifecycle: %#v", caps)
+	}
+}
+
+func TestWin32ControllerCapabilitiesReflectInjectedDependencies(t *testing.T) {
+	ctrl, err := NewWin32Controller(target.NewWin32WindowTarget(target.WindowHandle{HWND: 42}), Win32Deps{})
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	if caps := ctrl.Capabilities(context.Background()); caps.Screenshot || caps.Click || caps.PointerPosition {
+		t.Fatalf("capabilities should not advertise missing dependencies: %#v", caps)
 	}
 }
 
@@ -77,6 +87,31 @@ type fakeWin32Input struct {
 	moveRelDuration  int
 	text             string
 	err              error
+}
+
+func (f *fakeWin32Input) CursorRatio(uintptr) (float64, float64, error) {
+	return 0.25, 0.75, f.err
+}
+
+type fakeWin32Capture struct{}
+
+func (fakeWin32Capture) Frame(uintptr) (Frame, error) { return Frame{}, nil }
+
+func TestWin32ControllerPointerPosition(t *testing.T) {
+	ctrl, err := NewWin32Controller(
+		target.NewWin32WindowTarget(target.WindowHandle{HWND: 42}),
+		Win32Deps{Input: &fakeWin32Input{}},
+	)
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	point, err := ctrl.PointerPosition(context.Background())
+	if err != nil {
+		t.Fatalf("PointerPosition() error = %v", err)
+	}
+	if point != target.NewNormalizedPoint(0.25, 0.75) {
+		t.Fatalf("PointerPosition() = %#v, want normalized 0.25,0.75", point)
+	}
 }
 
 func (f *fakeWin32Input) Click(hwnd uintptr, xRatio, yRatio float64, button string, durMs int) error {

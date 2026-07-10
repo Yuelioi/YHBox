@@ -81,7 +81,7 @@ func runStateIDLE(t *testing.T, hits map[string]bool, baitProbeMs, castRemaining
 	rt.Subgraphs = []container.Subgraph{stateIDLE, pressEsc}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

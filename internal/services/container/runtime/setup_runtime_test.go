@@ -30,18 +30,15 @@ func TestSetupRuntime_BuildsBackendsWithoutResolvingWindow(t *testing.T) {
 	}
 
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
-	// 不预设 rt.Input / Window，让 setupRuntime 真正执行
+	// 不预设 controller provider / Window，让 setupRuntime 真正执行
 	r := NewContainerRunner(rt)
 
 	if err := r.setupRuntime(); err != nil {
 		t.Fatalf("setupRuntime: %v", err)
 	}
 
-	if rt.Input == nil {
-		t.Error("rt.Input 应已建立, 实际 nil")
-	}
-	if rt.Capture == nil {
-		t.Error("rt.Capture 应已建立, 实际 nil")
+	if rt.win32Controllers == nil {
+		t.Error("Win32 controller provider 应已建立, 实际 nil")
 	}
 	// 窗口由 Win32WindowTarget.Run 运行时解析，不在 setupRuntime 里解析
 	if hwnd := rt.WindowHandle().HWND; hwnd != 0 {
@@ -77,10 +74,7 @@ func TestSetupRuntime_AndroidTargetDoesNotBuildWin32Backends(t *testing.T) {
 	if err := r.setupRuntime(); err != nil {
 		t.Fatalf("setupRuntime: %v", err)
 	}
-	if rt.Input != nil {
-		t.Fatalf("Android target graph should not initialise Win32 input backend, got %T", rt.Input)
-	}
-	if rt.Capture != nil {
-		t.Fatalf("Android target graph should not initialise Win32 capture backend, got %T", rt.Capture)
+	if rt.win32Controllers != nil {
+		t.Fatalf("Android target graph should not initialise Win32 controller provider, got %T", rt.win32Controllers)
 	}
 }

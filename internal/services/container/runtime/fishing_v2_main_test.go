@@ -99,7 +99,7 @@ func TestFishingV2Main_StateCycleSmoke(t *testing.T) {
 	rt.Subgraphs = sgs
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: map[string]bool{"fishing.start_fish": true}}
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)

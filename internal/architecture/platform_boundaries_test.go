@@ -46,6 +46,8 @@ func TestRuntimeCoreDoesNotImportWin32Packages(t *testing.T) {
 		[]string{
 			"github.com/lxn/win",
 			"golang.org/x/sys/windows",
+			"github.com/yottaapp/yotta/pkg/capture",
+			"github.com/yottaapp/yotta/pkg/input",
 			"github.com/yottaapp/yotta/pkg/winutil",
 		},
 		func(path string) bool {

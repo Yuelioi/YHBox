@@ -58,9 +58,9 @@ func runStateRECOVERING(t *testing.T, hits map[string]bool, preEscDone bool) (*s
 	rt.Subgraphs = []container.Subgraph{stateRECOVERING, inspectPhase}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{}
+	installTestWin32Capture(rt, &mockCaptureBackend{})
 	rt.SetVar("recoveryEscDone", preEscDone)
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

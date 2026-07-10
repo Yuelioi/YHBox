@@ -77,6 +77,7 @@
 
 ### 1.2 收敛 automation controller
 
+- 状态：已完成 runtime 单一 controller 权威路径；后续新增 target 继续遵守 capability/factory seam。
 - 让输入、截图、窗口/应用操作通过 capability interface 获取。
 - 将 runtime 中并存的 `pkg/input.Backend` / `pkg/capture.IBackend` 与 controller 路径合并为单一权威路径。
 - Win32 实现在 Windows adapter 内；Android ADB、Browser CDP、Replay/Mock 保持独立 adapter。

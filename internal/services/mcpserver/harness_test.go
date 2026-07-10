@@ -5,68 +5,75 @@ import (
 	"image"
 	"testing"
 
-	"github.com/lxn/win"
-
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/container/runtime"
 	"github.com/yottaapp/yotta/internal/services/execution"
-	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
-	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
 
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
-// ---------------------------------------------------------------------------
-// Compile-time interface assertions
-// ---------------------------------------------------------------------------
-
-var _ pkginput.Backend = (*mockInput)(nil)
-var _ pkgcapture.IBackend = (*mockCapture)(nil)
-
-// ---------------------------------------------------------------------------
-// Mock backends (cross-package copies of runtime package's test mocks)
-// ---------------------------------------------------------------------------
-
-// mockCapture implements pkgcapture.IBackend
-type mockCapture struct{ frame *image.RGBA }
-
-func (m *mockCapture) Name() string { return "mock-test" }
-func (m *mockCapture) Frame(_ win.HWND) (*image.RGBA, error) {
-	return m.frame, nil
+type mockControllerFactory struct {
+	frame *image.RGBA
 }
-func (m *mockCapture) FrameROI(_ win.HWND, _, _, _, _ int) (*image.RGBA, error) {
-	if m.frame == nil {
-		return nil, image.ErrFormat
+
+func (f mockControllerFactory) NewController(tg target.Target, rec automationtrace.Recorder) (controller.Controller, error) {
+	return controller.NewWin32Controller(tg, controller.Win32Deps{
+		Input:   mockControllerInput{},
+		Capture: mockControllerCapture(f),
+		Trace:   rec,
+		Backend: "mock-test",
+	})
+}
+
+type mockControllerInput struct{}
+
+func (a mockControllerInput) Click(hwnd uintptr, x, y float64, button string, durationMs int) error {
+	return nil
+}
+func (a mockControllerInput) MouseDown(hwnd uintptr, x, y float64, button string) error {
+	return nil
+}
+func (a mockControllerInput) MouseUp(hwnd uintptr, button string) error {
+	return nil
+}
+func (a mockControllerInput) Drag(hwnd uintptr, x1, y1, x2, y2 float64, button string, durationMs int) error {
+	return nil
+}
+func (a mockControllerInput) MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error {
+	return nil
+}
+func (a mockControllerInput) KeyDown(hwnd uintptr, key string) error {
+	return nil
+}
+func (a mockControllerInput) KeyUp(hwnd uintptr, key string) error {
+	return nil
+}
+func (a mockControllerInput) TypeText(hwnd uintptr, value string) error {
+	return nil
+}
+func (a mockControllerInput) MoveTo(hwnd uintptr, x, y float64) error {
+	return nil
+}
+func (a mockControllerInput) Scroll(hwnd uintptr, x, y float64, notches int, horizontal bool) error {
+	return nil
+}
+func (a mockControllerInput) CursorRatio(hwnd uintptr) (float64, float64, error) {
+	return 0, 0, nil
+}
+
+type mockControllerCapture struct{ frame *image.RGBA }
+
+func (a mockControllerCapture) Frame(hwnd uintptr) (controller.Frame, error) {
+	size := target.Size{}
+	if a.frame != nil {
+		size = target.Size{W: a.frame.Bounds().Dx(), H: a.frame.Bounds().Dy()}
 	}
-	return m.frame, nil
+	return controller.Frame{Image: a.frame, Space: target.SpaceWindowClient, Size: size}, nil
 }
-func (m *mockCapture) ClientSize(_ win.HWND) (int, int, error) { return 1920, 1080, nil }
-func (m *mockCapture) Close() error                            { return nil }
-
-// mockInput implements pkginput.Backend
-type mockInput struct{ clicks int }
-
-func (f *mockInput) Name() string                        { return "fake" }
-func (f *mockInput) Capabilities() pkginput.Capabilities { return pkginput.Capabilities{} }
-func (f *mockInput) Click(_ win.HWND, _, _ float64, _ string, _ int) error {
-	f.clicks++
-	return nil
-}
-func (f *mockInput) KeyDown(win.HWND, string) error                     { return nil }
-func (f *mockInput) KeyUp(win.HWND, string) error                       { return nil }
-func (f *mockInput) MouseDown(win.HWND, float64, float64, string) error { return nil }
-func (f *mockInput) MouseUp(win.HWND, string) error                     { return nil }
-func (f *mockInput) MouseMoveRel(win.HWND, int, int, int) error         { return nil }
-func (f *mockInput) MoveTo(win.HWND, float64, float64) error            { return nil }
-func (f *mockInput) CursorRatio(win.HWND) (float64, float64, error)     { return 0, 0, nil }
-func (f *mockInput) Scroll(win.HWND, float64, float64, int, bool) error { return nil }
-func (f *mockInput) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
-	return nil
-}
-func (f *mockInput) TypeText(_ win.HWND, _ string) error { return nil }
-func (f *mockInput) ReleaseAll() error                   { return nil }
-func (f *mockInput) Close() error                        { return nil }
 
 // ---------------------------------------------------------------------------
 // Helper: build a RuntimeContext with mock backends injected
@@ -75,8 +82,7 @@ func (f *mockInput) Close() error                        { return nil }
 func newMockRT(c *container.Container) *runtime.RuntimeContext {
 	rt := runtime.NewRuntimeContext(c, execution.NewInputBus(), runtime.NoopMatcher{}, nil, nil, nil, 0)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
-	rt.Input = &mockInput{}
-	rt.Capture = &mockCapture{frame: image.NewRGBA(image.Rect(0, 0, 4, 4))}
+	rt.SetWin32ControllerFactory(mockControllerFactory{frame: image.NewRGBA(image.Rect(0, 0, 4, 4))})
 	return rt
 }
 

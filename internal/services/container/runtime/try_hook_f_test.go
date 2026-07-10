@@ -71,9 +71,9 @@ func runTryHookF(t *testing.T, pollIntervalMs float64, frame *image.RGBA) (*spyI
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	mock := &mockCaptureBackend{FrameROIResult: frame}
-	rt.Capture = mock
+	installTestWin32Capture(rt, mock)
 	r := NewContainerRunner(rt)
 	// 15s 而非 5s: Exhausted 路径真跑 30 casts × 每次 bar-track 超时 ≈ 5s, 贴着 5s deadline
 	// 在并行满载跑 `go test ./...` 时会偶发 deadline exceeded (假阳)。断言是「60 事件 + 没找到」,

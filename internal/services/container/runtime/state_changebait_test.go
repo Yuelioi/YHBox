@@ -56,9 +56,9 @@ func runStateCHANGEBAIT(t *testing.T, hits map[string]bool) (*spyInputBackend, *
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{}
+	installTestWin32Capture(rt, &mockCaptureBackend{})
 	rt.SetVar("state", "CHANGEBAIT")
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

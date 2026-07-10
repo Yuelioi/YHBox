@@ -36,7 +36,7 @@ func TestExecNodeViaFramework_InputTraceIncludesNodeSource(t *testing.T) {
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 42, Title: "After Effects", ClientW: 1920, ClientH: 1080})
-	rt.Input = &recordingRuntimeInput{}
+	installTestWin32Input(rt, &recordingRuntimeInput{})
 	r := NewContainerRunner(rt)
 
 	if _, err := r.execNodeViaFramework(context.Background(), r.nodesByID["click-1"], ExecToken{NodeID: "click-1", InPin: "In"}); err != nil {
@@ -77,7 +77,7 @@ func TestExecNodeViaFramework_InputTextTraceIncludesNodeSource(t *testing.T) {
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 84, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 	r := NewContainerRunner(rt)
 
 	if _, err := r.execNodeViaFramework(context.Background(), r.nodesByID["text-1"], ExecToken{NodeID: "text-1", InPin: "In"}); err != nil {
@@ -205,7 +205,7 @@ func TestExecNodeViaFramework_CaptureTraceIncludesNodeSource(t *testing.T) {
 	})
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	img.SetRGBA(0, 0, color.RGBA{R: 255, A: 255})
-	rt.Capture = fakeCapture{img: img}
+	installTestWin32Capture(rt, fakeCapture{img: img})
 
 	if _, err := runner.execNodeViaFramework(context.Background(), runner.nodesByID["capture-1"], ExecToken{NodeID: "capture-1", InPin: "In"}); err != nil {
 		t.Fatalf("execNodeViaFramework error = %v", err)
@@ -231,7 +231,7 @@ func newTraceSourceRuntime(t *testing.T, containerID string, graphNode container
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 84, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 	return rt, input, NewContainerRunner(rt)
 }
 

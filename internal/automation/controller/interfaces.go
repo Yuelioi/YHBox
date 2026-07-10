@@ -27,6 +27,13 @@ type PointerInput interface {
 	MoveRelative(context.Context, RelativeMoveRequest) error
 }
 
+// PointerLocator reports the current pointer position in the controller's
+// target coordinate space. Controllers that cannot query pointer state do not
+// implement this optional interface.
+type PointerLocator interface {
+	PointerPosition(context.Context) (target.Point, error)
+}
+
 type KeyboardInput interface {
 	KeyChord(context.Context, KeyChordRequest) error
 	KeyDown(context.Context, KeyRequest) error

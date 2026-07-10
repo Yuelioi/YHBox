@@ -129,7 +129,7 @@ func runInspectPhase(t *testing.T, hits map[string]bool, frame *image.RGBA) (*Ru
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{FrameROIResult: frame}
+	installTestWin32Capture(rt, &mockCaptureBackend{FrameROIResult: frame})
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

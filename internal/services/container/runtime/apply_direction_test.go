@@ -80,7 +80,7 @@ func runApplyDirection(t *testing.T, dirInput float64, preControlDir float64) ([
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.SetVar("controlDir", preControlDir)
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -181,7 +181,7 @@ func runApplyDirectionTwice(t *testing.T, d1, d2 float64) ([]string, float64) {
 	rt.Subgraphs = []container.Subgraph{sg}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	r := NewContainerRunner(rt)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

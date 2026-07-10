@@ -20,6 +20,7 @@ type Win32Input interface {
 	TypeText(hwnd uintptr, text string) error
 	MoveTo(hwnd uintptr, xRatio, yRatio float64) error
 	Scroll(hwnd uintptr, xRatio, yRatio float64, notches int, horizontal bool) error
+	CursorRatio(hwnd uintptr) (float64, float64, error)
 }
 
 type Win32Capture interface {
@@ -58,17 +59,19 @@ func (c *Win32Controller) Target() target.Target {
 }
 
 func (c *Win32Controller) Capabilities(context.Context) CapabilitySet {
+	hasInput := c.deps.Input != nil
 	return CapabilitySet{
-		Screenshot:   true,
-		Click:        true,
-		Move:         true,
-		Scroll:       true,
-		MouseButton:  true,
-		Drag:         true,
-		MoveRelative: true,
-		KeyChord:     true,
-		KeyState:     true,
-		Text:         true,
+		Screenshot:      c.deps.Capture != nil,
+		Click:           hasInput,
+		Move:            hasInput,
+		Scroll:          hasInput,
+		MouseButton:     hasInput,
+		Drag:            hasInput,
+		MoveRelative:    hasInput,
+		PointerPosition: hasInput,
+		KeyChord:        hasInput,
+		KeyState:        hasInput,
+		Text:            hasInput,
 	}
 }
 
@@ -187,6 +190,20 @@ func (c *Win32Controller) Move(ctx context.Context, req MoveRequest) error {
 		}
 		return c.deps.Input.MoveTo(c.hwnd(), req.Point.X, req.Point.Y)
 	})
+}
+
+func (c *Win32Controller) PointerPosition(ctx context.Context) (target.Point, error) {
+	if err := ctx.Err(); err != nil {
+		return target.Point{}, err
+	}
+	if c.deps.Input == nil {
+		return target.Point{}, fmt.Errorf("win32 input dependency is nil")
+	}
+	x, y, err := c.deps.Input.CursorRatio(c.hwnd())
+	if err != nil {
+		return target.Point{}, err
+	}
+	return target.NewNormalizedPoint(x, y), nil
 }
 
 func (c *Win32Controller) Scroll(ctx context.Context, req ScrollRequest) error {

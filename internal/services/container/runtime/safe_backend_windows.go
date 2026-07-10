@@ -1,3 +1,5 @@
+//go:build windows
+
 package runtime
 
 import (
@@ -8,8 +10,8 @@ import (
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
-// SafeInputBackend wraps pkginput.Backend, 集中 invalid-hwnd warn-once + emit.
-// 新节点直接调 rt.Input.Click(...) 无需知道 SafeBackend 存在, warn 模板也不重复.
+// SafeInputBackend wraps pkginput.Backend, 集中 invalid-hwnd warn-once + emit。
+// 它只由 Win32 controller provider 持有，运行时核心不直接依赖旧后端。
 type SafeInputBackend struct {
 	inner  pkginput.Backend
 	rt     *RuntimeContext

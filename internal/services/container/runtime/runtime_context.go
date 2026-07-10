@@ -20,8 +20,6 @@ import (
 	"github.com/yottaapp/yotta/internal/services/expr"
 	"github.com/yottaapp/yotta/internal/services/inputclip/backends"
 	clipruntime "github.com/yottaapp/yotta/internal/services/inputclip/runtime"
-	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
-	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 // frameCacheTTL: 同 hwnd 100ms 内复用一帧. 100ms 是 fishing v2 主循环 Sleep 下限,
@@ -34,8 +32,8 @@ const frameCacheTTL = 100 * time.Millisecond
 //   - templateMatcher 注入：Wait/Check/ClickTemplate 用
 //   - emit 注入：Log/Toast 节点把消息推到前端
 //
-// Input / Window / Capture 由 ContainerRunner.setupRuntime 在 Run 启动期间解析
-// Win32WindowTarget 节点后 populate. Game 字段供 BringWindowForeground 节点用.
+// Win32 controller provider 由 ContainerRunner.setupRuntime 在 Run 启动期间解析，
+// Win32WindowTarget 节点后 populate 活动目标. Game 字段供 BringWindowForeground 节点用.
 type RuntimeContext struct {
 	Container *container.Container
 	// Subgraphs 起跑时从全局池解析出的引用闭包快照 (2026-06-12 全局化 — 容器不再拥有子图).
@@ -44,11 +42,10 @@ type RuntimeContext struct {
 	Subgraphs []container.Subgraph
 	InputBus  *execution.InputBus
 	Matcher   TemplateMatcher
-	Input     pkginput.Backend // per-container 实例, setupRuntime 注入
 	Game      GameProvider
 	Emit      func(name string, data any)
 
-	Capture pkgcapture.IBackend // per-container 实例, setupRuntime 注入
+	win32Controllers win32ControllerProvider
 
 	traceMu       sync.Mutex
 	traceRecorder *automationtrace.MemoryRecorder
@@ -77,6 +74,7 @@ type RuntimeContext struct {
 	ClipPolicy     clipruntime.PlaybackPolicy
 
 	ControllerFactory RuntimeControllerFactory
+	win32Factory      RuntimeControllerFactory
 
 	mu     sync.Mutex
 	vars   map[string]expr.Value
@@ -85,6 +83,12 @@ type RuntimeContext struct {
 	// varTimestamps: name → unix ms 上次 SetVar/IncVar 改写时间. Fishing v2 watchdog
 	// 通过 VarLastChange 节点查 state 多久没变. live 读 (不进 snapshot).
 	varTimestamps map[string]int64
+}
+
+// SetWin32ControllerFactory overrides native Win32 controller construction.
+// It is intended for embedders and tests that already own a controller stack.
+func (rt *RuntimeContext) SetWin32ControllerFactory(factory RuntimeControllerFactory) {
+	rt.win32Factory = factory
 }
 
 func NewRuntimeContext(
@@ -333,12 +337,12 @@ func (rt *RuntimeContext) invalidateFrameCacheFor(hwnd uintptr) {
 	}
 }
 
-// CaptureFrameCached 走 rt.Capture 抓帧, 100ms TTL 缓存 (按 hwnd 分条). 仅模板匹配 + DetectColor 用.
-func (rt *RuntimeContext) CaptureFrameCached(hwnd uintptr) (*image.RGBA, error) {
+// captureFrameCached 通过调用方提供的 controller 截图函数抓帧，按 HWND 缓存 100ms。
+func (rt *RuntimeContext) captureFrameCached(hwnd uintptr, capture func() (*image.RGBA, error)) (*image.RGBA, error) {
 	if f := rt.peekFrameCache(hwnd); f != nil {
 		return f, nil
 	}
-	f, err := rt.Capture.Frame(pkgcapture.Handle(hwnd))
+	f, err := capture()
 	if err != nil {
 		return nil, err
 	}

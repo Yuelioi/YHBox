@@ -23,7 +23,7 @@ func TestFindColorSignature_FoundViaRealAdapter(t *testing.T) {
 	}
 
 	rt, _ := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 
 	// 直接通过真实 visionAdapter 调用 FindColorSignature。
 	va := NewVisionAdapter(rt)
@@ -58,7 +58,7 @@ func TestFindColorSignature_NotFoundViaRealAdapter(t *testing.T) {
 	}
 
 	rt, _ := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 
 	va := NewVisionAdapter(rt)
 	sig := node.ColorSignature{

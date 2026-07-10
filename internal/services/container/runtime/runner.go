@@ -14,8 +14,6 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip/backends"
-	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
-	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 // LoopFrame Loop body 期间的"我在哪个 Loop 里"上下文。Break/Continue 跳目标。
@@ -709,30 +707,16 @@ func configString(node *container.GraphNode, key string) string {
 // runtime bootstrap: setupRuntime / teardownRuntime / Win32 backend bootstrap.
 // ----------------------------------------------------------------------------
 
-// setupRuntime 按容器级配置建 Win32 input/capture backend → populate rt.
+// setupRuntime 按容器级配置建 Win32 controller provider → populate rt.
 // 不在启动期解析窗口 — 窗口由 Win32WindowTarget.Run 运行时解析 (SetActive).
 // Android/Browser-only target graph 不需要 Win32 backend, controller factory 会按 active target 构造。
-// 幂等: 测试预设过 (fixture 注入 window + input) 就跳过.
+// 幂等: 测试预设过 controller provider 就跳过.
 func (r *ContainerRunner) setupRuntime() error {
-	// 测试预设过 (fixture 注入 window + input) 就跳过.
-	if r.rt.WindowHandle().HWND != 0 && r.rt.Input != nil {
+	if r.rt.win32Controllers != nil || r.rt.win32Factory != nil {
 		return nil
 	}
 	if !containerNeedsWin32Backends(r.rt.Container, r.rt.Subgraphs) {
 		return nil
-	}
-
-	// 后端按容器级配置建 (hwnd 按调用传参, 无窗口也能先建). 窗口由 Win32WindowTarget.Run 运行时解析.
-	inputName := r.rt.Container.InputBackend
-	if inputName == "" {
-		inputName = "postmessage"
-	}
-	rawInput, err := pkginput.NewBackend(inputName)
-	if err != nil {
-		return fmt.Errorf("input backend %q: %w", inputName, err)
-	}
-	if r.rt.Input == nil {
-		r.rt.Input = NewSafeInputBackend(rawInput, r.rt)
 	}
 
 	if r.rt.InputBackend == nil {
@@ -742,34 +726,19 @@ func (r *ContainerRunner) setupRuntime() error {
 		})
 	}
 
-	captureName := r.rt.Container.CaptureBackend
-	if captureName == "" {
-		captureName = "auto"
-	}
-	rawCapture, captureWarning, err := pkgcapture.NewIBackend(captureName)
+	provider, err := newWin32ControllerProvider(r.rt)
 	if err != nil {
-		return fmt.Errorf("capture backend %q: %w", captureName, err)
+		return err
 	}
-	if captureWarning != "" && r.rt.Emit != nil {
-		r.rt.Emit("container:warning", map[string]any{"message": captureWarning})
-	}
-	if r.rt.Capture == nil {
-		r.rt.Capture = NewSafeCaptureBackend(rawCapture, r.rt)
-	}
+	r.rt.win32Controllers = provider
 	return nil
 }
 
-// teardownRuntime LIFO 关闭. 按 ReleaseAll → Input.Close → Capture.Close 序退出.
-// (defer 内的 defer 也是 LIFO 弹出, 写顺序反着即可)
+// teardownRuntime 关闭 Win32 controller provider，由 provider 维护后端释放顺序。
 func (r *ContainerRunner) teardownRuntime() {
-	// 写序: Capture.Close → Input.Close → ReleaseAll
-	// LIFO 执行序: ReleaseAll → Input.Close → Capture.Close (符合契约)
-	if r.rt.Capture != nil {
-		defer r.rt.Capture.Close()
-	}
-	if r.rt.Input != nil {
-		defer r.rt.Input.Close()
-		defer r.rt.Input.ReleaseAll()
+	if r.rt.win32Controllers != nil {
+		_ = r.rt.win32Controllers.Close()
+		r.rt.win32Controllers = nil
 	}
 }
 

@@ -21,7 +21,7 @@ func TestVisionAdapter_GridSignature_FullFrame(t *testing.T) {
 	}
 
 	rt, _ := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 	a := NewVisionAdapter(rt)
 
 	// Geometry 零值 → fullFrame=true → cropFrameByGeometry 直接返原帧.
@@ -52,7 +52,7 @@ func TestVisionAdapter_GridSignature_PctROI(t *testing.T) {
 	}
 
 	rt, _ := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 	a := NewVisionAdapter(rt)
 
 	// ROI = 左半帧 (x=0,y=0,w=0.5,h=1.0) → 4×8 全红子区.

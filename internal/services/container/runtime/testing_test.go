@@ -1,15 +1,133 @@
 package runtime
 
 import (
+	"fmt"
 	"image"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/execution"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
+
+type testWin32ControllerProvider struct {
+	input   pkginput.Backend
+	capture pkgcapture.IBackend
+}
+
+func installTestWin32Input(rt *RuntimeContext, input pkginput.Backend) {
+	p := testWin32Provider(rt)
+	p.input = input
+}
+
+func installTestWin32Capture(rt *RuntimeContext, capture pkgcapture.IBackend) {
+	p := testWin32Provider(rt)
+	p.capture = capture
+}
+
+func installedTestWin32Capture(rt *RuntimeContext) pkgcapture.IBackend {
+	p, ok := rt.win32Controllers.(*testWin32ControllerProvider)
+	if !ok {
+		return nil
+	}
+	return p.capture
+}
+
+func testWin32Provider(rt *RuntimeContext) *testWin32ControllerProvider {
+	if p, ok := rt.win32Controllers.(*testWin32ControllerProvider); ok {
+		return p
+	}
+	p := &testWin32ControllerProvider{}
+	rt.win32Controllers = p
+	return p
+}
+
+func (p *testWin32ControllerProvider) NewController(tg target.Target, rec automationtrace.Recorder, need controllerNeed) (controller.Controller, error) {
+	deps := controller.Win32Deps{Trace: rec}
+	if need.Input {
+		if p.input == nil {
+			return nil, fmt.Errorf("test input backend not installed")
+		}
+		deps.Input = testRuntimeWin32Input{backend: p.input}
+		deps.Backend = p.input.Name()
+	}
+	if need.Capture {
+		deps.Capture = testRuntimeWin32Capture{backend: p.capture}
+		if p.capture != nil {
+			deps.Backend = p.capture.Name()
+		}
+	}
+	return controller.NewWin32Controller(tg, deps)
+}
+
+func (p *testWin32ControllerProvider) Close() error {
+	if p.input != nil {
+		_ = p.input.ReleaseAll()
+		_ = p.input.Close()
+	}
+	if p.capture != nil {
+		_ = p.capture.Close()
+	}
+	return nil
+}
+
+type testRuntimeWin32Input struct{ backend pkginput.Backend }
+
+func (a testRuntimeWin32Input) Click(hwnd uintptr, x, y float64, button string, durationMs int) error {
+	return a.backend.Click(pkginput.Handle(hwnd), x, y, button, durationMs)
+}
+func (a testRuntimeWin32Input) MouseDown(hwnd uintptr, x, y float64, button string) error {
+	return a.backend.MouseDown(pkginput.Handle(hwnd), x, y, button)
+}
+func (a testRuntimeWin32Input) MouseUp(hwnd uintptr, button string) error {
+	return a.backend.MouseUp(pkginput.Handle(hwnd), button)
+}
+func (a testRuntimeWin32Input) Drag(hwnd uintptr, x1, y1, x2, y2 float64, button string, durationMs int) error {
+	return a.backend.Drag(pkginput.Handle(hwnd), x1, y1, x2, y2, button, durationMs)
+}
+func (a testRuntimeWin32Input) MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error {
+	return a.backend.MouseMoveRel(pkginput.Handle(hwnd), dx, dy, durationMs)
+}
+func (a testRuntimeWin32Input) KeyDown(hwnd uintptr, key string) error {
+	return a.backend.KeyDown(pkginput.Handle(hwnd), key)
+}
+func (a testRuntimeWin32Input) KeyUp(hwnd uintptr, key string) error {
+	return a.backend.KeyUp(pkginput.Handle(hwnd), key)
+}
+func (a testRuntimeWin32Input) TypeText(hwnd uintptr, value string) error {
+	return a.backend.TypeText(pkginput.Handle(hwnd), value)
+}
+func (a testRuntimeWin32Input) MoveTo(hwnd uintptr, x, y float64) error {
+	return a.backend.MoveTo(pkginput.Handle(hwnd), x, y)
+}
+func (a testRuntimeWin32Input) Scroll(hwnd uintptr, x, y float64, notches int, horizontal bool) error {
+	return a.backend.Scroll(pkginput.Handle(hwnd), x, y, notches, horizontal)
+}
+func (a testRuntimeWin32Input) CursorRatio(hwnd uintptr) (float64, float64, error) {
+	return a.backend.CursorRatio(pkginput.Handle(hwnd))
+}
+
+type testRuntimeWin32Capture struct{ backend pkgcapture.IBackend }
+
+func (a testRuntimeWin32Capture) Frame(hwnd uintptr) (controller.Frame, error) {
+	if a.backend == nil {
+		return controller.Frame{Space: target.SpaceWindowClient}, nil
+	}
+	img, err := a.backend.Frame(pkgcapture.Handle(hwnd))
+	if err != nil {
+		return controller.Frame{}, err
+	}
+	size := target.Size{}
+	if img != nil {
+		size = target.Size{W: img.Bounds().Dx(), H: img.Bounds().Dy()}
+	}
+	return controller.Frame{Image: img, Space: target.SpaceWindowClient, Size: size}, nil
+}
 
 // newTestRunnerWithSubgraph 构造一个最小容器 + 注入子图 + stub backend,
 // 返回 (RuntimeContext, ContainerRunner) — region (Subgraph/CollapsedNode) 测试用.
@@ -37,9 +155,9 @@ func newTestRunnerWithSubgraph(t *testing.T, sgID string, sgNodes []*container.G
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	rt.Subgraphs = []container.Subgraph{sg}
-	// stub Window + Input 让 setupRuntime 幂等跳过
+	// stub Window + controller provider 让 setupRuntime 幂等跳过
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
-	rt.Input = &fakeInputBackend{}
+	installTestWin32Input(rt, &fakeInputBackend{})
 	r := NewContainerRunner(rt)
 	return rt, r
 }
@@ -58,9 +176,9 @@ func newTestRunner(t *testing.T) (*RuntimeContext, *ContainerRunner) {
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
-	rt.Input = &fakeInputBackend{}
+	installTestWin32Input(rt, &fakeInputBackend{})
 	mock := &mockCaptureBackend{}
-	rt.Capture = mock
+	installTestWin32Capture(rt, mock)
 	r := NewContainerRunner(rt)
 	return rt, r
 }

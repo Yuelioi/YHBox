@@ -61,9 +61,9 @@ func runStateFISHING(t *testing.T, preFishingStartMsAgo float64, hits map[string
 	rt.Subgraphs = []container.Subgraph{stateFISHING, pressEsc}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{FrameROIResult: frame}
+	installTestWin32Capture(rt, &mockCaptureBackend{FrameROIResult: frame})
 	now := float64(time.Now().UnixMilli())
 	rt.SetVar("fishingStart", now-preFishingStartMsAgo)
 	r := NewContainerRunner(rt)

@@ -85,9 +85,9 @@ func runStateWAITING(t *testing.T, preWaitingStartMsAgo, preHookStreak float64, 
 	rt.Subgraphs = []container.Subgraph{stateWAITING, tryHookF, inspectPhase}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{FrameROIResult: frame}
+	installTestWin32Capture(rt, &mockCaptureBackend{FrameROIResult: frame})
 	now := float64(time.Now().UnixMilli())
 	rt.SetVar("waitingStart", now-preWaitingStartMsAgo)
 	rt.SetVar("hookStreak", preHookStreak)

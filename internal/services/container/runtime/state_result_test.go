@@ -59,9 +59,9 @@ func runStateRESULT(t *testing.T, preResultEnteredAtMsAgo float64, hits map[stri
 	rt.Subgraphs = []container.Subgraph{stateRESULT, pressEsc}
 	stubRuntimeWindowAndInput(rt)
 	spy := &spyInputBackend{}
-	rt.Input = spy
+	installTestWin32Input(rt, spy)
 	rt.Matcher = &mockMatcher{HitTemplates: hits}
-	rt.Capture = &mockCaptureBackend{}
+	installTestWin32Capture(rt, &mockCaptureBackend{})
 	if preResultEnteredAtMsAgo > 0 {
 		now := float64(time.Now().UnixMilli())
 		rt.SetVar("resultEnteredAt", now-preResultEnteredAtMsAgo)

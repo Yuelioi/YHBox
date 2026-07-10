@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；canonical repository/module identity 已最终确认为 `github.com/yottaapp/yotta`。批次 D 已建立平台依赖守卫，并完成 platform、input、capture 的宿主 OS seam。
+升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；canonical repository/module identity 已最终确认为 `github.com/yottaapp/yotta`。批次 D 已建立平台依赖守卫，完成 platform/input/capture 的宿主 OS seam，并将 container runtime 收敛到单一 controller 权威路径。
 
 ## Next
 
-继续批次 D：移除 container/runtime 对 legacy input/capture bootstrap 的直接理解，让 Win32 输入与截图能力只从 controller adapter 进入 runtime；并继续隔离 hotkey/calibration/recording/tools。
+继续批次 D：隔离 hotkey/calibration/recording/tools，随后处理 Wails GUI 壳的平台入口；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -35,6 +35,7 @@ Current:
 
 Done:
 
+- 批次 D（第五批）：RuntimeContext 移除 legacy input/capture backend 字段；Win32 provider 独占后端创建、适配与释放；vision/cursor 全部经 controller capability；新增 controller factory 注入 seam、动态 capability 与 runtime legacy-import 守卫。
 - 批次 D（第四批）：target contract 接管 WindowHandle/WindowMatchSpec；runtime core 移除直接 `lxn/win`/winutil import；winutil 拆分 Windows/non-Windows adapter；container/runtime tests 可为 Linux/Darwin 编译，失败图从 14 收敛到 5。
 - 批次 D（第三批）：提取跨平台 VK 解析；非 Windows `KillProcess` 使用 typed unsupported；`internal/nodes/input` 与 `internal/nodes/io` 在 Linux/Darwin 编译通过并进入 CI 原生测试矩阵。
 - 批次 D（第二批）：新增统一 typed unsupported platform error；拆分 `pkg/input`/`pkg/capture` 公共 contract、`_windows.go` adapter 与非 Windows factory；mock capture 保持跨平台；Linux/Darwin dependency graph 无 `lxn/win`，CI 已加入三包原生测试。
@@ -63,6 +64,7 @@ Verified:
 - D 第三批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；Linux/Darwin 的 nodes/input、nodes/io、pkg/input、pkg/platform 编译通过。
 - D 第四批后，Windows winutil/container/runtime 定向测试通过；Linux/Darwin 的 winutil/container/runtime 测试可交叉编译；架构守卫禁止 runtime core 重新直接 import Win32/winutil。
 - D 第四批双轴 review：Standards 3 项、Spec 2 项均已修复——恢复导出契约注释、borderless state 编译期类型、target 构造归属、BringToFront typed unsupported，并补齐 gofmt 与回归测试。
+- D 第五批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；CI portable-core 的 21 个 package（含 container/runtime 与 mcpserver）均为 Linux/Darwin 成功编译测试二进制；runtime core 守卫同时禁止重新 import legacy input/capture 与 Win32 packages。
 
 ## Open questions
 

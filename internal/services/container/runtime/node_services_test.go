@@ -338,7 +338,7 @@ func TestVisionAdapter_DetectColor_Counts(t *testing.T) {
 	img.Pix[0], img.Pix[3] = 255, 255 // x=0 红
 	img.Pix[4], img.Pix[7] = 255, 255 // x=1 红
 	rt := newAdapterTestRT(t, nil)
-	rt.Capture = fakeCapture{img: img}
+	installTestWin32Capture(rt, fakeCapture{img: img})
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	a := &visionAdapter{rt: rt}
 	count, _, _, err := a.DetectColor(node.Geometry{}, "rgb", [6]int{200, 255, 0, 50, 0, 50})
@@ -368,10 +368,13 @@ var (
 // DetectColor override test
 // ============================================================================
 
-type fakeCapture struct{ img *image.RGBA }
+type fakeCapture struct {
+	img *image.RGBA
+	err error
+}
 
 func (f fakeCapture) Name() string                                   { return "fake" }
-func (f fakeCapture) Frame(_ pkgcapture.Handle) (*image.RGBA, error) { return f.img, nil }
+func (f fakeCapture) Frame(_ pkgcapture.Handle) (*image.RGBA, error) { return f.img, f.err }
 func (f fakeCapture) FrameROI(_ pkgcapture.Handle, _, _, _, _ int) (*image.RGBA, error) {
 	return f.img, nil
 }
@@ -379,6 +382,18 @@ func (f fakeCapture) ClientSize(_ pkgcapture.Handle) (int, int, error) {
 	return f.img.Bounds().Dx(), f.img.Bounds().Dy(), nil
 }
 func (f fakeCapture) Close() error { return nil }
+
+func TestVisionAdapterCachedCapturePropagatesControllerError(t *testing.T) {
+	wantErr := errors.New("capture failed")
+	rt := newAdapterTestRT(t, nil)
+	installTestWin32Capture(rt, fakeCapture{err: wantErr})
+	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
+
+	_, err := (&visionAdapter{rt: rt}).captureFrame(context.Background(), true, true)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("captureFrame() error = %v, want %v", err, wantErr)
+	}
+}
 
 type recordingRuntimeInput struct {
 	clickHWND        []uintptr
@@ -568,7 +583,7 @@ func TestInputAdapter_ClickRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 
 	err := NewInputAdapter(rt).Click(0.25, 0.75, "right", 80)
 	if err != nil {
@@ -594,7 +609,7 @@ func TestInputAdapter_RejectsNonWin32ActiveTarget(t *testing.T) {
 		Ref:        target.TargetRef{ADBSerial: "emulator-5554"},
 		Resolution: target.Size{W: 1080, H: 1920},
 	})
-	rt.Input = &recordingRuntimeInput{}
+	installTestWin32Input(rt, &recordingRuntimeInput{})
 
 	err := NewInputAdapter(rt).Click(0.25, 0.75, "left", 0)
 	if err == nil {
@@ -609,7 +624,7 @@ func TestInputAdapter_ActiveTargetDoesNotFallbackToPreviousWindow(t *testing.T) 
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 	rt.SetActiveTarget(target.Target{
 		ID:         "android:emulator-5554",
 		Kind:       target.KindAndroidADB,
@@ -657,7 +672,7 @@ func TestInputAdapter_ClickRoutesThroughInjectedControllerFactory(t *testing.T) 
 func TestInputAdapter_PropagatesControllerFactoryError(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 	tg := target.Target{
 		ID:         "android:emulator-5554",
 		Kind:       target.KindAndroidADB,
@@ -729,7 +744,7 @@ func TestTargetAdapter_SetActiveValidatesAndUpdatesRuntime(t *testing.T) {
 func TestCaptureAdapter_ActiveTargetDoesNotFallbackToPreviousWindow(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
-	rt.Capture = &mockCaptureBackend{FrameROIResult: image.NewRGBA(image.Rect(0, 0, 2, 1))}
+	installTestWin32Capture(rt, &mockCaptureBackend{FrameROIResult: image.NewRGBA(image.Rect(0, 0, 2, 1))})
 	rt.SetActiveTarget(target.Target{
 		ID:         "android:emulator-5554",
 		Kind:       target.KindAndroidADB,
@@ -779,7 +794,7 @@ func TestVisionAdapter_ActiveTargetDoesNotFallbackToPreviousWindowCapture(t *tes
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	img := image.NewRGBA(image.Rect(0, 0, 2, 1))
 	img.Pix[0], img.Pix[1], img.Pix[2], img.Pix[3] = 255, 0, 0, 255
-	rt.Capture = &mockCaptureBackend{FrameROIResult: img}
+	installTestWin32Capture(rt, &mockCaptureBackend{FrameROIResult: img})
 	rt.SetActiveTarget(target.Target{
 		ID:         "android:emulator-5554",
 		Kind:       target.KindAndroidADB,
@@ -796,7 +811,7 @@ func TestVisionAdapter_ActiveTargetDoesNotFallbackToPreviousWindowCapture(t *tes
 func TestVisionAdapter_PropagatesControllerFactoryError(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 99, Title: "After Effects", ClientW: 1920, ClientH: 1080})
-	rt.Capture = &mockCaptureBackend{FrameROIResult: image.NewRGBA(image.Rect(0, 0, 2, 1))}
+	installTestWin32Capture(rt, &mockCaptureBackend{FrameROIResult: image.NewRGBA(image.Rect(0, 0, 2, 1))})
 	tg := target.Target{
 		ID:         "android:emulator-5554",
 		Kind:       target.KindAndroidADB,
@@ -820,7 +835,7 @@ func TestInputAdapter_MoveToRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 66, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 
 	err := NewInputAdapter(rt).MoveTo(0.4, 0.6)
 	if err != nil {
@@ -845,7 +860,7 @@ func TestInputAdapter_ScrollRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 55, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 
 	err := NewInputAdapter(rt).Scroll(0.2, 0.8, -3, true)
 	if err != nil {
@@ -870,7 +885,7 @@ func TestInputAdapter_KeyDownRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 77, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 
 	err := NewInputAdapter(rt).KeyDown("ctrl")
 	if err != nil {
@@ -892,7 +907,7 @@ func TestInputAdapter_KeyUpRoutesThroughControllerTrace(t *testing.T) {
 	rt := newAdapterTestRT(t, nil)
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 88, Title: "After Effects", ClientW: 1920, ClientH: 1080})
 	input := &recordingRuntimeInput{}
-	rt.Input = input
+	installTestWin32Input(rt, input)
 
 	err := NewInputAdapter(rt).KeyUp("n")
 	if err != nil {
@@ -920,7 +935,7 @@ func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 		}
 	}
 	rt, _ := newTestRunner(t)
-	rt.Capture = fakeCapture{img: img}
+	installTestWin32Capture(rt, fakeCapture{img: img})
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 1})
 	va := &visionAdapter{rt: rt}
 

@@ -24,7 +24,7 @@ func TestDecodeQR_FoundViaRealAdapter(t *testing.T) {
 	draw.Draw(frame, frame.Bounds(), matrix, image.Point{}, draw.Src)
 
 	rt, _ := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 
 	va := NewVisionAdapter(rt)
 	res, err := va.DecodeQR(node.Geometry{})
@@ -48,7 +48,7 @@ func TestDecodeQR_NotFoundViaRealAdapter(t *testing.T) {
 	draw.Draw(frame, frame.Bounds(), image.NewUniform(image.White), image.Point{}, draw.Src)
 
 	rt, _ := newTestRunner(t)
-	rt.Capture.(*mockCaptureBackend).FrameROIResult = frame
+	installedTestWin32Capture(rt).(*mockCaptureBackend).FrameROIResult = frame
 
 	va := NewVisionAdapter(rt)
 	res, err := va.DecodeQR(node.Geometry{})
