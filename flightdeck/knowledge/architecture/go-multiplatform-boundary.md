@@ -25,4 +25,4 @@ READ WHEN: before adding Linux/macOS support, moving Win32 code, designing autom
 - root wiring 不再直接 import `lxn/win`；完整 root package 在 `CGO_ENABLED=0` 下的剩余失败来自 Wails GUI runtime。它不是 portable backend 回退：官方 Linux GUI 基线要求 gcc、GTK4、WebKitGTK 6.0（旧栈可用 `gtk3` tag），macOS 要 Xcode command line tools。
 - Wails library、release CLI 与 README 安装命令统一固定为 `v3.0.0-alpha2.117`，`scripts/verify-wails-version.ps1` 防止三处再次漂移。
 
-后续多平台工作的验收分两层：portable backend 继续保持三平台测试与禁依赖守卫；GUI 则新增安装原生依赖的 Linux/macOS build/package job，并做对应宿主 smoke。不要用 `CGO_ENABLED=0 go build ./...` 代替 GUI 验收。
+后续多平台工作的验收分两层：portable backend 继续保持三平台测试与禁依赖守卫；GUI 已在 Ubuntu 24.04 amd64 与 macOS 15 arm64 原生 runner 安装宿主依赖、生成前后端产物并以 production tag 编译。compile gate 不等于运行时支持声明；首次远端运行与对应宿主 smoke 仍必须完成。不要用 `CGO_ENABLED=0 go build ./...` 代替 GUI 验收。

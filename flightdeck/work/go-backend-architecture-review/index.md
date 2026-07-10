@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：为 root GUI/main 增加带原生依赖的 Linux/macOS build job 与宿主 smoke 基线；保持 portable-core 三平台门禁。
+继续批次 D：观察 Linux/macOS 原生 GUI compile gate 的首次远端运行，并设计不依赖交互桌面的最小宿主 smoke；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- backend services（含 tools）已无 Wails import，root wiring 也无项目内直接 Win32 import；当前剩余工作是按宿主 OS 验收 Wails alpha2.117 GUI（Linux 需 CGO/GTK4/WebKitGTK 6.0，macOS 需 Xcode 工具链），而不是继续追求 `CGO_ENABLED=0` 的 GUI 编译。
+- backend services（含 tools）已无 Wails import，root wiring 也无项目内直接 Win32 import；Linux/macOS 原生 runner GUI compile gate 已定义，当前剩余工作是首次远端运行与宿主 smoke，而不是继续追求 `CGO_ENABLED=0` 的 GUI 编译。
 
 Done:
 
+- 批次 D（第十二批）：新增 Ubuntu 24.04 amd64 与 macOS 15 arm64 原生 GUI compile gate；安装宿主依赖、核对实际 Wails CLI、生成 bindings/frontend、以 production tag 编译并归档 Unix 产物。
 - 批次 D（第十一批）：Wails library/release CLI/README pin 统一到 `v3.0.0-alpha2.117` 并加入一致性脚本；root template capture/game provider 移除直接 `lxn/win`；更新 GUI 宿主构建基线与失效的透明窗 knowledge。
 - 批次 D（第十批）：App event transport 与 tools semantic window presenter 从 Wails 抽离；GUI options/policy 留在 executable adapter；统一 attempt/generation-aware window slot 消除并发 open/close 竞态；services/tools 进入 portable-core CI。
 - 批次 D（第九批）：recording event/stop contract 与 Win32 recorder/hook/raw-input adapter 分离；service 使用 canonical target contract；非 Windows recorder 返回 typed unsupported；Linux/macOS 进入 portable-core CI。
@@ -88,6 +89,7 @@ Verified:
 - D 第十批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...` 与 services/tools/architecture race 通过；tools 并发回归连续 100 次通过；Linux/Darwin 的 services/tools 交叉编译及 Wails-free dependency graph 检查通过。
 - D 第十一批后，alpha2.117 同版 CLI 成功生成 123 methods / 10 条已知 warning；全仓 Go test/vet/staticcheck、app/Wails pin 校验、`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过；root 非 Windows `CGO=0` 失败已只剩 Wails GUI 宿主依赖。
 - D 第十一批双轴 review：source verifier 改为检查每个受管文件的全部 pin，Task/release 强制核对 PATH 中实际 CLI；删除重复 foreground 实现并增加 root direct-Win32 import 守卫；最终 Standards/Spec 均无剩余 finding。
+- D 第十二批本地验证：workflow YAML/matrix 解析与 `git diff --check` 通过；双轴 review 修复干净 runner 缺 `bin/`、Unix artifact 执行位与浮动 macOS 架构问题。Linux/macOS 原生编译仍需提交后由远端 runner 首次执行确认。
 
 ## Open questions
 
@@ -95,5 +97,5 @@ Verified:
 - 外部扩展目标是只接受 in-tree contribution，还是允许 out-of-tree Go module / plugin？
 - 首批正式支持的平台矩阵是什么：Windows + Linux，还是 Windows + Linux + macOS？Android/Browser 是 target adapter，不等同于宿主 OS 支持。
 - Container package 的崩溃一致性目标采用 generation directory，还是较轻的 lock-last commit + load-time validation？
-- Linux/macOS GUI CI 采用原生 runner 直接构建，还是使用 Wails 提供的 Docker/Zig workflow；GTK4 为正式基线，是否同时保留 `gtk3` 兼容产物？
+- 宿主 smoke 应只验证进程启动/资源装载，还是还要覆盖开窗与 WebView 首屏；Linux runner 是否引入虚拟 display？
 - Wails bindings 虽生成成功，但仍对 function type 和暴露给绑定的 non-empty interface 参数报告 10 条 JSON 编码警告；后续应收窄可绑定 service surface，避免把仅供 Go 内部装配的方法暴露给前端生成器。

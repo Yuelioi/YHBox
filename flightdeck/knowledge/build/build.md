@@ -41,7 +41,7 @@ task version:verify
 ./scripts/verify-wails-version.ps1 -CheckInstalled
 ```
 
-对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS portable core 已包含 services/tools；完整 GUI 不能用 `CGO_ENABLED=0` 验收。官方 Linux GUI 环境需要 gcc + GTK4 + WebKitGTK 6.0（或临时 `gtk3` tag），macOS 需要 Xcode command line tools，后续应为 GUI 建独立宿主 build job。
+对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS portable core 已包含 services/tools；完整 GUI 不能用 `CGO_ENABLED=0` 验收。独立 `gui-build` job 在 Ubuntu 24.04 amd64 安装 gcc + GTK4 + WebKitGTK 6.0，并在 macOS 15 arm64 使用 Xcode 工具链；两边都会核对实际 Wails CLI、生成 bindings/frontend、以 production tag 编译，并用 tar 保留 Unix artifact 的执行位。该 job 的首次远端运行与 GUI 宿主 smoke 仍是发布前置项。
 `pkg/platform`、input/capture/winutil、nodes/input/io、container/runtime 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；backend dependency graph 不得重新出现 Win32 或 Wails presentation import。
 
 前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。
