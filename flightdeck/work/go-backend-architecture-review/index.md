@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：隔离 recording/tools，随后处理 Wails GUI 壳的平台入口；保持 portable-core 三平台门禁。
+继续批次 D：隔离 recording；随后把 tools/Wails presentation 从 backend module 拆出并处理 GUI 壳的平台入口；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- Linux 非 main package 的项目内失败只剩 recording、tools；另有 Wails GUI dependency 在 `CGO_ENABLED=0` 下失败。
+- Linux 非 main package 的项目内 Win32 失败只剩 recording；tools 已越过项目内 Win32 imports，当前阻塞于 Wails alpha.91 `application` Linux 实现自身在 `CGO_ENABLED=0` 下编译失败。
 
 Done:
 
+- 批次 D（第八批）：tools 的 mouse/pixel/window-capture native 实现进入 `_windows.go`，非 Windows adapter 使用 typed unsupported；WindowResolver 改用 canonical target contract；tools 平台守卫已建立。
 - 批次 D（第七批）：calibration state 与 Win32 raw-input/hotkey adapter 分离；非 Windows service 返回统一 typed unsupported；Linux/macOS 进入 portable-core CI。
 - 批次 D（第六批）：hotkey manager 与 Win32 RegisterHotKey 消息循环分离；非 Windows 返回统一 typed unsupported；registry 单测改用内存 loop，Linux/macOS 进入 portable-core CI。
 - 批次 D（第五批）：RuntimeContext 移除 legacy input/capture backend 字段；Win32 provider 独占后端创建、适配与释放；vision/cursor 全部经 controller capability；新增 controller factory 注入 seam、动态 capability 与 runtime legacy-import 守卫。
@@ -72,6 +73,7 @@ Verified:
 - D 第六批双轴 review：清理与内存 loop 相反的旧测试注释；另修复 rebuild 持锁等待 loop 时、同步 dispatcher 再取同一 mutex 可能形成的退出死锁，并增加 in-flight dispatch 回归测试。
 - D 第七批后，Windows calibration test/race 通过，Linux/Darwin calibration tests 成功交叉编译；架构守卫禁止 calibration 非 Windows 文件重新引入 Win32 packages。
 - D 第七批双轴 review：将 OS-thread helper 收入 `_windows.go`；统一跨平台 package doc；移除文件名实现旁白；把裸 atomics 收进单一 calibration state store，native adapter 只通过状态行为更新快照。
+- D 第八批后，Windows tools test/race 通过；Linux/Darwin 编译已不再命中 Yotta Win32 import，下一失败点稳定落在 Wails alpha.91 `pkg/application` 的 Linux CGO 实现；因此尚不加入 portable-core CI。
 
 ## Open questions
 

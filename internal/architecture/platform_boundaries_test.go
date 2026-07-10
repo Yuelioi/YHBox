@@ -46,6 +46,7 @@ func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
 			"internal/hotkey",
 			"internal/services/calibration",
 			"internal/services/container/runtime",
+			"internal/services/tools",
 		},
 		[]string{
 			"github.com/lxn/win",

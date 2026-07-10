@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
-	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 type recordingPickerAdapter struct {
@@ -20,8 +19,8 @@ type fakeTargetKindResolver struct {
 	err        error
 }
 
-func (r fakeTargetKindResolver) ResolveWindowForNode(string, string) (winutil.WindowHandle, error) {
-	return winutil.WindowHandle{}, nil
+func (r fakeTargetKindResolver) ResolveWindowForNode(string, string) (target.WindowHandle, error) {
+	return target.WindowHandle{}, nil
 }
 
 func (r fakeTargetKindResolver) ResolveEditorTargetKindForNode(string, string) (string, error) {

@@ -203,7 +203,7 @@ func randID() string {
 var idCounter uint64
 
 // --- Win32 procs ---
-// 注意: 不能复用 tools 包里 mouse.go 的 user32 var (那个只挂了 cursor 相关 proc).
+// 捕获线程使用独立的 LazyDLL proc 集，避免和鼠标位置 adapter 共享可变初始化状态。
 // 用独立 LazyDLL — NewLazyDLL 同名只 load 一次, 不会重复.
 
 var (

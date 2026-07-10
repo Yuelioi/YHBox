@@ -6,19 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lxn/win"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
-	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // WindowResolver 由 main.go 注入 (concrete *container.Service)，按 containerID 解析目标窗口。
 // 本包不 import container 包以保持解耦。
 type WindowResolver interface {
-	ResolveWindowForNode(containerID, nodeID string) (winutil.WindowHandle, error)
+	ResolveWindowForNode(containerID, nodeID string) (target.WindowHandle, error)
 	ResolveEditorTargetForNode(containerID, nodeID string) (target.Target, error)
 	ResolveEditorTargetKindForNode(containerID, nodeID string) (string, error)
 	CaptureBackendFor(containerID string) string
@@ -27,7 +25,7 @@ type WindowResolver interface {
 // cachedWindow gameWindowFor 的短期缓存条目 (MousePos 高频 poll，不能每帧 EnumWindows)。
 // 注意: wh.HWND 在 2s TTL 内若游戏关了又开会变陈旧失效，调用方 (screenToClient / capture.Frame) 需容错。
 type cachedWindow struct {
-	wh winutil.WindowHandle
+	wh target.WindowHandle
 	at time.Time
 }
 
@@ -69,7 +67,7 @@ func NewService(resolver WindowResolver) *Service {
 
 // gameWindowFor 按 containerID + nodeID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
 // nodeID 为空时回落容器主 Win32WindowTarget。
-func (s *Service) gameWindowFor(containerID, nodeID string) (winutil.WindowHandle, bool) {
+func (s *Service) gameWindowFor(containerID, nodeID string) (target.WindowHandle, bool) {
 	cacheKey := containerID + "|" + nodeID
 	s.mu.Lock()
 	if c, ok := s.winCache[cacheKey]; ok && time.Since(c.at) < 2*time.Second {
@@ -91,7 +89,7 @@ func (s *Service) gameWindowFor(containerID, nodeID string) (winutil.WindowHandl
 	if err != nil {
 		// 负缓存: 失败也存零值 2s, 避免游戏关着时高频 poll 反复阻塞解析
 		s.winCache[cacheKey] = cachedWindow{at: time.Now()}
-		return winutil.WindowHandle{}, false
+		return target.WindowHandle{}, false
 	}
 	s.winCache[cacheKey] = cachedWindow{wh: wh, at: time.Now()}
 	return wh, true
@@ -130,7 +128,7 @@ func (s *Service) MousePos(containerID, nodeID string) MousePosInfo {
 	if !hasGame {
 		return info
 	}
-	hwnd, cw, ch := win.HWND(wh.HWND), wh.ClientW, wh.ClientH
+	hwnd, cw, ch := wh.HWND, wh.ClientW, wh.ClientH
 	if hwnd == 0 || cw <= 0 || ch <= 0 {
 		return info
 	}
