@@ -9,8 +9,6 @@
 package input
 
 import (
-	"fmt"
-	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -169,51 +167,6 @@ func MoveToClient(hwnd win.HWND, clientX, clientY int) {
 // 瞬时 PostMessage 之前需要 sleep ~30ms 让 Slate 真生效。
 func FakeActivate(hwnd win.HWND) {
 	sendMessage(hwnd, WM_ACTIVATE, WA_ACTIVE, 0)
-}
-
-// 虚拟键码表。键值必须覆盖 recorder vkName / hotkey parseHotkeyString 的所有输出，
-// 否则录制 → 回放 / 热键触发 这条路径会断（VK=0 报"unknown vk"中断 action）。
-var vkMap = map[string]uint32{
-	"esc": 0x1B, "escape": 0x1B,
-	"space": 0x20,
-	"enter": 0x0D, "return": 0x0D,
-	"shift": 0x10, "ctrl": 0x11, "control": 0x11, "alt": 0x12,
-	"tab":       0x09,
-	"backspace": 0x08, "back": 0x08,
-	"delete": 0x2E, "del": 0x2E,
-	"insert": 0x2D, "ins": 0x2D,
-	"home": 0x24, "end": 0x23,
-	"pgup": 0x21, "pageup": 0x21,
-	"pgdn": 0x22, "pagedown": 0x22,
-	"up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
-	",": 0xBC, ".": 0xBE,
-	"caps": 0x14, "capslock": 0x14,
-	// F1-F12 走 VK() 里的循环匹配，不入表
-}
-
-// VK 解析键名（不区分大小写），返回 0 表示未知。
-func VK(name string) uint32 {
-	n := strings.ToLower(strings.TrimSpace(name))
-	if v, ok := vkMap[n]; ok {
-		return v
-	}
-	if len(n) == 1 {
-		c := n[0]
-		if c >= 'a' && c <= 'z' {
-			return uint32(c - 'a' + 'A')
-		}
-		if c >= '0' && c <= '9' {
-			return uint32(c)
-		}
-	}
-	// F1-F12: VK_F1=0x70, VK_F12=0x7B
-	if len(n) >= 2 && n[0] == 'f' {
-		var num int
-		if _, err := fmt.Sscanf(n[1:], "%d", &num); err == nil && num >= 1 && num <= 12 {
-			return 0x70 + uint32(num) - 1
-		}
-	}
-	return 0
 }
 
 // keyLParam 拼 WM_KEYDOWN/UP 的 lParam：

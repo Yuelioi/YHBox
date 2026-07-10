@@ -108,6 +108,8 @@ jobs:
           ./internal/apperr
           ./internal/automation/target
           ./internal/automation/trace
+          ./internal/nodes/input
+          ./internal/nodes/io
           ./internal/services/execution
           ./internal/services/expr
           ./internal/services/llm
