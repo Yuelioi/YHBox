@@ -5,10 +5,10 @@ import (
 	"testing"
 	"unicode"
 
-	"yotta/internal/automation/controller"
-	nodepkg "yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 // lint — 守护 node-spec 风格约定. 任何节点新加 / 改 Spec 违反这些规则 → fail.

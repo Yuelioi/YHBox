@@ -3,7 +3,7 @@ package trace
 import (
 	"time"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 type Status string

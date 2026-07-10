@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestMouseMoveTo_HappyPath(t *testing.T) {

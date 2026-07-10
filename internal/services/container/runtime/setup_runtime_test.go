@@ -3,11 +3,11 @@ package runtime
 import (
 	"testing"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 
-	_ "yotta/internal/nodes/image" // 注册 Capture (NeedsTarget=true)
-	_ "yotta/internal/nodes/system"
+	_ "github.com/yottaapp/yotta/internal/nodes/image" // 注册 Capture (NeedsTarget=true)
+	_ "github.com/yottaapp/yotta/internal/nodes/system"
 )
 
 // TestSetupRuntime_BuildsBackendsWithoutResolvingWindow 验证 setupRuntime 重写后：

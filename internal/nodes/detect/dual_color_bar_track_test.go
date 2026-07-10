@@ -5,10 +5,10 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
-// stubWindow 用于注 ClientSize 报 1920x1080. 跟 stubCapture 同款本地一份.
+// stubWindow 提供节点测试所需的固定客户区尺寸。
 type stubWindow struct{ w, h int }
 
 func (s stubWindow) BringForeground() error        { return nil }
@@ -25,13 +25,6 @@ func (s stubWindow) RestoreBorders() error           { return nil }
 func (s stubWindow) MoveResize(_, _, _, _ int) error { return nil }
 func (s stubWindow) Close() error                    { return nil }
 func (s stubWindow) Snapshot() (node.Window, error)  { return node.Window{}, nil }
-
-func withVisionAndWindow(v node.VisionService, w node.WindowService) node.ServiceBundle {
-	b := node.StubServices()
-	b.Vision = v
-	b.Window = w
-	return b
-}
 
 // validGeometryROI 返一个 pct-based Geometry, 模拟 50% 宽高居中 ROI.
 func validGeometryROI() node.Geometry {

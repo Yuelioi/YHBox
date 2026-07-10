@@ -1,10 +1,13 @@
 // Package runtime — ClipPlayer: InputClip 回放调度核心.
 //
 // 关键算法 (否则 cut 段后会 freeze 等待):
-//   不能用 event.TUs 直接做 schedule target. 否则 cut 掉一段后下个 event 的
-//   时间不变 → wallclock 多等 cut 长度的秒数.
+//
+//	不能用 event.TUs 直接做 schedule target. 否则 cut 掉一段后下个 event 的
+//	时间不变 → wallclock 多等 cut 长度的秒数.
+//
 // 正解: 对每个 event 计算 effectiveTUs = event.TUs - accumulatedCut, accumulatedCut
-//   是"按 keepRanges 跳过的总时长". 进入 range r 之前, 累计跨段的 gap.
+//
+//	是"按 keepRanges 跳过的总时长". 进入 range r 之前, 累计跨段的 gap.
 //
 // keepRanges: 不指定 / 空 = 整段播 (等价单 range [0, DurationUs]).
 // 取消语义: ctx 取消 或 Cancel() → ReleaseHeld 释放所有按下的 key/btn 防卡键.
@@ -18,8 +21,8 @@ import (
 	"sort"
 	"sync"
 
-	"yotta/internal/services/inputclip"
-	"yotta/internal/services/inputclip/backends"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/inputclip/backends"
 )
 
 // ErrCancelled ClipPlayer 因 Cancel() 或 ctx 取消而终止 Wait() 返这个.
@@ -40,6 +43,8 @@ type ClipPlayer struct {
 	backend         backends.IInputBackend
 	policy          PlaybackPolicy
 	targetCounts360 int
+	nowMicros       func() uint64
+	waitUntil       func(uint64, PlaybackPolicy)
 	// windowProvider 返回回放目标窗口的 clientW/clientH.
 	// nil 或返回 0 → 拿不到目标窗口尺寸, 按原始坐标回放不缩放.
 	windowProvider func() (clientW, clientH int)
@@ -79,6 +84,8 @@ func NewClipPlayer(
 		backend:         backend,
 		policy:          policy,
 		targetCounts360: targetCounts360,
+		nowMicros:       QPCMicros,
+		waitUntil:       WaitUntil,
 		windowProvider:  windowProvider,
 		done:            make(chan struct{}),
 		cancelCh:        make(chan struct{}),
@@ -134,7 +141,7 @@ func (p *ClipPlayer) run(ctx context.Context) {
 	// UI ClipTimeline 拖拽可能产生乱序 / 重叠 ranges, 不归一化 accumulatedKept 算错事件发两次.
 	ranges := normalizeRanges(p.keepRanges, p.clip.DurationUs)
 
-	startQPC := QPCMicros()
+	startQPC := p.nowMicros()
 	evIdx := 0
 	accumulatedKept := uint64(0) // 前面所有 keep 段总长 (用于算 accumulatedCut)
 
@@ -166,7 +173,7 @@ func (p *ClipPlayer) run(ctx context.Context) {
 
 			ev := p.clip.Events[evIdx]
 			effectiveTUs := ev.TUs - accumulatedCut
-			WaitUntil(startQPC+effectiveTUs, p.policy)
+			p.waitUntil(startQPC+effectiveTUs, p.policy)
 
 			// 二次取消检查: WaitUntil 可能阻塞了一段时间.
 			if err := ctx.Err(); err != nil {

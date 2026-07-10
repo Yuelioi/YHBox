@@ -3,7 +3,7 @@ package container
 import (
 	"fmt"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 // validateRequiredPins: 每个节点 Spec 里 Required 的 data-in pin, 若无连入 data 边、

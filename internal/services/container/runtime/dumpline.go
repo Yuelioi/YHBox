@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 const (

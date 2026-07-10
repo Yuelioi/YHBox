@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestForEach_IteratesAllItems(t *testing.T) {

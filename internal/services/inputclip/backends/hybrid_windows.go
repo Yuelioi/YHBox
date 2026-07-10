@@ -18,8 +18,8 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/services/inputclip"
-	"yotta/pkg/input"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/pkg/input"
 )
 
 // Win32 INPUT 常量.
@@ -99,7 +99,7 @@ var (
 // 但相机/视角转向只认 SendInput 的 OS raw input pipeline (RawDelta 唯一路径).
 // ClipPlayer 调度后只是把每个 event 路由到对应 PostMessage / SendInput.
 type HybridBackend struct {
-	hwndGetter  func() uintptr      // 拿当前游戏 hwnd. 0 = SendInput fallback (录到桌面也能凑合).
+	hwndGetter  func() uintptr // 拿当前游戏 hwnd. 0 = SendInput fallback (录到桌面也能凑合).
 	mu          sync.Mutex
 	heldKeys    map[uint32]struct{} // vk → present
 	heldButtons map[uint32]struct{} // btn (1L 2R 3M 4X1 5X2) → present

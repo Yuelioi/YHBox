@@ -56,13 +56,6 @@ const (
 	winMOD_SHIFT    = MOD_SHIFT
 	winMOD_NOREPEAT = MOD_NOREPEAT
 
-	winVK_1 = VK_1
-	winVK_2 = VK_2
-	winVK_3 = VK_3
-	winVK_4 = VK_4
-	winVK_5 = VK_5
-	winVK_6 = VK_6
-
 	// ERROR_HOTKEY_ALREADY_REGISTERED — 别的应用占了同样的组合
 	errHotkeyAlreadyRegistered = 1409
 )
@@ -81,7 +74,7 @@ var (
 type HotkeySpec struct {
 	ID   int    // 1..n 即可；动态 API 下被 manager 覆盖
 	Mods uint32 // winMOD_CONTROL | winMOD_SHIFT ...
-	VK   uint32 // winVK_1 ...
+	VK   uint32
 	Name string // 给日志/错误信息用，例 "Ctrl+Shift+1"
 }
 

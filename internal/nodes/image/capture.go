@@ -9,7 +9,7 @@ import (
 	"image/jpeg"
 	"image/png"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&Capture{}) }

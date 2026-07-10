@@ -13,17 +13,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/inputclip/backends"
+	clipruntime "github.com/yottaapp/yotta/internal/services/inputclip/runtime"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
+	"github.com/yottaapp/yotta/pkg/winutil"
 	"github.com/lxn/win"
-	"yotta/internal/automation/target"
-	automationtrace "yotta/internal/automation/trace"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/internal/services/expr"
-	"yotta/internal/services/inputclip/backends"
-	clipruntime "yotta/internal/services/inputclip/runtime"
-	pkgcapture "yotta/pkg/capture"
-	pkginput "yotta/pkg/input"
-	"yotta/pkg/winutil"
 )
 
 // frameCacheTTL: 同 hwnd 100ms 内复用一帧. 100ms 是 fishing v2 主循环 Sleep 下限,

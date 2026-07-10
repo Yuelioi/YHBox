@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestSubgraph_Spec_DynamicOutputsWithOnlyFailStatic(t *testing.T) {

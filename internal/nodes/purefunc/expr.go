@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"yotta/internal/node"
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 func init() { node.Register(&Expr{}) }

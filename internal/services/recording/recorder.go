@@ -24,8 +24,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/lxn/win"
 
-	"yotta/internal/services/inputclip"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // StopResult Recorder.Stop 输出. Service 层据此分流:
@@ -204,10 +204,11 @@ func (r *Recorder) cleanupAfterWorkerExit() {
 // (send on closed channel)。
 //
 // 策略：1) 非阻塞 drain started，看 InstallHooks 是否已成功
-//   2a) 已成功 → PostQuit + 等 done（正常 Stop 路径），再 close rawEvents
-//   2b) 没成功 → worker 还卡在装 hook 阶段，等它最终失败 close(done)，
-//       为安全起见也等到 done 才 close rawEvents
-//   两条路都等 done 后再 close，避免竞态。
+//
+//	2a) 已成功 → PostQuit + 等 done（正常 Stop 路径），再 close rawEvents
+//	2b) 没成功 → worker 还卡在装 hook 阶段，等它最终失败 close(done)，
+//	    为安全起见也等到 done 才 close rawEvents
+//	两条路都等 done 后再 close，避免竞态。
 func (r *Recorder) cleanupOnTimeout() {
 	// 非阻塞 drain started
 	select {

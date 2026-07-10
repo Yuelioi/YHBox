@@ -4,8 +4,8 @@
 package main
 
 import (
-	"yotta/internal/services/container"
-	"yotta/internal/services/container/dependency"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
 // depNodeInfos container.GraphNode → dependency.NodeInfo 适配.

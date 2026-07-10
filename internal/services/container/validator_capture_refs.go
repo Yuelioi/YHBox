@@ -1,7 +1,7 @@
 package container
 
 import (
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 // validateCaptureRefs 校验节点 config.capture (输出捕获绑定, Spec C) 的两件事:

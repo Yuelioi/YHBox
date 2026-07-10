@@ -1,6 +1,6 @@
 package runtime
 
-import "yotta/internal/services/container"
+import "github.com/yottaapp/yotta/internal/services/container"
 
 func speedUpStateFixtureTimingForTest(sg *container.Subgraph) {
 	for i := range sg.Graph.Nodes {

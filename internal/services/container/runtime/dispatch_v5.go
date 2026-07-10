@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
-	automationtrace "yotta/internal/automation/trace"
-	nodepkg "yotta/internal/node"
-	"yotta/internal/nodes/control"
-	"yotta/internal/services/container"
-	"yotta/pkg/winutil"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/nodes/control"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // isWindowFn 测试可替换; 默认真 Win32 IsWindow。
@@ -507,7 +507,7 @@ func (r *ContainerRunner) makeBodyForLoop(node *container.GraphNode, tok ExecTok
 func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *container.GraphNode, tok ExecToken) (func(nodepkg.Ctx) (string, error), error) {
 	sgID := container.PinString(node, "SubgraphID")
 	if sgID == "" {
-		return nil, fmt.Errorf("Subgraph %s: missing SubgraphID in Config", node.ID)
+		return nil, fmt.Errorf("subgraph %s: missing SubgraphID in Config", node.ID)
 	}
 	var sg *container.Subgraph
 	for i := range r.rt.Subgraphs {
@@ -517,7 +517,7 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 		}
 	}
 	if sg == nil {
-		return nil, fmt.Errorf("Subgraph %s: subgraph %q not found (容器 %q 的解析闭包里没有)", node.ID, sgID, r.rt.Container.ID)
+		return nil, fmt.Errorf("subgraph %s: subgraph %q not found (容器 %q 的解析闭包里没有)", node.ID, sgID, r.rt.Container.ID)
 	}
 	parentLoopStack := tok.LoopStack
 	// Params 来源 (3 路 union, 优先级 1→3):
@@ -530,7 +530,7 @@ func (r *ContainerRunner) makeBodyForSubgraph(ctx context.Context, node *contain
 	for _, p := range sg.InputParams {
 		v, perr := r.pullDataPin(ctx, node.ID, p.Name)
 		if perr != nil {
-			return nil, fmt.Errorf("Subgraph %s: pull input %q: %w", node.ID, p.Name, perr)
+			return nil, fmt.Errorf("subgraph %s: pull input %q: %w", node.ID, p.Name, perr)
 		}
 		if v == nil && p.Default != nil {
 			v = toExprValue(p.Default)

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"yotta/internal/services/container"
-	containerruntime "yotta/internal/services/container/runtime"
+	"github.com/yottaapp/yotta/internal/services/container"
+	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
 )
 
 type debugRunnerFactory func(containerID string) (*containerruntime.ContainerRunner, error)

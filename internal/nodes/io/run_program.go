@@ -3,8 +3,8 @@ package io
 import (
 	"fmt"
 
-	"yotta/internal/node"
-	"yotta/pkg/platform"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/pkg/platform"
 )
 
 func init() { node.Register(&RunProgram{}) }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestRegisterNodeAsyncSourceAndroidDevices(t *testing.T) {

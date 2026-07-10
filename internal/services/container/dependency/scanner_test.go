@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	// blank import 真节点 — scanner 现走 nodepkg.Get(kind).Dependencies, 不再有 fake Extractor.
-	_ "yotta/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
-	_ "yotta/internal/nodes/io"     // PlayClip
-	_ "yotta/internal/nodes/script" // Script (资产依赖走 Code 文本扫描)
-	_ "yotta/internal/nodes/system" // Subgraph / CollapsedNode
+	_ "github.com/yottaapp/yotta/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
+	_ "github.com/yottaapp/yotta/internal/nodes/io"     // PlayClip
+	_ "github.com/yottaapp/yotta/internal/nodes/script" // Script (资产依赖走 Code 文本扫描)
+	_ "github.com/yottaapp/yotta/internal/nodes/system" // Subgraph / CollapsedNode
 )
 
 func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {

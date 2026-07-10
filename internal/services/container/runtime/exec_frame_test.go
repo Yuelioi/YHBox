@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 func TestExecState_NewState(t *testing.T) {

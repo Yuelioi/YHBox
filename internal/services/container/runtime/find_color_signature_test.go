@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // TestFindColorSignature_FoundViaRealAdapter: 100x100 帧全填 (200,0,0),

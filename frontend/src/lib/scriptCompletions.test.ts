@@ -1,7 +1,7 @@
 // scriptCompletions.test.ts — 节点函数补全签名推导 (非 exec pin 进签名, exec pin 排除)
 // + 语法快速反馈与 $变量引用提取的纯函数。
 import { describe, it, expect } from 'vitest'
-import type { Spec } from '@bindings/yotta/internal/node'
+import type { Spec } from '@bindings/github.com/yottaapp/yotta/internal/node'
 import {
   nodeFnCompletions,
   scriptExitItemsForKind,

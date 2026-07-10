@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&SaveImage{}) }

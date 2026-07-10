@@ -3,10 +3,10 @@ package container
 import (
 	"testing"
 
-	_ "yotta/internal/nodes/ai"       // 注册 AI
-	_ "yotta/internal/nodes/control"  // 注册 Start
-	_ "yotta/internal/nodes/io"       // 注册 Log
-	_ "yotta/internal/nodes/variable" // 注册 SetVar (直连消费者)
+	_ "github.com/yottaapp/yotta/internal/nodes/ai"       // 注册 AI
+	_ "github.com/yottaapp/yotta/internal/nodes/control"  // 注册 Start
+	_ "github.com/yottaapp/yotta/internal/nodes/io"       // 注册 Log
+	_ "github.com/yottaapp/yotta/internal/nodes/variable" // 注册 SetVar (直连消费者)
 )
 
 // 用户场景: AI → log1 → log2 串联, ai.red→log1(紧邻), ai.white→log2(跨跳)。
@@ -78,8 +78,8 @@ func TestAINode_DirectWireOutputNoInvalidPin(t *testing.T) {
 			},
 			Edges: []GraphEdge{
 				{From: "start.Done", To: "ai.In"},
-				{From: "ai.Done", To: "sv.In"},      // exec 边 — 带 exec-data 下发
-				{From: "ai.red", To: "sv.Value"},    // data 边 — 动态输出字段直连
+				{From: "ai.Done", To: "sv.In"},   // exec 边 — 带 exec-data 下发
+				{From: "ai.red", To: "sv.Value"}, // data 边 — 动态输出字段直连
 			},
 		},
 	}

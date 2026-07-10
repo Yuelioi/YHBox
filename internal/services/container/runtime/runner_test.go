@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/internal/services/expr"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // 构造小图工具：Start → SetVar → Stop。

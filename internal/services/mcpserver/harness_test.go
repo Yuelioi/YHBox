@@ -7,14 +7,14 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/container/runtime"
-	"yotta/internal/services/execution"
-	pkgcapture "yotta/pkg/capture"
-	pkginput "yotta/pkg/input"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container/runtime"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
+	"github.com/yottaapp/yotta/pkg/winutil"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 func TestMarkdown_RendersKnownNode(t *testing.T) {

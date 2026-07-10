@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runSaveImage(t *testing.T, img node.Image, tmpl string) node.RunResult {

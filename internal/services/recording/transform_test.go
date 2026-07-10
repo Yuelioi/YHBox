@@ -4,7 +4,7 @@ package recording
 import (
 	"testing"
 
-	"yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 const (
@@ -128,7 +128,7 @@ func TestCompactToSteps_SleepInsertion(t *testing.T) {
 	// 两个 KeyPress, 间隔 1s — 应插一个 Sleep ~1000ms.
 	events := []inputclip.Event{
 		ev(inputclip.EventTypeKeyDown, 0, 'A', 0, 0),
-		ev(inputclip.EventTypeKeyUp, 50_000, 'A', 0, 0), // A 在 50ms 结束
+		ev(inputclip.EventTypeKeyUp, 50_000, 'A', 0, 0),      // A 在 50ms 结束
 		ev(inputclip.EventTypeKeyDown, 1_050_000, 'B', 0, 0), // 1000ms 后 B Down
 		ev(inputclip.EventTypeKeyUp, 1_100_000, 'B', 0, 0),
 	}

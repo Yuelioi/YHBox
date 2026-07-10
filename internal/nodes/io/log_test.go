@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // captureLog 实现 node.LogService, 把调用累积到 entries.

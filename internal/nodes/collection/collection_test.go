@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // evalNode — EvaluatePureData 路径 (同 purefunc math_test 范式).

@@ -2,9 +2,9 @@
 package main
 
 import (
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/asset"
-	"yotta/internal/services/container"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // assetExistence 返回查全局 asset 库某 GUID 是否为指定 kind 的闭包.

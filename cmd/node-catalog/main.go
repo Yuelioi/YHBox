@@ -17,10 +17,10 @@ import (
 	"sort"
 	"strings"
 
-	"yotta/internal/catalog"
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/catalog"
+	"github.com/yottaapp/yotta/internal/services/container"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 func main() {

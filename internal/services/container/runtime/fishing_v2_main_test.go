@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 func loadFishingV2Main(t *testing.T) (*container.Container, []container.Subgraph) {

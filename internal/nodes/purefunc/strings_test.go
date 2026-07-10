@@ -3,7 +3,7 @@ package purefunc
 import (
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // wantStr / wantBool — strings 节点断言 helper (evalMathNode 在 math_test.go, 同包复用).
@@ -74,9 +74,9 @@ func TestIndexOf_RuneIndex(t *testing.T) {
 		want      float64
 	}{
 		{"ascii", "hello", "ll", 2},
-		{"cjk_index", "a中文", "文", 2},  // 字节下标是 4, rune 下标 2
+		{"cjk_index", "a中文", "文", 2}, // 字节下标是 4, rune 下标 2
 		{"not_found", "abc", "x", -1},
-		{"empty_sub", "abc", "", 0},    // Go 语义, 刻意保留
+		{"empty_sub", "abc", "", 0}, // Go 语义, 刻意保留
 		{"empty_text", "", "x", -1},
 	}
 	for _, tc := range cases {

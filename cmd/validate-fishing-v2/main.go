@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 const fishingV2Dir = "bin/data/containers/fishing-v2"

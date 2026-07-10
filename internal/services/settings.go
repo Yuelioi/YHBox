@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/yottaapp/yotta/pkg/locale"
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"yotta/pkg/locale"
 )
 
 // settingsFileName / settingsFilePath 跟 walk 时代保持兼容：exe 同目录的 settings.json。
@@ -130,6 +130,7 @@ type MouseProfile struct {
 //   - "label":     文字标题（Label = 标题文字），占整行
 //   - "hsep":      水平分隔符（占整行的横线，把后面的块挤到下一排）
 //   - "vsep":      垂直分隔符（同排按钮之间的竖线）
+//
 // 只存编排数据；容器名/状态/热键运行时拉。
 type LauncherBlock struct {
 	ID          string `json:"id"`
@@ -164,7 +165,7 @@ type WindowSettings struct {
 }
 
 type LoggerSettings struct {
-	PanelOpen     bool   `json:"panelOpen"`  // 面板折叠态 (false=折叠)
+	PanelOpen     bool   `json:"panelOpen"` // 面板折叠态 (false=折叠)
 	AutoScroll    bool   `json:"autoScroll"`
 	ShowTime      bool   `json:"showTime"`
 	ShowTag       bool   `json:"showTag"`
@@ -182,7 +183,7 @@ func defaultSettings() *Settings {
 				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
 				WrapText: false, WriteFile: true, FileDir: "logs",
 			},
-			Window:              WindowSettings{Width: 1100, Height: 720},
+			Window:               WindowSettings{Width: 1100, Height: 720},
 			ActionStopHotkey:     "Ctrl+Shift+F9",
 			CalibrateHotkey:      "F8",
 			WindowCaptureHotkey:  "F9",
@@ -313,6 +314,7 @@ func (ai *AISettings) validate() error {
 //   - array 整体替换
 //   - scalar 覆盖
 //   - null 删除字段（RFC7386 标准）
+//
 // 流程：把 s 序列化 → MergePatch(jsonBytes, patch) → 反序列化回 s。
 // 用 DisallowUnknownFields 防 patch 写错字段名。
 func ApplyMergePatch(s *Settings, patch json.RawMessage) error {

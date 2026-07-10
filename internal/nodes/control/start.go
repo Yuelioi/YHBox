@@ -3,7 +3,7 @@
 // begins from it. No exec-in pin (you can't wire INTO an entry point).
 package control
 
-import "yotta/internal/node"
+import "github.com/yottaapp/yotta/internal/node"
 
 func init() { node.Register(&Start{}) }
 

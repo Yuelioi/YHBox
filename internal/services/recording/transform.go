@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 // SleepThresholdUs 相邻 Step 间隔超过此值才插 Sleep 节点. 200ms 是人感知阈值,

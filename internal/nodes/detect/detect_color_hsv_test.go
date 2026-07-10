@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func validHSVCfg() map[string]any {

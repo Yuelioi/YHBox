@@ -29,6 +29,14 @@ task version:bump VERSION=2.0.1
 
 随后脚本会提交 `chore(release): bump version to vX.Y.Z`，再创建 `vX.Y.Z` tag。不要手动只改其中一处，也不要在未提交版本文件前打 tag；tag 必须指向版本 bump commit。
 
+CI 与 release 的只读一致性检查使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-version.ps1
+```
+
+release 额外传 `-ExpectedVersion <tag 去掉 v>`，tag 与任一版本元数据不一致就失败。`verify-version.ps1` 只验证、不写文件；真正 bump 仍只走 `bump-version.ps1`。
+
 检查脚本行为但不写文件：
 
 ```powershell

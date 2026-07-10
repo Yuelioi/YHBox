@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // TestExecCollapsedNode_DispatchesViaSameHandlerAsSubgraph: CollapsedNode kind

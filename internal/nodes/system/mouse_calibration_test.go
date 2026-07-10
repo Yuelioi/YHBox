@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestMouseCalibration_Passthrough(t *testing.T) {

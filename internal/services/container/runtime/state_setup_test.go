@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 func loadStateSETUP(t *testing.T) container.Subgraph {

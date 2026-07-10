@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 const DefaultEndpoint = "http://127.0.0.1:9222"

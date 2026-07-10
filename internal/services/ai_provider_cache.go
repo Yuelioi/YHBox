@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 // SettingsGetter 取当前 Settings(live)。缓存取用时调它,使 settings 变更自然反映到指纹。

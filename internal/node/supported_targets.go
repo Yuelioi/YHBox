@@ -1,8 +1,8 @@
 package node
 
 import (
-	"yotta/internal/automation/controller"
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 var publicTargetKinds = []string{

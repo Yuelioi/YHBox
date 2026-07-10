@@ -1,8 +1,8 @@
 package main
 
 import (
-	"yotta/internal/services/asset"
-	"yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 // newClipService 构造全局 clip Service — clip 字节落全局 asset 库的 clip kind.

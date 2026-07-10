@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	_ "yotta/internal/nodes/detect"
-	_ "yotta/internal/nodes/io"
-	_ "yotta/internal/nodes/system"
+	_ "github.com/yottaapp/yotta/internal/nodes/detect"
+	_ "github.com/yottaapp/yotta/internal/nodes/io"
+	_ "github.com/yottaapp/yotta/internal/nodes/system"
 )
 
 func TestClosureSplitsAssetsByKind(t *testing.T) {

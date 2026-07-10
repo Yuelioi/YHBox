@@ -5,7 +5,7 @@
 package runtime
 
 import (
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // CompiledGraph 单 graph 的编译产物 — main graph 或一个 subgraph.

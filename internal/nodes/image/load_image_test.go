@@ -3,13 +3,13 @@ package image
 import (
 	"bytes"
 	"context"
-	"image/jpeg"
 	imagepkg "image"
+	"image/jpeg"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runLoadImage(t *testing.T, path string) node.RunResult {

@@ -2,7 +2,7 @@
 package main
 
 import (
-	"yotta/internal/hotkey"
+	"github.com/yottaapp/yotta/internal/hotkey"
 )
 
 // ---- Schedule HotkeyRegistrar: *hotkey.HotkeyRegistry → schedule.HotkeyRegistrar ----

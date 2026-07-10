@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 // win32WindowTargetForNode 求编辑期工具该用的窗口 = 该节点最近上游 Win32WindowTarget.
@@ -92,15 +92,6 @@ func editorTargetForNode(c *Container, nodeID string) (target.Target, bool) {
 		return targetFromSelectionNode(n)
 	}
 	return target.Target{Kind: target.KindWin32Window}, true
-}
-
-func firstTargetKind(g Graph) (string, bool) {
-	n, ok := firstTargetNode(g)
-	if !ok {
-		return "", false
-	}
-	tg, ok := targetFromSelectionNode(n)
-	return tg.Kind, ok
 }
 
 func firstTargetNode(g Graph) (*GraphNode, bool) {

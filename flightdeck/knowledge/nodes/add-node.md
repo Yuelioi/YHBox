@@ -35,7 +35,7 @@ RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注
 
 ## 2. 后端 — 包要被 blank-import (否则 init 不跑、节点不存在)
 
-- [ ] 新 `internal/nodes/<category>` 包：确认 `main.go` + `internal/services/container/runtime/dispatch_v5_test.go` 里有 `_ "yotta/internal/nodes/<category>"`。已有 category 包加节点则无需动。
+- [ ] 新 `internal/nodes/<category>` 包：确认 `main.go` + `internal/services/container/runtime/dispatch_v5_test.go` 里有 `_ "github.com/yottaapp/yotta/internal/nodes/<category>"`。已有 category 包加节点则无需动。
 
 ## 3. i18n — 文案 + 重新生成 catalog (catalog drift 测试会卡)
 

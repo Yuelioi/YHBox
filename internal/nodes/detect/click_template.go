@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&ClickTemplate{}) }

@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestSpecBuilder_HasResultOutput(t *testing.T) {

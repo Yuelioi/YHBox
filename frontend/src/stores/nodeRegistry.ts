@@ -3,9 +3,9 @@
 // 类型 RPC 自动同步 — 后端加节点 / 改 Spec → FE 重启自动拿到, 0 手抄.
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { NodeService } from '@bindings/yotta/internal/node'
-import type { Spec, TypeSpec } from '@bindings/yotta/internal/node'
-import type { FunctionSpec } from '@bindings/yotta/internal/services/expr'
+import { NodeService } from '@bindings/github.com/yottaapp/yotta/internal/node'
+import type { Spec, TypeSpec } from '@bindings/github.com/yottaapp/yotta/internal/node'
+import type { FunctionSpec } from '@bindings/github.com/yottaapp/yotta/internal/services/expr'
 
 export const useNodeRegistryStore = defineStore('nodeRegistry', () => {
   const specs = ref(new Map<string, Spec>())

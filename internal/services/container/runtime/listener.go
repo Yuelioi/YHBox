@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // EventListener EventTick 节点配套的后台监听 goroutine。

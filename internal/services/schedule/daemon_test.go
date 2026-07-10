@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 type fakeRegistrar struct {

@@ -6,13 +6,13 @@ import (
 	"image/color"
 	"testing"
 
-	automationtrace "yotta/internal/automation/trace"
-	"yotta/internal/node"
-	_ "yotta/internal/nodes/image"
-	_ "yotta/internal/nodes/input"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/pkg/winutil"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/node"
+	_ "github.com/yottaapp/yotta/internal/nodes/image"
+	_ "github.com/yottaapp/yotta/internal/nodes/input"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 func TestExecNodeViaFramework_InputTraceIncludesNodeSource(t *testing.T) {

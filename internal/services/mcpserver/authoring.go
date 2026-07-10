@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"yotta/internal/catalog"
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/catalog"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // listNodesJSON 返节点目录 JSON (catalog.BuildWithI18n 含展示文案, 已按 category→kind 稳定排序)。

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // held output 语义全覆盖 (spec 2026-06-23-held-exec-outputs §6/§9). 写/读/跨跳的基本盘在
@@ -79,7 +79,7 @@ func TestHeldOutput_NotFired(t *testing.T) {
 func TestHeldOutput_Sparse(t *testing.T) {
 	c := &container.Container{
 		SchemaVersion: 1, ID: "test-heldoutput-sparse",
-		Graph:         container.Graph{Nodes: []container.GraphNode{{ID: "n1", Kind: tkFailf}}},
+		Graph: container.Graph{Nodes: []container.GraphNode{{ID: "n1", Kind: tkFailf}}},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
@@ -100,7 +100,7 @@ func TestHeldOutput_Sparse(t *testing.T) {
 func TestHeldOutput_LoopOverwriteLastValue(t *testing.T) {
 	c := &container.Container{
 		SchemaVersion: 1, ID: "test-heldoutput-loop",
-		Graph:         container.Graph{Nodes: []container.GraphNode{{ID: "n1", Kind: tkFailf}}},
+		Graph: container.Graph{Nodes: []container.GraphNode{{ID: "n1", Kind: tkFailf}}},
 	}
 	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
 	r := NewContainerRunner(rt)
@@ -138,7 +138,7 @@ func TestHeldOutput_SubgraphCrossHop(t *testing.T) {
 	}}
 	c := &container.Container{
 		SchemaVersion: 1, ID: "test-heldoutput-subgraph",
-		Graph:         container.Graph{Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}}},
+		Graph: container.Graph{Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}}},
 	}
 	r, _ := newCallerRunner(t, c, sgs)
 	exit, err := r.CallSubgraph(context.Background(), "sg_h", nil)

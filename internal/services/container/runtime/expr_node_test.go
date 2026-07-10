@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/expr"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 // Expr 现在走 framework EvaluatePureData. dispatch_v5.buildDataWireFor 对 Expr 节点特例

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"sort"
 
-	"yotta/internal/services/container/dependency"
+	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
 // BuildYottaLock generates yotta-lock.json content from the portable package files.

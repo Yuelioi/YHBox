@@ -5,11 +5,11 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/automation/controller"
-	"yotta/internal/automation/target"
-	pkgcapture "yotta/pkg/capture"
-	pkginput "yotta/pkg/input"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 type runtimeWin32Input struct {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"yotta/internal/automation/controller"
-	"yotta/internal/automation/target"
-	nodepkg "yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 func validateTargetCapabilities(c *Container, sgs []Subgraph) []ValidationError {

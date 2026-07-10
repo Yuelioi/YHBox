@@ -24,6 +24,8 @@ import (
 	"unsafe"
 
 	"github.com/lxn/win"
+
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // DLL 错误码常量，跟 Rust 端对齐（参见 native/capture_wgc/src/lib.rs）
@@ -84,19 +86,7 @@ func dllLastError() string {
 	if r == 0 {
 		return ""
 	}
-	return cstrToGo(unsafe.Pointer(r))
-}
-
-func cstrToGo(p unsafe.Pointer) string {
-	if p == nil {
-		return ""
-	}
-	b := (*[1 << 20]byte)(p)
-	n := 0
-	for n < len(b) && b[n] != 0 {
-		n++
-	}
-	return string(b[:n])
+	return winutil.ReadCString(r)
 }
 
 // wgcSession 是单个 HWND 的捕获会话。
@@ -347,4 +337,3 @@ func (s *wgcSession) grabWithRetry() (w, h int, _ error) {
 var procSleep = syscall.NewLazyDLL("kernel32.dll").NewProc("Sleep")
 
 func sleepMs(ms uint32) { procSleep.Call(uintptr(ms)) }
-

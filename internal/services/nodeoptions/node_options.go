@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"yotta/internal/node"
-	"yotta/internal/services/asset"
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 const (

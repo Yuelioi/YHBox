@@ -3,7 +3,7 @@ package mcpserver
 import (
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestIsRunnable_GatesByNeedsTargetOrWindowNotPureData(t *testing.T) {

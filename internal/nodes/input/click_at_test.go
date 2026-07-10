@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // sizeWindow — WindowService stub with fixed client size for px-coordinate tests.

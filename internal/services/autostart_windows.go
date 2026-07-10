@@ -1,3 +1,5 @@
+//go:build windows
+
 package services
 
 // autostart.go 把 exe 自启写入 HKCU\Software\Microsoft\Windows\CurrentVersion\Run。

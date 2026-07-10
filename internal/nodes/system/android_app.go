@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() {
@@ -88,7 +88,7 @@ func androidAppSpec(kind string, capability node.TargetCapability) node.Spec {
 func androidPackageInput(in node.Inputs) (string, error) {
 	packageName := strings.TrimSpace(in.String(androidAppInPackage))
 	if packageName == "" {
-		return "", fmt.Errorf("Package is required")
+		return "", fmt.Errorf("package is required")
 	}
 	return packageName, nil
 }

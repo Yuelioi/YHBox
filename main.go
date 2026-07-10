@@ -16,34 +16,33 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yotta/internal/hotkey"
-	"yotta/internal/node"
-	_ "yotta/internal/nodes/all"
-	"yotta/internal/runclassify"
-	"yotta/internal/services"
-	"yotta/internal/services/androidadb"
-	"yotta/internal/services/asset"
-	"yotta/internal/services/browsercdp"
-	"yotta/internal/services/calibration"
-	"yotta/internal/services/codesnippet"
-	"yotta/internal/services/container"
-	containerruntime "yotta/internal/services/container/runtime"
-	"yotta/internal/services/execution"
-	mcpserver "yotta/internal/services/mcpserver"
-	"yotta/internal/services/nodeoptions"
-	"yotta/internal/services/schedule"
-	"yotta/internal/services/tools"
-	"yotta/pkg/locale"
-	"yotta/pkg/platform"
-	"yotta/pkg/screenshot"
-	"yotta/pkg/version"
+	"github.com/yottaapp/yotta/internal/hotkey"
+	"github.com/yottaapp/yotta/internal/node"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/runclassify"
+	"github.com/yottaapp/yotta/internal/services"
+	"github.com/yottaapp/yotta/internal/services/androidadb"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/browsercdp"
+	"github.com/yottaapp/yotta/internal/services/calibration"
+	"github.com/yottaapp/yotta/internal/services/codesnippet"
+	"github.com/yottaapp/yotta/internal/services/container"
+	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	mcpserver "github.com/yottaapp/yotta/internal/services/mcpserver"
+	"github.com/yottaapp/yotta/internal/services/nodeoptions"
+	"github.com/yottaapp/yotta/internal/services/schedule"
+	"github.com/yottaapp/yotta/internal/services/tools"
+	"github.com/yottaapp/yotta/pkg/locale"
+	"github.com/yottaapp/yotta/pkg/platform"
+	"github.com/yottaapp/yotta/pkg/screenshot"
+	"github.com/yottaapp/yotta/pkg/version"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 // 用跟 exe icon 同一份 build/windows/icon.ico —— 多 size 容器，Windows 自动挑 16/32px 进托盘。
-// 老 cmd/yotta/winres/*.png 是旧资源生成器留下的，已废弃。
 //
 //go:embed build/windows/icon.ico
 var trayIcon []byte

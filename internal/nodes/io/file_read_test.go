@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/text/encoding/simplifiedchinese"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runReadTextFile(t *testing.T, cfg map[string]any) node.RunResult {

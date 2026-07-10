@@ -3,7 +3,7 @@
 // 语义: body() 调一次, fire body 回报的出口 decl ID (DynamicOutputs).
 package system
 
-import "yotta/internal/node"
+import "github.com/yottaapp/yotta/internal/node"
 
 func init() { node.Register(&CollapsedNode{}) }
 

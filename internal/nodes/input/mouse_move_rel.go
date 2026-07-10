@@ -3,7 +3,7 @@ package input
 import (
 	"encoding/json"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&MouseMoveRel{}) }

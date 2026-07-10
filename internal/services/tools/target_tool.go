@@ -8,7 +8,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/apperr"
 )
 
 var (

@@ -3,7 +3,7 @@ package container
 import (
 	"testing"
 
-	"yotta/internal/services/container/dependency"
+	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
 func TestBuildYottaLockHashesAndBindingSlots(t *testing.T) {

@@ -10,10 +10,10 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/automation/controller"
-	"yotta/internal/automation/target"
-	"yotta/internal/services/container"
-	"yotta/pkg/capture"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/pkg/capture"
 )
 
 // templateCaptureAdapter 实现 asset.CaptureAdapter interface.
@@ -69,7 +69,7 @@ func (t *templateCaptureAdapter) Resolution(containerID string) ([2]int, error) 
 	}
 	if tg.Kind == target.KindAndroidADB {
 		if tg.Resolution.W <= 0 || tg.Resolution.H <= 0 {
-			return [2]int{}, fmt.Errorf("Android 目标分辨率无效: %dx%d", tg.Resolution.W, tg.Resolution.H)
+			return [2]int{}, fmt.Errorf("android 目标分辨率无效: %dx%d", tg.Resolution.W, tg.Resolution.H)
 		}
 		return [2]int{tg.Resolution.W, tg.Resolution.H}, nil
 	}
@@ -92,10 +92,10 @@ func (t *templateCaptureAdapter) captureAndroid(tg target.Target) ([]byte, error
 	defer cancel()
 	frame, err := ctrl.Screenshot(ctx, controller.ScreenshotRequest{Space: target.SpaceAndroidDevice})
 	if err != nil {
-		return nil, fmt.Errorf("Android 截图: %w", err)
+		return nil, fmt.Errorf("android 截图: %w", err)
 	}
 	if frame.Image == nil {
-		return nil, fmt.Errorf("Android 截图为空")
+		return nil, fmt.Errorf("android 截图为空")
 	}
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, frame.Image); err != nil {

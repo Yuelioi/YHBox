@@ -3,9 +3,9 @@ import { createApp, defineComponent, h, nextTick } from 'vue'
 import { createI18n } from 'vue-i18n'
 import { createPinia } from 'pinia'
 import PinInput from './PinInput.vue'
-import { NodeService } from '@bindings/yotta/internal/node'
+import { NodeService } from '@bindings/github.com/yottaapp/yotta/internal/node'
 
-vi.mock('@bindings/yotta/internal/node', () => ({
+vi.mock('@bindings/github.com/yottaapp/yotta/internal/node', () => ({
   NodeService: {
     AsyncOptions: vi.fn(),
   },

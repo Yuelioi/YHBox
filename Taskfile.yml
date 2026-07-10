@@ -45,31 +45,10 @@ tasks:
     cmds:
       - go run ./cmd/node-catalog pins
 
-  version:sync:
-    summary: 把 pkg/version.Version 同步到 build/config.yml / windows/info.json / frontend/package.json
-    desc: |
-      版本号源 = pkg/version/version.go 里的 const Version。
-      这条 task 把它写到所有附属文件里。改版本只需要：
-        1) 改 pkg/version/version.go
-        2) task version:sync
-        3) commit
-      依赖 sh + grep + sed（Windows 用 git-bash 自带）。
+  version:verify:
+    summary: 验证所有版本元数据与 pkg/version.Version 一致
     cmds:
-      - |
-        VER=$(grep -oE 'const Version = "[^"]+"' pkg/version/version.go | sed -E 's/const Version = "(.*)"/\1/')
-        if [ -z "$VER" ]; then
-          echo "ERROR: 没找到 pkg/version/version.go 里的 const Version"
-          exit 1
-        fi
-        echo "syncing version → $VER"
-        sed -i -E "s/^  version: \"[^\"]+\"/  version: \"$VER\"/" build/config.yml
-        sed -i -E "s/\"file_version\": \"[^\"]+\"/\"file_version\": \"$VER\"/" build/windows/info.json
-        sed -i -E "s/\"ProductVersion\": \"[^\"]+\"/\"ProductVersion\": \"$VER\"/" build/windows/info.json
-        sed -i -E "s/(\"version\":[[:space:]]*)\"[^\"]+\"/\1\"$VER\"/" frontend/package.json
-        sed -i -E "s/(!define INFO_PRODUCTVERSION \")([^\"]+)(\")/\1$VER\3/" build/windows/nsis/wails_tools.nsh
-        sed -i -E "s/(name=\"com\\.yhbox\\.app\" version=)\"[^\"]+\"/\1\"$VER\"/" build/windows/wails.exe.manifest
-        echo "done. 检查 diff:"
-        git diff --stat build/config.yml build/windows/info.json frontend/package.json build/windows/nsis/wails_tools.nsh build/windows/wails.exe.manifest
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-version.ps1
 
   version:bump:
     summary: 更新版本文件、提交并创建 vX.Y.Z tag

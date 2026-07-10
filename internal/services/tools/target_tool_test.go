@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/automation/target"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 type recordingPickerAdapter struct {

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"yotta/internal/hotkey"
-	"yotta/internal/services"
-	"yotta/internal/services/inputclip"
-	"yotta/internal/services/recording"
+	"github.com/yottaapp/yotta/internal/hotkey"
+	"github.com/yottaapp/yotta/internal/services"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/recording"
 )
 
 // recordingHkAdapter 拿停录/暂停热键 VK (读 hotkey registry) + mouseMode (读 settings)。

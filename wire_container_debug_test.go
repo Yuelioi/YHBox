@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	_ "yotta/internal/nodes/all"
-	"yotta/internal/services/container"
-	containerruntime "yotta/internal/services/container/runtime"
-	"yotta/internal/services/execution"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/services/container"
+	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 func newWireDebugTestRunner(c *container.Container) func(string) (*containerruntime.ContainerRunner, error) {

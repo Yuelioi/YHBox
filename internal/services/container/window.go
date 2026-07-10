@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // ErrNoWin32WindowTarget 容器主图里找不到 Win32WindowTarget 节点时返回。

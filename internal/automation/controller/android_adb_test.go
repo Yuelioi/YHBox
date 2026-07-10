@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"testing"
 
-	"yotta/internal/automation/target"
-	automationtrace "yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
 
 type adbCall struct {

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
-	"yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 func structuredCfg() map[string]any {

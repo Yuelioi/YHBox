@@ -26,6 +26,18 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 当前基线 (2026-06-29) 是 **Go 全量测试应绿**: `go test ./...`。过去记录过的 runtime fixture / fishing-v2 / dependency scanner 预存红已经不再成立;如果这些测试再红,先按回归处理,不要套旧豁免。
 
+Go 后端质量门禁同时包括：
+
+```powershell
+go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+go vet ./...
+staticcheck ./...
+go test -race ./internal/services ./internal/services/container ./internal/services/container/runtime ./internal/services/execution ./internal/services/schedule ./internal/services/inputclip/runtime ./internal/hotkey ./pkg/winutil ./pkg/capture
+task version:verify
+```
+
+对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS 当前先跑 platform-neutral core；完整 `go build ./...` 要在平台 seam 闭合后升级为门禁。
+
 前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。
 
 `cd frontend && pnpm build` 当前应绿。2026-06-29 已消掉 `pinSpec.ts` 的 ineffective dynamic import warning;当前已知非阻塞 warning / 提示是:

@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 // TestAllNeedsWindowNodesHaveWindowInput — 全部注册节点中, NeedsWindow 的都必须有 Window 输入。

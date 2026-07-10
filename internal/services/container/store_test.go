@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/asset"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 func TestContainerStore_SaveLoadList(t *testing.T) {

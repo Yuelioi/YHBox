@@ -8,7 +8,7 @@ import (
 	"image/png"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func tinyPNG(t *testing.T) []byte {
@@ -26,7 +26,7 @@ type fakeCapture struct {
 	err error
 }
 
-func (f fakeCapture) Capture() ([]byte, error)                    { return f.png, f.err }
+func (f fakeCapture) Capture() ([]byte, error)                   { return f.png, f.err }
 func (f fakeCapture) CaptureROI(_ node.Geometry) ([]byte, error) { return f.png, f.err }
 
 func runCapture(t *testing.T, format string, cap node.CaptureService) node.RunResult {

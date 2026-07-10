@@ -11,10 +11,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/container/runtime"
-	"yotta/internal/services/execution"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container/runtime"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // Deps 是 main.go 装配时注入的 GUI 常驻标准件 (与 runFunc 用的同一批).

@@ -6,8 +6,8 @@ import (
 	"image/color"
 	"testing"
 
-	"yotta/internal/node"
-	"yotta/pkg/vision"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/pkg/vision"
 )
 
 // TestVisionAdapter_GridSignature_FullFrame: Geometry 零值 → 全帧路径 → Capture.Frame → vision.Downsample.

@@ -10,7 +10,7 @@
 package control
 
 import (
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&Switch{}) }

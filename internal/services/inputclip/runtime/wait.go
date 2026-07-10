@@ -6,7 +6,6 @@ import "time"
 // PlaybackPolicy 可调度容忍度. 不同 backend 可独立配置.
 type PlaybackPolicy struct {
 	EarlyToleranceUs        uint64
-	LateToleranceUs         uint64
 	SpinWaitThresholdUs     uint64
 	CoarseSleepUnderShootUs uint64
 }
@@ -14,7 +13,6 @@ type PlaybackPolicy struct {
 func DefaultPlaybackPolicy() PlaybackPolicy {
 	return PlaybackPolicy{
 		EarlyToleranceUs:        0,
-		LateToleranceUs:         2000,
 		SpinWaitThresholdUs:     3000,
 		CoarseSleepUnderShootUs: 2000,
 	}

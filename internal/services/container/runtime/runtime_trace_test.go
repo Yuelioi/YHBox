@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/automation/target"
-	automationtrace "yotta/internal/automation/trace"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 func newTraceRuntime() *RuntimeContext {

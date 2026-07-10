@@ -3,14 +3,14 @@ package ai
 import (
 	"encoding/json"
 
-	"yotta/internal/node"
-	"yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 func init() { node.Register(&AI{}) }
 
 const (
-	pinIn  = "In"
+	pinIn   = "In"
 	pinDone = "Done"
 	pinFail = "Fail"
 

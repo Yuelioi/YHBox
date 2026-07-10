@@ -3,10 +3,10 @@ package mcpserver
 import (
 	"context"
 
-	"yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/container/runtime"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container/runtime"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 func errResult(code, msg string) RunNodeResult {

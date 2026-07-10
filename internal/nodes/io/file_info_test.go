@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runFileInfo(t *testing.T, cfg map[string]any) node.RunResult {

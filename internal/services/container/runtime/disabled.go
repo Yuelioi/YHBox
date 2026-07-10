@@ -1,8 +1,8 @@
 package runtime
 
 import (
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // passthroughDisabled routes a disabled node's token through a kind-specific exit pin.

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // CallSubgraph (脚本调子图入口) 测试: 同步跑 callee 返到达出口的 decl Name,

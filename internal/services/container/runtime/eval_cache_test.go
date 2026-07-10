@@ -6,10 +6,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"yotta/internal/node"
-	_ "yotta/internal/nodes/input" // MouseMoveRel (Dx+Dy 两 Number 输入 — C1 regression 用)
-	"yotta/internal/services/container"
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/node"
+	_ "github.com/yottaapp/yotta/internal/nodes/input" // MouseMoveRel (Dx+Dy 两 Number 输入 — C1 regression 用)
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 // 测试用计数源节点: 每次 Evaluate 自增. 用于确定性地探测记忆化是否生效.

@@ -3,7 +3,7 @@ package random
 import (
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // evalInt 用 config.literal 构造 Inputs 跑 Evaluate, 返回 int 结果.

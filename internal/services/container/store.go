@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
 var idRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // capturedEvent 单条 Emit 记录.

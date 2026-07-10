@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 func TestBuild_HasNodesAndSorted(t *testing.T) {

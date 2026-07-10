@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // strTextIn 单个 String text 输入.

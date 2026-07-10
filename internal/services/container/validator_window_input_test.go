@@ -3,10 +3,10 @@ package container
 import (
 	"testing"
 
-	_ "yotta/internal/nodes/detect" // ClickTemplate (NeedsTarget + config-derived key-state)
-	_ "yotta/internal/nodes/input"  // ClickAt (NeedsTarget)
-	_ "yotta/internal/nodes/system" // AndroidTarget / Win32WindowTarget
-	_ "yotta/internal/nodes/window" // GetWindow (产出 Window, 接 ClickAt.Window)
+	_ "github.com/yottaapp/yotta/internal/nodes/detect" // ClickTemplate (NeedsTarget + config-derived key-state)
+	_ "github.com/yottaapp/yotta/internal/nodes/input"  // ClickAt (NeedsTarget)
+	_ "github.com/yottaapp/yotta/internal/nodes/system" // AndroidTarget / Win32WindowTarget
+	_ "github.com/yottaapp/yotta/internal/nodes/window" // GetWindow (产出 Window, 接 ClickAt.Window)
 )
 
 // 连了 Window 输入的 NeedsWindow 节点 + 无 Win32WindowTarget → 不应报 MISSING_WIN32_WINDOW_TARGET。

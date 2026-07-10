@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // hsvObjSchema HSV 阈值 6 字段的结构化 schema, 供 FE StructuredInput 渲染.

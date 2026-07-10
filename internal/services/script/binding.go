@@ -13,7 +13,7 @@ import (
 
 	"github.com/dop251/goja"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // BundleFromCtx 从宿主 Ctx 重组 ServiceBundle. Snapshot 留 nil —

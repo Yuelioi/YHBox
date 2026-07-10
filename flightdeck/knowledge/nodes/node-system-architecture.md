@@ -80,7 +80,7 @@ PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**�
 一个节点能被系统认到，必须：
 
 1. **`func init() { node.Register(&X{}) }`**（节点文件里）。
-2. **包被 blank-import**：新 `internal/nodes/<category>` 包要在 `main.go` + `internal/services/container/runtime/dispatch_v5_test.go` 里有 `_ "yotta/internal/nodes/<category>"`，否则 `init` 不跑、节点不存在（已有 category 包加节点则无需动）。
+2. **包被 blank-import**：新 `internal/nodes/<category>` 包要在 `main.go` + `internal/services/container/runtime/dispatch_v5_test.go` 里有 `_ "github.com/yottaapp/yotta/internal/nodes/<category>"`，否则 `init` 不跑、节点不存在（已有 category 包加节点则无需动）。
 3. **满足 capability invariant**（`registry.go` Register 时校验，违反直接 panic、init-time 立刻暴露）：
    - 非 marker/visual 节点 **恰好一种** capability（0 个 → panic "zero capabilities"；>1 个 → panic "multiple capabilities"）。
    - `IsPureData: true` 必须实现 Evaluator，否则 panic。

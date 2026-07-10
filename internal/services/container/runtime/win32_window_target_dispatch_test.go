@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // TestWin32WindowTarget_RunIsCalledInDispatch: 验证 Start→Win32WindowTarget→Stop 执行时,

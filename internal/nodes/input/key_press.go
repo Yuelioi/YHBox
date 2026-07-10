@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"yotta/internal/node"
-	pkginput "yotta/pkg/input"
+	"github.com/yottaapp/yotta/internal/node"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 func init() { node.Register(&KeyPress{}) }

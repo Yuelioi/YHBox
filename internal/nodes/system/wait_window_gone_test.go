@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // TestWaitWindowGone_Gone: seam 返 nil → 节点走 Gone 出口

@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func tm(x, y, conf float64, key string) node.TemplateMatch {

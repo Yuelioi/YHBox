@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 type Controller interface {

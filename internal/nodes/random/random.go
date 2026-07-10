@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"math/rand/v2"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() {

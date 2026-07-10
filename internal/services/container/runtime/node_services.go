@@ -22,15 +22,15 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
-	"yotta/internal/automation/controller"
-	"yotta/internal/automation/target"
-	automationtrace "yotta/internal/automation/trace"
-	"yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/expr"
-	clipruntime "yotta/internal/services/inputclip/runtime"
-	"yotta/pkg/vision"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	clipruntime "github.com/yottaapp/yotta/internal/services/inputclip/runtime"
+	"github.com/yottaapp/yotta/pkg/vision"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // ============================================================================

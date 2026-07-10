@@ -10,9 +10,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"yotta/internal/apperr"
-	"yotta/internal/automation/target"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // WindowResolver 由 main.go 注入 (concrete *container.Service)，按 containerID 解析目标窗口。

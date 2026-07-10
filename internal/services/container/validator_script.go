@@ -3,7 +3,7 @@ package container
 import (
 	"fmt"
 
-	scriptsvc "yotta/internal/services/script"
+	scriptsvc "github.com/yottaapp/yotta/internal/services/script"
 )
 
 // validateScriptNodes — Script 节点编辑期校验: JS 语法 (goja 编译) + 动态输入重名.

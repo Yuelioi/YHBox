@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 func TestResolveSubgraphCall_OK(t *testing.T) {

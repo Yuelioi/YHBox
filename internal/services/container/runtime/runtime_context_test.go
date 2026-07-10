@@ -4,8 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"yotta/internal/automation/target"
-	winutil "yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	winutil "github.com/yottaapp/yotta/pkg/winutil"
 )
 
 func TestRuntimeContext_SetActiveWindow_StickyAndGuard(t *testing.T) {

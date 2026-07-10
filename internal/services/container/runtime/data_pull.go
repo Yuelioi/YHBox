@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/expr"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 // dataEdgeIndex maps target pin → source pin for data-flow edges.

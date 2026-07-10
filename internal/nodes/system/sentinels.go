@@ -3,7 +3,7 @@ package system
 import (
 	"errors"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 var errThrow = errors.New("throw")

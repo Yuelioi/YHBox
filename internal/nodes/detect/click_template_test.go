@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // ─── Task 2.2: pickMatch 单元测试 ────────────────────────────────────────────

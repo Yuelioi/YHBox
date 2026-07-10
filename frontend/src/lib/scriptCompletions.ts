@@ -23,7 +23,7 @@ import { javascript } from '@codemirror/lang-javascript'
 import { linter, type Diagnostic } from '@codemirror/lint'
 import type { Extension, Range } from '@codemirror/state'
 import { indentationMarkers } from '@replit/codemirror-indentation-markers'
-import type { Spec } from '@bindings/yotta/internal/node'
+import type { Spec } from '@bindings/github.com/yottaapp/yotta/internal/node'
 import { baseEditorExtensions, type BaseEditorOpts } from '@/lib/editorTheme'
 import { fnHoverTooltip, type HoverDoc } from '@/lib/editorHover'
 import {

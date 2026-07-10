@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&Loop{}) }
@@ -94,6 +94,6 @@ func (Loop) RunRegion(ctx node.Ctx, in node.Inputs, body func(node.Ctx) (string,
 			}
 		}
 	default:
-		return nil, fmt.Errorf("Loop: unknown mode %q", mode)
+		return nil, fmt.Errorf("loop: unknown mode %q", mode)
 	}
 }

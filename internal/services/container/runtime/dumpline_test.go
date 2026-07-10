@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 func TestFormatDumpLine_Basic(t *testing.T) {
@@ -93,5 +93,5 @@ func codedErr(code, msg string) error { return &codedTestErr{code: code, msg: ms
 
 type codedTestErr struct{ code, msg string }
 
-func (e *codedTestErr) Error() string           { return e.msg }
+func (e *codedTestErr) Error() string            { return e.msg }
 func (e *codedTestErr) ErrCode() nodepkg.ErrCode { return nodepkg.ErrCode(e.code) }

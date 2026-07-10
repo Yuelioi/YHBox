@@ -1,0 +1,117 @@
+name: Go CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify version metadata
+        shell: pwsh
+        run: ./scripts/verify-version.ps1
+
+      - name: Verify module identity
+        shell: pwsh
+        run: |
+          $module = go list -m
+          if ($module -ne "github.com/yottaapp/yotta") {
+            throw "unexpected Go module path: $module"
+          }
+
+      - name: Test with coverage
+        run: go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+
+      - name: Staticcheck
+        run: staticcheck ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage-windows
+          path: coverage.out
+
+  race-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Race-sensitive packages
+        run: >-
+          go test -race
+          ./internal/services
+          ./internal/services/container
+          ./internal/services/container/runtime
+          ./internal/services/execution
+          ./internal/services/schedule
+          ./internal/services/inputclip/runtime
+          ./internal/hotkey
+          ./pkg/winutil
+          ./pkg/capture
+
+  portable-core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test platform-neutral core
+        run: >-
+          go test
+          ./internal/apperr
+          ./internal/automation/target
+          ./internal/automation/trace
+          ./internal/services/execution
+          ./internal/services/expr
+          ./internal/services/llm
+          ./pkg/imageutil
+          ./pkg/locale
+          ./pkg/runctl
+          ./pkg/vision

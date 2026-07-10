@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 type ParseJSON struct{}

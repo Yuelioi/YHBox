@@ -17,6 +17,10 @@ logs/
 # Go build output
 *.exe*
 *.syso
+
+# Go test coverage
+/coverage.out
+
 # 但 wails3 build 需要 wails.exe.manifest 作为 syso 输入；它是 XML 不是 binary，
 # 必须 checkin（CI 上 git clone 时拿不到就炸 `wails3 generate syso`）。
 !build/windows/wails.exe.manifest

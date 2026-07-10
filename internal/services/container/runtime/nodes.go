@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // execNode 单节点执行入口. 走 dispatchInRegion — 内部 route Loop/Subgraph/CollapsedNode

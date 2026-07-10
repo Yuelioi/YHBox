@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runDecodeQR(t *testing.T, vision *mockVision) node.RunResult {

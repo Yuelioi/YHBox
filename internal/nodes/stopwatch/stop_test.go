@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestStop_HappyPath(t *testing.T) {

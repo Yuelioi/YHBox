@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"yotta/internal/adbexec"
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/adbexec"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 type Runner interface {

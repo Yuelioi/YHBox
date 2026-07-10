@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/automation/target"
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestAndroidTarget_SpecHasExecInAndTargetPins(t *testing.T) {

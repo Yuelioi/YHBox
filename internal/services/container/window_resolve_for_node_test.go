@@ -3,9 +3,9 @@ package container
 import (
 	"testing"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 func TestWin32WindowTargetForNode(t *testing.T) {

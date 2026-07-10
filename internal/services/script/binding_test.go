@@ -9,7 +9,7 @@ import (
 
 	"github.com/dop251/goja"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 type installTestCtx struct{ services node.ServiceBundle }

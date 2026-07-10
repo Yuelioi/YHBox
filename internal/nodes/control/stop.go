@@ -4,7 +4,7 @@
 // dispatch loop without emitting container:error.
 package control
 
-import "yotta/internal/node"
+import "github.com/yottaapp/yotta/internal/node"
 
 func init() { node.Register(&Stop{}) }
 

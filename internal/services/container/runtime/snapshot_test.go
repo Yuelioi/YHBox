@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 func TestSnapshotIsACopy(t *testing.T) {

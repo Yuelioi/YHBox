@@ -3,7 +3,7 @@ package container
 import (
 	"fmt"
 
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 // validateExprNodes scans main + subgraph graphs for Expr kind nodes, validates:

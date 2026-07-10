@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&MouseMoveTo{}) }

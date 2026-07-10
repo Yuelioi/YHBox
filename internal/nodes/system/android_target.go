@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"yotta/internal/automation/target"
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&AndroidTarget{}) }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runBlobs(t *testing.T, vision *mockVision, cfg map[string]any) node.RunResult {

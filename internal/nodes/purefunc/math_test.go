@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // evalMathNode 直接走 framework EvaluatePureData (与 TestEvaluate_22PureFuncs 同范式).
@@ -106,8 +106,8 @@ func TestRound_SQLConvention(t *testing.T) {
 		{"d2", 3.14159, 2, 3.14},
 		{"neg_d_hundreds", 12345, -2, 12300},
 		{"neg_d_tens", 149, -1, 150},
-		{"d_overclamp_hi", 1.23456, 99, 1.23456},   // Digits clamp 到 15, 精度内原样
-		{"d_overclamp_lo", 12345, -99, 0},          // clamp 到 -15 → 10^15 量级取整 → 0
+		{"d_overclamp_hi", 1.23456, 99, 1.23456}, // Digits clamp 到 15, 精度内原样
+		{"d_overclamp_lo", 12345, -99, 0},        // clamp 到 -15 → 10^15 量级取整 → 0
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -124,13 +124,13 @@ func TestRound_DefaultDigitsZero(t *testing.T) {
 
 func TestClamp_Basic(t *testing.T) {
 	cases := []struct {
-		name          string
+		name            string
 		x, lo, hi, want float64
 	}{
 		{"below", -5, 0, 10, 0},
 		{"above", 15, 0, 10, 10},
 		{"inside", 5, 0, 10, 5},
-		{"swap_bounds", 5, 10, 0, 5},   // Min>Max 先交换 (与 RandomInt 同惯例)
+		{"swap_bounds", 5, 10, 0, 5}, // Min>Max 先交换 (与 RandomInt 同惯例)
 		{"swap_below", -1, 10, 0, 0},
 	}
 	for _, tc := range cases {

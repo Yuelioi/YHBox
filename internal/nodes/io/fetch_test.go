@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runFetch(t *testing.T, cfg map[string]any) node.RunResult {
@@ -91,11 +91,11 @@ func TestFetch_HeadersCookiesAndJSONBody(t *testing.T) {
 	defer srv.Close()
 
 	res := runFetch(t, map[string]any{
-		"Method":  "POST",
-		"URL":     srv.URL,
-		"Headers": map[string]any{"X-Token": "abc"},
-		"Cookies": "sid=1",
-		"Body":    map[string]any{"name": "yotta"},
+		"Method":   "POST",
+		"URL":      srv.URL,
+		"Headers":  map[string]any{"X-Token": "abc"},
+		"Cookies":  "sid=1",
+		"Body":     map[string]any{"name": "yotta"},
 		"BodyMode": "json",
 	})
 	if res.Error != nil || res.ExitName != "Done" {

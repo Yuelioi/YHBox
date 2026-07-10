@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 // AIService 暴露给前端的 AI 连接相关 RPC。无状态: 只对传入的连接做测试, 不持久化、不读 settings。

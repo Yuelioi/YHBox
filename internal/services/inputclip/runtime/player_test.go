@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/inputclip"
-	"yotta/internal/services/inputclip/backends"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/inputclip/backends"
 )
 
 // captureBackend mock 后端: 记录 Send 顺序 + 调用时点 (QPC us).
@@ -57,9 +57,6 @@ func (c *captureBackend) snapshot() ([]inputclip.Event, []uint64) {
 
 var _ backends.IInputBackend = (*captureBackend)(nil)
 
-// 时间 tolerance: QPC stub 路径 (跨平台 CI) 用 time.Now() 精度差, 给 +/-15ms 余量.
-const timeToleranceUs uint64 = 15_000
-
 func TestClipPlayer_PlayWithoutRanges_PlaysAllEvents(t *testing.T) {
 	clip := &inputclip.InputClip{
 		ID:         "c1",
@@ -88,7 +85,7 @@ func TestClipPlayer_PlayWithoutRanges_PlaysAllEvents(t *testing.T) {
 func TestClipPlayer_PlayWithRanges_SkipsCutRegion(t *testing.T) {
 	// 5 events at 0/30/60/90/120 ms.
 	// ranges: keep [0,30] + [90,120] → 期望发送 events @ TUs 0, 30, 90, 120 (4 个).
-	// 关键时间检验: ev[90] wallclock = startQPC + (90 - 60_cut) ms = startQPC + 30ms.
+	// 关键时间检验: ev[90] target = startQPC + (90 - 60_cut) ms = startQPC + 30ms.
 	clip := &inputclip.InputClip{
 		ID:         "c2",
 		DurationUs: 120_000,
@@ -106,12 +103,19 @@ func TestClipPlayer_PlayWithRanges_SkipsCutRegion(t *testing.T) {
 	}
 	cap := &captureBackend{}
 	p := NewClipPlayer(clip, ranges, cap, DefaultPlaybackPolicy(), 0, nil)
-	startQPC := QPCMicros()
+	const startQPC uint64 = 1_000_000
+	now := startQPC
+	var scheduled []uint64
+	p.nowMicros = func() uint64 { return now }
+	p.waitUntil = func(target uint64, _ PlaybackPolicy) {
+		scheduled = append(scheduled, target)
+		now = target
+	}
 	p.Start(context.Background())
 	if err := p.Wait(); err != nil {
 		t.Fatalf("Wait: %v", err)
 	}
-	evs, ts := cap.snapshot()
+	evs, _ := cap.snapshot()
 	if len(evs) != 4 {
 		t.Fatalf("expected 4 sent, got %d: %+v", len(evs), evs)
 	}
@@ -119,18 +123,15 @@ func TestClipPlayer_PlayWithRanges_SkipsCutRegion(t *testing.T) {
 		t.Fatalf("event order wrong (should drop A=3): %+v", evs)
 	}
 
-	// ev[4] @ TUs=90_000 → effective = 90_000 - 60_000_cut = 30_000us, wallclock ≈ startQPC + 30ms.
+	// ev[4] @ TUs=90_000 → effective = 90_000 - 60_000_cut = 30_000us.
 	// ev[5] @ TUs=120_000 → effective = 60_000us.
-	expects := []uint64{0, 30_000, 30_000, 60_000}
+	expects := []uint64{startQPC, startQPC + 30_000, startQPC + 30_000, startQPC + 60_000}
+	if len(scheduled) != len(expects) {
+		t.Fatalf("scheduled %d events, want %d", len(scheduled), len(expects))
+	}
 	for i, exp := range expects {
-		actual := ts[i] - startQPC
-		diff := int64(actual) - int64(exp)
-		if diff < 0 {
-			diff = -diff
-		}
-		if uint64(diff) > timeToleranceUs {
-			t.Errorf("ev[%d] wallclock offset = %dus, expected %dus +/- %dus (diff=%d)",
-				i, actual, exp, timeToleranceUs, diff)
+		if scheduled[i] != exp {
+			t.Errorf("event[%d] scheduled at %dus, want %dus", i, scheduled[i], exp)
 		}
 	}
 }

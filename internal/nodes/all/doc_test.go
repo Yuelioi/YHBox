@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
-const nodeImportPrefix = "yotta/internal/nodes/"
+const nodeImportPrefix = "github.com/yottaapp/yotta/internal/nodes/"
 
 func TestAllImportsEveryBuiltInNodePackage(t *testing.T) {
 	expected, err := builtInNodePackageDirs("..")

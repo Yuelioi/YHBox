@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // recordingVars 实现 node.VarStore — 累积调用供测试断言.
@@ -37,8 +37,8 @@ func (r *recordingVars) Inc(name string, delta float64) float64 {
 
 // scope-aware 变种: stub 不区分 frame, 全部走 global store. SetVar/IncVar 节点 5.5
 // cutover 后调 *Scoped, recordingVars 透到 base Get/Set/Inc.
-func (r *recordingVars) GetScoped(name, _ string) (any, bool)      { return r.Get(name) }
-func (r *recordingVars) SetScoped(name, _ string, v any)            { r.Set(name, v) }
+func (r *recordingVars) GetScoped(name, _ string) (any, bool)        { return r.Get(name) }
+func (r *recordingVars) SetScoped(name, _ string, v any)             { r.Set(name, v) }
 func (r *recordingVars) IncScoped(name, _ string, d float64) float64 { return r.Inc(name, d) }
 func (r *recordingVars) LastChange(name string) int64                { return 0 }
 

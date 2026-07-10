@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 // ---- LogService ----

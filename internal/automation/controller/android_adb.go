@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"yotta/internal/adbexec"
-	"yotta/internal/automation/target"
-	automationtrace "yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/adbexec"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 )
 
 type ADBRunner interface {
@@ -271,10 +271,6 @@ func (c *AndroidADBController) recordActionWithSteps(action string, request any,
 		})
 	}
 	return err
-}
-
-func (c *AndroidADBController) coordinateSteps(points ...target.Point) ([]automationtrace.CoordinateStep, error) {
-	return c.coordinateStepsWithSize(c.target.Resolution, points...)
 }
 
 func (c *AndroidADBController) coordinateStepsWithSize(size target.Size, points ...target.Point) ([]automationtrace.CoordinateStep, error) {

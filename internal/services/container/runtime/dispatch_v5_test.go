@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"yotta/internal/node"
-	_ "yotta/internal/nodes/all"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/node"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // ============================================================================

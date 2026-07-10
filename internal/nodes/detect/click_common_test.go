@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // ─── 序列记录 InputService stub ──────────────────────────────────────────────

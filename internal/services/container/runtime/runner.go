@@ -10,12 +10,12 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"yotta/internal/node"
-	"yotta/internal/nodes/control"
-	"yotta/internal/services/container"
-	"yotta/internal/services/inputclip/backends"
-	pkgcapture "yotta/pkg/capture"
-	pkginput "yotta/pkg/input"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/nodes/control"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/inputclip/backends"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 // LoopFrame Loop body 期间的"我在哪个 Loop 里"上下文。Break/Continue 跳目标。
@@ -392,7 +392,7 @@ func (r *ContainerRunner) debugEnterLoop(node *container.GraphNode, tok ExecToke
 	}
 	if mode != "count" && mode != "forever" {
 		return DebugStepResult{NodeID: node.ID, NodeKind: node.Kind, InPin: tok.InPin, Finished: len(r.queue) == 0},
-			fmt.Errorf("Loop: unknown mode %q", mode)
+			fmt.Errorf("loop: unknown mode %q", mode)
 	}
 	if mode == "count" {
 		count, ok := container.PinInt(node, "Count")
@@ -703,10 +703,6 @@ var errStopRun = errors.New("stop")
 // key 必须是规范 PascalCase Spec.Input 名。
 func configString(node *container.GraphNode, key string) string {
 	return container.PinString(node, key)
-}
-
-func configStringList(node *container.GraphNode, key string) []string {
-	return container.PinStringList(node, key)
 }
 
 // ----------------------------------------------------------------------------

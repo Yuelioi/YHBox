@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 
-	_ "yotta/internal/nodes/event"    // EventTick
-	_ "yotta/internal/nodes/variable" // SetVar
+	_ "github.com/yottaapp/yotta/internal/nodes/event"    // EventTick
+	_ "github.com/yottaapp/yotta/internal/nodes/variable" // SetVar
 )
 
 // buildSpawnListener 造一个只含 [EventTick → SetVar(global)] 的容器, 返回 listener + runner 供断言。

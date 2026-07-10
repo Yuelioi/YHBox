@@ -11,10 +11,10 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/internal/services/expr"
-	pkginput "yotta/pkg/input"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 type spyInputBackend struct {

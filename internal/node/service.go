@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 // NodeService Wails3 RPC service. FE 启动调 GetAllNodeSpecs / GetAllTypes / AsyncOptions.

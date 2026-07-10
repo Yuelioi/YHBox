@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // ExecFrame 单层 graph 调用栈帧.

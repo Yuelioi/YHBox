@@ -1,6 +1,6 @@
 package mcpserver
 
-import "yotta/internal/node"
+import "github.com/yottaapp/yotta/internal/node"
 
 // isRunnable: run_node 只接「对当前自动化目标做一件事」的动作节点。
 // 闸 = NeedsTarget/NeedsWindow 且非纯数据。

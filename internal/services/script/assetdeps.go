@@ -6,7 +6,7 @@ package script
 import (
 	"regexp"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // guidPat 标准 uuid。clip GUID 形如 clip-<uuid>(与 clip 记录文件名同款)。

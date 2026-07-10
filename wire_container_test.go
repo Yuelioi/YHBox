@@ -8,7 +8,7 @@ import (
 	"image/png"
 	"testing"
 
-	"yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
 // patternImg 造一张有空间方差的 small 图 (棋盘格), NCC 需要非常数像素才有定义.
@@ -158,11 +158,11 @@ func TestWithinScaleTolerance(t *testing.T) {
 
 func TestNormScaleTolerance(t *testing.T) {
 	cases := []struct{ in, want float64 }{
-		{0, 2.0},    // 未配 → 默认
-		{-1, 2.0},   // 异常 → 默认
-		{0.5, 1.0},  // (0,1) → 仅精确
-		{1.0, 1.0},  // 正好 1
-		{2.5, 2.5},  // 透传
+		{0, 2.0},   // 未配 → 默认
+		{-1, 2.0},  // 异常 → 默认
+		{0.5, 1.0}, // (0,1) → 仅精确
+		{1.0, 1.0}, // 正好 1
+		{2.5, 2.5}, // 透传
 	}
 	for _, c := range cases {
 		if got := normScaleTolerance(c.in); got != c.want {

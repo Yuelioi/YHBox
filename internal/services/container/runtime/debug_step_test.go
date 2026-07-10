@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 func newDebugStepRunner(t *testing.T, c *container.Container, sgs []container.Subgraph) *ContainerRunner {

@@ -21,6 +21,18 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -33,20 +45,11 @@ jobs:
       - name: Install wails3 CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.91
 
-      - name: Sync version into source
+      - name: Verify release version
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}".TrimStart('v')
-          # main.go: var version = "..."
-          (Get-Content main.go -Raw -Encoding UTF8) `
-            -replace 'version\s*=\s*"\d+\.\d+\.\d+"', "version = `"$tag`"" |
-            Set-Content main.go -NoNewline -Encoding UTF8
-          # build/windows/info.json: file_version + ProductVersion
-          $info = Get-Content build/windows/info.json -Raw | ConvertFrom-Json
-          $info.fixed.file_version = $tag
-          $info.info.'0000'.ProductVersion = $tag
-          $info | ConvertTo-Json -Depth 10 | Set-Content build/windows/info.json -Encoding UTF8
-          Write-Host "version synced to $tag"
+          ./scripts/verify-version.ps1 -ExpectedVersion $tag
 
       - name: Build (task build)
         run: task build

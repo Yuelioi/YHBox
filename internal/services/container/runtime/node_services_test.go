@@ -11,15 +11,15 @@ import (
 	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
-	"yotta/internal/automation/controller"
-	"yotta/internal/automation/target"
-	automationtrace "yotta/internal/automation/trace"
-	"yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/internal/services/expr"
-	pkginput "yotta/pkg/input"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // newAdapterTestRT 构造一个最小 RuntimeContext 供 adapter 测试用.

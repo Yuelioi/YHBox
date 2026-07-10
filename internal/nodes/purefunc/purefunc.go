@@ -12,7 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // specBuilder 构造单 Result 数据出口的 pure-data Spec. pin name 用 PascalCase.

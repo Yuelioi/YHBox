@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // TestWaitTemplateGone_Gone: 第 1 帧命中（模板还在），第 2 帧消失 → Gone。

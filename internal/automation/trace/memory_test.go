@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 func TestMemoryRecorderRecordAndRecords(t *testing.T) {

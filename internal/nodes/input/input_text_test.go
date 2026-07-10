@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // TypeText 记录格式: "TypeText:<text>"

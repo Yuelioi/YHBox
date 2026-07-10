@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 func jsonNum(s string) json.Number { return json.Number(s) }
@@ -90,9 +90,9 @@ func (r *recordingWindowService) Snapshot() (node.Window, error) {
 
 func TestWindowState_AllStates(t *testing.T) {
 	cases := []struct {
-		state   string
-		check   func(*recordingWindowService) bool
-		label   string
+		state string
+		check func(*recordingWindowService) bool
+		label string
 	}{
 		{"maximize", func(r *recordingWindowService) bool { return r.maximized }, "r.maximized"},
 		{"minimize", func(r *recordingWindowService) bool { return r.minimized }, "r.minimized"},

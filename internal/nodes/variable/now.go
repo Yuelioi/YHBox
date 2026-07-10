@@ -3,7 +3,7 @@
 // 配 VarLastChange 算"距今": Now - VarLastChange(x)。
 package variable
 
-import "yotta/internal/node"
+import "github.com/yottaapp/yotta/internal/node"
 
 func init() { node.Register(&Now{}) }
 

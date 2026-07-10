@@ -1,3 +1,5 @@
+//go:build windows
+
 // Package platform Win32 控制台和 UAC 基础设施。
 package platform
 

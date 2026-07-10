@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
 // ClipSummary 列表项 — 不含 events, 给 UI list view.

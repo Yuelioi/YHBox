@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"maps"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // maxSubgraphCallDepth 子图调用嵌套上限. 图层有静态防环 (validateCyclicSubgraphs),

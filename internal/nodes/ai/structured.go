@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 
-	"yotta/internal/node"
-	"yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 type outputDecl struct{ Name, Type string }

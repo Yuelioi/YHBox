@@ -154,7 +154,7 @@ import ExprInput from '@/components/expressions/ExprInput.vue'
 import CodeInput from '@/components/expressions/CodeInput.vue'
 import { coerceLiteral } from './coerceLiteral'
 import { useSettingsStore } from '@/stores/settings'
-import { NodeService } from '@bindings/yotta/internal/node'
+import { NodeService } from '@bindings/github.com/yottaapp/yotta/internal/node'
 import type { PinType } from '../pinSpec'
 import type { VarType } from '@/lib/variableRef'
 import {

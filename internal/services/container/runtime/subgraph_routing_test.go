@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // 多出口路由测试: 父图边以 callee OutputPins decl ID 为 pin, 调用节点按 body

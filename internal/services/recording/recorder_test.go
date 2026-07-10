@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 func TestVKName(t *testing.T) {

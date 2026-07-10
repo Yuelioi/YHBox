@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func evalJSONNode(t *testing.T, n node.Node, dataWire map[string]any) any {

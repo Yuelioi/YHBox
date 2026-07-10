@@ -6,11 +6,11 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	pkgcapture "yotta/pkg/capture"
-	pkginput "yotta/pkg/input"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // newTestRunnerWithSubgraph 构造一个最小容器 + 注入子图 + stub backend,
@@ -108,9 +108,9 @@ func (f *fakeInputBackend) MouseMoveRel(win.HWND, int, int, int) error         {
 func (f *fakeInputBackend) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
 	return nil
 }
-func (f *fakeInputBackend) MoveTo(win.HWND, float64, float64) error        { return nil }
-func (f *fakeInputBackend) CursorRatio(win.HWND) (float64, float64, error) { return 0, 0, nil }
+func (f *fakeInputBackend) MoveTo(win.HWND, float64, float64) error            { return nil }
+func (f *fakeInputBackend) CursorRatio(win.HWND) (float64, float64, error)     { return 0, 0, nil }
 func (f *fakeInputBackend) Scroll(win.HWND, float64, float64, int, bool) error { return nil }
-func (f *fakeInputBackend) TypeText(_ win.HWND, _ string) error             { return nil }
-func (f *fakeInputBackend) ReleaseAll() error                              { return nil }
-func (f *fakeInputBackend) Close() error                                   { return nil }
+func (f *fakeInputBackend) TypeText(_ win.HWND, _ string) error                { return nil }
+func (f *fakeInputBackend) ReleaseAll() error                                  { return nil }
+func (f *fakeInputBackend) Close() error                                       { return nil }

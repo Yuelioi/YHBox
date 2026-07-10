@@ -1,6 +1,6 @@
 package runtime
 
-import automationtrace "yotta/internal/automation/trace"
+import automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 
 const actionTraceEventName = "container:action-trace"
 

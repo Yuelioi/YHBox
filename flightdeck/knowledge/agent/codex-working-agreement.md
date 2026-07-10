@@ -24,7 +24,7 @@ RECHECK WHEN: 用户调整协作方式 / Flightdeck 流程变化 / Git 习惯变
 
 ## Git 边界
 
-- 当前约定：用户没明确说“提交”就不提交；没明确说“推送”就不 push。
+- 当前约定：Codex 可以按逻辑边界自主创建本地 commit；没明确说“推送”就不 push。
 - 新任务可以按需要切分支或建 worktree；不要沿用旧的“所有改动必须直提 main”规则。
 - 不使用 `git reset --hard`、`git checkout --`、`git clean` 等会丢用户改动的命令，除非用户明确要求并确认范围。
 - 遇到工作区已有改动，默认视为用户或其他 agent 的改动；先识别范围，只改自己任务需要的部分。

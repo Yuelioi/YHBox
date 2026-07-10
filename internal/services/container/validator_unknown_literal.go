@@ -3,7 +3,7 @@ package container
 import (
 	"fmt"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 // validateUnknownLiteralPins: config.literal 里写了 Spec 不存在的 data-in pin 名 (LLM 笔误

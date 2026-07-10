@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // fakeSubgraphs — node.SubgraphCaller 测试替身.

@@ -165,7 +165,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import EditorModal, { type RefItem } from './EditorModal.vue'
 import type { AssetSummary } from '@/lib/backend'
 import { keyEventToVK } from '@/components/containers/keyCapture'
-import { NodeService } from '@bindings/yotta/internal/node'
+import { NodeService } from '@bindings/github.com/yottaapp/yotta/internal/node'
 import type { AsyncOption } from '@/components/containers/inline/asyncDropdown'
 
 const { t, te } = useI18n()

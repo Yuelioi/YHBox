@@ -4,7 +4,7 @@ package io
 import (
 	"fmt"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&Log{}) }

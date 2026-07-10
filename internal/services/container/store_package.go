@@ -3,11 +3,10 @@ package container
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"yotta/internal/services/container/dependency"
+	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
 const (
@@ -397,8 +396,4 @@ func timeString(t time.Time) string {
 func parseTime(v string) time.Time {
 	t, _ := time.Parse(time.RFC3339, v)
 	return t
-}
-
-func packagePath(dir string) string {
-	return filepath.Join(dir, packageFile)
 }

@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
-	"yotta/internal/automation/target"
-	"yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 // Node — minimal contract. 只描述 "我是什么", 不描述 "我怎么跑".

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"yotta/internal/automation/target"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // Runner Container 运行入口。main.go 注入：把 RunOnce 转成"enqueue 单 target run"。

@@ -16,13 +16,13 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"yotta/internal/hotkey"
-	"yotta/internal/node"
-	"yotta/internal/services/asset"
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
-	"yotta/internal/services/expr"
-	"yotta/pkg/vision"
+	"github.com/yottaapp/yotta/internal/hotkey"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/pkg/vision"
 )
 
 // roiPaddingPx: variant.BBox → ROI 转换时的 px 冗余.

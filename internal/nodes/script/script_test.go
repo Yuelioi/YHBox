@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func setup(t *testing.T, extra ...node.Node) *node.RegisteredNode {

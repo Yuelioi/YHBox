@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 
-	_ "yotta/internal/nodes/all"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
 func TestRunNode_NotArmed_Rejects(t *testing.T) {

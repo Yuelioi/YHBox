@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func runFTA(t *testing.T, vision *mockVision, cfg map[string]any) node.RunResult {

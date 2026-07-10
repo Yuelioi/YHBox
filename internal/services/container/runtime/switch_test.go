@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // Switch dispatch 集成 smoke: 验 named-by-value 模型经真实 execNode 路径

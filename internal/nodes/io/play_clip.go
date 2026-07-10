@@ -4,7 +4,7 @@
 package io
 
 import (
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() { node.Register(&PlayClip{}) }
@@ -19,8 +19,8 @@ const (
 
 func (PlayClip) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "PlayClip",
-		Category:    "IO",
+		Kind:            "PlayClip",
+		Category:        "IO",
 		NeedsWindow:     true,
 		NeedsForeground: true,
 		Inputs: append([]node.InputSpec{

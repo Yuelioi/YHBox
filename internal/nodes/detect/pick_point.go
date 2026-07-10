@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func init() {

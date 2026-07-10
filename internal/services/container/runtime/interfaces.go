@@ -4,9 +4,9 @@ import (
 	"context"
 	"image"
 
-	"yotta/internal/node"
-	"yotta/internal/services/expr"
-	"yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 // ClipResolver PlayClip 节点用: clipID → InputClip. main.go 注入 inputclip.Service 适配.

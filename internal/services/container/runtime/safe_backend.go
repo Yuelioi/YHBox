@@ -7,8 +7,8 @@ import (
 
 	"github.com/lxn/win"
 
-	pkgcapture "yotta/pkg/capture"
-	pkginput "yotta/pkg/input"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 // SafeInputBackend wraps pkginput.Backend, 集中 invalid-hwnd warn-once + emit.

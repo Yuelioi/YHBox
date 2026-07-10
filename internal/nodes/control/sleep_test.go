@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestSleep_HappyPath(t *testing.T) {

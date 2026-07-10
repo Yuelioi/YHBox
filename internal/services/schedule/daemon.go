@@ -10,7 +10,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // HotkeyRegistrar 由 main.go 注入 services.HotkeyRegistry 适配。
@@ -179,7 +179,8 @@ func (d *Daemon) fire(scheduleID string, source execution.TriggerSource) error {
 }
 
 // buildCronSpec subKind=daily + at="HH:MM" → "M H * * *"
-//                subKind=interval + everyMinutes=N → "@every Nm"
+//
+//	subKind=interval + everyMinutes=N → "@every Nm"
 func buildCronSpec(t Trigger) (string, error) {
 	switch t.SubKind {
 	case "daily":

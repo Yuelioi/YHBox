@@ -2,16 +2,12 @@ package container
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
 
-	nodepkg "yotta/internal/node"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
-
-var varNameRE = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-var edgeFormatRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_.]+$`)
 
 // ValidationFailure aggregates all error-severity entries from a single Validate call.
 // Implements the error interface — callers can errors.As(&vf) to recover the full list

@@ -1,6 +1,6 @@
 package controller
 
-import "yotta/internal/automation/target"
+import "github.com/yottaapp/yotta/internal/automation/target"
 
 type BackendKind string
 

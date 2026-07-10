@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 type templateCaptureADBCall struct {

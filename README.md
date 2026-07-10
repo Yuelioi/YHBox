@@ -1,6 +1,6 @@
 # Yotta
 
-[![GitHub](https://img.shields.io/github/v/release/Yuelioi/Yotta)](https://github.com/Yuelioi/Yotta/releases)
+[![GitHub](https://img.shields.io/github/v/release/yottaapp/yotta)](https://github.com/yottaapp/yotta/releases)
 
 Windows 桌面工具，给《异环 / Neverness to Everness》提供后台自动化。**真后台**：不抢前台焦点、不动鼠标光标，挂机时可以正常用电脑写代码、看视频、刷网页。
 

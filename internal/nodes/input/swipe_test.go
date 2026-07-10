@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // Drag 记录格式: "Drag:x1:y1:x2:y2:button:durationMs"

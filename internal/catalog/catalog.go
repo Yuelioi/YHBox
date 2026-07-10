@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // PinData — exec 出口携带的一个数据字段 (下游 exec-data wire 收同名字段)。

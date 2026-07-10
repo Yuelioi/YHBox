@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
-	"yotta/internal/services/expr"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 func TestPullDataPin_Literal(t *testing.T) {

@@ -65,7 +65,7 @@ func (s *Service) notifyChange() {
 // 返新分配的 GUID (用户看不到, FE 拿来 set 节点 pin).
 func (s *Service) SaveTemplateCapture(dataURL, name string, tags []string, recRes [2]int, region [4]float32) (string, error) {
 	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
-		return "", fmt.Errorf("dataURL must be data:image/png;base64,...")
+		return "", fmt.Errorf("data URL must start with %q", "data:image/png;base64,")
 	}
 	pngData, err := base64.StdEncoding.DecodeString(dataURL[len("data:image/png;base64,"):])
 	if err != nil {
@@ -106,7 +106,7 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 		return "", fmt.Errorf("asset %q not found", guid)
 	}
 	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
-		return "", fmt.Errorf("dataURL must be data:image/png;base64,...")
+		return "", fmt.Errorf("data URL must start with %q", "data:image/png;base64,")
 	}
 	pngData, err := base64.StdEncoding.DecodeString(dataURL[len("data:image/png;base64,"):])
 	if err != nil {

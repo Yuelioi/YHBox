@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"yotta/internal/services/asset"
-	"yotta/internal/services/container/dependency"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
 // ExportPackageZip writes a portable .yotta-container.zip bundle.

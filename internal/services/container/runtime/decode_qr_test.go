@@ -8,7 +8,7 @@ import (
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // TestDecodeQR_FoundViaRealAdapter: 用 gozxing encoder 生成一张 QR, 画进 RGBA 帧注入,

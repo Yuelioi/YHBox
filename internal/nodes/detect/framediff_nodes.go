@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"time"
 
-	"yotta/internal/node"
-	"yotta/pkg/vision"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/pkg/vision"
 )
 
 func init() {

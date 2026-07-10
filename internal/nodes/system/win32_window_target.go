@@ -5,8 +5,8 @@ package system
 import (
 	"errors"
 
-	"yotta/internal/node"
-	"yotta/pkg/winutil"
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 func init() { node.Register(&Win32WindowTarget{}) }

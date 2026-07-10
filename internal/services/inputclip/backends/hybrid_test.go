@@ -5,7 +5,7 @@ package backends
 import (
 	"testing"
 
-	"yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
 func TestHybridBackend_Name(t *testing.T) {

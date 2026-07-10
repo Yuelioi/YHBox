@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
-	_ "yotta/internal/nodes/all"
-	"yotta/internal/services/androidadb"
-	"yotta/internal/services/asset"
-	"yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/node"
+	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/services/androidadb"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 func TestRegisterAssetAsyncSourcesListsClipsAndSubgraphs(t *testing.T) {

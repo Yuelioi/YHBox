@@ -8,16 +8,16 @@ import (
 
 	"github.com/dop251/goja"
 
-	"yotta/internal/node"
-	scriptsvc "yotta/internal/services/script"
+	"github.com/yottaapp/yotta/internal/node"
+	scriptsvc "github.com/yottaapp/yotta/internal/services/script"
 )
 
 func init() { node.Register(&Script{}) }
 
 const (
-	pinIn           = "In"
-	pinDone         = "Done"
-	pinFail         = "Fail"
+	pinIn         = "In"
+	pinDone       = "Done"
+	pinFail       = "Fail"
 	inCode        = "Code"
 	outDataResult = "Result"
 )
@@ -40,9 +40,9 @@ func (Script) Spec() node.Spec {
 			{Name: pinFail, Type: node.TypeExec, Semantic: "error",
 				Data: []node.DataField{{Name: "Error", Type: "String"}, {Name: "Code", Type: "String"}}},
 		},
-		NeedsWindow:      true,  // 脚本可能调输入/视觉节点 — 保守要求 Win32WindowTarget (用户拍板 2026-06-10)
-		NeedsForeground:  true,  // 脚本内调绑定节点可触发 SendInput — 需在派发时将 Window 提到前台
-		DynamicInputs: true,
+		NeedsWindow:     true, // 脚本可能调输入/视觉节点 — 保守要求 Win32WindowTarget (用户拍板 2026-06-10)
+		NeedsForeground: true, // 脚本内调绑定节点可触发 SendInput — 需在派发时将 Window 提到前台
+		DynamicInputs:   true,
 	}
 }
 

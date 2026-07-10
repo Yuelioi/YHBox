@@ -5,7 +5,7 @@ import (
 	"math"
 	"sort"
 
-	"yotta/pkg/vision"
+	"github.com/yottaapp/yotta/pkg/vision"
 )
 
 // RGB 一个采样像素 (前端降采样后发来). wails 绑定生成 tools.RGB {R,G,B:number}.

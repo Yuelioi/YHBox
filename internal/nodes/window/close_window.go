@@ -1,6 +1,6 @@
 package window
 
-import "yotta/internal/node"
+import "github.com/yottaapp/yotta/internal/node"
 
 func init() { node.Register(&CloseWindow{}) }
 

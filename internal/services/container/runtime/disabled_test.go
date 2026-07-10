@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/expr"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/expr"
 )
 
 // TestDisabled_LinearPassthrough: Disabled Sleep skips to .out

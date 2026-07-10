@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	nodepkg "yotta/internal/node"
-	"yotta/internal/services/container"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // windowOverrideRecorder 记录 Run 期间 ctx.Window().HWND() 看到的窗口, 验证派发期覆盖生效。

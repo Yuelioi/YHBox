@@ -1,12 +1,11 @@
 # Cockpit — YHFish
 
-Focus: **所有既有实现 topic 已于 2026-07-04 按用户确认标记为已实现并归档；当前在扩展 Yotta 通用节点能力，首批 File / JSON / Fetch 节点已实现并通过验证。** 本地 `main` 仍待发布/推送决策。
+Focus: **正在执行 Go 后端面向大型、多平台开源项目的升级方案；质量基线、CI/release、canonical module identity 已完成，当前收敛平台边界。** 本地 `main` 尚未提交或推送。
 
 ## In flight
 
+- [work/go-backend-architecture-review/](work/go-backend-architecture-review/) — **升级实施中**。审查报告与完整修复方案已完成；批次 A-C 已落地并验证，canonical repository/module path 为 `github.com/yottaapp/yotta`。批次 D 已加入平台依赖守卫并完成首批 Windows/非 Windows 文件隔离，下一步拆分 input/capture contract 与 Win32 实现。
 - [work/type-aware-inline-node-menu/](work/type-aware-inline-node-menu/) — **已实现并验证**。pin 拖到空白时按 exec/data、方向和 pin 类型过滤可创建节点；覆盖 `number` / `bool` / `string` / `point` / `any` / `list` / `file` 全类型测试。候选列表使用 strict 兼容，只收精确类型或 `any`，不会因为 `number -> string/bool` 这类 warning 转换显示大量无关节点。exec 的 `Done` / `Fail` 等口只显示可执行节点，排除纯数据/参数转换/视觉/marker 节点；普通画布菜单保留 `CommentBox`。自动连线使用 `pinTypeCompat` 并优先精确 pin 匹配，已跑相关 Vitest 和 `pnpm typecheck`。
-- [work/nte-packet-capture-research/](work/nte-packet-capture-research/) — **PacketNTE 公开 API 已验证可用**。已拉取 MaaNTE / MaaNTE-Map / MaaNTE-Web / MaaNTE-PPH / PacketNTE 到 `flightdeck/references`；确认地图端只消费本机 `ws://127.0.0.1:14514` 的 `navi-state`，实际抓包接口是 PacketNTE 的 `nte_coordinate_api`。上游 `MaaNTE` 仓库不带坐标核心源码或 `thirdparty/` 产物，CI 从 `1pineappleduck/PacketNTE` release 下载 `nte_coordinate_api-v1.2.0.cp312-win_amd64.zip`；本机已下载到 ignored `flightdeck/references/MaaNTE/thirdparty`，安装 `scapy` / `pktmon-interface` 后，以 `CoordinateCapture(refresh_rate=0, capture_backend="pcap")` 成功读出 `(x, y, z, pitch, heading)` 实时样本。
-- [work/node-type-market-research/](work/node-type-market-research/) — **调研完成**。调研 Unreal Blueprint / Unity Visual Scripting / Node-RED / n8n / Power Automate / UiPath / Make / ComfyUI / Blender / LabVIEW / Godot，结论是先补通用 `JSON` 语义、文件读取、JSON 路径和 HTTP 请求节点；首批已落地。
 - [work/node-io-json-fetch-plan/](work/node-io-json-fetch-plan/) — **首批节点已实现并验证**。新增 `ReadTextFile`、`ReadJsonFile`、`ParseJSON`、`ToJSON`、`JsonPath`、`Fetch`；`JSON` pin 语义改为任意 JSON 值并保留旧 object helper；已跑 `go build ./...`、节点/目录测试、`pnpm typecheck`、`pnpm i18n:check`、`task build`。
 
 ## Open questions

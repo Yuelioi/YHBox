@@ -1,4 +1,4 @@
-module yotta
+module github.com/yottaapp/yotta
 
 go 1.25.1
 

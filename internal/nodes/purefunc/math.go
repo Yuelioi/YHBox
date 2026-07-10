@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"math"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 // numXIn 单 X Number 输入 (Abs/Floor/Ceil/Sqrt 共用形态, 同 Neg).

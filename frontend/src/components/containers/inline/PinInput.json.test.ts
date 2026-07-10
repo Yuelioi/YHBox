@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n'
 import { createPinia } from 'pinia'
 import PinInput from './PinInput.vue'
 
-vi.mock('@bindings/yotta/internal/node', () => ({
+vi.mock('@bindings/github.com/yottaapp/yotta/internal/node', () => ({
   NodeService: {
     AsyncOptions: vi.fn(),
   },

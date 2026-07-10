@@ -3,7 +3,7 @@ package controller
 import (
 	"testing"
 
-	"yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 func TestProfileWin32(t *testing.T) {

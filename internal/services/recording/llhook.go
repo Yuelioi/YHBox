@@ -18,6 +18,8 @@ import (
 	"unsafe"
 
 	"github.com/lxn/win"
+
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // --- Win32 常量 ---
@@ -149,12 +151,7 @@ type HookHandle struct {
 // lastMouseMoveMs 给 mouseProc 做 30ms 节流。atomic 保证 callback 并发安全。
 var lastMouseMoveMs atomic.Uint32
 
-var (
-	activeEvents chan<- HookEvent
-	// 保留 hook id 以便万一同进程多次启停 debug
-	kbHook uintptr
-	msHook uintptr
-)
+var activeEvents chan<- HookEvent
 
 // activeStopHotkeyVK F12 (或用户配置) 的 vk. recorder.Start 时 atomic 写入,
 // keyboardProc 检测; 0 = 没启用停录热键.
@@ -205,8 +202,6 @@ func InstallHooks(events chan<- HookEvent) (*HookHandle, error) {
 		activeEvents = nil
 		return nil, fmt.Errorf("SetWindowsHookExW(WH_MOUSE_LL): %v", callErr)
 	}
-	kbHook = kb
-	msHook = ms
 	return &HookHandle{kb: syscall.Handle(kb), ms: syscall.Handle(ms)}, nil
 }
 
@@ -224,8 +219,6 @@ func (h *HookHandle) Uninstall() {
 		procUnhookWindowsHookEx.Call(uintptr(h.kb))
 		h.kb = 0
 	}
-	kbHook = 0
-	msHook = 0
 	activeEvents = nil
 }
 
@@ -241,7 +234,7 @@ func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
 		}
 	}()
 	if nCode == hcAction && activeEvents != nil {
-		kbd := (*kbdllhookstruct)(unsafe.Pointer(lParam))
+		kbd := winutil.ReadStructFromPointer[kbdllhookstruct](lParam)
 		isKeyDown := wParam == wmKeyDown || wParam == wmSysKeyDown
 
 		// 停录热键拦截: 触发 stop callback + 不透传游戏.
@@ -318,7 +311,7 @@ func mouseProc(nCode, wParam, lParam uintptr) uintptr {
 		}
 	}()
 	if nCode == hcAction && activeEvents != nil {
-		ms := (*msllhookstruct)(unsafe.Pointer(lParam))
+		ms := winutil.ReadStructFromPointer[msllhookstruct](lParam)
 		ev := HookEvent{
 			TimestampMs: ms.Time,
 			IsKeyboard:  false,

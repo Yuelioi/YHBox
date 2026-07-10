@@ -3,8 +3,8 @@ package runtime
 import (
 	"testing"
 
-	"yotta/internal/services/container"
-	"yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/container"
+	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // TestListener_SubRunnerStateIsolated 验证 B10 修复: listener subRunner 持独立 bundle,

@@ -18,6 +18,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"unsafe"
+
+	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 const (
@@ -167,7 +169,7 @@ func hotkeyKeyboardProc(nCode, wParam, lParam uintptr) uintptr {
 	if nCode == hcAction {
 		vk := hkVK.Load()
 		if vk != 0 {
-			kbd := (*kbdllhookstruct)(unsafe.Pointer(lParam))
+			kbd := winutil.ReadStructFromPointer[kbdllhookstruct](lParam)
 			if kbd.VkCode == vk {
 				isDown := wParam == wmKeyDown || wParam == wmSysKeyDown
 				if isDown {

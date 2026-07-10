@@ -5,9 +5,9 @@ import (
 
 	"github.com/lxn/win"
 
-	"yotta/internal/automation/target"
-	"yotta/pkg/capture"
-	"yotta/pkg/vision"
+	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/pkg/capture"
+	"github.com/yottaapp/yotta/pkg/vision"
 )
 
 // PixelInfo 当前光标下的颜色采样。client 坐标在游戏窗口客户区内。

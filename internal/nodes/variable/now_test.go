@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestNow_ReturnsLiveUnixMillis(t *testing.T) {
