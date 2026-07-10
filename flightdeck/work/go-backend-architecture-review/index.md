@@ -68,6 +68,7 @@ Verified:
 - D 第五批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；CI portable-core 的 21 个 package（含 container/runtime 与 mcpserver）均为 Linux/Darwin 成功编译测试二进制；runtime core 守卫同时禁止重新 import legacy input/capture 与 Win32 packages。
 - D 第五批双轴 review：修复旧符号注释、provider 单复数命名、Win32 profile/controller capability 漂移与缺 target 错误语义；测试 adapter 的少量重复保留在 `_test.go`，避免把 legacy backend import 重新带回平台中立生产代码；factory 注入 seam 保留给 embedder，并明确资源仍由调用方持有。
 - D 第六批后，Windows hotkey test/race 通过，Linux/Darwin hotkey tests 成功交叉编译；架构守卫禁止 hotkey 非 Windows文件重新引入 Win32 packages。
+- D 第六批双轴 review：清理与内存 loop 相反的旧测试注释；另修复 rebuild 持锁等待 loop 时、同步 dispatcher 再取同一 mutex 可能形成的退出死锁，并增加 in-flight dispatch 回归测试。
 
 ## Open questions
 

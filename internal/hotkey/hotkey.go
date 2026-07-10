@@ -304,15 +304,15 @@ func (m *HotkeyManager) startLoopLocked() error {
 	}
 	sort.Slice(specs, func(i, j int) bool { return specs[i].ID < specs[j].ID })
 
-	// dispatcher 拿当前 m.bindings 的引用做 id→onFire 查表。
-	// 关键：捕获 m 自身；rebuild 后 m.bindings 是新版本，但本次 loop 启动时 specs
-	// 也是新版本，所以 id 必然在 m.bindings 里。用 mu 短临界区保护读。
+	// Loop 退出由持有 m.mu 的 rebuild 等待，因此 dispatcher 不能再获取 m.mu。
+	// 启动时冻结 callback 表，当前 loop 与本次注册的 specs 保持同一快照。
+	callbacks := make(map[int]func(), len(m.bindings))
+	for id, binding := range m.bindings {
+		callbacks[id] = binding.onFire
+	}
 	dispatcher := func(id int) {
-		m.mu.Lock()
-		b, ok := m.bindings[id]
-		m.mu.Unlock()
-		if ok && b.onFire != nil {
-			b.onFire()
+		if callback := callbacks[id]; callback != nil {
+			callback()
 		}
 	}
 

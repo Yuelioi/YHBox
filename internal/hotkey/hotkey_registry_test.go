@@ -68,10 +68,6 @@ func TestRegistry_UpdateRejectsReserved(t *testing.T) {
 func TestRegistry_UpdateRejectsConflict(t *testing.T) {
 	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)
-	// 用 F1 这种不冲突真 OS 注册的（mock manager 太复杂，跑真 OS register）
-	// 实际上 HotkeyManager.Register 会真注册 OS hotkey，单测可能影响系统。
-	// 但 plan 接受这风险（已存在的 hotkey_test.go 也是真 OS 注册）。
-	// 给两个 entry 同个值看是否撞内部 normalized
 	_ = r.Register("a", HotkeySourceAction, "A", nil, "Ctrl+Shift+Alt+F1", "", func() {})
 	_ = r.Register("b", HotkeySourceAction, "B", nil, "", "", func() {})
 	err := r.Update("b", "Ctrl+Shift+Alt+F1")
