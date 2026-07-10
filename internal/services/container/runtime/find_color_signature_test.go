@@ -10,7 +10,7 @@ import (
 
 // TestFindColorSignature_FoundViaRealAdapter: 100x100 帧全填 (200,0,0),
 // 单锚点签名 (r=200,g=0,b=0, tol 30) → Found 出口且 Point 非零。
-// 走真实 visionAdapter (CaptureFrameCached → mockCaptureBackend.Frame),
+// 走真实 visionAdapter (controller screenshot → mockCaptureBackend.Frame),
 // 照 TestDetectColorHSVTimeoutOnNoMatch 的 execNode 模式。
 func TestFindColorSignature_FoundViaRealAdapter(t *testing.T) {
 	// 合成 100x100 帧: R=200,G=0,B=0 (恰好匹配签名颜色, tol=30 覆盖)。

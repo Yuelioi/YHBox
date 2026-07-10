@@ -804,7 +804,12 @@ func (a *visionAdapter) scaleTolerance() float64 {
 }
 
 func (a *visionAdapter) captureFrame(ctx context.Context, cached bool, required bool) (*image.RGBA, error) {
-	if _, ok := a.rt.ActiveTarget(); !ok && a.rt.WindowHandle().HWND == 0 && !required {
+	if _, ok := a.rt.ActiveTarget(); !ok &&
+		a.rt.WindowHandle().HWND == 0 &&
+		a.rt.win32Provider == nil &&
+		a.rt.win32Factory == nil &&
+		a.rt.ControllerFactory == nil &&
+		!required {
 		return nil, nil
 	}
 	ctrl, err := a.rt.controllerForActiveTarget(automationtrace.ActionSource{}, controllerNeed{Capture: true})

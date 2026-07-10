@@ -395,6 +395,16 @@ func TestVisionAdapterCachedCapturePropagatesControllerError(t *testing.T) {
 	}
 }
 
+func TestVisionAdapterOptionalCaptureRejectsMissingActiveTargetWhenProviderExists(t *testing.T) {
+	rt := newAdapterTestRT(t, nil)
+	installTestWin32Capture(rt, fakeCapture{img: image.NewRGBA(image.Rect(0, 0, 1, 1))})
+
+	_, err := (&visionAdapter{rt: rt}).captureFrame(context.Background(), true, false)
+	if !errors.Is(err, ErrNoActiveWindow) {
+		t.Fatalf("captureFrame() error = %v, want ErrNoActiveWindow", err)
+	}
+}
+
 type recordingRuntimeInput struct {
 	clickHWND        []uintptr
 	clickX           []float64

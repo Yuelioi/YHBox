@@ -37,7 +37,7 @@ func TestSetupRuntime_BuildsBackendsWithoutResolvingWindow(t *testing.T) {
 		t.Fatalf("setupRuntime: %v", err)
 	}
 
-	if rt.win32Controllers == nil {
+	if rt.win32Provider == nil {
 		t.Error("Win32 controller provider 应已建立, 实际 nil")
 	}
 	// 窗口由 Win32WindowTarget.Run 运行时解析，不在 setupRuntime 里解析
@@ -74,7 +74,7 @@ func TestSetupRuntime_AndroidTargetDoesNotBuildWin32Backends(t *testing.T) {
 	if err := r.setupRuntime(); err != nil {
 		t.Fatalf("setupRuntime: %v", err)
 	}
-	if rt.win32Controllers != nil {
-		t.Fatalf("Android target graph should not initialise Win32 controller provider, got %T", rt.win32Controllers)
+	if rt.win32Provider != nil {
+		t.Fatalf("Android target graph should not initialise Win32 controller provider, got %T", rt.win32Provider)
 	}
 }

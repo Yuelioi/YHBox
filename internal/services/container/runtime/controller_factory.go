@@ -36,10 +36,10 @@ func (rt *RuntimeContext) controllerForActiveTarget(source automationtrace.Actio
 		if rt.win32Factory != nil {
 			return rt.win32Factory.NewController(tg, rec)
 		}
-		if rt.win32Controllers == nil {
+		if rt.win32Provider == nil {
 			return nil, fmt.Errorf("win32 controller provider not initialised (setupRuntime not run)")
 		}
-		return rt.win32Controllers.NewController(tg, rec, need)
+		return rt.win32Provider.NewController(tg, rec, need)
 	}
 	if rt.ControllerFactory == nil {
 		return nil, fmt.Errorf("no controller factory for active target kind %s", tg.Kind)

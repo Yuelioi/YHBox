@@ -12,7 +12,7 @@ import (
 )
 
 // TestDecodeQR_FoundViaRealAdapter: 用 gozxing encoder 生成一张 QR, 画进 RGBA 帧注入,
-// 走真实 visionAdapter.DecodeQR (CaptureFrameCached → cropFrameByGeometry → vision.DecodeQRFromImage)
+// 走真实 visionAdapter.DecodeQR (controller screenshot → cropFrameByGeometry → vision.DecodeQRFromImage)
 // 验证解回原文 + 有定位点。
 func TestDecodeQR_FoundViaRealAdapter(t *testing.T) {
 	const text = "yhfish-qr-integ"

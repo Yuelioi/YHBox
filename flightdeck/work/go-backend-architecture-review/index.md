@@ -65,9 +65,11 @@ Verified:
 - D 第四批后，Windows winutil/container/runtime 定向测试通过；Linux/Darwin 的 winutil/container/runtime 测试可交叉编译；架构守卫禁止 runtime core 重新直接 import Win32/winutil。
 - D 第四批双轴 review：Standards 3 项、Spec 2 项均已修复——恢复导出契约注释、borderless state 编译期类型、target 构造归属、BringToFront typed unsupported，并补齐 gofmt 与回归测试。
 - D 第五批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；CI portable-core 的 21 个 package（含 container/runtime 与 mcpserver）均为 Linux/Darwin 成功编译测试二进制；runtime core 守卫同时禁止重新 import legacy input/capture 与 Win32 packages。
+- D 第五批双轴 review：修复旧符号注释、provider 单复数命名、Win32 profile/controller capability 漂移与缺 target 错误语义；测试 adapter 的少量重复保留在 `_test.go`，避免把 legacy backend import 重新带回平台中立生产代码；factory 注入 seam 保留给 embedder，并明确资源仍由调用方持有。
 
 ## Open questions
 
+- `flightdeck/knowledge/build/code-style.md` 订阅的 `knowledge/coding/comments.md` 当前不存在；需决定恢复共享注释规范，还是删除断链并把完整规则收回本仓库。
 - 外部扩展目标是只接受 in-tree contribution，还是允许 out-of-tree Go module / plugin？
 - 首批正式支持的平台矩阵是什么：Windows + Linux，还是 Windows + Linux + macOS？Android/Browser 是 target adapter，不等同于宿主 OS 支持。
 - Container package 的崩溃一致性目标采用 generation directory，还是较轻的 lock-last commit + load-time validation？

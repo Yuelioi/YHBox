@@ -45,7 +45,7 @@ type RuntimeContext struct {
 	Game      GameProvider
 	Emit      func(name string, data any)
 
-	win32Controllers win32ControllerProvider
+	win32Provider win32ControllerProvider
 
 	traceMu       sync.Mutex
 	traceRecorder *automationtrace.MemoryRecorder
@@ -86,7 +86,7 @@ type RuntimeContext struct {
 }
 
 // SetWin32ControllerFactory overrides native Win32 controller construction.
-// It is intended for embedders and tests that already own a controller stack.
+// The caller retains ownership and must close any resources held by the factory.
 func (rt *RuntimeContext) SetWin32ControllerFactory(factory RuntimeControllerFactory) {
 	rt.win32Factory = factory
 }

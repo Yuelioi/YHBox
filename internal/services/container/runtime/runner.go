@@ -712,7 +712,7 @@ func configString(node *container.GraphNode, key string) string {
 // Android/Browser-only target graph 不需要 Win32 backend, controller factory 会按 active target 构造。
 // 幂等: 测试预设过 controller provider 就跳过.
 func (r *ContainerRunner) setupRuntime() error {
-	if r.rt.win32Controllers != nil || r.rt.win32Factory != nil {
+	if r.rt.win32Provider != nil || r.rt.win32Factory != nil {
 		return nil
 	}
 	if !containerNeedsWin32Backends(r.rt.Container, r.rt.Subgraphs) {
@@ -730,15 +730,15 @@ func (r *ContainerRunner) setupRuntime() error {
 	if err != nil {
 		return err
 	}
-	r.rt.win32Controllers = provider
+	r.rt.win32Provider = provider
 	return nil
 }
 
 // teardownRuntime 关闭 Win32 controller provider，由 provider 维护后端释放顺序。
 func (r *ContainerRunner) teardownRuntime() {
-	if r.rt.win32Controllers != nil {
-		_ = r.rt.win32Controllers.Close()
-		r.rt.win32Controllers = nil
+	if r.rt.win32Provider != nil {
+		_ = r.rt.win32Provider.Close()
+		r.rt.win32Provider = nil
 	}
 }
 

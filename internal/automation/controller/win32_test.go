@@ -43,6 +43,23 @@ func TestWin32ControllerCapabilitiesReflectInjectedDependencies(t *testing.T) {
 	}
 }
 
+func TestWin32ControllerFullCapabilitiesMatchProfile(t *testing.T) {
+	ctrl, err := NewWin32Controller(
+		target.NewWin32WindowTarget(target.WindowHandle{HWND: 42}),
+		Win32Deps{Input: &fakeWin32Input{}, Capture: fakeWin32Capture{}},
+	)
+	if err != nil {
+		t.Fatalf("NewWin32Controller() error = %v", err)
+	}
+	profile, ok := Profile(BackendWin32)
+	if !ok {
+		t.Fatal("Win32 backend profile not found")
+	}
+	if got := ctrl.Capabilities(context.Background()); got != profile.Capabilities {
+		t.Fatalf("controller capabilities = %#v, profile = %#v", got, profile.Capabilities)
+	}
+}
+
 func TestWin32ControllerRejectsNonWin32Target(t *testing.T) {
 	_, err := NewWin32Controller(target.Target{
 		ID:   "adb:device",

@@ -31,7 +31,7 @@ func installTestWin32Capture(rt *RuntimeContext, capture pkgcapture.IBackend) {
 }
 
 func installedTestWin32Capture(rt *RuntimeContext) pkgcapture.IBackend {
-	p, ok := rt.win32Controllers.(*testWin32ControllerProvider)
+	p, ok := rt.win32Provider.(*testWin32ControllerProvider)
 	if !ok {
 		return nil
 	}
@@ -39,11 +39,11 @@ func installedTestWin32Capture(rt *RuntimeContext) pkgcapture.IBackend {
 }
 
 func testWin32Provider(rt *RuntimeContext) *testWin32ControllerProvider {
-	if p, ok := rt.win32Controllers.(*testWin32ControllerProvider); ok {
+	if p, ok := rt.win32Provider.(*testWin32ControllerProvider); ok {
 		return p
 	}
 	p := &testWin32ControllerProvider{}
-	rt.win32Controllers = p
+	rt.win32Provider = p
 	return p
 }
 
