@@ -18,7 +18,6 @@ import (
 type WindowResolver interface {
 	ResolveWindowForNode(containerID, nodeID string) (target.WindowHandle, error)
 	ResolveEditorTargetForNode(containerID, nodeID string) (target.Target, error)
-	ResolveEditorTargetKindForNode(containerID, nodeID string) (string, error)
 	CaptureBackendFor(containerID string) string
 }
 
@@ -118,25 +117,25 @@ func (s *Service) wailsApp() *application.App {
 
 // MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
 // nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 解析窗口）；无节点上下文传 ""。
-func (s *Service) MousePos(containerID, nodeID string) MousePosInfo {
-	sx, sy, ok := readCursor()
+func (s *Service) MousePos(containerID, nodeID string) (MousePosInfo, error) {
+	sx, sy, err := readCursor()
 	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
-	if !ok {
-		return info
+	if err != nil {
+		return info, err
 	}
 	wh, hasGame := s.gameWindowFor(containerID, nodeID)
 	if !hasGame {
-		return info
+		return info, nil
 	}
 	hwnd, cw, ch := wh.HWND, wh.ClientW, wh.ClientH
 	if hwnd == 0 || cw <= 0 || ch <= 0 {
-		return info
+		return info, nil
 	}
 	info.HasGame = true
 	info.ClientW, info.ClientH = cw, ch
-	cx, cy, ok2 := screenToClient(hwnd, sx, sy)
-	if !ok2 {
-		return info
+	cx, cy, err := screenToClient(hwnd, sx, sy)
+	if err != nil {
+		return info, err
 	}
 	info.ClientX, info.ClientY = cx, cy
 	if cw > 0 {
@@ -145,7 +144,7 @@ func (s *Service) MousePos(containerID, nodeID string) MousePosInfo {
 	if ch > 0 {
 		info.YRatio = float64(cy) / float64(ch)
 	}
-	return info
+	return info, nil
 }
 
 // OpenMouseHUD 打开鼠标位置 HUD 小窗口 (按 containerID 解析目标窗口)。已开则 focus。
@@ -403,17 +402,17 @@ func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSp
 	if requestID == "" {
 		return fmt.Errorf("requestID 不能为空")
 	}
-	targetKind := target.KindWin32Window
+	tg := target.Target{Kind: target.KindWin32Window}
 	if s.resolver != nil {
-		resolved, err := s.resolver.ResolveEditorTargetKindForNode(containerID, nodeID)
+		resolved, err := s.resolver.ResolveEditorTargetForNode(containerID, nodeID)
 		if err != nil {
 			return err
 		}
-		if resolved != "" {
-			targetKind = resolved
+		if resolved.Kind != "" {
+			tg = resolved
 		}
 	}
-	return s.targetTools.OpenPicker(targetKind, PickerRequest{
+	return s.targetTools.OpenPicker(tg, PickerRequest{
 		Mode:        mode,
 		RequestID:   requestID,
 		ContainerID: containerID,
@@ -454,6 +453,9 @@ func (s *Service) ClosePicker(requestID string) error {
 // 流程: 前端 NodeInspector 点 "捕获" → 调本 RPC → 用户 Alt-Tab 到游戏 → 按该键
 // → 前端收 event 填表. 取代旧 CaptureForegroundWindow (用户在游戏前台时无法点按钮).
 func (s *Service) StartWin32WindowTargetCapture() (string, error) {
+	if err := win32WindowCaptureSupported(); err != nil {
+		return "", err
+	}
 	var mods, vk uint32
 	s.mu.Lock()
 	getter := s.captureHotkey

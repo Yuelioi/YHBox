@@ -14,6 +14,8 @@ import (
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
+func win32WindowCaptureSupported() error { return nil }
+
 // captureSession 一次 capture 调用的状态. 同时只能有一个.
 type captureSession struct {
 	id         string

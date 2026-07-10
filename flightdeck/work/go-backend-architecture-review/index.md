@@ -74,6 +74,8 @@ Verified:
 - D 第七批后，Windows calibration test/race 通过，Linux/Darwin calibration tests 成功交叉编译；架构守卫禁止 calibration 非 Windows 文件重新引入 Win32 packages。
 - D 第七批双轴 review：将 OS-thread helper 收入 `_windows.go`；统一跨平台 package doc；移除文件名实现旁白；把裸 atomics 收进单一 calibration state store，native adapter 只通过状态行为更新快照。
 - D 第八批后，Windows tools test/race 通过；Linux/Darwin 编译已不再命中 Yotta Win32 import，下一失败点稳定落在 Wails alpha.91 `pkg/application` 的 Linux CGO 实现；因此尚不加入 portable-core CI。
+- D 第八批双轴 review：MousePos 改为 typed error contract 并让 HUD 显式呈现轮询/取色错误；capture 在检查 Wails app 前先判平台 capability；target tool router 统一传 canonical `target.Target`，删除 kind 字符串双权威与含混命名。
+- D 第八批 binding/frontend 验证：Wails 正式生成后 MousePos 仍为 `CancellablePromise<MousePosInfo>`，`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过；另记录 CLI `-dry` 默认 clean 会清空 gitignored bindings 的陷阱。
 
 ## Open questions
 

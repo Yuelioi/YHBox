@@ -18,15 +18,15 @@ type PixelInfo struct {
 
 // PixelAt samples the active editor target through its target tool adapter.
 func (s *Service) PixelAt(containerID, nodeID string) (PixelInfo, error) {
-	targetKind := target.KindWin32Window
+	tg := target.Target{Kind: target.KindWin32Window}
 	if s.resolver != nil {
-		resolved, err := s.resolver.ResolveEditorTargetKindForNode(containerID, nodeID)
+		resolved, err := s.resolver.ResolveEditorTargetForNode(containerID, nodeID)
 		if err != nil {
 			return PixelInfo{}, err
 		}
-		if resolved != "" {
-			targetKind = resolved
+		if resolved.Kind != "" {
+			tg = resolved
 		}
 	}
-	return s.targetTools.PixelAt(targetKind, PixelSampleRequest{ContainerID: containerID, NodeID: nodeID})
+	return s.targetTools.PixelAt(tg, PixelSampleRequest{ContainerID: containerID, NodeID: nodeID})
 }

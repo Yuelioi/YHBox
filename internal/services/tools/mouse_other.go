@@ -2,6 +2,12 @@
 
 package tools
 
-func readCursor() (int, int, bool) { return 0, 0, false }
+import "github.com/yottaapp/yotta/pkg/platform"
 
-func screenToClient(uintptr, int, int) (int, int, bool) { return 0, 0, false }
+func readCursor() (int, int, error) {
+	return 0, 0, platform.NewUnsupportedError("pointer position")
+}
+
+func screenToClient(uintptr, int, int) (int, int, error) {
+	return 0, 0, platform.NewUnsupportedError("Win32 client coordinates")
+}

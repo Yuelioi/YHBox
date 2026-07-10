@@ -14,24 +14,20 @@ type recordingPickerAdapter struct {
 	pixel       PixelInfo
 }
 
-type fakeTargetKindResolver struct {
-	targetKind string
-	err        error
+type fakeTargetResolver struct {
+	target target.Target
+	err    error
 }
 
-func (r fakeTargetKindResolver) ResolveWindowForNode(string, string) (target.WindowHandle, error) {
+func (r fakeTargetResolver) ResolveWindowForNode(string, string) (target.WindowHandle, error) {
 	return target.WindowHandle{}, nil
 }
 
-func (r fakeTargetKindResolver) ResolveEditorTargetKindForNode(string, string) (string, error) {
-	return r.targetKind, r.err
+func (r fakeTargetResolver) ResolveEditorTargetForNode(string, string) (target.Target, error) {
+	return r.target, r.err
 }
 
-func (r fakeTargetKindResolver) ResolveEditorTargetForNode(string, string) (target.Target, error) {
-	return target.Target{Kind: r.targetKind}, r.err
-}
-
-func (r fakeTargetKindResolver) CaptureBackendFor(string) string { return "auto" }
+func (r fakeTargetResolver) CaptureBackendFor(string) string { return "auto" }
 
 func (a *recordingPickerAdapter) OpenPicker(req PickerRequest) error {
 	a.pickerCalls = append(a.pickerCalls, req)
@@ -52,7 +48,7 @@ func TestTargetToolRouter_RoutesPickerByTargetKind(t *testing.T) {
 	})
 
 	req := PickerRequest{Mode: "point", RequestID: "r1", ContainerID: "c1", NodeID: "n1"}
-	if err := router.OpenPicker(target.KindAndroidADB, req); err != nil {
+	if err := router.OpenPicker(target.Target{Kind: target.KindAndroidADB}, req); err != nil {
 		t.Fatal(err)
 	}
 	if len(androidAdapter.pickerCalls) != 1 || androidAdapter.pickerCalls[0].RequestID != "r1" {
@@ -65,7 +61,7 @@ func TestTargetToolRouter_RoutesPickerByTargetKind(t *testing.T) {
 
 func TestTargetToolRouter_UnknownTargetKindFails(t *testing.T) {
 	router := newTargetToolRouter(nil)
-	err := router.OpenPicker("debug-replay", PickerRequest{Mode: "point", RequestID: "r1"})
+	err := router.OpenPicker(target.Target{Kind: target.KindDebugReplay}, PickerRequest{Mode: "point", RequestID: "r1"})
 	if err == nil || err.Error() != `target picker for "debug-replay" is not available` {
 		t.Fatalf("err = %v", err)
 	}
@@ -90,7 +86,7 @@ func TestAndroidTargetToolAdapter_OpenPickerUsesSharedPickerWindow(t *testing.T)
 
 func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 	androidAdapter := &recordingPickerAdapter{}
-	svc := NewService(fakeTargetKindResolver{targetKind: target.KindAndroidADB})
+	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}})
 	svc.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindAndroidADB: androidAdapter,
 	})
@@ -110,7 +106,7 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 
 func TestServicePixelAt_ResolvesTargetKindAndRoutes(t *testing.T) {
 	androidAdapter := &recordingPickerAdapter{pixel: PixelInfo{OK: true, ClientX: 12}}
-	svc := NewService(fakeTargetKindResolver{targetKind: target.KindAndroidADB})
+	svc := NewService(fakeTargetResolver{target: target.Target{Kind: target.KindAndroidADB}})
 	svc.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindAndroidADB: androidAdapter,
 	})

@@ -4,6 +4,10 @@ package tools
 
 import "github.com/yottaapp/yotta/pkg/platform"
 
+func win32WindowCaptureSupported() error {
+	return platform.NewUnsupportedError("Win32 window target capture")
+}
+
 func startWin32WindowTargetCapture(uint32, uint32, func(string, any)) (string, error) {
 	return "", platform.NewUnsupportedError("Win32 window target capture")
 }

@@ -20,6 +20,7 @@
     </header>
 
     <div class="flex-1 p-3 font-mono tabular-nums space-y-1.5">
+      <p v-if="toolError" class="text-[10px] text-error break-words">{{ toolError }}</p>
       <div class="flex items-center gap-2">
         <span class="text-dimmed w-14">屏幕</span>
         <span class="text-highlighted">{{ pos.screenX }}, {{ pos.screenY }}</span>
@@ -119,12 +120,18 @@ const pos = ref<MousePos>({
   clientW: 0,
   clientH: 0,
 })
+const toolError = ref('')
 
 let timer: ReturnType<typeof setInterval> | null = null
 
 async function poll() {
-  const r = await backend.tools.mousePos(containerID)
-  if (r) pos.value = r as any
+  try {
+    const r = await backend.tools.mousePos(containerID)
+    if (r) pos.value = r as any
+    toolError.value = ''
+  } catch (error) {
+    toolError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
 function copyRatio() {
@@ -146,8 +153,13 @@ interface PixelInfo {
 }
 const pixel = ref<PixelInfo | null>(null)
 async function pickPixel() {
-  const r = await backend.tools.pixelAt(containerID)
-  if (r) pixel.value = r as any
+  try {
+    const r = await backend.tools.pixelAt(containerID)
+    if (r) pixel.value = r as any
+    toolError.value = ''
+  } catch (error) {
+    toolError.value = error instanceof Error ? error.message : String(error)
+  }
 }
 function copyHex() {
   if (pixel.value?.hex) navigator.clipboard?.writeText(pixel.value.hex).catch(() => {})

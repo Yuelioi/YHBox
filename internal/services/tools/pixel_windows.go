@@ -11,17 +11,20 @@ import (
 // 太频繁会拖性能（每次都 capture）。
 // nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 解析窗口）；无节点上下文传 ""。
 func (s *Service) win32PixelAt(containerID, nodeID string) (PixelInfo, error) {
-	sx, sy, ok := readCursor()
-	if !ok {
-		return PixelInfo{}, fmt.Errorf("GetCursorPos failed")
+	sx, sy, err := readCursor()
+	if err != nil {
+		return PixelInfo{}, err
 	}
 	wh, hasGame := s.gameWindowFor(containerID, nodeID)
 	if !hasGame {
 		return PixelInfo{}, fmt.Errorf("游戏窗口未就绪")
 	}
 	hwnd, cw, ch := wh.HWND, wh.ClientW, wh.ClientH
-	cx, cy, ok2 := screenToClient(hwnd, sx, sy)
-	if !ok2 || cx < 0 || cy < 0 || cx >= cw || cy >= ch {
+	cx, cy, err := screenToClient(hwnd, sx, sy)
+	if err != nil {
+		return PixelInfo{}, err
+	}
+	if cx < 0 || cy < 0 || cx >= cw || cy >= ch {
 		return PixelInfo{OK: false, ClientX: cx, ClientY: cy}, nil
 	}
 	backend, _, err := capture.NewIBackend(s.resolver.CaptureBackendFor(containerID))

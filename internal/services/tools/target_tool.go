@@ -9,6 +9,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
 var (
@@ -43,18 +44,18 @@ func newTargetToolRouter(adapters map[string]TargetToolAdapter) targetToolRouter
 	return targetToolRouter{adapters: adapters}
 }
 
-func (r targetToolRouter) OpenPicker(targetKind string, req PickerRequest) error {
-	adapter := r.adapters[targetKind]
+func (r targetToolRouter) OpenPicker(tg target.Target, req PickerRequest) error {
+	adapter := r.adapters[tg.Kind]
 	if adapter == nil {
-		return fmt.Errorf("target picker for %q is not available", targetKind)
+		return fmt.Errorf("target picker for %q is not available", tg.Kind)
 	}
 	return adapter.OpenPicker(req)
 }
 
-func (r targetToolRouter) PixelAt(targetKind string, req PixelSampleRequest) (PixelInfo, error) {
-	adapter := r.adapters[targetKind]
+func (r targetToolRouter) PixelAt(tg target.Target, req PixelSampleRequest) (PixelInfo, error) {
+	adapter := r.adapters[tg.Kind]
 	if adapter == nil {
-		return PixelInfo{}, fmt.Errorf("target pixel sampler for %q is not available", targetKind)
+		return PixelInfo{}, fmt.Errorf("target pixel sampler for %q is not available", tg.Kind)
 	}
 	return adapter.PixelAt(req)
 }

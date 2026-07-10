@@ -22,6 +22,8 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
 
+本机 Wails CLI alpha2.112 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下仍会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。
+
 ## 测试基线
 
 当前基线 (2026-06-29) 是 **Go 全量测试应绿**: `go test ./...`。过去记录过的 runtime fixture / fishing-v2 / dependency scanner 预存红已经不再成立;如果这些测试再红,先按回归处理,不要套旧豁免。
