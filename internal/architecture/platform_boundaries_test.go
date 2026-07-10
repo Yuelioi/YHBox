@@ -12,11 +12,7 @@ import (
 )
 
 func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("resolve current test file")
-	}
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
+	repoRoot := repositoryRoot(t)
 	neutralRoots := []string{
 		"internal/apperr",
 		"internal/automation/controller",
@@ -39,14 +35,47 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 		"github.com/yottaapp/yotta/pkg/input",
 		"github.com/yottaapp/yotta/pkg/winutil",
 	}
+	assertNoBannedImports(t, repoRoot, neutralRoots, banned, nil)
+}
 
-	for _, relativeRoot := range neutralRoots {
+func TestRuntimeCoreDoesNotImportWin32Packages(t *testing.T) {
+	assertNoBannedImports(
+		t,
+		repositoryRoot(t),
+		[]string{"internal/services/container/runtime"},
+		[]string{
+			"github.com/lxn/win",
+			"golang.org/x/sys/windows",
+			"github.com/yottaapp/yotta/pkg/winutil",
+		},
+		func(path string) bool {
+			name := filepath.Base(path)
+			return strings.HasSuffix(name, "_test.go") || strings.HasSuffix(name, "_windows.go")
+		},
+	)
+}
+
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve current test file")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
+}
+
+func assertNoBannedImports(t *testing.T, repoRoot string, roots, banned []string, skip func(string) bool) {
+	t.Helper()
+	for _, relativeRoot := range roots {
 		root := filepath.Join(repoRoot, filepath.FromSlash(relativeRoot))
 		err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
 			if entry.IsDir() || filepath.Ext(path) != ".go" {
+				return nil
+			}
+			if skip != nil && skip(path) {
 				return nil
 			}
 			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)

@@ -19,7 +19,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
 	"github.com/yottaapp/yotta/internal/automation/controller"
@@ -29,8 +28,9 @@ import (
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/expr"
 	clipruntime "github.com/yottaapp/yotta/internal/services/inputclip/runtime"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
+	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/vision"
-	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // ============================================================================
@@ -276,9 +276,9 @@ type runtimeKeyboardController interface {
 	controller.KeyboardInput
 }
 
-func (a *inputAdapter) hwnd() (win.HWND, error) {
+func (a *inputAdapter) hwnd() (pkginput.Handle, error) {
 	h, err := a.rt.ActiveHWND()
-	return win.HWND(h), err
+	return pkginput.Handle(h), err
 }
 
 func (a *inputAdapter) ensure() error {
@@ -537,14 +537,8 @@ func (a *windowAdapter) ClientSize() (int, int, error) {
 	return wh.ClientW, wh.ClientH, nil
 }
 
-// resolveWindowFn 测试可替换; 默认真 Win32 解析.
-var resolveWindowFn = winutil.ResolveWindow
-
-// clientSizeFn 测试可替换; 默认 live Win32 GetClientRect.
-var clientSizeFn = func(h win.HWND) (int, int, error) { return winutil.ClientSize(h) }
-
 func (a *windowAdapter) SetActive(ctx context.Context, title, class, processName, titleMatch string) error {
-	spec := winutil.MatchSpec{Title: title, Class: class, ProcessName: processName, TitleMatch: titleMatch}
+	spec := target.WindowMatchSpec{Title: title, Class: class, ProcessName: processName, TitleMatch: titleMatch}
 	wh, err := resolveWindowFn(ctx, spec, 3*time.Second, 500*time.Millisecond)
 	if err != nil {
 		return fmt.Errorf("Win32WindowTarget resolve: %w", err)
@@ -574,7 +568,7 @@ func (a *windowAdapter) Snapshot() (node.Window, error) {
 	}
 	// 操作后按 live HWND 重读客户区尺寸 — maximize/move/resize 改了, Done.Window 必须反映新值;
 	// 读失败 (窗口已关等) 退化保留解析时缓存值, 不让已成功的操作因事后读取失败而报错。
-	if cw, ch, err := clientSizeFn(win.HWND(wh.HWND)); err == nil {
+	if cw, ch, err := clientSizeFn(wh.HWND); err == nil {
 		w.ClientW, w.ClientH = cw, ch
 	}
 	return w, nil
@@ -585,7 +579,7 @@ func (a *windowAdapter) Maximize() error {
 	if err != nil {
 		return err
 	}
-	return winutil.Maximize(h)
+	return maximizeNativeWindow(h)
 }
 
 func (a *windowAdapter) Minimize() error {
@@ -593,7 +587,7 @@ func (a *windowAdapter) Minimize() error {
 	if err != nil {
 		return err
 	}
-	return winutil.Minimize(h)
+	return minimizeNativeWindow(h)
 }
 
 func (a *windowAdapter) Restore() error {
@@ -601,7 +595,7 @@ func (a *windowAdapter) Restore() error {
 	if err != nil {
 		return err
 	}
-	return winutil.Restore(h)
+	return restoreNativeWindow(h)
 }
 
 func (a *windowAdapter) MoveResize(x, y, w, h int) error {
@@ -609,7 +603,7 @@ func (a *windowAdapter) MoveResize(x, y, w, h int) error {
 	if err != nil {
 		return err
 	}
-	return winutil.MoveResize(hwnd, x, y, w, h)
+	return moveResizeNativeWindow(hwnd, x, y, w, h)
 }
 
 func (a *windowAdapter) Close() error {
@@ -617,7 +611,7 @@ func (a *windowAdapter) Close() error {
 	if err != nil {
 		return err
 	}
-	return winutil.CloseWindow(h)
+	return closeNativeWindow(h)
 }
 
 func (a *windowAdapter) BorderlessFullscreen() error {
@@ -625,7 +619,7 @@ func (a *windowAdapter) BorderlessFullscreen() error {
 	if err != nil {
 		return err
 	}
-	saved, err := winutil.EnterBorderless(h)
+	saved, err := enterNativeBorderless(h)
 	if err != nil {
 		return err
 	}
@@ -638,14 +632,8 @@ func (a *windowAdapter) RestoreBorders() error {
 	if err != nil {
 		return err
 	}
-	saved, ok := a.rt.takeBorderless(h)
-	if ok && winutil.WindowPID(h) != saved.PID {
-		ok = false
-	}
-	if !ok {
-		saved = winutil.SavedWindow{}
-	}
-	return winutil.ExitBorderless(h, saved)
+	saved, _ := a.rt.takeBorderless(h)
+	return exitNativeBorderless(h, saved)
 }
 
 // NewWindowAdapter wrap *RuntimeContext into node.WindowService.
@@ -855,7 +843,7 @@ func (a *visionAdapter) captureFrame(ctx context.Context, cached bool, required 
 	if cached {
 		return a.rt.CaptureFrameCached(h)
 	}
-	return a.rt.Capture.Frame(win.HWND(h))
+	return a.rt.Capture.Frame(pkgcapture.Handle(h))
 }
 
 func (a *visionAdapter) Match(ctx context.Context, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {

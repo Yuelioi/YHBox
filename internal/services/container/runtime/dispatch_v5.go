@@ -18,15 +18,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
 	nodepkg "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/services/container"
-	"github.com/yottaapp/yotta/pkg/winutil"
 )
-
-// isWindowFn 测试可替换; 默认真 Win32 IsWindow。
-var isWindowFn = winutil.IsWindow
 
 // execNodeViaFramework dispatch 单节点 via framework. 返下游 token 或 error.
 // 不处理 RegionRunner — 那些走 r.execNodeAsRegionViaFramework.
@@ -50,7 +47,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 			return nil, nodepkg.Failf(nodepkg.CodeWindowInvalid, nil,
 				"%s: Window 输入无效或句柄已失效", node.Kind)
 		}
-		wh := winutil.WindowHandle{HWND: w.HWND, Title: w.Title, Class: w.Class,
+		wh := target.WindowHandle{HWND: w.HWND, Title: w.Title, Class: w.Class,
 			ProcessName: w.Process, PID: w.PID, ClientW: w.ClientW, ClientH: w.ClientH}
 		r.rt.PushWindowOverride(wh)
 		defer r.rt.PopWindowOverride()

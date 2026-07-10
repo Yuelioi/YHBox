@@ -4,8 +4,6 @@ import (
 	"image"
 	"testing"
 
-	"github.com/lxn/win"
-
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/execution"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
@@ -76,17 +74,19 @@ type mockCaptureBackend struct {
 var _ pkgcapture.IBackend = (*mockCaptureBackend)(nil)
 
 func (m *mockCaptureBackend) Name() string { return "mock-test" }
-func (m *mockCaptureBackend) Frame(_ win.HWND) (*image.RGBA, error) {
+func (m *mockCaptureBackend) Frame(_ pkgcapture.Handle) (*image.RGBA, error) {
 	return m.FrameROIResult, nil
 }
-func (m *mockCaptureBackend) FrameROI(_ win.HWND, _, _, _, _ int) (*image.RGBA, error) {
+func (m *mockCaptureBackend) FrameROI(_ pkgcapture.Handle, _, _, _, _ int) (*image.RGBA, error) {
 	if m.FrameROIResult == nil {
 		return nil, image.ErrFormat
 	}
 	return m.FrameROIResult, nil
 }
-func (m *mockCaptureBackend) ClientSize(_ win.HWND) (int, int, error) { return 1920, 1080, nil }
-func (m *mockCaptureBackend) Close() error                            { return nil }
+func (m *mockCaptureBackend) ClientSize(_ pkgcapture.Handle) (int, int, error) {
+	return 1920, 1080, nil
+}
+func (m *mockCaptureBackend) Close() error { return nil }
 
 // fakeInputBackend 测试用 pkginput.Backend 实现. 计数 Click 调用次数, 其他方法返 nil.
 // 共享给所有 _test.go (runner_test / playclip_test / safe_backend_test 等).
@@ -96,21 +96,21 @@ type fakeInputBackend struct {
 
 func (f *fakeInputBackend) Name() string                        { return "fake" }
 func (f *fakeInputBackend) Capabilities() pkginput.Capabilities { return pkginput.Capabilities{} }
-func (f *fakeInputBackend) Click(_ win.HWND, _, _ float64, _ string, _ int) error {
+func (f *fakeInputBackend) Click(_ pkginput.Handle, _, _ float64, _ string, _ int) error {
 	f.clicks++
 	return nil
 }
-func (f *fakeInputBackend) KeyDown(win.HWND, string) error                     { return nil }
-func (f *fakeInputBackend) KeyUp(win.HWND, string) error                       { return nil }
-func (f *fakeInputBackend) MouseDown(win.HWND, float64, float64, string) error { return nil }
-func (f *fakeInputBackend) MouseUp(win.HWND, string) error                     { return nil }
-func (f *fakeInputBackend) MouseMoveRel(win.HWND, int, int, int) error         { return nil }
-func (f *fakeInputBackend) Drag(win.HWND, float64, float64, float64, float64, string, int) error {
+func (f *fakeInputBackend) KeyDown(pkginput.Handle, string) error                     { return nil }
+func (f *fakeInputBackend) KeyUp(pkginput.Handle, string) error                       { return nil }
+func (f *fakeInputBackend) MouseDown(pkginput.Handle, float64, float64, string) error { return nil }
+func (f *fakeInputBackend) MouseUp(pkginput.Handle, string) error                     { return nil }
+func (f *fakeInputBackend) MouseMoveRel(pkginput.Handle, int, int, int) error         { return nil }
+func (f *fakeInputBackend) Drag(pkginput.Handle, float64, float64, float64, float64, string, int) error {
 	return nil
 }
-func (f *fakeInputBackend) MoveTo(win.HWND, float64, float64) error            { return nil }
-func (f *fakeInputBackend) CursorRatio(win.HWND) (float64, float64, error)     { return 0, 0, nil }
-func (f *fakeInputBackend) Scroll(win.HWND, float64, float64, int, bool) error { return nil }
-func (f *fakeInputBackend) TypeText(_ win.HWND, _ string) error                { return nil }
-func (f *fakeInputBackend) ReleaseAll() error                                  { return nil }
-func (f *fakeInputBackend) Close() error                                       { return nil }
+func (f *fakeInputBackend) MoveTo(pkginput.Handle, float64, float64) error            { return nil }
+func (f *fakeInputBackend) CursorRatio(pkginput.Handle) (float64, float64, error)     { return 0, 0, nil }
+func (f *fakeInputBackend) Scroll(pkginput.Handle, float64, float64, int, bool) error { return nil }
+func (f *fakeInputBackend) TypeText(_ pkginput.Handle, _ string) error                { return nil }
+func (f *fakeInputBackend) ReleaseAll() error                                         { return nil }
+func (f *fakeInputBackend) Close() error                                              { return nil }

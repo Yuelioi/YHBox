@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lxn/win"
-
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/execution"
 	"github.com/yottaapp/yotta/internal/services/expr"
@@ -22,12 +20,12 @@ type spyInputBackend struct {
 	keyEvents []string
 }
 
-func (s *spyInputBackend) KeyDown(_ win.HWND, k string) error {
+func (s *spyInputBackend) KeyDown(_ pkginput.Handle, k string) error {
 	s.keyEvents = append(s.keyEvents, "down:"+k)
 	return nil
 }
 
-func (s *spyInputBackend) KeyUp(_ win.HWND, k string) error {
+func (s *spyInputBackend) KeyUp(_ pkginput.Handle, k string) error {
 	s.keyEvents = append(s.keyEvents, "up:"+k)
 	return nil
 }

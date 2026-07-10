@@ -57,6 +57,24 @@ type TargetRef struct {
 	MockImageID string
 }
 
+// WindowHandle is the resolved metadata for a native host window target.
+type WindowHandle struct {
+	HWND        uintptr
+	Title       string
+	Class       string
+	ProcessName string
+	PID         uint32
+	ClientW     int
+	ClientH     int
+}
+
+type WindowMatchSpec struct {
+	Title       string
+	Class       string
+	ProcessName string
+	TitleMatch  string
+}
+
 type Target struct {
 	ID          string
 	Kind        string

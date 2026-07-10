@@ -110,9 +110,14 @@ jobs:
           ./internal/automation/trace
           ./internal/nodes/input
           ./internal/nodes/io
+          ./internal/runclassify
+          ./internal/services/container
+          ./internal/services/container/runtime
           ./internal/services/execution
           ./internal/services/expr
           ./internal/services/llm
+          ./internal/services/mcpserver
+          ./internal/services/nodeoptions
           ./pkg/capture
           ./pkg/imageutil
           ./pkg/input
@@ -120,3 +125,4 @@ jobs:
           ./pkg/platform
           ./pkg/runctl
           ./pkg/vision
+          ./pkg/winutil

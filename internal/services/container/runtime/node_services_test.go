@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lxn/win"
 	"github.com/rs/zerolog"
 
 	"github.com/yottaapp/yotta/internal/automation/controller"
@@ -18,6 +17,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/execution"
 	"github.com/yottaapp/yotta/internal/services/expr"
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
@@ -370,12 +370,12 @@ var (
 
 type fakeCapture struct{ img *image.RGBA }
 
-func (f fakeCapture) Name() string                          { return "fake" }
-func (f fakeCapture) Frame(_ win.HWND) (*image.RGBA, error) { return f.img, nil }
-func (f fakeCapture) FrameROI(_ win.HWND, _, _, _, _ int) (*image.RGBA, error) {
+func (f fakeCapture) Name() string                                   { return "fake" }
+func (f fakeCapture) Frame(_ pkgcapture.Handle) (*image.RGBA, error) { return f.img, nil }
+func (f fakeCapture) FrameROI(_ pkgcapture.Handle, _, _, _, _ int) (*image.RGBA, error) {
 	return f.img, nil
 }
-func (f fakeCapture) ClientSize(_ win.HWND) (int, int, error) {
+func (f fakeCapture) ClientSize(_ pkgcapture.Handle) (int, int, error) {
 	return f.img.Bounds().Dx(), f.img.Bounds().Dy(), nil
 }
 func (f fakeCapture) Close() error { return nil }
@@ -423,7 +423,7 @@ func (r *recordingRuntimeInput) Name() string { return "sendinput" }
 func (r *recordingRuntimeInput) Capabilities() pkginput.Capabilities {
 	return pkginput.Capabilities{}
 }
-func (r *recordingRuntimeInput) Click(hwnd win.HWND, xRatio, yRatio float64, button string, durMs int) error {
+func (r *recordingRuntimeInput) Click(hwnd pkginput.Handle, xRatio, yRatio float64, button string, durMs int) error {
 	r.clickHWND = append(r.clickHWND, uintptr(hwnd))
 	r.clickX = append(r.clickX, xRatio)
 	r.clickY = append(r.clickY, yRatio)
@@ -431,36 +431,36 @@ func (r *recordingRuntimeInput) Click(hwnd win.HWND, xRatio, yRatio float64, but
 	r.clickDuration = append(r.clickDuration, durMs)
 	return nil
 }
-func (r *recordingRuntimeInput) KeyDown(hwnd win.HWND, key string) error {
+func (r *recordingRuntimeInput) KeyDown(hwnd pkginput.Handle, key string) error {
 	r.keyDownHWND = append(r.keyDownHWND, uintptr(hwnd))
 	r.keyDownKeys = append(r.keyDownKeys, key)
 	return nil
 }
-func (r *recordingRuntimeInput) KeyUp(hwnd win.HWND, key string) error {
+func (r *recordingRuntimeInput) KeyUp(hwnd pkginput.Handle, key string) error {
 	r.keyUpHWND = append(r.keyUpHWND, uintptr(hwnd))
 	r.keyUpKeys = append(r.keyUpKeys, key)
 	return nil
 }
-func (r *recordingRuntimeInput) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
+func (r *recordingRuntimeInput) MouseDown(hwnd pkginput.Handle, xRatio, yRatio float64, button string) error {
 	r.mouseDownHWND = append(r.mouseDownHWND, uintptr(hwnd))
 	r.mouseDownX = append(r.mouseDownX, xRatio)
 	r.mouseDownY = append(r.mouseDownY, yRatio)
 	r.mouseDownButton = append(r.mouseDownButton, button)
 	return nil
 }
-func (r *recordingRuntimeInput) MouseUp(hwnd win.HWND, button string) error {
+func (r *recordingRuntimeInput) MouseUp(hwnd pkginput.Handle, button string) error {
 	r.mouseUpHWND = append(r.mouseUpHWND, uintptr(hwnd))
 	r.mouseUpButton = append(r.mouseUpButton, button)
 	return nil
 }
-func (r *recordingRuntimeInput) MouseMoveRel(hwnd win.HWND, dx, dy, durationMs int) error {
+func (r *recordingRuntimeInput) MouseMoveRel(hwnd pkginput.Handle, dx, dy, durationMs int) error {
 	r.moveRelHWND = append(r.moveRelHWND, uintptr(hwnd))
 	r.moveRelDx = append(r.moveRelDx, dx)
 	r.moveRelDy = append(r.moveRelDy, dy)
 	r.moveRelDuration = append(r.moveRelDuration, durationMs)
 	return nil
 }
-func (r *recordingRuntimeInput) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error {
+func (r *recordingRuntimeInput) Scroll(hwnd pkginput.Handle, xRatio, yRatio float64, notches int, horizontal bool) error {
 	r.scrollHWND = append(r.scrollHWND, uintptr(hwnd))
 	r.scrollX = append(r.scrollX, xRatio)
 	r.scrollY = append(r.scrollY, yRatio)
@@ -468,7 +468,7 @@ func (r *recordingRuntimeInput) Scroll(hwnd win.HWND, xRatio, yRatio float64, no
 	r.scrollHorizontal = append(r.scrollHorizontal, horizontal)
 	return nil
 }
-func (r *recordingRuntimeInput) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
+func (r *recordingRuntimeInput) Drag(hwnd pkginput.Handle, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
 	r.dragHWND = append(r.dragHWND, uintptr(hwnd))
 	r.dragX1 = append(r.dragX1, x1Ratio)
 	r.dragY1 = append(r.dragY1, y1Ratio)
@@ -478,18 +478,18 @@ func (r *recordingRuntimeInput) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y
 	r.dragDurationMs = append(r.dragDurationMs, durationMs)
 	return nil
 }
-func (r *recordingRuntimeInput) TypeText(hwnd win.HWND, text string) error {
+func (r *recordingRuntimeInput) TypeText(hwnd pkginput.Handle, text string) error {
 	r.textHWND = append(r.textHWND, uintptr(hwnd))
 	r.textValues = append(r.textValues, text)
 	return nil
 }
-func (r *recordingRuntimeInput) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
+func (r *recordingRuntimeInput) MoveTo(hwnd pkginput.Handle, xRatio, yRatio float64) error {
 	r.moveHWND = append(r.moveHWND, uintptr(hwnd))
 	r.moveX = append(r.moveX, xRatio)
 	r.moveY = append(r.moveY, yRatio)
 	return nil
 }
-func (r *recordingRuntimeInput) CursorRatio(win.HWND) (float64, float64, error) {
+func (r *recordingRuntimeInput) CursorRatio(pkginput.Handle) (float64, float64, error) {
 	return 0, 0, nil
 }
 func (r *recordingRuntimeInput) ReleaseAll() error { return nil }
@@ -984,7 +984,7 @@ func TestWindowAdapter_SetActive_PropagatesResolveError(t *testing.T) {
 func TestWindowAdapter_Snapshot_ReReadsLiveSize(t *testing.T) {
 	orig := clientSizeFn
 	defer func() { clientSizeFn = orig }()
-	clientSizeFn = func(win.HWND) (int, int, error) { return 1920, 1080, nil }
+	clientSizeFn = func(uintptr) (int, int, error) { return 1920, 1080, nil }
 
 	rt := &RuntimeContext{}
 	rt.SetActiveWindow(winutil.WindowHandle{HWND: 7, Title: "X", ClientW: 100, ClientH: 50})

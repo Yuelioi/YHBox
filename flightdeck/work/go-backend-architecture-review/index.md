@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：移除 container/runtime 对 `lxn/win`、旧 input/capture bootstrap 与 winutil 的直接理解，让 Win32 能力只从 controller adapter 进入 runtime。
+继续批次 D：移除 container/runtime 对 legacy input/capture bootstrap 的直接理解，让 Win32 输入与截图能力只从 controller adapter 进入 runtime；并继续隔离 hotkey/calibration/recording/tools。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- 完整 Linux/Darwin build 的剩余链集中在 hotkey、winutil、container/runtime、recording/tools 与 Wails GUI 壳；input/capture package 自身已可跨平台编译测试。
+- Linux 非 main package 的项目内失败只剩 hotkey、calibration、recording、tools；另有 Wails GUI dependency 在 `CGO_ENABLED=0` 下失败。
 
 Done:
 
+- 批次 D（第四批）：target contract 接管 WindowHandle/WindowMatchSpec；runtime core 移除直接 `lxn/win`/winutil import；winutil 拆分 Windows/non-Windows adapter；container/runtime tests 可为 Linux/Darwin 编译，失败图从 14 收敛到 5。
 - 批次 D（第三批）：提取跨平台 VK 解析；非 Windows `KillProcess` 使用 typed unsupported；`internal/nodes/input` 与 `internal/nodes/io` 在 Linux/Darwin 编译通过并进入 CI 原生测试矩阵。
 - 批次 D（第二批）：新增统一 typed unsupported platform error；拆分 `pkg/input`/`pkg/capture` 公共 contract、`_windows.go` adapter 与非 Windows factory；mock capture 保持跨平台；Linux/Darwin dependency graph 无 `lxn/win`，CI 已加入三包原生测试。
 - 批次 D（首批）：autostart/admin/console/shell 平台文件隔离；`pkg/platform` 三平台编译；新增 platform-neutral import 守卫测试。
@@ -60,6 +61,7 @@ Verified:
 - D 第二批后，Windows `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、受影响包 race/coverage 均通过；Linux/Darwin 的 input/capture/platform tests 可交叉编译且 dependency graph 无 Windows 包。
 - D 第二批双轴 review：Standards 无 finding；Spec 指出的 Windows mock invalid-HWND 语义回退与 `_windows.go` 命名未闭合均已修复，并补 Windows 回归测试及全仓旧路径检查。
 - D 第三批后，Windows 全量 test/vet/staticcheck、受影响包 race/coverage 通过；Linux/Darwin 的 nodes/input、nodes/io、pkg/input、pkg/platform 编译通过。
+- D 第四批后，Windows winutil/container/runtime 定向测试通过；Linux/Darwin 的 winutil/container/runtime 测试可交叉编译；架构守卫禁止 runtime core 重新直接 import Win32/winutil。
 
 ## Open questions
 

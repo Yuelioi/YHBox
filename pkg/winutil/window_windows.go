@@ -18,6 +18,7 @@ import (
 	"unsafe"
 
 	"github.com/lxn/win"
+
 )
 
 var (
@@ -41,8 +42,8 @@ var (
 )
 
 const (
-	swRestore                         = 9
-	processQueryLimitedInformation    = 0x1000
+	swRestore                      = 9
+	processQueryLimitedInformation = 0x1000
 )
 
 // ---------------------------------------------------------------------------
@@ -81,58 +82,6 @@ func BringToFront(hwnd win.HWND) bool {
 // ---------------------------------------------------------------------------
 // Win32WindowTarget API — runtime/recording/tools 共用.
 // ---------------------------------------------------------------------------
-
-// WindowHandle 解析后窗口的完整元数据. runtime 整 run 持有, 不只 hwnd.
-type WindowHandle struct {
-	HWND        uintptr
-	Title       string // GetWindowText
-	Class       string // GetClassName
-	ProcessName string // exe basename, lowercase (strings.ToLower 提前转)
-	PID         uint32
-	ClientW     int // GetClientRect.right - left
-	ClientH     int // GetClientRect.bottom - top
-}
-
-// MatchSpec Win32WindowTarget.config.match 反序列化后形态.
-type MatchSpec struct {
-	Title       string
-	Class       string
-	ProcessName string
-	TitleMatch  string // "exact" | "regex"
-}
-
-// IsEmptyMatch true if all three fields are blank OR title is a "match anything" regex (.* / .+).
-// validator + runtime 都该用这个统一判定.
-func IsEmptyMatch(spec MatchSpec) bool {
-	hasAny := spec.Title != "" || spec.Class != "" || spec.ProcessName != ""
-	if !hasAny {
-		return true
-	}
-	if spec.TitleMatch == "regex" && spec.Class == "" && spec.ProcessName == "" {
-		t := strings.TrimSpace(spec.Title)
-		if t == ".*" || t == ".+" || t == "^.*$" || t == "^.+$" {
-			return true
-		}
-	}
-	return false
-}
-
-// CompileTitle 给 validator + runtime 共用. titleMatch=exact 时不编译; regex 编译失败返 err.
-func CompileTitle(spec MatchSpec) (*regexp.Regexp, error) {
-	if spec.TitleMatch != "regex" || spec.Title == "" {
-		return nil, nil
-	}
-	return regexp.Compile(spec.Title)
-}
-
-// ErrWindowNotFound — ResolveWindow 在 timeout 内没枚到匹配窗口时返回 (wrap 进带定位信息的
-// error)。调用方用 errors.Is 区分「超时没找到」(可兜底分支) 与「空 match / regex 非法 / ctx 取消」
-// (真错)。
-var ErrWindowNotFound = errors.New("窗口未找到")
-
-// ErrWindowStillPresent — WaitWindowGone 在 timeout 内窗口仍存在时返回。
-// 调用方用 errors.Is 区分「超时仍在」(兜底分支) 与「空 match / regex 非法 / ctx 取消」(真错)。
-var ErrWindowStillPresent = errors.New("窗口仍存在")
 
 // windowMatchOnce 枚举一遍顶层可见窗口, 有任一匹配 spec/titleRe 的窗口则返 true.
 // targetProc 是 strings.ToLower(spec.ProcessName), 调用方预先处理好传入.
@@ -376,7 +325,8 @@ func EnumTopWindows() []WindowHandle {
 
 // ClientSize 客户区像素尺寸 (录制等非 capture 路径用, 不依赖 capture 全局后端).
 // GetClientRect 失败或窗口尺寸为 0 时返 error.
-func ClientSize(hwnd win.HWND) (int, int, error) {
+func ClientSize(handle uintptr) (int, int, error) {
+	hwnd := win.HWND(handle)
 	var rect win.RECT
 	r, _, _ := procGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
 	if r == 0 {

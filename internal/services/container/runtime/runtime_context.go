@@ -22,8 +22,6 @@ import (
 	clipruntime "github.com/yottaapp/yotta/internal/services/inputclip/runtime"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
-	"github.com/yottaapp/yotta/pkg/winutil"
-	"github.com/lxn/win"
 )
 
 // frameCacheTTL: 同 hwnd 100ms 内复用一帧. 100ms 是 fishing v2 主循环 Sleep 下限,
@@ -58,10 +56,10 @@ type RuntimeContext struct {
 	// 粘性活动窗口寄存器. 运行时由 Win32WindowTarget.Run 经 SetActiveWindow 改写;
 	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
 	windowMu sync.RWMutex
-	window   winutil.WindowHandle // HWND==0 = 未解析
+	window   target.WindowHandle // HWND==0 = 未解析
 	target   target.Target
 	// windowOverride 派发期 per-node 覆盖栈; 栈顶为当前有效窗口, 空则用粘性 window。windowMu 守护。
-	windowOverride []winutil.WindowHandle
+	windowOverride []target.WindowHandle
 
 	// 帧缓存: 同一 iter 内模板/DetectColor 多次抓帧复用 (100ms TTL, 按 hwnd 分条).
 	// DualBar/HSV/ROIScan/Grid 不走此缓存 (QTE 高频轮询要新帧).
@@ -70,7 +68,7 @@ type RuntimeContext struct {
 
 	// borderless 进入前布局快照, RestoreBorders 取出还原; 按 hwnd 分条。
 	borderlessMu    sync.Mutex
-	borderlessSaved map[uintptr]winutil.SavedWindow
+	borderlessSaved map[uintptr]any
 
 	// PlayClip 节点用: InputClip 解析 + 注入后端 + 当前机器 mouse 360° counts.
 	ClipResolver   ClipResolver
@@ -207,7 +205,7 @@ func (rt *RuntimeContext) SetParam(name string, val expr.Value) {
 var ErrNoActiveWindow = errors.New("NO_ACTIVE_WINDOW — 当前无活动窗口, 先放并执行一个 Win32WindowTarget 节点")
 
 // WindowHandle 并发安全读取当前有效窗口(覆盖栈非空返栈顶, 否则返粘性 window).
-func (rt *RuntimeContext) WindowHandle() winutil.WindowHandle {
+func (rt *RuntimeContext) WindowHandle() target.WindowHandle {
 	rt.windowMu.RLock()
 	defer rt.windowMu.RUnlock()
 	if n := len(rt.windowOverride); n > 0 {
@@ -245,7 +243,7 @@ func (rt *RuntimeContext) SetActiveTarget(tg target.Target) {
 	rt.target = tg
 }
 
-func (rt *RuntimeContext) PushWindowOverride(wh winutil.WindowHandle) {
+func (rt *RuntimeContext) PushWindowOverride(wh target.WindowHandle) {
 	rt.windowMu.Lock()
 	defer rt.windowMu.Unlock()
 	rt.windowOverride = append(rt.windowOverride, wh)
@@ -260,7 +258,7 @@ func (rt *RuntimeContext) PopWindowOverride() {
 }
 
 // SetActiveWindow 整体替换活动窗口 (粘性) + 清该 hwnd 帧缓存 + prune 过期.
-func (rt *RuntimeContext) SetActiveWindow(wh winutil.WindowHandle) {
+func (rt *RuntimeContext) SetActiveWindow(wh target.WindowHandle) {
 	rt.windowMu.Lock()
 	rt.window = wh
 	rt.target = windowHandleToTarget(wh)
@@ -268,16 +266,16 @@ func (rt *RuntimeContext) SetActiveWindow(wh winutil.WindowHandle) {
 	rt.invalidateFrameCacheFor(wh.HWND)
 }
 
-func (rt *RuntimeContext) saveBorderless(hwnd uintptr, s winutil.SavedWindow) {
+func (rt *RuntimeContext) saveBorderless(hwnd uintptr, state any) {
 	rt.borderlessMu.Lock()
 	defer rt.borderlessMu.Unlock()
 	if rt.borderlessSaved == nil {
-		rt.borderlessSaved = map[uintptr]winutil.SavedWindow{}
+		rt.borderlessSaved = map[uintptr]any{}
 	}
-	rt.borderlessSaved[hwnd] = s
+	rt.borderlessSaved[hwnd] = state
 }
 
-func (rt *RuntimeContext) takeBorderless(hwnd uintptr) (winutil.SavedWindow, bool) {
+func (rt *RuntimeContext) takeBorderless(hwnd uintptr) (any, bool) {
 	rt.borderlessMu.Lock()
 	defer rt.borderlessMu.Unlock()
 	s, ok := rt.borderlessSaved[hwnd]
@@ -340,7 +338,7 @@ func (rt *RuntimeContext) CaptureFrameCached(hwnd uintptr) (*image.RGBA, error) 
 	if f := rt.peekFrameCache(hwnd); f != nil {
 		return f, nil
 	}
-	f, err := rt.Capture.Frame(win.HWND(hwnd))
+	f, err := rt.Capture.Frame(pkgcapture.Handle(hwnd))
 	if err != nil {
 		return nil, err
 	}

@@ -3,9 +3,6 @@ package runtime
 import (
 	"image"
 	"sync"
-	"syscall"
-
-	"github.com/lxn/win"
 
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
@@ -24,7 +21,7 @@ func NewSafeInputBackend(inner pkginput.Backend, rt *RuntimeContext) *SafeInputB
 	return &SafeInputBackend{inner: inner, rt: rt}
 }
 
-func (s *SafeInputBackend) warnOnce(action string, hwnd win.HWND) {
+func (s *SafeInputBackend) warnOnce(action string, hwnd pkginput.Handle) {
 	s.mu.Lock()
 	if s.warned {
 		s.mu.Unlock()
@@ -57,71 +54,71 @@ func uintToHex(u uintptr) string {
 func (s *SafeInputBackend) Name() string                        { return s.inner.Name() }
 func (s *SafeInputBackend) Capabilities() pkginput.Capabilities { return s.inner.Capabilities() }
 
-func (s *SafeInputBackend) Click(hwnd win.HWND, xr, yr float64, btn string, durMs int) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) Click(hwnd pkginput.Handle, xr, yr float64, btn string, durMs int) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("Click", hwnd)
 		return nil
 	}
 	return s.inner.Click(hwnd, xr, yr, btn, durMs)
 }
-func (s *SafeInputBackend) KeyDown(hwnd win.HWND, vk string) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) KeyDown(hwnd pkginput.Handle, vk string) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("KeyDown", hwnd)
 		return nil
 	}
 	return s.inner.KeyDown(hwnd, vk)
 }
-func (s *SafeInputBackend) KeyUp(hwnd win.HWND, vk string) error {
+func (s *SafeInputBackend) KeyUp(hwnd pkginput.Handle, vk string) error {
 	// KeyUp 即使 hwnd invalid 也尝试 (释放 backend 内部 state)
 	return s.inner.KeyUp(hwnd, vk)
 }
-func (s *SafeInputBackend) MouseDown(hwnd win.HWND, xr, yr float64, btn string) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) MouseDown(hwnd pkginput.Handle, xr, yr float64, btn string) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("MouseDown", hwnd)
 		return nil
 	}
 	return s.inner.MouseDown(hwnd, xr, yr, btn)
 }
-func (s *SafeInputBackend) MouseUp(hwnd win.HWND, btn string) error {
+func (s *SafeInputBackend) MouseUp(hwnd pkginput.Handle, btn string) error {
 	return s.inner.MouseUp(hwnd, btn)
 }
-func (s *SafeInputBackend) MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) MouseMoveRel(hwnd pkginput.Handle, dx, dy, durMs int) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("MouseMoveRel", hwnd)
 		return nil
 	}
 	return s.inner.MouseMoveRel(hwnd, dx, dy, durMs)
 }
-func (s *SafeInputBackend) MoveTo(hwnd win.HWND, xr, yr float64) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) MoveTo(hwnd pkginput.Handle, xr, yr float64) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("MoveTo", hwnd)
 		return nil
 	}
 	return s.inner.MoveTo(hwnd, xr, yr)
 }
-func (s *SafeInputBackend) CursorRatio(hwnd win.HWND) (float64, float64, error) {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) CursorRatio(hwnd pkginput.Handle) (float64, float64, error) {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("CursorRatio", hwnd)
 		return 0, 0, nil
 	}
 	return s.inner.CursorRatio(hwnd)
 }
-func (s *SafeInputBackend) Scroll(hwnd win.HWND, xr, yr float64, notches int, horizontal bool) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) Scroll(hwnd pkginput.Handle, xr, yr float64, notches int, horizontal bool) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("Scroll", hwnd)
 		return nil
 	}
 	return s.inner.Scroll(hwnd, xr, yr, notches, horizontal)
 }
-func (s *SafeInputBackend) Drag(hwnd win.HWND, x1, y1, x2, y2 float64, button string, durationMs int) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) Drag(hwnd pkginput.Handle, x1, y1, x2, y2 float64, button string, durationMs int) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("Drag", hwnd)
 		return nil
 	}
 	return s.inner.Drag(hwnd, x1, y1, x2, y2, button, durationMs)
 }
-func (s *SafeInputBackend) TypeText(hwnd win.HWND, text string) error {
-	if !isValidHwnd(hwnd) {
+func (s *SafeInputBackend) TypeText(hwnd pkginput.Handle, text string) error {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("TypeText", hwnd)
 		return nil
 	}
@@ -142,7 +139,7 @@ func NewSafeCaptureBackend(inner pkgcapture.IBackend, rt *RuntimeContext) *SafeC
 	return &SafeCaptureBackend{inner: inner, rt: rt}
 }
 
-func (s *SafeCaptureBackend) warnOnce(action string, hwnd win.HWND) {
+func (s *SafeCaptureBackend) warnOnce(action string, hwnd pkgcapture.Handle) {
 	s.mu.Lock()
 	if s.warned {
 		s.mu.Unlock()
@@ -159,40 +156,25 @@ func (s *SafeCaptureBackend) warnOnce(action string, hwnd win.HWND) {
 
 func (s *SafeCaptureBackend) Name() string { return s.inner.Name() }
 
-func (s *SafeCaptureBackend) Frame(hwnd win.HWND) (*image.RGBA, error) {
-	if !isValidHwnd(hwnd) {
+func (s *SafeCaptureBackend) Frame(hwnd pkgcapture.Handle) (*image.RGBA, error) {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("Frame", hwnd)
 		return nil, nil
 	}
 	return s.inner.Frame(hwnd)
 }
-func (s *SafeCaptureBackend) FrameROI(hwnd win.HWND, x, y, w, h int) (*image.RGBA, error) {
-	if !isValidHwnd(hwnd) {
+func (s *SafeCaptureBackend) FrameROI(hwnd pkgcapture.Handle, x, y, w, h int) (*image.RGBA, error) {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("FrameROI", hwnd)
 		return nil, nil
 	}
 	return s.inner.FrameROI(hwnd, x, y, w, h)
 }
-func (s *SafeCaptureBackend) ClientSize(hwnd win.HWND) (int, int, error) {
-	if !isValidHwnd(hwnd) {
+func (s *SafeCaptureBackend) ClientSize(hwnd pkgcapture.Handle) (int, int, error) {
+	if !isValidHwnd(uintptr(hwnd)) {
 		s.warnOnce("ClientSize", hwnd)
 		return 0, 0, nil
 	}
 	return s.inner.ClientSize(hwnd)
 }
 func (s *SafeCaptureBackend) Close() error { return s.inner.Close() }
-
-// isValidHwnd 等价 win.IsWindow, 但 lxn/win 没 export. 自己 syscall.
-// 同 pkg/capture/capture_windows.go 的 isWindow helper 模式, 但 runtime 包独立避免循环 import.
-var (
-	safeUser32       = syscall.NewLazyDLL("user32.dll")
-	procIsWindowSafe = safeUser32.NewProc("IsWindow")
-)
-
-func isValidHwnd(hwnd win.HWND) bool {
-	if hwnd == 0 {
-		return false
-	}
-	r, _, _ := procIsWindowSafe.Call(uintptr(hwnd))
-	return r != 0
-}
