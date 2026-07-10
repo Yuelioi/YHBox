@@ -6,7 +6,7 @@
 
 ## Next
 
-继续批次 D：隔离 recording；随后把 tools/Wails presentation 从 backend module 拆出并处理 GUI 壳的平台入口；保持 portable-core 三平台门禁。
+继续批次 D：把 tools/Wails presentation 从 backend module 拆出并处理 GUI 壳的平台入口；保持 portable-core 三平台门禁。
 
 ## Read now
 
@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- Linux 非 main package 的项目内 Win32 失败只剩 recording；tools 已越过项目内 Win32 imports，当前阻塞于 Wails alpha.91 `application` Linux 实现自身在 `CGO_ENABLED=0` 下编译失败。
+- Linux 非 main package 的项目内 Win32 失败已清零；当前剩余阻塞是 tools/GUI 壳依赖的 Wails alpha.91 `application` Linux 实现自身在 `CGO_ENABLED=0` 下编译失败。
 
 Done:
 
+- 批次 D（第九批）：recording event/stop contract 与 Win32 recorder/hook/raw-input adapter 分离；service 使用 canonical target contract；非 Windows recorder 返回 typed unsupported；Linux/macOS 进入 portable-core CI。
 - 批次 D（第八批）：tools 的 mouse/pixel/window-capture native 实现进入 `_windows.go`，非 Windows adapter 使用 typed unsupported；WindowResolver 改用 canonical target contract；tools 平台守卫已建立。
 - 批次 D（第七批）：calibration state 与 Win32 raw-input/hotkey adapter 分离；非 Windows service 返回统一 typed unsupported；Linux/macOS 进入 portable-core CI。
 - 批次 D（第六批）：hotkey manager 与 Win32 RegisterHotKey 消息循环分离；非 Windows 返回统一 typed unsupported；registry 单测改用内存 loop，Linux/macOS 进入 portable-core CI。
@@ -76,6 +77,7 @@ Verified:
 - D 第八批后，Windows tools test/race 通过；Linux/Darwin 编译已不再命中 Yotta Win32 import，下一失败点稳定落在 Wails alpha.91 `pkg/application` 的 Linux CGO 实现；因此尚不加入 portable-core CI。
 - D 第八批双轴 review：MousePos 改为 typed error contract 并让 HUD 显式呈现轮询/取色错误；capture 在检查 Wails app 前先判平台 capability；target tool router 统一传 canonical `target.Target`，删除 kind 字符串双权威与含混命名。
 - D 第八批 binding/frontend 验证：Wails 正式生成后 MousePos 仍为 `CancellablePromise<MousePosInfo>`，`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过；另记录 CLI `-dry` 默认 clean 会清空 gitignored bindings 的陷阱。
+- D 第九批后，Windows recording tests 通过，Linux/Darwin recording tests 成功交叉编译；架构守卫与 portable-core CI 已覆盖 recording，项目内非 main package 的 Win32 编译失败归零。
 
 ## Open questions
 

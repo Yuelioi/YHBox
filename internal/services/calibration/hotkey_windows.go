@@ -2,7 +2,7 @@
 //
 // 为什么不走 hotkeyRegistry 的 OS RegisterHotKey: 游戏 reserve F8 这类系统热键, 切到
 // 游戏后 RegisterHotKey 收不到 (录制 F12 早因此弃用, 改 LL hook). 本 primitive 照搬
-// recording/llhook.go 已验证的 LL-hook 模式, 但完全独立 — 单 VK / 实例, 不做 registry /
+// recording/llhook_windows.go 已验证的 LL-hook 模式, 但完全独立 — 单 VK / 实例, 不做 registry /
 // manager, 不并入录制 hook (最小 blast radius, 录制现路径不碰).
 //
 // 用法: NewHotkeyHook(vk, cb).Start() 装钩; Stop() 卸钩. 校准 session 开/关各调一次.

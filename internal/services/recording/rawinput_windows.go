@@ -1,4 +1,4 @@
-// rawinput.go 给 recorder 加 Raw Input 通路抓**相对鼠标位移**（camera 转向）。
+// Win32 Raw Input adapter 抓**相对鼠标位移**（camera 转向）。
 //
 // 为什么：游戏走 Raw Input API（GetRawInputData / DirectInput）读 mouse 设备
 // delta，不走 WM_MOUSEMOVE。LL hook (WH_MOUSE_LL) 只看消息层的鼠标，camera 转
@@ -177,8 +177,8 @@ func createRawInputWindow() (syscall.Handle, error) {
 	hwnd, _, callErr := procCreateWindowExW.Call(
 		0, // dwExStyle
 		uintptr(unsafe.Pointer(className)),
-		0, // lpWindowName
-		0, // dwStyle
+		0,          // lpWindowName
+		0,          // dwStyle
 		0, 0, 0, 0, // x y w h
 		hwndMessage, // parent = HWND_MESSAGE
 		0,           // hMenu

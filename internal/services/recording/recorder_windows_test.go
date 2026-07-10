@@ -1,4 +1,4 @@
-// recorder_test.go：单测只覆盖不需要真 hwnd + 真键鼠输入的路径。
+// Windows recorder 单测只覆盖不需要真 hwnd + 真键鼠输入的路径。
 // 真录制集成阶段手测。
 package recording
 

@@ -1,16 +1,3 @@
-// recorder.go：整合 LL hook pipeline 的录制控制器 (v2 dumb 版).
-//
-// 生命周期：Start → 用户操作 → Stop（或 Cancel）。同一 Recorder 可复用。
-//
-// v2 设计原则: Recorder dumb 化 — drain loop 不做任何合并 / 配对 / dedupe,
-// 每个 HookEvent 直接转换成 inputclip.Event append 进 slice. 智能化全部下放到
-// inputclip transform 层.
-//
-// 关键 Win32 约束：
-//   - SetWindowsHookEx + GetMessage 必须同一个 OS 线程
-//   - 所以起 worker goroutine + runtime.LockOSThread
-//   - Stop 必须阻塞等 worker 真退出（done channel），否则 Start→Stop→Start
-//     会触发 duplicate callback / hook leak
 package recording
 
 import (
@@ -27,19 +14,6 @@ import (
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
-
-// StopResult Recorder.Stop 输出. Service 层据此分流:
-//   - precise: 用 Events + Meta 建 InputClip 落到 clipSvc (前端插裸 PlayClip 节点)
-//   - simple : 用 Events + ClientW/H 直接 BuildSimpleSubgraph
-//
-// TempID 用于下游建持久 ID (clip-<tempID> / sg-<tempID>) 让事件流期间前端能预订阅.
-type StopResult struct {
-	Events  []inputclip.Event
-	Meta    inputclip.ClipMeta
-	ClientW int
-	ClientH int
-	TempID  string
-}
 
 // Recorder 录制游戏窗口内的键鼠操作。线程安全：Start/Stop/Cancel/Active 都加锁。
 type Recorder struct {
@@ -134,13 +108,14 @@ func (r *Recorder) Resume() {
 //   - meta：录制环境快照 (mouseMode / filterMode / stopHotkeyVK 等)
 //
 // 失败时 active 仍为 false，可重试。
-func (r *Recorder) Start(gameHwnd win.HWND, meta inputclip.ClipMeta) (string, error) {
+func (r *Recorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, error) {
 	r.mu.Lock()
 	if r.active {
 		r.mu.Unlock()
 		return "", errors.New("recorder already active")
 	}
-	w, h, err := winutil.ClientSize(uintptr(gameHwnd))
+	gameHwnd := win.HWND(hwnd)
+	w, h, err := winutil.ClientSize(hwnd)
 	if err != nil {
 		r.mu.Unlock()
 		return "", fmt.Errorf("ClientSize: %w", err)
@@ -367,11 +342,6 @@ func (r *Recorder) drainLoop() {
 func nowMicros() uint64 {
 	return uint64(time.Now().UnixMicro())
 }
-
-// ErrRecorderNotActive Stop 时 recorder 已停 (常见: F12 keydown auto-repeat 或
-// F12+toolbar 同时触发, 第二条停车请求会看到 active=false). Service.StopAsync 检测
-// 这个哨兵 silently swallow, 不 emit 错误事件给前端.
-var ErrRecorderNotActive = errors.New("recorder not active")
 
 // Stop 停止录制, 返回 raw StopResult. Service 层根据 meta.FilterMode 决定构造路径
 // (precise → 建 InputClip 落 clipSvc, simple → BuildSimpleSubgraph).

@@ -256,7 +256,7 @@ func toRatios(x, y int32, clientW, clientH int) (float64, float64) {
 }
 
 // btnName ev.A (HookMouseBtn 0/1/2) → ClickAt.config.button 字符串.
-// 跟 llhook.go HookBtnLeft/Middle/Right 常量对齐.
+// 跟 recording event contract 的 HookBtnLeft/Middle/Right 常量对齐.
 func btnName(a int32) string {
 	switch a {
 	case int32(HookBtnLeft):

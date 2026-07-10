@@ -1,12 +1,3 @@
-// Package recording 是 actions 录制层：Win32 LL hook 包装 + 上层 recorder。
-//
-// 本文件 llhook.go 只做最薄一层：把 SetWindowsHookExW(WH_KEYBOARD_LL/WH_MOUSE_LL)
-// 的 raw 事件解码成 Go struct HookEvent，并通过 channel 透传出去。
-//
-// 它不知道 gameHwnd，也不做 ScreenToClient —— 这些是 recorder.go 的事。
-//
-// 整个项目都是 Windows-only（cook/fish/piano/rhythm 全部直接调 Win32），
-// 所以这里也不加 //go:build windows tag。
 package recording
 
 import (
@@ -50,15 +41,6 @@ const (
 	mouseMoveThrottleMs = 30
 )
 
-// HookMouseBtn 鼠标按键枚举（LL hook 层用）。
-type HookMouseBtn int
-
-const (
-	HookBtnLeft   HookMouseBtn = 0
-	HookBtnMiddle HookMouseBtn = 1
-	HookBtnRight  HookMouseBtn = 2
-)
-
 // kbdllhookstruct 对应 Win32 KBDLLHOOKSTRUCT。
 type kbdllhookstruct struct {
 	VkCode      uint32
@@ -95,55 +77,14 @@ var (
 	procGetCurrentThreadId = kernel32.NewProc("GetCurrentThreadId")
 )
 
-// HookEvent 给上层 recorder 的事件结构。
-// 跟 actiontransform.Event 类似但含原始屏幕绝对坐标（ScreenX/ScreenY），
-// recorder 拿到后再做 IsPointInsideGameWindow 过滤 + ScreenToClient 转换。
-//
-// llhook 这一层不知道 gameHwnd —— 它只负责把 Win32 hook 事件解码成 Go struct
-// 透传出去。
-type HookEvent struct {
-	// TimestampMs: KBDLLHOOKSTRUCT.time / MSLLHOOKSTRUCT.time（uint32 ms tick）。
-	// 用它而不是 time.Now() 是为了避开 channel + goroutine scheduling jitter。
-	TimestampMs uint32
-
-	// IsKeyboard: true=键盘事件，false=鼠标事件（按键/移动/滚轮 三种之一）。
-	IsKeyboard bool
-
-	// keyboard 字段（IsKeyboard=true 时有效）
-	Vk        uint32 // virtual key code（Win32 VK_*）
-	IsKeyDown bool
-
-	// mouse 公共：屏幕绝对坐标（任何 mouse 事件都填）
-	ScreenX int32
-	ScreenY int32
-
-	// mouse 按键事件（IsKeyboard=false 且不是 move/scroll 时有效）
-	MouseBtn    HookMouseBtn // 0=left, 1=middle, 2=right
-	IsMouseDown bool
-
-	// mouse 移动事件（IsMouseMove=true 时；recorder 用来追踪 drag 中间轨迹）
-	IsMouseMove bool
-
-	// mouse 滚轮事件（IsScroll=true 时；WheelNotches 正=上推/下滑页面，负=下推）
-	IsScroll     bool
-	WheelNotches int
-
-	// Raw Input 相对鼠标位移（IsRawDelta=true 时；camera 转向走这个）。
-	// RawDx/RawDy 单位是设备 mickeys，跟 SendInput MOUSEEVENTF_MOVE 一一对应，
-	// 录制端记下来回放时 driver.MouseMoveRel 用同一组数字即可还原相机角度。
-	IsRawDelta bool
-	RawDx      int
-	RawDy      int
-}
-
-// HookHandle 是注册后的 hook 句柄。recorder.go 持有它，停录时 Uninstall。
+// HookHandle 是注册后的 hook 句柄。Windows recorder 持有它，停录时 Uninstall。
 type HookHandle struct {
 	kb syscall.Handle
 	ms syscall.Handle
 }
 
 // 全局 channel 指针 —— callback 是 C ABI 不能闭包捕获 Go 闭包变量，所以走全局。
-// 同时只能装一份 hook（recorder.go 串行启停），全局 ok。
+// 同时只能装一份 hook（Windows recorder 串行启停），全局 ok。
 //
 // 不需要 mutex 保护：activeEvents 只在 InstallHooks/Uninstall（同一 caller
 // 线程）里读写；callback 只读。Install 完才会有 callback 被调用，Uninstall

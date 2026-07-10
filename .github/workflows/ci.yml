@@ -120,6 +120,7 @@ jobs:
           ./internal/services/llm
           ./internal/services/mcpserver
           ./internal/services/nodeoptions
+          ./internal/services/recording
           ./pkg/capture
           ./pkg/imageutil
           ./pkg/input

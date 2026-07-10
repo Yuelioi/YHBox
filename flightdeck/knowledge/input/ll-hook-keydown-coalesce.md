@@ -26,7 +26,7 @@ READ WHEN: 写 LL keyboard / mouse hook 接全局热键; callback 里跑业务�
 
 ## 怎么修
 
-`internal/services/recording/llhook.go:241`:
+`internal/services/recording/llhook_windows.go`:
 
 ```go
 // 之前: Load 后留指针, 后续 keydown 还能再 fire
@@ -40,7 +40,7 @@ if cbp := activeStopCallback.Swap(nil); cbp != nil {
 }
 ```
 
-外加 `internal/services/recording/recorder.go` 导出 `ErrRecorderNotActive` 哨兵, `service.go:StopAsync` 静默吞:
+外加 `internal/services/recording/contract.go` 导出 `ErrRecorderNotActive` 哨兵, `service.go:StopAsync` 静默吞:
 
 ```go
 if err != nil {

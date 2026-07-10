@@ -1,18 +1,15 @@
 package recording
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/lxn/win"
-
 	"github.com/yottaapp/yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
-	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // HotkeySettingsProvider 给 Service 拿停录热键 VK + mouseMode.
@@ -138,12 +135,10 @@ func (s *Service) ValidateTarget(containerID string) error {
 		return apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
-	wh, err := winutil.ResolveWindow(context.Background(), spec, 3*time.Second, 500*time.Millisecond)
+	_, err := resolveRecordingWindow(spec)
 	if err != nil {
 		return fmt.Errorf("窗口未找到: %w", err)
 	}
-	// 找到 → 拉到前台 (best-effort; 独占全屏 OS 可能拒绝, 不算失败).
-	_ = winutil.BringToFront(wh.HWND)
 	return nil
 }
 
@@ -181,11 +176,10 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		return "", apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
 	}
 	spec := readMatchSpecFromConfig(wtNode)
-	wh, err := winutil.ResolveWindow(context.Background(), spec, 3*time.Second, 500*time.Millisecond)
+	wh, err := resolveRecordingWindow(spec)
 	if err != nil {
 		return "", fmt.Errorf("窗口未找到: %w", err)
 	}
-	hwnd := uintptr(wh.HWND)
 	mouseMode := "relative"
 	stopVK := uint32(0x7B)
 	if s.hkProv != nil {
@@ -208,7 +202,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		StopHotkeyVK:   stopVK,
 		BaseResolution: [2]int{baseW, baseH},
 	}
-	id, recErr := s.rec.Start(win.HWND(hwnd), meta)
+	id, recErr := s.rec.Start(wh.HWND, meta)
 	if recErr != nil {
 		return "", fmt.Errorf("recorder.Start: %w", recErr)
 	}
@@ -414,14 +408,14 @@ func findWin32WindowTargetNode(c *container.Container) *container.GraphNode {
 	return nil
 }
 
-// readMatchSpecFromConfig 从 Win32WindowTarget 节点 config 顶级字段解出 winutil.MatchSpec.
+// readMatchSpecFromConfig 从 Win32WindowTarget 节点 config 顶级字段解出 target.WindowMatchSpec.
 // 字段是扁平的, 跟 Spec.Inputs 对齐.
-// config 缺字段或类型不对 → 留空字段 (winutil.ResolveWindow 会报 IsEmptyMatch).
-func readMatchSpecFromConfig(n *container.GraphNode) winutil.MatchSpec {
+// config 缺字段或类型不对 → 留空字段，平台 resolver 负责校验。
+func readMatchSpecFromConfig(n *container.GraphNode) target.WindowMatchSpec {
 	if n.Config == nil {
-		return winutil.MatchSpec{}
+		return target.WindowMatchSpec{}
 	}
-	return winutil.MatchSpec{
+	return target.WindowMatchSpec{
 		Title:       container.PinString(n, "Title"),
 		Class:       container.PinString(n, "Class"),
 		ProcessName: container.PinString(n, "ProcessName"),
