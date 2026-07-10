@@ -29,7 +29,7 @@ const (
 	wmSysKeyDown = 0x0104
 )
 
-// 复用 dpi.go 的 user32/kernel32 lazy DLL；只补 LL-hook 专用 proc.
+// 复用 dpi_windows.go 的 user32/kernel32 lazy DLL；只补 LL-hook 专用 proc.
 var (
 	procSetWindowsHookExW   = user32.NewProc("SetWindowsHookExW")
 	procUnhookWindowsHookEx = user32.NewProc("UnhookWindowsHookEx")
@@ -189,7 +189,7 @@ func hotkeyKeyboardProc(nCode, wParam, lParam uintptr) uintptr {
 	return next
 }
 
-// runHotkeyMessageLoop 拉本线程消息直到 WM_QUIT. 复用 dpi.go 的 msg / proc / wmQuit.
+// runHotkeyMessageLoop 拉本线程消息直到 WM_QUIT. 复用 dpi_windows.go 的 msg / proc / wmQuit.
 func runHotkeyMessageLoop() {
 	var m msg
 	for {

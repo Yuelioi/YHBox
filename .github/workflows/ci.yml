@@ -112,6 +112,7 @@ jobs:
           ./internal/nodes/input
           ./internal/nodes/io
           ./internal/runclassify
+          ./internal/services/calibration
           ./internal/services/container
           ./internal/services/container/runtime
           ./internal/services/execution

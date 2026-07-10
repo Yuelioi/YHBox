@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"unsafe"
 )
@@ -24,11 +23,11 @@ const (
 
 	hwndMessage = ^uintptr(2) // (HWND)-3
 
-	ridevInputSink     = 0x00000100
-	ridInput           = 0x10000003
-	rimTypeMouse       = 0
-	mouseMoveRelative  = uint16(0)
-	wmQuit             = 0x0012
+	ridevInputSink    = 0x00000100
+	ridInput          = 0x10000003
+	rimTypeMouse      = 0
+	mouseMoveRelative = uint16(0)
+	wmQuit            = 0x0012
 )
 
 type rawinputdevice struct {
@@ -103,37 +102,10 @@ var (
 	classRegistered bool
 	classRegMu      sync.Mutex
 
-	// active 状态。累积 |dx| / |dy|。原子读写让 UI 高频 poll 不抢锁。
-	absDx atomic.Int64
-	absDy atomic.Int64
-	live  atomic.Bool
-
 	// done channel + window handle 给 Stop 用
 	stopMu sync.Mutex
 	stopFn func() // 关闭当前会话；nil = 没在跑
 )
-
-// State 给前端 poll 用。
-type State struct {
-	Active bool  `json:"active"`
-	AbsDx  int64 `json:"absDx"`
-	AbsDy  int64 `json:"absDy"`
-}
-
-// Get 返当前累积状态（任意时刻可调，无锁）。
-func Get() State {
-	return State{
-		Active: live.Load(),
-		AbsDx:  absDx.Load(),
-		AbsDy:  absDy.Load(),
-	}
-}
-
-// Reset 清零累积值（开始校准前调）。
-func Reset() {
-	absDx.Store(0)
-	absDy.Store(0)
-}
 
 // Start 启动 raw input 监听 goroutine。同时刻只能一个。
 // 返回错误 = 启动失败（class 注册失败 / window 创建失败 / RegisterRawInputDevices 失败）。
@@ -216,7 +188,7 @@ func wndProc(hwnd, m, wParam, lParam uintptr) uintptr {
 			hdr := (*rawinputheader)(unsafe.Pointer(&buf[0]))
 			if hdr.Type == rimTypeMouse && len(buf) >= int(headerSize)+int(unsafe.Sizeof(rawmouse{})) {
 				rm := (*rawmouse)(unsafe.Pointer(&buf[headerSize]))
-				if (rm.UsFlags&1) == mouseMoveRelative {
+				if (rm.UsFlags & 1) == mouseMoveRelative {
 					if rm.LLastX != 0 {
 						absDx.Add(int64(absInt32(rm.LLastX)))
 					}

@@ -44,6 +44,7 @@ func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
 		repositoryRoot(t),
 		[]string{
 			"internal/hotkey",
+			"internal/services/calibration",
 			"internal/services/container/runtime",
 		},
 		[]string{

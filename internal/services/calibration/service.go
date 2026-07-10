@@ -5,7 +5,7 @@ import "sync"
 // VKF8 是 DPI 校准热键的出厂默认 (VK_F8); vkGetter 拿不到绑定时兜这个.
 const VKF8 = 0x77
 
-// Service 暴露给 wails 前端。raw-input 累积 session 管在包级 (dpi.go);
+// Service 暴露给 wails 前端。raw-input 累积 session 管在包级平台 adapter；
 // F8 全局热键的 LL hook 由本 Service 持有 (校准窗开关时 Start/StopHotkeyWatch).
 type Service struct {
 	emit     func(name string, data any) // 广播 'calibration:toggle' 给前端
