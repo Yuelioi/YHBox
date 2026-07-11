@@ -119,7 +119,7 @@ func (DetectColorHSV) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return nil, ctx.Context().Err()
 		default:
 		}
-		count, ratio, derr := ctx.Vision().DetectColorHSV(roi, hsv)
+		count, ratio, derr := ctx.Services().Vision.DetectColorHSV(roi, hsv)
 		if derr != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, derr, "DetectColorHSV: %v", derr)
 		}

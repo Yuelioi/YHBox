@@ -35,22 +35,22 @@ func (WindowState) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	var err error
 	switch in.String(wsInState) {
 	case "maximize":
-		err = ctx.Window().Maximize()
+		err = ctx.Services().Window.Maximize()
 	case "minimize":
-		err = ctx.Window().Minimize()
+		err = ctx.Services().Window.Minimize()
 	case "restore":
-		err = ctx.Window().Restore()
+		err = ctx.Services().Window.Restore()
 	case "borderlessFullscreen":
-		err = ctx.Window().BorderlessFullscreen()
+		err = ctx.Services().Window.BorderlessFullscreen()
 	case "restoreBorders":
-		err = ctx.Window().RestoreBorders()
+		err = ctx.Services().Window.RestoreBorders()
 	default:
 		return nil, node.Failf(node.CodeError, nil, "WindowState: 未知 State %q", in.String(wsInState))
 	}
 	if err != nil {
 		return nil, err
 	}
-	w, err := ctx.Window().Snapshot()
+	w, err := ctx.Services().Window.Snapshot()
 	if err != nil {
 		return nil, err
 	}

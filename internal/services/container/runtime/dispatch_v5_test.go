@@ -985,7 +985,7 @@ func TestBuildDataWireFor_UpstreamPureFuncRecursive(t *testing.T) {
 }
 
 // TestBuildDataWireFor_GetVarViaFramework — 上游是 GetVar (IsPureData + Evaluator) →
-// resolveDataPinV5 走 nodepkg.EvaluatePureData, framework snapshot wrap 把 ctx.Vars()
+// resolveDataPinV5 走 nodepkg.EvaluatePureData, framework snapshot wrap 把 ctx.Services().Vars
 // 替成 snapshot view, scope="global" 拿 frozen Vars (从 currentTick.Vars 读).
 //
 // 验证 dispatch 经 framework path 跨节点拉 GetVar 值.

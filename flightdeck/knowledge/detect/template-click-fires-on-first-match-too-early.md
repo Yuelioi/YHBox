@@ -11,7 +11,7 @@ READ WHEN: 撞 ClickTemplate/WaitTemplate「检测到了/走了 Done 但游戏�
 
 ## 根因（用户实测钉死, 排除了"未就绪/未激活"）
 
-`ClickTemplate.Run` / `WaitTemplate.Run` 调 `ctx.Vision().WaitMatch(...)`，它**一命中就立刻 return**（首个越过 Threshold 的帧），节点**立刻动作**（ClickTemplate 点击 / WaitTemplate 放行下游），而且**只动作一次、不重试到成功**。
+`ClickTemplate.Run` / `WaitTemplate.Run` 调 `ctx.Services().Vision.WaitMatch(...)`，它**一命中就立刻 return**（首个越过 Threshold 的帧），节点**立刻动作**（ClickTemplate 点击 / WaitTemplate 放行下游），而且**只动作一次、不重试到成功**。
 
 游戏**转场/加载**时，目标模板往往"画面上先冒出来一下"（像素够像、越过 0.85），但这一刻它**还在淡入/位移 / UI 还没就绪不可点**。WaitMatch 认这第一次命中 → 立刻点 → 落空 → fire Done 走人（后面画面稳了它早走了，不会回来重点）。
 

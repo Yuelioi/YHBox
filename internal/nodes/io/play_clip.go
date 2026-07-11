@@ -1,5 +1,5 @@
 // internal/nodes/io/play_clip.go
-// PlayClip — 阻塞回放一条录制的 InputClip. clipID 经 ctx.Clip() (runtime 注入的
+// PlayClip — 阻塞回放一条录制的 InputClip. clipID 经 ctx.Services().Clip (runtime 注入的
 // ClipResolver + InputBackend + InputBus 独占) 解析并跑完整段, ctx 取消即中断.
 package io
 
@@ -45,7 +45,7 @@ func (PlayClip) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	clipID := in.String(pcInClipID)
 	// ctx.Context() 透传当前 Run 的 cancel — 取消时 Play 内部释放按下键并返 context.Canceled,
 	// dispatch 当优雅 halt 不当节点失败.
-	if err := ctx.Clip().Play(ctx.Context(), clipID); err != nil {
+	if err := ctx.Services().Clip.Play(ctx.Context(), clipID); err != nil {
 		return nil, node.Failf(node.CodePlaybackFailed, err, "PlayClip clipID=%q: %v", clipID, err)
 	}
 	return ctx.Out(pcOutDone).Fire(), nil

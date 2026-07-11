@@ -75,7 +75,7 @@ func (requiresVarsEvaluator) Spec() Spec {
 }
 
 func (requiresVarsEvaluator) Evaluate(ctx Ctx, _ Inputs) (any, error) {
-	value, _ := ctx.Vars().Get("value")
+	value, _ := ctx.Services().Vars.Get("value")
 	return value, nil
 }
 

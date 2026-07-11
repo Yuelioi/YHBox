@@ -48,7 +48,7 @@ func (DecodeQR) Spec() node.Spec {
 
 func (DecodeQR) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	// 服务返回全部成功解码的 QR (adapter 已按左上排序); 取首个进 Found, Count 报总数。
-	res, err := ctx.Vision().DecodeQR(in.Geometry(dqInROI))
+	res, err := ctx.Services().Vision.DecodeQR(in.Geometry(dqInROI))
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "DecodeQR: %v", err)
 	}

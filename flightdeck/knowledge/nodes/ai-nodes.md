@@ -53,9 +53,9 @@ RECHECK WHEN: 加结构化输出模式/类型 / 改 ChatStructured 协议映射 
 
 **vision 接线**：`Capture.Done → AI.In`（exec）+ `Capture.Image → AI 的某 Image 动态输入`（数据线）。图像值经 **held output 缓存任意距离直连**进 AI 的动态 Image 输入，无需变量、无紧邻约束（见 [held-exec-outputs](held-exec-outputs.md)；原 spec 的「紧邻 exec + applyExecDataEdges + warn」已被 held output 取代）。多图按 `config.Inputs[]` 声明序置文本 content 之后。
 
-## Provider 缓存 / 失效 / 池（`AIProviderService` + `ctx.AI()`）
+## Provider 缓存 / 失效 / 池（`AIProviderService` + `ctx.Services().AI`）
 
-运行时层服务（`internal/node/interfaces.go` + `ctx.go`，实现在 `internal/services/container/runtime`）：`Provider(connectionID)` 持 `map[connectionID]{provider, cfgHash}`，**单一机制 = 取用时指纹自愈**——`cfgHash = hash(Protocol+BaseURL+APIKey)`（**只 llm 字段，排除 Label/ID**，改名不 evict），指纹不符则 `llm.New` 重建、旧 `Transport.CloseIdleConnections()` 防泄漏。无事件监听、无单独 evict。图执行中途改 settings：正在 `Chat` 的用旧连接跑完，下次取用才换新。池设 `MaxConnsPerHost`/`IdleConnTimeout`。AI 节点经 `ctx.AI().Provider(id)` 取，不自己 `llm.New`。观测日志打 model/Host/latency/ErrKind，**不打 APIKey**。
+运行时层服务（`internal/node/interfaces.go` + `ctx.go`，实现在 `internal/services/container/runtime`）：`Provider(connectionID)` 持 `map[connectionID]{provider, cfgHash}`，**单一机制 = 取用时指纹自愈**——`cfgHash = hash(Protocol+BaseURL+APIKey)`（**只 llm 字段，排除 Label/ID**，改名不 evict），指纹不符则 `llm.New` 重建、旧 `Transport.CloseIdleConnections()` 防泄漏。无事件监听、无单独 evict。图执行中途改 settings：正在 `Chat` 的用旧连接跑完，下次取用才换新。池设 `MaxConnsPerHost`/`IdleConnTimeout`。AI 节点经 `ctx.Services().AI.Provider(id)` 取，不自己 `llm.New`。观测日志打 model/Host/latency/ErrKind，**不打 APIKey**。
 
 ## 删连接的节点引用检查
 

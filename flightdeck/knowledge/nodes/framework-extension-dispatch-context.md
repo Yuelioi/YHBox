@@ -14,12 +14,12 @@ RECHECK WHEN: 改 Ctx 接口 / ServiceBundle 组成 / DI 容器装配 / 给节�
 
 ### ✅ Path A (推荐): adapter-layer wrap at dispatch entry
 
-dispatch 入口侧 (engine.go 内 `RunNode` / `EvaluatePureData` / `RunNodeAsRegion` 类 entry) 把 `services.X` 用 wrapper 替换, 然后构造 Ctx. Ctx interface 不变. 节点作者写同样的 `ctx.X().Method(...)`, framework 透明保证 context-correct 行为.
+dispatch 入口侧 (engine.go 内 `RunNode` / `EvaluatePureData` / `RunNodeAsRegion` 类 entry) 把 `services.X` 用 wrapper 替换, 然后构造 Ctx. Ctx 的稳定核心不变。节点作者写同样的 `ctx.Services().X.Method(...)`, framework 透明保证 context-correct 行为。
 
 ```go
 // engine.go::EvaluatePureData
-if services.Snapshot != nil {
-    snap := services.Snapshot()
+if services.Snapshot != nil && services.Vars != nil {
+    snap := services.Snapshot(ctx)
     services.Vars = newSnapshotVarStore(services.Vars, snap)  // wrap, don't widen
 }
 // build Ctx with wrapped services
@@ -33,7 +33,7 @@ Ctx 加新方法 (`Ctx.SnapshotVars()` / `Ctx.LiveVars()` / `Ctx.PausableSleep()
 
 | | Path A (wrap) | Path B (widen) |
 |---|---|---|
-| Ctx 接口稳定 | ✓ 0 改 | ✗ 持续膨胀 |
+| Ctx 接口稳定 | ✓ 固定 `Services()` accessor | ✗ 持续膨胀 |
 | 节点作者负担 | ✓ 无选择责任 | ✗ 必须选对 |
 | 误用风险 | ✓ 编译期不可能 | ✗ runtime 才暴露 |
 | 测试 stub 复杂度 | ✓ stub framework 注入路径即可 | ✗ stub 多方法 |
@@ -52,7 +52,7 @@ Ctx 加新方法 (`Ctx.SnapshotVars()` / `Ctx.LiveVars()` / `Ctx.PausableSleep()
 4. wrap 实现要点:
    - **wrapper 是 framework-internal 类型**, 不暴露给节点 (lowercase 类型名, package-internal constructor).
    - **不安全写操作 panic**: e.g. snapshotVarStore.Set panic. 行为约束 invariant 通过 panic 强制, 不靠节点作者 "记得不要写".
-   - **wrapper 跨包边界用 interface 承载**：如 `services.Vars` 被替换成实现 `VarStore` 的 `snapshotVarStore`，node 端透明用同一个 `ctx.Vars()`。
+   - **wrapper 跨包边界用 interface 承载**：如 `services.Vars` 被替换成实现 `VarStore` 的 `snapshotVarStore`，node 端透明用同一个 `ctx.Services().Vars`。
 
 ## Case 1 — 2026-05-26 P2.2 C5
 
@@ -60,6 +60,6 @@ Ctx 加新方法 (`Ctx.SnapshotVars()` / `Ctx.LiveVars()` / `Ctx.PausableSleep()
 
 初版方案 (α): Ctx 加 `SnapshotVars()` 方法. brainstorm 时被否 — Ctx 接口扩张 + 节点作者必须选对.
 
-确定方案 (α'): EvaluatePureData 入口 wrap `services.Vars` 成 `snapshotVarStore` (`internal/node/snapshot.go`)。Ctx interface 0 改。GetVar.Evaluate 写 `ctx.Vars().GetScoped(name, scope)` — 自动拿 snapshot；Runnable 同样写法拿 live。Framework 在 dispatch 路径自动分流。
+确定方案 (α'): EvaluatePureData 入口 wrap `services.Vars` 成 `snapshotVarStore` (`internal/node/snapshot.go`)。Ctx 只暴露稳定的 `Services()` bundle accessor。GetVar.Evaluate 写 `ctx.Services().Vars.GetScoped(name, scope)` — 自动拿 snapshot；Runnable 同样写法拿 live。Framework 在 dispatch 路径自动分流。
 
 Commit: `cfa82a6` (C5a 加 wrap infra) + `22b0720` (C5b cutover).

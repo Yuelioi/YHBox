@@ -1,7 +1,7 @@
 // internal/nodes/detect/framediff_nodes.go
 // WaitStable / WaitChange — 通用帧间像素差分感知节点 (通用基建).
 //
-// 共享一个降采样签名核心 (ctx.Vision().GridSignature + pkg/vision.Downsample): 每 poll
+// 共享一个降采样签名核心 (ctx.Services().Vision.GridSignature + pkg/vision.Downsample): 每 poll
 // 抓一张新帧 (无缓存, 同 DetectColorHSV) 降采样成 gridSize² RGB 签名, 跨 poll 比对:
 //   - WaitStable: diff(prev,cur) 连续 N 帧 ≤ 阈 → 画面稳了 (防动画中误识别).
 //   - WaitChange: diff(baseline,cur) ≥ 阈 → 画面变了 (弹窗/加载/卡死反面).
@@ -199,7 +199,7 @@ func (WaitStable) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		stableFrames = 1
 	}
 
-	prev, err := ctx.Vision().GridSignature(p.roi, p.grid)
+	prev, err := ctx.Services().Vision.GridSignature(p.roi, p.grid)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "WaitStable capture: %v", err)
 	}
@@ -209,7 +209,7 @@ func (WaitStable) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		if !sleepPoll(ctx, p.pollDur) {
 			return nil, ctx.Context().Err()
 		}
-		cur, cerr := ctx.Vision().GridSignature(p.roi, p.grid)
+		cur, cerr := ctx.Services().Vision.GridSignature(p.roi, p.grid)
 		if cerr != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, cerr, "WaitStable capture: %v", cerr)
 		}
@@ -237,7 +237,7 @@ func (WaitChange) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	}
 	changeThr := in.Float64(wcChangeThreshold)
 
-	baseline, err := ctx.Vision().GridSignature(p.roi, p.grid)
+	baseline, err := ctx.Services().Vision.GridSignature(p.roi, p.grid)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "WaitChange capture: %v", err)
 	}
@@ -246,7 +246,7 @@ func (WaitChange) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		if !sleepPoll(ctx, p.pollDur) {
 			return nil, ctx.Context().Err()
 		}
-		cur, cerr := ctx.Vision().GridSignature(p.roi, p.grid)
+		cur, cerr := ctx.Services().Vision.GridSignature(p.roi, p.grid)
 		if cerr != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, cerr, "WaitChange capture: %v", cerr)
 		}

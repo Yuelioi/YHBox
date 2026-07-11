@@ -56,6 +56,6 @@ func (SetVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if scope == "" {
 		scope = "auto"
 	}
-	ctx.Vars().SetScoped(name, scope, val)
+	ctx.Services().Vars.SetScoped(name, scope, val)
 	return ctx.Out(svOutOut).Fire(), nil
 }

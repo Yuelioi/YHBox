@@ -20,7 +20,7 @@ Expr 是一个 pure-data 节点 (`internal/nodes/purefunc/expr.go`): 用户写�
 
 ## $ 语法的决策史 (两次反转, 别再脑补第三次)
 
-v4 (2026-05-19) 删 `$vars.X`, 理由三条: 拼错静默 nil / 可见性差 / 类型无校验。**2026-06-11 用户拍板恢复** (`$名字` 新形态), 因为三条理由已被设施补上: ① validator `EXPR_UNKNOWN_VAR` 编辑期红错 (validator_expr.go × `expr.VarRefs`); ② 节点卡片 footer 自动列 `$` 引用小字 (ContainerFlowNode `dollarRefs`, 正则提取, 顶替声明式可见性); ③ VarDecl 类型系统已真。实现: lexer `tkVarRef` / AST `nVarRef` / eval 走 `env.Get("$"+name)` 前缀通道 (bare 与 $ 两命名空间不撞), Expr 节点 `exprEvalEnv` 组合 env (bare→inputs map, $→`ctx.Vars().GetScoped(名, "auto")`, 快照由 EvaluatePureData wrap 自动继承)。Script 侧 `$hp` 是 live getter (见 [script-system.md](script-system.md))。中途曾以"输入声明绑定变量"(路线 A) 落地过一版, **同日被 $ 语法取代并删除**；历史材料在 cold archive `2026-06-11-var-bound-inputs` / `2026-06-11-dollar-var-syntax`。
+v4 (2026-05-19) 删 `$vars.X`, 理由三条: 拼错静默 nil / 可见性差 / 类型无校验。**2026-06-11 用户拍板恢复** (`$名字` 新形态), 因为三条理由已被设施补上: ① validator `EXPR_UNKNOWN_VAR` 编辑期红错 (validator_expr.go × `expr.VarRefs`); ② 节点卡片 footer 自动列 `$` 引用小字 (ContainerFlowNode `dollarRefs`, 正则提取, 顶替声明式可见性); ③ VarDecl 类型系统已真。实现: lexer `tkVarRef` / AST `nVarRef` / eval 走 `env.Get("$"+name)` 前缀通道 (bare 与 $ 两命名空间不撞), Expr 节点 `exprEvalEnv` 组合 env (bare→inputs map, $→`ctx.Services().Vars.GetScoped(名, "auto")`, 快照由 EvaluatePureData wrap 自动继承)。Script 侧 `$hp` 是 live getter (见 [script-system.md](script-system.md))。中途曾以"输入声明绑定变量"(路线 A) 落地过一版, **同日被 $ 语法取代并删除**；历史材料在 cold archive `2026-06-11-var-bound-inputs` / `2026-06-11-dollar-var-syntax`。
 
 ## 内置函数 — 单一来源与同步链
 

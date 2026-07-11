@@ -36,10 +36,10 @@ func (MoveResizeWindow) Spec() node.Spec {
 }
 
 func (MoveResizeWindow) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	if err := ctx.Window().MoveResize(in.Int(mrInX), in.Int(mrInY), in.Int(mrInW), in.Int(mrInH)); err != nil {
+	if err := ctx.Services().Window.MoveResize(in.Int(mrInX), in.Int(mrInY), in.Int(mrInW), in.Int(mrInH)); err != nil {
 		return nil, err
 	}
-	w, err := ctx.Window().Snapshot()
+	w, err := ctx.Services().Window.Snapshot()
 	if err != nil {
 		return nil, err
 	}

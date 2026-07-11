@@ -57,6 +57,6 @@ func (IncVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if scope == "" {
 		scope = "auto"
 	}
-	ctx.Vars().IncScoped(name, scope, delta)
+	ctx.Services().Vars.IncScoped(name, scope, delta)
 	return ctx.Out(ivOutOut).Fire(), nil
 }

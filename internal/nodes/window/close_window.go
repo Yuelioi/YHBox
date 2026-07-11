@@ -21,7 +21,7 @@ func (CloseWindow) Spec() node.Spec {
 }
 
 func (CloseWindow) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	if err := ctx.Window().Close(); err != nil {
+	if err := ctx.Services().Window.Close(); err != nil {
 		return nil, err
 	}
 	return ctx.Out(cwDone).Fire(), nil

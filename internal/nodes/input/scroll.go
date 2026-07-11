@@ -62,7 +62,7 @@ func (Scroll) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	delta := in.Int(scInDelta)
 	delta = node.JitterInt(delta, in.Int(scInJitterPct))
 	horizontal := in.String(scInAxis) == "horizontal"
-	if err := ctx.Input().Scroll(x, y, delta, horizontal); err != nil {
+	if err := ctx.Services().Input.Scroll(x, y, delta, horizontal); err != nil {
 		return nil, node.Failf(node.CodeSendFailed, err, "Scroll (%.3f,%.3f) Δ=%d horizontal=%v: %v", x, y, delta, horizontal, err)
 	}
 	return ctx.Out(scOutDone).Fire(), nil

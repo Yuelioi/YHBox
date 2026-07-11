@@ -1,4 +1,4 @@
-// Package stopwatch 秒表节点 (Start / Stop / Read). 走 ctx.Stopwatches() 服务.
+// Package stopwatch 秒表节点 (Start / Stop / Read). 走 ctx.Services().Stopwatches 服务.
 //
 // 语义:
 //   - Start: 已存在 key 视为 reset.
@@ -46,7 +46,7 @@ func (Start) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if key == "" {
 		return nil, errStopwatchEmptyKey
 	}
-	ctx.Stopwatches().Start(key)
+	ctx.Services().Stopwatches.Start(key)
 	return ctx.Out(swStartOutOut).Fire(), nil
 }
 

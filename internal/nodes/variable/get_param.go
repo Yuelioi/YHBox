@@ -1,5 +1,5 @@
 // internal/nodes/variable/get_param.go
-// GetParam pure-data — Evaluator capability. ctx.Params() 读当前 frame.LocalParams
+// GetParam pure-data — Evaluator capability. ctx.Services().Params 读当前 frame.LocalParams
 // (subgraph 入参). frame-private state, snapshot wrap 不包.
 package variable
 
@@ -39,6 +39,6 @@ func (GetParam) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	if name == "" {
 		return nil, fmt.Errorf("GetParam: missing ParamName")
 	}
-	v, _ := ctx.Params().Get(name)
+	v, _ := ctx.Services().Params.Get(name)
 	return v, nil
 }

@@ -58,7 +58,7 @@ func normalizePollInterval(d time.Duration) time.Duration {
 
 // matchOnce 单帧查模板此刻在不在。
 func matchOnce(ctx node.Ctx, keys []string, threshold float64, roi node.Geometry) (node.MatchHit, error) {
-	return ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, roi, 0)
+	return ctx.Services().Vision.WaitMatch(ctx.Context(), keys, threshold, roi, 0)
 }
 
 // settleAfterMatch: 命中后可选稳定延迟 (SettleMs) + 新鲜帧重定位一次。settle<=0 原样返回。

@@ -37,6 +37,6 @@ func (Stop) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if key == "" {
 		return nil, errStopwatchEmptyKey
 	}
-	ctx.Stopwatches().Stop(key) // no-op on missing
+	ctx.Services().Stopwatches.Stop(key) // no-op on missing
 	return ctx.Out(swStopOutOut).Fire(), nil
 }

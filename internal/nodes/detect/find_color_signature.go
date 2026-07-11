@@ -72,7 +72,7 @@ func (FindColorSignature) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error
 	} else if tol > 255 {
 		tol = 255
 	}
-	found, pt, err := ctx.Vision().FindColorSignature(in.Geometry(fcsInROI), sig, tol)
+	found, pt, err := ctx.Services().Vision.FindColorSignature(in.Geometry(fcsInROI), sig, tol)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "FindColorSignature: %v", err)
 	}

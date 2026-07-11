@@ -60,7 +60,7 @@ GetVar/SetVar/IncVar 都有一个 `Scope` 输入（缺省 `"auto"`）。三种�
 - `ExecState.LocalVars` —— 局部栈（子图/Loop 帧私有）。
 - `RuntimeContext.varTimestamps` —— 每个变量最后改写的 unix 毫秒（`SetVar` 时更新）。
 
-`VarStore` 接口（节点经 `ctx.Vars()` 拿到，实现 = `varStoreAdapter`）：
+`VarStore` 接口（节点经 `ctx.Services().Vars` 拿到，实现 = `varStoreAdapter`）：
 
 | 方法 | 语义 |
 |---|---|
@@ -86,7 +86,7 @@ PureData 节点（GetVar 等 Evaluator）在 `EvaluatePureData` 入口被 wrap �
 | `IncVar` | **Runnable**（exec） | in: `VarName`(req) / `Scope`(=auto) / `Delta`(Number,=1) → out: `Done` |
 | `VarLastChange` | **Evaluator**（pure-data） | in: `VarName`(req) → out: `Value`(Number, 毫秒) |
 
-实现都在 `internal/nodes/variable/`，逻辑就是"读 pin → 调对应 `ctx.Vars()` 方法"。GetVar 读不到不报错、返 nil。
+实现都在 `internal/nodes/variable/`，逻辑就是"读 pin → 调对应 `ctx.Services().Vars` 方法"。GetVar 读不到不报错、返 nil。
 
 ### 输出捕获 (config.capture) —— 产出型节点把出口值写进变量
 

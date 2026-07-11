@@ -109,12 +109,13 @@ func (tickProbe) Spec() node.Spec {
 			{Name: "In", Type: "Exec"},
 			{Name: "DeltaMs", Type: "Number"},
 		},
-		Outputs: []node.OutputSpec{{Name: "Out", Type: "Exec"}},
+		Outputs:             []node.OutputSpec{{Name: "Out", Type: "Exec"}},
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVars},
 	}
 }
 
 func (tickProbe) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	ctx.Vars().SetScoped("probed_delta", "global", in.Float64("DeltaMs"))
+	ctx.Services().Vars.SetScoped("probed_delta", "global", in.Float64("DeltaMs"))
 	return ctx.Out("Out").Fire(), nil
 }
 

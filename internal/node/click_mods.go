@@ -48,10 +48,10 @@ func sleepOrCancel(ctx Ctx, d time.Duration) error {
 func ClickWithMods(ctx Ctx, pt Point, btn string, keys string, count int, durationMs int) error {
 	mods, _ := ParseMods(keys) // 合法性由节点 Validate 保证
 	for _, m := range mods {
-		if err := ctx.Input().KeyDown(m); err != nil {
+		if err := ctx.Services().Input.KeyDown(m); err != nil {
 			// KeyDown 失败: 松开已按下的键后返错
 			for i := len(mods) - 1; i >= 0; i-- {
-				_ = ctx.Input().KeyUp(mods[i])
+				_ = ctx.Services().Input.KeyUp(mods[i])
 			}
 			return err
 		}
@@ -61,7 +61,7 @@ func ClickWithMods(ctx Ctx, pt Point, btn string, keys string, count int, durati
 	}
 	var clickErr error
 	for i := 0; i < count; i++ {
-		if clickErr = ctx.Input().Click(pt.X, pt.Y, btn, durationMs); clickErr != nil {
+		if clickErr = ctx.Services().Input.Click(pt.X, pt.Y, btn, durationMs); clickErr != nil {
 			break
 		}
 		if i < count-1 {
@@ -73,7 +73,7 @@ func ClickWithMods(ctx Ctx, pt Point, btn string, keys string, count int, durati
 	}
 	// 无论点击成败, 逆序松开修饰键
 	for i := len(mods) - 1; i >= 0; i-- {
-		_ = ctx.Input().KeyUp(mods[i])
+		_ = ctx.Services().Input.KeyUp(mods[i])
 	}
 	return clickErr
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/container"
 )
 
-// windowOverrideRecorder 记录 Run 期间 ctx.Window().HWND() 看到的窗口, 验证派发期覆盖生效。
+// windowOverrideRecorder 记录 Run 期间 ctx.Services().Window.HWND() 看到的窗口, 验证派发期覆盖生效。
 var c3RecordedHWND uintptr
 
 type windowOverrideRecorder struct{}
@@ -17,13 +17,14 @@ type windowOverrideRecorder struct{}
 func (windowOverrideRecorder) Spec() nodepkg.Spec {
 	return nodepkg.Spec{
 		Kind: "TestWindowOverrideRecorder", Category: "System", NeedsWindow: true,
-		Inputs:  append([]nodepkg.InputSpec{{Name: "In", Type: "Exec"}}, nodepkg.WindowInputSpec()),
-		Outputs: []nodepkg.OutputSpec{{Name: "Done", Type: "Exec"}},
+		RuntimeCapabilities: []nodepkg.RuntimeCapability{nodepkg.RuntimeCapabilityWindow},
+		Inputs:              append([]nodepkg.InputSpec{{Name: "In", Type: "Exec"}}, nodepkg.WindowInputSpec()),
+		Outputs:             []nodepkg.OutputSpec{{Name: "Done", Type: "Exec"}},
 	}
 }
 
 func (windowOverrideRecorder) Run(ctx nodepkg.Ctx, _ nodepkg.Inputs) (nodepkg.Outputs, error) {
-	c3RecordedHWND = ctx.Window().HWND()
+	c3RecordedHWND = ctx.Services().Window.HWND()
 	return ctx.Out("Done").Fire(), nil
 }
 

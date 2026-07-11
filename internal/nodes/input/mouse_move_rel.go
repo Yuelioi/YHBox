@@ -55,7 +55,7 @@ func (MouseMoveRel) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	pct := in.Int(mmrInJitterPct)
 	dx = node.JitterInt(dx, pct) // ±% 抖移动距离 (pct=0 → 原值)
 	dy = node.JitterInt(dy, pct)
-	if err := ctx.Input().MouseMoveRel(dx, dy, dur); err != nil {
+	if err := ctx.Services().Input.MouseMoveRel(dx, dy, dur); err != nil {
 		return nil, node.Failf(node.CodeSendFailed, err, "MouseMoveRel dx=%d dy=%d: %v", dx, dy, err)
 	}
 	return ctx.Out(mmrOutDone).Fire(), nil

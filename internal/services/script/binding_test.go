@@ -18,19 +18,7 @@ type installTestCtx struct{ services node.ServiceBundle }
 
 func (c installTestCtx) Context() context.Context            { return context.Background() }
 func (installTestCtx) Now() time.Time                        { return time.Unix(0, 0) }
-func (c installTestCtx) Vision() node.VisionService          { return c.services.Vision }
-func (c installTestCtx) Log() node.LogService                { return c.services.Log }
-func (c installTestCtx) Input() node.InputService            { return c.services.Input }
-func (c installTestCtx) Vars() node.VarStore                 { return c.services.Vars }
-func (c installTestCtx) Params() node.ParamStore             { return c.services.Params }
-func (c installTestCtx) Window() node.WindowService          { return c.services.Window }
-func (c installTestCtx) Target() node.TargetService          { return c.services.Target }
-func (c installTestCtx) App() node.AppLifecycleService       { return c.services.App }
-func (c installTestCtx) Capture() node.CaptureService        { return c.services.Capture }
-func (c installTestCtx) Stopwatches() node.StopwatchStore    { return c.services.Stopwatches }
-func (c installTestCtx) Clip() node.ClipPlayer               { return c.services.Clip }
-func (c installTestCtx) Subgraphs() node.SubgraphCaller      { return c.services.Subgraphs }
-func (c installTestCtx) AI() node.AIProviderService          { return c.services.AI }
+func (c installTestCtx) Services() node.ServiceBundle        { return c.services }
 func (installTestCtx) Out(string) node.OutBuilder            { return nil }
 func (installTestCtx) CaptureOutput(field string, value any) {}
 

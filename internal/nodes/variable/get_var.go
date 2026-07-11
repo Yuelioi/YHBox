@@ -1,5 +1,5 @@
 // internal/nodes/variable/get_var.go
-// GetVar pure-data — Evaluator capability. ctx.Vars() 在 EvaluatePureData 入口
+// GetVar pure-data — Evaluator capability. ctx.Services().Vars 在 EvaluatePureData 入口
 // 已被 framework wrap 成 snapshot-mode (scope="global"/auto-fallback 走 frozen view).
 package variable
 
@@ -52,6 +52,6 @@ func (GetVar) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	if scope == "" {
 		scope = "auto"
 	}
-	v, _ := ctx.Vars().GetScoped(name, scope)
+	v, _ := ctx.Services().Vars.GetScoped(name, scope)
 	return v, nil
 }

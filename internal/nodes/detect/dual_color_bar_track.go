@@ -87,7 +87,7 @@ func (DualColorBarTrack) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error)
 	outer := parseDualBarHSV(in.JSON(dcbtInOuterColor), defaultOuterHSV)
 	opts := parseDualBarOptions(in.JSON(dcbtInOptions))
 
-	result, err := ctx.Vision().DualBarTrack(roi, inner, outer, opts)
+	result, err := ctx.Services().Vision.DualBarTrack(roi, inner, outer, opts)
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "DualColorBarTrack: %v", err)
 	}

@@ -151,7 +151,7 @@ func (DetectColorBlobs) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) 
 			return nil, ctx.Context().Err()
 		default:
 		}
-		blobs, derr := ctx.Vision().DetectColorBlobs(roi, mode, rngArr, minArea)
+		blobs, derr := ctx.Services().Vision.DetectColorBlobs(roi, mode, rngArr, minArea)
 		if derr != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, derr, "DetectColorBlobs: %v", derr)
 		}

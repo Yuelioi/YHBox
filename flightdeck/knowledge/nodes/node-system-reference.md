@@ -54,32 +54,32 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 
 ## 3. Ctx 服务目录
 
-`Run`/`RunRegion`/`Evaluate` 期间框架注入 `Ctx`（`interfaces.go` + `ctx.go`）。基础：`Context()`（容器 cancel，长操作配合 Stop 瞬停）、`Now()`、`Out(exitName)`。
+`Run`/`RunRegion`/`Evaluate` 期间框架注入 `Ctx`（`interfaces.go` + `ctx.go`）。稳定核心只有 `Context()`（容器 cancel，长操作配合 Stop 瞬停）、`Now()`、`Out(exitName)`、`CaptureOutput(...)` 与 `Services()`。
 
-服务（**全 nullable**；有 service 的节点 wire 时已塞真 backend，节点直接用；测试 stub）：
+`Services()` 按值返回本 dispatch 的 `ServiceBundle`。字段可以 nil，但 Spec 声明的 `RuntimeCapabilities` 会在节点代码前验证；真正可选的 port 必须 nil-safe：
 
-| `ctx.X()` | 接口 | 给谁用 |
+| `ctx.Services().X` | 接口 | 给谁用 |
 |---|---|---|
-| `Vision()` | VisionService | 模板匹配 Match/WaitMatch、颜色 DetectColor/HSV、双色条 DualBarTrack、ROIColorScan、帧签名 GridSignature |
-| `Input()` | InputService | KeyDown/Up、Click、MouseMoveRel/MoveTo、Scroll、MouseDown/Up（xRatio/yRatio 是 0-1 客户区比例） |
-| `Vars()` | VarStore | SetVar/GetVar/IncVar；scope = auto/local/global |
-| `Params()` | ParamStore | GetParam（读当前 frame 的 subgraph 入参，read-only） |
-| `Window()` | WindowService | BringForeground / HWND / ClientSize / SetActive |
-| `Target()` | TargetService | Android 等非窗口目标选择；Win32WindowTarget 仍走 WindowService |
-| `App()` | AppLifecycleService | AndroidStartApp / AndroidStopApp 等目标内应用生命周期 |
-| `Capture()` | CaptureService | Screenshot（Capture / CaptureROI，返 PNG 字节） |
-| `Stopwatches()` | StopwatchStore | StopwatchStart/Stop/Read（per-key，跟 vars 独立命名空间） |
-| `Clip()` | ClipPlayer | PlayClip（阻塞回放录制，ctx 取消即中断释放按键） |
-| `Subgraphs()` | SubgraphCaller | Script 绑定层同步调用当前容器子图 |
-| `AI()` | AIProviderService | AI 节点按 connectionID 获取 provider |
-| `Log()` | LogService | Debug/Info/Warn（接 zerolog） |
+| `Vision` | VisionService | 模板匹配 Match/WaitMatch、颜色 DetectColor/HSV、双色条 DualBarTrack、ROIColorScan、帧签名 GridSignature |
+| `Input` | InputService | KeyDown/Up、Click、MouseMoveRel/MoveTo、Scroll、MouseDown/Up（xRatio/yRatio 是 0-1 客户区比例） |
+| `Vars` | VarStore | SetVar/GetVar/IncVar；scope = auto/local/global |
+| `Params` | ParamStore | GetParam（读当前 frame 的 subgraph 入参，read-only） |
+| `Window` | WindowService | BringForeground / HWND / ClientSize / SetActive |
+| `Target` | TargetService | Android 等非窗口目标选择；Win32WindowTarget 仍走 WindowService |
+| `App` | AppLifecycleService | AndroidStartApp / AndroidStopApp 等目标内应用生命周期 |
+| `Capture` | CaptureService | Screenshot（Capture / CaptureROI，返 PNG 字节） |
+| `Stopwatches` | StopwatchStore | StopwatchStart/Stop/Read（per-key，跟 vars 独立命名空间） |
+| `Clip` | ClipPlayer | PlayClip（阻塞回放录制，ctx 取消即中断释放按键） |
+| `Subgraphs` | SubgraphCaller | Script 绑定层同步调用当前容器子图 |
+| `AI` | AIProviderService | AI 节点按 connectionID 获取 provider |
+| `Log` | LogService | Debug/Info/Warn（接 zerolog） |
 
 依赖标记不要按服务名旧经验乱填：
 
-- `ctx.Input()` / `ctx.Capture()` / `ctx.Vision()`：通常是 target-aware 服务，节点应使用 `NeedsTarget: true` 并声明 `TargetCapabilities`。
-- `ctx.Window()` / Win32 HWND 语义：使用 `NeedsWindow: true`。
-- `ctx.App()`：使用 `NeedsTarget: true` 并声明 app lifecycle capability。
-- `ctx.Clip()`：当前是 Windows 输入回放语义，按具体节点的 Window/Foreground contract 判断。
+- `ctx.Services().Input` / `Capture` / `Vision`：通常是 target-aware 服务，节点应使用 `NeedsTarget: true`，声明 `RuntimeCapabilities` 与具体 `TargetCapabilities`。
+- `ctx.Services().Window` / Win32 HWND 语义：使用 `NeedsWindow: true`，并声明 window runtime capability。
+- `ctx.Services().App`：使用 `NeedsTarget: true`，声明 app runtime capability 与 app lifecycle target capability。
+- `ctx.Services().Clip`：当前是 Windows 输入回放语义，按具体节点的 Window/Foreground contract 判断。
 
 ## 4. 输出 — OutBuilder
 

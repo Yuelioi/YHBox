@@ -31,10 +31,10 @@ func (AndroidStartApp) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ctx.App() == nil {
+	if ctx.Services().App == nil {
 		return nil, fmt.Errorf("AndroidStartApp: app lifecycle service is not available")
 	}
-	if err := ctx.App().StartApp(packageName); err != nil {
+	if err := ctx.Services().App.StartApp(packageName); err != nil {
 		return nil, node.Failf(node.CodeLaunchFailed, err, "AndroidStartApp %q failed: %v", packageName, err)
 	}
 	return ctx.Out(androidAppOutDone).Fire(), nil
@@ -55,10 +55,10 @@ func (AndroidStopApp) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ctx.App() == nil {
+	if ctx.Services().App == nil {
 		return nil, fmt.Errorf("AndroidStopApp: app lifecycle service is not available")
 	}
-	if err := ctx.App().StopApp(packageName); err != nil {
+	if err := ctx.Services().App.StopApp(packageName); err != nil {
 		return nil, node.Failf(node.CodeError, err, "AndroidStopApp %q failed: %v", packageName, err)
 	}
 	return ctx.Out(androidAppOutDone).Fire(), nil

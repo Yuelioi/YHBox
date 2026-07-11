@@ -23,7 +23,7 @@ func (subgraphCallingNode) Spec() Spec {
 }
 
 func (subgraphCallingNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
-	exit, err := ctx.Subgraphs().CallSubgraph(ctx.Context(), "sg-x", map[string]any{"k": 1.0})
+	exit, err := ctx.Services().Subgraphs.CallSubgraph(ctx.Context(), "sg-x", map[string]any{"k": 1.0})
 	if err != nil {
 		return nil, err
 	}

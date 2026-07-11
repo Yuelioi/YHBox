@@ -51,7 +51,7 @@ type RegionRunner interface {
 //
 // 没实现 Evaluator → EvaluatePureData 返 error. 依赖 runtime state 的 pure-data 节点
 // (GetVar) 看到的是 tick-frozen 快照: dispatch 入口 wrap services.Vars, 节点照常
-// 写 ctx.Vars() 即可拿到一致视图 (见 EvaluatePureData 的 snapshot wrap).
+// 写 ctx.Services().Vars 即可拿到一致视图 (见 EvaluatePureData 的 snapshot wrap).
 type Evaluator interface {
 	Evaluate(ctx Ctx, in Inputs) (any, error)
 }
@@ -98,27 +98,16 @@ type Ctx interface {
 	Context() context.Context
 	Now() time.Time
 	Out(exitName string) OutBuilder
+	// Services returns the immutable per-dispatch service bundle. Keeping one
+	// accessor makes Ctx stable as new optional runtime ports are introduced;
+	// RuntimeCapabilities still controls which fields a node may require. The
+	// returned value is a copy and omits the framework-internal Snapshot hook.
+	Services() ServiceBundle
 
 	// CaptureOutput 路径② (Spec C): region 节点每轮把迭代产出写进用户绑定变量。
 	// field = 该节点 Body 出口声明的 Data 字段名; 框架查 config.capture[field], 非空则 SetScoped auto。
 	// fire-time 节点不用调它 (框架在 dispatch routeResult 自动捕获出口 Data 字段)。
 	CaptureOutput(field string, value any)
-
-	// Services. 全部 nullable — 节点用之前应当假设非 nil (有 service 的节点都
-	// 在 spec / build 阶段已经 wire 真 backend); 测试时 stub.
-	Vision() VisionService
-	Log() LogService
-	Input() InputService
-	Vars() VarStore
-	Params() ParamStore
-	Window() WindowService
-	Target() TargetService
-	App() AppLifecycleService
-	Capture() CaptureService
-	Stopwatches() StopwatchStore
-	Clip() ClipPlayer
-	Subgraphs() SubgraphCaller
-	AI() AIProviderService
 }
 
 // OutBuilder — fluent builder.

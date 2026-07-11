@@ -34,10 +34,11 @@
 Current:
 
 - `plan.md` 阶段 4 / 批次 G；批次 D 的首次远端 GUI runner 验证并行待办。
-- runtime capability assembly guard 已闭合；下一步收窄 Ctx 并实例化 Registry。
+- runtime capability assembly guard 与 Ctx 收窄已闭合；下一步实例化 Registry。
 
 Done:
 
+- 批次 G（第二批）：Ctx 从 13 个逐项 service getter 收窄为 `Context/Now/Out/CaptureOutput/Services` 稳定核心；Services 按值返回并隐藏 framework Snapshot。所有节点与 Script 使用同一 bundle view，新增 adapter 不再扩张 Ctx 接口，automation 仍经 service→runtime adapter→controller capability seam。
 - 批次 G（首批）：Spec 显式声明 runtime service capability；engine 在节点代码前返回 typed AssemblyError，并保留 validation 优先级与 PureData error chain。完整 built-in capability matrix 覆盖共享 helper 间接依赖；Script bundle 补齐全部 service port 且不传播 framework Snapshot。
 - 批次 F（第二批）：Container 固定 package→graph→installation→lock-last transaction；lock v2 覆盖 installation hash，load 校验 schema/身份/文件 hash/closure，混合代明确 incompatible。写失败逆序恢复，rollback 失败立即隔离 cache；v1 lock best-effort 迁移；Get/List/Reload 与 Export 使用 deep/single-read snapshot。
 - 批次 F（首批）：Settings 读路径改为 immutable deep snapshot；所有 writer 经串行 clone/mutate/validate、同目录临时文件 fsync、atomic replace、publish 与 ordered side effects。Windows replace 使用 write-through，Unix 补 directory fsync；hotkey 持久化 pre-commit failure 会回滚 native binding，window resize 保存失败进入结构化日志。
@@ -117,6 +118,8 @@ Verified:
 - F 第二批最终门禁：全仓串行 test/coverage、vet、staticcheck、container race、Linux amd64 与 Darwin arm64 services 编译、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过；container statement coverage 为 78.4%。
 - G 首批双轴 review：补齐 Snapshot+nil Vars、Script Log/Params、WaitChange Vision 与 ResolvePoint Window 间接依赖；增加全内建 registry exact capability matrix 与 Script 全 service forwarding guard。最终 Spec/Standards 无剩余 finding。
 - G 首批最终门禁：全仓 test/vet/staticcheck、node/all/script race、Wails 107 methods / 0 warnings、前端 typecheck 与 67 files / 527 tests、`git diff --check` 通过。
+- G 第二批双轴 review：修复 node-facing Services 暴露 Snapshot 的封装风险，并同步 dispatch-context、node reference、AI/variable/expression 等 knowledge。最终 Spec/Standards 无剩余 finding。
+- G 第二批最终门禁：全仓 test/vet/staticcheck、node/script/runtime race 与 `git diff --check` 通过。
 
 ## Open questions
 

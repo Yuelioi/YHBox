@@ -19,12 +19,9 @@ import (
 // BundleFromCtx 从宿主 Ctx 重组 ServiceBundle. Snapshot 留 nil —
 // 脚本是 exec 语境, 读 live 变量是正确语义 (同 Runnable 节点).
 func BundleFromCtx(c node.Ctx) node.ServiceBundle {
-	return node.ServiceBundle{
-		Vision: c.Vision(), Log: c.Log(), Input: c.Input(), Vars: c.Vars(),
-		Params: c.Params(), Window: c.Window(), Target: c.Target(), App: c.App(),
-		Capture: c.Capture(), Stopwatches: c.Stopwatches(), Clip: c.Clip(),
-		Subgraphs: c.Subgraphs(), AI: c.AI(),
-	}
+	bundle := c.Services()
+	bundle.Snapshot = nil
+	return bundle
 }
 
 // Install 注入标准出口常量 + 全部可绑节点函数 + Subgraph() 子图调用 + 高频糖 (params/sleep/log).
@@ -68,7 +65,7 @@ func installExitConstants(vm *goja.Runtime) {
 // 测试) 服务为 nil, 不装 — 脚本里调用得到 ReferenceError, 与未知函数同语义.
 // 失败 = 带 code 的 JS 异常 (同节点函数错误约定); 容器停止由 Script 节点 watchdog 兜底打断.
 func installSubgraphCall(vm *goja.Runtime, c node.Ctx) {
-	caller := c.Subgraphs()
+	caller := c.Services().Subgraphs
 	if caller == nil {
 		return
 	}
@@ -188,7 +185,7 @@ type varNamer interface{ Names() []string }
 // auto scope 变量。运行中动态新建的变量没有 getter (脚本起跑后注入集固定),
 // 用 GetVar({VarName}) 节点函数读。
 func installVarGetters(vm *goja.Runtime, c node.Ctx) {
-	nv, ok := c.Vars().(varNamer)
+	nv, ok := c.Services().Vars.(varNamer)
 	if !ok {
 		return
 	}
@@ -196,7 +193,7 @@ func installVarGetters(vm *goja.Runtime, c node.Ctx) {
 	for _, name := range nv.Names() {
 		n := name
 		getter := vm.ToValue(func() goja.Value {
-			v, _ := c.Vars().GetScoped(n, "auto")
+			v, _ := c.Services().Vars.GetScoped(n, "auto")
 			return vm.ToValue(NormalizeJS(v))
 		})
 		_ = global.DefineAccessorProperty("$"+n, getter, nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
@@ -206,7 +203,7 @@ func installVarGetters(vm *goja.Runtime, c node.Ctx) {
 func installSugar(vm *goja.Runtime, c node.Ctx) {
 	params := vm.NewObject()
 	_ = params.Set("get", func(name string) goja.Value {
-		v, _ := c.Params().Get(name)
+		v, _ := c.Services().Params.Get(name)
 		return vm.ToValue(v)
 	})
 	_ = vm.Set("params", params)
@@ -223,9 +220,9 @@ func installSugar(vm *goja.Runtime, c node.Ctx) {
 	})
 
 	logObj := vm.NewObject()
-	_ = logObj.Set("debug", func(args ...any) { c.Log().Debug("%s", sprintArgs(args)) })
-	_ = logObj.Set("info", func(args ...any) { c.Log().Info("%s", sprintArgs(args)) })
-	_ = logObj.Set("warn", func(args ...any) { c.Log().Warn("%s", sprintArgs(args)) })
+	_ = logObj.Set("debug", func(args ...any) { c.Services().Log.Debug("%s", sprintArgs(args)) })
+	_ = logObj.Set("info", func(args ...any) { c.Services().Log.Info("%s", sprintArgs(args)) })
+	_ = logObj.Set("warn", func(args ...any) { c.Services().Log.Warn("%s", sprintArgs(args)) })
 	_ = vm.Set("log", logObj)
 }
 

@@ -37,5 +37,5 @@ func (VarLastChange) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	if name == "" {
 		return nil, fmt.Errorf("VarLastChange: missing VarName")
 	}
-	return float64(ctx.Vars().LastChange(name)), nil
+	return float64(ctx.Services().Vars.LastChange(name)), nil
 }

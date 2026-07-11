@@ -58,7 +58,7 @@ func (Capture) Spec() node.Spec {
 
 func (Capture) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	// Geometry 零值 = 全帧; CaptureROI 内统一处理。
-	pngData, err := ctx.Capture().CaptureROI(in.Geometry(capInROI))
+	pngData, err := ctx.Services().Capture.CaptureROI(in.Geometry(capInROI))
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "Capture: %v", err)
 	}

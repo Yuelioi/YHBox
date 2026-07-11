@@ -55,14 +55,14 @@ func (Win32WindowTarget) Spec() node.Spec {
 }
 
 func (Win32WindowTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	if err := ctx.Window().SetActive(ctx.Context(),
+	if err := ctx.Services().Window.SetActive(ctx.Context(),
 		in.String(wtInTitle), in.String(wtInClass), in.String(wtInProcessName), in.String(wtInTitleMatch)); err != nil {
 		if errors.Is(err, winutil.ErrWindowNotFound) {
 			return nil, node.Failf(node.CodeNotFound, err, "Win32WindowTarget: %v", err)
 		}
 		return nil, err
 	}
-	w, err := ctx.Window().Snapshot()
+	w, err := ctx.Services().Window.Snapshot()
 	if err != nil {
 		return nil, err
 	}

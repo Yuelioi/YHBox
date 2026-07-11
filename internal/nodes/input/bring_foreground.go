@@ -35,8 +35,8 @@ func (BringWindowForeground) Spec() node.Spec {
 func (BringWindowForeground) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	// 重试由 WindowService 适配层封装. 拿到 error 仅 warn log 不阻塞 — Win32 窗口全屏独占时
 	// 常拉不动, 不该卡住流程, 继续走 Done.
-	if err := ctx.Window().BringForeground(); err != nil {
-		ctx.Log().Warn("BringWindowForeground: %v (Win32 窗口可能是全屏独占)", err)
+	if err := ctx.Services().Window.BringForeground(); err != nil {
+		ctx.Services().Log.Warn("BringWindowForeground: %v (Win32 窗口可能是全屏独占)", err)
 	}
 	return ctx.Out(bgfOutDone).Fire(), nil
 }

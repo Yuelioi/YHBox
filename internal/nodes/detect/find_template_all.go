@@ -80,7 +80,7 @@ func (FindTemplateAll) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		minD = 0
 	}
 
-	matches, err := ctx.Vision().MatchAll(ctx.Context(), guids, th, minD, in.Geometry(ftaInROI))
+	matches, err := ctx.Services().Vision.MatchAll(ctx.Context(), guids, th, minD, in.Geometry(ftaInROI))
 	if err != nil {
 		return nil, node.Failf(node.CodeCaptureFailed, err, "FindTemplateAll: %v", err)
 	}

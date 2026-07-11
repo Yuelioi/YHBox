@@ -42,6 +42,6 @@ func (Read) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	if key == "" {
 		return nil, errStopwatchEmptyKey
 	}
-	elapsed := ctx.Stopwatches().Read(key)
+	elapsed := ctx.Services().Stopwatches.Read(key)
 	return ctx.Out(swReadOutOut).Set(swReadDataElapsedMs, elapsed).Fire(), nil
 }

@@ -70,7 +70,7 @@ func (AI) Spec() node.Spec {
 }
 
 func (AI) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	svc := ctx.AI()
+	svc := ctx.Services().AI
 	if svc == nil {
 		return nil, node.Failf(node.CodeError, nil, "AI provider service not wired")
 	}

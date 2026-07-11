@@ -2,7 +2,7 @@
 // IndexOf/StartsWith/EndsWith/RegexMatch/RegexExtract. 见 specs/2026-06-10-string-nodes.md.
 // 注册在 purefunc.go::init() "字符串函数 (10)" 组.
 // 位置/长度语义 rune-based (CJK 一个字算 1); String 输入经 in.String (非字符串 → "").
-// 正则非法 pattern 不返 error (pure-data error 被数据线路径吞) → 安全值 + ctx.Log().Warn.
+// 正则非法 pattern 不返 error (pure-data error 被数据线路径吞) → 安全值 + ctx.Services().Log.Warn.
 package purefunc
 
 import (
@@ -147,7 +147,7 @@ func (EndsWith) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 }
 
 // ===== RegexMatch / RegexExtract =====
-// 错误路径契约: 非法 pattern 返安全值 (false/"") + ctx.Log().Warn — 不返 error
+// 错误路径契约: 非法 pattern 返安全值 (false/"") + ctx.Services().Log.Warn — 不返 error
 // (pure-data error 被数据线路径静默吞). 编辑期 validator 对 literal pattern 报红
 // (validator.go::validateRegexPattern), 运行时 Warn 兜动态 (连线) pattern.
 
@@ -162,7 +162,7 @@ func (RegexMatch) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	pat := in.String("Pattern")
 	ok, err := regexp.MatchString(pat, in.String("Text"))
 	if err != nil {
-		ctx.Log().Warn("RegexMatch: 非法 pattern %q: %v", pat, err)
+		ctx.Services().Log.Warn("RegexMatch: 非法 pattern %q: %v", pat, err)
 		return false, nil
 	}
 	return ok, nil
@@ -180,7 +180,7 @@ func (RegexExtract) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	pat := in.String("Pattern")
 	re, err := regexp.Compile(pat)
 	if err != nil {
-		ctx.Log().Warn("RegexExtract: 非法 pattern %q: %v", pat, err)
+		ctx.Services().Log.Warn("RegexExtract: 非法 pattern %q: %v", pat, err)
 		return "", nil
 	}
 	m := re.FindStringSubmatch(in.String("Text"))

@@ -40,7 +40,7 @@ func (InputText) Spec() node.Spec {
 
 func (InputText) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	text := in.String(itInText)
-	if err := ctx.Input().TypeText(text); err != nil {
+	if err := ctx.Services().Input.TypeText(text); err != nil {
 		return nil, node.Failf(node.CodeSendFailed, err, "InputText: %v", err)
 	}
 	return ctx.Out(itOutDone).Fire(), nil

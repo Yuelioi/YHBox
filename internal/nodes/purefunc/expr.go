@@ -70,11 +70,11 @@ func (Expr) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Expr parse %q: %w", src, err)
 	}
-	return expr.Eval(ast, exprEvalEnv{inputs: env, vars: ctx.Vars()})
+	return expr.Eval(ast, exprEvalEnv{inputs: env, vars: ctx.Services().Vars})
 }
 
 // exprEvalEnv — Expr 求值环境: bare 名查 inputs map; $名 直读变量 (auto scope).
-// 快照语义自动继承 — EvaluatePureData 入口已把 ctx.Vars() wrap 成 tick-frozen view.
+// 快照语义自动继承 — EvaluatePureData 入口已把 ctx.Services().Vars wrap 成 tick-frozen view.
 type exprEvalEnv struct {
 	inputs expr.InputEnv
 	vars   node.VarStore

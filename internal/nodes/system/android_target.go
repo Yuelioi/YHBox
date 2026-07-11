@@ -78,7 +78,7 @@ func (AndroidTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 		Ref:         target.TargetRef{ADBSerial: serial},
 		Resolution:  target.Size{W: in.Int(atInWidth), H: in.Int(atInHeight)},
 	}
-	if err := ctx.Target().SetActive(tg); err != nil {
+	if err := ctx.Services().Target.SetActive(tg); err != nil {
 		return nil, err
 	}
 	return ctx.Out(atOutDone).Set("TargetID", tg.ID).Set("Kind", tg.Kind).Fire(), nil

@@ -47,11 +47,11 @@ func (Log) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	level := in.String(logInLevel)
 	switch level {
 	case "debug":
-		ctx.Log().Debug("%s", msg)
+		ctx.Services().Log.Debug("%s", msg)
 	case "warn":
-		ctx.Log().Warn("%s", msg)
+		ctx.Services().Log.Warn("%s", msg)
 	default:
-		ctx.Log().Info("%s", msg)
+		ctx.Services().Log.Info("%s", msg)
 	}
 	return ctx.Out(logOutDone).Fire(), nil
 }

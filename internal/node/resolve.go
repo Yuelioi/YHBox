@@ -10,7 +10,7 @@ func ResolvePoint(ctx Ctx, p Point) (xRatio, yRatio float64, err error) {
 	if p.Unit != UnitPx {
 		return p.X, p.Y, nil
 	}
-	w, h, err := ctx.Window().ClientSize()
+	w, h, err := ctx.Services().Window.ClientSize()
 	if err != nil {
 		return 0, 0, err
 	}

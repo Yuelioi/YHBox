@@ -9,7 +9,7 @@ RECHECK WHEN: TypeText 实现改动 / 默认后端从 postmessage 换走 / WM_CH
 **Date**: 2026-06-25 (detect-click 真机 smoke 发现: 记事本/vscode InputText 不输入, 同窗口 KeyPress 能输入)
 
 ## 根因
-`InputText` → `ctx.Input().TypeText` → backend.TypeText。`PostMessageBackend.TypeText` **旧实现**直接 `return TypeText(hwnd, s)`, 而 pkg 级 `TypeText` (pkg/input/typetext_windows.go) 走**全局 SendInput KEYEVENTF_UNICODE**, `func TypeText(_ win.HWND, ...)` 把 hwnd 直接丢弃 —— SendInput 注入到**真实持有键盘焦点的前台窗口**。
+`InputText` → `ctx.Services().Input.TypeText` → backend.TypeText。`PostMessageBackend.TypeText` **旧实现**直接 `return TypeText(hwnd, s)`, 而 pkg 级 `TypeText` (pkg/input/typetext_windows.go) 走**全局 SendInput KEYEVENTF_UNICODE**, `func TypeText(_ win.HWND, ...)` 把 hwnd 直接丢弃 —— SendInput 注入到**真实持有键盘焦点的前台窗口**。
 
 但 postmessage 后端 (默认) 整个设计前提 = 目标窗口在后台、不抢前台 (`BackgroundInput=true`)。跑流程时焦点在 YHFish GUI / 别处, 目标窗口 (记事本/vscode) 后台无焦 → SendInput 的字符全注入到错误窗口 → 目标一个字收不到、**且不报错**。
 

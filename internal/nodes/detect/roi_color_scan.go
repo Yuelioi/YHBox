@@ -117,7 +117,7 @@ func (ROIColorScan) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 			return nil, ctx.Context().Err()
 		default:
 		}
-		clusters, serr := ctx.Vision().ROIColorScan(roi, hsv, axis, minPx, maxPx)
+		clusters, serr := ctx.Services().Vision.ROIColorScan(roi, hsv, axis, minPx, maxPx)
 		if serr != nil {
 			return nil, node.Failf(node.CodeCaptureFailed, serr, "ROIColorScan: %v", serr)
 		}

@@ -69,7 +69,7 @@ func (CheckTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	keys := in.StringList(ctInTemplates)
 	threshold := in.Float64(ctInThreshold)
 	roi := in.Geometry(ctInROI)
-	hit, err := ctx.Vision().Match(ctx.Context(), keys, threshold, roi)
+	hit, err := ctx.Services().Vision.Match(ctx.Context(), keys, threshold, roi)
 	if err != nil {
 		return fireTemplateFail(ctx, node.Failf(node.CodeCaptureFailed, err, "vision match %s: %v", strings.Join(keys, "+"), err)), nil
 	}

@@ -22,12 +22,12 @@ func (ParseJSON) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	dec.UseNumber()
 	var value any
 	if err := dec.Decode(&value); err != nil {
-		ctx.Log().Warn("ParseJSON: JSON 解析失败: %v", err)
+		ctx.Services().Log.Warn("ParseJSON: JSON 解析失败: %v", err)
 		return nil, nil
 	}
 	var extra any
 	if err := dec.Decode(&extra); err != stdio.EOF {
-		ctx.Log().Warn("ParseJSON: JSON 解析失败: 尾部有多余内容")
+		ctx.Services().Log.Warn("ParseJSON: JSON 解析失败: 尾部有多余内容")
 		return nil, nil
 	}
 	return value, nil
@@ -44,7 +44,7 @@ func (ToJSON) Spec() node.Spec {
 func (ToJSON) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 	data, err := json.Marshal(in.Raw("Value"))
 	if err != nil {
-		ctx.Log().Warn("ToJSON: JSON 序列化失败: %v", err)
+		ctx.Services().Log.Warn("ToJSON: JSON 序列化失败: %v", err)
 		return "", nil
 	}
 	return string(data), nil

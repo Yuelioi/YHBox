@@ -123,7 +123,7 @@ func (fakeSetVar) Spec() node.Spec {
 }
 
 func (fakeSetVar) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
-	ctx.Vars().SetScoped(in.String("Name"), "auto", in.Float64("Value"))
+	ctx.Services().Vars.SetScoped(in.String("Name"), "auto", in.Float64("Value"))
 	return ctx.Out("Done").Fire(), nil
 }
 

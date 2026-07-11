@@ -160,9 +160,9 @@ func pickMatch(matches []node.TemplateMatch, orderBy string, index int) (node.Te
 // 非默认走 MatchAll + pickMatch。Found=false 表本帧没选到。
 func locateOnce(ctx node.Ctx, keys []string, threshold float64, roi node.Geometry, orderBy string, index int) (node.MatchHit, error) {
 	if (orderBy == "" || orderBy == "score") && index == 0 {
-		return ctx.Vision().WaitMatch(ctx.Context(), keys, threshold, roi, 0)
+		return ctx.Services().Vision.WaitMatch(ctx.Context(), keys, threshold, roi, 0)
 	}
-	matches, err := ctx.Vision().MatchAll(ctx.Context(), keys, threshold, 0, roi)
+	matches, err := ctx.Services().Vision.MatchAll(ctx.Context(), keys, threshold, 0, roi)
 	if err != nil {
 		return node.MatchHit{}, err
 	}
@@ -233,7 +233,7 @@ func (ClickTemplate) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {
 	// 解析偏移单位: |v|>1 = 像素 → 需 ClientSize 换算成 ratio; |v|<=1 直接用 ratio。
 	offX, offY := offXRaw, offYRaw
 	if offXRaw < -1 || offXRaw > 1 || offYRaw < -1 || offYRaw > 1 {
-		if w, h, err := ctx.Window().ClientSize(); err == nil {
+		if w, h, err := ctx.Services().Window.ClientSize(); err == nil {
 			offX = node.ResolveScalar(offXRaw, w)
 			offY = node.ResolveScalar(offYRaw, h)
 		}
