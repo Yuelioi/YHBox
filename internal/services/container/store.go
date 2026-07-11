@@ -1,6 +1,7 @@
 package container
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -35,7 +36,8 @@ type Store struct {
 	// nil → 按空闭包校验 (纯测试/工具语境). 调用时持本 store 锁 → 全局锁序 Container → Subgraph.
 	resolveSubgraphs func(c *Container) []Subgraph
 	// assetStore 导出 package bundle 时读取资产记录和 blob. nil 表示无资产闭包可导出。
-	assetStore *asset.Store
+	assetStore      *asset.Store
+	writeFileAtomic func(path string, data []byte) error
 }
 
 // SetSubgraphResolver 注入容器引用闭包解析 (main.go wire; 见 Store.resolveSubgraphs).
@@ -60,7 +62,7 @@ func NewStore(root string) (*Store, error) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, fmt.Errorf("mkdir %s: %w", root, err)
 	}
-	s := &Store{root: root, byID: map[string]Container{}}
+	s := &Store{root: root, byID: map[string]Container{}, writeFileAtomic: writeContainerFileAtomic}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
@@ -124,6 +126,28 @@ func (s *Store) loadOne(id string) (Container, error) {
 			IncompatibleReason: fmt.Sprintf("读取 installation.json 失败：%v", err),
 		}, nil
 	}
+	lock, err := readJSONFile[YottaLock](filepath.Join(dir, lockFile))
+	if err != nil {
+		return incompatibleContainer(id, manifest.DisplayName, fmt.Sprintf("读取 yotta-lock.json 失败：%v", err)), nil
+	}
+	if err := validateContainerCommit(id, manifest, graph, installation, lock); err != nil {
+		return incompatibleContainer(id, manifest.DisplayName, err.Error()), nil
+	}
+	if lock.SchemaVersion == 1 {
+		lock.SchemaVersion = LockSchemaVersion
+		lock.InstallationHash, err = hashJSON(installation)
+		if err != nil {
+			return incompatibleContainer(id, manifest.DisplayName, err.Error()), nil
+		}
+		data, err := json.MarshalIndent(lock, "", "  ")
+		if err != nil {
+			return incompatibleContainer(id, manifest.DisplayName, err.Error()), nil
+		}
+		// A valid v1 lock remains readable when the directory is read-only or an
+		// opportunistic migration is interrupted. The next successful Save writes
+		// v2 again, so migration failure must not make legacy data unusable.
+		_ = s.writeFileAtomic(filepath.Join(dir, lockFile), data)
+	}
 	c := aggregateContainer(manifest, graph, installation)
 	// Graph.SchemaVersion 检查
 	// > GraphSchemaVersion → 未来版本（真 incompatible）
@@ -160,7 +184,8 @@ func (s *Store) Reload(id string) (Container, error) {
 		return Container{}, err
 	}
 	s.byID[c.ID] = c
-	return c, nil
+	clone, err := cloneContainer(c)
+	return clone, err
 }
 
 // Save 持久化（含 validate）。
@@ -169,7 +194,10 @@ func (s *Store) Save(c *Container) error {
 		return err
 	}
 	// 本地副本：避免 mutation 通过指针泄漏到 caller，避免共享指针 race
-	local := *c
+	local, err := cloneContainer(*c)
+	if err != nil {
+		return fmt.Errorf("clone container: %w", err)
+	}
 	local.Normalize()
 	// 注: 此时未持本 store 锁, resolver 自由拿子图 store 读锁 (锁序无忧).
 	if err := local.Validate(s.subgraphsFor(&local)); err != nil {
@@ -199,28 +227,44 @@ func (s *Store) Save(c *Container) error {
 	if err != nil {
 		return err
 	}
-	for name, value := range map[string]any{
-		packageFile:      manifest,
-		graphFile:        portableGraph,
-		installationFile: installation,
-		lockFile:         lock,
-	} {
-		if err := writeJSONAtomic(filepath.Join(dir, name), value); err != nil {
-			return err
-		}
-	}
-	if err := os.Remove(filepath.Join(dir, "container.json")); err != nil && !errors.Is(err, os.ErrNotExist) {
+	lock.InstallationHash, err = hashJSON(installation)
+	if err != nil {
 		return err
 	}
+	files := []containerCommitFile{
+		{name: packageFile, value: manifest},
+		{name: graphFile, value: portableGraph},
+		{name: installationFile, value: installation},
+		{name: lockFile, value: lock},
+	}
+	if err := s.commitFiles(dir, files); err != nil {
+		if containerRollbackFailed(err) {
+			s.byID[local.ID] = incompatibleContainer(local.ID, local.Name,
+				"容器保存回滚失败，磁盘状态不确定；请重新加载或恢复备份")
+		}
+		return err
+	}
+	_ = os.Remove(filepath.Join(dir, "container.json"))
 	s.byID[local.ID] = aggregateContainer(manifest, portableGraph, installation)
 	return nil
+}
+
+func incompatibleContainer(id, name, reason string) Container {
+	if name == "" {
+		name = id
+	}
+	return Container{ID: id, Name: name, Status: StatusIncompatible, IncompatibleReason: reason}
 }
 
 func (s *Store) Get(id string) (Container, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	c, ok := s.byID[id]
-	return c, ok
+	if !ok {
+		return Container{}, false
+	}
+	clone, err := cloneContainer(c)
+	return clone, err == nil
 }
 
 func (s *Store) List() []Container {
@@ -228,9 +272,26 @@ func (s *Store) List() []Container {
 	defer s.mu.RUnlock()
 	out := make([]Container, 0, len(s.byID))
 	for _, c := range s.byID {
-		out = append(out, c)
+		clone, err := cloneContainer(c)
+		if err == nil {
+			out = append(out, clone)
+		}
 	}
 	return out
+}
+
+func cloneContainer(c Container) (Container, error) {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return Container{}, err
+	}
+	var clone Container
+	if err := json.Unmarshal(data, &clone); err != nil {
+		return Container{}, err
+	}
+	clone.Status = c.Status
+	clone.IncompatibleReason = c.IncompatibleReason
+	return clone, nil
 }
 
 func (s *Store) Delete(id string) error {

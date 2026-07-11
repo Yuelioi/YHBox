@@ -2,7 +2,10 @@ package container
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,13 +36,140 @@ func writeJSONAtomic(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	return writeContainerFileAtomic(path, b)
+}
+
+type containerCommitFile struct {
+	name  string
+	value any
+}
+
+type containerFileSnapshot struct {
+	path   string
+	data   []byte
+	exists bool
+}
+
+type containerRollbackError struct {
+	commitErr   error
+	rollbackErr error
+}
+
+func (e *containerRollbackError) Error() string {
+	return errors.Join(e.commitErr, fmt.Errorf("rollback container commit: %w", e.rollbackErr)).Error()
+}
+
+func (e *containerRollbackError) Unwrap() []error { return []error{e.commitErr, e.rollbackErr} }
+
+func containerRollbackFailed(err error) bool {
+	var rollbackErr *containerRollbackError
+	return errors.As(err, &rollbackErr)
+}
+
+func (s *Store) commitFiles(dir string, files []containerCommitFile) error {
+	encoded := make([][]byte, len(files))
+	snapshots := make([]containerFileSnapshot, len(files))
+	for i, file := range files {
+		data, err := json.MarshalIndent(file.value, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal %s: %w", file.name, err)
+		}
+		encoded[i] = data
+		path := filepath.Join(dir, file.name)
+		old, err := os.ReadFile(path)
+		switch {
+		case err == nil:
+			snapshots[i] = containerFileSnapshot{path: path, data: old, exists: true}
+		case errors.Is(err, os.ErrNotExist):
+			snapshots[i] = containerFileSnapshot{path: path}
+		default:
+			return fmt.Errorf("snapshot %s: %w", file.name, err)
+		}
+	}
+
+	written := 0
+	for i, file := range files {
+		if err := s.writeFileAtomic(snapshots[i].path, encoded[i]); err != nil {
+			if containerFileWriteCommitted(err) {
+				written++
+			}
+			commitErr := fmt.Errorf("write %s: %w", file.name, err)
+			rollbackErr := s.rollbackFiles(snapshots[:written])
+			if rollbackErr != nil {
+				return &containerRollbackError{commitErr: commitErr, rollbackErr: rollbackErr}
+			}
+			return commitErr
+		}
+		written++
+	}
+	return nil
+}
+
+func (s *Store) rollbackFiles(snapshots []containerFileSnapshot) error {
+	var errs []error
+	for i := len(snapshots) - 1; i >= 0; i-- {
+		snapshot := snapshots[i]
+		if snapshot.exists {
+			if err := s.writeFileAtomic(snapshot.path, snapshot.data); err != nil {
+				errs = append(errs, fmt.Errorf("restore %s: %w", filepath.Base(snapshot.path), err))
+			}
+			continue
+		}
+		if err := removeContainerFileDurable(snapshot.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, fmt.Errorf("remove new %s: %w", filepath.Base(snapshot.path), err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func validateContainerCommit(id string, manifest PackageManifest, graph Graph, installation Installation, lock YottaLock) error {
+	if lock.SchemaVersion != 1 && lock.SchemaVersion != LockSchemaVersion {
+		return fmt.Errorf("yotta-lock schema=%d 不支持（当前 %d）", lock.SchemaVersion, LockSchemaVersion)
+	}
+	if manifest.SchemaVersion != PackageSchemaVersion {
+		return fmt.Errorf("package schema=%d 不支持（当前 %d）", manifest.SchemaVersion, PackageSchemaVersion)
+	}
+	if manifest.Kind != PackageKindContainer {
+		return fmt.Errorf("package kind=%q 不是 %q", manifest.Kind, PackageKindContainer)
+	}
+	if manifest.Yotta.EntryGraph != graphFile {
+		return fmt.Errorf("package entryGraph=%q 不支持（应为 %q）", manifest.Yotta.EntryGraph, graphFile)
+	}
+	if installation.SchemaVersion != InstallationSchemaVersion {
+		return fmt.Errorf("installation schema=%d 不支持（当前 %d）", installation.SchemaVersion, InstallationSchemaVersion)
+	}
+	manifestHash, err := hashJSON(manifest)
+	if err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	graphHash, err := hashJSON(graph)
+	if err != nil {
 		return err
+	}
+	installationHash, err := hashJSON(installation)
+	if err != nil {
+		return err
+	}
+	closureHash, err := hashJSON(lock.Dependencies)
+	if err != nil {
+		return err
+	}
+	if lock.PackageID != manifest.Yotta.PackageID ||
+		lock.PackageName != manifest.Name ||
+		lock.Version != manifest.Version ||
+		lock.ManifestHash != manifestHash ||
+		lock.GraphHash != graphHash ||
+		(lock.SchemaVersion >= 2 && lock.InstallationHash != installationHash) {
+		return errors.New("yotta-lock.json 与 package/graph/installation 不一致，容器可能是未完成提交")
+	}
+	if lock.ClosureHash != closureHash {
+		return errors.New("yotta-lock.json closureHash 与 dependencies 不一致")
+	}
+	if installation.InstanceID != id ||
+		installation.PackageID != manifest.Yotta.PackageID ||
+		installation.PackageName != manifest.Name ||
+		installation.InstalledVersion != manifest.Version {
+		return errors.New("installation.json 与 package.json 身份不一致")
 	}
 	return nil
 }

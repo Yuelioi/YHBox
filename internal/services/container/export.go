@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -18,22 +17,43 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
-	c, ok := s.Get(id)
+	// Save/Delete hold the write lock across disk mutation. Keep the matching read
+	// lock until every authoritative file has been copied so an export cannot mix
+	// files from two committed generations.
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cached, ok := s.byID[id]
 	if !ok {
 		return fmt.Errorf("container %q not found", id)
 	}
+	c, err := cloneContainer(cached)
+	if err != nil {
+		return fmt.Errorf("snapshot container %q: %w", id, err)
+	}
 	dir := filepath.Join(s.root, id)
-	manifest, err := readJSONFile[PackageManifest](filepath.Join(dir, packageFile))
+	manifestBytes, err := os.ReadFile(filepath.Join(dir, packageFile))
 	if err != nil {
 		return fmt.Errorf("read %s: %w", packageFile, err)
 	}
-	graph, err := readJSONFile[Graph](filepath.Join(dir, graphFile))
+	var manifest PackageManifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		return fmt.Errorf("decode %s: %w", packageFile, err)
+	}
+	graphBytes, err := os.ReadFile(filepath.Join(dir, graphFile))
 	if err != nil {
 		return fmt.Errorf("read %s: %w", graphFile, err)
 	}
-	lock, err := readJSONFile[YottaLock](filepath.Join(dir, lockFile))
+	var graph Graph
+	if err := json.Unmarshal(graphBytes, &graph); err != nil {
+		return fmt.Errorf("decode %s: %w", graphFile, err)
+	}
+	lockBytes, err := os.ReadFile(filepath.Join(dir, lockFile))
 	if err != nil {
 		return fmt.Errorf("read %s: %w", lockFile, err)
+	}
+	var lock YottaLock
+	if err := json.Unmarshal(lockBytes, &lock); err != nil {
+		return fmt.Errorf("decode %s: %w", lockFile, err)
 	}
 	subgraphs := s.subgraphsFor(&c)
 	closure, err := dependencyClosure(graph, subgraphs)
@@ -54,10 +74,33 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 	zw := zip.NewWriter(f)
 	defer zw.Close()
 
-	for _, name := range []string{packageFile, graphFile, lockFile} {
-		if err := addZipFile(zw, filepath.Join(dir, name), name); err != nil {
+	for _, file := range []struct {
+		name string
+		data []byte
+	}{
+		{name: packageFile, data: manifestBytes},
+		{name: graphFile, data: graphBytes},
+	} {
+		writer, err := zw.Create(file.name)
+		if err != nil {
 			return err
 		}
+		if _, err := writer.Write(file.data); err != nil {
+			return err
+		}
+	}
+	portableLock := lock
+	portableLock.InstallationHash = ""
+	portableLockBytes, err := json.MarshalIndent(portableLock, "", "  ")
+	if err != nil {
+		return err
+	}
+	lockWriter, err := zw.Create(lockFile)
+	if err != nil {
+		return err
+	}
+	if _, err := lockWriter.Write(portableLockBytes); err != nil {
+		return err
 	}
 	for _, sg := range subgraphs {
 		b, err := json.MarshalIndent(sg, "", "  ")
@@ -76,20 +119,6 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 		return err
 	}
 	return nil
-}
-
-func addZipFile(zw *zip.Writer, srcPath, zipName string) error {
-	src, err := os.Open(srcPath)
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-	w, err := zw.Create(zipName)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(w, src)
-	return err
 }
 
 func validatePackageLock(manifest PackageManifest, graph Graph, subgraphs []Subgraph, lock YottaLock) error {

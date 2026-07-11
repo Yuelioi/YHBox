@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 与 E 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；下一步进入 durability。
+升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C、E、F 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；下一步进入 Ctx/Registry 深化。
 
 ## Next
 
-进入批次 F：先把 Settings 改为 immutable snapshot + atomic save，再处理 Container lock-last transaction；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
+进入批次 G：审计 Spec capability 声明与 assembly guard，收窄 runtime Ctx，并把 global node registry 收敛为可实例化 snapshot；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
 
 ## Read now
 
@@ -18,6 +18,7 @@
 - `../../knowledge/architecture/go-module-identity.md`
 - `../../knowledge/architecture/application-lifecycle.md`
 - `../../knowledge/architecture/settings-durability.md`
+- `../../knowledge/architecture/container-commit-durability.md`
 
 ## Read if
 
@@ -32,11 +33,12 @@
 
 Current:
 
-- `plan.md` 阶段 3 / 批次 F；批次 D 的首次远端 GUI runner 验证并行待办。
-- application lifecycle 已闭合；下一步强化 Settings/Container 崩溃一致性与 immutable snapshot。
+- `plan.md` 阶段 4 / 批次 G；批次 D 的首次远端 GUI runner 验证并行待办。
+- durability 已闭合；下一步深化 capability/Ctx/Registry 扩展 seam。
 
 Done:
 
+- 批次 F（第二批）：Container 固定 package→graph→installation→lock-last transaction；lock v2 覆盖 installation hash，load 校验 schema/身份/文件 hash/closure，混合代明确 incompatible。写失败逆序恢复，rollback 失败立即隔离 cache；v1 lock best-effort 迁移；Get/List/Reload 与 Export 使用 deep/single-read snapshot。
 - 批次 F（首批）：Settings 读路径改为 immutable deep snapshot；所有 writer 经串行 clone/mutate/validate、同目录临时文件 fsync、atomic replace、publish 与 ordered side effects。Windows replace 使用 write-through，Unix 补 directory fsync；hotkey 持久化 pre-commit failure 会回滚 native binding，window resize 保存失败进入结构化日志。
 - 批次 E（第三批）：debug manager 作为独立 runtime resource 关闭，覆盖 starting/paused/active step 的 cancel、context wait 与 `StopRuntime` held-input barrier，并修复并发 DebugStart 覆盖；App 最终关闭同步停止 node-enter timer，LogMerger detach GUI，LogSink 关闭文件后有界 drain，阻塞 callback 不再让主线程或日志句柄无限存活。
 - 批次 E（第二批）：runtime ownership 扩展到 hotkey registry、recording、calibration 与 tools presentation；逆序关闭会先取消临时 capture、关闭/等待 secondary windows、停止校准与录制 hook，再释放中央 hotkey。关闭后的服务拒绝新 native 资源，录制退出 Cancel 且 finalizing drain 后不再落半成品。
@@ -110,6 +112,8 @@ Verified:
 - E 第三批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、root/services race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
 - F 首批双轴 review：修复 commit 后 autostart/logger side effect 乱序覆盖；HotkeyRegistry 不再吞持久化错误，pre-commit failure 回滚 entry/native binding，rollback native failure 标 failed 并保留真实 ownership；committed directory-sync warning 保持新代并记录。最终 Standards/Spec 均无剩余 finding。
 - F 首批最终门禁：全仓 test/vet/staticcheck、root/hotkey/services race、Linux amd64 与 Darwin arm64 services 编译、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
+- F 第二批双轴 review：补齐 rollback failure 即时 cache 隔离、新文件 durable rollback delete、Export 单次 raw snapshot/deep clone、lock closure 与 package/installation schema/identity 验证；v1 migration 写失败不阻断有效旧数据。最终 Spec/Standards 无剩余 finding。
+- F 第二批最终门禁：全仓串行 test/coverage、vet、staticcheck、container race、Linux amd64 与 Darwin arm64 services 编译、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过；container statement coverage 为 78.4%。
 
 ## Open questions
 

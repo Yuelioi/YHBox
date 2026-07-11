@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
 func TestStore_LoadGracefulVersionMismatch(t *testing.T) {
@@ -83,6 +85,15 @@ func writePackageStoreFixture(t *testing.T, root, cid, displayName string, graph
 	writeJSONFixture(t, filepath.Join(root, cid, "package.json"), manifest)
 	writeJSONFixture(t, filepath.Join(root, cid, "graph.json"), graph)
 	writeJSONFixture(t, filepath.Join(root, cid, "installation.json"), installation)
+	lock, err := BuildYottaLock(manifest, graph, dependency.ClosureResult{}, "2026-07-11T00:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock.InstallationHash, err = hashJSON(installation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeJSONFixture(t, filepath.Join(root, cid, "yotta-lock.json"), lock)
 }
 
 func writeJSONFixture(t *testing.T, path string, v any) {

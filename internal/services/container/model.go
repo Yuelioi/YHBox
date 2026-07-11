@@ -15,7 +15,7 @@ const GraphSchemaVersion = 1
 const (
 	PackageSchemaVersion      = 2
 	InstallationSchemaVersion = 1
-	LockSchemaVersion         = 1
+	LockSchemaVersion         = 2
 
 	PackageKindContainer = "yotta.container"
 
@@ -222,17 +222,18 @@ type LockDependencies struct {
 
 // YottaLock 是 yotta-lock.json 的生成态摘要。
 type YottaLock struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	PackageID     string           `json:"packageId"`
-	PackageName   string           `json:"packageName,omitempty"`
-	Version       string           `json:"version,omitempty"`
-	ManifestHash  string           `json:"manifestHash"`
-	GraphHash     string           `json:"graphHash"`
-	ClosureHash   string           `json:"closureHash"`
-	GeneratedAt   string           `json:"generatedAt,omitempty"`
-	Dependencies  LockDependencies `json:"dependencies"`
-	Permissions   []string         `json:"permissions,omitempty"`
-	Capabilities  []string         `json:"capabilities,omitempty"`
+	SchemaVersion    int              `json:"schemaVersion"`
+	PackageID        string           `json:"packageId"`
+	PackageName      string           `json:"packageName,omitempty"`
+	Version          string           `json:"version,omitempty"`
+	ManifestHash     string           `json:"manifestHash"`
+	GraphHash        string           `json:"graphHash"`
+	InstallationHash string           `json:"installationHash,omitempty"`
+	ClosureHash      string           `json:"closureHash"`
+	GeneratedAt      string           `json:"generatedAt,omitempty"`
+	Dependencies     LockDependencies `json:"dependencies"`
+	Permissions      []string         `json:"permissions,omitempty"`
+	Capabilities     []string         `json:"capabilities,omitempty"`
 }
 
 // Container 蓝图编排实体。它是 package + installation + graph 聚合后的 RPC/运行时视图。

@@ -3,6 +3,8 @@ package container
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +13,295 @@ import (
 
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
+
+func transactionTestContainer(id, name string) *Container {
+	return &Container{SchemaVersion: 1, ID: id, Name: name, Graph: Graph{Nodes: []GraphNode{
+		{ID: "start", Kind: "Start"},
+	}}}
+}
+
+func TestContainerStore_SaveUsesDeterministicLockLastOrder(t *testing.T) {
+	s, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	s.writeFileAtomic = func(path string, data []byte) error {
+		order = append(order, filepath.Base(path))
+		return writeContainerFileAtomic(path, data)
+	}
+	if err := s.Save(transactionTestContainer("ordered", "ordered")); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{packageFile, graphFile, installationFile, lockFile}
+	if fmt.Sprint(order) != fmt.Sprint(want) {
+		t.Fatalf("write order = %v, want %v", order, want)
+	}
+}
+
+func TestContainerStore_SaveFailureRestoresLastCommittedGeneration(t *testing.T) {
+	for failAt := 1; failAt <= 4; failAt++ {
+		t.Run(fmt.Sprintf("write-%d", failAt), func(t *testing.T) {
+			root := t.TempDir()
+			s, err := NewStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Save(transactionTestContainer("txn", "old")); err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			wantErr := errors.New("injected write failure")
+			s.writeFileAtomic = func(path string, data []byte) error {
+				calls++
+				if calls == failAt {
+					return wantErr
+				}
+				return writeContainerFileAtomic(path, data)
+			}
+			if err := s.Save(transactionTestContainer("txn", "new")); !errors.Is(err, wantErr) {
+				t.Fatalf("Save error = %v", err)
+			}
+			if got, _ := s.Get("txn"); got.Name != "old" {
+				t.Fatalf("memory cache published failed generation: %+v", got)
+			}
+			reloaded, err := NewStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, ok := reloaded.Get("txn")
+			if !ok || got.Name != "old" || got.Status == StatusIncompatible {
+				t.Fatalf("disk generation after rollback = %+v, ok=%v", got, ok)
+			}
+		})
+	}
+}
+
+func TestContainerStore_RollbackFailureLeavesDiskExplicitlyIncompatible(t *testing.T) {
+	root := t.TempDir()
+	s, _ := NewStore(root)
+	if err := s.Save(transactionTestContainer("rollback-fail", "old")); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	primaryErr := errors.New("installation write failed")
+	rollbackErr := errors.New("graph rollback failed")
+	s.writeFileAtomic = func(path string, data []byte) error {
+		calls++
+		switch calls {
+		case 3:
+			return primaryErr
+		case 4:
+			return rollbackErr
+		default:
+			return writeContainerFileAtomic(path, data)
+		}
+	}
+	err := s.Save(transactionTestContainer("rollback-fail", "new"))
+	if !errors.Is(err, primaryErr) || !errors.Is(err, rollbackErr) {
+		t.Fatalf("Save error = %v", err)
+	}
+	if got, _ := s.Get("rollback-fail"); got.Status != StatusIncompatible || got.IncompatibleReason == "" {
+		t.Fatalf("rollback failure was not isolated in cache: %+v", got)
+	}
+	reloaded, loadErr := NewStore(root)
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	got, ok := reloaded.Get("rollback-fail")
+	if !ok || got.Status != StatusIncompatible {
+		t.Fatalf("mixed disk generation was accepted: %+v, ok=%v", got, ok)
+	}
+}
+
+func TestContainerStore_LoadRejectsMixedOrUncommittedGeneration(t *testing.T) {
+	mutations := map[string]func(t *testing.T, dir string){
+		"package-schema": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, packageFile)
+			v, _ := readJSONFile[PackageManifest](path)
+			v.SchemaVersion = PackageSchemaVersion + 1
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+			updateTestLockHash(t, dir, func(lock *YottaLock) { lock.ManifestHash, _ = hashJSON(v) })
+		},
+		"package-kind": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, packageFile)
+			v, _ := readJSONFile[PackageManifest](path)
+			v.Kind = "yotta.other"
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+			updateTestLockHash(t, dir, func(lock *YottaLock) { lock.ManifestHash, _ = hashJSON(v) })
+		},
+		"entry-graph": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, packageFile)
+			v, _ := readJSONFile[PackageManifest](path)
+			v.Yotta.EntryGraph = "other.json"
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+			updateTestLockHash(t, dir, func(lock *YottaLock) { lock.ManifestHash, _ = hashJSON(v) })
+		},
+		"installation-schema": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, installationFile)
+			v, _ := readJSONFile[Installation](path)
+			v.SchemaVersion = InstallationSchemaVersion + 1
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+			updateTestLockHash(t, dir, func(lock *YottaLock) { lock.InstallationHash, _ = hashJSON(v) })
+		},
+		"closure": func(t *testing.T, dir string) {
+			updateTestLockHash(t, dir, func(lock *YottaLock) {
+				lock.Dependencies.Templates = []string{"tampered"}
+			})
+		},
+		"package": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, packageFile)
+			v, _ := readJSONFile[PackageManifest](path)
+			v.DisplayName = "tampered"
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"graph": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, graphFile)
+			v, _ := readJSONFile[Graph](path)
+			v.ID = "tampered"
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"installation": func(t *testing.T, dir string) {
+			path := filepath.Join(dir, installationFile)
+			v, _ := readJSONFile[Installation](path)
+			v.Display.Alias = "tampered"
+			if err := writeJSONAtomic(path, v); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"installation-identity": func(t *testing.T, dir string) {
+			installationPath := filepath.Join(dir, installationFile)
+			installation, _ := readJSONFile[Installation](installationPath)
+			installation.PackageID = "pkg_other"
+			if err := writeJSONAtomic(installationPath, installation); err != nil {
+				t.Fatal(err)
+			}
+			lockPath := filepath.Join(dir, lockFile)
+			lock, _ := readJSONFile[YottaLock](lockPath)
+			lock.InstallationHash, _ = hashJSON(installation)
+			if err := writeJSONAtomic(lockPath, lock); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"missing-lock": func(t *testing.T, dir string) {
+			if err := os.Remove(filepath.Join(dir, lockFile)); err != nil {
+				t.Fatal(err)
+			}
+		},
+	}
+	for name, mutate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			s, _ := NewStore(root)
+			if err := s.Save(transactionTestContainer("mixed", "original")); err != nil {
+				t.Fatal(err)
+			}
+			mutate(t, filepath.Join(root, "mixed"))
+			reloaded, err := NewStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, ok := reloaded.Get("mixed")
+			if !ok || got.Status != StatusIncompatible || got.IncompatibleReason == "" {
+				t.Fatalf("mixed generation was accepted: %+v, ok=%v", got, ok)
+			}
+		})
+	}
+}
+
+func updateTestLockHash(t *testing.T, dir string, mutate func(*YottaLock)) {
+	t.Helper()
+	path := filepath.Join(dir, lockFile)
+	lock, err := readJSONFile[YottaLock](path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutate(&lock)
+	if err := writeJSONAtomic(path, lock); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestContainerStore_LoadUpgradesLegacyV1Lock(t *testing.T) {
+	root := t.TempDir()
+	s, _ := NewStore(root)
+	if err := s.Save(transactionTestContainer("legacy-lock", "legacy")); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "legacy-lock", lockFile)
+	lock, _ := readJSONFile[YottaLock](path)
+	lock.SchemaVersion = 1
+	lock.InstallationHash = ""
+	if err := writeJSONAtomic(path, lock); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := reloaded.Get("legacy-lock")
+	if !ok || got.Status == StatusIncompatible {
+		t.Fatalf("legacy lock load = %+v, ok=%v", got, ok)
+	}
+	upgraded, err := readJSONFile[YottaLock](path)
+	if err != nil || upgraded.SchemaVersion != LockSchemaVersion || upgraded.InstallationHash == "" {
+		t.Fatalf("upgraded lock = %+v, err=%v", upgraded, err)
+	}
+}
+
+func TestContainerStore_LegacyV1MigrationFailureDoesNotBlockLoad(t *testing.T) {
+	root := t.TempDir()
+	s, _ := NewStore(root)
+	if err := s.Save(transactionTestContainer("legacy-readonly", "legacy")); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "legacy-readonly", lockFile)
+	lock, _ := readJSONFile[YottaLock](path)
+	lock.SchemaVersion = 1
+	lock.InstallationHash = ""
+	if err := writeJSONAtomic(path, lock); err != nil {
+		t.Fatal(err)
+	}
+	s.writeFileAtomic = func(string, []byte) error { return errors.New("read-only directory") }
+	got, err := s.loadOne("legacy-readonly")
+	if err != nil || got.Status == StatusIncompatible {
+		t.Fatalf("valid v1 lock should remain readable: got=%+v err=%v", got, err)
+	}
+	unchanged, err := readJSONFile[YottaLock](path)
+	if err != nil || unchanged.SchemaVersion != 1 {
+		t.Fatalf("failed best-effort migration changed lock: %+v err=%v", unchanged, err)
+	}
+}
+
+func TestContainerStore_GetAndListReturnDeepSnapshots(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	c := transactionTestContainer("snapshot", "snapshot")
+	c.Graph.Nodes[0].Config = map[string]any{"literal": map[string]any{"Value": "original"}}
+	if err := s.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Get("snapshot")
+	got.Name = "mutated"
+	got.Graph.Nodes[0].Config["literal"].(map[string]any)["Value"] = "mutated"
+	list := s.List()
+	list[0].Graph.Nodes[0].Config["literal"].(map[string]any)["Value"] = "list-mutated"
+	again, _ := s.Get("snapshot")
+	if again.Name != "snapshot" || PinString(&again.Graph.Nodes[0], "Value") != "original" {
+		t.Fatalf("store cache escaped: %+v", again)
+	}
+}
 
 func TestContainerStore_SaveLoadList(t *testing.T) {
 	dir := t.TempDir()
@@ -312,13 +603,17 @@ func TestContainerStore_Reload(t *testing.T) {
 		t.Errorf("改盘后内存应仍是旧值, got %q", g.Name)
 	}
 
-	// Reload 后拿到新值, 且 byID 已更新
+	// 未同步更新 lock 的外部改盘属于未完成提交；Reload 必须暴露 incompatible，
+	// 不能把混合代当成可运行容器。
 	got, err := s.Reload("r1")
 	if err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
 	if got.Name != "new-from-disk" {
 		t.Errorf("Reload 返回名字 = %q, want new-from-disk", got.Name)
+	}
+	if got.Status != StatusIncompatible || got.IncompatibleReason == "" {
+		t.Fatalf("Reload should reject stale lock: %+v", got)
 	}
 	if g, _ := s.Get("r1"); g.Name != "new-from-disk" {
 		t.Errorf("byID 未更新: %q", g.Name)
