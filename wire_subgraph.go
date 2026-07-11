@@ -40,7 +40,7 @@ func subgraphClosureFor(c *container.Container, sgStore *container.SubgraphStore
 }
 
 // scanSubgraphReferrers 反向 referrer: 谁引用了子图 guid — 全部容器顶层图 + 全池子图图体,
-// 内存遍历 (非磁盘解析). 给 SubgraphService.SetReferrerScanner (删除前警告 + 库页引用计数).
+// 内存遍历 (非磁盘解析). 给 ConfigureSubgraphReferrerScanner (删除前警告 + 库页引用计数).
 func scanSubgraphReferrers(cStore *container.Store, sgStore *container.SubgraphStore) func(sgID string) []container.SubgraphReferrer {
 	return func(sgID string) []container.SubgraphReferrer {
 		var refs []container.SubgraphReferrer

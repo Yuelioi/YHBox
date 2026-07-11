@@ -38,7 +38,8 @@ func NewService(store *asset.Store) *Service {
 	return &Service{store: store}
 }
 
-func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
+// ConfigureEmitter injects the presentation event transport without adding an RPC method.
+func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
 
 func (s *Service) emitChanged() {
 	if s.emit != nil {

@@ -19,8 +19,8 @@ func NewService(store *Store) *Service {
 	return &Service{store: store}
 }
 
-// SetOnChange 启动期 main.go 注入。Save/Update/Delete 成功后调一次。
-func (s *Service) SetOnChange(f ChangeListener) { s.onChange = f }
+// ConfigureChangeListener injects the daemon reload callback without adding an RPC method.
+func ConfigureChangeListener(s *Service, listener ChangeListener) { s.onChange = listener }
 
 func (s *Service) emitChange() {
 	if s.onChange != nil {

@@ -184,7 +184,7 @@ const props = defineProps<{
   min?: number
   max?: number
   step?: number
-  /** async-dropdown 数据源名, 对应 backend NodeService.RegisterAsyncSource。 */
+  /** async-dropdown 数据源名，对应 backend node.RegisterAsyncSource。 */
   asyncSource?: string
   /** 当前节点 instance ID, 传给 async source 做上下文过滤。 */
   nodeId?: string

@@ -55,7 +55,7 @@ func TestServiceDebugStartDelegates(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &fakeDebugRunner{}
-	svc.SetRunner(runner)
+	ConfigureRunner(svc, runner)
 
 	state, err := svc.DebugStart(c.ID, DebugStartOptions{StartNodeID: "n1", GraphPath: []string{"sg"}})
 	if err != nil {
@@ -74,7 +74,7 @@ func TestServiceDebugCommandsDelegateSessionID(t *testing.T) {
 	store, _ := NewStore(dir)
 	svc := NewService(store)
 	runner := &fakeDebugRunner{}
-	svc.SetRunner(runner)
+	ConfigureRunner(svc, runner)
 
 	if _, err := svc.DebugStep("s1"); err != nil {
 		t.Fatalf("DebugStep: %v", err)

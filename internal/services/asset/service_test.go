@@ -97,7 +97,7 @@ func TestService_RenameDelete(t *testing.T) {
 	}
 
 	// 注入引用扫描 — Delete 返回引用列表 (不阻断).
-	svc.SetReferrerScanner(func(g string) []Referrer {
+	ConfigureReferrerScanner(svc, func(g string) []Referrer {
 		return []Referrer{{ContainerID: "c1", NodeID: "n1", NodeKind: "CheckTemplate"}}
 	})
 	refs, err := svc.Delete(guid)

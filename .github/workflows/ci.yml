@@ -186,7 +186,23 @@ jobs:
         run: pnpm -C frontend install --frozen-lockfile
 
       - name: Generate bindings
-        run: wails3 generate bindings -ts ./...
+        run: |
+          set +e
+          output="$(wails3 generate bindings -ts ./... 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          if printf '%s\n' "$output" | grep -Eq '[1-9][0-9]* warnings? emitted'; then
+            echo 'Wails binding generation emitted warnings' >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$output" | grep -Eq '14 Services, 107 Methods,'; then
+            echo 'Wails binding surface changed; review and update the expected RPC count' >&2
+            exit 1
+          fi
 
       - name: Build frontend
         run: pnpm -C frontend build

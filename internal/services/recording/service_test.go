@@ -12,7 +12,7 @@ func newTestService() (*Service, *[]string) {
 	s := NewService(NewRecorder(), nil, nil)
 	var mu sync.Mutex
 	var events []string
-	s.SetEmit(func(name string, _ any) {
+	ConfigureEmitter(s, func(name string, _ any) {
 		mu.Lock()
 		events = append(events, name)
 		mu.Unlock()

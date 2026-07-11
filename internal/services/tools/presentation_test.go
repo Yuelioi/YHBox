@@ -70,7 +70,7 @@ func TestCalibratorWindowClosingClearsStateAndRunsCleanup(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
 	service := NewService(nil, presenter)
 	cleanupCalls := 0
-	service.SetCalibratorCloseHandler(func() { cleanupCalls++ })
+	ConfigureCalibratorCloseHandler(service, func() { cleanupCalls++ })
 
 	opened, err := service.OpenCalibratorHUD("request-1")
 	if err != nil || !opened {
@@ -207,7 +207,7 @@ func TestOldClosingCallbackCannotClearNewWindowGeneration(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
 	service := NewService(nil, presenter)
 	cleanupCalls := 0
-	service.SetCalibratorCloseHandler(func() { cleanupCalls++ })
+	ConfigureCalibratorCloseHandler(service, func() { cleanupCalls++ })
 
 	if _, err := service.OpenCalibratorHUD("request-1"); err != nil {
 		t.Fatal(err)
@@ -239,7 +239,7 @@ func TestClosingCalibratorWhileOpeningStillRunsCleanup(t *testing.T) {
 	}
 	service := NewService(nil, presenter)
 	cleanup := make(chan struct{}, 1)
-	service.SetCalibratorCloseHandler(func() { cleanup <- struct{}{} })
+	ConfigureCalibratorCloseHandler(service, func() { cleanup <- struct{}{} })
 	type openResult struct {
 		opened bool
 		err    error
@@ -285,7 +285,7 @@ func TestCancelledOpenCleanupCanReenterWithoutDeadlock(t *testing.T) {
 		err    error
 	}
 	reentered := make(chan openResult, 1)
-	service.SetCalibratorCloseHandler(func() {
+	ConfigureCalibratorCloseHandler(service, func() {
 		opened, err := service.OpenCalibratorHUD("reentrant")
 		reentered <- openResult{opened: opened, err: err}
 	})

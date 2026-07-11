@@ -24,7 +24,7 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
 
-Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。alpha2.117 的正式生成命令已验证为 123 methods / 10 条已知装配 warning。
+Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。alpha2.117 的正式生成基线是 107 methods / 0 warnings；启动期依赖注入必须使用包级 `Configure...` 函数，不能把函数/interface 参数做成 bound service 的导出方法。`gui-build` 会在任何非零 warning summary 上失败。
 
 ## 测试基线
 

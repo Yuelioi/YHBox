@@ -107,14 +107,15 @@ func (s *Service) setState(st RecordingState) {
 	}
 }
 
-// SetEmit main.go 启动期注入 presentation event transport.
-func (s *Service) SetEmit(emit func(name string, data any)) { s.emit = emit }
+// ConfigureEmitter injects the presentation event transport during startup.
+// It is deliberately a package function so it cannot become a Wails RPC method.
+func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
 
-// SetSubgraphSaver main.go 启动期注入. nil = Stop 时报错 (录制没出口).
-func (s *Service) SetSubgraphSaver(c SubgraphSaver) { s.subgraphs = c }
+// ConfigureSubgraphSaver injects persistence used when a recording stops.
+func ConfigureSubgraphSaver(s *Service, saver SubgraphSaver) { s.subgraphs = saver }
 
-// SetContainerGetter main.go 启动期注入. nil = Start 时报错 (没法解 Win32WindowTarget hwnd).
-func (s *Service) SetContainerGetter(c ContainerGetter) { s.containerGet = c }
+// ConfigureContainerGetter injects target lookup used when a recording starts.
+func ConfigureContainerGetter(s *Service, getter ContainerGetter) { s.containerGet = getter }
 
 // ValidateTarget 录制前预检 — 解析容器 Win32WindowTarget 找窗口 (找不到返 error), 并把窗口拉到前台.
 // 前端在 3s 倒计时**之前**调: 没设/找不到窗口立刻报错 (不用等录完), 成功则游戏已置前台省去用户 Alt-Tab.
@@ -166,7 +167,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		return "", apperr.New(apperr.CodeContainerIDRequired, nil)
 	}
 	if s.containerGet == nil {
-		return "", errors.New("ContainerGetter 未注入 (main.go 启动期 SetContainerGetter?)")
+		return "", errors.New("ContainerGetter 未注入 (main.go 启动期 ConfigureContainerGetter?)")
 	}
 	cont, ok := s.containerGet.Get(args.ContainerID)
 	if !ok {
@@ -348,7 +349,7 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	case "simple":
 		// 多节点序列包成线性 Subgraph 落全局池 — 前端插一个 Subgraph 调用节点.
 		if s.subgraphs == nil {
-			return nil, errors.New("SubgraphSaver 未注入 (main.go 启动期 SetSubgraphSaver?)")
+			return nil, errors.New("SubgraphSaver 未注入 (main.go 启动期 ConfigureSubgraphSaver?)")
 		}
 		sg := BuildSimpleSubgraph(res.Events, res.Meta, res.ClientW, res.ClientH, label)
 		if err := s.subgraphs.Create(&sg); err != nil {

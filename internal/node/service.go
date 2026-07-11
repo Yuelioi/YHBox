@@ -26,9 +26,10 @@ func NewService() *NodeService {
 	}
 }
 
-// RegisterAsyncSource main.go 在启动期调, 注册各种 async data source.
+// RegisterAsyncSource 在启动期注册 async data source。
 // 注册顺序无关. 重复注册 panic (fail fast author bug).
-func (s *NodeService) RegisterAsyncSource(name string, handler AsyncOptionsHandler) {
+// 它是包级配置函数，避免把函数参数误暴露为 Wails RPC。
+func RegisterAsyncSource(s *NodeService, name string, handler AsyncOptionsHandler) {
 	if _, exists := s.asyncSources[name]; exists {
 		panic(fmt.Sprintf("AsyncSource %q already registered", name))
 	}

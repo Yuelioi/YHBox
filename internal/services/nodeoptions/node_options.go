@@ -15,7 +15,7 @@ const (
 )
 
 func RegisterAssetAsyncSources(nodeSvc *node.NodeService, assetSvc *asset.Service, subgraphSvc *container.SubgraphService) {
-	nodeSvc.RegisterAsyncSource(AsyncSourceClipIDs, func(_, _ string, _ map[string]any) ([]node.EnumOption, error) {
+	node.RegisterAsyncSource(nodeSvc, AsyncSourceClipIDs, func(_, _ string, _ map[string]any) ([]node.EnumOption, error) {
 		opts := []node.EnumOption{}
 		if assetSvc == nil {
 			return opts, nil
@@ -33,7 +33,7 @@ func RegisterAssetAsyncSources(nodeSvc *node.NodeService, assetSvc *asset.Servic
 		return opts, nil
 	})
 
-	nodeSvc.RegisterAsyncSource(AsyncSourceSubgraphIDs, func(_, specKind string, _ map[string]any) ([]node.EnumOption, error) {
+	node.RegisterAsyncSource(nodeSvc, AsyncSourceSubgraphIDs, func(_, specKind string, _ map[string]any) ([]node.EnumOption, error) {
 		opts := []node.EnumOption{}
 		if subgraphSvc == nil {
 			return opts, nil

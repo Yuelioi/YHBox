@@ -15,7 +15,7 @@ const (
 )
 
 func RegisterNodeAsyncSource(nodeSvc *node.NodeService, svc *Service) {
-	nodeSvc.RegisterAsyncSource(AsyncSourceDevices, func(_, _ string, _ map[string]any) ([]node.EnumOption, error) {
+	node.RegisterAsyncSource(nodeSvc, AsyncSourceDevices, func(_, _ string, _ map[string]any) ([]node.EnumOption, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		devices, err := svc.ListDevices(ctx)
@@ -36,7 +36,7 @@ func RegisterNodeAsyncSource(nodeSvc *node.NodeService, svc *Service) {
 		return opts, nil
 	})
 
-	nodeSvc.RegisterAsyncSource(AsyncSourceApps, func(_, _ string, params map[string]any) ([]node.EnumOption, error) {
+	node.RegisterAsyncSource(nodeSvc, AsyncSourceApps, func(_, _ string, params map[string]any) ([]node.EnumOption, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		apps, err := svc.ListApps(ctx, stringParam(params, "Serial"))

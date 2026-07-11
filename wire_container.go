@@ -176,7 +176,7 @@ func (m *templateMatcherAdapter) emitScaleTooFarWarning(guid string, frameW, fra
 }
 
 // Invalidate 丢弃所有已解码模板缓存, 让下次 Detect 重读 blob. 资产全局, 不再按容器分.
-// 用户在同一 session 内新存/改/删资产后, asset.Service 经 SetOnChange 调这里 ——
+// 用户在同一 session 内新存/改/删资产后, asset.Service 经 change listener 调这里 ——
 // 否则 matcher 一直拿旧解码缓存 (新存的同 sha 不存在, 走重读没问题; 但重拍换 blob 后
 // 旧 sha 条目残留无害, 全清最省心).
 func (m *templateMatcherAdapter) Invalidate() {

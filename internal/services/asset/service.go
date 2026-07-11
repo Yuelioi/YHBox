@@ -47,11 +47,13 @@ func NewService(store *Store, capture CaptureAdapter) *Service {
 	return &Service{store: store, capture: capture}
 }
 
-// SetOnChange 注册资产变更回调 (Save/Delete/Rename 成功后触发).
-func (s *Service) SetOnChange(fn func()) { s.onChange = fn }
+// ConfigureChangeListener registers the asset change callback without adding an RPC method.
+func ConfigureChangeListener(s *Service, listener func()) { s.onChange = listener }
 
-// SetReferrerScanner 注入引用扫描器 (wire 层用 container/dependency BFS).
-func (s *Service) SetReferrerScanner(fn func(guid string) []Referrer) { s.scanReferrers = fn }
+// ConfigureReferrerScanner injects reference scanning without adding an RPC method.
+func ConfigureReferrerScanner(s *Service, scanner func(guid string) []Referrer) {
+	s.scanReferrers = scanner
+}
 
 func (s *Service) notifyChange() {
 	if s.onChange != nil {

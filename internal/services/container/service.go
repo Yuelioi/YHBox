@@ -48,22 +48,23 @@ func NewService(store *Store) *Service {
 	return &Service{store: store}
 }
 
-// SetAssetExistence 注入资产存在性查询 (main.go 用全局 asset.Store).
+// ConfigureAssetExistence 注入资产存在性查询 (main.go 用全局 asset.Store).
 // 校验时 CheckTemplate/ClickTemplate/WaitTemplate 引用的 GUID 不存在 → TEMPLATE_NOT_FOUND;
 // PlayClip 引用的 GUID 不存在 → CLIP_NOT_FOUND.
-func (s *Service) SetAssetExistence(hasTemplate, hasClip func(guid string) bool) {
+// 包级配置函数不会进入 Wails Service 的 RPC 方法集。
+func ConfigureAssetExistence(s *Service, hasTemplate, hasClip func(guid string) bool) {
 	s.hasTemplate = hasTemplate
 	s.hasClip = hasClip
 }
 
-// SetRunner 启动期 main.go 注入。Runner=nil 时 Run/Stop 返 error。
-func (s *Service) SetRunner(r Runner) { s.runner = r }
+// ConfigureRunner 启动期 main.go 注入。Runner=nil 时 Run/Stop 返 error。
+func ConfigureRunner(s *Service, runner Runner) { s.runner = runner }
 
-// SetOnChange 启动期 main.go 注入。CRUD 后调一次（保存成功才调）。
-func (s *Service) SetOnChange(f ChangeListener) { s.onChange = f }
+// ConfigureChangeListener 启动期 main.go 注入。CRUD 后调一次（保存成功才调）。
+func ConfigureChangeListener(s *Service, listener ChangeListener) { s.onChange = listener }
 
-// SetPostDelete 注入容器删除后的回调 (main.go: 匿名子图 GC).
-func (s *Service) SetPostDelete(f func()) { s.postDelete = f }
+// ConfigurePostDelete 注入容器删除后的回调 (main.go: 匿名子图 GC).
+func ConfigurePostDelete(s *Service, callback func()) { s.postDelete = callback }
 
 func (s *Service) emitChange() {
 	if s.onChange != nil {

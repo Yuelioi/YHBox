@@ -91,12 +91,12 @@ func (s *Service) gameWindowFor(containerID, nodeID string) (target.WindowHandle
 	return wh, true
 }
 
-// SetCaptureHotkeyGetter main.go 注入「窗口捕获」键读取器（从 hotkey registry 读
+// ConfigureCaptureHotkeyGetter main.go 注入「窗口捕获」键读取器（从 hotkey registry 读
 // tools.window-capture 当前绑定）。让捕获键统一走热键中心、可 rebind，不再硬编 F9。
-func (s *Service) SetCaptureHotkeyGetter(fn func() (mods, vk uint32)) {
+func ConfigureCaptureHotkeyGetter(s *Service, getter func() (mods, vk uint32)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.captureHotkey = fn
+	s.captureHotkey = getter
 }
 
 func (s *Service) windowPresenter() Presenter {
@@ -246,11 +246,11 @@ func (s *Service) SetLauncherSize(width, height int) error {
 	return nil
 }
 
-// SetCalibratorCloseHandler main.go 注入: 校准 HUD 窗关闭时卸 F8 钩 + 停 session。
-func (s *Service) SetCalibratorCloseHandler(fn func()) {
+// ConfigureCalibratorCloseHandler main.go 注入: 校准 HUD 窗关闭时卸 F8 钩 + 停 session。
+func ConfigureCalibratorCloseHandler(s *Service, handler func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.onCalibratorClose = fn
+	s.onCalibratorClose = handler
 }
 
 // OpenCalibratorHUD 打开独立置顶校准窗 (frameless + AlwaysOnTop)。
@@ -372,7 +372,7 @@ func (s *Service) ClosePicker(requestID string) error {
 //  2. emit "win32windowtarget:captured" event {title, class, processName, clientW, clientH}
 //  3. 自动反注册热键
 //
-// 键来源 = SetCaptureHotkeyGetter 注入的 registry 绑定值 (mods+vk); 未注入回退 F9。
+// 键来源 = ConfigureCaptureHotkeyGetter 注入的 registry 绑定值 (mods+vk); 未注入回退 F9。
 // 同时只能一个 capture session. 用户多次开启需要先 CancelWin32WindowTargetCapture.
 // 返 captureID 给前端用来 cancel.
 //

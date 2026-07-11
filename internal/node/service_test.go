@@ -90,7 +90,7 @@ func assertTargets(t *testing.T, got, want []string) {
 
 func TestNodeService_AsyncOptions(t *testing.T) {
 	svc := NewService()
-	svc.RegisterAsyncSource("test", func(nodeID, specKind string, params map[string]any) ([]EnumOption, error) {
+	RegisterAsyncSource(svc, "test", func(nodeID, specKind string, params map[string]any) ([]EnumOption, error) {
 		return []EnumOption{{Value: "x", Label: "X"}}, nil
 	})
 

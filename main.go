@@ -29,8 +29,10 @@ import (
 	"github.com/yottaapp/yotta/internal/services/container"
 	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
 	"github.com/yottaapp/yotta/internal/services/execution"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 	mcpserver "github.com/yottaapp/yotta/internal/services/mcpserver"
 	"github.com/yottaapp/yotta/internal/services/nodeoptions"
+	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/pkg/locale"
@@ -199,7 +201,7 @@ func main() {
 	})
 	containerStore.SetAssetStore(assetStore)
 	containerSvc := container.NewService(containerStore)
-	sgSvc.SetReferrerScanner(scanSubgraphReferrers(containerStore, sgStore))
+	container.ConfigureSubgraphReferrerScanner(sgSvc, scanSubgraphReferrers(containerStore, sgStore))
 
 	// 匿名子图 GC (mark-sweep, 幂等): 启动时 + 容器删除完成后. 锁序 Container → Subgraph.
 	gcAnonymousSubgraphs := func() {
@@ -211,9 +213,9 @@ func main() {
 		}
 	}
 	gcAnonymousSubgraphs()
-	containerSvc.SetPostDelete(gcAnonymousSubgraphs)
+	container.ConfigurePostDelete(containerSvc, gcAnonymousSubgraphs)
 	// validator 存在性检查: 节点引用的模板/clip GUID 必须存在于全局 asset 库.
-	containerSvc.SetAssetExistence(
+	container.ConfigureAssetExistence(containerSvc,
 		assetExistence(assetStore, asset.KindTemplate),
 		assetExistence(assetStore, asset.KindClip),
 	)
@@ -221,8 +223,8 @@ func main() {
 	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
 	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
 	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
-	assetSvc.SetReferrerScanner(scanAssetReferrers(containerStore, sgStore))
-	// 注: SetOnChange 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
+	asset.ConfigureReferrerScanner(assetSvc, scanAssetReferrers(containerStore, sgStore))
+	// 注: change listener 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
 	nodeoptions.RegisterAssetAsyncSources(nodeSvc, assetSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
@@ -253,7 +255,7 @@ func main() {
 		}
 	})
 	// 用户在编辑器里存/删/重拍资产后, 让 matcher 丢弃解码缓存 (否则重拍换 blob 后旧图还在匹配).
-	assetSvc.SetOnChange(templateMatcher.Invalidate)
+	asset.ConfigureChangeListener(assetSvc, templateMatcher.Invalidate)
 	// InputClip: 全局 clip Service (asset clip kind). 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
 	clipSvc := newClipService(assetStore)
 
@@ -303,7 +305,7 @@ func main() {
 	debugManager := newContainerDebugManager(newRunnerForContainer, func(name string, data any) {
 		app.Emit(name, data)
 	}, worker.IsRunning)
-	containerSvc.SetRunner(&containerRunnerAdapter{queue: execQueue, worker: worker, debug: debugManager})
+	container.ConfigureRunner(containerSvc, &containerRunnerAdapter{queue: execQueue, worker: worker, debug: debugManager})
 
 	// MCP 对外暴露 server (③): 复用执行标准件, 后台起 Streamable HTTP.
 	mcpSrv := mcpserver.NewServer(mcpserver.Deps{
@@ -327,10 +329,10 @@ func main() {
 	rootLog.Info().Str("tag", "MCP").Msg("MCP server: http://127.0.0.1:8765/mcp")
 
 	// Container hotkey 绑定：扫所有容器，把 container.hotkey 注册到 registry。
-	// CRUD 后重扫一次（containerSvc.SetOnChange 钩子）。触发后入队单 target manual run。
+	// CRUD 后经 ConfigureChangeListener 重扫一次。触发后入队单 target manual run。
 	containerHotkeys := newContainerHotkeyBinder(containerStore, hotkeyRegistry, execQueue)
 	containerHotkeys.Refresh()
-	containerSvc.SetOnChange(containerHotkeys.Refresh)
+	container.ConfigureChangeListener(containerSvc, containerHotkeys.Refresh)
 
 	// 容器热键在「快捷键」中心页 rebind → 回写容器四件套 (直接 store.Save, 不走 service.Update
 	// 以免 emitChange→Refresh→registry 再抢锁死锁; registry entry 已由 Update 更新, 两边一致)。
@@ -349,7 +351,7 @@ func main() {
 	scheduleDaemon.Start()
 
 	// Schedule CRUD 后重注册 cron / hotkey trigger
-	scheduleSvc.SetOnChange(scheduleDaemon.Reload)
+	schedule.ConfigureChangeListener(scheduleSvc, scheduleDaemon.Reload)
 
 	// 全局强停热键：清 execution queue + cancel 当前 container worker run。
 	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
@@ -392,12 +394,12 @@ func main() {
 	toolsPresenter := &wailsToolsPresenter{}
 	toolsSvc := tools.NewService(containerSvc, toolsPresenter)
 	// 校准 HUD 窗关闭兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都覆盖, 不依赖前端正常关)。
-	toolsSvc.SetCalibratorCloseHandler(func() {
+	tools.ConfigureCalibratorCloseHandler(toolsSvc, func() {
 		calibrationSvc.StopHotkeyWatch()
 		_, _ = calibrationSvc.Stop()
 	})
 	// 窗口捕获键走热键中心: 捕获时读 tools.window-capture 当前绑定 (mods+vk)，回退 F9。
-	toolsSvc.SetCaptureHotkeyGetter(func() (uint32, uint32) {
+	tools.ConfigureCaptureHotkeyGetter(toolsSvc, func() (uint32, uint32) {
 		e, ok := hotkeyRegistry.Get("tools.window-capture")
 		if !ok || e.HotkeyStr == "" {
 			return 0, 0x78 // VK_F9
@@ -452,7 +454,7 @@ func main() {
 
 	// 窗口捕获键 (NodeInspector「捕获目标窗口」按下它抓前台游戏窗口)。
 	// 值持有者条目 (mechanism=ll-hook, 不持久占 OS) — 进热键中心可见 + 可 rebind + 冲突检测；
-	// 真正注册由 toolsSvc 捕获时临时做 (读下方 SetCaptureHotkeyGetter)。默认 F9。
+	// 真正注册由 toolsSvc 捕获时临时做 (读下方 ConfigureCaptureHotkeyGetter)。默认 F9。
 	winCapHk := strings.TrimSpace(app.Settings().UI.WindowCaptureHotkey)
 	if winCapHk == "" {
 		winCapHk = "F9"
@@ -493,16 +495,16 @@ func main() {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("attach presentation emitter")
 	}
 
-	sgSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	container.ConfigureSubgraphEmitter(sgSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
-	recordingSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	recording.ConfigureEmitter(recordingSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// 录制完产物是 *container.Subgraph, 直接入全局子图池 (sgStore.Create)
-	recordingSvc.SetSubgraphSaver(sgStore)
+	recording.ConfigureSubgraphSaver(recordingSvc, sgStore)
 	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
-	recordingSvc.SetContainerGetter(containerStore)
+	recording.ConfigureContainerGetter(recordingSvc, containerStore)
 
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
-	clipSvc.SetEmit(func(name string, data any) { wailsApp.Event.Emit(name, data) })
+	inputclip.ConfigureEmitter(clipSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 
 	// tools secondary windows/event delivery become ready with the GUI runtime.
 	toolsPresenter.Attach(wailsApp)

@@ -33,11 +33,12 @@ func NewSubgraphService(store *SubgraphStore) *SubgraphService {
 	return &SubgraphService{store: store}
 }
 
-func (s *SubgraphService) SetEmit(emit func(name string, data any)) { s.emit = emit }
+// ConfigureSubgraphEmitter injects presentation events without adding an RPC method.
+func ConfigureSubgraphEmitter(s *SubgraphService, emit func(name string, data any)) { s.emit = emit }
 
-// SetReferrerScanner 注入反向引用扫描 (main.go wire).
-func (s *SubgraphService) SetReferrerScanner(f func(sgID string) []SubgraphReferrer) {
-	s.scanReferrers = f
+// ConfigureSubgraphReferrerScanner 注入反向引用扫描 (main.go wire).
+func ConfigureSubgraphReferrerScanner(s *SubgraphService, scanner func(sgID string) []SubgraphReferrer) {
+	s.scanReferrers = scanner
 }
 
 func (s *SubgraphService) emitChanged() {
