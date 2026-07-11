@@ -110,27 +110,139 @@ func TestLogSink_DebounceFlush(t *testing.T) {
 }
 
 func TestLogSink_SeqMonotonic(t *testing.T) {
-	var seqs []uint64
-	var mu sync.Mutex
+	seqs := make(chan uint64, 3)
 	sink := NewLogSink(func(e LogLinesEvent) {
-		mu.Lock()
-		seqs = append(seqs, e.Seq)
-		mu.Unlock()
+		seqs <- e.Seq
 	})
 
 	for i := 0; i < 3; i++ {
 		sink.Write([]byte("x\n"))
-		time.Sleep(120 * time.Millisecond)
+		sink.drain()
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-	if len(seqs) != 3 {
-		t.Fatalf("expected 3 emits, got %d", len(seqs))
-	}
 	for i := 0; i < 3; i++ {
-		if seqs[i] != uint64(i+1) {
-			t.Errorf("seq[%d] expected %d, got %d", i, i+1, seqs[i])
+		select {
+		case got := <-seqs:
+			if got != uint64(i+1) {
+				t.Errorf("seq[%d] expected %d, got %d", i, i+1, got)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for seq=%d", i+1)
+		}
+	}
+}
+
+func TestLogSink_DoesNotDeliverLaterBatchBeforeBlockedCallback(t *testing.T) {
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	delivered := make(chan uint64, 2)
+	sink := NewLogSink(func(e LogLinesEvent) {
+		if e.Seq == 1 {
+			close(firstStarted)
+			<-releaseFirst
+		}
+		delivered <- e.Seq
+	})
+
+	sink.Write([]byte("first\n"))
+	sink.Flush()
+	select {
+	case <-firstStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first callback")
+	}
+	sink.Write([]byte("second\n"))
+	sink.Flush()
+
+	sink.mu.Lock()
+	queuedBatches := len(sink.deliveries)
+	queuedSeq := uint64(0)
+	if queuedBatches > 0 {
+		queuedSeq = sink.deliveries[0].event.Seq
+	}
+	sink.mu.Unlock()
+	if queuedBatches != 1 || queuedSeq != 2 {
+		close(releaseFirst)
+		t.Fatalf("second delivery entered callback early: queued batches=%d seq=%d", queuedBatches, queuedSeq)
+	}
+	close(releaseFirst)
+
+	for want := uint64(1); want <= 2; want++ {
+		select {
+		case got := <-delivered:
+			if got != want {
+				t.Fatalf("delivery order: got seq=%d, want %d", got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for seq=%d", want)
+		}
+	}
+}
+
+func TestLogSink_CloseIsSafeFromEmitCallback(t *testing.T) {
+	done := make(chan error, 1)
+	var sink *LogSink
+	sink = NewLogSink(func(LogLinesEvent) {
+		done <- sink.Close()
+	})
+	sink.Write([]byte("line\n"))
+	sink.Flush()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Close from callback: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close deadlocked inside emit callback")
+	}
+}
+
+func TestLogSink_BoundsQueuedLinesBehindSlowEmitter(t *testing.T) {
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	delivered := make(chan LogLinesEvent, 2)
+	sink := NewLogSink(func(event LogLinesEvent) {
+		if event.Seq == 1 {
+			close(firstStarted)
+			<-releaseFirst
+		}
+		delivered <- event
+	})
+
+	sink.Write([]byte("first\n"))
+	sink.Flush()
+	select {
+	case <-firstStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for blocked callback")
+	}
+	sink.Write([]byte(strings.Repeat("queued\n", maxQueuedDeliveryLines+100)))
+
+	sink.mu.Lock()
+	queuedBatches := len(sink.deliveries)
+	queuedLines := len(sink.deliveries[0].event.Lines)
+	sink.mu.Unlock()
+	if queuedBatches != 1 {
+		t.Fatalf("queued batches=%d, want 1 coalesced batch", queuedBatches)
+	}
+	if queuedLines > maxQueuedDeliveryLines {
+		t.Fatalf("queued lines=%d, limit=%d", queuedLines, maxQueuedDeliveryLines)
+	}
+
+	close(releaseFirst)
+	sink.drain()
+	for wantSeq := uint64(1); wantSeq <= 2; wantSeq++ {
+		select {
+		case event := <-delivered:
+			if event.Seq != wantSeq {
+				t.Fatalf("got seq=%d, want %d", event.Seq, wantSeq)
+			}
+			if wantSeq == 2 && !strings.Contains(event.Lines[0], "log-delivery-overflow") {
+				t.Fatalf("overflow delivery missing warning: %q", event.Lines[0])
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for seq=%d", wantSeq)
 		}
 	}
 }
@@ -208,8 +320,7 @@ func TestLogSink_Flush(t *testing.T) {
 	})
 
 	sink.Write([]byte("line1\nline2\n"))
-	sink.Flush()
-	time.Sleep(20 * time.Millisecond)
+	sink.drain()
 
 	mu.Lock()
 	defer mu.Unlock()

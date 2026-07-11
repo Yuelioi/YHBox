@@ -31,10 +31,11 @@
 Current:
 
 - `plan.md` 阶段 1 / 批次 D。
-- backend services（含 tools）已无 Wails import，root wiring 也无项目内直接 Win32 import；Linux/macOS 原生 runner GUI compile gate 已定义，当前剩余工作是首次远端运行与宿主 smoke，而不是继续追求 `CGO_ENABLED=0` 的 GUI 编译。
+- backend services（含 tools）已无 Wails import，root wiring 也无项目内直接 Win32 import；bound service 方法集已只保留真实 RPC。Linux/macOS 原生 runner GUI compile gate 已定义，当前剩余工作是首次远端运行与宿主 smoke，而不是继续追求 `CGO_ENABLED=0` 的 GUI 编译。
 
 Done:
 
+- 批次 D（第十三批）：将 16 个启动期 callback/interface 注入方法移出 Wails service 方法集，bindings 收敛到 107 methods / 0 warnings，并让 CI 拒绝 warning 回归；同时修复 LogSink 按 seq 生成却并发乱序交付及 shutdown 不等待尾日志的问题。
 - 批次 D（第十二批）：新增 Ubuntu 24.04 amd64 与 macOS 15 arm64 原生 GUI compile gate；安装宿主依赖、核对实际 Wails CLI、生成 bindings/frontend、以 production tag 编译并归档 Unix 产物。
 - 批次 D（第十一批）：Wails library/release CLI/README pin 统一到 `v3.0.0-alpha2.117` 并加入一致性脚本；root template capture/game provider 移除直接 `lxn/win`；更新 GUI 宿主构建基线与失效的透明窗 knowledge。
 - 批次 D（第十批）：App event transport 与 tools semantic window presenter 从 Wails 抽离；GUI options/policy 留在 executable adapter；统一 attempt/generation-aware window slot 消除并发 open/close 竞态；services/tools 进入 portable-core CI。
@@ -90,6 +91,10 @@ Verified:
 - D 第十一批后，alpha2.117 同版 CLI 成功生成 123 methods / 10 条已知 warning；全仓 Go test/vet/staticcheck、app/Wails pin 校验、`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过；root 非 Windows `CGO=0` 失败已只剩 Wails GUI 宿主依赖。
 - D 第十一批双轴 review：source verifier 改为检查每个受管文件的全部 pin，Task/release 强制核对 PATH 中实际 CLI；删除重复 foreground 实现并增加 root direct-Win32 import 守卫；最终 Standards/Spec 均无剩余 finding。
 - D 第十二批本地验证：workflow YAML/matrix 解析与 `git diff --check` 通过；双轴 review 修复干净 runner 缺 `bin/`、Unix artifact 执行位与浮动 macOS 架构问题。Linux/macOS 原生编译仍需提交后由远端 runner 首次执行确认。
+- D 第十三批 binding/frontend 验证：alpha2.117 正式生成 107 methods / 0 warnings；被移除的 16 个方法均为 Go 启动期装配入口，前端源码无调用；`vue-tsc`、67 个 Vitest 文件/527 tests 与 production build 通过。
+- D 第十三批日志回归：确定性测试证明旧 LogSink 可在 seq=1 callback 阻塞时先交付 seq=2；FIFO delivery pump 修复后顺序/Flush 回归 20 次与 LogSink race 5 次通过，shutdown 使用包内 drain barrier 排空已入队事件。慢 emitter 后的待交付 batch 有界合并并报告 overflow；高精度 timer 在重负载并行门禁中一次超时，隔离重复 20 次通过。
+- D 第十三批双轴 review：补齐 binding generator 非零输出、warning 单复数与 107-method 精确门禁；LogSink drain 不再对 emitter 暴露，Close 保持可重入，慢 callback 后的新建/合并 delivery 都受 2000 行及 backing-cap 上限约束；FIFO 测试使用确定性队列状态。最终 Standards/Spec 均无剩余 finding。
+- D 第十三批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、受影响 package race、Wails/app 版本校验与 `git diff --check` 通过。
 
 ## Open questions
 
@@ -98,4 +103,3 @@ Verified:
 - 首批正式支持的平台矩阵是什么：Windows + Linux，还是 Windows + Linux + macOS？Android/Browser 是 target adapter，不等同于宿主 OS 支持。
 - Container package 的崩溃一致性目标采用 generation directory，还是较轻的 lock-last commit + load-time validation？
 - 宿主 smoke 应只验证进程启动/资源装载，还是还要覆盖开窗与 WebView 首屏；Linux runner 是否引入虚拟 display？
-- Wails bindings 虽生成成功，但仍对 function type 和暴露给绑定的 non-empty interface 参数报告 10 条 JSON 编码警告；后续应收窄可绑定 service surface，避免把仅供 Go 内部装配的方法暴露给前端生成器。

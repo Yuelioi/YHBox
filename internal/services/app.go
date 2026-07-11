@@ -266,6 +266,6 @@ func (a *App) Shutdown() {
 		merger.Close()
 	}
 	if a.logSink != nil {
-		a.logSink.Flush()
+		a.logSink.drain()
 	}
 }

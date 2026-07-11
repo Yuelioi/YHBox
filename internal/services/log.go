@@ -15,22 +15,37 @@ const (
 	flushDebounce = 80 * time.Millisecond
 	maxBatchLines = 128 // 极端情况下立刻 flush，不等 debounce
 	ringCapacity  = 500 // GUI snapshot 用，不影响 emit 量
+	// A blocked presentation callback may accumulate one queued delivery. Keep
+	// its newest lines bounded; the ring snapshot remains the recovery source.
+	maxQueuedDeliveryLines = 4 * ringCapacity
 )
 
 // LogSink 实现 io.Writer。zerolog 输出 JSON Lines → 按 \n 切行 →
 // trailing-edge debounce + maxBatch 双保险 → flush 时给 emit 加单调 seq → 推 log:lines。
 // 同时把每完整行原始 bytes 顺手写入 logs/yotta-YYYYMMDD.log (post-mortem 调试).
 type LogSink struct {
-	mu      sync.Mutex
-	buf     strings.Builder // 累积未完整行
-	ring    []string        // 最近完整行（GUI snapshot 用）
-	pending []string        // 自上次 flush 起新增的行
-	timer   *time.Timer
-	seq     atomic.Uint64
-	emit    func(LogLinesEvent) // flush 时调；外部装配（app.Emit）
-	file    *os.File            // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
-	fileDay string              // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
-	fileDir string              // logs 目录路径
+	mu               sync.Mutex
+	buf              strings.Builder // 累积未完整行
+	ring             []string        // 最近完整行（GUI snapshot 用）
+	pending          []string        // 自上次 flush 起新增的行
+	timer            *time.Timer
+	seq              atomic.Uint64
+	emit             func(LogLinesEvent) // flush 时调；外部装配（app.Emit）
+	emitGeneration   uint64
+	deliveries       []logDelivery // FIFO，保证 seq 按生成顺序交付
+	delivering       bool
+	lastDeliveryDone <-chan struct{}
+	file             *os.File // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
+	fileDay          string   // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
+	fileDir          string   // logs 目录路径
+}
+
+type logDelivery struct {
+	event          LogLinesEvent
+	emit           func(LogLinesEvent)
+	emitGeneration uint64
+	droppedLines   uint64
+	done           chan struct{}
 }
 
 // NewLogSink 创建一个 sink。emit 可为 nil（测试用），nil 时仅维护 ring。
@@ -90,6 +105,7 @@ func (s *LogSink) openTodayFileLocked() {
 func (s *LogSink) SetEmit(emit func(LogLinesEvent)) {
 	s.mu.Lock()
 	s.emit = emit
+	s.emitGeneration++
 	s.mu.Unlock()
 }
 
@@ -146,22 +162,102 @@ func (s *LogSink) flushLocked() {
 	}
 	lines := append([]string(nil), s.pending...)
 	s.pending = nil
+	if count := len(s.deliveries); count > 0 {
+		last := &s.deliveries[count-1]
+		if last.emitGeneration == s.emitGeneration {
+			s.appendQueuedLinesLocked(last, lines)
+			return
+		}
+	}
 	seq := s.seq.Add(1)
 	cb := s.emit
 
-	// 不在锁内调 cb（cb 可能 emit 后回调到这里）
-	go func() {
-		if cb != nil {
-			cb(LogLinesEvent{Seq: seq, Lines: lines})
-		}
-	}()
+	done := make(chan struct{})
+	delivery := logDelivery{
+		event:          LogLinesEvent{Seq: seq},
+		emit:           cb,
+		emitGeneration: s.emitGeneration,
+		done:           done,
+	}
+	s.appendQueuedLinesLocked(&delivery, lines)
+	s.lastDeliveryDone = done
+	s.deliveries = append(s.deliveries, delivery)
+	if !s.delivering {
+		s.delivering = true
+		go s.deliver()
+	}
 }
 
-// Flush 强制立即 flush（Shutdown 时用，避免最后几行日志丢）。
+func (s *LogSink) appendQueuedLinesLocked(delivery *logDelivery, lines []string) {
+	combined := len(delivery.event.Lines) + len(lines)
+	if combined <= maxQueuedDeliveryLines {
+		delivery.event.Lines = append(delivery.event.Lines, lines...)
+		return
+	}
+
+	overflow := combined - maxQueuedDeliveryLines
+	delivery.droppedLines += uint64(overflow)
+	bounded := make([]string, 0, maxQueuedDeliveryLines)
+	if len(lines) >= maxQueuedDeliveryLines {
+		bounded = append(bounded, lines[len(lines)-maxQueuedDeliveryLines:]...)
+	} else {
+		keepExisting := maxQueuedDeliveryLines - len(lines)
+		existing := delivery.event.Lines
+		bounded = append(bounded, existing[len(existing)-keepExisting:]...)
+		bounded = append(bounded, lines...)
+	}
+	delivery.event.Lines = bounded
+}
+
+// deliver serializes callbacks without holding s.mu, preserving sequence order
+// while allowing an emitter to write more logs without deadlocking the sink.
+func (s *LogSink) deliver() {
+	for {
+		s.mu.Lock()
+		if len(s.deliveries) == 0 {
+			s.delivering = false
+			s.deliveries = nil
+			s.mu.Unlock()
+			return
+		}
+		delivery := s.deliveries[0]
+		s.deliveries[0] = logDelivery{}
+		s.deliveries = s.deliveries[1:]
+		s.mu.Unlock()
+
+		if delivery.emit != nil {
+			if delivery.droppedLines > 0 {
+				warning := fmt.Sprintf(
+					`{"level":"warn","event":"log-delivery-overflow","dropped":%d,"message":"presentation log delivery was slower than producers"}`,
+					delivery.droppedLines,
+				)
+				delivery.event.Lines = append([]string{warning}, delivery.event.Lines...)
+			}
+			delivery.emit(delivery.event)
+		}
+		close(delivery.done)
+	}
+}
+
+// Flush forces pending lines into the delivery queue without waiting for the
+// presentation callback. This remains safe when called from an emit callback.
 func (s *LogSink) Flush() {
 	s.mu.Lock()
 	s.flushLocked()
 	s.mu.Unlock()
+}
+
+// drain flushes pending lines and waits for queued presentation callbacks.
+// It is intentionally package-private: emit callbacks may call Flush or Close,
+// but lifecycle code must be the sole caller of this non-reentrant barrier.
+func (s *LogSink) drain() {
+	s.mu.Lock()
+	s.flushLocked()
+	done := s.lastDeliveryDone
+	s.mu.Unlock()
+	if done != nil {
+		<-done
+	}
 }
 
 // appendLineLocked 持锁加一行到 ring + file (如启用).
@@ -296,6 +392,7 @@ func lenAnySlice(v any) int {
 
 // Close 关闭日志文件 (shutdown 时调).
 func (s *LogSink) Close() error {
+	s.Flush()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.file != nil {
