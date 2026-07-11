@@ -14,8 +14,9 @@ const (
 func (CloseWindow) Spec() node.Spec {
 	return node.Spec{
 		Kind: "CloseWindow", Category: "Window", NeedsWindow: true,
-		Inputs:  append([]node.InputSpec{{Name: cwInExec, Type: "Exec"}}, node.WindowInputSpec()),
-		Outputs: []node.OutputSpec{{Name: cwDone, Type: "Exec"}},
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityWindow},
+		Inputs:              append([]node.InputSpec{{Name: cwInExec, Type: "Exec"}}, node.WindowInputSpec()),
+		Outputs:             []node.OutputSpec{{Name: cwDone, Type: "Exec"}},
 	}
 }
 

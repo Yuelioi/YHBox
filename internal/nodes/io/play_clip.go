@@ -19,10 +19,11 @@ const (
 
 func (PlayClip) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "PlayClip",
-		Category:        "IO",
-		NeedsWindow:     true,
-		NeedsForeground: true,
+		Kind:                "PlayClip",
+		Category:            "IO",
+		NeedsWindow:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityClip},
+		NeedsForeground:     true,
 		Inputs: append([]node.InputSpec{
 			{Name: pcInExec, Type: "Exec"},
 			{Name: pcInClipID, Type: "String", Required: true, Semantic: "ClipID",

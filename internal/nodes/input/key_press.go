@@ -26,9 +26,10 @@ const (
 
 func (KeyPress) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "KeyPress",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "KeyPress",
+		Category:            "Input",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityKeyState,
 		},

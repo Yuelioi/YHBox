@@ -22,9 +22,10 @@ const (
 
 func (DecodeQR) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DecodeQR",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "DecodeQR",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

@@ -154,3 +154,39 @@ func TestRegister_NeedsWindowRequiresWindowInput(t *testing.T) {
 	}()
 	Register(&badNeedsWindowNode{})
 }
+
+type runtimeCapabilityNode struct{ capabilities []RuntimeCapability }
+
+func (n runtimeCapabilityNode) Spec() Spec {
+	return Spec{
+		Kind:                "RuntimeCapabilityNode",
+		Outputs:             []OutputSpec{{Name: "Done", Type: TypeExec}},
+		RuntimeCapabilities: n.capabilities,
+	}
+}
+
+func (runtimeCapabilityNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
+	return ctx.Out("Done").Fire(), nil
+}
+
+func TestRegister_RejectsUnknownRuntimeCapability(t *testing.T) {
+	ResetRegistryForTest()
+	defer ResetRegistryForTest()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected unknown runtime capability panic")
+		}
+	}()
+	Register(runtimeCapabilityNode{capabilities: []RuntimeCapability{"unknown"}})
+}
+
+func TestRegister_RejectsDuplicateRuntimeCapability(t *testing.T) {
+	ResetRegistryForTest()
+	defer ResetRegistryForTest()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected duplicate runtime capability panic")
+		}
+	}()
+	Register(runtimeCapabilityNode{capabilities: []RuntimeCapability{RuntimeCapabilityLog, RuntimeCapabilityLog}})
+}

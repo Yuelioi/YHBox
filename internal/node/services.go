@@ -301,6 +301,48 @@ func NewStubStopwatchStore() StopwatchStore {
 
 // ---- ServiceBundle helpers ----
 
+func (s ServiceBundle) firstMissing(required []RuntimeCapability) (RuntimeCapability, bool) {
+	for _, capability := range required {
+		available, _ := s.runtimeCapabilityAvailable(capability)
+		if !available {
+			return capability, true
+		}
+	}
+	return "", false
+}
+
+func (s ServiceBundle) runtimeCapabilityAvailable(capability RuntimeCapability) (available, known bool) {
+	switch capability {
+	case RuntimeCapabilityVision:
+		return s.Vision != nil, true
+	case RuntimeCapabilityLog:
+		return s.Log != nil, true
+	case RuntimeCapabilityInput:
+		return s.Input != nil, true
+	case RuntimeCapabilityVars:
+		return s.Vars != nil, true
+	case RuntimeCapabilityParams:
+		return s.Params != nil, true
+	case RuntimeCapabilityWindow:
+		return s.Window != nil, true
+	case RuntimeCapabilityTarget:
+		return s.Target != nil, true
+	case RuntimeCapabilityApp:
+		return s.App != nil, true
+	case RuntimeCapabilityCapture:
+		return s.Capture != nil, true
+	case RuntimeCapabilityStopwatches:
+		return s.Stopwatches != nil, true
+	case RuntimeCapabilityClip:
+		return s.Clip != nil, true
+	case RuntimeCapabilitySubgraphs:
+		return s.Subgraphs != nil, true
+	case RuntimeCapabilityAI:
+		return s.AI != nil, true
+	}
+	return false, false
+}
+
 // StubServices 返一个全 stub 填充的 ServiceBundle, test 用.
 // main.go 不用这个, 直接 new ServiceBundle 塞真 backend.
 //

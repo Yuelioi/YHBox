@@ -11,12 +11,12 @@ import (
 
 // RunResult 单节点执行结果. framework 用来路由 + 日志 + error 传播.
 type RunResult struct {
-	ExitName    string
-	OutputData  map[string]any
-	Error       error
-	Validation  []ValidationError
-	Panic       any    // recovered panic value, nil if no panic
-	PanicStack  string // stack trace if panic
+	ExitName   string
+	OutputData map[string]any
+	Error      error
+	Validation []ValidationError
+	Panic      any    // recovered panic value, nil if no panic
+	PanicStack string // stack trace if panic
 
 	ResolvedInputs map[string]any // 仅 logEnabled 时填: 声明 pin 的本次输入快照, 供 dump 日志
 	Duration       time.Duration  // 节点 Run 实际耗时 (含 WaitMatch 等内部轮询), 供 dump 日志显示 took=
@@ -39,6 +39,9 @@ func prepareExec(ctx context.Context, rn *RegisteredNode, dataWire, config, exec
 		if errs := rn.Validate(in); len(errs) > 0 {
 			return nil, &RunResult{Validation: errs}
 		}
+	}
+	if missing, ok := services.firstMissing(rn.Spec.RuntimeCapabilities); ok {
+		return nil, &RunResult{Error: &AssemblyError{NodeKind: rn.Spec.Kind, Capability: missing}}
 	}
 	c := newCtx(ctx, services, &rn.Spec, config)
 	return &preparedExec{in: in, ctx: c}, nil
@@ -140,12 +143,15 @@ func EvaluatePureData(ctx context.Context, rn *RegisteredNode, dataWire, config 
 	// snapshot wrap — PureData Evaluator 内部看到的 Vars 是 tick-frozen view.
 	// services.Snapshot 是 framework-injected getter; nil 时跳过 wrap (测试 stub 用).
 	// services 是值类型 (传值 copy), 改 services 内字段不影响 caller.
-	if services.Snapshot != nil {
+	if services.Snapshot != nil && services.Vars != nil {
 		snap := services.Snapshot(ctx)
 		services.Vars = newSnapshotVarStore(services.Vars, snap)
 	}
 	p, gateFail := prepareExec(ctx, rn, dataWire, config, nil, services)
 	if gateFail != nil {
+		if gateFail.Error != nil {
+			return nil, gateFail.Error
+		}
 		msgs := make([]string, 0, len(gateFail.Validation))
 		for _, e := range gateFail.Validation {
 			msgs = append(msgs, e.Message)

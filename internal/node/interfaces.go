@@ -4,6 +4,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -392,6 +393,16 @@ type ServiceBundle struct {
 	Subgraphs   SubgraphCaller                     // 脚本调子图用, runtime 端 wire (ContainerRunner 自身)
 	AI          AIProviderService                  // AI 节点取按连接缓存的 llm.Provider, runtime 端从 settings wire
 	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
+}
+
+// AssemblyError reports a missing runtime dependency before node code runs.
+type AssemblyError struct {
+	NodeKind   string
+	Capability RuntimeCapability
+}
+
+func (e *AssemblyError) Error() string {
+	return fmt.Sprintf("node %q requires runtime capability %q, but it is not wired", e.NodeKind, e.Capability)
 }
 
 // AIProviderService — AI 节点按 connectionID(空 = ai.default)取一个缓存的 llm.Provider。

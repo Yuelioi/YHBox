@@ -23,9 +23,10 @@ const (
 
 func (Scroll) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Scroll",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "Scroll",
+		Category:            "Input",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScroll,
 		},

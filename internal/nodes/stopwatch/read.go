@@ -20,8 +20,9 @@ const (
 
 func (Read) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "StopwatchRead",
-		Category: "Stopwatch",
+		Kind:                "StopwatchRead",
+		Category:            "Stopwatch",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityStopwatches},
 		Inputs: []node.InputSpec{
 			{Name: swReadInExec, Type: "Exec"},
 			{Name: swReadInKey, Type: "String", Required: true, Default: "default",

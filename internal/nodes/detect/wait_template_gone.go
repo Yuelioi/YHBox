@@ -28,9 +28,10 @@ const (
 
 func (WaitTemplateGone) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "WaitTemplateGone",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "WaitTemplateGone",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

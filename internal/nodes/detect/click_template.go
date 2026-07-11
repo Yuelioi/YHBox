@@ -53,6 +53,11 @@ func (ClickTemplate) Spec() node.Spec {
 		Kind:        "ClickTemplate",
 		Category:    "Detect",
 		NeedsTarget: true,
+		RuntimeCapabilities: []node.RuntimeCapability{
+			node.RuntimeCapabilityVision,
+			node.RuntimeCapabilityInput,
+			node.RuntimeCapabilityWindow,
+		},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 			node.TargetCapabilityClick,

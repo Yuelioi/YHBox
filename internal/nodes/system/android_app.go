@@ -70,10 +70,11 @@ func (AndroidStopApp) Validate(in node.Inputs) []node.ValidationError {
 
 func androidAppSpec(kind string, capability node.TargetCapability) node.Spec {
 	return node.Spec{
-		Kind:               kind,
-		Category:           "IO",
-		NeedsTarget:        true,
-		TargetCapabilities: []node.TargetCapability{capability},
+		Kind:                kind,
+		Category:            "IO",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityApp},
+		TargetCapabilities:  []node.TargetCapability{capability},
 		Inputs: []node.InputSpec{
 			{Name: androidAppInExec, Type: node.TypeExec},
 			{Name: androidAppInPackage, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "async-dropdown",

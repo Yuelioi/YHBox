@@ -18,8 +18,9 @@ const (
 
 func (Stop) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "StopwatchStop",
-		Category: "Stopwatch",
+		Kind:                "StopwatchStop",
+		Category:            "Stopwatch",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityStopwatches},
 		Inputs: []node.InputSpec{
 			{Name: swStopInExec, Type: "Exec"},
 			{Name: swStopInKey, Type: "String", Required: true, Default: "default",

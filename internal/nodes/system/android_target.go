@@ -27,8 +27,9 @@ const (
 
 func (AndroidTarget) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "AndroidTarget",
-		Category: "Target",
+		Kind:                "AndroidTarget",
+		Category:            "Target",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityTarget},
 		Inputs: []node.InputSpec{
 			{Name: atInExec, Type: node.TypeExec},
 			{Name: atInSerial, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "async-dropdown",

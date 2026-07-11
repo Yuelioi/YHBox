@@ -29,6 +29,11 @@ func specBuilder(kind string, inputs []node.InputSpec, resultType string) node.S
 	}
 }
 
+func withRuntimeCapabilities(spec node.Spec, capabilities ...node.RuntimeCapability) node.Spec {
+	spec.RuntimeCapabilities = append([]node.RuntimeCapability(nil), capabilities...)
+	return spec
+}
+
 // numIn 2 个 number 输入 (A, B).
 func numIn() []node.InputSpec {
 	return []node.InputSpec{

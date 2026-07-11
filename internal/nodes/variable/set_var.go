@@ -22,8 +22,9 @@ const (
 
 func (SetVar) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "SetVar",
-		Category: "Variable",
+		Kind:                "SetVar",
+		Category:            "Variable",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVars},
 		Inputs: []node.InputSpec{
 			{Name: svInExec, Type: "Exec"},
 			{Name: svInVarName, Type: "String", Required: true, Semantic: "varname",

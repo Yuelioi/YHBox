@@ -49,9 +49,10 @@ const (
 
 func (DetectColorHSV) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DetectColorHSV",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "DetectColorHSV",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

@@ -32,9 +32,10 @@ const (
 
 func (WaitTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "WaitTemplate",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "WaitTemplate",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

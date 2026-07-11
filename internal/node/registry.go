@@ -105,6 +105,16 @@ func Register(impl Node) {
 			panic(fmt.Sprintf("node %q: NeedsWindow=true but missing Window input — spread node.WindowInputSpec() into Inputs", spec.Kind))
 		}
 	}
+	seenRuntimeCapabilities := make(map[RuntimeCapability]struct{}, len(spec.RuntimeCapabilities))
+	for _, capability := range spec.RuntimeCapabilities {
+		if _, known := (ServiceBundle{}).runtimeCapabilityAvailable(capability); !known {
+			panic(fmt.Sprintf("node %q: unknown runtime capability %q", spec.Kind, capability))
+		}
+		if _, duplicate := seenRuntimeCapabilities[capability]; duplicate {
+			panic(fmt.Sprintf("node %q: duplicate runtime capability %q", spec.Kind, capability))
+		}
+		seenRuntimeCapabilities[capability] = struct{}{}
+	}
 
 	globalRegistry[spec.Kind] = rn
 }

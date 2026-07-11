@@ -23,8 +23,9 @@ const (
 
 func (IncVar) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "IncVar",
-		Category: "Variable",
+		Kind:                "IncVar",
+		Category:            "Variable",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVars},
 		Inputs: []node.InputSpec{
 			{Name: ivInExec, Type: "Exec"},
 			{Name: ivInVarName, Type: "String", Required: true, Semantic: "varname",

@@ -35,15 +35,16 @@ type Pin struct {
 }
 
 type Node struct {
-	Kind               string   `json:"kind"`
-	Category           string   `json:"category"`
-	NeedsTarget        bool     `json:"needsTarget,omitempty"`
-	TargetCapabilities []string `json:"targetCapabilities,omitempty"`
-	SupportedTargets   []string `json:"supportedTargets,omitempty"`
-	NeedsWindow        bool     `json:"needsWindow,omitempty"`
-	IsPureData         bool     `json:"isPureData,omitempty"`
-	Inputs             []Pin    `json:"inputs"`
-	Outputs            []Pin    `json:"outputs"`
+	Kind                string   `json:"kind"`
+	Category            string   `json:"category"`
+	NeedsTarget         bool     `json:"needsTarget,omitempty"`
+	TargetCapabilities  []string `json:"targetCapabilities,omitempty"`
+	RuntimeCapabilities []string `json:"runtimeCapabilities,omitempty"`
+	SupportedTargets    []string `json:"supportedTargets,omitempty"`
+	NeedsWindow         bool     `json:"needsWindow,omitempty"`
+	IsPureData          bool     `json:"isPureData,omitempty"`
+	Inputs              []Pin    `json:"inputs"`
+	Outputs             []Pin    `json:"outputs"`
 	// 展示文案 (仅 BuildWithI18n 填充)。
 	Label       string `json:"label,omitempty"`
 	Description string `json:"description,omitempty"`
@@ -60,6 +61,9 @@ func Build() []Node {
 		cn := Node{Kind: s.Kind, Category: s.Category, NeedsTarget: s.NeedsTarget, SupportedTargets: s.SupportedTargets, NeedsWindow: s.NeedsWindow, IsPureData: s.IsPureData}
 		for _, cap := range s.TargetCapabilities {
 			cn.TargetCapabilities = append(cn.TargetCapabilities, string(cap))
+		}
+		for _, capability := range s.RuntimeCapabilities {
+			cn.RuntimeCapabilities = append(cn.RuntimeCapabilities, string(capability))
 		}
 		for _, in := range s.Inputs {
 			cn.Inputs = append(cn.Inputs, Pin{

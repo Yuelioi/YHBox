@@ -90,9 +90,10 @@ func valueExit(name string) node.OutputSpec {
 
 func (WaitStable) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "WaitStable",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "WaitStable",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},
@@ -110,9 +111,10 @@ func (WaitStable) Spec() node.Spec {
 
 func (WaitChange) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "WaitChange",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "WaitChange",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

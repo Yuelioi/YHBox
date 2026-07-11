@@ -28,9 +28,10 @@ type Capture struct{}
 
 func (Capture) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Capture",
-		Category:    "Image",
-		NeedsTarget: true,
+		Kind:                "Capture",
+		Category:            "Image",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityCapture},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

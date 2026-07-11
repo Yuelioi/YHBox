@@ -21,8 +21,9 @@ import (
 func BundleFromCtx(c node.Ctx) node.ServiceBundle {
 	return node.ServiceBundle{
 		Vision: c.Vision(), Log: c.Log(), Input: c.Input(), Vars: c.Vars(),
-		Params: c.Params(), Window: c.Window(), Capture: c.Capture(),
-		Stopwatches: c.Stopwatches(), Clip: c.Clip(),
+		Params: c.Params(), Window: c.Window(), Target: c.Target(), App: c.App(),
+		Capture: c.Capture(), Stopwatches: c.Stopwatches(), Clip: c.Clip(),
+		Subgraphs: c.Subgraphs(), AI: c.AI(),
 	}
 }
 

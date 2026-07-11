@@ -20,8 +20,9 @@ const (
 
 func (Log) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "Log",
-		Category: "IO",
+		Kind:                "Log",
+		Category:            "IO",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityLog},
 		Inputs: []node.InputSpec{
 			{Name: logInExec, Type: "Exec"},
 			{Name: logInMessage, Type: "*", Required: true,

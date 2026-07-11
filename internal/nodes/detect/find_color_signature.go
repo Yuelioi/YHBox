@@ -38,9 +38,10 @@ var fcsSignatureSchema = node.ArraySchema(node.ObjSchema(
 
 func (FindColorSignature) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "FindColorSignature",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "FindColorSignature",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

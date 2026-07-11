@@ -18,10 +18,11 @@ const (
 
 func (BringWindowForeground) Spec() node.Spec {
 	return node.Spec{
-		Kind:            "BringWindowForeground",
-		Category:        "Window",
-		NeedsWindow:     true,
-		NeedsForeground: true,
+		Kind:                "BringWindowForeground",
+		Category:            "Window",
+		NeedsWindow:         true,
+		NeedsForeground:     true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityWindow, node.RuntimeCapabilityLog},
 		Inputs: append([]node.InputSpec{
 			{Name: bgfInExec, Type: "Exec"},
 		}, node.WindowInputSpec()),

@@ -20,8 +20,9 @@ const (
 
 func (VarLastChange) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "VarLastChange",
-		Category: "Variable",
+		Kind:                "VarLastChange",
+		Category:            "Variable",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVars},
 		Inputs: []node.InputSpec{
 			{Name: vlcInVarName, Type: "String", Required: true, Semantic: "varname",
 				Widget: node.WidgetSpec{Kind: "text"}},

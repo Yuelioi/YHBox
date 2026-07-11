@@ -23,9 +23,10 @@ const (
 
 func (MouseHoldStart) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseHoldStart",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "MouseHoldStart",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow},
+		Category:            "Input",
+		NeedsTarget:         true,
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityMouseButton,
 		},
@@ -83,9 +84,10 @@ const (
 
 func (MouseHoldStop) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseHoldStop",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "MouseHoldStop",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput},
+		Category:            "Input",
+		NeedsTarget:         true,
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityMouseButton,
 		},

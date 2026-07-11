@@ -42,9 +42,10 @@ var dualBarOptionsSchema = node.ObjSchema(
 
 func (DualColorBarTrack) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DualColorBarTrack",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "DualColorBarTrack",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

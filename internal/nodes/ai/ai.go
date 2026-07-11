@@ -38,8 +38,9 @@ type AI struct{}
 
 func (AI) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "AI",
-		Category: "AI",
+		Kind:                "AI",
+		Category:            "AI",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityAI},
 		Inputs: []node.InputSpec{
 			{Name: pinIn, Type: node.TypeExec},
 			{Name: inConnection, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "ai-connection"}},

@@ -24,8 +24,9 @@ const (
 
 func (Win32WindowTarget) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "Win32WindowTarget",
-		Category: "Target",
+		Kind:                "Win32WindowTarget",
+		Category:            "Target",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityWindow},
 		Inputs: []node.InputSpec{
 			{Name: wtInExec, Type: "Exec"},
 			{Name: wtInTitle, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},

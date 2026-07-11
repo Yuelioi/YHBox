@@ -12,9 +12,9 @@ import (
 type ParseJSON struct{}
 
 func (ParseJSON) Spec() node.Spec {
-	return specBuilder("ParseJSON", []node.InputSpec{
+	return withRuntimeCapabilities(specBuilder("ParseJSON", []node.InputSpec{
 		{Name: "Text", Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
-	}, "JSON")
+	}, "JSON"), node.RuntimeCapabilityLog)
 }
 
 func (ParseJSON) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
@@ -36,9 +36,9 @@ func (ParseJSON) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 type ToJSON struct{}
 
 func (ToJSON) Spec() node.Spec {
-	return specBuilder("ToJSON", []node.InputSpec{
+	return withRuntimeCapabilities(specBuilder("ToJSON", []node.InputSpec{
 		{Name: "Value", Type: "*"},
-	}, "String")
+	}, "String"), node.RuntimeCapabilityLog)
 }
 
 func (ToJSON) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {

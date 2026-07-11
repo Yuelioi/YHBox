@@ -25,6 +25,7 @@ func (MoveResizeWindow) Spec() node.Spec {
 	}
 	return node.Spec{
 		Kind: "MoveResizeWindow", Category: "Window", NeedsWindow: true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityWindow},
 		Inputs: append([]node.InputSpec{
 			{Name: mrInExec, Type: "Exec"}, num(mrInX), num(mrInY), num(mrInW), num(mrInH),
 		}, node.WindowInputSpec()),

@@ -171,6 +171,9 @@ func TestBuild_KeyPressShape(t *testing.T) {
 		if !hasCatalogCapability(n.TargetCapabilities, "key-state") {
 			t.Fatalf("KeyPress should publish key-state target capability, got %+v", n.TargetCapabilities)
 		}
+		if !hasCatalogCapability(n.RuntimeCapabilities, "input") {
+			t.Fatalf("KeyPress should publish input runtime capability, got %+v", n.RuntimeCapabilities)
+		}
 		assertCatalogTargets(t, n.SupportedTargets, []string{"win32-window"})
 		var vk *Pin
 		for i := range n.Inputs {

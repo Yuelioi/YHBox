@@ -27,9 +27,10 @@ const (
 
 func (Swipe) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "Swipe",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "Swipe",
+		Category:            "Input",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityDrag,
 		},

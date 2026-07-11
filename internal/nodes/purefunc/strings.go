@@ -154,7 +154,7 @@ func (EndsWith) Evaluate(_ node.Ctx, in node.Inputs) (any, error) {
 type RegexMatch struct{}
 
 func (RegexMatch) Spec() node.Spec {
-	return specBuilder("RegexMatch", []node.InputSpec{strTextIn("Text"), strTextIn("Pattern")}, "Bool")
+	return withRuntimeCapabilities(specBuilder("RegexMatch", []node.InputSpec{strTextIn("Text"), strTextIn("Pattern")}, "Bool"), node.RuntimeCapabilityLog)
 }
 
 // Evaluate — 搜索/包含匹配 ("abc"+"b"→true); 全文匹配用户自己写 ^...$.
@@ -171,7 +171,7 @@ func (RegexMatch) Evaluate(ctx node.Ctx, in node.Inputs) (any, error) {
 type RegexExtract struct{}
 
 func (RegexExtract) Spec() node.Spec {
-	return specBuilder("RegexExtract", []node.InputSpec{strTextIn("Text"), strTextIn("Pattern")}, "String")
+	return withRuntimeCapabilities(specBuilder("RegexExtract", []node.InputSpec{strTextIn("Text"), strTextIn("Pattern")}, "String"), node.RuntimeCapabilityLog)
 }
 
 // Evaluate — 有捕获组取组1 (多组只组1, 命名组也按位置), 无组取整匹配; 无匹配/非法 → "".

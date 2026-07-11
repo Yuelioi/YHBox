@@ -8,6 +8,28 @@ const TypeExec = "Exec"
 
 type TargetCapability string
 
+// RuntimeCapability identifies a ServiceBundle dependency that must be wired
+// before a node can execute. It is separate from TargetCapability: the latter
+// describes what an active automation controller can do, while this list
+// describes which runtime service ports the node itself consumes.
+type RuntimeCapability string
+
+const (
+	RuntimeCapabilityVision      RuntimeCapability = "vision"
+	RuntimeCapabilityLog         RuntimeCapability = "log"
+	RuntimeCapabilityInput       RuntimeCapability = "input"
+	RuntimeCapabilityVars        RuntimeCapability = "vars"
+	RuntimeCapabilityParams      RuntimeCapability = "params"
+	RuntimeCapabilityWindow      RuntimeCapability = "window"
+	RuntimeCapabilityTarget      RuntimeCapability = "target"
+	RuntimeCapabilityApp         RuntimeCapability = "app"
+	RuntimeCapabilityCapture     RuntimeCapability = "capture"
+	RuntimeCapabilityStopwatches RuntimeCapability = "stopwatches"
+	RuntimeCapabilityClip        RuntimeCapability = "clip"
+	RuntimeCapabilitySubgraphs   RuntimeCapability = "subgraphs"
+	RuntimeCapabilityAI          RuntimeCapability = "ai"
+)
+
 const (
 	TargetCapabilityScreenshot   TargetCapability = "screenshot"
 	TargetCapabilityClick        TargetCapability = "click"
@@ -47,6 +69,10 @@ type Spec struct {
 	// 名称与 automation/controller.Capability 字符串保持一致, validator 用 controller
 	// profiles 做静态匹配, runtime adapter 仍保留执行期兜底。
 	TargetCapabilities []TargetCapability `json:"targetCapabilities,omitempty"`
+	// RuntimeCapabilities declares the ServiceBundle ports used by Run/Evaluate.
+	// The engine validates these before calling node code, so a missing adapter is
+	// an assembly error instead of a nil-interface panic.
+	RuntimeCapabilities []RuntimeCapability `json:"runtimeCapabilities,omitempty"`
 	// SupportedTargets — 节点可用的用户可见自动化目标类型, 由 NeedsWindow /
 	// NeedsTarget / TargetCapabilities / PlatformTargets 派生后暴露给前端展示平台 badge。
 	// 节点实现不要手写此字段; NodeService/Catalog 在导出前填充。

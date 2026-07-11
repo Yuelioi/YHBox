@@ -29,9 +29,10 @@ const (
 
 func (FindTemplateAll) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "FindTemplateAll",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "FindTemplateAll",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

@@ -23,9 +23,10 @@ const (
 
 func (MouseMoveRel) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "MouseMoveRel",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "MouseMoveRel",
+		Category:            "Input",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityMoveRelative,
 		},

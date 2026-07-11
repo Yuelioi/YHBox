@@ -26,6 +26,8 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 | `Category` | 前端 palette 分组（Control / Detect / Input / …，见 reference 目录） |
 | `Inputs []InputSpec` | 输入 pin（exec + data） |
 | `Outputs []OutputSpec` | 输出 pin（exec 出口可带 `Data []DataField`，即"出口携带的数据"，如 `CheckTemplate.Found` 带 `Point`） |
+| `RuntimeCapabilities` | 节点执行需要的 `ServiceBundle` port（vision/input/window/vars/…）。framework 在进入节点代码前校验，缺失返回 typed `AssemblyError` |
+| `TargetCapabilities` | active automation controller 必须支持的动作能力（screenshot/click/key-state/…），与 runtime service 装配是两层独立契约 |
 
 **标志位**（都是 `Spec` 上的 bool，决定派发/校验行为）：
 
@@ -84,6 +86,7 @@ PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**�
 3. **满足 capability invariant**（`registry.go` Register 时校验，违反直接 panic、init-time 立刻暴露）：
    - 非 marker/visual 节点 **恰好一种** capability（0 个 → panic "zero capabilities"；>1 个 → panic "multiple capabilities"）。
    - `IsPureData: true` 必须实现 Evaluator，否则 panic。
+   - `RuntimeCapabilities` 只能使用已知值且不能重复；共享 helper 的间接依赖（例如 `ResolvePoint` 的 Window）也必须声明。完整内建 registry 的语义矩阵由 `internal/nodes/all/runtime_capabilities_test.go` 守卫。
 4. 注册表在 Wails OnStartup 末尾 `Freeze()`，之后再 Register 会 panic（注册只能在 init 期）。
 
 可选扩展接口（type assertion 探测，实现即生效）：`Validator`（节点自身静态校验）、`Dependencer`（子图分享/library import 时 BFS 抽外部资产引用）。
@@ -105,9 +108,10 @@ PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**�
 
 - **Validation**：user graph 写错（Required 缺值 / Validator 返错）→ 节点变红，**不是 panic**。
 - **Error**：runtime fail（Run 返 error）→ 节点变红。
+- **AssemblyError**：Spec 声明的 runtime service 未装配。输入/节点验证通过后、节点代码执行前返回 typed error，不进入 `Run`/`Evaluate`，不依赖 nil panic。
 - **Panic**：framework invariant 被破（double Fire / `Out(unknown)` / 不可能状态）→ `runWithRecover` recover + stack 进 log；panic 路径会清空 ExitName/OutputData 防止 half-baked result 被当合法路由。
 
-services 内任何字段都可能 nil；节点拿到 nil service 调方法 → panic → 被 framework recover 报回 `RunResult.Panic`。
+未在 Spec 声明却直接访问 nil service 属于节点契约 bug；内建节点由完整 registry capability matrix 防回退。真正可选的 service 必须 nil-safe，不得靠 recover 表达正常装配缺失。
 
 ## 7. 值与类型 helper（框架级，常被新节点漏用）
 

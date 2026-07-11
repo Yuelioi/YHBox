@@ -21,8 +21,9 @@ const (
 
 func (GetVar) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "GetVar",
-		Category: "Variable",
+		Kind:                "GetVar",
+		Category:            "Variable",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVars},
 		Inputs: []node.InputSpec{
 			{Name: gvInVarName, Type: "String", Required: true, Semantic: "varname",
 				Widget: node.WidgetSpec{Kind: "text"}},

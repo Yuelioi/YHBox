@@ -15,6 +15,7 @@ const (
 func (WindowState) Spec() node.Spec {
 	return node.Spec{
 		Kind: "WindowState", Category: "Window", NeedsWindow: true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityWindow},
 		Inputs: append([]node.InputSpec{
 			{Name: wsInExec, Type: "Exec"},
 			{Name: wsInState, Type: "String", Default: "maximize",

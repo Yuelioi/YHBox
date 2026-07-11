@@ -28,9 +28,10 @@ const (
 
 func (ClickAt) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "ClickAt",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "ClickAt",
+		Category:            "Input",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityMove,
 			node.TargetCapabilityClick,

@@ -43,9 +43,10 @@ const (
 
 func (DetectColorBlobs) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DetectColorBlobs",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "DetectColorBlobs",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

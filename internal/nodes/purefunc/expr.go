@@ -26,8 +26,9 @@ type Expr struct{}
 
 func (Expr) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "Expr",
-		Category: "PureFunc",
+		Kind:                "Expr",
+		Category:            "PureFunc",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVars},
 		Inputs: []node.InputSpec{
 			{Name: exprInExpression, Type: "String", Default: "", Required: true,
 				Widget: node.WidgetSpec{Kind: "expr",

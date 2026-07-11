@@ -43,9 +43,10 @@ var dcRangeSchema = node.TupleSchema(
 
 func (DetectColor) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "DetectColor",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "DetectColor",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

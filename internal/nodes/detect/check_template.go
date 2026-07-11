@@ -31,9 +31,10 @@ const (
 // === Spec: declarative metadata ===
 func (CheckTemplate) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "CheckTemplate",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "CheckTemplate",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

@@ -20,8 +20,9 @@ const (
 
 func (GetParam) Spec() node.Spec {
 	return node.Spec{
-		Kind:     "GetParam",
-		Category: "Variable",
+		Kind:                "GetParam",
+		Category:            "Variable",
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityParams},
 		Inputs: []node.InputSpec{
 			{Name: gpInParamName, Type: "String", Required: true,
 				Widget: node.WidgetSpec{Kind: "text"}},

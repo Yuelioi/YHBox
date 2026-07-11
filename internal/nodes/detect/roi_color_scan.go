@@ -33,9 +33,10 @@ const (
 
 func (ROIColorScan) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "ROIColorScan",
-		Category:    "Detect",
-		NeedsTarget: true,
+		Kind:                "ROIColorScan",
+		Category:            "Detect",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityVision},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityScreenshot,
 		},

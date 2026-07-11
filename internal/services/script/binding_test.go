@@ -3,6 +3,7 @@ package script
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
 type installTestCtx struct{ services node.ServiceBundle }
@@ -31,6 +33,49 @@ func (c installTestCtx) Subgraphs() node.SubgraphCaller      { return c.services
 func (c installTestCtx) AI() node.AIProviderService          { return c.services.AI }
 func (installTestCtx) Out(string) node.OutBuilder            { return nil }
 func (installTestCtx) CaptureOutput(field string, value any) {}
+
+type bundleClip struct{}
+
+func (*bundleClip) Play(context.Context, string) error { return nil }
+
+type bundleSubgraphs struct{}
+
+func (*bundleSubgraphs) CallSubgraph(context.Context, string, map[string]any) (string, error) {
+	return "", nil
+}
+
+type bundleAI struct{}
+
+func (*bundleAI) Provider(string) (llm.Provider, error) { return nil, nil }
+
+func TestBundleFromCtx_ForwardsEveryNodeService(t *testing.T) {
+	want := node.StubServices()
+	want.Clip = &bundleClip{}
+	want.Subgraphs = &bundleSubgraphs{}
+	want.AI = &bundleAI{}
+	want.Snapshot = func(context.Context) node.Snapshot { return node.Snapshot{} }
+	got := BundleFromCtx(installTestCtx{services: want})
+	fields := []struct {
+		name      string
+		got, want any
+	}{
+		{"Vision", got.Vision, want.Vision}, {"Log", got.Log, want.Log},
+		{"Input", got.Input, want.Input}, {"Vars", got.Vars, want.Vars},
+		{"Params", got.Params, want.Params}, {"Window", got.Window, want.Window},
+		{"Target", got.Target, want.Target}, {"App", got.App, want.App},
+		{"Capture", got.Capture, want.Capture}, {"Stopwatches", got.Stopwatches, want.Stopwatches},
+		{"Clip", got.Clip, want.Clip}, {"Subgraphs", got.Subgraphs, want.Subgraphs},
+		{"AI", got.AI, want.AI},
+	}
+	for _, field := range fields {
+		if !reflect.DeepEqual(field.got, field.want) {
+			t.Errorf("%s was not forwarded: got=%T want=%T", field.name, field.got, field.want)
+		}
+	}
+	if got.Snapshot != nil {
+		t.Fatal("BundleFromCtx must not forward the framework-internal tick Snapshot hook")
+	}
+}
 
 func TestNormalizeJS_Int64ToFloat64(t *testing.T) {
 	got := NormalizeJS(map[string]any{"a": int64(3), "b": []any{int64(1), "s"}})

@@ -71,6 +71,19 @@ func TestClickAt_DefaultsApplied(t *testing.T) {
 	}
 }
 
+func TestClickAt_MissingWindowCapabilityRejectedBeforePxResolution(t *testing.T) {
+	node.ResetRegistryForTest()
+	node.Register(&ClickAt{})
+	rn, _ := node.Get("ClickAt")
+	result := node.RunNode(context.Background(), rn, nil,
+		map[string]any{caInPoint: node.Point{X: 10, Y: 20, Unit: node.UnitPx}}, nil,
+		node.ServiceBundle{Input: &recordingInput{}}, false)
+	var assemblyErr *node.AssemblyError
+	if !errors.As(result.Error, &assemblyErr) || assemblyErr.Capability != node.RuntimeCapabilityWindow {
+		t.Fatalf("error = %v, want Window AssemblyError", result.Error)
+	}
+}
+
 // ClickAt 走 Click (内部 down→hold→up 原子, 不可中途取消) → 取消语义在「滑动阶段」:
 // 长 MoveMs 滑动途中取消 → 还没按下就返回, 不会发 Click, 不会有按键残留.
 func TestClickAt_CtxCancel_AbortsBeforeClick(t *testing.T) {

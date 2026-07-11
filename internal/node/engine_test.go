@@ -9,6 +9,88 @@ import (
 	"testing"
 )
 
+type requiresAI struct{ ran bool }
+
+func (n *requiresAI) Spec() Spec {
+	return Spec{
+		Kind:                "requiresAI",
+		Outputs:             []OutputSpec{{Name: "Done", Type: TypeExec}},
+		RuntimeCapabilities: []RuntimeCapability{RuntimeCapabilityAI},
+	}
+}
+
+func (n *requiresAI) Run(ctx Ctx, _ Inputs) (Outputs, error) {
+	n.ran = true
+	return ctx.Out("Done").Fire(), nil
+}
+
+func TestRunNode_MissingRuntimeCapabilityReturnsAssemblyError(t *testing.T) {
+	ResetRegistryForTest()
+	n := &requiresAI{}
+	Register(n)
+	rn, _ := Get("requiresAI")
+	result := RunNode(context.Background(), rn, nil, nil, nil, ServiceBundle{}, false)
+	var assemblyErr *AssemblyError
+	if !errors.As(result.Error, &assemblyErr) {
+		t.Fatalf("error = %v, want AssemblyError", result.Error)
+	}
+	if assemblyErr.Capability != RuntimeCapabilityAI || n.ran {
+		t.Fatalf("assembly error = %+v, ran=%v", assemblyErr, n.ran)
+	}
+}
+
+type requiresAIEvaluator struct{}
+
+func (requiresAIEvaluator) Spec() Spec {
+	return Spec{
+		Kind:                "requiresAIEvaluator",
+		IsPureData:          true,
+		Outputs:             []OutputSpec{{Name: "Value", Type: "String"}},
+		RuntimeCapabilities: []RuntimeCapability{RuntimeCapabilityAI},
+	}
+}
+
+func (requiresAIEvaluator) Evaluate(Ctx, Inputs) (any, error) { return "unexpected", nil }
+
+func TestEvaluatePureData_PreservesAssemblyError(t *testing.T) {
+	ResetRegistryForTest()
+	Register(requiresAIEvaluator{})
+	rn, _ := Get("requiresAIEvaluator")
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, ServiceBundle{})
+	var assemblyErr *AssemblyError
+	if !errors.As(err, &assemblyErr) || assemblyErr.Capability != RuntimeCapabilityAI {
+		t.Fatalf("error = %v, want AI AssemblyError", err)
+	}
+}
+
+type requiresVarsEvaluator struct{}
+
+func (requiresVarsEvaluator) Spec() Spec {
+	return Spec{
+		Kind:                "requiresVarsEvaluator",
+		IsPureData:          true,
+		Outputs:             []OutputSpec{{Name: "Value", Type: "String"}},
+		RuntimeCapabilities: []RuntimeCapability{RuntimeCapabilityVars},
+	}
+}
+
+func (requiresVarsEvaluator) Evaluate(ctx Ctx, _ Inputs) (any, error) {
+	value, _ := ctx.Vars().Get("value")
+	return value, nil
+}
+
+func TestEvaluatePureData_SnapshotDoesNotMaskMissingVars(t *testing.T) {
+	ResetRegistryForTest()
+	Register(requiresVarsEvaluator{})
+	rn, _ := Get("requiresVarsEvaluator")
+	services := ServiceBundle{Snapshot: func(context.Context) Snapshot { return Snapshot{} }}
+	_, err := EvaluatePureData(context.Background(), rn, nil, nil, services)
+	var assemblyErr *AssemblyError
+	if !errors.As(err, &assemblyErr) || assemblyErr.Capability != RuntimeCapabilityVars {
+		t.Fatalf("error = %v, want Vars AssemblyError", err)
+	}
+}
+
 type happyNode struct{}
 
 func (happyNode) Spec() Spec {
@@ -242,8 +324,8 @@ func TestEvaluatePureData_PanicRecovered(t *testing.T) {
 
 type runnableOnlyNode struct{}
 
-func (runnableOnlyNode) Spec() Spec                              { return Spec{Kind: "RunnableOnly"} }
-func (runnableOnlyNode) Run(_ Ctx, _ Inputs) (Outputs, error)    { return nil, nil }
+func (runnableOnlyNode) Spec() Spec                           { return Spec{Kind: "RunnableOnly"} }
+func (runnableOnlyNode) Run(_ Ctx, _ Inputs) (Outputs, error) { return nil, nil }
 
 type evaluatorOnlyNode struct{}
 

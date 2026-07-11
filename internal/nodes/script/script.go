@@ -42,7 +42,11 @@ func (Script) Spec() node.Spec {
 		},
 		NeedsWindow:     true, // 脚本可能调输入/视觉节点 — 保守要求 Win32WindowTarget (用户拍板 2026-06-10)
 		NeedsForeground: true, // 脚本内调绑定节点可触发 SendInput — 需在派发时将 Window 提到前台
-		DynamicInputs:   true,
+		RuntimeCapabilities: []node.RuntimeCapability{
+			node.RuntimeCapabilityLog,
+			node.RuntimeCapabilityParams,
+		},
+		DynamicInputs: true,
 	}
 }
 

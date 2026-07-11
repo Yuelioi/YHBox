@@ -19,9 +19,10 @@ const (
 
 func (InputText) Spec() node.Spec {
 	return node.Spec{
-		Kind:        "InputText",
-		Category:    "Input",
-		NeedsTarget: true,
+		Kind:                "InputText",
+		Category:            "Input",
+		NeedsTarget:         true,
+		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityInput},
 		TargetCapabilities: []node.TargetCapability{
 			node.TargetCapabilityText,
 		},
