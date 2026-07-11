@@ -1,5 +1,5 @@
 # Application runtime 生命周期
-SUMMARY: 后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前顺序为 Worker → hotkey → MCP HTTP → ScheduleDaemon → recording → calibration → tools，关闭反向执行后才 drain application/log。
+SUMMARY: 后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前顺序为 Worker → debug manager → hotkey → MCP HTTP → ScheduleDaemon → recording → calibration → tools，关闭反向执行后才有界 drain application/log。
 READ WHEN: 新增后台 goroutine、HTTP server、cron、hotkey/hook、worker；修改 main 启动/退出；实现 Start/Close/Shutdown；排查端口占用、退出卡住、held input 或 goroutine 泄漏
 RECHECK WHEN: application runtime 新增资源；调整 shutdown timeout；资源 Close 不再遵守 context；Wails lifecycle API 改变
 
@@ -16,6 +16,7 @@ RECHECK WHEN: application runtime 新增资源；调整 shutdown timeout；资�
 - hotkey/recording/calibration/tools 是按需启动 native 资源的 service，因此 runtime 的 Start 仅声明 ownership，Close 才执行真正的 shutdown。关闭后必须永久拒绝新 binding、hook、录制和窗口。
 - tools 先取消临时捕获热键，同时关闭现有窗口并让 in-flight open 观察 generation cancellation；两条清理路径不能互相阻塞。校准 HUD 的兜底回调先卸 LL hook/停 raw input，随后 calibration Shutdown 再做幂等确认。
 - recording 退出使用 Cancel，不把未完成事件持久化成 clip/subgraph；若 shutdown 在 native Stop drain 期间到达，Stop 必须在持久化前丢弃结果。hotkey 的部分注销失败保留 binding ownership，Shutdown 必须重试所有残留 binding 并报告最终错误。
-- Wails Run 无论成功或失败，都先关闭 application runtime，再调用 `App.Shutdown` 排空 presentation/log，最后才返回/退出进程。
+- debug session 不属于 Worker，必须作为独立 resource 关闭：拒绝新 session，cancel starting/active step，等待 `StopRuntime` 完成后才算释放 held input/capture。所有外部 cleanup 均在 manager mutex 外执行，多个 Close 各自遵守 context 并观察同一 barrier。
+- Wails Run 无论成功或失败，都先关闭 application runtime，再以独立 deadline 调 `App.ShutdownContext`。App 同步 detach presentation/停止 node-enter timer，LogMerger 不再向已退出 GUI emit；LogSink 先关闭文件再等待旧 delivery，callback 卡住时 caller 可超时且文件句柄已释放。
 
-声明顺序决定依赖，实际关闭顺序为 tools → calibration → recording → ScheduleDaemon → MCP HTTP → hotkey → Worker。Schedule 注销时 registry 仍然存活；hotkey 又先于 Worker 关闭，避免退出期继续产生新 run。`wailsToolsPresenter` 在 tools 清理后 detach，阻止退出期继续向 GUI 发事件；App/LogSink 仍由 executable application owner 在 runtime 全部关闭后统一 drain。
+声明顺序决定依赖，实际关闭顺序为 tools → calibration → recording → ScheduleDaemon → MCP HTTP → hotkey → debug manager → Worker。Schedule 注销时 registry 仍然存活；hotkey 先拒绝新触发，debug/Worker 随后释放各自 runtime。`wailsToolsPresenter` 在 tools 清理后 detach；App/LogSink 由 executable application owner 在 runtime 全部关闭后统一有界 drain。

@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；批次 E 的后台与交互资源已纳入统一应用生命周期。
+升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 与 E 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；下一步进入 durability。
 
 ## Next
 
-继续批次 E：审计 executable App/LogSink 最终 drain、活动 automation held-input 释放与退出故障注入；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
+进入批次 F：先把 Settings 改为 immutable snapshot + atomic save，再处理 Container lock-last transaction；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
 
 ## Read now
 
@@ -31,11 +31,12 @@
 
 Current:
 
-- `plan.md` 阶段 2 / 批次 E；批次 D 的首次远端 GUI runner 验证并行待办。
-- `internal/appruntime` 已接管 Worker、MCP HTTP、ScheduleDaemon、hotkey、recording、calibration 与 tools presentation；下一步闭合 App/LogSink 最终 drain 与 held-input 退出证据。
+- `plan.md` 阶段 3 / 批次 F；批次 D 的首次远端 GUI runner 验证并行待办。
+- application lifecycle 已闭合；下一步强化 Settings/Container 崩溃一致性与 immutable snapshot。
 
 Done:
 
+- 批次 E（第三批）：debug manager 作为独立 runtime resource 关闭，覆盖 starting/paused/active step 的 cancel、context wait 与 `StopRuntime` held-input barrier，并修复并发 DebugStart 覆盖；App 最终关闭同步停止 node-enter timer，LogMerger detach GUI，LogSink 关闭文件后有界 drain，阻塞 callback 不再让主线程或日志句柄无限存活。
 - 批次 E（第二批）：runtime ownership 扩展到 hotkey registry、recording、calibration 与 tools presentation；逆序关闭会先取消临时 capture、关闭/等待 secondary windows、停止校准与录制 hook，再释放中央 hotkey。关闭后的服务拒绝新 native 资源，录制退出 Cancel 且 finalizing drain 后不再落半成品。
 - 批次 E（首批）：新增 application runtime 状态机与 managed HTTP server；构造完成后统一启动 Worker→MCP→Schedule，MCP bind error 同步失败并触发 rollback；Wails 正常/错误退出都按 Schedule→MCP→Worker 关闭。Worker 使用 lifetime context 闭合 queued→active shutdown 竞态，Worker/Schedule/HTTP Close 均幂等且响应 context。
 - 批次 D（第十三批）：将 16 个启动期 callback/interface 注入方法移出 Wails service 方法集，bindings 收敛到 107 methods / 0 warnings，并让 CI 拒绝 warning 回归；同时修复 LogSink 按 seq 生成却并发乱序交付及 shutdown 不等待尾日志的问题。
@@ -103,6 +104,8 @@ Verified:
 - E 首批最终门禁：串行文件 I/O 环境下全仓 `go test -p 1 ./... -count=1`、`go vet ./...`、`staticcheck ./...`、appruntime/hotkey/execution/schedule race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
 - E 第二批双轴 review：修复窗口取消 cleanup 的重入死锁并分离 caller/cleanup barrier；线性化 shutdown 与 in-flight open/capture；部分 hotkey Pause 失败后 Shutdown 重试残留 binding；recording 在 native Stop drain 后再次检查 shutdown intent，禁止退出期持久化；capture cancellation 有界且不阻塞窗口/校准清理。
 - E 第二批最终门禁：全仓串行 atomic coverage、`go vet ./...`、`staticcheck ./...`、hotkey/recording/calibration/tools race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过；本批使 hotkey、recording、calibration、tools statement coverage 分别达到 78.9%、36.1%、24.1%、50.2%。
+- E 第三批双轴 review：修复 starting debug runtime 未发布 cancel、paused/active/terminal cleanup 越过 Close barrier、并发 DebugStart 覆盖与 manager 锁内外部 cleanup；App deadline 在 LogMerger 或 LogSink callback 阻塞时独立关闭日志文件并聚合 close error。最终 Standards/Spec 均无剩余 finding。
+- E 第三批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、root/services race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
 
 ## Open questions
 

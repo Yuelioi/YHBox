@@ -467,6 +467,11 @@ func main() {
 			Close: worker.StopContext,
 		},
 		appruntime.Resource{
+			Name:  "debug-manager",
+			Start: func(context.Context) error { return nil },
+			Close: debugManager.CloseContext,
+		},
+		appruntime.Resource{
 			Name:  "hotkey-registry",
 			Start: func(context.Context) error { return nil },
 			Close: hotkeyRegistry.Shutdown,
@@ -614,7 +619,9 @@ func main() {
 	node.Freeze()
 	if err := applicationRuntime.Start(context.Background()); err != nil {
 		rootLog.Error().Err(err).Str("tag", "STARTUP").Msg("application runtime start")
-		app.Shutdown()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = app.ShutdownContext(shutdownCtx)
+		cancel()
 		fmt.Fprintf(os.Stderr, "application runtime start failed: %v\n", err)
 		os.Exit(1)
 	}
@@ -636,8 +643,13 @@ func main() {
 	}
 	cancelShutdown()
 
-	// 最后排空 presentation/log transport。
-	app.Shutdown()
+	// 最后排空 presentation/log transport；使用独立 deadline，不能复用已被
+	// runtime Close 消耗或取消的 context。
+	presentationCtx, cancelPresentation := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := app.ShutdownContext(presentationCtx); err != nil {
+		fmt.Fprintf(os.Stderr, "application presentation shutdown failed: %v\n", err)
+	}
+	cancelPresentation()
 	if runErr != nil {
 		fmt.Fprintf(os.Stderr, "wails app run failed: %v\n", runErr)
 		os.Exit(1)

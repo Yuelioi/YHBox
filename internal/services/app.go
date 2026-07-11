@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -32,6 +33,10 @@ type App struct {
 	nodeEnterMu    sync.Mutex
 	nodeEnterBuf   []nodeEnterEntry
 	nodeEnterTimer *time.Timer
+
+	shutdownOnce sync.Once
+	shutdownDone chan struct{}
+	shutdownErr  error
 }
 
 type presentationLifecycle uint8
@@ -63,6 +68,7 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 		settings:     LoadSettings(settingsPath),
 		logSink:      sink,
 		rootLog:      rootLog,
+		shutdownDone: make(chan struct{}),
 	}
 }
 
@@ -251,21 +257,48 @@ func (a *App) GetLogSink() *LogSink { return a.logSink }
 func (a *App) RootLogger() zerolog.Logger { return a.rootLog }
 
 // Shutdown 集中退出钩子。挂在 wails3 window close 钩子上。
-func (a *App) Shutdown() {
-	a.emitterMu.Lock()
-	if a.presentationLife == presentationClosed {
+func (a *App) Shutdown() { _ = a.ShutdownContext(context.Background()) }
+
+// ShutdownContext detaches presentation synchronously, then finalizes log
+// resources once. A caller may stop waiting while cleanup continues.
+func (a *App) ShutdownContext(ctx context.Context) error {
+	a.shutdownOnce.Do(func() {
+		a.emitterMu.Lock()
+		a.presentationLife = presentationClosed
+		merger := a.logMerger
+		a.logMerger = nil
+		a.emitter = nil
 		a.emitterMu.Unlock()
-		return
-	}
-	a.presentationLife = presentationClosed
-	merger := a.logMerger
-	a.logMerger = nil
-	a.emitter = nil
-	a.emitterMu.Unlock()
-	if merger != nil {
-		merger.Close()
-	}
-	if a.logSink != nil {
-		a.logSink.drain()
+
+		a.nodeEnterMu.Lock()
+		if a.nodeEnterTimer != nil {
+			a.nodeEnterTimer.Stop()
+			a.nodeEnterTimer = nil
+		}
+		a.nodeEnterBuf = nil
+		a.nodeEnterMu.Unlock()
+
+		go func() {
+			if merger != nil {
+				merger.detachEmit()
+				merger.Close()
+			}
+			if a.logSink != nil {
+				a.shutdownErr = a.logSink.Close()
+				a.logSink.drain()
+			}
+			close(a.shutdownDone)
+		}()
+	})
+	select {
+	case <-a.shutdownDone:
+		return a.shutdownErr
+	case <-ctx.Done():
+		// Presentation cleanup may be blocked in a third-party callback. Close
+		// the file-owning sink independently before honoring the deadline.
+		if a.logSink != nil {
+			return errors.Join(ctx.Err(), a.logSink.Close())
+		}
+		return ctx.Err()
 	}
 }

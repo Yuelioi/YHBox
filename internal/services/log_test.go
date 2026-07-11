@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -195,6 +196,28 @@ func TestLogSink_CloseIsSafeFromEmitCallback(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Close deadlocked inside emit callback")
+	}
+}
+
+func TestLogSinkCloseClosesFileAndRejectsLateWrites(t *testing.T) {
+	dir := t.TempDir()
+	sink := NewLogSink(nil)
+	sink.SetFileWriter(dir)
+	if _, err := sink.Write([]byte("before close\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sink.Write([]byte("after close\n")); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("late Write error = %v", err)
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
+	if err != nil || len(files) != 1 {
+		t.Fatalf("log files = %v, err = %v", files, err)
+	}
+	if err := os.Remove(files[0]); err != nil {
+		t.Fatalf("log file remained open after Close: %v", err)
 	}
 }
 

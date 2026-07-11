@@ -13,14 +13,30 @@ import (
 	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
 )
 
-type debugRunnerFactory func(containerID string) (*containerruntime.ContainerRunner, error)
+type debugRunner interface {
+	StartRuntime(context.Context) error
+	StopRuntime()
+	SeedFromEntry() error
+	SeedFromNode(string) error
+	StepOnce(context.Context) (containerruntime.DebugStepResult, error)
+	QueueSnapshot() []containerruntime.ExecToken
+	NodeKind(string) string
+	VarSnapshot() map[string]any
+}
+
+type debugRunnerFactory func(containerID string) (debugRunner, error)
 
 type containerDebugManager struct {
-	mu         sync.Mutex
-	newRunner  debugRunnerFactory
-	emit       func(string, any)
-	workerBusy func() bool
-	session    *containerDebugSession
+	mu             sync.Mutex
+	newRunner      debugRunnerFactory
+	emit           func(string, any)
+	workerBusy     func() bool
+	session        *containerDebugSession
+	starting       bool
+	startingCancel context.CancelFunc
+	closed         bool
+	changed        chan struct{}
+	cleanups       int
 }
 
 type containerDebugSession struct {
@@ -29,7 +45,7 @@ type containerDebugSession struct {
 	mode        string
 	startNodeID string
 	status      string
-	runner      *containerruntime.ContainerRunner
+	runner      debugRunner
 	ctx         context.Context
 	cancel      context.CancelFunc
 	warnings    []container.DebugWarning
@@ -44,13 +60,26 @@ type containerDebugSession struct {
 	workerActive    bool
 }
 
-func newContainerDebugManager(newRunner debugRunnerFactory, emit func(string, any), workerBusy func() bool) *containerDebugManager {
+func newContainerDebugManager(
+	newRunner func(string) (*containerruntime.ContainerRunner, error),
+	emit func(string, any),
+	workerBusy func() bool,
+) *containerDebugManager {
+	return newContainerDebugManagerWithRunner(func(id string) (debugRunner, error) {
+		return newRunner(id)
+	}, emit, workerBusy)
+}
+
+func newContainerDebugManagerWithRunner(newRunner debugRunnerFactory, emit func(string, any), workerBusy func() bool) *containerDebugManager {
 	return &containerDebugManager{
 		newRunner:  newRunner,
 		emit:       emit,
 		workerBusy: workerBusy,
+		changed:    make(chan struct{}),
 	}
 }
+
+var errDebugManagerClosed = errors.New("debug_manager_closed")
 
 func (m *containerDebugManager) DebugStart(containerID string, options container.DebugStartOptions) (container.DebugSessionState, error) {
 	if len(options.GraphPath) > 0 {
@@ -60,6 +89,14 @@ func (m *containerDebugManager) DebugStart(containerID string, options container
 		return container.DebugSessionState{}, errors.New("debug_run_busy")
 	}
 	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+		return container.DebugSessionState{}, errDebugManagerClosed
+	}
+	if m.starting {
+		m.mu.Unlock()
+		return container.DebugSessionState{}, errors.New("debug_session_busy")
+	}
 	if m.session != nil && !debugTerminal(m.session.status) {
 		m.mu.Unlock()
 		return container.DebugSessionState{}, errors.New("debug_session_busy")
@@ -68,19 +105,37 @@ func (m *containerDebugManager) DebugStart(containerID string, options container
 		m.mu.Unlock()
 		return container.DebugSessionState{}, errors.New("debug_session_busy")
 	}
+	var oldRunner debugRunner
 	if m.session != nil && debugTerminal(m.session.status) {
-		m.session.runner.StopRuntime()
+		oldRunner = m.session.runner
 		m.session = nil
 	}
+	m.starting = true
 	m.mu.Unlock()
+	if oldRunner != nil {
+		oldRunner.StopRuntime()
+	}
 
 	r, err := m.newRunner(containerID)
 	if err != nil {
+		m.finishStarting()
 		return container.DebugSessionState{}, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+		cancel()
+		r.StopRuntime()
+		m.finishStarting()
+		return container.DebugSessionState{}, errDebugManagerClosed
+	}
+	m.startingCancel = cancel
+	m.mu.Unlock()
 	if err := r.StartRuntime(ctx); err != nil {
 		cancel()
+		r.StopRuntime()
+		m.finishStarting()
 		return container.DebugSessionState{}, err
 	}
 	mode := container.DebugModeEntry
@@ -99,6 +154,7 @@ func (m *containerDebugManager) DebugStart(containerID string, options container
 	if err != nil {
 		cancel()
 		r.StopRuntime()
+		m.finishStarting()
 		return container.DebugSessionState{}, err
 	}
 
@@ -115,7 +171,17 @@ func (m *containerDebugManager) DebugStart(containerID string, options container
 	}
 
 	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+		cancel()
+		r.StopRuntime()
+		m.finishStarting()
+		return container.DebugSessionState{}, errDebugManagerClosed
+	}
 	m.session = s
+	m.starting = false
+	m.startingCancel = nil
+	m.notifyLocked()
 	state := m.stateLocked(s)
 	m.mu.Unlock()
 	m.emitState(state)
@@ -193,12 +259,75 @@ func (m *containerDebugManager) DebugStop(sessionID string) (container.DebugSess
 	s.runningNodeKind = ""
 	state := m.stateLocked(s)
 	if !s.workerActive {
-		s.runner.StopRuntime()
-		m.session = nil
+		runner := s.runner
+		// Keep the session published as an active cleanup barrier so a
+		// concurrent application Close cannot report success early.
+		s.workerActive = true
+		m.mu.Unlock()
+		runner.StopRuntime()
+		m.mu.Lock()
+		emitState := !m.closed
+		if m.session == s {
+			s.workerActive = false
+			m.session = nil
+			m.notifyLocked()
+		}
+		m.mu.Unlock()
+		if emitState {
+			m.emitState(state)
+		}
+		return state, nil
 	}
 	m.mu.Unlock()
 	m.emitState(state)
 	return state, nil
+}
+
+// CloseContext rejects new debug work, cancels the active step, and waits for
+// its runner to release input/capture resources. Waiting obeys the caller ctx.
+func (m *containerDebugManager) CloseContext(ctx context.Context) error {
+	m.mu.Lock()
+	m.closed = true
+	if m.startingCancel != nil {
+		m.startingCancel()
+	}
+	var runner debugRunner
+	if s := m.session; s != nil {
+		s.cancel()
+		s.status = container.DebugStatusStopped
+		s.runningNodeID = ""
+		s.runningNodeKind = ""
+		if !s.workerActive {
+			runner = s.runner
+			m.session = nil
+			m.cleanups++
+			m.notifyLocked()
+		}
+	}
+	m.mu.Unlock()
+	if runner != nil {
+		go func() {
+			runner.StopRuntime()
+			m.mu.Lock()
+			m.cleanups--
+			m.notifyLocked()
+			m.mu.Unlock()
+		}()
+	}
+	for {
+		m.mu.Lock()
+		if !m.starting && m.session == nil && m.cleanups == 0 {
+			m.mu.Unlock()
+			return nil
+		}
+		changed := m.changed
+		m.mu.Unlock()
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (m *containerDebugManager) DebugState(sessionID string) (container.DebugSessionState, error) {
@@ -229,7 +358,7 @@ func (m *containerDebugManager) sessionID() string {
 func (m *containerDebugManager) runStep(sessionID string, keepGoing bool) {
 	for {
 		m.mu.Lock()
-		s, err := m.requireSessionLocked(sessionID)
+		s, err := m.sessionLocked(sessionID)
 		if err != nil {
 			m.mu.Unlock()
 			return
@@ -241,7 +370,7 @@ func (m *containerDebugManager) runStep(sessionID string, keepGoing bool) {
 		res, stepErr := runner.StepOnce(ctx)
 
 		m.mu.Lock()
-		s, err = m.requireSessionLocked(sessionID)
+		s, err = m.sessionLocked(sessionID)
 		if err != nil {
 			m.mu.Unlock()
 			return
@@ -249,12 +378,20 @@ func (m *containerDebugManager) runStep(sessionID string, keepGoing bool) {
 		s.runningNodeID = ""
 		s.runningNodeKind = ""
 		if s.status == container.DebugStatusStopped {
-			s.workerActive = false
-			s.runner.StopRuntime()
 			state := m.stateLocked(s)
-			m.session = nil
 			m.mu.Unlock()
-			m.emitState(state)
+			runner.StopRuntime()
+			m.mu.Lock()
+			emitState := !m.closed
+			if m.session == s {
+				s.workerActive = false
+				m.session = nil
+				m.notifyLocked()
+			}
+			m.mu.Unlock()
+			if emitState {
+				m.emitState(state)
+			}
 			return
 		}
 		s.lastNodeID = res.NodeID
@@ -262,28 +399,57 @@ func (m *containerDebugManager) runStep(sessionID string, keepGoing bool) {
 		s.lastExit = res.Exit
 		s.lastOutput = res.Output
 		if stepErr != nil {
-			s.workerActive = false
 			s.status = container.DebugStatusFailed
 			s.err = &container.DebugRunError{Message: stepErr.Error()}
-			s.runner.StopRuntime()
-			state := m.stateLocked(s)
 			m.mu.Unlock()
-			m.emitState(state)
+			runner.StopRuntime()
+			m.mu.Lock()
+			var state container.DebugSessionState
+			emitState := false
+			if m.session == s {
+				s.workerActive = false
+				if m.closed || s.status == container.DebugStatusStopped {
+					m.session = nil
+				} else {
+					state = m.stateLocked(s)
+					emitState = true
+				}
+				m.notifyLocked()
+			}
+			m.mu.Unlock()
+			if emitState {
+				m.emitState(state)
+			}
 			return
 		}
 		if res.Finished {
-			s.workerActive = false
 			s.status = container.DebugStatusFinished
-			s.runner.StopRuntime()
-			state := m.stateLocked(s)
 			m.mu.Unlock()
-			m.emitState(state)
+			runner.StopRuntime()
+			m.mu.Lock()
+			var state container.DebugSessionState
+			emitState := false
+			if m.session == s {
+				s.workerActive = false
+				if m.closed || s.status == container.DebugStatusStopped {
+					m.session = nil
+				} else {
+					state = m.stateLocked(s)
+					emitState = true
+				}
+				m.notifyLocked()
+			}
+			m.mu.Unlock()
+			if emitState {
+				m.emitState(state)
+			}
 			return
 		}
 		if !keepGoing || s.status == container.DebugStatusPauseRequested {
 			s.workerActive = false
 			s.status = container.DebugStatusPaused
 			state := m.stateLocked(s)
+			m.notifyLocked()
 			m.mu.Unlock()
 			m.emitState(state)
 			return
@@ -293,6 +459,19 @@ func (m *containerDebugManager) runStep(sessionID string, keepGoing bool) {
 		m.mu.Unlock()
 		m.emitState(state)
 	}
+}
+
+func (m *containerDebugManager) finishStarting() {
+	m.mu.Lock()
+	m.starting = false
+	m.startingCancel = nil
+	m.notifyLocked()
+	m.mu.Unlock()
+}
+
+func (m *containerDebugManager) notifyLocked() {
+	close(m.changed)
+	m.changed = make(chan struct{})
 }
 
 func (m *containerDebugManager) markRunningLocked(s *containerDebugSession, status string) {
@@ -308,6 +487,13 @@ func (m *containerDebugManager) markRunningLocked(s *containerDebugSession, stat
 }
 
 func (m *containerDebugManager) requireSessionLocked(sessionID string) (*containerDebugSession, error) {
+	if m.closed {
+		return nil, errDebugManagerClosed
+	}
+	return m.sessionLocked(sessionID)
+}
+
+func (m *containerDebugManager) sessionLocked(sessionID string) (*containerDebugSession, error) {
 	if m.session == nil || m.session.id != sessionID {
 		return nil, errors.New("debug_session_not_found")
 	}

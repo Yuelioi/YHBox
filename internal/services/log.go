@@ -38,6 +38,9 @@ type LogSink struct {
 	file             *os.File // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
 	fileDay          string   // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
 	fileDir          string   // logs 目录路径
+	closed           bool
+	closeOnce        sync.Once
+	closeErr         error
 }
 
 type logDelivery struct {
@@ -62,6 +65,9 @@ func NewLogSink(emit func(LogLinesEvent)) *LogSink {
 func (s *LogSink) SetFileWriter(dir string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
 
 	if dir == "" {
 		// 关: 关现有文件, 清 dir 状态
@@ -104,6 +110,10 @@ func (s *LogSink) openTodayFileLocked() {
 // SetEmit 装配 emit 回调（main.go 在 wailsApp 构造完成后调）。
 func (s *LogSink) SetEmit(emit func(LogLinesEvent)) {
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
 	s.emit = emit
 	s.emitGeneration++
 	s.mu.Unlock()
@@ -112,6 +122,10 @@ func (s *LogSink) SetEmit(emit func(LogLinesEvent)) {
 // Write 接 zerolog 写来的字节。可能是部分行（没 \n 结尾）。
 func (s *LogSink) Write(p []byte) (int, error) {
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return 0, os.ErrClosed
+	}
 	s.buf.Write(p)
 	current := s.buf.String()
 
@@ -282,7 +296,7 @@ func (s *LogSink) appendLineLocked(line string) {
 func (s *LogSink) AppendDumpLine(line string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.fileDir == "" {
+	if s.closed || s.fileDir == "" {
 		return
 	}
 	s.openTodayFileLocked()
@@ -306,7 +320,7 @@ func (s *LogSink) AppendActionTrace(data any) {
 	line := sanitizeActionTrace(data)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.fileDir == "" {
+	if s.closed || s.fileDir == "" {
 		return
 	}
 	s.openTodayFileLocked()
@@ -392,15 +406,25 @@ func lenAnySlice(v any) int {
 
 // Close 关闭日志文件 (shutdown 时调).
 func (s *LogSink) Close() error {
-	s.Flush()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.file != nil {
-		err := s.file.Close()
-		s.file = nil
-		return err
-	}
-	return nil
+	s.closeOnce.Do(func() {
+		s.Flush()
+		s.mu.Lock()
+		s.closed = true
+		s.emit = nil
+		s.emitGeneration++
+		s.fileDir = ""
+		s.fileDay = ""
+		if s.timer != nil {
+			s.timer.Stop()
+			s.timer = nil
+		}
+		if s.file != nil {
+			s.closeErr = s.file.Close()
+			s.file = nil
+		}
+		s.mu.Unlock()
+	})
+	return s.closeErr
 }
 
 // Snapshot ring 内全部行（"\n" 连接）。测试 / 调试用。

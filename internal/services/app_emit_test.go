@@ -1,6 +1,10 @@
 package services
 
 import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -109,5 +113,112 @@ func TestAppPresentationLifecycleCannotReopenAfterShutdown(t *testing.T) {
 	app.Shutdown()
 	if err := app.AttachEmitter(func(string, any) {}); err == nil {
 		t.Fatal("emitter attachment succeeded after shutdown")
+	}
+}
+
+func TestAppShutdownClearsNodeEnterTimerAndBuffer(t *testing.T) {
+	app := NewApp(t.TempDir()+"/settings.json", nil, zerolog.Nop())
+	if err := app.AttachEmitter(func(string, any) {}); err != nil {
+		t.Fatal(err)
+	}
+	app.Emit("container:node-enter", map[string]any{"nodeId": "n1", "nodeKind": "Sleep"})
+	if err := app.ShutdownContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	app.nodeEnterMu.Lock()
+	defer app.nodeEnterMu.Unlock()
+	if app.nodeEnterTimer != nil || len(app.nodeEnterBuf) != 0 {
+		t.Fatalf("node-enter lifecycle not cleared: timer=%v buffer=%v", app.nodeEnterTimer, app.nodeEnterBuf)
+	}
+}
+
+func TestAppShutdownDeadlineDoesNotLeaveLogFileOpen(t *testing.T) {
+	dir := t.TempDir()
+	callbackStarted := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	sink := NewLogSink(func(LogLinesEvent) {
+		close(callbackStarted)
+		<-releaseCallback
+	})
+	sink.SetFileWriter(dir)
+	app := NewApp(filepath.Join(dir, "settings.json"), sink, zerolog.Nop())
+	if err := app.AttachEmitter(func(string, any) {}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sink.Write([]byte("blocking delivery\n")); err != nil {
+		t.Fatal(err)
+	}
+	sink.Flush()
+	select {
+	case <-callbackStarted:
+	case <-time.After(time.Second):
+		t.Fatal("log callback did not start")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := app.ShutdownContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ShutdownContext error = %v", err)
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
+	if err != nil || len(files) != 1 {
+		t.Fatalf("log files = %v, err = %v", files, err)
+	}
+	if err := os.Remove(files[0]); err != nil {
+		t.Fatalf("shutdown deadline left log file open: %v", err)
+	}
+	close(releaseCallback)
+	if err := app.ShutdownContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAppShutdownDeadlineClosesFileBehindBlockedMergerEmitter(t *testing.T) {
+	dir := t.TempDir()
+	sink := NewLogSink(nil)
+	sink.SetFileWriter(dir)
+	callbackStarted := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	app := NewApp(filepath.Join(dir, "settings.json"), sink, zerolog.Nop())
+	if err := app.AttachEmitter(func(name string, _ any) {
+		if name == "container:node-dump-batch" {
+			close(callbackStarted)
+			<-releaseCallback
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	emitDone := make(chan struct{})
+	go func() {
+		app.Emit("container:node-dump", map[string]any{
+			"containerId": "c1", "nodeId": "n1", "nodeKind": "Sleep",
+			"line": "blocked", "lineKey": "k", "isError": true,
+		})
+		close(emitDone)
+	}()
+	select {
+	case <-callbackStarted:
+	case <-time.After(time.Second):
+		t.Fatal("merger callback did not start")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := app.ShutdownContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ShutdownContext error = %v", err)
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
+	if err != nil || len(files) != 1 {
+		t.Fatalf("log files = %v, err = %v", files, err)
+	}
+	if err := os.Remove(files[0]); err != nil {
+		t.Fatalf("blocked merger left log file open: %v", err)
+	}
+	close(releaseCallback)
+	select {
+	case <-emitDone:
+	case <-time.After(time.Second):
+		t.Fatal("blocked merger emit did not finish")
+	}
+	if err := app.ShutdownContext(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }

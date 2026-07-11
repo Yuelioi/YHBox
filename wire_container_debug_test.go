@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,6 +13,281 @@ import (
 	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
 	"github.com/yottaapp/yotta/internal/services/execution"
 )
+
+type lifecycleDebugRunner struct {
+	startStarted chan struct{}
+	blockStart   bool
+	stepStarted  chan struct{}
+	stopStarted  chan struct{}
+	stopRelease  chan struct{}
+	stops        atomic.Int32
+}
+
+type terminalDebugRunner struct{ *lifecycleDebugRunner }
+
+func (*terminalDebugRunner) StepOnce(context.Context) (containerruntime.DebugStepResult, error) {
+	return containerruntime.DebugStepResult{Finished: true}, nil
+}
+
+func (r *lifecycleDebugRunner) StartRuntime(ctx context.Context) error {
+	if r.startStarted != nil {
+		select {
+		case r.startStarted <- struct{}{}:
+		default:
+		}
+	}
+	if r.blockStart {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	return nil
+}
+func (r *lifecycleDebugRunner) StopRuntime() {
+	r.stops.Add(1)
+	if r.stopStarted != nil {
+		select {
+		case r.stopStarted <- struct{}{}:
+		default:
+		}
+	}
+	if r.stopRelease != nil {
+		<-r.stopRelease
+	}
+}
+func (*lifecycleDebugRunner) SeedFromEntry() error      { return nil }
+func (*lifecycleDebugRunner) SeedFromNode(string) error { return nil }
+func (r *lifecycleDebugRunner) StepOnce(ctx context.Context) (containerruntime.DebugStepResult, error) {
+	select {
+	case r.stepStarted <- struct{}{}:
+	default:
+	}
+	<-ctx.Done()
+	return containerruntime.DebugStepResult{}, ctx.Err()
+}
+func (*lifecycleDebugRunner) QueueSnapshot() []containerruntime.ExecToken {
+	return []containerruntime.ExecToken{{NodeID: "node", InPin: "In"}}
+}
+func (*lifecycleDebugRunner) NodeKind(string) string      { return "Sleep" }
+func (*lifecycleDebugRunner) VarSnapshot() map[string]any { return nil }
+
+func TestDebugManagerCloseStopsPausedRunnerAndRejectsRestart(t *testing.T) {
+	runner := &lifecycleDebugRunner{stepStarted: make(chan struct{}, 1)}
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) { return runner, nil }, nil, nil)
+	if _, err := mgr.DebugStart("container", container.DebugStartOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.CloseContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := runner.stops.Load(); got != 1 {
+		t.Fatalf("StopRuntime calls = %d", got)
+	}
+	if _, err := mgr.DebugStart("container", container.DebugStartOptions{}); !errors.Is(err, errDebugManagerClosed) {
+		t.Fatalf("DebugStart after close error = %v", err)
+	}
+}
+
+func TestDebugManagerCloseCancelsAndWaitsForActiveStep(t *testing.T) {
+	runner := &lifecycleDebugRunner{stepStarted: make(chan struct{}, 1)}
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) { return runner, nil }, nil, nil)
+	state, err := mgr.DebugStart("container", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mgr.DebugStep(state.SessionID); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-runner.stepStarted:
+	case <-time.After(time.Second):
+		t.Fatal("debug step did not start")
+	}
+	if err := mgr.CloseContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := runner.stops.Load(); got != 1 {
+		t.Fatalf("StopRuntime calls = %d", got)
+	}
+}
+
+func TestDebugManagerCloseWaitForStartingObeysContext(t *testing.T) {
+	runner := &lifecycleDebugRunner{stepStarted: make(chan struct{}, 1)}
+	started := make(chan struct{})
+	release := make(chan struct{})
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) {
+		close(started)
+		<-release
+		return runner, nil
+	}, nil, nil)
+	startResult := make(chan error, 1)
+	go func() {
+		_, err := mgr.DebugStart("container", container.DebugStartOptions{})
+		startResult <- err
+	}()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("DebugStart did not enter factory")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := mgr.CloseContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("CloseContext error = %v", err)
+	}
+	close(release)
+	select {
+	case err := <-startResult:
+		if !errors.Is(err, errDebugManagerClosed) {
+			t.Fatalf("in-flight DebugStart error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("in-flight DebugStart did not finish cleanup")
+	}
+	if err := mgr.CloseContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := runner.stops.Load(); got != 1 {
+		t.Fatalf("StopRuntime calls = %d", got)
+	}
+}
+
+func TestDebugManagerCloseWaitForRunnerCleanupObeysContext(t *testing.T) {
+	runner := &lifecycleDebugRunner{
+		stepStarted: make(chan struct{}, 1),
+		stopStarted: make(chan struct{}, 1),
+		stopRelease: make(chan struct{}),
+	}
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) { return runner, nil }, nil, nil)
+	if _, err := mgr.DebugStart("container", container.DebugStartOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := mgr.CloseContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("CloseContext error = %v", err)
+	}
+	select {
+	case <-runner.stopStarted:
+	case <-time.After(time.Second):
+		t.Fatal("runner cleanup did not start")
+	}
+	close(runner.stopRelease)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	if err := mgr.CloseContext(ctx2); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDebugManagerCloseCancelsStartingRuntime(t *testing.T) {
+	runner := &lifecycleDebugRunner{
+		startStarted: make(chan struct{}, 1),
+		stepStarted:  make(chan struct{}, 1),
+		blockStart:   true,
+	}
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) { return runner, nil }, nil, nil)
+	startResult := make(chan error, 1)
+	go func() {
+		_, err := mgr.DebugStart("container", container.DebugStartOptions{})
+		startResult <- err
+	}()
+	select {
+	case <-runner.startStarted:
+	case <-time.After(time.Second):
+		t.Fatal("StartRuntime did not start")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := mgr.CloseContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-startResult:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("DebugStart error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("DebugStart did not observe shutdown cancellation")
+	}
+	if got := runner.stops.Load(); got != 1 {
+		t.Fatalf("StopRuntime calls = %d", got)
+	}
+}
+
+func TestDebugManagerCloseWaitsForConcurrentDebugStopCleanup(t *testing.T) {
+	runner := &lifecycleDebugRunner{
+		stepStarted: make(chan struct{}, 1),
+		stopStarted: make(chan struct{}, 1),
+		stopRelease: make(chan struct{}),
+	}
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) { return runner, nil }, nil, nil)
+	state, err := mgr.DebugStart("container", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopResult := make(chan error, 1)
+	go func() {
+		_, err := mgr.DebugStop(state.SessionID)
+		stopResult <- err
+	}()
+	select {
+	case <-runner.stopStarted:
+	case <-time.After(time.Second):
+		t.Fatal("DebugStop cleanup did not start")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := mgr.CloseContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("CloseContext error = %v", err)
+	}
+	close(runner.stopRelease)
+	select {
+	case err := <-stopResult:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("DebugStop cleanup did not finish")
+	}
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	if err := mgr.CloseContext(ctx2); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDebugManagerCloseDuringTerminalCleanupRemovesSession(t *testing.T) {
+	base := &lifecycleDebugRunner{
+		stepStarted: make(chan struct{}, 1),
+		stopStarted: make(chan struct{}, 1),
+		stopRelease: make(chan struct{}),
+	}
+	runner := &terminalDebugRunner{lifecycleDebugRunner: base}
+	mgr := newContainerDebugManagerWithRunner(func(string) (debugRunner, error) { return runner, nil }, nil, nil)
+	state, err := mgr.DebugStart("container", container.DebugStartOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mgr.DebugStep(state.SessionID); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-base.stopStarted:
+	case <-time.After(time.Second):
+		t.Fatal("terminal cleanup did not start")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := mgr.CloseContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("CloseContext error = %v", err)
+	}
+	close(base.stopRelease)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	if err := mgr.CloseContext(ctx2); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func newWireDebugTestRunner(c *container.Container) func(string) (*containerruntime.ContainerRunner, error) {
 	return func(id string) (*containerruntime.ContainerRunner, error) {

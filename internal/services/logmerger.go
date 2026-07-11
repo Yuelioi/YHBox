@@ -126,6 +126,14 @@ func (m *LogMerger) Close() {
 	})
 }
 
+// detachEmit prevents shutdown finalization from calling a presentation
+// transport whose GUI loop has already exited. File finalization still runs.
+func (m *LogMerger) detachEmit() {
+	m.mu.Lock()
+	m.emit = nil
+	m.mu.Unlock()
+}
+
 func (m *LogMerger) loop() {
 	defer close(m.done)
 	for {

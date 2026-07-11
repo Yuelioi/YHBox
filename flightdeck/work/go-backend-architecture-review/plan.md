@@ -204,7 +204,7 @@
 
 ## 当前执行点
 
-批次 A-C 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 E 的 E1 已接管 Worker、MCP HTTP 与 ScheduleDaemon，E2 已纳管 hotkey、recording、calibration 与 tools presentation；下一步审计 executable App/LogSink 最终 drain 与 held-input 释放证据。
+批次 A-C 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 E 已完成：后台、交互、debug held-input 与 executable presentation/log 均有对称且有界的关闭契约。下一步进入批次 F 的 settings/container durability。
 
 ## 执行状态
 
@@ -212,7 +212,7 @@
 - [x] B — Windows CI、release version 校验
 - [x] C — canonical module path
 - [ ] D — 平台依赖守卫与 adapter 收敛（本地实现完成，待原生 GUI CI 首跑）
-- [ ] E — application runtime lifecycle（E1/E2 已接管后台与交互资源，待最终 drain/held-input 审计）
+- [x] E — application runtime lifecycle
 - [ ] F — settings/container durability
 - [ ] G — Ctx/Registry 深化
 - [ ] H — fuzz/security/docs
