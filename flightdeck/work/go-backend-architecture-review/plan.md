@@ -204,7 +204,7 @@
 
 ## 当前执行点
 
-批次 A-C 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 E 已完成：后台、交互、debug held-input 与 executable presentation/log 均有对称且有界的关闭契约。下一步进入批次 F 的 settings/container durability。
+批次 A-C 与 E 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 F1 已实现 Settings immutable snapshot、atomic save 与 ordered side effects；下一步进入 Container lock-last transaction。
 
 ## 执行状态
 
@@ -213,6 +213,6 @@
 - [x] C — canonical module path
 - [ ] D — 平台依赖守卫与 adapter 收敛（本地实现完成，待原生 GUI CI 首跑）
 - [x] E — application runtime lifecycle
-- [ ] F — settings/container durability
+- [ ] F — settings/container durability（F1 Settings 已完成，待 Container transaction）
 - [ ] G — Ctx/Registry 深化
 - [ ] H — fuzz/security/docs

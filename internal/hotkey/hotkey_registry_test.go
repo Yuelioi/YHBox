@@ -175,6 +175,62 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 	_ = r.Unregister("action.abc")
 }
 
+func TestRegistry_UpdateRollsBackBindingWhenPersistenceFails(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+	if err := r.Register("action.persist", HotkeySourceAction, "persist", nil,
+		"Ctrl+Shift+Alt+F6", "", func() {}); err != nil {
+		t.Fatal(err)
+	}
+	wantErr := errors.New("settings save failed")
+	r.SetCallbacks(func(string, string) error { return wantErr }, nil, nil)
+	if err := r.Update("action.persist", "Ctrl+Shift+Alt+F7"); !errors.Is(err, wantErr) {
+		t.Fatalf("Update error = %v", err)
+	}
+	entry, ok := r.Get("action.persist")
+	if !ok || entry.HotkeyStr != "Ctrl+Shift+Alt+F6" || entry.Status != HotkeyStatusActive {
+		t.Fatalf("entry after rollback = %+v, ok=%v", entry, ok)
+	}
+	bindings := mgr.Bindings()
+	if len(bindings) != 1 || bindings[0].Spec.Name != "Ctrl+Shift+Alt+F6" {
+		t.Fatalf("native bindings after rollback = %+v", bindings)
+	}
+	_ = r.Unregister("action.persist")
+}
+
+func TestRegistry_PersistenceRollbackFailureMarksEntryFailed(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	loopCalls := 0
+	mgr.runLoop = func(ctx context.Context, specs []HotkeySpec, handler func(int), ready chan<- error, done chan<- struct{}) {
+		loopCalls++
+		if loopCalls == 5 {
+			ready <- errors.New("native rollback unregister failed")
+			close(done)
+			return
+		}
+		runTestHotkeyLoop(ctx, specs, handler, ready, done)
+	}
+	r := NewHotkeyRegistry(mgr)
+	if err := r.Register("action.persist", HotkeySourceAction, "persist", nil,
+		"Ctrl+Shift+Alt+F6", "", func() {}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Register("system.keep", HotkeySourceSystem, "keep", nil,
+		"Ctrl+Shift+Alt+F8", "", func() {}); err != nil {
+		t.Fatal(err)
+	}
+	r.SetCallbacks(func(string, string) error { return errors.New("settings save failed") }, nil, nil)
+	if err := r.Update("action.persist", "Ctrl+Shift+Alt+F7"); err == nil {
+		t.Fatal("Update error = nil")
+	}
+	entry, _ := r.Get("action.persist")
+	if entry.Status != HotkeyStatusFailed || !strings.Contains(entry.LastError, "native rollback unregister failed") {
+		t.Fatalf("entry after failed rollback = %+v", entry)
+	}
+	_ = r.Unregister("action.persist")
+	_ = r.Unregister("system.keep")
+}
+
 func TestUpdateContainerPersistsViaCallback(t *testing.T) {
 	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)

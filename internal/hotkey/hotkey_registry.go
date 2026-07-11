@@ -241,32 +241,58 @@ func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 	if entry.spec.ReadonlyReason != "" {
 		return fmt.Errorf("hotkey %q 锁定不可改: %s", key, entry.spec.ReadonlyReason)
 	}
+	previousHotkey := entry.spec.HotkeyStr
 	if err := r.updateLocked(key, newHotkeyStr); err != nil {
 		return err
 	}
 	// 持久化（只在 entry 改成 active/unbound 时调；failed 不持久化）
 	if entry.spec.Status == HotkeyStatusActive || entry.spec.Status == HotkeyStatusUnbound {
+		var persistErr error
 		switch entry.spec.Source {
 		case HotkeySourceAction:
 			actionID := strings.TrimPrefix(key, "action.")
 			if r.onActionHotkeyChange != nil {
-				_ = r.onActionHotkeyChange(actionID, entry.spec.HotkeyStr)
+				persistErr = r.onActionHotkeyChange(actionID, entry.spec.HotkeyStr)
 			}
 		case HotkeySourceSystem, HotkeySourceRecording:
 			if r.onSystemHotkeyChange != nil {
-				_ = r.onSystemHotkeyChange(key, entry.spec.HotkeyStr)
+				persistErr = r.onSystemHotkeyChange(key, entry.spec.HotkeyStr)
 			}
 		case HotkeySourceContainer:
 			containerID := strings.TrimPrefix(key, "container.")
 			if r.onContainerHotkeyChange != nil {
-				_ = r.onContainerHotkeyChange(containerID, entry.spec.HotkeyStr)
+				persistErr = r.onContainerHotkeyChange(containerID, entry.spec.HotkeyStr)
 			}
+		}
+		if persistErr != nil {
+			rollbackErr := r.updateLocked(key, previousHotkey)
+			if rollbackErr == nil && entry.spec.Status == HotkeyStatusFailed {
+				rollbackErr = errors.New(entry.spec.LastError)
+			}
+			if rollbackErr != nil {
+				entry.spec.Status = HotkeyStatusFailed
+				entry.spec.LastError = rollbackErr.Error()
+				if r.emitChanged != nil {
+					r.emitChanged()
+				}
+			}
+			return errors.Join(
+				fmt.Errorf("persist hotkey %q: %w", key, persistErr),
+				wrapOptionalError("rollback hotkey", rollbackErr),
+			)
 		}
 	}
 	if r.emitChanged != nil {
 		r.emitChanged()
 	}
 	return nil
+}
+
+func wrapOptionalError(message string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", message, err)
 }
 
 // updateLocked 调用方持锁。

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -17,9 +18,11 @@ type App struct {
 	emitter          func(name string, data any)
 	presentationLife presentationLifecycle
 
-	settingsPath string // exe 同目录的 settings.json；NewApp 决定，SaveSettings 用
-	settings     *Settings
-	settingsMu   sync.RWMutex
+	settingsPath     string // exe 同目录的 settings.json；NewApp 决定，SaveSettings 用
+	settings         *Settings
+	settingsMu       sync.RWMutex
+	settingsUpdateMu sync.Mutex
+	settingsSaver    func(string, *Settings) error
 
 	logSink   *LogSink
 	rootLog   zerolog.Logger // app/service 层 logger
@@ -64,11 +67,12 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 		settingsPath = settingsFilePath
 	}
 	return &App{
-		settingsPath: settingsPath,
-		settings:     LoadSettings(settingsPath),
-		logSink:      sink,
-		rootLog:      rootLog,
-		shutdownDone: make(chan struct{}),
+		settingsPath:  settingsPath,
+		settings:      LoadSettings(settingsPath),
+		settingsSaver: SaveSettings,
+		logSink:       sink,
+		rootLog:       rootLog,
+		shutdownDone:  make(chan struct{}),
 	}
 }
 
@@ -198,56 +202,65 @@ func (a *App) flushNodeEnter() {
 	emit("container:node-enter-batch", map[string]any{"entries": batch})
 }
 
-// Settings 返回当前 settings 的指针快照。读多写少，加 RLock 即可。
-// 调用方不应修改返回值；要改走 SettingsService.Update 走 patch 流程。
+// Settings returns a deep snapshot. Callers can mutate it without changing
+// live application state; writes must use MutateSettings.
 func (a *App) Settings() *Settings {
-	a.settingsMu.RLock()
-	defer a.settingsMu.RUnlock()
-	return a.settings
-}
-
-// SnapshotSettings deep clone 当前 settings；给 SettingsService.Update 的 "clone → merge" 用。
-func (a *App) SnapshotSettings() *Settings {
 	a.settingsMu.RLock()
 	defer a.settingsMu.RUnlock()
 	return a.settings.Clone()
 }
 
-// SwapSettings 原子替换 live settings 指针（SettingsService.Update 验证通过后调）。
-func (a *App) SwapSettings(s *Settings) {
-	a.settingsMu.Lock()
-	a.settings = s
-	a.settingsMu.Unlock()
-}
+// MutateSettings serializes writers and publishes the new immutable snapshot
+// only after validation and an atomic disk commit succeed.
+func (a *App) MutateSettings(
+	mutator func(*Settings) error,
+	sideEffects ...func(before, after *Settings),
+) (before, after *Settings, err error) {
+	if mutator == nil {
+		return nil, nil, errors.New("settings mutator is nil")
+	}
+	a.settingsUpdateMu.Lock()
+	defer a.settingsUpdateMu.Unlock()
 
-// UpdateSettings 持锁应用 mutator 修改 live settings；给跨包用户
-// 避免直接 poke 私有 settingsMu。注意 mutator 不能再调任何持锁 App 方法（自死锁）。
-func (a *App) UpdateSettings(mutator func(*Settings)) {
+	before = a.Settings()
+	after = before.Clone()
+	if err := mutator(after); err != nil {
+		return before, nil, err
+	}
+	if err := after.Validate(); err != nil {
+		return before, nil, fmt.Errorf("validate settings: %w", err)
+	}
+	saveErr := a.settingsSaver(a.settingsPath, after)
+	if saveErr != nil && !settingsSaveCommitted(saveErr) {
+		return before, nil, fmt.Errorf("save settings: %w", saveErr)
+	}
 	a.settingsMu.Lock()
-	defer a.settingsMu.Unlock()
-	mutator(a.settings)
+	a.settings = after.Clone()
+	a.settingsMu.Unlock()
+	for _, sideEffect := range sideEffects {
+		if sideEffect != nil {
+			sideEffect(before.Clone(), after.Clone())
+		}
+	}
+	if saveErr != nil {
+		return before, after.Clone(), fmt.Errorf("save settings: %w", saveErr)
+	}
+	return before, after.Clone(), nil
 }
 
 // UpdateWindowSize 写窗口尺寸到 settings 并持久化。WindowEndResize 事件用。
 // 不 emit、不走 patch 流程：纯 UI 状态，前端不订阅，写盘失败也不致命。
 func (a *App) UpdateWindowSize(w, h int) {
-	a.settingsMu.Lock()
-	if a.settings.UI.Window.Width == w && a.settings.UI.Window.Height == h {
-		a.settingsMu.Unlock()
-		return
+	_, _, err := a.MutateSettings(func(settings *Settings) error {
+		settings.UI.Window.Width = w
+		settings.UI.Window.Height = h
+		return nil
+	})
+	if err != nil {
+		a.rootLog.Warn().Err(err).Str("tag", "SETTINGS").
+			Int("width", w).Int("height", h).
+			Msg("persist window size")
 	}
-	a.settings.UI.Window.Width = w
-	a.settings.UI.Window.Height = h
-	a.settingsMu.Unlock()
-	_ = a.SaveSettings()
-}
-
-// SaveSettings 把当前 settings 写到 settings.json。失败仅 log warning。
-func (a *App) SaveSettings() error {
-	a.settingsMu.RLock()
-	s := a.settings
-	a.settingsMu.RUnlock()
-	return SaveSettings(a.settingsPath, s)
 }
 
 // LogSink 暴露给跨包构造 zerolog MultiWriter 时用。

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -132,25 +133,36 @@ func main() {
 		nil,
 		// onSystemHotkeyChange：写回 settings.UI.ActionStopHotkey
 		func(key, newStr string) error {
-			cur := app.SnapshotSettings()
 			switch key {
-			case "system.execution-stop":
-				cur.UI.ActionStopHotkey = newStr
-			case "recording.stop":
-				cur.UI.RecordingStopHotkey = newStr
-			case "recording.pause":
-				cur.UI.RecordingPauseHotkey = newStr
-			case "system.calibrate-toggle":
-				cur.UI.CalibrateHotkey = newStr
-			case "system.launcher-toggle":
-				cur.UI.LauncherToggleHotkey = newStr
-			case "tools.window-capture":
-				cur.UI.WindowCaptureHotkey = newStr
+			case "system.execution-stop", "recording.stop", "recording.pause",
+				"system.calibrate-toggle", "system.launcher-toggle", "tools.window-capture":
 			default:
 				return nil
 			}
-			app.SwapSettings(cur)
-			return app.SaveSettings()
+			_, _, err := app.MutateSettings(func(cur *services.Settings) error {
+				switch key {
+				case "system.execution-stop":
+					cur.UI.ActionStopHotkey = newStr
+				case "recording.stop":
+					cur.UI.RecordingStopHotkey = newStr
+				case "recording.pause":
+					cur.UI.RecordingPauseHotkey = newStr
+				case "system.calibrate-toggle":
+					cur.UI.CalibrateHotkey = newStr
+				case "system.launcher-toggle":
+					cur.UI.LauncherToggleHotkey = newStr
+				case "tools.window-capture":
+					cur.UI.WindowCaptureHotkey = newStr
+				}
+				return nil
+			})
+			var committed interface{ Committed() bool }
+			if err != nil && errors.As(err, &committed) && committed.Committed() {
+				rootLog.Warn().Err(err).Str("tag", "SETTINGS").Str("hotkey", key).
+					Msg("hotkey settings committed but durability sync failed")
+				return nil
+			}
+			return err
 		},
 		// emit 回调：广播给所有 webview
 		func() { app.Emit("hotkey:changed", map[string]any{}) },

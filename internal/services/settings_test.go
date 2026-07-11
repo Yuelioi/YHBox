@@ -2,10 +2,203 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/rs/zerolog"
 )
+
+func TestAppSettingsReturnsDeepSnapshot(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	first := app.Settings()
+	first.Locale = "en"
+	first.UI.MouseProfiles = append(first.UI.MouseProfiles, MouseProfile{Label: "mutated", Counts360: 1})
+	second := app.Settings()
+	if second.Locale != "zh" || len(second.UI.MouseProfiles) != 0 {
+		t.Fatalf("live settings escaped through snapshot: %+v", second)
+	}
+}
+
+func TestAppMutateSettingsSerializesWritersWithoutLostUpdates(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	updates := []func(*Settings){
+		func(s *Settings) { s.Locale = "en" },
+		func(s *Settings) { s.UI.Logger.ShowTime = false },
+	}
+	for _, update := range updates {
+		update := update
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			if _, _, err := app.MutateSettings(func(s *Settings) error { update(s); return nil }); err != nil {
+				t.Errorf("MutateSettings: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	got := app.Settings()
+	if got.Locale != "en" || got.UI.Logger.ShowTime {
+		t.Fatalf("concurrent updates lost: %+v", got)
+	}
+}
+
+func TestAppMutateSettingsSerializesCommitSideEffects(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	firstEffectStarted := make(chan struct{})
+	releaseFirstEffect := make(chan struct{})
+	var (
+		mu    sync.Mutex
+		order []string
+	)
+	firstDone := make(chan error, 1)
+	go func() {
+		_, _, err := app.MutateSettings(func(s *Settings) error {
+			s.Locale = "en"
+			return nil
+		}, func(*Settings, *Settings) {
+			close(firstEffectStarted)
+			<-releaseFirstEffect
+			mu.Lock()
+			order = append(order, "first")
+			mu.Unlock()
+		})
+		firstDone <- err
+	}()
+	select {
+	case <-firstEffectStarted:
+	case <-time.After(time.Second):
+		t.Fatal("first side effect did not start")
+	}
+	if app.settingsUpdateMu.TryLock() {
+		app.settingsUpdateMu.Unlock()
+		t.Fatal("settings writer lock was released before commit side effects")
+	}
+	secondDone := make(chan error, 1)
+	go func() {
+		_, _, err := app.MutateSettings(func(s *Settings) error {
+			s.UI.Logger.ShowTime = false
+			return nil
+		}, func(*Settings, *Settings) {
+			mu.Lock()
+			order = append(order, "second")
+			mu.Unlock()
+		})
+		secondDone <- err
+	}()
+	close(releaseFirstEffect)
+	for name, result := range map[string]<-chan error{"first": firstDone, "second": secondDone} {
+		select {
+		case err := <-result:
+			if err != nil {
+				t.Fatalf("%s update error = %v", name, err)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("%s update did not finish", name)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(order) != 2 || order[0] != "first" || order[1] != "second" {
+		t.Fatalf("side effect order = %v", order)
+	}
+}
+
+func TestAppMutateSettingsSaveFailureKeepsPublishedSnapshot(t *testing.T) {
+	dir := t.TempDir()
+	app := NewApp(filepath.Join(dir, "settings.json"), nil, zerolog.Nop())
+	blocker := filepath.Join(dir, "not-a-directory")
+	if err := os.WriteFile(blocker, []byte("block"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app.settingsPath = filepath.Join(blocker, "settings.json")
+	before := app.Settings()
+	if _, after, err := app.MutateSettings(func(s *Settings) error {
+		s.Locale = "en"
+		return nil
+	}); err == nil || after != nil {
+		t.Fatalf("MutateSettings = after=%+v err=%v, want precommit failure", after, err)
+	}
+	if got := app.Settings(); got.Locale != before.Locale {
+		t.Fatalf("failed save published memory: before=%q after=%q", before.Locale, got.Locale)
+	}
+}
+
+func TestAppMutateSettingsPublishesPostCommitSyncFailure(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	wantErr := errors.New("directory sync failed")
+	app.settingsSaver = func(string, *Settings) error {
+		return &settingsCommittedError{err: wantErr}
+	}
+	_, after, err := app.MutateSettings(func(s *Settings) error {
+		s.Locale = "en"
+		return nil
+	})
+	if !errors.Is(err, wantErr) || after == nil {
+		t.Fatalf("MutateSettings = after=%+v err=%v", after, err)
+	}
+	if got := app.Settings(); got.Locale != "en" {
+		t.Fatalf("committed update was not published: %+v", got)
+	}
+}
+
+func TestUpdateWindowSizeLogsPersistenceFailure(t *testing.T) {
+	sink := NewLogSink(nil)
+	logger := zerolog.New(sink)
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), sink, logger)
+	app.settingsSaver = func(string, *Settings) error { return errors.New("disk unavailable") }
+	app.UpdateWindowSize(1200, 800)
+	log := sink.Snapshot()
+	if !strings.Contains(log, "persist window size") || !strings.Contains(log, "disk unavailable") {
+		t.Fatalf("persistence failure was not logged: %s", log)
+	}
+}
+
+func TestSaveSettingsReplaceFailurePreservesOldFileAndCleansTemp(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	old := []byte(`{"locale":"zh"}`)
+	if err := os.WriteFile(path, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	wantErr := errors.New("replace failed")
+	err := saveSettingsBytes(path, []byte(`{"locale":"en"}`), func(string, string) error {
+		return wantErr
+	}, func(string) error { return nil })
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("save error = %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != string(old) {
+		t.Fatalf("old file changed: %q, err=%v", got, err)
+	}
+	temps, err := filepath.Glob(filepath.Join(dir, ".settings.json.tmp-*"))
+	if err != nil || len(temps) != 0 {
+		t.Fatalf("temp files = %v, err=%v", temps, err)
+	}
+}
+
+func TestSaveSettingsClassifiesDirectorySyncFailureAsCommitted(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	wantErr := errors.New("directory sync failed")
+	err := saveSettingsBytes(path, []byte(`{"locale":"en"}`), os.Rename, func(string) error { return wantErr })
+	if !errors.Is(err, wantErr) || !settingsSaveCommitted(err) {
+		t.Fatalf("save error = %v, committed=%v", err, settingsSaveCommitted(err))
+	}
+	got, readErr := os.ReadFile(path)
+	if readErr != nil || string(got) != `{"locale":"en"}` {
+		t.Fatalf("committed file = %q, err=%v", got, readErr)
+	}
+}
 
 func TestSettingsValidate_OK(t *testing.T) {
 	s := defaultSettings()

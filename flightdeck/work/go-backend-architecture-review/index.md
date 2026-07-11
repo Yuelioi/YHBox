@@ -17,6 +17,7 @@
 - `../../knowledge/architecture/go-multiplatform-boundary.md`
 - `../../knowledge/architecture/go-module-identity.md`
 - `../../knowledge/architecture/application-lifecycle.md`
+- `../../knowledge/architecture/settings-durability.md`
 
 ## Read if
 
@@ -36,6 +37,7 @@ Current:
 
 Done:
 
+- 批次 F（首批）：Settings 读路径改为 immutable deep snapshot；所有 writer 经串行 clone/mutate/validate、同目录临时文件 fsync、atomic replace、publish 与 ordered side effects。Windows replace 使用 write-through，Unix 补 directory fsync；hotkey 持久化 pre-commit failure 会回滚 native binding，window resize 保存失败进入结构化日志。
 - 批次 E（第三批）：debug manager 作为独立 runtime resource 关闭，覆盖 starting/paused/active step 的 cancel、context wait 与 `StopRuntime` held-input barrier，并修复并发 DebugStart 覆盖；App 最终关闭同步停止 node-enter timer，LogMerger detach GUI，LogSink 关闭文件后有界 drain，阻塞 callback 不再让主线程或日志句柄无限存活。
 - 批次 E（第二批）：runtime ownership 扩展到 hotkey registry、recording、calibration 与 tools presentation；逆序关闭会先取消临时 capture、关闭/等待 secondary windows、停止校准与录制 hook，再释放中央 hotkey。关闭后的服务拒绝新 native 资源，录制退出 Cancel 且 finalizing drain 后不再落半成品。
 - 批次 E（首批）：新增 application runtime 状态机与 managed HTTP server；构造完成后统一启动 Worker→MCP→Schedule，MCP bind error 同步失败并触发 rollback；Wails 正常/错误退出都按 Schedule→MCP→Worker 关闭。Worker 使用 lifetime context 闭合 queued→active shutdown 竞态，Worker/Schedule/HTTP Close 均幂等且响应 context。
@@ -106,6 +108,8 @@ Verified:
 - E 第二批最终门禁：全仓串行 atomic coverage、`go vet ./...`、`staticcheck ./...`、hotkey/recording/calibration/tools race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过；本批使 hotkey、recording、calibration、tools statement coverage 分别达到 78.9%、36.1%、24.1%、50.2%。
 - E 第三批双轴 review：修复 starting debug runtime 未发布 cancel、paused/active/terminal cleanup 越过 Close barrier、并发 DebugStart 覆盖与 manager 锁内外部 cleanup；App deadline 在 LogMerger 或 LogSink callback 阻塞时独立关闭日志文件并聚合 close error。最终 Standards/Spec 均无剩余 finding。
 - E 第三批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、root/services race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
+- F 首批双轴 review：修复 commit 后 autostart/logger side effect 乱序覆盖；HotkeyRegistry 不再吞持久化错误，pre-commit failure 回滚 entry/native binding，rollback native failure 标 failed 并保留真实 ownership；committed directory-sync warning 保持新代并记录。最终 Standards/Spec 均无剩余 finding。
+- F 首批最终门禁：全仓 test/vet/staticcheck、root/hotkey/services race、Linux amd64 与 Darwin arm64 services 编译、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
 
 ## Open questions
 

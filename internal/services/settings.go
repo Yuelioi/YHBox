@@ -3,13 +3,14 @@ package services
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 
-	"github.com/yottaapp/yotta/pkg/locale"
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/yottaapp/yotta/pkg/locale"
 )
 
 // settingsFileName / settingsFilePath 跟 walk 时代保持兼容：exe 同目录的 settings.json。
@@ -237,13 +238,75 @@ func LoadSettings(path string) *Settings {
 	return s
 }
 
-// SaveSettings 把 s 全量序列化写到 path（覆盖）。
+// SaveSettings writes a complete snapshot through a same-directory temporary
+// file, fsync, atomic replace, and host-specific directory durability barrier.
 func SaveSettings(path string, s *Settings) error {
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return saveSettingsBytes(path, data, replaceSettingsFile, syncSettingsDir)
+}
+
+type settingsCommittedError struct{ err error }
+
+func (e *settingsCommittedError) Error() string   { return e.err.Error() }
+func (e *settingsCommittedError) Unwrap() error   { return e.err }
+func (e *settingsCommittedError) Committed() bool { return true }
+
+func settingsSaveCommitted(err error) bool {
+	var committed *settingsCommittedError
+	return errors.As(err, &committed)
+}
+
+func saveSettingsBytes(
+	path string,
+	data []byte,
+	replace func(oldPath, newPath string) error,
+	syncDir func(string) error,
+) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create settings directory: %w", err)
+	}
+	mode := os.FileMode(0o644)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode().Perm()
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat settings file: %w", err)
+	}
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create settings temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	committed := false
+	defer func() {
+		_ = tmp.Close()
+		if !committed {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err := tmp.Chmod(mode); err != nil {
+		return fmt.Errorf("chmod settings temp file: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		return fmt.Errorf("write settings temp file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("sync settings temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close settings temp file: %w", err)
+	}
+	if err := replace(tmpPath, path); err != nil {
+		return fmt.Errorf("replace settings file: %w", err)
+	}
+	committed = true
+	if err := syncDir(dir); err != nil {
+		return &settingsCommittedError{err: fmt.Errorf("sync settings directory: %w", err)}
+	}
+	return nil
 }
 
 // Clone deep copy。SettingsService.Update 的 clone→merge→Validate→swap→save 流程用。
