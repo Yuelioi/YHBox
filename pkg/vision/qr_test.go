@@ -25,7 +25,7 @@ func newWhiteRGBA(w, h int) *image.RGBA {
 // TestDecodeQRFromImage_RoundTrip 用 gozxing 自带 encoder 生成 QR 图再解回, 验证
 // DecodeQRFromImage 能正确还原文本并回报定位点。
 func TestDecodeQRFromImage_RoundTrip(t *testing.T) {
-	const text = "YHFish-QR-roundtrip"
+	const text = "Yotta-QR-roundtrip"
 
 	// 编码: qrcode.NewQRCodeWriter().Encode → *gozxing.BitMatrix (同时实现 image.Image)
 	writer := qrcode.NewQRCodeWriter()

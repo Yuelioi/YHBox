@@ -15,7 +15,7 @@ import (
 // 走真实 visionAdapter.DecodeQR (controller screenshot → cropFrameByGeometry → vision.DecodeQRFromImage)
 // 验证解回原文 + 有定位点。
 func TestDecodeQR_FoundViaRealAdapter(t *testing.T) {
-	const text = "yhfish-qr-integ"
+	const text = "yotta-qr-integ"
 	matrix, err := qrcode.NewQRCodeWriter().Encode(text, gozxing.BarcodeFormat_QR_CODE, 200, 200, nil)
 	if err != nil {
 		t.Fatalf("encode QR: %v", err)

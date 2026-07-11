@@ -16,7 +16,7 @@
 | Fetch/network | SSRF、敏感内网访问、巨大响应 | 节点行为必须显式、超时/大小受限；未来远程分享前需要 URL policy |
 | Input/capture | 错误 target、按键残留、隐私图像 | capability/target validation、context cancel、held-input release、窗口句柄重校验 |
 | Logs/settings | 凭据或隐私泄漏 | 不记录 secret 值；用户数据写失败可观测；安全报告避免附真实数据 |
-| Dependencies | 已知漏洞、许可漂移 | Go/Node/Rust Dependabot、govulncheck、cargo-deny、固定 lockfile、第三方 license artifact |
+| Dependencies/history | 已知漏洞、许可漂移、历史凭据泄漏 | Go/Node/Rust Dependabot、govulncheck、cargo-deny、固定 lockfile、第三方 license artifact、Gitleaks 全历史扫描 |
 
 ## 非目标
 

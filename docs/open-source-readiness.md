@@ -22,6 +22,7 @@
 - Go/Node/Rust Dependabot；govulncheck、Go/Node/Rust license 与 Rust advisory gate
 - 架构、贡献、安全、平台、兼容和 threat-model 文档
 - 非可信 parser/graph/package/MCP fuzz seed corpus
+- Gitleaks 全历史扫描（1606 commits）通过；两个测试 UUID 使用精确值 allowlist，不豁免整个文件
 
 ## 外部发布设置
 

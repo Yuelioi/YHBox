@@ -39,6 +39,7 @@ Current:
 Done:
 
 - 批次 H：graph rewrite/package metadata/expression/MCP params fuzz corpus；govulncheck 与第三方 license allowlist/report；Dependabot；threat model、架构、贡献、安全、平台和兼容文档。扫描发现 Go 1.25.1 标准库 22 条可达漏洞，升级到 1.25.12 后归零。
+- 发布预检：统一残余 YHBox/YHFish 应用身份为 Yotta；Gitleaks 扫描 1606 个历史提交无真实泄漏；当前 origin 仍是旧 `Yuelioi/YHBox`，目标 `yottaapp/yotta` 尚不存在或当前账号不可见，未执行 push。
 - 批次 G（第三批）：Registry 可实例化并生成防御性不可变 snapshot；Store/validator/dependency/runtime/catalog/Script/MCP/NodeService 使用同一 generation；runner 私有 execution table 热路径零分配；测试不再 reset 全局 registry。
 
 - 批次 G（第二批）：Ctx 从 13 个逐项 service getter 收窄为 `Context/Now/Out/CaptureOutput/Services` 稳定核心；Services 按值返回并隐藏 framework Snapshot。所有节点与 Script 使用同一 bundle view，新增 adapter 不再扩张 Ctx 接口，automation 仍经 service→runtime adapter→controller capability seam。

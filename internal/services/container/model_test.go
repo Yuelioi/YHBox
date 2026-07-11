@@ -102,7 +102,7 @@ func TestPackageManifestJSONShape(t *testing.T) {
 	m := PackageManifest{
 		SchemaVersion: PackageSchemaVersion,
 		Kind:          PackageKindContainer,
-		Name:          "@yhfish/daily-fishing",
+		Name:          "@yotta/daily-fishing",
 		DisplayName:   "每日钓鱼",
 		Version:       "0.1.0",
 		Description:   "自动完成每日钓鱼循环",
@@ -111,7 +111,7 @@ func TestPackageManifestJSONShape(t *testing.T) {
 		Category:      "daily",
 		License:       "MIT",
 		Author:        PackagePerson{Name: "yl"},
-		Publisher:     PackagePublisher{ID: "yhfish", Name: "YHFish"},
+		Publisher:     PackagePublisher{ID: "yotta", Name: "Yotta"},
 		Repository:    PackageLink{Type: "git"},
 		Yotta: PackageYotta{
 			PackageID:  "pkg_01jz_daily_fishing",
@@ -159,7 +159,7 @@ func TestInstallationJSONShape(t *testing.T) {
 		SchemaVersion:    InstallationSchemaVersion,
 		InstanceID:       "local_uuid",
 		PackageID:        "pkg_01jz_daily_fishing",
-		PackageName:      "@yhfish/daily-fishing",
+		PackageName:      "@yotta/daily-fishing",
 		InstalledVersion: "0.1.0",
 		Display: InstallationDisplay{
 			Favorite: true,
@@ -191,7 +191,7 @@ func TestInstallationJSONShape(t *testing.T) {
 	if !bytes.Contains(b, []byte(`"packageId":"pkg_01jz_daily_fishing"`)) {
 		t.Fatalf("installation must keep stable packageId link: %s", string(b))
 	}
-	if !bytes.Contains(b, []byte(`"packageName":"@yhfish/daily-fishing"`)) {
+	if !bytes.Contains(b, []byte(`"packageName":"@yotta/daily-fishing"`)) {
 		t.Fatalf("installation should keep packageName display cache: %s", string(b))
 	}
 	if !bytes.Contains(b, []byte(`"inputBackend":null`)) || !bytes.Contains(b, []byte(`"scaleTolerance":null`)) {

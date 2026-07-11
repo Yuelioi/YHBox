@@ -1,4 +1,4 @@
-# Briefing — YHFish
+# Briefing — Yotta
 
 ## Conventions
 

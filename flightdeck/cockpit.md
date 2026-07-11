@@ -1,4 +1,4 @@
-# Cockpit — YHFish
+# Cockpit — Yotta
 
 Focus: **Go 后端大型、多平台发布加固已在本地完成；等待推送后的三平台 CI 首跑与维护者许可证决策。** 本地 `main` 已分批提交，尚未推送。
 

@@ -6,7 +6,7 @@ RECHECK WHEN: 改节点注册流程 / capability 分类 / dispatch 派发逻辑 
 
 ---
 
-YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [add-node.md](add-node.md)；pin 命名/Default 约定见 [node-spec-style.md](node-spec-style.md)。
+Yotta 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [add-node.md](add-node.md)；pin 命名/Default 约定见 [node-spec-style.md](node-spec-style.md)。
 
 源码：`internal/node/`（框架核心）+ `internal/nodes/<category>/`（节点实现；数量用 `go run ./cmd/node-catalog export` 查当前值）。
 

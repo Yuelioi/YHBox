@@ -11,7 +11,7 @@ RECHECK WHEN: TypeText 实现改动 / 默认后端从 postmessage 换走 / WM_CH
 ## 根因
 `InputText` → `ctx.Services().Input.TypeText` → backend.TypeText。`PostMessageBackend.TypeText` **旧实现**直接 `return TypeText(hwnd, s)`, 而 pkg 级 `TypeText` (pkg/input/typetext_windows.go) 走**全局 SendInput KEYEVENTF_UNICODE**, `func TypeText(_ win.HWND, ...)` 把 hwnd 直接丢弃 —— SendInput 注入到**真实持有键盘焦点的前台窗口**。
 
-但 postmessage 后端 (默认) 整个设计前提 = 目标窗口在后台、不抢前台 (`BackgroundInput=true`)。跑流程时焦点在 YHFish GUI / 别处, 目标窗口 (记事本/vscode) 后台无焦 → SendInput 的字符全注入到错误窗口 → 目标一个字收不到、**且不报错**。
+但 postmessage 后端 (默认) 整个设计前提 = 目标窗口在后台、不抢前台 (`BackgroundInput=true`)。跑流程时焦点在 Yotta GUI / 别处, 目标窗口 (记事本/vscode) 后台无焦 → SendInput 的字符全注入到错误窗口 → 目标一个字收不到、**且不报错**。
 
 对照实证 (用户真机): **同一个 vscode 窗口**, `KeyPress` (按键) 能打字、`InputText` 不能。差异就在 KeyPress 走 `PostMessageBackend.KeyDown` → `postMessage(hwnd, WM_KEYDOWN)` (**targeted hwnd, 后台可用**), InputText 走全局 SendInput。
 

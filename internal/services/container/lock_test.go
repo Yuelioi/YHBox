@@ -10,11 +10,11 @@ func TestBuildYottaLockHashesAndBindingSlots(t *testing.T) {
 	manifest := PackageManifest{
 		SchemaVersion: PackageSchemaVersion,
 		Kind:          PackageKindContainer,
-		Name:          "@yhfish/daily-fishing",
+		Name:          "@yotta/daily-fishing",
 		DisplayName:   "每日钓鱼",
 		Version:       "0.1.0",
 		Author:        PackagePerson{Name: "yl"},
-		Publisher:     PackagePublisher{ID: "yhfish"},
+		Publisher:     PackagePublisher{ID: "yotta"},
 		Yotta: PackageYotta{
 			PackageID:  "pkg_01jz_daily_fishing",
 			EntryGraph: "graph.json",
@@ -42,7 +42,7 @@ func TestBuildYottaLockHashesAndBindingSlots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lock.PackageID != "pkg_01jz_daily_fishing" || lock.PackageName != "@yhfish/daily-fishing" {
+	if lock.PackageID != "pkg_01jz_daily_fishing" || lock.PackageName != "@yotta/daily-fishing" {
 		t.Fatalf("package identity missing: %+v", lock)
 	}
 	if lock.ManifestHash == "" || lock.GraphHash == "" || lock.ClosureHash == "" {

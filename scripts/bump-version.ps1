@@ -71,7 +71,7 @@ $changes = @(
     },
     @{
         Path = "build/windows/wails.exe.manifest"
-        Pattern = '(name="com\.yhbox\.app" version=)"[^"]+"'
+        Pattern = '(name="com\.yottaapp\.yotta" version=)"[^"]+"'
         Replacement = "`${1}`"$Version`""
     }
 )
