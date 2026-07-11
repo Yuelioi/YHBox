@@ -81,13 +81,21 @@ PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**�
 
 一个节点能被系统认到，必须：
 
-1. **`func init() { node.Register(&X{}) }`**（节点文件里）。
+1. **`func init() { node.Register(&X{}) }`**（节点文件里）。这个包级函数只是在生产启动期写入默认 Registry 的兼容入口；测试、嵌入方和自定义节点集合应使用 `node.NewRegistry()`。
 2. **包被 blank-import**：新 `internal/nodes/<category>` 包要在 `main.go` + `internal/services/container/runtime/dispatch_v5_test.go` 里有 `_ "github.com/yottaapp/yotta/internal/nodes/<category>"`，否则 `init` 不跑、节点不存在（已有 category 包加节点则无需动）。
 3. **满足 capability invariant**（`registry.go` Register 时校验，违反直接 panic、init-time 立刻暴露）：
    - 非 marker/visual 节点 **恰好一种** capability（0 个 → panic "zero capabilities"；>1 个 → panic "multiple capabilities"）。
    - `IsPureData: true` 必须实现 Evaluator，否则 panic。
    - `RuntimeCapabilities` 只能使用已知值且不能重复；共享 helper 的间接依赖（例如 `ResolvePoint` 的 Window）也必须声明。完整内建 registry 的语义矩阵由 `internal/nodes/all/runtime_capabilities_test.go` 守卫。
-4. 注册表在 Wails OnStartup 末尾 `Freeze()`，之后再 Register 会 panic（注册只能在 init 期）。
+4. 默认注册表在 Wails OnStartup 末尾 `Freeze()`，之后再 Register 会 panic（注册只能在 init 期）。
+
+### Registry 的所有权与快照
+
+`Registry` 是可实例化、并发安全的构建器；`RegistrySnapshot` 是运行时消费的时间点视图。注册时和读取时都会防御性复制 Spec/Defaults，且保持 `node.Point`、widget props 等具名 Go 类型，调用方不能通过修改返回值污染下一次读取。
+
+生产内建节点继续通过 `init + node.Register` 组装默认实例，但 catalog、Container Store/validation/dependency scan、runtime compiler/runner、Script binding、MCP authoring 和 NodeService 都能显式接收同一个 `RegistryReader`。一次运行应先捕获 snapshot，并把它贯穿整条链路；不要在中途回退到包级 `node.Get/All`，否则自定义 registry 会出现“能保存但不能运行”或“脚本看不到节点”的分裂代际。
+
+测试必须创建局部 `node.NewRegistry()`，不再清空默认全局实例。这样测试可并行运行，也不会删除其他包由 `init` 注册的生产节点。
 
 可选扩展接口（type assertion 探测，实现即生效）：`Validator`（节点自身静态校验）、`Dependencer`（子图分享/library import 时 BFS 抽外部资产引用）。
 

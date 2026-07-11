@@ -6,12 +6,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/yottaapp/yotta/internal/catalog"
+	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/container"
 )
 
-// listNodesJSON 返节点目录 JSON (catalog.BuildWithI18n 含展示文案, 已按 category→kind 稳定排序)。
-func listNodesJSON() []byte {
-	b, _ := json.MarshalIndent(catalog.BuildWithI18n(), "", "  ")
+func listNodesJSONWithRegistry(registry node.RegistryReader) []byte {
+	b, _ := json.MarshalIndent(catalog.BuildWithI18nFrom(registry), "", "  ")
 	return b
 }
 
@@ -25,6 +25,10 @@ type SaveResult struct {
 // saveContainer: 全量校验 → 有 error 级拒存(返 []ValidationError JSON) → 否则自分配新 UUID、
 // Store.Save 落盘, 返 {id, path, warnings}。warning 不阻塞。
 func saveContainer(st *container.Store, raw []byte) (SaveResult, []byte) {
+	return saveContainerWithRegistry(st, node.DefaultRegistrySnapshot(), raw)
+}
+
+func saveContainerWithRegistry(st *container.Store, registry node.RegistryReader, raw []byte) (SaveResult, []byte) {
 	var c container.Container
 	if err := json.Unmarshal(raw, &c); err != nil {
 		b, _ := json.MarshalIndent([]container.ValidationError{{
@@ -35,7 +39,7 @@ func saveContainer(st *container.Store, raw []byte) (SaveResult, []byte) {
 	}
 	c.Normalize()
 	// MCP 工具语境无全局子图池 — 引用子图会报 MISSING_SUBGRAPH (已知限制, 真需要再接池).
-	all := container.ValidateContainer(&c, nil)
+	all := container.ValidateContainerWithRegistry(&c, nil, registry)
 	var warnings []container.ValidationError
 	hasErr := false
 	for _, e := range all {
@@ -64,9 +68,7 @@ func saveContainer(st *container.Store, raw []byte) (SaveResult, []byte) {
 	return SaveResult{ID: c.ID, Path: c.ID + "/", Warnings: warnings}, nil
 }
 
-// validateContainerJSON: 解析 → Normalize → ValidateContainer → 返 []ValidationError JSON
-// (含 error+warning 两级)。第二返回值 = 是否含 error 级。
-func validateContainerJSON(raw []byte) ([]byte, bool) {
+func validateContainerJSONWithRegistry(registry node.RegistryReader, raw []byte) ([]byte, bool) {
 	var c container.Container
 	if err := json.Unmarshal(raw, &c); err != nil {
 		errs := []container.ValidationError{{
@@ -77,7 +79,7 @@ func validateContainerJSON(raw []byte) ([]byte, bool) {
 		return b, true
 	}
 	c.Normalize()
-	errs := container.ValidateContainer(&c, nil)
+	errs := container.ValidateContainerWithRegistry(&c, nil, registry)
 	hasErr := false
 	for _, e := range errs {
 		if e.Severity == container.SeverityError {

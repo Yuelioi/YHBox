@@ -5,16 +5,15 @@ import (
 	"errors"
 	"fmt"
 
-	nodepkg "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/container"
 )
 
 // execNode 单节点执行入口. 走 dispatchInRegion — 内部 route Loop/Subgraph/CollapsedNode
 // 等 RegionRunner 或普通节点.
 //
-// IsPureData / IsVisualOnly / Disabled 3 个 gatekeep 走 nodepkg.Get(kind).Spec.
+// IsPureData / IsVisualOnly / Disabled 3 个 gatekeep 走 runner registry snapshot.
 func (r *ContainerRunner) execNode(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	rn, ok := nodepkg.Get(node.Kind)
+	rn, ok := r.registeredNode(node.Kind)
 	if !ok {
 		return nil, fmt.Errorf("execNode: unknown kind %q (not in nodepkg registry)", node.Kind)
 	}

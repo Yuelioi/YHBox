@@ -319,6 +319,7 @@ func TestSpecConsistency_WidgetPropsShape(t *testing.T) {
 		"dropdown":        true,
 		"duration":        true,
 		"expr":            true,
+		"file":            true,
 		"icon-preset":     true,
 		"json":            true,
 		"key-capture":     true,

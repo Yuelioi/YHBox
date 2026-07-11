@@ -16,9 +16,9 @@ func (r *recordingInput) TypeText(s string) error {
 }
 
 func TestInputText_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&InputText{})
-	rn, _ := node.Get("InputText")
+	registry := node.NewRegistry()
+	registry.Register(&InputText{})
+	rn, _ := registry.Get("InputText")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -37,9 +37,9 @@ func TestInputText_HappyPath(t *testing.T) {
 }
 
 func TestInputText_EmptyText_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&InputText{})
-	rn, _ := node.Get("InputText")
+	registry := node.NewRegistry()
+	registry.Register(&InputText{})
+	rn, _ := registry.Get("InputText")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{itInText: ""},
@@ -60,9 +60,9 @@ func TestInputText_EmptyText_ValidationError(t *testing.T) {
 }
 
 func TestInputText_BackendError_Propagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&InputText{})
-	rn, _ := node.Get("InputText")
+	registry := node.NewRegistry()
+	registry.Register(&InputText{})
+	rn, _ := registry.Get("InputText")
 
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -75,9 +75,9 @@ func TestInputText_BackendError_Propagates(t *testing.T) {
 }
 
 func TestInputText_Unicode_Injected(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&InputText{})
-	rn, _ := node.Get("InputText")
+	registry := node.NewRegistry()
+	registry.Register(&InputText{})
+	rn, _ := registry.Get("InputText")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,

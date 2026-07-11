@@ -68,9 +68,9 @@ func TestParseMods(t *testing.T) {
 // 通过 ClickTemplate RunNode + recInput 验证 clickWithMods 的 KeyDown→Click×N→KeyUp 序列。
 
 func TestClickWithMods_Sequence(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	// bbox center = pt
@@ -107,9 +107,9 @@ func TestClickWithMods_Sequence(t *testing.T) {
 // ─── 零回归: 默认 Keys=""/ClickCount=1 = 单击无修饰 ─────────────────────────
 
 func TestClickWithMods_DefaultNoMods(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	vision := &mockVision{point: &pt, bbox: [4]float64{0.5, 0.5, 0, 0}, conf: 0.93, hitOnCall: 1}
@@ -144,9 +144,9 @@ func TestClickWithMods_DefaultNoMods(t *testing.T) {
 // ─── Validate: 非法修饰键 + ClickCount<1 ─────────────────────────────────────
 
 func TestClickTemplate_InvalidModifierKey(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{
@@ -170,9 +170,9 @@ func TestClickTemplate_InvalidModifierKey(t *testing.T) {
 }
 
 func TestClickTemplate_InvalidClickCount(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{

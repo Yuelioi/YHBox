@@ -14,9 +14,9 @@ import (
 
 func runLoadImage(t *testing.T, path string) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&LoadImage{})
-	rn, _ := node.Get("LoadImage")
+	registry := node.NewRegistry()
+	registry.Register(&LoadImage{})
+	rn, _ := registry.Get("LoadImage")
 	return node.RunNode(context.Background(), rn, nil,
 		map[string]any{"Path": path}, nil, node.StubServices(), false)
 }

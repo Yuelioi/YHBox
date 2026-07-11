@@ -11,9 +11,9 @@ import (
 // value (待比较值), hasValue (false 模拟 Required 缺失)。
 func runSwitch(t *testing.T, value string, cases []any, hasValue bool) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&Switch{})
-	rn, _ := node.Get("Switch")
+	registry := node.NewRegistry()
+	registry.Register(&Switch{})
+	rn, _ := registry.Get("Switch")
 	cfg := map[string]any{}
 	if cases != nil {
 		cfg["cases"] = cases

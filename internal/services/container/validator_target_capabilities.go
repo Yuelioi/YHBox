@@ -9,23 +9,23 @@ import (
 	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
-func validateTargetCapabilities(c *Container, sgs []Subgraph) []ValidationError {
+func validateTargetCapabilities(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
-	errs = append(errs, validateGraphTargetCapabilities(c.Graph, []string{"main"}, "")...)
+	errs = append(errs, validateGraphTargetCapabilities(registry, c.Graph, []string{"main"}, "")...)
 	for i := range sgs {
 		sg := &sgs[i]
-		errs = append(errs, validateGraphTargetCapabilities(sg.Graph, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}, "")...)
+		errs = append(errs, validateGraphTargetCapabilities(registry, sg.Graph, []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}, "")...)
 	}
-	errs = append(errs, validateSubgraphCallTargetCapabilities(c.Graph, []string{"main"}, "", subgraphsByID(sgs), map[string]bool{})...)
+	errs = append(errs, validateSubgraphCallTargetCapabilities(registry, c.Graph, []string{"main"}, "", subgraphsByID(sgs), map[string]bool{})...)
 	return errs
 }
 
-func validateGraphTargetCapabilities(g Graph, graphPath []string, inheritedTargetKind string) []ValidationError {
+func validateGraphTargetCapabilities(registry nodepkg.RegistryReader, g Graph, graphPath []string, inheritedTargetKind string) []ValidationError {
 	var errs []ValidationError
 	nodeByID := graphNodeByID(g)
 	for i := range g.Nodes {
 		n := &g.Nodes[i]
-		rn, ok := nodepkg.Get(n.Kind)
+		rn, ok := registry.Get(n.Kind)
 		if !ok {
 			continue
 		}
@@ -36,7 +36,7 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string, inheritedTarge
 		if windowPinWired(g, n.ID) {
 			continue
 		}
-		targetKind, ok := nearestUpstreamTargetKind(g, nodeByID, n.ID)
+		targetKind, ok := nearestUpstreamTargetKind(registry, g, nodeByID, n.ID)
 		if !ok {
 			targetKind = inheritedTargetKind
 			ok = targetKind != ""
@@ -68,7 +68,7 @@ func validateGraphTargetCapabilities(g Graph, graphPath []string, inheritedTarge
 	return errs
 }
 
-func validateSubgraphCallTargetCapabilities(g Graph, graphPath []string, inheritedTargetKind string, sgs map[string]*Subgraph, seen map[string]bool) []ValidationError {
+func validateSubgraphCallTargetCapabilities(registry nodepkg.RegistryReader, g Graph, graphPath []string, inheritedTargetKind string, sgs map[string]*Subgraph, seen map[string]bool) []ValidationError {
 	var errs []ValidationError
 	nodeByID := graphNodeByID(g)
 	for i := range g.Nodes {
@@ -76,7 +76,7 @@ func validateSubgraphCallTargetCapabilities(g Graph, graphPath []string, inherit
 		if !isSubgraphCallKind(n.Kind) {
 			continue
 		}
-		targetKind, ok := nearestUpstreamTargetKind(g, nodeByID, n.ID)
+		targetKind, ok := nearestUpstreamTargetKind(registry, g, nodeByID, n.ID)
 		if !ok {
 			targetKind = inheritedTargetKind
 			ok = targetKind != ""
@@ -95,8 +95,8 @@ func validateSubgraphCallTargetCapabilities(g Graph, graphPath []string, inherit
 		}
 		seen[key] = true
 		sgPath := append(append([]string(nil), graphPath...), fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID))
-		errs = append(errs, validateGraphTargetCapabilities(sg.Graph, sgPath, targetKind)...)
-		errs = append(errs, validateSubgraphCallTargetCapabilities(sg.Graph, sgPath, targetKind, sgs, seen)...)
+		errs = append(errs, validateGraphTargetCapabilities(registry, sg.Graph, sgPath, targetKind)...)
+		errs = append(errs, validateSubgraphCallTargetCapabilities(registry, sg.Graph, sgPath, targetKind, sgs, seen)...)
 	}
 	return errs
 }
@@ -145,7 +145,7 @@ func graphNodeByID(g Graph) map[string]*GraphNode {
 	return out
 }
 
-func nearestUpstreamTargetKind(g Graph, nodeByID map[string]*GraphNode, nodeID string) (string, bool) {
+func nearestUpstreamTargetKind(registry nodepkg.RegistryReader, g Graph, nodeByID map[string]*GraphNode, nodeID string) (string, bool) {
 	visited := map[string]bool{nodeID: true}
 	frontier := []string{nodeID}
 	for len(frontier) > 0 {
@@ -158,12 +158,12 @@ func nearestUpstreamTargetKind(g Graph, nodeByID map[string]*GraphNode, nodeID s
 					continue
 				}
 				toNode := nodeByID[toID]
-				if !nodeHasExecInPin(toNode, toPin) {
+				if !nodeHasExecInPin(registry, toNode, toPin) {
 					continue
 				}
 				fromID, fromPin := splitRef(e.From)
 				fromNode := nodeByID[fromID]
-				if fromNode == nil || !nodeHasExecOutPin(fromNode, fromPin) {
+				if fromNode == nil || !nodeHasExecOutPinWithRegistry(registry, fromNode, fromPin) {
 					continue
 				}
 				if kind, ok := targetKindForSelectionNode(fromNode.Kind); ok {
@@ -189,11 +189,11 @@ func nearestUpstreamTargetKind(g Graph, nodeByID map[string]*GraphNode, nodeID s
 	return "", false
 }
 
-func nodeHasExecInPin(n *GraphNode, pin string) bool {
+func nodeHasExecInPin(registry nodepkg.RegistryReader, n *GraphNode, pin string) bool {
 	if n == nil {
 		return false
 	}
-	rn, ok := nodepkg.Get(n.Kind)
+	rn, ok := registry.Get(n.Kind)
 	if !ok {
 		return false
 	}

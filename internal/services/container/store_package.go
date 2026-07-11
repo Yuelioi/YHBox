@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
@@ -266,8 +267,8 @@ func aggregateContainer(manifest PackageManifest, graph Graph, installation Inst
 	return c
 }
 
-func buildContainerLock(manifest PackageManifest, graph Graph, subgraphs []Subgraph, generatedAt string) (YottaLock, error) {
-	closure, err := dependencyClosure(graph, subgraphs)
+func buildContainerLockWithRegistry(registry nodepkg.RegistryReader, manifest PackageManifest, graph Graph, subgraphs []Subgraph, generatedAt string) (YottaLock, error) {
+	closure, err := dependencyClosureWithRegistry(registry, graph, subgraphs)
 	if err != nil {
 		return YottaLock{}, err
 	}

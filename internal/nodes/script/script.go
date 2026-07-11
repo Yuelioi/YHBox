@@ -45,6 +45,7 @@ func (Script) Spec() node.Spec {
 		RuntimeCapabilities: []node.RuntimeCapability{
 			node.RuntimeCapabilityLog,
 			node.RuntimeCapabilityParams,
+			node.RuntimeCapabilityRegistry,
 		},
 		DynamicInputs: true,
 	}

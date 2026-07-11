@@ -10,9 +10,9 @@ import (
 )
 
 func TestWaitTemplate_Found(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplate{})
-	rn, _ := node.Get("WaitTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplate{})
+	rn, _ := registry.Get("WaitTemplate")
 
 	pt := node.Point{X: 0.4, Y: 0.6}
 	vision := &mockVision{point: &pt, conf: 0.91, hitOnCall: 1}
@@ -32,9 +32,9 @@ func TestWaitTemplate_Found(t *testing.T) {
 }
 
 func TestWaitTemplate_SettleMs_RedetectThenFound(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplate{})
-	rn, _ := node.Get("WaitTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplate{})
+	rn, _ := registry.Get("WaitTemplate")
 
 	pt := node.Point{X: 0.4, Y: 0.6}
 	vision := &mockVision{point: &pt, conf: 0.91, hitOnCall: 1}
@@ -55,9 +55,9 @@ func TestWaitTemplate_SettleMs_RedetectThenFound(t *testing.T) {
 }
 
 func TestWaitTemplate_Timeout(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplate{})
-	rn, _ := node.Get("WaitTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplate{})
+	rn, _ := registry.Get("WaitTemplate")
 
 	// hitOnCall=-1 → 永不命中, 走 timeout
 	vision := &mockVision{hitOnCall: -1, conf: 0.4}
@@ -77,9 +77,9 @@ func TestWaitTemplate_Timeout(t *testing.T) {
 }
 
 func TestWaitTemplate_Error(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplate{})
-	rn, _ := node.Get("WaitTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplate{})
+	rn, _ := registry.Get("WaitTemplate")
 
 	vision := &mockVision{err: errors.New("window closed")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -98,9 +98,9 @@ func TestWaitTemplate_Error(t *testing.T) {
 }
 
 func TestWaitTemplate_PassesROIAndPollsWithSingleFrameMatch(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplate{})
-	rn, _ := node.Get("WaitTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplate{})
+	rn, _ := registry.Get("WaitTemplate")
 
 	pt := node.Point{X: 0.4, Y: 0.6}
 	roi := node.Geometry{Pct: node.Rect{X: 0.2, Y: 0.3, W: 0.4, H: 0.5}}

@@ -381,6 +381,7 @@ type ServiceBundle struct {
 	Clip        ClipPlayer                         // PlayClip 用, runtime 端 wire
 	Subgraphs   SubgraphCaller                     // 脚本调子图用, runtime 端 wire (ContainerRunner 自身)
 	AI          AIProviderService                  // AI 节点取按连接缓存的 llm.Provider, runtime 端从 settings wire
+	Registry    RegistryReader                     // Script 只绑定本 runner registry generation
 	Snapshot    func(ctx context.Context) Snapshot // tick snapshot getter, ctx 携带 runtime tickCtxKey value
 }
 

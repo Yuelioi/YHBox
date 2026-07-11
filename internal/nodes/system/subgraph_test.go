@@ -19,9 +19,9 @@ func TestSubgraph_Spec_DynamicOutputsWithOnlyFailStatic(t *testing.T) {
 }
 
 func TestSubgraph_RunRegion_FiresBodyReachedExit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Subgraph{})
-	rn, _ := node.Get("Subgraph")
+	registry := node.NewRegistry()
+	registry.Register(&Subgraph{})
+	rn, _ := registry.Get("Subgraph")
 
 	for _, declID := range []string{"done", "failed", "0b1e4f7a-uuid-decl"} {
 		calls := 0
@@ -50,9 +50,9 @@ func TestSubgraph_RunRegion_FiresBodyReachedExit(t *testing.T) {
 }
 
 func TestSubgraph_RunRegion_EmptyExitMeansNoFire(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Subgraph{})
-	rn, _ := node.Get("Subgraph")
+	registry := node.NewRegistry()
+	registry.Register(&Subgraph{})
+	rn, _ := registry.Get("Subgraph")
 
 	body := func(_ node.Ctx) (string, error) { return "", nil }
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -68,9 +68,9 @@ func TestSubgraph_RunRegion_EmptyExitMeansNoFire(t *testing.T) {
 }
 
 func TestSubgraph_RunRegion_PropagatesBodyError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Subgraph{})
-	rn, _ := node.Get("Subgraph")
+	registry := node.NewRegistry()
+	registry.Register(&Subgraph{})
+	rn, _ := registry.Get("Subgraph")
 
 	boom := errors.New("body boom")
 	body := func(_ node.Ctx) (string, error) { return "", boom }
@@ -88,9 +88,9 @@ func TestSubgraph_RunRegion_PropagatesBodyError(t *testing.T) {
 }
 
 func TestSubgraph_RequiredSubgraphIDMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Subgraph{})
-	rn, _ := node.Get("Subgraph")
+	registry := node.NewRegistry()
+	registry.Register(&Subgraph{})
+	rn, _ := registry.Get("Subgraph")
 
 	// Subgraph 是 RegionRunner — 用 RunNodeAsRegion 走 Required gate.
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
@@ -102,9 +102,9 @@ func TestSubgraph_RequiredSubgraphIDMissing(t *testing.T) {
 
 func TestSubgraph_Dependencies_RegisteredViaInterface(t *testing.T) {
 	// registry 自动探测 Dependencer 接口 → rn.Dependencies != nil.
-	node.ResetRegistryForTest()
-	node.Register(&Subgraph{})
-	rn, _ := node.Get("Subgraph")
+	registry := node.NewRegistry()
+	registry.Register(&Subgraph{})
+	rn, _ := registry.Get("Subgraph")
 
 	if rn.Dependencies == nil {
 		t.Fatal("Subgraph should register as Dependencer (rn.Dependencies nil)")

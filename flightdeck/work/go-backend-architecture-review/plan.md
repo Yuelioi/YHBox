@@ -204,7 +204,7 @@
 
 ## 当前执行点
 
-批次 A-C、E 与 F 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 F 已闭合 Settings 与 Container durability；下一步进入批次 G 的 capability/Ctx/Registry 深化。
+批次 A-C、E、F 与 G 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 G 已闭合 runtime capability guard、Ctx 收窄和可实例化 Registry；下一步执行批次 H 的 fuzz、安全与开源治理。
 
 ## 执行状态
 
@@ -214,5 +214,5 @@
 - [ ] D — 平台依赖守卫与 adapter 收敛（本地实现完成，待原生 GUI CI 首跑）
 - [x] E — application runtime lifecycle
 - [x] F — settings/container durability
-- [ ] G — Ctx/Registry 深化
+- [x] G — Ctx/Registry 深化
 - [ ] H — fuzz/security/docs

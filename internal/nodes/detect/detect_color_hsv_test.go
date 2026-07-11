@@ -18,9 +18,9 @@ func validHSVCfg() map[string]any {
 }
 
 func TestDetectColorHSV_HitFirstPoll(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColorHSV{})
-	rn, _ := node.Get("DetectColorHSV")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColorHSV{})
+	rn, _ := registry.Get("DetectColorHSV")
 
 	vision := &mockVision{hsvCount: 100, hsvRatio: 0.2}
 	cfg := validHSVCfg()
@@ -37,9 +37,9 @@ func TestDetectColorHSV_HitFirstPoll(t *testing.T) {
 }
 
 func TestDetectColorHSV_NoOnSingleScan(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColorHSV{})
-	rn, _ := node.Get("DetectColorHSV")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColorHSV{})
+	rn, _ := registry.Get("DetectColorHSV")
 
 	// timeoutMs<=0 + 首次未命中 → No (而非 Timeout 永远轮询).
 	vision := &mockVision{hsvCount: 2, hsvRatio: 0.01}
@@ -55,9 +55,9 @@ func TestDetectColorHSV_NoOnSingleScan(t *testing.T) {
 
 // 节点责任 = Set 正确 Data 字段 (framework 路径① 据此写变量)。
 func TestDetectColorHSV_OutputData_Found(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColorHSV{})
-	rn, _ := node.Get("DetectColorHSV")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColorHSV{})
+	rn, _ := registry.Get("DetectColorHSV")
 
 	vision := &mockVision{hsvCount: 100, hsvRatio: 0.2}
 	cfg := validHSVCfg()
@@ -80,9 +80,9 @@ func TestDetectColorHSV_OutputData_Found(t *testing.T) {
 }
 
 func TestDetectColorHSV_Timeout(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColorHSV{})
-	rn, _ := node.Get("DetectColorHSV")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColorHSV{})
+	rn, _ := registry.Get("DetectColorHSV")
 
 	vision := &mockVision{hsvCount: 0, hsvRatio: 0.0}
 	cfg := validHSVCfg()

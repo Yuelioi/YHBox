@@ -9,9 +9,9 @@ import (
 )
 
 func TestStop_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Stop{})
-	rn, _ := node.Get("StopwatchStop")
+	registry := node.NewRegistry()
+	registry.Register(&Stop{})
+	rn, _ := registry.Get("StopwatchStop")
 
 	services := node.StubServices()
 	services.Stopwatches.Start("k")
@@ -36,9 +36,9 @@ func TestStop_HappyPath(t *testing.T) {
 }
 
 func TestStop_MissingKeyIsNoop(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Stop{})
-	rn, _ := node.Get("StopwatchStop")
+	registry := node.NewRegistry()
+	registry.Register(&Stop{})
+	rn, _ := registry.Get("StopwatchStop")
 
 	// 不 Start, 直接 Stop — 静默 no-op
 	r := node.RunNode(context.Background(), rn, nil,

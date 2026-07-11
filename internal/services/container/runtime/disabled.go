@@ -40,7 +40,7 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 		return nil, nil
 	default:
 		// Linear nodes: 走 Spec, 拿第一个 Type=Exec 出口名.
-		exit := firstExecOutPin(node.Kind)
+		exit := r.firstExecOutPin(node.Kind)
 		if exit == "" {
 			return nil, nil
 		}
@@ -48,10 +48,10 @@ func (r *ContainerRunner) passthroughDisabled(node *container.GraphNode, tok Exe
 	}
 }
 
-// firstExecOutPin 返 nodepkg.Get(kind).Spec.Outputs 中 Type=="Exec" 的第一个出口名.
+// firstExecOutPin 返 runner registry 中 Spec.Outputs 的第一个 Exec 出口名.
 // kind 未注册 / 无 exec 出口 → 空字符串 (caller 视为无出口, 路径自然终止).
-func firstExecOutPin(kind string) string {
-	rn, ok := nodepkg.Get(kind)
+func (r *ContainerRunner) firstExecOutPin(kind string) string {
+	rn, ok := r.registeredNode(kind)
 	if !ok {
 		return ""
 	}

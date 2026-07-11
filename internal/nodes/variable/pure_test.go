@@ -30,9 +30,9 @@ func (f fixedParamStore) Get(name string) (any, bool) {
 }
 
 func TestGetVar_EvaluateViaFramework_GlobalReadsSnapshot(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&GetVar{})
-	rn, _ := node.Get("GetVar")
+	registry := node.NewRegistry()
+	registry.Register(&GetVar{})
+	rn, _ := registry.Get("GetVar")
 
 	services := node.StubServices()
 	// Snapshot stub: 提供 frozen Vars. global scope 应走 snapshot.
@@ -57,9 +57,9 @@ func TestGetVar_EvaluateViaFramework_GlobalReadsSnapshot(t *testing.T) {
 }
 
 func TestGetParam_EvaluateViaFramework(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&GetParam{})
-	rn, _ := node.Get("GetParam")
+	registry := node.NewRegistry()
+	registry.Register(&GetParam{})
+	rn, _ := registry.Get("GetParam")
 
 	services := node.StubServices()
 	// Stub ParamStore with canned value.

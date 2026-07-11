@@ -25,10 +25,10 @@ func (n *requiresAI) Run(ctx Ctx, _ Inputs) (Outputs, error) {
 }
 
 func TestRunNode_MissingRuntimeCapabilityReturnsAssemblyError(t *testing.T) {
-	ResetRegistryForTest()
+	registry := NewRegistry()
 	n := &requiresAI{}
-	Register(n)
-	rn, _ := Get("requiresAI")
+	registry.Register(n)
+	rn, _ := registry.Get("requiresAI")
 	result := RunNode(context.Background(), rn, nil, nil, nil, ServiceBundle{}, false)
 	var assemblyErr *AssemblyError
 	if !errors.As(result.Error, &assemblyErr) {
@@ -53,9 +53,9 @@ func (requiresAIEvaluator) Spec() Spec {
 func (requiresAIEvaluator) Evaluate(Ctx, Inputs) (any, error) { return "unexpected", nil }
 
 func TestEvaluatePureData_PreservesAssemblyError(t *testing.T) {
-	ResetRegistryForTest()
-	Register(requiresAIEvaluator{})
-	rn, _ := Get("requiresAIEvaluator")
+	registry := NewRegistry()
+	registry.Register(requiresAIEvaluator{})
+	rn, _ := registry.Get("requiresAIEvaluator")
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, ServiceBundle{})
 	var assemblyErr *AssemblyError
 	if !errors.As(err, &assemblyErr) || assemblyErr.Capability != RuntimeCapabilityAI {
@@ -80,9 +80,9 @@ func (requiresVarsEvaluator) Evaluate(ctx Ctx, _ Inputs) (any, error) {
 }
 
 func TestEvaluatePureData_SnapshotDoesNotMaskMissingVars(t *testing.T) {
-	ResetRegistryForTest()
-	Register(requiresVarsEvaluator{})
-	rn, _ := Get("requiresVarsEvaluator")
+	registry := NewRegistry()
+	registry.Register(requiresVarsEvaluator{})
+	rn, _ := registry.Get("requiresVarsEvaluator")
 	services := ServiceBundle{Snapshot: func(context.Context) Snapshot { return Snapshot{} }}
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, services)
 	var assemblyErr *AssemblyError
@@ -106,9 +106,9 @@ func (happyNode) Run(ctx Ctx, in Inputs) (Outputs, error) {
 }
 
 func TestRunNode_HappyPath(t *testing.T) {
-	ResetRegistryForTest()
-	Register(happyNode{})
-	rn, _ := Get("Happy")
+	registry := NewRegistry()
+	registry.Register(happyNode{})
+	rn, _ := registry.Get("Happy")
 
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Error != nil {
@@ -140,9 +140,9 @@ func (requiredNode) Run(ctx Ctx, in Inputs) (Outputs, error) {
 }
 
 func TestRunNode_RequiredMissing_ValidationError(t *testing.T) {
-	ResetRegistryForTest()
-	Register(requiredNode{})
-	rn, _ := Get("Req")
+	registry := NewRegistry()
+	registry.Register(requiredNode{})
+	rn, _ := registry.Get("Req")
 
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if len(r.Validation) != 1 || r.Validation[0].Code != "REQUIRED_FIELD_MISSING" {
@@ -164,9 +164,9 @@ func (errorNode) Run(ctx Ctx, in Inputs) (Outputs, error) {
 }
 
 func TestRunNode_RuntimeError(t *testing.T) {
-	ResetRegistryForTest()
-	Register(errorNode{})
-	rn, _ := Get("Err")
+	registry := NewRegistry()
+	registry.Register(errorNode{})
+	rn, _ := registry.Get("Err")
 
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Error == nil || r.Error.Error() != "boom" {
@@ -185,9 +185,9 @@ func (panicNode) Run(ctx Ctx, in Inputs) (Outputs, error) {
 }
 
 func TestRunNode_Panic_Recovered(t *testing.T) {
-	ResetRegistryForTest()
-	Register(panicNode{})
-	rn, _ := Get("Panic")
+	registry := NewRegistry()
+	registry.Register(panicNode{})
+	rn, _ := registry.Get("Panic")
 
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
@@ -210,9 +210,9 @@ func (doubleFireNode) Run(ctx Ctx, in Inputs) (Outputs, error) {
 }
 
 func TestRunNode_DoubleFire_Panics(t *testing.T) {
-	ResetRegistryForTest()
-	Register(doubleFireNode{})
-	rn, _ := Get("DF")
+	registry := NewRegistry()
+	registry.Register(doubleFireNode{})
+	rn, _ := registry.Get("DF")
 
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
@@ -241,9 +241,9 @@ func (pureAdd) Spec() Spec {
 func (pureAdd) Evaluate(_ Ctx, in Inputs) (any, error) { return in.Float64("a") + in.Float64("b"), nil }
 
 func TestEvaluatePureData_Happy(t *testing.T) {
-	ResetRegistryForTest()
-	Register(pureAdd{})
-	rn, _ := Get("PureAdd")
+	registry := NewRegistry()
+	registry.Register(pureAdd{})
+	rn, _ := registry.Get("PureAdd")
 
 	got, err := EvaluatePureData(context.Background(), rn,
 		map[string]any{"a": 3.0, "b": 4.0}, nil, StubServices())
@@ -271,9 +271,9 @@ func (pureMissingReq) Spec() Spec {
 func (pureMissingReq) Evaluate(_ Ctx, in Inputs) (any, error) { return in.Float64("x"), nil }
 
 func TestEvaluatePureData_RequiredMissing_Errors(t *testing.T) {
-	ResetRegistryForTest()
-	Register(pureMissingReq{})
-	rn, _ := Get("PureReq")
+	registry := NewRegistry()
+	registry.Register(pureMissingReq{})
+	rn, _ := registry.Get("PureReq")
 
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
 	if err == nil {
@@ -287,9 +287,9 @@ func TestEvaluatePureData_RequiredMissing_Errors(t *testing.T) {
 
 // Non-pure-data node → EvaluatePureData rejects.
 func TestEvaluatePureData_NotIsPureData_Errors(t *testing.T) {
-	ResetRegistryForTest()
-	Register(happyNode{})
-	rn, _ := Get("Happy")
+	registry := NewRegistry()
+	registry.Register(happyNode{})
+	rn, _ := registry.Get("Happy")
 
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
 	if err == nil {
@@ -306,9 +306,9 @@ func (purePanic) Spec() Spec {
 func (purePanic) Evaluate(_ Ctx, _ Inputs) (any, error) { panic("oops") }
 
 func TestEvaluatePureData_PanicRecovered(t *testing.T) {
-	ResetRegistryForTest()
-	Register(purePanic{})
-	rn, _ := Get("PurePanic")
+	registry := NewRegistry()
+	registry.Register(purePanic{})
+	rn, _ := registry.Get("PurePanic")
 
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
 	if err == nil {
@@ -335,9 +335,9 @@ func (evaluatorOnlyNode) Spec() Spec {
 func (evaluatorOnlyNode) Evaluate(_ Ctx, _ Inputs) (any, error) { return 42, nil }
 
 func TestRunNode_NonRunnable_Errors(t *testing.T) {
-	ResetRegistryForTest()
-	Register(evaluatorOnlyNode{})
-	rn, _ := Get("EvaluatorOnly")
+	registry := NewRegistry()
+	registry.Register(evaluatorOnlyNode{})
+	rn, _ := registry.Get("EvaluatorOnly")
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Error == nil || !strings.Contains(r.Error.Error(), "not Runnable") {
 		t.Errorf("expected 'not Runnable' error, got %v", r.Error)
@@ -345,9 +345,9 @@ func TestRunNode_NonRunnable_Errors(t *testing.T) {
 }
 
 func TestRunNodeAsRegion_NonRegionRunner_Errors(t *testing.T) {
-	ResetRegistryForTest()
-	Register(runnableOnlyNode{})
-	rn, _ := Get("RunnableOnly")
+	registry := NewRegistry()
+	registry.Register(runnableOnlyNode{})
+	rn, _ := registry.Get("RunnableOnly")
 	r := RunNodeAsRegion(context.Background(), rn, nil, nil, nil, StubServices(), false, func(Ctx) (string, error) { return "", nil })
 	if r.Error == nil || !strings.Contains(r.Error.Error(), "not a RegionRunner") {
 		t.Errorf("expected 'not a RegionRunner' error, got %v", r.Error)
@@ -355,9 +355,9 @@ func TestRunNodeAsRegion_NonRegionRunner_Errors(t *testing.T) {
 }
 
 func TestEvaluatePureData_NonEvaluator_Errors(t *testing.T) {
-	ResetRegistryForTest()
-	Register(runnableOnlyNode{})
-	rn, _ := Get("RunnableOnly")
+	registry := NewRegistry()
+	registry.Register(runnableOnlyNode{})
+	rn, _ := registry.Get("RunnableOnly")
 	_, err := EvaluatePureData(context.Background(), rn, nil, nil, StubServices())
 	if err == nil || !strings.Contains(err.Error(), "is not IsPureData") {
 		t.Errorf("expected 'is not IsPureData' error, got %v", err)
@@ -384,9 +384,9 @@ func (runPanicNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
 }
 
 func TestRunWithRecover_RunPanicYieldsRecoveredResult(t *testing.T) {
-	ResetRegistryForTest()
-	Register(runPanicNode{})
-	rn, _ := Get("RunPanic")
+	registry := NewRegistry()
+	registry.Register(runPanicNode{})
+	rn, _ := registry.Get("RunPanic")
 	r := RunNode(context.Background(), rn, nil, nil, nil, StubServices(), false)
 	if r.Panic == nil {
 		t.Fatal("expected Panic to be set, got nil")

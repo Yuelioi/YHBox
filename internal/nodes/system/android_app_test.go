@@ -47,9 +47,9 @@ func TestAndroidStartAppSpecRequiresTargetCapability(t *testing.T) {
 }
 
 func TestAndroidStartAppRun(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&AndroidStartApp{})
-	rn, _ := node.Get("AndroidStartApp")
+	registry := node.NewRegistry()
+	registry.Register(&AndroidStartApp{})
+	rn, _ := registry.Get("AndroidStartApp")
 
 	app := &recordingAppLifecycle{}
 	svc := node.StubServices()
@@ -69,9 +69,9 @@ func TestAndroidStartAppRun(t *testing.T) {
 }
 
 func TestAndroidStopAppRun(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&AndroidStopApp{})
-	rn, _ := node.Get("AndroidStopApp")
+	registry := node.NewRegistry()
+	registry.Register(&AndroidStopApp{})
+	rn, _ := registry.Get("AndroidStopApp")
 
 	app := &recordingAppLifecycle{}
 	svc := node.StubServices()

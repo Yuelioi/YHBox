@@ -1,5 +1,7 @@
 package container
 
+import nodepkg "github.com/yottaapp/yotta/internal/node"
+
 // validateDataGraphAcyclic checks that data edges form a DAG.
 // Data flow uses pull semantics (consumer pulls source), so cycles would mean a
 // node's input depends transitively on its own output — infinite recursion at runtime.
@@ -10,7 +12,7 @@ package container
 // most one DATA_GRAPH_CYCLE per graph (first cycle found).
 //
 // v4 (C1): GraphEdge.Kind 已删 — "data 边" 派生自 "fromPin 在 src.kind 的 data-out 集合里".
-func validateDataGraphAcyclic(c *Container, sgs []Subgraph) []ValidationError {
+func validateDataGraphAcyclic(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -30,7 +32,7 @@ func validateDataGraphAcyclic(c *Container, sgs []Subgraph) []ValidationError {
 				continue // DANGLING_EDGE reported elsewhere
 			}
 			// 派生 data 边: src 在 fromPin 上有 data-out 才算 (config-aware: 含动态输出字段).
-			if !IsDataOutPinNode(nodeByID[srcID], srcPin) {
+			if !IsDataOutPinNodeWithRegistry(registry, nodeByID[srcID], srcPin) {
 				continue
 			}
 			adj[srcID] = append(adj[srcID], tgtID)

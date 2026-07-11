@@ -20,9 +20,9 @@ func TestGetWindow_ResolvesToDoneWindow(t *testing.T) {
 		return winutil.WindowHandle{HWND: 42, Title: "记事本", ClientW: 800, ClientH: 600}, nil
 	}
 
-	node.ResetRegistryForTest()
-	node.Register(&GetWindow{})
-	rn, _ := node.Get("GetWindow")
+	registry := node.NewRegistry()
+	registry.Register(&GetWindow{})
+	rn, _ := registry.Get("GetWindow")
 	svc := node.StubServices()
 
 	r := node.RunNode(context.Background(), rn, nil,
@@ -103,9 +103,9 @@ func TestWindowState_AllStates(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.state, func(t *testing.T) {
 			rec := &recordingWindowService{snap: node.Window{HWND: 9, ClientW: 1920, ClientH: 1080}}
-			node.ResetRegistryForTest()
-			node.Register(&WindowState{})
-			rn, _ := node.Get("WindowState")
+			registry := node.NewRegistry()
+			registry.Register(&WindowState{})
+			rn, _ := registry.Get("WindowState")
 			svc := node.StubServices()
 			svc.Window = rec
 
@@ -130,9 +130,9 @@ func TestWindowState_AllStates(t *testing.T) {
 	// unknown state → r.Error 携带 CodeError
 	t.Run("unknown", func(t *testing.T) {
 		rec := &recordingWindowService{snap: node.Window{HWND: 9}}
-		node.ResetRegistryForTest()
-		node.Register(&WindowState{})
-		rn, _ := node.Get("WindowState")
+		registry := node.NewRegistry()
+		registry.Register(&WindowState{})
+		rn, _ := registry.Get("WindowState")
 		svc := node.StubServices()
 		svc.Window = rec
 
@@ -150,9 +150,9 @@ func TestWindowState_AllStates(t *testing.T) {
 
 func TestMoveResizeWindow_FiresDoneWithFreshWindow(t *testing.T) {
 	rec := &recordingWindowService{snap: node.Window{HWND: 7, ClientW: 800, ClientH: 600}}
-	node.ResetRegistryForTest()
-	node.Register(&MoveResizeWindow{})
-	rn, _ := node.Get("MoveResizeWindow")
+	registry := node.NewRegistry()
+	registry.Register(&MoveResizeWindow{})
+	rn, _ := registry.Get("MoveResizeWindow")
 	svc := node.StubServices()
 	svc.Window = rec
 
@@ -176,9 +176,9 @@ func TestMoveResizeWindow_FiresDoneWithFreshWindow(t *testing.T) {
 
 func TestCloseWindow_FiresDoneNoWindow(t *testing.T) {
 	rec := &recordingWindowService{snap: node.Window{HWND: 5}}
-	node.ResetRegistryForTest()
-	node.Register(&CloseWindow{})
-	rn, _ := node.Get("CloseWindow")
+	registry := node.NewRegistry()
+	registry.Register(&CloseWindow{})
+	rn, _ := registry.Get("CloseWindow")
 	svc := node.StubServices()
 	svc.Window = rec
 

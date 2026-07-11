@@ -13,6 +13,10 @@ import (
 // 归 runtime per-node Validate()。Required+Default 并存 (e.g. KeyPress.VK Default "W")
 // 走"有 Default 放过"分支。
 func validateRequiredPins(c *Container, sgs []Subgraph) []ValidationError {
+	return validateRequiredPinsWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
+}
+
+func validateRequiredPinsWithRegistry(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -20,7 +24,7 @@ func validateRequiredPins(c *Container, sgs []Subgraph) []ValidationError {
 	check := func(nodes []GraphNode, edges []GraphEdge, graphPath []string) {
 		for i := range nodes {
 			n := &nodes[i]
-			rn, ok := nodepkg.Get(n.Kind)
+			rn, ok := registry.Get(n.Kind)
 			if !ok {
 				continue
 			}

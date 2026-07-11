@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 // win32WindowTargetForNode 求编辑期工具该用的窗口 = 该节点最近上游 Win32WindowTarget.
@@ -74,6 +75,10 @@ func editorTargetKindForNode(c *Container, nodeID string) (string, bool) {
 }
 
 func editorTargetForNode(c *Container, nodeID string) (target.Target, bool) {
+	return editorTargetForNodeWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, nodeID)
+}
+
+func editorTargetForNodeWithRegistry(registry nodepkg.RegistryReader, c *Container, nodeID string) (target.Target, bool) {
 	if c == nil {
 		return target.Target{Kind: target.KindWin32Window}, true
 	}
@@ -84,7 +89,7 @@ func editorTargetForNode(c *Container, nodeID string) (target.Target, bool) {
 				return tg, true
 			}
 		}
-		if n, ok := nearestUpstreamTargetNode(c.Graph, nodeByID, nodeID); ok {
+		if n, ok := nearestUpstreamTargetNode(registry, c.Graph, nodeByID, nodeID); ok {
 			return targetFromSelectionNode(n)
 		}
 	}
@@ -103,7 +108,7 @@ func firstTargetNode(g Graph) (*GraphNode, bool) {
 	return nil, false
 }
 
-func nearestUpstreamTargetNode(g Graph, nodeByID map[string]*GraphNode, nodeID string) (*GraphNode, bool) {
+func nearestUpstreamTargetNode(registry nodepkg.RegistryReader, g Graph, nodeByID map[string]*GraphNode, nodeID string) (*GraphNode, bool) {
 	visited := map[string]bool{nodeID: true}
 	frontier := []string{nodeID}
 	for len(frontier) > 0 {
@@ -116,12 +121,12 @@ func nearestUpstreamTargetNode(g Graph, nodeByID map[string]*GraphNode, nodeID s
 					continue
 				}
 				toNode := nodeByID[toID]
-				if !nodeHasExecInPin(toNode, toPin) {
+				if !nodeHasExecInPin(registry, toNode, toPin) {
 					continue
 				}
 				fromID, fromPin := splitRef(e.From)
 				fromNode := nodeByID[fromID]
-				if fromNode == nil || !nodeHasExecOutPin(fromNode, fromPin) {
+				if fromNode == nil || !nodeHasExecOutPinWithRegistry(registry, fromNode, fromPin) {
 					continue
 				}
 				if _, ok := targetKindForSelectionNode(fromNode.Kind); ok {

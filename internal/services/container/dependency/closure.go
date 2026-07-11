@@ -10,6 +10,8 @@
 // 防未来改实现导致导出/校验在循环引用上无限递归).
 package dependency
 
+import nodepkg "github.com/yottaapp/yotta/internal/node"
+
 // ClosureResult 正向闭包结果. 结构体而非裸集合 — 未来加维度 (vars/blob...) 不改签名.
 type ClosureResult struct {
 	Subgraphs []string // 传递闭包内全部子图 ID (BFS 序, 去重)
@@ -20,7 +22,11 @@ type ClosureResult struct {
 // Closure 从一组根节点出发解析正向依赖闭包.
 // getNodes: sgID → 该子图节点集; 不存在返 (nil, nil) — 跳过 (悬空引用由 validator 报).
 func Closure(rootNodes []NodeInfo, getNodes func(sgID string) ([]NodeInfo, error)) (ClosureResult, error) {
-	deps, err := ScanContainerDependencies(rootNodes, getNodes)
+	return ClosureWithRegistry(nodepkg.DefaultRegistrySnapshot(), rootNodes, getNodes)
+}
+
+func ClosureWithRegistry(registry nodepkg.RegistryReader, rootNodes []NodeInfo, getNodes func(sgID string) ([]NodeInfo, error)) (ClosureResult, error) {
+	deps, err := ScanContainerDependenciesWithRegistry(registry, rootNodes, getNodes)
 	if err != nil {
 		return ClosureResult{}, err
 	}

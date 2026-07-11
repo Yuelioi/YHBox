@@ -40,9 +40,9 @@ func (f fakeAIService) Provider(string) (llm.Provider, error) { return f.provide
 
 func setupAI(t *testing.T, svc node.ServiceBundle, cfg map[string]any, dataWire map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&AI{})
-	rn, _ := node.Get("AI")
+	registry := node.NewRegistry()
+	registry.Register(&AI{})
+	rn, _ := registry.Get("AI")
 	return node.RunNode(context.Background(), rn, dataWire, cfg, nil, svc, false)
 }
 

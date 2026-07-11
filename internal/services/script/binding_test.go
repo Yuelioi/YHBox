@@ -53,7 +53,7 @@ func TestBundleFromCtx_ForwardsEveryNodeService(t *testing.T) {
 		{"Target", got.Target, want.Target}, {"App", got.App, want.App},
 		{"Capture", got.Capture, want.Capture}, {"Stopwatches", got.Stopwatches, want.Stopwatches},
 		{"Clip", got.Clip, want.Clip}, {"Subgraphs", got.Subgraphs, want.Subgraphs},
-		{"AI", got.AI, want.AI},
+		{"AI", got.AI, want.AI}, {"Registry", got.Registry, want.Registry},
 	}
 	for _, field := range fields {
 		if !reflect.DeepEqual(field.got, field.want) {
@@ -149,12 +149,12 @@ func (fakeVisual) Spec() node.Spec {
 }
 
 func TestScriptBindable(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(fakeRunnable{kind: "FakeRun"})
-	node.Register(fakeEvaluator{})
-	node.Register(fakeMarker{})
-	node.Register(fakeVisual{})
-	node.Register(fakeRunnable{kind: "Script"}) // Script 自身防递归
+	registry := node.NewRegistry()
+	registry.Register(fakeRunnable{kind: "FakeRun"})
+	registry.Register(fakeEvaluator{})
+	registry.Register(fakeMarker{})
+	registry.Register(fakeVisual{})
+	registry.Register(fakeRunnable{kind: "Script"}) // Script 自身防递归
 
 	want := map[string]bool{
 		"FakeRun":    true,
@@ -163,7 +163,7 @@ func TestScriptBindable(t *testing.T) {
 		"FakeVisual": false,
 		"Script":     false,
 	}
-	for _, rn := range node.All() {
+	for _, rn := range registry.All() {
 		if got := node.ScriptBindable(rn); got != want[rn.Spec.Kind] {
 			t.Fatalf("ScriptBindable(%s) = %v, want %v", rn.Spec.Kind, got, want[rn.Spec.Kind])
 		}
@@ -201,9 +201,11 @@ func TestThrowErr_CatchableInJS(t *testing.T) {
 }
 
 func TestInstall_InjectsExitConstants(t *testing.T) {
-	node.ResetRegistryForTest()
+	registry := node.NewRegistry()
+	services := node.StubServices()
+	services.Registry = registry.Snapshot()
 	vm := goja.New()
-	Install(vm, installTestCtx{services: node.StubServices()})
+	Install(vm, installTestCtx{services: services})
 
 	v, err := vm.RunString(`Exit.Done + "|" + Exit.NotFound + "|" + Exit.Default`)
 	if err != nil {
@@ -215,11 +217,13 @@ func TestInstall_InjectsExitConstants(t *testing.T) {
 }
 
 func TestBindNode_CoercesObjectPinsBySpecType(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(fakePointRunnable{})
+	registry := node.NewRegistry()
+	registry.Register(fakePointRunnable{})
+	services := node.StubServices()
+	services.Registry = registry.Snapshot()
 
 	vm := goja.New()
-	Install(vm, installTestCtx{services: node.StubServices()})
+	Install(vm, installTestCtx{services: services})
 
 	v, err := vm.RunString(`(function(){
 		const r = FakePointRun({Point: {x: 12, y: 34, unit: "px"}})

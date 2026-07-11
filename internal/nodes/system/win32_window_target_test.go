@@ -57,9 +57,9 @@ func (s *stubWindowService) Close() error                    { return nil }
 func (s *stubWindowService) Snapshot() (node.Window, error)  { return s.snap, nil }
 
 func TestWin32WindowTarget_Run_CallsSetActive(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Win32WindowTarget{})
-	rn, _ := node.Get("Win32WindowTarget")
+	registry := node.NewRegistry()
+	registry.Register(&Win32WindowTarget{})
+	rn, _ := registry.Get("Win32WindowTarget")
 
 	stub := &stubWindowService{}
 	svc := node.StubServices()
@@ -86,9 +86,9 @@ func TestWin32WindowTarget_Run_CallsSetActive(t *testing.T) {
 }
 
 func TestWin32WindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Win32WindowTarget{})
-	rn, _ := node.Get("Win32WindowTarget")
+	registry := node.NewRegistry()
+	registry.Register(&Win32WindowTarget{})
+	rn, _ := registry.Get("Win32WindowTarget")
 
 	stub := &stubWindowService{err: errors.New("窗口未找到")}
 	svc := node.StubServices()
@@ -103,9 +103,9 @@ func TestWin32WindowTarget_Run_PropagatesSetActiveError(t *testing.T) {
 }
 
 func TestWin32WindowTarget_EmitsWindowOnDone(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Win32WindowTarget{})
-	rn, _ := node.Get("Win32WindowTarget")
+	registry := node.NewRegistry()
+	registry.Register(&Win32WindowTarget{})
+	rn, _ := registry.Get("Win32WindowTarget")
 
 	stub := &stubWindowService{snap: node.Window{HWND: 99, Title: "记事本"}}
 	svc := node.StubServices()

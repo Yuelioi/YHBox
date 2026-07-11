@@ -11,6 +11,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/container/runtime"
 	"github.com/yottaapp/yotta/internal/services/execution"
@@ -27,6 +28,7 @@ type Deps struct {
 	MouseCounts func() int  // 取 settings.ActiveMouseCounts360, live
 	Armed       func() bool // 取 settings.MCP.Armed, live
 	Busy        func() bool // worker.IsRunning
+	Registry    node.RegistryReader
 }
 
 type Server struct {
@@ -34,14 +36,24 @@ type Server struct {
 	runMu sync.Mutex // 串行化 run_node, 防 AI 并行调用交错输入
 }
 
-func NewServer(deps Deps) *Server { return &Server{deps: deps} }
+func NewServer(deps Deps) *Server {
+	if deps.Store != nil {
+		// Store owns the contract generation used to validate and persist.
+		deps.Registry = deps.Store.RegistrySnapshot()
+	} else if deps.Registry != nil {
+		deps.Registry = node.SnapshotRegistry(deps.Registry)
+	} else {
+		deps.Registry = node.DefaultRegistrySnapshot()
+	}
+	return &Server{deps: deps}
+}
 
 // Register 把全部工具挂到 MCPServer (authoring 复用迁入的纯函数; execution 新增).
 func (s *Server) Register(m *server.MCPServer) {
 	// --- authoring (只读/写图, 不受 arm 闸; save_container 受 arm 闸) ---
 	m.AddTool(mcp.NewTool("list_nodes", mcp.WithDescription("List all Yotta node kinds with pins/types/required/defaults/category/capability flags. The building blocks; run_node executes one target/window action against a supplied window.")),
 		func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			return mcp.NewToolResultText(string(listNodesJSON())), nil
+			return mcp.NewToolResultText(string(listNodesJSONWithRegistry(s.deps.Registry))), nil
 		})
 	m.AddTool(mcp.NewTool("get_graph_schema", mcp.WithDescription("Yotta container-graph JSON schema + validated examples. Read before generating a container.")),
 		func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -54,7 +66,7 @@ func (s *Server) Register(m *server.MCPServer) {
 			if err != nil || raw == "" {
 				return mcp.NewToolResultError("missing 'container'"), nil
 			}
-			out, _ := validateContainerJSON([]byte(raw))
+			out, _ := validateContainerJSONWithRegistry(s.deps.Registry, []byte(raw))
 			return mcp.NewToolResultText(string(out)), nil
 		})
 	m.AddTool(mcp.NewTool("save_container", mcp.WithDescription("Validate + persist a container graph (rejects on error-level issues). Server assigns id. Requires MCP armed."),
@@ -67,7 +79,7 @@ func (s *Server) Register(m *server.MCPServer) {
 			if err != nil {
 				return mcp.NewToolResultError("missing 'container'"), nil
 			}
-			res, saveErrs := saveContainer(s.deps.Store, []byte(raw))
+			res, saveErrs := saveContainerWithRegistry(s.deps.Store, s.deps.Registry, []byte(raw))
 			if saveErrs != nil {
 				return mcp.NewToolResultError(string(saveErrs)), nil
 			}

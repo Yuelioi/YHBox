@@ -10,9 +10,9 @@ import (
 
 func evalJSONNode(t *testing.T, n node.Node, dataWire map[string]any) any {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(n)
-	rn, ok := node.Get(n.Spec().Kind)
+	registry := node.NewRegistry()
+	registry.Register(n)
+	rn, ok := registry.Get(n.Spec().Kind)
 	if !ok {
 		t.Fatalf("%s not registered", n.Spec().Kind)
 	}

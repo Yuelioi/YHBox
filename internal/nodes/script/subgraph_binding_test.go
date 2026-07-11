@@ -22,13 +22,13 @@ func (f *fakeSubgraphs) CallSubgraph(_ context.Context, sgID string, params map[
 	return f.exit, f.err
 }
 
-func runScriptWithSubgraphs(t *testing.T, rn *node.RegisteredNode, code string, fake *fakeSubgraphs) node.RunResult {
+func runScriptWithSubgraphs(t *testing.T, env testEnv, code string, fake *fakeSubgraphs) node.RunResult {
 	t.Helper()
-	svcs := node.StubServices()
+	svcs := env.services
 	if fake != nil {
 		svcs.Subgraphs = fake
 	}
-	return node.RunNode(context.Background(), rn, nil, map[string]any{"Code": code}, nil, svcs, false)
+	return node.RunNode(context.Background(), env.rn, nil, map[string]any{"Code": code}, nil, svcs, false)
 }
 
 func TestScript_Subgraph_CallAndExit(t *testing.T) {

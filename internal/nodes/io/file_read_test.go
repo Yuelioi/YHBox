@@ -13,17 +13,17 @@ import (
 
 func runReadTextFile(t *testing.T, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&ReadTextFile{})
-	rn, _ := node.Get("ReadTextFile")
+	registry := node.NewRegistry()
+	registry.Register(&ReadTextFile{})
+	rn, _ := registry.Get("ReadTextFile")
 	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices(), false)
 }
 
 func runReadJsonFile(t *testing.T, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&ReadJsonFile{})
-	rn, _ := node.Get("ReadJsonFile")
+	registry := node.NewRegistry()
+	registry.Register(&ReadJsonFile{})
+	rn, _ := registry.Get("ReadJsonFile")
 	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices(), false)
 }
 

@@ -21,11 +21,12 @@ func assetExistence(store *asset.Store, kind string) func(guid string) bool {
 // 复用节点的 Dependencies 抽取: 任一节点的依赖 Key == guid 即记一处引用.
 // 全局化后子图图体只活在池里 (引用方在池子图内时 ContainerID 留空 — 子图可被多容器用).
 func scanAssetReferrers(store *container.Store, sgStore *container.SubgraphStore) func(guid string) []asset.Referrer {
+	registry := store.RegistrySnapshot()
 	return func(guid string) []asset.Referrer {
 		var refs []asset.Referrer
 		nodeRefs := func(containerID, subgraphID string, nodes []container.GraphNode) {
 			for _, n := range nodes {
-				rn, ok := nodepkg.Get(n.Kind)
+				rn, ok := registry.Get(n.Kind)
 				if !ok || rn.Dependencies == nil {
 					continue
 				}

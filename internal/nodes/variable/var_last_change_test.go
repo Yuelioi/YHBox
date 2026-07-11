@@ -19,9 +19,9 @@ func (stampVarStore) IncScoped(string, string, float64) float64 { return 0 }
 func (s stampVarStore) LastChange(string) int64                 { return s.stamp }
 
 func TestVarLastChange_ReadsLiveStamp(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&VarLastChange{})
-	rn, _ := node.Get("VarLastChange")
+	registry := node.NewRegistry()
+	registry.Register(&VarLastChange{})
+	rn, _ := registry.Get("VarLastChange")
 
 	services := node.StubServices()
 	services.Vars = stampVarStore{stamp: 1717000000000}
@@ -40,9 +40,9 @@ func TestVarLastChange_ReadsLiveStamp(t *testing.T) {
 }
 
 func TestVarLastChange_UnsetReturnsZero(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&VarLastChange{})
-	rn, _ := node.Get("VarLastChange")
+	registry := node.NewRegistry()
+	registry.Register(&VarLastChange{})
+	rn, _ := registry.Get("VarLastChange")
 
 	services := node.StubServices()
 	services.Vars = stampVarStore{stamp: 0}

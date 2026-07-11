@@ -9,9 +9,9 @@ import (
 )
 
 func TestLoop_CountMode_BodyInvokedN(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	iterations := 0
 	body := func(_ node.Ctx) (string, error) {
@@ -51,9 +51,9 @@ func (r *recVars) IncScoped(string, string, float64) float64 { return 0 }
 func (r *recVars) LastChange(string) int64                   { return 0 }
 
 func TestLoop_Capture_IndexEachIteration(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	vars := newRecVars()
 	services := node.StubServices()
@@ -88,9 +88,9 @@ func TestLoop_Capture_IndexEachIteration(t *testing.T) {
 }
 
 func TestLoop_BreakSentinel(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	iterations := 0
 	body := func(_ node.Ctx) (string, error) {
@@ -118,9 +118,9 @@ func TestLoop_BreakSentinel(t *testing.T) {
 
 func TestLoop_ContinueSentinel(t *testing.T) {
 	// Continue 不 break — count=3 → body 调 3 次, 最后走 done.
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	iterations := 0
 	body := func(_ node.Ctx) (string, error) {
@@ -145,9 +145,9 @@ func TestLoop_ContinueSentinel(t *testing.T) {
 
 func TestLoop_BodyErrorPropagates(t *testing.T) {
 	// 非 sentinel error → 节点返该 error, ExitName 空.
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	boom := errors.New("boom")
 	iterations := 0
@@ -176,9 +176,9 @@ func TestLoop_BodyErrorPropagates(t *testing.T) {
 
 func TestLoop_ForeverMode_BreakRequired(t *testing.T) {
 	// mode=forever → body 必须 Break 才停, 否则死循环. 防御: 用 break sentinel 在第 7 次跳.
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	iterations := 0
 	body := func(_ node.Ctx) (string, error) {
@@ -205,9 +205,9 @@ func TestLoop_ForeverMode_BreakRequired(t *testing.T) {
 }
 
 func TestLoop_UnknownMode_Error(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Loop{})
-	rn, _ := node.Get("Loop")
+	registry := node.NewRegistry()
+	registry.Register(&Loop{})
+	rn, _ := registry.Get("Loop")
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
 		map[string]any{loopInMode: "while"}, // while was old runtime, 砍掉了
@@ -220,9 +220,9 @@ func TestLoop_UnknownMode_Error(t *testing.T) {
 
 func TestLoop_NoRegionRunner_NotARegionError(t *testing.T) {
 	// Sanity: RunNodeAsRegion on a non-RegionRunner node (Sleep) 应返 "not a RegionRunner".
-	node.ResetRegistryForTest()
-	node.Register(&Sleep{})
-	rn, _ := node.Get("Sleep")
+	registry := node.NewRegistry()
+	registry.Register(&Sleep{})
+	rn, _ := registry.Get("Sleep")
 
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,
 		node.StubServices(), false, func(_ node.Ctx) (string, error) { return "", nil })

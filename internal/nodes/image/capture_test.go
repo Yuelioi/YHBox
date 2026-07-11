@@ -31,9 +31,9 @@ func (f fakeCapture) CaptureROI(_ node.Geometry) ([]byte, error) { return f.png,
 
 func runCapture(t *testing.T, format string, cap node.CaptureService) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&Capture{})
-	rn, _ := node.Get("Capture")
+	registry := node.NewRegistry()
+	registry.Register(&Capture{})
+	rn, _ := registry.Get("Capture")
 	svc := node.StubServices()
 	svc.Capture = cap
 	return node.RunNode(context.Background(), rn, nil, map[string]any{"Format": format}, nil, svc, false)

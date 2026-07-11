@@ -9,9 +9,9 @@ import (
 )
 
 func TestScroll_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Scroll{})
-	rn, _ := node.Get("Scroll")
+	registry := node.NewRegistry()
+	registry.Register(&Scroll{})
+	rn, _ := registry.Get("Scroll")
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{scInPoint: node.Point{X: 0.5, Y: 0.5}, scInDelta: 3, scInAxis: "horizontal"},
@@ -25,9 +25,9 @@ func TestScroll_HappyPath(t *testing.T) {
 }
 
 func TestScroll_PxPoint_ResolvesToRatio(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Scroll{})
-	rn, _ := node.Get("Scroll")
+	registry := node.NewRegistry()
+	registry.Register(&Scroll{})
+	rn, _ := registry.Get("Scroll")
 	rec := &recordingInput{}
 	b := node.StubServices()
 	b.Input = rec
@@ -45,9 +45,9 @@ func TestScroll_PxPoint_ResolvesToRatio(t *testing.T) {
 }
 
 func TestScroll_BackendError_Propagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Scroll{})
-	rn, _ := node.Get("Scroll")
+	registry := node.NewRegistry()
+	registry.Register(&Scroll{})
+	rn, _ := registry.Get("Scroll")
 
 	rec := &recordingInput{err: errors.New("not focused")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -61,9 +61,9 @@ func TestScroll_BackendError_Propagates(t *testing.T) {
 
 // TestScroll_Axis_Vertical: 默认 Axis=vertical → horizontal=false (零回归)
 func TestScroll_Axis_Vertical(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Scroll{})
-	rn, _ := node.Get("Scroll")
+	registry := node.NewRegistry()
+	registry.Register(&Scroll{})
+	rn, _ := registry.Get("Scroll")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -80,9 +80,9 @@ func TestScroll_Axis_Vertical(t *testing.T) {
 
 // TestScroll_Axis_Horizontal: Axis=horizontal → horizontal=true
 func TestScroll_Axis_Horizontal(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Scroll{})
-	rn, _ := node.Get("Scroll")
+	registry := node.NewRegistry()
+	registry.Register(&Scroll{})
+	rn, _ := registry.Get("Scroll")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,

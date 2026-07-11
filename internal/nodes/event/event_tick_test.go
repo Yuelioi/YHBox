@@ -9,9 +9,9 @@ import (
 )
 
 func TestEventTick_StubReturnsNotWiredError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&EventTick{})
-	rn, _ := node.Get("EventTick")
+	registry := node.NewRegistry()
+	registry.Register(&EventTick{})
+	rn, _ := registry.Get("EventTick")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{etInIntervalMs: 100}, nil, node.StubServices(), false)

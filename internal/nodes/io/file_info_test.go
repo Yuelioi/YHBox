@@ -11,9 +11,9 @@ import (
 
 func runFileInfo(t *testing.T, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&FileInfo{})
-	rn, _ := node.Get("FileInfo")
+	registry := node.NewRegistry()
+	registry.Register(&FileInfo{})
+	rn, _ := registry.Get("FileInfo")
 	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices(), false)
 }
 

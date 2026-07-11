@@ -1,5 +1,7 @@
 package container
 
+import nodepkg "github.com/yottaapp/yotta/internal/node"
+
 // validateSentinelScope 拦截 Break/Continue 作用域错置.
 //
 // Break / Continue: 必须 exec 可达自同图某个 Loop 节点的 body 出口 — 否则 sentinel
@@ -15,6 +17,10 @@ package container
 //     当前 fishing-v2 无此用法, 真要支持往 follow-up: 加 call-graph 分析标"调用栈含
 //     Loop body 的 subgraph 集合".
 func validateSentinelScope(c *Container, sgs []Subgraph) []ValidationError {
+	return validateSentinelScopeWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
+}
+
+func validateSentinelScopeWithRegistry(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -23,7 +29,7 @@ func validateSentinelScope(c *Container, sgs []Subgraph) []ValidationError {
 	checkGraph := func(g Graph, path []string) []ValidationError {
 		var out []ValidationError
 
-		inLoopBody := buildLoopBodyReachSet(g)
+		inLoopBody := buildLoopBodyReachSet(registry, g)
 
 		for _, n := range g.Nodes {
 			switch n.Kind {
@@ -64,7 +70,7 @@ func validateSentinelScope(c *Container, sgs []Subgraph) []ValidationError {
 //
 // 只走 exec 边 — data 边不传 control flow. Edge.From 从 nodekind 角度判 IsDataOutPin
 // → 是 data 出口跳过.
-func buildLoopBodyReachSet(g Graph) map[string]struct{} {
+func buildLoopBodyReachSet(registry nodepkg.RegistryReader, g Graph) map[string]struct{} {
 	reach := map[string]struct{}{}
 
 	// edge index: fromNodeID → list of toNodeIDs (exec 边).
@@ -77,7 +83,7 @@ func buildLoopBodyReachSet(g Graph) map[string]struct{} {
 		fromID, fromPinName := splitRef(e.From)
 		toID, _ := splitRef(e.To)
 		// data 边跳过 — exec 流不走 data.
-		if IsDataOutPin(graphNodeKind(g, fromID), fromPinName) {
+		if IsDataOutPinWithRegistry(registry, graphNodeKind(g, fromID), fromPinName) {
 			continue
 		}
 		execOut[fromPin{fromID, fromPinName}] = append(execOut[fromPin{fromID, fromPinName}], toID)

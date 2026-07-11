@@ -18,9 +18,9 @@ func TestWaitWindowGone_Gone(t *testing.T) {
 	}
 	defer func() { waitWindowGone = orig }()
 
-	node.ResetRegistryForTest()
-	node.Register(&WaitWindowGone{})
-	rn, _ := node.Get("WaitWindowGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitWindowGone{})
+	rn, _ := registry.Get("WaitWindowGone")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wwgInTitle: "SomeWindow"},
@@ -41,9 +41,9 @@ func TestWaitWindowGone_Timeout(t *testing.T) {
 	}
 	defer func() { waitWindowGone = orig }()
 
-	node.ResetRegistryForTest()
-	node.Register(&WaitWindowGone{})
-	rn, _ := node.Get("WaitWindowGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitWindowGone{})
+	rn, _ := registry.Get("WaitWindowGone")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wwgInTitle: "SomeWindow"},
@@ -65,9 +65,9 @@ func TestWaitWindowGone_BareError(t *testing.T) {
 	}
 	defer func() { waitWindowGone = orig }()
 
-	node.ResetRegistryForTest()
-	node.Register(&WaitWindowGone{})
-	rn, _ := node.Get("WaitWindowGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitWindowGone{})
+	rn, _ := registry.Get("WaitWindowGone")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{wwgInTitle: "SomeWindow"},

@@ -74,9 +74,9 @@ func withVisionAndInput(v node.VisionService, in node.InputService) node.Service
 }
 
 func TestClickTemplate_Done(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
 	// bbox center = pt: bbox=[pt.X, pt.Y, 0, 0] → anchorPoint center = (pt.X, pt.Y)
@@ -102,9 +102,9 @@ func TestClickTemplate_Done(t *testing.T) {
 }
 
 func TestClickTemplate_SettleMs_RedetectThenClick(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
 	vision := &mockVision{point: &pt, bbox: [4]float64{0.55, 0.4, 0, 0}, conf: 0.93, hitOnCall: 1}
@@ -131,9 +131,9 @@ func TestClickTemplate_SettleMs_RedetectThenClick(t *testing.T) {
 }
 
 func TestClickTemplate_RetryUntilGone_Done(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
 	// missAfterCall=2: call1 初次命中 + call2 点完重查仍在 → 点 2 下; call3 模板已消失 → 走 Done。
@@ -160,9 +160,9 @@ func TestClickTemplate_RetryUntilGone_Done(t *testing.T) {
 }
 
 func TestClickTemplate_RetryExhausted_Timeout(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	// missAfterCall=0 (禁用) → 模板一直在 → 点满 MaxAttempts 仍没消失 → Timeout(Matched=true)。
@@ -189,9 +189,9 @@ func TestClickTemplate_RetryExhausted_Timeout(t *testing.T) {
 }
 
 func TestClickTemplate_Timeout_NoClick(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	vision := &mockVision{hitOnCall: -1, conf: 0.3}
 	rec := &recordingInput{}
@@ -211,9 +211,9 @@ func TestClickTemplate_Timeout_NoClick(t *testing.T) {
 }
 
 func TestClickTemplate_BackendError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	vision := &mockVision{point: &pt, bbox: [4]float64{0.5, 0.5, 0, 0}, conf: 0.9, hitOnCall: 1}
@@ -234,9 +234,9 @@ func TestClickTemplate_BackendError(t *testing.T) {
 }
 
 func TestClickTemplate_InvalidButton_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{clkInTemplates: []string{"fishing.start_fish"}, clkInButton: "side1"},
@@ -261,9 +261,9 @@ func TestClickTemplate_InvalidButton_ValidationError(t *testing.T) {
 // TestClickTemplate_OrderBy_Vertical: OrderBy=vertical, Index=0 → 点最上面那个 (BBox.y 最小)。
 // 传三个命中, vertical 排序后最上是 y=0.1 的那个 (Point.X=0.8, Point.Y=0.1)。
 func TestClickTemplate_OrderBy_Vertical(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	// MatchAll 返回三个命中 (conf 降序, 与 MatchAll 约定一致)
 	matches := []node.TemplateMatch{
@@ -302,9 +302,9 @@ func TestClickTemplate_OrderBy_Vertical(t *testing.T) {
 // TestClickTemplate_DefaultScore_Regression: 默认 OrderBy=score/Index=0 走 WaitMatch 路径,
 // 行为与 Phase 1 完全一致 (钉死零回归)。
 func TestClickTemplate_DefaultScore_Regression(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	pt := node.Point{X: 0.55, Y: 0.4}
 	vision := &mockVision{point: &pt, bbox: [4]float64{0.55, 0.4, 0, 0}, conf: 0.93, hitOnCall: 1}
@@ -374,9 +374,9 @@ func withVisionInputAndWindow(v node.VisionService, in node.InputService, w node
 
 // TestClickTemplate_Anchor_TopRight: Anchor=topRight/Offset=0 → 点命中框右上角。
 func TestClickTemplate_Anchor_TopRight(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	// BBox=[0.2,0.4,0.10,0.20] → topRight = (0.2+0.10, 0.4) = (0.30, 0.40)
 	pt := node.Point{X: 0.25, Y: 0.5} // center (被 anchor 覆盖)
@@ -410,9 +410,9 @@ func TestClickTemplate_Anchor_TopRight(t *testing.T) {
 // TestClickTemplate_Anchor_Center_Regression: 默认 center/0/0 → 点命中框中心 = hit.Point (零回归)。
 // mock window 不需要 ClientSize (offset=0 不触发像素换算)。
 func TestClickTemplate_Anchor_Center_Regression(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	// BBox=[0.1, 0.3, 0.30, 0.40] → center = (0.1+0.15, 0.3+0.20) = (0.25, 0.50)
 	// hit.Point 也设成中心以证明两者一致
@@ -444,9 +444,9 @@ func TestClickTemplate_Anchor_Center_Regression(t *testing.T) {
 
 // TestClickTemplate_OffsetPx_UsesClientSize: OffsetX=96(像素) 触发 ClientSize 换算 → 96/1920=0.05。
 func TestClickTemplate_OffsetPx_UsesClientSize(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickTemplate{})
-	rn, _ := node.Get("ClickTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&ClickTemplate{})
+	rn, _ := registry.Get("ClickTemplate")
 
 	// BBox=[0.2,0.4,0.10,0.20] → topLeft=(0.2,0.4); 加 OffsetX=96px→0.05, OffsetY=0
 	// 期望落点: (0.2+0.05, 0.4) = (0.25, 0.40)

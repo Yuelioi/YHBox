@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
@@ -56,11 +57,11 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 		return fmt.Errorf("decode %s: %w", lockFile, err)
 	}
 	subgraphs := s.subgraphsFor(&c)
-	closure, err := dependencyClosure(graph, subgraphs)
+	closure, err := dependencyClosureWithRegistry(s.registry, graph, subgraphs)
 	if err != nil {
 		return fmt.Errorf("resolve dependency closure: %w", err)
 	}
-	if err := validatePackageLock(manifest, graph, subgraphs, lock); err != nil {
+	if err := validatePackageLock(s.registry, manifest, graph, subgraphs, lock); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
@@ -121,8 +122,8 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 	return nil
 }
 
-func validatePackageLock(manifest PackageManifest, graph Graph, subgraphs []Subgraph, lock YottaLock) error {
-	expected, err := buildContainerLock(manifest, graph, subgraphs, lock.GeneratedAt)
+func validatePackageLock(registry nodepkg.RegistryReader, manifest PackageManifest, graph Graph, subgraphs []Subgraph, lock YottaLock) error {
+	expected, err := buildContainerLockWithRegistry(registry, manifest, graph, subgraphs, lock.GeneratedAt)
 	if err != nil {
 		return err
 	}
@@ -160,12 +161,12 @@ func stringListEqual(a, b []string) bool {
 	return true
 }
 
-func dependencyClosure(graph Graph, subgraphs []Subgraph) (dependency.ClosureResult, error) {
+func dependencyClosureWithRegistry(registry nodepkg.RegistryReader, graph Graph, subgraphs []Subgraph) (dependency.ClosureResult, error) {
 	byID := make(map[string]Subgraph, len(subgraphs))
 	for _, sg := range subgraphs {
 		byID[sg.ID] = sg
 	}
-	return dependency.Closure(depNodeInfos(graph.Nodes), func(sgID string) ([]dependency.NodeInfo, error) {
+	return dependency.ClosureWithRegistry(registry, depNodeInfos(graph.Nodes), func(sgID string) ([]dependency.NodeInfo, error) {
 		sg, ok := byID[sgID]
 		if !ok {
 			return nil, nil

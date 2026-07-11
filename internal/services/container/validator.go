@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	"github.com/robfig/cron/v3"
+
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 const (
@@ -154,6 +156,10 @@ type ValidationError struct {
 // ValidateContainer 全量校验。sgs = 该容器引用闭包解析出的子图集 (全局池来源,
 // 容器不再拥有子图 — 2026-06-12 全局化); nil = 容器不引用任何子图。
 func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
+	return ValidateContainerWithRegistry(c, sgs, nodepkg.DefaultRegistrySnapshot())
+}
+
+func ValidateContainerWithRegistry(c *Container, sgs []Subgraph, registry nodepkg.RegistryReader) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -161,8 +167,8 @@ func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 
 	// 结构检查
 	errs = append(errs, validateMainGraph(c)...)
-	errs = append(errs, validateWin32WindowTarget(c, sgs)...)
-	errs = append(errs, validateTargetCapabilities(c, sgs)...)
+	errs = append(errs, validateWin32WindowTargetWithRegistry(registry, c, sgs)...)
+	errs = append(errs, validateTargetCapabilities(registry, c, sgs)...)
 	errs = append(errs, validateMouseCalibration(c, sgs)...)
 	for i := range sgs {
 		errs = append(errs, validateSubgraph(c, &sgs[i])...)
@@ -170,27 +176,27 @@ func ValidateContainer(c *Container, sgs []Subgraph) []ValidationError {
 	errs = append(errs, validateCyclicSubgraphs(sgs)...)
 
 	// 引用检查
-	errs = append(errs, validateInvalidPins(c, sgs)...)
+	errs = append(errs, validateInvalidPins(registry, c, sgs)...)
 	errs = append(errs, validateMissingSubgraph(c, sgs)...)
 	errs = append(errs, validatePlayClip(c, sgs)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
 	errs = append(errs, validateGetParamNodes(c, sgs)...)
 	errs = append(errs, validateCollapsedReferences(c, sgs)...)
 	errs = append(errs, validateVarRefs(c, sgs)...)
-	errs = append(errs, validateCaptureRefs(c, sgs)...)
+	errs = append(errs, validateCaptureRefsWithRegistry(registry, c, sgs)...)
 	errs = append(errs, validateRequiredGlobalsDeclared(c, sgs)...)
 	errs = append(errs, validateDisabledNodes(c, sgs)...)
-	errs = append(errs, validateSentinelScope(c, sgs)...)
+	errs = append(errs, validateSentinelScopeWithRegistry(registry, c, sgs)...)
 
 	// 类型 / 语义检查
 	errs = append(errs, validatePerKindConfig(c, sgs)...)
-	errs = append(errs, validateDataPinTypes(c, sgs)...)
-	errs = append(errs, validateLiteralTypes(c, sgs)...)
+	errs = append(errs, validateDataPinTypes(registry, c, sgs)...)
+	errs = append(errs, validateLiteralTypes(registry, c, sgs)...)
 	errs = append(errs, validateExprNodes(c, sgs)...)
 	errs = append(errs, validateScriptNodes(c, sgs)...)
-	errs = append(errs, validateDataGraphAcyclic(c, sgs)...)
-	errs = append(errs, validateRequiredPins(c, sgs)...)
-	errs = append(errs, validateUnknownLiteralPins(c, sgs)...)
+	errs = append(errs, validateDataGraphAcyclic(registry, c, sgs)...)
+	errs = append(errs, validateRequiredPinsWithRegistry(registry, c, sgs)...)
+	errs = append(errs, validateUnknownLiteralPinsWithRegistry(registry, c, sgs)...)
 
 	return errs
 }
@@ -300,7 +306,7 @@ func validateMouseCalibration(c *Container, sgs []Subgraph) []ValidationError {
 // validateInvalidPins 扫所有 edges，确认 from/to 引用的 pin 名在 kind 的 pin 集合里。
 // Subgraph 调用节点的 exec-out pin 是动态的 = 绑定子图 OutputPins 的 decl ID, 不能走静态
 // pinExists. 这里查 subgraphById[node.config.subgraphId].OutputPins.
-func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
+func validateInvalidPins(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	var errs []ValidationError
 
 	// 解析闭包内子图 id → outputPin decl id 集合 (Subgraph 调用节点 out pin 动态 check 用)
@@ -326,8 +332,8 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 			if node, ok := nodeByID[fromID]; ok && fromPin != "" {
 				// 边类型从 (kind, fromPin) 派生: spec.DataOut → data; 否则查 exec-out
 				// (含 Subgraph 动态 exec-out via OutputPins).
-				isDataOut := IsDataOutPinNode(node, fromPin)
-				isExecOut := nodeHasExecOutPin(node, fromPin)
+				isDataOut := IsDataOutPinNodeWithRegistry(registry, node, fromPin)
+				isExecOut := nodeHasExecOutPinWithRegistry(registry, node, fromPin)
 				// CollapsedNode 跟 Subgraph 一样 dynamic exec-out — pin 名 = 后备子图 OutputPins.id.
 				if !isDataOut && !isExecOut && (node.Kind == "Subgraph" || node.Kind == "CollapsedNode") {
 					if sgID := PinString(node, "SubgraphID"); sgID != "" {
@@ -351,9 +357,9 @@ func validateInvalidPins(c *Container, sgs []Subgraph) []ValidationError {
 			// 会被误报 INVALID_PIN. 先用 dataInPinTypeForNode 探一下, 失败再 fallback static pinExists.
 			if toNode, ok := nodeByID[toID]; ok && toPin != "" {
 				valid := false
-				if dataInPinTypeForNode(toNode, toPin) != "" {
+				if dataInPinTypeForNode(registry, toNode, toPin) != "" {
 					valid = true
-				} else if pinExists(toNode.Kind, toPin, false) {
+				} else if pinExists(registry, toNode.Kind, toPin, false) {
 					valid = true
 				}
 				if !valid {
@@ -556,6 +562,10 @@ func edgeNodeID(ref string) string {
 // 若容器只有 target-aware 节点且没有任何 target selection, 也报同码: Windows 是默认自动修复目标。
 // 空图 (len(Nodes)==0) 跳过 — 跟 Start 检查同模式, 刚创建的 container 不报噪音.
 func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
+	return validateWin32WindowTargetWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
+}
+
+func validateWin32WindowTargetWithRegistry(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if len(c.Graph.Nodes) == 0 {
 		return nil
 	}
@@ -589,7 +599,7 @@ func validateWin32WindowTarget(c *Container, sgs []Subgraph) []ValidationError {
 	}
 
 	if len(all) == 0 {
-		if hasUnwiredNeedsWindowNode(c, sgs) || (!hasAnyTarget && hasUnwiredNeedsTargetNode(c, sgs)) {
+		if hasUnwiredNeedsWindowNode(registry, c, sgs) || (!hasAnyTarget && hasUnwiredNeedsTargetNode(registry, c, sgs)) {
 			errs = append(errs, ValidationError{
 				Severity:  SeverityError,
 				Code:      CodeMissingWin32WindowTarget,

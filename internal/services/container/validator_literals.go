@@ -2,6 +2,8 @@ package container
 
 import (
 	"fmt"
+
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 )
 
 // validateLiteralTypes scans every node.Config["literal"][pin] entry and
@@ -16,7 +18,7 @@ import (
 // Coverage: static data-in pins only. Expr's dynamic inputs are NOT scanned
 // here — the Expr Inspector validates its own literals against declared input
 // types.
-func validateLiteralTypes(c *Container, sgs []Subgraph) []ValidationError {
+func validateLiteralTypes(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -28,11 +30,11 @@ func validateLiteralTypes(c *Container, sgs []Subgraph) []ValidationError {
 			if lit == nil {
 				continue
 			}
-			if !knownKind(n.Kind) {
+			if !knownKind(registry, n.Kind) {
 				continue
 			}
 			for pinName, raw := range lit {
-				pinType := dataInPinTypeForKind(n.Kind, pinName)
+				pinType := dataInPinTypeForKind(registry, n.Kind, pinName)
 				if pinType == "" {
 					continue // pin not in static schema — INVALID_PIN handles unknown pins
 				}
@@ -43,7 +45,7 @@ func validateLiteralTypes(c *Container, sgs []Subgraph) []ValidationError {
 				// 实为字符串列表: template-picker 多选, runtime 走 PinStringList 读. 标量
 				// literalMatchesType 会把数组误判成 string mismatch, 这里按列表放行 (元素全 string,
 				// 或裸 string 单值兜底, 跟 PinStringList 的容忍一致).
-				if dataInPinSemanticForKind(n.Kind, pinName) == "TemplateGUID" && isStringList(raw) {
+				if dataInPinSemanticForKind(registry, n.Kind, pinName) == "TemplateGUID" && isStringList(raw) {
 					continue
 				}
 				errs = append(errs, ValidationError{

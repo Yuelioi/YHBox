@@ -9,9 +9,9 @@ import (
 )
 
 func TestForEach_IteratesAllItems(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ForEach{})
-	rn, _ := node.Get("ForEach")
+	registry := node.NewRegistry()
+	registry.Register(&ForEach{})
+	rn, _ := registry.Get("ForEach")
 
 	vars := newRecVars()
 	services := node.StubServices()
@@ -46,9 +46,9 @@ func TestForEach_IteratesAllItems(t *testing.T) {
 }
 
 func TestForEach_EmptyOrNonList_ZeroIterationsDone(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ForEach{})
-	rn, _ := node.Get("ForEach")
+	registry := node.NewRegistry()
+	registry.Register(&ForEach{})
+	rn, _ := registry.Get("ForEach")
 
 	for _, listVal := range []any{[]any{}, nil, "not a list", 42} {
 		iterations := 0
@@ -68,9 +68,9 @@ func TestForEach_EmptyOrNonList_ZeroIterationsDone(t *testing.T) {
 }
 
 func TestForEach_BreakSentinel(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ForEach{})
-	rn, _ := node.Get("ForEach")
+	registry := node.NewRegistry()
+	registry.Register(&ForEach{})
+	rn, _ := registry.Get("ForEach")
 
 	iterations := 0
 	body := func(_ node.Ctx) (string, error) {
@@ -92,9 +92,9 @@ func TestForEach_BreakSentinel(t *testing.T) {
 }
 
 func TestForEach_ContinueSentinel(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ForEach{})
-	rn, _ := node.Get("ForEach")
+	registry := node.NewRegistry()
+	registry.Register(&ForEach{})
+	rn, _ := registry.Get("ForEach")
 
 	iterations := 0
 	r := node.RunNodeAsRegion(context.Background(), rn,
@@ -109,9 +109,9 @@ func TestForEach_ContinueSentinel(t *testing.T) {
 }
 
 func TestForEach_BodyErrorPropagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ForEach{})
-	rn, _ := node.Get("ForEach")
+	registry := node.NewRegistry()
+	registry.Register(&ForEach{})
+	rn, _ := registry.Get("ForEach")
 
 	boom := errors.New("boom")
 	r := node.RunNodeAsRegion(context.Background(), rn,

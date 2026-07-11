@@ -13,9 +13,9 @@ import (
 // missAfterCall=1: callCount > 1 后返 miss; hitOnCall=1: 第 1 次调就命中。
 // TimeoutMs=500 进轮询路径; 第 2 次 matchOnce 返 miss → 走 Gone。
 func TestWaitTemplateGone_Gone(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplateGone{})
-	rn, _ := node.Get("WaitTemplateGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplateGone{})
+	rn, _ := registry.Get("WaitTemplateGone")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	// hitOnCall=1: 第 1 次 WaitMatch 返命中
@@ -39,9 +39,9 @@ func TestWaitTemplateGone_Gone(t *testing.T) {
 
 // TestWaitTemplateGone_Timeout_SingleFrame: TimeoutMs=0 单帧路径 — 当帧仍命中 → Timeout，带 Conf。
 func TestWaitTemplateGone_Timeout_SingleFrame(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplateGone{})
-	rn, _ := node.Get("WaitTemplateGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplateGone{})
+	rn, _ := registry.Get("WaitTemplateGone")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	// hitOnCall=1: 第 1 次调就命中（模板还在），TimeoutMs=0 → 单帧 → Timeout
@@ -64,9 +64,9 @@ func TestWaitTemplateGone_Timeout_SingleFrame(t *testing.T) {
 
 // TestWaitTemplateGone_Gone_SingleFrame: TimeoutMs=0 单帧路径 — 当帧未命中（模板已消失）→ Gone。
 func TestWaitTemplateGone_Gone_SingleFrame(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplateGone{})
-	rn, _ := node.Get("WaitTemplateGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplateGone{})
+	rn, _ := registry.Get("WaitTemplateGone")
 
 	// hitOnCall=-1 → 永不命中（模板不在）→ matchOnce 返 !hit.Found → 立即走 Gone
 	vision := &mockVision{hitOnCall: -1, conf: 0.2}
@@ -88,9 +88,9 @@ func TestWaitTemplateGone_Gone_SingleFrame(t *testing.T) {
 
 // TestWaitTemplateGone_Error: vision 报错 → 节点返 error。
 func TestWaitTemplateGone_Error(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplateGone{})
-	rn, _ := node.Get("WaitTemplateGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplateGone{})
+	rn, _ := registry.Get("WaitTemplateGone")
 
 	vision := &mockVision{err: errors.New("window closed")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -109,9 +109,9 @@ func TestWaitTemplateGone_Error(t *testing.T) {
 }
 
 func TestWaitTemplateGone_PassesROIAndUsesPollInterval(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitTemplateGone{})
-	rn, _ := node.Get("WaitTemplateGone")
+	registry := node.NewRegistry()
+	registry.Register(&WaitTemplateGone{})
+	rn, _ := registry.Get("WaitTemplateGone")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	roi := node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.1, W: 0.6, H: 0.6}}

@@ -43,9 +43,9 @@ func (r *recordingVars) IncScoped(name, _ string, d float64) float64 { return r.
 func (r *recordingVars) LastChange(name string) int64                { return 0 }
 
 func TestSetVar_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&SetVar{})
-	rn, _ := node.Get("SetVar")
+	registry := node.NewRegistry()
+	registry.Register(&SetVar{})
+	rn, _ := registry.Get("SetVar")
 	vars := &recordingVars{}
 	svc := node.StubServices()
 	svc.Vars = vars
@@ -61,9 +61,9 @@ func TestSetVar_HappyPath(t *testing.T) {
 }
 
 func TestSetVar_MissingVarName(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&SetVar{})
-	rn, _ := node.Get("SetVar")
+	registry := node.NewRegistry()
+	registry.Register(&SetVar{})
+	rn, _ := registry.Get("SetVar")
 	svc := node.StubServices()
 	svc.Vars = &recordingVars{}
 	r := node.RunNode(context.Background(), rn, nil,

@@ -16,9 +16,9 @@ func (r *recordingInput) Drag(x1, y1, x2, y2 float64, button string, durationMs 
 }
 
 func TestSwipe_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Swipe{})
-	rn, _ := node.Get("Swipe")
+	registry := node.NewRegistry()
+	registry.Register(&Swipe{})
+	rn, _ := registry.Get("Swipe")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -38,9 +38,9 @@ func TestSwipe_HappyPath(t *testing.T) {
 }
 
 func TestSwipe_DefaultsApplied(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Swipe{})
-	rn, _ := node.Get("Swipe")
+	registry := node.NewRegistry()
+	registry.Register(&Swipe{})
+	rn, _ := registry.Get("Swipe")
 
 	rec := &recordingInput{}
 	// 不传任何 config — Point pin 无 Default，Begin/End → zero Point{} = (0,0); button=left, durationMs=200
@@ -55,9 +55,9 @@ func TestSwipe_DefaultsApplied(t *testing.T) {
 }
 
 func TestSwipe_RightButton(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Swipe{})
-	rn, _ := node.Get("Swipe")
+	registry := node.NewRegistry()
+	registry.Register(&Swipe{})
+	rn, _ := registry.Get("Swipe")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -74,9 +74,9 @@ func TestSwipe_RightButton(t *testing.T) {
 }
 
 func TestSwipe_BackendError_Propagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Swipe{})
-	rn, _ := node.Get("Swipe")
+	registry := node.NewRegistry()
+	registry.Register(&Swipe{})
+	rn, _ := registry.Get("Swipe")
 
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -89,9 +89,9 @@ func TestSwipe_BackendError_Propagates(t *testing.T) {
 }
 
 func TestSwipe_InvalidButton_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Swipe{})
-	rn, _ := node.Get("Swipe")
+	registry := node.NewRegistry()
+	registry.Register(&Swipe{})
+	rn, _ := registry.Get("Swipe")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{swInButton: "side1"},
@@ -103,9 +103,9 @@ func TestSwipe_InvalidButton_ValidationError(t *testing.T) {
 }
 
 func TestSwipe_PxPoints_ResolveToRatio(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Swipe{})
-	rn, _ := node.Get("Swipe")
+	registry := node.NewRegistry()
+	registry.Register(&Swipe{})
+	rn, _ := registry.Get("Swipe")
 	rec := &recordingInput{}
 	b := node.StubServices()
 	b.Input = rec

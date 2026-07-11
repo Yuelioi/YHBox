@@ -13,9 +13,9 @@ func sig1(r, g, b uint8) []uint8 { return []uint8{r, g, b} }
 // ---- WaitStable ----
 
 func TestWaitStable_BecomesStable(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitStable{})
-	rn, _ := node.Get("WaitStable")
+	registry := node.NewRegistry()
+	registry.Register(&WaitStable{})
+	rn, _ := registry.Get("WaitStable")
 
 	a := sig1(100, 100, 100)
 	// 首帧 prev=a, 之后 3 个 poll 全 a → 连续 3 帧不变 → Stable.
@@ -37,9 +37,9 @@ func TestWaitStable_BecomesStable(t *testing.T) {
 }
 
 func TestWaitStable_TimeoutWhenChurning(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitStable{})
-	rn, _ := node.Get("WaitStable")
+	registry := node.NewRegistry()
+	registry.Register(&WaitStable{})
+	rn, _ := registry.Get("WaitStable")
 
 	a, b := sig1(0, 0, 0), sig1(255, 255, 255)
 	// 交替 → 每帧都变 → stableCount 永远归零 → timeout.
@@ -60,9 +60,9 @@ func TestWaitStable_TimeoutWhenChurning(t *testing.T) {
 // ---- WaitChange ----
 
 func TestWaitChange_DetectsChange(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitChange{})
-	rn, _ := node.Get("WaitChange")
+	registry := node.NewRegistry()
+	registry.Register(&WaitChange{})
+	rn, _ := registry.Get("WaitChange")
 
 	base, changed := sig1(10, 10, 10), sig1(250, 250, 250)
 	// baseline=base, poll1=base (无变化), poll2=changed → Changed.
@@ -86,9 +86,9 @@ func TestWaitChange_DetectsChange(t *testing.T) {
 }
 
 func TestWaitChange_TimeoutWhenStatic(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitChange{})
-	rn, _ := node.Get("WaitChange")
+	registry := node.NewRegistry()
+	registry.Register(&WaitChange{})
+	rn, _ := registry.Get("WaitChange")
 
 	a := sig1(10, 10, 10)
 	vision := &mockVision{gridSigs: [][]uint8{a}} // mock 耗尽返最后一个 → 恒 a → 永不变.
@@ -105,9 +105,9 @@ func TestWaitChange_TimeoutWhenStatic(t *testing.T) {
 }
 
 func TestWaitChange_MeanDiffMetric(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitChange{})
-	rn, _ := node.Get("WaitChange")
+	registry := node.NewRegistry()
+	registry.Register(&WaitChange{})
+	rn, _ := registry.Get("WaitChange")
 
 	base, changed := sig1(0, 0, 0), sig1(255, 255, 255) // mean_diff = 1.0
 	vision := &mockVision{gridSigs: [][]uint8{base, changed}}
@@ -125,9 +125,9 @@ func TestWaitChange_MeanDiffMetric(t *testing.T) {
 }
 
 func TestWaitChange_UnknownMetricErrors(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&WaitChange{})
-	rn, _ := node.Get("WaitChange")
+	registry := node.NewRegistry()
+	registry.Register(&WaitChange{})
+	rn, _ := registry.Get("WaitChange")
 
 	vision := &mockVision{gridSigs: [][]uint8{sig1(0, 0, 0)}}
 	cfg := map[string]any{

@@ -12,6 +12,10 @@ import (
 //
 // DynamicInputs 节点 (Expr/Script) 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
 func validateUnknownLiteralPins(c *Container, sgs []Subgraph) []ValidationError {
+	return validateUnknownLiteralPinsWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
+}
+
+func validateUnknownLiteralPinsWithRegistry(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -23,7 +27,7 @@ func validateUnknownLiteralPins(c *Container, sgs []Subgraph) []ValidationError 
 			if lit == nil {
 				continue
 			}
-			rn, ok := nodepkg.Get(n.Kind)
+			rn, ok := registry.Get(n.Kind)
 			if !ok {
 				continue
 			}

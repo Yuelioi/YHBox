@@ -19,9 +19,9 @@ func validScanCfg() map[string]any {
 }
 
 func TestROIColorScan_Found(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ROIColorScan{})
-	rn, _ := node.Get("ROIColorScan")
+	registry := node.NewRegistry()
+	registry.Register(&ROIColorScan{})
+	rn, _ := registry.Get("ROIColorScan")
 
 	vision := &mockVision{
 		clusters: []node.ClusterEntry{
@@ -43,9 +43,9 @@ func TestROIColorScan_Found(t *testing.T) {
 }
 
 func TestROIColorScan_NotFoundSingleScan(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ROIColorScan{})
-	rn, _ := node.Get("ROIColorScan")
+	registry := node.NewRegistry()
+	registry.Register(&ROIColorScan{})
+	rn, _ := registry.Get("ROIColorScan")
 
 	vision := &mockVision{clusters: nil}
 	cfg := validScanCfg()
@@ -60,9 +60,9 @@ func TestROIColorScan_NotFoundSingleScan(t *testing.T) {
 
 // 节点责任 = Set Clusters/ClusterCount Data 字段 (framework 路径① 据此写变量)。
 func TestROIColorScan_OutputData_Found(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ROIColorScan{})
-	rn, _ := node.Get("ROIColorScan")
+	registry := node.NewRegistry()
+	registry.Register(&ROIColorScan{})
+	rn, _ := registry.Get("ROIColorScan")
 
 	clusters := []node.ClusterEntry{
 		{StartPx: 10, EndPx: 20, CenterPx: 15, PxCount: 10},
@@ -89,9 +89,9 @@ func TestROIColorScan_OutputData_Found(t *testing.T) {
 }
 
 func TestROIColorScan_OutputData_NotFound(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ROIColorScan{})
-	rn, _ := node.Get("ROIColorScan")
+	registry := node.NewRegistry()
+	registry.Register(&ROIColorScan{})
+	rn, _ := registry.Get("ROIColorScan")
 
 	vision := &mockVision{clusters: nil}
 	cfg := validScanCfg()
@@ -112,9 +112,9 @@ func TestROIColorScan_OutputData_NotFound(t *testing.T) {
 }
 
 func TestROIColorScan_Timeout(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ROIColorScan{})
-	rn, _ := node.Get("ROIColorScan")
+	registry := node.NewRegistry()
+	registry.Register(&ROIColorScan{})
+	rn, _ := registry.Get("ROIColorScan")
 
 	vision := &mockVision{clusters: nil}
 	cfg := validScanCfg()
@@ -129,9 +129,9 @@ func TestROIColorScan_Timeout(t *testing.T) {
 }
 
 func TestROIColorScan_InvalidAxis_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ROIColorScan{})
-	rn, _ := node.Get("ROIColorScan")
+	registry := node.NewRegistry()
+	registry.Register(&ROIColorScan{})
+	rn, _ := registry.Get("ROIColorScan")
 
 	cfg := validScanCfg()
 	cfg[rcsInAxis] = "z"

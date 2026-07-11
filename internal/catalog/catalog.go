@@ -51,10 +51,15 @@ type Node struct {
 	Example     string `json:"example,omitempty"`
 }
 
-// Build 读全注册表, 返按 category→kind 稳定排序的目录。
-// 调用方负责匿名 import internal/nodes/all 触发完整内置节点注册。
+// Build reads a point-in-time default registry snapshot.
 func Build() []Node {
-	regs := node.All()
+	return BuildFrom(node.DefaultRegistrySnapshot())
+}
+
+// BuildFrom renders an explicit registry view, allowing isolated catalogs in
+// tests and embedders without mutating the process-wide built-in registry.
+func BuildFrom(registry node.RegistryReader) []Node {
+	regs := registry.All()
 	out := make([]Node, 0, len(regs))
 	for _, rn := range regs {
 		s := node.PopulateSupportedTargets(rn.Spec)
@@ -111,7 +116,11 @@ type nodeI18n struct {
 // BuildWithI18n 在 Build() 结构基础上按 kind JOIN 进展示文案 (label/description/pin label+hint),
 // 供 list_nodes 给 LLM 更全语境。zh.ts 缺某 kind 的文案则该字段留空 (drift guard 测试会兜)。
 func BuildWithI18n() []Node {
-	out := Build()
+	return BuildWithI18nFrom(node.DefaultRegistrySnapshot())
+}
+
+func BuildWithI18nFrom(registry node.RegistryReader) []Node {
+	out := BuildFrom(registry)
 	var i18n map[string]nodeI18n
 	if err := json.Unmarshal(nodeI18nJSON, &i18n); err != nil {
 		panic("catalog: node-i18n.json 解析失败: " + err.Error())

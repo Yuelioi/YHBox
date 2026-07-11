@@ -26,9 +26,9 @@ func (m *mockClipPlayer) Play(ctx context.Context, clipID string) error {
 }
 
 func TestPlayClip_PlaysAndFiresDone(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&PlayClip{})
-	rn, _ := node.Get("PlayClip")
+	registry := node.NewRegistry()
+	registry.Register(&PlayClip{})
+	rn, _ := registry.Get("PlayClip")
 
 	mock := &mockClipPlayer{}
 	svc := node.StubServices()
@@ -50,9 +50,9 @@ func TestPlayClip_PlaysAndFiresDone(t *testing.T) {
 }
 
 func TestPlayClip_PlayErrorPropagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&PlayClip{})
-	rn, _ := node.Get("PlayClip")
+	registry := node.NewRegistry()
+	registry.Register(&PlayClip{})
+	rn, _ := registry.Get("PlayClip")
 
 	sentinel := errors.New("backend boom")
 	svc := node.StubServices()
@@ -71,9 +71,9 @@ func TestPlayClip_PlayErrorPropagates(t *testing.T) {
 }
 
 func TestPlayClip_CtxCancelReturnsCanceled(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&PlayClip{})
-	rn, _ := node.Get("PlayClip")
+	registry := node.NewRegistry()
+	registry.Register(&PlayClip{})
+	rn, _ := registry.Get("PlayClip")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -97,9 +97,9 @@ func TestPlayClip_CtxCancelReturnsCanceled(t *testing.T) {
 }
 
 func TestPlayClip_RequiredClipIDMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&PlayClip{})
-	rn, _ := node.Get("PlayClip")
+	registry := node.NewRegistry()
+	registry.Register(&PlayClip{})
+	rn, _ := registry.Get("PlayClip")
 
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if len(r.Validation) == 0 {
@@ -111,9 +111,9 @@ func TestPlayClip_RequiredClipIDMissing(t *testing.T) {
 }
 
 func TestPlayClip_DependenciesExtractsClip(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&PlayClip{})
-	rn, _ := node.Get("PlayClip")
+	registry := node.NewRegistry()
+	registry.Register(&PlayClip{})
+	rn, _ := registry.Get("PlayClip")
 
 	if rn.Dependencies == nil {
 		t.Fatal("PlayClip should implement Dependencies")

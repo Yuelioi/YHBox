@@ -3,6 +3,8 @@ package node
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"sync"
 	"testing"
 )
@@ -29,23 +31,38 @@ type RegisteredNode struct {
 	Defaults map[string]any
 }
 
-var (
-	registryMu     sync.RWMutex
-	globalRegistry = map[string]*RegisteredNode{}
-	registryFrozen bool
-)
+// Registry owns a set of node implementations. Instances are independent and
+// may be assembled in parallel by tests or embedders.
+type Registry struct {
+	mu      sync.RWMutex
+	entries map[string]*RegisteredNode
+	frozen  bool
+}
+
+// RegistrySnapshot is an immutable point-in-time registry view. Readers receive
+// defensive copies, so callers cannot mutate the stored metadata generation.
+type RegistrySnapshot struct{ entries map[string]*RegisteredNode }
+
+// RegistryReader is the read surface consumed by catalog and runtime assembly.
+type RegistryReader interface {
+	Get(kind string) (*RegisteredNode, bool)
+	All() []*RegisteredNode
+}
+
+func NewRegistry() *Registry { return &Registry{entries: map[string]*RegisteredNode{}} }
+
+var defaultRegistry = NewRegistry()
 
 // Register 仅在 init() / Wails OnStartup 前调.
 func Register(impl Node) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	if registryFrozen {
-		panic("node.Register after Freeze (must call before Wails OnStartup returns)")
-	}
-	spec := impl.Spec()
-	if _, exists := globalRegistry[spec.Kind]; exists {
-		panic(fmt.Sprintf("node kind %q already registered", spec.Kind))
-	}
+	defaultRegistry.Register(impl)
+}
+
+// Register adds an implementation and validates its complete node contract.
+func (r *Registry) Register(impl Node) {
+	// Spec is extension code. Evaluate and validate it without holding the
+	// registry lock so a slow or re-entrant implementation cannot block readers.
+	spec := cloneSpec(impl.Spec())
 	rn := &RegisteredNode{
 		Impl:     impl,
 		Spec:     spec,
@@ -116,33 +133,200 @@ func Register(impl Node) {
 		seenRuntimeCapabilities[capability] = struct{}{}
 	}
 
-	globalRegistry[spec.Kind] = rn
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.entries == nil {
+		r.entries = map[string]*RegisteredNode{}
+	}
+	if r.frozen {
+		panic("node.Register after Freeze (must call before Wails OnStartup returns)")
+	}
+	if _, exists := r.entries[spec.Kind]; exists {
+		panic(fmt.Sprintf("node kind %q already registered", spec.Kind))
+	}
+	r.entries[spec.Kind] = rn
 }
 
 // Freeze 在 Wails OnStartup 末尾调一次.
 func Freeze() {
-	registryMu.Lock()
-	registryFrozen = true
-	registryMu.Unlock()
+	defaultRegistry.Freeze()
+}
+
+func (r *Registry) Freeze() {
+	r.mu.Lock()
+	r.frozen = true
+	r.mu.Unlock()
 }
 
 // Get RPC handler 用. RLock 并发安全.
 func Get(kind string) (*RegisteredNode, bool) {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	rn, ok := globalRegistry[kind]
-	return rn, ok
+	return defaultRegistry.Get(kind)
+}
+
+func (r *Registry) Get(kind string) (*RegisteredNode, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	rn, ok := r.entries[kind]
+	if !ok {
+		return nil, false
+	}
+	return cloneRegisteredNode(rn), true
 }
 
 // All 返 snapshot copy.
 func All() []*RegisteredNode {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	out := make([]*RegisteredNode, 0, len(globalRegistry))
-	for _, rn := range globalRegistry {
-		out = append(out, rn)
+	return defaultRegistry.All()
+}
+
+func (r *Registry) All() []*RegisteredNode {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return allRegisteredNodes(r.entries)
+}
+
+func (r *Registry) Snapshot() RegistrySnapshot {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	entries := make(map[string]*RegisteredNode, len(r.entries))
+	for kind, registered := range r.entries {
+		entries[kind] = registered
 	}
+	return RegistrySnapshot{entries: entries}
+}
+
+func DefaultRegistrySnapshot() RegistrySnapshot { return defaultRegistry.Snapshot() }
+
+// SnapshotRegistry freezes any RegistryReader into an independent generation.
+func SnapshotRegistry(reader RegistryReader) RegistrySnapshot {
+	if reader == nil {
+		panic("node: registry is required")
+	}
+	entries := map[string]*RegisteredNode{}
+	for _, registered := range reader.All() {
+		entries[registered.Spec.Kind] = cloneRegisteredNode(registered)
+	}
+	return RegistrySnapshot{entries: entries}
+}
+
+func (s RegistrySnapshot) Get(kind string) (*RegisteredNode, bool) {
+	rn, ok := s.entries[kind]
+	if !ok {
+		return nil, false
+	}
+	return cloneRegisteredNode(rn), true
+}
+
+func (s RegistrySnapshot) All() []*RegisteredNode { return allRegisteredNodes(s.entries) }
+
+func allRegisteredNodes(entries map[string]*RegisteredNode) []*RegisteredNode {
+	out := make([]*RegisteredNode, 0, len(entries))
+	for _, rn := range entries {
+		out = append(out, cloneRegisteredNode(rn))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Spec.Kind < out[j].Spec.Kind })
 	return out
+}
+
+func cloneRegisteredNode(source *RegisteredNode) *RegisteredNode {
+	clone := *source
+	clone.Spec = cloneSpec(source.Spec)
+	clone.Defaults = cloneMap(source.Defaults)
+	return &clone
+}
+
+func cloneSpec(source Spec) Spec {
+	return cloneValue(reflect.ValueOf(source), map[cloneVisit]bool{}).Interface().(Spec)
+}
+
+func cloneMap(source map[string]any) map[string]any {
+	if source == nil {
+		return nil
+	}
+	return cloneValue(reflect.ValueOf(source), map[cloneVisit]bool{}).Interface().(map[string]any)
+}
+
+type cloneVisit struct {
+	typ reflect.Type
+	ptr uintptr
+}
+
+// cloneValue preserves named Go types in defaults and widget metadata. JSON
+// round-tripping is deliberately unsuitable here because it erases types such
+// as Point and concrete widget property structs.
+func cloneValue(source reflect.Value, active map[cloneVisit]bool) reflect.Value {
+	if !source.IsValid() {
+		return source
+	}
+	switch source.Kind() {
+	case reflect.Interface:
+		if source.IsNil() {
+			return reflect.Zero(source.Type())
+		}
+		clone := reflect.New(source.Type()).Elem()
+		clone.Set(cloneValue(source.Elem(), active))
+		return clone
+	case reflect.Pointer:
+		if source.IsNil() {
+			return reflect.Zero(source.Type())
+		}
+		visit := cloneVisit{typ: source.Type(), ptr: source.Pointer()}
+		if active[visit] {
+			panic("node metadata contains a reference cycle")
+		}
+		active[visit] = true
+		defer delete(active, visit)
+		clone := reflect.New(source.Type().Elem())
+		clone.Elem().Set(cloneValue(source.Elem(), active))
+		return clone
+	case reflect.Slice:
+		if source.IsNil() {
+			return reflect.Zero(source.Type())
+		}
+		visit := cloneVisit{typ: source.Type(), ptr: source.Pointer()}
+		if active[visit] {
+			panic("node metadata contains a reference cycle")
+		}
+		active[visit] = true
+		defer delete(active, visit)
+		clone := reflect.MakeSlice(source.Type(), source.Len(), source.Len())
+		for i := 0; i < source.Len(); i++ {
+			clone.Index(i).Set(cloneValue(source.Index(i), active))
+		}
+		return clone
+	case reflect.Array:
+		clone := reflect.New(source.Type()).Elem()
+		for i := 0; i < source.Len(); i++ {
+			clone.Index(i).Set(cloneValue(source.Index(i), active))
+		}
+		return clone
+	case reflect.Map:
+		if source.IsNil() {
+			return reflect.Zero(source.Type())
+		}
+		visit := cloneVisit{typ: source.Type(), ptr: source.Pointer()}
+		if active[visit] {
+			panic("node metadata contains a reference cycle")
+		}
+		active[visit] = true
+		defer delete(active, visit)
+		clone := reflect.MakeMapWithSize(source.Type(), source.Len())
+		iter := source.MapRange()
+		for iter.Next() {
+			clone.SetMapIndex(cloneValue(iter.Key(), active), cloneValue(iter.Value(), active))
+		}
+		return clone
+	case reflect.Struct:
+		clone := reflect.New(source.Type()).Elem()
+		clone.Set(source)
+		for i := 0; i < source.NumField(); i++ {
+			if source.Type().Field(i).PkgPath == "" {
+				clone.Field(i).Set(cloneValue(source.Field(i), active))
+			}
+		}
+		return clone
+	default:
+		return source
+	}
 }
 
 // ScriptBindable — Script 节点把注册节点暴露成脚本函数的判定单一源.
@@ -160,10 +344,10 @@ func ResetRegistryForTest() {
 	if !testing.Testing() {
 		panic("ResetRegistryForTest only callable from tests")
 	}
-	registryMu.Lock()
-	registryFrozen = false
-	for k := range globalRegistry {
-		delete(globalRegistry, k)
+	defaultRegistry.mu.Lock()
+	defaultRegistry.frozen = false
+	for k := range defaultRegistry.entries {
+		delete(defaultRegistry.entries, k)
 	}
-	registryMu.Unlock()
+	defaultRegistry.mu.Unlock()
 }

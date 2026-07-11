@@ -43,9 +43,9 @@ func TestAndroidTarget_SpecHasExecInAndTargetPins(t *testing.T) {
 }
 
 func TestAndroidTarget_RunSetsActiveTarget(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&AndroidTarget{})
-	rn, _ := node.Get("AndroidTarget")
+	registry := node.NewRegistry()
+	registry.Register(&AndroidTarget{})
+	rn, _ := registry.Get("AndroidTarget")
 
 	svc := node.StubServices()
 	r := node.RunNode(context.Background(), rn, nil,

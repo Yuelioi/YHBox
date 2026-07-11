@@ -12,20 +12,32 @@ func (n serviceSpecNode) Spec() Spec { return n.spec }
 func (n serviceSpecNode) Run(Ctx, Inputs) (Outputs, error) { return nil, nil }
 
 func TestNodeService_GetAllNodeSpecs(t *testing.T) {
-	ResetRegistryForTest()
-	Register(stubNode{kind: "T1"})
-	Register(stubNode{kind: "T2"})
+	registry := NewRegistry()
+	registry.Register(stubNode{kind: "T1"})
+	registry.Register(stubNode{kind: "T2"})
 
-	svc := NewService()
+	svc := NewServiceWithRegistry(registry.Snapshot())
 	specs := svc.GetAllNodeSpecs()
 	if len(specs) != 2 {
 		t.Errorf("len = %d, want 2", len(specs))
 	}
 }
 
+func TestNodeServiceSnapshotsRegistryAtConstruction(t *testing.T) {
+	registry := NewRegistry()
+	registry.Register(stubNode{kind: "Before"})
+	svc := NewServiceWithRegistry(registry)
+	registry.Register(stubNode{kind: "After"})
+
+	specs := svc.GetAllNodeSpecs()
+	if len(specs) != 1 || specs[0].Kind != "Before" {
+		t.Fatalf("service registry drifted after construction: %+v", specs)
+	}
+}
+
 func TestNodeService_GetAllNodeSpecs_PopulatesSupportedTargets(t *testing.T) {
-	ResetRegistryForTest()
-	Register(serviceSpecNode{
+	registry := NewRegistry()
+	registry.Register(serviceSpecNode{
 		spec: Spec{
 			Kind:               "ClickLike",
 			Category:           "Input",
@@ -33,7 +45,7 @@ func TestNodeService_GetAllNodeSpecs_PopulatesSupportedTargets(t *testing.T) {
 			TargetCapabilities: []TargetCapability{TargetCapabilityClick},
 		},
 	})
-	Register(serviceSpecNode{
+	registry.Register(serviceSpecNode{
 		spec: Spec{
 			Kind:               "KeyStateLike",
 			Category:           "Input",
@@ -41,7 +53,7 @@ func TestNodeService_GetAllNodeSpecs_PopulatesSupportedTargets(t *testing.T) {
 			TargetCapabilities: []TargetCapability{TargetCapabilityKeyState},
 		},
 	})
-	Register(serviceSpecNode{
+	registry.Register(serviceSpecNode{
 		spec: Spec{
 			Kind:        "WindowLike",
 			Category:    "Window",
@@ -49,18 +61,18 @@ func TestNodeService_GetAllNodeSpecs_PopulatesSupportedTargets(t *testing.T) {
 			Inputs:      []InputSpec{WindowInputSpec()},
 		},
 	})
-	Register(serviceSpecNode{
+	registry.Register(serviceSpecNode{
 		spec: Spec{
 			Kind:            "WindowsPlatformLike",
 			Category:        "IO",
 			PlatformTargets: []string{SupportedTargetWin32Window},
 		},
 	})
-	Register(serviceSpecNode{
+	registry.Register(serviceSpecNode{
 		spec: Spec{Kind: "PureLike", Category: "Control"},
 	})
 
-	specs := NewService().GetAllNodeSpecs()
+	specs := NewServiceWithRegistry(registry.Snapshot()).GetAllNodeSpecs()
 	byKind := map[string]Spec{}
 	for _, spec := range specs {
 		byKind[spec.Kind] = spec

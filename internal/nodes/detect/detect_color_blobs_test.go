@@ -9,9 +9,9 @@ import (
 
 func runBlobs(t *testing.T, vision *mockVision, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&DetectColorBlobs{})
-	rn, _ := node.Get("DetectColorBlobs")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColorBlobs{})
+	rn, _ := registry.Get("DetectColorBlobs")
 	return node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 }
 

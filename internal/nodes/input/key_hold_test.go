@@ -8,9 +8,9 @@ import (
 )
 
 func TestKeyHoldStart_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyHoldStart{})
-	rn, _ := node.Get("KeyHoldStart")
+	registry := node.NewRegistry()
+	registry.Register(&KeyHoldStart{})
+	rn, _ := registry.Get("KeyHoldStart")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -29,9 +29,9 @@ func TestKeyHoldStart_HappyPath(t *testing.T) {
 }
 
 func TestKeyHoldStop_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyHoldStop{})
-	rn, _ := node.Get("KeyHoldStop")
+	registry := node.NewRegistry()
+	registry.Register(&KeyHoldStop{})
+	rn, _ := registry.Get("KeyHoldStop")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -50,9 +50,9 @@ func TestKeyHoldStop_HappyPath(t *testing.T) {
 }
 
 func TestKeyHoldStart_UnknownVK_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyHoldStart{})
-	rn, _ := node.Get("KeyHoldStart")
+	registry := node.NewRegistry()
+	registry.Register(&KeyHoldStart{})
+	rn, _ := registry.Get("KeyHoldStart")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{khStartInVK: "no-such-key"},
@@ -64,9 +64,9 @@ func TestKeyHoldStart_UnknownVK_ValidationError(t *testing.T) {
 }
 
 func TestKeyHoldStop_EmptyVK_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyHoldStop{})
-	rn, _ := node.Get("KeyHoldStop")
+	registry := node.NewRegistry()
+	registry.Register(&KeyHoldStop{})
+	rn, _ := registry.Get("KeyHoldStop")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{khStopInVK: ""},
@@ -79,21 +79,21 @@ func TestKeyHoldStop_EmptyVK_ValidationError(t *testing.T) {
 
 // 配对 Start/Stop 走完整 down→up 序列, 验 stateful backend 路径.
 func TestKeyHold_StartStopPair(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyHoldStart{})
-	node.Register(&KeyHoldStop{})
+	registry := node.NewRegistry()
+	registry.Register(&KeyHoldStart{})
+	registry.Register(&KeyHoldStop{})
 
 	rec := &recordingInput{}
 	bundle := withInput(rec)
 
-	rnStart, _ := node.Get("KeyHoldStart")
+	rnStart, _ := registry.Get("KeyHoldStart")
 	r1 := node.RunNode(context.Background(), rnStart, nil,
 		map[string]any{khStartInVK: "right"}, nil, bundle, false)
 	if r1.Error != nil {
 		t.Fatal(r1.Error)
 	}
 
-	rnStop, _ := node.Get("KeyHoldStop")
+	rnStop, _ := registry.Get("KeyHoldStop")
 	r2 := node.RunNode(context.Background(), rnStop, nil,
 		map[string]any{khStopInVK: "right"}, nil, bundle, false)
 	if r2.Error != nil {

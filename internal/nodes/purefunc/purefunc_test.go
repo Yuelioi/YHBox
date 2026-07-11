@@ -21,7 +21,7 @@ func TestSpecBuilder_HasResultOutput(t *testing.T) {
 // TestEvaluate_22PureFuncs 覆盖 22 个实现 Evaluator 的节点 (Add/.../Select), 验证 EvaluatePureData
 // 走 framework 拿到预期值. Expr 不实现 Evaluator, 单独 fallback 测试在 dispatch_v5 层.
 func TestEvaluate_22PureFuncs(t *testing.T) {
-	node.ResetRegistryForTest()
+	registry := node.NewRegistry()
 	for _, n := range []node.Node{
 		&Add{}, &Sub{}, &Mul{}, &Div{}, &Mod{}, &Neg{},
 		&Lt{}, &LtEq{}, &Gt{}, &GtEq{}, &Eq{}, &NotEq{},
@@ -30,7 +30,7 @@ func TestEvaluate_22PureFuncs(t *testing.T) {
 		&ToString{}, &ToNumber{}, &ToBool{},
 		&Select{},
 	} {
-		node.Register(n)
+		registry.Register(n)
 	}
 
 	cases := []struct {
@@ -71,7 +71,7 @@ func TestEvaluate_22PureFuncs(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.kind, func(t *testing.T) {
-			rn, ok := node.Get(tc.kind)
+			rn, ok := registry.Get(tc.kind)
 			if !ok {
 				t.Fatalf("kind %q not registered", tc.kind)
 			}
@@ -92,18 +92,18 @@ func TestEvaluate_22PureFuncs(t *testing.T) {
 // TestEvaluate_ShortCircuit Or/And 短路 — Or(true, ?) 不读 b; And(false, ?) 不读 b.
 // 用一个无法 read 的 sentinel 验证 b 没被消费 (这里直接 omit b 让 default 生效, 行为可见).
 func TestEvaluate_ShortCircuit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&And{})
-	node.Register(&Or{})
+	registry := node.NewRegistry()
+	registry.Register(&And{})
+	registry.Register(&Or{})
 
 	// And(false, true) → false (短路, b 不读)
-	rn, _ := node.Get("And")
+	rn, _ := registry.Get("And")
 	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"A": false, "B": true}, nil, node.StubServices())
 	if err != nil || got != false {
 		t.Errorf("And(false, true) = (%v, %v), want (false, nil)", got, err)
 	}
 	// Or(true, false) → true (短路)
-	rn, _ = node.Get("Or")
+	rn, _ = registry.Get("Or")
 	got, err = node.EvaluatePureData(context.Background(), rn, map[string]any{"A": true, "B": false}, nil, node.StubServices())
 	if err != nil || got != true {
 		t.Errorf("Or(true, false) = (%v, %v), want (true, nil)", got, err)
@@ -112,9 +112,9 @@ func TestEvaluate_ShortCircuit(t *testing.T) {
 
 // TestEvaluate_DivByZero Div(_, 0) → NaN.
 func TestEvaluate_DivByZero(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Div{})
-	rn, _ := node.Get("Div")
+	registry := node.NewRegistry()
+	registry.Register(&Div{})
+	rn, _ := registry.Get("Div")
 	got, err := node.EvaluatePureData(context.Background(), rn, map[string]any{"A": 1.0, "B": 0.0}, nil, node.StubServices())
 	if err != nil {
 		t.Fatalf("Div by zero err: %v", err)
@@ -127,9 +127,9 @@ func TestEvaluate_DivByZero(t *testing.T) {
 
 // Expr 节点 spec 校验 — IsPureData + Result output + Evaluator 实现.
 func TestExpr_Registered(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Expr{})
-	rn, ok := node.Get("Expr")
+	registry := node.NewRegistry()
+	registry.Register(&Expr{})
+	rn, ok := registry.Get("Expr")
 	if !ok {
 		t.Fatal("Expr not registered")
 	}
@@ -151,9 +151,9 @@ func TestExpr_Registered(t *testing.T) {
 // Expr.Evaluate 静态 dataWire 直跑 — dynamic input 通过 dataWire 喂.
 // dispatch_v5.buildDataWireFor 跑生产路径里 pull config.Inputs[]; 单测直接喂值.
 func TestExpr_Evaluate_DynamicInputs(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Expr{})
-	rn, _ := node.Get("Expr")
+	registry := node.NewRegistry()
+	registry.Register(&Expr{})
+	rn, _ := registry.Get("Expr")
 	dataWire := map[string]any{
 		"Expression": "i + 1",
 		"i":          5.0,
@@ -175,9 +175,9 @@ func TestExpr_Evaluate_DynamicInputs(t *testing.T) {
 // expr.InputEnv.Get(missing) → (nil, nil) — 不报错. 所以这里断言结果不是 "autox" (那是
 // env leak 的特征值). nil + "x" 在 expr Concat 语义下不是 "autox", 是别的值或错.
 func TestExpr_Evaluate_ConfigKeysIsolatedFromEnv(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Expr{})
-	rn, _ := node.Get("Expr")
+	registry := node.NewRegistry()
+	registry.Register(&Expr{})
+	rn, _ := registry.Get("Expr")
 	// config 走第 4 个参数 (EvaluatePureData(ctx, rn, dataWire, config, services));
 	// 同名 dataWire 会覆盖 config, 这里只放 config 避免歧义.
 	got, _ := node.EvaluatePureData(context.Background(), rn, nil,

@@ -9,9 +9,9 @@ import (
 )
 
 func TestStopApp_EmptyTarget_Validation(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&StopApp{})
-	rn, _ := node.Get("StopApp")
+	registry := node.NewRegistry()
+	registry.Register(&StopApp{})
+	rn, _ := registry.Get("StopApp")
 
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if len(r.Validation) == 0 {
@@ -23,9 +23,9 @@ func TestStopApp_EmptyTarget_Validation(t *testing.T) {
 }
 
 func TestStopApp_NonEmpty_CallsKillAndFiresDone(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&StopApp{})
-	rn, _ := node.Get("StopApp")
+	registry := node.NewRegistry()
+	registry.Register(&StopApp{})
+	rn, _ := registry.Get("StopApp")
 
 	var gotTarget string
 	orig := killProcess
@@ -51,9 +51,9 @@ func TestStopApp_NonEmpty_CallsKillAndFiresDone(t *testing.T) {
 }
 
 func TestStopApp_KillError_RoutesFail(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&StopApp{})
-	rn, _ := node.Get("StopApp")
+	registry := node.NewRegistry()
+	registry.Register(&StopApp{})
+	rn, _ := registry.Get("StopApp")
 
 	sentinel := errors.New("process not found")
 	orig := killProcess

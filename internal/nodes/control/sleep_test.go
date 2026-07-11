@@ -11,9 +11,9 @@ import (
 )
 
 func TestSleep_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Sleep{})
-	rn, _ := node.Get("Sleep")
+	registry := node.NewRegistry()
+	registry.Register(&Sleep{})
+	rn, _ := registry.Get("Sleep")
 
 	start := time.Now()
 	r := node.RunNode(context.Background(), rn, nil,
@@ -33,9 +33,9 @@ func TestSleep_HappyPath(t *testing.T) {
 }
 
 func TestSleep_CtxCancel_InterruptsEarly(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Sleep{})
-	rn, _ := node.Get("Sleep")
+	registry := node.NewRegistry()
+	registry.Register(&Sleep{})
+	rn, _ := registry.Get("Sleep")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -61,9 +61,9 @@ func TestSleep_CtxCancel_InterruptsEarly(t *testing.T) {
 }
 
 func TestSleep_ZeroDuration_Error(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Sleep{})
-	rn, _ := node.Get("Sleep")
+	registry := node.NewRegistry()
+	registry.Register(&Sleep{})
+	rn, _ := registry.Get("Sleep")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{sleepInDuration: time.Duration(0)},
@@ -75,9 +75,9 @@ func TestSleep_ZeroDuration_Error(t *testing.T) {
 }
 
 func TestSleep_DefaultDuration_1s(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Sleep{})
-	rn, _ := node.Get("Sleep")
+	registry := node.NewRegistry()
+	registry.Register(&Sleep{})
+	rn, _ := registry.Get("Sleep")
 
 	// Spec 默认 = 1000ms (1s): 拖出来即可用, 不必手填。
 	var dur *node.InputSpec

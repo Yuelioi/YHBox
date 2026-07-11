@@ -9,9 +9,9 @@ import (
 )
 
 func TestStop_ReturnsSentinel(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Stop{})
-	rn, _ := node.Get("Stop")
+	registry := node.NewRegistry()
+	registry.Register(&Stop{})
+	rn, _ := registry.Get("Stop")
 
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if !errors.Is(r.Error, errStopRun) {

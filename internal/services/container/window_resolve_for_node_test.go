@@ -4,9 +4,17 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/node"
 
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
+
+type targetPathNode struct{ kind string }
+
+func (n targetPathNode) Spec() node.Spec {
+	return node.Spec{Kind: n.kind, Inputs: []node.InputSpec{{Name: "In", Type: node.TypeExec}}, Outputs: []node.OutputSpec{{Name: "Done", Type: node.TypeExec}}}
+}
+func (targetPathNode) Run(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }
 
 func TestWin32WindowTargetForNode(t *testing.T) {
 	// 构造 Start → WT_A(Title=A) → n1(ClickAt) → WT_B(Title=B) → n2(ClickAt)
@@ -68,6 +76,21 @@ func TestEditorTargetKindForNode_DefaultsToWin32WhenNoTarget(t *testing.T) {
 	c := &Container{Graph: Graph{Nodes: []GraphNode{{ID: "start", Kind: "Start"}, {ID: "sleep", Kind: "Sleep"}}}}
 	if got, ok := editorTargetKindForNode(c, "sleep"); !ok || got != target.KindWin32Window {
 		t.Fatalf("target = %q,%v want %q,true", got, ok, target.KindWin32Window)
+	}
+}
+
+func TestEditorTargetForNodeUsesExplicitRegistryAcrossCustomNode(t *testing.T) {
+	registry := node.NewRegistry()
+	for _, kind := range []string{"Start", "AndroidTarget", "CustomBridge", "ClickAt"} {
+		registry.Register(targetPathNode{kind: kind})
+	}
+	c := &Container{Graph: Graph{
+		Nodes: []GraphNode{{ID: "start", Kind: "Start"}, {ID: "target", Kind: "AndroidTarget"}, {ID: "bridge", Kind: "CustomBridge"}, {ID: "click", Kind: "ClickAt"}},
+		Edges: []GraphEdge{{From: "start.Done", To: "target.In"}, {From: "target.Done", To: "bridge.In"}, {From: "bridge.Done", To: "click.In"}},
+	}}
+	got, ok := editorTargetForNodeWithRegistry(registry.Snapshot(), c, "click")
+	if !ok || got.Kind != target.KindAndroidADB {
+		t.Fatalf("target through custom node = %+v,%v", got, ok)
 	}
 }
 

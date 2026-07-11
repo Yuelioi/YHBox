@@ -28,6 +28,7 @@ const (
 	RuntimeCapabilityClip        RuntimeCapability = "clip"
 	RuntimeCapabilitySubgraphs   RuntimeCapability = "subgraphs"
 	RuntimeCapabilityAI          RuntimeCapability = "ai"
+	RuntimeCapabilityRegistry    RuntimeCapability = "registry"
 )
 
 const (

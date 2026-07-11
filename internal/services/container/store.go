@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	nodepkg "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
@@ -37,6 +38,7 @@ type Store struct {
 	resolveSubgraphs func(c *Container) []Subgraph
 	// assetStore 导出 package bundle 时读取资产记录和 blob. nil 表示无资产闭包可导出。
 	assetStore      *asset.Store
+	registry        nodepkg.RegistrySnapshot
 	writeFileAtomic func(path string, data []byte) error
 }
 
@@ -59,10 +61,17 @@ func (s *Store) subgraphsFor(c *Container) []Subgraph {
 }
 
 func NewStore(root string) (*Store, error) {
+	return NewStoreWithRegistry(root, nodepkg.DefaultRegistrySnapshot())
+}
+
+func NewStoreWithRegistry(root string, registry nodepkg.RegistryReader) (*Store, error) {
+	if registry == nil {
+		return nil, errors.New("container: node registry is required")
+	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, fmt.Errorf("mkdir %s: %w", root, err)
 	}
-	s := &Store{root: root, byID: map[string]Container{}, writeFileAtomic: writeContainerFileAtomic}
+	s := &Store{root: root, byID: map[string]Container{}, registry: nodepkg.SnapshotRegistry(registry), writeFileAtomic: writeContainerFileAtomic}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
@@ -200,7 +209,7 @@ func (s *Store) Save(c *Container) error {
 	}
 	local.Normalize()
 	// 注: 此时未持本 store 锁, resolver 自由拿子图 store 读锁 (锁序无忧).
-	if err := local.Validate(s.subgraphsFor(&local)); err != nil {
+	if err := local.ValidateWithRegistry(s.subgraphsFor(&local), s.registry); err != nil {
 		return err
 	}
 	now := time.Now().UTC()
@@ -223,7 +232,7 @@ func (s *Store) Save(c *Container) error {
 	installation := containerToInstallation(local, manifest)
 	installation.TargetBindings = targetBindings
 	installation.AIBindings = aiBindings
-	lock, err := buildContainerLock(manifest, portableGraph, s.subgraphsFor(&local), now.Format(time.RFC3339))
+	lock, err := buildContainerLockWithRegistry(s.registry, manifest, portableGraph, s.subgraphsFor(&local), now.Format(time.RFC3339))
 	if err != nil {
 		return err
 	}
@@ -278,6 +287,11 @@ func (s *Store) List() []Container {
 		}
 	}
 	return out
+}
+
+// RegistrySnapshot returns the node contract generation used by this store.
+func (s *Store) RegistrySnapshot() nodepkg.RegistrySnapshot {
+	return s.registry
 }
 
 func cloneContainer(c Container) (Container, error) {

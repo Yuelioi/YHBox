@@ -8,9 +8,9 @@ import (
 )
 
 func TestIncVar_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&IncVar{})
-	rn, _ := node.Get("IncVar")
+	registry := node.NewRegistry()
+	registry.Register(&IncVar{})
+	rn, _ := registry.Get("IncVar")
 	vars := &recordingVars{store: map[string]any{"counter": 10.0}}
 	svc := node.StubServices()
 	svc.Vars = vars
@@ -26,9 +26,9 @@ func TestIncVar_HappyPath(t *testing.T) {
 }
 
 func TestIncVar_DefaultDelta(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&IncVar{})
-	rn, _ := node.Get("IncVar")
+	registry := node.NewRegistry()
+	registry.Register(&IncVar{})
+	rn, _ := registry.Get("IncVar")
 	vars := &recordingVars{}
 	svc := node.StubServices()
 	svc.Vars = vars

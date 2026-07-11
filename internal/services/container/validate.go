@@ -36,7 +36,11 @@ func (f *ValidationFailure) Error() string {
 // 只有 warning → 返 nil (warning 通过 ValidateContainer 直接获取).
 // Save / Load 都调一次; 前端 "检查" 按钮 / 试运行前主动跑走 Service.ValidateContainerByID.
 func (c *Container) Validate(sgs []Subgraph) error {
-	errs := ValidateContainer(c, sgs)
+	return c.ValidateWithRegistry(sgs, nodepkg.DefaultRegistrySnapshot())
+}
+
+func (c *Container) ValidateWithRegistry(sgs []Subgraph, registry nodepkg.RegistryReader) error {
+	errs := ValidateContainerWithRegistry(c, sgs, registry)
 	var fatal []ValidationError
 	for _, e := range errs {
 		if e.Severity == SeverityError {
@@ -59,8 +63,8 @@ func splitRef(ref string) (nodeID, pin string) {
 
 // pinExists 检查 (kind, pin) 是否合法。out=true 查 out pins / data-out；out=false 查 in pins / data-in。
 // data-in 走 static-only 路径 — Expr 等动态 data-in 节点需 cfg, caller 用 dataInPinTypeForNode.
-func pinExists(kind, pin string, out bool) bool {
-	rn, ok := nodepkg.Get(kind)
+func pinExists(registry nodepkg.RegistryReader, kind, pin string, out bool) bool {
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return false
 	}
@@ -83,6 +87,10 @@ func pinExists(kind, pin string, out bool) bool {
 // execOutPinsForNode 返该节点的合法 exec-out pin set. nodepkg Spec.Outputs Type="Exec" 静态查.
 // Subgraph / CollapsedNode 的动态 (按 callee OutputPins) 由 validateInvalidPins 单独处理.
 func execOutPinsForNode(n *GraphNode) map[string]struct{} {
+	return execOutPinsForNodeWithRegistry(nodepkg.DefaultRegistrySnapshot(), n)
+}
+
+func execOutPinsForNodeWithRegistry(registry nodepkg.RegistryReader, n *GraphNode) map[string]struct{} {
 	pins := map[string]struct{}{}
 	if n == nil {
 		return pins
@@ -99,7 +107,7 @@ func execOutPinsForNode(n *GraphNode) map[string]struct{} {
 		pins["default"] = struct{}{}
 		return pins
 	}
-	rn, ok := nodepkg.Get(n.Kind)
+	rn, ok := registry.Get(n.Kind)
 	if !ok {
 		return pins
 	}
@@ -113,7 +121,11 @@ func execOutPinsForNode(n *GraphNode) map[string]struct{} {
 
 // nodeHasExecOutPin O(1) 校验 pin 存在性. 替代旧 pinExists(kind, pin, true) 路径.
 func nodeHasExecOutPin(n *GraphNode, pin string) bool {
-	_, ok := execOutPinsForNode(n)[pin]
+	return nodeHasExecOutPinWithRegistry(nodepkg.DefaultRegistrySnapshot(), n, pin)
+}
+
+func nodeHasExecOutPinWithRegistry(registry nodepkg.RegistryReader, n *GraphNode, pin string) bool {
+	_, ok := execOutPinsForNodeWithRegistry(registry, n)[pin]
 	return ok
 }
 
@@ -172,16 +184,16 @@ func (c *Container) Normalize() {
 // --- Registry-backed helpers (nodepkg-only) ---
 
 // knownKind kind 是否在 nodepkg 注册.
-func knownKind(kind string) bool {
-	_, ok := nodepkg.Get(kind)
+func knownKind(registry nodepkg.RegistryReader, kind string) bool {
+	_, ok := registry.Get(kind)
 	return ok
 }
 
 // dataInPinTypeForKind 返该 data-in pin 的 canonical lowercase type (number/string/bool/point/any).
 // "" = 不是已注册的 data-in pin (e.g. Exec pin / kind 未注册 / pin 不存在).
 // Static-only — Expr's dynamic inputs need cfg, use dataInPinTypeForNode.
-func dataInPinTypeForKind(kind, pinName string) string {
-	rn, ok := nodepkg.Get(kind)
+func dataInPinTypeForKind(registry nodepkg.RegistryReader, kind, pinName string) string {
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return ""
 	}
@@ -199,8 +211,8 @@ func dataInPinTypeForKind(kind, pinName string) string {
 
 // dataInPinSemanticForKind 返该 data-in pin 的 Semantic ("TemplateKey" 等), 无则 "".
 // literal 校验用它识别 list 型 pin (e.g. TemplateKey = 字符串列表).
-func dataInPinSemanticForKind(kind, pinName string) string {
-	rn, ok := nodepkg.Get(kind)
+func dataInPinSemanticForKind(registry nodepkg.RegistryReader, kind, pinName string) string {
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return ""
 	}
@@ -214,14 +226,14 @@ func dataInPinSemanticForKind(kind, pinName string) string {
 
 // dataInPinTypeForNode cfg-aware 变种 — DynamicInputs 节点 config.Inputs[] 动态声明的
 // pin 走 ParseDynamicInputDecls 查.
-func dataInPinTypeForNode(n *GraphNode, pinName string) string {
+func dataInPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName string) string {
 	if n == nil {
 		return ""
 	}
-	if t := dataInPinTypeForKind(n.Kind, pinName); t != "" {
+	if t := dataInPinTypeForKind(registry, n.Kind, pinName); t != "" {
 		return t
 	}
-	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicInputs {
+	if rn, ok := registry.Get(n.Kind); ok && rn.Spec.DynamicInputs {
 		for _, in := range ParseDynamicInputDecls(n) {
 			if in.Name == pinName && in.Type != "" {
 				return strings.ToLower(in.Type)
@@ -234,8 +246,8 @@ func dataInPinTypeForNode(n *GraphNode, pinName string) string {
 // dataOutPinTypeForKind 同上 outputs.
 // 动态类型节点 (GetVar / Expr / GetParam) Spec 里登记 "any" / "*",
 // 真实类型由 caller 按 config 解析 — validateDataPinTypes 已做.
-func dataOutPinTypeForKind(kind, pinName string) string {
-	rn, ok := nodepkg.Get(kind)
+func dataOutPinTypeForKind(registry nodepkg.RegistryReader, kind, pinName string) string {
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return ""
 	}
@@ -262,7 +274,11 @@ func dataOutPinTypeForKind(kind, pinName string) string {
 // (IsDataOutPin 真), 但值不靠 pure-data pull —— 源 fire 时存进 per-run held output 缓存,
 // runtime 经 pullDataPin 任意距离直连读 (见 ContainerRunner.captureExecOutputs / pullDataPin).
 func IsExecOutputDataField(kind, pin string) bool {
-	rn, ok := nodepkg.Get(kind)
+	return IsExecOutputDataFieldWithRegistry(nodepkg.DefaultRegistrySnapshot(), kind, pin)
+}
+
+func IsExecOutputDataFieldWithRegistry(registry nodepkg.RegistryReader, kind, pin string) bool {
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return false
 	}
@@ -283,19 +299,23 @@ func IsExecOutputDataField(kind, pin string) bool {
 // Centralizes the "is this a data edge?" predicate — validator + runtime
 // must agree on this rule to keep edge-type derivation consistent.
 func IsDataOutPin(kind, pin string) bool {
-	return dataOutPinTypeForKind(kind, pin) != ""
+	return IsDataOutPinWithRegistry(nodepkg.DefaultRegistrySnapshot(), kind, pin)
+}
+
+func IsDataOutPinWithRegistry(registry nodepkg.RegistryReader, kind, pin string) bool {
+	return dataOutPinTypeForKind(registry, kind, pin) != ""
 }
 
 // dataOutPinTypeForNode — config-aware 变种: 静态 + DynamicDataFields 节点 config.Outputs[]
 // 动态声明的 Data 字段 (AI 结构化输出)。让 AI.red 这类动态输出字段也算 data-out, 可直连。
-func dataOutPinTypeForNode(n *GraphNode, pinName string) string {
+func dataOutPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName string) string {
 	if n == nil {
 		return ""
 	}
-	if t := dataOutPinTypeForKind(n.Kind, pinName); t != "" {
+	if t := dataOutPinTypeForKind(registry, n.Kind, pinName); t != "" {
 		return t
 	}
-	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+	if rn, ok := registry.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
 		for _, o := range ParseDynamicOutputDecls(n) {
 			if o.Name == pinName && o.Type != "" {
 				return canonPinType(o.Type)
@@ -307,19 +327,27 @@ func dataOutPinTypeForNode(n *GraphNode, pinName string) string {
 
 // IsDataOutPinNode — config-aware IsDataOutPin (含动态输出字段)。
 func IsDataOutPinNode(n *GraphNode, pin string) bool {
-	return dataOutPinTypeForNode(n, pin) != ""
+	return IsDataOutPinNodeWithRegistry(nodepkg.DefaultRegistrySnapshot(), n, pin)
+}
+
+func IsDataOutPinNodeWithRegistry(registry nodepkg.RegistryReader, n *GraphNode, pin string) bool {
+	return dataOutPinTypeForNode(registry, n, pin) != ""
 }
 
 // IsExecOutputDataFieldNode — config-aware IsExecOutputDataField: 静态 + DynamicDataFields
 // 的 config.Outputs[] 字段。值同样经 per-run held output 缓存 (captureExecOutputs 写 / pullDataPin 读) 直连下游。
 func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
+	return IsExecOutputDataFieldNodeWithRegistry(nodepkg.DefaultRegistrySnapshot(), n, pin)
+}
+
+func IsExecOutputDataFieldNodeWithRegistry(registry nodepkg.RegistryReader, n *GraphNode, pin string) bool {
 	if n == nil {
 		return false
 	}
-	if IsExecOutputDataField(n.Kind, pin) {
+	if IsExecOutputDataFieldWithRegistry(registry, n.Kind, pin) {
 		return true
 	}
-	if rn, ok := nodepkg.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+	if rn, ok := registry.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
 		for _, o := range ParseDynamicOutputDecls(n) {
 			if o.Name == pin {
 				return true
@@ -331,21 +359,21 @@ func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
 
 // hasUnwiredNeedsWindowNode — 是否存在「Window 输入未连」的 NeedsWindow 节点(主图或子图)。
 // 连了 Window 的节点派发期自带覆盖窗口, 不需要 Win32WindowTarget; 没连的会回落活动窗口, 故仍要求 Win32WindowTarget。
-func hasUnwiredNeedsWindowNode(c *Container, sgs []Subgraph) bool {
-	if graphHasUnwiredWindowNode(c.Graph) {
+func hasUnwiredNeedsWindowNode(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) bool {
+	if graphHasUnwiredWindowNode(registry, c.Graph) {
 		return true
 	}
 	for i := range sgs {
-		if graphHasUnwiredWindowNode(sgs[i].Graph) {
+		if graphHasUnwiredWindowNode(registry, sgs[i].Graph) {
 			return true
 		}
 	}
 	return false
 }
 
-func graphHasUnwiredWindowNode(g Graph) bool {
+func graphHasUnwiredWindowNode(registry nodepkg.RegistryReader, g Graph) bool {
 	for i := range g.Nodes {
-		rn, ok := nodepkg.Get(g.Nodes[i].Kind)
+		rn, ok := registry.Get(g.Nodes[i].Kind)
 		if !ok || !rn.Spec.NeedsWindow {
 			continue
 		}
@@ -359,21 +387,21 @@ func graphHasUnwiredWindowNode(g Graph) bool {
 // hasUnwiredNeedsTargetNode — 是否存在「需要自动化目标」且未显式连 Window override 的节点。
 // 连了 Window 的 target-aware 节点可用 Win32 Window data edge 作为本节点覆盖目标;
 // 未连时必须依赖图中的 target selection node 或 Windows 默认 Win32WindowTarget。
-func hasUnwiredNeedsTargetNode(c *Container, sgs []Subgraph) bool {
-	if graphHasUnwiredTargetNode(c.Graph) {
+func hasUnwiredNeedsTargetNode(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) bool {
+	if graphHasUnwiredTargetNode(registry, c.Graph) {
 		return true
 	}
 	for i := range sgs {
-		if graphHasUnwiredTargetNode(sgs[i].Graph) {
+		if graphHasUnwiredTargetNode(registry, sgs[i].Graph) {
 			return true
 		}
 	}
 	return false
 }
 
-func graphHasUnwiredTargetNode(g Graph) bool {
+func graphHasUnwiredTargetNode(registry nodepkg.RegistryReader, g Graph) bool {
 	for i := range g.Nodes {
-		rn, ok := nodepkg.Get(g.Nodes[i].Kind)
+		rn, ok := registry.Get(g.Nodes[i].Kind)
 		if !ok || !rn.Spec.NeedsTarget {
 			continue
 		}

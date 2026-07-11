@@ -34,9 +34,9 @@ func validGeometryROI() node.Geometry {
 }
 
 func TestDualColorBarTrack_Found(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DualColorBarTrack{})
-	rn, _ := node.Get("DualColorBarTrack")
+	registry := node.NewRegistry()
+	registry.Register(&DualColorBarTrack{})
+	rn, _ := registry.Get("DualColorBarTrack")
 
 	vision := &mockVision{
 		barResult: node.DualColorBarResult{
@@ -63,9 +63,9 @@ func TestDualColorBarTrack_Found(t *testing.T) {
 
 // 节点责任 = Set 6 个 Data 字段 (framework 路径① 据此写变量)。
 func TestDualColorBarTrack_OutputData_Found(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DualColorBarTrack{})
-	rn, _ := node.Get("DualColorBarTrack")
+	registry := node.NewRegistry()
+	registry.Register(&DualColorBarTrack{})
+	rn, _ := registry.Get("DualColorBarTrack")
 
 	vision := &mockVision{
 		barResult: node.DualColorBarResult{
@@ -100,9 +100,9 @@ func TestDualColorBarTrack_OutputData_Found(t *testing.T) {
 }
 
 func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DualColorBarTrack{})
-	rn, _ := node.Get("DualColorBarTrack")
+	registry := node.NewRegistry()
+	registry.Register(&DualColorBarTrack{})
+	rn, _ := registry.Get("DualColorBarTrack")
 
 	// vision adapter 已经按 confBarV2 阈值 (0.50) 设 Found, mock 直接给 Found=false 模拟低 conf.
 	vision := &mockVision{
@@ -120,9 +120,9 @@ func TestDualColorBarTrack_MissingNotFound(t *testing.T) {
 }
 
 func TestDualColorBarTrack_MissingOnError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DualColorBarTrack{})
-	rn, _ := node.Get("DualColorBarTrack")
+	registry := node.NewRegistry()
+	registry.Register(&DualColorBarTrack{})
+	rn, _ := registry.Get("DualColorBarTrack")
 
 	// barErr 会被节点包裹成 error 出口
 	vision := &mockVision{
@@ -139,9 +139,9 @@ func TestDualColorBarTrack_MissingOnError(t *testing.T) {
 }
 
 func TestDualColorBarTrack_RequiredMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DualColorBarTrack{})
-	rn, _ := node.Get("DualColorBarTrack")
+	registry := node.NewRegistry()
+	registry.Register(&DualColorBarTrack{})
+	rn, _ := registry.Get("DualColorBarTrack")
 
 	// 没有 Roi 输入 → framework Required 检查报 REQUIRED_FIELD_MISSING
 	r := node.RunNode(context.Background(), rn, nil,

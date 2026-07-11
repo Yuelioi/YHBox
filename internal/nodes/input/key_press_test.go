@@ -62,9 +62,9 @@ func withInput(in node.InputService) node.ServiceBundle {
 }
 
 func TestKeyPress_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyPress{})
-	rn, _ := node.Get("KeyPress")
+	registry := node.NewRegistry()
+	registry.Register(&KeyPress{})
+	rn, _ := registry.Get("KeyPress")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -83,9 +83,9 @@ func TestKeyPress_HappyPath(t *testing.T) {
 }
 
 func TestKeyPress_CtxCancel_ReleasesAndReturns(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyPress{})
-	rn, _ := node.Get("KeyPress")
+	registry := node.NewRegistry()
+	registry.Register(&KeyPress{})
+	rn, _ := registry.Get("KeyPress")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
@@ -110,9 +110,9 @@ func TestKeyPress_CtxCancel_ReleasesAndReturns(t *testing.T) {
 }
 
 func TestKeyPress_JitterPct_StillDownUp(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyPress{})
-	rn, _ := node.Get("KeyPress")
+	registry := node.NewRegistry()
+	registry.Register(&KeyPress{})
+	rn, _ := registry.Get("KeyPress")
 
 	rec := &recordingInput{}
 	// JitterPct 仅扰动按住时长, 不改 down/up 行为
@@ -128,9 +128,9 @@ func TestKeyPress_JitterPct_StillDownUp(t *testing.T) {
 }
 
 func TestKeyPress_BackendError_Propagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyPress{})
-	rn, _ := node.Get("KeyPress")
+	registry := node.NewRegistry()
+	registry.Register(&KeyPress{})
+	rn, _ := registry.Get("KeyPress")
 
 	rec := &recordingInput{err: errors.New("hwnd closed")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -143,9 +143,9 @@ func TestKeyPress_BackendError_Propagates(t *testing.T) {
 }
 
 func TestKeyPress_EmptyVK_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyPress{})
-	rn, _ := node.Get("KeyPress")
+	registry := node.NewRegistry()
+	registry.Register(&KeyPress{})
+	rn, _ := registry.Get("KeyPress")
 
 	// vk="" 触发 Validate
 	r := node.RunNode(context.Background(), rn, nil,
@@ -158,9 +158,9 @@ func TestKeyPress_EmptyVK_ValidationError(t *testing.T) {
 }
 
 func TestKeyPress_UnknownVK_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&KeyPress{})
-	rn, _ := node.Get("KeyPress")
+	registry := node.NewRegistry()
+	registry.Register(&KeyPress{})
+	rn, _ := registry.Get("KeyPress")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{kpInVK: "not-a-real-key", kpInDurationMs: 50},

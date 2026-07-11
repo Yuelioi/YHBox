@@ -11,6 +11,22 @@ import (
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
 
+type isolatedCatalogNode struct{}
+
+func (isolatedCatalogNode) Spec() nodepkg.Spec {
+	return nodepkg.Spec{Kind: "IsolatedCatalogNode", Category: "Test", IsVisualOnly: true}
+}
+
+func TestBuildFromUsesExplicitRegistrySnapshot(t *testing.T) {
+	registry := nodepkg.NewRegistry()
+	registry.Register(isolatedCatalogNode{})
+	snapshot := registry.Snapshot()
+	got := BuildFrom(snapshot)
+	if len(got) != 1 || got[0].Kind != "IsolatedCatalogNode" {
+		t.Fatalf("BuildFrom = %+v", got)
+	}
+}
+
 func TestBuild_HasNodesAndSorted(t *testing.T) {
 	cat := Build()
 	if len(cat) == 0 {

@@ -10,6 +10,7 @@ import (
 
 // NodeService Wails3 RPC service. FE 启动调 GetAllNodeSpecs / GetAllTypes / AsyncOptions.
 type NodeService struct {
+	registry RegistrySnapshot
 	// AsyncOptions 注册表: asyncSource → handler.
 	asyncSources map[string]AsyncOptionsHandler
 }
@@ -21,7 +22,15 @@ type NodeService struct {
 type AsyncOptionsHandler func(nodeID, specKind string, params map[string]any) ([]EnumOption, error)
 
 func NewService() *NodeService {
+	return NewServiceWithRegistry(DefaultRegistrySnapshot())
+}
+
+func NewServiceWithRegistry(registry RegistryReader) *NodeService {
+	if registry == nil {
+		panic("node: registry is required")
+	}
 	return &NodeService{
+		registry:     SnapshotRegistry(registry),
 		asyncSources: map[string]AsyncOptionsHandler{},
 	}
 }
@@ -48,7 +57,7 @@ func (s *NodeService) RegisteredAsyncSources() []string {
 
 // GetAllNodeSpecs FE 启动拉一次, 缓存. RPC binding 自动生成 TS 类型.
 func (s *NodeService) GetAllNodeSpecs() []Spec {
-	all := All()
+	all := s.registry.All()
 	out := make([]Spec, 0, len(all))
 	for _, rn := range all {
 		out = append(out, PopulateSupportedTargets(rn.Spec))
@@ -70,7 +79,7 @@ func (s *NodeService) GetExprFunctions() []expr.FunctionSpec {
 // GetScriptBindableKinds — Script 编辑器补全用: 可在脚本里调用的节点 kind 全集.
 func (s *NodeService) GetScriptBindableKinds() []string {
 	var kinds []string
-	for _, rn := range All() {
+	for _, rn := range s.registry.All() {
 		if ScriptBindable(rn) {
 			kinds = append(kinds, rn.Spec.Kind)
 		}

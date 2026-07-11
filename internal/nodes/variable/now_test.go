@@ -9,9 +9,9 @@ import (
 )
 
 func TestNow_ReturnsLiveUnixMillis(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Now{})
-	rn, _ := node.Get("Now")
+	registry := node.NewRegistry()
+	registry.Register(&Now{})
+	rn, _ := registry.Get("Now")
 
 	services := node.StubServices()
 

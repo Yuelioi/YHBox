@@ -28,7 +28,7 @@ func BundleFromCtx(c node.Ctx) node.ServiceBundle {
 func Install(vm *goja.Runtime, c node.Ctx) {
 	bundle := BundleFromCtx(c)
 	installExitConstants(vm)
-	for _, rn := range node.All() {
+	for _, rn := range c.Services().Registry.All() {
 		if node.ScriptBindable(rn) {
 			bindNode(vm, c, rn, bundle)
 		}

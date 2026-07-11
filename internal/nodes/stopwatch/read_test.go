@@ -9,9 +9,9 @@ import (
 )
 
 func TestRead_RunningReturnsPositive(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Read{})
-	rn, _ := node.Get("StopwatchRead")
+	registry := node.NewRegistry()
+	registry.Register(&Read{})
+	rn, _ := registry.Get("StopwatchRead")
 
 	services := node.StubServices()
 	services.Stopwatches.Start("k")
@@ -32,9 +32,9 @@ func TestRead_RunningReturnsPositive(t *testing.T) {
 }
 
 func TestRead_MissingKeyReturnsZero(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Read{})
-	rn, _ := node.Get("StopwatchRead")
+	registry := node.NewRegistry()
+	registry.Register(&Read{})
+	rn, _ := registry.Get("StopwatchRead")
 
 	services := node.StubServices()
 	r := node.RunNode(context.Background(), rn, nil,
@@ -49,9 +49,9 @@ func TestRead_MissingKeyReturnsZero(t *testing.T) {
 }
 
 func TestRead_StoppedReturnsFrozen(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Read{})
-	rn, _ := node.Get("StopwatchRead")
+	registry := node.NewRegistry()
+	registry.Register(&Read{})
+	rn, _ := registry.Get("StopwatchRead")
 
 	services := node.StubServices()
 	services.Stopwatches.Start("k")

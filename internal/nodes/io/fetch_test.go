@@ -14,9 +14,9 @@ import (
 
 func runFetch(t *testing.T, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&Fetch{})
-	rn, _ := node.Get("Fetch")
+	registry := node.NewRegistry()
+	registry.Register(&Fetch{})
+	rn, _ := registry.Get("Fetch")
 	return node.RunNode(context.Background(), rn, nil, cfg, nil, node.StubServices(), false)
 }
 

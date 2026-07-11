@@ -31,9 +31,9 @@ func (s sizeWindow) Close() error                                         { retu
 func (s sizeWindow) Snapshot() (node.Window, error)                       { return node.Window{}, nil }
 
 func TestClickAt_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -54,9 +54,9 @@ func TestClickAt_HappyPath(t *testing.T) {
 }
 
 func TestClickAt_DefaultsApplied(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	// 不传任何 config — 全走 Default (0.5, 0.5, left, 50)
@@ -72,9 +72,9 @@ func TestClickAt_DefaultsApplied(t *testing.T) {
 }
 
 func TestClickAt_MissingWindowCapabilityRejectedBeforePxResolution(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 	result := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInPoint: node.Point{X: 10, Y: 20, Unit: node.UnitPx}}, nil,
 		node.ServiceBundle{Input: &recordingInput{}}, false)
@@ -87,9 +87,9 @@ func TestClickAt_MissingWindowCapabilityRejectedBeforePxResolution(t *testing.T)
 // ClickAt 走 Click (内部 down→hold→up 原子, 不可中途取消) → 取消语义在「滑动阶段」:
 // 长 MoveMs 滑动途中取消 → 还没按下就返回, 不会发 Click, 不会有按键残留.
 func TestClickAt_CtxCancel_AbortsBeforeClick(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
@@ -116,9 +116,9 @@ func TestClickAt_CtxCancel_AbortsBeforeClick(t *testing.T) {
 }
 
 func TestClickAt_MoveMs_SlidesBeforeDown(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	// MoveMs=64 → 4 帧 MoveTo (起点 spy(0,0) → 终点 (1,1)), 再 MouseDown/Up
@@ -141,9 +141,9 @@ func TestClickAt_MoveMs_SlidesBeforeDown(t *testing.T) {
 }
 
 func TestClickAt_InvalidButton_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInButton: "side1"},
@@ -158,9 +158,9 @@ func TestClickAt_InvalidButton_ValidationError(t *testing.T) {
 
 // TestClickAt_Keys_ClickCount: ctrl+shift 双击 → KeyDown×2 + Click×2 + KeyUp×2.
 func TestClickAt_Keys_ClickCount(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -201,9 +201,9 @@ func TestClickAt_Keys_ClickCount(t *testing.T) {
 
 // TestClickAt_DefaultRegression: Keys="" / ClickCount=1 = 原单击行为 (零回归).
 func TestClickAt_DefaultRegression(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -223,9 +223,9 @@ func TestClickAt_DefaultRegression(t *testing.T) {
 
 // TestClickAt_DurationMs_Preserved: DurationMs 传给 ClickWithMods (长按不回归).
 func TestClickAt_DurationMs_Preserved(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -243,9 +243,9 @@ func TestClickAt_DurationMs_Preserved(t *testing.T) {
 
 // TestClickAt_InvalidModifierKey_ValidationError: Keys="ctrl+bad" → INVALID_MODIFIER_KEY.
 func TestClickAt_InvalidModifierKey_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInKeys: "ctrl+bad"},
@@ -264,9 +264,9 @@ func TestClickAt_InvalidModifierKey_ValidationError(t *testing.T) {
 
 // TestClickAt_InvalidClickCount_ValidationError: ClickCount=0 → INVALID_CLICK_COUNT.
 func TestClickAt_InvalidClickCount_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{caInClickCount: 0},
@@ -285,9 +285,9 @@ func TestClickAt_InvalidClickCount_ValidationError(t *testing.T) {
 
 // TestClickAt_PxPoint_ResolvesToRatio: px 坐标经 ResolvePoint 换算为比例.
 func TestClickAt_PxPoint_ResolvesToRatio(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&ClickAt{})
-	rn, _ := node.Get("ClickAt")
+	registry := node.NewRegistry()
+	registry.Register(&ClickAt{})
+	rn, _ := registry.Get("ClickAt")
 
 	rec := &recordingInput{}
 	b := node.StubServices()

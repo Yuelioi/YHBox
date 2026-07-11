@@ -1,5 +1,7 @@
 package container
 
+import nodepkg "github.com/yottaapp/yotta/internal/node"
+
 // PinTypeCompat 单一源 — runtime + validator + 任何 cross-cutting 调用方都 import 这一个.
 //
 // !! Frontend `pinTypeCompat` in nodeRegistry/index.ts 仍是 TS 平行 impl, TestRegistryParity 抓 drift.
@@ -43,7 +45,7 @@ func PinTypeCompat(from, to string) (allow, warn bool) {
 // dynamic inputs[] data-in pins get validated (kind-only lookup would return "").
 //
 // Empty type ("") on either side → skip (unknown schema; not an error in itself).
-func validateDataPinTypes(c *Container, sgs []Subgraph) []ValidationError {
+func validateDataPinTypes(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -68,7 +70,7 @@ func validateDataPinTypes(c *Container, sgs []Subgraph) []ValidationError {
 			}
 			// v4 (C1): 只处理 data 边 — 派生自 "fromPin 在 src 的 data-out 集合里".
 			// GetVar 等动态 data-out 节点 spec 里登记 "any", DataOutType 也返非空.
-			if !IsDataOutPin(src.Kind, srcPin) {
+			if !IsDataOutPinWithRegistry(registry, src.Kind, srcPin) {
 				continue
 			}
 			// Resolve source type
@@ -77,10 +79,10 @@ func validateDataPinTypes(c *Container, sgs []Subgraph) []ValidationError {
 				varName := PinString(src, "VarName")
 				srcType = varsTypes[varName]
 			} else {
-				srcType = dataOutPinTypeForKind(src.Kind, srcPin)
+				srcType = dataOutPinTypeForKind(registry, src.Kind, srcPin)
 			}
 			// Node-aware: lets Expr's config.inputs[] dynamic data-in pins resolve.
-			tgtType := dataInPinTypeForNode(tgt, tgtPin)
+			tgtType := dataInPinTypeForNode(registry, tgt, tgtPin)
 			if srcType == "" || tgtType == "" {
 				continue // schema unknown — skip type check
 			}

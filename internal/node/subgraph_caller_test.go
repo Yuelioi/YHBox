@@ -31,9 +31,9 @@ func (subgraphCallingNode) Run(ctx Ctx, _ Inputs) (Outputs, error) {
 }
 
 func TestCtx_Subgraphs_WiredFromBundle(t *testing.T) {
-	ResetRegistryForTest()
-	Register(subgraphCallingNode{})
-	rn, _ := Get("SgCalling")
+	registry := NewRegistry()
+	registry.Register(subgraphCallingNode{})
+	rn, _ := registry.Get("SgCalling")
 
 	fake := &fakeSubgraphCaller{}
 	services := StubServices()

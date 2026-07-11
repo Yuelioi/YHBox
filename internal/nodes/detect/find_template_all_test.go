@@ -11,9 +11,9 @@ import (
 
 func runFTA(t *testing.T, vision *mockVision, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&FindTemplateAll{})
-	rn, _ := node.Get("FindTemplateAll")
+	registry := node.NewRegistry()
+	registry.Register(&FindTemplateAll{})
+	rn, _ := registry.Get("FindTemplateAll")
 	base := map[string]any{ftaInTemplates: []string{"tpl.a"}}
 	for k, v := range cfg {
 		base[k] = v

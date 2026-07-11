@@ -28,7 +28,7 @@ import (
 // execNodeViaFramework dispatch 单节点 via framework. 返下游 token 或 error.
 // 不处理 RegionRunner — 那些走 r.execNodeAsRegionViaFramework.
 func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	rn, ok := nodepkg.Get(node.Kind)
+	rn, ok := r.registeredNode(node.Kind)
 	if !ok {
 		return nil, fmt.Errorf("execNodeViaFramework: kind %q not registered in node package", node.Kind)
 	}
@@ -152,7 +152,7 @@ func (r *ContainerRunner) resolveDataPinV5(ctx context.Context, nodeID, pinName 
 	if srcNode.Disabled {
 		return nil, nil
 	}
-	srcRn, regOk := nodepkg.Get(srcNode.Kind)
+	srcRn, regOk := r.registeredNode(srcNode.Kind)
 	if !regOk || !srcRn.Spec.IsPureData || srcRn.Evaluate == nil {
 		return r.pullDataPin(ctx, nodeID, pinName)
 	}
@@ -327,7 +327,7 @@ func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.Run
 	if !node.LogEnabled || r.rt.Emit == nil {
 		return
 	}
-	rn, ok := nodepkg.Get(node.Kind)
+	rn, ok := r.registeredNode(node.Kind)
 	if !ok {
 		return
 	}
@@ -349,7 +349,7 @@ func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.Run
 // execNodeAsRegionViaFramework dispatch RegionRunner 节点 (Loop / Subgraph / CollapsedNode).
 // 构造 body callback (per kind), 调 nodepkg.RunNodeAsRegion, 走 routeResult.
 func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	rn, ok := nodepkg.Get(node.Kind)
+	rn, ok := r.registeredNode(node.Kind)
 	if !ok {
 		return nil, fmt.Errorf("execNodeAsRegionViaFramework: kind %q not registered", node.Kind)
 	}
@@ -379,7 +379,7 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 // snapshot wrap) 只在节点 data pull 阶段读, 跟 dispatchInRegion → execNode(AsRegion)ViaFramework
 // → buildDataWireFor 同周期, 入口抓一次足够.
 func (r *ContainerRunner) dispatchInRegion(ctx context.Context, n *container.GraphNode, tok ExecToken) ([]ExecToken, error) {
-	rn, ok := nodepkg.Get(n.Kind)
+	rn, ok := r.registeredNode(n.Kind)
 	if !ok {
 		return nil, fmt.Errorf("dispatchInRegion: kind %q not registered", n.Kind)
 	}

@@ -11,9 +11,9 @@ import (
 
 func runDecodeQR(t *testing.T, vision *mockVision) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&DecodeQR{})
-	rn, _ := node.Get("DecodeQR")
+	registry := node.NewRegistry()
+	registry.Register(&DecodeQR{})
+	rn, _ := registry.Get("DecodeQR")
 	return node.RunNode(context.Background(), rn, nil, map[string]any{}, nil, withVision(vision), false)
 }
 

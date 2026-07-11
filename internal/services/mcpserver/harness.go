@@ -25,7 +25,11 @@ const microNodeID = "n"
 
 // buildMicroContainer 把单动作节点包成 {Start → 节点} 微容器, 节点参数进 config.literal.
 func buildMicroContainer(kind string, params map[string]any) (*container.Container, string, error) {
-	rn, ok := node.Get(kind)
+	return buildMicroContainerWithRegistry(node.DefaultRegistrySnapshot(), kind, params)
+}
+
+func buildMicroContainerWithRegistry(registry node.RegistryReader, kind string, params map[string]any) (*container.Container, string, error) {
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return nil, "", errors.New("unknown kind")
 	}
@@ -60,7 +64,11 @@ func buildMicroContainer(kind string, params map[string]any) (*container.Contain
 // runMicroContainer 跑微容器并从 held-output 缓存收割目标节点输出.
 // rt 由调用方备好 (生产: NewRuntimeContext + SetActiveWindow; 测试: 预注入 mock).
 func runMicroContainer(ctx context.Context, rt *runtime.RuntimeContext, c *container.Container, nodeID string) (RunNodeResult, *node.Image) {
-	r := runtime.NewContainerRunner(rt)
+	return runMicroContainerWithRegistry(ctx, node.DefaultRegistrySnapshot(), rt, c, nodeID)
+}
+
+func runMicroContainerWithRegistry(ctx context.Context, registry node.RegistryReader, rt *runtime.RuntimeContext, c *container.Container, nodeID string) (RunNodeResult, *node.Image) {
+	r := runtime.NewContainerRunnerWithRegistry(rt, registry)
 	runErr := r.Run(ctx)
 
 	// 收割: execOutputs 里属于本节点的字段.
@@ -92,19 +100,19 @@ func runMicroContainer(ctx context.Context, rt *runtime.RuntimeContext, c *conta
 		}
 		return RunNodeResult{Ok: false, Data: data, Error: &RunNodeError{Code: code, Message: runErr.Error()}}, img
 	}
-	return RunNodeResult{Ok: true, FiredOutput: firedOutput(c, nodeID, data), Data: data}, img
+	return RunNodeResult{Ok: true, FiredOutput: firedOutputWithRegistry(registry, c, nodeID, data), Data: data}, img
 }
 
-// firedOutput 按节点 spec 反推走了哪个 exec 出口: 收割到的字段属于哪个出口声明的 Data 集.
+// firedOutputWithRegistry 按节点 spec 反推走了哪个 exec 出口: 收割到的字段属于哪个出口声明的 Data 集.
 // best-effort: 无数据字段的出口 (如 NotFound) 推不出 → 返 "" (消费方从空 data 自行判断).
-func firedOutput(c *container.Container, nodeID string, data map[string]any) string {
+func firedOutputWithRegistry(registry node.RegistryReader, c *container.Container, nodeID string, data map[string]any) string {
 	var kind string
 	for i := range c.Graph.Nodes {
 		if c.Graph.Nodes[i].ID == nodeID {
 			kind = c.Graph.Nodes[i].Kind
 		}
 	}
-	rn, ok := node.Get(kind)
+	rn, ok := registry.Get(kind)
 	if !ok {
 		return ""
 	}

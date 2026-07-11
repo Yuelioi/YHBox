@@ -53,9 +53,9 @@ func TestFindColorSignature_ValidatePointCount(t *testing.T) {
 
 func runFCS(t *testing.T, vision *mockVision, cfg map[string]any) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&FindColorSignature{})
-	rn, _ := node.Get("FindColorSignature")
+	registry := node.NewRegistry()
+	registry.Register(&FindColorSignature{})
+	rn, _ := registry.Get("FindColorSignature")
 	return node.RunNode(context.Background(), rn, nil, cfg, nil, withVision(vision), false)
 }
 

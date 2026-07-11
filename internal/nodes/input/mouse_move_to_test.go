@@ -10,9 +10,9 @@ import (
 )
 
 func TestMouseMoveTo_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveTo{})
-	rn, _ := node.Get("MouseMoveTo")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveTo{})
+	rn, _ := registry.Get("MouseMoveTo")
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mmtInPoint: node.Point{X: 0.4, Y: 0.6}},
@@ -27,9 +27,9 @@ func TestMouseMoveTo_HappyPath(t *testing.T) {
 }
 
 func TestMouseMoveTo_PxPoint_ResolvesToRatio(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveTo{})
-	rn, _ := node.Get("MouseMoveTo")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveTo{})
+	rn, _ := registry.Get("MouseMoveTo")
 	rec := &recordingInput{}
 	b := node.StubServices()
 	b.Input = rec
@@ -46,9 +46,9 @@ func TestMouseMoveTo_PxPoint_ResolvesToRatio(t *testing.T) {
 }
 
 func TestMouseMoveTo_Instant(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveTo{})
-	rn, _ := node.Get("MouseMoveTo")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveTo{})
+	rn, _ := registry.Get("MouseMoveTo")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -67,9 +67,9 @@ func TestMouseMoveTo_Instant(t *testing.T) {
 }
 
 func TestMouseMoveTo_Slide_FramesEndAtTarget(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveTo{})
-	rn, _ := node.Get("MouseMoveTo")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveTo{})
+	rn, _ := registry.Get("MouseMoveTo")
 
 	rec := &recordingInput{}
 	// MoveMs=64 → 64/16 = 4 帧; spy 起点 (0,0); 直线插值, 末帧落终点 (1,1)
@@ -88,9 +88,9 @@ func TestMouseMoveTo_Slide_FramesEndAtTarget(t *testing.T) {
 }
 
 func TestMouseMoveTo_CtxCancel_StopsMidSlide(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveTo{})
-	rn, _ := node.Get("MouseMoveTo")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveTo{})
+	rn, _ := registry.Get("MouseMoveTo")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { time.Sleep(20 * time.Millisecond); cancel() }()

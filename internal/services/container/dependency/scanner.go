@@ -23,6 +23,14 @@ func ScanContainerDependencies(
 	topNodes []NodeInfo,
 	getNodes func(sgID string) ([]NodeInfo, error),
 ) ([]Dependency, error) {
+	return ScanContainerDependenciesWithRegistry(nodepkg.DefaultRegistrySnapshot(), topNodes, getNodes)
+}
+
+func ScanContainerDependenciesWithRegistry(
+	registry nodepkg.RegistryReader,
+	topNodes []NodeInfo,
+	getNodes func(sgID string) ([]NodeInfo, error),
+) ([]Dependency, error) {
 	visited := map[string]bool{}
 	seenDeps := map[string]bool{}
 	var allDeps []Dependency
@@ -31,7 +39,7 @@ func ScanContainerDependencies(
 	// 先扫顶层节点, 收直接依赖 + 把 subgraph-call 入队.
 	emit := func(nodes []NodeInfo) {
 		for _, n := range nodes {
-			rn, ok := nodepkg.Get(n.Kind)
+			rn, ok := registry.Get(n.Kind)
 			if !ok || rn.Dependencies == nil {
 				continue
 			}
@@ -80,6 +88,14 @@ func ScanSubgraphDependencies(
 	rootSgID string,
 	getNodes func(sgID string) ([]NodeInfo, error),
 ) ([]Dependency, error) {
+	return ScanSubgraphDependenciesWithRegistry(nodepkg.DefaultRegistrySnapshot(), rootSgID, getNodes)
+}
+
+func ScanSubgraphDependenciesWithRegistry(
+	registry nodepkg.RegistryReader,
+	rootSgID string,
+	getNodes func(sgID string) ([]NodeInfo, error),
+) ([]Dependency, error) {
 	visited := map[string]bool{}
 	seenDeps := map[string]bool{}
 	var allDeps []Dependency
@@ -105,7 +121,7 @@ func ScanSubgraphDependencies(
 			return nil, fmt.Errorf("get subgraph %q: %w", sgID, err)
 		}
 		for _, n := range nodes {
-			rn, ok := nodepkg.Get(n.Kind)
+			rn, ok := registry.Get(n.Kind)
 			if !ok || rn.Dependencies == nil {
 				continue
 			}

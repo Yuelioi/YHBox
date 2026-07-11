@@ -90,8 +90,10 @@ func copyLoops(src []*LoopFrame) []*LoopFrame {
 // ContainerRunner 跑一个 container 节点图 (token dispatch loop).
 type ContainerRunner struct {
 	rt          *RuntimeContext
-	compiled    *CompiledContainer // 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
-	currentSG   *CompiledGraph     // subgraph swap 时设, runRegionBody 用来识 entry/output marker.
+	registry    node.RegistrySnapshot
+	execNodes   map[string]*node.RegisteredNode // private immutable execution table
+	compiled    *CompiledContainer              // 主图 + 所有 subgraphs 的 CompiledGraph 一次性产物.
+	currentSG   *CompiledGraph                  // subgraph swap 时设, runRegionBody 用来识 entry/output marker.
 	nodesByID   map[string]*container.GraphNode
 	edges       *edgeIndex
 	dataEdges   *dataEdgeIndex
@@ -131,13 +133,24 @@ type DebugStepResult struct {
 }
 
 func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
+	return NewContainerRunnerWithRegistry(rt, node.DefaultRegistrySnapshot())
+}
+
+// NewContainerRunnerWithRegistry assembles a runner against a fixed node
+// registry generation. Later default registrations cannot change a live run.
+func NewContainerRunnerWithRegistry(rt *RuntimeContext, registryReader node.RegistryReader) *ContainerRunner {
+	registry := node.SnapshotRegistry(registryReader)
+	execNodes := make(map[string]*node.RegisteredNode)
+	for _, registered := range registry.All() {
+		execNodes[registered.Spec.Kind] = registered
+	}
 	// 防御性 normalize — 兜底 in-memory 构造 (test fixture / 工具脚本) 没走 Store 路径的
 	// container/子图, 保证 sg.Entry / OutputPins[*].NodeID 不空. Store-loaded 已 normalize 过, 幂等.
 	rt.Container.Normalize()
 	for i := range rt.Subgraphs {
 		container.NormalizeSubgraph(&rt.Subgraphs[i])
 	}
-	cc := CompileContainer(rt.Container, rt.Subgraphs)
+	cc := CompileContainerWithRegistry(registry, rt.Container, rt.Subgraphs)
 	// PlayClip 回放 target (rt.MouseCounts360) 用主图 MouseCalibration 节点值 — 容器自包含,
 	// 跟 MouseMoveRel 的 state.CalibCounts 同源 (都来自 snapshotMainCalibCounts). 无节点 (=0)
 	// 时保留构造期传入的 settings 本机值兜底.
@@ -146,6 +159,8 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 	}
 	r := &ContainerRunner{
 		rt:          rt,
+		registry:    registry,
+		execNodes:   execNodes,
 		compiled:    cc,
 		nodesByID:   cc.Main.NodesByID,
 		edges:       cc.Main.Edges,
@@ -163,9 +178,15 @@ func NewContainerRunner(rt *RuntimeContext) *ContainerRunner {
 		zerolog.Nop(),
 		func() *ExecState { return r.state },
 	)
+	r.bundle.Registry = registry
 	// 脚本调子图 (node.SubgraphCaller) — runner 自身实现, 闭住本实例的 swap 字段/frame 栈.
 	r.bundle.Subgraphs = r
 	return r
+}
+
+func (r *ContainerRunner) registeredNode(kind string) (*node.RegisteredNode, bool) {
+	registered, ok := r.execNodes[kind]
+	return registered, ok
 }
 
 // SetLogger 替换 bundle 里的 LogService 为真 zerolog logger.
@@ -250,7 +271,7 @@ func (r *ContainerRunner) SeedFromNode(nodeID string) error {
 	if !ok {
 		return fmt.Errorf("debug_invalid_start_node: node %q not found", nodeID)
 	}
-	rn, ok := node.Get(n.Kind)
+	rn, ok := r.registeredNode(n.Kind)
 	if !ok {
 		return fmt.Errorf("debug_invalid_start_node: kind %q not registered", n.Kind)
 	}
@@ -715,7 +736,7 @@ func (r *ContainerRunner) setupRuntime() error {
 	if r.rt.win32Provider != nil || r.rt.win32Factory != nil {
 		return nil
 	}
-	if !containerNeedsWin32Backends(r.rt.Container, r.rt.Subgraphs) {
+	if !r.containerNeedsWin32Backends(r.rt.Container, r.rt.Subgraphs) {
 		return nil
 	}
 
@@ -745,45 +766,45 @@ func (r *ContainerRunner) teardownRuntime() {
 // containerNeedsWin32Backends 判断本容器是否需要初始化 Win32 input/capture backend。
 // Direct NeedsWindow 节点一定需要。NeedsTarget 节点只有在图使用 Win32WindowTarget 或没有显式
 // target selection 时才按 Windows 默认路径初始化；Android/Browser-only 图不初始化 Win32 backend。
-func containerNeedsWin32Backends(c *container.Container, sgs []container.Subgraph) bool {
-	if graphHasWindowNode(c.Graph.Nodes) {
+func (r *ContainerRunner) containerNeedsWin32Backends(c *container.Container, sgs []container.Subgraph) bool {
+	if r.graphHasWindowNode(c.Graph.Nodes) {
 		return true
 	}
 	for i := range sgs {
-		if graphHasWindowNode(sgs[i].Graph.Nodes) {
+		if r.graphHasWindowNode(sgs[i].Graph.Nodes) {
 			return true
 		}
 	}
 	if !containerHasTargetNode(c, sgs) {
-		return containerHasTargetAwareNode(c, sgs)
+		return r.containerHasTargetAwareNode(c, sgs)
 	}
 	return containerHasTargetKind(c, sgs, "Win32WindowTarget")
 }
 
-func graphHasWindowNode(nodes []container.GraphNode) bool {
+func (r *ContainerRunner) graphHasWindowNode(nodes []container.GraphNode) bool {
 	for i := range nodes {
-		if rn, ok := node.Get(nodes[i].Kind); ok && rn.Spec.NeedsWindow {
+		if rn, ok := r.registeredNode(nodes[i].Kind); ok && rn.Spec.NeedsWindow {
 			return true
 		}
 	}
 	return false
 }
 
-func containerHasTargetAwareNode(c *container.Container, sgs []container.Subgraph) bool {
-	if graphHasTargetAwareNode(c.Graph.Nodes) {
+func (r *ContainerRunner) containerHasTargetAwareNode(c *container.Container, sgs []container.Subgraph) bool {
+	if r.graphHasTargetAwareNode(c.Graph.Nodes) {
 		return true
 	}
 	for i := range sgs {
-		if graphHasTargetAwareNode(sgs[i].Graph.Nodes) {
+		if r.graphHasTargetAwareNode(sgs[i].Graph.Nodes) {
 			return true
 		}
 	}
 	return false
 }
 
-func graphHasTargetAwareNode(nodes []container.GraphNode) bool {
+func (r *ContainerRunner) graphHasTargetAwareNode(nodes []container.GraphNode) bool {
 	for i := range nodes {
-		if rn, ok := node.Get(nodes[i].Kind); ok && rn.Spec.NeedsTarget {
+		if rn, ok := r.registeredNode(nodes[i].Kind); ok && rn.Spec.NeedsTarget {
 			return true
 		}
 	}

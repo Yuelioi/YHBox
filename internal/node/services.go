@@ -339,6 +339,8 @@ func (s ServiceBundle) runtimeCapabilityAvailable(capability RuntimeCapability) 
 		return s.Subgraphs != nil, true
 	case RuntimeCapabilityAI:
 		return s.AI != nil, true
+	case RuntimeCapabilityRegistry:
+		return s.Registry != nil, true
 	}
 	return false, false
 }
@@ -360,6 +362,7 @@ func StubServices() ServiceBundle {
 		App:         StubAppLifecycleService(),
 		Capture:     StubCaptureService(),
 		Stopwatches: NewStubStopwatchStore(),
+		Registry:    DefaultRegistrySnapshot(),
 		Snapshot:    nil,
 	}
 }

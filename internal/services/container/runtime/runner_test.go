@@ -4,11 +4,60 @@ import (
 	"context"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/execution"
 	"github.com/yottaapp/yotta/internal/services/expr"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
+
+type isolatedRegistryNode struct{ ran *bool }
+
+func (n isolatedRegistryNode) Spec() node.Spec {
+	return node.Spec{
+		Kind:    "IsolatedRegistryNode",
+		Inputs:  []node.InputSpec{{Name: "In", Type: node.TypeExec}},
+		Outputs: []node.OutputSpec{{Name: "Done", Type: node.TypeExec}},
+	}
+}
+
+func (n isolatedRegistryNode) Run(ctx node.Ctx, _ node.Inputs) (node.Outputs, error) {
+	*n.ran = true
+	return ctx.Out("Done").Fire(), nil
+}
+
+func TestContainerRunnerUsesExplicitRegistrySnapshot(t *testing.T) {
+	ran := false
+	registry := node.NewRegistry()
+	registry.Register(&control.Start{})
+	registry.Register(isolatedRegistryNode{ran: &ran})
+	c := newTestContainer(
+		[]container.GraphNode{{ID: "start", Kind: "Start"}, {ID: "isolated", Kind: "IsolatedRegistryNode"}},
+		[]container.GraphEdge{{From: "start.Done", To: "isolated.In"}}, nil)
+	rt := NewRuntimeContext(c, execution.NewInputBus(), NoopMatcher{}, nil, nil, nil, 0)
+	runner := NewContainerRunnerWithRegistry(rt, registry.Snapshot())
+	if err := runner.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !ran {
+		t.Fatal("runner did not dispatch the node from its explicit registry snapshot")
+	}
+}
+
+func TestContainerRunnerRegistryLookupDoesNotAllocate(t *testing.T) {
+	registry := node.NewRegistry()
+	registry.Register(&control.Start{})
+	registered, _ := registry.Get("Start")
+	runner := &ContainerRunner{execNodes: map[string]*node.RegisteredNode{"Start": registered}}
+	if allocations := testing.AllocsPerRun(1000, func() {
+		if _, ok := runner.registeredNode("Start"); !ok {
+			t.Fatal("missing node")
+		}
+	}); allocations != 0 {
+		t.Fatalf("execution registry lookup allocations = %v, want 0", allocations)
+	}
+}
 
 // 构造小图工具：Start → SetVar → Stop。
 func newTestContainer(nodes []container.GraphNode, edges []container.GraphEdge, vars []container.VarDecl) *container.Container {

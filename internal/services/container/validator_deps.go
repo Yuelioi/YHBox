@@ -2,6 +2,8 @@
 // 调用方注入 hasTemplate / hasClip 让 validator 查 asset 是否存在于容器.
 package container
 
+import nodepkg "github.com/yottaapp/yotta/internal/node"
+
 // ValidateContainerWithDeps 在 base validation 之上, 加 dependency 存在性检查.
 // hasTemplate / hasClip 任一为 nil 时跳过对应 kind 检查.
 func ValidateContainerWithDeps(
@@ -10,7 +12,17 @@ func ValidateContainerWithDeps(
 	hasTemplate func(key string) bool,
 	hasClip func(id string) bool,
 ) []ValidationError {
-	errs := ValidateContainer(c, sgs)
+	return ValidateContainerWithDepsAndRegistry(c, sgs, hasTemplate, hasClip, nodepkg.DefaultRegistrySnapshot())
+}
+
+func ValidateContainerWithDepsAndRegistry(
+	c *Container,
+	sgs []Subgraph,
+	hasTemplate func(key string) bool,
+	hasClip func(id string) bool,
+	registry nodepkg.RegistryReader,
+) []ValidationError {
+	errs := ValidateContainerWithRegistry(c, sgs, registry)
 	if hasTemplate == nil && hasClip == nil {
 		return errs
 	}

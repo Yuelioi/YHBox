@@ -9,9 +9,9 @@ import (
 )
 
 func TestMouseMoveRel_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveRel{})
-	rn, _ := node.Get("MouseMoveRel")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveRel{})
+	rn, _ := registry.Get("MouseMoveRel")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -30,9 +30,9 @@ func TestMouseMoveRel_HappyPath(t *testing.T) {
 }
 
 func TestMouseMoveRel_BackendError_Propagates(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseMoveRel{})
-	rn, _ := node.Get("MouseMoveRel")
+	registry := node.NewRegistry()
+	registry.Register(&MouseMoveRel{})
+	rn, _ := registry.Get("MouseMoveRel")
 
 	rec := &recordingInput{err: errors.New("input rejected")}
 	r := node.RunNode(context.Background(), rn, nil,

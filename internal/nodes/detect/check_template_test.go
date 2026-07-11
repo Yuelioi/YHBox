@@ -165,9 +165,9 @@ func withVision(v node.VisionService) node.ServiceBundle {
 }
 
 func TestCheckTemplate_Hit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&CheckTemplate{})
+	rn, _ := registry.Get("CheckTemplate")
 
 	pt := node.Point{X: 0.5, Y: 0.5}
 	vision := &mockVision{point: &pt, conf: 0.92}
@@ -188,9 +188,9 @@ func TestCheckTemplate_Hit(t *testing.T) {
 }
 
 func TestCheckTemplate_Miss(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&CheckTemplate{})
+	rn, _ := registry.Get("CheckTemplate")
 
 	vision := &mockVision{point: nil, conf: 0.3}
 	r := node.RunNode(context.Background(), rn,
@@ -207,9 +207,9 @@ func TestCheckTemplate_Miss(t *testing.T) {
 }
 
 func TestCheckTemplate_Error(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&CheckTemplate{})
+	rn, _ := registry.Get("CheckTemplate")
 
 	vision := &mockVision{err: errors.New("window closed")}
 	r := node.RunNode(context.Background(), rn,
@@ -232,9 +232,9 @@ func TestCheckTemplate_Error(t *testing.T) {
 }
 
 func TestCheckTemplate_PassesROIToVision(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&CheckTemplate{})
+	rn, _ := registry.Get("CheckTemplate")
 
 	roi := node.Geometry{Pct: node.Rect{X: 0.1, Y: 0.2, W: 0.3, H: 0.4}}
 	pt := node.Point{X: 0.5, Y: 0.5}
@@ -253,9 +253,9 @@ func TestCheckTemplate_PassesROIToVision(t *testing.T) {
 }
 
 func TestCheckTemplate_RequiredMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CheckTemplate{})
-	rn, _ := node.Get("CheckTemplate")
+	registry := node.NewRegistry()
+	registry.Register(&CheckTemplate{})
+	rn, _ := registry.Get("CheckTemplate")
 
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, withVision(&mockVision{}), false)
 	if len(r.Validation) == 0 {

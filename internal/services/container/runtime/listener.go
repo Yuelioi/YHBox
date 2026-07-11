@@ -142,6 +142,8 @@ func (l *EventListener) handleFire(ctx context.Context) {
 func (l *EventListener) makeSubRunner() *ContainerRunner {
 	sub := &ContainerRunner{
 		rt:          l.runner.rt,
+		registry:    l.runner.registry,
+		execNodes:   l.runner.execNodes,
 		compiled:    l.runner.compiled,
 		nodesByID:   l.homeNodesByID,
 		edges:       l.homeEdges,
@@ -155,6 +157,7 @@ func (l *EventListener) makeSubRunner() *ContainerRunner {
 		zerolog.Nop(),
 		func() *ExecState { return sub.state },
 	)
+	sub.bundle.Registry = l.runner.registry
 	// 主 bundle 启动期被 SetLogger 注入真 logger; 子流程沿用同一 Log adapter.
 	sub.bundle.Log = l.runner.bundle.Log
 	// AI Provider 缓存同样沿用主 runner(进程级单例), 让 listener 触发区里的 AI 节点也能取。

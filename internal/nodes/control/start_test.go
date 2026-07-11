@@ -8,9 +8,9 @@ import (
 )
 
 func TestStart_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Start{})
-	rn, _ := node.Get("Start")
+	registry := node.NewRegistry()
+	registry.Register(&Start{})
+	rn, _ := registry.Get("Start")
 
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if r.Error != nil {

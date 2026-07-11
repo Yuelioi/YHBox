@@ -8,9 +8,9 @@ import (
 )
 
 func TestMouseHoldStart_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStart{})
-	rn, _ := node.Get("MouseHoldStart")
+	registry := node.NewRegistry()
+	registry.Register(&MouseHoldStart{})
+	rn, _ := registry.Get("MouseHoldStart")
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStartInPoint: node.Point{X: 0.4, Y: 0.6}, mhStartInButton: "left"},
@@ -25,9 +25,9 @@ func TestMouseHoldStart_HappyPath(t *testing.T) {
 }
 
 func TestMouseHoldStart_PxPoint_ResolvesToRatio(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStart{})
-	rn, _ := node.Get("MouseHoldStart")
+	registry := node.NewRegistry()
+	registry.Register(&MouseHoldStart{})
+	rn, _ := registry.Get("MouseHoldStart")
 	rec := &recordingInput{}
 	b := node.StubServices()
 	b.Input = rec
@@ -44,9 +44,9 @@ func TestMouseHoldStart_PxPoint_ResolvesToRatio(t *testing.T) {
 }
 
 func TestMouseHoldStart_InvalidButton_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStart{})
-	rn, _ := node.Get("MouseHoldStart")
+	registry := node.NewRegistry()
+	registry.Register(&MouseHoldStart{})
+	rn, _ := registry.Get("MouseHoldStart")
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStartInButton: "side1"},
 		nil, withInput(&recordingInput{}), false)
@@ -56,9 +56,9 @@ func TestMouseHoldStart_InvalidButton_ValidationError(t *testing.T) {
 }
 
 func TestMouseHoldStop_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStop{})
-	rn, _ := node.Get("MouseHoldStop")
+	registry := node.NewRegistry()
+	registry.Register(&MouseHoldStop{})
+	rn, _ := registry.Get("MouseHoldStop")
 
 	rec := &recordingInput{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -77,9 +77,9 @@ func TestMouseHoldStop_HappyPath(t *testing.T) {
 }
 
 func TestMouseHoldStop_InvalidButton_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStop{})
-	rn, _ := node.Get("MouseHoldStop")
+	registry := node.NewRegistry()
+	registry.Register(&MouseHoldStop{})
+	rn, _ := registry.Get("MouseHoldStop")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{mhStopInButton: "x2"},
@@ -92,14 +92,14 @@ func TestMouseHoldStop_InvalidButton_ValidationError(t *testing.T) {
 
 // Start/Stop 配对走完整 down→up.
 func TestMouseHold_StartStopPair(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&MouseHoldStart{})
-	node.Register(&MouseHoldStop{})
+	registry := node.NewRegistry()
+	registry.Register(&MouseHoldStart{})
+	registry.Register(&MouseHoldStop{})
 
 	rec := &recordingInput{}
 	bundle := withInput(rec)
 
-	rnStart, _ := node.Get("MouseHoldStart")
+	rnStart, _ := registry.Get("MouseHoldStart")
 	r1 := node.RunNode(context.Background(), rnStart, nil,
 		map[string]any{mhStartInPoint: node.Point{X: 0.5, Y: 0.5}, mhStartInButton: "left"},
 		nil, bundle, false)
@@ -107,7 +107,7 @@ func TestMouseHold_StartStopPair(t *testing.T) {
 		t.Fatal(r1.Error)
 	}
 
-	rnStop, _ := node.Get("MouseHoldStop")
+	rnStop, _ := registry.Get("MouseHoldStop")
 	r2 := node.RunNode(context.Background(), rnStop, nil,
 		map[string]any{mhStopInButton: "left"}, nil, bundle, false)
 	if r2.Error != nil {

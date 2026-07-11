@@ -9,10 +9,65 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/node"
+	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/services/asset"
 
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
+
+type isolatedStoreNode struct{}
+
+func (isolatedStoreNode) Spec() node.Spec {
+	return node.Spec{
+		Kind:    "IsolatedStoreNode",
+		Inputs:  []node.InputSpec{{Name: "In", Type: node.TypeExec}},
+		Outputs: []node.OutputSpec{{Name: "Done", Type: node.TypeExec}},
+	}
+}
+
+func (isolatedStoreNode) Run(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }
+func (isolatedStoreNode) Dependencies(node.Inputs) []node.Dependency {
+	return []node.Dependency{{Kind: "template", Key: "custom-template"}}
+}
+
+func TestContainerStoreUsesExplicitRegistryForValidationAndDependencies(t *testing.T) {
+	registry := node.NewRegistry()
+	registry.Register(&control.Start{})
+	registry.Register(isolatedStoreNode{})
+	root := t.TempDir()
+	store, err := NewStoreWithRegistry(root, registry.Snapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &Container{SchemaVersion: 1, ID: "custom-registry", Name: "custom", Graph: Graph{
+		Nodes: []GraphNode{{ID: "start", Kind: "Start"}, {ID: "custom", Kind: "IsolatedStoreNode"}},
+		Edges: []GraphEdge{{From: "start.Done", To: "custom.In"}},
+	}}
+	if err := store.Save(c); err != nil {
+		t.Fatalf("Save with explicit registry: %v", err)
+	}
+	lock, err := readJSONFile[YottaLock](filepath.Join(root, c.ID, lockFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lock.Dependencies.Templates) != 1 || lock.Dependencies.Templates[0] != "custom-template" {
+		t.Fatalf("custom dependency was not scanned: %+v", lock.Dependencies)
+	}
+}
+
+func TestContainerStoreSnapshotsRegistryAtConstruction(t *testing.T) {
+	registry := node.NewRegistry()
+	registry.Register(&control.Start{})
+	store, err := NewStoreWithRegistry(t.TempDir(), registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry.Register(isolatedStoreNode{})
+	if _, ok := store.RegistrySnapshot().Get("IsolatedStoreNode"); ok {
+		t.Fatal("store observed a node registered after construction")
+	}
+}
 
 func transactionTestContainer(id, name string) *Container {
 	return &Container{SchemaVersion: 1, ID: id, Name: name, Graph: Graph{Nodes: []GraphNode{

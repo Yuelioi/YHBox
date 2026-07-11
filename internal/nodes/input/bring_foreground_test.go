@@ -39,9 +39,9 @@ func withWindow(w node.WindowService) node.ServiceBundle {
 }
 
 func TestBringWindowForeground_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&BringWindowForeground{})
-	rn, _ := node.Get("BringWindowForeground")
+	registry := node.NewRegistry()
+	registry.Register(&BringWindowForeground{})
+	rn, _ := registry.Get("BringWindowForeground")
 
 	win := &recordingWindow{}
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win), false)
@@ -59,9 +59,9 @@ func TestBringWindowForeground_HappyPath(t *testing.T) {
 
 // 失败仅 warn log, 不报 error, 仍走 Done.
 func TestBringWindowForeground_BackendError_StillDone(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&BringWindowForeground{})
-	rn, _ := node.Get("BringWindowForeground")
+	registry := node.NewRegistry()
+	registry.Register(&BringWindowForeground{})
+	rn, _ := registry.Get("BringWindowForeground")
 
 	win := &recordingWindow{err: errors.New("fullscreen exclusive")}
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, withWindow(win), false)

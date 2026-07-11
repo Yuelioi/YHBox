@@ -8,9 +8,9 @@ import (
 )
 
 func TestStart_HappyPath(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Start{})
-	rn, _ := node.Get("StopwatchStart")
+	registry := node.NewRegistry()
+	registry.Register(&Start{})
+	rn, _ := registry.Get("StopwatchStart")
 
 	services := node.StubServices()
 	r := node.RunNode(context.Background(), rn, nil,
@@ -31,9 +31,9 @@ func TestStart_HappyPath(t *testing.T) {
 }
 
 func TestStart_ResetExistingKey(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Start{})
-	rn, _ := node.Get("StopwatchStart")
+	registry := node.NewRegistry()
+	registry.Register(&Start{})
+	rn, _ := registry.Get("StopwatchStart")
 
 	services := node.StubServices()
 	// 先手动 start + 等少许时间
@@ -47,9 +47,9 @@ func TestStart_ResetExistingKey(t *testing.T) {
 }
 
 func TestStart_RequiredKeyMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Start{})
-	rn, _ := node.Get("StopwatchStart")
+	registry := node.NewRegistry()
+	registry.Register(&Start{})
+	rn, _ := registry.Get("StopwatchStart")
 
 	// Default 是 "default", 显式传空才触发 REQUIRED — Required 检查的是 Has, default 提供值
 	// 所以不传任何 key 时, default 兜底, Required 不报. 这跟 KeyHoldStart 一致.

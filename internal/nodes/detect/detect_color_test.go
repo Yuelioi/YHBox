@@ -10,9 +10,9 @@ import (
 )
 
 func TestDetectColor_Hit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColor{})
-	rn, _ := node.Get("DetectColor")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColor{})
+	rn, _ := registry.Get("DetectColor")
 
 	vision := &mockVision{colorCount: 42, colorCX: 0.5, colorCY: 0.6}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -33,9 +33,9 @@ func TestDetectColor_Hit(t *testing.T) {
 }
 
 func TestDetectColor_Miss(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColor{})
-	rn, _ := node.Get("DetectColor")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColor{})
+	rn, _ := registry.Get("DetectColor")
 
 	vision := &mockVision{colorCount: 2}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -52,9 +52,9 @@ func TestDetectColor_Miss(t *testing.T) {
 }
 
 func TestDetectColor_BackendError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColor{})
-	rn, _ := node.Get("DetectColor")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColor{})
+	rn, _ := registry.Get("DetectColor")
 
 	vision := &mockVision{colorErr: errors.New("capture failed")}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -68,9 +68,9 @@ func TestDetectColor_BackendError(t *testing.T) {
 
 // 节点责任 = Set 正确 Data 字段 (framework 路径① 据此写变量, 见 runtime dispatch 测试)。
 func TestDetectColor_OutputData_Hit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColor{})
-	rn, _ := node.Get("DetectColor")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColor{})
+	rn, _ := registry.Get("DetectColor")
 
 	vision := &mockVision{colorCount: 10, colorCX: 0.5, colorCY: 0.6}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -97,9 +97,9 @@ func TestDetectColor_OutputData_Hit(t *testing.T) {
 }
 
 func TestDetectColor_OutputData_Miss(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColor{})
-	rn, _ := node.Get("DetectColor")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColor{})
+	rn, _ := registry.Get("DetectColor")
 
 	// count(1) < minPx(5) → NotFound 出口只带 Count, 不带 Center.
 	vision := &mockVision{colorCount: 1, colorCX: 0.5, colorCY: 0.6}
@@ -124,9 +124,9 @@ func TestDetectColor_OutputData_Miss(t *testing.T) {
 }
 
 func TestDetectColor_InvalidMode_ValidationError(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&DetectColor{})
-	rn, _ := node.Get("DetectColor")
+	registry := node.NewRegistry()
+	registry.Register(&DetectColor{})
+	rn, _ := registry.Get("DetectColor")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{dcInMode: "yuv"},

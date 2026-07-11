@@ -18,9 +18,9 @@ func TestCollapsedNode_Spec_DynamicOutputsWithOnlyFailStatic(t *testing.T) {
 }
 
 func TestCollapsedNode_RunRegion_FiresBodyReachedExit(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CollapsedNode{})
-	rn, _ := node.Get("CollapsedNode")
+	registry := node.NewRegistry()
+	registry.Register(&CollapsedNode{})
+	rn, _ := registry.Get("CollapsedNode")
 
 	body := func(_ node.Ctx) (string, error) { return "decl-abc", nil }
 	r := node.RunNodeAsRegion(context.Background(), rn, nil,
@@ -36,9 +36,9 @@ func TestCollapsedNode_RunRegion_FiresBodyReachedExit(t *testing.T) {
 }
 
 func TestCollapsedNode_RequiredSubgraphIDMissing(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&CollapsedNode{})
-	rn, _ := node.Get("CollapsedNode")
+	registry := node.NewRegistry()
+	registry.Register(&CollapsedNode{})
+	rn, _ := registry.Get("CollapsedNode")
 
 	// CollapsedNode 是 RegionRunner — 用 RunNodeAsRegion 走 Required gate.
 	r := node.RunNodeAsRegion(context.Background(), rn, nil, nil, nil,

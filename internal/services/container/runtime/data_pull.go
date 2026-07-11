@@ -23,6 +23,10 @@ type dataEdgeIndex struct {
 // 边类型从 (from-node.kind, from-pin) 派生: 若 fromPin 在 nodekind.Spec.DataOut 里
 // → data 边; 否则 exec 边. 跟 validator 同源.
 func buildDataEdgeIndex(g container.Graph) *dataEdgeIndex {
+	return buildDataEdgeIndexWithRegistry(nodepkg.DefaultRegistrySnapshot(), g)
+}
+
+func buildDataEdgeIndexWithRegistry(registry nodepkg.RegistryReader, g container.Graph) *dataEdgeIndex {
 	idx := &dataEdgeIndex{bySrc: map[string]string{}}
 	nodeByID := make(map[string]*container.GraphNode, len(g.Nodes))
 	for i := range g.Nodes {
@@ -37,7 +41,7 @@ func buildDataEdgeIndex(g container.Graph) *dataEdgeIndex {
 		if !ok {
 			continue
 		}
-		if !container.IsDataOutPinNode(n, fromPin) {
+		if !container.IsDataOutPinNodeWithRegistry(registry, n, fromPin) {
 			continue // not a data-out — exec edge (config-aware: 含动态输出字段)
 		}
 		idx.bySrc[e.To] = e.From
@@ -76,7 +80,7 @@ func (r *ContainerRunner) pullDataPin(ctx context.Context, nodeID, pinName strin
 		// 源是 exec 出口的 Data 字段 (Fail.Code / AI red·white / Capture.Image): 不走 pure-data
 		// 重算, 读 per-run held output 缓存 (源 fire 时 captureExecOutputs 写). 任意距离直连、
 		// 免 GetVar、免紧邻; 未命中 (源还没 fire) → nil, 消费方走默认.
-		if n := r.nodesByID[srcID]; n != nil && container.IsExecOutputDataFieldNode(n, srcPin) {
+		if n := r.nodesByID[srcID]; n != nil && container.IsExecOutputDataFieldNodeWithRegistry(r.registry, n, srcPin) {
 			if v, ok := r.execOutputs[srcID+"."+srcPin]; ok {
 				return toExprValue(v), nil
 			}
@@ -139,7 +143,7 @@ func (r *ContainerRunner) evalDataSource(ctx context.Context, srcNodeID, srcPin 
 	// Gatekeep: only IsPureData kinds are valid pull sources.
 	// An exec-node data-out (like Race.winnerIdx) should be read from
 	// sys snapshot, not pulled — validator should have caught this.
-	rn, ok := nodepkg.Get(n.Kind)
+	rn, ok := r.registeredNode(n.Kind)
 	if !ok {
 		return nil, fmt.Errorf("evalDataSource: unknown kind %q", n.Kind)
 	}

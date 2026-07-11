@@ -5,6 +5,7 @@
 package runtime
 
 import (
+	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/container"
 )
 
@@ -35,6 +36,10 @@ type CompiledContainer struct {
 // 注意: NodesByID 的 *GraphNode 绑回 g.Nodes 元素地址. caller 不能拷 g 之后还用此返回值
 // (拷贝后 g.Nodes 是新 slice, 指针会 dangling). runtime 持的 container 不会拷, 安全.
 func CompileGraph(g container.Graph) *CompiledGraph {
+	return CompileGraphWithRegistry(node.DefaultRegistrySnapshot(), g)
+}
+
+func CompileGraphWithRegistry(registry node.RegistryReader, g container.Graph) *CompiledGraph {
 	nodes := make(map[string]*container.GraphNode, len(g.Nodes))
 	for i := range g.Nodes {
 		n := &g.Nodes[i]
@@ -42,14 +47,18 @@ func CompileGraph(g container.Graph) *CompiledGraph {
 	}
 	return &CompiledGraph{
 		Edges:     buildEdgeIndex(g),
-		DataEdges: buildDataEdgeIndex(g),
+		DataEdges: buildDataEdgeIndexWithRegistry(registry, g),
 		NodesByID: nodes,
 	}
 }
 
 // CompileSubgraph 单 subgraph 编译 — 多带 Entry / OutputDeclsByID metadata 给 dispatch 用.
 func CompileSubgraph(sg *container.Subgraph) *CompiledGraph {
-	cg := CompileGraph(sg.Graph)
+	return CompileSubgraphWithRegistry(node.DefaultRegistrySnapshot(), sg)
+}
+
+func CompileSubgraphWithRegistry(registry node.RegistryReader, sg *container.Subgraph) *CompiledGraph {
+	cg := CompileGraphWithRegistry(registry, sg.Graph)
 	cg.EntryNodeID = sg.Entry.NodeID
 	cg.OutputDeclsByID = make(map[string]*container.SubgraphOutputDecl, len(sg.OutputPins))
 	for i := range sg.OutputPins {
@@ -65,13 +74,17 @@ func CompileSubgraph(sg *container.Subgraph) *CompiledGraph {
 // Subgraphs map key 是 sg.ID, value CompiledGraph 内含的 *GraphNode 绑 subgraphs[i].Graph.Nodes
 // 元素地址 — caller (NewContainerRunner) 持有的 rt.Subgraphs 切片在 run 生命周期内稳定.
 func CompileContainer(c *container.Container, subgraphs []container.Subgraph) *CompiledContainer {
+	return CompileContainerWithRegistry(node.DefaultRegistrySnapshot(), c, subgraphs)
+}
+
+func CompileContainerWithRegistry(registry node.RegistryReader, c *container.Container, subgraphs []container.Subgraph) *CompiledContainer {
 	sgs := make(map[string]*CompiledGraph, len(subgraphs))
 	for i := range subgraphs {
 		sg := &subgraphs[i]
-		sgs[sg.ID] = CompileSubgraph(sg)
+		sgs[sg.ID] = CompileSubgraphWithRegistry(registry, sg)
 	}
 	return &CompiledContainer{
-		Main:            CompileGraph(c.Graph),
+		Main:            CompileGraphWithRegistry(registry, c.Graph),
 		Subgraphs:       sgs,
 		MainCalibCounts: snapshotMainCalibCounts(c),
 	}

@@ -30,9 +30,9 @@ func withLog(cap *captureLog) node.ServiceBundle {
 }
 
 func TestLog_Info(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Log{})
-	rn, _ := node.Get("Log")
+	registry := node.NewRegistry()
+	registry.Register(&Log{})
+	rn, _ := registry.Get("Log")
 
 	cap := &captureLog{}
 	r := node.RunNode(context.Background(), rn, nil,
@@ -48,9 +48,9 @@ func TestLog_Info(t *testing.T) {
 }
 
 func TestLog_Warn(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Log{})
-	rn, _ := node.Get("Log")
+	registry := node.NewRegistry()
+	registry.Register(&Log{})
+	rn, _ := registry.Get("Log")
 
 	cap := &captureLog{}
 	node.RunNode(context.Background(), rn, nil,
@@ -63,9 +63,9 @@ func TestLog_Warn(t *testing.T) {
 }
 
 func TestLog_WildcardMessage(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&Log{})
-	rn, _ := node.Get("Log")
+	registry := node.NewRegistry()
+	registry.Register(&Log{})
+	rn, _ := registry.Get("Log")
 
 	cap := &captureLog{}
 	// Message 是 wildcard "*", 接任意类型. 这里传 number.

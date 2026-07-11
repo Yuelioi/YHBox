@@ -205,9 +205,9 @@ func (s *Service) ValidateContainerByID(id string) []ValidationError {
 	}
 	sgs := s.store.subgraphsFor(&c)
 	if s.hasTemplate != nil || s.hasClip != nil {
-		return ValidateContainerWithDeps(&c, sgs, s.hasTemplate, s.hasClip)
+		return ValidateContainerWithDepsAndRegistry(&c, sgs, s.hasTemplate, s.hasClip, s.store.registry)
 	}
-	return ValidateContainer(&c, sgs)
+	return ValidateContainerWithRegistry(&c, sgs, s.store.registry)
 }
 
 // Run 立即跑一次（前端 ▶ 按钮）。manual source 入 ExecutionQueue 单 target run。
@@ -348,7 +348,7 @@ func (s *Service) ResolveEditorTargetForNode(containerID, nodeID string) (target
 	if !ok {
 		return target.Target{}, fmt.Errorf("container %q not found", containerID)
 	}
-	tg, _ := editorTargetForNode(&c, nodeID)
+	tg, _ := editorTargetForNodeWithRegistry(s.store.RegistrySnapshot(), &c, nodeID)
 	return tg, nil
 }
 

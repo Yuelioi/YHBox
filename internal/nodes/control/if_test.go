@@ -8,9 +8,9 @@ import (
 )
 
 func TestIf_TrueBranch(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&If{})
-	rn, _ := node.Get("If")
+	registry := node.NewRegistry()
+	registry.Register(&If{})
+	rn, _ := registry.Get("If")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ifInCond: true},
@@ -24,9 +24,9 @@ func TestIf_TrueBranch(t *testing.T) {
 }
 
 func TestIf_FalseBranch(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&If{})
-	rn, _ := node.Get("If")
+	registry := node.NewRegistry()
+	registry.Register(&If{})
+	rn, _ := registry.Get("If")
 
 	r := node.RunNode(context.Background(), rn, nil,
 		map[string]any{ifInCond: false},
@@ -41,9 +41,9 @@ func TestIf_FalseBranch(t *testing.T) {
 
 func TestIf_DefaultIsTrue(t *testing.T) {
 	// Spec Default = true → 没传 Condition 应走 True.
-	node.ResetRegistryForTest()
-	node.Register(&If{})
-	rn, _ := node.Get("If")
+	registry := node.NewRegistry()
+	registry.Register(&If{})
+	rn, _ := registry.Get("If")
 
 	r := node.RunNode(context.Background(), rn, nil, nil, nil, node.StubServices(), false)
 	if r.Error != nil {

@@ -14,6 +14,10 @@ import (
 //
 // config.capture 形态 = node.Config["capture"]: map[string]string (字段名 → 变量名)。
 func validateCaptureRefs(c *Container, sgs []Subgraph) []ValidationError {
+	return validateCaptureRefsWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
+}
+
+func validateCaptureRefsWithRegistry(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
 	}
@@ -31,7 +35,7 @@ func validateCaptureRefs(c *Container, sgs []Subgraph) []ValidationError {
 			}
 			// 该 kind 的可绑字段集 (节点未注册 → 跳过字段校验, 仅做 var-ref 校验)。
 			bindable := map[string]bool{}
-			if rn, ok := nodepkg.Get(n.Kind); ok {
+			if rn, ok := registry.Get(n.Kind); ok {
 				for _, f := range nodepkg.BindableFieldsForNode(&rn.Spec, n.Config) {
 					bindable[f] = true
 				}

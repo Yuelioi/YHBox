@@ -12,9 +12,9 @@ import (
 
 func runSaveImage(t *testing.T, img node.Image, tmpl string) node.RunResult {
 	t.Helper()
-	node.ResetRegistryForTest()
-	node.Register(&SaveImage{})
-	rn, _ := node.Get("SaveImage")
+	registry := node.NewRegistry()
+	registry.Register(&SaveImage{})
+	rn, _ := registry.Get("SaveImage")
 	return node.RunNode(context.Background(), rn,
 		map[string]any{"Image": img}, map[string]any{"PathTemplate": tmpl}, nil, node.StubServices(), false)
 }
@@ -64,9 +64,9 @@ func TestSaveImage_OutputsFile(t *testing.T) {
 }
 
 func TestSaveImage_NoImage_Fails(t *testing.T) {
-	node.ResetRegistryForTest()
-	node.Register(&SaveImage{})
-	rn, _ := node.Get("SaveImage")
+	registry := node.NewRegistry()
+	registry.Register(&SaveImage{})
+	rn, _ := registry.Get("SaveImage")
 	res := node.RunNode(context.Background(), rn, nil,
 		map[string]any{"PathTemplate": "x.png"}, nil, node.StubServices(), false)
 	if res.Error == nil {
