@@ -268,7 +268,9 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 	// 清空：Unregister OS binding，置 unbound
 	if newHotkeyStr == "" {
 		if entry.bindingID != 0 {
-			_ = r.manager.Unregister(entry.bindingID)
+			if err := r.manager.Unregister(entry.bindingID); err != nil {
+				return fmt.Errorf("unregister hotkey %q: %w", key, err)
+			}
 			entry.bindingID = 0
 		}
 		entry.spec.HotkeyStr = ""
@@ -313,7 +315,9 @@ func (r *HotkeyRegistry) updateLocked(key, newHotkeyStr string) error {
 	if entry.spec.Mechanism == HotkeyMechanismOSGlobal {
 		// 先 unregister 旧的，再 register 新的
 		if entry.bindingID != 0 {
-			_ = r.manager.Unregister(entry.bindingID)
+			if err := r.manager.Unregister(entry.bindingID); err != nil {
+				return fmt.Errorf("unregister previous hotkey %q: %w", key, err)
+			}
 			entry.bindingID = 0
 		}
 		newID, err := r.manager.Register(HotkeySpec{
@@ -348,7 +352,9 @@ func (r *HotkeyRegistry) Unregister(key string) error {
 		return nil
 	}
 	if entry.bindingID != 0 {
-		_ = r.manager.Unregister(entry.bindingID)
+		if err := r.manager.Unregister(entry.bindingID); err != nil {
+			return fmt.Errorf("unregister hotkey %q: %w", key, err)
+		}
 	}
 	delete(r.entries, key)
 	if r.emitChanged != nil {
@@ -371,14 +377,18 @@ func (r *HotkeyRegistry) Pause() error {
 	if r.paused {
 		return nil
 	}
-	for _, e := range r.entries {
+	var errs []error
+	for key, e := range r.entries {
 		if e.bindingID != 0 {
-			_ = r.manager.Unregister(e.bindingID)
+			if err := r.manager.Unregister(e.bindingID); err != nil {
+				errs = append(errs, fmt.Errorf("pause hotkey %q: %w", key, err))
+				continue
+			}
 			e.bindingID = 0
 		}
 	}
 	r.paused = true
-	return nil
+	return errors.Join(errs...)
 }
 
 // Resume Pause 的反操作：按 entries.HotkeyStr 重新 register OS binding。
@@ -397,6 +407,9 @@ func (r *HotkeyRegistry) Resume() error {
 		// 只 os-global 机制原本占 OS binding, 才需要 resume 重注册。
 		// ll-hook (录制) / editor-inapp 不占 OS, bindingID 恒 0, 跳过 — 否则会被误 OS 抢键。
 		if e.spec.Mechanism != HotkeyMechanismOSGlobal {
+			continue
+		}
+		if e.bindingID != 0 {
 			continue
 		}
 		if e.spec.Status != HotkeyStatusActive || e.spec.HotkeyStr == "" {

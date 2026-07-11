@@ -4,18 +4,19 @@ package main
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"github.com/yottaapp/yotta/internal/appruntime"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
@@ -299,8 +300,6 @@ func main() {
 	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {
 		app.Emit("execution:state", s)
 	}, runclassify.RunError)
-	worker.Start()
-
 	// 给 containerSvc 注入运行入口 — 前端 ▶ 按钮走 Run，■ 走 StopAll
 	debugManager := newContainerDebugManager(newRunnerForContainer, func(name string, data any) {
 		app.Emit(name, data)
@@ -320,13 +319,9 @@ func main() {
 	})
 	mcpCore := server.NewMCPServer("yotta-mcp", "0.1.0")
 	mcpSrv.Register(mcpCore)
-	mcpHTTP := server.NewStreamableHTTPServer(mcpCore)
-	go func() {
-		if err := mcpHTTP.Start("127.0.0.1:8765"); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			rootLog.Warn().Err(err).Str("tag", "MCP").Msg("MCP HTTP server 退出")
-		}
-	}()
-	rootLog.Info().Str("tag", "MCP").Msg("MCP server: http://127.0.0.1:8765/mcp")
+	mcpMux := http.NewServeMux()
+	mcpMux.Handle("/mcp", server.NewStreamableHTTPServer(mcpCore))
+	mcpHTTP := appruntime.NewHTTPServer("127.0.0.1:8765", mcpMux)
 
 	// Container hotkey 绑定：扫所有容器，把 container.hotkey 注册到 registry。
 	// CRUD 后经 ConfigureChangeListener 重扫一次。触发后入队单 target manual run。
@@ -348,7 +343,19 @@ func main() {
 	// ScheduleDaemon：注册 enabled schedules 到 cron/hotkey/once，触发后入 queue
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
 	scheduleDaemon := schedule.NewDaemon(scheduleStore, execQueue, scheduleHotkeyAdapter)
-	scheduleDaemon.Start()
+	applicationRuntime := appruntime.New(
+		appruntime.Resource{
+			Name:  "execution-worker",
+			Start: func(context.Context) error { worker.Start(); return nil },
+			Close: worker.StopContext,
+		},
+		mcpHTTP.Resource("mcp-http"),
+		appruntime.Resource{
+			Name:  "schedule-daemon",
+			Start: func(context.Context) error { scheduleDaemon.Start(); return nil },
+			Close: scheduleDaemon.StopContext,
+		},
+	)
 
 	// Schedule CRUD 后重注册 cron / hotkey trigger
 	schedule.ConfigureChangeListener(scheduleSvc, scheduleDaemon.Reload)
@@ -578,20 +585,38 @@ func main() {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("启动期自启注册表同步失败")
 	}
 
-	// 应用 logger 写一条启动日志，证明日志桥路打通
-	rootLog.Info().Str("tag", "SYSTEM").Str("version", version.Version).Msg("Yotta started")
-
 	// 节点 registry 锁死: init() 注册完毕, RPC handler 之后只读.
 	node.Freeze()
-
-	// 阻塞直到关窗口
-	if err := wailsApp.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "wails app run failed: %v\n", err)
+	if err := applicationRuntime.Start(context.Background()); err != nil {
+		rootLog.Error().Err(err).Str("tag", "STARTUP").Msg("application runtime start")
+		app.Shutdown()
+		fmt.Fprintf(os.Stderr, "application runtime start failed: %v\n", err)
 		os.Exit(1)
 	}
+	go func() {
+		<-mcpHTTP.Done()
+		if err := mcpHTTP.Err(); err != nil {
+			rootLog.Warn().Err(err).Str("tag", "MCP").Msg("MCP HTTP server 退出")
+		}
+	}()
+	rootLog.Info().Str("tag", "MCP").Msg("MCP server: http://127.0.0.1:8765/mcp")
+	rootLog.Info().Str("tag", "SYSTEM").Str("version", version.Version).Msg("Yotta started")
 
-	// 退出钩子: flush log sink
+	// 阻塞直到关窗口
+	runErr := wailsApp.Run()
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := applicationRuntime.Close(shutdownCtx); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SHUTDOWN").Msg("application runtime close")
+	}
+	cancelShutdown()
+
+	// 最后排空 presentation/log transport。
 	app.Shutdown()
+	if runErr != nil {
+		fmt.Fprintf(os.Stderr, "wails app run failed: %v\n", runErr)
+		os.Exit(1)
+	}
 }
 
 func stopAllForHotkey(stopAll func() error, log zerolog.Logger) {

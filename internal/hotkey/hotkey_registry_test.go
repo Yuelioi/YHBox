@@ -1,6 +1,7 @@
 package hotkey
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -130,6 +131,29 @@ func TestRegistry_UnregisterRemovesEntry(t *testing.T) {
 	}
 	if _, ok := r.Get("a"); ok {
 		t.Error("Unregister 后 Get 应返 false")
+	}
+}
+
+func TestRegistry_UnregisterFailureKeepsEntry(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+	if err := r.Register("a", HotkeySourceSystem, "A", nil, "Ctrl+Shift+Alt+F5", "", func() {}); err != nil {
+		t.Fatalf("register a: %v", err)
+	}
+	if err := r.Register("b", HotkeySourceSystem, "B", nil, "Ctrl+Shift+Alt+F6", "", func() {}); err != nil {
+		t.Fatalf("register b: %v", err)
+	}
+	unregisterFailure := errors.New("native unregister failed")
+	mgr.runLoop = func(_ context.Context, _ []HotkeySpec, _ func(int), ready chan<- error, done chan<- struct{}) {
+		ready <- unregisterFailure
+		close(done)
+	}
+
+	if err := r.Unregister("a"); !errors.Is(err, unregisterFailure) {
+		t.Fatalf("Unregister error=%v, want native failure", err)
+	}
+	if _, ok := r.Get("a"); !ok {
+		t.Fatal("registry deleted entry after native unregister failed")
 	}
 }
 

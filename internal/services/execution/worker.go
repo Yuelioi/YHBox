@@ -13,14 +13,19 @@ type RunFunc func(ctx context.Context, target TargetRef) error
 
 // Worker 单 goroutine 串行消费 ExecutionQueue。键鼠独占的保证根。
 type Worker struct {
-	queue    *ExecutionQueue
-	run      RunFunc
-	stopCh   chan struct{}
-	wg       sync.WaitGroup
-	emitRun  func(WorkerState)
-	classify ClassifyFunc
+	queue     *ExecutionQueue
+	run       RunFunc
+	lifetime  context.Context
+	cancelAll context.CancelFunc
+	stopCh    chan struct{}
+	done      chan struct{}
+	wg        sync.WaitGroup
+	emitRun   func(WorkerState)
+	classify  ClassifyFunc
 
-	startOnce sync.Once
+	lifecycleMu sync.Mutex
+	started     bool
+	stopped     bool
 
 	mu     sync.Mutex
 	active *QueuedRun // 当前在跑的 run，nil = 闲
@@ -60,34 +65,61 @@ type WorkerState struct {
 }
 
 func NewWorker(q *ExecutionQueue, run RunFunc, emit func(WorkerState), classify ClassifyFunc) *Worker {
+	lifetime, cancelAll := context.WithCancel(context.Background())
 	return &Worker{
-		queue:    q,
-		run:      run,
-		stopCh:   make(chan struct{}),
-		emitRun:  emit,
-		classify: classify,
+		queue:     q,
+		run:       run,
+		lifetime:  lifetime,
+		cancelAll: cancelAll,
+		stopCh:    make(chan struct{}),
+		done:      make(chan struct{}),
+		emitRun:   emit,
+		classify:  classify,
 	}
 }
 
-// Start 起后台 goroutine 不断 Pop 跑。sync.Once 保证只起一次（防 Start→Start 起双 worker
-// 违反单 worker invariant）。
+// Start 起后台 goroutine 不断 Pop 跑。重复或 Stop 后调用均为 no-op。
 func (w *Worker) Start() {
-	w.startOnce.Do(func() {
-		w.wg.Add(1)
-		go w.loop()
-	})
+	w.lifecycleMu.Lock()
+	defer w.lifecycleMu.Unlock()
+	if w.started || w.stopped {
+		return
+	}
+	w.started = true
+	w.wg.Add(1)
+	go w.loop()
 }
 
-// Stop 关 stopCh + cancel 当前 run + 等 goroutine 退出。
+// Stop 关 stopCh + cancel 当前 run + 等 goroutine 退出。并发、重复调用幂等。
 func (w *Worker) Stop() {
-	close(w.stopCh)
-	w.queue.Close()
-	w.mu.Lock()
-	if w.cancel != nil {
-		w.cancel()
+	_ = w.StopContext(context.Background())
+}
+
+// StopContext initiates shutdown once and waits for the worker or context.
+func (w *Worker) StopContext(ctx context.Context) error {
+	w.lifecycleMu.Lock()
+	if !w.stopped {
+		w.stopped = true
+		w.cancelAll()
+		close(w.stopCh)
+		w.queue.Close()
+		w.mu.Lock()
+		if w.cancel != nil {
+			w.cancel()
+		}
+		w.mu.Unlock()
+		if !w.started {
+			close(w.done)
+		}
 	}
-	w.mu.Unlock()
-	w.wg.Wait()
+	w.lifecycleMu.Unlock()
+	select {
+	case <-w.done:
+		w.wg.Wait()
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // CancelCurrent 强停当前正在跑的 run（不清队列）。
@@ -101,6 +133,7 @@ func (w *Worker) CancelCurrent() {
 
 func (w *Worker) loop() {
 	defer w.wg.Done()
+	defer close(w.done)
 	for {
 		select {
 		case <-w.stopCh:
@@ -123,7 +156,7 @@ func (w *Worker) loop() {
 }
 
 func (w *Worker) executeRun(run QueuedRun) {
-	parent := context.Background()
+	parent := w.lifetime
 	var ctx context.Context
 	var cancel context.CancelFunc
 	if run.Deadline != nil {

@@ -1,6 +1,8 @@
 package schedule
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -9,8 +11,9 @@ import (
 )
 
 type fakeRegistrar struct {
-	mu        sync.Mutex
-	callbacks map[string]func()
+	mu            sync.Mutex
+	callbacks     map[string]func()
+	unregisterErr error
 }
 
 func newFakeRegistrar() *fakeRegistrar {
@@ -28,7 +31,7 @@ func (f *fakeRegistrar) Unregister(key string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	delete(f.callbacks, key)
-	return nil
+	return f.unregisterErr
 }
 
 func (f *fakeRegistrar) Fire(key string) {
@@ -130,5 +133,80 @@ func TestDaemonFireManual(t *testing.T) {
 	snap := queue.Snapshot()
 	if len(snap) != 1 || snap[0].Source != execution.SourceManual {
 		t.Errorf("manual fire bad: %+v", snap)
+	}
+}
+
+func TestDaemonStartStopAreIdempotent(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	daemon := NewDaemon(store, execution.NewExecutionQueue(), nil)
+
+	daemon.Start()
+	daemon.Start()
+	daemon.Stop()
+	daemon.Stop()
+	daemon.Reload()
+}
+
+func TestDaemonStopBeforeStartPreventsLateStart(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	daemon := NewDaemon(store, execution.NewExecutionQueue(), nil)
+
+	daemon.Stop()
+	daemon.Start()
+	daemon.Stop()
+
+	daemon.mu.Lock()
+	defer daemon.mu.Unlock()
+	if daemon.started {
+		t.Fatal("daemon started after it had already stopped")
+	}
+}
+
+func TestDaemonReloadBeforeStartIsNoop(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	registrar := newFakeRegistrar()
+	daemon := NewDaemon(store, execution.NewExecutionQueue(), registrar)
+	daemon.Reload()
+
+	registrar.mu.Lock()
+	defer registrar.mu.Unlock()
+	if len(registrar.callbacks) != 0 {
+		t.Fatalf("pre-start Reload registered %d hotkeys", len(registrar.callbacks))
+	}
+}
+
+func TestDaemonStopAggregatesHotkeyCleanupErrors(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	schedule := &Schedule{
+		SchemaVersion: 1,
+		ID:            "cleanup",
+		Name:          "cleanup",
+		Enabled:       true,
+		Targets:       []TargetRef{{Kind: "container", ID: "C1"}},
+		Trigger:       Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"},
+	}
+	if err := store.Save(schedule); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	cleanupFailure := errors.New("unregister failed")
+	registrar := newFakeRegistrar()
+	registrar.unregisterErr = cleanupFailure
+	daemon := NewDaemon(store, execution.NewExecutionQueue(), registrar)
+	daemon.Start()
+
+	if err := daemon.StopContext(context.Background()); !errors.Is(err, cleanupFailure) {
+		t.Fatalf("StopContext error=%v, want cleanup failure", err)
 	}
 }

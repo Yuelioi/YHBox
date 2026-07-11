@@ -204,15 +204,15 @@
 
 ## 当前执行点
 
-批次 A-C 已完成：质量工具、CI/release 和 canonical module path 均已落地。当前进入批次 D：建立平台依赖守卫并开始收敛 Windows adapter seam。
+批次 A-C 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。当前已进入批次 E：application runtime lifecycle 首批接管 Worker、MCP HTTP 与 ScheduleDaemon。
 
 ## 执行状态
 
 - [x] A — BOM、staticcheck、vet、coverage、关键 race
 - [x] B — Windows CI、release version 校验
 - [x] C — canonical module path
-- [ ] D — 平台依赖守卫与 adapter 收敛
-- [ ] E — application runtime lifecycle
+- [ ] D — 平台依赖守卫与 adapter 收敛（本地实现完成，待原生 GUI CI 首跑）
+- [ ] E — application runtime lifecycle（E1 已接管 Worker/MCP/Schedule）
 - [ ] F — settings/container durability
 - [ ] G — Ctx/Registry 深化
 - [ ] H — fuzz/security/docs

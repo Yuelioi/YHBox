@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -32,6 +33,10 @@ type Daemon struct {
 	mu       sync.Mutex
 	cronIDs  map[string]cron.EntryID // schedule.ID → cron entry ID
 	hotkeyKs map[string]string       // schedule.ID → hotkey registry key
+	started  bool
+	stopped  bool
+	stopDone <-chan struct{}
+	stopErr  error
 }
 
 func NewDaemon(store *Store, queue *execution.ExecutionQueue, hotkeys HotkeyRegistrar) *Daemon {
@@ -47,9 +52,13 @@ func NewDaemon(store *Store, queue *execution.ExecutionQueue, hotkeys HotkeyRegi
 
 // Start 注册所有 enabled schedules + 启动 cron。
 func (d *Daemon) Start() {
-	d.cron.Start()
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.started || d.stopped {
+		return
+	}
+	d.started = true
+	d.cron.Start()
 	for _, s := range d.store.List() {
 		if !s.Enabled {
 			continue
@@ -63,18 +72,43 @@ func (d *Daemon) Start() {
 
 // Stop 关 cron + 取消所有注册的 hotkey。
 func (d *Daemon) Stop() {
+	_ = d.StopContext(context.Background())
+}
+
+// StopContext initiates shutdown once and waits for cron jobs or context.
+func (d *Daemon) StopContext(ctx context.Context) error {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-	for sid, hk := range d.hotkeyKs {
-		_ = d.hotkeys.Unregister(hk)
-		delete(d.hotkeyKs, sid)
+	if !d.stopped {
+		d.stopped = true
+		if !d.started {
+			done := make(chan struct{})
+			close(done)
+			d.stopDone = done
+		} else {
+			var cleanupErrs []error
+			for sid, hk := range d.hotkeyKs {
+				if err := d.hotkeys.Unregister(hk); err != nil {
+					cleanupErrs = append(cleanupErrs, fmt.Errorf("unregister schedule %s hotkey: %w", sid, err))
+				}
+				delete(d.hotkeyKs, sid)
+			}
+			for sid, id := range d.cronIDs {
+				d.cron.Remove(id)
+				delete(d.cronIDs, sid)
+			}
+			d.stopErr = errors.Join(cleanupErrs...)
+			d.stopDone = d.cron.Stop().Done()
+		}
 	}
-	for sid, id := range d.cronIDs {
-		d.cron.Remove(id)
-		delete(d.cronIDs, sid)
+	done := d.stopDone
+	cleanupErr := d.stopErr
+	d.mu.Unlock()
+	select {
+	case <-done:
+		return cleanupErr
+	case <-ctx.Done():
+		return errors.Join(cleanupErr, ctx.Err())
 	}
-	ctx := d.cron.Stop()
-	<-ctx.Done()
 }
 
 // Reload schedule.Update / Create / Delete 后调，重注册受影响的 schedule。
@@ -82,6 +116,9 @@ func (d *Daemon) Stop() {
 func (d *Daemon) Reload() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if !d.started || d.stopped {
+		return
+	}
 	for sid, hk := range d.hotkeyKs {
 		_ = d.hotkeys.Unregister(hk)
 		delete(d.hotkeyKs, sid)
@@ -142,6 +179,12 @@ func (d *Daemon) FireManual(scheduleID string) error {
 }
 
 func (d *Daemon) fire(scheduleID string, source execution.TriggerSource) error {
+	d.mu.Lock()
+	stopped := d.stopped
+	d.mu.Unlock()
+	if stopped {
+		return errors.New("schedule daemon stopped")
+	}
 	s, ok := d.store.Get(scheduleID)
 	if !ok {
 		return fmt.Errorf("schedule %s not found", scheduleID)

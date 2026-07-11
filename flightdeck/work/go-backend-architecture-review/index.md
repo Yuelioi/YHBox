@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；canonical repository/module identity 已最终确认为 `github.com/yottaapp/yotta`。批次 D 已建立平台依赖守卫，完成 platform/input/capture 的宿主 OS seam，并将 container runtime 收敛到单一 controller 权威路径。
+升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；批次 E 已开始统一应用生命周期。
 
 ## Next
 
-继续批次 D：观察 Linux/macOS 原生 GUI compile gate 的首次远端运行，并设计不依赖交互桌面的最小宿主 smoke；保持 portable-core 三平台门禁。
+继续批次 E：把 hotkey、recording、calibration 与 tools presentation 纳入 application runtime owner；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
 
 ## Read now
 
@@ -16,6 +16,7 @@
 - `../../knowledge/build/go-cover-bom-trap.md`
 - `../../knowledge/architecture/go-multiplatform-boundary.md`
 - `../../knowledge/architecture/go-module-identity.md`
+- `../../knowledge/architecture/application-lifecycle.md`
 
 ## Read if
 
@@ -30,11 +31,12 @@
 
 Current:
 
-- `plan.md` 阶段 1 / 批次 D。
-- backend services（含 tools）已无 Wails import，root wiring 也无项目内直接 Win32 import；bound service 方法集已只保留真实 RPC。Linux/macOS 原生 runner GUI compile gate 已定义，当前剩余工作是首次远端运行与宿主 smoke，而不是继续追求 `CGO_ENABLED=0` 的 GUI 编译。
+- `plan.md` 阶段 2 / 批次 E；批次 D 的首次远端 GUI runner 验证并行待办。
+- `internal/appruntime` 已成为 Worker、MCP HTTP 与 ScheduleDaemon 的首个统一 owner；启动顺序固定，失败会逆序 rollback，正常退出逆序关闭并在最后 drain presentation/log。
 
 Done:
 
+- 批次 E（首批）：新增 application runtime 状态机与 managed HTTP server；构造完成后统一启动 Worker→MCP→Schedule，MCP bind error 同步失败并触发 rollback；Wails 正常/错误退出都按 Schedule→MCP→Worker 关闭。Worker 使用 lifetime context 闭合 queued→active shutdown 竞态，Worker/Schedule/HTTP Close 均幂等且响应 context。
 - 批次 D（第十三批）：将 16 个启动期 callback/interface 注入方法移出 Wails service 方法集，bindings 收敛到 107 methods / 0 warnings，并让 CI 拒绝 warning 回归；同时修复 LogSink 按 seq 生成却并发乱序交付及 shutdown 不等待尾日志的问题。
 - 批次 D（第十二批）：新增 Ubuntu 24.04 amd64 与 macOS 15 arm64 原生 GUI compile gate；安装宿主依赖、核对实际 Wails CLI、生成 bindings/frontend、以 production tag 编译并归档 Unix 产物。
 - 批次 D（第十一批）：Wails library/release CLI/README pin 统一到 `v3.0.0-alpha2.117` 并加入一致性脚本；root template capture/game provider 移除直接 `lxn/win`；更新 GUI 宿主构建基线与失效的透明窗 knowledge。
@@ -95,6 +97,9 @@ Verified:
 - D 第十三批日志回归：确定性测试证明旧 LogSink 可在 seq=1 callback 阻塞时先交付 seq=2；FIFO delivery pump 修复后顺序/Flush 回归 20 次与 LogSink race 5 次通过，shutdown 使用包内 drain barrier 排空已入队事件。慢 emitter 后的待交付 batch 有界合并并报告 overflow；高精度 timer 在重负载并行门禁中一次超时，隔离重复 20 次通过。
 - D 第十三批双轴 review：补齐 binding generator 非零输出、warning 单复数与 107-method 精确门禁；LogSink drain 不再对 emitter 暴露，Close 保持可重入，慢 callback 后的新建/合并 delivery 都受 2000 行及 backing-cap 上限约束；FIFO 测试使用确定性队列状态。最终 Standards/Spec 均无剩余 finding。
 - D 第十三批最终门禁：全仓 `go test ./... -count=1`、`go vet ./...`、`staticcheck ./...`、受影响 package race、Wails/app 版本校验与 `git diff --check` 通过。
+- E 首批定向验证：`appruntime`、execution、schedule 与 root tests 通过；三包 race 通过。Runtime 并发 Start/Close wait、rollback deadline、HTTP start deadline/request lifetime、并发 Close context、stable Done、Worker late-run cancellation、Schedule cleanup error/pre-start Reload 均有回归测试。
+- E 首批双轴 review：修复 Worker queued→active 取消窗口；Runtime 状态等待改为 context-aware broadcast，rollback 使用独立 5s 上限；HTTP request lifetime 与 Start ctx 解耦、Done/Err 广播且并发 Close 各自遵守 deadline；HotkeyRegistry 不再吞 native unregister error或删除仍有 binding 的 entry；最终 Standards/Spec 均无剩余 finding。
+- E 首批最终门禁：串行文件 I/O 环境下全仓 `go test -p 1 ./... -count=1`、`go vet ./...`、`staticcheck ./...`、appruntime/hotkey/execution/schedule race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
 
 ## Open questions
 

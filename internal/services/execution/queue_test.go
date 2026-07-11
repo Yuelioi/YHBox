@@ -135,3 +135,71 @@ func TestWorker_EmitsClassifiedError(t *testing.T) {
 		t.Fatalf("Error.Message 期望 \"boom\", 实际 %q", s.Error.Message)
 	}
 }
+
+func TestWorkerStopIsIdempotent(t *testing.T) {
+	queue := NewExecutionQueue()
+	worker := NewWorker(queue, func(context.Context, TargetRef) error { return nil }, nil, nil)
+	worker.Start()
+	worker.Stop()
+	worker.Stop()
+
+	if _, ok := queue.Enqueue(QueuedRun{}); ok {
+		t.Fatal("queue accepted work after worker stopped")
+	}
+}
+
+func TestWorkerStopBeforeStartPreventsLateStart(t *testing.T) {
+	queue := NewExecutionQueue()
+	worker := NewWorker(queue, func(context.Context, TargetRef) error { return nil }, nil, nil)
+
+	worker.Stop()
+	worker.Start()
+	worker.Stop()
+
+	worker.lifecycleMu.Lock()
+	defer worker.lifecycleMu.Unlock()
+	if worker.started {
+		t.Fatal("worker started after it had already stopped")
+	}
+}
+
+func TestWorkerStopContextHonorsDeadline(t *testing.T) {
+	queue := NewExecutionQueue()
+	started := make(chan struct{})
+	release := make(chan struct{})
+	worker := NewWorker(queue, func(context.Context, TargetRef) error {
+		close(started)
+		<-release
+		return nil
+	}, nil, nil)
+	worker.Start()
+	queue.Enqueue(QueuedRun{Targets: []TargetRef{{ID: "blocked"}}})
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("worker did not start blocked run")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := worker.StopContext(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("StopContext error=%v, want deadline exceeded", err)
+	}
+	close(release)
+	worker.Stop()
+}
+
+func TestWorkerDoesNotStartRunAfterLifetimeCancellation(t *testing.T) {
+	queue := NewExecutionQueue()
+	var calls atomic.Int32
+	worker := NewWorker(queue, func(context.Context, TargetRef) error {
+		calls.Add(1)
+		return nil
+	}, nil, nil)
+
+	worker.cancelAll()
+	worker.executeRun(QueuedRun{Targets: []TargetRef{{ID: "too-late"}}})
+	if calls.Load() != 0 {
+		t.Fatal("run started after worker lifetime was canceled")
+	}
+}

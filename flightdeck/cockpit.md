@@ -1,10 +1,10 @@
 # Cockpit — YHFish
 
-Focus: **正在执行 Go 后端面向大型、多平台开源项目的升级方案；质量基线、CI/release、canonical module identity 已完成，当前收敛平台边界与宿主 GUI 门禁。** 本地 `main` 已分批提交，尚未推送。
+Focus: **正在执行 Go 后端面向大型、多平台开源项目的升级方案；平台边界与 GUI 编译门禁已落地，当前进入统一 application runtime 生命周期。** 本地 `main` 已分批提交，尚未推送。
 
 ## In flight
 
-- [work/go-backend-architecture-review/](work/go-backend-architecture-review/) — **升级实施中**。审查报告与完整修复方案已完成；批次 A-C 已落地并验证。批次 D 已闭合 backend 的 Win32/Wails seam、将 bound service 收窄为真实 RPC，并新增 Ubuntu 24.04 amd64 与 macOS 15 arm64 原生 GUI compile gate；下一步观察首次远端运行并设计最小宿主 smoke。
+- [work/go-backend-architecture-review/](work/go-backend-architecture-review/) — **升级实施中**。批次 D 已闭合 backend 的 Win32/Wails seam、收窄真实 RPC 并定义 Linux/macOS GUI compile gate；批次 E 首批已让统一 runtime 接管 Worker、MCP HTTP、ScheduleDaemon 的顺序启动、失败回滚和逆序关闭。下一步纳入 hotkey/recording/calibration/tools，并等待 GUI job 首次远端运行。
 - [work/type-aware-inline-node-menu/](work/type-aware-inline-node-menu/) — **已实现并验证**。pin 拖到空白时按 exec/data、方向和 pin 类型过滤可创建节点；覆盖 `number` / `bool` / `string` / `point` / `any` / `list` / `file` 全类型测试。候选列表使用 strict 兼容，只收精确类型或 `any`，不会因为 `number -> string/bool` 这类 warning 转换显示大量无关节点。exec 的 `Done` / `Fail` 等口只显示可执行节点，排除纯数据/参数转换/视觉/marker 节点；普通画布菜单保留 `CommentBox`。自动连线使用 `pinTypeCompat` 并优先精确 pin 匹配，已跑相关 Vitest 和 `pnpm typecheck`。
 - [work/node-io-json-fetch-plan/](work/node-io-json-fetch-plan/) — **首批节点已实现并验证**。新增 `ReadTextFile`、`ReadJsonFile`、`ParseJSON`、`ToJSON`、`JsonPath`、`Fetch`；`JSON` pin 语义改为任意 JSON 值并保留旧 object helper；已跑 `go build ./...`、节点/目录测试、`pnpm typecheck`、`pnpm i18n:check`、`task build`。
 
