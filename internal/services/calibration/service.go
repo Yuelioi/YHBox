@@ -1,6 +1,11 @@
 package calibration
 
-import "sync"
+import (
+	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
+)
 
 // VKF8 是 DPI 校准热键的出厂默认 (VK_F8); vkGetter 拿不到绑定时兜这个.
 const VKF8 = 0x77
@@ -11,17 +16,27 @@ type Service struct {
 	emit     func(name string, data any) // 广播 'calibration:toggle' 给前端
 	vkGetter func() uint32               // 读当前 F8 绑定的 vk (热键中心可 rebind)
 
-	hookMu sync.Mutex
-	hook   *HotkeyHook
+	hookMu       sync.Mutex
+	hook         *HotkeyHook
+	lifecycleMu  sync.Mutex
+	closed       atomic.Bool
+	shutdownOnce sync.Once
+	shutdownDone chan struct{}
+	shutdownErr  error
 }
 
 // NewService — emit 广播事件给前端, vkGetter 读当前校准热键 vk (可为 nil → 用 VK_F8).
 func NewService(emit func(name string, data any), vkGetter func() uint32) *Service {
-	return &Service{emit: emit, vkGetter: vkGetter}
+	return &Service{emit: emit, vkGetter: vkGetter, shutdownDone: make(chan struct{})}
 }
 
 // Start 启动校准（清零累积值，开始监听 raw mouse）。
 func (s *Service) Start() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.closed.Load() {
+		return errors.New("calibration service is closed")
+	}
 	Reset()
 	return Start()
 }
@@ -35,6 +50,11 @@ func (s *Service) Status() State { return Get() }
 // StartHotkeyWatch 校准窗打开时调: 装 F8 LL hook, 命中 emit 'calibration:toggle'。
 // 装钩失败返 error (杀软拦截等)。先停旧的再装, 防快速开关双钩。
 func (s *Service) StartHotkeyWatch() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.closed.Load() {
+		return errors.New("calibration service is closed")
+	}
 	s.hookMu.Lock()
 	defer s.hookMu.Unlock()
 	if s.hook != nil {
@@ -66,5 +86,29 @@ func (s *Service) StopHotkeyWatch() {
 	if s.hook != nil {
 		s.hook.Stop()
 		s.hook = nil
+	}
+}
+
+// Shutdown releases the service-owned LL hook before stopping raw-input capture.
+// It stays outside the method set to avoid exposing lifecycle wiring as RPC.
+func Shutdown(ctx context.Context, s *Service) error {
+	s.shutdownOnce.Do(func() {
+		s.closed.Store(true)
+		go func() {
+			s.lifecycleMu.Lock()
+			s.StopHotkeyWatch()
+			_, err := s.Stop()
+			s.shutdownErr = err
+			s.lifecycleMu.Unlock()
+			close(s.shutdownDone)
+		}()
+	})
+	select {
+	case <-s.shutdownDone:
+		s.lifecycleMu.Lock()
+		defer s.lifecycleMu.Unlock()
+		return s.shutdownErr
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

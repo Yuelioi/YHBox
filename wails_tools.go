@@ -25,6 +25,12 @@ func (p *wailsToolsPresenter) Attach(app *application.App) {
 	p.mu.Unlock()
 }
 
+func (p *wailsToolsPresenter) Detach() {
+	p.mu.Lock()
+	p.app = nil
+	p.mu.Unlock()
+}
+
 func (p *wailsToolsPresenter) Ready() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

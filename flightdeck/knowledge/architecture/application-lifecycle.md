@@ -1,5 +1,5 @@
 # Application runtime 生命周期
-SUMMARY: 后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前首批顺序为 Worker → MCP HTTP → ScheduleDaemon，关闭反向执行后才 drain presentation/log。
+SUMMARY: 后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前顺序为 Worker → hotkey → MCP HTTP → ScheduleDaemon → recording → calibration → tools，关闭反向执行后才 drain application/log。
 READ WHEN: 新增后台 goroutine、HTTP server、cron、hotkey/hook、worker；修改 main 启动/退出；实现 Start/Close/Shutdown；排查端口占用、退出卡住、held input 或 goroutine 泄漏
 RECHECK WHEN: application runtime 新增资源；调整 shutdown timeout；资源 Close 不再遵守 context；Wails lifecycle API 改变
 
@@ -13,6 +13,9 @@ RECHECK WHEN: application runtime 新增资源；调整 shutdown timeout；资�
 - Worker 的每个 run 从 worker lifetime context 派生。Stop 先取消 lifetime，再关 queue/stop channel；这样 queued→active 的过渡窗口也不可能产生未取消的新 run。
 - HTTP server 必须先同步 `net.Listen`，端口占用直接使 Start 失败。请求使用独立 server lifetime，不能继承短期 Start deadline；Close cancel lifetime，再 graceful shutdown，超时则 force close。`Done` 是稳定广播，错误从 `Err` 读取。
 - Schedule Stop 先拒绝新 fire，再注销全部 hotkey、移除 cron，并聚合 cleanup error；Reload 在未 Start 或已 Stop 时不动作。
+- hotkey/recording/calibration/tools 是按需启动 native 资源的 service，因此 runtime 的 Start 仅声明 ownership，Close 才执行真正的 shutdown。关闭后必须永久拒绝新 binding、hook、录制和窗口。
+- tools 先取消临时捕获热键，同时关闭现有窗口并让 in-flight open 观察 generation cancellation；两条清理路径不能互相阻塞。校准 HUD 的兜底回调先卸 LL hook/停 raw input，随后 calibration Shutdown 再做幂等确认。
+- recording 退出使用 Cancel，不把未完成事件持久化成 clip/subgraph；若 shutdown 在 native Stop drain 期间到达，Stop 必须在持久化前丢弃结果。hotkey 的部分注销失败保留 binding ownership，Shutdown 必须重试所有残留 binding 并报告最终错误。
 - Wails Run 无论成功或失败，都先关闭 application runtime，再调用 `App.Shutdown` 排空 presentation/log，最后才返回/退出进程。
 
-当前 owner 只覆盖 Worker、MCP HTTP、ScheduleDaemon。hotkey manager/registry、recording、calibration 与 tools secondary windows 仍须在后续批次纳入；在此之前不能宣称批次 E 完成。
+声明顺序决定依赖，实际关闭顺序为 tools → calibration → recording → ScheduleDaemon → MCP HTTP → hotkey → Worker。Schedule 注销时 registry 仍然存活；hotkey 又先于 Worker 关闭，避免退出期继续产生新 run。`wailsToolsPresenter` 在 tools 清理后 detach，阻止退出期继续向 GUI 发事件；App/LogSink 仍由 executable application owner 在 runtime 全部关闭后统一 drain。

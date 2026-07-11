@@ -1,8 +1,11 @@
 package tools
 
-import "errors"
+import (
+	"errors"
+	"sync/atomic"
 
-import "sync/atomic"
+	"github.com/yottaapp/yotta/internal/apperr"
+)
 
 // windowSlot serializes one semantic window's open/close generations.
 // Service.mu protects every field.
@@ -13,12 +16,13 @@ type windowSlot struct {
 }
 
 type windowOpenAttempt struct {
-	generation uint64
-	done       chan struct{}
-	waiters    int
-	window     Window
-	opened     bool
-	err        error
+	generation  uint64
+	done        chan struct{}
+	cleanupDone chan struct{}
+	waiters     int
+	window      Window
+	opened      bool
+	err         error
 }
 
 func (s *Service) openWindow(
@@ -28,6 +32,10 @@ func (s *Service) openWindow(
 	onCurrentClose func(),
 ) (Window, bool, error) {
 	s.mu.Lock()
+	if s.closed.Load() {
+		s.mu.Unlock()
+		return nil, false, apperr.New(apperr.CodeWailsNotReady, nil)
+	}
 	if slot.window != nil {
 		window := slot.window
 		s.mu.Unlock()
@@ -41,8 +49,9 @@ func (s *Service) openWindow(
 	}
 	slot.generation++
 	attempt := &windowOpenAttempt{
-		generation: slot.generation,
-		done:       make(chan struct{}),
+		generation:  slot.generation,
+		done:        make(chan struct{}),
+		cleanupDone: make(chan struct{}),
 	}
 	slot.opening = attempt
 	s.mu.Unlock()
@@ -70,6 +79,7 @@ func (s *Service) openWindow(
 			}
 			s.mu.Unlock()
 		}
+		close(attempt.cleanupDone)
 		return nil, false, err
 	}
 
@@ -97,9 +107,9 @@ func (s *Service) openWindow(
 	s.mu.Unlock()
 
 	if cancelled {
-		s.mu.Lock()
+		// Release callers before invoking cleanup callbacks: cleanup is allowed
+		// to re-enter presentation APIs. Shutdown waits on cleanupDone instead.
 		close(attempt.done)
-		s.mu.Unlock()
 		window.Close()
 		if onCurrentClose != nil {
 			onCurrentClose()
@@ -109,6 +119,7 @@ func (s *Service) openWindow(
 			slot.opening = nil
 		}
 		s.mu.Unlock()
+		close(attempt.cleanupDone)
 		return nil, false, nil
 	}
 
@@ -116,6 +127,7 @@ func (s *Service) openWindow(
 	slot.opening = nil
 	close(attempt.done)
 	s.mu.Unlock()
+	close(attempt.cleanupDone)
 	return window, true, nil
 }
 

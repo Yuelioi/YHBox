@@ -1,10 +1,12 @@
 package hotkey
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // HotkeyRegistry 是所有热键的中央 manifest。
@@ -94,15 +96,22 @@ type HotkeyRegistry struct {
 	onSystemHotkeyChange    func(key, newStr string) error
 	onContainerHotkeyChange func(containerID, newStr string) error
 	emitChanged             func()
+	closed                  atomic.Bool
+	shutdownOnce            sync.Once
+	shutdownDone            chan struct{}
+	shutdownErr             error
 }
 
 // NewHotkeyRegistry 构造。
 func NewHotkeyRegistry(mgr *HotkeyManager) *HotkeyRegistry {
 	return &HotkeyRegistry{
-		manager: mgr,
-		entries: map[string]*registryEntry{},
+		manager:      mgr,
+		entries:      map[string]*registryEntry{},
+		shutdownDone: make(chan struct{}),
 	}
 }
+
+var ErrRegistryClosed = errors.New("hotkey registry is closed")
 
 // SetCallbacks 注入持久化 / emit 回调。main.go 启动期调一次。
 func (r *HotkeyRegistry) SetCallbacks(
@@ -137,6 +146,9 @@ func (r *HotkeyRegistry) SetContainerHotkeyChange(fn func(containerID, newStr st
 func (r *HotkeyRegistry) Register(key string, source HotkeySource, label string, labelParams map[string]string, hotkeyStr, readonlyReason string, onFire func()) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
 	if _, exists := r.entries[key]; exists {
 		return ErrDuplicateKey
 	}
@@ -219,6 +231,9 @@ func (r *HotkeyRegistry) DebugDump() string {
 func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
 	entry, ok := r.entries[key]
 	if !ok {
 		return fmt.Errorf("hotkey registry: key %q not found", key)
@@ -374,9 +389,13 @@ func (r *HotkeyRegistry) Unregister(key string) error {
 func (r *HotkeyRegistry) Pause() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.paused {
-		return nil
+	if r.closed.Load() {
+		return ErrRegistryClosed
 	}
+	return r.pauseLocked()
+}
+
+func (r *HotkeyRegistry) pauseLocked() error {
 	var errs []error
 	for key, e := range r.entries {
 		if e.bindingID != 0 {
@@ -387,6 +406,9 @@ func (r *HotkeyRegistry) Pause() error {
 			e.bindingID = 0
 		}
 	}
+	// Even a partial pause must enter the paused state so Resume can restore
+	// entries whose unregister succeeded. pauseLocked still scans non-zero
+	// bindings on every call, allowing Shutdown to retry failures.
 	r.paused = true
 	return errors.Join(errs...)
 }
@@ -398,6 +420,9 @@ func (r *HotkeyRegistry) Pause() error {
 func (r *HotkeyRegistry) Resume() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
 	if !r.paused {
 		return nil
 	}
@@ -453,6 +478,9 @@ func (r *HotkeyRegistry) Resume() error {
 func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
 	if _, exists := r.entries[key]; exists {
 		return ErrDuplicateKey
 	}
@@ -515,6 +543,9 @@ func (r *HotkeyRegistry) RegisterEditor(key, label, hotkeyStr, readonlyReason st
 func (r *HotkeyRegistry) RegisterLLHook(key string, source HotkeySource, label, hotkeyStr, readonlyReason string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closed.Load() {
+		return ErrRegistryClosed
+	}
 	if _, exists := r.entries[key]; exists {
 		return ErrDuplicateKey
 	}
@@ -544,6 +575,29 @@ func (r *HotkeyRegistry) RegisterLLHook(key string, source HotkeySource, label, 
 		r.emitChanged()
 	}
 	return nil
+}
+
+// Shutdown permanently rejects new registrations and removes every OS-global
+// binding. Callers may stop waiting on ctx while cleanup continues once.
+func (r *HotkeyRegistry) Shutdown(ctx context.Context) error {
+	r.shutdownOnce.Do(func() {
+		r.closed.Store(true)
+		go func() {
+			r.mu.Lock()
+			err := r.pauseLocked()
+			r.shutdownErr = err
+			r.mu.Unlock()
+			close(r.shutdownDone)
+		}()
+	})
+	select {
+	case <-r.shutdownDone:
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		return r.shutdownErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // SyncLabel 修改某 entry 的展示 label（ActionService rename 时调）。

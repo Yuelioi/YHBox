@@ -1,8 +1,11 @@
 package tools
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/apperr"
@@ -45,6 +48,10 @@ type Service struct {
 	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
 	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWin32WindowTargetCapture 回退 F9。
 	captureHotkey func() (mods, vk uint32)
+	closed        atomic.Bool
+	shutdownOnce  sync.Once
+	shutdownDone  chan struct{}
+	shutdownErr   error
 }
 
 func NewService(resolver WindowResolver, presenter Presenter) *Service {
@@ -53,6 +60,7 @@ func NewService(resolver WindowResolver, presenter Presenter) *Service {
 		presenter:     presenter,
 		winCache:      map[string]cachedWindow{},
 		pickerWindows: map[string]*windowSlot{},
+		shutdownDone:  make(chan struct{}),
 	}
 	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindWin32Window: win32TargetToolAdapter{service: s},
@@ -100,10 +108,89 @@ func ConfigureCaptureHotkeyGetter(s *Service, getter func() (mods, vk uint32)) {
 }
 
 func (s *Service) windowPresenter() Presenter {
-	if s.presenter == nil || !s.presenter.Ready() {
+	s.mu.Lock()
+	presenter := s.presenter
+	s.mu.Unlock()
+	if s.closed.Load() || presenter == nil || !presenter.Ready() {
 		return nil
 	}
-	return s.presenter
+	return presenter
+}
+
+// Shutdown closes every secondary window, waits for in-flight opens to observe
+// cancellation, and releases the temporary Win32 capture hotkey.
+func Shutdown(ctx context.Context, s *Service) error {
+	s.shutdownOnce.Do(func() {
+		s.closed.Store(true)
+		go s.shutdown()
+	})
+	select {
+	case <-s.shutdownDone:
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.shutdownErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *Service) shutdown() {
+	s.mu.Lock()
+	s.launcherVisible = false
+
+	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher}
+	for _, slot := range s.pickerWindows {
+		if slot != nil {
+			slots = append(slots, slot)
+		}
+	}
+	s.pickerWindows = map[string]*windowSlot{}
+	windows := make([]Window, 0, len(slots))
+	attempts := make([]*windowOpenAttempt, 0, len(slots))
+	calibratorActive := false
+	for _, slot := range slots {
+		// A completed window no longer owns its closing callback after the
+		// generation bump below, so run that cleanup here. An in-flight open
+		// performs the same cleanup in openWindowSlot after it observes cancel.
+		if slot == &s.calibratorHUD && slot.window != nil {
+			calibratorActive = true
+		}
+		slot.generation++
+		if slot.window != nil {
+			windows = append(windows, slot.window)
+			slot.window = nil
+		}
+		if slot.opening != nil {
+			attempts = append(attempts, slot.opening)
+		}
+	}
+	calibratorClose := s.onCalibratorClose
+	s.mu.Unlock()
+
+	captureDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		captureDone <- shutdownWin32WindowTargetCapture(ctx)
+	}()
+	for _, window := range windows {
+		window.Close()
+	}
+	if calibratorActive && calibratorClose != nil {
+		calibratorClose()
+	}
+	for _, attempt := range attempts {
+		<-attempt.cleanupDone
+	}
+	var errs []error
+	if err := <-captureDone; err != nil {
+		errs = append(errs, err)
+	}
+	joined := errors.Join(errs...)
+	s.mu.Lock()
+	s.shutdownErr = joined
+	s.mu.Unlock()
+	close(s.shutdownDone)
 }
 
 // MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
@@ -382,18 +469,21 @@ func (s *Service) StartWin32WindowTargetCapture() (string, error) {
 	if err := win32WindowCaptureSupported(); err != nil {
 		return "", err
 	}
-	var mods, vk uint32
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return "", apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	var mods, vk uint32
 	getter := s.captureHotkey
-	s.mu.Unlock()
 	if getter != nil {
 		mods, vk = getter()
 	}
 	if vk == 0 {
 		mods, vk = 0, 0x78 // VK_F9 回退
 	}
-	presenter := s.windowPresenter()
-	if presenter == nil {
+	presenter := s.presenter
+	if presenter == nil || !presenter.Ready() {
 		return "", apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	return startWin32WindowTargetCapture(mods, vk, func(name string, data any) {

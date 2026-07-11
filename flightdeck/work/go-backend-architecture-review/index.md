@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；批次 E 已开始统一应用生命周期。
+升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；批次 E 的后台与交互资源已纳入统一应用生命周期。
 
 ## Next
 
-继续批次 E：把 hotkey、recording、calibration 与 tools presentation 纳入 application runtime owner；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
+继续批次 E：审计 executable App/LogSink 最终 drain、活动 automation held-input 释放与退出故障注入；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
 
 ## Read now
 
@@ -32,10 +32,11 @@
 Current:
 
 - `plan.md` 阶段 2 / 批次 E；批次 D 的首次远端 GUI runner 验证并行待办。
-- `internal/appruntime` 已成为 Worker、MCP HTTP 与 ScheduleDaemon 的首个统一 owner；启动顺序固定，失败会逆序 rollback，正常退出逆序关闭并在最后 drain presentation/log。
+- `internal/appruntime` 已接管 Worker、MCP HTTP、ScheduleDaemon、hotkey、recording、calibration 与 tools presentation；下一步闭合 App/LogSink 最终 drain 与 held-input 退出证据。
 
 Done:
 
+- 批次 E（第二批）：runtime ownership 扩展到 hotkey registry、recording、calibration 与 tools presentation；逆序关闭会先取消临时 capture、关闭/等待 secondary windows、停止校准与录制 hook，再释放中央 hotkey。关闭后的服务拒绝新 native 资源，录制退出 Cancel 且 finalizing drain 后不再落半成品。
 - 批次 E（首批）：新增 application runtime 状态机与 managed HTTP server；构造完成后统一启动 Worker→MCP→Schedule，MCP bind error 同步失败并触发 rollback；Wails 正常/错误退出都按 Schedule→MCP→Worker 关闭。Worker 使用 lifetime context 闭合 queued→active shutdown 竞态，Worker/Schedule/HTTP Close 均幂等且响应 context。
 - 批次 D（第十三批）：将 16 个启动期 callback/interface 注入方法移出 Wails service 方法集，bindings 收敛到 107 methods / 0 warnings，并让 CI 拒绝 warning 回归；同时修复 LogSink 按 seq 生成却并发乱序交付及 shutdown 不等待尾日志的问题。
 - 批次 D（第十二批）：新增 Ubuntu 24.04 amd64 与 macOS 15 arm64 原生 GUI compile gate；安装宿主依赖、核对实际 Wails CLI、生成 bindings/frontend、以 production tag 编译并归档 Unix 产物。
@@ -100,6 +101,8 @@ Verified:
 - E 首批定向验证：`appruntime`、execution、schedule 与 root tests 通过；三包 race 通过。Runtime 并发 Start/Close wait、rollback deadline、HTTP start deadline/request lifetime、并发 Close context、stable Done、Worker late-run cancellation、Schedule cleanup error/pre-start Reload 均有回归测试。
 - E 首批双轴 review：修复 Worker queued→active 取消窗口；Runtime 状态等待改为 context-aware broadcast，rollback 使用独立 5s 上限；HTTP request lifetime 与 Start ctx 解耦、Done/Err 广播且并发 Close 各自遵守 deadline；HotkeyRegistry 不再吞 native unregister error或删除仍有 binding 的 entry；最终 Standards/Spec 均无剩余 finding。
 - E 首批最终门禁：串行文件 I/O 环境下全仓 `go test -p 1 ./... -count=1`、`go vet ./...`、`staticcheck ./...`、appruntime/hotkey/execution/schedule race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过。
+- E 第二批双轴 review：修复窗口取消 cleanup 的重入死锁并分离 caller/cleanup barrier；线性化 shutdown 与 in-flight open/capture；部分 hotkey Pause 失败后 Shutdown 重试残留 binding；recording 在 native Stop drain 后再次检查 shutdown intent，禁止退出期持久化；capture cancellation 有界且不阻塞窗口/校准清理。
+- E 第二批最终门禁：全仓串行 atomic coverage、`go vet ./...`、`staticcheck ./...`、hotkey/recording/calibration/tools race、Wails 107 methods / 0 warnings、版本校验与 `git diff --check` 通过；本批使 hotkey、recording、calibration、tools statement coverage 分别达到 78.9%、36.1%、24.1%、50.2%。
 
 ## Open questions
 

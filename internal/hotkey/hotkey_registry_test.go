@@ -356,3 +356,103 @@ func TestResumeSkipsLLHook(t *testing.T) {
 	}
 	_ = r.Unregister("recording.stop")
 }
+
+func TestRegistryShutdownReleasesBindingsAndRejectsNewWork(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	r := NewHotkeyRegistry(mgr)
+	if err := r.Register("system.shutdown-test", HotkeySourceSystem, "shutdown", nil,
+		"Ctrl+Shift+Alt+F10", "", func() {}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := r.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Shutdown(context.Background()); err != nil {
+		t.Fatalf("second Shutdown() error = %v", err)
+	}
+	r.mu.RLock()
+	bindingID := r.entries["system.shutdown-test"].bindingID
+	r.mu.RUnlock()
+	if bindingID != 0 {
+		t.Fatalf("binding remains after shutdown: %d", bindingID)
+	}
+
+	for name, err := range map[string]error{
+		"register": r.Register("late", HotkeySourceSystem, "late", nil, "", "", nil),
+		"update":   r.Update("system.shutdown-test", ""),
+		"pause":    r.Pause(),
+		"resume":   r.Resume(),
+	} {
+		if !errors.Is(err, ErrRegistryClosed) {
+			t.Fatalf("%s error = %v, want ErrRegistryClosed", name, err)
+		}
+	}
+}
+
+func TestRegistryShutdownRetriesBindingsLeftByPartialPauseFailure(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	loopCalls := 0
+	mgr.runLoop = func(ctx context.Context, specs []HotkeySpec, handler func(int), ready chan<- error, done chan<- struct{}) {
+		loopCalls++
+		if loopCalls == 3 {
+			ready <- errors.New("transient native rebuild failure")
+			close(done)
+			return
+		}
+		runTestHotkeyLoop(ctx, specs, handler, ready, done)
+	}
+	r := NewHotkeyRegistry(mgr)
+	for _, entry := range []struct{ key, hotkey string }{
+		{"system.first", "Ctrl+Shift+Alt+F10"},
+		{"system.second", "Ctrl+Shift+Alt+F11"},
+	} {
+		if err := r.Register(entry.key, HotkeySourceSystem, entry.key, nil, entry.hotkey, "", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := r.Pause(); err == nil {
+		t.Fatal("Pause() error = nil, want transient unregister failure")
+	}
+	if err := r.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() retry error = %v", err)
+	}
+	if bindings := mgr.Bindings(); len(bindings) != 0 {
+		t.Fatalf("manager bindings after shutdown = %+v", bindings)
+	}
+}
+
+func TestRegistryResumeRestoresBindingsAfterPartialPauseFailure(t *testing.T) {
+	mgr := newTestHotkeyManager()
+	loopCalls := 0
+	mgr.runLoop = func(ctx context.Context, specs []HotkeySpec, handler func(int), ready chan<- error, done chan<- struct{}) {
+		loopCalls++
+		if loopCalls == 3 {
+			ready <- errors.New("transient native rebuild failure")
+			close(done)
+			return
+		}
+		runTestHotkeyLoop(ctx, specs, handler, ready, done)
+	}
+	r := NewHotkeyRegistry(mgr)
+	for _, entry := range []struct{ key, hotkey string }{
+		{"system.first", "Ctrl+Shift+Alt+F10"},
+		{"system.second", "Ctrl+Shift+Alt+F11"},
+	} {
+		if err := r.Register(entry.key, HotkeySourceSystem, entry.key, nil, entry.hotkey, "", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := r.Pause(); err == nil {
+		t.Fatal("Pause() error = nil, want transient unregister failure")
+	}
+	if err := r.Resume(); err != nil {
+		t.Fatalf("Resume() error = %v", err)
+	}
+	if bindings := mgr.Bindings(); len(bindings) != 2 {
+		t.Fatalf("manager bindings after Resume = %+v", bindings)
+	}
+	if err := r.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,12 +1,78 @@
 package tools
 
 import (
+	"context"
 	"errors"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestShutdownClosesWindowsAndRejectsNewPresentationWork(t *testing.T) {
+	presenter := &fakePresenter{ready: true}
+	service := NewService(nil, presenter)
+	cleanupCalls := 0
+	ConfigureCalibratorCloseHandler(service, func() { cleanupCalls++ })
+	if _, err := service.OpenCalibratorHUD("request"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Shutdown(context.Background(), service); err != nil {
+		t.Fatal(err)
+	}
+	if err := Shutdown(context.Background(), service); err != nil {
+		t.Fatalf("second Shutdown() error = %v", err)
+	}
+	if presenter.window.closeCalls != 1 {
+		t.Fatalf("window close calls = %d", presenter.window.closeCalls)
+	}
+	if cleanupCalls != 1 {
+		t.Fatalf("calibrator cleanup calls = %d", cleanupCalls)
+	}
+	if err := service.OpenMouseHUD("late"); err == nil {
+		t.Fatal("OpenMouseHUD() after shutdown returned nil error")
+	}
+}
+
+func TestShutdownWaitIsContextBoundedWhileOpenCleanupContinues(t *testing.T) {
+	presenter := &blockingPresenter{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	service := NewService(nil, presenter)
+	openResult := make(chan error, 1)
+	go func() { openResult <- service.OpenMouseHUD("container") }()
+	select {
+	case <-presenter.started:
+	case <-time.After(time.Second):
+		t.Fatal("OpenMouseHUD() did not reach presenter")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if err := Shutdown(ctx, service); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Shutdown() error = %v, want deadline exceeded", err)
+	}
+	close(presenter.release)
+	select {
+	case err := <-openResult:
+		if err != nil {
+			t.Fatalf("cancelled OpenMouseHUD() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancelled OpenMouseHUD() did not return")
+	}
+	if err := Shutdown(context.Background(), service); err != nil {
+		t.Fatalf("eventual Shutdown() error = %v", err)
+	}
+	presenter.mu.Lock()
+	window := presenter.window
+	presenter.mu.Unlock()
+	if window == nil || window.closeCalls != 1 {
+		t.Fatalf("cancelled in-flight window = %+v", window)
+	}
+}
 
 type fakePresenter struct {
 	ready    bool

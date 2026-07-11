@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"runtime"
@@ -26,6 +27,7 @@ type captureSession struct {
 	cancel     chan struct{} // 主动 cancel 信号 (worker 收到后退出, 不 emit)
 	emit       func(name string, data any)
 	fired      atomic.Bool // 防重 emit (双触发 / cancel+触发竞态)
+	cancelOnce sync.Once
 }
 
 // activeCapture 全局当前活跃 capture session. nil = 无.
@@ -78,15 +80,27 @@ func cancelWin32WindowTargetCapture(id string) error {
 	if sess == nil || sess.id != id {
 		return nil
 	}
-	// 防止重复 close panic (双 cancel 路径)
-	select {
-	case <-sess.cancel:
-		// already canceled
-	default:
-		close(sess.cancel)
+	return cancelCaptureSession(context.Background(), sess)
+}
+
+func shutdownWin32WindowTargetCapture(ctx context.Context) error {
+	captureMu.Lock()
+	sess := activeCapture
+	captureMu.Unlock()
+	if sess == nil {
+		return nil
 	}
+	return cancelCaptureSession(ctx, sess)
+}
+
+func cancelCaptureSession(ctx context.Context, sess *captureSession) error {
+	sess.cancelOnce.Do(func() { close(sess.cancel) })
 	postQuitToThread(sess.threadID) // unblock GetMessage
-	<-sess.done                     // wait for worker exit
+	select {
+	case <-sess.done:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	captureMu.Lock()
 	if activeCapture == sess {
 		activeCapture = nil

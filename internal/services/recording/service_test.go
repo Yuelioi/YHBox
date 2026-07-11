@@ -1,10 +1,107 @@
 package recording
 
 import (
+	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
+
+type blockingStopRecorder struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (*blockingStopRecorder) SetMouseCounts360Getter(func() int) {}
+func (*blockingStopRecorder) Active() bool                       { return true }
+func (*blockingStopRecorder) Pause()                             {}
+func (*blockingStopRecorder) Resume()                            {}
+func (*blockingStopRecorder) Start(uintptr, inputclip.ClipMeta) (string, error) {
+	return "", nil
+}
+func (r *blockingStopRecorder) Stop() (*StopResult, error) {
+	close(r.started)
+	<-r.release
+	return &StopResult{
+		TempID: "partial",
+		Meta:   inputclip.ClipMeta{FilterMode: "precise"},
+	}, nil
+}
+func (*blockingStopRecorder) Cancel() {}
+
+type countingClipSaver struct{ calls int }
+
+func (s *countingClipSaver) Save(*inputclip.InputClip) error {
+	s.calls++
+	return nil
+}
+
+func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
+	s, _ := newTestService()
+	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container", TempID: "partial"})
+
+	if err := Shutdown(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	if err := Shutdown(context.Background(), s); err != nil {
+		t.Fatalf("second Shutdown() error = %v", err)
+	}
+	if state := s.GetState(); state.Phase != PhaseIdle {
+		t.Fatalf("state after shutdown = %+v", state)
+	}
+	if _, err := s.Start(StartArgs{ContainerID: "container"}); err == nil ||
+		!strings.Contains(err.Error(), "closed") {
+		t.Fatalf("Start() after shutdown error = %v, want closed", err)
+	}
+}
+
+func TestShutdownDuringFinalizingDiscardsRecorderResult(t *testing.T) {
+	recorder := &blockingStopRecorder{started: make(chan struct{}), release: make(chan struct{})}
+	saver := &countingClipSaver{}
+	s := NewService(recorder, nil, saver)
+	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container", TempID: "partial"})
+	stopResult := make(chan error, 1)
+	go func() {
+		_, err := s.Stop()
+		stopResult <- err
+	}()
+	select {
+	case <-recorder.started:
+	case <-time.After(time.Second):
+		t.Fatal("Stop() did not enter recorder drain")
+	}
+	shutdownResult := make(chan error, 1)
+	go func() { shutdownResult <- Shutdown(context.Background(), s) }()
+	deadline := time.Now().Add(time.Second)
+	for !s.closed.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("Shutdown() did not publish cancellation intent")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	close(recorder.release)
+	for name, result := range map[string]<-chan error{
+		"stop": stopResult, "shutdown": shutdownResult,
+	} {
+		select {
+		case err := <-result:
+			if err != nil {
+				t.Fatalf("%s error = %v", name, err)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("%s did not return", name)
+		}
+	}
+	if saver.calls != 0 {
+		t.Fatalf("clip saves during shutdown = %d", saver.calls)
+	}
+	if state := s.GetState(); state.Phase != PhaseIdle {
+		t.Fatalf("final state = %+v", state)
+	}
+}
 
 // 状态机 + 幂等性单测. 不碰真 OS hook — 只验 Service 的状态转换/幂等/事件广播逻辑.
 

@@ -343,19 +343,6 @@ func main() {
 	// ScheduleDaemon：注册 enabled schedules 到 cron/hotkey/once，触发后入 queue
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
 	scheduleDaemon := schedule.NewDaemon(scheduleStore, execQueue, scheduleHotkeyAdapter)
-	applicationRuntime := appruntime.New(
-		appruntime.Resource{
-			Name:  "execution-worker",
-			Start: func(context.Context) error { worker.Start(); return nil },
-			Close: worker.StopContext,
-		},
-		mcpHTTP.Resource("mcp-http"),
-		appruntime.Resource{
-			Name:  "schedule-daemon",
-			Start: func(context.Context) error { scheduleDaemon.Start(); return nil },
-			Close: scheduleDaemon.StopContext,
-		},
-	)
 
 	// Schedule CRUD 后重注册 cron / hotkey trigger
 	schedule.ConfigureChangeListener(scheduleSvc, scheduleDaemon.Reload)
@@ -471,6 +458,46 @@ func main() {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", winCapHk).Msg("注册窗口捕获热键失败")
 	}
 
+	// Runtime resources are declared in dependency order and close in reverse:
+	// UI/tool activity first, then interactive hooks, producers, and the worker.
+	applicationRuntime := appruntime.New(
+		appruntime.Resource{
+			Name:  "execution-worker",
+			Start: func(context.Context) error { worker.Start(); return nil },
+			Close: worker.StopContext,
+		},
+		appruntime.Resource{
+			Name:  "hotkey-registry",
+			Start: func(context.Context) error { return nil },
+			Close: hotkeyRegistry.Shutdown,
+		},
+		mcpHTTP.Resource("mcp-http"),
+		appruntime.Resource{
+			Name:  "schedule-daemon",
+			Start: func(context.Context) error { scheduleDaemon.Start(); return nil },
+			Close: scheduleDaemon.StopContext,
+		},
+		appruntime.Resource{
+			Name:  "recording",
+			Start: func(context.Context) error { return nil },
+			Close: func(ctx context.Context) error { return recording.Shutdown(ctx, recordingSvc) },
+		},
+		appruntime.Resource{
+			Name:  "calibration",
+			Start: func(context.Context) error { return nil },
+			Close: func(ctx context.Context) error { return calibration.Shutdown(ctx, calibrationSvc) },
+		},
+		appruntime.Resource{
+			Name:  "tools-presentation",
+			Start: func(context.Context) error { return nil },
+			Close: func(ctx context.Context) error {
+				err := tools.Shutdown(ctx, toolsSvc)
+				toolsPresenter.Detach()
+				return err
+			},
+		},
+	)
+
 	wailsServices = append(wailsServices,
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
@@ -487,8 +514,6 @@ func main() {
 		application.NewService(codeSnippetSvc),
 		application.NewService(services.NewAIService()),
 	)
-	_ = scheduleDaemon // 防 import 未用
-
 	// wails3 application
 	wailsApp := application.New(application.Options{
 		Name:        "Yotta",

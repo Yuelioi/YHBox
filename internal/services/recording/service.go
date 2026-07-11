@@ -1,9 +1,11 @@
 package recording
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/apperr"
@@ -26,6 +28,10 @@ type SubgraphSaver interface {
 	Create(sg *container.Subgraph) error
 }
 
+type clipSaver interface {
+	Save(clip *inputclip.InputClip) error
+}
+
 // ContainerGetter 窄接口 — recording 拿 container 解析 Win32WindowTarget hwnd 用.
 // container.Store 已实现 Get(id) (Container, bool).
 type ContainerGetter interface {
@@ -43,22 +49,25 @@ type ContainerGetter interface {
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' {subgraphID|clipID, containerID, label, filterMode} | {error}.
 type Service struct {
-	rec          *Recorder
+	rec          recorderLifecycle
 	hkProv       HotkeySettingsProvider
-	clipSvc      *inputclip.Service
+	clipSvc      clipSaver
 	subgraphs    SubgraphSaver
 	containerGet ContainerGetter
 	emit         func(name string, data any)
 
-	mu      sync.Mutex   // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
-	stateMu sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
-	state   RecordingState
+	mu           sync.Mutex   // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
+	stateMu      sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
+	state        RecordingState
+	closed       atomic.Bool
+	shutdownOnce sync.Once
+	shutdownDone chan struct{}
 }
 
-func NewService(rec *Recorder, hkProv HotkeySettingsProvider, clipSvc *inputclip.Service) *Service {
+func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipSaver) *Service {
 	return &Service{
 		rec: rec, hkProv: hkProv, clipSvc: clipSvc,
-		state: RecordingState{Phase: PhaseIdle},
+		state: RecordingState{Phase: PhaseIdle}, shutdownDone: make(chan struct{}),
 	}
 }
 
@@ -117,6 +126,36 @@ func ConfigureSubgraphSaver(s *Service, saver SubgraphSaver) { s.subgraphs = sav
 // ConfigureContainerGetter injects target lookup used when a recording starts.
 func ConfigureContainerGetter(s *Service, getter ContainerGetter) { s.containerGet = getter }
 
+// Shutdown cancels an in-progress recording without persisting a partial asset.
+// It is a package function so lifecycle wiring does not become a Wails RPC.
+func Shutdown(ctx context.Context, s *Service) error {
+	s.shutdownOnce.Do(func() {
+		s.closed.Store(true)
+		go s.shutdown()
+	})
+	select {
+	case <-s.shutdownDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *Service) shutdown() {
+	s.mu.Lock()
+	wasActive := s.phase() != PhaseIdle
+	if wasActive {
+		s.rec.Cancel()
+		setActiveStopHotkey(0, nil)
+		setActivePauseHotkey(0, nil)
+	}
+	s.mu.Unlock()
+	if wasActive {
+		s.setState(RecordingState{Phase: PhaseIdle})
+	}
+	close(s.shutdownDone)
+}
+
 // ValidateTarget 录制前预检 — 解析容器 Win32WindowTarget 找窗口 (找不到返 error), 并把窗口拉到前台.
 // 前端在 3s 倒计时**之前**调: 没设/找不到窗口立刻报错 (不用等录完), 成功则游戏已置前台省去用户 Alt-Tab.
 // 纯预检 — 不装 hook 不起 recorder. Start 内仍保留同样校验作 race 兜底 (倒计时期间窗口可能消失).
@@ -157,6 +196,9 @@ type StartArgs struct {
 func (s *Service) Start(args StartArgs) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return "", errors.New("recording service is closed")
+	}
 
 	// 幂等: 已经在录 (或正在收尾) → 不重复启动, 返当前 tempID. 前端误触/重入无害.
 	if s.phase() != PhaseIdle {
@@ -243,6 +285,9 @@ func (s *Service) Start(args StartArgs) (string, error) {
 func (s *Service) Pause() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return nil
+	}
 	if s.phase() != PhaseRecording {
 		return nil
 	}
@@ -259,6 +304,9 @@ func (s *Service) Pause() error {
 func (s *Service) Resume() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return nil
+	}
 	if s.phase() != PhasePaused {
 		return nil
 	}
@@ -292,6 +340,9 @@ type StopResultPayload struct {
 func (s *Service) Stop() (*StopResultPayload, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return nil, nil
+	}
 
 	// 幂等: 仅 recording / paused 可停 (paused 直接停, 不必先 resume); idle / 已 finalizing → no-op.
 	// 杀掉 ErrRecorderNotActive 这个伪错误 — 陈旧/重复 stop 点击对前端无害.
@@ -319,6 +370,11 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 			return nil, nil
 		}
 		return nil, err
+	}
+	// Shutdown owns cancellation, not persistence. If it arrived while native
+	// Stop was draining, discard the result before creating any durable asset.
+	if s.closed.Load() {
+		return nil, nil
 	}
 
 	label := "录制 " + time.Now().Format("15:04")
