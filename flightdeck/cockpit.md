@@ -1,10 +1,10 @@
 # Cockpit — YHFish
 
-Focus: **正在执行 Go 后端面向大型、多平台开源项目的升级方案；节点 Registry 已实例化并贯穿运行链路，下一步完成 fuzz、安全与开源治理。** 本地 `main` 已分批提交，尚未推送。
+Focus: **Go 后端大型、多平台发布加固已在本地完成；等待推送后的三平台 CI 首跑与维护者许可证决策。** 本地 `main` 已分批提交，尚未推送。
 
 ## In flight
 
-- [work/go-backend-architecture-review/](work/go-backend-architecture-review/) — **升级实施中**。批次 D-G 已闭合 platform/lifecycle/durability 与 node runtime 深化；Registry 已支持独立实例、不可变快照与自定义节点全链路。下一步完成 fuzz/security/docs，同时等待 GUI job 首次远端运行。
+- [work/go-backend-architecture-review/](work/go-backend-architecture-review/) — **本地实施完成，外部验证待办**。批次 A-C、E-H 已闭合，D 的 platform seam 已实现；等待推送后 GUI CI 首跑。当前 LICENSE 仍是 source-available，若以 open-source 名义发布需维护者选择 OSI 许可证。
 - [work/type-aware-inline-node-menu/](work/type-aware-inline-node-menu/) — **已实现并验证**。pin 拖到空白时按 exec/data、方向和 pin 类型过滤可创建节点；覆盖 `number` / `bool` / `string` / `point` / `any` / `list` / `file` 全类型测试。候选列表使用 strict 兼容，只收精确类型或 `any`，不会因为 `number -> string/bool` 这类 warning 转换显示大量无关节点。exec 的 `Done` / `Fail` 等口只显示可执行节点，排除纯数据/参数转换/视觉/marker 节点；普通画布菜单保留 `CommentBox`。自动连线使用 `pinTypeCompat` 并优先精确 pin 匹配，已跑相关 Vitest 和 `pnpm typecheck`。
 - [work/node-io-json-fetch-plan/](work/node-io-json-fetch-plan/) — **首批节点已实现并验证**。新增 `ReadTextFile`、`ReadJsonFile`、`ParseJSON`、`ToJSON`、`JsonPath`、`Fetch`；`JSON` pin 语义改为任意 JSON 值并保留旧 object helper；已跑 `go build ./...`、节点/目录测试、`pnpm typecheck`、`pnpm i18n:check`、`task build`。
 

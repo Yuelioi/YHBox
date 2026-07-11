@@ -204,7 +204,7 @@
 
 ## 当前执行点
 
-批次 A-C、E、F 与 G 已完成；批次 D 的本地平台 seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。批次 G 已闭合 runtime capability guard、Ctx 收窄和可实例化 Registry；下一步执行批次 H 的 fuzz、安全与开源治理。
+批次 A-C、E-H 已完成；批次 D 的本地 platform seam、原生 GUI compile gate 定义均已落地，首次远端 runner 验证待推送。Go 版本已因 govulncheck 结果提升到 1.25.12；当前唯一发布策略待决是项目自身许可证仍为 source-available。
 
 ## 执行状态
 
@@ -215,4 +215,4 @@
 - [x] E — application runtime lifecycle
 - [x] F — settings/container durability
 - [x] G — Ctx/Registry 深化
-- [ ] H — fuzz/security/docs
+- [x] H — fuzz/security/docs

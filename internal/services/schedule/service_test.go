@@ -1,6 +1,9 @@
 package schedule
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestScheduleService_CreateDefault(t *testing.T) {
 	dir := t.TempDir()
@@ -36,6 +39,23 @@ func TestScheduleService_SaveAndList(t *testing.T) {
 	}
 	if len(svc.List()) != 1 {
 		t.Errorf("expected 1, got %d", len(svc.List()))
+	}
+}
+
+func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	svc := NewService(store)
+	want := errors.New("reload failed")
+	ConfigureChangeListener(svc, func() error { return want })
+	schedule, _ := svc.Create("x")
+	schedule.Targets = []TargetRef{{Kind: "container", ID: "c1"}}
+	if err := svc.Save(schedule); !errors.Is(err, want) {
+		t.Fatalf("Save error = %v, want reload failure", err)
+	} else {
+		var committed *PostCommitError
+		if !errors.As(err, &committed) || !committed.Committed() || committed.Operation != "save" {
+			t.Fatalf("Save error does not express partial commit: %T %v", err, err)
+		}
 	}
 }
 

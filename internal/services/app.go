@@ -269,7 +269,8 @@ func (a *App) GetLogSink() *LogSink { return a.logSink }
 // RootLogger 暴露给 service 使用 app 级别 logger（默认仅写 LogSink）。
 func (a *App) RootLogger() zerolog.Logger { return a.rootLog }
 
-// Shutdown 集中退出钩子。挂在 wails3 window close 钩子上。
+// Shutdown is the presentation/log finalization fallback. Application-wide
+// worker/server/daemon ownership and ordering live in appruntime.Runtime.
 func (a *App) Shutdown() { _ = a.ShutdownContext(context.Background()) }
 
 // ShutdownContext detaches presentation synchronously, then finalizes log

@@ -2,11 +2,11 @@
 
 ## State
 
-升级实施进行中。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C、E、F 已完成；批次 D 的本地平台 seam 与 GUI compile gate 定义已完成，首次远端 runner 验证待推送；下一步进入 Ctx/Registry 深化。
+本地升级实施完成。审查结论见 `review.md`，完整升级/修复方案见 `plan.md`。批次 A-C、E-H 已闭合；批次 D 的首次远端 GUI runner 验证待推送。项目自身许可证仍需维护者决定保留 source-available 或切换 OSI 许可证。
 
 ## Next
 
-进入批次 G：审计 Spec capability 声明与 assembly guard，收窄 runtime Ctx，并把 global node registry 收敛为可实例化 snapshot；同时保留 Linux/macOS GUI compile gate 首次远端运行与宿主 smoke 待办。
+提交后观察 Windows/Linux/macOS 远端 CI 首跑；发布前决定项目许可证，并启用 GitHub private vulnerability reporting。
 
 ## Read now
 
@@ -33,10 +33,13 @@
 
 Current:
 
-- `plan.md` 阶段 4 / 批次 G；批次 D 的首次远端 GUI runner 验证并行待办。
-- runtime capability assembly guard 与 Ctx 收窄已闭合；下一步实例化 Registry。
+- 本地计划全部完成；批次 D 的首次远端 GUI runner 验证仍依赖推送。
+- 当前发布决策仅剩项目许可证。
 
 Done:
+
+- 批次 H：graph rewrite/package metadata/expression/MCP params fuzz corpus；govulncheck 与第三方 license allowlist/report；Dependabot；threat model、架构、贡献、安全、平台和兼容文档。扫描发现 Go 1.25.1 标准库 22 条可达漏洞，升级到 1.25.12 后归零。
+- 批次 G（第三批）：Registry 可实例化并生成防御性不可变 snapshot；Store/validator/dependency/runtime/catalog/Script/MCP/NodeService 使用同一 generation；runner 私有 execution table 热路径零分配；测试不再 reset 全局 registry。
 
 - 批次 G（第二批）：Ctx 从 13 个逐项 service getter 收窄为 `Context/Now/Out/CaptureOutput/Services` 稳定核心；Services 按值返回并隐藏 framework Snapshot。所有节点与 Script 使用同一 bundle view，新增 adapter 不再扩张 Ctx 接口，automation 仍经 service→runtime adapter→controller capability seam。
 - 批次 G（首批）：Spec 显式声明 runtime service capability；engine 在节点代码前返回 typed AssemblyError，并保留 validation 优先级与 PureData error chain。完整 built-in capability matrix 覆盖共享 helper 间接依赖；Script bundle 补齐全部 service port 且不传播 framework Snapshot。

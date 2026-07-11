@@ -113,14 +113,18 @@ func (d *Daemon) StopContext(ctx context.Context) error {
 
 // Reload schedule.Update / Create / Delete 后调，重注册受影响的 schedule。
 // 简单粗暴：unregister all → register all。
-func (d *Daemon) Reload() {
+func (d *Daemon) Reload() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if !d.started || d.stopped {
-		return
+		return nil
 	}
+	var reloadErr error
 	for sid, hk := range d.hotkeyKs {
-		_ = d.hotkeys.Unregister(hk)
+		if err := d.hotkeys.Unregister(hk); err != nil {
+			reloadErr = errors.Join(reloadErr, fmt.Errorf("unregister schedule %s hotkey: %w", sid, err))
+			continue
+		}
 		delete(d.hotkeyKs, sid)
 	}
 	for sid, id := range d.cronIDs {
@@ -131,8 +135,14 @@ func (d *Daemon) Reload() {
 		if !s.Enabled {
 			continue
 		}
-		_ = d.registerLocked(&s)
+		if _, oldBindingStillActive := d.hotkeyKs[s.ID]; oldBindingStillActive {
+			continue
+		}
+		if err := d.registerLocked(&s); err != nil {
+			reloadErr = errors.Join(reloadErr, fmt.Errorf("register schedule %s: %w", s.ID, err))
+		}
 	}
+	return reloadErr
 }
 
 func (d *Daemon) registerLocked(s *Schedule) error {
@@ -216,7 +226,9 @@ func (d *Daemon) fire(scheduleID string, source execution.TriggerSource) error {
 	if cur, ok := d.store.Get(scheduleID); ok {
 		cur.LastFiredAt = &now
 		cur.LastStatus = "queued"
-		_ = d.store.Save(&cur)
+		if err := d.store.Save(&cur); err != nil {
+			return fmt.Errorf("persist schedule %s fired status: %w", scheduleID, err)
+		}
 	}
 	return nil
 }

@@ -14,7 +14,7 @@ RECHECK WHEN: 改 dispatch 失败路由 / Failf / NodeError / Coded 语义 / 集
 
 ## 三个核心概念（`internal/node/errorcodes.go`）
 
-1. **`ErrCode`**（snake_case 字面值）+ **集中注册表 `ErrorCodes`**：`launch_failed` / `capture_failed` / `write_failed` / `not_found` / `timeout` / `playback_failed` / `send_failed` / `thrown` / `subgraph_no_exit`（多出口子图跑干没到任何出口 marker）/ `subgraph_recursion`（子图调用嵌套超 32 层，防脚本动态递归）+ 兜底 `error`。常量 CamelCase（`CodeCaptureFailed` 等）。注册表是「推荐全集」，非强约束——用户 Throw 自填码、未来插件返非注册码仍合法。
+1. **`ErrCode`**（snake_case 字面值）+ **集中注册表 `ErrorCodes`**：权威全集在 `internal/node/errorcodes.go`，由 `NodeService.GetErrorCodes()` 暴露且有注册守卫测试；不要在知识文档手抄数量/全集。常量 CamelCase（`CodeCaptureFailed`、`CodeWindowInvalid` 等）。注册表是「推荐全集」，非强约束——用户 Throw 自填码、未来扩展返非注册码仍合法。
 2. **`Coded` 接口**：`interface{ ErrCode() ErrCode }`。**dispatch 失败路由的准入闸**——只有实现它的错误会被路由。`*NodeError` 和 `*ThrowError` 实现它。
 3. **`NodeError` + `Failf`**：
    ```go
@@ -52,14 +52,11 @@ dispatch **不猜**错误类型，靠类型机制分：
 
 **region 兜底是同一套机制**：Subgraph/Loop/CollapsedNode 的 `RunRegion` 裸 `return nil, err` 透传 body 错误（不 wrap，Coded 链完整），经同一个 `routeResult`（region 节点走 `execNodeAsRegionViaFramework` 也调它）路由到 region 自己的 Fail 出口。错误沿 RunRegion 调用栈逐层向外，**首个声明且接线的 Fail 出口消费**；中间没接线的 region 透传继续外冒。
 
-## 谁拿 Fail 出口（7 个）
+## 谁拿 Fail 出口
 
 `OutputSpec{Name:"Fail", Type:"Exec", Semantic:"error", Data:[{Error,String},{Code,String}]}`。
 
-- **curated 4 个**（值得就地处理的独立失败）：RunProgram(`launch_failed`)、Screenshot(`write_failed`/`capture_failed`)、Win32WindowTarget(`not_found`)、PlayClip(`playback_failed`)。
-- **region 3 个**：Subgraph、Loop、CollapsedNode（透传内部 Code）。
-
-**其余 ~15 个运行时可失败节点不拿引脚**（DetectColor/模板/输入类等）——失败多是「目标窗没了」同根因，靠整块 region 兜；但**仍改 `Failf` 带码**，冒到 region Fail 出口时 Code 有意义。
+Fail 出口是 Spec 的生成事实，不在本文维护静态数量。运行 `go run ./cmd/node-catalog export` 查询当前节点目录；所有 `Semantic:"error"` 的 exec output 都受同一 dispatch 规则约束。独立 IO/窗口/AI/脚本节点可以就地处理，Subgraph/Loop/ForEach/CollapsedNode 等 region 可作为整块兜底；没有 Fail pin 的节点仍可用 `Failf` 保留 Code 并向外冒泡。
 
 > ⚠️ **WaitWindow 不拿 Fail 出口**：它「找不到窗」走的是 **Timeout 结果分支**（不是 error），`return nil, err` 只剩配置错/取消。结果分支 ≠ 错误——别给它加 Fail（否则是永不触发的死引脚）。这是「预期内的另一种结果用结果分支、error 专指意外故障」原则的体现。
 

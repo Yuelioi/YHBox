@@ -7,6 +7,8 @@
 
 ## 结论
 
+> 2026-07-11 实施后复核：报告下列 G0-G10 技术项已按 `plan.md` 分批修复并通过本地 test/vet/staticcheck/race/coverage 与双轴 review。新增三平台 CI、生命周期 owner、durable settings/container、runtime capability guard、窄 Ctx、实例 Registry、fuzz 与供应链治理。govulncheck 曾发现 Go 1.25.1 标准库 22 条可达漏洞，提升到 Go 1.25.12 后为 0。尚未完成的外部事实只有未推送所以远端 GUI job 未首跑；战略上当前 LICENSE 禁止商业使用，准确属性仍是 source-available，不是 OSI open source。
+
 如果把 Yotta 评价为“Windows 桌面自动化产品”，后端已经有一批可靠基础：节点 capability 契约严格、错误有结构化路由、controller 已开始按能力拆分、单文件持久化多数采用原子替换、核心 package 的测试密度不低。
 
 如果把目标改为“多平台、大型、可长期演进的开源项目”，目前仍处于架构迁移中段，尚不能称为牢固底座。主要原因不是业务代码量，而是几条 load-bearing seam 还没有闭合：

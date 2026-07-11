@@ -122,7 +122,9 @@ func main() {
 	}
 	// Screenshot 节点写盘根目录 = dataDir (绝对). 不设的话节点回落到相对 "bin/data"，
 	// 在 exeDir 已是 bin/ 时会拼成 bin/bin/data/... 还跟模板里的 screenshots/ 段重复。
-	_ = os.Setenv("YOTTA_DATA_DIR", dataDir)
+	if err := os.Setenv("YOTTA_DATA_DIR", dataDir); err != nil {
+		rootLog.Error().Err(err).Str("tag", "SYSTEM").Msg("set image output data directory")
+	}
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
 	// 系统热键 (execution-stop) + container 热键全部走这条路。

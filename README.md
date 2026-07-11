@@ -1,55 +1,49 @@
 # Yotta
 
-[![GitHub](https://img.shields.io/github/v/release/yottaapp/yotta)](https://github.com/yottaapp/yotta/releases)
+[![Go CI](https://github.com/yottaapp/yotta/actions/workflows/ci.yml/badge.svg)](https://github.com/yottaapp/yotta/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/yottaapp/yotta)](https://github.com/yottaapp/yotta/releases)
 
-Windows 桌面工具，给《异环 / Neverness to Everness》提供后台自动化。**真后台**：不抢前台焦点、不动鼠标光标，挂机时可以正常用电脑写代码、看视频、刷网页。
+Yotta 是一个可视化自动化工作流平台。它用类型化节点图编排截图、视觉检测、输入、窗口、Android ADB、脚本和定时任务；当前产品体验围绕《异环 / Neverness to Everness》自动化打磨，但后端按可扩展 automation target 与 capability 设计。
 
-|        自动钓鱼        |         自动弹琴         |
-| :---------------------: | :----------------------: |
-| ![钓鱼](preview/fish.png) | ![弹琴](preview/piano.png) |
+> 平台状态：Windows 是完整支持的平台；Linux/macOS 当前目标是可编译、平台中立核心可测试，GUI 为预览级。详见[平台支持矩阵](docs/platform-support.md)。
 
-## 功能
+## 当前能力
 
-- **自动钓鱼（fish）**：全自动抛竿 / 等待上钩 / 溜鱼 / 收杆 / 购买鱼饵 / 填充鱼饵 / 售卖鱼获 / 处理结算
-- **锤子连点（cook）**：检测烹饪界面的锤子图标并自动点击
-- **自动弹琴（piano）**：解析 MIDI 自动演奏，内置曲库 + 任意 `.mid`，36 键 / 21 键模式可切
-- **自动音游 / 超强音（rhythm）**：识别 4 轨命中圈音符自动按 D/F/J/K，1080p / 720p 实测 100% 命中。算法借鉴自 [BnanZ0/ok-nte](https://github.com/BnanZ0/ok-nte)（亮度检测路线，比原本 HSV 颜色匹配的 95% 命中率高）
-- **战斗 / 队伍切换（battle）**：全局热键一键切上阵队伍
+- 可视化节点图、子图、变量、表达式与 JavaScript 节点
+- Win32 后台截图和输入、Android ADB target、内部 Browser CDP adapter
+- 模板匹配、颜色检测、图像与文件/JSON/HTTP 节点
+- 容器 package、崩溃一致保存、调度、日志与 MCP authoring/execution
+- 内置钓鱼、弹琴、音游、战斗等《异环》工作流
 
-## 快速开始
+## 从源码开始
 
-下载 `Yotta.exe`，双击运行，UAC 弹窗点"是"。
+需要 Go 1.25.12+、Node 22+、pnpm 11+、Wails v3 CLI；完整 Windows 构建还需要 Rust 和 Task。
 
-- **侧栏选择 bot** → 点 `开始` / `暂停` / `停止`
-- **战斗** 启动全局热键后用 `Ctrl+Shift+1~6`（修饰键可换）切上阵队伍
-- **设置** 切语言（zh/en）/ 截屏后端（auto/gdi/wgc/mock）/ 日志开关
+```powershell
+go test ./...
+go vet ./...
+staticcheck ./...
+pnpm -C frontend install --frozen-lockfile
+pnpm -C frontend test
+pnpm -C frontend typecheck
+```
 
-设置自动保存到同目录 `settings.json`。
-
-## 使用前确认
-
-1. 游戏窗口不能最小化
-2. 游戏分辨率 16:9 等比（**1920×1080 / 1280×720** 实测；其他可能也可用，需要补 ROI 标定）
-3. 钓鱼前角色到达钓鱼点，屏幕右下角出现 **[F] 抛竿** 提示
-4. 锤子连点前打开烹饪界面（**前台运行**，依赖前台截屏）
-5. 弹琴前打开钢琴演奏界面 + 选 36 键 / 21 键模式
-6. 切队伍前在主界面、无弹窗占用 `L` 键
-7. 音游进入"超强音"曲目后再点开始
-
-## 文档
-
-- **用户**：本 README + 应用内"帮助"页
-
-## 从源码构建
-
-需要 Go 1.25+、Node 22+、Rust（编 WGC 截屏 DLL）、wails3 CLI 和 [Task](https://taskfile.dev)。
+Windows 开发与打包：
 
 ```powershell
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
-task build       # 一键编 frontend + Rust DLL + Go exe，产物在 bin/
-task dev         # 开发模式（vite HMR + wails3 dev）
+task dev
+task build
 ```
 
-## 许可
+## 项目文档
 
-[LICENSE](LICENSE)
+- [架构入口](docs/architecture/README.md)
+- [贡献指南](CONTRIBUTING.md)
+- [兼容与迁移策略](docs/compatibility.md)
+- [安全策略](SECURITY.md)与[威胁模型](docs/architecture/threat-model.md)
+- [后端审查与升级结果](flightdeck/work/go-backend-architecture-review/)
+
+## 许可状态
+
+当前 [LICENSE](LICENSE) 禁止商业使用和营利分发，因此本仓库是 **source-available，而不是 OSI 定义的 open source**。发布者若要以真正开源项目定位发布，必须先选择并替换为明确的 OSI 许可证；详见[发布就绪差距](docs/open-source-readiness.md)。

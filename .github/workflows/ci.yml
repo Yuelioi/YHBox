@@ -14,6 +14,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Linux package-loading dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: Scan reachable Go vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Check frontend production licenses
+        run: |
+          pnpm -C frontend install --frozen-lockfile
+          pnpm -C frontend licenses list --prod --json > frontend/third-party-licenses.json
+          node frontend/scripts/check-licenses.mjs frontend/third-party-licenses.json
+
+      - name: Upload frontend license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: third-party-frontend-licenses
+          path: frontend/third-party-licenses.json
+
+  rust-supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Rust advisories and licenses
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: native/capture_wgc/Cargo.toml
+          command: check advisories licenses
+          arguments: --all-features
+
   quality-windows:
     runs-on: windows-latest
     steps:
@@ -46,7 +105,7 @@ jobs:
           }
 
       - name: Test with coverage
-        run: go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+        run: go test -count=1 -covermode=atomic -coverprofile coverage.out ./...
 
       - name: Vet
         run: go vet ./...
@@ -56,6 +115,17 @@ jobs:
 
       - name: Staticcheck
         run: staticcheck ./...
+
+      - name: Check and report third-party Go licenses
+        shell: pwsh
+        run: |
+          go run ./cmd/check-go-licenses | Set-Content -Encoding utf8NoBOM third-party-go-licenses.csv
+
+      - name: Upload third-party Go license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: third-party-go-licenses
+          path: third-party-go-licenses.csv
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

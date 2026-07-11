@@ -30,8 +30,11 @@ func (f *fakeRegistrar) Register(key, source, label string, _ map[string]string,
 func (f *fakeRegistrar) Unregister(key string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.unregisterErr != nil {
+		return f.unregisterErr
+	}
 	delete(f.callbacks, key)
-	return f.unregisterErr
+	return nil
 }
 
 func (f *fakeRegistrar) Fire(key string) {
@@ -181,6 +184,32 @@ func TestDaemonReloadBeforeStartIsNoop(t *testing.T) {
 	defer registrar.mu.Unlock()
 	if len(registrar.callbacks) != 0 {
 		t.Fatalf("pre-start Reload registered %d hotkeys", len(registrar.callbacks))
+	}
+}
+
+func TestDaemonReloadReportsHotkeyCleanupErrors(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	schedule := &Schedule{SchemaVersion: 1, ID: "reload", Name: "reload", Enabled: true,
+		Targets: []TargetRef{{Kind: "container", ID: "C1"}}, Trigger: Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"}}
+	if err := store.Save(schedule); err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("unregister failed")
+	registrar := newFakeRegistrar()
+	daemon := NewDaemon(store, execution.NewExecutionQueue(), registrar)
+	daemon.Start()
+	registrar.unregisterErr = want
+	if err := daemon.Reload(); !errors.Is(err, want) {
+		t.Fatalf("Reload error = %v, want cleanup failure", err)
+	}
+	if got := daemon.hotkeyKs["reload"]; got != "schedule.reload" {
+		t.Fatalf("failed binding was no longer tracked: %q", got)
+	}
+	registrar.mu.Lock()
+	_, stillActive := registrar.callbacks["schedule.reload"]
+	registrar.mu.Unlock()
+	if !stillActive {
+		t.Fatal("failed unregister binding was lost instead of retained for retry")
 	}
 }
 

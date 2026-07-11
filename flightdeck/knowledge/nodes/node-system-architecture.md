@@ -68,7 +68,7 @@ YHFish 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（
 
 PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**，不是 live state（`engine.go::EvaluatePureData` 入口 `services.Snapshot` wrap）。这保证同一 tick 内多个 data 节点读到一致的全局变量状态。为什么用 wrap 而不是给 Ctx 加方法，见 [framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)。
 
-> ⚠️ `interfaces.go:44-48` 有句**陈旧注释**说 GetVar/GetParam 不实现 Evaluator、dispatch 走 fallback —— 已过时。实测（grep）这俩 + 全部 PureFunc 都实现了 Evaluator + `IsPureData`。以源码为准。**没有 GetSys 节点，也没有 `ctx.Sys()` 服务**；旧 `$sys` live 值已由 `Now` / `VarLastChange` 等显式节点取代。
+依赖 runtime state 的 PureData 节点同样实现 Evaluator，并从 tick-frozen Services view 读取一致状态。**没有 GetSys 节点，也没有 `ctx.Sys()` 服务**；旧 `$sys` live 值已由 `Now` / `VarLastChange` 等显式节点取代。
 
 ### 选哪条路线（决策树）
 

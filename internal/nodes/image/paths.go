@@ -37,7 +37,9 @@ func expandImageTemplate(tmpl string, now time.Time) string {
 
 func randHex(n int) string {
 	b := make([]byte, n)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("secure random ID generation failed: %v", err))
+	}
 	return hex.EncodeToString(b)
 }
 

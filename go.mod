@@ -1,6 +1,6 @@
 module github.com/yottaapp/yotta
 
-go 1.25.1
+go 1.25.12
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.51.1

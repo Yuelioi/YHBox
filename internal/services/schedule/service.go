@@ -8,7 +8,21 @@ import (
 )
 
 // ChangeListener Schedule CRUD 后回调，main.go 注入 daemon.Reload。
-type ChangeListener func()
+type ChangeListener func() error
+
+// PostCommitError means durable schedule state changed successfully, but the
+// live daemon could not fully reload it. Callers must not blindly retry the
+// persistence operation; surface the reload failure and reconcile live state.
+type PostCommitError struct {
+	Operation string
+	Err       error
+}
+
+func (e *PostCommitError) Error() string {
+	return fmt.Sprintf("schedule %s committed, but live reload failed: %v", e.Operation, e.Err)
+}
+func (e *PostCommitError) Unwrap() error   { return e.Err }
+func (e *PostCommitError) Committed() bool { return true }
 
 type Service struct {
 	store    *Store
@@ -22,10 +36,11 @@ func NewService(store *Store) *Service {
 // ConfigureChangeListener injects the daemon reload callback without adding an RPC method.
 func ConfigureChangeListener(s *Service, listener ChangeListener) { s.onChange = listener }
 
-func (s *Service) emitChange() {
+func (s *Service) emitChange() error {
 	if s.onChange != nil {
-		s.onChange()
+		return s.onChange()
 	}
+	return nil
 }
 
 func (s *Service) List() []Schedule {
@@ -62,7 +77,9 @@ func (s *Service) Save(sc Schedule) error {
 	if err := s.store.Save(&sc); err != nil {
 		return err
 	}
-	s.emitChange()
+	if err := s.emitChange(); err != nil {
+		return &PostCommitError{Operation: "save", Err: err}
+	}
 	return nil
 }
 
@@ -79,7 +96,9 @@ func (s *Service) Update(id string, patchJSON string) error {
 	if err := s.store.Save(&sc); err != nil {
 		return err
 	}
-	s.emitChange()
+	if err := s.emitChange(); err != nil {
+		return &PostCommitError{Operation: "update", Err: err}
+	}
 	return nil
 }
 
@@ -87,6 +106,8 @@ func (s *Service) Delete(id string) error {
 	if err := s.store.Delete(id); err != nil {
 		return err
 	}
-	s.emitChange()
+	if err := s.emitChange(); err != nil {
+		return &PostCommitError{Operation: "delete", Err: err}
+	}
 	return nil
 }
