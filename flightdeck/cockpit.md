@@ -1,14 +1,15 @@
 # Cockpit — Yotta
 
-Focus: **Go 后端大型、多平台发布加固已在本地完成；等待推送后的三平台 CI 首跑与维护者许可证决策。** 本地 `main` 已分批提交，尚未推送。
+Focus: **当前无实施中的任务；进入本地 soak test 阶段。** 已完成工作已归档，暂无推送或发布计划。
 
 ## In flight
 
-- [work/go-backend-architecture-review/](work/go-backend-architecture-review/) — **本地实施完成，外部验证待办**。批次 A-C、E-H 已闭合，D 的 platform seam 已实现；等待推送后 GUI CI 首跑。当前 LICENSE 仍是 source-available，若以 open-source 名义发布需维护者选择 OSI 许可证。
-- [work/type-aware-inline-node-menu/](work/type-aware-inline-node-menu/) — **已实现并验证**。pin 拖到空白时按 exec/data、方向和 pin 类型过滤可创建节点；覆盖 `number` / `bool` / `string` / `point` / `any` / `list` / `file` 全类型测试。候选列表使用 strict 兼容，只收精确类型或 `any`，不会因为 `number -> string/bool` 这类 warning 转换显示大量无关节点。exec 的 `Done` / `Fail` 等口只显示可执行节点，排除纯数据/参数转换/视觉/marker 节点；普通画布菜单保留 `CommentBox`。自动连线使用 `pinTypeCompat` 并优先精确 pin 匹配，已跑相关 Vitest 和 `pnpm typecheck`。
-- [work/node-io-json-fetch-plan/](work/node-io-json-fetch-plan/) — **首批节点已实现并验证**。新增 `ReadTextFile`、`ReadJsonFile`、`ParseJSON`、`ToJSON`、`JsonPath`、`Fetch`；`JSON` pin 语义改为任意 JSON 值并保留旧 object helper；已跑 `go build ./...`、节点/目录测试、`pnpm typecheck`、`pnpm i18n:check`、`task build`。
+无。
 
 ## Open questions
+
+- 发布已延期：不创建或推送 `yottaapp/yotta`；继续保留本地历史与旧 origin，避免误推。
+- 真正公开前需决定维持 source-available 或切换 OSI 许可证，启用 GitHub private vulnerability reporting，并观察三平台 CI 首跑。
 
 - `PixelAt` 是否要升级为显式坐标输入/target-aware API，取代当前 Win32 鼠标 HUD 心智。
 - Android 输入是否需要继续研究 minitouch/maatouch/MuMu IPC；当前先不做，ADB 通用路径已能覆盖主要用户流程。

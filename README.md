@@ -42,7 +42,7 @@ task build
 - [贡献指南](CONTRIBUTING.md)
 - [兼容与迁移策略](docs/compatibility.md)
 - [安全策略](SECURITY.md)与[威胁模型](docs/architecture/threat-model.md)
-- [后端审查与升级结果](flightdeck/work/go-backend-architecture-review/)
+- [发布就绪状态](docs/open-source-readiness.md)
 
 ## 许可状态
 
