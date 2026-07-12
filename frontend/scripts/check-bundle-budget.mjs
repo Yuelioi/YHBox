@@ -23,13 +23,7 @@ for (const key of entryKeys) editorKeys.delete(key)
 
 const entry = await measure('entry', entryKeys, manifest, budgets.gzipLevel)
 const editor = await measure('editor', editorKeys, manifest, budgets.gzipLevel)
-const iconsKey = uniqueKeyBySuffix(manifest, budgets.reportOnly.tablerIconsManifestSuffix)
-const icons = await measure(
-  'tabler-icons-report-only',
-  new Set([iconsKey]),
-  manifest,
-  budgets.gzipLevel,
-)
+const forbiddenTablerIcons = keysBySuffix(manifest, budgets.forbidden.tablerIconsManifestSuffix)
 
 const checks = [
   {
@@ -45,6 +39,13 @@ const checks = [
     targetGzipBytes: budgets.editor.targetInitialGzipBytes,
     passed: editor.gzipBytes <= budgets.editor.maxInitialGzipBytes,
   },
+  {
+    name: 'tabler-icons-json-absent',
+    actualMatches: forbiddenTablerIcons.length,
+    limitMatches: 0,
+    matchedManifestKeys: forbiddenTablerIcons,
+    passed: forbiddenTablerIcons.length === 0,
+  },
 ]
 
 const report = {
@@ -52,7 +53,7 @@ const report = {
   units: budgets.units,
   gzipLevel: budgets.gzipLevel,
   checks,
-  measurements: [entry, editor, icons],
+  measurements: [entry, editor],
 }
 
 console.log(JSON.stringify(report, null, 2))
@@ -60,9 +61,15 @@ console.log(JSON.stringify(report, null, 2))
 const failures = checks.filter((check) => !check.passed)
 if (failures.length > 0) {
   for (const failure of failures) {
-    console.error(
-      `${failure.name} exceeds its gzip budget by ${failure.actualGzipBytes - failure.limitGzipBytes} bytes`,
-    )
+    if ('actualGzipBytes' in failure) {
+      console.error(
+        `${failure.name} exceeds its gzip budget by ${failure.actualGzipBytes - failure.limitGzipBytes} bytes`,
+      )
+    } else {
+      console.error(
+        `${failure.name} found ${failure.actualMatches} forbidden manifest entries: ${failure.matchedManifestKeys.join(', ')}`,
+      )
+    }
   }
   process.exit(1)
 }
@@ -94,12 +101,10 @@ function collectSynchronousJavaScript(manifest, rootKey) {
   return result
 }
 
-function uniqueKeyBySuffix(manifest, suffix) {
-  const matches = Object.keys(manifest).filter((key) => key.replaceAll('\\', '/').endsWith(suffix))
-  if (matches.length !== 1) {
-    fail(`expected one manifest key ending in ${suffix}, found ${matches.length}`)
-  }
-  return matches[0]
+function keysBySuffix(manifest, suffix) {
+  return Object.keys(manifest)
+    .filter((key) => key.replaceAll('\\', '/').endsWith(suffix))
+    .sort()
 }
 
 async function measure(name, keys, manifest, gzipLevel) {

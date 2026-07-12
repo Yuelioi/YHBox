@@ -14,6 +14,19 @@ import {
   type BBox,
 } from './elkGraph'
 
+type MarkerOwner = {
+  entry?: { nodeID?: string; x?: number; y?: number }
+  outputPins?: Array<{ nodeID?: string; x?: number; y?: number }>
+}
+
+type LayoutContext = {
+  graph: Graph
+  containerID: string
+  editorPath: string[]
+  subgraph: MarkerOwner | undefined
+  markerCtx: { sgID: string; owner: MarkerOwner; nodes: GraphNode[] } | null
+}
+
 export function useElkLayout(opts: {
   activeGraph: ComputedRef<Graph | null>
   applyDraftMutation: (m: (d: Container) => void) => void
@@ -25,28 +38,60 @@ export function useElkLayout(opts: {
   const editorStore = useContainerEditorStore()
   const isLayouting = ref(false)
 
-  // 当前在子图层级 → 返回该子图 + 入口/出口 virtual marker 的 pseudo 节点 (合进布局);
-  // 主图层级返回 null。marker 不在 activeGraph.nodes 里, 必须单独取 (否则布局漏排 + 丢边)。
-  function currentMarkers(): { sgID: string; nodes: GraphNode[] } | null {
+  // 布局输入必须绑定到发起时的 graph + editor 层级。ELK 引擎和 layout 都是异步的，期间
+  // keep-alive 编辑器可能切容器/子图；只比较 graph 不足以保护复用同一 graph 的 path 切换。
+  function captureLayoutContext(graph: Graph): LayoutContext {
+    const editorPath = [...editorStore.editorPath]
+    const sgID = editorPath.at(-1)
+    const subgraph = sgID ? (editorStore.subgraphById(sgID) as MarkerOwner | undefined) : undefined
+    return {
+      graph,
+      containerID: editorStore.activeContainerID,
+      editorPath,
+      subgraph,
+      markerCtx:
+        sgID && subgraph
+          ? {
+              sgID,
+              owner: subgraph,
+              nodes: subgraphMarkerNodes(subgraph.entry, subgraph.outputPins),
+            }
+          : null,
+    }
+  }
+
+  function isLayoutContextCurrent(context: LayoutContext): boolean {
+    if (
+      activeGraph.value !== context.graph ||
+      editorStore.activeContainerID !== context.containerID
+    ) {
+      return false
+    }
     const path = editorStore.editorPath
-    if (path.length === 0) return null
-    const sgID = path[path.length - 1]
-    const sg = editorStore.subgraphById(sgID) as { entry?: any; outputPins?: any[] } | undefined
-    if (!sg) return null
-    return { sgID, nodes: subgraphMarkerNodes(sg.entry, sg.outputPins) }
+    if (
+      path.length !== context.editorPath.length ||
+      path.some((segment, index) => segment !== context.editorPath[index])
+    ) {
+      return false
+    }
+    const sgID = path.at(-1)
+    const subgraph = sgID ? (editorStore.subgraphById(sgID) as MarkerOwner | undefined) : undefined
+    return subgraph === context.subgraph
   }
 
   async function autoLayout(direction: 'LR' | 'TB' = 'LR', o: { fitView?: boolean } = {}) {
     if (isLayouting.value) return
     const g = activeGraph.value
     if (!g || (g.nodes ?? []).length === 0) return
+    const context = captureLayoutContext(g)
     const dir = direction === 'LR' ? 'RIGHT' : 'DOWN'
     isLayouting.value = true
     try {
       const elk = await loadElk()
+      if (!isLayoutContextCurrent(context)) return
       // 子图层级: 把入口/出口 virtual marker 合进布局节点集 (marker 不在 g.nodes 里,
       // 但 g.edges 引用它们 — 不合进来 marker 不被重排、连 marker 的边还会被过滤丢掉)。
-      const markerCtx = currentMarkers()
+      const markerCtx = context.markerCtx
       const markerNodes = markerCtx?.nodes ?? []
       const markerIDs = new Set(markerNodes.map((m) => m.id))
       const allNodes = markerNodes.length ? [...g.nodes, ...markerNodes] : g.nodes
@@ -71,6 +116,7 @@ export function useElkLayout(opts: {
       }
 
       const res = await elk.layout(elkGraph)
+      if (!isLayoutContextCurrent(context)) return
 
       // 连通节点新坐标（ELK 左上角）
       const newP: Record<string, Pos> = {}
@@ -97,10 +143,13 @@ export function useElkLayout(opts: {
 
       // 原子写回（连通 + 游离）：直接 mutate activeGraph.value（codebase 既有模式，
       // applyDraftMutation 自动 dirty + sync + 历史快照 → 一次撤销复原）。
+      let applied = false
       applyDraftMutation(() => {
-        const graph = activeGraph.value
-        if (!graph) return
-        for (const n of graph.nodes) {
+        // applyDraftMutation 当前同步执行；闭包内仍复核一次，避免未来 wrapper 行为变化后
+        // 把旧 layout 写入另一 editor。写回只用捕获对象，不重新解析 activeGraph/marker。
+        if (!isLayoutContextCurrent(context)) return
+        applied = true
+        for (const n of context.graph.nodes) {
           if (markerIDs.has(n.id)) continue // marker 不在 graph.nodes, 这里只动真实 body 节点
           if (newP[n.id]) {
             n.x = newP[n.id].x
@@ -113,23 +162,19 @@ export function useElkLayout(opts: {
         // marker 新坐标写回 sg.entry / outputPins (不在 graph.nodes) + 标脏归属本容器。
         // 跟 onNodesChange 的 marker 拖动写回同路径; syncFlowFromDraft (applyDraftMutation 内) 重渲染。
         if (markerCtx && markerIDs.size) {
-          const sg = editorStore.subgraphById(markerCtx.sgID) as
-            | { entry?: any; outputPins?: any[] }
-            | undefined
-          if (sg) {
-            const markerPos: Record<string, Pos> = {}
-            for (const id of markerIDs) {
-              const p = newP[id] ?? detP[id]
-              if (p) markerPos[id] = p
-            }
-            if (writeMarkerPositions(sg, markerPos)) {
-              editorStore.touchSubgraph(editorStore.activeContainerID, markerCtx.sgID)
-            }
+          const markerPos: Record<string, Pos> = {}
+          for (const id of markerIDs) {
+            const p = newP[id] ?? detP[id]
+            if (p) markerPos[id] = p
+          }
+          if (writeMarkerPositions(markerCtx.owner, markerPos)) {
+            editorStore.touchSubgraph(context.containerID, markerCtx.sgID)
           }
         }
       })
-      if (o.fitView) fitView()
+      if (applied && o.fitView) fitView()
     } catch (e) {
+      if (!isLayoutContextCurrent(context)) return
       toast.add({
         title: t('graphLayout.layout_failed'),
         description: String((e as Error)?.message ?? e),

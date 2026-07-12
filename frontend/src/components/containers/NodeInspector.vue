@@ -546,7 +546,7 @@
         :node="node"
         :edges="edges ?? []"
         @update="emit('update', $event)"
-        @remove-edges="emit('remove-edges', $event)"
+        @remove-case="emit('remove-switch-case', $event)"
       />
     </section>
 
@@ -786,6 +786,7 @@ import { useEditorBusStore } from '@/stores/editorBus'
 import { useClipsStore } from '@/stores/clips'
 import { useToast } from '@nuxt/ui/composables'
 import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
+import type { RemoveSwitchCaseCommand } from '@/composables/containerEditor/useGraphMutations'
 import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
 import { applyAsyncOptionMeta, type AsyncOptionPayload } from './asyncOptionMeta'
@@ -801,7 +802,7 @@ const emit = defineEmits<{
   'label-update': [v: string]
   'log-enabled-update': [v: boolean]
   delete: []
-  'remove-edges': [edges: GraphEdge[]]
+  'remove-switch-case': [command: RemoveSwitchCaseCommand]
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
   'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()

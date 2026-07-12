@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 import { useConfirm } from '@/composables/useConfirm'
+import type { RemoveSwitchCaseCommand } from '@/composables/containerEditor/useGraphMutations'
 import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 
 const { t } = useI18n()
@@ -18,7 +19,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   update: [config: Record<string, any>]
-  'remove-edges': [edges: GraphEdge[]]
+  'remove-case': [command: RemoveSwitchCaseCommand]
 }>()
 
 const { confirm: confirmDialog } = useConfirm()
@@ -40,24 +41,28 @@ function buildRows(): CaseRow[] {
 
 const rows = ref<CaseRow[]>(buildRows())
 
-// Sync rows → config.cases whenever they change (deep watch)
+function emitCasesUpdate() {
+  emit('update', {
+    ...props.node.config,
+    cases: rows.value.map((row) => row.value),
+  })
+}
+
+// Re-initialise after selection changes and external history restores. Local edits already have
+// the same values, so keep their stable row IDs instead of rebuilding on every keystroke.
 watch(
-  rows,
+  [() => props.node.id, () => props.node.config?.cases],
   () => {
-    emit('update', {
-      ...props.node.config,
-      cases: rows.value.map((r) => r.value),
-    })
+    const nextValues = buildRows().map((row) => row.value)
+    const currentValues = rows.value.map((row) => row.value)
+    if (
+      nextValues.length !== currentValues.length ||
+      nextValues.some((value, index) => value !== currentValues[index])
+    ) {
+      rows.value = buildRows()
+    }
   },
   { deep: true },
-)
-
-// Re-initialise rows when the selected node changes (user clicks a different Switch node)
-watch(
-  () => props.node.id,
-  () => {
-    rows.value = buildRows()
-  },
 )
 
 // Dangling edges: out-pin `nodeId.caseValue` still referenced but case no longer exists
@@ -75,6 +80,14 @@ const danglingEdges = computed(() => {
 
 function addCase() {
   rows.value.push({ id: crypto.randomUUID(), value: '' })
+  emitCasesUpdate()
+}
+
+function updateCase(index: number, value: string) {
+  const row = rows.value[index]
+  if (!row || row.value === value) return
+  row.value = value
+  emitCasesUpdate()
 }
 
 async function removeCase(i: number) {
@@ -91,9 +104,9 @@ async function removeCase(i: number) {
       cancelText: t('common.cancel'),
     })
     if (yes !== true) return
-    emit('remove-edges', affected)
   }
 
+  emit('remove-case', { nodeID: props.node.id, caseIndex: i, caseValue })
   rows.value.splice(i, 1)
 }
 
@@ -156,13 +169,14 @@ function currentValue(): string {
       <div v-else class="space-y-1.5">
         <div v-for="(row, i) in rows" :key="row.id" class="flex gap-2 items-center">
           <UInputMenu
-            v-model="row.value"
+            :model-value="row.value"
             :create-item="'always'"
             :items="caseSuggestions"
             size="sm"
             :placeholder="t('node.Switch.inspector.case_placeholder')"
             class="flex-1"
-            @create="(v: string) => (row.value = v)"
+            @update:model-value="(v: string) => updateCase(i, v)"
+            @create="(v: string) => updateCase(i, v)"
           />
           <UButton
             size="xs"

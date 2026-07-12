@@ -1,10 +1,47 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite'
+import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import ui from '@nuxt/ui/vite'
 import wails from '@wailsio/runtime/plugins/vite'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
-import { fileURLToPath, URL } from 'node:url'
+
+const virtualTablerIconNames = 'virtual:tabler-icon-names'
+const resolvedVirtualTablerIconNames = `\0${virtualTablerIconNames}`
+const require = createRequire(import.meta.url)
+const tablerIconsPath = require.resolve('@iconify-json/tabler/icons.json')
+
+function tablerIconNamesPlugin(): Plugin {
+  let generatedModule: Promise<string> | undefined
+
+  return {
+    name: 'yotta:tabler-icon-names',
+    resolveId(id) {
+      if (id === virtualTablerIconNames) return resolvedVirtualTablerIconNames
+    },
+    load(id) {
+      if (id !== resolvedVirtualTablerIconNames) return
+      generatedModule ??= buildTablerIconNamesModule()
+      return generatedModule
+    },
+  }
+}
+
+async function buildTablerIconNamesModule(): Promise<string> {
+  const parsed: unknown = JSON.parse(await readFile(tablerIconsPath, 'utf8'))
+  if (!isRecord(parsed) || !isRecord(parsed.icons)) {
+    throw new Error(`invalid Tabler icon set at ${tablerIconsPath}`)
+  }
+  const names = Object.keys(parsed.icons).sort()
+  if (names.length === 0) throw new Error(`Tabler icon set is empty at ${tablerIconsPath}`)
+  return `export default ${JSON.stringify(names)};\n`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
 export default defineConfig(({ mode }) => {
   const isTest = mode === 'test' || process.env.VITEST === 'true'
@@ -47,6 +84,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      tablerIconNamesPlugin(),
       vue(),
       ui({
         ui: {

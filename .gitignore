@@ -48,7 +48,6 @@ frontend/.oxlintcache
 native/capture_wgc/target
 
 # AI Tools
-CLAUDE.md
 .claude/
 
 # Agent workspace

@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **实施 Yotta 3.0 AI-native 大型开源破坏性升级。** Wave 1 首批真实门禁已完成并进入 code review；下一工程入口是 Wave 2 工具链/供应链 pin，同时等待 OSI/identity/source-open 决策。
+Focus: **实施 Yotta 3.0 AI-native 大型开源破坏性升级。** Wave 1 已完成实现与双轴 review；下一工程入口是 Wave 2 工具链/供应链 pin，同时等待 OSI/identity/source-open 决策。
 
 ## In flight
 
-- `major-upgrade-review` — 方案完成并已实施 Wave 1：format、AGENTS、task check、CI/lint/coverage/fuzz、bindings contract、bundle budget 与 ELK lazy split；待 review/提交后进入 Wave 2。
+- `major-upgrade-review` — 方案与 Wave 1 完成：format、agent contract、task check、CI/lint/coverage/race/fuzz、三平台 compile、bindings contract、bundle gate、ELK 与 icon-index lazy split；进入 Wave 2。
 - `recording-asset-lifecycle` — 实现与自动化验证已完成；用 `bin/Yotta.exe` 验收三条用户路径后归档。
 
 ## Open questions

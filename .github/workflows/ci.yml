@@ -96,16 +96,31 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Download modules
-        run: go mod download
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
 
-      - name: Verify version metadata
-        shell: pwsh
-        run: ./scripts/verify-version.ps1
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Verify Wails toolchain pin
-        shell: pwsh
-        run: ./scripts/verify-wails-version.ps1
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.49.1
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+
+      - name: Run canonical quality gate
+        run: task check
 
       - name: Verify module identity
         shell: pwsh
@@ -114,22 +129,6 @@ jobs:
           if ($module -ne "github.com/yottaapp/yotta") {
             throw "unexpected Go module path: $module"
           }
-
-      - name: Test with coverage
-        run: go test -count=1 -covermode=atomic -coverprofile coverage.out ./...
-
-      - name: Enforce coverage floor
-        shell: pwsh
-        run: ./scripts/check-go-coverage.ps1
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
-
-      - name: Staticcheck
-        run: staticcheck ./...
 
       - name: Check and report third-party Go licenses
         shell: pwsh
@@ -253,8 +252,16 @@ jobs:
         include:
           - os: ubuntu-24.04
             binary: yotta-linux-amd64
+            artifact: yotta-linux-amd64
+            cgo: "1"
           - os: macos-15
             binary: yotta-darwin-arm64
+            artifact: yotta-darwin-arm64
+            cgo: "1"
+          - os: windows-latest
+            binary: Yotta-windows-amd64.exe
+            artifact: yotta-windows-amd64
+            cgo: "0"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -297,27 +304,28 @@ jobs:
       - name: Generate bindings
         run: node frontend/scripts/generate-bindings.mjs
 
-      - name: Check frontend
-        if: runner.os == 'Linux'
-        run: pnpm -C frontend check
-
-      - name: Build frontend
-        if: runner.os != 'Linux'
+      - name: Build production frontend
         run: pnpm -C frontend build
 
-      - name: Compile native GUI
+      # Compile only: this must not launch the GUI on a hosted runner. On Windows this is
+      # the Wails production-tag compile smoke; installer, DLL and runtime smoke stay separate.
+      - name: Compile production GUI
+        shell: pwsh
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
-          mkdir -p bin
-          go build -tags production -trimpath -o "bin/${{ matrix.binary }}" .
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          $output = "bin/${{ matrix.binary }}"
+          if ($env:RUNNER_OS -eq "Windows") {
+            go build -tags production -trimpath -ldflags="-w -s -H windowsgui" -o $output .
+          } else {
+            go build -tags production -trimpath -o $output .
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Package GUI compile artifact
-        run: tar -czf "bin/${{ matrix.binary }}.tar.gz" -C bin "${{ matrix.binary }}"
-
-      - name: Upload GUI compile artifact
+      - name: Upload GUI compile binary
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.binary }}
-          path: bin/${{ matrix.binary }}.tar.gz
+          name: ${{ matrix.artifact }}
+          path: bin/${{ matrix.binary }}
           if-no-files-found: error

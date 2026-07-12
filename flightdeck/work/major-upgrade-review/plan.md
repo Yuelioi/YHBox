@@ -73,7 +73,7 @@
 8. 删除/替换被 gitignore 且已漂移的本地 `CLAUDE.md` 规范，不再写旧名 `YHFish`、直接提交 main 或重复硬审批流程。
 9. 把可机械验证的规则移进 lint/schema/test，不用超长 prompt 反复强调。
 
-验收：当前 188 个格式错误归零；本地 `yotta dev check` 与 required CI 同源；新 agent/贡献者无需读 main.go 就能找到正确入口并跑全套 gate。
+验收：当前 188 个格式错误归零；本地 `task check` 与 required CI 同源；新 agent/贡献者无需读 main.go 就能找到正确入口并跑全套 gate。`yotta dev ...` CLI 留在 Wave 7 随节点开发工具一起建立，不为尚不存在的入口增加 shim。
 
 ## Wave 2 — 固定工具链并重建供应链底座
 

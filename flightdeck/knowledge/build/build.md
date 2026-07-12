@@ -44,14 +44,14 @@ task version:verify
 ./scripts/verify-wails-version.ps1 -CheckInstalled
 ```
 
-对应 CI 是 `.github/workflows/ci.yml`。Linux/macOS portable core 已包含 services/tools；完整 GUI 不能用 `CGO_ENABLED=0` 验收。独立 `gui-build` job 在 Ubuntu 24.04 amd64 安装 gcc + GTK4 + WebKitGTK 6.0，并在 macOS 15 arm64 使用 Xcode 工具链；两边都会核对实际 Wails CLI、生成 bindings/frontend、以 production tag 编译，并用 tar 保留 Unix artifact 的执行位。该 job 的首次远端运行与 GUI 宿主 smoke 仍是发布前置项。
+对应 CI 是 `.github/workflows/ci.yml`。Windows `quality-windows` 安装固定工具链后直接运行同一个 `task check`，不在 workflow 复制 Go/frontend 命令。Linux/macOS portable core 已包含 services/tools。独立 `gui-build` job 在 Ubuntu 24.04 amd64、macOS 15 arm64 和 Windows 上核对实际 Wails CLI、frozen install、生成 bindings、执行 production frontend build 并编译 production-tag GUI；Windows 的 `CGO_ENABLED=0` 产物只是 Wails/frontend compile smoke，不替代含 capture DLL、installer 和真实 WebView 启动的发布验收。三个平台直接上传二进制；首次远端运行和 GUI 宿主 smoke 仍是发布前置项。
 `pkg/platform`、input/capture/winutil、nodes/input/io、container/runtime 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；backend dependency graph 不得重新出现 Win32 或 Wails presentation import。
 
-前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。lint 的 `lint` 是 check-only；只有 `lint:fix` 会改文件。既有 281 个 `no-explicit-any` 由 `lint-baseline.json` 精确 ratchet：增加或减少都会要求审查并显式更新，不能静默关闭规则。
+前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。lint 的 `lint` 是 check-only；只有 `lint:fix` 会改文件。既有 276 个 `no-explicit-any` 由 `lint-baseline.json` 精确 ratchet：增加或减少都会要求审查并显式更新，不能静默关闭规则。
 
-`cd frontend && pnpm build` 当前应绿且会自动执行 bundle gate。预算按 gzip level 9、十进制 bytes 计算：entry ≤350,000；editor 初始同步 JS ≤650,000，最终 target 450,000。2026-07-13 把 ELK 改成按需加载后基线约为 entry 308 KB、editor 468 KB；Tabler 全集约 332 KB 仅报告，仍需后续清理。当前已知非阻塞 warning / 提示是:
+`cd frontend && pnpm build` 当前应绿且会自动执行 bundle gate。预算按 gzip level 9、十进制 bytes 计算：entry ≤350,000；editor 初始同步 JS ≤650,000，最终 target 450,000。2026-07-13 基线是 entry 308,104 bytes、editor 468,811 bytes。ELK 只在首次自动布局时加载；图标搜索只懒加载 21,825 bytes gzip 的 Tabler 名称索引，完整 `icons.json` 出现在 manifest 会直接失败。当前已知非阻塞 warning / 提示是:
 
-- `Some chunks are larger than 500 kB`: ELK 与 icons 的按需 chunk 仍可能触发 Vite 通用 raw-size warning；是否阻断只以 `bundle:check` 的初始同步闭包预算为准。
+- `Some chunks are larger than 500 kB`: ELK 等按需 chunk 仍可能触发 Vite 通用 raw-size warning；是否阻断只以 `bundle:check` 的同步闭包预算和 forbidden checks 为准。
 - `PLUGIN_TIMINGS` 可能间歇出现: nuxt/ui 与 wails typed-events 插件耗时占比提示,按构建性能议题处理。
 
 ## 前端单测 (vitest)

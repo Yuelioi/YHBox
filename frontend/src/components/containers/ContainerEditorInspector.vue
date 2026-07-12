@@ -7,7 +7,7 @@
       :nodes="activeGraph?.nodes ?? []"
       :edges="activeGraph?.edges ?? []"
       @update="$emit('config-update', $event)"
-      @remove-edges="$emit('remove-edges', $event)"
+      @remove-switch-case="$emit('remove-switch-case', $event)"
       @label-update="$emit('label-update', $event)"
       @log-enabled-update="$emit('log-enabled-update', $event)"
       @delete="$emit('delete-selected')"
@@ -26,8 +26,9 @@
 </template>
 
 <script setup lang="ts">
-import type { Graph, GraphEdge, GraphNode } from '@/lib/backend'
+import type { Graph, GraphNode } from '@/lib/backend'
 import type { VarType } from '@/lib/variableRef'
+import type { RemoveSwitchCaseCommand } from '@/composables/containerEditor/useGraphMutations'
 import type { SubgraphSummary } from '@/stores/containerEditor'
 import NodeInspector from '@/components/containers/NodeInspector.vue'
 import SubgraphPropsPanel from '@/components/containers/SubgraphPropsPanel.vue'
@@ -47,7 +48,7 @@ defineProps<{
 
 defineEmits<{
   'config-update': [cfg: Record<string, any>]
-  'remove-edges': [edges: GraphEdge[]]
+  'remove-switch-case': [command: RemoveSwitchCaseCommand]
   'label-update': [v: string]
   'log-enabled-update': [v: boolean]
   'delete-selected': []

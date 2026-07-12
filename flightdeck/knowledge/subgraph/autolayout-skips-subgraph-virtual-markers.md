@@ -1,7 +1,8 @@
 # ⚠ 全图操作漏掉子图 virtual marker (入口/出口不在 graph.nodes)
 
-SUMMARY: 子图入口/出口是 virtual marker 不在 graph.nodes, 只遍历 graph.nodes 的全图操作会漏掉它们
-READ WHEN: 写任何遍历子图 graph.nodes 的全图操作(自动布局/导出/转脚本/遍历/分析)前; 撞「子图入口出口没被处理/位置不对/漏了这俩节点」
+SUMMARY: 子图入口/出口不在 graph.nodes；全图操作必须合入 marker，异步结果还必须绑定发起时的 editor context
+READ WHEN: 写任何遍历子图 graph.nodes 的全图操作(自动布局/导出/转脚本/遍历/分析)，或让异步工作读取 activeGraph/editorPath 后再写回时
+RECHECK WHEN: activeGraph/editorPath 的容器隔离方式、ELK 加载/worker 边界或 applyDraftMutation 历史语义改变时
 
 ---
 
@@ -37,8 +38,8 @@ pseudo `GraphNode`, 跟 body 一起喂 `buildElkGraph`(marker 被排版 + 连它
 路由写回 —— 真实节点写 `graph.nodes`, marker 用 `writeMarkerPositions` 写回 `sg.entry`/`outputPins`
 + `touchSubgraph` 标脏(跟 `onNodesChange` 拖动 marker 同写回路径)。两个纯函数在 `elkGraph.ts`, 有单测。
 
-已知限制: marker 坐标不进 undo 快照(子图池不在 draft 里, `snapshotDraft` 看不见) —— 跟"拖动 marker
-也不进 undo"一致, 非本次回归。
+ELK engine 动态加载与 `elk.layout()` 都会跨 `await`。发起时必须同时捕获 graph identity、container ID、editor path、subgraph/marker owner，并在每个 await 后验证；上下文已切换就静默丢弃，不能重新读取当前 `activeGraph` 后把旧结果写进去。最终 graph 与 marker 写回必须位于同一次 `applyDraftMutation`，这样子图快照可一次 undo。
 
 ## Cases
 - 2026-06-13 首次: 子图自动布局漏排入口/出口 marker + body 乱。修: marker 合进 ELK 布局 + 写回 metadata。
+- 2026-07-13: ELK 改 lazy import 后暴露异步切图竞态。修: capture/validate layout context，并增加 engine-load 与 layout-await 中途切图测试。

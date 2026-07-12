@@ -275,7 +275,7 @@
           :all-subgraph-tags="allSubgraphTags"
           :all-subgraph-categories="allSubgraphCategories"
           @config-update="onConfigUpdate"
-          @remove-edges="onRemoveEdges"
+          @remove-switch-case="removeSwitchCase"
           @declare-var="onDeclareVar"
           @label-update="onLabelUpdate"
           @log-enabled-update="onLogEnabledUpdate"
@@ -1448,12 +1448,13 @@ const {
   onNodesChange,
   onEdgeDoubleClick,
   onEdgesChange,
-  removeEdges: onRemoveEdges,
+  removeSwitchCase,
   onConnect: _onConnectBase,
 } = useGraphMutations({
   activeGraph,
   flowEdges,
   syncFlowFromDraft,
+  applyDraftMutation,
 })
 
 // Wrap onConnect: markConnectSuccess 让 useInlineMenu.onVfConnectEnd 退出 (不开 menu).
@@ -1464,11 +1465,11 @@ function onConnect(c: Parameters<typeof _onConnectBase>[0]) {
 
 function onConfigUpdate(cfg: Record<string, any>) {
   if (!draft.value || !selectedNode.value) return
-  selectedNode.value.config = cfg
-  // 配置变更可能改变 exec out pin 集 (Switch.cases / Parallel.n / Race.n) —
-  // flowNodes 持有旧 config 引用快照, computed pins 不会重算 → handle 不刷新.
-  // 这里重建 flow 让 ContainerFlowNode 拿到新 config 引用.
-  syncFlowFromDraft()
+  const targetID = selectedNode.value.id
+  applyDraftMutation(() => {
+    const node = activeGraph.value?.nodes.find((candidate) => candidate.id === targetID)
+    if (node) node.config = cfg
+  })
 }
 
 // 画布内联 pin literal 编辑入口 — ContainerFlowNode inject 调用。

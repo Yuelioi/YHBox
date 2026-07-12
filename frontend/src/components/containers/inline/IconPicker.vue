@@ -1,5 +1,5 @@
 <template>
-  <!-- 图标选择器：默认显常用 (visualRegistry.ICONS)；搜索框过滤全套 tabler (~5900, 懒加载离线)。
+  <!-- 图标选择器：默认显常用 (visualRegistry.ICONS)；搜索时懒加载构建期生成的 Tabler 名称索引。
        modelValue = 完整 tabler 名 (i-tabler-xxx)。 -->
   <div class="space-y-2 w-full">
     <UInput
@@ -46,7 +46,7 @@ const { t } = useI18n()
 
 const curated = ICONS.map((e) => e.icon)
 const query = ref('')
-const allNames = ref<string[]>([]) // 全套 tabler（懒加载）
+const allNames = ref<string[]>([]) // 仅名称索引，不含 SVG/icon body
 const searching = ref(false)
 let loaded = false
 
@@ -55,11 +55,8 @@ async function ensureLoaded() {
   loaded = true
   searching.value = true
   try {
-    const mod: any = await import('@iconify-json/tabler/icons.json')
-    const data = mod.default ?? mod
-    allNames.value = Object.keys(data.icons ?? {}).map((n) => `i-tabler-${n}`)
-  } catch {
-    // 离线 / 缺包 → 仅 curated 可用
+    const { default: names } = await import('virtual:tabler-icon-names')
+    allNames.value = names.map((name) => `i-tabler-${name}`)
   } finally {
     searching.value = false
   }

@@ -8,17 +8,24 @@
 // onAddNode 含 Start 唯一性 / Subgraph 自动建子图等业务逻辑, 仍留在 view.
 import type { Ref, ComputedRef } from 'vue'
 import type { NodeChange, EdgeChange, Connection } from '@vue-flow/core'
-import type { Graph, GraphEdge } from '@/lib/backend'
+import type { Container, Graph, GraphEdge } from '@/lib/backend'
 import type { FlowEdge } from './useContainerDraft'
 import { edgeKind, isSentinelPin } from '@/components/containers/pinSpec'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+
+export interface RemoveSwitchCaseCommand {
+  nodeID: string
+  caseIndex: number
+  caseValue: string
+}
 
 export function useGraphMutations(opts: {
   activeGraph: ComputedRef<Graph | null>
   flowEdges: Ref<FlowEdge[]>
   syncFlowFromDraft: () => void
+  applyDraftMutation: (mutator: (draft: Container) => void) => void
 }) {
-  const { activeGraph, flowEdges, syncFlowFromDraft } = opts
+  const { activeGraph, flowEdges, syncFlowFromDraft, applyDraftMutation } = opts
   const editorStore = useContainerEditorStore()
 
   type EdgeDblClickEvent = { edge: { id: string } }
@@ -127,13 +134,19 @@ export function useGraphMutations(opts: {
     syncFlowFromDraft()
   }
 
-  function removeEdges(edges: readonly GraphEdge[]) {
+  function removeSwitchCase(command: RemoveSwitchCaseCommand) {
     const g = activeGraph.value
-    if (!g || edges.length === 0) return
-    const removed = new Set(edges.map((edge) => `${edge.from}\u0000${edge.to}`))
-    g.edges = g.edges.filter((edge) => !removed.has(`${edge.from}\u0000${edge.to}`))
-    syncFlowFromDraft()
+    const node = g?.nodes.find((candidate) => candidate.id === command.nodeID)
+    const cases = Array.isArray(node?.config?.cases) ? [...node.config.cases] : []
+    if (!g || !node || cases[command.caseIndex] !== command.caseValue) return
+
+    applyDraftMutation(() => {
+      cases.splice(command.caseIndex, 1)
+      node.config = { ...node.config, cases }
+      const removedPin = `${command.nodeID}.${command.caseValue}`
+      g.edges = g.edges.filter((edge) => edge.from !== removedPin)
+    })
   }
 
-  return { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect, removeEdges }
+  return { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect, removeSwitchCase }
 }

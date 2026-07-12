@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useGraphMutations } from './useGraphMutations'
-import type { Graph, GraphNode } from '@/lib/backend'
+import type { Container, Graph, GraphNode } from '@/lib/backend'
 import type { FlowEdge } from './useContainerDraft'
 
 function node(id: string, kind: string): GraphNode {
@@ -18,12 +18,17 @@ function setup(nodes: GraphNode[]) {
   const activeGraph = computed<Graph | null>(() => graph)
   const flowEdges = ref<FlowEdge[]>([])
   const syncFlowFromDraft = vi.fn()
+  const applyDraftMutation = vi.fn((mutator: (draft: Container) => void) => {
+    mutator({ graph } as Container)
+    syncFlowFromDraft()
+  })
   const m = useGraphMutations({
     activeGraph,
     flowEdges,
     syncFlowFromDraft,
+    applyDraftMutation,
   })
-  return { m, graph, syncFlowFromDraft }
+  return { m, graph, syncFlowFromDraft, applyDraftMutation }
 }
 
 describe('useGraphMutations.onConnect 哨兵防火墙', () => {
@@ -63,17 +68,33 @@ describe('useGraphMutations.onConnect 哨兵防火墙', () => {
   })
 })
 
-describe('useGraphMutations.removeEdges', () => {
-  it('removes only matching graph edges and refreshes the flow projection', () => {
-    const { m, graph, syncFlowFromDraft } = setup([node('switch', 'Switch'), node('log', 'Log')])
+describe('useGraphMutations.removeSwitchCase', () => {
+  it('updates cases and removes matching edges in one draft mutation', () => {
+    const switchNode = node('switch', 'Switch')
+    switchNode.config = { cases: ['ok', 'error'] }
+    const { m, graph, applyDraftMutation } = setup([switchNode, node('log', 'Log')])
     graph.edges = [
       { from: 'switch.ok', to: 'log.In' },
       { from: 'switch.error', to: 'log.In' },
     ]
 
-    m.removeEdges([{ from: 'switch.ok', to: 'log.In' }])
+    m.removeSwitchCase({ nodeID: 'switch', caseIndex: 0, caseValue: 'ok' })
 
+    expect(switchNode.config.cases).toEqual(['error'])
     expect(graph.edges).toEqual([{ from: 'switch.error', to: 'log.In' }])
-    expect(syncFlowFromDraft).toHaveBeenCalledOnce()
+    expect(applyDraftMutation).toHaveBeenCalledOnce()
+  })
+
+  it('ignores stale commands after the case list changes', () => {
+    const switchNode = node('switch', 'Switch')
+    switchNode.config = { cases: ['new-value'] }
+    const { m, graph, applyDraftMutation } = setup([switchNode, node('log', 'Log')])
+    graph.edges = [{ from: 'switch.new-value', to: 'log.In' }]
+
+    m.removeSwitchCase({ nodeID: 'switch', caseIndex: 0, caseValue: 'old-value' })
+
+    expect(switchNode.config.cases).toEqual(['new-value'])
+    expect(graph.edges).toEqual([{ from: 'switch.new-value', to: 'log.In' }])
+    expect(applyDraftMutation).not.toHaveBeenCalled()
   })
 })

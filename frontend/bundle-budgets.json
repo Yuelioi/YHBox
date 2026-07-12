@@ -11,7 +11,7 @@
     "maxInitialGzipBytes": 650000,
     "targetInitialGzipBytes": 450000
   },
-  "reportOnly": {
+  "forbidden": {
     "tablerIconsManifestSuffix": "node_modules/@iconify-json/tabler/icons.json"
   }
 }
