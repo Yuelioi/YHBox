@@ -29,6 +29,7 @@ logs/
 
 # wails3 build output
 bin/
+artifacts/
 # 运行期落地的 action/container/schedule/template 数据（spec § data/）
 data/
 frontend/dist/

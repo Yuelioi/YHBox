@@ -51,7 +51,7 @@
     "@vue-flow/core": "^1.48.2",
     "@vue-flow/minimap": "^1.5.4",
     "@vueuse/core": "^14.3.0",
-    "@wailsio/runtime": "latest",
+    "@wailsio/runtime": "3.0.0-alpha.97",
     "elkjs": "0.11.1",
     "markdown-it": "^14.2.0",
     "pinia": "^3.0.4",
@@ -82,7 +82,7 @@
     "vue-tsc": "^3.2.9"
   },
   "engines": {
-    "node": ">=22.18.0 <23"
+    "node": "22.23.1"
   },
   "packageManager": "pnpm@11.1.2"
 }

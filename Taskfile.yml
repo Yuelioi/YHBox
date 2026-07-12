@@ -13,10 +13,23 @@ tasks:
   check:
     summary: Runs the canonical local quality gate
     cmds:
+      - task: check:supply-chain
       - task: version:verify
       - task: wails:verify
       - task: check:go
       - task: check:frontend
+
+  check:supply-chain:
+    summary: Verifies immutable Actions, exact toolchains and frozen dependency inputs
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-actions-pinned.ps1
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-toolchains.ps1 -CheckInstalled
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-third-party-artifacts.ps1
+      - go mod tidy -diff
+      - go mod verify
+      - cargo metadata --locked --no-deps --format-version 1 --manifest-path native/capture_wgc/Cargo.toml
+    env:
+      GOTOOLCHAIN: local
 
   check:go:
     summary: Runs Go tests, coverage, vet and static analysis
@@ -25,6 +38,9 @@ tasks:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-go-coverage.ps1
       - go vet ./...
       - staticcheck ./...
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
 
   check:frontend:
     summary: Generates bindings and runs the complete frontend gate
@@ -50,10 +66,17 @@ tasks:
       - task: "windows:build"
 
   package:
-    summary: Packages a production build of the application
-    deps: [wails:verify]
+    summary: Builds a frozen, auditable portable release candidate
     cmds:
-      - task: "windows:package"
+      - task: check
+      - task: build
+      - task: release:stage
+      - git diff --exit-code
+
+  release:stage:
+    summary: Creates the allowlisted Windows staging tree and deterministic archive
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1
 
   run:
     summary: Runs the application

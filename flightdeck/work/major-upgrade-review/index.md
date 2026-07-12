@@ -2,11 +2,11 @@
 
 ## State
 
-Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec 双轴 review：一次性前端格式基线、tracked agent contract、canonical `task check`、check-only lint、65% Go coverage 与关键包 ratchet、Wails contract manifest、前端全套 CI、race/fuzz/三平台 GUI compile smoke 和 bundle budget 均已落地；ELK 与 Tabler 搜索索引均已从 editor 初始 chunk 按需拆出。
+Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec 双轴 review。Wave 2 工程实现已完成：精确工具链/Wails runtime、immutable Actions、frozen build、Windows staging/manifest、SBOM/checksum/attestation candidate、CodeQL/dependency review/secret scan/Scorecard 与双 clean-build 比较均已落地；公开 stable 仍被 owner 设置、代码签名和用户数据目录迁移阻断。
 
 ## Next
 
-工程侧进入 Wave 2：完整工具链/Action SHA pin、依赖与生成物可复现、release freeze。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
+完成 Wave 2 双轴 review 后进入 Wave 3：建立唯一 `WorkflowSource v3 -> Compiler -> ProgramSnapshot` 主链并明确拒绝 v2。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
 
 ## Read now
 
@@ -56,7 +56,7 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 
 Current:
-- Wave 1 已完成；下一工程入口是 Wave 2 的工具链/Action pin。
+- Wave 2 工程实现与本地验证已完成，等待 Standards/Spec 双轴 review；下一工程入口是 Wave 3 contract 主链。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
@@ -72,7 +72,9 @@ Verified:
 
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
-- 是否立即进入 Wave 0；若先做无需法律拍板的工程工作，入口固定为 Wave 1 的格式基线与真实 CI gate。
+- Wave 0 的法律与远端治理项应由 owner 并行处理；工程主线下一入口固定为 Wave 3。
 - 是否把完整路线拆成 issue；插件门 C 明确不属于 3.0 stable 的必交付范围。
-- 本机 Node 22.14 仍可完成门禁但低于新声明的 22.18 最低版本；CI 已固定 22.18.0，本机应在下一工具链批升级。
+- 本机全局 Node 仍是 22.14；engine-strict 会正确拒绝，Wave 2 验证使用经官方 SHA256 校验的临时 Node 22.23.1。开发机应升级全局 Node。
+- stable installer 仍缺 Yotta/capture Authenticode 签名，且应用当前把 settings/data/logs 写到 exe 旁；迁移到用户可写目录前不得恢复安装器发布。
+- GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
