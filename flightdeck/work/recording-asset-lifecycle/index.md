@@ -2,14 +2,14 @@
 
 ## State
 
-设计阶段。用户确认三个需求：录制中可取消；可批量清理所有未引用的录制资产；停止录制后填写名称、分类和标签，再决定保存或丢弃。
+实施阶段。后端录制生命周期契约已完成：停止生成内存 pending，Finalize 才落库，Discard/Cancel 不产生资产；未引用录制支持预览与删除前引用复检。
 
 目标用户以普通人为主，专业能力渐进披露；设计关键词为清晰、可靠、高效。
 
 ## Next
 
-- 用户确认 `design.md`。
-- 确认后进入实现：先固化 pending/finalize/cancel/cleanup 后端契约与测试，再接 HUD、保存面板和资产库清理入口。
+- 生成最新 Wails bindings，并更新前端 backend wrapper。
+- 实现 HUD 取消、停止后保存面板与资产库清理入口。
 
 ## Read now
 
@@ -30,14 +30,16 @@ Done:
 
 - 已完成用户、目的、范围与设计气质确认。
 - 已产出录制资产生命周期设计 brief。
+- 已实现并测试 pending/finalize/discard/cancel/cleanup 后端契约。
 
 Current:
 
-- 等待用户确认设计 brief。
+- 前端交互实现。
 
 Verified:
 
-- 尚未进入实现验证。
+- `go test ./internal/services/recording -count=1`
+- `go test . ./internal/services/inputclip ./internal/services/container -count=1`
 
 ## Open questions
 

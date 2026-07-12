@@ -216,7 +216,8 @@ func main() {
 	})
 	containerStore.SetAssetStore(assetStore)
 	containerSvc := container.NewService(containerStore)
-	container.ConfigureSubgraphReferrerScanner(sgSvc, scanSubgraphReferrers(containerStore, sgStore))
+	subgraphReferrers := scanSubgraphReferrers(containerStore, sgStore)
+	container.ConfigureSubgraphReferrerScanner(sgSvc, subgraphReferrers)
 
 	// 匿名子图 GC (mark-sweep, 幂等): 启动时 + 容器删除完成后. 锁序 Container → Subgraph.
 	gcAnonymousSubgraphs := func() {
@@ -238,7 +239,8 @@ func main() {
 	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
 	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
 	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
-	asset.ConfigureReferrerScanner(assetSvc, scanAssetReferrers(containerStore, sgStore))
+	assetReferrers := scanAssetReferrers(containerStore, sgStore)
+	asset.ConfigureReferrerScanner(assetSvc, assetReferrers)
 	// 注: change listener 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
 	nodeoptions.RegisterAssetAsyncSources(nodeSvc, assetSvc, sgSvc)
 
@@ -549,8 +551,11 @@ func main() {
 	container.ConfigureSubgraphEmitter(sgSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recording.ConfigureEmitter(recordingSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	// 录制完产物是 *container.Subgraph, 直接入全局子图池 (sgStore.Create)
-	recording.ConfigureSubgraphSaver(recordingSvc, sgStore)
+	recording.ConfigureSubgraphStore(recordingSvc, sgStore)
+	recording.ConfigureReferenceCounters(recordingSvc,
+		func(id string) int { return len(subgraphReferrers(id)) },
+		func(id string) int { return len(assetReferrers(id)) },
+	)
 	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
 	recording.ConfigureContainerGetter(recordingSvc, containerStore)
 

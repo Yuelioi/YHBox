@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -37,6 +38,121 @@ type countingClipSaver struct{ calls int }
 func (s *countingClipSaver) Save(*inputclip.InputClip) error {
 	s.calls++
 	return nil
+}
+func (*countingClipSaver) List() []inputclip.ClipSummary { return nil }
+func (*countingClipSaver) Delete(string) error           { return nil }
+
+type resultRecorder struct {
+	result    *StopResult
+	cancelled bool
+}
+
+func (*resultRecorder) SetMouseCounts360Getter(func() int) {}
+func (*resultRecorder) Active() bool                       { return true }
+func (*resultRecorder) Pause()                             {}
+func (*resultRecorder) Resume()                            {}
+func (*resultRecorder) Start(uintptr, inputclip.ClipMeta) (string, error) {
+	return "session", nil
+}
+func (r *resultRecorder) Stop() (*StopResult, error) { return r.result, nil }
+func (r *resultRecorder) Cancel()                    { r.cancelled = true }
+
+type memoryClipStore struct {
+	saved   *inputclip.InputClip
+	clips   []inputclip.ClipSummary
+	deleted []string
+}
+
+func (s *memoryClipStore) Save(clip *inputclip.InputClip) error { s.saved = clip; return nil }
+func (s *memoryClipStore) List() []inputclip.ClipSummary        { return s.clips }
+func (s *memoryClipStore) Delete(id string) error               { s.deleted = append(s.deleted, id); return nil }
+
+type memorySubgraphStore struct {
+	saved   *container.Subgraph
+	items   []container.Subgraph
+	deleted []string
+}
+
+func (s *memorySubgraphStore) Create(sg *container.Subgraph) error { s.saved = sg; return nil }
+func (s *memorySubgraphStore) List() []container.Subgraph          { return s.items }
+func (s *memorySubgraphStore) Delete(id string, _ int64) error {
+	s.deleted = append(s.deleted, id)
+	return nil
+}
+
+func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
+	recorder := &resultRecorder{result: &StopResult{
+		TempID: "session", Meta: inputclip.ClipMeta{FilterMode: "precise"},
+		Events: []inputclip.Event{{TUs: 0}, {TUs: 250_000}},
+	}}
+	clips := &memoryClipStore{}
+	s := NewService(recorder, nil, clips)
+	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container"})
+
+	pending, err := s.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending == nil || pending.PendingID != "pending-session" || pending.DurationUs != 250_000 {
+		t.Fatalf("pending = %+v", pending)
+	}
+	if clips.saved != nil {
+		t.Fatal("Stop persisted a clip before user confirmation")
+	}
+	result, err := s.Finalize(FinalizeArgs{
+		PendingID: pending.PendingID, Label: "  Boss 战  ", Category: " 战斗 ", Tags: []string{"循环", "循环", " "},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ClipID != "clip-session" || clips.saved == nil {
+		t.Fatalf("result=%+v saved=%+v", result, clips.saved)
+	}
+	if clips.saved.Label != "Boss 战" || clips.saved.Category != "战斗" || len(clips.saved.Tags) != 1 {
+		t.Fatalf("saved metadata = %+v", clips.saved)
+	}
+}
+
+func TestServiceCancelDiscardsActiveSession(t *testing.T) {
+	recorder := &resultRecorder{}
+	s := NewService(recorder, nil, &memoryClipStore{})
+	s.setState(RecordingState{Phase: PhasePaused, ContainerID: "container"})
+	if err := s.Cancel(); err != nil {
+		t.Fatal(err)
+	}
+	if !recorder.cancelled || s.GetState().Phase != PhaseIdle {
+		t.Fatalf("cancelled=%v state=%+v", recorder.cancelled, s.GetState())
+	}
+}
+
+func TestServiceCleanupOnlyDeletesUnusedRecordingAssets(t *testing.T) {
+	clips := &memoryClipStore{clips: []inputclip.ClipSummary{
+		{ID: "clip-unused", Label: "unused clip", Meta: inputclip.ClipMeta{FilterMode: "precise"}},
+		{ID: "clip-used", Label: "used clip", Meta: inputclip.ClipMeta{FilterMode: "precise"}},
+	}}
+	subgraphs := &memorySubgraphStore{items: []container.Subgraph{
+		{ID: "sg-unused", Rev: 2, Label: "unused sg", RecordingContext: &container.RecordingContext{}},
+		{ID: "sg-manual", Rev: 1, Label: "manual"},
+	}}
+	s := NewService(&resultRecorder{}, nil, clips)
+	ConfigureSubgraphStore(s, subgraphs)
+	ConfigureReferenceCounters(s, func(string) int { return 0 }, func(id string) int {
+		if id == "clip-used" {
+			return 2
+		}
+		return 0
+	})
+	preview := s.PreviewCleanup()
+	if len(preview.Unused) != 2 || len(preview.Referenced) != 1 {
+		t.Fatalf("preview = %+v", preview)
+	}
+	result := s.CleanupUnused(CleanupArgs{IDs: []string{"clip-unused", "clip-used", "sg-unused", "sg-manual"}})
+	if strings.Join(result.Deleted, ",") != "clip-unused,sg-unused" {
+		t.Fatalf("deleted = %v", result.Deleted)
+	}
+	if len(result.Skipped) != 1 || result.Skipped[0].ID != "clip-used" {
+		t.Fatalf("skipped = %+v", result.Skipped)
+	}
 }
 
 func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
