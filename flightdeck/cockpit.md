@@ -1,9 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **验收录制资产完整生命周期。** 取消、停止后命名入库、未引用录制清理均已实现并构建，等待 Windows 桌面端 smoke。
+Focus: **制定面向大型开源项目的破坏性升级方案。** 全仓审查架构、接口、工程门禁与发布治理，不保留旧契约、不添加兼容层或兜底。
 
 ## In flight
 
+- `major-upgrade-review` — 全仓审查与 Yotta 3.0 九阶段方案已完成，等待确认实施入口。
 - `recording-asset-lifecycle` — 实现与自动化验证已完成；用 `bin/Yotta.exe` 验收三条用户路径后归档。
 
 ## Open questions
