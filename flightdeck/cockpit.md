@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **录制坐标、折叠子图空内容及 package manifest 空链接均已完成代码修复。** 新生产二进制已构建，等待重启后的本地 Wails smoke。
+Focus: **设计录制资产完整生命周期。** 当前等待确认取消、停止后命名入库、未引用录制清理的设计 brief。
 
 ## In flight
 
-- `recording-subgraph-critical-bugs` — 折叠已确认；录制与 package manifest 等待新二进制重启、保存及复录验证。
+- `recording-asset-lifecycle` — 设计 brief 已完成，等待用户确认后实施。
 
 ## Open questions
 
