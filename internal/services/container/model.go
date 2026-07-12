@@ -157,10 +157,10 @@ type PackageManifest struct {
 	Contributors  []PackagePerson  `json:"contributors,omitempty"`
 	Publisher     PackagePublisher `json:"publisher"`
 	Homepage      string           `json:"homepage,omitempty"`
-	Repository    PackageLink      `json:"repository,omitempty"`
-	Bugs          PackageLink      `json:"bugs,omitempty"`
-	Docs          PackageLink      `json:"docs,omitempty"`
-	Changelog     PackageLink      `json:"changelog,omitempty"`
+	Repository    *PackageLink     `json:"repository,omitempty"`
+	Bugs          *PackageLink     `json:"bugs,omitempty"`
+	Docs          *PackageLink     `json:"docs,omitempty"`
+	Changelog     *PackageLink     `json:"changelog,omitempty"`
 	Yotta         PackageYotta     `json:"yotta"`
 }
 

@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **简易录制坐标与折叠子图空内容已完成代码修复。** 自动化验证通过，等待本地 Wails smoke 后归档。
+Focus: **录制坐标、折叠子图空内容及 package manifest 空链接均已完成代码修复。** 新生产二进制已构建，等待重启后的本地 Wails smoke。
 
 ## In flight
 
-- `recording-subgraph-critical-bugs` — 两个高优先级数据链路故障已修复，等待用户本地 smoke。
+- `recording-subgraph-critical-bugs` — 折叠已确认；录制与 package manifest 等待新二进制重启、保存及复录验证。
 
 ## Open questions
 

@@ -112,7 +112,7 @@ func TestPackageManifestJSONShape(t *testing.T) {
 		License:       "MIT",
 		Author:        PackagePerson{Name: "yl"},
 		Publisher:     PackagePublisher{ID: "yotta", Name: "Yotta"},
-		Repository:    PackageLink{Type: "git"},
+		Repository:    &PackageLink{Type: "git"},
 		Yotta: PackageYotta{
 			PackageID:  "pkg_01jz_daily_fishing",
 			EntryGraph: "graph.json",
@@ -150,6 +150,19 @@ func TestPackageManifestJSONShape(t *testing.T) {
 	}
 	if !bytes.Contains(b, []byte(`"targets":{"game"`)) || !bytes.Contains(b, []byte(`"ai":{"main"`)) {
 		t.Fatalf("logical binding slots missing: %s", string(b))
+	}
+}
+
+func TestPackageManifestJSONOmitsEmptyLinks(t *testing.T) {
+	manifest := containerToPackageManifest(Container{ID: "local-id", Name: "Local"})
+	b, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, field := range []string{"repository", "bugs", "docs", "changelog"} {
+		if bytes.Contains(b, []byte(`"`+field+`"`)) {
+			t.Errorf("empty %s must be omitted from package.json: %s", field, string(b))
+		}
 	}
 }
 
