@@ -2,11 +2,11 @@
 
 ## State
 
-全仓审查与 Yotta 3.0 破坏性升级方案已完成；等待用户确认是否进入实施，以及从哪个 Phase 开始。
+原 Yotta 3.0 工程方案已完成；正在扩展为 AI-native 大型开源项目方案，并行对标优秀项目、最新 prompt/tool/eval 实践与开源治理。
 
 ## Next
 
-由用户确认方案；建议先执行 Phase 0 产品/许可证决策，再以 Phase 1 真实 CI 门禁作为首个代码批次。
+完成三条外部一手资料研究，合并本地 AI/MCP 审计，新增 AI-native 目标设计并重排实施优先级。
 
 ## Read now
 
@@ -14,6 +14,7 @@
 - `flightdeck/work/major-upgrade-review/design.md`
 - `flightdeck/work/major-upgrade-review/plan.md`
 - `flightdeck/knowledge/build/ci-documented-gates-can-be-absent.md`
+- `flightdeck/knowledge/mcp/normalize-masks-schema-prompt-drift.md`
 
 ## Read if
 
@@ -27,6 +28,11 @@ Done:
 - 盘点 1,169 个 tracked files 与主要 package/module。
 - 审查应用装配、节点/运行时、持久化、前端 contract/editor、CI、供应链与开源治理。
 - 完成 `design.md` 目标架构与 `plan.md` 九阶段实施方案。
+- 完成本地 AI/LLM/MCP prompt surface 审计：当前 provider 是 Chat 最低公分母、结构化输出存在 prompt fallback、模型能力靠 endpoint 猜测、节点目录一次返回约 13.3 万字符。
+- 确认 MCP graph 示例与真实 schema 漂移被 `Normalize()` 掩盖。
+
+Current:
+- 外部工作流平台、AI prompting、开源治理三条一手资料调研。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
@@ -39,3 +45,4 @@ Verified:
 
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - 是否立即进入实施，以及从 Phase 0 还是 Phase 1 开始。
+- AI-native 方案完成后需重新确定 Phase 顺序；当前不再建议直接按旧九阶段开始编码。
