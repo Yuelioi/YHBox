@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **当前无实施中的任务；进入本地 soak test 阶段。** 已完成工作已归档，暂无推送或发布计划。
+Focus: **简易录制坐标与折叠子图空内容已完成代码修复。** 自动化验证通过，等待本地 Wails smoke 后归档。
 
 ## In flight
 
-无。
+- `recording-subgraph-critical-bugs` — 两个高优先级数据链路故障已修复，等待用户本地 smoke。
 
 ## Open questions
 

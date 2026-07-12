@@ -4,6 +4,7 @@ package recording
 import (
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -79,13 +80,15 @@ func TestCompactToSteps_Click(t *testing.T) {
 	if len(steps) != 1 || steps[0].kind != "ClickAt" {
 		t.Fatalf("want 1 ClickAt, got %+v", steps)
 	}
-	xr := steps[0].config["XRatio"].(float64)
-	yr := steps[0].config["YRatio"].(float64)
-	if xr < 0.499 || xr > 0.501 {
-		t.Errorf("xRatio 应 ≈ 0.5 (用 Down 坐标), got %v", xr)
+	point, ok := steps[0].config["Point"].(node.Point)
+	if !ok {
+		t.Fatalf("ClickAt 应记录结构化 Point 坐标, got config=%#v", steps[0].config)
 	}
-	if yr < 0.499 || yr > 0.501 {
-		t.Errorf("yRatio 应 ≈ 0.5 (用 Down 坐标), got %v", yr)
+	if point.X < 0.499 || point.X > 0.501 {
+		t.Errorf("Point.X 应 ≈ 0.5 (用 Down 坐标), got %v", point.X)
+	}
+	if point.Y < 0.499 || point.Y > 0.501 {
+		t.Errorf("Point.Y 应 ≈ 0.5 (用 Down 坐标), got %v", point.Y)
 	}
 	if btn := steps[0].config["Button"].(string); btn != "left" {
 		t.Errorf("button want left, got %s", btn)

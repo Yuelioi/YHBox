@@ -111,6 +111,8 @@ export function useFolding(opts: {
         edges: innerEdges,
       },
     }), sgRaw.rev ?? 1)
+    const savedSubgraph = await backend.subgraphs.get(sgRaw.id)
+    if (savedSubgraph) editorStore.replaceSubgraph(savedSubgraph)
 
     let callNodeID = ''
     if (activeGraph.value) {

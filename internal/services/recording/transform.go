@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
@@ -130,8 +131,7 @@ func compactToSteps(events []inputclip.Event, clientW, clientH int) []stepNode {
 			steps = append(steps, stepNode{
 				kind: "ClickAt",
 				config: map[string]any{
-					"XRatio":     xRatio,
-					"YRatio":     yRatio,
+					"Point":      node.Point{X: xRatio, Y: yRatio},
 					"Button":     btn,
 					"DurationMs": float64(dur) / 1000.0,
 				},

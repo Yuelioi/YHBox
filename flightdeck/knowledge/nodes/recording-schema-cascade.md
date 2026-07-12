@@ -46,9 +46,15 @@ READ WHEN: 改节点 Spec 字段名 / pin 名前; 撞 INVALID_PIN / REQUIRED_FIE
 - 运行时 `validateRequired` 走 `in.Has("ClipID")` → `present["ClipID"]` (config map 实际 key) → false → REQUIRED_FIELD_MISSING.
 - 顺手把 `validator.go:validatePlayClip` + `validator_deps.go` + `NodeInspector.vue` 两处读 `node.config.clipID` 也对齐 PascalCase.
 
+### Layer 5: ClickAt 坐标输入迁移为 Point，录制转换器仍写 XRatio/YRatio
+
+- `ClickAt` 的坐标输入已从两个 Number pin `XRatio/YRatio` 收敛为结构化 `Point` pin。
+- `recording/transform.go` 仍生成旧键；事件流里的客户区坐标其实完整，转换测试也只断言旧键，因此录制产物在 Inspector 和 runtime 都回退到 `Point` 默认中心，看起来像“没有录到点击坐标”。
+- 修复必须在生成器接缝断言 `config["Point"]` 的实际 X/Y，而不是只测底层 hook 是否采到了 B/C。任何 pin shape 迁移都要把 transform / generator 的回归测试一起切到新 shape。
+
 ## 怎么修
 
-按照 4 层一次清:
+按照全部层级一次清:
 
 ```
 # 找全 callsite (任何 schema rename 必跑)
