@@ -5,7 +5,7 @@
 ## 开发环境
 
 - Go 版本以 `go.mod` 为准。
-- Node 22.18、pnpm 版本以 `frontend/package.json` 的 `packageManager` 为准。
+- Node 与 pnpm 的精确版本均以 `frontend/package.json` 为准。
 - Wails CLI 版本必须通过 `scripts/verify-wails-version.ps1 -CheckInstalled`。
 - Windows 完整构建需要 Rust、Task 和 WGC DLL 工具链。
 

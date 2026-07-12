@@ -15,7 +15,7 @@ RECHECK WHEN: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bi
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
 - **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
 - **构建**: `task build` — frozen install / bindings / `vite build` 后，以 `-mod=readonly` 执行 production Go build；Rust capture DLL 使用 `cargo build --release --locked`。构建链不会运行 `go mod tidy`、重写 icon 或调用 UPX。
-- **发布候选**: `task package` — 完整 gate 和 build 后，由 allowlist 生成 `artifacts/staging/Yotta`、artifact manifest 与固定时间戳 ZIP，并要求 tracked diff 不变。公开 stable/NSIS/MSIX 已冻结；证书、用户数据迁移和 owner 级 GitHub 设置完成前只允许手动 candidate。
+- **发布候选**: `task package` — 构建前后都要求 index/worktree（含 untracked）完全干净；完整 gate 和 build 后，由 allowlist 生成 `artifacts/staging/Yotta`、artifact manifest 与固定时间戳 ZIP。公开 stable/NSIS/MSIX 已冻结；证书、用户数据迁移和 owner 级 GitHub 设置完成前只允许手动 candidate。
 - **仅语法 check**: `go build ./...` 可用 (不产 exe), 但产 exe 一定走 task.
 
 **永远别裸 `go build -o Yotta.exe`** — 缺 vite build → frontend/dist 旧/空 → 启动空白; 缺 `wails3 generate syso` → 没 icon + 缺 manifest (admin 提权检测不对).

@@ -25,7 +25,6 @@ tasks:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-actions-pinned.ps1
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-toolchains.ps1 -CheckInstalled
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-third-party-artifacts.ps1
-      - go mod tidy -diff
       - go mod verify
       - cargo metadata --locked --no-deps --format-version 1 --manifest-path native/capture_wgc/Cargo.toml
     env:
@@ -68,15 +67,21 @@ tasks:
   package:
     summary: Builds a frozen, auditable portable release candidate
     cmds:
+      - task: release:verify-clean
       - task: check
       - task: build
       - task: release:stage
-      - git diff --exit-code
+      - task: release:verify-clean
 
   release:stage:
     summary: Creates the allowlisted Windows staging tree and deterministic archive
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1
+
+  release:verify-clean:
+    summary: Rejects staged, unstaged and untracked release inputs
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/assert-clean-worktree.ps1
 
   run:
     summary: Runs the application

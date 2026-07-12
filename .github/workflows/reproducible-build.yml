@@ -61,18 +61,21 @@ jobs:
       - name: Build from clean checkout
         shell: pwsh
         run: |
-          task check
-          task build
-          task release:stage
-          git diff --exit-code
-          if (git status --porcelain --untracked-files=no) { throw "build changed tracked files" }
+          $destination = Join-Path '${{ runner.temp }}' 'yotta-source-${{ matrix.attempt }}'
+          Copy-Item -LiteralPath $env:GITHUB_WORKSPACE -Destination $destination -Recurse -Force
+          Set-Location $destination
+          task package
 
       - name: Upload comparison input
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: clean-build-${{ matrix.attempt }}
-          path: artifacts/Yotta-*.zip
+          path: |
+            ${{ runner.temp }}/yotta-source-${{ matrix.attempt }}/artifacts/Yotta-*.zip
+            ${{ runner.temp }}/yotta-source-${{ matrix.attempt }}/artifacts/staging/Yotta
+            ${{ runner.temp }}/yotta-source-${{ matrix.attempt }}/frontend/dist
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 3
 
   compare:
@@ -92,15 +95,24 @@ jobs:
           name: clean-build-2
           path: compare/2
 
-      - name: Require identical archives
+      - name: Require identical payloads and archives
         shell: pwsh
         run: |
-          $first = Get-ChildItem compare/1/*.zip -File
-          $second = Get-ChildItem compare/2/*.zip -File
-          if ($first.Count -ne 1 -or $second.Count -ne 1) { throw "expected one archive per build" }
-          $firstHash = (Get-FileHash $first.FullName -Algorithm SHA256).Hash
-          $secondHash = (Get-FileHash $second.FullName -Algorithm SHA256).Hash
-          if ($firstHash -ne $secondHash) {
-            throw "clean build mismatch: $firstHash != $secondHash"
+          $firstRoot = (Resolve-Path compare/1).Path
+          $secondRoot = (Resolve-Path compare/2).Path
+          $firstFiles = @(Get-ChildItem $firstRoot -File -Recurse | ForEach-Object {
+            [IO.Path]::GetRelativePath($firstRoot, $_.FullName).Replace('\', '/')
+          } | Sort-Object)
+          $secondFiles = @(Get-ChildItem $secondRoot -File -Recurse | ForEach-Object {
+            [IO.Path]::GetRelativePath($secondRoot, $_.FullName).Replace('\', '/')
+          } | Sort-Object)
+          $shapeDiff = Compare-Object $firstFiles $secondFiles
+          if ($shapeDiff) { throw "clean builds produced different file sets:`n$($shapeDiff | Out-String)" }
+          foreach ($relative in $firstFiles) {
+            $firstHash = (Get-FileHash (Join-Path $firstRoot $relative) -Algorithm SHA256).Hash
+            $secondHash = (Get-FileHash (Join-Path $secondRoot $relative) -Algorithm SHA256).Hash
+            if ($firstHash -ne $secondHash) {
+              throw "clean build mismatch for ${relative}: $firstHash != $secondHash"
+            }
           }
-          Write-Host "reproducible archive SHA-256: $firstHash"
+          Write-Host "reproducible build contract OK: $($firstFiles.Count) files"

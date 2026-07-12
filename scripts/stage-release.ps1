@@ -18,7 +18,8 @@ function Get-Sha256 {
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $outputRoot = [System.IO.Path]::GetFullPath((Join-Path $root $OutputDirectory))
 $artifactsRoot = [System.IO.Path]::GetFullPath((Join-Path $root "artifacts"))
-if (-not $outputRoot.StartsWith($artifactsRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+$artifactsPrefix = $artifactsRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+if ($outputRoot -ne $artifactsRoot -and -not $outputRoot.StartsWith($artifactsPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "release output must stay under $artifactsRoot"
 }
 

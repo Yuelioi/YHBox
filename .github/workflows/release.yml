@@ -65,12 +65,7 @@ jobs:
 
       - name: Verify and build
         shell: pwsh
-        run: |
-          task check
-          task build
-          task release:stage
-          git diff --exit-code
-          if (git status --porcelain --untracked-files=no) { throw "release build changed tracked files" }
+        run: task package
 
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
