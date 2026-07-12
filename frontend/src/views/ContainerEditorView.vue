@@ -303,6 +303,15 @@
       @save="onSettingsSave"
     />
 
+    <RecordingSaveModal
+      v-if="pendingRecording"
+      :pending="pendingRecording"
+      :busy="pendingBusy"
+      :replace-mode="pendingReplaceMode"
+      @save="finalizePending"
+      @discard="discardPending"
+    />
+
     <DeleteVarConfirmModal
       v-if="deleteConfirm"
       :open="true"
@@ -473,6 +482,7 @@ import { useNodeCreation } from '@/composables/containerEditor/useNodeCreation'
 import { useInsertPoint } from '@/composables/containerEditor/useInsertPoint'
 import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
+import RecordingSaveModal from '@/components/containers/RecordingSaveModal.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
 import ContainerEditorToolbar from '@/components/containers/ContainerEditorToolbar.vue'
 import CanvasContextBar from '@/components/containers/CanvasContextBar.vue'
@@ -1174,7 +1184,16 @@ async function selectRecordedNode(id: string) {
 }
 
 // 录制流程: 产物落在当前视口中心、不自动连线、落下即选中 (用户自己接线). 简易产物双击可进编辑.
-const { startRecording, stopRecording, countdownSec } = useRecording({
+const {
+  startRecording,
+  stopRecording,
+  countdownSec,
+  pendingRecording,
+  pendingBusy,
+  pendingReplaceMode,
+  finalizePending,
+  discardPending,
+} = useRecording({
   draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave,
   dropPoint: viewportCenterForNode, selectNode: selectRecordedNode, toast,
 })

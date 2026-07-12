@@ -47,13 +47,12 @@ type ContainerGetter interface {
 // Service wails3 RPC 入口.
 //
 // 前端流程:
-//  1. Start({filterMode, containerID}) → 立即返 tempID; hook 已挂上但用户还没停
-//  2. (用户在 UI / F12 全局热键触发停止)
-//  3. Stop() → 拿 StopResult → 按模式分流: simple 落 *container.Subgraph 返 SubgraphID
-//     (前端加 Subgraph 调用节点); precise 落 InputClip 返 ClipID (前端加裸 PlayClip 节点).
+//  1. Start({filterMode, containerID}) 启动 hook.
+//  2. Stop() 只生成 pending token，不创建库资产.
+//  3. Finalize(metadata) 按模式创建 Subgraph 或 InputClip; Discard 释放 pending 数据.
 //
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
-// StopAsync 完成时 emit 'recording:completed' {subgraphID|clipID, containerID, label, filterMode} | {error}.
+// StopAsync 完成时 emit 'recording:completed' pending payload 或 {error}.
 type Service struct {
 	rec          recorderLifecycle
 	hkProv       HotkeySettingsProvider
@@ -336,8 +335,7 @@ func (s *Service) Resume() error {
 	return nil
 }
 
-// StopResultPayload 给前端 RPC / event payload 用. 录制产物对前端是不透明的, 这里只回最小定位信息.
-// 按模式二选一: simple → SubgraphID (前端插 Subgraph 调用节点); precise → ClipID (前端插裸 PlayClip 节点).
+// StopResultPayload 描述尚未入库的录制结果，供前端打开命名表单.
 type StopResultPayload struct {
 	PendingID   string `json:"pendingID"`
 	ContainerID string `json:"containerID"`
@@ -369,10 +367,7 @@ type FinalizeResult struct {
 	FilterMode  string `json:"filterMode"`
 }
 
-// Stop 同步停止录制. 按模式分流产物:
-//   - simple : 走 transform 输出线性 Subgraph 落到全局子图池, 返 SubgraphID.
-//   - precise: 把 InputClip 落到 clipSvc.Store, 返 ClipID — 前端直接插一个裸 PlayClip 节点
-//     (不再包子图, 回放校准只读 clip 自带 Meta, 子图壳是多余的).
+// Stop 同步停止录制并保留为内存 pending，等待用户命名后 Finalize.
 //
 // 注意: 用 internal mutex 防 F12 stop callback 跟 UI Stop 重入 (Recorder.Stop 不可重入).
 func (s *Service) Stop() (*StopResultPayload, error) {
@@ -647,7 +642,7 @@ func (s *Service) referenceCount(kind, id string) int {
 	return 0
 }
 
-// StopAsync 异步停录 — 跑后 emit 'recording:completed' payload 或 {error}.
+// StopAsync 异步停录，完成后广播 pending payload 或 {error}.
 // F12 hook callback 走这条 (callback 不能阻塞 hook 线程 50ms+).
 // 前端 RecordingHUD 子窗口主动调它 (拿不到 RPC 返回值, 靠订阅事件).
 //

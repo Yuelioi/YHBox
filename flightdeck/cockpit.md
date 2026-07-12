@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **设计录制资产完整生命周期。** 当前等待确认取消、停止后命名入库、未引用录制清理的设计 brief。
+Focus: **验收录制资产完整生命周期。** 取消、停止后命名入库、未引用录制清理均已实现并构建，等待 Windows 桌面端 smoke。
 
 ## In flight
 
-- `recording-asset-lifecycle` — 设计 brief 已完成，等待用户确认后实施。
+- `recording-asset-lifecycle` — 实现与自动化验证已完成；用 `bin/Yotta.exe` 验收三条用户路径后归档。
 
 ## Open questions
 

@@ -17,6 +17,7 @@
         icon="i-tabler-x"
         style="--wails-draggable: no-drag"
         title="关闭悬浮窗 (录制不停, 仍可按热键停)"
+        aria-label="关闭悬浮窗"
         @click="onCloseHud"
       />
     </header>
@@ -101,14 +102,21 @@
         >继续</UButton>
         <UButton
           size="xs"
-          color="error"
+          color="primary"
           variant="solid"
           icon="i-tabler-player-stop-filled"
           class="flex-1 justify-center"
           :title="`点此或按 ${stopKey} 停止`"
           @click="onStop"
         >停止</UButton>
-        <span class="text-[10px] text-dimmed shrink-0 ml-0.5">{{ stopKey }}</span>
+        <UButton
+          size="xs"
+          color="error"
+          variant="ghost"
+          icon="i-tabler-trash"
+          class="flex-1 justify-center"
+          @click="armOrCancel"
+        >{{ cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel') }}</UButton>
       </template>
       <span v-else class="text-[10px] text-dimmed mx-auto">{{ stopKey }} 停止 · {{ pauseKey }} 暂停/继续</span>
     </footer>
@@ -117,12 +125,14 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Events, Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 
 type State = 'idle' | 'countdown' | 'recording' | 'paused'
 
 const state = ref<State>('idle')
+const { t } = useI18n()
 const countdownSec = ref(0)
 const resumeCountdown = ref(0) // >0 时显示"继续录制"倒计时 (优先于 paused 卡片)
 const mode = ref<'precise' | 'simple'>('precise')
@@ -133,6 +143,8 @@ const elapsedMs = ref(0)
 let startedAt = 0
 let pausedMs = 0
 let timer: ReturnType<typeof setInterval> | null = null
+const cancelArmed = ref(false)
+let cancelTimer: ReturnType<typeof setTimeout> | null = null
 
 const modeLabel = computed(() => (mode.value === 'precise' ? '精准录制' : '简易录制'))
 
@@ -148,6 +160,10 @@ function stopTimer() {
     clearInterval(timer)
     timer = null
   }
+}
+function clearCancelTimer() {
+  if (cancelTimer) clearTimeout(cancelTimer)
+  cancelTimer = null
 }
 function startTimer() {
   stopTimer()
@@ -230,6 +246,7 @@ async function startResumeCountdown() {
 onUnmounted(() => {
   stopTimer()
   clearResumeTimer()
+  clearCancelTimer()
   offCountdown?.()
   offState?.()
   offResumeHotkey?.()
@@ -246,6 +263,22 @@ async function onStop() {
     await backend.recording.stopAsync()
   } catch (e) {
     console.warn('录制停止失败', e)
+  } finally {
+    Window.Close()
+  }
+}
+
+async function armOrCancel() {
+  if (!cancelArmed.value) {
+    cancelArmed.value = true
+    cancelTimer = setTimeout(() => { cancelArmed.value = false }, 4000)
+    return
+  }
+  clearCancelTimer()
+  try {
+    await backend.recording.cancel()
+  } catch (e) {
+    console.warn('录制取消失败', e)
   } finally {
     Window.Close()
   }

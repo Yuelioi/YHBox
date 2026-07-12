@@ -436,22 +436,19 @@ export const backend = {
     info: () => invoke(AppInfoService.Info),
   },
   recording: {
-    // Start 收 {filterMode, containerID}. containerID 必传 — 录完 Subgraph 落到该容器
-    // subgraphs/. 返临时 recording ID (前端订阅事件流过滤用).
     start: (args: { filterMode: 'precise' | 'simple'; containerID: string }) =>
       invoke(RecordingService.Start, args as any),
-    // Stop 返 {subgraphID, containerID, label, filterMode} — 录完产物 = 一个 Subgraph,
-    // 前端拿 subgraphID 在 activeGraph 加 Subgraph 引用节点.
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
-    // Pause/Resume 切除间隔: 暂停期不录, 时间戳扣除该段 → 回放无空档. HUD 按钮 / 暂停热键触发.
+    cancel: () => invoke(RecordingService.Cancel),
+    finalize: (args: { pendingID: string; label: string; description: string; category: string; tags: string[] }) =>
+      invoke(RecordingService.Finalize, args as any),
+    discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
+    previewCleanup: () => invoke(RecordingService.PreviewCleanup),
+    cleanupUnused: (ids: string[]) => invoke(RecordingService.CleanupUnused, { ids } as any),
     pause: () => invoke(RecordingService.Pause),
     resume: () => invoke(RecordingService.Resume),
-    // ValidateTarget 录制前预检: 找不到 Win32WindowTarget 窗口返 error (倒计时前调, 不用等录完才报错);
-    // 成功则把游戏窗口拉到前台. 失败抛出供前端 toast + 中止倒计时.
     validateTarget: (containerID: string) => invoke(RecordingService.ValidateTarget, containerID),
-    // GetState 返回后端权威录制状态 {phase, containerID, filterMode, tempID, startedAtMs}.
-    // 前端 recordStore reconcile 对账用 — 取代旧的 isRecording (bool 不够, desync 无法自愈).
     getState: () => invoke(RecordingService.GetState),
   },
   // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).

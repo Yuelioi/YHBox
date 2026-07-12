@@ -23,8 +23,16 @@ export interface RecordingState {
 }
 
 export interface RecordingStopPayload {
-  subgraphID: string // simple 模式产物 — 前端插 Subgraph 调用节点
-  clipID: string     // precise 模式产物 — 前端插裸 PlayClip 节点
+  pendingID: string
+  containerID: string
+  filterMode: string
+  durationUs: number
+  eventCount: number
+}
+
+export interface RecordingFinalizePayload {
+  subgraphID: string
+  clipID: string
   containerID: string
   label: string
   filterMode: string
@@ -108,5 +116,31 @@ export const useRecordingStore = defineStore('recording', () => {
     return payload ?? null
   }
 
-  return { state, lastResult, isRecording, isPaused, activeTargetContainerID, applyState, reconcile, start, pause, resume, stop }
+  async function cancel(): Promise<void> {
+    await backend.recording.cancel()
+    lastResult.value = null
+    await reconcile()
+  }
+
+  async function finalize(args: {
+    pendingID: string
+    label: string
+    description: string
+    category: string
+    tags: string[]
+  }): Promise<RecordingFinalizePayload> {
+    const payload = await backend.recording.finalize(args) as RecordingFinalizePayload | null | undefined
+    if (!payload) throw new Error('recording.finalize: empty result')
+    return payload
+  }
+
+  async function discard(pendingID: string): Promise<void> {
+    await backend.recording.discard(pendingID)
+    lastResult.value = null
+  }
+
+  return {
+    state, lastResult, isRecording, isPaused, activeTargetContainerID,
+    applyState, reconcile, start, pause, resume, stop, cancel, finalize, discard,
+  }
 })

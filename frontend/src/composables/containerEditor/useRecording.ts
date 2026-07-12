@@ -2,12 +2,10 @@
 //   1. 倒计时 → recordStore.start(filterMode, containerID)  (hook 已挂, F12 / HUD / toolbar 都能停)
 //   2. 停录路径:
 //       - toolbar 停: stopRecording() → recordStore.stop() 同步拿 payload
-//       - F12 / HUD 停: 后端 emit 'recording:completed' {subgraphID|clipID, containerID, label, filterMode} | {error}
-//   3. onRecordingProduct 按 filterMode 分叉落产物节点:
-//       - simple: refreshSubgraphStore() 让 editorStore.subgraphsForCurrentContainer 拿到新 subgraph
-//         (activeGraph computed 从这里读, 不读 draft.subgraphs!) → 加 Subgraph 调用节点 (config.SubgraphID)。
-//       - precise: 直接加一个裸 PlayClip 节点 (config.ClipID), 无新子图, 不必刷 store。
-//      两路都落在当前视口中心、不自动连线、落下即选中 → 自动 saveDraft (用户自己接线)。
+//       - F12 / HUD 停: 后端 emit 'recording:completed' {pendingID, containerID, filterMode, durationUs, eventCount} | {error}
+//   3. Stop 只拿 pending token; 用户填写名称/分类/标签后 Finalize 才创建资产.
+//   4. simple 刷新子图池并加 Subgraph 节点; precise 加 PlayClip 节点.
+//      两路都落在当前视口中心、不自动连线、落下即选中并保存当前容器。
 //
 // 关键陷阱 (simple): container.Subgraphs 在 Go 端是 json:"-", backend.containers.get(id) 拿不到 subgraphs.
 // 子图列表走单独 RPC → 灌进 editorStore. 录完不 refresh store 的话, 用户点新 Subgraph 节点进入会拿到 null → 画布空白.
@@ -16,13 +14,17 @@
 //   - 录制层: simple 模式 drainLoop 丢 RawDelta/MouseMove (省内存)
 //   - 产物: simple → 多个 KeyPress/ClickAt/Sleep 节点打包成子图; precise → 一个 PlayClip 节点 (回放原始录像)
 //   - 画布: simple 是 Subgraph 调用节点 (可进入), precise 是裸 PlayClip 节点 (所见即所得)。
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type Container, type Graph } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
-import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
+import {
+  useRecordingStore,
+  type RecordingFinalizePayload,
+  type RecordingStopPayload,
+} from '@/stores/recording'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import { randID } from './ids'
 
@@ -57,6 +59,9 @@ export function useRecording(opts: RecordOpts) {
   const countdownSec = ref(0)
   const filterMode = ref<'precise' | 'simple'>('precise')
   const replaceNodeID = ref<string | null>(null)
+  const pendingRecording = ref<RecordingStopPayload | null>(null)
+  const pendingBusy = ref(false)
+  const pendingReplaceMode = computed(() => !!replaceNodeID.value)
   // 归属化: 仅本窗发起的录制才处理 recording:completed. recording:completed 是全局广播,
   // 多个容器编辑器窗口都订阅 — 非发起方窗口若也处理会误报 container_mismatch (子图存对了, 别的窗口瞎报警).
   const ownsRecording = ref(false)
@@ -134,25 +139,57 @@ export function useRecording(opts: RecordOpts) {
     try {
       const payload = await recordStore.stop()
       try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-      if (!payload || (!payload.subgraphID && !payload.clipID)) {
+      if (!payload?.pendingID) {
         toast.add({ title: t('recording.no_steps'), color: 'warning' })
         return
       }
-      await onRecordingProduct(payload)
+      presentPending(payload)
     } catch (e: any) {
       toast.add({ title: t('recording.stop_failed'), description: errorMessage(e), color: 'error' })
     }
   }
 
-  // onRecordingProduct: 录完产物落地. 按 filterMode 分叉 —
-  //   simple  → 产物是子图 (后端已落盘), 加一个 Subgraph 调用节点;
-  //   precise → 产物是 clip (后端已落盘), 加一个裸 PlayClip 节点 (config.ClipID)。
-  //
-  // ⚠ simple 必须先 refreshSubgraphStore — activeGraph computed 从 editorStore 读子图列表,
-  // 不刷新的话双击进 Subgraph 节点会拿不到, 画布空白 (实测踩过). precise 无新子图, 跳过.
-  async function onRecordingProduct(payload: RecordingStopPayload) {
-    // 会话结束 (无论哪条停录路径都汇流到这) → 清归属标记.
+  function presentPending(payload: RecordingStopPayload) {
     ownsRecording.value = false
+    pendingRecording.value = payload
+  }
+
+  async function finalizePending(metadata: {
+    label: string
+    description: string
+    category: string
+    tags: string[]
+  }) {
+    const pending = pendingRecording.value
+    if (!pending || pendingBusy.value) return
+    pendingBusy.value = true
+    try {
+      const product = await recordStore.finalize({ pendingID: pending.pendingID, ...metadata })
+      pendingRecording.value = null
+      await attachFinalizedProduct(product)
+    } catch (e: any) {
+      toast.add({ title: t('recordingSave.save_failed'), description: errorMessage(e), color: 'error' })
+    } finally {
+      pendingBusy.value = false
+    }
+  }
+
+  async function discardPending() {
+    const pending = pendingRecording.value
+    if (!pending || pendingBusy.value) return
+    pendingBusy.value = true
+    try {
+      await recordStore.discard(pending.pendingID)
+      pendingRecording.value = null
+      replaceNodeID.value = null
+    } catch (e: any) {
+      toast.add({ title: t('recordingSave.discard_failed'), description: errorMessage(e), color: 'error' })
+    } finally {
+      pendingBusy.value = false
+    }
+  }
+
+  async function attachFinalizedProduct(payload: RecordingFinalizePayload) {
     const isPrecise = payload.filterMode === 'precise'
 
     if (!activeGraph.value || !draft.value) {
@@ -259,9 +296,8 @@ export function useRecording(opts: RecordOpts) {
     void recordStore.reconcile()
   }
 
-  // 订阅 'recording:completed' (F12 全局热键 / HUD 关 / StopAsync 触发).
-  // payload: {subgraphID, containerID, label, filterMode} 或 {error}. (状态本身走 recording:state.)
   let unsubscribe: (() => void) | null = null
+  let unsubscribeCancelled: (() => void) | null = null
   onMounted(() => {
     void recordStore.reconcile() // 挂载即对账, 修正任何陈旧状态
     window.addEventListener('focus', onWindowFocus)
@@ -282,22 +318,27 @@ export function useRecording(opts: RecordOpts) {
         toast.add({ title: t('recordComposable.recording_failed'), description: String(errMsg), color: 'error' })
         return
       }
-      const hasProduct = firstArg?.subgraphID || firstArg?.clipID
-      if (!hasProduct) {
+      if (!firstArg?.pendingID) {
         toast.add({ title: t('recordComposable.no_product'), color: 'warning' })
         return
       }
-      await onRecordingProduct({
-        subgraphID: firstArg.subgraphID ?? '',
-        clipID: firstArg.clipID ?? '',
+      presentPending({
+        pendingID: firstArg.pendingID,
         containerID: firstArg.containerID,
-        label: firstArg.label ?? t('recordComposable.default_clip_name'),
         filterMode: firstArg.filterMode ?? '',
+        durationUs: Number(firstArg.durationUs ?? 0),
+        eventCount: Number(firstArg.eventCount ?? 0),
       })
+    })
+    unsubscribeCancelled = Events.On('recording:cancelled', () => {
+      ownsRecording.value = false
+      replaceNodeID.value = null
+      void recordStore.reconcile()
     })
   })
   onUnmounted(() => {
     if (unsubscribe) unsubscribe()
+    if (unsubscribeCancelled) unsubscribeCancelled()
     window.removeEventListener('focus', onWindowFocus)
   })
 
@@ -306,6 +347,11 @@ export function useRecording(opts: RecordOpts) {
     filterMode,
     startRecording,
     stopRecording,
+    pendingRecording,
+    pendingBusy,
+    pendingReplaceMode,
+    finalizePending,
+    discardPending,
     isRecording: () => recordStore.isRecording,
   }
 }

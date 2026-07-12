@@ -21,6 +21,7 @@ open 走 v-model, 跟 useDialogOpen() 正交。复杂内部布局由调用方塞
             color="neutral"
             size="xs"
             class="shrink-0 -mr-1"
+            :aria-label="t('common.close')"
             @click="emit('update:open', false)"
           />
         </header>
@@ -42,6 +43,7 @@ open 走 v-model, 跟 useDialogOpen() 正交。复杂内部布局由调用方塞
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl'
 type IconColor = 'primary' | 'error' | 'warning' | 'success' | 'info'
@@ -64,6 +66,7 @@ const props = withDefaults(
   { title: '', iconColor: 'primary', size: 'md', showClose: true, dismissible: true },
 )
 const emit = defineEmits<{ 'update:open': [v: boolean] }>()
+const { t } = useI18n()
 
 // 字面量映射 (动态 text-${x} 会被 Tailwind purge).
 const ICON_COLOR_MAP: Record<IconColor, string> = {

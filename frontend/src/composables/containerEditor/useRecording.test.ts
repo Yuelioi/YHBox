@@ -10,6 +10,12 @@ import { createPinia } from 'pinia'
 import { createI18n } from 'vue-i18n'
 import type { Container, Graph } from '@/lib/backend'
 
+const backendMocks = vi.hoisted(() => ({
+  stop: vi.fn(),
+  finalize: vi.fn(),
+  discard: vi.fn(),
+}))
+
 // 捕获 composable 在 onMounted 里注册的事件处理器.
 const handlers: Record<string, (ev: any) => any> = {}
 vi.mock('@wailsio/runtime', () => ({
@@ -27,7 +33,10 @@ vi.mock('@/lib/backend', () => ({
     recording: {
       getState: vi.fn(async () => ({ phase: 'idle' })),
       start: vi.fn(),
-      stop: vi.fn(),
+      stop: backendMocks.stop,
+      finalize: backendMocks.finalize,
+      discard: backendMocks.discard,
+      cancel: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),
     },
@@ -37,6 +46,7 @@ vi.mock('@/lib/backend', () => ({
 }))
 
 import { useRecording } from './useRecording'
+import { useRecordingStore } from '@/stores/recording'
 
 function makeDraft(): Container {
   return {
@@ -49,10 +59,12 @@ function makeDraft(): Container {
 function mountComposable(draft: Ref<Container | null>) {
   const toast = { add: vi.fn() }
   const activeGraph = computed<Graph | null>(() => draft.value?.graph ?? null)
+  let recordingApi: ReturnType<typeof useRecording> | undefined
+  const pinia = createPinia()
   const app = createApp(
     defineComponent({
       setup() {
-        useRecording({
+        recordingApi = useRecording({
           draft,
           activeGraph,
           syncFlowFromDraft: vi.fn(),
@@ -66,10 +78,10 @@ function mountComposable(draft: Ref<Container | null>) {
       },
     }),
   )
-  app.use(createPinia())
+  app.use(pinia)
   app.use(createI18n({ legacy: false, locale: 'zh', messages: { zh: {} } }))
   app.mount(document.createElement('div'))
-  return { toast, app }
+  return { toast, app, recordingApi: recordingApi!, store: useRecordingStore(pinia) }
 }
 
 describe('useRecording — recording:completed 归属守卫', () => {
@@ -95,5 +107,28 @@ describe('useRecording — recording:completed 归属守卫', () => {
 
     expect(toast.add).not.toHaveBeenCalled()
     expect(draft.value!.graph.nodes.length).toBe(before) // 没加 Subgraph 节点
+  })
+
+  it('停止后只打开 pending 保存状态，Finalize 后才把资产节点加入画布', async () => {
+    backendMocks.stop.mockResolvedValueOnce({
+      pendingID: 'pending-1', containerID: 'cMine', filterMode: 'precise', durationUs: 1_000_000, eventCount: 2,
+    })
+    backendMocks.finalize.mockResolvedValueOnce({
+      clipID: 'clip-1', subgraphID: '', containerID: 'cMine', filterMode: 'precise', label: '领奖前置',
+    })
+    const draft = ref(makeDraft())
+    const { recordingApi, store } = mountComposable(draft)
+    store.applyState({ phase: 'recording', containerID: 'cMine' })
+
+    await recordingApi.stopRecording()
+    expect(recordingApi.pendingRecording.value?.pendingID).toBe('pending-1')
+    expect(draft.value!.graph.nodes).toHaveLength(1)
+
+    await recordingApi.finalizePending({ label: '领奖前置', description: '', category: '日常', tags: ['每日'] })
+    expect(backendMocks.finalize).toHaveBeenCalledWith({
+      pendingID: 'pending-1', label: '领奖前置', description: '', category: '日常', tags: ['每日'],
+    })
+    expect(recordingApi.pendingRecording.value).toBeNull()
+    expect(draft.value!.graph.nodes.at(-1)).toMatchObject({ kind: 'PlayClip', config: { ClipID: 'clip-1' } })
   })
 })
