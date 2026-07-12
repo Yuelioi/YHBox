@@ -5,7 +5,7 @@
 // 用法:  pnpm gen:node-i18n   (npm script 先用 esbuild 把 zh.ts 打成 ESM, 再跑本脚本)
 // zh.ts 是 export default 纯对象字面量, 走 esbuild AST 打包而非正则 (zh.ts 改结构这里要重跑;
 // Go 端 TestBuildWithI18n_AllKindsLabeled 会在漏 kind 时 fail, 逼着同步)。
-import { readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 
@@ -46,7 +46,7 @@ for (const [kind, v] of Object.entries(node)) {
   if (typeof v.label === 'string') e.label = v.label
   if (typeof v.description === 'string') e.description = v.description
   if (typeof v.example === 'string') e.example = v.example
-  const ins = pinMap(v.input, true)   // input pin: label + hint + dropdown option labels
+  const ins = pinMap(v.input, true) // input pin: label + hint + dropdown option labels
   const outs = pinMap(v.output, false) // output pin: label only
   if (ins) e.input = ins
   if (outs) e.output = outs

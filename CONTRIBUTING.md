@@ -5,7 +5,7 @@
 ## 开发环境
 
 - Go 版本以 `go.mod` 为准。
-- Node 22、pnpm 11；安装前端依赖使用 `pnpm -C frontend install --frozen-lockfile`。
+- Node 22.18、pnpm 版本以 `frontend/package.json` 的 `packageManager` 为准。
 - Wails CLI 版本必须通过 `scripts/verify-wails-version.ps1 -CheckInstalled`。
 - Windows 完整构建需要 Rust、Task 和 WGC DLL 工具链。
 
@@ -13,14 +13,10 @@
 
 ```powershell
 gofmt -w <changed-go-files>
-go test ./...
-go vet ./...
-staticcheck ./...
-pnpm -C frontend test
-pnpm -C frontend typecheck
-pnpm -C frontend i18n:check
-pnpm -C frontend format:check
+task check
 ```
+
+`task check` 会执行 frozen frontend install、Wails contract 生成/校验、前端 format/lint/typecheck/i18n/test/build/bundle budget，以及 Go test/coverage/vet/staticcheck。自动修复必须显式运行 `pnpm -C frontend lint:fix` 或 `pnpm -C frontend format`；CI 永不修改源码。
 
 并发、生命周期或持久化改动还应对受影响包运行 `go test -race`。Parser、导入和非可信 JSON 边界应补 seed corpus 或 fuzz test。
 
@@ -33,7 +29,7 @@ pnpm -C frontend format:check
 - 测试使用局部 `node.NewRegistry()`；不要清空默认全局 registry。
 - 当前只承诺 in-tree 节点贡献，不承诺 Go plugin ABI。
 
-详细背景见 [docs/architecture](docs/architecture/README.md)。行为或数据格式变更需同步[兼容策略](docs/compatibility.md)和迁移测试。
+详细背景见 [docs/architecture](docs/architecture/README.md)。行为或数据格式变更需同步[兼容策略](docs/compatibility.md)、breaking-change 说明和旧格式拒绝测试；Yotta 3.0 不新增迁移器或兼容 shim。
 
 ## Pull request
 
@@ -42,4 +38,3 @@ PR 请说明问题、设计取舍、平台影响、验证命令和用户数据�
 ## 许可提示
 
 贡献者提交代码即确认自己有权提交，并同意项目当前仓库许可。当前许可不是 OSI 开源许可证；维护者改变项目许可证前需要完成法律与贡献者授权确认。
-

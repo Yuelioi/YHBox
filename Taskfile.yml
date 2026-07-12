@@ -10,6 +10,39 @@ vars:
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
 tasks:
+  check:
+    summary: Runs the canonical local quality gate
+    cmds:
+      - task: version:verify
+      - task: wails:verify
+      - task: check:go
+      - task: check:frontend
+
+  check:go:
+    summary: Runs Go tests, coverage, vet and static analysis
+    cmds:
+      - go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-go-coverage.ps1
+      - go vet ./...
+      - staticcheck ./...
+
+  check:frontend:
+    summary: Generates bindings and runs the complete frontend gate
+    cmds:
+      - pnpm -C frontend install --frozen-lockfile
+      - node frontend/scripts/generate-bindings.mjs
+      - pnpm -C frontend check
+
+  check:fuzz:
+    summary: Runs bounded fuzz smoke tests for untrusted parsers and authoring inputs
+    cmds:
+      - go test ./internal/services/container -run=^$ -fuzz=^FuzzGraphRewriter$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPNodeParams$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime={{.FUZZ_TIME}}
+    vars:
+      FUZZ_TIME: '{{.FUZZ_TIME | default "10s"}}'
+
   build:
     summary: Builds the application
     deps: [wails:verify]

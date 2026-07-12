@@ -8,7 +8,7 @@
 // onAddNode 含 Start 唯一性 / Subgraph 自动建子图等业务逻辑, 仍留在 view.
 import type { Ref, ComputedRef } from 'vue'
 import type { NodeChange, EdgeChange, Connection } from '@vue-flow/core'
-import type { Graph, GraphNode, GraphEdge } from '@/lib/backend'
+import type { Graph, GraphEdge } from '@/lib/backend'
 import type { FlowEdge } from './useContainerDraft'
 import { edgeKind, isSentinelPin } from '@/components/containers/pinSpec'
 import { useContainerEditorStore } from '@/stores/containerEditor'
@@ -17,9 +17,8 @@ export function useGraphMutations(opts: {
   activeGraph: ComputedRef<Graph | null>
   flowEdges: Ref<FlowEdge[]>
   syncFlowFromDraft: () => void
-  findNodeAcrossGraphs: (id: string) => GraphNode | null
 }) {
-  const { activeGraph, flowEdges, syncFlowFromDraft, findNodeAcrossGraphs } = opts
+  const { activeGraph, flowEdges, syncFlowFromDraft } = opts
   const editorStore = useContainerEditorStore()
 
   type EdgeDblClickEvent = { edge: { id: string } }
@@ -128,5 +127,13 @@ export function useGraphMutations(opts: {
     syncFlowFromDraft()
   }
 
-  return { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect }
+  function removeEdges(edges: readonly GraphEdge[]) {
+    const g = activeGraph.value
+    if (!g || edges.length === 0) return
+    const removed = new Set(edges.map((edge) => `${edge.from}\u0000${edge.to}`))
+    g.edges = g.edges.filter((edge) => !removed.has(`${edge.from}\u0000${edge.to}`))
+    syncFlowFromDraft()
+  }
+
+  return { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect, removeEdges }
 }

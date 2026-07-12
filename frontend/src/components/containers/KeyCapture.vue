@@ -32,7 +32,7 @@ import { keyEventToVK } from './keyCapture'
 
 const { t } = useI18n()
 
-const props = defineProps<{ modelValue: string }>()
+defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
 
 const capturing = ref(false)

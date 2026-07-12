@@ -5,8 +5,6 @@ import {
   parseListDraft,
   zeroDefaultFor,
   VAR_TYPE_VALUES,
-  type VariableRef,
-  type VarType,
 } from './variableRef'
 
 describe('VariableRef', () => {

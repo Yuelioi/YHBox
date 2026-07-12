@@ -29,7 +29,7 @@ function loadInitial(): SidebarPrefs {
   try {
     const raw = localStorage.getItem(SIDEBAR_PREFS_KEY)
     if (raw) Object.assign(merged, JSON.parse(raw))
-  } catch (_e) {
+  } catch {
     // localStorage 不可用或 JSON 坏 → 保留 defaults
   }
   return merged
@@ -44,7 +44,7 @@ const stopWatch = watch(
   (p) => {
     try {
       localStorage.setItem(SIDEBAR_PREFS_KEY, JSON.stringify(p))
-    } catch (_e) {
+    } catch {
       // localStorage 配额满 / 不可用 → 静默 (prefs 仍在内存工作)
     }
   },

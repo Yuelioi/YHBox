@@ -73,7 +73,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useExecutionStore, type DebugSessionState, type DebugWarning } from '@/stores/execution'
-import { summarizeDebugSession, type DebugPanelTone } from '@/composables/editor/debugPanel'
+import { summarizeDebugSession } from '@/composables/editor/debugPanel'
 import { KIND_LABEL_ZH } from '@/components/containers/pinSpec'
 
 const { t, te } = useI18n()

@@ -2,11 +2,11 @@
 
 ## State
 
-Yotta 3.0 全仓审查与 AI-native 大型开源升级方案已完成。方案统一覆盖法律/公开主线、架构、工作流编译、执行可靠性、前端、Node SDK、权限、provider/prompt/eval、MCP、插件、供应链与社区治理。
+Yotta 3.0 全仓方案已进入实施。Wave 1 首批真实门禁已落地：一次性前端格式基线、tracked `AGENTS.md`、canonical `task check`、check-only lint、65% Go coverage 与关键包 ratchet、Wails contract manifest、前端全套 CI、fuzz smoke 和 bundle budget；ELK 已从 editor 初始 chunk 按需拆出。
 
 ## Next
 
-由用户确认实施入口。推荐先处理 Wave 0 的 OSI license、canonical identity、公开主线/ruleset 和 stable release freeze；若法律决策需要等待，可并行开始 Wave 1 的格式基线与真实 CI gate，但不能跳过 Wave 0 发布 Source Open/Stable。
+完成本批 Standards/Spec review 与提交。随后工程侧推荐进入 Wave 2 的完整工具链/Action pin 与 release freeze；项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
 
 ## Read now
 
@@ -16,6 +16,7 @@ Yotta 3.0 全仓审查与 AI-native 大型开源升级方案已完成。方案�
 - `flightdeck/work/major-upgrade-review/ai-native-design.md`
 - `flightdeck/work/major-upgrade-review/plan.md`
 - `flightdeck/knowledge/build/ci-documented-gates-can-be-absent.md`
+- `flightdeck/knowledge/build/wails-rpc-count-is-not-a-contract.md`
 - `flightdeck/knowledge/mcp/normalize-masks-schema-prompt-drift.md`
 
 ## Read if
@@ -41,9 +42,17 @@ Done:
 - 完成 n8n、Node-RED、Windmill、Temporal、VS Code、ComfyUI 一手资料对标，共 63 个官方来源。
 - 完成 OpenAI、Anthropic、MCP prompt/tool/eval/安全研究，保留 78 处直接官方链接（53 个独立 URL）。
 - 完成 OSI/OpenSSF/SLSA/GitHub/DCO/CNCF 治理、供应链与发布研究。
+- 完成 188 个前端文件的一次性 oxfmt 基线；format/typecheck/i18n/68 files 529 tests 全绿。
+- 新增 tracked `AGENTS.md` 与 `task check`，README/CONTRIBUTING 不再维护平行的全套命令清单。
+- 将 oxlint/eslint 改为 check-only；清除真实 lint 错误，281 个 `no-explicit-any` 用精确 baseline ratchet，增减均需显式审查。
+- Go coverage 从 64.3% 提升到 65.3%，全局 floor 65%；root/appruntime/MCP/recording/capture/input 另有 package floor。
+- 用 `contracts/wails-rpc.json` 取代失真的 `14 Services, 107 Methods` CI 字符串；当前真实 contract 为 14 services / 112 methods / 86 models+enums。
+- 新增 bounded fuzz smoke：graph rewrite、package metadata、MCP node params、expression parser。
+- 新增 Vite manifest bundle gate：entry 308,095 / 350,000 bytes；editor 初始同步闭包 468,360 / 650,000 bytes，最终目标 450,000；Tabler 全集 331,580 bytes 单独报告。
+- ELK 改为首次自动布局时动态加载，editor 初始同步 gzip 由约 905 KB 降至 468 KB。
 
 Current:
-- 方案已完成，等待用户选择是否进入 Wave 0/1 实施，或先把路线拆为可独立领取的 issue。
+- 对 Wave 1 实现执行 Standards/Spec 双轴 code review，修复发现后提交。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
@@ -52,7 +61,10 @@ Verified:
 - frontend production build 通过；editor chunk 2.74 MB（gzip 858.56 KB）。
 - frontend format check 失败：188 个文件需要格式化；CI 当前未运行该门禁。
 - 三份外部研究均只采用项目官方文档、官方仓库或官方规范，并已保留直接链接。
-- 文档 diff 通过 `git diff --check`；本批只改文档，未重复运行代码测试。
+- `task check:frontend` 全绿：frozen install、bindings generation/contract、format、oxlint、eslint baseline、vue-tsc、i18n、529 tests、production build、bundle budget。
+- `task check:go` 全绿：全量 atomic coverage 65.3%、关键包 floors、vet、staticcheck。
+- `task check:fuzz FUZZ_TIME=2s` 四个 fuzz target 全绿；CI 配置为各 10 秒。
+- `go test -race -count=1 ./internal/node ./cmd/node-catalog` 通过。
 
 ## Open questions
 
@@ -60,3 +72,5 @@ Verified:
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
 - 是否立即进入 Wave 0；若先做无需法律拍板的工程工作，入口固定为 Wave 1 的格式基线与真实 CI gate。
 - 是否把完整路线拆成 issue；插件门 C 明确不属于 3.0 stable 的必交付范围。
+- 本机 Node 22.14 仍可完成门禁但低于新声明的 22.18 最低版本；CI 已固定 22.18.0，本机应在下一工具链批升级。
+- editor 距最终 450 KB target 还差约 18 KB；Tabler 全集 dynamic chunk 仍为约 332 KB，二者进入后续 bundle 优化。

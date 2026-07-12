@@ -118,13 +118,13 @@ function loadExpandedFromStorage() {
       const arr = JSON.parse(raw) as string[]
       expandedGroups.value = new Set(arr)
     }
-  } catch (_e) {}
+  } catch {}
 }
 
 function persistExpanded() {
   try {
     localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expandedGroups.value]))
-  } catch (_e) {}
+  } catch {}
 }
 
 loadExpandedFromStorage()

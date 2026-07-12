@@ -91,7 +91,7 @@ describe('GeometryWidget', () => {
     // 因为没有 @vue/test-utils 的 find+trigger, 我们直接测模型约束:
     // 存储值 = displayVal / 100, round4
     const value: GeometryValue = { pct: { x: 0, y: 0, w: 0.5, h: 0.5 }, overrides: [] }
-    const { emitted, app, el } = mountWidget(value)
+    const { app, el } = mountWidget(value)
     app.unmount()
     el.remove()
 
@@ -111,7 +111,7 @@ describe('GeometryWidget', () => {
 
   it('addOverride → emit 包含新 override', async () => {
     const value: GeometryValue = { pct: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 }, overrides: [] }
-    const { emitted, valueRef } = mountWidget(value)
+    const { valueRef } = mountWidget(value)
 
     // 直接操作 valueRef 模拟 addOverride 的逻辑
     const next: GeometryValue = {

@@ -56,7 +56,7 @@ import AppStatusBar from './components/AppStatusBar.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import { useConfirm } from './composables/useConfirm'
 import { useSettingsStore } from './stores/settings'
-import { setLocale, type Locale } from './i18n'
+import { setLocale } from './i18n'
 
 const route = useRoute()
 const settingsStore = useSettingsStore()

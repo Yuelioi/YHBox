@@ -275,6 +275,7 @@
           :all-subgraph-tags="allSubgraphTags"
           :all-subgraph-categories="allSubgraphCategories"
           @config-update="onConfigUpdate"
+          @remove-edges="onRemoveEdges"
           @declare-var="onDeclareVar"
           @label-update="onLabelUpdate"
           @log-enabled-update="onLogEnabledUpdate"
@@ -507,14 +508,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
-import {
-  backend,
-  type Container,
-  type GraphNode,
-  type GraphEdge,
-  type ValidationError,
-  type VarDecl,
-} from '@/lib/backend'
+import { backend, type GraphNode, type ValidationError, type VarDecl } from '@/lib/backend'
 import { type VarType } from '@/lib/variableRef'
 import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore } from '@/stores/recording'
@@ -532,11 +526,7 @@ import { useEditorSave } from '@/composables/containerEditor/useEditorSave'
 import { useNodeClipboard } from '@/composables/containerEditor/useNodeClipboard'
 import { useGraphLayout, type AlignMode } from '@/composables/containerEditor/useGraphLayout'
 import { useGraphMutations } from '@/composables/containerEditor/useGraphMutations'
-import {
-  AUTO_CONNECT_THRESHOLD_FLOW_PX,
-  centerOnNode,
-  SUBGRAPH_ENTRY_DEFAULT,
-} from '@/composables/containerEditor/constants'
+import { centerOnNode, SUBGRAPH_ENTRY_DEFAULT } from '@/composables/containerEditor/constants'
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
 import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
@@ -548,7 +538,7 @@ import { useContextMenuRouter } from '@/composables/containerEditor/useContextMe
 import { useSubgraphToScript } from '@/composables/containerEditor/useSubgraphToScript'
 import { useNodeCreation } from '@/composables/containerEditor/useNodeCreation'
 import { useInsertPoint } from '@/composables/containerEditor/useInsertPoint'
-import { newNodeID, genNodeID, randID } from '@/composables/containerEditor/ids'
+import { newNodeID, genNodeID } from '@/composables/containerEditor/ids'
 import ContainerFlowNode from '@/components/containers/ContainerFlowNode.vue'
 import RecordingSaveModal from '@/components/containers/RecordingSaveModal.vue'
 import CommentBoxNode from '@/components/containers/CommentBoxNode.vue'
@@ -571,9 +561,7 @@ import ContainerEditorDock from '@/components/containers/dock/ContainerEditorDoc
 import NodeLibraryPanel from '@/components/containers/dock/NodeLibraryPanel.vue'
 import AssetDockPanel from '@/components/containers/dock/AssetDockPanel.vue'
 import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
-import InlineContextMenu, {
-  type PinContext as InlinePinContext,
-} from '@/components/containers/InlineContextMenu.vue'
+import InlineContextMenu from '@/components/containers/InlineContextMenu.vue'
 import SubgraphScriptPreviewModal from '@/components/containers/SubgraphScriptPreviewModal.vue'
 import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
 import MultiNodeContextMenu from '@/components/containers/menus/MultiNodeContextMenu.vue'
@@ -591,7 +579,6 @@ import { useSnippetsStore, eventToShortcutKey, type Snippet } from '@/stores/sni
 import { KIND_DEFAULTS, KIND_LABEL_ZH, PIN_SPECS } from '@/components/containers/pinSpec'
 import { markRaw } from 'vue'
 import { readDragPayload } from '@/composables/editor/useEditorDragDrop'
-import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import SplitHandle from '@/components/common/SplitHandle.vue'
 import { useSplitpane } from '@/composables/useSplitpane'
 
@@ -805,8 +792,12 @@ onBeforeRouteUpdate(guardLeaveEditor)
 // 子图 metadata 外部编辑 (NodeInspector / SubgraphPropsPanel) 改的是 store 里 sg 对象,
 // useContainerDraft 的 deep watch 自动标 dirty — 之前的 window 总线桥接已删除.
 
-const { autoCreateSubgraphForNewNode, countSubgraphReferencesIncludeMain, findNodeAcrossGraphs } =
-  useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
+const { autoCreateSubgraphForNewNode } = useSubgraphLifecycle({
+  draft,
+  activeGraph,
+  syncFlowFromDraft,
+  refreshSubgraphStore,
+})
 
 const selectedID = ref<string | null>(null)
 
@@ -820,7 +811,6 @@ const {
   onPickKind,
   onPickLibrarySubgraph,
   onPickLibraryClip,
-  onAddNode,
   addNode,
 } = useNodeCreation({
   draft,
@@ -990,7 +980,7 @@ function onEditSnippet(s: Snippet) {
   }
 }
 
-function onSnippetSaved(_s: Snippet) {
+function onSnippetSaved() {
   // toast 反馈 (optional). 已经 persist 到 localStorage 由 store 自己干.
 }
 
@@ -1147,7 +1137,6 @@ function miniNodeColor(node: any): string {
 
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
 const {
-  project,
   getSelectedNodes,
   removeNodes,
   removeSelectedNodes,
@@ -1387,7 +1376,6 @@ const {
   onFindRefsPick,
   onPromoteConfirm,
 } = useContextMenuRouter({
-  containerID,
   draft,
   activeGraph,
   selectedID,
@@ -1460,12 +1448,12 @@ const {
   onNodesChange,
   onEdgeDoubleClick,
   onEdgesChange,
+  removeEdges: onRemoveEdges,
   onConnect: _onConnectBase,
 } = useGraphMutations({
   activeGraph,
   flowEdges,
   syncFlowFromDraft,
-  findNodeAcrossGraphs,
 })
 
 // Wrap onConnect: markConnectSuccess 让 useInlineMenu.onVfConnectEnd 退出 (不开 menu).
@@ -1492,7 +1480,10 @@ provide(ContainerCanvasApiKey, {
     applyDraftMutation(() => {
       const n = activeGraph.value?.nodes.find((x) => x.id === nodeId)
       if (!n) return
-      const literal = { ...((n.config?.literal as Record<string, unknown>) ?? {}), [pin]: value }
+      const literal = {
+        ...(n.config?.literal as Record<string, unknown> | undefined),
+        [pin]: value,
+      }
       n.config = { ...n.config, literal }
     })
   },
@@ -1500,7 +1491,7 @@ provide(ContainerCanvasApiKey, {
     applyDraftMutation(() => {
       const n = activeGraph.value?.nodes.find((x) => x.id === nodeId)
       if (!n) return
-      const literal = { ...((n.config?.literal as Record<string, unknown>) ?? {}), ...patch }
+      const literal = { ...(n.config?.literal as Record<string, unknown> | undefined), ...patch }
       n.config = { ...n.config, literal }
     })
   },
@@ -1510,7 +1501,7 @@ provide(ContainerCanvasApiKey, {
 function onLabelUpdate(newLabel: string) {
   if (!selectedNode.value) return
   const targetID = selectedNode.value.id
-  applyDraftMutation((d) => {
+  applyDraftMutation(() => {
     const g = activeGraph.value
     if (!g) return
     const n = g.nodes.find((x) => x.id === targetID)

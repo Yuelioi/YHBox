@@ -764,7 +764,8 @@ function onEdit(c: Container) {
 function exportFilename(c: Container): string {
   const base = (c.name || c.packageName || c.id || 'container')
     .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
+    .replace(/[<>:"/\\|?*]+/g, '-')
+    .replace(/[\p{Cc}]+/gu, '-')
     .replace(/\s+/g, '-')
     .replace(/^-+|-+$/g, '')
   return `${base || c.id || 'container'}.yotta-container.zip`

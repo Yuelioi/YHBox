@@ -3,7 +3,7 @@ import { useVueFlow } from '@vue-flow/core'
 import type { Container, Graph, GraphNode } from '@/lib/backend'
 import { getSpec } from '@/components/containers/nodeRegistry/registry'
 import { useContainerEditorStore } from '@/stores/containerEditor'
-import { createElk, baseLayoutOptions, PRIORITY_KEY, type ElkNode } from './elkConfig'
+import { loadElk, baseLayoutOptions, PRIORITY_KEY, type ElkNode } from './elkConfig'
 import {
   buildElkGraph,
   anchorOffset,
@@ -23,7 +23,6 @@ export function useElkLayout(opts: {
   const { activeGraph, applyDraftMutation, toast, t } = opts
   const { findNode, fitView } = useVueFlow()
   const editorStore = useContainerEditorStore()
-  const elk = createElk()
   const isLayouting = ref(false)
 
   // 当前在子图层级 → 返回该子图 + 入口/出口 virtual marker 的 pseudo 节点 (合进布局);
@@ -44,6 +43,7 @@ export function useElkLayout(opts: {
     const dir = direction === 'LR' ? 'RIGHT' : 'DOWN'
     isLayouting.value = true
     try {
+      const elk = await loadElk()
       // 子图层级: 把入口/出口 virtual marker 合进布局节点集 (marker 不在 g.nodes 里,
       // 但 g.edges 引用它们 — 不合进来 marker 不被重排、连 marker 的边还会被过滤丢掉)。
       const markerCtx = currentMarkers()
@@ -57,7 +57,7 @@ export function useElkLayout(opts: {
 
       const elkGraph = buildElkGraph(allNodes, g.edges, {
         getSpec: (kind) => getSpec(kind) as any,
-        getDims: (id, kind) => {
+        getDims: (id) => {
           const d = findNode(id)?.dimensions
           return d && d.width ? { width: d.width, height: d.height } : null
         },

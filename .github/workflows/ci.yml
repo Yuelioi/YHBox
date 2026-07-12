@@ -1,4 +1,4 @@
-name: Go CI
+name: CI
 
 on:
   push:
@@ -50,12 +50,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.1.2
+          package_json_file: frontend/package.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.18.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -118,6 +118,10 @@ jobs:
       - name: Test with coverage
         run: go test -count=1 -covermode=atomic -coverprofile coverage.out ./...
 
+      - name: Enforce coverage floor
+        shell: pwsh
+        run: ./scripts/check-go-coverage.ps1
+
       - name: Vet
         run: go vet ./...
 
@@ -169,6 +173,30 @@ jobs:
           ./internal/hotkey
           ./pkg/winutil
           ./pkg/capture
+
+  fuzz-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Fuzz graph rewriting
+        run: go test ./internal/services/container -run=^$ -fuzz=^FuzzGraphRewriter$ -fuzztime=10s
+
+      - name: Fuzz package metadata
+        run: go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime=10s
+
+      - name: Fuzz MCP node parameters
+        run: go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPNodeParams$ -fuzztime=10s
+
+      - name: Fuzz expressions
+        run: go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime=10s
 
   portable-core:
     strategy:
@@ -247,12 +275,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.1.2
+          package_json_file: frontend/package.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.18.0
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -267,25 +295,14 @@ jobs:
         run: pnpm -C frontend install --frozen-lockfile
 
       - name: Generate bindings
-        run: |
-          set +e
-          output="$(wails3 generate bindings -ts ./... 2>&1)"
-          status=$?
-          set -e
-          printf '%s\n' "$output"
-          if [ "$status" -ne 0 ]; then
-            exit "$status"
-          fi
-          if printf '%s\n' "$output" | grep -Eq '[1-9][0-9]* warnings? emitted'; then
-            echo 'Wails binding generation emitted warnings' >&2
-            exit 1
-          fi
-          if ! printf '%s\n' "$output" | grep -Eq '14 Services, 107 Methods,'; then
-            echo 'Wails binding surface changed; review and update the expected RPC count' >&2
-            exit 1
-          fi
+        run: node frontend/scripts/generate-bindings.mjs
+
+      - name: Check frontend
+        if: runner.os == 'Linux'
+        run: pnpm -C frontend check
 
       - name: Build frontend
+        if: runner.os != 'Linux'
         run: pnpm -C frontend build
 
       - name: Compile native GUI

@@ -13,16 +13,11 @@ tasks:
     # 冲突 (e.g. pinia 3 vs @pinia/testing) 时崩, 且 pnpm 升级后无法 reconcile
     # stale package-lock.json. 切到 pnpm 统一工具链.
     dir: frontend
-    sources:
-      - package.json
-      - pnpm-lock.yaml
-    generates:
-      - node_modules
     preconditions:
       - sh: pnpm --version
         msg: "Looks like pnpm isn't installed. Install: npm i -g pnpm  (或 corepack enable)"
     cmds:
-      - pnpm install
+      - pnpm install --frozen-lockfile
 
   build:frontend:
     label: build:frontend (DEV={{.DEV}})

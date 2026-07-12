@@ -679,7 +679,7 @@ function scriptCompletionSource(
           const mode = scriptTemplateInsertMode(ctx.state.doc.toString(), ctx.pos)
           return {
             from: inStr ? inStr.from + 1 : ctx.pos,
-            validFor: /^[^"',\]\}]*$/,
+            validFor: /^[^"',\]}]*$/,
             options: opts.map((o) => ({
               label: o.label ?? o.value,
               type: o.type ?? 'enum',

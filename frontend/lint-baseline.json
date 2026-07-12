@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "rules": {
+    "@typescript-eslint/no-explicit-any": 281
+  }
+}

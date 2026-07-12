@@ -112,7 +112,7 @@ const filteredGrouped = computed(() => {
     )
   }
   return Object.entries(groups)
-    .filter(([_, entries]) => entries.length > 0)
+    .filter(([, entries]) => entries.length > 0)
     .map(([source, entries]) => ({ source, entries }))
 })
 

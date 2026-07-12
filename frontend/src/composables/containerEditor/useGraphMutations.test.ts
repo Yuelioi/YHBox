@@ -1,7 +1,7 @@
 // useGraphMutations.onConnect 哨兵 pin 防火墙单测。
 // 根因: 子图未解析时节点出口 pin 渲染成 __missing__ 哨兵; 若连成边并存盘, 后端校验拒
 // "不存在 out pin __missing__" → 主图保存失败 (反复出现的子图 bug)。onConnect 必须拦掉哨兵。
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useGraphMutations } from './useGraphMutations'
@@ -17,13 +17,13 @@ function setup(nodes: GraphNode[]) {
   const graph: Graph = { id: 'g', schemaVersion: 1, nodes, edges: [] } as Graph
   const activeGraph = computed<Graph | null>(() => graph)
   const flowEdges = ref<FlowEdge[]>([])
+  const syncFlowFromDraft = vi.fn()
   const m = useGraphMutations({
     activeGraph,
     flowEdges,
-    syncFlowFromDraft: () => {},
-    findNodeAcrossGraphs: () => null,
+    syncFlowFromDraft,
   })
-  return { m, graph }
+  return { m, graph, syncFlowFromDraft }
 }
 
 describe('useGraphMutations.onConnect 哨兵防火墙', () => {
@@ -60,5 +60,20 @@ describe('useGraphMutations.onConnect 哨兵防火墙', () => {
     m.onConnect({ source: 'a', sourceHandle: null, target: 'b', targetHandle: 'In' } as any)
     m.onConnect({ source: 'a', sourceHandle: 'Done', target: 'b', targetHandle: null } as any)
     expect(graph.edges).toEqual([])
+  })
+})
+
+describe('useGraphMutations.removeEdges', () => {
+  it('removes only matching graph edges and refreshes the flow projection', () => {
+    const { m, graph, syncFlowFromDraft } = setup([node('switch', 'Switch'), node('log', 'Log')])
+    graph.edges = [
+      { from: 'switch.ok', to: 'log.In' },
+      { from: 'switch.error', to: 'log.In' },
+    ]
+
+    m.removeEdges([{ from: 'switch.ok', to: 'log.In' }])
+
+    expect(graph.edges).toEqual([{ from: 'switch.error', to: 'log.In' }])
+    expect(syncFlowFromDraft).toHaveBeenCalledOnce()
   })
 })

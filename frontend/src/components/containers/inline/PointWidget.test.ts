@@ -33,14 +33,12 @@ import type { PointValue } from '@/components/containers/nodeRegistry/index'
 import { backend } from '@/lib/backend'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockBackend = backend as unknown as {
   tools: {
     openScreenPicker: ReturnType<typeof vi.fn>
     mousePos: ReturnType<typeof vi.fn>
   }
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAwaitWailsEvent = awaitWailsEvent as unknown as ReturnType<typeof vi.fn>
 
 /** NuxtUI stub: 只渲染 slot, 透传所有 attrs (含 data-testid + onClick) */

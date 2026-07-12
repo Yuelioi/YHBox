@@ -7,6 +7,7 @@
       :nodes="activeGraph?.nodes ?? []"
       :edges="activeGraph?.edges ?? []"
       @update="$emit('config-update', $event)"
+      @remove-edges="$emit('remove-edges', $event)"
       @label-update="$emit('label-update', $event)"
       @log-enabled-update="$emit('log-enabled-update', $event)"
       @delete="$emit('delete-selected')"
@@ -25,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Graph, GraphNode } from '@/lib/backend'
+import type { Graph, GraphEdge, GraphNode } from '@/lib/backend'
 import type { VarType } from '@/lib/variableRef'
 import type { SubgraphSummary } from '@/stores/containerEditor'
 import NodeInspector from '@/components/containers/NodeInspector.vue'
@@ -46,6 +47,7 @@ defineProps<{
 
 defineEmits<{
   'config-update': [cfg: Record<string, any>]
+  'remove-edges': [edges: GraphEdge[]]
   'label-update': [v: string]
   'log-enabled-update': [v: boolean]
   'delete-selected': []

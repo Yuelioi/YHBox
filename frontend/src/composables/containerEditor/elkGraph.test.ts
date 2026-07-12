@@ -7,7 +7,6 @@ import {
   subgraphMarkerNodes,
   writeMarkerPositions,
   type BuildOpts,
-  type Pos,
 } from './elkGraph'
 import type { GraphNode, GraphEdge } from '@/lib/backend'
 

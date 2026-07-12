@@ -21,7 +21,9 @@ const allowed = new Set([
 
 const violations = Object.entries(report)
   .filter(([license]) => license !== 'Unknown' && !allowed.has(license))
-  .flatMap(([license, packages]) => packages.map((pkg) => `${pkg.name}@${pkg.versions.join(',')} (${license})`))
+  .flatMap(([license, packages]) =>
+    packages.map((pkg) => `${pkg.name}@${pkg.versions.join(',')} (${license})`),
+  )
 
 // vaul-vue 0.4.1 omits license metadata from its npm tarball. Its upstream
 // LICENSE is MIT: https://github.com/unovue/vaul-vue/blob/main/LICENSE

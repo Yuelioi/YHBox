@@ -1,6 +1,5 @@
-// ELK 实例工厂 + 布局参数。
-// worker 与主线程二选一：由 spike(Task1) 在 dev + wails production 双构建验证后定。
-// 当前 baseline = 主线程 'elkjs/lib/elk.bundled.js'（功能与 worker 一致，仅大图会短暂卡顿）。
+// ELK 实例按需加载：自动布局不是 editor 首屏能力，不能把约 470 KB gzip 的
+// bundled engine 静态塞进 ContainerEditor chunk。
 //
 // worker 升级路（spike 验证 Vite/wails 打包跑通后启用）：
 //   import ELK from 'elkjs/lib/elk-api'
@@ -10,10 +9,13 @@
 //         new Worker(new URL('elkjs/lib/elk-worker.min.js', import.meta.url), { type: 'module' }),
 //     })
 //   }
-import ELK, { type ElkNode, type ELK as ElkInstance } from 'elkjs/lib/elk.bundled.js'
+import type { ElkNode, ELK as ElkInstance } from 'elkjs/lib/elk-api'
 
-export function createElk(): ElkInstance {
-  return new ELK()
+let elkPromise: Promise<ElkInstance> | undefined
+
+export function loadElk(): Promise<ElkInstance> {
+  elkPromise ??= import('elkjs/lib/elk.bundled.js').then(({ default: ELK }) => new ELK())
+  return elkPromise
 }
 
 /** 基础布局参数。direction 由 useElkLayout 按 LR/TB 传入。 */

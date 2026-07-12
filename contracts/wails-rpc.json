@@ -1,0 +1,4302 @@
+{
+  "schemaVersion": 1,
+  "generator": "wails3",
+  "summary": {
+    "services": 14,
+    "methods": 112,
+    "models": 86
+  },
+  "services": [
+    {
+      "module": "internal/hotkey/hotkeyservice",
+      "methods": [
+        {
+          "name": "List",
+          "bindingId": "1649809226",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.HotkeyEntry[]>"
+        },
+        {
+          "name": "Pause",
+          "bindingId": "799242776",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "RegisterEditor",
+          "bindingId": "434373834",
+          "parameters": [
+            {
+              "name": "key",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "hotkeyStr",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "readonlyReason",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "ResetSystemDefaults",
+          "bindingId": "3913382650",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Resume",
+          "bindingId": "1079478681",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetSystemDefaults",
+          "bindingId": "1137448185",
+          "parameters": [
+            {
+              "name": "d",
+              "optional": false,
+              "type": "{ [_ in string]?: string }"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Unregister",
+          "bindingId": "4050412888",
+          "parameters": [
+            {
+              "name": "key",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Update",
+          "bindingId": "715035207",
+          "parameters": [
+            {
+              "name": "key",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "hotkeyStr",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/node/nodeservice",
+      "methods": [
+        {
+          "name": "AsyncOptions",
+          "bindingId": "2250316568",
+          "parameters": [
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "specKind",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "asyncSource",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "currentInputs",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.EnumOption[]>"
+        },
+        {
+          "name": "GetAllNodeSpecs",
+          "bindingId": "658619607",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Spec[]>"
+        },
+        {
+          "name": "GetAllTypes",
+          "bindingId": "3622726866",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.TypeSpec[]>"
+        },
+        {
+          "name": "GetErrorCodes",
+          "bindingId": "3348272586",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.ErrCode[]>"
+        },
+        {
+          "name": "GetExprFunctions",
+          "bindingId": "2847341978",
+          "parameters": [],
+          "returns": "$CancellablePromise<expr$0.FunctionSpec[]>"
+        },
+        {
+          "name": "GetScriptBindableKinds",
+          "bindingId": "1628588845",
+          "parameters": [],
+          "returns": "$CancellablePromise<string[]>"
+        },
+        {
+          "name": "RegisteredAsyncSources",
+          "bindingId": "29965792",
+          "parameters": [],
+          "returns": "$CancellablePromise<string[]>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/aiservice",
+      "methods": [
+        {
+          "name": "TestConnection",
+          "bindingId": "2834824220",
+          "parameters": [
+            {
+              "name": "req",
+              "optional": false,
+              "type": "$models.TestConnReq"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.TestResult>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/appinfoservice",
+      "methods": [
+        {
+          "name": "Info",
+          "bindingId": "675657359",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.AppInfo>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/asset/service",
+      "methods": [
+        {
+          "name": "AddTemplateVariant",
+          "bindingId": "1113714625",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "dataURL",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "recRes",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "region",
+              "optional": false,
+              "type": "number[]"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "Capture",
+          "bindingId": "423872531",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "CurrentResolution",
+          "bindingId": "2642272974",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<number[]>"
+        },
+        {
+          "name": "Delete",
+          "bindingId": "40162584",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Referrer[]>"
+        },
+        {
+          "name": "GCBlobs",
+          "bindingId": "1855353883",
+          "parameters": [],
+          "returns": "$CancellablePromise<number>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "532614821",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.AssetRecord>"
+        },
+        {
+          "name": "List",
+          "bindingId": "373083251",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.AssetSummary[]>"
+        },
+        {
+          "name": "PickVariant",
+          "bindingId": "1853373215",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "w",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "h",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.VariantPick>"
+        },
+        {
+          "name": "ReadBlobDataURL",
+          "bindingId": "2473241953",
+          "parameters": [
+            {
+              "name": "sha",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "Referrers",
+          "bindingId": "9395945",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Referrer[]>"
+        },
+        {
+          "name": "RemoveVariant",
+          "bindingId": "1057206200",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "w",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "h",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "SaveTemplateCapture",
+          "bindingId": "1642557482",
+          "parameters": [
+            {
+              "name": "dataURL",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "recRes",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "region",
+              "optional": false,
+              "type": "number[]"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "UpdateMeta",
+          "bindingId": "2215192775",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "description",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/calibration/service",
+      "methods": [
+        {
+          "name": "Start",
+          "bindingId": "1412254001",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "StartHotkeyWatch",
+          "bindingId": "2336793950",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Status",
+          "bindingId": "4096595189",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.State>"
+        },
+        {
+          "name": "Stop",
+          "bindingId": "3282065771",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.State>"
+        },
+        {
+          "name": "StopHotkeyWatch",
+          "bindingId": "3598156484",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/codesnippet/service",
+      "methods": [
+        {
+          "name": "List",
+          "bindingId": "3616602025",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Snippet[]>"
+        },
+        {
+          "name": "SaveAll",
+          "bindingId": "3850791907",
+          "parameters": [
+            {
+              "name": "list",
+              "optional": false,
+              "type": "$models.Snippet[]"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/container/service",
+      "methods": [
+        {
+          "name": "AINodesUsingConnection",
+          "bindingId": "715947519",
+          "parameters": [
+            {
+              "name": "connectionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.AIConnectionRef[]>"
+        },
+        {
+          "name": "CaptureBackendFor",
+          "bindingId": "4138622191",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "ClearAllHotkeys",
+          "bindingId": "2682296113",
+          "parameters": [],
+          "returns": "$CancellablePromise<number>"
+        },
+        {
+          "name": "Create",
+          "bindingId": "35060926",
+          "parameters": [
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Container>"
+        },
+        {
+          "name": "DebugContinue",
+          "bindingId": "3490899100",
+          "parameters": [
+            {
+              "name": "sessionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DebugSessionState>"
+        },
+        {
+          "name": "DebugPause",
+          "bindingId": "282614293",
+          "parameters": [
+            {
+              "name": "sessionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DebugSessionState>"
+        },
+        {
+          "name": "DebugStart",
+          "bindingId": "833623175",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "options",
+              "optional": false,
+              "type": "$models.DebugStartOptions"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DebugSessionState>"
+        },
+        {
+          "name": "DebugState",
+          "bindingId": "615808318",
+          "parameters": [
+            {
+              "name": "sessionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DebugSessionState>"
+        },
+        {
+          "name": "DebugStep",
+          "bindingId": "1717500359",
+          "parameters": [
+            {
+              "name": "sessionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DebugSessionState>"
+        },
+        {
+          "name": "DebugStop",
+          "bindingId": "1782933549",
+          "parameters": [
+            {
+              "name": "sessionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DebugSessionState>"
+        },
+        {
+          "name": "Delete",
+          "bindingId": "3096117429",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "DeleteMany",
+          "bindingId": "3971771922",
+          "parameters": [
+            {
+              "name": "ids",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "ExportPackage",
+          "bindingId": "3766256408",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "destPath",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<boolean>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "1571479398",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Container>"
+        },
+        {
+          "name": "List",
+          "bindingId": "1652813062",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Container[]>"
+        },
+        {
+          "name": "Reload",
+          "bindingId": "990850287",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Container>"
+        },
+        {
+          "name": "ResolveEditorTargetForNode",
+          "bindingId": "1191261037",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<target$0.Target>"
+        },
+        {
+          "name": "ResolveEditorTargetKindForNode",
+          "bindingId": "1244004879",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "ResolveWindow",
+          "bindingId": "2739233750",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<winutil$0.WindowHandle>"
+        },
+        {
+          "name": "ResolveWindowForNode",
+          "bindingId": "2275816213",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<winutil$0.WindowHandle>"
+        },
+        {
+          "name": "Run",
+          "bindingId": "74642859",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "StopAll",
+          "bindingId": "944366057",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SyncLocalMouseCalibration",
+          "bindingId": "1199746321",
+          "parameters": [
+            {
+              "name": "newCounts",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SyncMouseCalibrationResult>"
+        },
+        {
+          "name": "Update",
+          "bindingId": "1764871171",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "patchJSON",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "ValidateContainerByID",
+          "bindingId": "3707610347",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.ValidationError[]>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/container/subgraphservice",
+      "methods": [
+        {
+          "name": "Create",
+          "bindingId": "1185056940",
+          "parameters": [
+            {
+              "name": "label",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Subgraph>"
+        },
+        {
+          "name": "Delete",
+          "bindingId": "2947147539",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRev",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Duplicate",
+          "bindingId": "2822932185",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Subgraph>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "112572148",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Subgraph>"
+        },
+        {
+          "name": "List",
+          "bindingId": "2861679568",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Subgraph[]>"
+        },
+        {
+          "name": "Referrers",
+          "bindingId": "3962095976",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SubgraphReferrer[]>"
+        },
+        {
+          "name": "Update",
+          "bindingId": "2436687177",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "patchJSON",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRev",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/inputclip/service",
+      "methods": [
+        {
+          "name": "Delete",
+          "bindingId": "467348398",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "3715024267",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.InputClip | null>"
+        },
+        {
+          "name": "List",
+          "bindingId": "2446416853",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.ClipSummary[]>"
+        },
+        {
+          "name": "Resolve",
+          "bindingId": "1467283783",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<[$models.InputClip | null, boolean]>"
+        },
+        {
+          "name": "Save",
+          "bindingId": "3492421404",
+          "parameters": [
+            {
+              "name": "clip",
+              "optional": false,
+              "type": "$models.InputClip | null"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Update",
+          "bindingId": "1105307784",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "label",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "description",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "tags",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/recording/service",
+      "methods": [
+        {
+          "name": "Cancel",
+          "bindingId": "3588210472",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "CleanupUnused",
+          "bindingId": "3276954340",
+          "parameters": [
+            {
+              "name": "args",
+              "optional": false,
+              "type": "$models.CleanupArgs"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.CleanupResult>"
+        },
+        {
+          "name": "Discard",
+          "bindingId": "968929852",
+          "parameters": [
+            {
+              "name": "pendingID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Finalize",
+          "bindingId": "2367437072",
+          "parameters": [
+            {
+              "name": "args",
+              "optional": false,
+              "type": "$models.FinalizeArgs"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.FinalizeResult | null>"
+        },
+        {
+          "name": "GetState",
+          "bindingId": "1893750027",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.RecordingState>"
+        },
+        {
+          "name": "Pause",
+          "bindingId": "1900256876",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "PreviewCleanup",
+          "bindingId": "2399616326",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.CleanupPreview>"
+        },
+        {
+          "name": "Resume",
+          "bindingId": "2814999253",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Start",
+          "bindingId": "401425154",
+          "parameters": [
+            {
+              "name": "args",
+              "optional": false,
+              "type": "$models.StartArgs"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "Stop",
+          "bindingId": "3281159554",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.StopResultPayload | null>"
+        },
+        {
+          "name": "StopAsync",
+          "bindingId": "3885413142",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "ValidateTarget",
+          "bindingId": "1330241533",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/schedule/service",
+      "methods": [
+        {
+          "name": "Create",
+          "bindingId": "1481930072",
+          "parameters": [
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Schedule>"
+        },
+        {
+          "name": "Delete",
+          "bindingId": "2503945479",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "1664900344",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Schedule>"
+        },
+        {
+          "name": "List",
+          "bindingId": "3308492628",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Schedule[]>"
+        },
+        {
+          "name": "Save",
+          "bindingId": "2704599593",
+          "parameters": [
+            {
+              "name": "sc",
+              "optional": false,
+              "type": "$models.Schedule"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Update",
+          "bindingId": "3162920205",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "patchJSON",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/settingsservice",
+      "methods": [
+        {
+          "name": "Get",
+          "bindingId": "3047259221",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Settings>"
+        },
+        {
+          "name": "Update",
+          "bindingId": "542117882",
+          "parameters": [
+            {
+              "name": "patchJSON",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/tools/service",
+      "methods": [
+        {
+          "name": "CancelWin32WindowTargetCapture",
+          "bindingId": "989052900",
+          "parameters": [
+            {
+              "name": "captureID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "CloseCalibratorHUD",
+          "bindingId": "1856343502",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "ClosePicker",
+          "bindingId": "1056008200",
+          "parameters": [
+            {
+              "name": "requestID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "CloseRecordingHUD",
+          "bindingId": "1864108898",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "ExtractColorRange",
+          "bindingId": "1677142351",
+          "parameters": [
+            {
+              "name": "samples",
+              "optional": false,
+              "type": "$models.RGB[]"
+            },
+            {
+              "name": "colorSpace",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.ColorRangeResult>"
+        },
+        {
+          "name": "HideLauncher",
+          "bindingId": "2478615522",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "MousePos",
+          "bindingId": "1897317081",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.MousePosInfo>"
+        },
+        {
+          "name": "OpenCalibratorHUD",
+          "bindingId": "587800690",
+          "parameters": [
+            {
+              "name": "requestID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<boolean>"
+        },
+        {
+          "name": "OpenLauncher",
+          "bindingId": "2549237474",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "OpenMouseHUD",
+          "bindingId": "2105227542",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "OpenRecordingHUD",
+          "bindingId": "3176437150",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "OpenScreenPicker",
+          "bindingId": "720148656",
+          "parameters": [
+            {
+              "name": "mode",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "requestID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "colorSpace",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "PixelAt",
+          "bindingId": "1982941903",
+          "parameters": [
+            {
+              "name": "containerID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "nodeID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.PixelInfo>"
+        },
+        {
+          "name": "SetLauncherAlwaysOnTop",
+          "bindingId": "1803702165",
+          "parameters": [
+            {
+              "name": "on",
+              "optional": false,
+              "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetLauncherSize",
+          "bindingId": "3102324035",
+          "parameters": [
+            {
+              "name": "width",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "height",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "StartWin32WindowTargetCapture",
+          "bindingId": "3176515630",
+          "parameters": [],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "ToggleLauncher",
+          "bindingId": "3703751610",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "module": "internal/automation/target/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "DPIMeta",
+          "fields": [
+            {
+              "name": "\"ScaleX\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"ScaleY\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Rect",
+          "fields": [
+            {
+              "name": "\"X\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"Y\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"W\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"H\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Size",
+          "fields": [
+            {
+              "name": "\"W\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"H\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Target",
+          "fields": [
+            {
+              "name": "\"ID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"Kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"DisplayName\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"Ref\"",
+              "optional": false,
+              "type": "TargetRef"
+            },
+            {
+              "name": "\"Bounds\"",
+              "optional": false,
+              "type": "Rect"
+            },
+            {
+              "name": "\"Resolution\"",
+              "optional": false,
+              "type": "Size"
+            },
+            {
+              "name": "\"DPI\"",
+              "optional": false,
+              "type": "DPIMeta"
+            },
+            {
+              "name": "\"Metadata\"",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TargetRef",
+          "fields": [
+            {
+              "name": "\"HWND\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"ADBSerial\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"BrowserID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"ReplayPath\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"MockImageID\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WindowHandle",
+          "fields": [
+            {
+              "name": "\"HWND\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"Title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"Class\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"ProcessName\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"PID\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"ClientW\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"ClientH\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/hotkey/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "HotkeyEntry",
+          "fields": [
+            {
+              "name": "\"key\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"source\"",
+              "optional": false,
+              "type": "HotkeySource"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"labelParams\"",
+              "optional": true,
+              "type": "{ [_ in string]?: string }"
+            },
+            {
+              "name": "\"hotkeyStr\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "HotkeyStatus"
+            },
+            {
+              "name": "\"lastError\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"readonlyReason\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"mechanism\"",
+              "optional": false,
+              "type": "HotkeyMechanism"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "HotkeyMechanism",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "HotkeyMechanismOSGlobal",
+              "value": "\"os-global\""
+            },
+            {
+              "name": "HotkeyMechanismEditorInApp",
+              "value": "\"editor-inapp\""
+            },
+            {
+              "name": "HotkeyMechanismLLHook",
+              "value": "\"ll-hook\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "HotkeySource",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "HotkeySourceSystem",
+              "value": "\"system\""
+            },
+            {
+              "name": "HotkeySourceAction",
+              "value": "\"action\""
+            },
+            {
+              "name": "HotkeySourceContainer",
+              "value": "\"container\""
+            },
+            {
+              "name": "HotkeySourceSchedule",
+              "value": "\"schedule\""
+            },
+            {
+              "name": "HotkeySourceEditor",
+              "value": "\"editor\""
+            },
+            {
+              "name": "HotkeySourceRecording",
+              "value": "\"recording\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "HotkeyStatus",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "HotkeyStatusActive",
+              "value": "\"active\""
+            },
+            {
+              "name": "HotkeyStatusUnbound",
+              "value": "\"unbound\""
+            },
+            {
+              "name": "HotkeyStatusFailed",
+              "value": "\"failed\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/node/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "DataField",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"optional\"",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "EnumOption",
+          "fields": [
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "any"
+            },
+            {
+              "name": "\"label\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"meta\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "ErrCode",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "CodeError",
+              "value": "\"error\""
+            },
+            {
+              "name": "CodeLaunchFailed",
+              "value": "\"launch_failed\""
+            },
+            {
+              "name": "CodeCaptureFailed",
+              "value": "\"capture_failed\""
+            },
+            {
+              "name": "CodeWriteFailed",
+              "value": "\"write_failed\""
+            },
+            {
+              "name": "CodeNotFound",
+              "value": "\"not_found\""
+            },
+            {
+              "name": "CodeWindowInvalid",
+              "value": "\"window_invalid\""
+            },
+            {
+              "name": "CodeTimeout",
+              "value": "\"timeout\""
+            },
+            {
+              "name": "CodePlaybackFailed",
+              "value": "\"playback_failed\""
+            },
+            {
+              "name": "CodeSendFailed",
+              "value": "\"send_failed\""
+            },
+            {
+              "name": "CodeThrown",
+              "value": "\"thrown\""
+            },
+            {
+              "name": "CodeSubgraphNoExit",
+              "value": "\"subgraph_no_exit\""
+            },
+            {
+              "name": "CodeSubgraphRecursion",
+              "value": "\"subgraph_recursion\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FieldEntry",
+          "fields": [
+            {
+              "name": "\"key\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"schema\"",
+              "optional": false,
+              "type": "FieldSchema | null"
+            },
+            {
+              "name": "\"required\"",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FieldSchema",
+          "fields": [
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"widget\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fields\"",
+              "optional": true,
+              "type": "FieldEntry[]"
+            },
+            {
+              "name": "\"items\"",
+              "optional": true,
+              "type": "FieldSchema | null"
+            },
+            {
+              "name": "\"options\"",
+              "optional": true,
+              "type": "EnumOption[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputSpec",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"semantic\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"required\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"advanced\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"default\"",
+              "optional": true,
+              "type": "any"
+            },
+            {
+              "name": "\"widget\"",
+              "optional": true,
+              "type": "WidgetSpec"
+            },
+            {
+              "name": "\"visibleWhen\"",
+              "optional": true,
+              "type": "VisibleRule | null"
+            },
+            {
+              "name": "\"schema\"",
+              "optional": true,
+              "type": "FieldSchema | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "OutputSpec",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"semantic\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"data\"",
+              "optional": true,
+              "type": "DataField[]"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "RuntimeCapability",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "RuntimeCapabilityVision",
+              "value": "\"vision\""
+            },
+            {
+              "name": "RuntimeCapabilityLog",
+              "value": "\"log\""
+            },
+            {
+              "name": "RuntimeCapabilityInput",
+              "value": "\"input\""
+            },
+            {
+              "name": "RuntimeCapabilityVars",
+              "value": "\"vars\""
+            },
+            {
+              "name": "RuntimeCapabilityParams",
+              "value": "\"params\""
+            },
+            {
+              "name": "RuntimeCapabilityWindow",
+              "value": "\"window\""
+            },
+            {
+              "name": "RuntimeCapabilityTarget",
+              "value": "\"target\""
+            },
+            {
+              "name": "RuntimeCapabilityApp",
+              "value": "\"app\""
+            },
+            {
+              "name": "RuntimeCapabilityCapture",
+              "value": "\"capture\""
+            },
+            {
+              "name": "RuntimeCapabilityStopwatches",
+              "value": "\"stopwatches\""
+            },
+            {
+              "name": "RuntimeCapabilityClip",
+              "value": "\"clip\""
+            },
+            {
+              "name": "RuntimeCapabilitySubgraphs",
+              "value": "\"subgraphs\""
+            },
+            {
+              "name": "RuntimeCapabilityAI",
+              "value": "\"ai\""
+            },
+            {
+              "name": "RuntimeCapabilityRegistry",
+              "value": "\"registry\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Spec",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"inputs\"",
+              "optional": false,
+              "type": "InputSpec[]"
+            },
+            {
+              "name": "\"outputs\"",
+              "optional": false,
+              "type": "OutputSpec[]"
+            },
+            {
+              "name": "\"isPureData\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"isNonDeterministic\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"isVisualOnly\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"needsTarget\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"targetCapabilities\"",
+              "optional": true,
+              "type": "TargetCapability[]"
+            },
+            {
+              "name": "\"runtimeCapabilities\"",
+              "optional": true,
+              "type": "RuntimeCapability[]"
+            },
+            {
+              "name": "\"supportedTargets\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"platformTargets\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"needsWindow\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"needsForeground\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"isGraphMarker\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"dynamicOutputs\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"dynamicInputs\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"dynamicDataFields\"",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "TargetCapability",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "TargetCapabilityScreenshot",
+              "value": "\"screenshot\""
+            },
+            {
+              "name": "TargetCapabilityClick",
+              "value": "\"click\""
+            },
+            {
+              "name": "TargetCapabilityMove",
+              "value": "\"move\""
+            },
+            {
+              "name": "TargetCapabilityScroll",
+              "value": "\"scroll\""
+            },
+            {
+              "name": "TargetCapabilityMouseButton",
+              "value": "\"mouse-button\""
+            },
+            {
+              "name": "TargetCapabilityDrag",
+              "value": "\"drag\""
+            },
+            {
+              "name": "TargetCapabilityMoveRelative",
+              "value": "\"move-relative\""
+            },
+            {
+              "name": "TargetCapabilityKeyState",
+              "value": "\"key-state\""
+            },
+            {
+              "name": "TargetCapabilityText",
+              "value": "\"text\""
+            },
+            {
+              "name": "TargetCapabilityStartApp",
+              "value": "\"start-app\""
+            },
+            {
+              "name": "TargetCapabilityStopApp",
+              "value": "\"stop-app\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TypeSpec",
+          "fields": [
+            {
+              "name": "\"tag\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"goType\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"widgetKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"color\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"doc\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "VisibleRule",
+          "fields": [
+            {
+              "name": "\"field\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"equals\"",
+              "optional": true,
+              "type": "any"
+            },
+            {
+              "name": "\"notEquals\"",
+              "optional": true,
+              "type": "any"
+            },
+            {
+              "name": "\"in\"",
+              "optional": true,
+              "type": "any[]"
+            },
+            {
+              "name": "\"and\"",
+              "optional": true,
+              "type": "(VisibleRule | null)[]"
+            },
+            {
+              "name": "\"or\"",
+              "optional": true,
+              "type": "(VisibleRule | null)[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WidgetSpec",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"props\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/asset/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "AssetRecord",
+          "fields": [
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"origin\"",
+              "optional": false,
+              "type": "Origin"
+            },
+            {
+              "name": "\"variants\"",
+              "optional": true,
+              "type": "Variant[]"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AssetSummary",
+          "fields": [
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"variantCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"firstBlobSha\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Origin",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sourceID\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Referrer",
+          "fields": [
+            {
+              "name": "\"containerID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"subgraphID\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeKind\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Variant",
+          "fields": [
+            {
+              "name": "\"resolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"bbox\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"regions\"",
+              "optional": true,
+              "type": "number[][]"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "VariantPick",
+          "fields": [
+            {
+              "name": "\"index\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"exact\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/calibration/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "State",
+          "fields": [
+            {
+              "name": "\"active\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"absDx\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"absDy\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/codesnippet/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Snippet",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"lang\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"prefix\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"body\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/container/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "AIConnectionRef",
+          "fields": [
+            {
+              "name": "\"containerId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerName\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Container",
+          "fields": [
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"packageId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"packageName\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"version\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"keywords\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"author\"",
+              "optional": true,
+              "type": "PackagePerson"
+            },
+            {
+              "name": "\"hotkey\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"inputBackend\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"captureBackend\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"scaleTolerance\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"vars\"",
+              "optional": true,
+              "type": "VarDecl[]"
+            },
+            {
+              "name": "\"graph\"",
+              "optional": false,
+              "type": "Graph"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugRunError",
+          "fields": [
+            {
+              "name": "\"message\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"errors\"",
+              "optional": true,
+              "type": "ValidationError[]"
+            },
+            {
+              "name": "\"code\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugSessionState",
+          "fields": [
+            {
+              "name": "\"sessionId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"startNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"currentNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"currentNodeKind\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"runningNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"runningNodeKind\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lastNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lastNodeKind\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lastExit\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lastOutput\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"vars\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"queue\"",
+              "optional": true,
+              "type": "DebugTokenSummary[]"
+            },
+            {
+              "name": "\"error\"",
+              "optional": true,
+              "type": "DebugRunError | null"
+            },
+            {
+              "name": "\"warnings\"",
+              "optional": true,
+              "type": "DebugWarning[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugStartOptions",
+          "fields": [
+            {
+              "name": "\"startNodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugTokenSummary",
+          "fields": [
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"inPin\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"loopDepth\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"execDataKeys\"",
+              "optional": true,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugWarning",
+          "fields": [
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"message\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Graph",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"nodes\"",
+              "optional": false,
+              "type": "GraphNode[]"
+            },
+            {
+              "name": "\"edges\"",
+              "optional": false,
+              "type": "GraphEdge[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphEdge",
+          "fields": [
+            {
+              "name": "\"from\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"to\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphNode",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"x\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"config\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"disabled\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"logEnabled\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PackagePerson",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"email\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"url\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RecordingContext",
+          "fields": [
+            {
+              "name": "\"mouseCounts360\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"resolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"recordedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Subgraph",
+          "fields": [
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"rev\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"graph\"",
+              "optional": false,
+              "type": "Graph"
+            },
+            {
+              "name": "\"entry\"",
+              "optional": false,
+              "type": "SubgraphMarker"
+            },
+            {
+              "name": "\"outputPins\"",
+              "optional": false,
+              "type": "SubgraphOutputDecl[]"
+            },
+            {
+              "name": "\"inputParams\"",
+              "optional": true,
+              "type": "SubgraphInputParam[]"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"requiredGlobals\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"recordingContext\"",
+              "optional": true,
+              "type": "RecordingContext | null"
+            },
+            {
+              "name": "\"isAnonymous\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SubgraphInputParam",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"default\"",
+              "optional": true,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SubgraphMarker",
+          "fields": [
+            {
+              "name": "\"nodeID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"x\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SubgraphOutputDecl",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeID\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"x\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SubgraphReferrer",
+          "fields": [
+            {
+              "name": "\"containerID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"subgraphID\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeKind\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SyncMouseCalibrationResult",
+          "fields": [
+            {
+              "name": "\"updated\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"skipped\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"errors\"",
+              "optional": false,
+              "type": "{ [_ in string]?: string }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ValidationError",
+          "fields": [
+            {
+              "name": "\"severity\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "VarDecl",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"default\"",
+              "optional": true,
+              "type": "any"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/expr/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "FunctionSpec",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sig\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"minArgs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"maxArgs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/inputclip/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "ClipMeta",
+          "fields": [
+            {
+              "name": "\"mouseMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"baseResolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"mouseCounts360\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"filterMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"stopHotkeyVK\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ClipSummary",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"meta\"",
+              "optional": false,
+              "type": "ClipMeta"
+            },
+            {
+              "name": "\"eventCount\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputClip",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"meta\"",
+              "optional": false,
+              "type": "ClipMeta"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "AIConnection",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"protocol\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"baseURL\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"apiKey\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AISettings",
+          "fields": [
+            {
+              "name": "\"connections\"",
+              "optional": false,
+              "type": "AIConnection[]"
+            },
+            {
+              "name": "\"default\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AppInfo",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"version\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"author\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"repo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"bilibili\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CaptureSettings",
+          "fields": [
+            {
+              "name": "\"method\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"dumpDebug\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "LauncherBlock",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"icon\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "LoggerSettings",
+          "fields": [
+            {
+              "name": "\"panelOpen\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"autoScroll\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"showTime\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"showTag\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"wrapText\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"writeFile\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"showNodeEnter\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"fileDir\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "LogLinesEvent",
+          "fields": [
+            {
+              "name": "\"seq\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"lines\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "MCPSettings",
+          "fields": [
+            {
+              "name": "\"armed\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "MouseProfile",
+          "fields": [
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"counts360\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Settings",
+          "fields": [
+            {
+              "name": "\"ui\"",
+              "optional": false,
+              "type": "UISettings"
+            },
+            {
+              "name": "\"locale\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"capture\"",
+              "optional": false,
+              "type": "CaptureSettings"
+            },
+            {
+              "name": "\"ai\"",
+              "optional": false,
+              "type": "AISettings"
+            },
+            {
+              "name": "\"mcp\"",
+              "optional": false,
+              "type": "MCPSettings"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TestConnReq",
+          "fields": [
+            {
+              "name": "\"connection\"",
+              "optional": false,
+              "type": "AIConnection"
+            },
+            {
+              "name": "\"testModel\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TestResult",
+          "fields": [
+            {
+              "name": "\"ok\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"models\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"error\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "UISettings",
+          "fields": [
+            {
+              "name": "\"logger\"",
+              "optional": false,
+              "type": "LoggerSettings"
+            },
+            {
+              "name": "\"window\"",
+              "optional": false,
+              "type": "WindowSettings"
+            },
+            {
+              "name": "\"autostart\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"minimizeToTray\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"actionStopHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"calibrateHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"windowCaptureHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"recordingStopHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"recordingPauseHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"recordingMouseMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"mouseProfiles\"",
+              "optional": false,
+              "type": "MouseProfile[]"
+            },
+            {
+              "name": "\"activeMouseProfile\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"launcherItems\"",
+              "optional": false,
+              "type": "LauncherBlock[]"
+            },
+            {
+              "name": "\"launcherDisplay\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"launcherToggleHotkey\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WindowSettings",
+          "fields": [
+            {
+              "name": "\"width\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"height\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/recording/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "CleanupArgs",
+          "fields": [
+            {
+              "name": "\"ids\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupItem",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"references\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupPreview",
+          "fields": [
+            {
+              "name": "\"unused\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            },
+            {
+              "name": "\"referenced\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupResult",
+          "fields": [
+            {
+              "name": "\"deleted\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"skipped\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            },
+            {
+              "name": "\"failed\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FinalizeArgs",
+          "fields": [
+            {
+              "name": "\"pendingID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FinalizeResult",
+          "fields": [
+            {
+              "name": "\"subgraphID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"clipID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"filterMode\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RecordingState",
+          "fields": [
+            {
+              "name": "\"phase\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"filterMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tempID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"startedAtMs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pausedMs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pausedAtMs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "StartArgs",
+          "fields": [
+            {
+              "name": "\"filterMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerID\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "StopResultPayload",
+          "fields": [
+            {
+              "name": "\"pendingID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"containerID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"filterMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"eventCount\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/schedule/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Schedule",
+          "fields": [
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"enabled\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"targets\"",
+              "optional": false,
+              "type": "TargetRef[]"
+            },
+            {
+              "name": "\"trigger\"",
+              "optional": false,
+              "type": "Trigger"
+            },
+            {
+              "name": "\"timeoutMinutes\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"onError\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"lastFiredAt\"",
+              "optional": true,
+              "type": "string | null"
+            },
+            {
+              "name": "\"lastStatus\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TargetRef",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Trigger",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"subKind\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"at\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"everyMinutes\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"hotkey\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/tools/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "ColorRangeResult",
+          "fields": [
+            {
+              "name": "\"range\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"hueWrap\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "MousePosInfo",
+          "fields": [
+            {
+              "name": "\"screenX\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"screenY\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"hasGame\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"clientX\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"clientY\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"xRatio\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"yRatio\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"clientW\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"clientH\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PixelInfo",
+          "fields": [
+            {
+              "name": "\"ok\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"clientX\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"clientY\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"r\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"g\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"b\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"h\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"s\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"v\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"hex\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RGB",
+          "fields": [
+            {
+              "name": "\"R\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"G\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"B\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "pkg/winutil/models",
+      "declarations": [
+        {
+          "kind": "type",
+          "name": "WindowHandle",
+          "definition": "target$0.WindowHandle"
+        }
+      ]
+    }
+  ]
+}

@@ -1,12 +1,13 @@
 {
   "name": "frontend",
-  "private": true,
   "version": "2.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build:dev": "vite build --minify false --mode development",
-    "build": "vite build --mode production",
+    "build": "run-s build:app bundle:check",
+    "build:app": "vite build --mode production",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -14,11 +15,19 @@
     "type-check": "vue-tsc --noEmit",
     "i18n:check": "node src/i18n/check.cjs",
     "gen:node-i18n": "esbuild src/i18n/zh.ts --bundle --format=esm --outfile=node_modules/.cache/zh-i18n.mjs --log-level=silent && node scripts/extract-node-i18n.mjs",
-    "lint": "run-s lint:*",
-    "lint:oxlint": "oxlint . --fix",
-    "lint:eslint": "eslint . --fix --cache",
-    "format": "oxfmt src/",
-    "format:check": "oxfmt src/ --check"
+    "check": "run-s format:check lint typecheck i18n:check bindings:check test build",
+    "lint": "run-s lint:oxlint lint:eslint",
+    "lint:oxlint": "oxlint . --deny-warnings",
+    "lint:eslint": "node scripts/check-eslint.mjs",
+    "lint:fix": "run-s lint:fix:oxlint lint:fix:eslint",
+    "lint:fix:oxlint": "oxlint . --fix",
+    "lint:fix:eslint": "eslint . --fix --cache",
+    "lint:baseline:update": "node scripts/check-eslint.mjs --write",
+    "format": "oxfmt src/ scripts/ eslint.config.ts vite.config.ts package.json bundle-budgets.json lint-baseline.json",
+    "format:check": "oxfmt src/ scripts/ eslint.config.ts vite.config.ts package.json bundle-budgets.json lint-baseline.json --check",
+    "bundle:check": "node scripts/check-bundle-budget.mjs",
+    "bindings:check": "node scripts/check-bindings-contract.mjs",
+    "bindings:update": "node scripts/check-bindings-contract.mjs --write"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -71,5 +80,9 @@
     "vite": "^8.0.13",
     "vitest": "^4.1.6",
     "vue-tsc": "^3.2.9"
-  }
+  },
+  "engines": {
+    "node": ">=22.18.0 <23"
+  },
+  "packageManager": "pnpm@11.1.2"
 }

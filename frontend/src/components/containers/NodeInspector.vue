@@ -542,7 +542,12 @@
 
     <!-- Switch: 多路分支 case 编辑器 -->
     <section v-else-if="node.kind === 'Switch'" class="mb-5">
-      <SwitchInspector :node="node" :edges="edges ?? []" @update="emit('update', $event)" />
+      <SwitchInspector
+        :node="node"
+        :edges="edges ?? []"
+        @update="emit('update', $event)"
+        @remove-edges="emit('remove-edges', $event)"
+      />
     </section>
 
     <!-- 动态输入声明 (spec.dynamicInputs: Expr/Script) — 编辑 config.Inputs[],
@@ -744,7 +749,7 @@
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
-import type { GraphNode } from '@/lib/backend'
+import type { GraphEdge, GraphNode } from '@/lib/backend'
 import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import SwitchInspector from './inspector/SwitchInspector.vue'
@@ -780,7 +785,6 @@ import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useEditorBusStore } from '@/stores/editorBus'
 import { useClipsStore } from '@/stores/clips'
 import { useToast } from '@nuxt/ui/composables'
-import { useConfirm } from '@/composables/useConfirm'
 import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
 import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
@@ -790,13 +794,14 @@ const props = defineProps<{
   node: GraphNode | null
   declaredVars?: { name: string; type: VarType }[]
   nodes?: GraphNode[]
-  edges?: { from: string; to: string }[]
+  edges?: GraphEdge[]
 }>()
 const emit = defineEmits<{
   update: [config: Record<string, any>]
   'label-update': [v: string]
   'log-enabled-update': [v: boolean]
   delete: []
+  'remove-edges': [edges: GraphEdge[]]
   'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
   'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()
@@ -864,7 +869,7 @@ const nodeScope = computed(
 const currentLiteralInputs = computed<Record<string, unknown>>(() => {
   const cfg = props.node?.config as Record<string, unknown> | undefined
   const lit = cfg?.literal as Record<string, unknown> | undefined
-  return { ...(cfg ?? {}), ...(lit ?? {}) }
+  return { ...cfg, ...lit }
 })
 
 // 读 pin 字面量: config.literal[pin] 优先, 顶层 config[pin] fallback —
@@ -884,7 +889,7 @@ function setLiteral(pin: string, v: any) {
 function onAsyncOptionSelected(pin: string, payload: AsyncOptionPayload) {
   if (!props.node) return
   const applyMeta = fieldFor(pin)?.applyMeta
-  const literal = { ...((props.node.config?.literal as Record<string, unknown> | undefined) ?? {}) }
+  const literal = { ...(props.node.config?.literal as Record<string, unknown> | undefined) }
   const nextLiteral = applyAsyncOptionMeta(literal, pin, payload, applyMeta)
   if (!nextLiteral) return
   emit('update', { ...props.node.config, literal: nextLiteral })
@@ -954,7 +959,6 @@ async function onOpenCalibrator() {
 }
 
 const toastForSync = useToast()
-const { confirm: confirmDialog } = useConfirm()
 
 // 复制节点 ID / 完整 JSON / 脚本调用信息 到剪贴板。
 // 留住下拉 (e.preventDefault) → 被点项原地闪「已复制 ✓」~1500ms, 成功不弹 toast, 仅错误弹

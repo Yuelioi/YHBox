@@ -126,7 +126,7 @@ export function useSnapEngine(opts: UseSnapEngineOpts) {
       updateNode(draggedID, { position: { x: finalX, y: finalY } })
 
       // 2. Persist to draft (authoritative source-of-truth for save/reload).
-      applyDraftMutation((d) => {
+      applyDraftMutation(() => {
         const g = activeGraph.value
         if (!g) return
         const node = g.nodes.find((n) => n.id === draggedID)

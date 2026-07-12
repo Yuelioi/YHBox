@@ -17,7 +17,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'update', config: Record<string, any>): void
+  update: [config: Record<string, any>]
+  'remove-edges': [edges: GraphEdge[]]
 }>()
 
 const { confirm: confirmDialog } = useConfirm()
@@ -90,11 +91,7 @@ async function removeCase(i: number) {
       cancelText: t('common.cancel'),
     })
     if (yes !== true) return
-    // Remove affected edges by mutating the prop array in place (same pattern as Win32WindowTarget / PlayClip)
-    for (const edge of affected) {
-      const idx = props.edges.indexOf(edge)
-      if (idx >= 0) props.edges.splice(idx, 1)
-    }
+    emit('remove-edges', affected)
   }
 
   rows.value.splice(i, 1)
@@ -105,7 +102,7 @@ function updateValue(v: string) {
   const cfg = props.node.config ?? {}
   emit('update', {
     ...cfg,
-    literal: { ...((cfg.literal as Record<string, any>) ?? {}), Value: v },
+    literal: { ...(cfg.literal as Record<string, any> | undefined), Value: v },
   })
 }
 

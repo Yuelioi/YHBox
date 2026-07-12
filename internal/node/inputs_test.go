@@ -1,10 +1,11 @@
-// internal/node/inputs_test.go
 package node
 
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"testing"
+	"time"
 )
 
 func TestInputs_PriorityOrder(t *testing.T) {
@@ -105,6 +106,136 @@ func TestInputs_List(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNewInputsFromConfig_LiteralOverridesTopLevelAndHidesMetaKey(t *testing.T) {
+	in := NewInputsFromConfig(map[string]any{
+		"X":       "top-level",
+		"Y":       "top-level-only",
+		"literal": map[string]any{"X": "literal", "Z": "literal-only"},
+	})
+	if got := in.String("X"); got != "literal" {
+		t.Fatalf("X = %q, want literal", got)
+	}
+	if got := in.String("Y"); got != "top-level-only" {
+		t.Fatalf("Y = %q", got)
+	}
+	if got := in.String("Z"); got != "literal-only" {
+		t.Fatalf("Z = %q", got)
+	}
+	if in.Has("literal") {
+		t.Fatal("literal meta key leaked into runtime inputs")
+	}
+}
+
+func TestInputs_StringListAcceptsJSONAndConfigShapes(t *testing.T) {
+	tests := []struct {
+		name string
+		in   any
+		want []string
+	}{
+		{name: "string slice", in: []string{"a", "b"}, want: []string{"a", "b"}},
+		{name: "json slice filters non-strings and empty strings", in: []any{"a", "", 3.0, "b"}, want: []string{"a", "b"}},
+		{name: "single string", in: "a", want: []string{"a"}},
+		{name: "empty string", in: "", want: nil},
+		{name: "unsupported", in: 3, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := NewInputsFromConfig(map[string]any{"Items": tt.in})
+			if got := in.StringList("Items"); !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("StringList = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInputs_DomainAndScalarAccessors(t *testing.T) {
+	point := Point{X: 0.25, Y: 0.75}
+	rect := Rect{X: 0.1, Y: 0.2, W: 0.3, H: 0.4}
+	color := Color{H: 120, S: 80, V: 90}
+	in := newInputs(nil, map[string]any{
+		"bool":       true,
+		"point":      point,
+		"rect":       rect,
+		"color":      color,
+		"int":        "42",
+		"intDecimal": json.Number("42.9"),
+		"badInt":     "forty-two",
+		"badFloat":   "three-point-one-four",
+	}, nil, nil)
+
+	if !in.Bool("bool") || in.Bool("missing") {
+		t.Fatal("Bool did not preserve true or zero a missing input")
+	}
+	if got := in.Point("point"); got != point {
+		t.Fatalf("Point = %#v", got)
+	}
+	if got := in.Point("missing"); got != (Point{}) {
+		t.Fatalf("missing Point = %#v", got)
+	}
+	if got := in.Rect("rect"); got != rect {
+		t.Fatalf("Rect = %#v", got)
+	}
+	if got := in.Rect("missing"); got != (Rect{}) {
+		t.Fatalf("missing Rect = %#v", got)
+	}
+	if got := in.Color("color"); got != color {
+		t.Fatalf("Color = %#v", got)
+	}
+	if got := in.Color("missing"); got != (Color{}) {
+		t.Fatalf("missing Color = %#v", got)
+	}
+	if got := in.Int("int"); got != 42 {
+		t.Fatalf("Int(string) = %d", got)
+	}
+	if got := in.Int("intDecimal"); got != 42 {
+		t.Fatalf("Int(decimal json.Number) = %d", got)
+	}
+	if got := in.Int("badInt"); got != 0 {
+		t.Fatalf("Int(invalid) = %d", got)
+	}
+	if got := in.Float64("badFloat"); got != 0 {
+		t.Fatalf("Float64(invalid) = %v", got)
+	}
+}
+
+func TestInputs_DurationAcceptsSerializedForms(t *testing.T) {
+	tests := []struct {
+		name string
+		in   any
+		want time.Duration
+	}{
+		{name: "duration", in: 2 * time.Second, want: 2 * time.Second},
+		{name: "float milliseconds", in: 12.5, want: 12 * time.Millisecond},
+		{name: "int milliseconds", in: 25, want: 25 * time.Millisecond},
+		{name: "integer json number", in: json.Number("30"), want: 30 * time.Millisecond},
+		{name: "decimal json number", in: json.Number("30.9"), want: 30 * time.Millisecond},
+		{name: "duration string", in: "1.5s", want: 1500 * time.Millisecond},
+		{name: "millisecond string", in: "250", want: 250 * time.Millisecond},
+		{name: "invalid string", in: "later", want: 0},
+		{name: "unsupported", in: struct{}{}, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := NewInputsFromConfig(map[string]any{"Delay": tt.in})
+			if got := in.Duration("Delay"); got != tt.want {
+				t.Fatalf("Duration(%#v) = %s, want %s", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInputs_KeysDescribeMaterializedInputs(t *testing.T) {
+	in := NewInputsFromConfig(map[string]any{
+		"B":       2,
+		"literal": map[string]any{"A": 1, "C": 3},
+	})
+	keys := in.Keys()
+	sort.Strings(keys)
+	if !reflect.DeepEqual(keys, []string{"A", "B", "C"}) {
+		t.Fatalf("Keys = %v", keys)
 	}
 }
 

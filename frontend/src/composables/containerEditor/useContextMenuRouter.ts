@@ -9,9 +9,7 @@ import { nextTick, ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useContainerEditorStore } from '@/stores/containerEditor'
-import { backend, type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
-import { errorMessage } from '@/lib/invoke'
-import { useConfirm } from '@/composables/useConfirm'
+import { type Container, type Graph, type GraphNode, type GraphEdge } from '@/lib/backend'
 import { dataInTypeFor, dataOutTypeFor } from '@/components/containers/nodeRegistry/registry'
 import { type VarType } from '@/lib/variableRef'
 import { newNodeID } from './ids'
@@ -31,7 +29,6 @@ type ToastApi = {
 }
 
 interface UseContextMenuRouterOpts {
-  containerID: string
   draft: Ref<Container | null>
   activeGraph: Ref<Graph | null>
   selectedID: Ref<string | null>
@@ -55,7 +52,6 @@ interface UseContextMenuRouterOpts {
 
 export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   const {
-    containerID,
     draft,
     activeGraph,
     selectedID,
@@ -77,7 +73,6 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
 
   const editorStore = useContainerEditorStore()
   const { t } = useI18n()
-  const { confirm } = useConfirm()
   const { getSelectedNodes, removeNodes, setCenter } = useVueFlow()
 
   // ===== Menu state (4 个 menu 互斥) =====

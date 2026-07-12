@@ -48,7 +48,7 @@ watch(
       .map((r) => ({ Name: r.name, Type: r.type }))
     const newNames = new Set(outputs.map((o) => o.Name))
     const prevOutputs = (props.node.config?.Outputs as Array<{ Name?: string }> | undefined) ?? []
-    const cap = { ...((props.node.config?.capture as Record<string, unknown> | undefined) ?? {}) }
+    const cap = { ...(props.node.config?.capture as Record<string, unknown> | undefined) }
     for (const o of prevOutputs) {
       if (o.Name && !newNames.has(o.Name) && o.Name in cap) delete cap[o.Name]
     }

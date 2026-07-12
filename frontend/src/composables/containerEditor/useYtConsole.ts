@@ -25,7 +25,7 @@ export interface YtConsoleDeps {
 function writeLiteral(n: GraphNode, pin: string, value: unknown): void {
   n.config = {
     ...n.config,
-    literal: { ...((n.config?.literal as Record<string, unknown>) ?? {}), [pin]: value },
+    literal: { ...(n.config?.literal as Record<string, unknown> | undefined), [pin]: value },
   }
 }
 

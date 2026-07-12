@@ -213,7 +213,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '@nuxt/ui/composables'
 import { useLocalStorage } from '@vueuse/core'
 import { backend, type AssetSummary } from '@/lib/backend'
 import { useTemplatesStore } from '@/stores/templates'
@@ -253,7 +252,6 @@ function onCellClick(guid: string, e: MouseEvent) {
 }
 
 const tplStore = useTemplatesStore()
-const toast = useToast()
 const { confirm } = useConfirm()
 
 const query = ref('')

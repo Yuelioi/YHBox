@@ -1,6 +1,6 @@
 # Yotta
 
-[![Go CI](https://github.com/yottaapp/yotta/actions/workflows/ci.yml/badge.svg)](https://github.com/yottaapp/yotta/actions/workflows/ci.yml)
+[![CI](https://github.com/yottaapp/yotta/actions/workflows/ci.yml/badge.svg)](https://github.com/yottaapp/yotta/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/yottaapp/yotta)](https://github.com/yottaapp/yotta/releases)
 
 Yotta 是一个可视化自动化工作流平台。它用类型化节点图编排截图、视觉检测、输入、窗口、Android ADB、脚本和定时任务；当前产品体验围绕《异环 / Neverness to Everness》自动化打磨，但后端按可扩展 automation target 与 capability 设计。
@@ -17,15 +17,10 @@ Yotta 是一个可视化自动化工作流平台。它用类型化节点图编�
 
 ## 从源码开始
 
-需要 Go 1.25.12+、Node 22+、pnpm 11+、Wails v3 CLI；完整 Windows 构建还需要 Rust 和 Task。
+需要 Go 1.25.12+、Node 22.18+、pnpm 11.1.2、Wails v3 CLI 与 Task；完整 Windows 构建还需要 Rust。
 
 ```powershell
-go test ./...
-go vet ./...
-staticcheck ./...
-pnpm -C frontend install --frozen-lockfile
-pnpm -C frontend test
-pnpm -C frontend typecheck
+task check
 ```
 
 Windows 开发与打包：

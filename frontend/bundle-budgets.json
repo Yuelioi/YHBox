@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "units": "decimal bytes",
+  "gzipLevel": 9,
+  "entry": {
+    "manifestKey": "index.html",
+    "maxInitialGzipBytes": 350000
+  },
+  "editor": {
+    "manifestKey": "src/views/ContainerEditorView.vue",
+    "maxInitialGzipBytes": 650000,
+    "targetInitialGzipBytes": 450000
+  },
+  "reportOnly": {
+    "tablerIconsManifestSuffix": "node_modules/@iconify-json/tabler/icons.json"
+  }
+}
